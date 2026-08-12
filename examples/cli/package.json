@@ -1,0 +1,12 @@
+{
+  "name": "@aisdk-agent/example-cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@aisdk-agent/ai-sdk-adapter": "workspace:*",
+    "@aisdk-agent/core": "workspace:*",
+    "ai": "7.0.37",
+    "zod": "4.4.3"
+  }
+}

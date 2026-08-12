@@ -1,0 +1,21 @@
+{
+  "name": "aisdk-agent-framework",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "tsc -b --clean",
+    "typecheck": "tsc -b --pretty false",
+    "test": "pnpm build && node --test packages/core/dist/**/*.test.js packages/ai-sdk-adapter/dist/**/*.test.js",
+    "demo": "pnpm build && node examples/cli/dist/index.js"
+  },
+  "devDependencies": {
+    "@types/node": "26.1.1",
+    "typescript": "7.0.2"
+  }
+}

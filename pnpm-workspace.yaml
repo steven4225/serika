@@ -1,0 +1,10 @@
+packages:
+  - "packages/*"
+  - "examples/*"
+
+allowBuilds:
+  esbuild: true
+
+verifyDepsBeforeRun: false
+managePackageManagerVersions: false
+confirmModulesPurge: false
