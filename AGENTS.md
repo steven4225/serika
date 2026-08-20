@@ -43,6 +43,17 @@
 - Do not add multi-worker execution, parallel tools, queued Runs, Steering, Follow-up, multi-agent orchestration, RAG, long-term memory, Redis, or Kafka unless a later design discussion explicitly promotes it into scope.
 - PostgreSQL may be selected as the persistence target while tests continue to use deterministic in-memory fakes around explicit ports.
 
+## PostgreSQL persistence
+
+- The PostgreSQL adapter lives in `packages/postgres`; Core must not import `pg`, Kysely, migration types, SQLSTATE types, or database row types.
+- Use `pg` for pooling, Kysely for typed queries and short transaction callbacks, and `node-pg-migrate` for immutable forward migration history. Never run migrations automatically during application startup.
+- Persist current relational state rather than event-sourcing `DurableEvent`. IDs are Runtime-generated non-empty text values; PostgreSQL does not generate domain identities.
+- Use strong columns for identity, status, time, versions, scheduling, constraints and frequently queried discriminators. Use versioned JSONB payloads only for JSON content, model/tool data, resolutions, errors and evidence.
+- Only Runloom `JsonValue` crosses a JSONB boundary. Do not persist SDK objects, `undefined`, `Date`, `BigInt`, class instances or non-finite numbers.
+- Stable request and tool-input hashes use the versioned `jcs-sha256:v1` protocol over RFC 8785 canonical JSON; never hash `jsonb::text`.
+- An external Effect and its `Attempt(not_dispatched)` are committed atomically. The Effect remains in `effect_outbox` until a separate transaction records the dispatch boundary and removes the row.
+- PostgreSQL integration tests use the pinned `postgres:18.4-alpine` Testcontainer and the same Repository Contract as the in-memory reference adapter.
+
 ## Testing and quality
 
 - Use TypeScript strict mode and keep domain types free of AI SDK, database, and transport-specific objects.

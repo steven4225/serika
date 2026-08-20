@@ -1,0 +1,25 @@
+{
+  "name": "@runloom/postgres",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@aisdk-agent/core": "workspace:*",
+    "kysely": "0.29.5",
+    "node-pg-migrate": "9.0.0",
+    "pg": "8.23.0"
+  },
+  "devDependencies": {
+    "@testcontainers/postgresql": "12.1.0",
+    "@types/pg": "8.23.1",
+    "testcontainers": "12.1.0"
+  }
+}

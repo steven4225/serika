@@ -9,10 +9,19 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./durable": {
+      "types": "./dist/durable/index.d.ts",
+      "import": "./dist/durable/index.js"
+    },
+    "./durable/repository-contract": {
+      "types": "./dist/durable/repository-contract.d.ts",
+      "import": "./dist/durable/repository-contract.js"
     }
   },
   "dependencies": {
     "ai": "7.0.37",
+    "canonicalize": "4.0.0",
     "zod": "4.4.3"
   }
 }
