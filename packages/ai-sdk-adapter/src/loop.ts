@@ -70,7 +70,9 @@ export class AiSdkAgentLoop implements AgentLoop {
       ...(input.definition.limits.maxOutputTokens !== undefined
         ? { maxOutputTokens: input.definition.limits.maxOutputTokens }
         : {}),
-      maxRetries: 2,
+      // Durable Runtime owns retries so every real provider call has a
+      // persisted Attempt. Adapter-level retries would be invisible here.
+      maxRetries: 0,
       telemetry: { isEnabled: false },
     });
 
