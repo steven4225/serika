@@ -8,6 +8,8 @@ export type DurableRepositoryErrorCode =
   | "CONSTRAINT_VIOLATION"
   | "TRANSACTION_CONFLICT"
   | "LOCK_NOT_AVAILABLE"
+  | "OUTBOX_EFFECT_CONFLICT"
+  | "OUTBOX_PAYLOAD_MISMATCH"
   | "DATABASE_ERROR";
 
 export class DurableRepositoryError extends Error {

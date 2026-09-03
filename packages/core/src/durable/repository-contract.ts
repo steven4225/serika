@@ -161,6 +161,79 @@ export function runDurableRepositoryContract(
       }));
       assert.deepEqual(await harness.repository.findPendingEffects(10), []);
     });
+
+    it("accepts an identical Effect replay but rejects conflicting Outbox content", async (test) => {
+      const harness = await useHarness(test, createHarness);
+      await harness.repository.createRun(createContractRunInput());
+      const coordinator = new DurableRuntimeCoordinator(harness.repository);
+      await coordinator.transact("contract-run-1", ({ databaseNow }) => ({
+        type: "start_action",
+        now: databaseNow,
+        attemptId: "contract-attempt-1",
+      }));
+      const pending = (await harness.repository.findPendingEffects(1))[0]!;
+
+      await harness.repository.withLockedRun(
+        "contract-run-1",
+        (transaction) =>
+          transaction.apply({ events: [], effects: [pending.effect] }),
+      );
+      assert.equal((await harness.repository.findPendingEffects(10)).length, 1);
+
+      assert.equal(pending.effect.kind, "invoke_model");
+      if (pending.effect.kind !== "invoke_model") {
+        throw new Error("Contract fixture must start with a Model Effect");
+      }
+      const modelEffect = pending.effect;
+      await assert.rejects(
+        harness.repository.withLockedRun(
+          "contract-run-1",
+          (transaction) =>
+            transaction.apply({
+              events: [],
+              effects: [{ ...modelEffect, modelId: "conflicting-model" }],
+            }),
+        ),
+        (error: unknown) =>
+          error instanceof DurableRepositoryError &&
+          error.code === "OUTBOX_EFFECT_CONFLICT",
+      );
+      assert.deepEqual(
+        (await harness.repository.findPendingEffects(1))[0]?.effect,
+        pending.effect,
+      );
+    });
+
+    it("removes an undispatched Effect when a stop settles its Attempt", async (test) => {
+      const harness = await useHarness(test, createHarness);
+      await harness.repository.createRun(createContractRunInput());
+      const coordinator = new DurableRuntimeCoordinator(harness.repository);
+      await coordinator.transact("contract-run-1", ({ databaseNow }) => ({
+        type: "start_action",
+        now: databaseNow,
+        attemptId: "contract-attempt-1",
+      }));
+      await coordinator.transact("contract-run-1", ({ databaseNow }) => ({
+        type: "request_stop",
+        request: {
+          reason: "cancel",
+          requestedAt: databaseNow,
+          requestedBy: "contract-test",
+          detail: null,
+        },
+      }));
+      await coordinator.transact("contract-run-1", ({ databaseNow }) => ({
+        type: "resume_undispatched_attempt",
+        now: databaseNow,
+        attemptId: "contract-attempt-1",
+      }));
+
+      assert.deepEqual(await harness.repository.findPendingEffects(10), []);
+      assert.equal(
+        (await harness.readSnapshot("contract-run-1"))?.run.status,
+        "cancelled",
+      );
+    });
   });
 }
 

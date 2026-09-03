@@ -282,7 +282,7 @@ describe("Durable Repository contract", () => {
       now: databaseNow,
       attemptId: "attempt-1",
       resolution: {
-        kind: "known_failure",
+        kind: "not_applied",
         failure: {
           code: "MODEL_RATE_LIMIT",
           message: "rate limited",

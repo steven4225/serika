@@ -1,4 +1,5 @@
 export * from "./errors.js";
+export * from "./effect-dispatcher.js";
 export * from "./hash.js";
 export * from "./in-memory-repository.js";
 export * from "./invariants.js";

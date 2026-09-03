@@ -3,6 +3,7 @@ import {
   assertJsonValue,
   assertRuntimeSnapshot,
   DurableRepositoryError,
+  hashCanonicalJson,
   type ActionState,
   type ApprovalState,
   type AttemptState,
@@ -521,16 +522,40 @@ async function persistDecision(
     }).execute();
   }
   for (const effect of decision.effects) {
-    await db.insertInto("effect_outbox").values(
+    const inserted = await db.insertInto("effect_outbox").values(
       effectValues(effect, databaseNow),
-    ).onConflict((conflict) => conflict.column("attempt_id").doNothing()).execute();
+    ).onConflict((conflict) => conflict.column("attempt_id").doNothing())
+      .returning("attempt_id").executeTakeFirst();
+    if (!inserted) {
+      const existing = await db.selectFrom("effect_outbox")
+        .selectAll()
+        .where("attempt_id", "=", effect.attemptId)
+        .executeTakeFirstOrThrow();
+      if (!sameEffect(mapEffect(existing), effect)) {
+        throw new DurableRepositoryError(
+          "OUTBOX_EFFECT_CONFLICT",
+          `Attempt has a different pending Effect: ${effect.attemptId}`,
+        );
+      }
+    }
   }
   for (const event of decision.events) {
-    if (event.type === "attempt_dispatch_recorded") {
+    if (
+      event.type === "attempt_dispatch_recorded" ||
+      event.type === "attempt_resolved" ||
+      event.type === "retry_scheduled" ||
+      event.type === "reconciliation_opened"
+    ) {
       await db.deleteFrom("effect_outbox")
         .where("attempt_id", "=", event.attemptId).execute();
     }
   }
+}
+
+function sameEffect(left: unknown, right: unknown): boolean {
+  assertJsonValue(left, "left Effect");
+  assertJsonValue(right, "right Effect");
+  return hashCanonicalJson(left) === hashCanonicalJson(right);
 }
 
 async function persistAttempt(

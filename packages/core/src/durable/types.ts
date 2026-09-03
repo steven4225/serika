@@ -187,7 +187,8 @@ export type AttemptResolution =
           };
     }
   | {
-      kind: "known_failure";
+      /** The adapter can prove that the external Effect was not applied. */
+      kind: "not_applied";
       failure: RuntimeFailure;
     }
   | {
@@ -295,7 +296,9 @@ export type ExternalEffect =
       turnId: string;
       actionId: string;
       attemptId: string;
+      toolsetVersion: string;
       toolName: string;
+      toolCallId: string;
       input: JsonValue;
       businessIdempotencyKey: string | null;
       timeoutMs: number;
@@ -312,6 +315,12 @@ export type DurableCommand =
       now: IsoTimestamp;
       attemptId: string;
       dispatchState: Exclude<AttemptDispatchState, "not_dispatched">;
+    }
+  | {
+      /** Rechecks stop/deadline and atomically crosses the dispatch boundary. */
+      type: "prepare_dispatch";
+      now: IsoTimestamp;
+      attemptId: string;
     }
   | {
       type: "resume_undispatched_attempt";

@@ -1,4 +1,6 @@
 import { assertRuntimeSnapshot, timestampMs } from "./invariants.js";
+import { hashCanonicalJson } from "./hash.js";
+import { assertJsonValue } from "./json.js";
 import { applyDecision } from "./orchestrator.js";
 import { DurableRepositoryError } from "./repository-errors.js";
 import type {
@@ -197,21 +199,46 @@ export class InMemoryDurableRepository<TMessageContent = unknown>
 
       // The working copy is committed only when the callback resolves.
       const result = await operation(transaction);
+      const nextPendingEffects = new Map(
+        [...this.#pendingEffects].map(([attemptId, pending]) => [
+          attemptId,
+          clone(pending),
+        ]),
+      );
+      for (const decision of pendingDecisions) {
+        for (const effect of decision.effects) {
+          const existing = nextPendingEffects.get(effect.attemptId);
+          if (existing && !sameEffect(existing.effect, effect)) {
+            throw new DurableRepositoryError(
+              "OUTBOX_EFFECT_CONFLICT",
+              `Attempt has a different pending Effect: ${effect.attemptId}`,
+            );
+          }
+          if (!existing) {
+            nextPendingEffects.set(effect.attemptId, {
+              effect: clone(effect),
+              createdAt: databaseNow,
+            });
+          }
+        }
+        for (const event of decision.events) {
+          if (
+            event.type === "attempt_dispatch_recorded" ||
+            event.type === "attempt_resolved" ||
+            event.type === "retry_scheduled" ||
+            event.type === "reconciliation_opened"
+          ) {
+            nextPendingEffects.delete(event.attemptId);
+          }
+        }
+      }
+
       this.#runs.set(runId, clone(working));
       this.#threads.set(working.thread.id, clone(working.thread));
       this.#recordAttempt(working);
-      for (const decision of pendingDecisions) {
-        for (const effect of decision.effects) {
-          this.#pendingEffects.set(effect.attemptId, {
-            effect: clone(effect),
-            createdAt: databaseNow,
-          });
-        }
-        for (const event of decision.events) {
-          if (event.type === "attempt_dispatch_recorded") {
-            this.#pendingEffects.delete(event.attemptId);
-          }
-        }
+      this.#pendingEffects.clear();
+      for (const [attemptId, pending] of nextPendingEffects) {
+        this.#pendingEffects.set(attemptId, pending);
       }
       return result;
     });
@@ -308,7 +335,11 @@ export class InMemoryDurableRepository<TMessageContent = unknown>
   async findPendingEffects(limit: number): Promise<readonly PendingEffect[]> {
     assertLimit(limit);
     return [...this.#pendingEffects.values()]
-      .sort((left, right) => left.createdAt.localeCompare(right.createdAt))
+      .sort(
+        (left, right) =>
+          left.createdAt.localeCompare(right.createdAt) ||
+          left.effect.attemptId.localeCompare(right.effect.attemptId),
+      )
       .slice(0, limit)
       .map(clone);
   }
@@ -355,6 +386,12 @@ export class InMemoryDurableRepository<TMessageContent = unknown>
     attempts.set(snapshot.attempt.id, clone(snapshot.attempt));
     this.#attemptsByRun.set(snapshot.run.id, attempts);
   }
+}
+
+function sameEffect(left: unknown, right: unknown): boolean {
+  assertJsonValue(left, "left Effect");
+  assertJsonValue(right, "right Effect");
+  return hashCanonicalJson(left) === hashCanonicalJson(right);
 }
 
 function validateCreateInput<TMessageContent>(

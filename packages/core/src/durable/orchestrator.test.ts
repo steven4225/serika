@@ -136,7 +136,7 @@ function start(snapshot: RuntimeSnapshot, attemptId = "attempt-1") {
 
 function retryableFailure(): AttemptResolution {
   return {
-    kind: "known_failure",
+    kind: "not_applied",
     failure: {
       code: "MODEL_RATE_LIMIT",
       message: "rate limited",

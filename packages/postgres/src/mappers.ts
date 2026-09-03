@@ -32,6 +32,7 @@ import type {
 } from "./database.js";
 
 export const JSON_SCHEMA_VERSION = 1;
+export const EFFECT_PAYLOAD_SCHEMA_VERSION = 2;
 
 export function toIso(value: Date | string): string {
   const date = value instanceof Date ? value : new Date(value);
@@ -464,12 +465,17 @@ export function effectValues(
     action_id: effect.actionId,
     effect_kind: effect.kind,
     payload: effect,
-    payload_schema_version: JSON_SCHEMA_VERSION,
+    payload_schema_version: EFFECT_PAYLOAD_SCHEMA_VERSION,
     created_at: new Date(createdAt),
   };
 }
 
 export function mapEffect(row: Selectable<EffectOutboxTable>): ExternalEffect {
+  if (row.payload_schema_version !== EFFECT_PAYLOAD_SCHEMA_VERSION) {
+    invalidRow(
+      `Unsupported effect_outbox.payload schema version: ${row.payload_schema_version}`,
+    );
+  }
   return discriminated<ExternalEffect>(
     row.payload,
     "effect_outbox.payload",

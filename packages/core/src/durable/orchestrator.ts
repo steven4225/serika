@@ -5,7 +5,7 @@ import {
   isTerminalRunStatus,
   timestampMs,
 } from "./invariants.js";
-import { isReplaySafe } from "./policies.js";
+import { isAttemptRetryEligible, isReplaySafe } from "./policies.js";
 import type {
   ActionResolution,
   AttemptResolution,
@@ -41,6 +41,9 @@ export function decide(
       break;
     case "record_dispatch":
       decision = decideRecordDispatch(snapshot, command);
+      break;
+    case "prepare_dispatch":
+      decision = decidePrepareDispatch(snapshot, command);
       break;
     case "resume_undispatched_attempt":
       decision = decideResumeUndispatchedAttempt(snapshot, command);
@@ -412,6 +415,43 @@ function decideRecordDispatch(
   };
 }
 
+function decidePrepareDispatch(
+  snapshot: RuntimeSnapshot,
+  command: Extract<DurableCommand, { type: "prepare_dispatch" }>,
+): DurableDecision {
+  const attempt = requireActiveAttempt(snapshot, command.attemptId);
+  if (attempt.dispatchState !== "not_dispatched") return NO_DECISION;
+
+  const stop = stopAt(snapshot, command.now);
+  if (stop !== null) {
+    const resolution: AttemptResolution = {
+      kind: "safely_aborted",
+      reason: stop.terminalStatus === "timed_out" ? "deadline" : "cancel",
+    };
+    return resolvedDecision(
+      command.now,
+      attempt.id,
+      resolution,
+      notExecutedForTerminal(stop.terminalStatus),
+      stop.terminalStatus,
+      null,
+      stop.events,
+    );
+  }
+
+  return {
+    events: [
+      {
+        type: "attempt_dispatch_recorded",
+        at: command.now,
+        attemptId: attempt.id,
+        dispatchState: "dispatched",
+      },
+    ],
+    effects: [effectFor(snapshot, attempt.id)],
+  };
+}
+
 function decideResolveAttempt(
   snapshot: RuntimeSnapshot,
   command: Extract<DurableCommand, { type: "resolve_attempt" }>,
@@ -517,12 +557,11 @@ function decideResolveAttempt(
   }
 
   const failure = resolution.failure;
-  const retryable =
-    (resolution.kind === "interrupted" ||
-      resolution.kind === "outcome_unknown" ||
-      failure.retryable) &&
-    isReplaySafe(snapshot.action, attempt) &&
-    snapshot.action.attemptCount < snapshot.action.retryPolicy.maxAttempts;
+  const retryable = isAttemptRetryEligible(
+    snapshot.action,
+    attempt,
+    resolution,
+  );
 
   if (retryable) {
     if (!command.retryAt) {
@@ -696,7 +735,7 @@ function decideWakeRetry(
       retryable: false,
     };
     const resolution: AttemptResolution = snapshot.attempt?.resolution ?? {
-      kind: "known_failure",
+      kind: "not_applied",
       failure,
     };
     return resolvedDecision(
@@ -907,7 +946,9 @@ function effectFor(
         turnId: snapshot.turn.id,
         actionId: snapshot.action.id,
         attemptId,
+        toolsetVersion: snapshot.run.execution.toolsetVersion,
         toolName: snapshot.action.input.toolName,
+        toolCallId: snapshot.action.input.toolCallId,
         input: snapshot.action.input.input,
         businessIdempotencyKey:
           snapshot.action.input.businessIdempotencyKey,

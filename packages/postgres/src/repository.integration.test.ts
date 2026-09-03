@@ -3,6 +3,7 @@ import { after, before, describe, it } from "node:test";
 import {
   DurableRuntimeCoordinator,
   ApprovalExpiryScheduler,
+  EffectDispatcher,
   type RuntimeSnapshot,
 } from "@aisdk-agent/core/durable";
 import {
@@ -77,6 +78,84 @@ describe("PostgreSQL durable behavior", () => {
     assert.equal(result.rows.length, 10);
   });
 
+  it("upgrades legacy failure semantics and Tool Effect payloads conservatively", async () => {
+    await resetRuntimeTables();
+    await runMigrations({ databaseUrl, direction: "down", count: 1 });
+    let migrationRestored = false;
+    try {
+      const repository = new PostgresDurableRepository(database);
+      const input = createContractRunInput();
+      input.action.input = {
+        kind: "execute_tool",
+        toolName: "send_email",
+        toolCallId: "legacy-tool-call",
+        input: { to: "person@example.com" },
+        inputHash: "jcs-sha256:v1:legacy-tool-input",
+        replaySafety: "non_idempotent",
+        businessIdempotencyKey: null,
+      };
+      input.action.retryPolicy = { ...input.action.retryPolicy, maxAttempts: 1 };
+      await repository.createRun(input);
+      await new DurableRuntimeCoordinator(repository).transact(
+        input.run.id,
+        ({ databaseNow }) => ({
+          type: "start_action",
+          now: databaseNow,
+          attemptId: "legacy-attempt",
+        }),
+      );
+      await sql`
+        update effect_outbox
+        set
+          payload = payload - 'toolsetVersion' - 'toolCallId',
+          payload_schema_version = 1
+        where attempt_id = 'legacy-attempt'
+      `.execute(database);
+      await sql`
+        update attempts
+        set
+          status = 'resolved',
+          dispatch_state = 'dispatched',
+          resolved_at = transaction_timestamp(),
+          resolution_kind = 'known_failure',
+          resolution = ${JSON.stringify({
+            kind: "known_failure",
+            failure: {
+              code: "LEGACY_FAILURE",
+              message: "legacy certainty was ambiguous",
+              retryable: false,
+            },
+          })}::jsonb,
+          resolution_schema_version = 1,
+          version = version + 1
+        where id = 'legacy-attempt'
+      `.execute(database);
+
+      await runMigrations({ databaseUrl });
+      migrationRestored = true;
+
+      const attempt = await database.selectFrom("attempts")
+        .select(["resolution_kind", "resolution"])
+        .where("id", "=", "legacy-attempt")
+        .executeTakeFirstOrThrow();
+      assert.equal(attempt.resolution_kind, "outcome_unknown");
+      assert.equal(
+        (attempt.resolution as { legacyResolutionKind?: string })
+          .legacyResolutionKind,
+        "known_failure",
+      );
+      const effect = (await repository.findPendingEffects(1))[0]?.effect;
+      assert.equal(effect?.kind, "execute_tool");
+      if (effect?.kind === "execute_tool") {
+        assert.equal(effect.toolsetVersion, "tools-1");
+        assert.equal(effect.toolCallId, "legacy-tool-call");
+      }
+    } finally {
+      if (!migrationRestored) await runMigrations({ databaseUrl });
+      await resetRuntimeTables();
+    }
+  });
+
   it("restores an undispatched Effect through a new pool", async () => {
     await resetRuntimeTables();
     const first = new PostgresDurableRepository(database);
@@ -104,6 +183,57 @@ describe("PostgreSQL durable behavior", () => {
     }
   });
 
+  it("dispatches and resolves a persisted Effect outside its transactions", async () => {
+    await resetRuntimeTables();
+    const repository = new PostgresDurableRepository(database);
+    await repository.createRun(createContractRunInput());
+    await new DurableRuntimeCoordinator(repository).transact(
+      "contract-run-1",
+      ({ databaseNow }) => ({
+        type: "start_action",
+        now: databaseNow,
+        attemptId: "contract-attempt-1",
+      }),
+    );
+    const dispatcher = new EffectDispatcher({
+      repository,
+      modelInvoker: {
+        async invoke(_request, context) {
+          assert.deepEqual(await repository.findPendingEffects(10), []);
+          assert.equal(
+            (await repository.getRun(context.identity.runId))?.attempts.at(-1)
+              ?.dispatchState,
+            "dispatched",
+          );
+          return {
+            kind: "completed",
+            outcome: "final_answer",
+            output: { text: "persisted answer" },
+          };
+        },
+      },
+      toolExecutor: {
+        async execute() {
+          throw new Error("Unexpected Tool execution");
+        },
+      },
+      scheduleRetryAt: ({ databaseNow }) => databaseNow,
+      createReconciliationId: (effect) =>
+        `reconciliation-${effect.attemptId}`,
+    });
+
+    const tick = await dispatcher.tick();
+    assert.equal(tick.kind, "completed");
+    assert.equal(tick.kind === "completed" ? tick.report.invoked : 0, 1);
+    const view = await repository.getRun("contract-run-1");
+    assert.equal(view?.run.status, "completed");
+    assert.deepEqual(view?.actions[0]?.resolution, {
+      kind: "model_result",
+      outcome: "final_answer",
+      output: { text: "persisted answer" },
+    });
+  });
+
   it("uses database time when scanning due retries", async () => {
     await resetRuntimeTables();
     const repository = new PostgresDurableRepository(database);
@@ -119,7 +249,7 @@ describe("PostgreSQL durable behavior", () => {
       now: databaseNow,
       attemptId: "contract-attempt-1",
       resolution: {
-        kind: "known_failure",
+        kind: "not_applied",
         failure: {
           code: "MODEL_RATE_LIMIT",
           message: "rate limited",

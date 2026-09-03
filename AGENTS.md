@@ -52,6 +52,12 @@
 - Only Runloom `JsonValue` crosses a JSONB boundary. Do not persist SDK objects, `undefined`, `Date`, `BigInt`, class instances or non-finite numbers.
 - Stable request and tool-input hashes use the versioned `jcs-sha256:v1` protocol over RFC 8785 canonical JSON; never hash `jsonb::text`.
 - An external Effect and its `Attempt(not_dispatched)` are committed atomically. The Effect remains in `effect_outbox` until a separate transaction records the dispatch boundary and removes the row.
+- `EffectDispatcher` is a non-reentrant, single-worker batch service. Outbox scans are hints; the locked Run transaction must revalidate the candidate and commit `dispatched` before invoking an external port.
+- ModelInvoker and ToolExecutor are SDK-neutral Core ports. They receive immutable invocation data plus one Runtime-owned `AbortSignal`; they never retry, persist state, create IDs, or decide orchestration policy.
+- A Tool invocation is pinned by `toolsetVersion`, `toolName` and `toolCallId`. Do not resolve an active Run against an unversioned current Tool implementation.
+- `not_applied` requires proof that no external side effect occurred. Timeouts, connection loss and unclassified Adapter errors are `outcome_unknown`; an unknown non-idempotent Tool always requires reconciliation.
+- Persist a Stop Request before aborting an active in-process Attempt. Active AbortControllers are process-local acceleration and never replace durable Stop state.
+- Duplicate Outbox writes are idempotent only when their complete Effect payloads match. A conflicting payload is an invariant failure, not `ON CONFLICT DO NOTHING` success.
 - PostgreSQL integration tests use the pinned `postgres:18.4-alpine` Testcontainer and the same Repository Contract as the in-memory reference adapter.
 
 ## Testing and quality
