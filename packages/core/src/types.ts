@@ -66,6 +66,7 @@ export interface RunHandle {
 
 export interface LoopOutcome {
   text: string;
+  messages: UIMessage[];
   steps: number;
   usage: TokenUsage;
   stopReason: "completed" | "approval_required";
@@ -76,6 +77,7 @@ export interface AgentLoopInput<TContext = unknown> {
   messages: UIMessage[];
   context?: TContext;
   signal: AbortSignal;
+  generateId(): string;
   emit: import("./events.js").EmitAgentEvent;
 }
 

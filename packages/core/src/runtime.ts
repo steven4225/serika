@@ -39,6 +39,15 @@ export class DefaultAgentRuntime {
   }
 
   async run<TContext>(request: RunRequest<TContext>): Promise<RunHandle> {
+    if (request.messages.length !== 1 || request.messages[0]?.role !== "user") {
+      throw new AgentError({
+        code: "INVALID_REQUEST",
+        message: "A run requires exactly one new user message",
+        retryable: false,
+        phase: "runtime",
+      });
+    }
+
     const definition = this.#catalog.get(request.agentId);
     if (!definition) {
       throw new AgentError({
@@ -66,7 +75,6 @@ export class DefaultAgentRuntime {
     };
 
     await this.#store.create(record);
-    await this.#store.save(request.threadId, request.messages);
 
     const channel = new AsyncChannel<AgentEvent>();
     const controller = new AbortController();
@@ -154,13 +162,15 @@ export class DefaultAgentRuntime {
         agentVersion: definition.version,
       });
 
+      const previousMessages = await this.#store.getMessages(request.threadId);
       const outcome = await this.#loop.execute({
         definition,
-        messages: request.messages,
+        messages: [...previousMessages, ...request.messages],
         ...(options.parsedContext !== undefined
           ? { context: options.parsedContext }
           : {}),
         signal: controller.signal,
+        generateId: this.#idGenerator,
         emit,
       });
 
@@ -174,6 +184,7 @@ export class DefaultAgentRuntime {
         });
       }
 
+      await this.#store.save(request.threadId, outcome.messages);
       const completed: RunResult = {
         runId,
         threadId: request.threadId,

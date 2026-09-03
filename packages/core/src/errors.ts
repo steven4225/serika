@@ -12,6 +12,8 @@ export type AgentErrorCode =
   | "RUN_CONFLICT"
   | "RUN_CANCELLED"
   | "RUN_TIMEOUT"
+  | "RUN_LIMIT_EXCEEDED"
+  | "STORAGE_CORRUPT"
   | "INTERNAL";
 
 export type AgentErrorPhase =

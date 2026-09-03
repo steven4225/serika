@@ -1,13 +1,14 @@
 import {
   convertToModelMessages,
   stepCountIs,
-  ToolLoopAgent,
+  streamText,
+  type DynamicToolUIPart,
   type LanguageModelUsage,
-  type TextStreamPart,
-  type ToolSet,
+  type UIMessage,
 } from "ai";
 import {
   AgentError,
+  type AgentErrorData,
   type AgentLoop,
   type AgentLoopInput,
   type TokenUsage,
@@ -18,6 +19,13 @@ import { ToolRegistry } from "./registries.js";
 export interface AiSdkAgentLoopOptions {
   models: ModelRegistry;
   tools: ToolRegistry;
+}
+
+interface PendingToolCall {
+  toolCallId: string;
+  toolName: string;
+  input: unknown;
+  invalid: boolean;
 }
 
 function normalizeUsage(usage: LanguageModelUsage): TokenUsage {
@@ -32,15 +40,90 @@ function normalizeUsage(usage: LanguageModelUsage): TokenUsage {
   };
 }
 
-function toolError(toolName: string, error: unknown): AgentError {
+function addUsage(total: TokenUsage, next: TokenUsage): TokenUsage {
+  const add = (left?: number, right?: number) =>
+    left === undefined && right === undefined
+      ? undefined
+      : (left ?? 0) + (right ?? 0);
+  const inputTokens = add(total.inputTokens, next.inputTokens);
+  const outputTokens = add(total.outputTokens, next.outputTokens);
+  const totalTokens = add(total.totalTokens, next.totalTokens);
+  return {
+    ...(inputTokens !== undefined ? { inputTokens } : {}),
+    ...(outputTokens !== undefined ? { outputTokens } : {}),
+    ...(totalTokens !== undefined ? { totalTokens } : {}),
+  };
+}
+
+function toolError(
+  code: "TOOL_INVALID_INPUT" | "TOOL_EXECUTION_FAILED",
+  toolName: string,
+  message?: string,
+  cause?: unknown,
+): AgentError {
   return new AgentError(
     {
-      code: "TOOL_EXECUTION_FAILED",
-      message: `Tool execution failed: ${toolName}`,
+      code,
+      message:
+        message ??
+        (code === "TOOL_INVALID_INPUT"
+          ? `Tool input is invalid: ${toolName}`
+          : `Tool execution failed: ${toolName}`),
       retryable: false,
       phase: "tool",
     },
-    { cause: error },
+    { cause },
+  );
+}
+
+function toolResultError(
+  call: PendingToolCall,
+  error: AgentErrorData,
+): DynamicToolUIPart {
+  return {
+    type: "dynamic-tool",
+    toolName: call.toolName,
+    toolCallId: call.toolCallId,
+    state: "output-error",
+    input: call.input,
+    errorText: `${error.code}: ${error.message}`,
+  };
+}
+
+function abortReason(signal: AbortSignal): unknown {
+  return signal.reason instanceof Error
+    ? signal.reason
+    : new DOMException("Agent operation aborted", "AbortError");
+}
+
+async function awaitWithSignal<T>(
+  operation: PromiseLike<T> | T,
+  signal: AbortSignal,
+): Promise<T> {
+  if (signal.aborted) throw abortReason(signal);
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(abortReason(signal));
+    // once removes the listener when abort wins; the settle handlers remove it
+    // when the operation wins.
+    signal.addEventListener("abort", onAbort, { once: true });
+    Promise.resolve(operation).then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (error) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      },
+    );
+  });
+}
+
+function isAsyncIterable(value: unknown): value is AsyncIterable<unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    Symbol.asyncIterator in value
   );
 }
 
@@ -54,146 +137,81 @@ export class AiSdkAgentLoop implements AgentLoop {
   }
 
   async execute<TContext>(input: AgentLoopInput<TContext>) {
-    const tools = this.#tools.resolve(input.definition.tools);
+    const executableTools = this.#tools.resolve(input.definition.tools);
+    const modelTools = this.#tools.definitions(input.definition.tools);
     const model = this.#models.resolve(input.definition.model);
-    let stepNumber = 0;
-    let text = "";
-    let finalUsage: TokenUsage = {};
-    let approvalRequired = false;
+    const messages = structuredClone(input.messages);
+    let steps = 0;
+    let totalUsage: TokenUsage = {};
 
-    const agent = new ToolLoopAgent({
-      id: `${input.definition.id}@${input.definition.version}`,
-      model,
-      instructions: input.definition.instructions,
-      tools,
-      stopWhen: stepCountIs(input.definition.limits.maxSteps),
-      ...(input.definition.limits.maxOutputTokens !== undefined
-        ? { maxOutputTokens: input.definition.limits.maxOutputTokens }
-        : {}),
-      // Durable Runtime owns retries so every real provider call has a
-      // persisted Attempt. Adapter-level retries would be invisible here.
-      maxRetries: 0,
-      telemetry: { isEnabled: false },
-    });
+    while (steps < input.definition.limits.maxSteps) {
+      steps += 1;
+      await input.emit("step.started", { stepNumber: steps });
 
-    const messages = await convertToModelMessages(input.messages, { tools });
-    const result = await agent.stream({
-      messages,
-      abortSignal: input.signal,
-      timeout: {
-        totalMs: input.definition.limits.totalTimeoutMs,
-        stepMs: input.definition.limits.stepTimeoutMs,
-      },
-    });
-
-    for await (const part of result.stream) {
-      await this.#handlePart(part, {
-        input,
-        getStepNumber: () => stepNumber,
-        incrementStep: () => {
-          stepNumber += 1;
-          return stepNumber;
-        },
-        appendText: (delta) => {
-          text += delta;
-        },
-        setUsage: (usage) => {
-          finalUsage = usage;
-        },
-        markApprovalRequired: () => {
-          approvalRequired = true;
-        },
+      const modelMessages = await convertToModelMessages(messages, {
+        tools: modelTools,
       });
-    }
+      const stepTimeout = AbortSignal.timeout(
+        input.definition.limits.stepTimeoutMs,
+      );
+      const stepSignal = AbortSignal.any([input.signal, stepTimeout]);
+      const pendingCalls: PendingToolCall[] = [];
+      let stepText = "";
 
-    return {
-      text,
-      steps: stepNumber,
-      usage: finalUsage,
-      stopReason: approvalRequired
-        ? ("approval_required" as const)
-        : ("completed" as const),
-    };
-  }
+      const result = streamText({
+        model,
+        instructions: input.definition.instructions,
+        messages: modelMessages,
+        tools: modelTools,
+        stopWhen: stepCountIs(1),
+        maxRetries: 0,
+        abortSignal: stepSignal,
+        ...(input.definition.limits.maxOutputTokens !== undefined
+          ? { maxOutputTokens: input.definition.limits.maxOutputTokens }
+          : {}),
+        telemetry: { isEnabled: false },
+      });
 
-  async #handlePart<TContext>(
-    part: TextStreamPart<ToolSet>,
-    state: {
-      input: AgentLoopInput<TContext>;
-      getStepNumber: () => number;
-      incrementStep: () => number;
-      appendText: (delta: string) => void;
-      setUsage: (usage: TokenUsage) => void;
-      markApprovalRequired: () => void;
-    },
-  ): Promise<void> {
-    const { emit } = state.input;
-    switch (part.type) {
-      case "text-delta":
-        state.appendText(part.text);
-        await emit("message.delta", { text: part.text });
-        break;
-      case "start-step": {
-        const current = state.incrementStep();
-        await emit("step.started", { stepNumber: current });
-        break;
-      }
-      case "finish-step": {
-        const usage = normalizeUsage(part.usage);
-        await emit("step.completed", {
-          stepNumber: state.getStepNumber(),
-          finishReason: part.finishReason,
-          usage,
-        });
-        break;
-      }
-      case "tool-call":
-        await emit("tool.call.requested", {
-          toolCallId: part.toolCallId,
-          toolName: part.toolName,
-          input: part.input,
-        });
-        // M1 only executes tools that do not require approval. M2 will move this
-        // transition behind the approval policy/resume boundary.
-        await emit("tool.call.started", {
-          toolCallId: part.toolCallId,
-          toolName: part.toolName,
-        });
-        break;
-      case "tool-approval-request":
-        state.markApprovalRequired();
-        await emit("tool.call.approval_required", {
-          approvalId: part.approvalId,
-          toolCallId: part.toolCall.toolCallId,
-          toolName: part.toolCall.toolName,
-          input: part.toolCall.input,
-        });
-        break;
-      case "tool-result":
-        await emit("tool.call.completed", {
-          toolCallId: part.toolCallId,
-          toolName: part.toolName,
-          output: part.output,
-        });
-        break;
-      case "tool-error": {
-        const error = toolError(part.toolName, part.error);
-        await emit("tool.call.failed", {
-          toolCallId: part.toolCallId,
-          toolName: part.toolName,
-          error: error.data,
-        });
-        break;
-      }
-      case "finish": {
-        const usage = normalizeUsage(part.totalUsage);
-        state.setUsage(usage);
-        await emit("usage.updated", { usage });
-        break;
-      }
-      case "abort":
-        throw new DOMException(part.reason ?? "Agent stream aborted", "AbortError");
-      case "error":
+      try {
+        for await (const part of result.stream) {
+          if (part.type === "text-delta") {
+            stepText += part.text;
+            await input.emit("message.delta", { text: part.text });
+          } else if (part.type === "tool-call") {
+            const call: PendingToolCall = {
+              toolCallId: part.toolCallId,
+              toolName: part.toolName,
+              input: part.input,
+              invalid: part.invalid === true,
+            };
+            pendingCalls.push(call);
+            await input.emit("tool.call.requested", {
+              toolCallId: call.toolCallId,
+              toolName: call.toolName,
+              input: call.input,
+            });
+          } else if (part.type === "abort") {
+            throw new DOMException(
+              part.reason ?? "Model stream aborted",
+              "AbortError",
+            );
+          } else if (part.type === "error") {
+            throw part.error;
+          }
+        }
+      } catch (error) {
+        if (input.signal.aborted) throw abortReason(input.signal);
+        if (stepTimeout.aborted) {
+          throw new AgentError(
+            {
+              code: "MODEL_TIMEOUT",
+              message: `Model step exceeded ${input.definition.limits.stepTimeoutMs}ms`,
+              retryable: true,
+              phase: "model",
+            },
+            { cause: error },
+          );
+        }
         throw new AgentError(
           {
             code: "MODEL_BAD_RESPONSE",
@@ -201,8 +219,142 @@ export class AiSdkAgentLoop implements AgentLoop {
             retryable: false,
             phase: "model",
           },
-          { cause: part.error },
+          { cause: error },
         );
+      }
+
+      const stepUsage = normalizeUsage(
+        (await result.usage) as LanguageModelUsage,
+      );
+      const finishReason = await result.finishReason;
+      totalUsage = addUsage(totalUsage, stepUsage);
+      await input.emit("step.completed", {
+        stepNumber: steps,
+        finishReason,
+        usage: stepUsage,
+      });
+      await input.emit("usage.updated", { usage: totalUsage });
+
+      const assistantParts: UIMessage["parts"] = [];
+      if (stepText.length > 0) {
+        assistantParts.push({ type: "text", text: stepText });
+      }
+
+      for (const call of pendingCalls) {
+        const registered = executableTools[call.toolName];
+        if (!registered) {
+          throw new AgentError({
+            code: "TOOL_NOT_FOUND",
+            message: `Tool is not registered: ${call.toolName}`,
+            retryable: false,
+            phase: "tool",
+          });
+        }
+
+        if (call.invalid) {
+          const error = toolError("TOOL_INVALID_INPUT", call.toolName);
+          assistantParts.push(toolResultError(call, error.data));
+          await input.emit("tool.call.failed", {
+            toolCallId: call.toolCallId,
+            toolName: call.toolName,
+            error: error.data,
+          });
+          continue;
+        }
+
+        await input.emit("tool.call.started", {
+          toolCallId: call.toolCallId,
+          toolName: call.toolName,
+        });
+
+        const metadata = this.#tools.metadata(call.toolName);
+        const toolTimeout = AbortSignal.timeout(
+          metadata?.timeoutMs ?? input.definition.limits.stepTimeoutMs,
+        );
+        const toolSignal = AbortSignal.any([stepSignal, toolTimeout]);
+
+        try {
+          if (!registered.execute) {
+            throw new Error("Registered tool has no execute function");
+          }
+          const output = await awaitWithSignal(
+            registered.execute(call.input, {
+              toolCallId: call.toolCallId,
+              messages: modelMessages,
+              abortSignal: toolSignal,
+              context: input.context ?? {},
+            }),
+            toolSignal,
+          );
+          if (isAsyncIterable(output)) {
+            throw new Error("Streaming tool output is not supported in M-Local");
+          }
+          assistantParts.push({
+            type: "dynamic-tool",
+            toolName: call.toolName,
+            toolCallId: call.toolCallId,
+            state: "output-available",
+            input: call.input,
+            output,
+          });
+          await input.emit("tool.call.completed", {
+            toolCallId: call.toolCallId,
+            toolName: call.toolName,
+            output,
+          });
+        } catch (error) {
+          if (input.signal.aborted) throw abortReason(input.signal);
+          const timeoutMs =
+            metadata?.timeoutMs ?? input.definition.limits.stepTimeoutMs;
+          const toolFailed = toolTimeout.aborted;
+          const errorData = toolError(
+            "TOOL_EXECUTION_FAILED",
+            call.toolName,
+            toolFailed
+              ? `Tool execution timed out after ${timeoutMs}ms: ${call.toolName}`
+              : `Tool execution failed: ${call.toolName}`,
+            error,
+          ).data;
+          assistantParts.push(toolResultError(call, errorData));
+          await input.emit("tool.call.failed", {
+            toolCallId: call.toolCallId,
+            toolName: call.toolName,
+            error: errorData,
+          });
+        }
+      }
+
+      if (pendingCalls.length === 0 && finishReason === "tool-calls") {
+        throw new AgentError({
+          code: "MODEL_BAD_RESPONSE",
+          message: "Model stopped for tool calls without returning a tool call",
+          retryable: false,
+          phase: "model",
+        });
+      }
+
+      messages.push({
+        id: input.generateId(),
+        role: "assistant",
+        parts: assistantParts,
+      });
+
+      if (pendingCalls.length === 0) {
+        return {
+          text: stepText,
+          messages,
+          steps,
+          usage: totalUsage,
+          stopReason: "completed" as const,
+        };
+      }
     }
+
+    throw new AgentError({
+      code: "RUN_LIMIT_EXCEEDED",
+      message: `Run exceeded ${input.definition.limits.maxSteps} model steps`,
+      retryable: false,
+      phase: "runtime",
+    });
   }
 }

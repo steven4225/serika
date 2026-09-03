@@ -81,6 +81,18 @@ export class ToolRegistry {
     );
   }
 
+  definitions(names: readonly string[]): ToolSet {
+    const executableTools = this.resolve(names);
+    return Object.fromEntries(
+      Object.entries(executableTools).map(([name, registered]) => [
+        name,
+        // Keep the complete SDK definition while making execution explicit in
+        // the local loop instead of allowing streamText to run the tool.
+        (({ execute: _execute, ...schema }) => schema)(registered) as ToolSet[string],
+      ]),
+    );
+  }
+
   metadata(name: string): ToolMetadata | undefined {
     return this.#tools.get(name)?.metadata;
   }
