@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -14,6 +15,7 @@ import {
   InMemoryModelRegistry,
   ToolRegistry,
 } from "@aisdk-agent/ai-sdk-adapter";
+import { runTui } from "./tui.js";
 
 function usage(inputTokens: number, outputTokens: number) {
   return {
@@ -107,6 +109,41 @@ function createDemoModel() {
 
 const model = createDemoModel();
 
+function parseTuiArgs(args: readonly string[]): {
+  directory?: string;
+  threadId?: string;
+} {
+  const parsedArgs = args[0] === "--" ? args.slice(1) : args;
+  let directory: string | undefined;
+  let threadId: string | undefined;
+  for (let index = 0; index < parsedArgs.length; index += 1) {
+    const arg = parsedArgs[index];
+    if (arg === "--thread") {
+      const value = parsedArgs[++index];
+      if (!value || value.startsWith("--")) {
+        throw new Error("--thread requires an id");
+      }
+      threadId = value;
+      continue;
+    }
+    if (arg?.startsWith("--")) {
+      throw new Error(`Unknown TUI option: ${arg}`);
+    }
+    if (directory !== undefined) {
+      throw new Error("TUI accepts at most one transcript directory");
+    }
+    directory = arg;
+  }
+  return {
+    ...(directory !== undefined ? { directory } : {}),
+    ...(threadId !== undefined ? { threadId } : {}),
+  };
+}
+
+const args = process.argv.slice(2);
+const tuiMode = args[0] === "--tui";
+const tuiArgs = tuiMode ? parseTuiArgs(args.slice(1)) : undefined;
+
 const add = tool({
   description: "Add two numbers",
   inputSchema: z.object({ left: z.number(), right: z.number() }),
@@ -128,8 +165,10 @@ const catalog = new InMemoryAgentCatalog([
     },
   },
 ]);
-const directory =
-  process.argv[2] ?? (await mkdtemp(join(tmpdir(), "runloom-demo-")));
+const directory = tuiMode
+  ? (tuiArgs?.directory ?? (await mkdtemp(join(tmpdir(), "runloom-tui-"))))
+  : (args[0] ?? (await mkdtemp(join(tmpdir(), "runloom-demo-"))));
+const threadId = tuiMode ? (tuiArgs?.threadId ?? randomUUID()) : "demo-thread";
 const store = new JsonlAgentStore({ directory });
 const models = new InMemoryModelRegistry({ "mock/default": model });
 const tools = new ToolRegistry([
@@ -172,6 +211,12 @@ async function runMessage(id: string, text: string) {
   console.log("\nResult:", result);
 }
 
-await runMessage("user-1", "What is 20 + 22?");
-await runMessage("user-2", "What was the previous result?");
-console.log(`\nTranscript directory: ${directory}`);
+if (tuiMode) {
+  console.log(`Thread: ${threadId}`);
+  console.log(`Transcript directory: ${directory}`);
+  await runTui({ runtime, store, threadId, agentId: "calculator" });
+} else {
+  await runMessage("user-1", "What is 20 + 22?");
+  await runMessage("user-2", "What was the previous result?");
+  console.log(`\nTranscript directory: ${directory}`);
+}

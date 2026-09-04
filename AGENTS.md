@@ -49,6 +49,13 @@
 - `AgentLoop` is the only owner of the model -> tool -> model behavior loop. A future Durable Run Driver may persist and invoke already-decided Actions and Attempts, but must not introduce a second behavior loop.
 - M-Local JSONL stores only completed conversation transcripts. Run records and runtime events remain process-local.
 
+## Thin TUI boundary
+
+- M-TUI-thin only calls `run`, `handle.events`, `handle.result`, and `handle.cancel`; it must not add a command bus, session object, or second loop.
+- TUI may read committed transcript messages from the Store for display, but must never put that history into `RunRequest.messages` or maintain a second messages cache.
+- Its visible state is `idle | running(handle)`. While running, new input is rejected as busy rather than queued; only `handle.result` returns the UI to idle.
+- Ctrl+C cancels a running handle and waits for its result; Ctrl+C while idle exits. TUI composition uses the mock model for this milestone.
+
 ## PostgreSQL persistence
 
 - The PostgreSQL adapter lives in `packages/postgres`; Core must not import `pg`, Kysely, migration types, SQLSTATE types, or database row types.
