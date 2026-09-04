@@ -5,18 +5,18 @@
 ## 当前结论
 
 - TypeScript + Node.js，使用 pnpm 管理依赖。
-- 底层采用 Vercel AI SDK 的 `ToolLoopAgent`。
+- AI SDK adapter 使用 `streamText`，由框架自行控制模型—工具循环。
 - 对上提供自己的 `AgentRuntime` 契约，不让应用直接依赖 AI SDK 的循环实现。
-- 第一阶段只支持单 Agent、多步工具调用、流式事件、人工审批、取消和超时。
-- 第一阶段使用内存存储和 CLI 示例；数据库、Web UI、RAG、长期记忆、多 Agent 和分布式执行暂缓。
+- 当前本地路径支持单 Agent、多步工具调用、流式事件、取消、超时，以及基于 JSONL 的对话恢复。
+- 人工审批、真实写工具、Web UI、RAG、长期记忆、多 Agent 和 Durable 执行暂缓。
 
 完整设计见 [docs/architecture-v0.md](docs/architecture-v0.md)。
 
 ## 阶段
 
-当前：`M1 / runnable skeleton`
+当前：`M-TUI-thin`
 
-已经具备公共契约、运行时状态机、连续事件流、内存 Store、Model/Tool Registry、AI SDK 7 adapter、CLI 示例和 mock 契约测试。
+已经具备自有 AgentLoop、JSONL transcript、print CLI，以及只通过 Runtime 契约驱动的精简 TUI。
 
 运行：
 
@@ -24,6 +24,9 @@
 pnpm typecheck
 pnpm test
 pnpm demo
+pnpm tui
 ```
 
-下一步是 M2：工具风险策略、审批后恢复、工具级 deadline/cancel、错误分类细化和日志脱敏。
+`pnpm tui -- <transcript-directory> --thread <id>` 启动精简 TUI；不传目录或 thread 时会生成临时目录和 thread id。
+
+下一步是真实文件/Shell 工具，以及 AgentLoop 上的审批钩子（TUI 的 y/n）。Durable Run Driver 仍不进入这条主链。
