@@ -2,6 +2,7 @@ export * from "./async-channel.js";
 export * from "./catalog.js";
 export * from "./errors.js";
 export * from "./events.js";
+export * from "./jsonl-store.js";
 export * from "./runtime.js";
 export * from "./store.js";
 export * from "./types.js";

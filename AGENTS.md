@@ -43,6 +43,12 @@
 - Do not add multi-worker execution, parallel tools, queued Runs, Steering, Follow-up, multi-agent orchestration, RAG, long-term memory, Redis, or Kafka unless a later design discussion explicitly promotes it into scope.
 - PostgreSQL may be selected as the persistence target while tests continue to use deterministic in-memory fakes around explicit ports.
 
+## Local behavior milestone
+
+- M-Local is a local behavior harness built from `DefaultAgentRuntime`, `AgentLoop`, and transcript-only JSONL snapshots. It does not replace Durable Runtime or provide durable external-effect guarantees.
+- `AgentLoop` is the only owner of the model -> tool -> model behavior loop. A future Durable Run Driver may persist and invoke already-decided Actions and Attempts, but must not introduce a second behavior loop.
+- M-Local JSONL stores only completed conversation transcripts. Run records and runtime events remain process-local.
+
 ## PostgreSQL persistence
 
 - The PostgreSQL adapter lives in `packages/postgres`; Core must not import `pg`, Kysely, migration types, SQLSTATE types, or database row types.

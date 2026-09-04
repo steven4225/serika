@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { simulateReadableStream, tool } from "ai";
+import { simulateReadableStream, tool, type UIMessage } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { z } from "zod";
 import type { AgentEvent } from "@aisdk-agent/core";
@@ -12,22 +12,77 @@ const usage = {
   outputTokens: { total: 2, text: 2, reasoning: undefined },
 };
 
+const definition = {
+  id: "test",
+  version: "1",
+  instructions: "Use tools",
+  model: "test",
+  tools: ["double", "increment"],
+  limits: { maxSteps: 4, totalTimeoutMs: 5_000, stepTimeoutMs: 2_000 },
+};
+
+function userMessage(text = "calculate"): UIMessage {
+  return { id: "user-1", role: "user", parts: [{ type: "text", text }] };
+}
+
+function textResponse(text: string) {
+  return {
+    stream: simulateReadableStream({
+      chunks: [
+        { type: "stream-start" as const, warnings: [] },
+        { type: "text-start" as const, id: "text-1" },
+        { type: "text-delta" as const, id: "text-1", delta: text },
+        { type: "text-end" as const, id: "text-1" },
+        {
+          type: "finish" as const,
+          finishReason: { unified: "stop" as const, raw: undefined },
+          usage,
+        },
+      ],
+    }),
+  };
+}
+
+function createEmit(events: AgentEvent[]) {
+  let eventId = 0;
+  return async (type: AgentEvent["type"], data: unknown) => {
+    events.push({
+      id: `event-${++eventId}`,
+      type,
+      data,
+      runId: "run",
+      threadId: "thread",
+      sequence: eventId,
+      occurredAt: new Date(0).toISOString(),
+    } as AgentEvent);
+  };
+}
+
 describe("AiSdkAgentLoop", () => {
-  it("maps a model-tool-model stream into stable framework events", async () => {
-    let call = 0;
+  it("owns the model-tool-model loop and executes multiple calls sequentially", async () => {
+    let modelCall = 0;
+    const modelPrompts: unknown[] = [];
+    const executionOrder: string[] = [];
     const model = new MockLanguageModelV3({
-      doStream: async () => {
-        call += 1;
-        if (call === 1) {
+      doStream: async (options) => {
+        modelCall += 1;
+        modelPrompts.push(options.prompt);
+        if (modelCall === 1) {
           return {
             stream: simulateReadableStream({
               chunks: [
                 { type: "stream-start" as const, warnings: [] },
                 {
                   type: "tool-call" as const,
-                  toolCallId: "call-1",
+                  toolCallId: "call-double",
                   toolName: "double",
-                  input: JSON.stringify({ value: 21 }),
+                  input: JSON.stringify({ value: 20 }),
+                },
+                {
+                  type: "tool-call" as const,
+                  toolCallId: "call-increment",
+                  toolName: "increment",
+                  input: JSON.stringify({ value: 41 }),
                 },
                 {
                   type: "finish" as const,
@@ -38,76 +93,414 @@ describe("AiSdkAgentLoop", () => {
             }),
           };
         }
-        return {
-          stream: simulateReadableStream({
-            chunks: [
-              { type: "stream-start" as const, warnings: [] },
-              { type: "text-start" as const, id: "text-1" },
-              { type: "text-delta" as const, id: "text-1", delta: "42" },
-              { type: "text-end" as const, id: "text-1" },
-              {
-                type: "finish" as const,
-                finishReason: { unified: "stop" as const, raw: undefined },
-                usage,
-              },
-            ],
-          }),
-        };
+        return textResponse("42");
       },
     });
     const double = tool({
+      title: "Double a number",
       inputSchema: z.object({ value: z.number() }),
       outputSchema: z.object({ value: z.number() }),
-      execute: async ({ value }) => ({ value: value * 2 }),
+      execute: async ({ value }) => {
+        executionOrder.push("double:start");
+        await Promise.resolve();
+        executionOrder.push("double:end");
+        return { value: value * 2 };
+      },
     });
-    const loop = new AiSdkAgentLoop({
-      models: new InMemoryModelRegistry({ test: model }),
-      tools: new ToolRegistry([
-        {
-          metadata: {
-            name: "double",
-            version: "1",
-            risk: "read",
-            timeoutMs: 1_000,
-            idempotent: true,
-          },
-          tool: double,
+    const increment = tool({
+      inputSchema: z.object({ value: z.number() }),
+      outputSchema: z.object({ value: z.number() }),
+      execute: async ({ value }) => {
+        executionOrder.push("increment:start");
+        await Promise.resolve();
+        executionOrder.push("increment:end");
+        return { value: value + 1 };
+      },
+    });
+    const tools = new ToolRegistry([
+      {
+        metadata: {
+          name: "double",
+          version: "1",
+          risk: "read",
+          timeoutMs: 1_000,
+          idempotent: true,
         },
-      ]),
-    });
+        tool: double,
+      },
+      {
+        metadata: {
+          name: "increment",
+          version: "1",
+          risk: "read",
+          timeoutMs: 1_000,
+          idempotent: true,
+        },
+        tool: increment,
+      },
+    ]);
+    const modelDefinition = tools.definitions(definition.tools).double!;
+    assert.equal("execute" in modelDefinition, false);
+    assert.equal(modelDefinition.title, "Double a number");
+
     const events: AgentEvent[] = [];
-    let eventId = 0;
-    const outcome = await loop.execute({
-      definition: {
-        id: "test",
-        version: "1",
-        instructions: "Use tools",
-        model: "test",
-        tools: ["double"],
-        limits: { maxSteps: 4, totalTimeoutMs: 5_000, stepTimeoutMs: 2_000 },
-      },
-      messages: [
-        { id: "m1", role: "user", parts: [{ type: "text", text: "double 21" }] },
-      ],
+    let messageId = 0;
+    const outcome = await new AiSdkAgentLoop({
+      models: new InMemoryModelRegistry({ test: model }),
+      tools,
+    }).execute({
+      definition,
+      messages: [userMessage()],
       signal: new AbortController().signal,
-      async emit(type, data) {
-        events.push({
-          id: `event-${++eventId}`,
-          type,
-          data,
-          runId: "run",
-          threadId: "thread",
-          sequence: eventId,
-          occurredAt: new Date(0).toISOString(),
-        } as AgentEvent);
-      },
+      generateId: () => `assistant-${++messageId}`,
+      emit: createEmit(events),
     });
 
     assert.equal(outcome.text, "42");
     assert.equal(outcome.steps, 2);
-    assert.ok(events.some((event) => event.type === "tool.call.requested"));
-    assert.ok(events.some((event) => event.type === "tool.call.started"));
+    assert.equal(outcome.messages.length, 3);
+    assert.deepEqual(executionOrder, [
+      "double:start",
+      "double:end",
+      "increment:start",
+      "increment:end",
+    ]);
+    assert.equal(modelCall, 2);
+    assert.match(JSON.stringify(modelPrompts[1]), /"role":"tool"/);
+    assert.match(JSON.stringify(modelPrompts[1]), /"value":40/);
     assert.ok(events.some((event) => event.type === "tool.call.completed"));
-    assert.ok(events.some((event) => event.type === "message.delta"));
+    assert.deepEqual(outcome.usage, {
+      inputTokens: 6,
+      outputTokens: 4,
+      totalTokens: 10,
+    });
+  });
+
+  it("feeds the SDK-marked invalid tool input back without executing the tool", async () => {
+    let modelCall = 0;
+    let executeCount = 0;
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        modelCall += 1;
+        if (modelCall === 1) {
+          return {
+            stream: simulateReadableStream({
+              chunks: [
+                { type: "stream-start" as const, warnings: [] },
+                {
+                  type: "tool-call" as const,
+                  toolCallId: "bad-call",
+                  toolName: "double",
+                  input: JSON.stringify({ value: "not-a-number" }),
+                },
+                {
+                  type: "finish" as const,
+                  finishReason: { unified: "tool-calls" as const, raw: undefined },
+                  usage,
+                },
+              ],
+            }),
+          };
+        }
+        return textResponse("Please provide a number.");
+      },
+    });
+    const tools = new ToolRegistry([
+      {
+        metadata: {
+          name: "double",
+          version: "1",
+          risk: "read",
+          timeoutMs: 1_000,
+          idempotent: true,
+        },
+        tool: tool({
+          inputSchema: z.object({ value: z.number() }),
+          outputSchema: z.object({ value: z.number() }),
+          execute: async ({ value }) => {
+            executeCount += 1;
+            return { value: value * 2 };
+          },
+        }),
+      },
+    ]);
+    const events: AgentEvent[] = [];
+    const outcome = await new AiSdkAgentLoop({
+      models: new InMemoryModelRegistry({ test: model }),
+      tools,
+    }).execute({
+      definition: { ...definition, tools: ["double"] },
+      messages: [userMessage()],
+      signal: new AbortController().signal,
+      generateId: () => `message-${modelCall}`,
+      emit: createEmit(events),
+    });
+
+    assert.equal(executeCount, 0);
+    assert.equal(modelCall, 2);
+    assert.equal(outcome.steps, 2);
+    assert.match(JSON.stringify(outcome.messages), /TOOL_INVALID_INPUT/);
+    assert.ok(
+      events.some(
+        (event) =>
+          event.type === "tool.call.failed" &&
+          event.data.error.code === "TOOL_INVALID_INPUT",
+      ),
+    );
+  });
+
+  it("feeds a tool execution error back to the model and continues", async () => {
+    let modelCall = 0;
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        modelCall += 1;
+        if (modelCall === 1) {
+          return {
+            stream: simulateReadableStream({
+              chunks: [
+                { type: "stream-start" as const, warnings: [] },
+                {
+                  type: "tool-call" as const,
+                  toolCallId: "failed-call",
+                  toolName: "double",
+                  input: JSON.stringify({ value: 2 }),
+                },
+                {
+                  type: "finish" as const,
+                  finishReason: { unified: "tool-calls" as const, raw: undefined },
+                  usage,
+                },
+              ],
+            }),
+          };
+        }
+        return textResponse("The tool failed.");
+      },
+    });
+    const tools = new ToolRegistry([
+      {
+        metadata: {
+          name: "double",
+          version: "1",
+          risk: "read",
+          timeoutMs: 1_000,
+          idempotent: true,
+        },
+        tool: tool({
+          inputSchema: z.object({ value: z.number() }),
+          outputSchema: z.object({ value: z.number() }),
+          execute: async () => {
+            throw new Error("private tool failure");
+          },
+        }),
+      },
+    ]);
+    const events: AgentEvent[] = [];
+    const outcome = await new AiSdkAgentLoop({
+      models: new InMemoryModelRegistry({ test: model }),
+      tools,
+    }).execute({
+      definition: { ...definition, tools: ["double"] },
+      messages: [userMessage()],
+      signal: new AbortController().signal,
+      generateId: () => `message-${modelCall}`,
+      emit: createEmit(events),
+    });
+
+    assert.equal(outcome.text, "The tool failed.");
+    assert.match(JSON.stringify(outcome.messages), /TOOL_EXECUTION_FAILED/);
+    assert.doesNotMatch(JSON.stringify(outcome.messages), /private tool failure/);
+    assert.ok(
+      events.some(
+        (event) =>
+          event.type === "tool.call.failed" &&
+          event.data.error.code === "TOOL_EXECUTION_FAILED",
+      ),
+    );
+  });
+
+  it("feeds a tool timeout back to the model with its timeout reason", async () => {
+    let modelCall = 0;
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        modelCall += 1;
+        if (modelCall === 1) {
+          return {
+            stream: simulateReadableStream({
+              chunks: [
+                { type: "stream-start" as const, warnings: [] },
+                {
+                  type: "tool-call" as const,
+                  toolCallId: "timeout-call",
+                  toolName: "slow",
+                  input: JSON.stringify({ value: 2 }),
+                },
+                {
+                  type: "finish" as const,
+                  finishReason: { unified: "tool-calls" as const, raw: undefined },
+                  usage,
+                },
+              ],
+            }),
+          };
+        }
+        return textResponse("The tool timed out.");
+      },
+    });
+    const tools = new ToolRegistry([
+      {
+        metadata: {
+          name: "slow",
+          version: "1",
+          risk: "read",
+          timeoutMs: 10,
+          idempotent: true,
+        },
+        tool: tool({
+          inputSchema: z.object({ value: z.number() }),
+          outputSchema: z.object({ value: z.number() }),
+          execute: async () => new Promise<{ value: number }>(() => undefined),
+        }),
+      },
+    ]);
+    const events: AgentEvent[] = [];
+    const outcome = await new AiSdkAgentLoop({
+      models: new InMemoryModelRegistry({ test: model }),
+      tools,
+    }).execute({
+      definition: { ...definition, tools: ["slow"] },
+      messages: [userMessage()],
+      signal: new AbortController().signal,
+      generateId: () => `message-${modelCall}`,
+      emit: createEmit(events),
+    });
+
+    assert.equal(outcome.text, "The tool timed out.");
+    assert.match(JSON.stringify(outcome.messages), /timed out after 10ms/);
+    assert.ok(
+      events.some(
+        (event) =>
+          event.type === "tool.call.failed" &&
+          event.data.error.message.includes("timed out after 10ms"),
+      ),
+    );
+  });
+
+  it("stops waiting for a tool when the run is aborted", async () => {
+    let toolStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      toolStarted = resolve;
+    });
+    const model = new MockLanguageModelV3({
+      doStream: async () => ({
+        stream: simulateReadableStream({
+          chunks: [
+            { type: "stream-start" as const, warnings: [] },
+            {
+              type: "tool-call" as const,
+              toolCallId: "slow-call",
+              toolName: "double",
+              input: JSON.stringify({ value: 2 }),
+            },
+            {
+              type: "finish" as const,
+              finishReason: { unified: "tool-calls" as const, raw: undefined },
+              usage,
+            },
+          ],
+        }),
+      }),
+    });
+    const tools = new ToolRegistry([
+      {
+        metadata: {
+          name: "double",
+          version: "1",
+          risk: "read",
+          timeoutMs: 10_000,
+          idempotent: true,
+        },
+        tool: tool({
+          inputSchema: z.object({ value: z.number() }),
+          outputSchema: z.object({ value: z.number() }),
+          execute: async () => {
+            toolStarted();
+            return new Promise<{ value: number }>(() => undefined);
+          },
+        }),
+      },
+    ]);
+    const controller = new AbortController();
+    const execution = new AiSdkAgentLoop({
+      models: new InMemoryModelRegistry({ test: model }),
+      tools,
+    }).execute({
+      definition: { ...definition, tools: ["double"] },
+      messages: [userMessage()],
+      signal: controller.signal,
+      generateId: () => "unused",
+      emit: async () => undefined,
+    });
+
+    await started;
+    controller.abort("test cancellation");
+    await assert.rejects(execution);
+  });
+
+  it("fails instead of completing a partial transcript at maxSteps", async () => {
+    const model = new MockLanguageModelV3({
+      doStream: async () => ({
+        stream: simulateReadableStream({
+          chunks: [
+            { type: "stream-start" as const, warnings: [] },
+            {
+              type: "tool-call" as const,
+              toolCallId: "call-double",
+              toolName: "double",
+              input: JSON.stringify({ value: 2 }),
+            },
+            {
+              type: "finish" as const,
+              finishReason: { unified: "tool-calls" as const, raw: undefined },
+              usage,
+            },
+          ],
+        }),
+      }),
+    });
+    const tools = new ToolRegistry([
+      {
+        metadata: {
+          name: "double",
+          version: "1",
+          risk: "read",
+          timeoutMs: 1_000,
+          idempotent: true,
+        },
+        tool: tool({
+          inputSchema: z.object({ value: z.number() }),
+          outputSchema: z.object({ value: z.number() }),
+          execute: async ({ value }) => ({ value: value * 2 }),
+        }),
+      },
+    ]);
+
+    await assert.rejects(
+      new AiSdkAgentLoop({
+        models: new InMemoryModelRegistry({ test: model }),
+        tools,
+      }).execute({
+        definition: { ...definition, tools: ["double"], limits: { ...definition.limits, maxSteps: 1 } },
+        messages: [userMessage()],
+        signal: new AbortController().signal,
+        generateId: () => "assistant-1",
+        emit: async () => undefined,
+      }),
+      (error: unknown) =>
+        error instanceof Error &&
+        "data" in error &&
+        (error as { data?: { code?: string } }).data?.code ===
+          "RUN_LIMIT_EXCEEDED",
+    );
   });
 });
