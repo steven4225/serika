@@ -48,7 +48,240 @@ class FailingCompletedTransitionStore extends InMemoryAgentStore {
   }
 }
 
+class CountingStore extends InMemoryAgentStore {
+  createCount = 0;
+  saveCount = 0;
+
+  override async create(record: RunRecord): Promise<void> {
+    this.createCount += 1;
+    await super.create(record);
+  }
+
+  override async save(threadId: string, messages: UIMessage[]): Promise<void> {
+    this.saveCount += 1;
+    await super.save(threadId, messages);
+  }
+}
+
+class DelayedCreateStore extends CountingStore {
+  readonly started: Promise<void>;
+  release!: () => void;
+
+  constructor() {
+    super();
+    let releaseStarted!: () => void;
+    this.started = new Promise((resolve) => {
+      releaseStarted = resolve;
+    });
+    this.#releaseStarted = releaseStarted;
+  }
+
+  #releaseStarted: () => void;
+
+  override async create(record: RunRecord): Promise<void> {
+    this.#releaseStarted();
+    await new Promise<void>((resolve) => {
+      this.release = resolve;
+    });
+    await super.create(record);
+  }
+}
+
+class DelayedSaveStore extends CountingStore {
+  readonly started: Promise<void>;
+  release!: () => void;
+
+  constructor() {
+    super();
+    let releaseStarted!: () => void;
+    this.started = new Promise((resolve) => {
+      releaseStarted = resolve;
+    });
+    this.#releaseStarted = releaseStarted;
+  }
+
+  #releaseStarted: () => void;
+
+  override async save(threadId: string, messages: UIMessage[]): Promise<void> {
+    this.#releaseStarted();
+    await new Promise<void>((resolve) => {
+      this.release = resolve;
+    });
+    await super.save(threadId, messages);
+  }
+}
+
+function waitForAbort(signal: AbortSignal): Promise<never> {
+  return new Promise((_, reject) => {
+    if (signal.aborted) {
+      reject(signal.reason);
+      return;
+    }
+    signal.addEventListener("abort", () => reject(signal.reason), {
+      once: true,
+    });
+  });
+}
+
 describe("DefaultAgentRuntime", () => {
+  it("rejects an already aborted request before creating a run", async () => {
+    const controller = new AbortController();
+    controller.abort("already stopped");
+    const store = new CountingStore();
+    const runtime = new DefaultAgentRuntime({
+      catalog: new InMemoryAgentCatalog([definition]),
+      loop: { execute: async () => { throw new Error("should not execute"); } },
+      store,
+    });
+
+    await assert.rejects(
+      runtime.run({
+        agentId: "test",
+        threadId: "thread-aborted-entry",
+        messages: [userMessage("user-1", "hello")],
+        signal: controller.signal,
+      }),
+      (error: unknown) =>
+        error instanceof Error &&
+        "data" in error &&
+        (error as { data?: { code?: string } }).data?.code === "RUN_CANCELLED",
+    );
+    assert.equal(store.createCount, 0);
+  });
+
+  it("cancels a run aborted while creating it without entering the loop", async () => {
+    const controller = new AbortController();
+    const store = new DelayedCreateStore();
+    let loopCalls = 0;
+    const runtime = new DefaultAgentRuntime({
+      catalog: new InMemoryAgentCatalog([definition]),
+      loop: {
+        async execute() {
+          loopCalls += 1;
+          throw new Error("should not execute");
+        },
+      },
+      store,
+    });
+
+    const pending = runtime.run({
+      agentId: "test",
+      threadId: "thread-create-abort",
+      messages: [userMessage("user-1", "hello")],
+      signal: controller.signal,
+    });
+    await store.started;
+    controller.abort("create cancelled");
+    store.release();
+    const handle = await pending;
+    const result = await handle.result;
+
+    assert.equal(result.status, "cancelled");
+    assert.equal(loopCalls, 0);
+    assert.equal((await store.getRun(handle.runId))?.status, "cancelled");
+  });
+
+  it("keeps the first stop reason when cancellation and timeout compete", async () => {
+    const shortDefinition = {
+      ...definition,
+      limits: { ...definition.limits, totalTimeoutMs: 25 },
+    };
+    const store = new CountingStore();
+    const runtime = new DefaultAgentRuntime({
+      catalog: new InMemoryAgentCatalog([shortDefinition]),
+      loop: { execute: async ({ signal }) => waitForAbort(signal) },
+      store,
+    });
+    const handle = await runtime.run({
+      agentId: "test",
+      threadId: "thread-stop-order",
+      messages: [userMessage("user-1", "hello")],
+    });
+
+    await handle.cancel("manual stop");
+    const result = await handle.result;
+    assert.equal(result.status, "cancelled");
+    await new Promise((resolve) => setTimeout(resolve, shortDefinition.limits.totalTimeoutMs + 10));
+    assert.equal((await store.getRun(handle.runId))?.status, "cancelled");
+  });
+
+  it("keeps a run timeout when cancellation arrives afterwards", async () => {
+    const shortDefinition = {
+      ...definition,
+      limits: { ...definition.limits, totalTimeoutMs: 10 },
+    };
+    const store = new CountingStore();
+    const runtime = new DefaultAgentRuntime({
+      catalog: new InMemoryAgentCatalog([shortDefinition]),
+      loop: { execute: async ({ signal }) => waitForAbort(signal) },
+      store,
+    });
+    const handle = await runtime.run({
+      agentId: "test",
+      threadId: "thread-timeout-order",
+      messages: [userMessage("user-1", "hello")],
+    });
+
+    const result = await handle.result;
+    await handle.cancel("late manual stop");
+    assert.equal(result.status, "timed_out");
+    assert.equal(store.saveCount, 0);
+    assert.equal((await store.getRun(handle.runId))?.status, "timed_out");
+  });
+
+  it("does not save when cancelled before the commit boundary", async () => {
+    const controller = new AbortController();
+    const store = new CountingStore();
+    const runtime = new DefaultAgentRuntime({
+      catalog: new InMemoryAgentCatalog([definition]),
+      loop: { execute: async ({ signal }) => waitForAbort(signal) },
+      store,
+    });
+    const handle = await runtime.run({
+      agentId: "test",
+      threadId: "thread-no-save-on-cancel",
+      messages: [userMessage("user-1", "hello")],
+      signal: controller.signal,
+    });
+
+    controller.abort("cancel before save");
+    assert.equal((await handle.result).status, "cancelled");
+    assert.equal(store.saveCount, 0);
+  });
+
+  it("does not turn a late cancellation during save into a cancelled result", async () => {
+    const store = new DelayedSaveStore();
+    const runtime = new DefaultAgentRuntime({
+      catalog: new InMemoryAgentCatalog([definition]),
+      loop: {
+        async execute({ messages, generateId }) {
+          return {
+            text: "saved",
+            messages: [
+              ...messages,
+              { id: generateId(), role: "assistant", parts: [{ type: "text", text: "saved" }] },
+            ],
+            steps: 1,
+            usage: {},
+            stopReason: "completed" as const,
+          };
+        },
+      },
+      store,
+    });
+    const handle = await runtime.run({
+      agentId: "test",
+      threadId: "thread-save-boundary",
+      messages: [userMessage("user-1", "hello")],
+    });
+
+    await store.started;
+    await handle.cancel("late cancellation");
+    store.release();
+    assert.equal((await handle.result).status, "completed");
+    assert.equal((await store.getMessages("thread-save-boundary")).length, 2);
+  });
+
   it("persists a completed run and contiguous events", async () => {
     const store = new InMemoryAgentStore();
     const loop: AgentLoop = {
