@@ -153,6 +153,19 @@ export class DefaultAgentRuntime {
       timedOut = true;
       controller.abort(new DOMException("Run timed out", "TimeoutError"));
     }, definition.limits.totalTimeoutMs);
+    let transcriptCommitted = false;
+
+    const notify = async <TType extends AgentEventType>(
+      type: TType,
+      data: AgentEventDataMap[TType],
+    ): Promise<void> => {
+      try {
+        await emit(type, data);
+      } catch {
+        // Terminal notifications are best effort. The Run result and Store
+        // state are already authoritative once their commit has succeeded.
+      }
+    };
 
     try {
       const running = await this.#store.transition(runId, version, "running");
@@ -185,6 +198,7 @@ export class DefaultAgentRuntime {
       }
 
       await this.#store.save(request.threadId, outcome.messages);
+      transcriptCommitted = true;
       const completed: RunResult = {
         runId,
         threadId: request.threadId,
@@ -193,14 +207,34 @@ export class DefaultAgentRuntime {
         steps: outcome.steps,
         usage: outcome.usage,
       };
-      await emit("run.completed", {
+
+      try {
+        await this.#store.transition(runId, version, "completed", completed);
+      } catch (error) {
+        throw new AgentError(
+          {
+            code: "INTERNAL",
+            message: "Failed to finalize the completed run",
+            retryable: false,
+            phase: "storage",
+          },
+          { cause: error },
+        );
+      }
+
+      await notify("run.completed", {
         text: outcome.text,
         steps: outcome.steps,
         usage: outcome.usage,
       });
-      await this.#store.transition(runId, version, "completed", completed);
       return completed;
     } catch (error) {
+      if (transcriptCommitted) {
+        // The transcript is a committed fact. A failed terminal transition
+        // must not be rewritten as an ordinary Run failure.
+        throw error;
+      }
+
       if (timedOut) {
         const timedOutResult: RunResult = {
           runId,
@@ -216,10 +250,10 @@ export class DefaultAgentRuntime {
             phase: "runtime",
           },
         };
-        await emit("run.timed_out", {
+        await this.#transitionIfActive(runId, "timed_out", timedOutResult);
+        await notify("run.timed_out", {
           timeoutMs: definition.limits.totalTimeoutMs,
         });
-        await this.#transitionIfActive(runId, "timed_out", timedOutResult);
         return timedOutResult;
       }
 
@@ -239,8 +273,8 @@ export class DefaultAgentRuntime {
           },
         };
         const reason = getCancelReason();
-        await emit("run.cancelled", reason ? { reason } : {});
         await this.#transitionIfActive(runId, "cancelled", cancelled);
+        await notify("run.cancelled", reason ? { reason } : {});
         return cancelled;
       }
 
@@ -254,8 +288,8 @@ export class DefaultAgentRuntime {
         usage: {},
         error: agentError.data,
       };
-      await emit("run.failed", { error: agentError.data });
       await this.#transitionIfActive(runId, "failed", failed);
+      await notify("run.failed", { error: agentError.data });
       return failed;
     } finally {
       clearTimeout(timeout);

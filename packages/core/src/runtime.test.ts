@@ -5,6 +5,10 @@ import {
   DefaultAgentRuntime,
   InMemoryAgentCatalog,
   InMemoryAgentStore,
+  type AgentEvent,
+  type RunRecord,
+  type RunResult,
+  type RunStatus,
   type AgentLoop,
 } from "./index.js";
 
@@ -19,6 +23,29 @@ const definition = {
 
 function userMessage(id: string, text: string): UIMessage {
   return { id, role: "user", parts: [{ type: "text", text }] };
+}
+
+class FailingCompletedNotificationStore extends InMemoryAgentStore {
+  override async append(event: AgentEvent): Promise<void> {
+    if (event.type === "run.completed") {
+      throw new Error("notification unavailable");
+    }
+    await super.append(event);
+  }
+}
+
+class FailingCompletedTransitionStore extends InMemoryAgentStore {
+  override async transition(
+    runId: string,
+    expectedVersion: number,
+    status: RunStatus,
+    result?: RunResult,
+  ): Promise<RunRecord> {
+    if (status === "completed") {
+      throw new Error("terminal transition unavailable");
+    }
+    return super.transition(runId, expectedVersion, status, result);
+  }
 }
 
 describe("DefaultAgentRuntime", () => {
@@ -258,5 +285,100 @@ describe("DefaultAgentRuntime", () => {
     });
     assert.equal((await failed.result).status, "failed");
     assert.deepEqual(await store.getMessages("thread-failure"), committed);
+  });
+
+  it("keeps a completed result when its notification fails", async () => {
+    const store = new FailingCompletedNotificationStore();
+    const runtime = new DefaultAgentRuntime({
+      catalog: new InMemoryAgentCatalog([definition]),
+      loop: {
+        async execute({ messages, generateId }) {
+          return {
+            text: "saved",
+            messages: [
+              ...messages,
+              {
+                id: generateId(),
+                role: "assistant",
+                parts: [{ type: "text", text: "saved" }],
+              },
+            ],
+            steps: 1,
+            usage: {},
+            stopReason: "completed",
+          };
+        },
+      },
+      store,
+    });
+
+    const first = await runtime.run({
+      agentId: "test",
+      threadId: "thread-notification",
+      messages: [userMessage("user-1", "first")],
+    });
+    assert.equal((await first.result).status, "completed");
+    assert.equal((await store.getMessages("thread-notification")).length, 2);
+
+    const second = await runtime.run({
+      agentId: "test",
+      threadId: "thread-notification",
+      messages: [userMessage("user-2", "second")],
+    });
+    assert.equal((await second.result).status, "completed");
+  });
+
+  it("rejects when finalization fails after saving the transcript", async () => {
+    const store = new FailingCompletedTransitionStore();
+    const runtime = new DefaultAgentRuntime({
+      catalog: new InMemoryAgentCatalog([definition]),
+      loop: {
+        async execute({ messages, generateId }) {
+          return {
+            text: "saved",
+            messages: [
+              ...messages,
+              {
+                id: generateId(),
+                role: "assistant",
+                parts: [{ type: "text", text: "saved" }],
+              },
+            ],
+            steps: 1,
+            usage: {},
+            stopReason: "completed",
+          };
+        },
+      },
+      store,
+    });
+
+    const handle = await runtime.run({
+      agentId: "test",
+      threadId: "thread-finalization",
+      messages: [userMessage("user-1", "first")],
+    });
+    await assert.rejects(
+      handle.result,
+      (error: unknown) =>
+        typeof error === "object" &&
+        error !== null &&
+        "data" in error &&
+        (error as { data?: { phase?: string } }).data?.phase === "storage",
+    );
+    assert.equal((await store.getMessages("thread-finalization")).length, 2);
+
+    await assert.rejects(
+      runtime.run({
+        agentId: "test",
+        threadId: "thread-finalization",
+        messages: [userMessage("user-2", "second")],
+      }),
+      (error: unknown) =>
+        typeof error === "object" &&
+        error !== null &&
+        "data" in error &&
+        (error as { data?: { code?: string } }).data?.code === "RUN_CONFLICT",
+    );
   });
 });

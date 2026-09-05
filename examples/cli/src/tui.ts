@@ -148,6 +148,7 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
     if (text.trim() === "") return;
 
     runStarting = true;
+    let runStarted = false;
     try {
       const userMessage: UIMessage = {
         id: generateId(),
@@ -159,6 +160,7 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
         threadId: options.threadId,
         messages: [userMessage],
       });
+      runStarted = true;
       state = { kind: "running", handle };
       cancelSentForRun = undefined;
 
@@ -167,7 +169,8 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
       const renderedText = await eventsDone;
       renderResult(output, result, renderedText);
     } catch (error) {
-      write(output, `\n\nRun could not start: ${String(error)}\n\n`);
+      const phase = runStarted ? "Run could not finish" : "Run could not start";
+      write(output, `\n\n${phase}: ${String(error)}\n\n`);
     } finally {
       state = { kind: "idle" };
       runStarting = false;

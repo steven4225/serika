@@ -428,6 +428,33 @@ describe("runTui", () => {
     await tui;
   });
 
+  it("reports a result rejection as a run completion failure", async () => {
+    const input = new PassThrough();
+    const output = outputBuffer();
+    const events = asyncQueue<AgentEvent>();
+    events.close();
+    const runtime = testRuntime([
+      handleFor({
+        runId: "run-1",
+        threadId: "thread-1",
+        events,
+        result: Promise.reject(new Error("finalization unavailable")),
+      }),
+    ]);
+    const store: Pick<MessageStore, "getMessages"> = {
+      async getMessages() {
+        return [];
+      },
+    };
+
+    input.write("prompt\n");
+    input.end();
+    await runTui({ ...tuiOptions, runtime: runtime.runtime, store, input, output });
+
+    assert.match(output.text(), /Run could not finish: Error: finalization unavailable/);
+    assert.doesNotMatch(output.text(), /Run could not start/);
+  });
+
   it("exits when Ctrl+C is pressed while idle without submitting a run", async () => {
     const input = ttyInput();
     const output = ttyOutput();
