@@ -97,16 +97,31 @@ function abortReason(signal: AbortSignal): unknown {
 }
 
 async function awaitWithSignal<T>(
-  operation: PromiseLike<T> | T,
+  operation: () => PromiseLike<T> | T,
   signal: AbortSignal,
 ): Promise<T> {
   if (signal.aborted) throw abortReason(signal);
   return new Promise<T>((resolve, reject) => {
-    const onAbort = () => reject(abortReason(signal));
+    const onAbort = () => {
+      signal.removeEventListener("abort", onAbort);
+      reject(abortReason(signal));
+    };
     // once removes the listener when abort wins; the settle handlers remove it
     // when the operation wins.
     signal.addEventListener("abort", onAbort, { once: true });
-    Promise.resolve(operation).then(
+    let result: PromiseLike<T> | T;
+    try {
+      if (signal.aborted) {
+        onAbort();
+        return;
+      }
+      result = operation();
+    } catch (error) {
+      signal.removeEventListener("abort", onAbort);
+      reject(error);
+      return;
+    }
+    Promise.resolve(result).then(
       (value) => {
         signal.removeEventListener("abort", onAbort);
         resolve(value);
@@ -117,6 +132,10 @@ async function awaitWithSignal<T>(
       },
     );
   });
+}
+
+function throwIfAborted(signal: AbortSignal): void {
+  if (signal.aborted) throw abortReason(signal);
 }
 
 function isAsyncIterable(value: unknown): value is AsyncIterable<unknown> {
@@ -147,32 +166,38 @@ export class AiSdkAgentLoop implements AgentLoop {
     while (steps < input.definition.limits.maxSteps) {
       steps += 1;
       await input.emit("step.started", { stepNumber: steps });
+      throwIfAborted(input.signal);
 
       const modelMessages = await convertToModelMessages(messages, {
         tools: modelTools,
       });
+      throwIfAborted(input.signal);
       const stepTimeout = AbortSignal.timeout(
         input.definition.limits.stepTimeoutMs,
       );
       const stepSignal = AbortSignal.any([input.signal, stepTimeout]);
       const pendingCalls: PendingToolCall[] = [];
       let stepText = "";
-
-      const result = streamText({
-        model,
-        instructions: input.definition.instructions,
-        messages: modelMessages,
-        tools: modelTools,
-        stopWhen: stepCountIs(1),
-        maxRetries: 0,
-        abortSignal: stepSignal,
-        ...(input.definition.limits.maxOutputTokens !== undefined
-          ? { maxOutputTokens: input.definition.limits.maxOutputTokens }
-          : {}),
-        telemetry: { isEnabled: false },
-      });
+      let result!: ReturnType<typeof streamText>;
+      let stepUsage: TokenUsage;
+      let finishReason: string;
 
       try {
+        throwIfAborted(input.signal);
+        result = streamText({
+          model,
+          instructions: input.definition.instructions,
+          messages: modelMessages,
+          tools: modelTools,
+          stopWhen: stepCountIs(1),
+          maxRetries: 0,
+          abortSignal: stepSignal,
+          ...(input.definition.limits.maxOutputTokens !== undefined
+            ? { maxOutputTokens: input.definition.limits.maxOutputTokens }
+            : {}),
+          telemetry: { isEnabled: false },
+        });
+
         for await (const part of result.stream) {
           if (part.type === "text-delta") {
             stepText += part.text;
@@ -198,7 +223,16 @@ export class AiSdkAgentLoop implements AgentLoop {
           } else if (part.type === "error") {
             throw part.error;
           }
+          throwIfAborted(input.signal);
         }
+
+        stepUsage = normalizeUsage(
+          (await awaitWithSignal(() => result.usage, stepSignal)) as LanguageModelUsage,
+        );
+        finishReason = await awaitWithSignal(
+          () => result.finishReason,
+          stepSignal,
+        );
       } catch (error) {
         if (input.signal.aborted) throw abortReason(input.signal);
         if (stepTimeout.aborted) {
@@ -223,10 +257,6 @@ export class AiSdkAgentLoop implements AgentLoop {
         );
       }
 
-      const stepUsage = normalizeUsage(
-        (await result.usage) as LanguageModelUsage,
-      );
-      const finishReason = await result.finishReason;
       totalUsage = addUsage(totalUsage, stepUsage);
       await input.emit("step.completed", {
         stepNumber: steps,
@@ -241,6 +271,7 @@ export class AiSdkAgentLoop implements AgentLoop {
       }
 
       for (const call of pendingCalls) {
+        throwIfAborted(input.signal);
         const registered = executableTools[call.toolName];
         if (!registered) {
           throw new AgentError({
@@ -266,24 +297,28 @@ export class AiSdkAgentLoop implements AgentLoop {
           toolCallId: call.toolCallId,
           toolName: call.toolName,
         });
+        throwIfAborted(input.signal);
 
         const metadata = this.#tools.metadata(call.toolName);
+        const timeoutMs =
+          metadata?.timeoutMs ?? input.definition.limits.stepTimeoutMs;
         const toolTimeout = AbortSignal.timeout(
-          metadata?.timeoutMs ?? input.definition.limits.stepTimeoutMs,
+          timeoutMs,
         );
-        const toolSignal = AbortSignal.any([stepSignal, toolTimeout]);
+        const toolSignal = AbortSignal.any([input.signal, toolTimeout]);
 
         try {
           if (!registered.execute) {
             throw new Error("Registered tool has no execute function");
           }
           const output = await awaitWithSignal(
-            registered.execute(call.input, {
-              toolCallId: call.toolCallId,
-              messages: modelMessages,
-              abortSignal: toolSignal,
-              context: input.context ?? {},
-            }),
+            () =>
+              registered.execute!(call.input, {
+                toolCallId: call.toolCallId,
+                messages: modelMessages,
+                abortSignal: toolSignal,
+                context: input.context ?? {},
+              }),
             toolSignal,
           );
           if (isAsyncIterable(output)) {
@@ -304,8 +339,6 @@ export class AiSdkAgentLoop implements AgentLoop {
           });
         } catch (error) {
           if (input.signal.aborted) throw abortReason(input.signal);
-          const timeoutMs =
-            metadata?.timeoutMs ?? input.definition.limits.stepTimeoutMs;
           const toolFailed = toolTimeout.aborted;
           const errorData = toolError(
             "TOOL_EXECUTION_FAILED",
@@ -323,6 +356,8 @@ export class AiSdkAgentLoop implements AgentLoop {
           });
         }
       }
+
+      throwIfAborted(input.signal);
 
       if (pendingCalls.length === 0 && finishReason === "tool-calls") {
         throw new AgentError({
