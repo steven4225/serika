@@ -13,6 +13,7 @@ import type {
   RunHandle,
   RunRequest,
   RunResult,
+  PrepareModelContext,
 } from "./types.js";
 
 function abortReason(signal: AbortSignal): unknown {
@@ -27,6 +28,7 @@ export interface AgentRuntimeOptions {
   store: AgentStore;
   idGenerator?: () => string;
   now?: () => Date;
+  prepareModelContext?: PrepareModelContext;
 }
 
 export class DefaultAgentRuntime {
@@ -35,6 +37,7 @@ export class DefaultAgentRuntime {
   readonly #store: AgentStore;
   readonly #idGenerator: () => string;
   readonly #now: () => Date;
+  readonly #prepareModelContext: PrepareModelContext | undefined;
 
   constructor(options: AgentRuntimeOptions) {
     this.#catalog = options.catalog;
@@ -42,6 +45,7 @@ export class DefaultAgentRuntime {
     this.#store = options.store;
     this.#idGenerator = options.idGenerator ?? randomUUID;
     this.#now = options.now ?? (() => new Date());
+    this.#prepareModelContext = options.prepareModelContext;
   }
 
   async run<TContext>(request: RunRequest<TContext>): Promise<RunHandle> {
@@ -265,6 +269,9 @@ export class DefaultAgentRuntime {
           ? { context: options.parsedContext }
           : {}),
         signal: controller.signal,
+        ...(this.#prepareModelContext
+          ? { prepareModelContext: this.#prepareModelContext }
+          : {}),
         generateId: this.#idGenerator,
         emit,
       });

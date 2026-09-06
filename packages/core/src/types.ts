@@ -64,6 +64,17 @@ export interface RunHandle {
   cancel(reason?: string): Promise<void>;
 }
 
+export interface PrepareModelContextInput {
+  messages: UIMessage[];
+  definition: AgentDefinition;
+  context?: unknown;
+  signal: AbortSignal;
+}
+
+export type PrepareModelContext = (
+  input: PrepareModelContextInput,
+) => UIMessage[] | Promise<UIMessage[]>;
+
 export interface LoopOutcome {
   text: string;
   messages: UIMessage[];
@@ -77,6 +88,7 @@ export interface AgentLoopInput<TContext = unknown> {
   messages: UIMessage[];
   context?: TContext;
   signal: AbortSignal;
+  prepareModelContext?: PrepareModelContext;
   generateId(): string;
   emit: import("./events.js").EmitAgentEvent;
 }

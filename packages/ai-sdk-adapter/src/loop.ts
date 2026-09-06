@@ -168,7 +168,53 @@ export class AiSdkAgentLoop implements AgentLoop {
       await input.emit("step.started", { stepNumber: steps });
       throwIfAborted(input.signal);
 
-      const modelMessages = await convertToModelMessages(messages, {
+      let modelInput = messages;
+      if (input.prepareModelContext) {
+        const hookMessages = structuredClone(messages);
+        let prepared: unknown;
+        try {
+          prepared = await awaitWithSignal(
+            () =>
+              input.prepareModelContext!({
+                messages: hookMessages,
+                definition: input.definition,
+                ...(input.context !== undefined
+                  ? { context: input.context }
+                  : {}),
+                signal: input.signal,
+              }),
+            input.signal,
+          );
+        } catch (error) {
+          if (input.signal.aborted) throw abortReason(input.signal);
+          if (
+            error instanceof AgentError &&
+            error.data.code === "CONTEXT_PREPARE_FAILED"
+          ) {
+            throw error;
+          }
+          throw new AgentError(
+            {
+              code: "CONTEXT_PREPARE_FAILED",
+              message: "Failed to prepare model context",
+              retryable: false,
+              phase: "runtime",
+            },
+            { cause: error },
+          );
+        }
+        if (!Array.isArray(prepared)) {
+          throw new AgentError({
+            code: "CONTEXT_PREPARE_FAILED",
+            message: "Model context preparation must return UIMessage[]",
+            retryable: false,
+            phase: "runtime",
+          });
+        }
+        modelInput = prepared as UIMessage[];
+      }
+
+      const modelMessages = await convertToModelMessages(modelInput, {
         tools: modelTools,
       });
       throwIfAborted(input.signal);
