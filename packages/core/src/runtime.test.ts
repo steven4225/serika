@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { UIMessage } from "ai";
 import {
+  AgentError,
   DefaultAgentRuntime,
   InMemoryAgentCatalog,
   InMemoryAgentStore,
@@ -124,6 +125,118 @@ function waitForAbort(signal: AbortSignal): Promise<never> {
 }
 
 describe("DefaultAgentRuntime", () => {
+  it("does not save when model context preparation fails", async () => {
+    const store = new CountingStore();
+    const contextError = new AgentError({
+      code: "CONTEXT_PREPARE_FAILED",
+      message: "context preparation failed",
+      retryable: false,
+      phase: "runtime",
+    });
+    const runtime = new DefaultAgentRuntime({
+      catalog: new InMemoryAgentCatalog([definition]),
+      loop: {
+        async execute(input) {
+          if (!input.prepareModelContext) throw new Error("hook missing");
+          await input.prepareModelContext({
+            messages: input.messages,
+            definition: input.definition,
+            signal: input.signal,
+          });
+          throw new Error("model should not run");
+        },
+      },
+      prepareModelContext: () => {
+        throw contextError;
+      },
+      store,
+    });
+
+    const handle = await runtime.run({
+      agentId: "test",
+      threadId: "thread-context-failure",
+      messages: [userMessage("user-1", "hello")],
+    });
+    const result = await handle.result;
+
+    assert.equal(result.status, "failed");
+    assert.equal(result.error?.code, "CONTEXT_PREPARE_FAILED");
+    assert.equal(store.saveCount, 0);
+  });
+
+  it("does not save when context preparation is cancelled", async () => {
+    const controller = new AbortController();
+    let preparationStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      preparationStarted = resolve;
+    });
+    const store = new CountingStore();
+    const runtime = new DefaultAgentRuntime({
+      catalog: new InMemoryAgentCatalog([definition]),
+      loop: {
+        async execute(input) {
+          if (!input.prepareModelContext) throw new Error("hook missing");
+          await input.prepareModelContext({
+            messages: input.messages,
+            definition: input.definition,
+            signal: input.signal,
+          });
+          throw new Error("model should not run");
+        },
+      },
+      prepareModelContext: ({ signal }) => {
+        preparationStarted();
+        return waitForAbort(signal);
+      },
+      store,
+    });
+
+    const handle = await runtime.run({
+      agentId: "test",
+      threadId: "thread-context-cancelled",
+      messages: [userMessage("user-1", "hello")],
+      signal: controller.signal,
+    });
+    await started;
+    controller.abort("cancel context preparation");
+
+    assert.equal((await handle.result).status, "cancelled");
+    assert.equal(store.saveCount, 0);
+  });
+
+  it("does not save when context preparation reaches the run timeout", async () => {
+    const shortDefinition = {
+      ...definition,
+      limits: { ...definition.limits, totalTimeoutMs: 20 },
+    };
+    const store = new CountingStore();
+    const runtime = new DefaultAgentRuntime({
+      catalog: new InMemoryAgentCatalog([shortDefinition]),
+      loop: {
+        async execute(input) {
+          if (!input.prepareModelContext) throw new Error("hook missing");
+          await input.prepareModelContext({
+            messages: input.messages,
+            definition: input.definition,
+            signal: input.signal,
+          });
+          throw new Error("model should not run");
+        },
+      },
+      prepareModelContext: ({ signal }) => waitForAbort(signal),
+      store,
+    });
+
+    const handle = await runtime.run({
+      agentId: "test",
+      threadId: "thread-context-timeout",
+      messages: [userMessage("user-1", "hello")],
+    });
+
+    assert.equal((await handle.result).status, "timed_out");
+    assert.equal(store.saveCount, 0);
+  });
+
   it("rejects an already aborted request before creating a run", async () => {
     const controller = new AbortController();
     controller.abort("already stopped");

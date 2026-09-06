@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import { simulateReadableStream, tool, type UIMessage } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { z } from "zod";
-import type { AgentEvent } from "@aisdk-agent/core";
+import { AgentError, type AgentEvent } from "@aisdk-agent/core";
 import { AiSdkAgentLoop } from "./loop.js";
 import { InMemoryModelRegistry, ToolRegistry } from "./registries.js";
 
@@ -85,8 +85,135 @@ describe("AiSdkAgentLoop", () => {
     assert.equal(modelCalls, 0);
   });
 
+  it("prepares a cloned transcript for the model", async () => {
+    let prepareCalls = 0;
+    let modelPrompt: unknown;
+    const model = new MockLanguageModelV3({
+      doStream: async ({ prompt }) => {
+        modelPrompt = prompt;
+        return textResponse("prepared answer");
+      },
+    });
+    const original = userMessage("original");
+    const outcome = await new AiSdkAgentLoop({
+      models: new InMemoryModelRegistry({ test: model }),
+      tools: new ToolRegistry(),
+    }).execute({
+      definition: { ...definition, tools: [] },
+      messages: [original],
+      context: { userId: "user-1" },
+      signal: new AbortController().signal,
+      generateId: () => "assistant-1",
+      prepareModelContext: ({ messages, context }) => {
+        prepareCalls += 1;
+        assert.deepEqual(context, { userId: "user-1" });
+        messages[0]!.parts = [{ type: "text", text: "prepared" }];
+        return messages;
+      },
+      emit: async () => undefined,
+    });
+
+    assert.equal(prepareCalls, 1);
+    assert.match(JSON.stringify(modelPrompt), /prepared/);
+    assert.deepEqual(outcome.messages[0], original);
+  });
+
+  it("fails before the model when context preparation returns a non-array", async () => {
+    let modelCalls = 0;
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        modelCalls += 1;
+        return textResponse("unexpected");
+      },
+    });
+
+    await assert.rejects(
+      new AiSdkAgentLoop({
+        models: new InMemoryModelRegistry({ test: model }),
+        tools: new ToolRegistry(),
+      }).execute({
+        definition: { ...definition, tools: [] },
+        messages: [userMessage()],
+        signal: new AbortController().signal,
+        generateId: () => "unused",
+        prepareModelContext: () => "invalid" as never,
+        emit: async () => undefined,
+      }),
+      (error: unknown) =>
+        error instanceof Error &&
+        "data" in error &&
+        (error as { data?: { code?: string } }).data?.code ===
+          "CONTEXT_PREPARE_FAILED",
+    );
+    assert.equal(modelCalls, 0);
+  });
+
+  it("preserves a context preparation AgentError", async () => {
+    const error = new AgentError({
+      code: "CONTEXT_PREPARE_FAILED",
+      message: "known preparation failure",
+      retryable: false,
+      phase: "runtime",
+    });
+    const model = new MockLanguageModelV3({
+      doStream: async () => textResponse("unexpected"),
+    });
+
+    await assert.rejects(
+      new AiSdkAgentLoop({
+        models: new InMemoryModelRegistry({ test: model }),
+        tools: new ToolRegistry(),
+      }).execute({
+        definition: { ...definition, tools: [] },
+        messages: [userMessage()],
+        signal: new AbortController().signal,
+        generateId: () => "unused",
+        prepareModelContext: () => {
+          throw error;
+        },
+        emit: async () => undefined,
+      }),
+      (received: unknown) => received === error,
+    );
+  });
+
+  it("stops waiting for context preparation when the run is aborted", async () => {
+    let modelCalls = 0;
+    let preparationStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      preparationStarted = resolve;
+    });
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        modelCalls += 1;
+        return textResponse("unexpected");
+      },
+    });
+    const controller = new AbortController();
+    const execution = new AiSdkAgentLoop({
+      models: new InMemoryModelRegistry({ test: model }),
+      tools: new ToolRegistry(),
+    }).execute({
+      definition: { ...definition, tools: [] },
+      messages: [userMessage()],
+      signal: controller.signal,
+      generateId: () => "unused",
+      prepareModelContext: async () => {
+        preparationStarted();
+        return new Promise<UIMessage[]>(() => undefined);
+      },
+      emit: async () => undefined,
+    });
+
+    await started;
+    controller.abort("cancel context preparation");
+    await assert.rejects(execution);
+    assert.equal(modelCalls, 0);
+  });
+
   it("owns the model-tool-model loop and executes multiple calls sequentially", async () => {
     let modelCall = 0;
+    let prepareCalls = 0;
     const modelPrompts: unknown[] = [];
     const executionOrder: string[] = [];
     const model = new MockLanguageModelV3({
@@ -179,6 +306,10 @@ describe("AiSdkAgentLoop", () => {
       messages: [userMessage()],
       signal: new AbortController().signal,
       generateId: () => `assistant-${++messageId}`,
+      prepareModelContext: ({ messages }) => {
+        prepareCalls += 1;
+        return messages;
+      },
       emit: createEmit(events),
     });
 
@@ -192,6 +323,7 @@ describe("AiSdkAgentLoop", () => {
       "increment:end",
     ]);
     assert.equal(modelCall, 2);
+    assert.equal(prepareCalls, 2);
     assert.match(JSON.stringify(modelPrompts[1]), /"role":"tool"/);
     assert.match(JSON.stringify(modelPrompts[1]), /"value":40/);
     assert.ok(events.some((event) => event.type === "tool.call.completed"));
