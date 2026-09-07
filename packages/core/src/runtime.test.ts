@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { UIMessage } from "ai";
+import { simulateReadableStream, type UIMessage } from "ai";
+import { MockLanguageModelV3 } from "ai/test";
 import {
   AgentError,
   DefaultAgentRuntime,
@@ -631,6 +632,95 @@ describe("DefaultAgentRuntime", () => {
     });
     assert.equal((await failed.result).status, "failed");
     assert.deepEqual(await store.getMessages("thread-failure"), committed);
+  });
+
+  it("does not save a truncated model response", async () => {
+    // Core cannot depend on the adapter package without creating a package
+    // cycle. The root test script builds both packages before running tests,
+    // so load the adapter implementation only for this integration assertion.
+    const adapterModulePath = "../../ai-sdk-adapter/dist/index.js";
+    const { AiSdkAgentLoop, InMemoryModelRegistry, ToolRegistry } =
+      await import(adapterModulePath);
+    const threadId = "thread-model-truncated";
+    const committed = [
+      userMessage("old-user", "remember this"),
+      {
+        id: "old-assistant",
+        role: "assistant" as const,
+        parts: [{ type: "text" as const, text: "I remember it." }],
+      },
+    ];
+    const store = new CountingStore();
+    await store.save(threadId, committed);
+    store.saveCount = 0;
+
+    let modelCalls = 0;
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        modelCalls += 1;
+        return {
+          stream: simulateReadableStream({
+            chunks: [
+              { type: "stream-start" as const, warnings: [] },
+              { type: "text-start" as const, id: "text-1" },
+              {
+                type: "text-delta" as const,
+                id: "text-1",
+                delta: "partial answer",
+              },
+              { type: "text-end" as const, id: "text-1" },
+              {
+                type: "finish" as const,
+                finishReason: { unified: "length" as const, raw: undefined },
+                usage: {
+                  inputTokens: {
+                    total: 3,
+                    noCache: 3,
+                    cacheRead: undefined,
+                    cacheWrite: undefined,
+                  },
+                  outputTokens: {
+                    total: 2,
+                    text: 2,
+                    reasoning: undefined,
+                  },
+                },
+              },
+            ],
+          }),
+        };
+      },
+    });
+    const runtime = new DefaultAgentRuntime({
+      catalog: new InMemoryAgentCatalog([
+        { ...definition, model: "test", tools: [] },
+      ]),
+      loop: new AiSdkAgentLoop({
+        models: new InMemoryModelRegistry({ test: model }),
+        tools: new ToolRegistry(),
+      }),
+      store,
+    });
+
+    const handle = await runtime.run({
+      agentId: "test",
+      threadId,
+      messages: [userMessage("new-user", "finish this answer")],
+    });
+    const eventsPromise = (async () => {
+      const events: AgentEvent[] = [];
+      for await (const event of handle.events) events.push(event);
+      return events;
+    })();
+    const result = await handle.result;
+    const events = await eventsPromise;
+
+    assert.equal(result.status, "failed");
+    assert.equal(result.error?.code, "MODEL_BAD_RESPONSE");
+    assert.equal(modelCalls, 1);
+    assert.equal(store.saveCount, 0);
+    assert.deepEqual(await store.getMessages(threadId), committed);
+    assert.equal(events.some((event) => event.type === "run.completed"), false);
   });
 
   it("keeps a completed result when its notification fails", async () => {

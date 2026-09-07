@@ -55,6 +55,36 @@ function addUsage(total: TokenUsage, next: TokenUsage): TokenUsage {
   };
 }
 
+function validateStepOutcome(finishReason: string, toolCallCount: number): void {
+  if (finishReason === "stop" && toolCallCount === 0) return;
+  if (finishReason === "tool-calls" && toolCallCount > 0) return;
+
+  if (finishReason === "length") {
+    throw new AgentError({
+      code: "MODEL_BAD_RESPONSE",
+      message: `Model output was truncated (finishReason: ${finishReason}); ${toolCallCount} tool call(s) were not executed`,
+      retryable: false,
+      phase: "model",
+    });
+  }
+
+  if (finishReason === "stop" || finishReason === "tool-calls") {
+    throw new AgentError({
+      code: "MODEL_BAD_RESPONSE",
+      message: `Model finishReason ${finishReason} is inconsistent with ${toolCallCount} tool call(s)`,
+      retryable: false,
+      phase: "model",
+    });
+  }
+
+  throw new AgentError({
+    code: "MODEL_BAD_RESPONSE",
+    message: `Model ended with finishReason ${finishReason}; ${toolCallCount} tool call(s) were not executed`,
+    retryable: false,
+    phase: "model",
+  });
+}
+
 function toolError(
   code: "TOOL_INVALID_INPUT" | "TOOL_EXECUTION_FAILED",
   toolName: string,
@@ -310,6 +340,8 @@ export class AiSdkAgentLoop implements AgentLoop {
         usage: stepUsage,
       });
       await input.emit("usage.updated", { usage: totalUsage });
+      throwIfAborted(input.signal);
+      validateStepOutcome(finishReason, pendingCalls.length);
 
       const assistantParts: UIMessage["parts"] = [];
       if (stepText.length > 0) {
@@ -404,15 +436,6 @@ export class AiSdkAgentLoop implements AgentLoop {
       }
 
       throwIfAborted(input.signal);
-
-      if (pendingCalls.length === 0 && finishReason === "tool-calls") {
-        throw new AgentError({
-          code: "MODEL_BAD_RESPONSE",
-          message: "Model stopped for tool calls without returning a tool call",
-          retryable: false,
-          phase: "model",
-        });
-      }
 
       messages.push({
         id: input.generateId(),

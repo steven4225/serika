@@ -43,6 +43,68 @@ function textResponse(text: string) {
   };
 }
 
+function finishResponse(finishReason: string, text = "") {
+  return {
+    stream: simulateReadableStream({
+      chunks: [
+        { type: "stream-start" as const, warnings: [] },
+        ...(text.length > 0
+          ? [
+              { type: "text-start" as const, id: "text-1" },
+              { type: "text-delta" as const, id: "text-1", delta: text },
+              { type: "text-end" as const, id: "text-1" },
+            ]
+          : []),
+        {
+          type: "finish" as const,
+          finishReason: { unified: finishReason as never, raw: undefined },
+          usage,
+        },
+      ],
+    }),
+  };
+}
+
+function toolCallResponse(finishReason: string) {
+  return {
+    stream: simulateReadableStream({
+      chunks: [
+        { type: "stream-start" as const, warnings: [] },
+        {
+          type: "tool-call" as const,
+          toolCallId: "finish-check-call",
+          toolName: "double",
+          input: JSON.stringify({ value: 2 }),
+        },
+        {
+          type: "finish" as const,
+          finishReason: { unified: finishReason as never, raw: undefined },
+          usage,
+        },
+      ],
+    }),
+  };
+}
+
+function doubleTool(execute: () => Promise<{ value: number }> | { value: number }) {
+  return new ToolRegistry([
+    {
+      metadata: {
+        name: "double",
+        version: "1",
+        risk: "read",
+        timeoutMs: 1_000,
+        idempotent: true,
+      },
+      tool: tool({
+        inputSchema: z.object({ value: z.number() }),
+        outputSchema: z.object({ value: z.number() }),
+        execute,
+      }),
+    },
+  ]);
+}
+
 function createEmit(events: AgentEvent[]) {
   let eventId = 0;
   return async (type: AgentEvent["type"], data: unknown) => {
@@ -209,6 +271,126 @@ describe("AiSdkAgentLoop", () => {
     controller.abort("cancel context preparation");
     await assert.rejects(execution);
     assert.equal(modelCalls, 0);
+  });
+
+  it("allows an empty response with a normal stop finish reason", async () => {
+    const model = new MockLanguageModelV3({
+      doStream: async () => finishResponse("stop"),
+    });
+
+    const outcome = await new AiSdkAgentLoop({
+      models: new InMemoryModelRegistry({ test: model }),
+      tools: new ToolRegistry(),
+    }).execute({
+      definition: { ...definition, tools: [] },
+      messages: [userMessage()],
+      signal: new AbortController().signal,
+      generateId: () => "assistant-1",
+      emit: async () => undefined,
+    });
+
+    assert.equal(outcome.text, "");
+    assert.equal(outcome.stopReason, "completed");
+  });
+
+  it("rejects inconsistent and unsupported finish reasons before tool execution", async () => {
+    const cases = [
+      { finishReason: "tool-calls", response: () => finishResponse("tool-calls") },
+      { finishReason: "stop", response: () => toolCallResponse("stop") },
+      { finishReason: "content-filter", response: () => finishResponse("content-filter") },
+      { finishReason: "error", response: () => finishResponse("error") },
+      { finishReason: "other", response: () => finishResponse("other") },
+      { finishReason: "unrecognized", response: () => finishResponse("unrecognized") },
+    ];
+
+    for (const testCase of cases) {
+      let modelCalls = 0;
+      let executeCount = 0;
+      const events: AgentEvent[] = [];
+      const model = new MockLanguageModelV3({
+        doStream: async () => {
+          modelCalls += 1;
+          return testCase.response();
+        },
+      });
+
+      await assert.rejects(
+        new AiSdkAgentLoop({
+          models: new InMemoryModelRegistry({ test: model }),
+          tools: doubleTool(() => {
+            executeCount += 1;
+            return { value: 4 };
+          }),
+        }).execute({
+          definition: { ...definition, tools: ["double"] },
+          messages: [userMessage()],
+          signal: new AbortController().signal,
+          generateId: () => "assistant-1",
+          emit: createEmit(events),
+        }),
+        (error: unknown) =>
+          error instanceof AgentError &&
+          error.data.code === "MODEL_BAD_RESPONSE" &&
+          error.message.includes(testCase.finishReason),
+      );
+
+      assert.equal(modelCalls, 1, testCase.finishReason);
+      assert.equal(executeCount, 0, testCase.finishReason);
+      assert.ok(
+        events.some(
+          (event) =>
+            event.type === "step.completed" &&
+            event.data.finishReason === testCase.finishReason,
+        ),
+        testCase.finishReason,
+      );
+      assert.equal(
+        events.some((event) => event.type === "tool.call.started"),
+        false,
+        testCase.finishReason,
+      );
+    }
+  });
+
+  it("does not execute a legal tool call when the model output is truncated", async () => {
+    let executeCount = 0;
+    const events: AgentEvent[] = [];
+    const model = new MockLanguageModelV3({
+      doStream: async () => toolCallResponse("length"),
+    });
+
+    await assert.rejects(
+      new AiSdkAgentLoop({
+        models: new InMemoryModelRegistry({ test: model }),
+        tools: doubleTool(() => {
+          executeCount += 1;
+          return { value: 4 };
+        }),
+      }).execute({
+        definition: { ...definition, tools: ["double"] },
+        messages: [userMessage()],
+        signal: new AbortController().signal,
+        generateId: () => "assistant-1",
+        emit: createEmit(events),
+      }),
+      (error: unknown) =>
+        error instanceof AgentError &&
+        error.data.code === "MODEL_BAD_RESPONSE" &&
+        error.message.includes("finishReason: length") &&
+        error.message.includes("1 tool call(s)"),
+    );
+
+    assert.equal(executeCount, 0);
+    assert.equal(
+      events.some((event) => event.type === "tool.call.started"),
+      false,
+    );
+    assert.ok(
+      events.some(
+        (event) =>
+          event.type === "step.completed" && event.data.finishReason === "length",
+      ),
+    );
   });
 
   it("owns the model-tool-model loop and executes multiple calls sequentially", async () => {
