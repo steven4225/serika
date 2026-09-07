@@ -242,6 +242,12 @@ const tuiOptions = {
 
 class CountingStore extends InMemoryAgentStore {
   saveCount = 0;
+  runIds: string[] = [];
+
+  override async create(record: Parameters<InMemoryAgentStore["create"]>[0]): Promise<void> {
+    this.runIds.push(record.id);
+    await super.create(record);
+  }
 
   override async save(threadId: string, messages: UIMessage[]): Promise<void> {
     this.saveCount += 1;
@@ -249,7 +255,10 @@ class CountingStore extends InMemoryAgentStore {
   }
 }
 
-function createConfirmationRuntime(output: Writable): {
+function createConfirmationRuntime(
+  output: Writable,
+  options: { totalTimeoutMs?: number } = {},
+): {
   runtime: DefaultAgentRuntime;
   store: CountingStore;
   confirmation: ReturnType<typeof createToolConfirmation>;
@@ -275,7 +284,11 @@ function createConfirmationRuntime(output: Writable): {
         instructions: "Use the add tool when arithmetic is requested.",
         model: "mock",
         tools: ["add"],
-        limits: { maxSteps: 4, totalTimeoutMs: 5_000, stepTimeoutMs: 1_000 },
+        limits: {
+          maxSteps: 4,
+          totalTimeoutMs: options.totalTimeoutMs ?? 5_000,
+          stepTimeoutMs: 1_000,
+        },
       },
     ]),
     loop: new AiSdkAgentLoop({
@@ -565,6 +578,23 @@ describe("runTui", () => {
 });
 
 describe("createToolConfirmation", () => {
+  it("registers pending state before a synchronous prompt writer can answer", async () => {
+    let confirmation!: ReturnType<typeof createToolConfirmation>;
+    const output = new Writable({
+      write(_chunk, _encoding, callback) {
+        assert.equal(confirmation.handleLine("y"), true);
+        callback();
+      },
+    });
+    confirmation = createToolConfirmation(output);
+
+    const decision = confirmation.beforeToolExecute(
+      toolInput("add", new AbortController().signal),
+    );
+
+    assert.deepEqual(await decision, { allow: true });
+  });
+
   it("keeps invalid input pending and treats abort as cancellation, not denial", async () => {
     const output = outputBuffer();
     const confirmation = createToolConfirmation(output);
@@ -702,6 +732,38 @@ describe("runTui tool confirmation", () => {
     await tui;
   });
 
+  it("times out while confirmation is pending without executing or saving", async () => {
+    const input = ttyInput();
+    const output = ttyOutput();
+    const { runtime, store, confirmation, executeCount } =
+      createConfirmationRuntime(output, { totalTimeoutMs: 30 });
+    await store.save("thread-1", [message("committed", "user", "old transcript")]);
+    const savedBeforeRun = await store.getMessages("thread-1");
+    const saveCountBeforeRun = store.saveCount;
+    const tui = runTui({
+      ...tuiOptions,
+      runtime,
+      store,
+      input,
+      output,
+      toolConfirmation: confirmation,
+    });
+
+    await nextTurn();
+    input.write("What is 20 + 22?\n");
+    await waitFor(() => output.text().includes("Allow this call? [y/n]"));
+    await waitFor(() => output.text().includes("Run timed_out"));
+    input.end();
+    await tui;
+
+    assert.equal(executeCount.value, 0);
+    assert.equal(store.saveCount, saveCountBeforeRun);
+    assert.deepEqual(await store.getMessages("thread-1"), savedBeforeRun);
+    const run = await store.getRun(store.runIds[0] as string);
+    assert.equal(run?.status, "timed_out");
+    assert.equal(run?.result?.error?.code, "RUN_TIMEOUT");
+  });
+
   it("cancels a pending confirmation when stdin closes", async () => {
     const input = ttyInput();
     const output = ttyOutput();
@@ -761,6 +823,79 @@ describe("runTui tool confirmation", () => {
 
     assert.deepEqual(cancelReasons, ["user_interrupt"]);
     assert.match(output.text(), /Run cancelled/);
+  });
+
+  it("keeps the TUI alive after Ctrl+C so the next run gets a fresh confirmation", async () => {
+    const input = ttyInput();
+    const output = ttyOutput();
+    const { runtime, store, confirmation, executeCount } =
+      createConfirmationRuntime(output);
+    const tui = runTui({
+      ...tuiOptions,
+      runtime,
+      store,
+      input,
+      output,
+      toolConfirmation: confirmation,
+    });
+
+    await nextTurn();
+    input.write("First calculation\n");
+    await waitFor(() => output.text().includes("Allow this call? [y/n]"));
+    pressCtrlC(input);
+    await waitFor(() => output.text().includes("Run cancelled"));
+    assert.equal(executeCount.value, 0);
+    assert.equal(store.saveCount, 0);
+
+    input.write("Second calculation\n");
+    await waitFor(
+      () => (output.text().match(/Allow this call\? \[y\/n\]/g) ?? []).length === 2,
+    );
+    assert.equal(executeCount.value, 0);
+    input.write("y\n");
+    await waitFor(() => output.text().includes("20 + 22 = 42"));
+    await waitFor(() => store.saveCount === 1);
+    input.end();
+    await tui;
+
+    assert.equal(executeCount.value, 1);
+    assert.equal(store.saveCount, 1);
+  });
+
+  it("asks again on a new turn even when the committed previous result was 42", async () => {
+    const input = ttyInput();
+    const output = ttyOutput();
+    const { runtime, store, confirmation, executeCount } =
+      createConfirmationRuntime(output);
+    const tui = runTui({
+      ...tuiOptions,
+      runtime,
+      store,
+      input,
+      output,
+      toolConfirmation: confirmation,
+    });
+
+    await nextTurn();
+    input.write("First calculation\n");
+    await waitFor(() => output.text().includes("Allow this call? [y/n]"));
+    input.write("y\n");
+    await waitFor(() => output.text().includes("20 + 22 = 42"));
+    await waitFor(() => store.saveCount === 1);
+
+    input.write("Second calculation\n");
+    await waitFor(
+      () => (output.text().match(/Allow this call\? \[y\/n\]/g) ?? []).length === 2,
+    );
+    assert.equal(executeCount.value, 1);
+    input.write("n\n");
+    await waitFor(() => output.text().includes("The add tool was denied."));
+    await waitFor(() => store.saveCount === 2);
+    input.end();
+    await tui;
+
+    assert.equal(executeCount.value, 1);
+    assert.equal(store.saveCount, 2);
   });
 
   it("handles two tool calls one confirmation at a time", async () => {
