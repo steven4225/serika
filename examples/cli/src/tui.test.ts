@@ -1,15 +1,29 @@
 import assert from "node:assert/strict";
 import { PassThrough, Writable } from "node:stream";
 import { describe, it } from "node:test";
-import type { UIMessage } from "ai";
+import { simulateReadableStream, tool, type UIMessage } from "ai";
+import { MockLanguageModelV3 } from "ai/test";
+import { z } from "zod";
 import type {
   AgentEvent,
+  BeforeToolExecute,
   MessageStore,
   RunHandle,
   RunRequest,
   RunResult,
 } from "@aisdk-agent/core";
-import { runTui } from "./tui.js";
+import {
+  DefaultAgentRuntime,
+  InMemoryAgentCatalog,
+  InMemoryAgentStore,
+} from "@aisdk-agent/core";
+import {
+  AiSdkAgentLoop,
+  InMemoryModelRegistry,
+  ToolRegistry,
+} from "@aisdk-agent/ai-sdk-adapter";
+import { createDemoModel } from "./demo-model.js";
+import { createToolConfirmation, runTui } from "./tui.js";
 
 type TestRuntime = {
   requests: RunRequest[];
@@ -225,6 +239,82 @@ const tuiOptions = {
   agentId: "calculator",
   generateId: () => "new-user-id",
 };
+
+class CountingStore extends InMemoryAgentStore {
+  saveCount = 0;
+
+  override async save(threadId: string, messages: UIMessage[]): Promise<void> {
+    this.saveCount += 1;
+    await super.save(threadId, messages);
+  }
+}
+
+function createConfirmationRuntime(output: Writable): {
+  runtime: DefaultAgentRuntime;
+  store: CountingStore;
+  confirmation: ReturnType<typeof createToolConfirmation>;
+  executeCount: { value: number };
+} {
+  const confirmation = createToolConfirmation(output);
+  const store = new CountingStore();
+  const executeCount = { value: 0 };
+  const add = tool({
+    description: "Add two numbers",
+    inputSchema: z.object({ left: z.number(), right: z.number() }),
+    outputSchema: z.object({ value: z.number() }),
+    execute: async ({ left, right }) => {
+      executeCount.value += 1;
+      return { value: left + right };
+    },
+  });
+  const runtime = new DefaultAgentRuntime({
+    catalog: new InMemoryAgentCatalog([
+      {
+        id: "calculator",
+        version: "1",
+        instructions: "Use the add tool when arithmetic is requested.",
+        model: "mock",
+        tools: ["add"],
+        limits: { maxSteps: 4, totalTimeoutMs: 5_000, stepTimeoutMs: 1_000 },
+      },
+    ]),
+    loop: new AiSdkAgentLoop({
+      models: new InMemoryModelRegistry({ mock: createDemoModel() }),
+      tools: new ToolRegistry([
+        {
+          metadata: {
+            name: "add",
+            version: "1",
+            risk: "read",
+            timeoutMs: 1_000,
+            idempotent: true,
+          },
+          tool: add,
+        },
+      ]),
+    }),
+    beforeToolExecute: confirmation.beforeToolExecute,
+    store,
+  });
+  return { runtime, store, confirmation, executeCount };
+}
+
+function toolInput(toolName: string, signal: AbortSignal): Parameters<BeforeToolExecute>[0] {
+  return {
+    toolName,
+    toolCallId: `${toolName}-call`,
+    input: { value: 1 },
+    definition: {
+      id: "test",
+      version: "1",
+      instructions: "",
+      model: "mock",
+      tools: [toolName],
+      limits: { maxSteps: 1, totalTimeoutMs: 1_000, stepTimeoutMs: 1_000 },
+    },
+    signal,
+  };
+}
 
 describe("runTui", () => {
   it("renders committed history but sends exactly one new user message", async () => {
@@ -471,5 +561,321 @@ describe("runTui", () => {
     await tui;
 
     assert.equal(runtime.requests.length, 0);
+  });
+});
+
+describe("createToolConfirmation", () => {
+  it("keeps invalid input pending and treats abort as cancellation, not denial", async () => {
+    const output = outputBuffer();
+    const confirmation = createToolConfirmation(output);
+    const controller = new AbortController();
+    const pending = Promise.resolve(
+      confirmation.beforeToolExecute(toolInput("add", controller.signal)),
+    );
+
+    assert.match(output.text(), /Allow this call\? \[y\/n\]/);
+    assert.equal(confirmation.handleLine("maybe"), true);
+    assert.match(output.text(), /Please enter y or n/);
+
+    controller.abort("run stopped");
+    const reason = await pending.then(
+      () => new Error("confirmation unexpectedly resolved"),
+      (error: unknown) => error,
+    );
+    assert.equal(reason, "run stopped");
+    assert.equal(confirmation.handleLine("y"), false);
+  });
+
+  it("registers one pending confirmation before prompting and clears it on y or n", async () => {
+    const output = outputBuffer();
+    const confirmation = createToolConfirmation(output);
+    const first = Promise.resolve(
+      confirmation.beforeToolExecute(
+        toolInput("add", new AbortController().signal),
+      ),
+    );
+
+    assert.throws(
+      () =>
+        confirmation.beforeToolExecute(
+          toolInput("other", new AbortController().signal),
+        ),
+      /already pending/,
+    );
+    assert.equal(confirmation.handleLine("n"), true);
+    assert.deepEqual(await first, {
+      allow: false,
+      reason: "User denied this tool call",
+    });
+    assert.equal(confirmation.handleLine("y"), false);
+
+    const second = Promise.resolve(
+      confirmation.beforeToolExecute(
+        toolInput("add", new AbortController().signal),
+      ),
+    );
+    assert.equal(confirmation.handleLine("y"), true);
+    assert.deepEqual(await second, { allow: true });
+  });
+});
+
+describe("runTui tool confirmation", () => {
+  it("executes a tool only after y and commits the completed transcript", async () => {
+    const input = ttyInput();
+    const output = ttyOutput();
+    const { runtime, store, confirmation, executeCount } =
+      createConfirmationRuntime(output);
+    const tui = runTui({
+      ...tuiOptions,
+      runtime,
+      store,
+      input,
+      output,
+      toolConfirmation: confirmation,
+    });
+
+    await nextTurn();
+    input.write("What is 20 + 22?\n");
+    await waitFor(() => output.text().includes("Allow this call? [y/n]"));
+    assert.equal(executeCount.value, 0);
+    assert.equal(store.saveCount, 0);
+
+    input.write("y\n");
+    await waitFor(() => output.text().includes("20 + 22 = 42"));
+    assert.equal(executeCount.value, 1);
+    await waitFor(() => store.saveCount === 1);
+    input.end();
+    await tui;
+    assert.equal(store.saveCount, 1);
+  });
+
+  it("turns n into a tool denial that the model can answer", async () => {
+    const input = ttyInput();
+    const output = ttyOutput();
+    const { runtime, store, confirmation, executeCount } =
+      createConfirmationRuntime(output);
+    const tui = runTui({
+      ...tuiOptions,
+      runtime,
+      store,
+      input,
+      output,
+      toolConfirmation: confirmation,
+    });
+
+    await nextTurn();
+    input.write("What is 20 + 22?\n");
+    await waitFor(() => output.text().includes("Allow this call? [y/n]"));
+    input.write("n\n");
+    await waitFor(() => output.text().includes("The add tool was denied."));
+    assert.equal(executeCount.value, 0);
+    await waitFor(() => store.saveCount === 1);
+    input.end();
+    await tui;
+
+    assert.equal(store.saveCount, 1);
+    assert.match(JSON.stringify(await store.getMessages("thread-1")), /TOOL_DENIED/);
+  });
+
+  it("cancels a pending confirmation without saving or executing the tool", async () => {
+    const input = ttyInput();
+    const output = ttyOutput();
+    const { runtime, store, confirmation, executeCount } =
+      createConfirmationRuntime(output);
+    const tui = runTui({
+      ...tuiOptions,
+      runtime,
+      store,
+      input,
+      output,
+      toolConfirmation: confirmation,
+    });
+
+    await nextTurn();
+    input.write("What is 20 + 22?\n");
+    await waitFor(() => output.text().includes("Allow this call? [y/n]"));
+    pressCtrlC(input);
+    await waitFor(() => output.text().includes("Run cancelled"));
+    assert.equal(executeCount.value, 0);
+    assert.equal(store.saveCount, 0);
+    input.end();
+    await tui;
+  });
+
+  it("cancels a pending confirmation when stdin closes", async () => {
+    const input = ttyInput();
+    const output = ttyOutput();
+    const { runtime, store, confirmation, executeCount } =
+      createConfirmationRuntime(output);
+    const tui = runTui({
+      ...tuiOptions,
+      runtime,
+      store,
+      input,
+      output,
+      toolConfirmation: confirmation,
+    });
+
+    await nextTurn();
+    input.write("What is 20 + 22?\n");
+    await waitFor(() => output.text().includes("Allow this call? [y/n]"));
+    input.end();
+    await tui;
+
+    assert.equal(executeCount.value, 0);
+    assert.equal(store.saveCount, 0);
+    assert.match(output.text(), /Run cancelled/);
+  });
+
+  it("cancels a run that is still starting when Ctrl+C arrives", async () => {
+    const input = ttyInput();
+    const output = ttyOutput();
+    const started = deferred<RunHandle>();
+    const events = asyncQueue<AgentEvent>();
+    events.close();
+    const cancelReasons: (string | undefined)[] = [];
+    const requests: RunRequest[] = [];
+    const runtime = {
+      async run<TContext>(request: RunRequest<TContext>): Promise<RunHandle> {
+        requests.push(request as RunRequest);
+        return started.promise;
+      },
+    };
+    const handle = handleFor({
+      runId: "run-starting",
+      threadId: "thread-1",
+      events,
+      result: Promise.resolve(cancelledResult("run-starting", "thread-1")),
+      cancel: async (reason) => {
+        cancelReasons.push(reason);
+      },
+    });
+
+    const tui = runTui({ ...tuiOptions, runtime, store: { getMessages: async () => [] }, input, output });
+    await nextTurn();
+    input.write("starting prompt\n");
+    await waitFor(() => requests.length === 1);
+    pressCtrlC(input);
+    started.resolve(handle);
+    await tui;
+
+    assert.deepEqual(cancelReasons, ["user_interrupt"]);
+    assert.match(output.text(), /Run cancelled/);
+  });
+
+  it("handles two tool calls one confirmation at a time", async () => {
+    const input = ttyInput();
+    const output = ttyOutput();
+    const confirmation = createToolConfirmation(output);
+    const store = new CountingStore();
+    const executions: string[] = [];
+    const usage = {
+      inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
+      outputTokens: { total: 1, text: 1, reasoning: undefined },
+    };
+    let modelCall = 0;
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        modelCall += 1;
+        if (modelCall === 1) {
+          return {
+            stream: simulateReadableStream({
+              chunks: [
+                { type: "stream-start" as const, warnings: [] },
+                {
+                  type: "tool-call" as const,
+                  toolCallId: "double-call",
+                  toolName: "double",
+                  input: JSON.stringify({ value: 2 }),
+                },
+                {
+                  type: "tool-call" as const,
+                  toolCallId: "increment-call",
+                  toolName: "increment",
+                  input: JSON.stringify({ value: 2 }),
+                },
+                {
+                  type: "finish" as const,
+                  finishReason: { unified: "tool-calls" as const, raw: undefined },
+                  usage,
+                },
+              ],
+            }),
+          };
+        }
+        return {
+          stream: simulateReadableStream({
+            chunks: [
+              { type: "stream-start" as const, warnings: [] },
+              { type: "text-start" as const, id: "done" },
+              { type: "text-delta" as const, id: "done", delta: "done" },
+              { type: "text-end" as const, id: "done" },
+              {
+                type: "finish" as const,
+                finishReason: { unified: "stop" as const, raw: undefined },
+                usage,
+              },
+            ],
+          }),
+        };
+      },
+    });
+    const numberTool = (name: string, result: number) =>
+      tool({
+        inputSchema: z.object({ value: z.number() }),
+        outputSchema: z.object({ value: z.number() }),
+        execute: async () => {
+          executions.push(name);
+          return { value: result };
+        },
+      });
+    const runtime = new DefaultAgentRuntime({
+      catalog: new InMemoryAgentCatalog([
+        {
+          id: "calculator",
+          version: "1",
+          instructions: "Use both tools.",
+          model: "mock",
+          tools: ["double", "increment"],
+          limits: { maxSteps: 3, totalTimeoutMs: 5_000, stepTimeoutMs: 1_000 },
+        },
+      ]),
+      loop: new AiSdkAgentLoop({
+        models: new InMemoryModelRegistry({ mock: model }),
+        tools: new ToolRegistry([
+          {
+            metadata: { name: "double", version: "1", risk: "read", timeoutMs: 1_000, idempotent: true },
+            tool: numberTool("double", 4),
+          },
+          {
+            metadata: { name: "increment", version: "1", risk: "read", timeoutMs: 1_000, idempotent: true },
+            tool: numberTool("increment", 3),
+          },
+        ]),
+      }),
+      beforeToolExecute: confirmation.beforeToolExecute,
+      store,
+    });
+    const tui = runTui({
+      ...tuiOptions,
+      runtime,
+      store,
+      input,
+      output,
+      toolConfirmation: confirmation,
+    });
+
+    await nextTurn();
+    input.write("run both tools\n");
+    await waitFor(() => output.text().includes("Tool: double"));
+    input.write("y\n");
+    await waitFor(() => output.text().includes("Tool: increment"));
+    assert.deepEqual(executions, ["double"]);
+    input.write("n\n");
+    await waitFor(() => output.text().includes("done"));
+    input.end();
+    await tui;
+
+    assert.deepEqual(executions, ["double"]);
   });
 });
