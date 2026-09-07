@@ -1,11 +1,13 @@
 import { createInterface } from "node:readline/promises";
 import type { Readable, Writable } from "node:stream";
 import type { UIMessage } from "ai";
-import type { MessageStore } from "@aisdk-agent/core";
 import type {
+  BeforeToolExecute,
+  MessageStore,
   RunHandle,
   RunRequest,
   RunResult,
+  ToolExecutionDecision,
 } from "@aisdk-agent/core";
 
 type Runtime = {
@@ -28,10 +30,94 @@ export interface RunTuiOptions {
   input?: Readable;
   output?: Writable;
   generateId?: () => string;
+  toolConfirmation?: ToolConfirmation;
+}
+
+export interface ToolConfirmation {
+  beforeToolExecute: BeforeToolExecute;
+  handleLine(line: string): boolean;
 }
 
 function write(output: Writable, text: string): void {
   output.write(text);
+}
+
+function abortReason(signal: AbortSignal): unknown {
+  return signal.reason ?? new DOMException("Agent operation aborted", "AbortError");
+}
+
+interface PendingConfirmation {
+  signal: AbortSignal;
+  onAbort: () => void;
+  resolve: (decision: ToolExecutionDecision) => void;
+  reject: (reason: unknown) => void;
+}
+
+export function createToolConfirmation(output: Writable): ToolConfirmation {
+  let pending: PendingConfirmation | undefined;
+
+  const clearPending = (entry: PendingConfirmation): void => {
+    if (pending !== entry) return;
+    pending = undefined;
+    entry.signal.removeEventListener("abort", entry.onAbort);
+  };
+
+  const beforeToolExecute: BeforeToolExecute = (input) => {
+    if (input.signal.aborted) return Promise.reject(abortReason(input.signal));
+    if (pending !== undefined) {
+      throw new Error("Tool confirmation is already pending");
+    }
+
+    let resolve!: (decision: ToolExecutionDecision) => void;
+    let reject!: (reason: unknown) => void;
+    const decision = new Promise<ToolExecutionDecision>((nextResolve, nextReject) => {
+      resolve = nextResolve;
+      reject = nextReject;
+    });
+    let entry!: PendingConfirmation;
+    const onAbort = (): void => {
+      clearPending(entry);
+      reject(abortReason(input.signal));
+    };
+    entry = { signal: input.signal, onAbort, resolve, reject };
+    pending = entry;
+    input.signal.addEventListener("abort", onAbort, { once: true });
+    if (input.signal.aborted) {
+      onAbort();
+      return decision;
+    }
+
+    try {
+      write(
+        output,
+        `\nTool: ${input.toolName}\nInput: ${JSON.stringify(input.input)}\nAllow this call? [y/n] `,
+      );
+    } catch (error) {
+      clearPending(entry);
+      reject(error);
+    }
+    return decision;
+  };
+
+  const handleLine = (line: string): boolean => {
+    const entry = pending;
+    if (entry === undefined) return false;
+    const answer = line.trim().toLowerCase();
+    if (answer !== "y" && answer !== "n") {
+      write(output, "\nPlease enter y or n.\nAllow this call? [y/n] ");
+      return true;
+    }
+
+    clearPending(entry);
+    if (answer === "y") {
+      entry.resolve({ allow: true });
+    } else {
+      entry.resolve({ allow: false, reason: "User denied this tool call" });
+    }
+    return true;
+  };
+
+  return { beforeToolExecute, handleLine };
 }
 
 function toolPartText(part: Extract<UIMessage["parts"][number], { type: "dynamic-tool" }>): string {
@@ -136,9 +222,26 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
   let state: TuiState = { kind: "idle" };
   let runStarting = false;
   let cancelSentForRun: string | undefined;
+  let stopRequestReason: string | undefined;
+  let inputClosed = false;
   const tasks = new Set<Promise<void>>();
 
   if (isTTY(input)) readline.prompt();
+
+  const requestStop = (reason: string, announce: boolean): void => {
+    if (stopRequestReason === undefined) stopRequestReason = reason;
+    if (state.kind === "running") {
+      const handle = state.handle;
+      if (cancelSentForRun !== handle.runId) {
+        cancelSentForRun = handle.runId;
+        void handle.cancel(reason);
+        if (announce) write(output, "\nCancelling current run...\n");
+      }
+      stopRequestReason = undefined;
+      return;
+    }
+    readline.close();
+  };
 
   const submit = async (text: string): Promise<void> => {
     if (state.kind === "running" || runStarting) {
@@ -163,6 +266,11 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
       runStarted = true;
       state = { kind: "running", handle };
       cancelSentForRun = undefined;
+      const pendingStopReason = stopRequestReason;
+      stopRequestReason = undefined;
+      if (pendingStopReason !== undefined) {
+        await handle.cancel(pendingStopReason);
+      }
 
       const eventsDone = renderEvents(output, handle.events);
       const result = await handle.result;
@@ -175,17 +283,17 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
       state = { kind: "idle" };
       runStarting = false;
       cancelSentForRun = undefined;
-      if (isTTY(input)) readline.prompt();
+      if (isTTY(input) && !inputClosed) readline.prompt();
     }
   };
 
   readline.on("SIGINT", () => {
     if (state.kind === "running") {
-      if (cancelSentForRun !== state.handle.runId) {
-        cancelSentForRun = state.handle.runId;
-        void state.handle.cancel("user_interrupt");
-        write(output, "\nCancelling current run...\n");
-      }
+      requestStop("user_interrupt", true);
+      return;
+    }
+    if (runStarting) {
+      requestStop("user_interrupt", true);
       return;
     }
     readline.close();
@@ -193,10 +301,13 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
 
   try {
     for await (const line of readline) {
+      if (options.toolConfirmation?.handleLine(line) === true) continue;
       const task = submit(line);
       tasks.add(task);
       void task.finally(() => tasks.delete(task));
     }
+    inputClosed = true;
+    requestStop("stdin_closed", false);
     await Promise.all(tasks);
   } finally {
     readline.close();

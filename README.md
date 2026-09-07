@@ -8,7 +8,7 @@
 - AI SDK adapter 使用 `streamText`，由框架自行控制模型—工具循环。
 - 对上提供自己的 `AgentRuntime` 契约，不让应用直接依赖 AI SDK 的循环实现。
 - 当前本地路径支持单 Agent、多步工具调用、流式事件、取消、超时，以及基于 JSONL 的对话恢复。
-- 人工审批、真实写工具、Web UI、RAG、长期记忆、多 Agent 和 Durable 执行暂缓。
+- 持久化人工审批、真实写工具、Web UI、RAG、长期记忆、多 Agent 和 Durable 执行暂缓；TUI 已支持当前工具调用的临时 y/n 确认。
 
 完整设计见 [docs/architecture-v0.md](docs/architecture-v0.md)。
 
@@ -16,7 +16,7 @@
 
 当前：`M-TUI-thin`
 
-已经具备自有 AgentLoop、JSONL transcript、print CLI，以及只通过 Runtime 契约驱动的精简 TUI。
+已经具备自有 AgentLoop、JSONL transcript、print CLI，以及只通过 Runtime 契约驱动、带临时工具确认的精简 TUI。
 
 运行：
 
@@ -46,4 +46,4 @@ TUI 使用相同的模式和环境变量：
 RUNLOOM_MODEL=minimax-m3 pnpm tui -- ./var/runloom --thread demo
 ```
 
-真实模型验证完成后，再进入真实文件/Shell 工具，以及 AgentLoop 上的审批钩子（TUI 的 y/n）。Durable Run Driver 仍不进入这条主链。
+真实文件/Shell 工具和持久化审批仍未进入这条主链；TUI 的 y/n 只决定当前 Run 的一次工具调用，不形成可恢复的审批记录。Durable Run Driver 仍不进入这条主链。
