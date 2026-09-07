@@ -5,6 +5,9 @@ import { MockLanguageModelV3 } from "ai/test";
 import { z } from "zod";
 import {
   AgentError,
+  DefaultAgentRuntime,
+  InMemoryAgentCatalog,
+  InMemoryAgentStore,
   type AgentEvent,
   type BeforeToolExecute,
 } from "@aisdk-agent/core";
@@ -122,6 +125,86 @@ function createEmit(events: AgentEvent[]) {
       occurredAt: new Date(0).toISOString(),
     } as AgentEvent);
   };
+}
+
+class CountingStore extends InMemoryAgentStore {
+  saveCount = 0;
+
+  override async save(threadId: string, messages: UIMessage[]): Promise<void> {
+    this.saveCount += 1;
+    await super.save(threadId, messages);
+  }
+}
+
+function waitForAbort(signal: AbortSignal): Promise<never> {
+  return new Promise((_, reject) => {
+    if (signal.aborted) {
+      reject(signal.reason);
+      return;
+    }
+    signal.addEventListener("abort", () => reject(signal.reason), {
+      once: true,
+    });
+  });
+}
+
+async function createPrecheckRuntime(options: {
+  beforeToolExecute: BeforeToolExecute;
+  threadId: string;
+  totalTimeoutMs?: number;
+}) {
+  const committed: UIMessage[] = [
+    { ...userMessage("remember this"), id: "old-user" },
+    {
+      id: "old-assistant",
+      role: "assistant",
+      parts: [{ type: "text", text: "I remember it." }],
+    },
+  ];
+  const store = new CountingStore();
+  await store.save(options.threadId, committed);
+  store.saveCount = 0;
+
+  let markHookStarted!: () => void;
+  const started = new Promise<void>((resolve) => {
+    markHookStarted = resolve;
+  });
+
+  const modelCalls = { value: 0 };
+  const executeCount = { value: 0 };
+  const model = new MockLanguageModelV3({
+    doStream: async () => {
+      modelCalls.value += 1;
+      return toolCallResponse("tool-calls");
+    },
+  });
+  const runtime = new DefaultAgentRuntime({
+    catalog: new InMemoryAgentCatalog([
+      {
+        ...definition,
+        tools: ["double"],
+        limits: {
+          maxSteps: 2,
+          totalTimeoutMs: options.totalTimeoutMs ?? 1_000,
+          stepTimeoutMs: 500,
+        },
+      },
+    ]),
+    loop: new AiSdkAgentLoop({
+      models: new InMemoryModelRegistry({ test: model }),
+      tools: doubleTool(() => {
+        executeCount.value += 1;
+        return { value: 4 };
+      }),
+    }),
+    beforeToolExecute: async (input) => {
+      markHookStarted();
+      return options.beforeToolExecute(input);
+    },
+    store,
+  });
+
+  return { committed, executeCount, modelCalls, runtime, started, store };
 }
 
 describe("AiSdkAgentLoop", () => {
@@ -310,6 +393,7 @@ describe("AiSdkAgentLoop", () => {
     for (const testCase of cases) {
       let modelCalls = 0;
       let executeCount = 0;
+      let beforeToolCalls = 0;
       const events: AgentEvent[] = [];
       const model = new MockLanguageModelV3({
         doStream: async () => {
@@ -330,6 +414,10 @@ describe("AiSdkAgentLoop", () => {
           messages: [userMessage()],
           signal: new AbortController().signal,
           generateId: () => "assistant-1",
+          beforeToolExecute: () => {
+            beforeToolCalls += 1;
+            return { allow: true };
+          },
           emit: createEmit(events),
         }),
         (error: unknown) =>
@@ -340,6 +428,7 @@ describe("AiSdkAgentLoop", () => {
 
       assert.equal(modelCalls, 1, testCase.finishReason);
       assert.equal(executeCount, 0, testCase.finishReason);
+      assert.equal(beforeToolCalls, 0, testCase.finishReason);
       assert.ok(
         events.some(
           (event) =>
@@ -358,6 +447,7 @@ describe("AiSdkAgentLoop", () => {
 
   it("does not execute a legal tool call when the model output is truncated", async () => {
     let executeCount = 0;
+    let beforeToolCalls = 0;
     const events: AgentEvent[] = [];
     const model = new MockLanguageModelV3({
       doStream: async () => toolCallResponse("length"),
@@ -376,6 +466,10 @@ describe("AiSdkAgentLoop", () => {
         signal: new AbortController().signal,
         generateId: () => "assistant-1",
         emit: createEmit(events),
+        beforeToolExecute: () => {
+          beforeToolCalls += 1;
+          return { allow: true };
+        },
       }),
       (error: unknown) =>
         error instanceof AgentError &&
@@ -385,6 +479,7 @@ describe("AiSdkAgentLoop", () => {
     );
 
     assert.equal(executeCount, 0);
+    assert.equal(beforeToolCalls, 0);
     assert.equal(
       events.some((event) => event.type === "tool.call.started"),
       false,
@@ -523,6 +618,7 @@ describe("AiSdkAgentLoop", () => {
   it("feeds the SDK-marked invalid tool input back without executing the tool", async () => {
     let modelCall = 0;
     let executeCount = 0;
+    let beforeToolCalls = 0;
     const model = new MockLanguageModelV3({
       doStream: async () => {
         modelCall += 1;
@@ -577,10 +673,15 @@ describe("AiSdkAgentLoop", () => {
       messages: [userMessage()],
       signal: new AbortController().signal,
       generateId: () => `message-${modelCall}`,
+      beforeToolExecute: () => {
+        beforeToolCalls += 1;
+        return { allow: true };
+      },
       emit: createEmit(events),
     });
 
     assert.equal(executeCount, 0);
+    assert.equal(beforeToolCalls, 0);
     assert.equal(modelCall, 2);
     assert.equal(outcome.steps, 2);
     assert.match(JSON.stringify(outcome.messages), /TOOL_INVALID_INPUT/);
@@ -663,12 +764,70 @@ describe("AiSdkAgentLoop", () => {
     );
   });
 
+  it("fails an unknown tool without calling the precheck", async () => {
+    let modelCalls = 0;
+    let beforeToolCalls = 0;
+    const events: AgentEvent[] = [];
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        modelCalls += 1;
+        return {
+          stream: simulateReadableStream({
+            chunks: [
+              { type: "stream-start" as const, warnings: [] },
+              {
+                type: "tool-call" as const,
+                toolCallId: "unknown-call",
+                toolName: "missing",
+                input: JSON.stringify({ value: 2 }),
+              },
+              {
+                type: "finish" as const,
+                finishReason: { unified: "tool-calls" as const, raw: undefined },
+                usage,
+              },
+            ],
+          }),
+        };
+      },
+    });
+
+    await assert.rejects(
+      new AiSdkAgentLoop({
+        models: new InMemoryModelRegistry({ test: model }),
+        tools: new ToolRegistry(),
+      }).execute({
+        definition: { ...definition, tools: [] },
+        messages: [userMessage()],
+        signal: new AbortController().signal,
+        generateId: () => "assistant-1",
+        beforeToolExecute: () => {
+          beforeToolCalls += 1;
+          return { allow: true };
+        },
+        emit: createEmit(events),
+      }),
+      (error: unknown) =>
+        error instanceof AgentError && error.data.code === "TOOL_NOT_FOUND",
+    );
+
+    assert.equal(modelCalls, 1);
+    assert.equal(beforeToolCalls, 0);
+    assert.equal(
+      events.some((event) => event.type === "tool.call.started"),
+      false,
+    );
+  });
+
   it("runs the precheck on a cloned input and passes through context", async () => {
     let modelCall = 0;
     let executeInput: unknown;
     let hookInput: unknown;
     let hookDefinition: unknown;
     let hookContext: unknown;
+    let hookToolName: string | undefined;
+    let hookToolCallId: string | undefined;
+    let hookSignal: AbortSignal | undefined;
     const context = { userId: "user-1" };
     const model = new MockLanguageModelV3({
       doStream: async () => {
@@ -711,6 +870,9 @@ describe("AiSdkAgentLoop", () => {
         hookInput = input.input;
         hookDefinition = input.definition;
         hookContext = input.context;
+        hookToolName = input.toolName;
+        hookToolCallId = input.toolCallId;
+        hookSignal = input.signal;
         (input.input as { value: number }).value = 99;
         return { allow: true };
       },
@@ -721,7 +883,17 @@ describe("AiSdkAgentLoop", () => {
     assert.deepEqual(executeInput, { value: 2 });
     assert.equal(hookDefinition, runDefinition);
     assert.equal(hookContext, context);
-    assert.match(JSON.stringify(outcome.messages), /"value":4/);
+    assert.equal(hookToolName, "double");
+    assert.equal(hookToolCallId, "finish-check-call");
+    assert.equal(hookSignal?.aborted, false);
+    const toolPart = outcome.messages
+      .flatMap((message) => message.parts)
+      .find((part) => part.type === "dynamic-tool");
+    assert.equal(toolPart?.type, "dynamic-tool");
+    if (toolPart?.type === "dynamic-tool") {
+      assert.deepEqual(toolPart.input, { value: 2 });
+      assert.deepEqual(toolPart.output, { value: 4 });
+    }
   });
 
   it("denies a tool call as a tool result and continues the loop", async () => {
@@ -767,15 +939,145 @@ describe("AiSdkAgentLoop", () => {
     );
   });
 
+  it("checks same-step tools in order and continues after denying one", async () => {
+    let modelCall = 0;
+    const modelPrompts: unknown[] = [];
+    const precheckOrder: string[] = [];
+    const executionOrder: string[] = [];
+    const model = new MockLanguageModelV3({
+      doStream: async (options) => {
+        modelCall += 1;
+        modelPrompts.push(options.prompt);
+        if (modelCall === 1) {
+          return {
+            stream: simulateReadableStream({
+              chunks: [
+                { type: "stream-start" as const, warnings: [] },
+                {
+                  type: "tool-call" as const,
+                  toolCallId: "deny-double",
+                  toolName: "double",
+                  input: JSON.stringify({ value: 20 }),
+                },
+                {
+                  type: "tool-call" as const,
+                  toolCallId: "allow-increment",
+                  toolName: "increment",
+                  input: JSON.stringify({ value: 41 }),
+                },
+                {
+                  type: "finish" as const,
+                  finishReason: { unified: "tool-calls" as const, raw: undefined },
+                  usage,
+                },
+              ],
+            }),
+          };
+        }
+        return textResponse("continued after the denial");
+      },
+    });
+    const tools = new ToolRegistry([
+      {
+        metadata: {
+          name: "double",
+          version: "1",
+          risk: "read",
+          timeoutMs: 1_000,
+          idempotent: true,
+        },
+        tool: tool({
+          inputSchema: z.object({ value: z.number() }),
+          outputSchema: z.object({ value: z.number() }),
+          execute: async ({ value }) => {
+            executionOrder.push("double");
+            return { value: value * 2 };
+          },
+        }),
+      },
+      {
+        metadata: {
+          name: "increment",
+          version: "1",
+          risk: "read",
+          timeoutMs: 1_000,
+          idempotent: true,
+        },
+        tool: tool({
+          inputSchema: z.object({ value: z.number() }),
+          outputSchema: z.object({ value: z.number() }),
+          execute: async ({ value }) => {
+            executionOrder.push("increment");
+            return { value: value + 1 };
+          },
+        }),
+      },
+    ]);
+    const events: AgentEvent[] = [];
+    const outcome = await new AiSdkAgentLoop({
+      models: new InMemoryModelRegistry({ test: model }),
+      tools,
+    }).execute({
+      definition,
+      messages: [userMessage()],
+      signal: new AbortController().signal,
+      generateId: () => `assistant-${modelCall}`,
+      beforeToolExecute: ({ toolName }) => {
+        precheckOrder.push(toolName);
+        return toolName === "double"
+          ? { allow: false, reason: "double is not permitted" }
+          : { allow: true };
+      },
+      emit: createEmit(events),
+    });
+
+    assert.equal(outcome.text, "continued after the denial");
+    assert.equal(modelCall, 2);
+    assert.deepEqual(precheckOrder, ["double", "increment"]);
+    assert.deepEqual(executionOrder, ["increment"]);
+    assert.match(JSON.stringify(outcome.messages), /TOOL_DENIED/);
+    assert.match(JSON.stringify(modelPrompts[1]), /TOOL_DENIED/);
+    assert.equal(
+      events.some(
+        (event) =>
+          event.type === "tool.call.started" &&
+          event.data.toolName === "double",
+      ),
+      false,
+    );
+    assert.equal(
+      events.filter(
+        (event) =>
+          event.type === "tool.call.completed" &&
+          event.data.toolName === "increment",
+      ).length,
+      1,
+    );
+    assert.ok(
+      events.some(
+        (event) =>
+          event.type === "tool.call.failed" &&
+          event.data.toolCallId === "deny-double" &&
+          event.data.error.code === "TOOL_DENIED",
+      ),
+    );
+  });
+
   it("fails the run when the precheck throws or returns an invalid decision", async () => {
+    const policyError = new Error("policy unavailable");
     const hooks: Array<() => unknown> = [
       () => {
-        throw new Error("policy unavailable");
+        throw policyError;
       },
       () => ({ allow: false }),
+      () => null,
+      () => undefined,
+      () => ({ allow: "yes" }),
+      () => ({ allow: false, reason: "   " }),
     ];
     for (const beforeToolExecute of hooks) {
       let executeCount = 0;
+      let receivedError: unknown;
       const model = new MockLanguageModelV3({
         doStream: async () => toolCallResponse("tool-calls"),
       });
@@ -794,25 +1096,66 @@ describe("AiSdkAgentLoop", () => {
           beforeToolExecute: beforeToolExecute as BeforeToolExecute,
           emit: async () => undefined,
         }),
-        (error: unknown) =>
-          error instanceof AgentError &&
-          error.data.code === "TOOL_PRECHECK_FAILED",
+        (error: unknown) => {
+          receivedError = error;
+          return (
+            error instanceof AgentError &&
+            error.data.code === "TOOL_PRECHECK_FAILED"
+          );
+        },
       );
       assert.equal(executeCount, 0);
+      if (beforeToolExecute === hooks[0]) {
+        assert.equal((receivedError as AgentError).cause, policyError);
+      }
     }
+  });
+
+  it("preserves a TOOL_PRECHECK_FAILED thrown by the precheck", async () => {
+    const error = new AgentError({
+      code: "TOOL_PRECHECK_FAILED",
+      message: "policy is unavailable",
+      retryable: false,
+      phase: "tool",
+    });
+    const model = new MockLanguageModelV3({
+      doStream: async () => toolCallResponse("tool-calls"),
+    });
+
+    await assert.rejects(
+      new AiSdkAgentLoop({
+        models: new InMemoryModelRegistry({ test: model }),
+        tools: doubleTool(async () => ({ value: 4 })),
+      }).execute({
+        definition: { ...definition, tools: ["double"] },
+        messages: [userMessage()],
+        signal: new AbortController().signal,
+        generateId: () => "assistant-1",
+        beforeToolExecute: () => {
+          throw error;
+        },
+        emit: async () => undefined,
+      }),
+      (received: unknown) => received === error,
+    );
   });
 
   it("stops waiting for a precheck when the run is aborted", async () => {
     let executeCount = 0;
+    let modelCalls = 0;
     let hookStarted!: () => void;
     const started = new Promise<void>((resolve) => {
       hookStarted = resolve;
     });
     const controller = new AbortController();
+    const events: AgentEvent[] = [];
     const execution = new AiSdkAgentLoop({
       models: new InMemoryModelRegistry({
         test: new MockLanguageModelV3({
-          doStream: async () => toolCallResponse("tool-calls"),
+          doStream: async () => {
+            modelCalls += 1;
+            return toolCallResponse("tool-calls");
+          },
         }),
       }),
       tools: doubleTool(async () => {
@@ -828,17 +1171,23 @@ describe("AiSdkAgentLoop", () => {
         hookStarted();
         return new Promise(() => undefined);
       },
-      emit: async () => undefined,
+      emit: createEmit(events),
     });
 
-    await hookStarted;
+    await started;
     controller.abort("cancel precheck");
     await assert.rejects(execution);
+    assert.equal(modelCalls, 1);
     assert.equal(executeCount, 0);
+    assert.equal(
+      events.some((event) => event.type === "tool.call.started"),
+      false,
+    );
   });
 
   it("does not apply the tool timeout while the precheck is waiting", async () => {
     let modelCall = 0;
+    let executeCount = 0;
     const model = new MockLanguageModelV3({
       doStream: async () => {
         modelCall += 1;
@@ -858,10 +1207,14 @@ describe("AiSdkAgentLoop", () => {
         tool: tool({
           inputSchema: z.object({ value: z.number() }),
           outputSchema: z.object({ value: z.number() }),
-          execute: async ({ value }) => ({ value: value * 2 }),
+          execute: async ({ value }) => {
+            executeCount += 1;
+            return { value: value * 2 };
+          },
         }),
       },
     ]);
+    const events: AgentEvent[] = [];
     const outcome = await new AiSdkAgentLoop({
       models: new InMemoryModelRegistry({ test: model }),
       tools,
@@ -874,11 +1227,32 @@ describe("AiSdkAgentLoop", () => {
         await new Promise((resolve) => setTimeout(resolve, 25));
         return { allow: true };
       },
-      emit: async () => undefined,
+      emit: createEmit(events),
     });
 
     assert.equal(outcome.text, "precheck finished");
     assert.equal(modelCall, 2);
+    assert.equal(executeCount, 1);
+    const toolPart = outcome.messages
+      .flatMap((message) => message.parts)
+      .find((part) => part.type === "dynamic-tool");
+    assert.equal(toolPart?.type, "dynamic-tool");
+    if (toolPart?.type === "dynamic-tool") {
+      assert.equal(toolPart.state, "output-available");
+      assert.deepEqual(toolPart.output, { value: 4 });
+    }
+    assert.equal(
+      events.filter((event) => event.type === "tool.call.completed").length,
+      1,
+    );
+    assert.equal(
+      events.some(
+        (event) =>
+          event.type === "tool.call.failed" &&
+          event.data.error.code === "TOOL_EXECUTION_FAILED",
+      ),
+      false,
+    );
   });
 
   it("feeds a tool timeout back to the model with its timeout reason", async () => {
@@ -1041,14 +1415,14 @@ describe("AiSdkAgentLoop", () => {
           name: "slow",
           version: "1",
           risk: "read",
-          timeoutMs: 100,
+          timeoutMs: 300,
           idempotent: true,
         },
         tool: tool({
           inputSchema: z.object({ value: z.number() }),
           outputSchema: z.object({ value: z.number() }),
           execute: async ({ value }) => {
-            await new Promise((resolve) => setTimeout(resolve, 40));
+            await new Promise((resolve) => setTimeout(resolve, 150));
             return { value: value * 2 };
           },
         }),
@@ -1061,7 +1435,7 @@ describe("AiSdkAgentLoop", () => {
       definition: {
         ...definition,
         tools: ["slow"],
-        limits: { ...definition.limits, stepTimeoutMs: 10 },
+        limits: { ...definition.limits, stepTimeoutMs: 100 },
       },
       messages: [userMessage()],
       signal: new AbortController().signal,
@@ -1194,5 +1568,103 @@ describe("AiSdkAgentLoop", () => {
         (error as { data?: { code?: string } }).data?.code ===
           "RUN_LIMIT_EXCEEDED",
     );
+  });
+});
+
+describe("beforeToolExecute Runtime integration", () => {
+  it("does not save when beforeToolExecute fails in the real runtime loop", async () => {
+    const threadId = "thread-precheck-failure";
+    const { committed, executeCount, modelCalls, runtime, store } =
+      await createPrecheckRuntime({
+        threadId,
+        beforeToolExecute: () => {
+          throw new Error("policy unavailable");
+        },
+      });
+
+    const handle = await runtime.run({
+      agentId: "test",
+      threadId,
+      messages: [userMessage("run the tool")],
+    });
+    const eventsPromise = (async () => {
+      const events: AgentEvent[] = [];
+      for await (const event of handle.events) events.push(event);
+      return events;
+    })();
+    const result = await handle.result;
+    const events = await eventsPromise;
+
+    assert.equal(result.status, "failed");
+    assert.equal(result.error?.code, "TOOL_PRECHECK_FAILED");
+    assert.equal(modelCalls.value, 1);
+    assert.equal(executeCount.value, 0);
+    assert.equal(store.saveCount, 0);
+    assert.deepEqual(await store.getMessages(threadId), committed);
+    assert.equal(events.some((event) => event.type === "run.completed"), false);
+  });
+
+  it("does not save when cancelling a pending beforeToolExecute in the real runtime loop", async () => {
+    const threadId = "thread-precheck-cancel";
+    const { committed, executeCount, modelCalls, runtime, started, store } =
+      await createPrecheckRuntime({
+        threadId,
+        beforeToolExecute: ({ signal }) => waitForAbort(signal),
+      });
+
+    const handle = await runtime.run({
+      agentId: "test",
+      threadId,
+      messages: [userMessage("run the tool")],
+    });
+    const eventsPromise = (async () => {
+      const events: AgentEvent[] = [];
+      for await (const event of handle.events) events.push(event);
+      return events;
+    })();
+    await started;
+    await handle.cancel("cancel precheck");
+    const result = await handle.result;
+    const events = await eventsPromise;
+
+    assert.equal(result.status, "cancelled");
+    assert.equal(result.error?.code, "RUN_CANCELLED");
+    assert.equal(modelCalls.value, 1);
+    assert.equal(executeCount.value, 0);
+    assert.equal(store.saveCount, 0);
+    assert.deepEqual(await store.getMessages(threadId), committed);
+    assert.equal(events.some((event) => event.type === "run.completed"), false);
+  });
+
+  it("does not save when the run timeout aborts a pending beforeToolExecute", async () => {
+    const threadId = "thread-precheck-timeout";
+    const { committed, executeCount, modelCalls, runtime, started, store } =
+      await createPrecheckRuntime({
+        threadId,
+        totalTimeoutMs: 200,
+        beforeToolExecute: ({ signal }) => waitForAbort(signal),
+      });
+
+    const handle = await runtime.run({
+      agentId: "test",
+      threadId,
+      messages: [userMessage("run the tool")],
+    });
+    const eventsPromise = (async () => {
+      const events: AgentEvent[] = [];
+      for await (const event of handle.events) events.push(event);
+      return events;
+    })();
+    await started;
+    const result = await handle.result;
+    const events = await eventsPromise;
+
+    assert.equal(result.status, "timed_out");
+    assert.equal(result.error?.code, "RUN_TIMEOUT");
+    assert.equal(modelCalls.value, 1);
+    assert.equal(executeCount.value, 0);
+    assert.equal(store.saveCount, 0);
+    assert.deepEqual(await store.getMessages(threadId), committed);
+    assert.equal(events.some((event) => event.type === "run.completed"), false);
   });
 });
