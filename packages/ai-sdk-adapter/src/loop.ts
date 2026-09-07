@@ -86,7 +86,7 @@ function validateStepOutcome(finishReason: string, toolCallCount: number): void 
 }
 
 function toolError(
-  code: "TOOL_INVALID_INPUT" | "TOOL_EXECUTION_FAILED",
+  code: "TOOL_INVALID_INPUT" | "TOOL_EXECUTION_FAILED" | "TOOL_DENIED",
   toolName: string,
   message?: string,
   cause?: unknown,
@@ -98,12 +98,58 @@ function toolError(
         message ??
         (code === "TOOL_INVALID_INPUT"
           ? `Tool input is invalid: ${toolName}`
-          : `Tool execution failed: ${toolName}`),
+          : code === "TOOL_DENIED"
+            ? `Tool execution denied: ${toolName}`
+            : `Tool execution failed: ${toolName}`),
       retryable: false,
       phase: "tool",
     },
     { cause },
   );
+}
+
+function toolPrecheckError(
+  toolName: string,
+  message: string,
+  cause?: unknown,
+): AgentError {
+  return new AgentError(
+    {
+      code: "TOOL_PRECHECK_FAILED",
+      message: `Tool precheck failed: ${toolName}: ${message}`,
+      retryable: false,
+      phase: "tool",
+    },
+    { cause },
+  );
+}
+
+function validateToolExecutionDecision(
+  value: unknown,
+  toolName: string,
+): { allow: true } | { allow: false; reason: string } {
+  if (typeof value !== "object" || value === null) {
+    throw toolPrecheckError(
+      toolName,
+      "beforeToolExecute must return an allow/deny decision",
+    );
+  }
+
+  const decision = value as { allow?: unknown; reason?: unknown };
+  if (typeof decision.allow !== "boolean") {
+    throw toolPrecheckError(
+      toolName,
+      "beforeToolExecute decision.allow must be a boolean",
+    );
+  }
+  if (decision.allow) return { allow: true };
+  if (typeof decision.reason !== "string" || decision.reason.trim().length === 0) {
+    throw toolPrecheckError(
+      toolName,
+      "beforeToolExecute denial must include a non-empty reason",
+    );
+  }
+  return { allow: false, reason: decision.reason };
 }
 
 function toolResultError(
@@ -369,6 +415,62 @@ export class AiSdkAgentLoop implements AgentLoop {
             error: error.data,
           });
           continue;
+        }
+
+        if (input.beforeToolExecute) {
+          // The hook may inspect the call input, but it must not mutate the
+          // transcript's original value that will be passed to execute.
+          const hookInput = structuredClone(call.input);
+          let decision: unknown;
+          try {
+            decision = await awaitWithSignal(
+              () =>
+                input.beforeToolExecute!({
+                  toolName: call.toolName,
+                  toolCallId: call.toolCallId,
+                  input: hookInput,
+                  definition: input.definition,
+                  ...(input.context !== undefined
+                    ? { context: input.context }
+                    : {}),
+                  signal: input.signal,
+                }),
+              input.signal,
+            );
+          } catch (error) {
+            if (input.signal.aborted) throw abortReason(input.signal);
+            if (
+              error instanceof AgentError &&
+              error.data.code === "TOOL_PRECHECK_FAILED"
+            ) {
+              throw error;
+            }
+            throw toolPrecheckError(
+              call.toolName,
+              "beforeToolExecute failed",
+              error,
+            );
+          }
+
+          const validatedDecision = validateToolExecutionDecision(
+            decision,
+            call.toolName,
+          );
+          throwIfAborted(input.signal);
+          if (!validatedDecision.allow) {
+            const error = toolError(
+              "TOOL_DENIED",
+              call.toolName,
+              validatedDecision.reason,
+            );
+            assistantParts.push(toolResultError(call, error.data));
+            await input.emit("tool.call.failed", {
+              toolCallId: call.toolCallId,
+              toolName: call.toolName,
+              error: error.data,
+            });
+            continue;
+          }
         }
 
         await input.emit("tool.call.started", {

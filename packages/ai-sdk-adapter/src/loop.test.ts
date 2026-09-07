@@ -3,7 +3,11 @@ import { describe, it } from "node:test";
 import { simulateReadableStream, tool, type UIMessage } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { z } from "zod";
-import { AgentError, type AgentEvent } from "@aisdk-agent/core";
+import {
+  AgentError,
+  type AgentEvent,
+  type BeforeToolExecute,
+} from "@aisdk-agent/core";
 import { AiSdkAgentLoop } from "./loop.js";
 import { InMemoryModelRegistry, ToolRegistry } from "./registries.js";
 
@@ -657,6 +661,224 @@ describe("AiSdkAgentLoop", () => {
           event.data.error.code === "TOOL_EXECUTION_FAILED",
       ),
     );
+  });
+
+  it("runs the precheck on a cloned input and passes through context", async () => {
+    let modelCall = 0;
+    let executeInput: unknown;
+    let hookInput: unknown;
+    let hookDefinition: unknown;
+    let hookContext: unknown;
+    const context = { userId: "user-1" };
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        modelCall += 1;
+        if (modelCall === 1) return toolCallResponse("tool-calls");
+        return textResponse("allowed");
+      },
+    });
+    const tools = new ToolRegistry([
+      {
+        metadata: {
+          name: "double",
+          version: "1",
+          risk: "read",
+          timeoutMs: 1_000,
+          idempotent: true,
+        },
+        tool: tool({
+          inputSchema: z.object({ value: z.number() }),
+          outputSchema: z.object({ value: z.number() }),
+          execute: async (input) => {
+            executeInput = input;
+            return { value: input.value * 2 };
+          },
+        }),
+      },
+    ]);
+    const runDefinition = { ...definition, tools: ["double"] };
+    const events: AgentEvent[] = [];
+    const outcome = await new AiSdkAgentLoop({
+      models: new InMemoryModelRegistry({ test: model }),
+      tools,
+    }).execute({
+      definition: runDefinition,
+      messages: [userMessage()],
+      context,
+      signal: new AbortController().signal,
+      generateId: () => `message-${modelCall}`,
+      beforeToolExecute: (input) => {
+        hookInput = input.input;
+        hookDefinition = input.definition;
+        hookContext = input.context;
+        (input.input as { value: number }).value = 99;
+        return { allow: true };
+      },
+      emit: createEmit(events),
+    });
+
+    assert.equal((hookInput as { value: number }).value, 99);
+    assert.deepEqual(executeInput, { value: 2 });
+    assert.equal(hookDefinition, runDefinition);
+    assert.equal(hookContext, context);
+    assert.match(JSON.stringify(outcome.messages), /"value":4/);
+  });
+
+  it("denies a tool call as a tool result and continues the loop", async () => {
+    let modelCall = 0;
+    let executeCount = 0;
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        modelCall += 1;
+        if (modelCall === 1) return toolCallResponse("tool-calls");
+        return textResponse("I could not use that tool.");
+      },
+    });
+    const events: AgentEvent[] = [];
+    const outcome = await new AiSdkAgentLoop({
+      models: new InMemoryModelRegistry({ test: model }),
+      tools: doubleTool(async () => {
+        executeCount += 1;
+        return { value: 4 };
+      }),
+    }).execute({
+      definition: { ...definition, tools: ["double"] },
+      messages: [userMessage()],
+      signal: new AbortController().signal,
+      generateId: () => `message-${modelCall}`,
+      beforeToolExecute: () => ({ allow: false, reason: "not permitted" }),
+      emit: createEmit(events),
+    });
+
+    assert.equal(modelCall, 2);
+    assert.equal(executeCount, 0);
+    assert.equal(outcome.text, "I could not use that tool.");
+    assert.match(JSON.stringify(outcome.messages), /TOOL_DENIED/);
+    assert.equal(
+      events.some((event) => event.type === "tool.call.started"),
+      false,
+    );
+    assert.ok(
+      events.some(
+        (event) =>
+          event.type === "tool.call.failed" &&
+          event.data.error.code === "TOOL_DENIED",
+      ),
+    );
+  });
+
+  it("fails the run when the precheck throws or returns an invalid decision", async () => {
+    const hooks: Array<() => unknown> = [
+      () => {
+        throw new Error("policy unavailable");
+      },
+      () => ({ allow: false }),
+    ];
+    for (const beforeToolExecute of hooks) {
+      let executeCount = 0;
+      const model = new MockLanguageModelV3({
+        doStream: async () => toolCallResponse("tool-calls"),
+      });
+      await assert.rejects(
+        new AiSdkAgentLoop({
+          models: new InMemoryModelRegistry({ test: model }),
+          tools: doubleTool(async () => {
+            executeCount += 1;
+            return { value: 4 };
+          }),
+        }).execute({
+          definition: { ...definition, tools: ["double"] },
+          messages: [userMessage()],
+          signal: new AbortController().signal,
+          generateId: () => "assistant-1",
+          beforeToolExecute: beforeToolExecute as BeforeToolExecute,
+          emit: async () => undefined,
+        }),
+        (error: unknown) =>
+          error instanceof AgentError &&
+          error.data.code === "TOOL_PRECHECK_FAILED",
+      );
+      assert.equal(executeCount, 0);
+    }
+  });
+
+  it("stops waiting for a precheck when the run is aborted", async () => {
+    let executeCount = 0;
+    let hookStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      hookStarted = resolve;
+    });
+    const controller = new AbortController();
+    const execution = new AiSdkAgentLoop({
+      models: new InMemoryModelRegistry({
+        test: new MockLanguageModelV3({
+          doStream: async () => toolCallResponse("tool-calls"),
+        }),
+      }),
+      tools: doubleTool(async () => {
+        executeCount += 1;
+        return { value: 4 };
+      }),
+    }).execute({
+      definition: { ...definition, tools: ["double"] },
+      messages: [userMessage()],
+      signal: controller.signal,
+      generateId: () => "assistant-1",
+      beforeToolExecute: async () => {
+        hookStarted();
+        return new Promise(() => undefined);
+      },
+      emit: async () => undefined,
+    });
+
+    await hookStarted;
+    controller.abort("cancel precheck");
+    await assert.rejects(execution);
+    assert.equal(executeCount, 0);
+  });
+
+  it("does not apply the tool timeout while the precheck is waiting", async () => {
+    let modelCall = 0;
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        modelCall += 1;
+        if (modelCall === 1) return toolCallResponse("tool-calls");
+        return textResponse("precheck finished");
+      },
+    });
+    const tools = new ToolRegistry([
+      {
+        metadata: {
+          name: "double",
+          version: "1",
+          risk: "read",
+          timeoutMs: 5,
+          idempotent: true,
+        },
+        tool: tool({
+          inputSchema: z.object({ value: z.number() }),
+          outputSchema: z.object({ value: z.number() }),
+          execute: async ({ value }) => ({ value: value * 2 }),
+        }),
+      },
+    ]);
+    const outcome = await new AiSdkAgentLoop({
+      models: new InMemoryModelRegistry({ test: model }),
+      tools,
+    }).execute({
+      definition: { ...definition, tools: ["double"] },
+      messages: [userMessage()],
+      signal: new AbortController().signal,
+      generateId: () => `message-${modelCall}`,
+      beforeToolExecute: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 25));
+        return { allow: true };
+      },
+      emit: async () => undefined,
+    });
+
+    assert.equal(outcome.text, "precheck finished");
+    assert.equal(modelCall, 2);
   });
 
   it("feeds a tool timeout back to the model with its timeout reason", async () => {

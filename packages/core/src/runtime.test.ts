@@ -12,6 +12,7 @@ import {
   type RunResult,
   type RunStatus,
   type AgentLoop,
+  type BeforeToolExecute,
 } from "./index.js";
 
 const definition = {
@@ -126,6 +127,48 @@ function waitForAbort(signal: AbortSignal): Promise<never> {
 }
 
 describe("DefaultAgentRuntime", () => {
+  it("passes beforeToolExecute through to the agent loop", async () => {
+    const beforeToolExecute: BeforeToolExecute = ({ toolName }) => {
+      assert.equal(toolName, "lookup");
+      return { allow: true };
+    };
+    let received: BeforeToolExecute | undefined;
+    const runtime = new DefaultAgentRuntime({
+      catalog: new InMemoryAgentCatalog([definition]),
+      loop: {
+        async execute(input) {
+          received = input.beforeToolExecute;
+          const result = input.beforeToolExecute?.({
+            toolName: "lookup",
+            toolCallId: "call-1",
+            input: { query: "test" },
+            definition: input.definition,
+            signal: input.signal,
+          });
+          assert.deepEqual(await result, { allow: true });
+          return {
+            text: "ok",
+            messages: input.messages,
+            steps: 1,
+            usage: {},
+            stopReason: "completed",
+          };
+        },
+      },
+      beforeToolExecute,
+      store: new InMemoryAgentStore(),
+    });
+
+    const handle = await runtime.run({
+      agentId: "test",
+      threadId: "thread-before-tool-execute",
+      messages: [userMessage("user-1", "hello")],
+    });
+
+    assert.equal((await handle.result).status, "completed");
+    assert.equal(received, beforeToolExecute);
+  });
+
   it("does not save when model context preparation fails", async () => {
     const store = new CountingStore();
     const contextError = new AgentError({

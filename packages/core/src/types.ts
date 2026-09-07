@@ -75,6 +75,23 @@ export type PrepareModelContext = (
   input: PrepareModelContextInput,
 ) => UIMessage[] | Promise<UIMessage[]>;
 
+export interface BeforeToolExecuteInput {
+  toolName: string;
+  toolCallId: string;
+  input: unknown;
+  definition: AgentDefinition;
+  context?: unknown;
+  signal: AbortSignal;
+}
+
+export type ToolExecutionDecision =
+  | { allow: true }
+  | { allow: false; reason: string };
+
+export type BeforeToolExecute = (
+  input: BeforeToolExecuteInput,
+) => ToolExecutionDecision | Promise<ToolExecutionDecision>;
+
 export interface LoopOutcome {
   text: string;
   messages: UIMessage[];
@@ -89,6 +106,7 @@ export interface AgentLoopInput<TContext = unknown> {
   context?: TContext;
   signal: AbortSignal;
   prepareModelContext?: PrepareModelContext;
+  beforeToolExecute?: BeforeToolExecute;
   generateId(): string;
   emit: import("./events.js").EmitAgentEvent;
 }

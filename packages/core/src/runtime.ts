@@ -14,6 +14,7 @@ import type {
   RunRequest,
   RunResult,
   PrepareModelContext,
+  BeforeToolExecute,
 } from "./types.js";
 
 function abortReason(signal: AbortSignal): unknown {
@@ -29,6 +30,7 @@ export interface AgentRuntimeOptions {
   idGenerator?: () => string;
   now?: () => Date;
   prepareModelContext?: PrepareModelContext;
+  beforeToolExecute?: BeforeToolExecute;
 }
 
 export class DefaultAgentRuntime {
@@ -38,6 +40,7 @@ export class DefaultAgentRuntime {
   readonly #idGenerator: () => string;
   readonly #now: () => Date;
   readonly #prepareModelContext: PrepareModelContext | undefined;
+  readonly #beforeToolExecute: BeforeToolExecute | undefined;
 
   constructor(options: AgentRuntimeOptions) {
     this.#catalog = options.catalog;
@@ -46,6 +49,7 @@ export class DefaultAgentRuntime {
     this.#idGenerator = options.idGenerator ?? randomUUID;
     this.#now = options.now ?? (() => new Date());
     this.#prepareModelContext = options.prepareModelContext;
+    this.#beforeToolExecute = options.beforeToolExecute;
   }
 
   async run<TContext>(request: RunRequest<TContext>): Promise<RunHandle> {
@@ -271,6 +275,9 @@ export class DefaultAgentRuntime {
         signal: controller.signal,
         ...(this.#prepareModelContext
           ? { prepareModelContext: this.#prepareModelContext }
+          : {}),
+        ...(this.#beforeToolExecute
+          ? { beforeToolExecute: this.#beforeToolExecute }
           : {}),
         generateId: this.#idGenerator,
         emit,
