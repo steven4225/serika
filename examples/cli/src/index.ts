@@ -12,6 +12,7 @@ import {
 } from "@aisdk-agent/core";
 import {
   AiSdkAgentLoop,
+  createConfiguredModel,
   InMemoryModelRegistry,
   ToolRegistry,
 } from "@aisdk-agent/ai-sdk-adapter";
@@ -107,7 +108,29 @@ function createDemoModel() {
   });
 }
 
-const model = createDemoModel();
+const modelMode = process.env.RUNLOOM_MODEL ?? "mock";
+if (modelMode !== "mock" && modelMode !== "minimax-m3") {
+  throw new Error(
+    `Unsupported RUNLOOM_MODEL: ${modelMode}. Use mock or minimax-m3`,
+  );
+}
+
+const modelAlias = modelMode === "minimax-m3" ? "minimax/m3" : "mock/default";
+const minimaxApiKey = process.env.MINIMAX_API_KEY?.trim();
+if (modelMode === "minimax-m3" && !minimaxApiKey) {
+  throw new Error(
+    "MINIMAX_API_KEY is required when RUNLOOM_MODEL=minimax-m3",
+  );
+}
+const model =
+  modelMode === "minimax-m3"
+    ? createConfiguredModel({
+        adapter: "openai-compatible",
+        baseURL: process.env.MINIMAX_BASE_URL ?? "https://api.minimax.io/v1",
+        modelId: process.env.MINIMAX_MODEL_ID ?? "MiniMax-M3",
+        ...(minimaxApiKey ? { apiKey: minimaxApiKey } : {}),
+      })
+    : createDemoModel();
 
 function parseTuiArgs(args: readonly string[]): {
   directory?: string;
@@ -156,7 +179,7 @@ const catalog = new InMemoryAgentCatalog([
     id: "calculator",
     version: "1",
     instructions: "Always use the add tool for addition, then answer briefly.",
-    model: "mock/default",
+    model: modelAlias,
     tools: ["add"],
     limits: {
       maxSteps: 4,
@@ -170,7 +193,7 @@ const directory = tuiMode
   : (args[0] ?? (await mkdtemp(join(tmpdir(), "runloom-demo-"))));
 const threadId = tuiMode ? (tuiArgs?.threadId ?? randomUUID()) : "demo-thread";
 const store = new JsonlAgentStore({ directory });
-const models = new InMemoryModelRegistry({ "mock/default": model });
+const models = new InMemoryModelRegistry({ [modelAlias]: model });
 const tools = new ToolRegistry([
   {
     metadata: {

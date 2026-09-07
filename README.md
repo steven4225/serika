@@ -29,4 +29,21 @@ pnpm tui
 
 `pnpm tui -- <transcript-directory> --thread <id>` 启动精简 TUI；不传目录或 thread 时会生成临时目录和 thread id。
 
-下一步是真实文件/Shell 工具，以及 AgentLoop 上的审批钩子（TUI 的 y/n）。Durable Run Driver 仍不进入这条主链。
+### MiniMax M3
+
+CLI 默认使用内置 mock 模型。要接入国际版 MiniMax M3，设置 API Key 并切换模型模式：
+
+```bash
+export MINIMAX_API_KEY="<your-minimax-api-key>"
+RUNLOOM_MODEL=minimax-m3 pnpm demo
+```
+
+入口默认使用 `https://api.minimax.io/v1` 和 `MiniMax-M3`。也可以通过 `MINIMAX_BASE_URL`、`MINIMAX_MODEL_ID` 覆盖；API Key 只在 CLI 入口读取，模型工厂本身不读取环境变量。
+
+TUI 使用相同的模式和环境变量：
+
+```bash
+RUNLOOM_MODEL=minimax-m3 pnpm tui -- ./var/runloom --thread demo
+```
+
+真实模型验证完成后，再进入真实文件/Shell 工具，以及 AgentLoop 上的审批钩子（TUI 的 y/n）。Durable Run Driver 仍不进入这条主链。
