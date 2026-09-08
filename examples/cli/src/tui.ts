@@ -18,6 +18,11 @@ type TuiState =
   | { kind: "idle" }
   | { kind: "running"; handle: RunHandle };
 
+/** A synchronous command handled directly by the terminal adapter. */
+export interface TuiCommand {
+  execute(args: string): void;
+}
+
 function isTTY(stream: Readable | Writable): boolean {
   return (stream as Readable & { isTTY?: boolean }).isTTY === true;
 }
@@ -31,6 +36,7 @@ export interface RunTuiOptions {
   output?: Writable;
   generateId?: () => string;
   toolConfirmation?: ToolConfirmation;
+  commands?: ReadonlyMap<string, TuiCommand>;
 }
 
 export interface ToolConfirmation {
@@ -224,6 +230,16 @@ function renderResult(
   write(output, "\n\n");
 }
 
+function commandParts(line: string): { name: string; args: string } {
+  const trimmed = line.trim();
+  const whitespace = trimmed.search(/\s/);
+  if (whitespace === -1) return { name: trimmed.slice(1), args: "" };
+  return {
+    name: trimmed.slice(1, whitespace),
+    args: trimmed.slice(whitespace).trimStart(),
+  };
+}
+
 /**
  * Run the thin terminal adapter. Runtime remains the only owner of execution;
  * this function only renders committed history/events and forwards input.
@@ -309,6 +325,20 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
     }
   };
 
+  const dispatchCommand = (line: string): void => {
+    const { name, args } = commandParts(line);
+    const command = name === "" ? undefined : options.commands?.get(name);
+    if (command === undefined) {
+      write(output, `\nUnknown command: ${line.trim()}\n`);
+      return;
+    }
+    try {
+      command.execute(args);
+    } catch (error) {
+      write(output, `\nCommand /${name} failed: ${String(error)}\n`);
+    }
+  };
+
   readline.on("SIGINT", () => {
     if (state.kind === "running") {
       requestStop("user_interrupt", true);
@@ -324,6 +354,11 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
   try {
     for await (const line of readline) {
       if (options.toolConfirmation?.handleLine(line) === true) continue;
+      if (state.kind === "idle" && !runStarting && line.trim().startsWith("/")) {
+        dispatchCommand(line);
+        if (isTTY(input) && !inputClosed) readline.prompt();
+        continue;
+      }
       const task = submit(line);
       tasks.add(task);
       void task.finally(() => tasks.delete(task));

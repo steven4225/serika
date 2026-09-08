@@ -51,10 +51,11 @@
 
 ## Thin TUI boundary
 
-- M-TUI-thin only calls `run`, `handle.events`, `handle.result`, and `handle.cancel`; it must not add a command bus, session object, or second loop.
+- M-TUI-thin's Agent execution path only calls `run`, `handle.events`, `handle.result`, and `handle.cancel`; idle input may dispatch an explicitly registered module command without adding a command bus, session object, or second loop.
 - TUI may read committed transcript messages from the Store for display, but must never put that history into `RunRequest.messages` or maintain a second messages cache.
 - Its visible state is `idle | running(handle)`. While running, ordinary input is rejected as busy rather than queued; when a tool confirmation is pending, input belongs to that confirmation. Only `handle.result` returns the UI to idle.
 - TUI confirmation is a single in-memory `beforeToolExecute` hook: `y` allows the current call, `n` returns `TOOL_DENIED`, and any other line keeps waiting. Abort rejects the hook with the abort reason and never becomes a denial. There is no approval queue or remembered decision.
+- When idle, a line trimmed to start with `/` is dispatched to the registered command map; commands do not create Runs or transcript messages. Confirmation input has priority over commands, and running or run-starting input is rejected as busy.
 - Ctrl+C cancels a running handle and waits for its result; Ctrl+C while idle exits. If startup is still awaiting `runtime.run()`, or stdin closes, record the stop request and cancel as soon as the handle arrives.
 
 ## PostgreSQL persistence
