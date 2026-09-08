@@ -11,7 +11,7 @@
     "build": "tsc -b",
     "clean": "tsc -b --clean",
     "typecheck": "tsc -b --pretty false",
-    "test": "pnpm build && node --test packages/core/dist/*.test.js packages/core/dist/durable/*.test.js packages/ai-sdk-adapter/dist/*.test.js examples/cli/dist/*.test.js",
+    "test": "pnpm build && node --test packages/core/dist/*.test.js packages/core/dist/durable/*.test.js packages/ai-sdk-adapter/dist/*.test.js examples/cli/dist/*.test.js examples/cli/dist/modules/*.test.js",
     "test:integration": "pnpm build && node --test --test-concurrency=1 packages/postgres/dist/**/*.integration.test.js",
     "test:all": "pnpm test && pnpm test:integration",
     "db:migrate": "pnpm build && node packages/postgres/dist/migrate.js up",
