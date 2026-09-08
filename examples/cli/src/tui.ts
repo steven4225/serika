@@ -46,6 +46,31 @@ function abortReason(signal: AbortSignal): unknown {
   return signal.reason ?? new DOMException("Agent operation aborted", "AbortError");
 }
 
+function readFilePath(input: unknown): string | undefined {
+  if (typeof input !== "object" || input === null || !("path" in input)) {
+    return undefined;
+  }
+  const path = (input as { path?: unknown }).path;
+  return typeof path === "string" ? path : undefined;
+}
+
+function confirmationPrompt(
+  toolName: string,
+  input: unknown,
+): string {
+  const path = toolName === "read_file" ? readFilePath(input) : undefined;
+  if (path !== undefined) {
+    return (
+      `\nTool: ${toolName}\n` +
+      `Path: ${JSON.stringify(path)}\n` +
+      "Reading this file will place its contents in the model context and the " +
+      "completed run's committed transcript.\n" +
+      "Allow this call? [y/n] "
+    );
+  }
+  return `\nTool: ${toolName}\nInput: ${JSON.stringify(input)}\nAllow this call? [y/n] `;
+}
+
 interface PendingConfirmation {
   signal: AbortSignal;
   onAbort: () => void;
@@ -88,10 +113,7 @@ export function createToolConfirmation(output: Writable): ToolConfirmation {
     }
 
     try {
-      write(
-        output,
-        `\nTool: ${input.toolName}\nInput: ${JSON.stringify(input.input)}\nAllow this call? [y/n] `,
-      );
+      write(output, confirmationPrompt(input.toolName, input.input));
     } catch (error) {
       clearPending(entry);
       reject(error);

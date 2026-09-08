@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { PassThrough, Writable } from "node:stream";
 import { describe, it } from "node:test";
 import { simulateReadableStream, tool, type UIMessage } from "ai";
@@ -23,6 +26,7 @@ import {
   ToolRegistry,
 } from "@aisdk-agent/ai-sdk-adapter";
 import { createDemoModel } from "./demo-model.js";
+import { createReadFileTool, type ReadFileResult } from "./read-file.js";
 import { createToolConfirmation, runTui } from "./tui.js";
 
 type TestRuntime = {
@@ -312,11 +316,184 @@ function createConfirmationRuntime(
   return { runtime, store, confirmation, executeCount };
 }
 
-function toolInput(toolName: string, signal: AbortSignal): Parameters<BeforeToolExecute>[0] {
+type RecordValue = Record<string, unknown>;
+
+function isRecord(value: unknown): value is RecordValue {
+  return typeof value === "object" && value !== null;
+}
+
+function promptAfterLastUser(prompt: unknown): unknown[] {
+  if (!Array.isArray(prompt)) return [];
+  let lastUser = -1;
+  for (let index = prompt.length - 1; index >= 0; index -= 1) {
+    const item = prompt[index];
+    if (isRecord(item) && item.role === "user") {
+      lastUser = index;
+      break;
+    }
+  }
+  return lastUser === -1 ? [] : prompt.slice(lastUser + 1);
+}
+
+function currentTurnToolResults(prompt: unknown): RecordValue[] {
+  const results: RecordValue[] = [];
+  for (const message of promptAfterLastUser(prompt)) {
+    if (!isRecord(message) || message.role !== "tool" || !Array.isArray(message.content)) {
+      continue;
+    }
+    for (const part of message.content) {
+      if (isRecord(part) && part.type === "tool-result") results.push(part);
+    }
+  }
+  return results;
+}
+
+function readFileModelUsage() {
+  return {
+    inputTokens: {
+      total: 10,
+      noCache: 10,
+      cacheRead: undefined,
+      cacheWrite: undefined,
+    },
+    outputTokens: {
+      total: 8,
+      text: 8,
+      reasoning: undefined,
+    },
+  };
+}
+
+function readFileTextResponse(text: string) {
+  return {
+    stream: simulateReadableStream({
+      chunks: [
+        { type: "stream-start" as const, warnings: [] },
+        { type: "text-start" as const, id: "answer" },
+        { type: "text-delta" as const, id: "answer", delta: text },
+        { type: "text-end" as const, id: "answer" },
+        {
+          type: "finish" as const,
+          finishReason: { unified: "stop" as const, raw: undefined },
+          usage: readFileModelUsage(),
+        },
+      ],
+    }),
+  };
+}
+
+function readFileCallResponse() {
+  return {
+    stream: simulateReadableStream({
+      chunks: [
+        { type: "stream-start" as const, warnings: [] },
+        {
+          type: "tool-call" as const,
+          toolCallId: "call-read-file",
+          toolName: "read_file",
+          input: JSON.stringify({ path: "notes.txt" }),
+        },
+        {
+          type: "finish" as const,
+          finishReason: { unified: "tool-calls" as const, raw: undefined },
+          usage: readFileModelUsage(),
+        },
+      ],
+    }),
+  };
+}
+
+function createReadFileModel() {
+  return new MockLanguageModelV3({
+    doStream: async ({ prompt }) => {
+      const results = currentTurnToolResults(prompt);
+      const output = results[0]?.output;
+      if (isRecord(output) && output.type === "error-text") {
+        return readFileTextResponse("The requested file read was denied.");
+      }
+      if (isRecord(output) && output.type === "json" && isRecord(output.value)) {
+        if (output.value.ok === true && typeof output.value.content === "string") {
+          return readFileTextResponse(`The file says: ${output.value.content}`);
+        }
+      }
+      return readFileCallResponse();
+    },
+  });
+}
+
+async function createReadFileConfirmationRuntime(options: {
+  totalTimeoutMs?: number;
+} = {}): Promise<{
+  runtime: DefaultAgentRuntime;
+  store: CountingStore;
+  confirmation: ReturnType<typeof createToolConfirmation>;
+  output: Writable & { text(): string };
+  readCount: { value: number };
+  workspace: string;
+}> {
+  const workspace = await mkdtemp(join(tmpdir(), "runloom-tui-read-file-"));
+  await writeFile(join(workspace, "notes.txt"), "hello from workspace");
+
+  const output = ttyOutput();
+  const confirmation = createToolConfirmation(output);
+  const store = new CountingStore();
+  const readCount = { value: 0 };
+  const readFile = createReadFileTool(workspace);
+  const execute = readFile.execute as unknown as (
+    input: { path: string },
+    toolOptions: Parameters<NonNullable<typeof readFile.execute>>[1],
+  ) => Promise<ReadFileResult>;
+  readFile.execute = async (input, toolOptions) => {
+    readCount.value += 1;
+    return execute(input, toolOptions);
+  };
+
+  const runtime = new DefaultAgentRuntime({
+    catalog: new InMemoryAgentCatalog([
+      {
+        id: "calculator",
+        version: "1",
+        instructions: "Use read_file when the user asks about the workspace file.",
+        model: "mock",
+        tools: ["read_file"],
+        limits: {
+          maxSteps: 4,
+          totalTimeoutMs: options.totalTimeoutMs ?? 5_000,
+          stepTimeoutMs: 1_000,
+        },
+      },
+    ]),
+    loop: new AiSdkAgentLoop({
+      models: new InMemoryModelRegistry({ mock: createReadFileModel() }),
+      tools: new ToolRegistry([
+        {
+          metadata: {
+            name: "read_file",
+            version: "1",
+            risk: "read",
+            timeoutMs: 1_000,
+            idempotent: true,
+          },
+          tool: readFile,
+        },
+      ]),
+    }),
+    beforeToolExecute: confirmation.beforeToolExecute,
+    store,
+  });
+
+  return { runtime, store, confirmation, output, readCount, workspace };
+}
+
+function toolInput(
+  toolName: string,
+  signal: AbortSignal,
+  input: unknown = { value: 1 },
+): Parameters<BeforeToolExecute>[0] {
   return {
     toolName,
     toolCallId: `${toolName}-call`,
-    input: { value: 1 },
+    input,
     definition: {
       id: "test",
       version: "1",
@@ -578,6 +755,28 @@ describe("runTui", () => {
 });
 
 describe("createToolConfirmation", () => {
+  it("identifies a read_file path and explains where file contents go", async () => {
+    const output = outputBuffer();
+    const confirmation = createToolConfirmation(output);
+    const pending = confirmation.beforeToolExecute(
+      toolInput("read_file", new AbortController().signal, {
+        path: "docs/usage.md",
+      }),
+    );
+
+    assert.match(output.text(), /Tool: read_file/);
+    assert.match(output.text(), /Path: "docs\/usage\.md"/);
+    assert.match(output.text(), /model context/);
+    assert.match(output.text(), /committed transcript/);
+    assert.doesNotMatch(output.text(), /Input:.*usage/);
+
+    assert.equal(confirmation.handleLine("n"), true);
+    assert.deepEqual(await pending, {
+      allow: false,
+      reason: "User denied this tool call",
+    });
+  });
+
   it("registers pending state before a synchronous prompt writer can answer", async () => {
     let confirmation!: ReturnType<typeof createToolConfirmation>;
     const output = new Writable({
@@ -1012,5 +1211,129 @@ describe("runTui tool confirmation", () => {
     await tui;
 
     assert.deepEqual(executions, ["double"]);
+  });
+});
+
+describe("runTui read_file confirmation", () => {
+  it("reads the real workspace file after y and saves the answer", async () => {
+    const fixture = await createReadFileConfirmationRuntime();
+    const input = ttyInput();
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: fixture.runtime,
+      store: fixture.store,
+      input,
+      output: fixture.output,
+      toolConfirmation: fixture.confirmation,
+    });
+
+    try {
+      await nextTurn();
+      input.write("Read notes.txt and tell me what it says.\n");
+      await waitFor(() => fixture.output.text().includes("Allow this call? [y/n]"));
+      assert.equal(fixture.readCount.value, 0);
+      assert.equal(fixture.store.saveCount, 0);
+
+      input.write("y\n");
+      await waitFor(() => fixture.output.text().includes("The file says: hello from workspace"));
+      await waitFor(() => fixture.store.saveCount === 1);
+
+      assert.equal(fixture.readCount.value, 1);
+      assert.match(
+        JSON.stringify(await fixture.store.getMessages("thread-1")),
+        /hello from workspace/,
+      );
+      input.end();
+      await tui;
+    } finally {
+      await rm(fixture.workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("denies read_file on n while the model can answer without reading", async () => {
+    const fixture = await createReadFileConfirmationRuntime();
+    const input = ttyInput();
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: fixture.runtime,
+      store: fixture.store,
+      input,
+      output: fixture.output,
+      toolConfirmation: fixture.confirmation,
+    });
+
+    try {
+      await nextTurn();
+      input.write("Read notes.txt.\n");
+      await waitFor(() => fixture.output.text().includes("Allow this call? [y/n]"));
+      input.write("n\n");
+      await waitFor(() => fixture.output.text().includes("The requested file read was denied."));
+
+      assert.equal(fixture.readCount.value, 0);
+      await waitFor(() => fixture.store.saveCount === 1);
+      assert.match(
+        JSON.stringify(await fixture.store.getMessages("thread-1")),
+        /TOOL_DENIED/,
+      );
+      input.end();
+      await tui;
+    } finally {
+      await rm(fixture.workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("does not read or save when confirmation is cancelled", async () => {
+    const fixture = await createReadFileConfirmationRuntime();
+    const input = ttyInput();
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: fixture.runtime,
+      store: fixture.store,
+      input,
+      output: fixture.output,
+      toolConfirmation: fixture.confirmation,
+    });
+
+    try {
+      await nextTurn();
+      input.write("Read notes.txt.\n");
+      await waitFor(() => fixture.output.text().includes("Allow this call? [y/n]"));
+      pressCtrlC(input);
+      await waitFor(() => fixture.output.text().includes("Run cancelled"));
+
+      assert.equal(fixture.readCount.value, 0);
+      assert.equal(fixture.store.saveCount, 0);
+      input.end();
+      await tui;
+    } finally {
+      await rm(fixture.workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("does not read or save when total timeout aborts confirmation", async () => {
+    const fixture = await createReadFileConfirmationRuntime({ totalTimeoutMs: 30 });
+    const input = ttyInput();
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: fixture.runtime,
+      store: fixture.store,
+      input,
+      output: fixture.output,
+      toolConfirmation: fixture.confirmation,
+    });
+
+    try {
+      await nextTurn();
+      input.write("Read notes.txt.\n");
+      await waitFor(() => fixture.output.text().includes("Allow this call? [y/n]"));
+      await waitFor(() => fixture.output.text().includes("Run timed_out"));
+
+      assert.equal(fixture.readCount.value, 0);
+      assert.equal(fixture.store.saveCount, 0);
+      input.end();
+      await tui;
+    } finally {
+      await rm(fixture.workspace, { recursive: true, force: true });
+    }
   });
 });
