@@ -26,7 +26,9 @@ import {
   ToolRegistry,
 } from "@aisdk-agent/ai-sdk-adapter";
 import { createDemoModel } from "./demo-model.js";
-import { createReadFileTool, type ReadFileResult } from "./read-file.js";
+import { createModuleHost } from "./module-host.js";
+import { createReadFileModule } from "./modules/read-file-module.js";
+import type { ReadFileResult } from "./read-file.js";
 import { createToolConfirmation, runTui } from "./tui.js";
 
 type TestRuntime = {
@@ -430,6 +432,7 @@ async function createReadFileConfirmationRuntime(options: {
   output: Writable & { text(): string };
   readCount: { value: number };
   workspace: string;
+  dispose(): void;
 }> {
   const workspace = await mkdtemp(join(tmpdir(), "runloom-tui-read-file-"));
   await writeFile(join(workspace, "notes.txt"), "hello from workspace");
@@ -438,7 +441,10 @@ async function createReadFileConfirmationRuntime(options: {
   const confirmation = createToolConfirmation(output);
   const store = new CountingStore();
   const readCount = { value: 0 };
-  const readFile = createReadFileTool(workspace);
+  const host = createModuleHost([createReadFileModule(workspace)], {
+    notify: (_moduleId, message) => output.write(message),
+  });
+  const readFile = host.tools[0]!.tool;
   const execute = readFile.execute as unknown as (
     input: { path: string },
     toolOptions: Parameters<NonNullable<typeof readFile.execute>>[1],
@@ -465,24 +471,21 @@ async function createReadFileConfirmationRuntime(options: {
     ]),
     loop: new AiSdkAgentLoop({
       models: new InMemoryModelRegistry({ mock: createReadFileModel() }),
-      tools: new ToolRegistry([
-        {
-          metadata: {
-            name: "read_file",
-            version: "1",
-            risk: "read",
-            timeoutMs: 1_000,
-            idempotent: true,
-          },
-          tool: readFile,
-        },
-      ]),
+      tools: new ToolRegistry(host.tools),
     }),
     beforeToolExecute: confirmation.beforeToolExecute,
     store,
   });
 
-  return { runtime, store, confirmation, output, readCount, workspace };
+  return {
+    runtime,
+    store,
+    confirmation,
+    output,
+    readCount,
+    workspace,
+    dispose: () => host.dispose(),
+  };
 }
 
 function toolInput(
@@ -751,6 +754,207 @@ describe("runTui", () => {
     await tui;
 
     assert.equal(runtime.requests.length, 0);
+  });
+
+  it("dispatches idle slash commands with the complete argument string", async () => {
+    const input = ttyInput();
+    const output = ttyOutput();
+    const runtime = testRuntime([]);
+    const args: string[] = [];
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: runtime.runtime,
+      store: { getMessages: async () => [] },
+      input,
+      output,
+      commands: new Map([
+        ["workspace", { execute: (value: string) => args.push(value) }],
+      ]),
+    });
+
+    await nextTurn();
+    input.write("  /workspace   one  two  \n");
+    await waitFor(() => args.length === 1);
+    assert.deepEqual(args, ["one  two"]);
+    assert.equal(runtime.requests.length, 0);
+    assert.ok((output.text().match(/> /g) ?? []).length >= 2);
+    input.end();
+    await tui;
+  });
+
+  it("runs /workspace on the shared output without starting a run", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "runloom-tui-module-"));
+    const input = ttyInput();
+    const output = ttyOutput();
+    const runtime = testRuntime([]);
+    const host = createModuleHost([createReadFileModule(workspace)], {
+      notify: (moduleId, message) =>
+        output.write(`[module:${moduleId}] ${message}\n`),
+    });
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: runtime.runtime,
+      store: { getMessages: async () => [] },
+      input,
+      output,
+      commands: host.commands,
+    });
+
+    try {
+      await nextTurn();
+      input.write("/workspace\n");
+      await waitFor(() =>
+        output.text().includes(`[module:read-file] ${workspace}`),
+      );
+      assert.equal(runtime.requests.length, 0);
+      input.end();
+      await tui;
+    } finally {
+      host.dispose();
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("treats unknown slash commands, including bare slash, as local errors", async () => {
+    const input = ttyInput();
+    const output = ttyOutput();
+    const runtime = testRuntime([]);
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: runtime.runtime,
+      store: { getMessages: async () => [] },
+      input,
+      output,
+      commands: new Map(),
+    });
+
+    await nextTurn();
+    input.write("/\n/does-not-exist\n");
+    await waitFor(() => output.text().includes("Unknown command: /does-not-exist"));
+    input.end();
+    await tui;
+
+    assert.equal(runtime.requests.length, 0);
+    assert.match(output.text(), /Unknown command: \/\n/);
+  });
+
+  it("lets pending confirmation consume slash input before command dispatch", async () => {
+    const input = ttyInput();
+    const output = ttyOutput();
+    const runtime = testRuntime([]);
+    const lines: string[] = [];
+    const commandCalls: string[] = [];
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: runtime.runtime,
+      store: { getMessages: async () => [] },
+      input,
+      output,
+      toolConfirmation: {
+        beforeToolExecute: async () => ({ allow: true }),
+        handleLine: (line) => {
+          lines.push(line);
+          return true;
+        },
+      },
+      commands: new Map([
+        ["workspace", { execute: (args: string) => commandCalls.push(args) }],
+      ]),
+    });
+
+    await nextTurn();
+    input.write("/workspace\n");
+    await waitFor(() => lines.length === 1);
+    input.end();
+    await tui;
+
+    assert.deepEqual(lines, ["/workspace"]);
+    assert.deepEqual(commandCalls, []);
+    assert.equal(runtime.requests.length, 0);
+  });
+
+  it("reports Busy for slash input while a run is starting", async () => {
+    const input = ttyInput();
+    const output = ttyOutput();
+    const started = deferred<RunHandle>();
+    const events = asyncQueue<AgentEvent>();
+    events.close();
+    const requests: RunRequest[] = [];
+    const runtime = {
+      async run<TContext>(request: RunRequest<TContext>): Promise<RunHandle> {
+        requests.push(request as RunRequest);
+        return started.promise;
+      },
+    };
+    const commandCalls: string[] = [];
+    const tui = runTui({
+      ...tuiOptions,
+      runtime,
+      store: { getMessages: async () => [] },
+      input,
+      output,
+      commands: new Map([
+        ["workspace", { execute: (args: string) => commandCalls.push(args) }],
+      ]),
+    });
+
+    await nextTurn();
+    input.write("first prompt\n");
+    await waitFor(() => requests.length === 1);
+    input.write("/workspace\n");
+    await waitFor(() => output.text().includes("Busy: wait for the current run to finish."));
+    assert.deepEqual(commandCalls, []);
+
+    started.resolve(
+      handleFor({
+        runId: "run-1",
+        threadId: "thread-1",
+        events,
+        result: Promise.resolve(completedResult("run-1", "thread-1", "done")),
+      }),
+    );
+    await waitFor(() => output.text().includes("done"));
+    input.end();
+    await tui;
+  });
+
+  it("reports Busy for slash input while a run is active", async () => {
+    const input = ttyInput();
+    const output = ttyOutput();
+    const events = asyncQueue<AgentEvent>();
+    events.close();
+    const result = deferred<RunResult>();
+    const runtime = testRuntime([
+      handleFor({
+        runId: "run-1",
+        threadId: "thread-1",
+        events,
+        result: result.promise,
+      }),
+    ]);
+    const commandCalls: string[] = [];
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: runtime.runtime,
+      store: { getMessages: async () => [] },
+      input,
+      output,
+      commands: new Map([
+        ["workspace", { execute: (args: string) => commandCalls.push(args) }],
+      ]),
+    });
+
+    await nextTurn();
+    input.write("first prompt\n");
+    await waitFor(() => runtime.requests.length === 1);
+    input.write("/workspace\n");
+    await waitFor(() => output.text().includes("Busy: wait for the current run to finish."));
+    assert.deepEqual(commandCalls, []);
+
+    result.resolve(completedResult("run-1", "thread-1", "done"));
+    await waitFor(() => output.text().includes("done"));
+    input.end();
+    await tui;
   });
 });
 
@@ -1246,6 +1450,7 @@ describe("runTui read_file confirmation", () => {
       input.end();
       await tui;
     } finally {
+      fixture.dispose();
       await rm(fixture.workspace, { recursive: true, force: true });
     }
   });
@@ -1278,6 +1483,7 @@ describe("runTui read_file confirmation", () => {
       input.end();
       await tui;
     } finally {
+      fixture.dispose();
       await rm(fixture.workspace, { recursive: true, force: true });
     }
   });
@@ -1306,6 +1512,7 @@ describe("runTui read_file confirmation", () => {
       input.end();
       await tui;
     } finally {
+      fixture.dispose();
       await rm(fixture.workspace, { recursive: true, force: true });
     }
   });
@@ -1333,6 +1540,7 @@ describe("runTui read_file confirmation", () => {
       input.end();
       await tui;
     } finally {
+      fixture.dispose();
       await rm(fixture.workspace, { recursive: true, force: true });
     }
   });
