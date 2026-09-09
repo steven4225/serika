@@ -16,6 +16,7 @@ import {
   ToolRegistry,
 } from "@aisdk-agent/ai-sdk-adapter";
 import { createDemoModel } from "./demo-model.js";
+import { selectModelContext } from "./context-window.js";
 import { parseTuiArgs, resolveWorkspace } from "./cli-options.js";
 import { createModuleHost } from "./module-host.js";
 import { createPomodoroModule } from "./modules/pomodoro-module.js";
@@ -122,6 +123,9 @@ try {
     catalog,
     store,
     loop: new AiSdkAgentLoop({ models, tools }),
+    ...(tuiMode
+      ? { prepareModelContext: ({ messages }) => selectModelContext(messages) }
+      : {}),
     ...(toolConfirmation
       ? { beforeToolExecute: toolConfirmation.beforeToolExecute }
       : {}),
