@@ -38,6 +38,10 @@ describe("createReadFileModule", () => {
       timeoutMs: 1_000,
       idempotent: true,
     });
+    assert.deepEqual(
+      tools.map(({ metadata }) => metadata.name),
+      ["read_file", "list_directory", "search_files"],
+    );
     const readFile = tools[0]?.tool;
     assert.ok(readFile?.execute);
     const result = await readFile.execute(
