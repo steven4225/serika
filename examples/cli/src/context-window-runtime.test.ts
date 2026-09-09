@@ -16,6 +16,9 @@ import {
   MAX_CONTEXT_BYTES,
   selectModelContext,
 } from "./context-window.js";
+import { createModuleHost } from "./module-host.js";
+import { createMemoryModule } from "./modules/memory-module.js";
+import type { MemoryEntry, WorkspaceMemoryStore } from "./memory-store.js";
 
 const definition = {
   id: "context-window-test",
@@ -57,6 +60,30 @@ function textResponse(text: string) {
               text: 1,
               reasoning: undefined,
             },
+          },
+        },
+      ],
+    }),
+  };
+}
+
+function memoryAddResponse() {
+  return {
+    stream: simulateReadableStream({
+      chunks: [
+        { type: "stream-start" as const, warnings: [] },
+        {
+          type: "tool-call" as const,
+          toolCallId: "memory-add-call",
+          toolName: "memory_add",
+          input: JSON.stringify({ text: "remember this" }),
+        },
+        {
+          type: "finish" as const,
+          finishReason: { unified: "tool-calls" as const, raw: undefined },
+          usage: {
+            inputTokens: { total: 3, noCache: 3, cacheRead: undefined, cacheWrite: undefined },
+            outputTokens: { total: 1, text: 1, reasoning: undefined },
           },
         },
       ],
@@ -167,5 +194,76 @@ describe("context window Runtime integration", () => {
     assert.equal(modelCalls, 0);
     assert.equal(store.saveCount, 0);
     assert.deepEqual(await store.getMessages(threadId), committed);
+  });
+
+  it("reads newly added memory on the next model step without saving the injected message", async () => {
+    const threadId = "context-window-memory";
+    const store = new CountingStore();
+    const entries: MemoryEntry[] = [];
+    const memoryStore: WorkspaceMemoryStore = {
+      list: async () => ({ ok: true as const, entries: entries.map((entry) => ({ ...entry })) }),
+      get: async (id) => {
+        const entry = entries.find((value) => value.id === id);
+        return entry
+          ? { ok: true as const, entry: { ...entry } }
+          : { ok: false as const, error: { code: "MEMORY_ENTRY_NOT_FOUND" as const, message: "not found" } };
+      },
+      add: async ({ text, enabled }) => {
+        const entry = { id: "memory-1", text, enabled: enabled ?? true };
+        entries.push(entry);
+        return { ok: true as const, entry: { ...entry } };
+      },
+      update: async () => ({ ok: false as const, error: { code: "MEMORY_ENTRY_NOT_FOUND" as const, message: "not found" } }),
+      delete: async (id) => ({ ok: false as const, error: { code: "MEMORY_ENTRY_NOT_FOUND" as const, message: `not found: ${id}` } }),
+    };
+    const moduleHost = createModuleHost([createMemoryModule(memoryStore)], {
+      notify: () => undefined,
+    });
+    const prompts: string[] = [];
+    let modelCalls = 0;
+    const model = new MockLanguageModelV3({
+      doStream: async ({ prompt }) => {
+        modelCalls += 1;
+        prompts.push(JSON.stringify(prompt));
+        return modelCalls === 1 ? memoryAddResponse() : textResponse("memory seen");
+      },
+    });
+    const runtime = new DefaultAgentRuntime({
+      catalog: new InMemoryAgentCatalog([
+        {
+          ...definition,
+          tools: ["memory_add"],
+          limits: { maxSteps: 2, totalTimeoutMs: 1_000, stepTimeoutMs: 500 },
+        },
+      ]),
+      loop: new AiSdkAgentLoop({
+        models: new InMemoryModelRegistry({ [definition.model]: model }),
+        tools: new ToolRegistry(moduleHost.tools),
+      }),
+      prepareModelContext: async ({ messages, signal }) => {
+        const listed = await memoryStore.list(signal);
+        if (!listed.ok) throw new Error(listed.error.message);
+        return selectModelContext(messages, listed.entries);
+      },
+      beforeToolExecute: async () => ({ allow: true }),
+      store,
+    });
+
+    try {
+      const handle = await runtime.run({
+        agentId: definition.id,
+        threadId,
+        messages: [userMessage("memory-user", "remember something")],
+      });
+      const result = await handle.result;
+
+      assert.equal(result.status, "completed");
+      assert.equal(modelCalls, 2);
+      assert.equal(prompts[1]!.includes("remember this"), true);
+      const saved = await store.getMessages(threadId);
+      assert.equal(saved.some((message) => message.id === "runloom-workspace-memory"), false);
+    } finally {
+      moduleHost.dispose();
+    }
   });
 });

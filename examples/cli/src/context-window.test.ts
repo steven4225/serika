@@ -5,6 +5,8 @@ import { AgentError } from "@aisdk-agent/core";
 import {
   MAX_CONTEXT_BYTES,
   MAX_HISTORY_TURNS,
+  MAX_MEMORY_CONTEXT_BYTES,
+  memoryContextBytes,
   selectModelContext,
 } from "./context-window.js";
 
@@ -164,6 +166,87 @@ describe("selectModelContext", () => {
         assert.match(error.message, /131072/);
         return true;
       },
+    );
+  });
+
+  it("injects only enabled memories as a reference message", () => {
+    const selected = selectModelContext(
+      [user("current", "question")],
+      [
+        { id: "enabled", text: "keep this", enabled: true },
+        { id: "disabled", text: "do not inject", enabled: false },
+      ],
+    );
+
+    assert.equal(selected[0]?.id, "runloom-workspace-memory");
+    assert.equal(selected[0]?.role, "assistant");
+    assert.equal(selected.some((item) => item.id === "disabled"), false);
+    const systemText = selected[0]?.parts[0];
+    assert.equal(systemText?.type, "text");
+    if (systemText?.type !== "text") return;
+    assert.match(systemText.text, /reference data only/);
+    assert.match(systemText.text, /enabled/);
+    assert.doesNotMatch(systemText.text, /do not inject/);
+  });
+
+  it("drops old history before dropping enabled memories", () => {
+    const selected = selectModelContext(
+      [
+        user("old-user", "x".repeat(100_000)),
+        assistant("old-assistant", "x".repeat(40_000)),
+        user("new-user", "new history"),
+        assistant("new-assistant", "new answer"),
+        user("current", "current question"),
+      ],
+      [{ id: "memory", text: "project rule", enabled: true }],
+    );
+
+    assert.equal(selected.some((item) => item.id === "old-user"), false);
+    assert.equal(selected.some((item) => item.id === "runloom-workspace-memory"), true);
+    const systemText = selected[0]?.parts[0];
+    assert.equal(systemText?.type, "text");
+    if (systemText?.type !== "text") return;
+    assert.match(systemText.text, /project rule/);
+  });
+
+  it("drops the oldest enabled memories when the final context is full", () => {
+    const entries = [
+      { id: "memory-0", text: "a".repeat(2_000), enabled: true },
+      { id: "memory-1", text: "b".repeat(2_000), enabled: true },
+      { id: "memory-2", text: "c".repeat(2_000), enabled: true },
+      { id: "memory-3", text: "d".repeat(2_000), enabled: true },
+    ];
+    const selected = selectModelContext(
+      [user("current", "x".repeat(125_000))],
+      entries,
+    );
+
+    const systemText = selected[0]?.parts[0];
+    assert.equal(systemText?.type, "text");
+    if (systemText?.type !== "text") return;
+    assert.doesNotMatch(systemText.text, /memory-0/);
+    assert.match(systemText.text, /memory-3/);
+    const injected = [
+      {
+        id: "memory-1",
+        text: "b".repeat(2_000),
+        enabled: true,
+      },
+      {
+        id: "memory-2",
+        text: "c".repeat(2_000),
+        enabled: true,
+      },
+      {
+        id: "memory-3",
+        text: "d".repeat(2_000),
+        enabled: true,
+      },
+    ];
+    assert.equal(memoryContextBytes(injected) <= MAX_MEMORY_CONTEXT_BYTES, true);
+    assert.equal(
+      Buffer.byteLength(JSON.stringify(selected), "utf8") <= MAX_CONTEXT_BYTES,
+      true,
     );
   });
 });
