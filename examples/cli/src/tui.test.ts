@@ -1150,6 +1150,39 @@ describe("createToolConfirmation", () => {
     });
   });
 
+  it("supports an asynchronous custom confirmation prompt and keeps the default for other tools", async () => {
+    const output = outputBuffer();
+    const confirmation = createToolConfirmation(output, {
+      prompt: async ({ toolName, input }) =>
+        toolName === "memory_update"
+          ? `Current memory: ${JSON.stringify(input)}\nAllow this call? [y/n] `
+          : undefined,
+    });
+    const pending = confirmation.beforeToolExecute(
+      toolInput("memory_update", new AbortController().signal, {
+        id: "memory-1",
+        text: "new text",
+      }),
+    );
+
+    await Promise.resolve();
+    assert.match(output.text(), /Current memory: \{"id":"memory-1","text":"new text"\}/);
+    assert.doesNotMatch(output.text(), /Tool: memory_update/);
+    assert.equal(confirmation.handleLine("y"), true);
+    assert.deepEqual(await pending, { allow: true });
+
+    const fallback = confirmation.beforeToolExecute(
+      toolInput("add", new AbortController().signal, { left: 1, right: 2 }),
+    );
+    await Promise.resolve();
+    assert.match(output.text(), /Tool: add/);
+    assert.equal(confirmation.handleLine("n"), true);
+    assert.deepEqual(await fallback, {
+      allow: false,
+      reason: "User denied this tool call",
+    });
+  });
+
   it("registers pending state before a synchronous prompt writer can answer", async () => {
     let confirmation!: ReturnType<typeof createToolConfirmation>;
     const output = new Writable({

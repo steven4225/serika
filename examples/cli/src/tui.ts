@@ -3,6 +3,7 @@ import type { Readable, Writable } from "node:stream";
 import type { UIMessage } from "ai";
 import type {
   BeforeToolExecute,
+  BeforeToolExecuteInput,
   MessageStore,
   RunHandle,
   RunRequest,
@@ -43,6 +44,10 @@ export interface ToolConfirmation {
   beforeToolExecute: BeforeToolExecute;
   handleLine(line: string): boolean;
 }
+
+export type ToolConfirmationPrompt = (
+  input: BeforeToolExecuteInput,
+) => string | Promise<string | undefined> | undefined;
 
 function write(output: Writable, text: string): void {
   output.write(text);
@@ -107,7 +112,10 @@ interface PendingConfirmation {
   reject: (reason: unknown) => void;
 }
 
-export function createToolConfirmation(output: Writable): ToolConfirmation {
+export function createToolConfirmation(
+  output: Writable,
+  options: { prompt?: ToolConfirmationPrompt } = {},
+): ToolConfirmation {
   let pending: PendingConfirmation | undefined;
 
   const clearPending = (entry: PendingConfirmation): void => {
@@ -141,11 +149,34 @@ export function createToolConfirmation(output: Writable): ToolConfirmation {
       return decision;
     }
 
+    const writePrompt = (text: string): void => {
+      if (pending !== entry) return;
+      try {
+        write(output, text);
+      } catch (error) {
+        clearPending(entry);
+        reject(error);
+      }
+    };
+    let customPrompt: string | Promise<string | undefined> | undefined;
     try {
-      write(output, confirmationPrompt(input.toolName, input.input));
+      customPrompt = options.prompt?.(input);
     } catch (error) {
       clearPending(entry);
       reject(error);
+      return decision;
+    }
+    if (customPrompt instanceof Promise) {
+      void customPrompt.then(
+        (text) =>
+          writePrompt(text ?? confirmationPrompt(input.toolName, input.input)),
+        (error: unknown) => {
+          clearPending(entry);
+          reject(error);
+        },
+      );
+    } else {
+      writePrompt(customPrompt ?? confirmationPrompt(input.toolName, input.input));
     }
     return decision;
   };
