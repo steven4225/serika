@@ -1,9 +1,13 @@
 import { lstat, open } from "node:fs/promises";
 import { constants } from "node:fs";
-import { isAbsolute, relative, resolve, sep, win32 } from "node:path";
+import { resolve } from "node:path";
 import { TextDecoder } from "node:util";
 import { tool, type Tool } from "ai";
 import { z } from "zod";
+import {
+  rejectSymlinkComponents,
+  validateWorkspacePath,
+} from "./workspace-path.js";
 
 export const READ_FILE_MAX_BYTES = 65_536;
 
@@ -72,92 +76,6 @@ function mapFilesystemError(
   return failure("READ_FAILED", `Unable to read file: ${relativePath || "."}`);
 }
 
-function isPathOutsideWorkspace(workspaceRoot: string, target: string): boolean {
-  const relativePath = relative(workspaceRoot, target);
-  return (
-    isAbsolute(relativePath) ||
-    relativePath === ".." ||
-    relativePath.startsWith(`..${sep}`)
-  );
-}
-
-function validateRequestedPath(
-  workspaceRoot: string,
-  requestedPath: unknown,
-):
-  | { ok: true; target: string; relativePath: string }
-  | { ok: false; result: ReadFileFailure } {
-  if (typeof requestedPath !== "string" || requestedPath.length === 0) {
-    return {
-      ok: false,
-      result: failure("INVALID_PATH", "Path must be a non-empty relative path"),
-    };
-  }
-  if (requestedPath.includes("\0")) {
-    return {
-      ok: false,
-      result: failure("INVALID_PATH", "Path must not contain NUL bytes"),
-    };
-  }
-  if (isAbsolute(requestedPath) || win32.isAbsolute(requestedPath)) {
-    return {
-      ok: false,
-      result: failure("INVALID_PATH", "Path must be relative to the workspace"),
-    };
-  }
-
-  const target = resolve(workspaceRoot, requestedPath);
-  if (isPathOutsideWorkspace(workspaceRoot, target)) {
-    return {
-      ok: false,
-      result: failure("PATH_OUTSIDE_WORKSPACE", "Path is outside the workspace"),
-    };
-  }
-
-  return { ok: true, target, relativePath: relative(workspaceRoot, target) };
-}
-
-async function rejectSymlinkComponents(
-  workspaceRoot: string,
-  target: string,
-  relativePath: string,
-  signal: AbortSignal,
-): Promise<ReadFileFailure | undefined> {
-  let current = workspaceRoot;
-  const components = relativePath === "" ? [] : relativePath.split(sep);
-  for (const component of components) {
-    throwIfAborted(signal);
-    current = resolve(current, component);
-    try {
-      const stats = await lstat(current);
-      throwIfAborted(signal);
-      if (stats.isSymbolicLink()) {
-        return failure("SYMLINK_NOT_ALLOWED", "Symbolic links are not allowed");
-      }
-    } catch (error) {
-      if (signal.aborted) throw abortReason(signal);
-      if (
-        typeof error === "object" &&
-        error !== null &&
-        "code" in error &&
-        (error.code === "ENOENT" || error.code === "ENOTDIR")
-      ) {
-        return failure("FILE_NOT_FOUND", `File not found: ${relativePath || "."}`);
-      }
-      if (
-        typeof error === "object" &&
-        error !== null &&
-        "code" in error &&
-        error.code === "ELOOP"
-      ) {
-        return failure("SYMLINK_NOT_ALLOWED", "Symbolic links are not allowed");
-      }
-      throw error;
-    }
-  }
-  return undefined;
-}
-
 /**
  * Read one UTF-8 text file below a fixed workspace.
  *
@@ -173,18 +91,15 @@ export async function readFileFromWorkspace(
   const workspaceRoot = resolve(workspace);
   throwIfAborted(abortSignal);
 
-  const validated = validateRequestedPath(workspaceRoot, requestedPath);
-  if (!validated.ok) return validated.result;
+  const validated = validateWorkspacePath(workspaceRoot, requestedPath);
+  if (!validated.ok) return failure(validated.code, validated.message);
 
   const { target, relativePath } = validated;
   let symlinkResult: ReadFileFailure | undefined;
   try {
-    symlinkResult = await rejectSymlinkComponents(
-      workspaceRoot,
-      target,
-      relativePath,
-      abortSignal,
-    );
+    if (await rejectSymlinkComponents(workspaceRoot, relativePath, abortSignal)) {
+      symlinkResult = failure("SYMLINK_NOT_ALLOWED", "Symbolic links are not allowed");
+    }
   } catch (error) {
     if (abortSignal.aborted) throw abortReason(abortSignal);
     return mapFilesystemError(error, relativePath);

@@ -74,6 +74,29 @@ function confirmationPrompt(
       "Allow this call? [y/n] "
     );
   }
+  if (toolName === "write_file" && typeof input === "object" && input !== null) {
+    const writeInput = input as { path?: unknown; content?: unknown };
+    return (
+      `\nTool: ${toolName}\n` +
+      `Path: ${JSON.stringify(writeInput.path)}\n` +
+      `Content: ${JSON.stringify(writeInput.content)}\n` +
+      "Allow this call? [y/n] "
+    );
+  }
+  if (toolName === "edit_file" && typeof input === "object" && input !== null) {
+    const editInput = input as {
+      path?: unknown;
+      oldText?: unknown;
+      newText?: unknown;
+    };
+    return (
+      `\nTool: ${toolName}\n` +
+      `Path: ${JSON.stringify(editInput.path)}\n` +
+      `Old text: ${JSON.stringify(editInput.oldText)}\n` +
+      `New text: ${JSON.stringify(editInput.newText)}\n` +
+      "Allow this call? [y/n] "
+    );
+  }
   return `\nTool: ${toolName}\nInput: ${JSON.stringify(input)}\nAllow this call? [y/n] `;
 }
 
