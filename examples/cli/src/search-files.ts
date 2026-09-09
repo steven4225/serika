@@ -1,11 +1,15 @@
 import type { Dirent } from "node:fs";
 import { constants } from "node:fs";
 import { lstat, open, readdir } from "node:fs/promises";
-import { isAbsolute, relative, resolve, sep, win32 } from "node:path";
+import { relative, resolve, sep } from "node:path";
 import { TextDecoder } from "node:util";
 import { tool, type Tool } from "ai";
 import { z } from "zod";
 import { READ_FILE_MAX_BYTES } from "./read-file.js";
+import {
+  rejectSymlinkComponents,
+  validateWorkspacePath,
+} from "./workspace-path.js";
 
 const SEARCH_FILES_MAX_ENTRIES = 1_000;
 const SEARCH_FILES_MAX_MATCHES = 100;
@@ -71,15 +75,6 @@ function filesystemCode(error: unknown): string | undefined {
     : undefined;
 }
 
-function isOutsideWorkspace(workspaceRoot: string, target: string): boolean {
-  const relativePath = relative(workspaceRoot, target);
-  return (
-    isAbsolute(relativePath) ||
-    relativePath === ".." ||
-    relativePath.startsWith(`..${sep}`)
-  );
-}
-
 function validateQuery(query: string): WorkspaceToolFailure | undefined {
   if (query.length === 0) {
     return failure("INVALID_QUERY", "Query must be non-empty");
@@ -88,39 +83,6 @@ function validateQuery(query: string): WorkspaceToolFailure | undefined {
     return failure("INVALID_QUERY", "Query must not contain CR, LF, or NUL");
   }
   return undefined;
-}
-
-function validatePath(
-  workspaceRoot: string,
-  requestedPath: string | undefined,
-):
-  | { ok: true; target: string; relativePath: string }
-  | { ok: false; result: WorkspaceToolFailure } {
-  if (requestedPath === undefined) {
-    return { ok: true, target: workspaceRoot, relativePath: "" };
-  }
-  if (requestedPath.length === 0 || requestedPath.includes("\0")) {
-    return {
-      ok: false,
-      result: failure("INVALID_PATH", "Path must be a non-empty relative path"),
-    };
-  }
-  if (isAbsolute(requestedPath) || win32.isAbsolute(requestedPath)) {
-    return {
-      ok: false,
-      result: failure("INVALID_PATH", "Path must be relative to the workspace"),
-    };
-  }
-
-  const target = resolve(workspaceRoot, requestedPath);
-  if (isOutsideWorkspace(workspaceRoot, target)) {
-    return {
-      ok: false,
-      result: failure("PATH_OUTSIDE_WORKSPACE", "Path is outside the workspace"),
-    };
-  }
-
-  return { ok: true, target, relativePath: relative(workspaceRoot, target) };
 }
 
 function isExcludedName(name: string): boolean {
@@ -133,8 +95,39 @@ async function inspectSearchRoot(
   relativePath: string,
   signal: AbortSignal,
 ): Promise<WorkspaceToolFailure | undefined> {
-  let current = workspaceRoot;
   const components = relativePath === "" ? [] : relativePath.split(sep);
+  for (const component of components) {
+    if (isExcludedName(component)) {
+      return failure("INVALID_PATH", "Path is excluded from workspace search");
+    }
+  }
+
+  let hasSymlinkComponent: boolean;
+  try {
+    hasSymlinkComponent = await rejectSymlinkComponents(
+      workspaceRoot,
+      relativePath,
+      signal,
+    );
+  } catch (error) {
+    if (signal.aborted) throw abortReason(signal);
+    const code = filesystemCode(error);
+    if (code === "ENOENT") {
+      return failure("PATH_NOT_FOUND", `Path not found: ${relativePath || "."}`);
+    }
+    if (code === "ENOTDIR") {
+      return failure("NOT_DIRECTORY", `Not a directory: ${relativePath || "."}`);
+    }
+    if (code === "ELOOP") {
+      return failure("SYMLINK_NOT_ALLOWED", "Symbolic links are not allowed");
+    }
+    return failure("LIST_FAILED", `Unable to inspect path: ${relativePath || "."}`);
+  }
+  if (hasSymlinkComponent) {
+    return failure("SYMLINK_NOT_ALLOWED", "Symbolic links are not allowed");
+  }
+
+  let current = workspaceRoot;
   for (const component of components) {
     throwIfAborted(signal);
     if (isExcludedName(component)) {
@@ -203,8 +196,13 @@ export async function searchFilesInWorkspace(
   if (invalidQuery) return invalidQuery;
 
   const workspaceRoot = resolve(workspace);
-  const validatedPath = validatePath(workspaceRoot, requestedPath);
-  if (!validatedPath.ok) return validatedPath.result;
+  const validatedPath = validateWorkspacePath(
+    workspaceRoot,
+    requestedPath ?? ".",
+  );
+  if (!validatedPath.ok) {
+    return failure(validatedPath.code, validatedPath.message);
+  }
 
   const rootFailure = await inspectSearchRoot(
     workspaceRoot,

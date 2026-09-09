@@ -40,8 +40,24 @@ describe("createReadFileModule", () => {
     });
     assert.deepEqual(
       tools.map(({ metadata }) => metadata.name),
-      ["read_file", "list_directory", "search_files"],
+      ["read_file", "list_directory", "search_files", "write_file", "edit_file"],
     );
+    assert.deepEqual(tools.slice(3).map(({ metadata }) => metadata), [
+      {
+        name: "write_file",
+        version: "1",
+        risk: "write",
+        timeoutMs: 1_000,
+        idempotent: false,
+      },
+      {
+        name: "edit_file",
+        version: "1",
+        risk: "write",
+        timeoutMs: 1_000,
+        idempotent: false,
+      },
+    ]);
     const readFile = tools[0]?.tool;
     assert.ok(readFile?.execute);
     const result = await readFile.execute(

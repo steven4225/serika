@@ -1,7 +1,11 @@
 import { lstat, readdir } from "node:fs/promises";
-import { isAbsolute, relative, resolve, sep, win32 } from "node:path";
+import { resolve } from "node:path";
 import { tool, type Tool } from "ai";
 import { z } from "zod";
+import {
+  rejectSymlinkComponents,
+  validateWorkspacePath,
+} from "./workspace-path.js";
 
 export const LIST_DIRECTORY_MAX_ENTRIES = 200;
 
@@ -68,75 +72,6 @@ function mapFilesystemError(
   return failure("LIST_FAILED", `Unable to list directory: ${relativePath}`);
 }
 
-function isPathOutsideWorkspace(workspaceRoot: string, target: string): boolean {
-  const relativePath = relative(workspaceRoot, target);
-  return (
-    isAbsolute(relativePath) ||
-    relativePath === ".." ||
-    relativePath.startsWith(`..${sep}`)
-  );
-}
-
-function validateRequestedPath(
-  workspaceRoot: string,
-  requestedPath: unknown,
-):
-  | { ok: true; target: string; relativePath: string }
-  | { ok: false; result: ListDirectoryFailure } {
-  if (typeof requestedPath !== "string" || requestedPath.length === 0) {
-    return {
-      ok: false,
-      result: failure("INVALID_PATH", "Path must be a non-empty relative path"),
-    };
-  }
-  if (requestedPath.includes("\0")) {
-    return {
-      ok: false,
-      result: failure("INVALID_PATH", "Path must not contain NUL bytes"),
-    };
-  }
-  if (isAbsolute(requestedPath) || win32.isAbsolute(requestedPath)) {
-    return {
-      ok: false,
-      result: failure("INVALID_PATH", "Path must be relative to the workspace"),
-    };
-  }
-
-  const target = resolve(workspaceRoot, requestedPath);
-  if (isPathOutsideWorkspace(workspaceRoot, target)) {
-    return {
-      ok: false,
-      result: failure("PATH_OUTSIDE_WORKSPACE", "Path is outside the workspace"),
-    };
-  }
-
-  return { ok: true, target, relativePath: relative(workspaceRoot, target) };
-}
-
-async function rejectSymlinkComponents(
-  workspaceRoot: string,
-  relativePath: string,
-  signal: AbortSignal,
-): Promise<ListDirectoryFailure | undefined> {
-  let current = workspaceRoot;
-  const components = relativePath === "" ? [] : relativePath.split(sep);
-  for (const component of components) {
-    throwIfAborted(signal);
-    current = resolve(current, component);
-    try {
-      const stats = await lstat(current);
-      throwIfAborted(signal);
-      if (stats.isSymbolicLink()) {
-        return failure("SYMLINK_NOT_ALLOWED", "Symbolic links are not allowed");
-      }
-    } catch (error) {
-      if (signal.aborted) throw abortReason(signal);
-      return mapFilesystemError(error, relativePath || ".");
-    }
-  }
-  return undefined;
-}
-
 function entryType(stats: Awaited<ReturnType<typeof lstat>>): ListDirectoryEntryType {
   if (stats.isFile()) return "file";
   if (stats.isDirectory()) return "directory";
@@ -153,17 +88,25 @@ export async function listDirectoryFromWorkspace(
   const workspaceRoot = resolve(workspace);
   throwIfAborted(abortSignal);
 
-  const validated = validateRequestedPath(workspaceRoot, requestedPath);
-  if (!validated.ok) return validated.result;
+  const validated = validateWorkspacePath(workspaceRoot, requestedPath);
+  if (!validated.ok) return failure(validated.code, validated.message);
 
   const { target, relativePath } = validated;
   const displayPath = relativePath || ".";
-  const symlinkResult = await rejectSymlinkComponents(
-    workspaceRoot,
-    relativePath,
-    abortSignal,
-  );
-  if (symlinkResult) return symlinkResult;
+  let hasSymlinkComponent: boolean;
+  try {
+    hasSymlinkComponent = await rejectSymlinkComponents(
+      workspaceRoot,
+      relativePath,
+      abortSignal,
+    );
+  } catch (error) {
+    if (abortSignal.aborted) throw abortReason(abortSignal);
+    return mapFilesystemError(error, displayPath);
+  }
+  if (hasSymlinkComponent) {
+    return failure("SYMLINK_NOT_ALLOWED", "Symbolic links are not allowed");
+  }
 
   let targetStats: Awaited<ReturnType<typeof lstat>>;
   try {

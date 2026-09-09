@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough, Writable } from "node:stream";
@@ -29,6 +29,7 @@ import { createDemoModel } from "./demo-model.js";
 import { createModuleHost } from "./module-host.js";
 import { createReadFileModule } from "./modules/read-file-module.js";
 import type { ReadFileResult } from "./read-file.js";
+import { createWriteFileTool } from "./write-file.js";
 import { createToolConfirmation, runTui } from "./tui.js";
 
 type TestRuntime = {
@@ -403,6 +404,128 @@ function readFileCallResponse() {
       ],
     }),
   };
+}
+
+function writeFileUsage() {
+  return {
+    inputTokens: {
+      total: 10,
+      noCache: 10,
+      cacheRead: undefined,
+      cacheWrite: undefined,
+    },
+    outputTokens: {
+      total: 8,
+      text: 8,
+      reasoning: undefined,
+    },
+  };
+}
+
+function writeFileTextResponse(text: string) {
+  return {
+    stream: simulateReadableStream({
+      chunks: [
+        { type: "stream-start" as const, warnings: [] },
+        { type: "text-start" as const, id: "answer" },
+        { type: "text-delta" as const, id: "answer", delta: text },
+        { type: "text-end" as const, id: "answer" },
+        {
+          type: "finish" as const,
+          finishReason: { unified: "stop" as const, raw: undefined },
+          usage: writeFileUsage(),
+        },
+      ],
+    }),
+  };
+}
+
+function writeFileCallResponse() {
+  return {
+    stream: simulateReadableStream({
+      chunks: [
+        { type: "stream-start" as const, warnings: [] },
+        {
+          type: "tool-call" as const,
+          toolCallId: "call-write-file",
+          toolName: "write_file",
+          input: JSON.stringify({ path: "created.txt", content: "created" }),
+        },
+        {
+          type: "finish" as const,
+          finishReason: { unified: "tool-calls" as const, raw: undefined },
+          usage: writeFileUsage(),
+        },
+      ],
+    }),
+  };
+}
+
+function createWriteFileModel() {
+  return new MockLanguageModelV3({
+    doStream: async ({ prompt }) => {
+      const results = currentTurnToolResults(prompt);
+      if (results.length > 0) {
+        const output = results[0]?.output;
+        if (isRecord(output) && output.type === "error-text") {
+          return writeFileTextResponse("The write was denied.");
+        }
+        return writeFileTextResponse("The file was written.");
+      }
+      return writeFileCallResponse();
+    },
+  });
+}
+
+async function createWriteFileConfirmationRuntime(options: {
+  failAfterWrite?: boolean;
+} = {}): Promise<{
+  runtime: DefaultAgentRuntime;
+  store: CountingStore;
+  confirmation: ReturnType<typeof createToolConfirmation>;
+  output: Writable & { text(): string };
+  workspace: string;
+}> {
+  const workspace = await mkdtemp(join(tmpdir(), "runloom-tui-write-file-"));
+  const output = ttyOutput();
+  const confirmation = createToolConfirmation(output);
+  const store = new CountingStore();
+  const runtime = new DefaultAgentRuntime({
+    catalog: new InMemoryAgentCatalog([
+      {
+        id: "calculator",
+        version: "1",
+        instructions: "Use write_file when asked to create a file.",
+        model: "mock",
+        tools: ["write_file"],
+        limits: {
+          maxSteps: options.failAfterWrite === true ? 1 : 4,
+          totalTimeoutMs: 5_000,
+          stepTimeoutMs: 1_000,
+        },
+      },
+    ]),
+    loop: new AiSdkAgentLoop({
+      models: new InMemoryModelRegistry({
+        mock: createWriteFileModel(),
+      }),
+      tools: new ToolRegistry([
+        {
+          metadata: {
+            name: "write_file",
+            version: "1",
+            risk: "write",
+            timeoutMs: 1_000,
+            idempotent: false,
+          },
+          tool: createWriteFileTool(workspace),
+        },
+      ]),
+    }),
+    beforeToolExecute: confirmation.beforeToolExecute,
+    store,
+  });
+  return { runtime, store, confirmation, output, workspace };
 }
 
 function createReadFileModel() {
@@ -981,6 +1104,52 @@ describe("createToolConfirmation", () => {
     });
   });
 
+  it("shows the complete write_file confirmation input as JSON fields", async () => {
+    const output = outputBuffer();
+    const confirmation = createToolConfirmation(output);
+    const pending = confirmation.beforeToolExecute(
+      toolInput("write_file", new AbortController().signal, {
+        path: "notes/escape\n.txt",
+        content: "hello\u001b[2J",
+      }),
+    );
+
+    assert.match(output.text(), /Tool: write_file/);
+    assert.match(output.text(), /Path: "notes\/escape\\n\.txt"/);
+    assert.match(output.text(), /Content: "hello\\u001b\[2J"/);
+    assert.doesNotMatch(output.text(), /Input:/);
+
+    assert.equal(confirmation.handleLine("n"), true);
+    assert.deepEqual(await pending, {
+      allow: false,
+      reason: "User denied this tool call",
+    });
+  });
+
+  it("shows the complete edit_file old and new text as JSON fields", async () => {
+    const output = outputBuffer();
+    const confirmation = createToolConfirmation(output);
+    const pending = confirmation.beforeToolExecute(
+      toolInput("edit_file", new AbortController().signal, {
+        path: "notes.txt",
+        oldText: "port=3000\n",
+        newText: "port=4000\n",
+      }),
+    );
+
+    assert.match(output.text(), /Tool: edit_file/);
+    assert.match(output.text(), /Path: "notes\.txt"/);
+    assert.match(output.text(), /Old text: "port=3000\\n"/);
+    assert.match(output.text(), /New text: "port=4000\\n"/);
+    assert.doesNotMatch(output.text(), /Input:/);
+
+    assert.equal(confirmation.handleLine("n"), true);
+    assert.deepEqual(await pending, {
+      allow: false,
+      reason: "User denied this tool call",
+    });
+  });
+
   it("registers pending state before a synchronous prompt writer can answer", async () => {
     let confirmation!: ReturnType<typeof createToolConfirmation>;
     const output = new Writable({
@@ -1541,6 +1710,98 @@ describe("runTui read_file confirmation", () => {
       await tui;
     } finally {
       fixture.dispose();
+      await rm(fixture.workspace, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("runTui write_file confirmation", () => {
+  it("does not create a file when the write is denied", async () => {
+    const fixture = await createWriteFileConfirmationRuntime();
+    const input = ttyInput();
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: fixture.runtime,
+      store: fixture.store,
+      input,
+      output: fixture.output,
+      toolConfirmation: fixture.confirmation,
+    });
+
+    try {
+      await nextTurn();
+      input.write("Create created.txt.\n");
+      await waitFor(() => fixture.output.text().includes("Tool: write_file"));
+      input.write("n\n");
+      await waitFor(() => fixture.output.text().includes("The write was denied."));
+
+      await assert.rejects(readFile(join(fixture.workspace, "created.txt")), {
+        code: "ENOENT",
+      });
+      await waitFor(() => fixture.store.saveCount === 1);
+      input.end();
+      await tui;
+    } finally {
+      await rm(fixture.workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("does not create a file when confirmation is cancelled", async () => {
+    const fixture = await createWriteFileConfirmationRuntime();
+    const input = ttyInput();
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: fixture.runtime,
+      store: fixture.store,
+      input,
+      output: fixture.output,
+      toolConfirmation: fixture.confirmation,
+    });
+
+    try {
+      await nextTurn();
+      input.write("Create created.txt.\n");
+      await waitFor(() => fixture.output.text().includes("Tool: write_file"));
+      pressCtrlC(input);
+      await waitFor(() => fixture.output.text().includes("Run cancelled"));
+
+      await assert.rejects(readFile(join(fixture.workspace, "created.txt")), {
+        code: "ENOENT",
+      });
+      assert.equal(fixture.store.saveCount, 0);
+      input.end();
+      await tui;
+    } finally {
+      await rm(fixture.workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps a completed write when the run fails afterward", async () => {
+    const fixture = await createWriteFileConfirmationRuntime({ failAfterWrite: true });
+    const input = ttyInput();
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: fixture.runtime,
+      store: fixture.store,
+      input,
+      output: fixture.output,
+      toolConfirmation: fixture.confirmation,
+    });
+
+    try {
+      await nextTurn();
+      input.write("Create created.txt.\n");
+      await waitFor(() => fixture.output.text().includes("Tool: write_file"));
+      input.write("y\n");
+      await waitFor(() => fixture.output.text().includes("Run failed"));
+
+      assert.equal(
+        await readFile(join(fixture.workspace, "created.txt"), "utf8"),
+        "created",
+      );
+      input.end();
+      await tui;
+    } finally {
       await rm(fixture.workspace, { recursive: true, force: true });
     }
   });
