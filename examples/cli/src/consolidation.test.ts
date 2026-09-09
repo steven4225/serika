@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { UIMessage } from "ai";
 import {
+  AUTO_CONSOLIDATION_SOURCE,
   MAX_CONSOLIDATION_TURNS,
   consolidateMessages,
 } from "./consolidation.js";
@@ -10,8 +11,9 @@ function message(
   id: string,
   role: UIMessage["role"],
   parts: UIMessage["parts"],
+  metadata?: unknown,
 ): UIMessage {
-  return { id, role, parts };
+  return metadata === undefined ? { id, role, parts } : { id, role, parts, metadata };
 }
 
 function user(id: string, text = id): UIMessage {
@@ -43,6 +45,65 @@ describe("consolidateMessages", () => {
         })),
       },
     );
+  });
+
+  it("excludes auto-consolidation turns before selecting the most recent eight turns", () => {
+    const messages: UIMessage[] = [];
+    for (let turn = 0; turn < MAX_CONSOLIDATION_TURNS; turn += 1) {
+      messages.push(user(`user-${turn}`), assistant(`assistant-${turn}`));
+    }
+    messages.push(
+      message("auto-user", "user", [{ type: "text", text: "" }], {
+        source: AUTO_CONSOLIDATION_SOURCE,
+      }),
+      assistant("auto-assistant", "suggestion"),
+      user("newest-user"),
+      assistant("newest-assistant"),
+    );
+
+    const result = consolidateMessages(messages);
+
+    assert.equal(result.ok, true);
+    if (!result.ok) {
+      assert.fail("expected consolidation to succeed");
+    }
+    assert.equal(result.turns.length, MAX_CONSOLIDATION_TURNS);
+    assert.deepEqual(
+      result.turns.at(-1),
+      {
+        messages: [
+          { id: "newest-user", role: "user", text: "newest-user" },
+          { id: "newest-assistant", role: "assistant", text: "newest-assistant" },
+        ],
+      },
+    );
+    assert.equal(
+      result.turns
+        .flatMap(({ messages: turnMessages }) => turnMessages)
+        .some(({ id }) => id.startsWith("auto-")),
+      false,
+    );
+  });
+
+  it("keeps ordinary turns that use other message metadata", () => {
+    const ordinaryUser = message(
+      "ordinary-user",
+      "user",
+      [{ type: "text", text: "ordinary" }],
+      { source: "other" },
+    );
+
+    assert.deepEqual(consolidateMessages([ordinaryUser, assistant("ordinary-assistant")]), {
+      ok: true,
+      turns: [
+        {
+          messages: [
+            { id: "ordinary-user", role: "user", text: "ordinary" },
+            { id: "ordinary-assistant", role: "assistant", text: "ordinary-assistant" },
+          ],
+        },
+      ],
+    });
   });
 
   it("uses the requested number of recent turns and returns all available turns when fewer exist", () => {

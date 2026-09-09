@@ -5,6 +5,7 @@ export interface TuiArgs {
   directory?: string;
   threadId?: string;
   workspace?: string;
+  autoConsolidate?: boolean;
 }
 
 /**
@@ -17,6 +18,7 @@ export function parseTuiArgs(args: readonly string[]): TuiArgs {
   let directory: string | undefined;
   let threadId: string | undefined;
   let workspace: string | undefined;
+  let autoConsolidate = false;
 
   for (let index = 0; index < parsedArgs.length; index += 1) {
     const arg = parsedArgs[index];
@@ -39,6 +41,10 @@ export function parseTuiArgs(args: readonly string[]): TuiArgs {
       workspace = value;
       continue;
     }
+    if (arg === "--auto-consolidate") {
+      autoConsolidate = true;
+      continue;
+    }
     if (arg?.startsWith("--")) {
       throw new Error(`Unknown TUI option: ${arg}`);
     }
@@ -48,10 +54,15 @@ export function parseTuiArgs(args: readonly string[]): TuiArgs {
     directory = arg;
   }
 
+  if (autoConsolidate && workspace === undefined) {
+    throw new Error("--auto-consolidate requires --workspace");
+  }
+
   return {
     ...(directory !== undefined ? { directory } : {}),
     ...(threadId !== undefined ? { threadId } : {}),
     ...(workspace !== undefined ? { workspace } : {}),
+    ...(autoConsolidate ? { autoConsolidate: true } : {}),
   };
 }
 

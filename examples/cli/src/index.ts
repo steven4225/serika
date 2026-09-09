@@ -157,6 +157,22 @@ const memoryConfirmationPrompt: ToolConfirmationPrompt = (input) => {
   );
 };
 
+const consolidationAgent = {
+  id: "memory-consolidator",
+  version: "1",
+  instructions:
+    "Use memory_prepare_consolidation to review the recently committed conversation and current workspace memory. " +
+    "Then propose suitable memory additions or updates in a normal assistant response, including complete text, source message ids, and a brief reason. " +
+    "Do not call any memory write tool.",
+  model: modelAlias,
+  tools: ["memory_prepare_consolidation"],
+  limits: {
+    maxSteps: 2,
+    totalTimeoutMs: 120_000,
+    stepTimeoutMs: 5_000,
+  },
+} as const;
+
 try {
   const registeredTools = [addRegistration, ...(moduleHost?.tools ?? [])];
   const catalog = new InMemoryAgentCatalog([
@@ -182,6 +198,7 @@ try {
         stepTimeoutMs: 5_000,
       },
     },
+    ...(tuiArgs?.autoConsolidate ? [consolidationAgent] : []),
   ]);
   const models = new InMemoryModelRegistry({ [modelAlias]: model });
   const toolConfirmation = tuiMode
@@ -244,6 +261,9 @@ try {
       output,
       ...(toolConfirmation ? { toolConfirmation } : {}),
       ...(moduleHost ? { commands: moduleHost.commands } : {}),
+      ...(tuiArgs?.autoConsolidate
+        ? { autoConsolidationAgentId: consolidationAgent.id }
+        : {}),
     });
   } else {
     await runMessage("user-1", "What is 20 + 22?");

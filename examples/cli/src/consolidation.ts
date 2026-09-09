@@ -1,6 +1,22 @@
 import type { UIMessage } from "ai";
 
 export const MAX_CONSOLIDATION_TURNS = 8;
+export const AUTO_CONSOLIDATION_SOURCE = "auto-consolidation";
+
+export function isAutoConsolidationRequest(message: UIMessage): boolean {
+  if (
+    message.role !== "user" ||
+    typeof message.metadata !== "object" ||
+    message.metadata === null
+  ) {
+    return false;
+  }
+
+  return (
+    "source" in message.metadata &&
+    message.metadata.source === AUTO_CONSOLIDATION_SOURCE
+  );
+}
 
 export interface ConsolidationMessage {
   id: string;
@@ -47,7 +63,8 @@ function messageOf(message: UIMessage): ConsolidationMessage | undefined {
 
 /**
  * Select recent complete user-started turns from a committed transcript.
- * Prefix messages before the first user message are not a consolidation turn.
+ * Auto-consolidation turns are excluded, and prefix messages before the first
+ * user message are not a consolidation turn.
  */
 export function consolidateMessages(
   committedMessages: readonly UIMessage[],
@@ -69,9 +86,13 @@ export function consolidateMessages(
   }
   if (currentTurn !== undefined) completeTurns.push(currentTurn);
 
+  const eligibleTurns = completeTurns.filter(
+    (turn) => !isAutoConsolidationRequest(turn[0]!),
+  );
+
   return {
     ok: true,
-    turns: completeTurns.slice(-turns).flatMap((turn) => {
+    turns: eligibleTurns.slice(-turns).flatMap((turn) => {
       const messages = turn.flatMap((message) => {
         const selected = messageOf(message);
         return selected === undefined ? [] : [selected];

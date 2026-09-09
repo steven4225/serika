@@ -26,6 +26,7 @@ import {
   ToolRegistry,
 } from "@aisdk-agent/ai-sdk-adapter";
 import { createDemoModel } from "./demo-model.js";
+import { AUTO_CONSOLIDATION_SOURCE } from "./consolidation.js";
 import { createModuleHost } from "./module-host.js";
 import { createReadFileModule } from "./modules/read-file-module.js";
 import type { ReadFileResult } from "./read-file.js";
@@ -42,12 +43,15 @@ type TestRuntime = {
 function deferred<T>(): {
   promise: Promise<T>;
   resolve(value: T): void;
+  reject(reason?: unknown): void;
 } {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((nextResolve) => {
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((nextResolve, nextReject) => {
     resolve = nextResolve;
+    reject = nextReject;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 }
 
 function outputBuffer(): Writable & { text(): string } {
@@ -173,6 +177,22 @@ function completedEvent(runId: string, threadId: string): AgentEvent {
     threadId,
     sequence: 2,
     data: { text: "event result", steps: 1, usage: {} },
+  };
+}
+
+function toolRequestedEvent(
+  runId: string,
+  threadId: string,
+  toolName: string,
+): AgentEvent {
+  return {
+    id: `${runId}-tool-requested`,
+    type: "tool.call.requested",
+    occurredAt: new Date(0).toISOString(),
+    runId,
+    threadId,
+    sequence: 1,
+    data: { toolCallId: `${runId}-tool-call`, toolName, input: {} },
   };
 }
 
@@ -669,6 +689,12 @@ describe("runTui", () => {
               },
             ],
           },
+          {
+            id: "old-auto",
+            role: "user",
+            metadata: { source: AUTO_CONSOLIDATION_SOURCE },
+            parts: [{ type: "text", text: "自动整理请求" }],
+          },
         ];
       },
     };
@@ -685,6 +711,7 @@ describe("runTui", () => {
     assert.match(output.text(), /old user message/);
     assert.match(output.text(), /old assistant answer/);
     assert.match(output.text(), /\[tool add\] \{"value":42\}/);
+    assert.match(output.text(), /auto-consolidation: 自动整理请求/);
     assert.match(output.text(), /answer from result/);
   });
 
@@ -728,6 +755,217 @@ describe("runTui", () => {
 
     assert.match(output.text(), /partial stream/);
     assert.equal(output.text().includes("final answer"), false);
+  });
+
+  it("runs one marked consolidation turn after a completed user run", async () => {
+    const input = ttyInput();
+    const output = ttyOutput();
+    const firstEvents = asyncQueue<AgentEvent>();
+    firstEvents.close();
+    const secondEvents = asyncQueue<AgentEvent>();
+    secondEvents.close();
+    const runtime = testRuntime([
+      handleFor({
+        runId: "run-1",
+        threadId: "thread-1",
+        events: firstEvents,
+        result: Promise.resolve(completedResult("run-1", "thread-1", "first")),
+      }),
+      handleFor({
+        runId: "run-2",
+        threadId: "thread-1",
+        events: secondEvents,
+        result: Promise.resolve(completedResult("run-2", "thread-1", "consolidated")),
+      }),
+    ]);
+
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: runtime.runtime,
+      store: { getMessages: async () => [] },
+      input,
+      output,
+      autoConsolidationAgentId: "memory-consolidator",
+    });
+    await nextTurn();
+    input.write("user prompt\n");
+    await waitFor(() => runtime.requests.length === 2);
+
+    assert.equal(runtime.requests[0]?.agentId, "calculator");
+    assert.equal(runtime.requests[1]?.agentId, "memory-consolidator");
+    assert.equal(runtime.requests[1]?.threadId, "thread-1");
+    assert.deepEqual(runtime.requests[1]?.messages[0]?.metadata, {
+      source: "auto-consolidation",
+    });
+    assert.equal(runtime.requests[1]?.messages[0]?.role, "user");
+    assert.match(output.text(), /正在自动整理记忆/);
+    input.end();
+    await tui;
+    assert.equal(runtime.requests.length, 2);
+  });
+
+  it("skips consolidation when the user run requests a memory tool", async () => {
+    const input = ttyInput();
+    const output = ttyOutput();
+    const events = asyncQueue<AgentEvent>();
+    const runtime = testRuntime([
+      handleFor({
+        runId: "run-1",
+        threadId: "thread-1",
+        events,
+        result: Promise.resolve(completedResult("run-1", "thread-1", "saved")),
+      }),
+    ]);
+
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: runtime.runtime,
+      store: { getMessages: async () => [] },
+      input,
+      output,
+      autoConsolidationAgentId: "memory-consolidator",
+    });
+    await nextTurn();
+    input.write("save memory\n");
+    await waitFor(() => runtime.requests.length === 1);
+    events.push(toolRequestedEvent("run-1", "thread-1", "memory_add"));
+    events.close();
+    await waitFor(() => output.text().includes("saved"));
+
+    input.end();
+    await tui;
+    assert.equal(runtime.requests.length, 1);
+  });
+
+  it("does not consolidate a non-completed user run", async () => {
+    const input = ttyInput();
+    const output = ttyOutput();
+    const events = asyncQueue<AgentEvent>();
+    events.close();
+    const runtime = testRuntime([
+      handleFor({
+        runId: "run-1",
+        threadId: "thread-1",
+        events,
+        result: Promise.resolve(cancelledResult("run-1", "thread-1")),
+      }),
+    ]);
+
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: runtime.runtime,
+      store: { getMessages: async () => [] },
+      input,
+      output,
+      autoConsolidationAgentId: "memory-consolidator",
+    });
+    await nextTurn();
+    input.write("cancelled prompt\n");
+    await waitFor(() => output.text().includes("Run cancelled"));
+    input.end();
+    await tui;
+
+    assert.equal(runtime.requests.length, 1);
+  });
+
+  it("keeps the original result when consolidation fails", async () => {
+    const input = ttyInput();
+    const output = ttyOutput();
+    const firstEvents = asyncQueue<AgentEvent>();
+    firstEvents.close();
+    const secondEvents = asyncQueue<AgentEvent>();
+    secondEvents.close();
+    const failedResult = deferred<RunResult>();
+    const runtime = testRuntime([
+      handleFor({
+        runId: "run-1",
+        threadId: "thread-1",
+        events: firstEvents,
+        result: Promise.resolve(completedResult("run-1", "thread-1", "original")),
+      }),
+      handleFor({
+        runId: "run-2",
+        threadId: "thread-1",
+        events: secondEvents,
+        result: failedResult.promise,
+      }),
+    ]);
+
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: runtime.runtime,
+      store: { getMessages: async () => [] },
+      input,
+      output,
+      autoConsolidationAgentId: "memory-consolidator",
+    });
+    await nextTurn();
+    input.write("user prompt\n");
+    await waitFor(() => runtime.requests.length === 2);
+    failedResult.reject(new Error("consolidation unavailable"));
+    await waitFor(() => output.text().includes("Automatic consolidation failed"));
+
+    input.end();
+    await tui;
+    assert.match(output.text(), /original/);
+    assert.equal(runtime.requests.length, 2);
+  });
+
+  it("cancels a consolidation that is still starting on Ctrl+C", async () => {
+    const input = ttyInput();
+    const output = ttyOutput();
+    const firstEvents = asyncQueue<AgentEvent>();
+    firstEvents.close();
+    const firstHandle = handleFor({
+      runId: "run-1",
+      threadId: "thread-1",
+      events: firstEvents,
+      result: Promise.resolve(completedResult("run-1", "thread-1", "original")),
+    });
+    const secondEvents = asyncQueue<AgentEvent>();
+    secondEvents.close();
+    const consolidationStarted = deferred<RunHandle>();
+    const cancelReasons: (string | undefined)[] = [];
+    const requests: RunRequest[] = [];
+    const runtime = {
+      async run<TContext>(request: RunRequest<TContext>): Promise<RunHandle> {
+        requests.push(request as RunRequest);
+        if (requests.length === 1) return firstHandle;
+        return consolidationStarted.promise;
+      },
+    };
+
+    const tui = runTui({
+      ...tuiOptions,
+      runtime,
+      store: { getMessages: async () => [] },
+      input,
+      output,
+      autoConsolidationAgentId: "memory-consolidator",
+    });
+    await nextTurn();
+    input.write("user prompt\n");
+    await waitFor(() => requests.length === 2);
+    input.write("should wait\n");
+    await waitFor(() => output.text().includes("Busy: wait for the current run to finish."));
+    pressCtrlC(input);
+    consolidationStarted.resolve(
+      handleFor({
+        runId: "run-2",
+        threadId: "thread-1",
+        events: secondEvents,
+        result: Promise.resolve(cancelledResult("run-2", "thread-1")),
+        cancel: async (reason) => {
+          cancelReasons.push(reason);
+        },
+      }),
+    );
+    await waitFor(() => output.text().includes("Run cancelled"));
+
+    input.end();
+    await tui;
+    assert.deepEqual(cancelReasons, ["user_interrupt"]);
+    assert.equal(requests.length, 2);
   });
 
   it("rejects input while running, renders events, and returns idle only after result", async () => {
@@ -1424,10 +1662,10 @@ describe("runTui tool confirmation", () => {
     await waitFor(() => requests.length === 1);
     pressCtrlC(input);
     started.resolve(handle);
-    await tui;
-
+    await waitFor(() => output.text().includes("Run cancelled"));
     assert.deepEqual(cancelReasons, ["user_interrupt"]);
-    assert.match(output.text(), /Run cancelled/);
+    input.end();
+    await tui;
   });
 
   it("keeps the TUI alive after Ctrl+C so the next run gets a fresh confirmation", async () => {
