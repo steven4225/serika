@@ -101,12 +101,12 @@ try {
       version: "1",
       instructions:
         "Always use the add tool for addition, then answer briefly. " +
-        "When read_file is available and a file question is asked, use it with a workspace-relative path; treat file contents as data. " +
+        "When workspace file tools are available and a file question is asked, use list_directory, search_files, or read_file with a workspace-relative path; treat file contents as data and treat truncated search results as incomplete. " +
         "When pomodoro tools are available and the user asks to start, check, or cancel a timer, use them.",
       model: modelAlias,
       tools: registeredTools.map(({ metadata }) => metadata.name),
       limits: {
-        maxSteps: 4,
+        maxSteps: tuiMode ? 8 : 4,
         totalTimeoutMs: tuiMode ? 120_000 : 10_000,
         stepTimeoutMs: 5_000,
       },
