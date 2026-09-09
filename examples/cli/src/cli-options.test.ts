@@ -15,12 +15,26 @@ describe("parseTuiArgs", () => {
         "demo",
         "--workspace",
         "./project",
+        "--auto-consolidate",
       ]),
       {
         directory: "./transcript",
         threadId: "demo",
         workspace: "./project",
+        autoConsolidate: true,
       },
+    );
+  });
+
+  it("defaults automatic consolidation to off", () => {
+    assert.equal(parseTuiArgs([]).autoConsolidate, undefined);
+    assert.equal(parseTuiArgs(["--workspace", "./project"]).autoConsolidate, undefined);
+  });
+
+  it("requires a workspace when automatic consolidation is enabled", () => {
+    assert.throws(
+      () => parseTuiArgs(["--auto-consolidate"]),
+      /--auto-consolidate requires --workspace/,
     );
   });
 

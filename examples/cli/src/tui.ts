@@ -10,6 +10,10 @@ import type {
   RunResult,
   ToolExecutionDecision,
 } from "@aisdk-agent/core";
+import {
+  AUTO_CONSOLIDATION_SOURCE,
+  isAutoConsolidationRequest,
+} from "./consolidation.js";
 
 type Runtime = {
   run<TContext>(request: RunRequest<TContext>): Promise<RunHandle>;
@@ -33,6 +37,7 @@ export interface RunTuiOptions {
   store: Pick<MessageStore, "getMessages">;
   threadId: string;
   agentId: string;
+  autoConsolidationAgentId?: string;
   input?: Readable;
   output?: Writable;
   generateId?: () => string;
@@ -231,7 +236,10 @@ function renderHistory(output: Writable, messages: UIMessage[]): void {
   write(output, "\nHistory (committed transcript)\n");
   for (const message of messages) {
     const text = messageText(message);
-    write(output, `${message.role}: ${text || "[non-text message]"}\n`);
+    const role = isAutoConsolidationRequest(message)
+      ? "auto-consolidation"
+      : message.role;
+    write(output, `${role}: ${text || "[non-text message]"}\n`);
   }
   write(output, "\n");
 }
@@ -239,8 +247,9 @@ function renderHistory(output: Writable, messages: UIMessage[]): void {
 async function renderEvents(
   output: Writable,
   events: RunHandle["events"],
-): Promise<string> {
+): Promise<{ renderedText: string; requestedMemoryTool: boolean }> {
   let renderedText = "";
+  let requestedMemoryTool = false;
   for await (const event of events) {
     switch (event.type) {
       case "message.delta":
@@ -251,6 +260,7 @@ async function renderEvents(
         write(output, `\n[step ${event.data.stepNumber}] `);
         break;
       case "tool.call.requested":
+        requestedMemoryTool ||= event.data.toolName.startsWith("memory_");
         write(output, `\n[tool ${event.data.toolName}]\n`);
         break;
       case "tool.call.failed":
@@ -260,7 +270,7 @@ async function renderEvents(
         break;
     }
   }
-  return renderedText;
+  return { renderedText, requestedMemoryTool };
 }
 
 function renderResult(
@@ -332,6 +342,9 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
       stopRequestReason = undefined;
       return;
     }
+    if (runStarting) {
+      return;
+    }
     readline.close();
   };
 
@@ -344,16 +357,17 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
 
     runStarting = true;
     let runStarted = false;
-    try {
-      const userMessage: UIMessage = {
-        id: generateId(),
-        role: "user",
-        parts: [{ type: "text", text }],
-      };
+    const executeRun = async (
+      agentId: string,
+      message: UIMessage,
+    ): Promise<{
+      result: RunResult;
+      requestedMemoryTool: boolean;
+    }> => {
       const handle = await options.runtime.run({
-        agentId: options.agentId,
+        agentId,
         threadId: options.threadId,
-        messages: [userMessage],
+        messages: [message],
       });
       runStarted = true;
       state = { kind: "running", handle };
@@ -366,8 +380,43 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
 
       const eventsDone = renderEvents(output, handle.events);
       const result = await handle.result;
-      const renderedText = await eventsDone;
-      renderResult(output, result, renderedText);
+      const rendered = await eventsDone;
+      renderResult(output, result, rendered.renderedText);
+      state = { kind: "idle" };
+      return { result, requestedMemoryTool: rendered.requestedMemoryTool };
+    };
+
+    try {
+      const userMessage: UIMessage = {
+        id: generateId(),
+        role: "user",
+        parts: [{ type: "text", text }],
+      };
+      const primary = await executeRun(options.agentId, userMessage);
+      if (
+        primary.result.status === "completed" &&
+        !primary.requestedMemoryTool &&
+        options.autoConsolidationAgentId !== undefined &&
+        stopRequestReason === undefined
+      ) {
+        write(output, "\n正在自动整理记忆...\n");
+        const consolidationMessage: UIMessage = {
+          id: generateId(),
+          role: "user",
+          metadata: { source: AUTO_CONSOLIDATION_SOURCE },
+          parts: [
+            {
+              type: "text",
+              text: "请整理最近已提交的对话，先取材，再提出记忆建议；不要保存。",
+            },
+          ],
+        };
+        try {
+          await executeRun(options.autoConsolidationAgentId, consolidationMessage);
+        } catch (error) {
+          write(output, `\n\nAutomatic consolidation failed: ${String(error)}\n\n`);
+        }
+      }
     } catch (error) {
       const phase = runStarted ? "Run could not finish" : "Run could not start";
       write(output, `\n\n${phase}: ${String(error)}\n\n`);
@@ -375,6 +424,7 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
       state = { kind: "idle" };
       runStarting = false;
       cancelSentForRun = undefined;
+      stopRequestReason = undefined;
       if (isTTY(input) && !inputClosed) readline.prompt();
     }
   };
