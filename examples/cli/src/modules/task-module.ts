@@ -7,8 +7,8 @@ import type {
   TaskError,
   TaskList,
   TaskListInput,
+  TaskListStatusFilter,
   TaskRecord,
-  TaskStatus,
   TaskStore,
   TaskStoreResult,
 } from "../task-store.js";
@@ -22,6 +22,16 @@ const taskStatusSchema = z.enum([
   "failed",
   "cancelled",
   "interrupted",
+]);
+const taskListStatusSchema = z.enum([
+  "scheduled",
+  "running",
+  "completed",
+  "failed",
+  "cancelled",
+  "interrupted",
+  "pending",
+  "attention",
 ]);
 
 const taskErrorSchema = z.object({
@@ -48,6 +58,14 @@ const taskSummarySchema = z.object({
   promptPreview: z.string(),
   runAt: z.string(),
   status: taskStatusSchema,
+  finishedAt: z.string().nullable(),
+  resultPreview: z.string().nullable(),
+  error: z
+    .object({
+      code: z.string(),
+      messagePreview: z.string(),
+    })
+    .nullable(),
 });
 
 const taskFailureSchema = z.object({
@@ -60,7 +78,7 @@ const taskCreateInputSchema = z.object({
   runAt: z.string(),
 });
 const taskListInputSchema = z.object({
-  status: taskStatusSchema.optional(),
+  status: taskListStatusSchema.optional(),
   limit: z.number().int().min(1).max(50).optional(),
 });
 const taskGetInputSchema = z.object({ id: z.string().min(1) });
@@ -111,7 +129,7 @@ const taskCancelMetadata: RegisteredTool["metadata"] = {
 };
 
 export const TASK_COMMAND_USAGE =
-  "Usage: /task create <ISO-time-with-timezone> <prompt> | list [status] | show <id> | cancel <id>";
+  "Usage: /task create <ISO-time-with-timezone> <prompt> | list [pending|attention|status] | show <id> | cancel <id>";
 
 const neverAborted = new AbortController().signal;
 
@@ -158,8 +176,58 @@ function renderRecord(record: TaskRecord): string {
   return JSON.stringify(record);
 }
 
+function displayValue(value: string | null): string {
+  return value ?? "—";
+}
+
 function renderList(list: TaskList): string {
-  return JSON.stringify(list);
+  if (list.tasks.length === 0) return "Tasks: 0";
+
+  const lines = [`Tasks: ${list.tasks.length}${list.truncated ? " (more available)" : ""}`];
+  for (const task of list.tasks) {
+    lines.push(
+      "",
+      `ID: ${task.id}`,
+      `Status: ${task.status}`,
+      `Run at: ${task.runAt}`,
+      `Finished at: ${displayValue(task.finishedAt)}`,
+      `Prompt: ${task.promptPreview}`,
+    );
+    if (task.status === "completed" && task.resultPreview !== null) {
+      lines.push(`Result: ${task.resultPreview || "任务完成，无文本输出"}`);
+    }
+    if (
+      (task.status === "failed" || task.status === "interrupted") &&
+      task.error !== null
+    ) {
+      lines.push(`Error: ${task.error.code}: ${task.error.messagePreview}`);
+    }
+  }
+  return lines.join("\n");
+}
+
+function renderDetail(record: TaskRecord): string {
+  const lines = [
+    `Task: ${record.id}`,
+    `Status: ${record.status}`,
+    `Prompt: ${record.prompt}`,
+    `Run at: ${record.runAt}`,
+    `Created at: ${record.createdAt}`,
+    `Started at: ${displayValue(record.startedAt)}`,
+    `Finished at: ${displayValue(record.finishedAt)}`,
+    `Thread ID: ${displayValue(record.threadId)}`,
+    `Run ID: ${displayValue(record.runId)}`,
+  ];
+  if (record.status === "completed") {
+    lines.push(`Result: ${record.resultText || "任务完成，无文本输出"}`);
+  }
+  if (
+    (record.status === "failed" || record.status === "interrupted") &&
+    record.error !== null
+  ) {
+    lines.push(`Error: ${record.error.code}: ${record.error.message}`);
+  }
+  return lines.join("\n");
 }
 
 function parseCommandArgs(args: string): { action?: string; rest: string } {
@@ -173,9 +241,9 @@ function parseCommandArgs(args: string): { action?: string; rest: string } {
   };
 }
 
-function statusFromCommand(value: string): TaskStatus | undefined {
-  return taskStatusSchema.safeParse(value).success
-    ? (value as TaskStatus)
+function statusFromCommand(value: string): TaskListStatusFilter | undefined {
+  return taskListStatusSchema.safeParse(value).success
+    ? (value as TaskListStatusFilter)
     : undefined;
 }
 
@@ -205,7 +273,7 @@ export function createTaskModule(store: TaskStore): AgentModule {
         },
       });
       const taskListTool = tool({
-        description: "List scheduled tasks in the configured workspace.",
+        description: "List tasks in the configured workspace.",
         inputSchema: taskListInputSchema,
         outputSchema: taskListOutputSchema,
         execute: async (input, { abortSignal }): Promise<TaskStoreResult<TaskList>> => {
@@ -305,7 +373,7 @@ export function createTaskModule(store: TaskStore): AgentModule {
               ctx.notify(TASK_COMMAND_USAGE);
               return;
             }
-            runCommand(ctx, () => store.get(id), renderRecord);
+            runCommand(ctx, () => store.get(id), renderDetail);
             return;
           }
 
