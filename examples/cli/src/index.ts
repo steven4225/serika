@@ -24,6 +24,8 @@ import { createModuleHost } from "./module-host.js";
 import { createMemoryModule } from "./modules/memory-module.js";
 import { createPomodoroModule } from "./modules/pomodoro-module.js";
 import { createReadFileModule } from "./modules/read-file-module.js";
+import { createTaskModule } from "./modules/task-module.js";
+import { createTaskStore } from "./task-store.js";
 import {
   createToolConfirmation,
   runTui,
@@ -63,6 +65,8 @@ const workspaceRoot =
     : undefined;
 const memoryStore =
   workspaceRoot === undefined ? undefined : createMemoryStore(workspaceRoot);
+const taskStore =
+  workspaceRoot === undefined ? undefined : createTaskStore(workspaceRoot);
 
 const add = tool({
   description: "Add two numbers",
@@ -96,6 +100,7 @@ const moduleHost =
             ? [
                 createReadFileModule(workspaceRoot),
                 createMemoryModule(memoryStore!, () => store.getMessages(threadId)),
+                createTaskModule(taskStore!),
               ]
             : []),
         ],

@@ -17,7 +17,8 @@
     "db:migrate": "pnpm build && node packages/postgres/dist/migrate.js up",
     "db:migrate:down": "pnpm build && node packages/postgres/dist/migrate.js down",
     "demo": "pnpm build && node examples/cli/dist/index.js",
-    "tui": "pnpm build && node examples/cli/dist/index.js --tui"
+    "tui": "pnpm build && node examples/cli/dist/index.js --tui",
+    "task-worker": "pnpm build && node examples/cli/dist/task-worker-entry.js"
   },
   "devDependencies": {
     "@types/node": "26.1.1",
