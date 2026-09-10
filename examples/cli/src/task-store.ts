@@ -11,6 +11,7 @@ import {
 import { dirname, join, resolve } from "node:path";
 
 import { acquireFlock } from "./flock.js";
+import { nextOccurrence, type Recurrence } from "./recurrence.js";
 import { abortReason, throwIfAborted, validateWorkspacePath } from "./workspace-path.js";
 
 export const TASK_FILE_NAME = ".runloom/tasks.json";
@@ -49,11 +50,77 @@ export interface TaskRecord {
   runId: string | null;
   resultText: string | null;
   error: TaskError | null;
+  /** Null for one-time tasks; present on v2 records. */
+  recurringTaskId?: string | null;
 }
 
-export interface TaskDocument {
+export interface TaskRecordV2 extends TaskRecord {
+  recurringTaskId: string | null;
+}
+
+export interface TaskRecordV3 extends TaskRecordV2 {
+  /** Null for legacy and newly-created tasks; set when an inbox item is acknowledged. */
+  acknowledgedAt: string | null;
+}
+
+export interface TaskDocumentV1 {
   version: 1;
   tasks: TaskRecord[];
+}
+
+export interface TaskDocumentV2 {
+  version: 2;
+  tasks: TaskRecordV2[];
+  recurringTasks: RecurringTaskRecord[];
+}
+
+export interface TaskDocumentV3 {
+  version: 3;
+  tasks: TaskRecordV3[];
+  recurringTasks: RecurringTaskRecord[];
+}
+
+// Store internals always use the normalized v3 shape. v1/v2 are accepted only
+// at the read boundary and are upgraded in memory without writing the file.
+export type TaskDocument = TaskDocumentV3;
+
+export type RecurringTaskStatus = "active" | "paused" | "cancelled";
+
+export interface RecurringTaskRecord {
+  id: string;
+  prompt: string;
+  recurrence: Recurrence;
+  status: RecurringTaskStatus;
+  createdAt: string;
+  nextRunAt: string | null;
+}
+
+export interface CreateRecurringTaskInput {
+  prompt: string;
+  recurrence: Recurrence;
+}
+
+export interface RecurringTaskListInput {
+  status?: RecurringTaskStatus;
+  limit?: number;
+}
+
+export interface RecurringTaskSummary {
+  id: string;
+  promptPreview: string;
+  recurrence: Recurrence;
+  status: RecurringTaskStatus;
+  nextRunAt: string | null;
+}
+
+export interface RecurringTaskList {
+  recurringTasks: RecurringTaskSummary[];
+  truncated: boolean;
+}
+
+export interface RecurringTaskDetail {
+  recurringTask: RecurringTaskRecord;
+  latestTask: TaskRecordV3 | null;
 }
 
 export interface CreateTaskInput {
@@ -72,6 +139,11 @@ export interface TaskSummary {
     code: string;
     messagePreview: string;
   } | null;
+  recurringTaskId?: string | null;
+}
+
+export interface TaskSummaryV3 extends TaskSummary {
+  acknowledgedAt: string | null;
 }
 
 export type TaskListStatusFilter = TaskStatus | "pending" | "attention";
@@ -79,10 +151,17 @@ export type TaskListStatusFilter = TaskStatus | "pending" | "attention";
 export interface TaskListInput {
   status?: TaskListStatusFilter;
   limit?: number;
+  recurringTaskId?: string;
+  inbox?: boolean;
 }
 
 export interface TaskList {
   tasks: TaskSummary[];
+  truncated: boolean;
+}
+
+export interface TaskListV3 {
+  tasks: TaskSummaryV3[];
   truncated: boolean;
 }
 
@@ -102,8 +181,11 @@ export const taskStoreErrorCodes = [
   "INVALID_INPUT",
   "TASK_NOT_FOUND",
   "TASK_NOT_CANCELLABLE",
+  "TASK_NOT_ACKNOWLEDGEABLE",
   "TASK_FILE_INVALID",
   "TASK_VERSION_UNSUPPORTED",
+  "RECURRING_TASK_NOT_FOUND",
+  "RECURRING_TASK_CANCELLED",
   "READ_FAILED",
   "WRITE_FAILED",
 ] as const;
@@ -118,13 +200,32 @@ export interface TaskFailure {
 export type TaskStoreResult<T> = { ok: true; value: T } | TaskFailure;
 
 export interface TaskStore {
-  create(input: CreateTaskInput, signal?: AbortSignal): Promise<TaskStoreResult<TaskRecord>>;
-  list(input?: TaskListInput): Promise<TaskStoreResult<TaskList>>;
-  get(id: string): Promise<TaskStoreResult<TaskRecord>>;
-  cancel(id: string, signal?: AbortSignal): Promise<TaskStoreResult<TaskRecord>>;
-  claimNextDue(signal?: AbortSignal): Promise<TaskStoreResult<TaskRecord | null>>;
-  finish(id: string, outcome: TaskFinish, signal?: AbortSignal): Promise<TaskStoreResult<TaskRecord>>;
+  create(input: CreateTaskInput, signal?: AbortSignal): Promise<TaskStoreResult<TaskRecordV3>>;
+  list(input?: TaskListInput): Promise<TaskStoreResult<TaskListV3>>;
+  get(id: string): Promise<TaskStoreResult<TaskRecordV3>>;
+  cancel(id: string, signal?: AbortSignal): Promise<TaskStoreResult<TaskRecordV3>>;
+  acknowledge(id: string, signal?: AbortSignal): Promise<TaskStoreResult<TaskRecordV3>>;
+  claimNextDue(signal?: AbortSignal): Promise<TaskStoreResult<TaskRecordV3 | null>>;
+  finish(id: string, outcome: TaskFinish, signal?: AbortSignal): Promise<TaskStoreResult<TaskRecordV3>>;
   interruptRunning(signal?: AbortSignal): Promise<TaskStoreResult<number>>;
+  listRecurring: (input?: RecurringTaskListInput) => Promise<TaskStoreResult<RecurringTaskList>>;
+  createRecurring: (
+    input: CreateRecurringTaskInput,
+    signal?: AbortSignal,
+  ) => Promise<TaskStoreResult<RecurringTaskRecord>>;
+  getRecurring: (id: string) => Promise<TaskStoreResult<RecurringTaskDetail>>;
+  pauseRecurring: (
+    id: string,
+    signal?: AbortSignal,
+  ) => Promise<TaskStoreResult<RecurringTaskRecord>>;
+  resumeRecurring: (
+    id: string,
+    signal?: AbortSignal,
+  ) => Promise<TaskStoreResult<RecurringTaskRecord>>;
+  cancelRecurring: (
+    id: string,
+    signal?: AbortSignal,
+  ) => Promise<TaskStoreResult<RecurringTaskRecord>>;
 }
 
 export interface TaskStoreOptions {
@@ -175,8 +276,16 @@ function cloneError(error: TaskError | null): TaskError | null {
   return error === null ? null : { ...error };
 }
 
-function cloneRecord(record: TaskRecord): TaskRecord {
+function cloneRecord(record: TaskRecordV3): TaskRecordV3 {
   return { ...record, error: cloneError(record.error) };
+}
+
+function cloneRecurrence(recurrence: Recurrence): Recurrence {
+  return { ...recurrence };
+}
+
+function cloneRecurringTask(record: RecurringTaskRecord): RecurringTaskRecord {
+  return { ...record, recurrence: cloneRecurrence(record.recurrence) };
 }
 
 function preview(value: string): string {
@@ -273,7 +382,7 @@ function validateTaskError(value: unknown): TaskError {
   return { code: value.code, message: value.message };
 }
 
-function validateRecord(value: unknown): TaskRecord {
+function validateRecord(value: unknown, version: 1 | 2 | 3): TaskRecordV3 {
   if (!isObject(value)) raise("TASK_FILE_INVALID", "Task records must be objects");
   if (typeof value.id !== "string" || value.id.length === 0) {
     raise("TASK_FILE_INVALID", "Task id must be non-empty");
@@ -305,17 +414,35 @@ function validateRecord(value: unknown): TaskRecord {
     raise("TASK_FILE_INVALID", "Task resultText must be a string or null");
   }
   const error = value.error === null ? null : validateTaskError(value.error);
+  let acknowledgedAt: string | null = null;
+  if (version === 3) {
+    if (value.acknowledgedAt === null) {
+      acknowledgedAt = null;
+    } else {
+      validateStoredTimestamp(value.acknowledgedAt, "Task acknowledgedAt");
+      acknowledgedAt = value.acknowledgedAt;
+    }
+  }
+  if (
+    version !== 1 &&
+    value.recurringTaskId !== null &&
+    (typeof value.recurringTaskId !== "string" || value.recurringTaskId.length === 0)
+  ) {
+    raise("TASK_FILE_INVALID", "Task recurringTaskId must be a non-empty string or null");
+  }
 
   if (value.status === "scheduled" || value.status === "cancelled") {
     if (value.startedAt !== null || value.threadId !== null || value.runId !== null ||
         value.resultText !== null || error !== null ||
-        (value.status === "scheduled" && value.finishedAt !== null)) {
+        (value.status === "scheduled" && value.finishedAt !== null) ||
+        acknowledgedAt !== null) {
       raise("TASK_FILE_INVALID", `Task ${value.status} state has inconsistent execution fields`);
     }
   }
   if (value.status === "running") {
     if (value.startedAt === null || value.finishedAt !== null || value.threadId === null ||
-        value.runId !== null || value.resultText !== null || error !== null) {
+        value.runId !== null || value.resultText !== null || error !== null ||
+        acknowledgedAt !== null) {
       raise("TASK_FILE_INVALID", "Task running state has inconsistent execution fields");
     }
   }
@@ -344,22 +471,113 @@ function validateRecord(value: unknown): TaskRecord {
     runId: value.runId as string | null,
     resultText: value.resultText as string | null,
     error,
+    acknowledgedAt,
+    recurringTaskId: version !== 1
+      ? (value.recurringTaskId as string | null)
+      : null,
   };
 }
 
-function validateDocument(value: unknown): TaskDocument {
+const recurringTaskStatuses = ["active", "paused", "cancelled"] as const;
+const recurringTaskStatusSet = new Set<RecurringTaskStatus>(recurringTaskStatuses);
+
+function isRecurringTaskStatus(value: unknown): value is RecurringTaskStatus {
+  return typeof value === "string" && recurringTaskStatusSet.has(value as RecurringTaskStatus);
+}
+
+function validateStoredRecurrence(value: unknown): Recurrence {
+  if (!isObject(value)) raise("TASK_FILE_INVALID", "Recurring task recurrence must be an object");
+  try {
+    // nextOccurrence performs the complete shape and range validation.
+    nextOccurrence(value as Recurrence, "2026-01-01T00:00:00.000Z");
+  } catch {
+    raise("TASK_FILE_INVALID", "Recurring task recurrence is invalid");
+  }
+  const recurrence = value as Record<string, unknown>;
+  return recurrence.kind === "daily"
+    ? {
+        kind: "daily",
+        time: recurrence.time as string,
+        utcOffset: recurrence.utcOffset as string,
+      }
+    : {
+        kind: "weekly",
+        weekday: recurrence.weekday as number,
+        time: recurrence.time as string,
+        utcOffset: recurrence.utcOffset as string,
+      };
+}
+
+function validateRecurringTask(value: unknown): RecurringTaskRecord {
+  if (!isObject(value)) {
+    raise("TASK_FILE_INVALID", "Recurring task records must be objects");
+  }
+  if (typeof value.id !== "string" || value.id.length === 0) {
+    raise("TASK_FILE_INVALID", "Recurring task id must be non-empty");
+  }
+  validateStoredPrompt(value.prompt);
+  const recurrence = validateStoredRecurrence(value.recurrence);
+  if (!isRecurringTaskStatus(value.status)) {
+    raise("TASK_FILE_INVALID", "Recurring task status is invalid");
+  }
+  validateStoredTimestamp(value.createdAt, "Recurring task createdAt");
+  if (value.nextRunAt !== null) {
+    validateStoredTimestamp(value.nextRunAt, "Recurring task nextRunAt");
+  }
+  if (value.status === "active" && value.nextRunAt === null) {
+    raise("TASK_FILE_INVALID", "Active recurring task must have nextRunAt");
+  }
+  if (value.status !== "active" && value.nextRunAt !== null) {
+    raise("TASK_FILE_INVALID", `Recurring task ${value.status} state must not have nextRunAt`);
+  }
+  return {
+    id: value.id,
+    prompt: value.prompt,
+    recurrence,
+    status: value.status,
+    createdAt: value.createdAt as string,
+    nextRunAt: value.nextRunAt as string | null,
+  };
+}
+
+function validateDocument(value: unknown): TaskDocumentV3 {
   if (!isObject(value)) raise("TASK_FILE_INVALID", "Task file must contain a JSON object");
-  if (value.version !== 1) raise("TASK_VERSION_UNSUPPORTED", "Unsupported task file version");
-  if (!Array.isArray(value.tasks)) raise("TASK_FILE_INVALID", "Task file tasks must be an array");
+  if (value.version !== 1 && value.version !== 2 && value.version !== 3) {
+    raise("TASK_VERSION_UNSUPPORTED", "Unsupported task file version");
+  }
+  if (!Array.isArray(value.tasks)) {
+    raise("TASK_FILE_INVALID", "Task file tasks must be an array");
+  }
   const ids = new Set<string>();
-  const tasks: TaskRecord[] = [];
+  const tasks: TaskRecordV3[] = [];
   for (const taskValue of value.tasks) {
-    const task = validateRecord(taskValue);
+    const task = validateRecord(taskValue, value.version);
     if (ids.has(task.id)) raise("TASK_FILE_INVALID", `Duplicate task id: ${task.id}`);
     ids.add(task.id);
     tasks.push(task);
   }
-  return { version: 1, tasks };
+  if (value.version === 1) {
+    return { version: 3, tasks, recurringTasks: [] };
+  }
+  if (!Array.isArray(value.recurringTasks)) {
+    raise("TASK_FILE_INVALID", "Task file recurringTasks must be an array");
+  }
+  const recurringIds = new Set<string>();
+  const recurringTasks: RecurringTaskRecord[] = [];
+  for (const recurringTaskValue of value.recurringTasks) {
+    const recurringTask = validateRecurringTask(recurringTaskValue);
+    if (recurringIds.has(recurringTask.id)) {
+      raise("TASK_FILE_INVALID", `Duplicate recurring task id: ${recurringTask.id}`);
+    }
+    recurringIds.add(recurringTask.id);
+    recurringTasks.push(recurringTask);
+  }
+  for (const task of tasks) {
+    if (task.recurringTaskId !== null && !recurringIds.has(task.recurringTaskId)) {
+      raise("TASK_FILE_INVALID", `Task references missing recurring task: ${task.recurringTaskId}`);
+    }
+  }
+  return { version: 3, tasks, recurringTasks };
 }
 
 function validateCreateInput(input: unknown): CreateTaskInput & { runAt: string } {
@@ -367,6 +585,39 @@ function validateCreateInput(input: unknown): CreateTaskInput & { runAt: string 
   validatePrompt(input.prompt);
   const runAt = normalizeRunAt(input.runAt);
   return { prompt: input.prompt, runAt };
+}
+
+function validateCreateRecurringInput(
+  input: unknown,
+  now: number,
+): CreateRecurringTaskInput {
+  if (!isObject(input)) raise("INVALID_INPUT", "Recurring task input must be an object");
+  validatePrompt(input.prompt);
+  if (!isObject(input.recurrence)) {
+    raise("INVALID_INPUT", "Recurring task recurrence must be an object");
+  }
+  try {
+    nextOccurrence(input.recurrence as Recurrence, new Date(now).toISOString());
+  } catch (error) {
+    if (error instanceof TypeError || error instanceof RangeError) {
+      raise("INVALID_INPUT", error.message);
+    }
+    throw error;
+  }
+  const recurrence = input.recurrence as Record<string, unknown>;
+  const normalized: Recurrence = recurrence.kind === "daily"
+    ? {
+        kind: "daily",
+        time: recurrence.time as string,
+        utcOffset: recurrence.utcOffset as string,
+      }
+    : {
+        kind: "weekly",
+        weekday: recurrence.weekday as number,
+        time: recurrence.time as string,
+        utcOffset: recurrence.utcOffset as string,
+      };
+  return { prompt: input.prompt, recurrence: normalized };
 }
 
 function isTaskListStatusFilter(value: unknown): value is TaskListStatusFilter {
@@ -379,6 +630,15 @@ function validateTaskListInput(input: unknown): Required<Pick<TaskListInput, "li
   if (input.status !== undefined && !isTaskListStatusFilter(input.status)) {
     raise("INVALID_INPUT", "Task list status is invalid");
   }
+  if (
+    input.recurringTaskId !== undefined &&
+    (typeof input.recurringTaskId !== "string" || input.recurringTaskId.length === 0)
+  ) {
+    raise("INVALID_INPUT", "Task recurringTaskId must be a non-empty string");
+  }
+  if (input.inbox !== undefined && typeof input.inbox !== "boolean") {
+    raise("INVALID_INPUT", "Task inbox filter must be a boolean");
+  }
   if (input.limit !== undefined &&
       (typeof input.limit !== "number" || !Number.isInteger(input.limit) ||
        input.limit < 1 || input.limit > TASK_LIST_MAX_LIMIT)) {
@@ -386,8 +646,53 @@ function validateTaskListInput(input: unknown): Required<Pick<TaskListInput, "li
   }
   return {
     ...(input.status === undefined ? {} : { status: input.status }),
+    ...(input.recurringTaskId === undefined
+      ? {}
+      : { recurringTaskId: input.recurringTaskId }),
+    ...(input.inbox === undefined ? {} : { inbox: input.inbox }),
     limit: input.limit === undefined ? TASK_LIST_DEFAULT_LIMIT : input.limit,
   };
+}
+
+function validateRecurringTaskListInput(
+  input: unknown,
+): Required<Pick<RecurringTaskListInput, "limit">> & RecurringTaskListInput {
+  if (input === undefined) return { limit: TASK_LIST_DEFAULT_LIMIT };
+  if (!isObject(input)) {
+    raise("INVALID_INPUT", "Recurring task list input must be an object");
+  }
+  if (input.status !== undefined && !isRecurringTaskStatus(input.status)) {
+    raise("INVALID_INPUT", "Recurring task list status is invalid");
+  }
+  if (
+    input.limit !== undefined &&
+    (typeof input.limit !== "number" ||
+      !Number.isInteger(input.limit) ||
+      input.limit < 1 ||
+      input.limit > TASK_LIST_MAX_LIMIT)
+  ) {
+    raise(
+      "INVALID_INPUT",
+      `Recurring task list limit must be an integer from 1 to ${TASK_LIST_MAX_LIMIT}`,
+    );
+  }
+  return {
+    ...(input.status === undefined ? {} : { status: input.status }),
+    limit: input.limit === undefined ? TASK_LIST_DEFAULT_LIMIT : input.limit,
+  };
+}
+
+function advanceRecurringTask(
+  recurringTask: RecurringTaskRecord,
+  now: number,
+): void {
+  if (recurringTask.status !== "active" || recurringTask.nextRunAt === null) return;
+  if (Date.parse(recurringTask.nextRunAt) <= now) {
+    recurringTask.nextRunAt = nextOccurrence(
+      recurringTask.recurrence,
+      new Date(now).toISOString(),
+    );
+  }
 }
 
 function validateFinish(outcome: unknown): asserts outcome is TaskFinish {
@@ -445,14 +750,14 @@ export class WorkspaceTaskStore implements TaskStore {
   async create(
     input: CreateTaskInput,
     signal: AbortSignal = neverAborted,
-  ): Promise<TaskStoreResult<TaskRecord>> {
+  ): Promise<TaskStoreResult<TaskRecordV3>> {
     try {
       throwIfAborted(signal);
       const normalized = validateCreateInput(input);
       if (Date.parse(normalized.runAt) <= this.#now()) {
         raise("INVALID_INPUT", "Task runAt must be later than the current time");
       }
-      const task: TaskRecord = {
+      const task: TaskRecordV3 = {
         id: this.#generateId(),
         prompt: normalized.prompt,
         runAt: normalized.runAt,
@@ -464,6 +769,8 @@ export class WorkspaceTaskStore implements TaskStore {
         runId: null,
         resultText: null,
         error: null,
+        acknowledgedAt: null,
+        recurringTaskId: null,
       };
       if (task.id.length === 0) raise("WRITE_FAILED", "Task id generator returned an empty id");
       const value = await this.#update(signal, (document) => {
@@ -476,21 +783,65 @@ export class WorkspaceTaskStore implements TaskStore {
     }
   }
 
-  async list(input?: TaskListInput): Promise<TaskStoreResult<TaskList>> {
+  async createRecurring(
+    input: CreateRecurringTaskInput,
+    signal: AbortSignal = neverAborted,
+  ): Promise<TaskStoreResult<RecurringTaskRecord>> {
+    try {
+      throwIfAborted(signal);
+      const now = this.#now();
+      const normalized = validateCreateRecurringInput(input, now);
+      const recurringTask: RecurringTaskRecord = {
+        id: this.#generateId(),
+        prompt: normalized.prompt,
+        recurrence: cloneRecurrence(normalized.recurrence),
+        status: "active",
+        createdAt: new Date(now).toISOString(),
+        nextRunAt: nextOccurrence(
+          normalized.recurrence,
+          new Date(now).toISOString(),
+        ),
+      };
+      if (recurringTask.id.length === 0) {
+        raise("WRITE_FAILED", "Recurring task id generator returned an empty id");
+      }
+      const value = await this.#update(signal, (document) => {
+        document.recurringTasks.push(recurringTask);
+        return recurringTask;
+      });
+      return { ok: true, value: cloneRecurringTask(value) };
+    } catch (error) {
+      return errorResult(error, signal, true);
+    }
+  }
+
+  async list(input?: TaskListInput): Promise<TaskStoreResult<TaskListV3>> {
     try {
       const validated = validateTaskListInput(input);
       const document = await this.#read();
-      const filtered = validated.status === undefined
-        ? document.tasks
-        : document.tasks.filter((task) => {
-            if (validated.status === "pending") {
-              return task.status === "scheduled" || task.status === "running";
-            }
-            if (validated.status === "attention") {
-              return task.status === "failed" || task.status === "interrupted";
-            }
-            return task.status === validated.status;
-          });
+      const filtered = document.tasks.filter((task) => {
+        if (
+          validated.recurringTaskId !== undefined &&
+          task.recurringTaskId !== validated.recurringTaskId
+        ) {
+          return false;
+        }
+        if (validated.inbox === true &&
+            (task.acknowledgedAt !== null ||
+             (task.status !== "completed" &&
+              task.status !== "failed" &&
+              task.status !== "interrupted"))) {
+          return false;
+        }
+        if (validated.status === undefined) return true;
+        if (validated.status === "pending") {
+          return task.status === "scheduled" || task.status === "running";
+        }
+        if (validated.status === "attention") {
+          return task.status === "failed" || task.status === "interrupted";
+        }
+        return task.status === validated.status;
+      });
       const sorted = [...filtered].sort((a, b) => {
         const created = Date.parse(b.createdAt) - Date.parse(a.createdAt);
         return created !== 0 ? created : b.id.localeCompare(a.id);
@@ -514,6 +865,8 @@ export class WorkspaceTaskStore implements TaskStore {
                   messagePreview: preview(task.error.message),
                 }
               : null,
+            acknowledgedAt: task.acknowledgedAt ?? null,
+            recurringTaskId: task.recurringTaskId ?? null,
           })),
           truncated: sorted.length > validated.limit,
         },
@@ -523,7 +876,115 @@ export class WorkspaceTaskStore implements TaskStore {
     }
   }
 
-  async get(id: string): Promise<TaskStoreResult<TaskRecord>> {
+  async listRecurring(
+    input?: RecurringTaskListInput,
+  ): Promise<TaskStoreResult<RecurringTaskList>> {
+    try {
+      const validated = validateRecurringTaskListInput(input);
+      const document = await this.#read();
+      const filtered = validated.status === undefined
+        ? document.recurringTasks
+        : document.recurringTasks.filter((task) => task.status === validated.status);
+      const sorted = [...filtered].sort((a, b) => {
+        const created = Date.parse(b.createdAt) - Date.parse(a.createdAt);
+        return created !== 0 ? created : b.id.localeCompare(a.id);
+      });
+      const visible = sorted.slice(0, validated.limit);
+      return {
+        ok: true,
+        value: {
+          recurringTasks: visible.map((task) => ({
+            id: task.id,
+            promptPreview: preview(task.prompt),
+            recurrence: cloneRecurrence(task.recurrence),
+            status: task.status,
+            nextRunAt: task.nextRunAt,
+          })),
+          truncated: sorted.length > validated.limit,
+        },
+      };
+    } catch (error) {
+      return errorResult(error, neverAborted, false);
+    }
+  }
+
+  async getRecurring(
+    id: string,
+  ): Promise<TaskStoreResult<RecurringTaskDetail>> {
+    if (typeof id !== "string" || id.length === 0) {
+      return fail("INVALID_INPUT", "Recurring task id must be non-empty");
+    }
+    try {
+      const document = await this.#read();
+      const recurringTask = document.recurringTasks.find((candidate) => candidate.id === id);
+      if (recurringTask === undefined) {
+        return fail("RECURRING_TASK_NOT_FOUND", `Recurring task not found: ${id}`);
+      }
+      const latestTask = [...document.tasks]
+        .filter((task) => task.recurringTaskId === id)
+        .sort((a, b) => {
+          const created = Date.parse(b.createdAt) - Date.parse(a.createdAt);
+          return created !== 0 ? created : b.id.localeCompare(a.id);
+        })[0];
+      return {
+        ok: true,
+        value: {
+          recurringTask: cloneRecurringTask(recurringTask),
+          latestTask: latestTask === undefined ? null : cloneRecord(latestTask),
+        },
+      };
+    } catch (error) {
+      return errorResult(error, neverAborted, false);
+    }
+  }
+
+  async pauseRecurring(
+    id: string,
+    signal: AbortSignal = neverAborted,
+  ): Promise<TaskStoreResult<RecurringTaskRecord>> {
+    return this.#updateRecurring(id, signal, (task) => {
+      if (task.status === "cancelled") {
+        raise("RECURRING_TASK_CANCELLED", `Recurring task is cancelled: ${id}`);
+      }
+      if (task.status === "active") {
+        task.status = "paused";
+        task.nextRunAt = null;
+      }
+      return task;
+    });
+  }
+
+  async resumeRecurring(
+    id: string,
+    signal: AbortSignal = neverAborted,
+  ): Promise<TaskStoreResult<RecurringTaskRecord>> {
+    return this.#updateRecurring(id, signal, (task) => {
+      if (task.status === "cancelled") {
+        raise("RECURRING_TASK_CANCELLED", `Recurring task is cancelled: ${id}`);
+      }
+      if (task.status === "paused") {
+        const now = this.#now();
+        task.status = "active";
+        task.nextRunAt = nextOccurrence(task.recurrence, new Date(now).toISOString());
+      }
+      return task;
+    });
+  }
+
+  async cancelRecurring(
+    id: string,
+    signal: AbortSignal = neverAborted,
+  ): Promise<TaskStoreResult<RecurringTaskRecord>> {
+    return this.#updateRecurring(id, signal, (task) => {
+      if (task.status !== "cancelled") {
+        task.status = "cancelled";
+        task.nextRunAt = null;
+      }
+      return task;
+    });
+  }
+
+  async get(id: string): Promise<TaskStoreResult<TaskRecordV3>> {
     if (typeof id !== "string" || id.length === 0) return fail("INVALID_INPUT", "Task id must be non-empty");
     try {
       const document = await this.#read();
@@ -539,7 +1000,7 @@ export class WorkspaceTaskStore implements TaskStore {
   async cancel(
     id: string,
     signal: AbortSignal = neverAborted,
-  ): Promise<TaskStoreResult<TaskRecord>> {
+  ): Promise<TaskStoreResult<TaskRecordV3>> {
     if (typeof id !== "string" || id.length === 0) return fail("INVALID_INPUT", "Task id must be non-empty");
     try {
       throwIfAborted(signal);
@@ -560,27 +1021,104 @@ export class WorkspaceTaskStore implements TaskStore {
     }
   }
 
+  async acknowledge(
+    id: string,
+    signal: AbortSignal = neverAborted,
+  ): Promise<TaskStoreResult<TaskRecordV3>> {
+    if (typeof id !== "string" || id.length === 0) {
+      return fail("INVALID_INPUT", "Task id must be non-empty");
+    }
+    try {
+      throwIfAborted(signal);
+      const value = await this.#update(signal, (document) => {
+        const task = document.tasks.find((candidate) => candidate.id === id);
+        if (task === undefined) raise("TASK_NOT_FOUND", `Task not found: ${id}`);
+        if (task.status !== "completed" &&
+            task.status !== "failed" &&
+            task.status !== "interrupted") {
+          raise(
+            "TASK_NOT_ACKNOWLEDGEABLE",
+            `Task cannot be acknowledged in ${task.status} state`,
+          );
+        }
+        if (task.acknowledgedAt === null) {
+          task.acknowledgedAt = new Date(this.#now()).toISOString();
+        }
+        return task;
+      });
+      return { ok: true, value: cloneRecord(value) };
+    } catch (error) {
+      return errorResult(error, signal, true);
+    }
+  }
+
   async claimNextDue(
     signal: AbortSignal = neverAborted,
-  ): Promise<TaskStoreResult<TaskRecord | null>> {
+  ): Promise<TaskStoreResult<TaskRecordV3 | null>> {
     try {
       throwIfAborted(signal);
       const now = this.#now();
       const value = await this.#update(signal, (document) => {
-        const due = document.tasks
+        const dueTasks = document.tasks
           .filter((task) => task.status === "scheduled" && Date.parse(task.runAt) <= now)
-          .sort((a, b) => {
-            const runAt = Date.parse(a.runAt) - Date.parse(b.runAt);
-            if (runAt !== 0) return runAt;
-            const created = Date.parse(a.createdAt) - Date.parse(b.createdAt);
-            return created !== 0 ? created : a.id.localeCompare(b.id);
-          })[0];
+          .map((task) => ({
+            kind: "task" as const,
+            runAt: task.runAt,
+            createdAt: task.createdAt,
+            id: task.id,
+            task,
+          }));
+        const dueRecurringTasks = document.recurringTasks
+          .filter((task) => task.status === "active" && task.nextRunAt !== null && Date.parse(task.nextRunAt) <= now)
+          .map((task) => ({
+            kind: "recurring" as const,
+            runAt: task.nextRunAt as string,
+            createdAt: task.createdAt,
+            id: task.id,
+            task,
+          }));
+        const due = [...dueTasks, ...dueRecurringTasks].sort((a, b) => {
+          const runAt = Date.parse(a.runAt) - Date.parse(b.runAt);
+          if (runAt !== 0) return runAt;
+          const created = Date.parse(a.createdAt) - Date.parse(b.createdAt);
+          return created !== 0 ? created : a.id.localeCompare(b.id);
+        })[0];
         if (due === undefined) return null;
-        due.status = "running";
-        due.startedAt = new Date(now).toISOString();
-        due.threadId = this.#generateId();
-        if (due.threadId.length === 0) raise("WRITE_FAILED", "Task thread id generator returned an empty id");
-        return due;
+
+        const nowIso = new Date(now).toISOString();
+        if (due.kind === "task") {
+          due.task.status = "running";
+          due.task.startedAt = nowIso;
+          due.task.threadId = this.#generateId();
+          if (due.task.threadId.length === 0) {
+            raise("WRITE_FAILED", "Task thread id generator returned an empty id");
+          }
+          return due.task;
+        }
+
+        const taskId = this.#generateId();
+        const threadId = this.#generateId();
+        if (taskId.length === 0 || threadId.length === 0 || taskId === threadId) {
+          raise("WRITE_FAILED", "Recurring task id generator returned invalid ids");
+        }
+        const task: TaskRecordV3 = {
+          id: taskId,
+          prompt: due.task.prompt,
+          runAt: due.task.nextRunAt as string,
+          status: "running",
+          createdAt: nowIso,
+          startedAt: nowIso,
+          finishedAt: null,
+          threadId,
+          runId: null,
+          resultText: null,
+          error: null,
+          acknowledgedAt: null,
+          recurringTaskId: due.task.id,
+        };
+        due.task.nextRunAt = nextOccurrence(due.task.recurrence, nowIso);
+        document.tasks.push(task);
+        return task;
       });
       return { ok: true, value: value === null ? null : cloneRecord(value) };
     } catch (error) {
@@ -592,7 +1130,7 @@ export class WorkspaceTaskStore implements TaskStore {
     id: string,
     outcome: TaskFinish,
     signal: AbortSignal = neverAborted,
-  ): Promise<TaskStoreResult<TaskRecord>> {
+  ): Promise<TaskStoreResult<TaskRecordV3>> {
     if (typeof id !== "string" || id.length === 0) return fail("INVALID_INPUT", "Task id must be non-empty");
     try {
       throwIfAborted(signal);
@@ -601,15 +1139,23 @@ export class WorkspaceTaskStore implements TaskStore {
         const task = document.tasks.find((candidate) => candidate.id === id);
         if (task === undefined) raise("TASK_NOT_FOUND", `Task not found: ${id}`);
         if (task.status !== "running") raise("INVALID_INPUT", "Only a running task can be finished");
+        const now = this.#now();
         task.status = outcome.status;
-        task.finishedAt = new Date(this.#now()).toISOString();
+        task.finishedAt = new Date(now).toISOString();
         task.runId = outcome.runId;
+        task.acknowledgedAt = null;
         if (outcome.status === "completed") {
           task.resultText = outcome.resultText;
           task.error = null;
         } else {
           task.resultText = null;
           task.error = { ...outcome.error };
+        }
+        if (task.recurringTaskId !== null && task.recurringTaskId !== undefined) {
+          const recurringTask = document.recurringTasks.find(
+            (candidate) => candidate.id === task.recurringTaskId,
+          );
+          if (recurringTask !== undefined) advanceRecurringTask(recurringTask, now);
         }
         return task;
       });
@@ -626,14 +1172,16 @@ export class WorkspaceTaskStore implements TaskStore {
       throwIfAborted(signal);
       const value = await this.#update(signal, (document) => {
         let interrupted = 0;
+        const now = this.#now();
         for (const task of document.tasks) {
           if (task.status !== "running") continue;
           task.status = "interrupted";
-          task.finishedAt = new Date(this.#now()).toISOString();
+          task.finishedAt = new Date(now).toISOString();
           task.error = {
             code: "WORKER_INTERRUPTED",
             message: "Task was interrupted by worker shutdown or restart",
           };
+          task.acknowledgedAt = null;
           interrupted += 1;
         }
         return interrupted;
@@ -644,13 +1192,38 @@ export class WorkspaceTaskStore implements TaskStore {
     }
   }
 
-  async #read(): Promise<TaskDocument> {
+  async #updateRecurring(
+    id: string,
+    signal: AbortSignal,
+    operation: (task: RecurringTaskRecord) => RecurringTaskRecord,
+  ): Promise<TaskStoreResult<RecurringTaskRecord>> {
+    if (typeof id !== "string" || id.length === 0) {
+      return fail("INVALID_INPUT", "Recurring task id must be non-empty");
+    }
+    try {
+      throwIfAborted(signal);
+      const value = await this.#update(signal, (document) => {
+        const task = document.recurringTasks.find((candidate) => candidate.id === id);
+        if (task === undefined) {
+          raise("RECURRING_TASK_NOT_FOUND", `Recurring task not found: ${id}`);
+        }
+        return operation(task);
+      });
+      return { ok: true, value: cloneRecurringTask(value) };
+    } catch (error) {
+      return errorResult(error, signal, true);
+    }
+  }
+
+  async #read(): Promise<TaskDocumentV3> {
     await this.#inspectRoot();
     let directoryDetails;
     try {
       directoryDetails = await lstat(this.#directory);
     } catch (error) {
-      if (filesystemCode(error) === "ENOENT") return { version: 1, tasks: [] };
+      if (filesystemCode(error) === "ENOENT") {
+        return { version: 3, tasks: [], recurringTasks: [] };
+      }
       throw error;
     }
     if (directoryDetails.isSymbolicLink() || !directoryDetails.isDirectory()) {
@@ -660,7 +1233,9 @@ export class WorkspaceTaskStore implements TaskStore {
     try {
       fileDetails = await lstat(this.#file);
     } catch (error) {
-      if (filesystemCode(error) === "ENOENT") return { version: 1, tasks: [] };
+      if (filesystemCode(error) === "ENOENT") {
+        return { version: 3, tasks: [], recurringTasks: [] };
+      }
       throw error;
     }
     if (fileDetails.isSymbolicLink() || !fileDetails.isFile()) {
@@ -714,7 +1289,7 @@ export class WorkspaceTaskStore implements TaskStore {
     }
   }
 
-  async #write(document: TaskDocument, signal: AbortSignal): Promise<void> {
+  async #write(document: TaskDocumentV3, signal: AbortSignal): Promise<void> {
     await this.#ensureDirectory();
     const temporary = join(this.#directory, `.tasks.json.runloom-${randomUUID()}.tmp`);
     let handle: Awaited<ReturnType<typeof open>> | undefined;
