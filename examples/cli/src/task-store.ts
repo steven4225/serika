@@ -66,10 +66,18 @@ export interface TaskSummary {
   promptPreview: string;
   runAt: string;
   status: TaskStatus;
+  finishedAt: string | null;
+  resultPreview: string | null;
+  error: {
+    code: string;
+    messagePreview: string;
+  } | null;
 }
 
+export type TaskListStatusFilter = TaskStatus | "pending" | "attention";
+
 export interface TaskListInput {
-  status?: TaskStatus;
+  status?: TaskListStatusFilter;
   limit?: number;
 }
 
@@ -171,8 +179,8 @@ function cloneRecord(record: TaskRecord): TaskRecord {
   return { ...record, error: cloneError(record.error) };
 }
 
-function promptPreview(prompt: string): string {
-  return Array.from(prompt).slice(0, TASK_PREVIEW_MAX_CHARACTERS).join("");
+function preview(value: string): string {
+  return Array.from(value).slice(0, TASK_PREVIEW_MAX_CHARACTERS).join("");
 }
 
 function validatePrompt(value: unknown): asserts value is string {
@@ -361,10 +369,14 @@ function validateCreateInput(input: unknown): CreateTaskInput & { runAt: string 
   return { prompt: input.prompt, runAt };
 }
 
+function isTaskListStatusFilter(value: unknown): value is TaskListStatusFilter {
+  return isTaskStatus(value) || value === "pending" || value === "attention";
+}
+
 function validateTaskListInput(input: unknown): Required<Pick<TaskListInput, "limit">> & TaskListInput {
   if (input === undefined) return { limit: TASK_LIST_DEFAULT_LIMIT };
   if (!isObject(input)) raise("INVALID_INPUT", "Task list input must be an object");
-  if (input.status !== undefined && !isTaskStatus(input.status)) {
+  if (input.status !== undefined && !isTaskListStatusFilter(input.status)) {
     raise("INVALID_INPUT", "Task list status is invalid");
   }
   if (input.limit !== undefined &&
@@ -470,7 +482,15 @@ export class WorkspaceTaskStore implements TaskStore {
       const document = await this.#read();
       const filtered = validated.status === undefined
         ? document.tasks
-        : document.tasks.filter((task) => task.status === validated.status);
+        : document.tasks.filter((task) => {
+            if (validated.status === "pending") {
+              return task.status === "scheduled" || task.status === "running";
+            }
+            if (validated.status === "attention") {
+              return task.status === "failed" || task.status === "interrupted";
+            }
+            return task.status === validated.status;
+          });
       const sorted = [...filtered].sort((a, b) => {
         const created = Date.parse(b.createdAt) - Date.parse(a.createdAt);
         return created !== 0 ? created : b.id.localeCompare(a.id);
@@ -481,9 +501,19 @@ export class WorkspaceTaskStore implements TaskStore {
         value: {
           tasks: visible.map((task) => ({
             id: task.id,
-            promptPreview: promptPreview(task.prompt),
+            promptPreview: preview(task.prompt),
             runAt: task.runAt,
             status: task.status,
+            finishedAt: task.finishedAt,
+            resultPreview: task.status === "completed" && task.resultText !== null
+              ? preview(task.resultText)
+              : null,
+            error: (task.status === "failed" || task.status === "interrupted") && task.error !== null
+              ? {
+                  code: task.error.code,
+                  messagePreview: preview(task.error.message),
+                }
+              : null,
           })),
           truncated: sorted.length > validated.limit,
         },

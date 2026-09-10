@@ -37,9 +37,38 @@ function list(): TaskList {
         promptPreview: "prepare a plan",
         runAt: "2026-09-12T01:00:00.000Z",
         status: "scheduled",
+        finishedAt: null,
+        resultPreview: null,
+        error: null,
       },
     ],
     truncated: false,
+  };
+}
+
+function resultList(): TaskList {
+  return {
+    tasks: [
+      {
+        id: "task-completed",
+        promptPreview: "summarize the release",
+        runAt: "2026-09-12T01:00:00.000Z",
+        status: "completed",
+        finishedAt: "2026-09-12T01:01:00.000Z",
+        resultPreview: "release summary",
+        error: null,
+      },
+      {
+        id: "task-failed",
+        promptPreview: "publish the release",
+        runAt: "2026-09-12T02:00:00.000Z",
+        status: "failed",
+        finishedAt: "2026-09-12T02:01:00.000Z",
+        resultPreview: null,
+        error: { code: "TOOL_FAILED", messagePreview: "upstream unavailable" },
+      },
+    ],
+    truncated: true,
   };
 }
 
@@ -154,7 +183,7 @@ describe("createTaskModule", () => {
       await create.execute!({ prompt: "p", runAt: "2026-09-12T01:00:00+00:00" }, context),
       { ok: true, value: record() },
     );
-    assert.deepEqual(await listTool.execute!({ status: "scheduled", limit: 2 }, context), {
+    assert.deepEqual(await listTool.execute!({ status: "pending", limit: 2 }, context), {
       ok: true,
       value: list(),
     });
@@ -171,7 +200,7 @@ describe("createTaskModule", () => {
         method: "create",
         args: [{ prompt: "p", runAt: "2026-09-12T01:00:00+00:00" }, context.abortSignal],
       },
-      { method: "list", args: [{ status: "scheduled", limit: 2 }] },
+      { method: "list", args: [{ status: "pending", limit: 2 }] },
       { method: "get", args: ["task-1"] },
       { method: "cancel", args: ["task-1", context.abortSignal] },
     ]);
@@ -203,9 +232,81 @@ describe("createTaskModule", () => {
     command.execute("show task-1");
     command.execute("cancel task-1");
     await settle();
-    assert.match(notifications[1] ?? "", /truncated/);
-    assert.match(notifications[2] ?? "", /^\{"id":"task-1"/);
+    assert.match(notifications[1] ?? "", /Tasks: 1/);
+    assert.match(notifications[2] ?? "", /^Task: task-1/);
     assert.match(notifications[3] ?? "", /^Task cancelled:/);
+  });
+
+  it("accepts pending and attention command filters and renders list summaries", async () => {
+    const inputs: unknown[] = [];
+    const { commands, notifications } = setup({
+      list: async (input) => {
+        inputs.push(input);
+        return { ok: true, value: resultList() };
+      },
+    });
+    const command = commands.get("task");
+    assert.ok(command);
+
+    command.execute("list pending");
+    command.execute("list attention");
+    await settle();
+
+    assert.deepEqual(inputs, [{ status: "pending" }, { status: "attention" }]);
+    assert.match(notifications[0] ?? "", /ID: task-completed/);
+    assert.match(notifications[0] ?? "", /Finished at: 2026-09-12T01:01:00.000Z/);
+    assert.match(notifications[0] ?? "", /Result: release summary/);
+    assert.match(notifications[0] ?? "", /more available/);
+    assert.match(notifications[0] ?? "", /Error: TOOL_FAILED: upstream unavailable/);
+  });
+
+  it("renders complete task details, including full result and execution identifiers", async () => {
+    const completed = record({
+      status: "completed",
+      prompt: "prepare the complete report",
+      startedAt: "2026-09-12T01:00:10.000Z",
+      finishedAt: "2026-09-12T01:01:10.000Z",
+      threadId: "thread-1",
+      runId: "run-1",
+      resultText: "first line\nsecond line",
+    });
+    const { commands, notifications } = setup({
+      get: async () => ({ ok: true, value: completed }),
+    });
+    const command = commands.get("task");
+    assert.ok(command);
+
+    command.execute("show task-1");
+    await settle();
+
+    assert.match(notifications[0] ?? "", /Task: task-1/);
+    assert.match(notifications[0] ?? "", /Prompt: prepare the complete report/);
+    assert.match(notifications[0] ?? "", /Created at: 2026-09-11T01:00:00.000Z/);
+    assert.match(notifications[0] ?? "", /Started at: 2026-09-12T01:00:10.000Z/);
+    assert.match(notifications[0] ?? "", /Finished at: 2026-09-12T01:01:10.000Z/);
+    assert.match(notifications[0] ?? "", /Thread ID: thread-1/);
+    assert.match(notifications[0] ?? "", /Run ID: run-1/);
+    assert.match(notifications[0] ?? "", /Result: first line\nsecond line/);
+  });
+
+  it("renders failed task details with the full error", async () => {
+    const failed = record({
+      status: "failed",
+      startedAt: "2026-09-12T01:00:10.000Z",
+      finishedAt: "2026-09-12T01:01:10.000Z",
+      threadId: "thread-1",
+      error: { code: "TOOL_FAILED", message: "full upstream failure" },
+    });
+    const { commands, notifications } = setup({
+      get: async () => ({ ok: true, value: failed }),
+    });
+    const command = commands.get("task");
+    assert.ok(command);
+
+    command.execute("show task-1");
+    await settle();
+
+    assert.match(notifications[0] ?? "", /Error: TOOL_FAILED: full upstream failure/);
   });
 
   it("rejects malformed command syntax without touching the store", () => {

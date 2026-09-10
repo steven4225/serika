@@ -59,6 +59,8 @@ RUNLOOM_MODEL=mock pnpm task-worker -- --workspace ./sample-project
 
 worker 为每个任务创建新 thread，只运行一次无工具的纯文本回复，并把结果写回任务文件；任务不会自动重试或从中断处恢复。任务更新使用 `.runloom/tasks.json.lock`，worker 独占使用 `.runloom/task-worker.lock`，两者都是由操作系统释放的 advisory `flock` 锁。
 
+任务查询只读现有任务文件：`/task list pending` 查看 `scheduled` 和 `running`，`/task list attention` 查看 `failed` 和 `interrupted`；`/task show <id>` 查看完整 prompt、执行信息、结果或失败原因。列表只显示结果和错误摘要，完整内容通过 `show` 获取。查询不会重试任务、改变状态，也不会从 worker 跨进程推送通知。
+
 ### MiniMax M3
 
 CLI 默认使用内置 mock 模型。要接入国际版 MiniMax M3，设置 API Key 并切换模型模式：

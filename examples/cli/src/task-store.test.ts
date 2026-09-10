@@ -86,6 +86,9 @@ describe("WorkspaceTaskStore", () => {
           promptPreview: "prepare a plan",
           runAt: "2026-09-12T01:00:00.000Z",
           status: "scheduled",
+          finishedAt: null,
+          resultPreview: null,
+          error: null,
         }],
         truncated: false,
       },
@@ -100,6 +103,135 @@ describe("WorkspaceTaskStore", () => {
       assert.equal(cancelled.value.finishedAt, "2026-09-11T02:00:00.000Z");
     }
     assert.deepEqual(await reopened.cancel("task-1"), cancelled);
+  });
+
+  it("filters grouped statuses before limiting and projects bounded results and errors", async () => {
+    const root = await workspace();
+    const store = createTaskStore(root);
+    const longPrompt = "任务😀".repeat(80);
+    const longResult = "结果🙂".repeat(80);
+    const longError = "模型失败🚨".repeat(80);
+    const task = (overrides: Record<string, unknown>) => ({
+      id: "task-default",
+      prompt: "short prompt",
+      runAt: "2026-09-12T00:30:00.000Z",
+      status: "scheduled",
+      createdAt: "2026-09-11T00:01:00.000Z",
+      startedAt: null,
+      finishedAt: null,
+      threadId: null,
+      runId: null,
+      resultText: null,
+      error: null,
+      ...overrides,
+    });
+    await mkdir(join(root, ".runloom"));
+    await writeFile(
+      join(root, TASK_FILE_NAME),
+      `${JSON.stringify({
+        version: 1,
+        tasks: [
+          task({ id: "scheduled", prompt: longPrompt }),
+          task({
+            id: "running",
+            status: "running",
+            createdAt: "2026-09-11T00:02:00.000Z",
+            startedAt: "2026-09-11T00:03:00.000Z",
+            threadId: "thread-running",
+          }),
+          task({
+            id: "completed",
+            status: "completed",
+            createdAt: "2026-09-11T00:03:00.000Z",
+            startedAt: "2026-09-11T00:04:00.000Z",
+            finishedAt: "2026-09-11T00:05:00.000Z",
+            threadId: "thread-completed",
+            runId: "run-completed",
+            resultText: longResult,
+          }),
+          task({
+            id: "failed",
+            status: "failed",
+            createdAt: "2026-09-11T00:04:00.000Z",
+            startedAt: "2026-09-11T00:05:00.000Z",
+            finishedAt: "2026-09-11T00:06:00.000Z",
+            threadId: "thread-failed",
+            runId: "run-failed",
+            error: { code: "MODEL_FAILED", message: longError },
+          }),
+          task({
+            id: "interrupted",
+            status: "interrupted",
+            createdAt: "2026-09-11T00:05:00.000Z",
+            startedAt: "2026-09-11T00:06:00.000Z",
+            finishedAt: "2026-09-11T00:07:00.000Z",
+            threadId: "thread-interrupted",
+            error: { code: "WORKER_INTERRUPTED", message: longError },
+          }),
+          task({
+            id: "cancelled",
+            status: "cancelled",
+            createdAt: "2026-09-11T00:06:00.000Z",
+            finishedAt: "2026-09-11T00:07:00.000Z",
+          }),
+        ],
+      })}\n`,
+      "utf8",
+    );
+
+    const pending = await store.list({ status: "pending" });
+    assert.equal(pending.ok, true);
+    if (!pending.ok) return;
+    assert.deepEqual(pending.value.tasks.map((item) => item.id), ["running", "scheduled"]);
+    assert.equal(pending.value.tasks[0]?.resultPreview, null);
+    assert.equal(pending.value.tasks[0]?.error, null);
+
+    const attention = await store.list({ status: "attention", limit: 1 });
+    assert.equal(attention.ok, true);
+    if (!attention.ok) return;
+    assert.deepEqual(attention.value.tasks.map((item) => item.id), ["interrupted"]);
+    assert.equal(attention.value.truncated, true);
+    assert.deepEqual(attention.value.tasks[0]?.error, {
+      code: "WORKER_INTERRUPTED",
+      messagePreview: Array.from(longError).slice(0, 120).join(""),
+    });
+
+    const all = await store.list({ limit: 50 });
+    assert.equal(all.ok, true);
+    if (!all.ok) return;
+    const completed = all.value.tasks.find((item) => item.id === "completed");
+    assert.deepEqual(completed, {
+      id: "completed",
+      promptPreview: "short prompt",
+      runAt: "2026-09-12T00:30:00.000Z",
+      status: "completed",
+      finishedAt: "2026-09-11T00:05:00.000Z",
+      resultPreview: Array.from(longResult).slice(0, 120).join(""),
+      error: null,
+    });
+    const failed = all.value.tasks.find((item) => item.id === "failed");
+    assert.deepEqual(failed?.error, {
+      code: "MODEL_FAILED",
+      messagePreview: Array.from(longError).slice(0, 120).join(""),
+    });
+    assert.equal(failed?.resultPreview, null);
+    const scheduled = all.value.tasks.find((item) => item.id === "scheduled");
+    assert.equal(scheduled?.promptPreview, Array.from(longPrompt).slice(0, 120).join(""));
+    assert.equal(scheduled?.promptPreview.endsWith("\ud83d"), false);
+  });
+
+  it("keeps list queries read-only", async () => {
+    const root = await workspace();
+    const store = createTaskStore(root, {
+      now: () => Date.parse("2026-09-11T00:00:00.000Z"),
+      generateId: () => "task-1",
+    });
+    await store.create({ prompt: "query only", runAt: "2026-09-12T00:00:00Z" });
+    const path = join(root, TASK_FILE_NAME);
+    const before = await readFile(path, "utf8");
+    const result = await store.list({ status: "pending", limit: 1 });
+    assert.equal(result.ok, true);
+    assert.equal(await readFile(path, "utf8"), before);
   });
 
   it("rejects invalid future times, prompts, files, and versions", async () => {
