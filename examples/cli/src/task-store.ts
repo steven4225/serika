@@ -58,6 +58,11 @@ export interface TaskRecordV2 extends TaskRecord {
   recurringTaskId: string | null;
 }
 
+export interface TaskRecordV3 extends TaskRecordV2 {
+  /** Null for legacy and newly-created tasks; set when an inbox item is acknowledged. */
+  acknowledgedAt: string | null;
+}
+
 export interface TaskDocumentV1 {
   version: 1;
   tasks: TaskRecord[];
@@ -69,9 +74,15 @@ export interface TaskDocumentV2 {
   recurringTasks: RecurringTaskRecord[];
 }
 
-// Store internals always use the normalized v2 shape. v1 is accepted only at
-// the read boundary and is upgraded in memory without writing the file.
-export type TaskDocument = TaskDocumentV2;
+export interface TaskDocumentV3 {
+  version: 3;
+  tasks: TaskRecordV3[];
+  recurringTasks: RecurringTaskRecord[];
+}
+
+// Store internals always use the normalized v3 shape. v1/v2 are accepted only
+// at the read boundary and are upgraded in memory without writing the file.
+export type TaskDocument = TaskDocumentV3;
 
 export type RecurringTaskStatus = "active" | "paused" | "cancelled";
 
@@ -109,7 +120,7 @@ export interface RecurringTaskList {
 
 export interface RecurringTaskDetail {
   recurringTask: RecurringTaskRecord;
-  latestTask: TaskRecordV2 | null;
+  latestTask: TaskRecordV3 | null;
 }
 
 export interface CreateTaskInput {
@@ -131,16 +142,26 @@ export interface TaskSummary {
   recurringTaskId?: string | null;
 }
 
+export interface TaskSummaryV3 extends TaskSummary {
+  acknowledgedAt: string | null;
+}
+
 export type TaskListStatusFilter = TaskStatus | "pending" | "attention";
 
 export interface TaskListInput {
   status?: TaskListStatusFilter;
   limit?: number;
   recurringTaskId?: string;
+  inbox?: boolean;
 }
 
 export interface TaskList {
   tasks: TaskSummary[];
+  truncated: boolean;
+}
+
+export interface TaskListV3 {
+  tasks: TaskSummaryV3[];
   truncated: boolean;
 }
 
@@ -160,6 +181,7 @@ export const taskStoreErrorCodes = [
   "INVALID_INPUT",
   "TASK_NOT_FOUND",
   "TASK_NOT_CANCELLABLE",
+  "TASK_NOT_ACKNOWLEDGEABLE",
   "TASK_FILE_INVALID",
   "TASK_VERSION_UNSUPPORTED",
   "RECURRING_TASK_NOT_FOUND",
@@ -178,12 +200,13 @@ export interface TaskFailure {
 export type TaskStoreResult<T> = { ok: true; value: T } | TaskFailure;
 
 export interface TaskStore {
-  create(input: CreateTaskInput, signal?: AbortSignal): Promise<TaskStoreResult<TaskRecord>>;
-  list(input?: TaskListInput): Promise<TaskStoreResult<TaskList>>;
-  get(id: string): Promise<TaskStoreResult<TaskRecord>>;
-  cancel(id: string, signal?: AbortSignal): Promise<TaskStoreResult<TaskRecord>>;
-  claimNextDue(signal?: AbortSignal): Promise<TaskStoreResult<TaskRecord | null>>;
-  finish(id: string, outcome: TaskFinish, signal?: AbortSignal): Promise<TaskStoreResult<TaskRecord>>;
+  create(input: CreateTaskInput, signal?: AbortSignal): Promise<TaskStoreResult<TaskRecordV3>>;
+  list(input?: TaskListInput): Promise<TaskStoreResult<TaskListV3>>;
+  get(id: string): Promise<TaskStoreResult<TaskRecordV3>>;
+  cancel(id: string, signal?: AbortSignal): Promise<TaskStoreResult<TaskRecordV3>>;
+  acknowledge(id: string, signal?: AbortSignal): Promise<TaskStoreResult<TaskRecordV3>>;
+  claimNextDue(signal?: AbortSignal): Promise<TaskStoreResult<TaskRecordV3 | null>>;
+  finish(id: string, outcome: TaskFinish, signal?: AbortSignal): Promise<TaskStoreResult<TaskRecordV3>>;
   interruptRunning(signal?: AbortSignal): Promise<TaskStoreResult<number>>;
   listRecurring: (input?: RecurringTaskListInput) => Promise<TaskStoreResult<RecurringTaskList>>;
   createRecurring: (
@@ -253,9 +276,7 @@ function cloneError(error: TaskError | null): TaskError | null {
   return error === null ? null : { ...error };
 }
 
-function cloneRecord(record: TaskRecordV2): TaskRecordV2;
-function cloneRecord(record: TaskRecord): TaskRecord;
-function cloneRecord(record: TaskRecord): TaskRecord {
+function cloneRecord(record: TaskRecordV3): TaskRecordV3 {
   return { ...record, error: cloneError(record.error) };
 }
 
@@ -361,7 +382,7 @@ function validateTaskError(value: unknown): TaskError {
   return { code: value.code, message: value.message };
 }
 
-function validateRecord(value: unknown, requireRecurringTaskId: boolean): TaskRecordV2 {
+function validateRecord(value: unknown, version: 1 | 2 | 3): TaskRecordV3 {
   if (!isObject(value)) raise("TASK_FILE_INVALID", "Task records must be objects");
   if (typeof value.id !== "string" || value.id.length === 0) {
     raise("TASK_FILE_INVALID", "Task id must be non-empty");
@@ -393,8 +414,17 @@ function validateRecord(value: unknown, requireRecurringTaskId: boolean): TaskRe
     raise("TASK_FILE_INVALID", "Task resultText must be a string or null");
   }
   const error = value.error === null ? null : validateTaskError(value.error);
+  let acknowledgedAt: string | null = null;
+  if (version === 3) {
+    if (value.acknowledgedAt === null) {
+      acknowledgedAt = null;
+    } else {
+      validateStoredTimestamp(value.acknowledgedAt, "Task acknowledgedAt");
+      acknowledgedAt = value.acknowledgedAt;
+    }
+  }
   if (
-    requireRecurringTaskId &&
+    version !== 1 &&
     value.recurringTaskId !== null &&
     (typeof value.recurringTaskId !== "string" || value.recurringTaskId.length === 0)
   ) {
@@ -404,13 +434,15 @@ function validateRecord(value: unknown, requireRecurringTaskId: boolean): TaskRe
   if (value.status === "scheduled" || value.status === "cancelled") {
     if (value.startedAt !== null || value.threadId !== null || value.runId !== null ||
         value.resultText !== null || error !== null ||
-        (value.status === "scheduled" && value.finishedAt !== null)) {
+        (value.status === "scheduled" && value.finishedAt !== null) ||
+        acknowledgedAt !== null) {
       raise("TASK_FILE_INVALID", `Task ${value.status} state has inconsistent execution fields`);
     }
   }
   if (value.status === "running") {
     if (value.startedAt === null || value.finishedAt !== null || value.threadId === null ||
-        value.runId !== null || value.resultText !== null || error !== null) {
+        value.runId !== null || value.resultText !== null || error !== null ||
+        acknowledgedAt !== null) {
       raise("TASK_FILE_INVALID", "Task running state has inconsistent execution fields");
     }
   }
@@ -439,7 +471,8 @@ function validateRecord(value: unknown, requireRecurringTaskId: boolean): TaskRe
     runId: value.runId as string | null,
     resultText: value.resultText as string | null,
     error,
-    recurringTaskId: requireRecurringTaskId
+    acknowledgedAt,
+    recurringTaskId: version !== 1
       ? (value.recurringTaskId as string | null)
       : null,
   };
@@ -507,24 +540,24 @@ function validateRecurringTask(value: unknown): RecurringTaskRecord {
   };
 }
 
-function validateDocument(value: unknown): TaskDocumentV2 {
+function validateDocument(value: unknown): TaskDocumentV3 {
   if (!isObject(value)) raise("TASK_FILE_INVALID", "Task file must contain a JSON object");
-  if (value.version !== 1 && value.version !== 2) {
+  if (value.version !== 1 && value.version !== 2 && value.version !== 3) {
     raise("TASK_VERSION_UNSUPPORTED", "Unsupported task file version");
   }
   if (!Array.isArray(value.tasks)) {
     raise("TASK_FILE_INVALID", "Task file tasks must be an array");
   }
   const ids = new Set<string>();
-  const tasks: TaskRecordV2[] = [];
+  const tasks: TaskRecordV3[] = [];
   for (const taskValue of value.tasks) {
-    const task = validateRecord(taskValue, value.version === 2);
+    const task = validateRecord(taskValue, value.version);
     if (ids.has(task.id)) raise("TASK_FILE_INVALID", `Duplicate task id: ${task.id}`);
     ids.add(task.id);
     tasks.push(task);
   }
   if (value.version === 1) {
-    return { version: 2, tasks, recurringTasks: [] };
+    return { version: 3, tasks, recurringTasks: [] };
   }
   if (!Array.isArray(value.recurringTasks)) {
     raise("TASK_FILE_INVALID", "Task file recurringTasks must be an array");
@@ -544,7 +577,7 @@ function validateDocument(value: unknown): TaskDocumentV2 {
       raise("TASK_FILE_INVALID", `Task references missing recurring task: ${task.recurringTaskId}`);
     }
   }
-  return { version: 2, tasks, recurringTasks };
+  return { version: 3, tasks, recurringTasks };
 }
 
 function validateCreateInput(input: unknown): CreateTaskInput & { runAt: string } {
@@ -603,6 +636,9 @@ function validateTaskListInput(input: unknown): Required<Pick<TaskListInput, "li
   ) {
     raise("INVALID_INPUT", "Task recurringTaskId must be a non-empty string");
   }
+  if (input.inbox !== undefined && typeof input.inbox !== "boolean") {
+    raise("INVALID_INPUT", "Task inbox filter must be a boolean");
+  }
   if (input.limit !== undefined &&
       (typeof input.limit !== "number" || !Number.isInteger(input.limit) ||
        input.limit < 1 || input.limit > TASK_LIST_MAX_LIMIT)) {
@@ -613,6 +649,7 @@ function validateTaskListInput(input: unknown): Required<Pick<TaskListInput, "li
     ...(input.recurringTaskId === undefined
       ? {}
       : { recurringTaskId: input.recurringTaskId }),
+    ...(input.inbox === undefined ? {} : { inbox: input.inbox }),
     limit: input.limit === undefined ? TASK_LIST_DEFAULT_LIMIT : input.limit,
   };
 }
@@ -713,14 +750,14 @@ export class WorkspaceTaskStore implements TaskStore {
   async create(
     input: CreateTaskInput,
     signal: AbortSignal = neverAborted,
-  ): Promise<TaskStoreResult<TaskRecord>> {
+  ): Promise<TaskStoreResult<TaskRecordV3>> {
     try {
       throwIfAborted(signal);
       const normalized = validateCreateInput(input);
       if (Date.parse(normalized.runAt) <= this.#now()) {
         raise("INVALID_INPUT", "Task runAt must be later than the current time");
       }
-      const task: TaskRecordV2 = {
+      const task: TaskRecordV3 = {
         id: this.#generateId(),
         prompt: normalized.prompt,
         runAt: normalized.runAt,
@@ -732,6 +769,7 @@ export class WorkspaceTaskStore implements TaskStore {
         runId: null,
         resultText: null,
         error: null,
+        acknowledgedAt: null,
         recurringTaskId: null,
       };
       if (task.id.length === 0) raise("WRITE_FAILED", "Task id generator returned an empty id");
@@ -777,7 +815,7 @@ export class WorkspaceTaskStore implements TaskStore {
     }
   }
 
-  async list(input?: TaskListInput): Promise<TaskStoreResult<TaskList>> {
+  async list(input?: TaskListInput): Promise<TaskStoreResult<TaskListV3>> {
     try {
       const validated = validateTaskListInput(input);
       const document = await this.#read();
@@ -786,6 +824,13 @@ export class WorkspaceTaskStore implements TaskStore {
           validated.recurringTaskId !== undefined &&
           task.recurringTaskId !== validated.recurringTaskId
         ) {
+          return false;
+        }
+        if (validated.inbox === true &&
+            (task.acknowledgedAt !== null ||
+             (task.status !== "completed" &&
+              task.status !== "failed" &&
+              task.status !== "interrupted"))) {
           return false;
         }
         if (validated.status === undefined) return true;
@@ -820,6 +865,7 @@ export class WorkspaceTaskStore implements TaskStore {
                   messagePreview: preview(task.error.message),
                 }
               : null,
+            acknowledgedAt: task.acknowledgedAt ?? null,
             recurringTaskId: task.recurringTaskId ?? null,
           })),
           truncated: sorted.length > validated.limit,
@@ -938,7 +984,7 @@ export class WorkspaceTaskStore implements TaskStore {
     });
   }
 
-  async get(id: string): Promise<TaskStoreResult<TaskRecord>> {
+  async get(id: string): Promise<TaskStoreResult<TaskRecordV3>> {
     if (typeof id !== "string" || id.length === 0) return fail("INVALID_INPUT", "Task id must be non-empty");
     try {
       const document = await this.#read();
@@ -954,7 +1000,7 @@ export class WorkspaceTaskStore implements TaskStore {
   async cancel(
     id: string,
     signal: AbortSignal = neverAborted,
-  ): Promise<TaskStoreResult<TaskRecord>> {
+  ): Promise<TaskStoreResult<TaskRecordV3>> {
     if (typeof id !== "string" || id.length === 0) return fail("INVALID_INPUT", "Task id must be non-empty");
     try {
       throwIfAborted(signal);
@@ -975,9 +1021,40 @@ export class WorkspaceTaskStore implements TaskStore {
     }
   }
 
+  async acknowledge(
+    id: string,
+    signal: AbortSignal = neverAborted,
+  ): Promise<TaskStoreResult<TaskRecordV3>> {
+    if (typeof id !== "string" || id.length === 0) {
+      return fail("INVALID_INPUT", "Task id must be non-empty");
+    }
+    try {
+      throwIfAborted(signal);
+      const value = await this.#update(signal, (document) => {
+        const task = document.tasks.find((candidate) => candidate.id === id);
+        if (task === undefined) raise("TASK_NOT_FOUND", `Task not found: ${id}`);
+        if (task.status !== "completed" &&
+            task.status !== "failed" &&
+            task.status !== "interrupted") {
+          raise(
+            "TASK_NOT_ACKNOWLEDGEABLE",
+            `Task cannot be acknowledged in ${task.status} state`,
+          );
+        }
+        if (task.acknowledgedAt === null) {
+          task.acknowledgedAt = new Date(this.#now()).toISOString();
+        }
+        return task;
+      });
+      return { ok: true, value: cloneRecord(value) };
+    } catch (error) {
+      return errorResult(error, signal, true);
+    }
+  }
+
   async claimNextDue(
     signal: AbortSignal = neverAborted,
-  ): Promise<TaskStoreResult<TaskRecord | null>> {
+  ): Promise<TaskStoreResult<TaskRecordV3 | null>> {
     try {
       throwIfAborted(signal);
       const now = this.#now();
@@ -1024,7 +1101,7 @@ export class WorkspaceTaskStore implements TaskStore {
         if (taskId.length === 0 || threadId.length === 0 || taskId === threadId) {
           raise("WRITE_FAILED", "Recurring task id generator returned invalid ids");
         }
-        const task: TaskRecordV2 = {
+        const task: TaskRecordV3 = {
           id: taskId,
           prompt: due.task.prompt,
           runAt: due.task.nextRunAt as string,
@@ -1036,6 +1113,7 @@ export class WorkspaceTaskStore implements TaskStore {
           runId: null,
           resultText: null,
           error: null,
+          acknowledgedAt: null,
           recurringTaskId: due.task.id,
         };
         due.task.nextRunAt = nextOccurrence(due.task.recurrence, nowIso);
@@ -1052,7 +1130,7 @@ export class WorkspaceTaskStore implements TaskStore {
     id: string,
     outcome: TaskFinish,
     signal: AbortSignal = neverAborted,
-  ): Promise<TaskStoreResult<TaskRecord>> {
+  ): Promise<TaskStoreResult<TaskRecordV3>> {
     if (typeof id !== "string" || id.length === 0) return fail("INVALID_INPUT", "Task id must be non-empty");
     try {
       throwIfAborted(signal);
@@ -1065,6 +1143,7 @@ export class WorkspaceTaskStore implements TaskStore {
         task.status = outcome.status;
         task.finishedAt = new Date(now).toISOString();
         task.runId = outcome.runId;
+        task.acknowledgedAt = null;
         if (outcome.status === "completed") {
           task.resultText = outcome.resultText;
           task.error = null;
@@ -1102,6 +1181,7 @@ export class WorkspaceTaskStore implements TaskStore {
             code: "WORKER_INTERRUPTED",
             message: "Task was interrupted by worker shutdown or restart",
           };
+          task.acknowledgedAt = null;
           interrupted += 1;
         }
         return interrupted;
@@ -1135,14 +1215,14 @@ export class WorkspaceTaskStore implements TaskStore {
     }
   }
 
-  async #read(): Promise<TaskDocumentV2> {
+  async #read(): Promise<TaskDocumentV3> {
     await this.#inspectRoot();
     let directoryDetails;
     try {
       directoryDetails = await lstat(this.#directory);
     } catch (error) {
       if (filesystemCode(error) === "ENOENT") {
-        return { version: 2, tasks: [], recurringTasks: [] };
+        return { version: 3, tasks: [], recurringTasks: [] };
       }
       throw error;
     }
@@ -1154,7 +1234,7 @@ export class WorkspaceTaskStore implements TaskStore {
       fileDetails = await lstat(this.#file);
     } catch (error) {
       if (filesystemCode(error) === "ENOENT") {
-        return { version: 2, tasks: [], recurringTasks: [] };
+        return { version: 3, tasks: [], recurringTasks: [] };
       }
       throw error;
     }
@@ -1209,7 +1289,7 @@ export class WorkspaceTaskStore implements TaskStore {
     }
   }
 
-  async #write(document: TaskDocumentV2, signal: AbortSignal): Promise<void> {
+  async #write(document: TaskDocumentV3, signal: AbortSignal): Promise<void> {
     await this.#ensureDirectory();
     const temporary = join(this.#directory, `.tasks.json.runloom-${randomUUID()}.tmp`);
     let handle: Awaited<ReturnType<typeof open>> | undefined;

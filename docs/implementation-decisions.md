@@ -54,3 +54,13 @@
 5. 有两个合理方案且会长期影响维护成本。
 
 模块内部的小重构、命名修正和测试辅助代码不写 ADR。
+
+## M-TUI-thin 任务 inbox 契约（Stage 6-4）
+
+本阶段只为现有 workspace 任务增加“是否已确认”的终态标记，不改变 worker 的执行路径：
+
+- `TaskRecordV3` 增加 `acknowledgedAt: string | null`。`version: 1`/`version: 2` 文件在读取时补 `null`，第一次成功写入时升级为 `version: 3`。
+- inbox 候选必须同时满足 `status ∈ {completed, failed, interrupted}` 和 `acknowledgedAt === null`。`scheduled`、`running`、`cancelled` 不能确认并返回 `TASK_NOT_ACKNOWLEDGEABLE`。
+- `acknowledge(id)` 只确认单条任务且幂等：首次写入 UTC 时间，重复调用保留第一次时间戳并返回同一记录。`finish` 和 `interruptRunning` 产生的终态都保持 `acknowledgedAt: null`。
+- `task_list` 增加可选 `inbox`，与已有 `status`、`recurringTaskId` 过滤器按 AND 组合；摘要和 `show` 返回 `acknowledgedAt`。`task_ack` 是对应的单任务写工具；命令适配器提供 `/task inbox` 和 `/task ack <id>`。
+- worker 仍只 claim 到期的 `scheduled` 任务，重复任务仍按原规则推进；inbox 确认不触发重试、执行、递归推进或跨进程通知。

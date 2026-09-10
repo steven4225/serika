@@ -75,6 +75,7 @@ describe("WorkspaceTaskStore", () => {
       runId: null,
       resultText: null,
       error: null,
+      acknowledgedAt: null,
       recurringTaskId: null,
     });
 
@@ -90,6 +91,7 @@ describe("WorkspaceTaskStore", () => {
           finishedAt: null,
           resultPreview: null,
           error: null,
+          acknowledgedAt: null,
           recurringTaskId: null,
         }],
         truncated: false,
@@ -230,12 +232,13 @@ describe("WorkspaceTaskStore", () => {
     assert.equal(created.ok, true);
     const document = JSON.parse(await readFile(join(root, TASK_FILE_NAME), "utf8")) as {
       version: number;
-      tasks: Array<{ recurringTaskId: string | null }>;
+      tasks: Array<{ recurringTaskId: string | null; acknowledgedAt: string | null }>;
       recurringTasks: unknown[];
     };
-    assert.equal(document.version, 2);
+    assert.equal(document.version, 3);
     assert.deepEqual(document.recurringTasks, []);
     assert.deepEqual(document.tasks.map((task) => task.recurringTaskId), [null, null]);
+    assert.deepEqual(document.tasks.map((task) => task.acknowledgedAt), [null, null]);
   });
 
   it("filters grouped statuses before limiting and projects bounded results and errors", async () => {
@@ -256,6 +259,7 @@ describe("WorkspaceTaskStore", () => {
       runId: null,
       resultText: null,
       error: null,
+      acknowledgedAt: null,
       ...overrides,
     });
     await mkdir(join(root, ".runloom"));
@@ -341,6 +345,7 @@ describe("WorkspaceTaskStore", () => {
       finishedAt: "2026-09-11T00:05:00.000Z",
       resultPreview: Array.from(longResult).slice(0, 120).join(""),
       error: null,
+      acknowledgedAt: null,
       recurringTaskId: null,
     });
     const failed = all.value.tasks.find((item) => item.id === "failed");
@@ -409,12 +414,210 @@ describe("WorkspaceTaskStore", () => {
     assert.equal(created.ok, true);
     const upgraded = JSON.parse(await readFile(path, "utf8")) as {
       version: number;
-      tasks: Array<{ id: string; recurringTaskId: string | null }>;
+      tasks: Array<{ id: string; recurringTaskId: string | null; acknowledgedAt: string | null }>;
       recurringTasks: unknown[];
     };
-    assert.equal(upgraded.version, 2);
+    assert.equal(upgraded.version, 3);
     assert.deepEqual(upgraded.recurringTasks, []);
     assert.equal(upgraded.tasks.find((task) => task.id === "task-v1")?.recurringTaskId, null);
+    assert.equal(upgraded.tasks.find((task) => task.id === "task-v1")?.acknowledgedAt, null);
+  });
+
+  it("reads v2 without writing and upgrades it to v3 on the first successful mutation", async () => {
+    const root = await workspace();
+    const now = Date.parse("2026-09-11T00:00:00.000Z");
+    const store = createTaskStore(root, { now: () => now });
+    const runloom = join(root, ".runloom");
+    await mkdir(runloom);
+    const v2 = {
+      version: 2,
+      tasks: [{
+        id: "task-v2",
+        prompt: "old v2 task",
+        runAt: "2026-09-12T00:00:00.000Z",
+        status: "scheduled",
+        createdAt: "2026-09-10T00:00:00.000Z",
+        startedAt: null,
+        finishedAt: null,
+        threadId: null,
+        runId: null,
+        resultText: null,
+        error: null,
+        recurringTaskId: null,
+      }],
+      recurringTasks: [],
+    };
+    const path = join(root, TASK_FILE_NAME);
+    await writeFile(path, `${JSON.stringify(v2)}\n`, "utf8");
+    const before = await readFile(path, "utf8");
+
+    const queried = await store.get("task-v2");
+    assert.equal(queried.ok, true);
+    if (queried.ok) assert.equal(queried.value.acknowledgedAt, null);
+    const listed = await store.list();
+    assert.equal(listed.ok, true);
+    if (listed.ok) assert.equal(listed.value.tasks[0]?.acknowledgedAt, null);
+    assert.equal(await readFile(path, "utf8"), before);
+
+    const cancelled = await store.cancel("task-v2");
+    assert.equal(cancelled.ok, true);
+    const upgraded = JSON.parse(await readFile(path, "utf8")) as {
+      version: number;
+      tasks: Array<{ acknowledgedAt: string | null }>;
+    };
+    assert.equal(upgraded.version, 3);
+    assert.equal(upgraded.tasks[0]?.acknowledgedAt, null);
+  });
+
+  it("filters inbox items after combining status and recurring-task filters", async () => {
+    const root = await workspace();
+    const store = createTaskStore(root, {
+      now: () => Date.parse("2026-09-11T00:10:00.000Z"),
+    });
+    const terminalTask = (overrides: Record<string, unknown>) => ({
+      id: "task-default",
+      prompt: "terminal task",
+      runAt: "2026-09-12T00:00:00.000Z",
+      status: "completed",
+      createdAt: "2026-09-11T00:00:00.000Z",
+      startedAt: "2026-09-11T00:00:01.000Z",
+      finishedAt: "2026-09-11T00:00:02.000Z",
+      threadId: "thread-default",
+      runId: "run-default",
+      resultText: "done",
+      error: null,
+      acknowledgedAt: null,
+      recurringTaskId: null,
+      ...overrides,
+    });
+    const cancelledTask = {
+      id: "cancelled",
+      prompt: "cancelled task",
+      runAt: "2026-09-12T00:00:00.000Z",
+      status: "cancelled",
+      createdAt: "2026-09-11T00:05:00.000Z",
+      startedAt: null,
+      finishedAt: "2026-09-11T00:06:00.000Z",
+      threadId: null,
+      runId: null,
+      resultText: null,
+      error: null,
+      acknowledgedAt: null,
+      recurringTaskId: null,
+    };
+    await mkdir(join(root, ".runloom"));
+    await writeFile(
+      join(root, TASK_FILE_NAME),
+      `${JSON.stringify({
+        version: 3,
+        tasks: [
+          terminalTask({ id: "completed-unacknowledged", createdAt: "2026-09-11T00:01:00.000Z" }),
+          terminalTask({
+            id: "completed-acknowledged",
+            createdAt: "2026-09-11T00:02:00.000Z",
+            acknowledgedAt: "2026-09-11T00:09:00.000Z",
+          }),
+          terminalTask({
+            id: "failed-repeat",
+            status: "failed",
+            createdAt: "2026-09-11T00:03:00.000Z",
+            resultText: null,
+            error: { code: "MODEL_FAILED", message: "model failed" },
+            recurringTaskId: "repeat-1",
+          }),
+          terminalTask({
+            id: "interrupted-repeat",
+            status: "interrupted",
+            createdAt: "2026-09-11T00:04:00.000Z",
+            resultText: null,
+            error: { code: "WORKER_INTERRUPTED", message: "worker stopped" },
+            recurringTaskId: "repeat-1",
+          }),
+          cancelledTask,
+        ],
+        recurringTasks: [{
+          id: "repeat-1",
+          prompt: "repeat task",
+          recurrence: { kind: "daily", time: "09:00", utcOffset: "+08:00" },
+          status: "paused",
+          createdAt: "2026-09-10T00:00:00.000Z",
+          nextRunAt: null,
+        }],
+      })}\n`,
+      "utf8",
+    );
+
+    const inbox = await store.list({ inbox: true, limit: 2 });
+    assert.equal(inbox.ok, true);
+    if (inbox.ok) {
+      assert.deepEqual(inbox.value.tasks.map((task) => task.id), [
+        "interrupted-repeat",
+        "failed-repeat",
+      ]);
+      assert.equal(inbox.value.truncated, true);
+      assert.deepEqual(inbox.value.tasks.map((task) => task.acknowledgedAt), [null, null]);
+    }
+    const scoped = await store.list({
+      inbox: true,
+      status: "failed",
+      recurringTaskId: "repeat-1",
+    });
+    assert.equal(scoped.ok, true);
+    if (scoped.ok) assert.deepEqual(scoped.value.tasks.map((task) => task.id), ["failed-repeat"]);
+    const allInbox = await store.list({ inbox: true, limit: 50 });
+    assert.equal(allInbox.ok, true);
+    if (allInbox.ok) {
+      assert.deepEqual(allInbox.value.tasks.map((task) => task.id), [
+        "interrupted-repeat",
+        "failed-repeat",
+        "completed-unacknowledged",
+      ]);
+    }
+  });
+
+  it("acknowledges terminal tasks idempotently and rejects non-inbox states", async () => {
+    const root = await workspace();
+    let now = Date.parse("2026-09-11T00:10:00.000Z");
+    const store = createTaskStore(root, { now: () => now });
+    const task = {
+      id: "completed",
+      prompt: "completed task",
+      runAt: "2026-09-12T00:00:00.000Z",
+      status: "completed",
+      createdAt: "2026-09-11T00:00:00.000Z",
+      startedAt: "2026-09-11T00:01:00.000Z",
+      finishedAt: "2026-09-11T00:02:00.000Z",
+      threadId: "thread-1",
+      runId: "run-1",
+      resultText: "done",
+      error: null,
+      acknowledgedAt: null,
+      recurringTaskId: null,
+    };
+    const running = {
+      ...task,
+      id: "running",
+      status: "running",
+      finishedAt: null,
+      runId: null,
+      resultText: null,
+      error: null,
+    };
+    await mkdir(join(root, ".runloom"));
+    await writeFile(
+      join(root, TASK_FILE_NAME),
+      `${JSON.stringify({ version: 3, tasks: [task, running], recurringTasks: [] })}\n`,
+      "utf8",
+    );
+
+    const acknowledged = await store.acknowledge("completed");
+    assert.equal(acknowledged.ok, true);
+    if (!acknowledged.ok) return;
+    assert.equal(acknowledged.value.acknowledgedAt, "2026-09-11T00:10:00.000Z");
+    now = Date.parse("2026-09-11T00:11:00.000Z");
+    assert.deepEqual(await store.acknowledge("completed"), acknowledged);
+    assert.equal(code(await store.acknowledge("running")), "TASK_NOT_ACKNOWLEDGEABLE");
+    assert.equal(code(await store.acknowledge("missing")), "TASK_NOT_FOUND");
   });
 
   it("creates, pauses, resumes, cancels, and lists recurring task plans", async () => {
@@ -542,6 +745,7 @@ describe("WorkspaceTaskStore", () => {
     if (detail.ok) {
       assert.equal(detail.value.recurringTask.nextRunAt, "2026-09-15T01:00:00.000Z");
       assert.equal(detail.value.latestTask?.status, "interrupted");
+      assert.equal(detail.value.latestTask?.acknowledgedAt, null);
     }
 
     const nextClaim = await store.claimNextDue();
@@ -609,6 +813,7 @@ describe("WorkspaceTaskStore", () => {
     if (completed.ok) {
       assert.equal(completed.value.status, "completed");
       assert.equal(completed.value.resultText, "done");
+      assert.equal(completed.value.acknowledgedAt, null);
     }
     assert.equal(code(await store.finish(first.value.id, {
       status: "completed",
@@ -629,6 +834,7 @@ describe("WorkspaceTaskStore", () => {
     if (recovered.ok) {
       assert.equal(recovered.value.status, "interrupted");
       assert.equal(recovered.value.error?.code, "WORKER_INTERRUPTED");
+      assert.equal(recovered.value.acknowledgedAt, null);
     }
   });
 

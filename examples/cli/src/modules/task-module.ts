@@ -10,10 +10,10 @@ import type {
   RecurringTaskListInput,
   RecurringTaskRecord,
   TaskError,
-  TaskList,
+  TaskListV3,
   TaskListInput,
   TaskListStatusFilter,
-  TaskRecord,
+  TaskRecordV3,
   TaskStore,
   TaskStoreResult,
 } from "../task-store.js";
@@ -71,6 +71,7 @@ const taskRecordSchema = z.object({
   runId: z.string().nullable(),
   resultText: z.string().nullable(),
   error: taskErrorSchema.nullable(),
+  acknowledgedAt: z.string().nullable(),
   // v2 task records add this association; keeping it optional lets the
   // module continue to render v1 records returned during read-only upgrades.
   recurringTaskId: z.string().nullable().optional(),
@@ -98,6 +99,7 @@ const taskSummarySchema = z.object({
       messagePreview: z.string(),
     })
     .nullable(),
+  acknowledgedAt: z.string().nullable(),
   recurringTaskId: z.string().nullable().optional(),
 });
 
@@ -122,9 +124,11 @@ const taskListInputSchema = z.object({
   status: taskListStatusSchema.optional(),
   limit: z.number().int().min(1).max(50).optional(),
   recurringTaskId: z.string().min(1).optional(),
+  inbox: z.boolean().optional(),
 });
 const taskGetInputSchema = z.object({ id: z.string().min(1) });
 const taskCancelInputSchema = z.object({ id: z.string().min(1) });
+const taskAckInputSchema = z.object({ id: z.string().min(1) });
 const createRecurringTaskInputSchema = z.object({
   prompt: z.string(),
   recurrence: recurrenceSchema,
@@ -202,6 +206,13 @@ const taskCancelMetadata: RegisteredTool["metadata"] = {
   timeoutMs: 1_000,
   idempotent: true,
 };
+const taskAckMetadata: RegisteredTool["metadata"] = {
+  name: "task_ack",
+  version: "1",
+  risk: "write",
+  timeoutMs: 1_000,
+  idempotent: true,
+};
 const taskRepeatCreateMetadata: RegisteredTool["metadata"] = {
   name: "task_repeat_create",
   version: "1",
@@ -246,7 +257,7 @@ const taskRepeatCancelMetadata: RegisteredTool["metadata"] = {
 };
 
 export const TASK_COMMAND_USAGE =
-  "Usage: /task create <ISO-time-with-timezone> <prompt> | list [pending|attention|status] | show <id> | cancel <id>";
+  "Usage: /task create <ISO-time-with-timezone> <prompt> | list [pending|attention|status] | inbox | show <id> | ack <id> | cancel <id>";
 export const TASK_REPEAT_COMMAND_USAGE =
   "Usage: /task repeat create daily <HH:mm> <+/-HH:mm> <prompt> | create weekly <1-7> <HH:mm> <+/-HH:mm> <prompt> | list [active|paused|cancelled] | show <id> | pause <id> | resume <id> | cancel <id>";
 
@@ -291,7 +302,7 @@ function runCommand<T>(
     );
 }
 
-function renderRecord(record: TaskRecord): string {
+function renderRecord(record: TaskRecordV3): string {
   return JSON.stringify(record);
 }
 
@@ -299,7 +310,7 @@ function displayValue(value: string | null): string {
   return value ?? "—";
 }
 
-function renderList(list: TaskList): string {
+function renderList(list: TaskListV3): string {
   if (list.tasks.length === 0) return "Tasks: 0";
 
   const lines = [`Tasks: ${list.tasks.length}${list.truncated ? " (more available)" : ""}`];
@@ -310,6 +321,7 @@ function renderList(list: TaskList): string {
       `Status: ${task.status}`,
       `Run at: ${task.runAt}`,
       `Finished at: ${displayValue(task.finishedAt)}`,
+      `Acknowledged at: ${displayValue(task.acknowledgedAt)}`,
       `Prompt: ${task.promptPreview}`,
     );
     if (task.status === "completed" && task.resultPreview !== null) {
@@ -325,7 +337,7 @@ function renderList(list: TaskList): string {
   return lines.join("\n");
 }
 
-function renderDetail(record: TaskRecord): string {
+function renderDetail(record: TaskRecordV3): string {
   const lines = [
     `Task: ${record.id}`,
     `Status: ${record.status}`,
@@ -334,6 +346,7 @@ function renderDetail(record: TaskRecord): string {
     `Created at: ${record.createdAt}`,
     `Started at: ${displayValue(record.startedAt)}`,
     `Finished at: ${displayValue(record.finishedAt)}`,
+    `Acknowledged at: ${displayValue(record.acknowledgedAt)}`,
     `Thread ID: ${displayValue(record.threadId)}`,
     `Run ID: ${displayValue(record.runId)}`,
   ];
@@ -508,7 +521,7 @@ export function createTaskModule(store: TaskStore): AgentModule {
         execute: async (
           input: CreateTaskInput,
           { abortSignal },
-        ): Promise<TaskStoreResult<TaskRecord>> => {
+        ): Promise<TaskStoreResult<TaskRecordV3>> => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
           return store.create(input, signal);
@@ -518,7 +531,7 @@ export function createTaskModule(store: TaskStore): AgentModule {
         description: "List tasks in the configured workspace.",
         inputSchema: taskListInputSchema,
         outputSchema: taskListOutputSchema,
-        execute: async (input, { abortSignal }): Promise<TaskStoreResult<TaskList>> => {
+        execute: async (input, { abortSignal }): Promise<TaskStoreResult<TaskListV3>> => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
           const normalizedInput: TaskListInput = {
@@ -527,6 +540,7 @@ export function createTaskModule(store: TaskStore): AgentModule {
             ...(input.recurringTaskId === undefined
               ? {}
               : { recurringTaskId: input.recurringTaskId }),
+            ...(input.inbox === undefined ? {} : { inbox: input.inbox }),
           };
           const result = await store.list(normalizedInput);
           throwIfAborted(signal);
@@ -540,7 +554,7 @@ export function createTaskModule(store: TaskStore): AgentModule {
         execute: async (
           { id }: { id: string },
           { abortSignal },
-        ): Promise<TaskStoreResult<TaskRecord>> => {
+        ): Promise<TaskStoreResult<TaskRecordV3>> => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
           const result = await store.get(id);
@@ -555,10 +569,24 @@ export function createTaskModule(store: TaskStore): AgentModule {
         execute: async (
           { id }: { id: string },
           { abortSignal },
-        ): Promise<TaskStoreResult<TaskRecord>> => {
+        ): Promise<TaskStoreResult<TaskRecordV3>> => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
           return store.cancel(id, signal);
+        },
+      });
+      const taskAckTool = tool({
+        description:
+          "Mark one completed, failed, or interrupted task as acknowledged after explicit user confirmation; reading or summarizing it is not acknowledgement.",
+        inputSchema: taskAckInputSchema,
+        outputSchema: taskRecordOutputSchema,
+        execute: async (
+          { id }: { id: string },
+          { abortSignal },
+        ): Promise<TaskStoreResult<TaskRecordV3>> => {
+          const signal = abortSignal ?? neverAborted;
+          throwIfAborted(signal);
+          return store.acknowledge(id, signal);
         },
       });
       const taskRepeatCreateTool = tool({
@@ -650,6 +678,7 @@ export function createTaskModule(store: TaskStore): AgentModule {
       ctx.registerTool({ metadata: taskListMetadata, tool: taskListTool });
       ctx.registerTool({ metadata: taskGetMetadata, tool: taskGetTool });
       ctx.registerTool({ metadata: taskCancelMetadata, tool: taskCancelTool });
+      ctx.registerTool({ metadata: taskAckMetadata, tool: taskAckTool });
       ctx.registerTool({ metadata: taskRepeatCreateMetadata, tool: taskRepeatCreateTool });
       ctx.registerTool({ metadata: taskRepeatListMetadata, tool: taskRepeatListTool });
       ctx.registerTool({ metadata: taskRepeatGetMetadata, tool: taskRepeatGetTool });
@@ -702,6 +731,15 @@ export function createTaskModule(store: TaskStore): AgentModule {
             return;
           }
 
+          if (action === "inbox") {
+            if (rest.trim() !== "") {
+              ctx.notify(TASK_COMMAND_USAGE);
+              return;
+            }
+            runCommand(ctx, () => store.list({ inbox: true }), renderList);
+            return;
+          }
+
           if (action === "show") {
             const id = taskIdFromCommand(rest);
             if (id === undefined) {
@@ -722,6 +760,20 @@ export function createTaskModule(store: TaskStore): AgentModule {
               ctx,
               () => store.cancel(id),
               (record) => `Task cancelled: ${renderRecord(record)}`,
+            );
+            return;
+          }
+
+          if (action === "ack") {
+            const id = taskIdFromCommand(rest);
+            if (id === undefined) {
+              ctx.notify(TASK_COMMAND_USAGE);
+              return;
+            }
+            runCommand(
+              ctx,
+              () => store.acknowledge(id),
+              (record) => `Task acknowledged: ${renderRecord(record)}`,
             );
             return;
           }

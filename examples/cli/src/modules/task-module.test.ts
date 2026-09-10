@@ -5,8 +5,8 @@ import type {
   RecurringTaskDetail,
   RecurringTaskList,
   RecurringTaskRecord,
-  TaskList,
-  TaskRecord,
+  TaskListV3,
+  TaskRecordV3,
   TaskStore,
   TaskStoreResult,
 } from "../task-store.js";
@@ -16,7 +16,7 @@ import {
   TASK_REPEAT_COMMAND_USAGE,
 } from "./task-module.js";
 
-function record(overrides: Partial<TaskRecord> = {}): TaskRecord {
+function record(overrides: Partial<TaskRecordV3> = {}): TaskRecordV3 {
   return {
     id: "task-1",
     prompt: "prepare a plan",
@@ -29,11 +29,13 @@ function record(overrides: Partial<TaskRecord> = {}): TaskRecord {
     runId: null,
     resultText: null,
     error: null,
+    acknowledgedAt: null,
+    recurringTaskId: null,
     ...overrides,
   };
 }
 
-function list(): TaskList {
+function list(): TaskListV3 {
   return {
     tasks: [
       {
@@ -44,13 +46,14 @@ function list(): TaskList {
         finishedAt: null,
         resultPreview: null,
         error: null,
+        acknowledgedAt: null,
       },
     ],
     truncated: false,
   };
 }
 
-function resultList(): TaskList {
+function resultList(): TaskListV3 {
   return {
     tasks: [
       {
@@ -61,6 +64,7 @@ function resultList(): TaskList {
         finishedAt: "2026-09-12T01:01:00.000Z",
         resultPreview: "release summary",
         error: null,
+        acknowledgedAt: null,
       },
       {
         id: "task-failed",
@@ -70,6 +74,7 @@ function resultList(): TaskList {
         finishedAt: "2026-09-12T02:01:00.000Z",
         resultPreview: null,
         error: { code: "TOOL_FAILED", messagePreview: "upstream unavailable" },
+        acknowledgedAt: null,
       },
     ],
     truncated: true,
@@ -142,6 +147,10 @@ function setup(overrides: Partial<TaskStore> = {}): {
     cancel: callsFor("cancel", {
       ok: true,
       value: record({ status: "cancelled" }),
+    }),
+    acknowledge: callsFor("acknowledge", {
+      ok: true,
+      value: record({ acknowledgedAt: "2026-09-12T02:00:00.000Z" }),
     }),
     claimNextDue: callsFor("claimNextDue", { ok: true, value: null }),
     finish: callsFor("finish", { ok: true, value: record() }),
@@ -242,6 +251,13 @@ describe("createTaskModule", () => {
           idempotent: true,
         },
         {
+          name: "task_ack",
+          version: "1",
+          risk: "write",
+          timeoutMs: 1_000,
+          idempotent: true,
+        },
+        {
           name: "task_repeat_create",
           version: "1",
           risk: "write",
@@ -295,12 +311,17 @@ describe("createTaskModule", () => {
     const listTool = toolByName(tools, "task_list").tool;
     const get = toolByName(tools, "task_get").tool;
     const cancel = toolByName(tools, "task_cancel").tool;
+    const acknowledge = toolByName(tools, "task_ack").tool;
 
     assert.deepEqual(
       await create.execute!({ prompt: "p", runAt: "2026-09-12T01:00:00+00:00" }, context),
       { ok: true, value: record() },
     );
     assert.deepEqual(await listTool.execute!({ status: "pending", limit: 2 }, context), {
+      ok: true,
+      value: list(),
+    });
+    assert.deepEqual(await listTool.execute!({ inbox: true }, context), {
       ok: true,
       value: list(),
     });
@@ -312,14 +333,20 @@ describe("createTaskModule", () => {
       ok: true,
       value: record({ status: "cancelled" }),
     });
+    assert.deepEqual(await acknowledge.execute!({ id: "task-1" }, context), {
+      ok: true,
+      value: record({ acknowledgedAt: "2026-09-12T02:00:00.000Z" }),
+    });
     assert.deepEqual(calls.map(({ method, args }) => ({ method, args })), [
       {
         method: "create",
         args: [{ prompt: "p", runAt: "2026-09-12T01:00:00+00:00" }, context.abortSignal],
       },
       { method: "list", args: [{ status: "pending", limit: 2 }] },
+      { method: "list", args: [{ inbox: true }] },
       { method: "get", args: ["task-1"] },
       { method: "cancel", args: ["task-1", context.abortSignal] },
+      { method: "acknowledge", args: ["task-1", context.abortSignal] },
     ]);
   });
 
@@ -432,6 +459,24 @@ describe("createTaskModule", () => {
     assert.match(notifications[3] ?? "", /^Task cancelled:/);
   });
 
+  it("supports inbox and ack commands through the same async notification path", async () => {
+    const { commands, notifications, calls } = setup();
+    const command = commands.get("task");
+    assert.ok(command);
+
+    assert.equal(command.execute("inbox"), undefined);
+    assert.equal(command.execute("ack task-1"), undefined);
+    assert.deepEqual(notifications, []);
+    await settle();
+
+    assert.deepEqual(calls, [
+      { method: "list", args: [{ inbox: true }] },
+      { method: "acknowledge", args: ["task-1"] },
+    ]);
+    assert.match(notifications[0] ?? "", /Tasks: 1/);
+    assert.match(notifications[1] ?? "", /^Task acknowledged:/);
+  });
+
   it("supports repeat create/list/show/pause/resume/cancel commands", async () => {
     const { commands, notifications, calls } = setup();
     const command = commands.get("task");
@@ -531,6 +576,7 @@ describe("createTaskModule", () => {
     assert.deepEqual(inputs, [{ status: "pending" }, { status: "attention" }]);
     assert.match(notifications[0] ?? "", /ID: task-completed/);
     assert.match(notifications[0] ?? "", /Finished at: 2026-09-12T01:01:00.000Z/);
+    assert.match(notifications[0] ?? "", /Acknowledged at: —/);
     assert.match(notifications[0] ?? "", /Result: release summary/);
     assert.match(notifications[0] ?? "", /more available/);
     assert.match(notifications[0] ?? "", /Error: TOOL_FAILED: upstream unavailable/);
@@ -542,6 +588,7 @@ describe("createTaskModule", () => {
       prompt: "prepare the complete report",
       startedAt: "2026-09-12T01:00:10.000Z",
       finishedAt: "2026-09-12T01:01:10.000Z",
+      acknowledgedAt: "2026-09-12T01:02:10.000Z",
       threadId: "thread-1",
       runId: "run-1",
       resultText: "first line\nsecond line",
@@ -560,6 +607,7 @@ describe("createTaskModule", () => {
     assert.match(notifications[0] ?? "", /Created at: 2026-09-11T01:00:00.000Z/);
     assert.match(notifications[0] ?? "", /Started at: 2026-09-12T01:00:10.000Z/);
     assert.match(notifications[0] ?? "", /Finished at: 2026-09-12T01:01:10.000Z/);
+    assert.match(notifications[0] ?? "", /Acknowledged at: 2026-09-12T01:02:10.000Z/);
     assert.match(notifications[0] ?? "", /Thread ID: thread-1/);
     assert.match(notifications[0] ?? "", /Run ID: run-1/);
     assert.match(notifications[0] ?? "", /Result: first line\nsecond line/);
@@ -594,8 +642,12 @@ describe("createTaskModule", () => {
     command.execute("create 2026-09-12T09:00:00+08:00");
     command.execute("list nope");
     command.execute("show task-1 extra");
+    command.execute("inbox extra");
+    command.execute("ack");
     command.execute("cancel");
     assert.deepEqual(notifications, [
+      TASK_COMMAND_USAGE,
+      TASK_COMMAND_USAGE,
       TASK_COMMAND_USAGE,
       TASK_COMMAND_USAGE,
       TASK_COMMAND_USAGE,
@@ -606,7 +658,7 @@ describe("createTaskModule", () => {
   });
 
   it("turns a rejected async command operation into a notification", async () => {
-    const failure: TaskStoreResult<TaskRecord> = {
+    const failure: TaskStoreResult<TaskRecordV3> = {
       ok: false,
       error: { code: "READ_FAILED", message: "disk unavailable" },
     };

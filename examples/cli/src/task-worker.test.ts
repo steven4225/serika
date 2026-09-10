@@ -3,13 +3,13 @@ import { describe, it } from "node:test";
 import type { RunHandle, RunRequest, RunResult } from "@aisdk-agent/core";
 import type {
   TaskFinish,
-  TaskRecord,
+  TaskRecordV3,
   TaskStore,
   TaskStoreResult,
 } from "./task-store.js";
 import { runTaskWorker } from "./task-worker.js";
 
-function task(): TaskRecord {
+function task(): TaskRecordV3 {
   return {
     id: "task-1",
     prompt: "Prepare a short study plan",
@@ -22,6 +22,8 @@ function task(): TaskRecord {
     runId: null,
     resultText: null,
     error: null,
+    acknowledgedAt: null,
+    recurringTaskId: null,
   };
 }
 
@@ -37,7 +39,7 @@ function completedResult(): RunResult {
 }
 
 function fakeStore(
-  claimedTask: TaskRecord,
+  claimedTask: TaskRecordV3,
   options: { onFinish?: (outcome: TaskFinish) => void } = {},
 ): TaskStore {
   let claimed = false;
@@ -54,7 +56,10 @@ function fakeStore(
     async cancel() {
       return { ok: true, value: claimedTask };
     },
-    async claimNextDue(): Promise<TaskStoreResult<TaskRecord | null>> {
+    async acknowledge() {
+      return { ok: true, value: claimedTask };
+    },
+    async claimNextDue(): Promise<TaskStoreResult<TaskRecordV3 | null>> {
       if (claimed) return { ok: true, value: null };
       claimed = true;
       return { ok: true, value: claimedTask };
@@ -62,9 +67,9 @@ function fakeStore(
     async finish(
       _id: string,
       outcome: TaskFinish,
-    ): Promise<TaskStoreResult<TaskRecord>> {
+    ): Promise<TaskStoreResult<TaskRecordV3>> {
       options.onFinish?.(outcome);
-      const finished: TaskRecord = {
+      const finished: TaskRecordV3 = {
         ...claimedTask,
         status: outcome.status,
         finishedAt: "2026-09-10T00:00:01.000Z",
