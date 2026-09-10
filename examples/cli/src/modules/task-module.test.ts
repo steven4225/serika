@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { RegisteredTool } from "@aisdk-agent/ai-sdk-adapter";
 import type {
+  RecurringTaskDetail,
+  RecurringTaskList,
+  RecurringTaskRecord,
   TaskList,
   TaskRecord,
   TaskStore,
@@ -10,6 +13,7 @@ import type {
 import {
   createTaskModule,
   TASK_COMMAND_USAGE,
+  TASK_REPEAT_COMMAND_USAGE,
 } from "./task-module.js";
 
 function record(overrides: Partial<TaskRecord> = {}): TaskRecord {
@@ -72,6 +76,53 @@ function resultList(): TaskList {
   };
 }
 
+function recurringRecord(
+  overrides: Partial<RecurringTaskRecord> = {},
+): RecurringTaskRecord {
+  return {
+    id: "repeat-1",
+    prompt: "prepare a daily plan",
+    recurrence: { kind: "daily", time: "09:00", utcOffset: "+08:00" },
+    status: "active",
+    createdAt: "2026-09-11T01:00:00.000Z",
+    nextRunAt: "2026-09-12T01:00:00.000Z",
+    ...overrides,
+  };
+}
+
+function recurringList(): RecurringTaskList {
+  return {
+    recurringTasks: [
+      {
+        id: "repeat-1",
+        promptPreview: "prepare a daily plan",
+        recurrence: { kind: "daily", time: "09:00", utcOffset: "+08:00" },
+        status: "active",
+        nextRunAt: "2026-09-12T01:00:00.000Z",
+      },
+    ],
+    truncated: false,
+  };
+}
+
+function recurringDetail(): RecurringTaskDetail {
+  return {
+    recurringTask: recurringRecord(),
+    latestTask: {
+      ...record({
+        id: "task-latest",
+        status: "completed",
+        startedAt: "2026-09-11T01:00:00.000Z",
+        finishedAt: "2026-09-11T01:01:00.000Z",
+        threadId: "thread-latest",
+        runId: "run-latest",
+        resultText: "daily plan",
+      }),
+      recurringTaskId: "repeat-1",
+    },
+  };
+}
+
 function setup(overrides: Partial<TaskStore> = {}): {
   tools: RegisteredTool[];
   commands: Map<string, { name: string; execute(args: string): void }>;
@@ -95,6 +146,30 @@ function setup(overrides: Partial<TaskStore> = {}): {
     claimNextDue: callsFor("claimNextDue", { ok: true, value: null }),
     finish: callsFor("finish", { ok: true, value: record() }),
     interruptRunning: callsFor("interruptRunning", { ok: true, value: 0 }),
+    createRecurring: callsFor("createRecurring", {
+      ok: true,
+      value: recurringRecord(),
+    }),
+    listRecurring: callsFor("listRecurring", {
+      ok: true,
+      value: recurringList(),
+    }),
+    getRecurring: callsFor("getRecurring", {
+      ok: true,
+      value: recurringDetail(),
+    }),
+    pauseRecurring: callsFor("pauseRecurring", {
+      ok: true,
+      value: recurringRecord({ status: "paused", nextRunAt: null }),
+    }),
+    resumeRecurring: callsFor("resumeRecurring", {
+      ok: true,
+      value: recurringRecord(),
+    }),
+    cancelRecurring: callsFor("cancelRecurring", {
+      ok: true,
+      value: recurringRecord({ status: "cancelled", nextRunAt: null }),
+    }),
     ...overrides,
   };
   const tools: RegisteredTool[] = [];
@@ -133,7 +208,7 @@ async function settle(): Promise<void> {
 }
 
 describe("createTaskModule", () => {
-  it("registers the four task tools and command with frozen metadata", () => {
+  it("registers task and recurring task tools with frozen metadata", () => {
     const { tools, commands } = setup();
     assert.deepEqual(
       tools.map(({ metadata }) => metadata),
@@ -161,6 +236,48 @@ describe("createTaskModule", () => {
         },
         {
           name: "task_cancel",
+          version: "1",
+          risk: "write",
+          timeoutMs: 1_000,
+          idempotent: true,
+        },
+        {
+          name: "task_repeat_create",
+          version: "1",
+          risk: "write",
+          timeoutMs: 1_000,
+          idempotent: false,
+        },
+        {
+          name: "task_repeat_list",
+          version: "1",
+          risk: "read",
+          timeoutMs: 1_000,
+          idempotent: true,
+        },
+        {
+          name: "task_repeat_get",
+          version: "1",
+          risk: "read",
+          timeoutMs: 1_000,
+          idempotent: true,
+        },
+        {
+          name: "task_repeat_pause",
+          version: "1",
+          risk: "write",
+          timeoutMs: 1_000,
+          idempotent: true,
+        },
+        {
+          name: "task_repeat_resume",
+          version: "1",
+          risk: "write",
+          timeoutMs: 1_000,
+          idempotent: true,
+        },
+        {
+          name: "task_repeat_cancel",
           version: "1",
           risk: "write",
           timeoutMs: 1_000,
@@ -206,6 +323,84 @@ describe("createTaskModule", () => {
     ]);
   });
 
+  it("routes recurring tools through the same store and passes operation signals", async () => {
+    const { tools, calls } = setup();
+    const signal = new AbortController().signal;
+    const context = toolContext(signal);
+    const create = toolByName(tools, "task_repeat_create").tool;
+    const listTool = toolByName(tools, "task_repeat_list").tool;
+    const get = toolByName(tools, "task_repeat_get").tool;
+    const pause = toolByName(tools, "task_repeat_pause").tool;
+    const resume = toolByName(tools, "task_repeat_resume").tool;
+    const cancel = toolByName(tools, "task_repeat_cancel").tool;
+
+    const createInput = {
+      prompt: "prepare a daily plan",
+      recurrence: { kind: "daily" as const, time: "09:00", utcOffset: "+08:00" },
+    };
+    assert.deepEqual(await create.execute!(createInput, context), {
+      ok: true,
+      value: recurringRecord(),
+    });
+    assert.deepEqual(await listTool.execute!({ status: "paused", limit: 5 }, context), {
+      ok: true,
+      value: recurringList(),
+    });
+    assert.deepEqual(await get.execute!({ id: "repeat-1" }, context), {
+      ok: true,
+      value: recurringDetail(),
+    });
+    assert.deepEqual(await pause.execute!({ id: "repeat-1" }, context), {
+      ok: true,
+      value: recurringRecord({ status: "paused", nextRunAt: null }),
+    });
+    assert.deepEqual(await resume.execute!({ id: "repeat-1" }, context), {
+      ok: true,
+      value: recurringRecord(),
+    });
+    assert.deepEqual(await cancel.execute!({ id: "repeat-1" }, context), {
+      ok: true,
+      value: recurringRecord({ status: "cancelled", nextRunAt: null }),
+    });
+    assert.deepEqual(calls.map(({ method, args }) => ({ method, args })), [
+      { method: "createRecurring", args: [createInput, signal] },
+      { method: "listRecurring", args: [{ status: "paused", limit: 5 }] },
+      { method: "getRecurring", args: ["repeat-1"] },
+      { method: "pauseRecurring", args: ["repeat-1", signal] },
+      { method: "resumeRecurring", args: ["repeat-1", signal] },
+      { method: "cancelRecurring", args: ["repeat-1", signal] },
+    ]);
+  });
+
+  it("validates recurrence shape at the tool boundary", () => {
+    const { tools } = setup();
+    const create = toolByName(tools, "task_repeat_create").tool;
+    const inputSchema = create.inputSchema as unknown as {
+      safeParse(value: unknown): { success: boolean };
+    };
+    assert.equal(
+      inputSchema.safeParse({
+        prompt: "daily plan",
+        recurrence: { kind: "daily", time: "09:00", utcOffset: "+08:00" },
+      }).success,
+      true,
+    );
+    assert.equal(
+      inputSchema.safeParse({
+        prompt: "weekly plan",
+        recurrence: { kind: "weekly", weekday: 1, time: "09:00", utcOffset: "+08:00" },
+      }).success,
+      true,
+    );
+    assert.equal(
+      inputSchema.safeParse({
+        prompt: "invalid weekday",
+        recurrence: { kind: "weekly", weekday: 8, time: "09:00", utcOffset: "+08:00" },
+      }).success,
+      false,
+    );
+  });
+
   it("keeps ModuleCommand execution synchronous while notifying async outcomes", async () => {
     const { commands, notifications, calls } = setup();
     const command = commands.get("task");
@@ -235,6 +430,87 @@ describe("createTaskModule", () => {
     assert.match(notifications[1] ?? "", /Tasks: 1/);
     assert.match(notifications[2] ?? "", /^Task: task-1/);
     assert.match(notifications[3] ?? "", /^Task cancelled:/);
+  });
+
+  it("supports repeat create/list/show/pause/resume/cancel commands", async () => {
+    const { commands, notifications, calls } = setup();
+    const command = commands.get("task");
+    assert.ok(command);
+
+    assert.equal(
+      command.execute("repeat create daily 09:00 +08:00 prepare today"),
+      undefined,
+    );
+    command.execute("repeat create weekly 1 10:30 -05:00 plan the week");
+    command.execute("repeat list paused");
+    command.execute("repeat show repeat-1");
+    command.execute("repeat pause repeat-1");
+    command.execute("repeat resume repeat-1");
+    command.execute("repeat cancel repeat-1");
+    assert.deepEqual(notifications, []);
+    await settle();
+
+    assert.deepEqual(calls.map(({ method, args }) => ({ method, args })), [
+      {
+        method: "createRecurring",
+        args: [
+          {
+            prompt: "prepare today",
+            recurrence: { kind: "daily", time: "09:00", utcOffset: "+08:00" },
+          },
+        ],
+      },
+      {
+        method: "createRecurring",
+        args: [
+          {
+            prompt: "plan the week",
+            recurrence: {
+              kind: "weekly",
+              weekday: 1,
+              time: "10:30",
+              utcOffset: "-05:00",
+            },
+          },
+        ],
+      },
+      { method: "listRecurring", args: [{ status: "paused" }] },
+      { method: "getRecurring", args: ["repeat-1"] },
+      { method: "pauseRecurring", args: ["repeat-1"] },
+      { method: "resumeRecurring", args: ["repeat-1"] },
+      { method: "cancelRecurring", args: ["repeat-1"] },
+    ]);
+    assert.match(notifications[0] ?? "", /^Recurring task created:/);
+    assert.match(notifications[1] ?? "", /^Recurring task created:/);
+    assert.match(notifications[2] ?? "", /Recurring tasks: 1/);
+    assert.match(notifications[2] ?? "", /Status: active/);
+    assert.match(notifications[3] ?? "", /Recurring task: repeat-1/);
+    assert.match(notifications[3] ?? "", /Latest task: task-latest/);
+    assert.match(notifications[4] ?? "", /^Recurring task paused:/);
+    assert.match(notifications[5] ?? "", /^Recurring task resumed:/);
+    assert.match(notifications[6] ?? "", /^Recurring task cancelled:/);
+  });
+
+  it("rejects malformed repeat commands without touching the store", () => {
+    const { commands, notifications, calls } = setup();
+    const command = commands.get("task");
+    assert.ok(command);
+
+    command.execute("repeat");
+    command.execute("repeat create daily 09:00 +08:00");
+    command.execute("repeat create weekly x 10:00 +08:00 prompt");
+    command.execute("repeat list unknown");
+    command.execute("repeat show repeat-1 extra");
+    command.execute("repeat pause");
+    assert.deepEqual(notifications, [
+      TASK_REPEAT_COMMAND_USAGE,
+      TASK_REPEAT_COMMAND_USAGE,
+      TASK_REPEAT_COMMAND_USAGE,
+      TASK_REPEAT_COMMAND_USAGE,
+      TASK_REPEAT_COMMAND_USAGE,
+      TASK_REPEAT_COMMAND_USAGE,
+    ]);
+    assert.deepEqual(calls, []);
   });
 
   it("accepts pending and attention command filters and renders list summaries", async () => {

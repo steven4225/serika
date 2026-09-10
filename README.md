@@ -61,6 +61,8 @@ worker 为每个任务创建新 thread，只运行一次无工具的纯文本回
 
 任务查询只读现有任务文件：`/task list pending` 查看 `scheduled` 和 `running`，`/task list attention` 查看 `failed` 和 `interrupted`；`/task show <id>` 查看完整 prompt、执行信息、结果或失败原因。列表只显示结果和错误摘要，完整内容通过 `show` 获取。查询不会重试任务、改变状态，也不会从 worker 跨进程推送通知。
 
+同一 workspace 还支持 daily/weekly 固定时区偏移的重复任务：`/task repeat create daily <HH:mm> <+/-HH:mm> <prompt>` 或 `/task repeat create weekly <1-7> <HH:mm> <+/-HH:mm> <prompt>`，并可用 `/task repeat list [active|paused|cancelled]`、`show`、`pause`、`resume`、`cancel` 管理。每次到期只生成一个独立的一次性任务；worker 会把下一次时间推进到严格晚于当前时间，过期多周期也只补一个并跳过中间周期。暂停会清空下一次时间，恢复从未来 occurrence 重新计算；取消只停止后续 occurrence，已经运行的任务继续完成。旧版 `version: 1` 任务文件可读，第一次写入时升级为 `version: 2`；仍沿用同一任务文件和 worker，不引入 cron、队列或多 worker。
+
 ### MiniMax M3
 
 CLI 默认使用内置 mock 模型。要接入国际版 MiniMax M3，设置 API Key 并切换模型模式：

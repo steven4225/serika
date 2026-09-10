@@ -77,6 +77,39 @@ function fakeStore(
     async interruptRunning() {
       return { ok: true, value: 0 };
     },
+    async createRecurring() {
+      return {
+        ok: false,
+        error: { code: "RECURRING_TASK_NOT_FOUND", message: "unused" },
+      };
+    },
+    async listRecurring() {
+      return { ok: true, value: { recurringTasks: [], truncated: false } };
+    },
+    async getRecurring() {
+      return {
+        ok: false,
+        error: { code: "RECURRING_TASK_NOT_FOUND", message: "unused" },
+      };
+    },
+    async pauseRecurring() {
+      return {
+        ok: false,
+        error: { code: "RECURRING_TASK_NOT_FOUND", message: "unused" },
+      };
+    },
+    async resumeRecurring() {
+      return {
+        ok: false,
+        error: { code: "RECURRING_TASK_NOT_FOUND", message: "unused" },
+      };
+    },
+    async cancelRecurring() {
+      return {
+        ok: false,
+        error: { code: "RECURRING_TASK_NOT_FOUND", message: "unused" },
+      };
+    },
   };
 }
 

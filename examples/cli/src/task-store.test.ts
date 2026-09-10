@@ -75,6 +75,7 @@ describe("WorkspaceTaskStore", () => {
       runId: null,
       resultText: null,
       error: null,
+      recurringTaskId: null,
     });
 
     const reopened = createTaskStore(root, { now: () => now });
@@ -89,6 +90,7 @@ describe("WorkspaceTaskStore", () => {
           finishedAt: null,
           resultPreview: null,
           error: null,
+          recurringTaskId: null,
         }],
         truncated: false,
       },
@@ -103,6 +105,137 @@ describe("WorkspaceTaskStore", () => {
       assert.equal(cancelled.value.finishedAt, "2026-09-11T02:00:00.000Z");
     }
     assert.deepEqual(await reopened.cancel("task-1"), cancelled);
+  });
+
+  it("creates, pauses, resumes, and cancels a fixed-offset recurring task", async () => {
+    const root = await workspace();
+    let now = Date.parse("2026-09-10T00:30:00.000Z");
+    const store = createTaskStore(root, {
+      now: () => now,
+      generateId: () => "repeat-1",
+    });
+
+    const created = await store.createRecurring({
+      prompt: "prepare a daily plan",
+      recurrence: { kind: "daily", time: "09:00", utcOffset: "+08:00" },
+    });
+    assert.deepEqual(created, {
+      ok: true,
+      value: {
+        id: "repeat-1",
+        prompt: "prepare a daily plan",
+        recurrence: { kind: "daily", time: "09:00", utcOffset: "+08:00" },
+        status: "active",
+        createdAt: "2026-09-10T00:30:00.000Z",
+        nextRunAt: "2026-09-10T01:00:00.000Z",
+      },
+    });
+
+    assert.deepEqual(await store.pauseRecurring("repeat-1"), {
+      ok: true,
+      value: {
+        id: "repeat-1",
+        prompt: "prepare a daily plan",
+        recurrence: { kind: "daily", time: "09:00", utcOffset: "+08:00" },
+        status: "paused",
+        createdAt: "2026-09-10T00:30:00.000Z",
+        nextRunAt: null,
+      },
+    });
+    now = Date.parse("2026-09-12T05:00:00.000Z");
+    const resumed = await store.resumeRecurring("repeat-1");
+    assert.equal(resumed.ok, true);
+    if (resumed.ok) {
+      assert.equal(resumed.value.status, "active");
+      assert.equal(resumed.value.nextRunAt, "2026-09-13T01:00:00.000Z");
+    }
+    assert.deepEqual(await store.cancelRecurring("repeat-1"), {
+      ok: true,
+      value: {
+        id: "repeat-1",
+        prompt: "prepare a daily plan",
+        recurrence: { kind: "daily", time: "09:00", utcOffset: "+08:00" },
+        status: "cancelled",
+        createdAt: "2026-09-10T00:30:00.000Z",
+        nextRunAt: null,
+      },
+    });
+    assert.equal(code(await store.resumeRecurring("repeat-1")), "RECURRING_TASK_CANCELLED");
+  });
+
+  it("claims one overdue recurring occurrence and skips missed periods", async () => {
+    const root = await workspace();
+    let now = Date.parse("2026-09-10T00:30:00.000Z");
+    const ids = ["repeat-1", "task-1", "thread-1"];
+    let idIndex = 0;
+    const store = createTaskStore(root, {
+      now: () => now,
+      generateId: () => ids[idIndex++] ?? `generated-${idIndex}`,
+    });
+    await store.createRecurring({
+      prompt: "daily plan",
+      recurrence: { kind: "daily", time: "09:00", utcOffset: "+08:00" },
+    });
+
+    now = Date.parse("2026-09-13T02:00:00.000Z");
+    const claimed = await store.claimNextDue();
+    assert.equal(claimed.ok, true);
+    if (!claimed.ok || claimed.value === null) return;
+    assert.equal(claimed.value.id, "task-1");
+    assert.equal(claimed.value.runAt, "2026-09-10T01:00:00.000Z");
+    assert.equal(claimed.value.recurringTaskId, "repeat-1");
+    assert.equal(claimed.value.status, "running");
+
+    const detail = await store.getRecurring("repeat-1");
+    assert.equal(detail.ok, true);
+    if (detail.ok) {
+      assert.equal(detail.value.recurringTask.nextRunAt, "2026-09-14T01:00:00.000Z");
+      assert.equal(detail.value.latestTask?.id, "task-1");
+    }
+    assert.deepEqual(await store.claimNextDue(), { ok: true, value: null });
+  });
+
+  it("reads v1 files and upgrades them on the first write", async () => {
+    const root = await workspace();
+    await mkdir(join(root, ".runloom"));
+    await writeFile(
+      join(root, TASK_FILE_NAME),
+      `${JSON.stringify({
+        version: 1,
+        tasks: [{
+          id: "legacy",
+          prompt: "legacy task",
+          runAt: "2026-09-12T00:00:00.000Z",
+          status: "scheduled",
+          createdAt: "2026-09-11T00:00:00.000Z",
+          startedAt: null,
+          finishedAt: null,
+          threadId: null,
+          runId: null,
+          resultText: null,
+          error: null,
+        }],
+      })}\n`,
+      "utf8",
+    );
+    let id = 0;
+    const store = createTaskStore(root, {
+      now: () => Date.parse("2026-09-11T00:00:00.000Z"),
+      generateId: () => `new-${++id}`,
+    });
+    const readOnly = await store.list();
+    assert.equal(readOnly.ok, true);
+    if (readOnly.ok) assert.equal(readOnly.value.tasks[0]?.recurringTaskId, null);
+    const created = await store.create({ prompt: "new task", runAt: "2026-09-13T00:00:00Z" });
+    assert.equal(created.ok, true);
+    const document = JSON.parse(await readFile(join(root, TASK_FILE_NAME), "utf8")) as {
+      version: number;
+      tasks: Array<{ recurringTaskId: string | null }>;
+      recurringTasks: unknown[];
+    };
+    assert.equal(document.version, 2);
+    assert.deepEqual(document.recurringTasks, []);
+    assert.deepEqual(document.tasks.map((task) => task.recurringTaskId), [null, null]);
   });
 
   it("filters grouped statuses before limiting and projects bounded results and errors", async () => {
@@ -208,6 +341,7 @@ describe("WorkspaceTaskStore", () => {
       finishedAt: "2026-09-11T00:05:00.000Z",
       resultPreview: Array.from(longResult).slice(0, 120).join(""),
       error: null,
+      recurringTaskId: null,
     });
     const failed = all.value.tasks.find((item) => item.id === "failed");
     assert.deepEqual(failed?.error, {
@@ -234,6 +368,196 @@ describe("WorkspaceTaskStore", () => {
     assert.equal(await readFile(path, "utf8"), before);
   });
 
+  it("reads v1 without writing and upgrades it on the first successful mutation", async () => {
+    const root = await workspace();
+    const now = Date.parse("2026-09-11T00:00:00.000Z");
+    const store = createTaskStore(root, {
+      now: () => now,
+      generateId: () => "task-v2",
+    });
+    const runloom = join(root, ".runloom");
+    await mkdir(runloom);
+    const v1 = {
+      version: 1,
+      tasks: [{
+        id: "task-v1",
+        prompt: "old task",
+        runAt: "2026-09-12T00:00:00.000Z",
+        status: "scheduled",
+        createdAt: "2026-09-10T00:00:00.000Z",
+        startedAt: null,
+        finishedAt: null,
+        threadId: null,
+        runId: null,
+        resultText: null,
+        error: null,
+      }],
+    };
+    await writeFile(join(runloom, "tasks.json"), `${JSON.stringify(v1)}\n`, "utf8");
+    const path = join(root, TASK_FILE_NAME);
+    const before = await readFile(path, "utf8");
+
+    const queried = await store.get("task-v1");
+    assert.equal(queried.ok, true);
+    if (queried.ok) assert.equal(queried.value.recurringTaskId, null);
+    assert.equal(await readFile(path, "utf8"), before);
+
+    const created = await store.create({
+      prompt: "new task",
+      runAt: "2026-09-13T00:00:00Z",
+    });
+    assert.equal(created.ok, true);
+    const upgraded = JSON.parse(await readFile(path, "utf8")) as {
+      version: number;
+      tasks: Array<{ id: string; recurringTaskId: string | null }>;
+      recurringTasks: unknown[];
+    };
+    assert.equal(upgraded.version, 2);
+    assert.deepEqual(upgraded.recurringTasks, []);
+    assert.equal(upgraded.tasks.find((task) => task.id === "task-v1")?.recurringTaskId, null);
+  });
+
+  it("creates, pauses, resumes, cancels, and lists recurring task plans", async () => {
+    const root = await workspace();
+    let now = Date.parse("2026-09-11T00:00:00.000Z");
+    let id = 0;
+    const store = createTaskStore(root, {
+      now: () => now,
+      generateId: () => `repeat-${++id}`,
+    });
+    const created = await store.createRecurring({
+      prompt: "prepare a daily plan",
+      recurrence: { kind: "daily", time: "09:00", utcOffset: "+08:00" },
+    });
+    assert.equal(created.ok, true);
+    if (!created.ok) return;
+    assert.deepEqual(created.value, {
+      id: "repeat-1",
+      prompt: "prepare a daily plan",
+      recurrence: { kind: "daily", time: "09:00", utcOffset: "+08:00" },
+      status: "active",
+      createdAt: "2026-09-11T00:00:00.000Z",
+      nextRunAt: "2026-09-11T01:00:00.000Z",
+    });
+    assert.deepEqual(await store.listRecurring(), {
+      ok: true,
+      value: {
+        recurringTasks: [{
+          id: "repeat-1",
+          promptPreview: "prepare a daily plan",
+          recurrence: { kind: "daily", time: "09:00", utcOffset: "+08:00" },
+          status: "active",
+          nextRunAt: "2026-09-11T01:00:00.000Z",
+        }],
+        truncated: false,
+      },
+    });
+
+    assert.equal((await store.pauseRecurring("repeat-1")).ok, true);
+    const paused = await store.getRecurring("repeat-1");
+    assert.equal(paused.ok, true);
+    if (paused.ok) assert.deepEqual(paused.value.recurringTask, {
+      ...created.value,
+      status: "paused",
+      nextRunAt: null,
+    });
+    assert.equal((await store.resumeRecurring("repeat-1")).ok, true);
+    assert.equal((await store.cancelRecurring("repeat-1")).ok, true);
+    assert.equal(code(await store.resumeRecurring("repeat-1")), "RECURRING_TASK_CANCELLED");
+    assert.equal(code(await store.pauseRecurring("missing")), "RECURRING_TASK_NOT_FOUND");
+  });
+
+  it("claims one overdue recurring occurrence atomically and preserves later plan changes", async () => {
+    const root = await workspace();
+    let now = Date.parse("2026-09-14T02:00:00.000Z");
+    const ids = ["repeat-1", "task-1", "thread-1"];
+    const store = createTaskStore(root, {
+      now: () => now,
+      generateId: () => ids.shift() ?? "unexpected-id",
+    });
+    const recurring = await store.createRecurring({
+      prompt: "prepare a daily plan",
+      recurrence: { kind: "daily", time: "09:00", utcOffset: "+08:00" },
+    });
+    assert.equal(recurring.ok, true);
+    const claimed = await store.claimNextDue();
+    assert.equal(claimed.ok, true);
+    if (!claimed.ok || claimed.value === null) return;
+    assert.equal(claimed.value.id, "task-1");
+    assert.equal(claimed.value.threadId, "thread-1");
+    assert.equal(claimed.value.recurringTaskId, "repeat-1");
+    assert.equal(claimed.value.runAt, "2026-09-11T01:00:00.000Z");
+    assert.equal(claimed.value.status, "running");
+
+    const planAfterClaim = await store.getRecurring("repeat-1");
+    assert.equal(planAfterClaim.ok, true);
+    if (planAfterClaim.ok) assert.equal(
+      planAfterClaim.value.recurringTask.nextRunAt,
+      "2026-09-15T01:00:00.000Z",
+    );
+    const noSecondClaim = await store.claimNextDue();
+    assert.deepEqual(noSecondClaim, { ok: true, value: null });
+
+    now = Date.parse("2026-09-15T02:00:00.000Z");
+    assert.equal((await store.pauseRecurring("repeat-1")).ok, true);
+    const finished = await store.finish(claimed.value.id, {
+      status: "completed",
+      runId: "run-1",
+      resultText: "daily plan",
+    });
+    assert.equal(finished.ok, true);
+    const detail = await store.getRecurring("repeat-1");
+    assert.equal(detail.ok, true);
+    if (detail.ok) {
+      assert.equal(detail.value.recurringTask.status, "paused");
+      assert.equal(detail.value.recurringTask.nextRunAt, null);
+      assert.equal(detail.value.latestTask?.status, "completed");
+      assert.equal(detail.value.latestTask?.resultText, "daily plan");
+    }
+    const tasks = await store.list({ recurringTaskId: "repeat-1" });
+    assert.equal(tasks.ok, true);
+    if (tasks.ok) assert.deepEqual(tasks.value.tasks.map((task) => task.recurringTaskId), ["repeat-1"]);
+  });
+
+  it("leaves the recurring plan for the next claim after an interruption", async () => {
+    const root = await workspace();
+    let now = Date.parse("2026-09-14T00:00:00.000Z");
+    const ids = ["repeat-1", "task-1", "thread-1", "task-2", "thread-2"];
+    const store = createTaskStore(root, {
+      now: () => now,
+      generateId: () => ids.shift() ?? "unexpected-id",
+    });
+    await store.createRecurring({
+      prompt: "prepare a daily plan",
+      recurrence: { kind: "daily", time: "09:00", utcOffset: "+08:00" },
+    });
+    now = Date.parse("2026-09-14T02:00:00.000Z");
+    const claimed = await store.claimNextDue();
+    assert.equal(claimed.ok, true);
+    if (!claimed.ok || claimed.value === null) return;
+    now = Date.parse("2026-09-15T02:00:00.000Z");
+    assert.deepEqual(await store.interruptRunning(), { ok: true, value: 1 });
+    const detail = await store.getRecurring("repeat-1");
+    assert.equal(detail.ok, true);
+    if (detail.ok) {
+      assert.equal(detail.value.recurringTask.nextRunAt, "2026-09-15T01:00:00.000Z");
+      assert.equal(detail.value.latestTask?.status, "interrupted");
+    }
+
+    const nextClaim = await store.claimNextDue();
+    assert.equal(nextClaim.ok, true);
+    if (nextClaim.ok) {
+      assert.equal(nextClaim.value?.id, "task-2");
+      assert.equal(nextClaim.value?.runAt, "2026-09-15T01:00:00.000Z");
+      assert.equal(nextClaim.value?.recurringTaskId, "repeat-1");
+    }
+    const afterNextClaim = await store.getRecurring("repeat-1");
+    assert.equal(afterNextClaim.ok, true);
+    if (afterNextClaim.ok) {
+      assert.equal(afterNextClaim.value.recurringTask.nextRunAt, "2026-09-16T01:00:00.000Z");
+    }
+  });
+
   it("rejects invalid future times, prompts, files, and versions", async () => {
     const root = await workspace();
     const store = createTaskStore(root, {
@@ -249,8 +573,11 @@ describe("WorkspaceTaskStore", () => {
     await mkdir(runloom);
     await writeFile(join(runloom, "tasks.json"), "not-json");
     assert.equal(code(await store.list()), "TASK_FILE_INVALID");
-    await writeFile(join(runloom, "tasks.json"), JSON.stringify({ version: 2, tasks: [] }));
-    assert.equal(code(await store.list()), "TASK_VERSION_UNSUPPORTED");
+    await writeFile(
+      join(runloom, "tasks.json"),
+      JSON.stringify({ version: 2, tasks: [] }),
+    );
+    assert.equal(code(await store.list()), "TASK_FILE_INVALID");
   });
 
   it("claims due tasks in deterministic order and enforces terminal transitions", async () => {
