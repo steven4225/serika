@@ -35,11 +35,27 @@ describe("parseTuiArgs", () => {
     assert.equal(parseTuiArgs(["--todoist"]).todoistEnabled, true);
   });
 
-  it("requires a workspace when automatic consolidation is enabled", () => {
-    assert.throws(
-      () => parseTuiArgs(["--auto-consolidate"]),
-      /--auto-consolidate requires --workspace/,
+  it("parses config alongside the transcript directory and thread", () => {
+    assert.deepEqual(
+      parseTuiArgs([
+        "./transcript",
+        "--thread",
+        "daily-plan",
+        "--config",
+        "./runloom.json",
+      ]),
+      {
+        directory: "./transcript",
+        threadId: "daily-plan",
+        configPath: "./runloom.json",
+      },
     );
+  });
+
+  it("leaves workspace dependency validation to the resolved configuration", () => {
+    assert.deepEqual(parseTuiArgs(["--auto-consolidate"]), {
+      autoConsolidate: true,
+    });
   });
 
   it("rejects a missing workspace value", () => {
@@ -68,6 +84,36 @@ describe("parseTuiArgs", () => {
     assert.throws(
       () => parseTuiArgs(["--workspace", "one", "--workspace", "two"]),
       /at most one --workspace option/,
+    );
+  });
+
+  it("rejects a missing or duplicate config path", () => {
+    assert.throws(
+      () => parseTuiArgs(["--config"]),
+      /--config requires a file path/,
+    );
+    assert.throws(
+      () => parseTuiArgs(["--config", "--thread", "demo"]),
+      /--config requires a file path/,
+    );
+    assert.throws(
+      () => parseTuiArgs(["--config", "one.json", "--config", "two.json"]),
+      /at most one --config option/,
+    );
+  });
+
+  it("rejects config together with module selection flags", () => {
+    assert.throws(
+      () => parseTuiArgs(["--config", "runloom.json", "--workspace", "project"]),
+      /--config cannot be combined with --workspace/,
+    );
+    assert.throws(
+      () => parseTuiArgs(["--config", "runloom.json", "--todoist"]),
+      /--config cannot be combined with --todoist/,
+    );
+    assert.throws(
+      () => parseTuiArgs(["--config", "runloom.json", "--auto-consolidate"]),
+      /--config cannot be combined with --auto-consolidate/,
     );
   });
 });

@@ -4,6 +4,7 @@ import { resolve as resolvePath } from "node:path";
 export interface TuiArgs {
   directory?: string;
   threadId?: string;
+  configPath?: string;
   workspace?: string;
   autoConsolidate?: boolean;
   todoistEnabled?: boolean;
@@ -18,6 +19,7 @@ export function parseTuiArgs(args: readonly string[]): TuiArgs {
   const parsedArgs = args[0] === "--" ? args.slice(1) : args;
   let directory: string | undefined;
   let threadId: string | undefined;
+  let configPath: string | undefined;
   let workspace: string | undefined;
   let autoConsolidate = false;
   let todoistEnabled = false;
@@ -30,6 +32,17 @@ export function parseTuiArgs(args: readonly string[]): TuiArgs {
         throw new Error("--thread requires an id");
       }
       threadId = value;
+      continue;
+    }
+    if (arg === "--config") {
+      const value = parsedArgs[++index];
+      if (!value || value.startsWith("--")) {
+        throw new Error("--config requires a file path");
+      }
+      if (configPath !== undefined) {
+        throw new Error("TUI accepts at most one --config option");
+      }
+      configPath = value;
       continue;
     }
     if (arg === "--workspace") {
@@ -60,13 +73,22 @@ export function parseTuiArgs(args: readonly string[]): TuiArgs {
     directory = arg;
   }
 
-  if (autoConsolidate && workspace === undefined) {
-    throw new Error("--auto-consolidate requires --workspace");
+  if (configPath !== undefined) {
+    if (workspace !== undefined) {
+      throw new Error("--config cannot be combined with --workspace");
+    }
+    if (todoistEnabled) {
+      throw new Error("--config cannot be combined with --todoist");
+    }
+    if (autoConsolidate) {
+      throw new Error("--config cannot be combined with --auto-consolidate");
+    }
   }
 
   return {
     ...(directory !== undefined ? { directory } : {}),
     ...(threadId !== undefined ? { threadId } : {}),
+    ...(configPath !== undefined ? { configPath } : {}),
     ...(workspace !== undefined ? { workspace } : {}),
     ...(autoConsolidate ? { autoConsolidate: true } : {}),
     ...(todoistEnabled ? { todoistEnabled: true } : {}),
