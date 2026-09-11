@@ -15,7 +15,7 @@
 
 ## 阶段
 
-当前：`M-TUI-thin / Stage 7-2`（内置模块启动配置）
+当前：`M-TUI-thin / Stage 7-3`（Todoist 今日计划与 Markdown 保存）
 
 已经具备自有 AgentLoop、JSONL transcript、print CLI、精简 TUI，以及独立的本地任务 worker。Stage 6 的本地任务闭环已经完成；Stage 7 从一个真实 Todoist 只读模块开始验证应用扩展。
 
@@ -110,6 +110,33 @@ worker 为每个任务创建新 thread，只运行一次无工具的纯文本回
 任务查询只读现有任务文件：`/task list pending` 查看 `scheduled` 和 `running`，`/task list attention` 查看 `failed` 和 `interrupted`，`/task inbox` 查看尚未确认的终态任务（`completed`、`failed`、`interrupted`）。`/task show <id>` 查看完整 prompt、执行信息、结果、失败原因和 `Acknowledged at`；列表显示结果、错误摘要和确认时间，完整内容通过 `show` 获取。`/task ack <id>` 只确认一个已完成、失败或中断且尚未确认的任务；重复确认保持第一次的时间戳并返回同一记录。`task_list` 的 `inbox` 可与 `status`、`recurringTaskId` 一起作为 AND 条件使用。查询不会重试任务、改变执行状态，也不会从 worker 跨进程推送通知。
 
 同一 workspace 还支持 daily/weekly 固定时区偏移的重复任务：`/task repeat create daily <HH:mm> <+/-HH:mm> <prompt>` 或 `/task repeat create weekly <1-7> <HH:mm> <+/-HH:mm> <prompt>`，并可用 `/task repeat list [active|paused|cancelled]`、`show`、`pause`、`resume`、`cancel` 管理。每次到期只生成一个独立的一次性任务；worker 会把下一次时间推进到严格晚于当前时间，过期多周期也只补一个并跳过中间周期。暂停会清空下一次时间，恢复从未来 occurrence 重新计算；取消只停止后续 occurrence，已经运行的任务继续完成。任务文件当前为 `version: 3`，`TaskRecordV3` 增加可空的 `acknowledgedAt`；旧版 `version: 1`/`version: 2` 文件仍可读，第一次成功写入时升级为 `version: 3`，旧记录补为 `null`。`task_ack` 是幂等的单任务写工具；不引入推送、批量确认、通知表、队列或多 worker。
+
+### Todoist 今日计划保存
+
+Stage 7-3 将 Todoist 只读查询与已有 workspace 文件工具组合起来：在配置中同时启用 `todoist` 和 `read-file`，然后由一次自然语言请求生成并保存计划。workspace 和目标父目录必须事先存在，workspace 路径相对配置文件目录解析：
+
+```json
+{
+  "version": 1,
+  "workspace": "./notes",
+  "modules": {
+    "read-file": { "enabled": true },
+    "todoist": { "enabled": true, "timeZone": "Asia/Shanghai" }
+  }
+}
+```
+
+例如：
+
+> 读取 Todoist，按规划时区生成今日计划，保存为 workspace 下的 2026-09-11-plan.md。若结果不完整请在笔记中注明；文件已存在时停止并告诉我。
+
+这条链路固定调用 `todoist_list_tasks({ "view": "planning" })` 和已有的 `write_file`。它会经历两次现有的 `y/n` 确认：第一次确认查询结果进入模型上下文，第二次确认完整的目标路径和 Markdown 内容后才写文件。目标文件只新建；如果文件已存在，返回 `FILE_EXISTS` 后停止，不覆盖、编辑、自动改名或重试。目标路径必须是 workspace 内用户明确指定的 `.md` 相对路径，缺少路径时先询问，不猜测其它目录。
+
+保存内容包含五个固定章节：`今日三件最重要的事`、`上午 / 下午 / 晚上`、`逾期处理`、`未来 7 天风险`、`15 分钟立即行动`。标题下会保留规划时区、查询时间、查询范围、完整性和返回任务数；Todoist 任务 ID 或 URL 用于引用事实，排序、时段和耗时等推测标为建议，不自动改期或完成任务。
+
+查询结果 `truncated: true` 时仍可确认保存，但计划必须明显标注不完整；任务为空且结果被截断时不能据此声称没有任务。查询失败不会继续生成或保存伪装成成功的计划；写入拒绝、同名文件、父目录缺失和其它路径错误也只报告具体原因。成功写入后以 `write_file` 返回的路径和字节数确认保存事实，后续 Run 取消或失败不会回滚已经创建的文件。
+
+Stage 7-3 的 `pnpm typecheck` / `pnpm test` 只验证离线接线、确认和文件副作用边界，使用受控的模型与 Todoist 结果，不证明真实模型理解 instructions。完整验收还需提供真实模型和 `TODOIST_API_TOKEN`，使用独立测试笔记目录与一个尚不存在的 `.md` 路径，完成两次 `y/n` 并检查任务来源、日期、完整性说明、五个章节及实际文件；凭据缺失时不能把离线测试当作真实 Todoist 验收。
 
 ### MiniMax M3
 
