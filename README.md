@@ -15,9 +15,9 @@
 
 ## 阶段
 
-当前：`M-TUI-thin / Stage 6`（本地任务闭环）
+当前：`M-TUI-thin / Stage 7-1`（Todoist 只读应用模块）
 
-已经具备自有 AgentLoop、JSONL transcript、print CLI、精简 TUI，以及独立的本地任务 worker。Stage 6 的范围止于创建、执行、查询、重复调度和显式结果确认；不继续增加推送、批量管理或多 worker。
+已经具备自有 AgentLoop、JSONL transcript、print CLI、精简 TUI，以及独立的本地任务 worker。Stage 6 的本地任务闭环已经完成；Stage 7 从一个真实 Todoist 只读模块开始验证应用扩展。
 
 运行：
 
@@ -51,6 +51,23 @@ RUNLOOM_MODEL=minimax-m3 pnpm tui -- ./var/runloom --thread demo --workspace ./s
 TUI 的模块命令在空闲时直接执行，不创建 Run；配置 workspace 后可用 `/workspace` 查看当前根目录。模块通知使用同一条 TUI 输出流。
 
 TUI 默认提供一个进程内番茄钟：`/pomodoro start`、`/pomodoro status`、`/pomodoro cancel`。启动计时后立即返回，退出 TUI 时清理计时器；计时状态不会跨进程恢复。
+
+### Todoist 只读模块
+
+Todoist 模块只在 TUI 中通过 `--todoist` 显式启用。它不依赖 `--workspace`；启用时必须通过环境提供非空的 `TODOIST_API_TOKEN`：
+
+```bash
+export TODOIST_API_TOKEN="<your-personal-token>"
+RUNLOOM_MODEL=minimax-m3 pnpm tui -- ./var/runloom --thread daily-plan --todoist
+```
+
+默认规划时区是 `Asia/Shanghai`，可用 `RUNLOOM_TODOIST_TIMEZONE` 设置为 Node `Intl` 支持的其它时区。全天日期保持原日期；没有 UTC 偏移的浮动时间按这个规划时区解释，不读取 Todoist 账户时区。因此当账户时区不同时，Runloom 的日期视图可能与 Todoist App 不一致。
+
+模块提供 `todoist_list_tasks` 工具和 `/todoist list [planning|today|overdue|upcoming]` 命令。读取范围是令牌可见的活动任务中分配给当前用户或未分配的任务，明确包含共享项目中的未分配项。模块不提供完成、改期、改优先级、评论或其它写操作。
+
+自然语言调用工具时会等待 `y/n`，因为返回的任务内容会进入模型上下文，并在 Run 成功后写入 transcript。直接执行 `/todoist list` 只查询并显示结果，不调用模型、不创建 Run，也不写 transcript；`RUNLOOM_MODEL=mock` 不会阻止这条命令访问真实 Todoist API。
+
+查询最多扫描 5 页、返回 100 条任务，并限制工具结果大小。达到容量预算时返回 `truncated: true`，命令和模型必须明确说明结果不完整；即使 `tasks` 为空，也不能据此声称没有任务。认证、限流、网络或响应解析失败会使整次查询失败，不会把已经取得的前几页当作成功结果。
 
 配置 workspace 后还可以创建一次性任务。TUI 提供 `/task create <带时区的ISO时间> <prompt>`、`/task list [pending|attention|status]`、`/task inbox`、`/task show <id>`、`/task ack <id>` 和 `/task cancel <id>`；任务保存在 `<workspace>/.runloom/tasks.json`。独立 worker 必须持续运行，TUI 关闭后仍会在到期时执行：
 

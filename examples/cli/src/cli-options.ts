@@ -6,6 +6,7 @@ export interface TuiArgs {
   threadId?: string;
   workspace?: string;
   autoConsolidate?: boolean;
+  todoistEnabled?: boolean;
 }
 
 /**
@@ -19,6 +20,7 @@ export function parseTuiArgs(args: readonly string[]): TuiArgs {
   let threadId: string | undefined;
   let workspace: string | undefined;
   let autoConsolidate = false;
+  let todoistEnabled = false;
 
   for (let index = 0; index < parsedArgs.length; index += 1) {
     const arg = parsedArgs[index];
@@ -45,6 +47,10 @@ export function parseTuiArgs(args: readonly string[]): TuiArgs {
       autoConsolidate = true;
       continue;
     }
+    if (arg === "--todoist") {
+      todoistEnabled = true;
+      continue;
+    }
     if (arg?.startsWith("--")) {
       throw new Error(`Unknown TUI option: ${arg}`);
     }
@@ -63,6 +69,7 @@ export function parseTuiArgs(args: readonly string[]): TuiArgs {
     ...(threadId !== undefined ? { threadId } : {}),
     ...(workspace !== undefined ? { workspace } : {}),
     ...(autoConsolidate ? { autoConsolidate: true } : {}),
+    ...(todoistEnabled ? { todoistEnabled: true } : {}),
   };
 }
 
