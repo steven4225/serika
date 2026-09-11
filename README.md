@@ -15,7 +15,7 @@
 
 ## 阶段
 
-当前：`M-TUI-thin / Stage 7-1`（Todoist 只读应用模块）
+当前：`M-TUI-thin / Stage 7-2`（内置模块启动配置）
 
 已经具备自有 AgentLoop、JSONL transcript、print CLI、精简 TUI，以及独立的本地任务 worker。Stage 6 的本地任务闭环已经完成；Stage 7 从一个真实 Todoist 只读模块开始验证应用扩展。
 
@@ -69,7 +69,37 @@ RUNLOOM_MODEL=minimax-m3 pnpm tui -- ./var/runloom --thread daily-plan --todoist
 
 查询最多扫描 5 页、返回 100 条任务，并限制工具结果大小。达到容量预算时返回 `truncated: true`，命令和模型必须明确说明结果不完整；即使 `tasks` 为空，也不能据此声称没有任务。认证、限流、网络或响应解析失败会使整次查询失败，不会把已经取得的前几页当作成功结果。
 
-配置 workspace 后还可以创建一次性任务。TUI 提供 `/task create <带时区的ISO时间> <prompt>`、`/task list [pending|attention|status]`、`/task inbox`、`/task show <id>`、`/task ack <id>` 和 `/task cancel <id>`；任务保存在 `<workspace>/.runloom/tasks.json`。独立 worker 必须持续运行，TUI 关闭后仍会在到期时执行：
+### 内置模块启动配置
+
+Stage 7-2 支持用一份显式 JSON 配置选择 TUI 启用的内置模块。配置在启动时读取，修改后重启生效；不会自动搜索 `.runloom/config.json`，也不支持热更新、运行中启停或配置写入：
+
+```bash
+RUNLOOM_MODEL=mock pnpm tui -- ./var/runloom --thread daily-plan --config ./runloom.json
+```
+
+配置模式下未列出的模块默认关闭，模块配置必须使用 `{ "enabled": true|false }`。支持的模块是 `pomodoro`、`read-file`、`memory`、`task` 和 `todoist`；`read-file` 仍包含 `/workspace`、文件读写和搜索能力，示例 `add` 工具不属于配置模块。
+
+```json
+{
+  "version": 1,
+  "workspace": "./sample-project",
+  "modules": {
+    "pomodoro": { "enabled": true },
+    "read-file": { "enabled": true },
+    "memory": { "enabled": true, "autoConsolidate": false },
+    "task": { "enabled": false },
+    "todoist": { "enabled": true, "timeZone": "Asia/Shanghai" }
+  }
+}
+```
+
+`workspace` 相对配置文件所在目录解析。启用 `read-file`、`memory` 或 `task` 时必须提供有效 workspace；只启用 Todoist 或番茄钟可以省略。配置模式下 Todoist 时区只读取 JSON，缺省为 `Asia/Shanghai`；不传 `--config` 时仍沿用 `RUNLOOM_TODOIST_TIMEZONE`。Todoist token 始终从 `TODOIST_API_TOKEN` 读取，不能写进 JSON。
+
+`--config` 与 `--workspace`、`--todoist`、`--auto-consolidate` 互斥，但可和 transcript 目录、`--thread` 一起使用。不传 `--config` 时，原有命令行行为保持不变。
+
+`/modules` 始终可用，不属于配置模块；它显示配置来源、workspace、五个模块开关、自动整理、Todoist 时区和 token 是否存在，不显示 token。关闭 `memory` 会同时关闭记忆工具、记忆注入和自动整理；关闭 `task` 只影响当前 TUI，不会停止独立 worker。命令不创建 Run，也不写 transcript。
+
+启用 `task` 并配置 workspace 后还可以创建一次性任务。TUI 提供 `/task create <带时区的ISO时间> <prompt>`、`/task list [pending|attention|status]`、`/task inbox`、`/task show <id>`、`/task ack <id>` 和 `/task cancel <id>`；任务保存在 `<workspace>/.runloom/tasks.json`。独立 worker 必须持续运行，TUI 关闭后仍会在到期时执行：
 
 ```bash
 RUNLOOM_MODEL=mock pnpm task-worker -- --workspace ./sample-project

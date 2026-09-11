@@ -1,0 +1,252 @@
+import { readFile } from "node:fs/promises";
+import { dirname, resolve as resolvePath } from "node:path";
+import { z } from "zod";
+import { resolveWorkspace, type TuiArgs } from "./cli-options.js";
+
+export const BUILTIN_MODULE_IDS = [
+  "pomodoro",
+  "read-file",
+  "memory",
+  "task",
+  "todoist",
+] as const;
+
+export type BuiltinModuleId = (typeof BUILTIN_MODULE_IDS)[number];
+
+export interface ResolvedTuiModuleConfig {
+  configPath: string | null;
+  workspaceRoot: string | null;
+  enabled: Record<BuiltinModuleId, boolean>;
+  autoConsolidate: boolean;
+  todoistTimeZone: string | null;
+}
+
+const DEFAULT_TODOIST_TIME_ZONE = "Asia/Shanghai";
+const nonEmptyString = z.string().refine((value) => value.trim().length > 0);
+
+const moduleToggleSchema = z
+  .object({
+    enabled: z.boolean(),
+  })
+  .strict();
+
+const memoryModuleSchema = z
+  .object({
+    enabled: z.boolean(),
+    autoConsolidate: z.boolean().optional(),
+  })
+  .strict();
+
+const todoistModuleSchema = z
+  .object({
+    enabled: z.boolean(),
+    timeZone: nonEmptyString.optional(),
+  })
+  .strict();
+
+const tuiModuleConfigV1Schema = z
+  .object({
+    version: z.literal(1),
+    workspace: nonEmptyString.optional(),
+    modules: z
+      .object({
+        pomodoro: moduleToggleSchema.optional(),
+        "read-file": moduleToggleSchema.optional(),
+        memory: memoryModuleSchema.optional(),
+        task: moduleToggleSchema.optional(),
+        todoist: todoistModuleSchema.optional(),
+      })
+      .strict(),
+  })
+  .strict();
+
+export interface TuiModuleConfigV1 {
+  version: 1;
+  workspace?: string | undefined;
+  modules: {
+    pomodoro?: { enabled: boolean } | undefined;
+    "read-file"?: { enabled: boolean } | undefined;
+    memory?:
+      | { enabled: boolean; autoConsolidate?: boolean | undefined }
+      | undefined;
+    task?: { enabled: boolean } | undefined;
+    todoist?:
+      | { enabled: boolean; timeZone?: string | undefined }
+      | undefined;
+  };
+}
+
+function configPathFromArgs(args: TuiArgs): string | undefined {
+  if (!("configPath" in args)) return undefined;
+  const configPath = args.configPath;
+  if (configPath !== undefined && typeof configPath !== "string") {
+    throw new Error("TUI config path must be a file path");
+  }
+  return configPath;
+}
+
+function normalizeTodoistTimeZone(value: string): string {
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      timeZone: value,
+    }).resolvedOptions().timeZone;
+  } catch {
+    throw new Error("Invalid Todoist time zone");
+  }
+}
+
+function emptyEnabled(): Record<BuiltinModuleId, boolean> {
+  return {
+    pomodoro: false,
+    "read-file": false,
+    memory: false,
+    task: false,
+    todoist: false,
+  };
+}
+
+function hasWorkspaceModule(enabled: Record<BuiltinModuleId, boolean>): boolean {
+  return enabled["read-file"] || enabled.memory || enabled.task;
+}
+
+function assertWorkspaceRequirement(
+  enabled: Record<BuiltinModuleId, boolean>,
+  workspace: string | undefined,
+  errorMessage: string,
+): void {
+  if (hasWorkspaceModule(enabled) && workspace === undefined) {
+    throw new Error(errorMessage);
+  }
+}
+
+async function readTuiModuleConfig(configPath: string): Promise<TuiModuleConfigV1> {
+  let source: string;
+  try {
+    source = await readFile(configPath, "utf8");
+  } catch {
+    throw new Error("Unable to read TUI config file");
+  }
+
+  let value: unknown;
+  try {
+    value = JSON.parse(source) as unknown;
+  } catch {
+    throw new Error("Invalid TUI config JSON");
+  }
+
+  const parsed = tuiModuleConfigV1Schema.safeParse(value);
+  if (!parsed.success) {
+    throw new Error("Invalid TUI config schema");
+  }
+  return parsed.data;
+}
+
+async function resolveConfiguredMode(
+  args: TuiArgs,
+  configPath: string,
+  cwd: string,
+): Promise<ResolvedTuiModuleConfig> {
+  if (
+    args.workspace !== undefined ||
+    args.todoistEnabled === true ||
+    args.autoConsolidate === true
+  ) {
+    throw new Error("--config cannot be combined with module selection options");
+  }
+
+  const absoluteConfigPath = resolvePath(cwd, configPath);
+  const config = await readTuiModuleConfig(absoluteConfigPath);
+  const enabled = emptyEnabled();
+  enabled.pomodoro = config.modules.pomodoro?.enabled ?? false;
+  enabled["read-file"] = config.modules["read-file"]?.enabled ?? false;
+  enabled.memory = config.modules.memory?.enabled ?? false;
+  enabled.task = config.modules.task?.enabled ?? false;
+  enabled.todoist = config.modules.todoist?.enabled ?? false;
+
+  const autoConsolidate = config.modules.memory?.autoConsolidate ?? false;
+  if (autoConsolidate && !enabled.memory) {
+    throw new Error(
+      "memory.autoConsolidate requires memory.enabled to be true",
+    );
+  }
+  assertWorkspaceRequirement(
+    enabled,
+    config.workspace,
+    "TUI config requires workspace when read-file, memory, or task is enabled",
+  );
+
+  const workspaceRoot =
+    config.workspace === undefined
+      ? null
+      : await resolveWorkspace(config.workspace, dirname(absoluteConfigPath));
+  const todoistTimeZone = enabled.todoist
+    ? normalizeTodoistTimeZone(
+        config.modules.todoist?.timeZone ?? DEFAULT_TODOIST_TIME_ZONE,
+      )
+    : null;
+
+  return {
+    configPath: absoluteConfigPath,
+    workspaceRoot,
+    enabled,
+    autoConsolidate,
+    todoistTimeZone,
+  };
+}
+
+async function resolveLegacyMode(
+  args: TuiArgs,
+  cwd: string,
+  todoistTimeZone: string | undefined,
+): Promise<ResolvedTuiModuleConfig> {
+  const enabled = emptyEnabled();
+  enabled.pomodoro = true;
+  enabled["read-file"] = args.workspace !== undefined;
+  enabled.memory = args.workspace !== undefined;
+  enabled.task = args.workspace !== undefined;
+  enabled.todoist = args.todoistEnabled === true;
+
+  if (args.autoConsolidate === true && args.workspace === undefined) {
+    throw new Error("--auto-consolidate requires --workspace");
+  }
+  assertWorkspaceRequirement(
+    enabled,
+    args.workspace,
+    "--workspace is required when workspace modules are enabled",
+  );
+
+  const workspaceRoot =
+    args.workspace === undefined
+      ? null
+      : await resolveWorkspace(args.workspace, cwd);
+  const resolvedTodoistTimeZone = enabled.todoist
+    ? normalizeTodoistTimeZone(
+        todoistTimeZone?.trim() || DEFAULT_TODOIST_TIME_ZONE,
+      )
+    : null;
+
+  return {
+    configPath: null,
+    workspaceRoot,
+    enabled,
+    autoConsolidate: args.autoConsolidate === true,
+    todoistTimeZone: resolvedTodoistTimeZone,
+  };
+}
+
+export function resolveTuiModuleConfig(
+  args: TuiArgs,
+  options: {
+    cwd: string;
+    todoistTimeZone?: string | undefined;
+  },
+): Promise<ResolvedTuiModuleConfig> {
+  const configPath = configPathFromArgs(args);
+  if (configPath !== undefined) {
+    if (configPath.length === 0) {
+      return Promise.reject(new Error("TUI config path must be a file path"));
+    }
+    return resolveConfiguredMode(args, configPath, options.cwd);
+  }
+  return resolveLegacyMode(args, options.cwd, options.todoistTimeZone);
+}
