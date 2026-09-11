@@ -1,6 +1,6 @@
-# AI SDK Agent Framework
+# Runloom
 
-这是一个处于设计阶段的通用 Agent 内核。当前还没有绑定具体业务；目标是先建立一个可靠、可测试、可扩展的最小运行时，再通过真实用例验证它。
+这是一个已具备本地 Agent 执行能力的实验性运行时。当前尚未绑定具体业务；本地能力建设到 Stage 6 为止，下一步通过一个真实用例验证它，不继续预建通用平台功能。
 
 ## 当前结论
 
@@ -8,15 +8,16 @@
 - AI SDK adapter 使用 `streamText`，由框架自行控制模型—工具循环。
 - 对上提供自己的 `AgentRuntime` 契约，不让应用直接依赖 AI SDK 的循环实现。
 - 当前本地路径支持单 Agent、多步工具调用、流式事件、取消、超时，以及基于 JSONL 的对话恢复。
-- 持久化人工审批、真实写工具、Web UI、RAG、长期/全局记忆、多 Agent 和 Durable 执行暂缓；TUI 已支持当前工具调用的临时 y/n 确认，以及显式的 workspace 记忆。
+- TUI 已支持受控的文件读写、当前工具调用的临时 y/n 确认，以及显式的 workspace 记忆；后台 worker 支持一次性/重复任务和结果 inbox。
+- 持久化人工审批、Web UI、RAG、长期/全局记忆、多 Agent 和 Durable 执行不在当前本地主链内。workspace JSON/JSONL 不提供可恢复的外部副作用保证。
 
 完整设计见 [docs/architecture-v0.md](docs/architecture-v0.md)。
 
 ## 阶段
 
-当前：`M-TUI-thin`
+当前：`M-TUI-thin / Stage 6`（本地任务闭环）
 
-已经具备自有 AgentLoop、JSONL transcript、print CLI，以及只通过 Runtime 契约驱动、带临时工具确认的精简 TUI。
+已经具备自有 AgentLoop、JSONL transcript、print CLI、精简 TUI，以及独立的本地任务 worker。Stage 6 的范围止于创建、执行、查询、重复调度和显式结果确认；不继续增加推送、批量管理或多 worker。
 
 运行：
 
@@ -80,4 +81,19 @@ TUI 使用相同的模式和环境变量：
 RUNLOOM_MODEL=minimax-m3 pnpm tui -- ./var/runloom --thread demo
 ```
 
-Shell 工具、写文件工具和持久化审批仍未进入这条主链；TUI 的 y/n 只决定当前 Run 的一次工具调用，不形成可恢复的审批记录。Durable Run Driver 仍不进入这条主链。
+Shell 工具和持久化审批仍未进入这条主链；受控写文件工具已经接入。TUI 的 y/n 只决定当前 Run 的一次工具调用，不形成可恢复的审批记录。Durable Run Driver 仍不进入这条主链。
+
+### Stage 6 验收
+
+`pnpm test` 包含命令模块 → 独立 worker 进程 → 结果/transcript → inbox → ack → 杀进程并重启的闭环验收，默认强制使用 mock，不依赖模型密钥。Store 测试另用虚拟时钟验证重复任务跳过过期周期、启动中断恢复，以及确认旧结果与下一次执行互不干扰。
+
+使用已配置的 MiniMax 环境进行同一闭环的真实模型验收（会发起两次短文本模型请求）：
+
+```bash
+pnpm build
+RUNLOOM_ACCEPTANCE_MODEL=minimax-m3 node --env-file=.env --test examples/cli/dist/task-acceptance.test.js
+```
+
+`.env` 需自行配置且不应提交；普通 CLI/worker 不自动加载它，应先导出变量或使用 Node 的 `--env-file`。验收创建临时 workspace 并在结束后清理，不修改日常任务。此测试覆盖命令模块和真实 worker 进程，不是终端交互 UI 测试，也不证明操作系统会自动唤醒已退出的 worker。
+
+`.github/workflows/ci.yml` 在 PR 和 main push 上执行依赖锁定安装、`pnpm typecheck` 和 `pnpm test`；真实模型验收与 PostgreSQL integration 不在该基础 CI 内。
