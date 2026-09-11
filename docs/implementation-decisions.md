@@ -32,6 +32,8 @@
 
 ## M1 已冻结的模块细节
 
+以下表格是 M1 当时的决策记录，不代表当前实现快照。当前本地 adapter 已使用 `streamText` 和自有 `AgentLoop`；运行能力以 README 和现有代码为准。
+
 | 模块 | 已冻结内容 | 仍可调整 |
 | --- | --- | --- |
 | Core types | AgentDefinition、RunRequest、RunHandle、RunResult 语义 | 字段命名的兼容性调整 |
@@ -64,3 +66,12 @@
 - `acknowledge(id)` 只确认单条任务且幂等：首次写入 UTC 时间，重复调用保留第一次时间戳并返回同一记录。`finish` 和 `interruptRunning` 产生的终态都保持 `acknowledgedAt: null`。
 - `task_list` 增加可选 `inbox`，与已有 `status`、`recurringTaskId` 过滤器按 AND 组合；摘要和 `show` 返回 `acknowledgedAt`。`task_ack` 是对应的单任务写工具；命令适配器提供 `/task inbox` 和 `/task ack <id>`。
 - worker 仍只 claim 到期的 `scheduled` 任务，重复任务仍按原规则推进；inbox 确认不触发重试、执行、递归推进或跨进程通知。
+
+## Stage 6 收尾边界
+
+- 完成证据：命令创建任务后，由独立 worker 执行并持久化结果和 transcript；查询不写入，ack 后退出 inbox，重启仍保留首次确认与历史；新任务使用新 thread 正常执行。
+- 重复任务的执行进度与结果确认正交：确认旧 occurrence 不改变计划；与另一客户端的 finish 并发时不丢写；启动恢复只把遗留 running 标为 interrupted，不重放该 occurrence。
+- 自动测试使用 mock 和虚拟时钟；真实模型复用同一闭环验收，不新增生产 API 或依赖。基础 PR CI 运行现有 typecheck/test，不承诺数据库集成或真实模型网络可用性。
+- Stage 6 到此封板。后续先确定一个真实产品闭环，不因任务模块已经存在而继续增加通知系统、批量操作、队列或调度平台。
+
+2026-09-11 本地验收：`pnpm typecheck` 通过，`pnpm test` 为 283/283；同一生命周期测试使用真实 MiniMax 完成两次任务并通过重启后的结果/确认持久性校验。CI YAML 已通过本地解析，但 GitHub 首跑仍待提交后验证；本轮未运行 PostgreSQL integration。

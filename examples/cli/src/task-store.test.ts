@@ -722,6 +722,65 @@ describe("WorkspaceTaskStore", () => {
     if (tasks.ok) assert.deepEqual(tasks.value.tasks.map((task) => task.recurringTaskId), ["repeat-1"]);
   });
 
+  it("keeps acknowledgement independent of recurring execution and crash recovery", async () => {
+    const root = await workspace();
+    let now = Date.parse("2026-09-11T00:00:00.000Z");
+    const store = createTaskStore(root, { now: () => now });
+    const plan = await store.createRecurring({
+      prompt: "daily acceptance",
+      recurrence: { kind: "daily", time: "09:00", utcOffset: "+08:00" },
+    });
+    assert.ok(plan.ok);
+    now = Date.parse("2026-09-11T02:00:00.000Z");
+    const first = await store.claimNextDue();
+    assert.ok(first.ok && first.value);
+    assert.ok((await store.finish(first.value.id, {
+      status: "failed", runId: "run-1", error: { code: "MODEL_FAILED", message: "unavailable" },
+    })).ok);
+
+    now = Date.parse("2026-09-12T02:00:00.000Z");
+    const second = await store.claimNextDue();
+    assert.ok(second.ok && second.value);
+    assert.notEqual(second.value.id, first.value.id);
+    const beforeAck = await store.getRecurring(plan.value.id);
+    assert.ok(beforeAck.ok);
+    // Two independent store clients update the same file: neither may lose the other's write.
+    const otherClient = createTaskStore(root, { now: () => now });
+    const [ack, finish] = await Promise.all([
+      store.acknowledge(first.value.id),
+      otherClient.finish(second.value.id, { status: "completed", runId: "run-2", resultText: "done" }),
+    ]);
+    assert.ok(ack.ok && finish.ok);
+    const afterAck = await otherClient.getRecurring(plan.value.id);
+    assert.ok(afterAck.ok);
+    assert.deepEqual(afterAck.value.recurringTask, beforeAck.value.recurringTask);
+    assert.deepEqual(await otherClient.get(first.value.id), ack);
+    assert.deepEqual(await store.get(second.value.id), finish);
+
+    now = Date.parse("2026-09-13T02:00:00.000Z");
+    const third = await store.claimNextDue();
+    assert.ok(third.ok && third.value);
+    const beforeRecovery = await store.getRecurring(plan.value.id);
+    assert.ok(beforeRecovery.ok);
+    const reopened = createTaskStore(root, { now: () => now });
+    assert.deepEqual(await reopened.interruptRunning(), { ok: true, value: 1 });
+    const recovered = await reopened.get(third.value.id);
+    assert.ok(recovered.ok);
+    assert.equal(recovered.value.status, "interrupted");
+    assert.equal(recovered.value.acknowledgedAt, null);
+    assert.ok((await reopened.acknowledge(third.value.id)).ok);
+    const afterRecovery = await reopened.getRecurring(plan.value.id);
+    assert.ok(afterRecovery.ok);
+    assert.deepEqual(afterRecovery.value.recurringTask, beforeRecovery.value.recurringTask);
+    const inbox = await reopened.list({ inbox: true });
+    assert.ok(inbox.ok);
+    assert.deepEqual(inbox.value.tasks.map((task) => task.id), [second.value.id]);
+    const attention = await reopened.list({ status: "attention" });
+    assert.ok(attention.ok);
+    assert.deepEqual(new Set(attention.value.tasks.map((task) => task.id)), new Set([first.value.id, third.value.id]));
+    assert.deepEqual(await reopened.claimNextDue(), { ok: true, value: null });
+  });
+
   it("leaves the recurring plan for the next claim after an interruption", async () => {
     const root = await workspace();
     let now = Date.parse("2026-09-14T00:00:00.000Z");
