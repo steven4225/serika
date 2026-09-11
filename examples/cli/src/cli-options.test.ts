@@ -6,7 +6,7 @@ import { describe, it } from "node:test";
 import { parseTuiArgs, resolveWorkspace } from "./cli-options.js";
 
 describe("parseTuiArgs", () => {
-  it("parses the optional transcript directory, thread, and workspace", () => {
+  it("parses the optional transcript directory, thread, workspace, and modules", () => {
     assert.deepEqual(
       parseTuiArgs([
         "--",
@@ -16,19 +16,23 @@ describe("parseTuiArgs", () => {
         "--workspace",
         "./project",
         "--auto-consolidate",
+        "--todoist",
       ]),
       {
         directory: "./transcript",
         threadId: "demo",
         workspace: "./project",
         autoConsolidate: true,
+        todoistEnabled: true,
       },
     );
   });
 
-  it("defaults automatic consolidation to off", () => {
+  it("defaults optional capabilities to off", () => {
     assert.equal(parseTuiArgs([]).autoConsolidate, undefined);
+    assert.equal(parseTuiArgs([]).todoistEnabled, undefined);
     assert.equal(parseTuiArgs(["--workspace", "./project"]).autoConsolidate, undefined);
+    assert.equal(parseTuiArgs(["--todoist"]).todoistEnabled, true);
   });
 
   it("requires a workspace when automatic consolidation is enabled", () => {
