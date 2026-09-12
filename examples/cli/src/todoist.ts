@@ -203,7 +203,7 @@ function throwIfAborted(signal: AbortSignal): void {
   if (signal.aborted) throw abortReason(signal);
 }
 
-function canonicalTimeZone(timeZone: string): string | undefined {
+export function canonicalTimeZone(timeZone: string): string | undefined {
   try {
     return new Intl.DateTimeFormat("en-US", { timeZone }).resolvedOptions().timeZone;
   } catch {
