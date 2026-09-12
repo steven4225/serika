@@ -15,9 +15,9 @@
 
 ## 阶段
 
-当前：`M-TUI-thin / Stage 7-3`（Todoist 今日计划与 Markdown 保存）
+当前：`M-TUI-thin / Stage 7-5`（内置模块接入约定与验收整理）
 
-已经具备自有 AgentLoop、JSONL transcript、print CLI、精简 TUI，以及独立的本地任务 worker。Stage 6 的本地任务闭环已经完成；Stage 7 从一个真实 Todoist 只读模块开始验证应用扩展。
+已经具备自有 AgentLoop、JSONL transcript、print CLI、精简 TUI，以及独立的本地任务 worker。Stage 6 的本地任务闭环已经完成；Stage 7 从一个真实 Todoist 只读模块开始验证应用扩展。当前 7-5 只把现有内置模块的接入方式写成约定，保持零运行时改动，不提供外部插件加载；7-3、7-4 的真实模型验收仍待补齐，不计入已完成口径。接入路径见 [模块开发指南](docs/module-development.md)。
 
 运行：
 
@@ -122,6 +122,12 @@ worker 不读取 TUI 的 `--config`；Todoist 规划时区独立取自 `RUNLOOM_
 开启 Todoist 后，正常的今日计划链路是一次 `planning` 查询后生成结果。查询失败时，模型可以把失败说明作为正常文本交付，此时任务仍可能是 `completed`：这里的 `completed` 表示 Run 正常结束，不表示 Todoist 查询或计划业务成功。该结果会出现在未确认的 `/task inbox` 和 `/task show <id>` 中；`/task list attention` 只列出 `failed` 与 `interrupted`，不会识别 `completed` 文本里的业务失败。
 
 真实验收使用隔离 workspace、真实模型和正常权限的 Todoist token：先创建一个明确要求读取 Todoist 并生成今日计划的到期任务，再以 `--todoist` 启动 worker；核对启动时区、一次 `planning` 调用、任务事实与完整性标记、五个计划章节、`resultText`、transcript 和 inbox；重启后确认结果仍可通过 `/task show` 读取，最后显式 ack。worker 必须由用户持续运行；本阶段不提供操作系统唤醒、跨进程推送通知或生产级可靠性保证。
+
+### Stage 7-5 模块接入约定
+
+7-5 的版本内交付是[模块开发指南](docs/module-development.md)和本 README 的进度入口：沿用现有工厂注入、`setup` 注册、TUI 配置或 worker 显式清单、工具/命令执行和 `dispose` 的接入路径。指南以现有 Todoist/read-file 模块为例，不新增接口、配置版本、运行时行为或外部插件加载；`/modules` 和计算器 `add` 也不属于 `AgentModule` 协议。
+
+本节只说明入口和边界，不复制各工具的数据契约。7-3、7-4 的真实 Todoist/模型验收仍需独立提供证据；因此 7-5 的指南完成不等于 Stage 7 封板。
 
 任务查询只读现有任务文件：`/task list pending` 查看 `scheduled` 和 `running`，`/task list attention` 查看 `failed` 和 `interrupted`，`/task inbox` 查看尚未确认的终态任务（`completed`、`failed`、`interrupted`）。`/task show <id>` 查看完整 prompt、执行信息、结果、失败原因和 `Acknowledged at`；列表显示结果、错误摘要和确认时间，完整内容通过 `show` 获取。`/task ack <id>` 只确认一个已完成、失败或中断且尚未确认的任务；重复确认保持第一次的时间戳并返回同一记录。`task_list` 的 `inbox` 可与 `status`、`recurringTaskId` 一起作为 AND 条件使用。查询不会重试任务、改变执行状态，也不会从 worker 跨进程推送通知。
 
