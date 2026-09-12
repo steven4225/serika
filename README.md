@@ -105,7 +105,23 @@ RUNLOOM_MODEL=mock pnpm tui -- ./var/runloom --thread daily-plan --config ./runl
 RUNLOOM_MODEL=mock pnpm task-worker -- --workspace ./sample-project
 ```
 
-worker 为每个任务创建新 thread，只运行一次无工具的纯文本回复，并把结果写回任务文件；任务不会自动重试或从中断处恢复。任务更新使用 `.runloom/tasks.json.lock`，worker 独占使用 `.runloom/task-worker.lock`，两者都是由操作系统释放的 advisory `flock` 锁。worker 的 claim、执行、重复任务推进和启动恢复不读取 inbox 确认状态。
+默认启动时，worker 为每个任务创建新 thread，只运行一次无工具的纯文本回复，并把结果写回任务文件；任务不会自动重试或从中断处恢复。任务更新使用 `.runloom/tasks.json.lock`，worker 独占使用 `.runloom/task-worker.lock`，两者都是由操作系统释放的 advisory `flock` 锁。worker 的 claim、执行、重复任务推进和启动恢复不读取 inbox 确认状态。
+
+Stage 7-4 可通过独立的 `--todoist` 开关，授权该 worker 在后台任务中使用唯一的只读工具 `todoist_list_tasks`：
+
+```bash
+export TODOIST_API_TOKEN="<your-personal-token>"
+RUNLOOM_MODEL=minimax-m3 RUNLOOM_TODOIST_TIMEZONE=Asia/Shanghai \
+  pnpm task-worker -- --workspace ./sample-project --todoist
+```
+
+worker 不读取 TUI 的 `--config`；Todoist 规划时区独立取自 `RUNLOOM_TODOIST_TIMEZONE`，缺省为 `Asia/Shanghai`，启动日志会显示规范化后的实际时区。启用失败（如 token 缺失、时区非法或工具注册边界变化）会在领取队列任务前退出。不开 `--todoist` 时继续使用原有无工具、一步纯文本行为，也无法实时读取 Todoist。
+
+`--todoist` 是 worker 进程级授权，覆盖该 workspace 中已经排期和以后到期的全部任务。任务触发查询时，Todoist 内容会进入所配置模型的上下文，并随结果写入本地 `resultText` 和该任务 thread 的 transcript；后台没有逐次 `y/n` 确认，也不保存 Markdown 或其它笔记。生产 `RUNLOOM_MODEL=mock` 仍只生成纯文本，不会主动调用 Todoist，因此 mock 运行成功不能作为真实查询证据。
+
+开启 Todoist 后，正常的今日计划链路是一次 `planning` 查询后生成结果。查询失败时，模型可以把失败说明作为正常文本交付，此时任务仍可能是 `completed`：这里的 `completed` 表示 Run 正常结束，不表示 Todoist 查询或计划业务成功。该结果会出现在未确认的 `/task inbox` 和 `/task show <id>` 中；`/task list attention` 只列出 `failed` 与 `interrupted`，不会识别 `completed` 文本里的业务失败。
+
+真实验收使用隔离 workspace、真实模型和正常权限的 Todoist token：先创建一个明确要求读取 Todoist 并生成今日计划的到期任务，再以 `--todoist` 启动 worker；核对启动时区、一次 `planning` 调用、任务事实与完整性标记、五个计划章节、`resultText`、transcript 和 inbox；重启后确认结果仍可通过 `/task show` 读取，最后显式 ack。worker 必须由用户持续运行；本阶段不提供操作系统唤醒、跨进程推送通知或生产级可靠性保证。
 
 任务查询只读现有任务文件：`/task list pending` 查看 `scheduled` 和 `running`，`/task list attention` 查看 `failed` 和 `interrupted`，`/task inbox` 查看尚未确认的终态任务（`completed`、`failed`、`interrupted`）。`/task show <id>` 查看完整 prompt、执行信息、结果、失败原因和 `Acknowledged at`；列表显示结果、错误摘要和确认时间，完整内容通过 `show` 获取。`/task ack <id>` 只确认一个已完成、失败或中断且尚未确认的任务；重复确认保持第一次的时间戳并返回同一记录。`task_list` 的 `inbox` 可与 `status`、`recurringTaskId` 一起作为 AND 条件使用。查询不会重试任务、改变执行状态，也不会从 worker 跨进程推送通知。
 
@@ -136,7 +152,7 @@ Stage 7-3 将 Todoist 只读查询与已有 workspace 文件工具组合起来�
 
 查询结果 `truncated: true` 时仍可确认保存，但计划必须明显标注不完整；任务为空且结果被截断时不能据此声称没有任务。查询失败不会继续生成或保存伪装成成功的计划；写入拒绝、同名文件、父目录缺失和其它路径错误也只报告具体原因。成功写入后以 `write_file` 返回的路径和字节数确认保存事实，后续 Run 取消或失败不会回滚已经创建的文件。
 
-Stage 7-3 的 `pnpm typecheck` / `pnpm test` 只验证离线接线、确认和文件副作用边界，使用受控的模型与 Todoist 结果，不证明真实模型理解 instructions。完整验收还需提供真实模型和 `TODOIST_API_TOKEN`，使用独立测试笔记目录与一个尚不存在的 `.md` 路径，完成两次 `y/n` 并检查任务来源、日期、完整性说明、五个章节及实际文件；凭据缺失时不能把离线测试当作真实 Todoist 验收。
+Stage 7-3 的 `pnpm typecheck` / `pnpm test` 只验证生产 instructions 已到达模型边界、Todoist → `write_file` 的离线接线、两次确认和文件副作用边界；组合测试使用固定文本夹具，不证明真实模型会写出五个章节、缺路径先问、失败不保存或空任务不凑数。`write_file.test.ts` 单独证明 `FILE_EXISTS` 不覆盖。完整验收还需提供真实模型和 `TODOIST_API_TOKEN`，使用独立测试笔记目录与一个尚不存在的 `.md` 路径，完成两次 `y/n` 并检查任务来源、日期、完整性说明、五个章节及实际文件；凭据缺失时不能把离线测试当作真实 Todoist 验收。
 
 ### MiniMax M3
 

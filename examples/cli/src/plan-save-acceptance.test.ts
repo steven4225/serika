@@ -20,12 +20,13 @@ import {
 import { createModuleHost } from "./module-host.js";
 import { createReadFileModule } from "./modules/read-file-module.js";
 import { createTodoistModule } from "./modules/todoist-module.js";
+import { todoistPlanSaveInstructions } from "./todoist-plan-save-instructions.js";
 import { createToolConfirmation } from "./tui.js";
 
 const definition = {
   id: "daily-plan",
   version: "1",
-  instructions: "Read Todoist planning tasks, compose the requested Markdown plan, and save it.",
+  instructions: todoistPlanSaveInstructions,
   model: "daily-plan-model",
   tools: ["todoist_list_tasks", "write_file"],
   limits: { maxSteps: 4, totalTimeoutMs: 5_000, stepTimeoutMs: 1_000 },
@@ -42,6 +43,15 @@ type RecordValue = Record<string, unknown>;
 
 function isRecord(value: unknown): value is RecordValue {
   return typeof value === "object" && value !== null;
+}
+
+function containsExactString(value: unknown, expected: string): boolean {
+  if (value === expected) return true;
+  if (Array.isArray(value)) return value.some((item) => containsExactString(item, expected));
+  if (isRecord(value)) {
+    return Object.values(value).some((item) => containsExactString(item, expected));
+  }
+  return false;
 }
 
 function currentTurnToolResults(prompt: unknown): RecordValue[] {
@@ -151,47 +161,24 @@ function fakeTodoistFetch(): typeof globalThis.fetch {
   }) as typeof globalThis.fetch;
 }
 
-function markdownFromQuery(value: RecordValue): string {
-  assert.equal(value.ok, true);
-  const queryValue = value.value;
-  assert.ok(isRecord(queryValue));
-  const tasks = queryValue.tasks;
-  assert.ok(Array.isArray(tasks));
-  const task = tasks[0];
-  assert.ok(isRecord(task));
-  assert.equal(task.title, "准备周报");
-  assert.equal(task.id, "task-1");
+const fixedWriteContent = "offline composition fixture\n";
 
-  return [
-    "# 今日计划｜2026-09-11",
-    "",
-    `- 规划时区：${queryValue.timeZone}`,
-    `- 查询时间：${queryValue.asOf}`,
-    `- 查询范围：(-∞, ${isRecord(queryValue.window) ? queryValue.window.toExclusive : "2026-09-19"})`,
-    `- 查询完整性：${queryValue.truncated === true ? "不完整" : "完整"}`,
-    `- 返回任务数：${tasks.length}`,
-    "",
-    "## 今日三件最重要的事",
-    `- ${task.title}（Todoist ID: ${task.id}，来源：${task.url}）`,
-    "",
-    "## 上午 / 下午 / 晚上",
-    "- 上午：建议准备周报。",
-    "",
-    "## 逾期处理",
-    "- 当前查询结果中的逾期任务按事实处理；安排建议不改变 Todoist。",
-    "",
-    "## 未来 7 天风险",
-    `- 截止日期：${task.deadlineDate}（来源：${task.url}）。`,
-    "",
-    "## 15 分钟立即行动",
-    "- 建议先打开周报草稿并列出本周三条进展。",
-    "",
-  ].join("\n");
-}
+type WriteFileInput = {
+  path: string;
+  content: string;
+};
 
-function createPlanModel(options: { calls: string[] }) {
+function createPlanModel(options: {
+  calls: string[];
+  todoistResults: RecordValue[];
+  writeInputs: WriteFileInput[];
+}) {
   return new MockLanguageModelV3({
     doStream: async ({ prompt }) => {
+      assert.ok(
+        containsExactString(prompt, todoistPlanSaveInstructions),
+        "the mock model must receive the production Todoist plan-save instructions",
+      );
       const results = currentTurnToolResults(prompt);
       const todoistResult = results.find((result) => result.toolName === "todoist_list_tasks");
       const writeResult = results.find((result) => result.toolName === "write_file");
@@ -204,11 +191,14 @@ function createPlanModel(options: { calls: string[] }) {
         const value = jsonResult(todoistResult);
         assert.ok(value);
         assert.equal(value.ok, true);
-        options.calls.push("write_file");
-        return toolCallResponse("write_file", "write-file-call", {
+        options.todoistResults.push(value);
+        const input: WriteFileInput = {
           path: "notes/2026-09-11-plan.md",
-          content: markdownFromQuery(value),
-        });
+          content: fixedWriteContent,
+        };
+        options.writeInputs.push(input);
+        options.calls.push("write_file");
+        return toolCallResponse("write_file", "write-file-call", input);
       }
 
       if (isDenied(writeResult)) return textResponse("未保存：用户拒绝了写入。");
@@ -252,7 +242,9 @@ async function createFixture(options: { writeDenied: boolean }) {
     { notify: () => undefined },
   );
   const calls: string[] = [];
-  const model = createPlanModel({ calls });
+  const todoistResults: RecordValue[] = [];
+  const writeInputs: WriteFileInput[] = [];
+  const model = createPlanModel({ calls, todoistResults, writeInputs });
   const store = new InMemoryAgentStore();
   const runtime = new DefaultAgentRuntime({
     catalog: new InMemoryAgentCatalog([definition]),
@@ -264,7 +256,18 @@ async function createFixture(options: { writeDenied: boolean }) {
     store,
   });
 
-  return { root, output, rendered, host, calls, confirmedTools, runtime, store };
+  return {
+    root,
+    output,
+    rendered,
+    host,
+    calls,
+    todoistResults,
+    writeInputs,
+    confirmedTools,
+    runtime,
+    store,
+  };
 }
 
 function userMessage(text: string): UIMessage {
@@ -272,7 +275,7 @@ function userMessage(text: string): UIMessage {
 }
 
 describe("Stage 7-3 Todoist plan save acceptance", () => {
-  it("queries planning tasks, confirms both tools, writes Markdown, and commits the Run", async () => {
+  it("connects Todoist query and file write through confirmations, then commits the Run", async () => {
     const fixture = await createFixture({ writeDenied: false });
     try {
       const handle = await fixture.runtime.run({
@@ -284,19 +287,18 @@ describe("Stage 7-3 Todoist plan save acceptance", () => {
 
       assert.equal(result.status, "completed");
       assert.deepEqual(fixture.calls, ["todoist_list_tasks", "write_file"]);
+      assert.equal(fixture.todoistResults.length, 1);
+      assert.equal(fixture.todoistResults[0]?.ok, true);
       assert.deepEqual(fixture.confirmedTools, ["todoist_list_tasks", "write_file"]);
-      assert.match(fixture.rendered.join(""), /Tool: todoist_list_tasks/);
-      assert.match(fixture.rendered.join(""), /Tool: write_file/);
+      assert.equal(fixture.writeInputs.length, 1);
+      const writeInput = fixture.writeInputs[0]!;
+      const rendered = fixture.rendered.join("");
+      assert.ok(rendered.indexOf("Tool: todoist_list_tasks") < rendered.indexOf("Tool: write_file"));
+      assert.ok(rendered.includes(`Path: ${JSON.stringify(writeInput.path)}`));
+      assert.ok(rendered.includes(`Content: ${JSON.stringify(writeInput.content)}`));
 
       const content = await readFile(join(fixture.root, "notes/2026-09-11-plan.md"), "utf8");
-      assert.match(content, /# 今日计划｜2026-09-11/);
-      assert.match(content, /准备周报/);
-      assert.match(content, /Asia\/Shanghai/);
-      assert.match(content, /## 今日三件最重要的事/);
-      assert.match(content, /## 上午 \/ 下午 \/ 晚上/);
-      assert.match(content, /## 逾期处理/);
-      assert.match(content, /## 未来 7 天风险/);
-      assert.match(content, /## 15 分钟立即行动/);
+      assert.equal(content, writeInput.content);
 
       const messages = await fixture.store.getMessages("stage73-thread");
       assert.equal(messages[0]?.role, "user");
@@ -326,6 +328,7 @@ describe("Stage 7-3 Todoist plan save acceptance", () => {
       const result = await handle.result;
 
       assert.equal(result.status, "completed");
+      assert.deepEqual(fixture.calls, ["todoist_list_tasks", "write_file"]);
       assert.deepEqual(fixture.confirmedTools, ["todoist_list_tasks", "write_file"]);
       await assert.rejects(readFile(join(fixture.root, "notes/2026-09-11-plan.md")), { code: "ENOENT" });
       const messages = await fixture.store.getMessages("stage73-denied-thread");
