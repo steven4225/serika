@@ -9,11 +9,11 @@ import {
 } from "@aisdk-agent/core";
 import {
   AiSdkAgentLoop,
-  createConfiguredModel,
   InMemoryModelRegistry,
   ToolRegistry,
 } from "@aisdk-agent/ai-sdk-adapter";
 import { resolveWorkspace } from "./cli-options.js";
+import { configureCliModel } from "./model-config.js";
 import { createModuleHost } from "./module-host.js";
 import {
   createTodoistModule,
@@ -97,38 +97,6 @@ export function createScheduledDemoModel() {
   return new MockLanguageModelV3({
     doStream: async () => textResponse("Scheduled task completed."),
   });
-}
-
-function configureModel(): {
-  modelAlias: string;
-  model: ReturnType<typeof createScheduledDemoModel> | ReturnType<typeof createConfiguredModel>;
-} {
-  const modelMode = process.env.RUNLOOM_MODEL ?? "mock";
-  if (modelMode !== "mock" && modelMode !== "minimax-m3") {
-    throw new Error(
-      `Unsupported RUNLOOM_MODEL: ${modelMode}. Use mock or minimax-m3`,
-    );
-  }
-
-  if (modelMode === "mock") {
-    return { modelAlias: "mock/default", model: createScheduledDemoModel() };
-  }
-
-  const apiKey = process.env.MINIMAX_API_KEY?.trim();
-  if (!apiKey) {
-    throw new Error(
-      "MINIMAX_API_KEY is required when RUNLOOM_MODEL=minimax-m3",
-    );
-  }
-  return {
-    modelAlias: "minimax/m3",
-    model: createConfiguredModel({
-      adapter: "openai-compatible",
-      baseURL: process.env.MINIMAX_BASE_URL ?? "https://api.minimax.io/v1",
-      modelId: process.env.MINIMAX_MODEL_ID ?? "MiniMax-M3",
-      apiKey,
-    }),
-  };
 }
 
 export const todoistTaskWorkerInstructions = [
@@ -219,7 +187,7 @@ export async function startTaskWorker(args: readonly string[]): Promise<void> {
   const workspaceRoot = await resolveWorkspace(workspace);
   // Validate the model configuration before creating or acquiring the worker
   // lock, so a bad environment cannot temporarily claim a workspace.
-  const { modelAlias, model } = configureModel();
+  const { modelAlias, model } = configureCliModel(createScheduledDemoModel);
   let todoistOptions: TodoistModuleOptions | undefined;
   let todoistTimeZone: string | undefined;
   if (todoist) {

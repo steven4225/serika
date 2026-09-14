@@ -27,7 +27,7 @@ function invalidConfig(message: string): AgentError {
 export function createConfiguredModel(
   config: ModelConnectionConfig,
   options?: { fetch?: typeof fetch },
-): LanguageModel {
+): Exclude<LanguageModel, string> {
   if (typeof config !== "object" || config === null) {
     throw invalidConfig("Model connection config must be an object");
   }
