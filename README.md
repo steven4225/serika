@@ -160,6 +160,39 @@ Stage 7-3 将 Todoist 只读查询与已有 workspace 文件工具组合起来�
 
 Stage 7-3 的 `pnpm typecheck` / `pnpm test` 只验证生产 instructions 已到达模型边界、Todoist → `write_file` 的离线接线、两次确认和文件副作用边界；组合测试使用固定文本夹具，不证明真实模型会写出五个章节、缺路径先问、失败不保存或空任务不凑数。`write_file.test.ts` 单独证明 `FILE_EXISTS` 不覆盖。完整验收还需提供真实模型和 `TODOIST_API_TOKEN`，使用独立测试笔记目录与一个尚不存在的 `.md` 路径，完成两次 `y/n` 并检查任务来源、日期、完整性说明、五个章节及实际文件；凭据缺失时不能把离线测试当作真实 Todoist 验收。
 
+### DeepSeek
+
+CLI/TUI 和 worker 均支持 `RUNLOOM_MODEL=deepseek`；未指定时仍使用 mock。复用现有 OpenAI-compatible adapter，不新增执行循环，也不改变工具确认、worker 白名单或超时预算。
+
+在本地、不提交的 `.env` 中配置（不要把真实 Key 发到聊天或写入版本内配置）：
+
+```dotenv
+RUNLOOM_MODEL=deepseek
+DEEPSEEK_API_KEY=<your-deepseek-api-key>
+```
+
+默认地址为 `https://api.deepseek.com`，模型为 `deepseek-flash`。可选 `DEEPSEEK_BASE_URL` / `DEEPSEEK_MODEL_ID` 覆盖地址和模型，例如 `deepseek-v4-pro`。覆盖地址会将 Key 发往该地址，只应使用可信端点。缺 Key 会在启动时失败，worker 不领取任务；不会借用 MiniMax Key 或回退到 mock。
+
+首次可先用本地资料目录，不启用 Todoist。以下命令在仓库根目录执行；已有配置可替换 `--workspace` 为 `--config`，不能同时使用两者：
+
+```bash
+pnpm build
+mkdir -p ./var/notes
+RUNLOOM_MODEL=deepseek node --env-file=.env examples/cli/dist/index.js --tui ./var/runloom --thread personal --workspace ./var/notes
+```
+
+例如输入：`把“本周只推进 Runloom 的资料保存与找回”保存为 first-note.md。` 核对路径和正文后由操作人输入 `y/n`。使用相同目录和 thread 重启后，可请求查找并读取该笔记。`.env` 不会由普通 CLI/worker 自动加载，上述命令通过 Node 的 `--env-file` 加载。
+
+worker 使用同一模型配置，但不读取 TUI `--config`；加 `--todoist` 仍需单独配置 `TODOIST_API_TOKEN`：
+
+```bash
+RUNLOOM_MODEL=deepseek node --env-file=.env examples/cli/dist/task-worker-entry.js --workspace ./var/notes
+```
+
+此模式明确关闭 thinking。当前循环不回传 `reasoning_content`，而 DeepSeek 思考模式下的工具对话要求回传该字段；本次仅适配非思考模式的文本和工具调用，不宣称支持思考模式或图像输入。默认模型名与参数依据 [DeepSeek 接入文档](https://api-docs.deepseek.com/) 和 [思考模式约定](https://api-docs.deepseek.com/guides/thinking_mode/)。
+
+离线测试覆盖模型选择、请求参数、流式工具调用 → 工具结果回传 → 最终文本，以及缺 Key 时不领取后台任务；不代表真实服务认证、延迟或任务质量已通过。已有后台闭环真实验收可将下节命令的 `RUNLOOM_ACCEPTANCE_MODEL` 改为 `deepseek`；Stage 7 的真实 Todoist 验收仍需单独完成。现有 TUI 每步 5 秒限额保持不变，若真实请求超时应记录结果并单独确认预算调整。
+
 ### MiniMax M3
 
 CLI 默认使用内置 mock 模型。要接入国际版 MiniMax M3，设置 API Key 并切换模型模式：

@@ -12,11 +12,11 @@ import {
 } from "@aisdk-agent/core";
 import {
   AiSdkAgentLoop,
-  createConfiguredModel,
   InMemoryModelRegistry,
   ToolRegistry,
 } from "@aisdk-agent/ai-sdk-adapter";
 import { createDemoModel } from "./demo-model.js";
+import { configureCliModel } from "./model-config.js";
 import { selectModelContext } from "./context-window.js";
 import { parseTuiArgs } from "./cli-options.js";
 import { createMemoryStore } from "./memory-store.js";
@@ -38,29 +38,7 @@ import {
   type ToolConfirmationPrompt,
 } from "./tui.js";
 
-const modelMode = process.env.RUNLOOM_MODEL ?? "mock";
-if (modelMode !== "mock" && modelMode !== "minimax-m3") {
-  throw new Error(
-    `Unsupported RUNLOOM_MODEL: ${modelMode}. Use mock or minimax-m3`,
-  );
-}
-
-const modelAlias = modelMode === "minimax-m3" ? "minimax/m3" : "mock/default";
-const minimaxApiKey = process.env.MINIMAX_API_KEY?.trim();
-if (modelMode === "minimax-m3" && !minimaxApiKey) {
-  throw new Error(
-    "MINIMAX_API_KEY is required when RUNLOOM_MODEL=minimax-m3",
-  );
-}
-const model =
-  modelMode === "minimax-m3"
-    ? createConfiguredModel({
-        adapter: "openai-compatible",
-        baseURL: process.env.MINIMAX_BASE_URL ?? "https://api.minimax.io/v1",
-        modelId: process.env.MINIMAX_MODEL_ID ?? "MiniMax-M3",
-        ...(minimaxApiKey ? { apiKey: minimaxApiKey } : {}),
-      })
-    : createDemoModel();
+const { modelAlias, model } = configureCliModel(createDemoModel);
 
 const args = process.argv.slice(2);
 const tuiMode = args[0] === "--tui";

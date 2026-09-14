@@ -37,7 +37,7 @@ describe("task-worker CLI arguments", () => {
   });
 });
 
-describe("task-worker Todoist startup validation", () => {
+describe("task-worker startup validation", () => {
   async function assertInvalidEnvironmentLeavesTaskScheduled(
     environment: NodeJS.ProcessEnv,
     expectedError: RegExp,
@@ -70,6 +70,13 @@ describe("task-worker Todoist startup validation", () => {
       await rm(root, { recursive: true, force: true });
     }
   }
+
+  it("fails before claiming due tasks when the DeepSeek key is missing", async () => {
+    await assertInvalidEnvironmentLeavesTaskScheduled(
+      { RUNLOOM_MODEL: "deepseek", DEEPSEEK_API_KEY: "" },
+      /DEEPSEEK_API_KEY is required/,
+    );
+  });
 
   it("fails before claiming due tasks when the token is missing", async () => {
     await assertInvalidEnvironmentLeavesTaskScheduled(
