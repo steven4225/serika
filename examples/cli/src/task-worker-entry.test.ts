@@ -16,8 +16,8 @@ describe("task-worker CLI arguments", () => {
       workspace: "./sample",
     });
     assert.deepEqual(
-      parseTaskWorkerArgs(["--workspace", "./sample", "--todoist"]),
-      { workspace: "./sample", todoist: true },
+      parseTaskWorkerArgs(["--workspace", "./sample", "--todoist", "--notify"]),
+      { workspace: "./sample", todoist: true, notify: true },
     );
   });
 
@@ -33,6 +33,10 @@ describe("task-worker CLI arguments", () => {
     assert.throws(
       () => parseTaskWorkerArgs(["--workspace", "./sample", "--todoist", "--todoist"]),
       /at most one --todoist option/,
+    );
+    assert.throws(
+      () => parseTaskWorkerArgs(["--workspace", "./sample", "--notify", "--notify"]),
+      /at most one --notify option/,
     );
   });
 });
