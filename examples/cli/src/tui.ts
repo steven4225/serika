@@ -251,7 +251,14 @@ type CompletedPomodoroAction = {
   summary: string;
 };
 
-type CompletedAction = CompletedFileAction | CompletedPomodoroAction;
+type CompletedTaskAction = {
+  toolName: "task_create";
+  id: string;
+  runAt: string;
+  prompt: string;
+};
+
+type CompletedAction = CompletedFileAction | CompletedPomodoroAction | CompletedTaskAction;
 
 function completedFileAction(event: Extract<AgentEvent, { type: "tool.call.completed" }>): CompletedFileAction | undefined {
   if (event.data.toolName !== "write_file" && event.data.toolName !== "edit_file") {
@@ -333,6 +340,34 @@ function completedPomodoroAction(
   return undefined;
 }
 
+function completedTaskAction(
+  event: Extract<AgentEvent, { type: "tool.call.completed" }>,
+): CompletedTaskAction | undefined {
+  if (event.data.toolName !== "task_create") return undefined;
+  const output = event.data.output;
+  if (typeof output !== "object" || output === null) return undefined;
+  const result = output as {
+    ok?: unknown;
+    value?: { id?: unknown; runAt?: unknown; prompt?: unknown };
+  };
+  if (
+    result.ok !== true ||
+    typeof result.value !== "object" ||
+    result.value === null ||
+    typeof result.value.id !== "string" ||
+    typeof result.value.runAt !== "string" ||
+    typeof result.value.prompt !== "string"
+  ) {
+    return undefined;
+  }
+  return {
+    toolName: "task_create",
+    id: result.value.id,
+    runAt: result.value.runAt,
+    prompt: result.value.prompt,
+  };
+}
+
 function renderHistory(output: Writable, messages: UIMessage[]): void {
   if (messages.length === 0) return;
 
@@ -379,6 +414,8 @@ async function renderEvents(
         if (action !== undefined) completedActions.push(action);
         const pomodoroAction = completedPomodoroAction(event);
         if (pomodoroAction !== undefined) completedActions.push(pomodoroAction);
+        const taskAction = completedTaskAction(event);
+        if (taskAction !== undefined) completedActions.push(taskAction);
         break;
       }
       default:
@@ -412,6 +449,11 @@ function renderResult(
     for (const action of completedActions) {
       if ("path" in action) {
         write(output, `- ${action.toolName}: ${action.path} (${action.bytes} bytes)\n`);
+      } else if (action.toolName === "task_create") {
+        write(
+          output,
+          `- task_create: 已创建任务 ${action.id}，执行时间 ${action.runAt}，内容：${action.prompt}\n`,
+        );
       } else {
         write(output, `- ${action.toolName}: ${action.summary}\n`);
       }

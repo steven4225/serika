@@ -1221,6 +1221,86 @@ describe("runTui", () => {
     );
   });
 
+  it("reports a created task when the run fails afterward", async () => {
+    const input = new PassThrough();
+    const output = outputBuffer();
+    const events = asyncQueue<AgentEvent>();
+    const runtime = testRuntime([
+      handleFor({
+        runId: "run-task",
+        threadId: "thread-task",
+        events,
+        result: Promise.resolve(failedResult("run-task", "thread-task")),
+      }),
+    ]);
+
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: runtime.runtime,
+      store: { getMessages: async () => [] },
+      input,
+      output,
+    });
+    await nextTurn();
+    input.write("一分钟后提醒我喝水。\n");
+    await waitFor(() => runtime.requests.length === 1);
+    events.push(
+      toolCompletedEvent("run-task", "thread-task", "task_create", {
+        ok: true,
+        value: {
+          id: "task-1",
+          runAt: "2026-09-15T02:00:00.000Z",
+          prompt: "提醒我喝水",
+        },
+      }),
+    );
+    events.close();
+    input.end();
+    await tui;
+
+    assert.match(
+      output.text(),
+      /已完成的操作：\n- task_create: 已创建任务 task-1，执行时间 2026-09-15T02:00:00\.000Z，内容：提醒我喝水/,
+    );
+  });
+
+  it("does not report a task when creation is denied or fails", async () => {
+    const input = new PassThrough();
+    const output = outputBuffer();
+    const events = asyncQueue<AgentEvent>();
+    const runtime = testRuntime([
+      handleFor({
+        runId: "run-task-denied",
+        threadId: "thread-task-denied",
+        events,
+        result: Promise.resolve(failedResult("run-task-denied", "thread-task-denied")),
+      }),
+    ]);
+
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: runtime.runtime,
+      store: { getMessages: async () => [] },
+      input,
+      output,
+    });
+    await nextTurn();
+    input.write("取消刚才的提醒。\n");
+    await waitFor(() => runtime.requests.length === 1);
+    events.push(
+      toolCompletedEvent("run-task-denied", "thread-task-denied", "task_create", {
+        ok: false,
+        error: { code: "TASK_CREATE_FAILED", message: "user denied" },
+      }),
+    );
+    events.close();
+    input.end();
+    await tui;
+
+    assert.doesNotMatch(output.text(), /已完成的操作/);
+    assert.doesNotMatch(output.text(), /task-1/);
+  });
+
   it("exits when Ctrl+C is pressed while idle without submitting a run", async () => {
     const input = ttyInput();
     const output = ttyOutput();
