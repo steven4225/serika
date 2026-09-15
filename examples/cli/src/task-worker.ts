@@ -140,7 +140,16 @@ async function finishTask(
   // started, a successful stop request must not turn a committed outcome into
   // a false "not written" result.
   const finished = await options.store.finish(task.id, outcome);
-  return unwrap(finished);
+  const terminalTask = unwrap(finished);
+  try {
+    // The durable terminal write is the source of truth. A notification hook
+    // is best effort and must never turn a finished task back into a worker
+    // failure or cause it to be replayed.
+    options.onTaskFinished?.(terminalTask);
+  } catch {
+    // Notification implementations own reporting their asynchronous failures.
+  }
+  return terminalTask;
 }
 
 async function executeTask(
@@ -217,13 +226,11 @@ async function executeTask(
     options.signal.removeEventListener("abort", cancelHandle);
   }
 
-  const finished = await finishTask(
+  return finishTask(
     options,
     task,
     outcomeForResult(result, options.signal.aborted),
   );
-  options.onTaskFinished?.(finished);
-  return finished;
 }
 
 /**

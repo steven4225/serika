@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import type { RunHandle, RunRequest, RunResult } from "@aisdk-agent/core";
 import type {
   TaskFinish,
+  TaskRecord,
   TaskRecordV3,
   TaskStore,
   TaskStoreResult,
@@ -129,6 +130,7 @@ describe("task worker", () => {
     const controller = new AbortController();
     const requests: RunRequest[] = [];
     const finished: TaskFinish[] = [];
+    const notified: TaskRecord[] = [];
     const store = fakeStore(task(), {
       onFinish: (outcome) => {
         finished.push(outcome);
@@ -153,6 +155,7 @@ describe("task worker", () => {
       signal: controller.signal,
       pollIntervalMs: 1,
       generateId: () => "message-1",
+      onTaskFinished: (terminalTask) => notified.push(terminalTask),
     });
 
     assert.equal(requests.length, 1);
@@ -169,11 +172,14 @@ describe("task worker", () => {
     assert.deepEqual(finished, [
       { status: "completed", runId: "run-1", resultText: "Study plan" },
     ]);
+    assert.equal(notified.length, 1);
+    assert.equal(notified[0]?.status, "completed");
   });
 
   it("maps cancellation of the current run to interrupted without replay", async () => {
     const controller = new AbortController();
     const finished: TaskFinish[] = [];
+    const notified: TaskRecord[] = [];
     const store = fakeStore(task(), {
       onFinish: (outcome) => {
         finished.push(outcome);
@@ -213,6 +219,7 @@ describe("task worker", () => {
       runtime,
       signal: controller.signal,
       pollIntervalMs: 1,
+      onTaskFinished: (terminalTask) => notified.push(terminalTask),
     });
     await new Promise((resolve) => setImmediate(resolve));
     controller.abort("test-stop");
@@ -226,6 +233,8 @@ describe("task worker", () => {
       code: "TASK_INTERRUPTED",
       message: "Worker stopped while the task was running",
     });
+    assert.equal(notified.length, 1);
+    assert.equal(notified[0]?.status, "interrupted");
   });
 
   it("records runtime startup failure and continues only after terminal write", async () => {
@@ -248,6 +257,9 @@ describe("task worker", () => {
       runtime,
       signal: controller.signal,
       pollIntervalMs: 1,
+      onTaskFinished: () => {
+        throw new Error("desktop notification failed");
+      },
     });
 
     assert.deepEqual(finished, [

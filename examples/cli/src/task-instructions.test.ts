@@ -1,9 +1,51 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { simulateReadableStream } from "ai";
+import { MockLanguageModelV3 } from "ai/test";
+import {
+  DefaultAgentRuntime,
+  InMemoryAgentCatalog,
+  InMemoryAgentStore,
+} from "@aisdk-agent/core";
+import {
+  AiSdkAgentLoop,
+  InMemoryModelRegistry,
+  ToolRegistry,
+} from "@aisdk-agent/ai-sdk-adapter";
 import {
   buildTaskContextMessage,
   buildTaskInstructions,
 } from "./task-instructions.js";
+
+const runtimeDefinition = {
+  id: "task-instructions-runtime-test",
+  version: "1",
+  instructions: "Answer briefly.",
+  model: "task-instructions-test-model",
+  tools: [],
+  limits: { maxSteps: 1, totalTimeoutMs: 1_000, stepTimeoutMs: 500 },
+};
+
+function textResponse(text: string) {
+  return {
+    stream: simulateReadableStream({
+      chunks: [
+        { type: "stream-start" as const, warnings: [] },
+        { type: "text-start" as const, id: "answer" },
+        { type: "text-delta" as const, id: "answer", delta: text },
+        { type: "text-end" as const, id: "answer" },
+        {
+          type: "finish" as const,
+          finishReason: { unified: "stop" as const, raw: undefined },
+          usage: {
+            inputTokens: { total: 3, noCache: 3, cacheRead: undefined, cacheWrite: undefined },
+            outputTokens: { total: 1, text: 1, reasoning: undefined },
+          },
+        },
+      ],
+    }),
+  };
+}
 
 describe("task instructions", () => {
   it("gives the model a verifiable current-time context and task contract", () => {
@@ -43,5 +85,61 @@ describe("task instructions", () => {
     assert.match(firstText.text, /2026-09-15T01:02:03\.000Z/);
     assert.doesNotMatch(firstText.text, /2026-09-15T01:03:03\.000Z/);
     assert.match(secondText.text, /2026-09-15T01:03:03\.000Z/);
+  });
+
+  it("refreshes task time context across real Runtime runs without saving it", async () => {
+    const store = new InMemoryAgentStore();
+    const prompts: string[] = [];
+    const model = new MockLanguageModelV3({
+      doStream: async ({ prompt }) => {
+        prompts.push(JSON.stringify(prompt));
+        return textResponse("done");
+      },
+    });
+    const times = [
+      new Date("2026-09-15T01:02:03.000Z"),
+      new Date("2026-09-15T01:03:03.000Z"),
+    ];
+    let contextCalls = 0;
+    const runtime = new DefaultAgentRuntime({
+      catalog: new InMemoryAgentCatalog([runtimeDefinition]),
+      loop: new AiSdkAgentLoop({
+        models: new InMemoryModelRegistry({ [runtimeDefinition.model]: model }),
+        tools: new ToolRegistry(),
+      }),
+      store,
+      prepareModelContext: ({ messages }) => [
+        buildTaskContextMessage({
+          now: times[contextCalls++]!,
+          timeZone: "Asia/Shanghai",
+        }),
+        ...messages,
+      ],
+    });
+
+    for (const [index, text] of ["一分钟后提醒我喝水", "再安排一分钟后提醒我站起来"].entries()) {
+      const handle = await runtime.run({
+        agentId: runtimeDefinition.id,
+        threadId: "task-instructions-runtime",
+        messages: [{
+          id: `user-${index}`,
+          role: "user",
+          parts: [{ type: "text", text }],
+        }],
+      });
+      assert.equal((await handle.result).status, "completed");
+    }
+
+    assert.equal(contextCalls, 2);
+    assert.equal(prompts.length, 2);
+    assert.match(prompts[0]!, /2026-09-15T01:02:03\.000Z/);
+    assert.doesNotMatch(prompts[0]!, /2026-09-15T01:03:03\.000Z/);
+    assert.match(prompts[1]!, /2026-09-15T01:03:03\.000Z/);
+    assert.doesNotMatch(prompts[1]!, /2026-09-15T01:02:03\.000Z/);
+    const transcript = await store.getMessages("task-instructions-runtime");
+    assert.equal(
+      transcript.some((message) => message.id === "runloom-task-instructions"),
+      false,
+    );
   });
 });

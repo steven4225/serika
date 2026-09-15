@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { spawn } from "node:child_process";
 import { simulateReadableStream, type LanguageModel } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import {
@@ -20,6 +21,7 @@ import {
   type TodoistModuleOptions,
 } from "./modules/todoist-module.js";
 import { createTaskStore, taskWorkerLockPath } from "./task-store.js";
+import type { TaskRecord } from "./task-store.js";
 import { runTaskWorker } from "./task-worker.js";
 import { tryAcquireFlock } from "./flock.js";
 import { canonicalTimeZone } from "./todoist.js";
@@ -27,12 +29,14 @@ import { canonicalTimeZone } from "./todoist.js";
 interface TaskWorkerArgs {
   workspace: string;
   todoist?: true;
+  notify?: true;
 }
 
 export function parseTaskWorkerArgs(args: readonly string[]): TaskWorkerArgs {
   const parsed = args[0] === "--" ? args.slice(1) : args;
   let workspace: string | undefined;
   let todoist = false;
+  let notify = false;
   for (let index = 0; index < parsed.length; index += 1) {
     const arg = parsed[index];
     if (arg === "--workspace") {
@@ -53,13 +57,111 @@ export function parseTaskWorkerArgs(args: readonly string[]): TaskWorkerArgs {
       todoist = true;
       continue;
     }
+    if (arg === "--notify") {
+      if (notify) {
+        throw new Error("task-worker accepts at most one --notify option");
+      }
+      notify = true;
+      continue;
+    }
     throw new Error(`Unknown task-worker option: ${arg}`);
   }
 
   if (workspace === undefined) {
     throw new Error("task-worker requires --workspace <directory>");
   }
-  return { workspace, ...(todoist ? { todoist: true as const } : {}) };
+  return {
+    workspace,
+    ...(todoist ? { todoist: true as const } : {}),
+    ...(notify ? { notify: true as const } : {}),
+  };
+}
+
+function taskStatusLabel(status: TaskRecord["status"]): string {
+  switch (status) {
+    case "completed":
+      return "已完成";
+    case "failed":
+      return "失败";
+    case "cancelled":
+      return "已取消";
+    case "interrupted":
+      return "已中断";
+    default:
+      return status;
+  }
+}
+
+function taskNotificationMessage(task: TaskRecord): string {
+  const detail = task.status === "completed"
+    ? task.resultText?.trim() || "任务完成，无文本输出"
+    : task.error === null
+      ? "没有附加错误信息"
+      : `${task.error.code}: ${task.error.message}`;
+  const clip = (value: string, limit: number): string =>
+    value.length > limit ? `${value.slice(0, limit - 3)}...` : value;
+  return `任务 ${task.id} ${taskStatusLabel(task.status)}（${task.runAt}）：` +
+    `${clip(task.prompt, 160)}\n${clip(detail, 240)}`;
+}
+
+function escapeAppleScriptString(value: string): string {
+  return value
+    .replaceAll("\\", "\\\\")
+    .replaceAll('"', '\\"')
+    .replaceAll("\n", " ");
+}
+
+/** Create the explicit --notify callback; the callback is best effort. */
+export function createTaskDesktopNotifier(
+  write: (text: string) => void = (text) => process.stderr.write(text),
+): (task: TaskRecord) => void {
+  const reportFailure = (error: unknown): void => {
+    try {
+      write(`task-worker notification failed: ${errorMessage(error)}\n`);
+    } catch {
+      // Reporting must not throw after the durable task terminal write.
+    }
+  };
+
+  return (task): void => {
+    const message = taskNotificationMessage(task);
+    if (process.platform !== "darwin") {
+      reportFailure(new Error("macOS desktop notifications are unavailable"));
+      return;
+    }
+
+    let settled = false;
+    let child: ReturnType<typeof spawn>;
+    try {
+      child = spawn(
+        "osascript",
+        [
+          "-e",
+          `display notification "${escapeAppleScriptString(message)}" with title "Runloom"`,
+        ],
+        { stdio: "ignore" },
+      );
+    } catch (error) {
+      reportFailure(error);
+      return;
+    }
+    child.once("error", (error) => {
+      if (settled) return;
+      settled = true;
+      reportFailure(error);
+    });
+    child.once("close", (code, signal) => {
+      if (settled) return;
+      settled = true;
+      if (code !== 0) {
+        reportFailure(
+          new Error(
+            `osascript exited with ${signal === null ? `code ${String(code)}` : `signal ${signal}`}`,
+          ),
+        );
+      }
+    });
+  };
 }
 
 function textResponse(text: string) {
@@ -183,7 +285,7 @@ export function createTaskWorkerAgent(
 }
 
 export async function startTaskWorker(args: readonly string[]): Promise<void> {
-  const { workspace, todoist = false } = parseTaskWorkerArgs(args);
+  const { workspace, todoist = false, notify = false } = parseTaskWorkerArgs(args);
   const workspaceRoot = await resolveWorkspace(workspace);
   // Validate the model configuration before creating or acquiring the worker
   // lock, so a bad environment cannot temporarily claim a workspace.
@@ -245,6 +347,7 @@ export async function startTaskWorker(args: readonly string[]): Promise<void> {
       store: taskStore,
       runtime: agent.runtime,
       signal: controller.signal,
+      ...(notify ? { onTaskFinished: createTaskDesktopNotifier() } : {}),
     });
   } finally {
     process.removeListener("SIGINT", stop);
