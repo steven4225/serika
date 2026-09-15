@@ -152,6 +152,23 @@ function cancelledResult(runId: string, threadId: string): RunResult {
   };
 }
 
+function failedResult(runId: string, threadId: string): RunResult {
+  return {
+    runId,
+    threadId,
+    status: "failed",
+    text: "",
+    steps: 1,
+    usage: {},
+    error: {
+      code: "MODEL_BAD_RESPONSE",
+      message: "Model stream returned an error",
+      retryable: false,
+      phase: "model",
+    },
+  };
+}
+
 function messageDeltaEvent(
   runId: string,
   threadId: string,
@@ -193,6 +210,27 @@ function toolRequestedEvent(
     threadId,
     sequence: 1,
     data: { toolCallId: `${runId}-tool-call`, toolName, input: {} },
+  };
+}
+
+function toolCompletedEvent(
+  runId: string,
+  threadId: string,
+  toolName: string,
+  output: unknown,
+): AgentEvent {
+  return {
+    id: `${runId}-tool-completed`,
+    type: "tool.call.completed",
+    occurredAt: new Date(0).toISOString(),
+    runId,
+    threadId,
+    sequence: 2,
+    data: {
+      toolCallId: `${runId}-tool-call`,
+      toolName,
+      output,
+    },
   };
 }
 
@@ -1099,6 +1137,90 @@ describe("runTui", () => {
     assert.doesNotMatch(output.text(), /Run could not start/);
   });
 
+  it("reports a completed edit_file action when the run fails afterward", async () => {
+    const input = new PassThrough();
+    const output = outputBuffer();
+    const events = asyncQueue<AgentEvent>();
+    const runtime = testRuntime([
+      handleFor({
+        runId: "run-1",
+        threadId: "thread-1",
+        events,
+        result: Promise.resolve(failedResult("run-1", "thread-1")),
+      }),
+    ]);
+
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: runtime.runtime,
+      store: { getMessages: async () => [] },
+      input,
+      output,
+    });
+    await nextTurn();
+    input.write("Update notes.\n");
+    await waitFor(() => runtime.requests.length === 1);
+    events.push(
+      toolCompletedEvent("run-1", "thread-1", "edit_file", {
+        ok: true,
+        path: "notes/today.md",
+        bytes: 17,
+      }),
+    );
+    events.close();
+    input.end();
+    await tui;
+
+    assert.match(
+      output.text(),
+      /已完成的操作：\n- edit_file: notes\/today\.md \(17 bytes\)/,
+    );
+  });
+
+  it("reports a started pomodoro when the run fails afterward", async () => {
+    const input = new PassThrough();
+    const output = outputBuffer();
+    const events = asyncQueue<AgentEvent>();
+    const runtime = testRuntime([
+      handleFor({
+        runId: "run-pomodoro",
+        threadId: "thread-pomodoro",
+        events,
+        result: Promise.resolve(failedResult("run-pomodoro", "thread-pomodoro")),
+      }),
+    ]);
+
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: runtime.runtime,
+      store: { getMessages: async () => [] },
+      input,
+      output,
+    });
+    await nextTurn();
+    input.write("保存资料并开始一个番茄钟。\n");
+    await waitFor(() => runtime.requests.length === 1);
+    events.push(
+      toolCompletedEvent("run-pomodoro", "thread-pomodoro", "pomodoro_start", {
+        outcome: "started",
+        status: {
+          state: "running",
+          durationMinutes: 25,
+          endsAt: "2026-09-15T01:25:00.000Z",
+          remainingSeconds: 1_500,
+        },
+      }),
+    );
+    events.close();
+    input.end();
+    await tui;
+
+    assert.match(
+      output.text(),
+      /已完成的操作：\n- pomodoro_start: 已启动 25 分钟番茄钟，预计 2026-09-15T01:25:00\.000Z 结束。/,
+    );
+  });
+
   it("exits when Ctrl+C is pressed while idle without submitting a run", async () => {
     const input = ttyInput();
     const output = ttyOutput();
@@ -1320,6 +1442,41 @@ describe("runTui", () => {
 });
 
 describe("createToolConfirmation", () => {
+  it("allows pomodoro tools without asking for y or n", async () => {
+    const output = outputBuffer();
+    const confirmation = createToolConfirmation(output);
+
+    for (const toolName of [
+      "pomodoro_start",
+      "pomodoro_status",
+      "pomodoro_cancel",
+    ]) {
+      const pending = confirmation.beforeToolExecute(
+        toolInput(toolName, new AbortController().signal),
+      );
+      assert.deepEqual(
+        await Promise.resolve(pending),
+        { allow: true },
+      );
+    }
+    assert.equal(output.text(), "");
+  });
+
+  it("still rejects an already aborted pomodoro call", async () => {
+    const output = outputBuffer();
+    const confirmation = createToolConfirmation(output);
+    const controller = new AbortController();
+    controller.abort(new Error("cancelled"));
+
+    await assert.rejects(
+      Promise.resolve(
+        confirmation.beforeToolExecute(toolInput("pomodoro_start", controller.signal)),
+      ),
+      /cancelled/,
+    );
+    assert.equal(output.text(), "");
+  });
+
   it("identifies a read_file path and explains where file contents go", async () => {
     const output = outputBuffer();
     const confirmation = createToolConfirmation(output);
@@ -2009,6 +2166,7 @@ describe("runTui write_file confirmation", () => {
       await assert.rejects(readFile(join(fixture.workspace, "created.txt")), {
         code: "ENOENT",
       });
+      assert.doesNotMatch(fixture.output.text(), /已完成的操作/);
       await waitFor(() => fixture.store.saveCount === 1);
       input.end();
       await tui;
@@ -2069,6 +2227,10 @@ describe("runTui write_file confirmation", () => {
       assert.equal(
         await readFile(join(fixture.workspace, "created.txt"), "utf8"),
         "created",
+      );
+      assert.match(
+        fixture.output.text(),
+        /已完成的操作：\n- write_file: created\.txt \(7 bytes\)/,
       );
       input.end();
       await tui;

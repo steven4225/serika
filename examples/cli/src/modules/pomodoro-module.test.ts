@@ -61,6 +61,7 @@ function makeTest(
         now: clock.now,
         setTimeout: clock.setTimeout,
         clearTimeout: clock.clearTimeout,
+        desktopNotifier: () => undefined,
         ...options,
       }),
     ],
@@ -215,6 +216,45 @@ describe("createPomodoroModule", () => {
       status: { state: "idle" },
     });
     assert.deepEqual(notifications, ["番茄钟结束，已完成 1 分钟专注。"]);
+    host.dispose();
+  });
+
+  it("sends a desktop notification and sound request when the timer ends", async () => {
+    const desktopCalls: string[] = [];
+    const { host, clock } = makeTest({
+      desktopNotifier: (message) => desktopCalls.push(message),
+    });
+    const startTool = toolByName(host.tools, "pomodoro_start");
+
+    await executeTool(startTool, { minutes: 1 }, toolOptions());
+    clock.advance(60_000);
+
+    assert.deepEqual(desktopCalls, ["番茄钟结束，已完成 1 分钟专注。"]);
+    host.dispose();
+  });
+
+  it("reports desktop failures after completion without keeping the timer running", async () => {
+    const { host, clock, notifications } = makeTest({
+      desktopNotifier: (_message, onFailure) => {
+        onFailure("notification", new Error("notification unavailable"));
+        onFailure("sound", new Error("sound unavailable"));
+      },
+    });
+    const startTool = toolByName(host.tools, "pomodoro_start");
+    const statusTool = toolByName(host.tools, "pomodoro_status");
+
+    await executeTool(startTool, { minutes: 1 }, toolOptions());
+    clock.advance(60_000);
+
+    assert.deepEqual(notifications, [
+      "番茄钟结束，已完成 1 分钟专注。",
+      "桌面通知发送失败：notification unavailable",
+      "提示音发送失败：sound unavailable",
+    ]);
+    assert.deepEqual(result(await executeTool(statusTool, {}, toolOptions())), {
+      outcome: "status",
+      status: { state: "idle" },
+    });
     host.dispose();
   });
 
