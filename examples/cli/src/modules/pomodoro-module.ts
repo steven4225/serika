@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import { tool } from "ai";
 import { z } from "zod";
 import type { RegisteredTool } from "@aisdk-agent/ai-sdk-adapter";
@@ -12,7 +13,17 @@ export interface PomodoroModuleOptions {
   now?: () => number;
   setTimeout?: (callback: () => void, delayMs: number) => unknown;
   clearTimeout?: (handle: unknown) => void;
+  /**
+   * Send the completion notification outside the TUI. The callback is
+   * reported separately so a desktop failure never changes timer state.
+   */
+  desktopNotifier?: PomodoroDesktopNotifier;
 }
+
+export type PomodoroDesktopNotifier = (
+  message: string,
+  onFailure: (kind: "notification" | "sound", error: unknown) => void,
+) => void;
 
 export type PomodoroStatus =
   | { state: "idle" }
@@ -102,12 +113,77 @@ function isWholeMinute(value: number): boolean {
   return Number.isInteger(value) && value >= MIN_MINUTES && value <= MAX_MINUTES;
 }
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function runMacCommand(
+  command: string,
+  args: readonly string[],
+  kind: "notification" | "sound",
+  onFailure: (kind: "notification" | "sound", error: unknown) => void,
+): void {
+  let settled = false;
+  let child: ReturnType<typeof spawn>;
+  try {
+    child = spawn(command, [...args], { stdio: "ignore" });
+  } catch (error) {
+    onFailure(kind, error);
+    return;
+  }
+  child.once("error", (error) => {
+    if (settled) return;
+    settled = true;
+    onFailure(kind, error);
+  });
+  child.once("close", (code, signal) => {
+    if (settled) return;
+    settled = true;
+    if (code !== 0) {
+      onFailure(
+        kind,
+        new Error(
+          `${command} exited with ${signal === null ? `code ${String(code)}` : `signal ${signal}`}`,
+        ),
+      );
+    }
+  });
+}
+
+function notifyMacDesktop(
+  message: string,
+  onFailure: (kind: "notification" | "sound", error: unknown) => void,
+): void {
+  if (process.platform !== "darwin") {
+    onFailure("notification", new Error("macOS desktop notifications are unavailable"));
+    return;
+  }
+
+  const escapedMessage = message
+    .replaceAll("\\", "\\\\")
+    .replaceAll('"', '\\"')
+    .replaceAll("\n", " ");
+  runMacCommand(
+    "osascript",
+    ["-e", `display notification "${escapedMessage}" with title "Runloom"`],
+    "notification",
+    onFailure,
+  );
+  runMacCommand(
+    "/usr/bin/afplay",
+    ["/System/Library/Sounds/Glass.aiff"],
+    "sound",
+    onFailure,
+  );
+}
+
 export function createPomodoroModule(
   options: PomodoroModuleOptions = {},
 ): AgentModule {
   const now = options.now ?? Date.now;
   const schedule = options.setTimeout ?? ((callback, delayMs) => setTimeout(callback, delayMs));
   const clear = options.clearTimeout ?? ((handle) => clearTimeout(handle as NodeJS.Timeout));
+  const desktopNotifier = options.desktopNotifier ?? notifyMacDesktop;
 
   return {
     id: "pomodoro",
@@ -133,9 +209,16 @@ export function createPomodoroModule(
         const current = running;
         if (!current || (expected !== undefined && current !== expected)) return;
         running = undefined;
-        ctx.notify(
-          `番茄钟结束，已完成 ${current.durationMinutes} 分钟专注。`,
-        );
+        const message = `番茄钟结束，已完成 ${current.durationMinutes} 分钟专注。`;
+        ctx.notify(message);
+        try {
+          desktopNotifier(message, (kind, error) => {
+            const label = kind === "notification" ? "桌面通知" : "提示音";
+            ctx.notify(`${label}发送失败：${errorMessage(error)}`);
+          });
+        } catch (error) {
+          ctx.notify(`桌面提醒失败：${errorMessage(error)}`);
+        }
       };
 
       const settleIfExpired = (time: number): void => {
@@ -184,7 +267,8 @@ export function createPomodoroModule(
       });
 
       const startTool = tool({
-        description: "Start one in-process pomodoro timer.",
+        description:
+          "Start one in-process pomodoro timer. If one is already running, report it without resetting it.",
         inputSchema: z.object({
           minutes: z.number().int().min(MIN_MINUTES).max(MAX_MINUTES).optional(),
         }),
@@ -196,7 +280,7 @@ export function createPomodoroModule(
       });
 
       const statusTool = tool({
-        description: "Read the current pomodoro timer status.",
+        description: "Read the current pomodoro timer status and remaining seconds.",
         inputSchema: z.object({}),
         outputSchema: pomodoroResultSchema,
         execute: async (_input, { abortSignal }) => {
@@ -206,7 +290,7 @@ export function createPomodoroModule(
       });
 
       const cancelTool = tool({
-        description: "Cancel the current pomodoro timer.",
+        description: "Cancel the current pomodoro timer so it will not notify when it would have ended.",
         inputSchema: z.object({}),
         outputSchema: pomodoroResultSchema,
         execute: async (_input, { abortSignal }) => {

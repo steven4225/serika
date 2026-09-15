@@ -2,6 +2,7 @@ import { createInterface } from "node:readline/promises";
 import type { Readable, Writable } from "node:stream";
 import type { UIMessage } from "ai";
 import type {
+  AgentEvent,
   BeforeToolExecute,
   BeforeToolExecuteInput,
   MessageStore,
@@ -53,6 +54,12 @@ export interface ToolConfirmation {
 export type ToolConfirmationPrompt = (
   input: BeforeToolExecuteInput,
 ) => string | Promise<string | undefined> | undefined;
+
+const AUTO_APPROVED_TOOL_NAMES = new Set([
+  "pomodoro_start",
+  "pomodoro_status",
+  "pomodoro_cancel",
+]);
 
 function write(output: Writable, text: string): void {
   output.write(text);
@@ -131,6 +138,9 @@ export function createToolConfirmation(
 
   const beforeToolExecute: BeforeToolExecute = (input) => {
     if (input.signal.aborted) return Promise.reject(abortReason(input.signal));
+    if (AUTO_APPROVED_TOOL_NAMES.has(input.toolName)) {
+      return Promise.resolve({ allow: true });
+    }
     if (pending !== undefined) {
       throw new Error("Tool confirmation is already pending");
     }
@@ -230,6 +240,99 @@ function messageText(message: UIMessage): string {
     .join(" ");
 }
 
+type CompletedFileAction = {
+  toolName: "write_file" | "edit_file";
+  path: string;
+  bytes: number;
+};
+
+type CompletedPomodoroAction = {
+  toolName: "pomodoro_start" | "pomodoro_status" | "pomodoro_cancel";
+  summary: string;
+};
+
+type CompletedAction = CompletedFileAction | CompletedPomodoroAction;
+
+function completedFileAction(event: Extract<AgentEvent, { type: "tool.call.completed" }>): CompletedFileAction | undefined {
+  if (event.data.toolName !== "write_file" && event.data.toolName !== "edit_file") {
+    return undefined;
+  }
+  const output = event.data.output;
+  if (typeof output !== "object" || output === null) return undefined;
+  const result = output as { ok?: unknown; path?: unknown; bytes?: unknown };
+  if (
+    result.ok !== true ||
+    typeof result.path !== "string" ||
+    !Number.isInteger(result.bytes) ||
+    (result.bytes as number) < 0
+  ) {
+    return undefined;
+  }
+  return {
+    toolName: event.data.toolName,
+    path: result.path,
+    bytes: result.bytes as number,
+  };
+}
+
+function completedPomodoroAction(
+  event: Extract<AgentEvent, { type: "tool.call.completed" }>,
+): CompletedPomodoroAction | undefined {
+  if (
+    event.data.toolName !== "pomodoro_start" &&
+    event.data.toolName !== "pomodoro_status" &&
+    event.data.toolName !== "pomodoro_cancel"
+  ) {
+    return undefined;
+  }
+  const output = event.data.output;
+  if (typeof output !== "object" || output === null) return undefined;
+  const result = output as {
+    outcome?: unknown;
+    status?: { state?: unknown; durationMinutes?: unknown; endsAt?: unknown; remainingSeconds?: unknown };
+  };
+  const outcome = result.outcome;
+  const status = result.status;
+  const state = status?.state;
+  if (typeof outcome !== "string" || typeof state !== "string" || status === undefined) {
+    return undefined;
+  }
+  if (outcome === "started" && state === "running") {
+    if (
+      !Number.isInteger(status.durationMinutes) ||
+      typeof status.endsAt !== "string"
+    ) return undefined;
+    return {
+      toolName: event.data.toolName,
+      summary: `已启动 ${status.durationMinutes} 分钟番茄钟，预计 ${status.endsAt} 结束。`,
+    };
+  }
+  if (outcome === "cancelled" && state === "idle") {
+    return { toolName: event.data.toolName, summary: "已取消番茄钟。" };
+  }
+  if (outcome === "status") {
+    if (state === "idle") {
+      return { toolName: event.data.toolName, summary: "当前没有运行中的番茄钟。" };
+    }
+    if (!Number.isInteger(status.remainingSeconds)) return undefined;
+    return {
+      toolName: event.data.toolName,
+      summary: `番茄钟仍在运行，剩余 ${status.remainingSeconds} 秒。`,
+    };
+  }
+  if (outcome === "already_running" && state === "running") {
+    if (!Number.isInteger(status.remainingSeconds)) return undefined;
+    return {
+      toolName: event.data.toolName,
+      summary: `已有番茄钟运行中，剩余 ${status.remainingSeconds} 秒，未重置。`,
+    };
+  }
+  if (outcome === "not_running" && state === "idle") {
+    return { toolName: event.data.toolName, summary: "当前没有运行中的番茄钟。" };
+  }
+  return undefined;
+}
+
 function renderHistory(output: Writable, messages: UIMessage[]): void {
   if (messages.length === 0) return;
 
@@ -247,9 +350,14 @@ function renderHistory(output: Writable, messages: UIMessage[]): void {
 async function renderEvents(
   output: Writable,
   events: RunHandle["events"],
-): Promise<{ renderedText: string; requestedMemoryTool: boolean }> {
+): Promise<{
+  renderedText: string;
+  requestedMemoryTool: boolean;
+  completedActions: CompletedAction[];
+}> {
   let renderedText = "";
   let requestedMemoryTool = false;
+  const completedActions: CompletedAction[] = [];
   for await (const event of events) {
     switch (event.type) {
       case "message.delta":
@@ -266,17 +374,25 @@ async function renderEvents(
       case "tool.call.failed":
         write(output, `\n[tool failed: ${event.data.error.message}]\n`);
         break;
+      case "tool.call.completed": {
+        const action = completedFileAction(event);
+        if (action !== undefined) completedActions.push(action);
+        const pomodoroAction = completedPomodoroAction(event);
+        if (pomodoroAction !== undefined) completedActions.push(pomodoroAction);
+        break;
+      }
       default:
         break;
     }
   }
-  return { renderedText, requestedMemoryTool };
+  return { renderedText, requestedMemoryTool, completedActions };
 }
 
 function renderResult(
   output: Writable,
   result: RunResult,
   renderedText: string,
+  completedActions: readonly CompletedAction[],
 ): void {
   if (result.status === "completed") {
     // result.text is only the last model step. Deltas already painted the
@@ -291,6 +407,16 @@ function renderResult(
 
   write(output, `\n\nRun ${result.status}`);
   if (result.error) write(output, `: ${result.error.message}`);
+  if (completedActions.length > 0) {
+    write(output, "\n已完成的操作：\n");
+    for (const action of completedActions) {
+      if ("path" in action) {
+        write(output, `- ${action.toolName}: ${action.path} (${action.bytes} bytes)\n`);
+      } else {
+        write(output, `- ${action.toolName}: ${action.summary}\n`);
+      }
+    }
+  }
   write(output, "\n\n");
 }
 
@@ -381,7 +507,12 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
       const eventsDone = renderEvents(output, handle.events);
       const result = await handle.result;
       const rendered = await eventsDone;
-      renderResult(output, result, rendered.renderedText);
+      renderResult(
+        output,
+        result,
+        rendered.renderedText,
+        rendered.completedActions,
+      );
       state = { kind: "idle" };
       return { result, requestedMemoryTool: rendered.requestedMemoryTool };
     };

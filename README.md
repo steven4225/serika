@@ -50,7 +50,9 @@ RUNLOOM_MODEL=minimax-m3 pnpm tui -- ./var/runloom --thread demo --workspace ./s
 
 TUI 的模块命令在空闲时直接执行，不创建 Run；配置 workspace 后可用 `/workspace` 查看当前根目录。模块通知使用同一条 TUI 输出流。
 
-TUI 默认提供一个进程内番茄钟：`/pomodoro start`、`/pomodoro status`、`/pomodoro cancel`。启动计时后立即返回，退出 TUI 时清理计时器；计时状态不会跨进程恢复。
+TUI 默认提供一个进程内番茄钟：用户可以直接说“开始番茄钟”“专注 25 分钟”“还剩多久”或“取消番茄钟”，模型会调用对应工具；也保留 `/pomodoro start`、`/pomodoro status`、`/pomodoro cancel`。未指定时长默认为 25 分钟；已有计时不会被重置；这三个计时操作不需要 `y/n` 确认。计时结束会写入 TUI 提示，并在 macOS 尝试发送桌面通知和提示音；提醒失败只报告失败，不改变已经结束的计时状态。退出 TUI 时清理计时器，计时状态不会跨进程、休眠或系统重启恢复。
+
+如果一次 Run 在文件写入或番茄钟工具已经成功后又失败、取消或超时，TUI 会根据已有工具完成事件列出已经发生的动作（文件路径与字节数，或番茄钟状态）；没有成功执行的动作不会被列为已完成。
 
 ### Todoist 只读模块
 
