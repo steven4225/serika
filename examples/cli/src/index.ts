@@ -27,6 +27,7 @@ import { createReadFileModule } from "./modules/read-file-module.js";
 import { createTaskModule } from "./modules/task-module.js";
 import { createTodoistModule } from "./modules/todoist-module.js";
 import { createTaskStore } from "./task-store.js";
+import { buildTaskContextMessage } from "./task-instructions.js";
 import { todoistPlanSaveInstructions } from "./todoist-plan-save-instructions.js";
 import {
   resolveTuiModuleConfig,
@@ -288,13 +289,22 @@ try {
     loop: new AiSdkAgentLoop({ models, tools }),
     ...(tuiMode
       ? {
-          prepareModelContext: async ({ messages, signal }) =>
-            selectModelContext(
+          prepareModelContext: async ({ messages, signal, definition }) => {
+            const selected = selectModelContext(
               messages,
               memoryStore === undefined
                 ? []
                 : await readMemoryEntries(memoryStore, signal),
-            ),
+            );
+            if (!taskEnabled || definition.id !== "calculator") return selected;
+            return [
+              buildTaskContextMessage({
+                now: new Date(),
+                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+              }),
+              ...selected,
+            ];
+          },
         }
       : {}),
     ...(toolConfirmation

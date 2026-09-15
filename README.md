@@ -103,6 +103,8 @@ RUNLOOM_MODEL=mock pnpm tui -- ./var/runloom --thread daily-plan --config ./runl
 
 启用 `task` 并配置 workspace 后还可以创建一次性任务。TUI 提供 `/task create <带时区的ISO时间> <prompt>`、`/task list [pending|attention|status]`、`/task inbox`、`/task show <id>`、`/task ack <id>` 和 `/task cancel <id>`；任务保存在 `<workspace>/.runloom/tasks.json`。独立 worker 必须持续运行，TUI 关闭后仍会在到期时执行：
 
+也可以直接用自然语言说“**一分钟后提醒我喝水**”或“安排一个任务”。模型会调用 `task_create`，需要把时间转换成带时区的 ISO 8601 时间；时间不明确时会先追问。创建成功后会返回任务 ID、执行时间和任务内容，仍沿用现有写入确认。若任务已经创建而本轮随后失败、取消或超时，TUI 会显示这条已创建事实；创建失败或被拒绝不会显示为成功。
+
 ```bash
 RUNLOOM_MODEL=mock pnpm task-worker -- --workspace ./sample-project
 ```
