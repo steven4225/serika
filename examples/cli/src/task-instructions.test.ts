@@ -15,10 +15,11 @@ import {
 import {
   buildTaskContextMessage,
   buildTaskInstructions,
+  injectTaskContext,
 } from "./task-instructions.js";
 
 const runtimeDefinition = {
-  id: "task-instructions-runtime-test",
+  id: "calculator",
   version: "1",
   instructions: "Answer briefly.",
   model: "task-instructions-test-model",
@@ -62,7 +63,14 @@ describe("task instructions", () => {
     assert.match(instructions, /exact time and timezone/);
     assert.match(instructions, /task ID, runAt, and prompt/);
     assert.match(instructions, /task_list/);
+    assert.match(instructions, /does not start a worker/);
+    assert.match(instructions, /inbox: true/);
+    assert.match(instructions, /task_get/);
+    assert.match(instructions, /matches more than one task/);
     assert.match(instructions, /task_cancel/);
+    assert.match(instructions, /task_ack/);
+    assert.match(instructions, /never acknowledge automatically/);
+    assert.match(instructions, /notification was delivered/);
   });
 
   it("refreshes the injected current time for each model context", () => {
@@ -87,6 +95,43 @@ describe("task instructions", () => {
     assert.match(secondText.text, /2026-09-15T01:03:03\.000Z/);
   });
 
+  it("injects task guidance only for the enabled calculator agent", () => {
+    const messages = [{
+      id: "user",
+      role: "user" as const,
+      parts: [{ type: "text" as const, text: "hello" }],
+    }];
+    const context = {
+      now: new Date("2026-09-15T01:02:03.000Z"),
+      timeZone: "Asia/Shanghai",
+    };
+
+    assert.deepEqual(
+      injectTaskContext(messages, {
+        ...context,
+        taskEnabled: false,
+        definitionId: "calculator",
+      }),
+      messages,
+    );
+    assert.deepEqual(
+      injectTaskContext(messages, {
+        ...context,
+        taskEnabled: true,
+        definitionId: "scheduled-responder",
+      }),
+      messages,
+    );
+    assert.equal(
+      injectTaskContext(messages, {
+        ...context,
+        taskEnabled: true,
+        definitionId: "calculator",
+      })[0]?.id,
+      "runloom-task-instructions",
+    );
+  });
+
   it("refreshes task time context across real Runtime runs without saving it", async () => {
     const store = new InMemoryAgentStore();
     const prompts: string[] = [];
@@ -108,13 +153,12 @@ describe("task instructions", () => {
         tools: new ToolRegistry(),
       }),
       store,
-      prepareModelContext: ({ messages }) => [
-        buildTaskContextMessage({
-          now: times[contextCalls++]!,
-          timeZone: "Asia/Shanghai",
-        }),
-        ...messages,
-      ],
+      prepareModelContext: ({ messages, definition }) => injectTaskContext(messages, {
+        taskEnabled: true,
+        definitionId: definition.id,
+        now: times[contextCalls++]!,
+        timeZone: "Asia/Shanghai",
+      }),
     });
 
     for (const [index, text] of ["一分钟后提醒我喝水", "再安排一分钟后提醒我站起来"].entries()) {

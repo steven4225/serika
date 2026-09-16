@@ -5,6 +5,11 @@ export type TaskInstructionsContext = {
   timeZone: string;
 };
 
+export type TaskContextInjectionOptions = TaskInstructionsContext & {
+  taskEnabled: boolean;
+  definitionId: string;
+};
+
 /**
  * The task module accepts absolute ISO timestamps. Keep the relative-time
  * guidance at the model boundary so a natural-language request becomes a
@@ -21,7 +26,11 @@ export function buildTaskInstructions({
     `The current time is ${now.toISOString()} and the local timezone is ${timeZone}. ` +
     "Convert relative times from that context. If the user did not give a time and it cannot be safely inferred, ask for the exact time and timezone before calling task_create. " +
     "After task_create succeeds, report the returned task ID, runAt, and prompt exactly from the tool result. " +
-    "Use task_list when the user asks what tasks are scheduled or pending, and task_cancel when the user asks to cancel a task; identify the task from the tool result and do not claim cancellation without a successful result."
+    "task_create only writes the scheduled task to the workspace task store; it does not start a worker or execute the prompt immediately. A worker must be running for the task to execute at its due time. " +
+    "Use task_list when the user asks what tasks are scheduled, pending, or finished, including a request to see task results or status. Use inbox: true for unacknowledged terminal results, use a status filter when the user names a status, and use task_get for one specific task's full status, result, or error. " +
+    "If a phrase such as '刚才那个提醒' matches more than one task, show the candidates with task_list and ask the user which one before cancelling or acknowledging. " +
+    "Use task_cancel only when the user explicitly asks to cancel a task, and use task_ack only when the user explicitly asks to acknowledge or confirm a terminal result; never acknowledge automatically after listing or showing a task. " +
+    "A completed task means the worker Run reached a terminal state; do not claim that a notification was delivered unless an actual notification result says so."
   );
 }
 
@@ -33,4 +42,25 @@ export function buildTaskContextMessage(
     role: "assistant",
     parts: [{ type: "text", text: buildTaskInstructions(context) }],
   };
+}
+
+/**
+ * Add the task instructions to a TUI model prompt without changing the
+ * persisted conversation. The caller supplies the current time so this stays
+ * a per-Run decision rather than a process-start snapshot.
+ */
+export function injectTaskContext(
+  messages: UIMessage[],
+  options: TaskContextInjectionOptions,
+): UIMessage[] {
+  if (!options.taskEnabled || options.definitionId !== "calculator") {
+    return messages;
+  }
+  return [
+    buildTaskContextMessage({
+      now: options.now,
+      timeZone: options.timeZone,
+    }),
+    ...messages,
+  ];
 }

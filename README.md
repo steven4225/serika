@@ -15,9 +15,9 @@
 
 ## 阶段
 
-当前：`M-TUI-thin / Stage 7-5`（内置模块接入约定与验收整理）
+当前：`M-TUI-thin / Stage 8-2/8-3`（任务交代、结果查询与交付边界）
 
-已经具备自有 AgentLoop、JSONL transcript、print CLI、精简 TUI，以及独立的本地任务 worker。Stage 6 的本地任务闭环已经完成；Stage 7 从一个真实 Todoist 只读模块开始验证应用扩展。当前 7-5 只把现有内置模块的接入方式写成约定，保持零运行时改动，不提供外部插件加载；7-3、7-4 的真实模型验收仍待补齐，不计入已完成口径。接入路径见 [模块开发指南](docs/module-development.md)。
+已经具备自有 AgentLoop、JSONL transcript、print CLI、精简 TUI，以及独立的本地任务 worker。Stage 6 的本地任务闭环已经完成；Stage 7 的内置模块接入约定已经完成，7-3、7-4 的真实模型验收仍待补齐。当前进入 Stage 8，先补任务创建、到期执行、结果查询和交付边界；接入路径见 [模块开发指南](docs/module-development.md)。
 
 运行：
 
@@ -103,7 +103,7 @@ RUNLOOM_MODEL=mock pnpm tui -- ./var/runloom --thread daily-plan --config ./runl
 
 启用 `task` 并配置 workspace 后还可以创建一次性任务。TUI 提供 `/task create <带时区的ISO时间> <prompt>`、`/task list [pending|attention|status]`、`/task inbox`、`/task show <id>`、`/task ack <id>` 和 `/task cancel <id>`；任务保存在 `<workspace>/.runloom/tasks.json`。独立 worker 必须持续运行，TUI 关闭后仍会在到期时执行：
 
-也可以直接用自然语言说“**一分钟后提醒我喝水**”或“安排一个任务”。模型会调用 `task_create`，需要把时间转换成带时区的 ISO 8601 时间；时间不明确时会先追问。创建成功后会返回任务 ID、执行时间和任务内容，仍沿用现有写入确认。若任务已经创建而本轮随后失败、取消或超时，TUI 会显示这条已创建事实；创建失败或被拒绝不会显示为成功。
+也可以直接用自然语言说“**一分钟后提醒我喝水**”或“安排一个任务”。模型会调用 `task_create`，需要把时间转换成带时区的 ISO 8601 时间；时间不明确时会先追问。`task_create` 只把任务写入 `<workspace>/.runloom/tasks.json`，不会立即启动 worker 或执行 prompt；必须有 worker 运行，任务到期才会执行。创建成功后会返回任务 ID、执行时间和任务内容，仍沿用现有写入确认。若任务已经创建而本轮随后失败、取消或超时，TUI 会显示这条已创建事实；创建失败或被拒绝不会显示为成功。
 
 ```bash
 RUNLOOM_MODEL=mock pnpm task-worker -- --workspace ./sample-project
@@ -141,7 +141,7 @@ worker 不读取 TUI 的 `--config`；Todoist 规划时区独立取自 `RUNLOOM_
 
 本节只说明入口和边界，不复制各工具的数据契约。7-3、7-4 的真实 Todoist/模型验收仍需独立提供证据；因此 7-5 的指南完成不等于 Stage 7 封板。
 
-任务查询只读现有任务文件：`/task list pending` 查看 `scheduled` 和 `running`，`/task list attention` 查看 `failed` 和 `interrupted`，`/task inbox` 查看尚未确认的终态任务（`completed`、`failed`、`interrupted`）。`/task show <id>` 查看完整 prompt、执行信息、结果、失败原因和 `Acknowledged at`；列表显示结果、错误摘要和确认时间，完整内容通过 `show` 获取。`/task ack <id>` 只确认一个已完成、失败或中断且尚未确认的任务；重复确认保持第一次的时间戳并返回同一记录。`task_list` 的 `inbox` 可与 `status`、`recurringTaskId` 一起作为 AND 条件使用。查询不会重试任务或改变执行状态；跨进程桌面通知由 worker 的显式 `--notify` 开关控制。
+任务查询只读现有任务文件：`/task list pending` 查看 `scheduled` 和 `running`，`/task list attention` 查看 `failed` 和 `interrupted`，`/task inbox` 查看尚未确认的终态任务（`completed`、`failed`、`interrupted`）。自然语言查询会复用 `task_list`；需要某个任务的完整状态、结果或错误时使用 `task_get`，候选不唯一时先列出候选并让用户确认。`/task show <id>` 查看完整 prompt、执行信息、结果、失败原因和 `Acknowledged at`；列表显示结果、错误摘要和确认时间，完整内容通过 `show` 获取。`/task ack <id>` 只确认一个已完成、失败或中断且尚未确认的任务；模型不会因为查询结果自动 ack，只有用户明确要求确认时才调用 `task_ack`。任务完成表示 worker Run 到达终态，不代表通知已经送达；跨进程桌面通知由 worker 的显式 `--notify` 开关控制。
 
 同一 workspace 还支持 daily/weekly 固定时区偏移的重复任务：`/task repeat create daily <HH:mm> <+/-HH:mm> <prompt>` 或 `/task repeat create weekly <1-7> <HH:mm> <+/-HH:mm> <prompt>`，并可用 `/task repeat list [active|paused|cancelled]`、`show`、`pause`、`resume`、`cancel` 管理。每次到期只生成一个独立的一次性任务；worker 会把下一次时间推进到严格晚于当前时间，过期多周期也只补一个并跳过中间周期。暂停会清空下一次时间，恢复从未来 occurrence 重新计算；取消只停止后续 occurrence，已经运行的任务继续完成。任务文件当前为 `version: 3`，`TaskRecordV3` 增加可空的 `acknowledgedAt`；旧版 `version: 1`/`version: 2` 文件仍可读，第一次成功写入时升级为 `version: 3`，旧记录补为 `null`。`task_ack` 是幂等的单任务写工具；不引入推送、批量确认、通知表、队列或多 worker。
 
