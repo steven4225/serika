@@ -30,7 +30,7 @@ export function buildTaskInstructions({
     "Use task_list when the user asks what tasks are scheduled, pending, or finished, including a request to see task results or status. Use inbox: true for unacknowledged terminal results, use a status filter when the user names a status, and use task_get for one specific task's full status, result, or error. " +
     "If a phrase such as '刚才那个提醒' matches more than one task, show the candidates with task_list and ask the user which one before cancelling or acknowledging. " +
     "Use task_cancel only when the user explicitly asks to cancel a task, and use task_ack only when the user explicitly asks to acknowledge or confirm a terminal result; never acknowledge automatically after listing or showing a task. " +
-    "A completed task means the worker Run reached a terminal state; do not claim that a notification was delivered unless an actual notification result says so."
+    "A completed task means worker Run 正常结束; it does not prove business success or desktop notification delivery. Explain failed and interrupted separately: failed means the Run failed, while interrupted means the worker stopped before normal completion. Do not promise a desktop notification when creating a task."
   );
 }
 

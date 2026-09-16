@@ -41,7 +41,10 @@ function completedResult(): RunResult {
 
 function fakeStore(
   claimedTask: TaskRecordV3,
-  options: { onFinish?: (outcome: TaskFinish) => void } = {},
+  options: {
+    onFinish?: (outcome: TaskFinish) => void;
+    finishResult?: TaskStoreResult<TaskRecordV3>;
+  } = {},
 ): TaskStore {
   let claimed = false;
   return {
@@ -70,6 +73,7 @@ function fakeStore(
       outcome: TaskFinish,
     ): Promise<TaskStoreResult<TaskRecordV3>> {
       options.onFinish?.(outcome);
+      if (options.finishResult !== undefined) return options.finishResult;
       const finished: TaskRecordV3 = {
         ...claimedTask,
         status: outcome.status,
@@ -269,5 +273,73 @@ describe("task worker", () => {
         error: { code: "RUNTIME_ERROR", message: "model configuration failed" },
       },
     ]);
+  });
+
+  it("does not notify when the durable terminal write fails", async () => {
+    const controller = new AbortController();
+    let notifyCalls = 0;
+    const store = fakeStore(task(), {
+      finishResult: {
+        ok: false,
+        error: { code: "WRITE_FAILED", message: "disk unavailable" },
+      },
+    });
+    const runtime = {
+      async run(): Promise<RunHandle> {
+        return {
+          runId: "run-1",
+          events: emptyEvents(),
+          result: Promise.resolve(completedResult()),
+          cancel: async () => undefined,
+        };
+      },
+    };
+
+    await assert.rejects(
+      runTaskWorker({
+        store,
+        runtime,
+        signal: controller.signal,
+        pollIntervalMs: 1,
+        onTaskFinished: () => {
+          notifyCalls += 1;
+        },
+      }),
+      /WRITE_FAILED: disk unavailable/,
+    );
+    assert.equal(notifyCalls, 0);
+  });
+
+  it("notifies once after a rejected run is durably marked failed", async () => {
+    const controller = new AbortController();
+    const order: string[] = [];
+    const store = fakeStore(task(), {
+      onFinish: (outcome) => {
+        order.push(`finish:${outcome.status}`);
+        controller.abort("test-complete");
+      },
+    });
+    const runtime = {
+      async run(): Promise<RunHandle> {
+        return {
+          runId: "run-rejected",
+          events: emptyEvents(),
+          result: Promise.reject(new Error("handle rejected")),
+          cancel: async () => undefined,
+        };
+      },
+    };
+
+    await runTaskWorker({
+      store,
+      runtime,
+      signal: controller.signal,
+      pollIntervalMs: 1,
+      onTaskFinished: (terminalTask) => {
+        order.push(`notify:${terminalTask.status}`);
+      },
+    });
+
+    assert.deepEqual(order, ["finish:failed", "notify:failed"]);
   });
 });
