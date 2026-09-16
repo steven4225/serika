@@ -70,7 +70,12 @@ describe("task instructions", () => {
     assert.match(instructions, /task_cancel/);
     assert.match(instructions, /task_ack/);
     assert.match(instructions, /never acknowledge automatically/);
-    assert.match(instructions, /notification was delivered/);
+    assert.match(instructions, /worker Run 正常结束/);
+    assert.match(instructions, /does not prove business success or desktop notification delivery/);
+    assert.match(instructions, /failed means the Run failed/);
+    assert.match(instructions, /interrupted means the worker stopped/);
+    assert.match(instructions, /Do not promise a desktop notification when creating a task/);
+    assert.doesNotMatch(instructions, /unless an actual notification result says so/);
   });
 
   it("refreshes the injected current time for each model context", () => {
