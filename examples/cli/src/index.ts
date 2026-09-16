@@ -27,7 +27,7 @@ import { createReadFileModule } from "./modules/read-file-module.js";
 import { createTaskModule } from "./modules/task-module.js";
 import { createTodoistModule } from "./modules/todoist-module.js";
 import { createTaskStore } from "./task-store.js";
-import { buildTaskContextMessage } from "./task-instructions.js";
+import { injectTaskContext } from "./task-instructions.js";
 import { todoistPlanSaveInstructions } from "./todoist-plan-save-instructions.js";
 import {
   resolveTuiModuleConfig,
@@ -296,14 +296,12 @@ try {
                 ? []
                 : await readMemoryEntries(memoryStore, signal),
             );
-            if (!taskEnabled || definition.id !== "calculator") return selected;
-            return [
-              buildTaskContextMessage({
-                now: new Date(),
-                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-              }),
-              ...selected,
-            ];
+            return injectTaskContext(selected, {
+              taskEnabled,
+              definitionId: definition.id,
+              now: new Date(),
+              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            });
           },
         }
       : {}),
