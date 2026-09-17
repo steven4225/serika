@@ -273,7 +273,7 @@ try {
       limits: {
         maxSteps: tuiMode ? 8 : 4,
         totalTimeoutMs: tuiMode ? 120_000 : 10_000,
-        stepTimeoutMs: 5_000,
+        stepTimeoutMs: tuiMode ? 30_000 : 5_000,
       },
     },
     ...(moduleConfig?.autoConsolidate ? [consolidationAgent] : []),

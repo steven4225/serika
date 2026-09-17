@@ -203,7 +203,7 @@ RUNLOOM_MODEL=deepseek node --env-file=.env examples/cli/dist/task-worker-entry.
 
 此模式明确关闭 thinking。当前循环不回传 `reasoning_content`，而 DeepSeek 思考模式下的工具对话要求回传该字段；本次仅适配非思考模式的文本和工具调用，不宣称支持思考模式或图像输入。默认模型名与参数依据 [DeepSeek 接入文档](https://api-docs.deepseek.com/) 和 [思考模式约定](https://api-docs.deepseek.com/guides/thinking_mode/)。
 
-离线测试覆盖模型选择、请求参数、流式工具调用 → 工具结果回传 → 最终文本，以及缺 Key 时不领取后台任务；不代表真实服务认证、延迟或任务质量已通过。已有后台闭环真实验收可将下节命令的 `RUNLOOM_ACCEPTANCE_MODEL` 改为 `deepseek`；Stage 7 的真实 Todoist 验收仍需单独完成。现有 TUI 每步 5 秒限额保持不变，若真实请求超时应记录结果并单独确认预算调整。
+离线测试覆盖模型选择、请求参数、流式工具调用 → 工具结果回传 → 最终文本，以及缺 Key 时不领取后台任务；不代表真实服务认证、延迟或任务质量已通过。已有后台闭环真实验收可将下节命令的 `RUNLOOM_ACCEPTANCE_MODEL` 改为 `deepseek`；Stage 7 的真实 Todoist 验收仍需单独完成。TUI calculator 每步模型流上限为 30 秒，自动整理 agent 仍为 5 秒；该上限只约束一步模型流，不含确认等待。若真实请求超时，应记录结果并单独确认预算调整。
 
 ### MiniMax M3
 
