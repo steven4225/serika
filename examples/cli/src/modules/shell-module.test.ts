@@ -4,7 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, it } from "node:test";
 import type { RegisteredTool } from "@aisdk-agent/ai-sdk-adapter";
+import { DOCKER_CLEANUP_TIMEOUT_MS } from "./docker-shell-runner.js";
 import {
+  SHELL_EXEC_DOCKER_TOOL_TIMEOUT_MS,
   SHELL_EXEC_KILL_GRACE_MS,
   SHELL_EXEC_MAX_OUTPUT_BYTES,
   SHELL_EXEC_TIMEOUT_MS,
@@ -88,6 +90,32 @@ describe("createShellModule", () => {
       output: await realpath(join(workspaceRoot, "nested")),
       truncated: false,
     });
+  });
+
+  it("gives Docker sandbox execute a timeout budget that outlasts cleanup", () => {
+    const tools: RegisteredTool[] = [];
+    createShellModule("/tmp/runloom-docker-timeout", {
+      sandbox: {
+        backend: "docker",
+        image: "node:22-bookworm-slim",
+        readablePaths: [],
+        writablePaths: [],
+      },
+    }).setup({
+      registerTool: (registered) => tools.push(registered),
+      registerCommand: () => {},
+      notify: () => {},
+    });
+
+    const shell = registeredTool(tools, "shell_exec");
+    assert.equal(shell.metadata.timeoutMs, SHELL_EXEC_DOCKER_TOOL_TIMEOUT_MS);
+    assert.ok(
+      SHELL_EXEC_DOCKER_TOOL_TIMEOUT_MS >
+        SHELL_EXEC_TIMEOUT_MS +
+          SHELL_EXEC_KILL_GRACE_MS +
+          DOCKER_CLEANUP_TIMEOUT_MS,
+    );
+    assert.ok(SHELL_EXEC_DOCKER_TOOL_TIMEOUT_MS > SHELL_EXEC_TOOL_TIMEOUT_MS);
   });
 
   it("returns a non-zero exit code and combined command output", async () => {

@@ -5,6 +5,12 @@ import { z } from "zod";
 import type { RegisteredTool } from "@aisdk-agent/ai-sdk-adapter";
 import type { AgentModule } from "../module-host.js";
 import { validateWorkspacePath } from "../workspace-path.js";
+import {
+  DOCKER_CLEANUP_TIMEOUT_MS,
+  executeDockerShellCommand,
+  type DockerShellRunnerOptions,
+  type DockerShellSandboxConfig,
+} from "./docker-shell-runner.js";
 
 /** Maximum time a command is allowed to run before it is terminated. */
 export const SHELL_EXEC_TIMEOUT_MS = 30_000;
@@ -20,6 +26,18 @@ export const SHELL_EXEC_KILL_GRACE_MS = 250;
 export const SHELL_EXEC_TOOL_TIMEOUT_MS =
   SHELL_EXEC_TIMEOUT_MS + SHELL_EXEC_KILL_GRACE_MS + 750;
 
+/**
+ * Docker path must outlast command timeout, kill grace, and container
+ * cleanup so AgentLoop receives `{ timedOut, output }` instead of aborting
+ * execute first. Image presence is checked at TUI startup; execute uses
+ * `--pull never` and does not spend this budget on inspect.
+ */
+export const SHELL_EXEC_DOCKER_TOOL_TIMEOUT_MS =
+  SHELL_EXEC_TIMEOUT_MS +
+  SHELL_EXEC_KILL_GRACE_MS +
+  DOCKER_CLEANUP_TIMEOUT_MS +
+  750;
+
 /** Maximum combined stdout/stderr bytes returned to the model. */
 export const SHELL_EXEC_MAX_OUTPUT_BYTES = 64 * 1024;
 
@@ -30,6 +48,8 @@ export const shellExecErrorCodes = [
   "CWD_NOT_FOUND",
   "CWD_NOT_ACCESSIBLE",
   "SPAWN_FAILED",
+  "SANDBOX_UNAVAILABLE",
+  "SANDBOX_CLEANUP_FAILED",
 ] as const;
 
 export type ShellExecErrorCode = (typeof shellExecErrorCodes)[number];
@@ -60,9 +80,14 @@ export interface ShellExecFailure {
 
 export type ShellExecResult = ShellExecSuccess | ShellExecFailure;
 
-interface ShellExecOptions {
+export interface ShellExecOptions {
   timeoutMs?: number;
   maxOutputBytes?: number;
+}
+
+export interface ShellModuleOptions {
+  sandbox?: DockerShellSandboxConfig;
+  dockerExecutable?: string;
 }
 
 const neverAborted = new AbortController().signal;
@@ -92,13 +117,19 @@ const shellExecOutputSchema = z.discriminatedUnion("ok", [
   }),
 ]);
 
-const shellExecMetadata: RegisteredTool["metadata"] = {
-  name: "shell_exec",
-  version: "1",
-  risk: "external_side_effect",
-  timeoutMs: SHELL_EXEC_TOOL_TIMEOUT_MS,
-  idempotent: false,
-};
+function shellExecMetadata(
+  sandbox: boolean,
+): RegisteredTool["metadata"] {
+  return {
+    name: "shell_exec",
+    version: "1",
+    risk: "external_side_effect",
+    timeoutMs: sandbox
+      ? SHELL_EXEC_DOCKER_TOOL_TIMEOUT_MS
+      : SHELL_EXEC_TOOL_TIMEOUT_MS,
+    idempotent: false,
+  };
+}
 
 function failure(
   code: ShellExecErrorCode,
@@ -309,28 +340,54 @@ export async function executeShellCommand(
   });
 }
 
-function createShellExecTool(workspaceRoot: string): Tool<ShellExecInput, ShellExecResult> {
+function createShellExecTool(
+  workspaceRoot: string,
+  options: ShellModuleOptions = {},
+): Tool<ShellExecInput, ShellExecResult> {
   return tool({
     description:
-      "Run one non-interactive local shell command from a workspace-relative directory. The command may inspect or modify the machine; it is bounded by a timeout and output limit.",
+      options.sandbox === undefined
+        ? "Run one non-interactive local shell command from a workspace-relative directory. The command may inspect or modify the machine; it is bounded by a timeout and output limit."
+        : "Run one non-interactive shell command inside the configured Docker sandbox from a workspace-relative directory. Only the configured mounts are visible; network access is disabled; the command is bounded by a timeout and output limit.",
     inputSchema: shellExecInputSchema,
     outputSchema: shellExecOutputSchema,
-    execute: ({ command, cwd }, { abortSignal }) =>
-      executeShellCommand(
+    execute: ({ command, cwd }, { abortSignal }) => {
+      const input = { command, ...(cwd === undefined ? {} : { cwd }) };
+      if (options.sandbox !== undefined) {
+        const dockerOptions: DockerShellRunnerOptions = {
+          timeoutMs: SHELL_EXEC_TIMEOUT_MS,
+          maxOutputBytes: SHELL_EXEC_MAX_OUTPUT_BYTES,
+          ...(options.dockerExecutable === undefined
+            ? {}
+            : { dockerExecutable: options.dockerExecutable }),
+        };
+        return executeDockerShellCommand(
+          workspaceRoot,
+          input,
+          options.sandbox,
+          abortSignal ?? neverAborted,
+          dockerOptions,
+        );
+      }
+      return executeShellCommand(
         workspaceRoot,
-        { command, ...(cwd === undefined ? {} : { cwd }) },
+        input,
         abortSignal ?? neverAborted,
-      ),
+      );
+    },
   });
 }
 
-export function createShellModule(workspaceRoot: string): AgentModule {
+export function createShellModule(
+  workspaceRoot: string,
+  options: ShellModuleOptions = {},
+): AgentModule {
   return {
     id: "shell",
     setup(context) {
       context.registerTool({
-        metadata: shellExecMetadata,
-        tool: createShellExecTool(workspaceRoot),
+        metadata: shellExecMetadata(options.sandbox !== undefined),
+        tool: createShellExecTool(workspaceRoot, options),
       });
     },
   };

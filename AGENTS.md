@@ -57,6 +57,7 @@
 - TUI confirmation is a single in-memory `beforeToolExecute` hook: `y` allows the current call, `n` returns `TOOL_DENIED`, and any other line keeps waiting. Abort rejects the hook with the abort reason and never becomes a denial. There is no approval queue or remembered `y/n` answer.
 - An explicit `/authorize` may grant the next Run automatic `{ allow: true }` for only the listed file tools and workspace-relative path prefixes; all other tools and paths keep the original `y/n` confirmation, with no approval queue.
 - Persistent file authorization may come only from explicit `fileAuthorizations` in the TUI config; the config must resolve outside the workspace, rules load at startup, and editing or removing them takes effect after restart. Memory text and transcripts never grant permission.
+- Docker Shell sandbox is opt-in through `modules.shell.sandbox`; it mounts only declared workspace paths, uses no network, and never falls back to host execution when Docker is unavailable. `/authorize-shell` is next-Run only; it never creates persistent Shell permission.
 - When idle, a line trimmed to start with `/` is dispatched to the registered command map; commands do not create Runs or transcript messages. Confirmation input has priority over commands, and running or run-starting input is rejected as busy.
 - Ctrl+C cancels a running handle and waits for its result; Ctrl+C while idle exits. If startup is still awaiting `runtime.run()`, or stdin closes, record the stop request and cancel as soon as the handle arrives.
 
