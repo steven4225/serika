@@ -48,6 +48,22 @@ RUNLOOM_MODEL=minimax-m3 pnpm tui -- ./var/runloom --thread demo --workspace ./s
 
 如果一次任务需要连续处理一组文件，可在提交任务前使用 `/authorize <tool[,tool...]> <path> [path ...]`，例如 `/authorize read_file,search_files,write_file docs/ reports/`；列出的每个工具都适用于列出的每个路径前缀。这只把列出的文件工具和 workspace 相对路径前缀授权给下一次 Run；Run 结束、失败或取消后立即失效。未列出的工具或路径仍逐次询问，`shell_exec` 不受这条授权影响；授权规则不写入 transcript、memory 或 `tasks.json`。
 
+需要跨重启保留明确的文件授权时，可在 `--config` JSON 根部配置 `fileAuthorizations`。每条规则包含 `tools` 和 `allowedPaths`，列出的工具适用于列出的每个路径前缀：
+
+```json
+{
+  "version": 1,
+  "workspace": "./sample-project",
+  "modules": { "read-file": { "enabled": true } },
+  "fileAuthorizations": [
+    { "tools": ["read_file", "search_files"], "allowedPaths": ["docs/"] },
+    { "tools": ["write_file"], "allowedPaths": ["reports/"] }
+  ]
+}
+```
+
+持久规则只在配置启动时加载，配置文件必须位于 workspace 外；编辑或删除规则后重启 TUI 生效。`/permissions` 只读显示当前加载的规则，Shell、memory、Todoist 和 task 不受持久文件授权影响。
+
 启用 `--auto-consolidate` 后，普通 Run 成功且本轮没有 `memory_*` 工具请求时，TUI 会在回到空闲前串行发起一次只读整理 Run。整理只会提出建议，记忆写入仍需用户明确点名并通过 `y/n` 确认；失败、取消和整理自身不会再次触发。
 
 TUI 的模块命令在空闲时直接执行，不创建 Run；配置 workspace 后可用 `/workspace` 查看当前根目录。模块通知使用同一条 TUI 输出流。

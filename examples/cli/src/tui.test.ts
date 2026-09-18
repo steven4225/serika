@@ -31,7 +31,11 @@ import { createModuleHost } from "./module-host.js";
 import { createReadFileModule } from "./modules/read-file-module.js";
 import type { ReadFileResult } from "./read-file.js";
 import { createWriteFileTool } from "./write-file.js";
-import { createToolConfirmation, runTui } from "./tui.js";
+import {
+  createToolConfirmation,
+  runTui,
+  type RunAuthorization,
+} from "./tui.js";
 
 type TestRuntime = {
   requests: RunRequest[];
@@ -2506,5 +2510,143 @@ describe("createToolConfirmation run-scoped authorization", () => {
       (reason: unknown) => reason === "run stopped",
     );
     assert.equal(confirmation.handleLine("y"), false);
+  });
+});
+
+describe("createToolConfirmation persistent authorization", () => {
+  const workspaceRoot = "/tmp/runloom-r2b-workspace";
+
+  function persistentFileScope(
+    options: {
+      tools?: RunAuthorization["tools"];
+      allowedPaths?: readonly string[];
+    } = {},
+  ): RunAuthorization {
+    return {
+      workspaceRoot,
+      tools: options.tools ?? ["read_file"],
+      allowedPaths: options.allowedPaths ?? ["docs"],
+      lifetime: "run",
+    };
+  }
+
+  it("allows every listed file tool under a persisted path scope", async () => {
+    const output = outputBuffer();
+    const confirmation = createToolConfirmation(output, {
+      workspaceRoot,
+      persistentAuthorizations: [
+        persistentFileScope({
+          tools: ["read_file", "search_files", "list_directory", "write_file", "edit_file"],
+          allowedPaths: ["docs"],
+        }),
+      ],
+    });
+
+    for (const toolName of [
+      "read_file",
+      "search_files",
+      "list_directory",
+      "write_file",
+      "edit_file",
+    ] as const) {
+      const decision = confirmation.beforeToolExecute(
+        toolInput(toolName, new AbortController().signal, { path: "docs/guide.md" }),
+      );
+      assert.deepEqual(await decision, { allow: true });
+    }
+    assert.equal(output.text(), "");
+  });
+
+  it("keeps path and tool boundaries under persisted authorization", async () => {
+    const output = outputBuffer();
+    const confirmation = createToolConfirmation(output, {
+      workspaceRoot,
+      persistentAuthorizations: [persistentFileScope()],
+    });
+
+    const outside = confirmation.beforeToolExecute(
+      toolInput("read_file", new AbortController().signal, {
+        path: "docs/../secrets.txt",
+      }),
+    );
+    await Promise.resolve();
+    assert.match(output.text(), /Tool: read_file/);
+    assert.equal(confirmation.handleLine("n"), true);
+    assert.deepEqual(await outside, {
+      allow: false,
+      reason: "User denied this tool call",
+    });
+
+    const omittedPath = confirmation.beforeToolExecute(
+      toolInput("search_files", new AbortController().signal, {}),
+    );
+    await Promise.resolve();
+    assert.match(output.text(), /Tool: search_files/);
+    assert.equal(confirmation.handleLine("n"), true);
+    assert.deepEqual(await omittedPath, {
+      allow: false,
+      reason: "User denied this tool call",
+    });
+
+    const shell = confirmation.beforeToolExecute(
+      toolInput("shell_exec", new AbortController().signal, {
+        command: "cat docs/guide.md",
+      }),
+    );
+    await Promise.resolve();
+    assert.match(output.text(), /Tool: shell_exec/);
+    assert.equal(confirmation.handleLine("n"), true);
+    assert.deepEqual(await shell, {
+      allow: false,
+      reason: "User denied this tool call",
+    });
+  });
+
+  it("does not clear persisted authorization when a Run ends", async () => {
+    const output = outputBuffer();
+    const confirmation = createToolConfirmation(output, {
+      workspaceRoot,
+      persistentAuthorizations: [persistentFileScope()],
+    });
+
+    confirmation.beginRun();
+    const firstRun = confirmation.beforeToolExecute(
+      toolInput("read_file", new AbortController().signal, { path: "docs/guide.md" }),
+    );
+    assert.deepEqual(await firstRun, { allow: true });
+    confirmation.endRun();
+
+    confirmation.beginRun();
+    const secondRun = confirmation.beforeToolExecute(
+      toolInput("read_file", new AbortController().signal, { path: "docs/guide.md" }),
+    );
+    assert.deepEqual(await secondRun, { allow: true });
+    confirmation.endRun();
+    assert.equal(output.text(), "");
+  });
+
+  it("restores y/n after persisted rules are removed and the TUI is restarted", async () => {
+    const firstOutput = outputBuffer();
+    const first = createToolConfirmation(firstOutput, {
+      workspaceRoot,
+      persistentAuthorizations: [persistentFileScope()],
+    });
+    const allowed = first.beforeToolExecute(
+      toolInput("read_file", new AbortController().signal, { path: "docs/guide.md" }),
+    );
+    assert.deepEqual(await allowed, { allow: true });
+
+    const secondOutput = outputBuffer();
+    const restarted = createToolConfirmation(secondOutput, { workspaceRoot });
+    const prompted = restarted.beforeToolExecute(
+      toolInput("read_file", new AbortController().signal, { path: "docs/guide.md" }),
+    );
+    await Promise.resolve();
+    assert.match(secondOutput.text(), /Tool: read_file/);
+    assert.equal(restarted.handleLine("n"), true);
+    assert.deepEqual(await prompted, {
+      allow: false,
+      reason: "User denied this tool call",
+    });
   });
 });

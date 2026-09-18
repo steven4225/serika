@@ -226,11 +226,18 @@ interface PendingConfirmation {
 
 export function createToolConfirmation(
   output: Writable,
-  options: { prompt?: ToolConfirmationPrompt; workspaceRoot?: string } = {},
+  options: {
+    prompt?: ToolConfirmationPrompt;
+    workspaceRoot?: string;
+    persistentAuthorizations?: readonly RunAuthorizationInput[];
+  } = {},
 ): ToolConfirmation {
   let pending: PendingConfirmation | undefined;
   let nextRunAuthorization: RunAuthorization | undefined;
   let activeRunAuthorization: RunAuthorization | undefined;
+  const persistentAuthorizations = (options.persistentAuthorizations ?? []).map(
+    (rule) => normalizeAuthorization(rule, options.workspaceRoot),
+  );
 
   const clearPending = (entry: PendingConfirmation): void => {
     if (pending !== entry) return;
@@ -243,7 +250,10 @@ export function createToolConfirmation(
     if (AUTO_APPROVED_TOOL_NAMES.has(input.toolName)) {
       return Promise.resolve({ allow: true });
     }
-    if (authorizationAllows(activeRunAuthorization, input)) {
+    if (
+      authorizationAllows(activeRunAuthorization, input) ||
+      persistentAuthorizations.some((rule) => authorizationAllows(rule, input))
+    ) {
       return Promise.resolve({ allow: true });
     }
     if (pending !== undefined) {
