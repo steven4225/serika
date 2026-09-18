@@ -44,7 +44,9 @@ RUNLOOM_MODEL=minimax-m3 pnpm tui -- ./var/runloom --thread demo --workspace ./s
 
 `--workspace` 是本次进程允许文件工具访问的根目录；不传时不会注册这些工具。每次工具调用都显示相对路径并等待 `y/n` 确认。工具只接受 workspace 内的相对路径，读取普通 UTF-8 文本，单文件上限为 64 KiB；绝对路径、越界路径、符号链接、目录、非法 UTF-8 或含 NUL 的内容会被拒绝。它不按扩展名判断文本类型，也不承诺识别所有二进制格式。文件内容会进入模型上下文，并在 Run 完成后随已提交 transcript 保存。workspace 是应用层的路径边界，不提供操作系统级沙箱隔离。
 
-配置 workspace 后，TUI 提供 `list_directory`、`search_files`、`read_file`、`write_file`、`edit_file` 以及 `memory_list`、`memory_prepare_consolidation`、`memory_add`、`memory_update`、`memory_delete`。`list_directory` 列出一层目录；`search_files` 按字面量搜索符合条件的 UTF-8 文本，并跳过隐藏路径、`node_modules` 和符号链接，结果可能因上限被标记为 `truncated`。`write_file` 只创建新文件，已存在则失败，不会覆盖。`edit_file` 对已有文件做恰好一处字面量替换；找不到或多处匹配则失败。workspace 记忆保存在 `.runloom/memory.json`，只有用户明确要求时才由工具增删改；启用的条目会作为不进入 transcript 的参考消息注入模型上下文。用户明确要求整理或沉淀对话时，`memory_prepare_consolidation` 读取当前 thread 最近已提交的对话和全部记忆，下一步模型先给出普通回复建议；用户点名后才调用 `memory_add` 或 `memory_update` 保存。每次工具调用仍需 `y/n` 确认；确认通过后写入立即生效，之后取消或 Run 失败不会回滚文件或记忆。
+配置 workspace 后，TUI 提供 `list_directory`、`search_files`、`read_file`、`write_file`、`edit_file` 以及 `memory_list`、`memory_prepare_consolidation`、`memory_add`、`memory_update`、`memory_delete`。`list_directory` 列出一层目录；`search_files` 按字面量搜索符合条件的 UTF-8 文本，并跳过隐藏路径、`node_modules` 和符号链接，结果可能因上限被标记为 `truncated`。`write_file` 只创建新文件，已存在则失败，不会覆盖。`edit_file` 对已有文件做恰好一处字面量替换；找不到或多处匹配则失败。workspace 记忆保存在 `.runloom/memory.json`，只有用户明确要求时才由工具增删改；启用的条目会作为不进入 transcript 的参考消息注入模型上下文。用户明确要求整理或沉淀对话时，`memory_prepare_consolidation` 读取当前 thread 最近已提交的对话和全部记忆，下一步模型先给出普通回复建议；用户点名后才调用 `memory_add` 或 `memory_update` 保存。未使用范围授权时，每次工具调用仍需 `y/n` 确认；确认通过后写入立即生效，之后取消或 Run 失败不会回滚文件或记忆。
+
+如果一次任务需要连续处理一组文件，可在提交任务前使用 `/authorize <tool[,tool...]> <path> [path ...]`，例如 `/authorize read_file,search_files,write_file docs/ reports/`；列出的每个工具都适用于列出的每个路径前缀。这只把列出的文件工具和 workspace 相对路径前缀授权给下一次 Run；Run 结束、失败或取消后立即失效。未列出的工具或路径仍逐次询问，`shell_exec` 不受这条授权影响；授权规则不写入 transcript、memory 或 `tasks.json`。
 
 启用 `--auto-consolidate` 后，普通 Run 成功且本轮没有 `memory_*` 工具请求时，TUI 会在回到空闲前串行发起一次只读整理 Run。整理只会提出建议，记忆写入仍需用户明确点名并通过 `y/n` 确认；失败、取消和整理自身不会再次触发。
 

@@ -55,6 +55,7 @@
 - TUI may read committed transcript messages from the Store for display, but must never put that history into `RunRequest.messages` or maintain a second messages cache.
 - Its visible state is `idle | running(handle)`. While running, ordinary input is rejected as busy rather than queued; when a tool confirmation is pending, input belongs to that confirmation. Only `handle.result` returns the UI to idle.
 - TUI confirmation is a single in-memory `beforeToolExecute` hook: `y` allows the current call, `n` returns `TOOL_DENIED`, and any other line keeps waiting. Abort rejects the hook with the abort reason and never becomes a denial. There is no approval queue or remembered decision.
+- An explicit `/authorize` may grant the next Run automatic `{ allow: true }` for only the listed file tools and workspace-relative path prefixes; all other tools and paths keep the original `y/n` confirmation, with no approval queue.
 - When idle, a line trimmed to start with `/` is dispatched to the registered command map; commands do not create Runs or transcript messages. Confirmation input has priority over commands, and running or run-starting input is rejected as busy.
 - Ctrl+C cancels a running handle and waits for its result; Ctrl+C while idle exits. If startup is still awaiting `runtime.run()`, or stdin closes, record the stop request and cancel as soon as the handle arrives.
 

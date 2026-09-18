@@ -1419,6 +1419,9 @@ describe("runTui", () => {
           lines.push(line);
           return true;
         },
+        setPendingAuthorization: () => undefined,
+        beginRun: () => undefined,
+        endRun: () => undefined,
       },
       commands: new Map([
         ["workspace", { execute: (args: string) => commandCalls.push(args) }],
@@ -2340,5 +2343,168 @@ describe("runTui write_file confirmation", () => {
     } finally {
       await rm(fixture.workspace, { recursive: true, force: true });
     }
+  });
+});
+
+describe("createToolConfirmation run-scoped authorization", () => {
+  const workspaceRoot = "/tmp/runloom-r2a-workspace";
+
+  function authorizeFileScope(
+    confirmation: ReturnType<typeof createToolConfirmation>,
+    options: {
+      tools?: ("read_file" | "search_files" | "write_file" | "edit_file")[];
+      allowedPaths?: string[];
+    } = {},
+  ): void {
+    confirmation.setPendingAuthorization({
+      tools: options.tools ?? ["read_file", "search_files", "write_file", "edit_file"],
+      allowedPaths: options.allowedPaths ?? ["docs/", "reports/"],
+      lifetime: "run",
+    });
+    confirmation.beginRun();
+  }
+
+  it("allows normalized in-scope paths for explicitly authorized tools", async () => {
+    const output = outputBuffer();
+    const confirmation = createToolConfirmation(output, { workspaceRoot });
+    authorizeFileScope(confirmation, {
+      tools: ["read_file"],
+      allowedPaths: ["docs/"],
+    });
+
+    const normalized = confirmation.beforeToolExecute(
+      toolInput("read_file", new AbortController().signal, {
+        path: "docs/../docs/guide.md",
+      }),
+    );
+    assert.deepEqual(await normalized, { allow: true });
+    assert.equal(output.text(), "");
+
+    const normalizedPath = confirmation.beforeToolExecute(
+      toolInput("read_file", new AbortController().signal, {
+        path: "docs/./guide.md",
+      }),
+    );
+    assert.deepEqual(await normalizedPath, { allow: true });
+    assert.equal(output.text(), "");
+    confirmation.endRun();
+  });
+
+  it("does not widen authorization to tools outside the explicit whitelist", async () => {
+    const output = outputBuffer();
+    const confirmation = createToolConfirmation(output, { workspaceRoot });
+    authorizeFileScope(confirmation, {
+      tools: ["read_file"],
+      allowedPaths: ["docs/"],
+    });
+
+    const pending = confirmation.beforeToolExecute(
+      toolInput("shell_exec", new AbortController().signal, {
+        command: "cat docs/guide.md",
+      }),
+    );
+    await Promise.resolve();
+    assert.match(output.text(), /Tool: shell_exec/);
+    assert.equal(confirmation.handleLine("n"), true);
+    assert.deepEqual(await pending, {
+      allow: false,
+      reason: "User denied this tool call",
+    });
+    confirmation.endRun();
+  });
+
+  it("asks again for an out-of-scope normalized path and never executes it after denial", async () => {
+    const output = outputBuffer();
+    const confirmation = createToolConfirmation(output, { workspaceRoot });
+    authorizeFileScope(confirmation, {
+      tools: ["read_file"],
+      allowedPaths: ["docs/"],
+    });
+
+    const first = confirmation.beforeToolExecute(
+      toolInput("read_file", new AbortController().signal, {
+        path: "docs/guide.md",
+      }),
+    );
+    assert.deepEqual(await first, { allow: true });
+
+    const outside = confirmation.beforeToolExecute(
+      toolInput("read_file", new AbortController().signal, {
+        path: "docs/../secrets.txt",
+      }),
+    );
+    await Promise.resolve();
+    assert.match(output.text(), /Tool: read_file/);
+    assert.match(output.text(), /secrets\.txt/);
+    assert.equal(confirmation.handleLine("n"), true);
+    assert.deepEqual(await outside, {
+      allow: false,
+      reason: "User denied this tool call",
+    });
+
+    const retry = confirmation.beforeToolExecute(
+      toolInput("read_file", new AbortController().signal, {
+        path: "secrets.txt",
+      }),
+    );
+    await Promise.resolve();
+    assert.match(output.text(), /Allow this call\? \[y\/n\]/);
+    assert.equal(confirmation.handleLine("n"), true);
+    assert.deepEqual(await retry, {
+      allow: false,
+      reason: "User denied this tool call",
+    });
+    confirmation.endRun();
+  });
+
+  it("clears authorization when the Run ends and does not reuse it on the next Run", async () => {
+    const output = outputBuffer();
+    const confirmation = createToolConfirmation(output, { workspaceRoot });
+    authorizeFileScope(confirmation, {
+      tools: ["read_file"],
+      allowedPaths: ["docs/"],
+    });
+
+    const firstRun = confirmation.beforeToolExecute(
+      toolInput("read_file", new AbortController().signal, {
+        path: "docs/guide.md",
+      }),
+    );
+    assert.deepEqual(await firstRun, { allow: true });
+    confirmation.endRun();
+
+    const nextRun = confirmation.beforeToolExecute(
+      toolInput("read_file", new AbortController().signal, {
+        path: "docs/guide.md",
+      }),
+    );
+    await Promise.resolve();
+    assert.match(output.text(), /Tool: read_file/);
+    assert.equal(confirmation.handleLine("n"), true);
+    assert.deepEqual(await nextRun, {
+      allow: false,
+      reason: "User denied this tool call",
+    });
+  });
+
+  it("does not let an aborted Run leave an authorization active", async () => {
+    const output = outputBuffer();
+    const confirmation = createToolConfirmation(output, { workspaceRoot });
+    authorizeFileScope(confirmation, {
+      tools: ["read_file"],
+      allowedPaths: ["docs/"],
+    });
+    confirmation.endRun();
+
+    const controller = new AbortController();
+    const pending = confirmation.beforeToolExecute(
+      toolInput("read_file", controller.signal, { path: "docs/guide.md" }),
+    );
+    controller.abort("run stopped");
+    await assert.rejects(
+      Promise.resolve(pending),
+      (reason: unknown) => reason === "run stopped",
+    );
+    assert.equal(confirmation.handleLine("y"), false);
   });
 });
