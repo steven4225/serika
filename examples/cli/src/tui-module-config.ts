@@ -1,10 +1,11 @@
-import { readFile, realpath } from "node:fs/promises";
+import { lstat, readFile, realpath } from "node:fs/promises";
 import {
   dirname,
   isAbsolute,
   relative,
   resolve as resolvePath,
   sep,
+  win32,
 } from "node:path";
 import { z } from "zod";
 import { resolveWorkspace, type TuiArgs } from "./cli-options.js";
@@ -12,7 +13,11 @@ import {
   RUN_AUTHORIZED_FILE_TOOLS,
   type RunAuthorizedFileTool,
 } from "./tui.js";
-import { validateWorkspacePath } from "./workspace-path.js";
+import {
+  rejectSymlinkComponents,
+  validateWorkspacePath,
+} from "./workspace-path.js";
+import type { DockerShellSandboxConfig } from "./modules/docker-shell-runner.js";
 
 export const BUILTIN_MODULE_IDS = [
   "pomodoro",
@@ -37,6 +42,7 @@ export interface ResolvedTuiModuleConfig {
   autoConsolidate: boolean;
   todoistTimeZone: string | null;
   fileAuthorizations: readonly FileAuthorizationRule[];
+  shellSandbox: DockerShellSandboxConfig | null;
 }
 
 const DEFAULT_TODOIST_TIME_ZONE = "Asia/Shanghai";
@@ -62,6 +68,22 @@ const todoistModuleSchema = z
   })
   .strict();
 
+const shellSandboxSchema = z
+  .object({
+    backend: z.literal("docker"),
+    image: nonEmptyString,
+    readablePaths: z.array(nonEmptyString),
+    writablePaths: z.array(nonEmptyString),
+  })
+  .strict();
+
+const shellModuleSchema = z
+  .object({
+    enabled: z.boolean(),
+    sandbox: shellSandboxSchema.optional(),
+  })
+  .strict();
+
 const fileAuthorizationSchema = z
   .object({
     tools: z.array(z.enum(RUN_AUTHORIZED_FILE_TOOLS)).min(1),
@@ -80,7 +102,7 @@ const tuiModuleConfigV1Schema = z
         memory: memoryModuleSchema.optional(),
         task: moduleToggleSchema.optional(),
         todoist: todoistModuleSchema.optional(),
-        shell: moduleToggleSchema.optional(),
+        shell: shellModuleSchema.optional(),
       })
       .strict(),
     fileAuthorizations: z.array(fileAuthorizationSchema).optional(),
@@ -100,7 +122,12 @@ export interface TuiModuleConfigV1 {
     todoist?:
       | { enabled: boolean; timeZone?: string | undefined }
       | undefined;
-    shell?: { enabled: boolean } | undefined;
+    shell?:
+      | {
+          enabled: boolean;
+          sandbox?: DockerShellSandboxConfig | undefined;
+        }
+      | undefined;
   };
   fileAuthorizations?: FileAuthorizationRule[] | undefined;
 }
@@ -192,6 +219,97 @@ function normalizeFileAuthorizations(
   });
 }
 
+const neverAborted = new AbortController().signal;
+
+async function resolveSandboxWorkspace(
+  workspace: string | undefined,
+  configDirectory: string,
+): Promise<string> {
+  if (workspace === undefined) {
+    throw new Error("Shell sandbox requires a workspace");
+  }
+  if (isAbsolute(workspace) || win32.isAbsolute(workspace)) {
+    throw new Error("Shell sandbox workspace must be relative to the config file");
+  }
+  const configuredPath = resolvePath(configDirectory, workspace);
+  let details;
+  try {
+    details = await lstat(configuredPath);
+  } catch {
+    throw new Error(`Sandbox workspace does not exist: ${workspace}`);
+  }
+  if (details.isSymbolicLink()) {
+    throw new Error(`Sandbox workspace must not be a symlink: ${workspace}`);
+  }
+  if (!details.isDirectory()) {
+    throw new Error(`Sandbox workspace is not a directory: ${workspace}`);
+  }
+  return resolveWorkspace(workspace, configDirectory);
+}
+
+async function normalizeSandboxPath(
+  workspaceRoot: string,
+  requestedPath: string,
+  writable: boolean,
+): Promise<string> {
+  const validated = validateWorkspacePath(workspaceRoot, requestedPath);
+  if (!validated.ok) {
+    throw new Error(
+      `Invalid sandbox mount path ${JSON.stringify(requestedPath)}: ${validated.message}`,
+    );
+  }
+  let details;
+  try {
+    details = await lstat(validated.target);
+  } catch {
+    throw new Error(
+      `Sandbox mount path does not exist: ${JSON.stringify(requestedPath)}`,
+    );
+  }
+  if (details.isSymbolicLink()) {
+    throw new Error(
+      `Sandbox mount path must not be a symlink: ${JSON.stringify(requestedPath)}`,
+    );
+  }
+  if (writable && !details.isDirectory()) {
+    throw new Error(
+      `Writable sandbox path must be a directory: ${JSON.stringify(requestedPath)}`,
+    );
+  }
+  if (await rejectSymlinkComponents(workspaceRoot, validated.relativePath, neverAborted)) {
+    throw new Error(
+      `Sandbox mount path must not pass through a symlink: ${JSON.stringify(requestedPath)}`,
+    );
+  }
+  return validated.relativePath;
+}
+
+async function normalizeShellSandbox(
+  sandbox: DockerShellSandboxConfig | undefined,
+  workspace: string | undefined,
+  configDirectory: string,
+): Promise<{ workspaceRoot: string | null; shellSandbox: DockerShellSandboxConfig | null }> {
+  if (sandbox === undefined) {
+    return { workspaceRoot: null, shellSandbox: null };
+  }
+  const workspaceRoot = await resolveSandboxWorkspace(workspace, configDirectory);
+  const readablePaths = await Promise.all(
+    sandbox.readablePaths.map((path) => normalizeSandboxPath(workspaceRoot, path, false)),
+  );
+  const writablePaths = await Promise.all(
+    sandbox.writablePaths.map((path) => normalizeSandboxPath(workspaceRoot, path, true)),
+  );
+  return {
+    workspaceRoot,
+    shellSandbox: {
+      backend: "docker",
+      image: sandbox.image,
+      readablePaths: [...new Set(readablePaths)],
+      writablePaths: [...new Set(writablePaths)],
+    },
+  };
+}
+
 async function readTuiModuleConfig(configPath: string): Promise<TuiModuleConfigV1> {
   let source: string;
   try {
@@ -249,20 +367,34 @@ async function resolveConfiguredMode(
     "TUI config requires workspace when read-file, memory, task, or shell is enabled",
   );
 
+  const sandboxDefinition = config.modules.shell?.sandbox;
+  if (sandboxDefinition !== undefined && !enabled.shell) {
+    throw new Error("shell.sandbox requires shell.enabled to be true");
+  }
+  const sandboxResolution =
+    sandboxDefinition === undefined
+      ? undefined
+      : await normalizeShellSandbox(
+          sandboxDefinition,
+          config.workspace,
+          dirname(absoluteConfigPath),
+        );
   const workspaceRoot =
-    config.workspace === undefined
+    sandboxResolution?.workspaceRoot ??
+    (config.workspace === undefined
       ? null
-      : await resolveWorkspace(config.workspace, dirname(absoluteConfigPath));
+      : await resolveWorkspace(config.workspace, dirname(absoluteConfigPath)));
+  const shellSandbox = sandboxResolution?.shellSandbox ?? null;
   const fileAuthorizations = normalizeFileAuthorizations(
     config.fileAuthorizations,
     workspaceRoot,
     enabled,
   );
-  if (fileAuthorizations.length > 0) {
+  if (fileAuthorizations.length > 0 || shellSandbox !== null) {
     const configRealPath = await realpath(absoluteConfigPath);
     if (workspaceRoot !== null && isPathWithin(workspaceRoot, configRealPath)) {
       throw new Error(
-        "TUI config with fileAuthorizations must be outside the workspace",
+        "TUI config with sandbox or fileAuthorizations must be outside the workspace",
       );
     }
   }
@@ -279,6 +411,7 @@ async function resolveConfiguredMode(
     autoConsolidate,
     todoistTimeZone,
     fileAuthorizations,
+    shellSandbox,
   };
 }
 
@@ -320,6 +453,7 @@ async function resolveLegacyMode(
     autoConsolidate: args.autoConsolidate === true,
     todoistTimeZone: resolvedTodoistTimeZone,
     fileAuthorizations: [],
+    shellSandbox: null,
   };
 }
 

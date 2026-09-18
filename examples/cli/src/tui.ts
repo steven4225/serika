@@ -52,9 +52,14 @@ export interface ToolConfirmation {
   beforeToolExecute: BeforeToolExecute;
   handleLine(line: string): boolean;
   setPendingAuthorization(rule: RunAuthorizationInput): void;
+  setPendingShellAuthorization(): void;
   beginRun(): void;
   endRun(): void;
 }
+
+/** Shell approval can be scoped to a single Run only when the executor is an
+ * actual sandbox. Host execution must continue to ask for every call. */
+export type ShellSandboxMode = "none" | "host" | "docker";
 
 export const RUN_AUTHORIZED_FILE_TOOLS = [
   "list_directory",
@@ -170,9 +175,19 @@ function authorizationAllows(
 function confirmationPrompt(
   toolName: string,
   input: unknown,
+  shellSandboxMode: ShellSandboxMode = "none",
 ): string {
   if (toolName === "shell_exec" && typeof input === "object" && input !== null) {
     const shellInput = input as { command?: unknown; cwd?: unknown };
+    if (shellSandboxMode === "docker") {
+      return (
+        `\nTool: ${toolName}\n` +
+        `Command: ${JSON.stringify(shellInput.command)}\n` +
+        `Cwd: ${JSON.stringify(shellInput.cwd ?? ".")} (relative to sandbox mounts)\n` +
+        "The command runs in the configured Docker sandbox with declared mounts, a read-only root filesystem, and no network. Unmounted host files are not visible. Output may be truncated.\n" +
+        "Allow this call? [y/n] "
+      );
+    }
     return (
       `\nTool: ${toolName}\n` +
       `Command: ${JSON.stringify(shellInput.command)}\n` +
@@ -230,11 +245,14 @@ export function createToolConfirmation(
     prompt?: ToolConfirmationPrompt;
     workspaceRoot?: string;
     persistentAuthorizations?: readonly RunAuthorizationInput[];
+    shellSandboxMode?: ShellSandboxMode;
   } = {},
 ): ToolConfirmation {
   let pending: PendingConfirmation | undefined;
   let nextRunAuthorization: RunAuthorization | undefined;
   let activeRunAuthorization: RunAuthorization | undefined;
+  let nextShellAuthorization = false;
+  let activeShellAuthorization = false;
   const persistentAuthorizations = (options.persistentAuthorizations ?? []).map(
     (rule) => normalizeAuthorization(rule, options.workspaceRoot),
   );
@@ -248,6 +266,9 @@ export function createToolConfirmation(
   const beforeToolExecute: BeforeToolExecute = (input) => {
     if (input.signal.aborted) return Promise.reject(abortReason(input.signal));
     if (AUTO_APPROVED_TOOL_NAMES.has(input.toolName)) {
+      return Promise.resolve({ allow: true });
+    }
+    if (activeShellAuthorization && input.toolName === "shell_exec") {
       return Promise.resolve({ allow: true });
     }
     if (
@@ -299,14 +320,14 @@ export function createToolConfirmation(
     if (customPrompt instanceof Promise) {
       void customPrompt.then(
         (text) =>
-          writePrompt(text ?? confirmationPrompt(input.toolName, input.input)),
+          writePrompt(text ?? confirmationPrompt(input.toolName, input.input, options.shellSandboxMode)),
         (error: unknown) => {
           clearPending(entry);
           reject(error);
         },
       );
     } else {
-      writePrompt(customPrompt ?? confirmationPrompt(input.toolName, input.input));
+      writePrompt(customPrompt ?? confirmationPrompt(input.toolName, input.input, options.shellSandboxMode));
     }
     return decision;
   };
@@ -333,13 +354,26 @@ export function createToolConfirmation(
     nextRunAuthorization = normalizeAuthorization(rule, options.workspaceRoot);
   };
 
+  const setPendingShellAuthorization = (): void => {
+    if (options.shellSandboxMode !== "docker") {
+      throw new Error(
+        "Shell authorization requires Docker sandbox mode; host shell remains per-call confirmation",
+      );
+    }
+    nextShellAuthorization = true;
+  };
+
   const beginRun = (): void => {
     activeRunAuthorization = nextRunAuthorization;
     nextRunAuthorization = undefined;
+    activeShellAuthorization =
+      options.shellSandboxMode === "docker" && nextShellAuthorization;
+    nextShellAuthorization = false;
   };
 
   const endRun = (): void => {
     activeRunAuthorization = undefined;
+    activeShellAuthorization = false;
     if (pending !== undefined) {
       const entry = pending;
       clearPending(entry);
@@ -351,6 +385,7 @@ export function createToolConfirmation(
     beforeToolExecute,
     handleLine,
     setPendingAuthorization,
+    setPendingShellAuthorization,
     beginRun,
     endRun,
   };

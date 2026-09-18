@@ -240,7 +240,27 @@ TUI 使用相同的模式和环境变量：
 RUNLOOM_MODEL=minimax-m3 pnpm tui -- ./var/runloom --thread demo
 ```
 
-配置中启用 `shell` 且提供 workspace 后，TUI 会注册 `shell_exec`。每次命令调用显示命令和 workspace-relative cwd，并通过现有 `y/n` 确认；命令默认 30 秒超时、输出可能截断，workspace cwd 不是操作系统级沙箱。工具层超时略长于命令超时，以便把 `timedOut` 和已读输出作为工具结果返回，而不是先把 execute 承诺拒绝掉。shell_exec 只进入 TUI，worker 不会因为 TUI 配置自动获得它。TUI 的 y/n 只决定当前 Run 的一次工具调用，不形成可恢复的审批记录。Durable Run Driver 仍不进入这条主链。
+配置中启用 `shell` 且提供 workspace 后，TUI 会注册 `shell_exec`。不配置 `sandbox` 时保持宿主 Shell：每次命令调用显示命令和 workspace-relative cwd，并通过现有 `y/n` 确认；workspace cwd 不是操作系统级沙箱。要启用隔离 Shell，可在 `modules.shell` 下配置：
+
+```json
+{
+  "version": 1,
+  "workspace": "./sample-project",
+  "modules": {
+    "shell": {
+      "enabled": true,
+      "sandbox": {
+        "backend": "docker",
+        "image": "node:22-bookworm-slim",
+        "readablePaths": ["package.json", "src", "docs"],
+        "writablePaths": ["docs", "reports"]
+      }
+    }
+  }
+}
+```
+
+Docker sandbox 只挂载列出的路径，根文件系统只读，网络固定关闭；`writablePaths` 中的目录必须已存在，配置文件必须位于 workspace 外。镜像必须已存在，不会自动 pull，Docker daemon 或镜像不可用时 TUI 启动失败，不会退回宿主免确认。启动后使用 `/authorize-shell` 可让下一次 Run 连续调用隔离 Shell，Run 结束、失败或取消后失效；未授权时仍逐次 `y/n`。命令默认 30 秒超时、输出可能截断。shell_exec 只进入 TUI，worker 不会因为 TUI 配置自动获得它。Durable Run Driver 仍不进入这条主链。
 
 ### Stage 6 验收
 

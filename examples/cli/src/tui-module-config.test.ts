@@ -35,6 +35,216 @@ async function writeConfig(
 }
 
 describe("resolveTuiModuleConfig", () => {
+  it("loads and normalizes a Docker shell sandbox configuration", async () => {
+    const { configDirectory, workspace } = await createConfigWorkspace();
+    await mkdir(join(workspace, "src"));
+    await mkdir(join(workspace, "reports"));
+    await writeFile(join(workspace, "package.json"), "{}", "utf8");
+    const configPath = await writeConfig(configDirectory, {
+      version: 1,
+      workspace: "./workspace",
+      modules: {
+        shell: {
+          enabled: true,
+          sandbox: {
+            backend: "docker",
+            image: "node:22-bookworm-slim",
+            readablePaths: ["package.json", "src/", "src"],
+            writablePaths: ["reports/"],
+          },
+        },
+      },
+    });
+
+    const resolved = await resolveTuiModuleConfig(configArgs(configPath), {
+      cwd: configDirectory,
+    });
+
+    assert.equal(resolved.workspaceRoot, await realpath(workspace));
+    assert.deepEqual(resolved.shellSandbox, {
+      backend: "docker",
+      image: "node:22-bookworm-slim",
+      readablePaths: ["package.json", "src"],
+      writablePaths: ["reports"],
+    });
+  });
+
+  it("requires a relative existing directory workspace for a shell sandbox", async () => {
+    const { configDirectory, workspace } = await createConfigWorkspace();
+    const configs = [
+      {
+        name: "absolute-workspace.json",
+        workspace: workspace,
+        expected: /workspace must be relative/i,
+      },
+      {
+        name: "missing-workspace.json",
+        workspace: "./missing",
+        expected: /workspace does not exist/i,
+      },
+    ];
+
+    for (const value of configs) {
+      const configPath = await writeConfig(configDirectory, {
+        version: 1,
+        workspace: value.workspace,
+        modules: {
+          shell: {
+            enabled: true,
+            sandbox: {
+              backend: "docker",
+              image: "node:22-bookworm-slim",
+              readablePaths: [],
+              writablePaths: [],
+            },
+          },
+        },
+      }, value.name);
+      await assert.rejects(
+        resolveTuiModuleConfig(configArgs(configPath), { cwd: configDirectory }),
+        value.expected,
+      );
+    }
+
+    const filePath = join(configDirectory, "workspace-file.txt");
+    await writeFile(filePath, "file", "utf8");
+    const fileConfig = await writeConfig(configDirectory, {
+      version: 1,
+      workspace: "./workspace-file.txt",
+      modules: {
+        shell: {
+          enabled: true,
+          sandbox: {
+            backend: "docker",
+            image: "node:22-bookworm-slim",
+            readablePaths: [],
+            writablePaths: [],
+          },
+        },
+      },
+    }, "workspace-file.json");
+    await assert.rejects(
+      resolveTuiModuleConfig(configArgs(fileConfig), { cwd: configDirectory }),
+      /workspace is not a directory/i,
+    );
+
+    const workspaceLink = join(configDirectory, "workspace-link");
+    await symlink(workspace, workspaceLink, "dir");
+    const symlinkConfig = await writeConfig(configDirectory, {
+      version: 1,
+      workspace: "./workspace-link",
+      modules: {
+        shell: {
+          enabled: true,
+          sandbox: {
+            backend: "docker",
+            image: "node:22-bookworm-slim",
+            readablePaths: [],
+            writablePaths: [],
+          },
+        },
+      },
+    }, "symlink-workspace.json");
+    await assert.rejects(
+      resolveTuiModuleConfig(configArgs(symlinkConfig), { cwd: configDirectory }),
+      /workspace must not be a symlink/i,
+    );
+  });
+
+  it("rejects missing, symlinked, and non-directory writable sandbox paths", async () => {
+    const { configDirectory, workspace } = await createConfigWorkspace();
+    await mkdir(join(workspace, "docs"));
+    await writeFile(join(workspace, "package.json"), "{}", "utf8");
+    await writeFile(join(workspace, "file.txt"), "file", "utf8");
+    await symlink(join(workspace, "docs"), join(workspace, "docs-link"), "dir");
+
+    const values = [
+      {
+        name: "missing-mount.json",
+        readablePaths: ["missing"],
+        writablePaths: [],
+        expected: /mount path does not exist/i,
+      },
+      {
+        name: "symlink-mount.json",
+        readablePaths: ["docs-link"],
+        writablePaths: [],
+        expected: /symlink/i,
+      },
+      {
+        name: "file-writable-mount.json",
+        readablePaths: [],
+        writablePaths: ["file.txt"],
+        expected: /writable sandbox path must be a directory/i,
+      },
+    ];
+
+    for (const value of values) {
+      const configPath = await writeConfig(configDirectory, {
+        version: 1,
+        workspace: "./workspace",
+        modules: {
+          shell: {
+            enabled: true,
+            sandbox: {
+              backend: "docker",
+              image: "node:22-bookworm-slim",
+              readablePaths: value.readablePaths,
+              writablePaths: value.writablePaths,
+            },
+          },
+        },
+      }, value.name);
+      await assert.rejects(
+        resolveTuiModuleConfig(configArgs(configPath), { cwd: configDirectory }),
+        value.expected,
+      );
+    }
+  });
+
+  it("requires shell.sandbox to be enabled and keeps its config outside the workspace", async () => {
+    const { configDirectory, workspace } = await createConfigWorkspace();
+    const disabledPath = await writeConfig(configDirectory, {
+      version: 1,
+      workspace: "./workspace",
+      modules: {
+        shell: {
+          enabled: false,
+          sandbox: {
+            backend: "docker",
+            image: "node:22-bookworm-slim",
+            readablePaths: [],
+            writablePaths: [],
+          },
+        },
+      },
+    }, "sandbox-disabled.json");
+    await assert.rejects(
+      resolveTuiModuleConfig(configArgs(disabledPath), { cwd: configDirectory }),
+      /shell\.sandbox requires shell\.enabled/i,
+    );
+
+    const insidePath = await writeConfig(workspace, {
+      version: 1,
+      workspace: ".",
+      modules: {
+        shell: {
+          enabled: true,
+          sandbox: {
+            backend: "docker",
+            image: "node:22-bookworm-slim",
+            readablePaths: [],
+            writablePaths: [],
+          },
+        },
+      },
+    }, "sandbox-inside.json");
+    await assert.rejects(
+      resolveTuiModuleConfig(configArgs(insidePath), { cwd: workspace }),
+      /config with sandbox.*outside the workspace/i,
+    );
+  });
+
   it("loads persistent file authorization rules with the configured workspace", async () => {
     const { configDirectory, workspace } = await createConfigWorkspace();
     const configPath = await writeConfig(configDirectory, {

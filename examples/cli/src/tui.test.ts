@@ -1424,6 +1424,7 @@ describe("runTui", () => {
           return true;
         },
         setPendingAuthorization: () => undefined,
+        setPendingShellAuthorization: () => undefined,
         beginRun: () => undefined,
         endRun: () => undefined,
       },
@@ -1600,6 +1601,34 @@ describe("createToolConfirmation", () => {
     assert.match(output.text(), /Command: "pnpm test"/);
     assert.match(output.text(), /Cwd: "packages\/core" \(relative to workspace\)/);
     assert.match(output.text(), /not an operating-system sandbox/);
+    assert.match(output.text(), /Allow this call\? \[y\/n\]/);
+
+    assert.equal(confirmation.handleLine("n"), true);
+    assert.deepEqual(await pending, {
+      allow: false,
+      reason: "User denied this tool call",
+    });
+  });
+
+  it("describes Docker sandbox isolation in the shell confirmation prompt", async () => {
+    const output = outputBuffer();
+    const confirmation = createToolConfirmation(output, {
+      shellSandboxMode: "docker",
+    });
+    const pending = confirmation.beforeToolExecute(
+      toolInput("shell_exec", new AbortController().signal, {
+        command: "pwd",
+        cwd: "src",
+      }),
+    );
+
+    assert.match(output.text(), /Tool: shell_exec/);
+    assert.match(output.text(), /Command: "pwd"/);
+    assert.match(output.text(), /Cwd: "src" \(relative to sandbox mounts\)/);
+    assert.match(output.text(), /Docker sandbox/);
+    assert.match(output.text(), /no network/);
+    assert.match(output.text(), /Unmounted host files are not visible/);
+    assert.doesNotMatch(output.text(), /not an operating-system sandbox/);
     assert.match(output.text(), /Allow this call\? \[y\/n\]/);
 
     assert.equal(confirmation.handleLine("n"), true);
@@ -2648,5 +2677,80 @@ describe("createToolConfirmation persistent authorization", () => {
       allow: false,
       reason: "User denied this tool call",
     });
+  });
+});
+
+describe("createToolConfirmation sandbox shell authorization", () => {
+  it("allows shell calls for one Docker-sandboxed Run only", async () => {
+    const output = outputBuffer();
+    const confirmation = createToolConfirmation(output, {
+      shellSandboxMode: "docker",
+    });
+
+    confirmation.setPendingShellAuthorization();
+    confirmation.beginRun();
+
+    for (const command of ["pwd", "printf ok"]) {
+      const decision = confirmation.beforeToolExecute(
+        toolInput("shell_exec", new AbortController().signal, { command }),
+      );
+      assert.deepEqual(await decision, { allow: true });
+    }
+    assert.equal(output.text(), "");
+
+    confirmation.endRun();
+    const nextRun = confirmation.beforeToolExecute(
+      toolInput("shell_exec", new AbortController().signal, { command: "pwd" }),
+    );
+    await Promise.resolve();
+    assert.match(output.text(), /Tool: shell_exec/);
+    assert.equal(confirmation.handleLine("n"), true);
+    assert.deepEqual(await nextRun, {
+      allow: false,
+      reason: "User denied this tool call",
+    });
+  });
+
+  it("keeps host and unsandboxed shell on per-call confirmation", async () => {
+    for (const shellSandboxMode of ["host", "none"] as const) {
+      const output = outputBuffer();
+      const confirmation = createToolConfirmation(output, { shellSandboxMode });
+      assert.throws(
+        () => confirmation.setPendingShellAuthorization(),
+        /requires Docker sandbox mode/,
+      );
+
+      const pending = confirmation.beforeToolExecute(
+        toolInput("shell_exec", new AbortController().signal, { command: "pwd" }),
+      );
+      await Promise.resolve();
+      assert.match(output.text(), /Allow this call\? \[y\/n\]/);
+      assert.equal(confirmation.handleLine("n"), true);
+      assert.deepEqual(await pending, {
+        allow: false,
+        reason: "User denied this tool call",
+      });
+    }
+  });
+
+  it("does not let shell authorization widen to file or other tools", async () => {
+    const output = outputBuffer();
+    const confirmation = createToolConfirmation(output, {
+      shellSandboxMode: "docker",
+    });
+    confirmation.setPendingShellAuthorization();
+    confirmation.beginRun();
+
+    const pending = confirmation.beforeToolExecute(
+      toolInput("read_file", new AbortController().signal, { path: "notes.md" }),
+    );
+    await Promise.resolve();
+    assert.match(output.text(), /Tool: read_file/);
+    assert.equal(confirmation.handleLine("n"), true);
+    assert.deepEqual(await pending, {
+      allow: false,
+      reason: "User denied this tool call",
+    });
+    confirmation.endRun();
   });
 });
