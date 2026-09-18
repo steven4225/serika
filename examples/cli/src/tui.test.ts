@@ -1579,6 +1579,29 @@ describe("createToolConfirmation", () => {
     });
   });
 
+  it("shows shell command and workspace-relative cwd before confirmation", async () => {
+    const output = outputBuffer();
+    const confirmation = createToolConfirmation(output);
+    const pending = confirmation.beforeToolExecute(
+      toolInput("shell_exec", new AbortController().signal, {
+        command: "pnpm test",
+        cwd: "packages/core",
+      }),
+    );
+
+    assert.match(output.text(), /Tool: shell_exec/);
+    assert.match(output.text(), /Command: "pnpm test"/);
+    assert.match(output.text(), /Cwd: "packages\/core" \(relative to workspace\)/);
+    assert.match(output.text(), /not an operating-system sandbox/);
+    assert.match(output.text(), /Allow this call\? \[y\/n\]/);
+
+    assert.equal(confirmation.handleLine("n"), true);
+    assert.deepEqual(await pending, {
+      allow: false,
+      reason: "User denied this tool call",
+    });
+  });
+
   it("shows the complete write_file confirmation input as JSON fields", async () => {
     const output = outputBuffer();
     const confirmation = createToolConfirmation(output);

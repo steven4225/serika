@@ -59,6 +59,7 @@ describe("resolveTuiModuleConfig", () => {
       memory: false,
       task: false,
       todoist: true,
+      shell: false,
     });
     assert.equal(resolved.autoConsolidate, false);
     assert.equal(resolved.todoistTimeZone, "Asia/Shanghai");
@@ -129,7 +130,7 @@ describe("resolveTuiModuleConfig", () => {
     }, "file-only.json");
     await assert.rejects(
       resolveTuiModuleConfig(configArgs(fileOnlyPath), { cwd: configDirectory }),
-      /TUI config requires workspace when read-file, memory, or task is enabled/,
+      /TUI config requires workspace when read-file, memory, task, or shell is enabled/,
     );
   });
 
@@ -152,6 +153,31 @@ describe("resolveTuiModuleConfig", () => {
         /Invalid TUI config schema/,
       );
     }
+  });
+
+  it("enables shell only with an explicit config and requires workspace", async () => {
+    const { configDirectory, workspace } = await createConfigWorkspace();
+    const configPath = await writeConfig(configDirectory, {
+      version: 1,
+      workspace: "./workspace",
+      modules: { shell: { enabled: true } },
+    });
+
+    const resolved = await resolveTuiModuleConfig(configArgs(configPath), {
+      cwd: configDirectory,
+    });
+    assert.equal(resolved.workspaceRoot, await realpath(workspace));
+    assert.equal(resolved.enabled.shell, true);
+
+    const noWorkspacePath = await writeConfig(
+      configDirectory,
+      { version: 1, modules: { shell: { enabled: true } } },
+      "shell-no-workspace.json",
+    );
+    await assert.rejects(
+      resolveTuiModuleConfig(configArgs(noWorkspacePath), { cwd: configDirectory }),
+      /TUI config requires workspace when read-file, memory, task, or shell is enabled/,
+    );
   });
 
   it("rejects malformed JSON and does not fall back to legacy settings", async () => {
@@ -187,6 +213,7 @@ describe("resolveTuiModuleConfig", () => {
       memory: true,
       task: true,
       todoist: true,
+      shell: false,
     });
     assert.equal(resolved.autoConsolidate, true);
     assert.equal(resolved.todoistTimeZone, "UTC");
@@ -254,6 +281,7 @@ describe("TUI module configuration entry", () => {
     assert.match(stdout, /memory: disabled/);
     assert.match(stdout, /task: disabled/);
     assert.match(stdout, /todoist: disabled/);
+    assert.match(stdout, /shell: disabled/);
     assert.match(stdout, /Todoist 规划时区: 未启用/);
     assert.match(stdout, /自动记忆整理: off/);
     assert.match(stdout, /Todoist token: missing/);
