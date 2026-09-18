@@ -81,6 +81,16 @@ function confirmationPrompt(
   toolName: string,
   input: unknown,
 ): string {
+  if (toolName === "shell_exec" && typeof input === "object" && input !== null) {
+    const shellInput = input as { command?: unknown; cwd?: unknown };
+    return (
+      `\nTool: ${toolName}\n` +
+      `Command: ${JSON.stringify(shellInput.command)}\n` +
+      `Cwd: ${JSON.stringify(shellInput.cwd ?? ".")} (relative to workspace)\n` +
+      "Output may be truncated; the workspace cwd is not an operating-system sandbox.\n" +
+      "Allow this call? [y/n] "
+    );
+  }
   const path = toolName === "read_file" ? readFilePath(input) : undefined;
   if (path !== undefined) {
     return (

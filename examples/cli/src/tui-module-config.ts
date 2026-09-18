@@ -9,6 +9,7 @@ export const BUILTIN_MODULE_IDS = [
   "memory",
   "task",
   "todoist",
+  "shell",
 ] as const;
 
 export type BuiltinModuleId = (typeof BUILTIN_MODULE_IDS)[number];
@@ -55,6 +56,7 @@ const tuiModuleConfigV1Schema = z
         memory: memoryModuleSchema.optional(),
         task: moduleToggleSchema.optional(),
         todoist: todoistModuleSchema.optional(),
+        shell: moduleToggleSchema.optional(),
       })
       .strict(),
   })
@@ -73,6 +75,7 @@ export interface TuiModuleConfigV1 {
     todoist?:
       | { enabled: boolean; timeZone?: string | undefined }
       | undefined;
+    shell?: { enabled: boolean } | undefined;
   };
 }
 
@@ -102,11 +105,12 @@ function emptyEnabled(): Record<BuiltinModuleId, boolean> {
     memory: false,
     task: false,
     todoist: false,
+    shell: false,
   };
 }
 
 function hasWorkspaceModule(enabled: Record<BuiltinModuleId, boolean>): boolean {
-  return enabled["read-file"] || enabled.memory || enabled.task;
+  return enabled["read-file"] || enabled.memory || enabled.task || enabled.shell;
 }
 
 function assertWorkspaceRequirement(
@@ -162,6 +166,7 @@ async function resolveConfiguredMode(
   enabled.memory = config.modules.memory?.enabled ?? false;
   enabled.task = config.modules.task?.enabled ?? false;
   enabled.todoist = config.modules.todoist?.enabled ?? false;
+  enabled.shell = config.modules.shell?.enabled ?? false;
 
   const autoConsolidate = config.modules.memory?.autoConsolidate ?? false;
   if (autoConsolidate && !enabled.memory) {
@@ -172,7 +177,7 @@ async function resolveConfiguredMode(
   assertWorkspaceRequirement(
     enabled,
     config.workspace,
-    "TUI config requires workspace when read-file, memory, or task is enabled",
+    "TUI config requires workspace when read-file, memory, task, or shell is enabled",
   );
 
   const workspaceRoot =

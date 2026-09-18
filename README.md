@@ -79,7 +79,7 @@ Stage 7-2 支持用一份显式 JSON 配置选择 TUI 启用的内置模块。�
 RUNLOOM_MODEL=mock pnpm tui -- ./var/runloom --thread daily-plan --config ./runloom.json
 ```
 
-配置模式下未列出的模块默认关闭，模块配置必须使用 `{ "enabled": true|false }`。支持的模块是 `pomodoro`、`read-file`、`memory`、`task` 和 `todoist`；`read-file` 仍包含 `/workspace`、文件读写和搜索能力，示例 `add` 工具不属于配置模块。
+配置模式下未列出的模块默认关闭，模块配置必须使用 `{ "enabled": true|false }`。支持的模块是 `pomodoro`、`read-file`、`memory`、`task`、`todoist` 和 `shell`；`read-file` 仍包含 `/workspace`、文件读写和搜索能力，`shell` 提供显式启用的 `shell_exec`，示例 `add` 工具不属于配置模块。
 
 ```json
 {
@@ -95,7 +95,7 @@ RUNLOOM_MODEL=mock pnpm tui -- ./var/runloom --thread daily-plan --config ./runl
 }
 ```
 
-`workspace` 相对配置文件所在目录解析。启用 `read-file`、`memory` 或 `task` 时必须提供有效 workspace；只启用 Todoist 或番茄钟可以省略。配置模式下 Todoist 时区只读取 JSON，缺省为 `Asia/Shanghai`；不传 `--config` 时仍沿用 `RUNLOOM_TODOIST_TIMEZONE`。Todoist token 始终从 `TODOIST_API_TOKEN` 读取，不能写进 JSON。
+`workspace` 相对配置文件所在目录解析。启用 `read-file`、`memory`、`task` 或 `shell` 时必须提供有效 workspace；只启用 Todoist 或番茄钟可以省略。配置模式下 Todoist 时区只读取 JSON，缺省为 `Asia/Shanghai`；不传 `--config` 时仍沿用 `RUNLOOM_TODOIST_TIMEZONE`。Todoist token 始终从 `TODOIST_API_TOKEN` 读取，不能写进 JSON。
 
 `--config` 与 `--workspace`、`--todoist`、`--auto-consolidate` 互斥，但可和 transcript 目录、`--thread` 一起使用。不传 `--config` 时，原有命令行行为保持不变。
 
@@ -222,7 +222,7 @@ TUI 使用相同的模式和环境变量：
 RUNLOOM_MODEL=minimax-m3 pnpm tui -- ./var/runloom --thread demo
 ```
 
-Shell 工具和持久化审批仍未进入这条主链；受控写文件工具已经接入。TUI 的 y/n 只决定当前 Run 的一次工具调用，不形成可恢复的审批记录。Durable Run Driver 仍不进入这条主链。
+配置中启用 `shell` 且提供 workspace 后，TUI 会注册 `shell_exec`。每次命令调用显示命令和 workspace-relative cwd，并通过现有 `y/n` 确认；命令默认 30 秒超时、输出可能截断，workspace cwd 不是操作系统级沙箱。工具层超时略长于命令超时，以便把 `timedOut` 和已读输出作为工具结果返回，而不是先把 execute 承诺拒绝掉。shell_exec 只进入 TUI，worker 不会因为 TUI 配置自动获得它。TUI 的 y/n 只决定当前 Run 的一次工具调用，不形成可恢复的审批记录。Durable Run Driver 仍不进入这条主链。
 
 ### Stage 6 验收
 
