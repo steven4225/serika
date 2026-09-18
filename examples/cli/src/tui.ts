@@ -11,10 +11,12 @@ import type {
   RunResult,
   ToolExecutionDecision,
 } from "@aisdk-agent/core";
+import { resolve, sep } from "node:path";
 import {
   AUTO_CONSOLIDATION_SOURCE,
   isAutoConsolidationRequest,
 } from "./consolidation.js";
+import { validateWorkspacePath } from "./workspace-path.js";
 
 type Runtime = {
   run<TContext>(request: RunRequest<TContext>): Promise<RunHandle>;
@@ -49,7 +51,32 @@ export interface RunTuiOptions {
 export interface ToolConfirmation {
   beforeToolExecute: BeforeToolExecute;
   handleLine(line: string): boolean;
+  setPendingAuthorization(rule: RunAuthorizationInput): void;
+  beginRun(): void;
+  endRun(): void;
 }
+
+export const RUN_AUTHORIZED_FILE_TOOLS = [
+  "list_directory",
+  "search_files",
+  "read_file",
+  "write_file",
+  "edit_file",
+] as const;
+
+export type RunAuthorizedFileTool = (typeof RUN_AUTHORIZED_FILE_TOOLS)[number];
+
+/** A non-persistent file-tool rule that applies to one subsequent Run. */
+export interface RunAuthorization {
+  workspaceRoot: string;
+  allowedPaths: readonly string[];
+  tools: readonly RunAuthorizedFileTool[];
+  lifetime: "run";
+}
+
+export type RunAuthorizationInput = Omit<RunAuthorization, "workspaceRoot"> & {
+  workspaceRoot?: string;
+};
 
 export type ToolConfirmationPrompt = (
   input: BeforeToolExecuteInput,
@@ -75,6 +102,69 @@ function readFilePath(input: unknown): string | undefined {
   }
   const path = (input as { path?: unknown }).path;
   return typeof path === "string" ? path : undefined;
+}
+
+function toolPath(input: unknown): string {
+  if (typeof input !== "object" || input === null || !("path" in input)) {
+    return ".";
+  }
+  const path = (input as { path?: unknown }).path;
+  return typeof path === "string" && path.length > 0 ? path : ".";
+}
+
+function normalizeAuthorization(
+  rule: RunAuthorizationInput,
+  defaultWorkspaceRoot: string | undefined,
+): RunAuthorization {
+  if (rule.lifetime !== "run") {
+    throw new Error('Only lifetime "run" is supported');
+  }
+  const workspaceRootValue = rule.workspaceRoot ?? defaultWorkspaceRoot;
+  if (workspaceRootValue === undefined) {
+    throw new Error("A workspace root is required for run authorization");
+  }
+  const workspaceRoot = resolve(workspaceRootValue);
+  const tools = [...new Set(rule.tools)];
+  if (tools.length === 0) throw new Error("At least one file tool is required");
+  for (const toolName of tools) {
+    if (!(RUN_AUTHORIZED_FILE_TOOLS as readonly string[]).includes(toolName)) {
+      throw new Error(`Tool is not eligible for run authorization: ${toolName}`);
+    }
+  }
+  const allowedPaths = rule.allowedPaths.map((path) => {
+    const validated = validateWorkspacePath(workspaceRoot, path);
+    if (!validated.ok) {
+      throw new Error(`Invalid authorization path ${JSON.stringify(path)}: ${validated.message}`);
+    }
+    return validated.relativePath;
+  });
+  if (allowedPaths.length === 0) throw new Error("At least one workspace path is required");
+  return {
+    workspaceRoot,
+    allowedPaths: [...new Set(allowedPaths)],
+    tools: tools as RunAuthorizedFileTool[],
+    lifetime: "run",
+  };
+}
+
+function pathWithin(candidate: string, allowed: string): boolean {
+  return candidate === allowed || allowed === "" || candidate.startsWith(`${allowed}${sep}`);
+}
+
+function authorizationAllows(
+  authorization: RunAuthorization | undefined,
+  input: BeforeToolExecuteInput,
+): boolean {
+  if (authorization === undefined) return false;
+  if (!(authorization.tools as readonly string[]).includes(input.toolName)) return false;
+  const requested = validateWorkspacePath(
+    authorization.workspaceRoot,
+    toolPath(input.input),
+  );
+  if (!requested.ok) return false;
+  return authorization.allowedPaths.some((allowed) =>
+    pathWithin(requested.relativePath, allowed),
+  );
 }
 
 function confirmationPrompt(
@@ -136,9 +226,11 @@ interface PendingConfirmation {
 
 export function createToolConfirmation(
   output: Writable,
-  options: { prompt?: ToolConfirmationPrompt } = {},
+  options: { prompt?: ToolConfirmationPrompt; workspaceRoot?: string } = {},
 ): ToolConfirmation {
   let pending: PendingConfirmation | undefined;
+  let nextRunAuthorization: RunAuthorization | undefined;
+  let activeRunAuthorization: RunAuthorization | undefined;
 
   const clearPending = (entry: PendingConfirmation): void => {
     if (pending !== entry) return;
@@ -149,6 +241,9 @@ export function createToolConfirmation(
   const beforeToolExecute: BeforeToolExecute = (input) => {
     if (input.signal.aborted) return Promise.reject(abortReason(input.signal));
     if (AUTO_APPROVED_TOOL_NAMES.has(input.toolName)) {
+      return Promise.resolve({ allow: true });
+    }
+    if (authorizationAllows(activeRunAuthorization, input)) {
       return Promise.resolve({ allow: true });
     }
     if (pending !== undefined) {
@@ -224,7 +319,31 @@ export function createToolConfirmation(
     return true;
   };
 
-  return { beforeToolExecute, handleLine };
+  const setPendingAuthorization = (rule: RunAuthorizationInput): void => {
+    nextRunAuthorization = normalizeAuthorization(rule, options.workspaceRoot);
+  };
+
+  const beginRun = (): void => {
+    activeRunAuthorization = nextRunAuthorization;
+    nextRunAuthorization = undefined;
+  };
+
+  const endRun = (): void => {
+    activeRunAuthorization = undefined;
+    if (pending !== undefined) {
+      const entry = pending;
+      clearPending(entry);
+      entry.reject(new Error("Run authorization ended"));
+    }
+  };
+
+  return {
+    beforeToolExecute,
+    handleLine,
+    setPendingAuthorization,
+    beginRun,
+    endRun,
+  };
 }
 
 function toolPartText(part: Extract<UIMessage["parts"][number], { type: "dynamic-tool" }>): string {
@@ -542,31 +661,36 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
       result: RunResult;
       requestedMemoryTool: boolean;
     }> => {
-      const handle = await options.runtime.run({
-        agentId,
-        threadId: options.threadId,
-        messages: [message],
-      });
-      runStarted = true;
-      state = { kind: "running", handle };
-      cancelSentForRun = undefined;
-      const pendingStopReason = stopRequestReason;
-      stopRequestReason = undefined;
-      if (pendingStopReason !== undefined) {
-        await handle.cancel(pendingStopReason);
-      }
+      options.toolConfirmation?.beginRun();
+      try {
+        const handle = await options.runtime.run({
+          agentId,
+          threadId: options.threadId,
+          messages: [message],
+        });
+        runStarted = true;
+        state = { kind: "running", handle };
+        cancelSentForRun = undefined;
+        const pendingStopReason = stopRequestReason;
+        stopRequestReason = undefined;
+        if (pendingStopReason !== undefined) {
+          await handle.cancel(pendingStopReason);
+        }
 
-      const eventsDone = renderEvents(output, handle.events);
-      const result = await handle.result;
-      const rendered = await eventsDone;
-      renderResult(
-        output,
-        result,
-        rendered.renderedText,
-        rendered.completedActions,
-      );
-      state = { kind: "idle" };
-      return { result, requestedMemoryTool: rendered.requestedMemoryTool };
+        const eventsDone = renderEvents(output, handle.events);
+        const result = await handle.result;
+        const rendered = await eventsDone;
+        renderResult(
+          output,
+          result,
+          rendered.renderedText,
+          rendered.completedActions,
+        );
+        state = { kind: "idle" };
+        return { result, requestedMemoryTool: rendered.requestedMemoryTool };
+      } finally {
+        options.toolConfirmation?.endRun();
+      }
     };
 
     try {
