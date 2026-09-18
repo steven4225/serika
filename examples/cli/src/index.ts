@@ -233,6 +233,7 @@ if (commands !== undefined && moduleConfig !== undefined) {
         `Todoist 规划时区: ${moduleConfig.todoistTimeZone ?? "未启用"}`,
         `自动记忆整理: ${moduleConfig.autoConsolidate ? "on" : "off"}`,
         `Todoist token: ${todoistTokenPresent ? "present" : "missing"}`,
+        `持久文件授权: ${moduleConfig.fileAuthorizations.length} 条`,
       ];
       output.write(`\n[modules]\n${status.join("\n")}\n`);
     },
@@ -307,6 +308,13 @@ try {
     ? createToolConfirmation(output, {
         prompt: toolConfirmationPrompt,
         ...(workspaceRoot !== undefined ? { workspaceRoot } : {}),
+        ...(moduleConfig !== undefined && moduleConfig.fileAuthorizations.length > 0
+          ? {
+              persistentAuthorizations: moduleConfig.fileAuthorizations.map(
+                (rule) => ({ ...rule, lifetime: "run" as const }),
+              ),
+            }
+          : {}),
       })
     : undefined;
   const tools = new ToolRegistry(registeredTools);
@@ -354,6 +362,42 @@ try {
         } catch (error) {
           output.write(`\n[authorize] Invalid rule: ${String(error)}\n`);
         }
+      },
+    });
+  }
+  if (commands !== undefined && moduleConfig !== undefined) {
+    commands.set("permissions", {
+      name: "permissions",
+      execute(args) {
+        if (args.trim() !== "") {
+          output.write("\n[permissions] Usage: /permissions\n");
+          return;
+        }
+        const source =
+          moduleConfig.configPath === null
+            ? "CLI 参数/默认值"
+            : JSON.stringify(moduleConfig.configPath);
+        const workspace =
+          moduleConfig.workspaceRoot === null
+            ? "未配置"
+            : JSON.stringify(moduleConfig.workspaceRoot);
+        output.write(
+          `\n[permissions]\n配置来源: ${source}\nWorkspace: ${workspace}\n`,
+        );
+        if (moduleConfig.fileAuthorizations.length === 0) {
+          output.write("持久文件授权: 未配置\n");
+        } else {
+          output.write(
+            `持久文件授权: ${moduleConfig.fileAuthorizations.length} 条\n`,
+          );
+          for (const [index, rule] of moduleConfig.fileAuthorizations.entries()) {
+            output.write(
+              `- ${index + 1}: tools=${rule.tools.join(",")} paths=${rule.allowedPaths.join(",")}\n`,
+            );
+          }
+          output.write("修改或删除配置后需重启 TUI 生效。\n");
+        }
+        output.write("Shell、memory、Todoist、task 不受持久文件授权影响。\n");
       },
     });
   }

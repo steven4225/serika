@@ -1,7 +1,18 @@
-import { readFile } from "node:fs/promises";
-import { dirname, resolve as resolvePath } from "node:path";
+import { readFile, realpath } from "node:fs/promises";
+import {
+  dirname,
+  isAbsolute,
+  relative,
+  resolve as resolvePath,
+  sep,
+} from "node:path";
 import { z } from "zod";
 import { resolveWorkspace, type TuiArgs } from "./cli-options.js";
+import {
+  RUN_AUTHORIZED_FILE_TOOLS,
+  type RunAuthorizedFileTool,
+} from "./tui.js";
+import { validateWorkspacePath } from "./workspace-path.js";
 
 export const BUILTIN_MODULE_IDS = [
   "pomodoro",
@@ -14,12 +25,18 @@ export const BUILTIN_MODULE_IDS = [
 
 export type BuiltinModuleId = (typeof BUILTIN_MODULE_IDS)[number];
 
+export interface FileAuthorizationRule {
+  tools: readonly RunAuthorizedFileTool[];
+  allowedPaths: readonly string[];
+}
+
 export interface ResolvedTuiModuleConfig {
   configPath: string | null;
   workspaceRoot: string | null;
   enabled: Record<BuiltinModuleId, boolean>;
   autoConsolidate: boolean;
   todoistTimeZone: string | null;
+  fileAuthorizations: readonly FileAuthorizationRule[];
 }
 
 const DEFAULT_TODOIST_TIME_ZONE = "Asia/Shanghai";
@@ -45,6 +62,13 @@ const todoistModuleSchema = z
   })
   .strict();
 
+const fileAuthorizationSchema = z
+  .object({
+    tools: z.array(z.enum(RUN_AUTHORIZED_FILE_TOOLS)).min(1),
+    allowedPaths: z.array(nonEmptyString).min(1),
+  })
+  .strict();
+
 const tuiModuleConfigV1Schema = z
   .object({
     version: z.literal(1),
@@ -59,6 +83,7 @@ const tuiModuleConfigV1Schema = z
         shell: moduleToggleSchema.optional(),
       })
       .strict(),
+    fileAuthorizations: z.array(fileAuthorizationSchema).optional(),
   })
   .strict();
 
@@ -77,6 +102,7 @@ export interface TuiModuleConfigV1 {
       | undefined;
     shell?: { enabled: boolean } | undefined;
   };
+  fileAuthorizations?: FileAuthorizationRule[] | undefined;
 }
 
 function configPathFromArgs(args: TuiArgs): string | undefined {
@@ -121,6 +147,49 @@ function assertWorkspaceRequirement(
   if (hasWorkspaceModule(enabled) && workspace === undefined) {
     throw new Error(errorMessage);
   }
+}
+
+function isPathWithin(root: string, target: string): boolean {
+  const relativePath = relative(root, target);
+  return (
+    relativePath === "" ||
+    (relativePath !== ".." &&
+      !relativePath.startsWith(`..${sep}`) &&
+      !isAbsolute(relativePath))
+  );
+}
+
+function normalizeFileAuthorizations(
+  rules: readonly FileAuthorizationRule[] | undefined,
+  workspaceRoot: string | null,
+  enabled: Record<BuiltinModuleId, boolean>,
+): readonly FileAuthorizationRule[] {
+  if (rules === undefined || rules.length === 0) return [];
+  if (!enabled["read-file"]) {
+    throw new Error("fileAuthorizations requires read-file.enabled to be true");
+  }
+  if (workspaceRoot === null) {
+    throw new Error("fileAuthorizations requires a workspace");
+  }
+  return rules.map((rule) => {
+    const tools = [...new Set(rule.tools)];
+    if (tools.length !== rule.tools.length) {
+      throw new Error("fileAuthorizations tools must not contain duplicates");
+    }
+    const allowedPaths = rule.allowedPaths.map((path) => {
+      const validated = validateWorkspacePath(workspaceRoot, path);
+      if (!validated.ok) {
+        throw new Error(
+          `Invalid file authorization path ${JSON.stringify(path)}: ${validated.message}`,
+        );
+      }
+      return validated.relativePath;
+    });
+    if (new Set(allowedPaths).size !== allowedPaths.length) {
+      throw new Error("fileAuthorizations paths must not contain duplicates");
+    }
+    return { tools, allowedPaths };
+  });
 }
 
 async function readTuiModuleConfig(configPath: string): Promise<TuiModuleConfigV1> {
@@ -184,6 +253,19 @@ async function resolveConfiguredMode(
     config.workspace === undefined
       ? null
       : await resolveWorkspace(config.workspace, dirname(absoluteConfigPath));
+  const fileAuthorizations = normalizeFileAuthorizations(
+    config.fileAuthorizations,
+    workspaceRoot,
+    enabled,
+  );
+  if (fileAuthorizations.length > 0) {
+    const configRealPath = await realpath(absoluteConfigPath);
+    if (workspaceRoot !== null && isPathWithin(workspaceRoot, configRealPath)) {
+      throw new Error(
+        "TUI config with fileAuthorizations must be outside the workspace",
+      );
+    }
+  }
   const todoistTimeZone = enabled.todoist
     ? normalizeTodoistTimeZone(
         config.modules.todoist?.timeZone ?? DEFAULT_TODOIST_TIME_ZONE,
@@ -196,6 +278,7 @@ async function resolveConfiguredMode(
     enabled,
     autoConsolidate,
     todoistTimeZone,
+    fileAuthorizations,
   };
 }
 
@@ -236,6 +319,7 @@ async function resolveLegacyMode(
     enabled,
     autoConsolidate: args.autoConsolidate === true,
     todoistTimeZone: resolvedTodoistTimeZone,
+    fileAuthorizations: [],
   };
 }
 

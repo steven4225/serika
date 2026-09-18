@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { spawn } from "node:child_process";
-import { mkdtemp, mkdir, realpath, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, realpath, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -35,6 +35,108 @@ async function writeConfig(
 }
 
 describe("resolveTuiModuleConfig", () => {
+  it("loads persistent file authorization rules with the configured workspace", async () => {
+    const { configDirectory, workspace } = await createConfigWorkspace();
+    const configPath = await writeConfig(configDirectory, {
+      version: 1,
+      workspace: "./workspace",
+      modules: { "read-file": { enabled: true } },
+      fileAuthorizations: [
+        {
+          tools: ["read_file", "search_files"],
+          allowedPaths: ["docs/", "reports"],
+        },
+      ],
+    });
+
+    const resolved = await resolveTuiModuleConfig(configArgs(configPath), {
+      cwd: configDirectory,
+    });
+
+    assert.equal(resolved.workspaceRoot, await realpath(workspace));
+    assert.equal(resolved.fileAuthorizations.length, 1);
+    assert.deepEqual(resolved.fileAuthorizations[0]?.tools, [
+      "read_file",
+      "search_files",
+    ]);
+    assert.deepEqual(resolved.fileAuthorizations[0]?.allowedPaths, [
+      "docs",
+      "reports",
+    ]);
+  });
+
+  it("rejects invalid persistent authorization tools and paths", async () => {
+    const { configDirectory } = await createConfigWorkspace();
+    const invalidValues = [
+      {
+        version: 1,
+        workspace: "./workspace",
+        modules: { "read-file": { enabled: true } },
+        fileAuthorizations: [
+          { tools: ["shell_exec"], allowedPaths: ["docs"] },
+        ],
+      },
+      {
+        version: 1,
+        workspace: "./workspace",
+        modules: { "read-file": { enabled: true } },
+        fileAuthorizations: [
+          { tools: ["read_file"], allowedPaths: ["../outside"] },
+        ],
+      },
+    ];
+
+    for (const [index, value] of invalidValues.entries()) {
+      const configPath = await writeConfig(
+        configDirectory,
+        value,
+        `invalid-file-authorization-${index}.json`,
+      );
+      await assert.rejects(
+        resolveTuiModuleConfig(configArgs(configPath), {
+          cwd: configDirectory,
+        }),
+        /(Invalid|authorization|tool|path)/i,
+      );
+    }
+  });
+
+  it("rejects persistent authorization when the config file is inside the workspace", async () => {
+    const { workspace } = await createConfigWorkspace();
+    const configPath = await writeConfig(workspace, {
+      version: 1,
+      workspace: ".",
+      modules: { "read-file": { enabled: true } },
+      fileAuthorizations: [
+        { tools: ["read_file"], allowedPaths: ["docs"] },
+      ],
+    });
+
+    await assert.rejects(
+      resolveTuiModuleConfig(configArgs(configPath), { cwd: workspace }),
+      /(outside|workspace|authorization)/i,
+    );
+  });
+
+  it("rejects an outside config symlink that resolves into the workspace", async () => {
+    const { configDirectory, workspace } = await createConfigWorkspace();
+    const insidePath = await writeConfig(workspace, {
+      version: 1,
+      workspace: "./workspace",
+      modules: { "read-file": { enabled: true } },
+      fileAuthorizations: [
+        { tools: ["read_file"], allowedPaths: ["docs"] },
+      ],
+    }, "inside.json");
+    const linkPath = join(configDirectory, "linked.json");
+    await symlink(insidePath, linkPath);
+
+    await assert.rejects(
+      resolveTuiModuleConfig(configArgs(linkPath), { cwd: configDirectory }),
+      /outside the workspace/,
+    );
+  });
+
   it("uses strict config modules with omitted modules disabled", async () => {
     const { configDirectory, workspace } = await createConfigWorkspace();
     const configPath = await writeConfig(configDirectory, {
@@ -243,6 +345,47 @@ describe("resolveTuiModuleConfig", () => {
 });
 
 describe("TUI module configuration entry", () => {
+  it("shows persistent rules through /permissions without starting a Run", async () => {
+    const { root, configDirectory } = await createConfigWorkspace();
+    const configPath = await writeConfig(configDirectory, {
+      version: 1,
+      workspace: "./workspace",
+      modules: { "read-file": { enabled: true } },
+      fileAuthorizations: [
+        { tools: ["read_file"], allowedPaths: ["docs"] },
+      ],
+    }, "permissions.json");
+    const entry = fileURLToPath(new URL("./index.js", import.meta.url));
+    const child = spawn(
+      process.execPath,
+      [entry, "--tui", "--config", configPath],
+      {
+        cwd: root,
+        env: { ...process.env, RUNLOOM_MODEL: "mock" },
+        stdio: ["pipe", "pipe", "pipe"],
+      },
+    );
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk: string) => {
+      stdout += chunk;
+    });
+    child.stderr.on("data", (chunk: string) => {
+      stderr += chunk;
+    });
+    child.stdin.end("/permissions\n");
+    const [code] = await once(child, "close");
+
+    assert.equal(code, 0, stderr);
+    assert.match(stdout, /\[permissions\]/);
+    assert.match(stdout, /持久文件授权: 1 条/);
+    assert.match(stdout, /tools=read_file paths=docs/);
+    assert.match(stdout, /修改或删除配置后需重启 TUI 生效/);
+    assert.doesNotMatch(stdout, /Allow this call\? \[y\/n\]/);
+  });
+
   it("always exposes /modules when every configurable module is disabled", async () => {
     const { root, configDirectory } = await createConfigWorkspace();
     const configPath = await writeConfig(configDirectory, {
