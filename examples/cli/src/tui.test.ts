@@ -2732,6 +2732,30 @@ describe("createToolConfirmation persistent authorization", () => {
       reason: "User denied this tool call",
     });
   });
+
+  it("does not restore next-Run /authorize after a new confirmation is created", async () => {
+    const firstOutput = outputBuffer();
+    const first = createToolConfirmation(firstOutput, { workspaceRoot });
+    first.setPendingAuthorization({
+      tools: ["write_file"],
+      allowedPaths: ["docs/"],
+      lifetime: "run",
+    });
+
+    const secondOutput = outputBuffer();
+    const restarted = createToolConfirmation(secondOutput, { workspaceRoot });
+    const prompted = restarted.beforeToolExecute(
+      toolInput("write_file", new AbortController().signal, { path: "docs/report.md" }),
+    );
+    await Promise.resolve();
+    assert.match(secondOutput.text(), /Tool: write_file/);
+    assert.equal(firstOutput.text(), "");
+    assert.equal(restarted.handleLine("n"), true);
+    assert.deepEqual(await prompted, {
+      allow: false,
+      reason: "User denied this tool call",
+    });
+  });
 });
 
 describe("createToolConfirmation sandbox shell authorization", () => {

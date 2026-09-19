@@ -1,11 +1,20 @@
 import assert from "node:assert/strict";
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { Writable } from "node:stream";
 import { describe, it } from "node:test";
-import { simulateReadableStream, type UIMessage } from "ai";
+import { simulateReadableStream, tool, type UIMessage } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
+import { z } from "zod";
 import {
   DefaultAgentRuntime,
   InMemoryAgentCatalog,
   InMemoryAgentStore,
+  JsonlAgentStore,
+  type AgentStore,
+  type BeforeToolExecute,
+  type RunHandle,
 } from "@aisdk-agent/core";
 import {
   AiSdkAgentLoop,
@@ -19,13 +28,15 @@ import {
 import { createModuleHost } from "./module-host.js";
 import { createMemoryModule } from "./modules/memory-module.js";
 import type { MemoryEntry, WorkspaceMemoryStore } from "./memory-store.js";
+import { createToolConfirmation } from "./tui.js";
+import { lookupTranscript } from "./work-summary.js";
 
 const definition = {
   id: "context-window-test",
   version: "1",
   instructions: "Answer briefly.",
   model: "context-test-model",
-  tools: [],
+  tools: [] as readonly string[],
   limits: { maxSteps: 1, totalTimeoutMs: 1_000, stepTimeoutMs: 500 },
 };
 
@@ -102,17 +113,167 @@ class CountingStore extends InMemoryAgentStore {
 
 function runtimeFor(
   model: MockLanguageModelV3,
-  store: InMemoryAgentStore,
+  store: AgentStore,
+  options: {
+    tools?: ToolRegistry;
+    extraDefinition?: Partial<typeof definition>;
+    beforeToolExecute?: BeforeToolExecute;
+  } = {},
 ): DefaultAgentRuntime {
   return new DefaultAgentRuntime({
-    catalog: new InMemoryAgentCatalog([definition]),
+    catalog: new InMemoryAgentCatalog([{ ...definition, ...options.extraDefinition }]),
     loop: new AiSdkAgentLoop({
       models: new InMemoryModelRegistry({ [definition.model]: model }),
-      tools: new ToolRegistry(),
+      tools: options.tools ?? new ToolRegistry(),
     }),
     prepareModelContext: ({ messages }) => selectModelContext(messages),
     store,
+    ...(options.beforeToolExecute === undefined
+      ? {}
+      : { beforeToolExecute: options.beforeToolExecute }),
   });
+}
+
+function toolWriteMessage(id: string, path: string, bytes: number): UIMessage {
+  return {
+    id,
+    role: "assistant",
+    parts: [{
+      type: "dynamic-tool",
+      toolName: "write_file",
+      toolCallId: `${id}-call`,
+      state: "output-available",
+      input: { path },
+      output: { ok: true, path, bytes },
+    }],
+  };
+}
+
+function longThreadMessages(options: {
+  prefix: string;
+  goal: string;
+  constraint: string;
+  path: string;
+  bytes: number;
+}): UIMessage[] {
+  const committed: UIMessage[] = [
+    userMessage(`${options.prefix}-user-0`, options.goal),
+    toolWriteMessage(`${options.prefix}-tool-0`, options.path, options.bytes),
+    userMessage(`${options.prefix}-user-1`, options.constraint),
+    assistantMessage(`${options.prefix}-assistant-1`, "Understood."),
+  ];
+  for (let turn = 2; turn < 10; turn += 1) {
+    committed.push(
+      userMessage(`${options.prefix}-user-${turn}`, `${options.prefix}-follow-up-${turn}`),
+      assistantMessage(`${options.prefix}-assistant-${turn}`, `${options.prefix}-answer-${turn}`),
+    );
+  }
+  return committed;
+}
+
+async function finishRun(handle: RunHandle) {
+  const eventsDone = (async () => {
+    for await (const _event of handle.events) {
+      // Drain events so a failed or cancelled run cannot stall unread.
+    }
+  })();
+  const result = await handle.result;
+  await eventsDone;
+  return result;
+}
+
+function waitForAbort(signal: AbortSignal): Promise<never> {
+  return new Promise((_, reject) => {
+    if (signal.aborted) {
+      reject(signal.reason);
+      return;
+    }
+    signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+  });
+}
+
+function outputBuffer(): Writable & { text(): string } {
+  const chunks: string[] = [];
+  const output = new Writable({
+    write(chunk, _encoding, callback) {
+      chunks.push(String(chunk));
+      callback();
+    },
+  }) as Writable & { text(): string };
+  output.text = () => chunks.join("");
+  return output;
+}
+
+function writeFileTool(execute: () => { ok: true; path: string; bytes: number }) {
+  return new ToolRegistry([
+    {
+      metadata: {
+        name: "write_file",
+        version: "1",
+        risk: "write",
+        timeoutMs: 500,
+        idempotent: false,
+      },
+      tool: tool({
+        inputSchema: z.object({ path: z.string() }),
+        execute,
+      }),
+    },
+  ]);
+}
+
+function truncatedResponse(text: string) {
+  return {
+    stream: simulateReadableStream({
+      chunks: [
+        { type: "stream-start" as const, warnings: [] },
+        { type: "text-start" as const, id: "answer" },
+        { type: "text-delta" as const, id: "answer", delta: text },
+        { type: "text-end" as const, id: "answer" },
+        {
+          type: "finish" as const,
+          finishReason: { unified: "length" as const, raw: undefined },
+          usage: {
+            inputTokens: {
+              total: 3,
+              noCache: 3,
+              cacheRead: undefined,
+              cacheWrite: undefined,
+            },
+            outputTokens: {
+              total: 1,
+              text: 1,
+              reasoning: undefined,
+            },
+          },
+        },
+      ],
+    }),
+  };
+}
+
+function toolCallResponse(toolName: string, input: unknown) {
+  return {
+    stream: simulateReadableStream({
+      chunks: [
+        { type: "stream-start" as const, warnings: [] },
+        {
+          type: "tool-call" as const,
+          toolCallId: "uncommitted-write-call",
+          toolName,
+          input: JSON.stringify(input),
+        },
+        {
+          type: "finish" as const,
+          finishReason: { unified: "tool-calls" as const, raw: undefined },
+          usage: {
+            inputTokens: { total: 3, noCache: 3, cacheRead: undefined, cacheWrite: undefined },
+            outputTokens: { total: 1, text: 1, reasoning: undefined },
+          },
+        },
+      ],
+    }),
+  };
 }
 
 describe("context window Runtime integration", () => {
@@ -161,6 +322,215 @@ describe("context window Runtime integration", () => {
     );
     assert.equal(saved.some((message) => message.id === "current-user"), true);
     assert.equal(saved.some((message) => message.id === "runloom-work-summary"), false);
+  });
+
+  it("rebuilds the summary from committed JSONL after restart without crossing thread boundaries", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "runloom-context-restart-"));
+    const threadId = "context-window-restart";
+    const otherThreadId = "context-window-other-thread";
+    const failedSentinel = "FAILED-RUN-MUST-NOT-RETURN";
+    const cancelledSentinel = "CANCELLED-RUN-MUST-NOT-RETURN";
+    const uncommittedPath = "tmp/uncommitted.md";
+    const committed = longThreadMessages({
+      prefix: "restart",
+      goal: "Prepare docs/report.md from the existing notes",
+      constraint: "Keep the original filename and never write outside docs/",
+      path: "docs/report.md",
+      bytes: 42,
+    });
+    const otherCommitted = longThreadMessages({
+      prefix: "other",
+      goal: "Prepare secret/other.md from a separate brief",
+      constraint: "Never write outside secret/",
+      path: "secret/other.md",
+      bytes: 17,
+    });
+
+    try {
+      const initialStore = new JsonlAgentStore({ directory });
+      await initialStore.save(threadId, committed);
+      await initialStore.save(otherThreadId, otherCommitted);
+
+      let uncommittedWrites = 0;
+      let failedModelCalls = 0;
+      const failingModel = new MockLanguageModelV3({
+        doStream: async () => {
+          failedModelCalls += 1;
+          if (failedModelCalls === 1) {
+            return toolCallResponse("write_file", { path: uncommittedPath });
+          }
+          return truncatedResponse("partial answer after uncommitted write");
+        },
+      });
+      const failedResult = await finishRun(
+        await runtimeFor(failingModel, initialStore, {
+          tools: writeFileTool(() => {
+            uncommittedWrites += 1;
+            return { ok: true, path: uncommittedPath, bytes: 9 };
+          }),
+          extraDefinition: {
+            tools: ["write_file"],
+            limits: { maxSteps: 2, totalTimeoutMs: 1_000, stepTimeoutMs: 500 },
+          },
+          beforeToolExecute: async () => ({ allow: true }),
+        }).run({
+          agentId: definition.id,
+          threadId,
+          messages: [userMessage("failed-user", failedSentinel)],
+        }),
+      );
+      assert.equal(failedResult.status, "failed");
+      assert.equal(failedModelCalls, 2);
+      assert.equal(uncommittedWrites, 1);
+      assert.deepEqual(await initialStore.getMessages(threadId), committed);
+
+      let cancelledModelCalls = 0;
+      let markCancelledStarted!: () => void;
+      const cancelledStarted = new Promise<void>((resolve) => {
+        markCancelledStarted = resolve;
+      });
+      const hangingHandle = await runtimeFor(
+        new MockLanguageModelV3({
+          doStream: async (options) => {
+            cancelledModelCalls += 1;
+            const signal = options.abortSignal;
+            if (signal === undefined) {
+              throw new Error("expected an abort signal for the cancelled run");
+            }
+            markCancelledStarted();
+            await waitForAbort(signal);
+            return textResponse("must not complete");
+          },
+        }),
+        initialStore,
+      ).run({
+        agentId: definition.id,
+        threadId,
+        messages: [userMessage("cancelled-user", cancelledSentinel)],
+      });
+      const cancelledFinished = finishRun(hangingHandle);
+      await cancelledStarted;
+      await hangingHandle.cancel("stop before transcript save");
+      const cancelledResult = await cancelledFinished;
+      assert.equal(cancelledResult.status, "cancelled");
+      assert.equal(cancelledModelCalls, 1);
+      assert.deepEqual(await initialStore.getMessages(threadId), committed);
+
+      const resumedPrompts: string[] = [];
+      const reopenedStore = new JsonlAgentStore({ directory });
+      const resumedResult = await finishRun(
+        await runtimeFor(
+          new MockLanguageModelV3({
+            doStream: async ({ prompt }) => {
+              resumedPrompts.push(JSON.stringify(prompt));
+              return textResponse("resumed");
+            },
+          }),
+          reopenedStore,
+        ).run({
+          agentId: definition.id,
+          threadId,
+          messages: [userMessage("restart-current", "What remains after restart?")],
+        }),
+      );
+      assert.equal(resumedResult.status, "completed");
+      assert.equal(resumedPrompts.length, 1);
+      assert.match(resumedPrompts[0]!, /Work summary reference/);
+      assert.match(resumedPrompts[0]!, /Prepare docs\/report\.md from the existing notes/);
+      assert.match(resumedPrompts[0]!, /Keep the original filename and never write outside docs\//);
+      assert.match(resumedPrompts[0]!, /write_file completed: ok=true path=docs\/report\.md bytes=42/);
+      assert.equal(resumedPrompts[0]!.includes(failedSentinel), false);
+      assert.equal(resumedPrompts[0]!.includes(cancelledSentinel), false);
+      assert.equal(resumedPrompts[0]!.includes(uncommittedPath), false);
+      assert.equal(resumedPrompts[0]!.includes("secret/other.md"), false);
+      assert.equal(resumedPrompts[0]!.includes("Never write outside secret/"), false);
+
+      const resumedTranscript = await reopenedStore.getMessages(threadId);
+      assert.equal(
+        resumedTranscript.some((message) => message.id === "runloom-work-summary"),
+        false,
+      );
+      assert.equal(
+        resumedTranscript.some((message) => message.id === "failed-user"),
+        false,
+      );
+      assert.equal(
+        resumedTranscript.some((message) => message.id === "cancelled-user"),
+        false,
+      );
+
+      const turnZero = lookupTranscript(resumedTranscript, "turn:0");
+      assert.equal(turnZero.ok, true);
+      if (turnZero.ok) {
+        assert.equal(turnZero.messages[0]?.id, "restart-user-0");
+        assert.match(
+          JSON.stringify(turnZero.messages),
+          /Prepare docs\/report\.md from the existing notes/,
+        );
+      }
+      const byId = lookupTranscript(resumedTranscript, "restart-user-0");
+      assert.equal(byId.ok, true);
+
+      const confirmationOutput = outputBuffer();
+      const restartedConfirmation = createToolConfirmation(confirmationOutput, {
+        workspaceRoot: "/tmp/runloom-r4b-workspace",
+      });
+      restartedConfirmation.beginRun();
+      const pendingWrite = restartedConfirmation.beforeToolExecute({
+        toolName: "write_file",
+        toolCallId: "restart-auth-call",
+        input: { path: "docs/report.md" },
+        definition,
+        signal: new AbortController().signal,
+      });
+      await Promise.resolve();
+      assert.match(confirmationOutput.text(), /Tool: write_file/);
+      assert.equal(restartedConfirmation.handleLine("n"), true);
+      assert.deepEqual(await pendingWrite, {
+        allow: false,
+        reason: "User denied this tool call",
+      });
+      restartedConfirmation.endRun();
+
+      const otherPrompts: string[] = [];
+      const isolatedResult = await finishRun(
+        await runtimeFor(
+          new MockLanguageModelV3({
+            doStream: async ({ prompt }) => {
+              otherPrompts.push(JSON.stringify(prompt));
+              return textResponse("isolated");
+            },
+          }),
+          reopenedStore,
+        ).run({
+          agentId: definition.id,
+          threadId: otherThreadId,
+          messages: [userMessage("other-current", "What remains on the other thread?")],
+        }),
+      );
+      assert.equal(isolatedResult.status, "completed");
+      assert.equal(otherPrompts.length, 1);
+      assert.match(otherPrompts[0]!, /Work summary reference/);
+      assert.match(otherPrompts[0]!, /Prepare secret\/other\.md from a separate brief/);
+      assert.match(otherPrompts[0]!, /Never write outside secret\//);
+      assert.match(otherPrompts[0]!, /write_file completed: ok=true path=secret\/other\.md bytes=17/);
+      assert.equal(otherPrompts[0]!.includes("docs/report.md"), false);
+      assert.equal(otherPrompts[0]!.includes("never write outside docs/"), false);
+      assert.equal(otherPrompts[0]!.includes(failedSentinel), false);
+
+      const jsonlFiles = await readdir(directory);
+      const jsonl = (
+        await Promise.all(
+          jsonlFiles.map((fileName) => readFile(join(directory, fileName), "utf8")),
+        )
+      ).join("\n");
+      assert.equal(jsonl.includes("runloom-work-summary"), false);
+      assert.equal(jsonl.includes(failedSentinel), false);
+      assert.equal(jsonl.includes(cancelledSentinel), false);
+      assert.equal(jsonl.includes(uncommittedPath), false);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 
   it("fails before the model and transcript save when the current turn is oversized", async () => {
