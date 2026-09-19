@@ -1,0 +1,341 @@
+import type { UIMessage } from "ai";
+
+/**
+ * The process-local work summary used when older completed turns are removed
+ * from the model context. The transcript remains the source of truth; this is
+ * only a bounded derived value for the current process.
+ */
+export const WORK_SUMMARY_VERSION = 1 as const;
+export const WORK_SUMMARY_MAX_BYTES = 16_384;
+
+export interface WorkSummaryCoverage {
+  /** Stable transcript id of the last message represented by the summary. */
+  messageId: string;
+  /** Zero-based position in the transcript. */
+  messageIndex: number;
+  /** Zero-based turn containing `messageId`. */
+  turn: number;
+}
+
+export interface WorkSummaryItem {
+  text: string;
+  /** Transcript message ids that support this statement. */
+  evidenceMessageIds: string[];
+}
+
+export interface WorkSummary {
+  version: typeof WORK_SUMMARY_VERSION;
+  coveredThrough: WorkSummaryCoverage;
+  goal: string;
+  constraints: string[];
+  completed: WorkSummaryItem[];
+  unresolved: string[];
+  failures: WorkSummaryItem[];
+  unknowns: WorkSummaryItem[];
+  nextStep: string | null;
+}
+
+export type WorkSummaryValidationCode =
+  | "NOT_OBJECT"
+  | "UNSUPPORTED_VERSION"
+  | "INVALID_COVERAGE"
+  | "EMPTY_TEXT"
+  | "INVALID_LIST"
+  | "INVALID_ITEM"
+  | "COVERAGE_NOT_MONOTONIC"
+  | "SUMMARY_TOO_LARGE";
+
+export type WorkSummaryValidation =
+  | { ok: true; bytes: number }
+  | { ok: false; code: WorkSummaryValidationCode; message: string; bytes?: number };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function isStringList(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.every((item) => isNonEmptyString(item))
+  );
+}
+
+function isNonNegativeSafeInteger(value: unknown): value is number {
+  return Number.isSafeInteger(value) && (value as number) >= 0;
+}
+
+function isCoverage(value: unknown): value is WorkSummaryCoverage {
+  if (!isRecord(value)) return false;
+  return (
+    isNonEmptyString(value.messageId) &&
+    isNonNegativeSafeInteger(value.messageIndex) &&
+    isNonNegativeSafeInteger(value.turn)
+  );
+}
+
+function isEvidenceList(value: unknown): value is string[] {
+  if (!isStringList(value)) return false;
+  return value.length > 0 && new Set(value).size === value.length;
+}
+
+function isSummaryItem(value: unknown): value is WorkSummaryItem {
+  if (!isRecord(value)) return false;
+  return isNonEmptyString(value.text) && isEvidenceList(value.evidenceMessageIds);
+}
+
+function bytes(value: unknown): number | undefined {
+  try {
+    const encoded = JSON.stringify(value);
+    return encoded === undefined
+      ? undefined
+      : Buffer.byteLength(encoded, "utf8");
+  } catch {
+    return undefined;
+  }
+}
+
+function invalid(
+  code: WorkSummaryValidationCode,
+  message: string,
+  summaryBytes?: number,
+): WorkSummaryValidation {
+  return summaryBytes === undefined
+    ? { ok: false, code, message }
+    : { ok: false, code, message, bytes: summaryBytes };
+}
+
+/**
+ * Validate an untrusted summary before it is installed in the model context.
+ * No state is changed and the optional previous summary is only used to reject
+ * moving the covered transcript position backwards.
+ */
+export function validateWorkSummary(
+  value: unknown,
+  previous?: Pick<WorkSummary, "coveredThrough">,
+  maxBytes = WORK_SUMMARY_MAX_BYTES,
+): WorkSummaryValidation {
+  if (!isRecord(value)) return invalid("NOT_OBJECT", "Work summary must be an object");
+  if (value.version !== WORK_SUMMARY_VERSION) {
+    return invalid("UNSUPPORTED_VERSION", "Unsupported work summary version");
+  }
+  if (!isCoverage(value.coveredThrough)) {
+    return invalid("INVALID_COVERAGE", "Summary coverage must identify a message and turn");
+  }
+
+  if (
+    previous !== undefined &&
+    (value.coveredThrough.turn < previous.coveredThrough.turn ||
+      value.coveredThrough.messageIndex < previous.coveredThrough.messageIndex ||
+      (value.coveredThrough.messageIndex === previous.coveredThrough.messageIndex &&
+        value.coveredThrough.messageId !== previous.coveredThrough.messageId))
+  ) {
+    return invalid(
+      "COVERAGE_NOT_MONOTONIC",
+      "Summary coverage cannot move backwards or change the message at the same position",
+    );
+  }
+
+  if (!isNonEmptyString(value.goal)) {
+    return invalid("EMPTY_TEXT", "Summary goal must not be empty");
+  }
+
+  if (!isStringList(value.constraints) || !isStringList(value.unresolved)) {
+    return invalid("INVALID_LIST", "Constraints and unresolved items must be string lists");
+  }
+
+  if (
+    !Array.isArray(value.completed) ||
+    !value.completed.every((item) => isSummaryItem(item)) ||
+    !Array.isArray(value.failures) ||
+    !value.failures.every((item) => isSummaryItem(item)) ||
+    !Array.isArray(value.unknowns) ||
+    !value.unknowns.every((item) => isSummaryItem(item))
+  ) {
+    return invalid("INVALID_ITEM", "Summary action lists must contain text and evidence");
+  }
+
+  if (value.nextStep !== null && !isNonEmptyString(value.nextStep)) {
+    return invalid("EMPTY_TEXT", "Summary nextStep must be non-empty or null");
+  }
+
+  const summaryBytes = bytes(value);
+  if (summaryBytes === undefined) {
+    return invalid("NOT_OBJECT", "Work summary must be JSON serializable");
+  }
+  if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0) {
+    throw new RangeError("maxBytes must be a positive safe integer");
+  }
+  if (summaryBytes > maxBytes) {
+    return invalid(
+      "SUMMARY_TOO_LARGE",
+      `Work summary exceeds the ${maxBytes}-byte limit`,
+      summaryBytes,
+    );
+  }
+
+  return { ok: true, bytes: summaryBytes };
+}
+
+/** Return the UTF-8 size of a summary without mutating it. */
+export function workSummaryBytes(summary: WorkSummary): number {
+  const summaryBytes = bytes(summary);
+  if (summaryBytes === undefined) throw new TypeError("Work summary must be JSON serializable");
+  return summaryBytes;
+}
+
+function messageText(message: UIMessage): string {
+  return message.parts
+    .filter(
+      (part): part is Extract<UIMessage["parts"][number], { type: "text" }> =>
+        part.type === "text",
+    )
+    .map((part) => part.text)
+    .join("\n")
+    .trim();
+}
+
+const GOAL_FALLBACK = "Continue the prior work.";
+
+function uniqueMessageIds(ids: readonly string[]): string[] {
+  return [...new Set(ids.filter((id) => id.trim().length > 0))];
+}
+
+/**
+ * Build a bounded, auditable summary from complete messages that are about to
+ * be omitted from the model prompt. This is intentionally deterministic: R4a
+ * keeps the summary process-local and does not add another model call.
+ * Oversized candidates shrink until they fit; they are not dropped.
+ */
+export function createWorkSummaryFromMessages(
+  messages: readonly UIMessage[],
+  messageIndices: readonly number[],
+): WorkSummary | undefined {
+  const indices = [...new Set(messageIndices)]
+    .filter((index) => Number.isSafeInteger(index) && index >= 0 && index < messages.length)
+    .sort((left, right) => left - right);
+  if (indices.length === 0) return undefined;
+
+  const coveredMessages = indices.map((index) => messages[index]!);
+  const allEvidenceIds = uniqueMessageIds(coveredMessages.map((message) => message.id));
+  if (allEvidenceIds.length === 0) return undefined;
+
+  const firstUser = coveredMessages.find((message) => message.role === "user");
+  const rawGoal = messageText(firstUser ?? coveredMessages[0]!) || GOAL_FALLBACK;
+  const rawConstraints = coveredMessages
+    .filter((message) => message.role === "user")
+    .slice(1)
+    .map((message) => messageText(message))
+    .filter((text) => text.length > 0);
+  const rawDigest = coveredMessages
+    .map((message) => `${message.role}: ${messageText(message)}`)
+    .join(" | ");
+  const turn = coveredMessages.reduce(
+    (count, message) => count + (message.role === "user" ? 1 : 0),
+    0,
+  ) - (firstUser?.role === "user" ? 1 : 0);
+  const lastIndex = indices.at(-1)!;
+  const lastId = uniqueMessageIds([coveredMessages.at(-1)!.id]).at(-1) ?? allEvidenceIds.at(-1)!;
+
+  let digestLimit = 10_000;
+  let constraintLimit = 800;
+  let constraintCount = 8;
+  let goalLimit = 2_000;
+  let evidenceIds = allEvidenceIds;
+
+  for (let attempt = 0; attempt < 16; attempt += 1) {
+    const constraints = rawConstraints
+      .slice(0, constraintCount)
+      .map((text) => text.slice(0, constraintLimit))
+      .filter((text) => text.trim().length > 0);
+    const digest = rawDigest.slice(0, digestLimit).trim();
+    const candidate: WorkSummary = {
+      version: WORK_SUMMARY_VERSION,
+      coveredThrough: {
+        messageId: lastId,
+        messageIndex: lastIndex,
+        turn: Math.max(0, turn),
+      },
+      goal: rawGoal.slice(0, goalLimit).trim() || GOAL_FALLBACK,
+      constraints,
+      completed: [
+        {
+          text: digest || "Earlier conversation was covered.",
+          evidenceMessageIds: evidenceIds,
+        },
+      ],
+      unresolved: [],
+      failures: [],
+      unknowns: [],
+      nextStep: null,
+    };
+    const validation = validateWorkSummary(candidate);
+    if (validation.ok) return candidate;
+    if (validation.code !== "SUMMARY_TOO_LARGE") return undefined;
+
+    if (digestLimit > 200) {
+      digestLimit = Math.max(200, Math.floor(digestLimit / 2));
+      continue;
+    }
+    if (constraintCount > 0) {
+      constraintCount = 0;
+      continue;
+    }
+    if (goalLimit > 80) {
+      goalLimit = 80;
+      continue;
+    }
+    if (evidenceIds.length > 2) {
+      evidenceIds = uniqueMessageIds([allEvidenceIds[0]!, allEvidenceIds.at(-1)!]);
+      continue;
+    }
+    return undefined;
+  }
+  return undefined;
+}
+
+export type TranscriptLookupResult =
+  | { ok: true; messages: UIMessage[] }
+  | { ok: false; error: "INVALID_SELECTOR" | "MESSAGE_NOT_FOUND" | "TURN_NOT_FOUND" };
+
+/** Read-only local lookup used to inspect the source messages behind a summary. */
+export function lookupTranscript(
+  messages: readonly UIMessage[],
+  selector: string,
+): TranscriptLookupResult {
+  const value = selector.trim();
+  if (value.length === 0) return { ok: false, error: "INVALID_SELECTOR" };
+
+  if (value.startsWith("turn:")) {
+    const parsed = Number(value.slice("turn:".length));
+    if (!Number.isSafeInteger(parsed) || parsed < 0) {
+      return { ok: false, error: "INVALID_SELECTOR" };
+    }
+    const userStarts = messages.flatMap((message, index) =>
+      message.role === "user" ? [index] : [],
+    );
+    const start = userStarts[parsed];
+    if (start === undefined) return { ok: false, error: "TURN_NOT_FOUND" };
+    const end = userStarts[parsed + 1] ?? messages.length;
+    return { ok: true, messages: messages.slice(start, end) };
+  }
+
+  const index = messages.findIndex((message) => message.id === value);
+  if (index < 0) return { ok: false, error: "MESSAGE_NOT_FOUND" };
+  const start = messages
+    .slice(0, index + 1)
+    .map((message, position) => (message.role === "user" ? position : -1))
+    .filter((position) => position >= 0)
+    .at(-1);
+  if (start === undefined) return { ok: true, messages: [messages[index]!] };
+  const nextUser = messages.findIndex(
+    (message, position) => position > start && message.role === "user",
+  );
+  return {
+    ok: true,
+    messages: messages.slice(start, nextUser < 0 ? messages.length : nextUser),
+  };
+}

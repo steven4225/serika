@@ -6,6 +6,7 @@ import {
   MAX_CONTEXT_BYTES,
   MAX_HISTORY_TURNS,
   MAX_MEMORY_CONTEXT_BYTES,
+  WORK_SUMMARY_MESSAGE_ID,
   memoryContextBytes,
   selectModelContext,
 } from "./context-window.js";
@@ -47,6 +48,7 @@ describe("selectModelContext", () => {
     assert.deepEqual(
       selected.map((item) => item.id),
       [
+        WORK_SUMMARY_MESSAGE_ID,
         "user-1",
         "assistant-1",
         "user-2",
@@ -74,12 +76,12 @@ describe("selectModelContext", () => {
       user("old", "x".repeat(10_000)),
       assistant("old-a", "x".repeat(10_000)),
     ];
-    const currentText = "界".repeat(40_000);
+    const currentText = "界".repeat(37_000);
     const messages = [...oldTurn, user("current", currentText)];
 
     const selected = selectModelContext(messages);
 
-    assert.deepEqual(selected.map((item) => item.id), ["current"]);
+    assert.deepEqual(selected.map((item) => item.id), [WORK_SUMMARY_MESSAGE_ID, "current"]);
     assert.equal(
       Buffer.byteLength(JSON.stringify(selected), "utf8") <= MAX_CONTEXT_BYTES,
       true,
@@ -138,15 +140,16 @@ describe("selectModelContext", () => {
     );
 
     const tooManyHistoryTurns: UIMessage[] = [message("prefix", "system", "prefix")];
-    for (let turn = 0; turn < MAX_HISTORY_TURNS + 1; turn += 1) {
+    for (let turn = 0; turn < MAX_HISTORY_TURNS + 2; turn += 1) {
       tooManyHistoryTurns.push(user(`user-${turn}`));
     }
 
     assert.deepEqual(
       selectModelContext(tooManyHistoryTurns).map((item) => item.id),
       [
-        ...Array.from({ length: MAX_HISTORY_TURNS }, (_, turn) => `user-${turn}`),
-        "user-8",
+        WORK_SUMMARY_MESSAGE_ID,
+        ...Array.from({ length: MAX_HISTORY_TURNS }, (_, turn) => `user-${turn + 1}`),
+        "user-9",
       ],
     );
   });
@@ -249,4 +252,51 @@ describe("selectModelContext", () => {
       true,
     );
   });
+
+  it("injects a bounded process-local work summary without changing the transcript", () => {
+    const messages: UIMessage[] = [];
+    for (let turn = 0; turn < MAX_HISTORY_TURNS + 2; turn += 1) {
+      messages.push(user(`user-${turn}`), assistant(`assistant-${turn}`));
+    }
+    const original = structuredClone(messages);
+    const selected = selectModelContext(messages);
+
+    assert.equal(selected[0]?.id, WORK_SUMMARY_MESSAGE_ID);
+    assert.equal(selected.some((item) => item.id === "user-0"), false);
+    assert.equal(selected.some((item) => item.id === "user-1"), true);
+    assert.equal(selected.some((item) => item.id === "user-2"), true);
+    assert.deepEqual(messages, original);
+    const summaryText = selected[0]?.parts[0];
+    assert.equal(summaryText?.type, "text");
+    if (summaryText?.type === "text") {
+      assert.match(summaryText.text, /user-0/);
+    }
+  });
+
+  it("keeps the first omitted goal when omitted history would overflow the summary cap", () => {
+    const messages: UIMessage[] = [
+      user("user-0", "Write the report to docs/report.md and do not use /tmp"),
+      assistant("assistant-0", "x".repeat(4_000)),
+    ];
+    for (let turn = 1; turn < MAX_HISTORY_TURNS + 4; turn += 1) {
+      messages.push(user(`user-${turn}`, "C".repeat(2_000)));
+      messages.push(assistant(`assistant-${turn}`, "D".repeat(2_000)));
+    }
+    messages.push(user("current", "continue"));
+    const selected = selectModelContext(messages);
+    const summary = selected.find((item) => item.id === WORK_SUMMARY_MESSAGE_ID);
+    assert.ok(summary);
+    const summaryText = summary?.parts[0];
+    assert.equal(summaryText?.type, "text");
+    if (summaryText?.type === "text") {
+      assert.match(summaryText.text, /docs\/report\.md/);
+      assert.match(summaryText.text, /do not use \/tmp/);
+    }
+    assert.equal(selected.some((item) => item.id === "user-0"), false);
+    assert.equal(
+      Buffer.byteLength(JSON.stringify(selected), "utf8") <= MAX_CONTEXT_BYTES,
+      true,
+    );
+  });
+
 });

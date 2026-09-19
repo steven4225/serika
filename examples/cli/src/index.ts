@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { tool } from "ai";
+import { tool, type UIMessage } from "ai";
 import { z } from "zod";
 import {
   AgentError,
@@ -18,6 +18,7 @@ import {
 import { createDemoModel } from "./demo-model.js";
 import { configureCliModel } from "./model-config.js";
 import { selectModelContext } from "./context-window.js";
+import { lookupTranscript } from "./work-summary.js";
 import { parseTuiArgs } from "./cli-options.js";
 import { createMemoryStore } from "./memory-store.js";
 import { createModuleHost } from "./module-host.js";
@@ -275,6 +276,41 @@ const toolConfirmationPrompt: ToolConfirmationPrompt = (input) => {
 const commands = tuiMode
   ? new Map(moduleHost?.commands ?? [])
   : undefined;
+if (commands !== undefined) {
+  commands.set("history", {
+    name: "history",
+    async execute(args) {
+      const selector = args.trim();
+      if (selector.length === 0) {
+        output.write("\n[history] Usage: /history <message-id> | /history turn:<number>\n");
+        return;
+      }
+      try {
+        const messages = await store.getMessages(threadId);
+        const result = lookupTranscript(messages, selector);
+        if (!result.ok) {
+          output.write(`\n[history] ${result.error}\n`);
+          return;
+        }
+        const rendered = result.messages
+          .map((message) => {
+            const text = message.parts
+              .filter(
+                (part): part is Extract<UIMessage["parts"][number], { type: "text" }> =>
+                  part.type === "text",
+              )
+              .map((part) => part.text)
+              .join("\n");
+            return `${message.role} ${message.id}:\n${text}`;
+          })
+          .join("\n\n");
+        output.write(`\n[history]\n${rendered}\n`);
+      } catch (error) {
+        output.write(`\n[history] lookup failed: ${String(error)}\n`);
+      }
+    },
+  });
+}
 if (commands !== undefined && moduleConfig !== undefined) {
   commands.set("modules", {
     name: "modules",
