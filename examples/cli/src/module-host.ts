@@ -5,7 +5,7 @@ export type Dispose = () => void;
 export interface ModuleCommand {
   /** The command name without the leading slash. */
   name: string;
-  execute(args: string): void;
+  execute(args: string): void | Promise<void>;
 }
 
 export interface ModuleContext {

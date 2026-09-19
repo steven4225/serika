@@ -26,9 +26,9 @@ type TuiState =
   | { kind: "idle" }
   | { kind: "running"; handle: RunHandle };
 
-/** A synchronous command handled directly by the terminal adapter. */
+/** An idle command handled directly by the terminal adapter. */
 export interface TuiCommand {
-  execute(args: string): void;
+  execute(args: string): void | Promise<void>;
 }
 
 function isTTY(stream: Readable | Writable): boolean {
@@ -856,7 +856,7 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
     }
   };
 
-  const dispatchCommand = (line: string): void => {
+  const dispatchCommand = async (line: string): Promise<void> => {
     const { name, args } = commandParts(line);
     const command = name === "" ? undefined : options.commands?.get(name);
     if (command === undefined) {
@@ -864,7 +864,7 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
       return;
     }
     try {
-      command.execute(args);
+      await command.execute(args);
     } catch (error) {
       write(output, `\nCommand /${name} failed: ${String(error)}\n`);
     }
@@ -886,7 +886,7 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
     for await (const line of readline) {
       if (options.toolConfirmation?.handleLine(line) === true) continue;
       if (state.kind === "idle" && !runStarting && line.trim().startsWith("/")) {
-        dispatchCommand(line);
+        await dispatchCommand(line);
         if (isTTY(input) && !inputClosed) readline.prompt();
         continue;
       }

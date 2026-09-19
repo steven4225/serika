@@ -147,8 +147,8 @@ describe("context window Runtime integration", () => {
 
     assert.equal(result.status, "completed");
     assert.equal(prompts.length, 1);
-    assert.equal(prompts[0]!.includes("history-user-0"), false);
-    assert.equal(prompts[0]!.includes("history-user-1"), false);
+    assert.match(prompts[0]!, /runloom-work-summary|Work summary reference/);
+    assert.match(prompts[0]!, /history-user-0/);
     assert.equal(prompts[0]!.includes("history-user-2"), true);
     assert.equal(prompts[0]!.includes("history-assistant-9"), true);
     assert.equal(prompts[0]!.includes("current question"), true);
@@ -160,6 +160,7 @@ describe("context window Runtime integration", () => {
       committed.map((message) => message.id),
     );
     assert.equal(saved.some((message) => message.id === "current-user"), true);
+    assert.equal(saved.some((message) => message.id === "runloom-work-summary"), false);
   });
 
   it("fails before the model and transcript save when the current turn is oversized", async () => {

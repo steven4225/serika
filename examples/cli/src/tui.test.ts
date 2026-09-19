@@ -1335,7 +1335,7 @@ describe("runTui", () => {
       input,
       output,
       commands: new Map([
-        ["workspace", { execute: (value: string) => args.push(value) }],
+        ["workspace", { execute: (value: string) => { args.push(value); } }],
       ]),
     });
 
@@ -1345,6 +1345,59 @@ describe("runTui", () => {
     assert.deepEqual(args, ["one  two"]);
     assert.equal(runtime.requests.length, 0);
     assert.ok((output.text().match(/> /g) ?? []).length >= 2);
+    input.end();
+    await tui;
+  });
+
+  it("waits for an async idle command before accepting the next line", async () => {
+    const input = ttyInput();
+    const output = ttyOutput();
+    const gate = deferred<void>();
+    let commandStarted = false;
+    const events = asyncQueue<AgentEvent>();
+    events.close();
+    const runtime = testRuntime([
+      handleFor({
+        runId: "run-1",
+        threadId: "thread-1",
+        events,
+        result: Promise.resolve(completedResult("run-1", "thread-1", "done")),
+      }),
+    ]);
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: runtime.runtime,
+      store: { getMessages: async () => [] },
+      input,
+      output,
+      commands: new Map([
+        [
+          "history",
+          {
+            async execute() {
+              commandStarted = true;
+              await gate.promise;
+              output.write("\n[history] done\n");
+            },
+          },
+        ],
+      ]),
+    });
+
+    await nextTurn();
+    input.write("/history u0\nnext user message\n");
+    await waitFor(() => commandStarted);
+    await nextTurn();
+    assert.equal(runtime.requests.length, 0);
+    assert.equal(output.text().includes("[history] done"), false);
+    gate.resolve();
+    await waitFor(() => output.text().includes("[history] done"));
+    await waitFor(() => runtime.requests.length === 1);
+    assert.equal(runtime.requests[0]?.messages.length, 1);
+    assert.deepEqual(
+      runtime.requests[0]?.messages[0],
+      message("new-user-id", "user", "next user message"),
+    );
     input.end();
     await tui;
   });
@@ -1430,7 +1483,7 @@ describe("runTui", () => {
         endRun: () => undefined,
       },
       commands: new Map([
-        ["workspace", { execute: (args: string) => commandCalls.push(args) }],
+        ["workspace", { execute: (args: string) => { commandCalls.push(args); } }],
       ]),
     });
 
@@ -1466,7 +1519,7 @@ describe("runTui", () => {
       input,
       output,
       commands: new Map([
-        ["workspace", { execute: (args: string) => commandCalls.push(args) }],
+        ["workspace", { execute: (args: string) => { commandCalls.push(args); } }],
       ]),
     });
 
@@ -1512,7 +1565,7 @@ describe("runTui", () => {
       input,
       output,
       commands: new Map([
-        ["workspace", { execute: (args: string) => commandCalls.push(args) }],
+        ["workspace", { execute: (args: string) => { commandCalls.push(args); } }],
       ]),
     });
 
