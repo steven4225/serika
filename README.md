@@ -97,7 +97,7 @@ Stage 7-2 支持用一份显式 JSON 配置选择 TUI 启用的内置模块。�
 RUNLOOM_MODEL=mock pnpm tui -- ./var/runloom --thread daily-plan --config ./runloom.json
 ```
 
-配置模式下未列出的模块默认关闭，模块配置必须使用 `{ "enabled": true|false }`。支持的模块是 `pomodoro`、`read-file`、`memory`、`task`、`todoist`、`shell` 和 `web`；`read-file` 仍包含 `/workspace`、文件读写和搜索能力，`shell` 提供显式启用的 `shell_exec`，`web` 提供公开 URL 的 `web_fetch`，示例 `add` 工具不属于配置模块。
+配置模式下未列出的模块默认关闭，模块配置必须使用 `{ "enabled": true|false }`。支持的模块是 `pomodoro`、`read-file`、`memory`、`task`、`todoist`、`shell` 和 `web`；`read-file` 仍包含 `/workspace`、文件读写和搜索能力，`shell` 提供显式启用的 `shell_exec`，`web` 提供公开 URL 的 `web_fetch`，并可在 `web.search.enabled` 下显式开启搜索，示例 `add` 工具不属于配置模块。
 
 ```json
 {
@@ -269,7 +269,11 @@ Docker sandbox 只挂载列出的路径，根文件系统只读，网络固定�
 
 `web_fetch` 默认沿现有 `y/n` 确认。已知来源可在 Run 前输入 `/authorize-web https://example.com https://docs.example.org`，授权只对下一次 Run、列出的精确 origin 和 `web_fetch` 生效，Run 结束、失败或取消后清除；不会写入 memory、transcript 或配置。网页正文是不可信数据，不能把页面里的指令当成系统指令。工具返回 `requestedUrl`、`finalUrl`、HTTP 状态、内容类型、抓取时间、正文和完整性标记，生成报告时应引用实际 `finalUrl`，不能把截断或失败说成已读全文。
 
-`web` 只进入 TUI，worker 不会获得它；R3a 暂不提供搜索，搜索供应商和 `web_search` 属于后续 R3b。
+在配置中同时写入 `"web": { "enabled": true, "search": { "enabled": true } }`，并提供 `BRAVE_SEARCH_API_KEY` 后，TUI 额外注册只读 `web_search({ query, limit? })`。它只返回最多 10 个标题、URL 和摘要用于发现来源；默认 5 条，不分页、不自动重试。搜索请求仍逐次经过 `y/n`，因为 query 和摘要会进入模型上下文与成功 Run 的 transcript。缺少 Key 时 TUI 不启动失败，`web_fetch` 仍可用，`/modules` 会显示搜索不可用。
+
+`web_search` 的摘要不能当作事实证据。研究任务必须先搜索，再用现有 `web_fetch` 打开选定原文，报告引用实际 `finalUrl`；原文失败或截断时必须标明未核验。Brave Search API 按供应商计划计费，查询也受其[官方隐私政策](https://api-dashboard.search.brave.com/privacy-policy)约束，因此不要把密钥、私人笔记或敏感信息拼进 query；价格以[官方计划](https://api-dashboard.search.brave.com/app/plans)为准。
+
+`web` 只进入 TUI，worker 不会获得它；R3a 的真实 URL 阅读验收完成后，才能进行 R3b 的真实搜索→原文核验→报告保存验收。
 
 ### Stage 6 验收
 
