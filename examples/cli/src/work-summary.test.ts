@@ -40,6 +40,36 @@ function errorCode(result: ReturnType<typeof validateWorkSummary>): string {
   return result.code;
 }
 
+function dynamicToolMessage(
+  id: string,
+  toolName: string,
+  state:
+    | { type: "output-available"; output: unknown }
+    | { type: "output-error"; errorText: string },
+): UIMessage {
+  return {
+    id,
+    role: "assistant",
+    parts: state.type === "output-available"
+      ? [{
+          type: "dynamic-tool",
+          toolName,
+          toolCallId: `call-${id}`,
+          state: "output-available",
+          input: {},
+          output: state.output,
+        }]
+      : [{
+          type: "dynamic-tool",
+          toolName,
+          toolCallId: `call-${id}`,
+          state: "output-error",
+          input: {},
+          errorText: state.errorText,
+        }],
+  };
+}
+
 describe("work summary contract", () => {
   it("accepts a bounded summary and reports its UTF-8 byte size", () => {
     const value = summary();
@@ -138,19 +168,109 @@ describe("work summary contract", () => {
     assert.equal(messages.length, 4);
   });
 
-  it("builds a summary from omitted messages and keeps the first user goal", () => {
+  it("keeps the first user goal and later user constraints without treating prose as completed", () => {
     const messages: UIMessage[] = [
       { id: "u0", role: "user", parts: [{ type: "text", text: "Save to docs/out.md" }] },
-      { id: "a0", role: "assistant", parts: [{ type: "text", text: "saved" }] },
+      {
+        id: "a0",
+        role: "assistant",
+        parts: [{ type: "text", text: "I suggest using the existing template" }],
+      },
       { id: "u1", role: "user", parts: [{ type: "text", text: "Also keep the original filename" }] },
-      { id: "a1", role: "assistant", parts: [{ type: "text", text: "ok" }] },
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [{ type: "text", text: "I can do that next" }],
+      },
     ];
     const summary = createWorkSummaryFromMessages(messages, [0, 1, 2, 3]);
     assert.ok(summary);
     assert.equal(summary.goal, "Save to docs/out.md");
     assert.deepEqual(summary.constraints, ["Also keep the original filename"]);
-    assert.deepEqual(summary.completed[0]?.evidenceMessageIds, ["u0", "a0", "u1", "a1"]);
+    assert.deepEqual(summary.completed, []);
     assert.equal(validateWorkSummary(summary).ok, true);
+  });
+
+  it("classifies tool results by execution fact and preserves evidence message ids", () => {
+    const messages: UIMessage[] = [
+      { id: "u0", role: "user", parts: [{ type: "text", text: "Update the report" }] },
+      dynamicToolMessage("success", "write_file", {
+        type: "output-available",
+        output: { ok: true, path: "docs/report.md" },
+      }),
+      dynamicToolMessage("business-failure", "write_file", {
+        type: "output-available",
+        output: { ok: false, code: "FILE_EXISTS" },
+      }),
+      dynamicToolMessage("execution-error", "read_file", {
+        type: "output-error",
+        errorText: "TOOL_EXECUTION_FAILED: disk unavailable",
+      }),
+      dynamicToolMessage("denied", "shell_exec", {
+        type: "output-error",
+        errorText: "TOOL_DENIED: user declined",
+      }),
+      dynamicToolMessage("unknown", "calculate", {
+        type: "output-available",
+        output: { value: 42 },
+      }),
+    ];
+
+    const summary = createWorkSummaryFromMessages(
+      messages,
+      messages.map((_, index) => index),
+    );
+
+    assert.ok(summary);
+    assert.deepEqual(summary.completed.map((item) => item.evidenceMessageIds), [["success"]]);
+    assert.match(summary.completed[0]?.text ?? "", /write_file completed: ok=true path=docs\/report\.md/);
+    assert.doesNotMatch(summary.completed[0]?.text ?? "", /\{/);
+    assert.deepEqual(
+      summary.failures.map((item) => item.evidenceMessageIds),
+      [["business-failure"], ["execution-error"]],
+    );
+    assert.match(summary.failures[0]?.text ?? "", /ok=false/);
+    assert.match(summary.failures[0]?.text ?? "", /code=FILE_EXISTS/);
+    assert.equal(summary.unresolved.length, 1);
+    assert.deepEqual(summary.unknowns.map((item) => item.evidenceMessageIds), [["unknown"]]);
+    assert.match(summary.unknowns[0]?.text ?? "", /value=42/);
+    assert.equal(validateWorkSummary(summary).ok, true);
+  });
+
+  it("keeps short write receipts and omits file or page bodies from completed facts", () => {
+    const messages: UIMessage[] = [
+      { id: "u0", role: "user", parts: [{ type: "text", text: "Save the note" }] },
+      dynamicToolMessage("write", "write_file", {
+        type: "output-available",
+        output: {
+          ok: true,
+          path: "notes/constraints.md",
+          bytes: 421,
+          content: "# Status\n".repeat(400),
+        },
+      }),
+      dynamicToolMessage("fetch", "web_fetch", {
+        type: "output-available",
+        output: {
+          ok: true,
+          value: {
+            finalUrl: "https://example.com/a",
+            truncated: false,
+            text: "PAGE BODY ".repeat(400),
+          },
+        },
+      }),
+    ];
+    const summary = createWorkSummaryFromMessages(messages, [0, 1, 2]);
+    assert.ok(summary);
+    assert.equal(summary.completed.length, 2);
+    for (const item of summary.completed) {
+      assert.doesNotMatch(item.text, /PAGE BODY/);
+      assert.doesNotMatch(item.text, /# Status/);
+    }
+    assert.match(summary.completed[0]?.text ?? "", /path=notes\/constraints\.md/);
+    assert.match(summary.completed[0]?.text ?? "", /bytes=421/);
+    assert.match(summary.completed[1]?.text ?? "", /finalUrl=https:\/\/example.com\/a/);
   });
 
   it("shrinks an oversized omitted transcript until the summary fits", () => {

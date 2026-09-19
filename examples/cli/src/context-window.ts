@@ -38,6 +38,9 @@ function contextTooLarge(detail = `Current turn exceeds the ${MAX_CONTEXT_BYTES}
 function workSummaryMessage(summary: WorkSummary): UIMessage {
   const text = [
     "Work summary reference (derived context only; not a permission or execution record):",
+    "Goal is the original request, not current disk or world state.",
+    "Completed contains only short tool receipts with explicit ok:true (tool, path, ok, bytes, or similar fields). User or assistant prose is not proof of execution.",
+    "For paths listed in Completed, do not claim the write did not happen. Do not assert file section contents or current on-disk text without a fresh read_file (or equivalent) result.",
     `Goal: ${summary.goal}`,
     `Constraints: ${summary.constraints.length > 0 ? summary.constraints.join("; ") : "none recorded"}`,
     `Completed: ${summary.completed.length > 0

@@ -198,6 +198,175 @@ function messageText(message: UIMessage): string {
     .trim();
 }
 
+type DynamicToolPart = Extract<
+  UIMessage["parts"][number],
+  { type: "dynamic-tool" }
+>;
+
+interface ClassifiedToolFacts {
+  completed: WorkSummaryItem[];
+  unresolved: string[];
+  failures: WorkSummaryItem[];
+  unknowns: WorkSummaryItem[];
+}
+
+const SHORT_FACT_KEYS = [
+  "path",
+  "code",
+  "bytes",
+  "finalUrl",
+  "truncated",
+  "exitCode",
+  "timedOut",
+  "cancelled",
+  "outcome",
+] as const;
+
+function scalarFact(value: unknown): string | undefined {
+  if (typeof value === "string") {
+    const text = value.trim();
+    return text.length > 0 ? text.slice(0, 120) : undefined;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  if (typeof value === "boolean") return String(value);
+  return undefined;
+}
+
+function compactToolReceipt(value: unknown): string {
+  if (typeof value === "string") {
+    const firstLine = value.trim().split("\n")[0] ?? "";
+    return firstLine.slice(0, 200);
+  }
+  if (!isRecord(value)) return "";
+
+  const parts: string[] = [];
+  if (typeof value.ok === "boolean") parts.push(`ok=${value.ok}`);
+  for (const key of SHORT_FACT_KEYS) {
+    const printed = scalarFact(value[key]);
+    if (printed !== undefined) parts.push(`${key}=${printed}`);
+  }
+  if (isRecord(value.value)) {
+    for (const key of ["path", "finalUrl", "truncated", "status"] as const) {
+      const printed = scalarFact(value.value[key]);
+      if (printed !== undefined && !parts.some((part) => part.startsWith(`${key}=`))) {
+        parts.push(`${key}=${printed}`);
+      }
+    }
+  } else {
+    const printed = scalarFact(value.value);
+    if (printed !== undefined) parts.push(`value=${printed}`);
+  }
+  if (isRecord(value.error)) {
+    const code = scalarFact(value.error.code);
+    if (code !== undefined && !parts.some((part) => part.startsWith("code="))) {
+      parts.push(`code=${code}`);
+    }
+  }
+  return parts.join(" ");
+}
+
+function toolFactText(
+  toolName: string,
+  status: "completed" | "failed" | "unknown",
+  detail: unknown,
+): string {
+  const label = toolName.trim() || "unknown tool";
+  const description =
+    status === "completed"
+      ? "completed"
+      : status === "failed"
+        ? "failed"
+        : "returned an unclassified result";
+  const receipt = compactToolReceipt(detail);
+  return receipt.length > 0 ? `${label} ${description}: ${receipt}` : `${label} ${description}`;
+}
+
+function explicitOk(output: unknown): boolean | undefined {
+  if (!isRecord(output) || typeof output.ok !== "boolean") return undefined;
+  return output.ok;
+}
+
+function classifyToolPart(
+  part: DynamicToolPart,
+  evidenceMessageId: string,
+  facts: ClassifiedToolFacts,
+): void {
+  if (part.state === "output-error") {
+    if (part.errorText.startsWith("TOOL_DENIED")) {
+      facts.unresolved.push(
+        `${part.toolName.trim() || "unknown tool"} was denied: ${part.errorText}`,
+      );
+      return;
+    }
+    facts.failures.push({
+      text: toolFactText(part.toolName, "failed", part.errorText),
+      evidenceMessageIds: [evidenceMessageId],
+    });
+    return;
+  }
+
+  if (part.state !== "output-available") return;
+  const ok = explicitOk(part.output);
+  if (ok === true) {
+    facts.completed.push({
+      text: toolFactText(part.toolName, "completed", part.output),
+      evidenceMessageIds: [evidenceMessageId],
+    });
+    return;
+  }
+  if (ok === false) {
+    facts.failures.push({
+      text: toolFactText(part.toolName, "failed", part.output),
+      evidenceMessageIds: [evidenceMessageId],
+    });
+    return;
+  }
+  facts.unknowns.push({
+    text: toolFactText(part.toolName, "unknown", part.output),
+    evidenceMessageIds: [evidenceMessageId],
+  });
+}
+
+function collectToolFacts(messages: readonly UIMessage[]): ClassifiedToolFacts {
+  const facts: ClassifiedToolFacts = {
+    completed: [],
+    unresolved: [],
+    failures: [],
+    unknowns: [],
+  };
+  for (const message of messages) {
+    if (message.id.trim().length === 0) continue;
+    for (const part of message.parts) {
+      if (part.type === "dynamic-tool") {
+        classifyToolPart(part, message.id, facts);
+      }
+    }
+  }
+  return facts;
+}
+
+function boundedItems(
+  items: readonly WorkSummaryItem[],
+  count: number,
+  textLimit: number,
+): WorkSummaryItem[] {
+  return items.slice(0, count).map((item) => ({
+    text: item.text.slice(0, textLimit).trim(),
+    evidenceMessageIds: item.evidenceMessageIds,
+  })).filter((item) => item.text.length > 0);
+}
+
+function boundedStrings(
+  items: readonly string[],
+  count: number,
+  textLimit: number,
+): string[] {
+  return items
+    .slice(0, count)
+    .map((item) => item.slice(0, textLimit).trim())
+    .filter((item) => item.length > 0);
+}
+
 const GOAL_FALLBACK = "Continue the prior work.";
 
 function uniqueMessageIds(ids: readonly string[]): string[] {
@@ -230,9 +399,7 @@ export function createWorkSummaryFromMessages(
     .slice(1)
     .map((message) => messageText(message))
     .filter((text) => text.length > 0);
-  const rawDigest = coveredMessages
-    .map((message) => `${message.role}: ${messageText(message)}`)
-    .join(" | ");
+  const toolFacts = collectToolFacts(coveredMessages);
   const turn = coveredMessages.reduce(
     (count, message) => count + (message.role === "user" ? 1 : 0),
     0,
@@ -240,18 +407,13 @@ export function createWorkSummaryFromMessages(
   const lastIndex = indices.at(-1)!;
   const lastId = uniqueMessageIds([coveredMessages.at(-1)!.id]).at(-1) ?? allEvidenceIds.at(-1)!;
 
-  let digestLimit = 10_000;
   let constraintLimit = 800;
   let constraintCount = 8;
   let goalLimit = 2_000;
-  let evidenceIds = allEvidenceIds;
+  let factTextLimit = 1_000;
+  let factCount = 16;
 
   for (let attempt = 0; attempt < 16; attempt += 1) {
-    const constraints = rawConstraints
-      .slice(0, constraintCount)
-      .map((text) => text.slice(0, constraintLimit))
-      .filter((text) => text.trim().length > 0);
-    const digest = rawDigest.slice(0, digestLimit).trim();
     const candidate: WorkSummary = {
       version: WORK_SUMMARY_VERSION,
       coveredThrough: {
@@ -260,24 +422,23 @@ export function createWorkSummaryFromMessages(
         turn: Math.max(0, turn),
       },
       goal: rawGoal.slice(0, goalLimit).trim() || GOAL_FALLBACK,
-      constraints,
-      completed: [
-        {
-          text: digest || "Earlier conversation was covered.",
-          evidenceMessageIds: evidenceIds,
-        },
-      ],
-      unresolved: [],
-      failures: [],
-      unknowns: [],
+      constraints: boundedStrings(rawConstraints, constraintCount, constraintLimit),
+      completed: boundedItems(toolFacts.completed, factCount, factTextLimit),
+      unresolved: boundedStrings(toolFacts.unresolved, factCount, factTextLimit),
+      failures: boundedItems(toolFacts.failures, factCount, factTextLimit),
+      unknowns: boundedItems(toolFacts.unknowns, factCount, factTextLimit),
       nextStep: null,
     };
     const validation = validateWorkSummary(candidate);
     if (validation.ok) return candidate;
     if (validation.code !== "SUMMARY_TOO_LARGE") return undefined;
 
-    if (digestLimit > 200) {
-      digestLimit = Math.max(200, Math.floor(digestLimit / 2));
+    if (factTextLimit > 200) {
+      factTextLimit = Math.max(200, Math.floor(factTextLimit / 2));
+      continue;
+    }
+    if (factCount > 2) {
+      factCount = Math.max(2, Math.floor(factCount / 2));
       continue;
     }
     if (constraintCount > 0) {
@@ -286,10 +447,6 @@ export function createWorkSummaryFromMessages(
     }
     if (goalLimit > 80) {
       goalLimit = 80;
-      continue;
-    }
-    if (evidenceIds.length > 2) {
-      evidenceIds = uniqueMessageIds([allEvidenceIds[0]!, allEvidenceIds.at(-1)!]);
       continue;
     }
     return undefined;

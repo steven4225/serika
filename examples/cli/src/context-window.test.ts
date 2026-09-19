@@ -270,6 +270,9 @@ describe("selectModelContext", () => {
     assert.equal(summaryText?.type, "text");
     if (summaryText?.type === "text") {
       assert.match(summaryText.text, /user-0/);
+      assert.match(summaryText.text, /explicit ok:true/);
+      assert.match(summaryText.text, /not current disk or world state/);
+      assert.match(summaryText.text, /read_file/);
     }
   });
 
