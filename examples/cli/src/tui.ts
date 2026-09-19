@@ -53,6 +53,7 @@ export interface ToolConfirmation {
   handleLine(line: string): boolean;
   setPendingAuthorization(rule: RunAuthorizationInput): void;
   setPendingShellAuthorization(): void;
+  setPendingWebAuthorization(origins: readonly string[]): void;
   beginRun(): void;
   endRun(): void;
 }
@@ -82,6 +83,12 @@ export interface RunAuthorization {
 export type RunAuthorizationInput = Omit<RunAuthorization, "workspaceRoot"> & {
   workspaceRoot?: string;
 };
+
+/** A non-persistent web origin allow-list that applies to one subsequent Run. */
+export interface WebAuthorization {
+  allowedOrigins: readonly string[];
+  lifetime: "run";
+}
 
 export type ToolConfirmationPrompt = (
   input: BeforeToolExecuteInput,
@@ -172,6 +179,54 @@ function authorizationAllows(
   );
 }
 
+function normalizeWebOrigin(origin: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(origin);
+  } catch {
+    throw new Error(`Invalid web origin ${JSON.stringify(origin)}`);
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error(`Web origin must use http or https: ${JSON.stringify(origin)}`);
+  }
+  if (
+    parsed.username !== "" ||
+    parsed.password !== "" ||
+    parsed.pathname !== "/" ||
+    parsed.search !== "" ||
+    parsed.hash !== ""
+  ) {
+    throw new Error(
+      `Web authorization requires an exact origin without credentials or path: ${JSON.stringify(origin)}`,
+    );
+  }
+  return parsed.origin;
+}
+
+function webInputOrigin(input: unknown): string | undefined {
+  if (typeof input !== "object" || input === null || !("url" in input)) {
+    return undefined;
+  }
+  const value = (input as { url?: unknown }).url;
+  if (typeof value !== "string") return undefined;
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return undefined;
+    return parsed.origin;
+  } catch {
+    return undefined;
+  }
+}
+
+function webAuthorizationAllows(
+  authorization: WebAuthorization | undefined,
+  input: BeforeToolExecuteInput,
+): boolean {
+  if (authorization === undefined || input.toolName !== "web_fetch") return false;
+  const origin = webInputOrigin(input.input);
+  return origin !== undefined && authorization.allowedOrigins.includes(origin);
+}
+
 function confirmationPrompt(
   toolName: string,
   input: unknown,
@@ -253,6 +308,8 @@ export function createToolConfirmation(
   let activeRunAuthorization: RunAuthorization | undefined;
   let nextShellAuthorization = false;
   let activeShellAuthorization = false;
+  let nextWebAuthorization: WebAuthorization | undefined;
+  let activeWebAuthorization: WebAuthorization | undefined;
   const persistentAuthorizations = (options.persistentAuthorizations ?? []).map(
     (rule) => normalizeAuthorization(rule, options.workspaceRoot),
   );
@@ -269,6 +326,9 @@ export function createToolConfirmation(
       return Promise.resolve({ allow: true });
     }
     if (activeShellAuthorization && input.toolName === "shell_exec") {
+      return Promise.resolve({ allow: true });
+    }
+    if (webAuthorizationAllows(activeWebAuthorization, input)) {
       return Promise.resolve({ allow: true });
     }
     if (
@@ -363,17 +423,31 @@ export function createToolConfirmation(
     nextShellAuthorization = true;
   };
 
+  const setPendingWebAuthorization = (origins: readonly string[]): void => {
+    if (origins.length === 0) {
+      throw new Error("At least one web origin is required");
+    }
+    const normalized = [...new Set(origins.map(normalizeWebOrigin))];
+    nextWebAuthorization = { allowedOrigins: normalized, lifetime: "run" };
+  };
+
   const beginRun = (): void => {
     activeRunAuthorization = nextRunAuthorization;
     nextRunAuthorization = undefined;
     activeShellAuthorization =
       options.shellSandboxMode === "docker" && nextShellAuthorization;
     nextShellAuthorization = false;
+    activeWebAuthorization = nextWebAuthorization;
+    nextWebAuthorization = undefined;
   };
 
   const endRun = (): void => {
     activeRunAuthorization = undefined;
     activeShellAuthorization = false;
+    activeWebAuthorization = undefined;
+    nextRunAuthorization = undefined;
+    nextShellAuthorization = false;
+    nextWebAuthorization = undefined;
     if (pending !== undefined) {
       const entry = pending;
       clearPending(entry);
@@ -386,6 +460,7 @@ export function createToolConfirmation(
     handleLine,
     setPendingAuthorization,
     setPendingShellAuthorization,
+    setPendingWebAuthorization,
     beginRun,
     endRun,
   };

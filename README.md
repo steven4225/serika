@@ -97,7 +97,7 @@ Stage 7-2 支持用一份显式 JSON 配置选择 TUI 启用的内置模块。�
 RUNLOOM_MODEL=mock pnpm tui -- ./var/runloom --thread daily-plan --config ./runloom.json
 ```
 
-配置模式下未列出的模块默认关闭，模块配置必须使用 `{ "enabled": true|false }`。支持的模块是 `pomodoro`、`read-file`、`memory`、`task`、`todoist` 和 `shell`；`read-file` 仍包含 `/workspace`、文件读写和搜索能力，`shell` 提供显式启用的 `shell_exec`，示例 `add` 工具不属于配置模块。
+配置模式下未列出的模块默认关闭，模块配置必须使用 `{ "enabled": true|false }`。支持的模块是 `pomodoro`、`read-file`、`memory`、`task`、`todoist`、`shell` 和 `web`；`read-file` 仍包含 `/workspace`、文件读写和搜索能力，`shell` 提供显式启用的 `shell_exec`，`web` 提供公开 URL 的 `web_fetch`，示例 `add` 工具不属于配置模块。
 
 ```json
 {
@@ -108,16 +108,17 @@ RUNLOOM_MODEL=mock pnpm tui -- ./var/runloom --thread daily-plan --config ./runl
     "read-file": { "enabled": true },
     "memory": { "enabled": true, "autoConsolidate": false },
     "task": { "enabled": false },
-    "todoist": { "enabled": true, "timeZone": "Asia/Shanghai" }
+    "todoist": { "enabled": true, "timeZone": "Asia/Shanghai" },
+    "web": { "enabled": true }
   }
 }
 ```
 
-`workspace` 相对配置文件所在目录解析。启用 `read-file`、`memory`、`task` 或 `shell` 时必须提供有效 workspace；只启用 Todoist 或番茄钟可以省略。配置模式下 Todoist 时区只读取 JSON，缺省为 `Asia/Shanghai`；不传 `--config` 时仍沿用 `RUNLOOM_TODOIST_TIMEZONE`。Todoist token 始终从 `TODOIST_API_TOKEN` 读取，不能写进 JSON。
+`workspace` 相对配置文件所在目录解析。启用 `read-file`、`memory`、`task` 或 `shell` 时必须提供有效 workspace；只启用 Todoist、web 或番茄钟可以省略。配置模式下 Todoist 时区只读取 JSON，缺省为 `Asia/Shanghai`；不传 `--config` 时仍沿用 `RUNLOOM_TODOIST_TIMEZONE`。Todoist token 始终从 `TODOIST_API_TOKEN` 读取，不能写进 JSON。
 
 `--config` 与 `--workspace`、`--todoist`、`--auto-consolidate` 互斥，但可和 transcript 目录、`--thread` 一起使用。不传 `--config` 时，原有命令行行为保持不变。
 
-`/modules` 始终可用，不属于配置模块；它显示配置来源、workspace、五个模块开关、自动整理、Todoist 时区和 token 是否存在，不显示 token。关闭 `memory` 会同时关闭记忆工具、记忆注入和自动整理；关闭 `task` 只影响当前 TUI，不会停止独立 worker。命令不创建 Run，也不写 transcript。
+`/modules` 始终可用，不属于配置模块；它显示配置来源、workspace、模块开关、自动整理、Todoist 时区和 token 是否存在，不显示 token。关闭 `memory` 会同时关闭记忆工具、记忆注入和自动整理；关闭 `task` 只影响当前 TUI，不会停止独立 worker。命令不创建 Run，也不写 transcript。
 
 启用 `task` 并配置 workspace 后还可以创建一次性任务。TUI 提供 `/task create <带时区的ISO时间> <prompt>`、`/task list [pending|attention|status]`、`/task inbox`、`/task show <id>`、`/task ack <id>` 和 `/task cancel <id>`；任务保存在 `<workspace>/.runloom/tasks.json`。独立 worker 必须持续运行，TUI 关闭后仍会在到期时执行：
 
@@ -261,6 +262,14 @@ RUNLOOM_MODEL=minimax-m3 pnpm tui -- ./var/runloom --thread demo
 ```
 
 Docker sandbox 只挂载列出的路径，根文件系统只读，网络固定关闭；`writablePaths` 中的目录必须已存在，配置文件必须位于 workspace 外。镜像必须已存在，不会自动 pull，Docker daemon 或镜像不可用时 TUI 启动失败，不会退回宿主免确认。启动后使用 `/authorize-shell` 可让下一次 Run 连续调用隔离 Shell，Run 结束、失败或取消后失效；未授权时仍逐次 `y/n`。命令默认 30 秒超时、输出可能截断。shell_exec 只进入 TUI，worker 不会因为 TUI 配置自动获得它。Durable Run Driver 仍不进入这条主链。
+
+### Web 只读模块
+
+配置中启用 `web` 后，TUI 注册只读工具 `web_fetch({ url })`。它只支持公开 HTTP(S) 文本/HTML 响应，GET 请求最多跟随 5 次重定向；每次请求前都会校验目标和 DNS 结果，拒绝 localhost、私网、链路本地、元数据地址、URL 凭据和非文本内容。响应最多读取 512 KiB，交给模型的正文最多 64 KiB，超出时返回 `truncated: true`；失败、HTTP 错误、超时和不支持的内容类型会以结构化错误返回。不会携带 Cookie、Authorization 或本机应用密钥，也不会访问登录网站、PDF、图片或下载附件。
+
+`web_fetch` 默认沿现有 `y/n` 确认。已知来源可在 Run 前输入 `/authorize-web https://example.com https://docs.example.org`，授权只对下一次 Run、列出的精确 origin 和 `web_fetch` 生效，Run 结束、失败或取消后清除；不会写入 memory、transcript 或配置。网页正文是不可信数据，不能把页面里的指令当成系统指令。工具返回 `requestedUrl`、`finalUrl`、HTTP 状态、内容类型、抓取时间、正文和完整性标记，生成报告时应引用实际 `finalUrl`，不能把截断或失败说成已读全文。
+
+`web` 只进入 TUI，worker 不会获得它；R3a 暂不提供搜索，搜索供应商和 `web_search` 属于后续 R3b。
 
 ### Stage 6 验收
 

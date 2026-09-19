@@ -26,6 +26,7 @@ export const BUILTIN_MODULE_IDS = [
   "task",
   "todoist",
   "shell",
+  "web",
 ] as const;
 
 export type BuiltinModuleId = (typeof BUILTIN_MODULE_IDS)[number];
@@ -103,6 +104,7 @@ const tuiModuleConfigV1Schema = z
         task: moduleToggleSchema.optional(),
         todoist: todoistModuleSchema.optional(),
         shell: shellModuleSchema.optional(),
+        web: moduleToggleSchema.optional(),
       })
       .strict(),
     fileAuthorizations: z.array(fileAuthorizationSchema).optional(),
@@ -128,6 +130,7 @@ export interface TuiModuleConfigV1 {
           sandbox?: DockerShellSandboxConfig | undefined;
         }
       | undefined;
+    web?: { enabled: boolean } | undefined;
   };
   fileAuthorizations?: FileAuthorizationRule[] | undefined;
 }
@@ -159,6 +162,7 @@ function emptyEnabled(): Record<BuiltinModuleId, boolean> {
     task: false,
     todoist: false,
     shell: false,
+    web: false,
   };
 }
 
@@ -354,6 +358,7 @@ async function resolveConfiguredMode(
   enabled.task = config.modules.task?.enabled ?? false;
   enabled.todoist = config.modules.todoist?.enabled ?? false;
   enabled.shell = config.modules.shell?.enabled ?? false;
+  enabled.web = config.modules.web?.enabled ?? false;
 
   const autoConsolidate = config.modules.memory?.autoConsolidate ?? false;
   if (autoConsolidate && !enabled.memory) {
@@ -426,6 +431,7 @@ async function resolveLegacyMode(
   enabled.memory = args.workspace !== undefined;
   enabled.task = args.workspace !== undefined;
   enabled.todoist = args.todoistEnabled === true;
+  enabled.web = false;
 
   if (args.autoConsolidate === true && args.workspace === undefined) {
     throw new Error("--auto-consolidate requires --workspace");
