@@ -1425,6 +1425,7 @@ describe("runTui", () => {
         },
         setPendingAuthorization: () => undefined,
         setPendingShellAuthorization: () => undefined,
+        setPendingWebAuthorization: () => undefined,
         beginRun: () => undefined,
         endRun: () => undefined,
       },
@@ -2752,5 +2753,90 @@ describe("createToolConfirmation sandbox shell authorization", () => {
       reason: "User denied this tool call",
     });
     confirmation.endRun();
+  });
+});
+
+describe("createToolConfirmation web authorization", () => {
+  it("allows only exact authorized origins for one Run", async () => {
+    const output = outputBuffer();
+    const confirmation = createToolConfirmation(output);
+    confirmation.setPendingWebAuthorization([
+      "https://example.com/",
+      "http://docs.example.test",
+    ]);
+    confirmation.beginRun();
+
+    for (const url of [
+      "https://example.com/docs/start",
+      "http://docs.example.test:80/guide",
+    ]) {
+      const allowed = confirmation.beforeToolExecute(
+        toolInput("web_fetch", new AbortController().signal, { url }),
+      );
+      assert.deepEqual(await allowed, { allow: true });
+    }
+    assert.equal(output.text(), "");
+
+    const differentOrigin = confirmation.beforeToolExecute(
+      toolInput("web_fetch", new AbortController().signal, {
+        url: "https://example.com.evil.test/docs",
+      }),
+    );
+    await Promise.resolve();
+    assert.match(output.text(), /Tool: web_fetch/);
+    assert.equal(confirmation.handleLine("n"), true);
+    assert.deepEqual(await differentOrigin, {
+      allow: false,
+      reason: "User denied this tool call",
+    });
+
+    const otherOrigin = confirmation.beforeToolExecute(
+      toolInput("web_fetch", new AbortController().signal, {
+        url: "https://other.example/article",
+      }),
+    );
+    await Promise.resolve();
+    assert.equal(confirmation.handleLine("y"), true);
+    assert.deepEqual(await otherOrigin, { allow: true });
+    confirmation.endRun();
+  });
+
+  it("does not reuse web authorization after the Run ends", async () => {
+    const output = outputBuffer();
+    const confirmation = createToolConfirmation(output);
+    confirmation.setPendingWebAuthorization(["https://example.com"]);
+    confirmation.beginRun();
+    const first = confirmation.beforeToolExecute(
+      toolInput("web_fetch", new AbortController().signal, {
+        url: "https://example.com/a",
+      }),
+    );
+    assert.deepEqual(await first, { allow: true });
+    confirmation.endRun();
+
+    const next = confirmation.beforeToolExecute(
+      toolInput("web_fetch", new AbortController().signal, {
+        url: "https://example.com/b",
+      }),
+    );
+    await Promise.resolve();
+    assert.match(output.text(), /Allow this call\? \[y\/n\]/);
+    assert.equal(confirmation.handleLine("n"), true);
+    assert.deepEqual(await next, {
+      allow: false,
+      reason: "User denied this tool call",
+    });
+  });
+
+  it("rejects non-origin web authorization values", () => {
+    const confirmation = createToolConfirmation(outputBuffer());
+    assert.throws(
+      () => confirmation.setPendingWebAuthorization(["https://example.com/docs"]),
+      /exact origin/,
+    );
+    assert.throws(
+      () => confirmation.setPendingWebAuthorization(["file:///tmp"]),
+      /http or https/,
+    );
   });
 });

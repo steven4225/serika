@@ -372,12 +372,29 @@ describe("resolveTuiModuleConfig", () => {
       task: false,
       todoist: true,
       shell: false,
+      web: false,
     });
     assert.equal(resolved.autoConsolidate, false);
     assert.equal(resolved.todoistTimeZone, "Asia/Shanghai");
     if (resolved.configPath !== null) {
       assert.equal(dirname(resolved.configPath), configDirectory);
     }
+  });
+
+  it("enables the public web reader without requiring a workspace", async () => {
+    const { configDirectory } = await createConfigWorkspace();
+    const configPath = await writeConfig(configDirectory, {
+      version: 1,
+      modules: { web: { enabled: true } },
+    }, "web.json");
+
+    const resolved = await resolveTuiModuleConfig(configArgs(configPath), {
+      cwd: configDirectory,
+    });
+
+    assert.equal(resolved.workspaceRoot, null);
+    assert.equal(resolved.enabled.web, true);
+    assert.equal(resolved.shellSandbox, null);
   });
 
   it("resolves workspace relative to the config file directory", async () => {
@@ -526,6 +543,7 @@ describe("resolveTuiModuleConfig", () => {
       task: true,
       todoist: true,
       shell: false,
+      web: false,
     });
     assert.equal(resolved.autoConsolidate, true);
     assert.equal(resolved.todoistTimeZone, "UTC");
@@ -592,7 +610,43 @@ describe("TUI module configuration entry", () => {
     assert.match(stdout, /\[permissions\]/);
     assert.match(stdout, /持久文件授权: 1 条/);
     assert.match(stdout, /tools=read_file paths=docs/);
+    assert.match(stdout, /Web module: disabled/);
     assert.match(stdout, /修改或删除配置后需重启 TUI 生效/);
+    assert.doesNotMatch(stdout, /Allow this call\? \[y\/n\]/);
+  });
+
+  it("exposes /authorize-web only when the web module is enabled", async () => {
+    const { root, configDirectory } = await createConfigWorkspace();
+    const configPath = await writeConfig(configDirectory, {
+      version: 1,
+      modules: { web: { enabled: true } },
+    }, "web.json");
+    const entry = fileURLToPath(new URL("./index.js", import.meta.url));
+    const child = spawn(
+      process.execPath,
+      [entry, "--tui", "--config", configPath],
+      {
+        cwd: root,
+        env: { ...process.env, RUNLOOM_MODEL: "mock" },
+        stdio: ["pipe", "pipe", "pipe"],
+      },
+    );
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk: string) => {
+      stdout += chunk;
+    });
+    child.stderr.on("data", (chunk: string) => {
+      stderr += chunk;
+    });
+    child.stdin.end("/authorize-web https://example.com\n/permissions\n");
+    const [code] = await once(child, "close");
+
+    assert.equal(code, 0, stderr);
+    assert.match(stdout, /\[authorize-web\] 已为下一次 Run 授权 web_fetch/);
+    assert.match(stdout, /Web module: enabled \(web_fetch\)/);
     assert.doesNotMatch(stdout, /Allow this call\? \[y\/n\]/);
   });
 
@@ -635,6 +689,7 @@ describe("TUI module configuration entry", () => {
     assert.match(stdout, /task: disabled/);
     assert.match(stdout, /todoist: disabled/);
     assert.match(stdout, /shell: disabled/);
+    assert.match(stdout, /web: disabled/);
     assert.match(stdout, /Todoist 规划时区: 未启用/);
     assert.match(stdout, /自动记忆整理: off/);
     assert.match(stdout, /Todoist token: missing/);
