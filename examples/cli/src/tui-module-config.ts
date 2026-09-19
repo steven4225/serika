@@ -40,6 +40,7 @@ export interface ResolvedTuiModuleConfig {
   configPath: string | null;
   workspaceRoot: string | null;
   enabled: Record<BuiltinModuleId, boolean>;
+  webSearchEnabled: boolean;
   autoConsolidate: boolean;
   todoistTimeZone: string | null;
   fileAuthorizations: readonly FileAuthorizationRule[];
@@ -85,6 +86,13 @@ const shellModuleSchema = z
   })
   .strict();
 
+const webModuleSchema = z
+  .object({
+    enabled: z.boolean(),
+    search: z.object({ enabled: z.boolean() }).strict().optional(),
+  })
+  .strict();
+
 const fileAuthorizationSchema = z
   .object({
     tools: z.array(z.enum(RUN_AUTHORIZED_FILE_TOOLS)).min(1),
@@ -104,7 +112,7 @@ const tuiModuleConfigV1Schema = z
         task: moduleToggleSchema.optional(),
         todoist: todoistModuleSchema.optional(),
         shell: shellModuleSchema.optional(),
-        web: moduleToggleSchema.optional(),
+        web: webModuleSchema.optional(),
       })
       .strict(),
     fileAuthorizations: z.array(fileAuthorizationSchema).optional(),
@@ -130,7 +138,12 @@ export interface TuiModuleConfigV1 {
           sandbox?: DockerShellSandboxConfig | undefined;
         }
       | undefined;
-    web?: { enabled: boolean } | undefined;
+    web?:
+      | {
+          enabled: boolean;
+          search?: { enabled: boolean } | undefined;
+        }
+      | undefined;
   };
   fileAuthorizations?: FileAuthorizationRule[] | undefined;
 }
@@ -359,12 +372,17 @@ async function resolveConfiguredMode(
   enabled.todoist = config.modules.todoist?.enabled ?? false;
   enabled.shell = config.modules.shell?.enabled ?? false;
   enabled.web = config.modules.web?.enabled ?? false;
+  const webSearchEnabled =
+    enabled.web && (config.modules.web?.search?.enabled ?? false);
 
   const autoConsolidate = config.modules.memory?.autoConsolidate ?? false;
   if (autoConsolidate && !enabled.memory) {
     throw new Error(
       "memory.autoConsolidate requires memory.enabled to be true",
     );
+  }
+  if (config.modules.web?.search?.enabled === true && !enabled.web) {
+    throw new Error("web.search requires web.enabled to be true");
   }
   assertWorkspaceRequirement(
     enabled,
@@ -413,6 +431,7 @@ async function resolveConfiguredMode(
     configPath: absoluteConfigPath,
     workspaceRoot,
     enabled,
+    webSearchEnabled,
     autoConsolidate,
     todoistTimeZone,
     fileAuthorizations,
@@ -456,6 +475,7 @@ async function resolveLegacyMode(
     configPath: null,
     workspaceRoot,
     enabled,
+    webSearchEnabled: false,
     autoConsolidate: args.autoConsolidate === true,
     todoistTimeZone: resolvedTodoistTimeZone,
     fileAuthorizations: [],

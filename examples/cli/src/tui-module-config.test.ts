@@ -394,7 +394,32 @@ describe("resolveTuiModuleConfig", () => {
 
     assert.equal(resolved.workspaceRoot, null);
     assert.equal(resolved.enabled.web, true);
+    assert.equal(resolved.webSearchEnabled, false);
     assert.equal(resolved.shellSandbox, null);
+  });
+
+  it("keeps web search opt-in inside the web module", async () => {
+    const { configDirectory } = await createConfigWorkspace();
+    const configPath = await writeConfig(configDirectory, {
+      version: 1,
+      modules: { web: { enabled: true, search: { enabled: true } } },
+    }, "web-search.json");
+
+    const resolved = await resolveTuiModuleConfig(configArgs(configPath), {
+      cwd: configDirectory,
+    });
+
+    assert.equal(resolved.enabled.web, true);
+    assert.equal(resolved.webSearchEnabled, true);
+
+    const searchWithoutWeb = await writeConfig(configDirectory, {
+      version: 1,
+      modules: { web: { enabled: false, search: { enabled: true } } },
+    }, "search-without-web.json");
+    await assert.rejects(
+      resolveTuiModuleConfig(configArgs(searchWithoutWeb), { cwd: configDirectory }),
+      /web\.search requires web\.enabled to be true/,
+    );
   });
 
   it("resolves workspace relative to the config file directory", async () => {
@@ -648,6 +673,41 @@ describe("TUI module configuration entry", () => {
     assert.match(stdout, /\[authorize-web\] 已为下一次 Run 授权 web_fetch/);
     assert.match(stdout, /Web module: enabled \(web_fetch\)/);
     assert.doesNotMatch(stdout, /Allow this call\? \[y\/n\]/);
+  });
+
+  it("keeps web_fetch available and reports missing search credentials", async () => {
+    const { root, configDirectory } = await createConfigWorkspace();
+    const configPath = await writeConfig(configDirectory, {
+      version: 1,
+      modules: { web: { enabled: true, search: { enabled: true } } },
+    }, "web-search.json");
+    const entry = fileURLToPath(new URL("./index.js", import.meta.url));
+    const { BRAVE_SEARCH_API_KEY: _searchKey, ...baseEnv } = process.env;
+    const child = spawn(
+      process.execPath,
+      [entry, "--tui", "--config", configPath],
+      {
+        cwd: root,
+        env: { ...baseEnv, RUNLOOM_MODEL: "mock" },
+        stdio: ["pipe", "pipe", "pipe"],
+      },
+    );
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk: string) => {
+      stdout += chunk;
+    });
+    child.stderr.on("data", (chunk: string) => {
+      stderr += chunk;
+    });
+    child.stdin.end("/modules\n");
+    const [code] = await once(child, "close");
+
+    assert.equal(code, 0, stderr);
+    assert.match(stdout, /web: enabled \(web_fetch\)/);
+    assert.match(stdout, /web_search: unavailable \(missing BRAVE_SEARCH_API_KEY\)/);
   });
 
   it("always exposes /modules when every configurable module is disabled", async () => {

@@ -5,7 +5,12 @@ import type { RegisteredTool } from "@aisdk-agent/ai-sdk-adapter";
 import { createModuleHost } from "../module-host.js";
 import type { ResolveWebHost, WebFetchResult } from "../web-fetch.js";
 import { WEB_FETCH_TIMEOUT_MS } from "../web-fetch.js";
-import { createWebModule, WEB_FETCH_TOOL_TIMEOUT_MS } from "./web-module.js";
+import { WEB_SEARCH_TIMEOUT_MS } from "../web-search.js";
+import {
+  createWebModule,
+  WEB_FETCH_TOOL_TIMEOUT_MS,
+  WEB_SEARCH_TOOL_TIMEOUT_MS,
+} from "./web-module.js";
 
 function toolOptions(
   signal = new AbortController().signal,
@@ -46,6 +51,64 @@ const safeResolver: ResolveWebHost = async () => [
 ];
 
 describe("createWebModule", () => {
+  it("keeps web_fetch when search is enabled without a provider key", () => {
+    const host = createModuleHost(
+      [createWebModule({ searchEnabled: true })],
+      { notify: () => undefined },
+    );
+
+    assert.deepEqual(host.tools.map(({ metadata }) => metadata), [
+      {
+        name: "web_fetch",
+        version: "1",
+        risk: "read",
+        timeoutMs: WEB_FETCH_TOOL_TIMEOUT_MS,
+        idempotent: true,
+      },
+    ]);
+    host.dispose();
+  });
+
+  it("registers web_search only when enabled and a provider key is present", () => {
+    const host = createModuleHost(
+      [
+        createWebModule({
+          searchEnabled: true,
+          searchApiKey: "test-search-key",
+        }),
+      ],
+      { notify: () => undefined },
+    );
+
+    assert.deepEqual(host.tools.map(({ metadata }) => metadata), [
+      {
+        name: "web_fetch",
+        version: "1",
+        risk: "read",
+        timeoutMs: WEB_FETCH_TOOL_TIMEOUT_MS,
+        idempotent: true,
+      },
+      {
+        name: "web_search",
+        version: "1",
+        risk: "read",
+        timeoutMs: WEB_SEARCH_TOOL_TIMEOUT_MS,
+        idempotent: true,
+      },
+    ]);
+
+    const search = host.tools[1];
+    assert.ok(search);
+    const schema = search.tool.inputSchema as {
+      safeParse(value: unknown): { success: boolean };
+    };
+    assert.equal(schema.safeParse({ query: "runloom" }).success, true);
+    assert.equal(schema.safeParse({ query: "" }).success, false);
+    assert.equal(schema.safeParse({ query: "runloom", limit: 11 }).success, false);
+    assert.ok(WEB_SEARCH_TOOL_TIMEOUT_MS > WEB_SEARCH_TIMEOUT_MS);
+    host.dispose();
+  });
+
   it("registers one read-only idempotent web_fetch tool", async () => {
     const requests: string[] = [];
     const host = createModuleHost(
