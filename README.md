@@ -273,7 +273,9 @@ Docker sandbox 只挂载列出的路径，根文件系统只读，网络固定�
 
 `web_search` 的摘要不能当作事实证据。研究任务必须先搜索，再用现有 `web_fetch` 打开选定原文，报告引用实际 `finalUrl`；原文失败或截断时必须标明未核验。Brave Search API 按供应商计划计费，查询也受其[官方隐私政策](https://api-dashboard.search.brave.com/privacy-policy)约束，因此不要把密钥、私人笔记或敏感信息拼进 query；价格以[官方计划](https://api-dashboard.search.brave.com/app/plans)为准。
 
-`web` 只进入 TUI，worker 不会获得它；R3a 的真实 URL 阅读验收完成后，才能进行 R3b 的真实搜索→原文核验→报告保存验收。
+R3c 的联网研究交付沿用这两个工具，不新增研究工具或来源数据库：一次 `web_search` 只发现候选，最多选择两个来源，再用 `web_fetch` 打开原文。只有 `web_fetch` 成功返回的内容才能作为已核验来源；`truncated: true` 只能作为部分证据，失败或拒绝不能支持事实结论。报告引用实际 `finalUrl`，`write_file` 成功后才说明文件已保存；拒绝、失败或文件冲突不能换参数绕过，也不能声称已保存。报告不强制固定 Markdown 章节，但必须写清来源和不完整项。
+
+R3c 的真实验收是：指定 URL 阅读、搜索→原文核验→报告保存，以及搜索/抓取拒绝、单来源失败或截断三个边界。`web` 只进入 TUI，worker 不会获得它；R3a、R3b 的代码已合并，但 R3 仍需完成真实证据后才封板。
 
 ### Stage 6 验收
 
