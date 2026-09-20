@@ -595,7 +595,11 @@ try {
   const runtime = new DefaultAgentRuntime({
     catalog,
     store,
-    loop: new AiSdkAgentLoop({ models, tools }),
+    loop: new AiSdkAgentLoop({
+      models,
+      tools,
+      ...(tuiMode ? { modelRetryDelaysMs: [250, 1_000] } : {}),
+    }),
     ...(tuiMode
       ? {
           prepareModelContext: async ({ messages, signal, definition }) => {

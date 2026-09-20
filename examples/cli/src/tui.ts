@@ -509,6 +509,23 @@ type CompletedTaskAction = {
 
 type CompletedAction = CompletedFileAction | CompletedPomodoroAction | CompletedTaskAction;
 
+type UnknownToolAction = {
+  toolName: string;
+  toolCallId: string;
+  summary: string;
+  message: string;
+};
+
+function unknownToolInputSummary(toolName: string, input: unknown): string {
+  if (typeof input !== "object" || input === null) return "";
+  const value = input as { path?: unknown; cwd?: unknown };
+  if (typeof value.path === "string") return `path=${value.path}`;
+  if (toolName === "shell_exec") {
+    return typeof value.cwd === "string" ? `cwd=${value.cwd}; command=redacted` : "command=redacted";
+  }
+  return "input=redacted";
+}
+
 function completedFileAction(event: Extract<AgentEvent, { type: "tool.call.completed" }>): CompletedFileAction | undefined {
   if (event.data.toolName !== "write_file" && event.data.toolName !== "edit_file") {
     return undefined;
@@ -638,12 +655,21 @@ async function renderEvents(
   renderedText: string;
   requestedMemoryTool: boolean;
   completedActions: CompletedAction[];
+  unknownActions: UnknownToolAction[];
 }> {
   let renderedText = "";
   let requestedMemoryTool = false;
   const completedActions: CompletedAction[] = [];
+  const unknownActions: UnknownToolAction[] = [];
+  const requestedTools = new Map<string, { toolName: string; input: unknown }>();
   for await (const event of events) {
     switch (event.type) {
+      case "model.retry.scheduled":
+        write(
+          output,
+          `\n[model retry ${event.data.nextAttempt}/${event.data.maxAttempts} in ${event.data.delayMs}ms: ${event.data.error.code}]\n`,
+        );
+        break;
       case "message.delta":
         renderedText += event.data.text;
         write(output, event.data.text);
@@ -653,10 +679,26 @@ async function renderEvents(
         break;
       case "tool.call.requested":
         requestedMemoryTool ||= event.data.toolName.startsWith("memory_");
+        requestedTools.set(event.data.toolCallId, {
+          toolName: event.data.toolName,
+          input: event.data.input,
+        });
         write(output, `\n[tool ${event.data.toolName}]\n`);
         break;
       case "tool.call.failed":
         write(output, `\n[tool failed: ${event.data.error.message}]\n`);
+        if (event.data.error.code === "TOOL_OUTCOME_UNKNOWN") {
+          const requested = requestedTools.get(event.data.toolCallId);
+          unknownActions.push({
+            toolName: event.data.toolName,
+            toolCallId: event.data.toolCallId,
+            summary: unknownToolInputSummary(
+              event.data.toolName,
+              requested?.input,
+            ),
+            message: event.data.error.message,
+          });
+        }
         break;
       case "tool.call.completed": {
         const action = completedFileAction(event);
@@ -671,7 +713,7 @@ async function renderEvents(
         break;
     }
   }
-  return { renderedText, requestedMemoryTool, completedActions };
+  return { renderedText, requestedMemoryTool, completedActions, unknownActions };
 }
 
 function renderResult(
@@ -679,6 +721,7 @@ function renderResult(
   result: RunResult,
   renderedText: string,
   completedActions: readonly CompletedAction[],
+  unknownActions: readonly UnknownToolAction[],
 ): void {
   if (result.status === "completed") {
     // result.text is only the last model step. Deltas already painted the
@@ -707,6 +750,16 @@ function renderResult(
         write(output, `- ${action.toolName}: ${action.summary}\n`);
       }
     }
+  }
+  if (unknownActions.length > 0) {
+    write(output, "结果不确定，重试前请先核查：\n");
+    for (const action of unknownActions) {
+      write(
+        output,
+        `- ${action.toolName}${action.summary ? ` (${action.summary})` : ` (${action.toolCallId})`}: ${action.message}\n`,
+      );
+    }
+    write(output, "本次 Run 不会自动重试该操作。\n");
   }
   write(output, "\n\n");
 }
@@ -805,6 +858,7 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
           result,
           rendered.renderedText,
           rendered.completedActions,
+          rendered.unknownActions,
         );
         state = { kind: "idle" };
         return { result, requestedMemoryTool: rendered.requestedMemoryTool };

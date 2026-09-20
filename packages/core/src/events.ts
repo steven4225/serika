@@ -10,6 +10,13 @@ export interface AgentEventDataMap {
     finishReason: string;
     usage: TokenUsage;
   };
+  "model.retry.scheduled": {
+    stepNumber: number;
+    nextAttempt: number;
+    maxAttempts: number;
+    delayMs: number;
+    error: AgentErrorData;
+  };
   "tool.call.requested": {
     toolCallId: string;
     toolName: string;

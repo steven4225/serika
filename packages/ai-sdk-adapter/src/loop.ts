@@ -1,4 +1,5 @@
 import {
+  APICallError,
   convertToModelMessages,
   stepCountIs,
   streamText,
@@ -19,6 +20,8 @@ import { ToolRegistry } from "./registries.js";
 export interface AiSdkAgentLoopOptions {
   models: ModelRegistry;
   tools: ToolRegistry;
+  /** Delays between model attempts; an empty/omitted value disables retries. */
+  modelRetryDelaysMs?: readonly number[];
 }
 
 interface PendingToolCall {
@@ -124,6 +127,22 @@ function toolPrecheckError(
   );
 }
 
+function toolOutcomeUnknown(
+  toolName: string,
+  message: string,
+  cause?: unknown,
+): AgentError {
+  return new AgentError(
+    {
+      code: "TOOL_OUTCOME_UNKNOWN",
+      message: `Tool outcome is unknown: ${toolName}: ${message}`,
+      retryable: false,
+      phase: "tool",
+    },
+    { cause },
+  );
+}
+
 function validateToolExecutionDecision(
   value: unknown,
   toolName: string,
@@ -210,8 +229,166 @@ async function awaitWithSignal<T>(
   });
 }
 
+function sleepWithSignal(delayMs: number, signal: AbortSignal): Promise<void> {
+  if (signal.aborted) return Promise.reject(abortReason(signal));
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, delayMs);
+    const onAbort = () => {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", onAbort);
+      reject(abortReason(signal));
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+    if (signal.aborted) onAbort();
+  });
+}
+
 function throwIfAborted(signal: AbortSignal): void {
   if (signal.aborted) throw abortReason(signal);
+}
+
+const RETRYABLE_UNAVAILABLE_STATUS = new Set([408, 500, 502, 503, 504, 529]);
+
+function errorCause(error: unknown): unknown {
+  return typeof error === "object" && error !== null && "cause" in error
+    ? (error as { cause?: unknown }).cause
+    : undefined;
+}
+
+function isNetworkFailure(error: unknown, depth = 0): boolean {
+  const candidate = error as {
+    code?: unknown;
+    message?: unknown;
+    cause?: unknown;
+  };
+  const code = typeof candidate?.code === "string" ? candidate.code : "";
+  if (
+    [
+      "EAI_AGAIN",
+      "ECONNABORTED",
+      "ECONNREFUSED",
+      "ECONNRESET",
+      "ENETUNREACH",
+      "ENETDOWN",
+      "ENOTFOUND",
+      "ETIMEDOUT",
+      "UND_ERR_CONNECT_TIMEOUT",
+    ].includes(code)
+  ) {
+    return true;
+  }
+  const message =
+    typeof candidate?.message === "string" ? candidate.message : "";
+  if (
+    /(?:fetch failed|network error|network request|connection reset|connection refused|dns lookup)/i.test(
+      message,
+    )
+  ) {
+    return true;
+  }
+  const cause = errorCause(error);
+  return depth < 2 && cause !== undefined
+    ? isNetworkFailure(cause, depth + 1)
+    : false;
+}
+
+function findApiCallError(error: unknown, depth = 0): APICallError | undefined {
+  if (APICallError.isInstance(error)) return error;
+  const cause = errorCause(error);
+  return depth < 2 && cause !== undefined
+    ? findApiCallError(cause, depth + 1)
+    : undefined;
+}
+
+function modelFailureFromStatus(statusCode: number): AgentErrorData | undefined {
+  if (statusCode === 401 || statusCode === 403) {
+    return {
+      code: "MODEL_AUTH",
+      message: "Model authentication failed",
+      retryable: false,
+      phase: "model",
+    };
+  }
+  if (statusCode === 429) {
+    return {
+      code: "MODEL_RATE_LIMIT",
+      message: "Model request was rate limited",
+      retryable: true,
+      phase: "model",
+    };
+  }
+  if (RETRYABLE_UNAVAILABLE_STATUS.has(statusCode)) {
+    return {
+      code: "MODEL_UNAVAILABLE",
+      message: "Model service is temporarily unavailable",
+      retryable: true,
+      phase: "model",
+    };
+  }
+  return undefined;
+}
+
+function modelFailureError(
+  error: unknown,
+  stepTimeout: AbortSignal,
+  stepTimeoutMs: number,
+): AgentError {
+  if (stepTimeout.aborted) {
+    return new AgentError(
+      {
+        code: "MODEL_TIMEOUT",
+        message: `Model step exceeded ${stepTimeoutMs}ms`,
+        retryable: true,
+        phase: "model",
+      },
+      { cause: error },
+    );
+  }
+
+  const apiError = findApiCallError(error);
+  const fromStatus =
+    apiError?.statusCode === undefined
+      ? undefined
+      : modelFailureFromStatus(apiError.statusCode);
+  if (fromStatus) {
+    return new AgentError(fromStatus, { cause: error });
+  }
+
+  if (isNetworkFailure(error)) {
+    return new AgentError(
+      {
+        code: "MODEL_UNAVAILABLE",
+        message: "Model service is temporarily unavailable",
+        retryable: true,
+        phase: "model",
+      },
+      { cause: error },
+    );
+  }
+
+  return new AgentError(
+    {
+      code: "MODEL_BAD_RESPONSE",
+      message: "Model stream returned an error",
+      retryable: false,
+      phase: "model",
+    },
+    { cause: error },
+  );
+}
+
+function isStartedModelOutput(type: string): boolean {
+  return (
+    type === "text-delta" ||
+    type === "reasoning-delta" ||
+    type === "tool-call" ||
+    type === "tool-input-start" ||
+    type === "tool-input-delta" ||
+    type === "tool-input-end"
+  );
 }
 
 function isAsyncIterable(value: unknown): value is AsyncIterable<unknown> {
@@ -225,10 +402,14 @@ function isAsyncIterable(value: unknown): value is AsyncIterable<unknown> {
 export class AiSdkAgentLoop implements AgentLoop {
   readonly #models: ModelRegistry;
   readonly #tools: ToolRegistry;
+  readonly #modelRetryDelaysMs: readonly number[];
 
   constructor(options: AiSdkAgentLoopOptions) {
     this.#models = options.models;
     this.#tools = options.tools;
+    this.#modelRetryDelaysMs = options.modelRetryDelaysMs
+      ? [...options.modelRetryDelaysMs]
+      : [];
   }
 
   async execute<TContext>(input: AgentLoopInput<TContext>) {
@@ -294,89 +475,104 @@ export class AiSdkAgentLoop implements AgentLoop {
         tools: modelTools,
       });
       throwIfAborted(input.signal);
-      const stepTimeout = AbortSignal.timeout(
-        input.definition.limits.stepTimeoutMs,
-      );
-      const stepSignal = AbortSignal.any([input.signal, stepTimeout]);
-      const pendingCalls: PendingToolCall[] = [];
+      let pendingCalls: PendingToolCall[] = [];
       let stepText = "";
-      let result!: ReturnType<typeof streamText>;
-      let stepUsage: TokenUsage;
-      let finishReason: string;
+      let stepUsage!: TokenUsage;
+      let finishReason!: string;
 
-      try {
+      for (let attempt = 0; ; attempt += 1) {
         throwIfAborted(input.signal);
-        result = streamText({
-          model,
-          instructions: input.definition.instructions,
-          messages: modelMessages,
-          tools: modelTools,
-          stopWhen: stepCountIs(1),
-          maxRetries: 0,
-          abortSignal: stepSignal,
-          ...(input.definition.limits.maxOutputTokens !== undefined
-            ? { maxOutputTokens: input.definition.limits.maxOutputTokens }
-            : {}),
-          telemetry: { isEnabled: false },
-        });
+        const stepTimeout = AbortSignal.timeout(
+          input.definition.limits.stepTimeoutMs,
+        );
+        const stepSignal = AbortSignal.any([input.signal, stepTimeout]);
+        const attemptCalls: PendingToolCall[] = [];
+        let attemptText = "";
+        let attemptHasOutput = false;
 
-        for await (const part of result.stream) {
-          if (part.type === "text-delta") {
-            stepText += part.text;
-            await input.emit("message.delta", { text: part.text });
-          } else if (part.type === "tool-call") {
-            const call: PendingToolCall = {
-              toolCallId: part.toolCallId,
-              toolName: part.toolName,
-              input: part.input,
-              invalid: part.invalid === true,
-            };
-            pendingCalls.push(call);
-            await input.emit("tool.call.requested", {
-              toolCallId: call.toolCallId,
-              toolName: call.toolName,
-              input: call.input,
-            });
-          } else if (part.type === "abort") {
-            throw new DOMException(
-              part.reason ?? "Model stream aborted",
-              "AbortError",
-            );
-          } else if (part.type === "error") {
-            throw part.error;
+        try {
+          const result = streamText({
+            model,
+            instructions: input.definition.instructions,
+            messages: modelMessages,
+            tools: modelTools,
+            stopWhen: stepCountIs(1),
+            maxRetries: 0,
+            abortSignal: stepSignal,
+            ...(input.definition.limits.maxOutputTokens !== undefined
+              ? { maxOutputTokens: input.definition.limits.maxOutputTokens }
+              : {}),
+            telemetry: { isEnabled: false },
+          });
+
+          for await (const part of result.stream) {
+            if (part.type === "text-delta") {
+              attemptHasOutput = true;
+              attemptText += part.text;
+              await input.emit("message.delta", { text: part.text });
+            } else if (part.type === "tool-call") {
+              attemptHasOutput = true;
+              const call: PendingToolCall = {
+                toolCallId: part.toolCallId,
+                toolName: part.toolName,
+                input: part.input,
+                invalid: part.invalid === true,
+              };
+              attemptCalls.push(call);
+              await input.emit("tool.call.requested", {
+                toolCallId: call.toolCallId,
+                toolName: call.toolName,
+                input: call.input,
+              });
+            } else if (part.type === "abort") {
+              throw new DOMException(
+                part.reason ?? "Model stream aborted",
+                "AbortError",
+              );
+            } else if (part.type === "error") {
+              throw part.error;
+            } else if (isStartedModelOutput(part.type)) {
+              attemptHasOutput = true;
+            }
+            throwIfAborted(input.signal);
           }
-          throwIfAborted(input.signal);
-        }
 
-        stepUsage = normalizeUsage(
-          (await awaitWithSignal(() => result.usage, stepSignal)) as LanguageModelUsage,
-        );
-        finishReason = await awaitWithSignal(
-          () => result.finishReason,
-          stepSignal,
-        );
-      } catch (error) {
-        if (input.signal.aborted) throw abortReason(input.signal);
-        if (stepTimeout.aborted) {
-          throw new AgentError(
-            {
-              code: "MODEL_TIMEOUT",
-              message: `Model step exceeded ${input.definition.limits.stepTimeoutMs}ms`,
-              retryable: true,
-              phase: "model",
-            },
-            { cause: error },
+          stepUsage = normalizeUsage(
+            (await awaitWithSignal(
+              () => result.usage,
+              stepSignal,
+            )) as LanguageModelUsage,
           );
+          finishReason = await awaitWithSignal(
+            () => result.finishReason,
+            stepSignal,
+          );
+          pendingCalls = attemptCalls;
+          stepText = attemptText;
+          break;
+        } catch (error) {
+          if (input.signal.aborted) throw abortReason(input.signal);
+          const failure = modelFailureError(
+            error,
+            stepTimeout,
+            input.definition.limits.stepTimeoutMs,
+          );
+          const canRetry =
+            !attemptHasOutput &&
+            failure.data.retryable &&
+            attempt < this.#modelRetryDelaysMs.length;
+          if (!canRetry) throw failure;
+
+          const delayMs = this.#modelRetryDelaysMs[attempt]!;
+          await input.emit("model.retry.scheduled", {
+            stepNumber: steps,
+            nextAttempt: attempt + 2,
+            maxAttempts: this.#modelRetryDelaysMs.length + 1,
+            delayMs,
+            error: failure.data,
+          });
+          await sleepWithSignal(delayMs, input.signal);
         }
-        throw new AgentError(
-          {
-            code: "MODEL_BAD_RESPONSE",
-            message: "Model stream returned an error",
-            retryable: false,
-            phase: "model",
-          },
-          { cause: error },
-        );
       }
 
       totalUsage = addUsage(totalUsage, stepUsage);
@@ -520,6 +716,21 @@ export class AiSdkAgentLoop implements AgentLoop {
         } catch (error) {
           if (input.signal.aborted) throw abortReason(input.signal);
           const toolFailed = toolTimeout.aborted;
+          if (!metadata?.idempotent) {
+            const unknown = toolOutcomeUnknown(
+              call.toolName,
+              toolFailed
+                ? `execution timed out after ${timeoutMs}ms`
+                : "execution failed before a result was confirmed",
+              error,
+            );
+            await input.emit("tool.call.failed", {
+              toolCallId: call.toolCallId,
+              toolName: call.toolName,
+              error: unknown.data,
+            });
+            throw unknown;
+          }
           const errorData = toolError(
             "TOOL_EXECUTION_FAILED",
             call.toolName,
