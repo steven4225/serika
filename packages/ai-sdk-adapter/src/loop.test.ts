@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { simulateReadableStream, tool, type UIMessage } from "ai";
+import { APICallError, simulateReadableStream, tool, type UIMessage } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { z } from "zod";
 import {
@@ -91,6 +91,43 @@ function toolCallResponse(finishReason: string) {
       ],
     }),
   };
+}
+
+function multipleToolCallResponse(finishReason: string) {
+  return {
+    stream: simulateReadableStream({
+      chunks: [
+        { type: "stream-start" as const, warnings: [] },
+        {
+          type: "tool-call" as const,
+          toolCallId: "first-call",
+          toolName: "double",
+          input: JSON.stringify({ value: 2 }),
+        },
+        {
+          type: "tool-call" as const,
+          toolCallId: "second-call",
+          toolName: "double",
+          input: JSON.stringify({ value: 3 }),
+        },
+        {
+          type: "finish" as const,
+          finishReason: { unified: finishReason as never, raw: undefined },
+          usage,
+        },
+      ],
+    }),
+  };
+}
+
+function apiError(statusCode: number, isRetryable = statusCode >= 500) {
+  return new APICallError({
+    message: `HTTP ${statusCode}`,
+    url: "https://model.test/v1/chat/completions",
+    requestBodyValues: {},
+    statusCode,
+    isRetryable,
+  });
 }
 
 function doubleTool(execute: () => Promise<{ value: number }> | { value: number }) {
@@ -232,6 +269,816 @@ describe("AiSdkAgentLoop", () => {
 
     await assert.rejects(execution);
     assert.equal(modelCalls, 0);
+  });
+
+  it("retries a transient model request within the same step", async () => {
+    let modelCalls = 0;
+    const events: AgentEvent[] = [];
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        modelCalls += 1;
+        if (modelCalls === 1) throw apiError(503);
+        return textResponse("recovered");
+      },
+    });
+
+    const outcome = await new AiSdkAgentLoop({
+      models: new InMemoryModelRegistry({ test: model }),
+      tools: new ToolRegistry(),
+      modelRetryDelaysMs: [0],
+    }).execute({
+      definition: { ...definition, tools: [] },
+      messages: [userMessage()],
+      signal: new AbortController().signal,
+      generateId: () => "assistant-1",
+      emit: createEmit(events),
+    });
+
+    assert.equal(outcome.text, "recovered");
+    assert.equal(modelCalls, 2);
+    assert.deepEqual(
+      events
+        .filter((event) => event.type === "model.retry.scheduled")
+        .map((event) => event.data),
+      [{
+        stepNumber: 1,
+        nextAttempt: 2,
+        maxAttempts: 2,
+        delayMs: 0,
+        error: {
+          code: "MODEL_UNAVAILABLE",
+          message: "Model service is temporarily unavailable",
+          retryable: true,
+          phase: "model",
+        },
+      }],
+    );
+  });
+
+  it("keeps model retries disabled unless the caller opts in", async () => {
+    let modelCalls = 0;
+    const events: AgentEvent[] = [];
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        modelCalls += 1;
+        throw apiError(503);
+      },
+    });
+
+    await assert.rejects(
+      new AiSdkAgentLoop({
+        models: new InMemoryModelRegistry({ test: model }),
+        tools: new ToolRegistry(),
+      }).execute({
+        definition: { ...definition, tools: [] },
+        messages: [userMessage()],
+        signal: new AbortController().signal,
+        generateId: () => "assistant-1",
+        emit: createEmit(events),
+      }),
+      (error: unknown) =>
+        error instanceof AgentError &&
+        error.data.code === "MODEL_UNAVAILABLE",
+    );
+    assert.equal(modelCalls, 1);
+    assert.equal(
+      events.some((event) => event.type === "model.retry.scheduled"),
+      false,
+    );
+  });
+
+  it("retries a model request when the network error is nested in cause", async () => {
+    let modelCalls = 0;
+    const events: AgentEvent[] = [];
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        modelCalls += 1;
+        if (modelCalls === 1) {
+          const networkError = Object.assign(new Error("dns lookup failed"), {
+            code: "ENOTFOUND",
+          });
+          throw new Error("provider wrapper", { cause: networkError });
+        }
+        return textResponse("recovered");
+      },
+    });
+
+    const outcome = await new AiSdkAgentLoop({
+      models: new InMemoryModelRegistry({ test: model }),
+      tools: new ToolRegistry(),
+      modelRetryDelaysMs: [0],
+    }).execute({
+      definition: { ...definition, tools: [] },
+      messages: [userMessage()],
+      signal: new AbortController().signal,
+      generateId: () => "assistant-1",
+      emit: createEmit(events),
+    });
+
+    assert.equal(outcome.text, "recovered");
+    assert.equal(modelCalls, 2);
+    assert.equal(
+      (events.find((event) => event.type === "model.retry.scheduled")?.data as { error: { code: string } }).error.code,
+      "MODEL_UNAVAILABLE",
+    );
+  });
+
+  it("exhausts transient model retries at the configured attempt count", async () => {
+    let modelCalls = 0;
+    const events: AgentEvent[] = [];
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        modelCalls += 1;
+        throw apiError(503);
+      },
+    });
+
+    await assert.rejects(
+      new AiSdkAgentLoop({
+        models: new InMemoryModelRegistry({ test: model }),
+        tools: new ToolRegistry(),
+        modelRetryDelaysMs: [0, 0],
+      }).execute({
+        definition: { ...definition, tools: [] },
+        messages: [userMessage()],
+        signal: new AbortController().signal,
+        generateId: () => "assistant-1",
+        emit: createEmit(events),
+      }),
+      (error: unknown) =>
+        error instanceof AgentError && error.data.code === "MODEL_UNAVAILABLE",
+    );
+
+    assert.equal(modelCalls, 3);
+    assert.equal(
+      events.filter((event) => event.type === "model.retry.scheduled").length,
+      2,
+    );
+  });
+
+  it("does not retry authentication failures", async () => {
+    let modelCalls = 0;
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        modelCalls += 1;
+        throw apiError(401, false);
+      },
+    });
+
+    await assert.rejects(
+      new AiSdkAgentLoop({
+        models: new InMemoryModelRegistry({ test: model }),
+        tools: new ToolRegistry(),
+        modelRetryDelaysMs: [0, 0],
+      }).execute({
+        definition: { ...definition, tools: [] },
+        messages: [userMessage()],
+        signal: new AbortController().signal,
+        generateId: () => "assistant-1",
+        emit: async () => undefined,
+      }),
+      (error: unknown) =>
+        error instanceof AgentError && error.data.code === "MODEL_AUTH",
+    );
+    assert.equal(modelCalls, 1);
+  });
+
+  it("does not retry forbidden responses", async () => {
+    let modelCalls = 0;
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        modelCalls += 1;
+        throw apiError(403, false);
+      },
+    });
+
+    await assert.rejects(
+      new AiSdkAgentLoop({
+        models: new InMemoryModelRegistry({ test: model }),
+        tools: new ToolRegistry(),
+        modelRetryDelaysMs: [0, 0],
+      }).execute({
+        definition: { ...definition, tools: [] },
+        messages: [userMessage()],
+        signal: new AbortController().signal,
+        generateId: () => "assistant-1",
+        emit: async () => undefined,
+      }),
+      (error: unknown) =>
+        error instanceof AgentError && error.data.code === "MODEL_AUTH",
+    );
+    assert.equal(modelCalls, 1);
+  });
+
+  it("retries a rate-limited model request", async () => {
+    let modelCalls = 0;
+    const events: AgentEvent[] = [];
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        modelCalls += 1;
+        if (modelCalls === 1) throw apiError(429, true);
+        return textResponse("recovered");
+      },
+    });
+
+    const outcome = await new AiSdkAgentLoop({
+      models: new InMemoryModelRegistry({ test: model }),
+      tools: new ToolRegistry(),
+      modelRetryDelaysMs: [0],
+    }).execute({
+      definition: { ...definition, tools: [] },
+      messages: [userMessage()],
+      signal: new AbortController().signal,
+      generateId: () => "assistant-1",
+      emit: createEmit(events),
+    });
+
+    assert.equal(outcome.text, "recovered");
+    assert.equal(modelCalls, 2);
+    assert.equal(
+      events.find((event) => event.type === "model.retry.scheduled")?.data.error.code,
+      "MODEL_RATE_LIMIT",
+    );
+  });
+
+  it("retries HTTP 408 and 502 as unavailable", async () => {
+    for (const statusCode of [408, 502]) {
+      let modelCalls = 0;
+      const events: AgentEvent[] = [];
+      const model = new MockLanguageModelV3({
+        doStream: async () => {
+          modelCalls += 1;
+          if (modelCalls === 1) throw apiError(statusCode, true);
+          return textResponse("recovered");
+        },
+      });
+
+      const outcome = await new AiSdkAgentLoop({
+        models: new InMemoryModelRegistry({ test: model }),
+        tools: new ToolRegistry(),
+        modelRetryDelaysMs: [0],
+      }).execute({
+        definition: { ...definition, tools: [] },
+        messages: [userMessage()],
+        signal: new AbortController().signal,
+        generateId: () => "assistant-1",
+        emit: createEmit(events),
+      });
+
+      assert.equal(outcome.text, "recovered", String(statusCode));
+      assert.equal(modelCalls, 2, String(statusCode));
+      assert.equal(
+        events.find((event) => event.type === "model.retry.scheduled")?.data.error.code,
+        "MODEL_UNAVAILABLE",
+        String(statusCode),
+      );
+    }
+  });
+
+  it("does not retry HTTP 501 even when the SDK marks it retryable", async () => {
+    let modelCalls = 0;
+    const events: AgentEvent[] = [];
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        modelCalls += 1;
+        throw apiError(501, true);
+      },
+    });
+
+    await assert.rejects(
+      new AiSdkAgentLoop({
+        models: new InMemoryModelRegistry({ test: model }),
+        tools: new ToolRegistry(),
+        modelRetryDelaysMs: [0, 0],
+      }).execute({
+        definition: { ...definition, tools: [] },
+        messages: [userMessage()],
+        signal: new AbortController().signal,
+        generateId: () => "assistant-1",
+        emit: createEmit(events),
+      }),
+      (error: unknown) =>
+        error instanceof AgentError && error.data.code === "MODEL_BAD_RESPONSE",
+    );
+    assert.equal(modelCalls, 1);
+    assert.equal(
+      events.some((event) => event.type === "model.retry.scheduled"),
+      false,
+    );
+  });
+
+  it("does not retry HTTP 400 even when the SDK marks it retryable", async () => {
+    let modelCalls = 0;
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        modelCalls += 1;
+        throw apiError(400, true);
+      },
+    });
+
+    await assert.rejects(
+      new AiSdkAgentLoop({
+        models: new InMemoryModelRegistry({ test: model }),
+        tools: new ToolRegistry(),
+        modelRetryDelaysMs: [0, 0],
+      }).execute({
+        definition: { ...definition, tools: [] },
+        messages: [userMessage()],
+        signal: new AbortController().signal,
+        generateId: () => "assistant-1",
+        emit: async () => undefined,
+      }),
+      (error: unknown) =>
+        error instanceof AgentError && error.data.code === "MODEL_BAD_RESPONSE",
+    );
+    assert.equal(modelCalls, 1);
+  });
+
+  it("retries a nested APICallError from the cause chain", async () => {
+    let modelCalls = 0;
+    const events: AgentEvent[] = [];
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        modelCalls += 1;
+        if (modelCalls === 1) {
+          throw new Error("provider wrapper", { cause: apiError(503) });
+        }
+        return textResponse("recovered");
+      },
+    });
+
+    const outcome = await new AiSdkAgentLoop({
+      models: new InMemoryModelRegistry({ test: model }),
+      tools: new ToolRegistry(),
+      modelRetryDelaysMs: [0],
+    }).execute({
+      definition: { ...definition, tools: [] },
+      messages: [userMessage()],
+      signal: new AbortController().signal,
+      generateId: () => "assistant-1",
+      emit: createEmit(events),
+    });
+
+    assert.equal(outcome.text, "recovered");
+    assert.equal(modelCalls, 2);
+    assert.equal(
+      events.find((event) => event.type === "model.retry.scheduled")?.data.error.code,
+      "MODEL_UNAVAILABLE",
+    );
+  });
+
+  it("retries an empty model step timeout", async () => {
+    let modelCalls = 0;
+    const events: AgentEvent[] = [];
+    const model = new MockLanguageModelV3({
+      doStream: async ({ abortSignal }) => {
+        modelCalls += 1;
+        if (modelCalls === 1) {
+          await new Promise<never>((_, reject) => {
+            const fail = () => {
+              reject(
+                abortSignal?.reason ??
+                  new DOMException("Model stream aborted", "AbortError"),
+              );
+            };
+            if (abortSignal?.aborted) {
+              fail();
+              return;
+            }
+            abortSignal?.addEventListener("abort", fail, { once: true });
+          });
+        }
+        return textResponse("recovered");
+      },
+    });
+
+    const outcome = await new AiSdkAgentLoop({
+      models: new InMemoryModelRegistry({ test: model }),
+      tools: new ToolRegistry(),
+      modelRetryDelaysMs: [0],
+    }).execute({
+      definition: {
+        ...definition,
+        tools: [],
+        limits: { ...definition.limits, stepTimeoutMs: 40 },
+      },
+      messages: [userMessage()],
+      signal: new AbortController().signal,
+      generateId: () => "assistant-1",
+      emit: createEmit(events),
+    });
+
+    assert.equal(outcome.text, "recovered");
+    assert.equal(modelCalls, 2);
+    assert.equal(
+      events.find((event) => event.type === "model.retry.scheduled")?.data.error.code,
+      "MODEL_TIMEOUT",
+    );
+  });
+
+  it("does not retry after a partial model output", async () => {
+    let modelCalls = 0;
+    const events: AgentEvent[] = [];
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        modelCalls += 1;
+        return {
+          stream: simulateReadableStream({
+            chunks: [
+              { type: "stream-start" as const, warnings: [] },
+              { type: "text-start" as const, id: "text-1" },
+              { type: "text-delta" as const, id: "text-1", delta: "partial" },
+              { type: "error" as const, error: apiError(503) },
+            ],
+          }),
+        };
+      },
+    });
+
+    await assert.rejects(
+      new AiSdkAgentLoop({
+        models: new InMemoryModelRegistry({ test: model }),
+        tools: new ToolRegistry(),
+        modelRetryDelaysMs: [0, 0],
+      }).execute({
+        definition: { ...definition, tools: [] },
+        messages: [userMessage()],
+        signal: new AbortController().signal,
+        generateId: () => "assistant-1",
+        emit: createEmit(events),
+      }),
+      (error: unknown) =>
+        error instanceof AgentError && error.data.code === "MODEL_UNAVAILABLE",
+    );
+    assert.equal(modelCalls, 1);
+    assert.ok(events.some((event) => event.type === "message.delta"));
+    assert.equal(
+      events.some((event) => event.type === "model.retry.scheduled"),
+      false,
+    );
+  });
+
+  it("does not retry after a tool call is requested", async () => {
+    let modelCalls = 0;
+    const events: AgentEvent[] = [];
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        modelCalls += 1;
+        return {
+          stream: simulateReadableStream({
+            chunks: [
+              { type: "stream-start" as const, warnings: [] },
+              {
+                type: "tool-call" as const,
+                toolCallId: "finish-check-call",
+                toolName: "double",
+                input: JSON.stringify({ value: 2 }),
+              },
+              { type: "error" as const, error: apiError(503) },
+            ],
+          }),
+        };
+      },
+    });
+
+    await assert.rejects(
+      new AiSdkAgentLoop({
+        models: new InMemoryModelRegistry({ test: model }),
+        tools: doubleTool(() => ({ value: 4 })),
+        modelRetryDelaysMs: [0, 0],
+      }).execute({
+        definition: { ...definition, tools: ["double"] },
+        messages: [userMessage()],
+        signal: new AbortController().signal,
+        generateId: () => "assistant-1",
+        emit: createEmit(events),
+      }),
+      (error: unknown) =>
+        error instanceof AgentError && error.data.code === "MODEL_UNAVAILABLE",
+    );
+    assert.equal(modelCalls, 1);
+    assert.ok(events.some((event) => event.type === "tool.call.requested"));
+    assert.equal(
+      events.some((event) => event.type === "model.retry.scheduled"),
+      false,
+    );
+  });
+
+  it("does not retry after a tool-input-start chunk", async () => {
+    let modelCalls = 0;
+    const events: AgentEvent[] = [];
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        modelCalls += 1;
+        return {
+          stream: simulateReadableStream({
+            chunks: [
+              { type: "stream-start" as const, warnings: [] },
+              {
+                type: "tool-input-start" as const,
+                id: "finish-check-call",
+                toolName: "double",
+              },
+              { type: "error" as const, error: apiError(503) },
+            ],
+          }),
+        };
+      },
+    });
+
+    await assert.rejects(
+      new AiSdkAgentLoop({
+        models: new InMemoryModelRegistry({ test: model }),
+        tools: doubleTool(() => ({ value: 4 })),
+        modelRetryDelaysMs: [0, 0],
+      }).execute({
+        definition: { ...definition, tools: ["double"] },
+        messages: [userMessage()],
+        signal: new AbortController().signal,
+        generateId: () => "assistant-1",
+        emit: createEmit(events),
+      }),
+      (error: unknown) =>
+        error instanceof AgentError && error.data.code === "MODEL_UNAVAILABLE",
+    );
+    assert.equal(modelCalls, 1);
+    assert.equal(
+      events.some((event) => event.type === "tool.call.requested"),
+      false,
+    );
+    assert.equal(
+      events.some((event) => event.type === "model.retry.scheduled"),
+      false,
+    );
+  });
+
+  it("stops before the next model attempt when cancelled during retry delay", async () => {
+    let modelCalls = 0;
+    const controller = new AbortController();
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        modelCalls += 1;
+        throw apiError(503);
+      },
+    });
+
+    const execution = new AiSdkAgentLoop({
+      models: new InMemoryModelRegistry({ test: model }),
+      tools: new ToolRegistry(),
+      modelRetryDelaysMs: [10_000],
+    }).execute({
+      definition: { ...definition, tools: [] },
+      messages: [userMessage()],
+      signal: controller.signal,
+      generateId: () => "assistant-1",
+      emit: async (type) => {
+        if (type === "model.retry.scheduled") controller.abort("cancel retry");
+      },
+    });
+
+    await assert.rejects(
+      execution,
+      (error: unknown) =>
+        error instanceof DOMException && error.name === "AbortError",
+    );
+    assert.equal(modelCalls, 1);
+  });
+
+  it("does not repeat a successful tool when the following model step retries", async () => {
+    let modelCalls = 0;
+    let executeCount = 0;
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        modelCalls += 1;
+        if (modelCalls === 1) return toolCallResponse("tool-calls");
+        if (modelCalls === 2) throw apiError(503);
+        return textResponse("done after tool");
+      },
+    });
+
+    const outcome = await new AiSdkAgentLoop({
+      models: new InMemoryModelRegistry({ test: model }),
+      tools: doubleTool(() => {
+        executeCount += 1;
+        return { value: 4 };
+      }),
+      modelRetryDelaysMs: [0],
+    }).execute({
+      definition: { ...definition, tools: ["double"], limits: { ...definition.limits, maxSteps: 3 } },
+      messages: [userMessage()],
+      signal: new AbortController().signal,
+      generateId: () => `assistant-${modelCalls}`,
+      emit: async () => undefined,
+    });
+
+    assert.equal(outcome.text, "done after tool");
+    assert.equal(modelCalls, 3);
+    assert.equal(executeCount, 1);
+  });
+
+  it("stops after an unknown outcome from a non-idempotent tool", async () => {
+    let modelCalls = 0;
+    let executeCount = 0;
+    const events: AgentEvent[] = [];
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        modelCalls += 1;
+        return toolCallResponse("tool-calls");
+      },
+    });
+    const tools = new ToolRegistry([
+      {
+        metadata: {
+          name: "double",
+          version: "1",
+          risk: "external_side_effect",
+          timeoutMs: 1_000,
+          idempotent: false,
+        },
+        tool: tool({
+          inputSchema: z.object({ value: z.number() }),
+          outputSchema: z.object({ ok: z.boolean() }),
+          execute: async () => {
+            executeCount += 1;
+            throw new Error("connection lost after dispatch");
+          },
+        }),
+      },
+    ]);
+
+    await assert.rejects(
+      new AiSdkAgentLoop({
+        models: new InMemoryModelRegistry({ test: model }),
+        tools,
+      }).execute({
+        definition: { ...definition, tools: ["double"] },
+        messages: [userMessage()],
+        signal: new AbortController().signal,
+        generateId: () => "assistant-1",
+        emit: createEmit(events),
+      }),
+      (error: unknown) =>
+        error instanceof AgentError &&
+        error.data.code === "TOOL_OUTCOME_UNKNOWN",
+    );
+
+    assert.equal(modelCalls, 1);
+    assert.equal(executeCount, 1);
+    assert.ok(
+      events.some(
+        (event) =>
+          event.type === "tool.call.failed" &&
+          event.data.error.code === "TOOL_OUTCOME_UNKNOWN",
+      ),
+    );
+  });
+
+  it("stops after a non-idempotent tool times out without a result", async () => {
+    let modelCalls = 0;
+    let executeCount = 0;
+    const events: AgentEvent[] = [];
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        modelCalls += 1;
+        return toolCallResponse("tool-calls");
+      },
+    });
+    const tools = new ToolRegistry([
+      {
+        metadata: {
+          name: "double",
+          version: "1",
+          risk: "external_side_effect",
+          timeoutMs: 10,
+          idempotent: false,
+        },
+        tool: tool({
+          inputSchema: z.object({ value: z.number() }),
+          outputSchema: z.object({ ok: z.boolean() }),
+          execute: async () => {
+            executeCount += 1;
+            return new Promise<{ ok: boolean }>(() => undefined);
+          },
+        }),
+      },
+    ]);
+
+    await assert.rejects(
+      new AiSdkAgentLoop({
+        models: new InMemoryModelRegistry({ test: model }),
+        tools,
+      }).execute({
+        definition: { ...definition, tools: ["double"] },
+        messages: [userMessage()],
+        signal: new AbortController().signal,
+        generateId: () => "assistant-1",
+        emit: createEmit(events),
+      }),
+      (error: unknown) =>
+        error instanceof AgentError &&
+        error.data.code === "TOOL_OUTCOME_UNKNOWN",
+    );
+
+    assert.equal(modelCalls, 1);
+    assert.equal(executeCount, 1);
+    assert.ok(
+      events.some(
+        (event) =>
+          event.type === "tool.call.failed" &&
+          event.data.error.code === "TOOL_OUTCOME_UNKNOWN" &&
+          event.data.error.message.includes("timed out after 10ms"),
+      ),
+    );
+  });
+
+  it("does not execute later tool calls after an unknown outcome", async () => {
+    const executed: string[] = [];
+    const model = new MockLanguageModelV3({
+      doStream: async () => multipleToolCallResponse("tool-calls"),
+    });
+    const tools = new ToolRegistry([
+      {
+        metadata: {
+          name: "double",
+          version: "1",
+          risk: "external_side_effect",
+          timeoutMs: 1_000,
+          idempotent: false,
+        },
+        tool: tool({
+          inputSchema: z.object({ value: z.number() }),
+          outputSchema: z.object({ ok: z.boolean() }),
+          execute: async (_input, context) => {
+            executed.push(context.toolCallId);
+            throw new Error("connection lost after dispatch");
+          },
+        }),
+      },
+    ]);
+
+    await assert.rejects(
+      new AiSdkAgentLoop({
+        models: new InMemoryModelRegistry({ test: model }),
+        tools,
+      }).execute({
+        definition: { ...definition, tools: ["double"] },
+        messages: [userMessage()],
+        signal: new AbortController().signal,
+        generateId: () => "assistant-1",
+        emit: async () => undefined,
+      }),
+      (error: unknown) =>
+        error instanceof AgentError &&
+        error.data.code === "TOOL_OUTCOME_UNKNOWN",
+    );
+
+    assert.deepEqual(executed, ["first-call"]);
+  });
+
+  it("keeps an explicit non-idempotent tool failure as a known result", async () => {
+    let modelCalls = 0;
+    let executeCount = 0;
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        modelCalls += 1;
+        if (modelCalls === 1) return toolCallResponse("tool-calls");
+        return textResponse("reported failure");
+      },
+    });
+    const tools = new ToolRegistry([
+      {
+        metadata: {
+          name: "double",
+          version: "1",
+          risk: "external_side_effect",
+          timeoutMs: 1_000,
+          idempotent: false,
+        },
+        tool: tool({
+          inputSchema: z.object({ value: z.number() }),
+          outputSchema: z.object({ ok: z.boolean() }),
+          execute: async () => {
+            executeCount += 1;
+            return { ok: false };
+          },
+        }),
+      },
+    ]);
+
+    const outcome = await new AiSdkAgentLoop({
+      models: new InMemoryModelRegistry({ test: model }),
+      tools,
+    }).execute({
+      definition: { ...definition, tools: ["double"] },
+      messages: [userMessage()],
+      signal: new AbortController().signal,
+      generateId: () => `assistant-${modelCalls}`,
+      emit: async () => undefined,
+    });
+
+    assert.equal(outcome.text, "reported failure");
+    assert.equal(modelCalls, 2);
+    assert.equal(executeCount, 1);
   });
 
   it("prepares a cloned transcript for the model", async () => {
@@ -1572,6 +2419,68 @@ describe("AiSdkAgentLoop", () => {
 });
 
 describe("beforeToolExecute Runtime integration", () => {
+  it("does not save when a non-idempotent tool outcome is unknown", async () => {
+    const threadId = "thread-unknown-outcome";
+    const committed: UIMessage[] = [
+      { ...userMessage("remember this"), id: "old-user" },
+      {
+        id: "old-assistant",
+        role: "assistant",
+        parts: [{ type: "text", text: "I remember it." }],
+      },
+    ];
+    const store = new CountingStore();
+    await store.save(threadId, committed);
+    store.saveCount = 0;
+    const model = new MockLanguageModelV3({
+      doStream: async () => toolCallResponse("tool-calls"),
+    });
+    const tools = new ToolRegistry([
+      {
+        metadata: {
+          name: "double",
+          version: "1",
+          risk: "external_side_effect",
+          timeoutMs: 1_000,
+          idempotent: false,
+        },
+        tool: tool({
+          inputSchema: z.object({ value: z.number() }),
+          outputSchema: z.object({ ok: z.boolean() }),
+          execute: async () => {
+            throw new Error("connection lost after dispatch");
+          },
+        }),
+      },
+    ]);
+    const runtime = new DefaultAgentRuntime({
+      catalog: new InMemoryAgentCatalog([
+        {
+          ...definition,
+          tools: ["double"],
+          limits: { ...definition.limits, maxSteps: 2 },
+        },
+      ]),
+      loop: new AiSdkAgentLoop({
+        models: new InMemoryModelRegistry({ test: model }),
+        tools,
+      }),
+      store,
+    });
+
+    const handle = await runtime.run({
+      agentId: "test",
+      threadId,
+      messages: [userMessage("run the tool")],
+    });
+    const result = await handle.result;
+
+    assert.equal(result.status, "failed");
+    assert.equal(result.error?.code, "TOOL_OUTCOME_UNKNOWN");
+    assert.equal(store.saveCount, 0);
+    assert.deepEqual(await store.getMessages(threadId), committed);
+  });
+
   it("does not save when beforeToolExecute fails in the real runtime loop", async () => {
     const threadId = "thread-precheck-failure";
     const { committed, executeCount, modelCalls, runtime, store } =

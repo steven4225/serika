@@ -205,6 +205,7 @@ function toolRequestedEvent(
   runId: string,
   threadId: string,
   toolName: string,
+  input: unknown = {},
 ): AgentEvent {
   return {
     id: `${runId}-tool-requested`,
@@ -213,7 +214,7 @@ function toolRequestedEvent(
     runId,
     threadId,
     sequence: 1,
-    data: { toolCallId: `${runId}-tool-call`, toolName, input: {} },
+    data: { toolCallId: `${runId}-tool-call`, toolName, input },
   };
 }
 
@@ -236,6 +237,59 @@ function toolCompletedEvent(
       output,
     },
   };
+}
+
+function toolFailedEvent(
+  runId: string,
+  threadId: string,
+  toolName: string,
+  code: string,
+  message: string,
+): AgentEvent {
+  return {
+    id: `${runId}-tool-failed`,
+    type: "tool.call.failed",
+    occurredAt: new Date(0).toISOString(),
+    runId,
+    threadId,
+    sequence: 3,
+    data: {
+      toolCallId: `${runId}-tool-call`,
+      toolName,
+      error: {
+        code,
+        message,
+        retryable: false,
+        phase: "tool",
+      },
+    },
+  } as AgentEvent;
+}
+
+function modelRetryScheduledEvent(
+  runId: string,
+  threadId: string,
+): AgentEvent {
+  return {
+    id: `${runId}-retry`,
+    type: "model.retry.scheduled",
+    occurredAt: new Date(0).toISOString(),
+    runId,
+    threadId,
+    sequence: 1,
+    data: {
+      stepNumber: 1,
+      nextAttempt: 2,
+      maxAttempts: 3,
+      delayMs: 250,
+      error: {
+        code: "MODEL_UNAVAILABLE",
+        message: "temporary model failure",
+        retryable: true,
+        phase: "model",
+      },
+    },
+  } as AgentEvent;
 }
 
 function handleFor(options: {
@@ -1178,6 +1232,99 @@ describe("runTui", () => {
     assert.match(
       output.text(),
       /已完成的操作：\n- edit_file: notes\/today\.md \(17 bytes\)/,
+    );
+  });
+
+  it("renders scheduled model retries as transient run feedback", async () => {
+    const input = new PassThrough();
+    const output = outputBuffer();
+    const events = asyncQueue<AgentEvent>();
+    const runtime = testRuntime([
+      handleFor({
+        runId: "run-retry",
+        threadId: "thread-1",
+        events,
+        result: Promise.resolve(failedResult("run-retry", "thread-1")),
+      }),
+    ]);
+
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: runtime.runtime,
+      store: { getMessages: async () => [] },
+      input,
+      output,
+    });
+    await nextTurn();
+    input.write("temporary model failure\n");
+    await waitFor(() => runtime.requests.length === 1);
+    events.push(modelRetryScheduledEvent("run-retry", "thread-1"));
+    events.close();
+    input.end();
+    await tui;
+
+    assert.match(
+      output.text(),
+      /\[model retry 2\/3 in 250ms: MODEL_UNAVAILABLE\]/,
+    );
+  });
+
+  it("settles completed actions and unknown non-idempotent outcomes without replay", async () => {
+    const input = new PassThrough();
+    const output = outputBuffer();
+    const events = asyncQueue<AgentEvent>();
+    const runtime = testRuntime([
+      handleFor({
+        runId: "run-unknown",
+        threadId: "thread-1",
+        events,
+        result: Promise.resolve(failedResult("run-unknown", "thread-1")),
+      }),
+    ]);
+
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: runtime.runtime,
+      store: { getMessages: async () => [] },
+      input,
+      output,
+    });
+    await nextTurn();
+    input.write("write and continue\n");
+    await waitFor(() => runtime.requests.length === 1);
+    events.push(
+      toolRequestedEvent("run-unknown", "thread-1", "edit_file", {
+        path: "notes/report.md",
+      }),
+    );
+    events.push(
+      toolCompletedEvent("run-unknown", "thread-1", "write_file", {
+        ok: true,
+        path: "notes/report.md",
+        bytes: 42,
+      }),
+    );
+    events.push(
+      toolFailedEvent(
+        "run-unknown",
+        "thread-1",
+        "edit_file",
+        "TOOL_OUTCOME_UNKNOWN",
+        "edit_file outcome is unknown after timeout",
+      ),
+    );
+    events.close();
+    input.end();
+    await tui;
+
+    assert.equal(runtime.requests.length, 1);
+    assert.match(
+      output.text(),
+      /已完成的操作：\n- write_file: notes\/report\.md \(42 bytes\)/,
+    );
+    assert.match(
+      output.text(),
+      /结果不确定，重试前请先核查：\n- edit_file \(path=notes\/report\.md\): edit_file outcome is unknown after timeout\n本次 Run 不会自动重试该操作。/,
     );
   });
 
