@@ -271,7 +271,7 @@ Docker sandbox 只挂载列出的路径，根文件系统只读，网络固定�
 
 ### Web 只读模块
 
-配置中启用 `web` 后，TUI 注册只读工具 `web_fetch({ url })`。它只支持公开 HTTP(S) 文本/HTML 响应，GET 请求最多跟随 5 次重定向；每次请求前都会校验目标和 DNS 结果，拒绝 localhost、私网、链路本地、元数据地址、URL 凭据和非文本内容。响应最多读取 512 KiB，交给模型的正文最多 64 KiB，超出时返回 `truncated: true`；失败、HTTP 错误、超时和不支持的内容类型会以结构化错误返回。不会携带 Cookie、Authorization 或本机应用密钥，也不会访问登录网站、PDF、图片或下载附件。
+配置中启用 `web` 后，TUI 注册只读工具 `web_fetch({ url })`。它只支持公开 HTTP(S) 文本/HTML 响应，GET 请求最多跟随 5 次重定向；每次请求前都会校验目标和 DNS 结果，拒绝 localhost、私网、链路本地、元数据地址、URL 凭据和非文本内容。公开域名被 Clash/Surge fake-ip 解析到 `198.18.0.0/15` 时仍允许抓取；把该网段写成 URL 主机或解析到 `10/8`、`127/8`、`169.254/16`、`192.168/16` 等真实私网地址仍拒绝。响应最多读取 512 KiB，交给模型的正文最多 64 KiB，超出时返回 `truncated: true`；失败、HTTP 错误、超时和不支持的内容类型会以结构化错误返回。不会携带 Cookie、Authorization 或本机应用密钥，也不会访问登录网站、PDF、图片或下载附件。
 
 `web_fetch` 默认沿现有 `y/n` 确认。已知来源可在 Run 前输入 `/authorize-web https://example.com https://docs.example.org`，授权只对下一次 Run、列出的精确 origin 和 `web_fetch` 生效，Run 结束、失败或取消后清除；不会写入 memory、transcript 或配置。网页正文是不可信数据，不能把页面里的指令当成系统指令。工具返回 `requestedUrl`、`finalUrl`、HTTP 状态、内容类型、抓取时间、正文和完整性标记，生成报告时应引用实际 `finalUrl`，不能把截断或失败说成已读全文。
 

@@ -89,6 +89,79 @@ describe("fetchWebPage", () => {
     assert.equal(calls, 0);
   });
 
+  it("allows a public hostname whose DNS answer is Clash fake-ip", async () => {
+    let calls = 0;
+    const result = await fetchWebPage(
+      { url: "https://nodejs.org/api/documentation.html" },
+      {
+        resolveHost: safeResolver("198.18.0.24"),
+        fetch: (async () => {
+          calls += 1;
+          return response("Node.js documentation");
+        }) as typeof globalThis.fetch,
+      },
+    );
+    assert.equal(result.ok, true);
+    assert.equal(calls, 1);
+    if (result.ok) {
+      assert.equal(result.value.finalUrl, "https://nodejs.org/api/documentation.html");
+      assert.equal(result.value.text, "Node.js documentation");
+    }
+  });
+
+  it("allows a public hostname whose IPv4-mapped DNS answer is Clash fake-ip", async () => {
+    let calls = 0;
+    const result = await fetchWebPage(
+      { url: "https://nodejs.org/api/documentation.html" },
+      {
+        resolveHost: async () => [{ address: "::ffff:198.18.0.24", family: 6 }],
+        fetch: (async () => {
+          calls += 1;
+          return response("Node.js documentation");
+        }) as typeof globalThis.fetch,
+      },
+    );
+    assert.equal(result.ok, true);
+    assert.equal(calls, 1);
+  });
+
+  it("still blocks a fake-ip address used as the URL host", async () => {
+    let calls = 0;
+    const result = await fetchWebPage(
+      { url: "https://198.18.0.24/" },
+      {
+        resolveHost: safeResolver("93.184.216.34"),
+        fetch: (async () => {
+          calls += 1;
+          return response("must not be fetched");
+        }) as typeof globalThis.fetch,
+      },
+    );
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.equal(result.error.code, "TARGET_BLOCKED");
+    assert.equal(calls, 0);
+  });
+
+  it("still blocks a hostname that also resolves to RFC1918", async () => {
+    let calls = 0;
+    const result = await fetchWebPage(
+      { url: "https://mixed.example/" },
+      {
+        resolveHost: async () => [
+          { address: "198.18.0.24", family: 4 },
+          { address: "10.0.0.8", family: 4 },
+        ],
+        fetch: (async () => {
+          calls += 1;
+          return response("must not be fetched");
+        }) as typeof globalThis.fetch,
+      },
+    );
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.equal(result.error.code, "TARGET_BLOCKED");
+    assert.equal(calls, 0);
+  });
+
   it("revalidates every redirect and blocks a private redirect target", async () => {
     const urls: string[] = [];
     const result = await fetchWebPage(
