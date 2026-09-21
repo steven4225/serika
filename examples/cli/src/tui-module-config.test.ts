@@ -396,6 +396,55 @@ describe("resolveTuiModuleConfig", () => {
     assert.equal(resolved.enabled.web, true);
     assert.equal(resolved.webSearchEnabled, false);
     assert.equal(resolved.shellSandbox, null);
+    assert.equal(resolved.contextCompaction.enabled, false);
+  });
+
+  it("validates an explicitly enabled context-compaction budget", async () => {
+    const { configDirectory } = await createConfigWorkspace();
+    const configPath = await writeConfig(configDirectory, {
+      version: 1,
+      modules: {},
+      contextCompaction: {
+        enabled: true,
+        contextWindowTokens: 16_000,
+        maxOutputTokens: 2_000,
+        safetyMarginTokens: 500,
+        keepRecentTokens: 4_000,
+        summaryMaxOutputTokens: 800,
+      },
+    }, "context-compaction.json");
+
+    const resolved = await resolveTuiModuleConfig(configArgs(configPath), {
+      cwd: configDirectory,
+    });
+    assert.deepEqual(resolved.contextCompaction, {
+      enabled: true,
+      contextWindowTokens: 16_000,
+      maxOutputTokens: 2_000,
+      safetyMarginTokens: 500,
+      keepRecentTokens: 4_000,
+      summaryMaxOutputTokens: 800,
+    });
+  });
+
+  it("rejects an enabled context budget with no room for recent history", async () => {
+    const { configDirectory } = await createConfigWorkspace();
+    const configPath = await writeConfig(configDirectory, {
+      version: 1,
+      modules: {},
+      contextCompaction: {
+        enabled: true,
+        contextWindowTokens: 100,
+        maxOutputTokens: 80,
+        safetyMarginTokens: 30,
+        keepRecentTokens: 1,
+        summaryMaxOutputTokens: 10,
+      },
+    }, "invalid-context-compaction.json");
+    await assert.rejects(
+      resolveTuiModuleConfig(configArgs(configPath), { cwd: configDirectory }),
+      /Invalid context compaction budget/,
+    );
   });
 
   it("keeps web search opt-in inside the web module", async () => {

@@ -220,6 +220,25 @@ RUNLOOM_MODEL=deepseek node --env-file=.env examples/cli/dist/index.js --tui ./v
 
 例如输入：`把“本周只推进 Runloom 的资料保存与找回”保存为 first-note.md。` 核对路径和正文后由操作人输入 `y/n`。使用相同目录和 thread 重启后，可请求查找并读取该笔记。`.env` 不会由普通 CLI/worker 自动加载，上述命令通过 Node 的 `--env-file` 加载。
 
+上下文压缩默认关闭。需要在长任务中启用时，在 TUI 配置根部加入 `contextCompaction`，例如：
+
+```json
+{
+  "version": 1,
+  "contextCompaction": {
+    "enabled": true,
+    "contextWindowTokens": 32768,
+    "maxOutputTokens": 4096,
+    "safetyMarginTokens": 1024,
+    "keepRecentTokens": 8192,
+    "summaryMaxOutputTokens": 1024
+  },
+  "modules": {}
+}
+```
+
+启用后，TUI 在模型请求前按预算压缩较早的对话和已完成的工具交互，保留原始 JSONL 和 `/history` 回查；`/compact` 可在空闲时手动触发。摘要不是长期记忆，也不会恢复授权或未提交的工具副作用。预算采用 `char-half/v1` 估算，属于保守估算而非服务端 tokenizer 的精确计数。
+
 worker 使用同一模型配置，但不读取 TUI `--config`；加 `--todoist` 仍需单独配置 `TODOIST_API_TOKEN`：
 
 ```bash

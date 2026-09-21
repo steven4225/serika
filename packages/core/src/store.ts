@@ -31,6 +31,39 @@ export interface MessageStore {
   getMessages(threadId: string): Promise<UIMessage[]>;
 }
 
+/**
+ * JSON values that may be carried by an opaque thread record.
+ *
+ * The core store deliberately does not know the schema of a context
+ * compaction summary.  Consumers own the payload and may evolve it without
+ * coupling the runtime store to a CLI-specific type.
+ */
+export type ThreadRecordJsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | readonly ThreadRecordJsonValue[]
+  | { readonly [key: string]: ThreadRecordJsonValue };
+
+export interface ThreadContextCompactionRecord {
+  /** Envelope version; the core store does not interpret the payload. */
+  readonly v: number;
+  readonly type: "thread.context.compacted";
+  readonly threadId: string;
+  readonly [key: string]: ThreadRecordJsonValue;
+}
+
+/** Persistence for opaque context-compaction records. */
+export interface ContextCompactionStore {
+  appendContextCompaction(
+    record: ThreadContextCompactionRecord,
+  ): Promise<void>;
+  getContextCompactions(
+    threadId: string,
+  ): Promise<ThreadContextCompactionRecord[]>;
+}
+
 export interface EventStore {
   append(event: AgentEvent): Promise<void>;
   list(runId: string, afterSequence?: number): Promise<AgentEvent[]>;

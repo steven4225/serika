@@ -7,7 +7,9 @@ import type { AgentEvent } from "./events.js";
 import {
   InMemoryAgentStore,
   type AgentStore,
+  type ContextCompactionStore,
   type RunRecord,
+  type ThreadContextCompactionRecord,
 } from "./store.js";
 import type { RunResult, RunStatus } from "./types.js";
 
@@ -20,6 +22,43 @@ interface CommittedMessagesRecord {
   type: "thread.messages.committed";
   threadId: string;
   messages: UIMessage[];
+}
+
+function isJsonValue(value: unknown): value is ThreadContextCompactionRecord[string] {
+  if (value === null) return true;
+  switch (typeof value) {
+    case "string":
+    case "boolean":
+      return true;
+    case "number":
+      return Number.isFinite(value);
+    case "object":
+      if (Array.isArray(value)) return value.every(isJsonValue);
+      if (Object.getPrototypeOf(value) !== Object.prototype) return false;
+      return Object.values(value as Record<string, unknown>).every(isJsonValue);
+    default:
+      return false;
+  }
+}
+
+function isContextCompactionRecord(
+  value: unknown,
+): value is ThreadContextCompactionRecord {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    !isJsonValue(value)
+  ) {
+    return false;
+  }
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record.v === "number" &&
+    Number.isInteger(record.v) &&
+    record.v > 0 &&
+    record.type === "thread.context.compacted" &&
+    typeof record.threadId === "string"
+  );
 }
 
 function storageCorrupt(threadId: string): AgentError {
@@ -48,7 +87,7 @@ function isCommittedMessagesRecord(
   );
 }
 
-export class JsonlAgentStore implements AgentStore {
+export class JsonlAgentStore implements AgentStore, ContextCompactionStore {
   readonly #directory: string;
   readonly #memory = new InMemoryAgentStore();
 
@@ -86,6 +125,78 @@ export class JsonlAgentStore implements AgentStore {
       `${JSON.stringify(record)}\n`,
       "utf8",
     );
+  }
+
+  async appendContextCompaction(
+    record: ThreadContextCompactionRecord,
+  ): Promise<void> {
+    await mkdir(this.#directory, { recursive: true });
+    await appendFile(
+      this.#pathFor(record.threadId),
+      `${JSON.stringify(record)}\n`,
+      "utf8",
+    );
+  }
+
+  async getContextCompactions(
+    threadId: string,
+  ): Promise<ThreadContextCompactionRecord[]> {
+    const path = this.#pathFor(threadId);
+    let content: string;
+    try {
+      content = await readFile(path, "utf8");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+      throw error;
+    }
+
+    const hasCompleteLastLine = content.endsWith("\n");
+    const lines = content.split("\n");
+    if (hasCompleteLastLine) lines.pop();
+    const records: ThreadContextCompactionRecord[] = [];
+
+    for (const [index, line] of lines.entries()) {
+      if (line.length === 0) continue;
+      let value: unknown;
+      try {
+        value = JSON.parse(line);
+      } catch {
+        if (index === lines.length - 1 && !hasCompleteLastLine) {
+          await this.#truncateIncompleteTail(path, content);
+          break;
+        }
+        throw storageCorrupt(threadId);
+      }
+
+      // Invalid compaction records are ignored.  The compaction schema is
+      // owned by the caller and is intentionally opaque to core.
+      if (
+        typeof value === "object" &&
+        value !== null &&
+        "type" in value &&
+        value.type === "thread.context.compacted"
+      ) {
+        if (isContextCompactionRecord(value)) {
+          if (value.threadId === threadId && value.v === 2) records.push(value);
+        }
+        continue;
+      }
+
+      if (
+        typeof value === "object" &&
+        value !== null &&
+        "v" in value &&
+        value.v !== 1
+      ) {
+        continue;
+      }
+
+      if (!isCommittedMessagesRecord(value) || value.threadId !== threadId) {
+        throw storageCorrupt(threadId);
+      }
+    }
+
+    return structuredClone(records);
   }
 
   async getMessages(threadId: string): Promise<UIMessage[]> {
@@ -127,6 +238,16 @@ export class JsonlAgentStore implements AgentStore {
       ) {
         continue;
       }
+      // Context summaries are an opaque companion record.  They must not
+      // change the v1 committed-transcript semantics.
+      if (
+        typeof value === "object" &&
+        value !== null &&
+        "type" in value &&
+        value.type === "thread.context.compacted"
+      ) {
+        continue;
+      }
       if (!isCommittedMessagesRecord(value) || value.threadId !== threadId) {
         throw storageCorrupt(threadId);
       }
@@ -147,5 +268,10 @@ export class JsonlAgentStore implements AgentStore {
   #pathFor(threadId: string): string {
     const fileName = createHash("sha256").update(threadId).digest("hex");
     return join(this.#directory, `${fileName}.jsonl`);
+  }
+
+  async #truncateIncompleteTail(path: string, content: string): Promise<void> {
+    const validPrefix = content.slice(0, content.lastIndexOf("\n") + 1);
+    await truncate(path, Buffer.byteLength(validPrefix));
   }
 }

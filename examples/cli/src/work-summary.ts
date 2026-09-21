@@ -203,12 +203,34 @@ type DynamicToolPart = Extract<
   { type: "dynamic-tool" }
 >;
 
+export type TranscriptToolStatus =
+  | "completed"
+  | "failed"
+  | "not_executed"
+  | "unknown";
+
+export interface TranscriptToolFact {
+  toolCallId: string;
+  toolName: string;
+  status: TranscriptToolStatus;
+  text: string;
+  evidenceMessageIds: string[];
+  path?: string;
+}
+
 interface ClassifiedToolFacts {
   completed: WorkSummaryItem[];
   unresolved: string[];
   failures: WorkSummaryItem[];
   unknowns: WorkSummaryItem[];
 }
+
+const TOOL_STATUS_RANK: Record<TranscriptToolStatus, number> = {
+  completed: 0,
+  not_executed: 1,
+  failed: 2,
+  unknown: 3,
+};
 
 const SHORT_FACT_KEYS = [
   "path",
@@ -286,45 +308,120 @@ function explicitOk(output: unknown): boolean | undefined {
   return output.ok;
 }
 
+function toolPath(part: DynamicToolPart): string | undefined {
+  if (part.toolName !== "write_file" && part.toolName !== "edit_file") {
+    return undefined;
+  }
+  if (isRecord(part.input) && isNonEmptyString(part.input.path)) {
+    return part.input.path.trim();
+  }
+  if (part.state === "output-available" && isRecord(part.output)) {
+    if (isNonEmptyString(part.output.path)) return part.output.path.trim();
+    if (isRecord(part.output.value) && isNonEmptyString(part.output.value.path)) {
+      return part.output.value.path.trim();
+    }
+  }
+  return undefined;
+}
+
 function classifyToolPart(
   part: DynamicToolPart,
   evidenceMessageId: string,
-  facts: ClassifiedToolFacts,
-): void {
+): TranscriptToolFact | undefined {
+  const toolName = part.toolName.trim() || "unknown tool";
+  const path = toolPath(part);
+  const base = {
+    toolCallId: part.toolCallId,
+    toolName,
+    evidenceMessageIds: [evidenceMessageId],
+    ...(path === undefined ? {} : { path }),
+  };
+
   if (part.state === "output-error") {
     if (part.errorText.startsWith("TOOL_DENIED")) {
-      facts.unresolved.push(
-        `${part.toolName.trim() || "unknown tool"} was denied: ${part.errorText}`,
-      );
-      return;
+      return {
+        ...base,
+        status: "not_executed",
+        text: `${toolName} was denied: ${part.errorText}`,
+      };
     }
-    facts.failures.push({
+    if (part.errorText.startsWith("TOOL_OUTCOME_UNKNOWN")) {
+      return {
+        ...base,
+        status: "unknown",
+        text: toolFactText(part.toolName, "unknown", part.errorText),
+      };
+    }
+    return {
+      ...base,
+      status: "failed",
       text: toolFactText(part.toolName, "failed", part.errorText),
-      evidenceMessageIds: [evidenceMessageId],
-    });
-    return;
+    };
   }
 
-  if (part.state !== "output-available") return;
+  if (part.state !== "output-available") return undefined;
   const ok = explicitOk(part.output);
   if (ok === true) {
-    facts.completed.push({
+    return {
+      ...base,
+      status: "completed",
       text: toolFactText(part.toolName, "completed", part.output),
-      evidenceMessageIds: [evidenceMessageId],
-    });
-    return;
+    };
   }
   if (ok === false) {
-    facts.failures.push({
+    return {
+      ...base,
+      status: "failed",
       text: toolFactText(part.toolName, "failed", part.output),
-      evidenceMessageIds: [evidenceMessageId],
-    });
-    return;
+    };
   }
-  facts.unknowns.push({
+  return {
+    ...base,
+    status: "unknown",
     text: toolFactText(part.toolName, "unknown", part.output),
-    evidenceMessageIds: [evidenceMessageId],
-  });
+  };
+}
+
+function mergeToolFacts(
+  existing: TranscriptToolFact,
+  incoming: TranscriptToolFact,
+): TranscriptToolFact {
+  const preferIncoming =
+    TOOL_STATUS_RANK[incoming.status] >= TOOL_STATUS_RANK[existing.status];
+  return {
+    toolCallId: existing.toolCallId,
+    toolName: existing.toolName,
+    status: preferIncoming ? incoming.status : existing.status,
+    text: preferIncoming ? incoming.text : existing.text,
+    evidenceMessageIds: uniqueMessageIds([
+      ...existing.evidenceMessageIds,
+      ...incoming.evidenceMessageIds,
+    ]),
+    ...(existing.path ?? incoming.path
+      ? { path: existing.path ?? incoming.path }
+      : {}),
+  };
+}
+
+/** Program facts for tool calls in a transcript slice. Used by R4 summaries and compaction. */
+export function collectTranscriptToolFacts(
+  messages: readonly UIMessage[],
+): TranscriptToolFact[] {
+  const facts = new Map<string, TranscriptToolFact>();
+  for (const message of messages) {
+    if (message.id.trim().length === 0) continue;
+    for (const part of message.parts) {
+      if (part.type !== "dynamic-tool") continue;
+      const classified = classifyToolPart(part, message.id);
+      if (classified === undefined) continue;
+      const existing = facts.get(classified.toolCallId);
+      facts.set(
+        classified.toolCallId,
+        existing === undefined ? classified : mergeToolFacts(existing, classified),
+      );
+    }
+  }
+  return [...facts.values()];
 }
 
 function collectToolFacts(messages: readonly UIMessage[]): ClassifiedToolFacts {
@@ -334,13 +431,15 @@ function collectToolFacts(messages: readonly UIMessage[]): ClassifiedToolFacts {
     failures: [],
     unknowns: [],
   };
-  for (const message of messages) {
-    if (message.id.trim().length === 0) continue;
-    for (const part of message.parts) {
-      if (part.type === "dynamic-tool") {
-        classifyToolPart(part, message.id, facts);
-      }
-    }
+  for (const fact of collectTranscriptToolFacts(messages)) {
+    const item = {
+      text: fact.text,
+      evidenceMessageIds: fact.evidenceMessageIds,
+    };
+    if (fact.status === "completed") facts.completed.push(item);
+    else if (fact.status === "failed") facts.failures.push(item);
+    else if (fact.status === "not_executed") facts.unresolved.push(fact.text);
+    else facts.unknowns.push(item);
   }
   return facts;
 }
