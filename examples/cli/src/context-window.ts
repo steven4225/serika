@@ -12,6 +12,30 @@ import {
   type WorkSummary,
 } from "./work-summary.js";
 
+export {
+  availableInputTokens,
+  CONTEXT_ESTIMATOR_METHOD,
+  CONTEXT_ESTIMATOR_VERSION,
+  DEFAULT_CONTEXT_BUDGET_CONFIG,
+  estimateContextBudget,
+  estimateContextInput,
+  estimateMessageTokens,
+  estimateSerializedTokens,
+  keepRecentCompactionUnits,
+  MESSAGE_OVERHEAD_TOKENS,
+  partitionMessagesForCompaction,
+  splitMessageCompactionUnits,
+  validateContextBudgetConfig,
+  type CompactionMessagePartition,
+  type ContextBudgetConfig,
+  type ContextBudgetEstimate,
+  type ContextBudgetValidation,
+  type ContextEstimate,
+  type ContextEstimateBreakdown,
+  type ContextInputParts,
+  type MessageCompactionUnit,
+} from "./context-budget.js";
+
 export { createMemoryContextMessage, memoryContextBytes } from "./memory-store.js";
 
 export const MAX_HISTORY_TURNS = 8;

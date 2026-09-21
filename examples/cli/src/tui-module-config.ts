@@ -18,6 +18,11 @@ import {
   validateWorkspacePath,
 } from "./workspace-path.js";
 import type { DockerShellSandboxConfig } from "./modules/docker-shell-runner.js";
+import {
+  DEFAULT_CONTEXT_BUDGET_CONFIG,
+  validateContextBudgetConfig,
+  type ContextBudgetConfig,
+} from "./context-budget.js";
 
 export const BUILTIN_MODULE_IDS = [
   "pomodoro",
@@ -45,6 +50,7 @@ export interface ResolvedTuiModuleConfig {
   todoistTimeZone: string | null;
   fileAuthorizations: readonly FileAuthorizationRule[];
   shellSandbox: DockerShellSandboxConfig | null;
+  contextCompaction: ContextBudgetConfig;
 }
 
 const DEFAULT_TODOIST_TIME_ZONE = "Asia/Shanghai";
@@ -93,6 +99,17 @@ const webModuleSchema = z
   })
   .strict();
 
+const contextCompactionSchema = z
+  .object({
+    enabled: z.boolean(),
+    contextWindowTokens: z.number().int().nonnegative(),
+    maxOutputTokens: z.number().int().nonnegative(),
+    safetyMarginTokens: z.number().int().nonnegative(),
+    keepRecentTokens: z.number().int().nonnegative(),
+    summaryMaxOutputTokens: z.number().int().nonnegative(),
+  })
+  .strict();
+
 const fileAuthorizationSchema = z
   .object({
     tools: z.array(z.enum(RUN_AUTHORIZED_FILE_TOOLS)).min(1),
@@ -113,9 +130,10 @@ const tuiModuleConfigV1Schema = z
         todoist: todoistModuleSchema.optional(),
         shell: shellModuleSchema.optional(),
         web: webModuleSchema.optional(),
-      })
-      .strict(),
+    })
+    .strict(),
     fileAuthorizations: z.array(fileAuthorizationSchema).optional(),
+    contextCompaction: contextCompactionSchema.optional(),
   })
   .strict();
 
@@ -146,6 +164,7 @@ export interface TuiModuleConfigV1 {
       | undefined;
   };
   fileAuthorizations?: FileAuthorizationRule[] | undefined;
+  contextCompaction?: ContextBudgetConfig | undefined;
 }
 
 function configPathFromArgs(args: TuiArgs): string | undefined {
@@ -364,6 +383,11 @@ async function resolveConfiguredMode(
 
   const absoluteConfigPath = resolvePath(cwd, configPath);
   const config = await readTuiModuleConfig(absoluteConfigPath);
+  const contextCompaction = config.contextCompaction ?? DEFAULT_CONTEXT_BUDGET_CONFIG;
+  const contextBudgetValidation = validateContextBudgetConfig(contextCompaction);
+  if (contextCompaction.enabled && !contextBudgetValidation.ok) {
+    throw new Error(`Invalid context compaction budget: ${contextBudgetValidation.errors.join("; ")}`);
+  }
   const enabled = emptyEnabled();
   enabled.pomodoro = config.modules.pomodoro?.enabled ?? false;
   enabled["read-file"] = config.modules["read-file"]?.enabled ?? false;
@@ -436,6 +460,7 @@ async function resolveConfiguredMode(
     todoistTimeZone,
     fileAuthorizations,
     shellSandbox,
+    contextCompaction,
   };
 }
 
@@ -480,6 +505,7 @@ async function resolveLegacyMode(
     todoistTimeZone: resolvedTodoistTimeZone,
     fileAuthorizations: [],
     shellSandbox: null,
+    contextCompaction: DEFAULT_CONTEXT_BUDGET_CONFIG,
   };
 }
 

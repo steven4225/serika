@@ -1496,6 +1496,73 @@ describe("runTui", () => {
     await tui;
   });
 
+  it("runs /compact without creating a Run and rejects input while compacting", async () => {
+    const input = ttyInput();
+    const output = ttyOutput();
+    const runtime = testRuntime([]);
+    const started = deferred<AbortSignal>();
+    const gate = deferred<void>();
+    let signal!: AbortSignal;
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: runtime.runtime,
+      store: { getMessages: async () => [] },
+      input,
+      output,
+      compaction: {
+        async compact(compactionSignal) {
+          signal = compactionSignal;
+          started.resolve(compactionSignal);
+          await gate.promise;
+        },
+      },
+    });
+
+    await nextTurn();
+    input.write("/compact\nqueued prompt\n");
+    await started.promise;
+    await waitFor(() => output.text().includes("Busy: context compaction is in progress."));
+    assert.equal(runtime.requests.length, 0);
+    assert.equal(signal.aborted, false);
+
+    pressCtrlC(input);
+    await waitFor(() => signal.aborted);
+    gate.resolve();
+    await waitFor(() => output.text().includes("[compact] Cancelled."));
+    assert.equal(runtime.requests.length, 0);
+    input.end();
+    await tui;
+  });
+
+  it("reports a completed /compact operation without consuming a user Run", async () => {
+    const input = ttyInput();
+    const output = ttyOutput();
+    const runtime = testRuntime([]);
+    let calls = 0;
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: runtime.runtime,
+      store: { getMessages: async () => [] },
+      input,
+      output,
+      compaction: {
+        async compact(signal) {
+          calls += 1;
+          assert.equal(signal.aborted, false);
+          return { message: "saved summary" };
+        },
+      },
+    });
+
+    await nextTurn();
+    input.write("/compact\n");
+    await waitFor(() => output.text().includes("[compact] saved summary"));
+    assert.equal(calls, 1);
+    assert.equal(runtime.requests.length, 0);
+    input.end();
+    await tui;
+  });
+
   it("waits for an async idle command before accepting the next line", async () => {
     const input = ttyInput();
     const output = ttyOutput();

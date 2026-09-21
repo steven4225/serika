@@ -237,6 +237,22 @@ describe("work summary contract", () => {
     assert.equal(validateWorkSummary(summary).ok, true);
   });
 
+  it("classifies TOOL_OUTCOME_UNKNOWN as unknown rather than a completed or failed receipt", () => {
+    const messages: UIMessage[] = [
+      { id: "u0", role: "user", parts: [{ type: "text", text: "Run the command" }] },
+      dynamicToolMessage("unknown-outcome", "shell_exec", {
+        type: "output-error",
+        errorText: "TOOL_OUTCOME_UNKNOWN: process disconnected",
+      }),
+    ];
+    const summary = createWorkSummaryFromMessages(messages, [0, 1]);
+    assert.ok(summary);
+    assert.equal(summary.completed.length, 0);
+    assert.equal(summary.failures.length, 0);
+    assert.equal(summary.unknowns.length, 1);
+    assert.match(summary.unknowns[0]?.text ?? "", /unclassified/);
+  });
+
   it("keeps short write receipts and omits file or page bodies from completed facts", () => {
     const messages: UIMessage[] = [
       { id: "u0", role: "user", parts: [{ type: "text", text: "Save the note" }] },

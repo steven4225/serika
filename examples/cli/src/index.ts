@@ -17,7 +17,14 @@ import {
 } from "@aisdk-agent/ai-sdk-adapter";
 import { createDemoModel } from "./demo-model.js";
 import { configureCliModel } from "./model-config.js";
-import { selectModelContext } from "./context-window.js";
+import {
+  createMemoryContextMessage,
+  estimateContextInput,
+  selectModelContext,
+  validateContextBudgetConfig,
+} from "./context-window.js";
+import { ContextCompactor } from "./context-compactor.js";
+import { createAiSdkSummarizer } from "./context-compaction.js";
 import { lookupTranscript } from "./work-summary.js";
 import { parseTuiArgs } from "./cli-options.js";
 import { createMemoryStore } from "./memory-store.js";
@@ -31,7 +38,10 @@ import { createTaskModule } from "./modules/task-module.js";
 import { createTodoistModule } from "./modules/todoist-module.js";
 import { createWebModule } from "./modules/web-module.js";
 import { createTaskStore } from "./task-store.js";
-import { injectTaskContext } from "./task-instructions.js";
+import {
+  buildTaskContextMessage,
+  injectTaskContext,
+} from "./task-instructions.js";
 import { todoistPlanSaveInstructions } from "./todoist-plan-save-instructions.js";
 import {
   resolveTuiModuleConfig,
@@ -346,6 +356,10 @@ if (commands !== undefined && moduleConfig !== undefined) {
         }`,
         `Todoist 规划时区: ${moduleConfig.todoistTimeZone ?? "未启用"}`,
         `自动记忆整理: ${moduleConfig.autoConsolidate ? "on" : "off"}`,
+        `上下文压缩: ${moduleConfig.contextCompaction.enabled ? "on" : "off"}`,
+        ...(moduleConfig.contextCompaction.enabled
+          ? [`上下文预算: ${moduleConfig.contextCompaction.contextWindowTokens} tokens`]
+          : []),
         `Todoist token: ${todoistTokenPresent ? "present" : "missing"}`,
         `持久文件授权: ${moduleConfig.fileAuthorizations.length} 条`,
       ];
@@ -423,11 +437,78 @@ try {
         maxSteps: tuiMode ? 8 : 4,
         totalTimeoutMs: tuiMode ? 120_000 : 10_000,
         stepTimeoutMs: tuiMode ? 30_000 : 5_000,
+        ...(tuiMode && moduleConfig?.contextCompaction.enabled
+          ? { maxOutputTokens: moduleConfig.contextCompaction.maxOutputTokens }
+          : {}),
       },
     },
     ...(moduleConfig?.autoConsolidate ? [consolidationAgent] : []),
   ]);
   const models = new InMemoryModelRegistry({ [modelAlias]: model });
+  const contextCompactor =
+    tuiMode && moduleConfig?.contextCompaction.enabled === true
+      ? new ContextCompactor({
+          store,
+          threadId,
+          modelId: modelAlias,
+          summarizer: createAiSdkSummarizer(model),
+          budget: moduleConfig.contextCompaction,
+          fixedContext: () => {
+            const now = new Date();
+            const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            return {
+              instructions: calculatorInstructions,
+              tools: registeredTools.map(({ metadata }) => metadata),
+              dynamicContext: {
+                now: now.toISOString(),
+                timeZone,
+              },
+            };
+          },
+          promptPrefix: async (signal) => {
+            const now = new Date();
+            const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            const memories =
+              memoryStore === undefined
+                ? []
+                : await readMemoryEntries(memoryStore, signal);
+            const memoryMessage = createMemoryContextMessage(
+              memories.filter((memory) => memory.enabled),
+            );
+            return [
+              ...(taskEnabled ? [buildTaskContextMessage({ now, timeZone })] : []),
+              ...(memoryMessage === undefined ? [] : [memoryMessage]),
+            ];
+          },
+        })
+      : undefined;
+  if (contextCompactor !== undefined && moduleConfig?.contextCompaction.enabled === true) {
+    const now = new Date();
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const startupMemories =
+      memoryStore === undefined
+        ? []
+        : await readMemoryEntries(memoryStore, AbortSignal.timeout(5_000));
+    const memoryMessage = createMemoryContextMessage(
+      startupMemories.filter((memory) => memory.enabled),
+    );
+    const fixedEstimate = estimateContextInput({
+      instructions: calculatorInstructions,
+      tools: registeredTools.map(({ metadata }) => metadata),
+      dynamicContext: { now: now.toISOString(), timeZone },
+      messages: [
+        ...(taskEnabled ? [buildTaskContextMessage({ now, timeZone })] : []),
+        ...(memoryMessage === undefined ? [] : [memoryMessage]),
+      ],
+    });
+    const startupBudget = validateContextBudgetConfig(
+      moduleConfig.contextCompaction,
+      fixedEstimate.inputTokens,
+    );
+    if (!startupBudget.ok) {
+      throw new Error(`Invalid context compaction budget: ${startupBudget.errors.join("; ")}`);
+    }
+  }
   const toolConfirmation = tuiMode
     ? createToolConfirmation(output, {
         prompt: toolConfirmationPrompt,
@@ -603,12 +684,22 @@ try {
     ...(tuiMode
       ? {
           prepareModelContext: async ({ messages, signal, definition }) => {
-            const selected = selectModelContext(
-              messages,
+            const memories =
               memoryStore === undefined
                 ? []
-                : await readMemoryEntries(memoryStore, signal),
-            );
+                : await readMemoryEntries(memoryStore, signal);
+            let selected: UIMessage[];
+            if (contextCompactor === undefined || definition.id !== "calculator") {
+              selected = selectModelContext(messages, memories);
+            } else {
+              const compacted = await contextCompactor.prepare(messages, signal);
+              const memoryMessage = createMemoryContextMessage(
+                memories.filter((memory) => memory.enabled),
+              );
+              selected = memoryMessage === undefined
+                ? compacted
+                : [memoryMessage, ...compacted];
+            }
             return injectTaskContext(selected, {
               taskEnabled,
               definitionId: definition.id,
@@ -659,6 +750,9 @@ try {
       output,
       ...(toolConfirmation ? { toolConfirmation } : {}),
       ...(commands ? { commands } : {}),
+      ...(contextCompactor
+        ? { compaction: { compact: (signal: AbortSignal) => contextCompactor.compact(signal) } }
+        : {}),
       ...(moduleConfig?.autoConsolidate
         ? { autoConsolidationAgentId: consolidationAgent.id }
         : {}),

@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { afterEach, describe, it } from "node:test";
 import type { UIMessage } from "ai";
 import { JsonlAgentStore } from "./jsonl-store.js";
+import type { ThreadContextCompactionRecord } from "./store.js";
 
 const directories: string[] = [];
 
@@ -30,6 +31,73 @@ afterEach(async () => {
 });
 
 describe("JsonlAgentStore", () => {
+  it("persists opaque context-compaction records without changing transcripts", async () => {
+    const directory = await temporaryDirectory();
+    const store = new JsonlAgentStore({ directory });
+    const messages = transcript("latest");
+    const record: ThreadContextCompactionRecord = {
+      v: 2,
+      type: "thread.context.compacted",
+      threadId: "thread-1",
+      id: "compact-1",
+      firstKeptMessageIndex: 1,
+      summary: {
+        goal: "keep working",
+        actions: ["read_file"],
+      },
+    };
+
+    await store.save("thread-1", messages);
+    await store.appendContextCompaction(record);
+
+    assert.deepEqual(await store.getMessages("thread-1"), messages);
+    assert.deepEqual(await store.getContextCompactions("thread-1"), [record]);
+
+    const reopened = new JsonlAgentStore({ directory });
+    assert.deepEqual(
+      await reopened.getContextCompactions("thread-1"),
+      [record],
+    );
+    assert.deepEqual(await reopened.getMessages("thread-1"), messages);
+  });
+
+  it("skips unknown v2 record types when reading compaction records", async () => {
+    const directory = await temporaryDirectory();
+    const store = new JsonlAgentStore({ directory });
+    await store.save("thread-1", transcript("known"));
+    const [fileName] = await readdir(directory);
+    assert.ok(fileName);
+    await appendFile(
+      join(directory, fileName),
+      `${JSON.stringify({ v: 2, type: "future.record", threadId: "thread-1" })}\n`,
+      "utf8",
+    );
+
+    assert.deepEqual(await store.getMessages("thread-1"), transcript("known"));
+    assert.deepEqual(await store.getContextCompactions("thread-1"), []);
+  });
+
+  it("skips malformed opaque compaction records while retaining transcript reads", async () => {
+    const directory = await temporaryDirectory();
+    const store = new JsonlAgentStore({ directory });
+    await store.save("thread-1", transcript("known"));
+    const [fileName] = await readdir(directory);
+    assert.ok(fileName);
+    await appendFile(
+      join(directory, fileName),
+      `${JSON.stringify({
+        v: 1,
+        type: "thread.context.compacted",
+        threadId: 42,
+        summary: { ignored: true },
+      })}\n`,
+      "utf8",
+    );
+
+    assert.deepEqual(await store.getMessages("thread-1"), transcript("known"));
+    assert.deepEqual(await store.getContextCompactions("thread-1"), []);
+  });
+
   it("restores the latest committed transcript after reopen", async () => {
     const directory = await temporaryDirectory();
     const first = new JsonlAgentStore({ directory });
