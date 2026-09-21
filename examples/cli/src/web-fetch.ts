@@ -197,6 +197,24 @@ function ipv6IsLoopback(bytes: readonly number[]): boolean {
   return bytes.slice(0, 7).every((word) => word === 0) && bytes[7] === 1;
 }
 
+function ipv4MappedAddress(address: string): string | undefined {
+  if (isIP(address) !== 6) return undefined;
+  const ipv6 = parseIpv6(address);
+  if (ipv6 === undefined) return undefined;
+  const bytes = ipv6.flatMap((word) => [word >> 8, word & 0xff]);
+  const mapped =
+    bytes.slice(0, 10).every((byte) => byte === 0) &&
+    bytes[10] === 0xff &&
+    bytes[11] === 0xff;
+  return mapped ? bytes.slice(12).join(".") : undefined;
+}
+
+/** Clash/Surge fake-ip uses RFC 2544 198.18.0.0/15 as a local DNS token. */
+function isFakeIpDnsAnswer(address: string): boolean {
+  const ipv4 = parseIpv4(address) ?? parseIpv4(ipv4MappedAddress(address) ?? "");
+  return ipv4 !== undefined && ipv4InRange(ipv4, [198, 18, 0, 0], 15);
+}
+
 function isPrivateIp(address: string): boolean {
   const ipv4 = parseIpv4(address);
   if (ipv4 !== undefined) {
@@ -297,7 +315,12 @@ async function assertPublicTarget(
       finalUrl: url.toString(),
     });
   }
-  if (addresses.length === 0 || addresses.some(({ address }) => isPrivateIp(address))) {
+  // Fake-ip A records are local resolver tokens, not a connection to 198.18/15.
+  // URL hosts that are IP literals in that range stay blocked above.
+  if (
+    addresses.length === 0 ||
+    addresses.some(({ address }) => isPrivateIp(address) && !isFakeIpDnsAnswer(address))
+  ) {
     return failure("TARGET_BLOCKED", "The URL resolves to a local or private host", {
       finalUrl: url.toString(),
     });
