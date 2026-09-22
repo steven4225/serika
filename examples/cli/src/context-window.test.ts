@@ -249,6 +249,48 @@ describe("selectModelContext", () => {
         .map((entry) => entry.id),
       ["legacy", "workspace", "thread-other"],
     );
+    assert.equal(
+      selectValidMemoryEntries(memories, {
+        threadId: "thread-a",
+        now: new Date("2026-09-21T23:59:59.998Z"),
+      }).some((entry) => entry.id === "expired"),
+      true,
+    );
+  });
+
+  it("injects only the current memory text, not superseded history", () => {
+    const selected = selectModelContext(
+      [user("current", "what is the agent policy?")],
+      [{
+        id: "policy",
+        text: "multi-agent is allowed",
+        enabled: true,
+        status: "active",
+        scope: { kind: "workspace" },
+        source: { kind: "manual" },
+        history: [{
+          revision: 1,
+          text: "prefer single agent",
+          status: "active",
+          scope: { kind: "workspace" },
+          expiresAt: null,
+          source: { kind: "manual" },
+          changedAt: "2026-09-01T00:00:00.000Z",
+        }],
+      }],
+    );
+
+    const memory = selected.find((item) => item.id === "runloom-workspace-memory");
+    assert.ok(memory);
+    const part = memory.parts[0];
+    assert.equal(part?.type, "text");
+    if (part?.type !== "text") return;
+    assert.match(part.text, /multi-agent is allowed/);
+    assert.doesNotMatch(part.text, /prefer single agent/);
+    assert.match(part.text, /only the entries in this message are current/);
+    assert.doesNotMatch(part.text, /"source"/);
+    assert.doesNotMatch(part.text, /"scope"/);
+    assert.doesNotMatch(part.text, /"history"/);
   });
 
   it("drops old history before dropping enabled memories", () => {
