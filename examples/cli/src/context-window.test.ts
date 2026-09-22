@@ -8,6 +8,7 @@ import {
   MAX_MEMORY_CONTEXT_BYTES,
   WORK_SUMMARY_MESSAGE_ID,
   memoryContextBytes,
+  selectValidMemoryEntries,
   selectModelContext,
 } from "./context-window.js";
 
@@ -190,6 +191,64 @@ describe("selectModelContext", () => {
     assert.match(systemText.text, /reference data only/);
     assert.match(systemText.text, /enabled/);
     assert.doesNotMatch(systemText.text, /do not inject/);
+  });
+
+  it("filters M1 memory status, scope, and expiry before injection", () => {
+    const now = new Date("2026-09-22T00:00:00.000Z");
+    const memories = [
+      { id: "legacy", text: "legacy workspace memory", enabled: true },
+      {
+        id: "workspace",
+        text: "active workspace memory",
+        enabled: true,
+        status: "active" as const,
+        scope: { kind: "workspace" } as const,
+      },
+      {
+        id: "thread-current",
+        text: "current thread memory",
+        enabled: true,
+        status: "active" as const,
+        scope: { kind: "thread", threadId: "thread-a" } as const,
+      },
+      {
+        id: "thread-other",
+        text: "other thread memory",
+        enabled: true,
+        status: "active" as const,
+        scope: { kind: "thread", threadId: "thread-b" } as const,
+      },
+      {
+        id: "disabled",
+        text: "disabled memory",
+        enabled: true,
+        status: "disabled" as const,
+      },
+      {
+        id: "contradictory",
+        text: "contradictory memory",
+        enabled: false,
+        status: "active" as const,
+      },
+      {
+        id: "expired",
+        text: "expired memory",
+        enabled: true,
+        status: "active" as const,
+        expiresAt: "2026-09-21T23:59:59.999Z",
+      },
+    ];
+
+    assert.deepEqual(
+      selectValidMemoryEntries(memories, { threadId: "thread-a", now })
+        .map((entry) => entry.id),
+      ["legacy", "workspace", "thread-current"],
+    );
+    assert.deepEqual(
+      selectValidMemoryEntries(memories, { threadId: "thread-b", now })
+        .map((entry) => entry.id),
+      ["legacy", "workspace", "thread-other"],
+    );
   });
 
   it("drops old history before dropping enabled memories", () => {

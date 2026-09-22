@@ -12,17 +12,46 @@ import type {
   MemoryEntry,
   MemoryEntryResult,
   MemoryDeleteResult,
+  MemoryScope,
+  MemoryStatus,
   MemoryListResult,
   MemoryUpdateInput,
+  MemoryWriteOptions,
   WorkspaceMemoryStore,
 } from "../memory-store.js";
 
 export type { MemoryEntry, WorkspaceMemoryStore } from "../memory-store.js";
 
+const memoryScopeSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("workspace") }),
+  z.object({ kind: z.literal("thread"), threadId: z.string().min(1) }),
+]);
+/** Model input may choose the current thread, but cannot name a thread id. */
+const memoryScopeInputSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("workspace") }).strict(),
+  z.object({ kind: z.literal("thread") }).strict(),
+]);
+const memorySourceSchema = z.object({ kind: z.enum(["manual", "legacy"]) });
 const memoryEntrySchema = z.object({
   id: z.string(),
   text: z.string(),
   enabled: z.boolean(),
+  status: z.enum(["active", "disabled"]).optional(),
+  scope: memoryScopeSchema.optional(),
+  source: memorySourceSchema.optional(),
+  createdAt: z.string().nullable().optional(),
+  updatedAt: z.string().nullable().optional(),
+  expiresAt: z.string().nullable().optional(),
+  revision: z.number().int().positive().optional(),
+  history: z.array(z.object({
+    revision: z.number().int().positive(),
+    text: z.string(),
+    status: z.enum(["active", "disabled"]),
+    scope: memoryScopeSchema,
+    expiresAt: z.string().nullable(),
+    source: memorySourceSchema,
+    changedAt: z.string(),
+  })).optional(),
 });
 const memoryFailureSchema = z.object({
   ok: z.literal(false),
@@ -96,16 +125,28 @@ const memoryAddInputSchema = z.object({
     message: "text must be non-empty",
   }),
   enabled: z.boolean().optional(),
+  status: z.enum(["active", "disabled"]).optional(),
+  scope: memoryScopeInputSchema.optional(),
+  expiresAt: z.string().nullable().optional(),
 });
 const memoryUpdateInputSchema = z
   .object({
     id: z.string().min(1),
+    expectedRevision: z.number().int().positive(),
     text: z.string().refine((value) => value.trim().length > 0, {
       message: "text must be non-empty",
     }).optional(),
     enabled: z.boolean().optional(),
+    status: z.enum(["active", "disabled"]).optional(),
+    scope: memoryScopeInputSchema.optional(),
+    expiresAt: z.string().nullable().optional(),
   })
-  .refine(({ text, enabled }) => text !== undefined || enabled !== undefined, {
+  .refine(({ text, enabled, status, scope, expiresAt }) =>
+    text !== undefined ||
+    enabled !== undefined ||
+    status !== undefined ||
+    scope !== undefined ||
+    expiresAt !== undefined, {
     message: "at least one field must be provided",
   });
 const memoryDeleteInputSchema = z.object({ id: z.string().min(1) });
@@ -145,45 +186,95 @@ function throwIfAborted(signal: AbortSignal): void {
 
 const neverAborted = new AbortController().signal;
 
+export interface MemoryModuleOptions {
+  /** Active thread. Thread scope is bound to this id and cannot target another thread. */
+  threadId?: string;
+  /** Injectable clock for expiry checks and memory timestamps. */
+  now?: () => Date;
+}
+
+function presentMemoryEntry(entry: MemoryEntry): MemoryEntry {
+  const { history: _history, ...current } = entry;
+  return current;
+}
+
+function bindScope(
+  scope: { kind: "workspace" } | { kind: "thread" } | undefined,
+  threadId: string | undefined,
+): { ok: true; scope?: MemoryScope } | { ok: false; error: { code: "INVALID_INPUT"; message: string } } {
+  if (scope === undefined) return { ok: true };
+  if (scope.kind === "workspace") return { ok: true, scope: { kind: "workspace" } };
+  if (threadId === undefined || threadId.length === 0) {
+    return { ok: false, error: { code: "INVALID_INPUT", message: "Thread scope requires the active thread" } };
+  }
+  return { ok: true, scope: { kind: "thread", threadId } };
+}
+
 export function createMemoryModule(
   store: WorkspaceMemoryStore,
   getMessages?: ConsolidationGetMessages,
+  options: MemoryModuleOptions = {},
 ): AgentModule {
+  const writeOptions = (): MemoryWriteOptions => ({
+    ...(options.threadId === undefined ? {} : { boundThreadId: options.threadId }),
+    now: options.now?.() ?? new Date(),
+  });
+
   return {
     id: "memory",
     setup(ctx) {
       const memoryListTool = tool({
-        description: "List explicitly saved workspace memories. Do not infer or extract memories automatically.",
+        description: "List the current version of explicitly saved workspace memories. Revision history is not included. Do not infer or extract memories automatically.",
         inputSchema: memoryListInputSchema,
         outputSchema: memoryListOutputSchema,
         execute: async (_input, { abortSignal }): Promise<MemoryListResult> => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
-          return store.list(signal);
+          const listed = await store.list(signal);
+          if (!listed.ok) return listed;
+          return { ok: true, entries: listed.entries.map(presentMemoryEntry) };
         },
       });
       const memoryAddTool = tool({
-        description: "Save a workspace memory only when the user explicitly asks you to remember it.",
+        description: "Save a workspace memory only when the user explicitly asks you to remember it. A memory is active by default. scope.kind thread means the active thread; do not supply a thread id. expiresAt is optional.",
         inputSchema: memoryAddInputSchema,
         outputSchema: memoryEntryOutputSchema,
-        execute: async ({ text, enabled }, { abortSignal }): Promise<MemoryEntryResult> => {
+        execute: async ({ text, enabled, status, scope, expiresAt }, { abortSignal }): Promise<MemoryEntryResult> => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
-          return store.add({ text, ...(enabled === undefined ? {} : { enabled }) }, signal);
+          const bound = bindScope(scope, options.threadId);
+          if (!bound.ok) return bound;
+          const saved = await store.add({
+            text,
+            ...(enabled === undefined ? {} : { enabled }),
+            ...(status === undefined ? {} : { status: status as MemoryStatus }),
+            ...(bound.scope === undefined ? {} : { scope: bound.scope }),
+            ...(expiresAt === undefined ? {} : { expiresAt }),
+          }, signal, writeOptions());
+          if (!saved.ok) return saved;
+          return { ok: true, entry: presentMemoryEntry(saved.entry) };
         },
       });
       const memoryUpdateTool = tool({
-        description: "Update a workspace memory only when the user explicitly asks to change it.",
+        description: "Update a workspace memory only when the user explicitly asks to change it. Include the current expectedRevision; stale revisions are rejected. scope.kind thread means the active thread; do not supply a thread id.",
         inputSchema: memoryUpdateInputSchema,
         outputSchema: memoryEntryOutputSchema,
-        execute: async ({ id, text, enabled }, { abortSignal }): Promise<MemoryEntryResult> => {
+        execute: async ({ id, expectedRevision, text, enabled, status, scope, expiresAt }, { abortSignal }): Promise<MemoryEntryResult> => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
+          const bound = bindScope(scope, options.threadId);
+          if (!bound.ok) return bound;
           const input: MemoryUpdateInput = {
+            expectedRevision,
             ...(text === undefined ? {} : { text }),
             ...(enabled === undefined ? {} : { enabled }),
+            ...(status === undefined ? {} : { status: status as MemoryStatus }),
+            ...(bound.scope === undefined ? {} : { scope: bound.scope }),
+            ...(expiresAt === undefined ? {} : { expiresAt }),
           };
-          return store.update(id, input, signal);
+          const saved = await store.update(id, input, signal, writeOptions());
+          if (!saved.ok) return saved;
+          return { ok: true, entry: presentMemoryEntry(saved.entry) };
         },
       });
       const memoryDeleteTool = tool({
@@ -193,7 +284,7 @@ export function createMemoryModule(
         execute: async ({ id }, { abortSignal }): Promise<MemoryDeleteResult> => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
-          return store.delete(id, signal);
+          return store.delete(id, signal, writeOptions());
         },
       });
       const memoryPrepareConsolidationTool = getMessages === undefined
@@ -225,7 +316,7 @@ export function createMemoryModule(
               const result: ConsolidationResult = {
                 ok: true,
                 turns: prepared.turns,
-                memories: memories.entries.map((entry) => ({ ...entry })),
+                memories: memories.entries.map(presentMemoryEntry),
               };
               if (Buffer.byteLength(JSON.stringify(result), "utf8") > CONSOLIDATION_RESULT_MAX_BYTES) {
                 return {

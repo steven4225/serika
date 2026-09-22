@@ -40,7 +40,7 @@
 
 ## MVP boundaries
 
-- Do not add multi-worker execution, parallel tools, queued Runs, Steering, Follow-up, multi-agent orchestration, RAG, long-term memory, Redis, or Kafka unless a later design discussion explicitly promotes it into scope.
+- Do not add multi-worker execution, parallel tools, queued Runs, Steering, Follow-up, multi-agent orchestration, RAG, autonomous candidate extraction, or inferred global memory unless a later design discussion explicitly promotes it into scope. Explicit user-managed workspace memory and its versioned lifecycle are part of the current TUI scope; memory text never grants execution permission.
 - PostgreSQL may be selected as the persistence target while tests continue to use deterministic in-memory fakes around explicit ports.
 
 ## Local behavior milestone

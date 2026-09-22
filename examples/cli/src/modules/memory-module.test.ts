@@ -4,7 +4,12 @@ import type { RegisteredTool } from "@aisdk-agent/ai-sdk-adapter";
 import type { UIMessage } from "ai";
 import { MAX_CONSOLIDATION_TURNS } from "../consolidation.js";
 import { MAX_CONTEXT_BYTES } from "../context-window.js";
-import { MEMORY_ENTRY_MAX_BYTES, MEMORY_MAX_ENTRIES } from "../memory-store.js";
+import {
+  MEMORY_ENTRY_MAX_BYTES,
+  MEMORY_MAX_ENTRIES,
+  type MemoryAddInput,
+  type MemoryWriteOptions,
+} from "../memory-store.js";
 import {
   CONSOLIDATION_RESULT_MAX_BYTES,
   createMemoryModule,
@@ -42,14 +47,15 @@ function createStore(): {
     },
     update: async (
       id: string,
-      input: { text?: string; enabled?: boolean },
+      input: { expectedRevision?: number; text?: string; enabled?: boolean },
     ) => {
       calls.push({ method: "update", args: [id, input] });
       const current = entries.find((value) => value.id === id);
       if (!current) {
         throw new Error("Memory not found");
       }
-      Object.assign(current, input);
+      const { expectedRevision: _expectedRevision, ...changes } = input;
+      Object.assign(current, changes);
       return { ok: true as const, entry: current };
     },
     delete: async (id: string) => {
@@ -69,9 +75,10 @@ function createStore(): {
 function setupTools(
   store: WorkspaceMemoryStore,
   getMessages?: () => Promise<UIMessage[]>,
+  options?: { threadId?: string; now?: () => Date },
 ): RegisteredTool[] {
   const tools: RegisteredTool[] = [];
-  createMemoryModule(store, getMessages).setup({
+  createMemoryModule(store, getMessages, options).setup({
     registerTool: (registered) => tools.push(registered),
     registerCommand: () => {},
     notify: () => {},
@@ -153,8 +160,12 @@ describe("createMemoryModule", () => {
 
     assert.equal(addInput.safeParse({ text: "   " }).success, false);
     assert.equal(addInput.safeParse({ text: "remember this" }).success, true);
+    assert.equal(addInput.safeParse({ text: "thread memory", scope: { kind: "thread" } }).success, true);
+    assert.equal(addInput.safeParse({ text: "thread memory", scope: { kind: "thread", threadId: "thread-a" } }).success, false);
     assert.equal(updateInput.safeParse({ id: "one" }).success, false);
-    assert.equal(updateInput.safeParse({ id: "one", enabled: false }).success, true);
+    assert.equal(updateInput.safeParse({ id: "one", expectedRevision: 1, enabled: false }).success, true);
+    assert.equal(updateInput.safeParse({ id: "one", expectedRevision: 1, scope: { kind: "thread" } }).success, true);
+    assert.equal(updateInput.safeParse({ id: "one", expectedRevision: 1, scope: { kind: "thread", threadId: "other" } }).success, false);
     assert.equal(updateInput.safeParse({ id: "one", text: "   " }).success, false);
   });
 
@@ -216,7 +227,7 @@ describe("createMemoryModule", () => {
       { ok: true, entry: entry("two", "use vitest", false) },
     );
     assert.deepEqual(
-      await toolByName(tools, "memory_update").tool.execute!({ id: "one", enabled: false }, context),
+      await toolByName(tools, "memory_update").tool.execute!({ id: "one", expectedRevision: 1, enabled: false }, context),
       { ok: true, entry: entry("one", "pnpm", false) },
     );
     assert.deepEqual(
@@ -227,7 +238,7 @@ describe("createMemoryModule", () => {
     assert.deepEqual(calls, [
       { method: "list", args: [] },
       { method: "add", args: [{ text: "use vitest", enabled: false }] },
-      { method: "update", args: ["one", { enabled: false }] },
+      { method: "update", args: ["one", { expectedRevision: 1, enabled: false }] },
       { method: "delete", args: ["two"] },
     ]);
   });
@@ -383,5 +394,74 @@ describe("createMemoryModule", () => {
       ),
       abortError,
     );
+  });
+
+  it("binds thread scope to the active thread and omits revision history", async () => {
+    const now = new Date("2026-09-22T00:00:00.000Z");
+    const calls: unknown[][] = [];
+    const listed = entry("one", "current");
+    listed.history = [{
+      revision: 1,
+      text: "previous fact",
+      status: "active",
+      scope: { kind: "workspace" },
+      expiresAt: null,
+      source: { kind: "manual" },
+      changedAt: "2026-09-01T00:00:00.000Z",
+    }];
+    const store = {
+      async list() {
+        return { ok: true as const, entries: [listed] };
+      },
+      async get(id: string) {
+        return {
+          ok: false as const,
+          error: { code: "MEMORY_ENTRY_NOT_FOUND" as const, message: id },
+        };
+      },
+      async add(input: MemoryAddInput, _signal?: AbortSignal, options?: MemoryWriteOptions) {
+        calls.push(["add", input, options]);
+        return {
+          ok: true as const,
+          entry: {
+            ...listed,
+            id: "two",
+            text: input.text,
+            ...(input.scope === undefined ? {} : { scope: input.scope }),
+          },
+        };
+      },
+      async update() {
+        return { ok: true as const, entry: listed };
+      },
+      async delete(id: string) {
+        return { ok: true as const, id };
+      },
+    } satisfies WorkspaceMemoryStore;
+    const context = { toolCallId: "bind", messages: [], context: {} };
+    const tools = setupTools(store, async () => [], { threadId: "thread-a", now: () => now });
+
+    const listedResult = await toolByName(tools, "memory_list").tool.execute!({}, context);
+    assert.equal(JSON.stringify(listedResult).includes("previous fact"), false);
+    const prepared = await toolByName(tools, "memory_prepare_consolidation").tool.execute!({}, context);
+    assert.equal(JSON.stringify(prepared).includes("previous fact"), false);
+
+    const saved = await toolByName(tools, "memory_add").tool.execute!(
+      { text: "thread only", scope: { kind: "thread" } },
+      context,
+    );
+    assert.deepEqual(calls, [[
+      "add",
+      { text: "thread only", scope: { kind: "thread", threadId: "thread-a" } },
+      { boundThreadId: "thread-a", now },
+    ]]);
+    assert.equal(JSON.stringify(saved).includes("previous fact"), false);
+
+    const unbound = await toolByName(setupTools(store), "memory_add").tool.execute!(
+      { text: "thread only", scope: { kind: "thread" } },
+      context,
+    );
+    assert.equal(unbound.ok, false);
+    if (!unbound.ok) assert.equal(unbound.error.code, "INVALID_INPUT");
   });
 });

@@ -3,8 +3,11 @@ import { AgentError } from "@aisdk-agent/core";
 import {
   createMemoryContextMessage,
   memoryContextBytes,
+  selectInjectableMemoryEntries,
   MEMORY_CONTEXT_MAX_BYTES,
   type MemoryEntry,
+  type MemoryInjectionView,
+  type MemoryScope as PersistedMemoryScope,
 } from "./memory-store.js";
 import {
   WORK_SUMMARY_MAX_BYTES,
@@ -44,7 +47,34 @@ export const MAX_MEMORY_CONTEXT_BYTES = MEMORY_CONTEXT_MAX_BYTES;
 export const WORK_SUMMARY_MESSAGE_ID = "runloom-work-summary";
 
 /** The subset of a persisted memory entry needed by model-context selection. */
-export type ContextMemoryEntry = MemoryEntry;
+export type MemoryScope = PersistedMemoryScope;
+
+/**
+ * M1 fields are optional here so context selection can read the v1 store while
+ * the store migrates to its versioned entry shape. The memory store remains
+ * the authority for validating and writing these fields.
+ */
+export type ContextMemoryEntry = MemoryEntry & {
+  status?: "active" | "disabled";
+  scope?: MemoryScope;
+  expiresAt?: string | null;
+};
+
+export type MemorySelectionOptions = MemoryInjectionView;
+
+/**
+ * Select entries that are valid for the current model context.
+ *
+ * v1 entries have no M1 metadata, so enabled entries without a scope remain
+ * workspace-scoped. New entries fail closed for an unknown scope/status or an
+ * invalid expiry rather than leaking data into a different thread.
+ */
+export function selectValidMemoryEntries(
+  entries: readonly ContextMemoryEntry[],
+  options: MemorySelectionOptions = {},
+): ContextMemoryEntry[] {
+  return selectInjectableMemoryEntries(entries, options);
+}
 
 function messageBytes(messages: UIMessage[]): number {
   return Buffer.byteLength(JSON.stringify(messages), "utf8");
@@ -97,6 +127,7 @@ function workSummaryMessage(summary: WorkSummary): UIMessage {
 export function selectModelContext(
   messages: UIMessage[],
   memories: readonly ContextMemoryEntry[] = [],
+  memoryOptions: MemorySelectionOptions = {},
 ): UIMessage[] {
   if (messages.length === 0 && memories.length === 0) return messages;
 
@@ -123,7 +154,7 @@ export function selectModelContext(
   if (messageBytes(currentTurn) > MAX_CONTEXT_BYTES) throw contextTooLarge();
 
   const selectedHistory = historyTurns.slice(-MAX_HISTORY_TURNS);
-  const selectedMemories = memories.filter((memory) => memory.enabled).slice();
+  const selectedMemories = selectValidMemoryEntries(memories, memoryOptions);
   const allHistory = historyTurns.flat();
   const summaryFor = (): WorkSummary | undefined => {
     const selectedIds = new Set(selectedHistory.flat().map((item) => item.id));
