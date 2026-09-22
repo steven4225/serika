@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-/** Brave Web Search API endpoint used by the R3b search tool. */
-export const BRAVE_WEB_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search";
+/** Public, keyless Exa hosted MCP endpoint used by web_search. */
+export const EXA_MCP_SEARCH_URL = "https://mcp.exa.ai/mcp?tools=web_search_exa";
 export const WEB_SEARCH_TIMEOUT_MS = 10_000;
 export const WEB_SEARCH_DEFAULT_LIMIT = 5;
 export const WEB_SEARCH_MAX_RESULTS = 10;
@@ -87,8 +87,6 @@ export const webSearchResultSchema = z.discriminatedUnion("ok", [
 ]);
 
 export interface WebSearchOptions {
-  /** Brave subscription token. It is never included in a result or error message. */
-  apiKey: string;
   /** Injected in tests; production uses the global fetch implementation. */
   fetch?: typeof globalThis.fetch;
   /** Tool-owned cancellation signal. Caller cancellation is propagated, not converted to a result. */
@@ -147,46 +145,69 @@ function isHttpUrl(value: unknown): value is string {
   }
 }
 
-function parseResults(body: unknown, limit: number): WebSearchResponse {
-  if (typeof body !== "object" || body === null) {
-    return failure("INVALID_RESPONSE", "Search provider returned an invalid response");
+function parseMcpEnvelope(body: string): unknown {
+  const payloads = body.includes("\ndata:") || body.startsWith("data:")
+    ? body.split(/\r?\n/).filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trim())
+    : [body];
+  for (const payload of payloads) {
+    try {
+      const value: unknown = JSON.parse(payload);
+      if (typeof value === "object" && value !== null && ("result" in value || "error" in value)) {
+        return value;
+      }
+    } catch {
+      // Ignore non-JSON SSE messages and keep looking for the RPC result.
+    }
   }
-  const root = body as { web?: unknown; query?: unknown };
-  const webResults =
-    typeof root.web === "object" && root.web !== null
-      ? (root.web as { results?: unknown }).results
-      : undefined;
-  const providerItems = Array.isArray(webResults) ? webResults : [];
+  return null;
+}
 
+function parseMcpResults(text: string, limit: number): WebSearchResponse {
+  const blocks = text.split(/(?=^Title: )/m).filter((block) => block.trim() !== "");
   const results: WebSearchResultItem[] = [];
-  for (const candidate of providerItems) {
-    if (typeof candidate !== "object" || candidate === null) continue;
-    const item = candidate as { title?: unknown; url?: unknown; description?: unknown; snippet?: unknown };
-    if (!isHttpUrl(item.url)) continue;
-    const title = cleanText(item.title, WEB_SEARCH_MAX_TITLE_LENGTH);
-    const snippet = cleanText(item.description ?? item.snippet, WEB_SEARCH_MAX_SNIPPET_LENGTH) ?? "";
-    if (title === undefined) continue;
-    results.push({ title, url: item.url, snippet });
-    if (results.length >= limit) break;
+  for (const block of blocks) {
+    const title = cleanText(block.match(/^Title: (.+)$/m)?.[1], WEB_SEARCH_MAX_TITLE_LENGTH);
+    const url = block.match(/^URL: (.+)$/m)?.[1]?.trim();
+    if (title === undefined || !isHttpUrl(url)) continue;
+    const content = block.match(/\n(?:Highlights|Text):\s*\n?([\s\S]*)/i)?.[1] ?? "";
+    const snippet = cleanText(content.replace(/\n---\s*$/, "").replace(/\s+/g, " "), WEB_SEARCH_MAX_SNIPPET_LENGTH) ?? "";
+    results.push({ title, url, snippet });
   }
+  if (blocks.length > 0 && results.length === 0) {
+    return failure("INVALID_RESPONSE", "Exa MCP returned no valid search results");
+  }
+  return { ok: true, value: { query: "", results: results.slice(0, limit), truncated: results.length > limit } };
+}
 
-  const providerQuery =
-    typeof root.query === "object" && root.query !== null
-      ? (root.query as { more_results_available?: unknown }).more_results_available
-      : undefined;
-  const providerHasMore = providerQuery === true;
-  return {
-    ok: true,
-    value: {
-      query: "",
-      results,
-      truncated: providerHasMore || providerItems.length > limit,
-    },
-  };
+function parseResults(body: string, limit: number): WebSearchResponse {
+  const envelope = parseMcpEnvelope(body);
+  if (typeof envelope !== "object" || envelope === null) {
+    return failure("INVALID_RESPONSE", "Exa MCP returned an invalid response");
+  }
+  const rpc = envelope as { result?: unknown; error?: unknown };
+  if (rpc.error !== undefined) {
+    const error = rpc.error as { message?: unknown };
+    const message = cleanText(error?.message, 300) ?? "Unknown MCP error";
+    return failure("UPSTREAM_ERROR", `Exa MCP error: ${message}`);
+  }
+  if (typeof rpc.result !== "object" || rpc.result === null) {
+    return failure("INVALID_RESPONSE", "Exa MCP returned no result");
+  }
+  const result = rpc.result as { content?: unknown; isError?: unknown };
+  const items = Array.isArray(result.content) ? result.content : [];
+  const text = items.find((item): item is { type: "text"; text: string } =>
+    typeof item === "object" && item !== null && item.type === "text" && typeof item.text === "string")?.text;
+  if (result.isError === true) {
+    return failure("UPSTREAM_ERROR", `Exa MCP error: ${cleanText(text, 300) ?? "Unknown tool error"}`);
+  }
+  if (text === undefined) {
+    return failure("INVALID_RESPONSE", "Exa MCP returned no text content");
+  }
+  return parseMcpResults(text, limit);
 }
 
 /**
- * Search the public web through Brave's Web Search API.
+ * Search the public web through Exa's keyless hosted MCP search tool.
  *
  * Search results are discovery data only. Callers should open selected URLs
  * with `web_fetch` before treating a result as a verified source.
@@ -206,10 +227,6 @@ export async function webSearch(
   ) {
     return failure("INVALID_INPUT", "query must be non-empty and limit must be between 1 and 10");
   }
-  if (typeof options.apiKey !== "string" || options.apiKey.trim() === "") {
-    return failure("AUTH_FAILED", "Brave Search API credentials are unavailable");
-  }
-
   const callerSignal = options.signal ?? neverAborted;
   if (callerSignal.aborted) throw abortReason(callerSignal);
 
@@ -220,39 +237,35 @@ export async function webSearch(
   }, timeoutMs);
   const requestSignal = AbortSignal.any([callerSignal, timeoutController.signal]);
 
-  const url = new URL(BRAVE_WEB_SEARCH_URL);
-  url.searchParams.set("q", query);
-  url.searchParams.set("count", String(limit));
-
   try {
     const fetchImpl = options.fetch ?? globalThis.fetch;
-    const response = await fetchImpl(url, {
-      method: "GET",
+    const response = await fetchImpl(EXA_MCP_SEARCH_URL, {
+      method: "POST",
       redirect: "error",
       headers: {
-        accept: "application/json",
-        "X-Subscription-Token": options.apiKey,
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+        "x-exa-source": "runloom",
       },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: { name: "web_search_exa", arguments: { query, numResults: limit } },
+      }),
       signal: requestSignal,
     });
 
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
-        return failure("AUTH_FAILED", "Brave Search API rejected the credentials", response.status);
+        return failure("AUTH_FAILED", "Exa MCP rejected the request", response.status);
       }
       if (response.status === 429) {
-        return failure("RATE_LIMITED", "Brave Search API rate limit exceeded", response.status);
+        return failure("RATE_LIMITED", "Exa MCP rate limit exceeded", response.status);
       }
-      return failure("UPSTREAM_ERROR", `Brave Search API returned HTTP ${response.status}`, response.status);
+      return failure("UPSTREAM_ERROR", `Exa MCP returned HTTP ${response.status}`, response.status);
     }
-
-    let body: unknown;
-    try {
-      body = await response.json();
-    } catch {
-      return failure("INVALID_RESPONSE", "Search provider returned invalid JSON");
-    }
-    const parsed = parseResults(body, limit);
+    const parsed = parseResults(await response.text(), limit);
     if (!parsed.ok) return parsed;
     return {
       ok: true,
@@ -263,7 +276,7 @@ export async function webSearch(
     if (timeoutController.signal.aborted || isAbortError(error)) {
       return failure("TIMEOUT", `Web search exceeded the ${timeoutMs}ms request deadline`);
     }
-    return failure("NETWORK_ERROR", "Unable to reach the Brave Search API");
+    return failure("NETWORK_ERROR", "Unable to reach Exa MCP");
   } finally {
     clearTimeout(timeoutHandle);
   }

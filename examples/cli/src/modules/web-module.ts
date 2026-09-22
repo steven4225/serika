@@ -45,10 +45,8 @@ export interface WebModuleOptions {
   resolveHost?: ResolveWebHost;
   /** Injected in tests so provenance timestamps remain deterministic. */
   now?: () => Date;
-  /** Register web_search when enabled and a provider key is available. */
+  /** Register the keyless Exa MCP web_search tool when enabled. */
   searchEnabled?: boolean;
-  /** Provider credential for web_search; never included in tool output. */
-  searchApiKey?: string;
   /** Injected in tests; production uses the global fetch implementation. */
   searchFetch?: typeof globalThis.fetch;
 }
@@ -84,7 +82,7 @@ export function createWebModule(options: WebModuleOptions = {}): AgentModule {
 
       ctx.registerTool({ metadata: webFetchMetadata, tool: webFetchTool });
 
-      if (options.searchEnabled !== true || !options.searchApiKey) return;
+      if (options.searchEnabled !== true) return;
 
       const webSearchTool = tool({
         description:
@@ -96,7 +94,6 @@ export function createWebModule(options: WebModuleOptions = {}): AgentModule {
           { abortSignal },
         ): Promise<WebSearchResult> =>
           searchWeb(input, {
-            apiKey: options.searchApiKey as string,
             signal: abortSignal ?? neverAborted,
             ...(options.searchFetch === undefined ? {} : { fetch: options.searchFetch }),
           }),

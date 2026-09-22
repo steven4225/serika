@@ -294,9 +294,9 @@ Docker sandbox 只挂载列出的路径，根文件系统只读，网络固定�
 
 `web_fetch` 默认沿现有 `y/n` 确认。已知来源可在 Run 前输入 `/authorize-web https://example.com https://docs.example.org`，授权只对下一次 Run、列出的精确 origin 和 `web_fetch` 生效，Run 结束、失败或取消后清除；不会写入 memory、transcript 或配置。网页正文是不可信数据，不能把页面里的指令当成系统指令。工具返回 `requestedUrl`、`finalUrl`、HTTP 状态、内容类型、抓取时间、正文和完整性标记，生成报告时应引用实际 `finalUrl`，不能把截断或失败说成已读全文。
 
-在配置中同时写入 `"web": { "enabled": true, "search": { "enabled": true } }`，并提供 `BRAVE_SEARCH_API_KEY` 后，TUI 额外注册只读 `web_search({ query, limit? })`。它只返回最多 10 个标题、URL 和摘要用于发现来源；默认 5 条，不分页、不自动重试。搜索请求仍逐次经过 `y/n`，因为 query 和摘要会进入模型上下文与成功 Run 的 transcript。缺少 Key 时 TUI 不启动失败，`web_fetch` 仍可用，`/modules` 会显示搜索不可用。
+在配置中同时写入 `"web": { "enabled": true, "search": { "enabled": true } }` 后，TUI 通过免 Key 的 Exa 托管 MCP 注册只读 `web_search({ query, limit? })`，不需要 `EXA_API_KEY` 或 `BRAVE_SEARCH_API_KEY`，也不会自动回退到付费 API。它只返回最多 10 个标题、URL 和摘要用于发现来源；默认 5 条，不分页、不自动重试。搜索请求仍逐次经过 `y/n`，因为 query 和摘要会进入模型上下文与成功 Run 的 transcript。托管服务可能限流或不可用；工具会如实返回错误。
 
-`web_search` 的摘要不能当作事实证据。研究任务必须先搜索，再用现有 `web_fetch` 打开选定原文，报告引用实际 `finalUrl`；原文失败或截断时必须标明未核验。Brave Search API 按供应商计划计费，查询也受其[官方隐私政策](https://api-dashboard.search.brave.com/privacy-policy)约束，因此不要把密钥、私人笔记或敏感信息拼进 query；价格以[官方计划](https://api-dashboard.search.brave.com/app/plans)为准。
+`web_search` 的摘要不能当作事实证据。研究任务必须先搜索，再用现有 `web_fetch` 打开选定原文，报告引用实际 `finalUrl`；原文失败或截断时必须标明未核验。搜索 query 会发送至 Exa 托管服务，不要把私人笔记或敏感信息拼进 query。
 
 R3c 的联网研究交付沿用这两个工具，不新增研究工具或来源数据库：一次 `web_search` 只发现候选，最多选择两个来源，再用 `web_fetch` 打开原文。只有 `web_fetch` 成功返回的内容才能作为已核验来源；`truncated: true` 只能作为部分证据，失败或拒绝不能支持事实结论。报告引用实际 `finalUrl`，`write_file` 成功后才说明文件已保存；拒绝、失败或文件冲突不能换参数绕过，也不能声称已保存。报告不强制固定 Markdown 章节，但必须写清来源和不完整项。
 
