@@ -74,14 +74,17 @@ describe("webSearch through keyless Exa MCP", () => {
   });
 
   it("filters invalid URLs and distinguishes malformed RPC from tool errors", async () => {
-    const filtered = await webSearch({ query: "links" }, {
+    const filtered = await webSearch({ query: "links", limit: 1 }, {
       fetch: async () => mcpResponse(
         "Title: private\nURL: file:///etc/passwd\nHighlights:\nno\n\n" +
         "Title: public\nURL: https://example.com/article\nHighlights:\nyes",
       ),
     });
     assert.equal(filtered.ok, true);
-    if (filtered.ok) assert.deepEqual(filtered.value.results.map((item) => item.url), ["https://example.com/article"]);
+    if (filtered.ok) {
+      assert.deepEqual(filtered.value.results.map((item) => item.url), ["https://example.com/article"]);
+      assert.equal(filtered.value.truncated, false);
+    }
     const malformed = await webSearch({ query: "malformed" }, {
       fetch: async () => new Response("not an MCP response"),
     });

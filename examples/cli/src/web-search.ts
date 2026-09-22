@@ -37,6 +37,7 @@ export interface WebSearchSuccess {
   value: {
     query: string;
     results: WebSearchResultItem[];
+    /** True only when more valid candidates were parsed than the local result limit permits. */
     truncated: boolean;
   };
 }
@@ -73,7 +74,9 @@ export const webSearchResultSchema = z.discriminatedUnion("ok", [
           snippet: z.string(),
         }),
       ),
-      truncated: z.boolean(),
+      truncated: z.boolean().describe(
+        "True only when valid candidates from this response exceed the local result limit; false does not mean the web search is exhaustive.",
+      ),
     }),
   }),
   z.object({
