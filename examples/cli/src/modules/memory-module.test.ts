@@ -162,10 +162,16 @@ describe("createMemoryModule", () => {
     assert.equal(addInput.safeParse({ text: "remember this" }).success, true);
     assert.equal(addInput.safeParse({ text: "thread memory", scope: { kind: "thread" } }).success, true);
     assert.equal(addInput.safeParse({ text: "thread memory", scope: { kind: "thread", threadId: "thread-a" } }).success, false);
+    assert.equal(addInput.safeParse({ text: "remember this", sourceMessageId: "user-1" }).success, false);
+    assert.equal(addInput.safeParse({ text: "remember this", sourceMessageId: "user-1", sourceQuote: "remember this" }).success, true);
+    assert.equal(addInput.safeParse({ text: "remember this", sourceQuote: "remember this" }).success, false);
+    assert.equal(addInput.safeParse({ text: "remember this", sourceMessageId: "" }).success, false);
     assert.equal(updateInput.safeParse({ id: "one" }).success, false);
     assert.equal(updateInput.safeParse({ id: "one", expectedRevision: 1, enabled: false }).success, true);
     assert.equal(updateInput.safeParse({ id: "one", expectedRevision: 1, scope: { kind: "thread" } }).success, true);
     assert.equal(updateInput.safeParse({ id: "one", expectedRevision: 1, scope: { kind: "thread", threadId: "other" } }).success, false);
+    assert.equal(updateInput.safeParse({ id: "one", expectedRevision: 1, text: "new", sourceMessageId: "user-1" }).success, false);
+    assert.equal(updateInput.safeParse({ id: "one", expectedRevision: 1, text: "new", sourceMessageId: "user-1", sourceQuote: "new" }).success, true);
     assert.equal(updateInput.safeParse({ id: "one", text: "   " }).success, false);
   });
 
@@ -287,13 +293,11 @@ describe("createMemoryModule", () => {
         {
           messages: [
             { id: "u2", role: "user", text: "keep user" },
-            { id: "a2", role: "assistant", text: "keep answer" },
           ],
         },
         {
           messages: [
             { id: "u4", role: "user", text: "latest user" },
-            { id: "a4", role: "assistant", text: "latest answer" },
           ],
         },
       ],
@@ -463,5 +467,62 @@ describe("createMemoryModule", () => {
     );
     assert.equal(unbound.ok, false);
     if (!unbound.ok) assert.equal(unbound.error.code, "INVALID_INPUT");
+  });
+
+  it("binds conversation provenance to a committed user message before writing", async () => {
+    const { store, calls } = createStore();
+    const committed: UIMessage[] = [
+      textMessage("user-1", "user", "Remember that I prefer short plans"),
+      textMessage("assistant-1", "assistant", "I suggest a short plan"),
+      { ...textMessage("auto-1", "user", "自动整理"), metadata: { source: "auto-consolidation" } },
+      textMessage("empty-1", "user", ""),
+      toolOnlyMessage("tool-1"),
+    ];
+    const tools = setupTools(store, async () => committed, { threadId: "thread-a" });
+    const context = { toolCallId: "provenance", messages: [], context: {} };
+    const add = toolByName(tools, "memory_add").tool;
+    const update = toolByName(tools, "memory_update").tool;
+
+    const saved = await add.execute!({ text: "short plans", sourceMessageId: "user-1", sourceQuote: "short plans" }, context);
+    assert.equal(saved.ok, true);
+    assert.deepEqual(calls[0], {
+      method: "add",
+      args: [{ text: "short plans", source: { kind: "conversation", threadId: "thread-a", messageId: "user-1", quote: "short plans" } }],
+    });
+    await update.execute!({ id: "one", expectedRevision: 1, text: "concise plans", sourceMessageId: "user-1", sourceQuote: "I prefer short plans" }, context);
+    assert.deepEqual(calls[1], {
+      method: "update",
+      args: ["one", { expectedRevision: 1, text: "concise plans", source: { kind: "conversation", threadId: "thread-a", messageId: "user-1", quote: "I prefer short plans" } }],
+    });
+    const mismatched = await add.execute!({ text: "concise plans", sourceMessageId: "user-1", sourceQuote: "concise plans" }, context);
+    assert.deepEqual(mismatched, {
+      ok: false,
+      error: { code: "INVALID_INPUT", message: "sourceQuote must be an exact substring of that committed user message" },
+    });
+
+    for (const sourceMessageId of ["assistant-1", "auto-1", "empty-1", "tool-1", "missing"]) {
+      const rejected = await add.execute!({ text: "wrong", sourceMessageId, sourceQuote: "wrong" }, context);
+      assert.deepEqual(rejected, {
+        ok: false,
+        error: { code: "INVALID_INPUT", message: "sourceMessageId must identify a committed user message in the active thread" },
+      });
+    }
+    assert.equal(calls.length, 2);
+  });
+
+  it("rejects unbound or unreadable conversation provenance without writing", async () => {
+    const { store, calls } = createStore();
+    const context = { toolCallId: "provenance", messages: [], context: {} };
+    const unbound = toolByName(setupTools(store, async () => [textMessage("u", "user", "fact")]), "memory_add").tool;
+    const result = await unbound.execute!({ text: "fact", sourceMessageId: "u", sourceQuote: "fact" }, context);
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.equal(result.error.code, "INVALID_INPUT");
+
+    const unreadable = toolByName(setupTools(store, async () => { throw new Error("transcript unavailable"); }, { threadId: "thread-a" }), "memory_update").tool;
+    assert.deepEqual(
+      await unreadable.execute!({ id: "one", expectedRevision: 1, text: "fact", sourceMessageId: "u", sourceQuote: "fact" }, context),
+      { ok: false, error: { code: "READ_FAILED", message: "transcript unavailable" } },
+    );
+    assert.deepEqual(calls, []);
   });
 });

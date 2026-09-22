@@ -5,6 +5,8 @@ import {
   AUTO_CONSOLIDATION_SOURCE,
   MAX_CONSOLIDATION_TURNS,
   consolidateMessages,
+  findCommittedUserMessage,
+  isExactUserQuote,
 } from "./consolidation.js";
 
 function message(
@@ -40,7 +42,6 @@ describe("consolidateMessages", () => {
         turns: Array.from({ length: MAX_CONSOLIDATION_TURNS }, (_, index) => ({
           messages: [
             { id: `user-${index + 2}`, role: "user", text: `user-${index + 2}` },
-            { id: `assistant-${index + 2}`, role: "assistant", text: `assistant-${index + 2}` },
           ],
         })),
       },
@@ -73,7 +74,6 @@ describe("consolidateMessages", () => {
       {
         messages: [
           { id: "newest-user", role: "user", text: "newest-user" },
-          { id: "newest-assistant", role: "assistant", text: "newest-assistant" },
         ],
       },
     );
@@ -99,7 +99,6 @@ describe("consolidateMessages", () => {
         {
           messages: [
             { id: "ordinary-user", role: "user", text: "ordinary" },
-            { id: "ordinary-assistant", role: "assistant", text: "ordinary-assistant" },
           ],
         },
       ],
@@ -119,7 +118,6 @@ describe("consolidateMessages", () => {
         {
           messages: [
             { id: "user-0", role: "user", text: "user-0" },
-            { id: "assistant-0", role: "assistant", text: "assistant-0" },
           ],
         },
         { messages: [{ id: "user-1", role: "user", text: "user-1" }] },
@@ -141,28 +139,26 @@ describe("consolidateMessages", () => {
         {
           messages: [
             { id: "user-0", role: "user", text: "user-0" },
-            { id: "assistant-0", role: "assistant", text: "assistant-0" },
           ],
         },
       ],
     });
   });
 
-  it("extracts only text parts in their original order and preserves message ids", () => {
+  it("returns user text only and drops assistant text and tool output", () => {
     const messages: UIMessage[] = [
-      user("user-0"),
-      message("assistant-0", "assistant", [
-        { type: "text", text: "first" },
+      message("user-0", "user", [
+        { type: "text", text: "I prefer one agent" },
         {
           type: "dynamic-tool",
-          toolName: "read-file",
+          toolName: "web_search",
           toolCallId: "call-1",
           state: "output-available",
-          input: { path: "notes.txt" },
-          output: { ok: true },
+          input: { query: "agents" },
+          output: { text: "Multi-agent is the future" },
         },
-        { type: "text", text: "second" },
       ]),
+      assistant("assistant-0", "The user wants multi-agent"),
     ];
 
     const result = consolidateMessages(messages);
@@ -172,12 +168,13 @@ describe("consolidateMessages", () => {
       turns: [
         {
           messages: [
-            { id: "user-0", role: "user", text: "user-0" },
-            { id: "assistant-0", role: "assistant", text: "first\nsecond" },
+            { id: "user-0", role: "user", text: "I prefer one agent" },
           ],
         },
       ],
     });
+    assert.equal(JSON.stringify(result).includes("Multi-agent is the future"), false);
+    assert.equal(JSON.stringify(result).includes("The user wants multi-agent"), false);
   });
 
   it("drops empty and pure-tool messages without backfilling an omitted turn", () => {
@@ -213,5 +210,63 @@ describe("consolidateMessages", () => {
       ok: false,
       error: { code: "INVALID_INPUT", message: "turns must be an integer from 1 to 8" },
     });
+  });
+});
+
+describe("findCommittedUserMessage", () => {
+  it("resolves a committed user message by id even outside the recent proposal window", () => {
+    const committed = [user("decision", "Keep one agent"), ...Array.from(
+      { length: MAX_CONSOLIDATION_TURNS + 1 },
+      (_, index) => user(`later-${index}`),
+    )];
+
+    assert.deepEqual(findCommittedUserMessage(committed, "decision"), {
+      id: "decision",
+      role: "user",
+      text: "Keep one agent",
+    });
+    assert.equal(consolidateMessages(committed).ok, true);
+  });
+
+  it("does not attribute assistant, tool, or auto-consolidation text to the user", () => {
+    const committed: UIMessage[] = [
+      assistant("assistant-only", "The user prefers multi-agent"),
+      message("tool-only", "assistant", [{
+        type: "dynamic-tool",
+        toolName: "web_search",
+        toolCallId: "call-1",
+        state: "output-available",
+        input: { query: "agents" },
+        output: { text: "Multi-agent is the future" },
+      }]),
+      message("auto-user", "user", [{ type: "text", text: "Suggested memory" }], {
+        source: AUTO_CONSOLIDATION_SOURCE,
+      }),
+      user("empty-user", ""),
+      user("real-user", "I prefer one agent"),
+    ];
+
+    for (const id of ["assistant-only", "tool-only", "auto-user", "empty-user", "missing"]) {
+      assert.equal(findCommittedUserMessage(committed, id), undefined, id);
+    }
+    assert.deepEqual(findCommittedUserMessage(committed, "real-user"), {
+      id: "real-user",
+      role: "user",
+      text: "I prefer one agent",
+    });
+  });
+
+  it("rejects ambiguous duplicate message ids", () => {
+    assert.equal(findCommittedUserMessage([user("same", "first"), user("same", "second")], "same"), undefined);
+  });
+
+  it("accepts only an exact substring quote", () => {
+    const text = "I prefer one agent";
+    assert.equal(isExactUserQuote(text, "one agent"), true);
+    assert.equal(isExactUserQuote(text, "I prefer one agent"), true);
+    assert.equal(isExactUserQuote(text, "one  agent"), false);
+    assert.equal(isExactUserQuote(text, "I prefer one Agent"), false);
+    assert.equal(isExactUserQuote(text, " multi-agent"), false);
+    assert.equal(isExactUserQuote(text, " "), false);
   });
 });

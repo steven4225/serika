@@ -244,6 +244,72 @@ describe("WorkspaceMemoryStore", () => {
     assert.equal(errorCode(invalidEnable), "MEMORY_EXPIRED");
   });
 
+  it("round-trips verified conversation provenance through updates and revision history", async () => {
+    const directory = await workspace();
+    const store = createMemoryStore(directory);
+    const firstSource = { kind: "conversation" as const, threadId: "thread-a", messageId: "user-1", quote: "single-agent" };
+    const nextSource = { kind: "conversation" as const, threadId: "thread-a", messageId: "user-2", quote: "multi-agent" };
+    const added = await store.add({ text: "Prefer single-agent design", source: firstSource });
+    assert.equal(added.ok, true);
+    if (!added.ok) return;
+    assert.deepEqual(added.entry.source, firstSource);
+
+    const preserved = await store.update(added.entry.id, { status: "disabled", expectedRevision: 1 });
+    assert.equal(preserved.ok, true);
+    if (!preserved.ok) return;
+    assert.deepEqual(preserved.entry.source, firstSource);
+
+    const manualCorrection = await store.update(added.entry.id, { text: "Prefer one agent", expectedRevision: 2 });
+    assert.equal(manualCorrection.ok, true);
+    if (!manualCorrection.ok) return;
+    assert.deepEqual(manualCorrection.entry.source, { kind: "manual" });
+
+    const revised = await store.update(added.entry.id, {
+      text: "Multi-agent is now allowed",
+      source: nextSource,
+      expectedRevision: 3,
+    });
+    assert.equal(revised.ok, true);
+    if (!revised.ok) return;
+    assert.deepEqual(revised.entry.source, nextSource);
+    assert.deepEqual(revised.entry.history?.map((revision) => revision.source), [firstSource, firstSource, { kind: "manual" }]);
+
+    const reopened = await createMemoryStore(directory).get(added.entry.id);
+    assert.equal(reopened.ok, true);
+    if (!reopened.ok) return;
+    assert.deepEqual(reopened.entry.source, nextSource);
+    assert.deepEqual(reopened.entry.history?.map((revision) => revision.source), [firstSource, firstSource, { kind: "manual" }]);
+    assert.equal(JSON.parse(await readFile(join(directory, ".runloom", "memory.json"), "utf8")).version, 2);
+  });
+
+  it("rejects malformed or forged conversation source without changing stored memory", async () => {
+    const directory = await workspace();
+    const store = createMemoryStore(directory);
+    const added = await store.add({ text: "stable memory" });
+    assert.equal(added.ok, true);
+    if (!added.ok) return;
+
+    assert.equal(errorCode(await store.add({
+      text: "unattributed",
+      source: { kind: "conversation", threadId: "thread-a", messageId: "user-1", quote: " " },
+    })), "MEMORY_SOURCE_INVALID");
+    assert.equal(errorCode(await store.add({ text: "not legacy", source: { kind: "legacy" } })), "MEMORY_SOURCE_INVALID");
+    assert.equal(errorCode(await store.update(added.entry.id, {
+      expectedRevision: 1,
+      source: { kind: "legacy" },
+    })), "MEMORY_SOURCE_INVALID");
+    const unchanged = await store.get(added.entry.id);
+    assert.equal(unchanged.ok, true);
+    if (unchanged.ok) assert.equal(unchanged.entry.revision, 1);
+
+    const file = join(directory, ".runloom", "memory.json");
+    const document = JSON.parse(await readFile(file, "utf8"));
+    document.entries[0].source = { kind: "conversation", threadId: "thread-a" };
+    await writeFile(file, JSON.stringify(document));
+    const malformed = await store.list();
+    assert.equal(malformed.ok ? undefined : malformed.error.code, "MEMORY_SOURCE_INVALID");
+  });
+
   it("serializes concurrent updates and rejects the stale revision", async () => {
     const directory = await workspace();
     const storeA = createMemoryStore(directory);
