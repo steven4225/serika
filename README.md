@@ -9,7 +9,7 @@
 - 对上提供自己的 `AgentRuntime` 契约，不让应用直接依赖 AI SDK 的循环实现。
 - 当前本地路径支持单 Agent、多步工具调用、流式事件、取消、超时，以及基于 JSONL 的对话恢复。
 - TUI 已支持受控的文件读写、当前工具调用的临时 y/n 确认，以及显式的 workspace 记忆；后台 worker 支持一次性/重复任务和结果 inbox。
-- 持久化人工审批、Web UI、RAG、长期/全局记忆、多 Agent 和 Durable 执行不在当前本地主链内。workspace JSON/JSONL 不提供可恢复的外部副作用保证。
+- 持久化人工审批、Web UI、RAG、自动提取的长期/全局记忆、多 Agent 和 Durable 执行不在当前本地主链内。workspace JSON/JSONL 不提供可恢复的外部副作用保证。
 
 完整设计见 [docs/architecture-v0.md](docs/architecture-v0.md)。
 
@@ -44,7 +44,7 @@ RUNLOOM_MODEL=minimax-m3 pnpm tui -- ./var/runloom --thread demo --workspace ./s
 
 `--workspace` 是本次进程允许文件工具访问的根目录；不传时不会注册这些工具。每次工具调用都显示相对路径并等待 `y/n` 确认。工具只接受 workspace 内的相对路径，读取普通 UTF-8 文本，单文件上限为 64 KiB；绝对路径、越界路径、符号链接、目录、非法 UTF-8 或含 NUL 的内容会被拒绝。它不按扩展名判断文本类型，也不承诺识别所有二进制格式。文件内容会进入模型上下文，并在 Run 完成后随已提交 transcript 保存。workspace 是应用层的路径边界，不提供操作系统级沙箱隔离。
 
-配置 workspace 后，TUI 提供 `list_directory`、`search_files`、`read_file`、`write_file`、`edit_file` 以及 `memory_list`、`memory_prepare_consolidation`、`memory_add`、`memory_update`、`memory_delete`。`list_directory` 列出一层目录；`search_files` 按字面量搜索符合条件的 UTF-8 文本，并跳过隐藏路径、`node_modules` 和符号链接，结果可能因上限被标记为 `truncated`。`write_file` 只创建新文件，已存在则失败，不会覆盖。`edit_file` 对已有文件做恰好一处字面量替换；找不到或多处匹配则失败。workspace 记忆保存在 `.runloom/memory.json`，只有用户明确要求时才由工具增删改；启用的条目会作为不进入 transcript 的参考消息注入模型上下文。用户明确要求整理或沉淀对话时，`memory_prepare_consolidation` 读取当前 thread 最近已提交的对话和全部记忆，下一步模型先给出普通回复建议；用户点名后才调用 `memory_add` 或 `memory_update` 保存。未使用范围授权时，每次工具调用仍需 `y/n` 确认；确认通过后写入立即生效，之后取消或 Run 失败不会回滚文件或记忆。
+配置 workspace 后，TUI 提供 `list_directory`、`search_files`、`read_file`、`write_file`、`edit_file` 以及 `memory_list`、`memory_prepare_consolidation`、`memory_add`、`memory_update`、`memory_delete`。`list_directory` 列出一层目录；`search_files` 按字面量搜索符合条件的 UTF-8 文本，并跳过隐藏路径、`node_modules` 和符号链接，结果可能因上限被标记为 `truncated`。`write_file` 只创建新文件，已存在则失败，不会覆盖。`edit_file` 对已有文件做恰好一处字面量替换；找不到或多处匹配则失败。workspace 记忆保存在 `.runloom/memory.json`，只有用户明确要求时才由工具增删改；启用的条目会作为不进入 transcript 的参考消息注入模型上下文。当前 v2 条目保留 `status`（`active`/`disabled`）、`scope`（workspace 或当前 thread）、`source`（manual 或 legacy）、创建/更新时间、可选 `expiresAt`、`revision` 和有限历史；旧 v1 文件读取时兼容，首次成功写入时升级。thread scope 由程序绑定当前 thread，工具不能提交其他 thread id。`memory_list` 和整理结果只返回当前版本，不返回历史正文。`memory_update` 必须带当前 `expectedRevision`，过期版本会返回冲突而不覆盖；写入时的上下文额度只计算当前 thread 这次会注入的条目，其他 thread 和已过期条目不占这个额度。disabled 或已过期条目不会注入，thread 条目只进入对应 thread。当前仍不自动把对话或工具输出提取为长期记忆；`memory_prepare_consolidation` 只为后续显式提议提供已提交材料，用户点名后才调用 `memory_add` 或 `memory_update` 保存。未使用范围授权时，每次工具调用仍需 `y/n` 确认；确认通过后写入立即生效，之后取消或 Run 失败不会回滚文件或记忆。
 
 当较早的完整回合因 8 回合或 128 KiB 上限被移出模型上下文时，TUI 会注入一个不超过 16 KiB 的进程内工作摘要。摘要不写入 transcript，也没有独立的持久化文件；使用同一 transcript 目录和同一 thread 重启时，会从该 thread 的已提交 transcript 确定性重建，其他 thread 的内容不会混入。这只恢复对话上下文，不是 Durable recovery：失败或取消 Run 的未提交动作不会恢复，摘要也不授予或恢复工具权限。Goal 是原始请求而不是当前磁盘状态；Completed 只保留显式 `ok:true` 的短工具回执。可用 `/history <message-id>` 或 `/history turn:<number>`（回合编号从 0 开始）只读回查摘要所引用的当前 thread 原文。
 
