@@ -724,14 +724,14 @@ describe("TUI module configuration entry", () => {
     assert.doesNotMatch(stdout, /Allow this call\? \[y\/n\]/);
   });
 
-  it("keeps web_fetch available and reports missing search credentials", async () => {
+  it("registers keyless Exa search when web search is enabled", async () => {
     const { root, configDirectory } = await createConfigWorkspace();
     const configPath = await writeConfig(configDirectory, {
       version: 1,
       modules: { web: { enabled: true, search: { enabled: true } } },
     }, "web-search.json");
     const entry = fileURLToPath(new URL("./index.js", import.meta.url));
-    const { BRAVE_SEARCH_API_KEY: _searchKey, ...baseEnv } = process.env;
+    const { BRAVE_SEARCH_API_KEY: _searchKey, EXA_API_KEY: _exaKey, ...baseEnv } = process.env;
     const child = spawn(
       process.execPath,
       [entry, "--tui", "--config", configPath],
@@ -756,7 +756,7 @@ describe("TUI module configuration entry", () => {
 
     assert.equal(code, 0, stderr);
     assert.match(stdout, /web: enabled \(web_fetch\)/);
-    assert.match(stdout, /web_search: unavailable \(missing BRAVE_SEARCH_API_KEY\)/);
+    assert.match(stdout, /web_search: enabled \(Exa MCP, no key\)/);
   });
 
   it("always exposes /modules when every configurable module is disabled", async () => {

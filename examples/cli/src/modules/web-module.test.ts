@@ -51,9 +51,9 @@ const safeResolver: ResolveWebHost = async () => [
 ];
 
 describe("createWebModule", () => {
-  it("keeps web_fetch when search is enabled without a provider key", () => {
+  it("keeps only web_fetch when search is disabled", () => {
     const host = createModuleHost(
-      [createWebModule({ searchEnabled: true })],
+      [createWebModule({ searchEnabled: false })],
       { notify: () => undefined },
     );
 
@@ -69,12 +69,11 @@ describe("createWebModule", () => {
     host.dispose();
   });
 
-  it("registers web_search only when enabled and a provider key is present", () => {
+  it("registers web_search when enabled without a provider key", () => {
     const host = createModuleHost(
       [
         createWebModule({
           searchEnabled: true,
-          searchApiKey: "test-search-key",
         }),
       ],
       { notify: () => undefined },
