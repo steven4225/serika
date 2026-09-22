@@ -3130,4 +3130,145 @@ describe("createToolConfirmation web authorization", () => {
       /http or https/,
     );
   });
+
+  it("denies later web_fetch without a prompt after web_search is refused", async () => {
+    const output = outputBuffer();
+    const confirmation = createToolConfirmation(output);
+    confirmation.beginRun();
+
+    const search = confirmation.beforeToolExecute(
+      toolInput("web_search", new AbortController().signal, {
+        query: "Node.js event loop",
+      }),
+    );
+    await Promise.resolve();
+    assert.match(output.text(), /Tool: web_search/);
+    assert.equal(confirmation.handleLine("n"), true);
+    assert.deepEqual(await search, {
+      allow: false,
+      reason: "User denied this tool call",
+    });
+
+    const prompted = output.text();
+    const fetch = confirmation.beforeToolExecute(
+      toolInput("web_fetch", new AbortController().signal, {
+        url: "https://nodejs.org/learn/asynchronous-work/event-loop-timers-and-nexttick",
+      }),
+    );
+    assert.deepEqual(await fetch, {
+      allow: false,
+      reason: "web_search was denied in this Run",
+    });
+    assert.equal(output.text(), prompted);
+    assert.doesNotMatch(output.text(), /Tool: web_fetch/);
+    assert.equal(confirmation.handleLine("n"), false);
+    confirmation.endRun();
+  });
+
+  it("does not let /authorize-web bypass a denied web_search in the same Run", async () => {
+    const output = outputBuffer();
+    const confirmation = createToolConfirmation(output);
+    confirmation.setPendingWebAuthorization(["https://nodejs.org"]);
+    confirmation.beginRun();
+
+    const search = confirmation.beforeToolExecute(
+      toolInput("web_search", new AbortController().signal, { query: "event loop" }),
+    );
+    await Promise.resolve();
+    assert.equal(confirmation.handleLine("n"), true);
+    await search;
+
+    const fetch = confirmation.beforeToolExecute(
+      toolInput("web_fetch", new AbortController().signal, {
+        url: "https://nodejs.org/learn/asynchronous-work/event-loop-timers-and-nexttick",
+      }),
+    );
+    assert.deepEqual(await fetch, {
+      allow: false,
+      reason: "web_search was denied in this Run",
+    });
+    assert.doesNotMatch(output.text(), /Tool: web_fetch/);
+    confirmation.endRun();
+  });
+
+  it("clears the search-denial latch when the Run ends", async () => {
+    const output = outputBuffer();
+    const confirmation = createToolConfirmation(output);
+    confirmation.beginRun();
+    const search = confirmation.beforeToolExecute(
+      toolInput("web_search", new AbortController().signal, { query: "event loop" }),
+    );
+    await Promise.resolve();
+    assert.equal(confirmation.handleLine("n"), true);
+    await search;
+    confirmation.endRun();
+
+    confirmation.beginRun();
+    const fetch = confirmation.beforeToolExecute(
+      toolInput("web_fetch", new AbortController().signal, {
+        url: "https://nodejs.org/learn/asynchronous-work/event-loop-timers-and-nexttick",
+      }),
+    );
+    await Promise.resolve();
+    assert.match(output.text(), /Tool: web_fetch/);
+    assert.equal(confirmation.handleLine("n"), true);
+    assert.deepEqual(await fetch, {
+      allow: false,
+      reason: "User denied this tool call",
+    });
+    confirmation.endRun();
+  });
+
+  it("still asks for web_fetch after an approved web_search", async () => {
+    const output = outputBuffer();
+    const confirmation = createToolConfirmation(output);
+    confirmation.beginRun();
+    const search = confirmation.beforeToolExecute(
+      toolInput("web_search", new AbortController().signal, { query: "event loop" }),
+    );
+    await Promise.resolve();
+    assert.equal(confirmation.handleLine("y"), true);
+    assert.deepEqual(await search, { allow: true });
+
+    const fetch = confirmation.beforeToolExecute(
+      toolInput("web_fetch", new AbortController().signal, {
+        url: "https://nodejs.org/learn/asynchronous-work/event-loop-timers-and-nexttick",
+      }),
+    );
+    await Promise.resolve();
+    assert.match(output.text(), /Tool: web_fetch/);
+    assert.equal(confirmation.handleLine("n"), true);
+    assert.deepEqual(await fetch, {
+      allow: false,
+      reason: "User denied this tool call",
+    });
+    confirmation.endRun();
+  });
+
+  it("does not latch web_fetch denial after an aborted search confirmation", async () => {
+    const output = outputBuffer();
+    const confirmation = createToolConfirmation(output);
+    confirmation.beginRun();
+    const controller = new AbortController();
+    const search = confirmation.beforeToolExecute(
+      toolInput("web_search", controller.signal, { query: "event loop" }),
+    );
+    await Promise.resolve();
+    controller.abort(new Error("cancelled"));
+    await assert.rejects(Promise.resolve(search), /cancelled/);
+
+    const fetch = confirmation.beforeToolExecute(
+      toolInput("web_fetch", new AbortController().signal, {
+        url: "https://nodejs.org/learn/asynchronous-work/event-loop-timers-and-nexttick",
+      }),
+    );
+    await Promise.resolve();
+    assert.match(output.text(), /Tool: web_fetch/);
+    assert.equal(confirmation.handleLine("n"), true);
+    assert.deepEqual(await fetch, {
+      allow: false,
+      reason: "User denied this tool call",
+    });
+    confirmation.endRun();
+  });
 });

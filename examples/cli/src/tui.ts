@@ -302,11 +302,14 @@ function confirmationPrompt(
 }
 
 interface PendingConfirmation {
+  toolName: string;
   signal: AbortSignal;
   onAbort: () => void;
   resolve: (decision: ToolExecutionDecision) => void;
   reject: (reason: unknown) => void;
 }
+
+const SEARCH_DENIED_FETCH_REASON = "web_search was denied in this Run";
 
 export function createToolConfirmation(
   output: Writable,
@@ -318,6 +321,7 @@ export function createToolConfirmation(
   } = {},
 ): ToolConfirmation {
   let pending: PendingConfirmation | undefined;
+  let searchDeniedThisRun = false;
   let nextRunAuthorization: RunAuthorization | undefined;
   let activeRunAuthorization: RunAuthorization | undefined;
   let nextShellAuthorization = false;
@@ -338,6 +342,12 @@ export function createToolConfirmation(
     if (input.signal.aborted) return Promise.reject(abortReason(input.signal));
     if (AUTO_APPROVED_TOOL_NAMES.has(input.toolName)) {
       return Promise.resolve({ allow: true });
+    }
+    if (searchDeniedThisRun && input.toolName === "web_fetch") {
+      return Promise.resolve({
+        allow: false,
+        reason: SEARCH_DENIED_FETCH_REASON,
+      });
     }
     if (activeShellAuthorization && input.toolName === "shell_exec") {
       return Promise.resolve({ allow: true });
@@ -366,7 +376,7 @@ export function createToolConfirmation(
       clearPending(entry);
       reject(abortReason(input.signal));
     };
-    entry = { signal: input.signal, onAbort, resolve, reject };
+    entry = { toolName: input.toolName, signal: input.signal, onAbort, resolve, reject };
     pending = entry;
     input.signal.addEventListener("abort", onAbort, { once: true });
     if (input.signal.aborted) {
@@ -419,6 +429,7 @@ export function createToolConfirmation(
     if (answer === "y") {
       entry.resolve({ allow: true });
     } else {
+      if (entry.toolName === "web_search") searchDeniedThisRun = true;
       entry.resolve({ allow: false, reason: "User denied this tool call" });
     }
     return true;
@@ -446,6 +457,7 @@ export function createToolConfirmation(
   };
 
   const beginRun = (): void => {
+    searchDeniedThisRun = false;
     activeRunAuthorization = nextRunAuthorization;
     nextRunAuthorization = undefined;
     activeShellAuthorization =
@@ -456,6 +468,7 @@ export function createToolConfirmation(
   };
 
   const endRun = (): void => {
+    searchDeniedThisRun = false;
     activeRunAuthorization = undefined;
     activeShellAuthorization = false;
     activeWebAuthorization = undefined;
