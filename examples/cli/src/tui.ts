@@ -534,7 +534,17 @@ type CompletedTaskAction = {
   prompt: string;
 };
 
-type CompletedAction = CompletedFileAction | CompletedPomodoroAction | CompletedTaskAction;
+type CompletedMemoryAction = {
+  toolName: "memory_add" | "memory_update";
+  id: string;
+  revision: number;
+};
+
+type CompletedAction =
+  | CompletedFileAction
+  | CompletedPomodoroAction
+  | CompletedTaskAction
+  | CompletedMemoryAction;
 
 type UnknownToolAction = {
   toolName: string;
@@ -661,6 +671,40 @@ function completedTaskAction(
   };
 }
 
+function positiveSafeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
+}
+
+function completedMemoryAction(
+  event: Extract<AgentEvent, { type: "tool.call.completed" }>,
+): CompletedMemoryAction | undefined {
+  if (event.data.toolName !== "memory_add" && event.data.toolName !== "memory_update") {
+    return undefined;
+  }
+  const output = event.data.output;
+  if (typeof output !== "object" || output === null) return undefined;
+  const result = output as {
+    ok?: unknown;
+    entry?: { id?: unknown; revision?: unknown } | null;
+  };
+  const entry = result.entry;
+  if (
+    result.ok !== true ||
+    typeof entry !== "object" ||
+    entry === null ||
+    typeof entry.id !== "string" ||
+    entry.id.length === 0 ||
+    !positiveSafeInteger(entry.revision)
+  ) {
+    return undefined;
+  }
+  return {
+    toolName: event.data.toolName,
+    id: entry.id,
+    revision: entry.revision,
+  };
+}
+
 function renderHistory(output: Writable, messages: UIMessage[]): void {
   if (messages.length === 0) return;
 
@@ -734,6 +778,8 @@ async function renderEvents(
         if (pomodoroAction !== undefined) completedActions.push(pomodoroAction);
         const taskAction = completedTaskAction(event);
         if (taskAction !== undefined) completedActions.push(taskAction);
+        const memoryAction = completedMemoryAction(event);
+        if (memoryAction !== undefined) completedActions.push(memoryAction);
         break;
       }
       default:
@@ -773,6 +819,12 @@ function renderResult(
           output,
           `- task_create: 已创建任务 ${action.id}，执行时间 ${action.runAt}，内容：${action.prompt}\n`,
         );
+      } else if ("revision" in action) {
+        if (action.toolName === "memory_add") {
+          write(output, `- memory_add: 已保存记忆 ${action.id}，版本 ${action.revision}\n`);
+        } else {
+          write(output, `- memory_update: 已更新记忆 ${action.id}，版本 ${action.revision}\n`);
+        }
       } else {
         write(output, `- ${action.toolName}: ${action.summary}\n`);
       }

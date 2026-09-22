@@ -1452,6 +1452,130 @@ describe("runTui", () => {
     assert.doesNotMatch(output.text(), /task-1/);
   });
 
+  it("reports a saved memory when the run fails afterward", async () => {
+    const input = new PassThrough();
+    const output = outputBuffer();
+    const events = asyncQueue<AgentEvent>();
+    const runtime = testRuntime([
+      handleFor({
+        runId: "run-memory",
+        threadId: "thread-memory",
+        events,
+        result: Promise.resolve(failedResult("run-memory", "thread-memory")),
+      }),
+    ]);
+
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: runtime.runtime,
+      store: { getMessages: async () => [] },
+      input,
+      output,
+    });
+    await nextTurn();
+    input.write("记住我使用 pnpm。\n");
+    await waitFor(() => runtime.requests.length === 1);
+    events.push(
+      toolCompletedEvent("run-memory", "thread-memory", "memory_add", {
+        ok: true,
+        entry: { id: "mem-1", revision: 2 },
+      }),
+    );
+    events.push(
+      toolCompletedEvent("run-memory", "thread-memory", "memory_update", {
+        ok: true,
+        entry: { id: "mem-1", revision: 3 },
+      }),
+    );
+    events.close();
+    input.end();
+    await tui;
+
+    assert.match(
+      output.text(),
+      /已完成的操作：\n- memory_add: 已保存记忆 mem-1，版本 2\n- memory_update: 已更新记忆 mem-1，版本 3/,
+    );
+  });
+
+  it("does not report a memory when memory_add returns ok:false and the run fails", async () => {
+    const input = new PassThrough();
+    const output = outputBuffer();
+    const events = asyncQueue<AgentEvent>();
+    const runtime = testRuntime([
+      handleFor({
+        runId: "run-memory-denied",
+        threadId: "thread-memory-denied",
+        events,
+        result: Promise.resolve(failedResult("run-memory-denied", "thread-memory-denied")),
+      }),
+    ]);
+
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: runtime.runtime,
+      store: { getMessages: async () => [] },
+      input,
+      output,
+    });
+    await nextTurn();
+    input.write("不要保存这条记忆。\n");
+    await waitFor(() => runtime.requests.length === 1);
+    events.push(
+      toolCompletedEvent("run-memory-denied", "thread-memory-denied", "memory_add", {
+        ok: false,
+        error: { code: "MEMORY_WRITE_FAILED", message: "user denied" },
+      }),
+    );
+    events.close();
+    input.end();
+    await tui;
+
+    assert.match(output.text(), /Run failed/);
+    assert.doesNotMatch(output.text(), /已完成的操作/);
+    assert.doesNotMatch(output.text(), /已保存记忆/);
+  });
+
+  it("does not repeat a saved memory receipt when the run completes", async () => {
+    const input = new PassThrough();
+    const output = outputBuffer();
+    const events = asyncQueue<AgentEvent>();
+    const runtime = testRuntime([
+      handleFor({
+        runId: "run-memory-completed",
+        threadId: "thread-memory-completed",
+        events,
+        result: Promise.resolve(
+          completedResult("run-memory-completed", "thread-memory-completed", "已记住。"),
+        ),
+      }),
+    ]);
+
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: runtime.runtime,
+      store: { getMessages: async () => [] },
+      input,
+      output,
+    });
+    await nextTurn();
+    input.write("记住我使用 pnpm。\n");
+    await waitFor(() => runtime.requests.length === 1);
+    events.push(
+      toolCompletedEvent("run-memory-completed", "thread-memory-completed", "memory_add", {
+        ok: true,
+        entry: { id: "mem-1", revision: 1 },
+      }),
+    );
+    events.push(messageDeltaEvent("run-memory-completed", "thread-memory-completed", "已记住。"));
+    events.close();
+    input.end();
+    await tui;
+
+    assert.match(output.text(), /已记住。/);
+    assert.doesNotMatch(output.text(), /已完成的操作/);
+    assert.doesNotMatch(output.text(), /已保存记忆 mem-1，版本 1/);
+  });
+
   it("exits when Ctrl+C is pressed while idle without submitting a run", async () => {
     const input = ttyInput();
     const output = ttyOutput();

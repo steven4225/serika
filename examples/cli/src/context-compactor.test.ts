@@ -10,6 +10,10 @@ import { AgentError } from "@aisdk-agent/core";
 import { ContextCompactor } from "./context-compactor.js";
 import type { ContextSummaryV2, Summarizer } from "./context-compaction.js";
 import type { ContextBudgetConfig } from "./context-budget.js";
+import {
+  createMemoryContextMessage,
+  selectValidMemoryEntries,
+} from "./context-window.js";
 
 const budget: ContextBudgetConfig = {
   enabled: true,
@@ -118,6 +122,72 @@ describe("ContextCompactor", () => {
       String(store.records[0]?.sourcePrefixHash ?? ""),
       /^compact-prefix\/jcs-sha256:v1:/,
     );
+  });
+
+  it("restores an old decision in the summary and injects only the current memory", async () => {
+    const store = new FakeStore();
+    const oldDecision = "prefer single agent";
+    const currentDecision = "multi-agent is allowed";
+    const summarizer: Summarizer = {
+      async complete() {
+        return {
+          text: JSON.stringify({
+            ...summary,
+            decisions: [{
+              text: oldDecision,
+              evidenceMessageIds: ["u1"],
+              source: "user",
+              status: "confirmed",
+            }],
+          }),
+        };
+      },
+    };
+    const messages = [
+      user("u1", "old goal ".repeat(40)),
+      assistant("a1", "old result ".repeat(40)),
+      user("u2", "new request ".repeat(4)),
+      assistant("a2", "recent result ".repeat(4)),
+    ];
+    await makeCompactor(store, summarizer, roomyBudget).prepare(messages, new AbortController().signal, true);
+
+    let restartedCalls = 0;
+    const restarted = await makeCompactor(store, {
+      async complete() {
+        restartedCalls += 1;
+        throw new Error("restart must reuse the saved summary");
+      },
+    }, roomyBudget).prepare(messages, new AbortController().signal);
+    assert.equal(restartedCalls, 0);
+    const summaryText = restarted
+      .filter((message) => message.id === "runloom-context-summary")
+      .flatMap((message) => message.parts)
+      .filter((part) => part.type === "text")
+      .map((part) => part.text)
+      .join("\n");
+    assert.match(summaryText, /prefer single agent/);
+
+    const memory = createMemoryContextMessage(selectValidMemoryEntries([{
+      id: "mem-1",
+      text: currentDecision,
+      enabled: true,
+      status: "active",
+      scope: { kind: "workspace" },
+      history: [{
+        revision: 1,
+        text: oldDecision,
+        status: "active",
+        scope: { kind: "workspace" },
+        expiresAt: null,
+        source: { kind: "manual" },
+        changedAt: "2026-09-01T00:00:00.000Z",
+      }],
+    }], { threadId: "thread-1", now: new Date("2026-09-22T00:00:00.000Z") }));
+    assert.ok(memory);
+    const memoryText = memory.parts.filter((part) => part.type === "text").map((part) => part.text).join("\n");
+    assert.match(memoryText, /multi-agent is allowed/);
+    assert.doesNotMatch(memoryText, /prefer single agent/);
+    assert.equal(restarted[0]?.id === "runloom-context-summary" || restarted.some((message) => message.id === "runloom-context-summary"), true);
   });
 
   it("reuses a valid persisted summary after reopen without another summary call", async () => {

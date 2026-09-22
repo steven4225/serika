@@ -109,7 +109,7 @@ function toolByName(tools: RegisteredTool[], name: string): RegisteredTool {
 }
 
 describe("createMemoryModule", () => {
-  it("registers the four memory tools with the frozen metadata", () => {
+  it("registers the memory tools with the frozen metadata", () => {
     const { store } = createStore();
     const tools = setupTools(store);
 
@@ -118,6 +118,13 @@ describe("createMemoryModule", () => {
       [
         {
           name: "memory_list",
+          version: "1",
+          risk: "read",
+          timeoutMs: 1_000,
+          idempotent: true,
+        },
+        {
+          name: "memory_get",
           version: "1",
           risk: "read",
           timeoutMs: 1_000,
@@ -178,7 +185,7 @@ describe("createMemoryModule", () => {
   it("registers consolidation only when a bound message reader is supplied", () => {
     const { store } = createStore();
     const tools = setupTools(store, async () => []);
-    assert.equal(tools.length, 5);
+    assert.equal(tools.length, 6);
     assert.deepEqual(toolByName(tools, "memory_prepare_consolidation").metadata, {
       name: "memory_prepare_consolidation",
       version: "1",
@@ -246,6 +253,91 @@ describe("createMemoryModule", () => {
       { method: "add", args: [{ text: "use vitest", enabled: false }] },
       { method: "update", args: ["one", { expectedRevision: 1, enabled: false }] },
       { method: "delete", args: ["two"] },
+    ]);
+  });
+
+  it("routes memory_get to store.get and passes MEMORY_ENTRY_NOT_FOUND through", async () => {
+    const { store, calls } = createStore();
+    const get = toolByName(setupTools(store), "memory_get").tool;
+    const context = { toolCallId: "memory-get", messages: [], context: {} };
+
+    assert.deepEqual(await get.execute!({ id: "one" }, context), {
+      ok: true,
+      entry: entry("one", "pnpm"),
+    });
+    assert.deepEqual(await get.execute!({ id: "missing" }, context), {
+      ok: false,
+      error: { code: "MEMORY_ENTRY_NOT_FOUND", message: "Memory not found" },
+    });
+    assert.deepEqual(calls, [
+      { method: "get", args: ["one"] },
+      { method: "get", args: ["missing"] },
+    ]);
+  });
+
+  it("returns history and a conversation quote while list still omits history", async () => {
+    const { store, calls } = createStore();
+    const stored: MemoryEntry = {
+      id: "one",
+      text: "short plans",
+      enabled: true,
+      status: "active",
+      scope: { kind: "workspace" },
+      source: {
+        kind: "conversation",
+        threadId: "thread-a",
+        messageId: "user-1",
+        quote: "I prefer short plans",
+      },
+      revision: 2,
+      history: [{
+        revision: 1,
+        text: "previous fact",
+        status: "active",
+        scope: { kind: "workspace" },
+        expiresAt: null,
+        source: { kind: "manual" },
+        changedAt: "2026-09-01T00:00:00.000Z",
+      }],
+    };
+    const readingStore = {
+      ...store,
+      list: async () => {
+        calls.push({ method: "list", args: [] });
+        return { ok: true as const, entries: [stored] };
+      },
+      get: async (id: string) => {
+        calls.push({ method: "get", args: [id] });
+        return id === stored.id
+          ? { ok: true as const, entry: stored }
+          : { ok: false as const, error: { code: "MEMORY_ENTRY_NOT_FOUND" as const, message: "Memory not found" } };
+      },
+    } satisfies WorkspaceMemoryStore;
+    const tools = setupTools(readingStore);
+    const context = { toolCallId: "memory-get-history", messages: [], context: {} };
+
+    assert.deepEqual(
+      await toolByName(tools, "memory_get").tool.execute!({ id: "one" }, context),
+      { ok: true, entry: stored },
+    );
+    assert.deepEqual(
+      await toolByName(tools, "memory_list").tool.execute!({}, context),
+      {
+        ok: true,
+        entries: [{
+          id: "one",
+          text: "short plans",
+          enabled: true,
+          status: "active",
+          scope: { kind: "workspace" },
+          source: stored.source,
+          revision: 2,
+        }],
+      },
+    );
+    assert.deepEqual(calls, [
+      { method: "get", args: ["one"] },
+      { method: "list", args: [] },
     ]);
   });
 

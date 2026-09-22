@@ -102,6 +102,13 @@ const memoryListMetadata: RegisteredTool["metadata"] = {
   timeoutMs: 1_000,
   idempotent: true,
 };
+const memoryGetMetadata: RegisteredTool["metadata"] = {
+  name: "memory_get",
+  version: "1",
+  risk: "read",
+  timeoutMs: 1_000,
+  idempotent: true,
+};
 const memoryAddMetadata: RegisteredTool["metadata"] = {
   name: "memory_add",
   version: "1",
@@ -132,6 +139,7 @@ const memoryPrepareConsolidationMetadata: RegisteredTool["metadata"] = {
 };
 
 const memoryListInputSchema = z.object({});
+const memoryGetInputSchema = z.object({ id: z.string().min(1) });
 const memoryAddInputSchema = z.object({
   text: z.string().refine((value) => value.trim().length > 0, {
     message: "text must be non-empty",
@@ -285,6 +293,16 @@ export function createMemoryModule(
           return { ok: true, entries: listed.entries.map(presentMemoryEntry) };
         },
       });
+      const memoryGetTool = tool({
+        description: "Read one saved memory, including its source quote and revision history, when the user asks where it came from or what changed. A conversation quote is the excerpt verified at save time, not proof the original message is still in this thread JSONL or recoverable with /history. Do not infer new memories. History is prior revisions, not the current fact.",
+        inputSchema: memoryGetInputSchema,
+        outputSchema: memoryEntryOutputSchema,
+        execute: async ({ id }, { abortSignal }): Promise<MemoryEntryResult> => {
+          const signal = abortSignal ?? neverAborted;
+          throwIfAborted(signal);
+          return store.get(id, signal);
+        },
+      });
       const memoryAddTool = tool({
         description: "Save a workspace memory only after the user explicitly confirms it. If it was proposed from conversation, supply the committed user sourceMessageId and a sourceQuote copied exactly from that message; the program verifies the quote. A memory is active by default. scope.kind thread means the active thread; do not supply a thread id. expiresAt is optional.",
         inputSchema: memoryAddInputSchema,
@@ -393,6 +411,7 @@ export function createMemoryModule(
           });
 
       ctx.registerTool({ metadata: memoryListMetadata, tool: memoryListTool });
+      ctx.registerTool({ metadata: memoryGetMetadata, tool: memoryGetTool });
       ctx.registerTool({ metadata: memoryAddMetadata, tool: memoryAddTool });
       ctx.registerTool({ metadata: memoryUpdateMetadata, tool: memoryUpdateTool });
       ctx.registerTool({ metadata: memoryDeleteMetadata, tool: memoryDeleteTool });
