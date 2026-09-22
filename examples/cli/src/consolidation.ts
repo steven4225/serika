@@ -55,6 +55,32 @@ function textOf(message: UIMessage): string | undefined {
   return text.trim().length === 0 ? undefined : text;
 }
 
+/**
+ * True when quote is a non-blank exact substring of the user message text.
+ * Matching does not trim, collapse whitespace, or otherwise normalize either side.
+ */
+export function isExactUserQuote(text: string, quote: string): boolean {
+  return quote.trim().length > 0 && text.includes(quote);
+}
+
+/** Resolve provenance only from one committed, ordinary user message. */
+export function findCommittedUserMessage(
+  committedMessages: readonly UIMessage[],
+  messageId: string,
+): ConsolidationMessage | undefined {
+  if (messageId.length === 0) return undefined;
+  let found: ConsolidationMessage | undefined;
+  for (const message of committedMessages) {
+    if (message.id !== messageId) continue;
+    if (found !== undefined || message.role !== "user" || isAutoConsolidationRequest(message)) {
+      return undefined;
+    }
+    found = messageOf(message);
+    if (found === undefined) return undefined;
+  }
+  return found;
+}
+
 function messageOf(message: UIMessage): ConsolidationMessage | undefined {
   if (message.role !== "user" && message.role !== "assistant") return undefined;
   const text = textOf(message);
@@ -63,7 +89,8 @@ function messageOf(message: UIMessage): ConsolidationMessage | undefined {
 
 /**
  * Select recent complete user-started turns from a committed transcript.
- * Auto-consolidation turns are excluded, and prefix messages before the first
+ * Only ordinary user text is returned. Assistant replies, tool results, and
+ * auto-consolidation turns are omitted, and prefix messages before the first
  * user message are not a consolidation turn.
  */
 export function consolidateMessages(
@@ -94,8 +121,9 @@ export function consolidateMessages(
     ok: true,
     turns: eligibleTurns.slice(-turns).flatMap((turn) => {
       const messages = turn.flatMap((message) => {
+        if (message.role !== "user" || isAutoConsolidationRequest(message)) return [];
         const selected = messageOf(message);
-        return selected === undefined ? [] : [selected];
+        return selected?.role === "user" ? [selected] : [];
       });
       return messages.length === 0 ? [] : [{ messages }];
     }),

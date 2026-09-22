@@ -5,12 +5,15 @@ import type { AgentModule } from "../module-host.js";
 import { MAX_CONTEXT_BYTES } from "../context-window.js";
 import {
   consolidateMessages,
+  findCommittedUserMessage,
+  isExactUserQuote,
   MAX_CONSOLIDATION_TURNS,
   type ConsolidationTurn,
 } from "../consolidation.js";
 import type {
   MemoryEntry,
   MemoryEntryResult,
+  MemoryFailure,
   MemoryDeleteResult,
   MemoryScope,
   MemoryStatus,
@@ -31,7 +34,16 @@ const memoryScopeInputSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("workspace") }).strict(),
   z.object({ kind: z.literal("thread") }).strict(),
 ]);
-const memorySourceSchema = z.object({ kind: z.enum(["manual", "legacy"]) });
+const memorySourceSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("manual") }),
+  z.object({ kind: z.literal("legacy") }),
+  z.object({
+    kind: z.literal("conversation"),
+    threadId: z.string().min(1),
+    messageId: z.string().min(1),
+    quote: z.string().min(1),
+  }),
+]);
 const memoryEntrySchema = z.object({
   id: z.string(),
   text: z.string(),
@@ -128,6 +140,10 @@ const memoryAddInputSchema = z.object({
   status: z.enum(["active", "disabled"]).optional(),
   scope: memoryScopeInputSchema.optional(),
   expiresAt: z.string().nullable().optional(),
+  sourceMessageId: z.string().min(1).optional(),
+  sourceQuote: z.string().min(1).optional(),
+}).refine(({ sourceMessageId, sourceQuote }) => (sourceMessageId === undefined) === (sourceQuote === undefined), {
+  message: "sourceMessageId and sourceQuote must be provided together",
 });
 const memoryUpdateInputSchema = z
   .object({
@@ -140,14 +156,20 @@ const memoryUpdateInputSchema = z
     status: z.enum(["active", "disabled"]).optional(),
     scope: memoryScopeInputSchema.optional(),
     expiresAt: z.string().nullable().optional(),
+    sourceMessageId: z.string().min(1).optional(),
+    sourceQuote: z.string().min(1).optional(),
   })
-  .refine(({ text, enabled, status, scope, expiresAt }) =>
+  .refine(({ text, enabled, status, scope, expiresAt, sourceMessageId }) =>
     text !== undefined ||
     enabled !== undefined ||
     status !== undefined ||
     scope !== undefined ||
-    expiresAt !== undefined, {
+    expiresAt !== undefined ||
+    sourceMessageId !== undefined, {
     message: "at least one field must be provided",
+  })
+  .refine(({ sourceMessageId, sourceQuote }) => (sourceMessageId === undefined) === (sourceQuote === undefined), {
+    message: "sourceMessageId and sourceQuote must be provided together",
   });
 const memoryDeleteInputSchema = z.object({ id: z.string().min(1) });
 const memoryPrepareConsolidationInputSchema = z.object({
@@ -219,6 +241,34 @@ export function createMemoryModule(
     ...(options.threadId === undefined ? {} : { boundThreadId: options.threadId }),
     now: options.now?.() ?? new Date(),
   });
+  const sourceFromCommittedUser = async (
+    messageId: string,
+    quote: string,
+    signal: AbortSignal,
+  ): Promise<{ ok: true; source: { kind: "conversation"; threadId: string; messageId: string; quote: string } } | MemoryFailure> => {
+    if (options.threadId === undefined || getMessages === undefined) {
+      return { ok: false as const, error: { code: "INVALID_INPUT", message: "Conversation source requires the active thread and committed transcript" } };
+    }
+    let messages: UIMessage[];
+    try {
+      messages = await getMessages(signal);
+    } catch (error) {
+      if (signal.aborted) throw abortReason(signal);
+      return {
+        ok: false,
+        error: { code: "READ_FAILED", message: error instanceof Error ? error.message : "Unable to read committed transcript" },
+      };
+    }
+    throwIfAborted(signal);
+    const committed = findCommittedUserMessage(messages, messageId);
+    if (committed === undefined) {
+      return { ok: false as const, error: { code: "INVALID_INPUT", message: "sourceMessageId must identify a committed user message in the active thread" } };
+    }
+    if (!isExactUserQuote(committed.text, quote)) {
+      return { ok: false as const, error: { code: "INVALID_INPUT", message: "sourceQuote must be an exact substring of that committed user message" } };
+    }
+    return { ok: true as const, source: { kind: "conversation" as const, threadId: options.threadId, messageId, quote } };
+  };
 
   return {
     id: "memory",
@@ -236,16 +286,21 @@ export function createMemoryModule(
         },
       });
       const memoryAddTool = tool({
-        description: "Save a workspace memory only when the user explicitly asks you to remember it. A memory is active by default. scope.kind thread means the active thread; do not supply a thread id. expiresAt is optional.",
+        description: "Save a workspace memory only after the user explicitly confirms it. If it was proposed from conversation, supply the committed user sourceMessageId and a sourceQuote copied exactly from that message; the program verifies the quote. A memory is active by default. scope.kind thread means the active thread; do not supply a thread id. expiresAt is optional.",
         inputSchema: memoryAddInputSchema,
         outputSchema: memoryEntryOutputSchema,
-        execute: async ({ text, enabled, status, scope, expiresAt }, { abortSignal }): Promise<MemoryEntryResult> => {
+        execute: async ({ text, enabled, status, scope, expiresAt, sourceMessageId, sourceQuote }, { abortSignal }): Promise<MemoryEntryResult> => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
           const bound = bindScope(scope, options.threadId);
           if (!bound.ok) return bound;
+          const provenance = sourceMessageId === undefined || sourceQuote === undefined
+            ? undefined
+            : await sourceFromCommittedUser(sourceMessageId, sourceQuote, signal);
+          if (provenance !== undefined && !provenance.ok) return provenance;
           const saved = await store.add({
             text,
+            ...(provenance === undefined ? {} : { source: provenance.source }),
             ...(enabled === undefined ? {} : { enabled }),
             ...(status === undefined ? {} : { status: status as MemoryStatus }),
             ...(bound.scope === undefined ? {} : { scope: bound.scope }),
@@ -256,16 +311,21 @@ export function createMemoryModule(
         },
       });
       const memoryUpdateTool = tool({
-        description: "Update a workspace memory only when the user explicitly asks to change it. Include the current expectedRevision; stale revisions are rejected. scope.kind thread means the active thread; do not supply a thread id.",
+        description: "Update a workspace memory only after the user explicitly confirms the change. Include the current expectedRevision; stale revisions are rejected. If the change came from conversation, supply the committed user sourceMessageId and a sourceQuote copied exactly from that message. scope.kind thread means the active thread; do not supply a thread id.",
         inputSchema: memoryUpdateInputSchema,
         outputSchema: memoryEntryOutputSchema,
-        execute: async ({ id, expectedRevision, text, enabled, status, scope, expiresAt }, { abortSignal }): Promise<MemoryEntryResult> => {
+        execute: async ({ id, expectedRevision, text, enabled, status, scope, expiresAt, sourceMessageId, sourceQuote }, { abortSignal }): Promise<MemoryEntryResult> => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
           const bound = bindScope(scope, options.threadId);
           if (!bound.ok) return bound;
+          const provenance = sourceMessageId === undefined || sourceQuote === undefined
+            ? undefined
+            : await sourceFromCommittedUser(sourceMessageId, sourceQuote, signal);
+          if (provenance !== undefined && !provenance.ok) return provenance;
           const input: MemoryUpdateInput = {
             expectedRevision,
+            ...(provenance === undefined ? {} : { source: provenance.source }),
             ...(text === undefined ? {} : { text }),
             ...(enabled === undefined ? {} : { enabled }),
             ...(status === undefined ? {} : { status: status as MemoryStatus }),
@@ -291,7 +351,7 @@ export function createMemoryModule(
         ? undefined
         : tool({
             description:
-              "Prepare recent committed conversation turns and all workspace memories for a manual memory consolidation review. This is read-only; do not write memories in the same turn.",
+              "Prepare recent committed user messages and current workspace memories for a manual memory consolidation review. Assistant replies, tool results, and auto-consolidation turns are omitted. This is read-only; do not write memories in the same turn.",
             inputSchema: memoryPrepareConsolidationInputSchema,
             outputSchema: consolidationOutputSchema,
             execute: async ({ turns: requestedTurns }, { abortSignal }): Promise<ConsolidationResult> => {

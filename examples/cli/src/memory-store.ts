@@ -26,7 +26,10 @@ export type MemoryScope =
   | { kind: "workspace" }
   | { kind: "thread"; threadId: string };
 
-export type MemorySource = { kind: "manual" } | { kind: "legacy" };
+export type MemorySource =
+  | { kind: "manual" }
+  | { kind: "legacy" }
+  | { kind: "conversation"; threadId: string; messageId: string; quote: string };
 
 export interface MemoryRevision {
   revision: number;
@@ -78,6 +81,8 @@ export interface MemoryUpdateInput {
   status?: MemoryStatus;
   scope?: MemoryScope;
   expiresAt?: string | null;
+  /** Only trusted callers may attach a verified committed user message. */
+  source?: MemorySource;
   expectedRevision: number;
 }
 
@@ -219,10 +224,18 @@ function validateSource(value: unknown): MemorySource {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     raise("MEMORY_SOURCE_INVALID", "Memory source must be an object");
   }
-  const source = value as { kind?: unknown };
+  const source = value as { kind?: unknown; threadId?: unknown; messageId?: unknown; quote?: unknown };
   if (source.kind === "manual") return { kind: "manual" };
   if (source.kind === "legacy") return { kind: "legacy" };
-  raise("MEMORY_SOURCE_INVALID", "Memory source must be manual or legacy");
+  if (source.kind === "conversation") {
+    if (typeof source.threadId !== "string" || source.threadId.length === 0 ||
+      typeof source.messageId !== "string" || source.messageId.length === 0 ||
+      typeof source.quote !== "string" || source.quote.trim().length === 0) {
+      raise("MEMORY_SOURCE_INVALID", "Conversation source requires a thread id, message id, and non-blank quote");
+    }
+    return { kind: "conversation", threadId: source.threadId, messageId: source.messageId, quote: source.quote };
+  }
+  raise("MEMORY_SOURCE_INVALID", "Memory source must be manual, legacy, or conversation");
 }
 
 function validateTimestamp(value: unknown, field: string): string | null {
@@ -526,7 +539,7 @@ export class WorkspaceMemoryStoreImpl implements WorkspaceMemoryStore {
       assertThreadBinding(scope, options);
       const expiresAt = input.expiresAt === undefined ? null : validateTimestamp(input.expiresAt, "Memory expiresAt");
       const source: MemorySource = input.source === undefined ? { kind: "manual" } : validateSource(input.source);
-      if (source.kind === "legacy") return fail("MEMORY_SOURCE_INVALID", "New memory entries must use the manual source");
+      if (source.kind === "legacy") return fail("MEMORY_SOURCE_INVALID", "New memory entries cannot use the legacy source");
       const now = writeNow(options).toISOString();
       const entry: MemoryEntry = {
         id: randomUUID(),
@@ -562,7 +575,7 @@ export class WorkspaceMemoryStoreImpl implements WorkspaceMemoryStore {
     try {
       if (typeof id !== "string" || id.length === 0) raise("INVALID_INPUT", "Memory entry id must be non-empty");
       if (typeof input !== "object" || input === null || Object.keys(input).length === 0) raise("INVALID_INPUT", "Memory update must change text or status");
-      if (!["text", "enabled", "status", "scope", "expiresAt"].some((key) => key in input)) raise("INVALID_INPUT", "Memory update must change text, status, scope, or expiry");
+      if (!["text", "enabled", "status", "scope", "expiresAt", "source"].some((key) => key in input)) raise("INVALID_INPUT", "Memory update must change text, status, scope, expiry, or source");
       const expectedRevision = input.expectedRevision;
       if (expectedRevision === undefined) raise("MEMORY_REVISION_REQUIRED", "Memory update requires a positive expectedRevision");
       if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) raise("MEMORY_REVISION_REQUIRED", "Memory update requires a positive expectedRevision");
@@ -572,6 +585,8 @@ export class WorkspaceMemoryStoreImpl implements WorkspaceMemoryStore {
       if ("enabled" in input && "status" in input && input.enabled !== (input.status === "active")) raise("INVALID_INPUT", "Memory enabled must match status");
       if ("scope" in input && input.scope !== undefined) validateScope(input.scope);
       if ("expiresAt" in input && input.expiresAt !== undefined) validateTimestamp(input.expiresAt, "Memory expiresAt");
+      const source = input.source === undefined ? undefined : validateSource(input.source);
+      if (source?.kind === "legacy") raise("MEMORY_SOURCE_INVALID", "Memory updates cannot assign the legacy source");
       const value = await this.#mutate(signal, (entries) => {
         const index = entries.findIndex((entry) => entry.id === id);
         if (index < 0) raise("MEMORY_ENTRY_NOT_FOUND", `Memory entry not found: ${id}`);
@@ -602,6 +617,7 @@ export class WorkspaceMemoryStoreImpl implements WorkspaceMemoryStore {
           status,
           scope: input.scope === undefined ? (current.scope ?? { kind: "workspace" }) : validateScope(input.scope),
           expiresAt,
+          source: source ?? (input.text === undefined ? (current.source ?? { kind: "legacy" }) : { kind: "manual" }),
           updatedAt: now,
           revision,
           history,

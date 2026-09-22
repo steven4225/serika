@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, it } from "node:test";
 import { simulateReadableStream, type UIMessage } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
@@ -14,7 +17,7 @@ import {
 } from "@aisdk-agent/ai-sdk-adapter";
 import { selectModelContext } from "./context-window.js";
 import { createModuleHost } from "./module-host.js";
-import type { MemoryEntry, WorkspaceMemoryStore } from "./memory-store.js";
+import { createMemoryStore, type MemoryEntry, type WorkspaceMemoryStore } from "./memory-store.js";
 import { createMemoryModule } from "./modules/memory-module.js";
 
 const definition = {
@@ -65,6 +68,30 @@ function suggestionResponse() {
         {
           type: "finish" as const,
           finishReason: { unified: "stop" as const, raw: undefined },
+          usage: {
+            inputTokens: { total: 3, noCache: 3, cacheRead: undefined, cacheWrite: undefined },
+            outputTokens: { total: 1, text: 1, reasoning: undefined },
+          },
+        },
+      ],
+    }),
+  };
+}
+
+function addResponse() {
+  return {
+    stream: simulateReadableStream({
+      chunks: [
+        { type: "stream-start" as const, warnings: [] },
+        {
+          type: "tool-call" as const,
+          toolCallId: "memory-add-call",
+          toolName: "memory_add",
+          input: JSON.stringify({ text: "项目约定是先 review 再提交。", sourceMessageId: "previous-user", sourceQuote: "先 review 再提交" }),
+        },
+        {
+          type: "finish" as const,
+          finishReason: { unified: "tool-calls" as const, raw: undefined },
           usage: {
             inputTokens: { total: 3, noCache: 3, cacheRead: undefined, cacheWrite: undefined },
             outputTokens: { total: 1, text: 1, reasoning: undefined },
@@ -143,6 +170,72 @@ describe("memory consolidation Runtime integration", () => {
       assert.equal(updateCalls, 0);
     } finally {
       moduleHost.dispose();
+    }
+  });
+
+  it("saves a confirmed candidate with committed-user provenance in the next Run", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "runloom-memory-candidate-"));
+    const threadId = "candidate-runtime";
+    const store = new InMemoryAgentStore();
+    await store.save(threadId, [message("previous-user", "user", "项目约定是先 review 再提交。")]);
+    const memoryStore = createMemoryStore(workspace);
+    const moduleHost = createModuleHost(
+      [createMemoryModule(memoryStore, () => store.getMessages(threadId), { threadId })],
+      { notify: () => undefined },
+    );
+    let modelCalls = 0;
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        modelCalls += 1;
+        return [prepareResponse, suggestionResponse, addResponse, suggestionResponse][modelCalls - 1]!();
+      },
+    });
+    const candidateDefinition = {
+      ...definition,
+      tools: ["memory_prepare_consolidation", "memory_add"],
+      limits: { maxSteps: 2, totalTimeoutMs: 5_000, stepTimeoutMs: 2_000 },
+    };
+    const runtime = new DefaultAgentRuntime({
+      catalog: new InMemoryAgentCatalog([candidateDefinition]),
+      loop: new AiSdkAgentLoop({
+        models: new InMemoryModelRegistry({ [definition.model]: model }),
+        tools: new ToolRegistry(moduleHost.tools),
+      }),
+      prepareModelContext: ({ messages }) => selectModelContext(messages),
+      beforeToolExecute: async () => ({ allow: true }),
+      store,
+    });
+
+    try {
+      const proposal = await runtime.run({
+        agentId: definition.id,
+        threadId,
+        messages: [message("proposal-request", "user", "请整理并提出记忆候选。")],
+      });
+      assert.equal((await proposal.result).status, "completed");
+      assert.deepEqual(await memoryStore.list(), { ok: true, entries: [] });
+
+      const confirmed = await runtime.run({
+        agentId: definition.id,
+        threadId,
+        messages: [message("confirm-request", "user", "保存刚才那条项目约定。")],
+      });
+      assert.equal((await confirmed.result).status, "completed");
+      assert.equal(modelCalls, 4);
+      const reopened = await createMemoryStore(workspace).list();
+      assert.equal(reopened.ok, true);
+      if (reopened.ok) {
+        assert.equal(reopened.entries.length, 1);
+        assert.deepEqual(reopened.entries[0]?.source, {
+          kind: "conversation",
+          threadId,
+          messageId: "previous-user",
+          quote: "先 review 再提交",
+        });
+      }
+    } finally {
+      moduleHost.dispose();
+      await rm(workspace, { recursive: true, force: true });
     }
   });
 });
