@@ -32,6 +32,7 @@ import { lookupTranscript } from "./work-summary.js";
 import { parseTuiArgs } from "./cli-options.js";
 import { createMemoryStore } from "./memory-store.js";
 import { createCheckpointStore, type WorkspaceCheckpointStore } from "./checkpoint-store.js";
+import { renderHome } from "./home.js";
 import { inspectGitReality, reconcileGitReality } from "./git-reality.js";
 import {
   captureResumeObservation,
@@ -370,7 +371,39 @@ const toolConfirmationPrompt: ToolConfirmationPrompt = (input) => {
 const commands = tuiMode
   ? new Map(moduleHost?.commands ?? [])
   : undefined;
+const renderFreshHome = async (): Promise<void> => {
+  const page = await renderHome({
+    modelAlias,
+    modelId: typeof model !== "string" && "modelId" in model && typeof model.modelId === "string"
+      ? model.modelId
+      : modelAlias,
+    workspaceRoot: workspaceRoot ?? null,
+    directory,
+    threadId,
+    temporaryDirectory: tuiArgs?.directory === undefined,
+    temporaryThread: tuiArgs?.threadId === undefined,
+    checkpointEnabled,
+    taskEnabled,
+    ...(checkpointStore === undefined ? {} : { checkpointStore }),
+    ...(taskStore === undefined ? {} : { taskStore }),
+    now: new Date(),
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  });
+  await new Promise<void>((resolve, reject) => {
+    output.write(`\n${page}\n`, (error) => error === null || error === undefined ? resolve() : reject(error));
+  });
+};
 if (commands !== undefined) {
+  commands.set("home", {
+    name: "home",
+    async execute(args) {
+      if (args.trim() !== "") {
+        output.write("\n[home] Usage: /home\n");
+        return;
+      }
+      await renderFreshHome();
+    },
+  });
   commands.set("history", {
     name: "history",
     async execute(args) {
@@ -831,17 +864,13 @@ try {
   }
 
   if (tuiMode) {
-    output.write(`Thread: ${threadId}\n`);
-    output.write(`Transcript directory: ${directory}\n`);
-    if (workspaceRoot !== undefined) {
-      output.write(`Workspace directory: ${workspaceRoot}\n`);
-    }
     await runTui({
       runtime,
       store,
       threadId,
       agentId: "calculator",
       output,
+      renderHome: renderFreshHome,
       ...(toolConfirmation ? { toolConfirmation } : {}),
       ...(commands ? { commands } : {}),
       ...(contextCompactor

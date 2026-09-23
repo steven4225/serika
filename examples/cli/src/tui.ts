@@ -50,6 +50,7 @@ export interface RunTuiOptions {
   toolConfirmation?: ToolConfirmation;
   compaction?: TuiCompaction;
   resume?: TuiResume;
+  renderHome?: () => Promise<void>;
   commands?: ReadonlyMap<string, TuiCommand>;
 }
 
@@ -925,6 +926,13 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
   const generateId = options.generateId ?? (() => crypto.randomUUID());
   const history = await options.store.getMessages(options.threadId);
   renderHistory(output, history);
+  if (options.renderHome !== undefined) {
+    try {
+      await options.renderHome();
+    } catch (error) {
+      write(output, `\n[home] Failed: ${String(error)}\n`);
+    }
+  }
 
   const readline = createInterface({
     input,
