@@ -731,13 +731,14 @@ function toolInput(
   toolName: string,
   signal: AbortSignal,
   input: unknown = { value: 1 },
+  definitionId = "test",
 ): Parameters<BeforeToolExecute>[0] {
   return {
     toolName,
     toolCallId: `${toolName}-call`,
     input,
     definition: {
-      id: "test",
+      id: definitionId,
       version: "1",
       instructions: "",
       model: "mock",
@@ -893,6 +894,8 @@ describe("runTui", () => {
     assert.deepEqual(runtime.requests[1]?.messages[0]?.metadata, {
       source: "auto-consolidation",
     });
+    assert.deepEqual(runtime.requests[0]?.context, { agentId: "calculator" });
+    assert.deepEqual(runtime.requests[1]?.context, { agentId: "memory-consolidator" });
     assert.equal(runtime.requests[1]?.messages[0]?.role, "user");
     assert.match(output.text(), /正在自动整理记忆/);
     input.end();
@@ -1004,6 +1007,59 @@ describe("runTui", () => {
     input.end();
     await tui;
     assert.match(output.text(), /original/);
+    assert.equal(runtime.requests.length, 2);
+  });
+
+  it("keeps the original result when consolidation returns a failed status", async () => {
+    const input = ttyInput();
+    const output = ttyOutput();
+    const firstEvents = asyncQueue<AgentEvent>();
+    firstEvents.close();
+    const secondEvents = asyncQueue<AgentEvent>();
+    secondEvents.close();
+    const runtime = testRuntime([
+      handleFor({
+        runId: "run-1",
+        threadId: "thread-1",
+        events: firstEvents,
+        result: Promise.resolve(completedResult("run-1", "thread-1", "original")),
+      }),
+      handleFor({
+        runId: "run-2",
+        threadId: "thread-1",
+        events: secondEvents,
+        result: Promise.resolve({
+          ...failedResult("run-2", "thread-1"),
+          error: {
+            code: "CONTEXT_PREPARE_FAILED",
+            message: "Selected conversation and workspace memories exceed the consolidation input limit",
+            retryable: false,
+            phase: "runtime",
+          },
+        }),
+      }),
+    ]);
+
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: runtime.runtime,
+      store: { getMessages: async () => [] },
+      input,
+      output,
+      autoConsolidationAgentId: "memory-consolidator",
+    });
+    await nextTurn();
+    input.write("user prompt\n");
+    await waitFor(() => output.text().includes("Automatic consolidation failed"));
+
+    input.end();
+    await tui;
+    assert.match(output.text(), /original/);
+    assert.match(
+      output.text(),
+      /Automatic consolidation failed: Selected conversation and workspace memories exceed the consolidation input limit/,
+    );
+    assert.equal(output.text().includes("结果不确定"), false);
     assert.equal(runtime.requests.length, 2);
   });
 
@@ -1922,6 +1978,52 @@ describe("runTui", () => {
 });
 
 describe("createToolConfirmation", () => {
+  it("allows the consolidator to read consolidation material without prompting", async () => {
+    const output = outputBuffer();
+    const confirmation = createToolConfirmation(output);
+
+    const decision = confirmation.beforeToolExecute(
+      toolInput(
+        "memory_prepare_consolidation",
+        new AbortController().signal,
+        {},
+        "memory-consolidator",
+      ),
+    );
+
+    assert.deepEqual(await Promise.resolve(decision), { allow: true });
+    assert.equal(output.text(), "");
+  });
+
+  it("keeps memory tools on normal confirmation paths outside the consolidator read", async () => {
+    const output = outputBuffer();
+    const confirmation = createToolConfirmation(output);
+
+    const primaryRead = confirmation.beforeToolExecute(
+      toolInput("memory_prepare_consolidation", new AbortController().signal),
+    );
+    assert.match(output.text(), /Allow this call\? \[y\/n\]/);
+    assert.equal(confirmation.handleLine("n"), true);
+    assert.deepEqual(await primaryRead, {
+      allow: false,
+      reason: "User denied this tool call",
+    });
+
+    const consolidatorWrite = confirmation.beforeToolExecute(
+      toolInput(
+        "memory_add",
+        new AbortController().signal,
+        {},
+        "memory-consolidator",
+      ),
+    );
+    assert.equal(confirmation.handleLine("n"), true);
+    assert.deepEqual(await consolidatorWrite, {
+      allow: false,
+      reason: "User denied this tool call",
+    });
+  });
+
   it("allows pomodoro tools without asking for y or n", async () => {
     const output = outputBuffer();
     const confirmation = createToolConfirmation(output);

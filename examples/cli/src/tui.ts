@@ -13,6 +13,7 @@ import type {
 } from "@aisdk-agent/core";
 import { resolve, sep } from "node:path";
 import {
+  AUTO_CONSOLIDATION_AGENT_ID,
   AUTO_CONSOLIDATION_SOURCE,
   isAutoConsolidationRequest,
 } from "./consolidation.js";
@@ -113,6 +114,8 @@ const AUTO_APPROVED_TOOL_NAMES = new Set([
   "pomodoro_status",
   "pomodoro_cancel",
 ]);
+
+const AUTO_CONSOLIDATION_READ_TOOL = "memory_prepare_consolidation";
 
 function write(output: Writable, text: string): void {
   output.write(text);
@@ -340,6 +343,12 @@ export function createToolConfirmation(
 
   const beforeToolExecute: BeforeToolExecute = (input) => {
     if (input.signal.aborted) return Promise.reject(abortReason(input.signal));
+    if (
+      input.definition.id === AUTO_CONSOLIDATION_AGENT_ID &&
+      input.toolName === AUTO_CONSOLIDATION_READ_TOOL
+    ) {
+      return Promise.resolve({ allow: true });
+    }
     if (AUTO_APPROVED_TOOL_NAMES.has(input.toolName)) {
       return Promise.resolve({ allow: true });
     }
@@ -926,6 +935,7 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
           agentId,
           threadId: options.threadId,
           messages: [message],
+          context: { agentId },
         });
         runStarted = true;
         state = { kind: "running", handle };
@@ -939,13 +949,18 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
         const eventsDone = renderEvents(output, handle.events);
         const result = await handle.result;
         const rendered = await eventsDone;
-        renderResult(
-          output,
-          result,
-          rendered.renderedText,
-          rendered.completedActions,
-          rendered.unknownActions,
-        );
+        const failedConsolidation =
+          agentId === AUTO_CONSOLIDATION_AGENT_ID &&
+          (result.status === "failed" || result.status === "timed_out");
+        if (!failedConsolidation) {
+          renderResult(
+            output,
+            result,
+            rendered.renderedText,
+            rendered.completedActions,
+            rendered.unknownActions,
+          );
+        }
         state = { kind: "idle" };
         return { result, requestedMemoryTool: rendered.requestedMemoryTool };
       } finally {
@@ -979,7 +994,17 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
           ],
         };
         try {
-          await executeRun(options.autoConsolidationAgentId, consolidationMessage);
+          const consolidation = await executeRun(
+            options.autoConsolidationAgentId,
+            consolidationMessage,
+          );
+          if (
+            consolidation.result.status === "failed" ||
+            consolidation.result.status === "timed_out"
+          ) {
+            const detail = consolidation.result.error?.message ?? consolidation.result.status;
+            write(output, `\n\nAutomatic consolidation failed: ${detail}\n\n`);
+          }
         } catch (error) {
           write(output, `\n\nAutomatic consolidation failed: ${String(error)}\n\n`);
         }

@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { AgentError } from "@aisdk-agent/core";
 import type { RegisteredTool } from "@aisdk-agent/ai-sdk-adapter";
 import type { UIMessage } from "ai";
-import { MAX_CONSOLIDATION_TURNS } from "../consolidation.js";
+import { AUTO_CONSOLIDATION_AGENT_ID, MAX_CONSOLIDATION_TURNS } from "../consolidation.js";
 import { MAX_CONTEXT_BYTES } from "../context-window.js";
 import {
   MEMORY_ENTRY_MAX_BYTES,
@@ -208,6 +209,8 @@ describe("createMemoryModule", () => {
     assert.equal(input.safeParse({}).success, true);
     assert.equal(input.safeParse({ turns: 1 }).success, true);
     assert.equal(input.safeParse({ turns: 8 }).success, true);
+    assert.equal(input.safeParse({ mode: "incremental" }).success, true);
+    assert.equal(input.safeParse({ mode: "incremental", turns: 1 }).success, false);
     assert.equal(input.safeParse({ turns: 0 }).success, false);
     assert.equal(input.safeParse({ turns: 9 }).success, false);
     assert.equal(input.safeParse({ turns: 1.5 }).success, false);
@@ -398,7 +401,82 @@ describe("createMemoryModule", () => {
     assert.deepEqual(calls, [{ method: "list", args: [] }]);
   });
 
-  it("includes disabled memories and returns a business error before sending oversized material", async () => {
+  it("prepares incremental user, assistant, and tool evidence without writing", async () => {
+    const { store, calls } = createStore();
+    const committed: UIMessage[] = [
+      textMessage("u1", "user", "keep one agent"),
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [
+          { type: "text", text: "I will compare the options." },
+          {
+            type: "dynamic-tool",
+            toolName: "web_search",
+            toolCallId: "search-1",
+            state: "output-available",
+            input: { query: "agent architecture" },
+            output: { ok: true, results: ["multi-agent article"] },
+          },
+        ],
+      } as UIMessage,
+    ];
+    const consolidation = toolByName(
+      setupTools(store, async () => committed, { threadId: "thread-a" }),
+      "memory_prepare_consolidation",
+    ).tool;
+
+    const result = await consolidation.execute!(
+      { mode: "incremental" },
+      {
+        toolCallId: "memory-incremental",
+        messages: [],
+        context: { agentId: AUTO_CONSOLIDATION_AGENT_ID },
+      },
+    );
+
+    assert.deepEqual(result, {
+      ok: true,
+      bootstrap: true,
+      turns: [{
+        user: { messageId: "u1", text: "keep one agent" },
+        assistant: [{ messageId: "a1", text: "I will compare the options." }],
+        tools: [{
+          toolCallId: "search-1",
+          toolName: "web_search",
+          outcome: "success",
+          content: JSON.stringify({ ok: true, results: ["multi-agent article"] }),
+          truncated: false,
+        }],
+      }],
+      memories: [{ id: "one", text: "pnpm", enabled: true }],
+    });
+    assert.deepEqual(calls, [{ method: "list", args: [] }]);
+  });
+
+  it("rejects incremental consolidation outside the automatic consolidator", async () => {
+    const { store } = createStore();
+    const consolidation = toolByName(
+      setupTools(store, async () => [textMessage("u1", "user", "keep one agent")]),
+      "memory_prepare_consolidation",
+    ).tool;
+
+    assert.deepEqual(
+      await consolidation.execute!(
+        { mode: "incremental" },
+        { toolCallId: "memory-incremental-denied", messages: [], context: {} },
+      ),
+      {
+        ok: false,
+        error: {
+          code: "INVALID_INPUT",
+          message: "mode incremental is only allowed for the automatic consolidator",
+        },
+      },
+    );
+  });
+
+  it("includes disabled memories and fails the run before sending oversized material", async () => {
     const { store } = createStore();
     const listedStore = {
       ...store,
@@ -414,20 +492,71 @@ describe("createMemoryModule", () => {
       "memory_prepare_consolidation",
     ).tool;
 
-    assert.deepEqual(
-      await consolidation.execute!(
+    await assert.rejects(
+      () => consolidation.execute!(
         {},
         { toolCallId: "memory-too-large", messages: [], context: {} },
       ),
-      {
-        ok: false,
-        error: {
-          code: "CONSOLIDATION_INPUT_TOO_LARGE",
-          message:
-            "Selected conversation and workspace memories exceed the consolidation input limit; reduce the number of turns or shorten existing memories",
-        },
-      },
+      (error: unknown) =>
+        error instanceof AgentError &&
+        error.data.code === "CONTEXT_PREPARE_FAILED" &&
+        error.data.message.includes("exceed the consolidation input limit"),
     );
+  });
+
+  it("keeps disabled and expired current memories but excludes another thread during consolidation", async () => {
+    const { store } = createStore();
+    const listedStore = {
+      ...store,
+      list: async () => ({
+        ok: true as const,
+        entries: [
+          {
+            ...entry("workspace-disabled", "old workspace decision", false),
+            status: "disabled" as const,
+            scope: { kind: "workspace" as const },
+          },
+          {
+            ...entry("workspace-expired", "expired workspace constraint"),
+            status: "active" as const,
+            scope: { kind: "workspace" as const },
+            expiresAt: "2026-01-01T00:00:00.000Z",
+          },
+          {
+            ...entry("current-thread", "current thread decision"),
+            status: "active" as const,
+            scope: { kind: "thread" as const, threadId: "thread-a" },
+          },
+          {
+            ...entry("other-thread", "private other thread decision"),
+            status: "active" as const,
+            scope: { kind: "thread" as const, threadId: "thread-b" },
+          },
+        ],
+      }),
+    } satisfies WorkspaceMemoryStore;
+    const consolidation = toolByName(
+      setupTools(listedStore, async () => [textMessage("u1", "user", "new decision")], {
+        threadId: "thread-a",
+      }),
+      "memory_prepare_consolidation",
+    ).tool;
+
+    const result = await consolidation.execute!(
+      {},
+      { toolCallId: "memory-scope-consolidation", messages: [], context: {} },
+    );
+
+    assert.equal(result.ok, true);
+    if (!result.ok) assert.fail("expected consolidation to succeed");
+    assert.deepEqual(result.memories.map(({ id }: MemoryEntry) => id), [
+      "workspace-disabled",
+      "workspace-expired",
+      "current-thread",
+    ]);
+    assert.equal(result.memories[0]?.status, "disabled");
+    assert.equal(result.memories[1]?.expiresAt, "2026-01-01T00:00:00.000Z");
+    assert.equal(JSON.stringify(result).includes("private other thread decision"), false);
   });
 
   it("accepts the full Stage 5-2 memory capacity together with recent turns", async () => {

@@ -3,10 +3,12 @@ import { describe, it } from "node:test";
 import type { UIMessage } from "ai";
 import {
   AUTO_CONSOLIDATION_SOURCE,
+  MAX_CONSOLIDATION_TOOL_EVIDENCE_BYTES,
   MAX_CONSOLIDATION_TURNS,
   consolidateMessages,
   findCommittedUserMessage,
   isExactUserQuote,
+  selectIncrementalConsolidationTurns,
 } from "./consolidation.js";
 
 function message(
@@ -209,6 +211,137 @@ describe("consolidateMessages", () => {
     assert.deepEqual(consolidateMessages([], 9), {
       ok: false,
       error: { code: "INVALID_INPUT", message: "turns must be an integer from 1 to 8" },
+    });
+  });
+});
+
+describe("selectIncrementalConsolidationTurns", () => {
+  it("bootstraps only the latest eight ordinary turns", () => {
+    const messages = Array.from({ length: MAX_CONSOLIDATION_TURNS + 2 }, (_, index) => [
+      user(`user-${index}`),
+      assistant(`assistant-${index}`),
+    ]).flat();
+
+    const result = selectIncrementalConsolidationTurns(messages);
+
+    assert.equal(result.bootstrap, true);
+    assert.deepEqual(result.turns.map(({ user: selected }) => selected.messageId), [
+      "user-2", "user-3", "user-4", "user-5", "user-6", "user-7", "user-8", "user-9",
+    ]);
+    assert.deepEqual(result.turns[0]?.assistant, [
+      { messageId: "assistant-2", text: "assistant-2" },
+    ]);
+  });
+
+  it("selects every eligible turn after the latest committed marker", () => {
+    const messages: UIMessage[] = [
+      user("old-user"),
+      assistant("old-assistant"),
+      message("marker-1", "user", [{ type: "text", text: "first marker" }], {
+        source: AUTO_CONSOLIDATION_SOURCE,
+      }),
+      assistant("marker-1-result", "no candidates"),
+      user("between-markers"),
+      assistant("between-markers-result"),
+      message("marker-2", "user", [{ type: "text", text: "latest marker" }], {
+        source: AUTO_CONSOLIDATION_SOURCE,
+      }),
+      assistant("marker-2-result", "no candidates"),
+      user("new-user"),
+      assistant("new-assistant"),
+    ];
+
+    const result = selectIncrementalConsolidationTurns(messages);
+
+    assert.equal(result.bootstrap, false);
+    assert.deepEqual(result.turns.map(({ user: selected }) => selected.messageId), ["new-user"]);
+  });
+
+  it("excludes a turn that explicitly used any memory tool", () => {
+    const messages: UIMessage[] = [
+      user("ordinary-user"),
+      assistant("ordinary-assistant"),
+      user("memory-user"),
+      message("memory-assistant", "assistant", [{
+        type: "dynamic-tool",
+        toolName: "memory_list",
+        toolCallId: "memory-call",
+        state: "output-available",
+        input: {},
+        output: { ok: true, entries: [] },
+      }]),
+    ];
+
+    assert.deepEqual(
+      selectIncrementalConsolidationTurns(messages).turns.map(({ user: selected }) => selected.messageId),
+      ["ordinary-user"],
+    );
+  });
+
+  it("returns assistant and bounded completed-tool evidence", () => {
+    const oversized = `${"中".repeat(2_000)}tail`;
+    const messages: UIMessage[] = [
+      user("user-1", "Read the report but keep one agent"),
+      message("assistant-1", "assistant", [
+        { type: "text", text: "I will inspect it" },
+        {
+          type: "dynamic-tool",
+          toolName: "read_file",
+          toolCallId: "read-call",
+          state: "output-available",
+          input: { path: "report.md" },
+          output: oversized,
+        },
+        {
+          type: "dynamic-tool",
+          toolName: "write_file",
+          toolCallId: "denied-call",
+          state: "output-error",
+          input: { path: "result.md" },
+          errorText: "TOOL_DENIED: user denied the call",
+        },
+        {
+          type: "dynamic-tool",
+          toolName: "web_fetch",
+          toolCallId: "failed-call",
+          state: "output-available",
+          input: { url: "https://example.com" },
+          output: { ok: false, error: { code: "TIMEOUT" } },
+        },
+      ]),
+    ];
+
+    const result = selectIncrementalConsolidationTurns(messages);
+    const turn = result.turns[0]!;
+
+    assert.deepEqual(turn.user, {
+      messageId: "user-1",
+      text: "Read the report but keep one agent",
+    });
+    assert.deepEqual(turn.assistant, [{ messageId: "assistant-1", text: "I will inspect it" }]);
+    assert.equal(turn.tools[0]?.outcome, "success");
+    assert.equal(turn.tools[0]?.truncated, true);
+    assert.ok(Buffer.byteLength(turn.tools[0]!.content, "utf8") <= MAX_CONSOLIDATION_TOOL_EVIDENCE_BYTES);
+    assert.equal(turn.tools[0]!.content.endsWith("tail"), false);
+    assert.deepEqual(turn.tools.slice(1).map(({ outcome }) => outcome), ["denied", "failed"]);
+  });
+
+  it("omits pending tool calls and empty user turns", () => {
+    const messages: UIMessage[] = [
+      user("empty", ""),
+      message("assistant", "assistant", [{
+        type: "dynamic-tool",
+        toolName: "read_file",
+        toolCallId: "pending-call",
+        state: "input-available",
+        input: { path: "notes.md" },
+      }]),
+    ];
+
+    assert.deepEqual(selectIncrementalConsolidationTurns(messages), {
+      ok: true,
+      bootstrap: true,
+      turns: [],
     });
   });
 });

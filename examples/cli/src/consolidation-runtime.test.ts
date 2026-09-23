@@ -16,9 +16,13 @@ import {
   ToolRegistry,
 } from "@aisdk-agent/ai-sdk-adapter";
 import { selectModelContext } from "./context-window.js";
+import { AUTO_CONSOLIDATION_AGENT_ID } from "./consolidation.js";
 import { createModuleHost } from "./module-host.js";
 import { createMemoryStore, type MemoryEntry, type WorkspaceMemoryStore } from "./memory-store.js";
-import { createMemoryModule } from "./modules/memory-module.js";
+import {
+  CONSOLIDATION_RESULT_MAX_BYTES,
+  createMemoryModule,
+} from "./modules/memory-module.js";
 
 const definition = {
   id: "consolidation-runtime-test",
@@ -42,7 +46,7 @@ function prepareResponse() {
           type: "tool-call" as const,
           toolCallId: "consolidation-call",
           toolName: "memory_prepare_consolidation",
-          input: JSON.stringify({ turns: 1 }),
+          input: JSON.stringify({ mode: "incremental" }),
         },
         {
           type: "finish" as const,
@@ -159,12 +163,14 @@ describe("memory consolidation Runtime integration", () => {
         agentId: definition.id,
         threadId,
         messages: [message("consolidate-user", "user", "请整理最近对话并给出记忆建议。")],
+        context: { agentId: AUTO_CONSOLIDATION_AGENT_ID },
       });
       const result = await handle.result;
 
       assert.equal(result.status, "completed");
       assert.equal(modelCalls, 2);
       assert.match(prompts[1]!, /项目约定是先 review 再提交/);
+      assert.match(prompts[1]!, /我会遵守这个约定/);
       assert.match(prompts[1]!, /已有项目约定/);
       assert.equal(addCalls, 0);
       assert.equal(updateCalls, 0);
@@ -211,6 +217,7 @@ describe("memory consolidation Runtime integration", () => {
         agentId: definition.id,
         threadId,
         messages: [message("proposal-request", "user", "请整理并提出记忆候选。")],
+        context: { agentId: AUTO_CONSOLIDATION_AGENT_ID },
       });
       assert.equal((await proposal.result).status, "completed");
       assert.deepEqual(await memoryStore.list(), { ok: true, entries: [] });
@@ -236,6 +243,58 @@ describe("memory consolidation Runtime integration", () => {
     } finally {
       moduleHost.dispose();
       await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("does not commit a marker when consolidation input is too large", async () => {
+    const threadId = "consolidation-too-large";
+    const store = new InMemoryAgentStore();
+    await store.save(threadId, [
+      message("previous-user", "user", "x".repeat(CONSOLIDATION_RESULT_MAX_BYTES)),
+    ]);
+    const memoryStore: WorkspaceMemoryStore = {
+      list: async () => ({ ok: true as const, entries: [] }),
+      get: async () => ({ ok: false as const, error: { code: "MEMORY_ENTRY_NOT_FOUND" as const, message: "not found" } }),
+      add: async () => {
+        throw new Error("memory_add must not run");
+      },
+      update: async () => {
+        throw new Error("memory_update must not run");
+      },
+      delete: async () => ({ ok: false as const, error: { code: "MEMORY_ENTRY_NOT_FOUND" as const, message: "not found" } }),
+    };
+    const moduleHost = createModuleHost(
+      [createMemoryModule(memoryStore, () => store.getMessages(threadId))],
+      { notify: () => undefined },
+    );
+    const model = new MockLanguageModelV3({
+      doStream: async () => prepareResponse(),
+    });
+    const runtime = new DefaultAgentRuntime({
+      catalog: new InMemoryAgentCatalog([definition]),
+      loop: new AiSdkAgentLoop({
+        models: new InMemoryModelRegistry({ [definition.model]: model }),
+        tools: new ToolRegistry(moduleHost.tools),
+      }),
+      beforeToolExecute: async () => ({ allow: true }),
+      store,
+    });
+
+    try {
+      const handle = await runtime.run({
+        agentId: definition.id,
+        threadId,
+        messages: [message("consolidate-user", "user", "请整理最近对话并给出记忆建议。")],
+        context: { agentId: AUTO_CONSOLIDATION_AGENT_ID },
+      });
+      const result = await handle.result;
+      const committed = await store.getMessages(threadId);
+
+      assert.equal(result.status, "failed");
+      assert.equal(result.error?.code, "CONTEXT_PREPARE_FAILED");
+      assert.deepEqual(committed.map((entry) => entry.id), ["previous-user"]);
+    } finally {
+      moduleHost.dispose();
     }
   });
 });

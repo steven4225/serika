@@ -715,6 +715,12 @@ export class AiSdkAgentLoop implements AgentLoop {
           });
         } catch (error) {
           if (input.signal.aborted) throw abortReason(input.signal);
+          if (
+            error instanceof AgentError &&
+            error.data.code === "CONTEXT_PREPARE_FAILED"
+          ) {
+            throw error;
+          }
           const toolFailed = toolTimeout.aborted;
           if (!metadata?.idempotent) {
             const unknown = toolOutcomeUnknown(

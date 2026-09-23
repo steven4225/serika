@@ -1611,6 +1611,73 @@ describe("AiSdkAgentLoop", () => {
     );
   });
 
+  it("fails the run when an idempotent tool throws CONTEXT_PREPARE_FAILED", async () => {
+    let modelCall = 0;
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        modelCall += 1;
+        return {
+          stream: simulateReadableStream({
+            chunks: [
+              { type: "stream-start" as const, warnings: [] },
+              {
+                type: "tool-call" as const,
+                toolCallId: "oversized-call",
+                toolName: "double",
+                input: JSON.stringify({ value: 2 }),
+              },
+              {
+                type: "finish" as const,
+                finishReason: { unified: "tool-calls" as const, raw: undefined },
+                usage,
+              },
+            ],
+          }),
+        };
+      },
+    });
+    const tools = new ToolRegistry([
+      {
+        metadata: {
+          name: "double",
+          version: "1",
+          risk: "read",
+          timeoutMs: 1_000,
+          idempotent: true,
+        },
+        tool: tool({
+          inputSchema: z.object({ value: z.number() }),
+          outputSchema: z.object({ value: z.number() }),
+          execute: async () => {
+            throw new AgentError({
+              code: "CONTEXT_PREPARE_FAILED",
+              message: "Selected conversation exceeds the consolidation input limit",
+              retryable: false,
+              phase: "runtime",
+            });
+          },
+        }),
+      },
+    ]);
+
+    await assert.rejects(
+      new AiSdkAgentLoop({
+        models: new InMemoryModelRegistry({ test: model }),
+        tools,
+      }).execute({
+        definition: { ...definition, tools: ["double"] },
+        messages: [userMessage()],
+        signal: new AbortController().signal,
+        generateId: () => `message-${modelCall}`,
+        emit: createEmit([]),
+      }),
+      (error: unknown) =>
+        error instanceof AgentError &&
+        error.data.code === "CONTEXT_PREPARE_FAILED",
+    );
+    assert.equal(modelCall, 1);
+  });
+
   it("fails an unknown tool without calling the precheck", async () => {
     let modelCalls = 0;
     let beforeToolCalls = 0;
