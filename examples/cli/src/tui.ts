@@ -26,7 +26,8 @@ type Runtime = {
 type TuiState =
   | { kind: "idle" }
   | { kind: "running"; handle: RunHandle }
-  | { kind: "compacting"; controller: AbortController };
+  | { kind: "compacting"; controller: AbortController }
+  | { kind: "resuming"; controller: AbortController };
 
 /** An idle command handled directly by the terminal adapter. */
 export interface TuiCommand {
@@ -48,6 +49,7 @@ export interface RunTuiOptions {
   generateId?: () => string;
   toolConfirmation?: ToolConfirmation;
   compaction?: TuiCompaction;
+  resume?: TuiResume;
   commands?: ReadonlyMap<string, TuiCommand>;
 }
 
@@ -61,6 +63,14 @@ export interface TuiCompaction {
   compact(
     signal: AbortSignal,
   ): Promise<{ message?: string } | void>;
+}
+
+/** /resume inspects without a Run; only the next primary Run can use its observation. */
+export interface TuiResume {
+  inspect(signal: AbortSignal): Promise<string>;
+  clear(): void;
+  beginRun(): void;
+  endRun(): void;
 }
 
 export interface ToolConfirmation {
@@ -950,6 +960,12 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
       stopRequestReason = undefined;
       return;
     }
+    if (state.kind === "resuming") {
+      state.controller.abort(new DOMException("Git inspection cancelled", "AbortError"));
+      if (announce) write(output, "\nCancelling Git inspection...\n");
+      stopRequestReason = undefined;
+      return;
+    }
     if (runStarting) {
       return;
     }
@@ -957,7 +973,7 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
   };
 
   const submit = async (text: string): Promise<void> => {
-    if (state.kind === "running" || runStarting) {
+    if (state.kind !== "idle" || runStarting) {
       write(output, "\nBusy: wait for the current run to finish.\n");
       return;
     }
@@ -1017,7 +1033,13 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
         role: "user",
         parts: [{ type: "text", text }],
       };
-      const primary = await executeRun(options.agentId, userMessage);
+      options.resume?.beginRun();
+      let primary: Awaited<ReturnType<typeof executeRun>>;
+      try {
+        primary = await executeRun(options.agentId, userMessage);
+      } finally {
+        options.resume?.endRun();
+      }
       if (
         primary.result.status === "completed" &&
         !primary.requestedMemoryTool &&
@@ -1066,6 +1088,46 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
 
   const dispatchCommand = async (line: string): Promise<void> => {
     const { name, args } = commandParts(line);
+
+    if (name === "resume" && options.resume !== undefined) {
+      if (args.trim() !== "") {
+        write(output, "\n[resume] Usage: /resume\n");
+        return;
+      }
+      if (state.kind !== "idle" || runStarting) {
+        write(output, "\nBusy: wait for the current operation to finish.\n");
+        return;
+      }
+      options.resume.clear();
+      const controller = new AbortController();
+      state = { kind: "resuming", controller };
+      write(output, "\nInspecting Git reality...\n");
+      const task = (async () => {
+        try {
+          const message = await options.resume!.inspect(controller.signal);
+          if (controller.signal.aborted) {
+            options.resume!.clear();
+            write(output, "\n[resume] Cancelled.\n");
+          } else {
+            write(output, `\n[resume] ${message}\n`);
+          }
+        } catch (error) {
+          options.resume!.clear();
+          if (controller.signal.aborted) {
+            write(output, "\n[resume] Cancelled.\n");
+          } else {
+            write(output, `\n[resume] Failed: ${String(error)}\n`);
+          }
+        } finally {
+          if (state.kind === "resuming" && state.controller === controller) {
+            state = { kind: "idle" };
+          }
+        }
+      })();
+      tasks.add(task);
+      void task.finally(() => tasks.delete(task));
+      return;
+    }
 
     // Manual compaction is a TUI operation, not an Agent Run. Start it as a
     // tracked task so the readline loop can remain responsive to Ctrl+C and
@@ -1128,6 +1190,10 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
       requestStop("user_interrupt", true);
       return;
     }
+    if (state.kind === "resuming") {
+      requestStop("user_interrupt", true);
+      return;
+    }
     if (runStarting) {
       requestStop("user_interrupt", true);
       return;
@@ -1143,6 +1209,10 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
         write(output, "\nBusy: context compaction is in progress.\n");
         continue;
       }
+      if (currentState.kind === "resuming") {
+        write(output, "\nBusy: Git inspection is in progress.\n");
+        continue;
+      }
       if (state.kind === "idle" && !runStarting && line.trim().startsWith("/")) {
         await dispatchCommand(line);
         if (isTTY(input) && !inputClosed) readline.prompt();
@@ -1156,6 +1226,7 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
     requestStop("stdin_closed", false);
     await Promise.all(tasks);
   } finally {
+    options.resume?.clear();
     readline.close();
   }
 }

@@ -157,12 +157,14 @@ export function checkpointAndMemoryContextMessages(
   checkpoint: CheckpointSnapshot | null | undefined,
   memories: readonly ContextMemoryEntry[] = [],
   memoryOptions: MemorySelectionOptions = {},
+  resumeMessage?: UIMessage,
 ): UIMessage[] {
   const checkpointMessage = createCheckpointContextMessage(checkpoint);
   const memoryMessage = createMemoryContextMessage(
     selectMemoryContextEntries(memories, memoryOptions),
   );
   return [
+    ...(resumeMessage === undefined ? [] : [resumeMessage]),
     ...(checkpointMessage === undefined ? [] : [checkpointMessage]),
     ...(memoryMessage === undefined ? [] : [memoryMessage]),
   ];
@@ -177,8 +179,9 @@ export function selectModelContext(
   memories: readonly ContextMemoryEntry[] = [],
   memoryOptions: MemorySelectionOptions = {},
   checkpoint?: CheckpointSnapshot | null,
+  resumeMessage?: UIMessage,
 ): UIMessage[] {
-  if (messages.length === 0 && memories.length === 0 && checkpoint == null) return messages;
+  if (messages.length === 0 && memories.length === 0 && checkpoint == null && resumeMessage === undefined) return messages;
 
   const userStarts: number[] = [];
   for (let index = 0; index < messages.length; index += 1) {
@@ -227,6 +230,7 @@ export function selectModelContext(
     return message === undefined ? [] : [message];
   };
   const compose = (summary: WorkSummary | undefined): UIMessage[] => [
+    ...(resumeMessage === undefined ? [] : [resumeMessage]),
     ...(checkpointMessage === undefined ? [] : [checkpointMessage]),
     ...memoryMessage(),
     ...(summary === undefined ? [] : [workSummaryMessage(summary)]),
@@ -250,6 +254,13 @@ export function selectModelContext(
     messageBytes(selected) > MAX_CONTEXT_BYTES
   ) {
     selectedMemories.shift();
+    selected = compose(summary);
+  }
+
+  // A one-run Git observation is useful reference data, never a reason to
+  // block an otherwise valid conversation when the context is already full.
+  if (resumeMessage !== undefined && messageBytes(selected) > MAX_CONTEXT_BYTES) {
+    resumeMessage = undefined;
     selected = compose(summary);
   }
 

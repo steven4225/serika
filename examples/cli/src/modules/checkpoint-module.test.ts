@@ -58,7 +58,7 @@ describe("createCheckpointModule", () => {
     assert.deepEqual(tools.map(({ metadata }) => metadata), [
       { name: "checkpoint_prepare", version: "1", risk: "read", timeoutMs: 1_000, idempotent: true },
       { name: "checkpoint_get", version: "1", risk: "read", timeoutMs: 1_000, idempotent: true },
-      { name: "checkpoint_save", version: "1", risk: "write", timeoutMs: 1_000, idempotent: false },
+      { name: "checkpoint_save", version: "1", risk: "write", timeoutMs: 5_000, idempotent: false },
     ]);
   });
 
@@ -167,6 +167,38 @@ describe("createCheckpointModule", () => {
     if (current.ok) assert.equal(current.current?.version, 1);
   });
 
+  it("captures a Git pin only for the save, and omits it if the optional inspection fails", async () => {
+    const root = await createWorkspace();
+    const store = createCheckpointStore(root);
+    let captures = 0;
+    const gitPin = {
+      head: "a".repeat(40),
+      branch: "main",
+      dirty: false,
+      observedAt: "2026-09-23T00:00:00.000Z",
+    };
+    const tools = setupTools(store, {
+      threadId: "thread-a",
+      captureGitPin: async () => {
+        captures += 1;
+        if (captures === 1) return gitPin;
+        throw new Error("not a Git repository");
+      },
+    });
+    const save = toolByName(tools, "checkpoint_save").tool;
+    const first = await save.execute!({ expectedVersion: null, draft: draft() }, context) as {
+      ok: boolean; checkpoint?: { realityPins?: { git: typeof gitPin } };
+    };
+    assert.equal(first.ok, true);
+    assert.deepEqual(first.checkpoint?.realityPins, { git: gitPin });
+    const second = await save.execute!({ expectedVersion: 1, draft: draft() }, context) as {
+      ok: boolean; checkpoint?: { realityPins?: { git: typeof gitPin } };
+    };
+    assert.equal(second.ok, true);
+    assert.equal(second.checkpoint?.realityPins, undefined);
+    assert.equal(captures, 2);
+  });
+
   it("requires exact bounded inputs", async () => {
     const root = await createWorkspace();
     const tools = setupTools(createCheckpointStore(root), { threadId: "thread-a" });
@@ -187,6 +219,8 @@ describe("createCheckpointModule", () => {
     assert.equal(saveInput.safeParse({ draft: draft() }).success, false);
     assert.equal(saveInput.safeParse({ expectedVersion: 0, draft: draft() }).success, false);
     assert.equal(saveInput.safeParse({ expectedVersion: null, draft: { ...draft(), unsupported: true } }).success, false);
+    assert.equal(saveInput.safeParse({ expectedVersion: null, draft: { ...draft(), realityPins: { git: {} } } }).success, false);
+    assert.equal(saveInput.safeParse({ expectedVersion: null, draft: draft(), realityPins: { git: {} } }).success, false);
     assert.equal(saveInput.safeParse({ expectedVersion: null, draft: { ...draft(), completed: Array(13).fill("item") } }).success, false);
     assert.equal(
       saveInput.safeParse({

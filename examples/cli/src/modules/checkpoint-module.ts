@@ -7,6 +7,7 @@ import {
   CHECKPOINT_PREPARE_RESULT_MAX_BYTES,
   type CheckpointDraft,
   type CheckpointFailure,
+  type CheckpointGitPin,
   type CheckpointSnapshot,
   type WorkspaceCheckpointStore,
 } from "../checkpoint-store.js";
@@ -20,6 +21,7 @@ export interface CheckpointMemoryView {
 export interface CheckpointModuleOptions {
   threadId: string;
   getInjectableMemories?: (signal: AbortSignal) => Promise<CheckpointMemoryView[]>;
+  captureGitPin?: (signal: AbortSignal) => Promise<CheckpointGitPin | undefined>;
 }
 
 function utf8Text(maxBytes: number) {
@@ -74,6 +76,14 @@ const checkpointSnapshotSchema = z.object({
   source: z.object({ threadId: z.string() }).strict(),
   createdAt: z.string(),
   updatedAt: z.string(),
+  realityPins: z.object({
+    git: z.object({
+      head: z.string(),
+      branch: z.string().nullable(),
+      dirty: z.boolean(),
+      observedAt: z.string(),
+    }).strict(),
+  }).strict().optional(),
 }).strict();
 
 const checkpointFailureSchema = z.object({
@@ -123,7 +133,7 @@ const checkpointSaveMetadata: RegisteredTool["metadata"] = {
   name: "checkpoint_save",
   version: "1",
   risk: "write",
-  timeoutMs: 1_000,
+  timeoutMs: 5_000,
   idempotent: false,
 };
 
@@ -202,13 +212,26 @@ export function createCheckpointModule(
 
       const saveTool = tool({
         description:
-          "Save the user-confirmed project checkpoint draft as the next workspace version. Always include expectedVersion from checkpoint_prepare or checkpoint_get. The tool requires y/n confirmation showing that version and the complete draft. Do not call unless the user explicitly asked to save or update a checkpoint. The program supplies source thread and timestamps.",
+          "Save the user-confirmed project checkpoint draft as the next workspace version. Always include expectedVersion from checkpoint_prepare or checkpoint_get. The tool requires y/n confirmation showing that version and the complete draft. Do not call unless the user explicitly asked to save or update a checkpoint. The program supplies source thread, timestamps, and an optional observed Git pin; do not submit realityPins in the draft.",
         inputSchema: saveInputSchema,
         outputSchema: checkpointVersionOutputSchema,
         execute: async ({ expectedVersion, draft }, { abortSignal }) => {
           const signal = abortSignal ?? neverAborted;
+          let gitPin: CheckpointGitPin | undefined;
+          if (options.captureGitPin !== undefined) {
+            try {
+              gitPin = await options.captureGitPin(signal);
+            } catch {
+              if (signal.aborted) throw abortReason(signal);
+            }
+          }
           return store.saveNextVersion(
-            { expectedVersion, draft: draft as CheckpointDraft, sourceThreadId: options.threadId },
+            {
+              expectedVersion,
+              draft: draft as CheckpointDraft,
+              sourceThreadId: options.threadId,
+              ...(gitPin === undefined ? {} : { realityPins: { git: gitPin } }),
+            },
             signal,
           );
         },

@@ -32,6 +32,14 @@ import { lookupTranscript } from "./work-summary.js";
 import { parseTuiArgs } from "./cli-options.js";
 import { createMemoryStore } from "./memory-store.js";
 import { createCheckpointStore, type WorkspaceCheckpointStore } from "./checkpoint-store.js";
+import { inspectGitReality, reconcileGitReality } from "./git-reality.js";
+import {
+  captureResumeObservation,
+  createResumeContextMessage,
+  formatResumeObservation,
+  resumeMatchesCheckpoint,
+  type ResumeObservation,
+} from "./resume-observation.js";
 import { createModuleHost } from "./module-host.js";
 import { createMemoryModule } from "./modules/memory-module.js";
 import { createCheckpointModule, type CheckpointMemoryView } from "./modules/checkpoint-module.js";
@@ -170,6 +178,13 @@ const moduleHost =
             ? [
                 createCheckpointModule(checkpointStore!, {
                   threadId,
+                  captureGitPin: async (signal) => {
+                    const inspection = await inspectGitReality(
+                      workspaceRoot!,
+                      AbortSignal.any([signal, AbortSignal.timeout(2_500)]),
+                    );
+                    return inspection.ok ? inspection.pin : undefined;
+                  },
                   ...(memoryStore === undefined
                     ? {}
                     : { getInjectableMemories: getInjectableCheckpointMemories }),
@@ -242,6 +257,7 @@ const toolConfirmationPrompt: ToolConfirmationPrompt = (input) => {
         `Workspace: ${JSON.stringify(workspaceRoot)}\n` +
         `Expected current version: ${JSON.stringify(checkpointInput.expectedVersion)}\n` +
         `Complete draft:\n${JSON.stringify(checkpointInput.draft, null, 2)}\n` +
+        "After confirmation, the program will try to record current Git HEAD/branch/dirty; if Git inspection fails, it saves without a pin.\n" +
         "This will save the next checkpoint version. Allow this call? [y/n] "
       );
     }
@@ -479,7 +495,7 @@ const calculatorInstructions =
       "When saving a confirmed candidate from committed conversation, pass its sourceMessageId and sourceQuote. The program checks that the id is a committed user message in this thread and that sourceQuote is an exact substring of that message; a mismatch is rejected and is not saved as manual. A direct request to remember the current message has manual source because this Run is not committed yet. Do not invent or substitute source ids or quotes. Candidates are not saved automatically."
     : "") +
   (checkpointEnabled
-    ? " When project checkpoint tools are available, use checkpoint_get only when the user explicitly asks to inspect a checkpoint. The latest checkpoint is already supplied as a bounded reference in model context when available; it is a saved work-state snapshot, not current disk evidence and not permission. If it conflicts with active injected Memory, follow Memory. Only call checkpoint_prepare when the user explicitly asks to save or update the checkpoint; it returns only the current checkpoint and injectable Memory, does not invoke a model or collect recent conversation messages. Use the current conversation already in context to draft concise fields, then call checkpoint_save with the observed expectedVersion; the complete draft and version will be shown for y/n confirmation. Do not claim it was saved unless the tool returns ok:true. A completed checkpoint remains current; updating it creates the next version. Do not automatically create or update checkpoints."
+    ? " When project checkpoint tools are available, use checkpoint_get only when the user explicitly asks to inspect a checkpoint. The latest checkpoint is already supplied as a bounded reference in model context when available; it is a saved work-state snapshot, not current disk evidence and not permission. Its optional Git pin is from save time, not current Git state; do not infer a merged PR or passed tests from checkpoint prose. When a /resume Git observation is injected, use its program-determined reconciliation status and observedAt as the latest Git evidence, while keeping checkpoint as saved intent. Repeating /resume without a new checkpoint save does not move the saved pin or resolve stale status. /resume does not authorize tools; any nextActions still use the existing tools and y/n. If checkpoint conflicts with active injected Memory, follow Memory. Only call checkpoint_prepare when the user explicitly asks to save or update the checkpoint; it returns only the current checkpoint and injectable Memory, does not invoke a model or collect recent conversation messages. Use the current conversation already in context to draft concise fields, then call checkpoint_save with the observed expectedVersion; the complete draft and version will be shown for y/n confirmation. Do not submit realityPins yourself or claim it was saved unless the tool returns ok:true. A completed checkpoint remains current; updating it creates the next version. Do not automatically create or update checkpoints."
     : "") +
   (todoistEnabled
     ? " When Todoist is available and the user asks to query it or plan work from it, use todoist_list_tasks; use the planning view for a daily plan. " +
@@ -491,6 +507,20 @@ const calculatorInstructions =
     : "");
 
 try {
+  let pendingResumeObservation: ResumeObservation | undefined;
+  let activeResumeObservation: ResumeObservation | undefined;
+  let resumeMismatchReported = false;
+  const activeResumeMessage = (checkpoint: Awaited<ReturnType<typeof readCurrentCheckpoint>>) => {
+    if (activeResumeObservation === undefined) return undefined;
+    if (!resumeMatchesCheckpoint(activeResumeObservation, checkpoint)) {
+      if (!resumeMismatchReported) {
+        output.write("\n[resume] Checkpoint changed after inspection; old observation was not injected. Run /resume again.\n");
+        resumeMismatchReported = true;
+      }
+      return undefined;
+    }
+    return createResumeContextMessage(activeResumeObservation);
+  };
   const registeredTools = [addRegistration, ...(moduleHost?.tools ?? [])];
   const catalog = new InMemoryAgentCatalog([
     {
@@ -541,7 +571,7 @@ try {
             const checkpoint = await readCurrentCheckpoint(checkpointStore, signal);
             return [
               ...(taskEnabled ? [buildTaskContextMessage({ now, timeZone })] : []),
-              ...checkpointAndMemoryContextMessages(checkpoint, memories, { threadId, now }),
+              ...checkpointAndMemoryContextMessages(checkpoint, memories, { threadId, now }, activeResumeMessage(checkpoint)),
             ];
           },
         })
@@ -751,13 +781,16 @@ try {
             const checkpoint = shouldInjectProjectCheckpoint(definition.id)
               ? await readCurrentCheckpoint(checkpointStore, signal)
               : null;
+            const resumeMessage = shouldInjectProjectCheckpoint(definition.id)
+              ? activeResumeMessage(checkpoint)
+              : undefined;
             let selected: UIMessage[];
             if (contextCompactor === undefined || definition.id !== "calculator") {
-              selected = selectModelContext(messages, memories, { threadId, now }, checkpoint);
+              selected = selectModelContext(messages, memories, { threadId, now }, checkpoint, resumeMessage);
             } else {
               const compacted = await contextCompactor.prepare(messages, signal);
               selected = [
-                ...checkpointAndMemoryContextMessages(checkpoint, memories, { threadId, now }),
+                ...checkpointAndMemoryContextMessages(checkpoint, memories, { threadId, now }, resumeMessage),
                 ...compacted,
               ];
             }
@@ -813,6 +846,35 @@ try {
       ...(commands ? { commands } : {}),
       ...(contextCompactor
         ? { compaction: { compact: (signal: AbortSignal) => contextCompactor.compact(signal) } }
+        : {}),
+      ...(checkpointStore && workspaceRoot
+        ? {
+            resume: {
+              inspect: async (signal: AbortSignal) => {
+                const checkpoint = await readCurrentCheckpoint(checkpointStore, signal);
+                const git = await reconcileGitReality(workspaceRoot, checkpoint?.realityPins?.git, signal);
+                if (signal.aborted) throw signal.reason;
+                const observation = captureResumeObservation(checkpoint, git);
+                pendingResumeObservation = observation;
+                return formatResumeObservation(observation) +
+                  (createResumeContextMessage(observation) === undefined
+                    ? "\nObservation exceeds 12 KiB and will not be injected into the next Run."
+                    : "\nThe observation will be injected into the next ordinary Run only.");
+              },
+              clear: () => {
+                pendingResumeObservation = undefined;
+                activeResumeObservation = undefined;
+              },
+              beginRun: () => {
+                activeResumeObservation = pendingResumeObservation;
+                pendingResumeObservation = undefined;
+                resumeMismatchReported = false;
+              },
+              endRun: () => {
+                activeResumeObservation = undefined;
+              },
+            },
+          }
         : {}),
       ...(moduleConfig?.autoConsolidate
         ? { autoConsolidationAgentId: consolidationAgent.id }

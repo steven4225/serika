@@ -10,7 +10,15 @@ import {
   CHECKPOINT_SNAPSHOT_MAX_BYTES,
   createCheckpointStore,
   type CheckpointDraft,
+  type CheckpointGitPin,
 } from "./checkpoint-store.js";
+
+const gitPin: CheckpointGitPin = {
+  head: "a".repeat(40),
+  branch: "main",
+  dirty: false,
+  observedAt: "2026-09-23T00:00:00.000Z",
+};
 
 function draft(overrides: Partial<CheckpointDraft> = {}): CheckpointDraft {
   return {
@@ -69,6 +77,79 @@ describe("WorkspaceCheckpointStore", () => {
     const current = await store.getCurrent();
     assert.equal(current.ok, true);
     if (current.ok) assert.equal(current.current?.version, 2);
+  });
+
+  it("persists a program-supplied Git pin but never inherits it on the next version", async () => {
+    const root = await workspace();
+    const store = createCheckpointStore(root);
+    const first = await store.saveNextVersion({
+      expectedVersion: null,
+      draft: draft(),
+      sourceThreadId: "thread-a",
+      realityPins: { git: gitPin },
+    });
+    assert.equal(first.ok, true);
+    if (!first.ok) return;
+    assert.deepEqual(first.checkpoint.realityPins, { git: gitPin });
+    const second = await store.saveNextVersion({
+      expectedVersion: 1,
+      draft: draft({ summary: "A new snapshot without a Git observation." }),
+      sourceThreadId: "thread-b",
+    });
+    assert.equal(second.ok, true);
+    if (!second.ok) return;
+    assert.equal(second.checkpoint.realityPins, undefined);
+    assert.deepEqual(await store.getVersion(1), { ok: true, checkpoint: first.checkpoint });
+    const file = JSON.parse(await readFile(join(root, CHECKPOINT_FILE_NAME), "utf8")) as { schemaVersion: number };
+    assert.equal(file.schemaVersion, 1);
+  });
+
+  it("omits invalid or oversized program pins without rejecting a valid draft", async () => {
+    const root = await workspace();
+    const store = createCheckpointStore(root);
+    const invalid = await store.saveNextVersion({
+      expectedVersion: null,
+      draft: draft(),
+      sourceThreadId: "thread-a",
+      realityPins: { git: { ...gitPin, head: "not-a-sha" } },
+    });
+    assert.equal(invalid.ok, true);
+    if (!invalid.ok) return;
+    assert.equal(invalid.checkpoint.realityPins, undefined);
+
+    const oversized = await store.saveNextVersion({
+      expectedVersion: 1,
+      draft: draft(),
+      sourceThreadId: "thread-a",
+      realityPins: { git: { ...gitPin, branch: "x".repeat(257) } },
+    });
+    assert.equal(oversized.ok, true);
+    if (oversized.ok) assert.equal(oversized.checkpoint.realityPins, undefined);
+  });
+
+  it("fails closed on a malformed stored Git pin", async () => {
+    const root = await workspace();
+    const store = createCheckpointStore(root);
+    const saved = await store.saveNextVersion({
+      expectedVersion: null,
+      draft: draft(),
+      sourceThreadId: "thread-a",
+      realityPins: { git: gitPin },
+    });
+    assert.equal(saved.ok, true);
+    const file = join(root, CHECKPOINT_FILE_NAME);
+    const document = JSON.parse(await readFile(file, "utf8")) as {
+      current: { realityPins: { git: CheckpointGitPin } };
+    };
+    document.current.realityPins.git.head = "unknown";
+    const corrupt = `${JSON.stringify(document)}\n`;
+    await writeFile(file, corrupt, "utf8");
+    const current = await store.getCurrent();
+    assert.equal(current.ok, false);
+    if (!current.ok) assert.equal(current.error.code, "CHECKPOINT_FILE_INVALID");
+    const resave = await store.saveNextVersion({ expectedVersion: 1, draft: draft(), sourceThreadId: "thread-b" });
+    assert.equal(resave.ok, false);
+    assert.equal(await readFile(file, "utf8"), corrupt);
   });
 
   it("drops the oldest retained version once history is full", async () => {
