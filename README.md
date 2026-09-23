@@ -46,6 +46,8 @@ RUNLOOM_MODEL=minimax-m3 pnpm tui -- ./var/runloom --thread demo --workspace ./s
 
 配置 workspace 后，TUI 提供 `list_directory`、`search_files`、`read_file`、`write_file`、`edit_file` 以及 `memory_list`、`memory_get`、`memory_prepare_consolidation`、`memory_add`、`memory_update`、`memory_delete`。`list_directory` 列出一层目录；`search_files` 按字面量搜索符合条件的 UTF-8 文本，并跳过隐藏路径、`node_modules` 和符号链接，结果可能因上限被标记为 `truncated`。`write_file` 只创建新文件，已存在则失败，不会覆盖。`edit_file` 对已有文件做恰好一处字面量替换；找不到或多处匹配则失败。workspace 记忆保存在 `.runloom/memory.json`，只有用户明确要求时才由工具增删改；启用的条目会作为不进入 transcript 的参考消息注入模型上下文。当前 v2 条目保留 `status`（`active`/`disabled`）、`scope`（workspace 或当前 thread）、`source`（manual、legacy 或已核验的 conversation）、创建/更新时间、可选 `expiresAt`、`revision` 和有限历史；旧 v1 文件读取时兼容，首次成功写入时升级。thread scope 由程序绑定当前 thread，工具不能提交其他 thread id。`memory_list` 和整理结果只返回当前版本，不返回历史正文。询问某条记忆为何保存或改过什么时用 `memory_get`；其中的 quote 是保存时核验的原文片段，原消息已不在当前 thread 的 JSONL 时不能声称还能用 `/history` 回查。`memory_update` 必须带当前 `expectedRevision`，过期版本会返回冲突而不覆盖；写入时的上下文额度只计算当前 thread 这次会注入的条目，其他 thread 和已过期条目不占这个额度。disabled 或已过期条目不会注入，thread 条目只进入对应 thread。已提交 transcript 和压缩摘要不是当前偏好，只有本次注入的记忆版本才是。手动调用 `memory_prepare_consolidation` 只返回已提交的用户文本；自动整理模式还会返回同一普通回合里的助手和工具证据作为判断上下文，单条工具结果最多保留 4 KiB，但这些内容不能作为用户事实来源。用户下一轮明确点名后，写入工具才可传 `sourceMessageId` 和从该消息原样截出的 `sourceQuote`；程序核对 id 属于当前 thread 的用户文本，且 quote 是精确子串，对不上就拒绝写入，不会改记成 manual。直接要求记住当前这句话时，因本轮尚未提交，来源仍记为 manual。候选不单独落库，也不会自动保存；助手、工具和网页内容不能作为用户事实来源。未使用范围授权时，每次工具调用仍需 `y/n` 确认；确认通过后写入立即生效，之后取消或 Run 失败不会回滚文件或记忆。
 
+独立开启 `modules.checkpoint.enabled` 后，TUI 在 workspace 的 `.runloom/checkpoint.json` 保存一份项目工作进度；它与 Memory、transcript 分开，默认关闭且不依赖 `memory.enabled`。新 Thread 只注入当前版本，明确标为保存时的参考快照，不代表当前磁盘状态，也不恢复工具授权。用户明确要求时才调用 `checkpoint_prepare`、`checkpoint_get` 或 `checkpoint_save`，三者都走现有 `y/n`；prepare 只返回 current 和当前 Thread 可注入的 Memory，不调用模型、不重复复制近期对话。保存预览包含 `expectedVersion` 与完整草稿；版本冲突不覆盖，按 `n` 零写入。当前快照和注入消息各不超过 12 KiB，文件不超过 128 KiB，损坏或超限时 fail-closed。它不验证 artifacts 路径当前是否存在，也不是自动记忆整理的候选；`completed` 仍是 current，后续保存递增版本。
+
 当较早的完整回合因 8 回合或 128 KiB 上限被移出模型上下文时，TUI 会注入一个不超过 16 KiB 的进程内工作摘要。摘要不写入 transcript，也没有独立的持久化文件；使用同一 transcript 目录和同一 thread 重启时，会从该 thread 的已提交 transcript 确定性重建，其他 thread 的内容不会混入。这只恢复对话上下文，不是 Durable recovery：失败或取消 Run 的未提交动作不会恢复，摘要也不授予或恢复工具权限。Goal 是原始请求而不是当前磁盘状态；Completed 只保留显式 `ok:true` 的短工具回执。可用 `/history <message-id>` 或 `/history turn:<number>`（回合编号从 0 开始）只读回查摘要所引用的当前 thread 原文。
 
 如果一次任务需要连续处理一组文件，可在提交任务前使用 `/authorize <tool[,tool...]> <path> [path ...]`，例如 `/authorize read_file,search_files,write_file docs/ reports/`；列出的每个工具都适用于列出的每个路径前缀。这只把列出的文件工具和 workspace 相对路径前缀授权给下一次 Run；Run 结束、失败或取消后立即失效。未列出的工具或路径仍逐次询问，`shell_exec` 不受这条授权影响；授权规则不写入 transcript、memory 或 `tasks.json`。
@@ -103,7 +105,7 @@ Stage 7-2 支持用一份显式 JSON 配置选择 TUI 启用的内置模块。�
 RUNLOOM_MODEL=mock pnpm tui -- ./var/runloom --thread daily-plan --config ./runloom.json
 ```
 
-配置模式下未列出的模块默认关闭，模块配置必须使用 `{ "enabled": true|false }`。支持的模块是 `pomodoro`、`read-file`、`memory`、`task`、`todoist`、`shell` 和 `web`；`read-file` 仍包含 `/workspace`、文件读写和搜索能力，`shell` 提供显式启用的 `shell_exec`，`web` 提供公开 URL 的 `web_fetch`，并可在 `web.search.enabled` 下显式开启搜索，示例 `add` 工具不属于配置模块。
+配置模式下未列出的模块默认关闭，模块配置必须使用 `{ "enabled": true|false }`。支持的模块是 `pomodoro`、`read-file`、`memory`、`checkpoint`、`task`、`todoist`、`shell` 和 `web`；`read-file` 仍包含 `/workspace`、文件读写和搜索能力，`shell` 提供显式启用的 `shell_exec`，`web` 提供公开 URL 的 `web_fetch`，并可在 `web.search.enabled` 下显式开启搜索，示例 `add` 工具不属于配置模块。
 
 ```json
 {
@@ -113,6 +115,7 @@ RUNLOOM_MODEL=mock pnpm tui -- ./var/runloom --thread daily-plan --config ./runl
     "pomodoro": { "enabled": true },
     "read-file": { "enabled": true },
     "memory": { "enabled": true, "autoConsolidate": false },
+    "checkpoint": { "enabled": true },
     "task": { "enabled": false },
     "todoist": { "enabled": true, "timeZone": "Asia/Shanghai" },
     "web": { "enabled": true }
@@ -120,11 +123,11 @@ RUNLOOM_MODEL=mock pnpm tui -- ./var/runloom --thread daily-plan --config ./runl
 }
 ```
 
-`workspace` 相对配置文件所在目录解析。启用 `read-file`、`memory`、`task` 或 `shell` 时必须提供有效 workspace；只启用 Todoist、web 或番茄钟可以省略。配置模式下 Todoist 时区只读取 JSON，缺省为 `Asia/Shanghai`；不传 `--config` 时仍沿用 `RUNLOOM_TODOIST_TIMEZONE`。Todoist token 始终从 `TODOIST_API_TOKEN` 读取，不能写进 JSON。
+`workspace` 相对配置文件所在目录解析。启用 `read-file`、`memory`、`checkpoint`、`task` 或 `shell` 时必须提供有效 workspace；只启用 Todoist、web 或番茄钟可以省略。配置模式下未列出的模块默认关闭，因此 checkpoint 默认关闭并独立于 memory。配置模式下 Todoist 时区只读取 JSON，缺省为 `Asia/Shanghai`；不传 `--config` 时仍沿用 `RUNLOOM_TODOIST_TIMEZONE`。Todoist token 始终从 `TODOIST_API_TOKEN` 读取，不能写进 JSON。
 
 `--config` 与 `--workspace`、`--todoist`、`--auto-consolidate` 互斥，但可和 transcript 目录、`--thread` 一起使用。不传 `--config` 时，原有命令行行为保持不变。
 
-`/modules` 始终可用，不属于配置模块；它显示配置来源、workspace、模块开关、自动整理、Todoist 时区和 token 是否存在，不显示 token。关闭 `memory` 会同时关闭记忆工具、记忆注入和自动整理；关闭 `task` 只影响当前 TUI，不会停止独立 worker。命令不创建 Run，也不写 transcript。
+`/modules` 始终可用，不属于配置模块；它显示配置来源、workspace、模块开关、自动整理、Todoist 时区和 token 是否存在，不显示 token。关闭 `memory` 会同时关闭记忆工具、记忆注入和自动整理，但不会关闭 checkpoint；关闭 `checkpoint` 只关闭 checkpoint 工具和注入；关闭 `task` 只影响当前 TUI，不会停止独立 worker。命令不创建 Run，也不写 transcript。
 
 启用 `task` 并配置 workspace 后还可以创建一次性任务。TUI 提供 `/task create <带时区的ISO时间> <prompt>`、`/task list [pending|attention|status]`、`/task inbox`、`/task show <id>`、`/task ack <id>` 和 `/task cancel <id>`；任务保存在 `<workspace>/.runloom/tasks.json`。独立 worker 必须持续运行，TUI 关闭后仍会在到期时执行：
 

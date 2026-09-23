@@ -1,6 +1,13 @@
 import type { UIMessage } from "ai";
 import { AgentError } from "@aisdk-agent/core";
 import {
+  CHECKPOINT_CONTEXT_MESSAGE_ID,
+  CHECKPOINT_INJECTION_MAX_BYTES,
+  createCheckpointContextMessage as makeCheckpointContextMessage,
+  shouldInjectProjectCheckpoint,
+} from "./checkpoint-context.js";
+import type { CheckpointSnapshot } from "./checkpoint-store.js";
+import {
   createMemoryContextMessage,
   memoryContextBytes,
   selectInjectableMemoryEntries,
@@ -45,6 +52,7 @@ export const MAX_HISTORY_TURNS = 8;
 export const MAX_CONTEXT_BYTES = 131_072;
 export const MAX_MEMORY_CONTEXT_BYTES = MEMORY_CONTEXT_MAX_BYTES;
 export const WORK_SUMMARY_MESSAGE_ID = "runloom-work-summary";
+export { CHECKPOINT_CONTEXT_MESSAGE_ID, shouldInjectProjectCheckpoint };
 
 /** The subset of a persisted memory entry needed by model-context selection. */
 export type MemoryScope = PersistedMemoryScope;
@@ -74,6 +82,18 @@ export function selectValidMemoryEntries(
   options: MemorySelectionOptions = {},
 ): ContextMemoryEntry[] {
   return selectInjectableMemoryEntries(entries, options);
+}
+
+/** Return the exact bounded Memory set that may be injected into one context. */
+export function selectMemoryContextEntries(
+  entries: readonly ContextMemoryEntry[],
+  options: MemorySelectionOptions = {},
+): ContextMemoryEntry[] {
+  const selected = selectValidMemoryEntries(entries, options);
+  while (selected.length > 0 && memoryContextBytes(selected) > MAX_MEMORY_CONTEXT_BYTES) {
+    selected.shift();
+  }
+  return selected;
 }
 
 function messageBytes(messages: UIMessage[]): number {
@@ -120,6 +140,34 @@ function workSummaryMessage(summary: WorkSummary): UIMessage {
   };
 }
 
+export function createCheckpointContextMessage(
+  checkpoint: CheckpointSnapshot | null | undefined,
+): UIMessage | undefined {
+  if (checkpoint == null) return undefined;
+  const message = makeCheckpointContextMessage(checkpoint);
+  if (messageBytes([message]) > CHECKPOINT_INJECTION_MAX_BYTES) {
+    throw contextTooLarge(
+      `Current project checkpoint exceeds the ${CHECKPOINT_INJECTION_MAX_BYTES}-byte context limit`,
+    );
+  }
+  return message;
+}
+
+export function checkpointAndMemoryContextMessages(
+  checkpoint: CheckpointSnapshot | null | undefined,
+  memories: readonly ContextMemoryEntry[] = [],
+  memoryOptions: MemorySelectionOptions = {},
+): UIMessage[] {
+  const checkpointMessage = createCheckpointContextMessage(checkpoint);
+  const memoryMessage = createMemoryContextMessage(
+    selectMemoryContextEntries(memories, memoryOptions),
+  );
+  return [
+    ...(checkpointMessage === undefined ? [] : [checkpointMessage]),
+    ...(memoryMessage === undefined ? [] : [memoryMessage]),
+  ];
+}
+
 /**
  * Select recent complete turns and, when present, inject enabled workspace
  * memories without changing the transcript.
@@ -128,8 +176,9 @@ export function selectModelContext(
   messages: UIMessage[],
   memories: readonly ContextMemoryEntry[] = [],
   memoryOptions: MemorySelectionOptions = {},
+  checkpoint?: CheckpointSnapshot | null,
 ): UIMessage[] {
-  if (messages.length === 0 && memories.length === 0) return messages;
+  if (messages.length === 0 && memories.length === 0 && checkpoint == null) return messages;
 
   const userStarts: number[] = [];
   for (let index = 0; index < messages.length; index += 1) {
@@ -154,7 +203,8 @@ export function selectModelContext(
   if (messageBytes(currentTurn) > MAX_CONTEXT_BYTES) throw contextTooLarge();
 
   const selectedHistory = historyTurns.slice(-MAX_HISTORY_TURNS);
-  const selectedMemories = selectValidMemoryEntries(memories, memoryOptions);
+  const selectedMemories = selectMemoryContextEntries(memories, memoryOptions);
+  const checkpointMessage = createCheckpointContextMessage(checkpoint);
   const allHistory = historyTurns.flat();
   const summaryFor = (): WorkSummary | undefined => {
     const selectedIds = new Set(selectedHistory.flat().map((item) => item.id));
@@ -172,20 +222,12 @@ export function selectModelContext(
     return summary;
   };
 
-  // The injected message has its own limit. Evict oldest enabled entries if a
-  // caller supplies entries that were not already checked by the store.
-  while (
-    selectedMemories.length > 0 &&
-    memoryContextBytes(selectedMemories) > MAX_MEMORY_CONTEXT_BYTES
-  ) {
-    selectedMemories.shift();
-  }
-
   const memoryMessage = (): UIMessage[] => {
     const message = createMemoryContextMessage(selectedMemories);
     return message === undefined ? [] : [message];
   };
   const compose = (summary: WorkSummary | undefined): UIMessage[] => [
+    ...(checkpointMessage === undefined ? [] : [checkpointMessage]),
     ...memoryMessage(),
     ...(summary === undefined ? [] : [workSummaryMessage(summary)]),
     ...selectedHistory.flat(),

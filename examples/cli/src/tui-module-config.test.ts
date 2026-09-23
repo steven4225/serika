@@ -369,6 +369,7 @@ describe("resolveTuiModuleConfig", () => {
       pomodoro: false,
       "read-file": true,
       memory: false,
+      checkpoint: false,
       task: false,
       todoist: true,
       shell: false,
@@ -533,8 +534,41 @@ describe("resolveTuiModuleConfig", () => {
     }, "file-only.json");
     await assert.rejects(
       resolveTuiModuleConfig(configArgs(fileOnlyPath), { cwd: configDirectory }),
-      /TUI config requires workspace when read-file, memory, task, or shell is enabled/,
+      /TUI config requires workspace when read-file, memory, checkpoint, task, or shell is enabled/,
     );
+  });
+
+  it("keeps checkpoint independently disabled by default and requires workspace when enabled", async () => {
+    const { configDirectory, workspace } = await createConfigWorkspace();
+    const disabledPath = await writeConfig(configDirectory, {
+      version: 1,
+      modules: { memory: { enabled: false } },
+    }, "checkpoint-default-off.json");
+    const disabled = await resolveTuiModuleConfig(configArgs(disabledPath), {
+      cwd: configDirectory,
+    });
+    assert.equal(disabled.enabled.checkpoint, false);
+
+    const noWorkspacePath = await writeConfig(configDirectory, {
+      version: 1,
+      modules: { checkpoint: { enabled: true }, memory: { enabled: false } },
+    }, "checkpoint-no-workspace.json");
+    await assert.rejects(
+      resolveTuiModuleConfig(configArgs(noWorkspacePath), { cwd: configDirectory }),
+      /requires workspace when read-file, memory, checkpoint, task, or shell is enabled/,
+    );
+
+    const enabledPath = await writeConfig(configDirectory, {
+      version: 1,
+      workspace: "./workspace",
+      modules: { checkpoint: { enabled: true }, memory: { enabled: false } },
+    }, "checkpoint-memory-independent.json");
+    const enabled = await resolveTuiModuleConfig(configArgs(enabledPath), {
+      cwd: configDirectory,
+    });
+    assert.equal(enabled.enabled.checkpoint, true);
+    assert.equal(enabled.enabled.memory, false);
+    assert.equal(enabled.workspaceRoot, await realpath(workspace));
   });
 
   it("rejects unknown keys, modules, versions, and bare module booleans", async () => {
@@ -579,7 +613,7 @@ describe("resolveTuiModuleConfig", () => {
     );
     await assert.rejects(
       resolveTuiModuleConfig(configArgs(noWorkspacePath), { cwd: configDirectory }),
-      /TUI config requires workspace when read-file, memory, task, or shell is enabled/,
+      /TUI config requires workspace when read-file, memory, checkpoint, task, or shell is enabled/,
     );
   });
 
@@ -614,6 +648,7 @@ describe("resolveTuiModuleConfig", () => {
       pomodoro: true,
       "read-file": true,
       memory: true,
+      checkpoint: false,
       task: true,
       todoist: true,
       shell: false,
@@ -686,6 +721,7 @@ describe("TUI module configuration entry", () => {
     assert.match(stdout, /tools=read_file paths=docs/);
     assert.match(stdout, /Web module: disabled/);
     assert.match(stdout, /修改或删除配置后需重启 TUI 生效/);
+    assert.match(stdout, /Shell、memory、checkpoint、Todoist、task 不受持久文件授权影响/);
     assert.doesNotMatch(stdout, /Allow this call\? \[y\/n\]/);
   });
 

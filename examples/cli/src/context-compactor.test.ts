@@ -7,13 +7,16 @@ import type {
   ThreadContextCompactionRecord,
 } from "@aisdk-agent/core";
 import { AgentError } from "@aisdk-agent/core";
-import { ContextCompactor } from "./context-compactor.js";
+import { ContextCompactor, type ContextCompactorOptions } from "./context-compactor.js";
 import type { ContextSummaryV2, Summarizer } from "./context-compaction.js";
 import type { ContextBudgetConfig } from "./context-budget.js";
 import {
+  CHECKPOINT_CONTEXT_MESSAGE_ID,
+  checkpointAndMemoryContextMessages,
   createMemoryContextMessage,
   selectValidMemoryEntries,
 } from "./context-window.js";
+import type { CheckpointSnapshot } from "./checkpoint-store.js";
 
 const budget: ContextBudgetConfig = {
   enabled: true,
@@ -86,6 +89,7 @@ function makeCompactor(
   store: FakeStore,
   summarizer: Summarizer,
   budgetOverride: ContextBudgetConfig = budget,
+  extra: Partial<ContextCompactorOptions> = {},
 ): ContextCompactor {
   return new ContextCompactor({
     store,
@@ -95,6 +99,7 @@ function makeCompactor(
     budget: budgetOverride,
     fixedContext: () => ({ instructions: "instructions", tools: [], memories: [], dynamicContext: "" }),
     generateId: () => "compact-1",
+    ...extra,
   });
 }
 
@@ -213,6 +218,40 @@ describe("ContextCompactor", () => {
     assert.deepEqual(prepared, [user("u1", "short request")]);
     assert.equal(summarizer.calls, 0);
     assert.equal(store.records.length, 0);
+  });
+
+  it("counts promptPrefix in the budget and leaves checkpoint injection to the caller", async () => {
+    const store = new FakeStore();
+    const summarizer = new FakeSummarizer();
+    const checkpoint: CheckpointSnapshot = {
+      id: "checkpoint-1",
+      version: 1,
+      status: "active",
+      goal: "Continue Runloom",
+      summary: "Compaction counts this prefix.",
+      completed: [],
+      inProgress: [],
+      nextActions: [],
+      blockers: [],
+      artifacts: [],
+      source: { threadId: "thread-1" },
+      createdAt: "2026-09-01T00:00:00.000Z",
+      updatedAt: "2026-09-01T00:00:00.000Z",
+    };
+    const prefix = checkpointAndMemoryContextMessages(checkpoint, [
+      { id: "memory-current", text: "Keep M5 in one PR.", enabled: true },
+    ], { threadId: "thread-1" });
+    const conversation = [user("u1", "short request")];
+    const prepared = await makeCompactor(store, summarizer, roomyBudget, {
+      promptPrefix: () => prefix,
+    }).prepare(conversation, new AbortController().signal);
+
+    assert.deepEqual(prepared, conversation);
+    assert.equal(prepared.some((message) => message.id === CHECKPOINT_CONTEXT_MESSAGE_ID), false);
+    const selected = [...prefix, ...prepared];
+    assert.equal(selected[0]?.id, CHECKPOINT_CONTEXT_MESSAGE_ID);
+    assert.equal(selected.filter((message) => message.id === CHECKPOINT_CONTEXT_MESSAGE_ID).length, 1);
+    assert.equal(selected.at(-1)?.id, "u1");
   });
 
   it("merges bounded summary chunks when omitted history is large", async () => {

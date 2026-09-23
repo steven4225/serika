@@ -549,11 +549,19 @@ type CompletedMemoryAction = {
   revision: number;
 };
 
+type CompletedCheckpointAction = {
+  toolName: "checkpoint_save";
+  id: string;
+  version: number;
+  status: "active" | "paused" | "completed";
+};
+
 type CompletedAction =
   | CompletedFileAction
   | CompletedPomodoroAction
   | CompletedTaskAction
-  | CompletedMemoryAction;
+  | CompletedMemoryAction
+  | CompletedCheckpointAction;
 
 type UnknownToolAction = {
   toolName: string;
@@ -714,6 +722,34 @@ function completedMemoryAction(
   };
 }
 
+function completedCheckpointAction(
+  event: Extract<AgentEvent, { type: "tool.call.completed" }>,
+): CompletedCheckpointAction | undefined {
+  if (event.data.toolName !== "checkpoint_save") return undefined;
+  const output = event.data.output;
+  if (typeof output !== "object" || output === null) return undefined;
+  const result = output as {
+    ok?: unknown;
+    checkpoint?: { id?: unknown; version?: unknown; status?: unknown } | null;
+  };
+  const checkpoint = result.checkpoint;
+  if (
+    result.ok !== true ||
+    typeof checkpoint !== "object" || checkpoint === null ||
+    typeof checkpoint.id !== "string" || checkpoint.id.length === 0 ||
+    !positiveSafeInteger(checkpoint.version) ||
+    (checkpoint.status !== "active" && checkpoint.status !== "paused" && checkpoint.status !== "completed")
+  ) {
+    return undefined;
+  }
+  return {
+    toolName: "checkpoint_save",
+    id: checkpoint.id,
+    version: checkpoint.version,
+    status: checkpoint.status,
+  };
+}
+
 function renderHistory(output: Writable, messages: UIMessage[]): void {
   if (messages.length === 0) return;
 
@@ -789,6 +825,8 @@ async function renderEvents(
         if (taskAction !== undefined) completedActions.push(taskAction);
         const memoryAction = completedMemoryAction(event);
         if (memoryAction !== undefined) completedActions.push(memoryAction);
+        const checkpointAction = completedCheckpointAction(event);
+        if (checkpointAction !== undefined) completedActions.push(checkpointAction);
         break;
       }
       default:
@@ -827,6 +865,11 @@ function renderResult(
         write(
           output,
           `- task_create: 已创建任务 ${action.id}，执行时间 ${action.runAt}，内容：${action.prompt}\n`,
+        );
+      } else if (action.toolName === "checkpoint_save") {
+        write(
+          output,
+          `- checkpoint_save: 已保存工作进度 ${action.id}，版本 ${action.version}，状态 ${action.status}\n`,
         );
       } else if ("revision" in action) {
         if (action.toolName === "memory_add") {

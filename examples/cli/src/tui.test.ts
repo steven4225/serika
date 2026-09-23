@@ -26,8 +26,14 @@ import {
   ToolRegistry,
 } from "@aisdk-agent/ai-sdk-adapter";
 import { createDemoModel } from "./demo-model.js";
+import {
+  CHECKPOINT_FILE_NAME,
+  createCheckpointStore,
+  type CheckpointDraft,
+} from "./checkpoint-store.js";
 import { AUTO_CONSOLIDATION_SOURCE } from "./consolidation.js";
 import { createModuleHost } from "./module-host.js";
+import { createCheckpointModule } from "./modules/checkpoint-module.js";
 import { createReadFileModule } from "./modules/read-file-module.js";
 import type { ReadFileResult } from "./read-file.js";
 import { createWriteFileTool } from "./write-file.js";
@@ -644,6 +650,97 @@ async function createWriteFileConfirmationRuntime(options: {
   return { runtime, store, confirmation, output, workspace };
 }
 
+const checkpointTestDraft: CheckpointDraft = {
+  status: "active",
+  goal: "Continue Runloom",
+  summary: "The checkpoint has a concise verified progress snapshot.",
+  completed: ["Freeze M5 contract"],
+  inProgress: ["Implement TUI integration"],
+  nextActions: ["Run acceptance"],
+  blockers: [],
+  artifacts: [{ label: "Plan", path: "docs/m5-plan.md" }],
+};
+
+function checkpointSaveCallResponse() {
+  return {
+    stream: simulateReadableStream({
+      chunks: [
+        { type: "stream-start" as const, warnings: [] },
+        {
+          type: "tool-call" as const,
+          toolCallId: "call-checkpoint-save",
+          toolName: "checkpoint_save",
+          input: JSON.stringify({ expectedVersion: null, draft: checkpointTestDraft }),
+        },
+        {
+          type: "finish" as const,
+          finishReason: { unified: "tool-calls" as const, raw: undefined },
+          usage: writeFileUsage(),
+        },
+      ],
+    }),
+  };
+}
+
+function createCheckpointSaveModel() {
+  return new MockLanguageModelV3({
+    doStream: async ({ prompt }) => {
+      const results = currentTurnToolResults(prompt);
+      if (results.length === 0) return checkpointSaveCallResponse();
+      const result = results[0]?.output;
+      return isRecord(result) && result.type === "error-text"
+        ? writeFileTextResponse("The checkpoint save was denied.")
+        : writeFileTextResponse("The checkpoint is saved.");
+    },
+  });
+}
+
+async function createCheckpointConfirmationRuntime(): Promise<{
+  runtime: DefaultAgentRuntime;
+  store: CountingStore;
+  checkpointStore: ReturnType<typeof createCheckpointStore>;
+  confirmation: ReturnType<typeof createToolConfirmation>;
+  output: Writable & { text(): string };
+  workspace: string;
+  dispose(): void;
+}> {
+  const workspace = await mkdtemp(join(tmpdir(), "runloom-tui-checkpoint-"));
+  const output = ttyOutput();
+  const confirmation = createToolConfirmation(output);
+  const store = new CountingStore();
+  const checkpointStore = createCheckpointStore(workspace, {
+    generateId: () => "checkpoint-test",
+  });
+  const host = createModuleHost([
+    createCheckpointModule(checkpointStore, { threadId: "thread-1" }),
+  ], { notify: (_moduleId, message) => output.write(message) });
+  const runtime = new DefaultAgentRuntime({
+    catalog: new InMemoryAgentCatalog([{
+      id: "calculator",
+      version: "1",
+      instructions: "Use checkpoint_save when asked to save the project checkpoint.",
+      model: "mock",
+      tools: host.tools.map(({ metadata }) => metadata.name),
+      limits: { maxSteps: 4, totalTimeoutMs: 5_000, stepTimeoutMs: 1_000 },
+    }]),
+    loop: new AiSdkAgentLoop({
+      models: new InMemoryModelRegistry({ mock: createCheckpointSaveModel() }),
+      tools: new ToolRegistry(host.tools),
+    }),
+    beforeToolExecute: confirmation.beforeToolExecute,
+    store,
+  });
+  return {
+    runtime,
+    store,
+    checkpointStore,
+    confirmation,
+    output,
+    workspace,
+    dispose: () => host.dispose(),
+  };
+}
+
 function createReadFileModel() {
   return new MockLanguageModelV3({
     doStream: async ({ prompt }) => {
@@ -934,6 +1031,120 @@ describe("runTui", () => {
     input.end();
     await tui;
     assert.equal(runtime.requests.length, 1);
+  });
+
+  it("does not treat checkpoint tools as memory tools for automatic consolidation", async () => {
+    const input = ttyInput();
+    const output = ttyOutput();
+    const firstEvents = asyncQueue<AgentEvent>();
+    const secondEvents = asyncQueue<AgentEvent>();
+    secondEvents.close();
+    const runtime = testRuntime([
+      handleFor({
+        runId: "run-checkpoint",
+        threadId: "thread-1",
+        events: firstEvents,
+        result: Promise.resolve(completedResult("run-checkpoint", "thread-1", "saved")),
+      }),
+      handleFor({
+        runId: "run-consolidator",
+        threadId: "thread-1",
+        events: secondEvents,
+        result: Promise.resolve(completedResult("run-consolidator", "thread-1", "reviewed")),
+      }),
+    ]);
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: runtime.runtime,
+      store: { getMessages: async () => [] },
+      input,
+      output,
+      autoConsolidationAgentId: "memory-consolidator",
+    });
+    await nextTurn();
+    input.write("save checkpoint\n");
+    await waitFor(() => runtime.requests.length === 1);
+    firstEvents.push(toolCompletedEvent("run-checkpoint", "thread-1", "checkpoint_save", {
+      ok: true,
+      checkpoint: { id: "checkpoint-1", version: 1, status: "active" },
+    }));
+    firstEvents.close();
+    await waitFor(() => runtime.requests.length === 2);
+    assert.equal(runtime.requests[1]?.agentId, "memory-consolidator");
+    input.end();
+    await tui;
+  });
+
+  it("reports a saved checkpoint when the Run fails after the write", async () => {
+    const input = new PassThrough();
+    const output = outputBuffer();
+    const events = asyncQueue<AgentEvent>();
+    const runtime = testRuntime([
+      handleFor({
+        runId: "run-checkpoint-failed-later",
+        threadId: "thread-checkpoint",
+        events,
+        result: Promise.resolve(failedResult("run-checkpoint-failed-later", "thread-checkpoint")),
+      }),
+    ]);
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: runtime.runtime,
+      store: { getMessages: async () => [] },
+      input,
+      output,
+    });
+    await nextTurn();
+    input.write("save checkpoint\n");
+    await waitFor(() => runtime.requests.length === 1);
+    events.push(toolCompletedEvent("run-checkpoint-failed-later", "thread-checkpoint", "checkpoint_save", {
+      ok: true,
+      checkpoint: { id: "checkpoint-7", version: 3, status: "paused" },
+    }));
+    events.close();
+    input.end();
+    await tui;
+
+    assert.match(output.text(), /Run failed/);
+    assert.match(
+      output.text(),
+      /已完成的操作：\n- checkpoint_save: 已保存工作进度 checkpoint-7，版本 3，状态 paused/,
+    );
+  });
+
+  it("does not report a checkpoint when save returns ok:false", async () => {
+    const input = new PassThrough();
+    const output = outputBuffer();
+    const events = asyncQueue<AgentEvent>();
+    const runtime = testRuntime([
+      handleFor({
+        runId: "run-checkpoint-conflict",
+        threadId: "thread-checkpoint",
+        events,
+        result: Promise.resolve(failedResult("run-checkpoint-conflict", "thread-checkpoint")),
+      }),
+    ]);
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: runtime.runtime,
+      store: { getMessages: async () => [] },
+      input,
+      output,
+    });
+    await nextTurn();
+    input.write("save checkpoint\n");
+    await waitFor(() => runtime.requests.length === 1);
+    events.push(toolCompletedEvent("run-checkpoint-conflict", "thread-checkpoint", "checkpoint_save", {
+      ok: false,
+      error: { code: "CHECKPOINT_VERSION_CONFLICT", message: "stale version" },
+    }));
+    events.close();
+    input.end();
+    await tui;
+
+    assert.match(output.text(), /Run failed/);
+    assert.doesNotMatch(output.text(), /已保存工作进度/);
+    assert.doesNotMatch(output.text(), /已完成的操作/);
   });
 
   it("does not consolidate a non-completed user run", async () => {
@@ -2024,6 +2235,31 @@ describe("createToolConfirmation", () => {
     });
   });
 
+  it("keeps checkpoint reads and writes on normal y/n confirmation even with file authorization", async () => {
+    const output = outputBuffer();
+    const confirmation = createToolConfirmation(output, {
+      workspaceRoot: "/workspace",
+      persistentAuthorizations: [{
+        tools: ["read_file", "write_file"],
+        allowedPaths: ["."],
+        lifetime: "run",
+      }],
+    });
+
+    for (const toolName of ["checkpoint_prepare", "checkpoint_get", "checkpoint_save"]) {
+      const pending = confirmation.beforeToolExecute(
+        toolInput(toolName, new AbortController().signal, { version: 1, expectedVersion: 1 }),
+      );
+      assert.match(output.text(), new RegExp(`Tool: ${toolName}`));
+      assert.match(output.text(), /Allow this call\? \[y\/n\]/);
+      assert.equal(confirmation.handleLine("n"), true);
+      assert.deepEqual(await pending, {
+        allow: false,
+        reason: "User denied this tool call",
+      });
+    }
+  });
+
   it("allows pomodoro tools without asking for y or n", async () => {
     const output = outputBuffer();
     const confirmation = createToolConfirmation(output);
@@ -2868,6 +3104,75 @@ describe("runTui write_file confirmation", () => {
       input.end();
       await tui;
     } finally {
+      await rm(fixture.workspace, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("runTui checkpoint confirmation", () => {
+  it("shows expectedVersion and the full draft, then writes only after y", async () => {
+    const fixture = await createCheckpointConfirmationRuntime();
+    const input = ttyInput();
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: fixture.runtime,
+      store: fixture.store,
+      input,
+      output: fixture.output,
+      toolConfirmation: fixture.confirmation,
+    });
+    try {
+      await nextTurn();
+      input.write("Save the current project checkpoint.\n");
+      await waitFor(() => fixture.output.text().includes("Allow this call? [y/n]"));
+      assert.match(fixture.output.text(), /expectedVersion\":null/);
+      assert.match(fixture.output.text(), /The checkpoint has a concise verified progress snapshot/);
+      assert.match(fixture.output.text(), /docs\/m5-plan\.md/);
+      await assert.rejects(readFile(join(fixture.workspace, CHECKPOINT_FILE_NAME), "utf8"), {
+        code: "ENOENT",
+      });
+
+      input.write("y\n");
+      await waitFor(() => fixture.output.text().includes("The checkpoint is saved."));
+      const current = await fixture.checkpointStore.getCurrent();
+      assert.equal(current.ok, true);
+      if (current.ok) {
+        assert.equal(current.current?.version, 1);
+        assert.deepEqual(current.current?.source, { threadId: "thread-1" });
+      }
+      input.end();
+      await tui;
+    } finally {
+      fixture.dispose();
+      await rm(fixture.workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("leaves no checkpoint file after n", async () => {
+    const fixture = await createCheckpointConfirmationRuntime();
+    const input = ttyInput();
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: fixture.runtime,
+      store: fixture.store,
+      input,
+      output: fixture.output,
+      toolConfirmation: fixture.confirmation,
+    });
+    try {
+      await nextTurn();
+      input.write("Save the current project checkpoint.\n");
+      await waitFor(() => fixture.output.text().includes("Allow this call? [y/n]"));
+      input.write("n\n");
+      await waitFor(() => fixture.output.text().includes("The checkpoint save was denied."));
+      assert.deepEqual(await fixture.checkpointStore.getCurrent(), { ok: true, current: null });
+      await assert.rejects(readFile(join(fixture.workspace, CHECKPOINT_FILE_NAME), "utf8"), {
+        code: "ENOENT",
+      });
+      input.end();
+      await tui;
+    } finally {
+      fixture.dispose();
       await rm(fixture.workspace, { recursive: true, force: true });
     }
   });
