@@ -1,14 +1,18 @@
 import { tool, type UIMessage } from "ai";
 import { z } from "zod";
+import { AgentError } from "@aisdk-agent/core";
 import type { RegisteredTool } from "@aisdk-agent/ai-sdk-adapter";
 import type { AgentModule } from "../module-host.js";
 import { MAX_CONTEXT_BYTES } from "../context-window.js";
 import {
+  AUTO_CONSOLIDATION_AGENT_ID,
   consolidateMessages,
   findCommittedUserMessage,
   isExactUserQuote,
   MAX_CONSOLIDATION_TURNS,
+  selectIncrementalConsolidationTurns,
   type ConsolidationTurn,
+  type IncrementalConsolidationTurn,
 } from "../consolidation.js";
 import type {
   MemoryEntry,
@@ -86,10 +90,27 @@ const consolidationMessageSchema = z.object({
   role: z.union([z.literal("user"), z.literal("assistant")]),
   text: z.string(),
 });
-const consolidationOutputSchema = z.discriminatedUnion("ok", [
+const incrementalConsolidationTurnSchema = z.object({
+  user: z.object({ messageId: z.string(), text: z.string() }),
+  assistant: z.array(z.object({ messageId: z.string(), text: z.string() })),
+  tools: z.array(z.object({
+    toolCallId: z.string(),
+    toolName: z.string(),
+    outcome: z.enum(["success", "failed", "denied"]),
+    content: z.string(),
+    truncated: z.boolean(),
+  })),
+});
+const consolidationOutputSchema = z.union([
   z.object({
     ok: z.literal(true),
     turns: z.array(z.object({ messages: z.array(consolidationMessageSchema) })),
+    memories: z.array(memoryEntrySchema),
+  }),
+  z.object({
+    ok: z.literal(true),
+    bootstrap: z.boolean(),
+    turns: z.array(incrementalConsolidationTurnSchema),
     memories: z.array(memoryEntrySchema),
   }),
   memoryFailureSchema,
@@ -180,9 +201,12 @@ const memoryUpdateInputSchema = z
     message: "sourceMessageId and sourceQuote must be provided together",
   });
 const memoryDeleteInputSchema = z.object({ id: z.string().min(1) });
-const memoryPrepareConsolidationInputSchema = z.object({
-  turns: z.number().int().min(1).max(MAX_CONSOLIDATION_TURNS).optional(),
-}).strict();
+const memoryPrepareConsolidationInputSchema = z.union([
+  z.object({ mode: z.literal("incremental") }).strict(),
+  z.object({
+    turns: z.number().int().min(1).max(MAX_CONSOLIDATION_TURNS).optional(),
+  }).strict(),
+]);
 
 /** Consolidation uses the same serialized context budget as model preparation. */
 export const CONSOLIDATION_RESULT_MAX_BYTES = MAX_CONTEXT_BYTES;
@@ -192,6 +216,12 @@ export type ConsolidationResult =
   | {
       ok: true;
       turns: ConsolidationTurn[];
+      memories: MemoryEntry[];
+    }
+  | {
+      ok: true;
+      bootstrap: boolean;
+      turns: IncrementalConsolidationTurn[];
       memories: MemoryEntry[];
     }
   | { ok: false; error: { code: string; message: string } };
@@ -214,6 +244,22 @@ function throwIfAborted(signal: AbortSignal): void {
   if (signal.aborted) throw abortReason(signal);
 }
 
+function requestedAgentId(context: unknown): string | undefined {
+  if (typeof context !== "object" || context === null) return undefined;
+  if (!("agentId" in context) || typeof context.agentId !== "string") return undefined;
+  return context.agentId;
+}
+
+function consolidationInputTooLarge(): AgentError {
+  return new AgentError({
+    code: "CONTEXT_PREPARE_FAILED",
+    message:
+      "Selected conversation and workspace memories exceed the consolidation input limit; reduce the number of turns or shorten existing memories",
+    retryable: false,
+    phase: "runtime",
+  });
+}
+
 const neverAborted = new AbortController().signal;
 
 export interface MemoryModuleOptions {
@@ -226,6 +272,21 @@ export interface MemoryModuleOptions {
 function presentMemoryEntry(entry: MemoryEntry): MemoryEntry {
   const { history: _history, ...current } = entry;
   return current;
+}
+
+/**
+ * Consolidation needs disabled and expired current versions for conflict and
+ * duplicate detection, but it must not expose another thread's private memory.
+ */
+function selectConsolidationMemories(
+  entries: readonly MemoryEntry[],
+  threadId: string | undefined,
+): MemoryEntry[] {
+  return entries.flatMap((entry) => {
+    const scope = entry.scope;
+    if (scope?.kind === "thread" && scope.threadId !== threadId) return [];
+    return [presentMemoryEntry(entry)];
+  });
 }
 
 function bindScope(
@@ -369,13 +430,21 @@ export function createMemoryModule(
         ? undefined
         : tool({
             description:
-              "Prepare recent committed user messages and current workspace memories for a manual memory consolidation review. Assistant replies, tool results, and auto-consolidation turns are omitted. This is read-only; do not write memories in the same turn.",
+              "Prepare committed conversation evidence and related current memories for review. Use mode incremental only in the automatic consolidator to read ordinary turns after the last successful marker, with an eight-turn bootstrap when no marker exists; assistant and tool evidence is context only and cannot be a user-fact source. Without mode, manually review recent user messages selected by turns. Disabled and expired current memories remain visible for duplicate/conflict detection, but another thread's memories are excluded. This is read-only; do not write memories in the same turn.",
             inputSchema: memoryPrepareConsolidationInputSchema,
             outputSchema: consolidationOutputSchema,
-            execute: async ({ turns: requestedTurns }, { abortSignal }): Promise<ConsolidationResult> => {
+            execute: async (input, { abortSignal, context }): Promise<ConsolidationResult> => {
               const signal = abortSignal ?? neverAborted;
               throwIfAborted(signal);
-              const turns = requestedTurns ?? MAX_CONSOLIDATION_TURNS;
+              if ("mode" in input && requestedAgentId(context) !== AUTO_CONSOLIDATION_AGENT_ID) {
+                return {
+                  ok: false,
+                  error: {
+                    code: "INVALID_INPUT",
+                    message: "mode incremental is only allowed for the automatic consolidator",
+                  },
+                };
+              }
               let committedMessages: UIMessage[];
               try {
                 committedMessages = await getMessages(signal);
@@ -388,23 +457,22 @@ export function createMemoryModule(
               throwIfAborted(signal);
               if (!memories.ok) return memories;
 
-              const prepared = consolidateMessages(committedMessages, turns);
+              const prepared = "mode" in input
+                ? selectIncrementalConsolidationTurns(committedMessages)
+                : consolidateMessages(committedMessages, input.turns ?? MAX_CONSOLIDATION_TURNS);
               if (!prepared.ok) return prepared;
 
-              const result: ConsolidationResult = {
-                ok: true,
-                turns: prepared.turns,
-                memories: memories.entries.map(presentMemoryEntry),
-              };
+              const selectedMemories = selectConsolidationMemories(memories.entries, options.threadId);
+              const result: ConsolidationResult = "bootstrap" in prepared
+                ? {
+                    ok: true,
+                    bootstrap: prepared.bootstrap,
+                    turns: prepared.turns,
+                    memories: selectedMemories,
+                  }
+                : { ok: true, turns: prepared.turns, memories: selectedMemories };
               if (Buffer.byteLength(JSON.stringify(result), "utf8") > CONSOLIDATION_RESULT_MAX_BYTES) {
-                return {
-                  ok: false,
-                  error: {
-                    code: "CONSOLIDATION_INPUT_TOO_LARGE",
-                    message:
-                      "Selected conversation and workspace memories exceed the consolidation input limit; reduce the number of turns or shorten existing memories",
-                  },
-                };
+                throw consolidationInputTooLarge();
               }
               return result;
             },

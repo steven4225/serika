@@ -2,6 +2,8 @@ import type { UIMessage } from "ai";
 
 export const MAX_CONSOLIDATION_TURNS = 8;
 export const AUTO_CONSOLIDATION_SOURCE = "auto-consolidation";
+export const AUTO_CONSOLIDATION_AGENT_ID = "memory-consolidator";
+export const MAX_CONSOLIDATION_TOOL_EVIDENCE_BYTES = 4 * 1024;
 
 export function isAutoConsolidationRequest(message: UIMessage): boolean {
   if (
@@ -26,6 +28,32 @@ export interface ConsolidationMessage {
 
 export interface ConsolidationTurn {
   messages: ConsolidationMessage[];
+}
+
+export interface IncrementalConsolidationToolEvidence {
+  toolCallId: string;
+  toolName: string;
+  outcome: "success" | "failed" | "denied";
+  content: string;
+  truncated: boolean;
+}
+
+export interface IncrementalConsolidationTurn {
+  user: {
+    messageId: string;
+    text: string;
+  };
+  assistant: Array<{
+    messageId: string;
+    text: string;
+  }>;
+  tools: IncrementalConsolidationToolEvidence[];
+}
+
+export interface IncrementalConsolidationSelection {
+  ok: true;
+  turns: IncrementalConsolidationTurn[];
+  bootstrap: boolean;
 }
 
 export interface ConsolidationSuccess {
@@ -87,6 +115,149 @@ function messageOf(message: UIMessage): ConsolidationMessage | undefined {
   return text === undefined ? undefined : { id: message.id, role: message.role, text };
 }
 
+function record(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function toolPart(part: UIMessage["parts"][number]): Record<string, unknown> | undefined {
+  const candidate = part as unknown as Record<string, unknown>;
+  if (
+    typeof candidate.toolCallId !== "string" ||
+    typeof candidate.state !== "string"
+  ) {
+    return undefined;
+  }
+  const toolName = candidate.type === "dynamic-tool"
+    ? candidate.toolName
+    : typeof candidate.type === "string" && candidate.type.startsWith("tool-")
+      ? candidate.type.slice("tool-".length)
+      : undefined;
+  return typeof toolName === "string" && toolName.length > 0
+    ? { ...candidate, toolName }
+    : undefined;
+}
+
+function hasMemoryTool(turn: readonly UIMessage[]): boolean {
+  return turn.some((message) => message.parts.some((part) => {
+    const selected = toolPart(part);
+    return selected !== undefined &&
+      typeof selected.toolName === "string" &&
+      selected.toolName.startsWith("memory_");
+  }));
+}
+
+function serializedToolContent(value: unknown): string {
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value) ?? String(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function truncateUtf8(value: string): { content: string; truncated: boolean } {
+  if (Buffer.byteLength(value, "utf8") <= MAX_CONSOLIDATION_TOOL_EVIDENCE_BYTES) {
+    return { content: value, truncated: false };
+  }
+  let content = "";
+  let bytes = 0;
+  for (const character of value) {
+    const characterBytes = Buffer.byteLength(character, "utf8");
+    if (bytes + characterBytes > MAX_CONSOLIDATION_TOOL_EVIDENCE_BYTES) break;
+    content += character;
+    bytes += characterBytes;
+  }
+  return { content, truncated: true };
+}
+
+function evidenceOf(part: UIMessage["parts"][number]): IncrementalConsolidationToolEvidence | undefined {
+  const selected = toolPart(part);
+  if (selected === undefined) return undefined;
+  const { state, toolCallId, toolName } = selected;
+  let outcome: IncrementalConsolidationToolEvidence["outcome"];
+  let rawContent: unknown;
+  if (state === "output-available") {
+    rawContent = selected.output;
+    outcome = record(rawContent) && rawContent.ok === false ? "failed" : "success";
+  } else if (state === "output-error") {
+    rawContent = selected.errorText;
+    outcome = typeof rawContent === "string" && rawContent.startsWith("TOOL_DENIED")
+      ? "denied"
+      : "failed";
+  } else if (state === "output-denied") {
+    rawContent = selected.errorText ?? "Tool call denied";
+    outcome = "denied";
+  } else {
+    return undefined;
+  }
+  const { content, truncated } = truncateUtf8(serializedToolContent(rawContent));
+  return {
+    toolCallId: toolCallId as string,
+    toolName: toolName as string,
+    outcome,
+    content,
+    truncated,
+  };
+}
+
+function userStartedTurns(committedMessages: readonly UIMessage[]): UIMessage[][] {
+  const turns: UIMessage[][] = [];
+  let current: UIMessage[] | undefined;
+  for (const message of committedMessages) {
+    if (message.role === "user") {
+      if (current !== undefined) turns.push(current);
+      current = [message];
+    } else if (current !== undefined) {
+      current.push(message);
+    }
+  }
+  if (current !== undefined) turns.push(current);
+  return turns;
+}
+
+/**
+ * Select ordinary turns not yet covered by a committed auto-consolidation turn.
+ * Without such a marker, only the latest eight eligible turns are bootstrapped.
+ * Assistant and tool text are evidence only; provenance remains bound to the
+ * ordinary user message through findCommittedUserMessage/isExactUserQuote.
+ */
+export function selectIncrementalConsolidationTurns(
+  committedMessages: readonly UIMessage[],
+): IncrementalConsolidationSelection {
+  const turns = userStartedTurns(committedMessages);
+  let lastMarker = -1;
+  for (let index = 0; index < turns.length; index += 1) {
+    if (isAutoConsolidationRequest(turns[index]![0]!)) lastMarker = index;
+  }
+  const bootstrap = lastMarker === -1;
+  const eligible = turns
+    .slice(lastMarker + 1)
+    .filter((turn) => !isAutoConsolidationRequest(turn[0]!) && !hasMemoryTool(turn));
+  const selected = bootstrap ? eligible.slice(-MAX_CONSOLIDATION_TURNS) : eligible;
+  return {
+    ok: true,
+    bootstrap,
+    turns: selected.flatMap((turn) => {
+      const userMessage = messageOf(turn[0]!);
+      if (userMessage?.role !== "user") return [];
+      return [{
+        user: { messageId: userMessage.id, text: userMessage.text },
+        assistant: turn.flatMap((message) => {
+          if (message.role !== "assistant") return [];
+          const selectedMessage = messageOf(message);
+          return selectedMessage?.role === "assistant"
+            ? [{ messageId: selectedMessage.id, text: selectedMessage.text }]
+            : [];
+        }),
+        tools: turn.flatMap((message) => message.parts.flatMap((part) => {
+          const evidence = evidenceOf(part);
+          return evidence === undefined ? [] : [evidence];
+        })),
+      }];
+    }),
+  };
+}
+
 /**
  * Select recent complete user-started turns from a committed transcript.
  * Only ordinary user text is returned. Assistant replies, tool results, and
@@ -101,17 +272,7 @@ export function consolidateMessages(
     return invalidInput(`turns must be an integer from 1 to ${MAX_CONSOLIDATION_TURNS}`);
   }
 
-  const completeTurns: UIMessage[][] = [];
-  let currentTurn: UIMessage[] | undefined;
-  for (const message of committedMessages) {
-    if (message.role === "user") {
-      if (currentTurn !== undefined) completeTurns.push(currentTurn);
-      currentTurn = [message];
-      continue;
-    }
-    if (currentTurn !== undefined) currentTurn.push(message);
-  }
-  if (currentTurn !== undefined) completeTurns.push(currentTurn);
+  const completeTurns = userStartedTurns(committedMessages);
 
   const eligibleTurns = completeTurns.filter(
     (turn) => !isAutoConsolidationRequest(turn[0]!),
