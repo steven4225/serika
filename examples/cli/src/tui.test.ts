@@ -1954,6 +1954,148 @@ describe("runTui", () => {
     await tui;
   });
 
+  it("uses /resume only for the next primary Run, not an idle command or consolidation", async () => {
+    const input = ttyInput();
+    const output = ttyOutput();
+    const seen: Array<{ agentId: string; observation: string | undefined }> = [];
+    let pending: string | undefined;
+    let active: string | undefined;
+    const runtime = {
+      async run<TContext>(request: RunRequest<TContext>): Promise<RunHandle> {
+        seen.push({ agentId: request.agentId, observation: active });
+        const runId = `run-${seen.length}`;
+        const events = asyncQueue<AgentEvent>();
+        events.close();
+        return handleFor({
+          runId,
+          threadId: "thread-1",
+          events,
+          result: Promise.resolve(completedResult(runId, "thread-1", "done")),
+        });
+      },
+    };
+    let commandCalls = 0;
+    const tui = runTui({
+      ...tuiOptions,
+      runtime,
+      store: { getMessages: async () => [] },
+      input,
+      output,
+      autoConsolidationAgentId: "memory-consolidator",
+      commands: new Map([["history", { execute() { commandCalls += 1; } }]]),
+      resume: {
+        async inspect(signal) {
+          assert.equal(signal.aborted, false);
+          pending = "stale HEAD";
+          return "stale HEAD";
+        },
+        clear() { pending = undefined; active = undefined; },
+        beginRun() { active = pending; pending = undefined; },
+        endRun() { active = undefined; },
+      },
+    });
+
+    await nextTurn();
+    input.write("/resume\n");
+    await waitFor(() => output.text().includes("[resume] stale HEAD"));
+    assert.equal(seen.length, 0);
+    input.write("/history\n");
+    await waitFor(() => commandCalls === 1);
+    assert.equal(pending, "stale HEAD");
+    input.write("first prompt\n");
+    await waitFor(() => seen.length === 2);
+    assert.deepEqual(seen, [
+      { agentId: "calculator", observation: "stale HEAD" },
+      { agentId: "memory-consolidator", observation: undefined },
+    ]);
+    input.write("second prompt\n");
+    await waitFor(() => seen.length === 4);
+    assert.deepEqual(seen.slice(2), [
+      { agentId: "calculator", observation: undefined },
+      { agentId: "memory-consolidator", observation: undefined },
+    ]);
+    input.end();
+    await tui;
+  });
+
+  it("aborts /resume without creating a Run and clears a late inspection result", async () => {
+    const input = ttyInput();
+    const output = ttyOutput();
+    const runtime = testRuntime([]);
+    const started = deferred<AbortSignal>();
+    const gate = deferred<void>();
+    let pending = false;
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: runtime.runtime,
+      store: { getMessages: async () => [] },
+      input,
+      output,
+      resume: {
+        async inspect(signal) {
+          started.resolve(signal);
+          await gate.promise;
+          pending = true;
+          return "should not be shown";
+        },
+        clear() { pending = false; },
+        beginRun() { assert.equal(pending, false); },
+        endRun() {},
+      },
+    });
+
+    await nextTurn();
+    input.write("/resume\nqueued prompt\n");
+    const signal = await started.promise;
+    await waitFor(() => output.text().includes("Busy: Git inspection is in progress."));
+    pressCtrlC(input);
+    await waitFor(() => signal.aborted);
+    gate.resolve();
+    await waitFor(() => output.text().includes("[resume] Cancelled."));
+    assert.equal(pending, false);
+    assert.equal(runtime.requests.length, 0);
+    assert.doesNotMatch(output.text(), /should not be shown/);
+    input.end();
+    await tui;
+  });
+
+  it("clears /resume observation when the primary Run fails to start", async () => {
+    const input = ttyInput();
+    const output = ttyOutput();
+    let pending = false;
+    let active = false;
+    let endCalls = 0;
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: {
+        async run() {
+          assert.equal(active, true);
+          throw new Error("startup failed");
+        },
+      },
+      store: { getMessages: async () => [] },
+      input,
+      output,
+      resume: {
+        async inspect() { pending = true; return "consistent"; },
+        clear() { pending = false; active = false; },
+        beginRun() { active = pending; pending = false; },
+        endRun() { active = false; endCalls += 1; },
+      },
+    });
+
+    await nextTurn();
+    input.write("/resume\n");
+    await waitFor(() => output.text().includes("[resume] consistent"));
+    input.write("prompt\n");
+    await waitFor(() => output.text().includes("Run could not start: Error: startup failed"));
+    assert.equal(endCalls, 1);
+    assert.equal(active, false);
+    assert.equal(pending, false);
+    input.end();
+    await tui;
+  });
+
   it("waits for an async idle command before accepting the next line", async () => {
     const input = ttyInput();
     const output = ttyOutput();

@@ -38,6 +38,26 @@ function assistant(id: string, text = id): UIMessage {
 }
 
 describe("selectModelContext", () => {
+  it("places a one-run resume observation before checkpoint and memory in both paths", () => {
+    const resume = assistant("runloom-resume-observation", "Git observed at 2026-09-23T00:00:00Z");
+    const checkpoint: CheckpointSnapshot = {
+      id: "checkpoint-1", version: 1, status: "active", goal: "Continue Runloom",
+      summary: "Saved intent", completed: [], inProgress: [], nextActions: [],
+      blockers: [], artifacts: [], source: { threadId: "thread-a" },
+      createdAt: "2026-09-01T00:00:00.000Z", updatedAt: "2026-09-01T00:00:00.000Z",
+    };
+    const memories = [{ id: "memory-1", text: "Keep scope small", enabled: true }];
+    const expectedPrefix = [resume.id, CHECKPOINT_CONTEXT_MESSAGE_ID, "runloom-workspace-memory"];
+    assert.deepEqual(
+      selectModelContext([user("next")], memories, {}, checkpoint, resume).slice(0, 3).map((item) => item.id),
+      expectedPrefix,
+    );
+    assert.deepEqual(
+      checkpointAndMemoryContextMessages(checkpoint, memories, {}, resume).map((item) => item.id),
+      expectedPrefix,
+    );
+  });
+
   it("injects the current checkpoint beside memory as a non-permission reference", () => {
     const checkpoint: CheckpointSnapshot = {
       id: "checkpoint-1",

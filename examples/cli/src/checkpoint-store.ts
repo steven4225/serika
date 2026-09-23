@@ -49,12 +49,24 @@ export interface CheckpointDraft {
   artifacts: CheckpointArtifact[];
 }
 
+export interface CheckpointGitPin {
+  head: string;
+  branch: string | null;
+  dirty: boolean;
+  observedAt: string;
+}
+
+export interface CheckpointRealityPins {
+  git: CheckpointGitPin;
+}
+
 export interface CheckpointSnapshot extends CheckpointDraft {
   id: string;
   version: number;
   source: { threadId: string };
   createdAt: string;
   updatedAt: string;
+  realityPins?: CheckpointRealityPins;
 }
 
 export interface CheckpointDocumentV1 {
@@ -96,6 +108,8 @@ export interface CheckpointSaveInput {
   draft: CheckpointDraft;
   /** Supplied by the application, never by model input. */
   sourceThreadId: string;
+  /** Supplied by the application, never by model input. Invalid or oversized pins are omitted. */
+  realityPins?: CheckpointRealityPins;
 }
 
 export interface WorkspaceCheckpointStore {
@@ -224,6 +238,26 @@ function validateTimestamp(value: unknown, field: string): string {
   return value;
 }
 
+function parseRealityPins(value: unknown): CheckpointRealityPins | undefined {
+  if (!isRecord(value) || Object.keys(value).length !== 1 || !isRecord(value.git)) return undefined;
+  const git = value.git;
+  if (Object.keys(git).some((key) => !["head", "branch", "dirty", "observedAt"].includes(key))) return undefined;
+  if (typeof git.head !== "string" || !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(git.head)) return undefined;
+  if (git.branch !== null &&
+    (typeof git.branch !== "string" || git.branch.length === 0 || Buffer.byteLength(git.branch, "utf8") > 256 || /[\x00-\x1f\x7f]/.test(git.branch))) return undefined;
+  if (typeof git.dirty !== "boolean") return undefined;
+  if (typeof git.observedAt !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(git.observedAt) ||
+    Number.isNaN(Date.parse(git.observedAt)) ||
+    new Date(git.observedAt).toISOString() !== git.observedAt) return undefined;
+  return { git: {
+    head: git.head,
+    branch: git.branch,
+    dirty: git.dirty,
+    observedAt: git.observedAt,
+  } };
+}
+
 function validateStoredText(value: unknown, field: string, maxBytes: number): string {
   if (typeof value !== "string" || value.trim().length === 0 || Buffer.byteLength(value, "utf8") > maxBytes) {
     raise("CHECKPOINT_FILE_INVALID", `${field} is invalid or exceeds its size limit`);
@@ -242,7 +276,7 @@ function validateSnapshot(value: unknown): CheckpointSnapshot {
   if (!isRecord(value)) raise("CHECKPOINT_FILE_INVALID", "Checkpoint snapshot must be an object");
   assertKeys(
     value,
-    ["id", "version", "status", "goal", "currentPhase", "summary", "completed", "inProgress", "nextActions", "blockers", "artifacts", "source", "createdAt", "updatedAt"],
+    ["id", "version", "status", "goal", "currentPhase", "summary", "completed", "inProgress", "nextActions", "blockers", "artifacts", "source", "createdAt", "updatedAt", "realityPins"],
     "checkpoint snapshot",
     "CHECKPOINT_FILE_INVALID",
   );
@@ -281,6 +315,10 @@ function validateSnapshot(value: unknown): CheckpointSnapshot {
   const currentPhase = value.currentPhase === undefined
     ? undefined
     : validateStoredText(value.currentPhase, "currentPhase", CHECKPOINT_LIMITS.phaseBytes);
+  const realityPins = value.realityPins === undefined ? undefined : parseRealityPins(value.realityPins);
+  if (value.realityPins !== undefined && realityPins === undefined) {
+    raise("CHECKPOINT_FILE_INVALID", "Checkpoint Git reality pin is invalid");
+  }
   const snapshot: CheckpointSnapshot = {
     id: value.id,
     version: value.version as number,
@@ -299,6 +337,7 @@ function validateSnapshot(value: unknown): CheckpointSnapshot {
     source: { threadId: value.source.threadId },
     createdAt: validateTimestamp(value.createdAt, "createdAt"),
     updatedAt: validateTimestamp(value.updatedAt, "updatedAt"),
+    ...(realityPins === undefined ? {} : { realityPins }),
   };
   if (Buffer.byteLength(JSON.stringify(snapshot), "utf8") > CHECKPOINT_SNAPSHOT_MAX_BYTES) {
     raise("CHECKPOINT_FILE_INVALID", "Checkpoint snapshot exceeds the size limit");
@@ -435,6 +474,14 @@ export class WorkspaceCheckpointStoreImpl implements WorkspaceCheckpointStore {
         }
         if (checkpointContextMessageBytes(checkpoint) > CHECKPOINT_INJECTION_MAX_BYTES) {
           raise("CHECKPOINT_TOO_LARGE", `Checkpoint context message exceeds the ${CHECKPOINT_INJECTION_MAX_BYTES}-byte injection limit`);
+        }
+        const pin = input.realityPins === undefined ? undefined : parseRealityPins(input.realityPins);
+        if (pin !== undefined) {
+          const pinned = { ...checkpoint, realityPins: pin };
+          if (Buffer.byteLength(JSON.stringify(pinned), "utf8") <= CHECKPOINT_SNAPSHOT_MAX_BYTES &&
+            checkpointContextMessageBytes(pinned) <= CHECKPOINT_INJECTION_MAX_BYTES) {
+            checkpoint.realityPins = pin;
+          }
         }
         const next: CheckpointDocumentV1 = {
           schemaVersion: 1,
