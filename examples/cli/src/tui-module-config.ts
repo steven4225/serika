@@ -28,6 +28,7 @@ export const BUILTIN_MODULE_IDS = [
   "pomodoro",
   "read-file",
   "memory",
+  "checkpoint",
   "task",
   "todoist",
   "shell",
@@ -126,6 +127,7 @@ const tuiModuleConfigV1Schema = z
         pomodoro: moduleToggleSchema.optional(),
         "read-file": moduleToggleSchema.optional(),
         memory: memoryModuleSchema.optional(),
+        checkpoint: moduleToggleSchema.optional(),
         task: moduleToggleSchema.optional(),
         todoist: todoistModuleSchema.optional(),
         shell: shellModuleSchema.optional(),
@@ -146,6 +148,7 @@ export interface TuiModuleConfigV1 {
     memory?:
       | { enabled: boolean; autoConsolidate?: boolean | undefined }
       | undefined;
+    checkpoint?: { enabled: boolean } | undefined;
     task?: { enabled: boolean } | undefined;
     todoist?:
       | { enabled: boolean; timeZone?: string | undefined }
@@ -191,6 +194,7 @@ function emptyEnabled(): Record<BuiltinModuleId, boolean> {
     pomodoro: false,
     "read-file": false,
     memory: false,
+    checkpoint: false,
     task: false,
     todoist: false,
     shell: false,
@@ -199,7 +203,7 @@ function emptyEnabled(): Record<BuiltinModuleId, boolean> {
 }
 
 function hasWorkspaceModule(enabled: Record<BuiltinModuleId, boolean>): boolean {
-  return enabled["read-file"] || enabled.memory || enabled.task || enabled.shell;
+  return enabled["read-file"] || enabled.memory || enabled.checkpoint || enabled.task || enabled.shell;
 }
 
 function assertWorkspaceRequirement(
@@ -392,6 +396,7 @@ async function resolveConfiguredMode(
   enabled.pomodoro = config.modules.pomodoro?.enabled ?? false;
   enabled["read-file"] = config.modules["read-file"]?.enabled ?? false;
   enabled.memory = config.modules.memory?.enabled ?? false;
+  enabled.checkpoint = config.modules.checkpoint?.enabled ?? false;
   enabled.task = config.modules.task?.enabled ?? false;
   enabled.todoist = config.modules.todoist?.enabled ?? false;
   enabled.shell = config.modules.shell?.enabled ?? false;
@@ -411,7 +416,7 @@ async function resolveConfiguredMode(
   assertWorkspaceRequirement(
     enabled,
     config.workspace,
-    "TUI config requires workspace when read-file, memory, task, or shell is enabled",
+    "TUI config requires workspace when read-file, memory, checkpoint, task, or shell is enabled",
   );
 
   const sandboxDefinition = config.modules.shell?.sandbox;

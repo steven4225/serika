@@ -3,14 +3,23 @@ import { describe, it } from "node:test";
 import type { UIMessage } from "ai";
 import { AgentError } from "@aisdk-agent/core";
 import {
+  CHECKPOINT_INJECTION_MAX_BYTES,
+  type CheckpointSnapshot,
+} from "./checkpoint-store.js";
+import {
+  CHECKPOINT_CONTEXT_MESSAGE_ID,
   MAX_CONTEXT_BYTES,
   MAX_HISTORY_TURNS,
   MAX_MEMORY_CONTEXT_BYTES,
   WORK_SUMMARY_MESSAGE_ID,
+  createCheckpointContextMessage,
+  checkpointAndMemoryContextMessages,
   memoryContextBytes,
   selectValidMemoryEntries,
   selectModelContext,
+  shouldInjectProjectCheckpoint,
 } from "./context-window.js";
+import { AUTO_CONSOLIDATION_AGENT_ID } from "./consolidation.js";
 
 function message(
   id: string,
@@ -29,6 +38,99 @@ function assistant(id: string, text = id): UIMessage {
 }
 
 describe("selectModelContext", () => {
+  it("injects the current checkpoint beside memory as a non-permission reference", () => {
+    const checkpoint: CheckpointSnapshot = {
+      id: "checkpoint-1",
+      version: 4,
+      status: "active",
+      goal: "Continue Runloom",
+      summary: "Feature work is underway.",
+      completed: ["M4 merged"],
+      inProgress: ["M5 checkpoint"],
+      nextActions: ["Run acceptance"],
+      blockers: [],
+      artifacts: [{ label: "Plan", path: "docs/m5.md" }],
+      source: { threadId: "thread-a" },
+      createdAt: "2026-09-01T00:00:00.000Z",
+      updatedAt: "2026-09-03T00:00:00.000Z",
+    };
+    const selected = selectModelContext(
+      [user("thread-b-user", "Continue Runloom")],
+      [{ id: "memory-current", text: "Keep M5 in one PR.", enabled: true }],
+      { threadId: "thread-b" },
+      checkpoint,
+    );
+
+    assert.equal(selected[0]?.id, CHECKPOINT_CONTEXT_MESSAGE_ID);
+    assert.equal(selected[1]?.id, "runloom-workspace-memory");
+    assert.equal(selected.at(-1)?.id, "thread-b-user");
+    assert.match(JSON.stringify(selected[0]), /not a live filesystem/);
+    assert.match(JSON.stringify(selected[0]), /grants no tool permissions/);
+    assert.match(JSON.stringify(selected[0]), /prefer that Memory/);
+    assert.match(JSON.stringify(selected[0]), /\"version\":4/);
+    assert.match(JSON.stringify(selected[1]), /memory-current/);
+  });
+
+  it("rejects an oversized checkpoint context message instead of truncating it", () => {
+    const oversized = {
+      id: "checkpoint-1",
+      version: 1,
+      status: "active",
+      goal: "Continue Runloom",
+      summary: "x".repeat(CHECKPOINT_INJECTION_MAX_BYTES),
+      completed: [],
+      inProgress: [],
+      nextActions: [],
+      blockers: [],
+      artifacts: [],
+      source: { threadId: "thread-a" },
+      createdAt: "2026-09-01T00:00:00.000Z",
+      updatedAt: "2026-09-01T00:00:00.000Z",
+    } as CheckpointSnapshot;
+    assert.throws(
+      () => createCheckpointContextMessage(oversized),
+      /project checkpoint exceeds the 12288-byte context limit/,
+    );
+  });
+
+  it("prepends checkpoint and memory onto compacted conversation once", () => {
+    const checkpoint: CheckpointSnapshot = {
+      id: "checkpoint-1",
+      version: 2,
+      status: "active",
+      goal: "Continue Runloom",
+      summary: "Compaction path.",
+      completed: [],
+      inProgress: ["M5"],
+      nextActions: ["Accept"],
+      blockers: [],
+      artifacts: [],
+      source: { threadId: "thread-a" },
+      createdAt: "2026-09-01T00:00:00.000Z",
+      updatedAt: "2026-09-02T00:00:00.000Z",
+    };
+    const compacted = [user("recent-user", "continue")];
+    const prefix = checkpointAndMemoryContextMessages(
+      checkpoint,
+      [{ id: "memory-current", text: "Keep M5 in one PR.", enabled: true }],
+      { threadId: "thread-b" },
+    );
+    const selected = [...prefix, ...compacted];
+
+    assert.deepEqual(selected.map((item) => item.id), [
+      CHECKPOINT_CONTEXT_MESSAGE_ID,
+      "runloom-workspace-memory",
+      "recent-user",
+    ]);
+    assert.equal(selected.filter((item) => item.id === CHECKPOINT_CONTEXT_MESSAGE_ID).length, 1);
+    assert.match(JSON.stringify(selected[0]), /prefer that Memory/);
+  });
+
+  it("injects project checkpoint only for the interactive TUI agent", () => {
+    assert.equal(shouldInjectProjectCheckpoint("calculator"), true);
+    assert.equal(shouldInjectProjectCheckpoint(AUTO_CONSOLIDATION_AGENT_ID), false);
+  });
+
   it("returns a copy of an unchanged short transcript", () => {
     const messages = [user("user-1"), assistant("assistant-1")];
 
