@@ -847,6 +847,62 @@ function toolInput(
 }
 
 describe("runTui", () => {
+  it("finishes startup Home after history and before the first prompt without a Run", async () => {
+    const input = ttyInput();
+    const output = ttyOutput();
+    const runtime = testRuntime([]);
+    const homeStarted = deferred<void>();
+    const finishHome = deferred<void>();
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: runtime.runtime,
+      store: { getMessages: async () => [message("old-user", "user", "old question")] },
+      input,
+      output,
+      async renderHome() {
+        output.write("Home start\n");
+        homeStarted.resolve();
+        await finishHome.promise;
+        output.write("Home end\n");
+      },
+    });
+
+    await homeStarted.promise;
+    assert.match(output.text(), /old question\n\nHome start\n/);
+    assert.equal(output.text().includes("Home end"), false);
+    assert.equal(output.text().includes("> "), false);
+    assert.equal(runtime.requests.length, 0);
+
+    finishHome.resolve();
+    await waitFor(() => output.text().includes("> "));
+    assert.ok(output.text().indexOf("Home end") < output.text().indexOf("> "));
+    input.end();
+    await tui;
+    assert.equal(runtime.requests.length, 0);
+  });
+
+  it("keeps the TUI usable if startup Home rendering fails", async () => {
+    const input = ttyInput();
+    const output = ttyOutput();
+    const runtime = testRuntime([]);
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: runtime.runtime,
+      store: { getMessages: async () => [] },
+      input,
+      output,
+      async renderHome() {
+        throw new Error("checkpoint unavailable");
+      },
+    });
+
+    await waitFor(() => output.text().includes("> "));
+    assert.match(output.text(), /\[home\] Failed: Error: checkpoint unavailable/);
+    input.end();
+    await tui;
+    assert.equal(runtime.requests.length, 0);
+  });
+
   it("renders committed history but sends exactly one new user message", async () => {
     const input = new PassThrough();
     const output = outputBuffer();

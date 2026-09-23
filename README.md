@@ -15,9 +15,9 @@
 
 ## 阶段
 
-当前：`M-TUI-thin / Stage 8-2/8-3`（任务交代、结果查询与交付边界）
+当前：`M7 Daily Entry / Home`（把已有项目进度和本地任务结果汇成每日入口）
 
-已经具备自有 AgentLoop、JSONL transcript、print CLI、精简 TUI，以及独立的本地任务 worker。Stage 6 的本地任务闭环已经完成；Stage 7 的内置模块接入约定已经完成，7-3、7-4 的真实模型验收仍待补齐。当前进入 Stage 8，先补任务创建、到期执行、结果查询和交付边界；接入路径见 [模块开发指南](docs/module-development.md)。
+已经具备自有 AgentLoop、JSONL transcript、精简 TUI、独立本地任务 worker，以及显式 Memory、workspace checkpoint 和 Git `/resume`。M7 只组合这些现有读路径形成每日入口；它不改变既有任务执行和确认语义。模块接入路径见 [模块开发指南](docs/module-development.md)。
 
 运行：
 
@@ -49,6 +49,8 @@ RUNLOOM_MODEL=minimax-m3 pnpm tui -- ./var/runloom --thread demo --workspace ./s
 独立开启 `modules.checkpoint.enabled` 后，TUI 在 workspace 的 `.runloom/checkpoint.json` 保存一份项目工作进度；它与 Memory、transcript 分开，默认关闭且不依赖 `memory.enabled`。新 Thread 只注入当前版本，明确标为保存时的参考快照，不代表当前磁盘状态，也不恢复工具授权。用户明确要求时才调用 `checkpoint_prepare`、`checkpoint_get` 或 `checkpoint_save`，三者都走现有 `y/n`；prepare 只返回 current 和当前 Thread 可注入的 Memory，不调用模型、不重复复制近期对话。保存预览包含 `expectedVersion` 与完整草稿；版本冲突不覆盖，按 `n` 零写入。当前快照和注入消息各不超过 12 KiB，文件不超过 128 KiB，损坏或超限时 fail-closed。它不验证 artifacts 路径当前是否存在，也不是自动记忆整理的候选；`completed` 仍是 current，后续保存递增版本。
 
 启用 checkpoint 且有 workspace 时，可在 TUI 空闲输入 `/resume` 做一次只读 Git 核对：程序显示当前 HEAD、branch、工作区 dirty 与 checkpoint 保存时 pin 的对账状态（`consistent` / `stale` / `diverged` / `insufficient_evidence`）。未被 Git 跟踪的 Runloom checkpoint 和锁文件不计入 dirty；若用户将它们纳入 Git 跟踪，修改仍会计入。`checkpoint_save` 确认后会尝试记录 Git pin；非仓库或检查失败仍可保存，只是没有 pin，旧 checkpoint 也仍可读取。`/resume` 不创建 Run、不写 transcript、不联网、不运行测试，也不授权工具；观察只注入紧接着的下一次普通主 Run，结束、失败或取消后消失，重启不会恢复。重复 `/resume` 不会移动保存时的 pin；要更新 pin，必须由用户明确要求再次保存 checkpoint。Git 检查只是执行当时的局部证据，不能证明文件内容、PR 状态或测试结果；不输入 `/resume` 时仍只提供 M5 的 checkpoint 参考。
+
+TUI 启动时会在历史记录之后显示一次只读 Home；空闲输入 `/home` 可重新读取当前状态。Home 显示模型配置、workspace、Thread 与 transcript 路径，并分别提醒临时目录和临时 Thread；项目区块读取 workspace 当前 checkpoint，并标出它由哪个 Thread 保存；本地任务区块显示未确认的 `completed` / `failed` / `interrupted` 结果以及最近创建的 `scheduled` / `running` 任务。列表截断时会明确提示还有更多，不声称展示全部待办。Home 不运行模型、Git 或 Todoist 查询，不写文件、不 ack、不推断桌面通知已送达；只有 checkpoint 启用时才提示 `/resume`，只有 task 启用时才提示 `/task inbox`。
 
 当较早的完整回合因 8 回合或 128 KiB 上限被移出模型上下文时，TUI 会注入一个不超过 16 KiB 的进程内工作摘要。摘要不写入 transcript，也没有独立的持久化文件；使用同一 transcript 目录和同一 thread 重启时，会从该 thread 的已提交 transcript 确定性重建，其他 thread 的内容不会混入。这只恢复对话上下文，不是 Durable recovery：失败或取消 Run 的未提交动作不会恢复，摘要也不授予或恢复工具权限。Goal 是原始请求而不是当前磁盘状态；Completed 只保留显式 `ok:true` 的短工具回执。可用 `/history <message-id>` 或 `/history turn:<number>`（回合编号从 0 开始）只读回查摘要所引用的当前 thread 原文。
 
