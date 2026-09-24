@@ -23,6 +23,10 @@ import {
 import { createTaskStore, taskWorkerLockPath } from "./task-store.js";
 import type { TaskRecord } from "./task-store.js";
 import { runTaskWorker } from "./task-worker.js";
+import {
+  createTaskWorkerContextLoader,
+  type TaskWorkerSnapshotContext,
+} from "./task-worker-context.js";
 import { tryAcquireFlock } from "./flock.js";
 import { canonicalTimeZone } from "./todoist.js";
 
@@ -30,6 +34,7 @@ interface TaskWorkerArgs {
   workspace: string;
   todoist?: true;
   notify?: true;
+  workspaceContext?: true;
 }
 
 export function parseTaskWorkerArgs(args: readonly string[]): TaskWorkerArgs {
@@ -37,6 +42,7 @@ export function parseTaskWorkerArgs(args: readonly string[]): TaskWorkerArgs {
   let workspace: string | undefined;
   let todoist = false;
   let notify = false;
+  let workspaceContext = false;
   for (let index = 0; index < parsed.length; index += 1) {
     const arg = parsed[index];
     if (arg === "--workspace") {
@@ -64,6 +70,13 @@ export function parseTaskWorkerArgs(args: readonly string[]): TaskWorkerArgs {
       notify = true;
       continue;
     }
+    if (arg === "--workspace-context") {
+      if (workspaceContext) {
+        throw new Error("task-worker accepts at most one --workspace-context option");
+      }
+      workspaceContext = true;
+      continue;
+    }
     throw new Error(`Unknown task-worker option: ${arg}`);
   }
 
@@ -74,6 +87,7 @@ export function parseTaskWorkerArgs(args: readonly string[]): TaskWorkerArgs {
     workspace,
     ...(todoist ? { todoist: true as const } : {}),
     ...(notify ? { notify: true as const } : {}),
+    ...(workspaceContext ? { workspaceContext: true as const } : {}),
   };
 }
 
@@ -213,11 +227,32 @@ export const todoistTaskWorkerInstructions = [
   "Do not save files and do not wait for interactive confirmation.",
 ].join(" ");
 
+/** Narrow the Todoist daily-plan template only when the same process also injects workspace snapshots. */
+export const todoistWithWorkspaceContextInstructions = [
+  "Respond to the supplied prompt in plain text.",
+  "When the prompt requires current Todoist information, query Todoist during this Run.",
+  "For an explicitly requested Todoist daily plan, call todoist_list_tasks exactly once with { view: \"planning\" }, then summarize that result.",
+  "For that Todoist daily plan, do not replace the current planning query with historical results or split it into today, overdue, or upcoming queries.",
+  "For that Todoist daily plan, build only from the returned tasks; do not invent tasks.",
+  "For that Todoist daily plan, include asOf, timeZone, window, truncated, the returned task count, and task ids or URLs for factual task references.",
+  "For that Todoist daily plan, use these five sections: 今日三件最重要的事, 上午 / 下午 / 晚上, 逾期处理, 未来 7 天风险, and 15 分钟立即行动.",
+  "If the query fails, report the failure accurately and do not retry the same query.",
+  "Do not save files and do not wait for interactive confirmation.",
+].join(" ");
+
+export const workspaceContextTaskWorkerInstructions = [
+  "The workspace snapshot is read-only reference data observed once after this task was claimed; it is not a live filesystem check or tool permission.",
+  "For factual references to workspace Memory, cite the memory entry ID. For checkpoint references, cite its saved version and say it is a saved snapshot.",
+  "If Memory or checkpoint is absent, say so when relevant. Treat attention inbox entries as previous task failures, not automatically today's highest priority.",
+  "If active Memory conflicts with the saved checkpoint, prefer active Memory. Follow the scheduled prompt's requested output format.",
+].join(" ");
+
 export interface CreateTaskWorkerAgentOptions {
   modelAlias: string;
   model: LanguageModel;
   store: AgentStore;
   todoist?: TodoistModuleOptions;
+  workspaceContext?: boolean;
 }
 
 export function createTaskWorkerAgent(
@@ -251,9 +286,14 @@ export function createTaskWorkerAgent(
     const definition = {
       id: "scheduled-responder",
       version: "1",
-      instructions: options.todoist === undefined
+      instructions: (options.todoist === undefined
         ? "Respond to the supplied prompt in plain text."
-        : todoistTaskWorkerInstructions,
+        : options.workspaceContext === true
+          ? todoistWithWorkspaceContextInstructions
+          : todoistTaskWorkerInstructions) +
+        (options.workspaceContext === true
+          ? ` ${workspaceContextTaskWorkerInstructions}`
+          : ""),
       model: options.modelAlias,
       tools,
       limits: {
@@ -272,6 +312,19 @@ export function createTaskWorkerAgent(
         }),
         tools: new ToolRegistry(registeredTools),
       }),
+      ...(options.workspaceContext === true
+        ? {
+            prepareModelContext: ({ messages, context }: {
+              messages: import("ai").UIMessage[];
+              context?: unknown;
+            }) => {
+              const snapshot = context as TaskWorkerSnapshotContext | undefined;
+              return snapshot === undefined
+                ? messages
+                : [...snapshot.referenceMessages, ...messages];
+            },
+          }
+        : {}),
     });
 
     return {
@@ -285,7 +338,7 @@ export function createTaskWorkerAgent(
 }
 
 export async function startTaskWorker(args: readonly string[]): Promise<void> {
-  const { workspace, todoist = false, notify = false } = parseTaskWorkerArgs(args);
+  const { workspace, todoist = false, notify = false, workspaceContext = false } = parseTaskWorkerArgs(args);
   const workspaceRoot = await resolveWorkspace(workspace);
   // Validate the model configuration before creating or acquiring the worker
   // lock, so a bad environment cannot temporarily claim a workspace.
@@ -315,6 +368,7 @@ export async function startTaskWorker(args: readonly string[]): Promise<void> {
     model,
     store: transcriptStore,
     ...(todoistOptions === undefined ? {} : { todoist: todoistOptions }),
+    ...(workspaceContext ? { workspaceContext: true } : {}),
   });
   let lock: Awaited<ReturnType<typeof tryAcquireFlock>>;
   try {
@@ -342,11 +396,21 @@ export async function startTaskWorker(args: readonly string[]): Promise<void> {
         "the existing task result and transcript.\n",
       );
     }
+    if (workspaceContext) {
+      process.stdout.write(
+        "Workspace context enabled for every task claimed by this worker. " +
+        "It reads .runloom/memory.json and .runloom/checkpoint.json without TUI module settings; " +
+        "the bounded snapshot is sent to the configured model and may appear in task results.\n",
+      );
+    }
 
     await runTaskWorker({
       store: taskStore,
       runtime: agent.runtime,
       signal: controller.signal,
+      ...(workspaceContext
+        ? { loadWorkspaceContext: createTaskWorkerContextLoader(workspaceRoot, taskStore) }
+        : {}),
       ...(notify ? { onTaskFinished: createTaskDesktopNotifier() } : {}),
     });
   } finally {

@@ -163,6 +163,80 @@ describe("Stage 7-4 Todoist worker composition", () => {
     }
   });
 
+  it("injects one captured workspace reference without adding tools or persisting it", async () => {
+    const store = new InMemoryAgentStore();
+    const observed: { prompt: unknown; tools: string[] }[] = [];
+    const model = new MockLanguageModelV3({
+      doStream: async ({ prompt, tools }) => {
+        observed.push({ prompt, tools: tools?.map((candidate) => candidate.name) ?? [] });
+        return textResponse("ordinary reminder");
+      },
+    });
+    const agent = createTaskWorkerAgent({
+      modelAlias: "workspace-test",
+      model,
+      store,
+      workspaceContext: true,
+    });
+    try {
+      const handle = await agent.runtime.run({
+        agentId: "scheduled-responder",
+        threadId: "workspace-thread",
+        context: { referenceMessages: [{
+          id: "runloom-task-worker-observation",
+          role: "assistant",
+          parts: [{ type: "text", text: "saved checkpoint version 2" }],
+        }] },
+        messages: [{ id: "reminder-user", role: "user", parts: [{ type: "text", text: "Remind me to drink water" }] }],
+      });
+      assert.equal((await handle.result).status, "completed");
+      assert.equal(observed.length, 1);
+      assert.deepEqual(observed[0]?.tools, []);
+      assert.match(JSON.stringify(observed[0]?.prompt), /saved checkpoint version 2/);
+      assert.doesNotMatch(JSON.stringify(observed[0]?.prompt), /15-minute first step/);
+      assert.doesNotMatch(JSON.stringify(await store.getMessages("workspace-thread")), /saved checkpoint version 2/);
+    } finally {
+      agent.dispose();
+    }
+  });
+
+  it("narrows Todoist daily-plan instructions only when workspace context is also enabled", async () => {
+    const store = new InMemoryAgentStore();
+    const seen: unknown[] = [];
+    const model = new MockLanguageModelV3({
+      doStream: async ({ prompt }) => {
+        seen.push(prompt);
+        return textResponse("ordinary reminder");
+      },
+    });
+    const withContext = createTaskWorkerAgent({
+      modelAlias: "todoist-context-test",
+      model,
+      store,
+      todoist: {
+        apiToken: "test-token",
+        timeZone: "Asia/Shanghai",
+        fetch: todoistFetch("empty"),
+      },
+      workspaceContext: true,
+    });
+    try {
+      const handle = await withContext.runtime.run({
+        agentId: "scheduled-responder",
+        threadId: "todoist-context-thread",
+        messages: [{ id: "reminder-user", role: "user", parts: [{ type: "text", text: "Remind me to drink water" }] }],
+      });
+      assert.equal((await handle.result).status, "completed");
+      const serialized = JSON.stringify(seen[0]);
+      assert.match(serialized, /explicitly requested Todoist daily plan/);
+      assert.doesNotMatch(serialized, /For a daily plan, call todoist_list_tasks/);
+      assert.match(serialized, /Follow the scheduled prompt's requested output format/);
+      assert.equal(containsExactString(seen[0], todoistTaskWorkerInstructions), false);
+    } finally {
+      withContext.dispose();
+    }
+  });
+
   for (const kind of ["complete", "truncated", "empty", "auth"] as const) {
     it(`passes the ${kind} query result through the production worker agent`, async () => {
       const root = await mkdtemp(join(tmpdir(), `runloom-worker-todoist-${kind}-`));

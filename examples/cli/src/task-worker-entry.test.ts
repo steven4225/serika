@@ -19,6 +19,10 @@ describe("task-worker CLI arguments", () => {
       parseTaskWorkerArgs(["--workspace", "./sample", "--todoist", "--notify"]),
       { workspace: "./sample", todoist: true, notify: true },
     );
+    assert.deepEqual(
+      parseTaskWorkerArgs(["--workspace", "./sample", "--workspace-context"]),
+      { workspace: "./sample", workspaceContext: true },
+    );
   });
 
   it("rejects an implicit workspace and unknown options", () => {
@@ -37,6 +41,10 @@ describe("task-worker CLI arguments", () => {
     assert.throws(
       () => parseTaskWorkerArgs(["--workspace", "./sample", "--notify", "--notify"]),
       /at most one --notify option/,
+    );
+    assert.throws(
+      () => parseTaskWorkerArgs(["--workspace", "./sample", "--workspace-context", "--workspace-context"]),
+      /at most one --workspace-context option/,
     );
   });
 });

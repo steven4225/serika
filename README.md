@@ -15,9 +15,9 @@
 
 ## 阶段
 
-当前：`M9 External Inputs`（先接公开 RSS/Atom 的按需只读输入）
+当前：`M10 Proactive Assistant`（复用重复任务做明确排期的 workspace 简报）
 
-已经具备自有 AgentLoop、JSONL transcript、精简 TUI、独立本地任务 worker，以及显式 Memory、workspace checkpoint、Git `/resume` 和只读 Home。M8 的一次性任务改期已合并；M9 只在现有 web 模块下补公开 feed 阅读，不引入账号接入、后台订阅或主动处理。模块接入路径见 [模块开发指南](docs/module-development.md)。
+已经具备自有 AgentLoop、JSONL transcript、精简 TUI、独立本地任务 worker，以及显式 Memory、workspace checkpoint、Git `/resume` 和只读 Home。M9 的按需 RSS/Atom 阅读已合并；M10 让现有 worker 在任务到点时选用当前 workspace 的有界参考快照，结果仍交付到任务 inbox。模块接入路径见 [模块开发指南](docs/module-development.md)。
 
 运行：
 
@@ -176,6 +176,20 @@ worker 不读取 TUI 的 `--config`；Todoist 规划时区独立取自 `RUNLOOM_
 任务查询只读现有任务文件：`/task list pending` 查看 `scheduled` 和 `running`，`/task list attention` 查看 `failed` 和 `interrupted`，`/task inbox` 查看尚未确认的终态任务（`completed`、`failed`、`interrupted`）。自然语言查询会复用 `task_list`；需要某个任务的完整状态、结果或错误时使用 `task_get`，候选不唯一时先列出候选并让用户确认。`/task show <id>` 查看完整 prompt、执行信息、结果、失败原因和 `Acknowledged at`；列表显示结果、错误摘要和确认时间，完整内容通过 `show` 获取。`/task ack <id>` 只确认一个已完成、失败或中断且尚未确认的任务；模型不会因为查询结果自动 ack，只有用户明确要求确认时才调用 `task_ack`。`completed` 表示 worker Run 正常结束，不代表业务成功，也不代表桌面通知已经送达；`failed` 与 `interrupted` 是不同的终态，必须分别说明。创建任务时不承诺会弹出桌面通知；跨进程桌面通知由 worker 的显式 `--notify` 开关控制。
 
 同一 workspace 还支持 daily/weekly 固定时区偏移的重复任务：`/task repeat create daily <HH:mm> <+/-HH:mm> <prompt>` 或 `/task repeat create weekly <1-7> <HH:mm> <+/-HH:mm> <prompt>`，并可用 `/task repeat list [active|paused|cancelled]`、`show`、`pause`、`resume`、`cancel` 管理。每次到期只生成一个独立的一次性任务；worker 会把下一次时间推进到严格晚于当前时间，过期多周期也只补一个并跳过中间周期。暂停会清空下一次时间，恢复从未来 occurrence 重新计算；取消只停止后续 occurrence，已经运行的任务继续完成。任务文件当前为 `version: 3`，`TaskRecordV3` 增加可空的 `acknowledgedAt`；旧版 `version: 1`/`version: 2` 文件仍可读，第一次成功写入时升级为 `version: 3`，旧记录补为 `null`。`task_ack` 是幂等的单任务写工具；不引入推送、批量确认、通知表、队列或多 worker。
+
+### M10 排期简报
+
+可以在 TUI 里说：“每天 09:00（固定 +08:00）根据当前项目进度和记忆，给我一份简报：依据、最重要的一件事、15 分钟下一步。”模型应使用已有 `task_repeat_create`，由你确认后才保存重复任务；固定 UTC offset 不会随夏令时自动调整。简报格式由这条任务的 prompt 决定，普通提醒不会被改写成简报。
+
+启动同一 workspace 的 worker 时显式加 `--workspace-context`：
+
+```bash
+RUNLOOM_MODEL=deepseek pnpm task-worker -- --workspace ./sample-project --workspace-context
+```
+
+这个开关适用于该 worker 领取的**全部任务**，独立于 TUI `--config`。每次领取后只读一次当前 `.runloom/memory.json`、`.runloom/checkpoint.json` 和未确认的失败／中断任务摘要；只注入有效的 workspace 记忆和当前 checkpoint，其他 Thread 的记忆不会进入。attention inbox 先按现有列表上限读取，去掉当前重复系列后再保留最多五条 120 字 preview，并按过滤后的集合计算 `truncated`。缺失记忆或 checkpoint 是合法空源；损坏、超限、符号链接或读取失败会在调用模型前将该任务记为 `failed`（`runId: null`）。checkpoint 只是保存时快照，不能证明当前 Git 或文件状态；记忆冲突时以当前有效记忆为准。自身重复系列的往期失败不会自动变成今天的优先事项。
+
+快照作为本次 Run 的参考上下文发送给所配置模型，不另存为 transcript 消息；模型可能在任务结果中引用其中的信息。`--workspace-context` 不给 worker 增加工具；`--todoist` 仍是独立的只读开关。结果沿用现有 `/task inbox`、`/task show <id>` 和显式 ack。`completed` 只表示 Run 正常结束；桌面通知仍取决于 worker 是否加 `--notify`，也不代表用户已经看见。worker 必须持续运行，重启后的重复任务沿用现有“漏跑只补一次”语义。
 
 ### Todoist 今日计划保存
 
