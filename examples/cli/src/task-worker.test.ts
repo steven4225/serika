@@ -60,6 +60,9 @@ function fakeStore(
     async cancel() {
       return { ok: true, value: claimedTask };
     },
+    async reschedule() {
+      return { ok: true, value: claimedTask };
+    },
     async acknowledge() {
       return { ok: true, value: claimedTask };
     },

@@ -12,6 +12,7 @@ import type {
 } from "../task-store.js";
 import {
   createTaskModule,
+  formatTaskRescheduleConfirmation,
   TASK_COMMAND_USAGE,
   TASK_REPEAT_COMMAND_USAGE,
 } from "./task-module.js";
@@ -148,6 +149,10 @@ function setup(overrides: Partial<TaskStore> = {}): {
       ok: true,
       value: record({ status: "cancelled" }),
     }),
+    reschedule: callsFor("reschedule", {
+      ok: true,
+      value: record({ runAt: "2026-09-13T01:00:00.000Z" }),
+    }),
     acknowledge: callsFor("acknowledge", {
       ok: true,
       value: record({ acknowledgedAt: "2026-09-12T02:00:00.000Z" }),
@@ -251,6 +256,13 @@ describe("createTaskModule", () => {
           idempotent: true,
         },
         {
+          name: "task_reschedule",
+          version: "1",
+          risk: "write",
+          timeoutMs: 1_000,
+          idempotent: true,
+        },
+        {
           name: "task_ack",
           version: "1",
           risk: "write",
@@ -311,6 +323,7 @@ describe("createTaskModule", () => {
     const listTool = toolByName(tools, "task_list").tool;
     const get = toolByName(tools, "task_get").tool;
     const cancel = toolByName(tools, "task_cancel").tool;
+    const reschedule = toolByName(tools, "task_reschedule").tool;
     const acknowledge = toolByName(tools, "task_ack").tool;
 
     assert.deepEqual(
@@ -333,6 +346,10 @@ describe("createTaskModule", () => {
       ok: true,
       value: record({ status: "cancelled" }),
     });
+    assert.deepEqual(await reschedule.execute!({ id: "task-1", runAt: "2026-09-13T09:00:00+08:00" }, context), {
+      ok: true,
+      value: record({ runAt: "2026-09-13T01:00:00.000Z" }),
+    });
     assert.deepEqual(await acknowledge.execute!({ id: "task-1" }, context), {
       ok: true,
       value: record({ acknowledgedAt: "2026-09-12T02:00:00.000Z" }),
@@ -346,6 +363,7 @@ describe("createTaskModule", () => {
       { method: "list", args: [{ inbox: true }] },
       { method: "get", args: ["task-1"] },
       { method: "cancel", args: ["task-1", context.abortSignal] },
+      { method: "reschedule", args: ["task-1", "2026-09-13T09:00:00+08:00", context.abortSignal] },
       { method: "acknowledge", args: ["task-1", context.abortSignal] },
     ]);
   });
@@ -475,6 +493,48 @@ describe("createTaskModule", () => {
     ]);
     assert.match(notifications[0] ?? "", /Tasks: 1/);
     assert.match(notifications[1] ?? "", /^Task acknowledged:/);
+  });
+
+  it("reschedules directly from the idle command and reports observed old and committed new time", async () => {
+    const { commands, notifications, calls } = setup();
+    const command = commands.get("task");
+    assert.ok(command);
+
+    assert.equal(command.execute("reschedule task-1 2026-09-13T09:00:00+08:00"), undefined);
+    assert.deepEqual(notifications, []);
+    await settle();
+
+    assert.deepEqual(calls, [
+      { method: "get", args: ["task-1"] },
+      { method: "reschedule", args: ["task-1", "2026-09-13T09:00:00+08:00"] },
+    ]);
+    assert.deepEqual(notifications, [
+      "Task rescheduled: ID: task-1; previous runAt (observed): 2026-09-12T01:00:00.000Z; new runAt: 2026-09-13T01:00:00.000Z",
+    ]);
+  });
+
+  it("does not reschedule when the idle command cannot read the task", async () => {
+    const { commands, notifications, calls } = setup({
+      get: async () => ({ ok: false, error: { code: "TASK_NOT_FOUND", message: "Missing task" } }),
+    });
+    const command = commands.get("task");
+    assert.ok(command);
+    command.execute("reschedule task-missing 2026-09-13T09:00:00+08:00");
+    await settle();
+    assert.deepEqual(calls, []);
+    assert.deepEqual(notifications, ["TASK_NOT_FOUND: Missing task"]);
+  });
+
+  it("shows old and requested time in the run confirmation without claiming the preview reserves the task", () => {
+    const prompt = formatTaskRescheduleConfirmation(
+      { id: "task-1", runAt: "2026-09-13T09:00:00+08:00" },
+      { ok: true, value: record() },
+    );
+    assert.match(prompt, /ID: "task-1"/);
+    assert.match(prompt, /Current runAt \(preview\): "2026-09-12T01:00:00.000Z"/);
+    assert.match(prompt, /Requested runAt: "2026-09-13T09:00:00\+08:00"/);
+    assert.match(prompt, /store rechecks task status under its lock/);
+    assert.match(prompt, /Allow this call\? \[y\/n\]/);
   });
 
   it("supports repeat create/list/show/pause/resume/cancel commands", async () => {
@@ -645,7 +705,11 @@ describe("createTaskModule", () => {
     command.execute("inbox extra");
     command.execute("ack");
     command.execute("cancel");
+    command.execute("reschedule task-1");
+    command.execute("reschedule task-1 2026-09-13T09:00:00+08:00 extra");
     assert.deepEqual(notifications, [
+      TASK_COMMAND_USAGE,
+      TASK_COMMAND_USAGE,
       TASK_COMMAND_USAGE,
       TASK_COMMAND_USAGE,
       TASK_COMMAND_USAGE,

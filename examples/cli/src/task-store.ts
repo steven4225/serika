@@ -181,6 +181,7 @@ export const taskStoreErrorCodes = [
   "INVALID_INPUT",
   "TASK_NOT_FOUND",
   "TASK_NOT_CANCELLABLE",
+  "TASK_NOT_RESCHEDULABLE",
   "TASK_NOT_ACKNOWLEDGEABLE",
   "TASK_FILE_INVALID",
   "TASK_VERSION_UNSUPPORTED",
@@ -204,6 +205,7 @@ export interface TaskStore {
   list(input?: TaskListInput): Promise<TaskStoreResult<TaskListV3>>;
   get(id: string): Promise<TaskStoreResult<TaskRecordV3>>;
   cancel(id: string, signal?: AbortSignal): Promise<TaskStoreResult<TaskRecordV3>>;
+  reschedule(id: string, runAt: string, signal?: AbortSignal): Promise<TaskStoreResult<TaskRecordV3>>;
   acknowledge(id: string, signal?: AbortSignal): Promise<TaskStoreResult<TaskRecordV3>>;
   claimNextDue(signal?: AbortSignal): Promise<TaskStoreResult<TaskRecordV3 | null>>;
   finish(id: string, outcome: TaskFinish, signal?: AbortSignal): Promise<TaskStoreResult<TaskRecordV3>>;
@@ -1013,6 +1015,35 @@ export class WorkspaceTaskStore implements TaskStore {
         }
         task.status = "cancelled";
         task.finishedAt = new Date(this.#now()).toISOString();
+        return task;
+      });
+      return { ok: true, value: cloneRecord(value) };
+    } catch (error) {
+      return errorResult(error, signal, true);
+    }
+  }
+
+  async reschedule(
+    id: string,
+    runAt: string,
+    signal: AbortSignal = neverAborted,
+  ): Promise<TaskStoreResult<TaskRecordV3>> {
+    if (typeof id !== "string" || id.length === 0) {
+      return fail("INVALID_INPUT", "Task id must be non-empty");
+    }
+    try {
+      throwIfAborted(signal);
+      const normalizedRunAt = normalizeRunAt(runAt);
+      const value = await this.#update(signal, (document) => {
+        const task = document.tasks.find((candidate) => candidate.id === id);
+        if (task === undefined) raise("TASK_NOT_FOUND", `Task not found: ${id}`);
+        if (task.status !== "scheduled" || task.recurringTaskId != null) {
+          raise("TASK_NOT_RESCHEDULABLE", `Task cannot be rescheduled in ${task.status} state`);
+        }
+        if (Date.parse(normalizedRunAt) <= this.#now()) {
+          raise("INVALID_INPUT", "Task runAt must be later than the current time");
+        }
+        task.runAt = normalizedRunAt;
         return task;
       });
       return { ok: true, value: cloneRecord(value) };

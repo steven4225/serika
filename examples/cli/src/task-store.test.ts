@@ -109,6 +109,119 @@ describe("WorkspaceTaskStore", () => {
     assert.deepEqual(await reopened.cancel("task-1"), cancelled);
   });
 
+  it("reschedules a scheduled one-time task under the store lock, including after its old due time", async () => {
+    const root = await workspace();
+    let now = Date.parse("2026-09-11T00:00:00.000Z");
+    const store = createTaskStore(root, { now: () => now, generateId: () => "task-1" });
+    const created = await store.create({ prompt: "drink water", runAt: "2026-09-11T00:01:00Z" });
+    assert.equal(created.ok, true);
+    if (!created.ok) return;
+
+    now = Date.parse("2026-09-11T00:02:00.000Z");
+    const changed = await store.reschedule("task-1", "2026-09-11T09:00:00+08:00");
+    assert.equal(changed.ok, true);
+    if (!changed.ok) return;
+    assert.deepEqual(changed.value, {
+      ...created.value,
+      runAt: "2026-09-11T01:00:00.000Z",
+    });
+    assert.deepEqual(await createTaskStore(root, { now: () => now }).get("task-1"), changed);
+    assert.deepEqual(await store.claimNextDue(), { ok: true, value: null });
+    assert.deepEqual(await store.reschedule("task-1", "2026-09-11T01:00:00Z"), changed);
+  });
+
+  it("rejects invalid reschedules without changing tasks", async () => {
+    const root = await workspace();
+    let now = Date.parse("2026-09-11T00:00:00.000Z");
+    let nextId = 0;
+    const store = createTaskStore(root, {
+      now: () => now,
+      generateId: () => `id-${++nextId}`,
+    });
+    const scheduled = await store.create({ prompt: "one", runAt: "2026-09-11T00:01:00Z" });
+    assert.equal(scheduled.ok, true);
+    if (!scheduled.ok) return;
+
+    assert.equal(code(await store.reschedule("", "2026-09-11T00:10:00Z")), "INVALID_INPUT");
+    assert.equal(code(await store.reschedule("id-1", "2026-09-11T00:10:00")), "INVALID_INPUT");
+    assert.equal(code(await store.reschedule("id-1", "2026-09-11T00:00:00Z")), "INVALID_INPUT");
+    assert.equal(code(await store.reschedule("unknown", "2026-09-11T00:10:00Z")), "TASK_NOT_FOUND");
+    assert.deepEqual(await store.get("id-1"), scheduled);
+
+    now = Date.parse("2026-09-11T00:02:00.000Z");
+    const running = await store.claimNextDue();
+    assert.equal(running.ok, true);
+    assert.equal(code(await store.reschedule("id-1", "2026-09-11T00:10:00Z")), "TASK_NOT_RESCHEDULABLE");
+    await store.finish("id-1", { status: "completed", runId: "run-1", resultText: "done" });
+    assert.equal(code(await store.reschedule("id-1", "2026-09-11T00:10:00Z")), "TASK_NOT_RESCHEDULABLE");
+  });
+
+  it("does not reschedule a recurring series or a scheduled task associated with it", async () => {
+    const root = await workspace();
+    const store = createTaskStore(root, {
+      now: () => Date.parse("2026-09-11T00:00:00.000Z"),
+      generateId: () => "series-1",
+    });
+    const series = await store.createRecurring({
+      prompt: "daily plan",
+      recurrence: { kind: "daily", time: "09:00", utcOffset: "+08:00" },
+    });
+    assert.equal(series.ok, true);
+    assert.equal(code(await store.reschedule("series-1", "2026-09-12T00:00:00Z")), "TASK_NOT_FOUND");
+
+    const path = join(root, TASK_FILE_NAME);
+    const document = JSON.parse(await readFile(path, "utf8")) as {
+      tasks: Array<Record<string, unknown>>;
+    };
+    document.tasks.push({
+      id: "associated-1",
+      prompt: "legacy occurrence",
+      runAt: "2026-09-11T01:00:00.000Z",
+      status: "scheduled",
+      createdAt: "2026-09-11T00:00:00.000Z",
+      startedAt: null,
+      finishedAt: null,
+      threadId: null,
+      runId: null,
+      resultText: null,
+      error: null,
+      acknowledgedAt: null,
+      recurringTaskId: "series-1",
+    });
+    await writeFile(path, `${JSON.stringify(document)}\n`, "utf8");
+    assert.equal(code(await store.reschedule("associated-1", "2026-09-12T00:00:00Z")), "TASK_NOT_RESCHEDULABLE");
+  });
+
+  it("serializes reschedule and claim so exactly one wins", async () => {
+    const root = await workspace();
+    let now = Date.parse("2026-09-11T00:00:00.000Z");
+    let nextId = 0;
+    const store = createTaskStore(root, {
+      now: () => now,
+      generateId: () => `id-${++nextId}`,
+    });
+    await store.create({ prompt: "drink water", runAt: "2026-09-11T00:01:00Z" });
+    now = Date.parse("2026-09-11T00:02:00.000Z");
+    const [rescheduled, claimed] = await Promise.all([
+      store.reschedule("id-1", "2026-09-11T00:10:00Z"),
+      store.claimNextDue(),
+    ]);
+    const final = await store.get("id-1");
+    assert.equal(final.ok, true);
+    if (!final.ok) return;
+    if (rescheduled.ok) {
+      assert.deepEqual(claimed, { ok: true, value: null });
+      assert.equal(final.value.status, "scheduled");
+      assert.equal(final.value.runAt, "2026-09-11T00:10:00.000Z");
+    } else {
+      assert.equal(rescheduled.error.code, "TASK_NOT_RESCHEDULABLE");
+      assert.equal(claimed.ok, true);
+      if (claimed.ok) assert.equal(claimed.value?.id, "id-1");
+      assert.equal(final.value.status, "running");
+      assert.equal(final.value.runAt, "2026-09-11T00:01:00.000Z");
+    }
+  });
+
   it("creates, pauses, resumes, and cancels a fixed-offset recurring task", async () => {
     const root = await workspace();
     let now = Date.parse("2026-09-10T00:30:00.000Z");

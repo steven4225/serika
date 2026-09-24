@@ -547,12 +547,20 @@ type CompletedPomodoroAction = {
   summary: string;
 };
 
-type CompletedTaskAction = {
+type CompletedTaskCreateAction = {
   toolName: "task_create";
   id: string;
   runAt: string;
   prompt: string;
 };
+
+type CompletedTaskRescheduleAction = {
+  toolName: "task_reschedule";
+  id: string;
+  runAt: string;
+};
+
+type CompletedTaskAction = CompletedTaskCreateAction | CompletedTaskRescheduleAction;
 
 type CompletedMemoryAction = {
   toolName: "memory_add" | "memory_update";
@@ -674,7 +682,7 @@ function completedPomodoroAction(
 function completedTaskAction(
   event: Extract<AgentEvent, { type: "tool.call.completed" }>,
 ): CompletedTaskAction | undefined {
-  if (event.data.toolName !== "task_create") return undefined;
+  if (event.data.toolName !== "task_create" && event.data.toolName !== "task_reschedule") return undefined;
   const output = event.data.output;
   if (typeof output !== "object" || output === null) return undefined;
   const result = output as {
@@ -686,11 +694,18 @@ function completedTaskAction(
     typeof result.value !== "object" ||
     result.value === null ||
     typeof result.value.id !== "string" ||
-    typeof result.value.runAt !== "string" ||
-    typeof result.value.prompt !== "string"
+    typeof result.value.runAt !== "string"
   ) {
     return undefined;
   }
+  if (event.data.toolName === "task_reschedule") {
+    return {
+      toolName: "task_reschedule",
+      id: result.value.id,
+      runAt: result.value.runAt,
+    };
+  }
+  if (typeof result.value.prompt !== "string") return undefined;
   return {
     toolName: "task_create",
     id: result.value.id,
@@ -877,6 +892,8 @@ function renderResult(
           output,
           `- task_create: 已创建任务 ${action.id}，执行时间 ${action.runAt}，内容：${action.prompt}\n`,
         );
+      } else if (action.toolName === "task_reschedule") {
+        write(output, `- task_reschedule: 已改期任务 ${action.id}，新执行时间 ${action.runAt}\n`);
       } else if (action.toolName === "checkpoint_save") {
         write(
           output,

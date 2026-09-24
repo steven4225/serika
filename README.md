@@ -15,9 +15,9 @@
 
 ## 阶段
 
-当前：`M7 Daily Entry / Home`（把已有项目进度和本地任务结果汇成每日入口）
+当前：`M8 Tasks / Reminder / Scheduler`（在已有本地调度上补一次性提醒的原子改期）
 
-已经具备自有 AgentLoop、JSONL transcript、精简 TUI、独立本地任务 worker，以及显式 Memory、workspace checkpoint 和 Git `/resume`。M7 只组合这些现有读路径形成每日入口；它不改变既有任务执行和确认语义。模块接入路径见 [模块开发指南](docs/module-development.md)。
+已经具备自有 AgentLoop、JSONL transcript、精简 TUI、独立本地任务 worker，以及显式 Memory、workspace checkpoint、Git `/resume` 和只读 Home。M8 复用现有调度与任务文件，只补一次性任务改期；不改变 worker 的领取和通知语义。模块接入路径见 [模块开发指南](docs/module-development.md)。
 
 运行：
 
@@ -133,9 +133,9 @@ RUNLOOM_MODEL=mock pnpm tui -- ./var/runloom --thread daily-plan --config ./runl
 
 `/modules` 始终可用，不属于配置模块；它显示配置来源、workspace、模块开关、自动整理、Todoist 时区和 token 是否存在，不显示 token。关闭 `memory` 会同时关闭记忆工具、记忆注入和自动整理，但不会关闭 checkpoint；关闭 `checkpoint` 只关闭 checkpoint 工具和注入；关闭 `task` 只影响当前 TUI，不会停止独立 worker。命令不创建 Run，也不写 transcript。
 
-启用 `task` 并配置 workspace 后还可以创建一次性任务。TUI 提供 `/task create <带时区的ISO时间> <prompt>`、`/task list [pending|attention|status]`、`/task inbox`、`/task show <id>`、`/task ack <id>` 和 `/task cancel <id>`；任务保存在 `<workspace>/.runloom/tasks.json`。独立 worker 必须持续运行，TUI 关闭后仍会在到期时执行：
+启用 `task` 并配置 workspace 后还可以创建一次性任务。TUI 提供 `/task create <带时区的ISO时间> <prompt>`、`/task reschedule <id> <带时区的ISO时间>`、`/task list [pending|attention|status]`、`/task inbox`、`/task show <id>`、`/task ack <id>` 和 `/task cancel <id>`；任务保存在 `<workspace>/.runloom/tasks.json`。空闲 `/task reschedule` 和其它 `/task` 命令一样直接执行，不经过模型工具的 `y/n`；自然语言改期调用 `task_reschedule`，先展示原时间和新时间并逐次确认。改期只更新尚处于 `scheduled` 的一次性任务原 ID，不会先取消再新建；旧时间虽已到但尚未被 worker 领取时仍可改期。若 worker 已先领取，改期会明确失败。独立 worker 必须持续运行，TUI 关闭后仍会在到期时执行：
 
-也可以直接用自然语言说“**一分钟后提醒我喝水**”或“安排一个任务”。模型会调用 `task_create`，需要把时间转换成带时区的 ISO 8601 时间；时间不明确时会先追问。`task_create` 只把任务写入 `<workspace>/.runloom/tasks.json`，不会立即启动 worker 或执行 prompt；必须有 worker 运行，任务到期才会执行。创建成功后会返回任务 ID、执行时间和任务内容，仍沿用现有写入确认。若任务已经创建而本轮随后失败、取消或超时，TUI 会显示这条已创建事实；创建失败或被拒绝不会显示为成功。
+也可以直接用自然语言说“**一分钟后提醒我喝水**”或“安排一个任务”。模型会调用 `task_create`，需要把时间转换成带时区的 ISO 8601 时间；时间不明确时会先追问。`task_create` 只把任务写入 `<workspace>/.runloom/tasks.json`，不会立即启动 worker 或执行 prompt；必须有 worker 运行，任务到期才会执行。创建成功后会返回任务 ID、执行时间和任务内容，仍沿用现有写入确认。自然语言改期若有多个候选，先列出任务并请用户点名，不用取消加新建代替改期。若任务已创建或已改期而本轮随后失败、取消或超时，TUI 会列出已经成功的任务事实；失败或被拒绝不会显示为成功。已排期不代表 worker 正在运行，也不代表桌面通知已送达。
 
 ```bash
 RUNLOOM_MODEL=mock pnpm task-worker -- --workspace ./sample-project

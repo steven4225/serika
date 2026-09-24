@@ -128,6 +128,10 @@ const taskListInputSchema = z.object({
 });
 const taskGetInputSchema = z.object({ id: z.string().min(1) });
 const taskCancelInputSchema = z.object({ id: z.string().min(1) });
+const taskRescheduleInputSchema = z.object({
+  id: z.string().min(1),
+  runAt: z.string(),
+});
 const taskAckInputSchema = z.object({ id: z.string().min(1) });
 const createRecurringTaskInputSchema = z.object({
   prompt: z.string(),
@@ -206,6 +210,13 @@ const taskCancelMetadata: RegisteredTool["metadata"] = {
   timeoutMs: 1_000,
   idempotent: true,
 };
+const taskRescheduleMetadata: RegisteredTool["metadata"] = {
+  name: "task_reschedule",
+  version: "1",
+  risk: "write",
+  timeoutMs: 1_000,
+  idempotent: true,
+};
 const taskAckMetadata: RegisteredTool["metadata"] = {
   name: "task_ack",
   version: "1",
@@ -257,7 +268,7 @@ const taskRepeatCancelMetadata: RegisteredTool["metadata"] = {
 };
 
 export const TASK_COMMAND_USAGE =
-  "Usage: /task create <ISO-time-with-timezone> <prompt> | list [pending|attention|status] | inbox | show <id> | ack <id> | cancel <id>";
+  "Usage: /task create <ISO-time-with-timezone> <prompt> | list [pending|attention|status] | inbox | show <id> | ack <id> | cancel <id> | reschedule <id> <ISO-time-with-timezone>";
 export const TASK_REPEAT_COMMAND_USAGE =
   "Usage: /task repeat create daily <HH:mm> <+/-HH:mm> <prompt> | create weekly <1-7> <HH:mm> <+/-HH:mm> <prompt> | list [active|paused|cancelled] | show <id> | pause <id> | resume <id> | cancel <id>";
 
@@ -273,6 +284,23 @@ function throwIfAborted(signal: AbortSignal): void {
 
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+export function formatTaskRescheduleConfirmation(
+  input: { id?: unknown; runAt?: unknown },
+  current: TaskStoreResult<TaskRecordV3>,
+): string {
+  const previousRunAt = current.ok
+    ? current.value.runAt
+    : `unavailable (${current.error.code}: ${current.error.message})`;
+  return (
+    "\nTool: task_reschedule\n" +
+    `ID: ${JSON.stringify(input.id)}\n` +
+    `Current runAt (preview): ${JSON.stringify(previousRunAt)}\n` +
+    `Requested runAt: ${JSON.stringify(input.runAt)}\n` +
+    "The store rechecks task status under its lock; this preview does not reserve the task.\n" +
+    "Allow this call? [y/n] "
+  );
 }
 
 function notifyResult<T>(
@@ -575,6 +603,20 @@ export function createTaskModule(store: TaskStore): AgentModule {
           return store.cancel(id, signal);
         },
       });
+      const taskRescheduleTool = tool({
+        description:
+          "Change the future runAt of an existing one-time scheduled task without changing its ID. Running, terminal, and recurring occurrences cannot be rescheduled.",
+        inputSchema: taskRescheduleInputSchema,
+        outputSchema: taskRecordOutputSchema,
+        execute: async (
+          { id, runAt }: { id: string; runAt: string },
+          { abortSignal },
+        ): Promise<TaskStoreResult<TaskRecordV3>> => {
+          const signal = abortSignal ?? neverAborted;
+          throwIfAborted(signal);
+          return store.reschedule(id, runAt, signal);
+        },
+      });
       const taskAckTool = tool({
         description:
           "Mark one completed, failed, or interrupted task as acknowledged after explicit user confirmation; reading or summarizing it is not acknowledgement.",
@@ -678,6 +720,7 @@ export function createTaskModule(store: TaskStore): AgentModule {
       ctx.registerTool({ metadata: taskListMetadata, tool: taskListTool });
       ctx.registerTool({ metadata: taskGetMetadata, tool: taskGetTool });
       ctx.registerTool({ metadata: taskCancelMetadata, tool: taskCancelTool });
+      ctx.registerTool({ metadata: taskRescheduleMetadata, tool: taskRescheduleTool });
       ctx.registerTool({ metadata: taskAckMetadata, tool: taskAckTool });
       ctx.registerTool({ metadata: taskRepeatCreateMetadata, tool: taskRepeatCreateTool });
       ctx.registerTool({ metadata: taskRepeatListMetadata, tool: taskRepeatListTool });
@@ -760,6 +803,32 @@ export function createTaskModule(store: TaskStore): AgentModule {
               ctx,
               () => store.cancel(id),
               (record) => `Task cancelled: ${renderRecord(record)}`,
+            );
+            return;
+          }
+
+          if (action === "reschedule") {
+            const match = /^(\S+)\s+(\S+)$/.exec(rest.trim());
+            if (match === null) {
+              ctx.notify(TASK_COMMAND_USAGE);
+              return;
+            }
+            const [, id, runAt] = match;
+            if (id === undefined || runAt === undefined) {
+              ctx.notify(TASK_COMMAND_USAGE);
+              return;
+            }
+            runCommand(
+              ctx,
+              async () => {
+                const before = await store.get(id);
+                if (!before.ok) return before;
+                const after = await store.reschedule(id, runAt);
+                if (!after.ok) return after;
+                return { ok: true as const, value: { before: before.value, after: after.value } };
+              },
+              ({ before, after }) =>
+                `Task rescheduled: ID: ${after.id}; previous runAt (observed): ${before.runAt}; new runAt: ${after.runAt}`,
             );
             return;
           }

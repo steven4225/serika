@@ -48,7 +48,10 @@ import { createPomodoroModule } from "./modules/pomodoro-module.js";
 import { createReadFileModule } from "./modules/read-file-module.js";
 import { createShellModule } from "./modules/shell-module.js";
 import { assertDockerShellSandboxAvailable } from "./modules/docker-shell-runner.js";
-import { createTaskModule } from "./modules/task-module.js";
+import {
+  createTaskModule,
+  formatTaskRescheduleConfirmation,
+} from "./modules/task-module.js";
 import { createTodoistModule } from "./modules/todoist-module.js";
 import { createWebModule } from "./modules/web-module.js";
 import { createTaskStore } from "./task-store.js";
@@ -247,6 +250,13 @@ async function readCurrentCheckpoint(
 }
 
 const toolConfirmationPrompt: ToolConfirmationPrompt = (input) => {
+  if (taskStore !== undefined && input.toolName === "task_reschedule") {
+    const request = typeof input.input === "object" && input.input !== null
+      ? input.input as { id?: unknown; runAt?: unknown }
+      : {};
+    return taskStore.get(typeof request.id === "string" ? request.id : "")
+      .then((current) => formatTaskRescheduleConfirmation(request, current));
+  }
   if (checkpointStore !== undefined && input.toolName.startsWith("checkpoint_")) {
     const checkpointInput =
       typeof input.input === "object" && input.input !== null
