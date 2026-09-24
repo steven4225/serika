@@ -363,7 +363,10 @@ export function createToolConfirmation(
     if (AUTO_APPROVED_TOOL_NAMES.has(input.toolName)) {
       return Promise.resolve({ allow: true });
     }
-    if (searchDeniedThisRun && input.toolName === "web_fetch") {
+    if (
+      searchDeniedThisRun &&
+      (input.toolName === "web_fetch" || input.toolName === "feed_read")
+    ) {
       return Promise.resolve({
         allow: false,
         reason: SEARCH_DENIED_FETCH_REASON,

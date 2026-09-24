@@ -3941,6 +3941,55 @@ describe("createToolConfirmation web authorization", () => {
     );
   });
 
+  it("still prompts for feed_read after /authorize-web and honors n", async () => {
+    const output = outputBuffer();
+    const confirmation = createToolConfirmation(output);
+    confirmation.setPendingWebAuthorization(["https://example.com"]);
+    confirmation.beginRun();
+
+    const feed = confirmation.beforeToolExecute(
+      toolInput("feed_read", new AbortController().signal, {
+        url: "https://example.com/feed.xml",
+      }),
+    );
+    await Promise.resolve();
+    assert.match(output.text(), /Tool: feed_read/);
+    assert.match(output.text(), /https:\/\/example\.com\/feed\.xml/);
+    assert.equal(confirmation.handleLine("n"), true);
+    assert.deepEqual(await feed, {
+      allow: false,
+      reason: "User denied this tool call",
+    });
+    confirmation.endRun();
+  });
+
+  it("denies feed_read without another prompt after web_search is refused", async () => {
+    const output = outputBuffer();
+    const confirmation = createToolConfirmation(output);
+    confirmation.beginRun();
+
+    const search = confirmation.beforeToolExecute(
+      toolInput("web_search", new AbortController().signal, { query: "Node.js" }),
+    );
+    await Promise.resolve();
+    assert.equal(confirmation.handleLine("n"), true);
+    await search;
+
+    const prompted = output.text();
+    const feed = confirmation.beforeToolExecute(
+      toolInput("feed_read", new AbortController().signal, {
+        url: "https://nodejs.org/feed.xml",
+      }),
+    );
+    assert.deepEqual(await feed, {
+      allow: false,
+      reason: "web_search was denied in this Run",
+    });
+    assert.equal(output.text(), prompted);
+    assert.doesNotMatch(output.text(), /Tool: feed_read/);
+    confirmation.endRun();
+  });
+
   it("denies later web_fetch without a prompt after web_search is refused", async () => {
     const output = outputBuffer();
     const confirmation = createToolConfirmation(output);

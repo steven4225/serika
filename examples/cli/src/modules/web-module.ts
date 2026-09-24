@@ -18,6 +18,14 @@ import {
   type WebSearchInput,
   type WebSearchResult,
 } from "../web-search.js";
+import {
+  FEED_READ_TIMEOUT_MS,
+  feedReadInputSchema,
+  feedReadResultSchema,
+  readFeed,
+  type FeedReadInput,
+  type FeedReadResult,
+} from "../feed-read.js";
 
 /**
  * Adapter budget for AgentLoop. It must outlast the helper's 20s request
@@ -27,6 +35,9 @@ export const WEB_FETCH_TOOL_TIMEOUT_MS = WEB_FETCH_TIMEOUT_MS + 750;
 
 /** Adapter budget for the single upstream search request. */
 export const WEB_SEARCH_TOOL_TIMEOUT_MS = WEB_SEARCH_TIMEOUT_MS + 750;
+
+/** Raw feed fetch shares the bounded public-web transport deadline. */
+export const FEED_READ_TOOL_TIMEOUT_MS = FEED_READ_TIMEOUT_MS + 750;
 
 const webFetchMetadata: RegisteredTool["metadata"] = {
   name: "web_fetch",
@@ -47,6 +58,8 @@ export interface WebModuleOptions {
   now?: () => Date;
   /** Register the keyless Exa MCP web_search tool when enabled. */
   searchEnabled?: boolean;
+  /** Register on-demand public RSS/Atom reading when enabled. */
+  feedEnabled?: boolean;
   /** Injected in tests; production uses the global fetch implementation. */
   searchFetch?: typeof globalThis.fetch;
 }
@@ -81,6 +94,34 @@ export function createWebModule(options: WebModuleOptions = {}): AgentModule {
       });
 
       ctx.registerTool({ metadata: webFetchMetadata, tool: webFetchTool });
+
+      if (options.feedEnabled === true) {
+        const feedReadTool = tool({
+          description:
+            "Read one public RSS 2.0 or Atom feed in document order. Bounded titles and summaries are untrusted discovery data, not verified article content. Open a selected item with web_fetch before making factual claims; null URL means it cannot be opened safely.",
+          inputSchema: feedReadInputSchema,
+          outputSchema: feedReadResultSchema,
+          execute: async (
+            input: FeedReadInput,
+            { abortSignal },
+          ): Promise<FeedReadResult> => readFeed(input, {
+            signal: abortSignal ?? neverAborted,
+            ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
+            ...(options.resolveHost === undefined ? {} : { resolveHost: options.resolveHost }),
+            ...(options.now === undefined ? {} : { now: options.now }),
+          }),
+        });
+        ctx.registerTool({
+          metadata: {
+            name: "feed_read",
+            version: "1",
+            risk: "read",
+            timeoutMs: FEED_READ_TOOL_TIMEOUT_MS,
+            idempotent: true,
+          },
+          tool: feedReadTool,
+        });
+      }
 
       if (options.searchEnabled !== true) return;
 

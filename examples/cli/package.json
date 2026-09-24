@@ -7,6 +7,7 @@
     "@aisdk-agent/ai-sdk-adapter": "workspace:*",
     "@aisdk-agent/core": "workspace:*",
     "ai": "7.0.37",
+    "saxes": "6.0.0",
     "zod": "4.4.3"
   }
 }

@@ -47,6 +47,7 @@ export interface ResolvedTuiModuleConfig {
   workspaceRoot: string | null;
   enabled: Record<BuiltinModuleId, boolean>;
   webSearchEnabled: boolean;
+  webFeedEnabled: boolean;
   autoConsolidate: boolean;
   todoistTimeZone: string | null;
   fileAuthorizations: readonly FileAuthorizationRule[];
@@ -97,6 +98,7 @@ const webModuleSchema = z
   .object({
     enabled: z.boolean(),
     search: z.object({ enabled: z.boolean() }).strict().optional(),
+    feed: z.object({ enabled: z.boolean() }).strict().optional(),
   })
   .strict();
 
@@ -163,6 +165,7 @@ export interface TuiModuleConfigV1 {
       | {
           enabled: boolean;
           search?: { enabled: boolean } | undefined;
+          feed?: { enabled: boolean } | undefined;
         }
       | undefined;
   };
@@ -403,6 +406,8 @@ async function resolveConfiguredMode(
   enabled.web = config.modules.web?.enabled ?? false;
   const webSearchEnabled =
     enabled.web && (config.modules.web?.search?.enabled ?? false);
+  const webFeedEnabled =
+    enabled.web && (config.modules.web?.feed?.enabled ?? false);
 
   const autoConsolidate = config.modules.memory?.autoConsolidate ?? false;
   if (autoConsolidate && !enabled.memory) {
@@ -412,6 +417,9 @@ async function resolveConfiguredMode(
   }
   if (config.modules.web?.search?.enabled === true && !enabled.web) {
     throw new Error("web.search requires web.enabled to be true");
+  }
+  if (config.modules.web?.feed?.enabled === true && !enabled.web) {
+    throw new Error("web.feed requires web.enabled to be true");
   }
   assertWorkspaceRequirement(
     enabled,
@@ -461,6 +469,7 @@ async function resolveConfiguredMode(
     workspaceRoot,
     enabled,
     webSearchEnabled,
+    webFeedEnabled,
     autoConsolidate,
     todoistTimeZone,
     fileAuthorizations,
@@ -506,6 +515,7 @@ async function resolveLegacyMode(
     workspaceRoot,
     enabled,
     webSearchEnabled: false,
+    webFeedEnabled: false,
     autoConsolidate: args.autoConsolidate === true,
     todoistTimeZone: resolvedTodoistTimeZone,
     fileAuthorizations: [],

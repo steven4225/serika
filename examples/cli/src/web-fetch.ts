@@ -48,6 +48,9 @@ export interface WebFetchFailure {
 
 export type WebFetchResult = WebFetchSuccess | WebFetchFailure;
 
+/** Raw UTF-8 HTTP body for RSS/Atom parsing; never HTML-extracted or text-capped. */
+export type FeedDocumentResult = WebFetchResult;
+
 export const webFetchInputSchema: z.ZodType<WebFetchInput> = z
   .object({ url: z.string().min(1) })
   .strict();
@@ -289,6 +292,46 @@ function validateUrl(value: unknown): URL | WebFetchFailure {
   return url;
 }
 
+/** Syntactic public URL check only. Actual requests must also check DNS. */
+export function validatePublicWebUrl(value: unknown): string | null {
+  const parsed = validateUrl(value);
+  return parsed instanceof URL ? parsed.toString() : null;
+}
+
+function defaultResolveHost(): ResolveWebHost {
+  return async (hostname, resolveOptions) =>
+    (await lookup(hostname, {
+      all: resolveOptions.all,
+      verbatim: resolveOptions.verbatim,
+    })).map(({ address, family }) => ({
+      address,
+      family: family === 6 ? 6 : 4,
+    }));
+}
+
+/** Also resolve feed item links before exposing them to the model. */
+export async function validatePublicFeedItemUrl(
+  value: string,
+  options: WebFetchOptions = {},
+): Promise<string | null> {
+  const parsed = validateUrl(value);
+  if (!(parsed instanceof URL)) return null;
+  if (options.signal?.aborted) return null;
+  const timeoutController = new AbortController();
+  const timeout = setTimeout(() => timeoutController.abort(), options.timeoutMs ?? WEB_FETCH_TIMEOUT_MS);
+  const signal = options.signal === undefined
+    ? timeoutController.signal
+    : AbortSignal.any([options.signal, timeoutController.signal]);
+  try {
+    const blocked = await assertPublicTarget(parsed, signal, options.resolveHost ?? defaultResolveHost());
+    return blocked === undefined && !signal.aborted ? parsed.toString() : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function assertPublicTarget(
   url: URL,
   signal: AbortSignal,
@@ -402,6 +445,12 @@ function isSupportedContentType(contentType: string): boolean {
   );
 }
 
+function isSupportedFeedContentType(contentType: string): boolean {
+  return contentType === "text/xml" || contentType === "text/html" ||
+    contentType === "application/xml" || contentType === "application/rss+xml" ||
+    contentType === "application/atom+xml";
+}
+
 function contentTypeOf(response: Response): string {
   return (response.headers.get("content-type") ?? "").split(";", 1)[0]!.trim().toLowerCase();
 }
@@ -414,11 +463,21 @@ function isAllowedOrigin(url: URL, allowedOrigins: readonly string[] | undefined
   return allowedOrigins === undefined || allowedOrigins.includes(url.origin);
 }
 
-/** Fetch one public HTTP(S) URL, following and re-validating up to five redirects. */
-export async function fetchWebPage(
+interface RawWebSuccess {
+  ok: true;
+  value: Omit<WebFetchSuccess["value"], "text" | "truncated"> & {
+    bytes: Uint8Array;
+    truncated: boolean;
+    charset: string | null;
+  };
+}
+
+/** Shared public HTTP(S) transport, with redirect revalidation and raw body cap. */
+async function fetchPublicBody(
   input: WebFetchInput,
-  options: WebFetchOptions = {},
-): Promise<WebFetchResult> {
+  options: WebFetchOptions,
+  kind: "page" | "feed",
+): Promise<RawWebSuccess | WebFetchFailure> {
   const initial = validateUrl(input?.url);
   if (!(initial instanceof URL)) return initial;
   if (options.signal?.aborted) {
@@ -435,14 +494,7 @@ export async function fetchWebPage(
   const signal = options.signal === undefined
     ? timeoutController.signal
     : AbortSignal.any([options.signal, timeoutController.signal]);
-  const resolveHost: ResolveWebHost = options.resolveHost ?? (async (hostname, resolveOptions) =>
-    (await lookup(hostname, {
-      all: resolveOptions.all,
-      verbatim: resolveOptions.verbatim,
-    })).map(({ address, family }) => ({
-      address,
-      family: family === 6 ? 6 : 4,
-    })));
+  const resolveHost: ResolveWebHost = options.resolveHost ?? defaultResolveHost();
 
   let current = initial;
   let redirects = 0;
@@ -464,7 +516,9 @@ export async function fetchWebPage(
           method: "GET",
           redirect: "manual",
           signal,
-          headers: { accept: "text/html, text/plain, application/json, application/xhtml+xml, application/xml" },
+          headers: { accept: kind === "feed"
+            ? "application/rss+xml, application/atom+xml, application/xml, text/xml, text/html"
+            : "text/html, text/plain, application/json, application/xhtml+xml, application/xml" },
         });
       } catch (error) {
         if (isTimeoutError(error, timeoutController.signal)) {
@@ -519,7 +573,7 @@ export async function fetchWebPage(
       }
 
       const contentType = contentTypeOf(response);
-      if (!isSupportedContentType(contentType)) {
+      if (!(kind === "feed" ? isSupportedFeedContentType(contentType) : isSupportedContentType(contentType))) {
         return failure("UNSUPPORTED_CONTENT_TYPE", `Unsupported content type: ${contentType || "unknown"}`, {
           status: response.status,
           finalUrl: current.toString(),
@@ -527,17 +581,7 @@ export async function fetchWebPage(
       }
 
       const body = await readBody(response, signal);
-      const decoder = new TextDecoder("utf-8");
-      let text = decoder.decode(body.bytes);
-      if (contentType === "text/html" || contentType === "application/xhtml+xml") {
-        text = htmlToText(text);
-      }
-      const textBytes = new TextEncoder().encode(text);
-      let truncated = body.truncated;
-      if (textBytes.byteLength > WEB_FETCH_MAX_TEXT_BYTES) {
-        text = decoder.decode(textBytes.subarray(0, WEB_FETCH_MAX_TEXT_BYTES));
-        truncated = true;
-      }
+      const charset = response.headers.get("content-type")?.match(/(?:^|;)\s*charset\s*=\s*"?([^;"\s]+)/i)?.[1]?.toLowerCase() ?? null;
       return {
         ok: true,
         value: {
@@ -546,8 +590,9 @@ export async function fetchWebPage(
           status: response.status,
           contentType,
           fetchedAt: now().toISOString(),
-          text,
-          truncated,
+          bytes: body.bytes,
+          truncated: body.truncated,
+          charset,
         },
       };
     }
@@ -563,4 +608,52 @@ export async function fetchWebPage(
   } finally {
     clearTimeout(timeout);
   }
+}
+
+/** Fetch one public HTTP(S) page and extract bounded text for model use. */
+export async function fetchWebPage(
+  input: WebFetchInput,
+  options: WebFetchOptions = {},
+): Promise<WebFetchResult> {
+  const result = await fetchPublicBody(input, options, "page");
+  if (!result.ok) return result;
+  const decoder = new TextDecoder("utf-8");
+  let text = decoder.decode(result.value.bytes);
+  if (result.value.contentType === "text/html" || result.value.contentType === "application/xhtml+xml") {
+    text = htmlToText(text);
+  }
+  const textBytes = new TextEncoder().encode(text);
+  let truncated = result.value.truncated;
+  if (textBytes.byteLength > WEB_FETCH_MAX_TEXT_BYTES) {
+    text = decoder.decode(textBytes.subarray(0, WEB_FETCH_MAX_TEXT_BYTES));
+    truncated = true;
+  }
+  const { bytes: _bytes, charset: _charset, ...metadata } = result.value;
+  return { ok: true, value: { ...metadata, text, truncated } };
+}
+
+/** Fetch a complete raw UTF-8 feed without HTML extraction or the page text cap. */
+export async function fetchFeedDocument(
+  input: WebFetchInput,
+  options: WebFetchOptions = {},
+): Promise<FeedDocumentResult> {
+  const result = await fetchPublicBody(input, options, "feed");
+  if (!result.ok) return result;
+  if (result.value.charset !== null && result.value.charset !== "utf-8" && result.value.charset !== "utf8") {
+    return failure("UNSUPPORTED_CONTENT_TYPE", `Unsupported feed charset: ${result.value.charset}`, {
+      status: result.value.status,
+      finalUrl: result.value.finalUrl,
+    });
+  }
+  let text: string;
+  try {
+    text = new TextDecoder("utf-8", { fatal: true }).decode(result.value.bytes);
+  } catch {
+    return failure("UNSUPPORTED_CONTENT_TYPE", "Feed body is not valid UTF-8", {
+      status: result.value.status,
+      finalUrl: result.value.finalUrl,
+    });
+  }
+  const { bytes: _bytes, charset: _charset, ...metadata } = result.value;
+  return { ok: true, value: { ...metadata, text } };
 }

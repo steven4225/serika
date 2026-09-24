@@ -3,7 +3,10 @@ import { describe, it } from "node:test";
 import {
   WEB_FETCH_MAX_RESPONSE_BYTES,
   WEB_FETCH_MAX_TEXT_BYTES,
+  fetchFeedDocument,
   fetchWebPage,
+  validatePublicFeedItemUrl,
+  validatePublicWebUrl,
   type ResolveWebHost,
 } from "./web-fetch.js";
 
@@ -291,5 +294,90 @@ describe("fetchWebPage", () => {
     );
     assert.equal(result.ok, false);
     if (!result.ok) assert.equal(result.error.code, "TIMEOUT");
+  });
+});
+
+describe("fetchFeedDocument", () => {
+  it("preserves XML mislabeled as HTML, including content beyond the page text cap", async () => {
+    const xml = `<rss><channel><item><title>${"x".repeat(WEB_FETCH_MAX_TEXT_BYTES)}</title></item></channel></rss>`;
+    const result = await fetchFeedDocument(
+      { url: "https://example.com/feed" },
+      {
+        now: () => NOW,
+        resolveHost: safeResolver(),
+        fetch: (async () => response(xml, 200, { "content-type": "text/html; charset=utf-8" })) as typeof globalThis.fetch,
+      },
+    );
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.value.text, xml);
+    assert.equal(result.value.truncated, false);
+    assert.equal(result.value.contentType, "text/html");
+    assert.equal(result.value.fetchedAt, NOW.toISOString());
+  });
+
+  it("signals the 512 KiB raw cap without pretending a partial feed is complete", async () => {
+    const result = await fetchFeedDocument(
+      { url: "https://example.com/feed" },
+      {
+        resolveHost: safeResolver(),
+        fetch: (async () => response("x".repeat(WEB_FETCH_MAX_RESPONSE_BYTES + 1), 200, {
+          "content-type": "application/rss+xml",
+        })) as typeof globalThis.fetch,
+      },
+    );
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.value.truncated, true);
+    assert.equal(new TextEncoder().encode(result.value.text).byteLength, WEB_FETCH_MAX_RESPONSE_BYTES);
+  });
+
+  it("rejects a non-UTF-8 feed without attempting to transcode", async () => {
+    const result = await fetchFeedDocument(
+      { url: "https://example.com/feed" },
+      {
+        resolveHost: safeResolver(),
+        fetch: (async () => response("<rss/>", 200, {
+          "content-type": "text/xml; charset=iso-8859-1",
+        })) as typeof globalThis.fetch,
+      },
+    );
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.equal(result.error.code, "UNSUPPORTED_CONTENT_TYPE");
+  });
+
+  it("blocks a private redirect before making a second request", async () => {
+    const requests: string[] = [];
+    const result = await fetchFeedDocument(
+      { url: "https://example.com/feed" },
+      {
+        resolveHost: safeResolver(),
+        fetch: (async (url) => {
+          requests.push(String(url));
+          return new Response(null, { status: 302, headers: { location: "http://127.0.0.1/feed" } });
+        }) as typeof globalThis.fetch,
+      },
+    );
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.equal(result.error.code, "TARGET_BLOCKED");
+    assert.deepEqual(requests, ["https://example.com/feed"]);
+  });
+});
+
+describe("feed item URL validation", () => {
+  it("rejects non-HTTP, credentialed, local and private IP targets", async () => {
+    for (const url of ["file:///tmp/a", "https://u:p@example.com/", "http://localhost/x", "https://10.0.0.1/x"]) {
+      assert.equal(validatePublicWebUrl(url), null);
+      assert.equal(await validatePublicFeedItemUrl(url, { resolveHost: safeResolver() }), null);
+    }
+  });
+
+  it("checks DNS and retains the fake-IP resolver exception", async () => {
+    assert.equal(await validatePublicFeedItemUrl("https://public.example/a", {
+      resolveHost: safeResolver("192.168.1.2"),
+    }), null);
+    assert.equal(await validatePublicFeedItemUrl("https://public.example/a", {
+      resolveHost: safeResolver("198.18.0.24"),
+    }), "https://public.example/a");
   });
 });
