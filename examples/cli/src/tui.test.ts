@@ -1738,6 +1738,87 @@ describe("runTui", () => {
     );
   });
 
+  for (const [status, resultFor] of [
+    ["failed", failedResult],
+    ["cancelled", cancelledResult],
+  ] as const) {
+    it(`reports a rescheduled task when the run is ${status} afterward`, async () => {
+      const input = new PassThrough();
+      const output = outputBuffer();
+      const events = asyncQueue<AgentEvent>();
+      const runtime = testRuntime([
+        handleFor({
+          runId: "run-task-reschedule",
+          threadId: "thread-task-reschedule",
+          events,
+          result: Promise.resolve(resultFor("run-task-reschedule", "thread-task-reschedule")),
+        }),
+      ]);
+
+      const tui = runTui({
+        ...tuiOptions,
+        runtime: runtime.runtime,
+        store: { getMessages: async () => [] },
+        input,
+        output,
+      });
+      await nextTurn();
+      input.write("把喝水提醒改到下午三点。\n");
+      await waitFor(() => runtime.requests.length === 1);
+      events.push(
+        toolCompletedEvent("run-task-reschedule", "thread-task-reschedule", "task_reschedule", {
+          ok: true,
+          value: { id: "task-1", runAt: "2026-09-15T07:00:00.000Z" },
+        }),
+      );
+      events.close();
+      input.end();
+      await tui;
+
+      assert.match(
+        output.text(),
+        /已完成的操作：\n- task_reschedule: 已改期任务 task-1，新执行时间 2026-09-15T07:00:00\.000Z/,
+      );
+    });
+  }
+
+  it("does not report a reschedule when the tool did not succeed", async () => {
+    const input = new PassThrough();
+    const output = outputBuffer();
+    const events = asyncQueue<AgentEvent>();
+    const runtime = testRuntime([
+      handleFor({
+        runId: "run-task-reschedule-denied",
+        threadId: "thread-task-reschedule-denied",
+        events,
+        result: Promise.resolve(failedResult("run-task-reschedule-denied", "thread-task-reschedule-denied")),
+      }),
+    ]);
+
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: runtime.runtime,
+      store: { getMessages: async () => [] },
+      input,
+      output,
+    });
+    await nextTurn();
+    input.write("把喝水提醒改到下午三点。\n");
+    await waitFor(() => runtime.requests.length === 1);
+    events.push(
+      toolCompletedEvent("run-task-reschedule-denied", "thread-task-reschedule-denied", "task_reschedule", {
+        ok: false,
+        error: { code: "TASK_NOT_RESCHEDULABLE", message: "task is running" },
+      }),
+    );
+    events.close();
+    input.end();
+    await tui;
+
+    assert.doesNotMatch(output.text(), /已完成的操作/);
+    assert.doesNotMatch(output.text(), /已改期任务/);
+  });
+
   it("does not report a task when creation is denied or fails", async () => {
     const input = new PassThrough();
     const output = outputBuffer();

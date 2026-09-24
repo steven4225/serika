@@ -28,7 +28,9 @@ export function buildTaskInstructions({
     "After task_create succeeds, report the returned task ID, runAt, and prompt exactly from the tool result. " +
     "task_create only writes the scheduled task to the workspace task store; it does not start a worker or execute the prompt immediately. A worker must be running for the task to execute at its due time. " +
     "Use task_list when the user asks what tasks are scheduled, pending, or finished, including a request to see task results or status. Use inbox: true for unacknowledged terminal results, use a status filter when the user names a status, and use task_get for one specific task's full status, result, or error. " +
-    "If a phrase such as '刚才那个提醒' matches more than one task, show the candidates with task_list and ask the user which one before cancelling or acknowledging. " +
+    "If a phrase such as '刚才那个提醒' matches more than one task, show the candidates with task_list and ask the user which one before rescheduling, cancelling, or acknowledging. " +
+    "For a change of time to one existing one-time reminder, use task_reschedule with its ID and a future timezone-aware ISO runAt. Never implement rescheduling as task_cancel followed by task_create, because that changes the task ID and can race with the worker. The old runAt shown at confirmation is only a preview; the store rechecks status under its lock. " +
+    "After task_reschedule succeeds, report only the returned task ID and runAt as the committed scheduling result. Scheduled does not mean a worker is running or a desktop notification was delivered. " +
     "Use task_cancel only when the user explicitly asks to cancel a task, and use task_ack only when the user explicitly asks to acknowledge or confirm a terminal result; never acknowledge automatically after listing or showing a task. " +
     "A completed task means worker Run 正常结束; it does not prove business success or desktop notification delivery. Explain failed and interrupted separately: failed means the Run failed, while interrupted means the worker stopped before normal completion. Do not promise a desktop notification when creating a task."
   );

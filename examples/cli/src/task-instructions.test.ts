@@ -68,6 +68,10 @@ describe("task instructions", () => {
     assert.match(instructions, /task_get/);
     assert.match(instructions, /matches more than one task/);
     assert.match(instructions, /task_cancel/);
+    assert.match(instructions, /task_reschedule/);
+    assert.match(instructions, /Never implement rescheduling as task_cancel followed by task_create/);
+    assert.match(instructions, /before rescheduling, cancelling, or acknowledging/);
+    assert.match(instructions, /Scheduled does not mean a worker is running or a desktop notification was delivered/);
     assert.match(instructions, /task_ack/);
     assert.match(instructions, /never acknowledge automatically/);
     assert.match(instructions, /worker Run 正常结束/);
