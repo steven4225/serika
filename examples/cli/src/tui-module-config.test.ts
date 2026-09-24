@@ -396,6 +396,7 @@ describe("resolveTuiModuleConfig", () => {
     assert.equal(resolved.workspaceRoot, null);
     assert.equal(resolved.enabled.web, true);
     assert.equal(resolved.webSearchEnabled, false);
+    assert.equal(resolved.webFeedEnabled, false);
     assert.equal(resolved.shellSandbox, null);
     assert.equal(resolved.contextCompaction.enabled, false);
   });
@@ -469,6 +470,29 @@ describe("resolveTuiModuleConfig", () => {
     await assert.rejects(
       resolveTuiModuleConfig(configArgs(searchWithoutWeb), { cwd: configDirectory }),
       /web\.search requires web\.enabled to be true/,
+    );
+  });
+
+  it("keeps feed reading opt-in and requires the web module", async () => {
+    const { configDirectory } = await createConfigWorkspace();
+    const configPath = await writeConfig(configDirectory, {
+      version: 1,
+      modules: { web: { enabled: true, feed: { enabled: true } } },
+    }, "web-feed.json");
+    const resolved = await resolveTuiModuleConfig(configArgs(configPath), {
+      cwd: configDirectory,
+    });
+    assert.equal(resolved.enabled.web, true);
+    assert.equal(resolved.webFeedEnabled, true);
+    assert.equal(resolved.webSearchEnabled, false);
+
+    const feedWithoutWeb = await writeConfig(configDirectory, {
+      version: 1,
+      modules: { web: { enabled: false, feed: { enabled: true } } },
+    }, "feed-without-web.json");
+    await assert.rejects(
+      resolveTuiModuleConfig(configArgs(feedWithoutWeb), { cwd: configDirectory }),
+      /web\.feed requires web\.enabled to be true/,
     );
   });
 

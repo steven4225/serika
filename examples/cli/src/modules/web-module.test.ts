@@ -6,8 +6,10 @@ import { createModuleHost } from "../module-host.js";
 import type { ResolveWebHost, WebFetchResult } from "../web-fetch.js";
 import { WEB_FETCH_TIMEOUT_MS } from "../web-fetch.js";
 import { WEB_SEARCH_TIMEOUT_MS } from "../web-search.js";
+import { FEED_READ_TIMEOUT_MS, type FeedReadResult } from "../feed-read.js";
 import {
   createWebModule,
+  FEED_READ_TOOL_TIMEOUT_MS,
   WEB_FETCH_TOOL_TIMEOUT_MS,
   WEB_SEARCH_TOOL_TIMEOUT_MS,
 } from "./web-module.js";
@@ -105,6 +107,55 @@ describe("createWebModule", () => {
     assert.equal(schema.safeParse({ query: "" }).success, false);
     assert.equal(schema.safeParse({ query: "runloom", limit: 11 }).success, false);
     assert.ok(WEB_SEARCH_TOOL_TIMEOUT_MS > WEB_SEARCH_TIMEOUT_MS);
+    host.dispose();
+  });
+
+  it("registers feed_read only when enabled and reads raw RSS through the shared transport", async () => {
+    const requests: string[] = [];
+    const host = createModuleHost(
+      [createWebModule({
+        feedEnabled: true,
+        fetch: async (input) => {
+          requests.push(String(input));
+          return makeResponse(
+            '<rss version="2.0"><channel><title>News</title><item><title>One</title><link>/one</link></item></channel></rss>',
+            200,
+            "text/xml; charset=utf-8",
+          );
+        },
+        resolveHost: safeResolver,
+      })],
+      { notify: () => undefined },
+    );
+
+    assert.deepEqual(host.tools.map(({ metadata }) => metadata.name), ["web_fetch", "feed_read"]);
+    const registered = host.tools[1];
+    assert.ok(registered);
+    assert.deepEqual(registered.metadata, {
+      name: "feed_read",
+      version: "1",
+      risk: "read",
+      timeoutMs: FEED_READ_TOOL_TIMEOUT_MS,
+      idempotent: true,
+    });
+    assert.ok(FEED_READ_TOOL_TIMEOUT_MS > FEED_READ_TIMEOUT_MS);
+    const schema = registered.tool.inputSchema as {
+      safeParse(value: unknown): { success: boolean };
+    };
+    assert.equal(schema.safeParse({ url: "https://example.com/feed.xml", limit: 2 }).success, true);
+    assert.equal(schema.safeParse({ url: "https://example.com/feed.xml", limit: 21 }).success, false);
+
+    const result = (await executeTool(
+      registered.tool,
+      { url: "https://example.com/feed.xml" },
+      toolOptions(),
+    )) as FeedReadResult;
+    assert.equal(result.ok, true);
+    if (result.ok) {
+      assert.equal(result.value.feedTitle, "News");
+      assert.deepEqual(result.value.items.map((item) => item.url), ["https://example.com/one"]);
+    }
+    assert.deepEqual(requests, ["https://example.com/feed.xml"]);
     host.dispose();
   });
 

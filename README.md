@@ -15,9 +15,9 @@
 
 ## 阶段
 
-当前：`M8 Tasks / Reminder / Scheduler`（在已有本地调度上补一次性提醒的原子改期）
+当前：`M9 External Inputs`（先接公开 RSS/Atom 的按需只读输入）
 
-已经具备自有 AgentLoop、JSONL transcript、精简 TUI、独立本地任务 worker，以及显式 Memory、workspace checkpoint、Git `/resume` 和只读 Home。M8 复用现有调度与任务文件，只补一次性任务改期；不改变 worker 的领取和通知语义。模块接入路径见 [模块开发指南](docs/module-development.md)。
+已经具备自有 AgentLoop、JSONL transcript、精简 TUI、独立本地任务 worker，以及显式 Memory、workspace checkpoint、Git `/resume` 和只读 Home。M8 的一次性任务改期已合并；M9 只在现有 web 模块下补公开 feed 阅读，不引入账号接入、后台订阅或主动处理。模块接入路径见 [模块开发指南](docs/module-development.md)。
 
 运行：
 
@@ -304,6 +304,10 @@ Docker sandbox 只挂载列出的路径，根文件系统只读，网络固定�
 在配置中同时写入 `"web": { "enabled": true, "search": { "enabled": true } }` 后，TUI 通过免 Key 的 Exa 托管 MCP 注册只读 `web_search({ query, limit? })`，不需要 `EXA_API_KEY` 或 `BRAVE_SEARCH_API_KEY`，也不会自动回退到付费 API。它只返回最多 10 个标题、URL 和摘要用于发现来源；默认 5 条，不分页、不自动重试。`web_search.truncated: true` 只表示本次响应中解析出的有效候选超过本地返回上限；`false` 不代表互联网没有更多结果，空数组也不证明没有相关来源。标题和摘要另有长度限制，不由这个布尔值表示。搜索请求仍逐次经过 `y/n`，因为 query 和摘要会进入模型上下文与成功 Run 的 transcript。同一 Run 中一旦 `web_search` 被 `n` 拒绝，后续 `web_fetch` 不再弹出确认、不发网络请求，并直接返回 `TOOL_DENIED`；该闩锁在 Run 结束时清除。托管服务可能限流或不可用；工具会如实返回错误。
 
 `web_search` 的摘要不能当作事实证据。研究任务必须先搜索，再用现有 `web_fetch` 打开选定原文，报告引用实际 `finalUrl`；原文失败或截断时必须标明未核验。搜索 query 会发送至 Exa 托管服务，不要把私人笔记或敏感信息拼进 query。
+
+可选 `"web": { "enabled": true, "feed": { "enabled": true } }` 注册 `feed_read({ url, limit? })`，读取用户点名的公开 RSS 2.0/Atom URL；`web.enabled=false` 时不能单独开启 feed。默认显示文档中的前 10 条，上限 20 条，不按日期重排；缺标题的条目跳过，`truncated` 只表示有效条目超过本地 limit，不表示 feed 或互联网没有更多内容。返回 feed 的实际 `finalUrl`、抓取时间、格式及条目标题、链接、时间和有界摘要。条目相对链接基于 feed 的 `finalUrl` 解析，非公开 HTTP(S) 链接返回 `null`。feed 的 Content-Type 可以是 XML 或错误标记为 HTML，但必须有 RSS 2.0/Atom 根元素；HTTP 正文超过 512 KiB、XML 不完整或声明非 UTF-8 均报错，不解析半份内容，也不做正文 HTML 抽取。
+
+`feed_read` 每次单独 `y/n`；`/authorize-web` 仍只授权 `web_fetch`。同一 Run 拒绝 `web_search` 后，`feed_read` 与 `web_fetch` 均不会发请求。标题和摘要只用于选材，事实性结论仍须另用 `web_fetch` 打开条目原文并引用抓取的 `finalUrl`；外部文本不能自动写成用户 Memory 或 task。M9 不保存订阅源、不轮询、不接 QQ/微信/Email，worker 与 Home 不读取 feed。
 
 R3c 的联网研究交付沿用这两个工具，不新增研究工具或来源数据库：一次 `web_search` 只发现候选，最多选择两个来源，再用 `web_fetch` 打开原文。只有 `web_fetch` 成功返回的内容才能作为已核验来源；`web_fetch.truncated: true` 表示正文不完整，只能作为部分证据，失败或拒绝不能支持事实结论。报告引用实际 `finalUrl`，`write_file` 成功后才说明文件已保存；拒绝、失败或文件冲突不能换参数绕过，也不能声称已保存。报告不强制固定 Markdown 章节，但必须写清来源和不完整项。
 
