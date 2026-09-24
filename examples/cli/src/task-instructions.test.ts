@@ -64,6 +64,14 @@ describe("task instructions", () => {
     assert.match(instructions, /task ID, runAt, and prompt/);
     assert.match(instructions, /task_list/);
     assert.match(instructions, /does not start a worker/);
+    assert.match(instructions, /every day or every week, use task_repeat_create rather than task_create/);
+    assert.match(instructions, /weekday: 1\.\.7 \(Monday\.\.Sunday\)/);
+    assert.match(instructions, /fixed UTC offset is unclear, ask before creating/);
+    assert.match(instructions, /does not follow daylight saving time/);
+    assert.match(instructions, /For a daily work brief, include the requested evidence and observation time, one priority, a 15-minute first step, and unknowns in that task prompt/);
+    assert.match(instructions, /do not apply this format to other scheduled tasks/);
+    assert.match(instructions, /returned series ID and nextRunAt/);
+    assert.match(instructions, /If creation fails or is denied, do not claim the series exists/);
     assert.match(instructions, /inbox: true/);
     assert.match(instructions, /task_get/);
     assert.match(instructions, /matches more than one task/);

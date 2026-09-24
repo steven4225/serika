@@ -183,6 +183,81 @@ describe("task worker", () => {
     assert.equal(notified[0]?.status, "completed");
   });
 
+  it("loads workspace context once after claim and passes that snapshot to the run", async () => {
+    const controller = new AbortController();
+    const claimed = task();
+    const requests: RunRequest[] = [];
+    const loaded: TaskRecord[] = [];
+    const snapshot = { referenceMessages: [{
+      id: "workspace-observation",
+      role: "assistant" as const,
+      parts: [{ type: "text" as const, text: "Saved checkpoint v2" }],
+    }] };
+    const store = fakeStore(claimed, {
+      onFinish: () => controller.abort("test-complete"),
+    });
+    const runtime = {
+      async run(request: RunRequest): Promise<RunHandle> {
+        requests.push(request);
+        return {
+          runId: "run-1",
+          events: emptyEvents(),
+          result: Promise.resolve(completedResult()),
+          cancel: async () => undefined,
+        };
+      },
+    };
+
+    await runTaskWorker({
+      store,
+      runtime,
+      signal: controller.signal,
+      pollIntervalMs: 1,
+      loadWorkspaceContext: async (record) => {
+        loaded.push(record);
+        return snapshot;
+      },
+    });
+
+    assert.deepEqual(loaded, [claimed]);
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0]?.context, snapshot);
+  });
+
+  it("fails a claimed task before model execution when workspace context cannot be read", async () => {
+    const controller = new AbortController();
+    const finished: TaskFinish[] = [];
+    let runCalls = 0;
+    const store = fakeStore(task(), {
+      onFinish: (outcome) => {
+        finished.push(outcome);
+        controller.abort("test-complete");
+      },
+    });
+
+    await runTaskWorker({
+      store,
+      runtime: {
+        async run(): Promise<RunHandle> {
+          runCalls += 1;
+          throw new Error("model must not run");
+        },
+      },
+      signal: controller.signal,
+      pollIntervalMs: 1,
+      loadWorkspaceContext: async () => {
+        throw Object.assign(new Error("memory.json is damaged"), { code: "MEMORY_FILE_INVALID" });
+      },
+    });
+
+    assert.equal(runCalls, 0);
+    assert.deepEqual(finished, [{
+      status: "failed",
+      runId: null,
+      error: { code: "MEMORY_FILE_INVALID", message: "memory.json is damaged" },
+    }]);
+  });
+
   it("maps cancellation of the current run to interrupted without replay", async () => {
     const controller = new AbortController();
     const finished: TaskFinish[] = [];

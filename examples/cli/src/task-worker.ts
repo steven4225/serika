@@ -7,6 +7,7 @@ import type {
 } from "@aisdk-agent/core";
 import { AgentError } from "@aisdk-agent/core";
 import type { TaskError, TaskFinish, TaskRecord, TaskStore } from "./task-store.js";
+import type { TaskWorkerSnapshotContext } from "./task-worker-context.js";
 
 const DEFAULT_POLL_INTERVAL_MS = 1_000;
 
@@ -20,6 +21,10 @@ export interface TaskWorkerOptions {
   signal: AbortSignal;
   pollIntervalMs?: number;
   generateId?: () => string;
+  loadWorkspaceContext?: (
+    task: TaskRecord,
+    signal: AbortSignal,
+  ) => Promise<TaskWorkerSnapshotContext>;
   onTaskStarted?: (task: TaskRecord) => void;
   onTaskFinished?: (task: TaskRecord) => void;
 }
@@ -166,10 +171,27 @@ async function executeTask(
     });
   }
 
+  let workspaceContext: TaskWorkerSnapshotContext | undefined;
+  try {
+    workspaceContext = await options.loadWorkspaceContext?.(task, options.signal);
+  } catch (error) {
+    return finishTask(options, task, options.signal.aborted
+      ? { status: "interrupted", runId: null, error: workerStoppedError() }
+      : { status: "failed", runId: null, error: taskError(error, "WORKSPACE_CONTEXT_READ_FAILED") });
+  }
+  if (options.signal.aborted) {
+    return finishTask(options, task, {
+      status: "interrupted",
+      runId: null,
+      error: workerStoppedError(),
+    });
+  }
+
   const request: RunRequest = {
     agentId: "scheduled-responder",
     threadId: task.threadId!,
     signal: options.signal,
+    ...(workspaceContext === undefined ? {} : { context: workspaceContext }),
     messages: [
       {
         id: (options.generateId ?? randomUUID)(),
