@@ -19,6 +19,8 @@
 
 已经具备自有 AgentLoop、JSONL transcript、精简 TUI、独立本地任务 worker，以及显式 Memory、workspace checkpoint、Git `/resume` 和只读 Home。M9 的按需 RSS/Atom 阅读已合并；M10 让现有 worker 在任务到点时选用当前 workspace 的有界参考快照，结果仍交付到任务 inbox。模块接入路径见 [模块开发指南](docs/module-development.md)。
 
+任务级验收使用 A01–A09 案例及不覆盖旧尝试的 JSON/Markdown 报告，操作入口和当前证据缺口见[阶段一验收指南](docs/task-acceptance.md)。`pnpm test` 验证离线契约；真实模型、真实网络、TUI 人工确认和最终产物分别记录，不能由构建通过或 worker `completed` 推定任务通过。
+
 运行：
 
 ```bash
