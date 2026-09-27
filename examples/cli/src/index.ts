@@ -18,6 +18,7 @@ import {
 import { createDemoModel } from "./demo-model.js";
 import { AUTO_CONSOLIDATION_AGENT_ID } from "./consolidation.js";
 import { configureCliModel } from "./model-config.js";
+import { checkTuiStartup, readinessExitCode } from "./startup-check.js";
 import {
   checkpointAndMemoryContextMessages,
   estimateContextInput,
@@ -31,6 +32,7 @@ import { createAiSdkSummarizer } from "./context-compaction.js";
 import { lookupTranscript } from "./work-summary.js";
 import { parseTuiArgs } from "./cli-options.js";
 import { createMemoryStore } from "./memory-store.js";
+import { formatMemoryHealth, readMemoryHealth } from "./memory-health.js";
 import { createCheckpointStore, type WorkspaceCheckpointStore } from "./checkpoint-store.js";
 import { renderHome } from "./home.js";
 import { inspectGitReality, reconcileGitReality } from "./git-reality.js";
@@ -72,9 +74,14 @@ import {
   type ToolConfirmationPrompt,
 } from "./tui.js";
 
-const { modelAlias, model } = configureCliModel(createDemoModel);
-
 const args = process.argv.slice(2);
+if (args.includes("--check")) {
+  const checkArgs = args.filter((arg) => arg !== "--check" && arg !== "--tui");
+  const snapshot = await checkTuiStartup(checkArgs);
+  process.stdout.write(`${JSON.stringify(snapshot, null, 2)}\n`);
+  process.exit(readinessExitCode(snapshot));
+}
+const { modelAlias, model } = configureCliModel(createDemoModel);
 const tuiMode = args[0] === "--tui";
 const tuiArgs = tuiMode ? parseTuiArgs(args.slice(1)) : undefined;
 const moduleConfig: ResolvedTuiModuleConfig | undefined = tuiMode
@@ -468,7 +475,7 @@ if (commands !== undefined) {
 if (commands !== undefined && moduleConfig !== undefined) {
   commands.set("modules", {
     name: "modules",
-    execute(args) {
+    async execute(args) {
       if (args.trim() !== "") {
         output.write("\n[modules] Usage: /modules\n");
         return;
@@ -502,6 +509,7 @@ if (commands !== undefined && moduleConfig !== undefined) {
         `Todoist token: ${todoistTokenPresent ? "present" : "missing"}`,
         `持久文件授权: ${moduleConfig.fileAuthorizations.length} 条`,
       ];
+      status.push(formatMemoryHealth(await readMemoryHealth(memoryStore, threadId)));
       output.write(`\n[modules]\n${status.join("\n")}\n`);
     },
   });
