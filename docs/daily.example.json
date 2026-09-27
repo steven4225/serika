@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "workspace": "../var/personal-workspace",
+  "modules": {
+    "read-file": { "enabled": true },
+    "memory": { "enabled": true, "autoConsolidate": false },
+    "checkpoint": { "enabled": true },
+    "task": { "enabled": true }
+  },
+  "fileAuthorizations": [],
+  "contextCompaction": {
+    "enabled": true,
+    "contextWindowTokens": 32768,
+    "maxOutputTokens": 4096,
+    "safetyMarginTokens": 1024,
+    "keepRecentTokens": 8192,
+    "summaryMaxOutputTokens": 2048
+  }
+}

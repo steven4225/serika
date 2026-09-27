@@ -137,6 +137,18 @@ RUNLOOM_MODEL=mock pnpm tui -- ./var/runloom --thread daily-plan --config ./runl
 
 `/modules` 始终可用，不属于配置模块；它显示配置来源、workspace、模块开关、自动整理、Todoist 时区和 token 是否存在，不显示 token。关闭 `memory` 会同时关闭记忆工具、记忆注入和自动整理，但不会关闭 checkpoint；关闭 `checkpoint` 只关闭 checkpoint 工具和注入；关闭 `task` 只影响当前 TUI，不会停止独立 worker。命令不创建 Run，也不写 transcript。
 
+日用可从无密钥的 [固定配置示例](docs/daily.example.json) 开始。在仓库根目录先创建自己的 workspace 和 transcript 目录，再检查静态启动条件、启动同一 Thread：
+
+```bash
+mkdir -p ./var/personal-workspace ./var/personal-transcripts
+RUNLOOM_MODEL=deepseek node --env-file=.env examples/cli/dist/index.js \
+  --tui ./var/personal-transcripts --thread personal --config ./docs/daily.example.json --check
+RUNLOOM_MODEL=deepseek node --env-file=.env examples/cli/dist/index.js \
+  --tui ./var/personal-transcripts --thread personal --config ./docs/daily.example.json
+```
+
+运行前先执行 `pnpm build`。示例开启文件工具、Memory、checkpoint、task 和预算压缩；自动整理明确关闭，需要验证日用打扰程度后自行开启。未配置永久文件授权，也未开放 Shell。`--check` 只读地检查配置、路径及所需凭据是否存在；不会请求模型或网络，不创建 Thread、transcript 或临时目录。通过仅表示静态启动条件满足，不表示 Key 已认证、worker 在线或真实任务可用。Home 负责当前工作环境与任务结果，`/modules` 负责模块配置和记忆注入概况；记忆详情仍用 `memory_list` / `memory_get`，涉及工具读取时保留现有确认。
+
 启用 `task` 并配置 workspace 后还可以创建一次性任务。TUI 提供 `/task create <带时区的ISO时间> <prompt>`、`/task reschedule <id> <带时区的ISO时间>`、`/task list [pending|attention|status]`、`/task inbox`、`/task show <id>`、`/task ack <id>` 和 `/task cancel <id>`；任务保存在 `<workspace>/.runloom/tasks.json`。空闲 `/task reschedule` 和其它 `/task` 命令一样直接执行，不经过模型工具的 `y/n`；自然语言改期调用 `task_reschedule`，先展示原时间和新时间并逐次确认。改期只更新尚处于 `scheduled` 的一次性任务原 ID，不会先取消再新建；旧时间虽已到但尚未被 worker 领取时仍可改期。若 worker 已先领取，改期会明确失败。独立 worker 必须持续运行，TUI 关闭后仍会在到期时执行：
 
 也可以直接用自然语言说“**一分钟后提醒我喝水**”或“安排一个任务”。模型会调用 `task_create`，需要把时间转换成带时区的 ISO 8601 时间；时间不明确时会先追问。`task_create` 只把任务写入 `<workspace>/.runloom/tasks.json`，不会立即启动 worker 或执行 prompt；必须有 worker 运行，任务到期才会执行。创建成功后会返回任务 ID、执行时间和任务内容，仍沿用现有写入确认。自然语言改期若有多个候选，先列出任务并请用户点名，不用取消加新建代替改期。若任务已创建或已改期而本轮随后失败、取消或超时，TUI 会列出已经成功的任务事实；失败或被拒绝不会显示为成功。已排期不代表 worker 正在运行，也不代表桌面通知已送达。
