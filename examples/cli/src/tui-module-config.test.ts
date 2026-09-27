@@ -703,6 +703,37 @@ describe("resolveTuiModuleConfig", () => {
       );
     }
   });
+
+  it("keeps the primary run at 8 steps unless config sets a bounded maxSteps", async () => {
+    const { configDirectory } = await createConfigWorkspace();
+    const defaultPath = await writeConfig(configDirectory, {
+      version: 1,
+      modules: {},
+    }, "default-steps.json");
+    const raisedPath = await writeConfig(configDirectory, {
+      version: 1,
+      modules: {},
+      run: { maxSteps: 16 },
+    }, "raised-steps.json");
+    const tooHighPath = await writeConfig(configDirectory, {
+      version: 1,
+      modules: {},
+      run: { maxSteps: 33 },
+    }, "too-many-steps.json");
+
+    assert.equal(
+      (await resolveTuiModuleConfig(configArgs(defaultPath), { cwd: configDirectory })).maxSteps,
+      8,
+    );
+    assert.equal(
+      (await resolveTuiModuleConfig(configArgs(raisedPath), { cwd: configDirectory })).maxSteps,
+      16,
+    );
+    await assert.rejects(
+      resolveTuiModuleConfig(configArgs(tooHighPath), { cwd: configDirectory }),
+      /Invalid TUI config schema/,
+    );
+  });
 });
 
 describe("TUI module configuration entry", () => {

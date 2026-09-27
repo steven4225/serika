@@ -92,6 +92,8 @@ describe("createRuntimeApp", () => {
       await app.commands.get("modules")!.execute("");
       assert.match(text(), /\[modules\]/);
       assert.match(text(), /checkpoint: disabled/);
+      assert.match(text(), /主 Run 步数上限: 8/);
+      assert.equal(app.moduleConfig?.maxSteps, 8);
       assert.doesNotMatch(text(), /Allow this call\? \[y\/n\]/);
     } finally {
       app.dispose();

@@ -42,6 +42,12 @@ export interface FileAuthorizationRule {
   allowedPaths: readonly string[];
 }
 
+/** Primary TUI Run step budget when config does not set run.maxSteps. */
+export const TUI_DEFAULT_MAX_STEPS = 8;
+
+/** Highest primary TUI Run step budget an explicit config may set. */
+export const TUI_MAX_CONFIGURABLE_STEPS = 32;
+
 export interface ResolvedTuiModuleConfig {
   configPath: string | null;
   workspaceRoot: string | null;
@@ -53,6 +59,7 @@ export interface ResolvedTuiModuleConfig {
   fileAuthorizations: readonly FileAuthorizationRule[];
   shellSandbox: DockerShellSandboxConfig | null;
   contextCompaction: ContextBudgetConfig;
+  maxSteps: number;
 }
 
 const DEFAULT_TODOIST_TIME_ZONE = "Asia/Shanghai";
@@ -138,6 +145,12 @@ const tuiModuleConfigV1Schema = z
     .strict(),
     fileAuthorizations: z.array(fileAuthorizationSchema).optional(),
     contextCompaction: contextCompactionSchema.optional(),
+    run: z
+      .object({
+        maxSteps: z.number().int().min(1).max(TUI_MAX_CONFIGURABLE_STEPS),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 
@@ -171,6 +184,7 @@ export interface TuiModuleConfigV1 {
   };
   fileAuthorizations?: FileAuthorizationRule[] | undefined;
   contextCompaction?: ContextBudgetConfig | undefined;
+  run?: { maxSteps: number } | undefined;
 }
 
 function configPathFromArgs(args: TuiArgs): string | undefined {
@@ -475,6 +489,7 @@ async function resolveConfiguredMode(
     fileAuthorizations,
     shellSandbox,
     contextCompaction,
+    maxSteps: config.run?.maxSteps ?? TUI_DEFAULT_MAX_STEPS,
   };
 }
 
@@ -521,6 +536,7 @@ async function resolveLegacyMode(
     fileAuthorizations: [],
     shellSandbox: null,
     contextCompaction: DEFAULT_CONTEXT_BUDGET_CONFIG,
+    maxSteps: TUI_DEFAULT_MAX_STEPS,
   };
 }
 

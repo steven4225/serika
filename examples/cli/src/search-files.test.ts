@@ -42,6 +42,7 @@ describe("searchFilesInWorkspace", () => {
         { path: "b.txt", line: 2, text: "needle needle" },
       ],
       truncated: false,
+      skippedOversize: 0,
     });
   });
 
@@ -62,6 +63,7 @@ describe("searchFilesInWorkspace", () => {
       ok: true,
       matches: [{ path: "good.txt", line: 1, text: "needle" }],
       truncated: false,
+      skippedOversize: 1,
     });
   });
 
@@ -112,7 +114,7 @@ describe("searchFilesInWorkspace", () => {
     }
     await mkdir(join(entryDirectory, ".ignored"));
     const exact = await searchFilesInWorkspace(entryDirectory, "needle");
-    assert.deepEqual(exact, { ok: true, matches: [], truncated: true });
+    assert.deepEqual(exact, { ok: true, matches: [], truncated: true, skippedOversize: 0 });
     await writeFile(join(entryDirectory, "zzzz.txt"), "no match");
     const overflow = await searchFilesInWorkspace(entryDirectory, "needle");
     assert.equal(overflow.ok, true);
@@ -158,7 +160,7 @@ describe("searchFilesInWorkspace", () => {
     await writeFile(join(directory, "one.txt"), longLine);
 
     const result = await searchFilesInWorkspace(directory, "needle");
-    assert.deepEqual(result, { ok: true, matches: [], truncated: true });
+    assert.deepEqual(result, { ok: true, matches: [], truncated: true, skippedOversize: 0 });
     assert.ok(Buffer.byteLength(JSON.stringify(result), "utf8") <= READ_FILE_MAX_BYTES);
   });
 });
@@ -177,6 +179,7 @@ describe("createSearchFilesTool", () => {
       ok: true,
       matches: [{ path: "file.txt", line: 1, text: "needle" }],
       truncated: false,
+      skippedOversize: 0,
     });
   });
 });

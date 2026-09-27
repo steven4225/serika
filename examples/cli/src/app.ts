@@ -540,6 +540,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
           `web_search: ${moduleConfig.enabled.web && webSearchEnabled ? "enabled (Exa MCP, no key)" : "disabled"}`,
           `Todoist 规划时区: ${moduleConfig.todoistTimeZone ?? "未启用"}`,
           `自动记忆整理: ${moduleConfig.autoConsolidate ? "on" : "off"}`,
+          `主 Run 步数上限: ${moduleConfig.maxSteps}`,
           `上下文压缩: ${moduleConfig.contextCompaction.enabled ? "on" : "off"}`,
           ...(moduleConfig.contextCompaction.enabled
             ? [`上下文预算: ${moduleConfig.contextCompaction.contextWindowTokens} tokens`]
@@ -645,7 +646,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         model: modelAlias,
         tools: registeredTools.map(({ metadata }) => metadata.name),
         limits: {
-          maxSteps: tuiMode ? 8 : 4,
+          maxSteps: tuiMode ? (moduleConfig?.maxSteps ?? 8) : 4,
           totalTimeoutMs: tuiMode ? 120_000 : 10_000,
           stepTimeoutMs: tuiMode ? 30_000 : 5_000,
           ...(tuiMode && moduleConfig?.contextCompaction.enabled
