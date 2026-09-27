@@ -11,7 +11,7 @@
 | A03 工具成功后 Run 失败 | TUI 已完成操作回执；`tui.test.ts` 覆盖文件、任务、记忆与 checkpoint | 已有真实存储加测试模型的文件落盘检查；真实模型行为另记，不能把 Run 失败写成文件未保存。 |
 | A04 搜索、原文、报告 | TUI `web_search`、`web_fetch`、`write_file`；`web-loop-acceptance.test.ts` | 旧 N1/N2 真实记录见 `agent-capability-roadmap.local.md`，所指临时报告当前未找到。Exa 当前主链仍需留可核对的新证据。 |
 | A05 小范围代码修复 | TUI 文件与 Shell；相关工具测试 | 2026-09-27 真实 DeepSeek TUI 在隔离合成仓库通过：复现 `exitCode: 1`、只改 `src/sum.mjs`、同命令复测 `exitCode: 0`、未提交。原件见 `/private/tmp/runloom-stage2-a05-retest.kknrMm/A05/live-3/`。这只证明隔离小修复；宿主 Shell 逐次确认不等于 Docker 沙箱；尚未用 Runloom 自身 issue 验证迁移。 |
-| A06 一次性任务改期及拒绝 | `task_reschedule`、`/task reschedule`；`task-store.test.ts`、`tui.test.ts` | 锁内改期、并发、回执已有离线证据。2026-09-26 真实 TUI：自然语言拒绝后原 `runAt` 未变；确认后仍只有 1 条任务、ID 不变、`runAt` 为 `2026-09-29T13:30:00.000Z`，未走取消后新建。这只证明已改期，不证明到期执行或通知送达。`/task show` 后提示符被输出盖住是独立 TUI 体验缺陷，不影响改期结论。 |
+| A06 一次性任务改期及拒绝 | `task_reschedule`、`/task reschedule`；`task-store.test.ts`、`tui.test.ts` | 锁内改期、并发、回执已有离线证据。2026-09-26 真实 TUI：自然语言拒绝后原 `runAt` 未变；确认后仍只有 1 条任务、ID 不变、`runAt` 为 `2026-09-29T13:30:00.000Z`，未走取消后新建。这只证明已改期，不证明到期执行或通知送达。2026-09-26 记录过 `/task show` 后提示符被输出盖住；该提示符生命周期已在 #66 修复，不是当前缺陷，也不影响改期结论。 |
 | A07 RSS 按需读取 | `feed_read`、`web_fetch`；`feed-read.test.ts`、`tui.test.ts` | M9 的真实 feed→原文，以及拒绝后零请求待补。 |
 | A08 M10 workspace 简报 | `task_repeat_create`、worker `--workspace-context`、inbox；`task-worker-context.test.ts`、`task-worker.test.ts` | 本轮真实模型 worker 下半链已通过；真 TUI 创建与 `y/n` 尚未验收，A08 整项待完成。 |
 | A09 Memory/checkpoint 跨 Thread | TUI 记忆与 checkpoint；两模块、context 测试 | M3.5 与 M5 的真实报告及原件仍在 `/private/tmp/runloom-m35-live-20C0hd/`、`/private/tmp/runloom-m5-acceptance.Ixj4mf/`。只能证明各自冻结范围；本批组合任务另记。 |
@@ -98,7 +98,7 @@ RUNLOOM_MODEL=deepseek node --env-file=.env examples/cli/dist/index.js \
 
 如需证明 worker 按新时间执行，先改到更晚、核对文件，再启动同 workspace worker；不要用“马上到期”与 worker 抢锁作为改期成功证据。`/task reschedule` 是直接执行的空闲命令，**没有 y/n**；拒绝场景必须走自然语言工具调用。
 
-空闲 `/task show` 后 readline 提示符有时被命令输出盖住，需再敲回车才看到提示。这是独立 TUI 体验缺陷，不改变上述改期核对。
+2026-09-26 曾观察到空闲 `/task show` 后 readline 提示符被命令输出盖住。该行为已在 #66 修复，保留为历史记录，不改变上述改期核对，也不是当前待修缺陷。
 
 ### A07：feed 到原文与拒绝
 

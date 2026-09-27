@@ -1,6 +1,6 @@
 # Runloom
 
-这是一个已具备本地 Agent 执行能力的实验性运行时。当前尚未绑定具体业务；本地能力建设到 Stage 6 为止，下一步通过一个真实用例验证它，不继续预建通用平台功能。
+这是一个已具备本地 Agent 执行能力的实验性运行时。M10 之后不再预建通用平台功能；当前是用真实小开发任务验证单 Agent 能否交付可 review 的修改。
 
 ## 当前结论
 
@@ -15,7 +15,7 @@
 
 ## 阶段
 
-当前：`M10 Proactive Assistant`（复用重复任务做明确排期的 workspace 简报）
+当前：验证真实开发任务与长任务续接。最近的模块里程碑仍是 `M10 Proactive Assistant`（复用重复任务做明确排期的 workspace 简报）。
 
 已经具备自有 AgentLoop、JSONL transcript、精简 TUI、独立本地任务 worker，以及显式 Memory、workspace checkpoint、Git `/resume` 和只读 Home。M9 的按需 RSS/Atom 阅读已合并；M10 让现有 worker 在任务到点时选用当前 workspace 的有界参考快照，结果仍交付到任务 inbox。模块接入路径见 [模块开发指南](docs/module-development.md)。
 
