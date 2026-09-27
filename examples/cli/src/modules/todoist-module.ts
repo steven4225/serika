@@ -193,15 +193,20 @@ export function createTodoistModule(options: TodoistModuleOptions): AgentModule 
           lifecycle.signal.addEventListener("abort", abortForDispose, {
             once: true,
           });
+          let finishTimeout!: () => void;
+          const timeoutDone = new Promise<void>((resolve) => {
+            finishTimeout = resolve;
+          });
           const timeout = setTimeout(() => {
             commandTimeouts.delete(timeout);
             timedOut = true;
             controller.abort(new DOMException("Todoist query timed out", "TimeoutError"));
             if (!disposed) ctx.notify("Todoist 查询超时。");
+            finishTimeout();
           }, COMMAND_TIMEOUT_MS);
           commandTimeouts.add(timeout);
 
-          void queryTodoistTasks(
+          const queryDone = queryTodoistTasks(
             { view },
             queryOptions(options, controller.signal),
           )
@@ -214,7 +219,8 @@ export function createTodoistModule(options: TodoistModuleOptions): AgentModule 
                 if (disposed || timedOut) return;
                 ctx.notify("Todoist 查询失败。");
               },
-            )
+            );
+          return Promise.race([queryDone, timeoutDone])
             .finally(() => {
               clearTimeout(timeout);
               commandTimeouts.delete(timeout);

@@ -2612,7 +2612,7 @@ describe("beforeToolExecute Runtime integration", () => {
     assert.equal(events.some((event) => event.type === "run.completed"), false);
   });
 
-  it("does not save when the run timeout aborts a pending beforeToolExecute", async () => {
+  it("does not spend the run timeout while beforeToolExecute awaits approval", async () => {
     const threadId = "thread-precheck-timeout";
     const { committed, executeCount, modelCalls, runtime, started, store } =
       await createPrecheckRuntime({
@@ -2632,11 +2632,13 @@ describe("beforeToolExecute Runtime integration", () => {
       return events;
     })();
     await started;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    await handle.cancel("cancel after approval wait");
     const result = await handle.result;
     const events = await eventsPromise;
 
-    assert.equal(result.status, "timed_out");
-    assert.equal(result.error?.code, "RUN_TIMEOUT");
+    assert.equal(result.status, "cancelled");
+    assert.equal(result.error?.code, "RUN_CANCELLED");
     assert.equal(modelCalls.value, 1);
     assert.equal(executeCount.value, 0);
     assert.equal(store.saveCount, 0);

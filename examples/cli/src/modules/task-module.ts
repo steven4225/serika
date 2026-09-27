@@ -319,10 +319,10 @@ function runCommand<T>(
   ctx: { notify(message: string): void },
   operation: () => Promise<TaskStoreResult<T>>,
   onSuccess: (value: T) => string,
-): void {
-  // ModuleCommand is intentionally synchronous. Starting the promise in a
-  // microtask also catches a store method that throws before returning one.
-  void Promise.resolve()
+): Promise<void> {
+  // Return the operation so the TUI can print the result before restoring its
+  // prompt and accepting the next input line.
+  return Promise.resolve()
     .then(operation)
     .then(
       (result) => notifyResult(ctx, result, onSuccess),
@@ -746,12 +746,11 @@ export function createTaskModule(store: TaskStore): AgentModule {
               ctx.notify(TASK_COMMAND_USAGE);
               return;
             }
-            runCommand(
+            return runCommand(
               ctx,
               () => store.create({ runAt, prompt }),
               (record) => `Task created: ${renderRecord(record)}`,
             );
-            return;
           }
 
           if (action === "list") {
@@ -766,12 +765,11 @@ export function createTaskModule(store: TaskStore): AgentModule {
             }
             const status =
               statusText === "" ? undefined : statusFromCommand(statusText);
-            runCommand(
+            return runCommand(
               ctx,
               () => store.list(status === undefined ? {} : { status }),
               renderList,
             );
-            return;
           }
 
           if (action === "inbox") {
@@ -779,8 +777,7 @@ export function createTaskModule(store: TaskStore): AgentModule {
               ctx.notify(TASK_COMMAND_USAGE);
               return;
             }
-            runCommand(ctx, () => store.list({ inbox: true }), renderList);
-            return;
+            return runCommand(ctx, () => store.list({ inbox: true }), renderList);
           }
 
           if (action === "show") {
@@ -789,8 +786,7 @@ export function createTaskModule(store: TaskStore): AgentModule {
               ctx.notify(TASK_COMMAND_USAGE);
               return;
             }
-            runCommand(ctx, () => store.get(id), renderDetail);
-            return;
+            return runCommand(ctx, () => store.get(id), renderDetail);
           }
 
           if (action === "cancel") {
@@ -799,12 +795,11 @@ export function createTaskModule(store: TaskStore): AgentModule {
               ctx.notify(TASK_COMMAND_USAGE);
               return;
             }
-            runCommand(
+            return runCommand(
               ctx,
               () => store.cancel(id),
               (record) => `Task cancelled: ${renderRecord(record)}`,
             );
-            return;
           }
 
           if (action === "reschedule") {
@@ -818,7 +813,7 @@ export function createTaskModule(store: TaskStore): AgentModule {
               ctx.notify(TASK_COMMAND_USAGE);
               return;
             }
-            runCommand(
+            return runCommand(
               ctx,
               async () => {
                 const before = await store.get(id);
@@ -830,7 +825,6 @@ export function createTaskModule(store: TaskStore): AgentModule {
               ({ before, after }) =>
                 `Task rescheduled: ID: ${after.id}; previous runAt (observed): ${before.runAt}; new runAt: ${after.runAt}`,
             );
-            return;
           }
 
           if (action === "ack") {
@@ -839,12 +833,11 @@ export function createTaskModule(store: TaskStore): AgentModule {
               ctx.notify(TASK_COMMAND_USAGE);
               return;
             }
-            runCommand(
+            return runCommand(
               ctx,
               () => store.acknowledge(id),
               (record) => `Task acknowledged: ${renderRecord(record)}`,
             );
-            return;
           }
 
           if (action === "repeat") {
@@ -856,12 +849,11 @@ export function createTaskModule(store: TaskStore): AgentModule {
                 ctx.notify(TASK_REPEAT_COMMAND_USAGE);
                 return;
               }
-              runCommand(
+              return runCommand(
                 ctx,
                 () => store.createRecurring(input),
                 (record) => `Recurring task created: ${renderRecurringRecord(record)}`,
               );
-              return;
             }
 
             if (repeatAction === "list") {
@@ -875,7 +867,7 @@ export function createTaskModule(store: TaskStore): AgentModule {
               }
               const status =
                 statusText === "" ? undefined : recurringStatusFromCommand(statusText);
-              runCommand(
+              return runCommand(
                 ctx,
                 () =>
                   store.listRecurring(
@@ -883,7 +875,6 @@ export function createTaskModule(store: TaskStore): AgentModule {
                   ),
                 renderRecurringList,
               );
-              return;
             }
 
             if (
@@ -899,8 +890,7 @@ export function createTaskModule(store: TaskStore): AgentModule {
               }
 
               if (repeatAction === "show") {
-                runCommand(ctx, () => store.getRecurring(id), renderRecurringDetail);
-                return;
+                return runCommand(ctx, () => store.getRecurring(id), renderRecurringDetail);
               }
 
               const operation =
@@ -909,13 +899,12 @@ export function createTaskModule(store: TaskStore): AgentModule {
                   : repeatAction === "resume"
                     ? () => store.resumeRecurring(id)
                     : () => store.cancelRecurring(id);
-              runCommand(
+              return runCommand(
                 ctx,
                 operation,
                 (record) =>
                   `Recurring task ${recurringActionLabel(repeatAction)}: ${renderRecurringRecord(record)}`,
               );
-              return;
             }
 
             ctx.notify(TASK_REPEAT_COMMAND_USAGE);

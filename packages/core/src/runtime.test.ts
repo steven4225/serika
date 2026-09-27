@@ -166,7 +166,127 @@ describe("DefaultAgentRuntime", () => {
     });
 
     assert.equal((await handle.result).status, "completed");
-    assert.equal(received, beforeToolExecute);
+    assert.equal(typeof received, "function");
+    assert.notEqual(received, beforeToolExecute);
+  });
+
+  it("excludes a pending tool confirmation from the total run timeout", async () => {
+    const shortDefinition = {
+      ...definition,
+      limits: { ...definition.limits, totalTimeoutMs: 50 },
+    };
+    let release!: () => void;
+    let entered!: () => void;
+    const confirmationEntered = new Promise<void>((resolve) => { entered = resolve; });
+    const confirmation = new Promise<void>((resolve) => { release = resolve; });
+    const runtime = new DefaultAgentRuntime({
+      catalog: new InMemoryAgentCatalog([shortDefinition]),
+      loop: {
+        async execute(input) {
+          await input.beforeToolExecute?.({
+            toolName: "lookup",
+            toolCallId: "call-1",
+            input: {},
+            definition: input.definition,
+            signal: input.signal,
+          });
+          return { text: "ok", messages: input.messages, steps: 1, usage: {}, stopReason: "completed" };
+        },
+      },
+      beforeToolExecute: async () => {
+        entered();
+        await confirmation;
+        return { allow: true };
+      },
+      store: new InMemoryAgentStore(),
+    });
+    const handle = await runtime.run({
+      agentId: "test",
+      threadId: "thread-confirmation-timeout-paused",
+      messages: [userMessage("user-1", "hello")],
+    });
+    await confirmationEntered;
+    await new Promise((resolve) => setTimeout(resolve, 75));
+    release();
+    assert.equal((await handle.result).status, "completed");
+  });
+
+  it("resumes the remaining run timeout after confirmation", async () => {
+    const shortDefinition = {
+      ...definition,
+      limits: { ...definition.limits, totalTimeoutMs: 50 },
+    };
+    let release!: () => void;
+    let entered!: () => void;
+    const confirmationEntered = new Promise<void>((resolve) => { entered = resolve; });
+    const confirmation = new Promise<void>((resolve) => { release = resolve; });
+    const runtime = new DefaultAgentRuntime({
+      catalog: new InMemoryAgentCatalog([shortDefinition]),
+      loop: {
+        async execute(input) {
+          await input.beforeToolExecute?.({
+            toolName: "lookup",
+            toolCallId: "call-1",
+            input: {},
+            definition: input.definition,
+            signal: input.signal,
+          });
+          return waitForAbort(input.signal);
+        },
+      },
+      beforeToolExecute: async () => {
+        entered();
+        await confirmation;
+        return { allow: true };
+      },
+      store: new InMemoryAgentStore(),
+    });
+    const handle = await runtime.run({
+      agentId: "test",
+      threadId: "thread-confirmation-timeout-resumed",
+      messages: [userMessage("user-1", "hello")],
+    });
+    await confirmationEntered;
+    await new Promise((resolve) => setTimeout(resolve, 75));
+    release();
+    assert.equal((await handle.result).status, "timed_out");
+  });
+
+  it("still cancels while a tool confirmation has paused the timeout", async () => {
+    const shortDefinition = {
+      ...definition,
+      limits: { ...definition.limits, totalTimeoutMs: 50 },
+    };
+    let entered!: () => void;
+    const confirmationEntered = new Promise<void>((resolve) => { entered = resolve; });
+    const runtime = new DefaultAgentRuntime({
+      catalog: new InMemoryAgentCatalog([shortDefinition]),
+      loop: {
+        async execute(input) {
+          await input.beforeToolExecute?.({
+            toolName: "lookup",
+            toolCallId: "call-1",
+            input: {},
+            definition: input.definition,
+            signal: input.signal,
+          });
+          throw new Error("confirmation should not complete");
+        },
+      },
+      beforeToolExecute: ({ signal }) => {
+        entered();
+        return waitForAbort(signal);
+      },
+      store: new InMemoryAgentStore(),
+    });
+    const handle = await runtime.run({
+      agentId: "test",
+      threadId: "thread-confirmation-cancelled",
+      messages: [userMessage("user-1", "hello")],
+    });
+    await confirmationEntered;
+    await handle.cancel("user stop");
+    assert.equal((await handle.result).status, "cancelled");
   });
 
   it("does not save when model context preparation fails", async () => {

@@ -2024,6 +2024,28 @@ describe("runTui", () => {
     await tui;
   });
 
+  it("redraws the idle prompt after a later module notification", async () => {
+    const input = ttyInput();
+    const output = ttyOutput();
+    let redraw: (() => void) | undefined;
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: testRuntime([]).runtime,
+      store: { getMessages: async () => [] },
+      input,
+      output,
+      registerNotificationRedraw: (callback) => { redraw = callback; },
+    });
+
+    await waitFor(() => redraw !== undefined);
+    const promptsBefore = (output.text().match(/> /g) ?? []).length;
+    output.write("\n[module:pomodoro] finished\n");
+    redraw?.();
+    assert.equal((output.text().match(/> /g) ?? []).length, promptsBefore + 1);
+    input.end();
+    await tui;
+  });
+
   it("runs /compact without creating a Run and rejects input while compacting", async () => {
     const input = ttyInput();
     const output = ttyOutput();
@@ -2282,6 +2304,34 @@ describe("runTui", () => {
       runtime.requests[0]?.messages[0],
       message("new-user-id", "user", "next user message"),
     );
+    input.end();
+    await tui;
+  });
+
+  it("restores the prompt after an async command notification, not before it", async () => {
+    const input = ttyInput();
+    const output = ttyOutput();
+    const gate = deferred<void>();
+    const runtime = testRuntime([]);
+    const tui = runTui({
+      ...tuiOptions,
+      runtime: runtime.runtime,
+      store: { getMessages: async () => [] },
+      input,
+      output,
+      commands: new Map([
+        ["task", { async execute() { await gate.promise; output.write("\n[module:task] Task: task-1\n"); } }],
+      ]),
+    });
+
+    await nextTurn();
+    input.write("/task show task-1\n");
+    await nextTurn();
+    assert.equal(output.text().includes("Task: task-1"), false);
+    gate.resolve();
+    await waitFor(() => output.text().includes("Task: task-1"));
+    await waitFor(() => output.text().endsWith("> "));
+    assert.equal(runtime.requests.length, 0);
     input.end();
     await tui;
   });
@@ -2880,11 +2930,11 @@ describe("runTui tool confirmation", () => {
     await tui;
   });
 
-  it("times out while confirmation is pending without executing or saving", async () => {
+  it("keeps confirmation open beyond the Run budget and executes only after y", async () => {
     const input = ttyInput();
     const output = ttyOutput();
     const { runtime, store, confirmation, executeCount } =
-      createConfirmationRuntime(output, { totalTimeoutMs: 30 });
+      createConfirmationRuntime(output, { totalTimeoutMs: 250 });
     await store.save("thread-1", [message("committed", "user", "old transcript")]);
     const savedBeforeRun = await store.getMessages("thread-1");
     const saveCountBeforeRun = store.saveCount;
@@ -2900,16 +2950,20 @@ describe("runTui tool confirmation", () => {
     await nextTurn();
     input.write("What is 20 + 22?\n");
     await waitFor(() => output.text().includes("Allow this call? [y/n]"));
-    await waitFor(() => output.text().includes("Run timed_out"));
+    await new Promise<void>((resolve) => setTimeout(resolve, 350));
+    assert.equal(output.text().includes("Run timed_out"), false);
+    assert.equal(executeCount.value, 0);
+    input.write("y\n");
+    await waitFor(() => output.text().includes("20 + 22 = 42"));
+    await waitFor(() => store.saveCount === saveCountBeforeRun + 1);
     input.end();
     await tui;
 
-    assert.equal(executeCount.value, 0);
-    assert.equal(store.saveCount, saveCountBeforeRun);
-    assert.deepEqual(await store.getMessages("thread-1"), savedBeforeRun);
+    assert.equal(executeCount.value, 1);
+    assert.equal(store.saveCount, saveCountBeforeRun + 1);
+    assert.notDeepEqual(await store.getMessages("thread-1"), savedBeforeRun);
     const run = await store.getRun(store.runIds[0] as string);
-    assert.equal(run?.status, "timed_out");
-    assert.equal(run?.result?.error?.code, "RUN_TIMEOUT");
+    assert.equal(run?.status, "completed");
   });
 
   it("cancels a pending confirmation when stdin closes", async () => {
@@ -3262,8 +3316,8 @@ describe("runTui read_file confirmation", () => {
     }
   });
 
-  it("does not read or save when total timeout aborts confirmation", async () => {
-    const fixture = await createReadFileConfirmationRuntime({ totalTimeoutMs: 30 });
+  it("keeps read_file unexecuted beyond the Run budget until n", async () => {
+    const fixture = await createReadFileConfirmationRuntime({ totalTimeoutMs: 250 });
     const input = ttyInput();
     const tui = runTui({
       ...tuiOptions,
@@ -3278,10 +3332,13 @@ describe("runTui read_file confirmation", () => {
       await nextTurn();
       input.write("Read notes.txt.\n");
       await waitFor(() => fixture.output.text().includes("Allow this call? [y/n]"));
-      await waitFor(() => fixture.output.text().includes("Run timed_out"));
+      await new Promise<void>((resolve) => setTimeout(resolve, 350));
+      assert.equal(fixture.output.text().includes("Run timed_out"), false);
+      input.write("n\n");
+      await waitFor(() => fixture.output.text().includes("The requested file read was denied."));
 
       assert.equal(fixture.readCount.value, 0);
-      assert.equal(fixture.store.saveCount, 0);
+      await waitFor(() => fixture.store.saveCount === 1);
       input.end();
       await tui;
     } finally {
