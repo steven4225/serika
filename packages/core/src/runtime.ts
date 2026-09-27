@@ -208,17 +208,39 @@ export class DefaultAgentRuntime {
       emit,
     } = options;
     let version = 0;
-    const deadline = Date.now() + definition.limits.totalTimeoutMs;
+    let remainingMs = definition.limits.totalTimeoutMs;
+    let activeSince = Date.now();
+    let paused = false;
     const timeoutReason = () =>
       new DOMException("Run timed out", "TimeoutError");
+    const budgetLeft = () =>
+      remainingMs - (paused ? 0 : Date.now() - activeSince);
     const acceptTimeoutIfDue = () => {
-      if (getStopCause() === undefined && Date.now() >= deadline) {
+      if (getStopCause() === undefined && budgetLeft() <= 0) {
         requestStop("timed_out", timeoutReason());
       }
     };
-    const timeout = setTimeout(() => {
-      requestStop("timed_out", timeoutReason());
-    }, definition.limits.totalTimeoutMs);
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const armTimeout = () => {
+      if (controller.signal.aborted) return;
+      activeSince = Date.now();
+      timeout = setTimeout(() => {
+        requestStop("timed_out", timeoutReason());
+      }, Math.max(0, remainingMs));
+    };
+    const pauseTimeout = () => {
+      acceptTimeoutIfDue();
+      if (controller.signal.aborted) return false;
+      remainingMs = budgetLeft();
+      paused = true;
+      clearTimeout(timeout);
+      return true;
+    };
+    const resumeTimeout = () => {
+      paused = false;
+      armTimeout();
+    };
+    armTimeout();
     let transcriptCommitted = false;
     let saveStarted = false;
 
@@ -277,7 +299,16 @@ export class DefaultAgentRuntime {
           ? { prepareModelContext: this.#prepareModelContext }
           : {}),
         ...(this.#beforeToolExecute
-          ? { beforeToolExecute: this.#beforeToolExecute }
+          ? {
+              beforeToolExecute: async (input) => {
+                if (!pauseTimeout()) throw abortReason(controller.signal);
+                try {
+                  return await this.#beforeToolExecute!(input);
+                } finally {
+                  resumeTimeout();
+                }
+              },
+            } satisfies Pick<Parameters<AgentLoop["execute"]>[0], "beforeToolExecute">
           : {}),
         generateId: this.#idGenerator,
         emit,
@@ -295,7 +326,7 @@ export class DefaultAgentRuntime {
 
       if (
         controller.signal.aborted ||
-        Date.now() >= deadline
+        budgetLeft() <= 0
       ) {
         acceptTimeoutIfDue();
         throw abortReason(controller.signal);

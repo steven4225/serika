@@ -131,7 +131,7 @@ function recurringDetail(): RecurringTaskDetail {
 
 function setup(overrides: Partial<TaskStore> = {}): {
   tools: RegisteredTool[];
-  commands: Map<string, { name: string; execute(args: string): void }>;
+  commands: Map<string, { name: string; execute(args: string): void | Promise<void> }>;
   notifications: string[];
   calls: Array<{ method: string; args: unknown[] }>;
 } {
@@ -187,7 +187,7 @@ function setup(overrides: Partial<TaskStore> = {}): {
     ...overrides,
   };
   const tools: RegisteredTool[] = [];
-  const commands = new Map<string, { name: string; execute(args: string): void }>();
+  const commands = new Map<string, { name: string; execute(args: string): void | Promise<void> }>();
   const notifications: string[] = [];
   createTaskModule(store).setup({
     registerTool: (registered) => tools.push(registered),
@@ -446,19 +446,16 @@ describe("createTaskModule", () => {
     );
   });
 
-  it("keeps ModuleCommand execution synchronous while notifying async outcomes", async () => {
+  it("awaits task command results before returning to the TUI", async () => {
     const { commands, notifications, calls } = setup();
     const command = commands.get("task");
     assert.ok(command);
 
-    assert.equal(
-      command.execute(
-        "create 2026-09-12T09:00:00+08:00 prepare a detailed learning plan",
-      ),
-      undefined,
+    const create = command.execute(
+      "create 2026-09-12T09:00:00+08:00 prepare a detailed learning plan",
     );
     assert.deepEqual(notifications, []);
-    await settle();
+    await create;
     assert.equal(calls[0]?.method, "create");
     assert.deepEqual(calls[0]?.args, [
       {
@@ -468,10 +465,9 @@ describe("createTaskModule", () => {
     ]);
     assert.match(notifications[0] ?? "", /^Task created:/);
 
-    command.execute("list completed");
-    command.execute("show task-1");
-    command.execute("cancel task-1");
-    await settle();
+    await command.execute("list completed");
+    await command.execute("show task-1");
+    await command.execute("cancel task-1");
     assert.match(notifications[1] ?? "", /Tasks: 1/);
     assert.match(notifications[2] ?? "", /^Task: task-1/);
     assert.match(notifications[3] ?? "", /^Task cancelled:/);
@@ -482,10 +478,10 @@ describe("createTaskModule", () => {
     const command = commands.get("task");
     assert.ok(command);
 
-    assert.equal(command.execute("inbox"), undefined);
-    assert.equal(command.execute("ack task-1"), undefined);
+    const inbox = command.execute("inbox");
+    const ack = command.execute("ack task-1");
     assert.deepEqual(notifications, []);
-    await settle();
+    await Promise.all([inbox, ack]);
 
     assert.deepEqual(calls, [
       { method: "list", args: [{ inbox: true }] },
@@ -500,9 +496,9 @@ describe("createTaskModule", () => {
     const command = commands.get("task");
     assert.ok(command);
 
-    assert.equal(command.execute("reschedule task-1 2026-09-13T09:00:00+08:00"), undefined);
+    const reschedule = command.execute("reschedule task-1 2026-09-13T09:00:00+08:00");
     assert.deepEqual(notifications, []);
-    await settle();
+    await reschedule;
 
     assert.deepEqual(calls, [
       { method: "get", args: ["task-1"] },
@@ -542,18 +538,17 @@ describe("createTaskModule", () => {
     const command = commands.get("task");
     assert.ok(command);
 
-    assert.equal(
+    const executions = [
       command.execute("repeat create daily 09:00 +08:00 prepare today"),
-      undefined,
-    );
-    command.execute("repeat create weekly 1 10:30 -05:00 plan the week");
-    command.execute("repeat list paused");
-    command.execute("repeat show repeat-1");
-    command.execute("repeat pause repeat-1");
-    command.execute("repeat resume repeat-1");
-    command.execute("repeat cancel repeat-1");
+      command.execute("repeat create weekly 1 10:30 -05:00 plan the week"),
+      command.execute("repeat list paused"),
+      command.execute("repeat show repeat-1"),
+      command.execute("repeat pause repeat-1"),
+      command.execute("repeat resume repeat-1"),
+      command.execute("repeat cancel repeat-1"),
+    ];
     assert.deepEqual(notifications, []);
-    await settle();
+    await Promise.all(executions);
 
     assert.deepEqual(calls.map(({ method, args }) => ({ method, args })), [
       {
@@ -734,5 +729,23 @@ describe("createTaskModule", () => {
     command.execute("show task-1");
     await settle();
     assert.deepEqual(notifications, ["READ_FAILED: disk unavailable"]);
+  });
+
+  it("keeps /task show pending until its result has been printed", async () => {
+    let finish!: (result: TaskStoreResult<TaskRecordV3>) => void;
+    const pending = new Promise<TaskStoreResult<TaskRecordV3>>((resolve) => {
+      finish = resolve;
+    });
+    const { commands, notifications } = setup({ get: async () => pending });
+    const command = commands.get("task");
+    assert.ok(command);
+
+    const execution = command.execute("show task-1");
+    assert.ok(execution instanceof Promise);
+    await settle();
+    assert.deepEqual(notifications, []);
+    finish({ ok: true, value: record() });
+    await execution;
+    assert.match(notifications[0] ?? "", /Task: task-1/);
   });
 });

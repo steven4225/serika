@@ -52,6 +52,7 @@ export interface RunTuiOptions {
   resume?: TuiResume;
   renderHome?: () => Promise<void>;
   commands?: ReadonlyMap<string, TuiCommand>;
+  registerNotificationRedraw?: (redraw: () => void) => void;
 }
 
 /**
@@ -410,7 +411,7 @@ export function createToolConfirmation(
     const writePrompt = (text: string): void => {
       if (pending !== entry) return;
       try {
-        write(output, text);
+        write(output, `\n[confirmation] Waiting for y/n; the tool has not run yet.\n${text}`);
       } catch (error) {
         clearPending(entry);
         reject(error);
@@ -965,8 +966,15 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
   let cancelSentForRun: string | undefined;
   let stopRequestReason: string | undefined;
   let inputClosed = false;
+  let dispatchingCommand = false;
   const tasks = new Set<Promise<void>>();
   const getState = (): TuiState => state;
+
+  options.registerNotificationRedraw?.(() => {
+    if (isTTY(input) && !inputClosed && state.kind === "idle" && !runStarting && !dispatchingCommand) {
+      readline.prompt(true);
+    }
+  });
 
   if (isTTY(input)) readline.prompt();
 
@@ -1203,9 +1211,12 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
       return;
     }
     try {
+      dispatchingCommand = true;
       await command.execute(args);
     } catch (error) {
       write(output, `\nCommand /${name} failed: ${String(error)}\n`);
+    } finally {
+      dispatchingCommand = false;
     }
   };
 

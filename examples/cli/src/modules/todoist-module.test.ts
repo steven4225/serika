@@ -188,16 +188,16 @@ describe("createTodoistModule", () => {
     await assert.rejects(pending, { name: "AbortError" });
   });
 
-  it("runs the direct command asynchronously and escapes task control characters", async () => {
+  it("waits for the direct command notification and escapes task control characters", async () => {
     const { host, notifications } = makeTest(
       oneTaskFetch("准备\n周报\u001b[31m"),
     );
     const command = host.commands.get("todoist");
     assert.ok(command);
 
-    command.execute("list today");
+    const completed = command.execute("list today");
     assert.deepEqual(notifications, []);
-    await flushAsyncWork();
+    await completed;
 
     assert.equal(notifications.length, 1);
     const output = notifications[0] ?? "";
