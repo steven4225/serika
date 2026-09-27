@@ -8,7 +8,7 @@ import type {
 } from "@aisdk-agent/core";
 import { AgentError } from "@aisdk-agent/core";
 import { ContextCompactor, type ContextCompactorOptions } from "./context-compactor.js";
-import { contextSummaryPrompt, type ContextSummaryV2, type Summarizer } from "./context-compaction.js";
+import { contextSummaryPrompt, type ContextCompactionRecord, type ContextSummaryV2, type Summarizer } from "./context-compaction.js";
 import type { ContextBudgetConfig } from "./context-budget.js";
 import {
   CHECKPOINT_CONTEXT_MESSAGE_ID,
@@ -408,6 +408,58 @@ describe("ContextCompactor", () => {
     assert.equal(store.records.length, 0);
   });
 
+  it("counts usage from invalid JSON attempts in the saved metrics and /compact report", async () => {
+    const store = new FakeStore();
+    store.messages = [
+      user("u1", "old request ".repeat(40)),
+      assistant("a1", "old answer ".repeat(40)),
+      user("u2", "continue"),
+    ];
+    let calls = 0;
+    const summarizer: Summarizer = {
+      async complete() {
+        calls += 1;
+        return calls === 1
+          ? { text: "not JSON", usage: { inputTokens: 11, outputTokens: 3, totalTokens: 14 } }
+          : { text: JSON.stringify(summary), usage: { inputTokens: 13, outputTokens: 7, totalTokens: 20 } };
+      },
+    };
+
+    const result = await makeCompactor(store, summarizer).compact(new AbortController().signal);
+
+    assert.equal(calls, 2);
+    assert.match(result.message, /尝试 2 次/);
+    assert.match(result.message, /usage in=24 out=10/);
+    const record = store.records[0] as unknown as ContextCompactionRecord;
+    assert.ok(record);
+    assert.equal(record.metrics.attempts, 2);
+    assert.deepEqual(record.metrics.usage, { inputTokens: 24, outputTokens: 10, totalTokens: 34 });
+  });
+
+  it("reports observed usage when every summary attempt fails", async () => {
+    const store = new FakeStore();
+    let calls = 0;
+    const summarizer: Summarizer = {
+      async complete() {
+        calls += 1;
+        return { text: "not JSON", usage: { inputTokens: 5, outputTokens: 2, totalTokens: 7 } };
+      },
+    };
+    await assert.rejects(
+      () => makeCompactor(store, summarizer).prepare([
+        user("u1", "old request ".repeat(40)),
+        assistant("a1", "old answer ".repeat(40)),
+        user("u2", "continue"),
+      ], new AbortController().signal),
+      (error: unknown) => error instanceof AgentError &&
+        error.data.code === "CONTEXT_PREPARE_FAILED" &&
+        /"inputTokens":15/.test(error.message) &&
+        /"outputTokens":6/.test(error.message),
+    );
+    assert.equal(calls, 3);
+    assert.equal(store.records.length, 0);
+  });
+
   it("does not save a summary when cancelled after model completion", async () => {
     const store = new FakeStore();
     const controller = new AbortController();
@@ -597,6 +649,28 @@ describe("ContextCompactor", () => {
     );
     assert.equal(persistedSummary.goal.evidenceMessageIds.includes("not-in-transcript"), false);
     assert.equal(persistedSummary.goal.evidenceMessageIds.includes("u1"), true);
+  });
+
+  it("keeps an unexecuted plan but not an invented completed action", async () => {
+    const store = new FakeStore();
+    const summarizer: Summarizer = {
+      async complete() {
+        return { text: JSON.stringify({
+          ...summary,
+          actions: [
+            { text: "inspect the failing test", evidenceMessageIds: ["u1"], status: "not_executed", toolCallIds: [] },
+            { text: "pretend write succeeded", evidenceMessageIds: ["u1"], status: "completed", toolCallIds: [] },
+          ],
+        }) };
+      },
+    };
+    await makeCompactor(store, summarizer, roomyBudget).prepare([
+      user("u1", "inspect the failing test ".repeat(400)),
+      user("u2", "continue"),
+    ], new AbortController().signal);
+    const persisted = store.records[0]?.summary as unknown as ContextSummaryV2;
+    assert.deepEqual(persisted.actions.map((action) => action.text), ["inspect the failing test"]);
+    assert.equal(persisted.actions[0]?.status, "not_executed");
   });
 
   it("keeps write_file receipts in files and drops model-invented paths", async () => {
