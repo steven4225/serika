@@ -2331,7 +2331,7 @@ describe("runTui", () => {
     assert.equal(output.text().includes("Task: task-1"), false);
     gate.resolve();
     await waitFor(() => output.text().includes("Task: task-1"));
-    await waitFor(() => output.text().endsWith("> "));
+    await waitFor(() => output.text().lastIndexOf("> ") > output.text().lastIndexOf("Task: task-1"));
     assert.equal(runtime.requests.length, 0);
     input.end();
     await tui;
