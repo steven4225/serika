@@ -21,6 +21,8 @@
 
 任务级验收使用 A01–A09 案例及不覆盖旧尝试的 JSON/Markdown 报告，操作入口和当前证据缺口见[阶段一验收指南](docs/task-acceptance.md)。`pnpm test` 验证离线契约；真实模型、真实网络、TUI 人工确认和最终产物分别记录，不能由构建通过或 worker `completed` 推定任务通过。
 
+长上下文压缩和被动记忆整理的两条真实主链已在隔离环境验收；低预算手动压缩不代表日用配置的自动阈值表现。复验命令与取证要求见[阶段二验收指南](docs/long-context-memory-acceptance.md)。
+
 运行：
 
 ```bash

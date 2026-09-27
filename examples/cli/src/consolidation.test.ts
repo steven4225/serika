@@ -28,6 +28,23 @@ function assistant(id: string, text = id): UIMessage {
   return message(id, "assistant", [{ type: "text", text }]);
 }
 
+function autoRequest(id: string): UIMessage {
+  return message(id, "user", [{ type: "text", text: "请整理" }], {
+    source: AUTO_CONSOLIDATION_SOURCE,
+  });
+}
+
+function prepareResult(id: string, output: unknown): UIMessage {
+  return message(id, "assistant", [{
+    type: "dynamic-tool",
+    toolName: "memory_prepare_consolidation",
+    toolCallId: id,
+    state: "output-available",
+    input: { mode: "incremental" },
+    output,
+  }]);
+}
+
 describe("consolidateMessages", () => {
   it("returns the most recent eight user-started turns by default", () => {
     const messages: UIMessage[] = [];
@@ -237,16 +254,12 @@ describe("selectIncrementalConsolidationTurns", () => {
     const messages: UIMessage[] = [
       user("old-user"),
       assistant("old-assistant"),
-      message("marker-1", "user", [{ type: "text", text: "first marker" }], {
-        source: AUTO_CONSOLIDATION_SOURCE,
-      }),
-      assistant("marker-1-result", "no candidates"),
+      autoRequest("marker-1"),
+      prepareResult("marker-1-result", { ok: true, turns: [], memories: [] }),
       user("between-markers"),
       assistant("between-markers-result"),
-      message("marker-2", "user", [{ type: "text", text: "latest marker" }], {
-        source: AUTO_CONSOLIDATION_SOURCE,
-      }),
-      assistant("marker-2-result", "no candidates"),
+      autoRequest("marker-2"),
+      prepareResult("marker-2-result", { ok: true, turns: [], memories: [] }),
       user("new-user"),
       assistant("new-assistant"),
     ];
@@ -255,6 +268,55 @@ describe("selectIncrementalConsolidationTurns", () => {
 
     assert.equal(result.bootstrap, false);
     assert.deepEqual(result.turns.map(({ user: selected }) => selected.messageId), ["new-user"]);
+  });
+
+  it("does not advance the cursor for missing, failed, denied, or repeated preparation", () => {
+    const denied = message("denied-result", "assistant", [{
+      type: "dynamic-tool",
+      toolName: "memory_prepare_consolidation",
+      toolCallId: "denied-call",
+      state: "output-error",
+      input: { mode: "incremental" },
+      errorText: "TOOL_DENIED: user denied the call",
+    }]);
+    const repeated = prepareResult("repeated-result", { ok: true, turns: [], memories: [] });
+    repeated.parts.push(...prepareResult("second-result", { ok: true, turns: [], memories: [] }).parts);
+    const messages: UIMessage[] = [
+      user("before-valid"),
+      autoRequest("valid-marker"),
+      prepareResult("valid-result", { ok: true, turns: [], memories: [] }),
+      user("after-valid"),
+      autoRequest("no-call"),
+      assistant("no-call-result", "本次没有建议"),
+      user("after-no-call"),
+      autoRequest("failed-output"),
+      prepareResult("failed-result", { ok: false, error: { code: "READ_FAILED" } }),
+      user("after-failed-output"),
+      autoRequest("denied"),
+      denied,
+      user("after-denied"),
+      autoRequest("repeated"),
+      repeated,
+      user("after-repeated"),
+    ];
+
+    assert.deepEqual(
+      selectIncrementalConsolidationTurns(messages).turns.map(({ user: selected }) => selected.messageId),
+      ["after-valid", "after-no-call", "after-failed-output", "after-denied", "after-repeated"],
+    );
+  });
+
+  it("bootstraps recent ordinary turns when no successful preparation exists", () => {
+    const messages: UIMessage[] = [
+      user("first"),
+      autoRequest("empty-marker"),
+      assistant("empty-result", "本次没有建议"),
+      user("second"),
+    ];
+
+    const result = selectIncrementalConsolidationTurns(messages);
+    assert.equal(result.bootstrap, true);
+    assert.deepEqual(result.turns.map(({ user: selected }) => selected.messageId), ["first", "second"]);
   });
 
   it("excludes a turn that explicitly used any memory tool", () => {

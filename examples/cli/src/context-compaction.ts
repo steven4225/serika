@@ -136,6 +136,111 @@ function item(value: unknown): value is ContextSummaryItem {
     evidence((value as ContextSummaryItem).evidenceMessageIds);
 }
 
+function uniqueEvidence(value: unknown, fallback: readonly string[]): string[] {
+  const listed = Array.isArray(value) ? value.filter(nonEmpty) : [];
+  const unique = [...new Set(listed)];
+  return unique.length > 0 ? unique : [...new Set(fallback.filter(nonEmpty))];
+}
+
+function extractJsonObject(text: string): string | undefined {
+  const fenced = /```(?:json)?\s*([\s\S]*?)\s*```/i.exec(text);
+  const candidate = (fenced?.[1] ?? text).trim();
+  const start = candidate.indexOf("{");
+  const end = candidate.lastIndexOf("}");
+  if (start < 0 || end <= start) return undefined;
+  return candidate.slice(start, end + 1);
+}
+
+function coerceItem(
+  value: unknown,
+  fallbackEvidenceIds: readonly string[],
+  textFallback?: string,
+): ContextSummaryItem | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const record = value as Record<string, unknown>;
+  const text = nonEmpty(record.text)
+    ? record.text.trim()
+    : (textFallback !== undefined && nonEmpty(textFallback) ? textFallback.trim() : "");
+  if (!nonEmpty(text)) return undefined;
+  const evidenceMessageIds = uniqueEvidence(record.evidenceMessageIds, fallbackEvidenceIds);
+  if (evidenceMessageIds.length === 0) return undefined;
+  return { text, evidenceMessageIds };
+}
+
+/**
+ * Fills omitted item fields that models routinely drop. The strict validator
+ * still runs on the result; this does not invent tool outcomes or disk state.
+ */
+export function coerceContextSummary(
+  value: unknown,
+  fallbackEvidenceIds: readonly string[] = [],
+): ContextSummaryV2 | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const raw = value as Record<string, unknown>;
+  const version = raw.version === 2 || raw.version === "2" ? 2 : raw.version;
+  if (version !== 2) return undefined;
+  const goal = coerceItem(raw.goal, fallbackEvidenceIds);
+  if (goal === undefined) return undefined;
+  if (raw.constraints !== undefined && !Array.isArray(raw.constraints)) return undefined;
+  if (raw.pending !== undefined && !Array.isArray(raw.pending)) return undefined;
+  if (raw.decisions !== undefined && !Array.isArray(raw.decisions)) return undefined;
+  if (raw.actions !== undefined && !Array.isArray(raw.actions)) return undefined;
+  if (raw.files !== undefined && !Array.isArray(raw.files)) return undefined;
+
+  const constraints = (Array.isArray(raw.constraints) ? raw.constraints : []).flatMap((entry) => {
+    const itemValue = coerceItem(entry, fallbackEvidenceIds);
+    return itemValue === undefined ? [] : [itemValue];
+  });
+  const pending = (Array.isArray(raw.pending) ? raw.pending : []).flatMap((entry) => {
+    const itemValue = coerceItem(entry, fallbackEvidenceIds);
+    return itemValue === undefined ? [] : [itemValue];
+  });
+  const nextStep = raw.nextStep === null || raw.nextStep === undefined
+    ? null
+    : coerceItem(raw.nextStep, fallbackEvidenceIds);
+  if (raw.nextStep !== null && raw.nextStep !== undefined && nextStep === undefined) return undefined;
+
+  const decisions: ContextSummaryDecision[] = (Array.isArray(raw.decisions) ? raw.decisions : []).flatMap((entry) => {
+    const base = coerceItem(entry, fallbackEvidenceIds);
+    if (base === undefined || typeof entry !== "object" || entry === null) return [];
+    const record = entry as Record<string, unknown>;
+    if (record.source !== "user" && record.source !== "assistant") return [];
+    if (typeof record.status !== "string" || !decisionStatuses.has(record.status as SummaryDecisionStatus)) {
+      return [];
+    }
+    return [{ ...base, source: record.source, status: record.status as SummaryDecisionStatus }];
+  });
+  const actions: ContextSummaryAction[] = (Array.isArray(raw.actions) ? raw.actions : []).flatMap((entry) => {
+    const base = coerceItem(entry, fallbackEvidenceIds);
+    if (base === undefined || typeof entry !== "object" || entry === null) return [];
+    const record = entry as Record<string, unknown>;
+    if (typeof record.status !== "string" || !actionStatuses.has(record.status as SummaryActionStatus)) {
+      return [];
+    }
+    const toolCallIds = Array.isArray(record.toolCallIds) ? record.toolCallIds.filter(nonEmpty) : [];
+    return [{ ...base, status: record.status as SummaryActionStatus, toolCallIds }];
+  });
+  const files: ContextSummaryFile[] = (Array.isArray(raw.files) ? raw.files : []).flatMap((entry) => {
+    if (typeof entry !== "object" || entry === null) return [];
+    const record = entry as Record<string, unknown>;
+    if (!nonEmpty(record.path) || !nonEmpty(record.purpose)) return [];
+    const base = coerceItem(entry, fallbackEvidenceIds, `${record.purpose.trim()} (${record.path.trim()})`);
+    if (base === undefined) return [];
+    return [{ ...base, path: record.path.trim(), purpose: record.purpose.trim() }];
+  });
+
+  return {
+    version: 2,
+    goal,
+    constraints,
+    decisions,
+    actions,
+    pending,
+    files,
+    nextStep: nextStep ?? null,
+  };
+}
+
 const actionStatuses = new Set<SummaryActionStatus>(["completed", "failed", "not_executed", "unknown"]);
 const decisionStatuses = new Set<SummaryDecisionStatus>(["confirmed", "proposed", "superseded", "withdrawn"]);
 
@@ -159,11 +264,16 @@ export function validateContextSummary(value: unknown): value is ContextSummaryV
   return true;
 }
 
-export function parseContextSummary(text: string): ContextSummaryV2 | undefined {
-  const trimmed = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+export function parseContextSummary(
+  text: string,
+  fallbackEvidenceIds: readonly string[] = [],
+): ContextSummaryV2 | undefined {
+  const extracted = extractJsonObject(text);
+  if (extracted === undefined) return undefined;
   try {
-    const parsed: unknown = JSON.parse(trimmed);
-    return validateContextSummary(parsed) ? parsed : undefined;
+    const parsed: unknown = JSON.parse(extracted);
+    const coerced = coerceContextSummary(parsed, fallbackEvidenceIds);
+    return coerced !== undefined && validateContextSummary(coerced) ? coerced : undefined;
   } catch {
     return undefined;
   }
@@ -174,17 +284,9 @@ export function contextSummaryPrompt(input: {
   messages: readonly UIMessage[];
 }): string {
   return [
-    "Summarize the supplied transcript into this exact JSON shape:",
-    JSON.stringify({
-      version: 2,
-      goal: { text: "", evidenceMessageIds: ["message-id"] },
-      constraints: [{ text: "", evidenceMessageIds: ["message-id"] }],
-      decisions: [{ text: "", evidenceMessageIds: ["message-id"], source: "user", status: "confirmed" }],
-      actions: [{ text: "", evidenceMessageIds: ["message-id"], status: "completed", toolCallIds: ["tool-call-id"] }],
-      pending: [{ text: "", evidenceMessageIds: ["message-id"] }],
-      files: [{ text: "", evidenceMessageIds: ["message-id"], path: "workspace/path", purpose: "" }],
-      nextStep: { text: "", evidenceMessageIds: ["message-id"] },
-    }),
+    "Return one JSON object with version: 2 and keys goal, constraints, decisions, actions, pending, files, nextStep. Do not return a schema or placeholder values.",
+    "goal is an item {text, evidenceMessageIds}. Each item needs non-empty text and at least one actual message id from the supplied transcript or previous summary. constraints and pending are arrays of items; use [] when there is no evidence. nextStep is an item or null.",
+    "decisions, actions, and files use the same item fields (non-empty text and evidenceMessageIds). decisions also need source (user or assistant) and status (confirmed, proposed, superseded, or withdrawn). actions also need status (completed, failed, not_executed, or unknown) and toolCallIds (actual ids, or [] when none). files also need non-empty path and purpose. Use [] for decisions, actions, or files when there is no evidence.",
     "Preserve the newest user goal, constraints, withdrawals, and decisions. Distinguish confirmed user decisions from assistant proposals. Tool statuses must reflect evidence in the transcript; unknown side effects remain unknown. Do not claim current disk state without a tool result.",
     input.previousSummary === undefined ? "Previous summary: none" : `Previous summary:\n${JSON.stringify(input.previousSummary)}`,
     `Transcript to merge:\n${JSON.stringify(input.messages)}`,

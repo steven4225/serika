@@ -201,12 +201,12 @@ const memoryUpdateInputSchema = z
     message: "sourceMessageId and sourceQuote must be provided together",
   });
 const memoryDeleteInputSchema = z.object({ id: z.string().min(1) });
-const memoryPrepareConsolidationInputSchema = z.union([
-  z.object({ mode: z.literal("incremental") }).strict(),
-  z.object({
-    turns: z.number().int().min(1).max(MAX_CONSOLIDATION_TURNS).optional(),
-  }).strict(),
-]);
+const memoryPrepareConsolidationInputSchema = z.object({
+  mode: z.literal("incremental").optional(),
+  turns: z.number().int().min(1).max(MAX_CONSOLIDATION_TURNS).optional(),
+}).strict().refine(({ mode, turns }) => mode === undefined || turns === undefined, {
+  message: "mode and turns cannot be combined",
+});
 
 /** Consolidation uses the same serialized context budget as model preparation. */
 export const CONSOLIDATION_RESULT_MAX_BYTES = MAX_CONTEXT_BYTES;
@@ -436,7 +436,7 @@ export function createMemoryModule(
             execute: async (input, { abortSignal, context }): Promise<ConsolidationResult> => {
               const signal = abortSignal ?? neverAborted;
               throwIfAborted(signal);
-              if ("mode" in input && requestedAgentId(context) !== AUTO_CONSOLIDATION_AGENT_ID) {
+              if (input.mode === "incremental" && requestedAgentId(context) !== AUTO_CONSOLIDATION_AGENT_ID) {
                 return {
                   ok: false,
                   error: {
@@ -457,7 +457,7 @@ export function createMemoryModule(
               throwIfAborted(signal);
               if (!memories.ok) return memories;
 
-              const prepared = "mode" in input
+              const prepared = input.mode === "incremental"
                 ? selectIncrementalConsolidationTurns(committedMessages)
                 : consolidateMessages(committedMessages, input.turns ?? MAX_CONSOLIDATION_TURNS);
               if (!prepared.ok) return prepared;
