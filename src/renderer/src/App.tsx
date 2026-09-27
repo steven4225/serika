@@ -9,6 +9,7 @@ import {
   type LiveRun,
   type ToolRowStatus,
 } from "./conversation.js";
+import { baseName, parseHome, shortId, type HomeView } from "./home.js";
 
 const OUTPUT_MAX_CHARS = 64 * 1024;
 
@@ -80,6 +81,75 @@ function toolStatusLabel(status: ToolRowStatus): string {
       return exhaustive;
     }
   }
+}
+
+function Identity({ info }: { info: AppInfo }) {
+  const [copied, setCopied] = useState(false);
+  const copyThread = (): void => {
+    void navigator.clipboard.writeText(info.threadId).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    });
+  };
+  const workspace = info.workspaceRoot ? baseName(info.workspaceRoot) : "无 workspace";
+  return (
+    <div className="identity">
+      <span className="pill" title={`模型：${info.modelAlias}（配置值，不代表已联网验证）`}>
+        {info.modelAlias}
+      </span>
+      <span className="pill" title={info.workspaceRoot ?? "未设置 workspace；文件、记忆、checkpoint、任务模块都不可用"}>
+        {workspace}
+      </span>
+      <button
+        className="pill mono"
+        title={`Thread ${info.threadId}\nTranscript ${info.directory}\n点击复制 thread id`}
+        onClick={copyThread}
+      >
+        {copied ? "已复制" : shortId(info.threadId)}
+      </button>
+      {info.temporaryThread || info.temporaryDirectory ? (
+        <span
+          className="pill warn"
+          title={[
+            info.temporaryThread ? "Thread ID 为本次临时生成；重启不会自动回到这段对话。" : null,
+            info.temporaryDirectory ? "transcript 目录为本次临时生成；重启不会自动回到这里。" : null,
+          ]
+            .filter(Boolean)
+            .join("\n")}
+        >
+          临时
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function HomeBody({ view }: { view: HomeView }) {
+  if (view.sections.length === 0 && view.unparsed.length === 0) {
+    return <div className="muted">正在读取…</div>;
+  }
+  return (
+    <div className="home-body">
+      {view.sections.map((section) => (
+        <div className="home-section" key={section.title}>
+          <div className="home-title">
+            <span>{section.title}</span>
+            {section.summary ? <span className="home-summary">{section.summary}</span> : null}
+          </div>
+          {section.items.length > 0 ? (
+            <ul className="home-items">
+              {section.items.map((item, index) => (
+                <li key={index} className={item.kind}>
+                  {item.text}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ))}
+      {view.unparsed.length > 0 ? <pre className="home-text">{view.unparsed.join("\n")}</pre> : null}
+    </div>
+  );
 }
 
 export function App() {
@@ -196,19 +266,14 @@ export function App() {
 
   const busy = state.kind !== "idle";
   const rows = [...history, ...live.rows, ...(live.rows.length === 0 && lastResult ? [lastResult] : [])];
+  const homeView = parseHome(home);
 
   return (
     <div className="app">
       <header className="header">
         <span className={`state-dot ${state.kind}`} />
         <span className="title">Runloom</span>
-        {info ? (
-          <span className="meta" title={`${info.modelAlias} · ${info.threadId}`}>
-            {info.modelAlias} · <code>{info.threadId}</code>
-          </span>
-        ) : (
-          <span className="spacer" />
-        )}
+        <span className="spacer" />
         <span className="state">{stateLabel(state)}</span>
         {busy && state.kind === "running" ? (
           <button className="ghost" onClick={() => void window.runloom.cancel()}>
@@ -216,16 +281,19 @@ export function App() {
           </button>
         ) : null}
       </header>
+      {info ? <Identity info={info} /> : null}
 
       <section className="card home">
         <div className="card-head">
           <span>Home</span>
-          <span className="hint">参考 · 保存时快照 · 不是当前磁盘</span>
+          <span className="hint">
+            {homeView.time ? `${homeView.time} · ` : ""}参考快照，不是当前磁盘
+          </span>
           <button className="ghost" disabled={busy} onClick={() => void window.runloom.home()}>
             刷新
           </button>
         </div>
-        {home ? <pre className="home-text">{home}</pre> : <div className="muted">正在读取…</div>}
+        <HomeBody view={homeView} />
       </section>
 
       <section className="card conversation">

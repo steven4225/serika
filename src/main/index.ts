@@ -19,7 +19,11 @@ const here = fileURLToPath(new URL(".", import.meta.url));
  *   RUNLOOM_TRANSCRIPTS  transcript directory (temporary when omitted)
  *   RUNLOOM_THREAD       thread id (random when omitted)
  */
-function runtimeArgs(env: NodeJS.ProcessEnv): string[] {
+function runtimeArgs(env: NodeJS.ProcessEnv): {
+  args: string[];
+  temporaryThread: boolean;
+  temporaryDirectory: boolean;
+} {
   const args = ["--tui"];
   const transcripts = env.RUNLOOM_TRANSCRIPTS?.trim();
   const thread = env.RUNLOOM_THREAD?.trim();
@@ -27,18 +31,25 @@ function runtimeArgs(env: NodeJS.ProcessEnv): string[] {
   if (transcripts) args.push(transcripts);
   if (thread) args.push("--thread", thread);
   if (config) args.push("--config", config);
-  return args;
+  return { args, temporaryThread: !thread, temporaryDirectory: !transcripts };
 }
 
 function createWindow(): BrowserWindow {
+  // Frameless glass panel: the renderer draws its own rounded shell over the
+  // macOS HUD vibrancy layer, the same construction token-monitor uses.
   const window = new BrowserWindow({
     width: 380,
     height: 680,
     minWidth: 320,
     minHeight: 480,
     title: "Runloom",
-    titleBarStyle: "hiddenInset",
+    frame: false,
+    transparent: true,
+    hasShadow: true,
     show: false,
+    ...(process.platform === "darwin"
+      ? { vibrancy: "hud" as const, visualEffectState: "active" as const }
+      : {}),
     webPreferences: {
       preload: join(here, "../preload/index.cjs"),
       contextIsolation: true,
@@ -96,17 +107,18 @@ async function main(): Promise<void> {
 
   const sink = new RendererSink(send);
   const { modelAlias, model } = configureCliModel(createDemoModel, process.env);
+  const { args, temporaryThread, temporaryDirectory } = runtimeArgs(process.env);
   let bridge: RuntimeBridge;
   try {
     const runtimeApp = await createRuntimeApp({
-      args: runtimeArgs(process.env),
+      args,
       modelAlias,
       model,
       output: sink,
       env: process.env,
       cwd: process.cwd(),
     });
-    bridge = new RuntimeBridge(runtimeApp, modelAlias, sink, send);
+    bridge = new RuntimeBridge(runtimeApp, { modelAlias, temporaryThread, temporaryDirectory }, sink, send);
   } catch (error) {
     // Startup failures are shown, not swallowed; the window stays open so the
     // user can read the reason and fix the config.

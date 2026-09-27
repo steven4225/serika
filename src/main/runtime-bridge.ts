@@ -90,19 +90,25 @@ function commandParts(line: string): { name: string; args: string } {
  * state machine and enforces the same rules as the TUI: one Run at a time,
  * busy input rejected rather than queued, one pending confirmation.
  */
+export interface BridgeIdentity {
+  modelAlias: string;
+  temporaryThread: boolean;
+  temporaryDirectory: boolean;
+}
+
 export class RuntimeBridge {
   readonly #app: RuntimeApp;
   readonly #sink: RendererSink;
   readonly #send: Send;
-  readonly #modelAlias: string;
+  readonly #identity: BridgeIdentity;
   #state: UiState = { kind: "idle" };
   #handle: RunHandle | undefined;
   #busyController: AbortController | undefined;
   #confirmationPending = false;
 
-  constructor(app: RuntimeApp, modelAlias: string, sink: RendererSink, send: Send) {
+  constructor(app: RuntimeApp, identity: BridgeIdentity, sink: RendererSink, send: Send) {
     this.#app = app;
-    this.#modelAlias = modelAlias;
+    this.#identity = identity;
     this.#sink = sink;
     const track = (message: MainToRenderer): void => {
       if (message.type === "confirmation") this.#confirmationPending = true;
@@ -118,9 +124,11 @@ export class RuntimeBridge {
 
   info(): AppInfo {
     return {
-      modelAlias: this.#modelAlias,
+      modelAlias: this.#identity.modelAlias,
       threadId: this.#app.threadId,
+      temporaryThread: this.#identity.temporaryThread,
       directory: this.#app.directory,
+      temporaryDirectory: this.#identity.temporaryDirectory,
       workspaceRoot: this.#app.workspaceRoot ?? null,
       tuiMode: this.#app.tuiMode,
       commands: [

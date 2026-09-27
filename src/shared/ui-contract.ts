@@ -19,7 +19,11 @@ export type UiState =
 export interface AppInfo {
   modelAlias: string;
   threadId: string;
+  /** The thread id was generated for this process; a restart will not return here. */
+  temporaryThread: boolean;
   directory: string;
+  /** The transcript directory was created for this process only. */
+  temporaryDirectory: boolean;
   workspaceRoot: string | null;
   tuiMode: boolean;
   /** Registered idle commands, without the leading slash. */
