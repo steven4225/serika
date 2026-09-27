@@ -50,6 +50,7 @@ export interface SearchFilesSuccess {
   ok: true;
   matches: SearchFilesMatch[];
   truncated: boolean;
+  skippedOversize: number;
 }
 
 export type SearchFilesResult = SearchFilesSuccess | WorkspaceToolFailure;
@@ -181,7 +182,10 @@ async function inspectSearchRoot(
 function resultBytes(matches: readonly SearchFilesMatch[]): number {
   // The non-truncated envelope is one byte larger than the truncated one.
   // Check the larger shape before adding a match so either final state fits.
-  return Buffer.byteLength(JSON.stringify({ ok: true, matches, truncated: false }), "utf8");
+  return Buffer.byteLength(
+    JSON.stringify({ ok: true, matches, truncated: false, skippedOversize: 0 }),
+    "utf8",
+  );
 }
 
 /** Search literal text in eligible UTF-8 files below one workspace directory. */
@@ -215,6 +219,7 @@ export async function searchFilesInWorkspace(
   const matches: SearchFilesMatch[] = [];
   let entriesChecked = 0;
   let truncated = false;
+  let skippedOversize = 0;
 
   const visit = async (directory: string): Promise<void> => {
     throwIfAborted(abortSignal);
@@ -257,7 +262,11 @@ export async function searchFilesInWorkspace(
       try {
         stats = await lstat(entryPath);
         throwIfAborted(abortSignal);
-        if (stats.isSymbolicLink() || !stats.isFile() || stats.size > READ_FILE_MAX_BYTES) {
+        if (stats.isSymbolicLink() || !stats.isFile()) {
+          continue;
+        }
+        if (stats.size > READ_FILE_MAX_BYTES) {
+          skippedOversize += 1;
           continue;
         }
 
@@ -278,7 +287,10 @@ export async function searchFilesInWorkspace(
           if (read.bytesRead === 0) break;
         }
         throwIfAborted(abortSignal);
-        if (bytesRead > READ_FILE_MAX_BYTES) continue;
+        if (bytesRead > READ_FILE_MAX_BYTES) {
+          skippedOversize += 1;
+          continue;
+        }
         bytes = bounded.subarray(0, bytesRead);
       } catch (error) {
         if (abortSignal.aborted) throw abortReason(abortSignal);
@@ -329,7 +341,7 @@ export async function searchFilesInWorkspace(
     return failure("SEARCH_FAILED", "Unable to search workspace");
   }
 
-  return { ok: true, matches, truncated };
+  return { ok: true, matches, truncated, skippedOversize };
 }
 
 const searchFilesOutputSchema = z.discriminatedUnion("ok", [
@@ -337,6 +349,7 @@ const searchFilesOutputSchema = z.discriminatedUnion("ok", [
     ok: z.literal(true),
     matches: z.array(z.object({ path: z.string(), line: z.number().int().positive(), text: z.string() })),
     truncated: z.boolean(),
+    skippedOversize: z.number().int().nonnegative(),
   }),
   z.object({
     ok: z.literal(false),
