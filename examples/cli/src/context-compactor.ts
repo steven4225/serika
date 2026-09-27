@@ -398,10 +398,14 @@ export class ContextCompactor {
       return estimate.inputTokens + summaryReserve <= estimate.availableInputTokens;
     };
 
-    while (kept.length > 1 && !keptFits(kept)) {
-      const head = kept[0]!;
-      if (!head.completeToolCalls) break;
-      if (currentUserUnit !== undefined && head.startIndex === currentUserUnit.startIndex) break;
+    // The stored summary replaces a prefix. A completed tool result that sits
+    // after the current user message cannot be removed by itself, so once the
+    // suffix no longer fits, summarize that prefix through the result too.
+    while (!keptFits(kept)) {
+      const head = kept[0];
+      if (head === undefined || !head.completeToolCalls) break;
+      const laterCompleteTool = kept.slice(1).some((unit) => unit.completeToolCalls && unit.hasToolCall);
+      if (!head.hasToolCall && !laterCompleteTool) break;
       omitted = [...omitted, head];
       kept = kept.slice(1);
     }
@@ -412,11 +416,11 @@ export class ContextCompactor {
       if (persisted !== undefined) return compose(persisted.summary, persisted.firstKeptMessageIndex);
       throw contextError("Context exceeds the configured input budget and has no safe compaction boundary");
     }
-    if (kept.length === 0) {
+    if (kept.length === 0 && omitted.length === 0) {
       throw contextError("Context exceeds the configured input budget and has no safe compaction boundary");
     }
 
-    const firstKept = kept[0]!.startIndex;
+    const firstKept = kept[0]?.startIndex ?? messages.length;
     if (persisted !== undefined && persisted.firstKeptMessageIndex >= firstKept) {
       const installed = compose(persisted.summary, persisted.firstKeptMessageIndex);
       if (force || !estimatePrepared(installed).exceeds) {

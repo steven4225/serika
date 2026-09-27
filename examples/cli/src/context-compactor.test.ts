@@ -766,6 +766,31 @@ describe("ContextCompactor", () => {
     assert.equal(store.records.length, 2);
   });
 
+  it("summarizes a completed tool result that does not fit beside the user message", async () => {
+    const store = new FakeStore();
+    const summarizer = new FakeSummarizer();
+    const prepared = await makeCompactor(store, summarizer, roomyBudget).prepare([
+      user("u1", "inspect the banner"),
+      {
+        id: "read-1",
+        role: "assistant",
+        parts: [{
+          type: "dynamic-tool",
+          toolName: "read_file",
+          toolCallId: "read-1",
+          state: "output-available",
+          input: { path: "examples/cli/src/tui.ts" },
+          output: { ok: true, path: "examples/cli/src/tui.ts", content: "x".repeat(8_000), bytes: 8_000 },
+        }],
+      },
+    ], new AbortController().signal);
+
+    assert.equal(summarizer.calls > 0, true);
+    assert.equal(store.records.length, 1);
+    assert.equal(prepared.some((message) => message.id === "runloom-context-summary"), true);
+    assert.equal(JSON.stringify(prepared).includes("x".repeat(200)), false);
+  });
+
   it("fails when the current turn alone exceeds the input budget", async () => {
     const store = new FakeStore();
     const summarizer = new FakeSummarizer();
