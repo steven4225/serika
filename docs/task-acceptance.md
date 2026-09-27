@@ -10,7 +10,7 @@
 | A02 拒绝写入或执行 | TUI `y/n`；`tui.test.ts`、`web-loop-acceptance.test.ts` | 旧拒绝写入记录同上；当前原件未找到。检查拒绝后目标文件不存在或原文件不变、同一 Run 不绕过拒绝。 |
 | A03 工具成功后 Run 失败 | TUI 已完成操作回执；`tui.test.ts` 覆盖文件、任务、记忆与 checkpoint | 已有真实存储加测试模型的文件落盘检查；真实模型行为另记，不能把 Run 失败写成文件未保存。 |
 | A04 搜索、原文、报告 | TUI `web_search`、`web_fetch`、`write_file`；`web-loop-acceptance.test.ts` | 旧 N1/N2 真实记录见 `agent-capability-roadmap.local.md`，所指临时报告当前未找到。Exa 当前主链仍需留可核对的新证据。 |
-| A05 小范围代码修复 | TUI 文件与 Shell；相关工具测试及 R6 真实修复记录 | R6 路线图所指临时原件当前未找到；选隔离仓库中的可复现小问题重新核验。 |
+| A05 小范围代码修复 | TUI 文件与 Shell；相关工具测试 | 2026-09-27 真实 DeepSeek TUI 在隔离合成仓库通过：复现 `exitCode: 1`、只改 `src/sum.mjs`、同命令复测 `exitCode: 0`、未提交。原件见 `/private/tmp/runloom-stage2-a05-retest.kknrMm/A05/live-3/`。这只证明隔离小修复；宿主 Shell 逐次确认不等于 Docker 沙箱；尚未用 Runloom 自身 issue 验证迁移。 |
 | A06 一次性任务改期及拒绝 | `task_reschedule`、`/task reschedule`；`task-store.test.ts`、`tui.test.ts` | 锁内改期、并发、回执已有离线证据。2026-09-26 真实 TUI：自然语言拒绝后原 `runAt` 未变；确认后仍只有 1 条任务、ID 不变、`runAt` 为 `2026-09-29T13:30:00.000Z`，未走取消后新建。这只证明已改期，不证明到期执行或通知送达。`/task show` 后提示符被输出盖住是独立 TUI 体验缺陷，不影响改期结论。 |
 | A07 RSS 按需读取 | `feed_read`、`web_fetch`；`feed-read.test.ts`、`tui.test.ts` | M9 的真实 feed→原文，以及拒绝后零请求待补。 |
 | A08 M10 workspace 简报 | `task_repeat_create`、worker `--workspace-context`、inbox；`task-worker-context.test.ts`、`task-worker.test.ts` | 本轮真实模型 worker 下半链已通过；真 TUI 创建与 `y/n` 尚未验收，A08 整项待完成。 |
@@ -81,6 +81,14 @@ RUNLOOM_MODEL=deepseek node --env-file=.env examples/cli/dist/index.js \
 `RUNLOOM_TEST_TRANSCRIPTS`、`RUNLOOM_TEST_CONFIG` 与 `RUNLOOM_TEST_WORKSPACE` 均应指向隔离目录；配置文件放在 workspace 外。操作人看完每次预览后手动输入 `y` 或 `n`。真实模型请求可能花费额度并受 DNS、服务限流影响；这类失败照实记 `blocked` 或 `failed`，不能用后续成功覆盖首次记录。离线受控 HTTP、mock 模型和真实网络分别标注。
 
 ## 待补的主验收
+
+### A05：隔离小修复已通过，迁移能力未测
+
+配置启用 `modules.read-file` 与 `modules.shell`，不要把任务范围写成宿主已被操作系统限制。输入使用 [开发任务模板](development-task-template.md)。验证命令必须直接运行，不能在后面拼接 `echo`。
+
+2026-09-27 真实 DeepSeek TUI（`feat/development-task-loop` 脏工作树，commit `1ddc6a6`）在隔离合成仓库完成：读代码与测试 → `node --test test/sum.test.mjs` 得到工具 `exitCode: 1` → 只把 `src/sum.mjs` 的减法改成加法 → 同命令 `exitCode: 0` → `git status` 仅该文件未暂存。6 个模型步，未触达默认 8 步 / 120 秒执行预算。首次沙箱 DNS 失败和首次 `echo` 掩盖退出码的尝试不算通过；复验在新 Thread。报告见 `/private/tmp/runloom-stage2-a05-retest.kknrMm/A05/live-3/report.md`。
+
+该项证明隔离确定性缺陷可走完调查→复现→修改→验证。不证明 Docker 沙箱、也不证明对 Runloom 自身仓库的迁移能力。
 
 ### A06：改期及拒绝
 
