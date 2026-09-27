@@ -2157,6 +2157,7 @@ describe("runTui", () => {
     await nextTurn();
     input.write("/resume\n");
     await waitFor(() => output.text().includes("[resume] stale HEAD"));
+    await waitFor(() => /\[resume\] stale HEAD[\s\S]*> /.test(output.text()));
     assert.equal(seen.length, 0);
     input.write("/history\n");
     await waitFor(() => commandCalls === 1);
