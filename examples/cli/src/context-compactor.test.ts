@@ -8,7 +8,7 @@ import type {
 } from "@aisdk-agent/core";
 import { AgentError } from "@aisdk-agent/core";
 import { ContextCompactor, type ContextCompactorOptions } from "./context-compactor.js";
-import type { ContextSummaryV2, Summarizer } from "./context-compaction.js";
+import { contextSummaryPrompt, type ContextSummaryV2, type Summarizer } from "./context-compaction.js";
 import type { ContextBudgetConfig } from "./context-budget.js";
 import {
   CHECKPOINT_CONTEXT_MESSAGE_ID,
@@ -104,6 +104,16 @@ function makeCompactor(
 }
 
 describe("ContextCompactor", () => {
+  it("asks the summarizer for evidenced values without an empty JSON template", () => {
+    const prompt = contextSummaryPrompt({ messages: [user("u1", "Continue the report")] });
+    assert.match(prompt, /non-empty text/);
+    assert.match(prompt, /actual message id/);
+    assert.match(prompt, /use \[\] when there is no evidence/);
+    assert.match(prompt, /same item fields/);
+    assert.doesNotMatch(prompt, /"text":""|"message-id"|"tool-call-id"/);
+    assert.match(prompt, /Continue the report/);
+  });
+
   it("compacts over-budget history, persists an opaque record, and keeps recent messages", async () => {
     const store = new FakeStore();
     const summarizer = new FakeSummarizer();
@@ -207,6 +217,38 @@ describe("ContextCompactor", () => {
     assert.equal(prepared[0]?.metadata && (prepared[0].metadata as { source?: string }).source, "context-compaction");
   });
 
+  it("links a second compaction to the first and restores the latest summary after restart", async () => {
+    const store = new FakeStore();
+    const summarizer = new FakeSummarizer();
+    const firstMessages = [
+      user("u1", "old goal ".repeat(40)),
+      assistant("a1", "old result ".repeat(40)),
+      user("u2", "new request ".repeat(4)),
+      assistant("a2", "recent result ".repeat(4)),
+    ];
+    const compactor = makeCompactor(store, summarizer);
+    await compactor.prepare(firstMessages, new AbortController().signal);
+    const first = store.records[0];
+    assert.ok(first);
+
+    const laterMessages = [
+      ...firstMessages,
+      user("u3", "another task ".repeat(40)),
+      assistant("a3", "another result ".repeat(40)),
+      user("u4", "continue"),
+    ];
+    const prepared = await compactor.prepare(laterMessages, new AbortController().signal);
+    assert.equal(store.records.length, 2);
+    assert.equal(store.records[1]?.previousCompactionId, first.id);
+    assert.ok((store.records[1]?.firstKeptMessageIndex ?? 0) > (first.firstKeptMessageIndex ?? 0));
+    assert.equal(prepared.at(-1)?.id, "u4");
+
+    const restarted = new FakeSummarizer();
+    const restored = await makeCompactor(store, restarted).prepare(laterMessages, new AbortController().signal);
+    assert.equal(restarted.calls, 0);
+    assert.deepEqual(restored, prepared);
+  });
+
   it("does not compact below the threshold", async () => {
     const store = new FakeStore();
     const summarizer = new FakeSummarizer();
@@ -307,6 +349,50 @@ describe("ContextCompactor", () => {
     assert.equal(persistedSummary.actions[0]?.status, "failed");
   });
 
+  it("summarizes a long completed tool result without splitting its call and result", async () => {
+    const store = new FakeStore();
+    const messages: UIMessage[] = [
+      user("u1", "inspect the file"),
+      {
+        id: "call-1",
+        role: "assistant",
+        parts: [{
+          type: "dynamic-tool",
+          toolName: "read_file",
+          toolCallId: "tool-1",
+          state: "input-available",
+          input: { path: "docs/large.md" },
+        }],
+      },
+      {
+        id: "result-1",
+        role: "assistant",
+        parts: [{
+          type: "dynamic-tool",
+          toolName: "read_file",
+          toolCallId: "tool-1",
+          state: "output-available",
+          input: { path: "docs/large.md" },
+          output: { ok: true, content: "x".repeat(8_000) },
+        }],
+      },
+      user("u2", "what was found?"),
+    ];
+
+    const prepared = await makeCompactor(store, new FakeSummarizer()).prepare(
+      messages,
+      new AbortController().signal,
+    );
+    assert.equal(store.records.length, 1);
+    assert.equal(store.records[0]?.firstKeptMessageIndex, 3);
+    assert.deepEqual(prepared.map((message) => message.id), ["runloom-context-summary", "u2"]);
+    const persistedSummary = store.records[0]?.summary as unknown as ContextSummaryV2;
+    assert.deepEqual(persistedSummary.actions.map((action) => ({
+      id: action.toolCallIds[0],
+      status: action.status,
+    })), [{ id: "tool-1", status: "completed" }]);
+  });
+
   it("does not retry a non-retryable compaction error", async () => {
     const store = new FakeStore();
     const summarizer = new NonRetryableSummarizer();
@@ -319,6 +405,26 @@ describe("ContextCompactor", () => {
       (error: unknown) => error instanceof AgentError && error.data.code === "MODEL_AUTH",
     );
     assert.equal(summarizer.calls, 1);
+    assert.equal(store.records.length, 0);
+  });
+
+  it("does not save a summary when cancelled after model completion", async () => {
+    const store = new FakeStore();
+    const controller = new AbortController();
+    const summarizer: Summarizer = {
+      async complete() {
+        controller.abort(new DOMException("cancelled", "AbortError"));
+        return { text: JSON.stringify(summary) };
+      },
+    };
+    await assert.rejects(
+      () => makeCompactor(store, summarizer).prepare([
+        user("u1", "old request ".repeat(40)),
+        assistant("a1", "old answer ".repeat(40)),
+        user("u2", "continue"),
+      ], controller.signal),
+      /cancelled/,
+    );
     assert.equal(store.records.length, 0);
   });
 
@@ -357,6 +463,67 @@ describe("ContextCompactor", () => {
     );
     assert.equal(boomCalls, 1);
     assert.equal(boomStore.records.length, 0);
+  });
+
+  it("installs a DeepSeek-shaped summary that omits evidence ids and file text", async () => {
+    const store = new FakeStore();
+    const summarizer: Summarizer = {
+      async complete() {
+        return {
+          text: JSON.stringify({
+            version: 2,
+            goal: { text: "continue the task", evidenceMessageIds: ["u1"] },
+            constraints: [],
+            decisions: [{ text: "keep notes only", source: "user", status: "confirmed" }],
+            actions: [{ text: "wrote notes/plan.md", status: "completed", toolCallIds: ["write-1"] }],
+            pending: [],
+            files: [{ path: "notes/plan.md", purpose: "plan" }],
+            nextStep: { text: "continue", evidenceMessageIds: ["u1"] },
+          }),
+        };
+      },
+    };
+    const messages: UIMessage[] = [
+      user("u1", "old request ".repeat(400)),
+      {
+        id: "write-1",
+        role: "assistant",
+        parts: [{
+          type: "dynamic-tool",
+          toolName: "write_file",
+          toolCallId: "write-1",
+          state: "output-available",
+          input: { path: "notes/plan.md", content: "ok" },
+          output: { ok: true, path: "notes/plan.md", bytes: 2 },
+        }],
+      },
+      user("u2", "continue"),
+    ];
+    await makeCompactor(store, summarizer, roomyBudget).prepare(messages, new AbortController().signal);
+    const persisted = store.records[0]?.summary as unknown as ContextSummaryV2;
+    assert.ok(persisted);
+    assert.equal(persisted.files[0]?.path, "notes/plan.md");
+    assert.equal(persisted.decisions[0]?.text, "keep notes only");
+    assert.ok((persisted.decisions[0]?.evidenceMessageIds.length ?? 0) > 0);
+  });
+
+  it("retries invalid summary JSON then installs a valid summary", async () => {
+    const store = new FakeStore();
+    let calls = 0;
+    const summarizer: Summarizer = {
+      async complete() {
+        calls += 1;
+        if (calls === 1) return { text: "{" };
+        return { text: JSON.stringify(summary) };
+      },
+    };
+    await makeCompactor(store, summarizer).prepare([
+      user("u1", "old request ".repeat(40)),
+      assistant("a1", "old answer ".repeat(40)),
+      user("u2", "continue"),
+    ], new AbortController().signal);
+    assert.equal(calls, 2);
+    assert.equal(store.records.length, 1);
   });
 
   it("corrects denied, missing-ok, invented files, and invalid evidence", async () => {

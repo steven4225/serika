@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { AgentError } from "@aisdk-agent/core";
 import type { RegisteredTool } from "@aisdk-agent/ai-sdk-adapter";
-import type { UIMessage } from "ai";
+import { asSchema, type UIMessage } from "ai";
 import { AUTO_CONSOLIDATION_AGENT_ID, MAX_CONSOLIDATION_TURNS } from "../consolidation.js";
 import { MAX_CONTEXT_BYTES } from "../context-window.js";
 import {
@@ -110,6 +110,15 @@ function toolByName(tools: RegisteredTool[], name: string): RegisteredTool {
 }
 
 describe("createMemoryModule", () => {
+  it("exposes a top-level object input schema for provider tool calling", async () => {
+    const { store } = createStore();
+    const prepare = toolByName(setupTools(store, async () => []), "memory_prepare_consolidation").tool;
+    const providerSchema = await asSchema(prepare.inputSchema).jsonSchema;
+    assert.equal(providerSchema.type, "object");
+    const invalid = await asSchema(prepare.inputSchema).validate?.({ mode: "incremental", turns: 1 });
+    assert.equal(invalid?.success, false);
+  });
+
   it("registers the memory tools with the frozen metadata", () => {
     const { store } = createStore();
     const tools = setupTools(store);

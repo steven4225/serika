@@ -78,7 +78,8 @@ function isRetryableCompactionError(error: unknown): boolean {
       error.data.retryable === true &&
       (error.data.code === "MODEL_TIMEOUT" ||
         error.data.code === "MODEL_UNAVAILABLE" ||
-        error.data.code === "MODEL_RATE_LIMIT")
+        error.data.code === "MODEL_RATE_LIMIT" ||
+        error.data.code === "MODEL_BAD_RESPONSE")
     );
   }
   if (typeof error === "object" && error !== null && "statusCode" in error) {
@@ -440,13 +441,10 @@ export class ContextCompactor {
         }),
         this.#options.budget.summaryMaxOutputTokens,
         signal,
+        uniqueIds([...chunk.map((message) => message.id), ...previousEvidenceIds(summary)]),
       );
       abortIfNeeded(signal);
-      const parsedSummary = parseContextSummary(result.text);
-      if (parsedSummary === undefined) {
-        throw contextError("Context compaction returned invalid summary JSON");
-      }
-      summary = parsedSummary;
+      summary = result.summary;
       attempts += result.attempts;
       if (result.usage !== undefined) {
         usage = {
@@ -549,9 +547,11 @@ export class ContextCompactor {
     prompt: string,
     maxOutputTokens: number,
     signal: AbortSignal,
-  ): Promise<{ text: string; usage?: TokenUsage; attempts: number }> {
+    fallbackEvidenceIds: readonly string[],
+  ): Promise<{ summary: ContextSummaryV2; usage?: TokenUsage; attempts: number }> {
     const delays = [0, 250, 1_000];
     let last: unknown;
+    let lastText = "";
     for (let attempt = 0; attempt < delays.length; attempt += 1) {
       abortIfNeeded(signal);
       if (delays[attempt]! > 0) {
@@ -564,8 +564,12 @@ export class ContextCompactor {
           signal.addEventListener("abort", onAbort, { once: true });
         });
       }
+      const requestPrompt = lastText.trim() === ""
+        ? prompt
+        : `${prompt}\n\nThe previous response was not valid ContextSummaryV2 JSON. Reply with only the JSON object.\nPrevious response:\n${truncateSummaryText(lastText, 2_000)}`;
       try {
-        const result = await this.#completeOne(prompt, maxOutputTokens, signal);
+        const result = await this.#completeOne(requestPrompt, maxOutputTokens, signal);
+        lastText = result.text;
         if (result.text.trim() === "") {
           throw new AgentError({
             code: "MODEL_TIMEOUT",
@@ -574,7 +578,20 @@ export class ContextCompactor {
             phase: "model",
           });
         }
-        return { ...result, attempts: attempt + 1 };
+        const summary = parseContextSummary(result.text, fallbackEvidenceIds);
+        if (summary === undefined) {
+          throw new AgentError({
+            code: "MODEL_BAD_RESPONSE",
+            message: "Context compaction returned invalid summary JSON",
+            retryable: true,
+            phase: "model",
+          });
+        }
+        return {
+          summary,
+          attempts: attempt + 1,
+          ...(result.usage === undefined ? {} : { usage: result.usage }),
+        };
       } catch (error) {
         last = error;
         if (signal.aborted) throw abortError(signal);

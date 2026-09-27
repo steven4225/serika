@@ -146,6 +146,21 @@ function hasMemoryTool(turn: readonly UIMessage[]): boolean {
   }));
 }
 
+function isSuccessfulAutoConsolidationTurn(turn: readonly UIMessage[]): boolean {
+  if (!isAutoConsolidationRequest(turn[0]!)) return false;
+  const calls = turn.slice(1).flatMap((message) => message.role === "assistant"
+    ? message.parts.flatMap((part) => {
+        const selected = toolPart(part);
+        return selected?.toolName === "memory_prepare_consolidation" ? [selected] : [];
+      })
+    : []);
+  const call = calls[0];
+  return calls.length === 1 && call !== undefined &&
+    call.state === "output-available" &&
+    record(call.output) &&
+    call.output.ok === true;
+}
+
 function serializedToolContent(value: unknown): string {
   if (typeof value === "string") return value;
   try {
@@ -216,7 +231,8 @@ function userStartedTurns(committedMessages: readonly UIMessage[]): UIMessage[][
 }
 
 /**
- * Select ordinary turns not yet covered by a committed auto-consolidation turn.
+ * Select ordinary turns not yet covered by a committed auto-consolidation turn
+ * with exactly one successful preparation result.
  * Without such a marker, only the latest eight eligible turns are bootstrapped.
  * Assistant and tool text are evidence only; provenance remains bound to the
  * ordinary user message through findCommittedUserMessage/isExactUserQuote.
@@ -227,7 +243,7 @@ export function selectIncrementalConsolidationTurns(
   const turns = userStartedTurns(committedMessages);
   let lastMarker = -1;
   for (let index = 0; index < turns.length; index += 1) {
-    if (isAutoConsolidationRequest(turns[index]![0]!)) lastMarker = index;
+    if (isSuccessfulAutoConsolidationTurn(turns[index]!)) lastMarker = index;
   }
   const bootstrap = lastMarker === -1;
   const eligible = turns
