@@ -70,6 +70,29 @@ describe("parseContextSummary", () => {
     assert.equal(parsed, undefined);
   });
 
+  it("rejects malformed entries instead of silently dropping constraints or decisions", () => {
+    const source = JSON.parse(deepSeekShaped) as Record<string, unknown>;
+    for (const [key, entry] of [
+      ["constraints", { text: " ", evidenceMessageIds: ["u1"] }],
+      ["pending", { text: " ", evidenceMessageIds: ["u1"] }],
+      ["decisions", { text: "do not write", source: "user", status: "unclear" }],
+      ["actions", { text: "unfinished", status: "unclear" }],
+      ["files", { text: "file", purpose: "notes" }],
+    ] as const) {
+      const invalid = { ...source, [key]: [...(source[key] as unknown[]), entry] };
+      assert.equal(parseContextSummary(JSON.stringify(invalid), ["u1"]), undefined, key);
+    }
+  });
+
+  it("rejects omitted sections instead of treating them as empty", () => {
+    const source = JSON.parse(deepSeekShaped) as Record<string, unknown>;
+    for (const key of ["constraints", "pending", "decisions", "actions", "files", "nextStep"]) {
+      const invalid = { ...source };
+      delete invalid[key];
+      assert.equal(parseContextSummary(JSON.stringify(invalid), ["u1"]), undefined, key);
+    }
+  });
+
   it("does not invent a summary when JSON is truncated", () => {
     assert.equal(parseContextSummary("{", ["u1"]), undefined);
   });

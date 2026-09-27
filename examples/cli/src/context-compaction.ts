@@ -181,62 +181,60 @@ export function coerceContextSummary(
   if (version !== 2) return undefined;
   const goal = coerceItem(raw.goal, fallbackEvidenceIds);
   if (goal === undefined) return undefined;
-  if (raw.constraints !== undefined && !Array.isArray(raw.constraints)) return undefined;
-  if (raw.pending !== undefined && !Array.isArray(raw.pending)) return undefined;
-  if (raw.decisions !== undefined && !Array.isArray(raw.decisions)) return undefined;
-  if (raw.actions !== undefined && !Array.isArray(raw.actions)) return undefined;
-  if (raw.files !== undefined && !Array.isArray(raw.files)) return undefined;
+  // An omitted section cannot be distinguished from a forgotten constraint or
+  // unfinished action. Require the explicit empty arrays requested by the prompt.
+  if (!Array.isArray(raw.constraints) || !Array.isArray(raw.pending) ||
+      !Array.isArray(raw.decisions) || !Array.isArray(raw.actions) ||
+      !Array.isArray(raw.files) || !("nextStep" in raw)) return undefined;
 
-  const constraints = (Array.isArray(raw.constraints) ? raw.constraints : []).flatMap((entry) => {
-    const itemValue = coerceItem(entry, fallbackEvidenceIds);
-    return itemValue === undefined ? [] : [itemValue];
-  });
-  const pending = (Array.isArray(raw.pending) ? raw.pending : []).flatMap((entry) => {
-    const itemValue = coerceItem(entry, fallbackEvidenceIds);
-    return itemValue === undefined ? [] : [itemValue];
-  });
+  const constraints = (Array.isArray(raw.constraints) ? raw.constraints : []).map((entry) =>
+    coerceItem(entry, fallbackEvidenceIds));
+  const pending = (Array.isArray(raw.pending) ? raw.pending : []).map((entry) =>
+    coerceItem(entry, fallbackEvidenceIds));
+  if (constraints.includes(undefined) || pending.includes(undefined)) return undefined;
   const nextStep = raw.nextStep === null || raw.nextStep === undefined
     ? null
     : coerceItem(raw.nextStep, fallbackEvidenceIds);
   if (raw.nextStep !== null && raw.nextStep !== undefined && nextStep === undefined) return undefined;
 
-  const decisions: ContextSummaryDecision[] = (Array.isArray(raw.decisions) ? raw.decisions : []).flatMap((entry) => {
+  const decisions = (Array.isArray(raw.decisions) ? raw.decisions : []).map((entry) => {
     const base = coerceItem(entry, fallbackEvidenceIds);
-    if (base === undefined || typeof entry !== "object" || entry === null) return [];
+    if (base === undefined || typeof entry !== "object" || entry === null) return undefined;
     const record = entry as Record<string, unknown>;
-    if (record.source !== "user" && record.source !== "assistant") return [];
+    if (record.source !== "user" && record.source !== "assistant") return undefined;
     if (typeof record.status !== "string" || !decisionStatuses.has(record.status as SummaryDecisionStatus)) {
-      return [];
+      return undefined;
     }
-    return [{ ...base, source: record.source, status: record.status as SummaryDecisionStatus }];
+    return { ...base, source: record.source, status: record.status as SummaryDecisionStatus };
   });
-  const actions: ContextSummaryAction[] = (Array.isArray(raw.actions) ? raw.actions : []).flatMap((entry) => {
+  const actions = (Array.isArray(raw.actions) ? raw.actions : []).map((entry) => {
     const base = coerceItem(entry, fallbackEvidenceIds);
-    if (base === undefined || typeof entry !== "object" || entry === null) return [];
+    if (base === undefined || typeof entry !== "object" || entry === null) return undefined;
     const record = entry as Record<string, unknown>;
     if (typeof record.status !== "string" || !actionStatuses.has(record.status as SummaryActionStatus)) {
-      return [];
+      return undefined;
     }
     const toolCallIds = Array.isArray(record.toolCallIds) ? record.toolCallIds.filter(nonEmpty) : [];
-    return [{ ...base, status: record.status as SummaryActionStatus, toolCallIds }];
+    return { ...base, status: record.status as SummaryActionStatus, toolCallIds };
   });
-  const files: ContextSummaryFile[] = (Array.isArray(raw.files) ? raw.files : []).flatMap((entry) => {
-    if (typeof entry !== "object" || entry === null) return [];
+  const files = (Array.isArray(raw.files) ? raw.files : []).map((entry) => {
+    if (typeof entry !== "object" || entry === null) return undefined;
     const record = entry as Record<string, unknown>;
-    if (!nonEmpty(record.path) || !nonEmpty(record.purpose)) return [];
+    if (!nonEmpty(record.path) || !nonEmpty(record.purpose)) return undefined;
     const base = coerceItem(entry, fallbackEvidenceIds, `${record.purpose.trim()} (${record.path.trim()})`);
-    if (base === undefined) return [];
-    return [{ ...base, path: record.path.trim(), purpose: record.purpose.trim() }];
+    if (base === undefined) return undefined;
+    return { ...base, path: record.path.trim(), purpose: record.purpose.trim() };
   });
+  if (decisions.includes(undefined) || actions.includes(undefined) || files.includes(undefined)) return undefined;
 
   return {
     version: 2,
     goal,
-    constraints,
-    decisions,
-    actions,
-    pending,
-    files,
+    constraints: constraints as ContextSummaryItem[],
+    decisions: decisions as ContextSummaryDecision[],
+    actions: actions as ContextSummaryAction[],
+    pending: pending as ContextSummaryItem[],
+    files: files as ContextSummaryFile[],
     nextStep: nextStep ?? null,
   };
 }

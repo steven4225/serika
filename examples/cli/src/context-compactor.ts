@@ -251,6 +251,14 @@ function reconcilePublishedSummary(
   const keptPreviousActions = (previous?.actions ?? []).filter(
     (action) => !action.toolCallIds.some((id) => factsById.has(id)),
   );
+  // Unfinished plans are not tool successes, but must survive compaction.
+  // A modeled completed/failed action without a receipt is not evidence.
+  const unfinishedActions = summary.actions.filter((action) =>
+    (action.status === "unknown" || action.status === "not_executed") &&
+    action.toolCallIds.length === 0 &&
+    !keptPreviousActions.some((previousAction) =>
+      previousAction.text === action.text && previousAction.status === action.status),
+  ).map((action) => ({ ...action, ...constrain(action) }));
 
   const fileFacts = facts.filter(
     (fact) =>
@@ -275,7 +283,7 @@ function reconcilePublishedSummary(
     goal: constrain(summary.goal),
     constraints: summary.constraints.map(constrain),
     decisions: summary.decisions.map((decision) => ({ ...decision, ...constrain(decision) })),
-    actions: [...keptPreviousActions, ...fromFacts],
+    actions: [...keptPreviousActions, ...fromFacts, ...unfinishedActions],
     pending: summary.pending.map(constrain),
     files: [...keptPreviousFiles, ...newFiles],
     nextStep: summary.nextStep === null ? null : constrain(summary.nextStep),
@@ -513,7 +521,7 @@ export class ContextCompactor {
         return {
           message:
             `上下文摘要已保存。估算 ${metrics.estimatedInputBefore} → ${metrics.estimatedInputAfter} tokens；` +
-            `耗时 ${metrics.durationMs} ms；${formatUsage(metrics.usage)}。原始历史仍可用 /history 回查。`,
+            `耗时 ${metrics.durationMs} ms；尝试 ${metrics.attempts} 次；${formatUsage(metrics.usage)}。原始历史仍可用 /history 回查。`,
         };
       }
       if (!prepared.some((message) =>
@@ -552,6 +560,7 @@ export class ContextCompactor {
     const delays = [0, 250, 1_000];
     let last: unknown;
     let lastText = "";
+    let usage: TokenUsage | undefined;
     for (let attempt = 0; attempt < delays.length; attempt += 1) {
       abortIfNeeded(signal);
       if (delays[attempt]! > 0) {
@@ -569,6 +578,13 @@ export class ContextCompactor {
         : `${prompt}\n\nThe previous response was not valid ContextSummaryV2 JSON. Reply with only the JSON object.\nPrevious response:\n${truncateSummaryText(lastText, 2_000)}`;
       try {
         const result = await this.#completeOne(requestPrompt, maxOutputTokens, signal);
+        if (result.usage !== undefined) {
+          usage = {
+            inputTokens: (usage?.inputTokens ?? 0) + (result.usage.inputTokens ?? 0),
+            outputTokens: (usage?.outputTokens ?? 0) + (result.usage.outputTokens ?? 0),
+            totalTokens: (usage?.totalTokens ?? 0) + (result.usage.totalTokens ?? 0),
+          };
+        }
         lastText = result.text;
         if (result.text.trim() === "") {
           throw new AgentError({
@@ -590,7 +606,7 @@ export class ContextCompactor {
         return {
           summary,
           attempts: attempt + 1,
-          ...(result.usage === undefined ? {} : { usage: result.usage }),
+          ...(usage === undefined ? {} : { usage }),
         };
       } catch (error) {
         last = error;
@@ -598,7 +614,10 @@ export class ContextCompactor {
         if (!isRetryableCompactionError(error)) throw error;
       }
     }
-    throw contextError(`Context compaction failed after ${delays.length} attempts: ${String(last)}`);
+    const observedUsage = usage === undefined
+      ? "usage unavailable (a failed call may still incur cost)"
+      : `returned-response usage ${JSON.stringify(usage)} (failed calls without usage may still incur cost)`;
+    throw contextError(`Context compaction failed after ${delays.length} attempts; ${observedUsage}: ${String(last)}`);
   }
 
   async #completeOne(
