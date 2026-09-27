@@ -244,6 +244,61 @@ describe("fetchWebPage", () => {
     assert.ok(new TextEncoder().encode(result.value.text).byteLength <= WEB_FETCH_MAX_TEXT_BYTES);
   });
 
+  it("truncates at the text budget without splitting a multi-byte character", async () => {
+    const html = `<html><body><p>${"x".repeat(WEB_FETCH_MAX_TEXT_BYTES - 1)}😀</p></body></html>`;
+    const result = await fetchWebPage(
+      { url: "https://example.com/page" },
+      {
+        resolveHost: safeResolver(),
+        fetch: (async () => response(html, 200, { "content-type": "text/html; charset=utf-8" })) as typeof globalThis.fetch,
+      },
+    );
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    const bytes = new TextEncoder().encode(result.value.text);
+    assert.equal(result.value.truncated, true);
+    assert.ok(bytes.byteLength <= WEB_FETCH_MAX_TEXT_BYTES, `got ${bytes.byteLength}`);
+    assert.equal(result.value.text.includes("\uFFFD"), false);
+  });
+
+  it("drops the whole multi-byte character when the budget lands inside its sequence", async () => {
+    // Budget ends after the lead byte and one continuation byte of a 3-byte
+    // character, so only the trailing sequence is incomplete.
+    const html = `<html><body><p>${"x".repeat(WEB_FETCH_MAX_TEXT_BYTES - 2)}你</p></body></html>`;
+    const result = await fetchWebPage(
+      { url: "https://example.com/page" },
+      {
+        resolveHost: safeResolver(),
+        fetch: (async () => response(html, 200, { "content-type": "text/html; charset=utf-8" })) as typeof globalThis.fetch,
+      },
+    );
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    const bytes = new TextEncoder().encode(result.value.text);
+    assert.equal(result.value.truncated, true);
+    assert.ok(bytes.byteLength <= WEB_FETCH_MAX_TEXT_BYTES, `got ${bytes.byteLength}`);
+    assert.equal(result.value.text.includes("\uFFFD"), false);
+    assert.equal(result.value.text, "x".repeat(WEB_FETCH_MAX_TEXT_BYTES - 2));
+  });
+
+  it("keeps a complete multi-byte character that ends exactly at the text budget", async () => {
+    const html = `<html><body><p>${"x".repeat(WEB_FETCH_MAX_TEXT_BYTES - 3)}你z</p></body></html>`;
+    const result = await fetchWebPage(
+      { url: "https://example.com/page" },
+      {
+        resolveHost: safeResolver(),
+        fetch: (async () => response(html, 200, { "content-type": "text/html; charset=utf-8" })) as typeof globalThis.fetch,
+      },
+    );
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    const bytes = new TextEncoder().encode(result.value.text);
+    assert.equal(result.value.truncated, true);
+    assert.ok(bytes.byteLength <= WEB_FETCH_MAX_TEXT_BYTES, `got ${bytes.byteLength}`);
+    assert.equal(result.value.text.includes("\uFFFD"), false);
+    assert.equal(result.value.text, `${"x".repeat(WEB_FETCH_MAX_TEXT_BYTES - 3)}你`);
+  });
+
   it("marks a body beyond the raw response budget as truncated", async () => {
     const result = await fetchWebPage(
       { url: "https://example.com/large" },

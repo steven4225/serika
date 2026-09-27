@@ -625,7 +625,18 @@ export async function fetchWebPage(
   const textBytes = new TextEncoder().encode(text);
   let truncated = result.value.truncated;
   if (textBytes.byteLength > WEB_FETCH_MAX_TEXT_BYTES) {
-    text = decoder.decode(textBytes.subarray(0, WEB_FETCH_MAX_TEXT_BYTES));
+    // Cut at a code point boundary. Walk back over any trailing continuation
+    // bytes to find the lead byte of the sequence the budget landed inside,
+    // then drop that whole sequence when it does not fit. This keeps the
+    // result within the byte budget without inserting U+FFFD and without
+    // discarding a complete character that ends exactly at the budget.
+    let end = WEB_FETCH_MAX_TEXT_BYTES;
+    let start = end;
+    while (start > 0 && (textBytes[start - 1]! & 0xc0) === 0x80) start -= 1;
+    const lead = start > 0 ? textBytes[start - 1]! : 0;
+    const sequenceLength = lead >= 0xf0 ? 4 : lead >= 0xe0 ? 3 : lead >= 0xc0 ? 2 : 1;
+    if (start - 1 + sequenceLength > end) end = start - 1;
+    text = decoder.decode(textBytes.subarray(0, Math.max(0, end)));
     truncated = true;
   }
   const { bytes: _bytes, charset: _charset, ...metadata } = result.value;
