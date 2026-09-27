@@ -2311,6 +2311,7 @@ describe("runTui", () => {
   it("restores the prompt after an async command notification, not before it", async () => {
     const input = ttyInput();
     const output = ttyOutput();
+    const started = deferred<void>();
     const gate = deferred<void>();
     const runtime = testRuntime([]);
     const tui = runTui({
@@ -2320,13 +2321,13 @@ describe("runTui", () => {
       input,
       output,
       commands: new Map([
-        ["task", { async execute() { await gate.promise; output.write("\n[module:task] Task: task-1\n"); } }],
+        ["task", { async execute() { started.resolve(); await gate.promise; output.write("\n[module:task] Task: task-1\n"); } }],
       ]),
     });
 
     await nextTurn();
     input.write("/task show task-1\n");
-    await nextTurn();
+    await started.promise;
     assert.equal(output.text().includes("Task: task-1"), false);
     gate.resolve();
     await waitFor(() => output.text().includes("Task: task-1"));
