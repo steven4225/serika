@@ -1158,6 +1158,15 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
           if (state.kind === "resuming" && state.controller === controller) {
             state = { kind: "idle" };
           }
+          if (
+            state.kind === "idle" &&
+            isTTY(input) &&
+            !inputClosed &&
+            !runStarting &&
+            !dispatchingCommand
+          ) {
+            readline.prompt();
+          }
         }
       })();
       tasks.add(task);
@@ -1197,6 +1206,15 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
         } finally {
           if (state.kind === "compacting" && state.controller === controller) {
             state = { kind: "idle" };
+          }
+          if (
+            state.kind === "idle" &&
+            isTTY(input) &&
+            !inputClosed &&
+            !runStarting &&
+            !dispatchingCommand
+          ) {
+            readline.prompt();
           }
         }
       })();
