@@ -1,0 +1,5 @@
+# Single-package repo; this file only carries pnpm settings.
+# Electron needs its postinstall to download the runtime binary.
+allowBuilds:
+  electron: true
+  esbuild: true
