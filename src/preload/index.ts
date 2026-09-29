@@ -3,11 +3,12 @@ import { IPC, type MainToRenderer, type RendererApi } from "../shared/ui-contrac
 
 const api: RendererApi = {
   info: () => ipcRenderer.invoke(IPC.info),
+  snapshot: () => ipcRenderer.invoke(IPC.snapshot),
   history: () => ipcRenderer.invoke(IPC.history),
   home: () => ipcRenderer.invoke(IPC.home),
   run: (text) => ipcRenderer.invoke(IPC.run, text),
   cancel: () => ipcRenderer.invoke(IPC.cancel),
-  confirm: (line) => ipcRenderer.invoke(IPC.confirm, line),
+  confirm: (input) => ipcRenderer.invoke(IPC.confirm, input),
   command: (line) => ipcRenderer.invoke(IPC.command, line),
   hide: () => ipcRenderer.invoke(IPC.hide),
   onMessage: (listener) => {

@@ -13,7 +13,8 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
-    "check": "pnpm typecheck && pnpm build"
+    "test": "tsx --test src/shared/*.test.ts src/main/*.test.ts src/renderer/src/*.test.ts",
+    "check": "pnpm typecheck && pnpm test && pnpm build"
   },
   "dependencies": {
     "@aisdk-agent/core": "link:../aisdk-agent-framework/packages/core",
@@ -29,6 +30,7 @@
     "ai": "7.0.37",
     "electron": "44.4.5",
     "electron-vite": "5.0.0",
+    "tsx": "4.23.15",
     "typescript": "7.0.2",
     "vite": "7.3.6"
   }

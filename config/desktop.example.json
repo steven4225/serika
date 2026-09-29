@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "workspace": "/absolute/path/to/workspace",
+  "modules": {
+    "pomodoro": { "enabled": true },
+    "read-file": { "enabled": true },
+    "memory": { "enabled": true },
+    "checkpoint": { "enabled": true },
+    "task": { "enabled": true },
+    "shell": { "enabled": true, "timeoutMs": 300000 }
+  },
+  "run": {
+    "totalTimeoutMs": 600000
+  }
+}

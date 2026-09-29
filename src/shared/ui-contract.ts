@@ -5,16 +5,44 @@ import type { AgentEvent, RunResult } from "@aisdk-agent/core";
  * The only surface between the Electron main process and the renderer.
  *
  * The renderer never sees runtime objects. It receives a stream of
- * `MainToRenderer` messages and issues a small set of typed requests. The
- * visible state machine mirrors the TUI: idle | running | compacting |
- * resuming, plus at most one pending tool confirmation.
+ * `MainToRenderer` messages and issues a small set of typed requests that
+ * forward to AssistantController. Visible state matches the controller:
+ * idle | running | compacting | resuming | command, plus at most one
+ * pending tool approval keyed by approvalId.
  */
+
+export type RunPhase = "primary" | "consolidation";
 
 export type UiState =
   | { kind: "idle" }
-  | { kind: "running"; runId: string | null }
+  | { kind: "running"; runId: string | null; phase: RunPhase }
   | { kind: "compacting" }
-  | { kind: "resuming" };
+  | { kind: "resuming" }
+  | { kind: "command"; name: string };
+
+export interface PendingApproval {
+  approvalId: string;
+  toolCallId: string;
+  toolName: string;
+  input: unknown;
+  preview: string;
+}
+
+export interface ShellProgressChunk {
+  toolCallId: string;
+  sequence: number;
+  stream: "stdout" | "stderr";
+  text: string;
+  truncated: boolean;
+}
+
+export interface ToolActivity {
+  toolCallId: string;
+  toolName: string;
+  status: "completed" | "failed";
+  summary: string;
+  truncated: boolean;
+}
 
 export interface AppInfo {
   modelAlias: string;
@@ -30,50 +58,65 @@ export interface AppInfo {
   commands: string[];
   hasCompaction: boolean;
   hasResume: boolean;
+  /** Primary Run wall-clock budget from the TUI config (confirmation pauses excluded). */
+  totalTimeoutMs: number;
+  /** Shell command budget from the TUI config. */
+  shellTimeoutMs: number;
+}
+
+export interface UiSnapshot {
+  state: UiState;
+  pendingApproval: PendingApproval | null;
+  recentOutput: string;
+  outputTruncated: boolean;
+  toolActivity: readonly ToolActivity[];
+  lastPrimaryResult: RunResult | null;
+  lastConsolidationResult: RunResult | null;
+  resultTextTruncated: boolean;
+  /** Main-process buffer. The controller snapshot does not include live Shell output. */
+  shellProgress: readonly ShellProgressChunk[];
 }
 
 export type MainToRenderer =
   | { type: "state"; state: UiState }
-  /** Text written by modules or commands. Same text the TUI would print. */
   | { type: "output"; text: string }
-  /** The read-only Home page text, rendered by the runtime. `reset` starts a fresh page. */
   | { type: "home"; text: string; reset?: boolean }
-  /** A tool confirmation is waiting. Exactly one may be pending. */
-  | { type: "confirmation"; prompt: string }
-  | { type: "confirmation-cleared" }
-  | { type: "event"; event: AgentEvent }
-  | { type: "result"; result: RunResult }
+  | { type: "approval"; approval: PendingApproval }
+  | { type: "approval-cleared"; approvalId: string }
+  | { type: "event"; phase: RunPhase; event: AgentEvent }
+  | { type: "result"; phase: RunPhase; result: RunResult }
+  | { type: "shell-progress"; phase: RunPhase; runId: string; progress: ShellProgressChunk }
   | { type: "error"; message: string };
 
-export type BusyReason = "running" | "compacting" | "resuming" | "starting";
+export type ConfirmInput = { approvalId: string; decision: "allow" | "deny" };
 
 export type RunResponse =
   | { ok: true; runId: string }
-  | { ok: false; reason: BusyReason | "empty" };
+  | { ok: false; reason: "busy" | "empty" | "starting" };
 
 export type CommandResponse =
   | { ok: true }
-  | { ok: false; reason: BusyReason | "unknown" | "empty" };
+  | { ok: false; reason: "busy" | "unknown" | "empty" | "cancelled" }
+  | { ok: false; reason: "failed"; message: string };
 
 export type ConfirmResponse = { accepted: boolean };
 
 export interface RendererApi {
   info(): Promise<AppInfo>;
+  snapshot(): Promise<UiSnapshot>;
   history(): Promise<UIMessage[]>;
-  home(): Promise<void>;
+  home(): Promise<CommandResponse>;
   run(text: string): Promise<RunResponse>;
   cancel(): Promise<void>;
-  /** `y` allows, `n` denies. Any other line keeps waiting, as in the TUI. */
-  confirm(line: "y" | "n"): Promise<ConfirmResponse>;
-  /** A line starting with `/`, e.g. `/resume`. */
+  confirm(input: ConfirmInput): Promise<ConfirmResponse>;
   command(line: string): Promise<CommandResponse>;
-  /** Hide the window; the tray icon or global shortcut brings it back. */
   hide(): Promise<void>;
   onMessage(listener: (message: MainToRenderer) => void): () => void;
 }
 
 export const IPC = {
   info: "runloom:info",
+  snapshot: "runloom:snapshot",
   history: "runloom:history",
   home: "runloom:home",
   run: "runloom:run",

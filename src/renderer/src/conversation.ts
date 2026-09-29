@@ -1,21 +1,33 @@
 import type { UIMessage } from "ai";
 import type { AgentEvent, RunResult } from "@aisdk-agent/core";
+import { presentShellExec } from "../../shared/shell-result.js";
+import type { ToolActivity } from "../../shared/ui-contract.js";
+import type { ToolRowStatus } from "../../shared/tool-status.js";
+import type { ShellProgressBuffer } from "../../shared/shell-progress.js";
+
+export type { ToolRowStatus };
 
 /**
  * Renderer-side view of one thread: committed messages read from the Store
  * plus the live Run being streamed. This is a display projection only; the
  * Store remains the single source of committed history and nothing here is
- * written back.
+ * written back. Shell progress is overlayed from a process-local buffer and
+ * never stored as transcript text.
  */
-
-export type ToolRowStatus = "requested" | "ok" | "failed" | "denied" | "unknown";
 
 export interface ToolRow {
   kind: "tool";
   key: string;
+  toolCallId: string;
   toolName: string;
   status: ToolRowStatus;
   detail?: string;
+  stdout?: string;
+  stderr?: string;
+  progressTruncated?: boolean;
+  timedOut?: boolean;
+  cancelled?: boolean;
+  exitCode?: number | null;
 }
 
 export interface TextRow {
@@ -57,8 +69,16 @@ function committedToolStatus(part: Extract<UIMessage["parts"][number], { type: "
         : { status: "failed", detail: part.errorText };
     case "output-denied":
       return { status: "denied" };
-    case "output-available":
+    case "output-available": {
+      const shell = presentShellExec(part.output);
+      if (shell !== undefined) {
+        return {
+          status: shell.status,
+          ...(shell.detail ? { detail: shell.detail } : {}),
+        };
+      }
       return toolOutcome(part.output);
+    }
     case "input-streaming":
     case "input-available":
     case "approval-requested":
@@ -69,6 +89,23 @@ function committedToolStatus(part: Extract<UIMessage["parts"][number], { type: "
       return exhaustive;
     }
   }
+}
+
+function withShellFields(
+  row: ToolRow,
+  output: unknown,
+): ToolRow {
+  const shell = presentShellExec(output);
+  if (shell === undefined) return row;
+  return {
+    ...row,
+    status: shell.status,
+    ...(shell.detail ? { detail: shell.detail } : {}),
+    timedOut: shell.timedOut,
+    cancelled: shell.cancelled,
+    progressTruncated: row.progressTruncated === true || shell.truncated,
+    ...(shell.exitCode !== undefined ? { exitCode: shell.exitCode } : {}),
+  };
 }
 
 /**
@@ -98,18 +135,31 @@ export function rowsFromHistory(messages: readonly UIMessage[]): ConversationRow
       if (part.type === "dynamic-tool") {
         flushText();
         const outcome = committedToolStatus(part);
-        rows.push({
+        const row: ToolRow = {
           kind: "tool",
           key: `h:${message.id}:${part.toolCallId}`,
+          toolCallId: part.toolCallId,
           toolName: part.toolName,
           status: outcome.status,
           ...(outcome.detail ? { detail: outcome.detail } : {}),
-        });
+        };
+        rows.push(part.state === "output-available" ? withShellFields(row, part.output) : row);
       }
     }
     flushText();
   }
   return rows;
+}
+
+export function rowsFromToolActivity(activity: readonly ToolActivity[]): ConversationRow[] {
+  return activity.map((item) => ({
+    kind: "tool" as const,
+    key: `t:${item.toolCallId}`,
+    toolCallId: item.toolCallId,
+    toolName: item.toolName,
+    status: (item.status === "failed" ? "failed" : "ok") as ToolRowStatus,
+    ...(item.truncated ? { detail: "回执已截断" } : {}),
+  }));
 }
 
 export interface LiveRun {
@@ -150,18 +200,28 @@ export function applyEvent(live: LiveRun, event: AgentEvent): LiveRun {
       return {
         rows: [
           ...flushStreaming(live, `t:${seq}:text`),
-          { kind: "tool", key: `t:${event.data.toolCallId}`, toolName: event.data.toolName, status: "requested" },
+          {
+            kind: "tool",
+            key: `t:${event.data.toolCallId}`,
+            toolCallId: event.data.toolCallId,
+            toolName: event.data.toolName,
+            status: "requested",
+          },
         ],
         streaming: "",
       };
     case "tool.call.completed": {
-      const outcome = toolOutcome(event.data.output);
+      const outcome = presentShellExec(event.data.output) ?? toolOutcome(event.data.output);
       return {
-        rows: live.rows.map((row) =>
-          row.kind === "tool" && row.key === `t:${event.data.toolCallId}`
-            ? { ...row, status: outcome.status, ...(outcome.detail ? { detail: outcome.detail } : {}) }
-            : row,
-        ),
+        rows: live.rows.map((row) => {
+          if (row.kind !== "tool" || row.toolCallId !== event.data.toolCallId) return row;
+          const next: ToolRow = {
+            ...row,
+            status: outcome.status,
+            ...(outcome.detail ? { detail: outcome.detail } : {}),
+          };
+          return presentShellExec(event.data.output) === undefined ? next : withShellFields(next, event.data.output);
+        }),
         streaming: live.streaming,
       };
     }
@@ -169,7 +229,7 @@ export function applyEvent(live: LiveRun, event: AgentEvent): LiveRun {
       const unknown = event.data.error.code === "TOOL_OUTCOME_UNKNOWN";
       return {
         rows: live.rows.map((row) =>
-          row.kind === "tool" && row.key === `t:${event.data.toolCallId}`
+          row.kind === "tool" && row.toolCallId === event.data.toolCallId
             ? { ...row, status: unknown ? "unknown" : "failed", detail: event.data.error.message }
             : row,
         ),
@@ -181,8 +241,54 @@ export function applyEvent(live: LiveRun, event: AgentEvent): LiveRun {
   }
 }
 
-export function finishRun(live: LiveRun, result: RunResult): ConversationRow[] {
-  const rows = flushStreaming(live, `r:${result.runId}:text`);
+export function overlayShellProgress(rows: ConversationRow[], buffer: ShellProgressBuffer): ConversationRow[] {
+  return rows.map((row) => {
+    if (row.kind !== "tool") return row;
+    const view = buffer.view(row.toolCallId);
+    if (view === undefined) return row;
+    return {
+      ...row,
+      stdout: view.stdout,
+      stderr: view.stderr,
+      progressTruncated: view.truncated,
+    };
+  });
+}
+
+export function applyShellProgress(
+  live: LiveRun,
+  toolCallId: string,
+  buffer: ShellProgressBuffer,
+): LiveRun {
+  const view = buffer.view(toolCallId);
+  if (view === undefined) return live;
+  const existing = live.rows.some((row) => row.kind === "tool" && row.toolCallId === toolCallId);
+  if (!existing) {
+    return {
+      rows: [
+        ...live.rows,
+        {
+          kind: "tool",
+          key: `t:${toolCallId}`,
+          toolCallId,
+          toolName: "shell_exec",
+          status: "requested",
+          stdout: view.stdout,
+          stderr: view.stderr,
+          progressTruncated: view.truncated,
+        },
+      ],
+      streaming: live.streaming,
+    };
+  }
+  return { rows: overlayShellProgress(live.rows, buffer), streaming: live.streaming };
+}
+
+export function resultRow(result: RunResult): ResultRow {
   const detail = result.error ? `${result.error.code}: ${result.error.message}` : undefined;
-  return [...rows, { kind: "result", key: `r:${result.runId}`, status: result.status, ...(detail ? { detail } : {}) }];
+  return { kind: "result", key: `r:${result.runId}`, status: result.status, ...(detail ? { detail } : {}) };
+}
+
+export function finishRun(live: LiveRun, result: RunResult): ConversationRow[] {
+  return [...flushStreaming(live, `r:${result.runId}:text`), resultRow(result)];
 }

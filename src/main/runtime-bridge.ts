@@ -1,21 +1,26 @@
-import { randomUUID } from "node:crypto";
 import { Writable } from "node:stream";
-import type { UIMessage } from "ai";
-import type { RunHandle, RunResult } from "@aisdk-agent/core";
+import type {
+  AssistantController,
+  AssistantEvent,
+  AssistantSnapshot,
+  AssistantState,
+} from "@aisdk-agent/example-cli/dist/assistant-controller.js";
 import type { RuntimeApp } from "@aisdk-agent/example-cli/dist/app.js";
-import { AUTO_CONSOLIDATION_SOURCE } from "@aisdk-agent/example-cli/dist/consolidation.js";
+import { ShellProgressBuffer } from "../shared/shell-progress.js";
 import type {
   AppInfo,
   CommandResponse,
+  ConfirmInput,
   ConfirmResponse,
   MainToRenderer,
   RunResponse,
+  UiSnapshot,
   UiState,
 } from "../shared/ui-contract.js";
 
-const CONFIRMATION_SUFFIX = /Allow this call\? \[y\/n\]\s*$/;
-const CONFIRMATION_PREAMBLE = /^\s*\[confirmation\][^\n]*\n/;
-const CONFIRMATION_REPROMPT = /Please enter y or n\./;
+const TUI_DEFAULT_TOTAL_TIMEOUT_MS = 120_000;
+const TUI_DEFAULT_SHELL_TIMEOUT_MS = 30_000;
+
 const MODULE_NOTIFICATION = /^\s*\[module:([^\]]+)\]\s*([\s\S]*?)\s*$/;
 
 /** Parsed `[module:id] message` line written by the module host's notify hook. */
@@ -28,36 +33,33 @@ export function parseModuleNotification(text: string): { moduleId: string; messa
 export type Send = (message: MainToRenderer) => void;
 
 /**
- * Routes text the runtime writes to its `output` stream into typed renderer
- * messages. `renderHome` and module notifications all write plain text; the
- * bridge only decides which channel a chunk belongs to.
- *
- * Confirmation detection reads the TUI prompt suffix. This is the P1 bridge
- * until `createToolConfirmation` exposes an explicit pending hook.
+ * Writable passed to `createRuntimeApp`. Every chunk is teed into
+ * `controller.recordOutput` so reload snapshots keep command/Home/module text.
  */
-export class RendererSink extends Writable {
+export class TeeOutput extends Writable {
   #send: Send;
-  #channel: "output" | "home" = "output";
-  /** Observes every message before it is sent; used by the bridge to track state. */
-  observer: ((message: MainToRenderer) => void) | undefined;
+  #controller: AssistantController | undefined;
+  #pending: string[] = [];
+  #home = false;
 
   constructor(send: Send) {
     super({ decodeStrings: false });
-    this.#send = (message) => {
-      this.observer?.(message);
-      send(message);
-    };
+    this.#send = send;
   }
 
-  async captureHome(render: () => Promise<void>): Promise<void> {
-    const previous = this.#channel;
-    this.#channel = "home";
+  attach(controller: AssistantController): void {
+    this.#controller = controller;
+    for (const text of this.#pending) controller.recordOutput(text);
+    this.#pending = [];
+  }
+
+  beginHome(): void {
+    this.#home = true;
     this.#send({ type: "home", text: "", reset: true });
-    try {
-      await render();
-    } finally {
-      this.#channel = previous;
-    }
+  }
+
+  endHome(): void {
+    this.#home = false;
   }
 
   override _write(
@@ -66,60 +68,94 @@ export class RendererSink extends Writable {
     callback: (error?: Error | null) => void,
   ): void {
     const text = typeof chunk === "string" ? chunk : chunk.toString("utf8");
-    if (this.#channel === "home") {
-      this.#send({ type: "home", text });
-    } else if (CONFIRMATION_SUFFIX.test(text) && !CONFIRMATION_REPROMPT.test(text)) {
-      const prompt = text.replace(CONFIRMATION_PREAMBLE, "").replace(CONFIRMATION_SUFFIX, "").trim();
-      this.#send({ type: "confirmation", prompt });
-    } else {
-      this.#send({ type: "output", text });
-    }
+    if (this.#controller !== undefined) this.#controller.recordOutput(text);
+    else this.#pending.push(text);
+    if (this.#home) this.#send({ type: "home", text });
     callback();
   }
 }
 
-function commandParts(line: string): { name: string; args: string } {
-  const trimmed = line.trim().replace(/^\//, "");
-  const space = trimmed.search(/\s/);
-  if (space === -1) return { name: trimmed, args: "" };
-  return { name: trimmed.slice(0, space), args: trimmed.slice(space + 1) };
+export function toUiState(state: AssistantState): UiState {
+  return state;
 }
 
-/**
- * Drives one assembled `RuntimeApp` for a single window. Owns the visible
- * state machine and enforces the same rules as the TUI: one Run at a time,
- * busy input rejected rather than queued, one pending confirmation.
- */
+export function assistantEventToRenderer(event: AssistantEvent): MainToRenderer {
+  switch (event.type) {
+    case "state":
+      return { type: "state", state: toUiState(event.state) };
+    case "approval":
+      return { type: "approval", approval: event.approval };
+    case "approval-cleared":
+      return { type: "approval-cleared", approvalId: event.approvalId };
+    case "run-event":
+      return { type: "event", phase: event.phase, event: event.event };
+    case "run-result":
+      return { type: "result", phase: event.phase, result: event.result };
+    case "shell-progress":
+      return {
+        type: "shell-progress",
+        phase: event.phase,
+        runId: event.runId,
+        progress: event.progress,
+      };
+    case "output":
+      return { type: "output", text: event.text };
+    case "error":
+      return { type: "error", message: event.message };
+    default: {
+      const exhaustive: never = event;
+      return exhaustive;
+    }
+  }
+}
+
+function toUiSnapshot(snapshot: AssistantSnapshot, shellProgress: UiSnapshot["shellProgress"]): UiSnapshot {
+  return {
+    state: toUiState(snapshot.state),
+    pendingApproval: snapshot.pendingApproval,
+    recentOutput: snapshot.recentOutput,
+    outputTruncated: snapshot.outputTruncated,
+    toolActivity: snapshot.toolActivity,
+    lastPrimaryResult: snapshot.lastPrimaryResult,
+    lastConsolidationResult: snapshot.lastConsolidationResult,
+    resultTextTruncated: snapshot.resultTextTruncated,
+    shellProgress,
+  };
+}
+
 export interface BridgeIdentity {
   modelAlias: string;
   temporaryThread: boolean;
   temporaryDirectory: boolean;
 }
 
+/**
+ * Thin IPC adapter over AssistantController. Owns the Shell progress buffer
+ * used to survive renderer reloads; it does not run a second AgentLoop.
+ */
 export class RuntimeBridge {
   readonly #app: RuntimeApp;
-  readonly #sink: RendererSink;
-  readonly #send: Send;
+  readonly #controller: AssistantController;
+  readonly #output: TeeOutput;
   readonly #identity: BridgeIdentity;
-  #state: UiState = { kind: "idle" };
-  #handle: RunHandle | undefined;
-  #busyController: AbortController | undefined;
-  #confirmationPending = false;
+  readonly #shell = new ShellProgressBuffer();
+  readonly #unsubscribe: () => void;
 
-  constructor(app: RuntimeApp, identity: BridgeIdentity, sink: RendererSink, send: Send) {
+  constructor(
+    app: RuntimeApp,
+    controller: AssistantController,
+    identity: BridgeIdentity,
+    output: TeeOutput,
+    send: Send,
+  ) {
     this.#app = app;
+    this.#controller = controller;
     this.#identity = identity;
-    this.#sink = sink;
-    const track = (message: MainToRenderer): void => {
-      if (message.type === "confirmation") this.#confirmationPending = true;
-      if (message.type === "confirmation-cleared") this.#confirmationPending = false;
-    };
-    this.#send = (message) => {
-      track(message);
-      send(message);
-    };
-    // Confirmation prompts arrive through the sink, not through #send.
-    sink.observer = track;
+    this.#output = output;
+    this.#unsubscribe = controller.subscribe((event) => {
+      if (event.type === "shell-progress") this.#shell.apply(event.progress);
+      send(assistantEventToRenderer(event));
+    });
   }
 
   info(): AppInfo {
@@ -138,236 +174,51 @@ export class RuntimeBridge {
       ].sort(),
       hasCompaction: this.#app.compaction !== undefined,
       hasResume: this.#app.resume !== undefined,
+      totalTimeoutMs: this.#app.moduleConfig?.totalTimeoutMs ?? TUI_DEFAULT_TOTAL_TIMEOUT_MS,
+      shellTimeoutMs: this.#app.moduleConfig?.shellTimeoutMs ?? TUI_DEFAULT_SHELL_TIMEOUT_MS,
     };
   }
 
-  state(): UiState {
-    return this.#state;
+  snapshot(): UiSnapshot {
+    return toUiSnapshot(this.#controller.getSnapshot(), this.#shell.snapshot());
   }
 
-  async history() {
-    return this.#app.store.getMessages(this.#app.threadId);
+  history() {
+    return this.#controller.getHistory();
   }
 
-  async home(): Promise<void> {
-    await this.#sink.captureHome(() => this.#app.renderHome());
-  }
-
-  #setState(state: UiState): void {
-    this.#state = state;
-    this.#send({ type: "state", state });
-  }
-
-  #busyReason(): RunResponse | CommandResponse | undefined {
-    switch (this.#state.kind) {
-      case "idle":
-        return undefined;
-      case "running":
-        return { ok: false, reason: "running" };
-      case "compacting":
-        return { ok: false, reason: "compacting" };
-      case "resuming":
-        return { ok: false, reason: "resuming" };
-      default: {
-        const exhaustive: never = this.#state;
-        return exhaustive;
-      }
-    }
-  }
-
-  /**
-   * One Run through the existing AgentLoop: begin/end the confirmation scope,
-   * forward every event, return the result. Mirrors `executeRun` in tui.ts.
-   */
-  async #executeRun(
-    agentId: string,
-    message: UIMessage,
-    onStarted?: (handle: RunHandle) => void,
-  ): Promise<{ result: RunResult; requestedMemoryTool: boolean }> {
-    this.#app.toolConfirmation?.beginRun();
+  async home(): Promise<CommandResponse> {
+    this.#output.beginHome();
     try {
-      const handle = await this.#app.runtime.run({
-        agentId,
-        threadId: this.#app.threadId,
-        messages: [message],
-        context: { agentId },
-      });
-      this.#handle = handle;
-      onStarted?.(handle);
-      let requestedMemoryTool = false;
-      const pump = (async () => {
-        for await (const event of handle.events) {
-          if (event.type === "tool.call.requested" && event.data.toolName.startsWith("memory_")) {
-            requestedMemoryTool = true;
-          }
-          this.#send({ type: "event", event });
-        }
-      })();
-      const result = await handle.result;
-      await pump;
-      return { result, requestedMemoryTool };
+      return await this.#controller.command("/home");
     } finally {
-      this.#handle = undefined;
-      this.#app.toolConfirmation?.endRun();
-      if (this.#confirmationPending) this.#send({ type: "confirmation-cleared" });
+      this.#output.endHome();
     }
   }
 
   async run(text: string): Promise<RunResponse> {
-    const trimmed = text.trim();
-    if (trimmed.length === 0) return { ok: false, reason: "empty" };
-    const busy = this.#busyReason();
-    if (busy !== undefined) return busy as RunResponse;
-
-    this.#setState({ kind: "running", runId: null });
-    const userMessage: UIMessage = {
-      id: randomUUID(),
-      role: "user",
-      parts: [{ type: "text", text: trimmed }],
-    };
-
-    let started: ((handle: RunHandle) => void) | undefined;
-    const startedHandle = new Promise<RunHandle>((resolve) => {
-      started = resolve;
-    });
-    let startFailed: ((error: unknown) => void) | undefined;
-    const startFailure = new Promise<never>((_resolve, reject) => {
-      startFailed = reject;
-    });
-
-    void (async () => {
-      let primary: { result: RunResult; requestedMemoryTool: boolean } | undefined;
-      this.#app.resume?.beginRun();
-      try {
-        try {
-          primary = await this.#executeRun(this.#app.agentId, userMessage, (handle) => {
-            this.#setState({ kind: "running", runId: handle.runId });
-            started?.(handle);
-          });
-        } finally {
-          this.#app.resume?.endRun();
-        }
-        this.#send({ type: "result", result: primary.result });
-
-        // Passive memory consolidation, exactly as the TUI does it: only after a
-        // completed ordinary Run that did not itself touch memory tools.
-        const consolidator = this.#app.autoConsolidationAgentId;
-        if (
-          consolidator !== undefined &&
-          primary.result.status === "completed" &&
-          !primary.requestedMemoryTool
-        ) {
-          this.#send({ type: "output", text: "\n正在自动整理记忆...\n" });
-          const consolidationMessage: UIMessage = {
-            id: randomUUID(),
-            role: "user",
-            metadata: { source: AUTO_CONSOLIDATION_SOURCE },
-            parts: [{ type: "text", text: "请整理最近已提交的对话，先取材，再提出记忆建议；不要保存。" }],
-          };
-          try {
-            const consolidation = await this.#executeRun(consolidator, consolidationMessage);
-            if (consolidation.result.status === "failed" || consolidation.result.status === "timed_out") {
-              const detail = consolidation.result.error?.message ?? consolidation.result.status;
-              this.#send({ type: "output", text: `\nAutomatic consolidation failed: ${detail}\n` });
-            } else {
-              this.#send({ type: "result", result: consolidation.result });
-            }
-          } catch (error) {
-            this.#send({ type: "output", text: `\nAutomatic consolidation failed: ${String(error)}\n` });
-          }
-        }
-      } catch (error) {
-        if (primary === undefined) {
-          startFailed?.(error);
-          this.#send({ type: "error", message: `Run could not start: ${String(error)}` });
-        } else {
-          this.#send({ type: "error", message: `Run could not finish: ${String(error)}` });
-        }
-      } finally {
-        this.#setState({ kind: "idle" });
-      }
-    })();
-
-    try {
-      const handle = await Promise.race([startedHandle, startFailure]);
-      return { ok: true, runId: handle.runId };
-    } catch {
-      return { ok: false, reason: "starting" };
+    if (text.trim().length === 0) return { ok: false, reason: "empty" };
+    if (this.#controller.getSnapshot().state.kind !== "idle") {
+      return this.#controller.run(text);
     }
+    this.#shell.clear();
+    return this.#controller.run(text);
   }
 
-  async cancel(): Promise<void> {
-    if (this.#handle !== undefined) {
-      await this.#handle.cancel("Cancelled from desktop");
-      return;
-    }
-    this.#busyController?.abort(new Error("Cancelled from desktop"));
+  cancel(): Promise<void> {
+    return this.#controller.cancel();
   }
 
-  confirm(line: "y" | "n"): ConfirmResponse {
-    const confirmation = this.#app.toolConfirmation;
-    if (confirmation === undefined) return { accepted: false };
-    const accepted = confirmation.handleLine(line);
-    if (accepted) this.#send({ type: "confirmation-cleared" });
-    return { accepted };
+  confirm(input: ConfirmInput): ConfirmResponse {
+    return { accepted: this.#controller.confirm(input) };
   }
 
-  async command(line: string): Promise<CommandResponse> {
-    const { name, args } = commandParts(line);
-    if (name.length === 0) return { ok: false, reason: "empty" };
-    const busy = this.#busyReason();
-    if (busy !== undefined) return busy as CommandResponse;
-
-    if (name === "compact" && this.#app.compaction !== undefined) {
-      return this.#withBusy({ kind: "compacting" }, async (signal) => {
-        const result = await this.#app.compaction!.compact(signal);
-        this.#send({ type: "output", text: `\n[compact] ${result?.message ?? "Context compacted."}\n` });
-      }, "[compact]");
-    }
-    if (name === "resume" && this.#app.resume !== undefined) {
-      return this.#withBusy({ kind: "resuming" }, async (signal) => {
-        const text = await this.#app.resume!.inspect(signal);
-        this.#send({ type: "output", text: `\n[resume]\n${text}\n` });
-      }, "[resume]");
-    }
-    const command = this.#app.commands?.get(name);
-    if (command === undefined) {
-      this.#send({ type: "output", text: `\nUnknown command: /${name}\n` });
-      return { ok: false, reason: "unknown" };
-    }
-    try {
-      await command.execute(args);
-    } catch (error) {
-      this.#send({ type: "output", text: `\nCommand /${name} failed: ${String(error)}\n` });
-    }
-    return { ok: true };
+  command(line: string): Promise<CommandResponse> {
+    return this.#controller.command(line);
   }
 
-  async #withBusy(
-    state: Extract<UiState, { kind: "compacting" | "resuming" }>,
-    work: (signal: AbortSignal) => Promise<void>,
-    label: string,
-  ): Promise<CommandResponse> {
-    const controller = new AbortController();
-    this.#busyController = controller;
-    this.#setState(state);
-    try {
-      await work(controller.signal);
-    } catch (error) {
-      if (controller.signal.aborted) {
-        if (state.kind === "resuming") this.#app.resume?.clear();
-        this.#send({ type: "output", text: `\n${label} Cancelled.\n` });
-      } else {
-        this.#send({ type: "output", text: `\n${label} Failed: ${String(error)}\n` });
-      }
-    } finally {
-      this.#busyController = undefined;
-      this.#setState({ kind: "idle" });
-    }
-    return { ok: true };
-  }
-
-  dispose(): void {
-    this.#app.dispose();
+  async shutdown(): Promise<void> {
+    this.#unsubscribe();
+    await this.#controller.shutdown();
   }
 }

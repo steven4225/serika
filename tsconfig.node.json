@@ -16,6 +16,8 @@
     "electron.vite.config.ts",
     "src/main/**/*.ts",
     "src/preload/**/*.ts",
-    "src/shared/**/*.ts"
+    "src/shared/**/*.ts",
+    "src/renderer/src/conversation.ts",
+    "src/renderer/src/conversation.test.ts"
   ]
 }

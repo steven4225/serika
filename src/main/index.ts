@@ -2,10 +2,12 @@ import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { app, BrowserWindow, ipcMain, Notification, shell } from "electron";
 import { createRuntimeApp } from "@aisdk-agent/example-cli/dist/app.js";
+import { createAssistantController } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
 import { createDemoModel } from "@aisdk-agent/example-cli/dist/demo-model.js";
 import { configureCliModel } from "@aisdk-agent/example-cli/dist/model-config.js";
-import { IPC, type MainToRenderer } from "../shared/ui-contract.js";
-import { parseModuleNotification, RendererSink, RuntimeBridge } from "./runtime-bridge.js";
+import { IPC, type ConfirmInput, type MainToRenderer } from "../shared/ui-contract.js";
+import { resolveDesktopConfig } from "./desktop-config.js";
+import { parseModuleNotification, RuntimeBridge, TeeOutput } from "./runtime-bridge.js";
 import { installHideOnClose, installTray } from "./tray.js";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
@@ -16,10 +18,14 @@ const here = fileURLToPath(new URL(".", import.meta.url));
  *
  *   RUNLOOM_MODEL        mock | deepseek | minimax-m3   (as in the CLI)
  *   RUNLOOM_CONFIG       path to the TUI --config JSON (must be outside the workspace)
+ *   RUNLOOM_WORKSPACE    used only when generating the userData config
  *   RUNLOOM_TRANSCRIPTS  transcript directory (temporary when omitted)
  *   RUNLOOM_THREAD       thread id (random when omitted)
  */
-function runtimeArgs(env: NodeJS.ProcessEnv): {
+function runtimeArgs(
+  env: NodeJS.ProcessEnv,
+  configPath: string,
+): {
   args: string[];
   temporaryThread: boolean;
   temporaryDirectory: boolean;
@@ -27,16 +33,13 @@ function runtimeArgs(env: NodeJS.ProcessEnv): {
   const args = ["--tui"];
   const transcripts = env.RUNLOOM_TRANSCRIPTS?.trim();
   const thread = env.RUNLOOM_THREAD?.trim();
-  const config = env.RUNLOOM_CONFIG?.trim();
   if (transcripts) args.push(transcripts);
   if (thread) args.push("--thread", thread);
-  if (config) args.push("--config", config);
+  args.push("--config", configPath);
   return { args, temporaryThread: !thread, temporaryDirectory: !transcripts };
 }
 
 function createWindow(): BrowserWindow {
-  // Frameless glass panel: the renderer draws its own rounded shell over the
-  // macOS HUD vibrancy layer, the same construction token-monitor uses.
   const window = new BrowserWindow({
     width: 380,
     height: 680,
@@ -70,7 +73,6 @@ function createWindow(): BrowserWindow {
   return window;
 }
 
-/** Module notifications (timers, worker briefs) surface natively when the window is not in front. */
 function notifyIfHidden(window: BrowserWindow, message: MainToRenderer): void {
   if (message.type !== "output") return;
   const notification = parseModuleNotification(message.text);
@@ -88,6 +90,7 @@ function notifyIfHidden(window: BrowserWindow, message: MainToRenderer): void {
 async function main(): Promise<void> {
   await app.whenReady();
   let quitting = false;
+  let shuttingDown = false;
   const window = createWindow();
   const send = (message: MainToRenderer): void => {
     if (window.isDestroyed()) return;
@@ -105,23 +108,33 @@ async function main(): Promise<void> {
     window.hide();
   });
 
-  const sink = new RendererSink(send);
+  const output = new TeeOutput(send);
   const { modelAlias, model } = configureCliModel(createDemoModel, process.env);
-  const { args, temporaryThread, temporaryDirectory } = runtimeArgs(process.env);
-  let bridge: RuntimeBridge;
+  const desktopConfig = await resolveDesktopConfig({
+    env: process.env,
+    userData: app.getPath("userData"),
+  });
+  const { args, temporaryThread, temporaryDirectory } = runtimeArgs(process.env, desktopConfig.configPath);
+  let bridge!: RuntimeBridge;
   try {
     const runtimeApp = await createRuntimeApp({
       args,
       modelAlias,
       model,
-      output: sink,
+      output,
       env: process.env,
       cwd: process.cwd(),
     });
-    bridge = new RuntimeBridge(runtimeApp, { modelAlias, temporaryThread, temporaryDirectory }, sink, send);
+    const controller = createAssistantController(runtimeApp);
+    output.attach(controller);
+    bridge = new RuntimeBridge(
+      runtimeApp,
+      controller,
+      { modelAlias, temporaryThread, temporaryDirectory },
+      output,
+      send,
+    );
   } catch (error) {
-    // Startup failures are shown, not swallowed; the window stays open so the
-    // user can read the reason and fix the config.
     window.webContents.once("did-finish-load", () => {
       send({ type: "error", message: `Runtime could not start: ${String(error)}` });
     });
@@ -130,22 +143,23 @@ async function main(): Promise<void> {
   }
 
   ipcMain.handle(IPC.info, () => bridge.info());
+  ipcMain.handle(IPC.snapshot, () => bridge.snapshot());
   ipcMain.handle(IPC.history, () => bridge.history());
   ipcMain.handle(IPC.home, () => bridge.home());
   ipcMain.handle(IPC.run, (_event, text: string) => bridge.run(text));
   ipcMain.handle(IPC.cancel, () => bridge.cancel());
-  ipcMain.handle(IPC.confirm, (_event, line: "y" | "n") => bridge.confirm(line));
+  ipcMain.handle(IPC.confirm, (_event, input: ConfirmInput) => bridge.confirm(input));
   ipcMain.handle(IPC.command, (_event, line: string) => bridge.command(line));
 
-  window.webContents.once("did-finish-load", () => {
-    send({ type: "state", state: bridge.state() });
-    void bridge.home();
-  });
-
-  app.on("before-quit", () => {
+  app.on("before-quit", (event) => {
+    if (shuttingDown) return;
+    event.preventDefault();
+    shuttingDown = true;
     quitting = true;
     tray.dispose();
-    bridge.dispose();
+    void bridge.shutdown().finally(() => {
+      app.quit();
+    });
   });
 }
 

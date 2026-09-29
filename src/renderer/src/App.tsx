@@ -1,10 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { AppInfo, MainToRenderer, UiState } from "../../shared/ui-contract.js";
+import type {
+  AppInfo,
+  CommandResponse,
+  MainToRenderer,
+  PendingApproval,
+  UiSnapshot,
+  UiState,
+} from "../../shared/ui-contract.js";
+import { ShellProgressBuffer } from "../../shared/shell-progress.js";
 import {
   applyEvent,
+  applyShellProgress,
   emptyLiveRun,
   finishRun,
+  overlayShellProgress,
+  resultRow,
   rowsFromHistory,
+  rowsFromToolActivity,
   type ConversationRow,
   type LiveRun,
   type ToolRowStatus,
@@ -18,13 +30,36 @@ function stateLabel(state: UiState): string {
     case "idle":
       return "空闲";
     case "running":
-      return "运行中";
+      if (state.runId === null) return "启动中";
+      return state.phase === "consolidation" ? "整理记忆" : "运行中";
     case "compacting":
       return "压缩上下文";
     case "resuming":
       return "核对 Git";
+    case "command":
+      return `/${state.name}`;
     default: {
       const exhaustive: never = state;
+      return exhaustive;
+    }
+  }
+}
+
+function commandError(response: CommandResponse): string {
+  if (response.ok) return "";
+  switch (response.reason) {
+    case "failed":
+      return response.message;
+    case "cancelled":
+      return "命令已取消";
+    case "busy":
+      return "当前忙，未排队";
+    case "unknown":
+      return "未知命令";
+    case "empty":
+      return "命令为空";
+    default: {
+      const exhaustive: never = response;
       return exhaustive;
     }
   }
@@ -46,6 +81,9 @@ function Row({ row }: { row: ConversationRow }) {
           <code>{row.toolName}</code>
           <span className="tool-status">{toolStatusLabel(row.status)}</span>
           {row.detail ? <span className="tool-detail">{row.detail}</span> : null}
+          {row.stdout ? <pre className="shell-stream stdout">{row.stdout}</pre> : null}
+          {row.stderr ? <pre className="shell-stream stderr">{row.stderr}</pre> : null}
+          {row.progressTruncated ? <span className="truncated">输出已截断</span> : null}
         </div>
       );
     case "step":
@@ -53,7 +91,7 @@ function Row({ row }: { row: ConversationRow }) {
     case "result":
       return (
         <div className={`row row-result status-${row.status}`}>
-          Run {row.status}
+          {row.status === "timed_out" ? "主 Run 超时" : `Run ${row.status}`}
           {row.detail ? <span className="tool-detail"> · {row.detail}</span> : null}
         </div>
       );
@@ -76,6 +114,10 @@ function toolStatusLabel(status: ToolRowStatus): string {
       return "已拒绝";
     case "unknown":
       return "结果未知 · 需人工核实";
+    case "timed_out":
+      return "Shell 超时";
+    case "cancelled":
+      return "已取消";
     default: {
       const exhaustive: never = status;
       return exhaustive;
@@ -99,6 +141,12 @@ function Identity({ info }: { info: AppInfo }) {
       </span>
       <span className="pill" title={info.workspaceRoot ?? "未设置 workspace；文件、记忆、checkpoint、任务模块都不可用"}>
         {workspace}
+      </span>
+      <span
+        className="pill"
+        title={`主 Run ${info.totalTimeoutMs} ms（确认等待不计时）\nShell ${info.shellTimeoutMs} ms\n超过 30 秒的任务两条都要大于任务时长`}
+      >
+        {Math.round(info.totalTimeoutMs / 1000)}s / {Math.round(info.shellTimeoutMs / 1000)}s
       </span>
       <button
         className="pill mono"
@@ -160,30 +208,54 @@ export function App() {
   const [history, setHistory] = useState<ConversationRow[]>([]);
   const [live, setLive] = useState<LiveRun>(emptyLiveRun);
   const [lastResult, setLastResult] = useState<ConversationRow | null>(null);
-  const [confirmation, setConfirmation] = useState<string | null>(null);
+  const [approval, setApproval] = useState<PendingApproval | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [showOutput, setShowOutput] = useState(false);
   const homeBuffer = useRef("");
+  const shellBuffer = useRef(new ShellProgressBuffer());
   const conversationEnd = useRef<HTMLDivElement | null>(null);
 
-  // After a Run settles, the Store is the source of truth: replace the live
-  // projection with committed rows so nothing is shown twice.
+  const applySnapshot = useCallback((snapshot: UiSnapshot) => {
+    setState(snapshot.state);
+    setApproval(snapshot.pendingApproval);
+    setOutput(snapshot.recentOutput);
+    shellBuffer.current.clear();
+    for (const chunk of snapshot.shellProgress) shellBuffer.current.apply(chunk);
+    if (snapshot.state.kind === "idle") {
+      setLive(emptyLiveRun);
+      setLastResult(null);
+    } else {
+      setLive({
+        rows: overlayShellProgress(rowsFromToolActivity(snapshot.toolActivity), shellBuffer.current),
+        streaming: "",
+      });
+      setLastResult(snapshot.lastPrimaryResult ? resultRow(snapshot.lastPrimaryResult) : null);
+    }
+  }, []);
+
   const reloadHistory = useCallback(async () => {
     const messages = await window.runloom.history();
-    setHistory(rowsFromHistory(messages));
+    setHistory(overlayShellProgress(rowsFromHistory(messages), shellBuffer.current));
     setLive(emptyLiveRun);
   }, []);
 
   useEffect(() => {
-    void window.runloom.info().then(setInfo).catch((cause: unknown) => setError(String(cause)));
-    void reloadHistory().catch((cause: unknown) => setError(String(cause)));
-    const stop = window.runloom.onMessage((message: MainToRenderer) => {
+    let cancelled = false;
+    let stop = (): void => undefined;
+
+    const onMessage = (message: MainToRenderer): void => {
       switch (message.type) {
         case "state":
           setState(message.state);
+          if (message.state.kind === "running" && message.state.runId === null && message.state.phase === "primary") {
+            shellBuffer.current.clear();
+            setLive(emptyLiveRun);
+            setLastResult(null);
+          }
           if (message.state.kind === "idle") {
             void reloadHistory().catch((cause: unknown) => setError(String(cause)));
+            setLastResult(null);
           }
           return;
         case "output":
@@ -194,21 +266,28 @@ export function App() {
           homeBuffer.current += message.text;
           setHome(homeBuffer.current.trim());
           return;
-        case "confirmation":
-          setConfirmation(message.prompt);
+        case "approval":
+          setApproval(message.approval);
           return;
-        case "confirmation-cleared":
-          setConfirmation(null);
+        case "approval-cleared":
+          setApproval((current) => (current?.approvalId === message.approvalId ? null : current));
           return;
         case "event":
+          if (message.phase !== "primary") return;
           setLive((previous) => applyEvent(previous, message.event));
           return;
         case "result": {
+          if (message.phase !== "primary") return;
           const rows = finishRun(emptyLiveRun, message.result);
           setLastResult(rows.find((row) => row.kind === "result") ?? null);
           setLive((previous) => ({ rows: finishRun(previous, message.result), streaming: "" }));
           return;
         }
+        case "shell-progress":
+          if (message.phase !== "primary") return;
+          shellBuffer.current.apply(message.progress);
+          setLive((previous) => applyShellProgress(previous, message.progress.toolCallId, shellBuffer.current));
+          return;
         case "error":
           setError(message.message);
           return;
@@ -217,9 +296,33 @@ export function App() {
           return exhaustive;
         }
       }
-    });
-    return stop;
-  }, [reloadHistory]);
+    };
+
+    void (async () => {
+      try {
+        const nextInfo = await window.runloom.info();
+        if (cancelled) return;
+        setInfo(nextInfo);
+        const first = await window.runloom.snapshot();
+        if (cancelled) return;
+        applySnapshot(first);
+        stop = window.runloom.onMessage(onMessage);
+        const second = await window.runloom.snapshot();
+        if (cancelled) return;
+        applySnapshot(second);
+        await reloadHistory();
+        const homeResult = await window.runloom.home();
+        if (!homeResult.ok && !cancelled) setError(commandError(homeResult));
+      } catch (cause: unknown) {
+        if (!cancelled) setError(String(cause));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      stop();
+    };
+  }, [applySnapshot, reloadHistory]);
 
   useEffect(() => {
     conversationEnd.current?.scrollIntoView({ block: "end" });
@@ -233,49 +336,48 @@ export function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  const decide = useCallback(async (decision: "allow" | "deny") => {
+    if (approval === null) return;
+    setError(null);
+    const { accepted } = await window.runloom.confirm({ approvalId: approval.approvalId, decision });
+    if (!accepted) setError("这次确认未生效");
+  }, [approval]);
+
   const submit = useCallback(async () => {
     const line = input.trim();
     if (line.length === 0) return;
     setError(null);
-    // While a confirmation is pending the line belongs to it, as in the TUI:
-    // y allows, n denies, anything else keeps waiting.
-    if (confirmation !== null) {
-      if (line === "y" || line === "n") {
-        await window.runloom.confirm(line);
-        setInput("");
-      } else {
-        setError("请输入 y 或 n");
-      }
+    if (approval !== null) {
+      setError("请先处理上方确认");
       return;
     }
     if (line.startsWith("/")) {
       const response = await window.runloom.command(line);
-      if (!response.ok) setError(`命令未执行：${response.reason}`);
+      if (!response.ok) setError(commandError(response));
       setInput("");
       return;
     }
-    setLive(emptyLiveRun);
-    setLastResult(null);
     const response = await window.runloom.run(line);
     if (!response.ok) {
       setError(response.reason === "empty" ? "输入为空" : `当前忙（${response.reason}），未排队`);
       return;
     }
     setInput("");
-  }, [input, confirmation]);
+  }, [input, approval]);
 
   const busy = state.kind !== "idle";
+  const running = state.kind === "running";
   const rows = [...history, ...live.rows, ...(live.rows.length === 0 && lastResult ? [lastResult] : [])];
   const homeView = parseHome(home);
 
   return (
     <div className="app">
       <header className="header">
-        <span className={`state-dot ${state.kind}`} />
+        <span className={`state-dot ${state.kind}${running && state.runId === null ? " starting" : ""}`} />
         <span className="title">Runloom</span>
         <span className="spacer" />
         <span className="state">{stateLabel(state)}</span>
-        {busy && state.kind === "running" ? (
+        {running ? (
           <button className="ghost" onClick={() => void window.runloom.cancel()}>
             取消
           </button>
@@ -289,7 +391,15 @@ export function App() {
           <span className="hint">
             {homeView.time ? `${homeView.time} · ` : ""}参考快照，不是当前磁盘
           </span>
-          <button className="ghost" disabled={busy} onClick={() => void window.runloom.home()}>
+          <button
+            className="ghost"
+            disabled={busy}
+            onClick={() => {
+              void window.runloom.home().then((response) => {
+                if (!response.ok) setError(commandError(response));
+              });
+            }}
+          >
             刷新
           </button>
         </div>
@@ -319,19 +429,21 @@ export function App() {
         {showOutput ? <pre className="output">{output || "（无）"}</pre> : null}
       </section>
 
-      {confirmation ? (
+      {approval ? (
         <section className="card approval">
           <div className="card-head">
             <span>等待确认</span>
-            <span className="hint">同一时刻只有一项 · 不会记住选择</span>
+            <span className="hint">
+              {approval.toolName} · 同一时刻只有一项 · 不会记住选择
+            </span>
           </div>
-          <pre className="prompt">{confirmation}</pre>
+          <pre className="prompt">{approval.preview.length > 0 ? approval.preview : "正在生成预览…"}</pre>
           <div className="actions">
-            <button className="deny" onClick={() => void window.runloom.confirm("n")}>
-              拒绝 N
+            <button className="deny" onClick={() => void decide("deny")}>
+              拒绝
             </button>
-            <button className="allow" onClick={() => void window.runloom.confirm("y")}>
-              允许 Y
+            <button className="allow" onClick={() => void decide("allow")}>
+              允许
             </button>
           </div>
         </section>
@@ -342,9 +454,13 @@ export function App() {
       <footer className="composer">
         <input
           value={input}
-          disabled={busy && confirmation === null}
+          disabled={busy}
           placeholder={
-            busy ? (confirmation ? "先处理上方确认" : "运行中，输入会被拒绝") : "输入消息，/ 开头是命令"
+            approval
+              ? "先处理上方确认"
+              : busy
+                ? "运行中，输入会被拒绝"
+                : "输入消息，/ 开头是命令"
           }
           onChange={(event) => setInput(event.target.value)}
           onKeyDown={(event) => {
