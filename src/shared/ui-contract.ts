@@ -101,6 +101,59 @@ export type CommandResponse =
 
 export type ConfirmResponse = { accepted: boolean };
 
+/** Local audit receipts. Not live progress and not a replay source. */
+export type ExecutionRunStatus =
+  | "running"
+  | "interrupted"
+  | "completed"
+  | "failed"
+  | "cancelled"
+  | "timed_out";
+
+export type ExecutionToolStatus =
+  | "requested"
+  | "not_started"
+  | "started"
+  | "completed"
+  | "failed"
+  | "unknown";
+
+export interface ExecutionToolRecord {
+  toolCallId: string;
+  toolName: string;
+  status: ExecutionToolStatus;
+  requestedAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  inputPreview: string;
+  inputTruncated: boolean;
+  resultPreview: string | null;
+  resultTruncated: boolean;
+  errorPreview: string | null;
+  shell: { exitCode: number | null; timedOut: boolean; cancelled: boolean } | null;
+}
+
+export interface ExecutionRunRecord {
+  runId: string;
+  threadId: string;
+  phase: RunPhase;
+  status: ExecutionRunStatus;
+  startedAt: string;
+  finishedAt: string | null;
+  resultTextPreview: string | null;
+  resultTextTruncated: boolean;
+  errorPreview: string | null;
+  tools: ExecutionToolRecord[];
+}
+
+export type ListRunsResponse =
+  | { ok: true; runs: ExecutionRunRecord[] }
+  | { ok: false; reason: "unavailable"; message: string };
+
+export type GetRunResponse =
+  | { ok: true; run: ExecutionRunRecord | null }
+  | { ok: false; reason: "unavailable"; message: string };
+
 export interface RendererApi {
   info(): Promise<AppInfo>;
   snapshot(): Promise<UiSnapshot>;
@@ -110,6 +163,8 @@ export interface RendererApi {
   cancel(): Promise<void>;
   confirm(input: ConfirmInput): Promise<ConfirmResponse>;
   command(line: string): Promise<CommandResponse>;
+  listRuns(): Promise<ListRunsResponse>;
+  getRun(runId: string): Promise<GetRunResponse>;
   hide(): Promise<void>;
   onMessage(listener: (message: MainToRenderer) => void): () => void;
 }
@@ -123,6 +178,8 @@ export const IPC = {
   cancel: "runloom:cancel",
   confirm: "runloom:confirm",
   command: "runloom:command",
+  listRuns: "runloom:listRuns",
+  getRun: "runloom:getRun",
   hide: "runloom:hide",
   message: "runloom:message",
 } as const;

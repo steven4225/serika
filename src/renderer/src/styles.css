@@ -63,7 +63,8 @@ pre,
 .home-items,
 .prompt,
 .output,
-.shell-stream {
+.shell-stream,
+.record-preview {
   user-select: text;
   -webkit-user-select: text;
 }
@@ -218,7 +219,116 @@ pre,
 }
 
 .home {
-  max-height: 36%;
+  max-height: 28%;
+}
+
+.records {
+  max-height: 32%;
+}
+
+.record-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: auto;
+  scrollbar-width: none;
+  min-height: 0;
+}
+
+.record-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  padding: 4px 8px;
+}
+
+.record-row.selected {
+  border-color: rgba(var(--accent-rgb), 0.55);
+}
+
+.record-row .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex: none;
+}
+
+.record-row.status-running .dot {
+  background: var(--accent);
+}
+
+.record-row.status-interrupted .dot,
+.record-row.status-timed_out .dot {
+  background: var(--orange);
+}
+
+.record-row.status-failed .dot {
+  background: var(--red);
+}
+
+.record-summary {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.record-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: auto;
+  min-height: 0;
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+}
+
+.record-detail-head {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-weight: 600;
+}
+
+.record-tool {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--sunken);
+}
+
+.record-tool-head {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+
+.record-tool.tone-unknown {
+  border: 1px solid rgba(244, 119, 136, 0.45);
+}
+
+.record-tool.tone-fail {
+  border: 1px solid rgba(244, 119, 136, 0.28);
+}
+
+.record-tool.tone-warn {
+  border: 1px solid rgba(244, 160, 115, 0.35);
+}
+
+.record-preview {
+  margin: 0;
+  max-height: 72px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 11px;
+  color: var(--muted);
 }
 
 .home-body {

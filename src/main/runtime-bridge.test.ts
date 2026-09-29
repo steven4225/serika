@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { assistantEventToRenderer } from "./runtime-bridge.js";
 import type { AssistantEvent } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
+import type { ExecutionRunRecord } from "@aisdk-agent/example-cli/dist/execution-record-store.js";
+import { toGetRunResponse, toListRunsResponse, wrapExecutionQuery } from "../shared/execution-records.js";
 
 describe("assistantEventToRenderer", () => {
   it("forwards structured shell progress without reading terminal text", () => {
@@ -59,5 +61,30 @@ describe("assistantEventToRenderer", () => {
       assert.equal(mapped.approval.approvalId, "apr-1");
       assert.equal(mapped.approval.preview, "");
     }
+  });
+});
+
+describe("execution record queries", () => {
+  it("wraps listRuns failures as unavailable instead of an empty list", async () => {
+    const listed = toListRunsResponse(
+      await wrapExecutionQuery(async (): Promise<ExecutionRunRecord[]> => {
+        throw new Error("FILE_INVALID: Execution record file must be an object");
+      }),
+    );
+    assert.equal(listed.ok, false);
+    if (listed.ok) throw new Error("expected unavailable");
+    assert.equal("runs" in listed, false);
+  });
+
+  it("keeps getRun null distinct from a query failure", async () => {
+    const missing = toGetRunResponse(await wrapExecutionQuery(async () => null));
+    assert.equal(missing.ok, true);
+    if (missing.ok) assert.equal(missing.run, null);
+    const failed = toGetRunResponse(
+      await wrapExecutionQuery(async () => {
+        throw new Error("CONFLICT");
+      }),
+    );
+    assert.equal(failed.ok, false);
   });
 });

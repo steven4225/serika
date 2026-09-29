@@ -6,12 +6,20 @@ import type {
   AssistantState,
 } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
 import type { RuntimeApp } from "@aisdk-agent/example-cli/dist/app.js";
+import type { ExecutionRunRecord } from "@aisdk-agent/example-cli/dist/execution-record-store.js";
 import { ShellProgressBuffer } from "../shared/shell-progress.js";
+import {
+  toGetRunResponse,
+  toListRunsResponse,
+  wrapExecutionQuery,
+} from "../shared/execution-records.js";
 import type {
   AppInfo,
   CommandResponse,
   ConfirmInput,
   ConfirmResponse,
+  GetRunResponse,
+  ListRunsResponse,
   MainToRenderer,
   RunResponse,
   UiSnapshot,
@@ -215,6 +223,18 @@ export class RuntimeBridge {
 
   command(line: string): Promise<CommandResponse> {
     return this.#controller.command(line);
+  }
+
+  async listRuns(): Promise<ListRunsResponse> {
+    return toListRunsResponse(
+      await wrapExecutionQuery((): Promise<ExecutionRunRecord[]> => this.#controller.listRuns()),
+    );
+  }
+
+  async getRun(runId: string): Promise<GetRunResponse> {
+    return toGetRunResponse(
+      await wrapExecutionQuery((): Promise<ExecutionRunRecord | null> => this.#controller.getRun(runId)),
+    );
   }
 
   async shutdown(): Promise<void> {

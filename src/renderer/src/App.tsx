@@ -22,6 +22,7 @@ import {
   type ToolRowStatus,
 } from "./conversation.js";
 import { baseName, parseHome, shortId, type HomeView } from "./home.js";
+import { RecordsPanel, type RecordDetailState, type RecordsState } from "./records.js";
 
 const OUTPUT_MAX_CHARS = 64 * 1024;
 
@@ -212,9 +213,12 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [showOutput, setShowOutput] = useState(false);
+  const [records, setRecords] = useState<RecordsState>({ status: "loading" });
+  const [recordDetail, setRecordDetail] = useState<RecordDetailState>({ status: "idle" });
   const homeBuffer = useRef("");
   const shellBuffer = useRef(new ShellProgressBuffer());
   const conversationEnd = useRef<HTMLDivElement | null>(null);
+  const selectedRecordId = useRef<string | null>(null);
 
   const applySnapshot = useCallback((snapshot: UiSnapshot) => {
     setState(snapshot.state);
@@ -240,6 +244,41 @@ export function App() {
     setLive(emptyLiveRun);
   }, []);
 
+  const loadRecords = useCallback(async (selectedRunId?: string) => {
+    const listed = await window.runloom.listRuns();
+    if (!listed.ok) {
+      setRecords({ status: "unavailable", message: listed.message });
+      return;
+    }
+    setRecords({ status: "ready", runs: listed.runs });
+    if (selectedRunId === undefined) return;
+    const opened = await window.runloom.getRun(selectedRunId);
+    if (!opened.ok) {
+      setRecordDetail({ status: "unavailable", runId: selectedRunId, message: opened.message });
+      return;
+    }
+    if (opened.run === null) {
+      setRecordDetail({ status: "missing", runId: selectedRunId });
+      return;
+    }
+    setRecordDetail({ status: "ready", run: opened.run });
+  }, []);
+
+  const openRecord = useCallback(async (runId: string) => {
+    selectedRecordId.current = runId;
+    setRecordDetail({ status: "loading", runId });
+    const opened = await window.runloom.getRun(runId);
+    if (!opened.ok) {
+      setRecordDetail({ status: "unavailable", runId, message: opened.message });
+      return;
+    }
+    if (opened.run === null) {
+      setRecordDetail({ status: "missing", runId });
+      return;
+    }
+    setRecordDetail({ status: "ready", run: opened.run });
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     let stop = (): void => undefined;
@@ -255,6 +294,7 @@ export function App() {
           }
           if (message.state.kind === "idle") {
             void reloadHistory().catch((cause: unknown) => setError(String(cause)));
+            void loadRecords(selectedRecordId.current ?? undefined).catch((cause: unknown) => setError(String(cause)));
             setLastResult(null);
           }
           return;
@@ -311,6 +351,7 @@ export function App() {
         if (cancelled) return;
         applySnapshot(second);
         await reloadHistory();
+        await loadRecords();
         const homeResult = await window.runloom.home();
         if (!homeResult.ok && !cancelled) setError(commandError(homeResult));
       } catch (cause: unknown) {
@@ -322,7 +363,7 @@ export function App() {
       cancelled = true;
       stop();
     };
-  }, [applySnapshot, reloadHistory]);
+  }, [applySnapshot, reloadHistory, loadRecords]);
 
   useEffect(() => {
     conversationEnd.current?.scrollIntoView({ block: "end" });
@@ -405,6 +446,13 @@ export function App() {
         </div>
         <HomeBody view={homeView} />
       </section>
+
+      <RecordsPanel
+        records={records}
+        detail={recordDetail}
+        onRefresh={() => void loadRecords(selectedRecordId.current ?? undefined)}
+        onOpen={(runId) => void openRecord(runId)}
+      />
 
       <section className="card conversation">
         <div className="card-head">

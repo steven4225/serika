@@ -10,6 +10,8 @@ const api: RendererApi = {
   cancel: () => ipcRenderer.invoke(IPC.cancel),
   confirm: (input) => ipcRenderer.invoke(IPC.confirm, input),
   command: (line) => ipcRenderer.invoke(IPC.command, line),
+  listRuns: () => ipcRenderer.invoke(IPC.listRuns),
+  getRun: (runId) => ipcRenderer.invoke(IPC.getRun, runId),
   hide: () => ipcRenderer.invoke(IPC.hide),
   onMessage: (listener) => {
     const wrapped = (_event: IpcRendererEvent, message: MainToRenderer) => listener(message);

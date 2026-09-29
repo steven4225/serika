@@ -150,6 +150,8 @@ async function main(): Promise<void> {
   ipcMain.handle(IPC.cancel, () => bridge.cancel());
   ipcMain.handle(IPC.confirm, (_event, input: ConfirmInput) => bridge.confirm(input));
   ipcMain.handle(IPC.command, (_event, line: string) => bridge.command(line));
+  ipcMain.handle(IPC.listRuns, () => bridge.listRuns());
+  ipcMain.handle(IPC.getRun, (_event, runId: string) => bridge.getRun(runId));
 
   app.on("before-quit", (event) => {
     if (shuttingDown) return;
