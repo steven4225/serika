@@ -3,6 +3,7 @@ import type { UIMessage } from "ai";
 import type { AgentEvent, RunHandle, RunResult } from "@aisdk-agent/core";
 import { AUTO_CONSOLIDATION_SOURCE } from "./consolidation.js";
 import type { RuntimeApp } from "./app.js";
+import type { ExecutionRunRecord } from "./execution-record-store.js";
 import type { ShellProgress } from "./modules/shell-module.js";
 import type { PendingToolApproval } from "./tui.js";
 
@@ -58,6 +59,9 @@ export type ControllerCommandResponse =
 export interface AssistantController {
   getSnapshot(): AssistantSnapshot;
   getHistory(): Promise<UIMessage[]>;
+  /** Newest-first local receipts for this Thread. They never authorize replay. */
+  listRuns(limit?: number): Promise<ExecutionRunRecord[]>;
+  getRun(runId: string): Promise<ExecutionRunRecord | null>;
   run(text: string): Promise<StartRunResponse>;
   cancel(): Promise<void>;
   confirm(input: { approvalId: string; decision: "allow" | "deny" }): boolean;
@@ -87,6 +91,19 @@ function commandParts(line: string): { name: string; args: string } {
 }
 
 export function createAssistantController(app: RuntimeApp): AssistantController {
+  app.enableExecutionRecords();
+  let threadLease: Awaited<ReturnType<RuntimeApp["executionRecords"]["claimThread"]>> | undefined;
+  let recoveryError: unknown;
+  const recovery = (async () => {
+    threadLease = await app.executionRecords.claimThread(app.threadId);
+    await app.executionRecords.recoverInterrupted(app.threadId);
+  })().catch((error: unknown) => {
+    recoveryError = error;
+  });
+  const ensureRecovered = async (): Promise<void> => {
+    await recovery;
+    if (recoveryError !== undefined) throw recoveryError;
+  };
   let state: AssistantState = { kind: "idle" };
   let activeHandle: RunHandle | undefined;
   let startupController: AbortController | undefined;
@@ -173,6 +190,12 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       })();
       const result = await handle.result;
       await pump;
+      try {
+        await app.executionRecords.finishRun(handle.runId, result);
+      } catch (error) {
+        // The Run result is a fact even if its local audit receipt failed.
+        emit({ type: "error", message: `Execution record could not be finalized: ${String(error)}` });
+      }
       if (result.text.length > MAX_RECENT_OUTPUT_CHARS) resultTextTruncated = true;
       const retainedResult = result.text.length > MAX_RECENT_OUTPUT_CHARS
         ? { ...result, text: result.text.slice(-MAX_RECENT_OUTPUT_CHARS) }
@@ -199,6 +222,14 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       resultTextTruncated,
     }),
     getHistory: () => app.store.getMessages(app.threadId),
+    listRuns: async (limit) => {
+      await ensureRecovered();
+      return app.executionRecords.listRuns(app.threadId, limit);
+    },
+    getRun: async (runId) => {
+      await ensureRecovered();
+      return app.executionRecords.getRun(app.threadId, runId);
+    },
     run: async (text) => {
       if (text.trim().length === 0) return { ok: false, reason: "empty" };
       if (closed || state.kind !== "idle") return { ok: false, reason: "busy" };
@@ -222,8 +253,9 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
         const settleStart = (response: StartRunResponse): void => {
           if (!startSettled) { startSettled = true; resolveStarted(response); }
         };
-        app.resume?.beginRun();
         try {
+          await ensureRecovered();
+          app.resume?.beginRun();
           let primary: { result: RunResult; requestedMemoryTool: boolean };
           try {
             primary = await executeRun(app.agentId, userMessage, "primary", startup.signal, (handle) => {
@@ -334,6 +366,8 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       closed = true;
       await controller.cancel();
       await activeTask;
+      await recovery;
+      await threadLease?.release();
       unsubscribeApproval?.();
       unsubscribeShellProgress?.();
       app.resume?.clear();
