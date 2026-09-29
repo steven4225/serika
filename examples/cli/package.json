@@ -3,6 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "exports": {
+    "./dist/*.js": {
+      "types": "./dist/*.d.ts",
+      "import": "./dist/*.js"
+    }
+  },
   "dependencies": {
     "@aisdk-agent/ai-sdk-adapter": "workspace:*",
     "@aisdk-agent/core": "workspace:*",
