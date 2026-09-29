@@ -348,6 +348,46 @@ describe("AssistantController", () => {
     await controller.shutdown();
   });
 
+  it("forwards live shell output only while its Run is active", async () => {
+    const finished = deferred<RunResult>();
+    let progressListener: Parameters<NonNullable<RuntimeApp["subscribeShellProgress"]>>[0] | undefined;
+    const app = appWith({
+      runtime: {
+        run: async () => handle("shell-run", finished, () => undefined),
+      } as unknown as RuntimeApp["runtime"],
+      subscribeShellProgress: (listener) => {
+        progressListener = listener;
+        return () => { progressListener = undefined; };
+      },
+    });
+    const controller = createAssistantController(app);
+    const events: Array<{ runId: string; toolCallId: string; sequence: number }> = [];
+    controller.subscribe((event) => {
+      if (event.type === "shell-progress") {
+        events.push({
+          runId: event.runId,
+          toolCallId: event.progress.toolCallId,
+          sequence: event.progress.sequence,
+        });
+      }
+    });
+    const progress = {
+      toolCallId: "shell-call", sequence: 1, stream: "stdout" as const,
+      text: "testing...", truncated: false,
+    };
+    progressListener?.(progress);
+    assert.deepEqual(events, []);
+    assert.deepEqual(await controller.run("Run a check"), { ok: true, runId: "shell-run" });
+    progressListener?.(progress);
+    assert.deepEqual(events, [{ runId: "shell-run", toolCallId: "shell-call", sequence: 1 }]);
+    finished.resolve(result("shell-run", "completed"));
+    await waitFor(() => controller.getSnapshot().state.kind === "idle");
+    progressListener?.({ ...progress, sequence: 2 });
+    assert.equal(events.length, 1);
+    await controller.shutdown();
+    assert.equal(progressListener, undefined);
+  });
+
   it("waits for active Run cancellation before disposing the app", async () => {
     const finished = deferred<RunResult>();
     const order: string[] = [];

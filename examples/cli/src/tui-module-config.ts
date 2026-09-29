@@ -18,6 +18,7 @@ import {
   validateWorkspacePath,
 } from "./workspace-path.js";
 import type { DockerShellSandboxConfig } from "./modules/docker-shell-runner.js";
+import { SHELL_EXEC_MAX_TIMEOUT_MS, SHELL_EXEC_TIMEOUT_MS } from "./modules/shell-module.js";
 import {
   DEFAULT_CONTEXT_BUDGET_CONFIG,
   validateContextBudgetConfig,
@@ -48,6 +49,10 @@ export const TUI_DEFAULT_MAX_STEPS = 8;
 /** Highest primary TUI Run step budget an explicit config may set. */
 export const TUI_MAX_CONFIGURABLE_STEPS = 32;
 
+/** Default and maximum wall-clock budget for the primary TUI Run, excluding confirmation pauses. */
+export const TUI_DEFAULT_TOTAL_TIMEOUT_MS = 120_000;
+export const TUI_MAX_TOTAL_TIMEOUT_MS = 30 * 60_000;
+
 export interface ResolvedTuiModuleConfig {
   configPath: string | null;
   workspaceRoot: string | null;
@@ -58,8 +63,10 @@ export interface ResolvedTuiModuleConfig {
   todoistTimeZone: string | null;
   fileAuthorizations: readonly FileAuthorizationRule[];
   shellSandbox: DockerShellSandboxConfig | null;
+  shellTimeoutMs: number;
   contextCompaction: ContextBudgetConfig;
   maxSteps: number;
+  totalTimeoutMs: number;
 }
 
 const DEFAULT_TODOIST_TIME_ZONE = "Asia/Shanghai";
@@ -98,6 +105,7 @@ const shellModuleSchema = z
   .object({
     enabled: z.boolean(),
     sandbox: shellSandboxSchema.optional(),
+    timeoutMs: z.number().int().min(1).max(SHELL_EXEC_MAX_TIMEOUT_MS).optional(),
   })
   .strict();
 
@@ -147,7 +155,8 @@ const tuiModuleConfigV1Schema = z
     contextCompaction: contextCompactionSchema.optional(),
     run: z
       .object({
-        maxSteps: z.number().int().min(1).max(TUI_MAX_CONFIGURABLE_STEPS),
+        maxSteps: z.number().int().min(1).max(TUI_MAX_CONFIGURABLE_STEPS).optional(),
+        totalTimeoutMs: z.number().int().min(1).max(TUI_MAX_TOTAL_TIMEOUT_MS).optional(),
       })
       .strict()
       .optional(),
@@ -172,6 +181,7 @@ export interface TuiModuleConfigV1 {
       | {
           enabled: boolean;
           sandbox?: DockerShellSandboxConfig | undefined;
+          timeoutMs?: number | undefined;
         }
       | undefined;
     web?:
@@ -184,7 +194,7 @@ export interface TuiModuleConfigV1 {
   };
   fileAuthorizations?: FileAuthorizationRule[] | undefined;
   contextCompaction?: ContextBudgetConfig | undefined;
-  run?: { maxSteps: number } | undefined;
+  run?: { maxSteps?: number | undefined; totalTimeoutMs?: number | undefined } | undefined;
 }
 
 function configPathFromArgs(args: TuiArgs): string | undefined {
@@ -488,8 +498,10 @@ async function resolveConfiguredMode(
     todoistTimeZone,
     fileAuthorizations,
     shellSandbox,
+    shellTimeoutMs: config.modules.shell?.timeoutMs ?? SHELL_EXEC_TIMEOUT_MS,
     contextCompaction,
     maxSteps: config.run?.maxSteps ?? TUI_DEFAULT_MAX_STEPS,
+    totalTimeoutMs: config.run?.totalTimeoutMs ?? TUI_DEFAULT_TOTAL_TIMEOUT_MS,
   };
 }
 
@@ -535,8 +547,10 @@ async function resolveLegacyMode(
     todoistTimeZone: resolvedTodoistTimeZone,
     fileAuthorizations: [],
     shellSandbox: null,
+    shellTimeoutMs: SHELL_EXEC_TIMEOUT_MS,
     contextCompaction: DEFAULT_CONTEXT_BUDGET_CONFIG,
     maxSteps: TUI_DEFAULT_MAX_STEPS,
+    totalTimeoutMs: TUI_DEFAULT_TOTAL_TIMEOUT_MS,
   };
 }
 

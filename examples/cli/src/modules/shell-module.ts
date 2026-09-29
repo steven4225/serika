@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { resolve } from "node:path";
+import { StringDecoder } from "node:string_decoder";
 import { tool, type Tool } from "ai";
 import { z } from "zod";
 import type { RegisteredTool } from "@aisdk-agent/ai-sdk-adapter";
@@ -14,6 +15,7 @@ import {
 
 /** Maximum time a command is allowed to run before it is terminated. */
 export const SHELL_EXEC_TIMEOUT_MS = 30_000;
+export const SHELL_EXEC_MAX_TIMEOUT_MS = 10 * 60_000;
 
 /** Grace period between SIGTERM and SIGKILL after timeout or cancel. */
 export const SHELL_EXEC_KILL_GRACE_MS = 250;
@@ -40,6 +42,7 @@ export const SHELL_EXEC_DOCKER_TOOL_TIMEOUT_MS =
 
 /** Maximum combined stdout/stderr bytes returned to the model. */
 export const SHELL_EXEC_MAX_OUTPUT_BYTES = 64 * 1024;
+const SHELL_EXEC_MAX_PROGRESS_EVENTS = 256;
 
 export const shellExecErrorCodes = [
   "INVALID_COMMAND",
@@ -83,9 +86,20 @@ export type ShellExecResult = ShellExecSuccess | ShellExecFailure;
 export interface ShellExecOptions {
   timeoutMs?: number;
   maxOutputBytes?: number;
+  onOutput?: ((stream: "stdout" | "stderr", text: string, truncated: boolean) => void) | undefined;
+}
+
+export interface ShellProgress {
+  toolCallId: string;
+  sequence: number;
+  stream: "stdout" | "stderr";
+  text: string;
+  truncated: boolean;
 }
 
 export interface ShellModuleOptions {
+  timeoutMs?: number;
+  onProgress?: ((event: ShellProgress) => void) | undefined;
   sandbox?: DockerShellSandboxConfig;
   dockerExecutable?: string;
 }
@@ -119,14 +133,14 @@ const shellExecOutputSchema = z.discriminatedUnion("ok", [
 
 function shellExecMetadata(
   sandbox: boolean,
+  commandTimeoutMs: number,
 ): RegisteredTool["metadata"] {
   return {
     name: "shell_exec",
     version: "1",
     risk: "external_side_effect",
-    timeoutMs: sandbox
-      ? SHELL_EXEC_DOCKER_TOOL_TIMEOUT_MS
-      : SHELL_EXEC_TOOL_TIMEOUT_MS,
+    timeoutMs: commandTimeoutMs + SHELL_EXEC_KILL_GRACE_MS +
+      (sandbox ? DOCKER_CLEANUP_TIMEOUT_MS : 0) + 750,
     idempotent: false,
   };
 }
@@ -166,10 +180,10 @@ function appendOutput(
   chunk: Buffer | string,
   state: { bytes: number; truncated: boolean },
   maxBytes: number,
-): void {
+): Buffer {
   if (state.bytes >= maxBytes) {
     state.truncated = true;
-    return;
+    return Buffer.alloc(0);
   }
   const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
   const remaining = maxBytes - state.bytes;
@@ -177,10 +191,11 @@ function appendOutput(
     chunks.push(bytes.subarray(0, remaining));
     state.bytes = maxBytes;
     state.truncated = true;
-    return;
+    return bytes.subarray(0, remaining);
   }
   chunks.push(bytes);
   state.bytes += bytes.byteLength;
+  return bytes;
 }
 
 function killChild(child: ChildProcess, signal: NodeJS.Signals): void {
@@ -262,6 +277,19 @@ export async function executeShellCommand(
   );
   const chunks: Buffer[] = [];
   const outputState = { bytes: 0, truncated: false };
+  const decoders = { stdout: new StringDecoder("utf8"), stderr: new StringDecoder("utf8") };
+  const capture = (stream: "stdout" | "stderr", chunk: Buffer | string): void => {
+    const wasTruncated = outputState.truncated;
+    const accepted = appendOutput(chunks, chunk, outputState, maxOutputBytes);
+    if (abortSignal.aborted || options.onOutput === undefined || (accepted.length === 0 && wasTruncated)) return;
+    const text = decoders[stream].write(accepted);
+    if (text.length === 0 && !outputState.truncated) return;
+    try {
+      options.onOutput(stream, text, outputState.truncated);
+    } catch {
+      // UI progress callbacks never determine the command outcome.
+    }
+  };
 
   let child: ChildProcess;
   try {
@@ -311,16 +339,22 @@ export async function executeShellCommand(
     abortSignal.addEventListener("abort", onAbort, { once: true });
     if (abortSignal.aborted) onAbort();
 
-    child.stdout?.on("data", (chunk: Buffer | string) =>
-      appendOutput(chunks, chunk, outputState, maxOutputBytes),
-    );
-    child.stderr?.on("data", (chunk: Buffer | string) =>
-      appendOutput(chunks, chunk, outputState, maxOutputBytes),
-    );
+    child.stdout?.on("data", (chunk: Buffer | string) => capture("stdout", chunk));
+    child.stderr?.on("data", (chunk: Buffer | string) => capture("stderr", chunk));
     child.once("error", (error) => {
       spawnError = error;
     });
     child.once("close", (exitCode, signal) => {
+      for (const stream of ["stdout", "stderr"] as const) {
+        const tail = decoders[stream].end();
+        if (tail && !abortSignal.aborted && options.onOutput !== undefined) {
+          try {
+            options.onOutput(stream, tail, outputState.truncated);
+          } catch {
+            // UI progress callbacks never determine the command outcome.
+          }
+        }
+      }
       const output = Buffer.concat(chunks).toString("utf8");
       if (spawnError !== undefined) {
         finish(mapSpawnFailure(spawnError, validatedCwd.relativePath || "."));
@@ -351,12 +385,25 @@ function createShellExecTool(
         : "Run one non-interactive shell command inside the configured Docker sandbox from a workspace-relative directory. Only the configured mounts are visible; network access is disabled; the command is bounded by a timeout and output limit.",
     inputSchema: shellExecInputSchema,
     outputSchema: shellExecOutputSchema,
-    execute: ({ command, cwd }, { abortSignal }) => {
+    execute: ({ command, cwd }, { abortSignal, toolCallId }) => {
       const input = { command, ...(cwd === undefined ? {} : { cwd }) };
+      let sequence = 0;
+      const onOutput = options.onProgress === undefined ? undefined : (
+        stream: "stdout" | "stderr", text: string, truncated: boolean,
+      ): void => {
+        if (sequence >= SHELL_EXEC_MAX_PROGRESS_EVENTS) return;
+        const capped = sequence === SHELL_EXEC_MAX_PROGRESS_EVENTS - 1;
+        try {
+          options.onProgress?.({ toolCallId, sequence: ++sequence, stream, text: capped ? "" : text, truncated: truncated || capped });
+        } catch {
+          // Progress delivery cannot fail an external command.
+        }
+      };
       if (options.sandbox !== undefined) {
         const dockerOptions: DockerShellRunnerOptions = {
-          timeoutMs: SHELL_EXEC_TIMEOUT_MS,
+          timeoutMs: options.timeoutMs ?? SHELL_EXEC_TIMEOUT_MS,
           maxOutputBytes: SHELL_EXEC_MAX_OUTPUT_BYTES,
+          ...(onOutput === undefined ? {} : { onOutput }),
           ...(options.dockerExecutable === undefined
             ? {}
             : { dockerExecutable: options.dockerExecutable }),
@@ -373,6 +420,7 @@ function createShellExecTool(
         workspaceRoot,
         input,
         abortSignal ?? neverAborted,
+        { timeoutMs: options.timeoutMs ?? SHELL_EXEC_TIMEOUT_MS, onOutput },
       );
     },
   });
@@ -386,7 +434,10 @@ export function createShellModule(
     id: "shell",
     setup(context) {
       context.registerTool({
-        metadata: shellExecMetadata(options.sandbox !== undefined),
+        metadata: shellExecMetadata(
+          options.sandbox !== undefined,
+          options.timeoutMs ?? SHELL_EXEC_TIMEOUT_MS,
+        ),
         tool: createShellExecTool(workspaceRoot, options),
       });
     },

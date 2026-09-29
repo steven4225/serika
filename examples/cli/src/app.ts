@@ -47,6 +47,7 @@ import { createCheckpointModule, type CheckpointMemoryView } from "./modules/che
 import { createPomodoroModule } from "./modules/pomodoro-module.js";
 import { createReadFileModule } from "./modules/read-file-module.js";
 import { createShellModule } from "./modules/shell-module.js";
+import type { ShellProgress } from "./modules/shell-module.js";
 import { assertDockerShellSandboxAvailable } from "./modules/docker-shell-runner.js";
 import {
   createTaskModule,
@@ -62,6 +63,7 @@ import {
 import { todoistPlanSaveInstructions } from "./todoist-plan-save-instructions.js";
 import {
   resolveTuiModuleConfig,
+  TUI_DEFAULT_TOTAL_TIMEOUT_MS,
   type ResolvedTuiModuleConfig,
 } from "./tui-module-config.js";
 import {
@@ -110,6 +112,8 @@ export interface RuntimeApp {
   autoConsolidationAgentId: string | undefined;
   renderHome: () => Promise<void>;
   registerNotificationRedraw: (redraw: () => void) => void;
+  /** Process-local display-only shell output; never enters model context. */
+  subscribeShellProgress?: (listener: (progress: ShellProgress) => void) => () => void;
   dispose(): void;
 }
 
@@ -231,6 +235,13 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     return result.current;
   }
 
+  const shellProgressListeners = new Set<(progress: ShellProgress) => void>();
+  const notifyShellProgress = (progress: ShellProgress): void => {
+    for (const listener of shellProgressListeners) {
+      try { listener(progress); } catch { /* A disconnected view cannot fail a command. */ }
+    }
+  };
+
   const moduleHost =
     tuiMode
       ? createModuleHost(
@@ -248,6 +259,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
               ? [
                   createShellModule(workspaceRoot!, {
                     ...(shellSandbox === undefined ? {} : { sandbox: shellSandbox }),
+                    timeoutMs: moduleConfig!.shellTimeoutMs,
+                    onProgress: notifyShellProgress,
                   }),
                 ]
               : []),
@@ -541,6 +554,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
           `Todoist 规划时区: ${moduleConfig.todoistTimeZone ?? "未启用"}`,
           `自动记忆整理: ${moduleConfig.autoConsolidate ? "on" : "off"}`,
           `主 Run 步数上限: ${moduleConfig.maxSteps}`,
+          `主 Run 总时限: ${moduleConfig.totalTimeoutMs} ms（确认等待不计时）`,
+          ...(moduleConfig.enabled.shell ? [`Shell 命令时限: ${moduleConfig.shellTimeoutMs} ms`] : []),
           `上下文压缩: ${moduleConfig.contextCompaction.enabled ? "on" : "off"}`,
           ...(moduleConfig.contextCompaction.enabled
             ? [`上下文预算: ${moduleConfig.contextCompaction.contextWindowTokens} tokens`]
@@ -647,7 +662,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         tools: registeredTools.map(({ metadata }) => metadata.name),
         limits: {
           maxSteps: tuiMode ? (moduleConfig?.maxSteps ?? 8) : 4,
-          totalTimeoutMs: tuiMode ? 120_000 : 10_000,
+          totalTimeoutMs: tuiMode ? (moduleConfig?.totalTimeoutMs ?? TUI_DEFAULT_TOTAL_TIMEOUT_MS) : 10_000,
           stepTimeoutMs: tuiMode ? 30_000 : 5_000,
           ...(tuiMode && moduleConfig?.contextCompaction.enabled
             ? { maxOutputTokens: moduleConfig.contextCompaction.maxOutputTokens }
@@ -973,8 +988,13 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       registerNotificationRedraw: (redraw) => {
         redrawAfterModuleNotification = redraw;
       },
+      subscribeShellProgress: (listener) => {
+        shellProgressListeners.add(listener);
+        return () => { shellProgressListeners.delete(listener); };
+      },
       dispose: () => {
         redrawAfterModuleNotification = undefined;
+        shellProgressListeners.clear();
         moduleHost?.dispose();
       },
     };

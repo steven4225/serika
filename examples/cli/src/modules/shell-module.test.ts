@@ -9,6 +9,7 @@ import {
   SHELL_EXEC_DOCKER_TOOL_TIMEOUT_MS,
   SHELL_EXEC_KILL_GRACE_MS,
   SHELL_EXEC_MAX_OUTPUT_BYTES,
+  SHELL_EXEC_MAX_TIMEOUT_MS,
   SHELL_EXEC_TIMEOUT_MS,
   SHELL_EXEC_TOOL_TIMEOUT_MS,
   createShellModule,
@@ -118,6 +119,79 @@ describe("createShellModule", () => {
     assert.ok(SHELL_EXEC_DOCKER_TOOL_TIMEOUT_MS > SHELL_EXEC_TOOL_TIMEOUT_MS);
   });
 
+  it("uses a configured command timeout for host execution and tool metadata", async () => {
+    const workspaceRoot = await mkdtemp(join(tmpdir(), "runloom-shell-timeout-"));
+    directories.push(workspaceRoot);
+    const tools: RegisteredTool[] = [];
+    createShellModule(workspaceRoot, { timeoutMs: 50 }).setup({
+      registerTool: (registered) => tools.push(registered),
+      registerCommand: () => {},
+      notify: () => {},
+    });
+    const shell = registeredTool(tools, "shell_exec");
+    assert.equal(shell.metadata.timeoutMs, 50 + SHELL_EXEC_KILL_GRACE_MS + 750);
+    const result = await invoke<ShellExecResult>(shell, {
+      command: nodeCommand("setTimeout(() => {}, 1000)"),
+    });
+    assert.equal(result.ok, true);
+    if (result.ok) assert.equal(result.timedOut, true);
+  });
+
+  it("emits bounded live output with tool call identity without changing the final result", async () => {
+    const workspaceRoot = await mkdtemp(join(tmpdir(), "runloom-shell-progress-"));
+    directories.push(workspaceRoot);
+    const tools: RegisteredTool[] = [];
+    const progress: Array<{ toolCallId: string; sequence: number; stream: string; text: string; truncated: boolean }> = [];
+    createShellModule(workspaceRoot, {
+      onProgress: (event) => {
+        progress.push(event);
+        if (event.sequence === 1) throw new Error("UI disconnected");
+      },
+    }).setup({
+      registerTool: (registered) => tools.push(registered),
+      registerCommand: () => {},
+      notify: () => {},
+    });
+
+    const result = await invoke<ShellExecResult>(registeredTool(tools, "shell_exec"), {
+      command: nodeCommand("process.stdout.write('first'); setTimeout(() => process.stderr.write('second'), 30)"),
+    });
+    assert.equal(result.ok, true);
+    if (result.ok) {
+      assert.equal(result.exitCode, 0);
+      assert.match(result.output, /first/);
+      assert.match(result.output, /second/);
+    }
+    assert.deepEqual(progress.map(({ toolCallId, sequence, stream, text, truncated }) => ({
+      toolCallId, sequence, stream, text, truncated,
+    })), [
+      { toolCallId: "shell-test-call", sequence: 1, stream: "stdout", text: "first", truncated: false },
+      { toolCallId: "shell-test-call", sequence: 2, stream: "stderr", text: "second", truncated: false },
+    ]);
+  });
+
+  it("keeps the configured Docker deadline ahead of cleanup and kill grace", () => {
+    const tools: RegisteredTool[] = [];
+    createShellModule("/tmp/runloom-docker-custom-timeout", {
+      timeoutMs: SHELL_EXEC_MAX_TIMEOUT_MS,
+      sandbox: {
+        backend: "docker",
+        image: "node:22-bookworm-slim",
+        readablePaths: [],
+        writablePaths: [],
+      },
+    }).setup({
+      registerTool: (registered) => tools.push(registered),
+      registerCommand: () => {},
+      notify: () => {},
+    });
+    const shell = registeredTool(tools, "shell_exec");
+    assert.equal(
+      shell.metadata.timeoutMs,
+      SHELL_EXEC_MAX_TIMEOUT_MS + SHELL_EXEC_KILL_GRACE_MS + DOCKER_CLEANUP_TIMEOUT_MS + 750,
+    );
+  });
+
   it("returns a non-zero exit code and combined command output", async () => {
     const workspaceRoot = await mkdtemp(join(tmpdir(), "runloom-shell-module-"));
     directories.push(workspaceRoot);
@@ -146,16 +220,33 @@ describe("createShellModule", () => {
 });
 
 describe("executeShellCommand", () => {
+  it("keeps split UTF-8 characters intact in live progress", async () => {
+    const workspaceRoot = await mkdtemp(join(tmpdir(), "runloom-shell-utf8-"));
+    directories.push(workspaceRoot);
+    const progress: string[] = [];
+    const result = await executeShellCommand(
+      workspaceRoot,
+      { command: nodeCommand("process.stdout.write(Buffer.from([0xe4])); setTimeout(() => process.stdout.write(Buffer.from([0xbd, 0xa0])), 15)") },
+      undefined,
+      { onOutput: (_stream, text) => progress.push(text) },
+    );
+    assert.equal(result.ok, true);
+    if (result.ok) assert.equal(result.output, "你");
+    assert.deepEqual(progress, ["你"]);
+  });
+
   it("reports output truncation without buffering beyond the configured limit", async () => {
     const workspaceRoot = await mkdtemp(join(tmpdir(), "runloom-shell-module-"));
     directories.push(workspaceRoot);
+    const progress: Array<{ text: string; truncated: boolean }> = [];
 
     const result = await executeShellCommand(
       workspaceRoot,
       { command: nodeCommand("process.stdout.write('0123456789')") },
       undefined,
-      { maxOutputBytes: 5 },
+      { maxOutputBytes: 5, onOutput: (_stream, text, truncated) => progress.push({ text, truncated }) },
     );
+    assert.deepEqual(progress, [{ text: "01234", truncated: true }]);
     assert.deepEqual(result, {
       ok: true,
       exitCode: 0,

@@ -2,6 +2,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { lstat } from "node:fs/promises";
 import { join } from "node:path";
+import { StringDecoder } from "node:string_decoder";
 import { rejectSymlinkComponents, validateWorkspacePath } from "../workspace-path.js";
 import type {
   ShellExecFailure,
@@ -21,6 +22,7 @@ export interface DockerShellRunnerOptions {
   timeoutMs: number;
   maxOutputBytes: number;
   dockerExecutable?: string;
+  onOutput?: ((stream: "stdout" | "stderr", text: string, truncated: boolean) => void) | undefined;
 }
 
 const DOCKER_SANDBOX_VALIDATION_TIMEOUT_MS = 5_000;
@@ -61,10 +63,10 @@ function appendOutput(
   chunk: Buffer | string,
   state: { bytes: number; truncated: boolean },
   maxBytes: number,
-): void {
+): Buffer {
   if (state.bytes >= maxBytes) {
     state.truncated = true;
-    return;
+    return Buffer.alloc(0);
   }
   const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
   const remaining = maxBytes - state.bytes;
@@ -72,10 +74,11 @@ function appendOutput(
     chunks.push(bytes.subarray(0, remaining));
     state.bytes = maxBytes;
     state.truncated = true;
-    return;
+    return bytes.subarray(0, remaining);
   }
   chunks.push(bytes);
   state.bytes += bytes.byteLength;
+  return bytes;
 }
 
 function killChild(child: ChildProcess, signal: NodeJS.Signals): void {
@@ -96,6 +99,7 @@ function spawnCapture(
   signal: AbortSignal,
   maxOutputBytes: number,
   timeoutMs: number,
+  onOutput?: (stream: "stdout" | "stderr", text: string, truncated: boolean) => void,
 ): Promise<CaptureResult> {
   let child: ChildProcess;
   try {
@@ -119,6 +123,19 @@ function spawnCapture(
   return new Promise<CaptureResult>((resolveResult) => {
     const chunks: Buffer[] = [];
     const outputState = { bytes: 0, truncated: false };
+    const decoders = { stdout: new StringDecoder("utf8"), stderr: new StringDecoder("utf8") };
+    const capture = (stream: "stdout" | "stderr", chunk: Buffer | string): void => {
+      const wasTruncated = outputState.truncated;
+      const accepted = appendOutput(chunks, chunk, outputState, maxOutputBytes);
+      if (signal.aborted || onOutput === undefined || (accepted.length === 0 && wasTruncated)) return;
+      const text = decoders[stream].write(accepted);
+      if (text.length === 0 && !outputState.truncated) return;
+      try {
+        onOutput(stream, text, outputState.truncated);
+      } catch {
+        // UI progress callbacks never determine Docker command outcome.
+      }
+    };
     let forceKillTimer: ReturnType<typeof setTimeout> | undefined;
     let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
     let abortRequested = false;
@@ -145,17 +162,23 @@ function spawnCapture(
     timeoutTimer = setTimeout(() => terminate(true), timeoutMs);
     signal.addEventListener("abort", onAbort, { once: true });
     if (signal.aborted) onAbort();
-    child.stdout?.on("data", (chunk: Buffer | string) =>
-      appendOutput(chunks, chunk, outputState, maxOutputBytes),
-    );
-    child.stderr?.on("data", (chunk: Buffer | string) =>
-      appendOutput(chunks, chunk, outputState, maxOutputBytes),
-    );
+    child.stdout?.on("data", (chunk: Buffer | string) => capture("stdout", chunk));
+    child.stderr?.on("data", (chunk: Buffer | string) => capture("stderr", chunk));
     let spawnError: unknown;
     child.once("error", (error) => {
       spawnError = error;
     });
     child.once("close", (code, closeSignal) => {
+      for (const stream of ["stdout", "stderr"] as const) {
+        const tail = decoders[stream].end();
+        if (tail && !signal.aborted && onOutput !== undefined) {
+          try {
+            onOutput(stream, tail, outputState.truncated);
+          } catch {
+            // UI progress callbacks never determine Docker command outcome.
+          }
+        }
+      }
       finish({
         code: timedOut || abortRequested ? null : code,
         signal: closeSignal,
@@ -397,6 +420,7 @@ export async function executeDockerShellCommand(
     abortSignal,
     options.maxOutputBytes,
     options.timeoutMs,
+    options.onOutput,
   );
   if (run.spawnError !== undefined && !abortSignal.aborted) {
     const details =
