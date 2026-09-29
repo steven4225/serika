@@ -734,6 +734,61 @@ describe("resolveTuiModuleConfig", () => {
       /Invalid TUI config schema/,
     );
   });
+
+  it("bounds the primary Run timeout independently of maxSteps", async () => {
+    const { configDirectory } = await createConfigWorkspace();
+    const defaultPath = await writeConfig(configDirectory, {
+      version: 1,
+      modules: {},
+    }, "default-timeout.json");
+    const raisedPath = await writeConfig(configDirectory, {
+      version: 1,
+      modules: {},
+      run: { totalTimeoutMs: 1_800_000 },
+    }, "raised-timeout.json");
+    assert.equal(
+      (await resolveTuiModuleConfig(configArgs(defaultPath), { cwd: configDirectory })).totalTimeoutMs,
+      120_000,
+    );
+    const raised = await resolveTuiModuleConfig(configArgs(raisedPath), { cwd: configDirectory });
+    assert.equal(raised.totalTimeoutMs, 1_800_000);
+    assert.equal(raised.maxSteps, 8);
+    for (const [name, totalTimeoutMs] of [["zero", 0], ["negative", -1], ["fraction", 1.5], ["too-high", 1_800_001]] as const) {
+      const path = await writeConfig(configDirectory, {
+        version: 1,
+        modules: {},
+        run: { totalTimeoutMs },
+      }, `${name}-timeout.json`);
+      await assert.rejects(
+        resolveTuiModuleConfig(configArgs(path), { cwd: configDirectory }),
+        /Invalid TUI config schema/,
+      );
+    }
+  });
+
+  it("bounds the Shell command timeout without changing the Run budget", async () => {
+    const { configDirectory } = await createConfigWorkspace();
+    const defaultPath = await writeConfig(configDirectory, {
+      version: 1, workspace: "./workspace", modules: { shell: { enabled: true } },
+    }, "shell-default-timeout.json");
+    const raisedPath = await writeConfig(configDirectory, {
+      version: 1, workspace: "./workspace", modules: { shell: { enabled: true, timeoutMs: 600_000 } },
+    }, "shell-raised-timeout.json");
+    const defaults = await resolveTuiModuleConfig(configArgs(defaultPath), { cwd: configDirectory });
+    assert.equal(defaults.shellTimeoutMs, 30_000);
+    const raised = await resolveTuiModuleConfig(configArgs(raisedPath), { cwd: configDirectory });
+    assert.equal(raised.shellTimeoutMs, 600_000);
+    assert.equal(raised.totalTimeoutMs, 120_000);
+    for (const [name, timeoutMs] of [["zero", 0], ["fraction", 1.5], ["too-high", 600_001]] as const) {
+      const path = await writeConfig(configDirectory, {
+        version: 1, workspace: "./workspace", modules: { shell: { enabled: true, timeoutMs } },
+      }, `shell-${name}-timeout.json`);
+      await assert.rejects(
+        resolveTuiModuleConfig(configArgs(path), { cwd: configDirectory }),
+        /Invalid TUI config schema/,
+      );
+    }
+  });
 });
 
 describe("TUI module configuration entry", () => {

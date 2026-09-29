@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { access, mkdir, mkdtemp, rm } from "node:fs/promises";
+import { access, chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, it } from "node:test";
@@ -102,6 +102,37 @@ describe("assertDockerShellSandboxAvailable", () => {
 });
 
 describe("executeDockerShellCommand", () => {
+  it("forwards Docker run output as display progress without changing its result", async () => {
+    const workspaceRoot = await mkdtemp(join(tmpdir(), "runloom-docker-progress-"));
+    directories.push(workspaceRoot);
+    const executable = join(workspaceRoot, "fake-docker");
+    await writeFile(executable, "#!/usr/bin/env node\nprocess.stdout.write('docker-out'); process.stderr.write('docker-err');\n");
+    await chmod(executable, 0o755);
+    const progress: Array<{ stream: string; text: string }> = [];
+    const result = await executeDockerShellCommand(
+      workspaceRoot,
+      { command: "printf unused" },
+      { ...sandbox, readablePaths: [], writablePaths: [] },
+      new AbortController().signal,
+      {
+        timeoutMs: 1_000,
+        maxOutputBytes: 1_024,
+        dockerExecutable: executable,
+        onOutput: (stream, text) => progress.push({ stream, text }),
+      },
+    );
+    assert.equal(result.ok, true);
+    if (result.ok) {
+      assert.equal(result.exitCode, 0);
+      assert.match(result.output, /docker-out/);
+      assert.match(result.output, /docker-err/);
+    }
+    assert.deepEqual(progress, [
+      { stream: "stdout", text: "docker-out" },
+      { stream: "stderr", text: "docker-err" },
+    ]);
+  });
+
   it("fails closed when Docker is unavailable instead of using the host shell", async () => {
     const workspaceRoot = await mkdtemp(join(tmpdir(), "runloom-docker-shell-"));
     directories.push(workspaceRoot);

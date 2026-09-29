@@ -70,7 +70,7 @@ export async function checkTuiStartup(
     checks.push({ id: "config", level: "ok", message: `Configuration valid; source ${config.configPath ?? "CLI/defaults"}`, blocking: false });
     checks.push({ id: "modules", level: "ok", message: `Enabled modules: ${Object.entries(config.enabled).filter(([, enabled]) => enabled).map(([name]) => name).join(", ") || "none"}; web_search ${config.webSearchEnabled ? "on" : "off"}; feed_read ${config.webFeedEnabled ? "on" : "off"}`, blocking: false });
     checks.push({ id: "context-compaction", level: "ok", message: `Context compaction ${config.contextCompaction.enabled ? "enabled" : "disabled"}`, blocking: false });
-    checks.push({ id: "run-budget", level: "ok", message: `Primary TUI run maxSteps ${config.maxSteps}; default 8, ceiling 32. Step timeout, shell timeout, confirmation pause, and worker limits are unchanged`, blocking: false });
+    checks.push({ id: "run-budget", level: "ok", message: `Primary TUI run maxSteps ${config.maxSteps} (default 8, ceiling 32), totalTimeoutMs ${config.totalTimeoutMs} (default 120000, ceiling 1800000). Shell command timeoutMs ${config.shellTimeoutMs} (default 30000, ceiling 600000). Step timeout, confirmation pause, and worker limits are unchanged`, blocking: false });
     if (config.workspaceRoot !== null) {
       const dataFiles = [
         config.enabled.memory ? `memory ${resolve(config.workspaceRoot, MEMORY_FILE_NAME)}` : null,

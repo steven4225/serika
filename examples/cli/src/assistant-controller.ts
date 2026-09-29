@@ -3,6 +3,7 @@ import type { UIMessage } from "ai";
 import type { AgentEvent, RunHandle, RunResult } from "@aisdk-agent/core";
 import { AUTO_CONSOLIDATION_SOURCE } from "./consolidation.js";
 import type { RuntimeApp } from "./app.js";
+import type { ShellProgress } from "./modules/shell-module.js";
 import type { PendingToolApproval } from "./tui.js";
 
 const MAX_RECENT_OUTPUT_CHARS = 16 * 1024;
@@ -41,6 +42,7 @@ export type AssistantEvent =
   | { type: "approval-cleared"; approvalId: string }
   | { type: "run-event"; phase: "primary" | "consolidation"; event: AgentEvent }
   | { type: "run-result"; phase: "primary" | "consolidation"; result: RunResult }
+  | { type: "shell-progress"; phase: "primary" | "consolidation"; runId: string; progress: ShellProgress }
   | { type: "output"; text: string }
   | { type: "error"; message: string };
 
@@ -119,6 +121,10 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       emit({ type: "approval-cleared", approvalId: previous.approvalId });
     }
     if (next !== undefined) emit({ type: "approval", approval: next });
+  });
+  const unsubscribeShellProgress = app.subscribeShellProgress?.((progress) => {
+    if (state.kind !== "running" || state.runId === null) return;
+    emit({ type: "shell-progress", phase: state.phase, runId: state.runId, progress });
   });
 
   const executeRun = async (
@@ -329,6 +335,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       await controller.cancel();
       await activeTask;
       unsubscribeApproval?.();
+      unsubscribeShellProgress?.();
       app.resume?.clear();
       app.dispose();
       disposed = true;

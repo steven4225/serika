@@ -3,7 +3,10 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
+import { setTimeout as delay } from "node:timers/promises";
 import { describe, it } from "node:test";
+import { simulateReadableStream } from "ai";
+import { MockLanguageModelV3 } from "ai/test";
 import { createRuntimeApp, PRIMARY_AGENT_ID } from "./app.js";
 import { createDemoModel } from "./demo-model.js";
 
@@ -93,8 +96,118 @@ describe("createRuntimeApp", () => {
       assert.match(text(), /\[modules\]/);
       assert.match(text(), /checkpoint: disabled/);
       assert.match(text(), /主 Run 步数上限: 8/);
+      assert.match(text(), /主 Run 总时限: 120000 ms/);
       assert.equal(app.moduleConfig?.maxSteps, 8);
+      assert.equal(app.moduleConfig?.totalTimeoutMs, 120_000);
       assert.doesNotMatch(text(), /Allow this call\? \[y\/n\]/);
+    } finally {
+      app.dispose();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("applies a configured total timeout to the primary TUI Run", async () => {
+    const root = await mkdtemp(join(tmpdir(), "runloom-app-timeout-"));
+    const configPath = join(root, "runloom.json");
+    await writeFile(configPath, JSON.stringify({ version: 1, modules: {}, run: { totalTimeoutMs: 25 } }), "utf8");
+    const { output } = capture();
+    const app = await createRuntimeApp({
+      args: ["--tui", join(root, "transcripts"), "--thread", "timeout-test", "--config", configPath],
+      modelAlias: "mock",
+      model: new MockLanguageModelV3({
+        doStream: async () => {
+          await delay(80);
+          return { stream: simulateReadableStream({ chunks: [
+            { type: "stream-start" as const, warnings: [] },
+            { type: "finish" as const, finishReason: { unified: "stop" as const, raw: undefined }, usage: {
+              inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
+              outputTokens: { total: 1, text: 1, reasoning: undefined },
+            } },
+          ] }) };
+        },
+      }),
+      output,
+      env: {},
+      cwd: root,
+    });
+    try {
+      const handle = await app.runtime.run({
+        agentId: app.agentId,
+        threadId: app.threadId,
+        messages: [{ id: "user-timeout", role: "user", parts: [{ type: "text", text: "hello" }] }],
+      });
+      const result = await handle.result;
+      assert.equal(result.status, "timed_out");
+      assert.match(result.error?.message ?? "", /25ms/);
+    } finally {
+      app.dispose();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("forwards configured Shell progress before the final tool result", async () => {
+    const root = await mkdtemp(join(tmpdir(), "runloom-app-shell-progress-"));
+    const workspace = join(root, "workspace");
+    await mkdir(workspace);
+    const transcripts = join(root, "transcripts");
+    const configPath = join(root, "runloom.json");
+    await writeFile(configPath, JSON.stringify({
+      version: 1, workspace: "./workspace",
+      modules: { shell: { enabled: true, timeoutMs: 1_000 } },
+      run: { totalTimeoutMs: 3_000 },
+    }), "utf8");
+    const usage = {
+      inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
+      outputTokens: { total: 1, text: 1, reasoning: undefined },
+    };
+    let modelCalls = 0;
+    const command = `${JSON.stringify(process.execPath)} -e ${JSON.stringify("process.stdout.write('ready'); setTimeout(() => process.stderr.write('done'), 120)")}`;
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        modelCalls += 1;
+        if (modelCalls === 1) return { stream: simulateReadableStream({ chunks: [
+          { type: "stream-start" as const, warnings: [] },
+          { type: "tool-call" as const, toolCallId: "shell-progress-call", toolName: "shell_exec", input: JSON.stringify({ command }) },
+          { type: "finish" as const, finishReason: { unified: "tool-calls" as const, raw: undefined }, usage },
+        ] }) };
+        return { stream: simulateReadableStream({ chunks: [
+          { type: "stream-start" as const, warnings: [] },
+          { type: "text-start" as const, id: "answer" },
+          { type: "text-delta" as const, id: "answer", delta: "check finished" },
+          { type: "text-end" as const, id: "answer" },
+          { type: "finish" as const, finishReason: { unified: "stop" as const, raw: undefined }, usage },
+        ] }) };
+      },
+    });
+    const app = await createRuntimeApp({
+      args: ["--tui", transcripts, "--thread", "shell-progress", "--config", configPath],
+      modelAlias: "mock", model, output: capture().output, env: {}, cwd: root,
+    });
+    try {
+      let settled = false;
+      const progress: Array<{ sequence: number; text: string; stream: string; beforeResult: boolean }> = [];
+      app.subscribeShellProgress?.((event) => {
+        progress.push({ sequence: event.sequence, text: event.text, stream: event.stream, beforeResult: !settled });
+        assert.equal(event.toolCallId, "shell-progress-call");
+      });
+      const handle = await app.runtime.run({
+        agentId: app.agentId, threadId: app.threadId,
+        messages: [{ id: "shell-user", role: "user", parts: [{ type: "text", text: "Run the check" }] }],
+      });
+      const resultPromise = handle.result.then((result) => { settled = true; return result; });
+      const deadline = Date.now() + 1_000;
+      while (app.toolConfirmation?.getPending() === undefined && Date.now() < deadline) {
+        await delay(1);
+      }
+      const approval = app.toolConfirmation?.getPending();
+      assert.ok(approval);
+      assert.equal(app.toolConfirmation?.resolveApproval({ approvalId: approval.approvalId, decision: "allow" }), true);
+      const result = await resultPromise;
+      assert.equal(result.status, "completed");
+      assert.deepEqual(progress.map((event) => event.text), ["ready", "done"]);
+      assert.deepEqual(progress.map((event) => event.stream), ["stdout", "stderr"]);
+      assert.deepEqual(progress.map((event) => event.sequence), [1, 2]);
+      assert.equal(progress.every((event) => event.beforeResult), true);
     } finally {
       app.dispose();
       await rm(root, { recursive: true, force: true });
