@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdtemp } from "node:fs/promises";
+import { mkdir, mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Writable } from "node:stream";
@@ -17,6 +17,8 @@ import {
   ToolRegistry,
 } from "@aisdk-agent/ai-sdk-adapter";
 import { AUTO_CONSOLIDATION_AGENT_ID } from "./consolidation.js";
+import { createExecutionRecordAdapter } from "./execution-record-adapter.js";
+import { createExecutionRecordStore, type ExecutionRecordStore } from "./execution-record-store.js";
 import {
   checkpointAndMemoryContextMessages,
   estimateContextInput,
@@ -101,6 +103,9 @@ export interface RuntimeApp {
   agentId: typeof PRIMARY_AGENT_ID;
   runtime: DefaultAgentRuntime;
   store: JsonlAgentStore;
+  /** Local receipts for the embedded assistant; not a replay log. */
+  executionRecords: ExecutionRecordStore;
+  enableExecutionRecords: () => void;
   threadId: string;
   directory: string;
   workspaceRoot: string | undefined;
@@ -177,8 +182,11 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
   const directory = tuiMode
     ? (tuiArgs?.directory ?? (await mkdtemp(join(tmpdir(), "runloom-tui-"))))
     : (args[0] ?? (await mkdtemp(join(tmpdir(), "runloom-demo-"))));
+  await mkdir(directory, { recursive: true });
   const threadId = tuiMode ? (tuiArgs?.threadId ?? randomUUID()) : "demo-thread";
   const store = new JsonlAgentStore({ directory });
+  const executionRecords = createExecutionRecordStore(directory);
+  const executionRecordAdapter = createExecutionRecordAdapter(store, executionRecords);
   let redrawAfterModuleNotification: (() => void) | undefined;
   const addRegistration = {
     metadata: {
@@ -895,7 +903,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     }
     const runtime = new DefaultAgentRuntime({
       catalog,
-      store,
+      store: executionRecordAdapter.store,
       loop: new AiSdkAgentLoop({
         models,
         tools,
@@ -973,6 +981,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       agentId: PRIMARY_AGENT_ID,
       runtime,
       store,
+      executionRecords,
+      enableExecutionRecords: executionRecordAdapter.enable,
       threadId,
       directory,
       workspaceRoot,

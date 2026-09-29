@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
@@ -8,6 +8,7 @@ import type { AgentDefinition, AgentEvent, RunHandle, RunResult } from "@aisdk-a
 import { createAssistantController } from "./assistant-controller.js";
 import { createRuntimeApp, PRIMARY_AGENT_ID, type RuntimeApp } from "./app.js";
 import { createDemoModel } from "./demo-model.js";
+import { EXECUTION_RECORD_FILE } from "./execution-record-store.js";
 import { createToolConfirmation, type PendingToolApproval } from "./tui.js";
 
 function deferred<T>(): {
@@ -56,6 +57,14 @@ function appWith(overrides: Partial<RuntimeApp> = {}): RuntimeApp {
     agentId: PRIMARY_AGENT_ID,
     runtime: { run: async () => { throw new Error("unexpected Run"); } } as unknown as RuntimeApp["runtime"],
     store: { getMessages: async () => [] } as unknown as RuntimeApp["store"],
+    executionRecords: {
+      claimThread: async () => ({ release: async () => undefined }),
+      recoverInterrupted: async () => 0,
+      finishRun: async () => undefined,
+      listRuns: async () => [],
+      getRun: async () => null,
+    } as unknown as RuntimeApp["executionRecords"],
+    enableExecutionRecords: () => undefined,
     threadId: "controller-thread",
     directory: "/private/tmp/controller-transcripts",
     workspaceRoot: undefined,
@@ -87,10 +96,42 @@ describe("AssistantController", () => {
         await waitFor(() => controller.getSnapshot().state.kind === "idle");
         assert.equal(controller.getSnapshot().lastPrimaryResult?.status, "completed");
         assert.equal((await controller.getHistory())[0]?.role, "user");
+        const recorded = await controller.listRuns();
+        assert.equal(recorded.length, 1);
+        assert.equal(recorded[0]?.status, "completed");
+        assert.equal(recorded[0]?.tools[0]?.status, "completed");
       } finally {
         await controller.shutdown();
       }
+      const reopened = createAssistantController(await createRuntimeApp({
+        args: [directory], modelAlias: "mock", model: createDemoModel(),
+        output: new PassThrough(), env: {}, cwd: directory,
+      }));
+      try {
+        assert.equal((await reopened.listRuns())[0]?.status, "completed");
+      } finally {
+        await reopened.shutdown();
+      }
     } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("fails closed before model execution when recovery records are corrupt", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "runloom-controller-bad-record-"));
+    const file = join(directory, EXECUTION_RECORD_FILE);
+    await writeFile(file, "{broken");
+    const app = await createRuntimeApp({
+      args: [directory], modelAlias: "mock", model: createDemoModel(),
+      output: new PassThrough(), env: {}, cwd: directory,
+    });
+    const controller = createAssistantController(app);
+    try {
+      assert.deepEqual(await controller.run("What is 20 + 22?"), { ok: false, reason: "starting" });
+      assert.deepEqual(await controller.getHistory(), []);
+      assert.equal(await readFile(file, "utf8"), "{broken");
+    } finally {
+      await controller.shutdown();
       await rm(directory, { recursive: true, force: true });
     }
   });

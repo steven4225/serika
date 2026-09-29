@@ -47,7 +47,7 @@
 
 - M-Local is a local behavior harness built from `DefaultAgentRuntime`, `AgentLoop`, and transcript-only JSONL snapshots. It does not replace Durable Runtime or provide durable external-effect guarantees.
 - `AgentLoop` is the only owner of the model -> tool -> model behavior loop. A future Durable Run Driver may persist and invoke already-decided Actions and Attempts, but must not introduce a second behavior loop.
-- M-Local JSONL stores only completed conversation transcripts. Run records and runtime events remain process-local.
+- M-Local JSONL stores only completed conversation transcripts. Embedded AssistantController also writes a separate, bounded local execution-receipt file in the transcript directory for Run/tool inspection after restart. These receipts are not Durable Runtime state: an unfinished tool is `unknown`, must be reconciled by a person, and is never replayed automatically. TUI/print CLI do not enable this receipt path.
 
 ## Thin TUI boundary
 
