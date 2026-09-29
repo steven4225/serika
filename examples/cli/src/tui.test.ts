@@ -2412,6 +2412,9 @@ describe("runTui", () => {
           lines.push(line);
           return true;
         },
+        getPending: () => undefined,
+        resolveApproval: () => false,
+        subscribePending: () => () => undefined,
         setPendingAuthorization: () => undefined,
         setPendingShellAuthorization: () => undefined,
         setPendingWebAuthorization: () => undefined,
@@ -2520,6 +2523,98 @@ describe("runTui", () => {
 });
 
 describe("createToolConfirmation", () => {
+  it("resolves only the matching approval and rejects stale or repeated decisions", async () => {
+    const output = outputBuffer();
+    const changes: Array<string | undefined> = [];
+    let nextId = 0;
+    const confirmation = createToolConfirmation(output, {
+      generateId: () => `approval-${++nextId}`,
+    });
+    const unsubscribe = confirmation.subscribePending((pending) => {
+      changes.push(pending?.approvalId);
+    });
+
+    const first = Promise.resolve(confirmation.beforeToolExecute(
+      toolInput("write_file", new AbortController().signal, { path: "a.txt", content: "one" }),
+    ));
+    const firstApproval = confirmation.getPending();
+    assert.equal(firstApproval?.approvalId, "approval-1");
+    assert.equal(firstApproval?.toolName, "write_file");
+    assert.match(firstApproval?.preview ?? "", /Content: "one"/);
+    assert.equal(confirmation.resolveApproval({ approvalId: "unknown", decision: "allow" }), false);
+    assert.equal(confirmation.resolveApproval({ approvalId: "approval-1", decision: "deny" }), true);
+    assert.deepEqual(await first, { allow: false, reason: "User denied this tool call" });
+    assert.equal(confirmation.getPending(), undefined);
+
+    const second = Promise.resolve(confirmation.beforeToolExecute(
+      toolInput("write_file", new AbortController().signal, { path: "b.txt", content: "two" }),
+    ));
+    assert.equal(confirmation.getPending()?.approvalId, "approval-2");
+    assert.equal(confirmation.resolveApproval({ approvalId: "approval-1", decision: "allow" }), false);
+    assert.equal(confirmation.getPending()?.approvalId, "approval-2");
+    assert.equal(confirmation.resolveApproval({ approvalId: "approval-2", decision: "allow" }), true);
+    assert.deepEqual(await second, { allow: true });
+    assert.equal(confirmation.resolveApproval({ approvalId: "approval-2", decision: "allow" }), false);
+    // Each approval notifies twice: once at creation, once when the preview is written.
+    assert.deepEqual(changes, [
+      "approval-1", "approval-1", undefined,
+      "approval-2", "approval-2", undefined,
+    ]);
+    unsubscribe();
+  });
+
+  it("publishes the completed async preview and clears approval on cancellation", async () => {
+    const output = outputBuffer();
+    const preview = deferred<string>();
+    const changes: Array<string | undefined> = [];
+    const confirmation = createToolConfirmation(output, {
+      generateId: () => "approval-async",
+      prompt: () => preview.promise,
+      onPendingChange: (pending) => { changes.push(pending?.preview); },
+    });
+    const controller = new AbortController();
+    const decision = Promise.resolve(confirmation.beforeToolExecute(
+      toolInput("memory_update", controller.signal, { id: "memory-1" }),
+    ));
+    assert.equal(confirmation.getPending()?.approvalId, "approval-async");
+    assert.equal(confirmation.getPending()?.preview, "");
+    // Observers hear about the approval at creation, before the async preview.
+    assert.deepEqual(changes, [""]);
+
+    preview.resolve("Current memory: old\nAllow this call? [y/n] ");
+    await Promise.resolve();
+    assert.deepEqual(changes, ["", "Current memory: old\nAllow this call? [y/n] "]);
+    assert.match(output.text(), /Current memory: old/);
+
+    controller.abort("cancelled");
+    await assert.rejects(decision, (error: unknown) => error === "cancelled");
+    assert.equal(confirmation.getPending(), undefined);
+    assert.deepEqual(changes, ["", "Current memory: old\nAllow this call? [y/n] ", undefined]);
+    assert.equal(confirmation.resolveApproval({ approvalId: "approval-async", decision: "allow" }), false);
+  });
+
+  it("keeps approval pending when a UI observer throws", async () => {
+    const output = outputBuffer();
+    const changes: Array<string | undefined> = [];
+    const confirmation = createToolConfirmation(output, {
+      onPendingChange: () => { throw new Error("renderer disconnected"); },
+    });
+    confirmation.subscribePending(() => { throw new Error("stale listener"); });
+    confirmation.subscribePending((pending) => { changes.push(pending?.approvalId); });
+
+    const decision = Promise.resolve(confirmation.beforeToolExecute(
+      toolInput("write_file", new AbortController().signal, { path: "a.txt", content: "one" }),
+    ));
+    const approvalId = confirmation.getPending()?.approvalId;
+    assert.ok(approvalId);
+    assert.match(output.text(), /Allow this call\? \[y\/n\]/);
+    assert.deepEqual(changes, [approvalId, approvalId]);
+
+    assert.equal(confirmation.resolveApproval({ approvalId, decision: "allow" }), true);
+    assert.deepEqual(await decision, { allow: true });
+    assert.deepEqual(changes, [approvalId, approvalId, undefined]);
+  });
+
   it("allows the consolidator to read consolidation material without prompting", async () => {
     const output = outputBuffer();
     const confirmation = createToolConfirmation(output);

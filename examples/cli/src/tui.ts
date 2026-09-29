@@ -1,4 +1,5 @@
 import { createInterface } from "node:readline/promises";
+import { randomUUID } from "node:crypto";
 import type { Readable, Writable } from "node:stream";
 import type { UIMessage } from "ai";
 import type {
@@ -78,11 +79,23 @@ export interface TuiResume {
 export interface ToolConfirmation {
   beforeToolExecute: BeforeToolExecute;
   handleLine(line: string): boolean;
+  getPending(): PendingToolApproval | undefined;
+  resolveApproval(input: { approvalId: string; decision: "allow" | "deny" }): boolean;
+  subscribePending(listener: (pending: PendingToolApproval | undefined) => void): () => void;
   setPendingAuthorization(rule: RunAuthorizationInput): void;
   setPendingShellAuthorization(): void;
   setPendingWebAuthorization(origins: readonly string[]): void;
   beginRun(): void;
   endRun(): void;
+}
+
+/** One tool call awaiting a user decision. The preview may still be loading. */
+export interface PendingToolApproval {
+  approvalId: string;
+  toolCallId: string;
+  toolName: string;
+  input: unknown;
+  preview: string;
 }
 
 /** Shell approval can be scoped to a single Run only when the executor is an
@@ -317,7 +330,7 @@ function confirmationPrompt(
 }
 
 interface PendingConfirmation {
-  toolName: string;
+  approval: PendingToolApproval;
   signal: AbortSignal;
   onAbort: () => void;
   resolve: (decision: ToolExecutionDecision) => void;
@@ -330,6 +343,8 @@ export function createToolConfirmation(
   output: Writable,
   options: {
     prompt?: ToolConfirmationPrompt;
+    onPendingChange?: (pending: PendingToolApproval | undefined) => void;
+    generateId?: () => string;
     workspaceRoot?: string;
     persistentAuthorizations?: readonly RunAuthorizationInput[];
     shellSandboxMode?: ShellSandboxMode;
@@ -343,14 +358,42 @@ export function createToolConfirmation(
   let activeShellAuthorization = false;
   let nextWebAuthorization: WebAuthorization | undefined;
   let activeWebAuthorization: WebAuthorization | undefined;
+  const pendingListeners = new Set<(pending: PendingToolApproval | undefined) => void>();
   const persistentAuthorizations = (options.persistentAuthorizations ?? []).map(
     (rule) => normalizeAuthorization(rule, options.workspaceRoot),
   );
+
+  const getPending = (): PendingToolApproval | undefined =>
+    pending === undefined ? undefined : { ...pending.approval };
+
+  const notifyPending = (): void => {
+    const current = getPending();
+    try {
+      options.onPendingChange?.(current);
+    } catch {
+      // A UI listener cannot decide whether the tool is allowed to run.
+    }
+    for (const listener of pendingListeners) {
+      try {
+        listener(current);
+      } catch {
+        // Keep notifying other observers and leave the approval pending.
+      }
+    }
+  };
+
+  const subscribePending = (
+    listener: (pending: PendingToolApproval | undefined) => void,
+  ): (() => void) => {
+    pendingListeners.add(listener);
+    return () => { pendingListeners.delete(listener); };
+  };
 
   const clearPending = (entry: PendingConfirmation): void => {
     if (pending !== entry) return;
     pending = undefined;
     entry.signal.removeEventListener("abort", entry.onAbort);
+    notifyPending();
   };
 
   const beforeToolExecute: BeforeToolExecute = (input) => {
@@ -400,17 +443,38 @@ export function createToolConfirmation(
       clearPending(entry);
       reject(abortReason(input.signal));
     };
-    entry = { toolName: input.toolName, signal: input.signal, onAbort, resolve, reject };
+    entry = {
+      approval: {
+        approvalId: options.generateId?.() ?? randomUUID(),
+        toolCallId: input.toolCallId,
+        toolName: input.toolName,
+        input: input.input,
+        preview: "",
+      },
+      signal: input.signal,
+      onAbort,
+      resolve,
+      reject,
+    };
     pending = entry;
     input.signal.addEventListener("abort", onAbort, { once: true });
     if (input.signal.aborted) {
       onAbort();
       return decision;
     }
+    // Observers learn about the approval as soon as it exists, with an empty
+    // preview. Tools whose preview is computed asynchronously (task_reschedule
+    // reads the task store first) must not leave a snapshot without the
+    // pending approval in the meantime; a second notification follows once
+    // the preview text is written.
+    notifyPending();
 
     const writePrompt = (text: string): void => {
       if (pending !== entry) return;
       try {
+        entry.approval.preview = text;
+        notifyPending();
+        if (pending !== entry) return;
         write(output, `\n[confirmation] Waiting for y/n; the tool has not run yet.\n${text}`);
       } catch (error) {
         clearPending(entry);
@@ -440,6 +504,22 @@ export function createToolConfirmation(
     return decision;
   };
 
+  const resolveApproval = (input: {
+    approvalId: string;
+    decision: "allow" | "deny";
+  }): boolean => {
+    const entry = pending;
+    if (entry === undefined || entry.approval.approvalId !== input.approvalId) return false;
+    clearPending(entry);
+    if (input.decision === "allow") {
+      entry.resolve({ allow: true });
+    } else {
+      if (entry.approval.toolName === "web_search") searchDeniedThisRun = true;
+      entry.resolve({ allow: false, reason: "User denied this tool call" });
+    }
+    return true;
+  };
+
   const handleLine = (line: string): boolean => {
     const entry = pending;
     if (entry === undefined) return false;
@@ -449,14 +529,10 @@ export function createToolConfirmation(
       return true;
     }
 
-    clearPending(entry);
-    if (answer === "y") {
-      entry.resolve({ allow: true });
-    } else {
-      if (entry.toolName === "web_search") searchDeniedThisRun = true;
-      entry.resolve({ allow: false, reason: "User denied this tool call" });
-    }
-    return true;
+    return resolveApproval({
+      approvalId: entry.approval.approvalId,
+      decision: answer === "y" ? "allow" : "deny",
+    });
   };
 
   const setPendingAuthorization = (rule: RunAuthorizationInput): void => {
@@ -509,6 +585,9 @@ export function createToolConfirmation(
   return {
     beforeToolExecute,
     handleLine,
+    getPending,
+    resolveApproval,
+    subscribePending,
     setPendingAuthorization,
     setPendingShellAuthorization,
     setPendingWebAuthorization,
