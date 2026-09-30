@@ -9,6 +9,8 @@ import { createAssistantController } from "./assistant-controller.js";
 import { createRuntimeApp, PRIMARY_AGENT_ID, type RuntimeApp } from "./app.js";
 import { createDemoModel } from "./demo-model.js";
 import { EXECUTION_RECORD_FILE } from "./execution-record-store.js";
+import { createExecutionRecordStore } from "./execution-record-store.js";
+import { createWorkTaskStore } from "./work-task-store.js";
 import { createToolConfirmation, type PendingToolApproval } from "./tui.js";
 
 function deferred<T>(): {
@@ -65,6 +67,9 @@ function appWith(overrides: Partial<RuntimeApp> = {}): RuntimeApp {
       getRun: async () => null,
     } as unknown as RuntimeApp["executionRecords"],
     enableExecutionRecords: () => undefined,
+    bindNextExecutionWorkTask: () => () => undefined,
+    workTasks: undefined,
+    workTaskContext: { begin: () => undefined, end: () => undefined },
     threadId: "controller-thread",
     directory: "/private/tmp/controller-transcripts",
     workspaceRoot: undefined,
@@ -133,6 +138,229 @@ describe("AssistantController", () => {
     } finally {
       await controller.shutdown();
       await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps WorkTask completion separate from a successful Run", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "runloom-controller-work-task-"));
+    const transcripts = await mkdtemp(join(tmpdir(), "runloom-controller-work-task-records-"));
+    const workTasks = createWorkTaskStore(workspace, { generateId: () => "task-1" });
+    const executionRecords = createExecutionRecordStore(transcripts);
+    let boundTask: { id: string; expectedRevision: number } | undefined;
+    const app = appWith({
+      directory: transcripts,
+      workspaceRoot: workspace,
+      workTasks,
+      executionRecords,
+      bindNextExecutionWorkTask: (input) => {
+        boundTask = input;
+        return () => { boundTask = undefined; };
+      },
+      runtime: {
+        run: async () => {
+          assert.ok(boundTask);
+          const begun = await workTasks.beginRun(boundTask.id, {
+            expectedRevision: boundTask.expectedRevision, runId: "work-run-1",
+          });
+          assert.equal(begun.ok, true);
+          await executionRecords.startRun({
+            runId: "work-run-1", threadId: "controller-thread", phase: "primary",
+            workTaskId: boundTask.id,
+          });
+          return handle("work-run-1", {
+            promise: Promise.resolve(result("work-run-1", "completed")),
+            resolve: () => undefined,
+          }, () => undefined);
+        },
+      } as unknown as RuntimeApp["runtime"],
+    });
+    const controller = createAssistantController(app);
+    try {
+      const created = await controller.createWorkTask({
+        goal: "Prepare a reviewed answer", constraints: ["Do not claim user acceptance"],
+        acceptance: [{ id: "quality", description: "User accepts quality", method: "human",
+          verification: { kind: "human" }, required: true }],
+      });
+      assert.equal(created.ok, true);
+      if (!created.ok) return;
+      assert.deepEqual(await controller.runWorkTask({ id: created.value.id, expectedRevision: 1 }),
+        { ok: true, runId: "work-run-1" });
+      await waitFor(() => controller.getSnapshot().state.kind === "idle");
+      const paused = await controller.getWorkTask(created.value.id);
+      assert.equal(paused.ok && paused.value.status, "paused");
+      assert.equal(paused.ok && paused.value.runIds[0], "work-run-1");
+      assert.equal((await controller.getRun("work-run-1"))?.workTaskId, "task-1");
+      if (!paused.ok) return;
+      const delivered = await controller.submitWorkTaskDelivery({
+        id: paused.value.id, expectedRevision: paused.value.revision, summary: "Answer prepared",
+      });
+      assert.equal(delivered.ok && delivered.value.status, "awaiting_acceptance");
+      if (!delivered.ok) return;
+      const accepted = await controller.recordHumanAcceptance({
+        id: delivered.value.id, expectedRevision: delivered.value.revision,
+        criterionId: "quality", decision: "passed",
+      });
+      assert.equal(accepted.ok && accepted.value.status, "completed");
+    } finally {
+      await controller.shutdown();
+      await rm(workspace, { recursive: true, force: true });
+      await rm(transcripts, { recursive: true, force: true });
+    }
+  });
+
+  it("accepts an automatic Shell criterion only from this task's exact zero-exit receipt", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "runloom-controller-work-shell-"));
+    const transcripts = await mkdtemp(join(tmpdir(), "runloom-controller-work-shell-records-"));
+    const executionRecords = createExecutionRecordStore(transcripts);
+    const workTasks = createWorkTaskStore(workspace, { generateId: () => "task-shell", executionRecords });
+    const command = "pnpm test --filter focused";
+    try {
+      const created = await workTasks.create({
+        threadId: "controller-thread", goal: "Run the focused check", constraints: [],
+        acceptance: [{ id: "check", description: "Focused test passes", method: "automatic",
+          verification: { kind: "shell_exit_zero", command, cwd: "." }, required: true }],
+      });
+      assert.equal(created.ok, true);
+      if (!created.ok) return;
+      assert.equal((await workTasks.beginRun(created.value.id, { expectedRevision: 1, runId: "run-shell" })).ok, true);
+      assert.equal((await workTasks.pause(created.value.id, 2)).ok, true);
+      await executionRecords.startRun({
+        runId: "run-shell", threadId: "controller-thread", workTaskId: created.value.id, phase: "primary",
+      });
+      await executionRecords.recordToolEvent("run-shell", {
+        id: "event-shell-requested", type: "tool.call.requested", runId: "run-shell",
+        threadId: "controller-thread", sequence: 1, occurredAt: "2026-09-30T00:00:00.000Z",
+        data: { toolCallId: "shell-1", toolName: "shell_exec", input: { command } },
+      });
+      await executionRecords.recordToolEvent("run-shell", {
+        id: "event-shell-started", type: "tool.call.started", runId: "run-shell",
+        threadId: "controller-thread", sequence: 2, occurredAt: "2026-09-30T00:00:01.000Z",
+        data: { toolCallId: "shell-1", toolName: "shell_exec" },
+      });
+      await executionRecords.recordToolEvent("run-shell", {
+        id: "event-shell-completed", type: "tool.call.completed", runId: "run-shell",
+        threadId: "controller-thread", sequence: 3, occurredAt: "2026-09-30T00:00:02.000Z",
+        data: { toolCallId: "shell-1", toolName: "shell_exec",
+          output: { ok: true, exitCode: 0, timedOut: false, cancelled: false, output: "pass" } },
+      });
+      await executionRecords.finishRun("run-shell", result("run-shell", "completed"));
+
+      const controller = createAssistantController(appWith({
+        directory: transcripts, workspaceRoot: workspace, workTasks, executionRecords,
+      }));
+      try {
+        const delivered = await controller.submitWorkTaskDelivery({
+          id: created.value.id, expectedRevision: 3, summary: "Focused check completed",
+        });
+        assert.equal(delivered.ok && delivered.value.status, "completed");
+        assert.equal(delivered.ok && delivered.value.acceptance[0]?.status, "passed");
+        assert.equal(delivered.ok && delivered.value.delivery?.evidence[0]?.kind, "tool");
+      } finally {
+        await controller.shutdown();
+      }
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+      await rm(transcripts, { recursive: true, force: true });
+    }
+  });
+
+  it("does not accept a pre-existing artifact without this task's successful write receipt", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "runloom-controller-work-artifact-"));
+    const transcripts = await mkdtemp(join(tmpdir(), "runloom-controller-work-artifact-records-"));
+    const executionRecords = createExecutionRecordStore(transcripts);
+    const workTasks = createWorkTaskStore(workspace, { generateId: () => "task-artifact", executionRecords });
+    await writeFile(join(workspace, "report.md"), "verified report\n");
+    try {
+      const created = await workTasks.create({
+        threadId: "controller-thread", goal: "Write the report", constraints: [],
+        acceptance: [{ id: "artifact", description: "Report exists", method: "automatic",
+          verification: { kind: "artifact_exists", path: "report.md" }, required: true }],
+      });
+      assert.equal(created.ok, true);
+      if (!created.ok) return;
+      assert.equal((await workTasks.beginRun(created.value.id, { expectedRevision: 1, runId: "run-artifact" })).ok, true);
+      assert.equal((await workTasks.pause(created.value.id, 2)).ok, true);
+      await executionRecords.startRun({
+        runId: "run-artifact", threadId: "controller-thread", workTaskId: created.value.id, phase: "primary",
+      });
+      await executionRecords.finishRun("run-artifact", result("run-artifact", "completed"));
+
+      const controller = createAssistantController(appWith({
+        directory: transcripts, workspaceRoot: workspace, workTasks, executionRecords,
+      }));
+      try {
+        const delivered = await controller.submitWorkTaskDelivery({
+          id: created.value.id, expectedRevision: 3, summary: "Report ready", artifactRefs: ["report.md"],
+        });
+        assert.equal(delivered.ok && delivered.value.status, "awaiting_acceptance");
+        assert.equal(delivered.ok && delivered.value.acceptance[0]?.status, "failed");
+        assert.equal(delivered.ok && delivered.value.delivery?.evidence.length, 0);
+      } finally {
+        await controller.shutdown();
+      }
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+      await rm(transcripts, { recursive: true, force: true });
+    }
+  });
+
+  it("snapshots a verified artifact only after a successful task-owned write receipt", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "runloom-controller-work-written-artifact-"));
+    const transcripts = await mkdtemp(join(tmpdir(), "runloom-controller-work-written-artifact-records-"));
+    const executionRecords = createExecutionRecordStore(transcripts);
+    const workTasks = createWorkTaskStore(workspace, { generateId: () => "task-written-artifact", executionRecords });
+    await writeFile(join(workspace, "report.md"), "verified report\n");
+    try {
+      const created = await workTasks.create({
+        threadId: "controller-thread", goal: "Write the report", constraints: [],
+        acceptance: [{ id: "artifact", description: "Report exists", method: "automatic",
+          verification: { kind: "artifact_exists", path: "report.md" }, required: true }],
+      });
+      assert.equal(created.ok, true);
+      if (!created.ok) return;
+      assert.equal((await workTasks.beginRun(created.value.id, { expectedRevision: 1, runId: "run-written-artifact" })).ok, true);
+      assert.equal((await workTasks.pause(created.value.id, 2)).ok, true);
+      await executionRecords.startRun({
+        runId: "run-written-artifact", threadId: "controller-thread",
+        workTaskId: created.value.id, phase: "primary",
+      });
+      await executionRecords.recordToolEvent("run-written-artifact", {
+        id: "event-write-requested", type: "tool.call.requested", runId: "run-written-artifact",
+        threadId: "controller-thread", sequence: 1, occurredAt: "2026-09-30T00:00:00.000Z",
+        data: { toolCallId: "write-1", toolName: "write_file", input: { path: "report.md", content: "verified report\n" } },
+      });
+      await executionRecords.recordToolEvent("run-written-artifact", {
+        id: "event-write-started", type: "tool.call.started", runId: "run-written-artifact",
+        threadId: "controller-thread", sequence: 2, occurredAt: "2026-09-30T00:00:01.000Z",
+        data: { toolCallId: "write-1", toolName: "write_file" },
+      });
+      await executionRecords.recordToolEvent("run-written-artifact", {
+        id: "event-write-completed", type: "tool.call.completed", runId: "run-written-artifact",
+        threadId: "controller-thread", sequence: 3, occurredAt: "2026-09-30T00:00:02.000Z",
+        data: { toolCallId: "write-1", toolName: "write_file", output: { ok: true, path: "report.md" } },
+      });
+      await executionRecords.finishRun("run-written-artifact", result("run-written-artifact", "completed"));
+
+      const controller = createAssistantController(appWith({
+        directory: transcripts, workspaceRoot: workspace, workTasks, executionRecords,
+      }));
+      try {
+        const delivered = await controller.submitWorkTaskDelivery({
+          id: created.value.id, expectedRevision: 3, summary: "Report ready", artifactRefs: ["report.md"],
+        });
+        assert.equal(delivered.ok && delivered.value.status, "completed");
+        const evidence = delivered.ok ? delivered.value.delivery?.evidence[0] : undefined;
+        assert.equal(evidence?.kind, "artifact");
+        if (evidence?.kind === "artifact") {
+          assert.equal(evidence.path, "report.md");
+          assert.match(evidence.sha256, /^[a-f0-9]{64}$/);
+        }
+      } finally {
+        await controller.shutdown();
+      }
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+      await rm(transcripts, { recursive: true, force: true });
     }
   });
 

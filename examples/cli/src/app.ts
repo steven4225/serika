@@ -58,6 +58,8 @@ import {
 import { createTodoistModule } from "./modules/todoist-module.js";
 import { createWebModule } from "./modules/web-module.js";
 import { createTaskStore } from "./task-store.js";
+import { createWorkTaskStore, type WorkTask, type WorkTaskStore } from "./work-task-store.js";
+import { createWorkTaskContextMessage } from "./work-task-context.js";
 import {
   buildTaskContextMessage,
   injectTaskContext,
@@ -106,6 +108,12 @@ export interface RuntimeApp {
   /** Local receipts for the embedded assistant; not a replay log. */
   executionRecords: ExecutionRecordStore;
   enableExecutionRecords: () => void;
+  bindNextExecutionWorkTask: (input: { id: string; expectedRevision: number }) => () => void;
+  workTasks: WorkTaskStore | undefined;
+  workTaskContext: {
+    begin(task: WorkTask): void;
+    end(): void;
+  };
   threadId: string;
   directory: string;
   workspaceRoot: string | undefined;
@@ -186,7 +194,9 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
   const threadId = tuiMode ? (tuiArgs?.threadId ?? randomUUID()) : "demo-thread";
   const store = new JsonlAgentStore({ directory });
   const executionRecords = createExecutionRecordStore(directory);
-  const executionRecordAdapter = createExecutionRecordAdapter(store, executionRecords);
+  const workTasks = workspaceRoot === undefined ? undefined : createWorkTaskStore(workspaceRoot, { executionRecords });
+  const executionRecordAdapter = createExecutionRecordAdapter(store, executionRecords, workTasks);
+  let activeWorkTaskMessage: UIMessage | undefined;
   let redrawAfterModuleNotification: (() => void) | undefined;
   const addRegistration = {
     metadata: {
@@ -711,6 +721,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
               return [
                 ...(taskEnabled ? [buildTaskContextMessage({ now, timeZone })] : []),
                 ...checkpointAndMemoryContextMessages(checkpoint, memories, { threadId, now }, activeResumeMessage(checkpoint)),
+                ...(activeWorkTaskMessage === undefined ? [] : [activeWorkTaskMessage]),
               ];
             },
           })
@@ -926,10 +937,14 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
               let selected: UIMessage[];
               if (contextCompactor === undefined || definition.id !== PRIMARY_AGENT_ID) {
                 selected = selectModelContext(messages, memories, { threadId, now }, checkpoint, resumeMessage);
+                if (definition.id === PRIMARY_AGENT_ID && activeWorkTaskMessage !== undefined) {
+                  selected = [activeWorkTaskMessage, ...selected];
+                }
               } else {
                 const compacted = await contextCompactor.prepare(messages, signal);
                 selected = [
                   ...checkpointAndMemoryContextMessages(checkpoint, memories, { threadId, now }, resumeMessage),
+                  ...(activeWorkTaskMessage === undefined ? [] : [activeWorkTaskMessage]),
                   ...compacted,
                 ];
               }
@@ -983,6 +998,16 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       store,
       executionRecords,
       enableExecutionRecords: executionRecordAdapter.enable,
+      bindNextExecutionWorkTask: executionRecordAdapter.bindNextWorkTask,
+      workTasks,
+      workTaskContext: {
+        begin: (task) => {
+          const message = createWorkTaskContextMessage(task);
+          if (message === undefined) throw new Error("WorkTask context exceeds the 24 KiB limit");
+          activeWorkTaskMessage = message;
+        },
+        end: () => { activeWorkTaskMessage = undefined; },
+      },
       threadId,
       directory,
       workspaceRoot,

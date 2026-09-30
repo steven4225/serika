@@ -1,9 +1,19 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { lstat, readFile } from "node:fs/promises";
 import type { UIMessage } from "ai";
 import type { AgentEvent, RunHandle, RunResult } from "@aisdk-agent/core";
 import { AUTO_CONSOLIDATION_SOURCE } from "./consolidation.js";
 import type { RuntimeApp } from "./app.js";
 import type { ExecutionRunRecord } from "./execution-record-store.js";
+import {
+  type AcceptanceStatus,
+  type CreateWorkTaskInput,
+  type WorkTask,
+  type WorkTaskDelivery,
+  type WorkTaskEvidence,
+  type WorkTaskResult,
+} from "./work-task-store.js";
+import { rejectSymlinkComponents, validateWorkspacePath } from "./workspace-path.js";
 import type { ShellProgress } from "./modules/shell-module.js";
 import type { PendingToolApproval } from "./tui.js";
 
@@ -44,6 +54,7 @@ export type AssistantEvent =
   | { type: "run-event"; phase: "primary" | "consolidation"; event: AgentEvent }
   | { type: "run-result"; phase: "primary" | "consolidation"; result: RunResult }
   | { type: "shell-progress"; phase: "primary" | "consolidation"; runId: string; progress: ShellProgress }
+  | { type: "work-task-updated"; task: WorkTask }
   | { type: "output"; text: string }
   | { type: "error"; message: string };
 
@@ -62,6 +73,25 @@ export interface AssistantController {
   /** Newest-first local receipts for this Thread. They never authorize replay. */
   listRuns(limit?: number): Promise<ExecutionRunRecord[]>;
   getRun(runId: string): Promise<ExecutionRunRecord | null>;
+  createWorkTask(input: Omit<CreateWorkTaskInput, "threadId">): Promise<WorkTaskResult<WorkTask>>;
+  listWorkTasks(): Promise<WorkTaskResult<WorkTask[]>>;
+  getWorkTask(id: string): Promise<WorkTaskResult<WorkTask>>;
+  runWorkTask(input: { id: string; expectedRevision: number; instruction?: string }): Promise<StartRunResponse>;
+  submitWorkTaskDelivery(input: {
+    id: string;
+    expectedRevision: number;
+    summary: string;
+    artifactRefs?: string[];
+    unresolved?: string[];
+  }): Promise<WorkTaskResult<WorkTask>>;
+  recordHumanAcceptance(input: {
+    id: string;
+    expectedRevision: number;
+    criterionId: string;
+    decision: "passed" | "failed";
+    note?: string;
+  }): Promise<WorkTaskResult<WorkTask>>;
+  cancelWorkTask(input: { id: string; expectedRevision: number }): Promise<WorkTaskResult<WorkTask>>;
   run(text: string): Promise<StartRunResponse>;
   cancel(): Promise<void>;
   confirm(input: { approvalId: string; decision: "allow" | "deny" }): boolean;
@@ -82,12 +112,110 @@ export interface AssistantController {
   shutdown(): Promise<void>;
 }
 
+function unavailableWorkTask(): WorkTaskResult<never> {
+  return { ok: false, error: { code: "WORK_TASK_INVALID_STATE", message: "WorkTask requires a configured workspace" } };
+}
+
+function missingWorkTask(): WorkTaskResult<never> {
+  return { ok: false, error: { code: "WORK_TASK_NOT_FOUND", message: "Work task not found" } };
+}
+
 function commandParts(line: string): { name: string; args: string } {
   const trimmed = line.trim().replace(/^\//, "");
   const space = trimmed.search(/\s/);
   return space < 0
     ? { name: trimmed, args: "" }
     : { name: trimmed.slice(0, space), args: trimmed.slice(space + 1) };
+}
+
+function previewObject(value: string | null): Record<string, unknown> | undefined {
+  if (value === null) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : undefined;
+  } catch { return undefined; }
+}
+
+function taskOwnsRun(task: WorkTask, run: ExecutionRunRecord): boolean {
+  return run.workTaskId === task.id && task.runIds.includes(run.runId);
+}
+
+async function verifyAutomaticCriterion(
+  app: RuntimeApp,
+  task: WorkTask,
+  criterion: WorkTask["acceptance"][number],
+): Promise<{ status: AcceptanceStatus; evidence: WorkTaskEvidence[]; note: string }> {
+  const now = new Date().toISOString();
+  const runs = (await Promise.all(task.runIds.map((runId) => app.executionRecords.getRun(task.threadId, runId))))
+    .filter((run): run is ExecutionRunRecord => run !== null && taskOwnsRun(task, run));
+  if (runs.length !== task.runIds.length || runs.some((run) => run.status === "interrupted" ||
+      run.tools.some((tool) => tool.status === "unknown"))) {
+    return { status: "blocked", evidence: [], note: "Task execution contains missing, interrupted, or unknown receipts that require review." };
+  }
+  const latestRun = runs.at(-1);
+  if (latestRun === undefined) {
+    return { status: "blocked", evidence: [], note: "No task-owned Run receipt is available for this delivery." };
+  }
+  if (criterion.verification.kind === "shell_exit_zero") {
+    const expectedCommand = criterion.verification.command;
+    const expectedCwd = criterion.verification.cwd;
+    const matchingShell = latestRun.tools.filter((item) => {
+      if (item.toolName !== "shell_exec" || item.inputTruncated) return false;
+      const input = previewObject(item.inputPreview);
+      return input?.command === expectedCommand && (input.cwd ?? ".") === expectedCwd;
+    }).at(-1);
+    const succeeded = matchingShell?.status === "completed" && matchingShell.shell?.exitCode === 0 &&
+      matchingShell.shell.timedOut === false && matchingShell.shell.cancelled === false;
+    return matchingShell === undefined || !succeeded
+      ? { status: "failed", evidence: [], note: "No matching successful Shell receipt was found." }
+      : {
+          status: "passed",
+          evidence: [{ id: randomUUID(), kind: "tool", runId: latestRun.runId,
+            toolCallId: matchingShell.toolCallId, toolName: "shell_exec",
+            command: expectedCommand, cwd: expectedCwd,
+            verifiedAt: now, outcome: "succeeded" }],
+          note: "Matched the latest Run's exact, untruncated Shell command and cwd with exitCode 0 and no timeout or cancellation.",
+        };
+  }
+  if (criterion.verification.kind === "artifact_exists") {
+    if (app.workspaceRoot === undefined) return { status: "blocked", evidence: [], note: "No workspace is configured." };
+    const requested = criterion.verification.path;
+    const path = validateWorkspacePath(app.workspaceRoot, requested);
+    if (!path.ok) return { status: "failed", evidence: [], note: path.message };
+    const matchingWrite = latestRun.tools.filter((tool) => {
+      if (!(["write_file", "edit_file"].includes(tool.toolName)) || tool.status !== "completed" ||
+          tool.inputTruncated || tool.resultTruncated) return false;
+      const input = previewObject(tool.inputPreview);
+      const output = previewObject(tool.resultPreview);
+      return input?.path === requested && output?.ok === true && output.path === path.relativePath;
+    }).at(-1);
+    if (matchingWrite === undefined) {
+      return { status: "failed", evidence: [], note: "No matching successful write/edit receipt belongs to this WorkTask." };
+    }
+    try {
+      if (await rejectSymlinkComponents(app.workspaceRoot, path.relativePath, new AbortController().signal)) {
+        return { status: "failed", evidence: [], note: "Artifact path contains a symbolic link." };
+      }
+      const stats = await lstat(path.target);
+      if (!stats.isFile()) return { status: "failed", evidence: [], note: "Artifact is not a regular file." };
+      if (stats.size > 8 * 1024 * 1024) {
+        return { status: "blocked", evidence: [], note: "Artifact exceeds the 8 MiB verification limit." };
+      }
+      const content = await readFile(path.target);
+      return {
+        status: "passed",
+        evidence: [{ id: randomUUID(), kind: "artifact", runId: latestRun.runId,
+          toolCallId: matchingWrite.toolCallId, path: path.relativePath,
+          sha256: createHash("sha256").update(content).digest("hex"), verifiedAt: now }],
+        note: "Artifact currently exists as a regular non-symlink file and matches a successful task write/edit receipt.",
+      };
+    } catch {
+      return { status: "failed", evidence: [], note: "Artifact could not be read from the current workspace." };
+    }
+  }
+  return { status: "blocked", evidence: [], note: "Human acceptance must be recorded explicitly." };
 }
 
 export function createAssistantController(app: RuntimeApp): AssistantController {
@@ -109,6 +237,8 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
   let startupController: AbortController | undefined;
   let operationController: AbortController | undefined;
   let activeTask: Promise<void> | undefined;
+  let nextWorkTask: WorkTask | undefined;
+  let activeWorkTask: WorkTask | undefined;
   let closed = false;
   let disposed = false;
   let cancelRequested = false;
@@ -161,6 +291,17 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
         ...(signal === undefined ? {} : { signal }),
       });
       activeHandle = handle;
+      if (phase === "primary" && activeWorkTask !== undefined && app.workTasks !== undefined) {
+        const running = await app.workTasks.get(activeWorkTask.id);
+        if (running.ok && running.value.status === "running" && running.value.runIds.includes(handle.runId)) {
+          activeWorkTask = running.value;
+          emit({ type: "work-task-updated", task: running.value });
+        } else {
+          emit({ type: "error", message: running.ok
+            ? "WorkTask Run ownership could not be reread after start"
+            : `${running.error.code}: ${running.error.message}` });
+        }
+      }
       setState({ kind: "running", runId: handle.runId, phase });
       started?.(handle);
       if (cancelRequested) await handle.cancel("Cancelled before Run started");
@@ -190,9 +331,11 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       })();
       const result = await handle.result;
       await pump;
+      let executionFinalized = true;
       try {
         await app.executionRecords.finishRun(handle.runId, result);
       } catch (error) {
+        executionFinalized = false;
         // The Run result is a fact even if its local audit receipt failed.
         emit({ type: "error", message: `Execution record could not be finalized: ${String(error)}` });
       }
@@ -203,8 +346,29 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       if (phase === "primary") lastPrimaryResult = retainedResult;
       else lastConsolidationResult = retainedResult;
       emit({ type: "run-result", phase, result });
+      if (phase === "primary" && activeWorkTask !== undefined && app.workTasks !== undefined) {
+        const record = executionFinalized
+          ? await app.executionRecords.getRun(app.threadId, handle.runId).catch(() => null)
+          : null;
+        const needsReview = !executionFinalized || record === null || record.tools.some((tool) => tool.status === "unknown");
+        const current = await app.workTasks.get(activeWorkTask.id);
+        const settled = !current.ok
+          ? current
+          : needsReview
+            ? await app.workTasks.markNeedsReview(current.value.id, current.value.revision)
+            : await app.workTasks.pause(current.value.id, current.value.revision);
+        if (settled.ok) {
+          activeWorkTask = settled.value;
+          emit({ type: "work-task-updated", task: settled.value });
+        }
+        else emit({ type: "error", message: `WorkTask could not settle: ${settled.error.code}: ${settled.error.message}` });
+      }
       return { result, requestedMemoryTool };
     } finally {
+      if (phase === "primary" && activeWorkTask !== undefined) {
+        app.workTaskContext.end();
+        activeWorkTask = undefined;
+      }
       activeHandle = undefined;
       app.toolConfirmation?.endRun();
     }
@@ -230,6 +394,116 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       await ensureRecovered();
       return app.executionRecords.getRun(app.threadId, runId);
     },
+    createWorkTask: async (input) => {
+      if (app.workTasks === undefined) return unavailableWorkTask();
+      const created = await app.workTasks.create({ ...input, threadId: app.threadId });
+      if (created.ok) emit({ type: "work-task-updated", task: created.value });
+      return created;
+    },
+    listWorkTasks: () => app.workTasks?.list({ threadId: app.threadId }) ?? Promise.resolve(unavailableWorkTask()),
+    getWorkTask: async (id) => {
+      if (app.workTasks === undefined) return unavailableWorkTask();
+      const task = await app.workTasks.get(id);
+      if (task.ok && task.value.threadId !== app.threadId) {
+        return { ok: false, error: { code: "WORK_TASK_NOT_FOUND", message: "Work task not found" } };
+      }
+      return task;
+    },
+    runWorkTask: async (input) => {
+      if (app.workTasks === undefined || app.workspaceRoot === undefined) return { ok: false, reason: "starting" };
+      if (closed || state.kind !== "idle" || nextWorkTask !== undefined || activeWorkTask !== undefined) {
+        return { ok: false, reason: "busy" };
+      }
+      const found = await app.workTasks.get(input.id);
+      if (!found.ok || found.value.threadId !== app.threadId || found.value.revision !== input.expectedRevision ||
+          !["ready", "paused"].includes(found.value.status)) {
+        return { ok: false, reason: "starting" };
+      }
+      if (closed || state.kind !== "idle" || nextWorkTask !== undefined || activeWorkTask !== undefined) {
+        return { ok: false, reason: "busy" };
+      }
+      let clearBinding: (() => void) | undefined;
+      try {
+        app.workTaskContext.begin(found.value);
+        nextWorkTask = found.value;
+        clearBinding = app.bindNextExecutionWorkTask({ id: found.value.id, expectedRevision: found.value.revision });
+        const started = await controller.run(input.instruction?.trim() || found.value.goal);
+        clearBinding();
+        clearBinding = undefined;
+        if (!started.ok) {
+          nextWorkTask = undefined;
+          app.workTaskContext.end();
+        }
+        return started;
+      } catch (error) {
+        clearBinding?.();
+        nextWorkTask = undefined;
+        app.workTaskContext.end();
+        emit({ type: "error", message: String(error) });
+        return { ok: false, reason: "starting" };
+      }
+    },
+    submitWorkTaskDelivery: async (input) => {
+      if (app.workTasks === undefined) return unavailableWorkTask();
+      const found = await app.workTasks.get(input.id);
+      if (!found.ok) return found;
+      if (found.value.threadId !== app.threadId) return missingWorkTask();
+      let current = await app.workTasks.submitDelivery(input.id, {
+        expectedRevision: input.expectedRevision,
+        delivery: {
+          summary: input.summary,
+          artifactRefs: input.artifactRefs ?? [],
+          evidence: [],
+          unresolved: input.unresolved ?? [],
+        },
+      });
+      if (!current.ok) return current;
+      const automaticCriteria = current.value.acceptance
+        .filter((criterion) => criterion.method === "automatic")
+        .sort((left, right) => Number(left.required) - Number(right.required));
+      for (const criterion of automaticCriteria) {
+        const verified = await verifyAutomaticCriterion(app, current.value, criterion);
+        current = await app.workTasks.recordAcceptance(current.value.id, {
+          expectedRevision: current.value.revision,
+          criterionId: criterion.id,
+          actor: "automatic",
+          status: verified.status,
+          evidence: verified.evidence,
+          note: verified.note,
+        });
+        if (!current.ok) return current;
+      }
+      emit({ type: "work-task-updated", task: current.value });
+      return current;
+    },
+    recordHumanAcceptance: async (input) => {
+      if (app.workTasks === undefined) return unavailableWorkTask();
+      const found = await app.workTasks.get(input.id);
+      if (!found.ok) return found;
+      if (found.value.threadId !== app.threadId) return missingWorkTask();
+      const evidence: WorkTaskEvidence[] = input.decision === "passed"
+        ? [{ id: randomUUID(), kind: "human", criterionId: input.criterionId, acceptedAt: new Date().toISOString() }]
+        : [];
+      const updated = await app.workTasks.recordAcceptance(input.id, {
+        expectedRevision: input.expectedRevision,
+        criterionId: input.criterionId,
+        actor: "human",
+        status: input.decision,
+        evidence,
+        ...(input.note === undefined ? {} : { note: input.note }),
+      });
+      if (updated.ok) emit({ type: "work-task-updated", task: updated.value });
+      return updated;
+    },
+    cancelWorkTask: async (input) => {
+      if (app.workTasks === undefined) return unavailableWorkTask();
+      const found = await app.workTasks.get(input.id);
+      if (!found.ok) return found;
+      if (found.value.threadId !== app.threadId) return missingWorkTask();
+      const cancelled = await app.workTasks.cancel(input.id, input.expectedRevision);
+      if (cancelled.ok) emit({ type: "work-task-updated", task: cancelled.value });
+      return cancelled;
+    },
     run: async (text) => {
       if (text.trim().length === 0) return { ok: false, reason: "empty" };
       if (closed || state.kind !== "idle") return { ok: false, reason: "busy" };
@@ -248,6 +522,8 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       const userMessage: UIMessage = {
         id: randomUUID(), role: "user", parts: [{ type: "text", text: text.trim() }],
       };
+      activeWorkTask = nextWorkTask;
+      nextWorkTask = undefined;
       activeTask = (async () => {
         let startSettled = false;
         const settleStart = (response: StartRunResponse): void => {
@@ -290,6 +566,10 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
           emit({ type: "error", message: String(error) });
         } finally {
           startupController = undefined;
+          if (activeWorkTask !== undefined) {
+            app.workTaskContext.end();
+            activeWorkTask = undefined;
+          }
           setState({ kind: "idle" });
         }
       })();
