@@ -6,9 +6,40 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
-import { parseTaskWorkerArgs } from "./task-worker-entry.js";
+import { createTaskDesktopNotifier, parseTaskWorkerArgs } from "./task-worker-entry.js";
 import { tryAcquireFlock } from "./flock.js";
 import { createTaskStore, taskWorkerLockPath } from "./task-store.js";
+import type { TaskRecord } from "./task-store.js";
+
+describe("durable desktop notification adapter", () => {
+  const task: TaskRecord = {
+    id: "task-notification", prompt: "sensitive preference", runAt: "2026-09-30T01:00:00.000Z",
+    status: "completed", createdAt: "2026-09-29T01:00:00.000Z", startedAt: "2026-09-30T01:00:00.000Z",
+    finishedAt: "2026-09-30T01:01:00.000Z", threadId: "thread", runId: "run", resultText: "private workspace memory", error: null,
+  };
+  it("waits for OS submission and never includes prompt/result", async () => {
+    let release!: () => void;
+    let script = "";
+    const notify = createTaskDesktopNotifier(() => {}, { platform: "darwin", submit: async (value) => {
+      script = value;
+      await new Promise<void>((resolve) => { release = resolve; });
+    } });
+    let settled = false;
+    const pending = notify(task).then(() => { settled = true; });
+    await Promise.resolve();
+    assert.equal(settled, false);
+    assert.match(script, /task-notification/);
+    assert.doesNotMatch(script, /sensitive preference|private workspace memory/);
+    release();
+    await pending;
+  });
+  it("propagates rejection so the worker can persist failed delivery", async () => {
+    const reports: string[] = [];
+    const notify = createTaskDesktopNotifier((text) => reports.push(text), { platform: "darwin", submit: async () => { throw new Error("OS rejected"); } });
+    await assert.rejects(notify(task), /OS rejected/);
+    assert.match(reports[0]!, /notification failed/);
+  });
+});
 
 describe("task-worker CLI arguments", () => {
   it("requires the explicit workspace and accepts pnpm's separator", () => {
@@ -22,6 +53,10 @@ describe("task-worker CLI arguments", () => {
     assert.deepEqual(
       parseTaskWorkerArgs(["--workspace", "./sample", "--workspace-context"]),
       { workspace: "./sample", workspaceContext: true },
+    );
+    assert.deepEqual(
+      parseTaskWorkerArgs(["--workspace", "./sample", "--safe-retry"]),
+      { workspace: "./sample", safeRetry: true },
     );
   });
 
@@ -45,6 +80,10 @@ describe("task-worker CLI arguments", () => {
     assert.throws(
       () => parseTaskWorkerArgs(["--workspace", "./sample", "--workspace-context", "--workspace-context"]),
       /at most one --workspace-context option/,
+    );
+    assert.throws(
+      () => parseTaskWorkerArgs(["--workspace", "./sample", "--safe-retry", "--safe-retry"]),
+      /at most one --safe-retry option/,
     );
   });
 });

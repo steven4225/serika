@@ -29,12 +29,14 @@ import {
 } from "./task-worker-context.js";
 import { tryAcquireFlock } from "./flock.js";
 import { canonicalTimeZone } from "./todoist.js";
+import { createTaskWorkerHealthWriter } from "./task-worker-health.js";
 
 interface TaskWorkerArgs {
   workspace: string;
   todoist?: true;
   notify?: true;
   workspaceContext?: true;
+  safeRetry?: true;
 }
 
 export function parseTaskWorkerArgs(args: readonly string[]): TaskWorkerArgs {
@@ -43,6 +45,7 @@ export function parseTaskWorkerArgs(args: readonly string[]): TaskWorkerArgs {
   let todoist = false;
   let notify = false;
   let workspaceContext = false;
+  let safeRetry = false;
   for (let index = 0; index < parsed.length; index += 1) {
     const arg = parsed[index];
     if (arg === "--workspace") {
@@ -77,6 +80,11 @@ export function parseTaskWorkerArgs(args: readonly string[]): TaskWorkerArgs {
       workspaceContext = true;
       continue;
     }
+    if (arg === "--safe-retry") {
+      if (safeRetry) throw new Error("task-worker accepts at most one --safe-retry option");
+      safeRetry = true;
+      continue;
+    }
     throw new Error(`Unknown task-worker option: ${arg}`);
   }
 
@@ -88,6 +96,7 @@ export function parseTaskWorkerArgs(args: readonly string[]): TaskWorkerArgs {
     ...(todoist ? { todoist: true as const } : {}),
     ...(notify ? { notify: true as const } : {}),
     ...(workspaceContext ? { workspaceContext: true as const } : {}),
+    ...(safeRetry ? { safeRetry: true as const } : {}),
   };
 }
 
@@ -107,15 +116,8 @@ function taskStatusLabel(status: TaskRecord["status"]): string {
 }
 
 function taskNotificationMessage(task: TaskRecord): string {
-  const detail = task.status === "completed"
-    ? task.resultText?.trim() || "任务完成，无文本输出"
-    : task.error === null
-      ? "没有附加错误信息"
-      : `${task.error.code}: ${task.error.message}`;
-  const clip = (value: string, limit: number): string =>
-    value.length > limit ? `${value.slice(0, limit - 3)}...` : value;
-  return `任务 ${task.id} ${taskStatusLabel(task.status)}（${task.runAt}）：` +
-    `${clip(task.prompt, 160)}\n${clip(detail, 240)}`;
+  // Lock-screen notifications must not disclose workspace memory or task text.
+  return `任务 ${task.id}：${taskStatusLabel(task.status)}。请在 inbox 查看结果；不代表业务验收通过。`;
 }
 
 function escapeAppleScriptString(value: string): string {
@@ -125,10 +127,11 @@ function escapeAppleScriptString(value: string): string {
     .replaceAll("\n", " ");
 }
 
-/** Create the explicit --notify callback; the callback is best effort. */
+/** Resolves only after the OS command accepted the notification, not after user delivery. */
 export function createTaskDesktopNotifier(
   write: (text: string) => void = (text) => process.stderr.write(text),
-): (task: TaskRecord) => void {
+  options: { platform?: string; submit?: (script: string) => Promise<void> } = {},
+): (task: TaskRecord) => Promise<void> {
   const reportFailure = (error: unknown): void => {
     try {
       write(`task-worker notification failed: ${errorMessage(error)}\n`);
@@ -137,44 +140,42 @@ export function createTaskDesktopNotifier(
     }
   };
 
-  return (task): void => {
+  return async (task): Promise<void> => {
     const message = taskNotificationMessage(task);
-    if (process.platform !== "darwin") {
-      reportFailure(new Error("macOS desktop notifications are unavailable"));
-      return;
+    if ((options.platform ?? process.platform) !== "darwin") {
+      throw new Error("macOS desktop notifications are unavailable");
     }
 
-    let settled = false;
-    let child: ReturnType<typeof spawn>;
     try {
-      child = spawn(
-        "osascript",
-        [
-          "-e",
-          `display notification "${escapeAppleScriptString(message)}" with title "Runloom"`,
-        ],
-        { stdio: "ignore" },
-      );
+      const script = `display notification "${escapeAppleScriptString(message)}" with title "Runloom"`;
+      if (options.submit !== undefined) {
+        await options.submit(script);
+        return;
+      }
+      await new Promise<void>((resolve, reject) => {
+        const child = spawn(
+          "osascript",
+          ["-e", script],
+          { stdio: "ignore" },
+        );
+        const timer = setTimeout(() => {
+          child.kill("SIGKILL");
+          reject(new Error("osascript notification timed out"));
+        }, 5_000);
+        child.once("error", (error) => { clearTimeout(timer); reject(error); });
+        child.once("close", (code, signal) => {
+          clearTimeout(timer);
+          if (code !== 0) {
+            reject(new Error(
+              `osascript exited with ${signal === null ? `code ${String(code)}` : `signal ${signal}`}`,
+            ));
+          } else resolve();
+        });
+      });
     } catch (error) {
       reportFailure(error);
-      return;
+      throw error;
     }
-    child.once("error", (error) => {
-      if (settled) return;
-      settled = true;
-      reportFailure(error);
-    });
-    child.once("close", (code, signal) => {
-      if (settled) return;
-      settled = true;
-      if (code !== 0) {
-        reportFailure(
-          new Error(
-            `osascript exited with ${signal === null ? `code ${String(code)}` : `signal ${signal}`}`,
-          ),
-        );
-      }
-    });
   };
 }
 
@@ -338,7 +339,7 @@ export function createTaskWorkerAgent(
 }
 
 export async function startTaskWorker(args: readonly string[]): Promise<void> {
-  const { workspace, todoist = false, notify = false, workspaceContext = false } = parseTaskWorkerArgs(args);
+  const { workspace, todoist = false, notify = false, workspaceContext = false, safeRetry = false } = parseTaskWorkerArgs(args);
   const workspaceRoot = await resolveWorkspace(workspace);
   // Validate the model configuration before creating or acquiring the worker
   // lock, so a bad environment cannot temporarily claim a workspace.
@@ -387,7 +388,17 @@ export async function startTaskWorker(args: readonly string[]): Promise<void> {
   process.once("SIGINT", stop);
   process.once("SIGTERM", stop);
 
+  const health = createTaskWorkerHealthWriter(workspaceRoot);
+  const reportHealthFailure = (error: unknown): void => {
+    process.stderr.write(`task-worker health failed: ${errorMessage(error)}\n`);
+  };
+  const heartbeatTimer = setInterval(() => {
+    void health.heartbeat().catch(reportHealthFailure);
+  }, 5_000);
+  heartbeatTimer.unref();
+
   try {
+    await health.heartbeat();
     if (todoistTimeZone !== undefined) {
       process.stdout.write(
         `Todoist worker enabled (planning time zone: ${todoistTimeZone}). ` +
@@ -403,6 +414,9 @@ export async function startTaskWorker(args: readonly string[]): Promise<void> {
         "the bounded snapshot is sent to the configured model and may appear in task results.\n",
       );
     }
+    if (safeRetry) {
+      process.stdout.write("Safe read-only retry enabled: at most three attempts for transient model failures; unknown or interrupted executions are not replayed.\n");
+    }
 
     await runTaskWorker({
       store: taskStore,
@@ -411,15 +425,31 @@ export async function startTaskWorker(args: readonly string[]): Promise<void> {
       ...(workspaceContext
         ? { loadWorkspaceContext: createTaskWorkerContextLoader(workspaceRoot, taskStore) }
         : {}),
-      ...(notify ? { onTaskFinished: createTaskDesktopNotifier() } : {}),
+      safeRetry,
+      onTaskStarted: (task) => { void health.heartbeat(task.id).catch(reportHealthFailure); },
+      onTaskRetry: (task) => {
+        void health.heartbeat(null).catch(reportHealthFailure);
+        const attempt = task.attempts.at(-1);
+        if (attempt?.error) void health.failure(attempt.error.code, attempt.error.message).catch(reportHealthFailure);
+      },
+      onTaskFinished: (task) => {
+        void health.handled(task.id).catch(reportHealthFailure);
+        if (task.error !== null) void health.failure(task.error.code, task.error.message).catch(reportHealthFailure);
+      },
+      ...(notify ? { notify: createTaskDesktopNotifier() } : {}),
     });
+  } catch (error) {
+    await health.failure("WORKER_FAILED", errorMessage(error)).catch(reportHealthFailure);
+    throw error;
   } finally {
+    clearInterval(heartbeatTimer);
     process.removeListener("SIGINT", stop);
     process.removeListener("SIGTERM", stop);
     try {
       agent.dispose();
     } finally {
-      await lock.release();
+      try { await health.stopped().catch(reportHealthFailure); }
+      finally { await lock.release(); }
     }
   }
 }
