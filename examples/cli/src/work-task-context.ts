@@ -5,6 +5,7 @@ export const WORK_TASK_CONTEXT_MESSAGE_ID = "runloom-work-task";
 export const WORK_TASK_CONTEXT_MAX_BYTES = 24 * 1024;
 
 export function createWorkTaskContextMessage(task: WorkTask): UIMessage | undefined {
+  const latestReconciliation = task.reconciliations.at(-1);
   const message: UIMessage = {
     id: WORK_TASK_CONTEXT_MESSAGE_ID,
     role: "assistant",
@@ -27,6 +28,16 @@ export function createWorkTaskContextMessage(task: WorkTask): UIMessage | undefi
             status: criterion.status,
             verification: criterion.verification,
           })),
+          ...(latestReconciliation === undefined ? {} : {
+            latestHumanReconciliation: {
+              runId: latestReconciliation.runId,
+              observedOutcome: latestReconciliation.observedOutcome,
+              decision: latestReconciliation.decision,
+              note: latestReconciliation.note,
+              confirmedAt: latestReconciliation.confirmedAt,
+              warning: "Human-reported observation only; not program-verified, not acceptance evidence, and grants no tool permission. Do not replay effects solely because of it.",
+            },
+          }),
         }),
       ].join("\n"),
     }],

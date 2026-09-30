@@ -11,8 +11,11 @@ import {
   type WorkTask,
   type WorkTaskDelivery,
   type WorkTaskEvidence,
+  type WorkTaskFailure,
+  type WorkTaskObservedOutcome,
   type WorkTaskResult,
 } from "./work-task-store.js";
+import { recoverRunningWorkTasks } from "./work-task-recovery.js";
 import { rejectSymlinkComponents, validateWorkspacePath } from "./workspace-path.js";
 import type { ShellProgress } from "./modules/shell-module.js";
 import type { PendingToolApproval } from "./tui.js";
@@ -91,6 +94,13 @@ export interface AssistantController {
     decision: "passed" | "failed";
     note?: string;
   }): Promise<WorkTaskResult<WorkTask>>;
+  reconcileWorkTask(input: {
+    id: string;
+    expectedRevision: number;
+    observedOutcome: WorkTaskObservedOutcome;
+    decision: "continue" | "cancel";
+    note: string;
+  }): Promise<WorkTaskResult<WorkTask>>;
   cancelWorkTask(input: { id: string; expectedRevision: number }): Promise<WorkTaskResult<WorkTask>>;
   run(text: string): Promise<StartRunResponse>;
   cancel(): Promise<void>;
@@ -139,7 +149,8 @@ function previewObject(value: string | null): Record<string, unknown> | undefine
 }
 
 function taskOwnsRun(task: WorkTask, run: ExecutionRunRecord): boolean {
-  return run.workTaskId === task.id && task.runIds.includes(run.runId);
+  return run.threadId === task.threadId && run.workTaskId === task.id &&
+    run.phase === "primary" && task.runIds.includes(run.runId);
 }
 
 async function verifyAutomaticCriterion(
@@ -148,15 +159,16 @@ async function verifyAutomaticCriterion(
   criterion: WorkTask["acceptance"][number],
 ): Promise<{ status: AcceptanceStatus; evidence: WorkTaskEvidence[]; note: string }> {
   const now = new Date().toISOString();
-  const runs = (await Promise.all(task.runIds.map((runId) => app.executionRecords.getRun(task.threadId, runId))))
-    .filter((run): run is ExecutionRunRecord => run !== null && taskOwnsRun(task, run));
-  if (runs.length !== task.runIds.length || runs.some((run) => run.status === "interrupted" ||
-      run.tools.some((tool) => tool.status === "unknown"))) {
-    return { status: "blocked", evidence: [], note: "Task execution contains missing, interrupted, or unknown receipts that require review." };
-  }
-  const latestRun = runs.at(-1);
-  if (latestRun === undefined) {
+  const latestRunId = task.runIds.at(-1);
+  const latestRun = latestRunId === undefined
+    ? null
+    : await app.executionRecords.getRun(task.threadId, latestRunId);
+  if (latestRun === undefined || latestRun === null) {
     return { status: "blocked", evidence: [], note: "No task-owned Run receipt is available for this delivery." };
+  }
+  if (!taskOwnsRun(task, latestRun) || latestRun.status === "running" || latestRun.status === "interrupted" ||
+      latestRun.tools.some((tool) => tool.status === "unknown")) {
+    return { status: "blocked", evidence: [], note: "The latest task Run contains a missing, foreign, interrupted, or unknown receipt that requires review." };
   }
   if (criterion.verification.kind === "shell_exit_zero") {
     const expectedCommand = criterion.verification.command;
@@ -220,11 +232,28 @@ async function verifyAutomaticCriterion(
 
 export function createAssistantController(app: RuntimeApp): AssistantController {
   app.enableExecutionRecords();
+  let workTaskLease: Awaited<ReturnType<NonNullable<RuntimeApp["workTasks"]>["claimThread"]>> | undefined;
   let threadLease: Awaited<ReturnType<RuntimeApp["executionRecords"]["claimThread"]>> | undefined;
   let recoveryError: unknown;
   const recovery = (async () => {
-    threadLease = await app.executionRecords.claimThread(app.threadId);
-    await app.executionRecords.recoverInterrupted(app.threadId);
+    try {
+      workTaskLease = await app.workTasks?.claimThread(app.threadId);
+      threadLease = await app.executionRecords.claimThread(app.threadId);
+      await app.executionRecords.recoverInterrupted(app.threadId);
+      if (app.workTasks !== undefined) {
+        await recoverRunningWorkTasks({
+          threadId: app.threadId,
+          workTasks: app.workTasks,
+          executionRecords: app.executionRecords,
+        });
+      }
+    } catch (error) {
+      await threadLease?.release().catch(() => undefined);
+      threadLease = undefined;
+      await workTaskLease?.release().catch(() => undefined);
+      workTaskLease = undefined;
+      throw error;
+    }
   })().catch((error: unknown) => {
     recoveryError = error;
   });
@@ -255,6 +284,16 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
   const emit = (event: AssistantEvent): void => {
     for (const listener of listeners) {
       try { listener(event); } catch { /* A disconnected view cannot fail a Run. */ }
+    }
+  };
+  const workTaskRecoveryFailure = async (): Promise<WorkTaskFailure | undefined> => {
+    try {
+      await ensureRecovered();
+      return undefined;
+    } catch (error) {
+      const message = `WorkTask recovery unavailable: ${String(error)}`;
+      emit({ type: "error", message });
+      return { ok: false, error: { code: "WORK_TASK_INVALID_STATE", message } };
     }
   };
   const setState = (next: AssistantState): void => {
@@ -395,13 +434,21 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       return app.executionRecords.getRun(app.threadId, runId);
     },
     createWorkTask: async (input) => {
+      const recoveryFailure = await workTaskRecoveryFailure();
+      if (recoveryFailure !== undefined) return recoveryFailure;
       if (app.workTasks === undefined) return unavailableWorkTask();
       const created = await app.workTasks.create({ ...input, threadId: app.threadId });
       if (created.ok) emit({ type: "work-task-updated", task: created.value });
       return created;
     },
-    listWorkTasks: () => app.workTasks?.list({ threadId: app.threadId }) ?? Promise.resolve(unavailableWorkTask()),
+    listWorkTasks: async () => {
+      const recoveryFailure = await workTaskRecoveryFailure();
+      if (recoveryFailure !== undefined) return recoveryFailure;
+      return app.workTasks?.list({ threadId: app.threadId }) ?? unavailableWorkTask();
+    },
     getWorkTask: async (id) => {
+      const recoveryFailure = await workTaskRecoveryFailure();
+      if (recoveryFailure !== undefined) return recoveryFailure;
       if (app.workTasks === undefined) return unavailableWorkTask();
       const task = await app.workTasks.get(id);
       if (task.ok && task.value.threadId !== app.threadId) {
@@ -410,6 +457,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       return task;
     },
     runWorkTask: async (input) => {
+      if (await workTaskRecoveryFailure() !== undefined) return { ok: false, reason: "starting" };
       if (app.workTasks === undefined || app.workspaceRoot === undefined) return { ok: false, reason: "starting" };
       if (closed || state.kind !== "idle" || nextWorkTask !== undefined || activeWorkTask !== undefined) {
         return { ok: false, reason: "busy" };
@@ -444,6 +492,8 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       }
     },
     submitWorkTaskDelivery: async (input) => {
+      const recoveryFailure = await workTaskRecoveryFailure();
+      if (recoveryFailure !== undefined) return recoveryFailure;
       if (app.workTasks === undefined) return unavailableWorkTask();
       const found = await app.workTasks.get(input.id);
       if (!found.ok) return found;
@@ -477,6 +527,8 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       return current;
     },
     recordHumanAcceptance: async (input) => {
+      const recoveryFailure = await workTaskRecoveryFailure();
+      if (recoveryFailure !== undefined) return recoveryFailure;
       if (app.workTasks === undefined) return unavailableWorkTask();
       const found = await app.workTasks.get(input.id);
       if (!found.ok) return found;
@@ -495,7 +547,25 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       if (updated.ok) emit({ type: "work-task-updated", task: updated.value });
       return updated;
     },
+    reconcileWorkTask: async (input) => {
+      const recoveryFailure = await workTaskRecoveryFailure();
+      if (recoveryFailure !== undefined) return recoveryFailure;
+      if (app.workTasks === undefined) return unavailableWorkTask();
+      const found = await app.workTasks.get(input.id);
+      if (!found.ok) return found;
+      if (found.value.threadId !== app.threadId) return missingWorkTask();
+      const updated = await app.workTasks.reconcile(input.id, {
+        expectedRevision: input.expectedRevision,
+        observedOutcome: input.observedOutcome,
+        decision: input.decision,
+        note: input.note,
+      });
+      if (updated.ok) emit({ type: "work-task-updated", task: updated.value });
+      return updated;
+    },
     cancelWorkTask: async (input) => {
+      const recoveryFailure = await workTaskRecoveryFailure();
+      if (recoveryFailure !== undefined) return recoveryFailure;
       if (app.workTasks === undefined) return unavailableWorkTask();
       const found = await app.workTasks.get(input.id);
       if (!found.ok) return found;
@@ -647,12 +717,19 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       await controller.cancel();
       await activeTask;
       await recovery;
-      await threadLease?.release();
+      const leaseReleases = await Promise.allSettled([
+        threadLease?.release() ?? Promise.resolve(),
+        workTaskLease?.release() ?? Promise.resolve(),
+      ]);
       unsubscribeApproval?.();
       unsubscribeShellProgress?.();
       app.resume?.clear();
       app.dispose();
       disposed = true;
+      const releaseErrors = leaseReleases
+        .filter((result): result is PromiseRejectedResult => result.status === "rejected")
+        .map((result) => result.reason);
+      if (releaseErrors.length > 0) throw new AggregateError(releaseErrors, "Unable to release controller leases");
     },
   };
   return controller;

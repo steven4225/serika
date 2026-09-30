@@ -37,10 +37,19 @@ import { createAssistantController } from "@aisdk-agent/example-cli/dist/assista
 
 ## WorkTask 接入（第一批）
 
-- 配置 workspace 后，前端可用 `createWorkTask()`、`listWorkTasks()`、`getWorkTask()`、`runWorkTask()`、`submitWorkTaskDelivery()`、`recordHumanAcceptance()` 和 `cancelWorkTask()` 驱动任务级生命周期。每次更新都传刚读取的 `revision`；冲突后重新读取，不要盲重试旧请求。
+- 配置 workspace 后，前端可用 `createWorkTask()`、`listWorkTasks()`、`getWorkTask()`、`runWorkTask()`、`submitWorkTaskDelivery()`、`recordHumanAcceptance()`、`reconcileWorkTask()` 和 `cancelWorkTask()` 驱动任务级生命周期。每次更新都传刚读取的 `revision`；冲突后重新读取，不要盲重试旧请求。
 - `runWorkTask()` 会把随后启动的主 Run 绑定到该任务；核对时同时检查 `task.runIds` 与 `getRun(runId).workTaskId`。Run 正常结束只把任务推进到暂停/复核，不等于交付或验收完成。
 - `submitWorkTaskDelivery()` 仅自动核对当前支持的精确 `shell_exit_zero` 和 `artifact_exists`。Shell 标准同时固定 `command` 与 workspace 相对 `cwd`（workspace 根为 `"."`）；Store 会再次回查真实 `runId + toolCallId` 回执，文件还会重算当前 SHA-256，调用方不能自报 evidence。人工标准不会被模型回复或 Run 成功自动通过，必须由用户明确调用 `recordHumanAcceptance()`；出现 `unknown` 工具或缺失执行回执时进入复核，不能重放。
 - 第一批 WT01–WT06 的固定案例、外部 Eval 记录和“尚未运行”的证据边界见 [WorkTask 第一批验收与 Eval 记录](work-task-acceptance.md)。产品 WorkTask 状态与外部 `AcceptanceCaseResult` 是两层记录，前端不得把其中一层的完成映射成另一层通过。
+
+## WorkTask 启动恢复与人工核对（第二批）
+
+- 控制器首次使用前按固定顺序取得 workspace/Thread 的 WorkTask 进程期锁和 transcript/Thread 的 execution 进程期锁，再把该 Thread 遗留的 `running` Run 标为 `interrupted`：已 `started` 但没有终态回执的工具变成 `unknown`，只有 `requested` 的工具变成 `not_started`。随后才对账该 Thread 的 `running` WorkTask，并在完成前阻止 WorkTask API 和新 Run。锁冲突、坏文件或对账失败均 fail-closed；`shutdown()` 释放两把锁。
+- 对账检查任务最新的关联 Run，同时核对 Thread、`workTaskId` 和 `primary` phase。最新回执缺失、外来或含 `unknown` 会把任务置为 `needs_review`；最新回执可说明且没有未知副作用时置为 `paused`。前一个不确定 Run 必须先 reconciliation 才能回到 `paused` 并显式开始下一 Run，因此恢复不依赖可能已经被有界 execution store 淘汰的完整历史。这个过程只收敛本地状态，绝不重新调用模型、工具或重放副作用。
+- `needs_review` 只能由用户显式调用 `reconcileWorkTask({ id, expectedRevision, observedOutcome, decision, note })` 处理。`observedOutcome` 是 `applied | partially_applied | not_applied | still_unknown`，说明必须非空；`continue + still_unknown` 会被拒绝。成功的 `continue` 只保存 human report 并把任务改为 `paused`，不会自动调用 `runWorkTask()`；成功的 `cancel` 把任务改为 `cancelled`，但尤其在 `still_unknown` 时不表示旧副作用未发生。
+- `cancelWorkTask()` 对 `needs_review` 返回 `WORK_TASK_INVALID_STATE`；前端在这个状态只能展示带观察结果和说明的核对取消入口，不能沿用普通取消按钮跳过记录。
+- `task.reconciliations` 是有界的人类观察记录，不是程序验证结果、工具授权或 acceptance evidence，不能直接让 criterion 通过或让任务完成。后续主 WorkTask Run 只会把最近一条作为带警告的参考上下文；调用方仍须明确启动 Run，并重新取得所有写入和 Shell 权限。自动验收只使用最新且可验证的任务 Run，不要求保留无限历史回执。
+- 恢复和 reconciliation 都使用当前 `revision` 做 CAS。revision 冲突后重新读取任务和执行回执，不得盲重放旧请求；前端应把 `needs_review`、最新 Run 的 `unknown`/缺失情况、human report 及取消后的残余不确定性直接展示给用户。
 
 ## 边界
 

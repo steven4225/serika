@@ -266,4 +266,18 @@ describe("WorkTaskStore", () => {
     assert.equal(unchangedAutomatic.ok && unchangedAutomatic.value.revision, 4);
     assert.deepEqual(unchangedAutomatic.ok && unchangedAutomatic.value.delivery?.evidence, []);
   });
+
+  it("reads version-one tasks written before reconciliation history existed", async () => {
+    const directory = await workspace();
+    const store = createWorkTaskStore(directory, { generateId: () => "legacy-task" });
+    const created = await store.create(input());
+    assert.equal(created.ok, true);
+    const file = join(directory, ".runloom", "work-tasks.json");
+    const document = JSON.parse(await readFile(file, "utf8")) as { tasks: Array<Record<string, unknown>> };
+    delete document.tasks[0]?.reconciliations;
+    await writeFile(file, `${JSON.stringify(document)}\n`);
+    const reopened = await createWorkTaskStore(directory).get("legacy-task");
+    assert.equal(reopened.ok, true);
+    assert.deepEqual(reopened.ok ? reopened.value.reconciliations : undefined, []);
+  });
 });
