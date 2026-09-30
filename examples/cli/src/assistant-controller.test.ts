@@ -141,6 +141,40 @@ describe("AssistantController", () => {
     }
   });
 
+  it("does not recover a WorkTask Thread already owned through another transcript directory", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "runloom-controller-work-owner-"));
+    const firstTranscripts = await mkdtemp(join(tmpdir(), "runloom-controller-work-owner-a-"));
+    const secondTranscripts = await mkdtemp(join(tmpdir(), "runloom-controller-work-owner-b-"));
+    const app = (directory: string): RuntimeApp => appWith({
+      directory,
+      workspaceRoot: workspace,
+      workTasks: createWorkTaskStore(workspace),
+      executionRecords: createExecutionRecordStore(directory),
+    });
+    const first = createAssistantController(app(firstTranscripts));
+    assert.deepEqual(await first.listWorkTasks(), { ok: true, value: [] });
+    const second = createAssistantController(app(secondTranscripts));
+    try {
+      const blocked = await second.listWorkTasks();
+      assert.equal(blocked.ok, false);
+      assert.equal(!blocked.ok && blocked.error.code, "WORK_TASK_INVALID_STATE");
+      assert.match(!blocked.ok ? blocked.error.message : "", /already controlled/);
+    } finally {
+      await second.shutdown();
+      await first.shutdown();
+    }
+
+    const reopened = createAssistantController(app(secondTranscripts));
+    try {
+      assert.deepEqual(await reopened.listWorkTasks(), { ok: true, value: [] });
+    } finally {
+      await reopened.shutdown();
+      await rm(workspace, { recursive: true, force: true });
+      await rm(firstTranscripts, { recursive: true, force: true });
+      await rm(secondTranscripts, { recursive: true, force: true });
+    }
+  });
+
   it("keeps WorkTask completion separate from a successful Run", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "runloom-controller-work-task-"));
     const transcripts = await mkdtemp(join(tmpdir(), "runloom-controller-work-task-records-"));
@@ -208,6 +242,75 @@ describe("AssistantController", () => {
     }
   });
 
+  it("recovers an unknown task Run for explicit reconciliation without replay", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "runloom-controller-reconcile-"));
+    const transcripts = await mkdtemp(join(tmpdir(), "runloom-controller-reconcile-records-"));
+    const executionRecords = createExecutionRecordStore(transcripts);
+    const workTasks = createWorkTaskStore(workspace, {
+      generateId: (() => {
+        const ids = ["task-review", "reconciliation-1"];
+        return () => ids.shift() ?? "unexpected-id";
+      })(),
+      executionRecords,
+    });
+    let modelRuns = 0;
+    try {
+      const created = await workTasks.create({
+        threadId: "controller-thread", goal: "Resume safely", constraints: [],
+        acceptance: [{ id: "review", description: "User accepts", method: "human",
+          verification: { kind: "human" }, required: true }],
+      });
+      assert.equal(created.ok, true);
+      if (!created.ok) return;
+      assert.equal((await workTasks.beginRun(created.value.id, { expectedRevision: 1, runId: "run-unknown" })).ok, true);
+      await executionRecords.startRun({
+        runId: "run-unknown", threadId: "controller-thread", workTaskId: created.value.id, phase: "primary",
+      });
+      await executionRecords.recordToolEvent("run-unknown", {
+        id: "event-requested", type: "tool.call.requested", runId: "run-unknown",
+        threadId: "controller-thread", sequence: 1, occurredAt: "2026-09-30T00:00:00.000Z",
+        data: { toolCallId: "write-unknown", toolName: "write_file", input: { path: "report.md", content: "x" } },
+      });
+      await executionRecords.recordToolEvent("run-unknown", {
+        id: "event-started", type: "tool.call.started", runId: "run-unknown",
+        threadId: "controller-thread", sequence: 2, occurredAt: "2026-09-30T00:00:01.000Z",
+        data: { toolCallId: "write-unknown", toolName: "write_file" },
+      });
+
+      const controller = createAssistantController(appWith({
+        directory: transcripts, workspaceRoot: workspace, workTasks, executionRecords,
+        runtime: { run: async () => { modelRuns += 1; throw new Error("must not run"); } } as unknown as RuntimeApp["runtime"],
+      }));
+      try {
+        const recovered = await controller.getWorkTask(created.value.id);
+        assert.equal(recovered.ok && recovered.value.status, "needs_review");
+        if (!recovered.ok) return;
+        const bypass = await controller.cancelWorkTask({
+          id: recovered.value.id, expectedRevision: recovered.value.revision,
+        });
+        assert.equal(bypass.ok, false);
+        assert.equal(!bypass.ok && bypass.error.code, "WORK_TASK_INVALID_STATE");
+        const unresolved = await controller.reconcileWorkTask({
+          id: recovered.value.id, expectedRevision: recovered.value.revision,
+          observedOutcome: "still_unknown", decision: "continue", note: "Outcome is still unclear.",
+        });
+        assert.equal(unresolved.ok, false);
+        const reconciled = await controller.reconcileWorkTask({
+          id: recovered.value.id, expectedRevision: recovered.value.revision,
+          observedOutcome: "not_applied", decision: "continue", note: "The target file was checked and was not created.",
+        });
+        assert.equal(reconciled.ok && reconciled.value.status, "paused");
+        assert.equal(reconciled.ok && reconciled.value.reconciliations[0]?.runId, "run-unknown");
+        assert.equal(modelRuns, 0);
+      } finally {
+        await controller.shutdown();
+      }
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+      await rm(transcripts, { recursive: true, force: true });
+    }
+  });
+
   it("accepts an automatic Shell criterion only from this task's exact zero-exit receipt", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "runloom-controller-work-shell-"));
     const transcripts = await mkdtemp(join(tmpdir(), "runloom-controller-work-shell-records-"));
@@ -222,8 +325,28 @@ describe("AssistantController", () => {
       });
       assert.equal(created.ok, true);
       if (!created.ok) return;
-      assert.equal((await workTasks.beginRun(created.value.id, { expectedRevision: 1, runId: "run-shell" })).ok, true);
-      assert.equal((await workTasks.pause(created.value.id, 2)).ok, true);
+      assert.equal((await workTasks.beginRun(created.value.id, { expectedRevision: 1, runId: "run-old-unknown" })).ok, true);
+      await executionRecords.startRun({
+        runId: "run-old-unknown", threadId: "controller-thread", workTaskId: created.value.id, phase: "primary",
+      });
+      await executionRecords.recordToolEvent("run-old-unknown", {
+        id: "event-old-requested", type: "tool.call.requested", runId: "run-old-unknown",
+        threadId: "controller-thread", sequence: 1, occurredAt: "2026-09-30T00:00:00.000Z",
+        data: { toolCallId: "old-shell", toolName: "shell_exec", input: { command } },
+      });
+      await executionRecords.recordToolEvent("run-old-unknown", {
+        id: "event-old-started", type: "tool.call.started", runId: "run-old-unknown",
+        threadId: "controller-thread", sequence: 2, occurredAt: "2026-09-30T00:00:01.000Z",
+        data: { toolCallId: "old-shell", toolName: "shell_exec" },
+      });
+      await executionRecords.recoverInterrupted("controller-thread");
+      assert.equal((await workTasks.markNeedsReview(created.value.id, 2)).ok, true);
+      assert.equal((await workTasks.reconcile(created.value.id, {
+        expectedRevision: 3, observedOutcome: "not_applied", decision: "continue",
+        note: "The prior command did not apply.",
+      })).ok, true);
+      assert.equal((await workTasks.beginRun(created.value.id, { expectedRevision: 4, runId: "run-shell" })).ok, true);
+      assert.equal((await workTasks.pause(created.value.id, 5)).ok, true);
       await executionRecords.startRun({
         runId: "run-shell", threadId: "controller-thread", workTaskId: created.value.id, phase: "primary",
       });
@@ -250,7 +373,7 @@ describe("AssistantController", () => {
       }));
       try {
         const delivered = await controller.submitWorkTaskDelivery({
-          id: created.value.id, expectedRevision: 3, summary: "Focused check completed",
+          id: created.value.id, expectedRevision: 6, summary: "Focused check completed",
         });
         assert.equal(delivered.ok && delivered.value.status, "completed");
         assert.equal(delivered.ok && delivered.value.acceptance[0]?.status, "passed");

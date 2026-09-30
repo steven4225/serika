@@ -3,7 +3,7 @@ import { constants } from "node:fs";
 import { lstat, mkdir, open, readFile, rename, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
-import { acquireFlock } from "./flock.js";
+import { acquireFlock, tryAcquireFlock, type FlockHandle } from "./flock.js";
 import type { ExecutionRecordStore, ExecutionToolRecord } from "./execution-record-store.js";
 import { rejectSymlinkComponents, validateWorkspacePath } from "./workspace-path.js";
 
@@ -22,6 +22,7 @@ const LIMITS = {
   acceptance: 24,
   runIds: 64,
   refs: 64,
+  reconciliations: 64,
 } as const;
 
 export const workTaskStatuses = [
@@ -60,6 +61,21 @@ export interface WorkTaskDelivery {
   unresolved: string[];
 }
 
+export const workTaskObservedOutcomes = [
+  "applied", "partially_applied", "not_applied", "still_unknown",
+] as const;
+export type WorkTaskObservedOutcome = (typeof workTaskObservedOutcomes)[number];
+
+export interface WorkTaskReconciliation {
+  id: string;
+  runId: string;
+  actor: "human";
+  observedOutcome: WorkTaskObservedOutcome;
+  decision: "continue" | "cancel";
+  note: string;
+  confirmedAt: string;
+}
+
 export interface WorkTask {
   id: string;
   revision: number;
@@ -70,6 +86,7 @@ export interface WorkTask {
   status: WorkTaskStatus;
   runIds: string[];
   delivery: WorkTaskDelivery | null;
+  reconciliations: WorkTaskReconciliation[];
   createdAt: string;
   updatedAt: string;
 }
@@ -106,12 +123,24 @@ export interface WorkTaskFailure {
 export type WorkTaskResult<T> = { ok: true; value: T } | WorkTaskFailure;
 
 export interface WorkTaskStore {
+  claimThread(threadId: string): Promise<FlockHandle>;
   create(input: CreateWorkTaskInput): Promise<WorkTaskResult<WorkTask>>;
   get(id: string): Promise<WorkTaskResult<WorkTask>>;
   list(input?: WorkTaskListInput): Promise<WorkTaskResult<WorkTask[]>>;
   beginRun(id: string, input: { expectedRevision: number; runId: string }): Promise<WorkTaskResult<WorkTask>>;
   pause(id: string, expectedRevision: number): Promise<WorkTaskResult<WorkTask>>;
   markNeedsReview(id: string, expectedRevision: number): Promise<WorkTaskResult<WorkTask>>;
+  settleRecoveredRun(id: string, input: {
+    expectedRevision: number;
+    latestRunId: string;
+    disposition: "paused" | "needs_review";
+  }): Promise<WorkTaskResult<WorkTask>>;
+  reconcile(id: string, input: {
+    expectedRevision: number;
+    observedOutcome: WorkTaskObservedOutcome;
+    decision: "continue" | "cancel";
+    note: string;
+  }): Promise<WorkTaskResult<WorkTask>>;
   submitDelivery(id: string, input: { expectedRevision: number; delivery: WorkTaskDelivery }): Promise<WorkTaskResult<WorkTask>>;
   recordAcceptance(id: string, input: {
     expectedRevision: number;
@@ -262,9 +291,30 @@ function parseDelivery(value: unknown, file: boolean): WorkTaskDelivery {
   };
 }
 
+function parseReconciliation(value: unknown): WorkTaskReconciliation {
+  if (!isRecord(value)) raise("WORK_TASK_FILE_INVALID", "Reconciliation must be an object");
+  assertKeys(value, ["id", "runId", "actor", "observedOutcome", "decision", "note", "confirmedAt"], "reconciliation");
+  if (value.actor !== "human" || !workTaskObservedOutcomes.includes(value.observedOutcome as WorkTaskObservedOutcome) ||
+      (value.decision !== "continue" && value.decision !== "cancel") || !timestamp(value.confirmedAt)) {
+    raise("WORK_TASK_FILE_INVALID", "Reconciliation is invalid");
+  }
+  if (value.decision === "continue" && value.observedOutcome === "still_unknown") {
+    raise("WORK_TASK_FILE_INVALID", "A still-unknown reconciliation cannot continue");
+  }
+  return {
+    id: text(value.id, "reconciliation.id", 128, true),
+    runId: text(value.runId, "reconciliation.runId", 128, true),
+    actor: "human",
+    observedOutcome: value.observedOutcome as WorkTaskObservedOutcome,
+    decision: value.decision,
+    note: text(value.note, "reconciliation.note", LIMITS.noteBytes, true),
+    confirmedAt: value.confirmedAt,
+  };
+}
+
 function parseTask(value: unknown): WorkTask {
   if (!isRecord(value)) raise("WORK_TASK_FILE_INVALID", "Task must be an object");
-  assertKeys(value, ["id", "revision", "threadId", "goal", "constraints", "acceptance", "status", "runIds", "delivery", "createdAt", "updatedAt"], "task");
+  assertKeys(value, ["id", "revision", "threadId", "goal", "constraints", "acceptance", "status", "runIds", "delivery", "reconciliations", "createdAt", "updatedAt"], "task");
   if (!Number.isSafeInteger(value.revision) || (value.revision as number) < 1 ||
       !workTaskStatuses.includes(value.status as WorkTaskStatus) || !timestamp(value.createdAt) || !timestamp(value.updatedAt) ||
       !Array.isArray(value.acceptance) || value.acceptance.length > LIMITS.acceptance || value.delivery === undefined) {
@@ -272,6 +322,11 @@ function parseTask(value: unknown): WorkTask {
   }
   const acceptance = value.acceptance.map((item, index) => parseCriterion(item, `acceptance[${index}]`, true));
   const runIds = strings(value.runIds, "runIds", LIMITS.runIds, 128, true);
+  const reconciliations = value.reconciliations === undefined
+    ? []
+    : Array.isArray(value.reconciliations) && value.reconciliations.length <= LIMITS.reconciliations
+      ? value.reconciliations.map(parseReconciliation)
+      : raise("WORK_TASK_FILE_INVALID", "Reconciliation list is invalid");
   if (acceptance.length === 0 || !acceptance.some((item) => item.required) ||
       new Set(acceptance.map((item) => item.id)).size !== acceptance.length || new Set(runIds).size !== runIds.length) {
     raise("WORK_TASK_FILE_INVALID", "Task contains duplicate IDs");
@@ -281,6 +336,7 @@ function parseTask(value: unknown): WorkTask {
     threadId: text(value.threadId, "threadId", 256, true), goal: text(value.goal, "goal", LIMITS.goalBytes, true),
     constraints: strings(value.constraints, "constraints", LIMITS.constraints, LIMITS.textBytes, true), acceptance,
     status: value.status as WorkTaskStatus, runIds, delivery: value.delivery === null ? null : parseDelivery(value.delivery, true),
+    reconciliations,
     createdAt: value.createdAt, updatedAt: value.updatedAt,
   };
   const evidenceIds = new Set(task.delivery?.evidence.map((item) => item.id) ?? []);
@@ -289,6 +345,8 @@ function parseTask(value: unknown): WorkTask {
   }
   const savedEvidence = new Map(task.delivery?.evidence.map((item) => [item.id, item]) ?? []);
   if ((task.delivery?.evidence.some((item) => item.kind !== "human" && !task.runIds.includes(item.runId)) ?? false) ||
+      task.reconciliations.some((item) => !task.runIds.includes(item.runId)) ||
+      new Set(task.reconciliations.map((item) => item.id)).size !== task.reconciliations.length ||
       task.acceptance.some((criterion) => new Set(criterion.evidenceRefs).size !== criterion.evidenceRefs.length)) {
     raise("WORK_TASK_FILE_INVALID", "Task evidence does not belong to its Run history");
   }
@@ -303,6 +361,9 @@ function parseTask(value: unknown): WorkTask {
   if (task.status === "awaiting_acceptance" && task.delivery === null) raise("WORK_TASK_FILE_INVALID", "Awaiting task lacks delivery");
   if (["ready", "running", "paused", "needs_review"].includes(task.status) && task.delivery !== null) raise("WORK_TASK_FILE_INVALID", "Pre-delivery task contains delivery");
   if (task.status === "ready" && task.runIds.length !== 0) raise("WORK_TASK_FILE_INVALID", "Ready task contains Run IDs");
+  if (["running", "paused", "needs_review", "awaiting_acceptance", "completed"].includes(task.status) && task.runIds.length === 0) {
+    raise("WORK_TASK_FILE_INVALID", "Started task lacks Run history");
+  }
   if (task.updatedAt < task.createdAt) raise("WORK_TASK_FILE_INVALID", "Task timestamps are out of order");
   if (Buffer.byteLength(JSON.stringify(task), "utf8") > WORK_TASK_MAX_BYTES) raise("WORK_TASK_FILE_INVALID", "Task exceeds size limit");
   return task;
@@ -366,6 +427,22 @@ class WorkTaskStoreImpl implements WorkTaskStore {
     this.#executionRecords = options.executionRecords;
   }
 
+  async claimThread(threadId: string): Promise<FlockHandle> {
+    try {
+      const normalized = text(threadId, "threadId", 256);
+      await this.#ensureDirectory();
+      const digest = createHash("sha256").update(normalized).digest("hex");
+      const path = join(dirname(this.#file), `.work-task-owner-${digest}.lock`);
+      await this.#inspectOptionalFile(path, "thread lock");
+      const handle = await tryAcquireFlock(path);
+      if (handle === null) raise("WORK_TASK_INVALID_STATE", "Work task Thread is already controlled by another process");
+      return handle;
+    } catch (error) {
+      if (error instanceof WorkTaskStoreError) throw error;
+      raise("WORK_TASK_WRITE_FAILED", "Unable to claim work task Thread");
+    }
+  }
+
   async create(input: CreateWorkTaskInput): Promise<WorkTaskResult<WorkTask>> {
     try {
       if (!isRecord(input) || !Array.isArray(input.acceptance) || input.acceptance.length === 0 || input.acceptance.length > LIMITS.acceptance) {
@@ -380,6 +457,7 @@ class WorkTaskStoreImpl implements WorkTaskStore {
         threadId: text(input.threadId, "threadId", 256), goal: text(input.goal, "goal", LIMITS.goalBytes),
         constraints: strings(input.constraints ?? [], "constraints", LIMITS.constraints, LIMITS.textBytes), acceptance: criteria,
         status: "ready", runIds: [], delivery: null, createdAt: at, updatedAt: at,
+        reconciliations: [],
       };
       return await this.#mutate((document) => {
         if (document.tasks.length >= WORK_TASK_MAX_ENTRIES) raise("WORK_TASK_LIMIT_EXCEEDED", "Work task limit reached");
@@ -436,6 +514,61 @@ class WorkTaskStoreImpl implements WorkTaskStore {
     return this.#update(id, expectedRevision, (task) => {
       if (!["ready", "running", "paused"].includes(task.status)) raise("WORK_TASK_INVALID_STATE", "Task cannot require review in its current state");
       task.status = "needs_review";
+    });
+  }
+
+  settleRecoveredRun(id: string, input: {
+    expectedRevision: number;
+    latestRunId: string;
+    disposition: "paused" | "needs_review";
+  }): Promise<WorkTaskResult<WorkTask>> {
+    return this.#update(id, input.expectedRevision, (task) => {
+      if (task.status !== "running") raise("WORK_TASK_INVALID_STATE", "Only a running task can be recovered");
+      const latestRunId = text(input.latestRunId, "latestRunId", 128);
+      if (task.runIds.at(-1) !== latestRunId) {
+        raise("WORK_TASK_REVISION_CONFLICT", "Work task Run history changed during recovery");
+      }
+      if (input.disposition !== "paused" && input.disposition !== "needs_review") {
+        raise("WORK_TASK_INVALID_INPUT", "Recovery disposition is invalid");
+      }
+      task.status = input.disposition;
+    });
+  }
+
+  reconcile(id: string, input: {
+    expectedRevision: number;
+    observedOutcome: WorkTaskObservedOutcome;
+    decision: "continue" | "cancel";
+    note: string;
+  }): Promise<WorkTaskResult<WorkTask>> {
+    return this.#update(id, input.expectedRevision, (task) => {
+      if (task.status !== "needs_review") raise("WORK_TASK_INVALID_STATE", "Only a task requiring review can be reconciled");
+      if (!workTaskObservedOutcomes.includes(input.observedOutcome) ||
+          (input.decision !== "continue" && input.decision !== "cancel")) {
+        raise("WORK_TASK_INVALID_INPUT", "Reconciliation input is invalid");
+      }
+      if (input.decision === "continue" && input.observedOutcome === "still_unknown") {
+        raise("WORK_TASK_INVALID_INPUT", "A still-unknown outcome cannot be continued");
+      }
+      const runId = task.runIds.at(-1);
+      if (runId === undefined) raise("WORK_TASK_INVALID_STATE", "Reconciliation requires a task Run");
+      if (task.reconciliations.length >= LIMITS.reconciliations) {
+        raise("WORK_TASK_LIMIT_EXCEEDED", "Reconciliation history limit reached");
+      }
+      const reconciliationId = text(this.#generateId(), "reconciliation.id", 128);
+      if (task.reconciliations.some((item) => item.id === reconciliationId)) {
+        raise("WORK_TASK_INVALID_INPUT", "Generated reconciliation ID already exists");
+      }
+      task.reconciliations.push({
+        id: reconciliationId,
+        runId,
+        actor: "human",
+        observedOutcome: input.observedOutcome,
+        decision: input.decision,
+        note: text(input.note, "reconciliation.note", LIMITS.noteBytes),
+        confirmedAt: this.#now().toISOString(),
+      });
+      task.status = input.decision === "continue" ? "paused" : "cancelled";
     });
   }
 
@@ -513,12 +646,17 @@ class WorkTaskStoreImpl implements WorkTaskStore {
     if (this.#executionRecords === undefined) {
       raise("WORK_TASK_INVALID_STATE", "Automatic acceptance requires execution receipts");
     }
-    const runs = await Promise.all(task.runIds.map((runId) => this.#executionRecords!.getRun(task.threadId, runId)));
-    if (runs.some((run) => run === null || run.workTaskId !== task.id || run.phase !== "primary" ||
-        run.status === "running" || run.status === "interrupted" || run.tools.some((tool) => tool.status === "unknown"))) {
-      raise("WORK_TASK_INVALID_INPUT", "Task Run history contains missing, uncertain, or foreign receipts");
+    const latestRunId = task.runIds.at(-1);
+    const run = latestRunId === undefined
+      ? null
+      : await this.#executionRecords.getRun(task.threadId, latestRunId);
+    if (run === undefined || run === null) {
+      raise("WORK_TASK_INVALID_INPUT", "Automatic evidence requires a current task Run receipt");
     }
-    const run = runs.at(-1)!;
+    if (run.workTaskId !== task.id || run.phase !== "primary" || run.status === "running" ||
+        run.status === "interrupted" || run.tools.some((tool) => tool.status === "unknown")) {
+      raise("WORK_TASK_INVALID_INPUT", "Latest task Run contains an uncertain or foreign receipt");
+    }
     if (candidate.runId !== run.runId) {
       raise("WORK_TASK_INVALID_INPUT", "Automatic evidence must come from the latest task Run");
     }
@@ -587,7 +725,9 @@ class WorkTaskStoreImpl implements WorkTaskStore {
 
   cancel(id: string, expectedRevision: number): Promise<WorkTaskResult<WorkTask>> {
     return this.#update(id, expectedRevision, (task) => {
-      if (["running", "completed", "cancelled"].includes(task.status)) raise("WORK_TASK_INVALID_STATE", "Task cannot be cancelled in its current state");
+      if (["running", "needs_review", "completed", "cancelled"].includes(task.status)) {
+        raise("WORK_TASK_INVALID_STATE", "Task cannot be cancelled in its current state; needs_review requires reconciliation");
+      }
       task.status = "cancelled";
     });
   }
