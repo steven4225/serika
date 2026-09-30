@@ -40,6 +40,127 @@ function code(result: { ok: true } | { ok: false; error: { code: string } }): st
 }
 
 describe("WorkspaceTaskStore", () => {
+  it("cancels a scheduled retry without invalidating its persisted attempts", async () => {
+    const root = await workspace();
+    let now = Date.parse("2026-09-11T00:00:00.000Z");
+    let id = 0;
+    const store = createTaskStore(root, { now: () => now, generateId: () => `cancel-retry-${++id}` });
+    const created = await store.create({ prompt: "brief", runAt: "2026-09-11T00:01:00Z" });
+    assert(created.ok);
+    now += 60_000;
+    await store.claimNextDue();
+    await store.recordRunId(created.value.id, "run-retry");
+    const retry = await store.retry(created.value.id, { error: { code: "NETWORK", message: "transient" }, runId: "run-retry", nextRunAt: new Date(now + 60_000).toISOString() });
+    assert(retry.ok);
+    const cancelled = await store.cancel(created.value.id);
+    assert(cancelled.ok && cancelled.value.retryAt === null);
+    assert.deepEqual(cancelled.value.attempts, retry.value.attempts);
+    const reloaded = await createTaskStore(root, { now: () => now }).get(created.value.id);
+    assert(reloaded.ok && reloaded.value.status === "cancelled" && reloaded.value.retryAt === null);
+    assert.deepEqual(reloaded.value.attempts, retry.value.attempts);
+  });
+
+  it("retains bounded execution attempts and original schedule across retries", async () => {
+    const root = await workspace();
+    let now = Date.parse("2026-09-11T00:00:00.000Z");
+    let id = 0;
+    const store = createTaskStore(root, { now: () => now, generateId: () => `attempt-${++id}` });
+    const created = await store.create({ prompt: "read-only brief", runAt: "2026-09-11T00:01:00Z" });
+    assert(created.ok);
+    now += 60_000;
+    for (let number = 1; number <= 3; number++) {
+      const claimed = await store.claimNextDue();
+      assert(claimed.ok && claimed.value);
+      assert.equal(claimed.value.id, created.value.id);
+      assert.equal(claimed.value.attempts.length, number);
+      assert.equal(claimed.value.runAt, created.value.runAt);
+      assert.equal((await store.recordRunId(created.value.id, `run-${number}`)).ok, true);
+      const retry = await store.retry(created.value.id, { error: { code: "NETWORK", message: "retry" }, runId: `run-${number}`, nextRunAt: new Date(now + 60_000).toISOString() });
+      if (number === 3) { assert.equal(code(retry), "INVALID_INPUT"); break; }
+      assert(retry.ok);
+      assert.equal(retry.value.attempts.at(-1)?.status, "failed");
+      const early = await store.claimNextDue();
+      assert(early.ok && early.value === null);
+      now += 60_000;
+    }
+    assert.equal((await store.interruptRunning()).ok, true);
+    const recovered = await createTaskStore(root).get(created.value.id);
+    assert(recovered.ok);
+    assert.equal(recovered.value.attempts.at(-1)?.status, "interrupted");
+    assert.equal(recovered.value.runId, "run-3");
+  });
+
+  it("persists outcome intent before atomic finish and retries only the notification", async () => {
+    const root = await workspace();
+    let now = Date.parse("2026-09-11T00:00:00.000Z");
+    let id = 0;
+    const store = createTaskStore(root, { now: () => now, generateId: () => `delivery-${++id}` });
+    const created = await store.create({ prompt: "brief", runAt: "2026-09-11T00:01:00Z" });
+    assert(created.ok);
+    now += 60_000;
+    await store.claimNextDue();
+    await store.recordRunId(created.value.id, "run-delivery");
+    const outcome = { status: "completed" as const, runId: "run-delivery", resultText: "private result", notification: true };
+    assert.equal((await store.recordOutcome(created.value.id, outcome)).ok, true);
+    assert.equal(code(await store.interruptRunning()), "INVALID_INPUT");
+    const reopened = createTaskStore(root, { now: () => now });
+    const running = await reopened.listRunning();
+    assert(running.ok);
+    assert.deepEqual(running.value[0]?.pendingOutcome, outcome);
+    const finished = await reopened.finish(created.value.id, outcome);
+    assert(finished.ok);
+    assert.equal(finished.value.notification?.status, "pending");
+    assert.equal(finished.value.pendingOutcome, null);
+    assert.equal(code(await reopened.recordNotification(created.value.id, { ok: false, error: { code: "NOTIFY_FAILED", message: "bad backoff" }, nextAttemptAt: new Date(now).toISOString() })), "INVALID_INPUT");
+    for (let number = 1; number <= 3; number++) {
+      const due = await reopened.listNotifications();
+      assert(due.ok && due.value.length === 1);
+      const result = await reopened.recordNotification(created.value.id, { ok: false, error: { code: "NOTIFY_FAILED", message: "no notification" }, nextAttemptAt: new Date(now + 60_000).toISOString() });
+      assert(result.ok);
+      assert.equal(result.value.notification?.attempts, number);
+      now += 60_000;
+    }
+    const exhausted = await reopened.listNotifications();
+    assert(exhausted.ok && exhausted.value.length === 0);
+    const task = await reopened.get(created.value.id);
+    assert(task.ok && task.value.status === "completed" && task.value.resultText === "private result" && task.value.attempts.length === 1);
+    assert.deepEqual(await reopened.getHealthCounts(), { ok: true, value: { unacknowledgedCount: 1, notificationFailureCount: 1 } });
+    await reopened.acknowledge(created.value.id);
+    assert.deepEqual(await reopened.getHealthCounts(), { ok: true, value: { unacknowledgedCount: 0, notificationFailureCount: 1 } });
+  });
+
+  it("rejects inconsistent v4 attempt and notification data without rewriting it", async () => {
+    const root = await workspace();
+    const store = createTaskStore(root, { now: () => Date.parse("2026-09-11T00:00:00.000Z"), generateId: () => "corrupt" });
+    await store.create({ prompt: "brief", runAt: "2026-09-11T00:01:00Z" });
+    const path = join(root, TASK_FILE_NAME);
+    const document = JSON.parse(await readFile(path, "utf8"));
+    document.tasks[0].attempts = [{ number: 1, runId: null, startedAt: "2026-09-11T00:00:00.000Z", finishedAt: null, status: "running", error: null }];
+    const damaged = JSON.stringify(document);
+    await writeFile(path, damaged);
+    assert.equal(code(await store.get("corrupt")), "TASK_FILE_INVALID");
+    assert.equal(await readFile(path, "utf8"), damaged);
+  });
+
+  it("records an in-flight notification after acknowledgement without redelivering", async () => {
+    const root = await workspace();
+    let now = Date.parse("2026-09-11T00:00:00.000Z");
+    let id = 0;
+    const store = createTaskStore(root, { now: () => now, generateId: () => `ack-race-${++id}` });
+    const created = await store.create({ prompt: "brief", runAt: "2026-09-11T00:01:00Z" });
+    assert(created.ok);
+    now += 60_000;
+    await store.claimNextDue();
+    await store.finish(created.value.id, { status: "completed", runId: "run-ack", resultText: "done", notification: true });
+    const due = await store.listNotifications();
+    assert(due.ok && due.value.length === 1);
+    await store.acknowledge(created.value.id);
+    const recorded = await store.recordNotification(created.value.id, { ok: true });
+    assert(recorded.ok && recorded.value.notification?.status === "submitted");
+    const after = await store.listNotifications();
+    assert(after.ok && after.value.length === 0);
+  });
+
   it("persists create/list/get/cancel through a fresh store instance", async () => {
     const root = await workspace();
     let now = Date.parse("2026-09-11T01:00:00.000Z");
@@ -77,6 +198,7 @@ describe("WorkspaceTaskStore", () => {
       error: null,
       acknowledgedAt: null,
       recurringTaskId: null,
+      attempts: [], retryAt: null, notification: null, pendingOutcome: null,
     });
 
     const reopened = createTaskStore(root, { now: () => now });
@@ -187,6 +309,7 @@ describe("WorkspaceTaskStore", () => {
       error: null,
       acknowledgedAt: null,
       recurringTaskId: "series-1",
+      attempts: [], retryAt: null, notification: null, pendingOutcome: null,
     });
     await writeFile(path, `${JSON.stringify(document)}\n`, "utf8");
     assert.equal(code(await store.reschedule("associated-1", "2026-09-12T00:00:00Z")), "TASK_NOT_RESCHEDULABLE");
@@ -348,7 +471,7 @@ describe("WorkspaceTaskStore", () => {
       tasks: Array<{ recurringTaskId: string | null; acknowledgedAt: string | null }>;
       recurringTasks: unknown[];
     };
-    assert.equal(document.version, 3);
+    assert.equal(document.version, 4);
     assert.deepEqual(document.recurringTasks, []);
     assert.deepEqual(document.tasks.map((task) => task.recurringTaskId), [null, null]);
     assert.deepEqual(document.tasks.map((task) => task.acknowledgedAt), [null, null]);
@@ -530,13 +653,13 @@ describe("WorkspaceTaskStore", () => {
       tasks: Array<{ id: string; recurringTaskId: string | null; acknowledgedAt: string | null }>;
       recurringTasks: unknown[];
     };
-    assert.equal(upgraded.version, 3);
+    assert.equal(upgraded.version, 4);
     assert.deepEqual(upgraded.recurringTasks, []);
     assert.equal(upgraded.tasks.find((task) => task.id === "task-v1")?.recurringTaskId, null);
     assert.equal(upgraded.tasks.find((task) => task.id === "task-v1")?.acknowledgedAt, null);
   });
 
-  it("reads v2 without writing and upgrades it to v3 on the first successful mutation", async () => {
+  it("reads v2 without writing and upgrades it to v4 on the first successful mutation", async () => {
     const root = await workspace();
     const now = Date.parse("2026-09-11T00:00:00.000Z");
     const store = createTaskStore(root, { now: () => now });
@@ -578,7 +701,7 @@ describe("WorkspaceTaskStore", () => {
       version: number;
       tasks: Array<{ acknowledgedAt: string | null }>;
     };
-    assert.equal(upgraded.version, 3);
+    assert.equal(upgraded.version, 4);
     assert.equal(upgraded.tasks[0]?.acknowledgedAt, null);
   });
 

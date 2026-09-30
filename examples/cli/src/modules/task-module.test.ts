@@ -6,7 +6,7 @@ import type {
   RecurringTaskList,
   RecurringTaskRecord,
   TaskListV3,
-  TaskRecordV3,
+  TaskRecordV4,
   TaskStore,
   TaskStoreResult,
 } from "../task-store.js";
@@ -17,7 +17,7 @@ import {
   TASK_REPEAT_COMMAND_USAGE,
 } from "./task-module.js";
 
-function record(overrides: Partial<TaskRecordV3> = {}): TaskRecordV3 {
+function record(overrides: Partial<TaskRecordV4> = {}): TaskRecordV4 {
   return {
     id: "task-1",
     prompt: "prepare a plan",
@@ -32,6 +32,10 @@ function record(overrides: Partial<TaskRecordV3> = {}): TaskRecordV3 {
     error: null,
     acknowledgedAt: null,
     recurringTaskId: null,
+    attempts: [],
+    retryAt: null,
+    notification: null,
+    pendingOutcome: null,
     ...overrides,
   };
 }
@@ -160,6 +164,13 @@ function setup(overrides: Partial<TaskStore> = {}): {
     claimNextDue: callsFor("claimNextDue", { ok: true, value: null }),
     finish: callsFor("finish", { ok: true, value: record() }),
     interruptRunning: callsFor("interruptRunning", { ok: true, value: 0 }),
+    listRunning: callsFor("listRunning", { ok: true, value: [] }),
+    getHealthCounts: callsFor("getHealthCounts", { ok: true, value: { unacknowledgedCount: 0, notificationFailureCount: 0 } }),
+    recordRunId: callsFor("recordRunId", { ok: true, value: record() }),
+    recordOutcome: callsFor("recordOutcome", { ok: true, value: record() }),
+    retry: callsFor("retry", { ok: true, value: record() }),
+    listNotifications: callsFor("listNotifications", { ok: true, value: [] }),
+    recordNotification: callsFor("recordNotification", { ok: true, value: record() }),
     createRecurring: callsFor("createRecurring", {
       ok: true,
       value: recurringRecord(),
@@ -717,7 +728,7 @@ describe("createTaskModule", () => {
   });
 
   it("turns a rejected async command operation into a notification", async () => {
-    const failure: TaskStoreResult<TaskRecordV3> = {
+    const failure: TaskStoreResult<TaskRecordV4> = {
       ok: false,
       error: { code: "READ_FAILED", message: "disk unavailable" },
     };
@@ -732,8 +743,8 @@ describe("createTaskModule", () => {
   });
 
   it("keeps /task show pending until its result has been printed", async () => {
-    let finish!: (result: TaskStoreResult<TaskRecordV3>) => void;
-    const pending = new Promise<TaskStoreResult<TaskRecordV3>>((resolve) => {
+    let finish!: (result: TaskStoreResult<TaskRecordV4>) => void;
+    const pending = new Promise<TaskStoreResult<TaskRecordV4>>((resolve) => {
       finish = resolve;
     });
     const { commands, notifications } = setup({ get: async () => pending });

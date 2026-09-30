@@ -9,6 +9,7 @@ import {
   rm,
 } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
+import { isDeepStrictEqual } from "node:util";
 
 import { acquireFlock } from "./flock.js";
 import { nextOccurrence, type Recurrence } from "./recurrence.js";
@@ -63,6 +64,34 @@ export interface TaskRecordV3 extends TaskRecordV2 {
   acknowledgedAt: string | null;
 }
 
+export const TASK_MAX_ATTEMPTS = 3;
+export const TASK_MAX_NOTIFICATION_ATTEMPTS = 3;
+export interface TaskAttempt {
+  number: number;
+  runId: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+  status: "running" | "completed" | "failed" | "interrupted";
+  error: TaskError | null;
+}
+export interface TaskNotification {
+  status: "pending" | "submitted" | "failed";
+  attempts: number;
+  nextAttemptAt: string | null;
+  error: TaskError | null;
+}
+export interface TaskRecordV4 extends TaskRecordV3 {
+  attempts: TaskAttempt[];
+  retryAt: string | null;
+  notification: TaskNotification | null;
+  pendingOutcome: TaskFinish | null;
+}
+export interface TaskDocumentV4 {
+  version: 4;
+  tasks: TaskRecordV4[];
+  recurringTasks: RecurringTaskRecord[];
+}
+
 export interface TaskDocumentV1 {
   version: 1;
   tasks: TaskRecord[];
@@ -80,9 +109,9 @@ export interface TaskDocumentV3 {
   recurringTasks: RecurringTaskRecord[];
 }
 
-// Store internals always use the normalized v3 shape. v1/v2 are accepted only
+// Store internals always use the normalized v4 shape. v1/v2/v3 are accepted only
 // at the read boundary and are upgraded in memory without writing the file.
-export type TaskDocument = TaskDocumentV3;
+export type TaskDocument = TaskDocumentV4;
 
 export type RecurringTaskStatus = "active" | "paused" | "cancelled";
 
@@ -120,7 +149,7 @@ export interface RecurringTaskList {
 
 export interface RecurringTaskDetail {
   recurringTask: RecurringTaskRecord;
-  latestTask: TaskRecordV3 | null;
+  latestTask: TaskRecordV4 | null;
 }
 
 export interface CreateTaskInput {
@@ -170,11 +199,13 @@ export type TaskFinish =
       status: "completed";
       runId: string;
       resultText: string;
+      notification?: boolean;
     }
   | {
       status: "failed" | "interrupted";
       runId: string | null;
       error: TaskError;
+      notification?: boolean;
     };
 
 export const taskStoreErrorCodes = [
@@ -201,14 +232,21 @@ export interface TaskFailure {
 export type TaskStoreResult<T> = { ok: true; value: T } | TaskFailure;
 
 export interface TaskStore {
-  create(input: CreateTaskInput, signal?: AbortSignal): Promise<TaskStoreResult<TaskRecordV3>>;
+  getHealthCounts(): Promise<TaskStoreResult<{ unacknowledgedCount: number; notificationFailureCount: number }>>;
+  recordOutcome(id: string, outcome: TaskFinish): Promise<TaskStoreResult<TaskRecordV4>>;
+  listRunning(): Promise<TaskStoreResult<TaskRecordV4[]>>;
+  recordRunId(id: string, runId: string): Promise<TaskStoreResult<TaskRecordV4>>;
+  retry(id: string, input: { error: TaskError; runId: string | null; nextRunAt: string }): Promise<TaskStoreResult<TaskRecordV4>>;
+  listNotifications(now?: number): Promise<TaskStoreResult<TaskRecordV4[]>>;
+  recordNotification(id: string, outcome: { ok: true } | { ok: false; error: TaskError; nextAttemptAt: string | null }): Promise<TaskStoreResult<TaskRecordV4>>;
+  create(input: CreateTaskInput, signal?: AbortSignal): Promise<TaskStoreResult<TaskRecordV4>>;
   list(input?: TaskListInput): Promise<TaskStoreResult<TaskListV3>>;
-  get(id: string): Promise<TaskStoreResult<TaskRecordV3>>;
-  cancel(id: string, signal?: AbortSignal): Promise<TaskStoreResult<TaskRecordV3>>;
-  reschedule(id: string, runAt: string, signal?: AbortSignal): Promise<TaskStoreResult<TaskRecordV3>>;
-  acknowledge(id: string, signal?: AbortSignal): Promise<TaskStoreResult<TaskRecordV3>>;
-  claimNextDue(signal?: AbortSignal): Promise<TaskStoreResult<TaskRecordV3 | null>>;
-  finish(id: string, outcome: TaskFinish, signal?: AbortSignal): Promise<TaskStoreResult<TaskRecordV3>>;
+  get(id: string): Promise<TaskStoreResult<TaskRecordV4>>;
+  cancel(id: string, signal?: AbortSignal): Promise<TaskStoreResult<TaskRecordV4>>;
+  reschedule(id: string, runAt: string, signal?: AbortSignal): Promise<TaskStoreResult<TaskRecordV4>>;
+  acknowledge(id: string, signal?: AbortSignal): Promise<TaskStoreResult<TaskRecordV4>>;
+  claimNextDue(signal?: AbortSignal): Promise<TaskStoreResult<TaskRecordV4 | null>>;
+  finish(id: string, outcome: TaskFinish, signal?: AbortSignal): Promise<TaskStoreResult<TaskRecordV4>>;
   interruptRunning(signal?: AbortSignal): Promise<TaskStoreResult<number>>;
   listRecurring: (input?: RecurringTaskListInput) => Promise<TaskStoreResult<RecurringTaskList>>;
   createRecurring: (
@@ -278,8 +316,11 @@ function cloneError(error: TaskError | null): TaskError | null {
   return error === null ? null : { ...error };
 }
 
-function cloneRecord(record: TaskRecordV3): TaskRecordV3 {
-  return { ...record, error: cloneError(record.error) };
+function cloneRecord(record: TaskRecordV4): TaskRecordV4 {
+  return { ...record, error: cloneError(record.error),
+    attempts: record.attempts.map((attempt) => ({ ...attempt, error: cloneError(attempt.error) })),
+    notification: record.notification === null ? null : { ...record.notification, error: cloneError(record.notification.error) },
+    pendingOutcome: record.pendingOutcome === null ? null : structuredClone(record.pendingOutcome) };
 }
 
 function cloneRecurrence(recurrence: Recurrence): Recurrence {
@@ -384,7 +425,60 @@ function validateTaskError(value: unknown): TaskError {
   return { code: value.code, message: value.message };
 }
 
-function validateRecord(value: unknown, version: 1 | 2 | 3): TaskRecordV3 {
+function validateDeliveryFields(value: Record<string, unknown>, version: number): Pick<TaskRecordV4, "attempts" | "retryAt" | "notification" | "pendingOutcome"> {
+  if (version < 4) return {
+    attempts: value.startedAt === null ? [] : [{ number: 1, runId: value.runId as string | null, startedAt: value.startedAt as string, finishedAt: value.finishedAt as string | null, status: value.status as TaskAttempt["status"], error: value.error as TaskError | null }],
+    retryAt: null, notification: null, pendingOutcome: null,
+  };
+  if (!Array.isArray(value.attempts) || value.attempts.length > TASK_MAX_ATTEMPTS) raise("TASK_FILE_INVALID", "Invalid task attempts");
+  const attemptCount = value.attempts.length;
+  const attempts = value.attempts.map((raw, index): TaskAttempt => {
+    if (!isObject(raw) || raw.number !== index + 1 || !["running", "completed", "failed", "interrupted"].includes(raw.status as string)) raise("TASK_FILE_INVALID", "Invalid task attempt");
+    validateStoredTimestamp(raw.startedAt, "Attempt startedAt");
+    if (raw.finishedAt !== null) validateStoredTimestamp(raw.finishedAt, "Attempt finishedAt");
+    if (raw.runId !== null && (typeof raw.runId !== "string" || raw.runId.length === 0)) raise("TASK_FILE_INVALID", "Invalid attempt Run id");
+    const error = raw.error === null ? null : validateTaskError(raw.error);
+    if ((raw.status === "running") !== (raw.finishedAt === null) || ((raw.status === "failed" || raw.status === "interrupted") !== (error !== null)) || (raw.status === "completed" && raw.runId === null) || (raw.status === "running" && index !== attemptCount - 1)) raise("TASK_FILE_INVALID", "Inconsistent attempt state");
+    return { number: index + 1, startedAt: raw.startedAt, finishedAt: raw.finishedAt as string | null, runId: raw.runId as string | null, status: raw.status as TaskAttempt["status"], error };
+  });
+  if (value.retryAt !== null) {
+    validateStoredTimestamp(value.retryAt, "Task retryAt");
+    if (value.status !== "scheduled" || attempts.length === 0 || attempts.length >= TASK_MAX_ATTEMPTS) raise("TASK_FILE_INVALID", "Invalid retry state");
+  }
+  const last = attempts.at(-1);
+  if (value.status === "running" && (last?.status !== "running" || last.runId !== value.runId || last.startedAt !== value.startedAt)) raise("TASK_FILE_INVALID", "Running attempt does not match task");
+  if (value.status !== "running" && last?.status === "running") raise("TASK_FILE_INVALID", "Unexpected running attempt");
+  if (["completed", "failed", "interrupted"].includes(value.status as string) && (!last || last.status !== value.status || last.runId !== value.runId || last.finishedAt !== value.finishedAt || last.startedAt !== value.startedAt)) raise("TASK_FILE_INVALID", "Terminal attempt does not match task");
+  if (value.status === "scheduled" && attempts.length > 0 && (value.retryAt === null || last?.status !== "failed")) raise("TASK_FILE_INVALID", "Scheduled attempt requires a failed retry");
+  let notification: TaskNotification | null = null;
+  if (value.notification !== null) {
+    const raw = value.notification;
+    if (!isObject(raw) || !["pending", "submitted", "failed"].includes(raw.status as string) || !Number.isInteger(raw.attempts) || (raw.attempts as number) < 0 || (raw.attempts as number) > TASK_MAX_NOTIFICATION_ATTEMPTS || !["completed", "failed", "interrupted"].includes(value.status as string)) raise("TASK_FILE_INVALID", "Invalid notification state");
+    if (raw.nextAttemptAt !== null) validateStoredTimestamp(raw.nextAttemptAt, "Notification nextAttemptAt");
+    const error = raw.error === null ? null : validateTaskError(raw.error);
+    if ((raw.status === "failed") !== (error !== null) || (raw.status === "failed" && raw.attempts === 0) || (raw.status === "submitted" && (raw.nextAttemptAt !== null || raw.attempts === 0)) || (raw.status === "pending" && (raw.attempts !== 0 || raw.nextAttemptAt === null)) || (raw.attempts === TASK_MAX_NOTIFICATION_ATTEMPTS && raw.nextAttemptAt !== null)) raise("TASK_FILE_INVALID", "Inconsistent notification state");
+    notification = { status: raw.status as TaskNotification["status"], attempts: raw.attempts as number, nextAttemptAt: raw.nextAttemptAt as string | null, error };
+  }
+  let pendingOutcome: TaskFinish | null = null;
+  if (value.pendingOutcome !== null) {
+    try { validateFinish(value.pendingOutcome); } catch { raise("TASK_FILE_INVALID", "Invalid pending outcome"); }
+    pendingOutcome = value.pendingOutcome;
+    if (value.status !== "running" || pendingOutcome.runId !== value.runId) raise("TASK_FILE_INVALID", "Pending outcome does not match running task");
+  }
+  return { attempts, retryAt: value.retryAt as string | null, notification, pendingOutcome };
+}
+
+function finishAttempt(task: TaskRecordV4, outcome: TaskFinish, at: string): void {
+  const attempt = task.attempts.at(-1);
+  if (!attempt || attempt.status !== "running") raise("TASK_FILE_INVALID", "No running attempt");
+  if (attempt.runId !== null && attempt.runId !== outcome.runId) raise("INVALID_INPUT", "Run id does not match running attempt");
+  attempt.runId = outcome.runId;
+  attempt.status = outcome.status;
+  attempt.finishedAt = at;
+  attempt.error = outcome.status === "completed" ? null : { ...outcome.error };
+}
+
+function validateRecord(value: unknown, version: 1 | 2 | 3 | 4): TaskRecordV4 {
   if (!isObject(value)) raise("TASK_FILE_INVALID", "Task records must be objects");
   if (typeof value.id !== "string" || value.id.length === 0) {
     raise("TASK_FILE_INVALID", "Task id must be non-empty");
@@ -417,7 +511,7 @@ function validateRecord(value: unknown, version: 1 | 2 | 3): TaskRecordV3 {
   }
   const error = value.error === null ? null : validateTaskError(value.error);
   let acknowledgedAt: string | null = null;
-  if (version === 3) {
+  if (version >= 3) {
     if (value.acknowledgedAt === null) {
       acknowledgedAt = null;
     } else {
@@ -443,7 +537,7 @@ function validateRecord(value: unknown, version: 1 | 2 | 3): TaskRecordV3 {
   }
   if (value.status === "running") {
     if (value.startedAt === null || value.finishedAt !== null || value.threadId === null ||
-        value.runId !== null || value.resultText !== null || error !== null ||
+        (version < 4 && value.runId !== null) || value.resultText !== null || error !== null ||
         acknowledgedAt !== null) {
       raise("TASK_FILE_INVALID", "Task running state has inconsistent execution fields");
     }
@@ -477,6 +571,7 @@ function validateRecord(value: unknown, version: 1 | 2 | 3): TaskRecordV3 {
     recurringTaskId: version !== 1
       ? (value.recurringTaskId as string | null)
       : null,
+    ...validateDeliveryFields(value, version),
   };
 }
 
@@ -542,16 +637,16 @@ function validateRecurringTask(value: unknown): RecurringTaskRecord {
   };
 }
 
-function validateDocument(value: unknown): TaskDocumentV3 {
+function validateDocument(value: unknown): TaskDocumentV4 {
   if (!isObject(value)) raise("TASK_FILE_INVALID", "Task file must contain a JSON object");
-  if (value.version !== 1 && value.version !== 2 && value.version !== 3) {
+  if (value.version !== 1 && value.version !== 2 && value.version !== 3 && value.version !== 4) {
     raise("TASK_VERSION_UNSUPPORTED", "Unsupported task file version");
   }
   if (!Array.isArray(value.tasks)) {
     raise("TASK_FILE_INVALID", "Task file tasks must be an array");
   }
   const ids = new Set<string>();
-  const tasks: TaskRecordV3[] = [];
+  const tasks: TaskRecordV4[] = [];
   for (const taskValue of value.tasks) {
     const task = validateRecord(taskValue, value.version);
     if (ids.has(task.id)) raise("TASK_FILE_INVALID", `Duplicate task id: ${task.id}`);
@@ -559,7 +654,7 @@ function validateDocument(value: unknown): TaskDocumentV3 {
     tasks.push(task);
   }
   if (value.version === 1) {
-    return { version: 3, tasks, recurringTasks: [] };
+    return { version: 4, tasks, recurringTasks: [] };
   }
   if (!Array.isArray(value.recurringTasks)) {
     raise("TASK_FILE_INVALID", "Task file recurringTasks must be an array");
@@ -579,7 +674,7 @@ function validateDocument(value: unknown): TaskDocumentV3 {
       raise("TASK_FILE_INVALID", `Task references missing recurring task: ${task.recurringTaskId}`);
     }
   }
-  return { version: 3, tasks, recurringTasks };
+  return { version: 4, tasks, recurringTasks };
 }
 
 function validateCreateInput(input: unknown): CreateTaskInput & { runAt: string } {
@@ -702,6 +797,7 @@ function validateFinish(outcome: unknown): asserts outcome is TaskFinish {
       !["completed", "failed", "interrupted"].includes(outcome.status)) {
     raise("INVALID_INPUT", "Task finish status is invalid");
   }
+  if (outcome.notification !== undefined && typeof outcome.notification !== "boolean") raise("INVALID_INPUT", "Notification must be boolean");
   if (outcome.status === "completed") {
     if (typeof outcome.runId !== "string" || outcome.runId.length === 0 ||
         typeof outcome.resultText !== "string") {
@@ -752,14 +848,14 @@ export class WorkspaceTaskStore implements TaskStore {
   async create(
     input: CreateTaskInput,
     signal: AbortSignal = neverAborted,
-  ): Promise<TaskStoreResult<TaskRecordV3>> {
+  ): Promise<TaskStoreResult<TaskRecordV4>> {
     try {
       throwIfAborted(signal);
       const normalized = validateCreateInput(input);
       if (Date.parse(normalized.runAt) <= this.#now()) {
         raise("INVALID_INPUT", "Task runAt must be later than the current time");
       }
-      const task: TaskRecordV3 = {
+      const task: TaskRecordV4 = {
         id: this.#generateId(),
         prompt: normalized.prompt,
         runAt: normalized.runAt,
@@ -773,6 +869,7 @@ export class WorkspaceTaskStore implements TaskStore {
         error: null,
         acknowledgedAt: null,
         recurringTaskId: null,
+        attempts: [], retryAt: null, notification: null, pendingOutcome: null,
       };
       if (task.id.length === 0) raise("WRITE_FAILED", "Task id generator returned an empty id");
       const value = await this.#update(signal, (document) => {
@@ -986,7 +1083,7 @@ export class WorkspaceTaskStore implements TaskStore {
     });
   }
 
-  async get(id: string): Promise<TaskStoreResult<TaskRecordV3>> {
+  async get(id: string): Promise<TaskStoreResult<TaskRecordV4>> {
     if (typeof id !== "string" || id.length === 0) return fail("INVALID_INPUT", "Task id must be non-empty");
     try {
       const document = await this.#read();
@@ -1002,7 +1099,7 @@ export class WorkspaceTaskStore implements TaskStore {
   async cancel(
     id: string,
     signal: AbortSignal = neverAborted,
-  ): Promise<TaskStoreResult<TaskRecordV3>> {
+  ): Promise<TaskStoreResult<TaskRecordV4>> {
     if (typeof id !== "string" || id.length === 0) return fail("INVALID_INPUT", "Task id must be non-empty");
     try {
       throwIfAborted(signal);
@@ -1014,6 +1111,7 @@ export class WorkspaceTaskStore implements TaskStore {
           raise("TASK_NOT_CANCELLABLE", `Task cannot be cancelled in ${task.status} state`);
         }
         task.status = "cancelled";
+        task.retryAt = null;
         task.finishedAt = new Date(this.#now()).toISOString();
         return task;
       });
@@ -1027,7 +1125,7 @@ export class WorkspaceTaskStore implements TaskStore {
     id: string,
     runAt: string,
     signal: AbortSignal = neverAborted,
-  ): Promise<TaskStoreResult<TaskRecordV3>> {
+  ): Promise<TaskStoreResult<TaskRecordV4>> {
     if (typeof id !== "string" || id.length === 0) {
       return fail("INVALID_INPUT", "Task id must be non-empty");
     }
@@ -1044,6 +1142,7 @@ export class WorkspaceTaskStore implements TaskStore {
           raise("INVALID_INPUT", "Task runAt must be later than the current time");
         }
         task.runAt = normalizedRunAt;
+        if (task.retryAt !== null) task.retryAt = normalizedRunAt;
         return task;
       });
       return { ok: true, value: cloneRecord(value) };
@@ -1055,7 +1154,7 @@ export class WorkspaceTaskStore implements TaskStore {
   async acknowledge(
     id: string,
     signal: AbortSignal = neverAborted,
-  ): Promise<TaskStoreResult<TaskRecordV3>> {
+  ): Promise<TaskStoreResult<TaskRecordV4>> {
     if (typeof id !== "string" || id.length === 0) {
       return fail("INVALID_INPUT", "Task id must be non-empty");
     }
@@ -1085,16 +1184,16 @@ export class WorkspaceTaskStore implements TaskStore {
 
   async claimNextDue(
     signal: AbortSignal = neverAborted,
-  ): Promise<TaskStoreResult<TaskRecordV3 | null>> {
+  ): Promise<TaskStoreResult<TaskRecordV4 | null>> {
     try {
       throwIfAborted(signal);
       const now = this.#now();
       const value = await this.#update(signal, (document) => {
         const dueTasks = document.tasks
-          .filter((task) => task.status === "scheduled" && Date.parse(task.runAt) <= now)
+          .filter((task) => task.status === "scheduled" && Date.parse(task.retryAt ?? task.runAt) <= now && task.attempts.length < TASK_MAX_ATTEMPTS)
           .map((task) => ({
             kind: "task" as const,
-            runAt: task.runAt,
+            runAt: task.retryAt ?? task.runAt,
             createdAt: task.createdAt,
             id: task.id,
             task,
@@ -1121,6 +1220,8 @@ export class WorkspaceTaskStore implements TaskStore {
           due.task.status = "running";
           due.task.startedAt = nowIso;
           due.task.threadId = this.#generateId();
+          due.task.retryAt = null;
+          due.task.attempts.push({ number: due.task.attempts.length + 1, runId: null, startedAt: nowIso, finishedAt: null, status: "running", error: null });
           if (due.task.threadId.length === 0) {
             raise("WRITE_FAILED", "Task thread id generator returned an empty id");
           }
@@ -1132,7 +1233,7 @@ export class WorkspaceTaskStore implements TaskStore {
         if (taskId.length === 0 || threadId.length === 0 || taskId === threadId) {
           raise("WRITE_FAILED", "Recurring task id generator returned invalid ids");
         }
-        const task: TaskRecordV3 = {
+        const task: TaskRecordV4 = {
           id: taskId,
           prompt: due.task.prompt,
           runAt: due.task.nextRunAt as string,
@@ -1146,6 +1247,8 @@ export class WorkspaceTaskStore implements TaskStore {
           error: null,
           acknowledgedAt: null,
           recurringTaskId: due.task.id,
+          attempts: [{ number: 1, runId: null, startedAt: nowIso, finishedAt: null, status: "running", error: null }],
+          retryAt: null, notification: null, pendingOutcome: null,
         };
         due.task.nextRunAt = nextOccurrence(due.task.recurrence, nowIso);
         document.tasks.push(task);
@@ -1161,7 +1264,7 @@ export class WorkspaceTaskStore implements TaskStore {
     id: string,
     outcome: TaskFinish,
     signal: AbortSignal = neverAborted,
-  ): Promise<TaskStoreResult<TaskRecordV3>> {
+  ): Promise<TaskStoreResult<TaskRecordV4>> {
     if (typeof id !== "string" || id.length === 0) return fail("INVALID_INPUT", "Task id must be non-empty");
     try {
       throwIfAborted(signal);
@@ -1170,11 +1273,16 @@ export class WorkspaceTaskStore implements TaskStore {
         const task = document.tasks.find((candidate) => candidate.id === id);
         if (task === undefined) raise("TASK_NOT_FOUND", `Task not found: ${id}`);
         if (task.status !== "running") raise("INVALID_INPUT", "Only a running task can be finished");
+        if (task.pendingOutcome !== null && !isDeepStrictEqual(task.pendingOutcome, outcome)) raise("INVALID_INPUT", "Finish outcome differs from persisted outcome");
         const now = this.#now();
         task.status = outcome.status;
         task.finishedAt = new Date(now).toISOString();
         task.runId = outcome.runId;
         task.acknowledgedAt = null;
+        task.retryAt = null;
+        task.pendingOutcome = null;
+        finishAttempt(task, outcome, task.finishedAt);
+        task.notification = outcome.notification === true ? { status: "pending", attempts: 0, nextAttemptAt: task.finishedAt, error: null } : null;
         if (outcome.status === "completed") {
           task.resultText = outcome.resultText;
           task.error = null;
@@ -1206,6 +1314,7 @@ export class WorkspaceTaskStore implements TaskStore {
         const now = this.#now();
         for (const task of document.tasks) {
           if (task.status !== "running") continue;
+          if (task.pendingOutcome !== null) raise("INVALID_INPUT", "Pending outcomes must be recovered before interrupting");
           task.status = "interrupted";
           task.finishedAt = new Date(now).toISOString();
           task.error = {
@@ -1213,6 +1322,7 @@ export class WorkspaceTaskStore implements TaskStore {
             message: "Task was interrupted by worker shutdown or restart",
           };
           task.acknowledgedAt = null;
+          finishAttempt(task, { status: "interrupted", runId: task.runId, error: task.error }, task.finishedAt);
           interrupted += 1;
         }
         return interrupted;
@@ -1221,6 +1331,98 @@ export class WorkspaceTaskStore implements TaskStore {
     } catch (error) {
       return errorResult(error, signal, true);
     }
+  }
+
+  async listRunning(): Promise<TaskStoreResult<TaskRecordV4[]>> {
+    try {
+      const tasks = (await this.#read()).tasks.filter((task) => task.status === "running");
+      if (tasks.length > 100) raise("TASK_FILE_INVALID", "Too many running tasks to recover safely");
+      return { ok: true, value: tasks.map(cloneRecord) };
+    } catch (error) { return errorResult(error, neverAborted, false); }
+  }
+
+  async getHealthCounts(): Promise<TaskStoreResult<{ unacknowledgedCount: number; notificationFailureCount: number }>> {
+    try {
+      const tasks = (await this.#read()).tasks;
+      return { ok: true, value: {
+        unacknowledgedCount: tasks.filter((task) => task.acknowledgedAt === null && ["completed", "failed", "interrupted"].includes(task.status)).length,
+        notificationFailureCount: tasks.filter((task) => task.notification?.status === "failed").length,
+      } };
+    } catch (error) { return errorResult(error, neverAborted, false); }
+  }
+
+  async recordRunId(id: string, runId: string): Promise<TaskStoreResult<TaskRecordV4>> {
+    if (typeof runId !== "string" || runId.length === 0) return fail("INVALID_INPUT", "Run id must be non-empty");
+    return this.#updateTask(id, (task) => {
+      if (task.status !== "running" || task.pendingOutcome !== null) raise("INVALID_INPUT", "Only a running task accepts a Run id");
+      if (task.runId !== null && task.runId !== runId) raise("INVALID_INPUT", "Run id already recorded");
+      task.runId = runId;
+      task.attempts.at(-1)!.runId = runId;
+      return task;
+    });
+  }
+
+  async recordOutcome(id: string, outcome: TaskFinish): Promise<TaskStoreResult<TaskRecordV4>> {
+    try { validateFinish(outcome); } catch (error) { return errorResult(error, neverAborted, true); }
+    return this.#updateTask(id, (task) => {
+      if (task.status !== "running" || task.runId !== outcome.runId || task.pendingOutcome !== null) raise("INVALID_INPUT", "Outcome does not match active Run");
+      task.pendingOutcome = structuredClone(outcome);
+      return task;
+    });
+  }
+
+  async retry(id: string, input: { error: TaskError; runId: string | null; nextRunAt: string }): Promise<TaskStoreResult<TaskRecordV4>> {
+    try {
+      validateFinish({ status: "failed", runId: input.runId, error: input.error });
+      const next = normalizeRunAt(input.nextRunAt);
+      return await this.#updateTask(id, (task) => {
+        if (task.status !== "running" || task.attempts.length >= TASK_MAX_ATTEMPTS || task.pendingOutcome !== null) raise("INVALID_INPUT", "Task cannot be retried");
+        if (Date.parse(next) <= this.#now()) raise("INVALID_INPUT", "Retry must be in the future");
+        finishAttempt(task, { status: "failed", runId: input.runId, error: input.error }, new Date(this.#now()).toISOString());
+        task.status = "scheduled";
+        task.retryAt = next;
+        task.startedAt = null; task.finishedAt = null; task.runId = null; task.threadId = null; task.error = null; task.resultText = null;
+        return task;
+      });
+    } catch (error) { return errorResult(error, neverAborted, true); }
+  }
+
+  async listNotifications(now = this.#now()): Promise<TaskStoreResult<TaskRecordV4[]>> {
+    try {
+      if (!Number.isFinite(now)) raise("INVALID_INPUT", "Notification time must be finite");
+      return { ok: true, value: (await this.#read()).tasks.filter((task) => task.acknowledgedAt === null && task.notification !== null && task.notification.status !== "submitted" && task.notification.attempts < TASK_MAX_NOTIFICATION_ATTEMPTS && task.notification.nextAttemptAt !== null && Date.parse(task.notification.nextAttemptAt) <= now).slice(0, TASK_LIST_MAX_LIMIT).map(cloneRecord) };
+    } catch (error) { return errorResult(error, neverAborted, false); }
+  }
+
+  async recordNotification(id: string, outcome: { ok: true } | { ok: false; error: TaskError; nextAttemptAt: string | null }): Promise<TaskStoreResult<TaskRecordV4>> {
+    try {
+      if (!outcome.ok) {
+        validateTaskError(outcome.error);
+        if (outcome.nextAttemptAt !== null) validateStoredTimestamp(outcome.nextAttemptAt, "Notification nextAttemptAt");
+      }
+      return await this.#updateTask(id, (task) => {
+        const notification = task.notification;
+        if (!notification || notification.status === "submitted" || notification.attempts >= TASK_MAX_NOTIFICATION_ATTEMPTS) raise("INVALID_INPUT", "Notification is not pending");
+        if (!outcome.ok && outcome.nextAttemptAt !== null && Date.parse(outcome.nextAttemptAt) <= this.#now()) raise("INVALID_INPUT", "Notification retry must be in the future");
+        notification.attempts += 1;
+        notification.status = outcome.ok ? "submitted" : "failed";
+        notification.error = outcome.ok ? null : { ...outcome.error };
+        notification.nextAttemptAt = outcome.ok || notification.attempts >= TASK_MAX_NOTIFICATION_ATTEMPTS ? null : outcome.nextAttemptAt;
+        return task;
+      });
+    } catch (error) { return errorResult(error, neverAborted, true); }
+  }
+
+  async #updateTask(id: string, operation: (task: TaskRecordV4) => TaskRecordV4): Promise<TaskStoreResult<TaskRecordV4>> {
+    if (typeof id !== "string" || id.length === 0) return fail("INVALID_INPUT", "Task id must be non-empty");
+    try {
+      const value = await this.#update(neverAborted, (document) => {
+        const task = document.tasks.find((candidate) => candidate.id === id);
+        if (!task) raise("TASK_NOT_FOUND", `Task not found: ${id}`);
+        return operation(task);
+      });
+      return { ok: true, value: cloneRecord(value) };
+    } catch (error) { return errorResult(error, neverAborted, true); }
   }
 
   async #updateRecurring(
@@ -1246,14 +1448,14 @@ export class WorkspaceTaskStore implements TaskStore {
     }
   }
 
-  async #read(): Promise<TaskDocumentV3> {
+  async #read(): Promise<TaskDocumentV4> {
     await this.#inspectRoot();
     let directoryDetails;
     try {
       directoryDetails = await lstat(this.#directory);
     } catch (error) {
       if (filesystemCode(error) === "ENOENT") {
-        return { version: 3, tasks: [], recurringTasks: [] };
+        return { version: 4, tasks: [], recurringTasks: [] };
       }
       throw error;
     }
@@ -1265,7 +1467,7 @@ export class WorkspaceTaskStore implements TaskStore {
       fileDetails = await lstat(this.#file);
     } catch (error) {
       if (filesystemCode(error) === "ENOENT") {
-        return { version: 3, tasks: [], recurringTasks: [] };
+        return { version: 4, tasks: [], recurringTasks: [] };
       }
       throw error;
     }
@@ -1320,7 +1522,7 @@ export class WorkspaceTaskStore implements TaskStore {
     }
   }
 
-  async #write(document: TaskDocumentV3, signal: AbortSignal): Promise<void> {
+  async #write(document: TaskDocumentV4, signal: AbortSignal): Promise<void> {
     await this.#ensureDirectory();
     const temporary = join(this.#directory, `.tasks.json.runloom-${randomUUID()}.tmp`);
     let handle: Awaited<ReturnType<typeof open>> | undefined;

@@ -6,7 +6,7 @@ import type {
   RunResult,
 } from "@aisdk-agent/core";
 import { AgentError } from "@aisdk-agent/core";
-import type { TaskError, TaskFinish, TaskRecord, TaskStore } from "./task-store.js";
+import type { TaskError, TaskFinish, TaskRecord, TaskRecordV4, TaskStore } from "./task-store.js";
 import type { TaskWorkerSnapshotContext } from "./task-worker-context.js";
 
 const DEFAULT_POLL_INTERVAL_MS = 1_000;
@@ -27,7 +27,15 @@ export interface TaskWorkerOptions {
   ) => Promise<TaskWorkerSnapshotContext>;
   onTaskStarted?: (task: TaskRecord) => void;
   onTaskFinished?: (task: TaskRecord) => void;
+  onTaskRetry?: (task: TaskRecordV4) => void;
+  /** Only configured text/read-only responders may opt into whole-Run retry. */
+  safeRetry?: boolean;
+  now?: () => number;
+  notify?: (task: TaskRecord) => Promise<void>;
 }
+
+const RETRY_DELAYS = [1_000, 5_000] as const;
+const TRANSIENT_MODEL_CODES = new Set(["MODEL_UNAVAILABLE", "MODEL_RATE_LIMIT", "MODEL_TIMEOUT"]);
 
 function abortReason(signal: AbortSignal): unknown {
   return signal.reason ?? new DOMException("Worker stopped", "AbortError");
@@ -138,13 +146,30 @@ function outcomeForResult(
 
 async function finishTask(
   options: TaskWorkerOptions,
-  task: TaskRecord,
+  task: TaskRecordV4,
   outcome: TaskFinish,
 ): Promise<TaskRecord> {
   // Do not pass the stop signal to the terminal write. Once execution has
   // started, a successful stop request must not turn a committed outcome into
   // a false "not written" result.
-  const finished = await options.store.finish(task.id, outcome);
+  const attempts = task.attempts.length;
+  if (options.safeRetry === true && !options.signal.aborted &&
+      outcome.status === "failed" && TRANSIENT_MODEL_CODES.has(outcome.error.code) &&
+      attempts > 0 && attempts < 3) {
+    const retrying = unwrap(await options.store.retry(task.id, {
+      error: outcome.error,
+      runId: outcome.runId,
+      nextRunAt: new Date((options.now ?? Date.now)() + RETRY_DELAYS[attempts - 1]!).toISOString(),
+    }));
+    try { options.onTaskRetry?.(retrying); } catch { /* Durable retry wins. */ }
+    return retrying;
+  }
+  const durableOutcome: TaskFinish = {
+    ...outcome,
+    ...(options.notify === undefined ? {} : { notification: true }),
+  };
+  unwrap(await options.store.recordOutcome(task.id, durableOutcome));
+  const finished = await options.store.finish(task.id, durableOutcome);
   const terminalTask = unwrap(finished);
   try {
     // The durable terminal write is the source of truth. A notification hook
@@ -159,7 +184,7 @@ async function finishTask(
 
 async function executeTask(
   options: TaskWorkerOptions,
-  task: TaskRecord,
+  task: TaskRecordV4,
 ): Promise<TaskRecord> {
   options.onTaskStarted?.(task);
   const stoppedBeforeStart = options.signal.aborted;
@@ -232,6 +257,16 @@ async function executeTask(
   options.signal.addEventListener("abort", cancelHandle, { once: true });
   if (options.signal.aborted) cancelHandle();
   const eventsDone = consumeEvents(handle.events);
+  // Link the real invocation before awaiting its result. If this write fails,
+  // stop the handle and leave the task for conservative startup recovery.
+  try {
+    unwrap(await options.store.recordRunId(task.id, handle.runId));
+  } catch (error) {
+    cancelHandle();
+    await Promise.allSettled([handle.result, eventsDone]);
+    options.signal.removeEventListener("abort", cancelHandle);
+    throw error;
+  }
   let result: RunResult;
   try {
     result = await handle.result;
@@ -255,6 +290,30 @@ async function executeTask(
   );
 }
 
+async function drainNotifications(options: TaskWorkerOptions): Promise<void> {
+  if (options.notify === undefined) return;
+  const due = unwrap(await options.store.listNotifications((options.now ?? Date.now)()));
+  for (const task of due) {
+    if (options.signal.aborted) return;
+    try {
+      await options.notify(task);
+    } catch (error) {
+      const attempt = (task.notification?.attempts ?? 0) + 1;
+      unwrap(await options.store.recordNotification(task.id, {
+        ok: false,
+        error: taskError(error, "NOTIFICATION_FAILED"),
+        nextAttemptAt: attempt < 3
+          ? new Date((options.now ?? Date.now)() + RETRY_DELAYS[attempt - 1]!).toISOString()
+          : null,
+      }));
+      continue;
+    }
+    // OS submission and this write cannot be atomic. A crash here may resend
+    // the same notification, but must never replay the model task.
+    unwrap(await options.store.recordNotification(task.id, { ok: true }));
+  }
+}
+
 /**
  * Recover stale in-flight tasks, then process due tasks sequentially until the
  * supplied signal is aborted. A failed terminal write throws and stops the
@@ -269,10 +328,20 @@ export async function runTaskWorker(options: TaskWorkerOptions): Promise<void> {
 
   // Recovery is intentionally performed before checking the stop signal so a
   // worker that receives SIGINT during startup still leaves a clean task file.
+  const running = unwrap(await options.store.listRunning());
+  for (const task of running) {
+    const outcome = task.pendingOutcome;
+    if (outcome !== null && outcome.runId === task.runId) {
+      const terminal = unwrap(await options.store.finish(task.id, outcome));
+      try { options.onTaskFinished?.(terminal); } catch { /* Durable outcome wins. */ }
+    }
+  }
   unwrap(await options.store.interruptRunning());
 
   while (!options.signal.aborted) {
-    let claimed: TaskRecord | null;
+    await drainNotifications(options);
+    if (options.signal.aborted) return;
+    let claimed: TaskRecordV4 | null;
     try {
       claimed = unwrap(await options.store.claimNextDue(options.signal));
     } catch (error) {
