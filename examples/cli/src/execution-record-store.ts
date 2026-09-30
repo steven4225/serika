@@ -34,6 +34,7 @@ export interface ExecutionToolRecord {
 export interface ExecutionRunRecord {
   runId: string;
   threadId: string;
+  workTaskId?: string;
   phase: ExecutionPhase;
   status: ExecutionRunStatus;
   startedAt: string;
@@ -118,6 +119,7 @@ function validateRun(value: unknown): ExecutionRunRecord {
   if (!isObject(value)) fail("FILE_INVALID", "Run record must be an object");
   if (typeof value.runId !== "string" || !value.runId ||
       typeof value.threadId !== "string" || !value.threadId ||
+      (value.workTaskId !== undefined && (typeof value.workTaskId !== "string" || !value.workTaskId)) ||
       (value.phase !== "primary" && value.phase !== "consolidation") ||
       !["running", "completed", "failed", "cancelled", "timed_out", "interrupted"].includes(String(value.status)) ||
       !timestamp(value.startedAt) || (value.finishedAt !== null && !timestamp(value.finishedAt)) ||
@@ -188,13 +190,16 @@ export class ExecutionRecordStore {
     return lease;
   }
 
-  async startRun(input: { runId: string; threadId: string; phase: ExecutionPhase; startedAt?: string }): Promise<void> {
+  async startRun(input: { runId: string; threadId: string; workTaskId?: string; phase: ExecutionPhase; startedAt?: string }): Promise<void> {
     if (!input.runId || !input.threadId || !["primary", "consolidation"].includes(input.phase) ||
+        (input.workTaskId !== undefined && !input.workTaskId) ||
         (input.startedAt !== undefined && !timestamp(input.startedAt))) fail("INVALID_INPUT", "Invalid Run identity");
     await this.#mutate((document) => {
       if (document.runs.some((run) => run.runId === input.runId)) fail("CONFLICT", "Run already recorded");
       document.runs.unshift({
-        runId: input.runId, threadId: input.threadId, phase: input.phase,
+        runId: input.runId, threadId: input.threadId,
+        ...(input.workTaskId === undefined ? {} : { workTaskId: input.workTaskId }),
+        phase: input.phase,
         status: "running", startedAt: input.startedAt ?? this.#now().toISOString(), finishedAt: null,
         resultTextPreview: null, resultTextTruncated: false, errorPreview: null, tools: [],
       });
