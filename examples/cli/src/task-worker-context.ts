@@ -11,11 +11,10 @@ import {
 import {
   createMemoryStore,
   createMemoryContextMessage,
-  MEMORY_CONTEXT_MAX_BYTES,
-  memoryContextBytes,
   selectInjectableMemoryEntries,
   type WorkspaceMemoryStore,
 } from "./memory-store.js";
+import { selectMemoryContextEntries } from "./context-window.js";
 import {
   TASK_LIST_MAX_LIMIT,
   type TaskRecord,
@@ -66,15 +65,10 @@ export async function loadTaskWorkerContext(
   const observedAt = (sources.now?.() ?? new Date()).toISOString();
   const memoryResult = await sources.memoryStore.list(signal);
   if (!memoryResult.ok) throw readFailure(memoryResult.error);
-  const memories = selectInjectableMemoryEntries(memoryResult.entries, {
+  const eligibleMemories = selectInjectableMemoryEntries(memoryResult.entries, {
     now: new Date(observedAt),
   });
-  if (memoryContextBytes(memories) > MEMORY_CONTEXT_MAX_BYTES) {
-    throw readFailure({
-      code: "MEMORY_CONTEXT_TOO_LARGE",
-      message: `Workspace Memory exceeds the ${MEMORY_CONTEXT_MAX_BYTES}-byte context limit`,
-    });
-  }
+  const memories = selectMemoryContextEntries(eligibleMemories, { now: new Date(observedAt) });
 
   const checkpointResult = await sources.checkpointStore.getCurrent(signal);
   if (!checkpointResult.ok) throw readFailure(checkpointResult.error);
@@ -107,6 +101,7 @@ export async function loadTaskWorkerContext(
           observedAt,
           runAt: task.runAt,
           memory: memories.length === 0 ? "none" : `${memories.length} active workspace entries follow`,
+          memoryTruncated: memories.length < eligibleMemories.length,
           checkpoint: checkpoint === null ? "none" : `saved version ${checkpoint.version} follows`,
           attentionInbox,
         }),

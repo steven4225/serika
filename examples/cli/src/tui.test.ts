@@ -32,6 +32,7 @@ import {
   type CheckpointDraft,
 } from "./checkpoint-store.js";
 import { AUTO_CONSOLIDATION_SOURCE } from "./consolidation.js";
+import type { MemoryConsolidation } from "./memory-consolidation.js";
 import { createModuleHost } from "./module-host.js";
 import { createCheckpointModule } from "./modules/checkpoint-module.js";
 import { createReadFileModule } from "./modules/read-file-module.js";
@@ -1007,6 +1008,43 @@ describe("runTui", () => {
     assert.equal(output.text().includes("final answer"), false);
   });
 
+  it("counts all consolidation requests and keeps a completed primary when proposal persistence throws", async () => {
+    const input = ttyInput(), output = ttyOutput();
+    const events = asyncQueue<AgentEvent>();
+    const runtime = testRuntime([handleFor({ runId: "run-1", threadId: "thread-1", events, result: Promise.resolve(completedResult("run-1", "thread-1", "primary succeeded")) })]);
+    const calls: unknown[] = [];
+    const service: MemoryConsolidation = {
+      begin: (id) => { calls.push(id); }, discard: () => { calls.push("discard"); },
+      prepare: async () => { throw new Error("unused prepare"); }, stage: async () => { throw new Error("unused stage"); },
+      canStart: async () => ({ ok: true, value: { canStart: true, pendingCount: 0 } }),
+      finalize: async (result) => { calls.push(result); throw new Error("write failed"); },
+    };
+    const tui = runTui({ ...tuiOptions, runtime: runtime.runtime, store: { getMessages: async () => [] }, input, output, memoryConsolidation: service });
+    await nextTurn(); input.write("整理\n"); await waitFor(() => runtime.requests.length === 1);
+    events.push(toolRequestedEvent("run-1", "thread-1", "memory_prepare_consolidation"));
+    events.push(toolRequestedEvent("run-1", "thread-1", "memory_stage_candidates"));
+    events.push(toolRequestedEvent("run-1", "thread-1", "memory_stage_candidates", { invalid: true }));
+    events.close(); input.end(); await tui;
+    assert.deepEqual(calls, ["calculator", { status: "completed", consolidationAttempts: { prepare: 1, stage: 2 } }, "discard"]);
+    assert.match(output.text(), /候选未保存.*write failed/);
+    assert.match(output.text(), /primary succeeded/);
+    assert.doesNotMatch(output.text(), /Run could not finish/);
+  });
+
+  it("skips automatic consolidation before a model call when the candidate queue is full", async () => {
+    const input = ttyInput(), output = ttyOutput(), events = asyncQueue<AgentEvent>(); events.close();
+    const runtime = testRuntime([handleFor({ runId: "run-1", threadId: "thread-1", events, result: Promise.resolve(completedResult("run-1", "thread-1", "done")) })]);
+    const service: MemoryConsolidation = {
+      begin: () => {}, discard: () => {},
+      prepare: async () => { throw new Error("unused prepare"); }, stage: async () => { throw new Error("unused stage"); },
+      finalize: async () => ({ ok: true, value: { candidateIds: [], replayed: false } }),
+      canStart: async () => ({ ok: true, value: { canStart: false, pendingCount: 64 } }),
+    };
+    const tui = runTui({ ...tuiOptions, runtime: runtime.runtime, store: { getMessages: async () => [] }, input, output, memoryConsolidation: service, autoConsolidationAgentId: "memory-consolidator" });
+    await nextTurn(); input.write("prompt\n"); await waitFor(() => output.text().includes("自动整理已跳过"));
+    input.end(); await tui; assert.equal(runtime.requests.length, 1);
+  });
+
   it("runs one marked consolidation turn after a completed user run", async () => {
     const input = ttyInput();
     const output = ttyOutput();
@@ -1891,13 +1929,16 @@ describe("runTui", () => {
         entry: { id: "mem-1", revision: 3 },
       }),
     );
+    events.push(toolCompletedEvent("run-memory", "thread-memory", "memory_apply_candidate", {
+      ok: true, value: { candidateId: "candidate-1", status: "accepted", memoryId: "mem-2", memoryRevision: 1, replayed: false },
+    }));
     events.close();
     input.end();
     await tui;
 
     assert.match(
       output.text(),
-      /已完成的操作：\n- memory_add: 已保存记忆 mem-1，版本 2\n- memory_update: 已更新记忆 mem-1，版本 3/,
+      /已完成的操作：\n- memory_add: 已保存记忆 mem-1，版本 2\n- memory_update: 已更新记忆 mem-1，版本 3\n- memory_apply_candidate: 已保存记忆 mem-2，版本 1/,
     );
   });
 
@@ -2615,7 +2656,7 @@ describe("createToolConfirmation", () => {
     assert.deepEqual(changes, [approvalId, approvalId, undefined]);
   });
 
-  it("allows the consolidator to read consolidation material without prompting", async () => {
+  it("allows only the consolidator's prepare and stage without prompting", async () => {
     const output = outputBuffer();
     const confirmation = createToolConfirmation(output);
 
@@ -2629,6 +2670,7 @@ describe("createToolConfirmation", () => {
     );
 
     assert.deepEqual(await Promise.resolve(decision), { allow: true });
+    assert.deepEqual(await confirmation.beforeToolExecute(toolInput("memory_stage_candidates", new AbortController().signal, {}, "memory-consolidator")), { allow: true });
     assert.equal(output.text(), "");
   });
 

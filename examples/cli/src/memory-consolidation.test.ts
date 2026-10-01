@@ -1,0 +1,187 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import type { UIMessage } from "ai";
+import type { CandidateBatchInput, ConsolidationCursor } from "./memory-candidates.js";
+import type { MemoryEntry, WorkspaceMemoryStore } from "./memory-store.js";
+import { AUTO_CONSOLIDATION_AGENT_ID, AUTO_CONSOLIDATION_SOURCE } from "./consolidation.js";
+import { CONSOLIDATION_MATERIAL_MAX_BYTES, consolidationPrefixHash, createMemoryConsolidation } from "./memory-consolidation.js";
+
+const user = (id: string, text = `用户 ${id}`): UIMessage => ({ id, role: "user", parts: [{ type: "text", text }] });
+function fixture(initial: UIMessage[] = [user("u1", "复盘先结论，再给步骤")]) {
+  let messages = initial;
+  let cursor: ConsolidationCursor | null = null;
+  let entries: MemoryEntry[] = [];
+  let pending = 0;
+  const committed: CandidateBatchInput[] = [];
+  const store = {
+    list: async () => ({ ok: true as const, entries }),
+    checkCandidateCapacity: async () => ({ ok: true as const, value: { canStart: pending < 64, pendingCount: pending } }),
+    getConsolidationCursor: async () => ({ ok: true as const, value: cursor }),
+    commitCandidateBatch: async (input: CandidateBatchInput, signal?: AbortSignal) => {
+      signal?.throwIfAborted();
+      committed.push(structuredClone(input));
+      if (input.nextCursor !== null) cursor = input.nextCursor;
+      return { ok: true as const, value: { candidateIds: input.candidates.map((_, index) => `c${index}`), replayed: false } };
+    },
+  } as unknown as WorkspaceMemoryStore;
+  let id = 0;
+  const service = createMemoryConsolidation({ store, threadId: "thread", getMessages: async () => messages,
+    now: () => new Date("2026-10-01T00:00:00Z"), generateId: () => `batch${++id}` });
+  return { service, committed, setMessages(value: UIMessage[]) { messages = value; }, setCursor(value: ConsolidationCursor | null) { cursor = value; },
+    setEntries(value: MemoryEntry[]) { entries = value; }, setPending(value: number) { pending = value; }, getCursor: () => cursor };
+}
+const proposal = (extra = {}) => ({ action: "add", text: "复盘先结论，再给步骤", sourceMessageId: "u1", sourceQuote: "复盘先结论，再给步骤", reason: "用户明确长期偏好", ...extra });
+async function prepare(f: ReturnType<typeof fixture>, agent = AUTO_CONSOLIDATION_AGENT_ID) {
+  f.service.begin(agent);
+  const prepared = await f.service.prepare(agent === AUTO_CONSOLIDATION_AGENT_ID ? { mode: "incremental" } : {});
+  assert.equal(prepared.ok, true);
+  if (!prepared.ok) throw new Error("Expected successful preparation");
+  return prepared.value;
+}
+
+describe("native memory consolidation batch", () => {
+  it("stages locally and atomically commits candidates with cursor only after completed", async () => {
+    const f = fixture();
+    const prepared = await prepare(f);
+    assert.deepEqual(prepared.memories, []);
+    assert.equal(await f.service.stage({ batchId: prepared.batchId, proposals: [proposal()] }).then((x) => x.ok), true);
+    assert.equal(f.committed.length, 0);
+    const final = await f.service.finalize({ status: "completed" });
+    assert.equal(final.ok, true);
+    assert.equal(f.committed.length, 1);
+    assert.equal(f.committed[0]?.candidates[0]?.source.threadId, "thread");
+    assert.equal(f.getCursor()?.throughMessageId, "u1");
+    const replay = await f.service.finalize({ status: "completed" });
+    assert.deepEqual(replay, { ok: true, value: { candidateIds: ["c0"], replayed: true } });
+    assert.equal(f.committed.length, 1);
+  });
+  it("requires an explicit empty stage, and never advances on failed or cancelled Runs", async () => {
+    for (const status of ["failed", "cancelled", "timed_out"]) {
+      const f = fixture(); const prepared = await prepare(f);
+      await f.service.stage({ batchId: prepared.batchId, proposals: [] });
+      await f.service.finalize({ status });
+      assert.equal(f.committed.length, 0);
+    }
+    const f = fixture(); await prepare(f);
+    const missing = await f.service.finalize({ status: "completed" });
+    assert.equal(missing.ok, false);
+    assert.equal(f.committed.length, 0);
+    const empty = await prepare(f);
+    await f.service.stage({ batchId: empty.batchId, proposals: [] });
+    assert.equal((await f.service.finalize({ status: "completed" })).ok, true);
+    assert.equal(f.getCursor()?.throughMessageId, "u1");
+  });
+  it("rejects duplicate prepare/stage calls even after the first one succeeded", async () => {
+    for (const duplicate of ["prepare", "stage"]) {
+      const f = fixture(); const prepared = await prepare(f);
+      await f.service.stage({ batchId: prepared.batchId, proposals: [] });
+      const result = duplicate === "prepare" ? await f.service.prepare({ mode: "incremental" }) : await f.service.stage({ batchId: prepared.batchId, proposals: [] });
+      assert.equal(result.ok, false);
+      assert.equal((await f.service.finalize({ status: "completed" })).ok, false);
+      assert.equal(f.committed.length, 0);
+    }
+  });
+  it("rejects schema-failed extra tool attempts invisible to execute and permits cancelled ordinary chat", async () => {
+    const f = fixture(); const prepared = await prepare(f);
+    await f.service.stage({ batchId: prepared.batchId, proposals: [] });
+    assert.equal((await f.service.finalize({ status: "completed", consolidationAttempts: { prepare: 1, stage: 2 } })).ok, false);
+    assert.equal(f.committed.length, 0);
+    f.service.begin("primary");
+    const cancelled = new AbortController(); cancelled.abort();
+    assert.deepEqual(await f.service.finalize({ status: "cancelled" }, cancelled.signal), { ok: true, value: { candidateIds: [], replayed: false } });
+    f.service.begin("primary");
+    assert.deepEqual(await f.service.finalize({ status: "completed", consolidationAttempts: { prepare: 0, stage: 0 } }, cancelled.signal), { ok: true, value: { candidateIds: [], replayed: false } });
+    assert.equal((await f.service.finalize({ status: "completed", consolidationAttempts: { prepare: 1, stage: 0 } })).ok, false);
+  });
+  it("validates every exact user source and rejects a whole mixed batch", async () => {
+    for (const invalid of [proposal({ sourceQuote: "复盘 先结论" }), proposal({ sourceMessageId: "assistant" }), proposal({ pinned: true }), proposal({ scope: { kind: "thread", threadId: "other" } })]) {
+      const f = fixture([user("u1", "复盘先结论，再给步骤"), { id: "assistant", role: "assistant", parts: [{ type: "text", text: "复盘先结论，再给步骤" }] }]);
+      const prepared = await prepare(f);
+      assert.equal((await f.service.stage({ batchId: prepared.batchId, proposals: [proposal(), invalid] })).ok, false);
+      assert.equal((await f.service.finalize({ status: "completed" })).ok, false);
+      assert.equal(f.committed.length, 0);
+    }
+  });
+  it("manual completion preserves the automatic cursor; ordinary chat has no batch error", async () => {
+    const f = fixture(); const previous: ConsolidationCursor = { threadId: "thread", throughMessageId: "missing", prefixHash: "old", lastBatchId: "old", updatedAt: "2026-09-30T00:00:00Z" };
+    f.setCursor(previous);
+    const prepared = await prepare(f, "primary");
+    await f.service.stage({ batchId: prepared.batchId, proposals: [] });
+    assert.equal((await f.service.finalize({ status: "completed" })).ok, true);
+    assert.equal(f.committed[0]?.nextCursor, null);
+    assert.deepEqual(f.getCursor(), previous);
+    f.service.begin("primary");
+    assert.deepEqual(await f.service.finalize({ status: "completed" }), { ok: true, value: { candidateIds: [], replayed: false } });
+    f.service.begin("primary");
+    assert.equal((await f.service.prepare({ mode: "incremental" })).ok, false);
+  });
+  it("bootstraps latest eight then consumes earliest eight without skipping backlog", async () => {
+    const initial = Array.from({ length: 10 }, (_, index) => user(`u${index}`));
+    const f = fixture(initial); const boot = await prepare(f);
+    assert.ok("bootstrap" in boot && boot.bootstrap);
+    if (!("bootstrap" in boot)) return;
+    assert.deepEqual(boot.turns.map((turn) => turn.user.messageId), initial.slice(2).map((message) => message.id));
+    await f.service.stage({ batchId: boot.batchId, proposals: [] }); await f.service.finalize({ status: "completed" });
+    const appended = Array.from({ length: 12 }, (_, index) => user(`new${index}`));
+    f.setMessages([...initial, ...appended]);
+    const next = await prepare(f);
+    if (!("bootstrap" in next)) return assert.fail("expected incremental material");
+    assert.equal(next.bootstrap, false);
+    assert.deepEqual(next.turns.map((turn) => turn.user.messageId), appended.slice(0, 8).map((message) => message.id));
+    await f.service.stage({ batchId: next.batchId, proposals: [] }); await f.service.finalize({ status: "completed" });
+    const last = await prepare(f);
+    if (!("bootstrap" in last)) return assert.fail("expected incremental material");
+    assert.deepEqual(last.turns.map((turn) => turn.user.messageId), appended.slice(8).map((message) => message.id));
+  });
+  it("cursor ignores automatic transcript markers but rejects changed ordinary prefixes", async () => {
+    const initial = [user("u1", "复盘先结论，再给步骤")];
+    const f = fixture(initial); const boot = await prepare(f);
+    await f.service.stage({ batchId: boot.batchId, proposals: [] }); await f.service.finalize({ status: "completed" });
+    f.setMessages([...initial, { ...user("auto"), metadata: { source: AUTO_CONSOLIDATION_SOURCE } }, user("u2")]);
+    const next = await prepare(f);
+    if (!("bootstrap" in next)) return assert.fail("expected incremental");
+    assert.deepEqual(next.turns.map((turn) => turn.user.messageId), ["u2"]);
+    f.setMessages([user("u1", "被替换的对话"), user("u2")]);
+    f.service.begin(AUTO_CONSOLIDATION_AGENT_ID);
+    const mismatch = await f.service.prepare({ mode: "incremental" });
+    assert.ok(!mismatch.ok && mismatch.error.code === "MEMORY_CURSOR_MISMATCH");
+    assert.notEqual(consolidationPrefixHash(initial, "u1"), consolidationPrefixHash([user("u1", "其他")], "u1"));
+  });
+  it("rereads evidence and target revision before final commit", async () => {
+    const f = fixture();
+    const entry: MemoryEntry = { id: "m1", text: "复盘先结论，再给步骤", enabled: true, revision: 1, scope: { kind: "workspace" } };
+    f.setEntries([entry]); const prepared = await prepare(f);
+    await f.service.stage({ batchId: prepared.batchId, proposals: [proposal({ action: "update", memoryId: "m1", expectedRevision: 1 })] });
+    f.setEntries([{ ...entry, revision: 2 }]);
+    assert.equal((await f.service.finalize({ status: "completed" })).ok, false);
+    assert.equal(f.committed.length, 0);
+    const other = fixture(); const batch = await prepare(other);
+    await other.service.stage({ batchId: batch.batchId, proposals: [proposal()] });
+    other.setMessages([user("u1", "复盘先结论，再给步骤，内容已经改变")]);
+    assert.equal((await other.service.finalize({ status: "completed" })).ok, false);
+    assert.equal(other.committed.length, 0);
+  });
+  it("rejects oversize source without clipping, and caps current-only conflict material", async () => {
+    const huge = fixture([user("huge", "界".repeat(CONSOLIDATION_MATERIAL_MAX_BYTES))]);
+    huge.service.begin(AUTO_CONSOLIDATION_AGENT_ID);
+    assert.equal((await huge.service.prepare({ mode: "incremental" })).ok, false);
+    assert.equal(huge.committed.length, 0);
+    const f = fixture(); f.setEntries(Array.from({ length: 25 }, (_, index) => ({ id: `m${index}`, text: "复盘先结论，再给步骤", enabled: false, revision: 1, history: [], scope: { kind: "workspace" } })));
+    const prepared = await prepare(f);
+    assert.equal(prepared.memories.length, 20);
+    assert.equal(prepared.truncated, true);
+    assert.ok(prepared.memories.every((entry) => !("history" in entry)));
+    assert.ok(Buffer.byteLength(JSON.stringify(prepared)) <= CONSOLIDATION_MATERIAL_MAX_BYTES);
+  });
+  it("checks queue capacity before reading/model material and cancels before commit", async () => {
+    const f = fixture(); f.setPending(64);
+    assert.deepEqual(await f.service.canStart(), { ok: true, value: { canStart: false, pendingCount: 64 } });
+    f.service.begin(AUTO_CONSOLIDATION_AGENT_ID);
+    assert.equal((await f.service.prepare({ mode: "incremental" })).ok, false);
+    f.setPending(0); const prepared = await prepare(f);
+    await f.service.stage({ batchId: prepared.batchId, proposals: [] });
+    const aborted = new AbortController(); aborted.abort(new Error("cancelled"));
+    await assert.rejects(f.service.finalize({ status: "completed" }, aborted.signal), /cancelled/);
+    assert.equal(f.committed.length, 0);
+  });
+});

@@ -19,6 +19,10 @@ import { recoverRunningWorkTasks } from "./work-task-recovery.js";
 import { rejectSymlinkComponents, validateWorkspacePath } from "./workspace-path.js";
 import type { ShellProgress } from "./modules/shell-module.js";
 import type { PendingToolApproval } from "./tui.js";
+import type {
+  CandidateListInput, CandidatePage, CandidatePreview, CandidateResolution,
+  CandidateResolveInput, MemoryResult,
+} from "./memory-candidates.js";
 
 const MAX_RECENT_OUTPUT_CHARS = 16 * 1024;
 const MAX_TOOL_ACTIVITY = 30;
@@ -58,6 +62,7 @@ export type AssistantEvent =
   | { type: "run-result"; phase: "primary" | "consolidation"; result: RunResult }
   | { type: "shell-progress"; phase: "primary" | "consolidation"; runId: string; progress: ShellProgress }
   | { type: "work-task-updated"; task: WorkTask }
+  | { type: "memory-updated"; reason: "proposals" | "review" | "write" }
   | { type: "output"; text: string }
   | { type: "error"; message: string };
 
@@ -76,6 +81,9 @@ export interface AssistantController {
   /** Newest-first local receipts for this Thread. They never authorize replay. */
   listRuns(limit?: number): Promise<ExecutionRunRecord[]>;
   getRun(runId: string): Promise<ExecutionRunRecord | null>;
+  listMemoryCandidates(input?: CandidateListInput): Promise<MemoryResult<CandidatePage>>;
+  getMemoryCandidate(id: string): Promise<MemoryResult<CandidatePreview>>;
+  resolveMemoryCandidate(input: CandidateResolveInput): Promise<MemoryResult<CandidateResolution>>;
   createWorkTask(input: Omit<CreateWorkTaskInput, "threadId">): Promise<WorkTaskResult<WorkTask>>;
   listWorkTasks(): Promise<WorkTaskResult<WorkTask[]>>;
   getWorkTask(id: string): Promise<WorkTaskResult<WorkTask>>;
@@ -322,6 +330,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
   ): Promise<{ result: RunResult; requestedMemoryTool: boolean }> => {
     app.toolConfirmation?.beginRun();
     try {
+      app.memoryConsolidation?.begin(agentId);
       const handle = await app.runtime.run({
         agentId,
         threadId: app.threadId,
@@ -345,11 +354,14 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       started?.(handle);
       if (cancelRequested) await handle.cancel("Cancelled before Run started");
       let requestedMemoryTool = false;
+      const consolidationAttempts = { prepare: 0, stage: 0 };
       const pump = (async () => {
         for await (const event of handle.events) {
           if (event.type === "tool.call.requested") {
             toolNames.set(event.data.toolCallId, event.data.toolName);
             if (event.data.toolName.startsWith("memory_")) requestedMemoryTool = true;
+            if (event.data.toolName === "memory_prepare_consolidation") consolidationAttempts.prepare += 1;
+            if (event.data.toolName === "memory_stage_candidates") consolidationAttempts.stage += 1;
           }
           if (event.type === "tool.call.completed" || event.type === "tool.call.failed") {
             const raw = event.type === "tool.call.completed"
@@ -364,12 +376,29 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
             };
             toolActivity.push(item);
             if (toolActivity.length > MAX_TOOL_ACTIVITY) toolActivity.shift();
+            if (event.type === "tool.call.completed" &&
+                ["memory_add", "memory_update", "memory_delete", "memory_apply_candidate"].includes(item.toolName) &&
+                typeof event.data.output === "object" && event.data.output !== null &&
+                "ok" in event.data.output && event.data.output.ok === true) {
+              emit({ type: "memory-updated", reason: "write" });
+            }
           }
           emit({ type: "run-event", phase, event });
         }
       })();
       const result = await handle.result;
       await pump;
+      try {
+        const finalized = await app.memoryConsolidation?.finalize({ ...result, consolidationAttempts }, signal);
+        if (finalized !== undefined && !finalized.ok) {
+          emit({ type: "error", message: `Memory candidates were not saved: ${finalized.error.code}: ${finalized.error.message}` });
+        } else if (finalized?.ok && finalized.value.candidateIds.length > 0 && !finalized.value.replayed) {
+          emit({ type: "memory-updated", reason: "proposals" });
+          controller.recordOutput(`\nMemory candidates saved for review: ${finalized.value.candidateIds.join(", ")}\n`);
+        }
+      } catch (error) {
+        emit({ type: "error", message: `Memory candidates were not saved: ${String(error)}` });
+      }
       let executionFinalized = true;
       try {
         await app.executionRecords.finishRun(handle.runId, result);
@@ -404,6 +433,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       }
       return { result, requestedMemoryTool };
     } finally {
+      app.memoryConsolidation?.discard();
       if (phase === "primary" && activeWorkTask !== undefined) {
         app.workTaskContext.end();
         activeWorkTask = undefined;
@@ -432,6 +462,50 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     getRun: async (runId) => {
       await ensureRecovered();
       return app.executionRecords.getRun(app.threadId, runId);
+    },
+    listMemoryCandidates: async (input) => {
+      if (app.memoryStore === undefined || app.workspaceRoot === undefined) {
+        return { ok: false, error: { code: "MEMORY_DISABLED", message: "Memory requires an enabled module and configured workspace" } };
+      }
+      if (closed) return { ok: false, error: { code: "MEMORY_CANDIDATE_CONFLICT", message: "Controller is closed" } };
+      return app.memoryStore.listCandidates(input, undefined, { boundThreadId: app.threadId });
+    },
+    getMemoryCandidate: async (id) => {
+      if (app.memoryStore === undefined || app.workspaceRoot === undefined) {
+        return { ok: false, error: { code: "MEMORY_DISABLED", message: "Memory requires an enabled module and configured workspace" } };
+      }
+      if (closed) return { ok: false, error: { code: "MEMORY_CANDIDATE_CONFLICT", message: "Controller is closed" } };
+      return app.memoryStore.getCandidate(id, undefined, { boundThreadId: app.threadId });
+    },
+    resolveMemoryCandidate: async (input) => {
+      if (app.memoryStore === undefined || app.workspaceRoot === undefined) {
+        return { ok: false, error: { code: "MEMORY_DISABLED", message: "Memory requires an enabled module and configured workspace" } };
+      }
+      if (closed || state.kind !== "idle") {
+        return { ok: false, error: { code: "MEMORY_CANDIDATE_CONFLICT", message: "Memory review requires an idle controller" } };
+      }
+      const operation = new AbortController();
+      operationController = operation;
+      setState({ kind: "command", name: "memory-review" });
+      let resolution!: MemoryResult<CandidateResolution>;
+      activeTask = (async () => {
+        try {
+          await ensureRecovered();
+          resolution = await app.memoryStore!.resolveCandidate(input, operation.signal, { boundThreadId: app.threadId });
+          if (resolution.ok || resolution.error.code === "MEMORY_CANDIDATE_STALE") {
+            emit({ type: "memory-updated", reason: "review" });
+          }
+        } catch (error) {
+          const message = String(error);
+          resolution = { ok: false, error: { code: "WRITE_FAILED", message } };
+          emit({ type: "error", message });
+        } finally {
+          operationController = undefined;
+          setState({ kind: "idle" });
+        }
+      })();
+      await activeTask;
+      return resolution;
     },
     createWorkTask: async (input) => {
       const recoveryFailure = await workTaskRecoveryFailure();
@@ -614,10 +688,20 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
             primary.result.status === "completed" && !primary.requestedMemoryTool &&
             !cancelRequested && app.autoConsolidationAgentId !== undefined
           ) {
+            const readiness = await app.memoryConsolidation?.canStart(startup.signal);
+            if (readiness !== undefined && !readiness.ok) {
+              emit({ type: "error", message: `Automatic consolidation unavailable: ${readiness.error.code}: ${readiness.error.message}` });
+              return;
+            }
+            if (readiness?.ok && !readiness.value.canStart) {
+              controller.recordOutput("\nMemory candidate queue is full; review pending candidates before consolidating.\n");
+              return;
+            }
+            if (cancelRequested || startup.signal.aborted) return;
             controller.recordOutput("\n正在自动整理记忆...\n");
             const consolidationMessage: UIMessage = {
               id: randomUUID(), role: "user", metadata: { source: AUTO_CONSOLIDATION_SOURCE },
-              parts: [{ type: "text", text: "请整理最近已提交的对话，先取材，再提出记忆建议；不要保存。" }],
+              parts: [{ type: "text", text: "请整理最近已提交的对话：先取材，再调用 memory_stage_candidates 提交结构化提案；没有建议也提交空数组。不要写入 active 记忆。" }],
             };
             try {
               const consolidation = await executeRun(
@@ -724,6 +808,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       unsubscribeApproval?.();
       unsubscribeShellProgress?.();
       app.resume?.clear();
+      app.memoryConsolidation?.discard();
       app.dispose();
       disposed = true;
       const releaseErrors = leaseReleases

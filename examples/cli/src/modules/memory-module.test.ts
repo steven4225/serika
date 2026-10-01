@@ -5,9 +5,9 @@ import type { RegisteredTool } from "@aisdk-agent/ai-sdk-adapter";
 import { asSchema, type UIMessage } from "ai";
 import { AUTO_CONSOLIDATION_AGENT_ID, MAX_CONSOLIDATION_TURNS } from "../consolidation.js";
 import { MAX_CONTEXT_BYTES } from "../context-window.js";
+import type { MemoryConsolidation } from "../memory-consolidation.js";
 import {
   MEMORY_ENTRY_MAX_BYTES,
-  MEMORY_MAX_ENTRIES,
   type MemoryAddInput,
   type MemoryWriteOptions,
 } from "../memory-store.js";
@@ -21,6 +21,14 @@ import {
 function entry(id: string, text: string, enabled = true): MemoryEntry {
   return { id, text, enabled };
 }
+const candidateStubs = {
+  checkCandidateCapacity: async () => { throw new Error("unexpected candidate capacity read"); },
+  listCandidates: async () => { throw new Error("unexpected candidate list"); },
+  getCandidate: async () => { throw new Error("unexpected candidate detail"); },
+  resolveCandidate: async () => { throw new Error("unexpected candidate resolution"); },
+  getConsolidationCursor: async () => { throw new Error("unexpected cursor read"); },
+  commitCandidateBatch: async () => { throw new Error("unexpected candidate batch"); },
+};
 
 function createStore(): {
   store: WorkspaceMemoryStore;
@@ -29,6 +37,7 @@ function createStore(): {
   const calls: Array<{ method: string; args: unknown[] }> = [];
   const entries = [entry("one", "pnpm")];
   const store = {
+    ...candidateStubs,
     list: async () => {
       calls.push({ method: "list", args: [] });
       return { ok: true as const, entries: [...entries] };
@@ -76,7 +85,7 @@ function createStore(): {
 function setupTools(
   store: WorkspaceMemoryStore,
   getMessages?: () => Promise<UIMessage[]>,
-  options?: { threadId?: string; now?: () => Date },
+  options?: { threadId?: string; now?: () => Date; consolidation?: MemoryConsolidation },
 ): RegisteredTool[] {
   const tools: RegisteredTool[] = [];
   createMemoryModule(store, getMessages, options).setup({
@@ -110,6 +119,110 @@ function toolByName(tools: RegisteredTool[], name: string): RegisteredTool {
 }
 
 describe("createMemoryModule", () => {
+  it("routes stable candidate ids through the Store with the current Thread and clock", async () => {
+    const { store } = createStore();
+    const now = new Date("2026-10-01T00:00:00.000Z");
+    const calls: unknown[][] = [];
+    const candidateStore: WorkspaceMemoryStore = {
+      ...store,
+      listCandidates: async (input, _signal, options) => {
+        calls.push(["list", input, options]);
+        return { ok: true, value: { candidates: [], nextOffset: null, truncated: false } };
+      },
+      resolveCandidate: async (input, _signal, options) => {
+        calls.push(["apply", input, options]);
+        return { ok: true, value: { candidateId: input.candidateId, status: "accepted", memoryId: "saved", memoryRevision: 1, replayed: false } };
+      },
+    };
+    const tools = setupTools(candidateStore, undefined, { threadId: "thread-a", now: () => now });
+    const context = { toolCallId: "candidate-tool", messages: [], context: {} };
+    await toolByName(tools, "memory_candidates_list").tool.execute!({ status: "pending", offset: 2, limit: 5 }, context);
+    const applied = await toolByName(tools, "memory_apply_candidate").tool.execute!({ candidateId: "stable-id", expectedCandidateRevision: 1 }, context);
+    assert.deepEqual(calls, [
+      ["list", { status: "pending", offset: 2, limit: 5 }, { boundThreadId: "thread-a", now }],
+      ["apply", { candidateId: "stable-id", expectedCandidateRevision: 1, decision: "accept" }, { boundThreadId: "thread-a", now }],
+    ]);
+    assert.equal(applied.ok && applied.value.memoryId, "saved");
+  });
+
+  it("stages through the run service and forbids model-owned state, Thread ids and pinned fields", async () => {
+    const { store } = createStore();
+    const calls: unknown[] = [];
+    const consolidation = {
+      stage: async (input: { batchId: string; proposals: unknown[] }) => {
+        calls.push(input);
+        return { ok: true, value: { staged: true, batchId: input.batchId, count: input.proposals.length } };
+      },
+    } as unknown as MemoryConsolidation;
+    const tools = setupTools(store, async () => [], { threadId: "thread-a", consolidation });
+    const stage = toolByName(tools, "memory_stage_candidates");
+    assert.deepEqual(stage.metadata, { name: "memory_stage_candidates", version: "1", risk: "read", timeoutMs: 1_000, idempotent: false });
+    const schema = asSchema(stage.tool.inputSchema);
+    const proposal = { action: "add", text: "concise reports", sourceMessageId: "source", sourceQuote: "concise reports", reason: "Explicit preference", scope: { kind: "thread" } };
+    assert.equal((await schema.validate?.({ batchId: "batch", proposals: [proposal] }))?.success, true);
+    assert.equal((await schema.validate?.({ batchId: "batch", proposals: [] }))?.success, true);
+    for (const invalid of [
+      { batchId: "batch", proposals: [proposal], originThreadId: "other" },
+      { batchId: "batch", proposals: [{ ...proposal, scope: { kind: "thread", threadId: "other" } }] },
+      { batchId: "batch", proposals: [{ ...proposal, pinned: true }] },
+      { batchId: "batch", proposals: [{ ...proposal, status: "accepted" }] },
+      { batchId: "batch", proposals: [{ ...proposal, id: "chosen-by-model" }] },
+      { batchId: "batch", proposals: Array.from({ length: 6 }, () => proposal) },
+      { batchId: "batch", proposals: [{ ...proposal, action: "update", memoryId: "one" }] },
+    ]) assert.equal((await schema.validate?.(invalid))?.success, false);
+    const context = { toolCallId: "stage", messages: [], context: {} };
+    const staged = await stage.tool.execute!({ batchId: "batch", proposals: [] }, context);
+    assert.deepEqual(staged, { ok: true, value: { staged: true, batchId: "batch", count: 0 } });
+    assert.deepEqual(calls, [{ batchId: "batch", proposals: [] }]);
+    const applySchema = asSchema(toolByName(tools, "memory_apply_candidate").tool.inputSchema);
+    for (const invalid of [
+      { candidateId: "candidate", expectedCandidateRevision: 1, decision: "reject" },
+      { candidateId: "candidate", expectedCandidateRevision: 1, threadId: "other" },
+      { candidateId: "candidate" },
+    ]) assert.equal((await applySchema.validate?.(invalid))?.success, false);
+    const listSchema = asSchema(toolByName(tools, "memory_candidates_list").tool.inputSchema);
+    assert.equal((await listSchema.validate?.({ threadId: "other" }))?.success, false);
+    assert.equal((await listSchema.validate?.({ limit: 51 }))?.success, false);
+  });
+
+  it("paginates visible memories and keeps private current and historical versions out of model tools", async () => {
+    const { store } = createStore();
+    const privateEntry: MemoryEntry = { ...entry("private", "other Thread secret"), scope: { kind: "thread", threadId: "thread-b" } };
+    const visibleEntry: MemoryEntry = {
+      ...entry("visible", "current shared fact"), scope: { kind: "workspace" },
+      history: [{ revision: 1, text: "old Thread secret", status: "active", scope: { kind: "thread", threadId: "thread-b" }, source: { kind: "manual" }, expiresAt: null, changedAt: "2026-09-01T00:00:00.000Z" }],
+    };
+    const readingStore: WorkspaceMemoryStore = {
+      ...store,
+      list: async () => ({ ok: true, entries: [privateEntry, visibleEntry, entry("last", "final shared fact")] }),
+      get: async (id) => ({ ok: true, entry: id === "private" ? privateEntry : visibleEntry }),
+    };
+    const tools = setupTools(readingStore, undefined, { threadId: "thread-a" });
+    const context = { toolCallId: "visible-list", messages: [], context: {} };
+    const list = toolByName(tools, "memory_list").tool;
+    const first = await list.execute!({ limit: 1 }, context);
+    assert.deepEqual(first, { ok: true, entries: [{ ...entry("visible", "current shared fact"), scope: { kind: "workspace" } }], nextOffset: 1, truncated: true });
+    assert.deepEqual(await list.execute!({ offset: 1, limit: 1 }, context), { ok: true, entries: [entry("last", "final shared fact")], nextOffset: null, truncated: false });
+    const get = toolByName(tools, "memory_get").tool;
+    const hidden = await get.execute!({ id: "private" }, context);
+    assert.equal(!hidden.ok && hidden.error.code, "MEMORY_ENTRY_NOT_FOUND");
+    const visible = await get.execute!({ id: "visible" }, context);
+    assert.equal(JSON.stringify(visible).includes("old Thread secret"), false);
+    assert.equal(visible.ok && visible.entry.history?.length, 0);
+  });
+
+  it("pages by final serialized bytes without truncating entries", async () => {
+    const { store } = createStore();
+    const entries = Array.from({ length: 20 }, (_, index) => entry(`memory-${index}`, "长".repeat(650)));
+    const tools = setupTools({ ...store, list: async () => ({ ok: true, entries }) });
+    const page = await toolByName(tools, "memory_list").tool.execute!({ limit: 20 }, { toolCallId: "byte-page", messages: [], context: {} });
+    assert.equal(page.ok, true);
+    assert.ok(Buffer.byteLength(JSON.stringify(page), "utf8") <= 16 * 1024);
+    assert.equal(page.truncated, true);
+    assert.equal(page.nextOffset, page.entries.length);
+    assert.equal(page.entries[0]?.text, entries[0]?.text);
+    assert.ok(page.entries.length > 0 && page.entries.length < 20);
+  });
   it("exposes a top-level object input schema for provider tool calling", async () => {
     const { store } = createStore();
     const prepare = toolByName(setupTools(store, async () => []), "memory_prepare_consolidation").tool;
@@ -161,6 +274,8 @@ describe("createMemoryModule", () => {
           timeoutMs: 1_000,
           idempotent: false,
         },
+        { name: "memory_candidates_list", version: "1", risk: "read", timeoutMs: 1_000, idempotent: true },
+        { name: "memory_apply_candidate", version: "1", risk: "write", timeoutMs: 1_000, idempotent: true },
       ],
     );
   });
@@ -195,7 +310,7 @@ describe("createMemoryModule", () => {
   it("registers consolidation only when a bound message reader is supplied", () => {
     const { store } = createStore();
     const tools = setupTools(store, async () => []);
-    assert.equal(tools.length, 6);
+    assert.equal(tools.length, 8);
     assert.deepEqual(toolByName(tools, "memory_prepare_consolidation").metadata, {
       name: "memory_prepare_consolidation",
       version: "1",
@@ -245,7 +360,7 @@ describe("createMemoryModule", () => {
 
     assert.deepEqual(
       await toolByName(tools, "memory_list").tool.execute!({}, context),
-      { ok: true, entries: [entry("one", "pnpm")] },
+      { ok: true, entries: [entry("one", "pnpm")], nextOffset: null, truncated: false },
     );
     assert.deepEqual(
       await toolByName(tools, "memory_add").tool.execute!({ text: "use vitest", enabled: false }, context),
@@ -345,6 +460,8 @@ describe("createMemoryModule", () => {
           source: stored.source,
           revision: 2,
         }],
+        nextOffset: null,
+        truncated: false,
       },
     );
     assert.deepEqual(calls, [
@@ -568,13 +685,13 @@ describe("createMemoryModule", () => {
     assert.equal(JSON.stringify(result).includes("private other thread decision"), false);
   });
 
-  it("accepts the full Stage 5-2 memory capacity together with recent turns", async () => {
+  it("keeps the legacy 32-entry material fixture within its old context budget", async () => {
     const { store } = createStore();
     const listedStore = {
       ...store,
       list: async () => ({
         ok: true as const,
-        entries: Array.from({ length: MEMORY_MAX_ENTRIES }, (_, index) =>
+        entries: Array.from({ length: 32 }, (_, index) =>
           entry(`memory-${index}`, String.fromCharCode(97 + (index % 26)).repeat(MEMORY_ENTRY_MAX_BYTES)),
         ),
       }),
@@ -644,6 +761,7 @@ describe("createMemoryModule", () => {
       changedAt: "2026-09-01T00:00:00.000Z",
     }];
     const store = {
+      ...candidateStubs,
       async list() {
         return { ok: true as const, entries: [listed] };
       },

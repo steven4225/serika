@@ -17,12 +17,22 @@ import {
 } from "@aisdk-agent/ai-sdk-adapter";
 import { selectModelContext } from "./context-window.js";
 import { AUTO_CONSOLIDATION_AGENT_ID } from "./consolidation.js";
+import { createMemoryConsolidation } from "./memory-consolidation.js";
 import { createModuleHost } from "./module-host.js";
 import { createMemoryStore, type MemoryEntry, type WorkspaceMemoryStore } from "./memory-store.js";
 import {
   CONSOLIDATION_RESULT_MAX_BYTES,
   createMemoryModule,
 } from "./modules/memory-module.js";
+
+const unusedCandidateMethods = {
+  checkCandidateCapacity: async (): Promise<never> => { throw new Error("candidate protocol is unused in legacy read-only tests"); },
+  listCandidates: async (): Promise<never> => { throw new Error("candidate protocol is unused in legacy read-only tests"); },
+  getCandidate: async (): Promise<never> => { throw new Error("candidate protocol is unused in legacy read-only tests"); },
+  resolveCandidate: async (): Promise<never> => { throw new Error("candidate protocol is unused in legacy read-only tests"); },
+  getConsolidationCursor: async (): Promise<never> => { throw new Error("candidate protocol is unused in legacy read-only tests"); },
+  commitCandidateBatch: async (): Promise<never> => { throw new Error("candidate protocol is unused in legacy read-only tests"); },
+};
 
 const definition = {
   id: "consolidation-runtime-test",
@@ -107,6 +117,64 @@ function addResponse() {
 }
 
 describe("memory consolidation Runtime integration", () => {
+  it("completes the native prepare-stage-commit-review path through the existing AgentLoop", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "runloom-native-consolidation-"));
+    const threadId = "native-consolidation";
+    const store = new InMemoryAgentStore();
+    await store.save(threadId, [message("source-user", "user", "我的长期约定是先 review 再提交。")]);
+    const memory = createMemoryStore(directory);
+    const consolidation = createMemoryConsolidation({ store: memory, getMessages: () => store.getMessages(threadId), threadId, generateId: () => "native-batch" });
+    const moduleHost = createModuleHost([createMemoryModule(memory, () => store.getMessages(threadId), { threadId, consolidation })], { notify: () => undefined });
+    let step = 0;
+    const model = new MockLanguageModelV3({ doStream: async ({ prompt }) => {
+      step += 1;
+      if (step === 1) return prepareResponse();
+      if (step === 2) {
+        assert.match(JSON.stringify(prompt), /native-batch/);
+        const response = prepareResponse();
+        response.stream = simulateReadableStream({ chunks: [
+          { type: "stream-start" as const, warnings: [] },
+          { type: "tool-call" as const, toolCallId: "stage-call", toolName: "memory_stage_candidates", input: JSON.stringify({ batchId: "native-batch", proposals: [{ action: "add", text: "用户长期约定：先 review 再提交。", sourceMessageId: "source-user", sourceQuote: "先 review 再提交", reason: "用户明确长期约定", scope: { kind: "workspace" } }] }) },
+          { type: "finish" as const, finishReason: { unified: "tool-calls" as const, raw: undefined }, usage: { inputTokens: { total: 3, noCache: 3, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 1, text: 1, reasoning: undefined } } },
+        ] });
+        return response;
+      }
+      return suggestionResponse();
+    } });
+    const nativeDefinition = { ...definition, id: AUTO_CONSOLIDATION_AGENT_ID, tools: ["memory_prepare_consolidation", "memory_stage_candidates"], limits: { ...definition.limits, maxSteps: 3 } };
+    const runtime = new DefaultAgentRuntime({ catalog: new InMemoryAgentCatalog([nativeDefinition]), store,
+      loop: new AiSdkAgentLoop({ models: new InMemoryModelRegistry({ [definition.model]: model }), tools: new ToolRegistry(moduleHost.tools) }),
+      beforeToolExecute: async () => ({ allow: true }),
+    });
+    try {
+      consolidation.begin(AUTO_CONSOLIDATION_AGENT_ID);
+      const handle = await runtime.run({ agentId: AUTO_CONSOLIDATION_AGENT_ID, threadId, messages: [{ ...message("auto-request", "user", "仅提出候选，不正式保存"), metadata: { source: "auto-consolidation" } }], context: { agentId: AUTO_CONSOLIDATION_AGENT_ID } });
+      const result = await handle.result;
+      assert.equal(result.status, "completed");
+      assert.deepEqual(await memory.list(), { ok: true, entries: [] });
+      const saved = await consolidation.finalize(result, undefined);
+      assert.equal(saved.ok, true);
+      if (!saved.ok) return;
+      assert.equal(saved.value.candidateIds.length, 1);
+      const candidateId = saved.value.candidateIds[0]!;
+      const reopened = createMemoryStore(directory);
+      const pending = await reopened.getCandidate(candidateId, undefined, { boundThreadId: threadId });
+      assert.equal(pending.ok, true);
+      if (!pending.ok) return;
+      assert.equal(pending.value.candidate.status, "pending");
+      const accepted = await reopened.resolveCandidate({ candidateId, expectedCandidateRevision: 1, decision: "accept" }, undefined, { boundThreadId: threadId });
+      assert.equal(accepted.ok, true);
+      const list = await reopened.list();
+      assert.equal(list.ok, true);
+      if (list.ok) {
+        assert.equal(list.entries.length, 1);
+        assert.equal(list.entries[0]?.source?.kind, "conversation");
+        assert.equal(list.entries[0]?.text, "用户长期约定：先 review 再提交。");
+      }
+    } finally {
+      await moduleHost.dispose(); await rm(directory, { recursive: true, force: true });
+    }
+  });
   it("feeds committed material to the next model step without writing memory", async () => {
     const threadId = "consolidation-runtime";
     const store = new InMemoryAgentStore();
@@ -121,6 +189,7 @@ describe("memory consolidation Runtime integration", () => {
     let addCalls = 0;
     let updateCalls = 0;
     const memoryStore: WorkspaceMemoryStore = {
+      ...unusedCandidateMethods,
       list: async () => ({ ok: true as const, entries: entries.map((entry) => ({ ...entry })) }),
       get: async () => ({ ok: false as const, error: { code: "MEMORY_ENTRY_NOT_FOUND" as const, message: "not found" } }),
       add: async () => {
@@ -253,6 +322,7 @@ describe("memory consolidation Runtime integration", () => {
       message("previous-user", "user", "x".repeat(CONSOLIDATION_RESULT_MAX_BYTES)),
     ]);
     const memoryStore: WorkspaceMemoryStore = {
+      ...unusedCandidateMethods,
       list: async () => ({ ok: true as const, entries: [] }),
       get: async () => ({ ok: false as const, error: { code: "MEMORY_ENTRY_NOT_FOUND" as const, message: "not found" } }),
       add: async () => {

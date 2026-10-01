@@ -51,6 +51,32 @@ import { createAssistantController } from "@aisdk-agent/example-cli/dist/assista
 - `task.reconciliations` 是有界的人类观察记录，不是程序验证结果、工具授权或 acceptance evidence，不能直接让 criterion 通过或让任务完成。后续主 WorkTask Run 只会把最近一条作为带警告的参考上下文；调用方仍须明确启动 Run，并重新取得所有写入和 Shell 权限。自动验收只使用最新且可验证的任务 Run，不要求保留无限历史回执。
 - 恢复和 reconciliation 都使用当前 `revision` 做 CAS。revision 冲突后重新读取任务和执行回执，不得盲重放旧请求；前端应把 `needs_review`、最新 Run 的 `unknown`/缺失情况、human report 及取消后的残余不确定性直接展示给用户。
 
+## 原生 Memory 候选审阅（A 组）
+
+Memory 模块启用且有 workspace 时，`RuntimeApp` 暴露绑定的 `memoryStore` / `memoryConsolidation`，前端只调用 Controller，不能把 Store 或文件路径送进 IPC：
+
+```ts
+const page = await controller.listMemoryCandidates({ status: "pending", limit: 20 });
+const preview = await controller.getMemoryCandidate(candidateId);
+// 用户读完完整预览，明确选择接受或拒绝后：
+if (!preview.ok || !preview.value.applicable) return;
+const receipt = await controller.resolveMemoryCandidate({
+  candidateId,
+  expectedCandidateRevision: preview.value.candidate.revision,
+  decision: "accept", // 或 "reject"
+});
+```
+
+- 新接口统一 `{ok:true,value}` / `{ok:false,error:{code,message}}`。模块关闭返回 `MEMORY_DISABLED`；候选只对产生它的当前 Thread 可见，接受后的 workspace 记忆才跨 Thread 使用。
+- 列表默认 pending / 20 条，最多 50 条、16 KiB，按 `nextOffset` 翻页。详情最多 64 KiB，包含原话、理由、当前目标（不带 history）、拟保存内容和 `applicable`/`unavailableReason`。不要只展示模型的“候选 1”。
+- 只在 pending 且 applicable 的完整预览上启用接受。revision 冲突或 stale 后重新读取，不自动重试。接受/拒绝占用既有 command 互斥，不创建 Run、不请求模型、不写 JSONL；拒绝只改变候选，不改正式记忆。
+- `memory-updated` 的 `reason` 为 `proposals | review | write`，只是重读提示，不携带正文。刷新或重启后重新查询 Store，不能从事件或快照推导记忆真相。
+- 整理 Agent 先 prepare 后 stage；stage 仅进程内暂存。成功 Run 结束后才把待审候选和自动整理游标同锁写入 `memory.json` v3。`consolidation` completed 不等于正式记忆已保存；commit 失败单独报告，不改主任务成功结果。
+- Controller 的 resolve 是明确用户审阅操作，不走 `confirm()`；`confirm()` 仍是工具调用的 approvalId 授权。聊天的 `memory_apply_candidate` 使用相同接受实现但走正常 y/n；`n` 只拒绝本次调用，候选仍 pending。
+- 重复接受同 candidateId 和原 expectedCandidateRevision 返回原应用回执、`replayed:true`，不重复写。回执里的 memoryRevision 是接受当时的版本，不证明它现在仍未修改或删除。
+- v1/v2 文件只读不会迁移，第一次实际成功写入升级 v3。正式记忆最多 512 条、文件 16 MiB；pending 全 workspace 最多 64 条，终态保留最近 256 条。候选不进入主 Agent/worker 参考上下文。
+- 本组没有修改桌面仓，也没有完成按问题检索（B 组）。现有 8 KiB 注入选择保持；worker 仅改为有界选材而非总存储超额失败。前端接线和真实模型封板需要独立验证。
+
 ## 边界
 
 控制器不引入第二条 AgentLoop：主任务与整理共用一条执行路径，确认仍是进程内单个 `beforeToolExecute`。TUI 当前未改走控制器，修改 Run 生命周期时两处都要看。

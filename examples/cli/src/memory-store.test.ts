@@ -81,7 +81,7 @@ describe("WorkspaceMemoryStore", () => {
     }
   });
 
-  it("enforces text, context, and entry-count limits without partial writes", async () => {
+  it("enforces text and entry-count limits independently of injection budget", async () => {
     const directory = await workspace();
     const store = createMemoryStore(directory);
 
@@ -96,14 +96,14 @@ describe("WorkspaceMemoryStore", () => {
     const third = await store.add({ text: "c".repeat(MEMORY_ENTRY_MAX_BYTES) });
     assert.equal(first.ok && second.ok && third.ok, true);
     const tooLarge = await store.add({ text: "d".repeat(MEMORY_ENTRY_MAX_BYTES) });
-    assert.equal(errorCode(tooLarge), "MEMORY_CONTEXT_TOO_LARGE");
+    assert.equal(tooLarge.ok, true);
     const current = await store.list();
     assert.equal(current.ok, true);
     if (!current.ok) return;
-    assert.equal(current.entries.length, 3);
+    assert.equal(current.entries.length, 4);
     assert.equal(
       JSON.stringify(current.entries).includes("d".repeat(MEMORY_ENTRY_MAX_BYTES)),
-      false,
+      true,
     );
     assert.equal(MEMORY_CONTEXT_MAX_BYTES, 8_192);
 
@@ -138,7 +138,7 @@ describe("WorkspaceMemoryStore", () => {
     const malformed = await store.list();
     assert.equal(malformed.ok ? undefined : malformed.error.code, "MEMORY_FILE_INVALID");
 
-    await writeFile(file, JSON.stringify({ version: 3, entries: [] }));
+    await writeFile(file, JSON.stringify({ version: 4, entries: [] }));
     const unsupported = await store.list();
     assert.equal(unsupported.ok ? undefined : unsupported.error.code, "MEMORY_VERSION_UNSUPPORTED");
 
@@ -181,6 +181,7 @@ describe("WorkspaceMemoryStore", () => {
     if (!listed.ok) return;
     assert.deepEqual(listed.entries[0], {
       id: "legacy",
+      pinned: false,
       text: "keep pnpm",
       enabled: true,
       status: "active",
@@ -196,7 +197,7 @@ describe("WorkspaceMemoryStore", () => {
 
     const added = await store.add({ text: "run tests" });
     assert.equal(added.ok, true);
-    assert.equal(JSON.parse(await readFile(file, "utf8")).version, 2);
+    assert.equal(JSON.parse(await readFile(file, "utf8")).version, 3);
     const reopened = await createMemoryStore(directory).list();
     assert.equal(reopened.ok, true);
     if (reopened.ok) assert.equal(reopened.entries.find((entry) => entry.id === "legacy")?.source?.kind, "legacy");
@@ -279,7 +280,7 @@ describe("WorkspaceMemoryStore", () => {
     if (!reopened.ok) return;
     assert.deepEqual(reopened.entry.source, nextSource);
     assert.deepEqual(reopened.entry.history?.map((revision) => revision.source), [firstSource, firstSource, { kind: "manual" }]);
-    assert.equal(JSON.parse(await readFile(join(directory, ".runloom", "memory.json"), "utf8")).version, 2);
+    assert.equal(JSON.parse(await readFile(join(directory, ".runloom", "memory.json"), "utf8")).version, 3);
   });
 
   it("rejects malformed or forged conversation source without changing stored memory", async () => {
@@ -356,7 +357,7 @@ describe("WorkspaceMemoryStore", () => {
       undefined,
       { boundThreadId: "thread-b" },
     );
-    assert.equal(errorCode(sameView), "MEMORY_CONTEXT_TOO_LARGE");
+    assert.equal(sameView.ok, true);
   });
 
   it("rejects changes to another thread and uses the caller clock for expiry", async () => {

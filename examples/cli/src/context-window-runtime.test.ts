@@ -572,6 +572,12 @@ describe("context window Runtime integration", () => {
     const store = new CountingStore();
     const entries: MemoryEntry[] = [];
     const memoryStore: WorkspaceMemoryStore = {
+      checkCandidateCapacity: async () => { throw new Error("unexpected candidate capacity read"); },
+      listCandidates: async () => { throw new Error("unexpected candidate list"); },
+      getCandidate: async () => { throw new Error("unexpected candidate preview"); },
+      resolveCandidate: async () => { throw new Error("unexpected candidate resolution"); },
+      getConsolidationCursor: async () => { throw new Error("unexpected consolidation cursor"); },
+      commitCandidateBatch: async () => { throw new Error("unexpected candidate commit"); },
       list: async () => ({ ok: true as const, entries: entries.map((entry) => ({ ...entry })) }),
       get: async (id) => {
         const entry = entries.find((value) => value.id === id);

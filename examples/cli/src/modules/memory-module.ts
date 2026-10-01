@@ -3,6 +3,7 @@ import { z } from "zod";
 import { AgentError } from "@aisdk-agent/core";
 import type { RegisteredTool } from "@aisdk-agent/ai-sdk-adapter";
 import type { AgentModule } from "../module-host.js";
+import type { MemoryConsolidation } from "../memory-consolidation.js";
 import { MAX_CONTEXT_BYTES } from "../context-window.js";
 import {
   AUTO_CONSOLIDATION_AGENT_ID,
@@ -21,7 +22,6 @@ import type {
   MemoryDeleteResult,
   MemoryScope,
   MemoryStatus,
-  MemoryListResult,
   MemoryUpdateInput,
   MemoryWriteOptions,
   WorkspaceMemoryStore,
@@ -52,6 +52,7 @@ const memoryEntrySchema = z.object({
   id: z.string(),
   text: z.string(),
   enabled: z.boolean(),
+  pinned: z.boolean().optional(),
   status: z.enum(["active", "disabled"]).optional(),
   scope: memoryScopeSchema.optional(),
   source: memorySourceSchema.optional(),
@@ -67,6 +68,7 @@ const memoryEntrySchema = z.object({
     expiresAt: z.string().nullable(),
     source: memorySourceSchema,
     changedAt: z.string(),
+    pinned: z.boolean().optional(),
   })).optional(),
 });
 const memoryFailureSchema = z.object({
@@ -74,7 +76,10 @@ const memoryFailureSchema = z.object({
   error: z.object({ code: z.string(), message: z.string() }),
 });
 const memoryListOutputSchema = z.discriminatedUnion("ok", [
-  z.object({ ok: z.literal(true), entries: z.array(memoryEntrySchema) }),
+  z.object({
+    ok: z.literal(true), entries: z.array(memoryEntrySchema),
+    nextOffset: z.number().int().nonnegative().nullable(), truncated: z.boolean(),
+  }),
   memoryFailureSchema,
 ]);
 const memoryEntryOutputSchema = z.discriminatedUnion("ok", [
@@ -106,12 +111,16 @@ const consolidationOutputSchema = z.union([
     ok: z.literal(true),
     turns: z.array(z.object({ messages: z.array(consolidationMessageSchema) })),
     memories: z.array(memoryEntrySchema),
+    batchId: z.string().optional(),
+    truncated: z.boolean().optional(),
   }),
   z.object({
     ok: z.literal(true),
     bootstrap: z.boolean(),
     turns: z.array(incrementalConsolidationTurnSchema),
     memories: z.array(memoryEntrySchema),
+    batchId: z.string().optional(),
+    truncated: z.boolean().optional(),
   }),
   memoryFailureSchema,
 ]);
@@ -159,7 +168,10 @@ const memoryPrepareConsolidationMetadata: RegisteredTool["metadata"] = {
   idempotent: true,
 };
 
-const memoryListInputSchema = z.object({});
+const memoryListInputSchema = z.object({
+  offset: z.number().int().nonnegative().optional(),
+  limit: z.number().int().min(1).max(50).optional(),
+}).strict();
 const memoryGetInputSchema = z.object({ id: z.string().min(1) });
 const memoryAddInputSchema = z.object({
   text: z.string().refine((value) => value.trim().length > 0, {
@@ -182,15 +194,17 @@ const memoryUpdateInputSchema = z
       message: "text must be non-empty",
     }).optional(),
     enabled: z.boolean().optional(),
+    pinned: z.boolean().optional(),
     status: z.enum(["active", "disabled"]).optional(),
     scope: memoryScopeInputSchema.optional(),
     expiresAt: z.string().nullable().optional(),
     sourceMessageId: z.string().min(1).optional(),
     sourceQuote: z.string().min(1).optional(),
   })
-  .refine(({ text, enabled, status, scope, expiresAt, sourceMessageId }) =>
+  .refine(({ text, enabled, pinned, status, scope, expiresAt, sourceMessageId }) =>
     text !== undefined ||
     enabled !== undefined ||
+    pinned !== undefined ||
     status !== undefined ||
     scope !== undefined ||
     expiresAt !== undefined ||
@@ -262,16 +276,71 @@ function consolidationInputTooLarge(): AgentError {
 
 const neverAborted = new AbortController().signal;
 
+const candidateStatusSchema = z.enum(["pending", "accepted", "rejected", "stale"]);
+const candidateChangeSchema = z.discriminatedUnion("operation", [
+  z.object({ operation: z.literal("add"), text: z.string(), scope: memoryScopeSchema, expiresAt: z.string().nullable() }),
+  z.object({ operation: z.literal("update"), memoryId: z.string(), expectedRevision: z.number().int().positive(), text: z.string(), expiresAt: z.string().nullable() }),
+]);
+const candidateSchema = z.object({
+  id: z.string(), revision: z.number().int().positive(), batchId: z.string(),
+  originThreadId: z.string(), fingerprint: z.string(), change: candidateChangeSchema,
+  source: z.object({ kind: z.literal("conversation"), threadId: z.string(), messageId: z.string(), quote: z.string() }),
+  reason: z.string(), createdAt: z.string(), resolvedAt: z.string().nullable(),
+  status: candidateStatusSchema,
+  staleReason: z.enum(["target_changed", "target_missing", "expired", "duplicate"]).nullable(),
+  appliedResult: z.object({ memoryId: z.string(), revision: z.number().int().positive() }).nullable(),
+});
+const candidateListInputSchema = z.object({
+  status: candidateStatusSchema.optional(),
+  offset: z.number().int().nonnegative().optional(),
+  limit: z.number().int().min(1).max(50).optional(),
+}).strict();
+const candidateListOutputSchema = z.discriminatedUnion("ok", [
+  z.object({ ok: z.literal(true), value: z.object({ candidates: z.array(candidateSchema), nextOffset: z.number().int().nonnegative().nullable(), truncated: z.boolean() }) }),
+  memoryFailureSchema,
+]);
+const candidateApplyInputSchema = z.object({
+  candidateId: z.string().min(1), expectedCandidateRevision: z.number().int().positive(),
+}).strict();
+const candidateApplyOutputSchema = z.discriminatedUnion("ok", [
+  z.object({ ok: z.literal(true), value: z.object({
+    candidateId: z.string(), status: z.enum(["accepted", "rejected"]),
+    memoryId: z.string().nullable(), memoryRevision: z.number().int().positive().nullable(), replayed: z.boolean(),
+  }) }),
+  memoryFailureSchema,
+]);
+const proposalCommon = {
+  text: z.string().min(1), sourceMessageId: z.string().min(1), sourceQuote: z.string().min(1),
+  reason: z.string().min(1), expiresAt: z.string().nullable().optional(),
+};
+const candidateStageInputSchema = z.object({
+  batchId: z.string().min(1),
+  proposals: z.array(z.discriminatedUnion("action", [
+    z.object({ action: z.literal("add"), ...proposalCommon, scope: memoryScopeInputSchema.optional() }).strict(),
+    z.object({ action: z.literal("update"), ...proposalCommon, memoryId: z.string().min(1), expectedRevision: z.number().int().positive() }).strict(),
+  ])).max(5),
+}).strict();
+const candidateStageOutputSchema = z.discriminatedUnion("ok", [
+  z.object({ ok: z.literal(true), value: z.object({ staged: z.literal(true), batchId: z.string(), count: z.number().int().nonnegative() }) }),
+  memoryFailureSchema,
+]);
+
 export interface MemoryModuleOptions {
   /** Active thread. Thread scope is bound to this id and cannot target another thread. */
   threadId?: string;
   /** Injectable clock for expiry checks and memory timestamps. */
   now?: () => Date;
+  /** Application-owned run-local proposals; absent for standalone read-only material preparation. */
+  consolidation?: MemoryConsolidation;
 }
 
 function presentMemoryEntry(entry: MemoryEntry): MemoryEntry {
   const { history: _history, ...current } = entry;
   return current;
+}
+
+function visibleScope(scope: MemoryScope | undefined, threadId: string | undefined): boolean {
+  return scope === undefined || scope.kind === "workspace" || scope.threadId === threadId;
 }
 
 /**
@@ -346,12 +415,25 @@ export function createMemoryModule(
         description: "List the current version of explicitly saved workspace memories. Revision history is not included. Do not infer or extract memories automatically.",
         inputSchema: memoryListInputSchema,
         outputSchema: memoryListOutputSchema,
-        execute: async (_input, { abortSignal }): Promise<MemoryListResult> => {
+        execute: async (input, { abortSignal }) => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
           const listed = await store.list(signal);
           if (!listed.ok) return listed;
-          return { ok: true, entries: listed.entries.map(presentMemoryEntry) };
+          const visible = listed.entries.filter((entry) => visibleScope(entry.scope, options.threadId));
+          const offset = input.offset ?? 0;
+          const limit = input.limit ?? 20;
+          const entries: MemoryEntry[] = [];
+          for (const entry of visible.slice(offset, offset + limit)) {
+            const next = [...entries, presentMemoryEntry(entry)];
+            if (Buffer.byteLength(JSON.stringify({ ok: true, entries: next, nextOffset: offset + next.length, truncated: true }), "utf8") > 16 * 1024) break;
+            entries.push(presentMemoryEntry(entry));
+          }
+          if (entries.length === 0 && offset < visible.length) {
+            return { ok: false as const, error: { code: "MEMORY_LIMIT_EXCEEDED", message: "Memory entry exceeds the list response budget; use memory_get" } };
+          }
+          const truncated = offset + entries.length < visible.length;
+          return { ok: true as const, entries, nextOffset: truncated ? offset + entries.length : null, truncated };
         },
       });
       const memoryGetTool = tool({
@@ -361,7 +443,16 @@ export function createMemoryModule(
         execute: async ({ id }, { abortSignal }): Promise<MemoryEntryResult> => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
-          return store.get(id, signal);
+          const found = await store.get(id, signal);
+          if (!found.ok) return found;
+          if (!visibleScope(found.entry.scope, options.threadId)) {
+            return { ok: false, error: { code: "MEMORY_ENTRY_NOT_FOUND", message: "Memory entry not found" } };
+          }
+          const entry = { ...found.entry, ...(found.entry.history === undefined ? {} : { history: found.entry.history.filter((revision) => visibleScope(revision.scope, options.threadId)) }) };
+          if (Buffer.byteLength(JSON.stringify({ ok: true, entry }), "utf8") > 64 * 1024) {
+            return { ok: false, error: { code: "MEMORY_LIMIT_EXCEEDED", message: "Memory detail exceeds the response budget" } };
+          }
+          return { ok: true, entry };
         },
       });
       const memoryAddTool = tool({
@@ -393,7 +484,7 @@ export function createMemoryModule(
         description: "Update a workspace memory only after the user explicitly confirms the change. Include the current expectedRevision; stale revisions are rejected. If the change came from conversation, supply the committed user sourceMessageId and a sourceQuote copied exactly from that message. scope.kind thread means the active thread; do not supply a thread id.",
         inputSchema: memoryUpdateInputSchema,
         outputSchema: memoryEntryOutputSchema,
-        execute: async ({ id, expectedRevision, text, enabled, status, scope, expiresAt, sourceMessageId, sourceQuote }, { abortSignal }): Promise<MemoryEntryResult> => {
+        execute: async ({ id, expectedRevision, text, enabled, pinned, status, scope, expiresAt, sourceMessageId, sourceQuote }, { abortSignal }): Promise<MemoryEntryResult> => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
           const bound = bindScope(scope, options.threadId);
@@ -407,6 +498,7 @@ export function createMemoryModule(
             ...(provenance === undefined ? {} : { source: provenance.source }),
             ...(text === undefined ? {} : { text }),
             ...(enabled === undefined ? {} : { enabled }),
+            ...(pinned === undefined ? {} : { pinned }),
             ...(status === undefined ? {} : { status: status as MemoryStatus }),
             ...(bound.scope === undefined ? {} : { scope: bound.scope }),
             ...(expiresAt === undefined ? {} : { expiresAt }),
@@ -430,7 +522,9 @@ export function createMemoryModule(
         ? undefined
         : tool({
             description:
-              "Prepare committed conversation evidence and related current memories for review. Use mode incremental only in the automatic consolidator to read ordinary turns after the last successful marker, with an eight-turn bootstrap when no marker exists; assistant and tool evidence is context only and cannot be a user-fact source. Without mode, manually review recent user messages selected by turns. Disabled and expired current memories remain visible for duplicate/conflict detection, but another thread's memories are excluded. This is read-only; do not write memories in the same turn.",
+              options.consolidation
+                ? "Prepare exactly one batch of committed ordinary user text and bounded related current Memory. Returns batchId for one subsequent memory_stage_candidates call, including an empty proposals array when no suggestions exist. Use incremental only in the automatic consolidator; its stored user-prefix cursor advances only after successful staging and completed Run finalization. Manual turns select recent users. Disabled/expired current memories may identify conflicts, not authorize re-enabling. Other Thread memories and history are excluded. This is read-only; do not apply active Memory in this consolidation turn."
+                : "Prepare committed ordinary user text and related current Memory for read-only review. Without a consolidation service this tool does not stage or persist candidates. Use incremental only in the automatic consolidator; the legacy transcript selector is for material preparation, not a new candidate commit. Disabled/expired memories may identify conflicts; other Thread memories and history are excluded.",
             inputSchema: memoryPrepareConsolidationInputSchema,
             outputSchema: consolidationOutputSchema,
             execute: async (input, { abortSignal, context }): Promise<ConsolidationResult> => {
@@ -444,6 +538,10 @@ export function createMemoryModule(
                     message: "mode incremental is only allowed for the automatic consolidator",
                   },
                 };
+              }
+              if (options.consolidation !== undefined) {
+                const prepared = await options.consolidation.prepare({ ...(input.mode ? { mode: input.mode } : {}), ...(input.turns !== undefined ? { turns: input.turns } : {}) }, signal);
+                return prepared.ok ? { ok: true, ...prepared.value } : prepared;
               }
               let committedMessages: UIMessage[];
               try {
@@ -483,6 +581,32 @@ export function createMemoryModule(
       ctx.registerTool({ metadata: memoryAddMetadata, tool: memoryAddTool });
       ctx.registerTool({ metadata: memoryUpdateMetadata, tool: memoryUpdateTool });
       ctx.registerTool({ metadata: memoryDeleteMetadata, tool: memoryDeleteTool });
+      ctx.registerTool({
+        metadata: { name: "memory_candidates_list", version: "1", risk: "read", timeoutMs: 1_000, idempotent: true },
+        tool: tool({
+          description: "List persisted memory candidates from this Thread with stable ids. Pending candidates are not saved active memories. Use their id and revision, never a prose candidate number, for an explicitly requested acceptance.",
+          inputSchema: candidateListInputSchema, outputSchema: candidateListOutputSchema,
+          execute: (input, { abortSignal }) => store.listCandidates(input, abortSignal, writeOptions()),
+        }),
+      });
+      ctx.registerTool({
+        metadata: { name: "memory_apply_candidate", version: "1", risk: "write", timeoutMs: 1_000, idempotent: true },
+        tool: tool({
+          description: "Accept a previously persisted candidate only when the user explicitly selects it. The normal tool confirmation is required. The store atomically rechecks its revision and the target memory; stale previews cannot overwrite newer memory. Success returns the actual memory id and revision.",
+          inputSchema: candidateApplyInputSchema, outputSchema: candidateApplyOutputSchema,
+          execute: (input, { abortSignal }) => store.resolveCandidate({ ...input, decision: "accept" }, abortSignal, writeOptions()),
+        }),
+      });
+      if (options.consolidation !== undefined) {
+        ctx.registerTool({
+          metadata: { name: "memory_stage_candidates", version: "1", risk: "read", timeoutMs: 1_000, idempotent: false },
+          tool: tool({
+            description: "Stage at most five structured proposals after exactly one memory_prepare_consolidation in this Run. Use its batchId and only its exact committed user quotes. An empty proposals array means no suggestions. This only stages data in process; the application persists pending candidates after a successful Run. It does not save active memory or advance a cursor by itself.",
+            inputSchema: candidateStageInputSchema, outputSchema: candidateStageOutputSchema,
+            execute: (input, { abortSignal }) => options.consolidation!.stage(input, abortSignal),
+          }),
+        });
+      }
       if (memoryPrepareConsolidationTool !== undefined) {
         ctx.registerTool({
           metadata: memoryPrepareConsolidationMetadata,
