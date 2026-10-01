@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import { createMemoryStore } from "./memory-store.js";
+import { createMemoryStore, MEMORY_CONTEXT_MAX_BYTES, memoryContextBytes, selectInjectableMemoryEntries } from "./memory-store.js";
 import { createCheckpointStore } from "./checkpoint-store.js";
 import type { TaskRecordV3, TaskStore, TaskListInput, TaskSummaryV3 } from "./task-store.js";
 import { TASK_LIST_MAX_LIMIT } from "./task-store.js";
@@ -72,6 +72,26 @@ function observationInbox(context: { referenceMessages: { parts: Array<{ type: s
 }
 
 describe("task-worker workspace snapshot", () => {
+  it("selects a bounded snapshot from larger storage without reading pending candidates or private Memory", async () => {
+    const root = await mkdtemp(join(tmpdir(), "runloom-worker-memory-large-"));
+    try {
+      const memory = createMemoryStore(root);
+      for (let index = 0; index < 10; index++) assert.equal((await memory.add({ text: `${index}: ${"x".repeat(1300)}` })).ok, true);
+      const all = await memory.list(); assert.ok(all.ok);
+      assert.ok(memoryContextBytes(selectInjectableMemoryEntries(all.entries)) > MEMORY_CONTEXT_MAX_BYTES);
+      assert.equal((await memory.commitCandidateBatch({ batchId: "candidate-batch", originThreadId: "user-thread", expectedCursor: null, nextCursor: null, candidates: [{
+        change: { operation: "add", text: "pending secret", scope: { kind: "workspace" }, expiresAt: null },
+        source: { kind: "conversation", threadId: "user-thread", messageId: "source", quote: "pending secret" }, reason: "test",
+      }] }, undefined, { boundThreadId: "user-thread" })).ok, true);
+      const context = await createTaskWorkerContextLoader(root, attentionStore(() => undefined))(claimedTask(), new AbortController().signal);
+      const serialized = JSON.stringify(context.referenceMessages);
+      assert.match(serialized, /memoryTruncated.*true/);
+      assert.doesNotMatch(serialized, /pending secret/);
+      const memoryMessage = context.referenceMessages.find((message) => message.id === "runloom-workspace-memory");
+      assert.ok(memoryMessage);
+      assert.ok(Buffer.byteLength(JSON.stringify(memoryMessage), "utf8") <= MEMORY_CONTEXT_MAX_BYTES);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
   it("treats absent Memory and checkpoint as an empty, valid snapshot", async () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-worker-context-empty-"));
     try {

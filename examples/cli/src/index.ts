@@ -57,6 +57,7 @@ try {
       ...(app.commands ? { commands: app.commands } : {}),
       ...(app.compaction ? { compaction: app.compaction } : {}),
       ...(app.resume ? { resume: app.resume } : {}),
+      ...(app.memoryConsolidation ? { memoryConsolidation: app.memoryConsolidation } : {}),
       ...(app.autoConsolidationAgentId
         ? { autoConsolidationAgentId: app.autoConsolidationAgentId }
         : {}),

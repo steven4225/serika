@@ -19,6 +19,7 @@ import {
   isAutoConsolidationRequest,
 } from "./consolidation.js";
 import { validateWorkspacePath } from "./workspace-path.js";
+import type { MemoryConsolidation } from "./memory-consolidation.js";
 
 type Runtime = {
   run<TContext>(request: RunRequest<TContext>): Promise<RunHandle>;
@@ -45,6 +46,7 @@ export interface RunTuiOptions {
   threadId: string;
   agentId: string;
   autoConsolidationAgentId?: string;
+  memoryConsolidation?: MemoryConsolidation;
   input?: Readable;
   output?: Writable;
   generateId?: () => string;
@@ -140,7 +142,7 @@ const AUTO_APPROVED_TOOL_NAMES = new Set([
   "pomodoro_cancel",
 ]);
 
-const AUTO_CONSOLIDATION_READ_TOOL = "memory_prepare_consolidation";
+const AUTO_CONSOLIDATION_READ_TOOLS = new Set(["memory_prepare_consolidation", "memory_stage_candidates"]);
 
 function write(output: Writable, text: string): void {
   output.write(text);
@@ -400,7 +402,7 @@ export function createToolConfirmation(
     if (input.signal.aborted) return Promise.reject(abortReason(input.signal));
     if (
       input.definition.id === AUTO_CONSOLIDATION_AGENT_ID &&
-      input.toolName === AUTO_CONSOLIDATION_READ_TOOL
+      AUTO_CONSOLIDATION_READ_TOOLS.has(input.toolName)
     ) {
       return Promise.resolve({ allow: true });
     }
@@ -646,7 +648,7 @@ type CompletedTaskRescheduleAction = {
 type CompletedTaskAction = CompletedTaskCreateAction | CompletedTaskRescheduleAction;
 
 type CompletedMemoryAction = {
-  toolName: "memory_add" | "memory_update";
+  toolName: "memory_add" | "memory_update" | "memory_apply_candidate";
   id: string;
   revision: number;
 };
@@ -804,6 +806,13 @@ function positiveSafeInteger(value: unknown): value is number {
 function completedMemoryAction(
   event: Extract<AgentEvent, { type: "tool.call.completed" }>,
 ): CompletedMemoryAction | undefined {
+  if (event.data.toolName === "memory_apply_candidate") {
+    const result = event.data.output as { ok?: boolean; value?: { memoryId?: unknown; memoryRevision?: unknown } } | null;
+    if (result?.ok === true && typeof result.value?.memoryId === "string" && positiveSafeInteger(result.value.memoryRevision)) {
+      return { toolName: "memory_apply_candidate", id: result.value.memoryId, revision: result.value.memoryRevision };
+    }
+    return undefined;
+  }
   if (event.data.toolName !== "memory_add" && event.data.toolName !== "memory_update") {
     return undefined;
   }
@@ -879,11 +888,13 @@ async function renderEvents(
 ): Promise<{
   renderedText: string;
   requestedMemoryTool: boolean;
+  consolidationAttempts: { prepare: number; stage: number };
   completedActions: CompletedAction[];
   unknownActions: UnknownToolAction[];
 }> {
   let renderedText = "";
   let requestedMemoryTool = false;
+  const consolidationAttempts = { prepare: 0, stage: 0 };
   const completedActions: CompletedAction[] = [];
   const unknownActions: UnknownToolAction[] = [];
   const requestedTools = new Map<string, { toolName: string; input: unknown }>();
@@ -903,6 +914,8 @@ async function renderEvents(
         write(output, `\n[step ${event.data.stepNumber}] `);
         break;
       case "tool.call.requested":
+        if (event.data.toolName === "memory_prepare_consolidation") consolidationAttempts.prepare++;
+        if (event.data.toolName === "memory_stage_candidates") consolidationAttempts.stage++;
         requestedMemoryTool ||= event.data.toolName.startsWith("memory_");
         requestedTools.set(event.data.toolCallId, {
           toolName: event.data.toolName,
@@ -942,7 +955,7 @@ async function renderEvents(
         break;
     }
   }
-  return { renderedText, requestedMemoryTool, completedActions, unknownActions };
+  return { renderedText, requestedMemoryTool, consolidationAttempts, completedActions, unknownActions };
 }
 
 function renderResult(
@@ -985,8 +998,10 @@ function renderResult(
       } else if ("revision" in action) {
         if (action.toolName === "memory_add") {
           write(output, `- memory_add: 已保存记忆 ${action.id}，版本 ${action.revision}\n`);
-        } else {
+        } else if (action.toolName === "memory_update") {
           write(output, `- memory_update: 已更新记忆 ${action.id}，版本 ${action.revision}\n`);
+        } else {
+          write(output, `- ${action.toolName}: 已保存记忆 ${action.id}，版本 ${action.revision}\n`);
         }
       } else {
         write(output, `- ${action.toolName}: ${action.summary}\n`);
@@ -1104,6 +1119,7 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
       requestedMemoryTool: boolean;
     }> => {
       options.toolConfirmation?.beginRun();
+      options.memoryConsolidation?.begin(agentId);
       try {
         const handle = await options.runtime.run({
           agentId,
@@ -1123,6 +1139,15 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
         const eventsDone = renderEvents(output, handle.events);
         const result = await handle.result;
         const rendered = await eventsDone;
+        if (options.memoryConsolidation) {
+          try {
+            const finalized = await options.memoryConsolidation.finalize({ status: result.status, consolidationAttempts: rendered.consolidationAttempts });
+            if (!finalized.ok) write(output, `\n[memory] 候选未保存：${finalized.error.message}\n`);
+            else if (finalized.value.candidateIds.length > 0) write(output, `\n[memory] 待审核候选：${finalized.value.candidateIds.join(", ")}（尚未写入有效记忆）\n`);
+          } catch (error) {
+            write(output, `\n[memory] 候选未保存：${String(error)}\n`);
+          }
+        }
         const failedConsolidation =
           agentId === AUTO_CONSOLIDATION_AGENT_ID &&
           (result.status === "failed" || result.status === "timed_out");
@@ -1138,6 +1163,7 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
         state = { kind: "idle" };
         return { result, requestedMemoryTool: rendered.requestedMemoryTool };
       } finally {
+        options.memoryConsolidation?.discard();
         options.toolConfirmation?.endRun();
       }
     };
@@ -1161,6 +1187,13 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
         options.autoConsolidationAgentId !== undefined &&
         stopRequestReason === undefined
       ) {
+        if (options.memoryConsolidation) {
+          const capacity = await options.memoryConsolidation.canStart();
+          if (!capacity.ok || !capacity.value.canStart) {
+            write(output, "\n[memory] 自动整理已跳过：候选队列已满或读取失败，请先审核候选。\n");
+            return;
+          }
+        }
         write(output, "\n正在自动整理记忆...\n");
         const consolidationMessage: UIMessage = {
           id: generateId(),
@@ -1169,7 +1202,7 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
           parts: [
             {
               type: "text",
-              text: "请整理最近已提交的对话，先取材，再提出记忆建议；不要保存。",
+              text: "请先取材，再调用 memory_stage_candidates 暂存候选；无建议也提交空数组。不要写入有效记忆。",
             },
           ],
         };

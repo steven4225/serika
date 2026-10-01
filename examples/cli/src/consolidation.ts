@@ -137,7 +137,7 @@ function toolPart(part: UIMessage["parts"][number]): Record<string, unknown> | u
     : undefined;
 }
 
-function hasMemoryTool(turn: readonly UIMessage[]): boolean {
+export function hasMemoryTool(turn: readonly UIMessage[]): boolean {
   return turn.some((message) => message.parts.some((part) => {
     const selected = toolPart(part);
     return selected !== undefined &&
@@ -215,7 +215,7 @@ function evidenceOf(part: UIMessage["parts"][number]): IncrementalConsolidationT
   };
 }
 
-function userStartedTurns(committedMessages: readonly UIMessage[]): UIMessage[][] {
+export function userStartedTurns(committedMessages: readonly UIMessage[]): UIMessage[][] {
   const turns: UIMessage[][] = [];
   let current: UIMessage[] | undefined;
   for (const message of committedMessages) {
