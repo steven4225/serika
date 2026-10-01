@@ -172,7 +172,9 @@ export function checkpointAndMemoryContextMessages(
 
 /**
  * Select recent complete turns and, when present, inject enabled workspace
- * memories without changing the transcript.
+ * memories without changing the transcript. A supplied referencePrefix is an
+ * already-selected snapshot: count and retain it as-is, never reconstruct it
+ * from the legacy Memory/checkpoint arguments.
  */
 export function selectModelContext(
   messages: UIMessage[],
@@ -180,8 +182,9 @@ export function selectModelContext(
   memoryOptions: MemorySelectionOptions = {},
   checkpoint?: CheckpointSnapshot | null,
   resumeMessage?: UIMessage,
+  referencePrefix?: readonly UIMessage[],
 ): UIMessage[] {
-  if (messages.length === 0 && memories.length === 0 && checkpoint == null && resumeMessage === undefined) return messages;
+  if (messages.length === 0 && memories.length === 0 && checkpoint == null && resumeMessage === undefined && (referencePrefix === undefined || referencePrefix.length === 0)) return messages;
 
   const userStarts: number[] = [];
   for (let index = 0; index < messages.length; index += 1) {
@@ -206,8 +209,8 @@ export function selectModelContext(
   if (messageBytes(currentTurn) > MAX_CONTEXT_BYTES) throw contextTooLarge();
 
   const selectedHistory = historyTurns.slice(-MAX_HISTORY_TURNS);
-  const selectedMemories = selectMemoryContextEntries(memories, memoryOptions);
-  const checkpointMessage = createCheckpointContextMessage(checkpoint);
+  const selectedMemories = referencePrefix === undefined ? selectMemoryContextEntries(memories, memoryOptions) : [];
+  const checkpointMessage = referencePrefix === undefined ? createCheckpointContextMessage(checkpoint) : undefined;
   const allHistory = historyTurns.flat();
   const summaryFor = (): WorkSummary | undefined => {
     const selectedIds = new Set(selectedHistory.flat().map((item) => item.id));
@@ -229,8 +232,10 @@ export function selectModelContext(
     const message = createMemoryContextMessage(selectedMemories);
     return message === undefined ? [] : [message];
   };
+  let effectivePrefix = referencePrefix;
   const compose = (summary: WorkSummary | undefined): UIMessage[] => [
-    ...(resumeMessage === undefined ? [] : [resumeMessage]),
+    ...(effectivePrefix ?? []),
+    ...(referencePrefix !== undefined || resumeMessage === undefined ? [] : [resumeMessage]),
     ...(checkpointMessage === undefined ? [] : [checkpointMessage]),
     ...memoryMessage(),
     ...(summary === undefined ? [] : [workSummaryMessage(summary)]),
@@ -259,7 +264,11 @@ export function selectModelContext(
 
   // A one-run Git observation is useful reference data, never a reason to
   // block an otherwise valid conversation when the context is already full.
-  if (resumeMessage !== undefined && messageBytes(selected) > MAX_CONTEXT_BYTES) {
+  if (effectivePrefix !== undefined && messageBytes(selected) > MAX_CONTEXT_BYTES) {
+    effectivePrefix = effectivePrefix.filter((message) => message.id !== "runloom-resume-observation");
+    selected = compose(summary);
+  }
+  if (referencePrefix === undefined && resumeMessage !== undefined && messageBytes(selected) > MAX_CONTEXT_BYTES) {
     resumeMessage = undefined;
     selected = compose(summary);
   }

@@ -9,6 +9,7 @@ import type { TaskRecordV3, TaskStore, TaskListInput, TaskSummaryV3 } from "./ta
 import { TASK_LIST_MAX_LIMIT } from "./task-store.js";
 import {
   createTaskWorkerContextLoader,
+  loadTaskWorkerContext,
   selectAttentionInbox,
   TASK_WORKER_ATTENTION_INBOX_LIMIT,
 } from "./task-worker-context.js";
@@ -16,7 +17,7 @@ import {
 function claimedTask(): TaskRecordV3 {
   return {
     id: "task-today",
-    prompt: "Give me a brief",
+    prompt: "Give me a brief about the M10 plan and project snapshot",
     runAt: "2026-09-24T01:00:00.000Z",
     status: "running",
     createdAt: "2026-09-23T00:00:00.000Z",
@@ -72,11 +73,33 @@ function observationInbox(context: { referenceMessages: { parts: Array<{ type: s
 }
 
 describe("task-worker workspace snapshot", () => {
+  it("reads once using only task.prompt and retains the selected version for later steps", async () => {
+    let reads = 0;
+    let revision = 1;
+    const memoryStore = { async list() {
+      reads += 1;
+      return { ok: true, entries: [
+        { id: "workspace", revision, text: `M10 plan revision ${revision}`, enabled: true },
+        { id: "private", revision: 1, text: "M10 plan private", enabled: true, scope: { kind: "thread", threadId: "worker-new-thread" } },
+        { id: "unrelated", revision: 1, text: "vegetable garden", enabled: true },
+      ] };
+    } } as ReturnType<typeof createMemoryStore>;
+    const context = await loadTaskWorkerContext({ memoryStore,
+      checkpointStore: { async getCurrent() { return { ok: true, current: null }; } } as ReturnType<typeof createCheckpointStore>,
+      taskStore: attentionStore(() => undefined), now: () => new Date("2026-10-01T00:00:00Z"),
+    }, claimedTask(), new AbortController().signal);
+    revision = 2;
+    const fixed = JSON.stringify(context);
+    assert.equal(reads, 1);
+    assert.match(fixed, /M10 plan revision 1/);
+    assert.doesNotMatch(fixed, /M10 plan revision 2|M10 plan private|vegetable garden/);
+    assert.match(fixed, /eligibleCount/);
+  });
   it("selects a bounded snapshot from larger storage without reading pending candidates or private Memory", async () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-worker-memory-large-"));
     try {
       const memory = createMemoryStore(root);
-      for (let index = 0; index < 10; index++) assert.equal((await memory.add({ text: `${index}: ${"x".repeat(1300)}` })).ok, true);
+      for (let index = 0; index < 10; index++) assert.equal((await memory.add({ text: `project snapshot ${index}: ${"x".repeat(1300)}` })).ok, true);
       const all = await memory.list(); assert.ok(all.ok);
       assert.ok(memoryContextBytes(selectInjectableMemoryEntries(all.entries)) > MEMORY_CONTEXT_MAX_BYTES);
       assert.equal((await memory.commitCandidateBatch({ batchId: "candidate-batch", originThreadId: "user-thread", expectedCursor: null, nextCursor: null, candidates: [{
@@ -101,7 +124,7 @@ describe("task-worker workspace snapshot", () => {
       );
       assert.deepEqual(listCalls, [{ inbox: true, status: "attention", limit: TASK_LIST_MAX_LIMIT }]);
       const text = JSON.stringify(context.referenceMessages);
-      assert.match(text, /memory.*none/);
+      assert.match(text, /no matching workspace memories/);
       assert.match(text, /checkpoint.*none/);
       const inbox = observationInbox(context);
       assert.deepEqual(inbox.attentionInbox.tasks.map((task) => task.id), ["other-task"]);

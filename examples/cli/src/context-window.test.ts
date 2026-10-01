@@ -38,6 +38,30 @@ function assistant(id: string, text = id): UIMessage {
 }
 
 describe("selectModelContext", () => {
+  it("drops only optional resume from an overflowing captured prefix", () => {
+    const memory = assistant("runloom-workspace-memory", "captured revision 1");
+    const prefix = [assistant("runloom-resume-observation", "x".repeat(MAX_CONTEXT_BYTES)), memory];
+    const selected = selectModelContext([user("next")], [], {}, undefined, undefined, prefix);
+    assert.deepEqual(selected, [memory, user("next")]);
+    assert.equal(prefix.length, 2);
+  });
+  it("injects the captured reference prefix unchanged instead of rebuilding Memory", () => {
+    const prefix = [assistant("runloom-workspace-memory", "Captured revision 1")];
+    const selected = selectModelContext(
+      [user("next")], [{ id: "different", text: "Revision 2", enabled: true }],
+      {}, undefined, assistant("ignored-resume"), prefix,
+    );
+    assert.equal(selected[0], prefix[0]);
+    assert.equal(selected.length, 2);
+    assert.deepEqual(selectModelContext([user("next")], [{ id: "ignored", text: "ignored", enabled: true }], {}, undefined, undefined, []), [user("next")]);
+  });
+
+  it("counts a captured prefix against the byte budget without deleting references", () => {
+    const prefix = [assistant("reference", "x".repeat(MAX_CONTEXT_BYTES))];
+    assert.throws(() => selectModelContext([user("next")], [], {}, undefined, undefined, prefix),
+      (error: unknown) => error instanceof AgentError && error.data.code === "CONTEXT_PREPARE_FAILED");
+  });
+
   it("places a one-run resume observation before checkpoint and memory in both paths", () => {
     const resume = assistant("runloom-resume-observation", "Git observed at 2026-09-23T00:00:00Z");
     const checkpoint: CheckpointSnapshot = {

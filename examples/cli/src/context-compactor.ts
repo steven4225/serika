@@ -44,7 +44,7 @@ export interface ContextCompactorOptions {
   fixedContext: (messages: readonly UIMessage[], signal: AbortSignal) =>
     | Omit<ContextInputParts, "messages">
     | Promise<Omit<ContextInputParts, "messages">>;
-  promptPrefix?: (signal: AbortSignal) => UIMessage[] | Promise<UIMessage[]>;
+  promptPrefix?: (signal: AbortSignal, messages: readonly UIMessage[]) => UIMessage[] | Promise<UIMessage[]>;
   now?: () => Date;
   generateId?: () => string;
 }
@@ -305,6 +305,12 @@ export class ContextCompactor {
   readonly #now: () => Date;
   readonly #generateId: () => string;
   #latest: ContextCompactionRecord | undefined;
+  #effectiveReferencePrefix: readonly UIMessage[] = [];
+
+  /** The exact references counted by the latest preparation, for final injection. */
+  get effectiveReferencePrefix(): readonly UIMessage[] {
+    return this.#effectiveReferencePrefix;
+  }
   #lastPrepare:
     | { kind: "written"; record: ContextCompactionRecord }
     | { kind: "reused" }
@@ -318,15 +324,23 @@ export class ContextCompactor {
     this.#generateId = options.generateId ?? randomUUID;
   }
 
-  async prepare(messages: UIMessage[], signal: AbortSignal, force = false): Promise<UIMessage[]> {
+  async prepare(
+    messages: UIMessage[],
+    signal: AbortSignal,
+    force = false,
+    referencePrefix?: readonly UIMessage[],
+  ): Promise<UIMessage[]> {
     this.#lastPrepare = { kind: "passthrough" };
+    this.#effectiveReferencePrefix = referencePrefix ?? [];
     if (!this.#options.budget.enabled) return messages;
     abortIfNeeded(signal);
 
     const fixed = await this.#options.fixedContext(messages, signal);
-    const prefixInject = this.#options.promptPrefix === undefined
+    // The caller may capture retrieval once and use the same prefix for both
+    // this budget and final injection. Even [] overrides the fallback reader.
+    let prefixInject = referencePrefix ?? (this.#options.promptPrefix === undefined
       ? []
-      : await this.#options.promptPrefix(signal);
+      : await this.#options.promptPrefix(signal, messages));
     const estimatePrepared = (conversation: readonly UIMessage[]) =>
       estimateContextBudget(
         {
@@ -338,6 +352,14 @@ export class ContextCompactor {
         },
         this.#options.budget,
       );
+
+    // Resume is optional evidence, unlike Memory/checkpoint. Do not let it
+    // force compaction or block an otherwise valid input; publish the same
+    // effective snapshot that callers must use for final injection.
+    if (estimatePrepared(messages).exceeds && prefixInject.some((message) => message.id === "runloom-resume-observation")) {
+      prefixInject = prefixInject.filter((message) => message.id !== "runloom-resume-observation");
+    }
+    this.#effectiveReferencePrefix = prefixInject;
 
     const persisted = await this.#findLatestValid(messages);
     const compose = (summary: ContextSummaryV2, firstKept: number): UIMessage[] => [

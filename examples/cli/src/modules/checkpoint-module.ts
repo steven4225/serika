@@ -12,6 +12,7 @@ import {
   type WorkspaceCheckpointStore,
 } from "../checkpoint-store.js";
 import { abortReason } from "../workspace-path.js";
+import type { MemorySelection } from "../memory-retrieval.js";
 
 export interface CheckpointMemoryView {
   id: string;
@@ -21,6 +22,7 @@ export interface CheckpointMemoryView {
 export interface CheckpointModuleOptions {
   threadId: string;
   getInjectableMemories?: (signal: AbortSignal) => Promise<CheckpointMemoryView[]>;
+  getMemorySelection?: (signal: AbortSignal) => Promise<MemorySelection>;
   captureGitPin?: (signal: AbortSignal) => Promise<CheckpointGitPin | undefined>;
 }
 
@@ -104,6 +106,10 @@ const checkpointPrepareOutputSchema = z.discriminatedUnion("ok", [
     ok: z.literal(true),
     current: checkpointSnapshotSchema.nullable(),
     memories: z.array(z.object({ id: z.string(), text: z.string() }).strict()),
+    selection: z.object({
+      bytes: z.number(), truncated: z.boolean(), queryTruncated: z.boolean(), eligibleCount: z.number(),
+      selected: z.array(z.object({ id: z.string(), revision: z.number(), reason: z.enum(["pinned", "matched"]) }).strict()),
+    }).strict().optional(),
   }).strict(),
   checkpointFailureSchema,
 ]);
@@ -162,7 +168,7 @@ export function createCheckpointModule(
     setup(context) {
       const prepareTool = tool({
         description:
-          "Read the current checkpoint and the active memories injectable into this thread to prepare an explicit user-requested checkpoint update. This tool does not inspect or summarize conversation messages and does not invoke a model. Use the current conversation already in context to draft fields for checkpoint_save. A successful read is included in this Run's model context and committed transcript.",
+          "Read the current checkpoint and a bounded pinned-only Memory selection (not the full store) to prepare an explicit user-requested checkpoint update. This tool does not inspect or summarize conversation messages and does not invoke a model. Use the current conversation already in context to draft fields for checkpoint_save. A successful read is included in this Run's model context and committed transcript.",
         inputSchema: prepareInputSchema,
         outputSchema: checkpointPrepareOutputSchema,
         execute: async (_input, { abortSignal }) => {
@@ -170,15 +176,21 @@ export function createCheckpointModule(
           const current = await store.getCurrent(signal);
           if (!current.ok) return current;
           let memories: CheckpointMemoryView[] = [];
-          if (options.getInjectableMemories !== undefined) {
+          let selection: Omit<MemorySelection, "entries"> | undefined;
+          if (options.getMemorySelection !== undefined || options.getInjectableMemories !== undefined) {
             try {
-              memories = await options.getInjectableMemories(signal);
+              if (options.getMemorySelection !== undefined) {
+                const retrieved = await options.getMemorySelection(signal);
+                memories = retrieved.entries.map(({ id, text }) => ({ id, text }));
+                const { entries: _entries, ...metadata } = retrieved;
+                selection = metadata;
+              } else memories = await options.getInjectableMemories!(signal);
             } catch (error) {
               if (signal.aborted) throw abortReason(signal);
               return prepareFailure(error instanceof Error ? error.message : "Unable to read injectable memories");
             }
           }
-          const prepared = { ok: true as const, current: current.current, memories };
+          const prepared = { ok: true as const, current: current.current, memories, ...(selection === undefined ? {} : { selection }) };
           if (Buffer.byteLength(JSON.stringify(prepared), "utf8") > CHECKPOINT_PREPARE_RESULT_MAX_BYTES) {
             return {
               ok: false as const,
