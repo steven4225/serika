@@ -40,6 +40,19 @@ async function prepare(f: ReturnType<typeof fixture>, agent = AUTO_CONSOLIDATION
 }
 
 describe("native memory consolidation batch", () => {
+  it("retrieves visible disabled and expired current versions as conflict material, not active injection", async () => {
+    const f = fixture([user("u1", "写作复盘偏好")]);
+    f.setEntries([
+      { id: "disabled", text: "写作复盘偏好旧版", enabled: false, status: "disabled", revision: 2, history: [{ revision: 1, text: "history secret" }] } as MemoryEntry,
+      { id: "expired", text: "写作复盘偏好临时版", enabled: true, expiresAt: "2020-01-01T00:00:00Z", revision: 1 },
+      { id: "foreign", text: "写作复盘偏好私有版", enabled: true, scope: { kind: "thread", threadId: "other" } },
+      { id: "unrelated", text: "database indexes", enabled: true },
+    ]);
+    const material = await prepare(f);
+    assert.deepEqual(material.memories.map((entry) => entry.id).sort(), ["disabled", "expired"]);
+    assert.equal(JSON.stringify(material.memories).includes("history secret"), false);
+    assert.equal((await f.service.stage({ batchId: material.batchId, proposals: [{ action: "update", memoryId: "disabled", expectedRevision: 2, text: "写作复盘偏好新版本", sourceMessageId: "u1", sourceQuote: "写作复盘偏好", reason: "更新偏好" }] })).ok, false);
+  });
   it("stages locally and atomically commits candidates with cursor only after completed", async () => {
     const f = fixture();
     const prepared = await prepare(f);

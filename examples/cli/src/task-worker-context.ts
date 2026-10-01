@@ -10,11 +10,9 @@ import {
 } from "./checkpoint-context.js";
 import {
   createMemoryStore,
-  createMemoryContextMessage,
-  selectInjectableMemoryEntries,
   type WorkspaceMemoryStore,
 } from "./memory-store.js";
-import { selectMemoryContextEntries } from "./context-window.js";
+import { retrieveMemories, createRetrievedMemoryContextMessage } from "./memory-retrieval.js";
 import {
   TASK_LIST_MAX_LIMIT,
   type TaskRecord,
@@ -65,10 +63,11 @@ export async function loadTaskWorkerContext(
   const observedAt = (sources.now?.() ?? new Date()).toISOString();
   const memoryResult = await sources.memoryStore.list(signal);
   if (!memoryResult.ok) throw readFailure(memoryResult.error);
-  const eligibleMemories = selectInjectableMemoryEntries(memoryResult.entries, {
+  const memorySelection = retrieveMemories(memoryResult.entries, {
+    query: task.prompt,
     now: new Date(observedAt),
   });
-  const memories = selectMemoryContextEntries(eligibleMemories, { now: new Date(observedAt) });
+  const memories = memorySelection.entries;
 
   const checkpointResult = await sources.checkpointStore.getCurrent(signal);
   if (!checkpointResult.ok) throw readFailure(checkpointResult.error);
@@ -100,8 +99,9 @@ export async function loadTaskWorkerContext(
         JSON.stringify({
           observedAt,
           runAt: task.runAt,
-          memory: memories.length === 0 ? "none" : `${memories.length} active workspace entries follow`,
-          memoryTruncated: memories.length < eligibleMemories.length,
+          memory: memories.length === 0 ? "no matching workspace memories" : `${memories.length} selected active workspace entries follow`,
+          memorySelection: { ...memorySelection, entries: undefined },
+          memoryTruncated: memorySelection.truncated,
           checkpoint: checkpoint === null ? "none" : `saved version ${checkpoint.version} follows`,
           attentionInbox,
         }),
@@ -109,8 +109,7 @@ export async function loadTaskWorkerContext(
     }],
   }];
   if (checkpoint !== null) referenceMessages.push(createCheckpointContextMessage(checkpoint));
-  const memoryMessage = createMemoryContextMessage(memories);
-  if (memoryMessage !== undefined) referenceMessages.push(memoryMessage);
+  referenceMessages.push(createRetrievedMemoryContextMessage(memorySelection));
   return { referenceMessages };
 }
 

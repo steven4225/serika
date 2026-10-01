@@ -296,6 +296,89 @@ describe("ContextCompactor", () => {
     assert.equal(selected.at(-1)?.id, "u1");
   });
 
+  it("uses a supplied prefix snapshot for budgeting without rereading it", async () => {
+    const store = new FakeStore();
+    const summarizer = new FakeSummarizer();
+    let fallbackReads = 0;
+    const compactor = makeCompactor(store, summarizer, roomyBudget, {
+      promptPrefix: () => {
+        fallbackReads += 1;
+        return [assistant("memory", "x".repeat(10_000))];
+      },
+    });
+    const conversation = [user("u1", "short request")];
+    const captured = [assistant("memory", "captured revision 1")];
+    const prepared = await compactor.prepare(conversation, new AbortController().signal, false, captured);
+    assert.deepEqual(prepared, conversation);
+    assert.equal(fallbackReads, 0);
+    assert.equal([...captured, ...prepared][0], captured[0]);
+    await compactor.prepare(conversation, new AbortController().signal, false, []);
+    assert.equal(fallbackReads, 0);
+    await assert.rejects(compactor.prepare(conversation, new AbortController().signal, false,
+      [assistant("memory", "x".repeat(10_000))]),
+    (error: unknown) => error instanceof AgentError && error.data.code === "CONTEXT_PREPARE_FAILED");
+  });
+
+  it("publishes the budgeted prefix after dropping optional resume without rereading Memory", async () => {
+    const summarizer = new FakeSummarizer();
+    const compactor = makeCompactor(new FakeStore(), summarizer, roomyBudget);
+    const memory = assistant("runloom-workspace-memory", "captured revision 1");
+    const prefix = [assistant("runloom-resume-observation", "x".repeat(10_000)), memory];
+    const conversation = [user("u1", "short request")];
+    assert.deepEqual(await compactor.prepare(conversation, new AbortController().signal, false, prefix), conversation);
+    assert.deepEqual(compactor.effectiveReferencePrefix, [memory]);
+    assert.equal(prefix.length, 2);
+    await compactor.prepare(conversation, new AbortController().signal, false, [memory]);
+    assert.deepEqual(compactor.effectiveReferencePrefix, [memory]);
+  });
+
+  it("manual compact builds its prefix from committed messages once per preparation", async () => {
+    const store = new FakeStore();
+    store.messages = [user("u1", "writing preference")];
+    const snapshots: UIMessage[][] = [];
+    let revision = 1;
+    const compactor = makeCompactor(store, new FakeSummarizer(), roomyBudget, {
+      promptPrefix: (_signal, messages) => {
+        snapshots.push([...messages]);
+        return [assistant("memory", `revision ${revision++}`)];
+      },
+    });
+    await compactor.compact(new AbortController().signal);
+    await compactor.prepare(store.messages, new AbortController().signal);
+    assert.equal(snapshots.length, 2);
+    assert.deepEqual(snapshots[0], store.messages);
+    assert.deepEqual(snapshots[1], store.messages);
+    assert.equal(revision, 3);
+  });
+
+  it("keeps captured Memory while summarizing and reads the changed version only next preparation", async () => {
+    const store = new FakeStore();
+    let currentText = "revision 1";
+    let reads = 0;
+    const readPrefix = (): UIMessage[] => {
+      reads += 1;
+      return [assistant("memory", currentText)];
+    };
+    const summarizer: Summarizer = {
+      complete: async () => {
+        currentText = "revision 2";
+        return { text: JSON.stringify(summary) };
+      },
+    };
+    const compactor = makeCompactor(store, summarizer, roomyBudget, { promptPrefix: readPrefix });
+    const messages = [user("old", "old request"), assistant("answer", "old answer"), user("next", "new request")];
+    const captured = readPrefix();
+    const prepared = await compactor.prepare(messages, new AbortController().signal, true, captured);
+    assert.equal(reads, 1);
+    assert.equal(currentText, "revision 2");
+    assert.equal(captured[0]?.parts[0]?.type, "text");
+    assert.deepEqual([...captured, ...prepared][0]?.parts, [{ type: "text", text: "revision 1" }]);
+    const next = readPrefix();
+    await compactor.prepare(messages, new AbortController().signal, false, next);
+    assert.equal(reads, 2);
+    assert.deepEqual(next[0]?.parts, [{ type: "text", text: "revision 2" }]);
+  });
+
   it("merges bounded summary chunks when omitted history is large", async () => {
     const store = new FakeStore();
     const summarizer = new FakeSummarizer();

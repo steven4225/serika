@@ -8,6 +8,7 @@ import {
 } from "./consolidation.js";
 import { candidateFingerprint, type CandidateDraft, type ConsolidationCursor, type MemoryResult } from "./memory-candidates.js";
 import type { MemoryEntry, WorkspaceMemoryStore } from "./memory-store.js";
+import { rankMemoryEntriesForQuery } from "./memory-retrieval.js";
 
 export const CONSOLIDATION_MATERIAL_MAX_BYTES = 64 * 1024;
 export const CONSOLIDATION_MEMORIES_MAX_BYTES = 24 * 1024;
@@ -76,19 +77,11 @@ function visible(entry: MemoryEntry, threadId: string): boolean {
 }
 function current(entry: MemoryEntry): MemoryEntry { const { history: _history, ...value } = entry; return value; }
 function relatedMemories(entries: MemoryEntry[], turns: OrdinaryTurn[], threadId: string): { entries: MemoryEntry[]; truncated: boolean } {
-  // This is bounded conflict material, not the primary Agent's retrieval algorithm.
+  // Conflict material intentionally includes visible disabled/expired current versions.
   const query = turns.map((turn) => turn.user.text).join("\n");
-  const terms = [...new Set((query.toLowerCase().match(/[a-z0-9_]{2,}|[\p{Script=Han}]{2,}/gu) ?? []).flatMap((term) => {
-    if (!/\p{Script=Han}/u.test(term)) return [term];
-    const chars = [...term];
-    return chars.slice(0, -1).map((char, index) => char + chars[index + 1]!);
-  }))];
-  const ranked = entries.filter((entry) => visible(entry, threadId)).map(current)
-    .map((entry) => ({ entry, score: terms.filter((term) => entry.text.toLowerCase().includes(term) || term.includes(entry.text.toLowerCase())).length }))
-    .filter(({ score }) => score > 0)
-    .sort((a, b) => b.score - a.score || a.entry.id.localeCompare(b.entry.id));
+  const ranked = rankMemoryEntriesForQuery(entries.filter((entry) => visible(entry, threadId)).map(current), query);
   const selected: MemoryEntry[] = [];
-  for (const { entry } of ranked) {
+  for (const entry of ranked) {
     if (selected.length < CONSOLIDATION_MEMORIES_MAX && Buffer.byteLength(JSON.stringify([...selected, entry])) <= CONSOLIDATION_MEMORIES_MAX_BYTES) selected.push(entry);
   }
   return { entries: selected, truncated: selected.length < ranked.length };

@@ -75,7 +75,17 @@ const receipt = await controller.resolveMemoryCandidate({
 - Controller 的 resolve 是明确用户审阅操作，不走 `confirm()`；`confirm()` 仍是工具调用的 approvalId 授权。聊天的 `memory_apply_candidate` 使用相同接受实现但走正常 y/n；`n` 只拒绝本次调用，候选仍 pending。
 - 重复接受同 candidateId 和原 expectedCandidateRevision 返回原应用回执、`replayed:true`，不重复写。回执里的 memoryRevision 是接受当时的版本，不证明它现在仍未修改或删除。
 - v1/v2 文件只读不会迁移，第一次实际成功写入升级 v3。正式记忆最多 512 条、文件 16 MiB；pending 全 workspace 最多 64 条，终态保留最近 256 条。候选不进入主 Agent/worker 参考上下文。
-- 本组没有修改桌面仓，也没有完成按问题检索（B 组）。现有 8 KiB 注入选择保持；worker 仅改为有界选材而非总存储超额失败。前端接线和真实模型封板需要独立验证。
+- 本组没有修改桌面仓。前端接线需要独立验证，不能把后端测试映射成 Electron 已验收。
+
+## 按问题选材（B 组）
+
+主 Agent 每次上下文准备从原始本轮用户文本查询，只读取一次正式 Memory。普通路径和压缩预算共用已选 reference prefix；整理 Agent 不接这条 active-only 注入路径。手动 compact 从最近已提交普通用户文本选材，下一轮按新问题重新查询。
+
+- `runloom-workspace-memory` 是本轮子集，不是全库：只给 id/revision/text 和选材元数据，不给 history/sourceQuote/候选。即使无匹配也有明确空集合说明，不等于存储为空或条目已删除。
+- `pinned` 最多先选 2 条、整组 4 KiB；其余只选词法匹配，最终最多 12 条、完整消息 8 KiB。没放下大条目会继续试后面小条目，不截半条正文。未选中的 pin 也不保证每轮必注入。
+- 中英文词法匹配不是语义检索。强同义改写可能漏召回；前端不能把 reason=matched 或顺序当作语义可信度。仍可用有界 memory_list/get 显式查阅。
+- worker 用 task.prompt 且不传 TUI Thread，只读选一次；checkpoint_prepare 无问题时返回 pinned-only 资料及 selection，不是全部记忆；/modules 的 pinned 预览不是下一轮命中数。
+- 本次不新增前端控制器方法。既有候选审阅、工具授权和工作任务状态保持；完整后端验收入口及证据边界见 [原生 Memory 验收](memory-native-acceptance.md)。
 
 ## 边界
 

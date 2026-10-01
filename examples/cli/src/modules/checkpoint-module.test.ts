@@ -11,6 +11,7 @@ import {
   type CheckpointDraft,
 } from "../checkpoint-store.js";
 import { createCheckpointModule } from "./checkpoint-module.js";
+import { retrieveMemories } from "../memory-retrieval.js";
 
 function draft(overrides: Partial<CheckpointDraft> = {}): CheckpointDraft {
   return {
@@ -52,6 +53,18 @@ function toolByName(tools: RegisteredTool[], name: string): RegisteredTool {
 const context = { toolCallId: "checkpoint-test", messages: [], context: {} };
 
 describe("createCheckpointModule", () => {
+  it("exposes pinned-only selection metadata without presenting all eligible memories", async () => {
+    const root = await createWorkspace();
+    const selected = retrieveMemories([
+      { id: "pinned", revision: 2, text: "Keep changes small", enabled: true, pinned: true },
+      { id: "ordinary", revision: 1, text: "Other active fact", enabled: true },
+    ], { query: "", threadId: "thread-a", now: new Date("2026-10-01T00:00:00Z") });
+    const tools = setupTools(createCheckpointStore(root), { threadId: "thread-a", getMemorySelection: async () => selected });
+    const prepared = await toolByName(tools, "checkpoint_prepare").tool.execute!({}, context) as { memories: unknown[]; selection: { eligibleCount: number; selected: unknown[] } };
+    assert.deepEqual(prepared.memories, [{ id: "pinned", text: "Keep changes small" }]);
+    assert.equal(prepared.selection.eligibleCount, 2);
+    assert.deepEqual(prepared.selection.selected, [{ id: "pinned", revision: 2, reason: "pinned" }]);
+  });
   it("registers only the frozen checkpoint tools and metadata", async () => {
     const root = await createWorkspace();
     const tools = setupTools(createCheckpointStore(root), { threadId: "thread-a" });

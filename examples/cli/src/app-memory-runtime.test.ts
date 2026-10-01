@@ -75,7 +75,15 @@ describe("native Memory app wiring", () => {
         assert.equal(listed.value.candidates.length, 1);
         candidateId = listed.value.candidates[0]!.id;
         assert.deepEqual(await app.memoryStore!.list(), { ok: true, entries: [] });
-        assert.doesNotMatch(prompts[2]!, /runloom-workspace-memory/);
+        const currentReferences: string[] = [];
+        const visit = (value: unknown): void => {
+          if (typeof value !== "object" || value === null) return;
+          if ("text" in value && typeof value.text === "string" && value.text.startsWith("Current Memory reference:")) currentReferences.push(value.text);
+          for (const child of Object.values(value)) visit(child);
+        };
+        visit(JSON.parse(prompts[2]!));
+        assert.equal(currentReferences.length, 1);
+        assert.doesNotMatch(currentReferences[0]!, /用户喜欢先结论后步骤。/);
         const reopened = createMemoryStore(join(root, "workspace"));
         const persisted = await reopened.listCandidates({}, undefined, { boundThreadId: "review" });
         assert.ok(persisted.ok); assert.equal(persisted.value.candidates[0]!.id, candidateId);

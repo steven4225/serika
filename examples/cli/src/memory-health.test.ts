@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { readMemoryHealth } from "./memory-health.js";
-import { memoryContextBytes, type MemoryEntry, type WorkspaceMemoryStore } from "./memory-store.js";
-import { selectMemoryContextEntries } from "./context-window.js";
+import { type MemoryEntry, type WorkspaceMemoryStore } from "./memory-store.js";
+import { retrieveMemories } from "./memory-retrieval.js";
 
 const now = new Date("2026-09-27T00:00:00.000Z");
 const active = (id: string, extras: Partial<MemoryEntry> = {}): MemoryEntry => ({
@@ -19,7 +19,7 @@ describe("memory health", () => {
 
   it("reports the exact injectable set and exclusive exclusions", async () => {
     const entries = [
-      active("current"),
+      active("current", { pinned: true }),
       active("other", { scope: { kind: "thread", threadId: "other" }, enabled: false, expiresAt: "2020-01-01T00:00:00.000Z" }),
       active("disabled", { enabled: false, expiresAt: "2020-01-01T00:00:00.000Z" }),
       active("expired", { expiresAt: "2020-01-01T00:00:00.000Z" }),
@@ -30,9 +30,10 @@ describe("memory health", () => {
     if (health.status !== "ready") return;
     assert.equal(health.totalEntries, 5);
     assert.deepEqual(health.excluded, { otherThread: 1, disabled: 1, expired: 1 });
-    const selected = selectMemoryContextEntries(entries, { threadId: "current", now });
-    assert.equal(health.injectableEntries, selected.length);
-    assert.equal(health.injectableBytes, memoryContextBytes(selected));
+    const selected = retrieveMemories(entries, { query: "", threadId: "current", now });
+    assert.equal(health.eligibleEntries, 2);
+    assert.equal(health.pinnedPreviewEntries, 1);
+    assert.equal(health.pinnedPreviewBytes, selected.bytes);
     assert.equal(health.checkedAt, now.toISOString());
   });
 
