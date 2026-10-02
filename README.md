@@ -51,6 +51,8 @@ RUNLOOM_MODEL=deepseek node --env-file=.env examples/cli/dist/index.js --tui /ab
 
 取消会终止 Runloom 的 CLI 客户端，不能证明 daemon 已撤回动作；派发后的取消必须核对实际应用，不能直接重新执行。离线测试不操作真实桌面。真机封板另做：隔离 TextEdit 文档，在批准应用里观察→确认输入→再观察并人工核对；拒绝时无动作、非白名单应用拒绝、取消/驱动断连不重试。未完成这些场景前只能称接入实现，不能称本机控制已封板。
 
+可重复的真实模型验收入口为 `examples/cli/dist/computer-native-acceptance.js`，默认不会在 `pnpm test` 中运行。显式 opt-in 后可测隔离 TextEdit 的一次输入、拒绝或确认前取消；每次报告独立保留，`backendPassed` 不等于 Electron/完整封板。参数、严格授权范围及桌面接线说明见 [本机 Computer 接线与验收](docs/embedding-assistant-controller.md#本机-computer-接线与验收)。
+
 ## 阶段
 
 当前：验证真实开发任务与长任务续接。最近的模块里程碑仍是 `M10 Proactive Assistant`（复用重复任务做明确排期的 workspace 简报）。
