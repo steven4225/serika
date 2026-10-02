@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { parseContextSummary } from "./context-compaction.js";
+import { contextSummaryPrompt, parseContextSummary } from "./context-compaction.js";
 
 const deepSeekShaped = `{
   "version": 2,
@@ -31,6 +31,12 @@ const deepSeekShaped = `{
 }`;
 
 describe("parseContextSummary", () => {
+  it("explicitly requests the top-level version and still rejects its omission", () => {
+    assert.match(contextSummaryPrompt({ messages: [] }), /Start the object with "version": 2/);
+    const source = JSON.parse(deepSeekShaped) as Record<string, unknown>;
+    delete source.version;
+    assert.equal(parseContextSummary(JSON.stringify(source), ["u1", "u2"]), undefined);
+  });
   it("accepts DeepSeek-shaped JSON that omits evidence ids and file text", () => {
     const parsed = parseContextSummary(deepSeekShaped, ["u1", "u2"]);
     assert.ok(parsed);

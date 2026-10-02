@@ -283,6 +283,7 @@ export function contextSummaryPrompt(input: {
 }): string {
   return [
     "Return one JSON object with version: 2 and keys goal, constraints, decisions, actions, pending, files, nextStep. Do not return a schema or placeholder values.",
+    'Start the object with "version": 2. This mandatory top-level field must not be omitted or placed inside goal; an object without it is invalid even when all other fields are correct.',
     "goal is an item {text, evidenceMessageIds}. Each item needs non-empty text and at least one actual message id from the supplied transcript or previous summary. constraints and pending are arrays of items; use [] when there is no evidence. nextStep is an item or null.",
     "decisions, actions, and files use the same item fields (non-empty text and evidenceMessageIds). decisions also need source (user or assistant) and status (confirmed, proposed, superseded, or withdrawn). actions also need status (completed, failed, not_executed, or unknown) and toolCallIds (actual ids, or [] when none). files also need non-empty path and purpose. Use [] for decisions, actions, or files when there is no evidence.",
     "Preserve the newest user goal, constraints, withdrawals, and decisions. Distinguish confirmed user decisions from assistant proposals. Tool statuses must reflect evidence in the transcript; unknown side effects remain unknown. Do not claim current disk state without a tool result.",
