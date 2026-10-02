@@ -20,7 +20,9 @@
     "@aisdk-agent/core": "link:../aisdk-agent-framework/packages/core",
     "@aisdk-agent/example-cli": "link:../aisdk-agent-framework/examples/cli",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@types/node": "26.1.1",

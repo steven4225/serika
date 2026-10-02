@@ -37,12 +37,10 @@ function createWindow(): BrowserWindow {
     minHeight: 480,
     title: "Runloom",
     frame: false,
-    transparent: true,
+    transparent: false,
+    backgroundColor: "#fcfbf8",
     hasShadow: true,
     show: false,
-    ...(process.platform === "darwin"
-      ? { vibrancy: "hud" as const, visualEffectState: "active" as const }
-      : {}),
     webPreferences: {
       preload: join(here, "../preload/index.cjs"),
       contextIsolation: true,
