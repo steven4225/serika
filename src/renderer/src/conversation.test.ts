@@ -7,7 +7,17 @@ import {
   applyShellProgress,
   emptyLiveRun,
   overlayShellProgress,
+  rowsFromHistory,
 } from "./conversation.js";
+
+it("keeps background consolidation out of chat without hiding the next user turn", () => {
+  const text = (id: string, role: "user" | "assistant", value: string) => ({ id, role, parts: [{ type: "text" as const, text: value }] });
+  const messages = [text("u1", "user", "first"), text("a1", "assistant", "reply"),
+    { ...text("bg", "user", "internal prompt"), metadata: { source: "auto-consolidation" } },
+    text("bg-a", "assistant", "internal analysis"), text("u2", "user", "internal prompt"), text("a2", "assistant", "next reply")];
+  assert.deepEqual(rowsFromHistory(messages).map(row => row.kind === "text" ? row.text : row.kind), ["first", "reply", "internal prompt", "next reply"]);
+  assert.equal(messages.length, 6); // Display only: original history remains untouched.
+});
 
 function completed(output: unknown): AgentEvent {
   return {

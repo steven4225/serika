@@ -120,7 +120,7 @@ export function MemoryPanel({
   controllerIdle: boolean;
   refreshToken: number;
 }) {
-  const [state, dispatch] = useReducer(memoryPanelReducer, undefined, initialMemoryPanel);
+  const [state, dispatch] = useReducer(memoryPanelReducer, undefined, () => ({ ...initialMemoryPanel(), open: true }));
   const stateRef = useRef(state);
   stateRef.current = state;
   const listSeq = useRef(0);
@@ -188,12 +188,6 @@ export function MemoryPanel({
     reload(state.filter, state.selectedId);
   };
 
-  const openPanel = (): void => {
-    const opening = !stateRef.current.open;
-    dispatch({ type: "toggle" });
-    if (opening) refresh();
-  };
-
   const chooseFilter = (filter: CandidateFilter): void => {
     if (filter === state.filter) return;
     const request = ++listSeq.current;
@@ -240,16 +234,10 @@ export function MemoryPanel({
 
   return (
     <section className="card memory">
-      <div className="card-head">
-        <span>记忆候选</span>
-        <span className="hint">当前 Thread</span>
-        <button className="ghost" onClick={openPanel}>{state.open ? "收起" : "展开"}</button>
-      </div>
       <div className="hint">{capabilityText(memory)}</div>
       {temporaryThread ? <div className="hint">重启后不会自动回到这些候选的来源 Thread。</div> : null}
       {state.open ? (
         <div className="memory-body">
-          <div className="hint">当前 Thread 的候选；尚未接受的内容不会作为正式记忆使用。</div>
           <div className="memory-filters">
             {FILTERS.map((filter) => (
               <button
@@ -275,7 +263,7 @@ export function MemoryPanel({
             </div>
           ) : null}
           {memory.enabled && !state.listLoading && state.listError === null && state.candidates.length === 0 ? (
-            <div className="muted">当前 Thread 没有此状态的候选</div>
+            <div className="memory-empty">{state.filter === "pending" ? "没有待审核的候选。对话中出现新的长期信息后，可以在这里核对并接受。" : "当前对话没有此状态的候选。"}</div>
           ) : null}
           <div className="memory-list">
             {state.candidates.map((candidate) => (

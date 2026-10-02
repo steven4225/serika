@@ -508,6 +508,8 @@ export function App() {
   const openDetails = (tab: typeof detailTab) => { setDetailTab(tab); setDetailsOpen(true); };
 
   const stageLabel = approval ? "等待确认" : info ? stateLabel(state) : error ? "连接失败" : "正在连接";
+  const pageTitle = !detailsOpen ? "对话" : ({ home: "工作区", records: "执行记录", memory: "记忆审核", context: "上下文与压缩" })[detailTab];
+  const pageDescription = ({ home: "查看保存的进度、本地任务和当前配置。", records: "核对每次执行的工具结果，区分完成、失败和未知效果。", memory: "审核当前对话提取的候选，接受后才会成为正式记忆。", context: "查看压缩记录和本次准备结果；需要时手动压缩。" })[detailTab];
   const prepareInput = (text: string) => { setInput(text); inputRef.current?.focus(); };
   const scrollToLatest = () => {
     followConversation.current = true;
@@ -519,17 +521,18 @@ export function App() {
     <div className="app">
       <aside className="sidebar" aria-label="主导航">
         <div className="brand"><RunloomMark /><span>Runloom</span></div>
-        <div className="sidebar-section">工作空间</div>
+        <div className="sidebar-section">当前工作区</div>
         <nav className="primary-nav">
           <button className={!detailsOpen ? "selected" : ""} onClick={() => setDetailsOpen(false)} title="当前对话" aria-current={!detailsOpen ? "page" : undefined}>
-            <Icon name="chat" /><span>当前对话</span>
+            <Icon name="chat" /><span>对话</span>
           </button>
-          {([["home", "工作区", "home"], ["records", "执行记录", "activity"], ["memory", "记忆", "memory"], ["context", "上下文", "context"]] as const).map(([tab, label, icon]) =>
+          {([["home", "工作区", "home"], ["records", "执行记录", "activity"], ["memory", "记忆审核", "memory"]] as const).map(([tab, label, icon]) =>
             <button key={tab} className={detailsOpen && detailTab === tab ? "selected" : ""} title={label} aria-current={detailsOpen && detailTab === tab ? "page" : undefined} onClick={() => openDetails(tab)}>
               <Icon name={icon as IconName} /><span>{label}</span>{tab === "records" && unknownRuns.length ? <span className="nav-count">{unknownRuns.length}</span> : null}
             </button>)}
         </nav>
         <div className="sidebar-spacer" />
+        <nav className="primary-nav" aria-label="维护"><button className={detailsOpen && detailTab === "context" ? "selected" : ""} aria-current={detailsOpen && detailTab === "context" ? "page" : undefined} title="上下文与压缩" onClick={() => openDetails("context")}><Icon name="context" /><span>上下文与压缩</span></button></nav>
         <div className="sidebar-note"><Icon name="shield" size={16} /><span>操作前，由你确认</span></div>
         <button className="workspace-switch" onClick={() => openDetails("home")} title={info?.workspaceRoot ?? "尚未配置工作区"}>
           <span className="workspace-avatar">{info?.workspaceRoot ? baseName(info.workspaceRoot).slice(0, 1).toUpperCase() : "R"}</span>
@@ -539,10 +542,9 @@ export function App() {
       </aside>
       <div className="main-shell">
         <header className="header">
-          <div className="conversation-heading"><span>当前对话</span><small>{info?.workspaceRoot ? baseName(info.workspaceRoot) : "Runloom 助手"}</small></div>
+          <div className="conversation-heading"><span>{pageTitle}</span><small>{info?.workspaceRoot ? baseName(info.workspaceRoot) : "Runloom 助手"}</small></div>
           <span className="spacer" />
           <span className={`run-state ${approval ? "awaiting" : busy ? "active" : ""}`}><span className={`state-dot ${state.kind}`} />{stageLabel}</span>
-          <button className="icon-button" aria-label="工作区详情" title={detailsOpen ? "收起详情" : "打开工作区详情"} aria-expanded={detailsOpen} onClick={() => setDetailsOpen(value => !value)}><Icon name="panel" /></button>
           {busy ? <button className="cancel-button" onClick={() => void window.runloom.cancel().catch(() => setError("取消结果未收到，请核对当前状态。"))}><Icon name="stop" size={14} />停止</button> : null}
         </header>
         {unknownRuns.length > 0 ? <div className="review-notice" role="status">
@@ -550,7 +552,7 @@ export function App() {
           <button className="ghost" onClick={() => openDetails("records")}>查看回执<Icon name="chevron" size={14} /></button>
         </div> : null}
         <div className="workbench">
-          <main className="workspace-pane">
+          <main className="workspace-pane" hidden={detailsOpen}>
             <section className="conversation" aria-label="对话">
               <div className="rows" ref={conversationScroll} onScroll={() => {
                 const area = conversationScroll.current;
@@ -559,10 +561,8 @@ export function App() {
                 if (followConversation.current) setUnreadOutput(false);
               }}>
                 {rows.length === 0 && !live.streaming ? <div className="conversation-empty">
-                  <span className="welcome-mark"><RunloomMark size={42} /></span>
-                  <div className="eyebrow">留一点空间，给重要的事。</div>
-                  <h1>今天，想推进什么？</h1>
-                  <p>把目标交代清楚，我们从下一步开始。<br />文件、命令和应用操作，都由你确认。</p>
+                  <h1>你想完成什么？</h1>
+                  <p>描述目标，或告诉我需要处理的工作区文件。<br />需要操作时，我会先让你确认。</p>
                   <div className="starter-grid">
                     {([
                       ["整理任务", "帮我把一个目标拆成可执行的任务计划，先问清目标与限制。", "chat"],
@@ -587,20 +587,15 @@ export function App() {
               {showOutput ? <div className="system-output"><div><Icon name="terminal" size={16} /><span>系统输出 · 仅供诊断</span><button className="icon-button" aria-label="关闭系统输出" onClick={() => setShowOutput(false)}><Icon name="close" size={16} /></button></div><pre className="output">{output || "暂无输出"}</pre></div> : null}
             </section>
           </main>
-          {detailsOpen ? <button className="inspector-shade" aria-label="关闭详情抽屉" onClick={() => setDetailsOpen(false)} /> : null}
-          <aside className="inspector" hidden={!detailsOpen} aria-label="工作区详情面板">
-            <div className="inspector-header"><div><span className="eyebrow">WORKSPACE</span><h2>工作区详情</h2></div><button className="icon-button" aria-label="关闭工作区详情" onClick={() => setDetailsOpen(false)}><Icon name="close" /></button></div>
-            <nav className="detail-tabs" aria-label="详情分类">
-              {([["home", "概览"], ["records", "记录"], ["memory", "记忆"], ["context", "上下文"]] as const).map(([tab, label]) =>
-                <button key={tab} className={detailTab === tab ? "selected" : ""} aria-pressed={detailTab === tab} onClick={() => setDetailTab(tab)}>{label}</button>)}
-            </nav>
+          <section className="inspector" hidden={!detailsOpen} aria-label={pageTitle}>
+            <div className="inspector-header"><div><h1>{pageTitle}</h1><p>{pageDescription}</p></div><button className="ghost" onClick={() => setDetailsOpen(false)}><Icon name="chat" size={16} />回到对话</button></div>
             <div className="inspector-pane">
               <div hidden={detailTab !== "home"}>
                 <section className="card home">
                   <div className="card-head"><span>工作区概览</span><button className="ghost" disabled={busy} onClick={() => void window.runloom.home().then(response => {
                     if (!response.ok) setError(commandError(response));
                   }).catch(() => setError("概览读取失败"))}>刷新</button></div>
-                  <p className="hint">保存的参考快照，不是当前磁盘事实。</p><HomeBody view={homeView} />
+                  <p className="hint">项目进度来自保存的 checkpoint；本地任务来自任务存储。这里不检查 Git 或文件现状。</p><HomeBody view={homeView} />
                 </section>
                 {info ? <section className="card session-card"><div className="card-head">会话与配置</div><Identity info={info} />
                   <dl className="session-facts">
@@ -619,12 +614,13 @@ export function App() {
               <div hidden={detailTab !== "context"}>{info ? <ContextPanel controllerIdle={!busy} refreshToken={contextRefresh}
                 hasCompaction={info.hasCompaction} /> : null}</div>
             </div>
-          </aside>
+          </section>
         </div>
         <div className="action-dock">
+          {detailsOpen && busy ? <div className="background-run" role="status"><span>{approval ? "对话中有一个操作需要你确认。" : `对话仍在${stageLabel}，你可以继续查看本页。`}</span><button className="ghost" onClick={() => setDetailsOpen(false)}>查看对话</button></div> : null}
           {approval ? <ApprovalCard approval={approval} deciding={decidingId === approval.approvalId} onDecision={decision => void decide(decision)} /> : null}
           {error ? <div className="error error-banner" role="alert"><span>{error}</span>{info ? <button className="icon-button" aria-label="关闭错误提示" onClick={() => setError(null)}><Icon name="close" size={16} /></button> : null}</div> : null}
-          <footer className="composer">
+          <footer className="composer" hidden={detailsOpen}>
             <textarea ref={inputRef} aria-label="消息输入" rows={3} value={input}
               disabled={sending || info === null}
               placeholder={approval ? "可先写下一条；发送前请确认上方操作…" : busy ? "可先写下一条，结束后再发送…" : "描述你想完成的事…"}
@@ -645,7 +641,7 @@ export function App() {
               <button className="send-button" aria-label="发送消息" title="发送 · Enter" disabled={busy || sending || !input.trim() || !info} onClick={() => { followConversation.current = true; void submit(); }}><Icon name="arrow" size={19} /></button>
             </div>
           </footer>
-          <div className="composer-hint"><span>Enter 发送<span className="shortcut-divider">·</span>Shift + Enter 换行</span><span>工具执行需逐次确认</span></div>
+          <div className="composer-hint" hidden={detailsOpen}><span>Enter 发送<span className="shortcut-divider">·</span>Shift + Enter 换行</span><span>工具执行需逐次确认</span></div>
         </div>
       </div>
     </div>

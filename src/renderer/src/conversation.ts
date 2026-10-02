@@ -116,7 +116,16 @@ function withShellFields(
  */
 export function rowsFromHistory(messages: readonly UIMessage[]): ConversationRow[] {
   const rows: ConversationRow[] = [];
+  let backgroundConsolidation = false;
   for (const message of messages) {
+    // The synthetic user marks a separate consolidation Run. Its assistant
+    // output belongs in execution records, not in the user's conversation.
+    // Use stored metadata, never guess from the wording of a message.
+    if (message.role === "user") {
+      const metadata = message.metadata as { source?: string } | undefined;
+      backgroundConsolidation = metadata?.source === "auto-consolidation";
+    }
+    if (backgroundConsolidation) continue;
     const role = messageRole(message);
     let text = "";
     let textIndex = 0;
