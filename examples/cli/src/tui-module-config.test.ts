@@ -35,6 +35,24 @@ async function writeConfig(
 }
 
 describe("resolveTuiModuleConfig", () => {
+  it("keeps local Computer Use opt-in with an external config and trusted executable", { skip: process.platform !== "darwin" }, async () => {
+    const { configDirectory, workspace } = await createConfigWorkspace();
+    const computer = { enabled: true, executable: process.execPath, allowedBundleIds: ["com.apple.TextEdit"] };
+    const path = await writeConfig(configDirectory, { version: 1, workspace: "./workspace", modules: { computer } });
+    const resolved = await resolveTuiModuleConfig(configArgs(path), { cwd: configDirectory });
+    assert.equal(resolved.enabled.computer, true);
+    assert.equal(resolved.computer?.executable, await realpath(process.execPath));
+    const inside = await writeConfig(workspace, { version: 1, workspace: ".", modules: { computer } });
+    await assert.rejects(resolveTuiModuleConfig(configArgs(inside), { cwd: workspace }), /outside the workspace/);
+    const localExecutable = join(workspace, "driver");
+    await writeFile(localExecutable, "not executed");
+    const untrusted = await writeConfig(configDirectory, { version: 1, workspace: "./workspace", modules: { computer: { ...computer, executable: localExecutable } } });
+    await assert.rejects(resolveTuiModuleConfig(configArgs(untrusted), { cwd: configDirectory }), /executable must be outside/);
+    for (const definition of [{ enabled: true }, { ...computer, allowedBundleIds: ["*"] }]) {
+      const bad = await writeConfig(configDirectory, { version: 1, modules: { computer: definition } });
+      await assert.rejects(resolveTuiModuleConfig(configArgs(bad), { cwd: configDirectory }), /schema/);
+    }
+  });
   it("loads and normalizes a Docker shell sandbox configuration", async () => {
     const { configDirectory, workspace } = await createConfigWorkspace();
     await mkdir(join(workspace, "src"));
@@ -374,6 +392,7 @@ describe("resolveTuiModuleConfig", () => {
       todoist: true,
       shell: false,
       web: false,
+      computer: false,
     });
     assert.equal(resolved.autoConsolidate, false);
     assert.equal(resolved.todoistTimeZone, "Asia/Shanghai");
@@ -677,6 +696,7 @@ describe("resolveTuiModuleConfig", () => {
       todoist: true,
       shell: false,
       web: false,
+      computer: false,
     });
     assert.equal(resolved.autoConsolidate, true);
     assert.equal(resolved.todoistTimeZone, "UTC");

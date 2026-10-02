@@ -8,6 +8,7 @@ import {
   win32,
 } from "node:path";
 import { z } from "zod";
+import { computerConfigSchema, type ComputerConfig } from "./modules/computer-module.js";
 import { resolveWorkspace, type TuiArgs } from "./cli-options.js";
 import {
   RUN_AUTHORIZED_FILE_TOOLS,
@@ -34,6 +35,7 @@ export const BUILTIN_MODULE_IDS = [
   "todoist",
   "shell",
   "web",
+  "computer",
 ] as const;
 
 export type BuiltinModuleId = (typeof BUILTIN_MODULE_IDS)[number];
@@ -67,6 +69,7 @@ export interface ResolvedTuiModuleConfig {
   contextCompaction: ContextBudgetConfig;
   maxSteps: number;
   totalTimeoutMs: number;
+  computer?: ComputerConfig;
 }
 
 const DEFAULT_TODOIST_TIME_ZONE = "Asia/Shanghai";
@@ -149,6 +152,7 @@ const tuiModuleConfigV1Schema = z
         todoist: todoistModuleSchema.optional(),
         shell: shellModuleSchema.optional(),
         web: webModuleSchema.optional(),
+        computer: computerConfigSchema.optional(),
     })
     .strict(),
     fileAuthorizations: z.array(fileAuthorizationSchema).optional(),
@@ -167,6 +171,7 @@ export interface TuiModuleConfigV1 {
   version: 1;
   workspace?: string | undefined;
   modules: {
+    computer?: ComputerConfig | undefined;
     pomodoro?: { enabled: boolean } | undefined;
     "read-file"?: { enabled: boolean } | undefined;
     memory?:
@@ -226,6 +231,7 @@ function emptyEnabled(): Record<BuiltinModuleId, boolean> {
     todoist: false,
     shell: false,
     web: false,
+    computer: false,
   };
 }
 
@@ -428,6 +434,10 @@ async function resolveConfiguredMode(
   enabled.todoist = config.modules.todoist?.enabled ?? false;
   enabled.shell = config.modules.shell?.enabled ?? false;
   enabled.web = config.modules.web?.enabled ?? false;
+  enabled.computer = config.modules.computer?.enabled ?? false;
+  if (enabled.computer && process.platform !== "darwin") {
+    throw new Error("computer module currently requires macOS");
+  }
   const webSearchEnabled =
     enabled.web && (config.modules.web?.search?.enabled ?? false);
   const webFeedEnabled =
@@ -469,16 +479,24 @@ async function resolveConfiguredMode(
       ? null
       : await resolveWorkspace(config.workspace, dirname(absoluteConfigPath)));
   const shellSandbox = sandboxResolution?.shellSandbox ?? null;
+  let computer: ComputerConfig | undefined;
+  if (enabled.computer) {
+    const executable = await realpath(config.modules.computer!.executable!);
+    if (workspaceRoot !== null && isPathWithin(workspaceRoot, executable)) {
+      throw new Error("Computer driver executable must be outside the workspace");
+    }
+    computer = { ...config.modules.computer!, executable };
+  }
   const fileAuthorizations = normalizeFileAuthorizations(
     config.fileAuthorizations,
     workspaceRoot,
     enabled,
   );
-  if (fileAuthorizations.length > 0 || shellSandbox !== null) {
+  if (fileAuthorizations.length > 0 || shellSandbox !== null || enabled.computer) {
     const configRealPath = await realpath(absoluteConfigPath);
     if (workspaceRoot !== null && isPathWithin(workspaceRoot, configRealPath)) {
       throw new Error(
-        "TUI config with sandbox or fileAuthorizations must be outside the workspace",
+        "TUI config with sandbox, fileAuthorizations or computer must be outside the workspace",
       );
     }
   }
@@ -502,6 +520,7 @@ async function resolveConfiguredMode(
     contextCompaction,
     maxSteps: config.run?.maxSteps ?? TUI_DEFAULT_MAX_STEPS,
     totalTimeoutMs: config.run?.totalTimeoutMs ?? TUI_DEFAULT_TOTAL_TIMEOUT_MS,
+    ...(computer ? { computer } : {}),
   };
 }
 
