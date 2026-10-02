@@ -30,8 +30,6 @@ RUNLOOM_MODEL=deepseek RUNLOOM_CONFIG=/absolute/path/runloom.json \
 
 新生成的 `runloom.json` 默认开启模型摘要压缩，保留后端合法默认预算；旧配置不会自动开启，显式 `RUNLOOM_CONFIG` 不会被改写。自动记忆整理仍需显式设置 `modules.memory.autoConsolidate: true`，不会自动开启。
 
-## 上下文面板
-
 ## Command Code 与指定应用控制
 
 桌面支持 `RUNLOOM_MODEL=command-code`，复用后端模型入口。可通过主进程显式加载受信任的环境文件；已有进程环境变量优先，不隐式寻找 cwd 下的 `.env`，不把 Key 发往页面或 IPC：
@@ -46,6 +44,14 @@ RUNLOOM_CONFIG=/absolute/outside-workspace/runloom.json pnpm dev
 Computer 确认卡显示精确 bundle/PID/window、动作和完整输入，技术 token 可展开；按 approvalId 提交一次确认，过期不重试、不批准新调用。空 preview 时不会绕过确认。原始 UI 文本只按纯文本展示。
 
 `confirmed` 仍显示已派发、效果待核对；`suspected_noop` 不能被自动重试。实时事件、刷新快照和最终回执共用展示规则，`outcomeUnknown`/unknown 优先显示人工核对。主 Run 结束或取消后重读 getRun，不能仅凭 cancelled 认定没有副作用。Run completed 只表示本轮结束，不代表任务验收。
+
+## 工作台布局
+
+默认窗口为 1180×800：对话是主区域，概览／执行记录／记忆／上下文在右侧详情区；小于 1000px 时改为可关闭的抽屉。确认卡、错误提示和多行输入固定在底部，不会随历史滚走。Enter 发送，Shift+Enter 换行，中文输入法选词不会发送；忙时不排队，不自动重发。Escape 优先关闭详情，再隐藏窗口。
+
+布局不新增后端状态、工具权限或任务调度。执行记录中的未知效果会提示人工核对；Run 结束不画成业务验收成功。
+
+本批实测：隔离 Thread `desktop-workbench-qa-20261002`，真实 Command Code + Electron 已显示逐次 Computer 确认、只读窗口观察回执；第二次观察明确点击拒绝后显示 `TOOL_DENIED`，没有返回该次窗口列表。1180px、700px、390px 宽度下核对了对话、详情抽屉和底部输入，抽屉不覆盖操作区；多行粘贴与 Enter 发送可用。证据保留在 `/private/tmp/runloom-desktop-workbench-qa-20261002`。这不代表输入／读回、审批中刷新、驱动断连或取消派发后的未知效果已完成真实 Electron 封板；这些路径的展示规则有离线测试，真机链仍待补。
 
 ## 上下文面板
 

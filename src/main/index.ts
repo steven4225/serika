@@ -31,8 +31,8 @@ const here = fileURLToPath(new URL(".", import.meta.url));
 
 function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
-    width: 380,
-    height: 680,
+    width: 1180,
+    height: 800,
     minWidth: 320,
     minHeight: 480,
     title: "Runloom",

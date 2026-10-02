@@ -28,6 +28,7 @@ import { MemoryPanel } from "./memory.js";
 import { ContextPanel } from "./context.js";
 import { RecordsPanel, type RecordDetailState, type RecordsState } from "./records.js";
 import { ApprovalCard } from "./approval.js";
+import { shouldSubmitComposer } from "../../shared/composer.js";
 
 const OUTPUT_MAX_CHARS = 64 * 1024;
 
@@ -236,6 +237,10 @@ export function App() {
   const [decidingId, setDecidingId] = useState<string | null>(null);
   const decisionInFlight = useRef<string | null>(null);
   const latestPrimaryId = useRef<string | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(() => window.innerWidth >= 1000);
+  const [detailTab, setDetailTab] = useState<"home" | "records" | "memory" | "context">("home");
+  const [sending, setSending] = useState(false);
+  const sendInFlight = useRef(false);
   const homeBuffer = useRef("");
   const shellBuffer = useRef(new ShellProgressBuffer());
   const conversationEnd = useRef<HTMLDivElement | null>(null);
@@ -413,10 +418,19 @@ export function App() {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key === "Escape") void window.runloom.hide();
+      if (event.key === "Escape" && !event.isComposing) {
+        if (detailsOpen) setDetailsOpen(false); else void window.runloom.hide();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+  }, [detailsOpen]);
+
+  useEffect(() => {
+    const wide = window.matchMedia("(min-width: 1000px)");
+    const update = () => setDetailsOpen(wide.matches);
+    wide.addEventListener("change", update);
+    return () => wide.removeEventListener("change", update);
   }, []);
 
   const decide = useCallback(async (decision: "allow" | "deny") => {
@@ -437,12 +451,16 @@ export function App() {
 
   const submit = useCallback(async () => {
     const line = input.trim();
-    if (line.length === 0) return;
+    if (line.length === 0 || sendInFlight.current) return;
     setError(null);
     if (approval !== null) {
       setError("请先处理上方确认");
       return;
     }
+    if (state.kind !== "idle") { setError("当前忙，输入未排队"); return; }
+    sendInFlight.current = true;
+    setSending(true);
+    try {
     if (line.startsWith("/")) {
       const response = await window.runloom.command(line);
       if (!response.ok) setError(commandError(response));
@@ -455,7 +473,9 @@ export function App() {
       return;
     }
     setInput("");
-  }, [input, approval]);
+    } catch { setError("未收到启动结果。请核对当前状态，不会自动重发。"); }
+    finally { sendInFlight.current = false; setSending(false); }
+  }, [input, approval, state]);
 
   const busy = state.kind !== "idle";
   const running = state.kind === "running";
@@ -464,66 +484,30 @@ export function App() {
   const rows = [...(!activePrimary && finalRecord ? overlayExecutionReceipts(visibleRows, finalRecord.tools) : visibleRows),
     ...(!activePrimary && lastResult ? [lastResult] : [])];
   const homeView = parseHome(home);
+  const unknownRuns = records.status === "ready" ? records.runs.filter(run => run.tools.some(tool => tool.status === "unknown")) : [];
+  const openDetails = (tab: typeof detailTab) => { setDetailTab(tab); setDetailsOpen(true); };
 
   return (
     <div className="app">
       <header className="header">
         <span className={`state-dot ${state.kind}${running && state.runId === null ? " starting" : ""}`} />
-        <span className="title">Runloom</span>
+        <span className="title">Runloom <span className="hint">个人工作助手</span></span>
         <span className="spacer" />
-        <span className="state">{stateLabel(state)}</span>
-        {running ? (
+        <span className="state">{approval ? "等待你确认" : info ? stateLabel(state) : error ? "启动失败" : "正在连接后端"}</span>
+        <button className="ghost" aria-label="工作区详情" aria-expanded={detailsOpen} onClick={() => setDetailsOpen(value => !value)}>{detailsOpen ? "收起详情" : "详情"}</button>
+        {busy ? (
           <button className="ghost" onClick={() => void window.runloom.cancel()}>
             取消
           </button>
         ) : null}
       </header>
       {info ? <Identity info={info} /> : null}
-      {info ? <div className="computer-config hint">
-        本机控制：{info.computer.enabled ? `已配置（驱动未验证） · ${info.computer.allowedBundleIds.join("、")}` : "未启用"}
+      {unknownRuns.length > 0 ? <div className="review-notice" role="status">
+        有 {unknownRuns.length} 次执行包含未知效果，请核对应用；不会自动重试。
+        <button className="ghost" onClick={() => openDetails("records")}>查看回执</button>
       </div> : null}
-
-      <section className="card home">
-        <div className="card-head">
-          <span>Home</span>
-          <span className="hint">
-            {homeView.time ? `${homeView.time} · ` : ""}参考快照，不是当前磁盘
-          </span>
-          <button
-            className="ghost"
-            disabled={busy}
-            onClick={() => {
-              void window.runloom.home().then((response) => {
-                if (!response.ok) setError(commandError(response));
-              });
-            }}
-          >
-            刷新
-          </button>
-        </div>
-        <HomeBody view={homeView} />
-      </section>
-
-      <RecordsPanel
-        records={records}
-        detail={recordDetail}
-        onRefresh={() => void loadRecords(selectedRecordId.current ?? undefined)}
-        onOpen={(runId) => void openRecord(runId)}
-      />
-
-      {info ? (
-        <ContextPanel controllerIdle={!busy} refreshToken={contextRefresh} hasCompaction={info.hasCompaction} />
-      ) : null}
-
-      {info ? (
-        <MemoryPanel
-          memory={info.memory}
-          temporaryThread={info.temporaryThread}
-          controllerIdle={!busy}
-          refreshToken={memoryRefresh}
-        />
-      ) : null}
-
+      <div className="workbench">
+      <main className="workspace-pane">
       <section className="card conversation">
         <div className="card-head">
           <span>对话</span>
@@ -533,10 +517,15 @@ export function App() {
           </button>
         </div>
         <div className="rows">
+          {rows.length === 0 && !live.streaming ? <div className="conversation-empty">
+            <h2>从一件具体的事开始</h2>
+            <p>说清目标、范围和要交付的结果。工具执行前会逐次征求你的确认。</p>
+            <p className="hint">输入 / 可使用现有命令；本机控制只允许配置中的应用。</p>
+          </div> : null}
           {rows.map((row) => (
             <Row key={row.key} row={row} />
           ))}
-          {live.streaming ? (
+          {activePrimary && live.streaming ? (
             <div className="row row-text role-assistant live">
               <span className="role">助手</span>
               <pre>{live.streaming}</pre>
@@ -546,32 +535,63 @@ export function App() {
         </div>
         {showOutput ? <pre className="output">{output || "（无）"}</pre> : null}
       </section>
-
+      </main>
+      {detailsOpen ? <button className="inspector-shade" aria-label="关闭详情抽屉" onClick={() => setDetailsOpen(false)} /> : null}
+      <aside className="inspector" hidden={!detailsOpen} aria-label="工作区详情面板">
+        <div className="inspector-header"><strong>工作区详情</strong><button className="ghost" aria-label="关闭工作区详情" onClick={() => setDetailsOpen(false)}>关闭</button></div>
+        <nav className="detail-tabs" aria-label="详情分类">
+          {([['home', '概览'], ['records', '记录'], ['memory', '记忆'], ['context', '上下文']] as const).map(([tab, label]) =>
+            <button key={tab} className={detailTab === tab ? "selected" : ""} aria-pressed={detailTab === tab} onClick={() => setDetailTab(tab)}>{label}</button>)}
+        </nav>
+        <div className="inspector-pane">
+          <div hidden={detailTab !== "home"}>
+            {info ? <div className="computer-config hint">本机控制：{info.computer.enabled ? `已配置（驱动未验证） · ${info.computer.allowedBundleIds.join("、")}` : "未启用"}</div> : null}
+            <section className="card home">
+              <div className="card-head"><span>概览</span><span className="hint">参考快照，不是当前磁盘</span>
+                <button className="ghost" disabled={busy} onClick={() => void window.runloom.home().then(response => {
+                  if (!response.ok) setError(commandError(response));
+                }).catch(() => setError("概览读取失败"))}>刷新</button>
+              </div>
+              <HomeBody view={homeView} />
+            </section>
+          </div>
+          <div hidden={detailTab !== "records"}><RecordsPanel records={records} detail={recordDetail}
+            onRefresh={() => void loadRecords(selectedRecordId.current ?? undefined).catch(() => setError("执行记录读取失败"))}
+            onOpen={runId => void openRecord(runId).catch(() => setError("执行回执读取失败"))} /></div>
+          <div hidden={detailTab !== "memory"}>{info ? <MemoryPanel memory={info.memory} temporaryThread={info.temporaryThread}
+            controllerIdle={!busy} refreshToken={memoryRefresh} /> : null}</div>
+          <div hidden={detailTab !== "context"}>{info ? <ContextPanel controllerIdle={!busy} refreshToken={contextRefresh}
+            hasCompaction={info.hasCompaction} /> : null}</div>
+        </div>
+      </aside>
+      </div>
+      <div className="action-dock">
       {approval ? <ApprovalCard approval={approval} deciding={decidingId === approval.approvalId} onDecision={decision => void decide(decision)} /> : null}
-
-      {error ? <div className="error">{error}</div> : null}
-
+      {error ? <div className="error" role="alert">{error}{info ? <button className="ghost" aria-label="关闭错误提示" onClick={() => setError(null)}>关闭提示</button> : null}</div> : null}
       <footer className="composer">
-        <input
+        <textarea
+          aria-label="消息输入"
+          rows={3}
           value={input}
-          disabled={busy}
+          disabled={busy || sending || info === null}
           placeholder={
             approval
               ? "先处理上方确认"
               : busy
                 ? "运行中，输入会被拒绝"
-                : "输入消息，/ 开头是命令"
+                : "输入目标或问题；Shift+Enter 换行"
           }
           onChange={(event) => setInput(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+            if (shouldSubmitComposer({ key: event.key, shiftKey: event.shiftKey, isComposing: event.nativeEvent.isComposing })) {
               event.preventDefault();
               void submit();
             }
           }}
         />
+        <div className="composer-controls">
         {info && info.commands.length > 0 ? (
-          <div className="commands">
+          <details className="commands-menu"><summary>命令</summary><div className="commands">
             {info.commands.map((name) => (
               <button
                 key={name}
@@ -584,9 +604,13 @@ export function App() {
                 /{name}
               </button>
             ))}
-          </div>
+          </div></details>
         ) : null}
+        <span className="hint">Enter 发送 · Shift+Enter 换行</span>
+        <button className="allow" disabled={busy || sending || !input.trim() || info === null} onClick={() => void submit()}>{sending ? "正在提交…" : "发送"}</button>
+        </div>
       </footer>
+      </div>
     </div>
   );
 }
