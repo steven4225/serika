@@ -9,14 +9,14 @@ export function inspectCliModelConfig(env: NodeJS.ProcessEnv = process.env): {
 } {
   const mode = env.RUNLOOM_MODEL ?? "mock";
   if (mode === "mock") return { alias: "mock/default", modelId: "mock", credential: "not_required" };
-  if (mode !== "minimax-m3" && mode !== "deepseek") {
-    return { alias: mode, modelId: "unknown", credential: "not_required", error: `Unsupported RUNLOOM_MODEL: ${mode}. Use mock, minimax-m3 or deepseek` };
+  if (mode !== "minimax-m3" && mode !== "deepseek" && mode !== "command-code") {
+    return { alias: mode, modelId: "unknown", credential: "not_required", error: `Unsupported RUNLOOM_MODEL: ${mode}. Use mock, minimax-m3, deepseek or command-code` };
   }
-  const prefix = mode === "deepseek" ? "DEEPSEEK" : "MINIMAX";
+  const prefix = mode === "command-code" ? "COMMAND_CODE" : mode === "deepseek" ? "DEEPSEEK" : "MINIMAX";
   const credential = env[`${prefix}_API_KEY`]?.trim() ? "present" : "missing";
   return {
-    alias: mode === "deepseek" ? "deepseek/default" : "minimax/m3",
-    modelId: env[`${prefix}_MODEL_ID`] ?? (mode === "deepseek" ? "deepseek-flash" : "MiniMax-M3"),
+    alias: mode === "command-code" ? "command-code/default" : mode === "deepseek" ? "deepseek/default" : "minimax/m3",
+    modelId: env[`${prefix}_MODEL_ID`] ?? (mode === "command-code" ? "deepseek/deepseek-v4.1-flash" : mode === "deepseek" ? "deepseek-flash" : "MiniMax-M3"),
     credential,
     ...(credential === "missing" ? { error: `${prefix}_API_KEY is required when RUNLOOM_MODEL=${mode}` } : {}),
   };
@@ -32,11 +32,11 @@ export function configureCliModel(
   if (mode === "mock") {
     return { modelAlias: "mock/default", model: createMockModel() };
   }
-  if (mode !== "minimax-m3" && mode !== "deepseek") {
-    throw new Error(`Unsupported RUNLOOM_MODEL: ${mode}. Use mock, minimax-m3 or deepseek`);
+  if (mode !== "minimax-m3" && mode !== "deepseek" && mode !== "command-code") {
+    throw new Error(`Unsupported RUNLOOM_MODEL: ${mode}. Use mock, minimax-m3, deepseek or command-code`);
   }
 
-  const prefix = mode === "deepseek" ? "DEEPSEEK" : "MINIMAX";
+  const prefix = mode === "command-code" ? "COMMAND_CODE" : mode === "deepseek" ? "DEEPSEEK" : "MINIMAX";
   const apiKey = env[`${prefix}_API_KEY`]?.trim();
   if (!apiKey) {
     throw new Error(`${prefix}_API_KEY is required when RUNLOOM_MODEL=${mode}`);
@@ -44,10 +44,10 @@ export function configureCliModel(
   const model = createConfiguredModel({
     adapter: "openai-compatible",
     baseURL: env[`${prefix}_BASE_URL`] ?? (
-      mode === "deepseek" ? "https://api.deepseek.com" : "https://api.minimax.io/v1"
+      mode === "command-code" ? "https://api.commandcode.ai/provider/v1" : mode === "deepseek" ? "https://api.deepseek.com" : "https://api.minimax.io/v1"
     ),
     modelId: env[`${prefix}_MODEL_ID`] ?? (
-      mode === "deepseek" ? "deepseek-flash" : "MiniMax-M3"
+      mode === "command-code" ? "deepseek/deepseek-v4.1-flash" : mode === "deepseek" ? "deepseek-flash" : "MiniMax-M3"
     ),
     apiKey,
   }, options);
@@ -57,7 +57,7 @@ export function configureCliModel(
   // Thinking tool calls require replaying reasoning_content across requests.
   // The current transcript/loop does not preserve that provider-specific field.
   return {
-    modelAlias: "deepseek/default",
+    modelAlias: mode === "command-code" ? "command-code/default" : "deepseek/default",
     model: wrapLanguageModel({
       model,
       middleware: defaultSettingsMiddleware({

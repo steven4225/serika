@@ -70,6 +70,9 @@ export async function checkTuiStartup(
     checks.push({ id: "config", level: "ok", message: `Configuration valid; source ${config.configPath ?? "CLI/defaults"}`, blocking: false });
     checks.push({ id: "modules", level: "ok", message: `Enabled modules: ${Object.entries(config.enabled).filter(([, enabled]) => enabled).map(([name]) => name).join(", ") || "none"}; web_search ${config.webSearchEnabled ? "on" : "off"}; feed_read ${config.webFeedEnabled ? "on" : "off"}`, blocking: false });
     checks.push({ id: "context-compaction", level: "ok", message: `Context compaction ${config.contextCompaction.enabled ? "enabled" : "disabled"}`, blocking: false });
+    if (config.computer) {
+      checks.push({ id: "computer", level: "warning", message: `Computer AX-addressed allowed apps: ${config.computer.allowedBundleIds!.join(", ")}. Driver executable: ${config.computer.executable}. Static check does not launch the driver or prove daemon/OS permissions or application control`, blocking: false });
+    }
     checks.push({ id: "run-budget", level: "ok", message: `Primary TUI run maxSteps ${config.maxSteps} (default 8, ceiling 32), totalTimeoutMs ${config.totalTimeoutMs} (default 120000, ceiling 1800000). Shell command timeoutMs ${config.shellTimeoutMs} (default 30000, ceiling 600000). Step timeout, confirmation pause, and worker limits are unchanged`, blocking: false });
     if (config.workspaceRoot !== null) {
       const dataFiles = [

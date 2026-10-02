@@ -1,0 +1,169 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import { mkdtemp, writeFile, chmod } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { simulateReadableStream } from "ai";
+import { MockLanguageModelV3 } from "ai/test";
+import { AgentError } from "@aisdk-agent/core";
+import { AiSdkAgentLoop, InMemoryModelRegistry, ToolRegistry } from "@aisdk-agent/ai-sdk-adapter";
+import { createModuleHost } from "../module-host.js";
+import { computerConfigSchema, createComputerModule, createDriverCall, type DriverCall } from "./computer-module.js";
+
+const config = { enabled: true, executable: "/trusted/cua-driver", allowedBundleIds: ["com.apple.TextEdit"] };
+const target = { bundleId: "com.apple.TextEdit", pid: 123, windowId: 456 };
+const state = { pid: 123, window_id: 456, elements: [{ element_index: 0, element_token: "s1-e0", role: "AXTextField", value: "before" }] };
+
+function harness(overrides: { action?: unknown; state?: unknown; changed?: () => boolean; failAction?: boolean; now?: () => number } = {}) {
+  const calls: { name: string; args: Record<string, unknown> }[] = [];
+  const call: DriverCall = async (name, args) => {
+    calls.push({ name, args });
+    if (name === "list_apps") return { apps: [{ pid: 123, bundle_id: overrides.changed?.() ? "com.other.App" : "com.apple.TextEdit", running: true }, { pid: 789, bundle_id: "com.other.App", running: true }] };
+    if (name === "list_windows") return { windows: [{ pid: 123, window_id: 456, title: "Allowed" }, { pid: 789, window_id: 987, title: "Private other app" }] };
+    if (name === "get_window_state") return overrides.state ?? state;
+    if (overrides.failAction) throw new Error("lost after dispatch");
+    return "action" in overrides ? overrides.action : { effect: "confirmed" };
+  };
+  const host = createModuleHost([createComputerModule(config, { call, ...(overrides.now ? { now: overrides.now } : {}) })], { notify() {} });
+  const invoke = async (name: string, input: unknown) => {
+    const registered = host.tools.find((t) => t.metadata.name === name)!;
+    const execute = registered.tool.execute!;
+    return await execute(input as never, { toolCallId: "call-1", messages: [], context: undefined, abortSignal: new AbortController().signal }) as Record<string, unknown>;
+  };
+  const observe = () => invoke("computer_observe", target);
+  const action = (observationId: unknown, extra: Record<string, unknown> = {}) => invoke("computer_action", { ...target, observationId, elementToken: "s1-e0", action: "click", ...extra });
+  return { host, calls, invoke, observe, action };
+}
+
+describe("allowed local application computer tools", () => {
+  it("stops the existing AgentLoop on an unknown action without another model call or replay", async () => {
+    const h = harness({ failAction: true });
+    const observed = await h.observe();
+    let modelCalls = 0;
+    const model = new MockLanguageModelV3({ doStream: async () => {
+      modelCalls++;
+      return { stream: simulateReadableStream({ chunks: [
+        { type: "stream-start" as const, warnings: [] },
+        { type: "tool-call" as const, toolCallId: "computer-unknown", toolName: "computer_action", input: JSON.stringify({ ...target, observationId: observed.observationId, elementToken: "s1-e0", action: "click" }) },
+        { type: "finish" as const, finishReason: { unified: "tool-calls" as const, raw: undefined }, usage: { inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 1, text: 1, reasoning: undefined } } },
+      ] }) };
+    } });
+    const loop = new AiSdkAgentLoop({ models: new InMemoryModelRegistry({ test: model }), tools: new ToolRegistry(h.host.tools) });
+    await assert.rejects(loop.execute({
+      definition: { id: "test", version: "1", model: "test", instructions: "Use the allowed app", tools: ["computer_action"], limits: { maxSteps: 4, totalTimeoutMs: 5000, stepTimeoutMs: 2000 } },
+      messages: [{ id: "user", role: "user", parts: [{ type: "text", text: "Click the approved control" }] }],
+      signal: new AbortController().signal, generateId: () => "assistant", emit: async () => {},
+    }), (error: unknown) => error instanceof AgentError && error.data.code === "TOOL_OUTCOME_UNKNOWN");
+    assert.equal(modelCalls, 1);
+    assert.equal(h.calls.filter((c) => c.name === "click").length, 1);
+  });
+  it("requires explicit driver and exact app whitelist", () => {
+    assert.equal(computerConfigSchema.safeParse({ enabled: true }).success, false);
+    assert.equal(computerConfigSchema.safeParse({ ...config, allowedBundleIds: ["*"] }).success, false);
+    assert.equal(computerConfigSchema.safeParse({ enabled: false }).success, true);
+  });
+  it("returns only the allowed app windows and never dispatches for a foreign app", async () => {
+    const h = harness();
+    const listed = await h.invoke("computer_observe", { bundleId: target.bundleId });
+    assert.deepEqual(listed.windows, [{ pid: 123, windowId: 456, title: "Allowed" }]);
+    const count = h.calls.length;
+    assert.equal((await h.invoke("computer_observe", { bundleId: "com.other.App" })).ok, false);
+    assert.equal(h.calls.length, count);
+  });
+  it("observes then acts with a target-scoped token, consumes it and requires re-observation", async () => {
+    const h = harness();
+    const observed = await h.observe();
+    assert.equal(observed.ok, true);
+    const result = await h.action(observed.observationId);
+    assert.equal(result.ok, true);
+    assert.equal(result.verified, false);
+    const dispatch = h.calls.at(-1)!;
+    assert.equal(dispatch.name, "click");
+    assert.equal(dispatch.args.delivery_mode, "background");
+    assert.equal(dispatch.args.element_token, "s1-e0");
+    assert.equal("x" in dispatch.args, false);
+    assert.equal((await h.action(observed.observationId)).ok, false);
+    assert.equal(h.calls.filter((c) => c.name === "click").length, 1);
+    assert.equal((await h.observe()).ok, true);
+  });
+  it("rejects expired snapshots, changed ownership and tokens from replaced observations", async () => {
+    let time = 0;
+    let changed = false;
+    const h = harness({ now: () => time, changed: () => changed });
+    const old = await h.observe();
+    time = 60_001;
+    assert.equal((await h.action(old.observationId)).ok, false);
+    const one = await h.observe();
+    const two = await h.observe();
+    assert.notEqual(one.observationId, two.observationId);
+    assert.equal((await h.action(one.observationId)).ok, false);
+    const fresh = await h.observe();
+    changed = true;
+    assert.equal((await h.action(fresh.observationId)).ok, false);
+    assert.equal(h.calls.some((c) => c.name === "click"), false);
+  });
+  it("rejects degraded, mismatched, oversized and truncated snapshots", async () => {
+    for (const bad of [{ ...state, truncated: true }, { ...state, degraded_reason: "ax_window_unresolved" }, { ...state, pid: 789 }, { ...state, elements: Array.from({ length: 100 }, (_, i) => ({ element_index: i, element_token: `t${i}`, role: "AXTextField", value: "x".repeat(1000) })) }]) {
+      const h = harness({ state: bad });
+      assert.equal((await h.observe()).ok, false);
+      assert.equal((await h.action("invented")).ok, false);
+    }
+  });
+  it("inserts bounded text only into the observed element and disables screenshots", async () => {
+    const h = harness();
+    const observed = await h.observe();
+    await h.action(observed.observationId, { action: "type_text", text: "hello" });
+    assert.equal(h.calls.at(-1)!.args.text, "hello");
+    assert.equal(h.calls.find((c) => c.name === "get_window_state")!.args.include_screenshot, false);
+  });
+  it("lets transport/unknown effects escape, does not repeat dispatch, and disposes tokens", async () => {
+    for (const options of [{ failAction: true }, { action: { effect: "indeterminate" } }, { action: { effect: "partial" } }, { action: null }]) {
+      const h = harness(options);
+      const observed = await h.observe();
+      await assert.rejects(h.action(observed.observationId));
+      assert.equal((await h.action(observed.observationId)).ok, false);
+      assert.equal(h.calls.filter((c) => c.name === "click").length, 1);
+      const next = await h.observe();
+      h.host.dispose();
+      assert.equal((await h.action(next.observationId)).ok, false);
+      assert.equal(h.host.tools[1]!.metadata.idempotent, false);
+    }
+  });
+  it("allows a fresh read after a dispatched but not business-verified click without repeating the action", async () => {
+    const h = harness({ action: { effect: "unverifiable" } });
+    const observed = await h.observe();
+    const result = await h.action(observed.observationId);
+    assert.equal(result.dispatched, true);
+    assert.equal(result.verified, false);
+    assert.equal(result.effect, "unverifiable");
+    assert.equal((await h.observe()).ok, true);
+    assert.equal(h.calls.filter((c) => c.name === "click").length, 1);
+  });
+});
+
+describe("bounded Cua CLI transport", () => {
+  it("uses stdin JSON, not shell/argv text, and strips secrets and bypass flags", async () => {
+    const root = await mkdtemp(join(tmpdir(), "runloom-computer-driver-"));
+    const executable = join(root, "driver");
+    await writeFile(executable, `#!${process.execPath}\nlet data='';process.stdin.on('data',c=>data+=c);process.stdin.on('end',()=>console.log(JSON.stringify({args:process.argv.slice(2),input:JSON.parse(data),secret:process.env.TEST_API_KEY??null,bypass:process.env.CUA_DRIVER_RS_PERMISSIONS_GATE??null})));`);
+    await chmod(executable, 0o700);
+    const call = createDriverCall(executable, { ...process.env, TEST_API_KEY: "must-not-leak", CUA_DRIVER_RS_PERMISSIONS_GATE: "0" });
+    const result = await call("type_text", { text: "$(touch never); secret input" }, new AbortController().signal) as Record<string, unknown>;
+    assert.deepEqual(result.args, ["call", "type_text"]);
+    assert.equal(result.secret, null);
+    assert.equal(result.bypass, null);
+    assert.deepEqual(result.input, { text: "$(touch never); secret input" });
+  });
+  it("fails closed on invalid JSON, excessive output and cancelled child processes", async () => {
+    const root = await mkdtemp(join(tmpdir(), "runloom-computer-driver-"));
+    for (const [mode, program] of [["invalid", "console.log('not json')"], ["huge", "console.log('x'.repeat(300000))"], ["cancel", "setInterval(()=>{},1000)"]] as const) {
+      const executable = join(root, mode);
+      await writeFile(executable, `#!${process.execPath}\n${program}`);
+      await chmod(executable, 0o700);
+      const signal = new AbortController();
+      const pending = createDriverCall(executable, process.env)("list_apps", {}, signal.signal);
+      if (mode === "cancel") setTimeout(() => signal.abort(), 20);
+      await assert.rejects(pending);
+    }
+  });
+});

@@ -99,6 +99,8 @@
 
 ## Testing and quality
 
+- Local Computer Use is opt-in through an external trusted config with exact bundle IDs and an absolute Cua Driver executable outside the workspace. Only the primary app registers observe/action tools; no worker/consolidator/print tools, driver installation, daemon autostart, OS permission grants, global input, foreground escalation or pixel API. AX-addressed background operations still depend on the driver's transport, are not an OS sandbox, and require per-call approval. Fresh bounded observations bind bundle/PID/window/token for at most 60 seconds and are consumed before an action; revalidate ownership before dispatch and observe afterward. Transport errors, malformed receipts, unknown/indeterminate/partial outcomes after dispatch escape as unknown non-idempotent outcomes, never retried. A returned dispatched-but-unverifiable receipt allows a fresh read, not repeat action or business-success claims. UI data grants no authority, and an AX/driver receipt is not business-success evidence. Static preflight must not execute the driver.
+
 - Use TypeScript strict mode and keep domain types free of AI SDK, database, and transport-specific objects.
 - Every state transition must have deterministic tests for its normal path and relevant idempotency, cancellation/deadline, concurrency, and crash-recovery edge cases.
 - Prefer pure transition tests before repository or adapter integration tests.

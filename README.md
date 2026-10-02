@@ -13,6 +13,42 @@
 
 完整设计见 [docs/architecture-v0.md](docs/architecture-v0.md)。
 
+## 本机指定应用（Cua Driver，实验性）
+
+接入现有主 AgentLoop 的 `computer_observe` / `computer_action`，不新增循环、不改变桌面前端或 worker。默认关闭，只支持 macOS；用户须先安装并启动 [Cua Driver](https://cua.ai/docs/cua-driver/quickstart)，自行完成它的系统权限配置。Runloom 不安装驱动、不启动 daemon、不申请权限，也不连接 Cua Cloud。
+
+在 **workspace 外**的配置里明确允许应用 bundle ID 和可信驱动绝对路径（驱动也必须在 workspace 外）：
+
+```json
+{
+  "version": 1,
+  "modules": {
+    "computer": {
+      "enabled": true,
+      "executable": "/absolute/path/to/cua-driver",
+      "allowedBundleIds": ["com.apple.TextEdit"]
+    }
+  }
+}
+```
+
+`executable` 替换为你本机 `command -v cua-driver` 的输出；应用需由你先打开。原有配置可直接增加 `modules.computer`，不必启用 Shell。后端使用官方 `cua-driver call` 连接已经运行的 daemon；要求版本提供 `list_apps`、`list_windows`、`get_window_state` 的结构化 JSON，以及控件 `element_token` 和动作 `effect`。响应不兼容时关闭本次操作，不猜字段或回落到 AppleScript。
+
+```bash
+pnpm build
+RUNLOOM_MODEL=deepseek node --env-file=.env examples/cli/dist/index.js --tui /absolute/path/to/transcripts --thread computer-user --config /absolute/path/to/config.json
+```
+
+测试指令：`只观察 TextEdit 的窗口，告诉我有哪些控件，不要修改内容。` 确认后再指定窗口和动作。桌面端通过原有 `createRuntimeApp` / Controller 配置和 approvalId 接线即可，本次未修改桌面仓。`--check` 只检查配置，不证明驱动运行或操作成功。
+
+路径固定为 **列出指定应用窗口 → 观察精确窗口 → 确认点击/输入 → 再观察**。观察和动作都逐次确认；观察最多 200 个控件、24 KiB，token 最长有效 60 秒（确认期间也计时），每次动作或重新观察都会使旧观察失效。驱动单次调用最多 10 秒、输出 256 KiB；输入最多 4096 字符。截断/退化观察不授予动作 token。每次动作前重新核对 bundle/PID/窗口归属；过期或目标改变时不派发。
+
+本版仅提供控件 token 定位的后台点击和文本插入，不暴露屏幕坐标、截图、全局快捷键、剪贴板、启动/终止应用或前台升级。后台输入的实际 AX/事件投递由驱动实现；白名单不是系统沙箱，允许应用也可能发邮件、删除内容或影响其他应用，确认前应核对动作后果。UI 原文可进入模型和 transcript，别在敏感应用上启用。
+
+驱动返回 `confirmed` 也只表示它的操作观察，不是业务完成证明；`unverifiable` / `suspected_noop` 表示已派发但效果未验证，只允许继续观察，不自动重复。传输中断、超时、非法回执、`partial` / `indeterminate` 等走非幂等 `TOOL_OUTCOME_UNKNOWN`，停止 Run，需用户核对，不重放。Electron/浏览器控件树可能不可靠，画布/复杂窗口可能截断，本版不声称支持通用视觉 Computer Use；需要独立业务证据或人工验收。
+
+取消会终止 Runloom 的 CLI 客户端，不能证明 daemon 已撤回动作；派发后的取消必须核对实际应用，不能直接重新执行。离线测试不操作真实桌面。真机封板另做：隔离 TextEdit 文档，在批准应用里观察→确认输入→再观察并人工核对；拒绝时无动作、非白名单应用拒绝、取消/驱动断连不重试。未完成这些场景前只能称接入实现，不能称本机控制已封板。
+
 ## 阶段
 
 当前：验证真实开发任务与长任务续接。最近的模块里程碑仍是 `M10 Proactive Assistant`（复用重复任务做明确排期的 workspace 简报）。
@@ -235,6 +271,26 @@ Stage 7-3 将 Todoist 只读查询与已有 workspace 文件工具组合起来�
 查询结果 `truncated: true` 时仍可确认保存，但计划必须明显标注不完整；任务为空且结果被截断时不能据此声称没有任务。查询失败不会继续生成或保存伪装成成功的计划；写入拒绝、同名文件、父目录缺失和其它路径错误也只报告具体原因。成功写入后以 `write_file` 返回的路径和字节数确认保存事实，后续 Run 取消或失败不会回滚已经创建的文件。
 
 Stage 7-3 的 `pnpm typecheck` / `pnpm test` 只验证生产 instructions 已到达模型边界、Todoist → `write_file` 的离线接线、两次确认和文件副作用边界；组合测试使用固定文本夹具，不证明真实模型会写出五个章节、缺路径先问、失败不保存或空任务不凑数。`write_file.test.ts` 单独证明 `FILE_EXISTS` 不覆盖。完整验收还需提供真实模型和 `TODOIST_API_TOKEN`，使用独立测试笔记目录与一个尚不存在的 `.md` 路径，完成两次 `y/n` 并检查任务来源、日期、完整性说明、五个章节及实际文件；凭据缺失时不能把离线测试当作真实 Todoist 验收。
+
+### Command Code / DeepSeek V4.1 Flash
+
+CLI/TUI、嵌入式 Controller 和 worker 共用模型入口，支持 `RUNLOOM_MODEL=command-code`。复用 OpenAI-compatible adapter；默认 URL 为 `https://api.commandcode.ai/provider/v1`，模型 ID 为 `deepseek/deepseek-v4.1-flash`，运行时 alias 为 `command-code/default`。不改变默认 mock 或原有 DeepSeek/MiniMax 配置，不新增行为循环。
+
+在本地未提交的 `.env` 中加入 `COMMAND_CODE_API_KEY`（不要把真实 Key 发到聊天）：
+
+```dotenv
+COMMAND_CODE_API_KEY=<your-command-code-api-key>
+```
+
+```sh
+pnpm build
+RUNLOOM_MODEL=command-code node --env-file=.env examples/cli/dist/index.js \
+  --tui ./var/runloom --thread personal --workspace ./var/notes
+```
+
+可选 `COMMAND_CODE_BASE_URL` / `COMMAND_CODE_MODEL_ID` 覆盖，Key 仅发送到所选 endpoint，覆盖 URL 时须信任该地址。缺 Key 启动失败，不借用其它 provider Key，不回退模型。该入口针对 DeepSeek 非 thinking 模式：工具回放仍不保存 provider 专属 `reasoning_content`，因此沿用 `thinking: {type: "disabled"}`；其它模型或 thinking 模式不在本次验证范围。
+
+官方 [Provider API 文档](https://commandcode.ai/docs/provider) 与 [公开模型目录](https://api.commandcode.ai/provider/v1/models) 描述服务端能力；目录中的模型存在不证明当前账号可用。离线测试只证明 URL、认证字段、流式工具回放及 preflight 接线，真实账号与请求仍须单独验收。截图/视觉输入、Computer Use 和付费连续压缩验收未由本次接入证明，也未自动启用。
 
 ### DeepSeek
 

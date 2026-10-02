@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile, chmod, access } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
@@ -21,6 +21,38 @@ function capture(): { output: PassThrough; text(): string } {
 }
 
 describe("createRuntimeApp", () => {
+  it("routes Computer reads/actions through ID approvals; denial launches no driver", { skip: process.platform !== "darwin" }, async () => {
+    const root = await mkdtemp(join(tmpdir(), "runloom-app-computer-"));
+    const executable = join(root, "driver");
+    const marker = join(root, "must-not-exist");
+    await writeFile(executable, `#!${process.execPath}\nrequire('node:fs').writeFileSync(${JSON.stringify(marker)},'dispatched');console.log('{}')`);
+    await chmod(executable, 0o700);
+    const configPath = join(root, "config.json");
+    await writeFile(configPath, JSON.stringify({ version: 1, modules: { computer: { enabled: true, executable, allowedBundleIds: ["com.apple.TextEdit"] } } }));
+    const usage = { inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 1, text: 1, reasoning: undefined } };
+    let step = 0;
+    const names = ["computer_observe", "computer_action"];
+    const model = new MockLanguageModelV3({ doStream: async () => {
+      const current = step++;
+      const chunks = current < 2
+        ? [{ type: "stream-start" as const, warnings: [] }, { type: "tool-call" as const, toolCallId: `computer-${current}`, toolName: names[current]!, input: JSON.stringify(current === 0 ? { bundleId: "com.apple.TextEdit" } : { bundleId: "com.apple.TextEdit", pid: 123, windowId: 456, observationId: "invented", elementToken: "invented", action: "click" }) }, { type: "finish" as const, finishReason: { unified: "tool-calls" as const, raw: undefined }, usage }]
+        : [{ type: "stream-start" as const, warnings: [] }, { type: "finish" as const, finishReason: { unified: "stop" as const, raw: undefined }, usage }];
+      return { stream: simulateReadableStream<(typeof chunks)[number]>({ chunks }) };
+    } });
+    const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", "computer-denial", "--config", configPath], modelAlias: "mock", model, output: capture().output, env: {}, cwd: root });
+    try {
+      const handle = await app.runtime.run({ agentId: app.agentId, threadId: app.threadId, messages: [{ id: "user-computer", role: "user", parts: [{ type: "text", text: "Observe my permitted app" }] }] });
+      for (const name of names) {
+        const deadline = Date.now() + 2000;
+        while (!app.toolConfirmation?.getPending() && Date.now() < deadline) await delay(1);
+        const pending = app.toolConfirmation?.getPending();
+        assert.equal(pending?.toolName, name);
+        assert.equal(app.toolConfirmation!.resolveApproval({ approvalId: pending!.approvalId, decision: "deny" }), true);
+      }
+      assert.equal((await handle.result).status, "completed");
+      await assert.rejects(access(marker));
+    } finally { app.dispose(); await rm(root, { recursive: true, force: true }); }
+  });
   for (const enabled of [false, true]) {
     it(`reports reference selection failure instead of the previous successful preparation (compaction ${enabled})`, async () => {
       const root = await mkdtemp(join(tmpdir(), "runloom-app-context-diagnostics-"));

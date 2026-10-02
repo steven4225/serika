@@ -6,6 +6,17 @@ import { describe, it } from "node:test";
 import { checkTuiStartup, readinessExitCode } from "./startup-check.js";
 
 describe("static TUI startup check", () => {
+  it("checks Computer config without launching the configured executable", { skip: process.platform !== "darwin" }, async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "runloom-computer-check-"));
+    const executable = join(cwd, "driver");
+    await writeFile(executable, "not even an executable; must never be launched by --check");
+    const config = join(cwd, "config.json");
+    await writeFile(config, JSON.stringify({ version: 1, modules: { computer: { enabled: true, executable, allowedBundleIds: ["com.apple.TextEdit"] } } }));
+    const snapshot = await checkTuiStartup(["--config", config], { cwd, env: {} });
+    assert.equal(readinessExitCode(snapshot), 0);
+    assert.match(snapshot.checks.find((c) => c.id === "computer")!.message, /does not launch/);
+    assert.deepEqual((await readdir(cwd)).sort(), ["config.json", "driver"]);
+  });
   it("reports temporary identity and unknown external state without creating files", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "runloom-check-"));
     const before = await import("node:fs/promises").then(({ readdir }) => readdir(cwd));
