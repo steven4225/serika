@@ -6,6 +6,7 @@ import type {
   PendingApproval,
   UiSnapshot,
   UiState,
+  ExecutionRunRecord,
 } from "../../shared/ui-contract.js";
 import { ShellProgressBuffer } from "../../shared/shell-progress.js";
 import {
@@ -14,6 +15,7 @@ import {
   emptyLiveRun,
   finishRun,
   overlayShellProgress,
+  overlayExecutionReceipts,
   resultRow,
   rowsFromHistory,
   rowsFromToolActivity,
@@ -25,6 +27,7 @@ import { baseName, parseHome, shortId, type HomeView } from "./home.js";
 import { MemoryPanel } from "./memory.js";
 import { ContextPanel } from "./context.js";
 import { RecordsPanel, type RecordDetailState, type RecordsState } from "./records.js";
+import { ApprovalCard } from "./approval.js";
 
 const OUTPUT_MAX_CHARS = 64 * 1024;
 
@@ -94,7 +97,7 @@ function Row({ row }: { row: ConversationRow }) {
     case "result":
       return (
         <div className={`row row-result status-${row.status}`}>
-          {row.status === "timed_out" ? "主 Run 超时" : `Run ${row.status}`}
+          {row.status === "completed" ? "主 Run 已结束 · 不代表任务已验收" : row.status === "timed_out" ? "主 Run 超时" : `Run ${row.status}`}
           {row.detail ? <span className="tool-detail"> · {row.detail}</span> : null}
         </div>
       );
@@ -111,6 +114,12 @@ function toolStatusLabel(status: ToolRowStatus): string {
       return "调用中";
     case "ok":
       return "ok";
+    case "observed":
+      return "观察已返回";
+    case "dispatched":
+      return "已派发 · 待核对";
+    case "not_started":
+      return "未执行";
     case "failed":
       return "失败";
     case "denied":
@@ -139,7 +148,7 @@ function Identity({ info }: { info: AppInfo }) {
   const workspace = info.workspaceRoot ? baseName(info.workspaceRoot) : "无 workspace";
   return (
     <div className="identity">
-      <span className="pill" title={`模型：${info.modelAlias}（配置值，不代表已联网验证）`}>
+      <span className="pill" title={`模型：${info.modelAlias}\n${info.modelId ?? ""}（配置值，不代表已联网验证）`}>
         {info.modelAlias}
       </span>
       <span className="pill" title={info.workspaceRoot ?? "未设置 workspace；文件、记忆、checkpoint、任务模块都不可用"}>
@@ -223,6 +232,10 @@ export function App() {
   const [memoryRefresh, setMemoryRefresh] = useState(0);
   const [contextRefresh, setContextRefresh] = useState(0);
   const [recordDetail, setRecordDetail] = useState<RecordDetailState>({ status: "idle" });
+  const [finalRecord, setFinalRecord] = useState<ExecutionRunRecord | null>(null);
+  const [decidingId, setDecidingId] = useState<string | null>(null);
+  const decisionInFlight = useRef<string | null>(null);
+  const latestPrimaryId = useRef<string | null>(null);
   const homeBuffer = useRef("");
   const shellBuffer = useRef(new ShellProgressBuffer());
   const conversationEnd = useRef<HTMLDivElement | null>(null);
@@ -234,22 +247,31 @@ export function App() {
     setOutput(snapshot.recentOutput);
     shellBuffer.current.clear();
     for (const chunk of snapshot.shellProgress) shellBuffer.current.apply(chunk);
-    if (snapshot.state.kind === "idle") {
+    const activePrimary = snapshot.state.kind === "running" && snapshot.state.phase === "primary";
+    latestPrimaryId.current = snapshot.state.kind === "running" && snapshot.state.phase === "primary"
+      ? snapshot.state.runId : snapshot.lastPrimaryResult?.runId ?? null;
+    setLastResult(!activePrimary && snapshot.lastPrimaryResult ? resultRow(snapshot.lastPrimaryResult) : null);
+    if (!activePrimary) {
       setLive(emptyLiveRun);
-      setLastResult(null);
     } else {
       setLive({
         rows: overlayShellProgress(rowsFromToolActivity(snapshot.toolActivity), shellBuffer.current),
         streaming: "",
       });
-      setLastResult(snapshot.lastPrimaryResult ? resultRow(snapshot.lastPrimaryResult) : null);
     }
   }, []);
 
   const reloadHistory = useCallback(async () => {
     const messages = await window.runloom.history();
     setHistory(overlayShellProgress(rowsFromHistory(messages), shellBuffer.current));
-    setLive(emptyLiveRun);
+  }, []);
+
+  const loadFinalRun = useCallback(async (runId: string) => {
+    const response = await window.runloom.getRun(runId);
+    if (latestPrimaryId.current !== runId) return;
+    if (!response.ok) { setError(`最终执行回执不可用：${response.message}`); return; }
+    if (response.run === null) { setError("最终执行回执缺失，不能据此确认动作结果"); return; }
+    setFinalRecord(response.run);
   }, []);
 
   const loadRecords = useCallback(async (selectedRunId?: string) => {
@@ -299,12 +321,14 @@ export function App() {
             shellBuffer.current.clear();
             setLive(emptyLiveRun);
             setLastResult(null);
+            setFinalRecord(null);
+            latestPrimaryId.current = null;
           }
+          if (message.state.kind === "running" && message.state.phase === "primary" && message.state.runId !== null) latestPrimaryId.current = message.state.runId;
           if (message.state.kind === "idle") {
             setContextRefresh((value) => value + 1);
             void reloadHistory().catch((cause: unknown) => setError(String(cause)));
             void loadRecords(selectedRecordId.current ?? undefined).catch((cause: unknown) => setError(String(cause)));
-            setLastResult(null);
           }
           return;
         case "output":
@@ -328,6 +352,8 @@ export function App() {
         case "result": {
           setContextRefresh((value) => value + 1);
           if (message.phase !== "primary") return;
+          latestPrimaryId.current = message.result.runId;
+          void loadFinalRun(message.result.runId).catch((cause: unknown) => setError(String(cause)));
           const rows = finishRun(emptyLiveRun, message.result);
           setLastResult(rows.find((row) => row.kind === "result") ?? null);
           setLive((previous) => ({ rows: finishRun(previous, message.result), streaming: "" }));
@@ -353,16 +379,19 @@ export function App() {
 
     void (async () => {
       try {
+        stop = window.runloom.onMessage(onMessage);
         const nextInfo = await window.runloom.info();
         if (cancelled) return;
         setInfo(nextInfo);
         const first = await window.runloom.snapshot();
         if (cancelled) return;
         applySnapshot(first);
-        stop = window.runloom.onMessage(onMessage);
         const second = await window.runloom.snapshot();
         if (cancelled) return;
         applySnapshot(second);
+        if (second.lastPrimaryResult && !(second.state.kind === "running" && second.state.phase === "primary")) {
+          await loadFinalRun(second.lastPrimaryResult.runId);
+        }
         await reloadHistory();
         await loadRecords();
         const homeResult = await window.runloom.home();
@@ -376,7 +405,7 @@ export function App() {
       cancelled = true;
       stop();
     };
-  }, [applySnapshot, reloadHistory, loadRecords]);
+  }, [applySnapshot, reloadHistory, loadRecords, loadFinalRun]);
 
   useEffect(() => {
     conversationEnd.current?.scrollIntoView({ block: "end" });
@@ -391,10 +420,19 @@ export function App() {
   }, []);
 
   const decide = useCallback(async (decision: "allow" | "deny") => {
-    if (approval === null) return;
+    if (approval === null || decisionInFlight.current === approval.approvalId) return;
+    const id = approval.approvalId;
+    decisionInFlight.current = id;
+    setDecidingId(id);
     setError(null);
-    const { accepted } = await window.runloom.confirm({ approvalId: approval.approvalId, decision });
-    if (!accepted) setError("这次确认未生效");
+    try {
+      const { accepted } = await window.runloom.confirm({ approvalId: id, decision });
+      if (!accepted) setError("确认已失效，本次点击未执行。请重新核对当前调用，不会自动批准新调用。");
+    } catch { setError("确认结果未收到。请查看当前状态，不会自动重试。"); }
+    finally {
+      if (decisionInFlight.current === id) decisionInFlight.current = null;
+      setDecidingId(current => current === id ? null : current);
+    }
   }, [approval]);
 
   const submit = useCallback(async () => {
@@ -421,7 +459,10 @@ export function App() {
 
   const busy = state.kind !== "idle";
   const running = state.kind === "running";
-  const rows = [...history, ...live.rows, ...(live.rows.length === 0 && lastResult ? [lastResult] : [])];
+  const activePrimary = running && state.phase === "primary";
+  const visibleRows = [...history, ...(activePrimary ? live.rows : [])];
+  const rows = [...(!activePrimary && finalRecord ? overlayExecutionReceipts(visibleRows, finalRecord.tools) : visibleRows),
+    ...(!activePrimary && lastResult ? [lastResult] : [])];
   const homeView = parseHome(home);
 
   return (
@@ -438,6 +479,9 @@ export function App() {
         ) : null}
       </header>
       {info ? <Identity info={info} /> : null}
+      {info ? <div className="computer-config hint">
+        本机控制：{info.computer.enabled ? `已配置（驱动未验证） · ${info.computer.allowedBundleIds.join("、")}` : "未启用"}
+      </div> : null}
 
       <section className="card home">
         <div className="card-head">
@@ -503,25 +547,7 @@ export function App() {
         {showOutput ? <pre className="output">{output || "（无）"}</pre> : null}
       </section>
 
-      {approval ? (
-        <section className="card approval">
-          <div className="card-head">
-            <span>等待确认</span>
-            <span className="hint">
-              {approval.toolName} · 同一时刻只有一项 · 不会记住选择
-            </span>
-          </div>
-          <pre className="prompt">{approval.preview.length > 0 ? approval.preview : "正在生成预览…"}</pre>
-          <div className="actions">
-            <button className="deny" onClick={() => void decide("deny")}>
-              拒绝
-            </button>
-            <button className="allow" onClick={() => void decide("allow")}>
-              允许
-            </button>
-          </div>
-        </section>
-      ) : null}
+      {approval ? <ApprovalCard approval={approval} deciding={decidingId === approval.approvalId} onDecision={decision => void decide(decision)} /> : null}
 
       {error ? <div className="error">{error}</div> : null}
 

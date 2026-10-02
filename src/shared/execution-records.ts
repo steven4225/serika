@@ -7,6 +7,7 @@ import type {
   ListRunsResponse,
   RunPhase,
 } from "./ui-contract.js";
+import { presentComputerResult } from "./computer.js";
 
 export const EXECUTION_RECORDS_UNAVAILABLE = "执行记录不可用 / 被其他进程占用";
 
@@ -41,7 +42,7 @@ export function runStatusLabel(status: ExecutionRunStatus): string {
     case "interrupted":
       return "已中断";
     case "completed":
-      return "已完成";
+      return "Run 已结束";
     case "failed":
       return "失败";
     case "cancelled":
@@ -107,6 +108,8 @@ export function completedOutcome(tool: ExecutionToolRecord): string {
     return parts.join(" · ");
   }
   const parsed = parsePreviewJson(tool.resultPreview);
+  const computer = presentComputerResult(tool.toolName, tool.resultTruncated ? undefined : parsed);
+  if (computer) return tool.resultTruncated ? "Computer 回执已截断，效果待核对" : computer.detail;
   if (typeof parsed === "object" && parsed !== null && "ok" in parsed) {
     return (parsed as { ok: unknown }).ok === true ? "ok:true" : "ok:false";
   }
@@ -125,6 +128,10 @@ export function toolTone(tool: ExecutionToolRecord): "ok" | "fail" | "warn" | "m
     case "failed":
       return "fail";
     case "completed": {
+      if (tool.toolName === "computer_action") {
+        const presentation = presentComputerResult(tool.toolName, tool.resultTruncated ? undefined : parsePreviewJson(tool.resultPreview));
+        return presentation?.status === "failed" ? "fail" : presentation?.status === "unknown" ? "unknown" : "warn";
+      }
       if (tool.shell?.timedOut === true || tool.shell?.cancelled === true) return "warn";
       if (typeof tool.shell?.exitCode === "number" && tool.shell.exitCode !== 0) return "fail";
       const parsed = parsePreviewJson(tool.resultPreview);
@@ -149,7 +156,7 @@ export function toolNote(tool: ExecutionToolRecord): string {
     case "started":
       return "本进程内已进入 execute。";
     case "unknown":
-      return "已 started，没有最终回执。请核对磁盘或外部系统。不会自动重试。";
+      return "调用已进入执行，但效果未知。请核对磁盘或外部应用；不会自动重试。";
     case "failed":
       return tool.errorPreview ?? "明确失败（含用户拒绝）。";
     case "completed":

@@ -562,9 +562,23 @@ pre,
 }
 
 .approval {
+  flex-shrink: 0;
   border-color: rgba(244, 160, 115, 0.55);
   background: rgba(244, 160, 115, 0.06);
 }
+
+.approval-content { min-height: 0; max-height: 220px; overflow: auto; overflow-wrap: anywhere; }
+.approval-content h3 { margin: 2px 0 8px; font-size: 14px; }
+.approval-target { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 6px; margin: 8px 0; }
+.approval-target dt { color: var(--muted); }
+.approval-target dd { margin: 0; overflow-wrap: anywhere; }
+.input-preview { padding: 10px; border: 1px solid var(--line-strong); background: var(--sunken); white-space: pre-wrap; overflow-wrap: anywhere; }
+.approval-warning { color: var(--orange); line-height: 1.6; }
+.approval details pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.row-tool.status-dispatched .dot { background: var(--orange); }
+.row-tool.status-dispatched .tool-status { color: var(--orange); }
+.row-tool.status-observed .dot { background: var(--blue); }
+.computer-config { overflow-wrap: anywhere; }
 
 .approval .prompt {
   max-height: 200px;

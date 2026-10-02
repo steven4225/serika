@@ -4,7 +4,7 @@ import { app, BrowserWindow, ipcMain, Notification, shell } from "electron";
 import { createRuntimeApp } from "@aisdk-agent/example-cli/dist/app.js";
 import { createAssistantController } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
 import { createDemoModel } from "@aisdk-agent/example-cli/dist/demo-model.js";
-import { configureCliModel } from "@aisdk-agent/example-cli/dist/model-config.js";
+import { configureCliModel, inspectCliModelConfig } from "@aisdk-agent/example-cli/dist/model-config.js";
 import { resolveTuiModuleConfig } from "@aisdk-agent/example-cli/dist/tui-module-config.js";
 import type { CandidateListInput, CandidateResolveInput } from "@aisdk-agent/example-cli/dist/memory-candidates.js";
 import { IPC, type ConfirmInput, type MainToRenderer } from "../shared/ui-contract.js";
@@ -12,6 +12,7 @@ import { resolveDesktopConfig } from "./desktop-config.js";
 import { resolveDesktopIdentity } from "./desktop-identity.js";
 import { parseModuleNotification, RuntimeBridge, TeeOutput } from "./runtime-bridge.js";
 import { installHideOnClose, installTray } from "./tray.js";
+import { loadDesktopEnvironment, safeStartupError } from "./desktop-env.js";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 
@@ -19,7 +20,8 @@ const here = fileURLToPath(new URL(".", import.meta.url));
  * The desktop shell reads the same inputs the TUI takes on its command line,
  * but from environment variables so `electron-vite dev` needs no argv plumbing:
  *
- *   RUNLOOM_MODEL        mock | deepseek | minimax-m3   (as in the CLI)
+ *   RUNLOOM_MODEL        mock | deepseek | minimax-m3 | command-code
+ *   RUNLOOM_ENV_FILE     explicit absolute path to main-process credentials/config
  *   RUNLOOM_CONFIG       path to the TUI --config JSON (must be outside the workspace)
  *   RUNLOOM_WORKSPACE    used only when generating the userData config
  *   RUNLOOM_TRANSCRIPTS  explicit transcript directory override
@@ -106,7 +108,15 @@ async function main(): Promise<void> {
 
   const output = new TeeOutput(send);
   let bridge!: RuntimeBridge;
+  // Renderer can load before disk/config initialization finishes. Keep info waiting
+  // for the actual result rather than returning a misleading "no IPC handler" error.
+  let resolveStartup!: () => void;
+  let rejectStartup!: (error: Error) => void;
+  const startup = new Promise<void>((resolve, reject) => { resolveStartup = resolve; rejectStartup = reject; });
+  void startup.catch(() => undefined);
+  ipcMain.handle(IPC.info, async () => { await startup; return bridge.info(); });
   try {
+    await loadDesktopEnvironment();
     const { modelAlias, model } = configureCliModel(createDemoModel, process.env);
     const desktopConfig = await resolveDesktopConfig({ env: process.env, userData: app.getPath("userData") });
     // Resolve through the backend's own config validation/canonical workspace rules.
@@ -129,19 +139,20 @@ async function main(): Promise<void> {
     bridge = new RuntimeBridge(
       runtimeApp,
       controller,
-      { modelAlias, temporaryThread: false, temporaryDirectory: false, identitySource: identity.identitySource },
+      { modelAlias, modelId: inspectCliModelConfig().modelId, temporaryThread: false, temporaryDirectory: false, identitySource: identity.identitySource },
       output,
       send,
     );
   } catch (error) {
-    const report = (): void => send({ type: "error", message: `Runtime could not start: ${String(error)}` });
+    const message = safeStartupError(error, process.env);
+    rejectStartup(new Error(message));
+    const report = (): void => send({ type: "error", message });
     if (window.webContents.isLoading()) window.webContents.once("did-finish-load", report);
     else report();
     app.on("before-quit", () => tray.dispose());
     return;
   }
 
-  ipcMain.handle(IPC.info, () => bridge.info());
   ipcMain.handle(IPC.snapshot, () => bridge.snapshot());
   ipcMain.handle(IPC.contextDiagnostics, () => bridge.getContextDiagnostics());
   ipcMain.handle(IPC.history, () => bridge.history());
@@ -155,6 +166,7 @@ async function main(): Promise<void> {
   ipcMain.handle(IPC.memoryCandidatesList, (_event, input?: CandidateListInput) => bridge.listMemoryCandidates(input));
   ipcMain.handle(IPC.memoryCandidateGet, (_event, id: string) => bridge.getMemoryCandidate(id));
   ipcMain.handle(IPC.memoryCandidateResolve, (_event, input: CandidateResolveInput) => bridge.resolveMemoryCandidate(input));
+  resolveStartup();
 
   app.on("before-quit", (event) => {
     if (shuttingDown) return;

@@ -32,6 +32,23 @@ RUNLOOM_MODEL=deepseek RUNLOOM_CONFIG=/absolute/path/runloom.json \
 
 ## 上下文面板
 
+## Command Code 与指定应用控制
+
+桌面支持 `RUNLOOM_MODEL=command-code`，复用后端模型入口。可通过主进程显式加载受信任的环境文件；已有进程环境变量优先，不隐式寻找 cwd 下的 `.env`，不把 Key 发往页面或 IPC：
+
+```sh
+RUNLOOM_ENV_FILE=/Users/a1-6/Code/agents/aisdk-agent-framework/.env \
+RUNLOOM_CONFIG=/absolute/outside-workspace/runloom.json pnpm dev
+```
+
+环境文件含 `RUNLOOM_MODEL=command-code` 与 `COMMAND_CODE_API_KEY`。缺凭据、坏文件或配置错误会显示启动失败，不静默回退模型。Computer 配置沿用外部 `modules.computer` 的 enabled/executable/allowedBundleIds；仅显示已配置，不承诺驱动可用，不自动安装、启动 daemon 或申请权限。本机 Cua Driver 不需要模型 Key。
+
+Computer 确认卡显示精确 bundle/PID/window、动作和完整输入，技术 token 可展开；按 approvalId 提交一次确认，过期不重试、不批准新调用。空 preview 时不会绕过确认。原始 UI 文本只按纯文本展示。
+
+`confirmed` 仍显示已派发、效果待核对；`suspected_noop` 不能被自动重试。实时事件、刷新快照和最终回执共用展示规则，`outcomeUnknown`/unknown 优先显示人工核对。主 Run 结束或取消后重读 getRun，不能仅凭 cancelled 认定没有副作用。Run completed 只表示本轮结束，不代表任务验收。
+
+## 上下文面板
+
 面板读取 `getContextDiagnostics()`，展示实际配置、估算器、最近合法压缩记录和本进程最后一次上下文准备。查询不调用模型、不创建 Run、不写 JSONL。历史记录通过 transcript 前缀校验，不等于当前 Run 已使用它；重启后本进程准备结果为空。读取失败保留上次数据并标明过时，缺失 usage 不显示成零。
 
 手动压缩仍是空闲 `/compact`；忙时按钮禁用。估算输入不是 provider 的精确 tokenizer 计数。摘要不是长期记忆、磁盘事实或工具授权。关闭模型摘要仍有既有历史裁剪。

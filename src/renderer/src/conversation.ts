@@ -4,6 +4,8 @@ import { presentShellExec } from "../../shared/shell-result.js";
 import type { ToolActivity } from "../../shared/ui-contract.js";
 import type { ToolRowStatus } from "../../shared/tool-status.js";
 import type { ShellProgressBuffer } from "../../shared/shell-progress.js";
+import { presentComputerResult } from "../../shared/computer.js";
+import type { ExecutionToolRecord } from "../../shared/ui-contract.js";
 
 export type { ToolRowStatus };
 
@@ -64,7 +66,7 @@ function committedToolStatus(part: Extract<UIMessage["parts"][number], { type: "
 } {
   switch (part.state) {
     case "output-error":
-      return part.errorText?.startsWith("TOOL_DENIED")
+      return part.errorText?.startsWith("TOOL_OUTCOME_UNKNOWN") ? { status: "unknown", detail: part.errorText } : part.errorText?.startsWith("TOOL_DENIED")
         ? { status: "denied", detail: part.errorText }
         : { status: "failed", detail: part.errorText };
     case "output-denied":
@@ -77,7 +79,7 @@ function committedToolStatus(part: Extract<UIMessage["parts"][number], { type: "
           ...(shell.detail ? { detail: shell.detail } : {}),
         };
       }
-      return toolOutcome(part.output);
+      return presentComputerResult(part.toolName, part.output) ?? toolOutcome(part.output);
     }
     case "input-streaming":
     case "input-available":
@@ -152,14 +154,46 @@ export function rowsFromHistory(messages: readonly UIMessage[]): ConversationRow
 }
 
 export function rowsFromToolActivity(activity: readonly ToolActivity[]): ConversationRow[] {
-  return activity.map((item) => ({
+  return activity.map((item) => {
+    let parsed: unknown;
+    if (!item.truncated) { try { parsed = JSON.parse(item.summary); } catch { /* display-only bounded preview */ } }
+    const computer = presentComputerResult(item.toolName, parsed);
+    const unknown = item.outcomeUnknown === true;
+    return {
     kind: "tool" as const,
     key: `t:${item.toolCallId}`,
     toolCallId: item.toolCallId,
     toolName: item.toolName,
-    status: (item.status === "failed" ? "failed" : "ok") as ToolRowStatus,
-    ...(item.truncated ? { detail: "回执已截断" } : {}),
-  }));
+    status: unknown ? "unknown" : item.status === "failed" ? "failed" : computer?.status ?? "ok",
+    ...(unknown ? { detail: "效果未知 · 需人工核对，不自动重试" }
+      : item.truncated ? { detail: "回执已截断，不能据此推断成功" } : computer ? { detail: computer.detail } : {}),
+  };
+  });
+}
+
+/** Final receipt is authoritative, including cancelled Runs without a failed-tool event. */
+export function overlayExecutionReceipts(rows: readonly ConversationRow[], tools: readonly ExecutionToolRecord[]): ConversationRow[] {
+  const result = [...rows];
+  for (const tool of tools) {
+    let parsed: unknown;
+    if (!tool.resultTruncated && tool.resultPreview !== null) { try { parsed = JSON.parse(tool.resultPreview); } catch { /* incomplete preview */ } }
+    const computer = presentComputerResult(tool.toolName, parsed);
+    const shell = presentShellExec(parsed) ?? (tool.shell ? presentShellExec(tool.shell) : undefined);
+    const status: ToolRowStatus = tool.status === "unknown" ? "unknown" : tool.status === "not_started" ? "not_started"
+      : tool.status === "failed" ? (tool.errorPreview?.includes("User denied") || tool.errorPreview?.startsWith("TOOL_DENIED") ? "denied" : "failed")
+      : tool.status === "requested" || tool.status === "started" ? "requested"
+      : computer?.status ?? shell?.status ?? "ok";
+    const detail = tool.status === "unknown" ? "已进入执行，但效果未知；请核对应用，不自动重试"
+      : tool.status === "not_started" ? "调用未开始，未派发动作"
+      : tool.status === "failed" ? tool.errorPreview ?? "调用失败"
+      : tool.resultTruncated ? "回执已截断，不能据此推断成功" : computer?.detail ?? shell?.detail;
+    const next: ToolRow = { kind: "tool", key: `receipt:${tool.toolCallId}`, toolCallId: tool.toolCallId,
+      toolName: tool.toolName, status, ...(tool.shell ?? {}), ...(detail ? { detail } : {}) };
+    const index = result.findIndex(row => row.kind === "tool" && row.toolCallId === tool.toolCallId);
+    if (index < 0) result.push(next);
+    else result[index] = { ...result[index] as ToolRow, status, ...(detail ? { detail } : {}) };
+  }
+  return result;
 }
 
 export interface LiveRun {
@@ -211,7 +245,7 @@ export function applyEvent(live: LiveRun, event: AgentEvent): LiveRun {
         streaming: "",
       };
     case "tool.call.completed": {
-      const outcome = presentShellExec(event.data.output) ?? toolOutcome(event.data.output);
+      const outcome = presentComputerResult(event.data.toolName, event.data.output) ?? presentShellExec(event.data.output) ?? toolOutcome(event.data.output);
       return {
         rows: live.rows.map((row) => {
           if (row.kind !== "tool" || row.toolCallId !== event.data.toolCallId) return row;

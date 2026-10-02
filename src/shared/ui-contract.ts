@@ -49,12 +49,15 @@ export interface ToolActivity {
   toolCallId: string;
   toolName: string;
   status: "completed" | "failed";
+  outcomeUnknown?: boolean;
   summary: string;
   truncated: boolean;
 }
 
 export interface AppInfo {
   modelAlias: string;
+  modelId?: string;
+  computer: { enabled: boolean; allowedBundleIds: string[] };
   identitySource?: "saved" | "explicit";
   threadId: string;
   /** The thread id was generated for this process; a restart will not return here. */
