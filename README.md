@@ -292,7 +292,7 @@ RUNLOOM_MODEL=command-code node --env-file=.env examples/cli/dist/index.js \
   --tui ./var/runloom --thread personal --workspace ./var/notes
 ```
 
-可选 `COMMAND_CODE_BASE_URL` / `COMMAND_CODE_MODEL_ID` 覆盖，Key 仅发送到所选 endpoint，覆盖 URL 时须信任该地址。缺 Key 启动失败，不借用其它 provider Key，不回退模型。该入口针对 DeepSeek 非 thinking 模式：工具回放仍不保存 provider 专属 `reasoning_content`，因此沿用 `thinking: {type: "disabled"}`；其它模型或 thinking 模式不在本次验证范围。
+可选 `COMMAND_CODE_BASE_URL` / `COMMAND_CODE_MODEL_ID` 覆盖，Key 仅发送到所选 endpoint，覆盖 URL 时须信任该地址。缺 Key 启动失败，不借用其它 provider Key，不回退模型。该入口针对 DeepSeek 非 thinking 模式：工具回放仍不保存 provider 专属 `reasoning_content`。Command Code 的 `deepseek/` 模型除了 `thinking: {type: "disabled"}`，还发送网关的 `reasoning_effort: "off"`；只发前者实测仍返回思考 token，可能耗尽正文/摘要预算。此网关不接受 `"none"`。其它模型或 thinking 模式不在本次验证范围。
 
 官方 [Provider API 文档](https://commandcode.ai/docs/provider) 与 [公开模型目录](https://api.commandcode.ai/provider/v1/models) 描述服务端能力；目录中的模型存在不证明当前账号可用。离线测试只证明 URL、认证字段、流式工具回放及 preflight 接线，真实账号与请求仍须单独验收。截图/视觉输入、Computer Use 和付费连续压缩验收未由本次接入证明，也未自动启用。
 

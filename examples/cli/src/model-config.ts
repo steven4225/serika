@@ -41,14 +41,15 @@ export function configureCliModel(
   if (!apiKey) {
     throw new Error(`${prefix}_API_KEY is required when RUNLOOM_MODEL=${mode}`);
   }
+  const modelId = env[`${prefix}_MODEL_ID`] ?? (
+    mode === "command-code" ? "deepseek/deepseek-v4.1-flash" : mode === "deepseek" ? "deepseek-flash" : "MiniMax-M3"
+  );
   const model = createConfiguredModel({
     adapter: "openai-compatible",
     baseURL: env[`${prefix}_BASE_URL`] ?? (
       mode === "command-code" ? "https://api.commandcode.ai/provider/v1" : mode === "deepseek" ? "https://api.deepseek.com" : "https://api.minimax.io/v1"
     ),
-    modelId: env[`${prefix}_MODEL_ID`] ?? (
-      mode === "command-code" ? "deepseek/deepseek-v4.1-flash" : mode === "deepseek" ? "deepseek-flash" : "MiniMax-M3"
-    ),
+    modelId,
     apiKey,
   }, options);
 
@@ -61,7 +62,11 @@ export function configureCliModel(
     model: wrapLanguageModel({
       model,
       middleware: defaultSettingsMiddleware({
-        settings: { providerOptions: { openaiCompatible: { thinking: { type: "disabled" } } } },
+        settings: { providerOptions: { openaiCompatible: {
+          thinking: { type: "disabled" },
+          // Command Code's DeepSeek route ignores thinking alone and uses "off", not "none".
+          ...(mode === "command-code" && modelId.startsWith("deepseek/") ? { reasoningEffort: "off" } : {}),
+        } } },
       }),
     }),
   };

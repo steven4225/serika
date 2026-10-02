@@ -141,7 +141,7 @@ async function child(root: string, stage: Stage) {
     const startup = await controller.getContextDiagnostics(); assert.ok(startup.ok);
     diagnostics.push({ round: "startup", diagnostic: startup });
     assert.equal(startup.value.lastPreparation, null);
-    const instructions = `只读写 ${ARTIFACT}，不要触碰 ${SENTINEL}，不要 Shell 或其它工具。先调用 read_file 核对当前内容，再用 edit_file 在末尾标记 ${END} 前追加章节。oldText 使用末尾标记的完整独立行及相邻空行，不唯一时允许用更长的末尾上下文定位；不要整文件重写。标记文字只能在文件末尾出现一次，不要在正文引用它。保留所有已有章节；工具成功后只简短报告，不把历史摘要当当前磁盘或权限。`;
+    const instructions = `只读写 ${ARTIFACT}，不要触碰 ${SENTINEL}，不要 Shell 或其它工具。先调用 read_file 核对当前内容，再用 edit_file 在末尾标记 ${END} 前追加章节。参数名严格使用 path、oldText、newText。读取确认末尾标记唯一后，oldText 使用标记行本身加换行，newText 使用新章节正文加原标记行与换行；不要加入不存在的占位说明，不要整文件重写。标记文字只能在文件末尾出现一次，不要在正文引用它。保留所有已有章节；工具成功后只简短报告，不把历史摘要当当前磁盘或权限。`;
     if (stage === "before") {
       for (const [index, topic] of topics.entries()) {
         const label = `section-${index + 1}`;
@@ -155,7 +155,7 @@ async function child(root: string, stage: Stage) {
     } else {
       assert.ok(startup.value.latestValidCompaction, "persisted valid summary must survive full process restart");
       latestId = startup.value.latestValidCompaction.id;
-      await run("reopened", `${instructions}这是进程重启后的继续任务。先从当前文件找到外部核对标记，再增加“## reopened”章节，逐字写入找到的标记并列出一个下一步。不得靠历史回忆猜标记。`);
+      await run("reopened", `${instructions}这是进程重启后的继续任务。先从当前文件找到外部核对标记，再增加“## reopened”章节。将文件首行外部核对标记整行原样复制到新章节（包含“外部核对标记：”标签、括号与句号，不只截取标记值），并列出一个下一步。不得靠历史回忆猜标记。`);
       const artifact = await readFile(join(root, "workspace", ARTIFACT), "utf8");
       assert.match(artifact, /## reopened/);
       assert.ok(artifact.slice(artifact.indexOf("## reopened")).includes(EXTERNAL));
@@ -185,8 +185,8 @@ async function startChild(root: string, stage: Stage) {
 }
 
 export async function runContextContinuityAcceptance() {
-  if (process.env.RUNLOOM_CONTEXT_CONTINUITY !== "1" || !["deepseek", "minimax-m3"].includes(process.env.RUNLOOM_MODEL ?? "")) {
-    throw new Error("Live opt-in required: RUNLOOM_CONTEXT_CONTINUITY=1 RUNLOOM_MODEL=deepseek (or minimax-m3)");
+  if (process.env.RUNLOOM_CONTEXT_CONTINUITY !== "1" || !["deepseek", "minimax-m3", "command-code"].includes(process.env.RUNLOOM_MODEL ?? "")) {
+    throw new Error("Live opt-in required: RUNLOOM_CONTEXT_CONTINUITY=1 RUNLOOM_MODEL=deepseek (or minimax-m3 / command-code)");
   }
   const root = await mkdtemp(join(tmpdir(), "runloom-context-continuity-"));
   await mkdir(join(root, "workspace", "notes"), { recursive: true });

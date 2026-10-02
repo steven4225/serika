@@ -697,13 +697,21 @@ export class ContextCompactor {
       }
       const requestPrompt = lastText.trim() === ""
         ? prompt
-        : `${prompt}\n\nThe previous response was not valid ContextSummaryV2 JSON. Reply with only the JSON object.\nPrevious response:\n${truncateSummaryText(lastText, 2_000)}`;
+        : `${prompt}\n\nThe previous response was not valid complete ContextSummaryV2 JSON. Reply with a shorter complete JSON object; do not repeat file contents or enumerate every intermediate action. Preserve constraints and uncertain effects.\nPrevious response excerpt (not a template to copy):\n${truncateSummaryText(lastText, 2_000)}`;
       try {
         const result = await this.#completeOne(requestPrompt, maxOutputTokens, signal);
         if (result.usage !== undefined) {
           usage = addObservedUsage(usage, result.usage);
         }
         lastText = result.text;
+        if (result.finishReason === "length") {
+          throw new AgentError({
+            code: "MODEL_BAD_RESPONSE",
+            message: `Context compaction output was truncated at the ${maxOutputTokens} token limit`,
+            retryable: true,
+            phase: "model",
+          });
+        }
         if (result.text.trim() === "") {
           throw new AgentError({
             code: "MODEL_TIMEOUT",
@@ -742,7 +750,7 @@ export class ContextCompactor {
     prompt: string,
     maxOutputTokens: number,
     signal: AbortSignal,
-  ): Promise<{ text: string; usage?: TokenUsage }> {
+  ): Promise<{ text: string; usage?: TokenUsage; finishReason?: string }> {
     const controller = new AbortController();
     const onAbort = (): void => controller.abort(abortError(signal));
     if (signal.aborted) controller.abort(abortError(signal));

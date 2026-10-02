@@ -21,8 +21,8 @@ import { createTaskWorkerContextLoader } from "./task-worker-context.js";
 interface Check { id: string; status: "passed" | "failed" | "not_run"; note: string }
 
 export async function runNativeMemoryAcceptance(): Promise<{ root: string; passed: boolean }> {
-  if (process.env.RUNLOOM_MEMORY_ACCEPTANCE !== "1" || !["deepseek", "minimax-m3"].includes(process.env.RUNLOOM_MODEL ?? "")) {
-    throw new Error("Explicit live opt-in required: RUNLOOM_MEMORY_ACCEPTANCE=1 RUNLOOM_MODEL=deepseek (or minimax-m3)");
+  if (process.env.RUNLOOM_MEMORY_ACCEPTANCE !== "1" || !["deepseek", "minimax-m3", "command-code"].includes(process.env.RUNLOOM_MODEL ?? "")) {
+    throw new Error("Explicit live opt-in required: RUNLOOM_MEMORY_ACCEPTANCE=1 RUNLOOM_MODEL=deepseek (or minimax-m3 / command-code)");
   }
   const root = await mkdtemp(join(tmpdir(), "runloom-memory-native-live-"));
   const workspace = join(root, "workspace"); await mkdir(workspace);
@@ -34,7 +34,7 @@ export async function runNativeMemoryAcceptance(): Promise<{ root: string; passe
     captures.push({ phase, prompt: params.prompt }); return params;
   } } });
   const checks: Check[] = [];
-  const results: Array<{ phase: string; runId: string; status: string; text: string }> = [];
+  const results: Array<{ phase: string; runId: string; status: string; text: string; error?: { code: string; message: string } }> = [];
   let controller: AssistantController | undefined;
   let app: RuntimeApp | undefined;
   const budget = { enabled: true, contextWindowTokens: 24000, maxOutputTokens: 1024, safetyMarginTokens: 512, keepRecentTokens: 1500, summaryMaxOutputTokens: 2048 };
@@ -63,8 +63,9 @@ export async function runNativeMemoryAcceptance(): Promise<{ root: string; passe
     const started = await controller!.run(text); assert.ok(started.ok);
     await done;
     const result = controller!.getSnapshot().lastPrimaryResult; assert.ok(result);
-    results.push({ phase: label, runId: result.runId, status: result.status, text: result.text });
-    assert.equal(result.status, "completed"); return result;
+    results.push({ phase: label, runId: result.runId, status: result.status, text: result.text,
+      ...(result.error ? { error: { code: result.error.code, message: result.error.message } } : {}) });
+    assert.equal(result.status, "completed", JSON.stringify(result.error ?? { status: result.status })); return result;
   }
   function check(id: string, note: string) { checks.push({ id, status: "passed", note }); }
   function actualMemory(label: string): Array<{ id: string; revision: number; text: string }> {

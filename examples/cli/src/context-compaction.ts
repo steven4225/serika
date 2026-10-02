@@ -77,7 +77,7 @@ export interface Summarizer {
     prompt: string;
     maxOutputTokens: number;
     signal: AbortSignal;
-  }): Promise<{ text: string; usage?: TokenUsage }>;
+  }): Promise<{ text: string; usage?: TokenUsage; finishReason?: string }>;
 }
 
 export function createAiSdkSummarizer(model: LanguageModel): Summarizer {
@@ -85,8 +85,12 @@ export function createAiSdkSummarizer(model: LanguageModel): Summarizer {
     async complete({ prompt, maxOutputTokens, signal }) {
       const result = streamText({
         model,
-        system:
+        system: [
           "You are a context compactor. Return only valid JSON matching the requested schema. Do not invent tool results, file writes, permissions, or current disk state.",
+          `The hard output limit is ${maxOutputTokens} tokens INCLUDING JSON syntax and IDs. Aim below ${Math.floor(maxOutputTokens / 2)} tokens so the complete object fits.`,
+          "Write a compact continuation note, not a transcript replay. Merge repeated constraints and repeated successful work on the same artifact. Do not reproduce file bodies, long tool arguments, or every intermediate read. Keep only the evidence IDs needed to support each item.",
+          "Preserve the latest goal, unique constraints, changed decisions, unfinished work and uncertain effects. Do not merge conflicting action statuses or discard an unknown effect. Include every required top-level section; use empty arrays only when there is no evidence.",
+        ].join("\n"),
         prompt,
         maxOutputTokens,
         abortSignal: signal,
@@ -97,6 +101,7 @@ export function createAiSdkSummarizer(model: LanguageModel): Summarizer {
       const usage = await result.usage;
       return {
         text,
+        finishReason: await result.finishReason,
         ...(usage === undefined
           ? {}
           : {

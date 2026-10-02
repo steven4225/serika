@@ -24,7 +24,7 @@ RUNLOOM_MEMORY_ACCEPTANCE=1 RUNLOOM_MODEL=deepseek \
   node --env-file=.env examples/cli/dist/memory-native-acceptance.js
 ```
 
-也可使用已配置的 `RUNLOOM_MODEL=minimax-m3`。无显式 opt-in 时入口拒绝，普通 `pnpm test` 不联网。命令返回隔离 root 和 passed；不要把 root 放进自己的日用 workspace，也不要删除它再声称有证据。
+也可使用已配置的 `RUNLOOM_MODEL=minimax-m3` 或 `RUNLOOM_MODEL=command-code`（后者使用 `COMMAND_CODE_API_KEY`）。无显式 opt-in 时入口拒绝，普通 `pnpm test` 不联网。命令返回隔离 root 和 passed；不要把 root 放进自己的日用 workspace，也不要删除它再声称有证据。
 
 验收创建临时 workspace、配置和两个 Thread，记录 `report.json`、`provider-inputs.json`、聊天与 worker JSONL、execution receipts、`memory.json` 和 `tasks.json`。只使用内置无敏感信息文本，不复制 API key/header。provider inputs 含测试对话，公开前仍需检查。
 
@@ -50,6 +50,14 @@ DeepSeek 后端 Controller + worker 完整链通过，隔离证据目录为 `/va
 
 通过轮的更新回执为 revision 2，但模型最终解释误称并非从 revision 1 更新；这是回答准确性瑕疵，不应当作程序版本事实。验收时以实际工具回执与存储为准。
 
-## 桌面接线待验项（未跑）
+## 后端复验（2026-10-03，Command Code）
+
+使用默认 `deepseek/deepseek-v4.1-flash`，同一入口完整通过。证据目录：`/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/runloom-memory-native-live-uXjlHH`。待审时正式 entries 为空；重开接受/拒绝和接受重放、跨 Thread revision 1、新版 revision 2、真实 `/compact` 后重开引用当前版本、禁用后 `NO_MATCH`、worker 7344 字节参考及 Thread 私有项排除均通过。接受得到的记忆 ID 是 `a12a7bc5-73d5-419f-b15a-eb04edcc169e`；最后的测试禁用操作将它推进到 revision 3，历史仍可查，不代表物理删除。
+
+最初 `REe8Li` 目录保留失败：primary 输出耗尽 1024 token，Run 为 failed，未写正式记忆。定位后发现 Command Code 的 DeepSeek 路由没有用 `thinking: disabled` 关闭思考，需额外发送 `reasoning_effort: off`；修复网关参数后按原预算复跑，没有增加输出额度、改来源契约或放宽摘要校验。此处只记录一次完整后端通过，不宣称重复运行成功率或 Electron 人工审核已由本脚本证明。
+
+随后补上摘要预算提示与 `finishReason: length` 拒绝安装后，在全新隔离目录 `runloom-memory-native-live-WHnptq`（同一临时目录父路径）再次完整通过，未改验收预算。正式记忆 ID `e958b5a8-c3e4-4ef7-9d1f-efd993aefa44`；原话取材、待审无正式写入、重开接受/拒绝与重放、跨 Thread revision 1、更新 revision 2、压缩后恢复当前版本、禁用后 `NO_MATCH`、workspace-only worker 7344 字节快照均通过。`report.json` 仍将 `uiAcceptance` 与 `notificationDelivery` 标为 `not_run`；两次独立后端通过不能据此宣称总体成功率。
+
+## 桌面接线待验项（本入口未跑）
 
 前端另一个 agent 负责。需用户真正预览原话/改动并点击 accept/reject、处理 stale/revision 冲突、刷新后重读候选；不能将 consolidation completed 显示为已保存正式记忆。普通审批仍用 approvalId；candidateId 不是 approvalId。通知/launchd/TUI 体验不属于本入口封板。

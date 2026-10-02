@@ -1,5 +1,6 @@
 import {
   APICallError,
+  asSchema,
   convertToModelMessages,
   stepCountIs,
   streamText,
@@ -603,7 +604,15 @@ export class AiSdkAgentLoop implements AgentLoop {
         }
 
         if (call.invalid) {
-          const error = toolError("TOOL_INVALID_INPUT", call.toolName);
+          // Return schema names, not the SDK exception (which can contain the whole input).
+          // Keep invalid calls unexecuted, but give the model enough information to correct them.
+          const schema = await asSchema(registered.inputSchema).jsonSchema;
+          const required = (schema.required ?? []).slice(0, 16).map((name: string) => name.slice(0, 64));
+          const hint = required.length > 0
+            ? ` Required fields (case-sensitive): ${required.join(", ")}.`
+            : " Check the tool's input schema.";
+          const error = toolError("TOOL_INVALID_INPUT", call.toolName,
+            `Tool input is invalid: ${call.toolName}.${hint} No tool was executed.`);
           assistantParts.push(toolResultError(call, error.data));
           await input.emit("tool.call.failed", {
             toolCallId: call.toolCallId,
