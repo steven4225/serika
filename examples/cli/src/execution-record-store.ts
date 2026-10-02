@@ -231,7 +231,8 @@ export class ExecutionRecordStore {
         return;
       }
       if (tool.status !== "requested" && tool.status !== "started") fail("CONFLICT", "Tool call is terminal");
-      tool.status = event.type === "tool.call.completed" ? "completed" : "failed";
+      tool.status = event.type === "tool.call.completed" ? "completed"
+        : event.data.error.code === "TOOL_OUTCOME_UNKNOWN" ? "unknown" : "failed";
       tool.finishedAt = event.occurredAt;
       if (event.type === "tool.call.completed") {
         const result = stringifyPreview(event.data.output);

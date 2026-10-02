@@ -33,6 +33,8 @@ export interface ToolActivity {
   toolCallId: string;
   toolName: string;
   status: "completed" | "failed";
+  /** Invocation failed, but the external effect is not known to have failed. */
+  outcomeUnknown?: boolean;
   summary: string;
   truncated: boolean;
 }
@@ -373,6 +375,8 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
               toolCallId: event.data.toolCallId,
               toolName: event.data.toolName ?? toolNames.get(event.data.toolCallId) ?? "unknown",
               status: event.type === "tool.call.completed" ? "completed" : "failed",
+              ...(event.type === "tool.call.failed" && event.data.error.code === "TOOL_OUTCOME_UNKNOWN"
+                ? { outcomeUnknown: true } : {}),
               summary: raw.slice(0, MAX_TOOL_SUMMARY_CHARS),
               truncated: raw.length > MAX_TOOL_SUMMARY_CHARS,
             };

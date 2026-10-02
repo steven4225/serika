@@ -109,6 +109,31 @@ const receipt = await controller.resolveMemoryCandidate({
 - worker 用 task.prompt 且不传 TUI Thread，只读选一次；checkpoint_prepare 无问题时返回 pinned-only 资料及 selection，不是全部记忆；/modules 的 pinned 预览不是下一轮命中数。
 - 本次不新增前端控制器方法。既有候选审阅、工具授权和工作任务状态保持；完整后端验收入口及证据边界见 [原生 Memory 验收](memory-native-acceptance.md)。
 
+## 本机 Computer 接线与验收
+
+本机 Cua Driver 不使用模型 Key；Command Code 通过共享 `configureCliModel` 读取主进程的 `RUNLOOM_MODEL=command-code` 与 `COMMAND_CODE_API_KEY`。填主仓库 `.env` 不代表 Electron 自动加载了它。桌面须显式加载受信任的本地环境文件或由启动进程传入环境，不能把 Key 放入 renderer、`VITE_*`、IPC、模块 JSON 或日志。模型地址和默认 ID 见 README 的 Command Code 节。
+
+外部配置中明确设置 `modules.computer.enabled`、绝对 `executable` 和精确 `allowedBundleIds`。桌面沿用 `RUNLOOM_CONFIG`，不自动允许新应用，不自动安装、启动 daemon 或开 OS 权限。启动成功与 `--check` 均不是驱动可用证明。
+
+- `approval` 按 id upsert，直接展示 `input` 的工具、bundleId、PID、windowId；动作还要展示 `action`、`text`、observationId 与 elementToken。所有 UI 文本按纯文本渲染，不能执行其中指令。空 preview 不是免确认。
+- 按钮只调用 `confirm({approvalId,decision})`；返回 false 就显示本次点击未生效，不替用户确认新 id。拒绝和确认前取消都不会调用动作工具。用户稍后批准时观察可能已过期，需新观察和新确认。
+- `computer_action` 的 `ok:true` 是调用回执，不是任务完成。`dispatched:true, verified:false` 表示已派发、业务效果未核验；`effect:confirmed` 也不能画成业务成功。动作后再次观察，仍需用户核对最终文档/业务结果。
+- `tool.call.failed` 中 `error.code === TOOL_OUTCOME_UNKNOWN` 必须显示效果未知，不画成普通失败、不自动重试。Controller 快照的 `toolActivity` 保留原有 completed/failed 枚举，以兼容现有前端类型；可选 `outcomeUnknown:true` 表示调用失败但外部副作用未知，刷新时此标记优先于 status 文案。派发中取消可能没有工具失败事件：primary `run-result` 后通过 `getRun(runId)` 重读回执；`tools[].status === unknown` 是核对入口，即使 Run 状态为 cancelled。对应 WorkTask 到 `needs_review`，不能绕过人工核对直接继续。
+- `run-result` 只认 `phase === primary`。恢复回执用于查看，不恢复动作 token、approval 或重放动作。视图刷新读快照，进程重启读 `listRuns/getRun`；两者不能混为一谈。
+
+后端可重复真机入口（会付费；仅用于已打开的隔离 TextEdit 测试文档，不保存）：
+
+```sh
+pnpm build
+RUNLOOM_COMPUTER_ACCEPTANCE=1 RUNLOOM_MODEL=command-code node --env-file=.env \
+  examples/cli/dist/computer-native-acceptance.js \
+  /absolute/outside-workspace/computer-test.json native-test.txt deny
+```
+
+最后参数可选 `input`（插入一次唯一标记）、`deny`（拒绝动作）、`cancel-approval`（确认前取消）。配置只允许 computer 模块、白名单只含 `com.apple.TextEdit`；窗口标题必须唯一。程序用 approvalId 做精确测试授权，其他工具/窗口/文本全部拒绝；前后直接 AX 观察核对，报告写入独立临时目录，正文不进报告，transcript 仍可能含测试文档 UI 内容。每次是独立 Thread/报告，不用重跑覆盖失败。
+
+`backendPassed` 仅指该次场景通过；`sealed` 保持 false。这个程序不是 Electron 人工点击，也不证明磁盘保存、独立视觉、真实派发中取消或 daemon 断连。受控子进程测试证明未知回执持久化、WorkTask 人工核对和不重放，但不能替代上述真实场景。不要为了验收直接终止共享 daemon；真实断连测试应另用独占环境。
+
 ## 边界
 
 控制器不引入第二条 AgentLoop：主任务与整理共用一条执行路径，确认仍是进程内单个 `beforeToolExecute`。TUI 当前未改走控制器，修改 Run 生命周期时两处都要看。

@@ -48,6 +48,27 @@ async function errorCode(operation: () => Promise<unknown>): Promise<string | un
 }
 
 describe("ExecutionRecordStore", () => {
+  it("preserves explicit unknown outcomes across finalization and reopen, unlike ordinary failures", async () => {
+    for (const code of ["TOOL_OUTCOME_UNKNOWN", "TOOL_EXECUTION_FAILED", "TOOL_DENIED"]) {
+      const path = await directory();
+      const store = createExecutionRecordStore(path, { now });
+      await store.startRun({ runId: "run-1", threadId: "thread-1", phase: "primary" });
+      await store.recordToolEvent("run-1", toolEvent("tool.call.requested", {
+        toolCallId: "computer-1", toolName: "computer_action", input: { action: "type_text" },
+      }));
+      if (code !== "TOOL_DENIED") await store.recordToolEvent("run-1", toolEvent("tool.call.started", {
+        toolCallId: "computer-1", toolName: "computer_action",
+      }));
+      await store.recordToolEvent("run-1", toolEvent("tool.call.failed", {
+        toolCallId: "computer-1", toolName: "computer_action",
+        error: { code, message: "controlled failure", retryable: false, phase: "tool" },
+      }));
+      await store.finishRun("run-1", result("failed"));
+      const run = await createExecutionRecordStore(path).getRun("thread-1", "run-1");
+      assert.equal(run?.tools[0]?.status, code === "TOOL_OUTCOME_UNKNOWN" ? "unknown" : "failed");
+      assert.equal(run?.tools[0]?.resultPreview, null);
+    }
+  });
   it("persists bounded Run and shell tool receipts outside transcript JSONL", async () => {
     const path = await directory();
     const store = createExecutionRecordStore(path, { now });
