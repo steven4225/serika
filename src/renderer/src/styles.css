@@ -654,3 +654,69 @@ button.chip {
   gap: 4px;
   flex-wrap: wrap;
 }
+
+.memory-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.memory-filters {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.memory-filters .chip.active {
+  color: var(--text);
+  border-color: rgba(var(--accent-rgb), 0.7);
+}
+
+.memory-list,
+.memory-detail,
+.memory-change {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.memory-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: baseline;
+}
+
+.memory-row-text {
+  flex: 1 1 120px;
+  word-break: break-word;
+}
+
+.memory-label {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.memory-text,
+.memory-reason,
+.memory-receipt {
+  margin: 0;
+  max-height: 140px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: 11.5px;
+}
+
+.memory-reason,
+.memory-receipt {
+  color: var(--muted);
+}
+
+.memory-receipt {
+  color: var(--success);
+}

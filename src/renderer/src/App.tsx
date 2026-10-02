@@ -22,6 +22,7 @@ import {
   type ToolRowStatus,
 } from "./conversation.js";
 import { baseName, parseHome, shortId, type HomeView } from "./home.js";
+import { MemoryPanel } from "./memory.js";
 import { RecordsPanel, type RecordDetailState, type RecordsState } from "./records.js";
 
 const OUTPUT_MAX_CHARS = 64 * 1024;
@@ -38,7 +39,7 @@ function stateLabel(state: UiState): string {
     case "resuming":
       return "核对 Git";
     case "command":
-      return `/${state.name}`;
+      return state.name === "memory-review" ? "审核记忆" : `/${state.name}`;
     default: {
       const exhaustive: never = state;
       return exhaustive;
@@ -214,6 +215,7 @@ export function App() {
   const [input, setInput] = useState("");
   const [showOutput, setShowOutput] = useState(false);
   const [records, setRecords] = useState<RecordsState>({ status: "loading" });
+  const [memoryRefresh, setMemoryRefresh] = useState(0);
   const [recordDetail, setRecordDetail] = useState<RecordDetailState>({ status: "idle" });
   const homeBuffer = useRef("");
   const shellBuffer = useRef(new ShellProgressBuffer());
@@ -327,6 +329,9 @@ export function App() {
           if (message.phase !== "primary") return;
           shellBuffer.current.apply(message.progress);
           setLive((previous) => applyShellProgress(previous, message.progress.toolCallId, shellBuffer.current));
+          return;
+        case "memory-updated":
+          setMemoryRefresh((value) => value + 1);
           return;
         case "error":
           setError(message.message);
@@ -453,6 +458,15 @@ export function App() {
         onRefresh={() => void loadRecords(selectedRecordId.current ?? undefined)}
         onOpen={(runId) => void openRecord(runId)}
       />
+
+      {info ? (
+        <MemoryPanel
+          memory={info.memory}
+          temporaryThread={info.temporaryThread}
+          controllerIdle={!busy}
+          refreshToken={memoryRefresh}
+        />
+      ) : null}
 
       <section className="card conversation">
         <div className="card-head">

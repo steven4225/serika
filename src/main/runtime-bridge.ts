@@ -14,6 +14,14 @@ import {
   wrapExecutionQuery,
 } from "../shared/execution-records.js";
 import type {
+  CandidateListInput,
+  CandidatePage,
+  CandidatePreview,
+  CandidateResolution,
+  CandidateResolveInput,
+  MemoryResult,
+} from "@aisdk-agent/example-cli/dist/memory-candidates.js";
+import type {
   AppInfo,
   CommandResponse,
   ConfirmInput,
@@ -87,7 +95,73 @@ export function toUiState(state: AssistantState): UiState {
   return state;
 }
 
-export function assistantEventToRenderer(event: AssistantEvent): MainToRenderer {
+const CANDIDATE_STATUSES = ["pending", "accepted", "rejected", "stale"] as const;
+
+type CandidateStatus = (typeof CANDIDATE_STATUSES)[number];
+
+function invalidInput(message: string): MemoryResult<never> {
+  return { ok: false, error: { code: "INVALID_INPUT", message } };
+}
+
+/** Keep only list fields the controller understands. Drop path, thread, and source. */
+export function sanitizeCandidateListInput(input: unknown): CandidateListInput | MemoryResult<never> {
+  if (input === undefined || input === null) return {};
+  if (typeof input !== "object" || Array.isArray(input)) return invalidInput("Candidate list input must be an object");
+  const record = input as Record<string, unknown>;
+  const result: CandidateListInput = {};
+  if ("status" in record && record.status !== undefined) {
+    if (!CANDIDATE_STATUSES.includes(record.status as CandidateStatus)) {
+      return invalidInput("Candidate status must be pending, accepted, rejected, or stale");
+    }
+    result.status = record.status as CandidateStatus;
+  }
+  if ("offset" in record && record.offset !== undefined) {
+    if (typeof record.offset !== "number" || !Number.isSafeInteger(record.offset) || record.offset < 0) {
+      return invalidInput("Candidate offset must be a non-negative integer");
+    }
+    result.offset = record.offset;
+  }
+  if ("limit" in record && record.limit !== undefined) {
+    if (typeof record.limit !== "number" || !Number.isSafeInteger(record.limit) || record.limit < 1) {
+      return invalidInput("Candidate limit must be a positive integer");
+    }
+    result.limit = record.limit;
+  }
+  return result;
+}
+
+/** Accept only the review identity. Ignore approvalId, memory revision, and proposed text. */
+export function sanitizeCandidateResolveInput(input: unknown): CandidateResolveInput | MemoryResult<never> {
+  if (typeof input !== "object" || input === null || Array.isArray(input)) {
+    return invalidInput("Candidate review input must be an object");
+  }
+  const record = input as Record<string, unknown>;
+  if (typeof record.candidateId !== "string" || record.candidateId.length === 0) {
+    return invalidInput("Candidate id must be non-empty");
+  }
+  if (typeof record.expectedCandidateRevision !== "number" || !Number.isSafeInteger(record.expectedCandidateRevision) || record.expectedCandidateRevision < 1) {
+    return invalidInput("Candidate revision must be a positive integer");
+  }
+  if (record.decision !== "accept" && record.decision !== "reject") {
+    return invalidInput("Candidate decision must be accept or reject");
+  }
+  return {
+    candidateId: record.candidateId,
+    expectedCandidateRevision: record.expectedCandidateRevision,
+    decision: record.decision,
+  };
+}
+
+function isInputError<T>(value: CandidateListInput | CandidateResolveInput | MemoryResult<T>): value is MemoryResult<T> {
+  return "ok" in value && value.ok === false;
+}
+
+/**
+ * Map a controller event onto the renderer channel.
+ * `work-task-updated` has no desktop page in this round, so it is dropped.
+ * Unknown events stay in the exhaustive default and are not silently ignored.
+ */
+export function assistantEventToRenderer(event: AssistantEvent): MainToRenderer | null {
   switch (event.type) {
     case "state":
       return { type: "state", state: toUiState(event.state) };
@@ -106,6 +180,10 @@ export function assistantEventToRenderer(event: AssistantEvent): MainToRenderer 
         runId: event.runId,
         progress: event.progress,
       };
+    case "memory-updated":
+      return { type: "memory-updated", reason: event.reason };
+    case "work-task-updated":
+      return null;
     case "output":
       return { type: "output", text: event.text };
     case "error":
@@ -162,7 +240,8 @@ export class RuntimeBridge {
     this.#output = output;
     this.#unsubscribe = controller.subscribe((event) => {
       if (event.type === "shell-progress") this.#shell.apply(event.progress);
-      send(assistantEventToRenderer(event));
+      const message = assistantEventToRenderer(event);
+      if (message !== null) send(message);
     });
   }
 
@@ -184,6 +263,10 @@ export class RuntimeBridge {
       hasResume: this.#app.resume !== undefined,
       totalTimeoutMs: this.#app.moduleConfig?.totalTimeoutMs ?? TUI_DEFAULT_TOTAL_TIMEOUT_MS,
       shellTimeoutMs: this.#app.moduleConfig?.shellTimeoutMs ?? TUI_DEFAULT_SHELL_TIMEOUT_MS,
+      memory: {
+        enabled: this.#app.moduleConfig?.enabled.memory === true && this.#app.memoryStore !== undefined,
+        autoConsolidate: this.#app.autoConsolidationAgentId !== undefined,
+      },
     };
   }
 
@@ -235,6 +318,23 @@ export class RuntimeBridge {
     return toGetRunResponse(
       await wrapExecutionQuery((): Promise<ExecutionRunRecord | null> => this.#controller.getRun(runId)),
     );
+  }
+
+  async listMemoryCandidates(input?: CandidateListInput): Promise<MemoryResult<CandidatePage>> {
+    const sanitized = sanitizeCandidateListInput(input);
+    if (isInputError(sanitized)) return sanitized;
+    return this.#controller.listMemoryCandidates(sanitized);
+  }
+
+  async getMemoryCandidate(id: string): Promise<MemoryResult<CandidatePreview>> {
+    if (typeof id !== "string" || id.length === 0) return invalidInput("Candidate id must be non-empty");
+    return this.#controller.getMemoryCandidate(id);
+  }
+
+  async resolveMemoryCandidate(input: CandidateResolveInput): Promise<MemoryResult<CandidateResolution>> {
+    const sanitized = sanitizeCandidateResolveInput(input);
+    if (isInputError(sanitized)) return sanitized;
+    return this.#controller.resolveMemoryCandidate(sanitized);
   }
 
   async shutdown(): Promise<void> {

@@ -5,6 +5,7 @@ import { createRuntimeApp } from "@aisdk-agent/example-cli/dist/app.js";
 import { createAssistantController } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
 import { createDemoModel } from "@aisdk-agent/example-cli/dist/demo-model.js";
 import { configureCliModel } from "@aisdk-agent/example-cli/dist/model-config.js";
+import type { CandidateListInput, CandidateResolveInput } from "@aisdk-agent/example-cli/dist/memory-candidates.js";
 import { IPC, type ConfirmInput, type MainToRenderer } from "../shared/ui-contract.js";
 import { resolveDesktopConfig } from "./desktop-config.js";
 import { parseModuleNotification, RuntimeBridge, TeeOutput } from "./runtime-bridge.js";
@@ -152,6 +153,9 @@ async function main(): Promise<void> {
   ipcMain.handle(IPC.command, (_event, line: string) => bridge.command(line));
   ipcMain.handle(IPC.listRuns, () => bridge.listRuns());
   ipcMain.handle(IPC.getRun, (_event, runId: string) => bridge.getRun(runId));
+  ipcMain.handle(IPC.memoryCandidatesList, (_event, input?: CandidateListInput) => bridge.listMemoryCandidates(input));
+  ipcMain.handle(IPC.memoryCandidateGet, (_event, id: string) => bridge.getMemoryCandidate(id));
+  ipcMain.handle(IPC.memoryCandidateResolve, (_event, input: CandidateResolveInput) => bridge.resolveMemoryCandidate(input));
 
   app.on("before-quit", (event) => {
     if (shuttingDown) return;

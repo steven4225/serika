@@ -12,6 +12,9 @@ const api: RendererApi = {
   command: (line) => ipcRenderer.invoke(IPC.command, line),
   listRuns: () => ipcRenderer.invoke(IPC.listRuns),
   getRun: (runId) => ipcRenderer.invoke(IPC.getRun, runId),
+  listMemoryCandidates: (input) => ipcRenderer.invoke(IPC.memoryCandidatesList, input),
+  getMemoryCandidate: (id) => ipcRenderer.invoke(IPC.memoryCandidateGet, id),
+  resolveMemoryCandidate: (input) => ipcRenderer.invoke(IPC.memoryCandidateResolve, input),
   hide: () => ipcRenderer.invoke(IPC.hide),
   onMessage: (listener) => {
     const wrapped = (_event: IpcRendererEvent, message: MainToRenderer) => listener(message);

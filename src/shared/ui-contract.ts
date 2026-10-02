@@ -1,5 +1,13 @@
 import type { UIMessage } from "ai";
 import type { AgentEvent, RunResult } from "@aisdk-agent/core";
+import type {
+  CandidateListInput,
+  CandidatePage,
+  CandidatePreview,
+  CandidateResolution,
+  CandidateResolveInput,
+  MemoryResult,
+} from "@aisdk-agent/example-cli/dist/memory-candidates.js";
 
 /**
  * The only surface between the Electron main process and the renderer.
@@ -62,6 +70,11 @@ export interface AppInfo {
   totalTimeoutMs: number;
   /** Shell command budget from the TUI config. */
   shellTimeoutMs: number;
+  /** Actual module state. The desktop does not rewrite this into the user's config. */
+  memory: {
+    enabled: boolean;
+    autoConsolidate: boolean;
+  };
 }
 
 export interface UiSnapshot {
@@ -86,6 +99,7 @@ export type MainToRenderer =
   | { type: "event"; phase: RunPhase; event: AgentEvent }
   | { type: "result"; phase: RunPhase; result: RunResult }
   | { type: "shell-progress"; phase: RunPhase; runId: string; progress: ShellProgressChunk }
+  | { type: "memory-updated"; reason: "proposals" | "review" | "write" }
   | { type: "error"; message: string };
 
 export type ConfirmInput = { approvalId: string; decision: "allow" | "deny" };
@@ -165,6 +179,9 @@ export interface RendererApi {
   command(line: string): Promise<CommandResponse>;
   listRuns(): Promise<ListRunsResponse>;
   getRun(runId: string): Promise<GetRunResponse>;
+  listMemoryCandidates(input?: CandidateListInput): Promise<MemoryResult<CandidatePage>>;
+  getMemoryCandidate(id: string): Promise<MemoryResult<CandidatePreview>>;
+  resolveMemoryCandidate(input: CandidateResolveInput): Promise<MemoryResult<CandidateResolution>>;
   hide(): Promise<void>;
   onMessage(listener: (message: MainToRenderer) => void): () => void;
 }
@@ -180,6 +197,9 @@ export const IPC = {
   command: "runloom:command",
   listRuns: "runloom:listRuns",
   getRun: "runloom:getRun",
+  memoryCandidatesList: "runloom:memoryCandidatesList",
+  memoryCandidateGet: "runloom:memoryCandidateGet",
+  memoryCandidateResolve: "runloom:memoryCandidateResolve",
   hide: "runloom:hide",
   message: "runloom:message",
 } as const;
