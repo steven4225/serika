@@ -1,5 +1,7 @@
 # 阶段二：长上下文与记忆真实验收指南
 
+> 历史验收说明：本文记忆链记录的是原生 Memory A+B 之前的实现，不适用于当前候选持久化与游标协议。当前 Memory 验收以 [memory-native-acceptance.md](memory-native-acceptance.md) 为准；不要再用普通回复的候选编号、`memory_add` 或 JSONL 自动整理标记代替原生候选接受/游标验收。下文压缩链仍可复用，但历史手动 `/compact` 通过不证明自动阈值压缩或 Electron 连续使用已封板。
+
 本轮只验两条现有 TUI 主链：①低预算下真实压缩、继续任务、重启同一 Thread、回查原文；②被动自动整理、用户在可见 TUI 确认写入、新 Thread 使用。**两条主链已在隔离环境真实验收通过**；其中压缩由手动 `/compact` 触发，不代表日用配置的自动阈值表现。离线测试、mock 模型、`/compact` 的成功提示或单独一个 `completed` Run 都不能代替完整链路。这里不新增 Axx 案例、记录 schema 或验收平台；每条链路、每次尝试各写一份本地 Markdown 报告。
 
 ## 一次性隔离准备

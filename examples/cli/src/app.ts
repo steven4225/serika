@@ -27,7 +27,9 @@ import {
   selectModelContext,
   validateContextBudgetConfig,
 } from "./context-window.js";
-import { ContextCompactor } from "./context-compactor.js";
+import { ContextCompactor, readContextDiagnostics } from "./context-compactor.js";
+import { DEFAULT_CONTEXT_BUDGET_CONFIG } from "./context-budget.js";
+import type { ContextDiagnostics, ContextResult } from "./context-diagnostics.js";
 import { createAiSdkSummarizer } from "./context-compaction.js";
 import { lookupTranscript } from "./work-summary.js";
 import { parseTuiArgs } from "./cli-options.js";
@@ -120,6 +122,7 @@ export interface RuntimeApp {
   toolConfirmation: ToolConfirmation | undefined;
   commands: ReadonlyMap<string, TuiCommand> | undefined;
   compaction: TuiCompaction | undefined;
+  getContextDiagnostics(): Promise<ContextResult<ContextDiagnostics>>;
   resume: TuiResume | undefined;
   autoConsolidationAgentId: string | undefined;
   memoryStore?: ReturnType<typeof createMemoryStore>;
@@ -717,6 +720,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         ...(activeWorkTaskMessage ? [activeWorkTaskMessage] : []),
       ];
     };
+    let lastUncompactedPreparation: ContextDiagnostics["lastPreparation"] = null;
     const contextCompactor =
       tuiMode && moduleConfig?.contextCompaction.enabled === true
         ? new ContextCompactor({
@@ -928,8 +932,29 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         ? {
             prepareModelContext: async ({ messages, signal, definition }) => {
               if (definition.id !== PRIMARY_AGENT_ID) return selectModelContext(messages);
-              const prefix = await referencePrefix(messages, signal);
-              if (contextCompactor === undefined) return selectModelContext(messages, [], {}, undefined, undefined, prefix);
+              let prefix: UIMessage[];
+              try {
+                prefix = await referencePrefix(messages, signal);
+                if (contextCompactor === undefined) {
+                  const selected = selectModelContext(messages, [], {}, undefined, undefined, prefix);
+                  lastUncompactedPreparation = {
+                    at: new Date().toISOString(), outcome: "passthrough", compactionId: null,
+                    estimatedInputTokens: null, error: null,
+                  };
+                  return selected;
+                }
+              } catch (error) {
+                contextCompactor?.recordPreparationFailure(error);
+                lastUncompactedPreparation = {
+                  at: new Date().toISOString(), outcome: "failed", compactionId: null,
+                  estimatedInputTokens: null,
+                  error: {
+                    code: error instanceof AgentError ? error.data.code : "CONTEXT_PREPARE_FAILED",
+                    message: error instanceof Error ? error.message : String(error),
+                  },
+                };
+                throw error;
+              }
               const conversation = await contextCompactor.prepare(messages, signal, false, prefix);
               return [...contextCompactor.effectiveReferencePrefix, ...conversation];
             },
@@ -995,6 +1020,10 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       compaction: contextCompactor
         ? { compact: (signal: AbortSignal) => contextCompactor.compact(signal) }
         : undefined,
+      getContextDiagnostics: () => contextCompactor?.getDiagnostics() ?? readContextDiagnostics(
+        store, threadId, moduleConfig?.contextCompaction ?? DEFAULT_CONTEXT_BUDGET_CONFIG,
+        lastUncompactedPreparation,
+      ),
       resume,
       autoConsolidationAgentId: moduleConfig?.autoConsolidate ? consolidationAgent.id : undefined,
       ...(memoryStore ? { memoryStore } : {}),

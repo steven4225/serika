@@ -7,7 +7,7 @@ import type {
   ThreadContextCompactionRecord,
 } from "@aisdk-agent/core";
 import { AgentError } from "@aisdk-agent/core";
-import { ContextCompactor, type ContextCompactorOptions } from "./context-compactor.js";
+import { ContextCompactor, readContextDiagnostics, type ContextCompactorOptions } from "./context-compactor.js";
 import { contextSummaryPrompt, type ContextCompactionRecord, type ContextSummaryV2, type Summarizer } from "./context-compaction.js";
 import type { ContextBudgetConfig } from "./context-budget.js";
 import {
@@ -104,6 +104,82 @@ function makeCompactor(
 }
 
 describe("ContextCompactor", () => {
+  it("reads diagnostics without preparing, calling the model, or writing; restart is not a preparation", async () => {
+    const store = new FakeStore();
+    store.messages = [user("u1", "old goal ".repeat(40)), assistant("a1", "old result ".repeat(40)), user("u2", "continue")];
+    const summarizer = new FakeSummarizer();
+    const original = makeCompactor(store, summarizer);
+    await original.prepare(store.messages, new AbortController().signal);
+    const recorded = await original.getDiagnostics();
+    assert.equal(recorded.ok, true);
+    if (!recorded.ok) return;
+    assert.equal(recorded.value.lastPreparation?.outcome, "written");
+    assert.equal(recorded.value.lastPreparation?.compactionId, "compact-1");
+    assert.equal(recorded.value.lastPreparation?.estimatedInputTokens, recorded.value.latestValidCompaction?.metrics.estimatedInputAfter);
+    assert.equal(recorded.value.latestValidCompaction?.metrics.usage, undefined);
+    assert.equal("summary" in (recorded.value.latestValidCompaction ?? {}), false);
+    const before = structuredClone(store.records);
+    const reopened = makeCompactor(store, summarizer);
+    const restored = await reopened.getDiagnostics();
+    assert.equal(restored.ok, true);
+    if (!restored.ok) return;
+    assert.equal(restored.value.latestValidCompaction?.id, "compact-1");
+    assert.equal(restored.value.lastPreparation, null);
+    assert.equal(summarizer.calls, 1);
+    assert.deepEqual(store.records, before);
+    await reopened.prepare(store.messages, new AbortController().signal);
+    const reused = await reopened.getDiagnostics();
+    assert.equal(reused.ok && reused.value.lastPreparation?.outcome, "reused");
+    assert.equal(summarizer.calls, 1);
+  });
+
+  it("skips nonmatching records, retains valid historical evidence after a failed preparation, and reports read failure", async () => {
+    const store = new FakeStore();
+    store.messages = [user("u1", "old goal ".repeat(40)), assistant("a1", "old result ".repeat(40)), user("u2", "continue")];
+    await makeCompactor(store, new FakeSummarizer()).prepare(store.messages, new AbortController().signal);
+    const invalid = { ...structuredClone(store.records[0]!), id: "invalid", sourcePrefixHash: "not-the-prefix" };
+    store.records.push(invalid);
+    const compactor = makeCompactor(store, new NonRetryableSummarizer(), budget, {
+      fixedContext: () => { throw new Error("fixed context unavailable"); },
+    });
+    await assert.rejects(compactor.prepare(store.messages, new AbortController().signal), /unavailable/);
+    const result = await compactor.getDiagnostics();
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.value.latestValidCompaction?.id, "compact-1");
+    assert.equal(result.value.lastPreparation?.outcome, "failed");
+    assert.equal(result.value.lastPreparation?.compactionId, null);
+    assert.match(result.value.lastPreparation?.error?.message ?? "", /unavailable/);
+    store.getMessages = async () => { throw new Error("cannot read transcript"); };
+    const unreadable = await compactor.getDiagnostics();
+    assert.equal(unreadable.ok, false);
+    if (!unreadable.ok) assert.match(unreadable.error.message, /cannot read/);
+  });
+
+  it("reports empty and disabled context without claiming a preparation or model usage", async () => {
+    const store = new FakeStore();
+    const result = await readContextDiagnostics(store, "thread-1", { ...budget, enabled: false });
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.value.enabled, false);
+    assert.equal(result.value.estimatorVersion, "char-half/v1");
+    assert.equal(result.value.latestValidCompaction, null);
+    assert.equal(result.value.lastPreparation, null);
+    assert.equal(store.records.length, 0);
+  });
+
+  it("does not manufacture zero usage fields that the model did not return", async () => {
+    const store = new FakeStore();
+    store.messages = [user("u1", "old goal ".repeat(40)), assistant("a1", "old result ".repeat(40)), user("u2", "continue")];
+    const compactor = makeCompactor(store, {
+      complete: async () => ({ text: JSON.stringify(summary), usage: { inputTokens: 9 } }),
+    });
+    await compactor.prepare(store.messages, new AbortController().signal);
+    const result = await compactor.getDiagnostics();
+    assert.equal(result.ok, true);
+    if (result.ok) assert.deepEqual(result.value.latestValidCompaction?.metrics.usage, { inputTokens: 9 });
+  });
+
   it("asks the summarizer for evidenced values without an empty JSON template", () => {
     const prompt = contextSummaryPrompt({ messages: [user("u1", "Continue the report")] });
     assert.match(prompt, /non-empty text/);

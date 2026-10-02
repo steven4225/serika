@@ -28,6 +28,16 @@ import { createAssistantController } from "@aisdk-agent/example-cli/dist/assista
 - Shell 运行时，控制器发 `shell-progress`：`{ phase, runId, progress: { toolCallId, sequence, stream, text, truncated } }`。按 `toolCallId` 分组、按 `sequence` 追加；`stream` 是 `stdout` 或 `stderr`，不保证两个流的操作系统级先后顺序。最多展示现有 64 KiB 输出窗口及 256 个进度事件；`truncated` 表示后续展示不完整。
 - 进度只是即时显示，不是工具成功回执，也不会进入模型上下文或 JSONL。最终结果仍看 `tool.call.completed` 中 `shell_exec` 的 `exitCode`、`timedOut`、`cancelled`、`truncated`。页面重载后可以恢复控制器状态和已完成回执，但阶段二不承诺恢复已丢失的实时片段或崩溃中的命令。
 
+## 上下文压缩诊断（只读）
+
+`await controller.getContextDiagnostics()` 返回 `ContextResult<ContextDiagnostics>`（类型导入 `@aisdk-agent/example-cli/dist/context-diagnostics.js`）。该查询只读取当前 Thread 的已提交 transcript 和通过现有前缀校验的压缩记录，不创建 Run、不调用模型、不写 JSONL，也不把摘要正文送进 IPC。
+
+- `enabled`/`budget`/`estimatorVersion` 是实际加载配置；`char-half/v1` 是估算，不是 provider tokenizer 计数。
+- `latestValidCompaction` 是历史中仍与已提交 transcript 前缀匹配的最近记录，包含边界、模型、时间与 metrics。没有合法记录是 `null`；读取失败返回 `ok:false`，不能画成“未压缩”。
+- `lastPreparation` 仅记录本进程真实准备路径的 `passthrough | reused | written | noop | failed`。重启后为 `null`，不能从历史记录推断本轮已经使用。失败不会把旧的合法历史记录画成新成功。
+- `metrics.usage` 不可得时留空，不补零。没有合法记录也不等于当前未做任何上下文处理：关闭模型摘要时仍有既有裁剪路径。
+- 手动执行仍用 `controller.command("/compact")` 和现有 idle 互斥；前端在 idle 或 Run 结束后重新查询，不新增压缩事件流。
+
 ## 本地执行回执（阶段三）
 
 - 控制器启用独立于聊天 JSONL 的 `execution-records.json`，保存在传给 `createRuntimeApp` 的 transcript 目录中。重启后调用 `await controller.listRuns()`（当前 Thread、最新优先、默认 20 条）和 `await controller.getRun(runId)`；查不到或不属于当前 Thread 返回 `null`。主 Run 和自动整理分别以 `phase` 标识。桌面端不要从聊天 transcript 推断工具是否执行。

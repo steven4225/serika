@@ -16,6 +16,21 @@ afterEach(async () => {
 });
 
 describe("tryAcquireFlock", () => {
+  it("starts the holder in Node mode when embedded in Electron", async () => {
+    const previous = Object.getOwnPropertyDescriptor(process.versions, "electron");
+    Object.defineProperty(process.versions, "electron", { value: "test", configurable: true });
+    const directory = await mkdtemp(join(tmpdir(), "runloom-electron-flock-"));
+    directories.push(directory);
+    try {
+      const held = await acquireFlock(join(directory, "lock"));
+      try { assert.equal(await tryAcquireFlock(join(directory, "lock")), null); }
+      finally { await held.release(); }
+    } finally {
+      if (previous) Object.defineProperty(process.versions, "electron", previous);
+      else delete (process.versions as Record<string, string | undefined>).electron;
+    }
+  });
+
   it("returns null when the lock is already held", async () => {
     const directory = await mkdtemp(join(tmpdir(), "runloom-flock-"));
     directories.push(directory);

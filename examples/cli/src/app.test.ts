@@ -9,6 +9,7 @@ import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { createRuntimeApp, PRIMARY_AGENT_ID } from "./app.js";
 import { createDemoModel } from "./demo-model.js";
+import { DEFAULT_CONTEXT_BUDGET_CONFIG } from "./context-budget.js";
 
 function capture(): { output: PassThrough; text(): string } {
   const output = new PassThrough();
@@ -20,6 +21,54 @@ function capture(): { output: PassThrough; text(): string } {
 }
 
 describe("createRuntimeApp", () => {
+  for (const enabled of [false, true]) {
+    it(`reports reference selection failure instead of the previous successful preparation (compaction ${enabled})`, async () => {
+      const root = await mkdtemp(join(tmpdir(), "runloom-app-context-diagnostics-"));
+      const workspace = join(root, "workspace");
+      await mkdir(workspace);
+      const configPath = join(root, "runloom.json");
+      await writeFile(configPath, JSON.stringify({
+        version: 1, workspace: "./workspace", modules: { memory: { enabled: true } },
+        contextCompaction: { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled },
+      }), "utf8");
+      const app = await createRuntimeApp({
+        args: ["--tui", join(root, "transcripts"), "--thread", "diagnostics", "--config", configPath],
+        modelAlias: "mock", model: createDemoModel(), output: capture().output, env: {}, cwd: root,
+      });
+      try {
+        const initial = await app.getContextDiagnostics();
+        assert.equal(initial.ok && initial.value.lastPreparation, null);
+        const run = (id: string) => app.runtime.run({
+          agentId: app.agentId, threadId: app.threadId,
+          messages: [{ id, role: "user", parts: [{ type: "text", text: "What is 20 + 22?" }] }],
+        });
+        const first = await run("diagnostic-user-1");
+        // Deny the demo's arithmetic tool; completion still gives a real preparation.
+        const deadline = Date.now() + 1_000;
+        while (!app.toolConfirmation?.getPending() && Date.now() < deadline) await delay(1);
+        const pending = app.toolConfirmation?.getPending();
+        if (pending) app.toolConfirmation?.resolveApproval({ approvalId: pending.approvalId, decision: "deny" });
+        await first.result;
+        const successful = await app.getContextDiagnostics();
+        assert.equal(successful.ok && successful.value.lastPreparation?.outcome, "passthrough");
+        await mkdir(join(workspace, ".runloom"), { recursive: true });
+        await writeFile(join(workspace, ".runloom", "memory.json"), "not JSON", "utf8");
+        const second = await run("diagnostic-user-2");
+        assert.equal((await second.result).status, "failed");
+        const failed = await app.getContextDiagnostics();
+        assert.equal(failed.ok, true);
+        if (failed.ok) {
+          assert.equal(failed.value.lastPreparation?.outcome, "failed");
+          assert.equal(failed.value.lastPreparation?.compactionId, null);
+          assert.ok(failed.value.lastPreparation?.error);
+        }
+      } finally {
+        app.dispose();
+        await rm(root, { recursive: true, force: true });
+      }
+    });
+  }
+
   it("assembles the demo runtime without TUI surfaces and runs one turn", async () => {
     const directory = await mkdtemp(join(tmpdir(), "runloom-app-demo-"));
     const { output } = capture();

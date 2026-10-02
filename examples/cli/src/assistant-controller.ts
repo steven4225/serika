@@ -4,6 +4,7 @@ import type { UIMessage } from "ai";
 import type { AgentEvent, RunHandle, RunResult } from "@aisdk-agent/core";
 import { AUTO_CONSOLIDATION_SOURCE } from "./consolidation.js";
 import type { RuntimeApp } from "./app.js";
+import type { ContextDiagnostics, ContextResult } from "./context-diagnostics.js";
 import type { ExecutionRunRecord } from "./execution-record-store.js";
 import {
   type AcceptanceStatus,
@@ -78,6 +79,7 @@ export type ControllerCommandResponse =
 export interface AssistantController {
   getSnapshot(): AssistantSnapshot;
   getHistory(): Promise<UIMessage[]>;
+  getContextDiagnostics(): Promise<ContextResult<ContextDiagnostics>>;
   /** Newest-first local receipts for this Thread. They never authorize replay. */
   listRuns(limit?: number): Promise<ExecutionRunRecord[]>;
   getRun(runId: string): Promise<ExecutionRunRecord | null>;
@@ -455,6 +457,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       resultTextTruncated,
     }),
     getHistory: () => app.store.getMessages(app.threadId),
+    getContextDiagnostics: () => app.getContextDiagnostics(),
     listRuns: async (limit) => {
       await ensureRecovered();
       return app.executionRecords.listRuns(app.threadId, limit);
