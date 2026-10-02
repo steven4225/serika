@@ -43,6 +43,8 @@ RUNLOOM_MODEL=deepseek node --env-file=.env examples/cli/dist/index.js --tui /ab
 
 路径固定为 **列出指定应用窗口 → 观察精确窗口 → 确认点击/输入 → 再观察**。观察和动作都逐次确认；观察最多 200 个控件、24 KiB，token 最长有效 60 秒（确认期间也计时），每次动作或重新观察都会使旧观察失效。驱动单次调用最多 10 秒、输出 256 KiB；输入最多 4096 字符。截断/退化观察不授予动作 token。每次动作前重新核对 bundle/PID/窗口归属；过期或目标改变时不派发。
 
+驱动的有界树遍历最多 2000 个节点（包含应用菜单）；给模型的仍是唯一 `AXWindow` 根及其子树，最多 200 个控件、24 KiB。菜单、孤立节点及其 token 不进入模型或动作白名单。缺失/歧义窗口根、重复节点编号或截断响应均拒绝，不靠解析半棵树放行。
+
 本版仅提供控件 token 定位的后台点击和文本插入，不暴露屏幕坐标、截图、全局快捷键、剪贴板、启动/终止应用或前台升级。后台输入的实际 AX/事件投递由驱动实现；白名单不是系统沙箱，允许应用也可能发邮件、删除内容或影响其他应用，确认前应核对动作后果。UI 原文可进入模型和 transcript，别在敏感应用上启用。
 
 驱动返回 `confirmed` 也只表示它的操作观察，不是业务完成证明；`unverifiable` / `suspected_noop` 表示已派发但效果未验证，只允许继续观察，不自动重复。传输中断、超时、非法回执、`partial` / `indeterminate` 等走非幂等 `TOOL_OUTCOME_UNKNOWN`，停止 Run，需用户核对，不重放。Electron/浏览器控件树可能不可靠，画布/复杂窗口可能截断，本版不声称支持通用视觉 Computer Use；需要独立业务证据或人工验收。
@@ -291,6 +293,8 @@ RUNLOOM_MODEL=command-code node --env-file=.env examples/cli/dist/index.js \
 可选 `COMMAND_CODE_BASE_URL` / `COMMAND_CODE_MODEL_ID` 覆盖，Key 仅发送到所选 endpoint，覆盖 URL 时须信任该地址。缺 Key 启动失败，不借用其它 provider Key，不回退模型。该入口针对 DeepSeek 非 thinking 模式：工具回放仍不保存 provider 专属 `reasoning_content`，因此沿用 `thinking: {type: "disabled"}`；其它模型或 thinking 模式不在本次验证范围。
 
 官方 [Provider API 文档](https://commandcode.ai/docs/provider) 与 [公开模型目录](https://api.commandcode.ai/provider/v1/models) 描述服务端能力；目录中的模型存在不证明当前账号可用。离线测试只证明 URL、认证字段、流式工具回放及 preflight 接线，真实账号与请求仍须单独验收。截图/视觉输入、Computer Use 和付费连续压缩验收未由本次接入证明，也未自动启用。
+
+2026-10-02 本机隔离验收：Command Code 的上述默认模型通过真实 Controller 完成 TextEdit 精确窗口观察 → 一次文本插入 → 新观察回读标记，primary Run 为 `completed`。验收程序按 approvalId 仅放行测试窗口、一次精确标记输入，非白名单观察被拒绝；没有操作其他窗口或保存文件。这证明当前账号的该工具链可用，不代表独立视觉/业务验收。Electron 人工确认、真实点击、派发中取消/断连及连续压缩链仍未由该次验收证明。
 
 ### DeepSeek
 

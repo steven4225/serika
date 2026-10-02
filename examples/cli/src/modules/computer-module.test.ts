@@ -12,7 +12,7 @@ import { computerConfigSchema, createComputerModule, createDriverCall, type Driv
 
 const config = { enabled: true, executable: "/trusted/cua-driver", allowedBundleIds: ["com.apple.TextEdit"] };
 const target = { bundleId: "com.apple.TextEdit", pid: 123, windowId: 456 };
-const state = { pid: 123, window_id: 456, elements: [{ element_index: 0, element_token: "s1-e0", role: "AXTextField", value: "before" }] };
+const state = { pid: 123, window_id: 456, elements: [{ element_index: 99, role: "AXWindow" }, { element_index: 0, parent_index: 99, element_token: "s1-e0", role: "AXTextField", value: "before" }] };
 
 function harness(overrides: { action?: unknown; state?: unknown; changed?: () => boolean; failAction?: boolean; now?: () => number } = {}) {
   const calls: { name: string; args: Record<string, unknown> }[] = [];
@@ -36,6 +36,35 @@ function harness(overrides: { action?: unknown; state?: unknown; changed?: () =>
 }
 
 describe("allowed local application computer tools", () => {
+  it("excludes app menus and their tokens from the exact-window observation", async () => {
+    const h = harness({ state: { ...state, elements: [...state.elements, { element_index: 100, role: "AXMenuBar", element_token: "menu-root" }, { element_index: 101, parent_index: 100, role: "AXMenuItem", label: "Private recent document", element_token: "menu-item" }] } });
+    const observed = await h.observe();
+    assert.equal(observed.ok, true);
+    assert.equal(JSON.stringify(observed).includes("Private recent document"), false);
+    assert.equal((await h.action(observed.observationId, { elementToken: "menu-item" })).ok, false);
+    assert.equal(h.calls.some((c) => c.name === "click"), false);
+  });
+  it("fails closed on missing/ambiguous roots and over-limit exact window subtrees", async () => {
+    for (const elements of [[], [{ element_index: 0, role: "AXWindow" }, { element_index: 1, role: "AXWindow" }], [state.elements[0], ...Array.from({ length: 201 }, (_, i) => ({ element_index: i + 200, parent_index: 99, role: "AXButton" }))]]) {
+      assert.equal((await harness({ state: { ...state, elements } }).observe()).ok, false);
+    }
+  });
+  it("rejects duplicate indices and excludes orphaned or cyclic nodes", async () => {
+    const duplicate = harness({ state: { ...state, elements: [...state.elements, { element_index: 0, parent_index: 99, role: "AXButton" }] } });
+    assert.equal((await duplicate.observe()).ok, false);
+    const h = harness({ state: { ...state, elements: [...state.elements,
+      { element_index: 200, parent_index: 999, role: "AXButton", element_token: "orphan" },
+      { element_index: 201, parent_index: 202, role: "AXButton", element_token: "cycle" },
+      { element_index: 202, parent_index: 201, role: "AXButton" },
+    ] } });
+    const observed = await h.observe();
+    assert.equal(observed.ok, true);
+    assert.ok(Array.isArray(observed.elements));
+    assert.equal(observed.elements.length, 2);
+    assert.equal(h.calls.find((c) => c.name === "get_window_state")!.args.max_elements, 2000);
+    assert.equal((await h.action(observed.observationId, { elementToken: "orphan" })).ok, false);
+    assert.equal(h.calls.some((c) => c.name === "click"), false);
+  });
   it("stops the existing AgentLoop on an unknown action without another model call or replay", async () => {
     const h = harness({ failAction: true });
     const observed = await h.observe();
@@ -103,7 +132,7 @@ describe("allowed local application computer tools", () => {
     assert.equal(h.calls.some((c) => c.name === "click"), false);
   });
   it("rejects degraded, mismatched, oversized and truncated snapshots", async () => {
-    for (const bad of [{ ...state, truncated: true }, { ...state, degraded_reason: "ax_window_unresolved" }, { ...state, pid: 789 }, { ...state, elements: Array.from({ length: 100 }, (_, i) => ({ element_index: i, element_token: `t${i}`, role: "AXTextField", value: "x".repeat(1000) })) }]) {
+    for (const bad of [{ ...state, truncated: true }, { ...state, degraded_reason: "ax_window_unresolved" }, { ...state, pid: 789 }, { ...state, elements: [state.elements[0], ...Array.from({ length: 100 }, (_, i) => ({ element_index: i + 200, parent_index: 99, element_token: `t${i}`, role: "AXTextField", value: "x".repeat(1000) }))] }]) {
       const h = harness({ state: bad });
       assert.equal((await h.observe()).ok, false);
       assert.equal((await h.action("invented")).ok, false);
