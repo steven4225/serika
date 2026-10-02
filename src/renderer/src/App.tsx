@@ -23,6 +23,7 @@ import {
 } from "./conversation.js";
 import { baseName, parseHome, shortId, type HomeView } from "./home.js";
 import { MemoryPanel } from "./memory.js";
+import { ContextPanel } from "./context.js";
 import { RecordsPanel, type RecordDetailState, type RecordsState } from "./records.js";
 
 const OUTPUT_MAX_CHARS = 64 * 1024;
@@ -169,6 +170,10 @@ function Identity({ info }: { info: AppInfo }) {
         >
           临时
         </span>
+      ) : info.identitySource ? (
+        <span className="pill" title={info.identitySource === "saved" ? "已保存启动身份；重启会回到同一 Thread 和 transcript 目录。" : "本次使用环境变量显式覆盖；以相同覆盖配置重启可回到同一对话，不会改写默认身份。"}>
+          {info.identitySource === "saved" ? "固定身份" : "显式身份"}
+        </span>
       ) : null}
     </div>
   );
@@ -216,6 +221,7 @@ export function App() {
   const [showOutput, setShowOutput] = useState(false);
   const [records, setRecords] = useState<RecordsState>({ status: "loading" });
   const [memoryRefresh, setMemoryRefresh] = useState(0);
+  const [contextRefresh, setContextRefresh] = useState(0);
   const [recordDetail, setRecordDetail] = useState<RecordDetailState>({ status: "idle" });
   const homeBuffer = useRef("");
   const shellBuffer = useRef(new ShellProgressBuffer());
@@ -295,6 +301,7 @@ export function App() {
             setLastResult(null);
           }
           if (message.state.kind === "idle") {
+            setContextRefresh((value) => value + 1);
             void reloadHistory().catch((cause: unknown) => setError(String(cause)));
             void loadRecords(selectedRecordId.current ?? undefined).catch((cause: unknown) => setError(String(cause)));
             setLastResult(null);
@@ -319,6 +326,7 @@ export function App() {
           setLive((previous) => applyEvent(previous, message.event));
           return;
         case "result": {
+          setContextRefresh((value) => value + 1);
           if (message.phase !== "primary") return;
           const rows = finishRun(emptyLiveRun, message.result);
           setLastResult(rows.find((row) => row.kind === "result") ?? null);
@@ -458,6 +466,10 @@ export function App() {
         onRefresh={() => void loadRecords(selectedRecordId.current ?? undefined)}
         onOpen={(runId) => void openRecord(runId)}
       />
+
+      {info ? (
+        <ContextPanel controllerIdle={!busy} refreshToken={contextRefresh} hasCompaction={info.hasCompaction} />
+      ) : null}
 
       {info ? (
         <MemoryPanel

@@ -12,6 +12,7 @@ const api: RendererApi = {
   command: (line) => ipcRenderer.invoke(IPC.command, line),
   listRuns: () => ipcRenderer.invoke(IPC.listRuns),
   getRun: (runId) => ipcRenderer.invoke(IPC.getRun, runId),
+  getContextDiagnostics: () => ipcRenderer.invoke(IPC.contextDiagnostics),
   listMemoryCandidates: (input) => ipcRenderer.invoke(IPC.memoryCandidatesList, input),
   getMemoryCandidate: (id) => ipcRenderer.invoke(IPC.memoryCandidateGet, id),
   resolveMemoryCandidate: (input) => ipcRenderer.invoke(IPC.memoryCandidateResolve, input),

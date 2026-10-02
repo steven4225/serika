@@ -211,6 +211,7 @@ function toUiSnapshot(snapshot: AssistantSnapshot, shellProgress: UiSnapshot["sh
 
 export interface BridgeIdentity {
   modelAlias: string;
+  identitySource?: "saved" | "explicit";
   temporaryThread: boolean;
   temporaryDirectory: boolean;
 }
@@ -248,6 +249,7 @@ export class RuntimeBridge {
   info(): AppInfo {
     return {
       modelAlias: this.#identity.modelAlias,
+      ...(this.#identity.identitySource === undefined ? {} : { identitySource: this.#identity.identitySource }),
       threadId: this.#app.threadId,
       temporaryThread: this.#identity.temporaryThread,
       directory: this.#app.directory,
@@ -276,6 +278,10 @@ export class RuntimeBridge {
 
   history() {
     return this.#controller.getHistory();
+  }
+
+  getContextDiagnostics() {
+    return this.#controller.getContextDiagnostics();
   }
 
   async home(): Promise<CommandResponse> {

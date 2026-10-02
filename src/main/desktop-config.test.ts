@@ -22,6 +22,7 @@ describe("desktop TUI config", () => {
     assert.equal((config.modules as { shell: { enabled: boolean } }).shell.enabled, true);
     assert.ok(DESKTOP_DEFAULT_TOTAL_TIMEOUT_MS > 30_000);
     assert.ok(DESKTOP_DEFAULT_SHELL_TIMEOUT_MS > 30_000);
+    assert.equal((config.contextCompaction as { enabled: boolean }).enabled, true);
   });
 
   it("fills missing timeouts without changing explicit values", () => {
@@ -52,6 +53,18 @@ describe("desktop TUI config", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
+  });
+
+  it("does not enable compaction in an existing explicitly disabled desktop config", async () => {
+    const root = await mkdtemp(join(tmpdir(), "runloom-desktop-disabled-"));
+    try {
+      const configPath = join(root, "runloom.json");
+      await writeFile(configPath, JSON.stringify({ version: 1, modules: {}, contextCompaction: { enabled: false } }));
+      await resolveDesktopConfig({ env: {}, userData: root });
+      const config = JSON.parse(await readFile(configPath, "utf8"));
+      assert.equal(config.contextCompaction.enabled, false);
+      assert.equal(config.modules.memory, undefined);
+    } finally { await rm(root, { recursive: true, force: true }); }
   });
 
   it("writes a userData config when none is provided", async () => {

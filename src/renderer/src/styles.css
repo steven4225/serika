@@ -226,6 +226,16 @@ pre,
   max-height: 32%;
 }
 
+.context {
+  flex-shrink: 0;
+}
+
+.context .home-body {
+  max-height: 160px;
+  min-height: 0;
+  overflow-wrap: anywhere;
+}
+
 .record-list {
   display: flex;
   flex-direction: column;

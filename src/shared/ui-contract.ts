@@ -1,5 +1,6 @@
 import type { UIMessage } from "ai";
 import type { AgentEvent, RunResult } from "@aisdk-agent/core";
+import type { ContextDiagnostics, ContextResult } from "@aisdk-agent/example-cli/dist/context-diagnostics.js";
 import type {
   CandidateListInput,
   CandidatePage,
@@ -54,6 +55,7 @@ export interface ToolActivity {
 
 export interface AppInfo {
   modelAlias: string;
+  identitySource?: "saved" | "explicit";
   threadId: string;
   /** The thread id was generated for this process; a restart will not return here. */
   temporaryThread: boolean;
@@ -179,6 +181,7 @@ export interface RendererApi {
   command(line: string): Promise<CommandResponse>;
   listRuns(): Promise<ListRunsResponse>;
   getRun(runId: string): Promise<GetRunResponse>;
+  getContextDiagnostics(): Promise<ContextResult<ContextDiagnostics>>;
   listMemoryCandidates(input?: CandidateListInput): Promise<MemoryResult<CandidatePage>>;
   getMemoryCandidate(id: string): Promise<MemoryResult<CandidatePreview>>;
   resolveMemoryCandidate(input: CandidateResolveInput): Promise<MemoryResult<CandidateResolution>>;
@@ -197,6 +200,7 @@ export const IPC = {
   command: "runloom:command",
   listRuns: "runloom:listRuns",
   getRun: "runloom:getRun",
+  contextDiagnostics: "runloom:contextDiagnostics",
   memoryCandidatesList: "runloom:memoryCandidatesList",
   memoryCandidateGet: "runloom:memoryCandidateGet",
   memoryCandidateResolve: "runloom:memoryCandidateResolve",

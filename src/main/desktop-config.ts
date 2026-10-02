@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { DEFAULT_CONTEXT_BUDGET_CONFIG } from "@aisdk-agent/example-cli/dist/context-budget.js";
 
 /** Desktop defaults sit above the 30s Shell / 120s Run floors so a >30s task can finish. */
 export const DESKTOP_DEFAULT_TOTAL_TIMEOUT_MS = 600_000;
@@ -66,6 +67,7 @@ export function defaultDesktopConfig(workspace?: string): Record<string, unknown
     ...(workspace === undefined ? {} : { workspace }),
     modules,
     run: { totalTimeoutMs: DESKTOP_DEFAULT_TOTAL_TIMEOUT_MS },
+    contextCompaction: { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled: true },
   };
 }
 

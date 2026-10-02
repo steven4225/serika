@@ -5,9 +5,11 @@ import { createRuntimeApp } from "@aisdk-agent/example-cli/dist/app.js";
 import { createAssistantController } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
 import { createDemoModel } from "@aisdk-agent/example-cli/dist/demo-model.js";
 import { configureCliModel } from "@aisdk-agent/example-cli/dist/model-config.js";
+import { resolveTuiModuleConfig } from "@aisdk-agent/example-cli/dist/tui-module-config.js";
 import type { CandidateListInput, CandidateResolveInput } from "@aisdk-agent/example-cli/dist/memory-candidates.js";
 import { IPC, type ConfirmInput, type MainToRenderer } from "../shared/ui-contract.js";
 import { resolveDesktopConfig } from "./desktop-config.js";
+import { resolveDesktopIdentity } from "./desktop-identity.js";
 import { parseModuleNotification, RuntimeBridge, TeeOutput } from "./runtime-bridge.js";
 import { installHideOnClose, installTray } from "./tray.js";
 
@@ -20,25 +22,10 @@ const here = fileURLToPath(new URL(".", import.meta.url));
  *   RUNLOOM_MODEL        mock | deepseek | minimax-m3   (as in the CLI)
  *   RUNLOOM_CONFIG       path to the TUI --config JSON (must be outside the workspace)
  *   RUNLOOM_WORKSPACE    used only when generating the userData config
- *   RUNLOOM_TRANSCRIPTS  transcript directory (temporary when omitted)
- *   RUNLOOM_THREAD       thread id (random when omitted)
+ *   RUNLOOM_TRANSCRIPTS  explicit transcript directory override
+ *   RUNLOOM_THREAD       explicit thread id override
+ * Omitted identity fields use the saved userData startup preference.
  */
-function runtimeArgs(
-  env: NodeJS.ProcessEnv,
-  configPath: string,
-): {
-  args: string[];
-  temporaryThread: boolean;
-  temporaryDirectory: boolean;
-} {
-  const args = ["--tui"];
-  const transcripts = env.RUNLOOM_TRANSCRIPTS?.trim();
-  const thread = env.RUNLOOM_THREAD?.trim();
-  if (transcripts) args.push(transcripts);
-  if (thread) args.push("--thread", thread);
-  args.push("--config", configPath);
-  return { args, temporaryThread: !thread, temporaryDirectory: !transcripts };
-}
 
 function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
@@ -89,10 +76,18 @@ function notifyIfHidden(window: BrowserWindow, message: MainToRenderer): void {
 }
 
 async function main(): Promise<void> {
+  let activeWindow: BrowserWindow | undefined;
+  app.on("second-instance", () => {
+    if (activeWindow === undefined || activeWindow.isDestroyed()) return;
+    if (activeWindow.isMinimized()) activeWindow.restore();
+    activeWindow.show();
+    activeWindow.focus();
+  });
   await app.whenReady();
   let quitting = false;
   let shuttingDown = false;
   const window = createWindow();
+  activeWindow = window;
   const send = (message: MainToRenderer): void => {
     if (window.isDestroyed()) return;
     window.webContents.send(IPC.message, message);
@@ -110,14 +105,17 @@ async function main(): Promise<void> {
   });
 
   const output = new TeeOutput(send);
-  const { modelAlias, model } = configureCliModel(createDemoModel, process.env);
-  const desktopConfig = await resolveDesktopConfig({
-    env: process.env,
-    userData: app.getPath("userData"),
-  });
-  const { args, temporaryThread, temporaryDirectory } = runtimeArgs(process.env, desktopConfig.configPath);
   let bridge!: RuntimeBridge;
   try {
+    const { modelAlias, model } = configureCliModel(createDemoModel, process.env);
+    const desktopConfig = await resolveDesktopConfig({ env: process.env, userData: app.getPath("userData") });
+    // Resolve through the backend's own config validation/canonical workspace rules.
+    const moduleConfig = await resolveTuiModuleConfig({ configPath: desktopConfig.configPath }, { cwd: process.cwd() });
+    const identity = await resolveDesktopIdentity({
+      env: process.env, userData: app.getPath("userData"), cwd: process.cwd(),
+      configPath: moduleConfig.configPath!, workspaceRoot: moduleConfig.workspaceRoot,
+    });
+    const args = ["--tui", identity.transcriptDirectory, "--thread", identity.threadId, "--config", identity.configPath];
     const runtimeApp = await createRuntimeApp({
       args,
       modelAlias,
@@ -131,20 +129,21 @@ async function main(): Promise<void> {
     bridge = new RuntimeBridge(
       runtimeApp,
       controller,
-      { modelAlias, temporaryThread, temporaryDirectory },
+      { modelAlias, temporaryThread: false, temporaryDirectory: false, identitySource: identity.identitySource },
       output,
       send,
     );
   } catch (error) {
-    window.webContents.once("did-finish-load", () => {
-      send({ type: "error", message: `Runtime could not start: ${String(error)}` });
-    });
+    const report = (): void => send({ type: "error", message: `Runtime could not start: ${String(error)}` });
+    if (window.webContents.isLoading()) window.webContents.once("did-finish-load", report);
+    else report();
     app.on("before-quit", () => tray.dispose());
     return;
   }
 
   ipcMain.handle(IPC.info, () => bridge.info());
   ipcMain.handle(IPC.snapshot, () => bridge.snapshot());
+  ipcMain.handle(IPC.contextDiagnostics, () => bridge.getContextDiagnostics());
   ipcMain.handle(IPC.history, () => bridge.history());
   ipcMain.handle(IPC.home, () => bridge.home());
   ipcMain.handle(IPC.run, (_event, text: string) => bridge.run(text));
@@ -169,4 +168,5 @@ async function main(): Promise<void> {
   });
 }
 
-void main();
+if (app.requestSingleInstanceLock()) void main();
+else app.quit();
