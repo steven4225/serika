@@ -30,6 +30,18 @@ import { createAssistantController } from "@aisdk-agent/example-cli/dist/assista
 
 ## 上下文压缩诊断（只读）
 
+固定预算连续链的后端复验入口（真实模型、有费用，默认不运行）：
+
+```sh
+pnpm build
+RUNLOOM_CONTEXT_CONTINUITY=1 RUNLOOM_MODEL=deepseek node --env-file=.env \
+  examples/cli/dist/context-continuity-acceptance.js
+```
+
+从新隔离目录开始，固定 32K 窗口 / 4K 输出预留 / 1K 安全余量 / 8K 近期保留 / 4K 摘要输出；最多十二轮真实文件任务触发自动压缩，没有手动 `/compact` 或补造 transcript。自动压缩后继续编辑，等子进程完全退出，再改入外部磁盘标记并启动独立子进程恢复同一 Thread。两边配置哈希必须一致，实际模型输入须带摘要，重新读文件后编辑必须有成功回执，已有正文和保护文件须保留。
+
+终端打印证据目录，保留配置、前后进程报告、模型输入、JSONL 和产物；失败不修改预算继续凑通过。确认仅由验收程序限定在 `notes/work-plan.md`，不是用户在 Electron 点击授权。该入口只能证明后端连续链，不证明 Electron 真机交互、崩溃恢复、任意任务质量或所有模型/预算组合。GUI 封板仍需同一配置下亲自完成自动压缩 → 退出 → 重开 → 继续的链路。
+
 `await controller.getContextDiagnostics()` 返回 `ContextResult<ContextDiagnostics>`（类型导入 `@aisdk-agent/example-cli/dist/context-diagnostics.js`）。该查询只读取当前 Thread 的已提交 transcript 和通过现有前缀校验的压缩记录，不创建 Run、不调用模型、不写 JSONL，也不把摘要正文送进 IPC。
 
 - `enabled`/`budget`/`estimatorVersion` 是实际加载配置；`char-half/v1` 是估算，不是 provider tokenizer 计数。
