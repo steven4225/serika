@@ -249,6 +249,16 @@ export class RuntimeBridge {
 
   info(): AppInfo {
     return {
+      modules: (["pomodoro", "read-file", "memory", "checkpoint", "task", "todoist", "shell", "web", "computer"] as const).map(id => ({
+        id,
+        enabled: this.#app.moduleConfig?.enabled[id] === true,
+      })),
+      configPath: this.#app.moduleConfig?.configPath ?? null,
+      moduleOptions: {
+        webSearch: this.#app.moduleConfig?.webSearchEnabled === true,
+        webFeed: this.#app.moduleConfig?.webFeedEnabled === true,
+        autoConsolidate: this.#app.autoConsolidationAgentId !== undefined,
+      },
       modelAlias: this.#identity.modelAlias,
       ...(this.#identity.modelId === undefined ? {} : { modelId: this.#identity.modelId }),
       computer: {

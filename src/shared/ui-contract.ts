@@ -55,6 +55,10 @@ export interface ToolActivity {
 }
 
 export interface AppInfo {
+  /** Built-in support and current configuration only; not a permission grant. */
+  modules?: { id: string; enabled: boolean }[];
+  moduleOptions?: { webSearch: boolean; webFeed: boolean; autoConsolidate: boolean };
+  configPath?: string | null;
   modelAlias: string;
   modelId?: string;
   computer: { enabled: boolean; allowedBundleIds: string[] };

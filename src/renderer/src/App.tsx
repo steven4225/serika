@@ -31,6 +31,8 @@ import { ApprovalCard } from "./approval.js";
 import { shouldSubmitComposer } from "../../shared/composer.js";
 import { Icon, RunloomMark, type IconName } from "./icons.js";
 import { MessageContent } from "./markdown.js";
+import { CapabilitiesPanel } from "./capabilities.js";
+import { PomodoroPanel } from "./pomodoro.js";
 
 const OUTPUT_MAX_CHARS = 64 * 1024;
 
@@ -247,7 +249,7 @@ export function App() {
   const decisionInFlight = useRef<string | null>(null);
   const latestPrimaryId = useRef<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const [detailTab, setDetailTab] = useState<"home" | "records" | "memory" | "context">("home");
+  const [detailTab, setDetailTab] = useState<"home" | "records" | "memory" | "context" | "pomodoro" | "modules">("home");
   const [sending, setSending] = useState(false);
   const sendInFlight = useRef(false);
   const homeBuffer = useRef("");
@@ -508,8 +510,8 @@ export function App() {
   const openDetails = (tab: typeof detailTab) => { setDetailTab(tab); setDetailsOpen(true); };
 
   const stageLabel = approval ? "等待确认" : info ? stateLabel(state) : error ? "连接失败" : "正在连接";
-  const pageTitle = !detailsOpen ? "对话" : ({ home: "工作区", records: "执行记录", memory: "记忆审核", context: "上下文与压缩" })[detailTab];
-  const pageDescription = ({ home: "查看保存的进度、本地任务和当前配置。", records: "核对每次执行的工具结果，区分完成、失败和未知效果。", memory: "审核当前对话提取的候选，接受后才会成为正式记忆。", context: "查看压缩记录和本次准备结果；需要时手动压缩。" })[detailTab];
+  const pageTitle = !detailsOpen ? "对话" : ({ home: "工作区", records: "执行记录", memory: "记忆审核", context: "上下文与压缩", pomodoro: "番茄钟", modules: "模块能力" })[detailTab];
+  const pageDescription = ({ home: "查看保存的进度、本地任务和当前配置。", records: "核对每次执行的工具结果，区分完成、失败和未知效果。", memory: "审核当前对话提取的候选，接受后才会成为正式记忆。", context: "查看压缩记录和本次准备结果；需要时手动压缩。", pomodoro: "专注计时，直接操作，不必发消息。", modules: "了解助手支持什么，以及当前启用了什么。" })[detailTab];
   const prepareInput = (text: string) => { setInput(text); inputRef.current?.focus(); };
   const scrollToLatest = () => {
     followConversation.current = true;
@@ -526,7 +528,7 @@ export function App() {
           <button className={!detailsOpen ? "selected" : ""} onClick={() => setDetailsOpen(false)} title="当前对话" aria-current={!detailsOpen ? "page" : undefined}>
             <Icon name="chat" /><span>对话</span>
           </button>
-          {([["home", "工作区", "home"], ["records", "执行记录", "activity"], ["memory", "记忆审核", "memory"]] as const).map(([tab, label, icon]) =>
+          {([["home", "工作区", "home"], ["records", "执行记录", "activity"], ["memory", "记忆审核", "memory"], ["pomodoro", "番茄钟", "timer"], ["modules", "模块能力", "modules"]] as const).map(([tab, label, icon]) =>
             <button key={tab} className={detailsOpen && detailTab === tab ? "selected" : ""} title={label} aria-current={detailsOpen && detailTab === tab ? "page" : undefined} onClick={() => openDetails(tab)}>
               <Icon name={icon as IconName} /><span>{label}</span>{tab === "records" && unknownRuns.length ? <span className="nav-count">{unknownRuns.length}</span> : null}
             </button>)}
@@ -613,6 +615,8 @@ export function App() {
                 controllerIdle={!busy} refreshToken={memoryRefresh} /> : null}</div>
               <div hidden={detailTab !== "context"}>{info ? <ContextPanel controllerIdle={!busy} refreshToken={contextRefresh}
                 hasCompaction={info.hasCompaction} /> : null}</div>
+              <div hidden={detailTab !== "modules"}>{info ? <CapabilitiesPanel info={info} /> : null}</div>
+              <div hidden={detailTab !== "pomodoro"}>{info ? <PomodoroPanel enabled={info.commands.includes("pomodoro")} busy={busy} output={output} /> : null}</div>
             </div>
           </section>
         </div>
