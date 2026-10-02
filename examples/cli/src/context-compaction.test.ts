@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { contextSummaryPrompt, parseContextSummary } from "./context-compaction.js";
+import { simulateReadableStream } from "ai";
+import { MockLanguageModelV3 } from "ai/test";
+import { contextSummaryPrompt, createAiSdkSummarizer, parseContextSummary } from "./context-compaction.js";
 
 const deepSeekShaped = `{
   "version": 2,
@@ -29,6 +31,29 @@ const deepSeekShaped = `{
     "evidenceMessageIds": ["u2"]
   }
 }`;
+
+it("passes the fixed budget and finish reason through the real SDK summarizer boundary", async () => {
+  const model = new MockLanguageModelV3({ doStream: async ({ prompt, maxOutputTokens }) => {
+    assert.equal(maxOutputTokens, 4096);
+    const system = JSON.stringify(prompt[0]);
+    assert.match(system, /hard output limit is 4096/);
+    assert.match(system, /Aim below 2048/);
+    assert.match(system, /Do not reproduce file bodies/);
+    assert.match(system, /Do not merge conflicting action statuses/);
+    return { stream: simulateReadableStream({ chunks: [
+      { type: "stream-start" as const, warnings: [] },
+      { type: "text-start" as const, id: "summary" },
+      { type: "text-delta" as const, id: "summary", delta: "{" },
+      { type: "text-end" as const, id: "summary" },
+      { type: "finish" as const, finishReason: { unified: "length" as const, raw: "length" },
+        usage: { inputTokens: { total: 10, noCache: 10, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 4096, text: 4096, reasoning: undefined } } },
+    ] }) };
+  } });
+  const result = await createAiSdkSummarizer(model).complete({ prompt: "fixture", maxOutputTokens: 4096, signal: AbortSignal.timeout(5000) });
+  assert.equal(result.finishReason, "length");
+  assert.equal(result.text, "{");
+  assert.equal(result.usage?.outputTokens, 4096);
+});
 
 describe("parseContextSummary", () => {
   it("explicitly requests the top-level version and still rejects its omission", () => {

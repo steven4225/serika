@@ -595,6 +595,28 @@ describe("ContextCompactor", () => {
     assert.deepEqual(record.metrics.usage, { inputTokens: 24, outputTokens: 10, totalTokens: 34 });
   });
 
+  it("never installs a length-truncated summary even if its visible JSON parses, and retries within the same budget", async () => {
+    const store = new FakeStore();
+    store.messages = [user("u1", "old request ".repeat(40)), assistant("a1", "old answer ".repeat(40)), user("u2", "continue")];
+    let calls = 0;
+    const summarizer: Summarizer = {
+      async complete({ prompt, maxOutputTokens }) {
+        calls += 1;
+        assert.equal(maxOutputTokens, budget.summaryMaxOutputTokens);
+        if (calls === 2) assert.match(prompt, /shorter complete JSON object/);
+        assert.equal(store.records.length, 0);
+        return { text: JSON.stringify(summary), finishReason: calls === 1 ? "length" : "stop",
+          usage: { inputTokens: 5, outputTokens: 100, totalTokens: 105 } };
+      },
+    };
+    await makeCompactor(store, summarizer).compact(new AbortController().signal);
+    assert.equal(calls, 2);
+    assert.equal(store.records.length, 1);
+    const record = store.records[0] as unknown as ContextCompactionRecord;
+    assert.equal(record.metrics.attempts, 2);
+    assert.equal(record.metrics.usage?.outputTokens, 200);
+  });
+
   it("reports observed usage when every summary attempt fails", async () => {
     const store = new FakeStore();
     let calls = 0;

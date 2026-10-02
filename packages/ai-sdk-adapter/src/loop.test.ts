@@ -1532,6 +1532,8 @@ describe("AiSdkAgentLoop", () => {
     assert.equal(modelCall, 2);
     assert.equal(outcome.steps, 2);
     assert.match(JSON.stringify(outcome.messages), /TOOL_INVALID_INPUT/);
+    assert.match(JSON.stringify(outcome.messages), /Required fields \(case-sensitive\): value/);
+    assert.match(JSON.stringify(outcome.messages), /No tool was executed/);
     assert.ok(
       events.some(
         (event) =>
@@ -1539,6 +1541,53 @@ describe("AiSdkAgentLoop", () => {
           event.data.error.code === "TOOL_INVALID_INPUT",
       ),
     );
+  });
+
+  it("lets the model correct a case-sensitive argument without bypassing approval or replaying the invalid call", async () => {
+    let modelCall = 0;
+    let executeCount = 0;
+    let approvals = 0;
+    const model = new MockLanguageModelV3({
+      doStream: async (params) => {
+        modelCall += 1;
+        if (modelCall === 2) {
+          assert.match(JSON.stringify(params.prompt), /Required fields \(case-sensitive\): value/);
+        }
+        if (modelCall === 3) return textResponse("4");
+        return { stream: simulateReadableStream({ chunks: [
+          { type: "stream-start" as const, warnings: [] },
+          { type: "tool-call" as const, toolCallId: modelCall === 1 ? "invalid" : "corrected",
+            toolName: "double", input: JSON.stringify(modelCall === 1 ? { Value: 2 } : { value: 2 }) },
+          { type: "finish" as const, finishReason: { unified: "tool-calls" as const, raw: undefined }, usage },
+        ] }) };
+      },
+    });
+    const events: AgentEvent[] = [];
+    const outcome = await new AiSdkAgentLoop({
+      models: new InMemoryModelRegistry({ test: model }),
+      tools: new ToolRegistry([{
+        metadata: { name: "double", version: "1", risk: "write", timeoutMs: 1_000, idempotent: false },
+        tool: tool({ inputSchema: z.object({ value: z.number() }), execute: ({ value }) => {
+          executeCount += 1; return { value: value * 2 };
+        } }),
+      }]),
+    }).execute({
+      definition: { ...definition, tools: ["double"] }, messages: [userMessage()],
+      signal: new AbortController().signal, generateId: () => `message-${modelCall}`,
+      beforeToolExecute: (call) => {
+        approvals += 1;
+        assert.equal(call.toolCallId, "corrected");
+        assert.deepEqual(call.input, { value: 2 });
+        return { allow: true };
+      },
+      emit: createEmit(events),
+    });
+    assert.equal(modelCall, 3);
+    assert.equal(executeCount, 1);
+    assert.equal(approvals, 1);
+    assert.equal(outcome.text, "4");
+    assert.ok(events.some((event) => event.type === "tool.call.failed" && event.data.toolCallId === "invalid"));
+    assert.equal(events.filter((event) => event.type === "tool.call.started").length, 1);
   });
 
   it("feeds a tool execution error back to the model and continues", async () => {

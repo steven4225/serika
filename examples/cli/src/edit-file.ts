@@ -310,11 +310,11 @@ export function createEditFileTool(
   const workspaceRoot = resolve(workspace);
   return tool({
     description:
-      "Replace exactly one literal occurrence in an existing UTF-8 text file below the configured workspace.",
+      "Replace exactly one literal occurrence in an existing UTF-8 text file below the configured workspace. Required argument names are path, oldText and newText (camelCase, not old_text/new_text). Read the current file first; oldText must match exactly once. No match or multiple matches is rejected before editing.",
     inputSchema: z.object({
-      path: z.string(),
-      oldText: z.string(),
-      newText: z.string(),
+      path: z.string().describe("Relative path below the configured workspace."),
+      oldText: z.string().describe("Exact existing text to replace; use the camelCase key oldText."),
+      newText: z.string().describe("Replacement text; use the camelCase key newText."),
     }),
     outputSchema: editFileOutputSchema,
     execute: async (input, { abortSignal }) =>

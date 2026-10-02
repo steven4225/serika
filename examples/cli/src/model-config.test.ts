@@ -61,6 +61,8 @@ describe("CLI model configuration", () => {
         url: "https://api.commandcode.ai/provider/v1/chat/completions", modelId: "deepseek/deepseek-v4.1-flash", alias: "command-code/default", thinking: { type: "disabled" } },
       { env: { RUNLOOM_MODEL: "command-code", COMMAND_CODE_API_KEY: "test-key", COMMAND_CODE_BASE_URL: "https://command-code.test/v1", COMMAND_CODE_MODEL_ID: "deepseek/deepseek-v4.1-flash-fast" },
         url: "https://command-code.test/v1/chat/completions", modelId: "deepseek/deepseek-v4.1-flash-fast", alias: "command-code/default", thinking: { type: "disabled" } },
+      { env: { RUNLOOM_MODEL: "command-code", COMMAND_CODE_API_KEY: "test-key", COMMAND_CODE_MODEL_ID: "custom-model" },
+        url: "https://api.commandcode.ai/provider/v1/chat/completions", modelId: "custom-model", alias: "command-code/default", thinking: { type: "disabled" } },
     ]) {
       let calls = 0;
       const configured = configureCliModel(createDemoModel, sample.env, {
@@ -70,6 +72,7 @@ describe("CLI model configuration", () => {
           const body = JSON.parse(String(init?.body));
           assert.equal(body.model, sample.modelId);
           assert.deepEqual(body.thinking, sample.thinking);
+          assert.equal(body.reasoning_effort, sample.env.RUNLOOM_MODEL === "command-code" && sample.modelId.startsWith("deepseek/") ? "off" : undefined);
           assert.equal(new Headers(init?.headers).get("authorization"), "Bearer test-key");
           return response({ role: "assistant", content: "hello" });
         },
@@ -95,6 +98,7 @@ describe("CLI model configuration", () => {
         assert.equal(body.model, mode === "deepseek" ? "deepseek-flash" : "deepseek/deepseek-v4.1-flash");
         assert.equal(body.stream, true);
         assert.deepEqual(body.thinking, { type: "disabled" });
+        assert.equal(body.reasoning_effort, mode === "command-code" ? "off" : undefined);
         assert.deepEqual(body.stream_options, { include_usage: true });
         return requests.length === 1
           ? response({ role: "assistant", tool_calls: [{ index: 0, id: "call-double", type: "function",

@@ -30,7 +30,7 @@ import { createAssistantController } from "@aisdk-agent/example-cli/dist/assista
 
 ## 上下文压缩诊断（只读）
 
-固定预算连续链的后端复验入口（真实模型、有费用，默认不运行）：
+固定预算连续链的后端复验入口（真实模型、有费用，默认不运行；也支持已配置的 `RUNLOOM_MODEL=minimax-m3` / `command-code`）：
 
 ```sh
 pnpm build
@@ -41,6 +41,25 @@ RUNLOOM_CONTEXT_CONTINUITY=1 RUNLOOM_MODEL=deepseek node --env-file=.env \
 从新隔离目录开始，固定 32K 窗口 / 4K 输出预留 / 1K 安全余量 / 8K 近期保留 / 4K 摘要输出；最多十二轮真实文件任务触发自动压缩，没有手动 `/compact` 或补造 transcript。自动压缩后继续编辑，等子进程完全退出，再改入外部磁盘标记并启动独立子进程恢复同一 Thread。两边配置哈希必须一致，实际模型输入须带摘要，重新读文件后编辑必须有成功回执，已有正文和保护文件须保留。
 
 终端打印证据目录，保留配置、前后进程报告、模型输入、JSONL 和产物；失败不修改预算继续凑通过。确认仅由验收程序限定在 `notes/work-plan.md`，不是用户在 Electron 点击授权。该入口只能证明后端连续链，不证明 Electron 真机交互、崩溃恢复、任意任务质量或所有模型/预算组合。GUI 封板仍需同一配置下亲自完成自动压缩 → 退出 → 重开 → 继续的链路。
+
+2026-10-03 Command Code 后端固定预算链通过：证据目录 `/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/runloom-context-continuity-gM23so`。八轮文件任务自动触发压缩，之后完成 `continued`；PID 41943 退出后，PID 44464 用完全相同的配置哈希 `4c97b745b19bd7831c7ce81ad6d1e760dbc97764cf84702fe9eab9fc1fca20c5` 恢复同一 Thread，先成功读取当前文件，再成功编辑，并在新章节完整保留外部磁盘标记。保护文件未变。模型实际输入带摘要；重启初始 `lastPreparation` 为 null，续跑后为 reused。最近记录估算输入 28136 → 9786 tokens，生成耗时 41045 ms、3 次尝试；真实摘要调用总用量 27769 tokens。这不是一次尝试成功，也不是实际 tokenizer 窗口测量。
+
+失败目录同样保留：`fgq5Gc` 摘要额度耗尽（网关思考未关闭）；`V15Wz7` 模型误用 snake_case 编辑参数；`YCMFlj` 重启章节没有完整复制标记行；`YrGmZJ` 使用不存在的占位文本，未完成编辑。后续只修正接入参数、工具说明与错误反馈，并明确原有编辑和完整标记要求；固定预算、成功回执要求与逐字断言不变。不要合并不同尝试中的局部成功来判 passed。Electron 真实窗口验收另行记录，不由后端报告推断。
+
+同日后续在 Electron 发现另一个实际问题：即使关闭思考，摘要仍可能复述过多文件/操作，连续三次耗尽 4096 输出。当前修复要求摘要在固定预算内写简短续接说明，合并重复内容但保留独特约束和未知效果；SDK `finishReason: length` 无论可见 JSON 能否解析都拒绝安装，按既有有界重试处理。未补造 `version`、未放宽 schema/回执核对、未增加输出上限。
+
+修复后的独立后端复验为 `runloom-context-continuity-Hc8XPL`（与上面相同临时目录父路径），`report.json` 为 passed。九轮文件任务自动压缩后继续；PID 46549 → 46896，配置哈希均为 `f9b5069165a95cfbd787618c72530b45284881d1f2a8b17e2e4963aa929f910b`，预算仍为 32768/4096/1024/8192/4096。摘要估算输入 28005 → 9991 tokens，36135 ms；metrics 的 attempts 为 4（整次压缩分片调用的累计数，不是单片突破三次限制），用量 34707 tokens。重启复用、完整外部标记、先读后改成功回执与保护文件均通过。
+
+### Electron 实测：失败后恢复，不是从头无失败封板
+
+隔离证据目录 `/private/tmp/runloom-foundation-electron-tZCHy1`；桌面源码未改。通过真实窗口输入和逐次审批执行文件任务，不经测试脚本直接 `controller.confirm()`：
+
+- 前八轮完成，第九轮 Run `662d9dcc-8baa-41a0-a918-e777d5476aa8` 因摘要输出耗尽失败，仅有成功读取，无编辑。失败执行回执保留；该轮未提交到聊天 transcript。
+- 修复后保持原配置/workspace/Thread，显式发送新任务追加 `ui-section-10`（没有伪称失败的 `ui-section-9` 已补齐），自动生成合法摘要，并完成 `ui-continued`。诊断显示估算 30943 → 9429 tokens、23148 ms、累计 3 次摘要调用、用量 26141 tokens。
+- 正常退出 PID 46589 后，由验收侧给测试文件加外部首行标记，再启动 PID 49731。前后配置哈希均为 `a8adb6db155d04be951455165bce7d702824582abd082114dfe7bc8c291ef727`，预算不变；重启面板显示历史有效记录但本进程尚无准备。
+- 新 Run 再次弹出读取/编辑审批，先成功读取当前磁盘，再成功追加 `ui-reopened`，其中逐字保留整行 `外部核对标记：ELECTRON_REOPEN_DISK_V2（来自退出后的磁盘，不来自摘要）。`。已有正文与保护文件不变；面板随后显示复用相同摘要记录。
+
+`verify.mjs` 原始无失败门槛未改；另存 `verify-recovery.mjs`、`recovery-before-evidence.json`、`recovery-after-evidence.json`，明确 `cleanFromStart:false`、`recoveryChecksPassed:true`、`fullCleanElectronAcceptance:not_passed`。这是实际桌面**正常退出后的恢复链**，不等于崩溃未知副作用重放、从头无失败链、多次成功率或通用任务质量。记忆面板 accept/reject 的真实点击也不由这份文件任务证据覆盖。
 
 `await controller.getContextDiagnostics()` 返回 `ContextResult<ContextDiagnostics>`（类型导入 `@aisdk-agent/example-cli/dist/context-diagnostics.js`）。该查询只读取当前 Thread 的已提交 transcript 和通过现有前缀校验的压缩记录，不创建 Run、不调用模型、不写 JSONL，也不把摘要正文送进 IPC。
 
