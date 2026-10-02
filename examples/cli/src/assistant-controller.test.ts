@@ -7,6 +7,7 @@ import { describe, it } from "node:test";
 import type { AgentDefinition, AgentEvent, RunHandle, RunResult } from "@aisdk-agent/core";
 import { createAssistantController } from "./assistant-controller.js";
 import { createRuntimeApp, PRIMARY_AGENT_ID, type RuntimeApp } from "./app.js";
+import { DEFAULT_CONTEXT_BUDGET_CONFIG } from "./context-budget.js";
 import { createDemoModel } from "./demo-model.js";
 import { EXECUTION_RECORD_FILE } from "./execution-record-store.js";
 import { createExecutionRecordStore } from "./execution-record-store.js";
@@ -80,6 +81,7 @@ function appWith(overrides: Partial<RuntimeApp> = {}): RuntimeApp {
     toolConfirmation: undefined,
     commands: undefined,
     compaction: undefined,
+    getContextDiagnostics: async () => ({ ok: false, error: { code: "TEST", message: "not configured" } }),
     resume: undefined,
     autoConsolidationAgentId: undefined,
     renderHome: async () => undefined,
@@ -90,6 +92,25 @@ function appWith(overrides: Partial<RuntimeApp> = {}): RuntimeApp {
 }
 
 describe("AssistantController memory candidates", () => {
+  it("forwards read-only context diagnostics without starting a Run or recovery", async () => {
+    let reads = 0;
+    const controller = createAssistantController(appWith({
+      getContextDiagnostics: async () => {
+        reads += 1;
+        return { ok: true, value: {
+          threadId: "controller-thread", enabled: false, budget: { ...DEFAULT_CONTEXT_BUDGET_CONFIG },
+          estimatorVersion: "char-half/v1", latestValidCompaction: null, lastPreparation: null,
+        } };
+      },
+      executionRecords: { claimThread: async () => { throw new Error("diagnostics must not recover receipts"); } } as unknown as RuntimeApp["executionRecords"],
+    }));
+    const result = await controller.getContextDiagnostics();
+    assert.equal(result.ok, true);
+    assert.equal(reads, 1);
+    assert.equal(controller.getSnapshot().state.kind, "idle");
+    await controller.shutdown();
+  });
+
   it("returns MEMORY_DISABLED without invoking a Run or creating an implicit store", async () => {
     const controller = createAssistantController(appWith());
     try {

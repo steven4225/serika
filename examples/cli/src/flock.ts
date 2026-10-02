@@ -119,7 +119,12 @@ async function acquire(
   const child = spawn(
     command.file,
     [...command.args, path, process.execPath, "-e", HOLDER_SCRIPT],
-    { stdio: ["pipe", "pipe", "pipe"] },
+    {
+      stdio: ["pipe", "pipe", "pipe"],
+      // Embedded Electron uses its own executable as process.execPath. The
+      // holder is a Node script, not another desktop application instance.
+      ...(process.versions.electron ? { env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" } } : {}),
+    },
   );
   child.stdin.on("error", () => undefined);
   child.stdout.setEncoding("utf8");

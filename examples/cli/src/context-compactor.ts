@@ -29,6 +29,8 @@ import {
   type MessageCompactionUnit,
 } from "./context-budget.js";
 import { collectTranscriptToolFacts } from "./work-summary.js";
+import type { ContextDiagnostics, ContextResult } from "./context-diagnostics.js";
+import { CONTEXT_ESTIMATOR_VERSION } from "./context-budget.js";
 
 const SUMMARY_TIMEOUT_MS = 30_000;
 const MANUAL_COMPACTION_TIMEOUT_MS = 120_000;
@@ -108,6 +110,45 @@ function validRecord(record: ContextCompactionRecord, messages: readonly UIMessa
   }
   if (record.sourcePrefixHash !== compactPrefixHash(messages, index)) return false;
   return parseContextSummary(JSON.stringify(record.summary)) !== undefined;
+}
+
+/** Uses precisely the same transcript-prefix validation as preparation. */
+export async function readContextDiagnostics(
+  store: MessageStore & ContextCompactionStore,
+  threadId: string,
+  budget: ContextBudgetConfig,
+  lastPreparation: ContextDiagnostics["lastPreparation"] = null,
+): Promise<ContextResult<ContextDiagnostics>> {
+  try {
+    const messages = await store.getMessages(threadId);
+    const records = await store.getContextCompactions(threadId);
+    const record = [...records].reverse().map(asContextRecord).find((candidate) =>
+      candidate !== undefined && validRecord(candidate, messages));
+    return { ok: true, value: {
+      threadId,
+      enabled: budget.enabled,
+      budget: { ...budget },
+      estimatorVersion: CONTEXT_ESTIMATOR_VERSION,
+      latestValidCompaction: record === undefined ? null : {
+        id: record.id,
+        createdAt: record.createdAt,
+        modelId: record.modelId,
+        firstKeptMessageIndex: record.firstKeptMessageIndex,
+        firstKeptMessageId: record.firstKeptMessageId,
+        metrics: structuredClone(record.metrics),
+      },
+      lastPreparation: structuredClone(lastPreparation),
+    } };
+  } catch (error) {
+    return { ok: false, error: diagnosticError(error) };
+  }
+}
+
+function diagnosticError(error: unknown): { code: string; message: string } {
+  return {
+    code: error instanceof AgentError ? error.data.code : "CONTEXT_DIAGNOSTICS_FAILED",
+    message: error instanceof Error ? error.message : String(error),
+  };
 }
 
 function summaryMessage(summary: ContextSummaryV2, coverage: { index: number; id: string | null }): UIMessage {
@@ -300,12 +341,40 @@ function formatUsage(usage: TokenUsage | undefined): string {
   return `usage in=${usage.inputTokens ?? "unknown"} out=${usage.outputTokens ?? "unknown"}`;
 }
 
+function addObservedUsage(previous: TokenUsage | undefined, next: TokenUsage): TokenUsage {
+  const sum = (left: number | undefined, right: number | undefined): number | undefined =>
+    left === undefined && right === undefined ? undefined : (left ?? 0) + (right ?? 0);
+  const inputTokens = sum(previous?.inputTokens, next.inputTokens);
+  const outputTokens = sum(previous?.outputTokens, next.outputTokens);
+  const totalTokens = sum(previous?.totalTokens, next.totalTokens);
+  return {
+    ...(inputTokens === undefined ? {} : { inputTokens }),
+    ...(outputTokens === undefined ? {} : { outputTokens }),
+    ...(totalTokens === undefined ? {} : { totalTokens }),
+  };
+}
+
 export class ContextCompactor {
   readonly #options: ContextCompactorOptions;
   readonly #now: () => Date;
   readonly #generateId: () => string;
   #latest: ContextCompactionRecord | undefined;
   #effectiveReferencePrefix: readonly UIMessage[] = [];
+  #lastPreparation: ContextDiagnostics["lastPreparation"] = null;
+  #preparedEstimate: number | null = null;
+  #preparedCompactionId: string | null = null;
+
+  getDiagnostics(): Promise<ContextResult<ContextDiagnostics>> {
+    return readContextDiagnostics(this.#options.store, this.#options.threadId, this.#options.budget, this.#lastPreparation);
+  }
+
+  /** Material selection can fail before prepare is entered. It is not a reuse. */
+  recordPreparationFailure(error: unknown): void {
+    this.#lastPreparation = {
+      at: this.#now().toISOString(), outcome: "failed", compactionId: null,
+      estimatedInputTokens: null, error: diagnosticError(error),
+    };
+  }
 
   /** The exact references counted by the latest preparation, for final injection. */
   get effectiveReferencePrefix(): readonly UIMessage[] {
@@ -330,6 +399,31 @@ export class ContextCompactor {
     force = false,
     referencePrefix?: readonly UIMessage[],
   ): Promise<UIMessage[]> {
+    this.#preparedEstimate = null;
+    this.#preparedCompactionId = null;
+    try {
+      const prepared = await this.#prepare(messages, signal, force, referencePrefix);
+      this.#lastPreparation = {
+        at: this.#now().toISOString(),
+        outcome: this.#lastPrepare?.kind ?? "passthrough",
+        compactionId: this.#preparedCompactionId,
+        estimatedInputTokens: this.#preparedEstimate,
+        error: null,
+      };
+      return prepared;
+    } catch (error) {
+      this.#lastPreparation = {
+        at: this.#now().toISOString(), outcome: "failed", compactionId: null,
+        estimatedInputTokens: this.#preparedEstimate, error: diagnosticError(error),
+      };
+      throw error;
+    }
+  }
+
+  async #prepare(
+    messages: UIMessage[], signal: AbortSignal, force: boolean,
+    referencePrefix?: readonly UIMessage[],
+  ): Promise<UIMessage[]> {
     this.#lastPrepare = { kind: "passthrough" };
     this.#effectiveReferencePrefix = referencePrefix ?? [];
     if (!this.#options.budget.enabled) return messages;
@@ -352,6 +446,11 @@ export class ContextCompactor {
         },
         this.#options.budget,
       );
+    const finish = (conversation: UIMessage[], compactionId: string | null = null): UIMessage[] => {
+      this.#preparedEstimate = estimatePrepared(conversation).inputTokens;
+      this.#preparedCompactionId = compactionId;
+      return conversation;
+    };
 
     // Resume is optional evidence, unlike Memory/checkpoint. Do not let it
     // force compaction or block an otherwise valid input; publish the same
@@ -374,13 +473,14 @@ export class ContextCompactor {
       const installed = compose(persisted.summary, persisted.firstKeptMessageIndex);
       if (!estimatePrepared(installed).exceeds) {
         this.#lastPrepare = { kind: "reused" };
-        return installed;
+        return finish(installed, persisted.id);
       }
     }
     const rawBudget = estimatePrepared(messages);
+    this.#preparedEstimate = rawBudget.inputTokens;
     if (!force && !rawBudget.exceeds && persisted === undefined) {
       this.#lastPrepare = { kind: "passthrough" };
-      return messages;
+      return finish(messages);
     }
 
     const partition = partitionMessagesForCompaction(messages);
@@ -434,8 +534,8 @@ export class ContextCompactor {
 
     if (omitted.length === 0) {
       this.#lastPrepare = { kind: "noop" };
-      if (force) return persisted === undefined ? messages : compose(persisted.summary, persisted.firstKeptMessageIndex);
-      if (persisted !== undefined) return compose(persisted.summary, persisted.firstKeptMessageIndex);
+      if (force) return persisted === undefined ? finish(messages) : finish(compose(persisted.summary, persisted.firstKeptMessageIndex), persisted.id);
+      if (persisted !== undefined) return finish(compose(persisted.summary, persisted.firstKeptMessageIndex), persisted.id);
       throw contextError("Context exceeds the configured input budget and has no safe compaction boundary");
     }
     if (kept.length === 0 && omitted.length === 0) {
@@ -447,7 +547,7 @@ export class ContextCompactor {
       const installed = compose(persisted.summary, persisted.firstKeptMessageIndex);
       if (force || !estimatePrepared(installed).exceeds) {
         this.#lastPrepare = { kind: "noop" };
-        return force ? messages : installed;
+        return force ? finish(messages) : finish(installed, persisted.id);
       }
     }
 
@@ -481,11 +581,7 @@ export class ContextCompactor {
       summary = result.summary;
       attempts += result.attempts;
       if (result.usage !== undefined) {
-        usage = {
-          inputTokens: (usage?.inputTokens ?? 0) + (result.usage.inputTokens ?? 0),
-          outputTokens: (usage?.outputTokens ?? 0) + (result.usage.outputTokens ?? 0),
-          totalTokens: (usage?.totalTokens ?? 0) + (result.usage.totalTokens ?? 0),
-        };
+        usage = addObservedUsage(usage, result.usage);
       }
     }
     if (summary === undefined) throw contextError("Context compaction returned no summary");
@@ -524,7 +620,7 @@ export class ContextCompactor {
     await this.#options.store.appendContextCompaction(asOpaqueRecord(record));
     this.#latest = record;
     this.#lastPrepare = { kind: "written", record };
-    return compactedMessages;
+    return finish(compactedMessages, record.id);
   }
 
   async compact(signal: AbortSignal): Promise<CompactCommandResult> {
@@ -605,11 +701,7 @@ export class ContextCompactor {
       try {
         const result = await this.#completeOne(requestPrompt, maxOutputTokens, signal);
         if (result.usage !== undefined) {
-          usage = {
-            inputTokens: (usage?.inputTokens ?? 0) + (result.usage.inputTokens ?? 0),
-            outputTokens: (usage?.outputTokens ?? 0) + (result.usage.outputTokens ?? 0),
-            totalTokens: (usage?.totalTokens ?? 0) + (result.usage.totalTokens ?? 0),
-          };
+          usage = addObservedUsage(usage, result.usage);
         }
         lastText = result.text;
         if (result.text.trim() === "") {
