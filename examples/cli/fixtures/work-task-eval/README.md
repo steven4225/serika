@@ -1,6 +1,6 @@
 # WorkTask fixed fixtures
 
-具体化既有 WT01–WT04，不新增案例 ID、通用 runner、生产 API 或模型重试。
+具体化既有 WT01–WT06，不新增案例 ID、通用 runner、生产 API 或模型重试。
 全部案例都是隔离样例，不是 Runloom 生产代码或当前项目状态。
 
 ## WT01 — repo-regression-v1
@@ -57,6 +57,30 @@ unrelated.txt 改为 `原有内容\n用户未提交内容：不能删。\n`。
 包含冻结事实、先有成功 read_file 再有成功 edit_file，所有非目标区块与
 其它文件逐字节不变。任务前的脏 diff 不是助手做的修改。
 人工 brief_quality 检查仍需审核表达和未验证范围。
+
+## WT05 — official-source-report-v1
+
+把 request.md 复制到隔离 workspace，新增 unrelated.txt（正文为
+`保留：研究任务不能改这条用户内容。\n`），记录输入 hash。只允许新增 report.md。
+真实模型须先执行说明中的精确 Exa 查询，再各打开一次指定官方发布页和固定 tag
+Markdown 文档。搜索摘要只能用于发现；事实、来源状态和 URL 以实际 fetch 回执为准。
+HTML 若截断须写 partial，完整 Markdown 可用于核对 API 语义，但不是运行时实测。
+
+独立检查成功写入回执、实际内容与写入参数一致、真实 finalUrl 被引用、截断被披露、
+无额外修改，以及不超过两个来源的生产工具派发记录。request_counter 记录工具调用，
+不冒充底层 HTTP/重定向/DNS 包计数；网络预检与案例实际执行必须分开。
+opened_source_grounding 仍是人工项，不以关键词命中代替逐项事实核对。
+
+## WT06 — conflicting-sources-report-v1
+
+同样安装 request.md 和 unrelated.txt，只允许新增 comparison.md，不启用搜索。
+仅打开 Node v18.16.0/v18.17.0 官方仓库两份固定文档；版本范围差异、旧文档缺失
+API 章节，不等于直接实测旧运行时不支持，也不能人为编造成同范围事实矛盾。
+
+独立检查成功保存与回执归属、两个实际来源 URL、输入 hash 及无额外文件。
+source_fidelity 和 uncertainty_handling 是人工质量项；可核对的硬失败必须记录，
+但程序不得代用户接受交付。本例覆盖版本差异和缺失
+证据，不声称穷尽真正冲突来源或验证任何浏览器/本机 Node 兼容性。
 
 ## 报告边界
 

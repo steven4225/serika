@@ -1,5 +1,5 @@
 import { constants } from "node:fs";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
   chmod,
   lstat,
@@ -41,6 +41,7 @@ export interface EditFileSuccess {
   ok: true;
   path: string;
   bytes: number;
+  sha256: string;
 }
 
 export interface EditFileFailure {
@@ -274,7 +275,8 @@ export async function editFileInWorkspace(
     throwIfAborted(abortSignal);
     await rename(tempPath, target);
     tempCreated = false;
-    return { ok: true, path: relativePath, bytes };
+    return { ok: true, path: relativePath, bytes,
+      sha256: createHash("sha256").update(content, "utf8").digest("hex") };
   } catch (error) {
     if (tempHandle) {
       try {
@@ -294,6 +296,7 @@ const editFileOutputSchema = z.discriminatedUnion("ok", [
     ok: z.literal(true),
     path: z.string(),
     bytes: z.number().int().nonnegative(),
+    sha256: z.string().regex(/^[0-9a-f]{64}$/),
   }),
   z.object({
     ok: z.literal(false),

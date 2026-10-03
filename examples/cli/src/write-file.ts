@@ -1,4 +1,5 @@
 import { constants } from "node:fs";
+import { createHash } from "node:crypto";
 import {
   lstat,
   open,
@@ -40,6 +41,7 @@ export interface WriteFileSuccess {
   ok: true;
   path: string;
   bytes: number;
+  sha256: string;
 }
 
 export interface WriteFileFailure {
@@ -224,7 +226,8 @@ export async function writeFileToWorkspace(
     // cancellation arrives. Cancellation must not be treated as write failure.
     await handle.writeFile(encoded);
     await handle.close();
-    return { ok: true, path: relativePath, bytes: encoded.length };
+    return { ok: true, path: relativePath, bytes: encoded.length,
+      sha256: createHash("sha256").update(encoded).digest("hex") };
   } catch {
     try {
       await handle.close();
@@ -249,6 +252,7 @@ const writeFileOutputSchema = z.discriminatedUnion("ok", [
     ok: z.literal(true),
     path: z.string(),
     bytes: z.number().int().nonnegative(),
+    sha256: z.string().regex(/^[0-9a-f]{64}$/),
   }),
   z.object({
     ok: z.literal(false),

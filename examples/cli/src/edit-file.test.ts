@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -44,6 +45,7 @@ describe("editFileInWorkspace", () => {
       ok: true,
       path: "config.txt",
       bytes: Buffer.byteLength("port=4000\r\nname=app"),
+      sha256: createHash("sha256").update("port=4000\r\nname=app").digest("hex"),
     });
     assert.equal(await readFile(join(directory, "config.txt"), "utf8"), "port=4000\r\nname=app");
   });
@@ -126,7 +128,7 @@ describe("createEditFileTool", () => {
         { path: "text.txt", oldText: "hello", newText: "world" },
         { toolCallId: "call-edit-file", messages: [], context: {} },
       ),
-      { ok: true, path: "text.txt", bytes: 5 },
+      { ok: true, path: "text.txt", bytes: 5, sha256: createHash("sha256").update("world").digest("hex") },
     );
   });
 });

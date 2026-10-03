@@ -5,7 +5,7 @@ import type { AgentEvent, RunHandle, RunResult } from "@aisdk-agent/core";
 import { AUTO_CONSOLIDATION_SOURCE } from "./consolidation.js";
 import type { RuntimeApp } from "./app.js";
 import type { ContextDiagnostics, ContextResult } from "./context-diagnostics.js";
-import type { ExecutionRunRecord } from "./execution-record-store.js";
+import { matchesFileWritePath, readFileWriteReceipt, type ExecutionRunRecord } from "./execution-record-store.js";
 import {
   type AcceptanceStatus,
   type CreateWorkTaskInput,
@@ -215,14 +215,9 @@ async function verifyAutomaticCriterion(
     const requested = criterion.verification.path;
     const path = validateWorkspacePath(app.workspaceRoot, requested);
     if (!path.ok) return { status: "failed", evidence: [], note: path.message };
-    const matchingWrite = latestRun.tools.filter((tool) => {
-      if (!(["write_file", "edit_file"].includes(tool.toolName)) || tool.status !== "completed" ||
-          tool.inputTruncated || tool.resultTruncated) return false;
-      const input = previewObject(tool.inputPreview);
-      const output = previewObject(tool.resultPreview);
-      return input?.path === requested && output?.ok === true && output.path === path.relativePath;
-    }).at(-1);
-    if (matchingWrite === undefined) {
+    const matchingWrite = latestRun.tools.filter((tool) => matchesFileWritePath(tool, requested)).at(-1);
+    const written = matchingWrite === undefined ? undefined : readFileWriteReceipt(matchingWrite, requested);
+    if (matchingWrite === undefined || written === undefined) {
       return { status: "failed", evidence: [], note: "No matching successful write/edit receipt belongs to this WorkTask." };
     }
     try {
@@ -235,12 +230,19 @@ async function verifyAutomaticCriterion(
         return { status: "blocked", evidence: [], note: "Artifact exceeds the 8 MiB verification limit." };
       }
       const content = await readFile(path.target);
+      const digest = createHash("sha256").update(content).digest("hex");
+      if ((written.sha256 !== null && digest !== written.sha256) ||
+          (written.bytes !== null && content.length !== written.bytes)) {
+        return { status: "failed", evidence: [], note: "Artifact content no longer matches the successful file write receipt." };
+      }
       return {
         status: "passed",
         evidence: [{ id: randomUUID(), kind: "artifact", runId: latestRun.runId,
           toolCallId: matchingWrite.toolCallId, path: path.relativePath,
-          sha256: createHash("sha256").update(content).digest("hex"), verifiedAt: now }],
-        note: "Artifact currently exists as a regular non-symlink file and matches a successful task write/edit receipt.",
+          sha256: digest, verifiedAt: now }],
+        note: written.sha256 === null
+          ? "Artifact currently exists as a regular non-symlink file and matches a complete legacy task write/edit receipt."
+          : "Artifact path, byte count and SHA-256 match the latest task-owned compact file write receipt.",
       };
     } catch {
       return { status: "failed", evidence: [], note: "Artifact could not be read from the current workspace." };
