@@ -58,6 +58,7 @@ import {
   formatTaskRescheduleConfirmation,
 } from "./modules/task-module.js";
 import { createTodoistModule } from "./modules/todoist-module.js";
+import { createMemoryQueryRewriter, type MemoryReferenceSnapshot } from "./memory-query-rewrite.js";
 import { createWebModule } from "./modules/web-module.js";
 import { createComputerModule } from "./modules/computer-module.js";
 import { createTaskStore } from "./task-store.js";
@@ -128,6 +129,8 @@ export interface RuntimeApp {
   autoConsolidationAgentId: string | undefined;
   memoryStore?: ReturnType<typeof createMemoryStore>;
   memoryConsolidation?: MemoryConsolidation;
+  getMemoryReferences?: () => MemoryReferenceSnapshot | null;
+  subscribeMemoryReferences?: (listener: () => void) => () => void;
   renderHome: () => Promise<void>;
   registerNotificationRedraw: (redraw: () => void) => void;
   /** Process-local display-only shell output; never enters model context. */
@@ -715,23 +718,41 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       const user = [...messages].reverse().find((message) => message.role === "user" && !isAutoConsolidationRequest(message));
       return user?.parts.flatMap((part) => part.type === "text" ? [part.text] : []).join("\n") ?? "";
     };
-    const referencePrefix = async (messages: readonly UIMessage[], signal: AbortSignal): Promise<UIMessage[]> => {
+    const rewriteQuery = createMemoryQueryRewriter(model);
+    let memoryReference: MemoryReferenceSnapshot | null = null;
+    const memoryReferenceListeners = new Set<() => void>();
+    const publishMemoryReference = (value: MemoryReferenceSnapshot | null) => {
+      memoryReference = value;
+      for (const listener of memoryReferenceListeners) { try { listener(); } catch { /* display only */ } }
+    };
+    const buildReferencePrefix = async (messages: readonly UIMessage[], signal: AbortSignal, primary = false): Promise<{ prefix: UIMessage[]; reference: MemoryReferenceSnapshot | null }> => {
       const now = new Date();
       const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const checkpoint = await readCurrentCheckpoint(checkpointStore, signal);
       const checkpointMessage = createCheckpointContextMessage(checkpoint);
       const resumeMessage = activeResumeMessage(checkpoint);
-      const memoryMessage = memoryStore === undefined ? undefined : createRetrievedMemoryContextMessage(
-        retrieveMemories(await readMemoryEntries(memoryStore, signal), { query: queryFrom(messages), threadId, now }),
-      );
-      return [
+      const user = [...messages].reverse().find(message => message.role === "user" && !isAutoConsolidationRequest(message));
+      const query = queryFrom(messages);
+      const rewrite = primary && user && query.trim() && !activeWorkTaskMessage && moduleConfig?.memoryQueryRewriteEnabled
+        ? await rewriteQuery(user.id, query, signal) : undefined;
+      const selection = memoryStore === undefined ? undefined : retrieveMemories(await readMemoryEntries(memoryStore, signal), {
+        query, threadId, now: new Date(), ...(rewrite ? { rewrittenQueries: rewrite.queries } : {}),
+      });
+      const memoryMessage = selection ? createRetrievedMemoryContextMessage(selection) : undefined;
+      const reference: MemoryReferenceSnapshot | null = primary && user && selection ? {
+        messageId: user.id, preparedAt: new Date().toISOString(), truncated: selection.truncated, queryTruncated: selection.queryTruncated,
+        rewrite: rewrite?.state ?? (moduleConfig?.memoryQueryRewriteEnabled ? "not_applicable" : "off"),
+        selected: selection.selected.map(item => ({ ...item, text: selection.entries.find(entry => entry.id === item.id)!.text })),
+      } : null;
+      return { reference, prefix: [
         ...(taskEnabled ? [buildTaskContextMessage({ now, timeZone })] : []),
         ...(resumeMessage ? [resumeMessage] : []),
         ...(checkpointMessage ? [checkpointMessage] : []),
         ...(memoryMessage ? [memoryMessage] : []),
         ...(activeWorkTaskMessage ? [activeWorkTaskMessage] : []),
-      ];
+      ] };
     };
+    const referencePrefix = async (messages: readonly UIMessage[], signal: AbortSignal) => (await buildReferencePrefix(messages, signal)).prefix;
     let lastUncompactedPreparation: ContextDiagnostics["lastPreparation"] = null;
     const contextCompactor =
       tuiMode && moduleConfig?.contextCompaction.enabled === true
@@ -945,17 +966,22 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
             prepareModelContext: async ({ messages, signal, definition }) => {
               if (definition.id !== PRIMARY_AGENT_ID) return selectModelContext(messages);
               let prefix: UIMessage[];
+              let reference: MemoryReferenceSnapshot | null = null;
               try {
-                prefix = await referencePrefix(messages, signal);
+                const prepared = await buildReferencePrefix(messages, signal, true);
+                prefix = prepared.prefix;
+                reference = prepared.reference;
                 if (contextCompactor === undefined) {
                   const selected = selectModelContext(messages, [], {}, undefined, undefined, prefix);
                   lastUncompactedPreparation = {
                     at: new Date().toISOString(), outcome: "passthrough", compactionId: null,
                     estimatedInputTokens: null, error: null,
                   };
+                  publishMemoryReference(reference);
                   return selected;
                 }
               } catch (error) {
+                publishMemoryReference(null);
                 contextCompactor?.recordPreparationFailure(error);
                 lastUncompactedPreparation = {
                   at: new Date().toISOString(), outcome: "failed", compactionId: null,
@@ -967,8 +993,14 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
                 };
                 throw error;
               }
-              const conversation = await contextCompactor.prepare(messages, signal, false, prefix);
-              return [...contextCompactor.effectiveReferencePrefix, ...conversation];
+              try {
+                const conversation = await contextCompactor.prepare(messages, signal, false, prefix);
+                publishMemoryReference(reference);
+                return [...contextCompactor.effectiveReferencePrefix, ...conversation];
+              } catch (error) {
+                publishMemoryReference(null);
+                throw error;
+              }
             },
           }
         : {}),
@@ -1036,6 +1068,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         store, threadId, moduleConfig?.contextCompaction ?? DEFAULT_CONTEXT_BUDGET_CONFIG,
         lastUncompactedPreparation,
       ),
+      getMemoryReferences: () => memoryReference === null ? null : structuredClone(memoryReference),
+      subscribeMemoryReferences: (listener) => { memoryReferenceListeners.add(listener); return () => { memoryReferenceListeners.delete(listener); }; },
       resume,
       autoConsolidationAgentId: moduleConfig?.autoConsolidate ? consolidationAgent.id : undefined,
       ...(memoryStore ? { memoryStore } : {}),

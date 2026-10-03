@@ -7,14 +7,14 @@ export const RETRIEVED_MEMORY_MAX_ENTRIES = 12;
 export const PINNED_MEMORY_MAX_BYTES = 4_096;
 export const PINNED_MEMORY_MAX_ENTRIES = 2;
 
-export interface MemoryQuery { query: string; threadId?: string; now: Date }
+export interface MemoryQuery { query: string; threadId?: string; now: Date; rewrittenQueries?: readonly string[] }
 export interface MemorySelection {
   entries: MemoryEntry[];
   bytes: number;
   truncated: boolean;
   queryTruncated: boolean;
   eligibleCount: number;
-  selected: Array<{ id: string; revision: number; reason: "pinned" | "matched" }>;
+  selected: Array<{ id: string; revision: number; reason: "pinned" | "matched" | "rewritten" }>;
 }
 
 const STOP_WORDS = new Set([
@@ -41,7 +41,7 @@ function terms(text: string): Set<string> {
 }
 
 /** Clips only the query, never a stored fact or source quote. */
-function boundedQuery(query: string): { text: string; truncated: boolean } {
+export function boundedMemoryQuery(query: string): { text: string; truncated: boolean } {
   if (Buffer.byteLength(query, "utf8") <= MEMORY_QUERY_MAX_BYTES) return { text: query, truncated: false };
   let text = "", bytes = 0;
   for (const char of query) {
@@ -54,7 +54,7 @@ function boundedQuery(query: string): { text: string; truncated: boolean } {
 }
 
 export function tokenizeMemoryQuery(query: string): { terms: string[]; normalizedQuery: string; queryTruncated: boolean } {
-  const clipped = boundedQuery(query);
+  const clipped = boundedMemoryQuery(query);
   const normalizedQuery = normalized(clipped.text);
   return { terms: [...terms(normalizedQuery)], normalizedQuery, queryTruncated: clipped.truncated };
 }
@@ -104,14 +104,14 @@ function stableOrder(a: MemoryEntry, b: MemoryEntry): number {
 
 /** Deterministic lexical retrieval. This intentionally makes no semantic-recall claim. */
 export function retrieveMemories(entries: readonly MemoryEntry[], input: MemoryQuery): MemorySelection {
-  const clipped = boundedQuery(input.query);
+  const clipped = boundedMemoryQuery(input.query);
   const eligible = selectInjectableMemoryEntries(entries, { now: input.now, ...(input.threadId === undefined ? {} : { threadId: input.threadId }) });
   const selection: MemorySelection = {
     entries: [], bytes: 0, truncated: false, queryTruncated: clipped.truncated,
     eligibleCount: eligible.length, selected: [],
   };
   const chosen = new Set<string>();
-  const add = (entry: MemoryEntry, reason: "pinned" | "matched", limit: number): boolean => {
+  const add = (entry: MemoryEntry, reason: "pinned" | "matched" | "rewritten", limit: number): boolean => {
     if (selection.entries.length >= RETRIEVED_MEMORY_MAX_ENTRIES) return false;
     const { history: _history, ...current } = entry;
     const next = { ...selection, entries: [...selection.entries, current], selected: [...selection.selected, { id: entry.id, revision: entry.revision ?? 1, reason }] };
@@ -127,6 +127,12 @@ export function retrieveMemories(entries: readonly MemoryEntry[], input: MemoryQ
   }
   const ranked = rankMemoryEntriesForQuery(eligible.filter((entry) => !chosen.has(entry.id)), clipped.text);
   for (const entry of ranked) if (!add(entry, "matched", RETRIEVED_MEMORY_MAX_BYTES)) selection.truncated = true;
+  // Original matches always precede expansion; expansion never bypasses eligibility or budgets.
+  for (const query of (input.rewrittenQueries ?? []).slice(0, 3)) {
+    for (const entry of rankMemoryEntriesForQuery(eligible.filter(entry => !chosen.has(entry.id)), boundedMemoryQuery(query).text)) {
+      if (!add(entry, "rewritten", RETRIEVED_MEMORY_MAX_BYTES)) selection.truncated = true;
+    }
+  }
   selection.bytes = bytes(selection);
   return selection;
 }
