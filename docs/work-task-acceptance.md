@@ -1,8 +1,9 @@
 # WorkTask 第一批验收与 Eval 记录
 
-本批只冻结 **6 个 WorkTask Eval 案例、记录格式和人工执行边界**。它复用现有
+首批冻结 **6 个 WorkTask Eval 案例、记录格式和人工执行边界**。它复用现有
 `AssistantController`、执行回执与 `AcceptanceCaseResult`，不新增 Eval runner、真实模型测试、
-第二条 AgentLoop 或 Durable Runtime 状态。本文是接入方案，不声称 WT01–WT06 已经运行或通过。
+第二条 AgentLoop 或 Durable Runtime 状态。后续已具体化 WT03/WT04 fixture，并做了两次
+真实模型隔离验收；自动检查通过，人工质量项仍未运行，不声称整个案例已通过。
 
 ## 两层记录不能混为一谈
 
@@ -27,6 +28,11 @@
 | WT06 | grounded research | 对比两个冲突或不完整来源并保留不确定性 | 把冲突写成共识；把推断写成来源事实；未保存却声称保存 |
 
 `work-task-eval-cases.test.ts` 只验证目录冻结和记录类型可接入；它不执行 fixture、模型、网络或验收。
+
+WT03/WT04 的固定输入与操作边界见
+[`examples/cli/fixtures/work-task-eval/README.md`](../examples/cli/fixtures/work-task-eval/README.md)。
+其中 SampleDesk 是虚构项目，不是 Runloom 当前项目状态。WT01/WT02/WT05/WT06
+尚未具体化或实跑，不能从这两个案例推断它们通过。
 
 ## 一次尝试的最小流程
 
@@ -74,4 +80,47 @@ pnpm build
 node --test examples/cli/dist/work-task-eval-cases.test.js
 ```
 
-它证明 6 个案例顺序和类别冻结、hard failure 均绑定必需检查、初始 checks 可组成 `AcceptanceCaseResult` 且不会虚构已执行工作。它不证明 fixture 存在、模型质量、网络行为、前端交互或任一案例通过。真实尝试完成前，WT01–WT06 均保持 `not_run`。
+它证明 6 个案例顺序和类别冻结、hard failure 均绑定必需检查、初始 checks 可组成 `AcceptanceCaseResult` 且不会虚构已执行工作。它不调用真实模型，不能替代下面的外部尝试记录。
+
+## WT03/WT04 真实模型记录（2026-10-03）
+
+代码基线 `f9e8115`，工作区为 dirty（包含本次新增 fixture 和未提交的本地文件）；
+实际模型为 Command Code `deepseek/deepseek-v4.1-flash`，不是 mock。
+两个案例分别使用独立 workspace、transcript、Thread 与 WorkTask。
+固定预算为 `maxSteps: 8`、`totalTimeoutMs: 120000`，没有压缩、Shell、Memory 或研究网络工具。
+`execution.network: unused` 仅指研究/工具网络未使用，模型 API 仍联网且收费。
+
+| 案例 | primary Run | 自动检查 | 人工检查 | 当前结论 |
+| --- | --- | --- | --- | --- |
+| WT03 | `47ab4de9-04bd-4fb6-8b7d-9b0bdcd3faeb` | `required_artifacts`、`artifact_scope` passed | `handoff_consistency` not_run | WorkTask awaiting_acceptance；Eval not_run |
+| WT04 | `6ca895c2-7889-4e00-a206-a81056e8b39e` | `requested_sections`、`baseline_preserved` passed | `brief_quality` not_run | WorkTask awaiting_acceptance；Eval not_run |
+
+WT03 实际耗时约 18.2 秒，交付五节 Markdown 和符合固定 schema 的 manifest；
+两个 `write_file` 均有成功回执，输入 hash 不变且没有额外产物。
+WT04 实际耗时约 15.0 秒，先有成功的当前 brief 读取，再有成功 `edit_file`；
+进度/未决正文含指定事实，非目标区块、用户的两个空格与尾部标记、
+`unrelated.txt` 及输入文件逐字节不变。执行前真实 Git diff 也保留在证据目录中。
+
+程序只确认 fixture 内规定路径，其他工具/路径一律拒绝。这是验收程序确认，
+不是 Electron 人工点击；没有调用 `recordHumanAcceptance()` 代用户接受。
+`usage: null` 是用量不可得，不是零。
+
+本地证据根目录（临时文件，不提交到 Git）：
+
+```text
+/private/tmp/runloom-worktask-artifacts.9UnYNJ/
+  WT03/attempt-1/                 原始报告、配置、workspace、回执与产物
+  WT04/attempt-1/                 报告、配置、workspace、回执与产物
+  report-correction/WT03/attempt-1/ WT03 更正报告、同一执行的证据副本
+```
+
+WT03 原始报告的 `required_artifacts` 多引用了 `store_snapshot` 类型的 `execution`，
+不符合该检查只允许 `artifact` 的合同。更正版只删除这项检查上的多余引用，
+execution 仍作为补充证据保留；原报告不覆盖，Run ID、产物 hash 和结论均不变，
+没有再次调用模型。引用 WT03 结果时应使用 `report-correction` 下的 `result.json`。
+两份有效报告已逐项核对冻结的 check ID/method/required/evidenceKinds、证据 hash、
+配置 hash 与 WorkTask/primary Run 归属。
+
+下一步由用户审核 WT03 的正文与 manifest 一致性，以及 WT04 的简报表达和未验证范围。
+人工项完成前不能记录 Eval passed，也不能据此声称真实任务成功率、
+连续压缩/重启完成能力、异常恢复或桌面交互已通过。WT01/WT02/WT05/WT06 仍为 not_run。
