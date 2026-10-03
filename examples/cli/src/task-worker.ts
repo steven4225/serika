@@ -15,6 +15,12 @@ export interface TaskWorkerRuntime {
   run<TContext>(request: RunRequest<TContext>): Promise<RunHandle>;
 }
 
+export interface PreparedWorkerTask {
+  agentId: string;
+  prompt: string;
+  formatResult(text: string): string;
+}
+
 export interface TaskWorkerOptions {
   store: TaskStore;
   runtime: TaskWorkerRuntime;
@@ -32,6 +38,9 @@ export interface TaskWorkerOptions {
   safeRetry?: boolean;
   now?: () => number;
   notify?: (task: TaskRecord) => Promise<void>;
+  prepareTask?: (task: TaskRecord, signal: AbortSignal) => Promise<PreparedWorkerTask | undefined>;
+  recoverPreparedTasks?: () => Promise<void>;
+  settlePreparedTask?: (task: TaskRecord) => Promise<void>;
 }
 
 const RETRY_DELAYS = [1_000, 5_000] as const;
@@ -171,6 +180,7 @@ async function finishTask(
   unwrap(await options.store.recordOutcome(task.id, durableOutcome));
   const finished = await options.store.finish(task.id, durableOutcome);
   const terminalTask = unwrap(finished);
+  await options.settlePreparedTask?.(terminalTask);
   try {
     // The durable terminal write is the source of truth. A notification hook
     // is best effort and must never turn a finished task back into a worker
@@ -197,7 +207,9 @@ async function executeTask(
   }
 
   let workspaceContext: TaskWorkerSnapshotContext | undefined;
+  let prepared: PreparedWorkerTask | undefined;
   try {
+    prepared = await options.prepareTask?.(task, options.signal);
     workspaceContext = await options.loadWorkspaceContext?.(task, options.signal);
   } catch (error) {
     return finishTask(options, task, options.signal.aborted
@@ -213,7 +225,7 @@ async function executeTask(
   }
 
   const request: RunRequest = {
-    agentId: "scheduled-responder",
+    agentId: prepared?.agentId ?? "scheduled-responder",
     threadId: task.threadId!,
     signal: options.signal,
     ...(workspaceContext === undefined ? {} : { context: workspaceContext }),
@@ -222,7 +234,7 @@ async function executeTask(
         id: (options.generateId ?? randomUUID)(),
         role: "user",
         metadata: { source: "scheduled-task" },
-        parts: [{ type: "text", text: task.prompt }],
+        parts: [{ type: "text", text: prepared?.prompt ?? task.prompt }],
       },
     ],
   };
@@ -283,6 +295,9 @@ async function executeTask(
     options.signal.removeEventListener("abort", cancelHandle);
   }
 
+  if (result.status === "completed" && prepared !== undefined) {
+    result = { ...result, text: prepared.formatResult(result.text) };
+  }
   return finishTask(
     options,
     task,
@@ -337,6 +352,7 @@ export async function runTaskWorker(options: TaskWorkerOptions): Promise<void> {
     }
   }
   unwrap(await options.store.interruptRunning());
+  await options.recoverPreparedTasks?.();
 
   while (!options.signal.aborted) {
     await drainNotifications(options);

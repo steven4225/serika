@@ -24,6 +24,8 @@ import type {
   CandidateListInput, CandidatePage, CandidatePreview, CandidateResolution,
   CandidateResolveInput, MemoryResult,
 } from "./memory-candidates.js";
+import { createRssSubscriptionStore, rssFailure, type RssAction, type RssInbox, type RssResult, type RssView } from "./rss-subscriptions.js";
+import { createTaskStore } from "./task-store.js";
 
 const MAX_RECENT_OUTPUT_CHARS = 16 * 1024;
 const MAX_TOOL_ACTIVITY = 30;
@@ -88,6 +90,10 @@ export interface AssistantController {
   listMemoryCandidates(input?: CandidateListInput): Promise<MemoryResult<CandidatePage>>;
   getMemoryCandidate(id: string): Promise<MemoryResult<CandidatePreview>>;
   resolveMemoryCandidate(input: CandidateResolveInput): Promise<MemoryResult<CandidateResolution>>;
+  getRssSubscriptions(): Promise<RssResult<RssView>>;
+  updateRssSubscriptions(input: RssAction): Promise<RssResult<RssView>>;
+  getRssInbox(): Promise<RssResult<RssInbox>>;
+  acknowledgeRssResult(id: string): Promise<RssResult<void>>;
   createWorkTask(input: Omit<CreateWorkTaskInput, "threadId">): Promise<WorkTaskResult<WorkTask>>;
   listWorkTasks(): Promise<WorkTaskResult<WorkTask[]>>;
   getWorkTask(id: string): Promise<WorkTaskResult<WorkTask>>;
@@ -451,6 +457,61 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
   };
 
   const controller: AssistantController = {
+    getRssInbox: async () => {
+      if (!app.workspaceRoot || !app.moduleConfig?.enabled.task) return { ok: false, error: { code: "RSS_UNAVAILABLE", message: "RSS requires workspace and task module" } };
+      try {
+        const view = await createRssSubscriptionStore(app.workspaceRoot).read();
+        if (view.scheduleId === null) return { ok: true, value: { tasks: [], truncated: false } };
+        const tasks = createTaskStore(app.workspaceRoot);
+        const list = await tasks.list({ recurringTaskId: view.scheduleId, inbox: true, limit: 5 });
+        if (!list.ok) return list;
+        const entries: RssInbox["tasks"] = [];
+        for (const s of list.value.tasks) {
+          const task = await tasks.get(s.id);
+          if (!task.ok) return task;
+          const t = task.value;
+          const text = t.resultText ?? `${t.error?.code ?? t.status}: ${t.error?.message ?? "无结果回执"}`;
+          entries.push({ id: t.id, status: t.status, finishedAt: t.finishedAt, text: text.slice(0, 24000), textTruncated: text.length > 24000 });
+        }
+        return { ok: true, value: { tasks: entries, truncated: list.value.truncated } };
+      } catch (e) { return rssFailure(e); }
+    },
+    acknowledgeRssResult: async id => {
+      if (!app.workspaceRoot || !app.moduleConfig?.enabled.task) return { ok: false, error: { code: "RSS_UNAVAILABLE", message: "Acknowledgement requires enabled task module" } };
+      if (closed || state.kind !== "idle") return { ok: false, error: { code: "BUSY", message: "Acknowledgement requires an idle controller" } };
+      setState({ kind: "command", name: "rss-acknowledge" });
+      let response!: RssResult<void>;
+      activeTask = (async (): Promise<RssResult<void>> => { try {
+        const view = await createRssSubscriptionStore(app.workspaceRoot!).read();
+        const tasks = createTaskStore(app.workspaceRoot!);
+        const task = await tasks.get(id);
+        if (!task.ok) return task;
+        if (!view.scheduleId || task.value.recurringTaskId !== view.scheduleId) return { ok: false, error: { code: "RSS_NOT_FOUND", message: "Result does not belong to this RSS schedule" } };
+        const ack = await tasks.acknowledge(id);
+        return ack.ok ? { ok: true, value: undefined } : ack;
+      } catch (e) { return rssFailure(e); }
+      finally { setState({ kind: "idle" }); }
+      })().then(result => { response = result; });
+      await activeTask;
+      return response;
+    },
+    getRssSubscriptions: async () => {
+      if (!app.workspaceRoot || !app.moduleConfig?.enabled.task) return { ok: false, error: { code: "RSS_UNAVAILABLE", message: "RSS subscriptions require workspace and task module" } };
+      return createRssSubscriptionStore(app.workspaceRoot).get();
+    },
+    updateRssSubscriptions: async input => {
+      if (!app.workspaceRoot || !app.moduleConfig?.enabled.task) return { ok: false, error: { code: "RSS_UNAVAILABLE", message: "RSS subscriptions require workspace and task module" } };
+      if (closed || state.kind !== "idle") return { ok: false, error: { code: "BUSY", message: "RSS changes require an idle controller" } };
+      setState({ kind: "command", name: "rss-subscriptions" });
+      let response!: RssResult<RssView>;
+      activeTask = (async () => {
+        try { response = await createRssSubscriptionStore(app.workspaceRoot!).update(input); }
+        catch (error) { response = rssFailure(error); }
+        finally { setState({ kind: "idle" }); }
+      })();
+      await activeTask;
+      return response;
+    },
     getSnapshot: () => ({
       state,
       pendingApproval,
