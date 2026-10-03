@@ -8,7 +8,7 @@ import { configureCliModel, inspectCliModelConfig } from "@aisdk-agent/example-c
 import { resolveTuiModuleConfig } from "@aisdk-agent/example-cli/dist/tui-module-config.js";
 import type { CandidateListInput, CandidateResolveInput } from "@aisdk-agent/example-cli/dist/memory-candidates.js";
 import { IPC, type ConfirmInput, type MainToRenderer } from "../shared/ui-contract.js";
-import type { WorkTaskInputs } from "../shared/work-tasks.js";
+import type { WorkTaskInputs, WorkTaskReadInput, WorkTaskArtifactInput } from "../shared/work-tasks.js";
 import { resolveDesktopConfig } from "./desktop-config.js";
 import { resolveDesktopIdentity } from "./desktop-identity.js";
 import { parseModuleNotification, RuntimeBridge, TeeOutput } from "./runtime-bridge.js";
@@ -178,6 +178,8 @@ async function main(): Promise<void> {
   ipcMain.handle(IPC.createWorkTask, (_event, input: WorkTaskInputs["createWorkTask"]) => bridge.createWorkTask(input));
   ipcMain.handle(IPC.listWorkTasks, () => bridge.listWorkTasks());
   ipcMain.handle(IPC.getWorkTask, (_event, id: string) => bridge.getWorkTask(id));
+  ipcMain.handle(IPC.getWorkTaskDeliveryDraft, (_event, input: WorkTaskReadInput) => bridge.getWorkTaskDeliveryDraft(input));
+  ipcMain.handle(IPC.getWorkTaskArtifact, (_event, input: WorkTaskArtifactInput) => bridge.getWorkTaskArtifact(input));
   ipcMain.handle(IPC.runWorkTask, (_event, input: WorkTaskInputs["runWorkTask"]) => bridge.runWorkTask(input));
   ipcMain.handle(IPC.submitWorkTaskDelivery, (_event, input: WorkTaskInputs["submitWorkTaskDelivery"]) => bridge.submitWorkTaskDelivery(input));
   ipcMain.handle(IPC.recordHumanAcceptance, (_event, input: WorkTaskInputs["recordHumanAcceptance"]) => bridge.recordHumanAcceptance(input));

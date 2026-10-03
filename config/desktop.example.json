@@ -11,5 +11,13 @@
   },
   "run": {
     "totalTimeoutMs": 600000
+  },
+  "contextCompaction": {
+    "enabled": true,
+    "contextWindowTokens": 32768,
+    "maxOutputTokens": 4096,
+    "safetyMarginTokens": 1024,
+    "keepRecentTokens": 8192,
+    "summaryMaxOutputTokens": 4096
   }
 }

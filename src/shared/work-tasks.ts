@@ -1,5 +1,6 @@
 import type { AssistantController } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
 import type { WorkTaskResult } from "@aisdk-agent/example-cli/dist/work-task-store.js";
+export type { WorkTaskReadInput, WorkTaskArtifactInput, WorkTaskReadResult, WorkTaskDeliveryDraft, WorkTaskArtifactPreview } from "@aisdk-agent/example-cli/dist/work-task-artifacts.js";
 
 export type { WorkTask, WorkTaskResult, WorkTaskStatus, WorkTaskObservedOutcome } from "@aisdk-agent/example-cli/dist/work-task-store.js";
 

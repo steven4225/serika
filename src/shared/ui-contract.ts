@@ -2,7 +2,7 @@ import type { UIMessage } from "ai";
 import type { AgentEvent, RunResult } from "@aisdk-agent/core";
 import type { ContextDiagnostics, ContextResult } from "@aisdk-agent/example-cli/dist/context-diagnostics.js";
 import type { RssAction, RssInbox, RssResult, RssView } from "@aisdk-agent/example-cli/dist/rss-subscriptions.js";
-import type { WorkTask, WorkTaskInputs, WorkTaskResult } from "./work-tasks.js";
+import type { WorkTask, WorkTaskInputs, WorkTaskResult, WorkTaskReadInput, WorkTaskArtifactInput, WorkTaskReadResult, WorkTaskDeliveryDraft, WorkTaskArtifactPreview } from "./work-tasks.js";
 import type {
   CandidateListInput,
   CandidatePage,
@@ -206,6 +206,8 @@ export interface RendererApi {
   createWorkTask(input: WorkTaskInputs["createWorkTask"]): Promise<WorkTaskResult<WorkTask>>;
   listWorkTasks(): Promise<WorkTaskResult<WorkTask[]>>;
   getWorkTask(id: string): Promise<WorkTaskResult<WorkTask>>;
+  getWorkTaskDeliveryDraft(input: WorkTaskReadInput): Promise<WorkTaskReadResult<WorkTaskDeliveryDraft>>;
+  getWorkTaskArtifact(input: WorkTaskArtifactInput): Promise<WorkTaskReadResult<WorkTaskArtifactPreview>>;
   runWorkTask(input: WorkTaskInputs["runWorkTask"]): Promise<RunResponse>;
   submitWorkTaskDelivery(input: WorkTaskInputs["submitWorkTaskDelivery"]): Promise<WorkTaskResult<WorkTask>>;
   recordHumanAcceptance(input: WorkTaskInputs["recordHumanAcceptance"]): Promise<WorkTaskResult<WorkTask>>;
@@ -240,6 +242,8 @@ export const IPC = {
   createWorkTask: "runloom:createWorkTask",
   listWorkTasks: "runloom:listWorkTasks",
   getWorkTask: "runloom:getWorkTask",
+  getWorkTaskDeliveryDraft: "runloom:getWorkTaskDeliveryDraft",
+  getWorkTaskArtifact: "runloom:getWorkTaskArtifact",
   runWorkTask: "runloom:runWorkTask",
   submitWorkTaskDelivery: "runloom:submitWorkTaskDelivery",
   recordHumanAcceptance: "runloom:recordHumanAcceptance",

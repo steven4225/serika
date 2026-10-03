@@ -2,11 +2,35 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { WorkTask, WorkTaskStatus } from "../../shared/work-tasks.js";
 import type { ExecutionRunRecord } from "../../shared/ui-contract.js";
-import { isTaskRun, selectCurrentTask, taskActions, unreconciledRuns } from "./work-task-data.js";
+import { isTaskRun, selectCurrentTask, taskActions, unreconciledRuns, TASK_TEMPLATES, taskNextAction, taskSelectionKey, readTaskSelection, saveTaskSelection } from "./work-task-data.js";
 
 const task = (status: WorkTaskStatus): WorkTask => ({ id: "task", revision: 1, threadId: "thread", goal: "写计划", constraints: [], acceptance: [], status, runIds: ["run"], delivery: null, reconciliations: [], createdAt: "2026-10-03T00:00:00.000Z", updatedAt: "2026-10-03T00:00:00.000Z" });
 
 describe("work task presentation invariants", () => {
+  it("templates are editable drafts and next actions distinguish Run end from acceptance", () => {
+    assert.equal(Object.keys(TASK_TEMPLATES).length, 2);
+    assert.equal(TASK_TEMPLATES.document.draft.artifacts, "work-plan.md", "fresh workspaces must not require an uncreated parent directory");
+    assert.match(TASK_TEMPLATES.document.draft.constraints, /不以旧对话或摘要代替/);
+    assert.match(TASK_TEMPLATES.edit.draft.constraints, /先读当前文件/);
+    assert.match(TASK_TEMPLATES.document.draft.constraints, /已有文件不要覆盖/);
+    assert.match(taskNextAction(task("paused")), /检查产物并交付/);
+    assert.match(taskNextAction(task("needs_review")), /先核对/);
+    assert.match(taskNextAction(task("completed")), /已验收/);
+  });
+  it("selection survives reload only for the exact workspace, Thread, directory and config", () => {
+    const identity = { configPath: "/config.json", workspaceRoot: "/ws", threadId: "a", directory: "/transcripts" };
+    const key = taskSelectionKey(identity)!;
+    const values = new Map<string, string>();
+    const storage = { getItem: (name: string) => values.get(name) ?? null, setItem: (name: string, value: string) => { values.set(name, value); }, removeItem: (name: string) => { values.delete(name); } };
+    saveTaskSelection(storage, key, "old-task-not-in-first-20");
+    assert.equal(readTaskSelection(storage, key), "old-task-not-in-first-20");
+    for (const override of [{ threadId: "b" }, { workspaceRoot: "/other" }, { directory: "/other" }, { configPath: "/other" }]) {
+      assert.equal(readTaskSelection(storage, taskSelectionKey({ ...identity, ...override })!), null);
+    }
+    saveTaskSelection(storage, key, null);
+    assert.equal(readTaskSelection(storage, key), null);
+    assert.doesNotThrow(() => saveTaskSelection({ setItem: () => { throw Error("denied"); }, removeItem: () => { throw Error("denied"); } }, key, "task"));
+  });
   it("never starts a needs_review task or exposes the ordinary cancel bypass", () => {
     assert.deepEqual(taskActions(task("needs_review")), { run: false, delivery: false, accept: false, rework: false, reconcile: true, cancel: false });
     assert.equal(taskActions(task("paused")).run, true);

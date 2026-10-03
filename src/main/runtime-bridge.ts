@@ -10,6 +10,7 @@ import type { RssAction } from "@aisdk-agent/example-cli/dist/rss-subscriptions.
 import type { ExecutionRunRecord } from "@aisdk-agent/example-cli/dist/execution-record-store.js";
 import { ShellProgressBuffer } from "../shared/shell-progress.js";
 import { sanitizeWorkTaskInput, type WorkTask, type WorkTaskInputs, type WorkTaskResult } from "../shared/work-tasks.js";
+import type { WorkTaskReadInput, WorkTaskArtifactInput, WorkTaskReadResult, WorkTaskDeliveryDraft, WorkTaskArtifactPreview } from "../shared/work-tasks.js";
 import {
   toGetRunResponse,
   toListRunsResponse,
@@ -38,6 +39,11 @@ import type {
 
 const TUI_DEFAULT_TOTAL_TIMEOUT_MS = 120_000;
 const TUI_DEFAULT_SHELL_TIMEOUT_MS = 30_000;
+
+function validTaskRead(input: unknown): input is WorkTaskReadInput {
+  return typeof input === "object" && input !== null && "id" in input && typeof input.id === "string" &&
+    input.id.trim().length > 0 && "expectedRevision" in input && Number.isSafeInteger(input.expectedRevision) && (input.expectedRevision as number) > 0;
+}
 
 const MODULE_NOTIFICATION = /^\s*\[module:([^\]]+)\]\s*([\s\S]*?)\s*$/;
 
@@ -372,6 +378,18 @@ export class RuntimeBridge {
   async getWorkTask(id: string): Promise<WorkTaskResult<WorkTask>> {
     if (typeof id !== "string" || !id.trim()) return { ok: false, error: { code: "WORK_TASK_INVALID_INPUT", message: "Task id must be non-empty" } };
     return this.#controller.getWorkTask(id);
+  }
+
+  async getWorkTaskDeliveryDraft(input: WorkTaskReadInput): Promise<WorkTaskReadResult<WorkTaskDeliveryDraft>> {
+    if (!validTaskRead(input)) return { ok: false, error: { code: "WORK_TASK_INVALID_INPUT", message: "Task id and current revision are required" } };
+    return this.#controller.getWorkTaskDeliveryDraft({ id: input.id, expectedRevision: input.expectedRevision });
+  }
+
+  async getWorkTaskArtifact(input: WorkTaskArtifactInput): Promise<WorkTaskReadResult<WorkTaskArtifactPreview>> {
+    if (!validTaskRead(input) || typeof input.path !== "string" || !input.path || input.path.length > 1024) {
+      return { ok: false, error: { code: "WORK_TASK_INVALID_INPUT", message: "Task identity and artifact path are required" } };
+    }
+    return this.#controller.getWorkTaskArtifact({ id: input.id, expectedRevision: input.expectedRevision, path: input.path });
   }
 
   async #writeTask<K extends Exclude<keyof WorkTaskInputs, "runWorkTask">>(operation: K, input: WorkTaskInputs[K]): Promise<WorkTaskResult<WorkTask>> {

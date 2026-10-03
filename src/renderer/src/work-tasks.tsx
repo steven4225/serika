@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { RunResponse } from "../../shared/ui-contract.js";
-import type { WorkTask, WorkTaskInputs, WorkTaskObservedOutcome, WorkTaskResult } from "../../shared/work-tasks.js";
-import { criterionStatusLabels, isTaskRun, lines, selectCurrentTask, taskActions, taskStatusLabels } from "./work-task-data.js";
+import type { WorkTask, WorkTaskInputs, WorkTaskObservedOutcome, WorkTaskResult, WorkTaskArtifactPreview, WorkTaskDeliveryDraft } from "../../shared/work-tasks.js";
+import { criterionStatusLabels, isTaskRun, lines, selectCurrentTask, taskActions, taskStatusLabels, taskNextAction, readTaskSelection, saveTaskSelection, TASK_TEMPLATES, type TaskTemplateId } from "./work-task-data.js";
 import { formatRecordTime } from "../../shared/execution-records.js";
 import { Icon } from "./icons.js";
 
-export function useWorkTasks(enabled: boolean, busy: boolean, refreshToken: number, onRunStarted: (text: string) => void) {
+export function useWorkTasks(enabled: boolean, busy: boolean, refreshToken: number, onRunStarted: (text: string) => void, selectionKey: string | null = null) {
   const [tasks, setTasks] = useState<WorkTask[]>([]);
   const [task, setTask] = useState<WorkTask | null>(null);
   const [loading, setLoading] = useState(false);
@@ -16,6 +16,15 @@ export function useWorkTasks(enabled: boolean, busy: boolean, refreshToken: numb
   const selected = useRef<string | null>(null);
   const inFlight = useRef(false);
   const [refresh, setRefresh] = useState(0);
+  useEffect(() => {
+    try { selected.current = selectionKey ? readTaskSelection(window.localStorage, selectionKey) : null; }
+    catch { selected.current = null; }
+    setTask(null); setTasks([]); setError(null);
+  }, [selectionKey]);
+  const remember = useCallback((id: string | null) => {
+    selected.current = id;
+    try { if (selectionKey) saveTaskSelection(window.localStorage, selectionKey, id); } catch { /* Optional preference. */ }
+  }, [selectionKey]);
 
   const reread = useCallback(() => setRefresh(value => value + 1), []);
   useEffect(() => {
@@ -29,27 +38,33 @@ export function useWorkTasks(enabled: boolean, busy: boolean, refreshToken: numb
         if (!list.ok) { setError(`${list.error.code}: ${list.error.message}`); return; }
         setTasks(list.value);
         const id = selected.current ?? selectCurrentTask(list.value)?.id ?? null;
-        selected.current = id;
         if (id === null) { setTask(null); setError(null); return; }
         const detail = await window.runloom.getWorkTask(id);
         if (current !== request.current) return;
-        if (!detail.ok) { setError(`${detail.error.code}: ${detail.error.message}`); return; }
+        if (!detail.ok) {
+          if (detail.error.code === "WORK_TASK_NOT_FOUND" && selected.current !== null) {
+            remember(null); setTask(null); setNotice("上次选中的任务不可用，已取消该选择；不会自动执行其他任务。"); reread(); return;
+          }
+          setError(`${detail.error.code}: ${detail.error.message}`); return;
+        }
+        remember(detail.value.id);
         setTask(detail.value);
         setError(null);
       } catch { if (current === request.current) setError("任务读取失败；旧内容不能用于操作，请重新读取。"); }
       finally { if (current === request.current) setLoading(false); }
     })();
     return () => { request.current += 1; };
-  }, [enabled, refreshToken, refresh]);
+  }, [enabled, refreshToken, refresh, remember]);
 
   const select = (id: string) => {
     if (id === selected.current) return;
-    selected.current = id; setTask(null); setNotice(null); reread();
+    ++request.current; remember(id); setTask(null); setNotice(null); reread();
   };
   const locked = !enabled || busy || acting || loading || error !== null;
   async function change(action: () => Promise<WorkTaskResult<WorkTask> | RunResponse>, success: string, runText?: string): Promise<boolean> {
     if (locked || inFlight.current) return false;
     inFlight.current = true;
+    ++request.current;
     setActing(true);
     setNotice(null);
     let ok = false;
@@ -57,7 +72,7 @@ export function useWorkTasks(enabled: boolean, busy: boolean, refreshToken: numb
       const result = await action();
       ok = result.ok;
       if (result.ok) {
-        if ("value" in result) { selected.current = result.value.id; setTask(result.value); }
+        if ("value" in result) { remember(result.value.id); setTask(result.value); }
         if (runText !== undefined) onRunStarted(runText);
         setNotice(success);
       } else if ("error" in result) {
@@ -91,9 +106,9 @@ export type WorkTaskView = ReturnType<typeof useWorkTasks>;
 
 export function CurrentTask({ view, onOpen }: { view: WorkTaskView; onOpen: () => void }) {
   if (!view.enabled || (!view.task && !view.error)) return null;
-  return <button className="current-work-task" onClick={onOpen}>
-    <Icon name="activity" size={16} /><span>{view.error ? "工作任务暂不可用" : view.task?.goal}</span>
-    <small>{view.error ? "查看原因" : view.loading ? "正在刷新" : taskStatusLabels[view.task!.status]}</small><Icon name="chevron" size={14} />
+  return <button className={`current-work-task ${view.task ? `task-${view.task.status}` : ""}`} onClick={onOpen}>
+    <Icon name="activity" size={16} /><span className="current-task-copy"><strong>{view.error ? "工作任务暂不可用" : view.task?.goal}</strong><small>{view.error ? "查看原因" : view.loading ? "正在刷新" : taskStatusLabels[view.task!.status]}</small></span>
+    <span className="current-task-action">{view.task && !view.error ? taskNextAction(view.task) : "查看详情"}</span><Icon name="chevron" size={14} />
   </button>;
 }
 
@@ -102,6 +117,11 @@ function CreateTask({ view, onClose }: { view: WorkTaskView; onClose: () => void
   const [constraints, setConstraints] = useState("");
   const [artifacts, setArtifacts] = useState("");
   const [human, setHuman] = useState("");
+  const [template, setTemplate] = useState<TaskTemplateId | null>(null);
+  const chooseTemplate = (id: TaskTemplateId) => {
+    const draft = TASK_TEMPLATES[id].draft;
+    setGoal(draft.goal); setConstraints(draft.constraints); setArtifacts(draft.artifacts); setHuman(draft.human); setTemplate(id);
+  };
   const create = async () => {
     const paths = lines(artifacts);
     const descriptions = lines(human);
@@ -111,6 +131,10 @@ function CreateTask({ view, onClose }: { view: WorkTaskView; onClose: () => void
     ] })) onClose();
   };
   return <form className="work-task-form" onSubmit={event => { event.preventDefault(); void create(); }}>
+    <div className="task-template-picker" role="group" aria-label="任务起点">
+      {(Object.keys(TASK_TEMPLATES) as TaskTemplateId[]).map(id => <button type="button" className={template === id ? "selected" : ""} key={id} disabled={view.locked} onClick={() => chooseTemplate(id)}>{TASK_TEMPLATES[id].label}</button>)}
+    </div>
+    <p className="hint">模板只填写草稿。请调整材料、产物路径和要求；选择模板不会创建或执行任务。自定义子目录必须已存在，文件工具不会创建目录。</p>
     <label>任务目标<textarea aria-label="任务目标" value={goal} onChange={event => setGoal(event.target.value)} rows={2} required /></label>
     <label>约束 <small>每行一条，可留空</small><textarea aria-label="任务约束" value={constraints} onChange={event => setConstraints(event.target.value)} rows={2} /></label>
     <label>产物路径 <small>相对工作区，每行一个，可留空</small><textarea aria-label="验收产物路径" placeholder="notes/work-plan.md" value={artifacts} onChange={event => setArtifacts(event.target.value)} rows={2} /></label>
@@ -132,8 +156,26 @@ function TaskDetail({ task, view, onRun }: { task: WorkTask; view: WorkTaskView;
   const [cancelPreview, setCancelPreview] = useState(false);
   const [reworkPreview, setReworkPreview] = useState(false);
   const [humanPreview, setHumanPreview] = useState<{ id: string; decision: "passed" | "failed" } | null>(null);
+  const [draft, setDraft] = useState<WorkTaskDeliveryDraft | null>(null);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const edited = useRef({ summary: false, artifacts: false });
   const actions = taskActions(task);
   const latest = task.runIds.at(-1);
+  useEffect(() => {
+    let active = true;
+    if (!latest || task.status === "running") return;
+    void window.runloom.getWorkTaskDeliveryDraft({ id: task.id, expectedRevision: task.revision }).then(result => {
+      if (!active) return;
+      if (!result.ok) { setDraftError(`${result.error.code}: ${result.error.message}`); return; }
+      setDraft(result.value);
+      // Only fill an untouched, new delivery. Rework retains an explicitly labeled old draft.
+      if (task.delivery === null && actions.delivery) {
+        if (!edited.current.summary) setSummary(result.value.summary);
+        if (!edited.current.artifacts) setArtifacts(result.value.artifacts.map(item => item.path).join("\n"));
+      }
+    }).catch(() => { if (active) setDraftError("本轮草稿读取失败，可以手动填写；不会使用旧 Run 代替。"); });
+    return () => { active = false; };
+  }, [task.id, task.revision, latest, task.status, task.delivery, actions.delivery]);
   // Opening a receipt is not proof. It only makes the user aware of the record
   // (including missing/unavailable); a separate explicit report is still required.
   const inspectLatest = async () => {
@@ -150,8 +192,10 @@ function TaskDetail({ task, view, onRun }: { task: WorkTask; view: WorkTaskView;
   };
   return <div className="work-task-detail">
     <div className="work-task-title"><h2>{task.goal}</h2><span className={`work-task-status task-${task.status}`}>{taskStatusLabels[task.status]}</span></div>
+    <p className="task-next-step">下一步：{taskNextAction(task)}。{task.status === "paused" ? "需要继续时另开一轮；本轮结束不代表交付通过。" : ""}</p>
     <div className="hint">版本 {task.revision} · 更新于 {formatRecordTime(task.updatedAt)}<br /><code>{task.id}</code></div>
     {task.constraints.length ? <section><h3>约束</h3><ul>{task.constraints.map((constraint, index) => <li key={index}>{constraint}</li>)}</ul></section> : null}
+    <TaskArtifacts task={task} draft={draft} onRun={onRun} locked={view.locked} />
     <section><h3>验收标准</h3><ul className="work-task-criteria">{task.acceptance.map(criterion => <li key={criterion.id}>
       <div><strong>{criterion.description}</strong><span>{criterionStatusLabels[criterion.status]}</span></div>
       <small>{criterion.method === "human" ? "人工判断" : "程序核验"} · {criterion.required ? "必需" : "可选"}{criterion.verification.kind === "artifact_exists" ? ` · ${criterion.verification.path}` : criterion.verification.kind === "shell_exit_zero" ? ` · ${criterion.verification.command} (${criterion.verification.cwd})` : ""}</small>
@@ -175,8 +219,15 @@ function TaskDetail({ task, view, onRun }: { task: WorkTask; view: WorkTaskView;
     {actions.delivery ? <details className="work-task-delivery" open={task.delivery === null}>
       <summary>{task.delivery ? "重新提交交付（重置验收）" : "提交交付与验收"}</summary>
       <form className="work-task-form" onSubmit={event => { event.preventDefault(); void view.deliver(summary.trim(), lines(artifacts), lines(unresolved)); }}>
-        <label>交付结论<textarea aria-label="交付结论" rows={3} value={summary} onChange={event => setSummary(event.target.value)} required /></label>
-        <label>产物引用 <small>每行一条，仅作交付声明</small><textarea aria-label="交付产物引用" rows={2} value={artifacts} onChange={event => setArtifacts(event.target.value)} /></label>
+        {draft ? <div className="delivery-draft-note">
+          <p>本轮文件路径来自成功回执；结论是助手声明，仍需你核对。</p>
+          {draft.summaryTruncated ? <p className="work-task-notice">助手结论预览已截断，请补全后提交。</p> : null}
+          {draft.warning ? <p className="work-task-notice">{draft.warning}</p> : null}
+          <button type="button" className="ghost" disabled={view.locked || (!draft.summary && !draft.artifacts.length)} onClick={() => { edited.current = { summary: true, artifacts: true }; setSummary(draft.summary); setArtifacts(draft.artifacts.map(item => item.path).join("\n")); }}>用本轮草稿替换表单</button>
+        </div> : null}
+        {draftError ? <p className="work-task-notice" role="status">{draftError}</p> : null}
+        <label>交付结论<textarea aria-label="交付结论" rows={3} value={summary} onChange={event => { edited.current.summary = true; setSummary(event.target.value); }} required /></label>
+        <label>产物引用 <small>每行一条，仅作交付声明</small><textarea aria-label="交付产物引用" rows={2} value={artifacts} onChange={event => { edited.current.artifacts = true; setArtifacts(event.target.value); }} /></label>
         <label>未解决事项 <small>每行一条，可留空</small><textarea aria-label="未解决事项" rows={2} value={unresolved} onChange={event => setUnresolved(event.target.value)} /></label>
         <p className="hint">{task.status === "paused" && task.delivery ? "以上沿用上次交付作为草稿，请按本轮实际结果核对。" : ""}不从助手文本生成证据。提交后后端核验自动项；再次提交会清空之前的验收结果。</p>
         <button className="allow" disabled={view.locked || !summary.trim()} type="submit">{task.delivery ? "重置验收并提交" : "提交交付，核验自动项"}</button>
@@ -197,6 +248,49 @@ function TaskDetail({ task, view, onRun }: { task: WorkTask; view: WorkTaskView;
     {actions.cancel ? <button className="ghost" disabled={view.locked} onClick={() => setCancelPreview(true)}>取消此任务…</button> : null}
     {cancelPreview ? <div className="work-task-confirm" role="group" aria-label="取消任务确认"><p>确认取消这项任务？已发生的效果不会撤回。{actions.reconcile ? "同时保存上方核对结论与说明。" : ""}</p><div className="work-task-buttons"><button className="deny" disabled={view.locked || (actions.reconcile && (!receiptRead || !note.trim()))} onClick={() => { if (actions.reconcile) void view.reconcile(observed, "cancel", note.trim()); else void view.cancel(); }}>确认取消任务</button><button onClick={() => setCancelPreview(false)}>保留任务</button></div></div> : null}
   </div>;
+}
+
+function TaskArtifacts({ task, draft, onRun, locked }: { task: WorkTask; draft: WorkTaskDeliveryDraft | null; onRun: (id: string) => void; locked: boolean }) {
+  const [preview, setPreview] = useState<WorkTaskArtifactPreview | null>(null);
+  const [reading, setReading] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const request = useRef(0);
+  useEffect(() => () => { ++request.current; }, []);
+  const paths = [...new Set([
+    ...task.acceptance.flatMap(item => item.verification.kind === "artifact_exists" ? [item.verification.path] : []),
+    ...(draft?.artifacts.map(item => item.path) ?? []),
+  ])];
+  const read = async (path: string) => {
+    const current = ++request.current;
+    setReading(path); setError(null); setPreview(null);
+    try {
+      const result = await window.runloom.getWorkTaskArtifact({ id: task.id, expectedRevision: task.revision, path });
+      if (current !== request.current) return;
+      if (result.ok) setPreview(result.value);
+      else setError(`${result.error.code}: ${result.error.message}`);
+    } catch { if (current === request.current) setError("产物读取失败，请重新读取；不能据此认定文件不存在。"); }
+    finally { if (current === request.current) setReading(null); }
+  };
+  if (!paths.length) return null;
+  return <section className="task-artifacts" aria-label="任务产物">
+    <h3>产物</h3>
+    <p className="hint">只读当前磁盘的文本，不调用模型；预览不是提交交付或质量验收。</p>
+    {paths.map(path => {
+      const receipt = draft?.artifacts.find(item => item.path === path);
+      return <div className="task-artifact-row" key={path}>
+        <div><code>{path}</code><small>{receipt ? `本轮写入${receipt.bytes === null ? "" : ` ${receipt.bytes} 字节`}` : "任务要求的文件 · 本轮写入尚未核实"}</small></div>
+        <button type="button" disabled={locked || reading !== null} onClick={() => void read(path)}>{reading === path ? "正在读取…" : "查看产物"}</button>
+        {receipt ? <button type="button" className="ghost" onClick={() => onRun(receipt.runId)}>执行回执</button> : null}
+      </div>;
+    })}
+    {error ? <p role="alert" className="error">{error}</p> : null}
+    {preview ? <div className="task-artifact-preview">
+      <div className="card-head"><strong>{preview.path}</strong><button type="button" className="ghost" onClick={() => setPreview(null)}>收起</button></div>
+      <p className="hint">读取于 {formatRecordTime(preview.readAt)}，{preview.bytes} 字节。再次修改后需要重新读取。</p>
+      <p className={preview.matchesReceipt === false ? "work-task-notice" : "hint"}>{preview.matchesReceipt === true ? "当前内容与最新写入回执一致；内容质量仍需核对。" : preview.matchesReceipt === false ? "当前内容与最新写入回执不一致，文件可能已被修改。" : "没有可比对的最新哈希回执；此处只展示文件。"}</p>
+      <pre tabIndex={0}>{preview.content}</pre>
+    </div> : null}
+  </section>;
 }
 
 export function WorkTasksPanel({ view, onRun, createRequest = 0 }: { view: WorkTaskView; onRun: (id: string) => void; createRequest?: number }) {

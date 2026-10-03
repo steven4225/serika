@@ -36,10 +36,10 @@ import { CapabilitiesPanel } from "./capabilities.js";
 import { PomodoroPanel } from "./pomodoro.js";
 import { PendingMemory, type PendingMemoryStatus } from "./pending-memory.js";
 import { AssistantReply } from "./delivery.js";
-import { attentionKind, headerStatus, loadedCountLabel, deliveredReplyKeys } from "./attention.js";
+import { attentionKind, headerStatus, loadedCountLabel, deliveredReplyKeys, isMockModel } from "./attention.js";
 import { CurrentTask, useWorkTasks, WorkTasksPanel } from "./work-tasks.js";
 import { RssPanel } from "./rss.js";
-import { unreconciledRuns } from "./work-task-data.js";
+import { unreconciledRuns, taskSelectionKey } from "./work-task-data.js";
 
 const OUTPUT_MAX_CHARS = 64 * 1024;
 
@@ -258,7 +258,7 @@ export function App() {
   const [unreadOutput, setUnreadOutput] = useState(false);
   const selectedRecordId = useRef<string | null>(null);
   const taskRunStarted = useCallback((text: string) => { setSubmittedInput(text); followConversation.current = true; setDetailsOpen(false); }, []);
-  const workTasks = useWorkTasks(info?.workTasks === true, state.kind !== "idle", taskRefresh, taskRunStarted);
+  const workTasks = useWorkTasks(info?.workTasks === true, state.kind !== "idle", taskRefresh, taskRunStarted, taskSelectionKey(info));
 
   const applySnapshot = useCallback((snapshot: UiSnapshot) => {
     setState(snapshot.state);
@@ -570,6 +570,7 @@ export function App() {
           <span className="spacer" />
           {busy ? <button className="cancel-button" onClick={() => void window.runloom.cancel().catch(() => setError("取消结果未收到，请核对当前状态。"))}><Icon name="stop" size={14} />停止</button> : null}
         </header>
+        {isMockModel(info?.modelAlias) ? <div className="model-mode-notice" role="status">当前使用模拟模型，只用于界面测试。日用任务请配置真实模型并重启；不会自动切换。</div> : null}
         <div className="attention-region" hidden={(attention === "none" && !pendingMemory.error) || (attention === "memory" && detailsOpen)}>
           {attention === "approval" && approval ? <ApprovalCard approval={approval} deciding={decidingId === approval.approvalId} onDecision={decision => void decide(decision)} /> : null}
           {attention === "unknown" ? <div className="review-notice" role="status"><Icon name="shield" size={16} /><span>有执行效果还没核对，不会自动重做。</span><button className="ghost" onClick={() => { if (reviewTask) { workTasks.select(reviewTask.id); openDetails("home"); } else { openDetails("records"); const run = unknownRuns[0]; if (run) void openRecord(run.runId); } }}>{reviewTask ? "核对工作任务" : "查看回执"}<Icon name="chevron" size={14} /></button></div> : null}

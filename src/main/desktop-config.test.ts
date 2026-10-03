@@ -12,6 +12,15 @@ import {
 } from "./desktop-config.js";
 
 describe("desktop TUI config", () => {
+  it("refuses a broken generated config without replacing user data", async () => {
+    const root = await mkdtemp(join(tmpdir(), "runloom-desktop-bad-config-"));
+    try {
+      const path = join(root, "runloom.json");
+      await writeFile(path, "{broken");
+      await assert.rejects(resolveDesktopConfig({ env: {}, userData: root }), /refusing to replace/);
+      assert.equal(await readFile(path, "utf8"), "{broken");
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
   it("sets both Run and Shell budgets on a generated config", () => {
     const config = defaultDesktopConfig("/tmp/workspace");
     assert.equal((config.run as { totalTimeoutMs: number }).totalTimeoutMs, DESKTOP_DEFAULT_TOTAL_TIMEOUT_MS);
@@ -23,6 +32,7 @@ describe("desktop TUI config", () => {
     assert.ok(DESKTOP_DEFAULT_TOTAL_TIMEOUT_MS > 30_000);
     assert.ok(DESKTOP_DEFAULT_SHELL_TIMEOUT_MS > 30_000);
     assert.equal((config.contextCompaction as { enabled: boolean }).enabled, true);
+    assert.equal((config.contextCompaction as { summaryMaxOutputTokens: number }).summaryMaxOutputTokens, 4096);
   });
 
   it("fills missing timeouts without changing explicit values", () => {

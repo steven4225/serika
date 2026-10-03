@@ -59,7 +59,8 @@ describe("work task controls", () => {
     assert.doesNotMatch(error, /还没有工作任务/);
     const current = renderToStaticMarkup(createElement(CurrentTask, { view: view(baseTask), onOpen: () => undefined }));
     assert.match(current, /写计划/);
-    assert.match(current, /已暂停/);
+    assert.match(current, /本轮结束 · 未验收/);
+    assert.match(current, /检查产物并交付/);
     assert.doesNotMatch(current, /通过此项/);
   });
 });

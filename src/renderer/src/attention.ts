@@ -3,6 +3,10 @@ import type { ConversationRow } from "./conversation.js";
 
 export type AttentionKind = "approval" | "unknown" | "memory" | "none";
 
+export function isMockModel(alias: string | undefined): boolean {
+  return alias === "mock" || alias?.startsWith("mock/") === true;
+}
+
 /** Presentation priority only. It never changes permissions or controller state. */
 export function attentionKind(input: { approval: boolean; unknownRuns: number; pendingMemory: number; idle: boolean }): AttentionKind {
   if (input.approval) return "approval";

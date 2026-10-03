@@ -28,7 +28,17 @@ RUNLOOM_MODEL=deepseek RUNLOOM_CONFIG=/absolute/path/runloom.json \
 
 `RUNLOOM_THREAD` / `RUNLOOM_TRANSCRIPTS` 可显式覆盖，不改写默认身份；部分覆盖从匹配身份补齐，无匹配时用稳定隔离默认值。以相同覆盖重启才能回到同一对话。`RUNLOOM_WORKSPACE` 只在首次生成配置时生效，已有配置以文件实际 workspace 为准。
 
-新生成的 `runloom.json` 默认开启模型摘要压缩，保留后端合法默认预算；旧配置不会自动开启，显式 `RUNLOOM_CONFIG` 不会被改写。自动记忆整理仍需显式设置 `modules.memory.autoConsolidate: true`，不会自动开启。
+新生成的 `runloom.json` 默认开启模型摘要压缩，使用固定的 32K 窗口、4K 输出预留、1K 安全余量、8K 近期保留、4K 摘要输出（`config/desktop.example.json` 同步给出）。旧配置的压缩预算不会自动修改，显式 `RUNLOOM_CONFIG` 不会被改写。已有 userData 配置损坏时直接报错，不覆盖成默认配置。自动记忆整理仍需显式设置 `modules.memory.autoConsolidate: true`，不会自动开启。
+
+没有选择真实模型时，默认 mock 仍可用于界面调试，但主屏会显示明确警告，不把它当真实任务能力。日用启动请显式指定模型，复用受信任的环境文件（不显示或复制 Key）：
+
+```sh
+cd /Users/a1-6/Code/agents/runloom-desktop
+RUNLOOM_MODEL=command-code \
+RUNLOOM_ENV_FILE=/Users/a1-6/Code/agents/aisdk-agent-framework/.env pnpm dev
+```
+
+模型配置不会在运行中切换；修改后完整退出桌面并重新启动。
 
 ## Command Code 与指定应用控制
 
@@ -71,6 +81,12 @@ Computer 确认卡显示精确 bundle/PID/window、动作和完整输入，技�
 4. 重启用原配置、workspace、Thread、transcript 后重新读取存储。`needs_review` 先读最新回执，核对实际文件/应用，再填写观察与说明。「仍然不确定」不能继续，但可带核对记录取消；不存在直接取消绕过。成功继续只回到 `paused`，必须另点下一轮，不重放工具。回执缺失或不可用会明示，人类报告仍不是程序证据。
 
 主屏只显示所选任务的紧凑状态；详情、验收、关联 Run 和人工核对历史都在工作区，没有新侧栏或任务队列。执行记录可回到归属任务。核对后的旧 `unknown` 回执原样保留，只从尚待处理的横幅数量中去除；核对不代表旧执行成功。
+
+创建表单提供「整理材料成文档」和「修改已有文档」两个可编辑起点，默认使用根目录 `work-plan.md`，避免空工作区没有 `notes/` 而写入失败。自定义子目录须已存在；模板不会增加建目录能力。选择只填草稿，不创建或执行。主屏所选任务同时显示下一步：开始执行、核对效果、检查产物并交付、验收或查看结果。选中任务 ID 按 config/workspace/Thread/transcript 身份存在本机页面偏好里，刷新或同身份重开可恢复；不保存权限、不自动续跑。即使任务已不在最近 20 条列表里，仍按 ID 读取；任务丢失会提示，不静默执行别的任务。
+
+详情可从最新归属正确的 primary Run 预填未编辑的新交付结论与成功写入路径，结论仍是助手声明。异常 Run、缺失回执和截断会明示，不拿旧成功替代；已有退回交付保留为旧草稿，可显式用本轮替换。任务声明或成功回执关联的产物可以点击「查看产物」读取当前文本，复用后端 64 KiB UTF-8/非 symlink/workspace 路径限制；纯文本不执行 HTML。预览显示读取时刻、字节数和当前 hash 与回执是否一致，读失败不是文件不存在，预览不算验收证据。提交仍由后端重新核验，人工质量仍需明确判断。
+
+2026-10-03 第一批验证：隔离目录 `/private/tmp/runloom-delivery-flow.9fOHdm/real`，真实 Command Code 完成本轮读材料/产物→编辑→读回→草稿与预览→提交自动核验，并在另一个 Node 进程重新读取；任务保持 `awaiting_acceptance`，人工质量 `not_run`。首次缺父目录失败、第二次未重新读来源且混入旧任务说明的失败均保留为独立记录；修正下一轮的成功不是一次完成率证明。确认由验收程序限定到两个文件代办，不是 Electron 人工点击。原生测试窗口两次无法取得有效 AX 树/截图，Electron 交互链仍未通过，本批没有重跑连续压缩链。
 
 每次变更传当前详情的 `revision`。刷新中、忙时或数据不可用时禁用变更；冲突、丢失响应后只重读，不重发旧请求。表单随任务 id/revision 重置，防止旧预览继续接受；普通聊天草稿不动。列表复用后端最近 20 条，不宣称整个 workspace 所有任务。
 

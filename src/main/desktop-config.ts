@@ -67,7 +67,7 @@ export function defaultDesktopConfig(workspace?: string): Record<string, unknown
     ...(workspace === undefined ? {} : { workspace }),
     modules,
     run: { totalTimeoutMs: DESKTOP_DEFAULT_TOTAL_TIMEOUT_MS },
-    contextCompaction: { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled: true },
+    contextCompaction: { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled: true, summaryMaxOutputTokens: 4096 },
   };
 }
 
@@ -93,9 +93,12 @@ export async function resolveDesktopConfig(options: {
   try {
     const raw = await readFile(configPath, "utf8");
     const value: unknown = JSON.parse(raw);
-    if (isRecord(value)) parsed = value;
-  } catch {
-    parsed = undefined;
+    if (!isRecord(value)) throw new Error("Desktop config must be an object");
+    parsed = value;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw new Error(`Cannot read desktop config ${configPath}; refusing to replace it`, { cause: error });
+    }
   }
 
   if (parsed === undefined) {

@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { attentionKind, headerStatus, loadedCountLabel, deliveredReplyKeys } from "./attention.js";
+import { attentionKind, headerStatus, loadedCountLabel, deliveredReplyKeys, isMockModel } from "./attention.js";
 import type { ConversationRow } from "./conversation.js";
+
+test("mock warning recognizes the production model alias without mistaking real providers", () => {
+  assert.equal(isMockModel("mock/default"), true);
+  assert.equal(isMockModel("mock"), true);
+  assert.equal(isMockModel("command-code/default"), false);
+  assert.equal(isMockModel(undefined), false);
+});
 
 test("only the highest-priority decision expands; memory writes wait for idle", () => {
   assert.equal(attentionKind({ approval: true, unknownRuns: 2, pendingMemory: 4, idle: false }), "approval");

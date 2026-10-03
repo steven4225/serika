@@ -63,6 +63,55 @@ async function waitFor(condition: () => boolean) {
 }
 
 describe("work task desktop boundary", () => {
+  it("prefills only the current delivery and previews safe artifacts without model calls or acceptance writes", async () => {
+    const root = await prepare();
+    let fixture = await open(root, "work-thread", true);
+    try {
+      const created = await fixture.bridge.createWorkTask(createInput);
+      assert.ok(created.ok); if (!created.ok) return;
+      const id = created.value.id;
+      assert.ok((await fixture.bridge.runWorkTask({ id, expectedRevision: created.value.revision })).ok);
+      await waitFor(() => fixture.bridge.snapshot().pendingApproval !== null);
+      fixture.bridge.confirm({ approvalId: fixture.bridge.snapshot().pendingApproval!.approvalId, decision: "allow" });
+      await waitFor(() => fixture.bridge.snapshot().state.kind === "idle");
+      const paused = await fixture.bridge.getWorkTask(id);
+      assert.ok(paused.ok); if (!paused.ok) return;
+      const input = { id, expectedRevision: paused.value.revision };
+      const calls = fixture.calls();
+      const draft = await fixture.bridge.getWorkTaskDeliveryDraft({ ...input, status: "completed", threadId: "forged" } as never);
+      assert.ok(draft.ok); if (!draft.ok) return;
+      assert.equal(draft.value.summary, "本轮结束，请另行验收。");
+      assert.equal(draft.value.runId, paused.value.runIds.at(-1));
+      assert.deepEqual(draft.value.artifacts.map(item => item.path), ["report.md"]);
+      const preview = await fixture.bridge.getWorkTaskArtifact({ ...input, path: "report.md", evidence: ["forged"] } as never);
+      assert.ok(preview.ok); if (!preview.ok) return;
+      assert.equal(preview.value.content, "报告正文\n");
+      assert.equal(preview.value.matchesReceipt, true);
+      assert.equal(preview.value.receipt?.toolCallId, "write-report");
+      await writeFile(join(root, "workspace", "report.md"), "外部修改\n");
+      const changed = await fixture.bridge.getWorkTaskArtifact({ ...input, path: "report.md" });
+      assert.ok(changed.ok && changed.value.matchesReceipt === false);
+      await writeFile(join(root, "workspace", "private.txt"), "not a task artifact");
+      assert.equal((await fixture.bridge.getWorkTaskArtifact({ ...input, path: "private.txt" })).ok, false);
+      assert.equal((await fixture.bridge.getWorkTaskArtifact({ ...input, path: "../config.json" })).ok, false);
+      assert.equal((await fixture.bridge.getWorkTaskArtifact({ ...input, path: "report.md", expectedRevision: 1 })).ok, false);
+      for (const invalid of [null, {}, { id, expectedRevision: 0 }]) {
+        assert.equal((await fixture.bridge.getWorkTaskDeliveryDraft(invalid as never)).ok, false);
+        assert.equal((await fixture.bridge.getWorkTaskArtifact(invalid as never)).ok, false);
+      }
+      assert.equal((await fixture.bridge.getWorkTaskArtifact({ ...input, path: "" })).ok, false);
+      assert.equal(fixture.calls(), calls);
+      assert.deepEqual(await fixture.bridge.getWorkTask(id), paused, "display must not submit or accept a delivery");
+      await fixture.bridge.shutdown();
+      fixture = await open(root);
+      const restored = await fixture.bridge.getWorkTaskDeliveryDraft(input);
+      assert.deepEqual(restored, draft);
+      const restoredPreview = await fixture.bridge.getWorkTaskArtifact({ ...input, path: "report.md" });
+      assert.ok(restoredPreview.ok && restoredPreview.value.matchesReceipt === false);
+      assert.equal(fixture.calls(), 0);
+    } finally { await fixture.bridge.shutdown(); await rm(root, { recursive: true, force: true }); }
+  });
+
   it("returns an unsuccessful delivery without a model call and does not reuse old automatic proof", async () => {
     const root = await prepare();
     const fixture = await open(root, "work-thread", true);
