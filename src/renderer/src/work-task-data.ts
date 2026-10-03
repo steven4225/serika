@@ -38,9 +38,14 @@ export function isTaskRun(task: WorkTask, run: ExecutionRunRecord): boolean {
 
 export function lines(text: string): string[] { return text.split("\n").map(line => line.trim()).filter(Boolean); }
 
-export type TaskTemplateId = "document" | "edit";
+export type TaskTemplateId = "document" | "edit" | "maintain";
 export interface TaskFormDraft { goal: string; constraints: string; artifacts: string; human: string }
 export const TASK_TEMPLATES: Record<TaskTemplateId, { label: string; draft: TaskFormDraft }> = {
+  maintain: { label: "持续推进项目计划", draft: {
+    goal: "持续维护 work-plan.md：依据我指定的项目材料形成带来源的结论、优先事项和可执行下一步，后续在同一任务里继续修改与交付。首次执行先向我确认材料与当前要求。",
+    constraints: "每轮先读当前材料与 work-plan.md；缺文件时只可按确认要求新建，不凭历史摘要推断磁盘\n只写入或编辑 work-plan.md，保留未要求修改的章节；标明材料来源与未核验事实\n修改后读回核对；每个下一步写明动作、预期产物和完成条件",
+    artifacts: "work-plan.md", human: "关键结论可追溯到当前材料，未核验事实单独说明\n旧章节与未要求修改的内容保留\n下一步有动作、产物和完成条件，能直接执行",
+  } },
   document: { label: "整理材料成文档", draft: {
     goal: "读取我指定的材料，整理成一份带来源、优先事项和具体下一步的文档，保存到 work-plan.md。请先确认材料路径，不要编造来源。",
     constraints: "先读取当前磁盘中的指定材料，不以旧对话或摘要代替；缺失或矛盾之处直说\n只新建指定产物，不修改其他文件\n保存后读回核对；已有文件不要覆盖",

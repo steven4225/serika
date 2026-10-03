@@ -12,6 +12,7 @@ import type { ExecutionRunRecord } from "@aisdk-agent/example-cli/dist/execution
 import { ShellProgressBuffer } from "../shared/shell-progress.js";
 import { sanitizeWorkTaskInput, type WorkTask, type WorkTaskInputs, type WorkTaskResult } from "../shared/work-tasks.js";
 import type { WorkTaskReadInput, WorkTaskArtifactInput, WorkTaskReadResult, WorkTaskDeliveryDraft, WorkTaskArtifactPreview } from "../shared/work-tasks.js";
+import type { WorkTaskContinuation } from "../shared/work-tasks.js";
 import {
   toGetRunResponse,
   toListRunsResponse,
@@ -392,6 +393,11 @@ export class RuntimeBridge {
   async getWorkTask(id: string): Promise<WorkTaskResult<WorkTask>> {
     if (typeof id !== "string" || !id.trim()) return { ok: false, error: { code: "WORK_TASK_INVALID_INPUT", message: "Task id must be non-empty" } };
     return this.#controller.getWorkTask(id);
+  }
+
+  async getWorkTaskContinuation(input: WorkTaskReadInput): Promise<WorkTaskResult<WorkTaskContinuation>> {
+    if (!validTaskRead(input)) return { ok: false, error: { code: "WORK_TASK_INVALID_INPUT", message: "Task id and current revision are required" } };
+    return this.#controller.getWorkTaskContinuation({ id: input.id, expectedRevision: input.expectedRevision });
   }
 
   async getWorkTaskDeliveryDraft(input: WorkTaskReadInput): Promise<WorkTaskReadResult<WorkTaskDeliveryDraft>> {

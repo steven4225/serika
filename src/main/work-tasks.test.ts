@@ -83,6 +83,12 @@ describe("work task desktop boundary", () => {
       assert.equal(draft.value.summary, "本轮结束，请另行验收。");
       assert.equal(draft.value.runId, paused.value.runIds.at(-1));
       assert.deepEqual(draft.value.artifacts.map(item => item.path), ["report.md"]);
+      const continuation = await fixture.bridge.getWorkTaskContinuation({ ...input, threadId: "foreign", status: "completed" } as never);
+      assert.ok(continuation.ok && continuation.value.latestRun?.runId === paused.value.runIds.at(-1));
+      const context = await fixture.bridge.getContextDiagnostics();
+      assert.ok(context.ok && context.value.lastPreparationSource?.workTaskId === id);
+      assert.ok(context.ok && context.value.lastPreparationSource?.runId === paused.value.runIds.at(-1));
+      assert.equal((await fixture.bridge.getWorkTaskContinuation({ ...input, expectedRevision: 1 })).ok, false);
       const preview = await fixture.bridge.getWorkTaskArtifact({ ...input, path: "report.md", evidence: ["forged"] } as never);
       assert.ok(preview.ok); if (!preview.ok) return;
       assert.equal(preview.value.content, "报告正文\n");
@@ -98,6 +104,7 @@ describe("work task desktop boundary", () => {
       for (const invalid of [null, {}, { id, expectedRevision: 0 }]) {
         assert.equal((await fixture.bridge.getWorkTaskDeliveryDraft(invalid as never)).ok, false);
         assert.equal((await fixture.bridge.getWorkTaskArtifact(invalid as never)).ok, false);
+        assert.equal((await fixture.bridge.getWorkTaskContinuation(invalid as never)).ok, false);
       }
       assert.equal((await fixture.bridge.getWorkTaskArtifact({ ...input, path: "" })).ok, false);
       assert.equal(fixture.calls(), calls);
@@ -106,6 +113,9 @@ describe("work task desktop boundary", () => {
       fixture = await open(root);
       const restored = await fixture.bridge.getWorkTaskDeliveryDraft(input);
       assert.deepEqual(restored, draft);
+      assert.deepEqual(await fixture.bridge.getWorkTaskContinuation(input), continuation);
+      const restartedContext = await fixture.bridge.getContextDiagnostics();
+      assert.ok(restartedContext.ok && restartedContext.value.lastPreparationSource === null);
       const restoredPreview = await fixture.bridge.getWorkTaskArtifact({ ...input, path: "report.md" });
       assert.ok(restoredPreview.ok && restoredPreview.value.matchesReceipt === false);
       assert.equal(fixture.calls(), 0);

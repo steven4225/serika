@@ -4,6 +4,7 @@ import type { WorkTask, WorkTaskInputs, WorkTaskObservedOutcome, WorkTaskResult,
 import { criterionStatusLabels, isTaskRun, lines, selectCurrentTask, taskActions, taskStatusLabels, taskNextAction, readTaskSelection, saveTaskSelection, TASK_TEMPLATES, type TaskTemplateId } from "./work-task-data.js";
 import { formatRecordTime } from "../../shared/execution-records.js";
 import { Icon } from "./icons.js";
+import { TaskContinuation } from "./task-continuation.js";
 
 export function useWorkTasks(enabled: boolean, busy: boolean, refreshToken: number, onRunStarted: (text: string) => void, selectionKey: string | null = null) {
   const [tasks, setTasks] = useState<WorkTask[]>([]);
@@ -194,6 +195,7 @@ function TaskDetail({ task, view, onRun }: { task: WorkTask; view: WorkTaskView;
     <div className="work-task-title"><h2>{task.goal}</h2><span className={`work-task-status task-${task.status}`}>{taskStatusLabels[task.status]}</span></div>
     <p className="task-next-step">下一步：{taskNextAction(task)}。{task.status === "paused" ? "需要继续时另开一轮；本轮结束不代表交付通过。" : ""}</p>
     <div className="hint">版本 {task.revision} · 更新于 {formatRecordTime(task.updatedAt)}<br /><code>{task.id}</code></div>
+    <TaskContinuation task={task} onRun={onRun} />
     {task.constraints.length ? <section><h3>约束</h3><ul>{task.constraints.map((constraint, index) => <li key={index}>{constraint}</li>)}</ul></section> : null}
     <TaskArtifacts task={task} draft={draft} onRun={onRun} locked={view.locked} />
     <section><h3>验收标准</h3><ul className="work-task-criteria">{task.acceptance.map(criterion => <li key={criterion.id}>

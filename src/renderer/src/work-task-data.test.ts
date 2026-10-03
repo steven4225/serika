@@ -8,7 +8,7 @@ const task = (status: WorkTaskStatus): WorkTask => ({ id: "task", revision: 1, t
 
 describe("work task presentation invariants", () => {
   it("templates are editable drafts and next actions distinguish Run end from acceptance", () => {
-    assert.equal(Object.keys(TASK_TEMPLATES).length, 2);
+    assert.deepEqual(Object.keys(TASK_TEMPLATES), ["maintain", "document", "edit"]);
     assert.equal(TASK_TEMPLATES.document.draft.artifacts, "work-plan.md", "fresh workspaces must not require an uncreated parent directory");
     assert.match(TASK_TEMPLATES.document.draft.constraints, /不以旧对话或摘要代替/);
     assert.match(TASK_TEMPLATES.edit.draft.constraints, /先读当前文件/);

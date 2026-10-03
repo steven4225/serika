@@ -462,3 +462,9 @@ button.chip { font-size: 12px; padding: 5px 9px; border-color: var(--line); }
 .memory-references { margin: 8px 0 24px; font-size: 12px; color: var(--muted, #657184); overflow-wrap: anywhere; }
 .memory-references summary { cursor: pointer; }
 .memory-reference-item { padding: 10px 0; border-bottom: 1px solid var(--border, #e5e8ed); }
+.task-continuation { padding-block: 14px; border-block: 1px solid var(--line); }
+.task-continuation details { margin-block: 10px; }
+.task-continuation pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.continuation-receipts { padding: 0; list-style: none; }
+.continuation-receipts li { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; padding-block: 4px; }
+.continuation-receipts small { flex-basis: 100%; overflow-wrap: anywhere; color: var(--muted); }

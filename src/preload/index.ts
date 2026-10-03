@@ -30,6 +30,7 @@ const api: RendererApi = {
   listWorkTasks: () => ipcRenderer.invoke(IPC.listWorkTasks),
   getWorkTask: (id) => ipcRenderer.invoke(IPC.getWorkTask, id),
   getWorkTaskDeliveryDraft: (input) => ipcRenderer.invoke(IPC.getWorkTaskDeliveryDraft, input),
+  getWorkTaskContinuation: (input) => ipcRenderer.invoke(IPC.getWorkTaskContinuation, input),
   getWorkTaskArtifact: (input) => ipcRenderer.invoke(IPC.getWorkTaskArtifact, input),
   runWorkTask: (input) => ipcRenderer.invoke(IPC.runWorkTask, input),
   submitWorkTaskDelivery: (input) => ipcRenderer.invoke(IPC.submitWorkTaskDelivery, input),

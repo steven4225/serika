@@ -183,6 +183,7 @@ async function main(): Promise<void> {
   ipcMain.handle(IPC.listWorkTasks, () => bridge.listWorkTasks());
   ipcMain.handle(IPC.getWorkTask, (_event, id: string) => bridge.getWorkTask(id));
   ipcMain.handle(IPC.getWorkTaskDeliveryDraft, (_event, input: WorkTaskReadInput) => bridge.getWorkTaskDeliveryDraft(input));
+  ipcMain.handle(IPC.getWorkTaskContinuation, (_event, input: WorkTaskReadInput) => bridge.getWorkTaskContinuation(input));
   ipcMain.handle(IPC.getWorkTaskArtifact, (_event, input: WorkTaskArtifactInput) => bridge.getWorkTaskArtifact(input));
   ipcMain.handle(IPC.runWorkTask, (_event, input: WorkTaskInputs["runWorkTask"]) => bridge.runWorkTask(input));
   ipcMain.handle(IPC.submitWorkTaskDelivery, (_event, input: WorkTaskInputs["submitWorkTaskDelivery"]) => bridge.submitWorkTaskDelivery(input));
