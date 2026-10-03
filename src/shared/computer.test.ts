@@ -46,7 +46,7 @@ it("retains unknown outcomes and distinguishes cancellation-before-start from ca
   assert.equal(presentComputerResult("computer_action", { ok: false, error: { code: "TOOL_DENIED" } })?.status, "denied");
   assert.equal(presentComputerResult("computer_observe", { ok: false })?.status, "failed");
   const truncated = rowsFromToolActivity([{ toolCallId: "action-1", toolName: "computer_action", status: "completed", summary: '{"ok":true', truncated: true }]);
-  assert.equal(truncated[0]?.kind === "tool" && truncated[0].status, "unknown");
+  assert.equal(truncated[0]?.kind === "tool" && truncated[0].status, "incomplete");
 });
 
 it("does not turn a truncated Shell receipt into success when applying final receipts", () => {

@@ -16,6 +16,7 @@ import {
   finishRun,
   overlayShellProgress,
   overlayExecutionReceipts,
+  canReuseReceiptHistory,
   resultRow,
   rowsFromHistory,
   rowsFromToolActivity,
@@ -33,28 +34,11 @@ import { Icon, RunloomMark, type IconName } from "./icons.js";
 import { MessageContent } from "./markdown.js";
 import { CapabilitiesPanel } from "./capabilities.js";
 import { PomodoroPanel } from "./pomodoro.js";
+import { PendingMemory, type PendingMemoryStatus } from "./pending-memory.js";
+import { AssistantReply } from "./delivery.js";
+import { attentionKind, headerStatus, loadedCountLabel, deliveredReplyKeys } from "./attention.js";
 
 const OUTPUT_MAX_CHARS = 64 * 1024;
-
-function stateLabel(state: UiState): string {
-  switch (state.kind) {
-    case "idle":
-      return "就绪";
-    case "running":
-      if (state.runId === null) return "启动中";
-      return state.phase === "consolidation" ? "整理记忆" : "运行中";
-    case "compacting":
-      return "压缩上下文";
-    case "resuming":
-      return "核对 Git";
-    case "command":
-      return state.name === "memory-review" ? "审核记忆" : `/${state.name}`;
-    default: {
-      const exhaustive: never = state;
-      return exhaustive;
-    }
-  }
-}
 
 function commandError(response: CommandResponse): string {
   if (response.ok) return "";
@@ -76,19 +60,20 @@ function commandError(response: CommandResponse): string {
   }
 }
 
-function Row({ row }: { row: ConversationRow }) {
+function Row({ row, delivered = false }: { row: ConversationRow; delivered?: boolean }) {
   switch (row.kind) {
     case "text":
       return (
         <div className={`row row-text role-${row.role}${row.committed ? "" : " live"}`}>
           {row.role !== "user" ? <span className="role">{row.role === "assistant" ? <><RunloomMark size={20} /> Runloom</> : "系统"}</span> : null}
-          {row.role === "assistant" ? <MessageContent text={row.text} /> : <pre>{row.text}</pre>}
+          {row.role === "assistant" ? <AssistantReply text={row.text} delivered={delivered} /> : <pre>{row.text}</pre>}
         </div>
       );
     case "tool":
       return (
         <details className={`row row-tool status-${row.status}`} open={["failed", "unknown", "timed_out", "dispatched"].includes(row.status) || (row.status === "requested" && !!(row.stdout || row.stderr))}>
           <summary><span className="dot" /><span className="tool-name">{toolDisplayName(row.toolName)}</span>
+            {row.receipt ? <span className="tool-receipt"><code title={row.receipt.path}>{row.receipt.path}</code><span>{row.receipt.bytes} 字节</span></span> : null}
             <span className="tool-status">{toolStatusLabel(row.status)}</span><Icon name="chevron" size={14} /></summary>
           <div className="tool-body"><code>{row.toolName}</code>
           {row.detail ? <div className="tool-detail">{row.detail}</div> : null}
@@ -103,7 +88,8 @@ function Row({ row }: { row: ConversationRow }) {
     case "result":
       return (
         <div className={`row row-result status-${row.status}`}>
-          {row.status === "completed" ? "本轮结束 · 工具效果以回执为准，任务尚未验收" : row.status === "timed_out" ? "本轮超时" : row.status === "cancelled" ? "本轮已取消 · 已执行动作不会撤回" : `本轮 ${row.status}`}
+          {row.status === "completed" ? "本轮结束" : row.status === "timed_out" ? "本轮超时" : row.status === "cancelled" ? "本轮已取消 · 已执行动作不会撤回" : `本轮 ${row.status}`}
+          {row.status === "completed" ? <span className="result-boundary" title="本轮结束仅表示 Run 正常结束，工具效果以回执为准；不是任务验收。">执行结果见回执</span> : null}
           {row.detail ? <span className="tool-detail"> · {row.detail}</span> : null}
         </div>
       );
@@ -124,7 +110,9 @@ function toolStatusLabel(status: ToolRowStatus): string {
     case "requested":
       return "调用中";
     case "ok":
-      return "已返回";
+      return "返回成功";
+    case "incomplete":
+      return "回执不完整";
     case "observed":
       return "观察已返回";
     case "dispatched":
@@ -232,7 +220,8 @@ export function App() {
   const [state, setState] = useState<UiState>({ kind: "idle" });
   const [home, setHome] = useState("");
   const [output, setOutput] = useState("");
-  const [history, setHistory] = useState<ConversationRow[]>([]);
+  const [storedHistory, setStoredHistory] = useState<{ rows: ConversationRow[]; runId: string | null }>({ rows: [], runId: null });
+  const history = storedHistory.rows;
   const [live, setLive] = useState<LiveRun>(emptyLiveRun);
   const [lastResult, setLastResult] = useState<ConversationRow | null>(null);
   const [approval, setApproval] = useState<PendingApproval | null>(null);
@@ -243,11 +232,14 @@ export function App() {
   const [records, setRecords] = useState<RecordsState>({ status: "loading" });
   const [memoryRefresh, setMemoryRefresh] = useState(0);
   const [contextRefresh, setContextRefresh] = useState(0);
+  const [pendingMemory, setPendingMemory] = useState<PendingMemoryStatus>({ count: 0, hasMore: false, loading: false, error: null, reviewing: false });
   const [recordDetail, setRecordDetail] = useState<RecordDetailState>({ status: "idle" });
   const [finalRecord, setFinalRecord] = useState<ExecutionRunRecord | null>(null);
   const [decidingId, setDecidingId] = useState<string | null>(null);
   const decisionInFlight = useRef<string | null>(null);
   const latestPrimaryId = useRef<string | null>(null);
+  const latestCompletedPrimaryId = useRef<string | null>(null);
+  const historyRequest = useRef(0);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [detailTab, setDetailTab] = useState<"home" | "records" | "memory" | "context" | "pomodoro" | "modules">("home");
   const [sending, setSending] = useState(false);
@@ -270,6 +262,8 @@ export function App() {
     const activePrimary = snapshot.state.kind === "running" && snapshot.state.phase === "primary";
     latestPrimaryId.current = snapshot.state.kind === "running" && snapshot.state.phase === "primary"
       ? snapshot.state.runId : snapshot.lastPrimaryResult?.runId ?? null;
+    latestCompletedPrimaryId.current = !activePrimary && snapshot.lastPrimaryResult?.status === "completed"
+      ? snapshot.lastPrimaryResult.runId : null;
     setLastResult(!activePrimary && snapshot.lastPrimaryResult ? resultRow(snapshot.lastPrimaryResult) : null);
     if (!activePrimary) {
       setLive(emptyLiveRun);
@@ -282,8 +276,15 @@ export function App() {
   }, []);
 
   const reloadHistory = useCallback(async () => {
+    const request = ++historyRequest.current;
+    const primaryId = latestPrimaryId.current;
+    const completedId = latestCompletedPrimaryId.current;
     const messages = await window.runloom.history();
-    setHistory(overlayShellProgress(rowsFromHistory(messages), shellBuffer.current));
+    if (request !== historyRequest.current || primaryId !== latestPrimaryId.current || completedId !== latestCompletedPrimaryId.current) return;
+    // Only a reread made after this primary Run completed can supply its full
+    // outcomes. Provider tool IDs are not unique across the whole Thread.
+    const rows = rowsFromHistory(messages);
+    setStoredHistory({ rows: completedId === null ? rows : overlayShellProgress(rows, shellBuffer.current), runId: completedId });
   }, []);
 
   const loadFinalRun = useCallback(async (runId: string) => {
@@ -343,6 +344,8 @@ export function App() {
             setLastResult(null);
             setFinalRecord(null);
             latestPrimaryId.current = null;
+            latestCompletedPrimaryId.current = null;
+            historyRequest.current += 1;
           }
           if (message.state.kind === "running" && message.state.phase === "primary" && message.state.runId !== null) latestPrimaryId.current = message.state.runId;
           if (message.state.kind === "idle") {
@@ -373,6 +376,7 @@ export function App() {
           setContextRefresh((value) => value + 1);
           if (message.phase !== "primary") return;
           latestPrimaryId.current = message.result.runId;
+          latestCompletedPrimaryId.current = message.result.status === "completed" ? message.result.runId : null;
           void loadFinalRun(message.result.runId).catch((cause: unknown) => setError(String(cause)));
           const rows = finishRun(emptyLiveRun, message.result);
           setLastResult(rows.find((row) => row.kind === "result") ?? null);
@@ -444,13 +448,6 @@ export function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [detailsOpen]);
 
-  useEffect(() => {
-    const wide = window.matchMedia("(min-width: 1000px)");
-    const update = () => { if (!wide.matches) setDetailsOpen(false); };
-    wide.addEventListener("change", update);
-    return () => wide.removeEventListener("change", update);
-  }, []);
-
   const decide = useCallback(async (decision: "allow" | "deny") => {
     if (approval === null || decisionInFlight.current === approval.approvalId) return;
     const id = approval.approvalId;
@@ -503,13 +500,18 @@ export function App() {
     ...(submittedInput ? [{ kind: "text" as const, key: "submitted-input", role: "user" as const, text: submittedInput, committed: false }] : []),
     ...live.rows,
   ] : [])];
-  const rows = [...(!activePrimary && finalRecord ? overlayExecutionReceipts(visibleRows, finalRecord.tools) : visibleRows),
+  const rows = [...(!activePrimary && finalRecord ? overlayExecutionReceipts(visibleRows, finalRecord.tools, { reuseHistory: canReuseReceiptHistory(finalRecord, storedHistory.runId) }) : visibleRows),
     ...(!activePrimary && lastResult ? [lastResult] : [])];
+  const delivered = deliveredReplyKeys(rows);
   const homeView = parseHome(home);
   const unknownRuns = records.status === "ready" ? records.runs.filter(run => run.tools.some(tool => tool.status === "unknown")) : [];
   const openDetails = (tab: typeof detailTab) => { setDetailTab(tab); setDetailsOpen(true); };
 
-  const stageLabel = approval ? "等待确认" : info ? stateLabel(state) : error ? "连接失败" : "正在连接";
+  const attention = attentionKind({ approval: approval !== null, unknownRuns: unknownRuns.length, pendingMemory: pendingMemory.count, idle: !busy });
+  const status = headerStatus(state, attention);
+  const stageLabel = info ? status.label : error ? "连接失败" : "正在连接";
+  const pendingLabel = loadedCountLabel(pendingMemory.count, pendingMemory.hasMore);
+  const refreshMemory = useCallback(() => setMemoryRefresh(value => value + 1), []);
   const pageTitle = !detailsOpen ? "对话" : ({ home: "工作区", records: "执行记录", memory: "记忆审核", context: "上下文与压缩", pomodoro: "番茄钟", modules: "模块能力" })[detailTab];
   const pageDescription = ({ home: "查看保存的进度、本地任务和当前配置。", records: "核对每次执行的工具结果，区分完成、失败和未知效果。", memory: "审核当前对话提取的候选，接受后才会成为正式记忆。", context: "查看压缩记录和本次准备结果；需要时手动压缩。", pomodoro: "专注计时，直接操作，不必发消息。", modules: "了解助手支持什么，以及当前启用了什么。" })[detailTab];
   const prepareInput = (text: string) => { setInput(text); inputRef.current?.focus(); };
@@ -523,19 +525,27 @@ export function App() {
     <div className="app">
       <aside className="sidebar" aria-label="主导航">
         <div className="brand"><RunloomMark /><span>Runloom</span></div>
-        <div className="sidebar-section">当前工作区</div>
-        <nav className="primary-nav">
+        <div className="sidebar-nav-scroll">
+        <nav className="primary-nav" aria-label="对话">
           <button className={!detailsOpen ? "selected" : ""} onClick={() => setDetailsOpen(false)} title="当前对话" aria-current={!detailsOpen ? "page" : undefined}>
             <Icon name="chat" /><span>对话</span>
           </button>
-          {([["home", "工作区", "home"], ["records", "执行记录", "activity"], ["memory", "记忆审核", "memory"], ["pomodoro", "番茄钟", "timer"], ["modules", "模块能力", "modules"]] as const).map(([tab, label, icon]) =>
+        </nav>
+        <div className="sidebar-section">查阅</div>
+        <nav className="primary-nav" aria-label="查阅">
+          {([["home", "工作区", "home"], ["records", "执行记录", "activity"], ["memory", "记忆审核", "memory"]] as const).map(([tab, label, icon]) =>
             <button key={tab} className={detailsOpen && detailTab === tab ? "selected" : ""} title={label} aria-current={detailsOpen && detailTab === tab ? "page" : undefined} onClick={() => openDetails(tab)}>
-              <Icon name={icon as IconName} /><span>{label}</span>{tab === "records" && unknownRuns.length ? <span className="nav-count">{unknownRuns.length}</span> : null}
+              <Icon name={icon as IconName} /><span>{label}</span>{tab === "records" && unknownRuns.length ? <span className="nav-count" aria-label={`${unknownRuns.length} 条已加载执行含未知效果`}>{unknownRuns.length}</span> : tab === "memory" && pendingLabel ? <span className="nav-count" title={pendingMemory.hasMore ? "待审候选数量至少为此数" : "当前 Thread 待审候选"} aria-label={`${pendingLabel} 条待审记忆`}>{pendingLabel}</span> : null}
             </button>)}
         </nav>
-        <div className="sidebar-spacer" />
-        <nav className="primary-nav" aria-label="维护"><button className={detailsOpen && detailTab === "context" ? "selected" : ""} aria-current={detailsOpen && detailTab === "context" ? "page" : undefined} title="上下文与压缩" onClick={() => openDetails("context")}><Icon name="context" /><span>上下文与压缩</span></button></nav>
-        <div className="sidebar-note"><Icon name="shield" size={16} /><span>操作前，由你确认</span></div>
+        <div className="sidebar-section">工具</div>
+        <nav className="primary-nav" aria-label="工具"><button className={detailsOpen && detailTab === "pomodoro" ? "selected" : ""} aria-current={detailsOpen && detailTab === "pomodoro" ? "page" : undefined} title="番茄钟" onClick={() => openDetails("pomodoro")}><Icon name="timer" /><span>番茄钟</span></button></nav>
+        </div>
+        <div className="sidebar-section maintenance-label">维护</div>
+        <nav className="primary-nav" aria-label="维护">
+          <button className={detailsOpen && detailTab === "modules" ? "selected" : ""} aria-current={detailsOpen && detailTab === "modules" ? "page" : undefined} title="模块能力" onClick={() => openDetails("modules")}><Icon name="modules" /><span>模块能力</span></button>
+          <button className={detailsOpen && detailTab === "context" ? "selected" : ""} aria-current={detailsOpen && detailTab === "context" ? "page" : undefined} title="上下文与压缩" onClick={() => openDetails("context")}><Icon name="context" /><span>上下文与压缩</span></button>
+        </nav>
         <button className="workspace-switch" onClick={() => openDetails("home")} title={info?.workspaceRoot ?? "尚未配置工作区"}>
           <span className="workspace-avatar">{info?.workspaceRoot ? baseName(info.workspaceRoot).slice(0, 1).toUpperCase() : "R"}</span>
           <span className="workspace-copy"><strong>{info?.workspaceRoot ? baseName(info.workspaceRoot) : "当前会话"}</strong><small>{info?.workspaceRoot ? "本地工作区" : "未配置工作区"}</small></span>
@@ -544,15 +554,18 @@ export function App() {
       </aside>
       <div className="main-shell">
         <header className="header">
-          <div className="conversation-heading"><span>{pageTitle}</span><small>{info?.workspaceRoot ? baseName(info.workspaceRoot) : "Runloom 助手"}</small></div>
+          <span className={`run-state ${status.tone}`} role="status"><span className={`state-dot ${status.tone}`} />{stageLabel}</span>
           <span className="spacer" />
-          <span className={`run-state ${approval ? "awaiting" : busy ? "active" : ""}`}><span className={`state-dot ${state.kind}`} />{stageLabel}</span>
           {busy ? <button className="cancel-button" onClick={() => void window.runloom.cancel().catch(() => setError("取消结果未收到，请核对当前状态。"))}><Icon name="stop" size={14} />停止</button> : null}
         </header>
-        {unknownRuns.length > 0 ? <div className="review-notice" role="status">
-          <Icon name="shield" size={16} /><span>{unknownRuns.length} 次执行的效果尚不明确，请核对；不会自动重试。</span>
-          <button className="ghost" onClick={() => openDetails("records")}>查看回执<Icon name="chevron" size={14} /></button>
-        </div> : null}
+        <div className="attention-region" hidden={(attention === "none" && !pendingMemory.error) || (attention === "memory" && detailsOpen)}>
+          {attention === "approval" && approval ? <ApprovalCard approval={approval} deciding={decidingId === approval.approvalId} onDecision={decision => void decide(decision)} /> : null}
+          {attention === "unknown" ? <div className="review-notice" role="status"><Icon name="shield" size={16} /><span>有执行效果还没核对，不会自动重做。</span><button className="ghost" onClick={() => { openDetails("records"); const run = unknownRuns[0]; if (run) void openRecord(run.runId); }}>查看回执<Icon name="chevron" size={14} /></button></div> : null}
+          {info ? <PendingMemory memory={info.memory} controllerIdle={!busy} refreshToken={memoryRefresh} visible={attention === "memory" && !detailsOpen} onStatus={setPendingMemory} onReviewed={refreshMemory} /> : null}
+          {pendingMemory.error && attention === "none" ? <div className="attention-summary"><span>记忆候选暂不可用，不能据此判断没有待审项。</span><button className="ghost" onClick={() => openDetails("memory")}>查看原因</button></div> : null}
+          {attention === "approval" && (unknownRuns.length > 0 || pendingLabel) ? <div className="attention-summary">{unknownRuns.length > 0 ? <button className="ghost" onClick={() => openDetails("records")}>另有执行效果待核对</button> : null}{pendingLabel ? <button className="ghost" onClick={() => openDetails("memory")}>待审记忆 {pendingLabel}</button> : null}</div> : null}
+          {attention === "unknown" && pendingLabel ? <div className="attention-summary"><button className="ghost" onClick={() => openDetails("memory")}>还有待审记忆 {pendingLabel}</button></div> : null}
+        </div>
         <div className="workbench">
           <main className="workspace-pane" hidden={detailsOpen}>
             <section className="conversation" aria-label="对话">
@@ -564,19 +577,9 @@ export function App() {
               }}>
                 {rows.length === 0 && !live.streaming ? <div className="conversation-empty">
                   <h1>你想完成什么？</h1>
-                  <p>描述目标，或告诉我需要处理的工作区文件。<br />需要操作时，我会先让你确认。</p>
-                  <div className="starter-grid">
-                    {([
-                      ["整理任务", "帮我把一个目标拆成可执行的任务计划，先问清目标与限制。", "chat"],
-                      ["回顾进度", "帮我回顾当前工作区的进度。保存的快照与当前事实要分开，不要自动执行工具。", "home"],
-                      ["梳理思路", "我有个想法，帮我梳理目标、取舍和最小下一步。先让我描述。", "context"],
-                    ] as const).map(([title, prompt, icon]) => <button key={title} disabled={busy || !info} onClick={() => prepareInput(prompt)}>
-                      <Icon name={icon} size={20} /><span>{title}</span><Icon name="chevron" size={14} />
-                    </button>)}
-                  </div>
                 </div> : null}
                 <div className="conversation-thread">
-                  {rows.map(row => <Row key={row.key} row={row} />)}
+                  {rows.map(row => <Row key={row.key} row={row} delivered={delivered.has(row.key)} />)}
                   {activePrimary && live.streaming ? <div className="row row-text role-assistant live">
                     <span className="role"><RunloomMark size={20} /> Runloom <span className="streaming-label">正在回复</span></span>
                     <MessageContent text={live.streaming} />
@@ -621,8 +624,6 @@ export function App() {
           </section>
         </div>
         <div className="action-dock">
-          {detailsOpen && busy ? <div className="background-run" role="status"><span>{approval ? "对话中有一个操作需要你确认。" : `对话仍在${stageLabel}，你可以继续查看本页。`}</span><button className="ghost" onClick={() => setDetailsOpen(false)}>查看对话</button></div> : null}
-          {approval ? <ApprovalCard approval={approval} deciding={decidingId === approval.approvalId} onDecision={decision => void decide(decision)} /> : null}
           {error ? <div className="error error-banner" role="alert"><span>{error}</span>{info ? <button className="icon-button" aria-label="关闭错误提示" onClick={() => setError(null)}><Icon name="close" size={16} /></button> : null}</div> : null}
           <footer className="composer" hidden={detailsOpen}>
             <textarea ref={inputRef} aria-label="消息输入" rows={3} value={input}
@@ -639,13 +640,12 @@ export function App() {
                 <div className="command-caption">填入命令后发送，不会立即执行</div>
                 {info.commands.map(name => <button key={name} className="chip" disabled={busy} onClick={() => prepareInput(`/${name} `)}>/{name}</button>)}
               </div></details> : null}
-              <span className="composer-model" title={info?.modelId ?? "正在连接"}>{info?.modelAlias.split("/")[0] ?? "连接中"}</span>
               <span className="spacer" />
               <button className="icon-button" aria-label={showOutput ? "隐藏系统输出" : "查看系统输出"} title="系统输出" aria-pressed={showOutput} onClick={() => setShowOutput(value => !value)}><Icon name="terminal" size={17} /></button>
               <button className="send-button" aria-label="发送消息" title="发送 · Enter" disabled={busy || sending || !input.trim() || !info} onClick={() => { followConversation.current = true; void submit(); }}><Icon name="arrow" size={19} /></button>
             </div>
           </footer>
-          <div className="composer-hint" hidden={detailsOpen}><span>Enter 发送<span className="shortcut-divider">·</span>Shift + Enter 换行</span><span>工具执行需逐次确认</span></div>
+          <div className="composer-hint" hidden={detailsOpen}><span>Enter 发送<span className="shortcut-divider">·</span>Shift + Enter 换行</span></div>
         </div>
       </div>
     </div>

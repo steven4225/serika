@@ -1,6 +1,7 @@
 export type ToolRowStatus =
   | "requested"
   | "ok"
+  | "incomplete"
   | "observed"
   | "dispatched"
   | "not_started"
