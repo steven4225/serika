@@ -46,3 +46,11 @@ RUNLOOM_MODEL=command-code node --env-file=.env \
 2026-10-03 的隔离验收：公开 `https://hnrss.org/newest` 经生产 feed reader 抓取，Command Code 真实模型完成 scheduled-rss Run，五条程序来源清单落入 inbox，首次二十条观察基线已提交，pending 已清除。验收通过 fixture 时钟推进领取，**不是墙钟到点证据**。报告保存在本机 `/private/tmp/runloom-rss-live-xNshng/report.json`（临时目录可能被系统清理，不作为永久 CI 证据）。
 
 Electron 测试窗口已启动并核对首屏；导航点击未取得可确认的面板变化，订阅增删/确认/ack 的原生交互仍未通过。关闭窗口到点执行、launchd 杀进程拉起与睡眠恢复仍要独立验收。不能拿离线/mock 或 Store 调用模拟时间代替这些系统证据。
+
+### 后续实机证据（2026-10-03）
+
+- 隔离 Electron 原生 AX 操作已经核对工作区 RSS 面板、暂停预览/确认及 inbox 已读回写。暂停后 rss.json `enabled=false` 且二十条基线保留；ack 后原任务仍 completed，`acknowledgedAt` 已保存。新增/删除来源、首次排期、恢复与桌面重启整链尚未验收。该桌面窗口使用 mock，只证明操作接线；展示的简报来自前一次真实模型执行。
+- 另一个全新隔离 workspace 以真实墙钟每日排期在上海时间 16:18 到期。真实 launchd 启动生产 `startTaskWorker`，显式 `--rss --notify`，Command Code 模型生成简报，任务在 16:18:07 完成，runId 非空，inbox 与二十条基线已保存，pending 清除。没有桌面进程参与。这证明无桌面运行时的独立后台到点交付，不是“从桌面创建再关闭”的全链证明。
+- 完成后的测试 worker 经 launchctl SIGKILL，launchd 拉起新 PID；inbox 仍只有原任务，没有重放已完成简报。这里未测试抓取/模型执行中途被杀的崩溃。
+- 通知状态为 `submitted`、attempts=1，仅证明 osascript 提交成功，不证明用户看到。测试服务已 bootout，后续查询确认服务不存在，测试 plist 已移除；未改日用服务。验收专用启动包装器固定模型选择为 command-code，凭据仍读取原外部 env 文件，不复制 key。报告在 `/private/tmp/runloom-rss-wallclock-1eOXzq/report.json`，临时文件不是永久 CI 证据。
+- 睡眠/离线恢复、用户实际看到通知及真实模型 Electron 对话仍未封板。
