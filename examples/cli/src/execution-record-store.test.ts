@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdtemp, readFile, rm, symlink, writeFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -8,6 +9,7 @@ import {
   EXECUTION_RECORD_FILE,
   ExecutionRecordError,
   createExecutionRecordStore,
+  readFileWriteReceipt,
 } from "./execution-record-store.js";
 
 const directories: string[] = [];
@@ -48,6 +50,75 @@ async function errorCode(operation: () => Promise<unknown>): Promise<string | un
 }
 
 describe("ExecutionRecordStore", () => {
+  it("persists compact file evidence independently of truncated display input across reopen", async () => {
+    const path = await directory();
+    const store = createExecutionRecordStore(path, { now });
+    const content = "资料🧩".repeat(800);
+    const sha256 = createHash("sha256").update(content).digest("hex");
+    await store.startRun({ runId: "run-1", threadId: "thread-1", phase: "primary" });
+    await store.recordToolEvent("run-1", toolEvent("tool.call.requested", {
+      toolCallId: "write", toolName: "write_file", input: { path: "report.md", content },
+    }));
+    await store.recordToolEvent("run-1", toolEvent("tool.call.started", { toolCallId: "write", toolName: "write_file" }));
+    await store.recordToolEvent("run-1", toolEvent("tool.call.completed", {
+      toolCallId: "write", toolName: "write_file", output: { ok: true, path: "report.md", bytes: Buffer.byteLength(content), sha256 },
+    }));
+    await store.finishRun("run-1", result());
+    const receipt = (await createExecutionRecordStore(path).getRun("thread-1", "run-1"))!.tools[0]!;
+    assert.equal(receipt.inputTruncated, true);
+    assert.deepEqual(receipt.fileInput, { path: "report.md", sha256 });
+    assert.deepEqual(readFileWriteReceipt(receipt, "report.md"), { sha256, bytes: Buffer.byteLength(content) });
+    assert.equal(readFileWriteReceipt(receipt, "other.md"), undefined);
+    assert.ok(Buffer.byteLength(JSON.stringify(receipt.fileWrite)) < 256);
+  });
+
+  it("does not create file success evidence for denial, unknown, wrong digest/path or completion without start", async () => {
+    for (const scenario of ["denied", "unknown", "wrong-hash", "wrong-path", "no-start"] as const) {
+      const path = await directory();
+      const store = createExecutionRecordStore(path, { now });
+      await store.startRun({ runId: "run-1", threadId: "thread-1", phase: "primary" });
+      const content = "x".repeat(4096);
+      await store.recordToolEvent("run-1", toolEvent("tool.call.requested", {
+        toolCallId: "write", toolName: "write_file", input: { path: "report.md", content },
+      }));
+      if (!["denied", "no-start"].includes(scenario)) await store.recordToolEvent("run-1", toolEvent("tool.call.started", { toolCallId: "write", toolName: "write_file" }));
+      if (scenario === "denied") await store.recordToolEvent("run-1", toolEvent("tool.call.failed", {
+        toolCallId: "write", toolName: "write_file", error: { code: "TOOL_DENIED", message: "No", phase: "tool", retryable: false },
+      }));
+      else if (scenario !== "unknown") await store.recordToolEvent("run-1", toolEvent("tool.call.completed", {
+        toolCallId: "write", toolName: "write_file", output: { ok: true, path: scenario === "wrong-path" ? "other.md" : "report.md",
+          bytes: 4096, sha256: createHash("sha256").update(scenario === "wrong-hash" ? "different" : content).digest("hex") },
+      }));
+      await store.finishRun("run-1", result());
+      const receipt = (await createExecutionRecordStore(path).getRun("thread-1", "run-1"))!.tools[0]!;
+      assert.equal(receipt.fileWrite, undefined, scenario);
+      assert.equal(readFileWriteReceipt(receipt, "report.md"), undefined, scenario);
+    }
+  });
+
+  it("keeps old truncated records unverifiable and rejects corrupt compact metadata", async () => {
+    const path = await directory();
+    const store = createExecutionRecordStore(path, { now });
+    await store.startRun({ runId: "run-1", threadId: "thread-1", phase: "primary" });
+    await store.recordToolEvent("run-1", toolEvent("tool.call.requested", {
+      toolCallId: "write", toolName: "write_file", input: { path: "report.md", content: "x".repeat(4096) },
+    }));
+    await store.recordToolEvent("run-1", toolEvent("tool.call.started", { toolCallId: "write", toolName: "write_file" }));
+    await store.recordToolEvent("run-1", toolEvent("tool.call.completed", {
+      toolCallId: "write", toolName: "write_file", output: { ok: true, path: "report.md", bytes: 4096 },
+    }));
+    await store.finishRun("run-1", result());
+    const file = join(path, EXECUTION_RECORD_FILE);
+    const document = JSON.parse(await readFile(file, "utf8"));
+    delete document.runs[0].tools[0].fileInput;
+    await writeFile(file, JSON.stringify(document));
+    const receipt = (await createExecutionRecordStore(path).getRun("thread-1", "run-1"))!.tools[0]!;
+    assert.equal(readFileWriteReceipt(receipt, "report.md"), undefined);
+    document.runs[0].tools[0].fileInput = { path: "report.md", sha256: "not-a-digest" };
+    await writeFile(file, JSON.stringify(document));
+    assert.equal(await errorCode(() => createExecutionRecordStore(path).getRun("thread-1", "run-1")), "FILE_INVALID");
+  });
+
   it("preserves explicit unknown outcomes across finalization and reopen, unlike ordinary failures", async () => {
     for (const code of ["TOOL_OUTCOME_UNKNOWN", "TOOL_EXECUTION_FAILED", "TOOL_DENIED"]) {
       const path = await directory();

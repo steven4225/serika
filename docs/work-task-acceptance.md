@@ -2,8 +2,9 @@
 
 首批冻结 **6 个 WorkTask Eval 案例、记录格式和人工执行边界**。它复用现有
 `AssistantController`、执行回执与 `AcceptanceCaseResult`，不新增 Eval runner、真实模型测试、
-第二条 AgentLoop 或 Durable Runtime 状态。后续已具体化 WT01–WT04 fixture，并做了四次
-真实模型隔离验收；自动检查通过，人工质量项仍未运行，不声称整个案例已通过。
+第二条 AgentLoop 或 Durable Runtime 状态。后续已具体化 WT01–WT06 fixture，并完成六个
+案例的真实模型隔离首轮；各例外部自动检查通过，但 WT06 来源事实核对失败，其余人工质量项
+仍未完成，不声称整个案例已通过。
 
 ## 两层记录不能混为一谈
 
@@ -29,10 +30,11 @@
 
 `work-task-eval-cases.test.ts` 只验证目录冻结和记录类型可接入；它不执行 fixture、模型、网络或验收。
 
-WT01–WT04 的固定输入与操作边界见
+WT01–WT06 的固定输入与操作边界见
 [`examples/cli/fixtures/work-task-eval/README.md`](../examples/cli/fixtures/work-task-eval/README.md)。
 其中仓库变更是隔离代码样例，SampleDesk 是虚构项目，都不是 Runloom 生产代码或
-当前项目状态。WT05/WT06 尚未具体化或实跑，不能从另外四个案例推断它们通过。
+当前项目状态。研究案例使用真实官方来源；WT06 具体覆盖版本差异与缺失证据，
+不人为编造同范围冲突，也不能从另外五个案例推断它通过。
 
 ## 一次尝试的最小流程
 
@@ -174,5 +176,202 @@ Git diff、最终实现/测试副本及独立断言结果。两份报告已核�
 冻结 check ID/method/required/evidenceKinds、任务/primary Run 归属，以及产品
 自动验收 passed、人工项 not_run。没有重跑模型覆盖首次尝试，未代用户接受。
 
-至此 WT01–WT04 的自动检查均有真实模型记录，但四例整体仍待人工审核，不能算
-4/4 Eval passed 或总体任务成功率。WT05/WT06 原文研究交付仍为 not_run。
+WT01–WT04 的自动检查均有真实模型记录，但四例整体仍待人工审核，不能算
+4/4 Eval passed 或总体任务成功率。WT05/WT06 的独立研究记录如下。
+
+## WT05/WT06 真实模型记录（2026-10-03）
+
+代码基线 `5472b73`（PR #95），dirty（本次 fixture 与未提交的本地文件），实际模型为
+Command Code `deepseek/deepseek-v4.1-flash`，不是 mock。两例使用独立 workspace、
+transcript、Thread 与 WorkTask。固定 `maxSteps: 8`、`totalTimeoutMs: 120000`；
+启用文件与 web，只有 WT05 启用 search，未启用压缩、Memory、Shell 或 computer。
+未替换生产 HTTP/DNS/SSRF/重定向校验，也没有 mock 或 DNS override。
+
+| 案例 | primary Run | 步数 / wall time | 自动检查 | 人工质量检查 | 当前结论 |
+| --- | --- | --- | --- | --- | --- |
+| WT05 | `7e39b871-3677-4e1f-8fb2-57e7724abeb8` | 5 / 38.3 秒 | `saved_report`、`source_budget` passed | `opened_source_grounding` not_run | WorkTask awaiting_acceptance；Eval not_run |
+| WT06 | `9a728efe-83aa-49bf-a925-47a92492ba5c` | 4 / 37.0 秒 | `saved_comparison` passed | `source_fidelity` failed；`uncertainty_handling` not_run | WorkTask awaiting_acceptance；Eval failed |
+
+WT05 先执行一次固定 Exa 查询（limit 3），再各执行一次 `web_fetch`：
+
+- `https://nodejs.org/en/blog/release/v18.17.0`：实际正文返回 `truncated: true`，是 partial 来源；
+- `https://raw.githubusercontent.com/nodejs/node/v18.17.0/doc/api/globals.md`：完整官方 Markdown。
+
+随后成功写入 4,889 字节 `report.md`。报告披露发布页截断，以完整 Markdown 为 API
+语义依据，没有宣称运行时测试。独立检查核对实际 finalUrl、来源状态、成功写入与
+磁盘内容一致、输入不变和无额外修改；这些不能替代逐条事实的人工审核。
+`Eval not_run` 表示必需人工项未完成，不表示没有调用真实模型或没有执行工具。
+
+WT06 各执行一次 `web_fetch`，打开 v18.16.0 和 v18.17.0 下的
+`https://raw.githubusercontent.com/nodejs/node/<tag>/doc/api/globals.md`，两次都返回 200、
+完整正文且未截断，随后成功写入 5,781 字节 `comparison.md`。
+**报告 §3 声称两份来源都完全没有提到 `AbortSignal.any`，但 §4 又引用来源 B 的
+`AbortSignal.any(signals)` 章节，实际来源 B 也包含该章节。** 这是事实归属错误与
+报告内部矛盾，不是网络失败；后面的谨慎表述不能抵消该失败。
+
+外部核对将同一次尝试的 `source_fidelity` 标为 failed，`failure.layer: verification`。
+原模型产物和初始 not_run 报告均保留，另存审核后的失败报告；未重跑模型、未修改
+产物、未调用 `recordHumanAcceptance()`。产品任务仍 awaiting_acceptance，外部 Eval
+失败不自动修改产品状态，也不代表操作人替用户接受了交付。
+
+上表的自动检查是外部 Eval，不是产品 acceptance。两份首轮报告较长，`write_file`
+入参在产品执行回执的 2 KiB 预览中被截断，产品 `saved-artifact` 均为 failed，
+不能把外部完整事件核对通过写成产品自动验收通过。这个限制在下面的返工中再次出现。
+
+程序只按 approvalId 放行精确文件路径、固定查询和两个指定 URL，拒绝其他工具。
+每个案例最多两次 fetch；`request_counter` 是生产工具 started 派发计数，不是底层
+HTTP/重定向/DNS 包计数。案例前另有三次生产 fetch 网络预检，明确排除在 attempt
+计数之外。确认来自验收程序，不是 Electron 人工点击。
+provider usage 原值分别为 83,802 input / 2,214 output / 86,016 total tokens，及
+38,024 input / 2,355 output / 40,379 total tokens；不据此推断费用或模型性能。
+
+本地证据根目录（临时文件，不提交 Git）：
+
+```text
+/private/tmp/runloom-worktask-research.n49Nxe/
+  WT05/attempt-1/result.json
+  WT05/attempt-1/evidence/artifacts/report.md
+  WT06/attempt-1/result.json                         初始报告，保留
+  WT06/attempt-1/evidence/artifacts/comparison.md     原模型产物，未修改
+  quality-review/WT06/attempt-1/result.json           应引用的失败报告
+  quality-review/WT06/attempt-1/report.md
+  quality-review/WT06/attempt-1/review.json            审核原因与同一执行声明
+  quality-review-summary.json
+```
+
+每例保留完整 Run/工具回执、确认记录、已提交 transcript、实际来源正文、配置与
+before/after hash、产物副本。有效报告已逐项核对冻结的 check ID/method/required/
+evidenceKinds、证据和配置 hash、WorkTask 与 primary Run 归属。
+
+六例首轮是五例待人工审核、一例质量失败，不是 6/6 passed，也不足以估算总体
+真实任务成功率；这些案例未验证连续压缩/重启链或 Electron 交互。下一步优先对
+WT06 做明确的来源核对与显式返工，使用现有 `requestWorkTaskChanges()` 后的新 Run
+和新 attempt 保留首次失败，不用重试到绿、自动接受或新增通用质量框架替代审核。
+
+## WT06 显式返工与保存后读回（2026-10-03）
+
+本批只补应用层研究指导和返工验证。指导随 `web.enabled` 注入，不再依赖 search；
+直接 URL 对比也须核对关键结论的原文/finalUrl/版本范围，区分原文、推断和未知，
+检查共同点与差异是否互相矛盾。有文件工具时，成功保存后用 `read_file` 读回实际
+报告；读回被拒绝、失败或不完整须直说，不能因此重复写入。没有文件工具不承诺
+保存。自查和完整读回不等于事实正确，更不是人工接受。未增加工具、评分器、
+额外模型循环或 Core 完成条件；搜索拒绝闩和逐次权限保持原样。
+
+离线生产 Controller 集成覆盖了三轮：初稿写入 → 显式退回 → 只读却声称交付的
+负对照 → 再次显式退回 → 先读、编辑、再读的交付。退回只到 paused、不调用模型，
+清空旧验收结果，保留上一份交付供参考；负对照无法复用初稿写入证据；最新编辑
+交付的自动证据只引用最新 primary Run，人工项仍 not_run。重开后任务和各轮回执
+仍在且不执行模型。这个 mock 集成证明接线和证据边界，不证明研究内容质量。
+
+真实返工仍使用原 workspace、transcript、Thread 与任务
+`3553e573-7605-4b98-b2c1-af19ec2799b0`；通过现有 `requestWorkTaskChanges()` 把
+awaiting_acceptance 收为 paused，之后显式开启新 primary Run
+`2340318d-38f4-46ae-a7fe-7cb7812b204b`。模型为 Command Code
+`deepseek/deepseek-v4.1-flash`，配置 hash 与首轮完全相同，预算仍为 8 步/120 秒，
+但本次应用研究指导已更新，因此不是同代码基线的模型性能对照。
+
+原 fixture 只许 `write_file` 新建一次，不能假装能覆盖旧文件。操作人先把隔离
+workspace 的失败 `comparison.md` 归档到 workspace 外，再让模型按原权限新建；
+这是验收准备操作，不是模型完成了删除或原文件编辑。首轮产物副本、失败报告
+及配置均未改，hash 复核一致。
+
+新 Run 先请求 `list_directory`，因不在 fixture 权限中被拒绝，**没有 started 或
+completed 回执**；随后各打开一次原定两份官方文档，成功写入 2,093 字节报告，
+再成功 `read_file`，读回的正文和字节数均与磁盘/写入参数一致。共 5 步，未搜索、
+未加第三来源、没有额外文件或输入改动。完整两份来源仍是 200、未截断。
+新报告不再声称两份文档都没有该 API，分别归属 A 的缺失和 B 的章节，并区分
+版本范围和运行时未知；这只是已观察到的原错误修正，不替代完整人工事实审核。
+provider 用量为 136,782 input / 1,446 output / 138,228 total tokens；本次重用
+长 transcript，不能据此当成模型基准或每任务成本估计。
+
+**产品内的 `saved-artifact` 仍 failed。** 写入报告的 JSON 入参超过 2 KiB 回执
+预览上限，`inputTruncated: true`，当前合同正确拒绝拿截断预览验收文件。产品任务
+保持 awaiting_acceptance，quality 为 not_run；没有扩大预览、绕过核对或调用
+`recordHumanAcceptance()`。外部 Eval 可用完整事件证明保存，因此更正版
+`saved_comparison: passed`，两个人工质量项仍 not_run，整例 not_run。
+
+初始验收脚本错误要求所有工具请求都被允许，把已拒绝且未派发的目录查询算成
+保存失败。仅修正外部报告，并用完整成功写入/读回、来源状态、文件 hash 和任务
+归属重新核对；初版失败记录保留，没有第二次调用模型。`read_file` 的完整结果
+使用 `content` 和 `bytes` 核对，不虚构该工具存在 `truncated: false` 字段。
+
+本地证据根目录（不提交 Git）：
+
+```text
+/private/tmp/runloom-research-rework.08Q2Wd/
+  WT06/attempt-2/result.json                         初版操作人记录，保留
+  WT06/attempt-2/archived-failed-comparison.md        归档的首轮失败报告
+  WT06/attempt-2/evidence/artifacts/comparison.md     新 Run 原始产物
+  WT06/attempt-2/evidence/execution.json              退回状态、新 Run、确认和交付
+  report-correction/WT06/attempt-2/result.json        应引用的更正版 Eval
+  report-correction/WT06/attempt-2/report.md
+  report-correction/WT06/attempt-2/review.json         更正原因与产品验收缺口
+```
+
+上述返工批次证明显式返工、新授权、保存后读回和不复用旧证据；当时不能封板为研究质量全部
+通过或产品文件验收已经完善。下一项具体缺口是为较长文件写入设计有界、可审计的
+验收证据，避免依赖展示预览；需先冻结证据契约，不能简单放行 `inputTruncated`
+或把人工核对声明当成程序证据。首轮 WT06 failed 继续保留。
+
+## 长文件回执与本次授权质量接受（2026-10-03）
+
+本批解决上述长文件验收缺口，没有扩大 2 KiB 展示预览。`write_file` / `edit_file`
+成功结果增加刚刚写入的准确 UTF-8 字节的 `sha256`；执行 journal v1 增加可选、
+有界的 `fileInput` 与 `fileWrite`。完整 requested 事件保存路径及 write 内容哈希，
+只有已 started 且成功结果的路径、哈希、字节数匹配时才保存写入证据。write 的
+结果哈希还必须与输入哈希相同；edit 哈希对应完成替换后的整个文件。
+
+Controller 和 WorkTaskStore 均验证最新归属正确 primary Run 的最后匹配调用，
+再核对 workspace 内当前普通非 symlink 文件的字节数和 SHA-256。后续失败或
+unknown 调用不能用更早的成功替代；内容被改动（即使长度不变）不能通过。
+坏的 compact metadata 报错，不降级成空记录。旧完整回执保留原验证路径，旧
+截断回执不回填、不补造哈希，Shell 的完整命令/cwd/结果要求保持不变。
+
+用户明确说“这个人工质量审核你不能替我接受吗 接着进行下一步”，因此由 Codex
+作为获授权操作人逐项审核当前 WT06，而不是生产模型自评。审核记录注明委托：
+不代表用户亲自点击、独立人工评估小组或后续任务的默认接受权限。没有给模型
+注册接受工具，也没有新增自动评分器、第二条 AgentLoop 或 Core 完成规则。
+
+先核对 attempt-2 两份实际完整来源和磁盘报告，记录 quality passed；因为其旧
+截断回执仍不可验证，产品仍 awaiting_acceptance。这份代理审核记录另存，不覆盖
+最初 not_run 报告或 WT06 首次事实失败。
+
+随后显式退回同一任务，新开 attempt-3 / primary Run
+`60fdcf78-221b-4458-82dc-9cedc199c018`，仍为原 Thread/workspace/权限，配置哈希
+`c22dfedb6ce3880e9fa696ef5d8dda9f84532eed2d346724167997bd62ba500b`，真实模型
+为 Command Code `deepseek/deepseek-v4.1-flash`。创建前操作人把 attempt-2 报告
+归档到 workspace 外，以遵守 fixture 仅允许新建的权限；不是模型编辑/删除成功。
+两份官方 URL 各抓取一次，均 200、text/plain、未截断，之后成功写入并完整读回。
+新报告 2,979 字节，写入预览仍 `inputTruncated: true`，但 compact 回执与输入、
+磁盘和读回内容的哈希、字节数一致，产品 saved-artifact passed。
+
+Codex 重新审核 **attempt-3 自己的** 抓取正文和报告，核对来源/版本、共同 API
+及 added 标注、A 缺失与 B 新增的区别、关键 reason 引文，以及推断/运行时未知。
+Markdown 的参数类型与链接格式有简化，不改变语义，也不声称逐字归档整个源文件。
+质量项接受后产品任务为 **completed**，外部 Eval 为 **passed（用户授权代理审核）**。
+生产模型没有调用接受接口；审核及独立新进程重开均为零模型调用、零新 Run、零工具
+重放，重开仍是 completed、三条原 Run，最新文件回执和接受说明均保留。
+
+本次离线 `pnpm typecheck` 通过；全量 `pnpm test` 为 897 passed / 2 skipped /
+0 failed。覆盖长 write/edit、重开、篡改、旧截断、拒绝/unknown/不匹配结果和无
+started 的负对照。真实运行 provider usage 为 171,102 input / 1,691 output /
+172,793 total tokens；沿用长 transcript，不作为模型性能或每任务成本基准。
+
+本地证据（临时文件，不入库；不要把这些目录当长期归档）：
+
+```text
+/private/tmp/runloom-file-evidence.mAOLtm/
+  delegated-review/WT06/attempt-2/result.json         前一报告的委托审核
+  WT06/attempt-3/result.json                         本次执行原始待审记录，保留
+  WT06/attempt-3/evidence/artifacts/comparison.md     新 Run 原始报告
+  WT06/attempt-3/archived-attempt2-comparison.md       操作人归档的上一报告
+  delegated-final/WT06/attempt-3/result.json          本次最终代理审核报告
+  delegated-final/WT06/attempt-3/report.md
+  delegated-final/WT06/attempt-3/evidence/delegated-quality-review.md
+  delegated-final/WT06/attempt-3/product-quality-acceptance.json
+  delegated-final/WT06/attempt-3/reopen-verification.json
+```
+
+这封板的是 WT06 的本次显式返工、长文件证据与授权接受闭环。首次失败仍为 failed；
+其他待审案例不会随之变绿。没有据此宣称总体真实任务成功率、独立人工 benchmark、
+Electron 人工点击，或连续压缩/重启后的真实任务整链已经通过。

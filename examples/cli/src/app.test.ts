@@ -21,6 +21,68 @@ function capture(): { output: PassThrough; text(): string } {
 }
 
 describe("createRuntimeApp", () => {
+  for (const config of [
+    { web: false, search: false, files: true },
+    { web: true, search: false, files: true },
+    { web: true, search: true, files: true },
+    { web: true, search: false, files: false },
+  ]) {
+    it(`supplies research delivery checks only with enabled capabilities (${JSON.stringify(config)})`, async () => {
+      const root = await mkdtemp(join(tmpdir(), "runloom-app-research-"));
+      const workspace = join(root, "workspace");
+      await mkdir(workspace);
+      const configPath = join(root, "config.json");
+      await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: {
+        "read-file": { enabled: config.files },
+        web: { enabled: config.web, search: { enabled: config.search } },
+      } }));
+      let system = "";
+      let names: string[] = [];
+      const model = new MockLanguageModelV3({ doStream: async (options) => {
+        system = JSON.stringify(options.prompt.filter((message) => message.role === "system"));
+        names = options.tools?.flatMap((tool) => tool.type === "function" ? [tool.name] : []) ?? [];
+        return { stream: simulateReadableStream({ chunks: [
+          { type: "stream-start" as const, warnings: [] },
+          { type: "finish" as const, finishReason: { unified: "stop" as const, raw: undefined }, usage: {
+            inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
+            outputTokens: { total: 1, text: 1, reasoning: undefined },
+          } },
+        ] }) };
+      } });
+      const app = await createRuntimeApp({
+        args: ["--tui", join(root, "transcripts"), "--thread", "research", "--config", configPath],
+        modelAlias: "mock", model, output: capture().output, env: {}, cwd: root,
+      });
+      try {
+        const handle = await app.runtime.run({ agentId: app.agentId, threadId: app.threadId,
+          messages: [{ id: "research-request", role: "user", parts: [{ type: "text", text: "Compare two supplied sources." }] }],
+        });
+        assert.equal((await handle.result).status, "completed");
+        assert.equal(names.includes("web_fetch"), config.web);
+        assert.equal(names.includes("web_search"), config.search);
+        assert.equal(names.includes("read_file"), config.files);
+        if (config.web) {
+          assert.match(system, /directly supplied URLs without search/);
+          assert.match(system, /attribute version\/date\/scope to the correct source/);
+          assert.match(system, /missing section is not proof/);
+          assert.match(system, /agreement and difference sections for contradictions/);
+          assert.match(system, /self-check do not prove factual quality or user acceptance/);
+          if (config.files) {
+            assert.match(system, /read_file the saved report before final delivery/);
+            assert.match(system, /do not repeat the write just to obtain verification/);
+          } else {
+            assert.match(system, /file tools are unavailable/);
+            assert.doesNotMatch(system, /read_file the saved report/);
+          }
+        } else {
+          assert.doesNotMatch(system, /directly supplied URLs without search|read_file the saved report/);
+        }
+        if (config.search) assert.match(system, /If web_search is refused, later web_fetch and feed_read/);
+        else assert.doesNotMatch(system, /When web_search is available/);
+      } finally { app.dispose(); await rm(root, { recursive: true, force: true }); }
+    });
+  }
+
   it("routes Computer reads/actions through ID approvals; denial launches no driver", { skip: process.platform !== "darwin" }, async () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-app-computer-"));
     const executable = join(root, "driver");

@@ -10,6 +10,9 @@ export const EXECUTION_RECORD_MAX_RUNS = 50;
 export const EXECUTION_RECORD_MAX_TOOLS = 64;
 export const EXECUTION_RECORD_MAX_BYTES = 256 * 1024;
 export const EXECUTION_RECORD_PREVIEW_BYTES = 2 * 1024;
+const FILE_WRITE_MAX_BYTES = 65_536;
+const FILE_PATH_MAX_BYTES = 1_024;
+const SHA256 = /^[0-9a-f]{64}$/;
 
 export type ExecutionRunStatus = RunResult["status"] | "running" | "interrupted";
 export type ExecutionToolStatus =
@@ -29,6 +32,10 @@ export interface ExecutionToolRecord {
   resultTruncated: boolean;
   errorPreview: string | null;
   shell: { exitCode: number | null; timedOut: boolean; cancelled: boolean } | null;
+  /** Captured from the full request before dispatch; never reconstructed from a preview. */
+  fileInput?: { path: string; sha256?: string };
+  /** Successful file-tool result, independently bounded from display previews. */
+  fileWrite?: { path: string; bytes: number; sha256: string };
 }
 
 export interface ExecutionRunRecord {
@@ -92,6 +99,55 @@ function validPreview(value: unknown): value is string {
   return typeof value === "string" && Buffer.byteLength(value, "utf8") <= EXECUTION_RECORD_PREVIEW_BYTES + 3;
 }
 
+function filePath(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 &&
+    Buffer.byteLength(value, "utf8") <= FILE_PATH_MAX_BYTES;
+}
+
+function fileRequest(toolName: string, input: unknown): ExecutionToolRecord["fileInput"] {
+  if (!["write_file", "edit_file"].includes(toolName) || !isObject(input) || !filePath(input.path)) return undefined;
+  return { path: input.path,
+    ...(toolName === "write_file" && typeof input.content === "string"
+      ? { sha256: createHash("sha256").update(input.content, "utf8").digest("hex") } : {}),
+  };
+}
+
+function fileResult(tool: ExecutionToolRecord, output: unknown): ExecutionToolRecord["fileWrite"] {
+  if (tool.startedAt === null || tool.fileInput === undefined || !isObject(output) ||
+      output.ok !== true || output.path !== tool.fileInput.path || typeof output.sha256 !== "string" ||
+      !SHA256.test(output.sha256) || !Number.isSafeInteger(output.bytes) ||
+      (output.bytes as number) < 0 || (output.bytes as number) > FILE_WRITE_MAX_BYTES ||
+      (tool.toolName === "write_file" && tool.fileInput.sha256 !== output.sha256)) return undefined;
+  return { path: tool.fileInput.path, bytes: output.bytes as number, sha256: output.sha256 };
+}
+
+/** Match intent even for a failed later write, so an earlier success cannot substitute for it. */
+export function matchesFileWritePath(tool: ExecutionToolRecord, path: string): boolean {
+  if (!["write_file", "edit_file"].includes(tool.toolName)) return false;
+  if (tool.fileInput !== undefined) return tool.fileInput.path === path;
+  if (tool.inputTruncated) return false;
+  try { const input: unknown = JSON.parse(tool.inputPreview); return isObject(input) && input.path === path; }
+  catch { return false; }
+}
+
+/** Legacy complete previews still work; missing compact data never repairs a truncated old receipt. */
+export function readFileWriteReceipt(tool: ExecutionToolRecord, path: string):
+  { sha256: string | null; bytes: number | null } | undefined {
+  if (tool.status !== "completed" || !matchesFileWritePath(tool, path)) return undefined;
+  if (tool.fileWrite !== undefined) {
+    if (tool.startedAt === null || tool.fileWrite.path !== path || tool.fileInput?.path !== path ||
+        (tool.toolName === "write_file" && tool.fileInput.sha256 !== tool.fileWrite.sha256)) return undefined;
+    return { sha256: tool.fileWrite.sha256, bytes: tool.fileWrite.bytes };
+  }
+  if (tool.inputTruncated || tool.resultTruncated || tool.resultPreview === null) return undefined;
+  try {
+    const output: unknown = JSON.parse(tool.resultPreview);
+    // A hash-bearing new result must have its compact, bound receipt. Never downgrade it.
+    return isObject(output) && output.ok === true && output.path === path && output.sha256 === undefined
+      ? { sha256: null, bytes: null } : undefined;
+  } catch { return undefined; }
+}
+
 function validateTool(value: unknown): ExecutionToolRecord {
   if (!isObject(value)) fail("FILE_INVALID", "Tool record must be an object");
   if (typeof value.toolCallId !== "string" || !value.toolCallId ||
@@ -111,6 +167,23 @@ function validateTool(value: unknown): ExecutionToolRecord {
         Math.abs(value.shell.exitCode as number) > 255)) ||
       typeof value.shell.timedOut !== "boolean" || typeof value.shell.cancelled !== "boolean")) {
     fail("FILE_INVALID", "Shell receipt is invalid");
+  }
+  if (value.fileInput !== undefined && (!isObject(value.fileInput) || !filePath(value.fileInput.path) ||
+      Object.keys(value.fileInput).some((key) => !["path", "sha256"].includes(key)) ||
+      !["write_file", "edit_file"].includes(String(value.toolName)) ||
+      (value.toolName === "edit_file" && value.fileInput.sha256 !== undefined) ||
+      (value.fileInput.sha256 !== undefined && (typeof value.fileInput.sha256 !== "string" || !SHA256.test(value.fileInput.sha256))))) {
+    fail("FILE_INVALID", "File input receipt is invalid");
+  }
+  if (value.fileWrite !== undefined && (!isObject(value.fileWrite) || !filePath(value.fileWrite.path) ||
+      Object.keys(value.fileWrite).some((key) => !["path", "bytes", "sha256"].includes(key)) ||
+      !isObject(value.fileInput) || value.fileWrite.path !== value.fileInput.path ||
+      value.status !== "completed" || value.startedAt === null ||
+      typeof value.fileWrite.sha256 !== "string" || !SHA256.test(value.fileWrite.sha256) ||
+      !Number.isSafeInteger(value.fileWrite.bytes) || (value.fileWrite.bytes as number) < 0 ||
+      (value.fileWrite.bytes as number) > FILE_WRITE_MAX_BYTES ||
+      (value.toolName === "write_file" && value.fileInput.sha256 !== value.fileWrite.sha256))) {
+    fail("FILE_INVALID", "File write receipt is invalid");
   }
   return value as unknown as ExecutionToolRecord;
 }
@@ -217,10 +290,12 @@ export class ExecutionRecordStore {
         if (tool) fail("CONFLICT", "Tool call already requested");
         if (run.tools.length >= EXECUTION_RECORD_MAX_TOOLS) fail("LIMIT_EXCEEDED", "Too many tool calls in Run");
         const input = stringifyPreview(event.data.input);
+        const capturedFile = fileRequest(event.data.toolName, event.data.input);
         run.tools.push({ toolCallId: event.data.toolCallId, toolName: event.data.toolName,
           status: "requested", requestedAt: event.occurredAt, startedAt: null, finishedAt: null,
           inputPreview: input.text, inputTruncated: input.truncated,
-          resultPreview: null, resultTruncated: false, errorPreview: null, shell: null });
+          resultPreview: null, resultTruncated: false, errorPreview: null, shell: null,
+          ...(capturedFile === undefined ? {} : { fileInput: capturedFile }) });
         return;
       }
       if (!tool || tool.toolName !== event.data.toolName) fail("CONFLICT", "Tool call identity mismatch");
@@ -239,6 +314,8 @@ export class ExecutionRecordStore {
         tool.resultPreview = result.text;
         tool.resultTruncated = result.truncated;
         if (tool.toolName === "shell_exec") tool.shell = shellReceipt(event.data.output);
+        const written = fileResult(tool, event.data.output);
+        if (written !== undefined) tool.fileWrite = written;
       } else {
         tool.errorPreview = preview(event.data.error.message).text;
       }

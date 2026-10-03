@@ -74,6 +74,16 @@ RUNLOOM_CONTEXT_CONTINUITY=1 RUNLOOM_MODEL=deepseek node --env-file=.env \
 - 控制器启用独立于聊天 JSONL 的 `execution-records.json`，保存在传给 `createRuntimeApp` 的 transcript 目录中。重启后调用 `await controller.listRuns()`（当前 Thread、最新优先、默认 20 条）和 `await controller.getRun(runId)`；查不到或不属于当前 Thread 返回 `null`。主 Run 和自动整理分别以 `phase` 标识。桌面端不要从聊天 transcript 推断工具是否执行。
 - 同一 Thread 同时只能有一个控制器进程。创建控制器后，首次查询或运行会取得进程期占有锁并恢复上次未完成的记录；占有冲突或记录文件损坏会使查询/新 Run 失败，不能绕过后直接重试工具。退出时务必调用 `shutdown()` 释放锁。
 - `tool.call.started` 在调用工具前持久化；`completed` 表示工具函数返回，**不等于业务成功**。文件工具仍需看结构化 `ok`；Shell 另看 `exitCode`、`timedOut`、`cancelled`。重启后有 started、无最终回执的工具标 `unknown`，需要人工核对磁盘/外部系统，不能自动重放。只有 requested、没有 started 的工具标 `not_started`。Run 未正常结束标 `interrupted`；完成回执可与失败 Run 同时存在。
+
+文件交付验收不再依赖长正文的展示预览：新的 `write_file` / `edit_file` 成功结果另有
+`sha256`，由工具对刚写入的 UTF-8 字节计算，输入和权限不变。`ExecutionToolRecord`
+可带 `fileInput: { path, sha256? }`（完整请求时提取；只有新建内容有请求哈希）及
+`fileWrite: { path, bytes, sha256 }`（派发后成功回执；写入哈希须匹配请求内容）。
+两者是原 v1 journal 的有界可选字段，不保存正文。`inputPreview` / `resultPreview`
+仍是 2 KiB 的显示数据。新证据齐全时，正文预览截断不会阻止文件验收；验收仍检查
+最新任务 primary Run、最新匹配调用、当前普通非 symlink 文件、字节数与哈希，
+写后被改动则失败。旧完整预览保持原验收路径，旧截断记录不补造哈希，仍不能通过。
+Shell 不走文件证据路径，命令与 cwd 的完整回执要求不变。
 - 文件只保留最多 50 个 Run、每 Run 64 个工具，预览每字段最多 2 KiB、文件最多 256 KiB。预览可能包含工具参数、路径或敏感文本，勿公开同步该目录。记录超限或写失败会阻止尚未开始的工具；工具已经返回后若最终回执写失败，保留已知的 started/unknown 线索并报告错误。它不是 Durable Runtime、事务日志或自动恢复机制。
 
 ## WorkTask 接入（第一批）

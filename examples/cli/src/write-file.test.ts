@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import {
   mkdtemp,
   mkdir,
@@ -46,6 +47,7 @@ describe("writeFileToWorkspace", () => {
       ok: true,
       path: "docs.txt",
       bytes: Buffer.byteLength(content),
+      sha256: createHash("sha256").update(content).digest("hex"),
     });
     assert.deepEqual(await readFile(join(directory, "docs.txt"), "utf8"), content);
 
@@ -53,6 +55,7 @@ describe("writeFileToWorkspace", () => {
       ok: true,
       path: "empty.txt",
       bytes: 0,
+      sha256: createHash("sha256").update("").digest("hex"),
     });
   });
 
@@ -123,7 +126,7 @@ describe("createWriteFileTool", () => {
         { path: "file.txt", content: "hello" },
         { toolCallId: "call-write-file", messages: [], context: {} },
       ),
-      { ok: true, path: "file.txt", bytes: 5 },
+      { ok: true, path: "file.txt", bytes: 5, sha256: createHash("sha256").update("hello").digest("hex") },
     );
   });
 });

@@ -4,7 +4,7 @@ import { lstat, mkdir, open, readFile, rename, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 import { acquireFlock, tryAcquireFlock, type FlockHandle } from "./flock.js";
-import type { ExecutionRecordStore, ExecutionToolRecord } from "./execution-record-store.js";
+import { matchesFileWritePath, readFileWriteReceipt, type ExecutionRecordStore, type ExecutionToolRecord } from "./execution-record-store.js";
 import { rejectSymlinkComponents, validateWorkspacePath } from "./workspace-path.js";
 
 export const WORK_TASK_FILE_NAME = ".runloom/work-tasks.json";
@@ -680,21 +680,22 @@ class WorkTaskStoreImpl implements WorkTaskStore {
     }
     const matchingTools = run.tools.filter((item) => candidate.kind === "tool"
       ? this.#shellInputMatches(item, candidate.command, candidate.cwd)
-      : this.#artifactInputMatches(item, candidate.path));
+      : matchesFileWritePath(item, candidate.path));
     const tool = matchingTools.at(-1);
     if (tool?.toolCallId !== candidate.toolCallId) {
       raise("WORK_TASK_INVALID_INPUT", "Automatic evidence is not the latest matching tool receipt");
     }
-    if (tool === undefined || tool.status !== "completed" || tool.inputTruncated || tool.resultTruncated) {
+    if (tool === undefined || tool.status !== "completed") {
       raise("WORK_TASK_INVALID_INPUT", "Automatic evidence has no matching completed tool receipt");
     }
     if (candidate.kind === "tool") {
-      if (!this.#validShellReceipt(tool, candidate)) {
+      if (tool.inputTruncated || tool.resultTruncated || !this.#validShellReceipt(tool, candidate)) {
         raise("WORK_TASK_INVALID_INPUT", "Shell evidence does not match its execution receipt");
       }
       return;
     }
-    if (!this.#validArtifactReceipt(tool, candidate)) {
+    const written = readFileWriteReceipt(tool, candidate.path);
+    if (written === undefined || (written.sha256 !== null && written.sha256 !== candidate.sha256)) {
       raise("WORK_TASK_INVALID_INPUT", "Artifact evidence does not match its write receipt");
     }
     const path = validateWorkspacePath(this.#root, candidate.path);
@@ -704,6 +705,7 @@ class WorkTaskStoreImpl implements WorkTaskStore {
     try {
       const stats = await lstat(path.target);
       if (!stats.isFile() || stats.size > 8 * 1024 * 1024) raise("WORK_TASK_INVALID_INPUT", "Artifact is not a verifiable regular file");
+      if (written.bytes !== null && stats.size !== written.bytes) raise("WORK_TASK_INVALID_INPUT", "Artifact byte count no longer matches its write receipt");
       const digest = createHash("sha256").update(await readFile(path.target)).digest("hex");
       if (digest !== candidate.sha256) raise("WORK_TASK_INVALID_INPUT", "Artifact hash no longer matches current content");
     } catch (error) {
@@ -722,22 +724,6 @@ class WorkTaskStoreImpl implements WorkTaskStore {
     try {
       const input = JSON.parse(tool.inputPreview) as unknown;
       return isRecord(input) && input.command === command && (input.cwd ?? ".") === cwd;
-    } catch { return false; }
-  }
-
-  #validArtifactReceipt(tool: ExecutionToolRecord, candidate: Extract<WorkTaskEvidence, { kind: "artifact" }>): boolean {
-    if (!this.#artifactInputMatches(tool, candidate.path)) return false;
-    try {
-      const output = tool.resultPreview === null ? null : JSON.parse(tool.resultPreview) as unknown;
-      return isRecord(output) && output.ok === true && output.path === candidate.path;
-    } catch { return false; }
-  }
-
-  #artifactInputMatches(tool: ExecutionToolRecord, path: string): boolean {
-    if ((tool.toolName !== "write_file" && tool.toolName !== "edit_file") || tool.inputTruncated) return false;
-    try {
-      const input = JSON.parse(tool.inputPreview) as unknown;
-      return isRecord(input) && input.path === path;
     } catch { return false; }
   }
 
