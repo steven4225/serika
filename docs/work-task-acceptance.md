@@ -2,7 +2,7 @@
 
 首批冻结 **6 个 WorkTask Eval 案例、记录格式和人工执行边界**。它复用现有
 `AssistantController`、执行回执与 `AcceptanceCaseResult`，不新增 Eval runner、真实模型测试、
-第二条 AgentLoop 或 Durable Runtime 状态。后续已具体化 WT03/WT04 fixture，并做了两次
+第二条 AgentLoop 或 Durable Runtime 状态。后续已具体化 WT01–WT04 fixture，并做了四次
 真实模型隔离验收；自动检查通过，人工质量项仍未运行，不声称整个案例已通过。
 
 ## 两层记录不能混为一谈
@@ -29,10 +29,10 @@
 
 `work-task-eval-cases.test.ts` 只验证目录冻结和记录类型可接入；它不执行 fixture、模型、网络或验收。
 
-WT03/WT04 的固定输入与操作边界见
+WT01–WT04 的固定输入与操作边界见
 [`examples/cli/fixtures/work-task-eval/README.md`](../examples/cli/fixtures/work-task-eval/README.md)。
-其中 SampleDesk 是虚构项目，不是 Runloom 当前项目状态。WT01/WT02/WT05/WT06
-尚未具体化或实跑，不能从这两个案例推断它们通过。
+其中仓库变更是隔离代码样例，SampleDesk 是虚构项目，都不是 Runloom 生产代码或
+当前项目状态。WT05/WT06 尚未具体化或实跑，不能从另外四个案例推断它们通过。
 
 ## 一次尝试的最小流程
 
@@ -123,4 +123,56 @@ execution 仍作为补充证据保留；原报告不覆盖，Run ID、产物 has
 
 下一步由用户审核 WT03 的正文与 manifest 一致性，以及 WT04 的简报表达和未验证范围。
 人工项完成前不能记录 Eval passed，也不能据此声称真实任务成功率、
-连续压缩/重启完成能力、异常恢复或桌面交互已通过。WT01/WT02/WT05/WT06 仍为 not_run。
+连续压缩/重启完成能力、异常恢复或桌面交互已通过。
+
+## WT01/WT02 真实模型记录（2026-10-03）
+
+代码基线 `312d288`，dirty（新增本次 fixture，另有未提交本地文件），实际模型仍为
+Command Code `deepseek/deepseek-v4.1-flash`，不是 mock。两个案例各自初始化一份
+干净的隔离 Git 仓库，执行前记录 fixture commit、文件 hash 和基线测试输出。
+配置固定 `maxSteps: 8`、`totalTimeoutMs: 120000`、Shell timeout 30 秒；未启用
+压缩、Memory、web 或 computer。每个案例仅有一条 primary Run，实际均使用 5 步。
+
+| 案例 | primary Run | 自动检查 | 人工检查 | 当前结论 |
+| --- | --- | --- | --- | --- |
+| WT01 | `6cfd6d9b-dca1-4e41-9a37-1cd4e86e07ac` | `requested_behavior`、`regression_command` passed | `change_scope` not_run | WorkTask awaiting_acceptance；Eval not_run |
+| WT02 | `844fa488-b390-450d-8aa6-264efe8b6c50` | `configuration_contract`、`configuration_test` passed | `api_review` not_run | WorkTask awaiting_acceptance；Eval not_run |
+
+WT01 模型先读取要求、实现和测试，再执行 `node --test test/slug.test.mjs`，
+成功派发的 Shell 返回退出码 1；最小编辑只把 `/\s/` 改为 `/\s+/g`，再运行
+同一命令，退出码 0。最终四项测试通过，原测试逐字不变，另用冻结输入/输出
+独立断言实现行为。首次回归复现是预期基线，不是需要被掩盖的 Eval 失败。
+
+WT02 模型读取要求、实现和测试，为可选 maxItems 增加 1–50 整数校验及条件返回，
+在旧测试末尾追加四项覆盖。`node --test test/config.test.mjs` 返回退出码 0，
+最终六项测试通过。独立断言又核对有效边界、无效类型和值、缺省/undefined 的旧
+返回形状、原默认、错误消息及错误优先级。两例均无额外产物，request.md 和
+unrelated.txt 的 hash 不变，成功命令发生在最后一次编辑之后。
+
+两例 wall time 分别约 103.4 秒和 46.4 秒，包含操作人核对代码与确认等待，
+不是纯模型耗时。provider 返回的 usage 分别为 16,231 / 17,319 total tokens，
+记录原值，不推断费用或模型性能；无 usage 的其他案例仍按 null 处理。
+
+文件调用只放行 fixture 的精确允许路径；每次 Shell 都先展示并核对当时的源码
+与测试，再由验收操作人批准那一条精确命令，未用 Electron 用户点击。
+Host Shell 不是系统沙箱，命令白名单本身也不能隔离代码副作用；本次只在已核对的
+隔离样例上运行，不能扩大为允许任意模型生成代码的安全保证。
+
+本地证据根目录（不提交 Git）：
+
+```text
+/private/tmp/runloom-worktask-repository.XUIJv7/
+  WT01/attempt-1/result.json
+  WT01/attempt-1/evidence/change.diff
+  WT02/attempt-1/result.json
+  WT02/attempt-1/evidence/change.diff
+  report-audit.txt
+```
+
+每例 evidence 保留实际 Run/工具回执、确认记录与完整事件、before/after 文件 hash、
+Git diff、最终实现/测试副本及独立断言结果。两份报告已核对证据和配置 hash、
+冻结 check ID/method/required/evidenceKinds、任务/primary Run 归属，以及产品
+自动验收 passed、人工项 not_run。没有重跑模型覆盖首次尝试，未代用户接受。
+
+至此 WT01–WT04 的自动检查均有真实模型记录，但四例整体仍待人工审核，不能算
+4/4 Eval passed 或总体任务成功率。WT05/WT06 原文研究交付仍为 not_run。

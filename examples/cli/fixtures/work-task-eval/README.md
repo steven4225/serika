@@ -1,7 +1,34 @@
-# WorkTask artifact fixtures
+# WorkTask fixed fixtures
 
-只具体化既有 WT03/WT04，不新增案例 ID、通用 runner、生产 API 或模型重试。
-全部项目状态为虚构材料，不是 Runloom 项目状态。
+具体化既有 WT01–WT04，不新增案例 ID、通用 runner、生产 API 或模型重试。
+全部案例都是隔离样例，不是 Runloom 生产代码或当前项目状态。
+
+## WT01 — repo-regression-v1
+
+复制 src/slug.mjs、test/slug.test.mjs、request.md 到隔离 workspace，
+新增 unrelated.txt（正文为 `保留：与本次开发任务无关。\n`），提交一个干净
+Git 基线，再记录 fixture commit、文件 hash 和基线命令输出。
+
+固定命令是 `node --test test/slug.test.mjs`，cwd 为 `.`。原始测试应有一项
+失败：实现只替换第一个空白，未把所有连续空白组规范化。模型必须自己复现，
+做最小修复，再得到同一命令的成功回执。非字符串的既有错误和其它输入行为不变。
+只允许 edit_file 修改实现及对应测试；旧测试必须逐字保留，可以末尾追加。
+独立检查冻结输入/输出、成功命令在最后一次编辑之后、前后文件清单与非目标 hash。
+范围/测试质量仍由用户审核，不能以自动 scope 检查代替 change_scope 人工项。
+
+## WT02 — config-rule-v1
+
+用相同方式安装 src/config.mjs、test/config.test.mjs、request.md 和
+unrelated.txt。原始测试应全部通过。本次需求在 request.md 中固定：新增可选
+maxItems（整数 1–50），省略/undefined 不改变旧返回形状，旧默认、错误消息、
+校验顺序及忽略未知字段行为不变。模型需保留原测试并追加有效/无效/缺省覆盖。
+
+固定命令是 `node --test test/config.test.mjs`，cwd 为 `.`。只允许修改实现和
+对应测试，独立验证冻结的边界、无效值、旧默认和错误优先级。API/测试表达质量
+仍需人工 api_review，不能只因 exitCode 0 就判整个案例 passed。
+
+这些 .mjs 测试是供模型处理的 fixture，不在默认 pnpm test 的测试 glob 中；
+WT01 故意保留失败的基线实现，不能把仓库里这份输入直接修好后冒充模型产物。
 
 ## WT03 — project-handoff-v1
 
@@ -35,7 +62,9 @@ unrelated.txt 改为 `原有内容\n用户未提交内容：不能删。\n`。
 
 使用现有 AcceptanceCaseResult / writeAcceptanceReport。network=unused
 指没有研究/工具网络，真实模型 API 仍联网且收费。独立程序可仅确认上述
-隔离路径，必须在报告中披露；不代表 Electron 人工确认。
+隔离路径，必须在报告中披露；不代表 Electron 人工确认。仓库案例的 Shell
+只放行精确测试命令，并在每次运行前核对当前实现/测试内容。Host Shell
+不是系统沙箱，命令白名单也不能把测试/源码的副作用沙箱化。
 
 产品创建包含必需的人工质量项；自动产物检查通过后仍 awaiting_acceptance。
 不调用 recordHumanAcceptance 代用户接受。外部 Eval 的人工 check 保持
