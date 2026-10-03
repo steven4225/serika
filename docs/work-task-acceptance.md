@@ -436,3 +436,98 @@ usage 27,678 tokens；这些是摘要指标，不是单次无重试成功或整�
 0 failed、`git diff --check` 干净。正常退出的任务续接、压缩和最后文件证据在本次
 配置通过，不扩大为所有任务/预算的可靠性保证；质量审核、Electron 交互和未知
 副作用的崩溃恢复仍不由本报告证明。
+
+## 真实进程中断与未知写入保护
+
+本批只增加隔离验收入口，不改生产 Controller、恢复状态机或工具。使用生产文件工具、
+执行 journal 和两把 Thread 租约；验收脚本在精确回执边界暂停，supervisor 再向自己
+创建的子进程发送真实 `SIGKILL`，不是正常 `shutdown()` 或伪造 interrupted 记录。
+回执边界暂停只存在于 fixture 的 app 实例，不是生产扩展 API。
+
+| 固定故障点 | 杀进程前的事实 | 新进程恢复 | WorkTask |
+| --- | --- | --- | --- |
+| before-dispatch | 原逐次确认仍 pending，requested 已存，文件未创建 | Run interrupted，工具 not_started | paused |
+| unrecorded-write | 已确认，生产 write 实际写入，started 已存，completed 未存 | Run interrupted，工具 unknown | needs_review |
+| recorded-write | 生产 write 成功且 compact 回执已存，但 Run 未结束 | Run interrupted，工具 completed | paused |
+
+每例恢复前，另一个 Controller 使用相同 workspace/Thread、不同 transcript 目录，
+必须被活进程的租约挡住。杀进程后只等待 fixture 子进程的两把锁自然释放，不驱逐持有者。
+恢复使用同一份配置且 PID 不同；pending approval 清空，未完成 Run 不成为 committed
+history，启动恢复阶段零模型请求、零工具重放，保护文件始终不变。before-dispatch 在
+恢复后、交付负对照与退回结束后均用 `lstat` 核对文件不存在，并分别保存
+`recovered-state.artifactAbsence` / `after-report.artifactAbsence`。只接受 ENOENT；文件
+存在、悬空 symlink 或其他读取错误均失败，不能把坏链接的目标不存在当成零写入。
+
+三个 interrupted Run 的交付均不能作为自动文件验收证据：artifact blocked、evidence
+为空。即使工具 completed、文件确实存在，也不能把 interrupted Run 写成任务成功。
+
+unknown 场景还验证直接继续、直接取消以及 `still_unknown + continue` 均被拒绝且不
+开新 Run。fixture 操作人核对隔离文件字节后，调用 `reconcileWorkTask(applied,
+continue)` 只回到 paused。该记录是程序模拟操作人的报告，不是工具成功回执、验收
+证据、真实用户点击或执行授权；旧工具始终 unknown，没有被回填成 completed。
+
+随后显式开启新 Run，重新逐次批准 `read_file → edit_file → read_file`，不允许再次
+`write_file`。完整成功回执、前后准确正文及当前磁盘哈希必须一致，新 Run 的 artifact
+才 passed；最终 awaiting_acceptance、quality not_run，不调用人工质量接受接口。
+
+付费模型入口（默认测试不运行）：
+
+```sh
+pnpm build
+RUNLOOM_WORK_TASK_CRASH_ACCEPTANCE=1 RUNLOOM_MODEL=command-code node --env-file=.env \
+  examples/cli/dist/work-task-crash-acceptance.js
+```
+
+默认 `pnpm test` 使用 scripted model，但子进程、flock、生产文件工具和 SIGKILL 都是真的。
+程序确认只允许隔离的 `notes/crash-note.md`：首次 write，显式新 Run 仅 read/edit；Shell、
+其他路径和重放 write 均拒绝。失败报告保留，不自动重跑整例到绿。
+
+### 本次真实模型结果（2026-10-03）
+
+Command Code `deepseek/deepseek-v4.1-flash` 三例均 passed，没有整例重试。证据目录：
+`/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/runloom-work-task-crash-uVXMNy`。
+
+| 场景 | WorkTask ID | 崩溃 PID → 恢复 PID | 最终状态 |
+| --- | --- | --- | --- |
+| before-dispatch | 2677b2c6-4cc6-4a73-9c05-4d19b3b48cdb | 92970 → 93519 | paused，1 Run |
+| unrecorded-write | 49f155a8-eca9-4cf6-aca8-651268448310 | 93912 → 94762 | awaiting_acceptance，2 Runs |
+| recorded-write | e68a7532-ee15-4b28-b563-08c93e593db6 | 95641 → 95669 | paused，1 Run |
+
+三例恢复初始 modelRequests 均为 0；只有 unknown 场景的显式新 Run 发起 4 次模型请求。
+初始实际写入 40 字节，SHA-256 为
+`09ddc3ef6238ff203d32f877d6a75b579159d416c19b953cb2e8135f544e1660`；
+续接后 61 字节，SHA-256 为
+`7694c62eb150fad3cf9a5c7b62228fb821bcb1ac69e3a49539278fdd7ce14e8b`。
+原始 exit signal、PID、配置 hash、恢复状态、blocked evidence、成功读/编辑/读回与当前
+磁盘另行只读核对通过，没有覆盖原报告或补造旧回执。
+
+真实运行之后进一步加强 contender 的零模型调用、旧 journal 字节未变、无新 Run 断言，
+由离线子进程测试覆盖；旧真实 contender-report 只记录 blocked/noRun，不补造新增字段。
+其余加强断言涉及的真实回执及正文已按原始数据核对，不再重复调用付费模型。
+
+上述首轮全量检查为 `pnpm typecheck` 通过、`pnpm test` 900 passed / 2 skipped /
+0 failed、`git diff --check` 干净。默认测试未调用付费模型。
+
+### before-dispatch 恢复后磁盘证据补充
+
+首轮真实报告只在杀进程前证明文件不存在，未保存恢复后的缺失检查；保留原报告，不把
+这项新增断言补写进旧结果。补断言后单独复跑本例，入口为：
+
+```sh
+RUNLOOM_WORK_TASK_CRASH_ACCEPTANCE=1 RUNLOOM_MODEL=command-code node --env-file=.env \
+  examples/cli/dist/work-task-crash-acceptance.js --scenario before-dispatch
+```
+
+`report.scenarios` 明确本次选取范围，passed 只表示选中案例通过，不冒充全三例复跑。
+2026-10-03 的新独立真实报告目录为
+`/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/runloom-work-task-crash-n0WFfx`。
+新任务 `ba2309ff-43c3-4cc0-a29d-68332d3516d7`，Run
+`9b4aaf72-d27b-46f0-9f99-fb59900b51be`，PID 2732 → 2773；同配置、真实 SIGKILL，
+两份恢复阶段报告均有文件不存在的 lstat 记录，恢复模型请求及批准次数仍为 0。
+本例一次通过，无整例重试，unknown/completed 原场景不重复付费执行。
+补充后 `pnpm typecheck` 通过，完整 `pnpm test` 901 passed / 2 skipped / 0 failed。
+新增负对照证明文件被创建或出现悬空 symlink 时，缺失断言不能通过。
+
+本报告证明局部文件写入在三个指定崩溃边界下的恢复保护，不证明外部支付或 GUI transport
+断线、Durable exactly-once、自动续跑或所有任意崩溃点。Electron 点击仍 not_run，任务质量
+仍 not_accepted；没有沿用其他任务的代理质量接受授权，也没有改 runloom-desktop。
