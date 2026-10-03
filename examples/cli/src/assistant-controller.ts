@@ -26,6 +26,8 @@ import type {
 } from "./memory-candidates.js";
 import { createRssSubscriptionStore, rssFailure, type RssAction, type RssInbox, type RssResult, type RssView } from "./rss-subscriptions.js";
 import { createTaskStore } from "./task-store.js";
+import { formalMemory, memoryPage, validMemoryEdit, visibleMemory, type FormalMemory, type MemoryPage, type MemoryListInput, type MemoryEditInput } from "./memory-management.js";
+import type { MemoryReferenceSnapshot } from "./memory-query-rewrite.js";
 import { readWorkTaskArtifact, workTaskDeliveryDraft, type WorkTaskReadInput, type WorkTaskArtifactInput, type WorkTaskReadResult, type WorkTaskDeliveryDraft, type WorkTaskArtifactPreview } from "./work-task-artifacts.js";
 
 const MAX_RECENT_OUTPUT_CHARS = 16 * 1024;
@@ -69,6 +71,7 @@ export type AssistantEvent =
   | { type: "shell-progress"; phase: "primary" | "consolidation"; runId: string; progress: ShellProgress }
   | { type: "work-task-updated"; task: WorkTask }
   | { type: "memory-updated"; reason: "proposals" | "review" | "write" }
+  | { type: "memory-references-changed" }
   | { type: "output"; text: string }
   | { type: "error"; message: string };
 
@@ -85,6 +88,10 @@ export interface AssistantController {
   getSnapshot(): AssistantSnapshot;
   getHistory(): Promise<UIMessage[]>;
   getContextDiagnostics(): Promise<ContextResult<ContextDiagnostics>>;
+  listMemories(input?: MemoryListInput): Promise<MemoryResult<MemoryPage>>;
+  getMemory(id: string): Promise<MemoryResult<FormalMemory>>;
+  updateMemory(input: MemoryEditInput): Promise<MemoryResult<FormalMemory>>;
+  getMemoryReferences(): (MemoryReferenceSnapshot & { runId: string }) | null;
   /** Newest-first local receipts for this Thread. They never authorize replay. */
   listRuns(limit?: number): Promise<ExecutionRunRecord[]>;
   getRun(runId: string): Promise<ExecutionRunRecord | null>;
@@ -298,6 +305,8 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
   let recentOutput = "";
   let outputTruncated = false;
   let lastPrimaryResult: RunResult | null = null;
+  let primaryMessageId: string | undefined;
+  let primaryRunId: string | undefined;
   let lastConsolidationResult: RunResult | null = null;
   let resultTextTruncated = false;
   const toolActivity: ToolActivity[] = [];
@@ -336,6 +345,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     if (state.kind !== "running" || state.runId === null) return;
     emit({ type: "shell-progress", phase: state.phase, runId: state.runId, progress });
   });
+  const unsubscribeMemoryReferences = app.subscribeMemoryReferences?.(() => emit({ type: "memory-references-changed" }));
 
   const executeRun = async (
     agentId: string,
@@ -345,6 +355,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     started?: (handle: RunHandle) => void,
   ): Promise<{ result: RunResult; requestedMemoryTool: boolean }> => {
     app.toolConfirmation?.beginRun();
+    if (phase === "primary") { primaryMessageId = message.id; primaryRunId = undefined; }
     try {
       app.memoryConsolidation?.begin(agentId);
       const handle = await app.runtime.run({
@@ -355,6 +366,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
         ...(signal === undefined ? {} : { signal }),
       });
       activeHandle = handle;
+      if (phase === "primary") primaryRunId = handle.runId;
       if (phase === "primary" && activeWorkTask !== undefined && app.workTasks !== undefined) {
         const running = await app.workTasks.get(activeWorkTask.id);
         if (running.ok && running.value.status === "running" && running.value.runIds.includes(handle.runId)) {
@@ -551,6 +563,44 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     getRun: async (runId) => {
       await ensureRecovered();
       return app.executionRecords.getRun(app.threadId, runId);
+    },
+    getMemoryReferences: () => {
+      const reference = app.getMemoryReferences?.();
+      return reference && reference.messageId === primaryMessageId && primaryRunId ? { ...reference, runId: primaryRunId } : null;
+    },
+    listMemories: async (input) => {
+      if (!app.memoryStore || closed) return { ok: false, error: { code: "MEMORY_DISABLED", message: "Memory is unavailable" } };
+      const result = await app.memoryStore.list();
+      return result.ok ? memoryPage(result.entries, app.threadId, input) : result;
+    },
+    getMemory: async (id) => {
+      if (!app.memoryStore || closed) return { ok: false, error: { code: "MEMORY_DISABLED", message: "Memory is unavailable" } };
+      const result = await app.memoryStore.get(id);
+      if (!result.ok) return result;
+      if (!visibleMemory(result.entry, app.threadId)) return { ok: false, error: { code: "MEMORY_ENTRY_NOT_FOUND", message: "Memory not found" } };
+      return { ok: true, value: formalMemory(result.entry) };
+    },
+    updateMemory: async (input) => {
+      if (!app.memoryStore) return { ok: false, error: { code: "MEMORY_DISABLED", message: "Memory is unavailable" } };
+      if (!validMemoryEdit(input)) return { ok: false, error: { code: "INVALID_INPUT", message: "Only explicit text, pin and disable edits with a current revision are allowed" } };
+      if (closed || state.kind !== "idle") return { ok: false, error: { code: "BUSY", message: "Memory editing requires an idle controller" } };
+      const operation = new AbortController();
+      operationController = operation;
+      setState({ kind: "command", name: "memory-edit" });
+      let result!: MemoryResult<FormalMemory>;
+      activeTask = (async () => {
+        try {
+          await ensureRecovered();
+          const { id, ...edit } = input;
+          const updated = await app.memoryStore!.update(id, edit, operation.signal, { boundThreadId: app.threadId });
+          result = updated.ok ? { ok: true, value: formalMemory(updated.entry) } : updated;
+          if (result.ok) emit({ type: "memory-updated", reason: "write" });
+        } catch (error) {
+          result = { ok: false, error: { code: "WRITE_FAILED", message: String(error) } };
+        } finally { operationController = undefined; setState({ kind: "idle" }); }
+      })();
+      await activeTask;
+      return result;
     },
     listMemoryCandidates: async (input) => {
       if (app.memoryStore === undefined || app.workspaceRoot === undefined) {
@@ -936,6 +986,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       ]);
       unsubscribeApproval?.();
       unsubscribeShellProgress?.();
+      unsubscribeMemoryReferences?.();
       app.resume?.clear();
       app.memoryConsolidation?.discard();
       app.dispose();

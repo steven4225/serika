@@ -62,6 +62,7 @@ export interface ResolvedTuiModuleConfig {
   webSearchEnabled: boolean;
   webFeedEnabled: boolean;
   autoConsolidate: boolean;
+  memoryQueryRewriteEnabled?: boolean;
   todoistTimeZone: string | null;
   fileAuthorizations: readonly FileAuthorizationRule[];
   shellSandbox: DockerShellSandboxConfig | null;
@@ -85,6 +86,7 @@ const memoryModuleSchema = z
   .object({
     enabled: z.boolean(),
     autoConsolidate: z.boolean().optional(),
+    queryRewrite: z.object({ enabled: z.boolean() }).strict().optional(),
   })
   .strict();
 
@@ -175,7 +177,7 @@ export interface TuiModuleConfigV1 {
     pomodoro?: { enabled: boolean } | undefined;
     "read-file"?: { enabled: boolean } | undefined;
     memory?:
-      | { enabled: boolean; autoConsolidate?: boolean | undefined }
+      | { enabled: boolean; autoConsolidate?: boolean | undefined; queryRewrite?: { enabled: boolean } | undefined }
       | undefined;
     checkpoint?: { enabled: boolean } | undefined;
     task?: { enabled: boolean } | undefined;
@@ -444,6 +446,10 @@ async function resolveConfiguredMode(
     enabled.web && (config.modules.web?.feed?.enabled ?? false);
 
   const autoConsolidate = config.modules.memory?.autoConsolidate ?? false;
+  const memoryQueryRewriteEnabled = config.modules.memory?.queryRewrite?.enabled ?? false;
+  if (memoryQueryRewriteEnabled && !enabled.memory) {
+    throw new Error("memory.queryRewrite requires memory.enabled to be true");
+  }
   if (autoConsolidate && !enabled.memory) {
     throw new Error(
       "memory.autoConsolidate requires memory.enabled to be true",
@@ -513,6 +519,7 @@ async function resolveConfiguredMode(
     webSearchEnabled,
     webFeedEnabled,
     autoConsolidate,
+    memoryQueryRewriteEnabled,
     todoistTimeZone,
     fileAuthorizations,
     shellSandbox,

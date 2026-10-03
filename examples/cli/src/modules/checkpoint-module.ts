@@ -108,7 +108,7 @@ const checkpointPrepareOutputSchema = z.discriminatedUnion("ok", [
     memories: z.array(z.object({ id: z.string(), text: z.string() }).strict()),
     selection: z.object({
       bytes: z.number(), truncated: z.boolean(), queryTruncated: z.boolean(), eligibleCount: z.number(),
-      selected: z.array(z.object({ id: z.string(), revision: z.number(), reason: z.enum(["pinned", "matched"]) }).strict()),
+      selected: z.array(z.object({ id: z.string(), revision: z.number(), reason: z.enum(["pinned", "matched", "rewritten"]) }).strict()),
     }).strict().optional(),
   }).strict(),
   checkpointFailureSchema,

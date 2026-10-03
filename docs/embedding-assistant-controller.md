@@ -180,6 +180,31 @@ RUNLOOM_COMPUTER_ACCEPTANCE=1 RUNLOOM_MODEL=command-code node --env-file=.env \
 
 `backendPassed` 仅指该次场景通过；`sealed` 保持 false。这个程序不是 Electron 人工点击，也不证明磁盘保存、独立视觉、真实派发中取消或 daemon 断连。受控子进程测试证明未知回执持久化、WorkTask 人工核对和不重放，但不能替代上述真实场景。不要为了验收直接终止共享 daemon；真实断连测试应另用独占环境。
 
+## 正式记忆管理与本轮参考
+
+- `listMemories({offset?, limit?})`：默认 20 条、最多 50 条；正文 120 字预览标 `truncated`，页面至多 16 KiB。显示工作区及当前 Thread 的当前版本（包括停用/过期），不混入其他 Thread 私有记忆。候选接受回执仅是当时的写入记录，不能替代此查询。
+- `getMemory(id)`：返回完整当前正文、scope、revision、expiry、pin、保存来源，不带 history。来源原话是保存时已核对的 excerpt，不保证原 transcript 仍在。
+- `updateMemory({id, expectedRevision, text?, pinned?, status?: "disabled"})`：仅显式用户操作；占现有 idle 互斥，不创建 Run、不调用模型，底层同锁 CAS。拒绝其他字段及无变更输入。版本冲突重读详情，不盲重试；结果不明时也先重读。文本编辑将当前来源变为 manual，旧来源保留在已有有界 history；pin/disable 不改来源。相关更新候选沿用原有失效规则。
+- `getMemoryReferences()`：返回本进程最近一次成功 primary 上下文准备的 `{runId, messageId, preparedAt, selected:[{id, revision, text, reason}], truncated, queryTruncated, rewrite}`，或者 `null`。`reason` 是 `pinned` / `matched` / `rewritten`。按当前请求身份绑定；准备失败清空，重启为空。`memory-references-changed` 提醒前端重新查询；下一次准备可能选到新版本。不是模型自报，不证明提供商接收、回答遵循偏好或当前库仍是这些版本。此记录不写 JSONL。
+
+可选同义查询改写（配置 v1 与 Memory v3 不变；旧配置默认关）：
+
+```json
+{ "modules": { "memory": { "enabled": true, "queryRewrite": { "enabled": true } } } }
+```
+
+上面是合入现有配置的片段，不是完整配置。仅普通 primary 对话使用已有模型追加一次请求：只发送当前问题至多 4 KiB，不发送记忆正文、来源或候选；最多三个 96-byte 短语，输出校验 1 KiB，256 输出 token，五秒，零重试。同一用户消息仅缓存改写短语，各步仍重读正式记忆。原查询先选、改写补选，同一 12 条/8 KiB 最终预算与原有范围/状态/有效期过滤。解析/服务/超时失败回退原词法并显示 `degraded`；用户取消会中止，不伪装成功。不开启 WorkTask、worker、checkpoint、整理或手动压缩。额外模型请求增加费用与延迟，错误改写也可能误召回；默认关闭不是全自动语义检索承诺。
+
+固定真实模型对比（显式付费；不重试单例、不更改预算）：
+
+```sh
+pnpm build
+RUNLOOM_MODEL=command-code RUNLOOM_MEMORY_RECALL_ACCEPTANCE=1 \
+  node --env-file=.env --test examples/cli/dist/memory-recall-live.test.js
+```
+
+2026-10-04 首版提示词实际 2/3，`回顾要怎样组织内容？` 没召回 `复盘…`。依据此失败修改为“不同内容名词/类别同义词”后，新版本同一固定三例 3/3；直问仍中、同义问题补中、天气没有误中。旧失败不作废；三例不证明普遍召回或真实答案质量，Electron 真模型整链仍 `not_run`。
+
 ## 边界
 
 控制器不引入第二条 AgentLoop：主任务与整理共用一条执行路径，确认仍是进程内单个 `beforeToolExecute`。TUI 当前未改走控制器，修改 Run 生命周期时两处都要看。
