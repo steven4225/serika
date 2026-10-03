@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "project", "artifacts", "completed", "unresolved", "verification", "nextAction"],
+  "properties": {
+    "version": { "const": 1 },
+    "project": { "const": "SampleDesk" },
+    "artifacts": { "const": ["handoff.md", "manifest.json"] },
+    "completed": { "const": ["F01"] },
+    "unresolved": { "const": [
+      { "id": "U01", "status": "not_verified" },
+      { "id": "U02", "status": "not_run" }
+    ] },
+    "verification": { "const": {
+      "scope": "offline_fixture",
+      "record": "offline-read-20261003",
+      "passed": ["F01"],
+      "notRun": ["U01", "U02"]
+    } },
+    "nextAction": { "const": "先验收重启恢复" }
+  }
+}
