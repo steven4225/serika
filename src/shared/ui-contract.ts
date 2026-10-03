@@ -1,6 +1,7 @@
 import type { UIMessage } from "ai";
 import type { AgentEvent, RunResult } from "@aisdk-agent/core";
 import type { ContextDiagnostics, ContextResult } from "@aisdk-agent/example-cli/dist/context-diagnostics.js";
+import type { WorkTask, WorkTaskInputs, WorkTaskResult } from "./work-tasks.js";
 import type {
   CandidateListInput,
   CandidatePage,
@@ -84,6 +85,7 @@ export interface AppInfo {
     enabled: boolean;
     autoConsolidate: boolean;
   };
+  workTasks: boolean;
 }
 
 export interface UiSnapshot {
@@ -109,6 +111,7 @@ export type MainToRenderer =
   | { type: "result"; phase: RunPhase; result: RunResult }
   | { type: "shell-progress"; phase: RunPhase; runId: string; progress: ShellProgressChunk }
   | { type: "memory-updated"; reason: "proposals" | "review" | "write" }
+  | { type: "work-task-updated"; task: WorkTask }
   | { type: "error"; message: string };
 
 export type ConfirmInput = { approvalId: string; decision: "allow" | "deny" };
@@ -159,6 +162,7 @@ export interface ExecutionToolRecord {
 export interface ExecutionRunRecord {
   runId: string;
   threadId: string;
+  workTaskId?: string;
   phase: RunPhase;
   status: ExecutionRunStatus;
   startedAt: string;
@@ -192,6 +196,14 @@ export interface RendererApi {
   listMemoryCandidates(input?: CandidateListInput): Promise<MemoryResult<CandidatePage>>;
   getMemoryCandidate(id: string): Promise<MemoryResult<CandidatePreview>>;
   resolveMemoryCandidate(input: CandidateResolveInput): Promise<MemoryResult<CandidateResolution>>;
+  createWorkTask(input: WorkTaskInputs["createWorkTask"]): Promise<WorkTaskResult<WorkTask>>;
+  listWorkTasks(): Promise<WorkTaskResult<WorkTask[]>>;
+  getWorkTask(id: string): Promise<WorkTaskResult<WorkTask>>;
+  runWorkTask(input: WorkTaskInputs["runWorkTask"]): Promise<RunResponse>;
+  submitWorkTaskDelivery(input: WorkTaskInputs["submitWorkTaskDelivery"]): Promise<WorkTaskResult<WorkTask>>;
+  recordHumanAcceptance(input: WorkTaskInputs["recordHumanAcceptance"]): Promise<WorkTaskResult<WorkTask>>;
+  reconcileWorkTask(input: WorkTaskInputs["reconcileWorkTask"]): Promise<WorkTaskResult<WorkTask>>;
+  cancelWorkTask(input: WorkTaskInputs["cancelWorkTask"]): Promise<WorkTaskResult<WorkTask>>;
   hide(): Promise<void>;
   onMessage(listener: (message: MainToRenderer) => void): () => void;
 }
@@ -211,6 +223,14 @@ export const IPC = {
   memoryCandidatesList: "runloom:memoryCandidatesList",
   memoryCandidateGet: "runloom:memoryCandidateGet",
   memoryCandidateResolve: "runloom:memoryCandidateResolve",
+  createWorkTask: "runloom:createWorkTask",
+  listWorkTasks: "runloom:listWorkTasks",
+  getWorkTask: "runloom:getWorkTask",
+  runWorkTask: "runloom:runWorkTask",
+  submitWorkTaskDelivery: "runloom:submitWorkTaskDelivery",
+  recordHumanAcceptance: "runloom:recordHumanAcceptance",
+  reconcileWorkTask: "runloom:reconcileWorkTask",
+  cancelWorkTask: "runloom:cancelWorkTask",
   hide: "runloom:hide",
   message: "runloom:message",
 } as const;

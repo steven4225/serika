@@ -37,6 +37,8 @@ import { PomodoroPanel } from "./pomodoro.js";
 import { PendingMemory, type PendingMemoryStatus } from "./pending-memory.js";
 import { AssistantReply } from "./delivery.js";
 import { attentionKind, headerStatus, loadedCountLabel, deliveredReplyKeys } from "./attention.js";
+import { CurrentTask, useWorkTasks, WorkTasksPanel } from "./work-tasks.js";
+import { unreconciledRuns } from "./work-task-data.js";
 
 const OUTPUT_MAX_CHARS = 64 * 1024;
 
@@ -232,6 +234,8 @@ export function App() {
   const [records, setRecords] = useState<RecordsState>({ status: "loading" });
   const [memoryRefresh, setMemoryRefresh] = useState(0);
   const [contextRefresh, setContextRefresh] = useState(0);
+  const [taskRefresh, setTaskRefresh] = useState(0);
+  const [createTaskRequest, setCreateTaskRequest] = useState(0);
   const [pendingMemory, setPendingMemory] = useState<PendingMemoryStatus>({ count: 0, hasMore: false, loading: false, error: null, reviewing: false });
   const [recordDetail, setRecordDetail] = useState<RecordDetailState>({ status: "idle" });
   const [finalRecord, setFinalRecord] = useState<ExecutionRunRecord | null>(null);
@@ -252,6 +256,8 @@ export function App() {
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const [unreadOutput, setUnreadOutput] = useState(false);
   const selectedRecordId = useRef<string | null>(null);
+  const taskRunStarted = useCallback((text: string) => { setSubmittedInput(text); followConversation.current = true; setDetailsOpen(false); }, []);
+  const workTasks = useWorkTasks(info?.workTasks === true, state.kind !== "idle", taskRefresh, taskRunStarted);
 
   const applySnapshot = useCallback((snapshot: UiSnapshot) => {
     setState(snapshot.state);
@@ -350,6 +356,7 @@ export function App() {
           if (message.state.kind === "running" && message.state.phase === "primary" && message.state.runId !== null) latestPrimaryId.current = message.state.runId;
           if (message.state.kind === "idle") {
             setContextRefresh((value) => value + 1);
+            setTaskRefresh((value) => value + 1);
             void reloadHistory().catch((cause: unknown) => setError(String(cause)));
             void loadRecords(selectedRecordId.current ?? undefined).catch((cause: unknown) => setError(String(cause)));
           }
@@ -390,6 +397,9 @@ export function App() {
           return;
         case "memory-updated":
           setMemoryRefresh((value) => value + 1);
+          return;
+        case "work-task-updated":
+          setTaskRefresh((value) => value + 1);
           return;
         case "error":
           setError(message.message);
@@ -504,10 +514,11 @@ export function App() {
     ...(!activePrimary && lastResult ? [lastResult] : [])];
   const delivered = deliveredReplyKeys(rows);
   const homeView = parseHome(home);
-  const unknownRuns = records.status === "ready" ? records.runs.filter(run => run.tools.some(tool => tool.status === "unknown")) : [];
+  const unknownRuns = records.status === "ready" ? unreconciledRuns(records.runs, workTasks.tasks) : [];
+  const reviewTask = workTasks.tasks.find(task => task.status === "needs_review");
   const openDetails = (tab: typeof detailTab) => { setDetailTab(tab); setDetailsOpen(true); };
 
-  const attention = attentionKind({ approval: approval !== null, unknownRuns: unknownRuns.length, pendingMemory: pendingMemory.count, idle: !busy });
+  const attention = attentionKind({ approval: approval !== null, unknownRuns: unknownRuns.length || (reviewTask ? 1 : 0), pendingMemory: pendingMemory.count, idle: !busy });
   const status = headerStatus(state, attention);
   const stageLabel = info ? status.label : error ? "连接失败" : "正在连接";
   const pendingLabel = loadedCountLabel(pendingMemory.count, pendingMemory.hasMore);
@@ -535,7 +546,7 @@ export function App() {
         <nav className="primary-nav" aria-label="查阅">
           {([["home", "工作区", "home"], ["records", "执行记录", "activity"], ["memory", "记忆审核", "memory"]] as const).map(([tab, label, icon]) =>
             <button key={tab} className={detailsOpen && detailTab === tab ? "selected" : ""} title={label} aria-current={detailsOpen && detailTab === tab ? "page" : undefined} onClick={() => openDetails(tab)}>
-              <Icon name={icon as IconName} /><span>{label}</span>{tab === "records" && unknownRuns.length ? <span className="nav-count" aria-label={`${unknownRuns.length} 条已加载执行含未知效果`}>{unknownRuns.length}</span> : tab === "memory" && pendingLabel ? <span className="nav-count" title={pendingMemory.hasMore ? "待审候选数量至少为此数" : "当前 Thread 待审候选"} aria-label={`${pendingLabel} 条待审记忆`}>{pendingLabel}</span> : null}
+              <Icon name={icon as IconName} /><span>{label}</span>{tab === "records" && unknownRuns.length ? <span className="nav-count" aria-label={`${unknownRuns.length} 条已加载执行尚待核对`}>{unknownRuns.length}</span> : tab === "memory" && pendingLabel ? <span className="nav-count" title={pendingMemory.hasMore ? "待审候选数量至少为此数" : "当前 Thread 待审候选"} aria-label={`${pendingLabel} 条待审记忆`}>{pendingLabel}</span> : null}
             </button>)}
         </nav>
         <div className="sidebar-section">工具</div>
@@ -560,7 +571,7 @@ export function App() {
         </header>
         <div className="attention-region" hidden={(attention === "none" && !pendingMemory.error) || (attention === "memory" && detailsOpen)}>
           {attention === "approval" && approval ? <ApprovalCard approval={approval} deciding={decidingId === approval.approvalId} onDecision={decision => void decide(decision)} /> : null}
-          {attention === "unknown" ? <div className="review-notice" role="status"><Icon name="shield" size={16} /><span>有执行效果还没核对，不会自动重做。</span><button className="ghost" onClick={() => { openDetails("records"); const run = unknownRuns[0]; if (run) void openRecord(run.runId); }}>查看回执<Icon name="chevron" size={14} /></button></div> : null}
+          {attention === "unknown" ? <div className="review-notice" role="status"><Icon name="shield" size={16} /><span>有执行效果还没核对，不会自动重做。</span><button className="ghost" onClick={() => { if (reviewTask) { workTasks.select(reviewTask.id); openDetails("home"); } else { openDetails("records"); const run = unknownRuns[0]; if (run) void openRecord(run.runId); } }}>{reviewTask ? "核对工作任务" : "查看回执"}<Icon name="chevron" size={14} /></button></div> : null}
           {info ? <PendingMemory memory={info.memory} controllerIdle={!busy} refreshToken={memoryRefresh} visible={attention === "memory" && !detailsOpen} onStatus={setPendingMemory} onReviewed={refreshMemory} /> : null}
           {pendingMemory.error && attention === "none" ? <div className="attention-summary"><span>记忆候选暂不可用，不能据此判断没有待审项。</span><button className="ghost" onClick={() => openDetails("memory")}>查看原因</button></div> : null}
           {attention === "approval" && (unknownRuns.length > 0 || pendingLabel) ? <div className="attention-summary">{unknownRuns.length > 0 ? <button className="ghost" onClick={() => openDetails("records")}>另有执行效果待核对</button> : null}{pendingLabel ? <button className="ghost" onClick={() => openDetails("memory")}>待审记忆 {pendingLabel}</button> : null}</div> : null}
@@ -569,6 +580,7 @@ export function App() {
         <div className="workbench">
           <main className="workspace-pane" hidden={detailsOpen}>
             <section className="conversation" aria-label="对话">
+              <CurrentTask view={workTasks} onOpen={() => openDetails("home")} />
               <div className="rows" ref={conversationScroll} onScroll={() => {
                 const area = conversationScroll.current;
                 if (!area) return;
@@ -596,6 +608,7 @@ export function App() {
             <div className="inspector-header"><div><h1>{pageTitle}</h1><p>{pageDescription}</p></div><button className="ghost" onClick={() => setDetailsOpen(false)}><Icon name="chat" size={16} />回到对话</button></div>
             <div className="inspector-pane">
               <div hidden={detailTab !== "home"}>
+                <WorkTasksPanel view={workTasks} createRequest={createTaskRequest} onRun={runId => { openDetails("records"); void openRecord(runId).catch(() => setError("执行回执读取失败")); }} />
                 <section className="card home">
                   <div className="card-head"><span>工作区概览</span><button className="ghost" disabled={busy} onClick={() => void window.runloom.home().then(response => {
                     if (!response.ok) setError(commandError(response));
@@ -611,7 +624,9 @@ export function App() {
                   </dl>
                 </section> : null}
               </div>
-              <div hidden={detailTab !== "records"}><RecordsPanel records={records} detail={recordDetail}
+              <div hidden={detailTab !== "records"}>
+                {recordDetail.status === "ready" && recordDetail.run.workTaskId && workTasks.tasks.some(task => task.id === recordDetail.run.workTaskId) ? <button className="ghost" onClick={() => { if (recordDetail.run.workTaskId) workTasks.select(recordDetail.run.workTaskId); openDetails("home"); }}>回到工作任务</button> : null}
+                <RecordsPanel records={records} detail={recordDetail}
                 onRefresh={() => void loadRecords(selectedRecordId.current ?? undefined).catch(() => setError("执行记录读取失败"))}
                 onOpen={runId => void openRecord(runId).catch(() => setError("执行回执读取失败"))} /></div>
               <div hidden={detailTab !== "memory"}>{info ? <MemoryPanel memory={info.memory} temporaryThread={info.temporaryThread}
@@ -636,6 +651,7 @@ export function App() {
                 }
               }} />
             <div className="composer-controls">
+              {info?.workTasks ? <button className="ghost" disabled={busy || workTasks.acting} onClick={() => { openDetails("home"); setCreateTaskRequest(value => value + 1); }}>创建工作任务</button> : null}
               {info && info.commands.length > 0 ? <details className="commands-menu"><summary>／<span>命令</span></summary><div className="commands">
                 <div className="command-caption">填入命令后发送，不会立即执行</div>
                 {info.commands.map(name => <button key={name} className="chip" disabled={busy} onClick={() => prepareInput(`/${name} `)}>/{name}</button>)}

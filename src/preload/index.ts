@@ -16,6 +16,14 @@ const api: RendererApi = {
   listMemoryCandidates: (input) => ipcRenderer.invoke(IPC.memoryCandidatesList, input),
   getMemoryCandidate: (id) => ipcRenderer.invoke(IPC.memoryCandidateGet, id),
   resolveMemoryCandidate: (input) => ipcRenderer.invoke(IPC.memoryCandidateResolve, input),
+  createWorkTask: (input) => ipcRenderer.invoke(IPC.createWorkTask, input),
+  listWorkTasks: () => ipcRenderer.invoke(IPC.listWorkTasks),
+  getWorkTask: (id) => ipcRenderer.invoke(IPC.getWorkTask, id),
+  runWorkTask: (input) => ipcRenderer.invoke(IPC.runWorkTask, input),
+  submitWorkTaskDelivery: (input) => ipcRenderer.invoke(IPC.submitWorkTaskDelivery, input),
+  recordHumanAcceptance: (input) => ipcRenderer.invoke(IPC.recordHumanAcceptance, input),
+  reconcileWorkTask: (input) => ipcRenderer.invoke(IPC.reconcileWorkTask, input),
+  cancelWorkTask: (input) => ipcRenderer.invoke(IPC.cancelWorkTask, input),
   hide: () => ipcRenderer.invoke(IPC.hide),
   onMessage: (listener) => {
     const wrapped = (_event: IpcRendererEvent, message: MainToRenderer) => listener(message);

@@ -8,6 +8,7 @@ import type {
 import type { RuntimeApp } from "@aisdk-agent/example-cli/dist/app.js";
 import type { ExecutionRunRecord } from "@aisdk-agent/example-cli/dist/execution-record-store.js";
 import { ShellProgressBuffer } from "../shared/shell-progress.js";
+import { sanitizeWorkTaskInput, type WorkTask, type WorkTaskInputs, type WorkTaskResult } from "../shared/work-tasks.js";
 import {
   toGetRunResponse,
   toListRunsResponse,
@@ -158,7 +159,6 @@ function isInputError<T>(value: CandidateListInput | CandidateResolveInput | Mem
 
 /**
  * Map a controller event onto the renderer channel.
- * `work-task-updated` has no desktop page in this round, so it is dropped.
  * Unknown events stay in the exhaustive default and are not silently ignored.
  */
 export function assistantEventToRenderer(event: AssistantEvent): MainToRenderer | null {
@@ -183,7 +183,7 @@ export function assistantEventToRenderer(event: AssistantEvent): MainToRenderer 
     case "memory-updated":
       return { type: "memory-updated", reason: event.reason };
     case "work-task-updated":
-      return null;
+      return { type: "work-task-updated", task: event.task };
     case "output":
       return { type: "output", text: event.text };
     case "error":
@@ -241,6 +241,7 @@ export class RuntimeBridge {
     this.#identity = identity;
     this.#output = output;
     this.#unsubscribe = controller.subscribe((event) => {
+      if (event.type === "state" && event.state.kind === "running" && event.state.phase === "primary" && event.state.runId === null) this.#shell.clear();
       if (event.type === "shell-progress") this.#shell.apply(event.progress);
       const message = assistantEventToRenderer(event);
       if (message !== null) send(message);
@@ -285,6 +286,7 @@ export class RuntimeBridge {
         enabled: this.#app.moduleConfig?.enabled.memory === true && this.#app.memoryStore !== undefined,
         autoConsolidate: this.#app.autoConsolidationAgentId !== undefined,
       },
+      workTasks: this.#app.workTasks !== undefined,
     };
   }
 
@@ -357,6 +359,35 @@ export class RuntimeBridge {
     const sanitized = sanitizeCandidateResolveInput(input);
     if (isInputError(sanitized)) return sanitized;
     return this.#controller.resolveMemoryCandidate(sanitized);
+  }
+
+  listWorkTasks(): Promise<WorkTaskResult<WorkTask[]>> { return this.#controller.listWorkTasks(); }
+
+  async getWorkTask(id: string): Promise<WorkTaskResult<WorkTask>> {
+    if (typeof id !== "string" || !id.trim()) return { ok: false, error: { code: "WORK_TASK_INVALID_INPUT", message: "Task id must be non-empty" } };
+    return this.#controller.getWorkTask(id);
+  }
+
+  async #writeTask<K extends Exclude<keyof WorkTaskInputs, "runWorkTask">>(operation: K, input: WorkTaskInputs[K]): Promise<WorkTaskResult<WorkTask>> {
+    const sanitized = sanitizeWorkTaskInput(operation, input);
+    if (!sanitized.ok) return sanitized;
+    if (this.#controller.getSnapshot().state.kind !== "idle") return { ok: false, error: { code: "WORK_TASK_INVALID_STATE", message: "Controller busy; task change was not queued" } };
+    // Sanitization preserves each method's input; the controller enforces Thread and revision.
+    const method = this.#controller[operation] as (value: WorkTaskInputs[K]) => Promise<WorkTaskResult<WorkTask>>;
+    return method(sanitized.value);
+  }
+
+  createWorkTask(input: WorkTaskInputs["createWorkTask"]) { return this.#writeTask("createWorkTask", input); }
+  submitWorkTaskDelivery(input: WorkTaskInputs["submitWorkTaskDelivery"]) { return this.#writeTask("submitWorkTaskDelivery", input); }
+  recordHumanAcceptance(input: WorkTaskInputs["recordHumanAcceptance"]) { return this.#writeTask("recordHumanAcceptance", input); }
+  reconcileWorkTask(input: WorkTaskInputs["reconcileWorkTask"]) { return this.#writeTask("reconcileWorkTask", input); }
+  cancelWorkTask(input: WorkTaskInputs["cancelWorkTask"]) { return this.#writeTask("cancelWorkTask", input); }
+
+  async runWorkTask(input: WorkTaskInputs["runWorkTask"]): Promise<RunResponse> {
+    const sanitized = sanitizeWorkTaskInput("runWorkTask", input);
+    if (!sanitized.ok) return { ok: false, reason: "starting" };
+    if (this.#controller.getSnapshot().state.kind !== "idle") return { ok: false, reason: "busy" };
+    return this.#controller.runWorkTask(sanitized.value);
   }
 
   async shutdown(): Promise<void> {

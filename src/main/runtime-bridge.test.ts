@@ -48,12 +48,12 @@ describe("assistantEventToRenderer", () => {
     assert.notEqual(mapped.type, "memory-updated");
   });
 
-  it("forwards memory-updated as a reread signal and drops work-task events", () => {
+  it("forwards memory-updated and work-task updates as typed events", () => {
     assert.deepEqual(assistantEventToRenderer({ type: "memory-updated", reason: "proposals" }), {
       type: "memory-updated",
       reason: "proposals",
     });
-    assert.equal(assistantEventToRenderer({ type: "work-task-updated", task: {} as never }), null);
+    assert.deepEqual(assistantEventToRenderer({ type: "work-task-updated", task: {} as never }), { type: "work-task-updated", task: {} });
   });
 
   it("upserts approvals by id rather than y/n prompt text", () => {
