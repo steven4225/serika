@@ -4,7 +4,7 @@ import type { WorkTaskResult } from "@aisdk-agent/example-cli/dist/work-task-sto
 export type { WorkTask, WorkTaskResult, WorkTaskStatus, WorkTaskObservedOutcome } from "@aisdk-agent/example-cli/dist/work-task-store.js";
 
 export type WorkTaskInputs = {
-  [K in "createWorkTask" | "runWorkTask" | "submitWorkTaskDelivery" | "recordHumanAcceptance" | "reconcileWorkTask" | "cancelWorkTask"]: Parameters<AssistantController[K]>[0];
+  [K in "createWorkTask" | "runWorkTask" | "submitWorkTaskDelivery" | "recordHumanAcceptance" | "reconcileWorkTask" | "cancelWorkTask" | "requestWorkTaskChanges"]: Parameters<AssistantController[K]>[0];
 };
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -50,6 +50,7 @@ export function sanitizeWorkTaskInput<K extends keyof WorkTaskInputs>(operation:
         if (!["applied", "partially_applied", "not_applied", "still_unknown"].includes(String(input.observedOutcome)) || !["continue", "cancel"].includes(String(input.decision)) || !text(input.note)) return invalid();
         value = { ...identity, observedOutcome: input.observedOutcome as WorkTaskInputs["reconcileWorkTask"]["observedOutcome"], decision: input.decision as "continue" | "cancel", note: input.note };
         break;
+      case "requestWorkTaskChanges":
       case "cancelWorkTask": value = identity; break;
       default: return invalid();
     }

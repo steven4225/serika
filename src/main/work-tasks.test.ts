@@ -63,6 +63,80 @@ async function waitFor(condition: () => boolean) {
 }
 
 describe("work task desktop boundary", () => {
+  it("returns an unsuccessful delivery without a model call and does not reuse old automatic proof", async () => {
+    const root = await prepare();
+    const fixture = await open(root, "work-thread", true);
+    try {
+      const created = await fixture.bridge.createWorkTask(createInput);
+      assert.ok(created.ok); if (!created.ok) return;
+      const id = created.value.id;
+      assert.ok((await fixture.bridge.runWorkTask({ id, expectedRevision: created.value.revision })).ok);
+      await waitFor(() => fixture.bridge.snapshot().pendingApproval !== null);
+      fixture.bridge.confirm({ approvalId: fixture.bridge.snapshot().pendingApproval!.approvalId, decision: "allow" });
+      await waitFor(() => fixture.bridge.snapshot().state.kind === "idle");
+      const paused = await fixture.bridge.getWorkTask(id);
+      assert.ok(paused.ok); if (!paused.ok) return;
+      const delivered = await fixture.bridge.submitWorkTaskDelivery({ id, expectedRevision: paused.value.revision, summary: "first draft", artifactRefs: ["report.md"] });
+      assert.ok(delivered.ok); if (!delivered.ok) return;
+      assert.equal(delivered.value.acceptance[0]?.status, "passed");
+      const failed = await fixture.bridge.recordHumanAcceptance({ id, expectedRevision: delivered.value.revision, criterionId: "human", decision: "failed", note: "needs revision" });
+      assert.ok(failed.ok); if (!failed.ok) return;
+      const calls = fixture.calls();
+      const returned = await fixture.bridge.requestWorkTaskChanges({ id, expectedRevision: failed.value.revision });
+      assert.ok(returned.ok); if (!returned.ok) return;
+      assert.equal(fixture.calls(), calls);
+      assert.equal(returned.value.status, "paused");
+      assert.deepEqual(returned.value.delivery, failed.value.delivery);
+      assert.ok(returned.value.acceptance.every(item => item.status === "not_run"));
+      assert.equal((await fixture.bridge.requestWorkTaskChanges({ id, expectedRevision: failed.value.revision })).ok, false);
+      assert.equal((await fixture.bridge.recordHumanAcceptance({ id, expectedRevision: returned.value.revision, criterionId: "human", decision: "passed" })).ok, false);
+      assert.ok((await fixture.bridge.runWorkTask({ id, expectedRevision: returned.value.revision, instruction: "review only" })).ok);
+      await waitFor(() => fixture.bridge.snapshot().state.kind === "idle");
+      const next = await fixture.bridge.getWorkTask(id);
+      assert.ok(next.ok); if (!next.ok) return;
+      assert.equal(next.value.runIds.length, 2);
+      const redelivered = await fixture.bridge.submitWorkTaskDelivery({ id, expectedRevision: next.value.revision, summary: "second draft" });
+      assert.ok(redelivered.ok); if (!redelivered.ok) return;
+      assert.notEqual(redelivered.value.acceptance[0]?.status, "passed");
+      assert.deepEqual(redelivered.value.delivery?.evidence, []);
+      assert.equal(redelivered.value.acceptance[1]?.status, "not_run");
+    } finally { await fixture.bridge.shutdown(); await rm(root, { recursive: true, force: true }); }
+  });
+
+  it("explicit rework survives restart and a new human-only round can be accepted", async () => {
+    const root = await prepare();
+    let fixture = await open(root);
+    try {
+      const created = await fixture.bridge.createWorkTask({ goal: "write a plan", acceptance: [createInput.acceptance[1]!] });
+      assert.ok(created.ok); if (!created.ok) return;
+      const id = created.value.id;
+      assert.ok((await fixture.bridge.runWorkTask({ id, expectedRevision: 1 })).ok);
+      await waitFor(() => fixture.bridge.snapshot().state.kind === "idle");
+      const first = await fixture.bridge.getWorkTask(id);
+      assert.ok(first.ok); if (!first.ok) return;
+      const delivered = await fixture.bridge.submitWorkTaskDelivery({ id, expectedRevision: first.value.revision, summary: "draft" });
+      assert.ok(delivered.ok); if (!delivered.ok) return;
+      const returned = await fixture.bridge.requestWorkTaskChanges({ id, expectedRevision: delivered.value.revision });
+      assert.ok(returned.ok); if (!returned.ok) return;
+      await fixture.bridge.shutdown();
+      fixture = await open(root);
+      const restored = await fixture.bridge.getWorkTask(id);
+      assert.ok(restored.ok); if (!restored.ok) return;
+      assert.equal(restored.value.status, "paused");
+      assert.equal(restored.value.delivery?.summary, "draft");
+      assert.equal(fixture.calls(), 0);
+      assert.ok((await fixture.bridge.runWorkTask({ id, expectedRevision: restored.value.revision })).ok);
+      await waitFor(() => fixture.bridge.snapshot().state.kind === "idle");
+      const second = await fixture.bridge.getWorkTask(id);
+      assert.ok(second.ok); if (!second.ok) return;
+      const revised = await fixture.bridge.submitWorkTaskDelivery({ id, expectedRevision: second.value.revision, summary: "revised plan" });
+      assert.ok(revised.ok); if (!revised.ok) return;
+      const accepted = await fixture.bridge.recordHumanAcceptance({ id, expectedRevision: revised.value.revision, criterionId: "human", decision: "passed" });
+      assert.ok(accepted.ok && accepted.value.status === "completed");
+      assert.equal((await fixture.bridge.requestWorkTaskChanges({ id, expectedRevision: accepted.ok ? accepted.value.revision : 1 })).ok, false);
+    } finally { await fixture.bridge.shutdown(); await rm(root, { recursive: true, force: true }); }
+  });
+
   it("drops ownership and evidence; supports only the first-batch creation criteria", () => {
     const sanitized = sanitizeWorkTaskInput("createWorkTask", { ...createInput, threadId: "foreign", status: "completed", revision: 999 });
     assert.deepEqual(sanitized, { ok: true, value: createInput });

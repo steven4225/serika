@@ -83,6 +83,7 @@ export function useWorkTasks(enabled: boolean, busy: boolean, refreshToken: numb
     accept: (criterionId: string, decision: "passed" | "failed", note: string) => task ? change(() => window.runloom.recordHumanAcceptance({ id: task.id, expectedRevision: task.revision, criterionId, decision, ...(note.trim() ? { note: note.trim() } : {}) }), "人工验收已记录；任务是否完成以全部必需项为准。") : Promise.resolve(false),
     reconcile: (observedOutcome: WorkTaskObservedOutcome, decision: "continue" | "cancel", note: string) => task ? change(() => window.runloom.reconcileWorkTask({ id: task.id, expectedRevision: task.revision, observedOutcome, decision, note }), decision === "continue" ? "核对已记录，任务回到暂停。须另外点击开始下一轮；工具仍需重新确认。" : "核对已记录，任务已取消。已发生的效果不会撤回。") : Promise.resolve(false),
     cancel: () => task ? change(() => window.runloom.cancelWorkTask({ id: task.id, expectedRevision: task.revision }), "任务已取消；已发生的效果不会撤回。") : Promise.resolve(false),
+    rework: () => task ? change(() => window.runloom.requestWorkTaskChanges({ id: task.id, expectedRevision: task.revision }), "已退回修改，验收已清空；下一轮需要单独启动。") : Promise.resolve(false),
   };
 }
 
@@ -129,6 +130,7 @@ function TaskDetail({ task, view, onRun }: { task: WorkTask; view: WorkTaskView;
   const [receiptRead, setReceiptRead] = useState(false);
   const [receiptError, setReceiptError] = useState<string | null>(null);
   const [cancelPreview, setCancelPreview] = useState(false);
+  const [reworkPreview, setReworkPreview] = useState(false);
   const [humanPreview, setHumanPreview] = useState<{ id: string; decision: "passed" | "failed" } | null>(null);
   const actions = taskActions(task);
   const latest = task.runIds.at(-1);
@@ -167,14 +169,16 @@ function TaskDetail({ task, view, onRun }: { task: WorkTask; view: WorkTaskView;
       <div className="work-task-buttons"><button className="allow" disabled={view.locked} type="submit">{task.status === "ready" ? "开始执行" : "开始下一轮"}</button></div>
       <p className="hint">开启新 Run，不重放之前的工具。工具仍需逐次确认；本轮结束不会自动标为验收通过。</p>
     </form> : null}
-    {task.delivery ? <section><h3>当前交付</h3><pre>{task.delivery.summary}</pre>{task.delivery.artifactRefs.length ? <ul>{task.delivery.artifactRefs.map((ref, index) => <li key={index}><code>{ref}</code></li>)}</ul> : null}{task.delivery.unresolved.length ? <div className="work-task-warning"><strong>未解决事项</strong><ul>{task.delivery.unresolved.map((item, index) => <li key={index}>{item}</li>)}</ul></div> : null}</section> : null}
+    {task.delivery ? <section><h3>{["paused", "running", "needs_review"].includes(task.status) ? "上次交付（已退回，需重新提交）" : "当前交付"}</h3><pre>{task.delivery.summary}</pre>{task.delivery.artifactRefs.length ? <ul>{task.delivery.artifactRefs.map((ref, index) => <li key={index}><code>{ref}</code></li>)}</ul> : null}{task.delivery.unresolved.length ? <div className="work-task-warning"><strong>未解决事项</strong><ul>{task.delivery.unresolved.map((item, index) => <li key={index}>{item}</li>)}</ul></div> : null}</section> : null}
+    {actions.rework ? <button disabled={view.locked} onClick={() => setReworkPreview(true)}>退回修改…</button> : null}
+    {reworkPreview ? <div className="work-task-confirm" role="group" aria-label="退回修改确认"><p>清空本轮所有验收结论，保留上次交付与执行回执，仅回到暂停。不调用模型、不重放工具；下一轮要单独启动，交付后重新验收。</p><div className="work-task-buttons"><button disabled={view.locked} onClick={() => void view.rework()}>确认退回修改</button><button onClick={() => setReworkPreview(false)}>返回验收</button></div></div> : null}
     {actions.delivery ? <details className="work-task-delivery" open={task.delivery === null}>
       <summary>{task.delivery ? "重新提交交付（重置验收）" : "提交交付与验收"}</summary>
       <form className="work-task-form" onSubmit={event => { event.preventDefault(); void view.deliver(summary.trim(), lines(artifacts), lines(unresolved)); }}>
         <label>交付结论<textarea aria-label="交付结论" rows={3} value={summary} onChange={event => setSummary(event.target.value)} required /></label>
         <label>产物引用 <small>每行一条，仅作交付声明</small><textarea aria-label="交付产物引用" rows={2} value={artifacts} onChange={event => setArtifacts(event.target.value)} /></label>
         <label>未解决事项 <small>每行一条，可留空</small><textarea aria-label="未解决事项" rows={2} value={unresolved} onChange={event => setUnresolved(event.target.value)} /></label>
-        <p className="hint">不从助手文本生成证据。提交后后端核验自动项；再次提交会清空之前的验收结果。</p>
+        <p className="hint">{task.status === "paused" && task.delivery ? "以上沿用上次交付作为草稿，请按本轮实际结果核对。" : ""}不从助手文本生成证据。提交后后端核验自动项；再次提交会清空之前的验收结果。</p>
         <button className="allow" disabled={view.locked || !summary.trim()} type="submit">{task.delivery ? "重置验收并提交" : "提交交付，核验自动项"}</button>
       </form>
     </details> : null}

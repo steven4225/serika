@@ -18,6 +18,7 @@ export function taskActions(task: WorkTask) {
     run: task.status === "ready" || task.status === "paused",
     delivery: task.status === "paused" || task.status === "awaiting_acceptance",
     accept: task.status === "awaiting_acceptance" && task.delivery !== null,
+    rework: task.status === "awaiting_acceptance",
     reconcile: task.status === "needs_review",
     cancel: ["ready", "paused", "awaiting_acceptance"].includes(task.status),
   };

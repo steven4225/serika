@@ -8,7 +8,7 @@ const task = (status: WorkTaskStatus): WorkTask => ({ id: "task", revision: 1, t
 
 describe("work task presentation invariants", () => {
   it("never starts a needs_review task or exposes the ordinary cancel bypass", () => {
-    assert.deepEqual(taskActions(task("needs_review")), { run: false, delivery: false, accept: false, reconcile: true, cancel: false });
+    assert.deepEqual(taskActions(task("needs_review")), { run: false, delivery: false, accept: false, rework: false, reconcile: true, cancel: false });
     assert.equal(taskActions(task("paused")).run, true);
     assert.equal(taskActions(task("completed")).run, false);
     assert.equal(taskActions(task("awaiting_acceptance")).accept, false);

@@ -204,6 +204,7 @@ export interface RendererApi {
   recordHumanAcceptance(input: WorkTaskInputs["recordHumanAcceptance"]): Promise<WorkTaskResult<WorkTask>>;
   reconcileWorkTask(input: WorkTaskInputs["reconcileWorkTask"]): Promise<WorkTaskResult<WorkTask>>;
   cancelWorkTask(input: WorkTaskInputs["cancelWorkTask"]): Promise<WorkTaskResult<WorkTask>>;
+  requestWorkTaskChanges(input: WorkTaskInputs["requestWorkTaskChanges"]): Promise<WorkTaskResult<WorkTask>>;
   hide(): Promise<void>;
   onMessage(listener: (message: MainToRenderer) => void): () => void;
 }
@@ -231,6 +232,7 @@ export const IPC = {
   recordHumanAcceptance: "runloom:recordHumanAcceptance",
   reconcileWorkTask: "runloom:reconcileWorkTask",
   cancelWorkTask: "runloom:cancelWorkTask",
+  requestWorkTaskChanges: "runloom:requestWorkTaskChanges",
   hide: "runloom:hide",
   message: "runloom:message",
 } as const;

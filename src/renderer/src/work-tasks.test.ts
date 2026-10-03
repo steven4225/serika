@@ -8,11 +8,22 @@ import { WorkTasksPanel, CurrentTask, type WorkTaskView } from "./work-tasks.js"
 const baseTask: WorkTask = { id: "task", revision: 3, threadId: "thread", goal: "写计划", constraints: [], acceptance: [{ id: "human", description: "可执行", method: "human", verification: { kind: "human" }, required: true, status: "not_run", evidenceRefs: [], note: null }], status: "paused", runIds: ["run"], delivery: null, reconciliations: [], createdAt: "2026-10-03T00:00:00.000Z", updatedAt: "2026-10-03T00:00:00.000Z" };
 const noChange = async () => false;
 function view(task: WorkTask | null, overrides: Partial<WorkTaskView> = {}): WorkTaskView {
-  return { tasks: task ? [task] : [], task, enabled: true, loading: false, error: null, notice: null, locked: false, acting: false, select: () => undefined, reread: () => undefined, create: noChange, run: noChange, deliver: noChange, accept: noChange, reconcile: noChange, cancel: noChange, ...overrides };
+  return { tasks: task ? [task] : [], task, enabled: true, loading: false, error: null, notice: null, locked: false, acting: false, select: () => undefined, reread: () => undefined, create: noChange, run: noChange, deliver: noChange, accept: noChange, reconcile: noChange, cancel: noChange, rework: noChange, ...overrides };
 }
 function panel(state: WorkTaskView) { return renderToStaticMarkup(createElement(WorkTasksPanel, { view: state, onRun: () => undefined })); }
 
 describe("work task controls", () => {
+  it("offers explicit rework only at acceptance and labels the retained delivery as historical", () => {
+    const delivery = { summary: "上轮计划", artifactRefs: [], evidence: [], unresolved: [] };
+    assert.match(panel(view({ ...baseTask, status: "awaiting_acceptance", delivery })), /退回修改…/);
+    const paused = panel(view({ ...baseTask, delivery }));
+    assert.match(paused, /上次交付（已退回，需重新提交）/);
+    assert.match(paused, /沿用上次交付作为草稿/);
+    assert.doesNotMatch(paused, /通过此项|退回修改…/);
+    for (const status of ["completed", "cancelled", "needs_review", "running"] as const) {
+      assert.doesNotMatch(panel(view({ ...baseTask, status, delivery })), /退回修改…/);
+    }
+  });
   it("a paused Run offers a separate next Run and delivery, not completion", () => {
     const html = panel(view(baseTask));
     assert.match(html, /开始下一轮/);

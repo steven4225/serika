@@ -382,6 +382,7 @@ export class RuntimeBridge {
   recordHumanAcceptance(input: WorkTaskInputs["recordHumanAcceptance"]) { return this.#writeTask("recordHumanAcceptance", input); }
   reconcileWorkTask(input: WorkTaskInputs["reconcileWorkTask"]) { return this.#writeTask("reconcileWorkTask", input); }
   cancelWorkTask(input: WorkTaskInputs["cancelWorkTask"]) { return this.#writeTask("cancelWorkTask", input); }
+  requestWorkTaskChanges(input: WorkTaskInputs["requestWorkTaskChanges"]) { return this.#writeTask("requestWorkTaskChanges", input); }
 
   async runWorkTask(input: WorkTaskInputs["runWorkTask"]): Promise<RunResponse> {
     const sanitized = sanitizeWorkTaskInput("runWorkTask", input);

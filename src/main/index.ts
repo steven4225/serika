@@ -173,6 +173,7 @@ async function main(): Promise<void> {
   ipcMain.handle(IPC.recordHumanAcceptance, (_event, input: WorkTaskInputs["recordHumanAcceptance"]) => bridge.recordHumanAcceptance(input));
   ipcMain.handle(IPC.reconcileWorkTask, (_event, input: WorkTaskInputs["reconcileWorkTask"]) => bridge.reconcileWorkTask(input));
   ipcMain.handle(IPC.cancelWorkTask, (_event, input: WorkTaskInputs["cancelWorkTask"]) => bridge.cancelWorkTask(input));
+  ipcMain.handle(IPC.requestWorkTaskChanges, (_event, input: WorkTaskInputs["requestWorkTaskChanges"]) => bridge.requestWorkTaskChanges(input));
   resolveStartup();
 
   app.on("before-quit", (event) => {

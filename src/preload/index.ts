@@ -24,6 +24,7 @@ const api: RendererApi = {
   recordHumanAcceptance: (input) => ipcRenderer.invoke(IPC.recordHumanAcceptance, input),
   reconcileWorkTask: (input) => ipcRenderer.invoke(IPC.reconcileWorkTask, input),
   cancelWorkTask: (input) => ipcRenderer.invoke(IPC.cancelWorkTask, input),
+  requestWorkTaskChanges: (input) => ipcRenderer.invoke(IPC.requestWorkTaskChanges, input),
   hide: () => ipcRenderer.invoke(IPC.hide),
   onMessage: (listener) => {
     const wrapped = (_event: IpcRendererEvent, message: MainToRenderer) => listener(message);
