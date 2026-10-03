@@ -104,6 +104,21 @@ Shell 不走文件证据路径，命令与 cwd 的完整回执要求不变。
 - `task.reconciliations` 是有界的人类观察记录，不是程序验证结果、工具授权或 acceptance evidence，不能直接让 criterion 通过或让任务完成。后续主 WorkTask Run 只会把最近一条作为带警告的参考上下文；调用方仍须明确启动 Run，并重新取得所有写入和 Shell 权限。自动验收只使用最新且可验证的任务 Run，不要求保留无限历史回执。
 - 恢复和 reconciliation 都使用当前 `revision` 做 CAS。revision 冲突后重新读取任务和执行回执，不得盲重放旧请求；前端应把 `needs_review`、最新 Run 的 `unknown`/缺失情况、human report 及取消后的残余不确定性直接展示给用户。
 
+## 工作任务草稿与产物预览
+
+桌面可调用以下只读接口，使用当前 Thread 的任务 ID 与当前 `revision`：
+
+```ts
+const draft = await controller.getWorkTaskDeliveryDraft({ id, expectedRevision });
+const preview = await controller.getWorkTaskArtifact({ id, expectedRevision, path: "notes/work-plan.md" });
+```
+
+- 两者返回 `{ok:true,value}` 或 `{ok:false,error:{code,message}}`。旧 revision、跨 Thread、坏存储和读失败不是空结果。查询不创建 Run、不调用模型、不提交交付、不改变验收或 JSONL。
+- 草稿只看最新且归属正确的 primary Run，不回退到更早成功的 Run。正常终态且没有未核对工具时才预填助手结论；结论是助手声明，`summaryTruncated` 标注已有回执截断。文件列表只来自每个路径的最后一次成功写入回执；后续失败或未知不能被早先成功覆盖。异常 Run 可有已写文件，但会附警告，不代表完成。
+- 产物预览要求 `read-file` 模块启用。仅接受任务声明的 `artifact_exists` 路径或最新 Run 成功写入路径；任意 `delivery.artifactRefs` 不扩大读取权限。复用 workspace 路径、非 symlink、普通 UTF-8 文本和 64 KiB 限制；纯文本展示，不能执行内容或加载 HTML。
+- `content/bytes/sha256/readAt` 是这次磁盘读取。`matchesReceipt` 为 true/false/null：匹配最新成功回执、已变更、没有可比较 hash。它不是验收 evidence，不能代替提交时重新核对磁盘，更不是质量通过。并发文件变化仍遵循本地 file tool 的隔离边界。
+- UI 可以填未编辑的新表单，不能在异步返回时覆盖用户编辑，不能自动提交或人工通过。退回后的上次交付须标成旧草稿，再显式决定替换。
+
 ## 原生 Memory 候选审阅（A 组）
 
 Memory 模块启用且有 workspace 时，`RuntimeApp` 暴露绑定的 `memoryStore` / `memoryConsolidation`，前端只调用 Controller，不能把 Store 或文件路径送进 IPC：
