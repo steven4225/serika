@@ -403,6 +403,8 @@ Docker sandbox 只挂载列出的路径，根文件系统只读，网络固定�
 
 `feed_read` 每次单独 `y/n`；`/authorize-web` 仍只授权 `web_fetch`。同一 Run 拒绝 `web_search` 后，`feed_read` 与 `web_fetch` 均不会发请求。标题和摘要只用于选材，事实性结论仍须另用 `web_fetch` 打开条目原文并引用抓取的 `finalUrl`；外部文本不能自动写成用户 Memory 或 task。M9 不保存订阅源、不轮询、不接 QQ/微信/Email，worker 与 Home 不读取 feed。
 
+后续独立实现了显式的[定期 RSS 订阅简报](docs/rss-subscriptions.md)：桌面管理订阅及排期，worker 必须另外带 `--rss`，仅处理绑定的重复任务。程序抓取、持久化去重、生成来源清单，模型只整理有界 feed 摘要，不读取文章原文，不获得联网工具或自动写记忆权限。M9 的交互式工具确认和 `/authorize-web` 没有放宽。
+
 R3c 的联网研究交付沿用这两个工具，不新增研究工具或来源数据库：一次 `web_search` 只发现候选，最多选择两个来源，再用 `web_fetch` 打开原文。只有 `web_fetch` 成功返回的内容才能作为已核验来源；`web_fetch.truncated: true` 表示正文不完整，只能作为部分证据，失败或拒绝不能支持事实结论。报告引用实际 `finalUrl`，`write_file` 成功后才说明文件已保存；拒绝、失败或文件冲突不能换参数绕过，也不能声称已保存。报告不强制固定 Markdown 章节，但必须写清来源和不完整项。
 
 R3c 的真实验收是：指定 URL 阅读、搜索→原文核验→报告保存，以及搜索/抓取拒绝、单来源失败或截断三个边界。`web` 只进入 TUI，worker 不会获得它；R3a、R3b 的代码已合并，但 R3 仍需完成真实证据后才封板。

@@ -18,6 +18,7 @@ export interface TaskWorkerServiceOptions {
   todoist?: boolean;
   workspaceContext?: boolean;
   safeRetry?: boolean;
+  rss?: boolean;
   runner?: ServiceCommandRunner;
   platform?: NodeJS.Platform;
 }
@@ -114,7 +115,7 @@ export function createTaskWorkerService(options: TaskWorkerServiceOptions) {
       if (before.registered) return before;
       if (before.command.exitCode !== 113) throw new Error(`Cannot establish launchd service absence (${String(before.command.exitCode)})`);
       const args = [nodePath, ...(envFile === undefined ? [] : [`--env-file=${envFile}`]), workerEntryPath, "--workspace", workspace,
-        ...(options.notify === true ? ["--notify"] : []), ...(options.todoist === true ? ["--todoist"] : []), ...(options.workspaceContext === true ? ["--workspace-context"] : []), ...(options.safeRetry === true ? ["--safe-retry"] : [])];
+        ...(options.notify === true ? ["--notify"] : []), ...(options.todoist === true ? ["--todoist"] : []), ...(options.workspaceContext === true ? ["--workspace-context"] : []), ...(options.safeRetry === true ? ["--safe-retry"] : []), ...(options.rss === true ? ["--rss"] : [])];
       // No environment values or credentials are copied into the service definition.
       const plist = `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict><key>Label</key><string>${xml(label)}</string><key>ProgramArguments</key><array>${args.map((arg) => `<string>${xml(arg)}</string>`).join("")}</array><key>WorkingDirectory</key><string>${xml(workingDirectory)}</string><key>RunAtLoad</key><true/><key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict><key>ThrottleInterval</key><integer>10</integer></dict></plist>\n`;
       await writeWorkerFileAtomic(plistPath, plist);
