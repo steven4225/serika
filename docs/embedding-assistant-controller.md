@@ -30,6 +30,37 @@ import { createAssistantController } from "@aisdk-agent/example-cli/dist/assista
 
 ## 上下文压缩诊断（只读）
 
+### 工作任务续做
+
+`getWorkTaskContinuation({ id, expectedRevision })` 只读当前 Thread 的任务和最新归属正确的 primary Run。
+返回 `WorkTaskContinuation`（`dist/work-task-continuation.js`）：上次提交的交付、未解决项、最新助手结论与最近八个工具身份/状态。
+交付摘要最多 2 KiB，产物引用和未解决项各取前四条；`truncated` / `toolsTruncated` 明示省略。
+没有最新回执或归属不符时 `receiptUnavailable: true`，不会从旧 Run 凑回执；坏文件返回错误，不显示为空。
+工具 `completed` 只代表调用结束，可能包含业务 `ok:false`；实际输出仍须到完整回执核对。
+查询不读产物、不调用模型、不创建 Run、不写状态，也不是验收证据。版本过期须重新读任务。
+
+显式 `runWorkTask()` 在新 Run 开始前读取一次以上投影，放入既有 24 KiB 任务参考；目标/约束/验收标准不会被截断。
+上次交付是参考，不是当前磁盘事实或新的工具权限。提示模型先读当前文件再修改、保留无关章节、修改后读回；这不是额外的文件工具强制门禁。
+核对后仍须启动新 Run，未知副作用不自动重放。质量不合格沿用 `requestWorkTaskChanges()` 回到同一任务，下一轮重新交付与验收。
+
+`ContextDiagnostics.lastPreparationSource` 是可选、进程内的 `{ messageId, workTaskId, runId? }`。
+Controller 只给本进程当前 primary 用户消息对得上的实际准备补 `runId`。
+桌面必须同时匹配任务 ID 与最新 Run ID 才能显示该任务的准备结果；单有历史有效记录不够。
+准备进行中不绑定上一次结果，失败仍显示 failed；手动 `/compact`、退出重启不沿用该身份。
+没有绑定不等于历史压缩丢失，准备成功也不证明模型按摘要执行、provider 已收齐或内容质量通过。
+
+再次压缩只合并合法历史摘要尚未覆盖的完整材料；旧摘要仍作为合并输入，新的记录哈希仍绑定完整原始前缀，工具事实仍从完整覆盖范围对账。
+上次安全边界落在后来合并成一轮的历史内部时，只取该边界之后的部分，不重新消耗已覆盖材料的合并容量。
+四批合并上限、模型重试/超时、摘要校验和预算均保持原值；无效前缀不能走增量捷径。
+
+2026-10-04 续做实测（Command Code，程序限定文件审批，不是 Electron 人工点击）：
+
+- 首次目录 `/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/runloom-context-continuity-U98kZs` 保留失败。重启后的读/改/读回都有完成回执，但之后的上下文准备重复合并已覆盖原始前缀，撞上四批容量限制，Run failed、总报告 false；没有提交为完成交付。
+- 修复后用新的隔离目录 `/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/runloom-context-continuity-EklqnG` 完成整链，预算未变。PID 55067 / 58858，两边配置哈希 `1d8299fdc6f7cac0226b9cd21fac06a5747399442815cca14d3b0e2207f455b6` 相同，WorkTask `85764ff2-4f71-4c8e-8256-c7c73437e323` 相同。
+- 六次章节编辑自动触发压缩，之后 `continued`；上次交付与未解决项正常持久化。重启后的实际模型输入含上次未解决项及摘要，重新读盘后 edit_file，再 read_file，外部标记进入新章节，旧章节与保护文件保留。当前产物 14957 字节，哈希与最新归属正确的写入回执一致，自动产物项 passed；任务 awaiting_acceptance，人工 quality not_run。
+- 最近摘要估算输入 27735 → 10693 tokens，44873 ms，累计四次摘要请求（包含分批/重试），实际总用量 33756 tokens。重启后最新准备 reused，没有在这条成功链里强求再生成第二条摘要；增量合并修复另有“已覆盖前缀超过四批、旧边界落入后来的完整轮内部”的确定性回归覆盖，不能把两次不同模型输出当成逐字相同的故障复现。
+- `report.json.passed` 为 true，只证明这条后端固定场景。`electronAcceptance: not_run`、`taskQuality: not_evaluated`，未接受内容质量，也不保证任意长任务。
+
 固定预算连续链的后端复验入口（真实模型、有费用，默认不运行；也支持已配置的 `RUNLOOM_MODEL=minimax-m3` / `command-code`）：
 
 ```sh

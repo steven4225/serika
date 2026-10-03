@@ -17,6 +17,7 @@ import {
   type WorkTaskResult,
 } from "./work-task-store.js";
 import { recoverRunningWorkTasks } from "./work-task-recovery.js";
+import { workTaskContinuation, type WorkTaskContinuation } from "./work-task-continuation.js";
 import { rejectSymlinkComponents, validateWorkspacePath } from "./workspace-path.js";
 import type { ShellProgress } from "./modules/shell-module.js";
 import type { PendingToolApproval } from "./tui.js";
@@ -106,6 +107,7 @@ export interface AssistantController {
   listWorkTasks(): Promise<WorkTaskResult<WorkTask[]>>;
   getWorkTask(id: string): Promise<WorkTaskResult<WorkTask>>;
   getWorkTaskDeliveryDraft(input: WorkTaskReadInput): Promise<WorkTaskReadResult<WorkTaskDeliveryDraft>>;
+  getWorkTaskContinuation(input: WorkTaskReadInput): Promise<WorkTaskResult<WorkTaskContinuation>>;
   getWorkTaskArtifact(input: WorkTaskArtifactInput): Promise<WorkTaskReadResult<WorkTaskArtifactPreview>>;
   runWorkTask(input: { id: string; expectedRevision: number; instruction?: string }): Promise<StartRunResponse>;
   submitWorkTaskDelivery(input: {
@@ -555,7 +557,14 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       resultTextTruncated,
     }),
     getHistory: () => app.store.getMessages(app.threadId),
-    getContextDiagnostics: () => app.getContextDiagnostics(),
+    getContextDiagnostics: async () => {
+      const diagnostics = await app.getContextDiagnostics();
+      const source = diagnostics.ok ? diagnostics.value.lastPreparationSource : null;
+      if (source && source.messageId === primaryMessageId && primaryRunId) {
+        source.runId = primaryRunId;
+      }
+      return diagnostics;
+    },
     listRuns: async (limit) => {
       await ensureRecovered();
       return app.executionRecords.listRuns(app.threadId, limit);
@@ -669,6 +678,17 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       }
       return task;
     },
+    getWorkTaskContinuation: async (input) => {
+      const task = await readTaskForDisplay(input);
+      if (!task.ok) return task;
+      try {
+        const runId = task.value.runIds.at(-1);
+        const run = runId ? await app.executionRecords.getRun(app.threadId, runId) : null;
+        return { ok: true, value: workTaskContinuation(task.value, run) };
+      } catch {
+        return { ok: false, error: { code: "WORK_TASK_READ_FAILED", message: "Unable to read continuation receipts; no older Run was substituted" } };
+      }
+    },
     getWorkTaskDeliveryDraft: async (input) => {
       const task = await readTaskForDisplay(input);
       if (!task.ok) return task;
@@ -713,7 +733,11 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       }
       let clearBinding: (() => void) | undefined;
       try {
-        app.workTaskContext.begin(found.value);
+        const runId = found.value.runIds.at(-1);
+        const run = runId ? await app.executionRecords.getRun(app.threadId, runId) : null;
+        // Receipt reads are asynchronous. Recheck the idle mutex before reserving the next Run.
+        if (closed || state.kind !== "idle" || nextWorkTask !== undefined || activeWorkTask !== undefined) return { ok: false, reason: "busy" };
+        app.workTaskContext.begin(found.value, workTaskContinuation(found.value, run));
         nextWorkTask = found.value;
         clearBinding = app.bindNextExecutionWorkTask({ id: found.value.id, expectedRevision: found.value.revision });
         const started = await controller.run(input.instruction?.trim() || found.value.goal);

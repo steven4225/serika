@@ -145,6 +145,7 @@ describe("createRuntimeApp", () => {
         await first.result;
         const successful = await app.getContextDiagnostics();
         assert.equal(successful.ok && successful.value.lastPreparation?.outcome, "passthrough");
+        assert.equal(successful.ok && successful.value.lastPreparationSource?.messageId, "diagnostic-user-1");
         await mkdir(join(workspace, ".runloom"), { recursive: true });
         await writeFile(join(workspace, ".runloom", "memory.json"), "not JSON", "utf8");
         const second = await run("diagnostic-user-2");
@@ -155,6 +156,12 @@ describe("createRuntimeApp", () => {
           assert.equal(failed.value.lastPreparation?.outcome, "failed");
           assert.equal(failed.value.lastPreparation?.compactionId, null);
           assert.ok(failed.value.lastPreparation?.error);
+          assert.equal(failed.value.lastPreparationSource?.messageId, "diagnostic-user-2");
+        }
+        if (app.compaction) {
+          await assert.rejects(app.compaction.compact(AbortSignal.timeout(1000)));
+          const manual = await app.getContextDiagnostics();
+          assert.ok(manual.ok && manual.value.lastPreparationSource === null, "manual compact cannot inherit primary Run identity");
         }
       } finally {
         app.dispose();

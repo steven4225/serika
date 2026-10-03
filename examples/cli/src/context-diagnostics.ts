@@ -19,6 +19,8 @@ export interface ContextDiagnostics {
     firstKeptMessageId: string | null;
     metrics: CompactionMetrics;
   } | null;
+  /** Process-only identity for actual primary preparation; manual compact/restart has no binding. */
+  lastPreparationSource?: { messageId: string; workTaskId: string | null; runId?: string } | null;
   /** Only an actual preparation in this process sets this field. */
   lastPreparation: {
     at: string;

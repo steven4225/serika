@@ -64,6 +64,7 @@ import { createComputerModule } from "./modules/computer-module.js";
 import { createTaskStore } from "./task-store.js";
 import { createWorkTaskStore, type WorkTask, type WorkTaskStore } from "./work-task-store.js";
 import { createWorkTaskContextMessage } from "./work-task-context.js";
+import type { WorkTaskContinuation } from "./work-task-continuation.js";
 import {
   buildTaskContextMessage,
 } from "./task-instructions.js";
@@ -114,7 +115,7 @@ export interface RuntimeApp {
   bindNextExecutionWorkTask: (input: { id: string; expectedRevision: number }) => () => void;
   workTasks: WorkTaskStore | undefined;
   workTaskContext: {
-    begin(task: WorkTask): void;
+    begin(task: WorkTask, continuation?: WorkTaskContinuation): void;
     end(): void;
   };
   threadId: string;
@@ -754,6 +755,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     };
     const referencePrefix = async (messages: readonly UIMessage[], signal: AbortSignal) => (await buildReferencePrefix(messages, signal)).prefix;
     let lastUncompactedPreparation: ContextDiagnostics["lastPreparation"] = null;
+    let lastPreparationSource: NonNullable<ContextDiagnostics["lastPreparationSource"]> | null = null;
     const contextCompactor =
       tuiMode && moduleConfig?.contextCompaction.enabled === true
         ? new ContextCompactor({
@@ -965,41 +967,53 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         ? {
             prepareModelContext: async ({ messages, signal, definition }) => {
               if (definition.id !== PRIMARY_AGENT_ID) return selectModelContext(messages);
-              let prefix: UIMessage[];
-              let reference: MemoryReferenceSnapshot | null = null;
+              const currentUser = [...messages].reverse().find(message => message.role === "user");
+              const preparationSource = currentUser ? {
+                messageId: currentUser.id,
+                workTaskId: typeof activeWorkTaskMessage?.metadata === "object" && activeWorkTaskMessage.metadata !== null &&
+                  "workTaskId" in activeWorkTaskMessage.metadata && typeof activeWorkTaskMessage.metadata.workTaskId === "string"
+                  ? activeWorkTaskMessage.metadata.workTaskId : null,
+              } : null;
+              lastPreparationSource = null;
               try {
-                const prepared = await buildReferencePrefix(messages, signal, true);
-                prefix = prepared.prefix;
-                reference = prepared.reference;
-                if (contextCompactor === undefined) {
-                  const selected = selectModelContext(messages, [], {}, undefined, undefined, prefix);
+                let prefix: UIMessage[];
+                let reference: MemoryReferenceSnapshot | null = null;
+                try {
+                  const prepared = await buildReferencePrefix(messages, signal, true);
+                  prefix = prepared.prefix;
+                  reference = prepared.reference;
+                  if (contextCompactor === undefined) {
+                    const selected = selectModelContext(messages, [], {}, undefined, undefined, prefix);
+                    lastUncompactedPreparation = {
+                      at: new Date().toISOString(), outcome: "passthrough", compactionId: null,
+                      estimatedInputTokens: null, error: null,
+                    };
+                    publishMemoryReference(reference);
+                    return selected;
+                  }
+                } catch (error) {
+                  publishMemoryReference(null);
+                  contextCompactor?.recordPreparationFailure(error);
                   lastUncompactedPreparation = {
-                    at: new Date().toISOString(), outcome: "passthrough", compactionId: null,
-                    estimatedInputTokens: null, error: null,
+                    at: new Date().toISOString(), outcome: "failed", compactionId: null,
+                    estimatedInputTokens: null,
+                    error: {
+                      code: error instanceof AgentError ? error.data.code : "CONTEXT_PREPARE_FAILED",
+                      message: error instanceof Error ? error.message : String(error),
+                    },
                   };
-                  publishMemoryReference(reference);
-                  return selected;
+                  throw error;
                 }
-              } catch (error) {
-                publishMemoryReference(null);
-                contextCompactor?.recordPreparationFailure(error);
-                lastUncompactedPreparation = {
-                  at: new Date().toISOString(), outcome: "failed", compactionId: null,
-                  estimatedInputTokens: null,
-                  error: {
-                    code: error instanceof AgentError ? error.data.code : "CONTEXT_PREPARE_FAILED",
-                    message: error instanceof Error ? error.message : String(error),
-                  },
-                };
-                throw error;
-              }
-              try {
-                const conversation = await contextCompactor.prepare(messages, signal, false, prefix);
-                publishMemoryReference(reference);
-                return [...contextCompactor.effectiveReferencePrefix, ...conversation];
-              } catch (error) {
-                publishMemoryReference(null);
-                throw error;
+                try {
+                  const conversation = await contextCompactor.prepare(messages, signal, false, prefix);
+                  publishMemoryReference(reference);
+                  return [...contextCompactor.effectiveReferencePrefix, ...conversation];
+                } catch (error) {
+                  publishMemoryReference(null);
+                  throw error;
+                }
+              } finally {
+                lastPreparationSource = preparationSource;
               }
             },
           }
@@ -1048,8 +1062,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       bindNextExecutionWorkTask: executionRecordAdapter.bindNextWorkTask,
       workTasks,
       workTaskContext: {
-        begin: (task) => {
-          const message = createWorkTaskContextMessage(task);
+        begin: (task, continuation) => {
+          const message = createWorkTaskContextMessage(task, continuation);
           if (message === undefined) throw new Error("WorkTask context exceeds the 24 KiB limit");
           activeWorkTaskMessage = message;
         },
@@ -1062,12 +1076,17 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       toolConfirmation,
       commands,
       compaction: contextCompactor
-        ? { compact: (signal: AbortSignal) => contextCompactor.compact(signal) }
+        ? { compact: (signal: AbortSignal) => { lastPreparationSource = null; return contextCompactor.compact(signal); } }
         : undefined,
-      getContextDiagnostics: () => contextCompactor?.getDiagnostics() ?? readContextDiagnostics(
-        store, threadId, moduleConfig?.contextCompaction ?? DEFAULT_CONTEXT_BUDGET_CONFIG,
-        lastUncompactedPreparation,
-      ),
+      getContextDiagnostics: async () => {
+        const source = structuredClone(lastPreparationSource);
+        const result = await (contextCompactor?.getDiagnostics() ?? readContextDiagnostics(
+          store, threadId, moduleConfig?.contextCompaction ?? DEFAULT_CONTEXT_BUDGET_CONFIG,
+          lastUncompactedPreparation,
+        ));
+        if (result.ok) result.value.lastPreparationSource = result.value.lastPreparation ? source : null;
+        return result;
+      },
       getMemoryReferences: () => memoryReference === null ? null : structuredClone(memoryReference),
       subscribeMemoryReferences: (listener) => { memoryReferenceListeners.add(listener); return () => { memoryReferenceListeners.delete(listener); }; },
       resume,
