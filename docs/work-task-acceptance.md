@@ -375,3 +375,64 @@ started 的负对照。真实运行 provider usage 为 171,102 input / 1,691 out
 这封板的是 WT06 的本次显式返工、长文件证据与授权接受闭环。首次失败仍为 failed；
 其他待审案例不会随之变绿。没有据此宣称总体真实任务成功率、独立人工 benchmark、
 Electron 人工点击，或连续压缩/重启后的真实任务整链已经通过。
+
+## 同一 WorkTask 固定预算连续链
+
+复用现有后端连续压缩验收入口，增加 `--work-task`；不是新调度器、状态机或 Eval
+框架。真实模型有费用，默认测试不会运行：
+
+```sh
+pnpm build
+RUNLOOM_CONTEXT_CONTINUITY=1 RUNLOOM_MODEL=command-code node --env-file=.env \
+  examples/cli/dist/context-continuity-acceptance.js --work-task
+```
+
+沿用固定预算 32768 窗口 / 4096 输出预留 / 1024 安全余量 / 8192 近期保留 /
+4096 摘要输出。第一子进程创建一个 WorkTask，最多十二轮真实读/编辑日用流程
+文件，触发自动压缩后再继续一轮；所有 Run 通过 `runWorkTask()` 显式开启，双向
+核对任务/Thread/最新 primary Run 归属，实际模型输入须带当前任务合同。Run 结束
+只能是 paused，验收项仍 not_run，不能把聊天完成当任务完成。
+
+第一进程完整退出后，验收程序在磁盘首行加一个摘要不可能知道的外部标记，再开
+独立子进程。新进程用同一配置/workspace/Thread 读取原任务，合同、revision 和
+Run 列表须与退出前完全一致；历史有效摘要可恢复，本进程准备仍是 null。随后显式
+继续同一任务，重新确认读取和编辑；新章节须包含从磁盘读到的完整外部标记，实际
+模型输入须带摘要及任务合同，旧正文和保护文件不变。
+
+最后提交交付，用最新 Run 的 edit 回执与当前文件哈希/字节数自动核验；任务应为
+awaiting_acceptance、saved-artifact passed、quality not_run。`report.json.passed`
+只表示本次技术连续链通过，**不表示任务质量已接受或产品任务 completed**。不沿用
+其他任务的质量委托，不调用 `recordHumanAcceptance()`；Electron 点击、崩溃未知
+副作用恢复和总体成功率均不由这条正常退出链覆盖。
+
+终端打印新的隔离证据目录。保留前后独立进程报告、模型输入/输出、taskSnapshots、
+执行回执、JSONL、原任务退出快照、配置和产物；两份配置哈希须一致。任一阶段失败
+总报告为 false，失败不改预算、不补 transcript、不自动换目录重试到绿。
+
+### 本次真实模型结果（2026-10-03）
+
+Command Code `deepseek/deepseek-v4.1-flash` 从新隔离目录一次启动该验收链，
+技术报告 passed，没有改预算或重开整个案例凑通过。证据目录：
+`/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/runloom-context-continuity-r6axjZ`。
+任务 `ed922196-5c51-43ef-b8cb-ce62c5d23b55` 共十个 primary Run：八轮文件编辑
+触发自动压缩，第九轮 continued；PID 85958 完整退出，PID 88762 恢复后完成
+reopened，第十轮 Run 为 `e9fd7bdf-4bee-44ce-ae6c-82e9b1b3e25c`。
+
+前后配置 hash 均为
+`0288a0a954bd30651eaf3761e73a8eb8e932da022bb1931511a0759c40599fdb`。
+退出前任务 paused，重开时合同/revision/Run 列表原样，历史摘要恢复但准备结果为
+null；续跑后准备为 reused，使用相同摘要 ID
+`3bc9bcae-64c0-4866-a67d-06f2988e4974`。实际输入同时包含摘要和当前任务合同，
+新章节包含完整外部标记，成功读取在成功编辑之前，已有章节和保护文件未改。
+
+当前产物 28,331 字节，SHA-256 为
+`f3ff8a0f6ab651de3f0db104dda3a2af5116213a826855f7dbf83b9d0f47d0a7`；
+最后任务所属 edit 回执、delivery evidence 和当前磁盘逐项核对一致。提交交付后
+saved-artifact passed、quality not_run、任务 awaiting_acceptance，无质量接受调用。
+摘要估算输入 32,027 → 10,444，耗时 25,753 ms、累计三次摘要调用、provider
+usage 27,678 tokens；这些是摘要指标，不是单次无重试成功或整个任务的总费用。
+
+新入口的离线检查：`pnpm typecheck` 通过、`pnpm test` 898 passed / 2 skipped /
+0 failed、`git diff --check` 干净。正常退出的任务续接、压缩和最后文件证据在本次
+配置通过，不扩大为所有任务/预算的可靠性保证；质量审核、Electron 交互和未知
+副作用的崩溃恢复仍不由本报告证明。

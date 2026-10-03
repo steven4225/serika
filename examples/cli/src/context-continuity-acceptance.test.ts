@@ -1,7 +1,24 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { fixtureApprovalAllowed, hasInjectedSummary, hasSuccessfulReadBeforeEdit } from "./context-continuity-acceptance.js";
-import type { ExecutionToolRecord } from "./execution-record-store.js";
+import { fixtureApprovalAllowed, hasInjectedSummary, hasSuccessfulReadBeforeEdit, verifyContinuityTaskRun } from "./context-continuity-acceptance.js";
+import type { ExecutionRunRecord, ExecutionToolRecord } from "./execution-record-store.js";
+import type { WorkTask } from "./work-task-store.js";
+
+test("WorkTask continuity requires latest primary ownership and leaves quality unaccepted", () => {
+  const task = { id: "task", threadId: "thread", status: "paused", runIds: ["old", "latest"],
+    acceptance: [{ id: "quality", status: "not_run" }] } as WorkTask;
+  const receipt = { runId: "latest", threadId: "thread", workTaskId: "task", phase: "primary", status: "completed",
+    tools: [{ status: "completed" }] } as ExecutionRunRecord;
+  assert.doesNotThrow(() => verifyContinuityTaskRun(task, receipt));
+  for (const patch of [
+    { workTaskId: "foreign" }, { threadId: "foreign" }, { runId: "old" },
+    { phase: "consolidation" }, { status: "interrupted" }, { tools: [{ status: "unknown" }] },
+  ]) assert.throws(() => verifyContinuityTaskRun(task, { ...receipt, ...patch } as ExecutionRunRecord));
+  for (const patch of [
+    { status: "completed" }, { status: "needs_review" },
+    { acceptance: [{ id: "quality", status: "passed" }] },
+  ]) assert.throws(() => verifyContinuityTaskRun({ ...task, ...patch } as WorkTask, receipt));
+});
 
 test("continuity fixture approves only the exact task artifact, never protected paths or shell", () => {
   for (const tool of ["read_file", "write_file", "edit_file"]) {
