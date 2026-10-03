@@ -54,3 +54,18 @@ Electron 测试窗口已启动并核对首屏；导航点击未取得可确认�
 - 完成后的测试 worker 经 launchctl SIGKILL，launchd 拉起新 PID；inbox 仍只有原任务，没有重放已完成简报。这里未测试抓取/模型执行中途被杀的崩溃。
 - 通知状态为 `submitted`、attempts=1，仅证明 osascript 提交成功，不证明用户看到。测试服务已 bootout，后续查询确认服务不存在，测试 plist 已移除；未改日用服务。验收专用启动包装器固定模型选择为 command-code，凭据仍读取原外部 env 文件，不复制 key。报告在 `/private/tmp/runloom-rss-wallclock-1eOXzq/report.json`，临时文件不是永久 CI 证据。
 - 睡眠/离线恢复、用户实际看到通知及真实模型 Electron 对话仍未封板。
+
+### 真实模型桌面整链（2026-10-03，后续补验）
+
+在全新隔离 workspace 中，用 Cua 原生 AX/键盘操作生产 Electron 页面，而非 Controller 调用代替点击。桌面为 `1db474c`，后端为 `09339be`；显式固定同一 Thread 和 transcript 目录，未测试默认 `desktop-identity.json` 的复用。
+
+1. 页面添加 `Hacker News / https://hnrss.org/newest`。预览前后独立读盘确认 `rss.json` 尚不存在；确认后才保存来源。每日 `16:42`、固定 `+08:00` 的排期预览也未写 TaskStore；确认后绑定系列 `2f109f26-fa80-43d8-b66c-30afa0e3bfe4`，`nextRunAt=2026-10-03T08:42:00.000Z`。
+2. 页面明确确认启用独立后台服务，实际 launchd 报告 worker PID。16:39 已退出测试 Electron，应用列表确认原 PID 不在运行；任务完成后、重开前再次确认它仍不在运行。到点采用真实系统时钟，未推进 fixture 时钟。
+3. 原外部 env 文件选择 Command Code 的 `deepseek/deepseek-v4.1-flash`，不是 mock；凭据未复制。任务 `595a20cc-2de4-4d34-8915-0df4b8321978` 于 `08:42:00.766Z` 领取、`08:42:08.049Z` completed，Run 为 `ab14de21-b797-4bdb-b2b7-770e6cef9335`，一次 attempt。程序清单五条、模型整理单独标为 feed-only；二十条首次观察基线已保存，pending 清除。
+4. 重新打开同一隔离配置/Thread，在工作区展开真实简报，核对来源链接和“未核实原文”标记，再原生点击“标为已读”。读盘确认 `acknowledgedAt=2026-10-03T08:44:51.161Z`，该系列 inbox 为空，原任务仍 completed，没有删除或重跑。
+5. 同一桌面还发送了一条无工具的真实模型对话。primary Run `aa5a8f19-ac5f-4241-8fac-c624f4c7cb37` completed，页面显示指定回复，执行记录 tools 为空。这仅证明该配置的桌面模型请求成功，不是通用任务质量验收。
+6. 从页面确认停用隔离后台服务。即时状态曾短暂显示旧 PID；再次查询后页面显示未注册，独立 launchctl 查询退出码 113，测试 plist 不存在。测试窗口已退出，不改变日用服务、配置或数据。
+
+因此 **“桌面创建订阅/排期 → 明确开启后台 → 退出桌面 → 墙钟到点真实模型执行 → 重开查看 → ack”已通过**。通知 `submitted`、attempts=1 仍只表示 OS 提交，未证明用户看见。睡眠/离线恢复、执行中途崩溃、来源删除及排期恢复仍未在此链封板，不将此前 mock 或独立 worker 的不同场景拼成这些项目通过。
+
+本机报告与原始截图在 `/private/tmp/runloom-rss-desktopchain-OsdJSQ/`（`report.json`、`digest-visible.png`、`digest-model-visible.png`、`chat-result.png`、`service-absent.png`）；临时目录可能被清理，不是永久 CI 证据。此轮未修改生产代码；文档检查和 PR CI 与上述付费实机链是不同证据层。
