@@ -114,6 +114,7 @@ export interface AssistantController {
     note: string;
   }): Promise<WorkTaskResult<WorkTask>>;
   cancelWorkTask(input: { id: string; expectedRevision: number }): Promise<WorkTaskResult<WorkTask>>;
+  requestWorkTaskChanges(input: { id: string; expectedRevision: number }): Promise<WorkTaskResult<WorkTask>>;
   run(text: string): Promise<StartRunResponse>;
   cancel(): Promise<void>;
   confirm(input: { approvalId: string; decision: "allow" | "deny" }): boolean;
@@ -641,6 +642,18 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
         decision: input.decision,
         note: input.note,
       });
+      if (updated.ok) emit({ type: "work-task-updated", task: updated.value });
+      return updated;
+    },
+    requestWorkTaskChanges: async (input) => {
+      const recoveryFailure = await workTaskRecoveryFailure();
+      if (recoveryFailure !== undefined) return recoveryFailure;
+      if (app.workTasks === undefined) return unavailableWorkTask();
+      if (closed || state.kind !== "idle") return { ok: false, error: { code: "WORK_TASK_INVALID_STATE", message: "Controller must be idle to request changes" } };
+      const found = await app.workTasks.get(input.id);
+      if (!found.ok) return found;
+      if (found.value.threadId !== app.threadId) return missingWorkTask();
+      const updated = await app.workTasks.requestChanges(input.id, input.expectedRevision);
       if (updated.ok) emit({ type: "work-task-updated", task: updated.value });
       return updated;
     },

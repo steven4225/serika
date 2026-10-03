@@ -35,6 +35,52 @@ function input() {
 }
 
 describe("WorkTaskStore", () => {
+  it("returns delivery for changes once under CAS, preserves the last delivery but invalidates acceptance", async () => {
+    const directory = await workspace();
+    const store = createWorkTaskStore(directory, { generateId: () => "rework" });
+    assert.ok((await store.create(input())).ok);
+    assert.equal(code(await store.requestChanges("rework", 1)), "WORK_TASK_INVALID_STATE");
+    assert.ok((await store.beginRun("rework", { expectedRevision: 1, runId: "first" })).ok);
+    assert.equal(code(await store.requestChanges("rework", 2)), "WORK_TASK_INVALID_STATE");
+    assert.ok((await store.pause("rework", 2)).ok);
+    assert.ok((await store.submitDelivery("rework", { expectedRevision: 3, delivery: { summary: "First draft", artifactRefs: [], evidence: [], unresolved: ["revise"] } })).ok);
+    const accepted = await store.recordAcceptance("rework", { expectedRevision: 4, criterionId: "quality", actor: "human", status: "passed", note: "old approval", evidence: [{ id: "old", kind: "human", criterionId: "quality", acceptedAt: new Date().toISOString() }] });
+    assert.ok(accepted.ok); if (!accepted.ok) return;
+    const results = await Promise.all([store.requestChanges("rework", accepted.value.revision), store.requestChanges("rework", accepted.value.revision)]);
+    assert.equal(results.filter(result => result.ok).length, 1);
+    assert.equal(results.filter(result => code(result) === "WORK_TASK_REVISION_CONFLICT").length, 1);
+    const paused = await createWorkTaskStore(directory).get("rework");
+    assert.ok(paused.ok); if (!paused.ok) return;
+    assert.equal(paused.value.status, "paused");
+    assert.deepEqual(paused.value.delivery, accepted.value.delivery);
+    assert.deepEqual(paused.value.runIds, ["first"]);
+    assert.ok(paused.value.acceptance.every(item => item.status === "not_run" && item.evidenceRefs.length === 0 && item.note === null));
+    assert.equal(code(await store.recordAcceptance("rework", { expectedRevision: paused.value.revision, criterionId: "quality", actor: "human", status: "failed" })), "WORK_TASK_INVALID_STATE");
+    assert.ok((await store.beginRun("rework", { expectedRevision: paused.value.revision, runId: "second" })).ok);
+    const running = await store.get("rework");
+    assert.ok(running.ok); if (!running.ok) return;
+    assert.equal(code(await store.recordAcceptance("rework", { expectedRevision: running.value.revision, criterionId: "quality", actor: "human", status: "failed" })), "WORK_TASK_INVALID_STATE");
+    assert.ok((await store.markNeedsReview("rework", running.value.revision)).ok);
+    assert.equal(code(await store.requestChanges("rework", running.value.revision + 1)), "WORK_TASK_INVALID_STATE");
+  });
+
+  it("does not reopen a completed or cancelled task for changes", async () => {
+    const store = createWorkTaskStore(await workspace());
+    const created = await store.create({ ...input(), acceptance: [input().acceptance[1]!] });
+    assert.ok(created.ok); if (!created.ok) return;
+    const id = created.value.id;
+    assert.ok((await store.beginRun(id, { expectedRevision: 1, runId: "run" })).ok);
+    assert.ok((await store.pause(id, 2)).ok);
+    assert.ok((await store.submitDelivery(id, { expectedRevision: 3, delivery: { summary: "done", artifactRefs: [], evidence: [], unresolved: [] } })).ok);
+    const completed = await store.recordAcceptance(id, { expectedRevision: 4, criterionId: "quality", actor: "human", status: "passed", evidence: [{ id: "proof", kind: "human", criterionId: "quality", acceptedAt: new Date().toISOString() }] });
+    assert.ok(completed.ok); if (!completed.ok) return;
+    assert.equal(code(await store.requestChanges(id, completed.value.revision)), "WORK_TASK_INVALID_STATE");
+    const other = await store.create(input());
+    assert.ok(other.ok); if (!other.ok) return;
+    assert.ok((await store.cancel(other.value.id, 1)).ok);
+    assert.equal(code(await store.requestChanges(other.value.id, 2)), "WORK_TASK_INVALID_STATE");
+  });
+
   it("persists a task lifecycle and completes only after delivery and required evidence", async () => {
     const directory = await workspace();
     let tick = 0;

@@ -129,6 +129,7 @@ export interface WorkTaskStore {
   list(input?: WorkTaskListInput): Promise<WorkTaskResult<WorkTask[]>>;
   beginRun(id: string, input: { expectedRevision: number; runId: string }): Promise<WorkTaskResult<WorkTask>>;
   pause(id: string, expectedRevision: number): Promise<WorkTaskResult<WorkTask>>;
+  requestChanges(id: string, expectedRevision: number): Promise<WorkTaskResult<WorkTask>>;
   markNeedsReview(id: string, expectedRevision: number): Promise<WorkTaskResult<WorkTask>>;
   settleRecoveredRun(id: string, input: {
     expectedRevision: number;
@@ -359,7 +360,11 @@ function parseTask(value: unknown): WorkTask {
   }
   if (task.status === "completed" && (task.delivery === null || !requiredPassed(task))) raise("WORK_TASK_FILE_INVALID", "Completed task has unmet required criteria");
   if (task.status === "awaiting_acceptance" && task.delivery === null) raise("WORK_TASK_FILE_INVALID", "Awaiting task lacks delivery");
-  if (["ready", "running", "paused", "needs_review"].includes(task.status) && task.delivery !== null) raise("WORK_TASK_FILE_INVALID", "Pre-delivery task contains delivery");
+  if (task.status === "ready" && task.delivery !== null) raise("WORK_TASK_FILE_INVALID", "Ready task contains delivery");
+  if (["running", "paused", "needs_review"].includes(task.status) && task.delivery !== null &&
+      task.acceptance.some((criterion) => criterion.status !== "not_run" || criterion.evidenceRefs.length !== 0 || criterion.note !== null)) {
+    raise("WORK_TASK_FILE_INVALID", "Historical delivery cannot carry active acceptance");
+  }
   if (task.status === "ready" && task.runIds.length !== 0) raise("WORK_TASK_FILE_INVALID", "Ready task contains Run IDs");
   if (["running", "paused", "needs_review", "awaiting_acceptance", "completed"].includes(task.status) && task.runIds.length === 0) {
     raise("WORK_TASK_FILE_INVALID", "Started task lacks Run history");
@@ -572,6 +577,19 @@ class WorkTaskStoreImpl implements WorkTaskStore {
     });
   }
 
+  requestChanges(id: string, expectedRevision: number): Promise<WorkTaskResult<WorkTask>> {
+    return this.#update(id, expectedRevision, (task) => {
+      if (task.status !== "awaiting_acceptance") raise("WORK_TASK_INVALID_STATE", "Only an awaiting delivery can be returned for changes");
+      for (const criterion of task.acceptance) {
+        criterion.status = "not_run";
+        criterion.evidenceRefs = [];
+        criterion.note = null;
+      }
+      // Retain the last delivery for reference, never as current acceptance.
+      task.status = "paused";
+    });
+  }
+
   submitDelivery(id: string, input: { expectedRevision: number; delivery: WorkTaskDelivery }): Promise<WorkTaskResult<WorkTask>> {
     return this.#update(id, input.expectedRevision, (task) => {
       if (!["paused", "awaiting_acceptance"].includes(task.status)) {
@@ -596,7 +614,7 @@ class WorkTaskStoreImpl implements WorkTaskStore {
       const snapshot = await this.get(id);
       if (!snapshot.ok) return snapshot;
       const snapshotCriterion = snapshot.value.acceptance.find((item) => item.id === input.criterionId);
-      if (["completed", "cancelled"].includes(snapshot.value.status) || snapshot.value.delivery === null) {
+      if (snapshot.value.status !== "awaiting_acceptance" || snapshot.value.delivery === null) {
         raise("WORK_TASK_INVALID_STATE", "Delivery must be active before recording acceptance");
       }
       if (snapshotCriterion === undefined) raise("WORK_TASK_INVALID_INPUT", "Acceptance criterion not found");
@@ -615,7 +633,7 @@ class WorkTaskStoreImpl implements WorkTaskStore {
       return this.#error(error, "WORK_TASK_READ_FAILED");
     }
     return this.#update(id, input.expectedRevision, (task) => {
-      if (["completed", "cancelled"].includes(task.status)) raise("WORK_TASK_INVALID_STATE", "Terminal task cannot change acceptance");
+      if (task.status !== "awaiting_acceptance") raise("WORK_TASK_INVALID_STATE", "Only an awaiting delivery can change acceptance");
       if (task.delivery === null) raise("WORK_TASK_INVALID_STATE", "Delivery must be submitted before recording acceptance");
       if (!acceptanceStatuses.includes(input.status)) raise("WORK_TASK_INVALID_INPUT", "Acceptance status is invalid");
       const criterion = task.acceptance.find((item) => item.id === input.criterionId);
