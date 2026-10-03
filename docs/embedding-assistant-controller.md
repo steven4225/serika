@@ -85,6 +85,8 @@ RUNLOOM_CONTEXT_CONTINUITY=1 RUNLOOM_MODEL=deepseek node --env-file=.env \
 
 ## WorkTask 启动恢复与人工核对（第二批）
 
+- `requestWorkTaskChanges({ id, expectedRevision })` 只将 `awaiting_acceptance` 退回 `paused`，清空所有 criterion 状态、证据引用与说明，保留上次交付及 Run 回执作为历史参考；不调用模型、不重放工具。下一轮仍须显式 `runWorkTask()`，重新提交替换交付快照并重新验收。`recordHumanAcceptance()` 和 Store 验收只接受 `awaiting_acceptance`，暂停/执行中的旧交付不能通过验收。终态不可重开，未知效果仍走 reconciliation；这不是多版本交付历史。
+
 - 控制器首次使用前按固定顺序取得 workspace/Thread 的 WorkTask 进程期锁和 transcript/Thread 的 execution 进程期锁，再把该 Thread 遗留的 `running` Run 标为 `interrupted`：已 `started` 但没有终态回执的工具变成 `unknown`，只有 `requested` 的工具变成 `not_started`。随后才对账该 Thread 的 `running` WorkTask，并在完成前阻止 WorkTask API 和新 Run。锁冲突、坏文件或对账失败均 fail-closed；`shutdown()` 释放两把锁。
 - 对账检查任务最新的关联 Run，同时核对 Thread、`workTaskId` 和 `primary` phase。最新回执缺失、外来或含 `unknown` 会把任务置为 `needs_review`；最新回执可说明且没有未知副作用时置为 `paused`。前一个不确定 Run 必须先 reconciliation 才能回到 `paused` 并显式开始下一 Run，因此恢复不依赖可能已经被有界 execution store 淘汰的完整历史。这个过程只收敛本地状态，绝不重新调用模型、工具或重放副作用。
 - `needs_review` 只能由用户显式调用 `reconcileWorkTask({ id, expectedRevision, observedOutcome, decision, note })` 处理。`observedOutcome` 是 `applied | partially_applied | not_applied | still_unknown`，说明必须非空；`continue + still_unknown` 会被拒绝。成功的 `continue` 只保存 human report 并把任务改为 `paused`，不会自动调用 `runWorkTask()`；成功的 `cancel` 把任务改为 `cancelled`，但尤其在 `still_unknown` 时不表示旧副作用未发生。
