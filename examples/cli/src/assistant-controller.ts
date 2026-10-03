@@ -26,6 +26,7 @@ import type {
 } from "./memory-candidates.js";
 import { createRssSubscriptionStore, rssFailure, type RssAction, type RssInbox, type RssResult, type RssView } from "./rss-subscriptions.js";
 import { createTaskStore } from "./task-store.js";
+import { readWorkTaskArtifact, workTaskDeliveryDraft, type WorkTaskReadInput, type WorkTaskArtifactInput, type WorkTaskReadResult, type WorkTaskDeliveryDraft, type WorkTaskArtifactPreview } from "./work-task-artifacts.js";
 
 const MAX_RECENT_OUTPUT_CHARS = 16 * 1024;
 const MAX_TOOL_ACTIVITY = 30;
@@ -97,6 +98,8 @@ export interface AssistantController {
   createWorkTask(input: Omit<CreateWorkTaskInput, "threadId">): Promise<WorkTaskResult<WorkTask>>;
   listWorkTasks(): Promise<WorkTaskResult<WorkTask[]>>;
   getWorkTask(id: string): Promise<WorkTaskResult<WorkTask>>;
+  getWorkTaskDeliveryDraft(input: WorkTaskReadInput): Promise<WorkTaskReadResult<WorkTaskDeliveryDraft>>;
+  getWorkTaskArtifact(input: WorkTaskArtifactInput): Promise<WorkTaskReadResult<WorkTaskArtifactPreview>>;
   runWorkTask(input: { id: string; expectedRevision: number; instruction?: string }): Promise<StartRunResponse>;
   submitWorkTaskDelivery(input: {
     id: string;
@@ -458,6 +461,21 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     }
   };
 
+  async function readTaskForDisplay(input: WorkTaskReadInput): Promise<WorkTaskResult<WorkTask>> {
+    if (closed) return { ok: false, error: { code: "WORK_TASK_INVALID_STATE", message: "Controller is closed" } };
+    if (!input || typeof input.id !== "string" || !input.id.trim() || !Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 1) {
+      return { ok: false, error: { code: "WORK_TASK_INVALID_INPUT", message: "Task id and current revision are required" } };
+    }
+    const recoveryFailure = await workTaskRecoveryFailure();
+    if (recoveryFailure) return recoveryFailure;
+    if (!app.workTasks) return unavailableWorkTask();
+    const found = await app.workTasks.get(input.id);
+    if (!found.ok) return found;
+    if (found.value.threadId !== app.threadId) return missingWorkTask();
+    if (found.value.revision !== input.expectedRevision) return { ok: false, error: { code: "WORK_TASK_REVISION_CONFLICT", message: "Task changed; reload before reading its artifact or draft" } };
+    return found;
+  }
+
   const controller: AssistantController = {
     getRssInbox: async () => {
       if (!app.workspaceRoot || !app.moduleConfig?.enabled.task) return { ok: false, error: { code: "RSS_UNAVAILABLE", message: "RSS requires workspace and task module" } };
@@ -600,6 +618,34 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
         return { ok: false, error: { code: "WORK_TASK_NOT_FOUND", message: "Work task not found" } };
       }
       return task;
+    },
+    getWorkTaskDeliveryDraft: async (input) => {
+      const task = await readTaskForDisplay(input);
+      if (!task.ok) return task;
+      const runId = task.value.runIds.at(-1);
+      try {
+        const run = runId ? await app.executionRecords.getRun(app.threadId, runId) : null;
+        return { ok: true, value: workTaskDeliveryDraft(task.value, run) };
+      } catch {
+        return { ok: false, error: { code: "WORK_TASK_READ_FAILED", message: "Unable to read the latest execution receipt; no older draft was used" } };
+      }
+    },
+    getWorkTaskArtifact: async (input) => {
+      const task = await readTaskForDisplay(input);
+      if (!task.ok) return task;
+      if (typeof input.path !== "string" || !input.path.trim() || input.path.length > 1024) {
+        return { ok: false, error: { code: "WORK_TASK_INVALID_INPUT", message: "A bounded artifact path is required" } };
+      }
+      if (!app.moduleConfig?.enabled["read-file"] || !app.workspaceRoot) {
+        return { ok: false, error: { code: "WORK_TASK_INVALID_STATE", message: "Artifact preview requires enabled file module and workspace" } };
+      }
+      const runId = task.value.runIds.at(-1);
+      try {
+        const run = runId ? await app.executionRecords.getRun(app.threadId, runId) : null;
+        return await readWorkTaskArtifact(app.workspaceRoot, task.value, run, input.path);
+      } catch {
+        return { ok: false, error: { code: "WORK_TASK_READ_FAILED", message: "Unable to read artifact preview or its execution receipt" } };
+      }
     },
     runWorkTask: async (input) => {
       if (await workTaskRecoveryFailure() !== undefined) return { ok: false, reason: "starting" };
