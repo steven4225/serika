@@ -1,4 +1,5 @@
 import { Writable } from "node:stream";
+import type { MemoryEditInput, MemoryListInput } from "@aisdk-agent/example-cli/dist/memory-management.js";
 import type {
   AssistantController,
   AssistantEvent,
@@ -189,6 +190,8 @@ export function assistantEventToRenderer(event: AssistantEvent): MainToRenderer 
       };
     case "memory-updated":
       return { type: "memory-updated", reason: event.reason };
+    case "memory-references-changed":
+      return { type: "memory-references-changed" };
     case "work-task-updated":
       return { type: "work-task-updated", task: event.task };
     case "output":
@@ -292,6 +295,7 @@ export class RuntimeBridge {
       memory: {
         enabled: this.#app.moduleConfig?.enabled.memory === true && this.#app.memoryStore !== undefined,
         autoConsolidate: this.#app.autoConsolidationAgentId !== undefined,
+        queryRewriteEnabled: this.#app.moduleConfig?.memoryQueryRewriteEnabled === true,
       },
       workTasks: this.#app.workTasks !== undefined,
     };
@@ -308,6 +312,16 @@ export class RuntimeBridge {
   getContextDiagnostics() {
     return this.#controller.getContextDiagnostics();
   }
+  listMemories(input?: MemoryListInput) {
+    if (input !== undefined && (typeof input !== "object" || input === null || Array.isArray(input))) return Promise.resolve(invalidInput("Invalid Memory page"));
+    return this.#controller.listMemories(input);
+  }
+  getMemory(id: string) {
+    if (typeof id !== "string" || !id || id.length > 256) return Promise.resolve(invalidInput("Invalid Memory id"));
+    return this.#controller.getMemory(id);
+  }
+  updateMemory(input: MemoryEditInput) { return this.#controller.updateMemory(input); }
+  getMemoryReferences() { return this.#controller.getMemoryReferences(); }
 
   getRssSubscriptions() { return this.#controller.getRssSubscriptions(); }
   updateRssSubscriptions(input: RssAction) { return this.#controller.updateRssSubscriptions(input); }

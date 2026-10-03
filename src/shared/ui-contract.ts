@@ -1,4 +1,6 @@
 import type { UIMessage } from "ai";
+import type { FormalMemory, MemoryPage, MemoryListInput, MemoryEditInput } from "@aisdk-agent/example-cli/dist/memory-management.js";
+import type { MemoryReferenceSnapshot } from "@aisdk-agent/example-cli/dist/memory-query-rewrite.js";
 import type { AgentEvent, RunResult } from "@aisdk-agent/core";
 import type { ContextDiagnostics, ContextResult } from "@aisdk-agent/example-cli/dist/context-diagnostics.js";
 import type { RssAction, RssInbox, RssResult, RssView } from "@aisdk-agent/example-cli/dist/rss-subscriptions.js";
@@ -85,6 +87,7 @@ export interface AppInfo {
   memory: {
     enabled: boolean;
     autoConsolidate: boolean;
+    queryRewriteEnabled?: boolean;
   };
   workTasks: boolean;
 }
@@ -112,6 +115,7 @@ export type MainToRenderer =
   | { type: "result"; phase: RunPhase; result: RunResult }
   | { type: "shell-progress"; phase: RunPhase; runId: string; progress: ShellProgressChunk }
   | { type: "memory-updated"; reason: "proposals" | "review" | "write" }
+  | { type: "memory-references-changed" }
   | { type: "work-task-updated"; task: WorkTask }
   | { type: "error"; message: string };
 
@@ -200,6 +204,10 @@ export interface RendererApi {
   listRuns(): Promise<ListRunsResponse>;
   getRun(runId: string): Promise<GetRunResponse>;
   getContextDiagnostics(): Promise<ContextResult<ContextDiagnostics>>;
+  listMemories(input?: MemoryListInput): Promise<MemoryResult<MemoryPage>>;
+  getMemory(id: string): Promise<MemoryResult<FormalMemory>>;
+  updateMemory(input: MemoryEditInput): Promise<MemoryResult<FormalMemory>>;
+  getMemoryReferences(): Promise<(MemoryReferenceSnapshot & { runId: string }) | null>;
   listMemoryCandidates(input?: CandidateListInput): Promise<MemoryResult<CandidatePage>>;
   getMemoryCandidate(id: string): Promise<MemoryResult<CandidatePreview>>;
   resolveMemoryCandidate(input: CandidateResolveInput): Promise<MemoryResult<CandidateResolution>>;
@@ -236,6 +244,10 @@ export const IPC = {
   listRuns: "runloom:listRuns",
   getRun: "runloom:getRun",
   contextDiagnostics: "runloom:contextDiagnostics",
+  memoriesList: "runloom:memoriesList",
+  memoryGet: "runloom:memoryGet",
+  memoryUpdate: "runloom:memoryUpdate",
+  memoryReferences: "runloom:memoryReferences",
   memoryCandidatesList: "runloom:memoryCandidatesList",
   memoryCandidateGet: "runloom:memoryCandidateGet",
   memoryCandidateResolve: "runloom:memoryCandidateResolve",

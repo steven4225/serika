@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useReducer, useRef } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { FormalMemories } from "./formal-memories.js";
 import type { CandidatePreview } from "@aisdk-agent/example-cli/dist/memory-candidates.js";
 import { formatRecordTime } from "../../shared/execution-records.js";
 import {
@@ -109,7 +110,18 @@ function Detail({
   );
 }
 
-export function MemoryPanel({
+export function MemoryPanel(props: { memory: { enabled: boolean; autoConsolidate: boolean; queryRewriteEnabled?: boolean }; temporaryThread: boolean; controllerIdle: boolean; refreshToken: number }) {
+  const [tab, setTab] = useState<"formal" | "candidates">("formal");
+  return <>
+    <div className="memory-tabs" role="tablist" aria-label="记忆视图">
+      <button role="tab" aria-selected={tab === "formal"} onClick={() => setTab("formal")}>正式记忆</button>
+      <button role="tab" aria-selected={tab === "candidates"} onClick={() => setTab("candidates")}>候选记录</button>
+    </div>
+    {tab === "formal" ? <FormalMemories enabled={props.memory.enabled} controllerIdle={props.controllerIdle} refreshToken={props.refreshToken} queryRewriteEnabled={props.memory.queryRewriteEnabled === true} /> : <CandidateMemories {...props} />}
+  </>;
+}
+
+function CandidateMemories({
   memory,
   temporaryThread,
   controllerIdle,

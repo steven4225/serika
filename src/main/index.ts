@@ -164,6 +164,10 @@ async function main(): Promise<void> {
   ipcMain.handle(IPC.rssInbox, () => bridge.getRssInbox());
   ipcMain.handle(IPC.rssAck, (_event, id: string) => bridge.acknowledgeRssResult(id));
   ipcMain.handle(IPC.contextDiagnostics, () => bridge.getContextDiagnostics());
+  ipcMain.handle(IPC.memoriesList, (_event, input) => bridge.listMemories(input));
+  ipcMain.handle(IPC.memoryGet, (_event, id) => bridge.getMemory(id));
+  ipcMain.handle(IPC.memoryUpdate, (_event, input) => bridge.updateMemory(input));
+  ipcMain.handle(IPC.memoryReferences, () => bridge.getMemoryReferences());
   ipcMain.handle(IPC.history, () => bridge.history());
   ipcMain.handle(IPC.home, () => bridge.home());
   ipcMain.handle(IPC.run, (_event, text: string) => bridge.run(text));

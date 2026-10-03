@@ -26,6 +26,7 @@ import {
 } from "./conversation.js";
 import { baseName, parseHome, shortId, type HomeView } from "./home.js";
 import { MemoryPanel } from "./memory.js";
+import { MemoryReferences } from "./memory-references.js";
 import { ContextPanel } from "./context.js";
 import { RecordsPanel, type RecordDetailState, type RecordsState } from "./records.js";
 import { ApprovalCard } from "./approval.js";
@@ -391,6 +392,9 @@ export function App() {
           setLive((previous) => ({ rows: finishRun(previous, message.result), streaming: "" }));
           return;
         }
+        case "memory-references-changed":
+          setContextRefresh(value => value + 1);
+          return;
         case "shell-progress":
           if (message.phase !== "primary") return;
           shellBuffer.current.apply(message.progress);
@@ -524,8 +528,8 @@ export function App() {
   const stageLabel = info ? status.label : error ? "连接失败" : "正在连接";
   const pendingLabel = loadedCountLabel(pendingMemory.count, pendingMemory.hasMore);
   const refreshMemory = useCallback(() => setMemoryRefresh(value => value + 1), []);
-  const pageTitle = !detailsOpen ? "对话" : ({ home: "工作区", records: "执行记录", memory: "记忆审核", context: "上下文与压缩", pomodoro: "番茄钟", modules: "模块能力" })[detailTab];
-  const pageDescription = ({ home: "查看保存的进度、本地任务和当前配置。", records: "核对每次执行的工具结果，区分完成、失败和未知效果。", memory: "审核当前对话提取的候选，接受后才会成为正式记忆。", context: "查看压缩记录和本次准备结果；需要时手动压缩。", pomodoro: "专注计时，直接操作，不必发消息。", modules: "了解助手支持什么，以及当前启用了什么。" })[detailTab];
+  const pageTitle = !detailsOpen ? "对话" : ({ home: "工作区", records: "执行记录", memory: "记忆", context: "上下文与压缩", pomodoro: "番茄钟", modules: "模块能力" })[detailTab];
+  const pageDescription = ({ home: "查看保存的进度、本地任务和当前配置。", records: "核对每次执行的工具结果，区分完成、失败和未知效果。", memory: "查看当前正式记忆，或审核当前对话的候选记录。", context: "查看压缩记录和本次准备结果；需要时手动压缩。", pomodoro: "专注计时，直接操作，不必发消息。", modules: "了解助手支持什么，以及当前启用了什么。" })[detailTab];
   const prepareInput = (text: string) => { setInput(text); inputRef.current?.focus(); };
   const scrollToLatest = () => {
     followConversation.current = true;
@@ -594,6 +598,7 @@ export function App() {
                 </div> : null}
                 <div className="conversation-thread">
                   {rows.map(row => <Row key={row.key} row={row} delivered={delivered.has(row.key)} />)}
+                  {info?.memory.enabled ? <MemoryReferences refreshToken={contextRefresh} runId={state.kind === "running" && state.phase === "primary" ? state.runId : latestPrimaryId.current} starting={state.kind === "running" && state.phase === "primary" && state.runId === null} /> : null}
                   {activePrimary && live.streaming ? <div className="row row-text role-assistant live">
                     <span className="role"><RunloomMark size={20} /> Runloom <span className="streaming-label">正在回复</span></span>
                     <MessageContent text={live.streaming} />

@@ -450,3 +450,15 @@ button.chip { font-size: 12px; padding: 5px 9px; border-color: var(--line); }
 .focus-replies { border-top: 1px solid #e5e8ed; margin: 32px 0 24px; padding-top: 20px; }
 .focus-replies h3 { font-size: 13px; font-weight: 600; margin: 0 0 16px; }
 .focus-replies p { font-size: 14px; line-height: 1.7; overflow-wrap: anywhere; }
+.memory-tabs { display: flex; gap: 20px; border-bottom: 1px solid var(--border, #e5e8ed); margin-bottom: 20px; }
+.memory-tabs button { border: 0; border-bottom: 2px solid transparent; background: transparent; padding: 12px 0; font: inherit; color: var(--muted, #657184); cursor: pointer; }
+.memory-tabs button[aria-selected="true"] { color: var(--accent, #285dc1); border-bottom-color: var(--accent, #285dc1); }
+.formal-memory-list { margin: 16px 0; }
+.formal-memory-item { display: block; text-align: left; width: 100%; border: 0; border-bottom: 1px solid var(--border, #e5e8ed); padding: 16px 0; background: transparent; font: inherit; cursor: pointer; overflow-wrap: anywhere; }
+.formal-memory-item small { display: block; margin-top: 6px; color: var(--muted, #657184); }
+.formal-memory-editor { display: block; box-sizing: border-box; width: 100%; min-height: 110px; padding: 12px; margin: 8px 0 16px; border: 1px solid var(--border, #e5e8ed); border-radius: 8px; font: inherit; line-height: 1.7; resize: vertical; }
+.formal-memories .actions { flex-wrap: wrap; }
+.memory-edit-preview { border-left: 3px solid var(--accent, #285dc1); padding-left: 16px; }
+.memory-references { margin: 8px 0 24px; font-size: 12px; color: var(--muted, #657184); overflow-wrap: anywhere; }
+.memory-references summary { cursor: pointer; }
+.memory-reference-item { padding: 10px 0; border-bottom: 1px solid var(--border, #e5e8ed); }
