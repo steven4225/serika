@@ -560,7 +560,14 @@ export class ContextCompactor {
       256,
       this.#options.budget.keepRecentTokens,
     );
-    const chunks = summarySourceChunks(omitted, summaryInputBudget);
+    // A validated persisted summary already covers this exact prefix. Merge only
+    // new material, even when the old boundary now falls inside a complete turn.
+    // Re-reading the full prefix would eventually exhaust the fixed merge limit.
+    const sourceStart = persisted?.firstKeptMessageIndex ?? 0;
+    const incrementalUnits = omitted.filter(unit => unit.endIndex >= sourceStart).map(unit => ({
+      messages: unit.messages.slice(Math.max(0, sourceStart - unit.startIndex)),
+    }));
+    const chunks = summarySourceChunks(incrementalUnits, summaryInputBudget);
     if (chunks.length === 0 || chunks.length > MAX_SUMMARY_MERGES) {
       throw contextError("Context compaction source is too large for the bounded summary merge");
     }

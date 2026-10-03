@@ -158,6 +158,12 @@ async function child(root: string, stage: Stage, workflow: Workflow) {
       task = taskValue(await controller.getWorkTask(task.id));
       assert.deepEqual(task.runIds, [...previousRuns, result.runId]);
       verifyContinuityTaskRun(task, receipt);
+      const continuation = taskValue(await controller.getWorkTaskContinuation({ id: task.id, expectedRevision: task.revision }));
+      assert.equal(continuation.latestRun?.runId, result.runId);
+      assert.equal(continuation.requiresReview, false);
+      assert.ok(diagnostic.ok);
+      assert.equal(diagnostic.value.lastPreparationSource?.workTaskId, task.id);
+      assert.equal(diagnostic.value.lastPreparationSource?.runId, result.runId);
       assert.ok(captures.some((capture) => capture.round === label &&
         JSON.stringify(capture.prompt).includes("Active WorkTask contract") &&
         JSON.stringify(capture.prompt).includes(task!.id)), "actual model input must contain the current task contract");
@@ -201,6 +207,7 @@ async function child(root: string, stage: Stage, workflow: Workflow) {
     const startup = await controller.getContextDiagnostics(); assert.ok(startup.ok);
     diagnostics.push({ round: "startup", diagnostic: startup });
     assert.equal(startup.value.lastPreparation, null);
+    assert.equal(startup.value.lastPreparationSource, null);
     const instructions = `只读写 ${ARTIFACT}，不要触碰 ${SENTINEL}，不要 Shell 或其它工具。先调用 read_file 核对当前内容，再用 edit_file 在末尾标记 ${END} 前追加章节。参数名严格使用 path、oldText、newText。读取确认末尾标记唯一后，oldText 使用标记行本身加换行，newText 使用新章节正文加原标记行与换行；不要加入不存在的占位说明，不要整文件重写。标记文字只能在文件末尾出现一次，不要在正文引用它。保留所有已有章节；工具成功后只简短报告，不把历史摘要当当前磁盘或权限。`;
     if (stage === "before") {
       for (const [index, topic] of topics.entries()) {
@@ -212,11 +219,22 @@ async function child(root: string, stage: Stage, workflow: Workflow) {
       assert.ok(latestId, "bounded real workload did not trigger automatic compaction; no manual compact fallback");
       await run("continued", `${instructions}增加“## continued”章节，说明前三项最重要的落地检查，各写一句，不重写全文。`);
       assert.ok(captures.some((capture) => capture.round === "continued" && hasInjectedSummary(capture.prompt)));
-      if (task !== undefined) await writeFile(join(root, "work-task-resume.json"), JSON.stringify(task, null, 2), { flag: "wx" });
+      if (task !== undefined) {
+        task = taskValue(await controller.submitWorkTaskDelivery({ id: task.id, expectedRevision: task.revision,
+          summary: "已形成日用流程草稿，下一轮需从当前磁盘核对并继续。",
+          artifactRefs: [ARTIFACT], unresolved: ["核对重启后的外部标记并补充下一步"],
+        }));
+        task = taskValue(await controller.requestWorkTaskChanges({ id: task.id, expectedRevision: task.revision }));
+        const continuation = taskValue(await controller.getWorkTaskContinuation({ id: task.id, expectedRevision: task.revision }));
+        assert.equal(continuation.previousDelivery?.unresolved[0], "核对重启后的外部标记并补充下一步");
+        await writeFile(join(root, "work-task-resume.json"), JSON.stringify(task, null, 2), { flag: "wx" });
+      }
     } else {
       assert.ok(startup.value.latestValidCompaction, "persisted valid summary must survive full process restart");
       latestId = startup.value.latestValidCompaction.id;
       await run("reopened", `${instructions}这是进程重启后的继续任务。先从当前文件找到外部核对标记，再增加“## reopened”章节。将文件首行外部核对标记整行原样复制到新章节（包含“外部核对标记：”标签、括号与句号，不只截取标记值），并列出一个下一步。不得靠历史回忆猜标记。`);
+      if (task !== undefined) assert.ok(captures.some(capture => capture.round === "reopened" &&
+        JSON.stringify(capture.prompt).includes("核对重启后的外部标记并补充下一步")), "previous delivery must reach actual resumed model input");
       const artifact = await readFile(join(root, "workspace", ARTIFACT), "utf8");
       assert.match(artifact, /## reopened/);
       assert.ok(artifact.slice(artifact.indexOf("## reopened")).includes(EXTERNAL));

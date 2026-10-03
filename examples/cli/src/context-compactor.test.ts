@@ -8,7 +8,7 @@ import type {
 } from "@aisdk-agent/core";
 import { AgentError } from "@aisdk-agent/core";
 import { ContextCompactor, readContextDiagnostics, type ContextCompactorOptions } from "./context-compactor.js";
-import { contextSummaryPrompt, type ContextCompactionRecord, type ContextSummaryV2, type Summarizer } from "./context-compaction.js";
+import { compactPrefixHash, contextSummaryPrompt, type ContextCompactionRecord, type ContextSummaryV2, type Summarizer } from "./context-compaction.js";
 import type { ContextBudgetConfig } from "./context-budget.js";
 import {
   CHECKPOINT_CONTEXT_MESSAGE_ID,
@@ -104,6 +104,38 @@ function makeCompactor(
 }
 
 describe("ContextCompactor", () => {
+  it("merges only the uncovered suffix after restart, including an old boundary inside a now-complete turn", async () => {
+    const store = new FakeStore();
+    const old = Array.from({ length: 12 }, (_, i) => [user(`old-u-${i}`, "ALREADY_COVERED ".repeat(100)), assistant(`old-a-${i}`, "ALREADY_COVERED ".repeat(100))]).flat();
+    const messages = [...old, user("u1", "read the current file"), assistant("read-result", "CURRENT_DISK ".repeat(400)), user("u2", "continue")];
+    // Stored while u1 was the current turn; the safe boundary is after that
+    // request. On the next Run u1 and its assistant result form one history unit.
+    const boundary = old.length + 1;
+    store.records.push({ v: 2, type: "thread.context.compacted", threadId: "thread-1", id: "previous", previousCompactionId: null,
+      firstKeptMessageIndex: boundary, firstKeptMessageId: messages[boundary]!.id,
+      sourcePrefixHash: compactPrefixHash(messages, boundary), summary,
+      strategyVersion: "summary-json/v2", modelId: "mock/default", createdAt: new Date(0).toISOString(),
+      metrics: { estimatedInputBefore: 20000, estimatedInputAfter: 500, durationMs: 1, attempts: 1 },
+    } as unknown as ThreadContextCompactionRecord);
+    let calls = 0;
+    const summarizer: Summarizer = { complete: async ({ prompt }) => {
+      calls += 1;
+      assert.doesNotMatch(prompt, /ALREADY_COVERED/);
+      assert.match(prompt, /CURRENT_DISK/);
+      assert.match(prompt, /continue the task/, "prior summary remains merge input");
+      return { text: JSON.stringify(summary) };
+    } };
+    const prepared = await makeCompactor(store, summarizer, { ...roomyBudget, keepRecentTokens: 256 }).prepare(messages, new AbortController().signal);
+    assert.equal(calls, 1, "covered prefix must not exhaust the four-merge limit");
+    assert.equal(store.records.length, 2);
+    assert.equal(store.records[1]?.previousCompactionId, "previous");
+    const record = store.records[1] as unknown as ContextCompactionRecord;
+    assert.equal(record.sourcePrefixHash, compactPrefixHash(messages, record.firstKeptMessageIndex));
+    assert.ok(prepared.some(message => message.id === "u2"));
+    const restored = makeCompactor(store, summarizer, { ...roomyBudget, keepRecentTokens: 256 });
+    await restored.prepare(messages, new AbortController().signal);
+    assert.equal(calls, 1, "new record is reusable without additional model work");
+  });
   it("reads diagnostics without preparing, calling the model, or writing; restart is not a preparation", async () => {
     const store = new FakeStore();
     store.messages = [user("u1", "old goal ".repeat(40)), assistant("a1", "old result ".repeat(40)), user("u2", "continue")];
