@@ -1,6 +1,7 @@
 import type { UIMessage } from "ai";
 import type { AgentEvent, RunResult } from "@aisdk-agent/core";
 import type { ContextDiagnostics, ContextResult } from "@aisdk-agent/example-cli/dist/context-diagnostics.js";
+import type { RssAction, RssInbox, RssResult, RssView } from "@aisdk-agent/example-cli/dist/rss-subscriptions.js";
 import type { WorkTask, WorkTaskInputs, WorkTaskResult } from "./work-tasks.js";
 import type {
   CandidateListInput,
@@ -182,6 +183,12 @@ export type GetRunResponse =
   | { ok: false; reason: "unavailable"; message: string };
 
 export interface RendererApi {
+  getRssSubscriptions(): Promise<RssResult<RssView>>;
+  updateRssSubscriptions(input: RssAction): Promise<RssResult<RssView>>;
+  getRssInbox(): Promise<RssResult<RssInbox>>;
+  acknowledgeRssResult(id: string): Promise<RssResult<void>>;
+  rssWorkerStatus(): Promise<RssWorkerResponse>;
+  setRssWorkerEnabled(enabled: boolean): Promise<RssWorkerResponse>;
   info(): Promise<AppInfo>;
   snapshot(): Promise<UiSnapshot>;
   history(): Promise<UIMessage[]>;
@@ -210,6 +217,12 @@ export interface RendererApi {
 }
 
 export const IPC = {
+  rssGet: "runloom:rssGet",
+  rssUpdate: "runloom:rssUpdate",
+  rssInbox: "runloom:rssInbox",
+  rssAck: "runloom:rssAck",
+  rssWorkerStatus: "runloom:rssWorkerStatus",
+  rssWorkerEnabled: "runloom:rssWorkerEnabled",
   info: "runloom:info",
   snapshot: "runloom:snapshot",
   history: "runloom:history",
@@ -236,3 +249,7 @@ export const IPC = {
   hide: "runloom:hide",
   message: "runloom:message",
 } as const;
+
+export type RssWorkerResponse =
+  | { ok: true; registered: boolean; running: boolean; rssEnabled: boolean }
+  | { ok: false; message: string };

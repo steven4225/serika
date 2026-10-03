@@ -14,6 +14,8 @@ import { resolveDesktopIdentity } from "./desktop-identity.js";
 import { parseModuleNotification, RuntimeBridge, TeeOutput } from "./runtime-bridge.js";
 import { installHideOnClose, installTray } from "./tray.js";
 import { loadDesktopEnvironment, safeStartupError } from "./desktop-env.js";
+import { createDesktopRssWorker } from "./rss-worker-service.js";
+import type { RssAction } from "@aisdk-agent/example-cli/dist/rss-subscriptions.js";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 
@@ -134,6 +136,10 @@ async function main(): Promise<void> {
       cwd: process.cwd(),
     });
     const controller = createAssistantController(runtimeApp);
+    const rssWorker = createDesktopRssWorker({ workspace: runtimeApp.workspaceRoot, home: app.getPath("home"), env: process.env,
+      workerEntry: fileURLToPath(import.meta.resolve("@aisdk-agent/example-cli/dist/task-worker-entry.js")) });
+    ipcMain.handle(IPC.rssWorkerStatus, () => rssWorker.status());
+    ipcMain.handle(IPC.rssWorkerEnabled, (_event, enabled: unknown) => rssWorker.setEnabled(enabled));
     output.attach(controller);
     bridge = new RuntimeBridge(
       runtimeApp,
@@ -153,6 +159,10 @@ async function main(): Promise<void> {
   }
 
   ipcMain.handle(IPC.snapshot, () => bridge.snapshot());
+  ipcMain.handle(IPC.rssGet, () => bridge.getRssSubscriptions());
+  ipcMain.handle(IPC.rssUpdate, (_event, input: RssAction) => bridge.updateRssSubscriptions(input));
+  ipcMain.handle(IPC.rssInbox, () => bridge.getRssInbox());
+  ipcMain.handle(IPC.rssAck, (_event, id: string) => bridge.acknowledgeRssResult(id));
   ipcMain.handle(IPC.contextDiagnostics, () => bridge.getContextDiagnostics());
   ipcMain.handle(IPC.history, () => bridge.history());
   ipcMain.handle(IPC.home, () => bridge.home());

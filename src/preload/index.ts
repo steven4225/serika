@@ -2,6 +2,12 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 import { IPC, type MainToRenderer, type RendererApi } from "../shared/ui-contract.js";
 
 const api: RendererApi = {
+  getRssSubscriptions: () => ipcRenderer.invoke(IPC.rssGet),
+  updateRssSubscriptions: input => ipcRenderer.invoke(IPC.rssUpdate, input),
+  getRssInbox: () => ipcRenderer.invoke(IPC.rssInbox),
+  acknowledgeRssResult: id => ipcRenderer.invoke(IPC.rssAck, id),
+  rssWorkerStatus: () => ipcRenderer.invoke(IPC.rssWorkerStatus),
+  setRssWorkerEnabled: enabled => ipcRenderer.invoke(IPC.rssWorkerEnabled, enabled),
   info: () => ipcRenderer.invoke(IPC.info),
   snapshot: () => ipcRenderer.invoke(IPC.snapshot),
   history: () => ipcRenderer.invoke(IPC.history),

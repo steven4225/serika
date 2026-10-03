@@ -6,6 +6,7 @@ import type {
   AssistantState,
 } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
 import type { RuntimeApp } from "@aisdk-agent/example-cli/dist/app.js";
+import type { RssAction } from "@aisdk-agent/example-cli/dist/rss-subscriptions.js";
 import type { ExecutionRunRecord } from "@aisdk-agent/example-cli/dist/execution-record-store.js";
 import { ShellProgressBuffer } from "../shared/shell-progress.js";
 import { sanitizeWorkTaskInput, type WorkTask, type WorkTaskInputs, type WorkTaskResult } from "../shared/work-tasks.js";
@@ -301,6 +302,11 @@ export class RuntimeBridge {
   getContextDiagnostics() {
     return this.#controller.getContextDiagnostics();
   }
+
+  getRssSubscriptions() { return this.#controller.getRssSubscriptions(); }
+  updateRssSubscriptions(input: RssAction) { return this.#controller.updateRssSubscriptions(input); }
+  getRssInbox() { return this.#controller.getRssInbox(); }
+  acknowledgeRssResult(id: string) { return this.#controller.acknowledgeRssResult(id); }
 
   async home(): Promise<CommandResponse> {
     this.#output.beginHome();

@@ -38,6 +38,7 @@ import { PendingMemory, type PendingMemoryStatus } from "./pending-memory.js";
 import { AssistantReply } from "./delivery.js";
 import { attentionKind, headerStatus, loadedCountLabel, deliveredReplyKeys } from "./attention.js";
 import { CurrentTask, useWorkTasks, WorkTasksPanel } from "./work-tasks.js";
+import { RssPanel } from "./rss.js";
 import { unreconciledRuns } from "./work-task-data.js";
 
 const OUTPUT_MAX_CHARS = 64 * 1024;
@@ -609,6 +610,7 @@ export function App() {
             <div className="inspector-pane">
               <div hidden={detailTab !== "home"}>
                 <WorkTasksPanel view={workTasks} createRequest={createTaskRequest} onRun={runId => { openDetails("records"); void openRecord(runId).catch(() => setError("执行回执读取失败")); }} />
+                <RssPanel enabled={!!info?.workspaceRoot && info.modules?.some(m => m.id === "task" && m.enabled) === true} busy={busy} />
                 <section className="card home">
                   <div className="card-head"><span>工作区概览</span><button className="ghost" disabled={busy} onClick={() => void window.runloom.home().then(response => {
                     if (!response.ok) setError(commandError(response));
