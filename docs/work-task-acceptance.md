@@ -43,7 +43,7 @@ WT01–WT06 的固定输入与操作边界见
 3. 用返回的最新 `revision` 调用 `runWorkTask()`。只消费 `phase === "primary"` 的结果；确认、取消和 Shell 最终状态仍按嵌入控制器合同处理。
 4. Run 结束后读取 `getRun(runId)` 与实际 workspace。`workTaskId`、`task.runIds`、工具回执三者必须对应；`unknown` 工具或缺失回执进入人工复核，不能自动重放或判通过。进程异常重启时，控制器先关闭遗留 Run，再把回执完整的任务收敛为 `paused`、把未核对的不确定任务收敛为 `needs_review`；启动恢复本身不创建 Run。
 5. 若任务为 `needs_review`，操作人必须先核对磁盘或外部系统，再显式调用 `reconcileWorkTask()` 保存 `observedOutcome`、`decision` 和非空说明。`continue` 只回到 `paused`，之后仍需单独调用 `runWorkTask()`；`cancel` 只停止该 WorkTask，不能证明旧副作用没有发生。reconciliation 是 human report，不能拿来替代本案例要求的工具、artifact 或人工验收证据。
-6. 调用 `submitWorkTaskDelivery()`。控制器只会自动核对产品当前支持的精确 Shell 成功回执或带成功写入回执的现存普通文件；人工标准继续保持 pending，直到明确调用 `recordHumanAcceptance()`。
+6. 默认的 checked WorkTask 在结束检查通过后会自动尝试 `submitWorkTaskDelivery()`；显式手动分段模式仍由操作人提交。控制器只会自动核对产品当前支持的精确 Shell 成功回执或带成功写入回执的现存普通文件；人工标准继续保持 pending，直到明确调用 `recordHumanAcceptance()`。
 7. Eval 操作人独立应用该 WT 案例的全部固定 checks 和 hard failures，将证据复制或索引到 attempt 目录，最后写 `result.json`。修复后必须新开 attempt；不得覆盖第一次失败。
 
 并发更新一律使用调用前刚读取的 `revision`。`WORK_TASK_REVISION_CONFLICT` 表示需要重新读取和重新判断，不能盲重试旧写入。
@@ -557,3 +557,53 @@ RUNLOOM_WORK_TASK_CRASH_ACCEPTANCE=1 RUNLOOM_MODEL=command-code node --env-file=
 本报告证明局部文件写入在三个指定崩溃边界下的恢复保护，不证明外部支付或 GUI transport
 断线、Durable exactly-once、自动续跑或所有任意崩溃点。Electron 点击仍 not_run，任务质量
 仍 not_accepted；没有沿用其他任务的代理质量接受授权，也没有改 runloom-desktop。
+
+## 2026-10-04：结束前检查与同 Run 补证
+
+只对嵌入式 WorkTask 默认启用。模型准备以纯文字结束时，程序核对必需的
+`artifact_exists`（当前普通文件与最新写入回执 hash/bytes 一致）及 `shell_exit_zero`
+（精确命令/cwd、真实 exitCode 0、没有超时/取消，且后面没有文件操作）。
+缺少可纠正证据时，同一 AgentLoop 最多加两次程序补证提示，消耗原 maxSteps/总时限。
+工具仍逐次确认，不新开 Run；拒绝不会自动重试，unknown/归属不符不会补做。
+零自动条件或缺工具时停止请求信息，不让模型自评质量。
+
+通过结束检查后，先保存终态回执，再使用现有交付提交重新核验。文件若在这两个阶段之间
+变化，最终任务验收不能通过；`completion.reason: delivered` 是结束检查报告，不是人工
+质量、磁盘永久不变或外部 Eval 全通过。界面必须以 WorkTask acceptance 为准。
+手动分章的连续压缩验收显式使用 `completionCheck: false`，不会据此宣称测过本批补证。
+
+可重复的付费入口（隔离 workspace；默认测试不调用模型）：
+
+```sh
+pnpm build
+RUNLOOM_WORK_TASK_COMPLETION_ACCEPTANCE=1 RUNLOOM_MODEL=command-code \
+  node --env-file=.env examples/cli/dist/work-task-completion-acceptance.js baseline
+RUNLOOM_WORK_TASK_COMPLETION_ACCEPTANCE=1 RUNLOOM_MODEL=command-code \
+  node --env-file=.env examples/cli/dist/work-task-completion-acceptance.js improved
+```
+
+baseline 关闭本批结束检查，由验收程序显式提交交付；improved 默认启用并自动提交。
+固定 WT01/WT03/WT04，12 步、600 秒、同一 32K 压缩配置；程序按精确路径/命令批准，
+不是 Electron 人工点击。每个结果保留批准/拒绝数、人工追加指令数、纠正数、原始回执、
+磁盘断言和有效配置摘要；失败不重跑凑通过。既有 Eval 自动项映射为实际观测，human 项
+仍 not_run；总 Eval 不会因程序检查通过就成为 passed。
+
+编码前首次真实基线目录：
+`/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/runloom-task-completion-baseline-1YN3uo`，
+程序检查 3/3。该初版报告的 Eval checks 未映射，不能当成完整 Eval passed。
+后续用完整记录器关闭检查的对照目录：
+`/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/runloom-task-completion-baseline-ItnHgc`；
+开启检查目录：
+`/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/runloom-task-completion-improved-wY1Wlb`。
+两组模型都是 `deepseek/deepseek-v4.1-flash`，各例有效配置摘要对应一致。
+
+| 案例 | 关闭检查：步数/批准/拒绝 | 开启检查：步数/批准/拒绝 | 首轮完成 | 补证后完成 | 程序失败 | 人工追加指令 |
+| --- | --- | --- | --- | --- | --- | --- |
+| WT01 文件回归修复+测试 | 6/6/1 | 7/7/1 | 两组均是 | 0 | 0 | 0 |
+| WT03 双文件资料整理 | 4/6/1 | 4/6/1 | 两组均是 | 0 | 0 | 0 |
+| WT04 脏文件多步骤更新 | 5/4/1 | 5/4/1 | 两组均是 | 0 | 0 | 0 |
+
+拒绝数是验收程序的精确白名单拒绝，不冒充人工介入次数。每例只一个 Run，人工质量均
+未接受，Electron 均未跑。本样本没有触发补证，不能宣称真实任务成功率或效率提升。
+脚本模型另证明：提前结束→同 Run 确认后写入→自动提交；缺证据最多两次；拒绝停止；
+unknown/外来回执不重放；旧测试不能覆盖后续改动；普通聊天/显式分段保持原样。

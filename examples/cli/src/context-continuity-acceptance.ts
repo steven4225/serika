@@ -148,7 +148,7 @@ async function child(root: string, stage: Stage, workflow: Workflow) {
     });
     try {
       const started = task === undefined ? await controller.run(prompt)
-        : await controller.runWorkTask({ id: task.id, expectedRevision: task.revision, instruction: prompt });
+        : await controller.runWorkTask({ id: task.id, expectedRevision: task.revision, instruction: prompt, completionCheck: false });
       assert.ok(started.ok, JSON.stringify(started));
       await done;
     } finally { unsubscribe(); }

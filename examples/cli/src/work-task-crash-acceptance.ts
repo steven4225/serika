@@ -184,7 +184,7 @@ async function child(root: string, scenario: Scenario, mode: ModelMode, recoveri
     assert.equal(task.status, "paused"); assert.equal(modelRequests, 0);
     if (scenario === "unrecorded-write") {
       await run(task.id, task.revision, `这是人工核对报告之后显式开的新 Run。不要重放旧 write_file。先 read_file ${ARTIFACT} 核对当前磁盘，然后 edit_file 在唯一的 <!-- continue-here --> 标记前追加一行 RESUMED_AFTER_REVIEW，保留其余原文，最后 read_file 核对。只用 path/oldText/newText 参数。质量不得自己接受。`);
-      task = value(await controller.getWorkTask(taskId)); assert.equal(task.status, "paused");
+      task = value(await controller.getWorkTask(taskId)); assert.equal(task.status, "awaiting_acceptance");
       const latest = await controller.getRun(task.runIds.at(-1)!); assert.ok(latest);
       assert.notEqual(latest.runId, recovered.runId); assert.equal(latest.workTaskId, taskId);
       assert.ok(latest.tools.every((tool) => tool.status !== "unknown" && tool.toolName !== "write_file"));

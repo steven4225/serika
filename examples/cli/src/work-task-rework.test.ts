@@ -97,7 +97,7 @@ it("explicit rework uses a fresh approved Run and never accepts a prior write as
           if (event.type === "state" && event.state.kind === "idle") { unsubscribe(); resolve(); }
         });
       });
-      assert.ok((await currentController.runWorkTask({ id: task.id, expectedRevision: task.revision, instruction })).ok);
+      assert.ok((await currentController.runWorkTask({ id: task.id, expectedRevision: task.revision, instruction, completionCheck: false })).ok);
       await idle;
       assert.equal(currentController.getSnapshot().lastPrimaryResult?.status, "completed");
       return value(await currentController.getWorkTask(task.id));

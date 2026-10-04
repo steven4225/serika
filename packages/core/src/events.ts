@@ -1,5 +1,5 @@
 import type { AgentErrorData } from "./errors.js";
-import type { RunStatus, TokenUsage } from "./types.js";
+import type { RunStatus, TokenUsage, CompletionReason } from "./types.js";
 
 export interface AgentEventDataMap {
   "run.started": { agentId: string; agentVersion: string };
@@ -40,6 +40,7 @@ export interface AgentEventDataMap {
     error: AgentErrorData;
   };
   "usage.updated": { usage: TokenUsage };
+  "run.completion.checked": { decision: "continue" | "stop"; reason?: CompletionReason; corrections: number };
   "run.completed": { text: string; steps: number; usage: TokenUsage };
   "run.failed": { error: AgentErrorData };
   "run.cancelled": { reason?: string };

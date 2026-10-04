@@ -50,6 +50,7 @@ export interface ExecutionRunRecord {
   resultTextTruncated: boolean;
   errorPreview: string | null;
   tools: ExecutionToolRecord[];
+  completion?: RunResult["completion"];
 }
 
 export type ExecutionRecordErrorCode =
@@ -203,6 +204,11 @@ function validateRun(value: unknown): ExecutionRunRecord {
     fail("FILE_INVALID", "Run record contains invalid fields");
   }
   const tools = (value.tools as unknown[]).map(validateTool);
+  if (value.completion !== undefined && (!isObject(value.completion) ||
+      !["delivered", "needs_confirmation", "needs_information", "budget_exhausted", "needs_review"].includes(String(value.completion.reason)) ||
+      !Number.isSafeInteger(value.completion.corrections) || (value.completion.corrections as number) < 0 || (value.completion.corrections as number) > 32)) {
+    fail("FILE_INVALID", "Run completion report is invalid");
+  }
   if (new Set(tools.map((tool) => tool.toolCallId)).size !== tools.length) {
     fail("FILE_INVALID", "Duplicate tool call ID");
   }
@@ -334,6 +340,7 @@ export class ExecutionRecordStore {
       run.resultTextPreview = text.text;
       run.resultTextTruncated = text.truncated;
       run.errorPreview = result.error ? preview(result.error.message).text : null;
+      if (result.completion !== undefined) run.completion = structuredClone(result.completion);
       for (const tool of run.tools) {
         if (tool.status === "started") tool.status = "unknown";
         else if (tool.status === "requested") tool.status = "not_started";

@@ -118,7 +118,7 @@ it("Controller display queries are read-only, version-bound, survive restart and
     await idle;
     const paused = await current.getWorkTask(created.value.id);
     assert.ok(paused.ok);
-    assert.equal(paused.value.status, "paused");
+    assert.equal(paused.value.status, "awaiting_acceptance");
     const input = { id: paused.value.id, expectedRevision: paused.value.revision };
     const beforeTasks = await readFile(join(workspace, ".runloom/work-tasks.json"));
     const beforeJournal = await readFile(join(root, "transcripts/execution-records.json"));
