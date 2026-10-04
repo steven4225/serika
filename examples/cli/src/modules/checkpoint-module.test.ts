@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 import type { RegisteredTool } from "@aisdk-agent/ai-sdk-adapter";
+import { asSchema } from "ai";
 import {
   CHECKPOINT_FILE_NAME,
   CHECKPOINT_LIMITS,
@@ -64,6 +65,7 @@ describe("createCheckpointModule", () => {
     assert.deepEqual(prepared.memories, [{ id: "pinned", text: "Keep changes small" }]);
     assert.equal(prepared.selection.eligibleCount, 2);
     assert.deepEqual(prepared.selection.selected, [{ id: "pinned", revision: 2, reason: "pinned" }]);
+    assert.equal((await asSchema(toolByName(tools, "checkpoint_prepare").tool.outputSchema!).validate!(prepared)).success, true);
   });
   it("registers only the frozen checkpoint tools and metadata", async () => {
     const root = await createWorkspace();

@@ -8,6 +8,7 @@ import {
   consolidateMessages,
   findCommittedUserMessage,
   isExactUserQuote,
+  isMemoryConsolidationExcluded,
   selectIncrementalConsolidationTurns,
 } from "./consolidation.js";
 
@@ -409,6 +410,19 @@ describe("selectIncrementalConsolidationTurns", () => {
 });
 
 describe("findCommittedUserMessage", () => {
+  it("honors the program-owned opt-out in every material/source helper", () => {
+    const excluded = message("private", "user", [{ type: "text", text: "private preference" }], { memoryConsolidation: "exclude" });
+    const ordinary = user("public", "public preference");
+    assert.equal(isMemoryConsolidationExcluded(excluded), true);
+    assert.equal(isMemoryConsolidationExcluded(message("not-marked", "user", [{ type: "text", text: "do not remember" }])), false);
+    assert.equal(isMemoryConsolidationExcluded(message("not-user", "assistant", [{ type: "text", text: "private" }], { memoryConsolidation: "exclude" })), false);
+    assert.equal(findCommittedUserMessage([excluded, ordinary], "private"), undefined);
+    const manual = consolidateMessages([excluded, ordinary]);
+    assert.equal(manual.ok, true);
+    if (manual.ok) assert.deepEqual(manual.turns.map((turn) => turn.messages[0]?.id), ["public"]);
+    const automatic = selectIncrementalConsolidationTurns([excluded, ordinary]);
+    assert.deepEqual(automatic.turns.map((turn) => turn.user.messageId), ["public"]);
+  });
   it("resolves a committed user message by id even outside the recent proposal window", () => {
     const committed = [user("decision", "Keep one agent"), ...Array.from(
       { length: MAX_CONSOLIDATION_TURNS + 1 },

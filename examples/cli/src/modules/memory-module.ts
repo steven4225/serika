@@ -25,6 +25,7 @@ import type {
   MemoryUpdateInput,
   MemoryWriteOptions,
   WorkspaceMemoryStore,
+  TemporalWorkspaceMemoryStore,
 } from "../memory-store.js";
 
 export type { MemoryEntry, WorkspaceMemoryStore } from "../memory-store.js";
@@ -48,7 +49,17 @@ const memorySourceSchema = z.discriminatedUnion("kind", [
     quote: z.string().min(1),
   }),
 ]);
+const validTimeSchema = z.object({ from: z.string().nullable(), to: z.string().nullable(), basis: z.enum(["explicit", "reported", "unknown"]) }).strict();
+const memoryKindSchema = z.enum(["preference", "fact", "event", "note"]);
+const factFields = { kind: memoryKindSchema.optional(), recallTerms: z.array(z.string().min(1).refine(value => Buffer.byteLength(value) <= 96)).max(3).optional(), validTime: validTimeSchema.optional() };
+const changeFactFields = { kind: factFields.kind, recallTerms: factFields.recallTerms };
+const sourceIdentifierSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("manual") }), z.object({ kind: z.literal("legacy") }),
+  z.object({ kind: z.literal("conversation"), threadId: z.string(), messageId: z.string() }),
+]);
+const assertionSchema = z.object({ assertionId: z.string(), text: z.string(), kind: memoryKindSchema, recallTerms: z.array(z.string()), validTime: validTimeSchema, systemTime: z.object({ from: z.string().nullable(), to: z.string().nullable() }), state: z.enum(["asserted", "retracted"]), sources: z.array(memorySourceSchema) });
 const memoryEntrySchema = z.object({
+  assertion: assertionSchema.omit({ text: true, sources: true }).extend({ sourceIds: z.array(sourceIdentifierSchema) }).optional(),
   id: z.string(),
   text: z.string(),
   enabled: z.boolean(),
@@ -110,7 +121,7 @@ const consolidationOutputSchema = z.union([
   z.object({
     ok: z.literal(true),
     turns: z.array(z.object({ messages: z.array(consolidationMessageSchema) })),
-    memories: z.array(memoryEntrySchema),
+    memories: z.array(memoryEntrySchema.extend({ relatedAssertions: z.array(assertionSchema).optional(), historyCoverage: z.enum(["complete", "legacy_partial"]).optional() })),
     batchId: z.string().optional(),
     truncated: z.boolean().optional(),
   }),
@@ -118,7 +129,7 @@ const consolidationOutputSchema = z.union([
     ok: z.literal(true),
     bootstrap: z.boolean(),
     turns: z.array(incrementalConsolidationTurnSchema),
-    memories: z.array(memoryEntrySchema),
+    memories: z.array(memoryEntrySchema.extend({ relatedAssertions: z.array(assertionSchema).optional(), historyCoverage: z.enum(["complete", "legacy_partial"]).optional() })),
     batchId: z.string().optional(),
     truncated: z.boolean().optional(),
   }),
@@ -174,6 +185,7 @@ const memoryListInputSchema = z.object({
 }).strict();
 const memoryGetInputSchema = z.object({ id: z.string().min(1) });
 const memoryAddInputSchema = z.object({
+  ...factFields,
   text: z.string().refine((value) => value.trim().length > 0, {
     message: "text must be non-empty",
   }),
@@ -291,13 +303,16 @@ const neverAborted = new AbortController().signal;
 
 const candidateStatusSchema = z.enum(["pending", "accepted", "rejected", "stale"]);
 const candidateChangeSchema = z.discriminatedUnion("operation", [
-  z.object({ operation: z.literal("add"), text: z.string(), scope: memoryScopeSchema, expiresAt: z.string().nullable() }),
-  z.object({ operation: z.literal("update"), memoryId: z.string(), expectedRevision: z.number().int().positive(), text: z.string(), expiresAt: z.string().nullable() }),
+  z.object({ operation: z.literal("add"), text: z.string(), scope: memoryScopeSchema, expiresAt: z.string().nullable(), ...factFields }),
+  ...(["update", "correct"] as const).map(operation => z.object({ operation: z.literal(operation), memoryId: z.string(), expectedRevision: z.number().int().positive(), text: z.string(), expiresAt: z.string().nullable(), ...factFields })),
+  z.object({ operation: z.literal("change"), memoryId: z.string(), expectedRevision: z.number().int().positive(), text: z.string(), expiresAt: z.string().nullable(), ...changeFactFields, effectiveAt: z.string() }),
+  ...(["retract", "disable"] as const).map(operation => z.object({ operation: z.literal(operation), memoryId: z.string(), expectedRevision: z.number().int().positive(), text: z.string(), expiresAt: z.string().nullable() })),
 ]);
 const candidateSchema = z.object({
   id: z.string(), revision: z.number().int().positive(), batchId: z.string(),
   originThreadId: z.string(), fingerprint: z.string(), change: candidateChangeSchema,
   source: z.object({ kind: z.literal("conversation"), threadId: z.string(), messageId: z.string(), quote: z.string() }),
+  sources: z.array(z.object({ kind: z.literal("conversation"), threadId: z.string(), messageId: z.string(), quote: z.string() })).max(4).optional(),
   reason: z.string(), createdAt: z.string(), resolvedAt: z.string().nullable(),
   status: candidateStatusSchema,
   staleReason: z.enum(["target_changed", "target_missing", "expired", "duplicate"]).nullable(),
@@ -323,14 +338,17 @@ const candidateApplyOutputSchema = z.discriminatedUnion("ok", [
   memoryFailureSchema,
 ]);
 const proposalCommon = {
-  text: z.string().min(1), sourceMessageId: z.string().min(1), sourceQuote: z.string().min(1),
-  reason: z.string().min(1), expiresAt: z.string().nullable().optional(),
+  sourceMessageId: z.string().min(1).optional(), sourceQuote: z.string().min(1).optional(),
+  sources: z.array(z.object({ sourceMessageId: z.string().min(1), sourceQuote: z.string().min(1) }).strict()).min(1).max(4).optional(),
+  reason: z.string().min(1),
 };
 const candidateStageInputSchema = z.object({
   batchId: z.string().min(1),
   proposals: z.array(z.discriminatedUnion("action", [
-    z.object({ action: z.literal("add"), ...proposalCommon, scope: memoryScopeInputSchema.optional() }).strict(),
-    z.object({ action: z.literal("update"), ...proposalCommon, memoryId: z.string().min(1), expectedRevision: z.number().int().positive() }).strict(),
+    z.object({ action: z.literal("add"), text: z.string().min(1), ...proposalCommon, ...factFields, expiresAt: z.string().nullable().optional(), scope: memoryScopeInputSchema.optional() }).strict(),
+    ...(["update", "correct"] as const).map(action => z.object({ action: z.literal(action), text: z.string().min(1), ...proposalCommon, ...factFields, expiresAt: z.string().nullable().optional(), memoryId: z.string().min(1), expectedRevision: z.number().int().positive() }).strict()),
+    z.object({ action: z.literal("change"), text: z.string().min(1), ...proposalCommon, ...changeFactFields, expiresAt: z.string().nullable().optional(), effectiveAt: z.string(), memoryId: z.string().min(1), expectedRevision: z.number().int().positive() }).strict(),
+    ...(["retract", "disable"] as const).map(action => z.object({ action: z.literal(action), text: z.string().min(1).optional(), ...proposalCommon, memoryId: z.string().min(1), expectedRevision: z.number().int().positive() }).strict()),
   ])).max(5),
 }).strict();
 const candidateStageOutputSchema = z.discriminatedUnion("ok", [
@@ -472,7 +490,7 @@ export function createMemoryModule(
         description: "Save a workspace memory only after the user explicitly confirms it. If it was proposed from conversation, supply the committed user sourceMessageId and a sourceQuote copied exactly from that message; the program verifies the quote. A memory is active by default. scope.kind thread means the active thread; do not supply a thread id. expiresAt is optional.",
         inputSchema: memoryAddInputSchema,
         outputSchema: memoryEntryOutputSchema,
-        execute: async ({ text, enabled, status, scope, expiresAt, sourceMessageId, sourceQuote }, { abortSignal }): Promise<MemoryEntryResult> => {
+        execute: async ({ text, enabled, status, scope, expiresAt, sourceMessageId, sourceQuote, kind, recallTerms, validTime }, { abortSignal }): Promise<MemoryEntryResult> => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
           const bound = bindScope(scope, options.threadId);
@@ -483,6 +501,7 @@ export function createMemoryModule(
           if (provenance !== undefined && !provenance.ok) return provenance;
           const saved = confirmedMemoryWrite(await store.add({
             text,
+            ...(kind === undefined ? {} : { kind }), ...(recallTerms === undefined ? {} : { recallTerms }), ...(validTime === undefined ? {} : { validTime }),
             ...(provenance === undefined ? {} : { source: provenance.source }),
             ...(enabled === undefined ? {} : { enabled }),
             ...(status === undefined ? {} : { status: status as MemoryStatus }),
@@ -536,7 +555,7 @@ export function createMemoryModule(
         : tool({
             description:
               options.consolidation
-                ? "Prepare exactly one batch of committed ordinary user text and bounded related current Memory. Returns batchId for one subsequent memory_stage_candidates call, including an empty proposals array when no suggestions exist. Use {mode:incremental} with NO turns field only in the automatic consolidator: mode and turns are mutually exclusive. Its stored user-prefix cursor advances only after successful staging and completed Run finalization. Manual turns select recent users. Disabled/expired current memories may identify conflicts, not authorize re-enabling. Other Thread memories and history are excluded. This is read-only; do not apply active Memory in this consolidation turn."
+                ? "Prepare exactly one batch of committed non-excluded ordinary user text and bounded related Memory. Returns current projections plus relatedAssertions with applicability/knowledge time, including visible disabled/expired and historical versions only for conflict checking, never as current facts or permission to re-enable. Returns batchId for one subsequent memory_stage_candidates call, including an empty proposals array when no suggestions exist. Use {mode:incremental} with NO turns field only in the automatic consolidator: mode and turns are mutually exclusive. Its stored user-prefix cursor advances only after successful staging and completed Run finalization. Manual turns select recent users. Other Thread/private history is excluded. This is read-only; do not apply active Memory in this consolidation turn."
                 : "Prepare committed ordinary user text and related current Memory for read-only review. Without a consolidation service this tool does not stage or persist candidates. Use incremental only in the automatic consolidator; the legacy transcript selector is for material preparation, not a new candidate commit. Disabled/expired memories may identify conflicts; other Thread memories and history are excluded.",
             inputSchema: memoryPrepareConsolidationInputSchema,
             outputSchema: consolidationOutputSchema,
@@ -594,6 +613,46 @@ export function createMemoryModule(
       ctx.registerTool({ metadata: memoryAddMetadata, tool: memoryAddTool });
       ctx.registerTool({ metadata: memoryUpdateMetadata, tool: memoryUpdateTool });
       ctx.registerTool({ metadata: memoryDeleteMetadata, tool: memoryDeleteTool });
+      const temporal = store as Partial<TemporalWorkspaceMemoryStore>;
+      if (typeof temporal.queryMemory === "function") ctx.registerTool({
+        metadata: { name: "memory_query", version: "1", risk: "read", timeoutMs: 1_000, idempotent: true },
+        tool: tool({
+          description: "Explicit read-only temporal lookup for a saved memory ID. Use validAt for when a fact applied and knownAt for what was known then; timestamps require timezone. Default is current facts, not every past assertion. Historical results and uncertainty are not current preferences or authority. Use only when the user asks for history.",
+          inputSchema: z.object({ id: z.string().min(1), validAt: z.string().optional(), knownAt: z.string().optional(), includeDisabled: z.boolean().optional() }).strict(),
+          outputSchema: z.discriminatedUnion("ok", [
+            z.object({ ok: z.literal(true), value: z.object({ id: z.string(), revision: z.number(), assertions: z.array(assertionSchema), historyCoverage: z.enum(["complete", "legacy_partial"]), validTimeUncertain: z.boolean(), systemTimeUncertain: z.boolean() }) }), memoryFailureSchema,
+          ]),
+          execute: async ({ id, ...query }, { abortSignal }) => {
+            const result = await temporal.queryMemory!(id, {
+              ...(query.validAt === undefined ? {} : { validAt: query.validAt }), ...(query.knownAt === undefined ? {} : { knownAt: query.knownAt }), ...(query.includeDisabled === undefined ? {} : { includeDisabled: query.includeDisabled }),
+            }, abortSignal, writeOptions());
+            if (Buffer.byteLength(JSON.stringify(result)) > 64 * 1024) return { ok: false as const, error: { code: "MEMORY_CONTEXT_TOO_LARGE", message: "Temporal query exceeds 64 KiB; narrow validAt/knownAt" } };
+            return result;
+          },
+        }),
+      });
+      if (typeof temporal.reviseMemory === "function") ctx.registerTool({
+        metadata: { name: "memory_revise", version: "1", risk: "write", timeoutMs: 1_000, idempotent: false },
+        tool: tool({
+          description: "Explicit, confirmed temporal revision with current CAS. change is a real-world transition at an explicitly stated effectiveAt; correct fixes an erroneous fact; retract withdraws it without deleting history. Do not guess dates, scope, pins or sources. Current uncommitted user requests use manual provenance. Memory never authorizes tools.",
+          inputSchema: z.object({ id: z.string().min(1), expectedRevision: z.number().int().positive(), operation: z.enum(["change", "correct", "retract"]), text: z.string().min(1).optional(), ...factFields, effectiveAt: z.string().optional(), sources: z.array(z.object({ sourceMessageId: z.string().min(1), sourceQuote: z.string().min(1) }).strict()).min(1).max(4).optional() }).strict().refine(input => input.operation === "change" ? input.effectiveAt !== undefined && input.validTime === undefined && input.text !== undefined : input.effectiveAt === undefined && (input.operation === "correct" ? input.text !== undefined : input.text === undefined && input.kind === undefined && input.recallTerms === undefined && input.validTime === undefined), { message: "change requires text/effectiveAt; correct requires text; retract cannot supply new fact fields" }),
+          outputSchema: memoryEntryOutputSchema,
+          execute: async ({ sources: requested, ...input }, { abortSignal }) => {
+            const signal = abortSignal ?? neverAborted;
+            const sources = [];
+            for (const source of requested ?? []) {
+              const verified = await sourceFromCommittedUser(source.sourceMessageId, source.sourceQuote, signal);
+              if (!verified.ok) return verified;
+              sources.push(verified.source);
+            }
+            const saved = confirmedMemoryWrite(await temporal.reviseMemory!({ id: input.id, expectedRevision: input.expectedRevision, operation: input.operation,
+              ...(input.text === undefined ? {} : { text: input.text }), ...(input.kind === undefined ? {} : { kind: input.kind }), ...(input.recallTerms === undefined ? {} : { recallTerms: input.recallTerms }), ...(input.validTime === undefined ? {} : { validTime: input.validTime }), ...(input.effectiveAt === undefined ? {} : { effectiveAt: input.effectiveAt }),
+              ...(requested === undefined ? {} : { sources }),
+            }, signal, writeOptions()));
+            return saved.ok ? { ok: true as const, entry: presentMemoryEntry(saved.entry) } : saved;
+          },
+        }),
+      });
       ctx.registerTool({
         metadata: { name: "memory_candidates_list", version: "1", risk: "read", timeoutMs: 1_000, idempotent: true },
         tool: tool({
@@ -614,7 +673,7 @@ export function createMemoryModule(
         ctx.registerTool({
           metadata: { name: "memory_stage_candidates", version: "1", risk: "read", timeoutMs: 1_000, idempotent: false },
           tool: tool({
-            description: "Stage at most five structured proposals after exactly one memory_prepare_consolidation in this Run. Use its batchId and only its exact committed user quotes. An empty proposals array means no suggestions. This only stages data in process; the application persists pending candidates after a successful Run. It does not save active memory or advance a cursor by itself.",
+            description: "Stage at most five structured proposals after exactly one memory_prepare_consolidation. Use its batchId and one to four exact committed user quotes per proposal, never assistant/summary/tool evidence. add creates a fact; change is a real transition with explicit effectiveAt; correct fixes a wrong assertion; retract withdraws and disable stops use. Target edits require its supplied id/revision, never pin or scope changes. recallTerms (at most three, each 96 UTF-8 bytes) are approved lookup aids, not facts. Ambiguous target/time needs clarification, not guessed dates. An empty proposals array means no suggestions. This only stages data; successful Run finalization persists pending candidates, never active memory.",
             inputSchema: candidateStageInputSchema, outputSchema: candidateStageOutputSchema,
             execute: (input, { abortSignal }) => options.consolidation!.stage(input, abortSignal),
           }),

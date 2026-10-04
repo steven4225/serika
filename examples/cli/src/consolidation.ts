@@ -5,6 +5,12 @@ export const AUTO_CONSOLIDATION_SOURCE = "auto-consolidation";
 export const AUTO_CONSOLIDATION_AGENT_ID = "memory-consolidator";
 export const MAX_CONSOLIDATION_TOOL_EVIDENCE_BYTES = 4 * 1024;
 
+/** A program-owned per-message opt-out, never a model interpretation of prose. */
+export function isMemoryConsolidationExcluded(message: UIMessage): boolean {
+  return message.role === "user" && typeof message.metadata === "object" && message.metadata !== null &&
+    "memoryConsolidation" in message.metadata && message.metadata.memoryConsolidation === "exclude";
+}
+
 export function isAutoConsolidationRequest(message: UIMessage): boolean {
   if (
     message.role !== "user" ||
@@ -100,7 +106,7 @@ export function findCommittedUserMessage(
   let found: ConsolidationMessage | undefined;
   for (const message of committedMessages) {
     if (message.id !== messageId) continue;
-    if (found !== undefined || message.role !== "user" || isAutoConsolidationRequest(message)) {
+    if (found !== undefined || message.role !== "user" || isAutoConsolidationRequest(message) || isMemoryConsolidationExcluded(message)) {
       return undefined;
     }
     found = messageOf(message);
@@ -248,7 +254,7 @@ export function selectIncrementalConsolidationTurns(
   const bootstrap = lastMarker === -1;
   const eligible = turns
     .slice(lastMarker + 1)
-    .filter((turn) => !isAutoConsolidationRequest(turn[0]!) && !hasMemoryTool(turn));
+    .filter((turn) => !isAutoConsolidationRequest(turn[0]!) && !isMemoryConsolidationExcluded(turn[0]!) && !hasMemoryTool(turn));
   const selected = bootstrap ? eligible.slice(-MAX_CONSOLIDATION_TURNS) : eligible;
   return {
     ok: true,
@@ -291,7 +297,7 @@ export function consolidateMessages(
   const completeTurns = userStartedTurns(committedMessages);
 
   const eligibleTurns = completeTurns.filter(
-    (turn) => !isAutoConsolidationRequest(turn[0]!),
+    (turn) => !isAutoConsolidationRequest(turn[0]!) && !isMemoryConsolidationExcluded(turn[0]!),
   );
 
   return {

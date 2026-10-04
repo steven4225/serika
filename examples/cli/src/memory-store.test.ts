@@ -192,6 +192,7 @@ describe("WorkspaceMemoryStore", () => {
       expiresAt: null,
       revision: 1,
       history: [],
+      assertion: { assertionId: "legacy:legacy:1", kind: "note", recallTerms: [], validTime: { from: null, to: null, basis: "unknown" }, systemTime: { from: null, to: null }, state: "asserted", sourceIds: [{ kind: "legacy" }] },
     });
     assert.equal(JSON.parse(await readFile(file, "utf8")).version, 1);
 

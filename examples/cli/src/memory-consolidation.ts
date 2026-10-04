@@ -3,30 +3,37 @@ import type { UIMessage } from "ai";
 import {
   AUTO_CONSOLIDATION_AGENT_ID, MAX_CONSOLIDATION_TURNS,
   findCommittedUserMessage, hasMemoryTool, isAutoConsolidationRequest,
-  isExactUserQuote, userStartedTurns,
+  isExactUserQuote, isMemoryConsolidationExcluded, userStartedTurns,
   type ConsolidationTurn, type IncrementalConsolidationTurn,
 } from "./consolidation.js";
 import { candidateFingerprint, type CandidateDraft, type ConsolidationCursor, type MemoryResult } from "./memory-candidates.js";
-import type { MemoryEntry, WorkspaceMemoryStore } from "./memory-store.js";
+import type { MemoryConsolidationEntry, MemoryEntry, WorkspaceMemoryStore } from "./memory-store.js";
 import { rankMemoryEntriesForQuery } from "./memory-retrieval.js";
+import { validateRecallTerms, validateTemporalTimestamp, validateValidTime, type MemoryKind, type MemoryValidTime } from "./memory-temporal.js";
 
 export const CONSOLIDATION_MATERIAL_MAX_BYTES = 64 * 1024;
 export const CONSOLIDATION_MEMORIES_MAX_BYTES = 24 * 1024;
 export const CONSOLIDATION_MEMORIES_MAX = 20;
 
 export interface MemoryProposal {
-  action: "add" | "update";
-  text: string;
-  sourceMessageId: string;
-  sourceQuote: string;
+  action: "add" | "update" | "change" | "correct" | "retract" | "disable";
+  text?: string;
+  sourceMessageId?: string;
+  sourceQuote?: string;
+  sources?: Array<{ sourceMessageId: string; sourceQuote: string }>;
   reason: string;
   scope?: { kind: "workspace" } | { kind: "thread" };
   expiresAt?: string | null;
   memoryId?: string;
   expectedRevision?: number;
+  kind?: MemoryKind;
+  recallTerms?: string[];
+  validTime?: MemoryValidTime;
+  effectiveAt?: string;
 }
+type ConsolidationMemory = MemoryEntry & Partial<Pick<MemoryConsolidationEntry, "relatedAssertions" | "historyCoverage">>;
 export type PreparedBatch = {
-  batchId: string; truncated: boolean; memories: MemoryEntry[];
+  batchId: string; truncated: boolean; memories: ConsolidationMemory[];
 } & (
   | { turns: ConsolidationTurn[] }
   | { bootstrap: boolean; turns: IncrementalConsolidationTurn[] }
@@ -75,31 +82,93 @@ export function consolidationPrefixHash(messages: readonly UIMessage[], throughM
 function visible(entry: MemoryEntry, threadId: string): boolean {
   return entry.scope?.kind !== "thread" || entry.scope.threadId === threadId;
 }
-function current(entry: MemoryEntry): MemoryEntry { const { history: _history, ...value } = entry; return value; }
-function relatedMemories(entries: MemoryEntry[], turns: OrdinaryTurn[], threadId: string): { entries: MemoryEntry[]; truncated: boolean } {
-  // Conflict material intentionally includes visible disabled/expired current versions.
+function current(entry: ConsolidationMemory): ConsolidationMemory { const { history: _history, ...value } = entry; return value; }
+function relatedMemories(entries: ConsolidationMemory[], turns: OrdinaryTurn[], threadId: string): { entries: ConsolidationMemory[]; truncated: boolean } {
+  // Old assertions are conflict material only, never asserted as current primary context.
   const query = turns.map((turn) => turn.user.text).join("\n");
-  const ranked = rankMemoryEntriesForQuery(entries.filter((entry) => visible(entry, threadId)).map(current), query);
-  const selected: MemoryEntry[] = [];
+  const material = entries.filter((entry) => visible(entry, threadId)).map((entry) => {
+    const value = current(entry);
+    if (value.relatedAssertions === undefined) return value;
+    const byAssertion = new Map(value.relatedAssertions.map((assertion) => [assertion.assertionId, assertion]));
+    const relatedAssertions = rankMemoryEntriesForQuery(value.relatedAssertions.map((assertion) => ({ id: assertion.assertionId,
+      text: [assertion.text, ...assertion.recallTerms].join("\n"), enabled: false,
+    })), query).map((assertion) => byAssertion.get(assertion.id)!);
+    return { ...value, relatedAssertions };
+  });
+  const byId = new Map(material.map((entry) => [entry.id, entry]));
+  const ranked = rankMemoryEntriesForQuery(material.map((entry) => ({ ...entry,
+    text: [entry.text, ...(entry.relatedAssertions ?? []).flatMap((assertion) => [assertion.text, ...assertion.recallTerms])].join("\n"),
+  })), query).map((entry) => byId.get(entry.id)!);
+  const selected: ConsolidationMemory[] = [];
+  let trimmed = false;
   for (const entry of ranked) {
-    if (selected.length < CONSOLIDATION_MEMORIES_MAX && Buffer.byteLength(JSON.stringify([...selected, entry])) <= CONSOLIDATION_MEMORIES_MAX_BYTES) selected.push(entry);
+    if (selected.length >= CONSOLIDATION_MEMORIES_MAX) break;
+    let candidate = entry;
+    while (Buffer.byteLength(JSON.stringify([...selected, candidate])) > CONSOLIDATION_MEMORIES_MAX_BYTES && (candidate.relatedAssertions?.length ?? 0) > 0) {
+      candidate = { ...candidate, relatedAssertions: candidate.relatedAssertions!.slice(0, -1) };
+      trimmed = true;
+    }
+    if (candidate.relatedAssertions?.length === 0 && rankMemoryEntriesForQuery([candidate], query).length === 0) continue;
+    if (Buffer.byteLength(JSON.stringify([...selected, candidate])) <= CONSOLIDATION_MEMORIES_MAX_BYTES) selected.push(candidate);
   }
-  return { entries: selected, truncated: selected.length < ranked.length };
+  return { entries: selected, truncated: trimmed || selected.length < ranked.length };
+}
+function activeTarget(entry: MemoryEntry, now: Date): boolean {
+  return (entry.status === "active" || entry.status === undefined && entry.enabled) &&
+    (entry.expiresAt == null || Date.parse(entry.expiresAt) > now.getTime());
 }
 function proposalDraft(proposal: unknown, prepared: PreparedBatch, selected: OrdinaryTurn[], messages: UIMessage[], threadId: string, now: Date): MemoryResult<CandidateDraft> {
   if (typeof proposal !== "object" || proposal === null || Array.isArray(proposal)) return fail("MEMORY_BATCH_INVALID", "Proposal must be an object");
   const p = proposal as Record<string, unknown>;
-  const common = ["action", "text", "sourceMessageId", "sourceQuote", "reason", "expiresAt"];
-  const allowed = p.action === "add" ? [...common, "scope"] : [...common, "memoryId", "expectedRevision"];
-  if ((p.action !== "add" && p.action !== "update") || Object.keys(p).some((key) => !allowed.includes(key))) return fail("MEMORY_BATCH_INVALID", "Unknown proposal action or field");
-  for (const [field, limit] of [["text", 2048], ["sourceQuote", 2048], ["reason", 512]] as const) {
+  const withdrawal = p.action === "retract" || p.action === "disable";
+  const common = ["action", "text", "sourceMessageId", "sourceQuote", "sources", "reason"];
+  const fact = ["kind", "recallTerms", "expiresAt"];
+  const allowed = p.action === "add" ? [...common, ...fact, "validTime", "scope"] :
+    withdrawal ? [...common, "memoryId", "expectedRevision"] :
+    [...common, ...fact, "memoryId", "expectedRevision", p.action === "change" ? "effectiveAt" : "validTime"];
+  if (typeof p.action !== "string" || !["add", "update", "change", "correct", "retract", "disable"].includes(p.action) || Object.keys(p).some((key) => !allowed.includes(key))) return fail("MEMORY_BATCH_INVALID", "Unknown proposal action or field");
+  for (const [field, limit] of [["text", 2048], ["reason", 512]] as const) {
+    if (withdrawal && field === "text" && p.text === undefined) continue;
     if (typeof p[field] !== "string" || p[field].trim().length === 0 || Buffer.byteLength(p[field]) > limit) return fail("MEMORY_BATCH_INVALID", `${field} is empty or exceeds its byte limit`);
   }
-  if (typeof p.sourceMessageId !== "string" || !selected.some((turn) => turn.user.id === p.sourceMessageId)) return fail("MEMORY_SOURCE_INVALID", "Source must belong to the prepared user window");
-  const source = findCommittedUserMessage(messages, p.sourceMessageId);
-  if (source === undefined || !isExactUserQuote(source.text, p.sourceQuote as string)) return fail("MEMORY_SOURCE_INVALID", "Source quote must exactly match a unique committed user message");
-  if (p.expiresAt !== undefined && p.expiresAt !== null && (typeof p.expiresAt !== "string" || !Number.isFinite(Date.parse(p.expiresAt)) || Date.parse(p.expiresAt) <= now.getTime())) return fail("MEMORY_BATCH_INVALID", "expiresAt must be a valid future timestamp or null");
-  const draftSource = { kind: "conversation" as const, threadId, messageId: p.sourceMessageId, quote: p.sourceQuote as string };
+  const rawSources = p.sources === undefined ? [{ sourceMessageId: p.sourceMessageId, sourceQuote: p.sourceQuote }] : p.sources;
+  if (!Array.isArray(rawSources) || rawSources.length < 1 || rawSources.length > 4) return fail("MEMORY_SOURCE_INVALID", "A proposal requires one to four exact user sources");
+  const sources: NonNullable<CandidateDraft["sources"]> = [];
+  for (const raw of rawSources) {
+    if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return fail("MEMORY_SOURCE_INVALID", "Source must be an object");
+    const item = raw as Record<string, unknown>;
+    if (Object.keys(item).some((key) => !["sourceMessageId", "sourceQuote"].includes(key)) || typeof item.sourceMessageId !== "string" || !selected.some((turn) => turn.user.id === item.sourceMessageId)) return fail("MEMORY_SOURCE_INVALID", "Source must belong to the prepared user window");
+    if (typeof item.sourceQuote !== "string" || item.sourceQuote.trim().length === 0 || Buffer.byteLength(item.sourceQuote) > 2048) return fail("MEMORY_SOURCE_INVALID", "Source quote is empty or exceeds 2048 bytes");
+    const source = findCommittedUserMessage(messages, item.sourceMessageId);
+    if (source === undefined || !isExactUserQuote(source.text, item.sourceQuote)) return fail("MEMORY_SOURCE_INVALID", "Source quote must exactly match a unique committed non-excluded user message");
+    if (sources.some((existing) => existing.messageId === item.sourceMessageId && existing.quote === item.sourceQuote)) return fail("MEMORY_SOURCE_INVALID", "Duplicate source quote");
+    sources.push({ kind: "conversation", threadId, messageId: item.sourceMessageId, quote: item.sourceQuote });
+  }
+  const draftSource = sources[0]!;
+  if (p.sources !== undefined && (p.sourceMessageId !== undefined || p.sourceQuote !== undefined) && (p.sourceMessageId !== draftSource.messageId || p.sourceQuote !== draftSource.quote)) return fail("MEMORY_SOURCE_INVALID", "Legacy source fields must agree with the first source");
+  const provenance = { source: draftSource, ...(p.sources === undefined ? {} : { sources }), reason: p.reason as string };
+  let facts: { kind?: MemoryKind; recallTerms?: string[]; validTime?: MemoryValidTime; effectiveAt?: string } = {};
+  let expiry = p.expiresAt as string | null | undefined;
+  try {
+    if (p.kind !== undefined) {
+      if (typeof p.kind !== "string" || !["preference", "fact", "event", "note"].includes(p.kind)) return fail("MEMORY_BATCH_INVALID", "Invalid memory kind");
+      facts.kind = p.kind as MemoryKind;
+    }
+    if (p.recallTerms !== undefined) facts.recallTerms = validateRecallTerms(p.recallTerms);
+    if (p.validTime !== undefined) {
+      if (typeof p.validTime !== "object" || p.validTime === null || Array.isArray(p.validTime) || Object.keys(p.validTime).some((key) => !["from", "to", "basis"].includes(key))) return fail("MEMORY_BATCH_INVALID", "Invalid validTime fields");
+      facts.validTime = validateValidTime(p.validTime);
+      if (facts.validTime.basis === "unknown" && (facts.validTime.from !== null || facts.validTime.to !== null)) return fail("MEMORY_BATCH_INVALID", "Unknown proposal time cannot invent an interval");
+    }
+    if (p.action === "change") {
+      facts.effectiveAt = validateTemporalTimestamp(p.effectiveAt, "Candidate change effectiveAt");
+      if (facts.kind !== undefined && facts.kind !== "fact" && facts.kind !== "preference") return fail("MEMORY_BATCH_INVALID", "A change must remain a fact or preference");
+    }
+    if (expiry !== undefined && expiry !== null) {
+      expiry = validateTemporalTimestamp(expiry, "Candidate expiresAt");
+      if (Date.parse(expiry) <= now.getTime()) return fail("MEMORY_BATCH_INVALID", "expiresAt must be in the future");
+    }
+  } catch (error) { return fail("MEMORY_BATCH_INVALID", error instanceof Error ? error.message : "Invalid fact fields"); }
   if (p.action === "add") {
     let scope: { kind: "workspace" } | { kind: "thread"; threadId: string } = { kind: "workspace" };
     if (p.scope !== undefined) {
@@ -108,11 +177,19 @@ function proposalDraft(proposal: unknown, prepared: PreparedBatch, selected: Ord
       if (Object.keys(value).length !== 1 || (value.kind !== "workspace" && value.kind !== "thread")) return fail("MEMORY_BATCH_INVALID", "Scope cannot name a Thread id");
       if (value.kind === "thread") scope = { kind: "thread", threadId };
     }
-    return { ok: true, value: { change: { operation: "add", text: p.text as string, scope, expiresAt: p.expiresAt as string | null | undefined ?? null }, source: draftSource, reason: p.reason as string } };
+    return { ok: true, value: { change: { operation: "add", text: p.text as string, scope, expiresAt: expiry ?? null, ...facts }, ...provenance } };
   }
   const target = prepared.memories.find((entry) => entry.id === p.memoryId && entry.revision === p.expectedRevision);
-  if (typeof p.memoryId !== "string" || !Number.isInteger(p.expectedRevision) || target === undefined || !target.enabled || target.status === "disabled" || (target.expiresAt != null && Date.parse(target.expiresAt) <= now.getTime())) return fail("MEMORY_BATCH_INVALID", "Update must target an active, unexpired revision provided by prepare");
-  return { ok: true, value: { change: { operation: "update", memoryId: p.memoryId, expectedRevision: p.expectedRevision as number, text: p.text as string, expiresAt: p.expiresAt === undefined ? target.expiresAt ?? null : p.expiresAt as string | null }, source: draftSource, reason: p.reason as string } };
+  if (typeof p.memoryId !== "string" || !Number.isInteger(p.expectedRevision) || (p.expectedRevision as number) < 1 || target === undefined || !withdrawal && !activeTarget(target, now)) return fail("MEMORY_BATCH_INVALID", "Target must be the provided revision; fact edits require an active, unexpired record");
+  if (withdrawal) {
+    const text = target.text || target.relatedAssertions?.at(-1)?.text;
+    if (text === undefined || text.trim().length === 0) return fail("MEMORY_BATCH_INVALID", "Target has no display fact to withdraw");
+    if (p.text !== undefined && p.text !== text) return fail("MEMORY_BATCH_INVALID", "Withdrawal may not replace target text");
+    return { ok: true, value: { change: { operation: p.action as "retract" | "disable", memoryId: p.memoryId, expectedRevision: p.expectedRevision as number, text, expiresAt: target.expiresAt ?? null }, ...provenance } };
+  }
+  const targetFields = { memoryId: p.memoryId, expectedRevision: p.expectedRevision as number, text: p.text as string, expiresAt: expiry === undefined ? target.expiresAt ?? null : expiry };
+  if (p.action === "change") return { ok: true, value: { change: { operation: "change", ...targetFields, ...facts, effectiveAt: facts.effectiveAt! }, ...provenance } };
+  return { ok: true, value: { change: { operation: p.action as "update" | "correct", ...targetFields, ...facts }, ...provenance } };
 }
 
 export function createMemoryConsolidation(options: {
@@ -127,6 +204,12 @@ export function createMemoryConsolidation(options: {
   const readMessages = async (signal?: AbortSignal): Promise<MemoryResult<UIMessage[]>> => {
     try { const messages = await options.getMessages(signal); aborted(signal); return { ok: true, value: messages }; }
     catch (error) { aborted(signal); return fail("READ_FAILED", error instanceof Error ? error.message : "Unable to read transcript"); }
+  };
+  const readMaterial = async (observedAt: Date, signal?: AbortSignal): Promise<MemoryResult<ConsolidationMemory[]>> => {
+    const readOptions = { boundThreadId: options.threadId, now: observedAt };
+    if (options.store.listConsolidationMaterial !== undefined) return options.store.listConsolidationMaterial(signal, readOptions);
+    const listed = await options.store.list(signal, readOptions);
+    return listed.ok ? { ok: true, value: listed.entries } : listed;
   };
   const canStart: MemoryConsolidation["canStart"] = async (signal) => options.store.checkCandidateCapacity(signal);
   return {
@@ -146,7 +229,8 @@ export function createMemoryConsolidation(options: {
       if (!capacity.value.canStart) return fail("MEMORY_LIMIT_EXCEEDED", "Pending candidate queue is full; review candidates first");
       const loaded = await readMessages(signal);
       if (!loaded.ok) return loaded;
-      const listed = await options.store.list(signal);
+      const observedAt = now();
+      const listed = await readMaterial(observedAt, signal);
       if (!listed.ok) return listed;
       const all = ordinaryTurns(loaded.value);
       const cursor = automatic ? await options.store.getConsolidationCursor(options.threadId, signal) : { ok: true as const, value: null };
@@ -157,11 +241,11 @@ export function createMemoryConsolidation(options: {
         if (hash !== cursor.value.prefixHash) return fail("MEMORY_CURSOR_MISMATCH", "Transcript does not match the stored user-message boundary");
         after = all.findIndex((turn) => turn.user.id === cursor.value!.throughMessageId);
       }
-      const eligible = all.slice(after + 1).filter((turn) => turn.user.text.trim().length > 0 && (!automatic || !hasMemoryTool(turn.messages)));
+      const eligible = all.slice(after + 1).filter((turn) => turn.user.text.trim().length > 0 && !isMemoryConsolidationExcluded(turn.messages[0]!) && (!automatic || !hasMemoryTool(turn.messages)));
       let selected = automatic && cursor.value !== null ? eligible.slice(0, MAX_CONSOLIDATION_TURNS) : eligible.slice(-(input.turns ?? MAX_CONSOLIDATION_TURNS));
       const bootstrap = automatic && cursor.value === null;
       const batchId = (options.generateId ?? randomUUID)();
-      const related = relatedMemories(listed.entries, selected, options.threadId);
+      const related = relatedMemories(listed.value, selected, options.threadId);
       let memories = related.entries;
       let truncated = related.truncated || eligible.length > selected.length;
       const material = (): PreparedBatch => automatic
@@ -176,7 +260,7 @@ export function createMemoryConsolidation(options: {
       const last = selected.at(-1)?.user.id ?? all.at(-1)?.user.id;
       run.nextCursor = automatic && last !== undefined ? {
         threadId: options.threadId, throughMessageId: last,
-        prefixHash: consolidationPrefixHash(loaded.value, last)!, lastBatchId: batchId, updatedAt: now().toISOString(),
+        prefixHash: consolidationPrefixHash(loaded.value, last)!, lastBatchId: batchId, updatedAt: observedAt.toISOString(),
       } : null;
       return { ok: true, value: structuredClone(run.prepared) };
     },
@@ -217,20 +301,22 @@ export function createMemoryConsolidation(options: {
         if (source === undefined || source.text !== selected.user.text) return fail("MEMORY_SOURCE_INVALID", "Prepared source changed before candidate commit");
       }
       if (run.nextCursor != null && consolidationPrefixHash(loaded.value, run.nextCursor.throughMessageId) !== run.nextCursor.prefixHash) return fail("MEMORY_CURSOR_MISMATCH", "Transcript prefix changed before candidate commit");
-      const listed = await options.store.list(signal);
+      const observedAt = now();
+      const listed = await readMaterial(observedAt, signal);
       if (!listed.ok) return listed;
       for (const draft of run.drafts) {
-        if (draft.change.operation !== "update") continue;
+        if (draft.change.operation === "add") continue;
         const change = draft.change;
-        const target = listed.entries.find((entry) => entry.id === change.memoryId && visible(entry, options.threadId));
-        if (target === undefined || target.revision !== change.expectedRevision || !target.enabled || target.status === "disabled" || (target.expiresAt != null && Date.parse(target.expiresAt) <= now().getTime())) return fail("MEMORY_REVISION_CONFLICT", "Prepared update target changed before commit");
+        const target = listed.value.find((entry) => entry.id === change.memoryId && visible(entry, options.threadId));
+        const withdrawal = change.operation === "retract" || change.operation === "disable";
+        if (target === undefined || target.revision !== change.expectedRevision || !withdrawal && !activeTarget(target, observedAt)) return fail("MEMORY_REVISION_CONFLICT", "Prepared target changed before commit");
       }
       if (batch !== run) return fail("MEMORY_BATCH_INVALID", "Consolidation lifecycle changed before commit");
       aborted(signal);
       const committed = await options.store.commitCandidateBatch({
         batchId: run.prepared.batchId, originThreadId: options.threadId, candidates: run.drafts,
         expectedCursor: run.expectedCursor ?? null, nextCursor: run.nextCursor ?? null,
-      }, signal, { boundThreadId: options.threadId, now: now() });
+      }, signal, { boundThreadId: options.threadId, now: observedAt });
       run.committed = committed;
       return committed;
     },

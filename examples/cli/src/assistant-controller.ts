@@ -80,6 +80,11 @@ export type StartRunResponse =
   | { ok: true; runId: string }
   | { ok: false; reason: "busy" | "empty" | "starting" };
 
+export interface AssistantRunOptions {
+  /** Exclude this ordinary user message from present and future memory consolidation. */
+  memoryConsolidation?: "exclude";
+}
+
 export type ControllerCommandResponse =
   | { ok: true }
   | { ok: false; reason: "busy" | "unknown" | "empty" | "cancelled" }
@@ -133,7 +138,7 @@ export interface AssistantController {
   }): Promise<WorkTaskResult<WorkTask>>;
   cancelWorkTask(input: { id: string; expectedRevision: number }): Promise<WorkTaskResult<WorkTask>>;
   requestWorkTaskChanges(input: { id: string; expectedRevision: number }): Promise<WorkTaskResult<WorkTask>>;
-  run(text: string): Promise<StartRunResponse>;
+  run(text: string, options?: AssistantRunOptions): Promise<StartRunResponse>;
   cancel(): Promise<void>;
   confirm(input: { approvalId: string; decision: "allow" | "deny" }): boolean;
   /**
@@ -409,7 +414,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
             toolActivity.push(item);
             if (toolActivity.length > MAX_TOOL_ACTIVITY) toolActivity.shift();
             if (event.type === "tool.call.completed" &&
-                ["memory_add", "memory_update", "memory_delete", "memory_apply_candidate"].includes(item.toolName) &&
+                ["memory_add", "memory_update", "memory_revise", "memory_delete", "memory_apply_candidate"].includes(item.toolName) &&
                 typeof event.data.output === "object" && event.data.output !== null &&
                 "ok" in event.data.output && event.data.output.ok === true) {
               emit({ type: "memory-updated", reason: "write" });
@@ -851,9 +856,10 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       if (cancelled.ok) emit({ type: "work-task-updated", task: cancelled.value });
       return cancelled;
     },
-    run: async (text) => {
+    run: async (text, options) => {
       if (text.trim().length === 0) return { ok: false, reason: "empty" };
       if (closed || state.kind !== "idle") return { ok: false, reason: "busy" };
+      const excludeFromConsolidation = options?.memoryConsolidation === "exclude";
 
       cancelRequested = false;
       toolActivity.length = 0;
@@ -868,6 +874,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       const started = new Promise<StartRunResponse>((resolve) => { resolveStarted = resolve; });
       const userMessage: UIMessage = {
         id: randomUUID(), role: "user", parts: [{ type: "text", text: text.trim() }],
+        ...(excludeFromConsolidation ? { metadata: { memoryConsolidation: "exclude" } } : {}),
       };
       activeWorkTask = nextWorkTask;
       nextWorkTask = undefined;
@@ -889,7 +896,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
           }
           if (
             primary.result.status === "completed" && !primary.requestedMemoryTool &&
-            !cancelRequested && app.autoConsolidationAgentId !== undefined
+            !cancelRequested && !excludeFromConsolidation && app.autoConsolidationAgentId !== undefined
           ) {
             const readiness = await app.memoryConsolidation?.canStart(startup.signal);
             if (readiness !== undefined && !readiness.ok) {
