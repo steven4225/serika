@@ -14,8 +14,60 @@ import type { ExecutionRunRecord, ExecutionToolRecord } from "./execution-record
 import type { WorkTask, WorkTaskStore } from "./work-task-store.js";
 import { createWorkTaskFinishCheck } from "./work-task-completion.js";
 import { verifyAutomaticCriterion } from "./work-task-verification.js";
+import { workTaskTestBatch } from "./work-task-shell-evidence.js";
 import { createWorkTaskStore } from "./work-task-store.js";
 import type { BeforeRunFinishInput } from "@aisdk-agent/core";
+
+it("corrects missing multiple tests in the same Run using one confirmed batch and persists both checks", { timeout: 20_000 }, async () => {
+  const root = await mkdtemp(join(tmpdir(), "runloom-finish-batch-"));
+  const workspace = join(root, "workspace"); await mkdir(workspace);
+  await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, workspace, modules: { shell: { enabled: true } }, run: { maxSteps: 5 } }));
+  const acceptance = ["node -e 'if(2+2!==4)process.exit(1)'", "node -e 'if(3*3!==9)process.exit(1)'"].map((command, index) => ({
+    id: `test-${index}`, description: "check", required: true, method: "automatic" as const,
+    verification: { kind: "shell_exit_zero" as const, command, cwd: "." },
+  }));
+  const batch = workTaskTestBatch({ acceptance: acceptance.map(item => ({ ...item, status: "not_run", note: null, evidenceRefs: [] })) })!;
+  let calls = 0;
+  const model = new MockLanguageModelV3({ doStream: async options => {
+    calls++;
+    const tool = calls === 2;
+    if (tool) assert.match(JSON.stringify(options.prompt), /execute this exact Shell batch/);
+    return { stream: simulateReadableStream({ chunks: [
+      { type: "stream-start" as const, warnings: [] },
+      ...(tool ? [{ type: "tool-call" as const, toolCallId: "batch", toolName: "shell_exec", input: JSON.stringify(batch) }] : [
+        { type: "text-start" as const, id: "text" }, { type: "text-delta" as const, id: "text", delta: "done" }, { type: "text-end" as const, id: "text" },
+      ]),
+      { type: "finish" as const, finishReason: { unified: tool ? "tool-calls" as const : "stop" as const, raw: undefined },
+        usage: { inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 1, text: 1, reasoning: undefined } } },
+    ] }) };
+  } });
+  const output = new PassThrough(); output.resume();
+  const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", "thread", "--config", join(root, "config.json")], cwd: root, env: {}, modelAlias: "mock", model, output });
+  const controller = createAssistantController(app);
+  try {
+    const approvals = new Set<string>();
+    controller.subscribe(event => {
+      if (event.type === "approval" && !approvals.has(event.approval.approvalId)) {
+        approvals.add(event.approval.approvalId);
+        assert.equal(event.approval.toolName, "shell_exec");
+        assert.deepEqual(event.approval.input, batch);
+        controller.confirm({ approvalId: event.approval.approvalId, decision: "allow" });
+      }
+    });
+    const created = await controller.createWorkTask({ goal: "check both conditions", acceptance }); assert.ok(created.ok);
+    const idle = new Promise<void>(resolve => { const off = controller.subscribe(event => {
+      if (event.type === "state" && event.state.kind === "idle") { off(); resolve(); }
+    }); });
+    assert.ok((await controller.runWorkTask({ id: created.value.id, expectedRevision: 1 })).ok);
+    await idle;
+    const result = await controller.getWorkTask(created.value.id); assert.ok(result.ok);
+    assert.equal(calls, 3); assert.equal(approvals.size, 1); assert.equal(result.value.runIds.length, 1);
+    assert.equal(result.value.status, "completed");
+    assert.deepEqual(result.value.acceptance.map(item => item.status), ["passed", "passed"]);
+    assert.deepEqual(controller.getSnapshot().lastPrimaryResult?.completion, { reason: "delivered", corrections: 1 });
+    assert.equal(result.value.delivery?.evidence.filter(item => item.kind === "tool").length, 2);
+  } finally { await controller.shutdown(); await rm(root, { recursive: true, force: true }); }
+});
 
 it("explicit readback criteria reject missing, pre-write, stale and denied reads without weakening legacy tasks", async () => {
   const root = await mkdtemp(join(tmpdir(), "runloom-readback-"));

@@ -1,12 +1,39 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { MockLanguageModelV3 } from "ai/test";
-import { createMemoryQueryRewriter, parseMemoryQueries } from "./memory-query-rewrite.js";
+import { createMemoryQueryRewriter, parseMemoryQueries, memoryQueryTopics } from "./memory-query-rewrite.js";
+import type { UIMessage } from "ai";
 import { retrieveMemories } from "./memory-retrieval.js";
 import type { MemoryEntry } from "./memory-store.js";
 
 const usage = { inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 1, text: 1, reasoning: undefined } };
 describe("bounded opt-in Memory query rewrite", () => {
+  it("takes only two bounded preceding ordinary user topics, never summaries, assistant facts or task instructions", () => {
+    const message = (id: string, role: UIMessage["role"], text: string, metadata?: unknown): UIMessage => ({ id, role, parts: [{ type: "text", text }], ...(metadata === undefined ? {} : { metadata }) });
+    const messages = [message("old", "user", "old topic"), message("topic", "user", "我们在讨论复盘格式"),
+      message("answer", "assistant", "invented preference"), message("excluded", "user", "task-only", { memoryConsolidation: "exclude" }),
+      message("auto", "user", "synthetic", { source: "auto-consolidation" }), message("bounded", "user", "🙂".repeat(1000)),
+      message("current", "user", "那个格式呢"), message("future", "user", "future")];
+    const selected = memoryQueryTopics(messages, "current");
+    assert.equal(selected.length, 2); assert.equal(selected[0], "我们在讨论复盘格式");
+    assert.equal(Buffer.byteLength(selected[1]!), 1024); assert.doesNotMatch(selected[1]!, /\uFFFD/);
+    assert.deepEqual(memoryQueryTopics(messages, "missing"), []);
+  });
+  it("uses topic hints for references without repeating a rewrite after context changes", async () => {
+    let calls = 0;
+    const rewrite = createMemoryQueryRewriter(new MockLanguageModelV3({ doGenerate: async options => {
+      calls++;
+      const prompt = JSON.stringify(options.prompt);
+      assert.match(prompt, /复盘格式/); assert.match(prompt, /那个格式/);
+      assert.match(prompt, /only to resolve an explicit reference/);
+      assert.doesNotMatch(prompt, /future-topic/);
+      return { content: [{ type: "text", text: '{"queries":["复盘结构"]}' }], finishReason: { unified: "stop", raw: undefined }, usage, warnings: [] };
+    } }));
+    const signal = new AbortController().signal;
+    await rewrite("user", "那个格式呢", signal, ["复盘格式"]);
+    await rewrite("user", "那个格式呢", signal, ["future-topic"]);
+    assert.equal(calls, 1);
+  });
   it("accepts only phrases, never extra facts or unbounded output", () => {
     assert.deepEqual(parseMemoryQueries('{"queries":["复盘格式","复盘格式"]}'), ["复盘格式"]);
     for (const value of ['{}', '{"queries":[],"facts":[]}', '{"queries":[null]}', '{"queries":[""]}', JSON.stringify({ queries: ["a".repeat(97)] }), JSON.stringify({ queries: ["a", "b", "c", "d"] }), '```json\n{"queries":[]}\n```', "a".repeat(1025)]) assert.throws(() => parseMemoryQueries(value));

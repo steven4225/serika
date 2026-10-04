@@ -4,17 +4,8 @@ import { matchesFileWritePath, readFileWriteReceipt, hasMatchingFileReadback, ty
 import { rejectSymlinkComponents, validateWorkspacePath } from "./workspace-path.js";
 import { READ_FILE_MAX_BYTES } from "./read-file.js";
 import type { WorkTask, AcceptanceStatus, WorkTaskEvidence } from "./work-task-store.js";
+import { invalidatesTaskTest, matchesTaskTestCommand, shellCommand } from "./work-task-shell-evidence.js";
 export interface VerificationEnvironment { workspaceRoot: string | undefined; executionRecords: ExecutionRecordStore }
-
-function previewObject(value: string | null): Record<string, unknown> | undefined {
-  if (value === null) return undefined;
-  try {
-    const parsed: unknown = JSON.parse(value);
-    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
-      ? parsed as Record<string, unknown>
-      : undefined;
-  } catch { return undefined; }
-}
 
 function taskOwnsRun(task: WorkTask, run: ExecutionRunRecord): boolean {
   return run.threadId === task.threadId && run.workTaskId === task.id &&
@@ -40,23 +31,20 @@ export async function verifyAutomaticCriterion(
     return { status: "blocked", evidence: [], note: "The latest task Run contains a missing, foreign, interrupted, or unknown receipt that requires review." };
   }
   if (criterion.verification.kind === "shell_exit_zero") {
-    const expectedCommand = criterion.verification.command;
-    const expectedCwd = criterion.verification.cwd;
     const matchingShell = latestRun.tools.filter((item) => {
-      if (item.toolName !== "shell_exec" || item.inputTruncated) return false;
-      const input = previewObject(item.inputPreview);
-      return input?.command === expectedCommand && (input.cwd ?? ".") === expectedCwd;
+      const input = shellCommand(item);
+      return input !== null && matchesTaskTestCommand(task, criterion, input);
     }).at(-1);
     const succeeded = matchingShell?.status === "completed" && matchingShell.shell?.exitCode === 0 &&
-      matchingShell.shell.timedOut === false && matchingShell.shell.cancelled === false &&
-      !latestRun.tools.some((tool, index) => index > latestRun.tools.indexOf(matchingShell) && ["write_file", "edit_file"].includes(tool.toolName));
+      !matchingShell.resultTruncated && matchingShell.shell.timedOut === false && matchingShell.shell.cancelled === false &&
+      !latestRun.tools.slice(latestRun.tools.indexOf(matchingShell) + 1).some(invalidatesTaskTest);
     return matchingShell === undefined || !succeeded
-      ? { status: "failed", evidence: [], note: "No matching successful Shell receipt after the latest file operation was found." }
+      ? { status: "failed", evidence: [], note: "No matching successful Shell receipt after the latest potentially mutating file, Shell or computer action was found. Run the required tests last; use the supplied test batch for multiple checks." }
       : {
           status: "passed",
           evidence: [{ id: randomUUID(), kind: "tool", runId: latestRun.runId,
             toolCallId: matchingShell.toolCallId, toolName: "shell_exec",
-            command: expectedCommand, cwd: expectedCwd,
+            ...shellCommand(matchingShell)!,
             verifiedAt: now, outcome: "succeeded" }],
           note: "Matched the latest Run's exact, untruncated Shell command and cwd with exitCode 0 and no timeout or cancellation.",
         };

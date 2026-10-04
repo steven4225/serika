@@ -1,6 +1,7 @@
 import type { BeforeRunFinish, BeforeRunFinishInput, RunFinishDecision } from "@aisdk-agent/core";
 import type { WorkTaskStore } from "./work-task-store.js";
 import { verifyAutomaticCriterion, type VerificationEnvironment } from "./work-task-verification.js";
+import { workTaskTestBatch } from "./work-task-shell-evidence.js";
 
 export const WORK_TASK_MAX_CORRECTIONS = 2;
 /** No new model loop, tool, permission, or persisted plan. Checks only the current owned Run. */
@@ -27,6 +28,12 @@ export function createWorkTaskFinishCheck(env: VerificationEnvironment & { workT
     while (lastUser >= 0 && input.messages[lastUser]?.role !== "user") lastUser -= 1;
     const denied = input.messages.slice(lastUser).some(message => message.parts.some(part => part.type === "dynamic-tool" && part.state === "output-error" && part.errorText.startsWith("TOOL_DENIED")));
     if (denied) return { kind: "stop", reason: "needs_confirmation" };
+    const testBatch = workTaskTestBatch(task);
+    const requiredTests = required.filter(item => item.verification.kind === "shell_exit_zero");
+    if (missing.some(item => item.criterion.verification.kind === "shell_exit_zero") &&
+        new Set(requiredTests.map(item => JSON.stringify(item.verification))).size > 1 && testBatch === null) {
+      return { kind: "stop", reason: "needs_information" };
+    }
     if (missing.some(({ criterion, result }) => result.status === "blocked" ||
       (criterion.verification.kind === "artifact_exists" && criterion.verification.requireReadback === true && !input.definition.tools.includes("read_file")) ||
       (criterion.verification.kind === "shell_exit_zero" ? !input.definition.tools.includes("shell_exec") :
@@ -35,6 +42,7 @@ export function createWorkTaskFinishCheck(env: VerificationEnvironment & { workT
     return { kind: "continue", feedback: [
       "Do not end this WorkTask yet: the following required program checks are not satisfied. Correct only these missing steps within the original goal and constraints, then finish again.",
       "Read current files before editing. New tool calls still require their original confirmation. Never replay unknown effects or repeat a denied call; do not self-accept human quality.",
+      ...(testBatch ? [`After edits, execute this exact Shell batch once for all required tests: ${JSON.stringify(testBatch)}. Later Shell/file/computer actions invalidate it.`] : []),
       ...missing.map(({ criterion, result }) => JSON.stringify({ id: criterion.id, verification: criterion.verification, status: result.status, note: result.note })),
     ].join("\n").slice(0, 8192) };
   };

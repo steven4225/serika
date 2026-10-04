@@ -6,6 +6,7 @@ import { dirname, join, resolve } from "node:path";
 import { acquireFlock, tryAcquireFlock, type FlockHandle } from "./flock.js";
 import { matchesFileWritePath, readFileWriteReceipt, hasMatchingFileReadback, type ExecutionRecordStore, type ExecutionToolRecord } from "./execution-record-store.js";
 import { rejectSymlinkComponents, validateWorkspacePath } from "./workspace-path.js";
+import { invalidatesTaskTest, matchesTaskTestCommand } from "./work-task-shell-evidence.js";
 
 export const WORK_TASK_FILE_NAME = ".runloom/work-tasks.json";
 export const WORK_TASK_LOCK_FILE_NAME = ".runloom/work-tasks.json.lock";
@@ -356,7 +357,7 @@ function parseTask(value: unknown): WorkTask {
   if (task.acceptance.some((criterion) => criterion.status === "passed" &&
       !criterion.evidenceRefs.some((id) => {
         const item = savedEvidence.get(id);
-        return item !== undefined && evidenceMatches(criterion, item);
+        return item !== undefined && evidenceMatches(task, criterion, item);
       }))) {
     raise("WORK_TASK_FILE_INVALID", "Passed acceptance criterion lacks matching evidence");
   }
@@ -390,13 +391,13 @@ function requiredPassed(task: WorkTask): boolean {
   return task.acceptance.filter((item) => item.required).every((item) => item.status === "passed");
 }
 
-function evidenceMatches(criterion: AcceptanceCriterion, item: WorkTaskEvidence): boolean {
+function evidenceMatches(task: WorkTask, criterion: AcceptanceCriterion, item: WorkTaskEvidence): boolean {
   return criterion.verification.kind === "human"
     ? item.kind === "human" && item.criterionId === criterion.id
     : criterion.verification.kind === "artifact_exists"
       ? item.kind === "artifact" && item.path === criterion.verification.path
       : item.kind === "tool" && item.toolName === "shell_exec" &&
-        item.command === criterion.verification.command && item.cwd === criterion.verification.cwd;
+        matchesTaskTestCommand(task, criterion, item);
 }
 
 function validateWritableDocument(document: WorkTaskDocument): void {
@@ -645,7 +646,7 @@ class WorkTaskStoreImpl implements WorkTaskStore {
       const allIds = new Set(task.delivery.evidence.map((item) => item.id));
       if (additions.some((item) => allIds.has(item.id))) raise("WORK_TASK_INVALID_INPUT", "Evidence ID already exists");
       if (input.status === "passed") {
-        const matches = additions.some((item) => evidenceMatches(criterion, item) &&
+        const matches = additions.some((item) => evidenceMatches(task, criterion, item) &&
           (item.kind === "human" || task.runIds.includes(item.runId)));
         if (!matches) raise("WORK_TASK_INVALID_INPUT", "Passed criterion requires matching task evidence");
       }
@@ -659,7 +660,7 @@ class WorkTaskStoreImpl implements WorkTaskStore {
 
   async #verifyAutomaticEvidence(task: WorkTask, criterion: AcceptanceCriterion, candidates: WorkTaskEvidence[]): Promise<void> {
     const candidate = candidates.find((item): item is Exclude<WorkTaskEvidence, { kind: "human" }> =>
-      item.kind !== "human" && evidenceMatches(criterion, item));
+      item.kind !== "human" && evidenceMatches(task, criterion, item));
     if (candidate === undefined || !task.runIds.includes(candidate.runId)) {
       raise("WORK_TASK_INVALID_INPUT", "Automatic acceptance lacks matching task evidence");
     }
@@ -692,7 +693,7 @@ class WorkTaskStoreImpl implements WorkTaskStore {
     }
     if (candidate.kind === "tool") {
       if (tool.inputTruncated || tool.resultTruncated || !this.#validShellReceipt(tool, candidate) ||
-          run.tools.slice(run.tools.indexOf(tool) + 1).some(item => ["write_file", "edit_file"].includes(item.toolName))) {
+          run.tools.slice(run.tools.indexOf(tool) + 1).some(invalidatesTaskTest)) {
         raise("WORK_TASK_INVALID_INPUT", "Shell evidence does not match its execution receipt");
       }
       return;
