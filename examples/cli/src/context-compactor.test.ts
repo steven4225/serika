@@ -7,9 +7,9 @@ import type {
   ThreadContextCompactionRecord,
 } from "@aisdk-agent/core";
 import { AgentError } from "@aisdk-agent/core";
-import { ContextCompactor, readContextDiagnostics, type ContextCompactorOptions } from "./context-compactor.js";
+import { ContextCompactor, readContextDiagnostics, reconcilePublishedSummary, summarySourceChunks, type ContextCompactorOptions } from "./context-compactor.js";
 import { compactPrefixHash, contextSummaryPrompt, type ContextCompactionRecord, type ContextSummaryV2, type Summarizer } from "./context-compaction.js";
-import type { ContextBudgetConfig } from "./context-budget.js";
+import { estimateMessageTokens, type ContextBudgetConfig } from "./context-budget.js";
 import {
   CHECKPOINT_CONTEXT_MESSAGE_ID,
   checkpointAndMemoryContextMessages,
@@ -104,6 +104,85 @@ function makeCompactor(
 }
 
 describe("ContextCompactor", () => {
+  it("preserves the middle and Unicode of user text, even when its turn cannot fit one source chunk", () => {
+    for (const text of ["important-middle-constraint", `${"开头🙂".repeat(100)} NEVER DELETE OLD CHAPTERS ${"结尾🚀".repeat(100)}`]) {
+      const chunks = summarySourceChunks([{ messages: [user("u1", text), assistant("a1", "large output ".repeat(500))] }], 256);
+      assert.ok(chunks.every(chunk => estimateMessageTokens(chunk) <= 256));
+      const fragments = chunks.flat().filter(message => message.id === "u1");
+      const recovered = fragments.map(message => message.parts.map(part => part.type === "text" ? part.text : "").join("\n")).join("");
+      assert.equal(recovered, text);
+      for (const message of fragments) for (const part of message.parts) {
+        if (part.type === "text") assert.equal(Buffer.from(part.text, "utf8").toString("utf8"), part.text);
+      }
+    }
+  });
+
+  it("aggregates repeated completed file receipts without merging across uncertain effects or losing original receipts", () => {
+    const effect = (id: string, state: "output-available" | "input-available" | "output-error"): UIMessage => ({
+      id, role: "assistant", parts: [{ type: "dynamic-tool", toolName: "edit_file", toolCallId: id,
+        state, input: { path: "notes/plan.md", oldText: "old", newText: "new" },
+        ...(state === "output-available" ? { output: { ok: true, path: "notes/plan.md", bytes: 3 } } :
+          state === "output-error" ? { errorText: "TOOL_DENIED: declined" } : {}),
+      } as UIMessage["parts"][number]],
+    });
+    const originals = [user("u1", "preserve chapters"), ...Array.from({ length: 20 }, (_, i) => effect(`done-${i}`, "output-available")),
+      effect("unknown", "output-available"), effect("denied", "output-error"), effect("after-1", "output-available"), effect("after-2", "output-available")];
+    const unknownPart = originals.find(message => message.id === "unknown")!.parts[0];
+    assert.ok(unknownPart?.type === "dynamic-tool" && unknownPart.state === "output-available");
+    unknownPart.output = { path: "notes/plan.md" }; // Returned output without explicit ok remains unknown.
+    const snapshot = structuredClone(originals);
+    const reconciled = reconcilePublishedSummary(summary, originals, undefined);
+    assert.equal(reconciled.files.length, 1);
+    assert.deepEqual(reconciled.files[0]?.evidenceMessageIds, ["after-2"]);
+    assert.match(reconciled.files[0]!.text, /not current disk state/);
+    assert.deepEqual(reconciled.actions.map(item => item.status), ["completed", "unknown", "not_executed", "completed"]);
+    assert.equal(reconciled.actions[0]?.toolCallIds.length, 8);
+    assert.deepEqual(reconciled.actions[1]?.toolCallIds, ["unknown"]);
+    assert.deepEqual(reconciled.actions[3]?.toolCallIds, ["after-1", "after-2"]);
+    assert.deepEqual(originals, snapshot, "projection never deletes or rewrites full receipts");
+    const next = reconcilePublishedSummary(summary, originals, reconciled);
+    assert.deepEqual(next.actions, reconciled.actions, "a later merge must not re-expand completed history");
+    assert.equal(next.files.length, 1);
+  });
+
+  it("fails oversized lossless user sources without advancing an existing valid recovery boundary", async () => {
+    const store = new FakeStore();
+    const old = [user("old-user", "old task"), assistant("old-assistant", "old response")];
+    store.messages = [...old, user("large", "middle constraint ".repeat(2000)), assistant("large-answer", "done"), user("current", "continue")];
+    store.records.push({ v: 2, type: "thread.context.compacted", threadId: "thread-1", id: "valid-old",
+      previousCompactionId: null, firstKeptMessageIndex: 2, firstKeptMessageId: "large",
+      sourcePrefixHash: compactPrefixHash(store.messages, 2), summary, strategyVersion: "summary-json/v2",
+      modelId: "mock/default", createdAt: new Date(0).toISOString(),
+      metrics: { estimatedInputBefore: 1000, estimatedInputAfter: 100, durationMs: 1, attempts: 1 },
+    } as unknown as ThreadContextCompactionRecord);
+    const before = structuredClone(store.records);
+    const summarizer = new FakeSummarizer();
+    const compactor = makeCompactor(store, summarizer);
+    await assert.rejects(() => compactor.prepare(store.messages, new AbortController().signal), /bounded summary merge/);
+    assert.equal(summarizer.calls, 0);
+    assert.deepEqual(store.records, before);
+    const diagnostics = await compactor.getDiagnostics(); assert.ok(diagnostics.ok);
+    assert.equal(diagnostics.value.latestValidCompaction?.id, "valid-old");
+    assert.equal(diagnostics.value.lastPreparation?.outcome, "failed");
+  });
+
+  it("compacts interleaved successful reads and edits, without turning reads into saved file evidence", () => {
+    const messages: UIMessage[] = [user("u1", "continue")];
+    for (let i = 0; i < 20; i++) for (const toolName of ["read_file", "edit_file"]) {
+      const id = `${toolName}-${i}`;
+      messages.push({ id, role: "assistant", parts: [{ type: "dynamic-tool", toolName, toolCallId: id,
+        state: "output-available", input: { path: "notes/plan.md" }, output: { ok: true, path: "notes/plan.md", bytes: 5 },
+      }] });
+    }
+    const result = reconcilePublishedSummary(summary, messages, undefined);
+    assert.equal(result.actions.length, 2);
+    assert.ok(result.actions.every(action => action.status === "completed" && action.toolCallIds.length === 8));
+    assert.equal(result.files.length, 1);
+    assert.deepEqual(result.files[0]?.evidenceMessageIds, ["edit_file-19"]);
+    const readsOnly = reconcilePublishedSummary(summary, messages.filter(message => !message.id.startsWith("edit_file")), undefined);
+    assert.deepEqual(readsOnly.files, []);
+  });
+
   it("merges only the uncovered suffix after restart, including an old boundary inside a now-complete turn", async () => {
     const store = new FakeStore();
     const old = Array.from({ length: 12 }, (_, i) => [user(`old-u-${i}`, "ALREADY_COVERED ".repeat(100)), assistant(`old-a-${i}`, "ALREADY_COVERED ".repeat(100))]).flat();
@@ -138,7 +217,7 @@ describe("ContextCompactor", () => {
   });
   it("reads diagnostics without preparing, calling the model, or writing; restart is not a preparation", async () => {
     const store = new FakeStore();
-    store.messages = [user("u1", "old goal ".repeat(40)), assistant("a1", "old result ".repeat(40)), user("u2", "continue")];
+    store.messages = [user("u1", "old goal ".repeat(4)), assistant("a1", "old result ".repeat(100)), user("u2", "continue")];
     const summarizer = new FakeSummarizer();
     const original = makeCompactor(store, summarizer);
     await original.prepare(store.messages, new AbortController().signal);
@@ -167,7 +246,7 @@ describe("ContextCompactor", () => {
 
   it("skips nonmatching records, retains valid historical evidence after a failed preparation, and reports read failure", async () => {
     const store = new FakeStore();
-    store.messages = [user("u1", "old goal ".repeat(40)), assistant("a1", "old result ".repeat(40)), user("u2", "continue")];
+    store.messages = [user("u1", "old goal ".repeat(4)), assistant("a1", "old result ".repeat(100)), user("u2", "continue")];
     await makeCompactor(store, new FakeSummarizer()).prepare(store.messages, new AbortController().signal);
     const invalid = { ...structuredClone(store.records[0]!), id: "invalid", sourcePrefixHash: "not-the-prefix" };
     store.records.push(invalid);
@@ -202,7 +281,7 @@ describe("ContextCompactor", () => {
 
   it("does not manufacture zero usage fields that the model did not return", async () => {
     const store = new FakeStore();
-    store.messages = [user("u1", "old goal ".repeat(40)), assistant("a1", "old result ".repeat(40)), user("u2", "continue")];
+    store.messages = [user("u1", "old goal ".repeat(4)), assistant("a1", "old result ".repeat(100)), user("u2", "continue")];
     const compactor = makeCompactor(store, {
       complete: async () => ({ text: JSON.stringify(summary), usage: { inputTokens: 9 } }),
     });
@@ -227,8 +306,8 @@ describe("ContextCompactor", () => {
     const summarizer = new FakeSummarizer();
     const compactor = makeCompactor(store, summarizer);
     const messages = [
-      user("u1", "old goal ".repeat(40)),
-      assistant("a1", "old result ".repeat(40)),
+      user("u1", "old goal ".repeat(4)),
+      assistant("a1", "old result ".repeat(100)),
       user("u2", "new request ".repeat(4)),
       assistant("a2", "recent result ".repeat(4)),
     ];
@@ -267,8 +346,8 @@ describe("ContextCompactor", () => {
       },
     };
     const messages = [
-      user("u1", "old goal ".repeat(40)),
-      assistant("a1", "old result ".repeat(40)),
+      user("u1", "old goal ".repeat(4)),
+      assistant("a1", "old result ".repeat(100)),
       user("u2", "new request ".repeat(4)),
       assistant("a2", "recent result ".repeat(4)),
     ];
@@ -316,7 +395,7 @@ describe("ContextCompactor", () => {
   it("reuses a valid persisted summary after reopen without another summary call", async () => {
     const store = new FakeStore();
     const first = new FakeSummarizer();
-    const messages = [user("u1", "old ".repeat(40)), assistant("a1", "old result ".repeat(40)), user("u2", "new ".repeat(4)), assistant("a2", "recent ".repeat(4))];
+    const messages = [user("u1", "old ".repeat(40)), assistant("a1", "old result ".repeat(100)), user("u2", "new ".repeat(4)), assistant("a2", "recent ".repeat(4))];
     await makeCompactor(store, first).prepare(messages, new AbortController().signal);
 
     const second = new FakeSummarizer();
@@ -329,8 +408,8 @@ describe("ContextCompactor", () => {
     const store = new FakeStore();
     const summarizer = new FakeSummarizer();
     const firstMessages = [
-      user("u1", "old goal ".repeat(40)),
-      assistant("a1", "old result ".repeat(40)),
+      user("u1", "old goal ".repeat(4)),
+      assistant("a1", "old result ".repeat(100)),
       user("u2", "new request ".repeat(4)),
       assistant("a2", "recent result ".repeat(4)),
     ];
@@ -492,8 +571,8 @@ describe("ContextCompactor", () => {
     const summarizer = new FakeSummarizer();
     const messages: UIMessage[] = [];
     for (let index = 0; index < 4; index += 1) {
-      messages.push(user(`old-user-${index}`, `old goal ${index} `.repeat(40)));
-      messages.push(assistant(`old-answer-${index}`, `old result ${index} `.repeat(40)));
+      messages.push(user(`old-user-${index}`, `old goal ${index} `.repeat(4)));
+      messages.push(assistant(`old-answer-${index}`, `old result ${index} `.repeat(100)));
     }
     messages.push(user("current", "continue"));
 
@@ -506,7 +585,8 @@ describe("ContextCompactor", () => {
     const store = new FakeStore();
     const summarizer = new FakeSummarizer();
     const messages: UIMessage[] = [
-      user("u1", "old request ".repeat(40)),
+      user("u1", "old request ".repeat(4)),
+      assistant("filler", "old reference ".repeat(100)),
       {
         id: "call-1",
         role: "assistant",
@@ -589,8 +669,8 @@ describe("ContextCompactor", () => {
     const summarizer = new NonRetryableSummarizer();
     await assert.rejects(
       () => makeCompactor(store, summarizer).prepare([
-        user("u1", "old request ".repeat(40)),
-        assistant("a1", "old answer ".repeat(40)),
+        user("u1", "old request ".repeat(4)),
+        assistant("a1", "old answer ".repeat(100)),
         user("u2", "continue"),
       ], new AbortController().signal),
       (error: unknown) => error instanceof AgentError && error.data.code === "MODEL_AUTH",
@@ -602,8 +682,8 @@ describe("ContextCompactor", () => {
   it("counts usage from invalid JSON attempts in the saved metrics and /compact report", async () => {
     const store = new FakeStore();
     store.messages = [
-      user("u1", "old request ".repeat(40)),
-      assistant("a1", "old answer ".repeat(40)),
+      user("u1", "old request ".repeat(4)),
+      assistant("a1", "old answer ".repeat(100)),
       user("u2", "continue"),
     ];
     let calls = 0;
@@ -629,7 +709,7 @@ describe("ContextCompactor", () => {
 
   it("never installs a length-truncated summary even if its visible JSON parses, and retries within the same budget", async () => {
     const store = new FakeStore();
-    store.messages = [user("u1", "old request ".repeat(40)), assistant("a1", "old answer ".repeat(40)), user("u2", "continue")];
+    store.messages = [user("u1", "old request ".repeat(4)), assistant("a1", "old answer ".repeat(100)), user("u2", "continue")];
     let calls = 0;
     const summarizer: Summarizer = {
       async complete({ prompt, maxOutputTokens }) {
@@ -660,8 +740,8 @@ describe("ContextCompactor", () => {
     };
     await assert.rejects(
       () => makeCompactor(store, summarizer).prepare([
-        user("u1", "old request ".repeat(40)),
-        assistant("a1", "old answer ".repeat(40)),
+        user("u1", "old request ".repeat(4)),
+        assistant("a1", "old answer ".repeat(100)),
         user("u2", "continue"),
       ], new AbortController().signal),
       (error: unknown) => error instanceof AgentError &&
@@ -684,8 +764,8 @@ describe("ContextCompactor", () => {
     };
     await assert.rejects(
       () => makeCompactor(store, summarizer).prepare([
-        user("u1", "old request ".repeat(40)),
-        assistant("a1", "old answer ".repeat(40)),
+        user("u1", "old request ".repeat(4)),
+        assistant("a1", "old answer ".repeat(100)),
         user("u2", "continue"),
       ], controller.signal),
       /cancelled/,
@@ -704,8 +784,8 @@ describe("ContextCompactor", () => {
       },
     };
     await makeCompactor(store, emptyThenOk).prepare([
-      user("u1", "old request ".repeat(40)),
-      assistant("a1", "old answer ".repeat(40)),
+      user("u1", "old request ".repeat(4)),
+      assistant("a1", "old answer ".repeat(100)),
       user("u2", "continue"),
     ], new AbortController().signal);
     assert.equal(emptyCalls, 3);
@@ -721,8 +801,8 @@ describe("ContextCompactor", () => {
     };
     await assert.rejects(
       () => makeCompactor(boomStore, boom).prepare([
-        user("u1", "old request ".repeat(40)),
-        assistant("a1", "old answer ".repeat(40)),
+        user("u1", "old request ".repeat(4)),
+        assistant("a1", "old answer ".repeat(100)),
         user("u2", "continue"),
       ], new AbortController().signal),
     );
@@ -749,7 +829,8 @@ describe("ContextCompactor", () => {
       },
     };
     const messages: UIMessage[] = [
-      user("u1", "old request ".repeat(400)),
+      user("u1", "old request"),
+      assistant("filler", "old reference ".repeat(400)),
       {
         id: "write-1",
         role: "assistant",
@@ -783,8 +864,8 @@ describe("ContextCompactor", () => {
       },
     };
     await makeCompactor(store, summarizer).prepare([
-      user("u1", "old request ".repeat(40)),
-      assistant("a1", "old answer ".repeat(40)),
+      user("u1", "old request ".repeat(4)),
+      assistant("a1", "old answer ".repeat(100)),
       user("u2", "continue"),
     ], new AbortController().signal);
     assert.equal(calls, 2);
@@ -815,7 +896,8 @@ describe("ContextCompactor", () => {
       },
     };
     const messages: UIMessage[] = [
-      user("u1", "old request ".repeat(400)),
+      user("u1", "old request"),
+      assistant("filler", "old reference ".repeat(400)),
       {
         id: "call-1",
         role: "assistant",
@@ -878,7 +960,8 @@ describe("ContextCompactor", () => {
       },
     };
     await makeCompactor(store, summarizer, roomyBudget).prepare([
-      user("u1", "inspect the failing test ".repeat(400)),
+      user("u1", "inspect the failing test"),
+      assistant("filler", "old reference ".repeat(400)),
       user("u2", "continue"),
     ], new AbortController().signal);
     const persisted = store.records[0]?.summary as unknown as ContextSummaryV2;
@@ -903,7 +986,8 @@ describe("ContextCompactor", () => {
       },
     };
     const messages: UIMessage[] = [
-      user("u1", "old request ".repeat(400)),
+      user("u1", "old request"),
+      assistant("filler", "old reference ".repeat(400)),
       {
         id: "write-1",
         role: "assistant",
@@ -962,7 +1046,7 @@ describe("ContextCompactor", () => {
     const first = new FakeSummarizer();
     const messages = [
       user("u1", "old ".repeat(40)),
-      assistant("a1", "old result ".repeat(40)),
+      assistant("a1", "old result ".repeat(100)),
       user("u2", "new ".repeat(4)),
       assistant("a2", "recent ".repeat(4)),
     ];
@@ -1024,7 +1108,7 @@ describe("ContextCompactor", () => {
     const summarizer = new FakeSummarizer();
     const messages = [
       user("u1", "old ".repeat(40)),
-      assistant("a1", "old result ".repeat(40)),
+      assistant("a1", "old result ".repeat(100)),
       user("u2", "new ".repeat(4)),
       assistant("a2", "recent ".repeat(4)),
     ];

@@ -120,7 +120,7 @@ it("automatically compacts a same-Run tool result, continues, and restores JSONL
     const result = await handle.result;
     assert.equal(result.status, "completed", JSON.stringify(result));
     assert.equal(modelCalls, 2);
-    assert.equal(summaryCalls, 1);
+    assert.equal(summaryCalls, 3, "lossless old user text requires bounded merges, not head/tail clipping");
     assert.doesNotMatch(prompts[0]!, /runloom-context-summary/);
     assert.match(prompts[1]!, /Context summary/);
     assert.match(prompts[1]!, /Source paragraph/);
