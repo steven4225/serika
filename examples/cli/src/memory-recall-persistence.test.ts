@@ -160,8 +160,8 @@ describe("Memory recall through the real workspace file and fresh store instance
       const store = createMemoryStore(workspace);
       const preference = entry(await store.add({ text: oldPreference, kind: "preference", source: source("old-user", oldPreference) }));
       const history: UIMessage[] = [
-        { id: "old-user", role: "user", parts: [{ type: "text", text: oldPreference + " 历史工作讨论。".repeat(400) }] },
-        { id: "old-assistant", role: "assistant", parts: [{ type: "text", text: "了解旧格式。".repeat(100) }] },
+        { id: "old-user", role: "user", parts: [{ type: "text", text: oldPreference }] },
+        { id: "old-assistant", role: "assistant", parts: [{ type: "text", text: "了解旧格式。历史工作讨论。".repeat(400) }] },
         { id: "recent-user", role: "user", parts: [{ type: "text", text: "继续下一步项目工作。" }] },
         { id: "recent-assistant", role: "assistant", parts: [{ type: "text", text: "等你下一步任务。" }] },
       ];

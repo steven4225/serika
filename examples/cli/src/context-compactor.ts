@@ -36,6 +36,7 @@ const SUMMARY_TIMEOUT_MS = 30_000;
 const MANUAL_COMPACTION_TIMEOUT_MS = 120_000;
 const MAX_SUMMARY_MERGES = 4;
 const FILE_TOOLS = new Set(["write_file", "edit_file"]);
+const FILE_RECEIPT_TOOLS = new Set(["read_file", "write_file", "edit_file"]);
 
 export interface ContextCompactorOptions {
   store: MessageStore & ContextCompactionStore;
@@ -196,37 +197,99 @@ function summarySourceMessage(message: UIMessage, maxTokens: number): UIMessage 
   };
 }
 
-function summarySourceChunks(
+function fitSummarySourceMessage(message: UIMessage, maxTokens: number): UIMessage | undefined {
+  const projected = summarySourceMessage(message, maxTokens);
+  const part = projected.parts[0];
+  if (part?.type !== "text") return undefined;
+  const characters = Array.from(part.text);
+  let low = 0, high = characters.length;
+  let best: UIMessage | undefined;
+  while (low <= high) {
+    const count = Math.floor((low + high) / 2);
+    const head = Math.ceil(count / 2);
+    const text = count === characters.length ? part.text :
+      `${characters.slice(0, head).join("")}\n...[truncated for context compaction]...\n${characters.slice(characters.length - (count - head)).join("")}`;
+    const candidate = { ...projected, parts: [{ type: "text" as const, text }] };
+    if (estimateMessageTokens([candidate]) <= maxTokens) { best = candidate; low = count + 1; }
+    else high = count - 1;
+  }
+  return best;
+}
+
+export function summarySourceChunks(
   units: readonly { messages: readonly UIMessage[] }[],
   maxTokens: number,
 ): UIMessage[][] {
   const chunks: UIMessage[][] = [];
   let current: UIMessage[] = [];
   let currentTokens = 0;
-  for (const unit of units) {
-    const perMessage = Math.max(32, Math.floor(maxTokens / Math.max(1, unit.messages.length)));
-    let bounded = unit.messages.map((message) => summarySourceMessage(message, perMessage));
-    let unitTokens = estimateMessageTokens(bounded);
-    if (unitTokens > maxTokens) {
-      bounded = [{
-        id: unit.messages[0]?.id ?? `compaction-unit-${chunks.length}-${current.length}`,
-        role: "assistant",
-        parts: [{
-          type: "text",
-          text: truncateSummaryText(
-            unit.messages.map((message) => `${message.id}: ${JSON.stringify(message.parts)}`).join("\n"),
-            Math.max(128, maxTokens * 2),
-          ),
-        }],
-      }];
-      unitTokens = estimateMessageTokens(bounded);
+  const append = (message: UIMessage) => {
+    const tokens = estimateMessageTokens([message]);
+    if (tokens > maxTokens) throw contextError("A compaction source fragment exceeds the source budget");
+    if (current.length > 0 && currentTokens + tokens > maxTokens) {
+      chunks.push(current); current = []; currentTokens = 0;
+      if (chunks.length >= MAX_SUMMARY_MERGES) throw contextError("Context compaction source is too large for the bounded summary merge");
     }
+    current.push(message); currentTokens += tokens;
+  };
+  for (const unit of units) {
+    // User text may contain a hard constraint in its middle. Send all of it in
+    // bounded fragments rather than presenting a head/tail excerpt as coverage.
+    if (unit.messages.some(message => message.role === "user")) {
+      const users = unit.messages.filter(message => message.role === "user");
+      const userTokens = estimateMessageTokens(users);
+      const otherCount = unit.messages.length - users.length;
+      const otherBudget = Math.floor((maxTokens - userTokens) / Math.max(1, otherCount));
+      const bounded = unit.messages.map(message => message.role === "user" ? message :
+        fitSummarySourceMessage(message, otherBudget));
+      if (bounded.every((message): message is UIMessage => message !== undefined) && estimateMessageTokens(bounded) <= maxTokens) {
+        if (current.length && currentTokens + estimateMessageTokens(bounded) > maxTokens) {
+          chunks.push(current); current = []; currentTokens = 0;
+        }
+        for (const message of bounded) append(message);
+        continue;
+      }
+      for (const message of unit.messages) {
+        if (message.role !== "user") {
+          const projected = fitSummarySourceMessage(message, maxTokens);
+          if (!projected) throw contextError("Compaction source metadata exceeds the source budget");
+          append(projected); continue;
+        }
+        const text = message.parts.map(part => part.type === "text" ? part.text : `[${part.type}]`).join("\n");
+        let remaining = Array.from(text);
+        while (remaining.length > 0) {
+          let low = 1, high = remaining.length, fits = 0;
+          while (low <= high) {
+            const count = Math.floor((low + high) / 2);
+            const fragment = { id: message.id, role: message.role, parts: [{ type: "text" as const, text: remaining.slice(0, count).join("") }] };
+            if (estimateMessageTokens([fragment]) <= maxTokens) { fits = count; low = count + 1; } else high = count - 1;
+          }
+          if (!fits) throw contextError("User source cannot fit a bounded compaction fragment");
+          append({ id: message.id, role: message.role, parts: [{ type: "text", text: remaining.slice(0, fits).join("") }] });
+          remaining = remaining.slice(fits);
+        }
+      }
+      continue;
+    }
+    const perMessage = Math.floor(maxTokens / Math.max(1, unit.messages.length));
+    let bounded = unit.messages.map((message) => fitSummarySourceMessage(message, perMessage));
+    if (bounded.some(message => message === undefined)) {
+      const projected = fitSummarySourceMessage({
+        id: unit.messages[0]?.id ?? "compaction-unit",
+        role: "assistant",
+        parts: [{ type: "text", text: unit.messages.map(message => `${message.id}: ${JSON.stringify(message.parts)}`).join("\n") }],
+      }, maxTokens);
+      if (!projected) throw contextError("Compaction source metadata exceeds the source budget");
+      bounded = [projected];
+    }
+    const messages = bounded.filter((message): message is UIMessage => message !== undefined);
+    const unitTokens = estimateMessageTokens(messages);
     if (current.length > 0 && currentTokens + unitTokens > maxTokens) {
       chunks.push(current);
       current = [];
       currentTokens = 0;
     }
-    current.push(...bounded);
+    current.push(...messages);
     currentTokens += unitTokens;
   }
   if (current.length > 0) chunks.push(current);
@@ -263,7 +326,7 @@ function constrainItem(
   };
 }
 
-function reconcilePublishedSummary(
+export function reconcilePublishedSummary(
   summary: ContextSummaryV2,
   coveredMessages: readonly UIMessage[],
   previous: ContextSummaryV2 | undefined,
@@ -307,10 +370,11 @@ function reconcilePublishedSummary(
       fact.path !== undefined &&
       FILE_TOOLS.has(fact.toolName),
   );
-  const newFiles: ContextSummaryFile[] = fileFacts.map((fact) => {
+  const latestFileFacts = [...new Map(fileFacts.map(fact => [fact.path!, fact])).values()];
+  const newFiles: ContextSummaryFile[] = latestFileFacts.map((fact) => {
     const modeled = summary.files.find((file) => file.path === fact.path);
     return {
-      text: modeled?.text ?? fact.text,
+      text: `Historical successful write receipt, not current disk state: ${fact.text}`,
       evidenceMessageIds: fact.evidenceMessageIds,
       path: fact.path!,
       purpose: modeled?.purpose ?? fact.toolName,
@@ -324,11 +388,37 @@ function reconcilePublishedSummary(
     goal: constrain(summary.goal),
     constraints: summary.constraints.map(constrain),
     decisions: summary.decisions.map((decision) => ({ ...decision, ...constrain(decision) })),
-    actions: [...keptPreviousActions, ...fromFacts, ...unfinishedActions],
+    actions: compactCompletedActions([...keptPreviousActions, ...fromFacts, ...unfinishedActions], facts),
     pending: summary.pending.map(constrain),
-    files: [...keptPreviousFiles, ...newFiles],
+    files: [...new Map([...keptPreviousFiles, ...newFiles].map(file => [file.path, file])).values()],
     nextStep: summary.nextStep === null ? null : constrain(summary.nextStep),
   };
+}
+
+/** Full receipts stay in transcript; only repeated completed file effects share a reference. */
+function compactCompletedActions(actions: ContextSummaryV2["actions"], facts: ReturnType<typeof collectTranscriptToolFacts>): ContextSummaryV2["actions"] {
+  const byId = new Map(facts.map(fact => [fact.toolCallId, fact]));
+  const groups = new Map<string, ContextSummaryV2["actions"][number]>();
+  const result: ContextSummaryV2["actions"] = [];
+  for (const action of actions) {
+    const fact = byId.get(action.toolCallIds.at(-1) ?? "");
+    if (action.status !== "completed" || !fact?.path || !FILE_RECEIPT_TOOLS.has(fact.toolName)) {
+      // Never aggregate a later success across an unresolved/failed operation.
+      if (action.status !== "completed") groups.clear();
+      result.push(action); continue;
+    }
+    const key = `${fact.toolName}:${fact.path}`;
+    const previousAction = groups.get(key);
+    if (!previousAction) {
+      const grouped = { ...action };
+      groups.set(key, grouped); result.push(grouped);
+    } else {
+      previousAction.text = `Historical ${fact.toolName} receipts for ${fact.path}; inspect full transcript for the full sequence, then read current disk before continuing.`;
+      previousAction.toolCallIds = uniqueIds([...previousAction.toolCallIds, ...action.toolCallIds]).slice(-8);
+      previousAction.evidenceMessageIds = uniqueIds([...previousAction.evidenceMessageIds, ...action.evidenceMessageIds]).slice(-8);
+    }
+  }
+  return result;
 }
 
 function formatUsage(usage: TokenUsage | undefined): string {

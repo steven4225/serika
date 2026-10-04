@@ -309,7 +309,7 @@ function explicitOk(output: unknown): boolean | undefined {
 }
 
 function toolPath(part: DynamicToolPart): string | undefined {
-  if (part.toolName !== "write_file" && part.toolName !== "edit_file") {
+  if (part.toolName !== "write_file" && part.toolName !== "edit_file" && part.toolName !== "read_file") {
     return undefined;
   }
   if (isRecord(part.input) && isNonEmptyString(part.input.path)) {

@@ -393,6 +393,9 @@ RUNLOOM_CONTEXT_CONTINUITY=1 RUNLOOM_MODEL=command-code node --env-file=.env \
 核对任务/Thread/最新 primary Run 归属，实际模型输入须带当前任务合同。Run 结束
 只能是 paused，验收项仍 not_run，不能把聊天完成当任务完成。
 
+当前验收要求退出前至少两条不同 ID 的自动压缩安装记录，不能用一次摘要的多次
+模型合并冒充二次压缩。每轮必须先成功读盘、再成功编辑、最后成功读回。
+
 第一进程完整退出后，验收程序在磁盘首行加一个摘要不可能知道的外部标记，再开
 独立子进程。新进程用同一配置/workspace/Thread 读取原任务，合同、revision 和
 Run 列表须与退出前完全一致；历史有效摘要可恢复，本进程准备仍是 null。随后显式
@@ -409,7 +412,30 @@ awaiting_acceptance、saved-artifact passed、quality not_run。`report.json.pas
 执行回执、JSONL、原任务退出快照、配置和产物；两份配置哈希须一致。任一阶段失败
 总报告为 false，失败不改预算、不补 transcript、不自动换目录重试到绿。
 
-### 本次真实模型结果（2026-10-03）
+### 第二批真实模型结果（2026-10-04）
+
+固定预算的新隔离案例使用 Command Code `deepseek/deepseek-v4.1-flash`，
+没有手动压缩、修改预算或整例重试。报告目录：
+`/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/runloom-context-continuity-dLZksj`。
+
+任务 `cd084c8b-2cf4-47c2-a545-9b32c684e4d4` 在 PID 1662 中运行十二轮
+（十一轮章节编辑与 continued），随后完整退出。退出前报告记下两条不同的
+自动安装 ID：`97741539-29a7-4705-bd45-0e20d5e18ced`、
+`44ba4b52-2f67-4881-9aa2-44e52f2750a9`。这些是压缩记录，不是摘要请求次数。
+同一轮后续准备可能复用摘要，因此最后一次准备不是 written 也不代表中途没有安装；
+验收计数已改为收集各轮最新有效记录的不同 ID，且新案例启动时不能有历史压缩。
+
+PID 9787 读取同一任务并完成第十三轮 reopened；前后配置 SHA-256 都为
+`547fe42c6acfcc55843c97e29288b14260e825dfc9f2aabdfbc67e4a76078bf0`。
+每轮成功读取、编辑并再次读取。原章节、唯一末尾标记和保护文件未变；重启后的
+新章节包含父进程退出后写入的完整外部标记。最后任务为 awaiting_acceptance，
+saved-artifact 为 passed，quality 为 not_run；总报告 passed 只指后端技术链。
+
+本次桌面类型检查、153 项测试和构建通过，但现有隔离 Electron 测试窗口截图
+为空白，没有继续猜测点击或操作日用数据。Electron 可见恢复/点击链仍为 not_run，
+不把后端程序确认冒充桌面交互验收。
+
+### 先前真实模型结果（2026-10-03）
 
 Command Code `deepseek/deepseek-v4.1-flash` 从新隔离目录一次启动该验收链，
 技术报告 passed，没有改预算或重开整个案例凑通过。证据目录：

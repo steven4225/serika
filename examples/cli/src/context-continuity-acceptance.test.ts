@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { fixtureApprovalAllowed, hasInjectedSummary, hasSuccessfulReadBeforeEdit, verifyContinuityTaskRun } from "./context-continuity-acceptance.js";
+import { fixtureApprovalAllowed, hasInjectedSummary, hasSuccessfulReadBeforeEdit, hasSuccessfulReadback, verifyContinuityTaskRun } from "./context-continuity-acceptance.js";
 import type { ExecutionRunRecord, ExecutionToolRecord } from "./execution-record-store.js";
 import type { WorkTask } from "./work-task-store.js";
 
@@ -52,4 +52,15 @@ test("summary evidence requires an actual assistant reference, not a mention in 
   assert.equal(hasInjectedSummary([{ role: "user", content }]), false);
   assert.equal(hasInjectedSummary([{ role: "system", content }]), false);
   assert.equal(hasInjectedSummary([{ role: "assistant", content: [{ type: "text", text: `quoted: ${content[0]!.text}` }] }]), false);
+});
+
+test("continuity requires a successful fresh read after editing, not a pre-edit or failed read", () => {
+  const receipt = (toolName: string, ok: boolean, status: ExecutionToolRecord["status"] = "completed") =>
+    ({ toolName, status, resultPreview: JSON.stringify({ ok }) });
+  const read = receipt("read_file", true), edit = receipt("edit_file", true);
+  assert.equal(hasSuccessfulReadback([read, edit, read]), true);
+  assert.equal(hasSuccessfulReadback([read, edit]), false);
+  assert.equal(hasSuccessfulReadback([read, edit, receipt("read_file", false)]), false);
+  assert.equal(hasSuccessfulReadback([read, edit, receipt("read_file", true, "unknown")]), false);
+  assert.equal(hasSuccessfulReadback([read, receipt("edit_file", false), read]), false);
 });

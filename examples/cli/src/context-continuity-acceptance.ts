@@ -84,6 +84,11 @@ export function hasSuccessfulReadBeforeEdit(
   return readIndex >= 0 && editIndex > readIndex;
 }
 
+export function hasSuccessfulReadback(tools: readonly Pick<ExecutionToolRecord, "toolName" | "status" | "resultPreview">[]): boolean {
+  const editIndex = tools.findIndex(tool => tool.toolName === "edit_file" && tool.status === "completed" && tool.resultPreview?.includes('"ok":true'));
+  return editIndex >= 0 && tools.slice(editIndex + 1).some(tool => tool.toolName === "read_file" && tool.status === "completed" && tool.resultPreview?.includes('"ok":true'));
+}
+
 async function child(root: string, stage: Stage, workflow: Workflow) {
   const configText = await readFile(join(root, "config.json"), "utf8");
   assert.deepEqual(JSON.parse(configText).contextCompaction, CONTINUITY_BUDGET);
@@ -153,6 +158,7 @@ async function child(root: string, stage: Stage, workflow: Workflow) {
     assert.equal(result.status, "completed", JSON.stringify(result));
     assert.ok(receipt && hasSuccessfulReadBeforeEdit(receipt.tools),
       "successful read must precede successful edit, including after restart; completed ok:false is not success");
+    assert.ok(hasSuccessfulReadback(receipt.tools), "successful edit must be followed by a fresh successful readback");
     if (task !== undefined) {
       const previousRuns = task.runIds;
       task = taskValue(await controller.getWorkTask(task.id));
@@ -178,6 +184,7 @@ async function child(root: string, stage: Stage, workflow: Workflow) {
   }
   let failure: string | null = null;
   let latestId: string | null = null;
+  const automaticCompactionIds = new Set<string>();
   try {
     if (workflow === "work-task") {
       if (stage === "before") {
@@ -208,15 +215,22 @@ async function child(root: string, stage: Stage, workflow: Workflow) {
     diagnostics.push({ round: "startup", diagnostic: startup });
     assert.equal(startup.value.lastPreparation, null);
     assert.equal(startup.value.lastPreparationSource, null);
-    const instructions = `只读写 ${ARTIFACT}，不要触碰 ${SENTINEL}，不要 Shell 或其它工具。先调用 read_file 核对当前内容，再用 edit_file 在末尾标记 ${END} 前追加章节。参数名严格使用 path、oldText、newText。读取确认末尾标记唯一后，oldText 使用标记行本身加换行，newText 使用新章节正文加原标记行与换行；不要加入不存在的占位说明，不要整文件重写。标记文字只能在文件末尾出现一次，不要在正文引用它。保留所有已有章节；工具成功后只简短报告，不把历史摘要当当前磁盘或权限。`;
+    if (stage === "before") assert.equal(startup.value.latestValidCompaction, null, "fresh case must not inherit historical installations");
+    const instructions = `只读写 ${ARTIFACT}，不要触碰 ${SENTINEL}，不要 Shell 或其它工具。先调用 read_file 核对当前内容，再用 edit_file 在末尾标记 ${END} 前追加章节。参数名严格使用 path、oldText、newText。读取确认末尾标记唯一后，oldText 使用标记行本身加换行，newText 使用新章节正文加原标记行与换行；不要加入不存在的占位说明，不要整文件重写。标记文字只能在文件末尾出现一次，不要在正文引用它。保留所有已有章节；改完再次调用 read_file 读回核对，然后只简短报告，不把历史摘要当当前磁盘或权限。`;
     if (stage === "before") {
       for (const [index, topic] of topics.entries()) {
         const label = `section-${index + 1}`;
         const diagnostic = await run(label, `${instructions}为个人助手的日用工作流程补充“## ${label}”章节：${topic}。正文约650字，包含具体操作、检查方式、失败边界与完成条件，避免重复已有章节。`);
         assert.match(await readFile(join(root, "workspace", ARTIFACT), "utf8"), new RegExp(`## ${label}`));
-        if (diagnostic.latestValidCompaction) { latestId = diagnostic.latestValidCompaction.id; break; }
+        // AgentLoop prepares each step. A later reuse in this same Run can
+        // replace lastPreparation.written, but cannot invent a new record ID.
+        if (diagnostic.latestValidCompaction) {
+          automaticCompactionIds.add(diagnostic.latestValidCompaction.id);
+          latestId = diagnostic.latestValidCompaction.id;
+        }
+        if (automaticCompactionIds.size >= 2) break;
       }
-      assert.ok(latestId, "bounded real workload did not trigger automatic compaction; no manual compact fallback");
+      assert.ok(automaticCompactionIds.size >= 2, "bounded real workload must trigger at least two automatic compactions; no manual compact fallback");
       await run("continued", `${instructions}增加“## continued”章节，说明前三项最重要的落地检查，各写一句，不重写全文。`);
       assert.ok(captures.some((capture) => capture.round === "continued" && hasInjectedSummary(capture.prompt)));
       if (task !== undefined) {
@@ -271,7 +285,7 @@ async function child(root: string, stage: Stage, workflow: Workflow) {
     await writeFile(join(root, `${stage}-inputs.json`), JSON.stringify(captures, null, 2));
     await writeFile(join(root, `${stage}-responses.json`), JSON.stringify(responses, null, 2));
     await writeFile(join(root, `${stage}-report.json`), JSON.stringify({ pid: process.pid, stage, configHash: sha(configText), thread: THREAD,
-      model: configured.modelAlias, workflow, passed: failure === null, failure, latestId, approvals, runs, diagnostics,
+      model: configured.modelAlias, workflow, passed: failure === null, failure, latestId, automaticCompactionIds: [...automaticCompactionIds], approvals, runs, diagnostics,
       ...(task === undefined ? {} : { workTask: task, taskSnapshots }) }, null, 2));
   }
   if (failure) throw new Error(failure);
@@ -309,6 +323,7 @@ export async function runContextContinuityAcceptance(options: { workTask?: boole
     const before = JSON.parse(await readFile(join(root, "before-report.json"), "utf8"));
     const after = JSON.parse(await readFile(join(root, "after-report.json"), "utf8"));
     assert.ok(before.passed && after.passed);
+    assert.ok(new Set(before.automaticCompactionIds).size >= 2, "before-restart report must prove two separate automatic installations");
     assert.equal(before.configHash, after.configHash); assert.equal(after.configHash, sha(config));
     assert.notEqual(before.pid, after.pid);
     assert.equal(before.workflow, workflow); assert.equal(after.workflow, workflow);

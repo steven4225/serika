@@ -52,9 +52,10 @@ it("live DeepSeek summary JSON installs a compaction record", {
       role: "user",
       parts: [{
         type: "text",
-        text: "在 notes/plan.md 新建一份三段计划；目标是整理 ALPHA-2026，只可修改 notes/，不得写 protected/。 ".repeat(40),
+        text: "在 notes/plan.md 新建一份三段计划；目标是整理 ALPHA-2026，只可修改 notes/，不得写 protected/。",
       }],
     },
+    { id: "old-reference", role: "assistant", parts: [{ type: "text", text: "历史工作材料。".repeat(400) }] },
     {
       id: "write-1",
       role: "assistant",
