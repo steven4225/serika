@@ -56,6 +56,7 @@ export interface ResultRow {
   kind: "result";
   key: string;
   status: RunResult["status"];
+  completion?: NonNullable<RunResult["completion"]>;
   detail?: string;
 }
 
@@ -389,7 +390,7 @@ export function applyShellProgress(
 
 export function resultRow(result: RunResult): ResultRow {
   const detail = result.error ? `${result.error.code}: ${result.error.message}` : undefined;
-  return { kind: "result", key: `r:${result.runId}`, status: result.status, ...(detail ? { detail } : {}) };
+  return { kind: "result", key: `r:${result.runId}`, status: result.status, ...(result.completion ? { completion: result.completion } : {}), ...(detail ? { detail } : {}) };
 }
 
 export function finishRun(live: LiveRun, result: RunResult): ConversationRow[] {

@@ -43,6 +43,7 @@ import { attentionKind, headerStatus, loadedCountLabel, deliveredReplyKeys, isMo
 import { CurrentTask, useWorkTasks, WorkTasksPanel } from "./work-tasks.js";
 import { RssPanel } from "./rss.js";
 import { unreconciledRuns, taskSelectionKey } from "./work-task-data.js";
+import { completionLabel, draftKey, type ConversationDraft } from "./navigation.js";
 
 const OUTPUT_MAX_CHARS = 64 * 1024;
 
@@ -94,8 +95,8 @@ function Row({ row, delivered = false }: { row: ConversationRow; delivered?: boo
     case "result":
       return (
         <div className={`row row-result status-${row.status}`}>
-          {row.status === "completed" ? "本轮结束" : row.status === "timed_out" ? "本轮超时" : row.status === "cancelled" ? "本轮已取消 · 已执行动作不会撤回" : `本轮 ${row.status}`}
-          {row.status === "completed" ? <span className="result-boundary" title="本轮结束仅表示 Run 正常结束，工具效果以回执为准；不是任务验收。">执行结果见回执</span> : null}
+          {completionLabel(row)}
+          {row.status === "completed" && !row.completion ? <span className="result-boundary" title="本轮结束仅表示 Run 正常结束，工具效果以回执为准；不是任务验收。">执行结果见回执</span> : null}
           {row.detail ? <span className="tool-detail"> · {row.detail}</span> : null}
         </div>
       );
@@ -223,15 +224,17 @@ function HomeBody({ view }: { view: HomeView }) {
 
 export function App() {
   const [identityGeneration, setIdentityGeneration] = useState(0);
+  const drafts = useRef(new Map<string, ConversationDraft>());
   useEffect(() => window.runloom.onMessage(message => {
     if (message.type === "identity-changed") setIdentityGeneration(value => value + 1);
   }), []);
-  // Reset all previews, outstanding display requests, and input on a Thread change.
-  return <AssistantPage key={identityGeneration} />;
+  // Reset evidence/previews on identity changes; keep only unsent, scoped drafts.
+  return <AssistantPage key={identityGeneration} drafts={drafts.current} />;
 }
 
-function AssistantPage() {
+function AssistantPage({ drafts }: { drafts: Map<string, ConversationDraft> }) {
   const [info, setInfo] = useState<AppInfo | null>(null);
+  const [conversationTitle, setConversationTitle] = useState("当前对话");
   const [state, setState] = useState<UiState>({ kind: "idle" });
   const [home, setHome] = useState("");
   const [output, setOutput] = useState("");
@@ -250,6 +253,9 @@ function AssistantPage() {
   const [contextRefresh, setContextRefresh] = useState(0);
   const [taskRefresh, setTaskRefresh] = useState(0);
   const [createTaskRequest, setCreateTaskRequest] = useState(0);
+  const [taskDraft, setTaskDraft] = useState("");
+  const [switchingThread, setSwitchingThread] = useState(false);
+  const threadSwitchInFlight = useRef(false);
   const [pendingMemory, setPendingMemory] = useState<PendingMemoryStatus>({ count: 0, hasMore: false, loading: false, error: null, reviewing: false });
   const [recordDetail, setRecordDetail] = useState<RecordDetailState>({ status: "idle" });
   const [finalRecord, setFinalRecord] = useState<ExecutionRunRecord | null>(null);
@@ -259,7 +265,7 @@ function AssistantPage() {
   const latestCompletedPrimaryId = useRef<string | null>(null);
   const historyRequest = useRef(0);
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const [detailTab, setDetailTab] = useState<"threads" | "home" | "records" | "memory" | "context" | "pomodoro" | "modules">("home");
+  const [detailTab, setDetailTab] = useState<"threads" | "tasks" | "home" | "records" | "memory" | "context" | "pomodoro" | "modules">("home");
   const [sending, setSending] = useState(false);
   const sendInFlight = useRef(false);
   const homeBuffer = useRef("");
@@ -437,6 +443,9 @@ function AssistantPage() {
         const nextInfo = await window.runloom.info();
         if (cancelled) return;
         setInfo(nextInfo);
+        const draft = drafts.get(draftKey(nextInfo));
+        setInput(draft?.text ?? "");
+        setExcludeFromMemory(draft?.excludeFromMemory ?? false);
         const first = await window.runloom.snapshot();
         if (cancelled) return;
         applySnapshot(first);
@@ -459,7 +468,37 @@ function AssistantPage() {
       cancelled = true;
       stop();
     };
-  }, [applySnapshot, reloadHistory, loadRecords, loadFinalRun]);
+  }, [applySnapshot, reloadHistory, loadRecords, loadFinalRun, drafts]);
+
+  useEffect(() => {
+    if (!info) return;
+    const key = draftKey(info);
+    if (input.length) drafts.set(key, { text: input, excludeFromMemory });
+    else drafts.delete(key);
+  }, [info, input, excludeFromMemory, drafts]);
+
+  useEffect(() => {
+    if (!detailsOpen) return;
+    const close = (event: KeyboardEvent) => {
+      // Let an inner disclosure/dialog consume Escape first.
+      if (event.key === "Escape" && !event.defaultPrevented) {
+        setDetailsOpen(false); event.preventDefault();
+      }
+    };
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [detailsOpen]);
+
+  useEffect(() => { if (!detailsOpen && info) inputRef.current?.focus(); }, [detailsOpen, info]);
+
+  useEffect(() => {
+    if (!info || state.kind !== "idle") return;
+    let active = true;
+    void window.runloom.listThreads().then(threads => {
+      if (active) setConversationTitle(threads.find(thread => thread.threadId === info.threadId)?.title || "当前对话");
+    }).catch(() => { /* The history panel exposes retrieval errors, never replace the conversation. */ });
+    return () => { active = false; };
+  }, [info, state.kind]);
 
   useEffect(() => {
     const area = conversationScroll.current;
@@ -496,7 +535,7 @@ function AssistantPage() {
 
   const submit = useCallback(async () => {
     const line = input.trim();
-    if (line.length === 0 || sendInFlight.current) return;
+    if (line.length === 0 || sendInFlight.current || threadSwitchInFlight.current) return;
     setError(null);
     if (approval !== null) {
       setError("请先处理上方确认");
@@ -544,8 +583,16 @@ function AssistantPage() {
   const stageLabel = info ? status.label : error ? "连接失败" : "正在连接";
   const pendingLabel = loadedCountLabel(pendingMemory.count, pendingMemory.hasMore);
   const refreshMemory = useCallback(() => setMemoryRefresh(value => value + 1), []);
-  const pageTitle = !detailsOpen ? "对话" : ({ threads: "历史对话", home: "工作区", records: "执行记录", memory: "记忆", context: "上下文与压缩", pomodoro: "番茄钟", modules: "模块能力" })[detailTab];
-  const pageDescription = ({ threads: "打开当前工作区的旧对话，或开始一个新 Thread。", home: "查看保存的进度、本地任务和当前配置。", records: "核对每次执行的工具结果，区分完成、失败和未知效果。", memory: "查看当前正式记忆，或审核当前对话的候选记录。", context: "查看压缩记录和本次准备结果；需要时手动压缩。", pomodoro: "专注计时，直接操作，不必发消息。", modules: "了解助手支持什么，以及当前启用了什么。" })[detailTab];
+  const pageTitle = !detailsOpen ? conversationTitle : ({ threads: "历史对话", tasks: "工作任务", home: "工作区", records: "执行记录", memory: "记忆", context: "上下文与压缩", pomodoro: "番茄钟", modules: "模块能力" })[detailTab];
+  const pageDescription = ({ threads: "继续之前的对话，或开始一段新对话。", tasks: "把需要执行和验收的事放在这里；普通聊天不用创建任务。", home: "查看保存的进度、定时提醒、订阅和当前配置。", records: "核对每次执行的工具结果，区分完成、失败和未知效果。", memory: "已保存的记忆和待审核的候选，都在这里。", context: "查看压缩记录和本次准备结果；需要时手动压缩。", pomodoro: "专注计时，直接操作，不必发消息。", modules: "了解助手支持什么，以及当前启用了什么。" })[detailTab];
+  const newConversation = async () => {
+    if (busy || sending || threadSwitchInFlight.current || !info) return;
+    threadSwitchInFlight.current = true;
+    setSwitchingThread(true);
+    try { await window.runloom.createThread(); }
+    catch { setError("新对话未打开，请查看当前会话；不会自动重试。"); }
+    finally { threadSwitchInFlight.current = false; setSwitchingThread(false); }
+  };
   const prepareInput = (text: string) => { setInput(text); inputRef.current?.focus(); };
   const scrollToLatest = () => {
     followConversation.current = true;
@@ -559,13 +606,15 @@ function AssistantPage() {
         <div className="brand"><RunloomMark /><span>Runloom</span></div>
         <div className="sidebar-nav-scroll">
         <nav className="primary-nav" aria-label="对话">
+          <button disabled={busy || sending || switchingThread || !info} onClick={() => void newConversation()} title="开始新对话；当前草稿保留在本窗口"><Icon name="new-chat" /><span>新对话</span></button>
           <button className={!detailsOpen ? "selected" : ""} onClick={() => setDetailsOpen(false)} title="当前对话" aria-current={!detailsOpen ? "page" : undefined}>
             <Icon name="chat" /><span>对话</span>
           </button>
+          <button className={detailsOpen && detailTab === "tasks" ? "selected" : ""} onClick={() => openDetails("tasks")} title="工作任务" aria-current={detailsOpen && detailTab === "tasks" ? "page" : undefined}><Icon name="activity" /><span>工作任务</span></button>
         </nav>
         <div className="sidebar-section">查阅</div>
         <nav className="primary-nav" aria-label="查阅">
-          {([["threads", "历史对话", "chat"], ["home", "工作区", "home"], ["records", "执行记录", "activity"], ["memory", "记忆审核", "memory"]] as const).map(([tab, label, icon]) =>
+          {([["threads", "历史对话", "chat"], ["home", "工作区", "home"], ["records", "执行记录", "activity"], ["memory", "记忆", "memory"]] as const).map(([tab, label, icon]) =>
             <button key={tab} className={detailsOpen && detailTab === tab ? "selected" : ""} title={label} aria-current={detailsOpen && detailTab === tab ? "page" : undefined} onClick={() => openDetails(tab)}>
               <Icon name={icon as IconName} /><span>{label}</span>{tab === "records" && unknownRuns.length ? <span className="nav-count" aria-label={`${unknownRuns.length} 条已加载执行尚待核对`}>{unknownRuns.length}</span> : tab === "memory" && pendingLabel ? <span className="nav-count" title={pendingMemory.hasMore ? "待审候选数量至少为此数" : "当前 Thread 待审候选"} aria-label={`${pendingLabel} 条待审记忆`}>{pendingLabel}</span> : null}
             </button>)}
@@ -586,6 +635,7 @@ function AssistantPage() {
       </aside>
       <div className="main-shell">
         <header className="header">
+          <span className="page-context" title={pageTitle}>{pageTitle}</span>
           <span className={`run-state ${status.tone}`} role="status"><span className={`state-dot ${status.tone}`} />{stageLabel}</span>
           <span className="spacer" />
           {busy ? <button className="cancel-button" onClick={() => void window.runloom.cancel().catch(() => setError("取消结果未收到，请核对当前状态。"))}><Icon name="stop" size={14} />停止</button> : null}
@@ -594,7 +644,7 @@ function AssistantPage() {
         {info?.entryMode === "test" ? <div className="model-mode-notice" role="status">隔离验收窗口 · 这里的会话和记忆属于测试工作区</div> : null}
         <div className="attention-region" hidden={(attention === "none" && !pendingMemory.error) || (attention === "memory" && detailsOpen)}>
           {attention === "approval" && approval ? <ApprovalCard approval={approval} deciding={decidingId === approval.approvalId} onDecision={decision => void decide(decision)} /> : null}
-          {attention === "unknown" ? <div className="review-notice" role="status"><Icon name="shield" size={16} /><span>有执行效果还没核对，不会自动重做。</span><button className="ghost" onClick={() => { if (reviewTask) { workTasks.select(reviewTask.id); openDetails("home"); } else { openDetails("records"); const run = unknownRuns[0]; if (run) void openRecord(run.runId); } }}>{reviewTask ? "核对工作任务" : "查看回执"}<Icon name="chevron" size={14} /></button></div> : null}
+          {attention === "unknown" ? <div className="review-notice" role="status"><Icon name="shield" size={16} /><span>有执行效果还没核对，不会自动重做。</span><button className="ghost" onClick={() => { if (reviewTask) { workTasks.select(reviewTask.id); openDetails("tasks"); } else { openDetails("records"); const run = unknownRuns[0]; if (run) void openRecord(run.runId); } }}>{reviewTask ? "核对工作任务" : "查看回执"}<Icon name="chevron" size={14} /></button></div> : null}
           {info ? <PendingMemory memory={info.memory} controllerIdle={!busy} refreshToken={memoryRefresh} visible={attention === "memory" && !detailsOpen} onStatus={setPendingMemory} onReviewed={refreshMemory} /> : null}
           {pendingMemory.error && attention === "none" ? <div className="attention-summary"><span>记忆候选暂不可用，不能据此判断没有待审项。</span><button className="ghost" onClick={() => openDetails("memory")}>查看原因</button></div> : null}
           {attention === "approval" && (unknownRuns.length > 0 || pendingLabel) ? <div className="attention-summary">{unknownRuns.length > 0 ? <button className="ghost" onClick={() => openDetails("records")}>另有执行效果待核对</button> : null}{pendingLabel ? <button className="ghost" onClick={() => openDetails("memory")}>待审记忆 {pendingLabel}</button> : null}</div> : null}
@@ -603,7 +653,7 @@ function AssistantPage() {
         <div className="workbench">
           <main className="workspace-pane" hidden={detailsOpen}>
             <section className="conversation" aria-label="对话">
-              <CurrentTask view={workTasks} onOpen={() => openDetails("home")} />
+              <CurrentTask view={workTasks} onOpen={() => openDetails("tasks")} />
               <div className="rows" ref={conversationScroll} onScroll={() => {
                 const area = conversationScroll.current;
                 if (!area) return;
@@ -612,6 +662,8 @@ function AssistantPage() {
               }}>
                 {rows.length === 0 && !live.streaming ? <div className="conversation-empty">
                   <h1>你想完成什么？</h1>
+                  <p>直接说就可以。需要跟踪进度和验收的事，再创建工作任务。</p>
+                  <button className="ghost" onClick={() => openDetails("threads")}>继续之前的对话<Icon name="chevron" size={14} /></button>
                 </div> : null}
                 <div className="conversation-thread">
                   {rows.map(row => <Row key={row.key} row={row} delivered={delivered.has(row.key)} />)}
@@ -629,11 +681,13 @@ function AssistantPage() {
             </section>
           </main>
           <section className="inspector" hidden={!detailsOpen} aria-label={pageTitle}>
-            <div className="inspector-header"><div><h1>{pageTitle}</h1><p>{pageDescription}</p></div><button className="ghost" onClick={() => setDetailsOpen(false)}><Icon name="chat" size={16} />回到对话</button></div>
+            <div className="inspector-header"><div><h1>{pageTitle}</h1><p>{pageDescription}</p></div><button className="ghost" title="回到对话 · Escape" onClick={() => setDetailsOpen(false)}><Icon name="close" size={16} />回到对话</button></div>
             <div className="inspector-pane">
               {detailTab === "threads" && info ? <ThreadsPanel info={info} busy={busy} /> : null}
+              <div hidden={detailTab !== "tasks"}>
+                <WorkTasksPanel view={workTasks} createRequest={createTaskRequest} initialGoal={taskDraft} onRun={runId => { openDetails("records"); void openRecord(runId).catch(() => setError("执行回执读取失败")); }} />
+              </div>
               <div hidden={detailTab !== "home"}>
-                <WorkTasksPanel view={workTasks} createRequest={createTaskRequest} onRun={runId => { openDetails("records"); void openRecord(runId).catch(() => setError("执行回执读取失败")); }} />
                 <RssPanel enabled={!!info?.workspaceRoot && info.modules?.some(m => m.id === "task" && m.enabled) === true} busy={busy} />
                 <section className="card home">
                   <div className="card-head"><span>工作区概览</span><button className="ghost" disabled={busy} onClick={() => void window.runloom.home().then(response => {
@@ -651,7 +705,7 @@ function AssistantPage() {
                 </section> : null}
               </div>
               <div hidden={detailTab !== "records"}>
-                {recordDetail.status === "ready" && recordDetail.run.workTaskId && workTasks.tasks.some(task => task.id === recordDetail.run.workTaskId) ? <button className="ghost" onClick={() => { if (recordDetail.run.workTaskId) workTasks.select(recordDetail.run.workTaskId); openDetails("home"); }}>回到工作任务</button> : null}
+                {recordDetail.status === "ready" && recordDetail.run.workTaskId && workTasks.tasks.some(task => task.id === recordDetail.run.workTaskId) ? <button className="ghost" onClick={() => { if (recordDetail.run.workTaskId) workTasks.select(recordDetail.run.workTaskId); openDetails("tasks"); }}>回到工作任务</button> : null}
                 <RecordsPanel records={records} detail={recordDetail}
                 onRefresh={() => void loadRecords(selectedRecordId.current ?? undefined).catch(() => setError("执行记录读取失败"))}
                 onOpen={runId => void openRecord(runId).catch(() => setError("执行回执读取失败"))} /></div>
@@ -668,7 +722,7 @@ function AssistantPage() {
           {error ? <div className="error error-banner" role="alert"><span>{error}</span>{info ? <button className="icon-button" aria-label="关闭错误提示" onClick={() => setError(null)}><Icon name="close" size={16} /></button> : null}</div> : null}
           <footer className="composer" hidden={detailsOpen}>
             <textarea ref={inputRef} aria-label="消息输入" rows={3} value={input}
-              disabled={sending || info === null}
+              disabled={sending || switchingThread || info === null}
               placeholder={approval ? "可先写下一条；发送前请确认上方操作…" : busy ? "可先写下一条，结束后再发送…" : "描述你想完成的事…"}
               onChange={event => setInput(event.target.value)}
               onKeyDown={event => {
@@ -678,14 +732,14 @@ function AssistantPage() {
               }} />
             <div className="composer-controls">
               {info?.memory.enabled ? <label className="memory-exclusion" title="这条消息不进入现在或以后的记忆候选整理；不会删除对话记录，也不关闭已有记忆引用。"><input type="checkbox" checked={excludeFromMemory} disabled={sending} onChange={event => setExcludeFromMemory(event.target.checked)} />本条不整理为记忆</label> : null}
-              {info?.workTasks ? <button className="ghost" disabled={busy || workTasks.acting} onClick={() => { openDetails("home"); setCreateTaskRequest(value => value + 1); }}>创建工作任务</button> : null}
+              {info?.workTasks ? <button className="ghost" disabled={busy || workTasks.acting || sending} onClick={() => { setTaskDraft(input.trim()); openDetails("tasks"); setCreateTaskRequest(value => value + 1); }}>{input.trim() ? "转为任务草稿" : "创建工作任务"}</button> : null}
               {info && info.commands.length > 0 ? <details className="commands-menu"><summary>／<span>命令</span></summary><div className="commands">
                 <div className="command-caption">填入命令后发送，不会立即执行</div>
                 {info.commands.map(name => <button key={name} className="chip" disabled={busy} onClick={() => prepareInput(`/${name} `)}>/{name}</button>)}
               </div></details> : null}
               <span className="spacer" />
               <button className="icon-button" aria-label={showOutput ? "隐藏系统输出" : "查看系统输出"} title="系统输出" aria-pressed={showOutput} onClick={() => setShowOutput(value => !value)}><Icon name="terminal" size={17} /></button>
-              <button className="send-button" aria-label="发送消息" title="发送 · Enter" disabled={busy || sending || !input.trim() || !info} onClick={() => { followConversation.current = true; void submit(); }}><Icon name="arrow" size={19} /></button>
+              <button className="send-button" aria-label="发送消息" title="发送 · Enter" disabled={busy || sending || switchingThread || !input.trim() || !info} onClick={() => { followConversation.current = true; void submit(); }}><Icon name="arrow" size={19} /></button>
             </div>
           </footer>
           <div className="composer-hint" hidden={detailsOpen}><span>Enter 发送<span className="shortcut-divider">·</span>Shift + Enter 换行</span></div>

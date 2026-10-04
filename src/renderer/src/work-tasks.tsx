@@ -113,8 +113,8 @@ export function CurrentTask({ view, onOpen }: { view: WorkTaskView; onOpen: () =
   </button>;
 }
 
-function CreateTask({ view, onClose }: { view: WorkTaskView; onClose: () => void }) {
-  const [goal, setGoal] = useState("");
+function CreateTask({ view, onClose, initialGoal = "" }: { view: WorkTaskView; onClose: () => void; initialGoal?: string }) {
+  const [goal, setGoal] = useState(initialGoal);
   const [constraints, setConstraints] = useState("");
   const [artifacts, setArtifacts] = useState("");
   const [human, setHuman] = useState("");
@@ -132,6 +132,7 @@ function CreateTask({ view, onClose }: { view: WorkTaskView; onClose: () => void
     ] })) onClose();
   };
   return <form className="work-task-form" onSubmit={event => { event.preventDefault(); void create(); }}>
+    {initialGoal ? <p className="hint">已复制对话输入作为任务目标。原输入仍保留；填写验收后才会创建，不会直接执行。</p> : null}
     <div className="task-template-picker" role="group" aria-label="任务起点">
       {(Object.keys(TASK_TEMPLATES) as TaskTemplateId[]).map(id => <button type="button" className={template === id ? "selected" : ""} key={id} disabled={view.locked} onClick={() => chooseTemplate(id)}>{TASK_TEMPLATES[id].label}</button>)}
     </div>
@@ -295,7 +296,7 @@ function TaskArtifacts({ task, draft, onRun, locked }: { task: WorkTask; draft: 
   </section>;
 }
 
-export function WorkTasksPanel({ view, onRun, createRequest = 0 }: { view: WorkTaskView; onRun: (id: string) => void; createRequest?: number }) {
+export function WorkTasksPanel({ view, onRun, createRequest = 0, initialGoal = "" }: { view: WorkTaskView; onRun: (id: string) => void; createRequest?: number; initialGoal?: string }) {
   const [creating, setCreating] = useState(false);
   const panel = useRef<HTMLElement | null>(null);
   useEffect(() => { if (createRequest > 0) { setCreating(true); panel.current?.scrollIntoView({ block: "start" }); } }, [createRequest]);
@@ -306,7 +307,7 @@ export function WorkTasksPanel({ view, onRun, createRequest = 0 }: { view: WorkT
     {view.error ? <p className="error" role="alert">{view.error}{view.task ? "（下方为旧内容，操作已停用）" : ""}</p> : null}
     {view.notice ? <p className="work-task-notice" role="status">{view.notice}</p> : null}
     {view.loading ? <p className="muted">正在读取最新任务…</p> : null}
-    {creating ? <CreateTask view={view} onClose={() => setCreating(false)} /> : null}
+    {creating ? <CreateTask key={createRequest} view={view} initialGoal={initialGoal} onClose={() => setCreating(false)} /> : null}
     {view.tasks.length ? <div className="work-task-list" role="group" aria-label="选择工作任务">{view.tasks.map(item => <button key={item.id} disabled={view.acting} className={view.task?.id === item.id ? "selected" : ""} onClick={() => view.select(item.id)}><span>{item.goal}</span><small>{taskStatusLabels[item.status]}</small></button>)}</div> : !view.loading && !view.error && view.enabled ? <p className="muted">还没有工作任务。需要执行并验收时再显式创建，普通对话照常使用。</p> : null}
     {view.task ? <TaskDetail key={`${view.task.id}:${view.task.revision}`} task={view.task} view={view} onRun={onRun} /> : null}
   </section>;

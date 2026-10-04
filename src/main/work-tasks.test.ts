@@ -205,7 +205,7 @@ describe("work task desktop boundary", () => {
     assert.equal(sanitizeWorkTaskInput("reconcileWorkTask", { id: "task", expectedRevision: 1, observedOutcome: "passed", decision: "continue", note: "x" }).ok, false);
   });
 
-  it("runs, pauses, program-verifies delivery, requires human acceptance, and survives restart", async () => {
+  it("runs, auto-submits checked delivery, requires human acceptance, and survives restart", async () => {
     const root = await prepare();
     const first = await open(root, "work-thread", true);
     let id = "";
@@ -226,7 +226,7 @@ describe("work task desktop boundary", () => {
       await waitFor(() => first.bridge.snapshot().state.kind === "idle");
       const paused = await first.bridge.getWorkTask(id);
       assert.ok(paused.ok); if (!paused.ok) return;
-      assert.equal(paused.value.status, "paused");
+      assert.equal(paused.value.status, "awaiting_acceptance");
       const run = await first.bridge.getRun(start.runId);
       assert.ok(run.ok && run.run?.workTaskId === id);
       assert.equal(await readFile(join(root, "workspace", "report.md"), "utf8"), "报告正文\n");
