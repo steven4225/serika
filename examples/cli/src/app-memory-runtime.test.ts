@@ -99,7 +99,7 @@ describe("native Memory app wiring", () => {
           assert.equal(entries.entries[0]!.source?.kind, "conversation");
         }
         const document = JSON.parse(await readFile(join(root, "workspace", ".runloom", "memory.json"), "utf8"));
-        assert.equal(document.version, 3);
+        assert.equal(document.version, 4);
         const transcript = await app.store.getMessages("review");
         assert.equal(transcript.filter((message) => message.role === "user").length, 3);
       } finally { await controller.shutdown(); await rm(root, { recursive: true, force: true }); }

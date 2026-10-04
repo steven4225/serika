@@ -13,6 +13,9 @@ import { acquireFlock } from "./flock.js";
 import { abortReason, throwIfAborted, validateWorkspacePath } from "./workspace-path.js";
 import { candidateFingerprint, MEMORY_PENDING_CANDIDATES_MAX, MEMORY_TERMINAL_CANDIDATES_MAX, MEMORY_BATCH_CANDIDATES_MAX, MEMORY_CURSORS_MAX } from "./memory-candidates.js";
 import type { CandidateBatchInput, CandidateDraft, CandidateListInput, CandidatePage, CandidatePreview, CandidateResolution, CandidateResolveInput, ConsolidationCursor, MemoryCandidate, MemoryResult } from "./memory-candidates.js";
+import { MEMORY_ASSERTIONS_MAX, TemporalMemoryError, assertTemporalIntegrity, createAssertion, reviseAssertions, selectTemporalAssertions, validateAssertion, validateTemporalTimestamp } from "./memory-temporal.js";
+import type { MemoryAssertion, MemoryKind, MemoryValidTime } from "./memory-temporal.js";
+export type { MemoryAssertion, MemoryKind, MemoryValidTime } from "./memory-temporal.js";
 
 export const MEMORY_MAX_ENTRIES = 512;
 export const MEMORY_FILE_MAX_BYTES = 16 * 1024 * 1024;
@@ -60,9 +63,35 @@ export interface MemoryEntry {
   history?: MemoryRevision[];
 }
 
+/** Administrative snapshots reference assertions: fact text has only one source. */
+export interface MemoryRecordVersion {
+  revision: number;
+  assertionId: string;
+  scope: MemoryScope;
+  pinned: boolean;
+  status: MemoryStatus;
+  expiresAt: string | null;
+  changedAt: string | null;
+}
+
+export interface MemoryRecord {
+  id: string;
+  revision: number;
+  scope: MemoryScope;
+  pinned: boolean;
+  status: MemoryStatus;
+  expiresAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  historyCoverage: "complete" | "legacy_partial";
+  assertions: MemoryAssertion[];
+  versions: MemoryRecordVersion[];
+}
+
 export interface MemoryDocument {
-  version: 3;
-  entries: MemoryEntry[];
+  version: 4;
+  lastWrittenAt: string | null;
+  entries: MemoryRecord[];
   candidates: MemoryCandidate[];
   consolidationCursors: ConsolidationCursor[];
 }
@@ -73,6 +102,9 @@ export interface MemoryDocumentV1 {
 }
 
 export interface MemoryAddInput {
+  kind?: MemoryKind;
+  recallTerms?: string[];
+  validTime?: MemoryValidTime;
   pinned?: boolean;
   text: string;
   enabled?: boolean;
@@ -109,6 +141,11 @@ export const memoryStoreErrorCodes = [
   "MEMORY_REVISION_CONFLICT",
   "MEMORY_EXPIRED",
   "MEMORY_DISABLED",
+  "MEMORY_TEMPORAL_INVALID",
+  "MEMORY_TEMPORAL_CONFLICT",
+  "MEMORY_HISTORY_FULL",
+  "MEMORY_CLOCK_ROLLBACK",
+  "MEMORY_COMMIT_UNCERTAIN",
   "MEMORY_CANDIDATE_NOT_FOUND",
   "MEMORY_CANDIDATE_CONFLICT",
   "MEMORY_CANDIDATE_STALE",
@@ -161,8 +198,8 @@ export interface WorkspaceMemoryStore {
   resolveCandidate(input: CandidateResolveInput, signal?: AbortSignal, options?: MemoryWriteOptions): Promise<MemoryResult<CandidateResolution>>;
   getConsolidationCursor(threadId: string, signal?: AbortSignal): Promise<MemoryResult<ConsolidationCursor | null>>;
   commitCandidateBatch(input: CandidateBatchInput, signal?: AbortSignal, options?: MemoryWriteOptions): Promise<MemoryResult<{ candidateIds: string[]; replayed: boolean }>>;
-  list(signal?: AbortSignal): Promise<MemoryListResult>;
-  get(id: string, signal?: AbortSignal): Promise<MemoryEntryResult>;
+  list(signal?: AbortSignal, options?: MemoryWriteOptions): Promise<MemoryListResult>;
+  get(id: string, signal?: AbortSignal, options?: MemoryWriteOptions): Promise<MemoryEntryResult>;
   add(
     input: MemoryAddInput,
     signal?: AbortSignal,
@@ -179,6 +216,43 @@ export interface WorkspaceMemoryStore {
     signal?: AbortSignal,
     options?: MemoryWriteOptions,
   ): Promise<MemoryDeleteResult>;
+}
+
+export interface MemoryReviseInput {
+  id: string;
+  expectedRevision: number;
+  operation: "change" | "correct" | "retract";
+  text?: string;
+  kind?: MemoryKind;
+  recallTerms?: string[];
+  validTime?: MemoryValidTime;
+  effectiveAt?: string;
+  /** Verified by the caller; IDs and system time are always program-owned. */
+  sources?: MemorySource[];
+}
+export interface MemoryRestoreInput {
+  id: string;
+  expectedRevision: number;
+  targetAssertionId: string;
+  status?: MemoryStatus;
+  expiresAt?: string | null;
+}
+export interface MemoryTemporalQuery { validAt?: string; knownAt?: string; includeDisabled?: boolean }
+export interface MemoryTemporalView {
+  id: string;
+  revision: number;
+  assertions: MemoryAssertion[];
+  historyCoverage: MemoryRecord["historyCoverage"];
+  validTimeUncertain: boolean;
+  systemTimeUncertain: boolean;
+}
+/** Explicit storage operations; not new model tools or desktop commands. */
+export interface TemporalWorkspaceMemoryStore extends WorkspaceMemoryStore {
+  inspectMemory(id: string, signal?: AbortSignal, options?: MemoryWriteOptions): Promise<MemoryResult<MemoryRecord>>;
+  queryMemory(id: string, query?: MemoryTemporalQuery, signal?: AbortSignal, options?: MemoryWriteOptions): Promise<MemoryResult<MemoryTemporalView>>;
+  reviseMemory(input: MemoryReviseInput, signal?: AbortSignal, options?: MemoryWriteOptions): Promise<MemoryEntryResult>;
+  restoreMemory(input: MemoryRestoreInput, signal?: AbortSignal, options?: MemoryWriteOptions): Promise<MemoryEntryResult>;
+  deleteMemory(input: { id: string; expectedRevision: number }, signal?: AbortSignal, options?: MemoryWriteOptions): Promise<MemoryDeleteResult>;
 }
 
 const neverAborted = new AbortController().signal;
@@ -214,10 +288,6 @@ function cloneEntry(entry: MemoryEntry): MemoryEntry {
     ...(entry.source === undefined ? {} : { source: cloneSource(entry.source) }),
     ...(entry.history === undefined ? {} : { history: entry.history.map(cloneRevision) }),
   };
-}
-
-function cloneEntries(entries: readonly MemoryEntry[]): MemoryEntry[] {
-  return entries.map(cloneEntry);
 }
 
 function validateText(text: unknown): asserts text is string {
@@ -260,10 +330,7 @@ function validateSource(value: unknown): MemorySource {
 
 function validateTimestamp(value: unknown, field: string): string | null {
   if (value === null) return null;
-  if (typeof value !== "string" || Number.isNaN(Date.parse(value))) {
-    raise("MEMORY_ENTRY_INVALID", `${field} must be an ISO timestamp or null`);
-  }
-  return value;
+  return validateTemporalTimestamp(value, field);
 }
 
 function validateStatus(value: unknown): MemoryStatus {
@@ -358,13 +425,13 @@ function validateCursors(value: unknown): ConsolidationCursor[] {
   return cursors;
 }
 
-function emptyDocument(): MemoryDocument { return { version: 3, entries: [], candidates: [], consolidationCursors: [] }; }
+function emptyDocument(): MemoryDocument { return { version: 4, lastWrittenAt: null, entries: [], candidates: [], consolidationCursors: [] }; }
 
 function candidateThread(options: MemoryWriteOptions | undefined): string {
   return nonEmpty(options?.boundThreadId, "Active candidate Thread");
 }
 
-function visible(entry: MemoryEntry, threadId: string): boolean { return entry.scope?.kind !== "thread" || entry.scope.threadId === threadId; }
+function visible(entry: Pick<MemoryEntry, "scope">, threadId: string): boolean { return entry.scope?.kind !== "thread" || entry.scope.threadId === threadId; }
 
 function staleCandidate(candidate: MemoryCandidate, reason: NonNullable<MemoryCandidate["staleReason"]>, now: string): void {
   candidate.status = "stale"; candidate.revision += 1; candidate.staleReason = reason; candidate.resolvedAt = now;
@@ -380,21 +447,21 @@ function staleReasonFor(candidate: MemoryCandidate, document: MemoryDocument, no
   const change = candidate.change;
   if (change.expiresAt !== null && Date.parse(change.expiresAt) <= now.getTime()) return "expired";
   if (change.operation === "add") {
-    return duplicateAdd(change, document.entries) ? "duplicate" : null;
+    return duplicateAdd(change, document.entries, now) ? "duplicate" : null;
   }
   const entry = document.entries.find((entry) => entry.id === change.memoryId && visible(entry, candidate.originThreadId));
   if (!entry) return "target_missing";
-  if (entry.revision !== change.expectedRevision || !entry.enabled || entry.status !== "active") return "target_changed";
+  if (entry.revision !== change.expectedRevision || !projectRecord(entry, now).enabled || entry.status !== "active") return "target_changed";
   if (isMemoryEntryExpired(entry, now)) return "expired";
   return null;
 }
 
-function duplicateAdd(change: CandidateDraft["change"], entries: readonly MemoryEntry[]): boolean {
+function duplicateAdd(change: CandidateDraft["change"], records: readonly MemoryRecord[], now: Date): boolean {
   if (change.operation !== "add") return false;
-  return entries.some((entry) => entry.text === change.text &&
+  return records.some((record) => { const entry = projectRecord(record, now); return entry.text === change.text &&
     entry.scope?.kind === change.scope.kind &&
     (entry.scope.kind !== "thread" || (change.scope.kind === "thread" && entry.scope.threadId === change.scope.threadId)) &&
-    (entry.expiresAt ?? null) === change.expiresAt);
+    (entry.expiresAt ?? null) === change.expiresAt; });
 }
 
 function validateRevision(value: unknown): number {
@@ -421,7 +488,7 @@ function validateRevisionEntry(value: unknown): MemoryRevision {
     scope: validateScope(revision.scope),
     expiresAt: validateTimestamp(revision.expiresAt, "Memory history expiresAt"),
     source: validateSource(revision.source),
-    changedAt: revision.changedAt,
+    changedAt: validateTemporalTimestamp(revision.changedAt, "Memory history changedAt"),
   };
 }
 
@@ -487,12 +554,157 @@ function validateV2Entry(value: unknown): MemoryEntry {
     status,
     scope: validateScope(entry.scope),
     source: validateSource(entry.source),
-    createdAt: entry.createdAt,
-    updatedAt: entry.updatedAt,
+    createdAt: validateTimestamp(entry.createdAt, "Memory createdAt"),
+    updatedAt: validateTimestamp(entry.updatedAt, "Memory updatedAt"),
     expiresAt: validateTimestamp(entry.expiresAt, "Memory expiresAt"),
     revision: validateRevision(entry.revision),
     history: entry.history.map(validateRevisionEntry),
   };
+}
+
+function recordVersion(record: MemoryRecord, assertionId: string): MemoryRecordVersion {
+  return { revision: record.revision, assertionId, scope: cloneScope(record.scope), pinned: record.pinned, status: record.status, expiresAt: record.expiresAt, changedAt: record.updatedAt };
+}
+
+/** v1-v3 retained at most eight prior revisions. Never claim complete temporal coverage. */
+function migrateEntry(entry: MemoryEntry): MemoryRecord {
+  const revision = entry.revision!;
+  const versions: MemoryRecordVersion[] = [];
+  const assertions: MemoryAssertion[] = [];
+  const snapshots = [...(entry.history ?? []).map((item) => ({ ...item, changedAt: item.changedAt as string | null })), {
+    revision, text: entry.text, scope: entry.scope!, pinned: entry.pinned ?? false, status: entry.status!,
+    expiresAt: entry.expiresAt ?? null, source: entry.source!, changedAt: entry.updatedAt ?? null,
+  }];
+  for (let index = 0; index < snapshots.length; index++) {
+    const snapshot = snapshots[index]!;
+    if (index > 0 && snapshot.revision <= snapshots[index - 1]!.revision) raise("MEMORY_ENTRY_INVALID", "Legacy revisions must be ordered");
+    const assertionId = `legacy:${entry.id}:${snapshot.revision}`;
+    assertions.push(validateAssertion({ assertionId, text: snapshot.text, kind: "note", recallTerms: [],
+      validTime: { from: null, to: null, basis: "unknown" },
+      systemTime: { from: snapshot.changedAt, to: snapshots[index + 1]?.changedAt ?? null }, state: "asserted", sources: [snapshot.source] }));
+    versions.push({ revision: snapshot.revision, assertionId, scope: cloneScope(snapshot.scope), pinned: snapshot.pinned ?? false, status: snapshot.status, expiresAt: snapshot.expiresAt, changedAt: snapshot.changedAt });
+  }
+  const record: MemoryRecord = { id: entry.id, revision, scope: cloneScope(entry.scope!), pinned: entry.pinned ?? false, status: entry.status!, expiresAt: entry.expiresAt ?? null,
+    createdAt: entry.createdAt ?? null, updatedAt: entry.updatedAt ?? null, historyCoverage: "legacy_partial", assertions, versions };
+  assertTemporalIntegrity(assertions);
+  return record;
+}
+
+function validateRecord(value: unknown): MemoryRecord {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) raise("MEMORY_ENTRY_INVALID", "Memory record must be an object");
+  const raw = value as Record<string, unknown>;
+  if (Object.keys(raw).some((key) => !["id", "revision", "scope", "pinned", "status", "expiresAt", "createdAt", "updatedAt", "historyCoverage", "assertions", "versions"].includes(key))) raise("MEMORY_ENTRY_INVALID", "Unknown v4 Memory record field");
+  if (!Array.isArray(raw.assertions) || !Array.isArray(raw.versions) || raw.versions.length === 0 || raw.versions.length > MEMORY_ASSERTIONS_MAX) raise("MEMORY_ENTRY_INVALID", "Memory assertions and revision references are required and bounded");
+  const assertions = raw.assertions.map((value) => {
+    if (typeof value === "object" && value !== null && "sources" in value && Array.isArray(value.sources)) value.sources.forEach(validateSource);
+    return validateAssertion(value);
+  });
+  assertTemporalIntegrity(assertions);
+  if (raw.historyCoverage !== "complete" && raw.historyCoverage !== "legacy_partial") raise("MEMORY_ENTRY_INVALID", "Memory history coverage is required");
+  const versions = raw.versions.map((value): MemoryRecordVersion => {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) raise("MEMORY_ENTRY_INVALID", "Memory version must be an object");
+    const item = value as Record<string, unknown>;
+    const assertionId = nonEmpty(item.assertionId, "Memory version assertion id");
+    if (!assertions.some((assertion) => assertion.assertionId === assertionId)) raise("MEMORY_ENTRY_INVALID", "Memory version references a missing assertion");
+    return { revision: validateRevision(item.revision), assertionId, scope: validateScope(item.scope), pinned: validatePinned(item.pinned), status: validateStatus(item.status), expiresAt: validateTimestamp(item.expiresAt, "Memory version expiry"), changedAt: validateTimestamp(item.changedAt, "Memory version changedAt") };
+  });
+  for (let index = 1; index < versions.length; index++) {
+    const previous = versions[index - 1]!, next = versions[index]!;
+    if (next.revision <= previous.revision || (previous.changedAt !== null && (next.changedAt === null || Date.parse(next.changedAt) < Date.parse(previous.changedAt)))) raise("MEMORY_ENTRY_INVALID", "Memory versions must be ordered");
+  }
+  const record: MemoryRecord = { id: nonEmpty(raw.id, "Memory id"), revision: validateRevision(raw.revision), scope: validateScope(raw.scope), pinned: validatePinned(raw.pinned), status: validateStatus(raw.status), expiresAt: validateTimestamp(raw.expiresAt, "Memory expiry"), createdAt: validateTimestamp(raw.createdAt, "Memory createdAt"), updatedAt: validateTimestamp(raw.updatedAt, "Memory updatedAt"), historyCoverage: raw.historyCoverage, assertions, versions };
+  const latest = versions[versions.length - 1]!;
+  if (latest.revision !== record.revision || JSON.stringify(latest.scope) !== JSON.stringify(record.scope) || latest.status !== record.status || latest.pinned !== record.pinned || latest.expiresAt !== record.expiresAt || latest.changedAt !== record.updatedAt) raise("MEMORY_ENTRY_INVALID", "Memory current controls disagree with its latest version");
+  for (const version of versions) {
+    const assertion = assertions.find((item) => item.assertionId === version.assertionId)!;
+    if (assertion.systemTime.from !== version.changedAt) raise("MEMORY_ENTRY_INVALID", "Memory version timestamp disagrees with its assertion");
+    if (version === latest && assertion.systemTime.to !== null) raise("MEMORY_ENTRY_INVALID", "Memory latest assertion is closed");
+  }
+  const latestAssertion = assertions.find((assertion) => assertion.assertionId === latest.assertionId)!;
+  if (latestAssertion.state === "retracted" && assertions.some((assertion) => assertion.state === "asserted" && assertion.systemTime.to === null)) raise("MEMORY_ENTRY_INVALID", "Retracted memory cannot contain an open asserted recognition");
+  if (record.createdAt !== null && (record.updatedAt === null || Date.parse(record.createdAt) > Date.parse(record.updatedAt))) raise("MEMORY_ENTRY_INVALID", "Memory creation time follows its latest revision");
+  for (const assertion of assertions) {
+    if (!versions.some((version) => version.changedAt === assertion.systemTime.from)) raise("MEMORY_ENTRY_INVALID", "Memory assertion has no corresponding revision timestamp");
+    if (assertion.systemTime.to !== null && !versions.some((version) => version.changedAt === assertion.systemTime.to)) raise("MEMORY_ENTRY_INVALID", "Memory assertion closure has no corresponding revision timestamp");
+    if (record.updatedAt === null ? assertion.systemTime.from !== null || assertion.systemTime.to !== null : [assertion.systemTime.from, assertion.systemTime.to].some((stamp) => stamp !== null && Date.parse(stamp) > Date.parse(record.updatedAt!))) raise("MEMORY_ENTRY_INVALID", "Memory assertion has an unrecorded future system timestamp");
+  }
+  if (record.historyCoverage === "complete" && (record.createdAt === null || versions[0]!.revision !== 1 || versions.length !== record.revision || assertions.some((assertion) => assertion.systemTime.from === null))) raise("MEMORY_ENTRY_INVALID", "Complete Memory history cannot contain missing revisions or unknown system timestamps");
+  return record;
+}
+
+function projectRecord(record: MemoryRecord, now: Date): MemoryEntry {
+  const selected = selectTemporalAssertions(record.assertions, {}, now.toISOString()).assertions;
+  const assertion = selected[0];
+  const history: MemoryRevision[] = record.versions.slice(0, -1).slice(-MEMORY_HISTORY_MAX_ENTRIES).flatMap((version) => {
+    const historical = record.assertions.find((item) => item.assertionId === version.assertionId)!;
+    // A missing legacy start is unknown, not a timestamp invented at migration time.
+    return version.changedAt === null ? [] : [{ revision: version.revision, text: historical.state === "asserted" ? historical.text : "", scope: cloneScope(version.scope), pinned: version.pinned, status: version.status, expiresAt: version.expiresAt, source: cloneSource(historical.sources[0]!), changedAt: version.changedAt }];
+  });
+  return { id: record.id, revision: record.revision, text: assertion?.text ?? "", source: cloneSource(assertion?.sources[0] ?? { kind: "manual" }), enabled: record.status === "active" && assertion !== undefined,
+    scope: cloneScope(record.scope), pinned: record.pinned, status: record.status, expiresAt: record.expiresAt, createdAt: record.createdAt, updatedAt: record.updatedAt, history };
+}
+
+function newRecord(input: MemoryAddInput, now: string): MemoryRecord {
+  const assertion = createAssertion({ text: input.text, ...(input.kind === undefined ? {} : { kind: input.kind }), ...(input.recallTerms === undefined ? {} : { recallTerms: input.recallTerms }), ...(input.validTime === undefined ? {} : { validTime: input.validTime }), sources: [input.source ?? { kind: "manual" }] }, randomUUID(), now);
+  const record: MemoryRecord = { id: randomUUID(), revision: 1, scope: input.scope ?? { kind: "workspace" }, pinned: input.pinned ?? false, status: input.status ?? (input.enabled === false ? "disabled" : "active"), expiresAt: input.expiresAt ?? null, createdAt: now, updatedAt: now, assertions: [assertion], historyCoverage: "complete", versions: [] };
+  record.versions.push(recordVersion(record, assertion.assertionId));
+  return record;
+}
+
+function finishRecordRevision(record: MemoryRecord, assertionId: string, now: string): void {
+  if (record.versions.length >= MEMORY_ASSERTIONS_MAX) raise("MEMORY_HISTORY_FULL", "Memory revision history is full; nothing was pruned");
+  record.revision += 1;
+  record.updatedAt = now;
+  record.versions.push(recordVersion(record, assertionId));
+}
+
+function renewAssertions(record: MemoryRecord, now: string): { assertions: MemoryAssertion[]; displayAssertionId: string } {
+  if (record.updatedAt !== null && Date.parse(now) < Date.parse(record.updatedAt)) raise("MEMORY_CLOCK_ROLLBACK", "System clock moved backwards; Memory was not written");
+  const assertions = structuredClone(record.assertions);
+  const open = assertions.filter((assertion) => assertion.systemTime.to === null);
+  if (assertions.length + open.length > MEMORY_ASSERTIONS_MAX) raise("MEMORY_HISTORY_FULL", "Memory assertion history is full; nothing was pruned");
+  const priorDisplay = record.versions[record.versions.length - 1]!.assertionId;
+  let displayAssertionId = "";
+  for (const assertion of open) {
+    const next = { ...structuredClone(assertion), assertionId: randomUUID(), systemTime: { from: now, to: null } };
+    assertion.systemTime.to = now;
+    assertions.push(next);
+    if (assertion.assertionId === priorDisplay) displayAssertionId = next.assertionId;
+  }
+  if (!displayAssertionId) raise("MEMORY_ENTRY_INVALID", "Memory latest recognition is missing");
+  assertTemporalIntegrity(assertions);
+  return { assertions, displayAssertionId };
+}
+
+function newSources(sources: MemorySource[] | undefined): MemorySource[] {
+  if (sources === undefined) return [{ kind: "manual" }];
+  if (!Array.isArray(sources) || sources.length < 1 || sources.length > 4) raise("MEMORY_SOURCE_INVALID", "An assertion requires one to four sources");
+  const validated = sources.map(validateSource);
+  if (validated.some((source) => source.kind === "legacy")) raise("MEMORY_SOURCE_INVALID", "New assertions cannot invent legacy provenance");
+  return validated;
+}
+
+function findWritableRecord(entries: MemoryRecord[], id: string, expectedRevision: number, options?: MemoryWriteOptions): MemoryRecord {
+  if (typeof id !== "string" || id.length === 0) raise("INVALID_INPUT", "Memory id must be non-empty");
+  if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) raise("MEMORY_REVISION_REQUIRED", "A positive expectedRevision is required");
+  const record = entries.find((entry) => entry.id === id);
+  if (!record) raise("MEMORY_ENTRY_NOT_FOUND", "Memory entry not found");
+  assertThreadBinding(record.scope, options);
+  if (record.revision !== expectedRevision) raise("MEMORY_REVISION_CONFLICT", "Memory changed since preview");
+  return record;
+}
+
+function scopedTimeline(record: MemoryRecord, threadId: string | undefined): MemoryRecord {
+  const copy = structuredClone(record);
+  if (threadId === undefined) return copy;
+  copy.assertions = copy.assertions.filter((assertion) => {
+    const version = record.versions.find((version) => version.assertionId === assertion.assertionId) ?? record.versions.slice().reverse().find((version) => version.changedAt === assertion.systemTime.from);
+    return version !== undefined && visible(version, threadId);
+  });
+  const ids = new Set(copy.assertions.map((assertion) => assertion.assertionId));
+  copy.versions = copy.versions.filter((version) => ids.has(version.assertionId));
+  if (copy.assertions.length !== record.assertions.length) copy.historyCoverage = "legacy_partial";
+  return copy;
 }
 
 function validateDocument(value: unknown): MemoryDocument {
@@ -506,20 +718,23 @@ function validateDocument(value: unknown): MemoryDocument {
   }
 
   const version = document.version;
-  if (version !== 1 && version !== 2 && version !== 3) raise("MEMORY_VERSION_UNSUPPORTED", "Unsupported memory file version");
+  if (version !== 1 && version !== 2 && version !== 3 && version !== 4) raise("MEMORY_VERSION_UNSUPPORTED", "Unsupported memory file version");
 
   const ids = new Set<string>();
-  const entries: MemoryEntry[] = [];
+  const entries: MemoryRecord[] = [];
   for (const value of document.entries) {
-    const entry = version === 1 ? normalizeLegacyEntry(value) : validateV2Entry(value);
+    const entry = version === 4 ? validateRecord(value) : migrateEntry(version === 1 ? normalizeLegacyEntry(value) : validateV2Entry(value));
     if (ids.has(entry.id)) raise("MEMORY_ENTRY_INVALID", `Duplicate memory entry id: ${entry.id}`);
     ids.add(entry.id);
     entries.push(entry);
   }
   const full = value as Record<string, unknown>;
-  const candidates = version === 3 ? validateCandidates(full.candidates) : [];
-  const consolidationCursors = version === 3 ? validateCursors(full.consolidationCursors) : [];
-  return { version: 3, entries, candidates, consolidationCursors };
+  const candidates = version >= 3 ? validateCandidates(full.candidates) : [];
+  const consolidationCursors = version >= 3 ? validateCursors(full.consolidationCursors) : [];
+  const stamps = [...entries.map((entry) => entry.updatedAt), ...candidates.flatMap((candidate) => [candidate.createdAt, candidate.resolvedAt]), ...consolidationCursors.map((cursor) => cursor.updatedAt)].filter((stamp): stamp is string => stamp !== null);
+  const lastWrittenAt = version === 4 ? validateTimestamp(full.lastWrittenAt, "Memory lastWrittenAt") : stamps.sort((a, b) => Date.parse(b) - Date.parse(a))[0] ?? null;
+  if (version === 4 && stamps.some((stamp) => lastWrittenAt === null || Date.parse(stamp) > Date.parse(lastWrittenAt))) raise("MEMORY_FILE_INVALID", "Memory commit timestamp precedes recorded state");
+  return { version: 4, lastWrittenAt, entries, candidates, consolidationCursors };
 }
 
 function memoryMessageText(entries: readonly MemoryEntry[]): string {
@@ -548,7 +763,7 @@ export function memoryContextBytes(entries: readonly MemoryEntry[]): number {
 }
 
 export function isMemoryEntryExpired(
-  entry: MemoryEntry,
+  entry: Pick<MemoryEntry, "expiresAt">,
   now: Date = new Date(),
 ): boolean {
   return entry.expiresAt !== undefined && entry.expiresAt !== null && Date.parse(entry.expiresAt) <= now.getTime();
@@ -613,8 +828,11 @@ function assertThreadBinding(scope: MemoryScope | undefined, options: MemoryWrit
 }
 
 function errorResult(error: unknown, signal: AbortSignal, write: boolean): MemoryFailure {
+  // Once rename may have committed, cancellation must not claim a zero-write outcome.
+  if (error instanceof MemoryStoreError && error.code === "MEMORY_COMMIT_UNCERTAIN") return fail(error.code, error.message);
   if (signal.aborted) throw abortReason(signal);
   if (error instanceof MemoryStoreError) return fail(error.code, error.message);
+  if (error instanceof TemporalMemoryError) return fail(error.code, error.message);
   return fail(write ? "WRITE_FAILED" : "READ_FAILED", write ? "Unable to write workspace memory" : "Unable to read workspace memory");
 }
 
@@ -622,18 +840,21 @@ function filesystemCode(error: unknown): string | undefined {
   return typeof error === "object" && error !== null && "code" in error ? String(error.code) : undefined;
 }
 
-export class WorkspaceMemoryStoreImpl implements WorkspaceMemoryStore {
+export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
   readonly #root: string;
   readonly #file: string;
   readonly #lockFile: string;
+  readonly #writeBoundary: ((phase: "before-rename" | "after-rename") => void | Promise<void>) | undefined;
 
-  constructor(workspace: string) {
+  /** The optional observer is for deterministic commit-boundary tests, never model input. */
+  constructor(workspace: string, writeBoundary?: (phase: "before-rename" | "after-rename") => void | Promise<void>) {
     const root = resolve(workspace);
     const validated = validateWorkspacePath(root, MEMORY_FILE_NAME);
     if (!validated.ok) throw new MemoryStoreError("INVALID_INPUT", validated.message);
     this.#root = root;
     this.#file = validated.target;
     this.#lockFile = resolve(root, MEMORY_LOCK_FILE_NAME);
+    this.#writeBoundary = writeBoundary;
   }
 
   async checkCandidateCapacity(signal: AbortSignal = neverAborted): Promise<MemoryResult<{ pendingCount: number; canStart: boolean }>> {
@@ -676,7 +897,8 @@ export class WorkspaceMemoryStoreImpl implements WorkspaceMemoryStore {
       const candidate = document.candidates.find((c) => c.id === id && c.originThreadId === threadId);
       if (!candidate) raise("MEMORY_CANDIDATE_NOT_FOUND", "Memory candidate not found");
       const change = candidate.change;
-      const current = change.operation === "update" ? document.entries.find((entry) => entry.id === change.memoryId && visible(entry, threadId)) : undefined;
+      const record = change.operation === "update" ? document.entries.find((entry) => entry.id === change.memoryId && visible(entry, threadId)) : undefined;
+      const current = record ? projectRecord(record, writeNow(options)) : undefined;
       const { history: _history, ...currentVersion } = current ?? {};
       const reason = candidate.status !== "pending" ? candidate.status : staleReasonFor(candidate, document, writeNow(options));
       const applicable = reason === null;
@@ -701,18 +923,18 @@ export class WorkspaceMemoryStoreImpl implements WorkspaceMemoryStore {
       const cursor = input.nextCursor === null ? null : validateCursor(input.nextCursor);
       const expectedCursor = cursor && input.expectedCursor !== null ? validateCursor(input.expectedCursor) : null;
       if (cursor && (cursor.threadId !== threadId || cursor.lastBatchId !== input.batchId)) raise("MEMORY_BATCH_INVALID", "Cursor must match batch and Thread");
-      const value = await this.#mutateDocument(signal, (document) => {
+      const value = await this.#mutateDocument(signal, (document, now) => {
         const existingCursor = document.consolidationCursors.find((c) => c.threadId === threadId) ?? null;
         const existingBatch = document.candidates.filter((c) => c.batchId === input.batchId && c.originThreadId === threadId);
         if (existingCursor?.lastBatchId === input.batchId || existingBatch.length > 0) {
           if (cursor && JSON.stringify(existingCursor) !== JSON.stringify(cursor)) raise("MEMORY_BATCH_INVALID", "Batch replay payload differs");
           const missingSaved = existingBatch.some((candidate) => !drafts.some((draft) => candidate.fingerprint === candidateFingerprint(threadId, draft) && candidate.reason === draft.reason));
-          const addedOnReplay = drafts.some((draft) => !document.candidates.some((candidate) => candidate.fingerprint === candidateFingerprint(threadId, draft)) && !duplicateAdd(draft.change, document.entries));
+          const addedOnReplay = drafts.some((draft) => !document.candidates.some((candidate) => candidate.fingerprint === candidateFingerprint(threadId, draft)) && !duplicateAdd(draft.change, document.entries, now));
           if (missingSaved || addedOnReplay) raise("MEMORY_BATCH_INVALID", "Batch replay proposals differ");
           return { document, unchanged: true, value: { candidateIds: existingBatch.map((c) => c.id), replayed: true } };
         }
         if (cursor && JSON.stringify(existingCursor) !== JSON.stringify(expectedCursor)) raise("MEMORY_CURSOR_MISMATCH", "Consolidation cursor changed since prepare");
-        const now = writeNow(options), added: string[] = [];
+        const added: string[] = [];
         const originalCandidateCount = document.candidates.length;
         for (const draft of drafts) {
           const fingerprint = candidateFingerprint(threadId, draft);
@@ -731,7 +953,7 @@ export class WorkspaceMemoryStoreImpl implements WorkspaceMemoryStore {
           if (document.consolidationCursors.length > MEMORY_CURSORS_MAX) raise("MEMORY_LIMIT_EXCEEDED", "Consolidation cursor limit exceeded");
         }
         return { document, unchanged: cursor === null && document.candidates.length === originalCandidateCount, value: { candidateIds: added, replayed: false } };
-      });
+      }, options?.now);
       return { ok: true, value };
     } catch (error) { return errorResult(error, signal, true); }
   }
@@ -741,7 +963,7 @@ export class WorkspaceMemoryStoreImpl implements WorkspaceMemoryStore {
       const threadId = candidateThread(options);
       if (input.decision !== "accept" && input.decision !== "reject") raise("INVALID_INPUT", "Candidate decision must be accept or reject");
       validateRevision(input.expectedCandidateRevision);
-      const result = await this.#mutateDocument<MemoryResult<CandidateResolution>>(signal, (document) => {
+      const result = await this.#mutateDocument<MemoryResult<CandidateResolution>>(signal, (document, now) => {
         const candidate = document.candidates.find((c) => c.id === input.candidateId && c.originThreadId === threadId);
         if (!candidate) raise("MEMORY_CANDIDATE_NOT_FOUND", "Memory candidate not found");
         const expectedStatus = input.decision === "accept" ? "accepted" : "rejected";
@@ -751,7 +973,7 @@ export class WorkspaceMemoryStoreImpl implements WorkspaceMemoryStore {
           raise(candidate.status === "stale" ? "MEMORY_CANDIDATE_STALE" : "MEMORY_CANDIDATE_CONFLICT", "Candidate has already been resolved");
         }
         if (input.expectedCandidateRevision !== candidate.revision) raise("MEMORY_CANDIDATE_CONFLICT", "Candidate revision changed");
-        const now = writeNow(options), reason = input.decision === "accept" ? staleReasonFor(candidate, document, now) : null;
+        const reason = input.decision === "accept" ? staleReasonFor(candidate, document, now) : null;
         if (reason !== null) {
           staleCandidate(candidate, reason, now.toISOString()); pruneCandidates(document);
           return { document, value: fail("MEMORY_CANDIDATE_STALE", `Candidate is stale: ${reason}`) };
@@ -760,35 +982,37 @@ export class WorkspaceMemoryStoreImpl implements WorkspaceMemoryStore {
           const change = candidate.change;
           if (change.operation === "add") {
             if (document.entries.length >= MEMORY_MAX_ENTRIES) raise("MEMORY_LIMIT_EXCEEDED", "Memory entry limit exceeded");
-            const entry: MemoryEntry = { id: randomUUID(), text: change.text, scope: structuredClone(change.scope), expiresAt: change.expiresAt, source: structuredClone(candidate.source), enabled: true, status: "active", pinned: false, revision: 1, history: [], createdAt: now.toISOString(), updatedAt: now.toISOString() };
+            const entry = newRecord({ text: change.text, scope: structuredClone(change.scope), expiresAt: change.expiresAt, source: structuredClone(candidate.source) }, now.toISOString());
             document.entries.push(entry); candidate.appliedResult = { memoryId: entry.id, revision: 1 };
           } else {
             const entry = document.entries.find((entry) => entry.id === change.memoryId)!;
-            const previous: MemoryRevision = { text: entry.text, revision: entry.revision!, status: entry.status!, scope: structuredClone(entry.scope!), source: structuredClone(entry.source!), expiresAt: entry.expiresAt ?? null, changedAt: entry.updatedAt ?? now.toISOString(), pinned: entry.pinned ?? false };
-            entry.history = [...entry.history ?? [], previous].slice(-MEMORY_HISTORY_MAX_ENTRIES);
-            entry.text = change.text; entry.expiresAt = change.expiresAt; entry.source = structuredClone(candidate.source); entry.revision = entry.revision! + 1; entry.updatedAt = now.toISOString();
+            const revised = reviseAssertions(entry.assertions, { operation: "correct", text: change.text, sources: [candidate.source] }, now.toISOString(), randomUUID);
+            entry.assertions = revised.assertions;
+            entry.expiresAt = change.expiresAt;
+            finishRecordRevision(entry, revised.displayAssertionId, now.toISOString());
             candidate.appliedResult = { memoryId: entry.id, revision: entry.revision };
             for (const other of document.candidates) if (other.id !== candidate.id && other.status === "pending" && other.change.operation === "update" && other.change.memoryId === entry.id) staleCandidate(other, "target_changed", now.toISOString());
           }
         }
         candidate.status = expectedStatus; candidate.revision += 1; candidate.resolvedAt = now.toISOString(); pruneCandidates(document);
         return { document, value: resolution(false) };
-      });
+      }, options?.now);
       return result;
     } catch (error) { return errorResult(error, signal, true); }
   }
 
-  async list(signal: AbortSignal = neverAborted): Promise<MemoryListResult> {
+  async list(signal: AbortSignal = neverAborted, options?: MemoryWriteOptions): Promise<MemoryListResult> {
     try {
-      return { ok: true, entries: cloneEntries((await this.#load(signal)).entries) };
+      const now = writeNow(options);
+      return { ok: true, entries: (await this.#load(signal)).entries.map((record) => projectRecord(record, now)) };
     } catch (error) {
       return errorResult(error, signal, false);
     }
   }
 
-  async get(id: string, signal: AbortSignal = neverAborted): Promise<MemoryEntryResult> {
+  async get(id: string, signal: AbortSignal = neverAborted, options?: MemoryWriteOptions): Promise<MemoryEntryResult> {
     if (typeof id !== "string" || id.length === 0) return fail("INVALID_INPUT", "Memory entry id must be non-empty");
-    const result = await this.list(signal);
+    const result = await this.list(signal, options);
     if (!result.ok) return result;
     const entry = result.entries.find((value) => value.id === id);
     return entry ? { ok: true, entry: cloneEntry(entry) } : fail("MEMORY_ENTRY_NOT_FOUND", `Memory entry not found: ${id}`);
@@ -811,27 +1035,13 @@ export class WorkspaceMemoryStoreImpl implements WorkspaceMemoryStore {
       const expiresAt = input.expiresAt === undefined ? null : validateTimestamp(input.expiresAt, "Memory expiresAt");
       const source: MemorySource = input.source === undefined ? { kind: "manual" } : validateSource(input.source);
       if (source.kind === "legacy") return fail("MEMORY_SOURCE_INVALID", "New memory entries cannot use the legacy source");
-      const now = writeNow(options).toISOString();
-      const entry: MemoryEntry = {
-        id: randomUUID(),
-        pinned,
-        text: input.text,
-        enabled: status === "active",
-        status,
-        scope,
-        source,
-        createdAt: now,
-        updatedAt: now,
-        expiresAt,
-        revision: 1,
-        history: [],
-      };
-      const value = await this.#mutate(signal, (entries) => {
+      const value = await this.#mutate(signal, (entries, nowDate) => {
         if (entries.length >= MEMORY_MAX_ENTRIES) raise("MEMORY_LIMIT_EXCEEDED", `Memory already has ${MEMORY_MAX_ENTRIES} entries`);
+        const entry = newRecord({ ...input, pinned, status, scope, source, expiresAt }, nowDate.toISOString());
         const next = [...entries, entry];
         return { next, value: entry };
-      }, writeNow(options));
-      return { ok: true, entry: cloneEntry(value) };
+      }, options?.now);
+      return { ok: true, entry: projectRecord(value, new Date(value.updatedAt!)) };
     } catch (error) {
       return errorResult(error, signal, true);
     }
@@ -859,52 +1069,115 @@ export class WorkspaceMemoryStoreImpl implements WorkspaceMemoryStore {
       if ("expiresAt" in input && input.expiresAt !== undefined) validateTimestamp(input.expiresAt, "Memory expiresAt");
       const source = input.source === undefined ? undefined : validateSource(input.source);
       if (source?.kind === "legacy") raise("MEMORY_SOURCE_INVALID", "Memory updates cannot assign the legacy source");
-      const value = await this.#mutate(signal, (entries) => {
+      const value = await this.#mutate(signal, (entries, nowDate) => {
         const index = entries.findIndex((entry) => entry.id === id);
         if (index < 0) raise("MEMORY_ENTRY_NOT_FOUND", `Memory entry not found: ${id}`);
         const current = entries[index]!;
         assertThreadBinding(current.scope, options);
         if (current.revision !== expectedRevision) raise("MEMORY_REVISION_CONFLICT", `Memory entry revision is ${String(current.revision)}; expected ${String(expectedRevision)}`);
-        const status = input.status ?? (input.enabled === undefined ? (current.status ?? (current.enabled ? "active" : "disabled")) : (input.enabled ? "active" : "disabled"));
+        const status = input.status ?? (input.enabled === undefined ? current.status : (input.enabled ? "active" : "disabled"));
         const expiresAt = "expiresAt" in input ? (input.expiresAt ?? null) : (current.expiresAt ?? null);
         const enabling = input.status === "active" || input.enabled === true;
-        const nowDate = writeNow(options);
         if (enabling && expiresAt !== null && Date.parse(expiresAt) <= nowDate.getTime()) raise("MEMORY_EXPIRED", "An expired memory must receive a new expiry or be explicitly cleared before enabling");
         const now = nowDate.toISOString();
-        const revision = expectedRevision + 1;
-        const previous: MemoryRevision = {
-          pinned: current.pinned ?? false,
-          revision: expectedRevision,
-          text: current.text,
-          status: current.status ?? (current.enabled ? "active" : "disabled"),
-          scope: current.scope ?? { kind: "workspace" },
-          expiresAt: current.expiresAt ?? null,
-          source: current.source ?? { kind: "legacy" },
-          changedAt: current.updatedAt ?? now,
-        };
-        const history = [...(current.history ?? []), previous].slice(-MEMORY_HISTORY_MAX_ENTRIES);
-        const updated: MemoryEntry = {
-          ...current,
-          pinned: input.pinned ?? current.pinned ?? false,
-          text: input.text ?? current.text,
-          enabled: status === "active",
-          status,
-          scope: input.scope === undefined ? (current.scope ?? { kind: "workspace" }) : validateScope(input.scope),
-          expiresAt,
-          source: source ?? (input.text === undefined ? (current.source ?? { kind: "legacy" }) : { kind: "manual" }),
-          updatedAt: now,
-          revision,
-          history,
-        };
+        const updated = structuredClone(current);
+        let displayAssertionId: string;
+        if (input.text !== undefined || source !== undefined) {
+          const revised = reviseAssertions(current.assertions, { operation: "correct", ...(input.text === undefined ? { text: projectRecord(current, nowDate).text } : { text: input.text }), sources: [source ?? { kind: "manual" }] }, now, randomUUID);
+          updated.assertions = revised.assertions;
+          displayAssertionId = revised.displayAssertionId;
+        } else {
+          const copied = renewAssertions(current, now);
+          updated.assertions = copied.assertions;
+          displayAssertionId = copied.displayAssertionId;
+        }
+        updated.pinned = input.pinned ?? current.pinned;
+        updated.status = status;
+        updated.scope = input.scope === undefined ? current.scope : validateScope(input.scope);
+        updated.expiresAt = expiresAt;
+        finishRecordRevision(updated, displayAssertionId, now);
         const next = entries.slice();
         assertThreadBinding(updated.scope, options);
         next[index] = updated;
         return { next, value: updated };
-      }, writeNow(options));
-      return { ok: true, entry: cloneEntry(value) };
+      }, options?.now);
+      return { ok: true, entry: projectRecord(value, new Date(value.updatedAt!)) };
     } catch (error) {
       return errorResult(error, signal, true);
     }
+  }
+
+  async inspectMemory(id: string, signal: AbortSignal = neverAborted, options?: MemoryWriteOptions): Promise<MemoryResult<MemoryRecord>> {
+    try {
+      if (typeof id !== "string" || id.length === 0) raise("INVALID_INPUT", "Memory id must be non-empty");
+      const record = (await this.#load(signal)).entries.find((entry) => entry.id === id);
+      if (!record) raise("MEMORY_ENTRY_NOT_FOUND", "Memory entry not found");
+      assertThreadBinding(record.scope, options);
+      return { ok: true, value: scopedTimeline(record, options?.boundThreadId) };
+    } catch (error) { return errorResult(error, signal, false); }
+  }
+
+  async queryMemory(id: string, query: MemoryTemporalQuery = {}, signal: AbortSignal = neverAborted, options?: MemoryWriteOptions): Promise<MemoryResult<MemoryTemporalView>> {
+    try {
+      if (typeof query !== "object" || query === null || Array.isArray(query) || Object.keys(query).some((key) => !["validAt", "knownAt", "includeDisabled"].includes(key)) || (query.includeDisabled !== undefined && typeof query.includeDisabled !== "boolean")) raise("INVALID_INPUT", "Invalid temporal Memory query");
+      const inspected = await this.inspectMemory(id, signal, options);
+      if (!inspected.ok) return inspected;
+      const record = inspected.value;
+      const now = writeNow(options);
+      const selected = selectTemporalAssertions(record.assertions, query, now.toISOString());
+      const allowed = query.includeDisabled === true || (record.status === "active" && !isMemoryEntryExpired(record, now));
+      return { ok: true, value: { id: record.id, revision: record.revision, historyCoverage: record.historyCoverage, ...selected, assertions: allowed ? selected.assertions : [] } };
+    } catch (error) { return errorResult(error, signal, false); }
+  }
+
+  async reviseMemory(input: MemoryReviseInput, signal: AbortSignal = neverAborted, options?: MemoryWriteOptions): Promise<MemoryEntryResult> {
+    try {
+      if (typeof input !== "object" || input === null || Object.keys(input).some((key) => !["id", "expectedRevision", "operation", "text", "kind", "recallTerms", "validTime", "effectiveAt", "sources"].includes(key))) raise("INVALID_INPUT", "Invalid temporal revision input");
+      const sources = newSources(input.sources);
+      const record = await this.#mutate(signal, (entries, now) => {
+        const current = findWritableRecord(entries, input.id, input.expectedRevision, options);
+        const revised = reviseAssertions(current.assertions, { ...input, sources }, now.toISOString(), randomUUID);
+        current.assertions = revised.assertions;
+        finishRecordRevision(current, revised.displayAssertionId, now.toISOString());
+        return { next: entries, value: current };
+      }, options?.now);
+      return { ok: true, entry: projectRecord(record, new Date(record.updatedAt!)) };
+    } catch (error) { return errorResult(error, signal, true); }
+  }
+
+  async restoreMemory(input: MemoryRestoreInput, signal: AbortSignal = neverAborted, options?: MemoryWriteOptions): Promise<MemoryEntryResult> {
+    try {
+      if (typeof input !== "object" || input === null || Object.keys(input).some((key) => !["id", "expectedRevision", "targetAssertionId", "status", "expiresAt"].includes(key))) raise("INVALID_INPUT", "Invalid restore input");
+      const record = await this.#mutate(signal, (entries, nowDate) => {
+        const now = nowDate.toISOString();
+        const current = findWritableRecord(entries, input.id, input.expectedRevision, options);
+        const target = scopedTimeline(current, options?.boundThreadId).assertions.find((assertion) => assertion.assertionId === input.targetAssertionId && assertion.state === "asserted");
+        if (!target) raise("MEMORY_ENTRY_NOT_FOUND", "Restorable assertion not found in this scope");
+        if (current.status === "disabled" && input.status === undefined) raise("MEMORY_DISABLED", "Restoring disabled memory requires an explicit status choice");
+        if (isMemoryEntryExpired(current, nowDate) && !("expiresAt" in input)) raise("MEMORY_EXPIRED", "Restoring expired memory requires an explicit expiry choice");
+        const status = input.status === undefined ? current.status : validateStatus(input.status);
+        const expiresAt = "expiresAt" in input ? validateTimestamp(input.expiresAt, "Restore expiry") : current.expiresAt;
+        if (status === "active" && expiresAt !== null && Date.parse(expiresAt) <= nowDate.getTime()) raise("MEMORY_EXPIRED", "Restored active memory must not already be expired");
+        if (current.updatedAt !== null && Date.parse(now) < Date.parse(current.updatedAt)) raise("MEMORY_CLOCK_ROLLBACK", "System clock moved backwards");
+        const assertions = structuredClone(current.assertions);
+        const prefix: MemoryAssertion[] = [];
+        for (const assertion of assertions.filter((assertion) => assertion.systemTime.to === null)) {
+          assertion.systemTime.to = now;
+          if ((target.kind === "fact" || target.kind === "preference") && (assertion.kind === "fact" || assertion.kind === "preference") && assertion.state === "asserted" && (assertion.validTime.from === null || Date.parse(assertion.validTime.from) < nowDate.getTime())) {
+            const to = assertion.validTime.to === null || Date.parse(assertion.validTime.to) > nowDate.getTime() ? now : assertion.validTime.to;
+            prefix.push({ ...structuredClone(assertion), assertionId: randomUUID(), systemTime: { from: now, to: null }, validTime: { ...assertion.validTime, to } });
+          }
+        }
+        const restored = createAssertion({ text: target.text, kind: target.kind, recallTerms: target.recallTerms, sources: target.sources, validTime: { from: now, to: null, basis: "reported" } }, randomUUID(), now);
+        current.assertions = [...assertions, ...prefix, restored];
+        assertTemporalIntegrity(current.assertions);
+        current.status = status;
+        current.expiresAt = expiresAt;
+        finishRecordRevision(current, restored.assertionId, now);
+        return { next: entries, value: current };
+      }, options?.now);
+      return { ok: true, entry: projectRecord(record, new Date(record.updatedAt!)) };
+    } catch (error) { return errorResult(error, signal, true); }
   }
 
   async delete(
@@ -912,16 +1185,32 @@ export class WorkspaceMemoryStoreImpl implements WorkspaceMemoryStore {
     signal: AbortSignal = neverAborted,
     options?: MemoryWriteOptions,
   ): Promise<MemoryDeleteResult> {
+    return this.#deleteMemory(id, undefined, signal, options);
+  }
+
+  async deleteMemory(input: { id: string; expectedRevision: number }, signal: AbortSignal = neverAborted, options?: MemoryWriteOptions): Promise<MemoryDeleteResult> {
+    if (!Number.isSafeInteger(input?.expectedRevision) || input.expectedRevision < 1) return fail("MEMORY_REVISION_REQUIRED", "Permanent deletion requires a positive expectedRevision");
+    return this.#deleteMemory(input.id, input.expectedRevision, signal, options);
+  }
+
+  async #deleteMemory(id: string, expectedRevision: number | undefined, signal: AbortSignal, options?: MemoryWriteOptions): Promise<MemoryDeleteResult> {
     try {
       if (typeof id !== "string" || id.length === 0) raise("INVALID_INPUT", "Memory entry id must be non-empty");
-      await this.#mutate(signal, (entries) => {
-        const index = entries.findIndex((entry) => entry.id === id);
+      await this.#mutateDocument(signal, (document) => {
+        const index = document.entries.findIndex((entry) => entry.id === id);
         if (index < 0) raise("MEMORY_ENTRY_NOT_FOUND", `Memory entry not found: ${id}`);
-        assertThreadBinding(entries[index]!.scope, options);
-        const next = entries.slice();
-        next.splice(index, 1);
-        return { next, value: id };
-      }, writeNow(options));
+        const removed = document.entries[index]!;
+        assertThreadBinding(removed.scope, options);
+        if (expectedRevision !== undefined && removed.revision !== expectedRevision) raise("MEMORY_REVISION_CONFLICT", "Memory changed since deletion preview");
+        document.entries.splice(index, 1);
+        document.candidates = document.candidates.filter((candidate) => {
+          if (candidate.appliedResult?.memoryId === id || (candidate.change.operation === "update" && candidate.change.memoryId === id)) return false;
+          const change = candidate.change;
+          // A previously rejected add can hold the same copied body without a receipt.
+          return !(change.operation === "add" && removed.assertions.some((assertion) => assertion.text === change.text) && removed.versions.some((version) => JSON.stringify(version.scope) === JSON.stringify(change.scope)));
+        });
+        return { document, value: id };
+      }, options?.now);
       return { ok: true, id };
     } catch (error) {
       return errorResult(error, signal, true);
@@ -989,24 +1278,24 @@ export class WorkspaceMemoryStoreImpl implements WorkspaceMemoryStore {
 
   async #mutate<T>(
     signal: AbortSignal,
-    operation: (entries: MemoryEntry[]) => { next: MemoryEntry[]; value: T },
-    now: Date,
+    operation: (entries: MemoryRecord[], now: Date) => { next: MemoryRecord[]; value: T },
+    now: Date | undefined,
   ): Promise<T> {
-    return this.#mutateDocument(signal, (document) => {
-      const { next, value } = operation(document.entries);
+    return this.#mutateDocument(signal, (document, stamp) => {
+      const { next, value } = operation(document.entries, stamp);
       document.entries = next;
       for (const candidate of document.candidates) {
         if (candidate.status !== "pending" || candidate.change.operation !== "update") continue;
         const change = candidate.change;
         const target = next.find((entry) => entry.id === change.memoryId);
-        if (!target || target.revision !== change.expectedRevision) staleCandidate(candidate, target ? "target_changed" : "target_missing", now.toISOString());
+        if (!target || target.revision !== change.expectedRevision) staleCandidate(candidate, target ? "target_changed" : "target_missing", stamp.toISOString());
       }
       pruneCandidates(document);
       return { document, value };
-    });
+    }, now);
   }
 
-  async #mutateDocument<T>(signal: AbortSignal, operation: (document: MemoryDocument) => { document: MemoryDocument; value: T; unchanged?: boolean }): Promise<T> {
+  async #mutateDocument<T>(signal: AbortSignal, operation: (document: MemoryDocument, now: Date) => { document: MemoryDocument; value: T; unchanged?: boolean }, now: Date | undefined): Promise<T> {
     await this.#inspectRoot(signal);
     const directory = dirname(this.#file);
     try {
@@ -1019,14 +1308,32 @@ export class WorkspaceMemoryStoreImpl implements WorkspaceMemoryStore {
       await mkdir(directory, { recursive: true });
     }
     const lock = await acquireFlock(this.#lockFile, signal);
+    let committed = false;
     try {
       throwIfAborted(signal);
       const current = await this.#load(signal);
-      const { document, value, unchanged } = operation(current);
-      if (!unchanged) await this.#write(document, signal);
+      // Capture once, after ownership and reload. Waiting for flock is not a clock rollback.
+      const commitNow = now ?? new Date();
+      const { document, value, unchanged } = operation(current, commitNow);
+      if (!unchanged) {
+        const stamp = validateTemporalTimestamp(commitNow.toISOString(), "Memory commit timestamp");
+        if (document.lastWrittenAt !== null && Date.parse(stamp) < Date.parse(document.lastWrittenAt)) raise("MEMORY_CLOCK_ROLLBACK", "System clock moved backwards; no Memory write was made");
+        document.lastWrittenAt = stamp;
+        // Validate the complete prospective file before touching the old one.
+        validateDocument(document);
+        await this.#write(document, signal);
+        committed = true;
+      }
       return value;
+    } catch (error) {
+      if (error instanceof MemoryStoreError && error.code === "MEMORY_COMMIT_UNCERTAIN") committed = true;
+      throw error;
     } finally {
-      await lock.release();
+      try { await lock.release(); }
+      catch (error) {
+        if (committed) raise("MEMORY_COMMIT_UNCERTAIN", "Memory was renamed, but lock cleanup failed. Read current state before retrying");
+        throw error;
+      }
     }
   }
 
@@ -1062,20 +1369,30 @@ export class WorkspaceMemoryStoreImpl implements WorkspaceMemoryStore {
     const temporary = join(directory, `.memory.json.runloom-${randomUUID()}.tmp`);
     let handle;
     let created = false;
+    let renamed = false;
     try {
       handle = await open(temporary, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
       created = true;
       throwIfAborted(signal);
       await handle.writeFile(serialized, "utf8");
       throwIfAborted(signal);
+      await handle.sync();
       await handle.close();
       handle = undefined;
+      await this.#writeBoundary?.("before-rename");
       throwIfAborted(signal);
       await rename(temporary, this.#file);
       created = false;
+      renamed = true;
+      await this.#writeBoundary?.("after-rename");
+      // Finish durability after the commit barrier even if the caller cancelled.
+      const directoryHandle = await open(directory, constants.O_RDONLY | constants.O_NOFOLLOW);
+      try { await directoryHandle.sync(); }
+      finally { await directoryHandle.close(); }
     } catch (error) {
       if (handle) await handle.close().catch(() => undefined);
       if (created) await rm(temporary, { force: true }).catch(() => undefined);
+      if (renamed) raise("MEMORY_COMMIT_UNCERTAIN", "Memory was renamed, but durability acknowledgement failed. Read current state before retrying; the old file is not guaranteed unchanged");
       if (signal.aborted) throw abortReason(signal);
       throw error;
     }
@@ -1084,6 +1401,6 @@ export class WorkspaceMemoryStoreImpl implements WorkspaceMemoryStore {
 
 export const MemoryStore = WorkspaceMemoryStoreImpl;
 
-export function createMemoryStore(workspace: string): WorkspaceMemoryStore {
+export function createMemoryStore(workspace: string): TemporalWorkspaceMemoryStore {
   return new WorkspaceMemoryStoreImpl(workspace);
 }

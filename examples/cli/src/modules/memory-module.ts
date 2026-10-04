@@ -258,6 +258,19 @@ function throwIfAborted(signal: AbortSignal): void {
   if (signal.aborted) throw abortReason(signal);
 }
 
+/** A lost post-commit acknowledgement must not look like a safe failed write. */
+function confirmedMemoryWrite<T extends { ok: true } | { ok: false; error: { code: string; message: string } }>(result: T): T {
+  if (!result.ok && result.error.code === "MEMORY_COMMIT_UNCERTAIN") {
+    throw new AgentError({
+      code: "TOOL_OUTCOME_UNKNOWN",
+      message: "Memory commit may already have been applied. Read the saved memory or candidate receipt before attempting another write.",
+      retryable: false,
+      phase: "tool",
+    });
+  }
+  return result;
+}
+
 function requestedAgentId(context: unknown): string | undefined {
   if (typeof context !== "object" || context === null) return undefined;
   if (!("agentId" in context) || typeof context.agentId !== "string") return undefined;
@@ -418,7 +431,7 @@ export function createMemoryModule(
         execute: async (input, { abortSignal }) => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
-          const listed = await store.list(signal);
+          const listed = await store.list(signal, writeOptions());
           if (!listed.ok) return listed;
           const visible = listed.entries.filter((entry) => visibleScope(entry.scope, options.threadId));
           const offset = input.offset ?? 0;
@@ -443,7 +456,7 @@ export function createMemoryModule(
         execute: async ({ id }, { abortSignal }): Promise<MemoryEntryResult> => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
-          const found = await store.get(id, signal);
+          const found = await store.get(id, signal, writeOptions());
           if (!found.ok) return found;
           if (!visibleScope(found.entry.scope, options.threadId)) {
             return { ok: false, error: { code: "MEMORY_ENTRY_NOT_FOUND", message: "Memory entry not found" } };
@@ -468,14 +481,14 @@ export function createMemoryModule(
             ? undefined
             : await sourceFromCommittedUser(sourceMessageId, sourceQuote, signal);
           if (provenance !== undefined && !provenance.ok) return provenance;
-          const saved = await store.add({
+          const saved = confirmedMemoryWrite(await store.add({
             text,
             ...(provenance === undefined ? {} : { source: provenance.source }),
             ...(enabled === undefined ? {} : { enabled }),
             ...(status === undefined ? {} : { status: status as MemoryStatus }),
             ...(bound.scope === undefined ? {} : { scope: bound.scope }),
             ...(expiresAt === undefined ? {} : { expiresAt }),
-          }, signal, writeOptions());
+          }, signal, writeOptions()));
           if (!saved.ok) return saved;
           return { ok: true, entry: presentMemoryEntry(saved.entry) };
         },
@@ -503,7 +516,7 @@ export function createMemoryModule(
             ...(bound.scope === undefined ? {} : { scope: bound.scope }),
             ...(expiresAt === undefined ? {} : { expiresAt }),
           };
-          const saved = await store.update(id, input, signal, writeOptions());
+          const saved = confirmedMemoryWrite(await store.update(id, input, signal, writeOptions()));
           if (!saved.ok) return saved;
           return { ok: true, entry: presentMemoryEntry(saved.entry) };
         },
@@ -515,7 +528,7 @@ export function createMemoryModule(
         execute: async ({ id }, { abortSignal }): Promise<MemoryDeleteResult> => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
-          return store.delete(id, signal, writeOptions());
+          return confirmedMemoryWrite(await store.delete(id, signal, writeOptions()));
         },
       });
       const memoryPrepareConsolidationTool = getMessages === undefined
@@ -551,7 +564,7 @@ export function createMemoryModule(
                 return readFailure(error);
               }
               throwIfAborted(signal);
-              const memories = await store.list(signal);
+              const memories = await store.list(signal, writeOptions());
               throwIfAborted(signal);
               if (!memories.ok) return memories;
 

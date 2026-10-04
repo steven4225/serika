@@ -61,7 +61,7 @@ export async function loadTaskWorkerContext(
   signal: AbortSignal,
 ): Promise<TaskWorkerSnapshotContext> {
   const observedAt = (sources.now?.() ?? new Date()).toISOString();
-  const memoryResult = await sources.memoryStore.list(signal);
+  const memoryResult = await sources.memoryStore.list(signal, { now: new Date(observedAt) });
   if (!memoryResult.ok) throw readFailure(memoryResult.error);
   const memorySelection = retrieveMemories(memoryResult.entries, {
     query: task.prompt,

@@ -119,6 +119,78 @@ function toolByName(tools: RegisteredTool[], name: string): RegisteredTool {
 }
 
 describe("createMemoryModule", () => {
+  it("raises unknown outcome for non-idempotent writes but returns candidate commit uncertainty for safe receipt replay", async () => {
+    const { store } = createStore();
+    const uncertain = { ok: false as const, error: { code: "MEMORY_COMMIT_UNCERTAIN" as const, message: "Directory sync failed after rename" } };
+    const uncertainStore: WorkspaceMemoryStore = {
+      ...store,
+      add: async () => uncertain,
+      update: async () => uncertain,
+      delete: async () => uncertain,
+      resolveCandidate: async () => uncertain,
+    };
+    const tools = setupTools(uncertainStore, undefined, { threadId: "thread-a" });
+    const context = { toolCallId: "uncertain-write", messages: [], context: {} };
+    for (const [name, input] of [
+      ["memory_add", { text: "save preference" }],
+      ["memory_update", { id: "one", expectedRevision: 1, text: "corrected preference" }],
+      ["memory_delete", { id: "one" }],
+    ] as const) {
+      await assert.rejects(toolByName(tools, name).tool.execute!(input, context), (error: unknown) => {
+        assert.ok(error instanceof AgentError);
+        assert.equal(error.data.code, "TOOL_OUTCOME_UNKNOWN");
+        assert.equal(error.data.retryable, false);
+        assert.equal(error.data.phase, "tool");
+        assert.match(error.message, /Read the saved memory or candidate receipt/);
+        return true;
+      });
+    }
+    const accept = toolByName(tools, "memory_apply_candidate");
+    assert.equal(accept.metadata.idempotent, true);
+    assert.deepEqual(await accept.tool.execute!({ candidateId: "candidate", expectedCandidateRevision: 1 }, context), uncertain);
+  });
+
+  it("keeps definite Memory write rejections as ordinary structured failures", async () => {
+    const { store } = createStore();
+    const rejected = { ok: false as const, error: { code: "MEMORY_REVISION_CONFLICT" as const, message: "Revision changed before commit" } };
+    const rejectingStore: WorkspaceMemoryStore = {
+      ...store,
+      add: async () => rejected,
+      update: async () => rejected,
+      delete: async () => rejected,
+      resolveCandidate: async () => rejected,
+    };
+    const tools = setupTools(rejectingStore, undefined, { threadId: "thread-a" });
+    const context = { toolCallId: "rejected-write", messages: [], context: {} };
+    for (const [name, input] of [
+      ["memory_add", { text: "save preference" }],
+      ["memory_update", { id: "one", expectedRevision: 1, text: "corrected preference" }],
+      ["memory_delete", { id: "one" }],
+      ["memory_apply_candidate", { candidateId: "candidate", expectedCandidateRevision: 1 }],
+    ] as const) assert.deepEqual(await toolByName(tools, name).tool.execute!(input, context), rejected);
+  });
+
+  it("binds current projection reads and fallback consolidation to the module Thread and clock", async () => {
+    const { store } = createStore();
+    const now = new Date("2026-10-01T00:00:00.000Z");
+    const observed: Array<{ method: string; options: MemoryWriteOptions | undefined }> = [];
+    const projectionStore: WorkspaceMemoryStore = {
+      ...store,
+      list: async (signal, options) => { observed.push({ method: "list", options }); return store.list(signal, options); },
+      get: async (id, signal, options) => { observed.push({ method: "get", options }); return store.get(id, signal, options); },
+    };
+    const tools = setupTools(projectionStore, async () => [textMessage("source", "user", "pnpm")], { threadId: "thread-a", now: () => now });
+    const context = { toolCallId: "projection-read", messages: [], context: {} };
+    await toolByName(tools, "memory_list").tool.execute!({}, context);
+    await toolByName(tools, "memory_get").tool.execute!({ id: "one" }, context);
+    await toolByName(tools, "memory_prepare_consolidation").tool.execute!({}, context);
+    assert.deepEqual(observed, [
+      { method: "list", options: { boundThreadId: "thread-a", now } },
+      { method: "get", options: { boundThreadId: "thread-a", now } },
+      { method: "list", options: { boundThreadId: "thread-a", now } },
+    ]);
+  });
+
   it("routes stable candidate ids through the Store with the current Thread and clock", async () => {
     const { store } = createStore();
     const now = new Date("2026-10-01T00:00:00.000Z");
