@@ -10,6 +10,7 @@ export interface WorkTaskContinuation {
   latestRun: {
     runId: string;
     status: ExecutionRunRecord["status"];
+    completion?: ExecutionRunRecord["completion"];
     conclusion: string | null;
     conclusionTruncated: boolean;
     tools: { toolCallId: string; toolName: string; status: ExecutionToolStatus; path: string | null }[];
@@ -37,6 +38,7 @@ export function workTaskContinuation(task: WorkTask, record: ExecutionRunRecord 
     } : null,
     latestRun: run ? {
       runId: run.runId, status: run.status, conclusion: run.resultTextPreview,
+      ...(run.completion === undefined ? {} : { completion: { ...run.completion } }),
       conclusionTruncated: run.resultTextTruncated,
       tools: run.tools.slice(-8).map(tool => ({
         toolCallId: tool.toolCallId, toolName: tool.toolName, status: tool.status, path: tool.fileInput?.path ?? null,

@@ -22,6 +22,43 @@ function response(tool = false) {
 }
 
 describe("question-based Memory app context", () => {
+  it("resolves a follow-up topic from the reopened Thread without reviving disabled memory", async () => {
+    const root = await mkdtemp(join(tmpdir(), "runloom-topic-recall-"));
+    const workspace = join(root, "workspace"); await mkdir(workspace);
+    await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, workspace,
+      modules: { memory: { enabled: true, queryRewrite: { enabled: true } } } }));
+    const memory = createMemoryStore(workspace);
+    const fact = await memory.add({ text: "复盘格式：先结论再两步。" }); assert.ok(fact.ok);
+    const rewrites: string[] = [];
+    const model = new MockLanguageModelV3({
+      doGenerate: async options => {
+        const prompt = JSON.stringify(options.prompt.filter(item => item.role === "user"));
+        rewrites.push(prompt);
+        return { content: [{ type: "text", text: '{"queries":["复盘格式"]}' }], finishReason: { unified: "stop", raw: undefined }, usage, warnings: [] };
+      },
+      doStream: async () => response(),
+    });
+    const output = new PassThrough(); output.resume();
+    const open = () => createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", "topic-thread", "--config", join(root, "config.json")], modelAlias: "mock", model, output, env: {}, cwd: root });
+    let app = await open();
+    const run = async (id: string, text: string) => {
+      const handle = await app.runtime.run({ agentId: app.agentId, threadId: app.threadId, messages: [{ id, role: "user", parts: [{ type: "text", text }] }] });
+      const pump = (async () => { for await (const _event of handle.events) {} })();
+      assert.equal((await handle.result).status, "completed"); await pump;
+    };
+    try {
+      await run("topic", "我想写项目复盘，先讨论格式。");
+      app.dispose(); app = await open();
+      await run("followup", "那个格式按我的偏好应该怎样？");
+      assert.match(rewrites.at(-1)!, /我想写项目复盘/);
+      assert.match(rewrites.at(-1)!, /那个格式/);
+      assert.deepEqual(app.getMemoryReferences?.()?.selected.map(item => item.id), [fact.entry.id]);
+      assert.ok((await memory.update(fact.entry.id, { expectedRevision: 1, enabled: false })).ok);
+      await run("disabled", "那个格式呢？");
+      assert.deepEqual(app.getMemoryReferences?.()?.selected, []);
+      assert.equal(rewrites.length, 3);
+    } finally { app.dispose(); await rm(root, { recursive: true, force: true }); }
+  });
   for (const compact of [false, true]) {
     it(`uses current user query across steps and reopens current versions (compaction=${compact})`, async () => {
       const root = await mkdtemp(join(tmpdir(), "runloom-retrieval-app-"));

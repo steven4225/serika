@@ -44,3 +44,10 @@ it("bounded prior delivery enters task context as a reference, never evidence or
   assert.match(text, /interrupted/);
   assert.deepEqual(task.acceptance, []);
 });
+
+it("projects persisted completion reasons only from the latest owned Run", () => {
+  const completed = { ...run, status: "completed" as const, completion: { reason: "budget_exhausted" as const, corrections: 2 } };
+  assert.deepEqual(workTaskContinuation(task, completed).latestRun?.completion, completed.completion);
+  assert.equal(workTaskContinuation(task, { ...completed, runId: "old" }).latestRun, null);
+  assert.equal(workTaskContinuation(task, run).latestRun?.completion, undefined);
+});

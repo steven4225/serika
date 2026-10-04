@@ -58,7 +58,7 @@ import {
   formatTaskRescheduleConfirmation,
 } from "./modules/task-module.js";
 import { createTodoistModule } from "./modules/todoist-module.js";
-import { createMemoryQueryRewriter, type MemoryReferenceSnapshot } from "./memory-query-rewrite.js";
+import { createMemoryQueryRewriter, memoryQueryTopics, type MemoryReferenceSnapshot } from "./memory-query-rewrite.js";
 import { createWebModule } from "./modules/web-module.js";
 import { createComputerModule } from "./modules/computer-module.js";
 import { createTaskStore } from "./task-store.js";
@@ -760,7 +760,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       const user = [...messages].reverse().find(message => message.role === "user" && !isAutoConsolidationRequest(message));
       const query = queryFrom(messages);
       const rewrite = primary && user && query.trim() && !activeWorkTaskMessage && moduleConfig?.memoryQueryRewriteEnabled
-        ? await rewriteQuery(user.id, query, signal) : undefined;
+        ? await rewriteQuery(user.id, query, signal, memoryQueryTopics(messages, user.id)) : undefined;
       const selection = memoryStore === undefined ? undefined : retrieveMemories(await readMemoryEntries(memoryStore, signal, now), {
         query, threadId, now, ...(rewrite ? { rewrittenQueries: rewrite.queries } : {}),
       });
