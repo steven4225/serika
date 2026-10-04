@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
+import { userDataPathFromEnv } from "./user-data-path.js";
 import { app, BrowserWindow, ipcMain, Notification, shell, dialog } from "electron";
 import { createDemoModel } from "@aisdk-agent/example-cli/dist/demo-model.js";
 import { configureCliModel, inspectCliModelConfig } from "@aisdk-agent/example-cli/dist/model-config.js";
@@ -25,8 +26,12 @@ const here = fileURLToPath(new URL(".", import.meta.url));
  *   RUNLOOM_WORKSPACE    used only when generating the userData config
  *   RUNLOOM_TRANSCRIPTS  explicit transcript directory override
  *   RUNLOOM_THREAD       explicit thread id override
+ *   RUNLOOM_USER_DATA    absolute Electron userData directory; applied before ready
  * Omitted identity fields use the saved userData startup preference.
  */
+
+const userDataPath = userDataPathFromEnv(process.env);
+if (userDataPath !== undefined) app.setPath("userData", userDataPath);
 
 function createWindow(): BrowserWindow {
   const window = new BrowserWindow({

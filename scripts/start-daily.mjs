@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { parseEnv } from "node:util";
@@ -17,6 +18,8 @@ for (const cwd of [backend, desktop]) {
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
 delete env.ELECTRON_RUN_AS_NODE;
-const child = spawn(resolve(desktop, "node_modules/.bin/electron"), ["."], { cwd: desktop, env, stdio: "inherit" });
+const electronBinary = createRequire(import.meta.url)("electron");
+if (typeof electronBinary !== "string") throw new Error("The electron package did not return its executable path");
+const child = spawn(electronBinary, ["."], { cwd: desktop, env, stdio: "inherit" });
 child.on("exit", code => process.exit(code ?? 1));
 child.on("error", error => { process.stderr.write(`${error.message}\n`); process.exit(1); });
