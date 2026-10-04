@@ -858,7 +858,11 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
         workTaskCompletionCheck = input.completionCheck !== false;
         nextWorkTask = found.value;
         clearBinding = app.bindNextExecutionWorkTask({ id: found.value.id, expectedRevision: found.value.revision });
-        const started = await controller.run(input.instruction?.trim() || found.value.goal);
+        // A task execution instruction is not evidence of a lasting user preference.
+        // Persist the existing exclusion marker so later history consolidation also skips it.
+        const started = await controller.run(input.instruction?.trim() || found.value.goal, {
+          memoryConsolidation: "exclude",
+        });
         clearBinding();
         clearBinding = undefined;
         if (!started.ok) {
@@ -1041,7 +1045,8 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
               controller.recordOutput(`\nAutomatic consolidation failed: ${String(error)}\n`);
             }
           } else if (app.autoConsolidationAgentId !== undefined) {
-            lastConsolidationSkippedReason = excludeFromConsolidation ? "你选择了本条消息不参与记忆"
+            lastConsolidationSkippedReason = excludeFromConsolidation
+              ? activeWorkTask !== undefined ? "任务执行指令不参与记忆整理，避免将一次性要求误记为长期偏好" : "你选择了本条消息不参与记忆"
               : primary.requestedMemoryTool ? "本轮已请求记忆工具，自动整理跳过，避免重复处理"
               : "主任务未成功结束或已取消，未触发自动整理";
           }
