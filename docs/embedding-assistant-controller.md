@@ -120,8 +120,10 @@ Shell 不走文件证据路径，命令与 cwd 的完整回执要求不变。
 ## WorkTask 接入（第一批）
 
 - 配置 workspace 后，前端可用 `createWorkTask()`、`listWorkTasks()`、`getWorkTask()`、`runWorkTask()`、`submitWorkTaskDelivery()`、`recordHumanAcceptance()`、`reconcileWorkTask()` 和 `cancelWorkTask()` 驱动任务级生命周期。每次更新都传刚读取的 `revision`；冲突后重新读取，不要盲重试旧请求。
-- `runWorkTask()` 会把随后启动的主 Run 绑定到该任务；核对时同时检查 `task.runIds` 与 `getRun(runId).workTaskId`。Run 正常结束只把任务推进到暂停/复核，不等于交付或验收完成。
+- `runWorkTask()` 会把随后启动的主 Run 绑定到该任务；核对时同时检查 `task.runIds` 与 `getRun(runId).workTaskId`。默认在模型准备结束时核对必需自动条件，缺证据最多在同一 Run 内纠正两次；条件满足后自动尝试现有交付提交。`runWorkTask({ completionCheck: false })` 用于显式分段/人工迭代，保持原有暂停/复核行为。Run 正常结束仍不等于业务验收完成。
 - `submitWorkTaskDelivery()` 仅自动核对当前支持的精确 `shell_exit_zero` 和 `artifact_exists`。Shell 标准同时固定 `command` 与 workspace 相对 `cwd`（workspace 根为 `"."`）；Store 会再次回查真实 `runId + toolCallId` 回执，文件还会重算当前 SHA-256，调用方不能自报 evidence。人工标准不会被模型回复或 Run 成功自动通过，必须由用户明确调用 `recordHumanAcceptance()`；出现 `unknown` 工具或缺失执行回执时进入复核，不能重放。
+- `RunResult.completion` 与执行回执中的同名可选字段由程序提供，普通聊天和成功的手动分段 Run 不带此字段。原因是 `delivered | needs_confirmation | needs_information | budget_exhausted | needs_review`，`corrections` 是本轮补证提示次数，不是新 Run 次数或模型 API 重试次数。`delivered` 表示结束时的程序检查通过，之后仍要落终态回执并重新核验交付；最终以任务的 acceptance/status 为准，不等于人工质量通过。取消保留 `RunResult.status === "cancelled"`，未核对副作用优先显示 `needs_review`。
+- `run.completion.checked` 通过原 `run-event` 流显示补证进度；新工具仍逐次确认。`run-result` 在任务暂停/复核及自动提交尝试后发布，不新增桌面 IPC。Shell 成功回执若早于本轮后续文件操作，不能当成当前改动已通过测试。
 - 第一批 WT01–WT06 的固定案例、外部 Eval 记录和“尚未运行”的证据边界见 [WorkTask 第一批验收与 Eval 记录](work-task-acceptance.md)。产品 WorkTask 状态与外部 `AcceptanceCaseResult` 是两层记录，前端不得把其中一层的完成映射成另一层通过。
 
 ## WorkTask 启动恢复与人工核对（第二批）

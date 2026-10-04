@@ -64,6 +64,7 @@ import { createComputerModule } from "./modules/computer-module.js";
 import { createTaskStore } from "./task-store.js";
 import { createWorkTaskStore, type WorkTask, type WorkTaskStore } from "./work-task-store.js";
 import { createWorkTaskContextMessage } from "./work-task-context.js";
+import { createWorkTaskFinishCheck } from "./work-task-completion.js";
 import type { WorkTaskContinuation } from "./work-task-continuation.js";
 import {
   buildTaskContextMessage,
@@ -1042,6 +1043,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       ...(toolConfirmation
         ? { beforeToolExecute: toolConfirmation.beforeToolExecute }
         : {}),
+      ...(tuiMode ? { beforeRunFinish: createWorkTaskFinishCheck({ workspaceRoot, executionRecords, workTasks }) } : {}),
     });
 
     const resume: TuiResume | undefined =

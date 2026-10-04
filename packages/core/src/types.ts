@@ -55,7 +55,22 @@ export interface RunResult {
   steps: number;
   usage: TokenUsage;
   error?: import("./errors.js").AgentErrorData;
+  /** Optional host-owned completion check; absent for ordinary chat. Not a human quality acceptance. */
+  completion?: CompletionReport;
 }
+
+export type CompletionReason = "delivered" | "needs_confirmation" | "needs_information" | "budget_exhausted" | "needs_review";
+export interface CompletionReport { reason: CompletionReason; corrections: number }
+export interface BeforeRunFinishInput extends PrepareModelContextInput {
+  runId: string;
+  threadId: string;
+  text: string;
+  steps: number;
+  remainingSteps: number;
+  corrections: number;
+}
+export type RunFinishDecision = { kind: "continue"; feedback: string } | { kind: "stop"; reason: CompletionReason };
+export type BeforeRunFinish = (input: BeforeRunFinishInput) => RunFinishDecision | undefined | Promise<RunFinishDecision | undefined>;
 
 export interface RunHandle {
   runId: string;
@@ -98,6 +113,7 @@ export interface LoopOutcome {
   steps: number;
   usage: TokenUsage;
   stopReason: "completed" | "approval_required";
+  completion?: CompletionReport;
 }
 
 export interface AgentLoopInput<TContext = unknown> {
@@ -107,6 +123,7 @@ export interface AgentLoopInput<TContext = unknown> {
   signal: AbortSignal;
   prepareModelContext?: PrepareModelContext;
   beforeToolExecute?: BeforeToolExecute;
+  beforeRunFinish?: (input: Omit<BeforeRunFinishInput, "runId" | "threadId">) => ReturnType<BeforeRunFinish>;
   generateId(): string;
   emit: import("./events.js").EmitAgentEvent;
 }

@@ -1,11 +1,11 @@
-import { createHash, randomUUID } from "node:crypto";
-import { lstat, readFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import type { UIMessage } from "ai";
 import type { AgentEvent, RunHandle, RunResult } from "@aisdk-agent/core";
 import { AUTO_CONSOLIDATION_SOURCE } from "./consolidation.js";
 import type { RuntimeApp } from "./app.js";
 import type { ContextDiagnostics, ContextResult } from "./context-diagnostics.js";
-import { matchesFileWritePath, readFileWriteReceipt, type ExecutionRunRecord } from "./execution-record-store.js";
+import type { ExecutionRunRecord } from "./execution-record-store.js";
+import { verifyAutomaticCriterion } from "./work-task-verification.js";
 import {
   type AcceptanceStatus,
   type CreateWorkTaskInput,
@@ -18,7 +18,6 @@ import {
 } from "./work-task-store.js";
 import { recoverRunningWorkTasks } from "./work-task-recovery.js";
 import { workTaskContinuation, type WorkTaskContinuation } from "./work-task-continuation.js";
-import { rejectSymlinkComponents, validateWorkspacePath } from "./workspace-path.js";
 import type { ShellProgress } from "./modules/shell-module.js";
 import type { PendingToolApproval } from "./tui.js";
 import type {
@@ -124,7 +123,7 @@ export interface AssistantController {
   getWorkTaskDeliveryDraft(input: WorkTaskReadInput): Promise<WorkTaskReadResult<WorkTaskDeliveryDraft>>;
   getWorkTaskContinuation(input: WorkTaskReadInput): Promise<WorkTaskResult<WorkTaskContinuation>>;
   getWorkTaskArtifact(input: WorkTaskArtifactInput): Promise<WorkTaskReadResult<WorkTaskArtifactPreview>>;
-  runWorkTask(input: { id: string; expectedRevision: number; instruction?: string }): Promise<StartRunResponse>;
+  runWorkTask(input: { id: string; expectedRevision: number; instruction?: string; completionCheck?: boolean }): Promise<StartRunResponse>;
   submitWorkTaskDelivery(input: {
     id: string;
     expectedRevision: number;
@@ -184,99 +183,6 @@ function commandParts(line: string): { name: string; args: string } {
     : { name: trimmed.slice(0, space), args: trimmed.slice(space + 1) };
 }
 
-function previewObject(value: string | null): Record<string, unknown> | undefined {
-  if (value === null) return undefined;
-  try {
-    const parsed: unknown = JSON.parse(value);
-    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
-      ? parsed as Record<string, unknown>
-      : undefined;
-  } catch { return undefined; }
-}
-
-function taskOwnsRun(task: WorkTask, run: ExecutionRunRecord): boolean {
-  return run.threadId === task.threadId && run.workTaskId === task.id &&
-    run.phase === "primary" && task.runIds.includes(run.runId);
-}
-
-async function verifyAutomaticCriterion(
-  app: RuntimeApp,
-  task: WorkTask,
-  criterion: WorkTask["acceptance"][number],
-): Promise<{ status: AcceptanceStatus; evidence: WorkTaskEvidence[]; note: string }> {
-  const now = new Date().toISOString();
-  const latestRunId = task.runIds.at(-1);
-  const latestRun = latestRunId === undefined
-    ? null
-    : await app.executionRecords.getRun(task.threadId, latestRunId);
-  if (latestRun === undefined || latestRun === null) {
-    return { status: "blocked", evidence: [], note: "No task-owned Run receipt is available for this delivery." };
-  }
-  if (!taskOwnsRun(task, latestRun) || latestRun.status === "running" || latestRun.status === "interrupted" ||
-      latestRun.tools.some((tool) => tool.status === "unknown")) {
-    return { status: "blocked", evidence: [], note: "The latest task Run contains a missing, foreign, interrupted, or unknown receipt that requires review." };
-  }
-  if (criterion.verification.kind === "shell_exit_zero") {
-    const expectedCommand = criterion.verification.command;
-    const expectedCwd = criterion.verification.cwd;
-    const matchingShell = latestRun.tools.filter((item) => {
-      if (item.toolName !== "shell_exec" || item.inputTruncated) return false;
-      const input = previewObject(item.inputPreview);
-      return input?.command === expectedCommand && (input.cwd ?? ".") === expectedCwd;
-    }).at(-1);
-    const succeeded = matchingShell?.status === "completed" && matchingShell.shell?.exitCode === 0 &&
-      matchingShell.shell.timedOut === false && matchingShell.shell.cancelled === false;
-    return matchingShell === undefined || !succeeded
-      ? { status: "failed", evidence: [], note: "No matching successful Shell receipt was found." }
-      : {
-          status: "passed",
-          evidence: [{ id: randomUUID(), kind: "tool", runId: latestRun.runId,
-            toolCallId: matchingShell.toolCallId, toolName: "shell_exec",
-            command: expectedCommand, cwd: expectedCwd,
-            verifiedAt: now, outcome: "succeeded" }],
-          note: "Matched the latest Run's exact, untruncated Shell command and cwd with exitCode 0 and no timeout or cancellation.",
-        };
-  }
-  if (criterion.verification.kind === "artifact_exists") {
-    if (app.workspaceRoot === undefined) return { status: "blocked", evidence: [], note: "No workspace is configured." };
-    const requested = criterion.verification.path;
-    const path = validateWorkspacePath(app.workspaceRoot, requested);
-    if (!path.ok) return { status: "failed", evidence: [], note: path.message };
-    const matchingWrite = latestRun.tools.filter((tool) => matchesFileWritePath(tool, requested)).at(-1);
-    const written = matchingWrite === undefined ? undefined : readFileWriteReceipt(matchingWrite, requested);
-    if (matchingWrite === undefined || written === undefined) {
-      return { status: "failed", evidence: [], note: "No matching successful write/edit receipt belongs to this WorkTask." };
-    }
-    try {
-      if (await rejectSymlinkComponents(app.workspaceRoot, path.relativePath, new AbortController().signal)) {
-        return { status: "failed", evidence: [], note: "Artifact path contains a symbolic link." };
-      }
-      const stats = await lstat(path.target);
-      if (!stats.isFile()) return { status: "failed", evidence: [], note: "Artifact is not a regular file." };
-      if (stats.size > 8 * 1024 * 1024) {
-        return { status: "blocked", evidence: [], note: "Artifact exceeds the 8 MiB verification limit." };
-      }
-      const content = await readFile(path.target);
-      const digest = createHash("sha256").update(content).digest("hex");
-      if ((written.sha256 !== null && digest !== written.sha256) ||
-          (written.bytes !== null && content.length !== written.bytes)) {
-        return { status: "failed", evidence: [], note: "Artifact content no longer matches the successful file write receipt." };
-      }
-      return {
-        status: "passed",
-        evidence: [{ id: randomUUID(), kind: "artifact", runId: latestRun.runId,
-          toolCallId: matchingWrite.toolCallId, path: path.relativePath,
-          sha256: digest, verifiedAt: now }],
-        note: written.sha256 === null
-          ? "Artifact currently exists as a regular non-symlink file and matches a complete legacy task write/edit receipt."
-          : "Artifact path, byte count and SHA-256 match the latest task-owned compact file write receipt.",
-      };
-    } catch {
-      return { status: "failed", evidence: [], note: "Artifact could not be read from the current workspace." };
-    }
-  }
-  return { status: "blocked", evidence: [], note: "Human acceptance must be recorded explicitly." };
-}
 
 export function createAssistantController(app: RuntimeApp): AssistantController {
   app.enableExecutionRecords();
@@ -316,6 +222,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
   let activeTask: Promise<void> | undefined;
   let nextWorkTask: WorkTask | undefined;
   let activeWorkTask: WorkTask | undefined;
+  let workTaskCompletionCheck = true;
   let closed = false;
   let disposed = false;
   let cancelRequested = false;
@@ -386,7 +293,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
         agentId,
         threadId: app.threadId,
         messages: [message],
-        context: { agentId },
+        context: { agentId, ...(phase === "primary" && activeWorkTask !== undefined ? { workTaskId: activeWorkTask.id, completionCheck: workTaskCompletionCheck } : {}) },
         ...(signal === undefined ? {} : { signal }),
       });
       activeHandle = handle;
@@ -406,9 +313,14 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       started?.(handle);
       if (cancelRequested) await handle.cancel("Cancelled before Run started");
       let requestedMemoryTool = false;
+      let completionCorrections = 0;
       const consolidationAttempts = { prepare: 0, stage: 0 };
       const pump = (async () => {
         for await (const event of handle.events) {
+          if (event.type === "run.completion.checked") {
+            completionCorrections = event.data.corrections;
+            if (event.data.decision === "continue") controller.recordOutput(`\n正在补齐任务证据（${completionCorrections}/2），仍需逐次确认工具。\n`);
+          }
           if (event.type === "tool.call.requested") {
             toolNames.set(event.data.toolCallId, event.data.toolName);
             if (event.data.toolName.startsWith("memory_")) requestedMemoryTool = true;
@@ -444,8 +356,20 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
           emit({ type: "run-event", phase, event });
         }
       })();
-      const result = await handle.result;
+      let result = await handle.result;
       await pump;
+      if (phase === "primary" && activeWorkTask !== undefined && workTaskCompletionCheck && result.completion === undefined) {
+        const receipt = await app.executionRecords.getRun(app.threadId, handle.runId).catch(() => null);
+        const uncertain = receipt === null || receipt.tools.some(tool => tool.status === "unknown" || tool.status === "started");
+        const reason = uncertain || result.error?.code === "TOOL_OUTCOME_UNKNOWN" ? "needs_review" :
+          result.status === "timed_out" || result.error?.code === "RUN_LIMIT_EXCEEDED" ? "budget_exhausted" : "needs_information";
+        result = { ...result, completion: { reason, corrections: completionCorrections } };
+      }
+      if (phase === "primary" && result.completion !== undefined) {
+        const labels = { delivered: "结束检查通过，交付仍会再次核验；人工质量不自动通过", needs_confirmation: "需要你的确认，不会自动重复被拒绝的操作",
+          needs_information: "缺少信息或可用能力，请补充后再执行", budget_exhausted: "本轮预算耗尽，任务未完成", needs_review: "效果待核对，不会自动重放" };
+        controller.recordOutput(`\n任务停止原因：${result.status === "cancelled" ? "已取消" : labels[result.completion.reason]}。\n`);
+      }
       let lastProcessedCount = 0, lastCandidateCount = 0;
       try {
         const finalized = await app.memoryConsolidation?.finalize({ ...result, consolidationAttempts }, signal);
@@ -488,7 +412,6 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
         : result;
       if (phase === "primary") lastPrimaryResult = retainedResult;
       else lastConsolidationResult = retainedResult;
-      emit({ type: "run-result", phase, result });
       if (phase === "primary" && activeWorkTask !== undefined && app.workTasks !== undefined) {
         const record = executionFinalized
           ? await app.executionRecords.getRun(app.threadId, handle.runId).catch(() => null)
@@ -503,9 +426,21 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
         if (settled.ok) {
           activeWorkTask = settled.value;
           emit({ type: "work-task-updated", task: settled.value });
+          if (!needsReview && result.status === "completed" && result.completion?.reason === "delivered") {
+            const submitted = await controller.submitWorkTaskDelivery({
+              id: settled.value.id, expectedRevision: settled.value.revision,
+              summary: result.text.trim().slice(0, 2000) || "Program conditions verified; human quality remains pending.",
+              artifactRefs: settled.value.acceptance.flatMap(criterion => criterion.verification.kind === "artifact_exists" ? [criterion.verification.path] : []),
+            });
+            if (submitted.ok) activeWorkTask = submitted.value;
+            else emit({ type: "error", message: `WorkTask delivery could not be submitted: ${submitted.error.code}: ${submitted.error.message}` });
+          }
         }
         else emit({ type: "error", message: `WorkTask could not settle: ${settled.error.code}: ${settled.error.message}` });
       }
+      // A primary result is published after its task settlement/delivery attempt;
+      // consumers must still use the WorkTask criteria for business acceptance.
+      emit({ type: "run-result", phase, result });
       return { result, requestedMemoryTool };
     } catch (error) {
       if (phase === "consolidation") consolidationFailure = String(error);
@@ -920,6 +855,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
         // Receipt reads are asynchronous. Recheck the idle mutex before reserving the next Run.
         if (closed || state.kind !== "idle" || nextWorkTask !== undefined || activeWorkTask !== undefined) return { ok: false, reason: "busy" };
         app.workTaskContext.begin(found.value, workTaskContinuation(found.value, run));
+        workTaskCompletionCheck = input.completionCheck !== false;
         nextWorkTask = found.value;
         clearBinding = app.bindNextExecutionWorkTask({ id: found.value.id, expectedRevision: found.value.revision });
         const started = await controller.run(input.instruction?.trim() || found.value.goal);

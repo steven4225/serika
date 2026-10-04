@@ -173,6 +173,39 @@ class CountingStore extends InMemoryAgentStore {
   }
 }
 
+it("finish corrections keep the same loop, original tool confirmation and remaining step budget", async () => {
+  const events: AgentEvent[] = [];
+  let calls = 0, approvals = 0, executions = 0;
+  const model = new MockLanguageModelV3({ doStream: async () => ++calls === 2 ? toolCallResponse("tool-calls") : textResponse("done") });
+  const loop = new AiSdkAgentLoop({ models: new InMemoryModelRegistry({ test: model }), tools: doubleTool(() => { executions++; return { value: 4 }; }) });
+  let id = 0;
+  const outcome = await loop.execute({ definition: { ...definition, tools: ["double"] }, messages: [userMessage()], signal: new AbortController().signal,
+    generateId: () => `id-${++id}`, emit: createEmit(events),
+    beforeToolExecute: async () => { approvals++; return { allow: true }; },
+    beforeRunFinish: async input => input.corrections === 0 ? { kind: "continue", feedback: "Need a successful double tool receipt" } : { kind: "stop", reason: "delivered" },
+  });
+  assert.equal(calls, 3); assert.equal(approvals, 1); assert.equal(executions, 1);
+  assert.deepEqual(outcome.completion, { reason: "delivered", corrections: 1 });
+  assert.equal(outcome.messages.filter(message => message.role === "user").length, 1);
+  assert.ok(events.every(event => event.runId === "run"));
+  const bounded = await loop.execute({ definition: { ...definition, tools: ["double"], limits: { ...definition.limits, maxSteps: 1 } },
+    messages: [userMessage()], signal: new AbortController().signal, generateId: () => `id-${++id}`, emit: createEmit([]),
+    beforeRunFinish: async () => ({ kind: "continue", feedback: "missing" }),
+  });
+  assert.deepEqual(bounded.completion, { reason: "budget_exhausted", corrections: 0 });
+});
+
+it("cancellation interrupts an unfinished completion check without another model request", async () => {
+  const abort = new AbortController(); let calls = 0;
+  const loop = new AiSdkAgentLoop({ models: new InMemoryModelRegistry({ test: new MockLanguageModelV3({ doStream: async () => { calls++; return textResponse("done"); } }) }), tools: doubleTool(() => ({ value: 4 })) });
+  const pending = loop.execute({ definition: { ...definition, tools: ["double"] }, messages: [userMessage()], signal: abort.signal,
+    generateId: () => "id", emit: createEmit([]), beforeRunFinish: async () => {
+      abort.abort(new Error("cancel completion")); return await new Promise<never>(() => {});
+    },
+  });
+  await assert.rejects(pending, /cancel completion/); assert.equal(calls, 1);
+});
+
 function waitForAbort(signal: AbortSignal): Promise<never> {
   return new Promise((_, reject) => {
     if (signal.aborted) {

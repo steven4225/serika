@@ -420,6 +420,7 @@ export class AiSdkAgentLoop implements AgentLoop {
     const messages = structuredClone(input.messages);
     let steps = 0;
     let totalUsage: TokenUsage = {};
+    let corrections = 0;
 
     while (steps < input.definition.limits.maxSteps) {
       steps += 1;
@@ -772,12 +773,33 @@ export class AiSdkAgentLoop implements AgentLoop {
       });
 
       if (pendingCalls.length === 0) {
+        const decision = input.beforeRunFinish ? await awaitWithSignal(() => input.beforeRunFinish!({
+          messages: structuredClone(messages), definition: input.definition, context: input.context,
+          signal: input.signal, text: stepText, steps, remainingSteps: input.definition.limits.maxSteps - steps, corrections,
+        }), input.signal) : undefined;
+        throwIfAborted(input.signal);
+        if (decision !== undefined && (!decision || decision.kind !== "continue" && decision.kind !== "stop" ||
+          decision.kind === "stop" && !["delivered", "needs_confirmation", "needs_information", "budget_exhausted", "needs_review"].includes(decision.reason))) {
+          throw new AgentError({ code: "INTERNAL", message: "Completion decision is invalid", retryable: false, phase: "runtime" });
+        }
+        if (decision?.kind === "continue" && steps < input.definition.limits.maxSteps) {
+          if (typeof decision.feedback !== "string" || !decision.feedback.trim() || decision.feedback.length > 8192) throw new AgentError({
+            code: "INTERNAL", message: "Completion feedback is invalid", retryable: false, phase: "runtime",
+          });
+          corrections += 1;
+          await input.emit("run.completion.checked", { decision: "continue", corrections });
+          messages.push({ id: input.generateId(), role: "assistant", metadata: { source: "completion-check" },
+            parts: [{ type: "text", text: `Program completion check (not user facts or tool permission):\n${decision.feedback}` }] });
+          continue;
+        }
+        if (decision !== undefined) await input.emit("run.completion.checked", { decision: "stop", reason: decision.kind === "stop" ? decision.reason : "budget_exhausted", corrections });
         return {
           text: stepText,
           messages,
           steps,
           usage: totalUsage,
           stopReason: "completed" as const,
+          ...(decision === undefined ? {} : { completion: { reason: decision.kind === "stop" ? decision.reason : "budget_exhausted" as const, corrections } }),
         };
       }
     }

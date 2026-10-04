@@ -15,6 +15,7 @@ import type {
   RunResult,
   PrepareModelContext,
   BeforeToolExecute,
+  BeforeRunFinish,
 } from "./types.js";
 
 function abortReason(signal: AbortSignal): unknown {
@@ -31,6 +32,7 @@ export interface AgentRuntimeOptions {
   now?: () => Date;
   prepareModelContext?: PrepareModelContext;
   beforeToolExecute?: BeforeToolExecute;
+  beforeRunFinish?: BeforeRunFinish;
 }
 
 export class DefaultAgentRuntime {
@@ -41,6 +43,7 @@ export class DefaultAgentRuntime {
   readonly #now: () => Date;
   readonly #prepareModelContext: PrepareModelContext | undefined;
   readonly #beforeToolExecute: BeforeToolExecute | undefined;
+  readonly #beforeRunFinish: BeforeRunFinish | undefined;
 
   constructor(options: AgentRuntimeOptions) {
     this.#catalog = options.catalog;
@@ -50,6 +53,7 @@ export class DefaultAgentRuntime {
     this.#now = options.now ?? (() => new Date());
     this.#prepareModelContext = options.prepareModelContext;
     this.#beforeToolExecute = options.beforeToolExecute;
+    this.#beforeRunFinish = options.beforeRunFinish;
   }
 
   async run<TContext>(request: RunRequest<TContext>): Promise<RunHandle> {
@@ -311,6 +315,7 @@ export class DefaultAgentRuntime {
             } satisfies Pick<Parameters<AgentLoop["execute"]>[0], "beforeToolExecute">
           : {}),
         generateId: this.#idGenerator,
+        ...(this.#beforeRunFinish ? { beforeRunFinish: (input) => this.#beforeRunFinish!({ ...input, runId, threadId: request.threadId }) } : {}),
         emit,
       });
 
@@ -344,6 +349,7 @@ export class DefaultAgentRuntime {
         text: outcome.text,
         steps: outcome.steps,
         usage: outcome.usage,
+        ...(outcome.completion === undefined ? {} : { completion: outcome.completion }),
       };
 
       try {
