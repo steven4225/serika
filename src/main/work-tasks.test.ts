@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { setTimeout as delay } from "node:timers/promises";
-import { simulateReadableStream } from "ai";
+import { simulateReadableStream, type LanguageModel } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { createRuntimeApp } from "@aisdk-agent/example-cli/dist/app.js";
 import { createAssistantController } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
@@ -45,16 +45,16 @@ async function prepare() {
   await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, workspace: "./workspace", modules: { "read-file": { enabled: true } } }));
   return root;
 }
-async function open(root: string, thread = "work-thread", writes = false) {
+async function open(root: string, thread = "work-thread", writes = false, model?: LanguageModel) {
   const messages: MainToRenderer[] = [];
   const send = (message: MainToRenderer) => { messages.push(message); };
   const output = new TeeOutput(send);
   const fixture = testModel(writes);
-  const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", thread, "--config", join(root, "config.json")], modelAlias: "mock", model: fixture.model, output, env: {}, cwd: root });
+  const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", thread, "--config", join(root, "config.json")], modelAlias: "mock", model: model ?? fixture.model, output, env: {}, cwd: root });
   const controller = createAssistantController(app);
   output.attach(controller);
   const bridge = new RuntimeBridge(app, controller, { modelAlias: "mock", temporaryThread: false, temporaryDirectory: false }, output, send);
-  return { app, bridge, messages, calls: fixture.calls };
+  return { app, bridge, controller, messages, calls: fixture.calls };
 }
 async function waitFor(condition: () => boolean) {
   const deadline = Date.now() + 8_000;
@@ -63,6 +63,110 @@ async function waitFor(condition: () => boolean) {
 }
 
 describe("work task desktop boundary", () => {
+  it("checks real file readback and meaningful Shell tests, restores review, and reworks in a new Run", async () => {
+    const root = await prepare();
+    const content = "# Goal\nDeliver a plan.\n# Checks\nRead back and test.\n# Next\nReview the plan.\n# Preserved\nKEEP-THIS\n";
+    const command = "node check-plan.mjs";
+    await writeFile(join(root, "workspace", "check-plan.mjs"),
+      'import assert from "node:assert/strict"; import {readFileSync} from "node:fs"; const text=readFileSync("report.md","utf8"); for(const part of ["# Goal","# Checks","# Next","KEEP-THIS"]) assert.ok(text.includes(part),part); console.log("plan checks passed");');
+    await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, workspace: "./workspace",
+      modules: { "read-file": { enabled: true }, shell: { enabled: true, timeoutMs: 8000 } } }));
+    function scripted(actions: Array<{ name: string; input: unknown }>) {
+      let step = 0;
+      return new MockLanguageModelV3({ doStream: async () => {
+        const action = actions[step++];
+        const chunks = action ? [
+          { type: "stream-start" as const, warnings: [] },
+          { type: "tool-call" as const, toolCallId: `call-${step}`, toolName: action.name, input: JSON.stringify(action.input) },
+          { type: "finish" as const, finishReason: { unified: "tool-calls" as const, raw: undefined }, usage },
+        ] : [
+          { type: "stream-start" as const, warnings: [] }, { type: "text-start" as const, id: "answer" },
+          { type: "text-delta" as const, id: "answer", delta: "Plan ready for your review." }, { type: "text-end" as const, id: "answer" },
+          { type: "finish" as const, finishReason: { unified: "stop" as const, raw: undefined }, usage },
+        ];
+        return { stream: simulateReadableStream<(typeof chunks)[number]>({ chunks }) };
+      } });
+    }
+    let fixture = await open(root, "work-thread", false, scripted([
+      { name: "write_file", input: { path: "report.md", content } },
+      { name: "read_file", input: { path: "report.md" } },
+      { name: "shell_exec", input: { command, cwd: "." } },
+    ]));
+    const approved: string[] = [];
+    const run = async (task: import("../shared/work-tasks.js").WorkTask, completionCheck = true, decision: "allow" | "deny" = "allow") => {
+      const off = fixture.controller.subscribe(event => {
+        if (event.type !== "approval") return;
+        approved.push(event.approval.toolName);
+        fixture.bridge.confirm({ approvalId: event.approval.approvalId, decision });
+      });
+      try {
+        assert.ok((await fixture.bridge.runWorkTask({ id: task.id, expectedRevision: task.revision, completionCheck })).ok);
+        await waitFor(() => fixture.bridge.snapshot().state.kind === "idle");
+      } finally { off(); }
+      const found = await fixture.bridge.getWorkTask(task.id); assert.ok(found.ok); return found.value;
+    };
+    try {
+      const created = await fixture.bridge.createWorkTask({ ...createInput, acceptance: [
+        { ...createInput.acceptance[0]!, verification: { kind: "artifact_exists", path: "report.md", requireReadback: true } },
+        { id: "test", description: "Sections and preserved text pass", method: "automatic", required: true, verification: { kind: "shell_exit_zero", command, cwd: "." } },
+        createInput.acceptance[1]!,
+      ] }); assert.ok(created.ok);
+      const delivered = await run(created.value);
+      assert.equal(delivered.status, "awaiting_acceptance");
+      assert.deepEqual(delivered.acceptance.map(item => item.status), ["passed", "passed", "not_run"]);
+      assert.deepEqual(approved, ["write_file", "read_file", "shell_exec"]);
+      await fixture.bridge.shutdown();
+      fixture = await open(root, "work-thread", false, scripted([
+        { name: "read_file", input: { path: "report.md" } },
+        { name: "edit_file", input: { path: "report.md", oldText: "Review the plan.", newText: "Review and ship the plan." } },
+        { name: "read_file", input: { path: "report.md" } },
+        { name: "shell_exec", input: { command, cwd: "." } },
+      ]));
+      const restored = await fixture.bridge.getWorkTask(delivered.id); assert.ok(restored.ok);
+      assert.equal(restored.value.status, "awaiting_acceptance");
+      assert.equal(fixture.bridge.snapshot().state.kind, "idle");
+      const rejected = await fixture.bridge.requestWorkTaskChanges({ id: delivered.id, expectedRevision: restored.value.revision }); assert.ok(rejected.ok);
+      assert.equal(rejected.value.status, "paused");
+      assert.ok(rejected.value.acceptance.every(item => item.status === "not_run"));
+      const next = await run(rejected.value);
+      assert.equal(next.status, "awaiting_acceptance");
+      assert.equal(next.runIds.length, 2);
+      assert.deepEqual(next.acceptance.map(item => item.status), ["passed", "passed", "not_run"]);
+      const text = await readFile(join(root, "workspace", "report.md"), "utf8");
+      assert.match(text, /Review and ship/); assert.match(text, /KEEP-THIS/);
+      assert.ok(next.delivery!.evidence.every(item => item.kind !== "human" && item.runId === next.runIds.at(-1)), "new delivery must not borrow earlier receipts");
+
+      // The same real command must fail against invalid contents; Run completion is not test success.
+      await fixture.bridge.shutdown();
+      fixture = await open(root, "work-thread", false, scripted([
+        { name: "edit_file", input: { path: "report.md", oldText: "# Next", newText: "# Later" } },
+        { name: "read_file", input: { path: "report.md" } },
+        { name: "shell_exec", input: { command, cwd: "." } },
+      ]));
+      const broken = await fixture.bridge.createWorkTask({ goal: "Demonstrate failed file checks", acceptance: created.value.acceptance.map(({ status, evidenceRefs, note, ...criterion }) => criterion) });
+      assert.ok(broken.ok);
+      const partial = await run(broken.value, false);
+      assert.equal(fixture.bridge.snapshot().lastPrimaryResult?.status, "completed");
+      const failed = await fixture.bridge.submitWorkTaskDelivery({ id: partial.id, expectedRevision: partial.revision, summary: "Invalid document; test failed", artifactRefs: ["report.md"] });
+      assert.ok(failed.ok);
+      assert.deepEqual(failed.value.acceptance.map(item => item.status), ["passed", "failed", "not_run"]);
+      assert.notEqual(failed.value.status, "completed");
+
+      await fixture.bridge.shutdown();
+      fixture = await open(root, "work-thread", false, scripted([
+        { name: "write_file", input: { path: "denied.md", content } },
+      ]));
+      const denied = await fixture.bridge.createWorkTask({ goal: "Demonstrate a refused write", acceptance: [
+        { ...createInput.acceptance[0]!, verification: { kind: "artifact_exists", path: "denied.md", requireReadback: true } },
+      ] }); assert.ok(denied.ok);
+      const refused = await run(denied.value, false, "deny");
+      await assert.rejects(readFile(join(root, "workspace", "denied.md")), { code: "ENOENT" });
+      const refusedDelivery = await fixture.bridge.submitWorkTaskDelivery({ id: refused.id, expectedRevision: refused.revision, summary: "Write refused" });
+      assert.ok(refusedDelivery.ok);
+      assert.notEqual(refusedDelivery.value.acceptance[0]?.status, "passed");
+      assert.deepEqual(refusedDelivery.value.delivery?.evidence, []);
+    } finally { await fixture.bridge.shutdown(); await rm(root, { recursive: true, force: true }); }
+  });
   it("persists readback and test contracts without running or authorizing tools", async () => {
     const root = await prepare();
     const fixture = await open(root);

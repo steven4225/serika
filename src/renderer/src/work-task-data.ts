@@ -79,6 +79,21 @@ export function taskNextAction(task: WorkTask): string {
   }
 }
 
+/** Only persisted acceptance is delivery evidence, never the latest assistant reply. */
+export function taskVerificationSummary(task: WorkTask): string | null {
+  if (task.status !== "awaiting_acceptance" && task.status !== "completed") return null;
+  const required = task.acceptance.filter(item => item.required);
+  const automatic = required.filter(item => item.method === "automatic");
+  const failed = automatic.filter(item => item.status === "failed" || item.status === "blocked");
+  if (failed.length) return `程序检查 ${failed.length} 项未通过 · 查看原因`;
+  const pending = automatic.filter(item => item.status !== "passed");
+  if (pending.length) return `程序检查 ${pending.length} 项待核验`;
+  const human = required.filter(item => item.method === "human");
+  if (human.some(item => item.status === "failed")) return "人工审核未通过 · 可退回修改";
+  if (human.some(item => item.status !== "passed")) return `${automatic.length ? "程序检查通过 · " : ""}等待你审核`;
+  return task.status === "completed" ? "必需验收全部通过" : "查看交付与验收结果";
+}
+
 /** Display preference only; never execution state or an authorization. */
 export function taskSelectionKey(info: Pick<AppInfo, "configPath" | "workspaceRoot" | "threadId" | "directory"> | null): string | null {
   return info ? `runloom-current-task:${JSON.stringify([info.configPath ?? null, info.workspaceRoot, info.threadId, info.directory])}` : null;

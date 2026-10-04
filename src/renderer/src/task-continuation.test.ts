@@ -4,7 +4,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { WorkTask, WorkTaskContinuation } from "../../shared/work-tasks.js";
 import type { ContextDiagnostics } from "@aisdk-agent/example-cli/dist/context-diagnostics.js";
-import { ContinuationSummary } from "./task-continuation.js";
+import { ContinuationSummary, taskRecoveryGuidance } from "./task-continuation.js";
 import { TASK_TEMPLATES } from "./work-task-data.js";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -33,6 +33,20 @@ it("continuation separates unknown receipts, historical delivery and unresolved 
   const html = render(null);
   for (const text of ["效果未知", "不会自动重做", "来源尚未核验", "历史参考", "先读当前文件", "调用结束不等于业务成功"]) assert.ok(html.includes(text), text);
   assert.doesNotMatch(html, /验收通过/);
+});
+
+it("shows actionable recovery reasons without treating a Run conclusion as acceptance", () => {
+  const paused = { ...task, status: "paused" as const };
+  const clean = { ...data, requiresReview: false, latestRun: { ...data.latestRun!, status: "completed" as const } };
+  for (const [reason, text] of [["needs_confirmation", "未获允许"], ["needs_information", "补充缺失信息"],
+    ["budget_exhausted", "预算"], ["needs_review", "不要直接重复执行"], ["delivered", "尚未确认交付"]] as const) {
+    const value = { ...clean, latestRun: { ...clean.latestRun, completion: { reason, corrections: 1 } } };
+    assert.ok(taskRecoveryGuidance(paused, value)?.includes(text));
+    assert.match(taskRecoveryGuidance({ ...paused, status: "needs_review" }, value)!, /先核对实际效果/);
+    assert.equal(taskRecoveryGuidance({ ...paused, status: "completed" }, value), null);
+  }
+  assert.match(taskRecoveryGuidance(paused, { ...clean, latestRun: { ...clean.latestRun, status: "interrupted" } })!, /没有自动续跑/);
+  assert.match(taskRecoveryGuidance(paused, { ...clean, receiptUnavailable: true })!, /不要直接重复操作/);
 });
 it("compaction usage requires both latest Run and task binding, never merely a historical record", () => {
   assert.match(render(diagnostics), /复用了已有压缩记录/);

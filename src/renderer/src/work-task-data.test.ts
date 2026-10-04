@@ -3,11 +3,23 @@ import { describe, it } from "node:test";
 import type { WorkTask, WorkTaskStatus } from "../../shared/work-tasks.js";
 import { sanitizeWorkTaskInput } from "../../shared/work-tasks.js";
 import type { ExecutionRunRecord } from "../../shared/ui-contract.js";
-import { isTaskRun, selectCurrentTask, taskActions, unreconciledRuns, TASK_TEMPLATES, taskNextAction, taskSelectionKey, readTaskSelection, saveTaskSelection, taskFormAcceptance } from "./work-task-data.js";
+import { isTaskRun, selectCurrentTask, taskActions, unreconciledRuns, TASK_TEMPLATES, taskNextAction, taskVerificationSummary, taskSelectionKey, readTaskSelection, saveTaskSelection, taskFormAcceptance } from "./work-task-data.js";
 
 const task = (status: WorkTaskStatus): WorkTask => ({ id: "task", revision: 1, threadId: "thread", goal: "写计划", constraints: [], acceptance: [], status, runIds: ["run"], delivery: null, reconciliations: [], createdAt: "2026-10-03T00:00:00.000Z", updatedAt: "2026-10-03T00:00:00.000Z" });
 
 describe("work task presentation invariants", () => {
+  it("distinguishes persisted automatic failures from pending human review and completed acceptance", () => {
+    const criteria = taskFormAcceptance("report.md", "内容可用", "node check.mjs", ".");
+    const review: WorkTask = { ...task("awaiting_acceptance"),
+      acceptance: criteria.map(item => ({ ...item, status: item.method === "automatic" ? "passed" : "not_run", evidenceRefs: [], note: null })) };
+    assert.equal(taskVerificationSummary(review), "程序检查通过 · 等待你审核");
+    assert.equal(taskVerificationSummary({ ...review, acceptance: review.acceptance.map(item => ({ ...item, status: "passed" })), status: "completed" }), "必需验收全部通过");
+    for (const status of ["failed", "blocked"] as const) {
+      assert.equal(taskVerificationSummary({ ...review, acceptance: review.acceptance.map(item => item.id === "test-1" ? { ...item, status } : item) }), "程序检查 1 项未通过 · 查看原因");
+    }
+    assert.equal(taskVerificationSummary({ ...review, acceptance: review.acceptance.map(item => item.method === "human" ? { ...item, status: "failed" } : item) }), "人工审核未通过 · 可退回修改");
+    assert.equal(taskVerificationSummary({ ...review, status: "paused" }), null, "historical acceptance is not current delivery proof");
+  });
   it("builds explicit readback and exact test contracts without converting human quality to automatic", () => {
     const criteria = taskFormAcceptance("report.md\n", "来源准确", "pnpm test\nnode --test", "project");
     assert.equal(criteria.length, 4);

@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App.js";
 import type { AppInfo, MainToRenderer, RendererApi, UiSnapshot } from "../../shared/ui-contract.js";
 import "./styles.css";
+import { WorkTaskFlowPreview, installWorkTaskFlowApi } from "./work-task-flow-preview.js";
 
 let threadId = "preview-a";
 let sequence = 0;
@@ -35,4 +36,7 @@ window.runloom = new Proxy(api as unknown as RendererApi, { get(target, property
   if (property in target) return Reflect.get(target, property);
   return async () => { throw new Error(`Isolated fixture does not implement ${String(property)}`); };
 } });
-createRoot(document.getElementById("root")!).render(<App />);
+if (new URLSearchParams(location.search).has("work-task-flow")) {
+  installWorkTaskFlowApi();
+  createRoot(document.getElementById("root")!).render(<WorkTaskFlowPreview />);
+} else createRoot(document.getElementById("root")!).render(<App />);

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { RunResponse } from "../../shared/ui-contract.js";
 import type { WorkTask, WorkTaskInputs, WorkTaskObservedOutcome, WorkTaskResult, WorkTaskArtifactPreview, WorkTaskDeliveryDraft } from "../../shared/work-tasks.js";
-import { criterionStatusLabels, isTaskRun, lines, taskFormAcceptance, selectCurrentTask, taskActions, taskStatusLabels, taskNextAction, readTaskSelection, saveTaskSelection, TASK_TEMPLATES, type TaskTemplateId } from "./work-task-data.js";
+import { criterionStatusLabels, isTaskRun, lines, taskFormAcceptance, selectCurrentTask, taskActions, taskStatusLabels, taskNextAction, taskVerificationSummary, readTaskSelection, saveTaskSelection, TASK_TEMPLATES, type TaskTemplateId } from "./work-task-data.js";
 import { formatRecordTime } from "../../shared/execution-records.js";
 import { Icon } from "./icons.js";
 import { TaskContinuation } from "./task-continuation.js";
@@ -13,6 +13,7 @@ export function useWorkTasks(enabled: boolean, busy: boolean, refreshToken: numb
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [acting, setActing] = useState(false);
+  const [instructionDraft, setInstructionDraft] = useState<{ taskId: string; text: string } | null>(null);
   const request = useRef(0);
   const selected = useRef<string | null>(null);
   const inFlight = useRef(false);
@@ -20,7 +21,7 @@ export function useWorkTasks(enabled: boolean, busy: boolean, refreshToken: numb
   useEffect(() => {
     try { selected.current = selectionKey ? readTaskSelection(window.localStorage, selectionKey) : null; }
     catch { selected.current = null; }
-    setTask(null); setTasks([]); setError(null);
+    setTask(null); setTasks([]); setError(null); setInstructionDraft(null); setNotice(null);
   }, [selectionKey]);
   const remember = useCallback((id: string | null) => {
     selected.current = id;
@@ -93,8 +94,16 @@ export function useWorkTasks(enabled: boolean, busy: boolean, refreshToken: numb
   }
 
   return { tasks, task, enabled, loading, error, notice, locked, acting, select, reread,
+    instruction: instructionDraft?.taskId === task?.id ? instructionDraft?.text ?? "" : "",
+    setInstruction: (text: string) => { if (task) setInstructionDraft({ taskId: task.id, text }); },
     create: (input: WorkTaskInputs["createWorkTask"]) => change(() => window.runloom.createWorkTask(input), "任务已创建；尚未执行。"),
-    run: (instruction: string) => task ? change(() => window.runloom.runWorkTask({ id: task.id, expectedRevision: task.revision, ...(instruction.trim() ? { instruction: instruction.trim() } : {}) }), "本轮已启动；程序检查通过后提交交付，人工项仍须你审核。", instruction.trim() || task.goal) : Promise.resolve(false),
+    run: async (instruction: string) => {
+      if (!task) return false;
+      const id = task.id;
+      const started = await change(() => window.runloom.runWorkTask({ id, expectedRevision: task.revision, ...(instruction.trim() ? { instruction: instruction.trim() } : {}) }), "本轮已启动；程序检查通过后提交交付，人工项仍须你审核。", instruction.trim() || task.goal);
+      if (started) setInstructionDraft(current => current?.taskId === id ? null : current);
+      return started;
+    },
     deliver: (summary: string, artifacts: string[], unresolved: string[]) => task ? change(() => window.runloom.submitWorkTaskDelivery({ id: task.id, expectedRevision: task.revision, summary, artifactRefs: artifacts, unresolved }), "交付已提交。自动项由后端核验，人工项等待你判断。") : Promise.resolve(false),
     accept: (criterionId: string, decision: "passed" | "failed", note: string) => task ? change(() => window.runloom.recordHumanAcceptance({ id: task.id, expectedRevision: task.revision, criterionId, decision, ...(note.trim() ? { note: note.trim() } : {}) }), "人工验收已记录；任务是否完成以全部必需项为准。") : Promise.resolve(false),
     reconcile: (observedOutcome: WorkTaskObservedOutcome, decision: "continue" | "cancel", note: string) => task ? change(() => window.runloom.reconcileWorkTask({ id: task.id, expectedRevision: task.revision, observedOutcome, decision, note }), decision === "continue" ? "核对已记录，任务回到暂停。须另外点击开始下一轮；工具仍需重新确认。" : "核对已记录，任务已取消。已发生的效果不会撤回。") : Promise.resolve(false),
@@ -109,7 +118,7 @@ export function CurrentTask({ view, onOpen }: { view: WorkTaskView; onOpen: () =
   if (!view.enabled || (!view.task && !view.error)) return null;
   return <button className={`current-work-task ${view.task ? `task-${view.task.status}` : ""}`} onClick={onOpen}>
     <Icon name="activity" size={16} /><span className="current-task-copy"><strong>{view.error ? "工作任务暂不可用" : view.task?.goal}</strong><small>{view.error ? "查看原因" : view.loading ? "正在刷新" : taskStatusLabels[view.task!.status]}</small></span>
-    <span className="current-task-action">{view.task && !view.error ? taskNextAction(view.task) : "查看详情"}</span><Icon name="chevron" size={14} />
+    <span className="current-task-action">{view.task && !view.error ? taskVerificationSummary(view.task) ?? taskNextAction(view.task) : "查看详情"}</span><Icon name="chevron" size={14} />
   </button>;
 }
 
@@ -140,13 +149,12 @@ function CreateTask({ view, onClose, initialGoal = "" }: { view: WorkTaskView; o
     <label>人工验收项 <small>每行一条，可留空</small><textarea aria-label="人工验收项" placeholder="计划中的步骤能直接执行" value={human} onChange={event => setHuman(event.target.value)} rows={2} /></label>
     <label>必须通过的测试命令 <small>每行一条，可留空</small><textarea aria-label="验收测试命令" placeholder="pnpm test" value={commands} onChange={event => setCommands(event.target.value)} rows={2} /></label>
     {lines(commands).length > 0 ? <label>测试目录 <small>相对工作区</small><input aria-label="验收测试目录" value={testCwd} onChange={event => setTestCwd(event.target.value)} placeholder="." /></label> : null}
-    <p className="hint">至少填写一项验收；所有项均为必需项。产物要求本轮写入后成功读回，且与当前磁盘一致；测试核对最后文件操作之后的精确命令与目录。创建不运行命令，也不授予 Shell 权限；内容质量仍由你审核。</p>
+    <p className="hint">至少填写一项验收；所有项均为必需项。产物要求本轮写入后成功读回，且与当前磁盘一致。测试应最后运行；之后再改文件、运行 Shell 或操作应用会使旧测试失效。同目录多条测试可合成一条命令，整条确认、任一失败即停止。创建不运行命令，也不授予 Shell 权限；内容质量仍由你审核。</p>
     <div className="work-task-buttons"><button className="allow" type="submit" disabled={view.locked || !goal.trim() || (!lines(artifacts).length && !lines(human).length && !lines(commands).length)}>创建任务，不执行</button><button type="button" onClick={onClose} disabled={view.acting}>关闭</button></div>
   </form>;
 }
 
 function TaskDetail({ task, view, onRun }: { task: WorkTask; view: WorkTaskView; onRun: (id: string) => void }) {
-  const [instruction, setInstruction] = useState("");
   const [summary, setSummary] = useState(task.delivery?.summary ?? "");
   const [artifacts, setArtifacts] = useState(task.delivery?.artifactRefs.join("\n") ?? "");
   const [unresolved, setUnresolved] = useState(task.delivery?.unresolved.join("\n") ?? "");
@@ -194,6 +202,7 @@ function TaskDetail({ task, view, onRun }: { task: WorkTask; view: WorkTaskView;
   return <div className="work-task-detail">
     <div className="work-task-title"><h2>{task.goal}</h2><span className={`work-task-status task-${task.status}`}>{taskStatusLabels[task.status]}</span></div>
     <p className="task-next-step">下一步：{taskNextAction(task)}。{task.status === "paused" ? "需要继续时另开一轮；本轮结束不代表交付通过。" : ""}</p>
+    {taskVerificationSummary(task) ? <p className="work-task-notice" role="status">{taskVerificationSummary(task)}</p> : null}
     <div className="hint">版本 {task.revision} · 更新于 {formatRecordTime(task.updatedAt)}<br /><code>{task.id}</code></div>
     <TaskContinuation task={task} onRun={onRun} />
     {task.constraints.length ? <section><h3>约束</h3><ul>{task.constraints.map((constraint, index) => <li key={index}>{constraint}</li>)}</ul></section> : null}
@@ -210,8 +219,8 @@ function TaskDetail({ task, view, onRun }: { task: WorkTask; view: WorkTaskView;
       <label>验收说明 <small>可留空</small><textarea value={note} onChange={event => setNote(event.target.value)} rows={2} /></label>
       <div className="work-task-buttons"><button className="allow" disabled={view.locked} type="submit">确认验收决定</button><button type="button" onClick={() => setHumanPreview(null)}>返回</button></div>
     </form> : null}</section>
-    {actions.run ? <form className="work-task-form" onSubmit={event => { event.preventDefault(); void view.run(instruction); }}>
-      <label>本轮补充指令 <small>可留空，默认使用任务目标</small><textarea aria-label="本轮任务指令" rows={2} value={instruction} onChange={event => setInstruction(event.target.value)} /></label>
+    {actions.run ? <form className="work-task-form" onSubmit={event => { event.preventDefault(); void view.run(view.instruction); }}>
+      <label>本轮补充指令 <small>可留空，默认使用任务目标；启动失败会保留</small><textarea aria-label="本轮任务指令" disabled={view.acting || view.loading || task.status === "running"} rows={2} value={view.instruction} onChange={event => view.setInstruction(event.target.value)} /></label>
       <div className="work-task-buttons"><button className="allow" disabled={view.locked} type="submit">{task.status === "ready" ? "开始执行" : "开始下一轮"}</button></div>
       <p className="hint">开启新 Run，不重放之前的工具。工具仍需逐次确认；本轮结束不会自动标为验收通过。</p>
     </form> : null}
