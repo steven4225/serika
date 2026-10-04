@@ -35,6 +35,12 @@ function errorCode(result: ReadFileResult): string | undefined {
 }
 
 describe("readFileFromWorkspace", () => {
+  it("preserves a UTF-8 BOM so readback content matches the actual bytes", async () => {
+    const directory = await workspace();
+    const content = "\ufeff标题\n";
+    await writeFile(join(directory, "bom.md"), content);
+    assert.deepEqual(await read(directory, "bom.md"), { ok: true, path: "bom.md", content, bytes: Buffer.byteLength(content) });
+  });
   it("reads real UTF-8 text and reports bytes and normalized relative path", async () => {
     const directory = await workspace();
     await mkdir(join(directory, "docs"));

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -13,7 +14,56 @@ import type { ExecutionRunRecord, ExecutionToolRecord } from "./execution-record
 import type { WorkTask, WorkTaskStore } from "./work-task-store.js";
 import { createWorkTaskFinishCheck } from "./work-task-completion.js";
 import { verifyAutomaticCriterion } from "./work-task-verification.js";
+import { createWorkTaskStore } from "./work-task-store.js";
 import type { BeforeRunFinishInput } from "@aisdk-agent/core";
+
+it("explicit readback criteria reject missing, pre-write, stale and denied reads without weakening legacy tasks", async () => {
+  const root = await mkdtemp(join(tmpdir(), "runloom-readback-"));
+  try {
+    const content = "current artifact\n";
+    await writeFile(join(root, "plan.md"), content);
+    const digest = createHash("sha256").update(content).digest("hex");
+    const time = "2026-10-04T00:00:00.000Z";
+    const task: WorkTask = { id: "task", revision: 1, threadId: "thread", goal: "test", constraints: [], status: "paused", runIds: ["run"], delivery: null, reconciliations: [], createdAt: time, updatedAt: time, acceptance: [] };
+    const write: ExecutionToolRecord = { toolCallId: "write", toolName: "write_file", status: "completed", requestedAt: time, startedAt: time, finishedAt: time,
+      inputPreview: "{}", inputTruncated: true, resultPreview: null, resultTruncated: true, errorPreview: null, shell: null,
+      fileInput: { path: "plan.md", sha256: digest }, fileWrite: { path: "plan.md", bytes: Buffer.byteLength(content), sha256: digest } };
+    const { fileWrite: _written, ...baseRead } = write;
+    const read: ExecutionToolRecord = { ...baseRead, toolCallId: "read", toolName: "read_file", fileInput: { path: "plan.md" },
+      fileRead: { path: "plan.md", bytes: Buffer.byteLength(content), sha256: digest } };
+    const run: ExecutionRunRecord = { runId: "run", threadId: "thread", workTaskId: "task", phase: "primary", status: "completed", startedAt: time, finishedAt: time,
+      resultTextPreview: null, resultTextTruncated: false, errorPreview: null, tools: [write] };
+    const env = { workspaceRoot: root, executionRecords: { getRun: async () => run } as unknown as ExecutionRecordStore };
+    const criterion: WorkTask["acceptance"][number] = { id: "file", description: "read back", required: true, method: "automatic", status: "not_run", note: null, evidenceRefs: [], verification: { kind: "artifact_exists", path: "plan.md", requireReadback: true } };
+    assert.equal((await verifyAutomaticCriterion(env, task, criterion)).status, "failed");
+    assert.equal((await verifyAutomaticCriterion(env, task, { ...criterion, verification: { kind: "artifact_exists", path: "plan.md" } })).status, "passed");
+    const { fileRead: _read, ...legacyRead } = read;
+    for (const tools of [[read, write], [write, legacyRead], [write, { ...read, status: "failed" as const }],
+      [write, { ...read, fileRead: { ...read.fileRead!, sha256: "0".repeat(64) } }], [write, read, { ...write, toolCallId: "edit", toolName: "edit_file" }]]) {
+      run.tools = tools;
+      assert.equal((await verifyAutomaticCriterion(env, task, criterion)).status, "failed");
+    }
+    run.tools = [write, read];
+    const verified = await verifyAutomaticCriterion(env, task, criterion);
+    assert.equal(verified.status, "passed");
+    const store = createWorkTaskStore(root, { generateId: () => "task", executionRecords: env.executionRecords });
+    const created = await store.create({ threadId: "thread", goal: "read back", acceptance: [{ id: "file", description: "file", method: "automatic", required: true, verification: criterion.verification }] });
+    assert.ok(created.ok);
+    assert.ok((await store.beginRun("task", { expectedRevision: 1, runId: "run" })).ok);
+    assert.ok((await store.pause("task", 2)).ok);
+    assert.ok((await store.submitDelivery("task", { expectedRevision: 3, delivery: { summary: "done", artifactRefs: ["plan.md"], unresolved: [], evidence: [] } })).ok);
+    run.tools = [write];
+    const blocked = await store.recordAcceptance("task", { expectedRevision: 4, criterionId: "file", actor: "automatic", status: "passed", evidence: verified.evidence });
+    assert.equal(blocked.ok, false, "direct store acceptance cannot bypass readback");
+    run.tools = [write, read];
+    const accepted = await store.recordAcceptance("task", { expectedRevision: 4, criterionId: "file", actor: "automatic", status: "passed", evidence: verified.evidence });
+    assert.ok(accepted.ok); assert.equal(accepted.value.status, "completed");
+    const reopened = await createWorkTaskStore(root).get("task");
+    assert.ok(reopened.ok); assert.deepEqual(reopened.value.acceptance[0]!.verification, criterion.verification);
+    await writeFile(join(root, "plan.md"), "externally changed");
+    assert.equal((await verifyAutomaticCriterion(env, task, criterion)).status, "failed");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
 
 it("completion checks reject unknown/foreign receipts, human-only contracts and unavailable tools", async () => {
   const time = "2026-10-04T00:00:00.000Z";
@@ -45,12 +95,25 @@ it("completion checks reject unknown/foreign receipts, human-only contracts and 
   assert.equal((await verifyAutomaticCriterion({ executionRecords: records, workspaceRoot: undefined }, task, task.acceptance[0]!, { runId: "run", signal: input.signal })).status, "failed");
   run.tools.push({ ...tool, toolCallId: "retest" });
   assert.equal((await verifyAutomaticCriterion({ executionRecords: records, workspaceRoot: undefined }, task, task.acceptance[0]!, { runId: "run", signal: input.signal })).status, "passed");
+  const root = await mkdtemp(join(tmpdir(), "runloom-test-order-"));
+  try {
+    const store = createWorkTaskStore(root, { generateId: () => "task", executionRecords: records });
+    assert.ok((await store.create({ threadId: "thread", goal: "test", acceptance: [{ id: "test", description: "test", required: true, method: "automatic", verification: { kind: "shell_exit_zero", command: "node --test", cwd: "." } }] })).ok);
+    assert.ok((await store.beginRun("task", { expectedRevision: 1, runId: "run" })).ok);
+    assert.ok((await store.pause("task", 2)).ok);
+    assert.ok((await store.submitDelivery("task", { expectedRevision: 3, delivery: { summary: "done", artifactRefs: [], evidence: [], unresolved: [] } })).ok);
+    run.status = "completed"; run.tools = [tool, { ...tool, toolCallId: "later-edit", toolName: "edit_file" }];
+    const evidence = [{ id: "test-evidence", kind: "tool" as const, runId: "run", toolCallId: "test", toolName: "shell_exec" as const, command: "node --test", cwd: ".", verifiedAt: time, outcome: "succeeded" as const }];
+    assert.equal((await store.recordAcceptance("task", { expectedRevision: 4, criterionId: "test", actor: "automatic", status: "passed", evidence })).ok, false);
+    run.tools = [tool];
+    assert.ok((await store.recordAcceptance("task", { expectedRevision: 4, criterionId: "test", actor: "automatic", status: "passed", evidence })).ok);
+  } finally { run.status = "running"; await rm(root, { recursive: true, force: true }); }
   task.acceptance = [{ ...task.acceptance[0]!, method: "human", verification: { kind: "human" } }];
   assert.deepEqual(await check(input), { kind: "stop", reason: "needs_information" });
   assert.equal(await check({ ...input, context: {} }), undefined);
 });
 
-for (const scenario of ["correct", "deny", "exhaust", "manual", "chat"] as const) {
+for (const scenario of ["correct", "readback", "deny", "exhaust", "manual", "chat"] as const) {
   it(`WorkTask finish check: ${scenario}`, { timeout: 20_000 }, async () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-finish-check-"));
     const workspace = join(root, "workspace");
@@ -60,14 +123,15 @@ for (const scenario of ["correct", "deny", "exhaust", "manual", "chat"] as const
     let calls = 0;
     const model = new MockLanguageModelV3({ doStream: async () => {
       calls++;
-      const write = scenario === "correct" && calls === 2 || scenario === "deny" && calls === 1;
+      const write = scenario === "correct" && calls === 2 || (scenario === "deny" || scenario === "readback") && calls === 1;
+      const read = scenario === "readback" && calls === 3;
       return { stream: simulateReadableStream({ chunks: [
         { type: "stream-start" as const, warnings: [] },
-        ...(write ? [{ type: "tool-call" as const, toolCallId: "write", toolName: "write_file",
-          input: JSON.stringify({ path: "plan.md", content: "verified output\n" }) }] : [
+        ...(write || read ? [{ type: "tool-call" as const, toolCallId: read ? "readback" : "write", toolName: read ? "read_file" : "write_file",
+          input: JSON.stringify(read ? { path: "plan.md" } : { path: "plan.md", content: "verified output\n" }) }] : [
           { type: "text-start" as const, id: "text" }, { type: "text-delta" as const, id: "text", delta: "Done" }, { type: "text-end" as const, id: "text" },
         ]),
-        { type: "finish" as const, finishReason: { unified: write ? "tool-calls" as const : "stop" as const, raw: undefined },
+        { type: "finish" as const, finishReason: { unified: write || read ? "tool-calls" as const : "stop" as const, raw: undefined },
           usage: { inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 1, text: 1, reasoning: undefined } } },
       ] }) };
     } });
@@ -85,7 +149,7 @@ for (const scenario of ["correct", "deny", "exhaust", "manual", "chat"] as const
         if (event.type === "run-event" && event.event.type === "run.completion.checked") checks.push(event.event.data.decision);
       });
       const created = await controller.createWorkTask({ goal: "Write plan.md", acceptance: [
-        { id: "file", description: "file", required: true, method: "automatic", verification: { kind: "artifact_exists", path: "plan.md" } },
+        { id: "file", description: "file", required: true, method: "automatic", verification: { kind: "artifact_exists", path: "plan.md", ...(scenario === "readback" ? { requireReadback: true } : {}) } },
         { id: "quality", description: "quality", required: true, method: "human", verification: { kind: "human" } },
       ] });
       assert.ok(created.ok);
@@ -101,8 +165,8 @@ for (const scenario of ["correct", "deny", "exhaust", "manual", "chat"] as const
       const task = await controller.getWorkTask(created.value.id); assert.ok(task.ok);
       assert.equal(task.value.runIds.length, scenario === "chat" ? 0 : 1);
       assert.equal(task.value.acceptance[1]!.status, "not_run");
-      if (scenario === "correct") {
-        assert.equal(calls, 3); assert.equal(approvals.size, 1);
+      if (scenario === "correct" || scenario === "readback") {
+        assert.equal(calls, scenario === "readback" ? 4 : 3); assert.equal(approvals.size, scenario === "readback" ? 2 : 1);
         assert.deepEqual(checks, ["continue", "stop"]);
         assert.deepEqual(result.completion, { reason: "delivered", corrections: 1 });
         assert.equal(task.value.status, "awaiting_acceptance");

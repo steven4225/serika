@@ -50,6 +50,25 @@ async function errorCode(operation: () => Promise<unknown>): Promise<string | un
 }
 
 describe("ExecutionRecordStore", () => {
+  it("persists bounded full readback evidence across reopen, never hashes a truncated display preview", async () => {
+    const path = await directory();
+    const store = createExecutionRecordStore(path, { now });
+    const content = "回读🧩".repeat(800);
+    await store.startRun({ runId: "run-1", threadId: "thread-1", phase: "primary" });
+    for (const [id, output] of [["read", { ok: true, path: "report.md", content, bytes: Buffer.byteLength(content) }],
+      ["bad-read", { ok: true, path: "report.md", content, bytes: 1 }]] as const) {
+      await store.recordToolEvent("run-1", toolEvent("tool.call.requested", { toolCallId: id, toolName: "read_file", input: { path: "report.md" } }));
+      await store.recordToolEvent("run-1", toolEvent("tool.call.started", { toolCallId: id, toolName: "read_file" }));
+      await store.recordToolEvent("run-1", toolEvent("tool.call.completed", { toolCallId: id, toolName: "read_file", output }));
+    }
+    await store.finishRun("run-1", result());
+    const tools = (await createExecutionRecordStore(path).getRun("thread-1", "run-1"))!.tools;
+    assert.equal(tools[0]!.resultTruncated, true);
+    assert.deepEqual(tools[0]!.fileRead, { path: "report.md", bytes: Buffer.byteLength(content), sha256: createHash("sha256").update(content).digest("hex") });
+    assert.equal(tools[0]!.fileWrite, undefined);
+    assert.equal(tools[1]!.fileRead, undefined);
+    assert.ok(Buffer.byteLength(JSON.stringify(tools[0]!.fileRead)) < 256);
+  });
   it("persists compact file evidence independently of truncated display input across reopen", async () => {
     const path = await directory();
     const store = createExecutionRecordStore(path, { now });

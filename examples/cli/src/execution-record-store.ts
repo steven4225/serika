@@ -36,6 +36,8 @@ export interface ExecutionToolRecord {
   fileInput?: { path: string; sha256?: string };
   /** Successful file-tool result, independently bounded from display previews. */
   fileWrite?: { path: string; bytes: number; sha256: string };
+  /** Digest of the full successful read output, not the display preview or later disk. */
+  fileRead?: { path: string; bytes: number; sha256: string };
 }
 
 export interface ExecutionRunRecord {
@@ -106,7 +108,7 @@ function filePath(value: unknown): value is string {
 }
 
 function fileRequest(toolName: string, input: unknown): ExecutionToolRecord["fileInput"] {
-  if (!["write_file", "edit_file"].includes(toolName) || !isObject(input) || !filePath(input.path)) return undefined;
+  if (!["write_file", "edit_file", "read_file"].includes(toolName) || !isObject(input) || !filePath(input.path)) return undefined;
   return { path: input.path,
     ...(toolName === "write_file" && typeof input.content === "string"
       ? { sha256: createHash("sha256").update(input.content, "utf8").digest("hex") } : {}),
@@ -114,12 +116,30 @@ function fileRequest(toolName: string, input: unknown): ExecutionToolRecord["fil
 }
 
 function fileResult(tool: ExecutionToolRecord, output: unknown): ExecutionToolRecord["fileWrite"] {
+  if (!["write_file", "edit_file"].includes(tool.toolName)) return undefined;
   if (tool.startedAt === null || tool.fileInput === undefined || !isObject(output) ||
       output.ok !== true || output.path !== tool.fileInput.path || typeof output.sha256 !== "string" ||
       !SHA256.test(output.sha256) || !Number.isSafeInteger(output.bytes) ||
       (output.bytes as number) < 0 || (output.bytes as number) > FILE_WRITE_MAX_BYTES ||
       (tool.toolName === "write_file" && tool.fileInput.sha256 !== output.sha256)) return undefined;
   return { path: tool.fileInput.path, bytes: output.bytes as number, sha256: output.sha256 };
+}
+
+function fileReadResult(tool: ExecutionToolRecord, output: unknown): ExecutionToolRecord["fileRead"] {
+  if (tool.toolName !== "read_file" || tool.startedAt === null || !tool.fileInput || !isObject(output) ||
+      output.ok !== true || output.path !== tool.fileInput.path || typeof output.content !== "string" ||
+      !Number.isSafeInteger(output.bytes) || (output.bytes as number) < 0 || (output.bytes as number) > 65536 ||
+      Buffer.byteLength(output.content, "utf8") !== output.bytes) return undefined;
+  return { path: tool.fileInput.path, bytes: output.bytes as number,
+    sha256: createHash("sha256").update(output.content, "utf8").digest("hex") };
+}
+
+export function hasMatchingFileReadback(tools: ExecutionToolRecord[], write: ExecutionToolRecord, path: string, sha256: string, bytes: number): boolean {
+  const index = tools.indexOf(write);
+  if (index < 0) return false;
+  const read = tools.slice(index + 1).filter(tool => tool.toolName === "read_file" && tool.fileInput?.path === path).at(-1);
+  return read?.status === "completed" && read.startedAt !== null && read.fileRead?.path === path &&
+    read.fileRead.sha256 === sha256 && read.fileRead.bytes === bytes;
 }
 
 /** Match intent even for a failed later write, so an earlier success cannot substitute for it. */
@@ -171,13 +191,14 @@ function validateTool(value: unknown): ExecutionToolRecord {
   }
   if (value.fileInput !== undefined && (!isObject(value.fileInput) || !filePath(value.fileInput.path) ||
       Object.keys(value.fileInput).some((key) => !["path", "sha256"].includes(key)) ||
-      !["write_file", "edit_file"].includes(String(value.toolName)) ||
-      (value.toolName === "edit_file" && value.fileInput.sha256 !== undefined) ||
+      !["write_file", "edit_file", "read_file"].includes(String(value.toolName)) ||
+      (value.toolName !== "write_file" && value.fileInput.sha256 !== undefined) ||
       (value.fileInput.sha256 !== undefined && (typeof value.fileInput.sha256 !== "string" || !SHA256.test(value.fileInput.sha256))))) {
     fail("FILE_INVALID", "File input receipt is invalid");
   }
   if (value.fileWrite !== undefined && (!isObject(value.fileWrite) || !filePath(value.fileWrite.path) ||
       Object.keys(value.fileWrite).some((key) => !["path", "bytes", "sha256"].includes(key)) ||
+      !["write_file", "edit_file"].includes(String(value.toolName)) ||
       !isObject(value.fileInput) || value.fileWrite.path !== value.fileInput.path ||
       value.status !== "completed" || value.startedAt === null ||
       typeof value.fileWrite.sha256 !== "string" || !SHA256.test(value.fileWrite.sha256) ||
@@ -185,6 +206,14 @@ function validateTool(value: unknown): ExecutionToolRecord {
       (value.fileWrite.bytes as number) > FILE_WRITE_MAX_BYTES ||
       (value.toolName === "write_file" && value.fileInput.sha256 !== value.fileWrite.sha256))) {
     fail("FILE_INVALID", "File write receipt is invalid");
+  }
+  if (value.fileRead !== undefined && (!isObject(value.fileRead) || value.toolName !== "read_file" ||
+      !filePath(value.fileRead.path) || !isObject(value.fileInput) || value.fileRead.path !== value.fileInput.path ||
+      Object.keys(value.fileRead).some(key => !["path", "bytes", "sha256"].includes(key)) ||
+      value.status !== "completed" || value.startedAt === null ||
+      typeof value.fileRead.sha256 !== "string" || !SHA256.test(value.fileRead.sha256) ||
+      !Number.isSafeInteger(value.fileRead.bytes) || (value.fileRead.bytes as number) < 0 || (value.fileRead.bytes as number) > 65536)) {
+    fail("FILE_INVALID", "File read receipt is invalid");
   }
   return value as unknown as ExecutionToolRecord;
 }
@@ -322,6 +351,8 @@ export class ExecutionRecordStore {
         if (tool.toolName === "shell_exec") tool.shell = shellReceipt(event.data.output);
         const written = fileResult(tool, event.data.output);
         if (written !== undefined) tool.fileWrite = written;
+        const read = fileReadResult(tool, event.data.output);
+        if (read !== undefined) tool.fileRead = read;
       } else {
         tool.errorPreview = preview(event.data.error.message).text;
       }

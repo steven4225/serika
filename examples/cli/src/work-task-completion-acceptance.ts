@@ -49,7 +49,7 @@ export async function runCompletionAcceptance(label: "baseline" | "improved") {
       prompt = await readFile(join(fixture, "request.md"), "utf8");
       readable = ["src/slug.mjs", "test/slug.test.mjs"];
       writable = ["src/slug.mjs"];
-      verification = [{ kind: "artifact_exists", path: "src/slug.mjs" }, { kind: "shell_exit_zero", command: "node --test test/slug.test.mjs", cwd: "." }];
+      verification = [{ kind: "artifact_exists", path: "src/slug.mjs", requireReadback: true }, { kind: "shell_exit_zero", command: "node --test test/slug.test.mjs", cwd: "." }];
     } else if (caseId === "WT03") {
       await mkdir(join(workspace, "inputs"));
       await cp(join(fixture, "notes.md"), join(workspace, "inputs/notes.md"));
@@ -57,12 +57,12 @@ export async function runCompletionAcceptance(label: "baseline" | "improved") {
       prompt = "读取 inputs/notes.md 和 inputs/manifest.schema.json，按材料完成两份交付。只新增 handoff.md 和 manifest.json，不改输入。分别读回核对。";
       readable = ["inputs/notes.md", "inputs/manifest.schema.json", "handoff.md", "manifest.json"];
       writable = ["handoff.md", "manifest.json"];
-      verification = writable.map(path => ({ kind: "artifact_exists", path }));
+      verification = writable.map(path => ({ kind: "artifact_exists", path, requireReadback: true }));
     } else {
       await cp(join(fixture, "brief.md"), join(workspace, "brief.md"));
       prompt = await readFile(join(fixture, "update.md"), "utf8");
       readable = writable = ["brief.md"];
-      verification = [{ kind: "artifact_exists", path: "brief.md" }];
+      verification = [{ kind: "artifact_exists", path: "brief.md", requireReadback: true }];
     }
     await writeFile(join(workspace, "unrelated.txt"), "保留：与本次开发任务无关。\n");
     const initialFiles = await workspaceFiles(workspace);

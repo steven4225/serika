@@ -197,7 +197,7 @@ async function child(root: string, stage: Stage, workflow: Workflow) {
           ],
           acceptance: [
             { id: "saved-artifact", description: "Latest task Run saved the current file", method: "automatic", required: true,
-              verification: { kind: "artifact_exists", path: ARTIFACT } },
+              verification: { kind: "artifact_exists", path: ARTIFACT, requireReadback: true } },
             { id: "quality", description: "User reviews the complete workflow", method: "human", required: true,
               verification: { kind: "human" } },
           ],

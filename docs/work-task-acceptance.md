@@ -378,6 +378,33 @@ Electron 人工点击，或连续压缩/重启后的真实任务整链已经通�
 
 ## 同一 WorkTask 固定预算连续链
 
+### 日用任务整批补齐（2026-10-04）
+
+桌面新任务产物标准使用 `artifact_exists + requireReadback: true`，并能填写精确的
+测试 command/cwd。旧任务省略该字段时保持原合同。结束检查与 Store 提交验收都
+要求当前任务最新 primary Run 的最后匹配写入后有成功完整读回，哈希和字节数与
+当前磁盘相符；早于后续文件修改的测试回执不能通过。缺读回可在同一 Run 的原
+两次纠正与 step/time 预算内补齐，不新建 Run、不恢复授权、不重放未知工具。
+
+真实 Command Code 三例（WT01 代码修改及测试、WT03 两份资料产物、WT04 多步骤
+编辑）在加强后的相同合同下技术通过，均一个 Run、零追加指令、零补证提示，
+终态 `awaiting_acceptance`，质量 `not_accepted`。证据目录：
+`/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/runloom-task-completion-improved-OQbXHA`。
+脚本模型另行证明“写入后提前结束→同一 Run 补读回”，不能把它当真实模型发生过
+纠正，也不能据此宣布成功率提升；旧基线的产物规则较弱，不直接比较。
+
+固定 32K/4K/1K/8K/4K 配置的真实连续链也以读回合同通过：PID 64494 八轮章节
+编辑触发两条不同自动压缩记录，再继续一轮并退出；PID 69377 重开后完成第十轮。
+外部磁盘标记、原章节与保护文件通过核对，产物 passed、质量 not_run。两进程配置
+哈希为 `8c6a4925a510c17766c6ed71c58b38aa228764671ab23ab8429255b1aa6721fe`。
+报告目录：`/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/runloom-context-continuity-vKG2Y6`。
+没有修改预算、手动压缩或整链重试。
+
+新增桌面表单通过隔离浏览器 fixture 核对：复制聊天目标、填写产物与多条测试、
+实际提交的合同携带读回及精确 command/cwd，返回后草稿与输入焦点保留。fixture
+只捕获请求、不创建真实任务、不连接模型。Electron 原生整链仍 `not_run`，不能
+把上述后端和浏览器结果拼成原生点击封板。
+
 复用现有后端连续压缩验收入口，增加 `--work-task`；不是新调度器、状态机或 Eval
 框架。真实模型有费用，默认测试不会运行：
 

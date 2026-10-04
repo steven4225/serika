@@ -28,6 +28,7 @@ export function createWorkTaskFinishCheck(env: VerificationEnvironment & { workT
     const denied = input.messages.slice(lastUser).some(message => message.parts.some(part => part.type === "dynamic-tool" && part.state === "output-error" && part.errorText.startsWith("TOOL_DENIED")));
     if (denied) return { kind: "stop", reason: "needs_confirmation" };
     if (missing.some(({ criterion, result }) => result.status === "blocked" ||
+      (criterion.verification.kind === "artifact_exists" && criterion.verification.requireReadback === true && !input.definition.tools.includes("read_file")) ||
       (criterion.verification.kind === "shell_exit_zero" ? !input.definition.tools.includes("shell_exec") :
         !input.definition.tools.some(tool => ["write_file", "edit_file"].includes(tool))))) return { kind: "stop", reason: "needs_information" };
     if (input.corrections >= WORK_TASK_MAX_CORRECTIONS || input.remainingSteps <= 0) return { kind: "stop", reason: "budget_exhausted" };
