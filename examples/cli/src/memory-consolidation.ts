@@ -135,22 +135,33 @@ function visible(entry: MemoryEntry, threadId: string): boolean {
   return entry.scope?.kind !== "thread" || entry.scope.threadId === threadId;
 }
 function current(entry: ConsolidationMemory): ConsolidationMemory { const { history: _history, ...value } = entry; return value; }
+function rankForTurns(entries: MemoryEntry[], turns: OrdinaryTurn[]): MemoryEntry[] {
+  const selected = new Map<string, MemoryEntry>();
+  // Each message gets its own bounded query. Joining the window first lets one
+  // long earlier message consume the query budget and hide a later correction.
+  // Recent material wins when the shared conflict-reference budget fills up.
+  for (const turn of [...turns].reverse()) {
+    for (const entry of rankMemoryEntriesForQuery(entries, turn.user.text)) {
+      if (!selected.has(entry.id)) selected.set(entry.id, entry);
+    }
+  }
+  return [...selected.values()];
+}
 function relatedMemories(entries: ConsolidationMemory[], turns: OrdinaryTurn[], threadId: string): { entries: ConsolidationMemory[]; truncated: boolean } {
   // Old assertions are conflict material only, never asserted as current primary context.
-  const query = turns.map((turn) => turn.user.text).join("\n");
   const material = entries.filter((entry) => visible(entry, threadId)).map((entry) => {
     const value = current(entry);
     if (value.relatedAssertions === undefined) return value;
     const byAssertion = new Map(value.relatedAssertions.map((assertion) => [assertion.assertionId, assertion]));
-    const relatedAssertions = rankMemoryEntriesForQuery(value.relatedAssertions.map((assertion) => ({ id: assertion.assertionId,
+    const relatedAssertions = rankForTurns(value.relatedAssertions.map((assertion) => ({ id: assertion.assertionId,
       text: [assertion.text, ...assertion.recallTerms].join("\n"), enabled: false,
-    })), query).map((assertion) => byAssertion.get(assertion.id)!);
+    })), turns).map((assertion) => byAssertion.get(assertion.id)!);
     return { ...value, relatedAssertions };
   });
   const byId = new Map(material.map((entry) => [entry.id, entry]));
-  const ranked = rankMemoryEntriesForQuery(material.map((entry) => ({ ...entry,
+  const ranked = rankForTurns(material.map((entry) => ({ ...entry,
     text: [entry.text, ...(entry.assertion?.recallTerms ?? []), ...(entry.relatedAssertions ?? []).flatMap((assertion) => [assertion.text, ...assertion.recallTerms])].join("\n"),
-  })), query).map((entry) => byId.get(entry.id)!);
+  })), turns).map((entry) => byId.get(entry.id)!);
   const selected: ConsolidationMemory[] = [];
   let trimmed = false;
   for (const entry of ranked) {
@@ -160,7 +171,7 @@ function relatedMemories(entries: ConsolidationMemory[], turns: OrdinaryTurn[], 
       candidate = { ...candidate, relatedAssertions: candidate.relatedAssertions!.slice(0, -1) };
       trimmed = true;
     }
-    if (candidate.relatedAssertions?.length === 0 && rankMemoryEntriesForQuery([candidate], query).length === 0) continue;
+    if (candidate.relatedAssertions?.length === 0 && rankForTurns([candidate], turns).length === 0) continue;
     if (Buffer.byteLength(JSON.stringify([...selected, candidate])) <= CONSOLIDATION_MEMORIES_MAX_BYTES) selected.push(candidate);
   }
   return { entries: selected, truncated: trimmed || selected.length < ranked.length };

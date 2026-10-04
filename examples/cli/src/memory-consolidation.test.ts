@@ -324,6 +324,22 @@ describe("native memory consolidation batch", () => {
     assert.equal(batch.memories[0]?.historyCoverage, "legacy_partial");
     assert.equal(JSON.stringify(batch.memories).includes("数据库备份"), false);
   });
+  it("finds later-turn conflict targets even after an earlier message exhausts one query budget", async () => {
+    const old = createAssertion({ text: "复盘先给结论", kind: "preference", sources: [{ kind: "manual" }] }, "old-format", "2026-09-01T00:00:00Z");
+    const f = fixture([user("long", "database ".repeat(600)), user("change", "复盘现在先讲背景，不再先给结论")]);
+    f.setMaterial([
+      { id: "old-format", text: "旧版格式", enabled: true, status: "active", revision: 2, relatedAssertions: [old], historyCoverage: "complete" },
+      { id: "other-thread", text: "复盘先给结论", enabled: true, scope: { kind: "thread", threadId: "private" }, relatedAssertions: [], historyCoverage: "complete" },
+      { id: "earlier", text: "database backup", enabled: true, relatedAssertions: [], historyCoverage: "complete" },
+    ]);
+    const batch = await prepare(f);
+    assert.deepEqual(batch.memories.map(entry => entry.id), ["old-format", "earlier"]);
+    assert.deepEqual(batch.memories[0]!.relatedAssertions!.map(assertion => assertion.assertionId), ["old-format"]);
+    assert.equal(batch.memories[0]!.text, "旧版格式");
+    assert.ok(Buffer.byteLength(JSON.stringify(batch.memories)) <= CONSOLIDATION_MEMORIES_MAX_BYTES);
+    assert.equal(f.committed.length, 0);
+    assert.equal(f.getCursor(), null);
+  });
   it("bounds even large relevant history as whole assertions, retaining a target and truncation marker", async () => {
     const assertions = Array.from({ length: 40 }, (_, index) => createAssertion({ text: `复盘 ${"字".repeat(600)}`, sources: [{ kind: "manual" }] }, `a${index}`, "2026-09-01T00:00:00Z"));
     const f = fixture(); f.setMaterial([{ id: "m1", text: "已更改的偏好", enabled: true, revision: 2, relatedAssertions: assertions, historyCoverage: "complete" }]);
