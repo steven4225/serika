@@ -43,6 +43,32 @@ async function prepare(f: ReturnType<typeof fixture>, agent = AUTO_CONSOLIDATION
 }
 
 describe("native memory consolidation batch", () => {
+  it("explicit history reaches older selected messages without moving the incremental cursor", async () => {
+    const messages = Array.from({ length: 12 }, (_, index) => user(`u${index}`, `长期偏好 ${index}`));
+    const f = fixture(messages);
+    const cursor = { threadId: "thread", throughMessageId: "u11", prefixHash: consolidationPrefixHash(messages, "u11")!, lastBatchId: "older", updatedAt: "2026-10-01T00:00:00Z" };
+    f.setCursor(cursor);
+    f.service.begin(AUTO_CONSOLIDATION_AGENT_ID, { mode: "history", messageIds: ["u0", "u1"] });
+    const prepared = await f.service.prepare({ turns: 4 });
+    assert.ok(prepared.ok);
+    assert.deepEqual(prepared.value.selection, { mode: "history", messageIds: ["u0", "u1"] });
+    assert.deepEqual(prepared.value.turns.map(turn => "user" in turn ? turn.user.messageId : turn.messages[0]!.id), ["u0", "u1"]);
+    assert.ok((await f.service.stage({ batchId: prepared.value.batchId, proposals: [] })).ok);
+    const final = await f.service.finalize({ status: "completed" });
+    assert.ok(final.ok); assert.equal(final.value.processedCount, 2);
+    assert.deepEqual(f.getCursor(), cursor);
+    assert.equal(f.committed[0]!.nextCursor, null);
+  });
+
+  it("refuses excluded/foreign history selections and never silently clips selected history", async () => {
+    const f = fixture([user("u1"), { ...user("private"), metadata: { memoryConsolidation: "exclude" } }, user("huge", "x".repeat(70 * 1024))]);
+    for (const messageIds of [["private"], ["foreign"], ["u1", "u1"], ["u1", "huge"]]) {
+      f.service.begin(AUTO_CONSOLIDATION_AGENT_ID, { mode: "history", messageIds });
+      assert.equal((await f.service.prepare({ mode: "incremental" })).ok, false);
+      assert.equal(f.committed.length, 0);
+      assert.equal(f.getCursor(), null);
+    }
+  });
   it("retrieves visible disabled and expired current versions as conflict material, not active injection", async () => {
     const f = fixture([user("u1", "写作复盘偏好")]);
     f.setEntries([

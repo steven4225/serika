@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { createRetrievedMemoryContextMessage, retrieveMemories, tokenizeMemoryQuery, rankMemoryEntriesForQuery } from "./memory-retrieval.js";
+import { createRetrievedMemoryContextMessage, placeCurrentMemoryReference, retrieveMemories, tokenizeMemoryQuery, rankMemoryEntriesForQuery } from "./memory-retrieval.js";
 import type { MemoryEntry } from "./memory-store.js";
 
 const now = new Date("2026-10-01T00:00:00.000Z");
@@ -79,6 +79,32 @@ describe("Memory retrieval invariants", () => {
     assert.match(JSON.stringify(message), /does not mean the store is empty/);
   });
 
+  it("identifies a fresh nonempty snapshot independently of earlier empty-selection replies", () => {
+    const selection = retrieveMemories([memory("restored", "reports in three steps", { revision: 4 })], { query: "reports", now });
+    const message = createRetrievedMemoryContextMessage(selection);
+    const text = message.parts.flatMap(part => part.type === "text" ? [part.text] : []).join("\n");
+    assert.match(text, /selectedCount=1/);
+    assert.ok(text.includes(`validAt=${now.toISOString()}`));
+    assert.match(text, /earlier 'selected entries: \[\]' claim cannot override/);
+    assert.match(text, /"id":"restored","revision":4/);
+    assert.equal(selection.bytes, Buffer.byteLength(JSON.stringify(message), "utf8"));
+    assert.ok(selection.bytes <= 8192);
+  });
+
+  it("places the same bounded snapshot after old answers and before this question, without changing tool pairs", () => {
+    const reference = createRetrievedMemoryContextMessage(retrieveMemories([memory("restored", "reports")], { query: "reports", now }));
+    const old = { id: "old", role: "assistant" as const, parts: [{ type: "text" as const, text: "Earlier selected entries: []" }] };
+    const question = { id: "current", role: "user" as const, parts: [{ type: "text" as const, text: "reports?" }] };
+    const input = [reference, old, question];
+    const output = placeCurrentMemoryReference(input, question.id);
+    assert.deepEqual(output.map(message => message.id), [old.id, reference.id, question.id]);
+    assert.equal(output[1], reference);
+    assert.equal(Buffer.byteLength(JSON.stringify(output)), Buffer.byteLength(JSON.stringify(input)));
+    assert.deepEqual(input.map(message => message.id), [reference.id, old.id, question.id]);
+    const call = { ...old, id: "tool-call" }, response = { ...old, id: "tool-result" };
+    assert.deepEqual(placeCurrentMemoryReference([reference, old, call, response], "compacted-current").map(message => message.id), [old.id, call.id, response.id, reference.id]);
+  });
+
   it("pins at most two by deterministic recency and ID, empty query does not fill", () => {
     const entries = [memory("b", "pinned B", { pinned: true }), memory("a", "pinned A", { pinned: true }), memory("new", "pinned new", { pinned: true, updatedAt: now.toISOString() }), memory("z", "other")];
     const selected = retrieveMemories(entries, { query: "", now });
@@ -113,7 +139,8 @@ describe("Memory retrieval invariants", () => {
   });
 
   it("continues after oversized matches to admit smaller subsequent items", () => {
-    const result = retrieveMemories([memory("a", "reports " + "\"".repeat(1800)), memory("b", "reports " + "\"".repeat(1800)), memory("c", "reports small")], { query: "reports", now });
+    // One escaped entry plus current-reference bookkeeping fits; two still do not.
+    const result = retrieveMemories([memory("a", "reports " + "\"".repeat(1600)), memory("b", "reports " + "\"".repeat(1600)), memory("c", "reports small")], { query: "reports", now });
     assert.deepEqual(result.entries.map((entry) => entry.id), ["a", "c"]);
     assert.equal(result.truncated, true);
     assert.equal(result.bytes, Buffer.byteLength(JSON.stringify(createRetrievedMemoryContextMessage(result)), "utf8"));

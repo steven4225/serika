@@ -184,6 +184,7 @@ describe("WorkspaceMemoryStore", () => {
       pinned: false,
       text: "keep pnpm",
       enabled: true,
+      temporalState: "applicable",
       status: "active",
       scope: { kind: "workspace" },
       source: { kind: "legacy" },
