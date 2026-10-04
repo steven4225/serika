@@ -397,6 +397,48 @@ describe("AssistantController memory candidates", () => {
 });
 
 describe("AssistantController", () => {
+  it("persists WorkTask memory exclusion across restart without excluding later ordinary chat", async () => {
+    const root = await mkdtemp(join(tmpdir(), "runloom-task-memory-exclusion-"));
+    const config = join(root, "config.json");
+    await writeFile(config, JSON.stringify({ version: 1, workspace: root,
+      modules: { memory: { enabled: true, autoConsolidate: true } } }));
+    const open = async () => {
+      const instance = createAssistantController(await createRuntimeApp({
+        args: ["--tui", join(root, "transcripts"), "--thread", "task-memory", "--config", config],
+        modelAlias: "mock", model: createDemoModel(), output: new PassThrough(), env: {}, cwd: root,
+      }));
+      instance.subscribe(event => {
+        if (event.type === "approval") instance.confirm({ approvalId: event.approval.approvalId, decision: "deny" });
+      });
+      return instance;
+    };
+    let controller = await open();
+    try {
+      const task = await controller.createWorkTask({ goal: "This plan needs Goal, Checks, Next sections",
+        constraints: [], acceptance: [{ id: "quality", description: "Review plan", method: "human",
+          verification: { kind: "human" }, required: true }] });
+      assert.ok(task.ok);
+      assert.ok((await controller.runWorkTask({ id: task.value.id, expectedRevision: task.value.revision, completionCheck: false })).ok);
+      await waitFor(() => controller.getSnapshot().state.kind === "idle");
+      assert.equal(controller.getSnapshot().lastPrimaryResult?.status, "completed");
+      await controller.shutdown();
+      controller = await open();
+      const history = await controller.getHistory();
+      const instruction = history.find(message => message.role === "user");
+      assert.deepEqual(instruction?.metadata, { memoryConsolidation: "exclude" });
+      assert.equal((await controller.listRuns()).length, 1, "no automatic consolidation Run for task instruction");
+      assert.ok((await controller.run("我的长期写作偏好是先结论后步骤", { memoryConsolidation: "exclude" })).ok);
+      await waitFor(() => controller.getSnapshot().state.kind === "idle");
+      // No opt-out is inherited by subsequent ordinary user messages.
+      assert.ok((await controller.run("Ordinary chat stays eligible")).ok);
+      await waitFor(() => controller.getSnapshot().state.kind === "idle");
+      const latest = (await controller.getHistory()).find(message => message.role === "user"
+        && message.parts.some(part => part.type === "text" && part.text === "Ordinary chat stays eligible"));
+      assert.equal(latest?.metadata, undefined);
+      assert.ok((await controller.listRuns()).some(run => run.phase === "consolidation"));
+    } finally { await controller.shutdown(); await rm(root, { recursive: true, force: true }); }
+  });
+
   it("drives the assembled Runtime and commits a demo turn", async () => {
     const directory = await mkdtemp(join(tmpdir(), "runloom-controller-app-"));
     try {
@@ -491,17 +533,22 @@ describe("AssistantController", () => {
     const workTasks = createWorkTaskStore(workspace, { generateId: () => "task-1" });
     const executionRecords = createExecutionRecordStore(transcripts);
     let boundTask: { id: string; expectedRevision: number } | undefined;
+    const requestedAgents: string[] = [];
     const app = appWith({
       directory: transcripts,
       workspaceRoot: workspace,
       workTasks,
       executionRecords,
+      autoConsolidationAgentId: "memory-consolidator",
       bindNextExecutionWorkTask: (input) => {
         boundTask = input;
         return () => { boundTask = undefined; };
       },
       runtime: {
-        run: async () => {
+        run: async (request: { agentId: string; messages: Array<{ metadata?: unknown }> }) => {
+          requestedAgents.push(request.agentId);
+          assert.equal(request.agentId, PRIMARY_AGENT_ID);
+          assert.deepEqual(request.messages[0]?.metadata, { memoryConsolidation: "exclude" });
           assert.ok(boundTask);
           const begun = await workTasks.beginRun(boundTask.id, {
             expectedRevision: boundTask.expectedRevision, runId: "work-run-1",
@@ -530,6 +577,7 @@ describe("AssistantController", () => {
       assert.deepEqual(await controller.runWorkTask({ id: created.value.id, expectedRevision: 1 }),
         { ok: true, runId: "work-run-1" });
       await waitFor(() => controller.getSnapshot().state.kind === "idle");
+      assert.deepEqual(requestedAgents, [PRIMARY_AGENT_ID], "task instructions must not trigger automatic consolidation");
       const paused = await controller.getWorkTask(created.value.id);
       assert.equal(paused.ok && paused.value.status, "paused");
       assert.equal(paused.ok && paused.value.runIds[0], "work-run-1");
