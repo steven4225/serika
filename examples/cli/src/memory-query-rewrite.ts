@@ -1,11 +1,12 @@
 import { generateText, type LanguageModel } from "ai";
-import { boundedMemoryQuery, type MemorySelection } from "./memory-retrieval.js";
+import { boundedMemoryQuery, type MemorySelectedReference, type MemorySelection } from "./memory-retrieval.js";
 
 export type MemoryRewriteState = "off" | "succeeded" | "degraded" | "not_applicable";
 export interface MemoryReferenceSnapshot {
   messageId: string;
   preparedAt: string;
-  selected: Array<{ id: string; revision: number; text: string; reason: MemorySelection["selected"][number]["reason"] }>;
+  temporalView: MemorySelection["temporalView"];
+  selected: Array<MemorySelectedReference & { text: string }>;
   truncated: boolean;
   queryTruncated: boolean;
   rewrite: MemoryRewriteState;

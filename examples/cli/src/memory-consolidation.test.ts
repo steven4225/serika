@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { UIMessage } from "ai";
 import type { CandidateBatchInput, ConsolidationCursor } from "./memory-candidates.js";
-import type { MemoryEntry, WorkspaceMemoryStore } from "./memory-store.js";
+import type { MemoryConsolidationEntry, MemoryEntry, WorkspaceMemoryStore } from "./memory-store.js";
 import { AUTO_CONSOLIDATION_AGENT_ID, AUTO_CONSOLIDATION_SOURCE } from "./consolidation.js";
-import { CONSOLIDATION_MATERIAL_MAX_BYTES, consolidationPrefixHash, createMemoryConsolidation } from "./memory-consolidation.js";
+import { CONSOLIDATION_MATERIAL_MAX_BYTES, CONSOLIDATION_MEMORIES_MAX_BYTES, consolidationPrefixHash, createMemoryConsolidation } from "./memory-consolidation.js";
+import { createAssertion } from "./memory-temporal.js";
 
 const user = (id: string, text = `用户 ${id}`): UIMessage => ({ id, role: "user", parts: [{ type: "text", text }] });
 function fixture(initial: UIMessage[] = [user("u1", "复盘先结论，再给步骤")]) {
@@ -28,7 +29,9 @@ function fixture(initial: UIMessage[] = [user("u1", "复盘先结论，再给步
   const service = createMemoryConsolidation({ store, threadId: "thread", getMessages: async () => messages,
     now: () => new Date("2026-10-01T00:00:00Z"), generateId: () => `batch${++id}` });
   return { service, committed, setMessages(value: UIMessage[]) { messages = value; }, setCursor(value: ConsolidationCursor | null) { cursor = value; },
-    setEntries(value: MemoryEntry[]) { entries = value; }, setPending(value: number) { pending = value; }, getCursor: () => cursor };
+    setEntries(value: MemoryEntry[]) { entries = value; },
+    setMaterial(value: MemoryConsolidationEntry[]) { entries = value; store.listConsolidationMaterial = async () => ({ ok: true, value }); },
+    setPending(value: number) { pending = value; }, getCursor: () => cursor };
 }
 const proposal = (extra = {}) => ({ action: "add", text: "复盘先结论，再给步骤", sourceMessageId: "u1", sourceQuote: "复盘先结论，再给步骤", reason: "用户明确长期偏好", ...extra });
 async function prepare(f: ReturnType<typeof fixture>, agent = AUTO_CONSOLIDATION_AGENT_ID) {
@@ -196,5 +199,133 @@ describe("native memory consolidation batch", () => {
     const aborted = new AbortController(); aborted.abort(new Error("cancelled"));
     await assert.rejects(f.service.finalize({ status: "completed" }, aborted.signal), /cancelled/);
     assert.equal(f.committed.length, 0);
+  });
+  it("combines up to four exact user quotes without treating the abstraction as verified truth", async () => {
+    const f = fixture([user("u1", "复盘先结论"), user("u2", "然后给两条执行步骤")]);
+    const batch = await prepare(f);
+    const combined = { action: "add", text: "复盘先结论，再给两条执行步骤", reason: "两轮一致偏好", kind: "preference", recallTerms: ["总结格式", "回顾"],
+      sources: [{ sourceMessageId: "u1", sourceQuote: "复盘先结论" }, { sourceMessageId: "u2", sourceQuote: "给两条执行步骤" }] };
+    assert.equal((await f.service.stage({ batchId: batch.batchId, proposals: [combined] })).ok, true);
+    assert.equal(f.committed.length, 0);
+    assert.equal((await f.service.finalize({ status: "completed" })).ok, true);
+    const draft = f.committed[0]!.candidates[0]!;
+    assert.deepEqual(draft.sources?.map((source) => source.messageId), ["u1", "u2"]);
+    assert.equal(draft.source.messageId, "u1");
+    assert.ok(draft.change.operation === "add");
+    assert.deepEqual(draft.change.recallTerms, ["总结格式", "回顾"]);
+    assert.equal(draft.change.validTime, undefined, "Store creates unknown time, not an invented observation date");
+  });
+  it("rejects invalid multi-source provenance as a whole without advancing a cursor", async () => {
+    const valid = { sourceMessageId: "u1", sourceQuote: "复盘先结论，再给步骤" };
+    const bad = [
+      { sources: [] }, { sources: Array(5).fill(valid) }, { sources: [valid, valid] },
+      { sources: [valid, { sourceMessageId: "u2", sourceQuote: "没有这句话" }] },
+      { sources: [valid], sourceQuote: "与第一来源不一致" },
+      { sources: [{ ...valid, threadId: "foreign" }] },
+    ];
+    for (const extra of bad) {
+      const f = fixture([user("u1", "复盘先结论，再给步骤"), user("u2", "另一个真实消息")]);
+      const batch = await prepare(f);
+      assert.equal((await f.service.stage({ batchId: batch.batchId, proposals: [proposal(), proposal(extra)] })).ok, false);
+      assert.equal((await f.service.finalize({ status: "completed" })).ok, false);
+      assert.equal(f.committed.length, 0);
+      assert.equal(f.getCursor(), null);
+    }
+  });
+  it("validates temporal/recall fields and never lets a model write recognition timestamps", async () => {
+    const target: MemoryEntry = { id: "m1", text: "复盘先结论，再给步骤", revision: 1, enabled: true, status: "active" };
+    const invalid = [
+      { recallTerms: ["a", "b", "c", "d"] }, { recallTerms: ["界".repeat(33)] },
+      { systemTime: { from: "2026-10-01T00:00:00Z", to: null } },
+      { validTime: { from: "2026-02-30T00:00:00Z", to: null, basis: "explicit" } },
+      { validTime: { from: "2026-10-01T00:00:00Z", to: null, basis: "unknown" } },
+      { action: "change", memoryId: "m1", expectedRevision: 1 },
+      { action: "correct", memoryId: "m1", expectedRevision: 1, effectiveAt: "2026-10-02T00:00:00Z" },
+      { action: "change", memoryId: "m1", expectedRevision: 1, effectiveAt: "2026-10-02T00:00:00Z", validTime: { from: null, to: null, basis: "unknown" } },
+    ];
+    for (const extra of invalid) {
+      const f = fixture(); f.setEntries([target]); const batch = await prepare(f);
+      assert.equal((await f.service.stage({ batchId: batch.batchId, proposals: [proposal(extra)] })).ok, false);
+      assert.equal((await f.service.finalize({ status: "completed" })).ok, false);
+      assert.equal(f.getCursor(), null);
+    }
+    const f = fixture(); f.setEntries([target]); const batch = await prepare(f);
+    assert.equal((await f.service.stage({ batchId: batch.batchId, proposals: [proposal({ action: "change", memoryId: "m1", expectedRevision: 1,
+      kind: "preference", effectiveAt: "2026-10-02T08:00:00+08:00" })] })).ok, true);
+    await f.service.finalize({ status: "completed" });
+    const change = f.committed[0]!.candidates[0]!.change;
+    assert.ok(change.operation === "change");
+    assert.equal(change.effectiveAt, "2026-10-02T00:00:00.000Z");
+  });
+  it("withdraws disabled or expired provided targets without changing their contents", async () => {
+    for (const action of ["retract", "disable"] as const) {
+      const f = fixture(); f.setEntries([{ id: "m1", text: "复盘先结论，再给步骤", revision: 3, enabled: false, status: "disabled", expiresAt: "2020-01-01T00:00:00Z" }]);
+      const batch = await prepare(f);
+      const withdrawal = { action, memoryId: "m1", expectedRevision: 3, sourceMessageId: "u1", sourceQuote: "复盘先结论，再给步骤", reason: "用户明确撤回" };
+      assert.equal((await f.service.stage({ batchId: batch.batchId, proposals: [withdrawal] })).ok, true);
+      assert.equal((await f.service.finalize({ status: "completed" })).ok, true);
+      assert.deepEqual(f.committed[0]?.candidates[0]?.change, { operation: action, memoryId: "m1", expectedRevision: 3, text: "复盘先结论，再给步骤", expiresAt: "2020-01-01T00:00:00Z" });
+      for (const extra of [{ text: "不允许替换正文" }, { recallTerms: ["别名"] }, { expiresAt: null }]) {
+        const other = fixture(); other.setEntries([{ id: "m1", text: "复盘先结论，再给步骤", revision: 3, enabled: false }]);
+        const prepared = await prepare(other);
+        assert.equal((await other.service.stage({ batchId: prepared.batchId, proposals: [{ ...withdrawal, ...extra }] })).ok, false);
+      }
+    }
+  });
+  it("rechecks CAS for every target action and permits an administratively active future assertion", async () => {
+    const target: MemoryEntry = { id: "m1", text: "复盘先结论，再给步骤", revision: 1, enabled: true, status: "active" };
+    for (const action of ["update", "change", "correct", "retract", "disable"] as const) {
+      const f = fixture(); f.setEntries([target]); const batch = await prepare(f);
+      assert.equal((await f.service.stage({ batchId: batch.batchId, proposals: [proposal({ action, memoryId: "m1", expectedRevision: 1,
+        ...(action === "change" ? { effectiveAt: "2026-10-02T00:00:00Z" } : {}) })] })).ok, true);
+      f.setEntries([{ ...target, revision: 2 }]);
+      assert.equal((await f.service.finalize({ status: "completed" })).ok, false);
+      assert.equal(f.committed.length, 0);
+    }
+    const future = fixture(); future.setEntries([{ ...target, enabled: false }]); const batch = await prepare(future);
+    assert.equal((await future.service.stage({ batchId: batch.batchId, proposals: [proposal({ action: "correct", memoryId: "m1", expectedRevision: 1 })] })).ok, true);
+  });
+  it("ranks relevant historical assertions and keeps their temporal status without injecting unrelated history", async () => {
+    const old = { ...createAssertion({ text: "复盘先结论，再给步骤", kind: "preference", sources: [{ kind: "manual" }] }, "a1", "2026-09-01T00:00:00Z"),
+      systemTime: { from: "2026-09-01T00:00:00Z", to: "2026-09-20T00:00:00Z" } };
+    const unrelated = createAssertion({ text: "数据库备份在周二", sources: [{ kind: "manual" }] }, "a2", "2026-09-20T00:00:00Z");
+    const f = fixture(); f.setMaterial([{ id: "m1", text: "格式已经改变", enabled: true, status: "active", revision: 2,
+      relatedAssertions: [old, unrelated], historyCoverage: "legacy_partial" }]);
+    const batch = await prepare(f);
+    assert.equal(batch.memories[0]?.text, "格式已经改变");
+    assert.deepEqual(batch.memories[0]?.relatedAssertions?.map((assertion) => assertion.assertionId), ["a1"]);
+    assert.equal(batch.memories[0]?.relatedAssertions?.[0]?.systemTime.to, "2026-09-20T00:00:00Z");
+    assert.equal(batch.memories[0]?.historyCoverage, "legacy_partial");
+    assert.equal(JSON.stringify(batch.memories).includes("数据库备份"), false);
+  });
+  it("bounds even large relevant history as whole assertions, retaining a target and truncation marker", async () => {
+    const assertions = Array.from({ length: 40 }, (_, index) => createAssertion({ text: `复盘 ${"字".repeat(600)}`, sources: [{ kind: "manual" }] }, `a${index}`, "2026-09-01T00:00:00Z"));
+    const f = fixture(); f.setMaterial([{ id: "m1", text: "已更改的偏好", enabled: true, revision: 2, relatedAssertions: assertions, historyCoverage: "complete" }]);
+    const batch = await prepare(f);
+    assert.equal(batch.memories.length, 1);
+    assert.equal(batch.truncated, true);
+    assert.ok(Buffer.byteLength(JSON.stringify(batch.memories)) <= CONSOLIDATION_MEMORIES_MAX_BYTES);
+    assert.ok(batch.memories[0]!.relatedAssertions!.length > 0);
+    assert.ok(batch.memories[0]!.relatedAssertions!.length < 40);
+    assert.ok(batch.memories[0]!.relatedAssertions!.every((assertion) => assertion.text === `复盘 ${"字".repeat(600)}`));
+  });
+  it("hard-excludes program-marked messages from automatic and explicit material and evidence, not prefix hashing", async () => {
+    const initial = [user("u1", "复盘先结论，再给步骤"), { ...user("secret", "复盘隐私不要整理"), metadata: { memoryConsolidation: "exclude" } }, user("u2", "复盘新说法")];
+    const plain = initial.map((message) => ({ ...message, metadata: undefined }));
+    assert.equal(consolidationPrefixHash(initial, "u2"), consolidationPrefixHash(plain, "u2"));
+    for (const agent of [AUTO_CONSOLIDATION_AGENT_ID, "primary"]) {
+      const f = fixture(initial); const batch = await prepare(f, agent);
+      assert.equal(JSON.stringify(batch).includes("隐私"), false);
+      assert.equal((await f.service.stage({ batchId: batch.batchId, proposals: [proposal({ sourceMessageId: "secret", sourceQuote: "复盘隐私不要整理" })] })).ok, false);
+      assert.equal((await f.service.finalize({ status: "completed" })).ok, false);
+      assert.equal(f.getCursor(), null);
+    }
+    const f = fixture(initial); const batch = await prepare(f);
+    await f.service.stage({ batchId: batch.batchId, proposals: [] }); await f.service.finalize({ status: "completed" });
+    const more = Array.from({ length: 10 }, (_, index) => user(`new${index}`, "复盘待处理"));
+    f.setMessages([...initial, ...more]);
+    const next = await prepare(f);
+    if (!("bootstrap" in next)) return assert.fail("expected incremental");
+    assert.deepEqual(next.turns.map((turn) => turn.user.messageId), more.slice(0, 8).map((message) => message.id));
   });
 });
