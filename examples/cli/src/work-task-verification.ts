@@ -1,7 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
 import { lstat, readFile } from "node:fs/promises";
-import { matchesFileWritePath, readFileWriteReceipt, type ExecutionRecordStore, type ExecutionRunRecord } from "./execution-record-store.js";
+import { matchesFileWritePath, readFileWriteReceipt, hasMatchingFileReadback, type ExecutionRecordStore, type ExecutionRunRecord } from "./execution-record-store.js";
 import { rejectSymlinkComponents, validateWorkspacePath } from "./workspace-path.js";
+import { READ_FILE_MAX_BYTES } from "./read-file.js";
 import type { WorkTask, AcceptanceStatus, WorkTaskEvidence } from "./work-task-store.js";
 export interface VerificationEnvironment { workspaceRoot: string | undefined; executionRecords: ExecutionRecordStore }
 
@@ -79,11 +80,19 @@ export async function verifyAutomaticCriterion(
       if (stats.size > 8 * 1024 * 1024) {
         return { status: "blocked", evidence: [], note: "Artifact exceeds the 8 MiB verification limit." };
       }
+      if (criterion.verification.requireReadback === true && stats.size > READ_FILE_MAX_BYTES) {
+        return { status: "blocked", evidence: [], note: "Artifact exceeds the read_file limit; full readback cannot be verified with the available tool. Split the artifact or revise the contract explicitly." };
+      }
       const content = await readFile(path.target, runningRun === undefined ? {} : { signal: runningRun.signal });
       const digest = createHash("sha256").update(content).digest("hex");
       if ((written.sha256 !== null && digest !== written.sha256) ||
           (written.bytes !== null && content.length !== written.bytes)) {
         return { status: "failed", evidence: [], note: "Artifact content no longer matches the successful file write receipt." };
+      }
+      if (criterion.verification.requireReadback === true) {
+        if (!hasMatchingFileReadback(latestRun.tools, matchingWrite, requested, digest, content.length)) {
+          return { status: "failed", evidence: [], note: "Missing successful read_file after the latest write/edit with content matching the current artifact. Read back this file before finishing." };
+        }
       }
       return {
         status: "passed",

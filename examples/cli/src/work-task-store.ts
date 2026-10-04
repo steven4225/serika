@@ -4,7 +4,7 @@ import { lstat, mkdir, open, readFile, rename, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 import { acquireFlock, tryAcquireFlock, type FlockHandle } from "./flock.js";
-import { matchesFileWritePath, readFileWriteReceipt, type ExecutionRecordStore, type ExecutionToolRecord } from "./execution-record-store.js";
+import { matchesFileWritePath, readFileWriteReceipt, hasMatchingFileReadback, type ExecutionRecordStore, type ExecutionToolRecord } from "./execution-record-store.js";
 import { rejectSymlinkComponents, validateWorkspacePath } from "./workspace-path.js";
 
 export const WORK_TASK_FILE_NAME = ".runloom/work-tasks.json";
@@ -35,7 +35,7 @@ export type AcceptanceStatus = (typeof acceptanceStatuses)[number];
 
 export type AcceptanceVerification =
   | { kind: "human" }
-  | { kind: "artifact_exists"; path: string }
+  | { kind: "artifact_exists"; path: string; requireReadback?: boolean }
   | { kind: "shell_exit_zero"; command: string; cwd: string };
 
 export type WorkTaskEvidence =
@@ -208,8 +208,10 @@ function parseVerification(value: unknown, method: "automatic" | "human", field:
   }
   if (method !== "automatic") raise(code, `${field} does not match method`);
   if (value.kind === "artifact_exists") {
-    if (Object.keys(value).some((key) => !["kind", "path"].includes(key))) raise(code, `${field} contains unsupported fields`);
-    return { kind: "artifact_exists", path: text(value.path, `${field}.path`, LIMITS.textBytes, file) };
+    if (Object.keys(value).some((key) => !["kind", "path", "requireReadback"].includes(key)) ||
+        (value.requireReadback !== undefined && typeof value.requireReadback !== "boolean")) raise(code, `${field} contains unsupported fields`);
+    return { kind: "artifact_exists", path: text(value.path, `${field}.path`, LIMITS.textBytes, file),
+      ...(value.requireReadback === undefined ? {} : { requireReadback: value.requireReadback as boolean }) };
   }
   if (value.kind === "shell_exit_zero") {
     if (Object.keys(value).some((key) => !["kind", "command", "cwd"].includes(key))) raise(code, `${field} contains unsupported fields`);
@@ -689,7 +691,8 @@ class WorkTaskStoreImpl implements WorkTaskStore {
       raise("WORK_TASK_INVALID_INPUT", "Automatic evidence has no matching completed tool receipt");
     }
     if (candidate.kind === "tool") {
-      if (tool.inputTruncated || tool.resultTruncated || !this.#validShellReceipt(tool, candidate)) {
+      if (tool.inputTruncated || tool.resultTruncated || !this.#validShellReceipt(tool, candidate) ||
+          run.tools.slice(run.tools.indexOf(tool) + 1).some(item => ["write_file", "edit_file"].includes(item.toolName))) {
         raise("WORK_TASK_INVALID_INPUT", "Shell evidence does not match its execution receipt");
       }
       return;
@@ -708,6 +711,10 @@ class WorkTaskStoreImpl implements WorkTaskStore {
       if (written.bytes !== null && stats.size !== written.bytes) raise("WORK_TASK_INVALID_INPUT", "Artifact byte count no longer matches its write receipt");
       const digest = createHash("sha256").update(await readFile(path.target)).digest("hex");
       if (digest !== candidate.sha256) raise("WORK_TASK_INVALID_INPUT", "Artifact hash no longer matches current content");
+      if (criterion.verification.kind === "artifact_exists" && criterion.verification.requireReadback === true &&
+          !hasMatchingFileReadback(run.tools, tool, candidate.path, digest, stats.size)) {
+        raise("WORK_TASK_INVALID_INPUT", "Artifact requires a matching successful readback after its latest write/edit");
+      }
     } catch (error) {
       if (error instanceof WorkTaskStoreError) throw error;
       raise("WORK_TASK_INVALID_INPUT", "Artifact could not be verified");

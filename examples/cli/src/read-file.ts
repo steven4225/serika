@@ -42,7 +42,8 @@ export interface ReadFileFailure {
 export type ReadFileResult = ReadFileSuccess | ReadFileFailure;
 
 const neverAborted = new AbortController().signal;
-const decoder = new TextDecoder("utf-8", { fatal: true });
+// Preserve a UTF-8 BOM as content so returned text round-trips to the reported bytes.
+const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 
 function abortReason(signal: AbortSignal): unknown {
   return signal.reason ?? new DOMException("Agent operation aborted", "AbortError");
