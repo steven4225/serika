@@ -48,13 +48,35 @@ button.allow { background: var(--accent); border-color: var(--accent); color: wh
 button.allow:hover:not(:disabled) { background: #204ca0; border-color: #204ca0; }
 button.deny { color: var(--text); background: var(--panel); }
 button.chip { font-size: 12px; padding: 5px 9px; border-color: var(--line); }
-.current-work-task { margin: 0 25px 8px; padding: 9px 12px; background: var(--sunken); border-color: transparent; text-align: left; justify-content: flex-start; flex-shrink: 0; }
-.current-work-task > .current-task-copy { overflow: hidden; min-width: 0; flex: 1; }
-.current-task-copy strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 500; }
+.current-work-task { display: block; margin: 0 25px 8px; padding: 14px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; text-align: left; flex-shrink: 0; }
+.current-task-copy { overflow: hidden; min-width: 0; flex: 1; }
+.current-task-copy strong { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: 13px; font-weight: 500; line-height: 1.5; }
 .current-work-task small { color: var(--muted); flex: none; }
-.current-task-action { font-size: 12px; color: var(--accent); flex-shrink: 0; }
+.current-task-action { font-size: 12px; flex-shrink: 0; margin: 8px 0 10px 26px; color: var(--muted); }
 .current-work-task.task-needs_review { border-left: 3px solid var(--orange); }
 .current-work-task.task-completed .current-task-copy small { color: var(--success); }
+.current-task-heading { display: flex; align-items: flex-start; gap: 10px; }
+.current-task-heading svg { margin-top: 3px; color: var(--accent); }
+.current-work-task.compact { padding: 9px 12px; background: var(--sunken); border-color: transparent; }
+.current-task-heading > button { flex-shrink: 0; }
+.current-task-artifacts { margin: 0 0 10px 26px; display: flex; gap: 8px; flex-wrap: wrap; }
+.current-task-artifacts button { overflow-wrap: anywhere; text-align: left; }
+.current-work-task .work-task-buttons { margin-left: 26px; }
+.composer-target { display: flex; align-items: center; gap: 4px; padding: 7px 8px 2px; min-width: 0; }
+.composer-target button { flex-shrink: 0; white-space: nowrap; background: transparent; border-color: transparent; color: var(--muted); padding: 4px 8px; font-size: 12px; }
+.composer-target button.selected { color: var(--accent); background: var(--accent-soft); }
+.composer-target span { min-width: 0; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task-advanced { border-top: 1px solid var(--line); padding: 8px 0; }
+.task-advanced summary { cursor: pointer; color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+.task-advanced label { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; }
+.task-create-checks { padding: 12px 14px; background: var(--sunken); border-radius: 8px; font-size: 13px; }
+.task-create-checks ul { padding-left: 18px; margin: 8px 0; }
+.task-technical { margin-top: 20px; border-top: 1px solid var(--line); padding-top: 10px; }
+.work-task-detail { display: flex; flex-direction: column; }
+.work-task-detail > * { order: 2; }
+.work-task-detail > .work-task-title { order: 0; }
+.work-task-detail > .task-next-step { order: 0; }
+.work-task-detail > .task-reconciliation { order: 1; }
 .task-next-step { font-size: 13px; color: var(--blue); margin: 10px 0; }
 .model-mode-notice { padding: 8px 25px; font-size: 12px; color: var(--orange); background: #faf7f1; }
 .task-template-picker { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -70,8 +92,7 @@ button.chip { font-size: 12px; padding: 5px 9px; border-color: var(--line); }
 .delivery-draft-note { padding: 10px 12px; background: var(--sunken); border-radius: 6px; font-size: 12px; }
 .delivery-draft-note p { margin: 0 0 6px; }
 @media (max-width: 600px) {
-  .current-work-task { flex-wrap: wrap; margin-inline: 12px; }
-  .current-task-action { flex-basis: 100%; padding-left: 22px; }
+  .current-work-task { margin-inline: 12px; }
   .task-artifact-preview { padding: 10px; }
 }
 .work-task-buttons { display: flex; gap: 7px; flex-wrap: wrap; }
@@ -259,6 +280,7 @@ button.chip { font-size: 12px; padding: 5px 9px; border-color: var(--line); }
 .memory-exclusion input { width: 14px; height: 14px; accent-color: var(--accent); }
 .composer-model { color: #858b7c; font-size: 11px; }
 .send-button { width: 32px; height: 32px; border-radius: 10px; background: var(--accent); border-color: var(--accent); color: white; padding: 0; }
+.send-button.task-send { width: auto; min-width: 100px; padding: 0 14px; white-space: nowrap; }
 .send-button:hover:not(:disabled) { background: #204ca0; border-color: #204ca0; }
 .send-button:disabled { opacity: 1; color: #a8ada1; background: #e8ebe2; border-color: #e8ebe2; }
 .composer-hint { display: flex; align-items: center; justify-content: flex-end; font-size: 10px; color: var(--muted); padding: 0 5px; }

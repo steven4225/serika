@@ -1,7 +1,13 @@
 import type { AppInfo } from "../../shared/ui-contract.js";
 import type { RunResult } from "@aisdk-agent/core";
+import type { WorkTask } from "../../shared/work-tasks.js";
 
 export interface ConversationDraft { text: string; excludeFromMemory: boolean }
+/** An unavailable task stays a task target; loading must never route it to chat. */
+export function bindTaskComposer(id: string | null, task: WorkTask | null):
+  { kind: "chat" } | { kind: "task"; task: WorkTask | null } {
+  return id === null ? { kind: "chat" } : { kind: "task", task: task?.id === id ? task : null };
+}
 /** Process-local only: never mix a draft into another workspace or persist it to disk. */
 export function draftKey(info: Pick<AppInfo, "workspaceRoot" | "directory" | "threadId">): string {
   return JSON.stringify([info.workspaceRoot, info.directory, info.threadId]);

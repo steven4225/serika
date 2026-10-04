@@ -1,7 +1,21 @@
 import assert from "node:assert/strict";
 import { it } from "node:test";
-import { draftKey, completionLabel } from "./navigation.js";
+import { bindTaskComposer, draftKey, completionLabel } from "./navigation.js";
 import { resultRow } from "./conversation.js";
+import type { WorkTask } from "../../shared/work-tasks.js";
+
+it("task loading or selection changes never silently change the send target to ordinary chat", () => {
+  const task: WorkTask = { id: "task-a", revision: 1, threadId: "thread", goal: "写计划", constraints: [],
+    acceptance: [], status: "ready", runIds: [], delivery: null, reconciliations: [], createdAt: "now", updatedAt: "now" };
+  assert.deepEqual(bindTaskComposer(null, task), { kind: "chat" });
+  assert.deepEqual(bindTaskComposer(task.id, task), { kind: "task", task });
+  assert.deepEqual(bindTaskComposer(task.id, null), { kind: "task", task: null });
+  assert.deepEqual(bindTaskComposer(task.id, { ...task, id: "task-b" }), { kind: "task", task: null });
+  for (const status of ["running", "needs_review", "completed"] as const) {
+    const ended = { ...task, status };
+    assert.deepEqual(bindTaskComposer(task.id, ended), { kind: "task", task: ended });
+  }
+});
 
 it("unsent drafts have separate workspace, transcript and Thread identities", () => {
   const info = { workspaceRoot: "/workspace-a", directory: "/transcripts", threadId: "thread-a" };

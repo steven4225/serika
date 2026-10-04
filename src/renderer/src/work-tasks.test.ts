@@ -70,4 +70,54 @@ describe("work task controls", () => {
     assert.match(current, /检查产物并交付/);
     assert.doesNotMatch(current, /通过此项/);
   });
+  it("the focused inspector returns to the conversation composer instead of offering a second task input", () => {
+    const html = renderToStaticMarkup(createElement(WorkTasksPanel, {
+      view: view(baseTask, { instruction: "保留背景" }), onRun: () => undefined,
+      onCompose: () => undefined, focused: true,
+    }));
+    assert.match(html, /回到对话，补充要求并继续/);
+    assert.match(html, /提交交付，核验自动项/);
+    assert.doesNotMatch(html, /aria-label="本轮任务指令"|aria-label="选择工作任务"|>创建工作任务<\/button>/);
+    assert.match(html, /<details class="task-technical"><summary>执行记录、约束与技术详情/);
+    assert.doesNotMatch(html, /<details class="task-technical" open/);
+  });
+  it("main task actions follow persisted state and never call a paused or unknown task accepted", () => {
+    const expected = { ready: "准备开始任务", paused: "补充要求并继续", needs_review: "核对效果",
+      awaiting_acceptance: "查看产物并审核", completed: "查看已验收产物" };
+    for (const [status, label] of Object.entries(expected)) {
+      const html = renderToStaticMarkup(createElement(CurrentTask, {
+        view: view({ ...baseTask, status: status as WorkTask["status"] }), onOpen: () => undefined, onCompose: () => undefined,
+      }));
+      assert.match(html, new RegExp(label));
+      if (status !== "completed") assert.doesNotMatch(html, /验收通过|必需验收全部通过/);
+      if (status !== "ready" && status !== "paused") assert.doesNotMatch(html, /准备开始任务|补充要求并继续/);
+    }
+    const html = renderToStaticMarkup(createElement(CurrentTask, {
+      view: view({ ...baseTask, status: "running" }), onOpen: () => undefined, onCompose: () => undefined,
+    }));
+    assert.match(html, /正在执行/);
+    assert.doesNotMatch(html, /准备开始任务|补充要求并继续|验收通过/);
+  });
+  it("main task card distinguishes checked artifacts, unresolved work and pending human acceptance", () => {
+    const automatic = { ...baseTask.acceptance[0]!, id: "file", method: "automatic" as const,
+      status: "passed" as const, verification: { kind: "artifact_exists" as const, path: "notes/plan.md", requireReadback: true } };
+    const html = renderToStaticMarkup(createElement(CurrentTask, {
+      view: view({ ...baseTask, status: "awaiting_acceptance", acceptance: [automatic, ...baseTask.acceptance],
+        delivery: { summary: "保存计划", artifactRefs: ["notes/plan.md"], evidence: [], unresolved: ["尚未审核文字"] } }),
+      onOpen: () => undefined, onCompose: () => undefined,
+    }));
+    assert.match(html, /程序检查通过 · 等待你审核/);
+    assert.match(html, /notes\/plan.md/);
+    assert.match(html, /仍有未解决事项/);
+    assert.doesNotMatch(html, /必需验收全部通过|验收通过/);
+  });
+  it("the running task strip leaves room for tool approval and progress without suggesting another start", () => {
+    const html = renderToStaticMarkup(createElement(CurrentTask, {
+      view: view({ ...baseTask, status: "running" }, { notice: "本轮已启动" }),
+      onOpen: () => undefined, onCompose: () => undefined, compact: true,
+    }));
+    assert.match(html, /正在执行/);
+    assert.match(html, /查看任务/);
+    assert.doesNotMatch(html, /准备开始任务|补充要求并继续|查看本轮进度|本轮已启动/);
+  });
 });
