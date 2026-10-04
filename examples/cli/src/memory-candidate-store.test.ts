@@ -29,7 +29,7 @@ it("persists pending and cursor together; accepting is atomic and exact replay d
   const committed = await store.commitCandidateBatch(input, undefined, opts); assert.equal(committed.ok, true); if (!committed.ok) return;
   const id = committed.value.candidateIds[0]!;
   assert.deepEqual(await store.list(), { ok: true, entries: [] });
-  const disk = JSON.parse(await readFile(file, "utf8")); assert.equal(disk.version, 3); assert.equal(disk.consolidationCursors[0].throughMessageId, "message-1");
+  const disk = JSON.parse(await readFile(file, "utf8")); assert.equal(disk.version, 4); assert.equal(disk.consolidationCursors[0].throughMessageId, "message-1");
   const reopened = createMemoryStore(root);
   const preview = await reopened.getCandidate(id, undefined, opts); assert.equal(preview.ok, true); if (preview.ok) assert.equal(preview.value.applicable, true);
   const accepted = await reopened.resolveCandidate({ candidateId: id, expectedCandidateRevision: 1, decision: "accept" }, undefined, opts); assert.equal(accepted.ok, true); if (!accepted.ok) return;
@@ -54,16 +54,16 @@ it("isolates candidates by origin Thread, rejects missing binding, and rejects w
 
 it("updates preserve pinned/scope and stale sibling proposals and direct writes", async () => {
   const { store } = await fixture();
-  const added = await store.add({ text: "old", pinned: true, scope: { kind: "thread", threadId: "thread-a" } }); if (!added.ok) assert.fail(added.error.message);
+  const added = await store.add({ text: "old", pinned: true, scope: { kind: "thread", threadId: "thread-a" } }, undefined, opts); if (!added.ok) assert.fail(added.error.message);
   const update = (text: string): CandidateDraft => ({ ...draft(), change: { operation: "update", memoryId: added.entry.id, expectedRevision: 1, text, expiresAt: null } });
   const batch = await store.commitCandidateBatch({ batchId: "b", originThreadId: "thread-a", candidates: [update("new"), update("alternative")], expectedCursor: null, nextCursor: null }, undefined, opts); if (!batch.ok) assert.fail(batch.error.message);
   const [first, sibling] = batch.value.candidateIds;
   assert.equal((await store.resolveCandidate({ candidateId: first!, expectedCandidateRevision: 1, decision: "accept" }, undefined, opts)).ok, true);
-  const entry = await store.get(added.entry.id); if (entry.ok) { assert.equal(entry.entry.pinned, true); assert.equal(entry.entry.scope?.kind, "thread"); assert.equal(entry.entry.history?.[0]?.pinned, true); }
+  const entry = await store.get(added.entry.id, undefined, opts); if (entry.ok) { assert.equal(entry.entry.pinned, true); assert.equal(entry.entry.scope?.kind, "thread"); assert.equal(entry.entry.history?.[0]?.pinned, true); }
   const stale = await store.getCandidate(sibling!, undefined, opts); if (stale.ok) { assert.equal(stale.value.candidate.status, "stale"); assert.equal(stale.value.current?.text, "new"); assert.equal("history" in stale.value.current!, false); }
   const b2 = await store.commitCandidateBatch({ batchId: "b2", originThreadId: "thread-a", candidates: [{ ...update("later"), change: { operation: "update", memoryId: added.entry.id, expectedRevision: 2, text: "later", expiresAt: null } }], expectedCursor: null, nextCursor: null }, undefined, opts); if (!b2.ok) assert.fail(b2.error.message);
-  await store.delete(added.entry.id);
-  const deleted = await store.getCandidate(b2.value.candidateIds[0]!, undefined, opts); if (deleted.ok) assert.equal(deleted.value.candidate.staleReason, "target_missing");
+  await store.delete(added.entry.id, undefined, opts);
+  const deleted = await store.getCandidate(b2.value.candidateIds[0]!, undefined, opts); assert.equal(deleted.ok, false); if (!deleted.ok) assert.equal(deleted.error.code, "MEMORY_CANDIDATE_NOT_FOUND");
 });
 
 it("CAS protects cursor, manual batches ignore it, and empty batches advance it", async () => {
@@ -120,7 +120,7 @@ it("fails closed on oversized file before parsing and preserves v2 until success
   await writeFile(file, JSON.stringify({ version: 2, entries: [entry] }));
   const list = await store.list(); if (list.ok) assert.equal(list.entries[0]?.pinned, false);
   assert.equal(JSON.parse(await readFile(file, "utf8")).version, 2);
-  await store.add({ text: "new" }); assert.equal(JSON.parse(await readFile(file, "utf8")).version, 3);
+  await store.add({ text: "new" }, undefined, opts); assert.equal(JSON.parse(await readFile(file, "utf8")).version, 4);
   const handle = await open(file, "r+"); await handle.truncate(MEMORY_FILE_MAX_BYTES + 1); await handle.close();
   const result = await store.list(); if (!result.ok) assert.equal(result.error.code, "MEMORY_LIMIT_EXCEEDED"); else assert.fail("oversized file accepted");
 });
@@ -165,7 +165,7 @@ it("rename failure leaves both entries and candidate receipt unchanged", async (
 
 it("rejects forged accepted lifecycle receipts and never revives disabled deterministic duplicates", async () => {
   const { store, file } = await fixture();
-  const disabled = await store.add({ text: draft().change.text, enabled: false }); assert.equal(disabled.ok, true);
+  const disabled = await store.add({ text: draft().change.text, enabled: false }, undefined, opts); assert.equal(disabled.ok, true);
   const duplicate = await store.commitCandidateBatch({ batchId: "duplicate", originThreadId: "thread-a", candidates: [draft()], expectedCursor: null, nextCursor: cursor("duplicate") }, undefined, opts);
   if (duplicate.ok) assert.deepEqual(duplicate.value.candidateIds, []); else assert.fail(duplicate.error.message);
   const entries = await store.list(); if (entries.ok) assert.equal(entries.entries[0]?.enabled, false);

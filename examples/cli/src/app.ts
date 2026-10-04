@@ -33,7 +33,7 @@ import type { ContextDiagnostics, ContextResult } from "./context-diagnostics.js
 import { createAiSdkSummarizer } from "./context-compaction.js";
 import { lookupTranscript } from "./work-summary.js";
 import { parseTuiArgs } from "./cli-options.js";
-import { createMemoryStore } from "./memory-store.js";
+import { createMemoryStore, type WorkspaceMemoryStore } from "./memory-store.js";
 import { formatMemoryHealth, readMemoryHealth } from "./memory-health.js";
 import { createCheckpointStore, type WorkspaceCheckpointStore } from "./checkpoint-store.js";
 import { renderHome } from "./home.js";
@@ -128,7 +128,7 @@ export interface RuntimeApp {
   getContextDiagnostics(): Promise<ContextResult<ContextDiagnostics>>;
   resume: TuiResume | undefined;
   autoConsolidationAgentId: string | undefined;
-  memoryStore?: ReturnType<typeof createMemoryStore>;
+  memoryStore?: WorkspaceMemoryStore;
   memoryConsolidation?: MemoryConsolidation;
   getMemoryReferences?: () => MemoryReferenceSnapshot | null;
   subscribeMemoryReferences?: (listener: () => void) => () => void;
@@ -224,8 +224,9 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
   async function readMemoryEntries(
     store: NonNullable<typeof memoryStore>,
     signal: AbortSignal,
+    now: Date = new Date(),
   ) {
-    const result = await store.list(signal);
+    const result = await store.list(signal, { now });
     if (!result.ok) {
       throw new AgentError({
         code: "CONTEXT_PREPARE_FAILED",
@@ -238,8 +239,9 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
   }
 
   async function getCheckpointMemorySelection(signal: AbortSignal) {
-    return retrieveMemories(memoryStore === undefined ? [] : await readMemoryEntries(memoryStore, signal), {
-      query: "", threadId, now: new Date(),
+    const now = new Date();
+    return retrieveMemories(memoryStore === undefined ? [] : await readMemoryEntries(memoryStore, signal, now), {
+      query: "", threadId, now,
     });
   }
 
@@ -736,8 +738,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       const query = queryFrom(messages);
       const rewrite = primary && user && query.trim() && !activeWorkTaskMessage && moduleConfig?.memoryQueryRewriteEnabled
         ? await rewriteQuery(user.id, query, signal) : undefined;
-      const selection = memoryStore === undefined ? undefined : retrieveMemories(await readMemoryEntries(memoryStore, signal), {
-        query, threadId, now: new Date(), ...(rewrite ? { rewrittenQueries: rewrite.queries } : {}),
+      const selection = memoryStore === undefined ? undefined : retrieveMemories(await readMemoryEntries(memoryStore, signal, now), {
+        query, threadId, now, ...(rewrite ? { rewrittenQueries: rewrite.queries } : {}),
       });
       const memoryMessage = selection ? createRetrievedMemoryContextMessage(selection) : undefined;
       const reference: MemoryReferenceSnapshot | null = primary && user && selection ? {

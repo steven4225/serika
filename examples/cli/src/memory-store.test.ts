@@ -138,7 +138,7 @@ describe("WorkspaceMemoryStore", () => {
     const malformed = await store.list();
     assert.equal(malformed.ok ? undefined : malformed.error.code, "MEMORY_FILE_INVALID");
 
-    await writeFile(file, JSON.stringify({ version: 4, entries: [] }));
+    await writeFile(file, JSON.stringify({ version: 5, entries: [] }));
     const unsupported = await store.list();
     assert.equal(unsupported.ok ? undefined : unsupported.error.code, "MEMORY_VERSION_UNSUPPORTED");
 
@@ -197,7 +197,7 @@ describe("WorkspaceMemoryStore", () => {
 
     const added = await store.add({ text: "run tests" });
     assert.equal(added.ok, true);
-    assert.equal(JSON.parse(await readFile(file, "utf8")).version, 3);
+    assert.equal(JSON.parse(await readFile(file, "utf8")).version, 4);
     const reopened = await createMemoryStore(directory).list();
     assert.equal(reopened.ok, true);
     if (reopened.ok) assert.equal(reopened.entries.find((entry) => entry.id === "legacy")?.source?.kind, "legacy");
@@ -280,7 +280,7 @@ describe("WorkspaceMemoryStore", () => {
     if (!reopened.ok) return;
     assert.deepEqual(reopened.entry.source, nextSource);
     assert.deepEqual(reopened.entry.history?.map((revision) => revision.source), [firstSource, firstSource, { kind: "manual" }]);
-    assert.equal(JSON.parse(await readFile(join(directory, ".runloom", "memory.json"), "utf8")).version, 3);
+    assert.equal(JSON.parse(await readFile(join(directory, ".runloom", "memory.json"), "utf8")).version, 4);
   });
 
   it("rejects malformed or forged conversation source without changing stored memory", async () => {
@@ -305,7 +305,7 @@ describe("WorkspaceMemoryStore", () => {
 
     const file = join(directory, ".runloom", "memory.json");
     const document = JSON.parse(await readFile(file, "utf8"));
-    document.entries[0].source = { kind: "conversation", threadId: "thread-a" };
+    document.entries[0].assertions[0].sources[0] = { kind: "conversation", threadId: "thread-a" };
     await writeFile(file, JSON.stringify(document));
     const malformed = await store.list();
     assert.equal(malformed.ok ? undefined : malformed.error.code, "MEMORY_SOURCE_INVALID");
