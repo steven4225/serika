@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { WorkTask, WorkTaskStatus } from "../../shared/work-tasks.js";
+import { sanitizeWorkTaskInput } from "../../shared/work-tasks.js";
 import type { ExecutionRunRecord } from "../../shared/ui-contract.js";
 import { isTaskRun, selectCurrentTask, taskActions, unreconciledRuns, TASK_TEMPLATES, taskNextAction, taskSelectionKey, readTaskSelection, saveTaskSelection, taskFormAcceptance } from "./work-task-data.js";
 
@@ -14,6 +15,9 @@ describe("work task presentation invariants", () => {
     assert.deepEqual(criteria[1]!.verification, { kind: "shell_exit_zero", command: "pnpm test", cwd: "project" });
     assert.deepEqual(criteria[2]!.verification, { kind: "shell_exit_zero", command: "node --test", cwd: "project" });
     assert.deepEqual(criteria[3]!.verification, { kind: "human" });
+    assert.deepEqual(sanitizeWorkTaskInput("createWorkTask", { goal: "Deliver report", acceptance: criteria }), {
+      ok: true, value: { goal: "Deliver report", acceptance: criteria },
+    }, "IPC must retain the actual form contract, not silently drop readback or reject tests");
     assert.deepEqual(taskFormAcceptance("", "", "node --test", "")[0]!.verification, { kind: "shell_exit_zero", command: "node --test", cwd: "." });
   });
   it("templates are editable drafts and next actions distinguish Run end from acceptance", () => {

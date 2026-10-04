@@ -28,7 +28,11 @@ export function sanitizeWorkTaskInput<K extends keyof WorkTaskInputs>(operation:
       if (item.method === "human" && item.verification.kind === "human") {
         acceptance.push({ id: item.id, description: item.description, required: item.required, method: "human", verification: { kind: "human" } });
       } else if (item.method === "automatic" && item.verification.kind === "artifact_exists" && text(item.verification.path)) {
-        acceptance.push({ id: item.id, description: item.description, required: item.required, method: "automatic", verification: { kind: "artifact_exists", path: item.verification.path } });
+        if (item.verification.requireReadback !== undefined && typeof item.verification.requireReadback !== "boolean") return invalid();
+        acceptance.push({ id: item.id, description: item.description, required: item.required, method: "automatic", verification: { kind: "artifact_exists", path: item.verification.path,
+          ...(item.verification.requireReadback === undefined ? {} : { requireReadback: item.verification.requireReadback }) } });
+      } else if (item.method === "automatic" && item.verification.kind === "shell_exit_zero" && text(item.verification.command) && text(item.verification.cwd)) {
+        acceptance.push({ id: item.id, description: item.description, required: item.required, method: "automatic", verification: { kind: "shell_exit_zero", command: item.verification.command, cwd: item.verification.cwd } });
       } else return invalid();
     }
     value = { goal: input.goal, acceptance, ...(input.constraints === undefined ? {} : { constraints: input.constraints }) };

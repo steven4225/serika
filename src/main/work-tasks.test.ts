@@ -63,6 +63,30 @@ async function waitFor(condition: () => boolean) {
 }
 
 describe("work task desktop boundary", () => {
+  it("persists readback and test contracts without running or authorizing tools", async () => {
+    const root = await prepare();
+    const fixture = await open(root);
+    try {
+      const acceptance: WorkTaskInputs["createWorkTask"]["acceptance"] = [
+        { ...createInput.acceptance[0]!, verification: { kind: "artifact_exists", path: "report.md", requireReadback: true } },
+        { id: "test", description: "Tests pass", method: "automatic", required: true, verification: { kind: "shell_exit_zero", command: "pnpm test", cwd: "project" } },
+      ];
+      const created = await fixture.bridge.createWorkTask({ goal: "Check the report", acceptance });
+      assert.ok(created.ok); if (!created.ok) return;
+      assert.deepEqual(created.value.acceptance.map(item => item.verification), acceptance.map(item => item.verification));
+      assert.equal(created.value.status, "ready");
+      assert.deepEqual(created.value.runIds, []);
+      assert.equal(fixture.calls(), 0);
+      assert.equal(fixture.bridge.snapshot().pendingApproval, null);
+      const store = createWorkTaskStore(join(root, "workspace"));
+      const saved = await store.get(created.value.id);
+      assert.ok(saved.ok && saved.value);
+      if (saved.ok && saved.value) assert.deepEqual(saved.value.acceptance, created.value.acceptance);
+    } finally {
+      await fixture.bridge.shutdown();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
   it("prefills only the current delivery and previews safe artifacts without model calls or acceptance writes", async () => {
     const root = await prepare();
     let fixture = await open(root, "work-thread", true);
@@ -196,10 +220,12 @@ describe("work task desktop boundary", () => {
     } finally { await fixture.bridge.shutdown(); await rm(root, { recursive: true, force: true }); }
   });
 
-  it("drops ownership and evidence; supports only the first-batch creation criteria", () => {
+  it("drops ownership and evidence and validates supported creation criteria", () => {
     const sanitized = sanitizeWorkTaskInput("createWorkTask", { ...createInput, threadId: "foreign", status: "completed", revision: 999 });
     assert.deepEqual(sanitized, { ok: true, value: createInput });
-    assert.equal(sanitizeWorkTaskInput("createWorkTask", { ...createInput, acceptance: [{ ...createInput.acceptance[0], verification: { kind: "shell_exit_zero", command: "true", cwd: "." } }] }).ok, false);
+    for (const verification of [{ kind: "shell_exit_zero", command: "true", cwd: "" }, { kind: "artifact_exists", path: "report.md", requireReadback: "true" }]) {
+      assert.equal(sanitizeWorkTaskInput("createWorkTask", { ...createInput, acceptance: [{ ...createInput.acceptance[0], verification }] }).ok, false);
+    }
     assert.deepEqual(sanitizeWorkTaskInput("submitWorkTaskDelivery", { id: "task", expectedRevision: 2, summary: "交付", evidence: [{ kind: "artifact" }], status: "completed" }), { ok: true, value: { id: "task", expectedRevision: 2, summary: "交付" } });
     assert.equal(sanitizeWorkTaskInput("cancelWorkTask", { id: "task", expectedRevision: 0 }).ok, false);
     assert.equal(sanitizeWorkTaskInput("reconcileWorkTask", { id: "task", expectedRevision: 1, observedOutcome: "passed", decision: "continue", note: "x" }).ok, false);
