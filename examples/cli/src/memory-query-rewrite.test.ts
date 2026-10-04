@@ -18,6 +18,9 @@ describe("bounded opt-in Memory query rewrite", () => {
       assert.equal(options.tools, undefined);
       assert.equal(options.maxOutputTokens, 256);
       assert.ok(Buffer.byteLength(JSON.stringify(options.prompt)) < 8000);
+      const system = JSON.stringify(options.prompt.filter(message => message.role === "system"));
+      assert.match(system, /original question is already searched separately/);
+      assert.match(system, /not English translations/);
       return { content: [{ type: "text", text: calls === 1 ? '{"queries":["复盘格式"]}' : 'invalid' }], finishReason: { unified: "stop", raw: undefined }, usage, warnings: [] };
     } });
     const rewrite = createMemoryQueryRewriter(model);
@@ -68,5 +71,21 @@ describe("fixed before/after recall cases (rewrite output is a fixture, not real
     const changed = [entry("new", "Use TypeScript", { revision: 2 }), entry("old", "复盘", { status: "disabled", enabled: false })];
     assert.equal(retrieveMemories(changed, { query: "Python", now, rewrittenQueries: ["Python"] }).entries.length, 0);
     assert.deepEqual(retrieveMemories(entries, { query: "睡眠", now, rewrittenQueries: ["复盘"] }).selected.map(item => item.id), ["sleep", "writing"]);
+  });
+  it("retrieves the corrected fact for the observed multi-clause paraphrase, not the older or private fact", async () => {
+    const question = "项目回顾文档应该怎样排版？分几项行动？";
+    const current = entry("writing", "长期复盘写作偏好：先用一行写结论，然后列五条可执行步骤。", { revision: 2 });
+    const facts = [current, entry("old", "复盘先结论，再列两条步骤", { enabled: false, status: "disabled" }), entry("private", "复盘写作格式", { scope: { kind: "thread", threadId: "other" } }), entry("weather", "天气预报")];
+    assert.deepEqual(retrieveMemories(facts, { query: question, now }).selected, []);
+    const model = new MockLanguageModelV3({ doGenerate: async () => ({
+      content: [{ type: "text", text: '{"queries":["复盘写作格式","总结行动步骤","报告结构偏好"]}' }],
+      finishReason: { unified: "stop", raw: undefined }, usage, warnings: [],
+    }) });
+    const rewritten = await createMemoryQueryRewriter(model)("changed-fact-recall", question, new AbortController().signal);
+    const selected = retrieveMemories(facts, { query: question, now, rewrittenQueries: rewritten.queries });
+    assert.deepEqual(selected.selected.map(({ id, revision, reason }) => ({ id, revision, reason })), [{ id: "writing", revision: 2, reason: "rewritten" }]);
+    assert.equal(selected.entries[0]!.text, current.text);
+    assert.ok(selected.bytes <= 8192);
+    assert.deepEqual(retrieveMemories(facts, { query: "明天天气怎么样", now, rewrittenQueries: ["天气预报"] }).selected.map(item => item.id), ["weather"]);
   });
 });

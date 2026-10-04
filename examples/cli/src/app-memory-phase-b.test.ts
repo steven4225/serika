@@ -105,6 +105,11 @@ describe("Memory Phase B application integration", () => {
         assert.match(observation.system, /96 UTF-8 bytes/);
         assert.match(observation.system, /Historical assertions are conflict-review material/);
         assert.match(observation.system, /never active Memory/);
+        assert.match(observation.system, /including invalid tool input, ends this batch/);
+        assert.match(observation.system, /do not retry either tool in the same Run/);
+        assert.match(observation.system, /After a successful stage, finish with a brief text-only response/);
+        assert.match(observation.system, /Only add accepts scope/);
+        assert.match(observation.system, /alternate everyday names for the subject and action/);
       }
       assert.equal(observations[0]?.names.includes("memory_revise"), true);
       assert.equal(observations[0]?.names.includes("memory_query"), true);
