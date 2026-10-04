@@ -52,6 +52,21 @@ it("isolates candidates by origin Thread, rejects missing binding, and rejects w
   const second = await store.commitCandidateBatch({ batchId: "b2", originThreadId: "thread-a", candidates: [draft()], expectedCursor: null, nextCursor: null }, undefined, opts); if (second.ok) assert.deepEqual(second.value.candidateIds, [id]);
 });
 
+it("one identical pending transition from separate messages needs only one review", async () => {
+  const { store } = await fixture();
+  const first = await store.commitCandidateBatch({ batchId: "first", originThreadId: "thread-a", candidates: [draft()], expectedCursor: null, nextCursor: null }, undefined, opts);
+  assert.ok(first.ok);
+  const repeated = { ...draft(), source: { kind: "conversation" as const, threadId: "thread-a", messageId: "message-2", quote: "也先给结论" } };
+  const input = { batchId: "second", originThreadId: "thread-a", candidates: [repeated], expectedCursor: null, nextCursor: cursor("second", "message-2") };
+  const second = await store.commitCandidateBatch(input, undefined, opts);
+  assert.ok(second.ok); assert.deepEqual(second.value.candidateIds, first.value.candidateIds);
+  const listed = await store.listCandidates({}, undefined, opts); assert.ok(listed.ok); assert.equal(listed.value.candidates.length, 1);
+  assert.ok((await store.commitCandidateBatch(input, undefined, opts)).ok);
+  const accepted = await store.resolveCandidate({ candidateId: first.value.candidateIds[0]!, expectedCandidateRevision: 1, decision: "accept" }, undefined, opts);
+  assert.ok(accepted.ok);
+  const entries = await store.list(); assert.ok(entries.ok); assert.equal(entries.entries.length, 1);
+});
+
 it("updates preserve pinned/scope and stale sibling proposals and direct writes", async () => {
   const { store } = await fixture();
   const added = await store.add({ text: "old", pinned: true, scope: { kind: "thread", threadId: "thread-a" } }, undefined, opts); if (!added.ok) assert.fail(added.error.message);

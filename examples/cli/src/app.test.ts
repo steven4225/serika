@@ -116,6 +116,47 @@ describe("createRuntimeApp", () => {
     } finally { app.dispose(); await rm(root, { recursive: true, force: true }); }
   });
   for (const enabled of [false, true]) {
+    it(`sends current memory after obsolete empty-selection answers without persisting the reference (compaction ${enabled})`, async () => {
+      const root = await mkdtemp(join(tmpdir(), "runloom-app-current-memory-"));
+      const workspace = join(root, "workspace"); await mkdir(workspace);
+      const configPath = join(root, "config.json");
+      await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: true } },
+        contextCompaction: { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled } }));
+      const prompts: string[][] = [];
+      const model = new MockLanguageModelV3({ doStream: async options => {
+        prompts.push(options.prompt.map(message => JSON.stringify(message)));
+        return { stream: simulateReadableStream({ chunks: [
+          { type: "stream-start" as const, warnings: [] },
+          { type: "text-start" as const, id: "answer" },
+          { type: "text-delta" as const, id: "answer", delta: "Earlier selected entries: []" },
+          { type: "text-end" as const, id: "answer" },
+          { type: "finish" as const, finishReason: { unified: "stop" as const, raw: undefined }, usage: {
+            inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 1, text: 1, reasoning: undefined },
+          } },
+        ] }) };
+      } });
+      const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", "current-memory", "--config", configPath],
+        modelAlias: "mock", model, output: capture().output, env: {}, cwd: root });
+      try {
+        const run = async (id: string, text: string) => {
+          const handle = await app.runtime.run({ agentId: app.agentId, threadId: app.threadId,
+            messages: [{ id, role: "user", parts: [{ type: "text", text }] }] });
+          assert.equal((await handle.result).status, "completed");
+        };
+        await run("first", "reports before saving");
+        assert.ok((await app.memoryStore!.add({ text: "reports use three steps", scope: { kind: "workspace" } })).ok);
+        await run("next", "reports after saving");
+        const prompt = prompts[1]!;
+        const old = prompt.findIndex(message => message.includes("Earlier selected entries: []"));
+        const fresh = prompt.findIndex(message => message.includes("Fresh program-selected snapshot:") && message.includes("selectedCount=1"));
+        const question = prompt.findIndex(message => message.includes("reports after saving"));
+        assert.ok(old >= 0 && old < fresh && fresh < question);
+        assert.equal(prompt.filter(message => message.includes("Fresh program-selected snapshot:")).length, 1);
+        assert.ok(prompt[fresh]!.includes("reports use three steps"));
+        assert.ok(!JSON.stringify(await app.store.getMessages(app.threadId)).includes("Fresh program-selected snapshot:"));
+      } finally { app.dispose(); await rm(root, { recursive: true, force: true }); }
+    });
+
     it(`reports reference selection failure instead of the previous successful preparation (compaction ${enabled})`, async () => {
       const root = await mkdtemp(join(tmpdir(), "runloom-app-context-diagnostics-"));
       const workspace = join(root, "workspace");

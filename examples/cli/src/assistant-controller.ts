@@ -29,6 +29,9 @@ import { createRssSubscriptionStore, rssFailure, type RssAction, type RssInbox, 
 import { createTaskStore } from "./task-store.js";
 import { formalMemory, memoryPage, validMemoryEdit, visibleMemory, type FormalMemory, type MemoryPage, type MemoryListInput, type MemoryEditInput } from "./memory-management.js";
 import type { MemoryReferenceSnapshot } from "./memory-query-rewrite.js";
+import { memoryActionPreview, memoryCapacity, memoryControlFailure, memoryHistoryPage, temporalMemoryStore, validateMemoryAction, validateMemoryHistoryInput, type MemoryAction, type MemoryActionPreview, type MemoryHistoryInput, type MemoryHistoryPage, type MemoryMaintenance, type MemoryTemporalInput } from "./memory-controls.js";
+import type { MemoryTemporalView } from "./memory-store.js";
+import { consolidationSourcePage, memoryConsolidationBacklog, validateConsolidationRequest, type MemoryConsolidationRequest, type MemoryConsolidationSourcePage } from "./memory-consolidation.js";
 import { readWorkTaskArtifact, workTaskDeliveryDraft, type WorkTaskReadInput, type WorkTaskArtifactInput, type WorkTaskReadResult, type WorkTaskDeliveryDraft, type WorkTaskArtifactPreview } from "./work-task-artifacts.js";
 
 const MAX_RECENT_OUTPUT_CHARS = 16 * 1024;
@@ -97,6 +100,13 @@ export interface AssistantController {
   listMemories(input?: MemoryListInput): Promise<MemoryResult<MemoryPage>>;
   getMemory(id: string): Promise<MemoryResult<FormalMemory>>;
   updateMemory(input: MemoryEditInput): Promise<MemoryResult<FormalMemory>>;
+  getMemoryHistory(input: MemoryHistoryInput): Promise<MemoryResult<MemoryHistoryPage>>;
+  queryMemory(input: MemoryTemporalInput): Promise<MemoryResult<MemoryTemporalView>>;
+  previewMemoryAction(input: MemoryAction): Promise<MemoryResult<MemoryActionPreview>>;
+  applyMemoryAction(input: MemoryAction): Promise<MemoryResult<FormalMemory | null>>;
+  getMemoryMaintenance(): Promise<MemoryResult<MemoryMaintenance>>;
+  listMemoryConsolidationSources(offset?: number): Promise<MemoryResult<MemoryConsolidationSourcePage>>;
+  consolidateMemory(input: MemoryConsolidationRequest): Promise<MemoryResult<{ runId: string }>>;
   getMemoryReferences(): (MemoryReferenceSnapshot & { runId: string }) | null;
   /** Newest-first local receipts for this Thread. They never authorize replay. */
   listRuns(limit?: number): Promise<ExecutionRunRecord[]>;
@@ -315,6 +325,12 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
   let primaryMessageId: string | undefined;
   let primaryRunId: string | undefined;
   let lastConsolidationResult: RunResult | null = null;
+  // A completed model Run is not proof that its proposal/cursor write succeeded.
+  let consolidationFailure: string | undefined;
+  let consolidationRunning = false;
+  let consolidationRequest: MemoryConsolidationRequest | undefined;
+  let lastConsolidationAttempt: MemoryMaintenance["consolidation"]["lastAttempt"];
+  let lastConsolidationSkippedReason: string | undefined;
   let resultTextTruncated = false;
   const toolActivity: ToolActivity[] = [];
   const toolNames = new Map<string, string>();
@@ -363,8 +379,9 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
   ): Promise<{ result: RunResult; requestedMemoryTool: boolean }> => {
     app.toolConfirmation?.beginRun();
     if (phase === "primary") { primaryMessageId = message.id; primaryRunId = undefined; }
+    if (phase === "consolidation") { consolidationFailure = undefined; consolidationRunning = true; }
     try {
-      app.memoryConsolidation?.begin(agentId);
+      app.memoryConsolidation?.begin(agentId, phase === "consolidation" ? consolidationRequest : undefined);
       const handle = await app.runtime.run({
         agentId,
         threadId: app.threadId,
@@ -397,6 +414,10 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
             if (event.data.toolName.startsWith("memory_")) requestedMemoryTool = true;
             if (event.data.toolName === "memory_prepare_consolidation") consolidationAttempts.prepare += 1;
             if (event.data.toolName === "memory_stage_candidates") consolidationAttempts.stage += 1;
+            if (event.data.toolName === "memory_prepare_consolidation" || event.data.toolName === "memory_stage_candidates") {
+              if (!consolidationRunning) consolidationFailure = undefined;
+              consolidationRunning = true;
+            }
           }
           if (event.type === "tool.call.completed" || event.type === "tool.call.failed") {
             const raw = event.type === "tool.call.completed"
@@ -425,16 +446,33 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       })();
       const result = await handle.result;
       await pump;
+      let lastProcessedCount = 0, lastCandidateCount = 0;
       try {
         const finalized = await app.memoryConsolidation?.finalize({ ...result, consolidationAttempts }, signal);
         if (finalized !== undefined && !finalized.ok) {
+          consolidationFailure = `${finalized.error.code}: ${finalized.error.message}`;
           emit({ type: "error", message: `Memory candidates were not saved: ${finalized.error.code}: ${finalized.error.message}` });
-        } else if (finalized?.ok && finalized.value.candidateIds.length > 0 && !finalized.value.replayed) {
-          emit({ type: "memory-updated", reason: "proposals" });
-          controller.recordOutput(`\nMemory candidates saved for review: ${finalized.value.candidateIds.join(", ")}\n`);
+        } else if (finalized?.ok) {
+          lastProcessedCount = finalized.value.processedCount ?? 0;
+          lastCandidateCount = finalized.value.candidateIds.length;
+          if (phase === "consolidation" || consolidationAttempts.prepare > 0 || consolidationAttempts.stage > 0) {
+            consolidationFailure = result.status === "completed" ? undefined : result.error?.message ?? `Consolidation Run ${result.status}`;
+          }
+          if (finalized.value.candidateIds.length > 0 && !finalized.value.replayed) {
+            emit({ type: "memory-updated", reason: "proposals" });
+            controller.recordOutput(`\nMemory candidates saved for review: ${finalized.value.candidateIds.join(", ")}\n`);
+          }
         }
       } catch (error) {
+        consolidationFailure = String(error);
         emit({ type: "error", message: `Memory candidates were not saved: ${String(error)}` });
+      }
+      if (phase === "consolidation") {
+        lastConsolidationAttempt = {
+          mode: consolidationRequest?.mode ?? "incremental", runId: handle.runId,
+          status: result.status === "completed" && !consolidationFailure ? "completed" : "failed",
+          processedCount: lastProcessedCount, candidateCount: lastCandidateCount,
+        };
       }
       let executionFinalized = true;
       try {
@@ -469,7 +507,11 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
         else emit({ type: "error", message: `WorkTask could not settle: ${settled.error.code}: ${settled.error.message}` });
       }
       return { result, requestedMemoryTool };
+    } catch (error) {
+      if (phase === "consolidation") consolidationFailure = String(error);
+      throw error;
     } finally {
+      consolidationRunning = false;
       app.memoryConsolidation?.discard();
       if (phase === "primary" && activeWorkTask !== undefined) {
         app.workTaskContext.end();
@@ -615,6 +657,141 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       })();
       await activeTask;
       return result;
+    },
+    getMemoryHistory: async (input) => {
+      if (!validateMemoryHistoryInput(input)) return memoryControlFailure("INVALID_INPUT", "History requires id, offset >=0 and limit 1..10");
+      const store = app.memoryStore && !closed ? temporalMemoryStore(app.memoryStore) : undefined;
+      if (!store) return memoryControlFailure("MEMORY_DISABLED", "Temporal Memory is unavailable");
+      const record = await store.inspectMemory(input.id, undefined, { boundThreadId: app.threadId });
+      return record.ok ? memoryHistoryPage(record.value, input) : record;
+    },
+    queryMemory: async (input) => {
+      const store = app.memoryStore && !closed ? temporalMemoryStore(app.memoryStore) : undefined;
+      if (!store) return memoryControlFailure("MEMORY_DISABLED", "Temporal Memory is unavailable");
+      if (!input || typeof input !== "object" || Array.isArray(input) || typeof input.id !== "string" || !input.id || input.id.length > 256 || Object.keys(input).some(key => !["id", "validAt", "knownAt", "includeDisabled"].includes(key))) return memoryControlFailure("INVALID_INPUT", "Invalid temporal Memory query");
+      const { id, ...query } = input;
+      const result = await store.queryMemory(id, query, undefined, { boundThreadId: app.threadId });
+      return result.ok && Buffer.byteLength(JSON.stringify(result.value), "utf8") > 64 * 1024
+        ? memoryControlFailure("MEMORY_CONTEXT_TOO_LARGE", "Temporal Memory view exceeds 64 KiB") : result;
+    },
+    previewMemoryAction: async (input) => {
+      const validated = validateMemoryAction(input);
+      if (!validated.ok) return validated;
+      const store = app.memoryStore && !closed ? temporalMemoryStore(app.memoryStore) : undefined;
+      if (!store) return memoryControlFailure("MEMORY_DISABLED", "Temporal Memory is unavailable");
+      const preview = await store.previewMemoryMutation(validated.value, undefined, { boundThreadId: app.threadId });
+      return preview.ok ? memoryActionPreview(validated.value, preview.value) : preview;
+    },
+    applyMemoryAction: async (input) => {
+      const validated = validateMemoryAction(input);
+      if (!validated.ok) return validated;
+      const store = app.memoryStore ? temporalMemoryStore(app.memoryStore) : undefined;
+      if (!store) return memoryControlFailure("MEMORY_DISABLED", "Temporal Memory is unavailable");
+      if (closed || state.kind !== "idle") return memoryControlFailure("BUSY", "Memory editing requires an idle controller");
+      const operation = new AbortController();
+      operationController = operation;
+      setState({ kind: "command", name: "memory-action" });
+      let result!: MemoryResult<FormalMemory | null>;
+      activeTask = (async () => {
+        try {
+          await ensureRecovered();
+          const { operation: action, id, ...fields } = validated.value;
+          const options = { boundThreadId: app.threadId };
+          if (action === "delete") {
+            const deleted = await store.deleteMemory({ id, expectedRevision: fields.expectedRevision }, operation.signal, options);
+            result = deleted.ok ? { ok: true, value: null } : deleted;
+          } else {
+            const updated = action === "restore"
+              ? await store.restoreMemory({ id, ...fields } as Extract<MemoryAction, { operation: "restore" }>, operation.signal, options)
+              : action === "metadata"
+                ? await store.update(id, fields, operation.signal, options)
+                : await store.reviseMemory({ id, operation: action, ...fields }, operation.signal, options);
+            result = updated.ok ? { ok: true, value: formalMemory(updated.entry) } : updated;
+          }
+          if (result.ok) emit({ type: "memory-updated", reason: "write" });
+        } catch (error) {
+          result = memoryControlFailure("WRITE_FAILED", String(error));
+        } finally { operationController = undefined; setState({ kind: "idle" }); }
+      })();
+      await activeTask;
+      return result;
+    },
+    getMemoryMaintenance: async () => {
+      const store = app.memoryStore && !closed ? temporalMemoryStore(app.memoryStore) : undefined;
+      if (!store) return memoryControlFailure("MEMORY_DISABLED", "Temporal Memory is unavailable");
+      const counts = await store.inspectMemoryMaintenance(undefined, { boundThreadId: app.threadId });
+      if (!counts.ok) return counts;
+      const enabled = app.autoConsolidationAgentId !== undefined;
+      let backlogCount: number | undefined, backlogError: string | undefined;
+      if (enabled) {
+        const cursor = await store.getConsolidationCursor(app.threadId);
+        if (!cursor.ok) backlogError = `${cursor.error.code}: ${cursor.error.message}`;
+        else {
+          try {
+            const backlog = memoryConsolidationBacklog(await app.store.getMessages(app.threadId), cursor.value);
+            if (backlog.ok) backlogCount = backlog.value;
+            else backlogError = `${backlog.error.code}: ${backlog.error.message}`;
+          } catch (error) { backlogError = `READ_FAILED: ${String(error)}`; }
+        }
+      }
+      const running = consolidationRunning;
+      const error = consolidationFailure ?? backlogError;
+      const consolidation: MemoryMaintenance["consolidation"] = {
+        enabled,
+        state: running ? "running" : error ? "failed" : counts.value.pending > 0 ? "awaiting_review" : !enabled ? "off" : (backlogCount ?? 0) > 0 ? "backlog" : "idle",
+        ...(error === undefined ? {} : { error }), ...(backlogCount === undefined ? {} : { backlogCount }),
+        ...(lastConsolidationAttempt === undefined ? {} : { lastAttempt: structuredClone(lastConsolidationAttempt) }),
+        ...(lastConsolidationSkippedReason === undefined ? {} : { lastSkippedReason: lastConsolidationSkippedReason }),
+      };
+      return { ok: true, value: { ...counts.value, capacity: { ...memoryCapacity }, consolidation } };
+    },
+    listMemoryConsolidationSources: async (offset) => {
+      if (!app.memoryStore || closed) return memoryControlFailure("MEMORY_DISABLED", "Memory is unavailable");
+      try { return consolidationSourcePage(await app.store.getMessages(app.threadId), offset); }
+      catch (error) { return memoryControlFailure("READ_FAILED", String(error)); }
+    },
+    consolidateMemory: async (input) => {
+      const validated = validateConsolidationRequest(input);
+      if (!validated.ok) return validated;
+      if (closed || state.kind !== "idle") return memoryControlFailure("BUSY", "Wait for the current operation to finish");
+      if (!app.autoConsolidationAgentId || !app.memoryConsolidation) return memoryControlFailure("MEMORY_DISABLED", "Enable memory and consolidation in the configuration first");
+      const agentId = app.autoConsolidationAgentId;
+      const startup = new AbortController();
+      startupController = startup;
+      consolidationRequest = validated.value;
+      cancelRequested = false;
+      lastConsolidationResult = null;
+      lastConsolidationSkippedReason = undefined;
+      setState({ kind: "running", phase: "consolidation", runId: null });
+      let resolveStarted!: (value: MemoryResult<{ runId: string }>) => void;
+      const started = new Promise<MemoryResult<{ runId: string }>>(resolve => { resolveStarted = resolve; });
+      activeTask = (async () => {
+        try {
+          await ensureRecovered();
+          const ready = await app.memoryConsolidation!.canStart(startup.signal);
+          if (!ready.ok || !ready.value.canStart) {
+            const failure = !ready.ok ? ready : memoryControlFailure("MEMORY_LIMIT_EXCEEDED", "Review pending candidates before consolidating");
+            consolidationFailure = `${failure.error.code}: ${failure.error.message}`;
+            resolveStarted(failure);
+            return;
+          }
+          await executeRun(agentId, {
+            id: randomUUID(), role: "user", metadata: { source: AUTO_CONSOLIDATION_SOURCE },
+            parts: [{ type: "text", text: validated.value.mode === "history"
+              ? "调用 memory_prepare_consolidation，参数仍为 {\"mode\":\"incremental\"}，不要提供 turns。程序已经绑定用户选定的历史消息，模型不能另选范围；返回 selection.mode=history。本次不移动自动游标。再调用 memory_stage_candidates 一次，没有建议也提交空数组。只提出有来源的候选，不写正式记忆。"
+              : "请重试增量整理。先取材，再提交候选；没有建议也提交空数组，不写正式记忆。" }],
+          }, "consolidation", startup.signal, handle => resolveStarted({ ok: true, value: { runId: handle.runId } }));
+        } catch (error) {
+          consolidationFailure = String(error);
+          resolveStarted(memoryControlFailure("CONSOLIDATION_FAILED", String(error)));
+          emit({ type: "error", message: `Memory consolidation failed: ${String(error)}` });
+        } finally {
+          consolidationRequest = undefined;
+          startupController = undefined;
+          setState({ kind: "idle" });
+        }
+      })();
+      return started;
     },
     listMemoryCandidates: async (input) => {
       if (app.memoryStore === undefined || app.workspaceRoot === undefined) {
@@ -860,6 +1037,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       if (text.trim().length === 0) return { ok: false, reason: "empty" };
       if (closed || state.kind !== "idle") return { ok: false, reason: "busy" };
       const excludeFromConsolidation = options?.memoryConsolidation === "exclude";
+      lastConsolidationSkippedReason = undefined;
 
       cancelRequested = false;
       toolActivity.length = 0;
@@ -900,10 +1078,12 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
           ) {
             const readiness = await app.memoryConsolidation?.canStart(startup.signal);
             if (readiness !== undefined && !readiness.ok) {
+              consolidationFailure = `${readiness.error.code}: ${readiness.error.message}`;
               emit({ type: "error", message: `Automatic consolidation unavailable: ${readiness.error.code}: ${readiness.error.message}` });
               return;
             }
             if (readiness?.ok && !readiness.value.canStart) {
+              lastConsolidationSkippedReason = "待审候选已满，请先审核后重试整理";
               controller.recordOutput("\nMemory candidate queue is full; review pending candidates before consolidating.\n");
               return;
             }
@@ -924,6 +1104,10 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
             } catch (error) {
               controller.recordOutput(`\nAutomatic consolidation failed: ${String(error)}\n`);
             }
+          } else if (app.autoConsolidationAgentId !== undefined) {
+            lastConsolidationSkippedReason = excludeFromConsolidation ? "你选择了本条消息不参与记忆"
+              : primary.requestedMemoryTool ? "本轮已请求记忆工具，自动整理跳过，避免重复处理"
+              : "主任务未成功结束或已取消，未触发自动整理";
           }
         } catch (error) {
           settleStart({ ok: false, reason: "starting" });

@@ -15,6 +15,21 @@ export const CONSOLIDATION_MATERIAL_MAX_BYTES = 64 * 1024;
 export const CONSOLIDATION_MEMORIES_MAX_BYTES = 24 * 1024;
 export const CONSOLIDATION_MEMORIES_MAX = 20;
 
+/** Explicit history selection is bound by the controller, never chosen by the model. */
+export type MemoryConsolidationRequest =
+  | { mode: "incremental" }
+  | { mode: "history"; messageIds: string[] };
+export interface MemoryConsolidationSource {
+  messageId: string;
+  preview: string;
+  truncated: boolean;
+  excluded: boolean;
+}
+export interface MemoryConsolidationSourcePage {
+  sources: MemoryConsolidationSource[];
+  nextOffset: number | null;
+}
+
 export interface MemoryProposal {
   action: "add" | "update" | "change" | "correct" | "retract" | "disable";
   text?: string;
@@ -34,21 +49,23 @@ export interface MemoryProposal {
 type ConsolidationMemory = MemoryEntry & Partial<Pick<MemoryConsolidationEntry, "relatedAssertions" | "historyCoverage">>;
 export type PreparedBatch = {
   batchId: string; truncated: boolean; memories: ConsolidationMemory[];
+  selection?: { mode: "history"; messageIds: string[] };
 } & (
   | { turns: ConsolidationTurn[] }
   | { bootstrap: boolean; turns: IncrementalConsolidationTurn[] }
 );
 export interface MemoryConsolidation {
-  begin(agentId: string): void;
+  begin(agentId: string, request?: MemoryConsolidationRequest): void;
   canStart(signal?: AbortSignal): Promise<MemoryResult<{ canStart: boolean; pendingCount: number }>>;
   prepare(input: { mode?: "incremental"; turns?: number }, signal?: AbortSignal): Promise<MemoryResult<PreparedBatch>>;
   stage(input: { batchId: string; proposals: unknown[] }, signal?: AbortSignal): Promise<MemoryResult<{ staged: true; batchId: string; count: number }>>;
-  finalize(result: { status: string; consolidationAttempts?: { prepare: number; stage: number } }, signal?: AbortSignal): Promise<MemoryResult<{ candidateIds: string[]; replayed: boolean }>>;
+  finalize(result: { status: string; consolidationAttempts?: { prepare: number; stage: number } }, signal?: AbortSignal): Promise<MemoryResult<{ candidateIds: string[]; replayed: boolean; processedCount?: number }>>;
   discard(): void;
 }
 interface OrdinaryTurn { user: { id: string; text: string }; messages: UIMessage[] }
 interface Batch {
   agentId: string;
+  request?: MemoryConsolidationRequest;
   prepareCount: number;
   stageCount: number;
   invalid: boolean;
@@ -70,6 +87,29 @@ function ordinaryTurns(messages: readonly UIMessage[]): OrdinaryTurn[] {
     return isAutoConsolidationRequest(user) ? [] : [{ user: { id: user.id, text: userText(user) }, messages: turn }];
   });
 }
+
+export function validateConsolidationRequest(value: unknown): MemoryResult<MemoryConsolidationRequest> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return fail("INVALID_INPUT", "Choose incremental or selected history consolidation");
+  const input = value as Record<string, unknown>;
+  if (input.mode === "incremental" && Object.keys(input).length === 1) return { ok: true, value: { mode: "incremental" } };
+  if (input.mode !== "history" || Object.keys(input).some(key => !["mode", "messageIds"].includes(key)) || !Array.isArray(input.messageIds) ||
+      input.messageIds.length < 1 || input.messageIds.length > MAX_CONSOLIDATION_TURNS ||
+      input.messageIds.some(id => typeof id !== "string" || !id || id.length > 256) || new Set(input.messageIds).size !== input.messageIds.length) {
+    return fail("INVALID_INPUT", "Select one to eight unique committed user messages from this Thread");
+  }
+  return { ok: true, value: { mode: "history", messageIds: [...input.messageIds] as string[] } };
+}
+
+/** Display material only. The exact original is reread and verified during preparation. */
+export function consolidationSourcePage(messages: readonly UIMessage[], offset = 0): MemoryResult<MemoryConsolidationSourcePage> {
+  if (!Number.isSafeInteger(offset) || offset < 0) return fail("INVALID_INPUT", "Invalid source offset");
+  const turns = ordinaryTurns(messages).reverse();
+  const selected = turns.slice(offset, offset + 20);
+  return { ok: true, value: { sources: selected.map(turn => ({ messageId: turn.user.id,
+    preview: Array.from(turn.user.text).slice(0, 400).join(""), truncated: Array.from(turn.user.text).length > 400,
+    excluded: isMemoryConsolidationExcluded(turn.messages[0]!) || hasMemoryTool(turn.messages),
+  })), nextOffset: offset + selected.length < turns.length ? offset + selected.length : null } };
+}
 /** The encoding is versioned and binds ordered ordinary user ids and exact text. */
 export function consolidationPrefixHash(messages: readonly UIMessage[], throughMessageId: string): string | undefined {
   const turns = ordinaryTurns(messages);
@@ -78,6 +118,18 @@ export function consolidationPrefixHash(messages: readonly UIMessage[], throughM
   return createHash("sha256").update(JSON.stringify([
     "runloom-consolidation-prefix/v1", turns.slice(0, matches[0]! + 1).map((turn) => [turn.user.id, turn.user.text]),
   ])).digest("hex");
+}
+
+/** Read-only queue observation using the same eligibility and cursor contract as automatic prepare. */
+export function memoryConsolidationBacklog(messages: readonly UIMessage[], cursor: ConsolidationCursor | null): MemoryResult<number> {
+  const all = ordinaryTurns(messages);
+  let after = -1;
+  if (cursor !== null) {
+    if (consolidationPrefixHash(messages, cursor.throughMessageId) !== cursor.prefixHash) return fail("MEMORY_CURSOR_MISMATCH", "Transcript does not match the stored user-message boundary");
+    after = all.findIndex(turn => turn.user.id === cursor.throughMessageId);
+  }
+  const eligible = all.slice(after + 1).filter(turn => turn.user.text.trim().length > 0 && !isMemoryConsolidationExcluded(turn.messages[0]!) && !hasMemoryTool(turn.messages));
+  return { ok: true, value: cursor === null ? Math.min(eligible.length, MAX_CONSOLIDATION_TURNS) : eligible.length };
 }
 function visible(entry: MemoryEntry, threadId: string): boolean {
   return entry.scope?.kind !== "thread" || entry.scope.threadId === threadId;
@@ -97,7 +149,7 @@ function relatedMemories(entries: ConsolidationMemory[], turns: OrdinaryTurn[], 
   });
   const byId = new Map(material.map((entry) => [entry.id, entry]));
   const ranked = rankMemoryEntriesForQuery(material.map((entry) => ({ ...entry,
-    text: [entry.text, ...(entry.relatedAssertions ?? []).flatMap((assertion) => [assertion.text, ...assertion.recallTerms])].join("\n"),
+    text: [entry.text, ...(entry.assertion?.recallTerms ?? []), ...(entry.relatedAssertions ?? []).flatMap((assertion) => [assertion.text, ...assertion.recallTerms])].join("\n"),
   })), query).map((entry) => byId.get(entry.id)!);
   const selected: ConsolidationMemory[] = [];
   let trimmed = false;
@@ -213,7 +265,7 @@ export function createMemoryConsolidation(options: {
   };
   const canStart: MemoryConsolidation["canStart"] = async (signal) => options.store.checkCandidateCapacity(signal);
   return {
-    begin(agentId) { batch = { agentId, prepareCount: 0, stageCount: 0, invalid: false }; },
+    begin(agentId, request) { batch = { agentId, ...(request === undefined ? {} : { request: structuredClone(request) }), prepareCount: 0, stageCount: 0, invalid: false }; },
     canStart,
     discard() { batch = undefined; },
     async prepare(input, signal) {
@@ -223,7 +275,8 @@ export function createMemoryConsolidation(options: {
       run.prepareCount += 1;
       if (run.prepareCount !== 1) { run.invalid = true; return fail("MEMORY_BATCH_INVALID", "Prepare must be called exactly once"); }
       const automatic = run.agentId === AUTO_CONSOLIDATION_AGENT_ID;
-      if ((automatic && input.mode !== "incremental") || (!automatic && input.mode !== undefined) || (input.mode !== undefined && input.turns !== undefined) || (input.turns !== undefined && (!Number.isInteger(input.turns) || input.turns < 1 || input.turns > MAX_CONSOLIDATION_TURNS))) { run.invalid = true; return fail("INVALID_INPUT", "Invalid preparation mode or turns"); }
+      const history = run.request?.mode === "history" ? run.request : undefined;
+      if (!history && ((automatic && input.mode !== "incremental") || (!automatic && input.mode !== undefined) || (input.mode !== undefined && input.turns !== undefined) || (input.turns !== undefined && (!Number.isInteger(input.turns) || input.turns < 1 || input.turns > MAX_CONSOLIDATION_TURNS)))) { run.invalid = true; return fail("INVALID_INPUT", "Invalid preparation mode or turns"); }
       const capacity = await canStart(signal);
       if (!capacity.ok) return capacity;
       if (!capacity.value.canStart) return fail("MEMORY_LIMIT_EXCEEDED", "Pending candidate queue is full; review candidates first");
@@ -233,7 +286,7 @@ export function createMemoryConsolidation(options: {
       const listed = await readMaterial(observedAt, signal);
       if (!listed.ok) return listed;
       const all = ordinaryTurns(loaded.value);
-      const cursor = automatic ? await options.store.getConsolidationCursor(options.threadId, signal) : { ok: true as const, value: null };
+      const cursor = automatic && !history ? await options.store.getConsolidationCursor(options.threadId, signal) : { ok: true as const, value: null };
       if (!cursor.ok) return cursor;
       let after = -1;
       if (cursor.value !== null) {
@@ -243,22 +296,28 @@ export function createMemoryConsolidation(options: {
       }
       const eligible = all.slice(after + 1).filter((turn) => turn.user.text.trim().length > 0 && !isMemoryConsolidationExcluded(turn.messages[0]!) && (!automatic || !hasMemoryTool(turn.messages)));
       let selected = automatic && cursor.value !== null ? eligible.slice(0, MAX_CONSOLIDATION_TURNS) : eligible.slice(-(input.turns ?? MAX_CONSOLIDATION_TURNS));
+      if (history) {
+        const valid = validateConsolidationRequest(history);
+        if (!valid.ok) return valid;
+        selected = eligible.filter(turn => history.messageIds.includes(turn.user.id));
+        if (selected.length !== history.messageIds.length) return fail("MEMORY_SOURCE_INVALID", "Selected history is missing, excluded, or belongs to a different Thread");
+      }
       const bootstrap = automatic && cursor.value === null;
       const batchId = (options.generateId ?? randomUUID)();
       const related = relatedMemories(listed.value, selected, options.threadId);
       let memories = related.entries;
-      let truncated = related.truncated || eligible.length > selected.length;
+      let truncated = related.truncated || !history && eligible.length > selected.length;
       const material = (): PreparedBatch => automatic
-        ? { batchId, truncated, memories, bootstrap, turns: selected.map((turn) => ({ user: { messageId: turn.user.id, text: turn.user.text }, assistant: [], tools: [] })) }
+        ? { batchId, truncated, memories, bootstrap, ...(history ? { selection: { mode: "history" as const, messageIds: [...history.messageIds] } } : {}), turns: selected.map((turn) => ({ user: { messageId: turn.user.id, text: turn.user.text }, assistant: [], tools: [] })) }
         : { batchId, truncated, memories, turns: selected.map((turn) => ({ messages: [{ id: turn.user.id, role: "user", text: turn.user.text }] })) };
       while (Buffer.byteLength(JSON.stringify(material())) > CONSOLIDATION_MATERIAL_MAX_BYTES && memories.length > 0) { memories = memories.slice(0, -1); truncated = true; }
-      while (Buffer.byteLength(JSON.stringify(material())) > CONSOLIDATION_MATERIAL_MAX_BYTES && selected.length > 1) { selected = selected.slice(0, -1); truncated = true; }
+      while (!history && Buffer.byteLength(JSON.stringify(material())) > CONSOLIDATION_MATERIAL_MAX_BYTES && selected.length > 1) { selected = selected.slice(0, -1); truncated = true; }
       if (Buffer.byteLength(JSON.stringify(material())) > CONSOLIDATION_MATERIAL_MAX_BYTES) return fail("MEMORY_BATCH_INVALID", "One user message exceeds the consolidation material budget; no text or cursor was truncated");
       if (batch !== run) return fail("MEMORY_BATCH_INVALID", "Consolidation lifecycle changed during preparation");
       aborted(signal);
       run.prepared = material(); run.selected = selected; run.expectedCursor = cursor.value;
       const last = selected.at(-1)?.user.id ?? all.at(-1)?.user.id;
-      run.nextCursor = automatic && last !== undefined ? {
+      run.nextCursor = automatic && !history && last !== undefined ? {
         threadId: options.threadId, throughMessageId: last,
         prefixHash: consolidationPrefixHash(loaded.value, last)!, lastBatchId: batchId, updatedAt: observedAt.toISOString(),
       } : null;
@@ -318,7 +377,7 @@ export function createMemoryConsolidation(options: {
         expectedCursor: run.expectedCursor ?? null, nextCursor: run.nextCursor ?? null,
       }, signal, { boundThreadId: options.threadId, now: observedAt });
       run.committed = committed;
-      return committed;
+      return committed.ok ? { ok: true, value: { ...committed.value, processedCount: run.selected.length } } : committed;
     },
   };
 }

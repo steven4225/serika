@@ -170,15 +170,20 @@ const receipt = await controller.resolveMemoryCandidate({
 - 列表默认 pending / 20 条，最多 50 条、16 KiB，按 `nextOffset` 翻页。详情最多 64 KiB，包含原话、理由、当前目标（不带 history）、拟保存内容和 `applicable`/`unavailableReason`。不要只展示模型的“候选 1”。
 - 只在 pending 且 applicable 的完整预览上启用接受。revision 冲突或 stale 后重新读取，不自动重试。接受/拒绝占用既有 command 互斥，不创建 Run、不请求模型、不写 JSONL；拒绝只改变候选，不改正式记忆。
 - `memory-updated` 的 `reason` 为 `proposals | review | write`，只是重读提示，不携带正文。刷新或重启后重新查询 Store，不能从事件或快照推导记忆真相。
-- 整理 Agent 先 prepare 后 stage；stage 仅进程内暂存。成功 Run 结束后才把待审候选和自动整理游标同锁写入 `memory.json` v3。`consolidation` completed 不等于正式记忆已保存；commit 失败单独报告，不改主任务成功结果。
+- 整理 Agent 先 prepare 后 stage；stage 仅进程内暂存。成功 Run 结束后才把待审候选和自动整理游标同锁写入 `memory.json` v4。`consolidation` completed 不等于正式记忆已保存；commit 失败单独报告，不改主任务成功结果。
+- 桌面可以显式调用 `consolidateMemory({mode:"incremental"})` 重试待处理材料，或先用 `listMemoryConsolidationSources(offset?)` 分页查看当前 Thread 的普通用户消息，再调用 `consolidateMemory({mode:"history",messageIds:[...]})` 补整理所选 1–8 条。历史范围由 Controller 绑定并重新核对，不由模型的 prepare 参数选择；缺失、排除、外来消息及整组超预算都会失败，不能悄悄缩小范围。历史补整理不移动自动游标，不声称所有旧对话已经处理。
+- 显式整理使用同一个 idle 互斥、整理 Agent 和候选提交路径；没有常驻后台服务或第二条 AgentLoop。每步模型预算 30 秒，总预算 120 秒；失败不推进游标。`getMemoryMaintenance().consolidation` 区分 off/backlog/running/failed/awaiting_review/idle，错误不会当作没有候选。`lastAttempt` 和 `lastSkippedReason` 是本进程诊断，重启后不保留；持久化候选和游标才是存储事实。
+- 同 Thread 的相同规范化 pending change 可以复用一条候选，不合并不同事实，不伪造多来源；仍保留首次提案的来源与理由。接受后正式记忆的重复新增检查沿用既有规则。语义上相近但正文或时态含义不同的提案仍须模型比较与人工审核，不保证语义去重。
 - Controller 的 resolve 是明确用户审阅操作，不走 `confirm()`；`confirm()` 仍是工具调用的 approvalId 授权。聊天的 `memory_apply_candidate` 使用相同接受实现但走正常 y/n；`n` 只拒绝本次调用，候选仍 pending。
 - 重复接受同 candidateId 和原 expectedCandidateRevision 返回原应用回执、`replayed:true`，不重复写。回执里的 memoryRevision 是接受当时的版本，不证明它现在仍未修改或删除。
-- v1/v2 文件只读不会迁移，第一次实际成功写入升级 v3。正式记忆最多 512 条、文件 16 MiB；pending 全 workspace 最多 64 条，终态保留最近 256 条。候选不进入主 Agent/worker 参考上下文。
+- v1–v3 文件只读不会迁移，第一次实际成功写入升级 v4。正式记忆最多 512 条、文件 16 MiB；pending 全 workspace 最多 64 条，终态保留最近 256 条。候选不进入主 Agent/worker 参考上下文。
 - 本组没有修改桌面仓。前端接线需要独立验证，不能把后端测试映射成 Electron 已验收。
 
 ## 按问题选材（B 组）
 
 主 Agent 每次上下文准备从原始本轮用户文本查询，只读取一次正式 Memory。普通路径和压缩预算共用已选 reference prefix；整理 Agent 不接这条 active-only 注入路径。手动 compact 从最近已提交普通用户文本选材，下一轮按新问题重新查询。
+
+当前参考附带本次时间视图与选中数量，在最终发送时移到本轮用户问题旁；旧回复中的“本次为空”或旧 revision 不能覆盖它。移动不重复注入、不重读存储、不增加预算，不写回 transcript，也不拆工具调用/结果。若压缩已替换整个当前交互，则把同一条参考放到末尾，而不插进工具对之间。这个定位改善不等于程序能保证模型每次正确遵循参考。
 
 - `runloom-workspace-memory` 是本轮子集，不是全库：只给 id/revision/text 和选材元数据，不给 history/sourceQuote/候选。即使无匹配也有明确空集合说明，不等于存储为空或条目已删除。
 - `pinned` 最多先选 2 条、整组 4 KiB；其余只选词法匹配，最终最多 12 条、完整消息 8 KiB。没放下大条目会继续试后面小条目，不截半条正文。未选中的 pin 也不保证每轮必注入。
@@ -216,9 +221,40 @@ RUNLOOM_COMPUTER_ACCEPTANCE=1 RUNLOOM_MODEL=command-code node --env-file=.env \
 - `listMemories({offset?, limit?})`：默认 20 条、最多 50 条；正文 120 字预览标 `truncated`，页面至多 16 KiB。显示工作区及当前 Thread 的当前版本（包括停用/过期），不混入其他 Thread 私有记忆。候选接受回执仅是当时的写入记录，不能替代此查询。
 - `getMemory(id)`：返回完整当前正文、scope、revision、expiry、pin、保存来源，不带 history。来源原话是保存时已核对的 excerpt，不保证原 transcript 仍在。
 - `updateMemory({id, expectedRevision, text?, pinned?, status?: "disabled"})`：仅显式用户操作；占现有 idle 互斥，不创建 Run、不调用模型，底层同锁 CAS。拒绝其他字段及无变更输入。版本冲突重读详情，不盲重试；结果不明时也先重读。文本编辑将当前来源变为 manual，旧来源保留在已有有界 history；pin/disable 不改来源。相关更新候选沿用原有失效规则。
-- `getMemoryReferences()`：返回本进程最近一次成功 primary 上下文准备的 `{runId, messageId, preparedAt, selected:[{id, revision, text, reason}], truncated, queryTruncated, rewrite}`，或者 `null`。`reason` 是 `pinned` / `matched` / `rewritten`。按当前请求身份绑定；准备失败清空，重启为空。`memory-references-changed` 提醒前端重新查询；下一次准备可能选到新版本。不是模型自报，不证明提供商接收、回答遵循偏好或当前库仍是这些版本。此记录不写 JSONL。
+- `getMemoryReferences()`：返回本进程最近一次成功 primary 上下文准备的 `{runId, messageId, preparedAt, temporalView:{validAt,knownAt}, selected:[{id, revision, text, reason, assertion?}], truncated, queryTruncated, rewrite}`，或者 `null`。`reason` 是 `pinned` / `matched` / `recall_term` / `rewritten`。断言元数据含 identity、kind、两种时间和 source IDs，不含原话、检索词或原始历史。按当前请求身份绑定；准备失败清空，重启为空。`memory-references-changed` 提醒前端重新查询；下一次准备可能选到新版本。不是模型自报，不证明提供商接收、回答遵循偏好或当前库仍是这些版本。此记录不写 JSONL。
 
-可选同义查询改写（配置 v1 与 Memory v3 不变；旧配置默认关）：
+### 时态审核、恢复与遗忘（Memory C）
+
+类型从 `dist/memory-controls.js` 导入；所有操作仅针对工作区/当前 Thread，不改变 Memory 的工具授权边界：
+
+- `getMemoryHistory({id,offset?,limit?})`：最新在前的断言与管理版本，默认 5、最多 10，每页 64 KiB；`nextOffset` 分页。历史中来源为已保存原话，`legacy_partial` 必须显示覆盖不完整。事实适用 `validTime` 与系统认知 `systemTime` 分开呈现。
+- `queryMemory({id,validAt?,knownAt?,includeDisabled?})`：显式只读时间视图。返回的空断言不是永久删除证据，未知日期和不完整覆盖不可补造。
+- `previewMemoryAction(input)`：读取同一个存储转换的预览，不写库、不创建 Run、不调用模型。`current` / `proposedAssertion` / `warnings` 供用户核对；预览时间是估计，确认时重新校验 revision 并捕获实际写入时间。
+- `applyMemoryAction(input)`：严格 `id + expectedRevision + operation`。`correct` 纠正认识，`change` 要求明确 `effectiveAt` 并保留此前事实；`retract` 撤回断言；`metadata` 调整 pin、停用或 expiry；`restore` 选历史 `targetAssertionId`，停用/过期时须显式选择状态/有效期，创建新 revision；`delete` 永久清除本条历史和相关候选内容。渲染器不得传 source、scope、systemTime。确认在 idle 互斥中进行，冲突或结果不明必须重读，不自动重试。
+- `getMemoryMaintenance()`：只读待审、停用、过期、重复建议、容量及自动整理状态。`failed` 反映本进程模型/落库失败，不把 model Run 的 completed 当成已保存；重启不保留进程内失败诊断，待处理游标仍由磁盘事实计算。不开启自动清理。
+- `run(text,{memoryConsolidation:"exclude"})`：把本条普通用户消息排除于现在和以后整理。不是关闭已有记忆检索，也不删除 transcript。桌面每次发送显式选择，不默改用户配置。
+- 当前投影的 `temporalState` 区分 `applicable`、`retracted`、`not_applicable`，不等于管理状态 `active/disabled`。撤回或当前时点无适用断言时，正文为空且没有 `assertion`；前端应显示对应状态，不把它说成旧格式或补造人工来源。历史仍由显式历史查询读取，此字段不写入存储文件。
+
+桌面修改/恢复/删除必须先展示预览再确认。收到 `memory-updated` 或详情 revision 变化就废弃旧预览。候选接受仍使用 candidate revision，不是工具的 `approvalId`。
+
+#### C 组验收记录（2026-10-04）
+
+- 后端真实模型：Command Code、两个独立子进程、同一配置哈希，5 次 primary Run。普通声明、原话候选、显式程序审阅、跨 Thread 召回、真实变化、重启、纠错与 `knownAt` 查询、历史分页、撤回/恢复/CAS、停用/过期、永久删除均通过实际存储核对。程序审阅不是 Electron 点击；该报告的 `electronAcceptance` 保持 `not_run`。
+- 另行使用隔离 workspace 的真实 Electron 窗口，通过原生输入核对：变更预览前后磁盘哈希相同；确认后同一记忆从 revision 1 更新为 2，保留变化前的适用区间；撤回后为 revision 3，正常退出重开后显示“已撤回”；选择历史并明确启用/有效期后恢复为 revision 4。
+- 正常退出后以同一配置、workspace 和 transcript 目录启动新 Thread，真实模型回答恢复后的“一行结论 + 三条步骤”，引用同一记忆 ID 与 revision 4；本轮参考面板展示实际选择。此查询勾选“本条不整理为记忆”，已提交消息保留 exclusion 元数据且没有相应整理 Run。
+- 新 Thread 再普通陈述标题偏好，真实整理只生成 pending 候选。验收操作者亲自点击“接受变更”后，候选成为 accepted/revision 2，正式库新增对应记忆，来源消息 ID 和精确原话一致，待审卡消失。正式记忆详情已重新读取核对，不靠模型的保存声明判断。
+- 本机发现并修复撤回投影的状态显示问题，补充回归测试。最终后端 `pnpm typecheck` 与 `pnpm test`：1026 通过、4 跳过、0 失败；桌面 `pnpm typecheck`、145 项测试和 `pnpm build` 通过，两仓 `git diff --check` 干净。
+- 上述证据是 C 组核心路径，不覆盖每一种 GUI 操作组合、普遍语义召回或模型输出质量。真实授权恢复探针仍 `not_run`；恢复记忆不恢复工具授权的契约未改变，不把这项写成已真机验证。隔离窗口正常退出不是崩溃恢复测试。
+
+后端可重复入口（显式付费，默认测试跳过真实模型；报告与原生桌面证据分开）：
+
+```sh
+pnpm build
+RUNLOOM_MODEL=command-code RUNLOOM_MEMORY_TEMPORAL_ACCEPTANCE=1 \
+  node --env-file=.env --test examples/cli/dist/memory-temporal-acceptance.test.js
+```
+
+可选同义查询改写（配置仍为 v1；不新增 Memory 文件版本；旧配置默认关）：
 
 ```json
 { "modules": { "memory": { "enabled": true, "queryRewrite": { "enabled": true } } } }
