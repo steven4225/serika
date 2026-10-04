@@ -1,5 +1,9 @@
 import { Writable } from "node:stream";
 import type { MemoryEditInput, MemoryListInput } from "@aisdk-agent/example-cli/dist/memory-management.js";
+import type { MemoryAction, MemoryHistoryInput } from "@aisdk-agent/example-cli/dist/memory-controls.js";
+import type { AssistantRunOptions } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
+import type { MemoryConsolidationRequest } from "@aisdk-agent/example-cli/dist/memory-consolidation.js";
+import type { MemoryTemporalQuery } from "@aisdk-agent/example-cli/dist/memory-store.js";
 import type {
   AssistantController,
   AssistantEvent,
@@ -224,6 +228,7 @@ export interface BridgeIdentity {
   modelAlias: string;
   modelId?: string;
   identitySource?: "saved" | "explicit";
+  entryMode?: "daily" | "test";
   temporaryThread: boolean;
   temporaryDirectory: boolean;
 }
@@ -278,6 +283,7 @@ export class RuntimeBridge {
         allowedBundleIds: this.#app.moduleConfig?.computer?.allowedBundleIds ?? [],
       },
       ...(this.#identity.identitySource === undefined ? {} : { identitySource: this.#identity.identitySource }),
+      entryMode: this.#identity.entryMode ?? "daily",
       threadId: this.#app.threadId,
       temporaryThread: this.#identity.temporaryThread,
       directory: this.#app.directory,
@@ -322,6 +328,13 @@ export class RuntimeBridge {
     return this.#controller.getMemory(id);
   }
   updateMemory(input: MemoryEditInput) { return this.#controller.updateMemory(input); }
+  getMemoryHistory(input: MemoryHistoryInput) { return this.#controller.getMemoryHistory(input); }
+  queryMemory(input: MemoryTemporalQuery & { id: string }) { return this.#controller.queryMemory(input); }
+  previewMemoryAction(input: MemoryAction) { return this.#controller.previewMemoryAction(input); }
+  applyMemoryAction(input: MemoryAction) { return this.#controller.applyMemoryAction(input); }
+  getMemoryMaintenance() { return this.#controller.getMemoryMaintenance(); }
+  consolidateMemory(input: MemoryConsolidationRequest) { return this.#controller.consolidateMemory(input); }
+  listMemoryConsolidationSources(offset?: number) { return this.#controller.listMemoryConsolidationSources(offset); }
   getMemoryReferences() { return this.#controller.getMemoryReferences(); }
 
   getRssSubscriptions() { return this.#controller.getRssSubscriptions(); }
@@ -338,13 +351,15 @@ export class RuntimeBridge {
     }
   }
 
-  async run(text: string): Promise<RunResponse> {
+  async run(text: string, options?: AssistantRunOptions): Promise<RunResponse> {
+    // No renderer-supplied metadata, model options or authority may cross this boundary.
+    const safeOptions = options?.memoryConsolidation === "exclude" ? { memoryConsolidation: "exclude" as const } : undefined;
     if (text.trim().length === 0) return { ok: false, reason: "empty" };
     if (this.#controller.getSnapshot().state.kind !== "idle") {
-      return this.#controller.run(text);
+      return this.#controller.run(text, safeOptions);
     }
     this.#shell.clear();
-    return this.#controller.run(text);
+    return this.#controller.run(text, safeOptions);
   }
 
   cancel(): Promise<void> {

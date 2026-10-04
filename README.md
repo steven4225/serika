@@ -4,6 +4,15 @@ Electron 前端通过 `createRuntimeApp` + `createAssistantController` 接入后
 
 ## 启动与验证
 
+日用入口（自动构建两仓，读取后端现有受信任 `.env`；优先使用已配置模型，未指定时优先 Command Code，再 DeepSeek；没有真实模型凭据时报错）：
+
+```sh
+cd /Users/a1-6/Code/agents/runloom-desktop
+pnpm daily
+```
+
+默认配置、会话列表和 transcript 在 Electron userData 中持续保存。首次没有 `RUNLOOM_WORKSPACE` 时创建 `userData/workspaces/personal`；测试窗口应使用独立 userData 并设置 `RUNLOOM_DESKTOP_TEST=1`，页面会显示隔离验收标记。`pnpm dev` 仍是开发入口。已有进程要从托盘完整退出后再启动，关闭窗口只是隐藏。
+
 先构建链接的后端，再启动桌面：
 
 ```sh
@@ -22,13 +31,15 @@ RUNLOOM_MODEL=deepseek RUNLOOM_CONFIG=/absolute/path/runloom.json \
   node --env-file=../aisdk-agent-framework/.env node_modules/electron-vite/bin/electron-vite.js dev
 ```
 
-不指定身份时，Electron userData 下的 `desktop-identity.json` 保存实际 config/workspace、Thread 和 transcript 目录。完整退出后，相同配置与工作区复用身份；切换配置路径或工作区生成新 Thread，旧 transcript 不删除。本次不提供历史项目列表或热切换。坏身份文件会报错，不会自动清空身份。第二份桌面进程只聚焦第一份窗口。
+不指定身份时，Electron userData 下的 `desktop-identity.json` v2 按 config/workspace 保存当前 Thread 与最多 100 个对话入口；旧 v1 身份读取时保留，实际登记/切换才迁移。切到另一份配置/workspace 再回来仍能接回之前选择的 Thread。坏身份文件会报错，不会自动清空。第二份桌面进程只聚焦第一份窗口。
 
-这份文件只保存最后一次默认身份，不是按项目维护的身份列表。切到另一个配置/workspace 后再切回来，会再次生成 Thread，不自动接回原对话；旧 transcript 仍在磁盘上，需要显式指定原 Thread 和目录才能接回。
+侧栏「历史对话」可查看、创建、切换当前工作区的 Thread；切换要求 Controller 空闲，释放旧租约并装配同一套 Controller，所有旧预览/输入清空。旧目录先只读发现，再由用户确认所选对话属于当前工作区并登记；不复制、不合并 transcript，不把未登记的其他目录当成本工作区历史。列表发现不调用 Store 的截尾修复，不写 JSONL；坏/超限/未完整结束的历史明确报错，不能显示为空。
 
 `RUNLOOM_THREAD` / `RUNLOOM_TRANSCRIPTS` 可显式覆盖，不改写默认身份；部分覆盖从匹配身份补齐，无匹配时用稳定隔离默认值。以相同覆盖重启才能回到同一对话。`RUNLOOM_WORKSPACE` 只在首次生成配置时生效，已有配置以文件实际 workspace 为准。
 
-新生成的 `runloom.json` 默认开启模型摘要压缩，使用固定的 32K 窗口、4K 输出预留、1K 安全余量、8K 近期保留、4K 摘要输出（`config/desktop.example.json` 同步给出）。旧配置的压缩预算不会自动修改，显式 `RUNLOOM_CONFIG` 不会被改写。已有 userData 配置损坏时直接报错，不覆盖成默认配置。自动记忆整理仍需显式设置 `modules.memory.autoConsolidate: true`，不会自动开启。
+新生成的 `runloom.json` 默认开启记忆、自动候选整理、一次有界同义查询改写和模型摘要压缩。压缩使用固定的 32K 窗口、4K 输出预留、1K 安全余量、8K 近期保留、4K 摘要输出。已有配置的记忆开关/预算不自动修改；记忆页的「启用记忆与自动整理」是显式操作，会校验配置并重建当前会话。坏配置不会覆盖成默认值。候选只有人工接受后才成为正式记忆。
+
+记忆页区分未启用、等待整理、整理中、整理失败、没有新增候选、等待审核；失败可重试增量整理，不推进游标。首次最多取最近八条符合条件的用户消息，更早内容从「选择历史消息补整理」明确选择 1–8 条，使用原文核对、不截断所选消息、不移动自动游标。标记排除的消息、合成整理请求和自动路径的记忆工具回合不取材。最近尝试/跳过说明属于当前进程，重开后不把旧进程报告当新一次结果。相同的 pending 变更只审核一次；更宽泛的语义去重由模型提出且仍需审核，不能据此保证所有同义内容都去重。整理每步 30 秒，总时限 120 秒，仍是单路串行 followup。
 
 没有选择真实模型时，默认 mock 仍可用于界面调试，但主屏会显示明确警告，不把它当真实任务能力。日用启动请显式指定模型，复用受信任的环境文件（不显示或复制 Key）：
 
@@ -101,6 +112,8 @@ Computer 确认卡显示精确 bundle/PID/window、动作和完整输入，技�
 修改正文、固定/取消固定、停用都先完整预览，再点击“确认保存”，使用详情中的当前 revision；不走工具的 approvalId，不自动开 Run。忙时不能保存，更新事件立即让预览失效；冲突或结果不明必须重读，不自动重试。正文编辑的当前来源变为 manual，旧来源由后端既有 history 保留。停用不撤回旧回复中的引用。
 
 回复旁“本轮参考记忆”来自后端成功上下文准备的程序快照：实际 ID、revision、text 和固定/原问题匹配/改写词匹配原因，不是模型自报。标注准备时间与 Run；它不证明当前库仍是这些版本或模型遵循了偏好。进程重启无此快照，不从旧对话编造；准备失败也不回退显示旧成功。
+
+当前正式记忆参考只注入一次，放在本轮问题旁并标明时间视图和选中数量，避免恢复后仍把上一轮“未匹配”的回答当成当前状态。真实模型已核对同义新 Thread 召回、纠正、撤回后不注入、恢复后的同 Thread 引用，以及新 Node 进程重开后的新 Thread 引用；这不是 Electron 点击链通过的声明。
 
 `modules.memory.queryRewrite.enabled` 在用户现有外部配置里显式启用，默认关闭；不自动改写配置。普通对话最多增加一次有界模型查询，可能增加延迟/费用和误召回，失败回到词法检索且显示降级。不用于 WorkTask、worker、整理或手动压缩。
 

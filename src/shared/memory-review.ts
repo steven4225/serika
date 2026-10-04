@@ -6,6 +6,7 @@ import type {
   MemoryCandidate,
   MemoryResult,
 } from "@aisdk-agent/example-cli/dist/memory-candidates.js";
+import type { MemoryKind, MemoryValidTime } from "@aisdk-agent/example-cli/dist/memory-temporal.js";
 
 export type CandidateFilter = "pending" | "accepted" | "rejected" | "stale";
 
@@ -139,8 +140,48 @@ export function capabilityText(memory: { enabled: boolean; autoConsolidate: bool
   return "符合条件的对话结束后可提出待审候选，需你接受才保存为正式记忆";
 }
 
-export function candidateKindLabel(candidate: MemoryCandidate): "新增" | "更新" {
-  return candidate.change.operation === "add" ? "新增" : "更新";
+export function candidateKindLabel(candidate: MemoryCandidate): string {
+  switch (candidate.change.operation) {
+    case "add": return "新增";
+    case "update": return "更新";
+    case "change": return "事实变更";
+    case "correct": return "纠错";
+    case "retract": return "撤回事实";
+    case "disable": return "停用";
+  }
+}
+
+export function candidateOperationExplanation(candidate: MemoryCandidate): string {
+  switch (candidate.change.operation) {
+    case "add": return "接受后新增正式记忆。";
+    case "update": return "更新已有记忆；系统保留此前记录。";
+    case "change": return "事实从指定时间起变化；此前适用的事实仍保留在历史里。";
+    case "correct": return "纠正此前记错的事实，不把纠错日当成事实变化日。";
+    case "retract": return "撤回对这条事实的认可，不再把它当作当前事实引用；历史仍保留。";
+    case "disable": return "停止引用这条记忆；不改变事实历史，也不是永久删除。";
+  }
+}
+
+export function memoryKindLabel(kind: MemoryKind | undefined): string {
+  switch (kind) {
+    case "preference": return "偏好";
+    case "fact": return "事实";
+    case "event": return "事件";
+    case "note": return "笔记";
+    case undefined: return "未提供";
+  }
+}
+
+/** Unknown bounds are not evidence that a fact has always been true. */
+export function validTimeLabel(value: MemoryValidTime | undefined): string {
+  if (value === undefined) return "未提供";
+  const basis = value.basis === "explicit" ? "明确陈述" : value.basis === "reported" ? "报告时起算" : "边界未知";
+  return `${value.from ?? "起点未确定"} 至 ${value.to ?? "未指定终点"}（${basis}；不含终点）`;
+}
+
+export function systemTimeLabel(value: { from: string | null; to: string | null } | undefined): string {
+  if (value === undefined) return "未提供";
+  return `${value.from ?? "开始记录时间未知"} 至 ${value.to ?? "仍是系统当前认知"}`;
 }
 
 export function statusLabel(status: MemoryCandidate["status"]): string {
@@ -163,6 +204,11 @@ export function statusLabel(status: MemoryCandidate["status"]): string {
 /** Saved quote. This is the checked substring, not a transcript reconstruction. */
 export function sourceQuote(preview: CandidatePreview): string {
   return preview.candidate.source.quote;
+}
+
+/** Sources are already verified by the backend. Never reconstruct text from messages. */
+export function candidateSources(preview: CandidatePreview): MemoryCandidate["source"][] {
+  return preview.candidate.sources ?? [preview.candidate.source];
 }
 
 /** Full proposed text. When `proposed` is absent, the change text is still the backend field. */
@@ -199,18 +245,12 @@ function dedupe(candidates: readonly MemoryCandidate[]): MemoryCandidate[] {
 }
 
 function previewKey(preview: CandidatePreview): string {
-  const change = preview.candidate.change;
   return JSON.stringify([
-    preview.candidate.revision,
-    preview.candidate.status,
-    change.operation,
-    change.text,
-    change.operation === "update" ? [change.memoryId, change.expectedRevision] : change.scope,
-    preview.current?.revision ?? null,
-    preview.current?.text ?? null,
+    preview.candidate,
+    preview.current,
+    preview.proposed,
     preview.applicable,
     preview.unavailableReason,
-    preview.candidate.staleReason,
   ]);
 }
 

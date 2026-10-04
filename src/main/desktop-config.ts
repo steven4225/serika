@@ -1,6 +1,8 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile, lstat, rename, unlink } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { DEFAULT_CONTEXT_BUDGET_CONFIG } from "@aisdk-agent/example-cli/dist/context-budget.js";
+import { resolveTuiModuleConfig } from "@aisdk-agent/example-cli/dist/tui-module-config.js";
 
 /** Desktop defaults sit above the 30s Shell / 120s Run floors so a >30s task can finish. */
 export const DESKTOP_DEFAULT_TOTAL_TIMEOUT_MS = 600_000;
@@ -58,7 +60,7 @@ export function defaultDesktopConfig(workspace?: string): Record<string, unknown
   };
   if (workspace !== undefined) {
     modules["read-file"] = { enabled: true };
-    modules.memory = { enabled: true };
+    modules.memory = { enabled: true, autoConsolidate: true, queryRewrite: { enabled: true } };
     modules.checkpoint = { enabled: true };
     modules.task = { enabled: true };
   }
@@ -103,7 +105,9 @@ export async function resolveDesktopConfig(options: {
 
   if (parsed === undefined) {
     await mkdir(options.userData, { recursive: true });
-    await writeFile(configPath, `${JSON.stringify(defaultDesktopConfig(workspace), null, 2)}\n`);
+    const dailyWorkspace = workspace ?? join(options.userData, "workspaces", "personal");
+    await mkdir(dailyWorkspace, { recursive: true });
+    await writeFile(configPath, `${JSON.stringify(defaultDesktopConfig(dailyWorkspace), null, 2)}\n`);
     return { configPath, generated: true, patched: false };
   }
 
@@ -112,4 +116,25 @@ export async function resolveDesktopConfig(options: {
     await writeFile(configPath, `${JSON.stringify(next.config, null, 2)}\n`);
   }
   return { configPath, generated: false, patched: next.patched };
+}
+
+/** An explicit desktop button opts into proposals/retrieval; formal writes still require review. */
+export async function enableDesktopMemory(configPath: string): Promise<void> {
+  const stat = await lstat(configPath);
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 64 * 1024) throw new Error("配置必须是外部常规文件，且不超过 64 KiB");
+  const before = await readFile(configPath, "utf8");
+  const config = JSON.parse(before);
+  if (!isRecord(config) || config.modules !== undefined && !isRecord(config.modules)) throw new Error("无法读取模块配置");
+  const modules = isRecord(config.modules) ? config.modules : {};
+  const memory = isRecord(modules.memory) ? modules.memory : {};
+  const next = { ...config, modules: { ...modules, memory: { ...memory, enabled: true, autoConsolidate: true, queryRewrite: { enabled: true } } } };
+  const temporary = `${configPath}.${randomUUID()}.tmp`;
+  try {
+    await writeFile(temporary, `${JSON.stringify(next, null, 2)}\n`, { flag: "wx", mode: stat.mode & 0o777 });
+    await resolveTuiModuleConfig({ configPath: temporary }, { cwd: process.cwd() });
+    if (await readFile(configPath, "utf8") !== before) throw new Error("配置已被修改，请刷新后重试");
+    await rename(temporary, configPath);
+  } finally {
+    await unlink(temporary).catch(error => { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; });
+  }
 }

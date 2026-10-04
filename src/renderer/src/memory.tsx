@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import React, { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { FormalMemories } from "./formal-memories.js";
 import type { CandidatePreview } from "@aisdk-agent/example-cli/dist/memory-candidates.js";
 import { formatRecordTime } from "../../shared/execution-records.js";
@@ -7,18 +7,22 @@ import {
   canReject,
   capabilityText,
   candidateKindLabel,
+  candidateOperationExplanation,
+  candidateSources,
   initialMemoryPanel,
   listErrorText,
   loadedLabel,
   memoryPanelReducer,
+  memoryKindLabel,
   proposedText,
   resolvePayload,
   reviewErrorText,
   scopeLabel,
   shortPreview,
-  sourceQuote,
   statusLabel,
+  systemTimeLabel,
   unavailableLabel,
+  validTimeLabel,
   type CandidateFilter,
 } from "../../shared/memory-review.js";
 
@@ -29,7 +33,7 @@ function expiresLabel(value: string | null | undefined): string {
   return value === null ? "无有效期" : value;
 }
 
-function Detail({
+export function CandidateDetail({
   preview,
   previewChanged,
   canAcceptDecision,
@@ -51,41 +55,59 @@ function Detail({
   const change = preview.candidate.change;
   const scope = scopeLabel(preview);
   const reason = unavailableLabel(preview);
-  const updateMissing = change.operation === "update" && preview.current === null;
+  const targetMissing = change.operation !== "add" && preview.current === null;
+  const proposed = preview.proposed;
+  const currentAssertion = preview.current?.assertion;
   return (
     <div className="memory-detail">
       {previewChanged ? <div className="hint">预览已更新，请重新核对</div> : null}
       <section>
-        <div className="memory-label">来源</div>
-        <pre className="memory-text">{sourceQuote(preview)}</pre>
-        <details>
-          <summary className="hint">Thread 与 message</summary>
-          <div className="hint">{preview.candidate.source.threadId}</div>
-          <div className="hint">{preview.candidate.source.messageId}</div>
-        </details>
+        <div className="memory-label">原话来源</div>
+        {candidateSources(preview).map((source, index) => <div key={`${source.threadId}:${source.messageId}:${index}`}>
+          <blockquote className="memory-text">{source.quote}</blockquote>
+          <details>
+            <summary className="hint">来源 {index + 1} 的 Thread 与消息</summary>
+            <div className="hint">{source.threadId}</div>
+            <div className="hint">{source.messageId}</div>
+          </details>
+        </div>)}
       </section>
       <section>
-        <div className="memory-label">建议</div>
-        <pre className="memory-text">{proposedText(preview)}</pre>
+        <div className="memory-label">{candidateKindLabel(preview.candidate)}</div>
+        <p className="hint">{candidateOperationExplanation(preview.candidate)}</p>
         <pre className="memory-text memory-reason">{preview.candidate.reason}</pre>
       </section>
       <section>
-        <div className="memory-label">变更</div>
-        {change.operation === "add" ? <div>新增记忆</div> : null}
-        {change.operation === "update" && preview.current !== null ? (
+        <div className="memory-label">当前记忆</div>
+        {change.operation === "add" ? <div className="hint">新增，没有现有目标。</div> : null}
+        {change.operation !== "add" && preview.current !== null ? (
           <div className="memory-change">
             <pre className="memory-text">{preview.current.text}</pre>
-            <span className="hint">更新后</span>
-            <pre className="memory-text">{change.text}</pre>
             <div className="hint">目标 {change.memoryId} · expectedRevision {change.expectedRevision}</div>
+            <div className="hint">当前版本 revision {preview.current.revision ?? "未提供"} · 断言 {currentAssertion?.assertionId ?? "未提供"}</div>
+            <div className="hint">类型 {memoryKindLabel(currentAssertion?.kind)} · {currentAssertion?.state === "retracted" ? "事实已撤回" : preview.current.status === "disabled" ? "已停用" : "当前记录"}</div>
+            <div className="hint">事实适用时间：{validTimeLabel(currentAssertion?.validTime)}</div>
+            <div className="hint">系统认知时间：{systemTimeLabel(currentAssertion?.systemTime)}</div>
+            <div className="hint">检索词：{currentAssertion?.recallTerms.join("、") || "无"}</div>
           </div>
         ) : null}
-        {updateMissing ? <div>当前目标不可用</div> : null}
+        {targetMissing ? <div>当前目标不可用</div> : null}
+      </section>
+      <section>
+        <div className="memory-label">接受后的记忆</div>
+        {change.operation === "retract" ? <p>这条事实将被撤回，不再作为当前事实引用。</p> : <pre className="memory-text">{proposedText(preview)}</pre>}
+        {proposed !== null ? <>
+          <div className="hint">类型 {memoryKindLabel(proposed.kind)} · {change.operation === "retract" ? "撤回" : proposed.status === "disabled" ? "停用" : "未停用（引用仍需匹配适用时间）"}</div>
+          <div className="hint">事实适用时间：{validTimeLabel(proposed.validTime)}</div>
+          {proposed.effectiveAt ? <div className="hint">事实变化生效于：{proposed.effectiveAt}</div> : null}
+          <div className="hint">系统认知时间：{change.operation === "disable" ? "事实认知历史不变，接受时记录停用" : "接受时记录；尚未写入"}</div>
+          <div className="hint">检索词：{proposed.recallTerms?.join("、") || "无"}（只帮助查找，不是事实或权限）</div>
+        </> : <p className="hint">完整变更预览不可用，不能接受。</p>}
       </section>
       <section>
         <div className="memory-label">范围</div>
         {scope === null ? <div>当前目标不可用</div> : <div>{scope}</div>}
-        <div className="hint">有效期 {expiresLabel(preview.proposed?.expiresAt ?? change.expiresAt)}</div>
+        <div className="hint">引用到期时间 {expiresLabel(proposed !== null ? proposed.expiresAt : change.expiresAt)}</div>
         {preview.proposed ? <div className="hint">{preview.proposed.pinned ? "pinned" : "未固定"}</div> : null}
       </section>
       <section>
@@ -293,7 +315,7 @@ function CandidateMemories({
           {state.detailLoading ? <div className="muted">正在读取详情…</div> : null}
           {state.detailError ? <div className="error">{reviewErrorText(state.detailError, state.controllerIdle)}</div> : null}
           {state.preview ? (
-            <Detail
+            <CandidateDetail
               preview={state.preview}
               previewChanged={state.previewChanged}
               canAcceptDecision={acceptEnabled}

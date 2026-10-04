@@ -18,7 +18,7 @@ const fixtureApi: Pick<RendererApi, "listMemories" | "getMemory" | "updateMemory
     return { ok: true, value: structuredClone(memory) };
   },
   listMemoryCandidates: async () => ({ ok: true, value: { candidates: [], nextOffset: null, truncated: false } }),
-  getMemoryReferences: async () => ({ runId: "fixture-run", messageId: "fixture-user", preparedAt: "2026-10-04T00:00:00Z", selected: [{ id: memory.id, revision: 1, text: "复盘先给一行结论，再列两条可执行步骤。", reason: "matched" }], rewrite: "off", truncated: false, queryTruncated: false }),
+  getMemoryReferences: async () => ({ runId: "fixture-run", messageId: "fixture-user", preparedAt: "2026-10-04T00:00:00Z", temporalView: { validAt: "2026-10-04T00:00:00Z", knownAt: "2026-10-04T00:00:00Z" }, selected: [{ id: memory.id, revision: 1, text: "复盘先给一行结论，再列两条可执行步骤。", reason: "matched" }], rewrite: "off", truncated: false, queryTruncated: false }),
 };
 window.runloom = fixtureApi as RendererApi;
 function Preview() {

@@ -3,10 +3,14 @@ import {
   canAccept,
   canReject,
   candidateKindLabel,
+  candidateOperationExplanation,
+  candidateSources,
+  memoryKindLabel,
   proposedText,
   resolvePayload,
   scopeLabel,
-  sourceQuote,
+  systemTimeLabel,
+  validTimeLabel,
   unavailableLabel,
 } from "../../shared/memory-review.js";
 import {
@@ -153,14 +157,14 @@ export function PendingMemory({ memory, controllerIdle, refreshToken, visible, o
   const preview = state.preview;
   const change = preview?.candidate.change;
   const scope = preview ? scopeLabel(preview) : null;
-  const expiresAt = preview?.proposed?.expiresAt ?? change?.expiresAt;
+  const expiresAt = preview?.proposed ? preview.proposed.expiresAt : change?.expiresAt;
   const unavailable = preview ? unavailableLabel(preview) : null;
   const ready = visible && controllerIdle && fresh;
 
   return (
     <section className="pending-memory" hidden={!visible} aria-labelledby="pending-memory-title">
       <div className="pending-memory-heading">
-        <h2 id="pending-memory-title">要把这句话记住吗？</h2>
+        <h2 id="pending-memory-title">要接受这项记忆变更吗？</h2>
         <span className="hint">{status.hasMore ? `本次读取 ${status.count} 条，还有更多` : `${status.count} 条待审`}</span>
       </div>
       {state.receipt ? <p className="memory-receipt" role="status">{state.receipt}</p> : null}
@@ -171,36 +175,49 @@ export function PendingMemory({ memory, controllerIdle, refreshToken, visible, o
           {state.previewChanged ? <p className="hint">候选内容或版本已变化，请按下面的新预览重新核对。</p> : null}
           <div className="pending-memory-source">
             <span className="memory-label">你的原话</span>
-            <blockquote>{sourceQuote(preview)}</blockquote>
+            {candidateSources(preview).map((source, index) => <blockquote key={`${source.threadId}:${source.messageId}:${index}`}>{source.quote}</blockquote>)}
           </div>
           <div className="pending-memory-proposal">
-            <span className="memory-label">{candidateKindLabel(preview.candidate)}为正式记忆</span>
-            <p>{proposedText(preview)}</p>
+            <span className="memory-label">{candidateKindLabel(preview.candidate)}</span>
+            {change?.operation === "retract" ? <p>撤回这条事实，不再作为当前事实引用。</p> : <p>{proposedText(preview)}</p>}
+            <p className="hint">{candidateOperationExplanation(preview.candidate)}</p>
           </div>
-          {change?.operation === "update" ? (
+          {change && change.operation !== "add" ? (
             <div className="pending-memory-current">
-              <span className="memory-label">将更新的当前记忆</span>
-              {preview.current ? <p>{preview.current.text}</p> : <p>当前目标不可用，不能接受此更新。</p>}
+              <span className="memory-label">当前记忆</span>
+              {preview.current ? <p>{preview.current.text}</p> : <p>当前目标不可用，不能接受此变更。</p>}
             </div>
           ) : null}
           <div className="pending-memory-meta">
             <span>范围：{scope === "workspace" ? "当前工作区，可供其他 Thread 使用" : scope ?? "当前目标不可用"}</span>
-            <span>有效期：{expiresAt === null ? "无有效期" : expiresAt ?? "未提供"}</span>
+            <span>引用到期：{expiresAt === null ? "无有效期" : expiresAt ?? "未提供"}</span>
+            <span>事实适用：{validTimeLabel(preview.proposed?.validTime)}</span>
           </div>
           {unavailable ? <p className="hint">当前不可接受：{unavailable}</p> : null}
           <details className="pending-memory-evidence">
             <summary>来源与变更说明</summary>
             <p>{preview.candidate.reason}</p>
-            <p className="hint">来源 Thread：{preview.candidate.source.threadId}</p>
-            <p className="hint">消息：{preview.candidate.source.messageId}</p>
+            {candidateSources(preview).map((source, index) => <div key={`${source.threadId}:${source.messageId}:${index}`}>
+              <p className="hint">来源 {index + 1} Thread：{source.threadId}</p>
+              <p className="hint">消息：{source.messageId}</p>
+            </div>)}
+            <p className="hint">拟保存类型：{memoryKindLabel(preview.proposed?.kind)}</p>
+            <p className="hint">检索词：{preview.proposed?.recallTerms?.join("、") || "无"}（只帮助查找）</p>
+            {preview.proposed?.effectiveAt ? <p className="hint">事实变化生效于：{preview.proposed.effectiveAt}</p> : null}
+            <p className="hint">系统认知时间：{change?.operation === "disable" ? "事实认知历史不变，接受时记录停用" : "接受时记录；尚未写入"}</p>
+            {preview.current ? <div>
+              <p className="hint">当前断言：{preview.current.assertion?.assertionId ?? "未提供"}；revision {preview.current.revision ?? "未提供"}</p>
+              <p className="hint">原事实适用时间：{validTimeLabel(preview.current.assertion?.validTime)}</p>
+              <p className="hint">原系统认知时间：{systemTimeLabel(preview.current.assertion?.systemTime)}</p>
+            </div> : null}
             <p className="hint">候选版本：{preview.candidate.revision}</p>
-            {change?.operation === "update" ? <p className="hint">更新目标：{change.memoryId}；预期记忆版本：{change.expectedRevision}</p> : null}
+            {change && change.operation !== "add" ? <p className="hint">变更目标：{change.memoryId}；预期记忆版本：{change.expectedRevision}</p> : null}
           </details>
           {!controllerIdle ? <p className="hint">助手正在处理任务，空闲后再接受或拒绝。</p> : null}
           <div className="actions pending-memory-actions">
             <button className="ghost" onClick={reload} disabled={state.resolving || state.listLoading}>重新读取</button>
             <button className="deny" onClick={() => resolve("reject")} disabled={!ready || !canReject(state)}>拒绝</button>
-            <button className="allow" onClick={() => resolve("accept")} disabled={!ready || !canAccept(state)}>{state.resolving ? "正在审核…" : "接受并保存"}</button>
+            <button className="allow" onClick={() => resolve("accept")} disabled={!ready || !canAccept(state)}>{state.resolving ? "正在审核…" : "接受变更"}</button>
           </div>
         </div>
       ) : status.error ? <button className="ghost" onClick={reload} disabled={state.listLoading}>重新读取候选</button> : null}

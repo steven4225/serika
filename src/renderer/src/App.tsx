@@ -26,6 +26,8 @@ import {
 } from "./conversation.js";
 import { baseName, parseHome, shortId, type HomeView } from "./home.js";
 import { MemoryPanel } from "./memory.js";
+import { MemoryConsolidationPanel } from "./memory-consolidation.js";
+import { ThreadsPanel } from "./threads.js";
 import { MemoryReferences } from "./memory-references.js";
 import { ContextPanel } from "./context.js";
 import { RecordsPanel, type RecordDetailState, type RecordsState } from "./records.js";
@@ -220,6 +222,15 @@ function HomeBody({ view }: { view: HomeView }) {
 }
 
 export function App() {
+  const [identityGeneration, setIdentityGeneration] = useState(0);
+  useEffect(() => window.runloom.onMessage(message => {
+    if (message.type === "identity-changed") setIdentityGeneration(value => value + 1);
+  }), []);
+  // Reset all previews, outstanding display requests, and input on a Thread change.
+  return <AssistantPage key={identityGeneration} />;
+}
+
+function AssistantPage() {
   const [info, setInfo] = useState<AppInfo | null>(null);
   const [state, setState] = useState<UiState>({ kind: "idle" });
   const [home, setHome] = useState("");
@@ -231,6 +242,7 @@ export function App() {
   const [approval, setApproval] = useState<PendingApproval | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [input, setInput] = useState("");
+  const [excludeFromMemory, setExcludeFromMemory] = useState(false);
   const [submittedInput, setSubmittedInput] = useState<string | null>(null);
   const [showOutput, setShowOutput] = useState(false);
   const [records, setRecords] = useState<RecordsState>({ status: "loading" });
@@ -247,7 +259,7 @@ export function App() {
   const latestCompletedPrimaryId = useRef<string | null>(null);
   const historyRequest = useRef(0);
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const [detailTab, setDetailTab] = useState<"home" | "records" | "memory" | "context" | "pomodoro" | "modules">("home");
+  const [detailTab, setDetailTab] = useState<"threads" | "home" | "records" | "memory" | "context" | "pomodoro" | "modules">("home");
   const [sending, setSending] = useState(false);
   const sendInFlight = useRef(false);
   const homeBuffer = useRef("");
@@ -344,6 +356,8 @@ export function App() {
 
     const onMessage = (message: MainToRenderer): void => {
       switch (message.type) {
+        case "identity-changed":
+          return; // The outer App remounts this view for the new controller.
         case "state":
           setState(message.state);
           if (message.state.kind === "running" && message.state.runId === null && message.state.phase === "primary") {
@@ -357,6 +371,7 @@ export function App() {
           }
           if (message.state.kind === "running" && message.state.phase === "primary" && message.state.runId !== null) latestPrimaryId.current = message.state.runId;
           if (message.state.kind === "idle") {
+            setMemoryRefresh(value => value + 1);
             setContextRefresh((value) => value + 1);
             setTaskRefresh((value) => value + 1);
             void reloadHistory().catch((cause: unknown) => setError(String(cause)));
@@ -497,16 +512,17 @@ export function App() {
         setInput("");
         return;
       }
-      const response = await window.runloom.run(line);
+      const response = await window.runloom.run(line, excludeFromMemory ? { memoryConsolidation: "exclude" } : undefined);
       if (!response.ok) {
         setError(response.reason === "empty" ? "输入为空" : `当前忙（${response.reason}），未排队`);
         return;
       }
       setSubmittedInput(line);
       setInput("");
+      setExcludeFromMemory(false);
     } catch { setError("未收到启动结果。请核对当前状态，不会自动重发。"); }
     finally { sendInFlight.current = false; setSending(false); }
-  }, [input, approval, state]);
+  }, [input, approval, state, excludeFromMemory]);
 
   const busy = state.kind !== "idle";
   const running = state.kind === "running";
@@ -528,8 +544,8 @@ export function App() {
   const stageLabel = info ? status.label : error ? "连接失败" : "正在连接";
   const pendingLabel = loadedCountLabel(pendingMemory.count, pendingMemory.hasMore);
   const refreshMemory = useCallback(() => setMemoryRefresh(value => value + 1), []);
-  const pageTitle = !detailsOpen ? "对话" : ({ home: "工作区", records: "执行记录", memory: "记忆", context: "上下文与压缩", pomodoro: "番茄钟", modules: "模块能力" })[detailTab];
-  const pageDescription = ({ home: "查看保存的进度、本地任务和当前配置。", records: "核对每次执行的工具结果，区分完成、失败和未知效果。", memory: "查看当前正式记忆，或审核当前对话的候选记录。", context: "查看压缩记录和本次准备结果；需要时手动压缩。", pomodoro: "专注计时，直接操作，不必发消息。", modules: "了解助手支持什么，以及当前启用了什么。" })[detailTab];
+  const pageTitle = !detailsOpen ? "对话" : ({ threads: "历史对话", home: "工作区", records: "执行记录", memory: "记忆", context: "上下文与压缩", pomodoro: "番茄钟", modules: "模块能力" })[detailTab];
+  const pageDescription = ({ threads: "打开当前工作区的旧对话，或开始一个新 Thread。", home: "查看保存的进度、本地任务和当前配置。", records: "核对每次执行的工具结果，区分完成、失败和未知效果。", memory: "查看当前正式记忆，或审核当前对话的候选记录。", context: "查看压缩记录和本次准备结果；需要时手动压缩。", pomodoro: "专注计时，直接操作，不必发消息。", modules: "了解助手支持什么，以及当前启用了什么。" })[detailTab];
   const prepareInput = (text: string) => { setInput(text); inputRef.current?.focus(); };
   const scrollToLatest = () => {
     followConversation.current = true;
@@ -549,7 +565,7 @@ export function App() {
         </nav>
         <div className="sidebar-section">查阅</div>
         <nav className="primary-nav" aria-label="查阅">
-          {([["home", "工作区", "home"], ["records", "执行记录", "activity"], ["memory", "记忆审核", "memory"]] as const).map(([tab, label, icon]) =>
+          {([["threads", "历史对话", "chat"], ["home", "工作区", "home"], ["records", "执行记录", "activity"], ["memory", "记忆审核", "memory"]] as const).map(([tab, label, icon]) =>
             <button key={tab} className={detailsOpen && detailTab === tab ? "selected" : ""} title={label} aria-current={detailsOpen && detailTab === tab ? "page" : undefined} onClick={() => openDetails(tab)}>
               <Icon name={icon as IconName} /><span>{label}</span>{tab === "records" && unknownRuns.length ? <span className="nav-count" aria-label={`${unknownRuns.length} 条已加载执行尚待核对`}>{unknownRuns.length}</span> : tab === "memory" && pendingLabel ? <span className="nav-count" title={pendingMemory.hasMore ? "待审候选数量至少为此数" : "当前 Thread 待审候选"} aria-label={`${pendingLabel} 条待审记忆`}>{pendingLabel}</span> : null}
             </button>)}
@@ -575,6 +591,7 @@ export function App() {
           {busy ? <button className="cancel-button" onClick={() => void window.runloom.cancel().catch(() => setError("取消结果未收到，请核对当前状态。"))}><Icon name="stop" size={14} />停止</button> : null}
         </header>
         {isMockModel(info?.modelAlias) ? <div className="model-mode-notice" role="status">当前使用模拟模型，只用于界面测试。日用任务请配置真实模型并重启；不会自动切换。</div> : null}
+        {info?.entryMode === "test" ? <div className="model-mode-notice" role="status">隔离验收窗口 · 这里的会话和记忆属于测试工作区</div> : null}
         <div className="attention-region" hidden={(attention === "none" && !pendingMemory.error) || (attention === "memory" && detailsOpen)}>
           {attention === "approval" && approval ? <ApprovalCard approval={approval} deciding={decidingId === approval.approvalId} onDecision={decision => void decide(decision)} /> : null}
           {attention === "unknown" ? <div className="review-notice" role="status"><Icon name="shield" size={16} /><span>有执行效果还没核对，不会自动重做。</span><button className="ghost" onClick={() => { if (reviewTask) { workTasks.select(reviewTask.id); openDetails("home"); } else { openDetails("records"); const run = unknownRuns[0]; if (run) void openRecord(run.runId); } }}>{reviewTask ? "核对工作任务" : "查看回执"}<Icon name="chevron" size={14} /></button></div> : null}
@@ -614,6 +631,7 @@ export function App() {
           <section className="inspector" hidden={!detailsOpen} aria-label={pageTitle}>
             <div className="inspector-header"><div><h1>{pageTitle}</h1><p>{pageDescription}</p></div><button className="ghost" onClick={() => setDetailsOpen(false)}><Icon name="chat" size={16} />回到对话</button></div>
             <div className="inspector-pane">
+              {detailTab === "threads" && info ? <ThreadsPanel info={info} busy={busy} /> : null}
               <div hidden={detailTab !== "home"}>
                 <WorkTasksPanel view={workTasks} createRequest={createTaskRequest} onRun={runId => { openDetails("records"); void openRecord(runId).catch(() => setError("执行回执读取失败")); }} />
                 <RssPanel enabled={!!info?.workspaceRoot && info.modules?.some(m => m.id === "task" && m.enabled) === true} busy={busy} />
@@ -637,7 +655,7 @@ export function App() {
                 <RecordsPanel records={records} detail={recordDetail}
                 onRefresh={() => void loadRecords(selectedRecordId.current ?? undefined).catch(() => setError("执行记录读取失败"))}
                 onOpen={runId => void openRecord(runId).catch(() => setError("执行回执读取失败"))} /></div>
-              <div hidden={detailTab !== "memory"}>{info ? <MemoryPanel memory={info.memory} temporaryThread={info.temporaryThread}
+              <div hidden={detailTab !== "memory"}>{info ? <MemoryConsolidationPanel info={info} busy={busy} refreshToken={memoryRefresh} /> : null}{info ? <MemoryPanel memory={info.memory} temporaryThread={info.temporaryThread}
                 controllerIdle={!busy} refreshToken={memoryRefresh} /> : null}</div>
               <div hidden={detailTab !== "context"}>{info ? <ContextPanel controllerIdle={!busy} refreshToken={contextRefresh}
                 hasCompaction={info.hasCompaction} /> : null}</div>
@@ -659,6 +677,7 @@ export function App() {
                 }
               }} />
             <div className="composer-controls">
+              {info?.memory.enabled ? <label className="memory-exclusion" title="这条消息不进入现在或以后的记忆候选整理；不会删除对话记录，也不关闭已有记忆引用。"><input type="checkbox" checked={excludeFromMemory} disabled={sending} onChange={event => setExcludeFromMemory(event.target.checked)} />本条不整理为记忆</label> : null}
               {info?.workTasks ? <button className="ghost" disabled={busy || workTasks.acting} onClick={() => { openDetails("home"); setCreateTaskRequest(value => value + 1); }}>创建工作任务</button> : null}
               {info && info.commands.length > 0 ? <details className="commands-menu"><summary>／<span>命令</span></summary><div className="commands">
                 <div className="command-caption">填入命令后发送，不会立即执行</div>

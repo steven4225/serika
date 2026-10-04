@@ -1,0 +1,69 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import type { CandidatePreview } from "@aisdk-agent/example-cli/dist/memory-candidates.js";
+import type { MemoryReferenceSnapshot } from "@aisdk-agent/example-cli/dist/memory-query-rewrite.js";
+import { CandidateDetail } from "./memory.js";
+import { MemoryReferenceDetails } from "./memory-references.js";
+
+function candidatePreview(): CandidatePreview {
+  const source = { kind: "conversation" as const, threadId: "thread-a", messageId: "source-a", quote: "从昨天开始改成三步。" };
+  return {
+    candidate: {
+      id: "candidate-a", revision: 3, batchId: "batch-a", originThreadId: "thread-a", fingerprint: "fingerprint",
+      createdAt: "2026-10-04T00:00:00Z", resolvedAt: null, status: "pending", staleReason: null, appliedResult: null,
+      change: { operation: "change", memoryId: "memory-a", expectedRevision: 2, text: "复盘先结论，再列三步。", expiresAt: null, effectiveAt: "2026-10-03T00:00:00Z" },
+      source, sources: [source, { ...source, messageId: "source-b", quote: "旧的两步不再适用。" }], reason: "用户明确报告真实偏好变化",
+    },
+    current: {
+      id: "memory-a", revision: 2, text: "复盘先结论，再列两步。", enabled: true, status: "active", scope: { kind: "workspace" },
+      assertion: { assertionId: "assertion-a", kind: "preference", state: "asserted", recallTerms: ["复盘格式"], validTime: { from: null, to: null, basis: "unknown" }, systemTime: { from: "2026-10-02T00:00:00Z", to: null }, sourceIds: [{ kind: "conversation", threadId: "thread-a", messageId: "source-old" }] },
+    },
+    proposed: { text: "复盘先结论，再列三步。", scope: { kind: "workspace" }, expiresAt: null, pinned: false, status: "active", kind: "preference", recallTerms: ["复盘格式"], validTime: { from: "2026-10-03T00:00:00Z", to: null, basis: "explicit" }, effectiveAt: "2026-10-03T00:00:00Z" },
+    applicable: true, unavailableReason: null,
+  };
+}
+
+function detail(preview: CandidatePreview) {
+  return renderToStaticMarkup(createElement(CandidateDetail, {
+    preview, previewChanged: false, canAcceptDecision: preview.applicable, canRejectDecision: true, resolving: false,
+    onAccept: () => {}, onReject: () => {}, onRefresh: () => {},
+  }));
+}
+
+describe("memory temporal review UI", () => {
+  it("shows both checked source quotes and real-change current/proposed timing", () => {
+    const html = detail(candidatePreview());
+    for (const text of ["事实变更", "从昨天开始改成三步。", "旧的两步不再适用。", "source-a", "source-b", "再列两步", "再列三步", "事实适用时间", "系统认知时间", "2026-10-03T00:00:00Z", "复盘格式", "接受时记录；尚未写入"]) assert.ok(html.includes(text), text);
+    assert.match(html, /此前适用的事实仍保留/);
+  });
+
+  it("does not present withdrawn text as a new saved fact or invent a missing target scope", () => {
+    const withdrawal = candidatePreview();
+    withdrawal.candidate.change = { operation: "retract", memoryId: "memory-a", expectedRevision: 2, text: "旧两步", expiresAt: null };
+    withdrawal.proposed = { ...withdrawal.proposed!, text: "" };
+    assert.match(detail(withdrawal), /这条事实将被撤回，不再作为当前事实引用/);
+    const missing = candidatePreview();
+    missing.current = null; missing.proposed = null; missing.applicable = false; missing.unavailableReason = "target_missing";
+    const html = detail(missing);
+    assert.match(html, /当前目标不可用/);
+    assert.equal(html.includes("workspace"), false);
+    assert.match(html, /完整变更预览不可用/);
+  });
+
+  it("renders actual selected revision/assertion, recall-term reason and both temporal viewpoints", () => {
+    const preview = candidatePreview();
+    const assertion = preview.current!.assertion!;
+    const { recallTerms: _terms, ...referenceAssertion } = assertion;
+    const reference: MemoryReferenceSnapshot & { runId: string } = {
+      runId: "run-a", messageId: "message-current", preparedAt: "2026-10-04T00:00:00Z", temporalView: { validAt: "2026-10-03T00:00:00Z", knownAt: "2026-10-04T00:00:00Z" },
+      selected: [{ id: "memory-a", revision: 2, text: "已选择的正文", reason: "recall_term", assertion: referenceAssertion }],
+      truncated: false, queryTruncated: false, rewrite: "off",
+    };
+    const html = renderToStaticMarkup(createElement(MemoryReferenceDetails, { reference }));
+    for (const text of ["memory-a", "revision 2", "assertion-a", "已审核检索词匹配", "source-old", "validAt", "knownAt", "不是模型自报", "旧摘要里的引用不算本轮选中"]) assert.ok(html.includes(text), text);
+    assert.equal(html.includes("复盘格式"), false, "lookup phrases are not factual source evidence");
+    assert.equal(html.includes("从昨天开始改成三步"), false, "reference snapshots do not contain source quotes");
+  });
+});

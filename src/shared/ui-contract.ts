@@ -1,5 +1,9 @@
 import type { UIMessage } from "ai";
 import type { FormalMemory, MemoryPage, MemoryListInput, MemoryEditInput } from "@aisdk-agent/example-cli/dist/memory-management.js";
+import type { MemoryAction, MemoryActionPreview, MemoryHistoryInput, MemoryHistoryPage, MemoryMaintenance } from "@aisdk-agent/example-cli/dist/memory-controls.js";
+import type { AssistantRunOptions } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
+import type { MemoryConsolidationRequest, MemoryConsolidationSourcePage } from "@aisdk-agent/example-cli/dist/memory-consolidation.js";
+import type { MemoryTemporalQuery, MemoryTemporalView } from "@aisdk-agent/example-cli/dist/memory-store.js";
 import type { MemoryReferenceSnapshot } from "@aisdk-agent/example-cli/dist/memory-query-rewrite.js";
 import type { AgentEvent, RunResult } from "@aisdk-agent/core";
 import type { ContextDiagnostics, ContextResult } from "@aisdk-agent/example-cli/dist/context-diagnostics.js";
@@ -60,6 +64,7 @@ export interface ToolActivity {
 }
 
 export interface AppInfo {
+  entryMode?: "daily" | "test";
   /** Built-in support and current configuration only; not a permission grant. */
   modules?: { id: string; enabled: boolean }[];
   moduleOptions?: { webSearch: boolean; webFeed: boolean; autoConsolidate: boolean };
@@ -107,6 +112,7 @@ export interface UiSnapshot {
 }
 
 export type MainToRenderer =
+  | { type: "identity-changed"; info: AppInfo }
   | { type: "state"; state: UiState }
   | { type: "output"; text: string }
   | { type: "home"; text: string; reset?: boolean }
@@ -188,6 +194,15 @@ export type GetRunResponse =
   | { ok: false; reason: "unavailable"; message: string };
 
 export interface RendererApi {
+  listThreads(): Promise<ThreadSummary[]>;
+  createThread(): Promise<void>;
+  selectThread(threadId: string): Promise<void>;
+  chooseHistoryDirectory(): Promise<string | null>;
+  discoverThreads(directory: string): Promise<ThreadSummary[]>;
+  registerThread(input: { threadId: string; transcriptDirectory: string; confirmedWorkspace: true }): Promise<void>;
+  enableMemory(): Promise<void>;
+  consolidateMemory(input: MemoryConsolidationRequest): Promise<MemoryResult<{ runId: string }>>;
+  listMemoryConsolidationSources(offset?: number): Promise<MemoryResult<MemoryConsolidationSourcePage>>;
   getRssSubscriptions(): Promise<RssResult<RssView>>;
   updateRssSubscriptions(input: RssAction): Promise<RssResult<RssView>>;
   getRssInbox(): Promise<RssResult<RssInbox>>;
@@ -198,7 +213,7 @@ export interface RendererApi {
   snapshot(): Promise<UiSnapshot>;
   history(): Promise<UIMessage[]>;
   home(): Promise<CommandResponse>;
-  run(text: string): Promise<RunResponse>;
+  run(text: string, options?: AssistantRunOptions): Promise<RunResponse>;
   cancel(): Promise<void>;
   confirm(input: ConfirmInput): Promise<ConfirmResponse>;
   command(line: string): Promise<CommandResponse>;
@@ -208,6 +223,11 @@ export interface RendererApi {
   listMemories(input?: MemoryListInput): Promise<MemoryResult<MemoryPage>>;
   getMemory(id: string): Promise<MemoryResult<FormalMemory>>;
   updateMemory(input: MemoryEditInput): Promise<MemoryResult<FormalMemory>>;
+  getMemoryHistory(input: MemoryHistoryInput): Promise<MemoryResult<MemoryHistoryPage>>;
+  queryMemory(input: MemoryTemporalQuery & { id: string }): Promise<MemoryResult<MemoryTemporalView>>;
+  previewMemoryAction(input: MemoryAction): Promise<MemoryResult<MemoryActionPreview>>;
+  applyMemoryAction(input: MemoryAction): Promise<MemoryResult<FormalMemory | null>>;
+  getMemoryMaintenance(): Promise<MemoryResult<MemoryMaintenance>>;
   getMemoryReferences(): Promise<(MemoryReferenceSnapshot & { runId: string }) | null>;
   listMemoryCandidates(input?: CandidateListInput): Promise<MemoryResult<CandidatePage>>;
   getMemoryCandidate(id: string): Promise<MemoryResult<CandidatePreview>>;
@@ -229,6 +249,15 @@ export interface RendererApi {
 }
 
 export const IPC = {
+  threadsList: "runloom:threadsList",
+  threadCreate: "runloom:threadCreate",
+  threadSelect: "runloom:threadSelect",
+  historyDirectory: "runloom:historyDirectory",
+  threadsDiscover: "runloom:threadsDiscover",
+  threadRegister: "runloom:threadRegister",
+  memoryEnable: "runloom:memoryEnable",
+  memoryConsolidate: "runloom:memoryConsolidate",
+  memoryConsolidationSources: "runloom:memoryConsolidationSources",
   rssGet: "runloom:rssGet",
   rssUpdate: "runloom:rssUpdate",
   rssInbox: "runloom:rssInbox",
@@ -249,6 +278,11 @@ export const IPC = {
   memoriesList: "runloom:memoriesList",
   memoryGet: "runloom:memoryGet",
   memoryUpdate: "runloom:memoryUpdate",
+  memoryHistory: "runloom:memoryHistory",
+  memoryQuery: "runloom:memoryQuery",
+  memoryPreview: "runloom:memoryPreview",
+  memoryApply: "runloom:memoryApply",
+  memoryMaintenance: "runloom:memoryMaintenance",
   memoryReferences: "runloom:memoryReferences",
   memoryCandidatesList: "runloom:memoryCandidatesList",
   memoryCandidateGet: "runloom:memoryCandidateGet",
@@ -272,3 +306,11 @@ export const IPC = {
 export type RssWorkerResponse =
   | { ok: true; registered: boolean; running: boolean; rssEnabled: boolean }
   | { ok: false; message: string };
+
+export interface ThreadSummary {
+  threadId: string;
+  transcriptDirectory: string;
+  title: string;
+  messageCount: number | null;
+  error?: string;
+}

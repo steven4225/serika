@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import { resolveDesktopIdentity } from "./desktop-identity.js";
+import { createDesktopThread, listDesktopThreads, registerDesktopThread, resolveDesktopIdentity, selectDesktopThread } from "./desktop-identity.js";
 
 async function fixture(run: (root: string) => Promise<void>): Promise<void> {
   const root = await mkdtemp(join(tmpdir(), "runloom-desktop-identity-"));
@@ -20,7 +20,7 @@ describe("desktop startup identity", () => {
     assert.deepEqual(second, first);
     assert.equal(first.identitySource, "saved");
     const stored = JSON.parse(await readFile(join(root, "userData", "desktop-identity.json"), "utf8"));
-    assert.equal(stored.threadId, first.threadId);
+    assert.equal(stored.profiles[0].activeThreadId, first.threadId);
     assert.equal(stored.identitySource, undefined);
   }));
 
@@ -33,6 +33,22 @@ describe("desktop startup identity", () => {
     const changedConfig = await resolveDesktopIdentity({ ...options(root), configPath: join(root, "other-config.json") });
     assert.notEqual(changedConfig.threadId, changedWorkspace.threadId);
     assert.equal(await readFile(join(first.transcriptDirectory, "sentinel"), "utf8"), "old conversation");
+    assert.deepEqual(await resolveDesktopIdentity(options(root)), first);
+  }));
+
+  it("migrates the legacy preference without losing its Thread and retains new selections", async () => fixture(async root => {
+    await mkdir(join(root, "userData"));
+    const legacy = { version: 1, configPath: join(root, "config.json"), workspaceRoot: join(root, "workspace"), threadId: "personal", transcriptDirectory: join(root, "old-transcripts") };
+    const path = join(root, "userData", "desktop-identity.json");
+    await writeFile(path, JSON.stringify(legacy));
+    assert.equal((await resolveDesktopIdentity(options(root))).threadId, "personal");
+    assert.equal(JSON.parse(await readFile(path, "utf8")).version, 1, "read-only reuse does not rewrite preferences");
+    const next = await createDesktopThread(options(root));
+    await selectDesktopThread(options(root), next.threadId);
+    assert.equal((await resolveDesktopIdentity(options(root))).threadId, next.threadId);
+    assert.deepEqual((await listDesktopThreads(options(root))).map(thread => thread.threadId), ["personal", next.threadId]);
+    await assert.rejects(selectDesktopThread({ ...options(root), workspaceRoot: join(root, "other") }, "personal"), /not registered/);
+    await assert.rejects(registerDesktopThread(options(root), { threadId: "personal", transcriptDirectory: join(root, "wrong-directory") }), /different directory/);
   }));
 
   it("honors explicit overrides without replacing the saved normal identity", async () => fixture(async (root) => {

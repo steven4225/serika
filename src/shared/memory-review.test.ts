@@ -5,6 +5,9 @@ import {
   canAccept,
   canReject,
   capabilityText,
+  candidateKindLabel,
+  candidateOperationExplanation,
+  candidateSources,
   initialMemoryPanel,
   loadedLabel,
   memoryPanelReducer,
@@ -13,6 +16,8 @@ import {
   scopeLabel,
   sourceQuote,
   unavailableLabel,
+  validTimeLabel,
+  systemTimeLabel,
 } from "./memory-review.js";
 
 function candidate(id: string, text: string, revision = 1): MemoryCandidate {
@@ -324,5 +329,58 @@ describe("memory candidate review state", () => {
     const started = memoryPanelReducer(next, { type: "resolve-start", decision: "reject" });
     assert.equal(started.receipt, null);
     assert.equal(started.resolving, true);
+  });
+
+  it("distinguishes real change, correction, withdrawal and disable and preserves all checked quotes", () => {
+    const item = preview();
+    const labels: string[] = [];
+    for (const operation of ["update", "change", "correct", "retract", "disable"] as const) {
+      item.candidate.change = operation === "change"
+        ? { operation, memoryId: "memory-a", expectedRevision: 2, text: "三步", expiresAt: null, effectiveAt: "2026-10-03T00:00:00Z" }
+        : { operation, memoryId: "memory-a", expectedRevision: 2, text: "三步", expiresAt: null };
+      labels.push(candidateKindLabel(item.candidate));
+      assert.notEqual(candidateOperationExplanation(item.candidate), "");
+      item.current = null;
+      item.proposed = null;
+      assert.equal(scopeLabel(item), null, `${operation} must not invent workspace scope`);
+    }
+    assert.deepEqual(labels, ["更新", "事实变更", "纠错", "撤回事实", "停用"]);
+    assert.deepEqual(candidateSources(item), [item.candidate.source]);
+    const additional = { kind: "conversation" as const, threadId: "thread-a", messageId: "message-2", quote: "从昨天开始改成三步。" };
+    item.candidate.sources = [item.candidate.source, additional];
+    assert.deepEqual(candidateSources(item), [item.candidate.source, additional]);
+  });
+
+  it("marks a reloaded preview changed for temporal, inherited, retrieval and source-only differences", () => {
+    const original = preview();
+    original.candidate.change = { operation: "correct", memoryId: "memory-a", expectedRevision: 2, text: "结论后两步", expiresAt: null };
+    original.current = { id: "memory-a", text: "结论后两步", revision: 2, enabled: true, scope: { kind: "workspace" } };
+    const changes: Array<(item: CandidatePreview) => void> = [
+      item => { item.candidate.sources = [{ ...item.candidate.source, quote: "新的精确引文" }]; },
+      item => { item.candidate.reason = "修正后的理由"; },
+      item => { item.proposed!.expiresAt = "2026-11-01T00:00:00Z"; },
+      item => { item.proposed!.pinned = true; },
+      item => { item.proposed!.status = "disabled"; },
+      item => { item.proposed!.kind = "preference"; },
+      item => { item.proposed!.recallTerms = ["复盘格式"]; },
+      item => { item.proposed!.validTime = { from: "2026-10-02T00:00:00Z", to: null, basis: "explicit" }; },
+      item => { item.candidate.change = { operation: "change", memoryId: "memory-a", expectedRevision: 2, text: "结论后两步", expiresAt: null, effectiveAt: "2026-10-03T00:00:00Z" }; },
+      item => { item.current!.scope = { kind: "thread", threadId: "thread-a" }; },
+    ];
+    for (const change of changes) {
+      const next = structuredClone(original);
+      change(next);
+      const invalid = memoryPanelReducer({ ...initialMemoryPanel(), preview: original, selectedId: "c1" }, { type: "invalidate", listRequest: 1, detailRequest: 1 });
+      assert.equal(canAccept(invalid), false);
+      const reloaded = memoryPanelReducer(invalid, { type: "detail-result", request: 1, id: "c1", result: { ok: true, value: next } });
+      assert.equal(reloaded.previewChanged, true, JSON.stringify(next));
+      assert.equal(reloaded.previewNeedsReview, false);
+    }
+  });
+
+  it("labels unknown validity separately from system knowledge time", () => {
+    assert.match(validTimeLabel({ from: null, to: null, basis: "unknown" }), /起点未确定.*边界未知/);
+    assert.equal(validTimeLabel(undefined), "未提供");
+    assert.match(systemTimeLabel({ from: "2026-10-04T00:00:00Z", to: null }), /2026-10-04.*当前认知/);
   });
 });

@@ -1,17 +1,13 @@
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
-import { app, BrowserWindow, ipcMain, Notification, shell } from "electron";
-import { createRuntimeApp } from "@aisdk-agent/example-cli/dist/app.js";
-import { createAssistantController } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
+import { app, BrowserWindow, ipcMain, Notification, shell, dialog } from "electron";
 import { createDemoModel } from "@aisdk-agent/example-cli/dist/demo-model.js";
 import { configureCliModel, inspectCliModelConfig } from "@aisdk-agent/example-cli/dist/model-config.js";
-import { resolveTuiModuleConfig } from "@aisdk-agent/example-cli/dist/tui-module-config.js";
 import type { CandidateListInput, CandidateResolveInput } from "@aisdk-agent/example-cli/dist/memory-candidates.js";
 import { IPC, type ConfirmInput, type MainToRenderer } from "../shared/ui-contract.js";
 import type { WorkTaskInputs, WorkTaskReadInput, WorkTaskArtifactInput } from "../shared/work-tasks.js";
-import { resolveDesktopConfig } from "./desktop-config.js";
-import { resolveDesktopIdentity } from "./desktop-identity.js";
-import { parseModuleNotification, RuntimeBridge, TeeOutput } from "./runtime-bridge.js";
+import { parseModuleNotification } from "./runtime-bridge.js";
+import { DesktopRuntime } from "./desktop-runtime.js";
 import { installHideOnClose, installTray } from "./tray.js";
 import { loadDesktopEnvironment, safeStartupError } from "./desktop-env.js";
 import { createDesktopRssWorker } from "./rss-worker-service.js";
@@ -107,47 +103,25 @@ async function main(): Promise<void> {
     window.hide();
   });
 
-  const output = new TeeOutput(send);
-  let bridge!: RuntimeBridge;
+  let host!: DesktopRuntime;
   // Renderer can load before disk/config initialization finishes. Keep info waiting
   // for the actual result rather than returning a misleading "no IPC handler" error.
   let resolveStartup!: () => void;
   let rejectStartup!: (error: Error) => void;
   const startup = new Promise<void>((resolve, reject) => { resolveStartup = resolve; rejectStartup = reject; });
   void startup.catch(() => undefined);
-  ipcMain.handle(IPC.info, async () => { await startup; return bridge.info(); });
+  ipcMain.handle(IPC.info, async () => { await startup; return host.info(); });
   try {
     await loadDesktopEnvironment();
     const { modelAlias, model } = configureCliModel(createDemoModel, process.env);
-    const desktopConfig = await resolveDesktopConfig({ env: process.env, userData: app.getPath("userData") });
-    // Resolve through the backend's own config validation/canonical workspace rules.
-    const moduleConfig = await resolveTuiModuleConfig({ configPath: desktopConfig.configPath }, { cwd: process.cwd() });
-    const identity = await resolveDesktopIdentity({
+    host = await DesktopRuntime.create({
       env: process.env, userData: app.getPath("userData"), cwd: process.cwd(),
-      configPath: moduleConfig.configPath!, workspaceRoot: moduleConfig.workspaceRoot,
+      modelAlias, model, modelId: inspectCliModelConfig().modelId, send,
     });
-    const args = ["--tui", identity.transcriptDirectory, "--thread", identity.threadId, "--config", identity.configPath];
-    const runtimeApp = await createRuntimeApp({
-      args,
-      modelAlias,
-      model,
-      output,
-      env: process.env,
-      cwd: process.cwd(),
-    });
-    const controller = createAssistantController(runtimeApp);
-    const rssWorker = createDesktopRssWorker({ workspace: runtimeApp.workspaceRoot, home: app.getPath("home"), env: process.env,
+    const rssWorker = createDesktopRssWorker({ workspace: host.info().workspaceRoot ?? undefined, home: app.getPath("home"), env: process.env,
       workerEntry: fileURLToPath(import.meta.resolve("@aisdk-agent/example-cli/dist/task-worker-entry.js")) });
     ipcMain.handle(IPC.rssWorkerStatus, () => rssWorker.status());
     ipcMain.handle(IPC.rssWorkerEnabled, (_event, enabled: unknown) => rssWorker.setEnabled(enabled));
-    output.attach(controller);
-    bridge = new RuntimeBridge(
-      runtimeApp,
-      controller,
-      { modelAlias, modelId: inspectCliModelConfig().modelId, temporaryThread: false, temporaryDirectory: false, identitySource: identity.identitySource },
-      output,
-      send,
-    );
   } catch (error) {
     const message = safeStartupError(error, process.env);
     rejectStartup(new Error(message));
@@ -158,39 +132,56 @@ async function main(): Promise<void> {
     return;
   }
 
-  ipcMain.handle(IPC.snapshot, () => bridge.snapshot());
-  ipcMain.handle(IPC.rssGet, () => bridge.getRssSubscriptions());
-  ipcMain.handle(IPC.rssUpdate, (_event, input: RssAction) => bridge.updateRssSubscriptions(input));
-  ipcMain.handle(IPC.rssInbox, () => bridge.getRssInbox());
-  ipcMain.handle(IPC.rssAck, (_event, id: string) => bridge.acknowledgeRssResult(id));
-  ipcMain.handle(IPC.contextDiagnostics, () => bridge.getContextDiagnostics());
-  ipcMain.handle(IPC.memoriesList, (_event, input) => bridge.listMemories(input));
-  ipcMain.handle(IPC.memoryGet, (_event, id) => bridge.getMemory(id));
-  ipcMain.handle(IPC.memoryUpdate, (_event, input) => bridge.updateMemory(input));
-  ipcMain.handle(IPC.memoryReferences, () => bridge.getMemoryReferences());
-  ipcMain.handle(IPC.history, () => bridge.history());
-  ipcMain.handle(IPC.home, () => bridge.home());
-  ipcMain.handle(IPC.run, (_event, text: string) => bridge.run(text));
-  ipcMain.handle(IPC.cancel, () => bridge.cancel());
-  ipcMain.handle(IPC.confirm, (_event, input: ConfirmInput) => bridge.confirm(input));
-  ipcMain.handle(IPC.command, (_event, line: string) => bridge.command(line));
-  ipcMain.handle(IPC.listRuns, () => bridge.listRuns());
-  ipcMain.handle(IPC.getRun, (_event, runId: string) => bridge.getRun(runId));
-  ipcMain.handle(IPC.memoryCandidatesList, (_event, input?: CandidateListInput) => bridge.listMemoryCandidates(input));
-  ipcMain.handle(IPC.memoryCandidateGet, (_event, id: string) => bridge.getMemoryCandidate(id));
-  ipcMain.handle(IPC.memoryCandidateResolve, (_event, input: CandidateResolveInput) => bridge.resolveMemoryCandidate(input));
-  ipcMain.handle(IPC.createWorkTask, (_event, input: WorkTaskInputs["createWorkTask"]) => bridge.createWorkTask(input));
-  ipcMain.handle(IPC.listWorkTasks, () => bridge.listWorkTasks());
-  ipcMain.handle(IPC.getWorkTask, (_event, id: string) => bridge.getWorkTask(id));
-  ipcMain.handle(IPC.getWorkTaskDeliveryDraft, (_event, input: WorkTaskReadInput) => bridge.getWorkTaskDeliveryDraft(input));
-  ipcMain.handle(IPC.getWorkTaskContinuation, (_event, input: WorkTaskReadInput) => bridge.getWorkTaskContinuation(input));
-  ipcMain.handle(IPC.getWorkTaskArtifact, (_event, input: WorkTaskArtifactInput) => bridge.getWorkTaskArtifact(input));
-  ipcMain.handle(IPC.runWorkTask, (_event, input: WorkTaskInputs["runWorkTask"]) => bridge.runWorkTask(input));
-  ipcMain.handle(IPC.submitWorkTaskDelivery, (_event, input: WorkTaskInputs["submitWorkTaskDelivery"]) => bridge.submitWorkTaskDelivery(input));
-  ipcMain.handle(IPC.recordHumanAcceptance, (_event, input: WorkTaskInputs["recordHumanAcceptance"]) => bridge.recordHumanAcceptance(input));
-  ipcMain.handle(IPC.reconcileWorkTask, (_event, input: WorkTaskInputs["reconcileWorkTask"]) => bridge.reconcileWorkTask(input));
-  ipcMain.handle(IPC.cancelWorkTask, (_event, input: WorkTaskInputs["cancelWorkTask"]) => bridge.cancelWorkTask(input));
-  ipcMain.handle(IPC.requestWorkTaskChanges, (_event, input: WorkTaskInputs["requestWorkTaskChanges"]) => bridge.requestWorkTaskChanges(input));
+  ipcMain.handle(IPC.threadsList, () => host.listThreads());
+  ipcMain.handle(IPC.threadCreate, () => host.createThread());
+  ipcMain.handle(IPC.threadSelect, (_event, threadId: string) => host.selectThread(threadId));
+  ipcMain.handle(IPC.historyDirectory, async () => {
+    const selected = await dialog.showOpenDialog(window, { title: "选择旧对话的 transcript 目录", properties: ["openDirectory"] });
+    return selected.canceled ? null : selected.filePaths[0] ?? null;
+  });
+  ipcMain.handle(IPC.threadsDiscover, (_event, directory: string) => host.discoverThreads(directory));
+  ipcMain.handle(IPC.threadRegister, (_event, input) => host.registerThread(input));
+  ipcMain.handle(IPC.memoryEnable, () => host.enableMemory());
+  ipcMain.handle(IPC.memoryConsolidate, (_event, input) => host.current.consolidateMemory(input));
+  ipcMain.handle(IPC.memoryConsolidationSources, (_event, offset) => host.current.listMemoryConsolidationSources(offset));
+  ipcMain.handle(IPC.snapshot, () => host.current.snapshot());
+  ipcMain.handle(IPC.rssGet, () => host.current.getRssSubscriptions());
+  ipcMain.handle(IPC.rssUpdate, (_event, input: RssAction) => host.current.updateRssSubscriptions(input));
+  ipcMain.handle(IPC.rssInbox, () => host.current.getRssInbox());
+  ipcMain.handle(IPC.rssAck, (_event, id: string) => host.current.acknowledgeRssResult(id));
+  ipcMain.handle(IPC.contextDiagnostics, () => host.current.getContextDiagnostics());
+  ipcMain.handle(IPC.memoriesList, (_event, input) => host.current.listMemories(input));
+  ipcMain.handle(IPC.memoryGet, (_event, id) => host.current.getMemory(id));
+  ipcMain.handle(IPC.memoryUpdate, (_event, input) => host.current.updateMemory(input));
+  ipcMain.handle(IPC.memoryHistory, (_event, input) => host.current.getMemoryHistory(input));
+  ipcMain.handle(IPC.memoryQuery, (_event, input) => host.current.queryMemory(input));
+  ipcMain.handle(IPC.memoryPreview, (_event, input) => host.current.previewMemoryAction(input));
+  ipcMain.handle(IPC.memoryApply, (_event, input) => host.current.applyMemoryAction(input));
+  ipcMain.handle(IPC.memoryMaintenance, () => host.current.getMemoryMaintenance());
+  ipcMain.handle(IPC.memoryReferences, () => host.current.getMemoryReferences());
+  ipcMain.handle(IPC.history, () => host.current.history());
+  ipcMain.handle(IPC.home, () => host.current.home());
+  ipcMain.handle(IPC.run, (_event, text: string, options) => host.current.run(text, options));
+  ipcMain.handle(IPC.cancel, () => host.current.cancel());
+  ipcMain.handle(IPC.confirm, (_event, input: ConfirmInput) => host.current.confirm(input));
+  ipcMain.handle(IPC.command, (_event, line: string) => host.current.command(line));
+  ipcMain.handle(IPC.listRuns, () => host.current.listRuns());
+  ipcMain.handle(IPC.getRun, (_event, runId: string) => host.current.getRun(runId));
+  ipcMain.handle(IPC.memoryCandidatesList, (_event, input?: CandidateListInput) => host.current.listMemoryCandidates(input));
+  ipcMain.handle(IPC.memoryCandidateGet, (_event, id: string) => host.current.getMemoryCandidate(id));
+  ipcMain.handle(IPC.memoryCandidateResolve, (_event, input: CandidateResolveInput) => host.current.resolveMemoryCandidate(input));
+  ipcMain.handle(IPC.createWorkTask, (_event, input: WorkTaskInputs["createWorkTask"]) => host.current.createWorkTask(input));
+  ipcMain.handle(IPC.listWorkTasks, () => host.current.listWorkTasks());
+  ipcMain.handle(IPC.getWorkTask, (_event, id: string) => host.current.getWorkTask(id));
+  ipcMain.handle(IPC.getWorkTaskDeliveryDraft, (_event, input: WorkTaskReadInput) => host.current.getWorkTaskDeliveryDraft(input));
+  ipcMain.handle(IPC.getWorkTaskContinuation, (_event, input: WorkTaskReadInput) => host.current.getWorkTaskContinuation(input));
+  ipcMain.handle(IPC.getWorkTaskArtifact, (_event, input: WorkTaskArtifactInput) => host.current.getWorkTaskArtifact(input));
+  ipcMain.handle(IPC.runWorkTask, (_event, input: WorkTaskInputs["runWorkTask"]) => host.current.runWorkTask(input));
+  ipcMain.handle(IPC.submitWorkTaskDelivery, (_event, input: WorkTaskInputs["submitWorkTaskDelivery"]) => host.current.submitWorkTaskDelivery(input));
+  ipcMain.handle(IPC.recordHumanAcceptance, (_event, input: WorkTaskInputs["recordHumanAcceptance"]) => host.current.recordHumanAcceptance(input));
+  ipcMain.handle(IPC.reconcileWorkTask, (_event, input: WorkTaskInputs["reconcileWorkTask"]) => host.current.reconcileWorkTask(input));
+  ipcMain.handle(IPC.cancelWorkTask, (_event, input: WorkTaskInputs["cancelWorkTask"]) => host.current.cancelWorkTask(input));
+  ipcMain.handle(IPC.requestWorkTaskChanges, (_event, input: WorkTaskInputs["requestWorkTaskChanges"]) => host.current.requestWorkTaskChanges(input));
   resolveStartup();
 
   app.on("before-quit", (event) => {
@@ -199,7 +190,7 @@ async function main(): Promise<void> {
     shuttingDown = true;
     quitting = true;
     tray.dispose();
-    void bridge.shutdown().finally(() => {
+    void host.shutdown().finally(() => {
       app.quit();
     });
   });

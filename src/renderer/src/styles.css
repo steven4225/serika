@@ -253,7 +253,9 @@ button.chip { font-size: 12px; padding: 5px 9px; border-color: var(--line); }
 .composer:focus-within { border-color: #9aa992; box-shadow: 0 0 0 3px #4c684c0b, 0 4px 15px #353d290c; }
 .composer textarea { width: 100%; min-height: 60px; height: 72px; max-height: 140px; resize: vertical; border: 0; background: transparent; color: var(--text); padding: 13px 10px 4px; font-size: 14px; line-height: 1.65; outline: none; }
 .composer textarea::placeholder { color: #989b92; }
-.composer-controls { display: flex; align-items: center; gap: 9px; padding: 0 3px 0 4px; }
+.composer-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; padding: 0 3px 0 4px; }
+.memory-exclusion { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 12px; cursor: pointer; }
+.memory-exclusion input { width: 14px; height: 14px; accent-color: var(--accent); }
 .composer-model { color: #858b7c; font-size: 11px; }
 .send-button { width: 32px; height: 32px; border-radius: 10px; background: var(--accent); border-color: var(--accent); color: white; padding: 0; }
 .send-button:hover:not(:disabled) { background: #204ca0; border-color: #204ca0; }
@@ -459,6 +461,16 @@ button.chip { font-size: 12px; padding: 5px 9px; border-color: var(--line); }
 .formal-memory-editor { display: block; box-sizing: border-box; width: 100%; min-height: 110px; padding: 12px; margin: 8px 0 16px; border: 1px solid var(--border, #e5e8ed); border-radius: 8px; font: inherit; line-height: 1.7; resize: vertical; }
 .formal-memories .actions { flex-wrap: wrap; }
 .memory-edit-preview { border-left: 3px solid var(--accent, #285dc1); padding-left: 16px; }
+.memory-times { display: grid; grid-template-columns: 100px minmax(0, 1fr); gap: 6px 14px; font-size: 12px; line-height: 1.7; margin: 14px 0; }
+.memory-times dt { color: var(--muted); }
+.memory-times dd { margin: 0; overflow-wrap: anywhere; }
+.memory-history-entry { padding: 18px 0; border-bottom: 1px solid var(--line); }
+.memory-history-version { padding-block: 10px; }
+.memory-maintenance-summary { padding-block: 10px; }
+.memory-temporal-form { display: grid; gap: 10px; margin-block: 14px; }
+.memory-temporal-form label { font-size: 12px; color: var(--muted); }
+.memory-temporal-form input:not([type="checkbox"]), .memory-temporal-form select { box-sizing: border-box; width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface, #fff); color: inherit; font: inherit; }
+.memory-temporal-form input[type="checkbox"] { accent-color: var(--accent); }
 .memory-references { margin: 8px 0 24px; font-size: 12px; color: var(--muted, #657184); overflow-wrap: anywhere; }
 .memory-references summary { cursor: pointer; }
 .memory-reference-item { padding: 10px 0; border-bottom: 1px solid var(--border, #e5e8ed); }
@@ -468,3 +480,15 @@ button.chip { font-size: 12px; padding: 5px 9px; border-color: var(--line); }
 .continuation-receipts { padding: 0; list-style: none; }
 .continuation-receipts li { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; padding-block: 4px; }
 .continuation-receipts small { flex-basis: 100%; overflow-wrap: anywhere; color: var(--muted); }
+/* Conversation discovery and explicit memory material selection. */
+.thread-item { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--border, #e6e3dd); }
+.thread-item > div { min-width: 0; overflow-wrap: anywhere; }
+.thread-item button { flex-shrink: 0; }
+.thread-item strong { font-weight: 550; }
+.history-registration, .history-consolidation { margin-top: 20px; }
+.history-registration > summary, .history-consolidation > summary { cursor: pointer; padding: 8px 0; }
+.history-registration input[type="text"], .history-registration label > input:not([type]) { display: block; width: 100%; margin: 8px 0; }
+.history-confirm, .consolidation-source { display: flex; align-items: flex-start; gap: 10px; padding: 12px 0; font-size: 14px; line-height: 1.6; }
+.history-confirm input, .consolidation-source input { flex-shrink: 0; margin-top: 5px; }
+.consolidation-source span { white-space: pre-wrap; overflow-wrap: anywhere; }
+.memory-consolidation { margin-bottom: 20px; }
