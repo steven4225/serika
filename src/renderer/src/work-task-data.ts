@@ -1,5 +1,5 @@
 import type { AppInfo, ExecutionRunRecord } from "../../shared/ui-contract.js";
-import type { WorkTask, WorkTaskStatus } from "../../shared/work-tasks.js";
+import type { WorkTask, WorkTaskStatus, WorkTaskInputs } from "../../shared/work-tasks.js";
 
 export const taskStatusLabels: Record<WorkTaskStatus, string> = {
   ready: "待开始", running: "正在执行", paused: "本轮结束 · 未验收", needs_review: "效果待核对",
@@ -37,6 +37,15 @@ export function isTaskRun(task: WorkTask, run: ExecutionRunRecord): boolean {
 }
 
 export function lines(text: string): string[] { return text.split("\n").map(line => line.trim()).filter(Boolean); }
+
+/** Explicit form contract; selecting a template or building it does not run tools. */
+export function taskFormAcceptance(artifacts: string, human: string, commands: string, cwd: string): WorkTaskInputs["createWorkTask"]["acceptance"] {
+  return [
+    ...lines(artifacts).map((path, index) => ({ id: `artifact-${index + 1}`, description: `写入并读回核对：${path}`, required: true, method: "automatic" as const, verification: { kind: "artifact_exists" as const, path, requireReadback: true } })),
+    ...lines(commands).map((command, index) => ({ id: `test-${index + 1}`, description: `修改后测试成功：${command}`, required: true, method: "automatic" as const, verification: { kind: "shell_exit_zero" as const, command, cwd: cwd.trim() || "." } })),
+    ...lines(human).map((description, index) => ({ id: `human-${index + 1}`, description, required: true, method: "human" as const, verification: { kind: "human" as const } })),
+  ];
+}
 
 export type TaskTemplateId = "document" | "edit" | "maintain";
 export interface TaskFormDraft { goal: string; constraints: string; artifacts: string; human: string }

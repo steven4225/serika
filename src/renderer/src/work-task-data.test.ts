@@ -2,11 +2,20 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { WorkTask, WorkTaskStatus } from "../../shared/work-tasks.js";
 import type { ExecutionRunRecord } from "../../shared/ui-contract.js";
-import { isTaskRun, selectCurrentTask, taskActions, unreconciledRuns, TASK_TEMPLATES, taskNextAction, taskSelectionKey, readTaskSelection, saveTaskSelection } from "./work-task-data.js";
+import { isTaskRun, selectCurrentTask, taskActions, unreconciledRuns, TASK_TEMPLATES, taskNextAction, taskSelectionKey, readTaskSelection, saveTaskSelection, taskFormAcceptance } from "./work-task-data.js";
 
 const task = (status: WorkTaskStatus): WorkTask => ({ id: "task", revision: 1, threadId: "thread", goal: "写计划", constraints: [], acceptance: [], status, runIds: ["run"], delivery: null, reconciliations: [], createdAt: "2026-10-03T00:00:00.000Z", updatedAt: "2026-10-03T00:00:00.000Z" });
 
 describe("work task presentation invariants", () => {
+  it("builds explicit readback and exact test contracts without converting human quality to automatic", () => {
+    const criteria = taskFormAcceptance("report.md\n", "来源准确", "pnpm test\nnode --test", "project");
+    assert.equal(criteria.length, 4);
+    assert.deepEqual(criteria[0]!.verification, { kind: "artifact_exists", path: "report.md", requireReadback: true });
+    assert.deepEqual(criteria[1]!.verification, { kind: "shell_exit_zero", command: "pnpm test", cwd: "project" });
+    assert.deepEqual(criteria[2]!.verification, { kind: "shell_exit_zero", command: "node --test", cwd: "project" });
+    assert.deepEqual(criteria[3]!.verification, { kind: "human" });
+    assert.deepEqual(taskFormAcceptance("", "", "node --test", "")[0]!.verification, { kind: "shell_exit_zero", command: "node --test", cwd: "." });
+  });
   it("templates are editable drafts and next actions distinguish Run end from acceptance", () => {
     assert.deepEqual(Object.keys(TASK_TEMPLATES), ["maintain", "document", "edit"]);
     assert.equal(TASK_TEMPLATES.document.draft.artifacts, "work-plan.md", "fresh workspaces must not require an uncreated parent directory");

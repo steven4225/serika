@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { RunResponse } from "../../shared/ui-contract.js";
 import type { WorkTask, WorkTaskInputs, WorkTaskObservedOutcome, WorkTaskResult, WorkTaskArtifactPreview, WorkTaskDeliveryDraft } from "../../shared/work-tasks.js";
-import { criterionStatusLabels, isTaskRun, lines, selectCurrentTask, taskActions, taskStatusLabels, taskNextAction, readTaskSelection, saveTaskSelection, TASK_TEMPLATES, type TaskTemplateId } from "./work-task-data.js";
+import { criterionStatusLabels, isTaskRun, lines, taskFormAcceptance, selectCurrentTask, taskActions, taskStatusLabels, taskNextAction, readTaskSelection, saveTaskSelection, TASK_TEMPLATES, type TaskTemplateId } from "./work-task-data.js";
 import { formatRecordTime } from "../../shared/execution-records.js";
 import { Icon } from "./icons.js";
 import { TaskContinuation } from "./task-continuation.js";
@@ -94,7 +94,7 @@ export function useWorkTasks(enabled: boolean, busy: boolean, refreshToken: numb
 
   return { tasks, task, enabled, loading, error, notice, locked, acting, select, reread,
     create: (input: WorkTaskInputs["createWorkTask"]) => change(() => window.runloom.createWorkTask(input), "任务已创建；尚未执行。"),
-    run: (instruction: string) => task ? change(() => window.runloom.runWorkTask({ id: task.id, expectedRevision: task.revision, ...(instruction.trim() ? { instruction: instruction.trim() } : {}) }), "本轮已启动；Run 结束后仍须交付与验收。", instruction.trim() || task.goal) : Promise.resolve(false),
+    run: (instruction: string) => task ? change(() => window.runloom.runWorkTask({ id: task.id, expectedRevision: task.revision, ...(instruction.trim() ? { instruction: instruction.trim() } : {}) }), "本轮已启动；程序检查通过后提交交付，人工项仍须你审核。", instruction.trim() || task.goal) : Promise.resolve(false),
     deliver: (summary: string, artifacts: string[], unresolved: string[]) => task ? change(() => window.runloom.submitWorkTaskDelivery({ id: task.id, expectedRevision: task.revision, summary, artifactRefs: artifacts, unresolved }), "交付已提交。自动项由后端核验，人工项等待你判断。") : Promise.resolve(false),
     accept: (criterionId: string, decision: "passed" | "failed", note: string) => task ? change(() => window.runloom.recordHumanAcceptance({ id: task.id, expectedRevision: task.revision, criterionId, decision, ...(note.trim() ? { note: note.trim() } : {}) }), "人工验收已记录；任务是否完成以全部必需项为准。") : Promise.resolve(false),
     reconcile: (observedOutcome: WorkTaskObservedOutcome, decision: "continue" | "cancel", note: string) => task ? change(() => window.runloom.reconcileWorkTask({ id: task.id, expectedRevision: task.revision, observedOutcome, decision, note }), decision === "continue" ? "核对已记录，任务回到暂停。须另外点击开始下一轮；工具仍需重新确认。" : "核对已记录，任务已取消。已发生的效果不会撤回。") : Promise.resolve(false),
@@ -118,18 +118,15 @@ function CreateTask({ view, onClose, initialGoal = "" }: { view: WorkTaskView; o
   const [constraints, setConstraints] = useState("");
   const [artifacts, setArtifacts] = useState("");
   const [human, setHuman] = useState("");
+  const [commands, setCommands] = useState("");
+  const [testCwd, setTestCwd] = useState(".");
   const [template, setTemplate] = useState<TaskTemplateId | null>(null);
   const chooseTemplate = (id: TaskTemplateId) => {
     const draft = TASK_TEMPLATES[id].draft;
     setGoal(draft.goal); setConstraints(draft.constraints); setArtifacts(draft.artifacts); setHuman(draft.human); setTemplate(id);
   };
   const create = async () => {
-    const paths = lines(artifacts);
-    const descriptions = lines(human);
-    if (await view.create({ goal: goal.trim(), constraints: lines(constraints), acceptance: [
-      ...paths.map((path, index) => ({ id: `artifact-${index + 1}`, description: `产物存在且有本任务写入回执：${path}`, required: true, method: "automatic" as const, verification: { kind: "artifact_exists" as const, path } })),
-      ...descriptions.map((description, index) => ({ id: `human-${index + 1}`, description, required: true, method: "human" as const, verification: { kind: "human" as const } })),
-    ] })) onClose();
+    if (await view.create({ goal: goal.trim(), constraints: lines(constraints), acceptance: taskFormAcceptance(artifacts, human, commands, testCwd) })) onClose();
   };
   return <form className="work-task-form" onSubmit={event => { event.preventDefault(); void create(); }}>
     {initialGoal ? <p className="hint">已复制对话输入作为任务目标。原输入仍保留；填写验收后才会创建，不会直接执行。</p> : null}
@@ -141,8 +138,10 @@ function CreateTask({ view, onClose, initialGoal = "" }: { view: WorkTaskView; o
     <label>约束 <small>每行一条，可留空</small><textarea aria-label="任务约束" value={constraints} onChange={event => setConstraints(event.target.value)} rows={2} /></label>
     <label>产物路径 <small>相对工作区，每行一个，可留空</small><textarea aria-label="验收产物路径" placeholder="notes/work-plan.md" value={artifacts} onChange={event => setArtifacts(event.target.value)} rows={2} /></label>
     <label>人工验收项 <small>每行一条，可留空</small><textarea aria-label="人工验收项" placeholder="计划中的步骤能直接执行" value={human} onChange={event => setHuman(event.target.value)} rows={2} /></label>
-    <p className="hint">至少填写一项验收；所有项均为必需项。产物验收会核对最新关联 Run 的写入回执及当前磁盘文件，不判断内容质量。普通聊天不会自动成为任务。</p>
-    <div className="work-task-buttons"><button className="allow" type="submit" disabled={view.locked || !goal.trim() || (!lines(artifacts).length && !lines(human).length)}>创建任务，不执行</button><button type="button" onClick={onClose} disabled={view.acting}>关闭</button></div>
+    <label>必须通过的测试命令 <small>每行一条，可留空</small><textarea aria-label="验收测试命令" placeholder="pnpm test" value={commands} onChange={event => setCommands(event.target.value)} rows={2} /></label>
+    {lines(commands).length > 0 ? <label>测试目录 <small>相对工作区</small><input aria-label="验收测试目录" value={testCwd} onChange={event => setTestCwd(event.target.value)} placeholder="." /></label> : null}
+    <p className="hint">至少填写一项验收；所有项均为必需项。产物要求本轮写入后成功读回，且与当前磁盘一致；测试核对最后文件操作之后的精确命令与目录。创建不运行命令，也不授予 Shell 权限；内容质量仍由你审核。</p>
+    <div className="work-task-buttons"><button className="allow" type="submit" disabled={view.locked || !goal.trim() || (!lines(artifacts).length && !lines(human).length && !lines(commands).length)}>创建任务，不执行</button><button type="button" onClick={onClose} disabled={view.acting}>关闭</button></div>
   </form>;
 }
 
