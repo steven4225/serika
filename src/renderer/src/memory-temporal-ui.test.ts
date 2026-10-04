@@ -6,6 +6,7 @@ import type { CandidatePreview } from "@aisdk-agent/example-cli/dist/memory-cand
 import type { MemoryReferenceSnapshot } from "@aisdk-agent/example-cli/dist/memory-query-rewrite.js";
 import { CandidateDetail } from "./memory.js";
 import { MemoryReferenceDetails } from "./memory-references.js";
+import { MemoryActionPreviewDetails } from "./memory-temporal.js";
 
 function candidatePreview(): CandidatePreview {
   const source = { kind: "conversation" as const, threadId: "thread-a", messageId: "source-a", quote: "从昨天开始改成三步。" };
@@ -43,7 +44,9 @@ describe("memory temporal review UI", () => {
     const withdrawal = candidatePreview();
     withdrawal.candidate.change = { operation: "retract", memoryId: "memory-a", expectedRevision: 2, text: "旧两步", expiresAt: null };
     withdrawal.proposed = { ...withdrawal.proposed!, text: "" };
-    assert.match(detail(withdrawal), /这条事实将被撤回，不再作为当前事实引用/);
+    const withdrawalHtml = detail(withdrawal);
+    assert.match(withdrawalHtml, /这条事实将被撤回，不再作为当前事实引用/);
+    assert.match(withdrawalHtml, /旧对话、旧摘要和已经发出的回复不会被删除/);
     const missing = candidatePreview();
     missing.current = null; missing.proposed = null; missing.applicable = false; missing.unavailableReason = "target_missing";
     const html = detail(missing);
@@ -65,5 +68,15 @@ describe("memory temporal review UI", () => {
     for (const text of ["memory-a", "revision 2", "assertion-a", "已审核检索词匹配", "source-old", "validAt", "knownAt", "不是模型自报", "旧摘要里的引用不算本轮选中"]) assert.ok(html.includes(text), text);
     assert.equal(html.includes("复盘格式"), false, "lookup phrases are not factual source evidence");
     assert.equal(html.includes("从昨天开始改成三步"), false, "reference snapshots do not contain source quotes");
+  });
+
+  it("does not promise erasure of old conversations or summaries when forgetting formal memory", () => {
+    const current = candidatePreview().current!;
+    for (const operation of ["retract", "delete"] as const) {
+      const html = renderToStaticMarkup(createElement(MemoryActionPreviewDetails, {
+        preview: { input: { id: current.id, expectedRevision: current.revision!, operation }, current, proposedAssertion: null, warnings: [] },
+      }));
+      for (const text of ["旧对话", "旧摘要", "回复", "不会"]) assert.ok(html.includes(text), `${operation}: ${text}`);
+    }
   });
 });

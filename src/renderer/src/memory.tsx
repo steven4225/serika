@@ -95,7 +95,7 @@ export function CandidateDetail({
       </section>
       <section>
         <div className="memory-label">接受后的记忆</div>
-        {change.operation === "retract" ? <p>这条事实将被撤回，不再作为当前事实引用。</p> : <pre className="memory-text">{proposedText(preview)}</pre>}
+        {change.operation === "retract" ? <><p>这条事实将被撤回，不再作为当前事实引用。</p><p className="hint">旧对话、旧摘要和已经发出的回复不会被删除，仍可能包含原话。</p></> : <pre className="memory-text">{proposedText(preview)}</pre>}
         {proposed !== null ? <>
           <div className="hint">类型 {memoryKindLabel(proposed.kind)} · {change.operation === "retract" ? "撤回" : proposed.status === "disabled" ? "停用" : "未停用（引用仍需匹配适用时间）"}</div>
           <div className="hint">事实适用时间：{validTimeLabel(proposed.validTime)}</div>

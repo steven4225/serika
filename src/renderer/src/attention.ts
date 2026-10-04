@@ -8,10 +8,10 @@ export function isMockModel(alias: string | undefined): boolean {
 }
 
 /** Presentation priority only. It never changes permissions or controller state. */
-export function attentionKind(input: { approval: boolean; unknownRuns: number; pendingMemory: number; idle: boolean }): AttentionKind {
+export function attentionKind(input: { approval: boolean; unknownRuns: number; pendingMemory: number; idle: boolean; memoryDeferred?: boolean }): AttentionKind {
   if (input.approval) return "approval";
   if (input.unknownRuns > 0) return "unknown";
-  if (input.idle && input.pendingMemory > 0) return "memory";
+  if (input.idle && input.pendingMemory > 0 && !input.memoryDeferred) return "memory";
   return "none";
 }
 

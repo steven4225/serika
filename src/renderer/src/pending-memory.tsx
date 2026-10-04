@@ -30,10 +30,11 @@ interface PendingMemoryProps {
   visible: boolean;
   onStatus: (status: PendingMemoryStatus) => void;
   onReviewed?: () => void;
+  onLater?: () => void;
 }
 
 /** Always mounted for counts; visibility never grants authority to review. */
-export function PendingMemory({ memory, controllerIdle, refreshToken, visible, onStatus, onReviewed }: PendingMemoryProps) {
+export function PendingMemory({ memory, controllerIdle, refreshToken, visible, onStatus, onReviewed, onLater }: PendingMemoryProps) {
   const [state, setState] = useState(initialPendingMemory);
   const stateRef = useRef(state);
   const enabledRef = useRef(memory.enabled);
@@ -179,7 +180,7 @@ export function PendingMemory({ memory, controllerIdle, refreshToken, visible, o
           </div>
           <div className="pending-memory-proposal">
             <span className="memory-label">{candidateKindLabel(preview.candidate)}</span>
-            {change?.operation === "retract" ? <p>撤回这条事实，不再作为当前事实引用。</p> : <p>{proposedText(preview)}</p>}
+            {change?.operation === "retract" ? <><p>撤回这条事实，不再作为当前事实引用。</p><p className="hint">不会删除旧对话、旧摘要或已经发出的回复；它们仍可能包含原话。</p></> : <p>{proposedText(preview)}</p>}
             <p className="hint">{candidateOperationExplanation(preview.candidate)}</p>
           </div>
           {change && change.operation !== "add" ? (
@@ -215,6 +216,7 @@ export function PendingMemory({ memory, controllerIdle, refreshToken, visible, o
           </details>
           {!controllerIdle ? <p className="hint">助手正在处理任务，空闲后再接受或拒绝。</p> : null}
           <div className="actions pending-memory-actions">
+            {onLater ? <button className="ghost" onClick={onLater} disabled={state.resolving}>稍后审核</button> : null}
             <button className="ghost" onClick={reload} disabled={state.resolving || state.listLoading}>重新读取</button>
             <button className="deny" onClick={() => resolve("reject")} disabled={!ready || !canReject(state)}>拒绝</button>
             <button className="allow" onClick={() => resolve("accept")} disabled={!ready || !canAccept(state)}>{state.resolving ? "正在审核…" : "接受变更"}</button>

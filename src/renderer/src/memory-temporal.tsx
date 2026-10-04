@@ -84,7 +84,7 @@ export function MemoryActionPreviewDetails({ preview }: { preview: MemoryActionP
     {input.operation === "change" ? <p className="hint">实际变化发生于 {timestampLabel(input.effectiveAt, "未知")}；此前适用的事实会保留。</p> : null}
     {input.operation === "retract" ? <p className="hint">撤回当前断言后不再注入，历史仍保留。旧对话、旧摘要和已经发出的回复不会被删除。</p> : null}
     {input.operation === "restore" ? <p className="hint">恢复为新的 revision，从确认保存时起适用；不重启旧任务，不恢复工具授权。</p> : null}
-    {input.operation === "delete" ? <p className="error">永久删除本条正式记忆、历史和相关候选内容，不能从这里恢复。旧对话与已发出的回复不会因此删除。</p> : null}
+    {input.operation === "delete" ? <p className="error">永久删除本条正式记忆、历史和相关候选内容，不能从这里恢复。旧对话、旧摘要与已发出的回复不会因此删除。</p> : null}
     {preview.warnings.map((warning, index) => <p className="hint" key={index}>{warning}</p>)}
   </section>;
 }

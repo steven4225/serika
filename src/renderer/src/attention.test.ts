@@ -24,6 +24,15 @@ test("header represents actual processing, not a background candidate as a secon
   assert.equal(headerStatus({ kind: "idle" }, "none").label, "空闲");
 });
 
+test("deferring memory only hides its attention card, never higher priority decisions", () => {
+  const input = { approval: false, unknownRuns: 0, pendingMemory: 4, idle: true, memoryDeferred: true };
+  assert.equal(attentionKind(input), "none");
+  assert.equal(loadedCountLabel(input.pendingMemory, false), "4");
+  assert.equal(attentionKind({ ...input, approval: true }), "approval");
+  assert.equal(attentionKind({ ...input, unknownRuns: 1 }), "unknown");
+  assert.equal(attentionKind({ ...input, memoryDeferred: false }), "memory");
+});
+
 test("paged candidate counts are lower bounds, not invented totals", () => {
   assert.equal(loadedCountLabel(20, true), "20+");
   assert.equal(loadedCountLabel(3, false), "3");

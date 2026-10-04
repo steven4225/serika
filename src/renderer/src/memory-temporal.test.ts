@@ -110,5 +110,5 @@ it("historical query uncertainty, failed consolidation and deletion consequences
   assert.doesNotMatch(status, /暂无待处理材料/);
   const preview: MemoryActionPreview = { current, input: { id: "memory", expectedRevision: 3, operation: "delete" }, proposedAssertion: null, warnings: [] };
   const deletion = renderToStaticMarkup(createElement(MemoryActionPreviewDetails, { preview }));
-  assert.match(deletion, /不能从这里恢复/); assert.match(deletion, /旧对话与已发出的回复不会因此删除/);
+  assert.match(deletion, /不能从这里恢复/); assert.match(deletion, /旧对话、旧摘要与已发出的回复不会因此删除/);
 });

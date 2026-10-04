@@ -7,12 +7,13 @@ import "./styles.css";
 
 let threadId = "preview-a";
 let sequence = 0;
+let memoryEnabled = false;
 const listeners = new Set<(message: MainToRenderer) => void>();
 const threads = [{ threadId, title: "当前对话", transcriptDirectory: "/fixture/transcripts", messageCount: 0 }];
-const info = (): AppInfo => ({ entryMode: "test", threadId, directory: "/fixture/transcripts", workspaceRoot: "/fixture/workspace",
+const info = (): AppInfo => ({ entryMode: "test", configPath: "/fixture/config.json", threadId, directory: "/fixture/transcripts", workspaceRoot: "/fixture/workspace",
   modelAlias: "mock", modelId: "UI fixture", temporaryThread: false, temporaryDirectory: false, identitySource: "saved",
   computer: { enabled: false, allowedBundleIds: [] }, tuiMode: true, commands: [], hasCompaction: false, hasResume: false,
-  totalTimeoutMs: 600000, shellTimeoutMs: 300000, memory: { enabled: false, autoConsolidate: false }, workTasks: true, modules: [] });
+  totalTimeoutMs: 600000, shellTimeoutMs: 300000, memory: { enabled: memoryEnabled, autoConsolidate: memoryEnabled, queryRewriteEnabled: memoryEnabled }, workTasks: true, modules: [] });
 const snapshot: UiSnapshot = { state: { kind: "idle" }, pendingApproval: null, recentOutput: "", outputTruncated: false,
   toolActivity: [], lastPrimaryResult: null, lastConsolidationResult: null, resultTextTruncated: false, shellProgress: [] };
 const changeThread = (id: string) => { threadId = id; for (const listener of [...listeners]) listener({ type: "identity-changed", info: info() }); };
@@ -23,6 +24,11 @@ const api = {
   listWorkTasks: async () => ({ ok: true as const, value: [] }), listThreads: async () => structuredClone(threads),
   createThread: async () => { const id = `preview-${++sequence}`; threads.push({ threadId: id, title: "新对话", transcriptDirectory: "/fixture/transcripts", messageCount: 0 }); changeThread(id); },
   selectThread: async (id: string) => { changeThread(id); },
+  enableMemory: async () => { memoryEnabled = true; changeThread(threadId); },
+  listMemoryCandidates: async () => ({ ok: true as const, value: { candidates: [], nextOffset: null, truncated: false } }),
+  listMemories: async () => ({ ok: true as const, value: { entries: [], nextOffset: null } }),
+  getMemoryReferences: async () => null,
+  getMemoryMaintenance: async () => ({ ok: false as const, error: { code: "MEMORY_READ_FAILED" as const, message: "浏览器 fixture 不读取真实记忆" } }),
   getContextDiagnostics: async () => ({ ok: false as const, error: { code: "IPC_FAILED" as const, message: "隔离 fixture 未准备上下文" } }),
 } satisfies Partial<RendererApi>;
 window.runloom = new Proxy(api as unknown as RendererApi, { get(target, property) {

@@ -135,6 +135,43 @@ describe("normal desktop memory and history entry", () => {
     } finally { await host.shutdown(); await rm(root, { recursive: true, force: true }); }
   });
 
+  it("upgrades memory only on explicit request and preserves daily history across restart", async () => {
+    const root = await mkdtemp(join(tmpdir(), "runloom-desktop-legacy-setup-"));
+    const profile = join(root, "profile");
+    const workspace = join(root, "workspace");
+    await mkdir(profile); await mkdir(workspace);
+    const configPath = join(profile, "runloom.json");
+    const legacy = { version: 1, workspace, modules: { memory: { enabled: true, autoConsolidate: true }, shell: { enabled: false, timeoutMs: 45000 } }, run: { totalTimeoutMs: 600000 } };
+    await writeFile(configPath, JSON.stringify(legacy));
+    const options = { userData: profile, cwd: root, env: {}, modelAlias: "mock",
+      model: new MockLanguageModelV3({ doStream: async () => response() }), send: () => {} };
+    let host = await DesktopRuntime.create(options);
+    try {
+      const initial = host.info();
+      assert.equal(initial.configPath, configPath);
+      assert.equal(initial.memory.queryRewriteEnabled, false);
+      assert.equal(await readFile(configPath, "utf8"), JSON.stringify(legacy));
+      assert.ok((await host.current.run("保留这条日用历史", { memoryConsolidation: "exclude" })).ok);
+      await idle(host);
+      const file = join(initial.directory, `${createHash("sha256").update(initial.threadId).digest("hex")}.jsonl`);
+      const transcript = await readFile(file, "utf8");
+      await host.enableMemory();
+      assert.equal(host.info().threadId, initial.threadId);
+      assert.equal(host.info().directory, initial.directory);
+      assert.equal(host.info().memory.queryRewriteEnabled, true);
+      assert.equal(await readFile(file, "utf8"), transcript);
+      const saved = JSON.parse(await readFile(configPath, "utf8"));
+      assert.deepEqual(saved.modules.shell, legacy.modules.shell);
+      const memories = await host.current.listMemories();
+      assert.ok(memories.ok); assert.equal(memories.value.entries.length, 0);
+      await host.shutdown();
+      host = await DesktopRuntime.create(options);
+      assert.equal(host.info().memory.queryRewriteEnabled, true);
+      assert.equal(host.info().threadId, initial.threadId);
+      assert.ok((await host.current.history()).some(message => message.role === "user" && message.parts.some(part => part.type === "text" && part.text === "保留这条日用历史")));
+    } finally { await host.shutdown(); await rm(root, { recursive: true, force: true }); }
+  });
+
   it("restores the previous conversation when the chosen Thread is owned by another controller", async () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-desktop-switch-lock-"));
     const options = { userData: join(root, "profile"), cwd: root, env: {}, modelAlias: "mock",
