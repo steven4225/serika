@@ -69,6 +69,9 @@ describe("work task controls", () => {
     assert.match(current, /本轮结束 · 未验收/);
     assert.match(current, /检查产物并交付/);
     assert.doesNotMatch(current, /通过此项/);
+    const restoring = renderToStaticMarkup(createElement(CurrentTask, { view: view(null, { loading: true }), onOpen: () => undefined }));
+    assert.match(restoring, /正在恢复本对话的任务/);
+    assert.match(restoring, /不会自动执行/);
   });
   it("the focused inspector returns to the conversation composer instead of offering a second task input", () => {
     const html = renderToStaticMarkup(createElement(WorkTasksPanel, {

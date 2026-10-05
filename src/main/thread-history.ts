@@ -7,7 +7,7 @@ import type { ThreadSummary } from "../shared/ui-contract.js";
 const MAX_TRANSCRIPT_BYTES = 16 * 1024 * 1024;
 
 /** Read-only discovery; do not use JsonlAgentStore here because its tail repair mutates files. */
-export async function inspectThread(thread: DesktopThread): Promise<ThreadSummary> {
+export async function inspectThread(thread: DesktopThread, query = ""): Promise<ThreadSummary> {
   const path = join(thread.transcriptDirectory, `${createHash("sha256").update(thread.threadId).digest("hex")}.jsonl`);
   try {
     const stat = await lstat(path);
@@ -26,9 +26,24 @@ export async function inspectThread(thread: DesktopThread): Promise<ThreadSummar
         messages = record.messages;
       } else if (record.type !== "thread.context.compacted") throw new Error("Invalid transcript record");
     }
-    const user = messages.find(message => message.role === "user" && message.metadata?.source !== "auto-consolidation");
-    const title = user?.parts.flatMap(part => part.type === "text" && typeof part.text === "string" ? [part.text] : []).join(" ").slice(0, 64) || "新对话";
-    return { ...thread, title, messageCount: messages.length, savedAt: stat.mtime.toISOString(), ...(incompleteTail ? { error: "末尾有未完成记录；这里只展示最近完整快照" } : {}) };
+    let background = false;
+    const conversation: Array<{ role: string; text: string }> = [];
+    for (const message of messages) {
+      if (message.role === "user") background = message.metadata?.source === "auto-consolidation";
+      if (background || message.role === "system") continue;
+      const text = message.parts.flatMap(part => part.type === "text" && typeof part.text === "string" ? [part.text] : []).join(" ");
+      if (text.trim()) conversation.push({ role: message.role, text });
+    }
+    const compact = (text: string) => text.replace(/\s+/g, " ").trim();
+    const first = conversation.find(message => message.role === "user");
+    const title = compact(first?.text.split("\n").find(line => line.trim()) ?? "").slice(0, 48) || "新对话";
+    const matched = query ? [...conversation].reverse().find(message => message.text.toLocaleLowerCase().includes(query.toLocaleLowerCase())) : undefined;
+    const previewText = compact(matched?.text ?? conversation.at(-1)?.text ?? "");
+    const matchIndex = query ? previewText.toLocaleLowerCase().indexOf(query.toLocaleLowerCase()) : -1;
+    const start = Math.max(0, matchIndex - 30);
+    const preview = `${start ? "…" : ""}${previewText.slice(start, start + 160)}${previewText.length > start + 160 ? "…" : ""}`;
+    return { ...thread, title, messageCount: messages.length, preview, matchesQuery: !query || !!matched,
+      savedAt: stat.mtime.toISOString(), ...(incompleteTail ? { error: "末尾有未完成记录；这里只展示最近完整快照" } : {}) };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return { ...thread, title: "新对话", messageCount: 0 };
     return { ...thread, title: thread.threadId, messageCount: null, error: error instanceof Error ? error.message : "无法读取历史" };

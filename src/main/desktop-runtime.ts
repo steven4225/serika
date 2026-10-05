@@ -56,10 +56,34 @@ export class DesktopRuntime {
     } catch (error) { await controller.shutdown(); throw error; }
   }
 
-  async listThreads() {
+  async #inspect(thread: { threadId: string; transcriptDirectory: string }, query = "") {
+    const summary = await inspectThread(thread, query);
+    try {
+      const { tasks, runs } = await this.#bridge.threadActivity(thread);
+      const latestTask = tasks.find(task => !["completed", "cancelled"].includes(task.status)) ?? tasks[0];
+      if (summary.title === "新对话" && latestTask) summary.title = latestTask.goal.replace(/\s+/g, " ").slice(0, 48);
+      summary.taskCount = tasks.length;
+      summary.runCount = runs.length;
+      const activityAt = [summary.savedAt, ...tasks.map(task => task.updatedAt), ...runs.map(run => run.finishedAt ?? run.startedAt)].filter((time): time is string => !!time).sort().at(-1);
+      if (activityAt) summary.activityAt = activityAt;
+      summary.emptyVerified = !summary.error && summary.messageCount === 0 && tasks.length === 0 && runs.length === 0;
+      summary.matchesQuery = summary.matchesQuery === true || !query || tasks.some(task => task.goal.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
+    } catch {
+      summary.emptyVerified = false;
+      summary.error = [summary.error, "任务或执行记录无法读取；该对话未隐藏，请核对保存位置。"].filter(Boolean).join(" ");
+    }
+    return summary;
+  }
+
+  async listThreads(query?: string) {
+    if (query !== undefined && (typeof query !== "string" || query.length > 200)) throw new Error("搜索词请保持在 200 字以内");
+    const search = query?.trim() ?? "";
     const registered = await listDesktopThreads(this.#scope());
     if (!registered.some(thread => thread.threadId === this.#identity.threadId && thread.transcriptDirectory === this.#identity.transcriptDirectory)) registered.unshift(this.#identity);
-    return Promise.all(registered.map(inspectThread));
+    // Bound file reads in-flight, not only the number of registered entries.
+    const summaries = [];
+    for (const thread of registered) summaries.push(await this.#inspect(thread, search));
+    return summaries;
   }
 
   discoverThreads(directory: string) { return discoverThreadDirectory(directory); }
@@ -75,7 +99,7 @@ export class DesktopRuntime {
     } finally { this.#changing = false; }
   }
 
-  async #replace(select: () => Promise<DesktopIdentityResolution>): Promise<void> {
+  async #replace(select: () => Promise<DesktopIdentityResolution>, reuseUnchanged = false): Promise<void> {
     this.#assertIdle();
     this.#changing = true;
     this.#options.send({ type: "state", state: { kind: "command", name: "thread-switch" } });
@@ -84,6 +108,7 @@ export class DesktopRuntime {
     const transition = (async () => {
       try {
         const next = await select();
+        if (reuseUnchanged && next.threadId === previous.threadId && next.transcriptDirectory === previous.transcriptDirectory) return;
         await this.#bridge.shutdown();
         disposed = true;
         this.#bridge = await this.#make(next);
@@ -105,11 +130,14 @@ export class DesktopRuntime {
   selectThread(threadId: string) {
     return this.#replace(() => selectDesktopThread(this.#scope(), threadId));
   }
-  createThread() {
+  createThread(options?: { preserveDraft: boolean }) {
     return this.#replace(async () => {
+      if (options !== undefined && (typeof options !== "object" || options === null || typeof options.preserveDraft !== "boolean")) throw new Error("新对话参数无效");
+      // Repeated clicks on an unused conversation reuse it; drafts remain separate.
+      if (!options?.preserveDraft && (await this.#inspect(this.#identity)).emptyVerified) return this.#identity;
       const thread = await createDesktopThread(this.#scope());
       return selectDesktopThread(this.#scope(), thread.threadId);
-    });
+    }, true);
   }
   enableMemory() {
     return this.#replace(async () => {

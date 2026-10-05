@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { RunResponse } from "../../shared/ui-contract.js";
 import type { WorkTask, WorkTaskInputs, WorkTaskObservedOutcome, WorkTaskResult, WorkTaskArtifactPreview, WorkTaskDeliveryDraft } from "../../shared/work-tasks.js";
-import { criterionStatusLabels, isTaskRun, lines, taskFormAcceptance, selectCurrentTask, taskActions, taskStatusLabels, taskNextAction, taskVerificationSummary, readTaskSelection, saveTaskSelection, TASK_TEMPLATES, type TaskTemplateId } from "./work-task-data.js";
+import { criterionStatusLabels, isTaskRun, lines, taskFormAcceptance, selectCurrentTask, restoredTaskId, taskActions, taskStatusLabels, taskNextAction, taskVerificationSummary, readTaskSelection, saveTaskSelection, TASK_TEMPLATES, type TaskTemplateId } from "./work-task-data.js";
 import { formatRecordTime } from "../../shared/execution-records.js";
 import { Icon } from "./icons.js";
 import { TaskContinuation } from "./task-continuation.js";
@@ -16,9 +16,11 @@ export function useWorkTasks(enabled: boolean, busy: boolean, refreshToken: numb
   const [instructionDrafts, setInstructionDrafts] = useState(new Map<string, string>());
   const request = useRef(0);
   const selected = useRef<string | null>(null);
+  const restoring = useRef(true);
   const inFlight = useRef(false);
   const [refresh, setRefresh] = useState(0);
   useEffect(() => {
+    restoring.current = true;
     try { selected.current = selectionKey ? readTaskSelection(window.localStorage, selectionKey) : null; }
     catch { selected.current = null; }
     setTask(null); setTasks([]); setError(null); setInstructionDrafts(new Map()); setNotice(null);
@@ -39,7 +41,7 @@ export function useWorkTasks(enabled: boolean, busy: boolean, refreshToken: numb
         if (current !== request.current) return;
         if (!list.ok) { setError(`${list.error.code}: ${list.error.message}`); return; }
         setTasks(list.value);
-        const id = selected.current ?? selectCurrentTask(list.value)?.id ?? null;
+        const id = restoring.current ? restoredTaskId(list.value, selected.current) : selected.current ?? selectCurrentTask(list.value)?.id ?? null;
         if (id === null) { setTask(null); setError(null); return; }
         const detail = await window.runloom.getWorkTask(id);
         if (current !== request.current) return;
@@ -50,6 +52,7 @@ export function useWorkTasks(enabled: boolean, busy: boolean, refreshToken: numb
           setError(`${detail.error.code}: ${detail.error.message}`); return;
         }
         remember(detail.value.id);
+        restoring.current = false;
         setTask(detail.value);
         setError(null);
       } catch { if (current === request.current) setError("任务读取失败；旧内容不能用于操作，请重新读取。"); }
@@ -115,13 +118,15 @@ export function useWorkTasks(enabled: boolean, busy: boolean, refreshToken: numb
 export type WorkTaskView = ReturnType<typeof useWorkTasks>;
 
 export function CurrentTask({ view, onOpen, onCompose, compact = false }: { view: WorkTaskView; onOpen: () => void; onCompose?: () => void; compact?: boolean }) {
-  if (!view.enabled || (!view.task && !view.error)) return null;
+  if (!view.enabled || (!view.task && !view.error && !view.loading)) return null;
+  if (!view.task && view.loading && !view.error) return <section className="current-work-task" aria-label="当前工作任务" role="status"><span>正在恢复本对话的任务…</span><small>只读取保存状态，不会自动执行。</small></section>;
   const task = view.task;
   const canRun = task && taskActions(task).run && !view.error;
   const action = !task || view.error ? "查看原因" : task.status === "needs_review" ? "核对效果" : task.status === "awaiting_acceptance" ? "查看产物并审核" : task.status === "completed" ? "查看已验收产物" : "查看任务";
   return <section className={`current-work-task ${compact ? "compact " : ""}${task ? `task-${task.status}` : ""}`} aria-label="当前工作任务">
     <div className="current-task-heading"><Icon name="activity" size={16} /><div className="current-task-copy"><strong title={task?.goal}>{view.error ? "工作任务暂不可用" : task?.goal}</strong><small>{view.error ? view.error : view.loading ? "正在刷新" : taskStatusLabels[task!.status]}</small></div>{compact ? <button className="ghost" onClick={onOpen}>{action}</button> : null}</div>
     {!compact && task && !view.error ? <p className="current-task-action">{taskVerificationSummary(task) ?? taskNextAction(task)}</p> : null}
+    {!compact && task?.status === "needs_review" ? <p className="hint">上次执行的效果还不确定。先核对，不会自动重做。</p> : null}
     {!compact && task?.delivery && ["awaiting_acceptance", "completed"].includes(task.status) ? <div className="current-task-artifacts">{task.delivery.artifactRefs.map(path => <button className="ghost" key={path} onClick={onOpen}>{path}</button>)}{task.delivery.unresolved.length ? <p className="work-task-warning">仍有未解决事项，请查看交付详情。</p> : null}</div> : null}
     {!compact ? <div className="work-task-buttons">{canRun && onCompose ? <button className="allow" disabled={view.locked} onClick={onCompose}>{task.status === "ready" ? "准备开始任务" : "补充要求并继续"}</button> : null}<button className={canRun ? "ghost" : "allow"} onClick={onOpen}>{action}</button></div> : null}
     {!compact && view.notice ? <p className="hint" role="status">{view.notice}</p> : null}

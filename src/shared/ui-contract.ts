@@ -194,8 +194,8 @@ export type GetRunResponse =
   | { ok: false; reason: "unavailable"; message: string };
 
 export interface RendererApi {
-  listThreads(): Promise<ThreadSummary[]>;
-  createThread(): Promise<void>;
+  listThreads(query?: string): Promise<ThreadSummary[]>;
+  createThread(options?: { preserveDraft: boolean }): Promise<void>;
   selectThread(threadId: string): Promise<void>;
   chooseHistoryDirectory(): Promise<string | null>;
   discoverThreads(directory: string): Promise<ThreadSummary[]>;
@@ -315,4 +315,12 @@ export interface ThreadSummary {
   /** Transcript file modification time, not inferred conversation activity. */
   savedAt?: string;
   error?: string;
+  preview?: string;
+  /** Search is performed in the main process; full message bodies never enter the list IPC. */
+  matchesQuery?: boolean;
+  /** True only after messages, tasks and execution receipts were all checked. */
+  emptyVerified?: boolean;
+  taskCount?: number;
+  runCount?: number;
+  activityAt?: string;
 }

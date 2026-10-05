@@ -13,6 +13,18 @@ export function selectCurrentTask(tasks: readonly WorkTask[]): WorkTask | null {
     tasks.find(task => task.status === "awaiting_acceptance") ?? tasks.find(task => !["completed", "cancelled"].includes(task.status)) ?? tasks[0] ?? null;
 }
 
+/** Startup preference never hides an unresolved effect or an in-flight task. No mutation/execution. */
+export function restoredTaskId(tasks: readonly WorkTask[], savedId: string | null): string | null {
+  const urgent = tasks.find(task => task.status === "needs_review") ?? tasks.find(task => task.status === "running");
+  if (urgent) return urgent.id;
+  const saved = tasks.find(task => task.id === savedId);
+  if (saved && ["completed", "cancelled"].includes(saved.status)) {
+    return tasks.find(task => !["completed", "cancelled"].includes(task.status))?.id ?? saved.id;
+  }
+  // A saved older task may sit outside the bounded list; getWorkTask verifies its identity.
+  return savedId ?? selectCurrentTask(tasks)?.id ?? null;
+}
+
 export function taskActions(task: WorkTask) {
   return {
     run: task.status === "ready" || task.status === "paused",

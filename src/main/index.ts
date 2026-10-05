@@ -40,7 +40,10 @@ function createWindow(): BrowserWindow {
     minWidth: 320,
     minHeight: 480,
     title: "Runloom",
-    frame: false,
+    // Keep macOS traffic lights native; close still uses installHideOnClose.
+    ...(process.platform === "darwin"
+      ? { titleBarStyle: "hidden" as const, trafficLightPosition: { x: 16, y: 20 } }
+      : { frame: false }),
     transparent: false,
     backgroundColor: "#fcfbf8",
     hasShadow: true,
@@ -137,8 +140,8 @@ async function main(): Promise<void> {
     return;
   }
 
-  ipcMain.handle(IPC.threadsList, () => host.listThreads());
-  ipcMain.handle(IPC.threadCreate, () => host.createThread());
+  ipcMain.handle(IPC.threadsList, (_event, query) => host.listThreads(query));
+  ipcMain.handle(IPC.threadCreate, (_event, options) => host.createThread(options));
   ipcMain.handle(IPC.threadSelect, (_event, threadId: string) => host.selectThread(threadId));
   ipcMain.handle(IPC.historyDirectory, async () => {
     const selected = await dialog.showOpenDialog(window, { title: "选择旧对话的 transcript 目录", properties: ["openDirectory"] });

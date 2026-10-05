@@ -1,4 +1,7 @@
 import { Writable } from "node:stream";
+import { lstat } from "node:fs/promises";
+import { ExecutionRecordStore } from "@aisdk-agent/example-cli/dist/execution-record-store.js";
+import type { DesktopThread } from "./desktop-identity.js";
 import type { MemoryEditInput, MemoryListInput } from "@aisdk-agent/example-cli/dist/memory-management.js";
 import type { MemoryAction, MemoryHistoryInput } from "@aisdk-agent/example-cli/dist/memory-controls.js";
 import type { AssistantRunOptions } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
@@ -404,6 +407,18 @@ export class RuntimeBridge {
   }
 
   listWorkTasks(): Promise<WorkTaskResult<WorkTask[]>> { return this.#controller.listWorkTasks(); }
+
+  /** Registered identities only, read-only stores; never activate/recover another Controller. */
+  async threadActivity(thread: DesktopThread) {
+    const tasks = await this.#app.workTasks?.list({ threadId: thread.threadId, limit: 100 });
+    if (tasks && !tasks.ok) throw new Error(`任务记录读取失败：${tasks.error.message}`);
+    let runs: ExecutionRunRecord[] = [];
+    let directoryExists = true;
+    try { await lstat(thread.transcriptDirectory); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") directoryExists = false; else throw error; }
+    if (directoryExists) runs = await new ExecutionRecordStore(thread.transcriptDirectory).listRuns(thread.threadId, 50);
+    return { tasks: tasks?.value ?? [], runs };
+  }
 
   async getWorkTask(id: string): Promise<WorkTaskResult<WorkTask>> {
     if (typeof id !== "string" || !id.trim()) return { ok: false, error: { code: "WORK_TASK_INVALID_INPUT", message: "Task id must be non-empty" } };

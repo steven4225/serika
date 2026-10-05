@@ -48,6 +48,10 @@ import { unreconciledRuns, taskSelectionKey, taskActions } from "./work-task-dat
 import { bindTaskComposer, completionLabel, draftKey, type ConversationDraft } from "./navigation.js";
 import { DailySetup } from "./daily-setup-panel.js";
 import { dailySetupNotice } from "./daily-setup.js";
+import { desktopLayout, type DesktopLayout } from "./zcode/layout.js";
+import { ZCodeSidebar } from "./zcode/sidebar.js";
+import { ZCodeMessage, ZCodeMessageContent } from "./zcode/message.js";
+import "./zcode/theme.css";
 
 const OUTPUT_MAX_CHARS = 64 * 1024;
 
@@ -71,9 +75,15 @@ function commandError(response: CommandResponse): string {
   }
 }
 
-function Row({ row, delivered = false }: { row: ConversationRow; delivered?: boolean }) {
+function Row({ row, delivered = false, layout = "classic" }: { row: ConversationRow; delivered?: boolean; layout?: DesktopLayout }) {
   switch (row.kind) {
     case "text":
+      if (layout === "zcode") return <ZCodeMessage from={row.role} className={`row row-text role-${row.role}${row.committed ? "" : " live"}`}>
+        <ZCodeMessageContent>
+          {row.role !== "user" ? <span className="role">{row.role === "assistant" ? <><RunloomMark size={18} /> Runloom</> : "系统"}</span> : null}
+          {row.role === "assistant" ? <AssistantReply text={row.text} delivered={delivered} /> : <pre>{row.text}</pre>}
+        </ZCodeMessageContent>
+      </ZCodeMessage>;
       return (
         <div className={`row row-text role-${row.role}${row.committed ? "" : " live"}`}>
           {row.role !== "user" ? <span className="role">{row.role === "assistant" ? <><RunloomMark size={20} /> Runloom</> : "系统"}</span> : null}
@@ -226,17 +236,18 @@ function HomeBody({ view }: { view: HomeView }) {
   );
 }
 
-export function App() {
+export function App({ initialLayout }: { initialLayout?: DesktopLayout } = {}) {
+  const [layout, setLayout] = useState<DesktopLayout>(() => initialLayout ?? desktopLayout(window.location.search));
   const [identityGeneration, setIdentityGeneration] = useState(0);
   const drafts = useRef(new Map<string, ConversationDraft>());
   useEffect(() => window.runloom.onMessage(message => {
     if (message.type === "identity-changed") setIdentityGeneration(value => value + 1);
   }), []);
   // Reset evidence/previews on identity changes; keep only unsent, scoped drafts.
-  return <AssistantPage key={identityGeneration} drafts={drafts.current} />;
+  return <AssistantPage key={identityGeneration} drafts={drafts.current} layout={layout} onLayoutChange={() => setLayout(value => value === "zcode" ? "classic" : "zcode")} />;
 }
 
-function AssistantPage({ drafts }: { drafts: Map<string, ConversationDraft> }) {
+function AssistantPage({ drafts, layout, onLayoutChange }: { drafts: Map<string, ConversationDraft>; layout: DesktopLayout; onLayoutChange: () => void }) {
   const [info, setInfo] = useState<AppInfo | null>(null);
   const [conversationTitle, setConversationTitle] = useState("当前对话");
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
@@ -620,13 +631,21 @@ function AssistantPage({ drafts }: { drafts: Map<string, ConversationDraft> }) {
   const stageLabel = info ? status.label : error ? "连接失败" : "正在连接";
   const pendingLabel = loadedCountLabel(pendingMemory.count, pendingMemory.hasMore);
   const refreshMemory = useCallback(() => setMemoryRefresh(value => value + 1), []);
-  const pageTitle = !detailsOpen ? conversationTitle : ({ threads: "历史对话", tasks: "工作任务", home: "工作区", records: "执行记录", memory: "记忆", context: "上下文与压缩", pomodoro: "番茄钟", modules: "模块能力" })[detailTab];
+  const threadDrafts = new Map(threads.flatMap(thread => {
+    const draft = drafts.get(draftKey({ workspaceRoot: info?.workspaceRoot ?? null, directory: thread.transcriptDirectory, threadId: thread.threadId }));
+    return draft?.text ? [[thread.threadId, draft.text] as const] : [];
+  }));
+  const pageTitle = !detailsOpen ? conversationTitle : ({ threads: "全部对话", tasks: "工作任务", home: "工作区", records: "执行记录", memory: "记忆", context: "上下文与压缩", pomodoro: "番茄钟", modules: "模块能力" })[detailTab];
   const pageDescription = ({ threads: "继续之前的对话，或开始一段新对话。", tasks: "把需要执行和验收的事放在这里；普通聊天不用创建任务。", home: "查看保存的进度、定时提醒、订阅和当前配置。", records: "核对每次执行的工具结果，区分完成、失败和未知效果。", memory: "已保存的记忆和待审核的候选，都在这里。", context: "查看压缩记录和本次准备结果；需要时手动压缩。", pomodoro: "专注计时，直接操作，不必发消息。", modules: "了解助手支持什么，以及当前启用了什么。" })[detailTab];
   const newConversation = async () => {
     if (busy || sending || threadSwitchInFlight.current || !info) return;
     threadSwitchInFlight.current = true;
     setSwitchingThread(true);
-    try { await window.runloom.createThread(); }
+    try {
+      if (input.length) drafts.set(draftKey(info), { text: input, excludeFromMemory });
+      await window.runloom.createThread({ preserveDraft: input.length > 0 });
+      setDetailsOpen(false);
+    }
     catch { setError("新对话未打开，请查看当前会话；不会自动重试。"); }
     finally { threadSwitchInFlight.current = false; setSwitchingThread(false); }
   };
@@ -647,8 +666,14 @@ function AssistantPage({ drafts }: { drafts: Map<string, ConversationDraft> }) {
   };
 
   return (
-    <div className="app">
-      <aside className="sidebar" aria-label="主导航">
+    <div className={`app${layout === "zcode" ? " zcode-layout" : ""}`}>
+      {layout === "zcode" ? <ZCodeSidebar threads={threads} currentId={info?.threadId ?? ""} drafts={threadDrafts}
+        workspaceRoot={info?.workspaceRoot ?? null} loading={threadsLoading} error={threadsError}
+        busy={busy || sending || switchingThread || !info} selected={detailsOpen ? detailTab : null}
+        pendingMemory={pendingLabel} unknownRuns={unknownRuns.length}
+        onNew={() => void newConversation()} onSelect={id => void selectConversation(id)}
+        onOpen={tab => tab === "memory" ? openMemory() : openDetails(tab)} onConversation={() => setDetailsOpen(false)} /> : null}
+      <aside className="sidebar" aria-label="主导航" hidden={layout === "zcode"}>
         <div className="brand"><RunloomMark /><span>Runloom</span></div>
         <div className="sidebar-nav-scroll">
         <nav className="primary-nav" aria-label="对话">
@@ -658,7 +683,7 @@ function AssistantPage({ drafts }: { drafts: Map<string, ConversationDraft> }) {
           </button>
           <button className={detailsOpen && detailTab === "tasks" ? "selected" : ""} onClick={() => { setTaskFocused(false); openDetails("tasks"); }} title="工作任务" aria-current={detailsOpen && detailTab === "tasks" ? "page" : undefined}><Icon name="activity" /><span>工作任务</span></button>
         </nav>
-        {info ? <RecentThreads threads={threads} currentId={info.threadId} loading={threadsLoading} error={threadsError} busy={busy || sending || switchingThread} onSelect={id => void selectConversation(id)} onAll={() => openDetails("threads")} /> : null}
+        {info ? <RecentThreads threads={threads} drafts={threadDrafts} currentId={info.threadId} loading={threadsLoading} error={threadsError} busy={busy || sending || switchingThread} onSelect={id => void selectConversation(id)} onAll={() => openDetails("threads")} /> : null}
         <div className="sidebar-section">查阅</div>
         <nav className="primary-nav" aria-label="查阅">
           {([["records", "执行记录", "activity"], ["memory", "记忆", "memory"]] as const).map(([tab, label, icon]) =>
@@ -687,6 +712,8 @@ function AssistantPage({ drafts }: { drafts: Map<string, ConversationDraft> }) {
           <span className="page-context" title={pageTitle}>{pageTitle}</span>
           <span className={`run-state ${status.tone}`} role="status"><span className={`state-dot ${status.tone}`} />{stageLabel}</span>
           <span className="spacer" />
+          {layout === "zcode" && !detailsOpen ? <button className="icon-button" aria-label="全部对话" title="全部对话" onClick={() => openDetails("threads")}><Icon name="chat" size={17} /></button> : null}
+          <button className="ghost layout-switch" onClick={onLayoutChange} title="只切换界面，不切换会话或运行状态">{layout === "zcode" ? "回到原版" : "试用 ZCode 界面"}</button>
           {busy ? <button className="cancel-button" onClick={() => void window.runloom.cancel().catch(() => setError("取消结果未收到，请核对当前状态。"))}><Icon name="stop" size={14} />{state.kind === "running" && state.phase === "consolidation" ? "停止整理" : "停止"}</button> : null}
         </header>
         {isMockModel(info?.modelAlias) ? <div className="model-mode-notice" role="status">当前使用模拟模型，只用于界面测试。日用任务请配置真实模型并重启；不会自动切换。</div> : null}
@@ -718,7 +745,7 @@ function AssistantPage({ drafts }: { drafts: Map<string, ConversationDraft> }) {
                   <button className="ghost" onClick={() => openDetails("threads")}>继续之前的对话<Icon name="chevron" size={14} /></button>
                 </div> : null}
                 <div className="conversation-thread">
-                  {rows.map(row => <Row key={row.key} row={row} delivered={delivered.has(row.key)} />)}
+                  {rows.map(row => <Row key={row.key} row={row} delivered={delivered.has(row.key)} layout={layout} />)}
                   {info?.memory.enabled ? <MemoryReferences refreshToken={contextRefresh} runId={state.kind === "running" && state.phase === "primary" ? state.runId : latestPrimaryId.current} starting={state.kind === "running" && state.phase === "primary" && state.runId === null} /> : null}
                   {activePrimary && live.streaming ? <div className="row row-text role-assistant live">
                     <span className="role"><RunloomMark size={20} /> Runloom <span className="streaming-label">正在回复</span></span>
@@ -735,7 +762,7 @@ function AssistantPage({ drafts }: { drafts: Map<string, ConversationDraft> }) {
           <section className="inspector" hidden={!detailsOpen} aria-label={pageTitle}>
             <div className="inspector-header"><div><h1>{pageTitle}</h1><p>{pageDescription}</p></div><button className="ghost" title="回到对话 · Escape" onClick={() => setDetailsOpen(false)}><Icon name="close" size={16} />回到对话</button></div>
             <div className="inspector-pane" ref={inspectorScroll} onScroll={() => { if (inspectorScroll.current) inspectorPositions.current.set(inspectorKey, inspectorScroll.current.scrollTop); }}>
-              {detailTab === "threads" && info ? <ThreadsPanel info={info} busy={busy || switchingThread} onSelect={selectConversation} onCreate={newConversation} onChanged={() => setThreadsRefresh(value => value + 1)} /> : null}
+              {detailTab === "threads" && info ? <ThreadsPanel info={info} drafts={threadDrafts} busy={busy || switchingThread} onSelect={selectConversation} onCreate={newConversation} onChanged={() => setThreadsRefresh(value => value + 1)} /> : null}
               <div hidden={detailTab !== "tasks"}>
                 <WorkTasksPanel view={workTasks} createRequest={createTaskRequest} initialGoal={taskDraft} focused={taskFocused} onCompose={composeTask} onCreated={() => { setDetailsOpen(false); setTaskFocused(true); }} onRun={runId => { openDetails("records"); void openRecord(runId).catch(() => setError("执行回执读取失败")); }} />
               </div>

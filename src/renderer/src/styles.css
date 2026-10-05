@@ -136,6 +136,17 @@ button.chip { font-size: 12px; padding: 5px 9px; border-color: var(--line); }
 .sidebar { display: flex; flex-direction: column; width: 206px; flex: none; min-height: 0; padding: 21px 12px 12px; background: var(--sidebar); border-right: 1px solid var(--line); }
 .brand { display: flex; align-items: center; gap: 10px; padding: 0 9px 27px; color: var(--accent); -webkit-app-region: drag; }
 .brand > span { font-size: 19px; font-weight: 650; color: var(--text); letter-spacing: -.5px; }
+/* Leave the real macOS traffic lights above navigation in either layout.
+ * Specificity keeps the safe area when the sidebar collapses to an icon rail. */
+:root[data-native-window-controls="macos"] .app { position: relative; }
+:root[data-native-window-controls="macos"] .app::before {
+  content: ""; position: absolute; top: 0; left: 0; width: 80px; height: 44px;
+  -webkit-app-region: drag;
+}
+:root[data-native-window-controls="macos"] .app :is(.sidebar, .zcode-sidebar) { padding-top: 54px; }
+@media (max-width: 800px) {
+  :root[data-native-window-controls="macos"] .app .header { padding-left: 30px; }
+}
 .sidebar-section { color: var(--muted); font-size: 11px; padding: 20px 12px 8px; }
 .sidebar-nav-scroll { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
 .maintenance-label { padding-top: 12px; }
@@ -535,6 +546,29 @@ button.chip { font-size: 12px; padding: 5px 9px; border-color: var(--line); }
 .continuation-receipts li { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; padding-block: 4px; }
 .continuation-receipts small { flex-basis: 100%; overflow-wrap: anywhere; color: var(--muted); }
 /* Conversation discovery and explicit memory material selection. */
+.thread-list { min-width: 0; }
+.thread-search { display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; align-items: center; }
+.thread-search label { grid-column: 1 / -1; font-size: 14px; font-weight: 550; }
+.thread-search input { min-width: 0; width: 100%; padding: 11px 13px; border: 1px solid var(--line-strong); border-radius: 8px; color: var(--text); background: var(--panel); }
+.thread-search input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.thread-list-caption, .thread-empty-toggle { color: var(--muted); font-size: 12px; margin: 14px 0; }
+.thread-empty-toggle { display: flex; align-items: center; gap: 8px; }
+.thread-empty { padding: 24px 0; color: var(--muted); }
+.conversation-list-item { border-bottom: 1px solid var(--line); padding-block: 5px; }
+.conversation-list-open { display: flex; flex-direction: column; align-items: stretch; width: 100%; text-align: left; gap: 5px; padding: 14px 12px 10px; border: 0; background: transparent; border-radius: 6px; }
+.conversation-list-item.current .conversation-list-open { background: var(--accent-soft); }
+.conversation-list-heading { display: flex; gap: 12px; justify-content: space-between; align-items: baseline; }
+.conversation-list-heading strong { font-size: 14px; font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.conversation-list-heading small { flex: none; color: var(--muted); font-size: 11px; }
+.conversation-list-preview { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.conversation-list-tags { display: flex; gap: 12px; color: var(--accent); font-size: 11px; }
+.conversation-list-tags:empty { display: none; }
+.conversation-list-details { margin: 0 12px 8px; font-size: 11px; color: var(--muted); overflow-wrap: anywhere; user-select: text; }
+.conversation-list-details summary { cursor: pointer; width: fit-content; }
+@media (max-width: 580px) {
+  .conversation-list-heading { flex-wrap: wrap; gap: 2px 8px; }
+  .conversation-list-heading strong { width: 100%; }
+}
 .thread-item { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--border, #e6e3dd); }
 .thread-item > div { min-width: 0; overflow-wrap: anywhere; }
 .thread-item button { flex-shrink: 0; }

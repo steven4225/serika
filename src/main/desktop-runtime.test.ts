@@ -7,6 +7,7 @@ import { describe, it } from "node:test";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { DesktopRuntime } from "./desktop-runtime.js";
+import { ExecutionRecordStore } from "@aisdk-agent/example-cli/dist/execution-record-store.js";
 import { discoverThreadDirectory } from "./thread-history.js";
 import type { MainToRenderer } from "../shared/ui-contract.js";
 
@@ -36,6 +37,55 @@ async function idle(host: DesktopRuntime) {
 }
 
 describe("normal desktop memory and history entry", () => {
+  it("reuses verified empty conversations, keeps draft identities separate, and never hides tasks, receipts or unreadable records", async () => {
+    const root = await mkdtemp(join(tmpdir(), "runloom-history-activity-"));
+    let calls = 0;
+    const options = { userData: join(root, "profile"), cwd: root, env: {}, modelAlias: "mock",
+      model: new MockLanguageModelV3({ doStream: async () => { calls++; return response(); } }), send: () => {} };
+    let host = await DesktopRuntime.create(options);
+    try {
+      const first = host.info();
+      for (let click = 0; click < 3; click++) await host.createThread();
+      assert.equal(host.info().threadId, first.threadId);
+      assert.equal((await host.listThreads()).length, 1);
+      assert.equal((await host.listThreads())[0]?.emptyVerified, true);
+      await host.createThread({ preserveDraft: true });
+      assert.notEqual(host.info().threadId, first.threadId);
+      assert.equal((await host.listThreads()).length, 2, "a local draft retains a separate identity");
+      const taskThread = host.info().threadId;
+      const task = await host.current.createWorkTask({ goal: "香蕉项目计划", acceptance: [{ id: "human", required: true, description: "可执行", method: "human", verification: { kind: "human" } }] });
+      assert.ok(task.ok);
+      const taskSummary = (await host.listThreads("香蕉")).find(item => item.threadId === taskThread)!;
+      assert.equal(taskSummary.messageCount, 0); assert.equal(taskSummary.taskCount, 1); assert.equal(taskSummary.emptyVerified, false);
+      assert.equal(taskSummary.matchesQuery, true); assert.match(taskSummary.title, /香蕉/);
+      await host.createThread();
+      const receiptThread = host.info();
+      const journal = new ExecutionRecordStore(receiptThread.directory);
+      await journal.startRun({ threadId: receiptThread.threadId, runId: "uncommitted-run", phase: "primary" });
+      const before = await readFile(join(receiptThread.directory, "execution-records.json"), "utf8");
+      const receiptSummary = (await host.listThreads()).find(item => item.threadId === receiptThread.threadId)!;
+      assert.equal(receiptSummary.messageCount, 0); assert.equal(receiptSummary.runCount, 1); assert.equal(receiptSummary.emptyVerified, false);
+      assert.equal(await readFile(join(receiptThread.directory, "execution-records.json"), "utf8"), before, "listing must not recover an interrupted Run");
+      await host.createThread();
+      assert.notEqual(host.info().threadId, receiptThread.threadId);
+      const broken = host.info();
+      const invalid = join(broken.directory, "execution-records.json");
+      await writeFile(invalid, "invalid");
+      const brokenSummary = (await host.listThreads()).find(item => item.threadId === broken.threadId)!;
+      assert.equal(brokenSummary.emptyVerified, false); assert.match(brokenSummary.error!, /无法读取/);
+      assert.equal(await readFile(invalid, "utf8"), "invalid");
+      await assert.rejects(host.listThreads("x".repeat(201)), /200/);
+      assert.equal(calls, 0, "listing, searching, creating and switching never call a model");
+      // Restore the test journal before orderly shutdown; only the fixture is modified.
+      await writeFile(invalid, JSON.stringify({ version: 1, runs: [] }));
+      await host.selectThread(taskThread);
+      await host.shutdown(); host = await DesktopRuntime.create(options);
+      assert.equal(host.info().threadId, taskThread);
+      const reopened = await host.current.listWorkTasks(); assert.ok(reopened.ok);
+      assert.equal(reopened.value[0]?.id, task.value.id); assert.equal(reopened.value[0]?.status, "ready");
+      assert.equal(calls, 0, "reopening a task is not executing it");
+    } finally { await host.shutdown(); await rm(root, { recursive: true, force: true }); }
+  });
   it("explicitly enables an old disabled config while keeping the selected Thread and committed history", async () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-desktop-enable-test-"));
     const workspace = join(root, "workspace"); await mkdir(workspace);

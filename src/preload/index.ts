@@ -2,8 +2,8 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 import { IPC, type MainToRenderer, type RendererApi } from "../shared/ui-contract.js";
 
 const api: RendererApi = {
-  listThreads: () => ipcRenderer.invoke(IPC.threadsList),
-  createThread: () => ipcRenderer.invoke(IPC.threadCreate),
+  listThreads: query => ipcRenderer.invoke(IPC.threadsList, query),
+  createThread: options => ipcRenderer.invoke(IPC.threadCreate, options),
   selectThread: id => ipcRenderer.invoke(IPC.threadSelect, id),
   chooseHistoryDirectory: () => ipcRenderer.invoke(IPC.historyDirectory),
   discoverThreads: directory => ipcRenderer.invoke(IPC.threadsDiscover, directory),
@@ -63,3 +63,9 @@ const api: RendererApi = {
 };
 
 contextBridge.exposeInMainWorld("runloom", api);
+
+// Native chrome is outside React. Reserve its space only in the macOS app,
+// not in the browser fixture or on platforms that retain the frameless shell.
+window.addEventListener("DOMContentLoaded", () => {
+  if (process.platform === "darwin") document.documentElement.dataset.nativeWindowControls = "macos";
+}, { once: true });

@@ -13,6 +13,7 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
+    "ui:zcode": "vite --config vite.preview.config.ts",
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
     "test": "tsx --test src/shared/*.test.ts src/main/*.test.ts src/renderer/src/*.test.ts",
     "check": "pnpm typecheck && pnpm test && pnpm build"

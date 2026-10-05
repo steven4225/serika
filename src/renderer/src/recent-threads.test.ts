@@ -4,6 +4,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { RecentThreads, recentThreads } from "./recent-threads.js";
 import type { ThreadSummary } from "../../shared/ui-contract.js";
+import { visibleThreads, threadTitle } from "./thread-list-data.js";
 
 function thread(threadId: string, savedAt?: string): ThreadSummary {
   return { threadId, transcriptDirectory: "/registered/workspace", title: threadId, messageCount: 2, savedAt };
@@ -26,4 +27,18 @@ it("keeps history reachable and distinguishes loading/error from an empty list",
   const busy = renderToStaticMarkup(createElement(RecentThreads, { ...props, loading: false, error: null, busy: true }));
   assert.match(busy, /aria-current="true" disabled=""/);
   assert.match(busy, /处理结束后可切换对话/);
+});
+
+it("hides only positively verified unused histories, preserving current, drafts, errors and activity", () => {
+  const empty = (id: string): ThreadSummary => ({ ...thread(id), title: "新对话", messageCount: 0, emptyVerified: true });
+  const rows = [empty("current"), empty("unused"), empty("draft"), { ...empty("error"), error: "坏文件" },
+    { ...empty("task"), emptyVerified: false, taskCount: 1 }, { ...empty("receipt"), emptyVerified: false, runCount: 1 },
+    { ...thread("not-inspected"), messageCount: 0 }];
+  const drafts = new Map([["draft", "尚未发送的项目计划"]]);
+  const result = visibleThreads(rows, "current", drafts);
+  assert.equal(result.some(row => row.threadId === "unused"), false);
+  for (const id of ["current", "draft", "error", "task", "receipt", "not-inspected"]) assert.ok(result.some(row => row.threadId === id));
+  assert.equal(visibleThreads(rows, "current", drafts, true).length, rows.length);
+  assert.equal(threadTitle(empty("draft"), drafts.get("draft")), "尚未发送的项目计划");
+  assert.equal(rows.length, 7, "filtering neither deletes nor mutates registered entries");
 });

@@ -3,11 +3,23 @@ import { describe, it } from "node:test";
 import type { WorkTask, WorkTaskStatus } from "../../shared/work-tasks.js";
 import { sanitizeWorkTaskInput } from "../../shared/work-tasks.js";
 import type { ExecutionRunRecord } from "../../shared/ui-contract.js";
-import { isTaskRun, selectCurrentTask, taskActions, unreconciledRuns, TASK_TEMPLATES, taskNextAction, taskVerificationSummary, taskSelectionKey, readTaskSelection, saveTaskSelection, taskFormAcceptance } from "./work-task-data.js";
+import { isTaskRun, selectCurrentTask, restoredTaskId, taskActions, unreconciledRuns, TASK_TEMPLATES, taskNextAction, taskVerificationSummary, taskSelectionKey, readTaskSelection, saveTaskSelection, taskFormAcceptance } from "./work-task-data.js";
 
 const task = (status: WorkTaskStatus): WorkTask => ({ id: "task", revision: 1, threadId: "thread", goal: "写计划", constraints: [], acceptance: [], status, runIds: ["run"], delivery: null, reconciliations: [], createdAt: "2026-10-03T00:00:00.000Z", updatedAt: "2026-10-03T00:00:00.000Z" });
 
 describe("work task presentation invariants", () => {
+  it("restores the actionable task without hiding unknown effects behind an old selected delivery", () => {
+    const completed = { ...task("completed"), id: "old" };
+    const paused = { ...task("paused"), id: "next" };
+    const unknown = { ...task("needs_review"), id: "unknown" };
+    const rows = [completed, paused];
+    assert.equal(restoredTaskId(rows, "old"), "next");
+    assert.equal(restoredTaskId([...rows, unknown], "next"), "unknown");
+    assert.equal(restoredTaskId(rows, "older-outside-page"), "older-outside-page", "controller get verifies saved older identity");
+    assert.equal(restoredTaskId([], null), null);
+    assert.equal(restoredTaskId([completed], "old"), "old");
+    assert.equal(unknown.status, "needs_review", "selection is only a projection, never a reconciliation");
+  });
   it("distinguishes persisted automatic failures from pending human review and completed acceptance", () => {
     const criteria = taskFormAcceptance("report.md", "内容可用", "node check.mjs", ".");
     const review: WorkTask = { ...task("awaiting_acceptance"),
