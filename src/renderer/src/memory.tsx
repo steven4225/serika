@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { FormalMemories } from "./formal-memories.js";
+import { pendingMemoryReducer } from "./pending-memory-data.js";
 import type { CandidatePreview } from "@aisdk-agent/example-cli/dist/memory-candidates.js";
 import { formatRecordTime } from "../../shared/execution-records.js";
 import {
@@ -7,6 +8,7 @@ import {
   canReject,
   capabilityText,
   candidateKindLabel,
+  candidateAcceptLabel,
   candidateOperationExplanation,
   candidateSources,
   initialMemoryPanel,
@@ -24,9 +26,11 @@ import {
   unavailableLabel,
   validTimeLabel,
   type CandidateFilter,
+  type MemoryPanelAction,
+  type MemoryPanelState,
 } from "../../shared/memory-review.js";
 
-const FILTERS: readonly CandidateFilter[] = ["pending", "accepted", "rejected", "stale"];
+const HISTORY_FILTERS: readonly CandidateFilter[] = ["accepted", "rejected", "stale"];
 
 function expiresLabel(value: string | null | undefined): string {
   if (value === undefined) return "未提供";
@@ -66,80 +70,86 @@ export function CandidateDetail({
         {candidateSources(preview).map((source, index) => <div key={`${source.threadId}:${source.messageId}:${index}`}>
           <blockquote className="memory-text">{source.quote}</blockquote>
           <details>
-            <summary className="hint">来源 {index + 1} 的 Thread 与消息</summary>
+            <summary className="hint">来源 {index + 1} 的记录信息</summary>
             <div className="hint">{source.threadId}</div>
             <div className="hint">{source.messageId}</div>
           </details>
         </div>)}
       </section>
-      <section>
-        <div className="memory-label">{candidateKindLabel(preview.candidate)}</div>
-        <p className="hint">{candidateOperationExplanation(preview.candidate)}</p>
-        <pre className="memory-text memory-reason">{preview.candidate.reason}</pre>
-      </section>
-      <section>
+      {change.operation !== "add" ? <section>
         <div className="memory-label">当前记忆</div>
-        {change.operation === "add" ? <div className="hint">新增，没有现有目标。</div> : null}
-        {change.operation !== "add" && preview.current !== null ? (
+        {preview.current !== null ? (
           <div className="memory-change">
             <pre className="memory-text">{preview.current.text}</pre>
-            <div className="hint">目标 {change.memoryId} · expectedRevision {change.expectedRevision}</div>
-            <div className="hint">当前版本 revision {preview.current.revision ?? "未提供"} · 断言 {currentAssertion?.assertionId ?? "未提供"}</div>
             <div className="hint">类型 {memoryKindLabel(currentAssertion?.kind)} · {currentAssertion?.state === "retracted" ? "事实已撤回" : preview.current.status === "disabled" ? "已停用" : "当前记录"}</div>
             <div className="hint">事实适用时间：{validTimeLabel(currentAssertion?.validTime)}</div>
-            <div className="hint">系统认知时间：{systemTimeLabel(currentAssertion?.systemTime)}</div>
-            <div className="hint">检索词：{currentAssertion?.recallTerms.join("、") || "无"}</div>
           </div>
         ) : null}
         {targetMissing ? <div>当前目标不可用</div> : null}
-      </section>
+      </section> : null}
       <section>
-        <div className="memory-label">接受后的记忆</div>
+        <div className="memory-label">{candidateKindLabel(preview.candidate)} · 接受后的记忆</div>
+        <p className="hint">{candidateOperationExplanation(preview.candidate)}</p>
         {change.operation === "retract" ? <><p>这条事实将被撤回，不再作为当前事实引用。</p><p className="hint">旧对话、旧摘要和已经发出的回复不会被删除，仍可能包含原话。</p></> : <pre className="memory-text">{proposedText(preview)}</pre>}
         {proposed !== null ? <>
-          <div className="hint">类型 {memoryKindLabel(proposed.kind)} · {change.operation === "retract" ? "撤回" : proposed.status === "disabled" ? "停用" : "未停用（引用仍需匹配适用时间）"}</div>
-          <div className="hint">事实适用时间：{validTimeLabel(proposed.validTime)}</div>
+          {proposed.validTime && (proposed.validTime.from !== null || proposed.validTime.to !== null) ? <div className="hint">事实适用时间：{validTimeLabel(proposed.validTime)}</div> : <div className="hint">事实适用时间：{proposed.validTime ? "未指定边界" : "未提供"}</div>}
           {proposed.effectiveAt ? <div className="hint">事实变化生效于：{proposed.effectiveAt}</div> : null}
-          <div className="hint">系统认知时间：{change.operation === "disable" ? "事实认知历史不变，接受时记录停用" : "接受时记录；尚未写入"}</div>
-          <div className="hint">检索词：{proposed.recallTerms?.join("、") || "无"}（只帮助查找，不是事实或权限）</div>
         </> : <p className="hint">完整变更预览不可用，不能接受。</p>}
-      </section>
-      <section>
-        <div className="memory-label">范围</div>
-        {scope === null ? <div>当前目标不可用</div> : <div>{scope}</div>}
+        <div className="memory-review-scope">范围：{scope === null ? "当前目标不可用" : scope === "workspace" ? "当前工作区，可供其他对话使用" : "仅当前对话"}</div>
         <div className="hint">引用到期时间 {expiresLabel(proposed !== null ? proposed.expiresAt : change.expiresAt)}</div>
-        {preview.proposed ? <div className="hint">{preview.proposed.pinned ? "pinned" : "未固定"}</div> : null}
       </section>
-      <section>
+      {preview.candidate.status !== "pending" || reason ? <section>
         <div className="memory-label">状态</div>
         <div>
           {statusLabel(preview.candidate.status)}
           {preview.applicable ? " · 可接受" : " · 不可接受"}
         </div>
         {reason ? <div className="hint">{reason}</div> : null}
-        {preview.candidate.appliedResult ? (
-          <div className="hint">
-            当时写入 {preview.candidate.appliedResult.memoryId} · revision {preview.candidate.appliedResult.revision}
-          </div>
-        ) : null}
-      </section>
+      </section> : null}
+      <details className="memory-technical">
+        <summary>来源与版本详情</summary>
+        <pre className="memory-text memory-reason">{preview.candidate.reason}</pre>
+        <div className="hint">候选 {preview.candidate.id} · revision {preview.candidate.revision}</div>
+        {change.operation !== "add" ? <div className="hint">目标 {change.memoryId} · expectedRevision {change.expectedRevision}</div> : null}
+        {preview.current ? <>
+          <div className="hint">当前版本 revision {preview.current.revision ?? "未提供"} · 断言 {currentAssertion?.assertionId ?? "未提供"}</div>
+          <div className="hint">系统认知时间：{systemTimeLabel(currentAssertion?.systemTime)}</div>
+          <div className="hint">原检索词：{currentAssertion?.recallTerms.join("、") || "无"}</div>
+        </> : null}
+        <div className="hint">系统认知时间：{change.operation === "disable" ? "事实认知历史不变，接受时记录停用" : "接受时记录；尚未写入"}</div>
+        <div className="hint">检索词：{proposed?.recallTerms?.join("、") || "无"}（只帮助查找，不是事实或权限）</div>
+        <div className="hint">类型 {memoryKindLabel(proposed?.kind)} · 事实适用时间：{validTimeLabel(proposed?.validTime)}</div>
+        {proposed ? <div className="hint">{proposed.pinned ? "已固定" : "未固定"}</div> : null}
+        {preview.candidate.appliedResult ? <div className="hint">当时写入 {preview.candidate.appliedResult.memoryId} · revision {preview.candidate.appliedResult.revision}</div> : null}
+      </details>
       <div className="actions">
         <button className="ghost" onClick={onRefresh} disabled={resolving}>刷新</button>
-        <button className="deny" onClick={onReject} disabled={!canRejectDecision}>拒绝</button>
-        <button className="allow" onClick={onAccept} disabled={!canAcceptDecision}>接受</button>
+        {preview.candidate.status === "pending" ? <>
+          <button className="deny" onClick={onReject} disabled={!canRejectDecision}>拒绝</button>
+          <button className="allow" onClick={onAccept} disabled={!canAcceptDecision}>{resolving ? "正在审核…" : candidateAcceptLabel(preview.candidate)}</button>
+        </> : null}
       </div>
     </div>
   );
 }
 
-export function MemoryPanel(props: { memory: { enabled: boolean; autoConsolidate: boolean; queryRewriteEnabled?: boolean }; temporaryThread: boolean; controllerIdle: boolean; refreshToken: number }) {
-  const [tab, setTab] = useState<"formal" | "candidates">("formal");
+export type MemoryTab = "pending" | "formal" | "history";
+export function MemoryTabs({ tab, onSelect }: { tab: MemoryTab; onSelect: (tab: MemoryTab) => void }) {
+  return <div className="memory-tabs" role="tablist" aria-label="记忆视图">
+    {([["pending", "待审核"], ["formal", "已保存"], ["history", "审核记录"]] as const).map(([id, label]) =>
+      <button key={id} role="tab" aria-selected={tab === id} onClick={() => onSelect(id)}>{label}</button>)}
+  </div>;
+}
+
+export function MemoryPanel(props: { memory: { enabled: boolean; autoConsolidate: boolean; queryRewriteEnabled?: boolean }; temporaryThread: boolean; controllerIdle: boolean; refreshToken: number; focusRequest?: { id: string | null; sequence: number } }) {
+  const [tab, setTab] = useState<MemoryTab>("pending");
+  useEffect(() => { if (props.focusRequest?.sequence) setTab("pending"); }, [props.focusRequest?.sequence]);
   return <>
-    <div className="memory-tabs" role="tablist" aria-label="记忆视图">
-      <button role="tab" aria-selected={tab === "formal"} onClick={() => setTab("formal")}>正式记忆</button>
-      <button role="tab" aria-selected={tab === "candidates"} onClick={() => setTab("candidates")}>候选记录</button>
-    </div>
-    {tab === "formal" ? <FormalMemories enabled={props.memory.enabled} controllerIdle={props.controllerIdle} refreshToken={props.refreshToken} queryRewriteEnabled={props.memory.queryRewriteEnabled === true} /> : <CandidateMemories {...props} />}
+    <MemoryTabs tab={tab} onSelect={setTab} />
+    {tab === "formal" ? <>
+      <p className="hint">这些记忆已经保存。某轮是否参考过，请看对话中的「本轮参考记忆」，保存不代表每轮都会引用。</p>
+      <FormalMemories enabled={props.memory.enabled} controllerIdle={props.controllerIdle} refreshToken={props.refreshToken} queryRewriteEnabled={props.memory.queryRewriteEnabled === true} />
+    </> : <CandidateMemories key={tab} {...props} mode={tab} onSaved={() => setTab("formal")} />}
   </>;
 }
 
@@ -148,15 +158,34 @@ function CandidateMemories({
   temporaryThread,
   controllerIdle,
   refreshToken,
+  mode,
+  focusRequest,
+  onSaved,
 }: {
   memory: { enabled: boolean; autoConsolidate: boolean };
   temporaryThread: boolean;
   controllerIdle: boolean;
   refreshToken: number;
+  mode: "pending" | "history";
+  focusRequest?: { id: string | null; sequence: number };
+  onSaved: () => void;
 }) {
-  const [state, dispatch] = useReducer(memoryPanelReducer, undefined, () => ({ ...initialMemoryPanel(), open: true }));
+  const [state, setState] = useState<MemoryPanelState>(() => ({ ...initialMemoryPanel(), open: true, filter: mode === "pending" ? "pending" : "accepted" }));
   const stateRef = useRef(state);
-  stateRef.current = state;
+  const active = useRef(true);
+  const [receipt, setReceipt] = useState("");
+  const enabledRef = useRef(memory.enabled);
+  const idleRef = useRef(controllerIdle);
+  const latestRefresh = useRef(refreshToken);
+  enabledRef.current = memory.enabled;
+  idleRef.current = controllerIdle;
+  latestRefresh.current = refreshToken;
+  const dispatch = useCallback((action: MemoryPanelAction) => {
+    if (!active.current) return;
+    stateRef.current = mode === "pending" ? pendingMemoryReducer(stateRef.current, action) : memoryPanelReducer(stateRef.current, action);
+    if (stateRef.current.receipt) setReceipt(stateRef.current.receipt);
+    setState(stateRef.current);
+  }, [mode]);
   const listSeq = useRef(0);
   const detailSeq = useRef(0);
   const resolveLock = useRef(false);
@@ -175,7 +204,7 @@ function CandidateMemories({
         result: { ok: false, error: { code: "IPC_FAILED", message: "列表结果未确认，请刷新核对" } },
       });
     }
-  }, []);
+  }, [dispatch]);
 
   const fetchDetail = useCallback(async (request: number, id: string) => {
     try {
@@ -189,7 +218,7 @@ function CandidateMemories({
         result: { ok: false, error: { code: "IPC_FAILED", message: "详情结果未确认，请刷新核对" } },
       });
     }
-  }, []);
+  }, [dispatch]);
 
   const reload = useCallback((filter: CandidateFilter, selectedId: string | null) => {
     const listRequest = ++listSeq.current;
@@ -197,18 +226,20 @@ function CandidateMemories({
     dispatch({ type: "invalidate", listRequest, detailRequest });
     void fetchList(listRequest, filter);
     if (selectedId !== null) void fetchDetail(detailRequest, selectedId);
-  }, [fetchDetail, fetchList]);
+  }, [dispatch, fetchDetail, fetchList]);
+
+  useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
 
   useEffect(() => {
     dispatch({ type: "controller", idle: controllerIdle });
-  }, [controllerIdle]);
+  }, [controllerIdle, dispatch]);
 
   useEffect(() => {
     if (!memory.enabled) return;
     const request = ++listSeq.current;
     dispatch({ type: "list-start", request, append: false });
-    void fetchList(request, "pending");
-  }, [memory.enabled, fetchList]);
+    void fetchList(request, stateRef.current.filter);
+  }, [memory.enabled, fetchList, dispatch]);
 
   useEffect(() => {
     if (seenRefresh.current === refreshToken) return;
@@ -217,6 +248,22 @@ function CandidateMemories({
     reload(stateRef.current.filter, stateRef.current.selectedId);
   }, [refreshToken, memory.enabled, reload]);
 
+  useEffect(() => {
+    if (mode !== "pending" || !memory.enabled || !focusRequest?.id || !focusRequest.sequence) return;
+    const request = ++detailSeq.current;
+    dispatch({ type: "select", id: focusRequest.id, request });
+    void fetchDetail(request, focusRequest.id);
+  }, [mode, memory.enabled, focusRequest?.id, focusRequest?.sequence, dispatch, fetchDetail]);
+
+  useEffect(() => {
+    if (mode !== "pending" || !memory.enabled || state.listLoading || state.listError || state.selectedId !== null) return;
+    const first = state.candidates.find(candidate => candidate.status === "pending");
+    if (!first) return;
+    const request = ++detailSeq.current;
+    dispatch({ type: "select", id: first.id, request });
+    void fetchDetail(request, first.id);
+  }, [mode, memory.enabled, state.listLoading, state.listError, state.selectedId, state.candidates, dispatch, fetchDetail]);
+
   const refresh = (): void => {
     if (!memory.enabled) return;
     reload(state.filter, state.selectedId);
@@ -224,6 +271,7 @@ function CandidateMemories({
 
   const chooseFilter = (filter: CandidateFilter): void => {
     if (filter === state.filter) return;
+    setReceipt("");
     const request = ++listSeq.current;
     dispatch({ type: "set-filter", filter, request });
     void fetchList(request, filter);
@@ -237,19 +285,21 @@ function CandidateMemories({
   };
 
   const openDetail = (id: string): void => {
+    setReceipt("");
     const request = ++detailSeq.current;
     dispatch({ type: "select", id, request });
     void fetchDetail(request, id);
   };
 
   const resolve = (decision: "accept" | "reject"): void => {
-    if (resolveLock.current) return;
+    if (resolveLock.current || !enabledRef.current || !idleRef.current || seenRefresh.current !== latestRefresh.current) return;
     const current = stateRef.current;
     const preview = current.preview;
     if (preview === null) return;
     if (decision === "accept" && !canAccept(current)) return;
     if (decision === "reject" && !canReject(current)) return;
     resolveLock.current = true;
+    setReceipt("");
     const input = resolvePayload(preview, decision);
     dispatch({ type: "resolve-start", decision });
     void window.runloom.resolveMemoryCandidate(input).then((result) => {
@@ -263,17 +313,19 @@ function CandidateMemories({
     });
   };
 
-  const acceptEnabled = canAccept(state);
-  const rejectEnabled = canReject(state);
+  const fresh = seenRefresh.current === refreshToken;
+  const acceptEnabled = memory.enabled && controllerIdle && fresh && canAccept(state);
+  const rejectEnabled = memory.enabled && controllerIdle && fresh && canReject(state);
 
   return (
-    <section className="card memory">
-      <div className="hint">{capabilityText(memory)}</div>
-      {temporaryThread ? <div className="hint">重启后不会自动回到这些候选的来源 Thread。</div> : null}
+    <section className={`card memory memory-${mode}`} aria-label={mode === "pending" ? "只审核当前对话的候选，接受前不会成为正式记忆" : "当前对话的审核记录"}>
+      {!memory.enabled || !memory.autoConsolidate ? <div className="hint">{capabilityText(memory)}</div> : null}
+      {mode === "history" || state.preview === null ? <div className="hint">{mode === "history" ? "这是当前对话的审核记录，不是正式记忆的版本历史。" : "只审核当前对话的候选，接受前不会成为正式记忆。"}</div> : null}
+      {temporaryThread ? <div className="hint">重启后不会自动回到这些候选的来源对话。</div> : null}
       {state.open ? (
         <div className="memory-body">
-          <div className="memory-filters">
-            {FILTERS.map((filter) => (
+          {mode === "history" || state.preview === null ? <div className="memory-filters">
+            {(mode === "history" ? HISTORY_FILTERS : []).map((filter) => (
               <button
                 key={filter}
                 className={filter === state.filter ? "chip active" : "chip"}
@@ -283,14 +335,17 @@ function CandidateMemories({
               </button>
             ))}
             <button className="ghost" onClick={refresh} disabled={!memory.enabled || state.listLoading}>刷新</button>
-          </div>
-          {state.receipt ? <div className="memory-receipt">{state.receipt}</div> : null}
+          </div> : null}
+          {receipt ? <div className="memory-receipt" role="status">
+            <p>{receipt.startsWith("已接受") ? "已保存这项变更。接下来可以审核下一条。" : receipt}</p>
+            {receipt.startsWith("已接受") ? <><button className="ghost" onClick={onSaved}>查看已保存</button><details><summary>写入回执</summary>{receipt}</details></> : null}
+          </div> : null}
           {state.reviewError ? <div className="error">{state.reviewError}</div> : null}
           {!memory.enabled ? null : state.listLoading && state.candidates.length === 0 ? (
             <div className="muted">正在读取候选…</div>
           ) : null}
           {state.listError ? <div className="error">{listErrorText(state.listError)}</div> : null}
-          {memory.enabled && !state.listLoading && state.listError === null ? (
+          {mode === "history" && memory.enabled && !state.listLoading && state.listError === null ? (
             <div className="hint">
               {loadedLabel(state.candidates.length)}
               {state.truncated ? " · 本次列表未返回全部" : ""}
@@ -299,6 +354,8 @@ function CandidateMemories({
           {memory.enabled && !state.listLoading && state.listError === null && state.candidates.length === 0 ? (
             <div className="memory-empty">{state.filter === "pending" ? "没有待审核的候选。对话中出现新的长期信息后，可以在这里核对并接受。" : "当前对话没有此状态的候选。"}</div>
           ) : null}
+          <details className="candidate-list-disclosure" open={mode === "history"}>
+          <summary>{mode === "history" ? "候选审核列表" : `选择待审核候选（已加载 ${state.candidates.length} 条）`}</summary>
           <div className="memory-list">
             {state.candidates.map((candidate) => (
               <div className="memory-row" key={candidate.id}>
@@ -312,6 +369,7 @@ function CandidateMemories({
           {state.nextOffset !== null ? (
             <button className="ghost" onClick={loadMore} disabled={state.listLoading}>加载下一页</button>
           ) : null}
+          </details>
           {state.detailLoading ? <div className="muted">正在读取详情…</div> : null}
           {state.detailError ? <div className="error">{reviewErrorText(state.detailError, state.controllerIdle)}</div> : null}
           {state.preview ? (

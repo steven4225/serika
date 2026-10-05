@@ -151,6 +151,16 @@ export function candidateKindLabel(candidate: MemoryCandidate): string {
   }
 }
 
+export function candidateAcceptLabel(candidate: MemoryCandidate): string {
+  switch (candidate.change.operation) {
+    case "add": return "保存这条记忆";
+    case "update": case "change": return "确认更新";
+    case "correct": return "确认纠错";
+    case "retract": return "确认撤回";
+    case "disable": return "确认停用";
+  }
+}
+
 export function candidateOperationExplanation(candidate: MemoryCandidate): string {
   switch (candidate.change.operation) {
     case "add": return "接受后新增正式记忆。";

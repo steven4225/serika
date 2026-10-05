@@ -3,6 +3,7 @@ import {
   canAccept,
   canReject,
   candidateKindLabel,
+  candidateAcceptLabel,
   candidateOperationExplanation,
   candidateSources,
   memoryKindLabel,
@@ -31,10 +32,11 @@ interface PendingMemoryProps {
   onStatus: (status: PendingMemoryStatus) => void;
   onReviewed?: () => void;
   onLater?: () => void;
+  onOpenCandidate?: (id: string) => void;
 }
 
 /** Always mounted for counts; visibility never grants authority to review. */
-export function PendingMemory({ memory, controllerIdle, refreshToken, visible, onStatus, onReviewed, onLater }: PendingMemoryProps) {
+export function PendingMemory({ memory, controllerIdle, refreshToken, visible, onStatus, onReviewed, onLater, onOpenCandidate }: PendingMemoryProps) {
   const [state, setState] = useState(initialPendingMemory);
   const stateRef = useRef(state);
   const enabledRef = useRef(memory.enabled);
@@ -178,19 +180,19 @@ export function PendingMemory({ memory, controllerIdle, refreshToken, visible, o
             <span className="memory-label">你的原话</span>
             {candidateSources(preview).map((source, index) => <blockquote key={`${source.threadId}:${source.messageId}:${index}`}>{source.quote}</blockquote>)}
           </div>
-          <div className="pending-memory-proposal">
-            <span className="memory-label">{candidateKindLabel(preview.candidate)}</span>
-            {change?.operation === "retract" ? <><p>撤回这条事实，不再作为当前事实引用。</p><p className="hint">不会删除旧对话、旧摘要或已经发出的回复；它们仍可能包含原话。</p></> : <p>{proposedText(preview)}</p>}
-            <p className="hint">{candidateOperationExplanation(preview.candidate)}</p>
-          </div>
           {change && change.operation !== "add" ? (
             <div className="pending-memory-current">
               <span className="memory-label">当前记忆</span>
               {preview.current ? <p>{preview.current.text}</p> : <p>当前目标不可用，不能接受此变更。</p>}
             </div>
           ) : null}
+          <div className="pending-memory-proposal">
+            <span className="memory-label">{candidateKindLabel(preview.candidate)}</span>
+            {change?.operation === "retract" ? <><p>撤回这条事实，不再作为当前事实引用。</p><p className="hint">不会删除旧对话、旧摘要或已经发出的回复；它们仍可能包含原话。</p></> : <p>{proposedText(preview)}</p>}
+            <p className="hint">{candidateOperationExplanation(preview.candidate)}</p>
+          </div>
           <div className="pending-memory-meta">
-            <span>范围：{scope === "workspace" ? "当前工作区，可供其他 Thread 使用" : scope ?? "当前目标不可用"}</span>
+            <span>范围：{scope === "workspace" ? "当前工作区，可供其他对话使用" : scope === "当前 Thread" ? "仅当前对话" : "当前目标不可用"}</span>
             <span>引用到期：{expiresAt === null ? "无有效期" : expiresAt ?? "未提供"}</span>
             <span>事实适用：{validTimeLabel(preview.proposed?.validTime)}</span>
           </div>
@@ -217,9 +219,10 @@ export function PendingMemory({ memory, controllerIdle, refreshToken, visible, o
           {!controllerIdle ? <p className="hint">助手正在处理任务，空闲后再接受或拒绝。</p> : null}
           <div className="actions pending-memory-actions">
             {onLater ? <button className="ghost" onClick={onLater} disabled={state.resolving}>稍后审核</button> : null}
+            {onOpenCandidate ? <button className="ghost" onClick={() => onOpenCandidate(preview.candidate.id)} disabled={state.resolving}>完整审核</button> : null}
             <button className="ghost" onClick={reload} disabled={state.resolving || state.listLoading}>重新读取</button>
             <button className="deny" onClick={() => resolve("reject")} disabled={!ready || !canReject(state)}>拒绝</button>
-            <button className="allow" onClick={() => resolve("accept")} disabled={!ready || !canAccept(state)}>{state.resolving ? "正在审核…" : "接受变更"}</button>
+            <button className="allow" onClick={() => resolve("accept")} disabled={!ready || !canAccept(state)}>{state.resolving ? "正在审核…" : candidateAcceptLabel(preview.candidate)}</button>
           </div>
         </div>
       ) : status.error ? <button className="ghost" onClick={reload} disabled={state.listLoading}>重新读取候选</button> : null}

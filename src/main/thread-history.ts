@@ -28,7 +28,7 @@ export async function inspectThread(thread: DesktopThread): Promise<ThreadSummar
     }
     const user = messages.find(message => message.role === "user" && message.metadata?.source !== "auto-consolidation");
     const title = user?.parts.flatMap(part => part.type === "text" && typeof part.text === "string" ? [part.text] : []).join(" ").slice(0, 64) || "新对话";
-    return { ...thread, title, messageCount: messages.length, ...(incompleteTail ? { error: "末尾有未完成记录；这里只展示最近完整快照" } : {}) };
+    return { ...thread, title, messageCount: messages.length, savedAt: stat.mtime.toISOString(), ...(incompleteTail ? { error: "末尾有未完成记录；这里只展示最近完整快照" } : {}) };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return { ...thread, title: "新对话", messageCount: 0 };
     return { ...thread, title: thread.threadId, messageCount: null, error: error instanceof Error ? error.message : "无法读取历史" };

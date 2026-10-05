@@ -312,5 +312,7 @@ export interface ThreadSummary {
   transcriptDirectory: string;
   title: string;
   messageCount: number | null;
+  /** Transcript file modification time, not inferred conversation activity. */
+  savedAt?: string;
   error?: string;
 }

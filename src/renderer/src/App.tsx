@@ -7,6 +7,7 @@ import type {
   UiSnapshot,
   UiState,
   ExecutionRunRecord,
+  ThreadSummary,
 } from "../../shared/ui-contract.js";
 import { ShellProgressBuffer } from "../../shared/shell-progress.js";
 import {
@@ -28,6 +29,7 @@ import { baseName, parseHome, shortId, type HomeView } from "./home.js";
 import { MemoryPanel } from "./memory.js";
 import { MemoryConsolidationPanel, MemoryConsolidationNotice } from "./memory-consolidation.js";
 import { ThreadsPanel } from "./threads.js";
+import { RecentThreads } from "./recent-threads.js";
 import { MemoryReferences } from "./memory-references.js";
 import { ContextPanel } from "./context.js";
 import { RecordsPanel, type RecordDetailState, type RecordsState } from "./records.js";
@@ -237,6 +239,11 @@ export function App() {
 function AssistantPage({ drafts }: { drafts: Map<string, ConversationDraft> }) {
   const [info, setInfo] = useState<AppInfo | null>(null);
   const [conversationTitle, setConversationTitle] = useState("当前对话");
+  const [threads, setThreads] = useState<ThreadSummary[]>([]);
+  const [threadsLoading, setThreadsLoading] = useState(true);
+  const [threadsError, setThreadsError] = useState<string | null>(null);
+  const [threadsRefresh, setThreadsRefresh] = useState(0);
+  const [memoryFocus, setMemoryFocus] = useState<{ id: string | null; sequence: number }>({ id: null, sequence: 0 });
   const [state, setState] = useState<UiState>({ kind: "idle" });
   const [home, setHome] = useState("");
   const [output, setOutput] = useState("");
@@ -505,16 +512,16 @@ function AssistantPage({ drafts }: { drafts: Map<string, ConversationDraft> }) {
     return () => window.removeEventListener("keydown", close);
   }, [detailsOpen]);
 
-  useEffect(() => { if (!detailsOpen && info) inputRef.current?.focus(); }, [detailsOpen, info]);
-
   useEffect(() => {
     if (!info || state.kind !== "idle") return;
     let active = true;
+    setThreadsLoading(true);
     void window.runloom.listThreads().then(threads => {
-      if (active) setConversationTitle(threads.find(thread => thread.threadId === info.threadId)?.title || "当前对话");
-    }).catch(() => { /* The history panel exposes retrieval errors, never replace the conversation. */ });
+      if (active) { setThreads(threads); setThreadsError(null); setConversationTitle(threads.find(thread => thread.threadId === info.threadId)?.title || "当前对话"); }
+    }).catch(() => { if (active) setThreadsError("对话列表读取失败"); })
+      .finally(() => { if (active) setThreadsLoading(false); });
     return () => { active = false; };
-  }, [info, state.kind]);
+  }, [info, state.kind, threadsRefresh]);
 
   useEffect(() => {
     const area = conversationScroll.current;
@@ -600,6 +607,7 @@ function AssistantPage({ drafts }: { drafts: Map<string, ConversationDraft> }) {
   const unknownRuns = records.status === "ready" ? unreconciledRuns(records.runs, workTasks.tasks) : [];
   const reviewTask = workTasks.tasks.find(task => task.status === "needs_review");
   const openDetails = (tab: typeof detailTab) => { setDetailTab(tab); setDetailsOpen(true); };
+  const openMemory = (id: string | null = null) => { setMemoryFocus(current => ({ id, sequence: current.sequence + 1 })); openDetails("memory"); };
   const openTask = () => { setTaskFocused(true); openDetails("tasks"); };
   const composeTask = () => {
     if (!workTasks.task || !taskActions(workTasks.task).run || workTasks.locked) return;
@@ -622,6 +630,15 @@ function AssistantPage({ drafts }: { drafts: Map<string, ConversationDraft> }) {
     catch { setError("新对话未打开，请查看当前会话；不会自动重试。"); }
     finally { threadSwitchInFlight.current = false; setSwitchingThread(false); }
   };
+  const selectConversation = async (id: string) => {
+    if (busy || sending || threadSwitchInFlight.current || !info) return;
+    if (id === info.threadId) { setDetailsOpen(false); return; }
+    threadSwitchInFlight.current = true;
+    setSwitchingThread(true);
+    try { await window.runloom.selectThread(id); }
+    catch { setError("对话切换未确认，请核对当前会话；不会自动重试。"); }
+    finally { threadSwitchInFlight.current = false; setSwitchingThread(false); }
+  };
   const prepareInput = (text: string) => { setInput(text); inputRef.current?.focus(); };
   const scrollToLatest = () => {
     followConversation.current = true;
@@ -641,15 +658,18 @@ function AssistantPage({ drafts }: { drafts: Map<string, ConversationDraft> }) {
           </button>
           <button className={detailsOpen && detailTab === "tasks" ? "selected" : ""} onClick={() => { setTaskFocused(false); openDetails("tasks"); }} title="工作任务" aria-current={detailsOpen && detailTab === "tasks" ? "page" : undefined}><Icon name="activity" /><span>工作任务</span></button>
         </nav>
+        {info ? <RecentThreads threads={threads} currentId={info.threadId} loading={threadsLoading} error={threadsError} busy={busy || sending || switchingThread} onSelect={id => void selectConversation(id)} onAll={() => openDetails("threads")} /> : null}
         <div className="sidebar-section">查阅</div>
         <nav className="primary-nav" aria-label="查阅">
-          {([["threads", "历史对话", "chat"], ["home", "工作区", "home"], ["records", "执行记录", "activity"], ["memory", "记忆", "memory"]] as const).map(([tab, label, icon]) =>
-            <button key={tab} className={detailsOpen && detailTab === tab ? "selected" : ""} title={label} aria-current={detailsOpen && detailTab === tab ? "page" : undefined} onClick={() => openDetails(tab)}>
+          {([["records", "执行记录", "activity"], ["memory", "记忆", "memory"]] as const).map(([tab, label, icon]) =>
+            <button key={tab} className={detailsOpen && detailTab === tab ? "selected" : ""} title={label} aria-current={detailsOpen && detailTab === tab ? "page" : undefined} onClick={() => tab === "memory" ? openMemory() : openDetails(tab)}>
               <Icon name={icon as IconName} /><span>{label}</span>{tab === "records" && unknownRuns.length ? <span className="nav-count" aria-label={`${unknownRuns.length} 条已加载执行尚待核对`}>{unknownRuns.length}</span> : tab === "memory" && pendingLabel ? <span className="nav-count" title={pendingMemory.hasMore ? "待审候选数量至少为此数" : "当前 Thread 待审候选"} aria-label={`${pendingLabel} 条待审记忆`}>{pendingLabel}</span> : null}
             </button>)}
         </nav>
-        <div className="sidebar-section">工具</div>
-        <nav className="primary-nav" aria-label="工具"><button className={detailsOpen && detailTab === "pomodoro" ? "selected" : ""} aria-current={detailsOpen && detailTab === "pomodoro" ? "page" : undefined} title="番茄钟" onClick={() => openDetails("pomodoro")}><Icon name="timer" /><span>番茄钟</span></button></nav>
+        <details className="sidebar-tools"><summary title="工作区与工具" aria-label="工作区与工具"><Icon name="modules" /><span>工作区与工具</span></summary><nav className="primary-nav" aria-label="工作区与工具">
+          <button className={detailsOpen && detailTab === "home" ? "selected" : ""} onClick={() => openDetails("home")} title="工作区、订阅与定时提醒"><Icon name="home" /><span>工作区与订阅</span></button>
+          <button className={detailsOpen && detailTab === "pomodoro" ? "selected" : ""} aria-current={detailsOpen && detailTab === "pomodoro" ? "page" : undefined} title="番茄钟" onClick={() => openDetails("pomodoro")}><Icon name="timer" /><span>番茄钟</span></button>
+        </nav></details>
         </div>
         <div className="sidebar-section maintenance-label">维护</div>
         <nav className="primary-nav" aria-label="维护">
@@ -672,12 +692,12 @@ function AssistantPage({ drafts }: { drafts: Map<string, ConversationDraft> }) {
         {isMockModel(info?.modelAlias) ? <div className="model-mode-notice" role="status">当前使用模拟模型，只用于界面测试。日用任务请配置真实模型并重启；不会自动切换。</div> : null}
         {info?.entryMode === "test" ? <div className="model-mode-notice" role="status">隔离验收窗口 · 这里的会话和记忆属于测试工作区</div> : null}
         {info && !detailsOpen && !busy && attention === "none" && dailySetupNotice(info) ? <div className="attention-summary daily-setup-notice"><span>{dailySetupNotice(info)}</span><button className="ghost" onClick={() => openDetails("home")}>查看日用设置</button></div> : null}
-        {info && !detailsOpen && attention === "none" ? <MemoryConsolidationNotice enabled={info.memory.enabled} busy={busy} running={state.kind === "running" && state.phase === "consolidation"} refreshToken={memoryRefresh} onOpen={() => openDetails("memory")} /> : null}
-        {!detailsOpen && !busy && attention === "none" && memoryDeferred && pendingLabel ? <div className="attention-summary"><span>{pendingLabel} 条候选留待稍后审核，尚未保存为正式记忆。</span><button className="ghost" onClick={() => openDetails("memory")}>查看候选</button></div> : null}
+        {info && !detailsOpen && attention === "none" ? <MemoryConsolidationNotice enabled={info.memory.enabled} busy={busy} running={state.kind === "running" && state.phase === "consolidation"} refreshToken={memoryRefresh} onOpen={() => openMemory()} /> : null}
+        {!detailsOpen && !busy && attention === "none" && memoryDeferred && pendingLabel ? <div className="attention-summary"><span>{pendingLabel} 条候选留待稍后审核，尚未保存为正式记忆。</span><button className="ghost" onClick={() => openMemory()}>查看候选</button></div> : null}
         <div className="attention-region" hidden={(attention === "none" && !pendingMemory.error) || (attention === "memory" && detailsOpen)}>
           {attention === "approval" && approval ? <ApprovalCard approval={approval} deciding={decidingId === approval.approvalId} onDecision={decision => void decide(decision)} /> : null}
           {attention === "unknown" ? <div className="review-notice" role="status"><Icon name="shield" size={16} /><span>有执行效果还没核对，不会自动重做。</span><button className="ghost" onClick={() => { if (reviewTask) { workTasks.select(reviewTask.id); openTask(); } else { openDetails("records"); const run = unknownRuns[0]; if (run) void openRecord(run.runId); } }}>{reviewTask ? "核对工作任务" : "查看回执"}<Icon name="chevron" size={14} /></button></div> : null}
-          {info ? <PendingMemory memory={info.memory} controllerIdle={!busy} refreshToken={memoryRefresh} visible={attention === "memory" && !detailsOpen} onStatus={setPendingMemory} onReviewed={refreshMemory} onLater={() => setMemoryDeferred(true)} /> : null}
+          {info ? <PendingMemory memory={info.memory} controllerIdle={!busy} refreshToken={memoryRefresh} visible={attention === "memory" && !detailsOpen} onStatus={setPendingMemory} onReviewed={refreshMemory} onLater={() => setMemoryDeferred(true)} onOpenCandidate={id => openMemory(id)} /> : null}
           {pendingMemory.error && attention === "none" ? <div className="attention-summary"><span>记忆候选暂不可用，不能据此判断没有待审项。</span><button className="ghost" onClick={() => openDetails("memory")}>查看原因</button></div> : null}
           {attention === "approval" && (unknownRuns.length > 0 || pendingLabel) ? <div className="attention-summary">{unknownRuns.length > 0 ? <button className="ghost" onClick={() => openDetails("records")}>另有执行效果待核对</button> : null}{pendingLabel ? <button className="ghost" onClick={() => openDetails("memory")}>待审记忆 {pendingLabel}</button> : null}</div> : null}
           {attention === "unknown" && pendingLabel ? <div className="attention-summary"><button className="ghost" onClick={() => openDetails("memory")}>还有待审记忆 {pendingLabel}</button></div> : null}
@@ -715,7 +735,7 @@ function AssistantPage({ drafts }: { drafts: Map<string, ConversationDraft> }) {
           <section className="inspector" hidden={!detailsOpen} aria-label={pageTitle}>
             <div className="inspector-header"><div><h1>{pageTitle}</h1><p>{pageDescription}</p></div><button className="ghost" title="回到对话 · Escape" onClick={() => setDetailsOpen(false)}><Icon name="close" size={16} />回到对话</button></div>
             <div className="inspector-pane" ref={inspectorScroll} onScroll={() => { if (inspectorScroll.current) inspectorPositions.current.set(inspectorKey, inspectorScroll.current.scrollTop); }}>
-              {detailTab === "threads" && info ? <ThreadsPanel info={info} busy={busy} /> : null}
+              {detailTab === "threads" && info ? <ThreadsPanel info={info} busy={busy || switchingThread} onSelect={selectConversation} onCreate={newConversation} onChanged={() => setThreadsRefresh(value => value + 1)} /> : null}
               <div hidden={detailTab !== "tasks"}>
                 <WorkTasksPanel view={workTasks} createRequest={createTaskRequest} initialGoal={taskDraft} focused={taskFocused} onCompose={composeTask} onCreated={() => { setDetailsOpen(false); setTaskFocused(true); }} onRun={runId => { openDetails("records"); void openRecord(runId).catch(() => setError("执行回执读取失败")); }} />
               </div>
@@ -743,7 +763,7 @@ function AssistantPage({ drafts }: { drafts: Map<string, ConversationDraft> }) {
                 onRefresh={() => void loadRecords(selectedRecordId.current ?? undefined).catch(() => setError("执行记录读取失败"))}
                 onOpen={runId => void openRecord(runId).catch(() => setError("执行回执读取失败"))} /></div>
               <div hidden={detailTab !== "memory"}>{info ? <MemoryConsolidationPanel info={info} busy={busy} refreshToken={memoryRefresh} /> : null}{info ? <MemoryPanel memory={info.memory} temporaryThread={info.temporaryThread}
-                controllerIdle={!busy} refreshToken={memoryRefresh} /> : null}</div>
+                controllerIdle={!busy} refreshToken={memoryRefresh} focusRequest={memoryFocus} /> : null}</div>
               <div hidden={detailTab !== "context"}>{info ? <ContextPanel controllerIdle={!busy} refreshToken={contextRefresh}
                 hasCompaction={info.hasCompaction} /> : null}</div>
               <div hidden={detailTab !== "modules"}>{info ? <CapabilitiesPanel info={info} /> : null}</div>

@@ -4,7 +4,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { CandidatePreview } from "@aisdk-agent/example-cli/dist/memory-candidates.js";
 import type { MemoryReferenceSnapshot } from "@aisdk-agent/example-cli/dist/memory-query-rewrite.js";
-import { CandidateDetail } from "./memory.js";
+import { CandidateDetail, MemoryPanel, MemoryTabs } from "./memory.js";
 import { MemoryReferenceDetails } from "./memory-references.js";
 import { MemoryActionPreviewDetails } from "./memory-temporal.js";
 
@@ -34,6 +34,27 @@ function detail(preview: CandidatePreview) {
 }
 
 describe("memory temporal review UI", () => {
+  it("starts with current-conversation review and separates saved memory from candidate decisions", () => {
+    const html = renderToStaticMarkup(createElement(MemoryPanel, { memory: { enabled: true, autoConsolidate: true }, temporaryThread: false, controllerIdle: true, refreshToken: 0 }));
+    assert.match(html, /aria-selected="true">待审核/);
+    for (const label of ["已保存", "审核记录", "只审核当前对话的候选"]) assert.ok(html.includes(label));
+    assert.equal(html.includes("更正、变化与管理"), false, "formal editor is not the default screen");
+    const history = renderToStaticMarkup(createElement(MemoryTabs, { tab: "history", onSelect: () => {} }));
+    assert.match(history, /aria-selected="true">审核记录/);
+  });
+
+  it("keeps checked quote/current/proposed/scope visible while internal metadata is collapsed", () => {
+    const html = detail(candidatePreview());
+    assert.ok(html.indexOf("原话来源") < html.indexOf("当前记忆"));
+    assert.ok(html.indexOf("当前记忆") < html.indexOf("接受后的记忆"));
+    assert.match(html, /当前工作区，可供其他对话使用/);
+    assert.match(html, /确认更新/);
+    const technical = html.slice(html.indexOf('<details class="memory-technical"'), html.indexOf('</details>', html.indexOf('<details class="memory-technical"')));
+    for (const text of ["candidate-a", "expectedRevision 2", "系统认知时间", "用户明确报告真实偏好变化"]) assert.ok(technical.includes(text), text);
+    assert.equal(technical.includes(" open="), false);
+    const terminal = candidatePreview(); terminal.candidate.status = "accepted";
+    assert.equal(detail(terminal).includes("确认更新"), false, "review history does not offer a repeat decision");
+  });
   it("shows both checked source quotes and real-change current/proposed timing", () => {
     const html = detail(candidatePreview());
     for (const text of ["事实变更", "从昨天开始改成三步。", "旧的两步不再适用。", "source-a", "source-b", "再列两步", "再列三步", "事实适用时间", "系统认知时间", "2026-10-03T00:00:00Z", "复盘格式", "接受时记录；尚未写入"]) assert.ok(html.includes(text), text);

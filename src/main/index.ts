@@ -133,7 +133,7 @@ async function main(): Promise<void> {
     const report = (): void => send({ type: "error", message });
     if (window.webContents.isLoading()) window.webContents.once("did-finish-load", report);
     else report();
-    app.on("before-quit", () => tray.dispose());
+    app.on("before-quit", () => { quitting = true; tray.dispose(); });
     return;
   }
 

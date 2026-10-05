@@ -160,7 +160,7 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken, queryRew
   if (!enabled) return <p className="hint">记忆模块未启用，不是空记忆库。</p>;
   const restoreAssertion = history?.assertions.find(assertion => assertion.assertionId === draft?.targetAssertionId);
   return <section className="formal-memories">
-    <p className="hint">正式记忆可跨对话使用。这里只显示工作区与当前 Thread 的记录。</p>
+    <p className="hint">这里只显示当前工作区和当前对话可见的正式记忆。对话范围的记忆不会自动用于其他对话。</p>
     <details className="memory-maintenance"><summary>整理与容量</summary>
       {maintenance ? <MemoryMaintenanceSummary value={maintenance} /> : <p className="hint">{maintenanceError ? "无法读取维护状态" : "读取中…"}</p>}
       {maintenanceError ? <p className="error" role="alert">{maintenanceError}</p> : null}
@@ -175,11 +175,12 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken, queryRew
     {page?.entries.length === 0 ? <p>没有可见的正式记忆。</p> : null}
     <div className="formal-memory-list">{page?.entries.map(entry => <button className="formal-memory-item" key={entry.id} onClick={() => void open(entry.id)} disabled={busy}>
       <span>{entry.preview || (entry.temporalState === "retracted" ? "已撤回的记忆" : "当前没有适用内容")}{entry.truncated ? "…" : ""}</span>
-      <small>{entry.scope?.kind === "thread" ? "当前 Thread" : "工作区"} · v{entry.revision ?? 1} · {memoryAvailabilityLabel(entry)}{entry.pinned ? " · 固定" : ""}</small>
+      <small>{entry.scope?.kind === "thread" ? "仅当前对话" : "工作区"} · {memoryAvailabilityLabel(entry)}{entry.pinned ? " · 固定" : ""}</small>
     </button>)}</div>
     <div className="actions">{offset > 0 ? <button className="ghost" onClick={() => void load(Math.max(0, offset - 20))}>上一页</button> : null}{page?.nextOffset !== null && page?.nextOffset !== undefined ? <button className="ghost" onClick={() => void load(page.nextOffset!)}>下一页</button> : null}</div>
     {current && draft ? <div className="memory-detail">
-      <div className="hint">{current.id} · revision {current.revision ?? 1} · {current.scope?.kind === "thread" ? "当前 Thread" : "工作区"}</div>
+      <div className="hint">{current.scope?.kind === "thread" ? "仅当前对话" : "工作区，可供其他对话使用"}</div>
+      <details><summary>记录与版本</summary><div className="hint">{current.id} · revision {current.revision ?? 1}</div></details>
       <p className="hint">有效期：{timestampLabel(current.expiresAt, "无")} · {current.pinned ? "已固定" : "未固定"} · {memoryAvailabilityLabel(current)}</p>
       <CurrentMemoryDetails current={current} assertion={currentAssertion} />
       {stale ? <p className="hint">详情已过期或正在运行。重新加载详情后才能操作。</p> : null}
