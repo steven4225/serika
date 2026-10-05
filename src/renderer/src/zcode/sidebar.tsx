@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import type { ThreadSummary } from "../../../shared/ui-contract.js";
-import { Icon, RunloomMark, type IconName } from "../icons.js";
+import { Icon, SerikaMark, type IconName } from "../icons.js";
 import { baseName } from "../home.js";
 import { threadTitle, visibleThreads } from "../thread-list-data.js";
 
@@ -23,7 +23,7 @@ export function ZCodeSidebar({ threads, currentId, drafts, workspaceRoot, loadin
     <Icon name={icon} size={17} /><span>{label}</span>{count ? <small className="zcode-nav-count">{count}</small> : null}
   </button>;
   return <aside className="zcode-sidebar" aria-label="主导航">
-    <div className="zcode-brand"><RunloomMark size={24} /><strong>Runloom</strong>
+    <div className="zcode-brand"><SerikaMark size={28} /><strong>Serika</strong>
       <button className="icon-button" title="回到当前对话" aria-label="回到当前对话" onClick={onConversation}><Icon name="panel" size={16} /></button>
     </div>
     <button className="zcode-new-chat" aria-label="新对话" title="开始新对话；保留当前未发送草稿" disabled={busy} onClick={onNew}>

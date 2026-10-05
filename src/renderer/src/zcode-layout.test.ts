@@ -17,6 +17,9 @@ it("renders registered history and preserves busy/error distinctions and all fea
     drafts: new Map<string, string>(), workspaceRoot: "/isolated/Runloom", loading: false, error: null, busy: true, selected: null,
     pendingMemory: "2+", unknownRuns: 1, onNew: () => {}, onSelect: () => {}, onOpen: () => {}, onConversation: () => {} };
   const markup = renderToStaticMarkup(createElement(ZCodeSidebar, props));
+  assert.match(markup, /<strong>Serika<\/strong>/);
+  assert.match(markup, /class="serika-mark"/);
+  assert.match(markup, /serika-icon\.png/);
   assert.match(markup, /&lt;script&gt;history&lt;\/script&gt;/);
   assert.match(markup, /aria-current="true" disabled=""/);
   for (const entry of ["记忆", "执行记录", "工作任务", "番茄钟", "模块能力", "上下文与压缩", "工作区、订阅与设置"]) assert.ok(markup.includes(entry));

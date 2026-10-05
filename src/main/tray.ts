@@ -3,8 +3,8 @@ import { app, BrowserWindow, globalShortcut, Menu, nativeImage, Tray } from "ele
 export const TOGGLE_SHORTCUT = "Alt+Space";
 
 /**
- * A monochrome template icon drawn in memory, so the repo carries no binary
- * assets. macOS recolors template images for light/dark menu bars.
+ * Keep the menu-bar icon monochrome rather than squeezing a portrait into 16px.
+ * macOS recolors template images for light/dark menu bars.
  */
 function trayIcon(): Electron.NativeImage {
   const draw = (size: number): Buffer => {
@@ -52,13 +52,13 @@ export interface TrayHandle {
  */
 export function installTray(window: BrowserWindow, onQuit: () => void): TrayHandle {
   const tray = new Tray(trayIcon());
-  tray.setToolTip("Runloom");
+  tray.setToolTip("Serika");
   const menu = Menu.buildFromTemplate([
     { label: "显示 / 隐藏", click: () => toggleWindow(window) },
     { type: "separator" },
     { label: `切换窗口  ${TOGGLE_SHORTCUT.replace("Alt", "⌥")}`, enabled: false },
     { type: "separator" },
-    { label: "退出 Runloom", click: onQuit },
+    { label: "退出 Serika", click: onQuit },
   ]);
   tray.on("click", () => toggleWindow(window));
   tray.on("right-click", () => tray.popUpContextMenu(menu));
@@ -66,7 +66,7 @@ export function installTray(window: BrowserWindow, onQuit: () => void): TrayHand
   const registered = globalShortcut.register(TOGGLE_SHORTCUT, () => toggleWindow(window));
   if (!registered) {
     // Another app owns the shortcut; the tray click still works.
-    tray.setToolTip(`Runloom（${TOGGLE_SHORTCUT} 被占用）`);
+    tray.setToolTip(`Serika（${TOGGLE_SHORTCUT} 被占用）`);
   }
 
   return {

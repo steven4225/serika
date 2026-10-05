@@ -1,6 +1,18 @@
-# Runloom Desktop
+# Serika Desktop
 
 Electron 前端通过 `createRuntimeApp` + `createAssistantController` 接入后端，不创建第二条 AgentLoop。
+
+## Serika 名称与图标
+
+可见名称、Dock、窗口与对话头像使用 Serika。选定的头像在 `resources/serika-icon.png`；Dock / 原生窗口使用独立的 `resources/serika-dock.png`，1024px 画布带真实透明圆角和约 10% 外侧留白，主体约占 80%，不再使用满幅、不透明的头像 PNG。macOS 打包图标 `resources/serika.icns` 也来自 Dock 版；前端与主进程构建各自携带本地 PNG，不依赖生成器目录或联网加载。菜单栏仍使用适合 16px 的单色图标。
+
+这一轮只改品牌呈现，仓库名、包名、`RUNLOOM_*`、`window.runloom`、配置及 transcript 格式不变。主进程在改可见名称前固定原有 userData 路径，不因改名生成空白日用身份。完整退出后按原方式 `pnpm daily` 重开即可检查 Dock、侧栏和旧对话；关闭窗口只是隐藏，不会加载新版。
+
+图标是基于 CHAOS;CHILD 官方人物与标志参考制作的 AI 改编稿，原始生成文件仍保留。角色/原作素材公开分发授权尚未确认，不能把生成稿当成已取得角色授权。
+
+品牌接入验证：`pnpm check` 的类型检查、186 项测试和构建通过；隔离的实际 Electron 在同一 userData / Thread 恢复了旧回答，窗口、两种布局的侧栏和助手头像显示 Serika，图片成功加载。renderer 构建图片的 SHA-256 与选定原图一致，主进程构建图片与独立 Dock 导出一致。证据在 `/private/tmp/runloom-zcode-native.jmjNnF/serika-brand-*`。这不代表检查过日用私有数据或已经生成可分发安装包。
+
+Dock 导出补正：原头像 PNG 为 RGB、无透明通道，不能直接当作已处理圆角的原生图标。改用独立的 RGBA Dock 导出；1024px 画布中不透明主体宽度为 818px（约 80%），四角和最外圈 alpha 均为 0。`.icns` 已从新图重新生成；原头像哈希不变。补正后正常退出隔离 Electron 并以同一身份重开，已核对实际 Dock 显示新图标：圆角外侧透明，主体与相邻方形图标尺寸接近；原对话仍保留。原生窗口已切到前台核对。证据为上述目录的 `serika-dock-visible-2.png`、`serika-adapted-native.png` 和 `serika-brand-check.json`。未捕获鼠标按住瞬间，系统自身的点击反馈不被关闭。日用入口完整退出后重开同样会加载此构建；关闭窗口只会隐藏。
 
 ## 启动与验证
 

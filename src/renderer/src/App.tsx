@@ -35,7 +35,7 @@ import { ContextPanel } from "./context.js";
 import { RecordsPanel, type RecordDetailState, type RecordsState } from "./records.js";
 import { ApprovalCard } from "./approval.js";
 import { shouldSubmitComposer } from "../../shared/composer.js";
-import { Icon, RunloomMark, type IconName } from "./icons.js";
+import { Icon, SerikaMark, type IconName } from "./icons.js";
 import { MessageContent } from "./markdown.js";
 import { CapabilitiesPanel } from "./capabilities.js";
 import { PomodoroPanel } from "./pomodoro.js";
@@ -80,13 +80,13 @@ function Row({ row, delivered = false, layout = "classic" }: { row: Conversation
     case "text":
       if (layout === "zcode") return <ZCodeMessage from={row.role} className={`row row-text role-${row.role}${row.committed ? "" : " live"}`}>
         <ZCodeMessageContent>
-          {row.role !== "user" ? <span className="role">{row.role === "assistant" ? <><RunloomMark size={18} /> Runloom</> : "系统"}</span> : null}
+          {row.role !== "user" ? <span className="role">{row.role === "assistant" ? <><SerikaMark size={18} /> Serika</> : "系统"}</span> : null}
           {row.role === "assistant" ? <AssistantReply text={row.text} delivered={delivered} /> : <pre>{row.text}</pre>}
         </ZCodeMessageContent>
       </ZCodeMessage>;
       return (
         <div className={`row row-text role-${row.role}${row.committed ? "" : " live"}`}>
-          {row.role !== "user" ? <span className="role">{row.role === "assistant" ? <><RunloomMark size={20} /> Runloom</> : "系统"}</span> : null}
+          {row.role !== "user" ? <span className="role">{row.role === "assistant" ? <><SerikaMark size={20} /> Serika</> : "系统"}</span> : null}
           {row.role === "assistant" ? <AssistantReply text={row.text} delivered={delivered} /> : <pre>{row.text}</pre>}
         </div>
       );
@@ -674,7 +674,7 @@ function AssistantPage({ drafts, layout, onLayoutChange }: { drafts: Map<string,
         onNew={() => void newConversation()} onSelect={id => void selectConversation(id)}
         onOpen={tab => tab === "memory" ? openMemory() : openDetails(tab)} onConversation={() => setDetailsOpen(false)} /> : null}
       <aside className="sidebar" aria-label="主导航" hidden={layout === "zcode"}>
-        <div className="brand"><RunloomMark /><span>Runloom</span></div>
+        <div className="brand"><SerikaMark /><span>Serika</span></div>
         <div className="sidebar-nav-scroll">
         <nav className="primary-nav" aria-label="对话">
           <button disabled={busy || sending || switchingThread || !info} onClick={() => void newConversation()} title="开始新对话；当前草稿保留在本窗口"><Icon name="new-chat" /><span>新对话</span></button>
@@ -748,7 +748,7 @@ function AssistantPage({ drafts, layout, onLayoutChange }: { drafts: Map<string,
                   {rows.map(row => <Row key={row.key} row={row} delivered={delivered.has(row.key)} layout={layout} />)}
                   {info?.memory.enabled ? <MemoryReferences refreshToken={contextRefresh} runId={state.kind === "running" && state.phase === "primary" ? state.runId : latestPrimaryId.current} starting={state.kind === "running" && state.phase === "primary" && state.runId === null} /> : null}
                   {activePrimary && live.streaming ? <div className="row row-text role-assistant live">
-                    <span className="role"><RunloomMark size={20} /> Runloom <span className="streaming-label">正在回复</span></span>
+                    <span className="role"><SerikaMark size={20} /> Serika <span className="streaming-label">正在回复</span></span>
                     <MessageContent text={live.streaming} />
                   </div> : null}
                   {activePrimary && !live.streaming ? <div className="working-indicator" role="status"><span /><span /><span /><small>{approval ? "等待你的确认" : "正在处理"}</small></div> : null}

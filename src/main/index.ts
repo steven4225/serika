@@ -13,6 +13,9 @@ import { installHideOnClose, installTray } from "./tray.js";
 import { loadDesktopEnvironment, safeStartupError } from "./desktop-env.js";
 import { createDesktopRssWorker } from "./rss-worker-service.js";
 import type { RssAction } from "@aisdk-agent/example-cli/dist/rss-subscriptions.js";
+// Native icons need true transparent corners and optical padding. The avatar
+// stays full-size in the renderer; do not use its opaque square in the Dock.
+import appIconPath from "../../resources/serika-dock.png?asset";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 
@@ -30,8 +33,11 @@ const here = fileURLToPath(new URL(".", import.meta.url));
  * Omitted identity fields use the saved userData startup preference.
  */
 
-const userDataPath = userDataPathFromEnv(process.env);
-if (userDataPath !== undefined) app.setPath("userData", userDataPath);
+// Pin the existing profile before renaming the visible application. Otherwise
+// Electron's name-derived default path could strand the user's old history.
+const userDataPath = userDataPathFromEnv(process.env) ?? app.getPath("userData");
+app.setPath("userData", userDataPath);
+app.setName("Serika");
 
 function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
@@ -39,7 +45,8 @@ function createWindow(): BrowserWindow {
     height: 800,
     minWidth: 320,
     minHeight: 480,
-    title: "Runloom",
+    title: "Serika",
+    icon: appIconPath,
     // Keep macOS traffic lights native; close still uses installHideOnClose.
     ...(process.platform === "darwin"
       ? { titleBarStyle: "hidden" as const, trafficLightPosition: { x: 16, y: 20 } }
@@ -74,7 +81,7 @@ function notifyIfHidden(window: BrowserWindow, message: MainToRenderer): void {
   if (notification === undefined) return;
   if (window.isVisible() && window.isFocused()) return;
   if (!Notification.isSupported()) return;
-  const shown = new Notification({ title: `Runloom · ${notification.moduleId}`, body: notification.message });
+  const shown = new Notification({ title: `Serika · ${notification.moduleId}`, body: notification.message });
   shown.on("click", () => {
     window.show();
     window.focus();
@@ -91,6 +98,7 @@ async function main(): Promise<void> {
     activeWindow.focus();
   });
   await app.whenReady();
+  if (process.platform === "darwin") app.dock?.setIcon(appIconPath);
   let quitting = false;
   let shuttingDown = false;
   const window = createWindow();

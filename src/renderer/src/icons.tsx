@@ -26,9 +26,9 @@ export function Icon({ name, size = 18, style }: { name: IconName; size?: number
     strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={style}><path d={paths[name]} /></svg>;
 }
 
-export function RunloomMark({ size = 28 }: { size?: number }) {
-  return <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden="true">
-    <rect width="32" height="32" rx="10" fill="currentColor" />
-    <path d="M9 22V10h7a4 4 0 0 1 0 8h-4m4 0 6 4" stroke="var(--logo-ink)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>;
+const serikaIconUrl = new URL("../../../resources/serika-icon.png", import.meta.url).href;
+
+export function SerikaMark({ size = 28 }: { size?: number }) {
+  return <img className="serika-mark" src={serikaIconUrl} width={size} height={size} alt="" aria-hidden="true" draggable={false}
+    style={{ flexShrink: 0, borderRadius: size * 0.22, verticalAlign: "middle" }} />;
 }

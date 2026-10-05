@@ -3,6 +3,8 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   main: {
+    // Bundle the imported icon instead of leaving a runtime path outside out/.
+    publicDir: "src/main/public",
     plugins: [externalizeDepsPlugin()],
   },
   preload: {
