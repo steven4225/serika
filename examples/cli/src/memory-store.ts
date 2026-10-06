@@ -12,7 +12,7 @@ import type { UIMessage } from "ai";
 import { acquireFlock } from "./flock.js";
 import { abortReason, throwIfAborted, validateWorkspacePath } from "./workspace-path.js";
 import { candidateFingerprint, MEMORY_PENDING_CANDIDATES_MAX, MEMORY_TERMINAL_CANDIDATES_MAX, MEMORY_BATCH_CANDIDATES_MAX, MEMORY_CURSORS_MAX } from "./memory-candidates.js";
-import type { CandidateBatchInput, CandidateDraft, CandidateListInput, CandidatePage, CandidatePreview, CandidateResolution, CandidateResolveInput, ConsolidationCursor, MemoryCandidate, MemoryResult } from "./memory-candidates.js";
+import type { CandidateBatchInput, CandidateBatchResult, CandidateDraft, CandidateListInput, CandidatePage, CandidatePreview, CandidateResolution, CandidateResolveInput, ConsolidationCursor, MemoryCandidate, MemoryResult } from "./memory-candidates.js";
 import { MEMORY_ASSERTIONS_MAX, TemporalMemoryError, assertTemporalIntegrity, createAssertion, reviseAssertions, selectTemporalAssertions, validateAssertion, validateTemporalTimestamp, validateRecallTerms, validateValidTime } from "./memory-temporal.js";
 import type { MemoryAssertion, MemoryKind, MemoryValidTime } from "./memory-temporal.js";
 export type { MemoryAssertion, MemoryKind, MemoryValidTime } from "./memory-temporal.js";
@@ -209,7 +209,7 @@ export interface WorkspaceMemoryStore {
   getCandidate(id: string, signal?: AbortSignal, options?: MemoryWriteOptions): Promise<MemoryResult<CandidatePreview>>;
   resolveCandidate(input: CandidateResolveInput, signal?: AbortSignal, options?: MemoryWriteOptions): Promise<MemoryResult<CandidateResolution>>;
   getConsolidationCursor(threadId: string, signal?: AbortSignal): Promise<MemoryResult<ConsolidationCursor | null>>;
-  commitCandidateBatch(input: CandidateBatchInput, signal?: AbortSignal, options?: MemoryWriteOptions): Promise<MemoryResult<{ candidateIds: string[]; replayed: boolean }>>;
+  commitCandidateBatch(input: CandidateBatchInput, signal?: AbortSignal, options?: MemoryWriteOptions): Promise<MemoryResult<CandidateBatchResult>>;
   list(signal?: AbortSignal, options?: MemoryWriteOptions): Promise<MemoryListResult>;
   get(id: string, signal?: AbortSignal, options?: MemoryWriteOptions): Promise<MemoryEntryResult>;
   add(
@@ -484,8 +484,8 @@ function staleCandidate(candidate: MemoryCandidate, reason: NonNullable<MemoryCa
   candidate.status = "stale"; candidate.revision += 1; candidate.staleReason = reason; candidate.resolvedAt = now;
 }
 
-function pruneCandidates(document: MemoryDocument): void {
-  const terminal = document.candidates.filter((c) => c.status !== "pending").sort((a, b) => b.resolvedAt!.localeCompare(a.resolvedAt!) || a.id.localeCompare(b.id));
+function pruneCandidates(document: MemoryDocument, retainedReceipts: readonly string[] = []): void {
+  const terminal = document.candidates.filter((c) => c.status !== "pending").sort((a, b) => Number(retainedReceipts.includes(b.id)) - Number(retainedReceipts.includes(a.id)) || b.resolvedAt!.localeCompare(a.resolvedAt!) || a.id.localeCompare(b.id));
   const keep = new Set(terminal.slice(0, MEMORY_TERMINAL_CANDIDATES_MAX).map((c) => c.id));
   document.candidates = document.candidates.filter((c) => c.status === "pending" || keep.has(c.id));
 }
@@ -727,6 +727,24 @@ function applyCandidateRevision(record: MemoryRecord, candidate: MemoryCandidate
   if (change.operation === "disable") record.status = "disabled";
   else if (change.operation !== "retract") record.expiresAt = change.expiresAt;
   finishRecordRevision(record, revised.displayAssertionId, now);
+}
+
+/** Caller owns the document lock and has rechecked applicability; no separate write. */
+function acceptCandidate(document: MemoryDocument, candidate: MemoryCandidate, now: Date): void {
+  const change = candidate.change;
+  if (change.operation === "add") {
+    if (document.entries.length >= MEMORY_MAX_ENTRIES) raise("MEMORY_LIMIT_EXCEEDED", "Memory entry limit exceeded");
+    const entry = newRecord({ text: change.text, scope: structuredClone(change.scope), expiresAt: change.expiresAt,
+      ...(change.kind === undefined ? {} : { kind: change.kind }), ...(change.recallTerms === undefined ? {} : { recallTerms: change.recallTerms }), ...(change.validTime === undefined ? {} : { validTime: change.validTime }),
+    }, now.toISOString(), structuredClone(candidate.sources ?? [candidate.source]));
+    document.entries.push(entry); candidate.appliedResult = { memoryId: entry.id, revision: 1 };
+  } else {
+    const entry = document.entries.find((entry) => entry.id === change.memoryId)!;
+    applyCandidateRevision(entry, candidate, now.toISOString());
+    candidate.appliedResult = { memoryId: entry.id, revision: entry.revision };
+    for (const other of document.candidates) if (other.id !== candidate.id && other.status === "pending" && other.change.operation !== "add" && other.change.memoryId === entry.id) staleCandidate(other, "target_changed", now.toISOString());
+  }
+  candidate.status = "accepted"; candidate.revision += 1; candidate.resolvedAt = now.toISOString();
 }
 
 function finishRecordRevision(record: MemoryRecord, assertionId: string, now: string): void {
@@ -1061,17 +1079,27 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
     } catch (error) { return errorResult(error, signal, false); }
   }
 
-  async commitCandidateBatch(input: CandidateBatchInput, signal: AbortSignal = neverAborted, options?: MemoryWriteOptions): Promise<MemoryResult<{ candidateIds: string[]; replayed: boolean }>> {
+  async commitCandidateBatch(input: CandidateBatchInput, signal: AbortSignal = neverAborted, options?: MemoryWriteOptions): Promise<MemoryResult<CandidateBatchResult>> {
     try {
       const threadId = candidateThread(options);
       if (input.originThreadId !== threadId) raise("MEMORY_BATCH_INVALID", "Candidate batch belongs to another Thread");
       nonEmpty(input.batchId, "Batch id");
       if (!Array.isArray(input.candidates) || input.candidates.length > MEMORY_BATCH_CANDIDATES_MAX) raise("MEMORY_BATCH_INVALID", "Batch must contain at most five candidates");
       const drafts = input.candidates.map((draft) => validateDraft(draft, threadId));
+      const automatic = input.autoAcceptIndexes !== undefined;
+      const indexes = input.autoAcceptIndexes ?? [];
+      if (!Array.isArray(indexes) || indexes.some(index => !Number.isSafeInteger(index) || index < 0 || index >= drafts.length) || new Set(indexes).size !== indexes.length) raise("MEMORY_BATCH_INVALID", "Automatic acceptance indexes must name unique prepared drafts");
       const cursor = input.nextCursor === null ? null : validateCursor(input.nextCursor);
       const expectedCursor = cursor && input.expectedCursor !== null ? validateCursor(input.expectedCursor) : null;
       if (cursor && (cursor.threadId !== threadId || cursor.lastBatchId !== input.batchId)) raise("MEMORY_BATCH_INVALID", "Cursor must match batch and Thread");
-      const value = await this.#mutateDocument(signal, (document, now) => {
+      if (automatic && cursor === null) raise("MEMORY_BATCH_INVALID", "Automatic acceptance requires an incremental cursor");
+      const value = await this.#mutateDocument<CandidateBatchResult>(signal, (document, now) => {
+        const summarize = (ids: string[], replayed: boolean): CandidateBatchResult => ({ candidateIds: ids, replayed,
+          ...(automatic ? {
+            accepted: document.candidates.flatMap(candidate => ids.includes(candidate.id) && candidate.batchId === input.batchId && candidate.status === "accepted" && candidate.appliedResult ? [{ candidateId: candidate.id, memoryId: candidate.appliedResult.memoryId, revision: candidate.appliedResult.revision, operation: candidate.change.operation }] : []),
+            pendingCandidateIds: ids.filter(id => document.candidates.some(candidate => candidate.id === id && candidate.status === "pending")),
+          } : {}),
+        });
         const existingCursor = document.consolidationCursors.find((c) => c.threadId === threadId) ?? null;
         const existingBatch = document.candidates.filter((c) => c.batchId === input.batchId && c.originThreadId === threadId);
         if (existingCursor?.lastBatchId === input.batchId || existingBatch.length > 0) {
@@ -1079,12 +1107,18 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
           const missingSaved = existingBatch.some((candidate) => !drafts.some((draft) => candidate.fingerprint === candidateFingerprint(threadId, draft) && candidate.reason === draft.reason));
           const addedOnReplay = drafts.some((draft) => !document.candidates.some((candidate) => candidate.fingerprint === candidateFingerprint(threadId, draft) || samePendingChange(candidate, draft, threadId)) && !duplicateAdd(draft.change, document.entries, now));
           if (missingSaved || addedOnReplay) raise("MEMORY_BATCH_INVALID", "Batch replay proposals differ");
-          return { document, unchanged: true, value: { candidateIds: existingBatch.map((c) => c.id), replayed: true } };
+          const ids = [...new Set([...existingBatch.map(c => c.id), ...drafts.flatMap(draft => {
+            const match = document.candidates.find(candidate => candidate.fingerprint === candidateFingerprint(threadId, draft) || samePendingChange(candidate, draft, threadId));
+            return match ? [match.id] : [];
+          })])];
+          return { document, unchanged: true, value: summarize(ids, true) };
         }
         if (cursor && JSON.stringify(existingCursor) !== JSON.stringify(expectedCursor)) raise("MEMORY_CURSOR_MISMATCH", "Consolidation cursor changed since prepare");
         const added: string[] = [];
         const originalCandidateCount = document.candidates.length;
-        for (const draft of drafts) {
+        const toAccept: MemoryCandidate[] = [];
+        const autoTargets = new Set<string>();
+        for (const [index, draft] of drafts.entries()) {
           const fingerprint = candidateFingerprint(threadId, draft);
           const existing = document.candidates.find((c) => c.fingerprint === fingerprint || samePendingChange(c, draft, threadId));
           if (existing) { added.push(existing.id); continue; }
@@ -1093,14 +1127,28 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
           if (reason === "duplicate") continue;
           if (reason !== null) raise("MEMORY_CANDIDATE_STALE", `Candidate target unavailable: ${reason}`);
           document.candidates.push(candidate); added.push(candidate.id);
+          if (indexes.includes(index)) {
+            if (candidate.change.operation !== "add") {
+              if (autoTargets.has(candidate.change.memoryId)) raise("MEMORY_BATCH_INVALID", "An automatic batch cannot change the same target twice");
+              autoTargets.add(candidate.change.memoryId);
+            }
+            toAccept.push(candidate);
+          }
         }
+        for (const candidate of toAccept) {
+          const reason = staleReasonFor(candidate, document, now);
+          if (reason !== null) raise("MEMORY_CANDIDATE_STALE", `Automatic target unavailable: ${reason}`);
+          acceptCandidate(document, candidate, now);
+        }
+        const summary = summarize([...new Set(added)], false);
+        pruneCandidates(document, toAccept.map(candidate => candidate.id));
         if (document.candidates.filter((c) => c.status === "pending").length > MEMORY_PENDING_CANDIDATES_MAX) raise("MEMORY_LIMIT_EXCEEDED", "Pending candidate queue is full");
         if (cursor) {
           document.consolidationCursors = document.consolidationCursors.filter((c) => c.threadId !== threadId);
           document.consolidationCursors.push(cursor);
           if (document.consolidationCursors.length > MEMORY_CURSORS_MAX) raise("MEMORY_LIMIT_EXCEEDED", "Consolidation cursor limit exceeded");
         }
-        return { document, unchanged: cursor === null && document.candidates.length === originalCandidateCount, value: { candidateIds: added, replayed: false } };
+        return { document, unchanged: cursor === null && document.candidates.length === originalCandidateCount, value: summary };
       }, options?.now);
       return { ok: true, value };
     } catch (error) { return errorResult(error, signal, true); }
@@ -1126,22 +1174,9 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
           staleCandidate(candidate, reason, now.toISOString()); pruneCandidates(document);
           return { document, value: fail("MEMORY_CANDIDATE_STALE", `Candidate is stale: ${reason}`) };
         }
-        if (input.decision === "accept") {
-          const change = candidate.change;
-          if (change.operation === "add") {
-            if (document.entries.length >= MEMORY_MAX_ENTRIES) raise("MEMORY_LIMIT_EXCEEDED", "Memory entry limit exceeded");
-            const entry = newRecord({ text: change.text, scope: structuredClone(change.scope), expiresAt: change.expiresAt,
-              ...(change.kind === undefined ? {} : { kind: change.kind }), ...(change.recallTerms === undefined ? {} : { recallTerms: change.recallTerms }), ...(change.validTime === undefined ? {} : { validTime: change.validTime }),
-            }, now.toISOString(), structuredClone(candidate.sources ?? [candidate.source]));
-            document.entries.push(entry); candidate.appliedResult = { memoryId: entry.id, revision: 1 };
-          } else {
-            const entry = document.entries.find((entry) => entry.id === change.memoryId)!;
-            applyCandidateRevision(entry, candidate, now.toISOString());
-            candidate.appliedResult = { memoryId: entry.id, revision: entry.revision };
-            for (const other of document.candidates) if (other.id !== candidate.id && other.status === "pending" && other.change.operation !== "add" && other.change.memoryId === entry.id) staleCandidate(other, "target_changed", now.toISOString());
-          }
-        }
-        candidate.status = expectedStatus; candidate.revision += 1; candidate.resolvedAt = now.toISOString(); pruneCandidates(document);
+        if (input.decision === "accept") acceptCandidate(document, candidate, now);
+        else { candidate.status = "rejected"; candidate.revision += 1; candidate.resolvedAt = now.toISOString(); }
+        pruneCandidates(document);
         return { document, value: resolution(false) };
       }, options?.now);
       return result;

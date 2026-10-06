@@ -62,6 +62,7 @@ export interface ResolvedTuiModuleConfig {
   webSearchEnabled: boolean;
   webFeedEnabled: boolean;
   autoConsolidate: boolean;
+  memoryWritePolicy?: "review" | "automatic";
   memoryQueryRewriteEnabled?: boolean;
   todoistTimeZone: string | null;
   fileAuthorizations: readonly FileAuthorizationRule[];
@@ -86,6 +87,7 @@ const memoryModuleSchema = z
   .object({
     enabled: z.boolean(),
     autoConsolidate: z.boolean().optional(),
+    writePolicy: z.enum(["review", "automatic"]).optional(),
     queryRewrite: z.object({ enabled: z.boolean() }).strict().optional(),
   })
   .strict();
@@ -177,7 +179,7 @@ export interface TuiModuleConfigV1 {
     pomodoro?: { enabled: boolean } | undefined;
     "read-file"?: { enabled: boolean } | undefined;
     memory?:
-      | { enabled: boolean; autoConsolidate?: boolean | undefined; queryRewrite?: { enabled: boolean } | undefined }
+      | { enabled: boolean; autoConsolidate?: boolean | undefined; writePolicy?: "review" | "automatic" | undefined; queryRewrite?: { enabled: boolean } | undefined }
       | undefined;
     checkpoint?: { enabled: boolean } | undefined;
     task?: { enabled: boolean } | undefined;
@@ -446,6 +448,10 @@ async function resolveConfiguredMode(
     enabled.web && (config.modules.web?.feed?.enabled ?? false);
 
   const autoConsolidate = config.modules.memory?.autoConsolidate ?? false;
+  const memoryWritePolicy = config.modules.memory?.writePolicy ?? "review";
+  if (memoryWritePolicy === "automatic" && (!enabled.memory || !autoConsolidate)) {
+    throw new Error("memory.writePolicy automatic requires memory.enabled and autoConsolidate");
+  }
   const memoryQueryRewriteEnabled = config.modules.memory?.queryRewrite?.enabled ?? false;
   if (memoryQueryRewriteEnabled && !enabled.memory) {
     throw new Error("memory.queryRewrite requires memory.enabled to be true");
@@ -498,11 +504,11 @@ async function resolveConfiguredMode(
     workspaceRoot,
     enabled,
   );
-  if (fileAuthorizations.length > 0 || shellSandbox !== null || enabled.computer) {
+  if (fileAuthorizations.length > 0 || shellSandbox !== null || enabled.computer || memoryWritePolicy === "automatic") {
     const configRealPath = await realpath(absoluteConfigPath);
     if (workspaceRoot !== null && isPathWithin(workspaceRoot, configRealPath)) {
       throw new Error(
-        "TUI config with sandbox, fileAuthorizations or computer must be outside the workspace",
+        "TUI config with sandbox, fileAuthorizations, computer or automatic memory must be outside the workspace",
       );
     }
   }
@@ -519,6 +525,7 @@ async function resolveConfiguredMode(
     webSearchEnabled,
     webFeedEnabled,
     autoConsolidate,
+    memoryWritePolicy,
     memoryQueryRewriteEnabled,
     todoistTimeZone,
     fileAuthorizations,

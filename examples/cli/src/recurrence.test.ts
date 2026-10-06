@@ -1,6 +1,19 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { nextOccurrence } from "./recurrence.js";
+import { latestOccurrence, nextOccurrence } from "./recurrence.js";
+
+describe("latestOccurrence", () => {
+  it("selects the most recent daily slot across positive and negative offsets", () => {
+    assert.equal(latestOccurrence({ kind: "daily", time: "09:00", utcOffset: "+08:00" }, "2026-10-06T00:30:00Z"), "2026-10-05T01:00:00.000Z");
+    assert.equal(latestOccurrence({ kind: "daily", time: "09:00", utcOffset: "+08:00" }, "2026-10-06T01:00:00Z"), "2026-10-06T01:00:00.000Z");
+    assert.equal(latestOccurrence({ kind: "daily", time: "22:00", utcOffset: "-05:00" }, "2026-10-06T02:00:00Z"), "2026-10-05T03:00:00.000Z");
+  });
+  it("selects a weekly slot on either side of its local execution time", () => {
+    const recurrence = { kind: "weekly", weekday: 2, time: "09:00", utcOffset: "+08:00" } as const;
+    assert.equal(latestOccurrence(recurrence, "2026-10-06T00:30:00Z"), "2026-09-29T01:00:00.000Z");
+    assert.equal(latestOccurrence(recurrence, "2026-10-06T01:00:00Z"), "2026-10-06T01:00:00.000Z");
+  });
+});
 
 describe("nextOccurrence", () => {
   it("computes a daily occurrence in a positive offset", () => {

@@ -144,6 +144,65 @@ function emptyEvents(): RunHandle["events"] {
 }
 
 describe("task worker", () => {
+  it("delivers a reminder deterministically without model or global source access", async () => {
+    const controller = new AbortController();
+    const claimed = { ...task(), prompt: "喝水", arrangement: { kind: "reminder", source: "none", notification: "always", declarationVersion: 1 } as const };
+    const outcomes: TaskFinish[] = [];
+    const store = fakeStore(claimed, { onFinish: outcome => { outcomes.push(outcome); controller.abort(); } });
+    const writes: string[] = [];
+    store.recordOutcome = async (_id, outcome) => { writes.push("outcome"); assert.equal(outcome.runId, null); return { ok: true, value: claimed }; };
+    await runTaskWorker({ store, signal: controller.signal, runtime: { run: async () => { throw new Error("model must not run"); } },
+      prepareTask: async () => { throw new Error("RSS must not run"); },
+      loadWorkspaceContext: async () => { throw new Error("Memory must not be read"); }, notify: async () => {} });
+    assert.deepEqual(outcomes, [{ status: "completed", runId: null, execution: "deterministic", resultText: "喝水", notification: true }]);
+    assert.deepEqual(writes, ["outcome"]);
+  });
+
+  it("binds Todoist to its declared source and never inherits workspace context", async () => {
+    const controller = new AbortController();
+    const claimed = { ...task(), arrangement: { kind: "todoist-brief", source: "todoist-planning", notification: "always", declarationVersion: 1 } as const };
+    const requests: RunRequest[] = [];
+    const store = fakeStore(claimed, { onFinish: () => controller.abort() });
+    await runTaskWorker({ store, signal: controller.signal, todoistPlanningAvailable: true,
+      prepareTask: async () => { throw new Error("RSS must not run"); },
+      loadWorkspaceContext: async () => { throw new Error("Memory must not be read"); },
+      runtime: { run: async request => { requests.push(request); return { runId: "run-1", events: emptyEvents(), result: Promise.resolve(completedResult()), cancel: async () => {} }; } } });
+    assert.equal(requests[0]?.agentId, "scheduled-todoist");
+    assert.equal(requests[0]?.context, undefined);
+    const stopped = new AbortController(); let outcome: TaskFinish | undefined;
+    await runTaskWorker({ store: fakeStore(claimed, { onFinish: value => { outcome = value; stopped.abort(); } }), signal: stopped.signal,
+      runtime: { run: async () => { throw new Error("unauthorized model must not run"); } } });
+    assert(outcome?.status === "failed");
+    assert.equal(outcome.error.code, "TOOL_DENIED");
+    assert.equal(outcome.runId, null);
+  });
+
+  it("finishes an empty RSS snapshot without model or successful notification", async () => {
+    const controller = new AbortController(); let outcome: TaskFinish | undefined;
+    const claimed = { ...task(), prompt: "[runloom:rss-digest:v1] 定期 RSS 资讯简报：仅整理程序提供的订阅快照，不猜测当前新闻。", recurringTaskId: "series-1" };
+    await runTaskWorker({ store: fakeStore(claimed, { onFinish: value => { outcome = value; controller.abort(); } }), signal: controller.signal,
+      runtime: { run: async () => { throw new Error("model must not run"); } }, notify: async () => {},
+      prepareTask: async () => ({ agentId: "scheduled-rss", prompt: "empty", formatResult: text => text, deterministicResult: "没有新条目", notifyOnSuccess: false }) });
+    assert.deepEqual(outcome, { status: "completed", runId: null, execution: "deterministic", resultText: "没有新条目" });
+  });
+
+  it("requires an actual successful planning receipt before delivering a typed Todoist report", async () => {
+    const claimed = { ...task(), arrangement: { kind: "todoist-brief", source: "todoist-planning", notification: "always", declarationVersion: 1 } as const };
+    for (const receipt of ["none", "failed", "planning"] as const) {
+      const controller = new AbortController(); let outcome: TaskFinish | undefined;
+      const events: RunHandle["events"] = (async function* () {
+        if (receipt === "none") return;
+        yield { id: "query-event", type: "tool.call.completed" as const, occurredAt: "2026-10-06T00:00:00Z", runId: "run-1", threadId: "thread-1", sequence: 1,
+          data: { toolCallId: "query", toolName: "todoist_list_tasks", output: receipt === "planning" ? { ok: true, value: { view: "planning", tasks: [] } } : { ok: false, error: { code: "AUTH", message: "denied" } } } };
+      })();
+      await runTaskWorker({ store: fakeStore(claimed, { onFinish: value => { outcome = value; controller.abort(); } }), signal: controller.signal, todoistPlanningAvailable: true,
+        runtime: { run: async () => ({ runId: "run-1", events, result: Promise.resolve(completedResult()), cancel: async () => {} }) } });
+      assert(outcome);
+      if (receipt === "planning") assert.equal(outcome.status, "completed");
+      else { assert.equal(outcome.status, "failed"); assert(outcome.status === "failed"); assert.equal(outcome.error.code, "TASK_SOURCE_QUERY_FAILED"); }
+    }
+  });
+
   it("records the invocation id and outcome before the terminal write", async () => {
     const controller = new AbortController();
     const order: string[] = [];

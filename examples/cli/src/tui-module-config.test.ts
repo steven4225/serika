@@ -35,6 +35,23 @@ async function writeConfig(
 }
 
 describe("resolveTuiModuleConfig", () => {
+  it("requires explicit trusted automatic-memory policy and preserves review defaults", async () => {
+    const { configDirectory, workspace } = await createConfigWorkspace();
+    const config = { version: 1, workspace: "./workspace", modules: { memory: { enabled: true, autoConsolidate: true, writePolicy: "automatic" } } };
+    const path = await writeConfig(configDirectory, config);
+    assert.equal((await resolveTuiModuleConfig(configArgs(path), { cwd: configDirectory })).memoryWritePolicy, "automatic");
+    const inside = await writeConfig(workspace, { ...config, workspace: "." });
+    await assert.rejects(resolveTuiModuleConfig(configArgs(inside), { cwd: workspace }), /outside the workspace/);
+    const noAutomatic = await writeConfig(configDirectory, { ...config, modules: { memory: { enabled: true, autoConsolidate: true } } }, "review.json");
+    assert.equal((await resolveTuiModuleConfig(configArgs(noAutomatic), { cwd: configDirectory })).memoryWritePolicy, "review");
+    for (const memory of [
+      { enabled: false, autoConsolidate: true, writePolicy: "automatic" },
+      { enabled: true, autoConsolidate: false, writePolicy: "automatic" },
+    ]) {
+      const bad = await writeConfig(configDirectory, { ...config, modules: { memory } }, "bad.json");
+      await assert.rejects(resolveTuiModuleConfig(configArgs(bad), { cwd: configDirectory }), /requires memory.enabled and autoConsolidate/);
+    }
+  });
   it("keeps local Computer Use opt-in with an external config and trusted executable", { skip: process.platform !== "darwin" }, async () => {
     const { configDirectory, workspace } = await createConfigWorkspace();
     const computer = { enabled: true, executable: process.execPath, allowedBundleIds: ["com.apple.TextEdit"] };

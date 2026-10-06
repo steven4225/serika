@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, it } from "node:test";
 import { createMemoryStore, MEMORY_FILE_MAX_BYTES } from "./memory-store.js";
-import type { CandidateDraft, ConsolidationCursor } from "./memory-candidates.js";
+import type { CandidateBatchInput, CandidateDraft, ConsolidationCursor } from "./memory-candidates.js";
 import { candidateFingerprint } from "./memory-candidates.js";
 import { acquireFlock } from "./flock.js";
 
@@ -22,6 +22,85 @@ function draft(text = "用户偏好先给结论"): CandidateDraft {
 function cursor(batch = "batch-1", message = "message-1"): ConsolidationCursor {
   return { threadId: "thread-a", throughMessageId: message, prefixHash: `v1:${message}`, lastBatchId: batch, updatedAt: opts.now.toISOString() };
 }
+
+it("automatic acceptance stores formal memory, accepted receipt and cursor in one commit and replays write-free", async () => {
+  const { root, store, file } = await fixture();
+  const input: CandidateBatchInput = { batchId: "automatic", originThreadId: "thread-a", candidates: [draft(), draft("ambiguous")], expectedCursor: null, nextCursor: cursor("automatic"), autoAcceptIndexes: [0] };
+  const result = await store.commitCandidateBatch(input, undefined, opts); assert.ok(result.ok);
+  assert.equal(result.value.candidateIds.length, 2); assert.equal(result.value.accepted?.length, 1);
+  assert.deepEqual(result.value.pendingCandidateIds, [result.value.candidateIds[1]]);
+  const accepted = result.value.accepted![0]!;
+  assert.equal(accepted.operation, "add");
+  const disk = JSON.parse(await readFile(file, "utf8"));
+  assert.equal(disk.entries.length, 1); assert.equal(disk.entries[0].id, accepted.memoryId);
+  assert.equal(disk.candidates[0].status, "accepted"); assert.equal(disk.candidates[0].revision, 2);
+  assert.deepEqual(disk.candidates[0].appliedResult, { memoryId: accepted.memoryId, revision: 1 });
+  assert.equal(disk.consolidationCursors[0].lastBatchId, "automatic");
+  const original = await readFile(file, "utf8");
+  const replay = await createMemoryStore(root).commitCandidateBatch(input, undefined, opts);
+  assert.deepEqual(replay, { ok: true, value: { ...result.value, replayed: true } });
+  assert.equal(await readFile(file, "utf8"), original);
+});
+
+it("automatic deduplication keeps legacy pending reviews pending, including exact and different-source repeats", async () => {
+  for (const differentSource of [false, true]) {
+    const { store, file } = await fixture();
+    const legacy = await store.commitCandidateBatch({ batchId: "manual", originThreadId: "thread-a", candidates: [draft()], expectedCursor: null, nextCursor: null }, undefined, opts); assert.ok(legacy.ok);
+    const repeated = draft();
+    if (differentSource) repeated.source = { ...repeated.source, messageId: "message-2", quote: "还是先结论" };
+    const input: CandidateBatchInput = { batchId: "automatic", originThreadId: "thread-a", candidates: [repeated], expectedCursor: null, nextCursor: cursor("automatic"), autoAcceptIndexes: [0] };
+    const result = await store.commitCandidateBatch(input, undefined, opts); assert.ok(result.ok);
+    assert.deepEqual(result.value.accepted, []); assert.deepEqual(result.value.pendingCandidateIds, legacy.value.candidateIds);
+    assert.deepEqual(await store.list(), { ok: true, entries: [] });
+    const before = await readFile(file, "utf8");
+    const replay = await store.commitCandidateBatch(input, undefined, opts); assert.ok(replay.ok);
+    assert.deepEqual(replay.value.pendingCandidateIds, legacy.value.candidateIds); assert.deepEqual(replay.value.accepted, []);
+    assert.equal(await readFile(file, "utf8"), before);
+  }
+});
+
+it("automatic corrections, changes and withdrawal retain versioned facts, scope and pins", async () => {
+  const { store } = await fixture();
+  const initial = await store.add({ text: "旧复盘偏好", kind: "preference", scope: { kind: "thread", threadId: "thread-a" }, pinned: true }, undefined, opts); assert.ok(initial.ok);
+  let previous: ConsolidationCursor | null = null;
+  for (const [index, operation] of (["correct", "change", "retract"] as const).entries()) {
+    const stamp = new Date(`2026-10-0${index + 2}T00:00:00Z`);
+    const next = { ...cursor(`auto-${operation}`), updatedAt: stamp.toISOString() };
+    const change = { operation, memoryId: initial.entry.id, expectedRevision: index + 1, text: index === 0 ? "新复盘偏好" : "最新复盘偏好", expiresAt: null,
+      ...(operation === "change" ? { effectiveAt: "2026-10-02T12:00:00Z" } : {}),
+    };
+    const candidate: CandidateDraft = { ...draft(), change: change as CandidateDraft["change"] };
+    const result = await store.commitCandidateBatch({ batchId: `auto-${operation}`, originThreadId: "thread-a", candidates: [candidate], expectedCursor: previous, nextCursor: next, autoAcceptIndexes: [0] }, undefined, { ...opts, now: stamp });
+    assert.ok(result.ok); assert.equal(result.value.accepted?.[0]?.revision, index + 2); assert.equal(result.value.accepted?.[0]?.operation, operation); assert.deepEqual(result.value.pendingCandidateIds, []);
+    const record = await store.inspectMemory(initial.entry.id, undefined, { ...opts, now: stamp }); assert.ok(record.ok);
+    assert.equal(record.value.pinned, true); assert.equal(record.value.scope.kind, "thread");
+    assert.equal(record.value.versions.length, index + 2);
+    if (operation === "change") assert.ok(record.value.assertions.some(assertion => assertion.validTime.to !== null && Date.parse(assertion.validTime.to) === Date.parse("2026-10-02T12:00:00Z")));
+    if (operation === "retract") assert.equal(record.value.assertions.at(-1)?.state, "retracted");
+    previous = next;
+  }
+});
+
+it("automatic target conflicts fail the entire batch and leave memory, candidates and cursor unchanged", async () => {
+  const { store, file } = await fixture();
+  const target = await store.add({ text: "old", kind: "fact" }, undefined, opts); assert.ok(target.ok);
+  const correction = (text: string): CandidateDraft => ({ ...draft(), change: { operation: "correct", memoryId: target.entry.id, expectedRevision: 1, text, expiresAt: null } });
+  const before = await readFile(file, "utf8");
+  for (const candidates of [[draft("new fact"), correction("new"), correction("other")], [draft("new fact"), { ...correction("new"), change: { ...correction("new").change, expectedRevision: 99 } } as CandidateDraft]]) {
+    const result = await store.commitCandidateBatch({ batchId: "conflict", originThreadId: "thread-a", candidates, expectedCursor: null, nextCursor: cursor("conflict"), autoAcceptIndexes: candidates.map((_, index) => index) }, undefined, opts);
+    assert.equal(result.ok, false); assert.equal(await readFile(file, "utf8"), before);
+  }
+});
+
+it("automatic indexes are host batch input only and cannot accept manual batches or forge pins", async () => {
+  const { store } = await fixture();
+  const base = { batchId: "invalid", originThreadId: "thread-a", candidates: [draft()], expectedCursor: null, nextCursor: cursor("invalid") };
+  for (const input of [{ ...base, autoAcceptIndexes: [1] }, { ...base, autoAcceptIndexes: [0, 0] }, { ...base, autoAcceptIndexes: [0], nextCursor: null }, { ...base, autoAcceptIndexes: [0], candidates: [{ ...draft(), change: { ...draft().change, pinned: true } } as unknown as CandidateDraft] }]) {
+    assert.equal((await store.commitCandidateBatch(input, undefined, opts)).ok, false);
+    assert.deepEqual(await store.list(), { ok: true, entries: [] });
+    const pending = await store.listCandidates({}, undefined, opts); assert.ok(pending.ok); assert.deepEqual(pending.value.candidates, []);
+  }
+});
 
 it("persists pending and cursor together; accepting is atomic and exact replay does not duplicate", async () => {
   const { root, store, file } = await fixture();

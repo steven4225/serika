@@ -15,6 +15,7 @@ import {
   formatTaskRescheduleConfirmation,
   TASK_COMMAND_USAGE,
   TASK_REPEAT_COMMAND_USAGE,
+  type TaskModuleOptions,
 } from "./task-module.js";
 
 function record(overrides: Partial<TaskRecordV4> = {}): TaskRecordV4 {
@@ -133,7 +134,7 @@ function recurringDetail(): RecurringTaskDetail {
   };
 }
 
-function setup(overrides: Partial<TaskStore> = {}): {
+function setup(overrides: Partial<TaskStore> = {}, options: TaskModuleOptions = {}): {
   tools: RegisteredTool[];
   commands: Map<string, { name: string; execute(args: string): void | Promise<void> }>;
   notifications: string[];
@@ -200,7 +201,7 @@ function setup(overrides: Partial<TaskStore> = {}): {
   const tools: RegisteredTool[] = [];
   const commands = new Map<string, { name: string; execute(args: string): void | Promise<void> }>();
   const notifications: string[] = [];
-  createTaskModule(store).setup({
+  createTaskModule(store, options).setup({
     registerTool: (registered) => tools.push(registered),
     registerCommand: (command) => commands.set(command.name, command),
     notify: (message) => notifications.push(message),
@@ -233,6 +234,89 @@ async function settle(): Promise<void> {
 }
 
 describe("createTaskModule", () => {
+  const reminder = { kind: "reminder", source: "none", notification: "always", declarationVersion: 1 } as const;
+  const todoist = { kind: "todoist-brief", source: "todoist-planning", notification: "always", declarationVersion: 1 } as const;
+
+  it("passes complete reminder arrangements through the existing create and recurring stores", async () => {
+    const { tools, calls } = setup({
+      create: async input => ({ ok: true, value: record({ arrangement: input.arrangement! }) }),
+      createRecurring: async input => ({ ok: true, value: recurringRecord({ arrangement: input.arrangement! }) }),
+    });
+    const one = { prompt: "喝水", runAt: "2026-09-12T01:00:00Z", arrangement: reminder };
+    assert.deepEqual(await toolByName(tools, "task_create").tool.execute!(one, toolContext()), { ok: true, value: record({ arrangement: reminder }) });
+    const repeated = { prompt: "喝水", recurrence: { kind: "daily", time: "09:00", utcOffset: "+08:00" } as const, arrangement: reminder };
+    assert.deepEqual(await toolByName(tools, "task_repeat_create").tool.execute!(repeated, toolContext()), { ok: true, value: recurringRecord({ arrangement: reminder }) });
+    assert.equal(calls.length, 0);
+    const output = toolByName(tools, "task_create").tool.outputSchema as unknown as { parse(value: unknown): { value: { arrangement?: unknown } } };
+    assert.deepEqual(output.parse({ ok: true, value: record({ arrangement: reminder }) }).value.arrangement, reminder);
+  });
+
+  it("rejects unavailable Todoist and rechecks host availability before saving", async () => {
+    for (const options of [{}, { todoistPlanningAvailable: true, checkTodoistPlanningAvailable: async () => false }, { checkTodoistPlanningAvailable: async () => { throw new Error("status read failed"); } }]) {
+      const { tools, calls } = setup({}, options);
+      for (const name of ["task_create", "task_repeat_create"]) {
+        const result = await toolByName(tools, name).tool.execute!({ prompt: "每日安排", runAt: "2026-09-12T01:00:00Z", recurrence: { kind: "daily", time: "09:00", utcOffset: "+08:00" }, arrangement: todoist }, toolContext());
+        assert.deepEqual(result, { ok: false, error: { code: "INVALID_INPUT", message: "The background Todoist planning source is unavailable; no arrangement was saved" } });
+      }
+      assert.equal(calls.length, 0);
+    }
+    const { tools, calls } = setup({}, { todoistPlanningAvailable: false, checkTodoistPlanningAvailable: async () => true });
+    const input = { prompt: "每日安排", runAt: "2026-09-12T01:00:00Z", arrangement: todoist };
+    assert.deepEqual(await toolByName(tools, "task_create").tool.execute!(input, toolContext()), { ok: true, value: record() });
+    assert.deepEqual(calls[0]?.args[0], input);
+  });
+
+  it("rejects RSS declarations and mismatched/extra source fields before any store write", async () => {
+    const { tools, calls } = setup({}, { todoistPlanningAvailable: true });
+    for (const arrangement of [{ kind: "rss-digest", source: "existing-rss-binding", notification: "new-items", declarationVersion: 1 }, { ...reminder, source: "todoist-planning" }, { ...reminder, allowShell: true }, { ...todoist, declarationVersion: 2 }]) {
+      const tool = toolByName(tools, "task_create").tool;
+      const schema = tool.inputSchema as unknown as { safeParse(value: unknown): { success: boolean } };
+      const input = { prompt: "安排", runAt: "2026-09-12T01:00:00Z", arrangement };
+      assert.equal(schema.safeParse(input).success, false);
+      const result = await tool.execute!(input, toolContext()) as { ok: boolean };
+      assert.equal(result.ok, false);
+    }
+    assert.equal(calls.length, 0);
+  });
+
+  it("runs service setup only after a typed arrangement commits, exposing failure without rollback", async () => {
+    for (const fail of [false, true]) {
+      let enabled = 0;
+      const { tools, calls } = setup({}, { afterArrangementSaved: async () => {
+        enabled += 1; assert.equal(calls[0]?.method, "create");
+        if (fail) throw new Error("launchd unavailable");
+        return { enabled: true };
+      } });
+      const create = toolByName(tools, "task_create"); assert.equal(create.metadata.timeoutMs, 30_000);
+      const result = await create.tool.execute!({ prompt: "喝水", runAt: "2026-09-12T01:00:00Z", arrangement: reminder }, toolContext()) as { ok: boolean; value: unknown; service: { enabled: boolean; message?: string } };
+      assert.equal(result.ok, true); assert.deepEqual(result.value, record()); assert.equal(result.service.enabled, !fail);
+      if (fail) assert.match(result.service.message!, /Arrangement saved.*launchd unavailable/);
+      assert.equal(enabled, 1);
+      const schema = create.tool.outputSchema as unknown as { safeParse(value: unknown): { success: boolean } };
+      assert.equal(schema.safeParse(result).success, true);
+      await create.tool.execute!({ prompt: "legacy", runAt: "2026-09-12T01:00:00Z" }, toolContext());
+      assert.equal(enabled, 1);
+    }
+    let enabled = 0;
+    const { tools } = setup({ create: async () => ({ ok: false, error: { code: "INVALID_INPUT", message: "invalid date" } }) }, { afterArrangementSaved: async () => { enabled += 1; return { enabled: true }; } });
+    const result = await toolByName(tools, "task_create").tool.execute!({ prompt: "喝水", runAt: "bad", arrangement: reminder }, toolContext());
+    assert.deepEqual(result, { ok: false, error: { code: "INVALID_INPUT", message: "invalid date" } }); assert.equal(enabled, 0);
+  });
+
+  it("cancels before a save but settles service setup after an already committed arrangement", async () => {
+    const before = new AbortController();
+    const canceled = setup({}, { checkTodoistPlanningAvailable: async () => { before.abort(new Error("cancel before save")); return true; } });
+    await assert.rejects(toolByName(canceled.tools, "task_create").tool.execute!({ prompt: "日报", runAt: "2026-09-12T01:00:00Z", arrangement: todoist }, toolContext(before.signal)) as Promise<unknown>, /cancel before save/);
+    assert.equal(canceled.calls.length, 0);
+    const after = new AbortController(); let serviceCalls = 0;
+    const committed = setup({ create: async () => { after.abort(new Error("cancel after save")); return { ok: true, value: record({ arrangement: reminder }) }; } }, {
+      afterArrangementSaved: async () => { serviceCalls += 1; return { enabled: true }; },
+    });
+    const result = await toolByName(committed.tools, "task_create").tool.execute!({ prompt: "喝水", runAt: "2026-09-12T01:00:00Z", arrangement: reminder }, toolContext(after.signal));
+    assert.deepEqual(result, { ok: true, value: record({ arrangement: reminder }), service: { enabled: true } });
+    assert.equal(serviceCalls, 1);
+  });
+
   it("registers task and recurring task tools with frozen metadata", () => {
     const { tools, commands } = setup();
     assert.deepEqual(

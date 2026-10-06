@@ -8,7 +8,7 @@ import { CONSOLIDATION_MATERIAL_MAX_BYTES, CONSOLIDATION_MEMORIES_MAX_BYTES, con
 import { createAssertion } from "./memory-temporal.js";
 
 const user = (id: string, text = `用户 ${id}`): UIMessage => ({ id, role: "user", parts: [{ type: "text", text }] });
-function fixture(initial: UIMessage[] = [user("u1", "复盘先结论，再给步骤")]) {
+function fixture(initial: UIMessage[] = [user("u1", "复盘先结论，再给步骤")], writePolicy?: "review" | "automatic") {
   let messages = initial;
   let cursor: ConsolidationCursor | null = null;
   let entries: MemoryEntry[] = [];
@@ -27,7 +27,7 @@ function fixture(initial: UIMessage[] = [user("u1", "复盘先结论，再给步
   } as unknown as WorkspaceMemoryStore;
   let id = 0;
   const service = createMemoryConsolidation({ store, threadId: "thread", getMessages: async () => messages,
-    now: () => new Date("2026-10-01T00:00:00Z"), generateId: () => `batch${++id}` });
+    now: () => new Date("2026-10-01T00:00:00Z"), generateId: () => `batch${++id}`, ...(writePolicy === undefined ? {} : { writePolicy }) });
   return { service, committed, setMessages(value: UIMessage[]) { messages = value; }, setCursor(value: ConsolidationCursor | null) { cursor = value; },
     setEntries(value: MemoryEntry[]) { entries = value; },
     setMaterial(value: MemoryConsolidationEntry[]) { entries = value; store.listConsolidationMaterial = async () => ({ ok: true, value }); },
@@ -43,6 +43,94 @@ async function prepare(f: ReturnType<typeof fixture>, agent = AUTO_CONSOLIDATION
 }
 
 describe("native memory consolidation batch", () => {
+  it("host automatic policy selects only eligible incremental drafts; missing/ambiguous require review", async () => {
+    const f = fixture(undefined, "automatic");
+    const batch = await prepare(f);
+    assert.ok((await f.service.stage({ batchId: batch.batchId, proposals: [
+      proposal({ kind: "preference", eligibility: "durable_self_statement" }),
+      proposal({ text: "uncertain preference", eligibility: "needs_review" }),
+      proposal({ text: "legacy review" }),
+      proposal({ text: "not durable", eligibility: "ignore" }),
+    ] })).ok);
+    assert.ok((await f.service.finalize({ status: "completed" })).ok);
+    assert.deepEqual(f.committed[0]!.autoAcceptIndexes, [0]);
+    assert.equal(f.committed[0]!.candidates.length, 3);
+  });
+
+  it("model eligibility cannot grant automatic writes to review mode, manual or selected history", async () => {
+    for (const mode of ["review", "manual", "history"] as const) {
+      const f = fixture(undefined, mode === "review" ? "review" : "automatic");
+      let batch;
+      if (mode === "history") {
+        f.service.begin(AUTO_CONSOLIDATION_AGENT_ID, { mode: "history", messageIds: ["u1"] });
+        const result = await f.service.prepare({ mode: "incremental" }); assert.ok(result.ok); batch = result.value;
+      } else batch = await prepare(f, mode === "manual" ? "primary" : AUTO_CONSOLIDATION_AGENT_ID);
+      assert.ok((await f.service.stage({ batchId: batch.batchId, proposals: [proposal({ kind: "preference", eligibility: "durable_self_statement" })] })).ok);
+      assert.ok((await f.service.finalize({ status: "completed" })).ok);
+      assert.equal(f.committed[0]!.autoAcceptIndexes, undefined);
+    }
+  });
+
+  it("conservatively skips recognizable private material even when model requests autosave", async () => {
+    for (const text of ["不要记住这句话：我偏好短答案", "Don't remember this: I prefer short answers", "API_KEY=sk-example-credential-123456789", "我的密码是123", "-----BEGIN PRIVATE KEY-----"]) {
+      const f = fixture([user("u1", text)], "automatic");
+      const batch = await prepare(f);
+      assert.ok((await f.service.stage({ batchId: batch.batchId, proposals: [proposal({ text, sourceQuote: text, kind: "preference", eligibility: "durable_self_statement" })] })).ok);
+      assert.ok((await f.service.finalize({ status: "completed" })).ok);
+      assert.deepEqual(f.committed[0]!.candidates, []);
+      assert.deepEqual(f.committed[0]!.autoAcceptIndexes, []);
+    }
+  });
+
+  it("recognized proposal-only consent overrides model autosave classification without discarding the review", async () => {
+    for (const text of ["我长期偏好短答案，可以提出候选，但不要保存", "未经我下一轮确认不得调用写入工具。我长期偏好短答案", "I prefer short answers. Proposal only; don't save."]) {
+      const f = fixture([user("u1", text)], "automatic");
+      const batch = await prepare(f);
+      assert.ok((await f.service.stage({ batchId: batch.batchId, proposals: [proposal({ sourceQuote: text, kind: "preference", eligibility: "durable_self_statement" })] })).ok);
+      assert.ok((await f.service.finalize({ status: "completed" })).ok);
+      assert.equal(f.committed[0]!.candidates.length, 1);
+      assert.deepEqual(f.committed[0]!.autoAcceptIndexes, []);
+    }
+  });
+
+  it("recognized opt-out can explicitly retract/disable a supplied unique target but never add or rewrite a fact", async () => {
+    const text = "不要记住我的复盘偏好了";
+    for (const action of ["retract", "disable", "add", "correct"] as const) {
+      const f = fixture([user("u1", text)], "automatic");
+      f.setEntries([{ id: "old", text: "复盘先结论，再给步骤", enabled: true, revision: 1, scope: { kind: "workspace" } }]);
+      const batch = await prepare(f);
+      const item = proposal({ action, sourceQuote: text, eligibility: "explicit_request", ...(action === "add" ? { kind: "preference" } : { memoryId: "old", expectedRevision: 1 }) });
+      assert.ok((await f.service.stage({ batchId: batch.batchId, proposals: [item] })).ok);
+      assert.ok((await f.service.finalize({ status: "completed" })).ok);
+      const withdrawal = action === "retract" || action === "disable";
+      assert.equal(f.committed[0]!.candidates.length, withdrawal ? 1 : 0);
+      assert.deepEqual(f.committed[0]!.autoAcceptIndexes, withdrawal ? [0] : []);
+    }
+  });
+
+  it("automatic mode cannot source excluded messages or bypass strict eligibility/source schemas", async () => {
+    const f = fixture([{ ...user("secret", "private preference"), metadata: { memoryConsolidation: "exclude" } }, user("u1")], "automatic");
+    for (const extra of [{ eligibility: "certain" }, { eligibility: ["explicit_request"] }, { sourceMessageId: "secret", sourceQuote: "private preference", eligibility: "explicit_request" }, { sourceQuote: "invented", eligibility: "explicit_request" }, { pinned: true, eligibility: "explicit_request" }]) {
+      const batch = await prepare(f);
+      assert.equal((await f.service.stage({ batchId: batch.batchId, proposals: [proposal(extra)] })).ok, false);
+      assert.equal((await f.service.finalize({ status: "completed" })).ok, false);
+      assert.equal(f.committed.length, 0);
+    }
+  });
+
+  it("ordinary event/note inference and non-explicit withdrawal remain review", async () => {
+    const f = fixture(undefined, "automatic");
+    f.setEntries([{ id: "old", text: "复盘先结论，再给步骤", enabled: true, revision: 1, scope: { kind: "workspace" } }]);
+    const batch = await prepare(f);
+    assert.ok((await f.service.stage({ batchId: batch.batchId, proposals: [
+      proposal({ kind: "event", eligibility: "durable_self_statement" }),
+      proposal({ action: "retract", memoryId: "old", expectedRevision: 1, eligibility: "durable_self_statement" }),
+      proposal({ text: "explicit retained note", kind: "note", eligibility: "explicit_request" }),
+    ] })).ok);
+    assert.ok((await f.service.finalize({ status: "completed" })).ok);
+    assert.deepEqual(f.committed[0]!.autoAcceptIndexes, [2]);
+  });
+
   it("explicit history reaches older selected messages without moving the incremental cursor", async () => {
     const messages = Array.from({ length: 12 }, (_, index) => user(`u${index}`, `长期偏好 ${index}`));
     const f = fixture(messages);

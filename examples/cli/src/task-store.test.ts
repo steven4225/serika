@@ -40,6 +40,67 @@ function code(result: { ok: true } | { ok: false; error: { code: string } }): st
 }
 
 describe("WorkspaceTaskStore", () => {
+  it("persists approved arrangements and a deterministic outcome without inventing a Run", async () => {
+    const root = await workspace();
+    let now = Date.parse("2026-10-06T00:00:00Z");
+    const arrangement = { kind: "reminder", source: "none", notification: "always", declarationVersion: 1 } as const;
+    const store = createTaskStore(root, { now: () => now });
+    const created = await store.create({ prompt: "喝水", runAt: "2026-10-06T00:01:00Z", arrangement });
+    assert(created.ok);
+    now += 60_000;
+    const claimed = await store.claimNextDue(); assert(claimed.ok && claimed.value);
+    const outcome = { status: "completed", runId: null, execution: "deterministic", resultText: "喝水", notification: true } as const;
+    assert((await store.recordOutcome(created.value.id, outcome)).ok);
+    const reopened = createTaskStore(root, { now: () => now });
+    const pending = await reopened.listRunning(); assert(pending.ok);
+    assert.deepEqual(pending.value[0]?.pendingOutcome, outcome);
+    assert((await reopened.finish(created.value.id, outcome)).ok);
+    const saved = await reopened.get(created.value.id); assert(saved.ok);
+    assert.deepEqual(saved.value.arrangement, arrangement);
+    assert.equal(saved.value.runId, null);
+    assert.equal(saved.value.execution, "deterministic");
+    assert.equal(saved.value.attempts[0]?.status, "completed");
+    assert.equal(saved.value.notification?.status, "pending");
+  });
+
+  it("coalesces a typed recurring arrangement to the latest missed slot and retains legacy timing", async () => {
+    const root = await workspace();
+    let now = Date.parse("2026-10-01T00:00:00Z");
+    const store = createTaskStore(root, { now: () => now });
+    const recurrence = { kind: "daily", time: "08:00", utcOffset: "+08:00" } as const;
+    const typed = await store.createRecurring({ prompt: "brief", recurrence, arrangement: { kind: "todoist-brief", source: "todoist-planning", notification: "always", declarationVersion: 1 } }); assert(typed.ok);
+    now = Date.parse("2026-10-06T03:00:00Z");
+    const claimed = await store.claimNextDue(); assert(claimed.ok && claimed.value);
+    assert.equal(claimed.value.runAt, "2026-10-06T00:00:00.000Z");
+    assert.deepEqual(claimed.value.arrangement, typed.value.arrangement);
+    const detail = await store.getRecurring(typed.value.id); assert(detail.ok);
+    assert.equal(detail.value.recurringTask.nextRunAt, "2026-10-07T00:00:00.000Z");
+    const next = await store.claimNextDue(); assert(next.ok && next.value === null);
+    now = Date.parse("2026-10-01T00:00:00Z");
+    const legacy = createTaskStore(await workspace(), { now: () => now });
+    assert((await legacy.createRecurring({ prompt: "legacy", recurrence })).ok);
+    now = Date.parse("2026-10-06T03:00:00Z");
+    const old = await legacy.claimNextDue(); assert(old.ok && old.value);
+    assert.equal(old.value.runAt, "2026-10-02T00:00:00.000Z");
+  });
+
+  it("rejects mismatched source grants and deterministic outcomes for model tasks", async () => {
+    const root = await workspace();
+    let now = Date.parse("2026-10-06T00:00:00Z");
+    const store = createTaskStore(root, { now: () => now });
+    const bad = await store.create({ prompt: "brief", runAt: "2026-10-06T00:01:00Z", arrangement: { kind: "reminder", source: "todoist-planning", notification: "always", declarationVersion: 1 } as never });
+    assert.equal(code(bad), "INVALID_INPUT");
+    const created = await store.create({ prompt: "legacy", runAt: "2026-10-06T00:01:00Z" }); assert(created.ok);
+    now += 60_000; await store.claimNextDue();
+    const outcome = { status: "completed", runId: null, execution: "deterministic", resultText: "invented" } as const;
+    assert.equal(code(await store.recordOutcome(created.value.id, outcome)), "INVALID_INPUT");
+    assert.equal(code(await store.finish(created.value.id, outcome)), "INVALID_INPUT");
+    const text = JSON.parse(await readFile(join(root, TASK_FILE_NAME), "utf8"));
+    text.tasks[0].arrangement = { kind: "reminder", source: "todoist-planning", notification: "always", declarationVersion: 1 };
+    await writeFile(join(root, TASK_FILE_NAME), JSON.stringify(text));
+    assert.equal(code(await createTaskStore(root).get(created.value.id)), "TASK_FILE_INVALID");
+  });
+
   it("cancels a scheduled retry without invalidating its persisted attempts", async () => {
     const root = await workspace();
     let now = Date.parse("2026-09-11T00:00:00.000Z");

@@ -42,6 +42,16 @@ export interface CandidateResolveInput { candidateId: string; expectedCandidateR
 export interface CandidateBatchInput {
   batchId: string; originThreadId: string; candidates: CandidateDraft[];
   expectedCursor: ConsolidationCursor | null; nextCursor: ConsolidationCursor | null;
+  /** Trusted application policy only; the model stage tool never accepts this field. */
+  autoAcceptIndexes?: number[];
+}
+export interface CandidateBatchResult {
+  /** All retained proposal identities, including existing reviews reused by deduplication. */
+  candidateIds: string[];
+  replayed: boolean;
+  /** Present only for an automatic-policy batch. Old pending reviews are never auto-accepted. */
+  accepted?: Array<{ candidateId: string; memoryId: string; revision: number; operation?: CandidateChange["operation"] }>;
+  pendingCandidateIds?: string[];
 }
 export const MEMORY_PENDING_CANDIDATES_MAX = 64;
 export const MEMORY_TERMINAL_CANDIDATES_MAX = 256;

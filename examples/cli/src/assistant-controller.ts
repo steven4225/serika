@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { UIMessage } from "ai";
 import type { AgentEvent, RunHandle, RunResult } from "@aisdk-agent/core";
 import { AUTO_CONSOLIDATION_SOURCE } from "./consolidation.js";
+import { automaticConsolidationMessage, automaticConsolidationSkip, waitForConsolidationHandoff } from "./consolidation-lifecycle.js";
 import type { RuntimeApp } from "./app.js";
 import type { ContextDiagnostics, ContextResult } from "./context-diagnostics.js";
 import type { ExecutionRunRecord } from "./execution-record-store.js";
@@ -25,7 +26,7 @@ import type {
   CandidateResolveInput, MemoryResult,
 } from "./memory-candidates.js";
 import { createRssSubscriptionStore, rssFailure, type RssAction, type RssInbox, type RssResult, type RssView } from "./rss-subscriptions.js";
-import { createTaskStore } from "./task-store.js";
+import { createTaskStore, type TaskListV3, type TaskRecordV4, type TaskStoreResult } from "./task-store.js";
 import { formalMemory, memoryPage, validMemoryEdit, visibleMemory, type FormalMemory, type MemoryPage, type MemoryListInput, type MemoryEditInput } from "./memory-management.js";
 import type { MemoryReferenceSnapshot } from "./memory-query-rewrite.js";
 import { memoryActionPreview, memoryCapacity, memoryControlFailure, memoryHistoryPage, temporalMemoryStore, validateMemoryAction, validateMemoryHistoryInput, type MemoryAction, type MemoryActionPreview, type MemoryHistoryInput, type MemoryHistoryPage, type MemoryMaintenance, type MemoryTemporalInput } from "./memory-controls.js";
@@ -36,6 +37,9 @@ import { readWorkTaskArtifact, workTaskDeliveryDraft, type WorkTaskReadInput, ty
 const MAX_RECENT_OUTPUT_CHARS = 16 * 1024;
 const MAX_TOOL_ACTIVITY = 30;
 const MAX_TOOL_SUMMARY_CHARS = 1_000;
+
+/** Application admission errors and persisted TaskStore errors share one honest result. */
+export type AutomationResult<T> = { ok: true; value: T } | { ok: false; error: { code: string; message: string } };
 
 export interface ToolActivity {
   toolCallId: string;
@@ -49,13 +53,15 @@ export interface ToolActivity {
 
 export type AssistantState =
   | { kind: "idle" }
-  | { kind: "running"; runId: string | null; phase: "primary" | "consolidation" }
+  | { kind: "running"; runId: string | null; phase: "primary" | "consolidation"; background?: true }
   | { kind: "compacting" }
   | { kind: "resuming" }
   | { kind: "command"; name: string };
 
 export interface AssistantSnapshot {
   state: AssistantState;
+  /** Ordinary chat can interrupt automatic consolidation; edits/commands still require idle. */
+  canSubmit: boolean;
   pendingApproval: PendingToolApproval | null;
   recentOutput: string;
   outputTruncated: boolean;
@@ -117,6 +123,9 @@ export interface AssistantController {
   updateRssSubscriptions(input: RssAction): Promise<RssResult<RssView>>;
   getRssInbox(): Promise<RssResult<RssInbox>>;
   acknowledgeRssResult(id: string): Promise<RssResult<void>>;
+  getTaskInbox(): Promise<AutomationResult<TaskListV3>>;
+  getScheduledTask(id: string): Promise<AutomationResult<TaskRecordV4>>;
+  acknowledgeTaskResult(id: string): Promise<AutomationResult<TaskRecordV4>>;
   createWorkTask(input: Omit<CreateWorkTaskInput, "threadId">): Promise<WorkTaskResult<WorkTask>>;
   listWorkTasks(): Promise<WorkTaskResult<WorkTask[]>>;
   getWorkTask(id: string): Promise<WorkTaskResult<WorkTask>>;
@@ -220,6 +229,8 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
   let startupController: AbortController | undefined;
   let operationController: AbortController | undefined;
   let activeTask: Promise<void> | undefined;
+  let backgroundTask: Promise<void> | undefined;
+  let backgroundController: AbortController | undefined;
   let nextWorkTask: WorkTask | undefined;
   let activeWorkTask: WorkTask | undefined;
   let workTaskCompletionCheck = true;
@@ -283,6 +294,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     phase: "primary" | "consolidation",
     signal?: AbortSignal,
     started?: (handle: RunHandle) => void,
+    background = false,
   ): Promise<{ result: RunResult; requestedMemoryTool: boolean }> => {
     app.toolConfirmation?.beginRun();
     if (phase === "primary") { primaryMessageId = message.id; primaryRunId = undefined; }
@@ -309,9 +321,9 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
             : `${running.error.code}: ${running.error.message}` });
         }
       }
-      setState({ kind: "running", runId: handle.runId, phase });
+      if (!background || !signal?.aborted) setState({ kind: "running", runId: handle.runId, phase, ...(background ? { background: true as const } : {}) });
       started?.(handle);
-      if (cancelRequested) await handle.cancel("Cancelled before Run started");
+      if (cancelRequested || signal?.aborted) await handle.cancel("Cancelled before Run started");
       let requestedMemoryTool = false;
       let completionCorrections = 0;
       const consolidationAttempts = { prepare: 0, stage: 0 };
@@ -371,31 +383,48 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
         controller.recordOutput(`\n任务停止原因：${result.status === "cancelled" ? "已取消" : labels[result.completion.reason]}。\n`);
       }
       let lastProcessedCount = 0, lastCandidateCount = 0;
+      let finalizationFailed = false;
+      let accepted: NonNullable<NonNullable<MemoryMaintenance["consolidation"]["lastAttempt"]>["accepted"]> = [];
       try {
         const finalized = await app.memoryConsolidation?.finalize({ ...result, consolidationAttempts }, signal);
         if (finalized !== undefined && !finalized.ok) {
+          finalizationFailed = true;
           consolidationFailure = `${finalized.error.code}: ${finalized.error.message}`;
-          emit({ type: "error", message: `Memory candidates were not saved: ${finalized.error.code}: ${finalized.error.message}` });
+          emit({ type: "error", message: `${finalized.error.code === "MEMORY_COMMIT_UNCERTAIN" ? "Memory write acknowledgement is uncertain; read current memory before retrying" : "Memory consolidation did not complete"}: ${finalized.error.code}: ${finalized.error.message}` });
         } else if (finalized?.ok) {
           lastProcessedCount = finalized.value.processedCount ?? 0;
-          lastCandidateCount = finalized.value.candidateIds.length;
+          accepted = finalized.value.accepted ?? [];
+          const pendingIds = finalized.value.pendingCandidateIds ?? finalized.value.candidateIds;
+          lastCandidateCount = pendingIds.length;
           if (phase === "consolidation" || consolidationAttempts.prepare > 0 || consolidationAttempts.stage > 0) {
             consolidationFailure = result.status === "completed" ? undefined : result.error?.message ?? `Consolidation Run ${result.status}`;
           }
           if (finalized.value.candidateIds.length > 0 && !finalized.value.replayed) {
             emit({ type: "memory-updated", reason: "proposals" });
-            controller.recordOutput(`\nMemory candidates saved for review: ${finalized.value.candidateIds.join(", ")}\n`);
+            if (pendingIds.length > 0) controller.recordOutput(`\nMemory candidates saved for review: ${pendingIds.join(", ")}\n`);
+            for (const receipt of accepted) {
+              const label = receipt.operation === "retract" ? "已撤回" : receipt.operation === "disable" ? "已停用" : receipt.operation === "add" ? "已保存" : "已更新";
+              controller.recordOutput(`\n[memory] ${label}：${receipt.memoryId} · revision ${receipt.revision}（可在记忆中查看来源与历史）\n`);
+            }
           }
         }
       } catch (error) {
+        finalizationFailed = true;
         consolidationFailure = String(error);
-        emit({ type: "error", message: `Memory candidates were not saved: ${String(error)}` });
+        emit({ type: "error", message: `Memory consolidation acknowledgement failed; inspect current memory before retrying: ${String(error)}` });
       }
       if (phase === "consolidation") {
-        lastConsolidationAttempt = {
+        const yielded = result.status === "cancelled" && signal?.aborted &&
+          signal.reason instanceof Error && signal.reason.message === "Foreground chat has priority";
+        if (yielded && !finalizationFailed) {
+          consolidationFailure = undefined;
+          lastConsolidationSkippedReason = "自动整理已让给新消息，未推进游标；待处理材料会在后续整理中重试";
+          lastConsolidationAttempt = undefined;
+        } else lastConsolidationAttempt = {
           mode: consolidationRequest?.mode ?? "incremental", runId: handle.runId,
           status: result.status === "completed" && !consolidationFailure ? "completed" : "failed",
           processedCount: lastProcessedCount, candidateCount: lastCandidateCount,
+          ...(accepted.length ? { accepted } : {}),
         };
       }
       let executionFinalized = true;
@@ -472,7 +501,69 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     return found;
   }
 
+  const startAutomaticConsolidation = (): void => {
+    if (closed || state.kind !== "idle" || backgroundTask || !app.autoConsolidationAgentId) return;
+    const agentId = app.autoConsolidationAgentId;
+    const background = new AbortController();
+    backgroundController = background;
+    const task = Promise.resolve().then(async () => {
+      try {
+        const readiness = await app.memoryConsolidation?.canStart(background.signal);
+        if (background.signal.aborted) return;
+        if (readiness !== undefined && !readiness.ok) {
+          consolidationFailure = `${readiness.error.code}: ${readiness.error.message}`;
+          emit({ type: "error", message: `Automatic consolidation unavailable: ${consolidationFailure}` });
+          return;
+        }
+        if (readiness?.ok && !readiness.value.canStart) {
+          lastConsolidationSkippedReason = "待审候选已满，请先审核后重试整理";
+          controller.recordOutput("\nMemory candidate queue is full; review pending candidates before consolidating.\n");
+          return;
+        }
+        controller.recordOutput("\n正在后台整理记忆，新的对话优先。\n");
+        const consolidation = await executeRun(agentId, automaticConsolidationMessage(randomUUID()), "consolidation", background.signal, undefined, true);
+        if (consolidation.result.status === "failed" || consolidation.result.status === "timed_out") {
+          controller.recordOutput(`\nAutomatic consolidation failed: ${consolidation.result.error?.message ?? consolidation.result.status}\n`);
+        }
+      } catch (error) {
+        if (!background.signal.aborted) {
+          consolidationFailure = String(error);
+          emit({ type: "error", message: `Automatic consolidation failed: ${String(error)}` });
+        }
+      } finally {
+        if (backgroundController === background) backgroundController = undefined;
+        const current = controller.getSnapshot().state;
+        if (current.kind === "running" && current.background) setState({ kind: "idle" });
+      }
+    });
+    backgroundTask = task;
+    void task.finally(() => { if (backgroundTask === task) backgroundTask = undefined; });
+    setState({ kind: "running", runId: null, phase: "consolidation", background: true });
+  };
+
   const controller: AssistantController = {
+    getTaskInbox: async () => {
+      if (!app.workspaceRoot || !app.moduleConfig?.enabled.task) return { ok: false, error: { code: "TASK_UNAVAILABLE", message: "任务收件箱需要启用工作区任务模块" } };
+      return createTaskStore(app.workspaceRoot).list({ inbox: true, limit: 50 });
+    },
+    getScheduledTask: async id => {
+      if (!app.workspaceRoot || !app.moduleConfig?.enabled.task) return { ok: false, error: { code: "TASK_UNAVAILABLE", message: "任务详情需要启用工作区任务模块" } };
+      if (typeof id !== "string" || !id.trim() || id.length > 256) return { ok: false, error: { code: "INVALID_INPUT", message: "无效任务 ID" } };
+      return createTaskStore(app.workspaceRoot).get(id);
+    },
+    acknowledgeTaskResult: async id => {
+      if (!app.workspaceRoot || !app.moduleConfig?.enabled.task) return { ok: false, error: { code: "TASK_UNAVAILABLE", message: "任务确认需要启用工作区任务模块" } };
+      if (typeof id !== "string" || !id.trim() || id.length > 256) return { ok: false, error: { code: "INVALID_INPUT", message: "无效任务 ID" } };
+      if (closed || state.kind !== "idle") return { ok: false, error: { code: "BUSY", message: "请等待当前执行或整理结束" } };
+      setState({ kind: "command", name: "task-acknowledge" });
+      let response!: TaskStoreResult<TaskRecordV4>;
+      activeTask = (async () => {
+        try { response = await createTaskStore(app.workspaceRoot!).acknowledge(id); }
+        finally { setState({ kind: "idle" }); }
+      })();
+      await activeTask;
+      return response;
+    },
     getRssInbox: async () => {
       if (!app.workspaceRoot || !app.moduleConfig?.enabled.task) return { ok: false, error: { code: "RSS_UNAVAILABLE", message: "RSS requires workspace and task module" } };
       try {
@@ -530,6 +621,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     },
     getSnapshot: () => ({
       state,
+      canSubmit: !closed && (state.kind === "idle" || (state.kind === "running" && state.background === true)),
       pendingApproval,
       recentOutput,
       outputTruncated,
@@ -714,7 +806,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
             id: randomUUID(), role: "user", metadata: { source: AUTO_CONSOLIDATION_SOURCE },
             parts: [{ type: "text", text: validated.value.mode === "history"
               ? "调用 memory_prepare_consolidation，参数仍为 {\"mode\":\"incremental\"}，不要提供 turns。程序已经绑定用户选定的历史消息，模型不能另选范围；返回 selection.mode=history。本次不移动自动游标。再调用 memory_stage_candidates 一次，没有建议也提交空数组。只提出有来源的候选，不写正式记忆。"
-              : "请重试增量整理。先取材，再提交候选；没有建议也提交空数组，不写正式记忆。" }],
+              : "请重试增量整理。先取材，再提交带资格分类的提案；没有建议也提交空数组。正式写入或待审由程序策略处理，不直接调用正式写入工具。" }],
           }, "consolidation", startup.signal, handle => resolveStarted({ ok: true, value: { runId: handle.runId } }));
         } catch (error) {
           consolidationFailure = String(error);
@@ -975,7 +1067,8 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     },
     run: async (text, options) => {
       if (text.trim().length === 0) return { ok: false, reason: "empty" };
-      if (closed || state.kind !== "idle") return { ok: false, reason: "busy" };
+      const previousBackground = state.kind === "running" && state.background === true ? backgroundTask : undefined;
+      if (closed || (state.kind !== "idle" && previousBackground === undefined)) return { ok: false, reason: "busy" };
       const excludeFromConsolidation = options?.memoryConsolidation === "exclude";
       lastConsolidationSkippedReason = undefined;
 
@@ -988,6 +1081,10 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       const startup = new AbortController();
       startupController = startup;
       setState({ kind: "running", runId: null, phase: "primary" });
+      if (previousBackground) {
+        backgroundController?.abort(new DOMException("Foreground chat has priority", "AbortError"));
+        void activeHandle?.cancel("Foreground chat has priority").catch(error => emit({ type: "error", message: String(error) }));
+      }
       let resolveStarted!: (response: StartRunResponse) => void;
       const started = new Promise<StartRunResponse>((resolve) => { resolveStarted = resolve; });
       const userMessage: UIMessage = {
@@ -998,10 +1095,16 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       nextWorkTask = undefined;
       activeTask = (async () => {
         let startSettled = false;
+        let shouldConsolidate = false;
         const settleStart = (response: StartRunResponse): void => {
           if (!startSettled) { startSettled = true; resolveStarted(response); }
         };
         try {
+          if (previousBackground && !await waitForConsolidationHandoff(previousBackground)) {
+            emit({ type: "error", message: "Background consolidation is still stopping; your message was not submitted. Retry after it stops." });
+            settleStart({ ok: false, reason: "busy" });
+            return;
+          }
           await ensureRecovered();
           app.resume?.beginRun();
           let primary: { result: RunResult; requestedMemoryTool: boolean };
@@ -1012,44 +1115,11 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
           } finally {
             app.resume?.endRun();
           }
-          if (
-            primary.result.status === "completed" && !primary.requestedMemoryTool &&
-            !cancelRequested && !excludeFromConsolidation && app.autoConsolidationAgentId !== undefined
-          ) {
-            const readiness = await app.memoryConsolidation?.canStart(startup.signal);
-            if (readiness !== undefined && !readiness.ok) {
-              consolidationFailure = `${readiness.error.code}: ${readiness.error.message}`;
-              emit({ type: "error", message: `Automatic consolidation unavailable: ${readiness.error.code}: ${readiness.error.message}` });
-              return;
-            }
-            if (readiness?.ok && !readiness.value.canStart) {
-              lastConsolidationSkippedReason = "待审候选已满，请先审核后重试整理";
-              controller.recordOutput("\nMemory candidate queue is full; review pending candidates before consolidating.\n");
-              return;
-            }
-            if (cancelRequested || startup.signal.aborted) return;
-            controller.recordOutput("\n正在自动整理记忆...\n");
-            const consolidationMessage: UIMessage = {
-              id: randomUUID(), role: "user", metadata: { source: AUTO_CONSOLIDATION_SOURCE },
-              parts: [{ type: "text", text: "请整理最近已提交的对话：先取材，再调用 memory_stage_candidates 提交结构化提案；没有建议也提交空数组。不要写入 active 记忆。" }],
-            };
-            try {
-              const consolidation = await executeRun(
-                app.autoConsolidationAgentId, consolidationMessage, "consolidation",
-                startup.signal,
-              );
-              if (consolidation.result.status === "failed" || consolidation.result.status === "timed_out") {
-                controller.recordOutput(`\nAutomatic consolidation failed: ${consolidation.result.error?.message ?? consolidation.result.status}\n`);
-              }
-            } catch (error) {
-              controller.recordOutput(`\nAutomatic consolidation failed: ${String(error)}\n`);
-            }
-          } else if (app.autoConsolidationAgentId !== undefined) {
-            lastConsolidationSkippedReason = excludeFromConsolidation
-              ? activeWorkTask !== undefined ? "任务执行指令不参与记忆整理，避免将一次性要求误记为长期偏好" : "你选择了本条消息不参与记忆"
-              : primary.requestedMemoryTool ? "本轮已请求记忆工具，自动整理跳过，避免重复处理"
-              : "主任务未成功结束或已取消，未触发自动整理";
-          }
+          const skip = automaticConsolidationSkip({ enabled: app.autoConsolidationAgentId !== undefined,
+            status: primary.result.status, requestedMemoryTool: primary.requestedMemoryTool,
+            cancelled: cancelRequested || startup.signal.aborted, excluded: excludeFromConsolidation });
+          shouldConsolidate = skip === undefined;
+          if (app.autoConsolidationAgentId) lastConsolidationSkippedReason = skip;
         } catch (error) {
           settleStart({ ok: false, reason: "starting" });
           emit({ type: "error", message: String(error) });
@@ -1059,7 +1129,12 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
             app.workTaskContext.end();
             activeWorkTask = undefined;
           }
-          setState({ kind: "idle" });
+          if (previousBackground && backgroundTask === previousBackground) {
+            setState({ kind: "running", runId: activeHandle?.runId ?? null, phase: "consolidation", background: true });
+          } else {
+            setState({ kind: "idle" });
+            if (shouldConsolidate) startAutomaticConsolidation();
+          }
         }
       })();
       return started;
@@ -1067,6 +1142,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     cancel: async () => {
       cancelRequested = true;
       startupController?.abort(new DOMException("Run cancelled", "AbortError"));
+      backgroundController?.abort(new DOMException("Consolidation cancelled", "AbortError"));
       operationController?.abort(new DOMException("Operation cancelled", "AbortError"));
       if (activeHandle !== undefined) await activeHandle.cancel("Cancelled from application");
     },
@@ -1135,6 +1211,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       closed = true;
       await controller.cancel();
       await activeTask;
+      await backgroundTask;
       await recovery;
       const leaseReleases = await Promise.allSettled([
         threadLease?.release() ?? Promise.resolve(),
@@ -1153,5 +1230,16 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       if (releaseErrors.length > 0) throw new AggregateError(releaseErrors, "Unable to release controller leases");
     },
   };
+  void recovery.then(async () => {
+    if (closed || state.kind !== "idle" || !app.memoryConsolidation || !app.memoryStore || !app.autoConsolidationAgentId) return;
+    try {
+      await ensureRecovered();
+      const cursor = await app.memoryStore.getConsolidationCursor(app.threadId);
+      if (!cursor.ok) { consolidationFailure = `${cursor.error.code}: ${cursor.error.message}`; emit({ type: "error", message: consolidationFailure }); return; }
+      const backlog = memoryConsolidationBacklog(await app.store.getMessages(app.threadId), cursor.value);
+      if (backlog.ok && backlog.value > 0) startAutomaticConsolidation();
+      else if (!backlog.ok) { consolidationFailure = `${backlog.error.code}: ${backlog.error.message}`; emit({ type: "error", message: consolidationFailure }); }
+    } catch (error) { consolidationFailure = String(error); emit({ type: "error", message: String(error) }); }
+  });
   return controller;
 }

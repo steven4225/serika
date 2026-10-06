@@ -6,7 +6,7 @@ import {
   isExactUserQuote, isMemoryConsolidationExcluded, userStartedTurns,
   type ConsolidationTurn, type IncrementalConsolidationTurn,
 } from "./consolidation.js";
-import { candidateFingerprint, type CandidateDraft, type ConsolidationCursor, type MemoryResult } from "./memory-candidates.js";
+import { candidateFingerprint, type CandidateBatchResult, type CandidateDraft, type ConsolidationCursor, type MemoryResult } from "./memory-candidates.js";
 import type { MemoryConsolidationEntry, MemoryEntry, WorkspaceMemoryStore } from "./memory-store.js";
 import { rankMemoryEntriesForQuery } from "./memory-retrieval.js";
 import { validateRecallTerms, validateTemporalTimestamp, validateValidTime, type MemoryKind, type MemoryValidTime } from "./memory-temporal.js";
@@ -45,6 +45,8 @@ export interface MemoryProposal {
   recallTerms?: string[];
   validTime?: MemoryValidTime;
   effectiveAt?: string;
+  /** Model judgment, never a source of authorization or a semantic guarantee. */
+  eligibility?: "durable_self_statement" | "explicit_request" | "needs_review" | "ignore";
 }
 type ConsolidationMemory = MemoryEntry & Partial<Pick<MemoryConsolidationEntry, "relatedAssertions" | "historyCoverage">>;
 export type PreparedBatch = {
@@ -59,7 +61,7 @@ export interface MemoryConsolidation {
   canStart(signal?: AbortSignal): Promise<MemoryResult<{ canStart: boolean; pendingCount: number }>>;
   prepare(input: { mode?: "incremental"; turns?: number }, signal?: AbortSignal): Promise<MemoryResult<PreparedBatch>>;
   stage(input: { batchId: string; proposals: unknown[] }, signal?: AbortSignal): Promise<MemoryResult<{ staged: true; batchId: string; count: number }>>;
-  finalize(result: { status: string; consolidationAttempts?: { prepare: number; stage: number } }, signal?: AbortSignal): Promise<MemoryResult<{ candidateIds: string[]; replayed: boolean; processedCount?: number }>>;
+  finalize(result: { status: string; consolidationAttempts?: { prepare: number; stage: number } }, signal?: AbortSignal): Promise<MemoryResult<CandidateBatchResult & { processedCount?: number }>>;
   discard(): void;
 }
 interface OrdinaryTurn { user: { id: string; text: string }; messages: UIMessage[] }
@@ -72,9 +74,10 @@ interface Batch {
   prepared?: PreparedBatch;
   selected?: OrdinaryTurn[];
   drafts?: CandidateDraft[];
+  autoAcceptIndexes?: number[];
   expectedCursor?: ConsolidationCursor | null;
   nextCursor?: ConsolidationCursor | null;
-  committed?: MemoryResult<{ candidateIds: string[]; replayed: boolean }>;
+  committed?: MemoryResult<CandidateBatchResult>;
 }
 const fail = (code: string, message: string): { ok: false; error: { code: string; message: string } } => ({ ok: false, error: { code, message } });
 function aborted(signal?: AbortSignal): void { signal?.throwIfAborted(); }
@@ -180,16 +183,27 @@ function activeTarget(entry: MemoryEntry, now: Date): boolean {
   return (entry.status === "active" || entry.status === undefined && entry.enabled) &&
     (entry.expiresAt == null || Date.parse(entry.expiresAt) > now.getTime());
 }
+function containsKnownCredentials(text: string): boolean {
+  return /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|\b(?:sk-[A-Za-z0-9_-]{16,}|(?:api[_ -]?key|password|secret|access[_ -]?token)\s*[:=]\s*\S+)|(?:密码|密钥|令牌)\s*(?:[:：=]|是)\s*\S+/i.test(text);
+}
+function containsKnownOptOut(text: string): boolean {
+  return /(?:不要|别|禁止)(?:记录|记住|记忆|保存到记忆|整理进记忆)|\b(?:do not|don't|never) (?:remember|memorize|store this in memory)\b/i.test(text);
+}
+/** Conservative recognized consent restrictions; not a general intent recognizer. */
+function requiresKnownReview(text: string): boolean {
+  return /(?:不要|不得|别)(?:保存|写入)|(?:未经|没有).{0,12}(?:确认|同意).{0,12}(?:不得|不要|不准)|(?:先|等).{0,10}(?:审核|确认).{0,10}(?:再|才).{0,8}(?:保存|写入)|\b(?:do not|don't) (?:save|write)|\bproposals? only\b/i.test(text);
+}
 function proposalDraft(proposal: unknown, prepared: PreparedBatch, selected: OrdinaryTurn[], messages: UIMessage[], threadId: string, now: Date): MemoryResult<CandidateDraft> {
   if (typeof proposal !== "object" || proposal === null || Array.isArray(proposal)) return fail("MEMORY_BATCH_INVALID", "Proposal must be an object");
   const p = proposal as Record<string, unknown>;
   const withdrawal = p.action === "retract" || p.action === "disable";
-  const common = ["action", "text", "sourceMessageId", "sourceQuote", "sources", "reason"];
+  const common = ["action", "text", "sourceMessageId", "sourceQuote", "sources", "reason", "eligibility"];
   const fact = ["kind", "recallTerms", "expiresAt"];
   const allowed = p.action === "add" ? [...common, ...fact, "validTime", "scope"] :
     withdrawal ? [...common, "memoryId", "expectedRevision"] :
     [...common, ...fact, "memoryId", "expectedRevision", p.action === "change" ? "effectiveAt" : "validTime"];
   if (typeof p.action !== "string" || !["add", "update", "change", "correct", "retract", "disable"].includes(p.action) || Object.keys(p).some((key) => !allowed.includes(key))) return fail("MEMORY_BATCH_INVALID", "Unknown proposal action or field");
+  if (p.eligibility !== undefined && (typeof p.eligibility !== "string" || !["durable_self_statement", "explicit_request", "needs_review", "ignore"].includes(p.eligibility))) return fail("MEMORY_BATCH_INVALID", "Invalid proposal eligibility");
   for (const [field, limit] of [["text", 2048], ["reason", 512]] as const) {
     if (withdrawal && field === "text" && p.text === undefined) continue;
     if (typeof p[field] !== "string" || p[field].trim().length === 0 || Buffer.byteLength(p[field]) > limit) return fail("MEMORY_BATCH_INVALID", `${field} is empty or exceeds its byte limit`);
@@ -261,6 +275,8 @@ export function createMemoryConsolidation(options: {
   threadId: string;
   now?: () => Date;
   generateId?: () => string;
+  /** Trusted host configuration; never supplied by the model or transcript. */
+  writePolicy?: "review" | "automatic";
 }): MemoryConsolidation {
   let batch: Batch | undefined;
   const now = options.now ?? (() => new Date());
@@ -343,14 +359,28 @@ export function createMemoryConsolidation(options: {
       const loaded = await readMessages(signal);
       if (!loaded.ok) { run.invalid = true; return loaded; }
       const drafts: CandidateDraft[] = [];
+      const automatic = options.writePolicy === "automatic" && run.agentId === AUTO_CONSOLIDATION_AGENT_ID && run.request?.mode !== "history";
+      const autoAcceptIndexes: number[] = [];
       for (const proposal of input.proposals) {
         const parsed = proposalDraft(proposal, run.prepared, run.selected, loaded.value, options.threadId, now());
         if (!parsed.ok) { run.invalid = true; return parsed; }
+        const eligibility = (proposal as MemoryProposal).eligibility;
+        // Conservative deny probes for recognizable credentials/explicit opt-out phrases.
+        // This is not a universal natural-language privacy classifier. Metadata exclusion
+        // remains the deterministic opt-out, enforced independently by source validation.
+        const sourceText = (parsed.value.sources ?? [parsed.value.source]).map(source => run.selected!.find(turn => turn.user.id === source.messageId)!.user.text).join("\n");
+        const change = parsed.value.change;
+        const control = change.operation === "retract" || change.operation === "disable";
+        if (eligibility === "ignore" || containsKnownCredentials(`${sourceText}\n${change.text}`) || containsKnownOptOut(sourceText) && !(control && eligibility === "explicit_request")) continue;
         if (drafts.some((draft) => candidateFingerprint(options.threadId, draft) === candidateFingerprint(options.threadId, parsed.value))) { run.invalid = true; return fail("MEMORY_BATCH_INVALID", "Duplicate proposal in one batch"); }
+        const kind = "kind" in change && change.kind !== undefined ? change.kind : change.operation === "add" ? undefined : run.prepared.memories.find(entry => entry.id === change.memoryId)?.assertion?.kind;
+        const supportedKind = control ? eligibility === "explicit_request" : kind === "preference" || kind === "fact" || eligibility === "explicit_request";
+        if (automatic && supportedKind && !requiresKnownReview(sourceText) && (eligibility === "durable_self_statement" || eligibility === "explicit_request")) autoAcceptIndexes.push(drafts.length);
         drafts.push(parsed.value);
       }
       if (batch !== run) return fail("MEMORY_BATCH_INVALID", "Consolidation lifecycle changed during staging");
       run.drafts = drafts;
+      if (automatic && run.nextCursor !== null && run.nextCursor !== undefined) run.autoAcceptIndexes = autoAcceptIndexes;
       return { ok: true, value: { staged: true, batchId: input.batchId, count: drafts.length } };
     },
     async finalize(result, signal) {
@@ -386,6 +416,7 @@ export function createMemoryConsolidation(options: {
       const committed = await options.store.commitCandidateBatch({
         batchId: run.prepared.batchId, originThreadId: options.threadId, candidates: run.drafts,
         expectedCursor: run.expectedCursor ?? null, nextCursor: run.nextCursor ?? null,
+        ...(run.autoAcceptIndexes === undefined ? {} : { autoAcceptIndexes: run.autoAcceptIndexes }),
       }, signal, { boundThreadId: options.threadId, now: observedAt });
       run.committed = committed;
       return committed.ok ? { ok: true, value: { ...committed.value, processedCount: run.selected.length } } : committed;
