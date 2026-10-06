@@ -1,4 +1,9 @@
-import { isAbsolute } from "node:path";
+import { isAbsolute, join } from "node:path";
+
+/** Stable legacy profile; productName and native bundle names must not move it. */
+export function defaultUserDataPath(appData: string): string {
+  return join(appData, "@aisdk-agent", "desktop");
+}
 
 /**
  * Isolated launches pass an absolute data directory instead of calling

@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
-import { userDataPathFromEnv } from "./user-data-path.js";
+import { defaultUserDataPath, userDataPathFromEnv } from "./user-data-path.js";
 import { app, BrowserWindow, ipcMain, Notification, shell, dialog } from "electron";
 import { createDemoModel } from "@aisdk-agent/example-cli/dist/demo-model.js";
 import { configureCliModel, inspectCliModelConfig } from "@aisdk-agent/example-cli/dist/model-config.js";
@@ -12,12 +12,23 @@ import { DesktopRuntime } from "./desktop-runtime.js";
 import { installHideOnClose, installTray } from "./tray.js";
 import { loadDesktopEnvironment, safeStartupError } from "./desktop-env.js";
 import { createDesktopRssWorker } from "./rss-worker-service.js";
+import { parseTaskResultLink } from "@aisdk-agent/example-cli/dist/task-result-link.js";
+import { openTaskNotificationResult } from "./task-notification-route.js";
 import type { RssAction } from "@aisdk-agent/example-cli/dist/rss-subscriptions.js";
 // Native icons need true transparent corners and optical padding. The avatar
 // stays full-size in the renderer; do not use its opaque square in the Dock.
 import appIconPath from "../../resources/serika-dock.png?asset";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
+let pendingTaskResultLink: string | null = null;
+let taskResultAvailable: (() => void) | undefined;
+// macOS can deliver an open-url before app.whenReady and before React mounts.
+app.on("open-url", (event, url) => {
+  if (parseTaskResultLink(url) === null) return;
+  event.preventDefault();
+  pendingTaskResultLink = url;
+  taskResultAvailable?.();
+});
 
 /**
  * The desktop shell reads the same inputs the TUI takes on its command line,
@@ -35,7 +46,7 @@ const here = fileURLToPath(new URL(".", import.meta.url));
 
 // Pin the existing profile before renaming the visible application. Otherwise
 // Electron's name-derived default path could strand the user's old history.
-const userDataPath = userDataPathFromEnv(process.env) ?? app.getPath("userData");
+const userDataPath = userDataPathFromEnv(process.env) ?? defaultUserDataPath(app.getPath("appData"));
 app.setPath("userData", userDataPath);
 app.setName("Serika");
 
@@ -91,7 +102,9 @@ function notifyIfHidden(window: BrowserWindow, message: MainToRenderer): void {
 
 async function main(): Promise<void> {
   let activeWindow: BrowserWindow | undefined;
-  app.on("second-instance", () => {
+  app.on("second-instance", (_event, argv) => {
+    const link = argv.find(value => parseTaskResultLink(value) !== null);
+    if (link) { pendingTaskResultLink = link; taskResultAvailable?.(); }
     if (activeWindow === undefined || activeWindow.isDestroyed()) return;
     if (activeWindow.isMinimized()) activeWindow.restore();
     activeWindow.show();
@@ -107,6 +120,11 @@ async function main(): Promise<void> {
     if (window.isDestroyed()) return;
     window.webContents.send(IPC.message, message);
     notifyIfHidden(window, message);
+  };
+  taskResultAvailable = () => {
+    if (window.isMinimized()) window.restore();
+    window.show(); window.focus();
+    send({ type: "task-result-available" });
   };
 
   const quit = (): void => {
@@ -127,6 +145,13 @@ async function main(): Promise<void> {
   const startup = new Promise<void>((resolve, reject) => { resolveStartup = resolve; rejectStartup = reject; });
   void startup.catch(() => undefined);
   ipcMain.handle(IPC.info, async () => { await startup; return host.info(); });
+  ipcMain.handle(IPC.taskResultOpen, async () => {
+    await startup;
+    const link = pendingTaskResultLink;
+    pendingTaskResultLink = null;
+    if (link === null) return null;
+    return openTaskNotificationResult(link, host.info().workspaceRoot, id => host.current.getScheduledTask(id));
+  });
   try {
     await loadDesktopEnvironment();
     const { modelAlias, model } = configureCliModel(createDemoModel, process.env);

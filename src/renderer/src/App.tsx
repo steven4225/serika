@@ -256,6 +256,7 @@ function AssistantPage({ drafts, layout, onLayoutChange }: { drafts: Map<string,
   const [threadsError, setThreadsError] = useState<string | null>(null);
   const [threadsRefresh, setThreadsRefresh] = useState(0);
   const [memoryFocus, setMemoryFocus] = useState<{ id: string | null; sequence: number }>({ id: null, sequence: 0 });
+  const [taskResultFocus, setTaskResultFocus] = useState<{ taskId: string; workspaceRoot: string; sequence: number } | null>(null);
   const [state, setState] = useState<UiState>({ kind: "idle" });
   const [home, setHome] = useState("");
   const [output, setOutput] = useState("");
@@ -393,9 +394,18 @@ function AssistantPage({ drafts, layout, onLayoutChange }: { drafts: Map<string,
   useEffect(() => {
     let cancelled = false;
     let stop = (): void => undefined;
+    const openNotificationResult = async () => {
+      const route = await window.runloom.takeTaskResultOpen?.();
+      if (!route || cancelled) return;
+      setTaskResultFocus(previous => ({ ...route, sequence: (previous?.sequence ?? 0) + 1 }));
+      setDetailTab("home"); setDetailsOpen(true);
+    };
 
     const onMessage = (message: MainToRenderer): void => {
       switch (message.type) {
+        case "task-result-available":
+          void openNotificationResult().catch(cause => { if (!cancelled) setError(String(cause)); });
+          return;
         case "identity-changed":
           return; // The outer App remounts this view for the new controller.
         case "state":
@@ -478,6 +488,7 @@ function AssistantPage({ drafts, layout, onLayoutChange }: { drafts: Map<string,
         const nextInfo = await window.runloom.info();
         if (cancelled) return;
         setInfo(nextInfo);
+        await openNotificationResult();
         const draft = drafts.get(draftKey(nextInfo));
         setInput(draft?.text ?? "");
         setExcludeFromMemory(draft?.excludeFromMemory ?? false);
@@ -771,7 +782,7 @@ function AssistantPage({ drafts, layout, onLayoutChange }: { drafts: Map<string,
               <div hidden={detailTab !== "home"}>
                 {info ? <DailySetup info={info} busy={busy} onHistory={() => openDetails("threads")} /> : null}
                 <RssPanel key={info?.workspaceRoot ?? "no-workspace"} showInbox={false} enabled={!!info?.workspaceRoot && info.modules?.some(m => m.id === "task" && m.enabled) === true} busy={busy} />
-                <TaskInbox key={info?.workspaceRoot ?? "no-workspace"} enabled={!!info?.workspaceRoot && info.modules?.some(m => m.id === "task" && m.enabled) === true} busy={busy} />
+                <TaskInbox key={info?.workspaceRoot ?? "no-workspace"} enabled={!!info?.workspaceRoot && info.modules?.some(m => m.id === "task" && m.enabled) === true} busy={busy} focus={taskResultFocus?.workspaceRoot === info?.workspaceRoot ? taskResultFocus : null} />
                 <section className="card home">
                   <div className="card-head"><span>工作区概览</span><button className="ghost" disabled={busy} onClick={() => void window.runloom.home().then(response => {
                     if (!response.ok) setError(commandError(response));

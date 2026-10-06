@@ -16,6 +16,7 @@ const api: RendererApi = {
   getRssInbox: () => ipcRenderer.invoke(IPC.rssInbox),
   acknowledgeRssResult: id => ipcRenderer.invoke(IPC.rssAck, id),
   getTaskInbox: () => ipcRenderer.invoke(IPC.taskInbox),
+  takeTaskResultOpen: () => ipcRenderer.invoke(IPC.taskResultOpen),
   getScheduledTask: id => ipcRenderer.invoke(IPC.scheduledTask, id),
   acknowledgeTaskResult: id => ipcRenderer.invoke(IPC.taskResultAck, id),
   rssWorkerStatus: () => ipcRenderer.invoke(IPC.rssWorkerStatus),

@@ -116,6 +116,7 @@ export interface UiSnapshot {
 }
 
 export type MainToRenderer =
+  | { type: "task-result-available" }
   | { type: "identity-changed"; info: AppInfo }
   | { type: "state"; state: UiState }
   | { type: "output"; text: string }
@@ -212,6 +213,8 @@ export interface RendererApi {
   getRssInbox(): Promise<RssResult<RssInbox>>;
   acknowledgeRssResult(id: string): Promise<RssResult<void>>;
   getTaskInbox(): Promise<AutomationResult<TaskListV3>>;
+  /** Consumes a process-local click route, not the task or its unread state. */
+  takeTaskResultOpen?(): Promise<{ taskId: string; workspaceRoot: string } | null>;
   getScheduledTask(id: string): Promise<AutomationResult<TaskRecordV4>>;
   acknowledgeTaskResult(id: string): Promise<AutomationResult<TaskRecordV4>>;
   rssWorkerStatus(): Promise<RssWorkerResponse>;
@@ -256,6 +259,7 @@ export interface RendererApi {
 }
 
 export const IPC = {
+  taskResultOpen: "runloom:taskResultOpen",
   threadsList: "runloom:threadsList",
   threadCreate: "runloom:threadCreate",
   threadSelect: "runloom:threadSelect",

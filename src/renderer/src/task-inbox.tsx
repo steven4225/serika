@@ -13,7 +13,7 @@ export function taskResultPresentation(task: TaskRecordV4): { kind: string; stat
 }
 
 /** One workspace inbox, backed only by existing TaskStore terminal records. */
-export function TaskInbox({ enabled, busy }: { enabled: boolean; busy: boolean }) {
+export function TaskInbox({ enabled, busy, focus }: { enabled: boolean; busy: boolean; focus?: { taskId: string; sequence: number } | null }) {
   const [page, setPage] = useState<TaskListV3 | null>(null);
   const [detail, setDetail] = useState<TaskRecordV4 | null>(null);
   const [error, setError] = useState("");
@@ -21,6 +21,8 @@ export function TaskInbox({ enabled, busy }: { enabled: boolean; busy: boolean }
   const [loading, setLoading] = useState(false);
   const [working, setWorking] = useState(false);
   const generation = useRef(0);
+  const openedFocus = useRef<number | null>(null);
+  const detailElement = useRef<HTMLElement | null>(null);
   const reload = async () => {
     const request = ++generation.current;
     setLoading(true); setError(""); setDetail(null);
@@ -62,7 +64,16 @@ export function TaskInbox({ enabled, busy }: { enabled: boolean; busy: boolean }
     } catch (cause) { setDetail(null); setError(`标记未得到确认，请刷新核对，不会自动重试：${String(cause)}`); }
     finally { setWorking(false); }
   };
+  useEffect(() => {
+    if (enabled && focus && !working && !loading && openedFocus.current !== focus.sequence) {
+      openedFocus.current = focus.sequence;
+      void open(focus.taskId);
+    }
+  }, [enabled, focus?.sequence, working, loading]);
   const presentation = detail ? taskResultPresentation(detail) : null;
+  useEffect(() => {
+    if (detail && focus?.taskId === detail.id) detailElement.current?.scrollIntoView({ block: "nearest" });
+  }, [detail?.id, focus?.sequence]);
   return <section className="card task-inbox" aria-label="定时任务结果收件箱">
     <div className="card-head"><span>定时任务收件箱</span><button className="ghost" disabled={!enabled || loading || working} onClick={() => void reload()}>刷新结果</button></div>
     <p className="hint">提醒、日报和资讯的结果都在这里。没有变化的检查可不通知；失败与中断不会被当成“没有内容”。</p>
@@ -77,7 +88,7 @@ export function TaskInbox({ enabled, busy }: { enabled: boolean; busy: boolean }
       </div><button className="ghost" disabled={working || loading} onClick={() => void open(task.id)}>查看结果</button>
     </div>)}
     {page?.truncated ? <p className="hint">只显示最近 50 条未读结果；标为已读后刷新可查看更早的记录。</p> : null}
-    {detail && presentation ? <section className="card" aria-label="定时结果详情">
+    {detail && presentation ? <section ref={detailElement} className="card" aria-label="定时结果详情">
       <div className="card-head"><span>{presentation.kind} · {presentation.status}</span><button className="ghost" disabled={working} onClick={() => { setDetail(null); setError(""); }}>收起</button></div>
       <p>{detail.prompt}</p>
       <dl className="session-facts"><dt>排期时间</dt><dd>{detail.runAt}</dd><dt>实际开始</dt><dd>{detail.startedAt ?? "未记录"}</dd><dt>结束时间</dt><dd>{detail.finishedAt ?? "未记录"}</dd><dt>通知</dt><dd>{presentation.notification}</dd><dt>已读</dt><dd>{detail.acknowledgedAt ?? "尚未标为已读"}</dd></dl>

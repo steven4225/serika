@@ -26,10 +26,14 @@ export function createDesktopRssWorker(options: {
     const workerEnv = parseEnv(text);
     if (!workerEnv.RUNLOOM_MODEL?.trim()) throw new Error("后台环境文件必须显式写 RUNLOOM_MODEL；launchd 不继承桌面启动命令里的模型选择。");
     const todoistConfigured = options.todoist === true && !!workerEnv.TODOIST_API_TOKEN?.trim();
-    return { todoistConfigured, worker: createTaskWorkerService({ workspace: options.workspace, nodePath: await realpath(nodePath),
+    const configuredHelper = options.env.RUNLOOM_NOTIFICATION_HELPER;
+    if (configuredHelper !== undefined && !isAbsolute(configuredHelper)) throw new Error("RUNLOOM_NOTIFICATION_HELPER 必须是可信的绝对路径。");
+    const notificationHelperPath = configuredHelper === undefined ? undefined : await realpath(configuredHelper);
+    return { todoistConfigured, notificationHelperPath, worker: createTaskWorkerService({ workspace: options.workspace, nodePath: await realpath(nodePath),
       envFile: await realpath(envFile), workerEntryPath: options.workerEntry,
       workingDirectory: dirname(dirname(dirname(dirname(options.workerEntry)))),
       launchAgentsDirectory: join(options.home, "Library/LaunchAgents"), uid: process.getuid!(), rss: true, notify: true,
+      ...(notificationHelperPath === undefined ? {} : { notificationHelperPath }),
       todoist: todoistConfigured, ...(options.runner ? { runner: options.runner } : {}) }) };
   }
   async function query(action?: boolean): Promise<RssWorkerResponse> {
@@ -48,12 +52,18 @@ export function createDesktopRssWorker(options: {
   }
   async function automationStatus() {
     try {
-      const { worker, todoistConfigured } = await service();
+      const { worker, todoistConfigured, notificationHelperPath } = await service();
       const status = await worker.status();
       if (!status.registered && status.command.exitCode !== 113) throw new Error("无法确认后台服务状态");
       if (status.registered && !/^\s*--notify\s*$/m.test(status.command.stdout)) {
         return { available: false, registered: true, running: status.running, todoistPlanningAvailable: false,
           message: "已有后台服务未配置通知；安排可以保存，但请显式停用并重新启用服务后再依赖通知。" };
+      }
+      const argumentsLines = status.command.stdout.split("\n").map(line => line.trim());
+      const helperIndex = argumentsLines.indexOf("--notification-helper");
+      if (status.registered && notificationHelperPath && (helperIndex < 0 || argumentsLines[helperIndex + 1] !== notificationHelperPath)) {
+        return { available: false, registered: true, running: status.running, todoistPlanningAvailable: false,
+          message: "已有后台服务没有通知点击路由；请显式停用后重新启用，不会自动替换。" };
       }
       const todoistPlanningAvailable = todoistConfigured && (!status.registered || /^\s*--todoist\s*$/m.test(status.command.stdout));
       return { available: true, registered: status.registered, running: status.running, todoistPlanningAvailable,
