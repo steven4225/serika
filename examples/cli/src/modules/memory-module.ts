@@ -341,6 +341,7 @@ const proposalCommon = {
   sourceMessageId: z.string().min(1).optional(), sourceQuote: z.string().min(1).optional(),
   sources: z.array(z.object({ sourceMessageId: z.string().min(1), sourceQuote: z.string().min(1) }).strict()).min(1).max(4).optional(),
   reason: z.string().min(1),
+  eligibility: z.enum(["durable_self_statement", "explicit_request", "needs_review", "ignore"]).optional(),
 };
 const candidateStageInputSchema = z.object({
   batchId: z.string().min(1),
@@ -673,7 +674,7 @@ export function createMemoryModule(
         ctx.registerTool({
           metadata: { name: "memory_stage_candidates", version: "1", risk: "read", timeoutMs: 1_000, idempotent: false },
           tool: tool({
-            description: "Stage at most five structured proposals after exactly one memory_prepare_consolidation. Use its batchId and one to four exact committed user quotes per proposal, never assistant/summary/tool evidence. add creates a fact; change is a real transition with explicit effectiveAt; correct fixes a wrong assertion; retract withdraws and disable stops use. Only add accepts scope. Target edits require memoryId/expectedRevision and must omit scope entirely (even the unchanged scope); never copy pinned/enabled fields from the target. recallTerms (at most three, each 96 UTF-8 bytes) are approved lookup aids, not facts. Ambiguous target/time needs clarification, not guessed dates. An empty proposals array means no suggestions. This only stages data; successful Run finalization persists pending candidates, never active memory.",
+            description: "Stage at most five structured proposals after exactly one memory_prepare_consolidation. Use its batchId and one to four exact committed user quotes per proposal, never assistant/summary/tool evidence. add creates a fact; change is a real transition with explicit effectiveAt; correct fixes a wrong assertion; retract withdraws and disable stops use. Only add accepts scope. Target edits require memoryId/expectedRevision and must omit scope entirely (even the unchanged scope); never copy pinned/enabled fields from the target. recallTerms (at most three, each 96 UTF-8 bytes) are lookup aids, not facts. Set eligibility to durable_self_statement only for explicit ordinary lasting user facts/preferences, explicit_request for clear user requests to retain/change/withdraw supported memory, needs_review for ambiguity, or ignore for secrets, third-party, ephemeral, guessed, or opted-out material. Missing eligibility requires review; this enum is model judgment, not permission or proof. Ambiguous target/time needs review, not guessed dates. An empty proposals array means no suggestions. This only stages data; completed finalization applies the trusted host policy. Manual/history stay pending review; eligible new incremental proposals may be automatically saved only in automatic mode.",
             inputSchema: candidateStageInputSchema, outputSchema: candidateStageOutputSchema,
             execute: (input, { abortSignal }) => options.consolidation!.stage(input, abortSignal),
           }),

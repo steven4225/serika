@@ -7,10 +7,10 @@ import { acquireFlock } from "./flock.js";
 import { assertWorkerPathSafe, writeWorkerFileAtomic } from "./task-worker-service.js";
 import { validatePublicWebUrl } from "./web-fetch.js";
 import type { FeedItem } from "./feed-read.js";
-import { createTaskStore, type TaskStore } from "./task-store.js";
+import { createTaskStore, RSS_DIGEST_TASK_PROMPT, type TaskStore } from "./task-store.js";
 import type { Recurrence } from "./recurrence.js";
 
-export const RSS_TASK_PROMPT = "[runloom:rss-digest:v1] 定期 RSS 资讯简报：仅整理程序提供的订阅快照，不猜测当前新闻。";
+export const RSS_TASK_PROMPT = RSS_DIGEST_TASK_PROMPT;
 const keySchema = z.string().regex(/^[a-f0-9]{64}$/);
 const sourceSchema = z.object({
   id: z.string().uuid(), name: z.string().trim().min(1).max(100),
@@ -19,6 +19,7 @@ const sourceSchema = z.object({
 }).strict();
 const batchSchema = z.object({
   taskId: z.string().min(1), prompt: z.string().max(20000), manifest: z.string().max(100000), hasItems: z.boolean(),
+  hasErrors: z.boolean().optional(),
   commits: z.array(z.object({ sourceId: z.string().uuid(), url: z.string(), keys: z.array(keySchema).max(20) }).strict()).max(8),
 }).strict();
 const documentSchema = z.object({
@@ -140,7 +141,8 @@ export function createRssSubscriptionStore(workspace: string) {
           } else if (action.action === "schedule") {
             if (d.scheduleId !== null) throw new RssError("INVALID_INPUT", "A schedule already exists; pause/resume it instead");
             if (!d.sources.some(s => s.enabled)) throw new RssError("INVALID_INPUT", "Add an enabled subscription first");
-            const created = await tasks.createRecurring({ prompt: RSS_TASK_PROMPT, recurrence: action.recurrence as Recurrence });
+            const created = await tasks.createRecurring({ prompt: RSS_TASK_PROMPT, recurrence: action.recurrence as Recurrence,
+              arrangement: { kind: "rss-digest", source: "existing-rss-binding", notification: "new-items", declarationVersion: 1 } });
             if (!created.ok) throw new RssError(created.error.code, created.error.message);
             d.scheduleId = created.value.id;
             d.enabled = true;

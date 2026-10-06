@@ -58,6 +58,7 @@ try {
       ...(app.compaction ? { compaction: app.compaction } : {}),
       ...(app.resume ? { resume: app.resume } : {}),
       ...(app.memoryConsolidation ? { memoryConsolidation: app.memoryConsolidation } : {}),
+      ...(app.getMemoryConsolidationBacklog ? { getMemoryConsolidationBacklog: app.getMemoryConsolidationBacklog } : {}),
       ...(app.autoConsolidationAgentId
         ? { autoConsolidationAgentId: app.autoConsolidationAgentId }
         : {}),

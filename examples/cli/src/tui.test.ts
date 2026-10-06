@@ -1026,7 +1026,7 @@ describe("runTui", () => {
     events.push(toolRequestedEvent("run-1", "thread-1", "memory_stage_candidates", { invalid: true }));
     events.close(); input.end(); await tui;
     assert.deepEqual(calls, ["calculator", { status: "completed", consolidationAttempts: { prepare: 1, stage: 2 } }, "discard"]);
-    assert.match(output.text(), /候选未保存.*write failed/);
+    assert.match(output.text(), /整理确认失败.*write failed/);
     assert.match(output.text(), /primary succeeded/);
     assert.doesNotMatch(output.text(), /Run could not finish/);
   });
@@ -1125,6 +1125,54 @@ describe("runTui", () => {
     input.end();
     await tui;
     assert.equal(runtime.requests.length, 1);
+  });
+
+  it("lets ordinary input interrupt background consolidation and waits before starting the next Run", async () => {
+    const input = new PassThrough();
+    const output = outputBuffer();
+    const backgroundResult = deferred<RunResult>();
+    const cancellationRequested = deferred<void>();
+    const requests: RunRequest[] = [];
+    const runtime = { async run<TContext>(request: RunRequest<TContext>): Promise<RunHandle> {
+      requests.push(request as RunRequest);
+      const events = asyncQueue<AgentEvent>(); events.close();
+      if (request.agentId === "memory-consolidator") return handleFor({
+        runId: "background", threadId: "thread-1", events, result: backgroundResult.promise,
+        cancel: async () => { cancellationRequested.resolve(); },
+      });
+      const primaryEvents = asyncQueue<AgentEvent>();
+      if (requests.length > 1) primaryEvents.push(toolRequestedEvent("next", "thread-1", "memory_list"));
+      primaryEvents.close();
+      return handleFor({ runId: requests.length === 1 ? "first" : "next", threadId: "thread-1", events: primaryEvents,
+        result: Promise.resolve(completedResult(requests.length === 1 ? "first" : "next", "thread-1", "answer")) });
+    } };
+    const tui = runTui({ ...tuiOptions, runtime, store: { getMessages: async () => [] }, input, output, autoConsolidationAgentId: "memory-consolidator" });
+    await nextTurn(); input.write("first\n");
+    await waitFor(() => requests.length === 2);
+    input.write("next question\n");
+    await cancellationRequested.promise;
+    assert.equal(requests.length, 2, "cancellation requested is not cancellation completed");
+    input.write("do not queue\n");
+    await waitFor(() => output.text().includes("Busy:"));
+    backgroundResult.resolve(cancelledResult("background", "thread-1"));
+    await waitFor(() => requests.length === 3);
+    assert.equal(requests[2]?.messages[0]?.parts[0]?.type === "text" && requests[2].messages[0].parts[0].text, "next question");
+    input.end(); await tui;
+    assert.equal(requests.length, 3);
+  });
+
+  it("resumes only the supplied current-Thread backlog on TUI startup", async () => {
+    const input = new PassThrough(); const output = outputBuffer();
+    const pending = deferred<RunResult>();
+    const events = asyncQueue<AgentEvent>(); events.close();
+    const runtime = testRuntime([handleFor({ runId: "background", threadId: "thread-1", events, result: pending.promise,
+      cancel: async () => { pending.resolve(cancelledResult("background", "thread-1")); } })]);
+    const tui = runTui({ ...tuiOptions, runtime: runtime.runtime, store: { getMessages: async () => [] }, input, output,
+      autoConsolidationAgentId: "memory-consolidator", getMemoryConsolidationBacklog: async () => ({ ok: true, value: 1 }) });
+    await waitFor(() => runtime.requests.length === 1);
+    assert.equal(runtime.requests[0]?.agentId, "memory-consolidator");
+    assert.equal(runtime.requests[0]?.threadId, "thread-1");
+    input.end(); await tui;
   });
 
   it("does not treat checkpoint tools as memory tools for automatic consolidation", async () => {
@@ -1403,8 +1451,6 @@ describe("runTui", () => {
     await nextTurn();
     input.write("user prompt\n");
     await waitFor(() => requests.length === 2);
-    input.write("should wait\n");
-    await waitFor(() => output.text().includes("Busy: wait for the current run to finish."));
     pressCtrlC(input);
     consolidationStarted.resolve(
       handleFor({

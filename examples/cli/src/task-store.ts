@@ -12,7 +12,7 @@ import { dirname, join, resolve } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 
 import { acquireFlock } from "./flock.js";
-import { nextOccurrence, type Recurrence } from "./recurrence.js";
+import { latestOccurrence, nextOccurrence, type Recurrence } from "./recurrence.js";
 import { abortReason, throwIfAborted, validateWorkspacePath } from "./workspace-path.js";
 
 export const TASK_FILE_NAME = ".runloom/tasks.json";
@@ -22,6 +22,7 @@ export const TASK_PROMPT_MAX_BYTES = 16 * 1024;
 export const TASK_LIST_DEFAULT_LIMIT = 20;
 export const TASK_LIST_MAX_LIMIT = 50;
 export const TASK_PREVIEW_MAX_CHARACTERS = 120;
+export const RSS_DIGEST_TASK_PROMPT = "[runloom:rss-digest:v1] 定期 RSS 资讯简报：仅整理程序提供的订阅快照，不猜测当前新闻。";
 
 export const taskStatuses = [
   "scheduled",
@@ -39,6 +40,11 @@ export interface TaskError {
   message: string;
 }
 
+export type TaskArrangement =
+  | { kind: "reminder"; source: "none"; notification: "always"; declarationVersion: 1 }
+  | { kind: "todoist-brief"; source: "todoist-planning"; notification: "always"; declarationVersion: 1 }
+  | { kind: "rss-digest"; source: "existing-rss-binding"; notification: "new-items"; declarationVersion: 1 };
+
 export interface TaskRecord {
   id: string;
   prompt: string;
@@ -53,6 +59,10 @@ export interface TaskRecord {
   error: TaskError | null;
   /** Null for one-time tasks; present on v2 records. */
   recurringTaskId?: string | null;
+  /** Host-confirmed arrangement. Absence retains the legacy scheduled responder. */
+  arrangement?: TaskArrangement;
+  /** No model Run exists for a deterministic reminder or empty RSS outcome. */
+  execution?: "deterministic";
 }
 
 export interface TaskRecordV2 extends TaskRecord {
@@ -122,11 +132,13 @@ export interface RecurringTaskRecord {
   status: RecurringTaskStatus;
   createdAt: string;
   nextRunAt: string | null;
+  arrangement?: TaskArrangement;
 }
 
 export interface CreateRecurringTaskInput {
   prompt: string;
   recurrence: Recurrence;
+  arrangement?: TaskArrangement;
 }
 
 export interface RecurringTaskListInput {
@@ -155,6 +167,7 @@ export interface RecurringTaskDetail {
 export interface CreateTaskInput {
   prompt: string;
   runAt: string;
+  arrangement?: TaskArrangement;
 }
 
 export interface TaskSummary {
@@ -198,6 +211,13 @@ export type TaskFinish =
   | {
       status: "completed";
       runId: string;
+      resultText: string;
+      notification?: boolean;
+    }
+  | {
+      status: "completed";
+      runId: null;
+      execution: "deterministic";
       resultText: string;
       notification?: boolean;
     }
@@ -318,6 +338,7 @@ function cloneError(error: TaskError | null): TaskError | null {
 
 function cloneRecord(record: TaskRecordV4): TaskRecordV4 {
   return { ...record, error: cloneError(record.error),
+    ...(record.arrangement ? { arrangement: { ...record.arrangement } } : {}),
     attempts: record.attempts.map((attempt) => ({ ...attempt, error: cloneError(attempt.error) })),
     notification: record.notification === null ? null : { ...record.notification, error: cloneError(record.notification.error) },
     pendingOutcome: record.pendingOutcome === null ? null : structuredClone(record.pendingOutcome) };
@@ -328,7 +349,29 @@ function cloneRecurrence(recurrence: Recurrence): Recurrence {
 }
 
 function cloneRecurringTask(record: RecurringTaskRecord): RecurringTaskRecord {
-  return { ...record, recurrence: cloneRecurrence(record.recurrence) };
+  return { ...record, recurrence: cloneRecurrence(record.recurrence),
+    ...(record.arrangement ? { arrangement: { ...record.arrangement } } : {}) };
+}
+
+export function validateTaskArrangement(value: unknown): TaskArrangement {
+  if (!isObject(value) || Object.keys(value).some(key => !["kind", "source", "notification", "declarationVersion"].includes(key)) || value.declarationVersion !== 1) {
+    raise("INVALID_INPUT", "Invalid task arrangement declaration");
+  }
+  if (value.kind === "reminder" && value.source === "none" && value.notification === "always") return { kind: value.kind, source: value.source, notification: value.notification, declarationVersion: 1 };
+  if (value.kind === "todoist-brief" && value.source === "todoist-planning" && value.notification === "always") return { kind: value.kind, source: value.source, notification: value.notification, declarationVersion: 1 };
+  if (value.kind === "rss-digest" && value.source === "existing-rss-binding" && value.notification === "new-items") return { kind: value.kind, source: value.source, notification: value.notification, declarationVersion: 1 };
+  raise("INVALID_INPUT", "Task source and notification must match the declared arrangement");
+}
+
+function storedArrangement(value: unknown): TaskArrangement | undefined {
+  if (value === undefined) return undefined;
+  try { return validateTaskArrangement(value); }
+  catch { raise("TASK_FILE_INVALID", "Invalid stored task arrangement"); }
+}
+
+function allowsDeterministic(task: { prompt?: unknown; arrangement?: unknown; recurringTaskId?: unknown }): boolean {
+  return (isObject(task.arrangement) && task.arrangement.kind === "reminder") ||
+    (task.prompt === RSS_DIGEST_TASK_PROMPT && typeof task.recurringTaskId === "string" && task.recurringTaskId.length > 0);
 }
 
 function preview(value: string): string {
@@ -438,7 +481,7 @@ function validateDeliveryFields(value: Record<string, unknown>, version: number)
     if (raw.finishedAt !== null) validateStoredTimestamp(raw.finishedAt, "Attempt finishedAt");
     if (raw.runId !== null && (typeof raw.runId !== "string" || raw.runId.length === 0)) raise("TASK_FILE_INVALID", "Invalid attempt Run id");
     const error = raw.error === null ? null : validateTaskError(raw.error);
-    if ((raw.status === "running") !== (raw.finishedAt === null) || ((raw.status === "failed" || raw.status === "interrupted") !== (error !== null)) || (raw.status === "completed" && raw.runId === null) || (raw.status === "running" && index !== attemptCount - 1)) raise("TASK_FILE_INVALID", "Inconsistent attempt state");
+    if ((raw.status === "running") !== (raw.finishedAt === null) || ((raw.status === "failed" || raw.status === "interrupted") !== (error !== null)) || (raw.status === "completed" && raw.runId === null && value.execution !== "deterministic") || (raw.status === "running" && index !== attemptCount - 1)) raise("TASK_FILE_INVALID", "Inconsistent attempt state");
     return { number: index + 1, startedAt: raw.startedAt, finishedAt: raw.finishedAt as string | null, runId: raw.runId as string | null, status: raw.status as TaskAttempt["status"], error };
   });
   if (value.retryAt !== null) {
@@ -464,6 +507,7 @@ function validateDeliveryFields(value: Record<string, unknown>, version: number)
     try { validateFinish(value.pendingOutcome); } catch { raise("TASK_FILE_INVALID", "Invalid pending outcome"); }
     pendingOutcome = value.pendingOutcome;
     if (value.status !== "running" || pendingOutcome.runId !== value.runId) raise("TASK_FILE_INVALID", "Pending outcome does not match running task");
+    if (pendingOutcome.status === "completed" && pendingOutcome.runId === null && !allowsDeterministic(value)) raise("TASK_FILE_INVALID", "Deterministic outcome is not permitted for this task");
   }
   return { attempts, retryAt: value.retryAt as string | null, notification, pendingOutcome };
 }
@@ -480,6 +524,10 @@ function finishAttempt(task: TaskRecordV4, outcome: TaskFinish, at: string): voi
 
 function validateRecord(value: unknown, version: 1 | 2 | 3 | 4): TaskRecordV4 {
   if (!isObject(value)) raise("TASK_FILE_INVALID", "Task records must be objects");
+  const arrangement = storedArrangement(value.arrangement);
+  if (value.execution !== undefined && (value.execution !== "deterministic" || value.status !== "completed" || value.runId !== null || !allowsDeterministic(value))) {
+    raise("TASK_FILE_INVALID", "Invalid deterministic execution receipt");
+  }
   if (typeof value.id !== "string" || value.id.length === 0) {
     raise("TASK_FILE_INVALID", "Task id must be non-empty");
   }
@@ -544,7 +592,7 @@ function validateRecord(value: unknown, version: 1 | 2 | 3 | 4): TaskRecordV4 {
   }
   if (value.status === "completed") {
     if (value.startedAt === null || value.finishedAt === null || value.threadId === null ||
-        value.runId === null || value.resultText === null || error !== null) {
+        (value.runId === null && value.execution !== "deterministic") || value.resultText === null || error !== null) {
       raise("TASK_FILE_INVALID", "Task completed state has inconsistent execution fields");
     }
   }
@@ -571,6 +619,8 @@ function validateRecord(value: unknown, version: 1 | 2 | 3 | 4): TaskRecordV4 {
     recurringTaskId: version !== 1
       ? (value.recurringTaskId as string | null)
       : null,
+    ...(arrangement ? { arrangement } : {}),
+    ...(value.execution === "deterministic" ? { execution: "deterministic" as const } : {}),
     ...validateDeliveryFields(value, version),
   };
 }
@@ -634,6 +684,7 @@ function validateRecurringTask(value: unknown): RecurringTaskRecord {
     status: value.status,
     createdAt: value.createdAt as string,
     nextRunAt: value.nextRunAt as string | null,
+    ...(value.arrangement === undefined ? {} : { arrangement: storedArrangement(value.arrangement)! }),
   };
 }
 
@@ -681,7 +732,7 @@ function validateCreateInput(input: unknown): CreateTaskInput & { runAt: string 
   if (!isObject(input)) raise("INVALID_INPUT", "Task input must be an object");
   validatePrompt(input.prompt);
   const runAt = normalizeRunAt(input.runAt);
-  return { prompt: input.prompt, runAt };
+  return { prompt: input.prompt, runAt, ...(input.arrangement === undefined ? {} : { arrangement: validateTaskArrangement(input.arrangement) }) };
 }
 
 function validateCreateRecurringInput(
@@ -714,7 +765,7 @@ function validateCreateRecurringInput(
         time: recurrence.time as string,
         utcOffset: recurrence.utcOffset as string,
       };
-  return { prompt: input.prompt, recurrence: normalized };
+  return { prompt: input.prompt, recurrence: normalized, ...(input.arrangement === undefined ? {} : { arrangement: validateTaskArrangement(input.arrangement) }) };
 }
 
 function isTaskListStatusFilter(value: unknown): value is TaskListStatusFilter {
@@ -799,7 +850,9 @@ function validateFinish(outcome: unknown): asserts outcome is TaskFinish {
   }
   if (outcome.notification !== undefined && typeof outcome.notification !== "boolean") raise("INVALID_INPUT", "Notification must be boolean");
   if (outcome.status === "completed") {
-    if (typeof outcome.runId !== "string" || outcome.runId.length === 0 ||
+    const deterministic = outcome.runId === null && outcome.execution === "deterministic";
+    if ((!deterministic && (typeof outcome.runId !== "string" || outcome.runId.length === 0)) ||
+        (outcome.execution !== undefined && !deterministic) ||
         typeof outcome.resultText !== "string") {
       raise("INVALID_INPUT", "Completed task outcome must contain runId and resultText");
     }
@@ -870,6 +923,7 @@ export class WorkspaceTaskStore implements TaskStore {
         acknowledgedAt: null,
         recurringTaskId: null,
         attempts: [], retryAt: null, notification: null, pendingOutcome: null,
+        ...(normalized.arrangement ? { arrangement: normalized.arrangement } : {}),
       };
       if (task.id.length === 0) raise("WRITE_FAILED", "Task id generator returned an empty id");
       const value = await this.#update(signal, (document) => {
@@ -900,6 +954,7 @@ export class WorkspaceTaskStore implements TaskStore {
           normalized.recurrence,
           new Date(now).toISOString(),
         ),
+        ...(normalized.arrangement ? { arrangement: normalized.arrangement } : {}),
       };
       if (recurringTask.id.length === 0) {
         raise("WRITE_FAILED", "Recurring task id generator returned an empty id");
@@ -1236,7 +1291,7 @@ export class WorkspaceTaskStore implements TaskStore {
         const task: TaskRecordV4 = {
           id: taskId,
           prompt: due.task.prompt,
-          runAt: due.task.nextRunAt as string,
+          runAt: due.task.arrangement ? latestOccurrence(due.task.recurrence, nowIso) : due.task.nextRunAt as string,
           status: "running",
           createdAt: nowIso,
           startedAt: nowIso,
@@ -1249,6 +1304,7 @@ export class WorkspaceTaskStore implements TaskStore {
           recurringTaskId: due.task.id,
           attempts: [{ number: 1, runId: null, startedAt: nowIso, finishedAt: null, status: "running", error: null }],
           retryAt: null, notification: null, pendingOutcome: null,
+          ...(due.task.arrangement ? { arrangement: { ...due.task.arrangement } } : {}),
         };
         due.task.nextRunAt = nextOccurrence(due.task.recurrence, nowIso);
         document.tasks.push(task);
@@ -1273,6 +1329,7 @@ export class WorkspaceTaskStore implements TaskStore {
         const task = document.tasks.find((candidate) => candidate.id === id);
         if (task === undefined) raise("TASK_NOT_FOUND", `Task not found: ${id}`);
         if (task.status !== "running") raise("INVALID_INPUT", "Only a running task can be finished");
+        if (outcome.status === "completed" && outcome.runId === null && !allowsDeterministic(task)) raise("INVALID_INPUT", "Deterministic completion is not permitted for this task");
         if (task.pendingOutcome !== null && !isDeepStrictEqual(task.pendingOutcome, outcome)) raise("INVALID_INPUT", "Finish outcome differs from persisted outcome");
         const now = this.#now();
         task.status = outcome.status;
@@ -1281,6 +1338,7 @@ export class WorkspaceTaskStore implements TaskStore {
         task.acknowledgedAt = null;
         task.retryAt = null;
         task.pendingOutcome = null;
+        if (outcome.status === "completed" && outcome.runId === null) task.execution = "deterministic";
         finishAttempt(task, outcome, task.finishedAt);
         task.notification = outcome.notification === true ? { status: "pending", attempts: 0, nextAttemptAt: task.finishedAt, error: null } : null;
         if (outcome.status === "completed") {
@@ -1366,6 +1424,7 @@ export class WorkspaceTaskStore implements TaskStore {
     try { validateFinish(outcome); } catch (error) { return errorResult(error, neverAborted, true); }
     return this.#updateTask(id, (task) => {
       if (task.status !== "running" || task.runId !== outcome.runId || task.pendingOutcome !== null) raise("INVALID_INPUT", "Outcome does not match active Run");
+      if (outcome.status === "completed" && outcome.runId === null && !allowsDeterministic(task)) raise("INVALID_INPUT", "Deterministic completion is not permitted for this task");
       task.pendingOutcome = structuredClone(outcome);
       return task;
     });

@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, it } from "node:test";
 import { createMemoryStore, WorkspaceMemoryStoreImpl } from "./memory-store.js";
+import type { CandidateBatchInput } from "./memory-candidates.js";
 
 const directories: string[] = [];
 afterEach(async () => {
@@ -17,6 +18,100 @@ async function fixture() {
   return { root, file: join(root, ".runloom/memory.json"), store: createMemoryStore(root) };
 }
 const options = { boundThreadId: "commit-thread", now: new Date("2026-10-04T00:00:00Z") };
+function automaticBatch(): CandidateBatchInput {
+  return {
+    batchId: "auto-commit", originThreadId: options.boundThreadId, expectedCursor: null,
+    nextCursor: { threadId: options.boundThreadId, throughMessageId: "user-auto", prefixHash: "user-prefix", lastBatchId: "auto-commit", updatedAt: options.now.toISOString() },
+    candidates: [{ change: { operation: "add", text: "ordinary preference", kind: "preference", scope: { kind: "workspace" }, expiresAt: null }, source: { kind: "conversation", threadId: options.boundThreadId, messageId: "user-auto", quote: "ordinary preference" }, reason: "explicit lasting self statement" }],
+    autoAcceptIndexes: [0],
+  };
+}
+
+for (const boundary of ["before-rename", "after-rename"] as const) {
+  it(`automatic fact, receipt and cursor survive real SIGKILL at ${boundary} together`, { timeout: 15_000 }, async () => {
+    const { root, file, store } = await fixture();
+    assert.ok((await store.add({ text: "prior" }, undefined, options)).ok);
+    const original = await readFile(file, "utf8");
+    const input = automaticBatch();
+    const script = `
+      import { WorkspaceMemoryStoreImpl } from ${JSON.stringify(new URL("./memory-store.js", import.meta.url).href)};
+      process.on("message", () => {});
+      const writer = new WorkspaceMemoryStoreImpl(${JSON.stringify(root)}, async phase => {
+        if (phase !== ${JSON.stringify(boundary)}) return;
+        process.send({ phase });
+        await new Promise(() => {});
+      });
+      const result = await writer.commitCandidateBatch(${JSON.stringify(input)}, undefined, {
+        boundThreadId: ${JSON.stringify(options.boundThreadId)}, now: new Date(${JSON.stringify(options.now.toISOString())})
+      });
+      process.send({ unexpectedResult: result });
+    `;
+    const child = spawn(process.execPath, ["--input-type=module", "--eval", script], { stdio: ["ignore", "ignore", "pipe", "ipc"] });
+    let stderr = ""; child.stderr!.on("data", chunk => { stderr += String(chunk); });
+    const exited = once(child, "exit");
+    try {
+      const reached = await Promise.race([
+        once(child, "message").then(([message]) => message as { phase?: string }),
+        exited.then(([code, signal]) => { throw new Error(`automatic child exited before barrier: ${code}/${signal}: ${stderr}`); }),
+      ]);
+      assert.equal(reached.phase, boundary);
+      child.kill("SIGKILL");
+      const [code, signal] = await exited; assert.equal(code, null); assert.equal(signal, "SIGKILL");
+      const current = await readFile(file, "utf8");
+      const document = JSON.parse(current);
+      if (boundary === "before-rename") {
+        assert.equal(current, original); assert.equal(document.entries.length, 1);
+        assert.deepEqual(document.candidates, []); assert.deepEqual(document.consolidationCursors, []);
+      } else {
+        assert.equal(document.entries.length, 2); assert.equal(document.candidates[0].status, "accepted");
+        assert.equal(document.candidates[0].appliedResult.memoryId, document.entries[1].id);
+        assert.equal(document.consolidationCursors[0].lastBatchId, input.batchId);
+        const replay = await createMemoryStore(root).commitCandidateBatch(input, undefined, options); assert.ok(replay.ok);
+        assert.equal(replay.value.replayed, true); assert.equal(replay.value.accepted?.length, 1);
+        assert.equal(await readFile(file, "utf8"), current);
+      }
+    } finally {
+      if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+      await exited;
+    }
+  });
+}
+
+it("automatic commit pre-rename failure leaves no memory, receipt or advanced cursor", async () => {
+  const { root, file, store } = await fixture();
+  assert.ok((await store.add({ text: "prior" }, undefined, options)).ok);
+  const before = await readFile(file, "utf8");
+  const writer = new WorkspaceMemoryStoreImpl(root, phase => { if (phase === "before-rename") throw new Error("stop before commit"); });
+  assert.equal((await writer.commitCandidateBatch(automaticBatch(), undefined, options)).ok, false);
+  assert.equal(await readFile(file, "utf8"), before);
+  const cursor = await store.getConsolidationCursor(options.boundThreadId); assert.ok(cursor.ok); assert.equal(cursor.value, null);
+});
+
+it("automatic commit uncertainty retains formal fact, receipt and cursor; reread/replay never writes twice", async () => {
+  const { root, file } = await fixture();
+  const writer = new WorkspaceMemoryStoreImpl(root, phase => { if (phase === "after-rename") throw new Error("ack lost"); });
+  const input = automaticBatch();
+  const result = await writer.commitCandidateBatch(input, undefined, options);
+  assert.equal(result.ok, false); if (!result.ok) assert.equal(result.error.code, "MEMORY_COMMIT_UNCERTAIN");
+  const original = await readFile(file, "utf8");
+  const document = JSON.parse(original);
+  assert.equal(document.entries.length, 1); assert.equal(document.candidates[0].status, "accepted");
+  assert.equal(document.consolidationCursors[0].lastBatchId, input.batchId);
+  const reopened = createMemoryStore(root);
+  const replay = await reopened.commitCandidateBatch(input, undefined, options); assert.ok(replay.ok);
+  assert.equal(replay.value.replayed, true); assert.equal(replay.value.accepted?.length, 1);
+  assert.equal(await readFile(file, "utf8"), original);
+});
+
+it("automatic cancellation after rename reports committed receipt and cursor rather than cancellation", async () => {
+  const { root, file } = await fixture();
+  const abort = new AbortController();
+  const writer = new WorkspaceMemoryStoreImpl(root, phase => { if (phase === "after-rename") abort.abort(new Error("cancel after automatic commit")); });
+  const result = await writer.commitCandidateBatch(automaticBatch(), abort.signal, options);
+  assert.ok(result.ok); assert.equal(result.value.accepted?.length, 1);
+  const document = JSON.parse(await readFile(file, "utf8"));
+  assert.equal(document.candidates[0].status, "accepted"); assert.equal(document.consolidationCursors.length, 1);
+});
 async function pending(store: ReturnType<typeof createMemoryStore>) {
   const batch = await store.commitCandidateBatch({
     batchId: "commit-batch", originThreadId: options.boundThreadId,

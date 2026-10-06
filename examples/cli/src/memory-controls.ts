@@ -35,7 +35,7 @@ export interface MemoryMaintenance {
   consolidation: {
     enabled: boolean; state: "off" | "backlog" | "running" | "failed" | "awaiting_review" | "idle";
     error?: string; backlogCount?: number;
-    lastAttempt?: { mode: "incremental" | "history"; runId: string; status: "completed" | "failed"; processedCount: number; candidateCount: number };
+    lastAttempt?: { mode: "incremental" | "history"; runId: string; status: "completed" | "failed"; processedCount: number; candidateCount: number; accepted?: Array<{ candidateId: string; memoryId: string; revision: number; operation?: "add" | "update" | "correct" | "change" | "retract" | "disable" }> };
     lastSkippedReason?: string;
   };
 }

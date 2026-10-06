@@ -16,6 +16,7 @@ import type {
   TaskRecordV3,
   TaskStore,
   TaskStoreResult,
+  TaskArrangement,
 } from "../task-store.js";
 import type { Recurrence } from "../recurrence.js";
 
@@ -59,6 +60,23 @@ const taskErrorSchema = z.object({
   message: z.string(),
 });
 
+const reminderArrangementSchema = z.object({ kind: z.literal("reminder"), source: z.literal("none"), notification: z.literal("always"), declarationVersion: z.literal(1) }).strict();
+const todoistArrangementSchema = z.object({ kind: z.literal("todoist-brief"), source: z.literal("todoist-planning"), notification: z.literal("always"), declarationVersion: z.literal(1) }).strict();
+const inputArrangementSchema = z.discriminatedUnion("kind", [reminderArrangementSchema, todoistArrangementSchema]);
+const arrangementSchema = z.discriminatedUnion("kind", [reminderArrangementSchema, todoistArrangementSchema,
+  z.object({ kind: z.literal("rss-digest"), source: z.literal("existing-rss-binding"), notification: z.literal("new-items"), declarationVersion: z.literal(1) }).strict(),
+]);
+const serviceSchema = z.object({ enabled: z.boolean(), message: z.string().optional() }).strict();
+
+export interface TaskModuleOptions {
+  /** Trusted availability for this process's configured background Todoist source. */
+  todoistPlanningAvailable?: boolean;
+  checkTodoistPlanningAvailable?: () => Promise<boolean>;
+  /** Host-owned service setup, included in the existing arrangement confirmation. */
+  afterArrangementSaved?: () => Promise<{ enabled: boolean; message?: string }>;
+}
+type TaskToolResult<T> = TaskStoreResult<T> & { service?: { enabled: boolean; message?: string } };
+
 const taskRecordSchema = z.object({
   id: z.string(),
   prompt: z.string(),
@@ -75,6 +93,8 @@ const taskRecordSchema = z.object({
   // v2 task records add this association; keeping it optional lets the
   // module continue to render v1 records returned during read-only upgrades.
   recurringTaskId: z.string().nullable().optional(),
+  arrangement: arrangementSchema.optional(),
+  execution: z.literal("deterministic").optional(),
 });
 
 const recurringTaskRecordSchema = z.object({
@@ -84,6 +104,7 @@ const recurringTaskRecordSchema = z.object({
   status: recurringTaskStatusSchema,
   createdAt: z.string(),
   nextRunAt: z.string().nullable(),
+  arrangement: arrangementSchema.optional(),
 });
 
 const taskSummarySchema = z.object({
@@ -101,6 +122,7 @@ const taskSummarySchema = z.object({
     .nullable(),
   acknowledgedAt: z.string().nullable(),
   recurringTaskId: z.string().nullable().optional(),
+  arrangement: arrangementSchema.optional(),
 });
 
 const recurringTaskSummarySchema = z.object({
@@ -109,6 +131,7 @@ const recurringTaskSummarySchema = z.object({
   recurrence: recurrenceSchema,
   status: recurringTaskStatusSchema,
   nextRunAt: z.string().nullable(),
+  arrangement: arrangementSchema.optional(),
 });
 
 const taskFailureSchema = z.object({
@@ -119,6 +142,7 @@ const taskFailureSchema = z.object({
 const taskCreateInputSchema = z.object({
   prompt: z.string(),
   runAt: z.string(),
+  arrangement: inputArrangementSchema.optional(),
 });
 const taskListInputSchema = z.object({
   status: taskListStatusSchema.optional(),
@@ -136,6 +160,7 @@ const taskAckInputSchema = z.object({ id: z.string().min(1) });
 const createRecurringTaskInputSchema = z.object({
   prompt: z.string(),
   recurrence: recurrenceSchema,
+  arrangement: inputArrangementSchema.optional(),
 });
 const recurringTaskListInputSchema = z.object({
   status: recurringTaskStatusSchema.optional(),
@@ -144,7 +169,7 @@ const recurringTaskListInputSchema = z.object({
 const recurringTaskIdInputSchema = z.object({ id: z.string().min(1) });
 
 const taskRecordOutputSchema = z.discriminatedUnion("ok", [
-  z.object({ ok: z.literal(true), value: taskRecordSchema }),
+  z.object({ ok: z.literal(true), value: taskRecordSchema, service: serviceSchema.optional() }),
   taskFailureSchema,
 ]);
 const taskListOutputSchema = z.discriminatedUnion("ok", [
@@ -158,7 +183,7 @@ const taskListOutputSchema = z.discriminatedUnion("ok", [
   taskFailureSchema,
 ]);
 const recurringTaskRecordOutputSchema = z.discriminatedUnion("ok", [
-  z.object({ ok: z.literal(true), value: recurringTaskRecordSchema }),
+  z.object({ ok: z.literal(true), value: recurringTaskRecordSchema, service: serviceSchema.optional() }),
   taskFailureSchema,
 ]);
 const recurringTaskListOutputSchema = z.discriminatedUnion("ok", [
@@ -537,22 +562,43 @@ function parseRecurringCreate(
 }
 
 /** Register the task tools and synchronous /task command adapter. */
-export function createTaskModule(store: TaskStore): AgentModule {
+export function createTaskModule(store: TaskStore, options: TaskModuleOptions = {}): AgentModule {
+  async function checkArrangement(arrangement: TaskArrangement | undefined): Promise<TaskStoreResult<null>> {
+    if (arrangement === undefined) return { ok: true, value: null };
+    if (!inputArrangementSchema.safeParse(arrangement).success) return { ok: false, error: { code: "INVALID_INPUT", message: "Only complete reminder or Todoist planning arrangements are supported here; RSS requires the existing subscription binding" } };
+    if (arrangement.kind === "todoist-brief") {
+      let available = options.todoistPlanningAvailable === true;
+      try { if (options.checkTodoistPlanningAvailable !== undefined) available = await options.checkTodoistPlanningAvailable(); }
+      catch { available = false; }
+      if (!available) return { ok: false, error: { code: "INVALID_INPUT", message: "The background Todoist planning source is unavailable; no arrangement was saved" } };
+    }
+    return { ok: true, value: null };
+  }
+  async function serviceAfterSave<T>(result: TaskStoreResult<T>, arrangement?: TaskArrangement): Promise<TaskToolResult<T>> {
+    if (!result.ok || arrangement === undefined || options.afterArrangementSaved === undefined) return result;
+    // The arrangement is already committed. A service failure must not imply rollback,
+    // and cancellation after that write must not be represented as zero effects.
+    try { return { ...result, service: await options.afterArrangementSaved() }; }
+    catch (error) { return { ...result, service: { enabled: false, message: `Arrangement saved, but background service setup failed: ${error instanceof Error ? error.message.slice(0, 512) : "unknown error"}` } }; }
+  }
   return {
     id: "task",
     setup(ctx) {
       const taskCreateTool = tool({
         description:
-          "Schedule one future plain-text response in the configured workspace.",
+          "Schedule one future response. A complete arrangement can declare a deterministic reminder (none/always) or read-only Todoist brief (todoist-planning/always), declarationVersion 1. RSS is not accepted here. Existing approval covers saving the displayed arrangement and host background service setup; report returned service state separately from saved schedule or delivery.",
         inputSchema: taskCreateInputSchema,
         outputSchema: taskRecordOutputSchema,
         execute: async (
-          input: CreateTaskInput,
+          input: z.infer<typeof taskCreateInputSchema>,
           { abortSignal },
-        ): Promise<TaskStoreResult<TaskRecordV3>> => {
+        ): Promise<TaskToolResult<TaskRecordV3>> => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
-          return store.create(input, signal);
+          const checked = await checkArrangement(input.arrangement); if (!checked.ok) return checked;
+          throwIfAborted(signal);
+          const normalized: CreateTaskInput = { prompt: input.prompt, runAt: input.runAt, ...(input.arrangement === undefined ? {} : { arrangement: input.arrangement }) };
+          return serviceAfterSave(await store.create(normalized, signal), input.arrangement);
         },
       });
       const taskListTool = tool({
@@ -633,16 +679,19 @@ export function createTaskModule(store: TaskStore): AgentModule {
       });
       const taskRepeatCreateTool = tool({
         description:
-          "Create an active daily or weekly plain-text response schedule.",
+          "Create an active daily or weekly response schedule. A complete arrangement can declare a deterministic reminder or read-only Todoist brief, declarationVersion 1. RSS requires its existing bound subscription, not this tool. Approval covers saving and host background service setup; returned service state does not prove future execution or notification receipt.",
         inputSchema: createRecurringTaskInputSchema,
         outputSchema: recurringTaskRecordOutputSchema,
         execute: async (
-          input: CreateRecurringTaskInput,
+          input: z.infer<typeof createRecurringTaskInputSchema>,
           { abortSignal },
-        ): Promise<TaskStoreResult<RecurringTaskRecord>> => {
+        ): Promise<TaskToolResult<RecurringTaskRecord>> => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
-          return store.createRecurring(input, signal);
+          const checked = await checkArrangement(input.arrangement); if (!checked.ok) return checked;
+          throwIfAborted(signal);
+          const normalized: CreateRecurringTaskInput = { prompt: input.prompt, recurrence: input.recurrence, ...(input.arrangement === undefined ? {} : { arrangement: input.arrangement }) };
+          return serviceAfterSave(await store.createRecurring(normalized, signal), input.arrangement);
         },
       });
       const taskRepeatListTool = tool({
@@ -716,13 +765,13 @@ export function createTaskModule(store: TaskStore): AgentModule {
         },
       });
 
-      ctx.registerTool({ metadata: taskCreateMetadata, tool: taskCreateTool });
+      ctx.registerTool({ metadata: options.afterArrangementSaved === undefined ? taskCreateMetadata : { ...taskCreateMetadata, timeoutMs: 30_000 }, tool: taskCreateTool });
       ctx.registerTool({ metadata: taskListMetadata, tool: taskListTool });
       ctx.registerTool({ metadata: taskGetMetadata, tool: taskGetTool });
       ctx.registerTool({ metadata: taskCancelMetadata, tool: taskCancelTool });
       ctx.registerTool({ metadata: taskRescheduleMetadata, tool: taskRescheduleTool });
       ctx.registerTool({ metadata: taskAckMetadata, tool: taskAckTool });
-      ctx.registerTool({ metadata: taskRepeatCreateMetadata, tool: taskRepeatCreateTool });
+      ctx.registerTool({ metadata: options.afterArrangementSaved === undefined ? taskRepeatCreateMetadata : { ...taskRepeatCreateMetadata, timeoutMs: 30_000 }, tool: taskRepeatCreateTool });
       ctx.registerTool({ metadata: taskRepeatListMetadata, tool: taskRepeatListTool });
       ctx.registerTool({ metadata: taskRepeatGetMetadata, tool: taskRepeatGetTool });
       ctx.registerTool({ metadata: taskRepeatPauseMetadata, tool: taskRepeatPauseTool });

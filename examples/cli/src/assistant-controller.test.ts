@@ -337,7 +337,7 @@ describe("AssistantController memory candidates", () => {
       await controller.run("Prepare proposals");
       await waitFor(() => controller.getSnapshot().state.kind === "idle");
       assert.equal(controller.getSnapshot().lastPrimaryResult?.status, "completed");
-      assert.match(events[0] ?? "", /Memory candidates were not saved.*disk failed/);
+      assert.match(events[0] ?? "", /Memory consolidation did not complete.*disk failed/);
     } finally { await controller.shutdown(); }
   });
 
@@ -1055,6 +1055,127 @@ describe("AssistantController", () => {
     assert.equal(resumeEnds, 1);
     unsubscribe();
     await controller.shutdown();
+  });
+
+  it("accepts ordinary chat during background consolidation but waits for cancellation and finalization", async () => {
+    const background = deferred<RunResult>();
+    const cancellationRequested = deferred<void>();
+    const finalizing = deferred<void>();
+    const calls: string[] = [];
+    let finalizationAborted = false;
+    const controller = createAssistantController(appWith({
+      autoConsolidationAgentId: "memory-consolidator",
+      memoryConsolidation: {
+        begin: () => undefined, discard: () => undefined,
+        canStart: async () => ({ ok: true, value: { canStart: true, pendingCount: 0 } }),
+        finalize: async (value: { status: string }, signal?: AbortSignal) => {
+          if (value.status === "cancelled") {
+            finalizationAborted = signal?.aborted === true;
+            await finalizing.promise;
+          }
+          return { ok: true, value: { candidateIds: [], replayed: false } };
+        },
+      } as unknown as NonNullable<RuntimeApp["memoryConsolidation"]>,
+      runtime: {
+        run: async (request: { agentId: string }) => {
+          calls.push(request.agentId);
+          if (request.agentId === "memory-consolidator") return {
+            runId: "background", events: (async function* () {})(), result: background.promise,
+            cancel: async () => { cancellationRequested.resolve(); },
+          };
+          return handle(`primary-${calls.length}`, { promise: Promise.resolve(result(`primary-${calls.length}`, "completed")), resolve: () => undefined }, () => undefined);
+        },
+      } as unknown as RuntimeApp["runtime"],
+    }));
+    try {
+      await controller.run("I prefer concise summaries");
+      await waitFor(() => calls.length === 2);
+      assert.equal(controller.getSnapshot().canSubmit, true);
+      assert.equal((await controller.command("/home")).ok, false, "non-chat operations still require idle");
+      const next = controller.run("Continue our conversation", { memoryConsolidation: "exclude" });
+      await cancellationRequested.promise;
+      assert.equal(controller.getSnapshot().canSubmit, false, "foreground reservation prevents a second submit");
+      assert.deepEqual(await controller.run("Do not queue me"), { ok: false, reason: "busy" });
+      assert.equal(calls.length, 2, "no overlapping Run while cancellation is pending");
+      background.resolve(result("background", "cancelled"));
+      await waitFor(() => finalizationAborted);
+      assert.equal(calls.length, 2, "wait for finalization as well as result");
+      finalizing.resolve();
+      assert.deepEqual(await next, { ok: true, runId: "primary-3" });
+      await waitFor(() => controller.getSnapshot().state.kind === "idle");
+      assert.deepEqual(calls, [PRIMARY_AGENT_ID, "memory-consolidator", PRIMARY_AGENT_ID]);
+    } finally {
+      background.resolve(result("background", "cancelled")); finalizing.resolve();
+      await controller.shutdown();
+    }
+  });
+
+  it("preempts automatic consolidation before its Run handle arrives without consuming a second authorization", async () => {
+    const pendingHandle = deferred<RunHandle>();
+    const background = deferred<RunResult>();
+    const calls: string[] = [];
+    let cancelCount = 0;
+    const controller = createAssistantController(appWith({
+      autoConsolidationAgentId: "memory-consolidator",
+      runtime: {
+        run: async (request: { agentId: string }) => {
+          calls.push(request.agentId);
+          if (request.agentId === "memory-consolidator") return pendingHandle.promise;
+          return handle(`primary-${calls.length}`, { promise: Promise.resolve(result(`primary-${calls.length}`, "completed")), resolve: () => undefined }, () => undefined);
+        },
+      } as unknown as RuntimeApp["runtime"],
+    }));
+    try {
+      await controller.run("First preference");
+      await waitFor(() => calls.length === 2);
+      assert.equal(controller.getSnapshot().canSubmit, true);
+      const next = controller.run("New question", { memoryConsolidation: "exclude" });
+      assert.equal(calls.length, 2);
+      pendingHandle.resolve(handle("background", background, () => { cancelCount++; }));
+      assert.deepEqual(await next, { ok: true, runId: "primary-3" });
+      await waitFor(() => controller.getSnapshot().state.kind === "idle");
+      assert.equal(cancelCount, 1);
+    } finally { await controller.shutdown(); }
+  });
+
+  it("resumes current-Thread backlog on startup and cancelled staged proposals do not advance its cursor", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "controller-background-memory-"));
+    const memoryStore = createMemoryStore(workspace);
+    const messages = [{ id: "source", role: "user" as const, parts: [{ type: "text" as const, text: "I prefer concise reports." }] }];
+    const service = createMemoryConsolidation({ store: memoryStore, threadId: "controller-thread", getMessages: async () => messages });
+    const background = deferred<RunResult>();
+    let starts = 0;
+    const controller = createAssistantController(appWith({
+      memoryStore, memoryConsolidation: service, autoConsolidationAgentId: "memory-consolidator",
+      store: { getMessages: async () => messages } as unknown as RuntimeApp["store"],
+      runtime: { run: async (request: { agentId: string }) => {
+        starts++;
+        if (request.agentId !== "memory-consolidator") return handle("primary", { promise: Promise.resolve(result("primary", "completed")), resolve: () => undefined }, () => undefined);
+        const prepared = await service.prepare({ mode: "incremental" });
+        if (!prepared.ok) throw new Error(prepared.error.message);
+        const staged = await service.stage({ batchId: prepared.value.batchId, proposals: [{
+          action: "add", text: "Prefer concise reports", sourceMessageId: "source", sourceQuote: "I prefer concise reports.",
+          reason: "Explicit preference", scope: { kind: "workspace" },
+        }] });
+        assert.equal(staged.ok, true);
+        return { ...handle("background", background, () => undefined), events: (async function* (): AsyncGenerator<AgentEvent> {
+          for (const [index, toolName] of ["memory_prepare_consolidation", "memory_stage_candidates"].entries()) yield {
+            id: `request-${index}`, type: "tool.call.requested", runId: "background", threadId: "controller-thread",
+            sequence: index + 1, occurredAt: "2026-10-01T00:00:00.000Z", data: { toolCallId: `call-${index}`, toolName, input: {} },
+          };
+        })() };
+      } } as unknown as RuntimeApp["runtime"],
+    }));
+    try {
+      await waitFor(() => { const current = controller.getSnapshot().state; return current.kind === "running" && current.runId === "background"; });
+      assert.equal(starts, 1, "startup performs only this configured Thread's consolidation");
+      assert.equal(controller.getSnapshot().canSubmit, true);
+      assert.deepEqual(await controller.run("Hello", { memoryConsolidation: "exclude" }), { ok: true, runId: "primary" });
+      await waitFor(() => controller.getSnapshot().state.kind === "idle");
+      assert.deepEqual(await memoryStore.getConsolidationCursor("controller-thread"), { ok: true, value: null });
+      const candidates = await memoryStore.listCandidates({}, undefined, { boundThreadId: "controller-thread" });
+      assert.equal(candidates.ok && candidates.value.candidates.length, 0, "cancelled staged batch is not committed");
+    } finally { await controller.shutdown(); await rm(workspace, { recursive: true, force: true }); }
   });
 
   it("bounds activity retained for a renderer reload", async () => {

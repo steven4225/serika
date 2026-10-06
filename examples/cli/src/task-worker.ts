@@ -19,6 +19,9 @@ export interface PreparedWorkerTask {
   agentId: string;
   prompt: string;
   formatResult(text: string): string;
+  /** Program-owned result; skips the model but retains outcome/finish persistence. */
+  deterministicResult?: string;
+  notifyOnSuccess?: boolean;
 }
 
 export interface TaskWorkerOptions {
@@ -36,6 +39,8 @@ export interface TaskWorkerOptions {
   onTaskRetry?: (task: TaskRecordV4) => void;
   /** Only configured text/read-only responders may opt into whole-Run retry. */
   safeRetry?: boolean;
+  /** Process availability is not itself authorization for an arrangement. */
+  todoistPlanningAvailable?: boolean;
   now?: () => number;
   notify?: (task: TaskRecord) => Promise<void>;
   prepareTask?: (task: TaskRecord, signal: AbortSignal) => Promise<PreparedWorkerTask | undefined>;
@@ -122,8 +127,9 @@ function waitForSignal(milliseconds: number, signal: AbortSignal): Promise<void>
   });
 }
 
-async function consumeEvents(events: RunHandle["events"]): Promise<void> {
-  for await (const _event of events) {
+async function consumeEvents(events: RunHandle["events"], onEvent?: (event: import("@aisdk-agent/core").AgentEvent) => void): Promise<void> {
+  for await (const event of events) {
+    onEvent?.(event);
     // Runtime events are persisted by DefaultAgentRuntime. The worker only
     // needs to drain the channel so a completed run has no pending consumer.
   }
@@ -157,6 +163,7 @@ async function finishTask(
   options: TaskWorkerOptions,
   task: TaskRecordV4,
   outcome: TaskFinish,
+  notifyOnSuccess = true,
 ): Promise<TaskRecord> {
   // Do not pass the stop signal to the terminal write. Once execution has
   // started, a successful stop request must not turn a committed outcome into
@@ -175,7 +182,7 @@ async function finishTask(
   }
   const durableOutcome: TaskFinish = {
     ...outcome,
-    ...(options.notify === undefined ? {} : { notification: true }),
+    ...(options.notify === undefined || (outcome.status === "completed" && !notifyOnSuccess) ? {} : { notification: true }),
   };
   unwrap(await options.store.recordOutcome(task.id, durableOutcome));
   const finished = await options.store.finish(task.id, durableOutcome);
@@ -209,8 +216,18 @@ async function executeTask(
   let workspaceContext: TaskWorkerSnapshotContext | undefined;
   let prepared: PreparedWorkerTask | undefined;
   try {
-    prepared = await options.prepareTask?.(task, options.signal);
-    workspaceContext = await options.loadWorkspaceContext?.(task, options.signal);
+    if (task.arrangement?.kind === "reminder") {
+      return finishTask(options, task, { status: "completed", runId: null, execution: "deterministic", resultText: task.prompt });
+    }
+    if (task.arrangement?.kind === "todoist-brief" && options.todoistPlanningAvailable !== true) {
+      throw new AgentError({ code: "TOOL_DENIED", message: "This worker has no Todoist planning source configured", retryable: false, phase: "approval" });
+    }
+    if (task.arrangement === undefined || task.arrangement.kind === "rss-digest") prepared = await options.prepareTask?.(task, options.signal);
+    if (task.arrangement?.kind === "rss-digest" && prepared === undefined) {
+      throw new AgentError({ code: "TOOL_DENIED", message: "RSS arrangement has no matching authorized subscription binding", retryable: false, phase: "approval" });
+    }
+    // New arrangements grant only their declared source, never global Memory/checkpoint access.
+    if (task.arrangement === undefined) workspaceContext = await options.loadWorkspaceContext?.(task, options.signal);
   } catch (error) {
     return finishTask(options, task, options.signal.aborted
       ? { status: "interrupted", runId: null, error: workerStoppedError() }
@@ -224,8 +241,12 @@ async function executeTask(
     });
   }
 
+  if (prepared?.deterministicResult !== undefined) {
+    return finishTask(options, task, { status: "completed", runId: null, execution: "deterministic", resultText: prepared.deterministicResult }, prepared.notifyOnSuccess !== false);
+  }
+
   const request: RunRequest = {
-    agentId: prepared?.agentId ?? "scheduled-responder",
+    agentId: prepared?.agentId ?? (task.arrangement?.kind === "todoist-brief" ? "scheduled-todoist" : "scheduled-responder"),
     threadId: task.threadId!,
     signal: options.signal,
     ...(workspaceContext === undefined ? {} : { context: workspaceContext }),
@@ -268,7 +289,12 @@ async function executeTask(
   };
   options.signal.addEventListener("abort", cancelHandle, { once: true });
   if (options.signal.aborted) cancelHandle();
-  const eventsDone = consumeEvents(handle.events);
+  let planningQuerySucceeded = false;
+  const eventsDone = consumeEvents(handle.events, event => {
+    if (task.arrangement?.kind !== "todoist-brief" || event.type !== "tool.call.completed" || event.data.toolName !== "todoist_list_tasks") return;
+    const output = event.data.output;
+    if (typeof output === "object" && output !== null && "ok" in output && output.ok === true && "value" in output && typeof output.value === "object" && output.value !== null && "view" in output.value && output.value.view === "planning") planningQuerySucceeded = true;
+  });
   // Link the real invocation before awaiting its result. If this write fails,
   // stop the handle and leave the task for conservative startup recovery.
   try {
@@ -298,10 +324,14 @@ async function executeTask(
   if (result.status === "completed" && prepared !== undefined) {
     result = { ...result, text: prepared.formatResult(result.text) };
   }
+  if (result.status === "completed" && task.arrangement?.kind === "todoist-brief" && !planningQuerySucceeded) {
+    return finishTask(options, task, { status: "failed", runId: handle.runId, error: { code: "TASK_SOURCE_QUERY_FAILED", message: "Todoist report has no successful planning query receipt; model text alone is not a source result" } });
+  }
   return finishTask(
     options,
     task,
     outcomeForResult(result, options.signal.aborted),
+    prepared?.notifyOnSuccess !== false,
   );
 }
 

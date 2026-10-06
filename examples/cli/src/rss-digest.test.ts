@@ -28,6 +28,24 @@ async function fixture() {
   return { root, tasks, store, advance: (ms = 86400000) => { now += ms; }, claim: async () => { now += 86400000; const c = await tasks.claimNextDue(); assert(c.ok && c.value); return c.value; } };
 }
 
+it("empty RSS batch completes durably without model or notification, including restart accounting", async () => {
+  const f = await fixture();
+  const controller = new AbortController();
+  const digest = createRssDigestWorker(f.root, f.tasks, { enabled: true, fetch: async () => feed([]) });
+  try {
+    f.advance();
+    await runTaskWorker({ store: f.tasks, signal: controller.signal, runtime: { run: async () => { throw new Error("empty feed must not call a model"); } },
+      prepareTask: digest.prepare, recoverPreparedTasks: digest.recover, settlePreparedTask: digest.settle,
+      notify: async () => { throw new Error("empty feed must stay quiet"); }, onTaskFinished: () => controller.abort() });
+    const list = await f.tasks.list({ inbox: true }); assert(list.ok && list.value.tasks.length === 1);
+    const result = await createTaskStore(f.root).get(list.value.tasks[0]!.id); assert(result.ok);
+    assert.equal(result.value.status, "completed"); assert.equal(result.value.runId, null);
+    assert.equal(result.value.execution, "deterministic"); assert.equal(result.value.notification, null);
+    assert.match(result.value.resultText!, /没有新条目/);
+    const persisted = await f.store.read(); assert.equal(persisted.pending, null); assert.equal(persisted.sources[0]!.initialized, true);
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
+
 it("RSS identities prefer feed ID, then URL, then title/date; ordinary prompts grant nothing", () => {
   assert.equal(rssItemKey(item("a")), rssItemKey({ ...item("a"), title: "changed", url: "https://example.com/changed" }));
   assert.equal(rssItemKey({ ...item("a"), id: null }), rssItemKey({ ...item("a"), id: null, summary: "changed" }));

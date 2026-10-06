@@ -137,3 +137,19 @@ export function nextOccurrence(recurrence: Recurrence, afterUtc: string): string
 
   return new Date(candidateMs).toISOString();
 }
+
+/** Latest fixed-offset slot at or before now, without walking a missed backlog. */
+export function latestOccurrence(recurrence: Recurrence, atUtc: string): string {
+  const parsed = parseRecurrence(recurrence);
+  const now = parseAfterUtc(atUtc);
+  const local = new Date(now + parsed.offsetMs);
+  const slot = new Date(local.getTime());
+  slot.setUTCHours(parsed.hour, parsed.minute, 0, 0);
+  if (parsed.kind === "weekly") {
+    slot.setUTCDate(slot.getUTCDate() - ((isoWeekday(local) - parsed.weekday! + 7) % 7));
+  }
+  if (slot.getTime() - parsed.offsetMs > now) {
+    slot.setUTCDate(slot.getUTCDate() - (parsed.kind === "daily" ? 1 : 7));
+  }
+  return new Date(slot.getTime() - parsed.offsetMs).toISOString();
+}

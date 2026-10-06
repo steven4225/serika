@@ -21,6 +21,38 @@ function capture(): { output: PassThrough; text(): string } {
 }
 
 describe("createRuntimeApp", () => {
+  for (const writePolicy of ["review", "automatic"] as const) {
+    it(`has exactly one conversation memory writer in ${writePolicy} mode`, async () => {
+      const root = await mkdtemp(join(tmpdir(), "serika-memory-owner-"));
+      await mkdir(join(root, "workspace"));
+      const configPath = join(root, "config.json");
+      await writeFile(configPath, JSON.stringify({ version: 1, workspace: "./workspace", modules: {
+        memory: { enabled: true, autoConsolidate: true, writePolicy },
+      } }));
+      let names: string[] = [];
+      const model = new MockLanguageModelV3({ doStream: async options => {
+        names = options.tools?.flatMap(tool => tool.type === "function" ? [tool.name] : []) ?? [];
+        return { stream: simulateReadableStream({ chunks: [
+          { type: "stream-start" as const, warnings: [] },
+          { type: "finish" as const, finishReason: { unified: "stop" as const, raw: undefined }, usage: {
+            inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
+            outputTokens: { total: 1, text: 1, reasoning: undefined },
+          } },
+        ] }) };
+      } });
+      const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", "writer", "--config", configPath],
+        modelAlias: "mock", model, output: capture().output, env: {}, cwd: root });
+      try {
+        const handle = await app.runtime.run({ agentId: app.agentId, threadId: app.threadId,
+          messages: [{ id: "correction", role: "user", parts: [{ type: "text", text: "更正我的长期偏好，请记住。" }] }] });
+        assert.equal((await handle.result).status, "completed");
+        assert.equal(names.some(name => name.startsWith("memory_")), writePolicy === "review");
+        assert.equal(names.includes("memory_revise"), writePolicy === "review");
+        assert.ok(app.memoryConsolidation, "automatic lifecycle must remain registered");
+        assert.ok(app.memoryStore, "desktop administrative operations retain their original store");
+      } finally { await app.dispose(); await rm(root, { recursive: true, force: true }); }
+    });
+  }
   for (const config of [
     { web: false, search: false, files: true },
     { web: true, search: false, files: true },
