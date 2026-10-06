@@ -74,6 +74,18 @@ describe("durable desktop notification adapter", () => {
     await assert.rejects(notify(task), /OS rejected/);
     assert.match(reports[0]!, /notification failed/);
   });
+  it("clickable submission uses argv and read-only scoped URL, never a shell command or private body", async () => {
+    let command: { file: string; args: string[] } | undefined;
+    const notify = createTaskDesktopNotifier(() => {}, { platform: "darwin", workspace: "/private/tmp/private-work",
+      notificationHelperPath: "/trusted/terminal-notifier", submitCommand: async (file, args) => { command = { file, args }; } });
+    await notify(task);
+    assert.equal(command?.file, "/trusted/terminal-notifier");
+    assert.match(command!.args[command!.args.indexOf("-open") + 1]!, /^serika:\/\/task-result\/task-notification\?workspace=[a-f0-9]{64}$/);
+    assert.doesNotMatch(JSON.stringify(command!.args), /private-work|sensitive preference|private workspace memory|-execute|-sender/);
+    const rejected = createTaskDesktopNotifier(() => {}, { platform: "darwin", workspace: "/private/tmp/work",
+      notificationHelperPath: "/trusted/helper", submitCommand: async () => { throw new Error("notifications denied"); } });
+    await assert.rejects(rejected(task), /notifications denied/);
+  });
 });
 
 describe("task-worker CLI arguments", () => {
@@ -96,6 +108,8 @@ describe("task-worker CLI arguments", () => {
   });
 
   it("rejects an implicit workspace and unknown options", () => {
+    assert.throws(() => parseTaskWorkerArgs(["--workspace", "/tmp/work", "--notification-helper", "/trusted/helper"]), /requires --notify/);
+    assert.throws(() => parseTaskWorkerArgs(["--workspace", "/tmp/work", "--notify", "--notification-helper", "relative"]), /absolute/);
     assert.throws(
       () => parseTaskWorkerArgs([]),
       /task-worker requires --workspace/,

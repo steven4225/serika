@@ -15,6 +15,8 @@ export interface TaskWorkerServiceOptions {
   uid: number;
   envFile?: string;
   notify?: boolean;
+  /** Trusted executable outside workspace; optional clickable macOS notifications. */
+  notificationHelperPath?: string;
   todoist?: boolean;
   workspaceContext?: boolean;
   safeRetry?: boolean;
@@ -86,6 +88,10 @@ export function createTaskWorkerService(options: TaskWorkerServiceOptions) {
   const workingDirectory = absolute(options.workingDirectory);
   const launchAgentsDirectory = absolute(options.launchAgentsDirectory);
   const envFile = options.envFile === undefined ? undefined : absolute(options.envFile);
+  const notificationHelperPath = options.notificationHelperPath === undefined ? undefined : absolute(options.notificationHelperPath);
+  if (notificationHelperPath !== undefined && (options.notify !== true || notificationHelperPath === workspace || notificationHelperPath.startsWith(workspace + sep))) {
+    throw new Error("Notification helper requires notify and must be outside workspace");
+  }
   if (!Number.isSafeInteger(options.uid) || options.uid < 0) throw new Error("Invalid service uid");
   const label = `dev.runloom.task-worker.${createHash("sha256").update(workspace).digest("hex").slice(0, 20)}`;
   const plistPath = join(launchAgentsDirectory, `${label}.plist`);
@@ -105,17 +111,18 @@ export function createTaskWorkerService(options: TaskWorkerServiceOptions) {
     label, plistPath, status,
     async enable(): Promise<TaskWorkerServiceStatus> {
       ensurePlatform();
-      for (const path of [workspace, nodePath, workerEntryPath, workingDirectory, ...(envFile === undefined ? [] : [envFile])]) await assertWorkerPathSafe(path);
+      for (const path of [workspace, nodePath, workerEntryPath, workingDirectory, ...(envFile === undefined ? [] : [envFile]), ...(notificationHelperPath === undefined ? [] : [notificationHelperPath])]) await assertWorkerPathSafe(path);
       for (const path of [workspace, workingDirectory]) if (!(await lstat(path)).isDirectory()) throw new Error(`Service directory does not exist: ${path}`);
-      for (const path of [nodePath, workerEntryPath, ...(envFile === undefined ? [] : [envFile])]) if (!(await lstat(path)).isFile()) throw new Error(`Service input is not a regular file: ${path}`);
+      for (const path of [nodePath, workerEntryPath, ...(envFile === undefined ? [] : [envFile]), ...(notificationHelperPath === undefined ? [] : [notificationHelperPath])]) if (!(await lstat(path)).isFile()) throw new Error(`Service input is not a regular file: ${path}`);
       await access(nodePath, constants.X_OK);
+      if (notificationHelperPath !== undefined) await access(notificationHelperPath, constants.X_OK);
       await access(workerEntryPath, constants.R_OK);
       if (envFile !== undefined) await access(envFile, constants.R_OK);
       const before = await status();
       if (before.registered) return before;
       if (before.command.exitCode !== 113) throw new Error(`Cannot establish launchd service absence (${String(before.command.exitCode)})`);
       const args = [nodePath, ...(envFile === undefined ? [] : [`--env-file=${envFile}`]), workerEntryPath, "--workspace", workspace,
-        ...(options.notify === true ? ["--notify"] : []), ...(options.todoist === true ? ["--todoist"] : []), ...(options.workspaceContext === true ? ["--workspace-context"] : []), ...(options.safeRetry === true ? ["--safe-retry"] : []), ...(options.rss === true ? ["--rss"] : [])];
+        ...(options.notify === true ? ["--notify"] : []), ...(notificationHelperPath === undefined ? [] : ["--notification-helper", notificationHelperPath]), ...(options.todoist === true ? ["--todoist"] : []), ...(options.workspaceContext === true ? ["--workspace-context"] : []), ...(options.safeRetry === true ? ["--safe-retry"] : []), ...(options.rss === true ? ["--rss"] : [])];
       // No environment values or credentials are copied into the service definition.
       const plist = `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict><key>Label</key><string>${xml(label)}</string><key>ProgramArguments</key><array>${args.map((arg) => `<string>${xml(arg)}</string>`).join("")}</array><key>WorkingDirectory</key><string>${xml(workingDirectory)}</string><key>RunAtLoad</key><true/><key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict><key>ThrottleInterval</key><integer>10</integer></dict></plist>\n`;
       await writeWorkerFileAtomic(plistPath, plist);
@@ -131,9 +138,18 @@ export function createTaskWorkerService(options: TaskWorkerServiceOptions) {
         const result = await runner("/bin/launchctl", ["bootout", target]);
         if (result.exitCode !== 0) throw new Error(`launchctl bootout failed (${String(result.exitCode)}): ${result.stderr}`);
       }
+      // bootout may return while launchd is still publishing the old job.
+      // Confirm absence before removing its definition or claiming it stopped.
+      const deadline = Date.now() + 5_000;
+      let stopped = await status();
+      while (stopped.registered && Date.now() < deadline) {
+        await new Promise(resolveWait => setTimeout(resolveWait, 100));
+        stopped = await status();
+      }
+      if (stopped.registered || stopped.command.exitCode !== 113) throw new Error("Cannot confirm launchd service stopped; definition retained");
       await assertWorkerPathSafe(plistPath);
       await rm(plistPath, { force: true });
-      return status();
+      return stopped;
     },
   };
 }
