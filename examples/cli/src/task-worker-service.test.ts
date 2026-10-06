@@ -12,7 +12,7 @@ it("service only installs explicitly, keeps secrets external, and reports actual
   try {
     await writeFile(join(root, "worker.js"), "");
     await writeFile(join(root, "credentials.env"), "TEST_SECRET=do-not-copy-me");
-    const service = createTaskWorkerService({ workspace: root, nodePath: await realpath(process.execPath), workerEntryPath: join(root, "worker.js"), workingDirectory: root, launchAgentsDirectory: join(root, "LaunchAgents"), uid: 501, envFile: join(root, "credentials.env"), safeRetry: true, notify: true, platform: "darwin", runner: async (_file, args) => {
+    const service = createTaskWorkerService({ workspace: root, nodePath: await realpath(process.execPath), workerEntryPath: join(root, "worker.js"), workingDirectory: root, launchAgentsDirectory: join(root, "LaunchAgents"), uid: 501, envFile: join(root, "credentials.env"), safeRetry: true, notify: true, notificationHelperPath: await realpath(process.execPath), platform: "darwin", runner: async (_file, args) => {
       calls.push(args);
       if (args[0] === "bootstrap") registered = true;
       if (args[0] === "bootout") registered = false;
@@ -26,6 +26,7 @@ it("service only installs explicitly, keeps secrets external, and reports actual
     const plist = await readFile(service.plistPath, "utf8");
     assert.match(plist, /--env-file=/);
     assert.match(plist, /--safe-retry/);
+    assert.match(plist, /--notification-helper/);
     assert.doesNotMatch(plist, /EnvironmentVariables/);
     assert.doesNotMatch(plist, /do-not-copy-me/);
     assert.equal((await service.disable()).registered, false);
@@ -39,6 +40,7 @@ it("service rejects unsupported platform, relative paths and symlink install tar
   try {
     await writeFile(options.workerEntryPath, "");
     assert.throws(() => createTaskWorkerService({ ...options, workspace: "relative" }));
+    assert.throws(() => createTaskWorkerService({ ...options, notify: true, notificationHelperPath: join(root, "helper") }), /outside workspace/);
     await assert.rejects(createTaskWorkerService({ ...options, platform: "linux" }).enable(), /macOS/);
     await symlink(root, options.launchAgentsDirectory);
     await assert.rejects(createTaskWorkerService({ ...options, platform: "darwin", runner: async () => ({ exitCode: 113, stdout: "", stderr: "" }) }).enable(), /symlink/);
@@ -62,5 +64,23 @@ it("missing executable inputs and uncertain launchctl status never install or de
     await assert.rejects(readFile(service.plistPath), { code: "ENOENT" });
     await assert.rejects(service.disable(), /Cannot establish/);
     assert.ok(calls.every((args) => args[0] === "print"));
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+it("service stop waits for actual launchd disappearance before deleting its definition", async () => {
+  const root = await realpath(await mkdtemp(join(tmpdir(), "runloom-stop-publication-")));
+  let prints = 0;
+  try {
+    const service = createTaskWorkerService({ workspace: root, nodePath: await realpath(process.execPath),
+      workerEntryPath: join(root, "worker.js"), workingDirectory: root, launchAgentsDirectory: root, uid: 501,
+      platform: "darwin", runner: async (_file, args) => {
+        if (args[0] === "bootout") return { exitCode: 0, stdout: "", stderr: "" };
+        prints++;
+        return { exitCode: prints <= 2 ? 0 : 113, stdout: prints <= 2 ? "pid = 123\n" : "", stderr: "" };
+      } });
+    await writeFile(service.plistPath, "test definition");
+    assert.equal((await service.disable()).registered, false);
+    assert.equal(prints, 3, "initial status, still publishing, then actually absent");
+    await assert.rejects(readFile(service.plistPath), { code: "ENOENT" });
   } finally { await rm(root, { recursive: true, force: true }); }
 });

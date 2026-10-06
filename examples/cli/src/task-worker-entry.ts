@@ -1,4 +1,7 @@
-import { join } from "node:path";
+import { isAbsolute, join, sep } from "node:path";
+import { access, realpath, stat } from "node:fs/promises";
+import { constants } from "node:fs";
+import { taskResultLink } from "./task-result-link.js";
 import { spawn } from "node:child_process";
 import { simulateReadableStream, type LanguageModel } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
@@ -36,6 +39,7 @@ interface TaskWorkerArgs {
   workspace: string;
   todoist?: true;
   notify?: true;
+  notificationHelperPath?: string;
   workspaceContext?: true;
   safeRetry?: true;
   rss?: true;
@@ -46,11 +50,18 @@ export function parseTaskWorkerArgs(args: readonly string[]): TaskWorkerArgs {
   let workspace: string | undefined;
   let todoist = false;
   let notify = false;
+  let notificationHelperPath: string | undefined;
   let workspaceContext = false;
   let safeRetry = false;
   let rss = false;
   for (let index = 0; index < parsed.length; index += 1) {
     const arg = parsed[index];
+    if (arg === "--notification-helper") {
+      const value = parsed[++index];
+      if (notificationHelperPath !== undefined || !value || !isAbsolute(value) || /[\0\n\r]/.test(value)) throw new Error("--notification-helper requires one absolute executable path");
+      notificationHelperPath = value;
+      continue;
+    }
     if (arg === "--rss") {
       if (rss) throw new Error("task-worker accepts at most one --rss option");
       rss = true;
@@ -99,8 +110,10 @@ export function parseTaskWorkerArgs(args: readonly string[]): TaskWorkerArgs {
   if (workspace === undefined) {
     throw new Error("task-worker requires --workspace <directory>");
   }
+  if (notificationHelperPath !== undefined && !notify) throw new Error("--notification-helper requires --notify");
   return {
     workspace,
+    ...(notificationHelperPath === undefined ? {} : { notificationHelperPath }),
     ...(todoist ? { todoist: true as const } : {}),
     ...(notify ? { notify: true as const } : {}),
     ...(workspaceContext ? { workspaceContext: true as const } : {}),
@@ -139,7 +152,7 @@ function escapeAppleScriptString(value: string): string {
 /** Resolves only after the OS command accepted the notification, not after user delivery. */
 export function createTaskDesktopNotifier(
   write: (text: string) => void = (text) => process.stderr.write(text),
-  options: { platform?: string; submit?: (script: string) => Promise<void> } = {},
+  options: { platform?: string; submit?: (script: string) => Promise<void>; notificationHelperPath?: string; workspace?: string; submitCommand?: (file: string, args: string[]) => Promise<void> } = {},
 ): (task: TaskRecord) => Promise<void> {
   const reportFailure = (error: unknown): void => {
     try {
@@ -156,6 +169,18 @@ export function createTaskDesktopNotifier(
     }
 
     try {
+      if (options.notificationHelperPath !== undefined) {
+        if (!options.workspace) throw new Error("Clickable notifications require a workspace");
+        const args = ["-title", "Serika", "-message", message, "-group", taskResultLink(options.workspace, task.id), "-open", taskResultLink(options.workspace, task.id)];
+        if (options.submitCommand) await options.submitCommand(options.notificationHelperPath, args);
+        else await new Promise<void>((resolve, reject) => {
+          const child = spawn(options.notificationHelperPath!, args, { stdio: "ignore" });
+          const timer = setTimeout(() => { child.kill("SIGKILL"); reject(new Error("Notification helper submission timed out")); }, 5_000);
+          child.once("error", error => { clearTimeout(timer); reject(error); });
+          child.once("close", (code, signal) => { clearTimeout(timer); code === 0 ? resolve() : reject(new Error(`Notification helper exited with ${signal ?? String(code)}`)); });
+        });
+        return;
+      }
       const script = `display notification "${escapeAppleScriptString(message)}" with title "Runloom"`;
       if (options.submit !== undefined) {
         await options.submit(script);
@@ -364,8 +389,14 @@ export function createTaskWorkerAgent(
 }
 
 export async function startTaskWorker(args: readonly string[]): Promise<void> {
-  const { workspace, todoist = false, notify = false, workspaceContext = false, safeRetry = false, rss = false } = parseTaskWorkerArgs(args);
+  const { workspace, todoist = false, notify = false, notificationHelperPath, workspaceContext = false, safeRetry = false, rss = false } = parseTaskWorkerArgs(args);
   const workspaceRoot = await resolveWorkspace(workspace);
+  let notificationHelper: string | undefined;
+  if (notificationHelperPath !== undefined) {
+    notificationHelper = await realpath(notificationHelperPath);
+    if (notificationHelper === workspaceRoot || notificationHelper.startsWith(workspaceRoot + sep) || !(await stat(notificationHelper)).isFile()) throw new Error("Notification helper must be a regular executable outside workspace");
+    await access(notificationHelper, constants.X_OK);
+  }
   // Validate the model configuration before creating or acquiring the worker
   // lock, so a bad environment cannot temporarily claim a workspace.
   const { modelAlias, model } = configureCliModel(createScheduledDemoModel);
@@ -467,7 +498,7 @@ export async function startTaskWorker(args: readonly string[]): Promise<void> {
         void health.handled(task.id).catch(reportHealthFailure);
         if (task.error !== null) void health.failure(task.error.code, task.error.message).catch(reportHealthFailure);
       },
-      ...(notify ? { notify: createTaskDesktopNotifier() } : {}),
+      ...(notify ? { notify: createTaskDesktopNotifier(undefined, { workspace: workspaceRoot, ...(notificationHelper === undefined ? {} : { notificationHelperPath: notificationHelper }) }) } : {}),
     });
   } catch (error) {
     await health.failure("WORKER_FAILED", errorMessage(error)).catch(reportHealthFailure);
