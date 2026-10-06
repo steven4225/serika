@@ -13,7 +13,7 @@ import {
 } from "./desktop-config.js";
 
 describe("desktop TUI config", () => {
-  it("explicitly enables proposals and recall without replacing existing module settings", async () => {
+  it("explicitly enables automatic source-checked memory without replacing existing module settings", async () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-desktop-enable-memory-"));
     try {
       const workspace = join(root, "workspace"); await mkdir(workspace);
@@ -26,7 +26,7 @@ describe("desktop TUI config", () => {
       await enableDesktopMemory(configPath);
       const enabled = JSON.parse(await readFile(configPath, "utf8"));
       assert.deepEqual(enabled, { ...config, modules: { ...config.modules,
-        memory: { enabled: true, autoConsolidate: true, queryRewrite: { enabled: true } },
+        memory: { enabled: true, autoConsolidate: true, writePolicy: "automatic", queryRewrite: { enabled: true } },
       } });
       // Missing modules is a valid legacy config, not a reason to report an empty/disabled module forever.
       await writeFile(configPath, JSON.stringify({ version: 1, workspace }));
@@ -59,6 +59,7 @@ describe("desktop TUI config", () => {
     assert.ok(DESKTOP_DEFAULT_SHELL_TIMEOUT_MS > 30_000);
     assert.equal((config.contextCompaction as { enabled: boolean }).enabled, true);
     assert.equal((config.contextCompaction as { summaryMaxOutputTokens: number }).summaryMaxOutputTokens, 4096);
+    assert.equal((config.modules as { memory: { writePolicy: string } }).memory.writePolicy, "automatic");
   });
 
   it("fills missing timeouts without changing explicit values", () => {
@@ -100,6 +101,19 @@ describe("desktop TUI config", () => {
       const config = JSON.parse(await readFile(configPath, "utf8"));
       assert.equal(config.contextCompaction.enabled, false);
       assert.equal(config.modules.memory, undefined);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
+  it("does not silently promote existing manual memory configs when filling timeouts", async () => {
+    const root = await mkdtemp(join(tmpdir(), "serika-existing-memory-policy-"));
+    try {
+      const configPath = join(root, "runloom.json");
+      await writeFile(configPath, JSON.stringify({ version: 1, modules: { memory: { enabled: true, autoConsolidate: true, writePolicy: "review" } } }));
+      await resolveDesktopConfig({ env: {}, userData: root });
+      assert.equal(JSON.parse(await readFile(configPath, "utf8")).modules.memory.writePolicy, "review");
+      await writeFile(configPath, JSON.stringify({ version: 1, modules: { memory: { enabled: true, autoConsolidate: true } } }));
+      await resolveDesktopConfig({ env: {}, userData: root });
+      assert.equal(JSON.parse(await readFile(configPath, "utf8")).modules.memory.writePolicy, undefined);
     } finally { await rm(root, { recursive: true, force: true }); }
   });
 

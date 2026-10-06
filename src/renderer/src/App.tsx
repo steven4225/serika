@@ -34,7 +34,7 @@ import { MemoryReferences } from "./memory-references.js";
 import { ContextPanel } from "./context.js";
 import { RecordsPanel, type RecordDetailState, type RecordsState } from "./records.js";
 import { ApprovalCard } from "./approval.js";
-import { shouldSubmitComposer } from "../../shared/composer.js";
+import { shouldSubmitComposer, canSubmitComposer } from "../../shared/composer.js";
 import { Icon, SerikaMark, type IconName } from "./icons.js";
 import { MessageContent } from "./markdown.js";
 import { CapabilitiesPanel } from "./capabilities.js";
@@ -44,6 +44,7 @@ import { AssistantReply } from "./delivery.js";
 import { attentionKind, headerStatus, loadedCountLabel, deliveredReplyKeys, isMockModel } from "./attention.js";
 import { CurrentTask, useWorkTasks, WorkTasksPanel } from "./work-tasks.js";
 import { RssPanel } from "./rss.js";
+import { TaskInbox } from "./task-inbox.js";
 import { unreconciledRuns, taskSelectionKey, taskActions } from "./work-task-data.js";
 import { bindTaskComposer, completionLabel, draftKey, type ConversationDraft } from "./navigation.js";
 import { DailySetup } from "./daily-setup-panel.js";
@@ -575,7 +576,7 @@ function AssistantPage({ drafts, layout, onLayoutChange }: { drafts: Map<string,
       setError("请先处理上方确认");
       return;
     }
-    if (state.kind !== "idle") { setError("当前忙，输入未排队"); return; }
+    if (!canSubmitComposer(state, composingTask ? "task" : line.startsWith("/") ? "command" : "chat")) { setError("当前忙，输入未排队"); return; }
     sendInFlight.current = true;
     setSending(true);
     try {
@@ -605,6 +606,7 @@ function AssistantPage({ drafts, layout, onLayoutChange }: { drafts: Map<string,
   }, [composerText, composingTask, composerTask, workTasks, approval, state, excludeFromMemory]);
 
   const busy = state.kind !== "idle";
+  const composerReady = canSubmitComposer(state, composingTask ? "task" : composerText.trim().startsWith("/") ? "command" : "chat");
   const running = state.kind === "running";
   const activePrimary = running && state.phase === "primary";
   const visibleRows: ConversationRow[] = [...history, ...(activePrimary ? [
@@ -719,7 +721,7 @@ function AssistantPage({ drafts, layout, onLayoutChange }: { drafts: Map<string,
         {isMockModel(info?.modelAlias) ? <div className="model-mode-notice" role="status">当前使用模拟模型，只用于界面测试。日用任务请配置真实模型并重启；不会自动切换。</div> : null}
         {info?.entryMode === "test" ? <div className="model-mode-notice" role="status">隔离验收窗口 · 这里的会话和记忆属于测试工作区</div> : null}
         {info && !detailsOpen && !busy && attention === "none" && dailySetupNotice(info) ? <div className="attention-summary daily-setup-notice"><span>{dailySetupNotice(info)}</span><button className="ghost" onClick={() => openDetails("home")}>查看日用设置</button></div> : null}
-        {info && !detailsOpen && attention === "none" ? <MemoryConsolidationNotice enabled={info.memory.enabled} busy={busy} running={state.kind === "running" && state.phase === "consolidation"} refreshToken={memoryRefresh} onOpen={() => openMemory()} /> : null}
+        {info && !detailsOpen && attention === "none" ? <MemoryConsolidationNotice key={`${info.workspaceRoot}:${info.threadId}`} enabled={info.memory.enabled} busy={busy} running={state.kind === "running" && state.phase === "consolidation"} refreshToken={memoryRefresh} onOpen={() => openMemory()} /> : null}
         {!detailsOpen && !busy && attention === "none" && memoryDeferred && pendingLabel ? <div className="attention-summary"><span>{pendingLabel} 条候选留待稍后审核，尚未保存为正式记忆。</span><button className="ghost" onClick={() => openMemory()}>查看候选</button></div> : null}
         <div className="attention-region" hidden={(attention === "none" && !pendingMemory.error) || (attention === "memory" && detailsOpen)}>
           {attention === "approval" && approval ? <ApprovalCard approval={approval} deciding={decidingId === approval.approvalId} onDecision={decision => void decide(decision)} /> : null}
@@ -768,7 +770,8 @@ function AssistantPage({ drafts, layout, onLayoutChange }: { drafts: Map<string,
               </div>
               <div hidden={detailTab !== "home"}>
                 {info ? <DailySetup info={info} busy={busy} onHistory={() => openDetails("threads")} /> : null}
-                <RssPanel enabled={!!info?.workspaceRoot && info.modules?.some(m => m.id === "task" && m.enabled) === true} busy={busy} />
+                <RssPanel key={info?.workspaceRoot ?? "no-workspace"} showInbox={false} enabled={!!info?.workspaceRoot && info.modules?.some(m => m.id === "task" && m.enabled) === true} busy={busy} />
+                <TaskInbox key={info?.workspaceRoot ?? "no-workspace"} enabled={!!info?.workspaceRoot && info.modules?.some(m => m.id === "task" && m.enabled) === true} busy={busy} />
                 <section className="card home">
                   <div className="card-head"><span>工作区概览</span><button className="ghost" disabled={busy} onClick={() => void window.runloom.home().then(response => {
                     if (!response.ok) setError(commandError(response));
@@ -789,7 +792,7 @@ function AssistantPage({ drafts, layout, onLayoutChange }: { drafts: Map<string,
                 <RecordsPanel records={records} detail={recordDetail}
                 onRefresh={() => void loadRecords(selectedRecordId.current ?? undefined).catch(() => setError("执行记录读取失败"))}
                 onOpen={runId => void openRecord(runId).catch(() => setError("执行回执读取失败"))} /></div>
-              <div hidden={detailTab !== "memory"}>{info ? <MemoryConsolidationPanel info={info} busy={busy} refreshToken={memoryRefresh} /> : null}{info ? <MemoryPanel memory={info.memory} temporaryThread={info.temporaryThread}
+              <div hidden={detailTab !== "memory"}>{info ? <MemoryConsolidationPanel key={`${info.workspaceRoot}:${info.threadId}`} info={info} busy={busy} refreshToken={memoryRefresh} /> : null}{info ? <MemoryPanel memory={info.memory} temporaryThread={info.temporaryThread}
                 controllerIdle={!busy} refreshToken={memoryRefresh} focusRequest={memoryFocus} /> : null}</div>
               <div hidden={detailTab !== "context"}>{info ? <ContextPanel controllerIdle={!busy} refreshToken={contextRefresh}
                 hasCompaction={info.hasCompaction} /> : null}</div>
@@ -804,10 +807,10 @@ function AssistantPage({ drafts, layout, onLayoutChange }: { drafts: Map<string,
             {workTasks.task || composingTask ? <div className="composer-target" role="group" aria-label="发送方式"><button className={!composingTask ? "selected" : ""} type="button" aria-pressed={!composingTask} onClick={() => setTaskComposerId(null)}>普通对话</button><button className={composingTask ? "selected" : ""} type="button" aria-pressed={composingTask} disabled={!workTasks.task || (!taskActions(workTasks.task).run && !composingTask)} onClick={composeTask}>补充当前任务</button>{composingTask ? <span>{composerTask?.goal ?? "任务正在读取或已切换"}</span> : null}</div> : null}
             <textarea ref={inputRef} aria-label={composingTask ? "本轮任务指令" : "消息输入"} rows={3} value={composerText}
               disabled={sending || switchingThread || info === null || (composingTask && !composerTask)}
-              placeholder={composingTask && !composerTask ? "请重新选择任务输入，或切回普通对话…" : approval ? "可先写下一条；发送前请确认上方操作…" : busy ? "可先写下一条，结束后再发送…" : composingTask ? "补充本轮要求；留空将使用任务目标…" : "描述你想完成的事…"}
+              placeholder={composingTask && !composerTask ? "请重新选择任务输入，或切回普通对话…" : approval ? "可先写下一条；发送前请确认上方操作…" : !composerReady ? "可先写下一条，结束后再发送…" : composingTask ? "补充本轮要求；留空将使用任务目标…" : "描述你想完成的事…"}
               onChange={event => { if (!composingTask) setInput(event.target.value); else if (composerTask) workTasks.setInstruction(event.target.value); }}
               onKeyDown={event => {
-                if (!busy && shouldSubmitComposer({ key: event.key, shiftKey: event.shiftKey, isComposing: event.nativeEvent.isComposing })) {
+                if (composerReady && shouldSubmitComposer({ key: event.key, shiftKey: event.shiftKey, isComposing: event.nativeEvent.isComposing })) {
                   event.preventDefault(); followConversation.current = true; void submit();
                 }
               }} />
@@ -820,7 +823,7 @@ function AssistantPage({ drafts, layout, onLayoutChange }: { drafts: Map<string,
               </div></details> : null}
               <span className="spacer" />
               <button className="icon-button" aria-label={showOutput ? "隐藏系统输出" : "查看系统输出"} title="系统输出" aria-pressed={showOutput} onClick={() => setShowOutput(value => !value)}><Icon name="terminal" size={17} /></button>
-              <button className={`send-button${composingTask ? " task-send" : ""}`} aria-label={composingTask ? composerTask?.status === "ready" ? "开始任务" : "继续此任务" : "发送消息"} title={composingTask ? "显式开启任务的新一轮；工具仍需确认" : "发送 · Enter"} disabled={busy || sending || switchingThread || !info || (composingTask ? workTasks.locked || !composerTask || !taskActions(composerTask).run : !input.trim())} onClick={() => { followConversation.current = true; void submit(); }}>{composingTask ? busy ? "正在处理" : composerTask?.status === "ready" ? "开始任务" : "继续此任务" : <Icon name="arrow" size={19} />}</button>
+              <button className={`send-button${composingTask ? " task-send" : ""}`} aria-label={composingTask ? composerTask?.status === "ready" ? "开始任务" : "继续此任务" : "发送消息"} title={composingTask ? "显式开启任务的新一轮；工具仍需确认" : "发送 · Enter"} disabled={!composerReady || sending || switchingThread || !info || (composingTask ? workTasks.locked || !composerTask || !taskActions(composerTask).run : !input.trim())} onClick={() => { followConversation.current = true; void submit(); }}>{composingTask ? busy ? "正在处理" : composerTask?.status === "ready" ? "开始任务" : "继续此任务" : <Icon name="arrow" size={19} />}</button>
             </div>
           </footer>
           <div className="composer-hint" hidden={detailsOpen}><span>{composingTask ? !composerTask ? "原任务草稿仍保留。重新选择任务输入，或切回普通对话。" : busy ? "正在处理，暂不能发送。可先写下一轮的补充要求。" : taskActions(composerTask).run ? "任务指令不进入记忆整理 · 工具仍需逐次确认" : "本轮已结束，请从任务卡查看结果；也可切回普通对话" : "Enter 发送 · Shift + Enter 换行"}</span></div>

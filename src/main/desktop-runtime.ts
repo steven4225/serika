@@ -1,5 +1,5 @@
 import type { LanguageModel } from "ai";
-import { createRuntimeApp } from "@aisdk-agent/example-cli/dist/app.js";
+import { createRuntimeApp, type TaskAutomationHost } from "@aisdk-agent/example-cli/dist/app.js";
 import { createAssistantController } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
 import { resolveTuiModuleConfig } from "@aisdk-agent/example-cli/dist/tui-module-config.js";
 import { enableDesktopMemory, resolveDesktopConfig } from "./desktop-config.js";
@@ -7,7 +7,7 @@ import { createDesktopThread, listDesktopThreads, registerDesktopThread, resolve
 import { discoverThreadDirectory, inspectThread } from "./thread-history.js";
 import { RuntimeBridge, TeeOutput, type Send } from "./runtime-bridge.js";
 
-interface Options { userData: string; cwd: string; env: NodeJS.ProcessEnv; modelAlias: string; modelId?: string; model: LanguageModel; send: Send }
+interface Options { userData: string; cwd: string; env: NodeJS.ProcessEnv; modelAlias: string; modelId?: string; model: LanguageModel; send: Send; taskAutomation?: TaskAutomationHost }
 
 /** Owns desktop selection only. Each selected Thread still uses the original controller/loop. */
 export class DesktopRuntime {
@@ -44,6 +44,7 @@ export class DesktopRuntime {
     const app = await createRuntimeApp({
       args: ["--tui", identity.transcriptDirectory, "--thread", identity.threadId, "--config", identity.configPath],
       modelAlias: this.#options.modelAlias, model: this.#options.model, output, env: this.#options.env, cwd: this.#options.cwd,
+      ...(this.#options.taskAutomation ? { taskAutomation: this.#options.taskAutomation } : {}),
     });
     const controller = createAssistantController(app);
     output.attach(controller);

@@ -130,12 +130,16 @@ async function main(): Promise<void> {
   try {
     await loadDesktopEnvironment();
     const { modelAlias, model } = configureCliModel(createDemoModel, process.env);
+    const taskWorkerFor = (workspace: string) => createDesktopRssWorker({ workspace, home: app.getPath("home"), env: process.env,
+      workerEntry: fileURLToPath(import.meta.resolve("@aisdk-agent/example-cli/dist/task-worker-entry.js")),
+      todoist: !!process.env.TODOIST_API_TOKEN?.trim() });
     host = await DesktopRuntime.create({
       env: process.env, userData: app.getPath("userData"), cwd: process.cwd(),
       modelAlias, model, modelId: inspectCliModelConfig().modelId, send,
+      taskAutomation: { status: workspace => taskWorkerFor(workspace).automationStatus(), enable: workspace => taskWorkerFor(workspace).enableArrangement() },
     });
     const rssWorker = createDesktopRssWorker({ workspace: host.info().workspaceRoot ?? undefined, home: app.getPath("home"), env: process.env,
-      workerEntry: fileURLToPath(import.meta.resolve("@aisdk-agent/example-cli/dist/task-worker-entry.js")) });
+      workerEntry: fileURLToPath(import.meta.resolve("@aisdk-agent/example-cli/dist/task-worker-entry.js")), todoist: !!process.env.TODOIST_API_TOKEN?.trim() });
     ipcMain.handle(IPC.rssWorkerStatus, () => rssWorker.status());
     ipcMain.handle(IPC.rssWorkerEnabled, (_event, enabled: unknown) => rssWorker.setEnabled(enabled));
   } catch (error) {
@@ -165,6 +169,9 @@ async function main(): Promise<void> {
   ipcMain.handle(IPC.rssUpdate, (_event, input: RssAction) => host.current.updateRssSubscriptions(input));
   ipcMain.handle(IPC.rssInbox, () => host.current.getRssInbox());
   ipcMain.handle(IPC.rssAck, (_event, id: string) => host.current.acknowledgeRssResult(id));
+  ipcMain.handle(IPC.taskInbox, () => host.current.getTaskInbox());
+  ipcMain.handle(IPC.scheduledTask, (_event, id: string) => host.current.getScheduledTask(id));
+  ipcMain.handle(IPC.taskResultAck, (_event, id: string) => host.current.acknowledgeTaskResult(id));
   ipcMain.handle(IPC.contextDiagnostics, () => host.current.getContextDiagnostics());
   ipcMain.handle(IPC.memoriesList, (_event, input) => host.current.listMemories(input));
   ipcMain.handle(IPC.memoryGet, (_event, id) => host.current.getMemory(id));

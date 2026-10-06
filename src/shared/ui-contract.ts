@@ -1,7 +1,8 @@
 import type { UIMessage } from "ai";
 import type { FormalMemory, MemoryPage, MemoryListInput, MemoryEditInput } from "@aisdk-agent/example-cli/dist/memory-management.js";
 import type { MemoryAction, MemoryActionPreview, MemoryHistoryInput, MemoryHistoryPage, MemoryMaintenance } from "@aisdk-agent/example-cli/dist/memory-controls.js";
-import type { AssistantRunOptions } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
+import type { AssistantRunOptions, AutomationResult } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
+import type { TaskListV3, TaskRecordV4 } from "@aisdk-agent/example-cli/dist/task-store.js";
 import type { MemoryConsolidationRequest, MemoryConsolidationSourcePage } from "@aisdk-agent/example-cli/dist/memory-consolidation.js";
 import type { MemoryTemporalQuery, MemoryTemporalView } from "@aisdk-agent/example-cli/dist/memory-store.js";
 import type { MemoryReferenceSnapshot } from "@aisdk-agent/example-cli/dist/memory-query-rewrite.js";
@@ -33,7 +34,7 @@ export type RunPhase = "primary" | "consolidation";
 
 export type UiState =
   | { kind: "idle" }
-  | { kind: "running"; runId: string | null; phase: RunPhase }
+  | { kind: "running"; runId: string | null; phase: RunPhase; background?: true }
   | { kind: "compacting" }
   | { kind: "resuming" }
   | { kind: "command"; name: string };
@@ -93,6 +94,7 @@ export interface AppInfo {
   memory: {
     enabled: boolean;
     autoConsolidate: boolean;
+    writePolicy?: "review" | "automatic";
     queryRewriteEnabled?: boolean;
   };
   workTasks: boolean;
@@ -100,6 +102,8 @@ export interface AppInfo {
 
 export interface UiSnapshot {
   state: UiState;
+  /** Ordinary chat can preempt automatic consolidation; this grants no tool authority. */
+  canSubmit: boolean;
   pendingApproval: PendingApproval | null;
   recentOutput: string;
   outputTruncated: boolean;
@@ -207,6 +211,9 @@ export interface RendererApi {
   updateRssSubscriptions(input: RssAction): Promise<RssResult<RssView>>;
   getRssInbox(): Promise<RssResult<RssInbox>>;
   acknowledgeRssResult(id: string): Promise<RssResult<void>>;
+  getTaskInbox(): Promise<AutomationResult<TaskListV3>>;
+  getScheduledTask(id: string): Promise<AutomationResult<TaskRecordV4>>;
+  acknowledgeTaskResult(id: string): Promise<AutomationResult<TaskRecordV4>>;
   rssWorkerStatus(): Promise<RssWorkerResponse>;
   setRssWorkerEnabled(enabled: boolean): Promise<RssWorkerResponse>;
   info(): Promise<AppInfo>;
@@ -262,6 +269,9 @@ export const IPC = {
   rssUpdate: "runloom:rssUpdate",
   rssInbox: "runloom:rssInbox",
   rssAck: "runloom:rssAck",
+  taskInbox: "runloom:taskInbox",
+  scheduledTask: "runloom:scheduledTask",
+  taskResultAck: "runloom:taskResultAck",
   rssWorkerStatus: "runloom:rssWorkerStatus",
   rssWorkerEnabled: "runloom:rssWorkerEnabled",
   info: "runloom:info",

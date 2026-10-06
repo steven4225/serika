@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { attentionKind, headerStatus, loadedCountLabel, deliveredReplyKeys, isMockModel } from "./attention.js";
+import { canSubmitComposer } from "../../shared/composer.js";
 import type { ConversationRow } from "./conversation.js";
 
 test("mock warning recognizes the production model alias without mistaking real providers", () => {
@@ -22,6 +23,18 @@ test("header represents actual processing, not a background candidate as a secon
   assert.deepEqual(headerStatus({ kind: "running", runId: null, phase: "primary" }, "approval"), { label: "等待确认", tone: "awaiting" });
   assert.equal(headerStatus({ kind: "idle" }, "unknown").label, "有效果待核对");
   assert.equal(headerStatus({ kind: "idle" }, "none").label, "空闲");
+});
+
+test("only ordinary chat can preempt an automatic memory followup", () => {
+  const background = { kind: "running", runId: "memory", phase: "consolidation", background: true } as const;
+  assert.equal(canSubmitComposer(background), true);
+  assert.equal(canSubmitComposer(background, "command"), false);
+  assert.equal(canSubmitComposer(background, "task"), false);
+  assert.equal(canSubmitComposer({ ...background, phase: "primary" }), false);
+  assert.equal(canSubmitComposer({ kind: "running", runId: "manual", phase: "consolidation" }), false);
+  assert.equal(canSubmitComposer({ kind: "compacting" }), false);
+  assert.equal(canSubmitComposer({ kind: "idle" }), true);
+  assert.equal(headerStatus(background, "none").label, "后台整理记忆，可继续聊天");
 });
 
 test("deferring memory only hides its attention card, never higher priority decisions", () => {

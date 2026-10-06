@@ -60,7 +60,7 @@ export function defaultDesktopConfig(workspace?: string): Record<string, unknown
   };
   if (workspace !== undefined) {
     modules["read-file"] = { enabled: true };
-    modules.memory = { enabled: true, autoConsolidate: true, queryRewrite: { enabled: true } };
+    modules.memory = { enabled: true, autoConsolidate: true, writePolicy: "automatic", queryRewrite: { enabled: true } };
     modules.checkpoint = { enabled: true };
     modules.task = { enabled: true };
   }
@@ -118,7 +118,7 @@ export async function resolveDesktopConfig(options: {
   return { configPath, generated: false, patched: next.patched };
 }
 
-/** An explicit desktop button opts into proposals/retrieval; formal writes still require review. */
+/** Explicit setup opts into source-checked automatic writes; existing configs never opt in silently. */
 export async function enableDesktopMemory(configPath: string): Promise<void> {
   const stat = await lstat(configPath);
   if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 64 * 1024) throw new Error("配置必须是外部常规文件，且不超过 64 KiB");
@@ -127,7 +127,7 @@ export async function enableDesktopMemory(configPath: string): Promise<void> {
   if (!isRecord(config) || config.modules !== undefined && !isRecord(config.modules)) throw new Error("无法读取模块配置");
   const modules = isRecord(config.modules) ? config.modules : {};
   const memory = isRecord(modules.memory) ? modules.memory : {};
-  const next = { ...config, modules: { ...modules, memory: { ...memory, enabled: true, autoConsolidate: true, queryRewrite: { enabled: true } } } };
+  const next = { ...config, modules: { ...modules, memory: { ...memory, enabled: true, autoConsolidate: true, writePolicy: "automatic", queryRewrite: { enabled: true } } } };
   const temporary = `${configPath}.${randomUUID()}.tmp`;
   try {
     await writeFile(temporary, `${JSON.stringify(next, null, 2)}\n`, { flag: "wx", mode: stat.mode & 0o777 });

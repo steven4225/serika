@@ -3,7 +3,7 @@ import type { RssAction, RssInbox, RssView } from "@aisdk-agent/example-cli/dist
 import type { RssWorkerResponse } from "../../shared/ui-contract.js";
 import { MessageContent } from "./markdown.js";
 
-export function RssPanel({ enabled, busy }: { enabled: boolean; busy: boolean }) {
+export function RssPanel({ enabled, busy, showInbox = true }: { enabled: boolean; busy: boolean; showInbox?: boolean }) {
   const [view, setView] = useState<RssView | null>(null);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
@@ -30,7 +30,7 @@ export function RssPanel({ enabled, busy }: { enabled: boolean; busy: boolean })
       else { setView(null); setError(result.error.message); }
     } catch { setView(null); setError("资讯订阅读取失败，不代表列表为空。"); }
   }
-  useEffect(() => { if (enabled) { void reload(); void reloadInbox(); } }, [enabled]);
+  useEffect(() => { if (enabled) { void reload(); if (showInbox) void reloadInbox(); } }, [enabled, showInbox]);
   async function save() {
     if (!preview || pending || busy) return;
     setPending(true);
@@ -77,7 +77,7 @@ export function RssPanel({ enabled, busy }: { enabled: boolean; busy: boolean })
     {workerPreview !== null ? <div className="card"><p>{workerPreview ? "允许独立后台服务抓取已启用订阅，将 feed 快照发送给配置的模型，结果保存在 inbox；开启任务状态通知，但不保证你已看到。" : "停用当前工作区后台服务。这也会停止其他定时任务的后台执行；已有 inbox 结果不会删除。"}</p>
       <button disabled={disabled} onClick={() => { setPending(true); void window.runloom.setRssWorkerEnabled(workerPreview).then(setWorker).catch(() => setWorker({ ok: false, message: "服务操作失败，请查询状态后再决定。" })).finally(() => { setPending(false); setWorkerPreview(null); }); }}>确认</button><button className="ghost" disabled={pending} onClick={() => setWorkerPreview(null)}>取消</button></div> : null}
     </details>
-    <div className="card-head"><span>未确认的资讯结果</span><button className="ghost" disabled={disabled} onClick={() => void reloadInbox()}>刷新结果</button></div>
+    {showInbox ? <><div className="card-head"><span>未确认的资讯结果</span><button className="ghost" disabled={disabled} onClick={() => void reloadInbox()}>刷新结果</button></div>
     <p className="hint">已排期 ≠ 已执行 ≠ 已收到通知。completed 只表示 Run 正常结束，不保证内容正确。</p>
     {inboxError ? <p role="alert">{inboxError}</p> : null}
     {inbox?.tasks.length === 0 ? <p>没有未确认的资讯结果。</p> : null}
@@ -85,6 +85,6 @@ export function RssPanel({ enabled, busy }: { enabled: boolean; busy: boolean })
       <small>任务 ID：{task.id}</small><MessageContent text={task.text} />{task.textTruncated ? <p className="hint">显示内容已截断；完整结果保存在任务 inbox。</p> : null}
       <button className="ghost" disabled={disabled} onClick={() => { setPending(true); void window.runloom.acknowledgeRssResult(task.id).then(async result => { if (result.ok) await reloadInbox(); else setInboxError(result.error.message); }).catch(() => setInboxError("确认失败，请刷新核对。")).finally(() => setPending(false)); }}>标为已读</button>
     </details>)}
-    {inbox?.truncated ? <p className="hint">只显示最近 5 条未确认结果；标为已读后刷新可看更早记录。</p> : null}
+    {inbox?.truncated ? <p className="hint">只显示最近 5 条未确认结果；标为已读后刷新可看更早记录。</p> : null}</> : <p className="hint">资讯结果与提醒、日报统一显示在下面的定时任务收件箱。</p>}
   </section>;
 }

@@ -216,6 +216,7 @@ export function assistantEventToRenderer(event: AssistantEvent): MainToRenderer 
 function toUiSnapshot(snapshot: AssistantSnapshot, shellProgress: UiSnapshot["shellProgress"]): UiSnapshot {
   return {
     state: toUiState(snapshot.state),
+    canSubmit: snapshot.canSubmit,
     pendingApproval: snapshot.pendingApproval,
     recentOutput: snapshot.recentOutput,
     outputTruncated: snapshot.outputTruncated,
@@ -305,6 +306,7 @@ export class RuntimeBridge {
       memory: {
         enabled: this.#app.moduleConfig?.enabled.memory === true && this.#app.memoryStore !== undefined,
         autoConsolidate: this.#app.autoConsolidationAgentId !== undefined,
+        writePolicy: this.#app.moduleConfig?.memoryWritePolicy ?? "review",
         queryRewriteEnabled: this.#app.moduleConfig?.memoryQueryRewriteEnabled === true,
       },
       workTasks: this.#app.workTasks !== undefined,
@@ -344,6 +346,9 @@ export class RuntimeBridge {
   updateRssSubscriptions(input: RssAction) { return this.#controller.updateRssSubscriptions(input); }
   getRssInbox() { return this.#controller.getRssInbox(); }
   acknowledgeRssResult(id: string) { return this.#controller.acknowledgeRssResult(id); }
+  getTaskInbox() { return this.#controller.getTaskInbox(); }
+  getScheduledTask(id: string) { return this.#controller.getScheduledTask(id); }
+  acknowledgeTaskResult(id: string) { return this.#controller.acknowledgeTaskResult(id); }
 
   async home(): Promise<CommandResponse> {
     this.#output.beginHome();

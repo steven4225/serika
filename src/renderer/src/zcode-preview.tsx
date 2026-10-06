@@ -32,7 +32,7 @@ for (const thread of threads) {
     { id: `${thread.threadId}-assistant`, role: "assistant", parts: [{ type: "text", text: "这是一段用于比较历史切换布局的示例对话，不读取你的真实历史。切回 Runloom 的下一步计划可以继续查看主屏效果。" }] },
   ]);
 }
-const snapshot: UiSnapshot = { state: { kind: "idle" }, pendingApproval: null, recentOutput: "", outputTruncated: false,
+const snapshot: UiSnapshot = { state: { kind: "idle" }, canSubmit: true, pendingApproval: null, recentOutput: "", outputTruncated: false,
   toolActivity: [], lastPrimaryResult: null, lastConsolidationResult: null, resultTextTruncated: false, shellProgress: [] };
 const info = (): AppInfo => ({ entryMode: "test", configPath: "/preview/config.json", threadId,
   directory: "/preview/transcripts", workspaceRoot: "/preview/Runloom", modelAlias: "mock", modelId: "界面示例（不调用模型）",
