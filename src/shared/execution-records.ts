@@ -62,6 +62,8 @@ export function runPhaseLabel(phase: RunPhase): string {
       return "主任务";
     case "consolidation":
       return "整理";
+    case "skill":
+      return "Skill";
     default: {
       const exhaustive: never = phase;
       return exhaustive;

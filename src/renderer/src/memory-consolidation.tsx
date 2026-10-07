@@ -104,8 +104,8 @@ export function consolidationStatusLabel(enabled: boolean, maintenance: MemoryMa
 }
 
 /** Saved receipts and unresolved proposals are distinct; saves do not require another approval. */
-export function MemoryConsolidationNotice({ enabled, busy, running = false, refreshToken, onOpen }: {
-  enabled: boolean; busy: boolean; running?: boolean; refreshToken: number; onOpen: () => void;
+export function MemoryConsolidationNotice({ enabled, busy, running = false, quiet = false, refreshToken, onOpen }: {
+  enabled: boolean; busy: boolean; running?: boolean; quiet?: boolean; refreshToken: number; onOpen: () => void;
 }) {
   const [maintenance, setMaintenance] = useState<MemoryMaintenance | null>(null);
   const [error, setError] = useState("");
@@ -124,6 +124,7 @@ export function MemoryConsolidationNotice({ enabled, busy, running = false, refr
   const c = maintenance?.consolidation;
   const accepted = c?.lastAttempt?.accepted ?? [];
   const emptyAttempt = c?.state === "idle" && c.lastAttempt?.status === "completed" && c.lastAttempt.candidateCount === 0;
+  if (quiet && !running && !error && accepted.length === 0 && emptyAttempt) return null;
   if (!running && !error && !emptyAttempt && accepted.length === 0 && c?.state !== "failed" && c?.state !== "backlog" && c?.state !== "running") return null;
   const title = running ? labels.running : consolidationStatusLabel(enabled, maintenance, error);
   return <div className="memory-consolidation"><div className="attention-summary" role="status"><span>{title}{c?.state === "backlog" && c.backlogCount !== undefined ? `（${c.backlogCount} 条取材范围内消息）` : ""}</span><button className="ghost" onClick={onOpen}>查看记忆</button></div>

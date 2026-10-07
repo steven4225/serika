@@ -1,8 +1,9 @@
 import React, { type CSSProperties } from "react";
 
-export type IconName = "timer" | "modules" | "chat" | "new-chat" | "home" | "activity" | "memory" | "context" | "panel" | "arrow" | "stop" | "close" | "chevron" | "terminal" | "check" | "shield";
+export type IconName = "timer" | "modules" | "chat" | "new-chat" | "home" | "activity" | "memory" | "context" | "panel" | "arrow" | "stop" | "close" | "chevron" | "terminal" | "check" | "shield" | "copy";
 
 const paths: Record<IconName, string> = {
+  copy: "M9 9h11v11H9ZM5 15H4V4h11v1",
   "new-chat": "M12 5v14M5 12h14",
   timer: "M9 2h6m-3 0v3m6 1 2-2M12 9v4l3 2M20 13a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z",
   modules: "M3 3h7v7H3Zm11 0h7v7h-7ZM3 14h7v7H3Zm11 0h7v7h-7Z",

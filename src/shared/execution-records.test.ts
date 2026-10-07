@@ -93,6 +93,7 @@ describe("execution record presentation", () => {
     assert.equal(shell && toolStatusLabel(shell.status), "需人工核对");
     assert.match(shell ? toolNote(shell) : "", /不会自动重试/);
     assert.equal(runPhaseLabel("consolidation"), "整理");
+    assert.equal(runPhaseLabel("skill"), "Skill");
   });
 
   it("does not treat not_started as an unknown side effect", () => {

@@ -30,7 +30,7 @@ import type {
  * pending tool approval keyed by approvalId.
  */
 
-export type RunPhase = "primary" | "consolidation";
+export type RunPhase = "primary" | "consolidation" | "skill";
 
 export type UiState =
   | { kind: "idle" }

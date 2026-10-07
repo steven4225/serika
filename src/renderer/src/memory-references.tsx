@@ -36,7 +36,7 @@ export function MemoryReferenceDetails({ reference }: { reference: RunMemoryRefe
   </details>;
 }
 
-export function MemoryReferences({ refreshToken, runId, starting }: { refreshToken: number; runId: string | null; starting: boolean }) {
+export function MemoryReferences({ refreshToken, runId, starting, hideEmpty = false }: { refreshToken: number; runId: string | null; starting: boolean; hideEmpty?: boolean }) {
   const [reference, setReference] = useState<RunMemoryReference | null>(null);
   const [error, setError] = useState(false);
   useEffect(() => {
@@ -49,5 +49,6 @@ export function MemoryReferences({ refreshToken, runId, starting }: { refreshTok
   }, [refreshToken, runId, starting]);
   if (error) return <p className="hint">本轮参考记忆读取失败，不代表未引用。</p>;
   if (!reference) return null;
+  if (hideEmpty && reference.selected.length === 0 && !reference.truncated && !reference.queryTruncated && reference.rewrite !== "degraded") return null;
   return <MemoryReferenceDetails reference={reference} />;
 }

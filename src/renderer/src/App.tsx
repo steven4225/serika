@@ -52,6 +52,12 @@ import { dailySetupNotice } from "./daily-setup.js";
 import { desktopLayout, type DesktopLayout } from "./zcode/layout.js";
 import { ZCodeSidebar } from "./zcode/sidebar.js";
 import { ZCodeMessage, ZCodeMessageContent } from "./zcode/message.js";
+import { ZCodeConversation, ZCodeBackToBottom } from "./zcode/conversation.js";
+import { ZCodePromptEditor, ZCodePromptOptions } from "./zcode/prompt-editor.js";
+import { DesktopWindowFrame } from "./zcode/upstream/desktop-window-frame.js";
+import { Button } from "./zcode/upstream/button.js";
+import { ArrowUp, Square } from "lucide-react";
+import { APPEARANCE_KEY, zcodeAppearance } from "./zcode/appearance.js";
 import "./zcode/theme.css";
 
 const OUTPUT_MAX_CHARS = 64 * 1024;
@@ -238,17 +244,24 @@ function HomeBody({ view }: { view: HomeView }) {
 }
 
 export function App({ initialLayout }: { initialLayout?: DesktopLayout } = {}) {
-  const [layout, setLayout] = useState<DesktopLayout>(() => initialLayout ?? desktopLayout(window.location.search));
+  const layout = initialLayout ?? desktopLayout(window.location.search);
   const [identityGeneration, setIdentityGeneration] = useState(0);
   const drafts = useRef(new Map<string, ConversationDraft>());
+  const [appearance, setAppearance] = useState(() => zcodeAppearance(localStorage.getItem(APPEARANCE_KEY)));
+  const toggleAppearance = () => setAppearance(value => {
+    const next = value === "dark" ? "light" : "dark";
+    localStorage.setItem(APPEARANCE_KEY, next);
+    return next;
+  });
   useEffect(() => window.runloom.onMessage(message => {
     if (message.type === "identity-changed") setIdentityGeneration(value => value + 1);
   }), []);
   // Reset evidence/previews on identity changes; keep only unsent, scoped drafts.
-  return <AssistantPage key={identityGeneration} drafts={drafts.current} layout={layout} onLayoutChange={() => setLayout(value => value === "zcode" ? "classic" : "zcode")} />;
+  const page = <AssistantPage key={identityGeneration} drafts={drafts.current} layout={layout} appearance={appearance} onAppearance={toggleAppearance} />;
+  return layout === "zcode" ? <div className={`serika-zcode-shell theme-zai-${appearance}`}><DesktopWindowFrame title="Serika" isDesktop={true} isMacDesktop={document.documentElement.dataset.nativeWindowControls === "macos"}>{page}</DesktopWindowFrame></div> : page;
 }
 
-function AssistantPage({ drafts, layout, onLayoutChange }: { drafts: Map<string, ConversationDraft>; layout: DesktopLayout; onLayoutChange: () => void }) {
+function AssistantPage({ drafts, layout, appearance, onAppearance }: { drafts: Map<string, ConversationDraft>; layout: DesktopLayout; appearance: "dark" | "light"; onAppearance: () => void }) {
   const [info, setInfo] = useState<AppInfo | null>(null);
   const [conversationTitle, setConversationTitle] = useState("当前对话");
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
@@ -302,6 +315,7 @@ function AssistantPage({ drafts, layout, onLayoutChange }: { drafts: Map<string,
   const followConversation = useRef(true);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const [unreadOutput, setUnreadOutput] = useState(false);
+  const [awayFromLatest, setAwayFromLatest] = useState(false);
   const selectedRecordId = useRef<string | null>(null);
   const taskRunStarted = useCallback((text: string) => { setSubmittedInput(text); followConversation.current = true; setDetailsOpen(false); }, []);
   const workTasks = useWorkTasks(info?.workTasks === true, state.kind !== "idle", taskRefresh, taskRunStarted, taskSelectionKey(info));
@@ -546,12 +560,24 @@ function AssistantPage({ drafts, layout, onLayoutChange }: { drafts: Map<string,
     return () => { active = false; };
   }, [info, state.kind, threadsRefresh]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const area = conversationScroll.current;
     if (!area) return;
-    if (followConversation.current) { area.scrollTop = area.scrollHeight; setUnreadOutput(false); }
+    if (followConversation.current) { area.scrollTop = area.scrollHeight; setUnreadOutput(false); setAwayFromLatest(false); }
     else setUnreadOutput(true);
-  }, [history, live, lastResult]);
+  }, [history, live, lastResult, submittedInput, approval, detailsOpen, composerText]);
+
+  useLayoutEffect(() => {
+    const area = conversationScroll.current;
+    if (!area) return;
+    // Window/composer resizing must keep the latest message anchored, but must
+    // not pull someone away from the history they deliberately scrolled to.
+    const observer = new ResizeObserver(() => {
+      if (followConversation.current && area.clientHeight > 0) area.scrollTop = area.scrollHeight;
+    });
+    observer.observe(area);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
@@ -679,13 +705,13 @@ function AssistantPage({ drafts, layout, onLayoutChange }: { drafts: Map<string,
   };
 
   return (
-    <div className={`app${layout === "zcode" ? " zcode-layout" : ""}`}>
+    <div className={`app${layout === "zcode" ? " zcode-layout" : ""}${rows.length === 0 && !busy && !workTasks.task && !detailsOpen ? " conversation-draft" : ""}`}>
       {layout === "zcode" ? <ZCodeSidebar threads={threads} currentId={info?.threadId ?? ""} drafts={threadDrafts}
         workspaceRoot={info?.workspaceRoot ?? null} loading={threadsLoading} error={threadsError}
         busy={busy || sending || switchingThread || !info} selected={detailsOpen ? detailTab : null}
-        pendingMemory={pendingLabel} unknownRuns={unknownRuns.length}
+        pendingMemory={pendingLabel} unknownRuns={unknownRuns.length} appearance={appearance} onAppearance={onAppearance}
         onNew={() => void newConversation()} onSelect={id => void selectConversation(id)}
-        onOpen={tab => tab === "memory" ? openMemory() : openDetails(tab)} onConversation={() => setDetailsOpen(false)} /> : null}
+        onOpen={tab => { if (detailsOpen && detailTab === tab) setDetailsOpen(false); else if (tab === "memory") openMemory(); else openDetails(tab); }} onConversation={() => setDetailsOpen(false)} /> : null}
       <aside className="sidebar" aria-label="主导航" hidden={layout === "zcode"}>
         <div className="brand"><SerikaMark /><span>Serika</span></div>
         <div className="sidebar-nav-scroll">
@@ -726,16 +752,15 @@ function AssistantPage({ drafts, layout, onLayoutChange }: { drafts: Map<string,
           <span className={`run-state ${status.tone}`} role="status"><span className={`state-dot ${status.tone}`} />{stageLabel}</span>
           <span className="spacer" />
           {layout === "zcode" && !detailsOpen ? <button className="icon-button" aria-label="全部对话" title="全部对话" onClick={() => openDetails("threads")}><Icon name="chat" size={17} /></button> : null}
-          <button className="ghost layout-switch" onClick={onLayoutChange} title="只切换界面，不切换会话或运行状态">{layout === "zcode" ? "回到原版" : "试用 ZCode 界面"}</button>
-          {busy ? <button className="cancel-button" onClick={() => void window.runloom.cancel().catch(() => setError("取消结果未收到，请核对当前状态。"))}><Icon name="stop" size={14} />{state.kind === "running" && state.phase === "consolidation" ? "停止整理" : "停止"}</button> : null}
+          {busy && (layout !== "zcode" || detailsOpen) ? <button className="cancel-button" onClick={() => void window.runloom.cancel().catch(() => setError("取消结果未收到，请核对当前状态。"))}><Icon name="stop" size={14} />{state.kind === "running" && state.phase === "consolidation" ? "停止整理" : "停止"}</button> : null}
         </header>
         {isMockModel(info?.modelAlias) ? <div className="model-mode-notice" role="status">当前使用模拟模型，只用于界面测试。日用任务请配置真实模型并重启；不会自动切换。</div> : null}
         {info?.entryMode === "test" ? <div className="model-mode-notice" role="status">隔离验收窗口 · 这里的会话和记忆属于测试工作区</div> : null}
         {info && !detailsOpen && !busy && attention === "none" && dailySetupNotice(info) ? <div className="attention-summary daily-setup-notice"><span>{dailySetupNotice(info)}</span><button className="ghost" onClick={() => openDetails("home")}>查看日用设置</button></div> : null}
-        {info && !detailsOpen && attention === "none" ? <MemoryConsolidationNotice key={`${info.workspaceRoot}:${info.threadId}`} enabled={info.memory.enabled} busy={busy} running={state.kind === "running" && state.phase === "consolidation"} refreshToken={memoryRefresh} onOpen={() => openMemory()} /> : null}
+        {info && !detailsOpen && attention === "none" ? <MemoryConsolidationNotice key={`${info.workspaceRoot}:${info.threadId}`} enabled={info.memory.enabled} busy={busy} quiet={layout === "zcode"} running={state.kind === "running" && state.phase === "consolidation"} refreshToken={memoryRefresh} onOpen={() => openMemory()} /> : null}
         {!detailsOpen && !busy && attention === "none" && memoryDeferred && pendingLabel ? <div className="attention-summary"><span>{pendingLabel} 条候选留待稍后审核，尚未保存为正式记忆。</span><button className="ghost" onClick={() => openMemory()}>查看候选</button></div> : null}
         <div className="attention-region" hidden={(attention === "none" && !pendingMemory.error) || (attention === "memory" && detailsOpen)}>
-          {attention === "approval" && approval ? <ApprovalCard approval={approval} deciding={decidingId === approval.approvalId} onDecision={decision => void decide(decision)} /> : null}
+          {attention === "approval" && approval && (layout !== "zcode" || detailsOpen) ? <ApprovalCard approval={approval} deciding={decidingId === approval.approvalId} onDecision={decision => void decide(decision)} /> : null}
           {attention === "unknown" ? <div className="review-notice" role="status"><Icon name="shield" size={16} /><span>有执行效果还没核对，不会自动重做。</span><button className="ghost" onClick={() => { if (reviewTask) { workTasks.select(reviewTask.id); openTask(); } else { openDetails("records"); const run = unknownRuns[0]; if (run) void openRecord(run.runId); } }}>{reviewTask ? "核对工作任务" : "查看回执"}<Icon name="chevron" size={14} /></button></div> : null}
           {info ? <PendingMemory memory={info.memory} controllerIdle={!busy} refreshToken={memoryRefresh} visible={attention === "memory" && !detailsOpen} onStatus={setPendingMemory} onReviewed={refreshMemory} onLater={() => setMemoryDeferred(true)} onOpenCandidate={id => openMemory(id)} /> : null}
           {pendingMemory.error && attention === "none" ? <div className="attention-summary"><span>记忆候选暂不可用，不能据此判断没有待审项。</span><button className="ghost" onClick={() => openDetails("memory")}>查看原因</button></div> : null}
@@ -750,25 +775,25 @@ function AssistantPage({ drafts, layout, onLayoutChange }: { drafts: Map<string,
                 const area = conversationScroll.current;
                 if (!area) return;
                 followConversation.current = area.scrollHeight - area.scrollTop - area.clientHeight < 80;
+                setAwayFromLatest(!followConversation.current);
                 if (followConversation.current) setUnreadOutput(false);
               }}>
                 {rows.length === 0 && !live.streaming && !workTasks.task ? <div className="conversation-empty">
                   <h1>你想完成什么？</h1>
-                  <p>直接说就可以。需要跟踪进度和验收的事，再创建工作任务。</p>
                   <button className="ghost" onClick={() => openDetails("threads")}>继续之前的对话<Icon name="chevron" size={14} /></button>
                 </div> : null}
                 <div className="conversation-thread">
-                  {rows.map(row => <Row key={row.key} row={row} delivered={delivered.has(row.key)} layout={layout} />)}
-                  {info?.memory.enabled ? <MemoryReferences refreshToken={contextRefresh} runId={state.kind === "running" && state.phase === "primary" ? state.runId : latestPrimaryId.current} starting={state.kind === "running" && state.phase === "primary" && state.runId === null} /> : null}
-                  {activePrimary && live.streaming ? <div className="row row-text role-assistant live">
+                  {layout === "zcode" ? <ZCodeConversation rows={rows} running={activePrimary} streaming={live.streaming} waitingForApproval={approval !== null} /> : rows.map(row => <Row key={row.key} row={row} delivered={delivered.has(row.key)} />)}
+                  {info?.memory.enabled ? <MemoryReferences hideEmpty={layout === "zcode"} refreshToken={contextRefresh} runId={state.kind === "running" && state.phase === "primary" ? state.runId : latestPrimaryId.current} starting={state.kind === "running" && state.phase === "primary" && state.runId === null} /> : null}
+                  {layout !== "zcode" && activePrimary && live.streaming ? <div className="row row-text role-assistant live">
                     <span className="role"><SerikaMark size={20} /> Serika <span className="streaming-label">正在回复</span></span>
                     <MessageContent text={live.streaming} />
                   </div> : null}
-                  {activePrimary && !live.streaming ? <div className="working-indicator" role="status"><span /><span /><span /><small>{approval ? "等待你的确认" : "正在处理"}</small></div> : null}
+                  {layout !== "zcode" && activePrimary && !live.streaming ? <div className="working-indicator" role="status"><span /><span /><span /><small>{approval ? "等待你的确认" : "正在处理"}</small></div> : null}
                   <div ref={conversationEnd} />
                 </div>
               </div>
-              {unreadOutput ? <button className="latest-button" onClick={scrollToLatest}><Icon name="arrow" size={14} style={{ transform: "rotate(180deg)" }} />最新消息</button> : null}
+              {layout === "zcode" && awayFromLatest ? <ZCodeBackToBottom unread={unreadOutput} onClick={() => { scrollToLatest(); setAwayFromLatest(false); }} /> : layout !== "zcode" && unreadOutput ? <button className="latest-button" onClick={scrollToLatest}><Icon name="arrow" size={14} style={{ transform: "rotate(180deg)" }} />最新消息</button> : null}
               {showOutput ? <div className="system-output"><div><Icon name="terminal" size={16} /><span>系统输出 · 仅供诊断</span><button className="icon-button" aria-label="关闭系统输出" onClick={() => setShowOutput(false)}><Icon name="close" size={16} /></button></div><pre className="output">{output || "暂无输出"}</pre></div> : null}
             </section>
           </main>
@@ -814,9 +839,9 @@ function AssistantPage({ drafts, layout, onLayoutChange }: { drafts: Map<string,
         </div>
         <div className="action-dock">
           {error ? <div className="error error-banner" role="alert"><span>{error}</span>{info ? <button className="icon-button" aria-label="关闭错误提示" onClick={() => setError(null)}><Icon name="close" size={16} /></button> : null}</div> : null}
-          <footer className="composer" hidden={detailsOpen}>
-            {workTasks.task || composingTask ? <div className="composer-target" role="group" aria-label="发送方式"><button className={!composingTask ? "selected" : ""} type="button" aria-pressed={!composingTask} onClick={() => setTaskComposerId(null)}>普通对话</button><button className={composingTask ? "selected" : ""} type="button" aria-pressed={composingTask} disabled={!workTasks.task || (!taskActions(workTasks.task).run && !composingTask)} onClick={composeTask}>补充当前任务</button>{composingTask ? <span>{composerTask?.goal ?? "任务正在读取或已切换"}</span> : null}</div> : null}
-            <textarea ref={inputRef} aria-label={composingTask ? "本轮任务指令" : "消息输入"} rows={3} value={composerText}
+          {layout === "zcode" && !detailsOpen && approval ? <ApprovalCard approval={approval} deciding={decidingId === approval.approvalId} onDecision={decision => void decide(decision)} /> : null}
+          <ZCodePromptEditor inputRef={inputRef} hidden={detailsOpen} value={composerText} aria-label={composingTask ? "本轮任务指令" : "消息输入"}
+              topContent={<>{workTasks.task || composingTask ? <div className="composer-target" role="group" aria-label="发送方式"><button className={!composingTask ? "selected" : ""} type="button" aria-pressed={!composingTask} onClick={() => setTaskComposerId(null)}>普通对话</button><button className={composingTask ? "selected" : ""} type="button" aria-pressed={composingTask} disabled={!workTasks.task || (!taskActions(workTasks.task).run && !composingTask)} onClick={composeTask}>补充当前任务</button>{composingTask ? <span>{composerTask?.goal ?? "任务正在读取或已切换"}</span> : null}</div> : null}{excludeFromMemory && !composingTask ? <div className="zcode-draft-setting"><Icon name="memory" size={13} /><span>本条不整理为记忆</span><button type="button" className="icon-button" aria-label="恢复本条记忆整理" onClick={() => setExcludeFromMemory(false)}><Icon name="close" size={12} /></button></div> : null}</>}
               disabled={sending || switchingThread || info === null || (composingTask && !composerTask)}
               placeholder={composingTask && !composerTask ? "请重新选择任务输入，或切回普通对话…" : approval ? "可先写下一条；发送前请确认上方操作…" : !composerReady ? "可先写下一条，结束后再发送…" : composingTask ? "补充本轮要求；留空将使用任务目标…" : "描述你想完成的事…"}
               onChange={event => { if (!composingTask) setInput(event.target.value); else if (composerTask) workTasks.setInstruction(event.target.value); }}
@@ -824,19 +849,15 @@ function AssistantPage({ drafts, layout, onLayoutChange }: { drafts: Map<string,
                 if (composerReady && shouldSubmitComposer({ key: event.key, shiftKey: event.shiftKey, isComposing: event.nativeEvent.isComposing })) {
                   event.preventDefault(); followConversation.current = true; void submit();
                 }
-              }} />
-            <div className="composer-controls">
-              {info?.memory.enabled && !composingTask ? <label className="memory-exclusion" title="这条消息不进入现在或以后的记忆候选整理；不会删除对话记录，也不关闭已有记忆引用。"><input type="checkbox" checked={excludeFromMemory} disabled={sending} onChange={event => setExcludeFromMemory(event.target.checked)} />本条不整理为记忆</label> : null}
-              {info?.workTasks && !composingTask ? <button className="ghost" disabled={busy || workTasks.acting || sending} onClick={() => { setTaskDraft(input.trim()); setTaskFocused(true); openDetails("tasks"); setCreateTaskRequest(value => value + 1); }}>{input.trim() ? "作为任务…" : "创建工作任务"}</button> : null}
-              {info && info.commands.length > 0 && !composingTask ? <details className="commands-menu"><summary>／<span>命令</span></summary><div className="commands">
-                <div className="command-caption">填入命令后发送，不会立即执行</div>
-                {info.commands.map(name => <button key={name} className="chip" disabled={busy} onClick={() => prepareInput(`/${name} `)}>/{name}</button>)}
-              </div></details> : null}
-              <span className="spacer" />
-              <button className="icon-button" aria-label={showOutput ? "隐藏系统输出" : "查看系统输出"} title="系统输出" aria-pressed={showOutput} onClick={() => setShowOutput(value => !value)}><Icon name="terminal" size={17} /></button>
-              <button className={`send-button${composingTask ? " task-send" : ""}`} aria-label={composingTask ? composerTask?.status === "ready" ? "开始任务" : "继续此任务" : "发送消息"} title={composingTask ? "显式开启任务的新一轮；工具仍需确认" : "发送 · Enter"} disabled={!composerReady || sending || switchingThread || !info || (composingTask ? workTasks.locked || !composerTask || !taskActions(composerTask).run : !input.trim())} onClick={() => { followConversation.current = true; void submit(); }}>{composingTask ? busy ? "正在处理" : composerTask?.status === "ready" ? "开始任务" : "继续此任务" : <Icon name="arrow" size={19} />}</button>
-            </div>
-          </footer>
+              }}
+              leadingActions={<><ZCodePromptOptions>
+                {info?.memory.enabled && !composingTask ? <label className="memory-exclusion" title="这条消息不进入现在或以后的记忆候选整理；不会删除对话记录，也不关闭已有记忆引用。"><input type="checkbox" checked={excludeFromMemory} disabled={sending} onChange={event => setExcludeFromMemory(event.target.checked)} />本条不整理为记忆</label> : null}
+                {info?.workTasks && !composingTask ? <button type="button" className="ghost" disabled={busy || workTasks.acting || sending} onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); setTaskDraft(input.trim()); setTaskFocused(true); openDetails("tasks"); setCreateTaskRequest(value => value + 1); }}><Icon name="activity" size={15} />{input.trim() ? "作为工作任务…" : "创建工作任务"}</button> : null}
+                {info && info.commands.length > 0 && !composingTask ? <><div className="command-caption">命令 · 填入后发送，不会立即执行</div><div className="zcode-command-list">{info.commands.map(name => <button type="button" key={name} disabled={busy} onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); prepareInput(`/${name} `); }}>/{name}</button>)}</div></> : null}
+                <button type="button" className="ghost" aria-pressed={showOutput} onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); setShowOutput(value => !value); }}><Icon name="terminal" size={15} />{showOutput ? "隐藏系统输出" : "查看系统输出"}</button>
+              </ZCodePromptOptions><span className="zcode-confirmation-hint" title="每次工具调用仍需按配置确认，不会因为这个界面自动授权。"><Icon name="shield" size={13} />操作前确认</span></>}
+              submitControl={<><span className="zcode-model-name" title="当前配置的模型；不代表本轮已联网验证">{info?.modelId ?? info?.modelAlias ?? "连接中"}</span>{busy ? <Button type="button" variant="outline" size="icon" className="zcode-stop-button" aria-label={state.kind === "running" && state.phase === "consolidation" ? "停止整理" : "停止本轮"} title="停止本轮；已执行的操作不会撤回" onClick={() => void window.runloom.cancel().catch(() => setError("取消结果未收到，请核对当前状态。"))}><Square size={12} /></Button> : <Button type="button" size={composingTask ? "default" : "icon"} className={`send-button${composingTask ? " task-send" : ""}`} aria-label={composingTask ? composerTask?.status === "ready" ? "开始任务" : "继续此任务" : "发送消息"} title={composingTask ? "显式开启任务的新一轮；工具仍需确认" : "发送 · Enter"} disabled={!composerReady || sending || switchingThread || !info || (composingTask ? workTasks.locked || !composerTask || !taskActions(composerTask).run : !input.trim())} onClick={() => { followConversation.current = true; void submit(); }}>{composingTask ? composerTask?.status === "ready" ? "开始任务" : "继续此任务" : <ArrowUp size={18} />}</Button>}</>}
+          />
           <div className="composer-hint" hidden={detailsOpen}><span>{composingTask ? !composerTask ? "原任务草稿仍保留。重新选择任务输入，或切回普通对话。" : busy ? "正在处理，暂不能发送。可先写下一轮的补充要求。" : taskActions(composerTask).run ? "任务指令不进入记忆整理 · 工具仍需逐次确认" : "本轮已结束，请从任务卡查看结果；也可切回普通对话" : "Enter 发送 · Shift + Enter 换行"}</span></div>
         </div>
       </div>
