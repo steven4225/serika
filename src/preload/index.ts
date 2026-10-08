@@ -4,6 +4,7 @@ import { IPC, type MainToRenderer, type RendererApi } from "../shared/ui-contrac
 const api: RendererApi = {
   loadConversationDraft: scope => ipcRenderer.invoke(IPC.draftLoad, scope),
   saveConversationDraft: (scope, draft) => ipcRenderer.invoke(IPC.draftSave, scope, draft),
+  saveTaskDraft: (scope, update) => ipcRenderer.invoke(IPC.taskDraftSave, scope, update),
   acknowledgeSteer: (scope, id) => ipcRenderer.invoke(IPC.steerAcknowledge, scope, id),
   releaseSteer: (scope, id) => ipcRenderer.invoke(IPC.steerRelease, scope, id),
   retryConnection: () => ipcRenderer.invoke(IPC.retryConnection),

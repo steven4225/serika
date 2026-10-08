@@ -22,6 +22,8 @@ export interface ToolRow {
   kind: "tool";
   key: string;
   toolCallId: string;
+  /** Known only from current Run events/snapshot, never guessed for old history. */
+  runId?: string;
   toolName: string;
   status: ToolRowStatus;
   /** Only full history/event outcomes have this marker; never receipt previews. */
@@ -179,7 +181,7 @@ export function rowsFromHistory(messages: readonly UIMessage[]): ConversationRow
   return rows;
 }
 
-export function rowsFromToolActivity(activity: readonly ToolActivity[]): ConversationRow[] {
+export function rowsFromToolActivity(activity: readonly ToolActivity[], runId?: string): ConversationRow[] {
   return activity.map((item) => {
     let parsed: unknown;
     let complete = false;
@@ -194,6 +196,7 @@ export function rowsFromToolActivity(activity: readonly ToolActivity[]): Convers
     kind: "tool" as const,
     key: `t:${item.toolCallId}`,
     toolCallId: item.toolCallId,
+    ...(runId ? { runId } : {}),
     toolName: item.toolName,
     status: unknown ? "unknown" : item.status === "failed" ? "failed" : returned.status,
     ...(unknown ? { detail: "效果未知 · 需人工核对，不自动重试" }
@@ -219,7 +222,7 @@ function lastUserTurnStart(rows: readonly ConversationRow[]): number {
 export function overlayExecutionReceipts(
   rows: readonly ConversationRow[],
   tools: readonly ExecutionToolRecord[],
-  { reuseHistory = true }: { reuseHistory?: boolean } = {},
+  { reuseHistory = true, runId }: { reuseHistory?: boolean; runId?: string } = {},
 ): ConversationRow[] {
   const result = [...rows];
   const turnStart = lastUserTurnStart(rows);
@@ -252,13 +255,14 @@ export function overlayExecutionReceipts(
       : tool.status === "failed" ? tool.errorPreview ?? "调用失败"
       : returned.detail ?? (tool.resultTruncated ? "回执已截断，不能据此推断成功" : undefined);
     const next: ToolRow = { kind: "tool", key: `receipt:${tool.toolName}:${tool.toolCallId}:${result.length}`, toolCallId: tool.toolCallId,
-      toolName: tool.toolName, status, ...(tool.shell ?? {}), ...(detail ? { detail } : {}) };
+      toolName: tool.toolName, status, ...(runId ? { runId } : {}), ...(tool.shell ?? {}), ...(detail ? { detail } : {}) };
     if (index < 0) result.push(next);
     else {
       // A later authoritative failure/unknown must not keep an earlier success
       // receipt. A truncated *preview* need not erase a known full output.
       const { receipt, outcomeSource, ...withoutReceipt } = existing!;
       result[index] = { ...withoutReceipt, status, ...(detail ? { detail } : {}),
+        ...(runId ? { runId } : {}),
         ...(tool.status === "completed" && outcomeSource === "full" ? { outcomeSource } : {}),
         ...(status === "ok" && receipt ? { receipt } : {}) };
     }
@@ -308,6 +312,7 @@ export function applyEvent(live: LiveRun, event: AgentEvent): LiveRun {
             kind: "tool",
             key: `t:${event.data.toolCallId}`,
             toolCallId: event.data.toolCallId,
+            runId: event.runId,
             toolName: event.data.toolName,
             status: "requested",
           },

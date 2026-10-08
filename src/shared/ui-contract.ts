@@ -1,5 +1,5 @@
 import type { UIMessage } from "ai";
-import type { ConversationDraftScope, ConversationDraft, ConversationDraftState, DesktopSteerInput, DesktopSteerResponse } from "./conversation-drafts.js";
+import type { ConversationDraftScope, ConversationDraft, ConversationDraftState, DesktopSteerInput, DesktopSteerResponse, TaskDraftUpdate } from "./conversation-drafts.js";
 import type { FormalMemory, MemoryPage, MemoryListInput, MemoryEditInput } from "@aisdk-agent/example-cli/dist/memory-management.js";
 import type { MemoryAction, MemoryActionPreview, MemoryHistoryInput, MemoryHistoryPage, MemoryMaintenance } from "@aisdk-agent/example-cli/dist/memory-controls.js";
 import type { AssistantRunOptions, AssistantSteerRecord, AutomationResult } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
@@ -12,6 +12,8 @@ import type { MemoryConsolidationRequest, MemoryConsolidationSourcePage } from "
 import type { MemoryTemporalQuery, MemoryTemporalView } from "@aisdk-agent/example-cli/dist/memory-store.js";
 import type { MemoryReferenceSnapshot } from "@aisdk-agent/example-cli/dist/memory-query-rewrite.js";
 import type { AgentEvent, RunResult } from "@aisdk-agent/core";
+import type { ExecutionRunRecord } from "@aisdk-agent/example-cli/dist/execution-record-store.js";
+export type { ExecutionRunRecord, ExecutionToolRecord } from "@aisdk-agent/example-cli/dist/execution-record-store.js";
 import type { ContextDiagnostics, ContextResult } from "@aisdk-agent/example-cli/dist/context-diagnostics.js";
 import type { RssAction, RssInbox, RssResult, RssView } from "@aisdk-agent/example-cli/dist/rss-subscriptions.js";
 import type { WorkTask, WorkTaskInputs, WorkTaskResult, WorkTaskReadInput, WorkTaskArtifactInput, WorkTaskReadResult, WorkTaskDeliveryDraft, WorkTaskArtifactPreview } from "./work-tasks.js";
@@ -172,36 +174,6 @@ export type ExecutionToolStatus =
   | "failed"
   | "unknown";
 
-export interface ExecutionToolRecord {
-  toolCallId: string;
-  toolName: string;
-  status: ExecutionToolStatus;
-  requestedAt: string;
-  startedAt: string | null;
-  finishedAt: string | null;
-  inputPreview: string;
-  inputTruncated: boolean;
-  resultPreview: string | null;
-  resultTruncated: boolean;
-  errorPreview: string | null;
-  shell: { exitCode: number | null; timedOut: boolean; cancelled: boolean } | null;
-}
-
-export interface ExecutionRunRecord {
-  runId: string;
-  threadId: string;
-  workTaskId?: string;
-  phase: RunPhase;
-  status: ExecutionRunStatus;
-  startedAt: string;
-  finishedAt: string | null;
-  resultTextPreview: string | null;
-  resultTextTruncated: boolean;
-  errorPreview: string | null;
-  tools: ExecutionToolRecord[];
-  steers?: AssistantSteerRecord[];
-}
-
 export type ListRunsResponse =
   | { ok: true; runs: ExecutionRunRecord[] }
   | { ok: false; reason: "unavailable"; message: string };
@@ -213,6 +185,7 @@ export type GetRunResponse =
 export interface RendererApi {
   loadConversationDraft(scope: ConversationDraftScope): Promise<ConversationDraftState>;
   saveConversationDraft(scope: ConversationDraftScope, draft: ConversationDraft): Promise<void>;
+  saveTaskDraft(scope: ConversationDraftScope, update: TaskDraftUpdate): Promise<void>;
   acknowledgeSteer(scope: ConversationDraftScope, id: string): Promise<AssistantSteerRecord | null>;
   releaseSteer(scope: ConversationDraftScope, id: string): Promise<boolean>;
   retryConnection(): Promise<void>;
@@ -294,6 +267,7 @@ export interface RendererApi {
 export const IPC = {
   draftLoad: "runloom:draftLoad",
   draftSave: "runloom:draftSave",
+  taskDraftSave: "runloom:taskDraftSave",
   steerAcknowledge: "runloom:steerAcknowledge",
   steerRelease: "runloom:steerRelease",
   retryConnection: "runloom:retryConnection",
@@ -370,7 +344,7 @@ export const IPC = {
 } as const;
 
 export type RssWorkerResponse =
-  | { ok: true; registered: boolean; running: boolean; rssEnabled: boolean; notifyEnabled?: boolean; notificationRoutingEnabled?: boolean }
+  | { ok: true; registered: boolean; running: boolean; rssEnabled: boolean; notifyEnabled?: boolean; notificationRoutingEnabled?: boolean; setupReady?: boolean; configurationMessage?: string }
   | { ok: false; message: string };
 
 export interface NotificationReadinessStatus {

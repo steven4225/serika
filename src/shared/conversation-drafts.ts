@@ -7,9 +7,18 @@ export interface ConversationDraftScope {
 }
 export interface ConversationDraft { text: string; excludeFromMemory: boolean }
 export interface UncertainSteer { id: string; runId: string; text: string; taskId?: string }
+export interface TaskCreationDraft {
+  goal: string; constraints: string; artifacts: string; human: string; commands: string; testCwd: string; template: string | null;
+}
+export interface TaskDrafts { creation: TaskCreationDraft | null; instructions: Record<string, string>; composerTaskId: string | null }
+export type TaskDraftUpdate = { kind: "creation"; value: TaskCreationDraft | null }
+  | { kind: "instruction"; taskId: string; text: string; expectedText?: string }
+  | { kind: "composer"; taskId: string | null };
+export function emptyTaskDrafts(): TaskDrafts { return { creation: null, instructions: {}, composerTaskId: null }; }
 export interface ConversationDraftState {
   draft: ConversationDraft;
   uncertainSteer: UncertainSteer | null;
+  taskDrafts?: TaskDrafts;
 }
 export type DesktopSteerInput = { expectedRunId: string; id: string; text: string; taskId?: string; scope: ConversationDraftScope };
 export type DesktopSteerResponse = AssistantSteerResponse | { ok: false; reason: "storage" | "unresolved" };

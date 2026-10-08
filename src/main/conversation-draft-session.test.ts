@@ -50,6 +50,26 @@ function runResult(threadId: string, steers: AssistantSteerRecord[]): GetRunResp
 }
 
 describe("persisted desktop Steer session", () => {
+  it("releases task-origin uncertainty back to the same task and never overwrites ordinary or newer task drafts", async () => fixture(async root => {
+    const store = new ConversationDraftStore(join(root, "profile")), fake = fakeHost(root);
+    const session = new ConversationDraftSession(fake.host, store), request = { ...input(fake.scope()), taskId: "task-1" };
+    await session.save(request.scope, { text: "separate chat", excludeFromMemory: true });
+    await session.steer(request);
+    fake.setState("idle");
+    await session.saveTask(request.scope, { kind: "instruction", taskId: "task-1", text: "new task draft" });
+    await assert.rejects(session.release(request.scope, request.id), /另有新草稿/);
+    assert.ok((await session.load(request.scope)).uncertainSteer);
+    await session.saveTask(request.scope, { kind: "instruction", taskId: "task-1", text: request.text });
+    assert.equal(await session.release(request.scope, request.id), true);
+    const restored = await new ConversationDraftSession(fake.host, new ConversationDraftStore(join(root, "profile"))).load(request.scope);
+    assert.equal(restored.draft.text, "separate chat");
+    assert.equal(restored.taskDrafts?.instructions["task-1"], request.text);
+    assert.equal(restored.taskDrafts?.composerTaskId, "task-1");
+    assert.equal(restored.uncertainSteer, null);
+    assert.equal(fake.dispatches(), 1);
+    fake.setScope({ ...request.scope, threadId: "another" });
+    assert.throws(() => session.saveTask(request.scope, { kind: "composer", taskId: "task-1" }), /会话已切换/);
+  }));
   it("persists pending identity before dispatch and retains it through thrown or failed responses and reconstruction", async () => fixture(async root => {
     for (const mode of ["throw", "failed"] as const) {
       const store = new ConversationDraftStore(join(root, mode)), fake = fakeHost(root);

@@ -77,9 +77,11 @@ export function createDesktopRssWorker(options: {
       const args = status.command.stdout.split("\n").map(line => line.trim());
       const helperIndex = args.indexOf("--notification-helper");
       const notifyEnabled = status.registered && /^\s*--notify\s*$/m.test(status.command.stdout);
+      const setupReady = !status.registered || JSON.stringify(loadedWorkerArguments(status.command.stdout)) === JSON.stringify(expectedArguments);
       return { ok: true, registered: status.registered, running: status.running,
         rssEnabled: status.registered && /^\s*--rss\s*$/m.test(status.command.stdout), notifyEnabled,
-        notificationRoutingEnabled: notifyEnabled && notificationHelperPath !== undefined && helperIndex >= 0 && args[helperIndex + 1] === notificationHelperPath };
+        notificationRoutingEnabled: notifyEnabled && notificationHelperPath !== undefined && helperIndex >= 0 && args[helperIndex + 1] === notificationHelperPath,
+        setupReady, ...(!setupReady ? { configurationMessage: "已注册的后台服务与当前可信配置不一致；请先停用再启用。安排可以保存，但暂不能依赖执行或通知，不会自动替换服务。" } : {}) };
     } catch (error) {
       // Never return launchctl stdout, credentials or user environment to IPC.
       return { ok: false, message: error instanceof Error ? error.message : "后台服务操作失败。" };

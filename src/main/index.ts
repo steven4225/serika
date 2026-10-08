@@ -190,6 +190,7 @@ async function main(): Promise<void> {
   const drafts = new ConversationDraftSession(host, new ConversationDraftStore(app.getPath("userData")));
   ipcMain.handle(IPC.draftLoad, (_event, scope) => drafts.load(scope));
   ipcMain.handle(IPC.draftSave, (_event, scope, draft) => drafts.save(scope, draft));
+  ipcMain.handle(IPC.taskDraftSave, (_event, scope, update) => drafts.saveTask(scope, update));
   ipcMain.handle(IPC.steerAcknowledge, (_event, scope, id) => drafts.acknowledge(scope, id));
   ipcMain.handle(IPC.steerRelease, (_event, scope, id) => drafts.release(scope, id));
   ipcMain.handle(IPC.retryConnection, () => host.retryConnection());

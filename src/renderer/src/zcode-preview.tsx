@@ -69,6 +69,7 @@ function finish(allowed: boolean) {
 const api = {
   loadConversationDraft: async (scope: ConversationDraftScope) => ({ draft: previewDrafts.get(JSON.stringify(scope)) ?? { text: "", excludeFromMemory: false }, uncertainSteer: null }),
   saveConversationDraft: async (scope: ConversationDraftScope, draft: ConversationDraft) => { previewDrafts.set(JSON.stringify(scope), draft); },
+  saveTaskDraft: async () => {},
   info: async () => info(), snapshot: async () => structuredClone(snapshot), history: async () => structuredClone(histories.get(threadId) ?? []),
   listRuns: async () => ({ ok: true as const, runs: [...receipts.values()].filter(run => run.threadId === threadId) }),
   getRun: async (id: string) => ({ ok: true as const, run: receipts.get(id) ?? null }),

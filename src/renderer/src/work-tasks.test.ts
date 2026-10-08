@@ -8,11 +8,21 @@ import { WorkTasksPanel, CurrentTask, type WorkTaskView } from "./work-tasks.js"
 const baseTask: WorkTask = { id: "task", revision: 3, threadId: "thread", goal: "写计划", constraints: [], acceptance: [{ id: "human", description: "可执行", method: "human", verification: { kind: "human" }, required: true, status: "not_run", evidenceRefs: [], note: null }], status: "paused", runIds: ["run"], delivery: null, reconciliations: [], createdAt: "2026-10-03T00:00:00.000Z", updatedAt: "2026-10-03T00:00:00.000Z" };
 const noChange = async () => false;
 function view(task: WorkTask | null, overrides: Partial<WorkTaskView> = {}): WorkTaskView {
-  return { tasks: task ? [task] : [], task, enabled: true, loading: false, error: null, notice: null, locked: false, acting: false, instruction: "", setInstruction: () => undefined, select: () => undefined, reread: () => undefined, create: noChange, run: noChange, deliver: noChange, accept: noChange, reconcile: noChange, cancel: noChange, rework: noChange, ...overrides };
+  return { tasks: task ? [task] : [], task, enabled: true, loading: false, error: null, notice: null, locked: false, acting: false,
+    draftReady: true, draftError: null, draftSaving: false, flushDrafts: async () => {}, creationDraft: null, setCreationDraft: () => {},
+    composerTaskId: null, setComposerTaskId: () => {}, clearInstruction: () => {}, reloadDrafts: () => {}, retryDrafts: () => {},
+    instruction: "", setInstruction: () => undefined, select: () => undefined, reread: () => undefined, create: noChange, run: noChange, deliver: noChange, accept: noChange, reconcile: noChange, cancel: noChange, rework: noChange, ...overrides };
 }
 function panel(state: WorkTaskView) { return renderToStaticMarkup(createElement(WorkTasksPanel, { view: state, onRun: () => undefined })); }
 
 describe("work task controls", () => {
+  it("restores all editable task creation fields without creating a task and makes failed persistence actionable", () => {
+    const html = panel(view(null, { creationDraft: { goal: "整理来源", constraints: "保留原文", artifacts: "notes/report.md", human: "来源准确", commands: "node check.mjs", testCwd: "project", template: "document" } }));
+    for (const text of ["整理来源", "保留原文", "notes/report.md", "来源准确", "node check.mjs", 'value="project"']) assert.ok(html.includes(text));
+    assert.match(html, /创建任务，不执行/);
+    assert.match(html, /任务草稿已保存/);
+    assert.match(panel(view(null, { draftError: "任务草稿未保存", locked: true })), /重试任务草稿保存/);
+  });
   it("renders the retained instruction after a task revision changes and exposes start-in-flight", () => {
     const instruction = "保留旧章节，只修改 Next";
     for (const revision of [3, 4]) {

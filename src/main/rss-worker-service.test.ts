@@ -166,6 +166,11 @@ it("checks the loaded launchctl cache against exact trusted paths and RSS/Todois
       assert.equal(status.available, args === expected);
       assert.equal(status.todoistPlanningAvailable, args === expected);
       assert.doesNotMatch(JSON.stringify(status), /WORKER_ONLY_FIXTURE|PRIVATE_FIXTURE|\/other/);
+      const displayed = await worker.status();
+      if (!displayed.ok) throw new Error(displayed.message);
+      assert.equal(displayed.setupReady, args === expected, "the page readiness must match the actual launchctl arguments, not just pid and notification flags");
+      if (args !== expected) assert.match(displayed.configurationMessage ?? "", /先停用再启用/);
+      assert.doesNotMatch(JSON.stringify(displayed), /WORKER_ONLY_FIXTURE|PRIVATE_FIXTURE|\/other/);
       if (args !== expected) {
         assert.equal((await worker.enableArrangement()).enabled, false);
         assert.equal((await worker.setEnabled(true)).ok, false);

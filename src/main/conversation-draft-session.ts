@@ -1,6 +1,7 @@
 import type { DesktopRuntime } from "./desktop-runtime.js";
 import { ConversationDraftStore } from "./conversation-draft-store.js";
 import { draftScope, sameDraftScope, type ConversationDraftScope, type ConversationDraft, type DesktopSteerInput, type DesktopSteerResponse } from "../shared/conversation-drafts.js";
+import type { TaskDraftUpdate } from "../shared/conversation-drafts.js";
 
 /** Persist UI intent before dispatch. Neither loading nor acknowledging it replays a tool/Run. */
 export class ConversationDraftSession {
@@ -14,6 +15,7 @@ export class ConversationDraftSession {
 
   load(expected: ConversationDraftScope) { return this.store.load(this.#scope(expected)); }
   save(expected: ConversationDraftScope, draft: ConversationDraft) { return this.store.saveDraft(this.#scope(expected), draft); }
+  saveTask(expected: ConversationDraftScope, update: TaskDraftUpdate) { return this.store.saveTaskDraft(this.#scope(expected), update); }
   flush() { return this.store.flush(); }
 
   async steer(input: DesktopSteerInput): Promise<DesktopSteerResponse> {
@@ -57,6 +59,14 @@ export class ConversationDraftSession {
     const state = await this.store.load(scope);
     if (!state.uncertainSteer) return true;
     if (state.uncertainSteer?.id !== id) return false;
+    if (state.uncertainSteer.taskId) {
+      const pending = state.uncertainSteer;
+      const existing = state.taskDrafts?.instructions[pending.taskId!];
+      if (existing?.trim() && existing.trim() !== pending.text.trim()) throw new Error("原任务另有新草稿，请先保存两份内容；本次没有清除任何内容。");
+      if (!existing) await this.store.saveTaskDraft(scope, { kind: "instruction", taskId: pending.taskId!, text: pending.text });
+      await this.store.saveTaskDraft(scope, { kind: "composer", taskId: pending.taskId! });
+      return this.store.clearUncertainSteer(scope, id);
+    }
     if (state.draft.text.trim() && state.draft.text.trim() !== state.uncertainSteer.text.trim()) {
       throw new Error("输入框另有一份草稿。请先复制保存它，再把待核对补充移回输入框；本次没有清除任何内容。");
     }

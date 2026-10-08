@@ -5,15 +5,27 @@ import { criterionStatusLabels, isTaskRun, lines, taskFormAcceptance, selectCurr
 import { formatRecordTime } from "../../shared/execution-records.js";
 import { Icon } from "./icons.js";
 import { TaskContinuation } from "./task-continuation.js";
+import { emptyTaskDrafts, draftScope, type ConversationDraftScope, type TaskCreationDraft, type TaskDrafts, type TaskDraftUpdate } from "../../shared/conversation-drafts.js";
 
-export function useWorkTasks(enabled: boolean, busy: boolean, refreshToken: number, onRunStarted: (text: string) => void, selectionKey: string | null = null) {
+export const emptyTaskCreation = (): TaskCreationDraft => ({ goal: "", constraints: "", artifacts: "", human: "", commands: "", testCwd: ".", template: null });
+
+export function useWorkTasks(enabled: boolean, busy: boolean, refreshToken: number, onRunStarted: (text: string) => void, selectionKey: string | null = null, scope: ConversationDraftScope | null = null) {
   const [tasks, setTasks] = useState<WorkTask[]>([]);
   const [task, setTask] = useState<WorkTask | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [acting, setActing] = useState(false);
-  const [instructionDrafts, setInstructionDrafts] = useState(new Map<string, string>());
+  const [savedDrafts, setSavedDrafts] = useState<TaskDrafts>(emptyTaskDrafts);
+  const [draftReady, setDraftReady] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const [draftSaving, setDraftSaving] = useState(false);
+  const draftWrite = useRef<Promise<void>>(Promise.resolve());
+  const draftState = useRef<TaskDrafts>(emptyTaskDrafts());
+  const draftSequence = useRef(0);
+  const draftIdentity = useRef<string | null>(null);
+  const unsavedUpdates = useRef(new Map<string, TaskDraftUpdate>());
+  const scopeIdentity = scope ? JSON.stringify(draftScope(scope)) : null;
   const request = useRef(0);
   const selected = useRef<string | null>(null);
   const restoring = useRef(true);
@@ -23,8 +35,48 @@ export function useWorkTasks(enabled: boolean, busy: boolean, refreshToken: numb
     restoring.current = true;
     try { selected.current = selectionKey ? readTaskSelection(window.localStorage, selectionKey) : null; }
     catch { selected.current = null; }
-    setTask(null); setTasks([]); setError(null); setInstructionDrafts(new Map()); setNotice(null);
+    setTask(null); setTasks([]); setError(null); setNotice(null);
   }, [selectionKey]);
+  useEffect(() => {
+    let active = true;
+    setDraftReady(false); setDraftError(null); setDraftSaving(false);
+    draftWrite.current = Promise.resolve();
+    draftIdentity.current = null; draftState.current = emptyTaskDrafts(); setSavedDrafts(emptyTaskDrafts()); unsavedUpdates.current.clear();
+    if (!scope) return;
+    void window.runloom.loadConversationDraft(scope).then(saved => {
+      if (!active) return;
+      const tasks = saved.taskDrafts ?? emptyTaskDrafts();
+      // Older pending task supplements must never become an ordinary chat draft.
+      if (saved.uncertainSteer?.taskId) {
+        const pending = saved.uncertainSteer;
+        if (!tasks.instructions[pending.taskId!]) tasks.instructions[pending.taskId!] = pending.text;
+        tasks.composerTaskId = pending.taskId!;
+      }
+      draftIdentity.current = scopeIdentity; draftState.current = tasks; setSavedDrafts(tasks); setDraftReady(true);
+      if (tasks.composerTaskId) { selected.current = tasks.composerTaskId; restoring.current = false; setRefresh(value => value + 1); }
+    }).catch(() => { if (active) setDraftError("任务草稿无法读取；原文件未覆盖，创建和续做已停用。修复后重新加载。"); });
+    return () => { active = false; ++draftSequence.current; };
+  }, [scopeIdentity]);
+  const saveDraft = (update: TaskDraftUpdate) => {
+    if (!scope || !draftReady || draftIdentity.current !== scopeIdentity) return;
+    const next = structuredClone(draftState.current);
+    if (update.kind === "creation") next.creation = update.value;
+    else if (update.kind === "composer") next.composerTaskId = update.taskId;
+    else if (update.text) next.instructions[update.taskId] = update.text;
+    else delete next.instructions[update.taskId];
+    draftState.current = next; setSavedDrafts(next); setDraftSaving(true);
+    const updateKey = update.kind === "instruction" ? `instruction:${update.taskId}` : update.kind;
+    unsavedUpdates.current.set(updateKey, update);
+    const sequence = ++draftSequence.current;
+    const write = draftWrite.current.then(() => window.runloom.saveTaskDraft(scope, update));
+    draftWrite.current = write;
+    void write.then(() => {
+      if (unsavedUpdates.current.get(updateKey) === update) unsavedUpdates.current.delete(updateKey);
+      if (sequence === draftSequence.current) { setDraftError(null); setDraftSaving(false); }
+    })
+      .catch(() => { if (sequence === draftSequence.current) { setDraftError("任务草稿未保存；内容仍保留，恢复保存位置后点击重试。"); setDraftSaving(false); } });
+  };
+  const flushDrafts = async () => { await draftWrite.current; if (!draftReady || draftError || draftIdentity.current !== scopeIdentity) throw new Error("任务草稿未保存"); };
   const remember = useCallback((id: string | null) => {
     selected.current = id;
     try { if (selectionKey) saveTaskSelection(window.localStorage, selectionKey, id); } catch { /* Optional preference. */ }
@@ -65,7 +117,8 @@ export function useWorkTasks(enabled: boolean, busy: boolean, refreshToken: numb
     if (id === selected.current) return;
     ++request.current; remember(id); setTask(null); setNotice(null); reread();
   };
-  const locked = !enabled || busy || acting || loading || error !== null;
+  const hydrated = draftReady && draftIdentity.current === scopeIdentity;
+  const locked = !enabled || busy || acting || loading || error !== null || !hydrated || draftError !== null;
   async function change(action: () => Promise<WorkTaskResult<WorkTask> | RunResponse>, success: string, runText?: string): Promise<boolean> {
     if (locked || inFlight.current) return false;
     inFlight.current = true;
@@ -74,6 +127,7 @@ export function useWorkTasks(enabled: boolean, busy: boolean, refreshToken: numb
     setNotice(null);
     let ok = false;
     try {
+      await flushDrafts();
       const result = await action();
       ok = result.ok;
       if (result.ok) {
@@ -97,14 +151,26 @@ export function useWorkTasks(enabled: boolean, busy: boolean, refreshToken: numb
   }
 
   return { tasks, task, enabled, loading, error, notice, locked, acting, select, reread,
-    instruction: task ? instructionDrafts.get(task.id) ?? "" : "",
-    setInstruction: (text: string) => { if (task) setInstructionDrafts(current => new Map(current).set(task.id, text)); },
+    draftReady: hydrated, draftError, draftSaving, flushDrafts, creationDraft: hydrated ? savedDrafts.creation : null,
+    setCreationDraft: (value: TaskCreationDraft | null) => saveDraft({ kind: "creation", value }),
+    composerTaskId: hydrated ? savedDrafts.composerTaskId : null,
+    setComposerTaskId: (taskId: string | null) => saveDraft({ kind: "composer", taskId }),
+    instruction: task ? savedDrafts.instructions[task.id] ?? "" : "",
+    setInstruction: (text: string) => { if (task) saveDraft({ kind: "instruction", taskId: task.id, text }); },
+    clearInstruction: (taskId: string, expectedText: string) => { if (draftState.current.instructions[taskId]?.trim() === expectedText.trim()) saveDraft({ kind: "instruction", taskId, text: "", expectedText }); },
+    reloadDrafts: () => { window.location.reload(); },
+    retryDrafts: () => {
+      if (!draftReady) { window.location.reload(); return; }
+      const updates = [...unsavedUpdates.current.values()];
+      draftWrite.current = Promise.resolve();
+      for (const update of updates) saveDraft(update);
+    },
     create: (input: WorkTaskInputs["createWorkTask"]) => change(() => window.runloom.createWorkTask(input), "任务已创建；尚未执行。"),
     run: async (instruction: string) => {
       if (!task) return false;
       const id = task.id;
       const started = await change(() => window.runloom.runWorkTask({ id, expectedRevision: task.revision, ...(instruction.trim() ? { instruction: instruction.trim() } : {}) }), "本轮已启动；程序检查通过后提交交付，人工项仍须你审核。", instruction.trim() || task.goal);
-      if (started) setInstructionDrafts(current => { const next = new Map(current); next.delete(id); return next; });
+      if (started && draftState.current.instructions[id]?.trim() === instruction.trim()) saveDraft({ kind: "instruction", taskId: id, text: "", expectedText: instruction });
       return started;
     },
     deliver: (summary: string, artifacts: string[], unresolved: string[]) => task ? change(() => window.runloom.submitWorkTaskDelivery({ id: task.id, expectedRevision: task.revision, summary, artifactRefs: artifacts, unresolved }), "交付已提交。自动项由后端核验，人工项等待你判断。") : Promise.resolve(false),
@@ -134,22 +200,28 @@ export function CurrentTask({ view, onOpen, onCompose, compact = false }: { view
 }
 
 function CreateTask({ view, onClose, initialGoal = "" }: { view: WorkTaskView; onClose: () => void; initialGoal?: string }) {
-  const [goal, setGoal] = useState(initialGoal);
-  const [constraints, setConstraints] = useState("");
-  const [artifacts, setArtifacts] = useState("");
-  const [human, setHuman] = useState("");
-  const [commands, setCommands] = useState("");
-  const [testCwd, setTestCwd] = useState(".");
-  const [template, setTemplate] = useState<TaskTemplateId | null>(null);
+  const { goal, constraints, artifacts, human, commands, testCwd, template } = view.creationDraft ?? { ...emptyTaskCreation(), goal: initialGoal };
+  const update = (patch: Partial<TaskCreationDraft>) => view.setCreationDraft({ ...(view.creationDraft ?? { ...emptyTaskCreation(), goal: initialGoal }), ...patch });
+  useEffect(() => { if (view.draftReady && !view.creationDraft && initialGoal) view.setCreationDraft({ ...emptyTaskCreation(), goal: initialGoal }); }, [view.draftReady, initialGoal]);
+  const setGoal = (goal: string) => update({ goal });
+  const setConstraints = (constraints: string) => update({ constraints });
+  const setArtifacts = (artifacts: string) => update({ artifacts });
+  const setHuman = (human: string) => update({ human });
+  const setCommands = (commands: string) => update({ commands });
+  const setTestCwd = (testCwd: string) => update({ testCwd });
   const chooseTemplate = (id: TaskTemplateId) => {
     const draft = TASK_TEMPLATES[id].draft;
-    setGoal(draft.goal); setConstraints(draft.constraints); setArtifacts(draft.artifacts); setHuman(draft.human); setTemplate(id);
+    update({ goal: draft.goal, constraints: draft.constraints, artifacts: draft.artifacts, human: draft.human, template: id });
   };
   const create = async () => {
-    if (await view.create({ goal: goal.trim(), constraints: lines(constraints), acceptance: taskFormAcceptance(artifacts, human, commands, testCwd) })) onClose();
+    if (await view.create({ goal: goal.trim(), constraints: lines(constraints), acceptance: taskFormAcceptance(artifacts, human, commands, testCwd) })) {
+      view.setCreationDraft(null);
+      try { await view.flushDrafts(); onClose(); } catch { /* Created task remains visible; failed cleanup is explicit, never retry creation. */ }
+    }
   };
   return <form className="work-task-form" onSubmit={event => { event.preventDefault(); void create(); }}>
-    {initialGoal ? <p className="hint">已复制对话输入作为任务目标。原输入仍保留；填写验收后才会创建，不会直接执行。</p> : null}
+    <fieldset disabled={!view.draftReady || view.acting} style={{ border: 0, padding: 0, margin: 0, minWidth: 0, display: "grid", gap: 12 }}>
+    {initialGoal ? <p className="hint">已有任务草稿会优先恢复，不会被对话输入覆盖。原对话输入仍保留；填写验收后才会创建，不会直接执行。</p> : null}
     <details className="task-advanced"><summary>从模板填写（可选）</summary><div className="task-template-picker" role="group" aria-label="任务起点">
       {(Object.keys(TASK_TEMPLATES) as TaskTemplateId[]).map(id => <button type="button" className={template === id ? "selected" : ""} key={id} disabled={view.locked} onClick={() => chooseTemplate(id)}>{TASK_TEMPLATES[id].label}</button>)}
     </div><p className="hint">模板只填写草稿，不创建或执行。子目录必须已存在。</p></details>
@@ -163,6 +235,8 @@ function CreateTask({ view, onClose, initialGoal = "" }: { view: WorkTaskView; o
     <p className="hint">测试最后运行。之后再改文件、运行 Shell 或操作应用会使旧测试失效；同目录多条测试可能合成一条需确认的命令。</p></details>
     <section className="task-create-checks" aria-label="创建前验收摘要"><strong>这项任务如何算完成</strong>{taskFormAcceptance(artifacts, human, commands, testCwd).length ? <ul>{taskFormAcceptance(artifacts, human, commands, testCwd).map(item => <li key={item.id}>{item.method === "automatic" ? "程序核验：" : "你来审核："}{item.description}</li>)}</ul> : <p className="hint">至少填写一个产物、人工验收项或测试命令。</p>}<p className="hint">上述项目均为必需项。文件须本轮写入、读回并与当前磁盘一致。创建不执行，也不授予工具权限。</p></section>
     <div className="work-task-buttons"><button className="allow" type="submit" disabled={view.locked || !goal.trim() || (!lines(artifacts).length && !lines(human).length && !lines(commands).length)}>创建任务，不执行</button><button type="button" onClick={onClose} disabled={view.acting}>关闭</button></div>
+    </fieldset>
+    <p className="hint" role="status">{view.draftError ?? (view.draftSaving ? "保存任务草稿…" : view.draftReady ? "任务草稿已保存；关闭表单不会删除，下次打开可继续填写。" : "正在恢复任务草稿…")}</p>
   </form>;
 }
 
@@ -316,15 +390,17 @@ function TaskArtifacts({ task, draft, onRun, locked }: { task: WorkTask; draft: 
 }
 
 export function WorkTasksPanel({ view, onRun, createRequest = 0, initialGoal = "", focused = false, onCompose, onCreated }: { view: WorkTaskView; onRun: (id: string) => void; createRequest?: number; initialGoal?: string; focused?: boolean; onCompose?: () => void; onCreated?: () => void }) {
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState(view.creationDraft !== null && !focused);
   const panel = useRef<HTMLElement | null>(null);
   useEffect(() => { if (createRequest > 0) { setCreating(true); panel.current?.scrollIntoView({ block: "start" }); } }, [createRequest]);
+  useEffect(() => { if (view.draftReady && view.creationDraft && !focused) setCreating(true); }, [view.draftReady, focused]);
   return <section ref={panel} className="card work-tasks" aria-label="工作任务">
     <div className="card-head"><span>{creating ? "创建任务" : focused ? "当前任务" : "本对话的工作任务"}</span><div className="work-task-buttons"><button className="ghost" disabled={view.loading || view.acting} onClick={view.reread}>重新读取</button>{!focused && !creating ? <button disabled={view.locked} onClick={() => setCreating(true)}>创建工作任务</button> : null}</div></div>
     {!focused && !creating ? <p className="hint">当前对话的最近 20 项任务。与定时提醒分开；窗口关闭不保证继续执行。</p> : null}
     {!view.enabled ? <p className="muted">未配置工作区，工作任务不可用。</p> : null}
     {view.error ? <p className="error" role="alert">{view.error}{view.task ? "（下方为旧内容，操作已停用）" : ""}</p> : null}
     {view.notice ? <p className="work-task-notice" role="status">{view.notice}</p> : null}
+    {view.draftError ? <div className="error" role="alert">{view.draftError}<button type="button" onClick={view.retryDrafts}>重试任务草稿保存</button></div> : null}
     {view.loading ? <p className="muted">正在读取最新任务…</p> : null}
     {creating ? <CreateTask key={createRequest} view={{ ...view, create: async input => { const ok = await view.create(input); if (ok) onCreated?.(); return ok; } }} initialGoal={initialGoal} onClose={() => setCreating(false)} /> : null}
     {!creating && !focused && view.tasks.length ? <div className="work-task-list" role="group" aria-label="选择工作任务">{view.tasks.map(item => <button key={item.id} disabled={view.acting} className={view.task?.id === item.id ? "selected" : ""} onClick={() => view.select(item.id)}><span>{item.goal}</span><small>{taskStatusLabels[item.status]}</small></button>)}</div> : !creating && !view.task && !view.loading && !view.error && view.enabled ? <p className="muted">还没有工作任务。需要执行并验收时再显式创建，普通对话照常使用。</p> : null}

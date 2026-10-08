@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { NotificationReadinessStatus, RssWorkerResponse } from "../../shared/ui-contract.js";
-import { backgroundServiceLabel, notificationPermissionLabel } from "./daily-automation.js";
+import { backgroundActionAllowed, backgroundServiceLabel, notificationPermissionLabel } from "./daily-automation.js";
 
 /** Explicit setup in the user's workspace, not an automatic service on app launch. */
 export function DailyAutomation({ enabled, busy }: { enabled: boolean; busy: boolean }) {
@@ -21,7 +21,7 @@ export function DailyAutomation({ enabled, busy }: { enabled: boolean; busy: boo
   };
   useEffect(() => { void refresh(); return () => { generation.current++; }; }, []);
   const act = async (action: "test" | "enable" | "disable") => {
-    if (working || busy || (action !== "test" && !enabled)) return;
+    if (!backgroundActionAllowed(action, enabled, busy, working)) return;
     setWorking(true); setNotice("");
     try {
       if (action === "test") setNotice((await window.runloom.testNotification()).message);
@@ -42,8 +42,9 @@ export function DailyAutomation({ enabled, busy }: { enabled: boolean; busy: boo
       <button className="ghost" disabled={busy || working || !enabled || worker?.ok !== true || worker.registered} onClick={() => setPreview(true)}>启用后台提醒…</button>
       <button className="ghost" disabled={busy || working || worker?.ok !== true || !worker.registered} onClick={() => setPreview(false)}>停用后台提醒…</button>
     </div>
-    {!enabled ? <p className="hint">当前配置未启用任务模块，不能安排后台提醒。</p> : null}
-    <p className="hint">测试只发送固定文案，不执行任务。首次可能出现 macOS 权限提示，请你自行允许；看到测试通知后，再在对话中说“两分钟后提醒我喝水”。通知是否可见也受专注模式影响。</p>
+    {!enabled ? <p className="hint">当前任务模块关闭，不能创建新安排。已保存的安排与后台服务不会因此停用；仍可在这里显式停用服务。</p> : null}
+    {enabled && worker?.ok === true && !worker.registered ? <p className="hint">任务模块开启只允许保存安排，不会自动开启后台执行。请点击“启用后台提醒”并确认，再依赖关窗后的提醒。</p> : null}
+    <p className="hint">首次请发送测试通知并在 macOS 提示中亲自允许。后台服务运行与系统通知授权是两件事；未授权时，到期结果仍需在“自动安排”的 inbox 中查看。测试不会执行任务；看到通知后可在对话中说“一分钟后提醒我喝水”。专注模式也可能隐藏弹窗。</p>
     {preview !== null ? <div className="memory-setup-preview" role="group" aria-label="后台提醒授权预览">
       <strong>{preview ? "启用当前工作区的独立后台服务" : "停用当前工作区的后台服务"}</strong>
       <p>{preview ? "允许它在关窗口或退出应用后处理当前工作区的到期任务并提交系统通知；已绑定的 RSS 和已配置的只读 Todoist 任务可能请求网络与模型、产生费用。不获得 Shell 或文件写入权限。" : "停止当前工作区的提醒、日报和 RSS 后台执行；已有结果不删除。"}</p>

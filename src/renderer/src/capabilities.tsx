@@ -44,6 +44,9 @@ export function CapabilitiesPanel({ info, busy = false, initialError = null }: {
         <div><strong>{name}</strong><p>{description}</p><small>{module.id}</small>
           {module.id === "memory" && module.enabled ? <small>自动提取候选：{info.moduleOptions?.autoConsolidate ? "已开启" : "未开启"}</small> : null}
           {module.id === "web" && module.enabled ? <small>搜索：{info.moduleOptions?.webSearch ? "已开启" : "未开启"} · RSS：{info.moduleOptions?.webFeed ? "已开启" : "未开启"}</small> : null}
+          {module.id === "task" ? <small>开启这里不会注册后台服务；关窗提醒请到“工作区与订阅 → 关窗口后继续提醒”显式启用，并单独核对通知授权。</small> : null}
+          {module.id === "todoist" && !module.enabled ? <small>当前无法查询 Todoist。开启前需在可信环境文件中设置 TODOIST_API_TOKEN；应用不会替你创建凭据。</small> : null}
+          {module.id === "computer" ? <small>{!module.enabled ? "当前不会控制本机应用。" : "驱动和 macOS 权限仍需就绪。"}允许的应用：{info.computer.allowedBundleIds.length} 个；能力开关不会自动增添应用或申请系统权限。</small> : null}
         </div><div className="capability-control"><span className={`capability-status ${module.enabled ? "enabled" : ""}`}>{module.enabled ? "已开启" : "已关闭"}</span>
           <button className="ghost" disabled={busy || unavailable || saving || !info.configPath || typeof window === "undefined" || !window.runloom.setModuleEnabled} aria-label={`${module.enabled ? "关闭" : "开启"}${name}`} onClick={() => { setSelection({ id: module.id, enabled: !module.enabled }); setError(null); }}>{module.enabled ? "关闭" : "开启"}</button>
         </div>

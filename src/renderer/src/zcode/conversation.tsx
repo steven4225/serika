@@ -14,6 +14,7 @@ import { ZCodeMessage, ZCodeMessageActions, ZCodeMessageContent } from "./messag
 import { conversationTurns, toolPresentation, workSummary, type ConversationFlowItem } from "./conversation-data.js";
 import { ChatLoading } from "./upstream/chat-loading.js";
 import { Button } from "./upstream/button.js";
+type TraceHandler = ((runId: string, toolCallId: string) => void) | undefined;
 
 function Text({ row }: { row: TextRow }) {
   return <ZCodeMessage from={row.role} className={`zcode-text role-${row.role}`}>
@@ -21,7 +22,7 @@ function Text({ row }: { row: TextRow }) {
   </ZCodeMessage>;
 }
 
-export function ZCodeTool({ row }: { row: ToolRow }) {
+export function ZCodeTool({ row, onTrace }: { row: ToolRow; onTrace?: TraceHandler }) {
   const view = toolPresentation(row);
   return <details className={`zcode-tool status-${row.status}`} open={view.attention || (row.status === "requested" && !!(row.stdout || row.stderr))}>
     <summary><Icon name={view.icon} size={15} /><span className="zcode-tool-name">{view.name}</span>
@@ -34,21 +35,22 @@ export function ZCodeTool({ row }: { row: ToolRow }) {
       {row.stderr ? <pre className="shell-stream stderr">{row.stderr}</pre> : null}
       {row.progressTruncated ? <span className="truncated">输出已截断；不能据此判断执行成功</span> : null}
       {!row.receipt && !row.detail && !row.stdout && !row.stderr ? <p>详细输入与回执可在「执行记录」中查看。</p> : null}
+      {row.runId && onTrace ? <button type="button" className="ghost" onClick={() => onTrace(row.runId!, row.toolCallId)}>查看本次执行追踪</button> : null}
     </div>
   </details>;
 }
 
-function Work({ rows, running }: { rows: ConversationRow[]; running: boolean }) {
+function Work({ rows, running, onTrace }: { rows: ConversationRow[]; running: boolean; onTrace?: TraceHandler }) {
   const summary = workSummary(rows);
   return <details className={`zcode-work${summary.needsAttention ? " needs-attention" : ""}`} open={running || summary.needsAttention || summary.pending}>
     <summary><Icon name="chevron" size={14} /><span>{summary.label}</span></summary>
-    <div className="zcode-work-content">{rows.map(row => row.kind === "tool" ? <ZCodeTool key={row.key} row={row} /> : row.kind === "text" ? <Text key={row.key} row={row} /> : null)}</div>
+    <div className="zcode-work-content">{rows.map(row => row.kind === "tool" ? <ZCodeTool key={row.key} row={row} onTrace={onTrace} /> : row.kind === "text" ? <Text key={row.key} row={row} /> : null)}</div>
   </details>;
 }
 
-function FlowItem({ item, running }: { item: ConversationFlowItem; running: boolean }) {
+function FlowItem({ item, running, onTrace }: { item: ConversationFlowItem; running: boolean; onTrace?: TraceHandler }) {
   if (item.kind === "text") return <Text row={item.row} />;
-  if (item.kind === "work") return <Work rows={item.rows} running={running} />;
+  if (item.kind === "work") return <Work rows={item.rows} running={running} onTrace={onTrace} />;
   return <div className={`zcode-completion status-${item.row.status}`} role="status"><Icon name={item.row.completion?.reason === "delivered" ? "check" : "activity"} size={14} />
     <span>{completionLabel(item.row)}{item.row.detail ? ` · ${item.row.detail}` : ""}</span></div>;
 }
@@ -64,11 +66,12 @@ export function ZCodeLoading({ label }: { label: string }) {
   return <ChatLoading label={label} />;
 }
 
-export function ZCodeConversation({ rows, running, streaming, waitingForApproval = false }: {
+export function ZCodeConversation({ rows, running, streaming, waitingForApproval = false, onTrace }: {
   rows: readonly ConversationRow[]; running: boolean; streaming: string; waitingForApproval?: boolean;
+  onTrace?: TraceHandler;
 }) {
   return <>{conversationTurns(rows, running).map(turn => <section className="zcode-turn" key={turn.key} aria-label="对话轮次">
-    {turn.items.map((item, index) => <FlowItem key={item.kind === "work" ? item.rows[0]!.key : item.row.key || index} item={item} running={turn.running} />)}
+    {turn.items.map((item, index) => <FlowItem key={item.kind === "work" ? item.rows[0]!.key : item.row.key || index} item={item} running={turn.running} onTrace={onTrace} />)}
     {!turn.running && turn.copyText ? <ReplyActions text={turn.copyText} /> : null}
   </section>)}
     {running && streaming ? <ZCodeMessage from="assistant" className="zcode-text streaming"><ZCodeMessageContent><MessageContent text={streaming} /></ZCodeMessageContent></ZCodeMessage> : null}

@@ -12,9 +12,61 @@ async function fixture(run: (root: string) => Promise<void>): Promise<void> {
 function scope(root: string): ConversationDraftScope {
   return { workspaceRoot: join(root, "workspace"), directory: join(root, "transcripts"), threadId: "personal" };
 }
-const pending = { id: "steer-1", runId: "run-1", text: "保留原文，再追加两步", taskId: "task-1" };
+const pending = { id: "steer-1", runId: "run-1", text: "保留原文，再追加两步" };
 
 describe("conversation drafts", () => {
+  it("persists seven creation fields, per-task instructions and exact composer target without overwriting ordinary drafts", async () => fixture(async root => {
+    const store = new ConversationDraftStore(join(root, "profile"));
+    const creation = { goal: "整理资料", constraints: "保留来源", artifacts: "notes/report.md", human: "事实准确", commands: "node check.mjs", testCwd: "project", template: "document" };
+    await Promise.all([
+      store.saveDraft(scope(root), { text: "ordinary chat", excludeFromMemory: true }),
+      store.saveTaskDraft(scope(root), { kind: "creation", value: creation }),
+      store.saveTaskDraft(scope(root), { kind: "instruction", taskId: "task-1", text: "只改结论" }),
+      store.saveTaskDraft(scope(root), { kind: "instruction", taskId: "task-2", text: "保留旧章节" }),
+      store.saveTaskDraft(scope(root), { kind: "composer", taskId: "task-2" }),
+    ]);
+    const restored = await new ConversationDraftStore(join(root, "profile")).load(scope(root));
+    assert.deepEqual(restored.taskDrafts, { creation, instructions: { "task-1": "只改结论", "task-2": "保留旧章节" }, composerTaskId: "task-2" });
+    assert.equal(restored.draft.text, "ordinary chat");
+    assert.equal((await store.load({ ...scope(root), threadId: "another" })).taskDrafts, undefined);
+    await store.saveTaskDraft(scope(root), { kind: "instruction", taskId: "task-2", text: "newer draft" });
+    await store.saveTaskDraft(scope(root), { kind: "instruction", taskId: "task-2", text: "", expectedText: "保留旧章节" });
+    assert.equal((await store.load(scope(root))).taskDrafts?.instructions["task-2"], "newer draft", "late accepted request does not delete new text");
+  }));
+
+  it("keeps task Steer text and target separate from ordinary chat across uncertain and not-applied receipts", async () => fixture(async root => {
+    const store = new ConversationDraftStore(join(root, "profile"));
+    await store.saveDraft(scope(root), { text: pending.text, excludeFromMemory: false });
+    await store.saveUncertainSteer(scope(root), { ...pending, taskId: "task-1" });
+    await store.acknowledgeSteer(scope(root), pending.id);
+    let restored = await store.load(scope(root));
+    assert.equal(restored.taskDrafts?.instructions["task-1"], pending.text);
+    assert.equal(restored.taskDrafts?.composerTaskId, "task-1");
+    await store.saveUncertainSteer(scope(root), { ...pending, taskId: "task-1" });
+    await store.acknowledgeSteer(scope(root), pending.id, { clearMatchingDraft: true });
+    restored = await store.load(scope(root));
+    assert.equal(restored.taskDrafts?.instructions["task-1"], undefined);
+    assert.equal(restored.draft.text, pending.text, "task acknowledgement must not clear an unrelated chat draft even if text matches");
+  }));
+
+  it("failed task clearing leaves disk intact and explicit retry removes only the requested fields", async () => fixture(async root => {
+    const store = new ConversationDraftStore(join(root, "profile"));
+    const creation = { goal: "draft", constraints: "", artifacts: "a.md", human: "", commands: "", testCwd: ".", template: null };
+    await store.saveTaskDraft(scope(root), { kind: "creation", value: creation });
+    await store.saveTaskDraft(scope(root), { kind: "instruction", taskId: "task-1", text: "old" });
+    await store.saveTaskDraft(scope(root), { kind: "instruction", taskId: "task-2", text: "keep" });
+    const valid = await readFile(store.path, "utf8");
+    await writeFile(store.path, "broken");
+    const clear = { kind: "instruction" as const, taskId: "task-1", text: "" };
+    await assert.rejects(store.saveTaskDraft(scope(root), clear), /refusing to reset/);
+    assert.equal(await readFile(store.path, "utf8"), "broken");
+    await writeFile(store.path, valid);
+    await store.saveTaskDraft(scope(root), clear);
+    await store.saveTaskDraft(scope(root), { kind: "creation", value: null });
+    assert.deepEqual((await store.load(scope(root))).taskDrafts?.instructions, { "task-2": "keep" });
+    assert.equal((await store.load(scope(root))).taskDrafts?.creation, null);
+    await assert.rejects(store.saveTaskDraft(scope(root), { kind: "instruction", taskId: "__proto__", text: "bad" }), /Invalid/);
+  }));
   it("restores both draft and request identity across new store instances without replaying anything", async () => fixture(async root => {
     const userData = join(root, "user-data");
     const store = new ConversationDraftStore(userData);
