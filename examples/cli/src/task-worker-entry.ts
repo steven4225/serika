@@ -34,6 +34,8 @@ import { tryAcquireFlock } from "./flock.js";
 import { canonicalTimeZone } from "./todoist.js";
 import { createTaskWorkerHealthWriter } from "./task-worker-health.js";
 import { createRssDigestWorker } from "./rss-digest.js";
+import { loadScheduledSkillAutomation, prepareScheduledSkillTask } from "./scheduled-skill.js";
+import { skillAgentDefinition, type SkillDescriptor } from "./skill-catalog.js";
 
 interface TaskWorkerArgs {
   workspace: string;
@@ -43,6 +45,7 @@ interface TaskWorkerArgs {
   workspaceContext?: true;
   safeRetry?: true;
   rss?: true;
+  configPath?: string;
 }
 
 export function parseTaskWorkerArgs(args: readonly string[]): TaskWorkerArgs {
@@ -54,8 +57,15 @@ export function parseTaskWorkerArgs(args: readonly string[]): TaskWorkerArgs {
   let workspaceContext = false;
   let safeRetry = false;
   let rss = false;
+  let configPath: string | undefined;
   for (let index = 0; index < parsed.length; index += 1) {
     const arg = parsed[index];
+    if (arg === "--config") {
+      const value = parsed[++index];
+      if (configPath !== undefined || !value || !isAbsolute(value) || /[\0\r\n]/.test(value)) throw new Error("--config requires one absolute trusted file path");
+      configPath = value;
+      continue;
+    }
     if (arg === "--notification-helper") {
       const value = parsed[++index];
       if (notificationHelperPath !== undefined || !value || !isAbsolute(value) || /[\0\n\r]/.test(value)) throw new Error("--notification-helper requires one absolute executable path");
@@ -113,6 +123,7 @@ export function parseTaskWorkerArgs(args: readonly string[]): TaskWorkerArgs {
   if (notificationHelperPath !== undefined && !notify) throw new Error("--notification-helper requires --notify");
   return {
     workspace,
+    ...(configPath === undefined ? {} : { configPath }),
     ...(notificationHelperPath === undefined ? {} : { notificationHelperPath }),
     ...(todoist ? { todoist: true as const } : {}),
     ...(notify ? { notify: true as const } : {}),
@@ -288,6 +299,7 @@ export interface CreateTaskWorkerAgentOptions {
   store: AgentStore;
   todoist?: TodoistModuleOptions;
   workspaceContext?: boolean;
+  skills?: readonly SkillDescriptor[];
 }
 
 export function createTaskWorkerAgent(
@@ -300,6 +312,7 @@ export function createTaskWorkerAgent(
       });
 
   try {
+    if (options.skills?.some(skill => skill.kind !== "text" || skill.tools.length !== 0)) throw new Error("Worker permits only tool-free text Skills");
     const registeredTools = moduleHost?.tools ?? [];
     if (options.todoist !== undefined) {
       const registered = registeredTools[0];
@@ -347,7 +360,7 @@ export function createTaskWorkerAgent(
       }, ...(options.todoist === undefined ? [] : [{
         ...definition, id: "scheduled-todoist",
         instructions: todoistTaskWorkerInstructions,
-      }])]),
+      }]), ...(options.skills ?? []).map(skill => skillAgentDefinition(skill, options.modelAlias))]),
       store: options.store,
       beforeToolExecute: ({ definition, input, toolName, signal }) => {
         if (definition.id !== "scheduled-todoist") return { allow: true };
@@ -363,19 +376,22 @@ export function createTaskWorkerAgent(
         }),
         tools: new ToolRegistry(registeredTools),
       }),
-      ...(options.workspaceContext === true
-        ? {
-            prepareModelContext: ({ messages, context }: {
-              messages: import("ai").UIMessage[];
-              context?: unknown;
-            }) => {
-              const snapshot = context as TaskWorkerSnapshotContext | undefined;
-              return snapshot === undefined
-                ? messages
-                : [...snapshot.referenceMessages, ...messages];
-            },
+      prepareModelContext: ({ messages, context, definition }: {
+        messages: import("ai").UIMessage[];
+        context?: unknown;
+        definition: { id: string };
+      }) => {
+        if (options.skills?.some(skill => skill.agentId === definition.id)) {
+          let index = -1;
+          for (let position = messages.length - 1; position >= 0; position--) {
+            if (messages[position]?.role === "user" && (messages[position]?.metadata as { source?: unknown } | undefined)?.source === "automation-skill") { index = position; break; }
           }
-        : {}),
+          if (index < 0) throw new Error("Scheduled Skill invocation missing its isolated input");
+          return messages.slice(index);
+        }
+        const snapshot = options.workspaceContext === true ? context as TaskWorkerSnapshotContext | undefined : undefined;
+        return snapshot === undefined ? messages : [...snapshot.referenceMessages, ...messages];
+      },
     });
 
     return {
@@ -389,8 +405,9 @@ export function createTaskWorkerAgent(
 }
 
 export async function startTaskWorker(args: readonly string[]): Promise<void> {
-  const { workspace, todoist = false, notify = false, notificationHelperPath, workspaceContext = false, safeRetry = false, rss = false } = parseTaskWorkerArgs(args);
+  const { workspace, todoist = false, notify = false, notificationHelperPath, workspaceContext = false, safeRetry = false, rss = false, configPath } = parseTaskWorkerArgs(args);
   const workspaceRoot = await resolveWorkspace(workspace);
+  const automation = configPath === undefined ? undefined : await loadScheduledSkillAutomation({ configPath, workspaceRoot });
   let notificationHelper: string | undefined;
   if (notificationHelperPath !== undefined) {
     notificationHelper = await realpath(notificationHelperPath);
@@ -427,6 +444,7 @@ export async function startTaskWorker(args: readonly string[]): Promise<void> {
     store: transcriptStore,
     ...(todoistOptions === undefined ? {} : { todoist: todoistOptions }),
     ...(workspaceContext ? { workspaceContext: true } : {}),
+    ...(automation === undefined ? {} : { skills: automation.skills }),
   });
   let lock: Awaited<ReturnType<typeof tryAcquireFlock>>;
   try {
@@ -486,6 +504,7 @@ export async function startTaskWorker(args: readonly string[]): Promise<void> {
       safeRetry,
       todoistPlanningAvailable: todoistOptions !== undefined,
       prepareTask: rssWorker.prepare,
+      prepareSkillTask: task => prepareScheduledSkillTask(automation, task),
       recoverPreparedTasks: rssWorker.recover,
       settlePreparedTask: rssWorker.settle,
       onTaskStarted: (task) => { void health.heartbeat(task.id).catch(reportHealthFailure); },

@@ -144,6 +144,28 @@ function emptyEvents(): RunHandle["events"] {
 }
 
 describe("task worker", () => {
+  it("rejects an unconfigured scheduled Skill instead of falling back to the responder", async () => {
+    const controller = new AbortController(); let outcome: TaskFinish | undefined;
+    const claimed = { ...task(), arrangement: { kind: "skill", source: "none", notification: "always", declarationVersion: 1, skillId: "brief", skillHash: "a".repeat(64) } as const };
+    await runTaskWorker({ store: fakeStore(claimed, { onFinish: value => { outcome = value; controller.abort(); } }), signal: controller.signal,
+      prepareTask: async () => { throw new Error("Skill must not use RSS fallback"); },
+      loadWorkspaceContext: async () => { throw new Error("Skill must not read Memory/checkpoint"); },
+      runtime: { run: async () => { throw new Error("unconfigured Skill must not run"); } } });
+    assert(outcome?.status === "failed");
+    assert.equal(outcome.error.code, "SKILL_UNAVAILABLE"); assert.equal(outcome.runId, null);
+  });
+
+  it("does not extend safe responder retries to scheduled Skills", async () => {
+    const controller = new AbortController(); let outcome: TaskFinish | undefined;
+    const claimed = { ...task(), arrangement: { kind: "skill", source: "none", notification: "always", declarationVersion: 1, skillId: "brief", skillHash: "a".repeat(64) } as const };
+    const store = fakeStore(claimed, { onFinish: value => { outcome = value; controller.abort(); } });
+    store.retry = async () => { throw new Error("Skill must not be retried"); };
+    await runTaskWorker({ store, signal: controller.signal, safeRetry: true,
+      prepareSkillTask: async () => ({ agentId: "skill:brief", prompt: claimed.prompt, formatResult: text => text }),
+      runtime: { run: async () => { throw Object.assign(new Error("provider unavailable"), { code: "MODEL_UNAVAILABLE" }); } } });
+    assert(outcome?.status === "failed"); assert.equal(outcome.error.code, "MODEL_UNAVAILABLE");
+  });
+
   it("delivers a reminder deterministically without model or global source access", async () => {
     const controller = new AbortController();
     const claimed = { ...task(), prompt: "喝水", arrangement: { kind: "reminder", source: "none", notification: "always", declarationVersion: 1 } as const };

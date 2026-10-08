@@ -22,6 +22,7 @@ export interface PreparedWorkerTask {
   /** Program-owned result; skips the model but retains outcome/finish persistence. */
   deterministicResult?: string;
   notifyOnSuccess?: boolean;
+  message?: import("ai").UIMessage;
 }
 
 export interface TaskWorkerOptions {
@@ -44,6 +45,7 @@ export interface TaskWorkerOptions {
   now?: () => number;
   notify?: (task: TaskRecord) => Promise<void>;
   prepareTask?: (task: TaskRecord, signal: AbortSignal) => Promise<PreparedWorkerTask | undefined>;
+  prepareSkillTask?: (task: TaskRecord, signal: AbortSignal) => Promise<PreparedWorkerTask>;
   recoverPreparedTasks?: () => Promise<void>;
   settlePreparedTask?: (task: TaskRecord) => Promise<void>;
 }
@@ -169,7 +171,7 @@ async function finishTask(
   // started, a successful stop request must not turn a committed outcome into
   // a false "not written" result.
   const attempts = task.attempts.length;
-  if (options.safeRetry === true && !options.signal.aborted &&
+  if (task.arrangement?.kind !== "skill" && options.safeRetry === true && !options.signal.aborted &&
       outcome.status === "failed" && TRANSIENT_MODEL_CODES.has(outcome.error.code) &&
       attempts > 0 && attempts < 3) {
     const retrying = unwrap(await options.store.retry(task.id, {
@@ -222,6 +224,10 @@ async function executeTask(
     if (task.arrangement?.kind === "todoist-brief" && options.todoistPlanningAvailable !== true) {
       throw new AgentError({ code: "TOOL_DENIED", message: "This worker has no Todoist planning source configured", retryable: false, phase: "approval" });
     }
+    if (task.arrangement?.kind === "skill") {
+      if (!options.prepareSkillTask) throw Object.assign(new Error("This worker has no trusted Skill executor"), { code: "SKILL_UNAVAILABLE" });
+      prepared = await options.prepareSkillTask(task, options.signal);
+    }
     if (task.arrangement === undefined || task.arrangement.kind === "rss-digest") prepared = await options.prepareTask?.(task, options.signal);
     if (task.arrangement?.kind === "rss-digest" && prepared === undefined) {
       throw new AgentError({ code: "TOOL_DENIED", message: "RSS arrangement has no matching authorized subscription binding", retryable: false, phase: "approval" });
@@ -251,7 +257,7 @@ async function executeTask(
     signal: options.signal,
     ...(workspaceContext === undefined ? {} : { context: workspaceContext }),
     messages: [
-      {
+      prepared?.message ?? {
         id: (options.generateId ?? randomUUID)(),
         role: "user",
         metadata: { source: "scheduled-task" },

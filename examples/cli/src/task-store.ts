@@ -43,7 +43,8 @@ export interface TaskError {
 export type TaskArrangement =
   | { kind: "reminder"; source: "none"; notification: "always"; declarationVersion: 1 }
   | { kind: "todoist-brief"; source: "todoist-planning"; notification: "always"; declarationVersion: 1 }
-  | { kind: "rss-digest"; source: "existing-rss-binding"; notification: "new-items"; declarationVersion: 1 };
+  | { kind: "rss-digest"; source: "existing-rss-binding"; notification: "new-items"; declarationVersion: 1 }
+  | { kind: "skill"; source: "none"; notification: "always"; declarationVersion: 1; skillId: string; skillHash: string };
 
 export interface TaskRecord {
   id: string;
@@ -152,6 +153,7 @@ export interface RecurringTaskSummary {
   recurrence: Recurrence;
   status: RecurringTaskStatus;
   nextRunAt: string | null;
+  arrangement?: TaskArrangement;
 }
 
 export interface RecurringTaskList {
@@ -182,6 +184,7 @@ export interface TaskSummary {
     messagePreview: string;
   } | null;
   recurringTaskId?: string | null;
+  arrangement?: TaskArrangement;
 }
 
 export interface TaskSummaryV3 extends TaskSummary {
@@ -354,12 +357,17 @@ function cloneRecurringTask(record: RecurringTaskRecord): RecurringTaskRecord {
 }
 
 export function validateTaskArrangement(value: unknown): TaskArrangement {
-  if (!isObject(value) || Object.keys(value).some(key => !["kind", "source", "notification", "declarationVersion"].includes(key)) || value.declarationVersion !== 1) {
+  if (!isObject(value) || Object.keys(value).some(key => !["kind", "source", "notification", "declarationVersion", ...(value.kind === "skill" ? ["skillId", "skillHash"] : [])].includes(key)) || value.declarationVersion !== 1) {
     raise("INVALID_INPUT", "Invalid task arrangement declaration");
   }
   if (value.kind === "reminder" && value.source === "none" && value.notification === "always") return { kind: value.kind, source: value.source, notification: value.notification, declarationVersion: 1 };
   if (value.kind === "todoist-brief" && value.source === "todoist-planning" && value.notification === "always") return { kind: value.kind, source: value.source, notification: value.notification, declarationVersion: 1 };
   if (value.kind === "rss-digest" && value.source === "existing-rss-binding" && value.notification === "new-items") return { kind: value.kind, source: value.source, notification: value.notification, declarationVersion: 1 };
+  if (value.kind === "skill" && value.source === "none" && value.notification === "always" &&
+      typeof value.skillId === "string" && /^[a-z][a-z0-9-]{0,63}$/.test(value.skillId) &&
+      typeof value.skillHash === "string" && /^[a-f0-9]{64}$/.test(value.skillHash)) {
+    return { kind: value.kind, source: value.source, notification: value.notification, declarationVersion: 1, skillId: value.skillId, skillHash: value.skillHash };
+  }
   raise("INVALID_INPUT", "Task source and notification must match the declared arrangement");
 }
 
@@ -398,6 +406,12 @@ function validateStoredPrompt(value: unknown): asserts value is string {
       raise("TASK_FILE_INVALID", error.message);
     }
     throw error;
+  }
+}
+
+function validateSkillPrompt(prompt: string, arrangement: unknown): void {
+  if (isObject(arrangement) && arrangement.kind === "skill" && Buffer.byteLength(prompt, "utf8") > 4096) {
+    raise("INVALID_INPUT", "Scheduled Skill input exceeds 4 KiB");
   }
 }
 
@@ -532,6 +546,7 @@ function validateRecord(value: unknown, version: 1 | 2 | 3 | 4): TaskRecordV4 {
     raise("TASK_FILE_INVALID", "Task id must be non-empty");
   }
   validateStoredPrompt(value.prompt);
+  try { validateSkillPrompt(value.prompt, arrangement); } catch { raise("TASK_FILE_INVALID", "Scheduled Skill input exceeds 4 KiB"); }
   if (typeof value.runAt !== "string" || !storedTimestampPattern.test(value.runAt)) {
     raise("TASK_FILE_INVALID", "Task runAt must be a UTC ISO timestamp");
   }
@@ -663,6 +678,7 @@ function validateRecurringTask(value: unknown): RecurringTaskRecord {
     raise("TASK_FILE_INVALID", "Recurring task id must be non-empty");
   }
   validateStoredPrompt(value.prompt);
+  try { validateSkillPrompt(value.prompt, value.arrangement); } catch { raise("TASK_FILE_INVALID", "Scheduled Skill input exceeds 4 KiB"); }
   const recurrence = validateStoredRecurrence(value.recurrence);
   if (!isRecurringTaskStatus(value.status)) {
     raise("TASK_FILE_INVALID", "Recurring task status is invalid");
@@ -731,6 +747,8 @@ function validateDocument(value: unknown): TaskDocumentV4 {
 function validateCreateInput(input: unknown): CreateTaskInput & { runAt: string } {
   if (!isObject(input)) raise("INVALID_INPUT", "Task input must be an object");
   validatePrompt(input.prompt);
+  validateSkillPrompt(input.prompt, input.arrangement);
+  if (isObject(input.arrangement) && input.arrangement.kind === "skill" && Object.keys(input).some(key => !["prompt", "runAt", "arrangement"].includes(key))) raise("INVALID_INPUT", "Unexpected scheduled Skill field");
   const runAt = normalizeRunAt(input.runAt);
   return { prompt: input.prompt, runAt, ...(input.arrangement === undefined ? {} : { arrangement: validateTaskArrangement(input.arrangement) }) };
 }
@@ -741,6 +759,8 @@ function validateCreateRecurringInput(
 ): CreateRecurringTaskInput {
   if (!isObject(input)) raise("INVALID_INPUT", "Recurring task input must be an object");
   validatePrompt(input.prompt);
+  validateSkillPrompt(input.prompt, input.arrangement);
+  if (isObject(input.arrangement) && input.arrangement.kind === "skill" && Object.keys(input).some(key => !["prompt", "recurrence", "arrangement"].includes(key))) raise("INVALID_INPUT", "Unexpected scheduled Skill field");
   if (!isObject(input.recurrence)) {
     raise("INVALID_INPUT", "Recurring task recurrence must be an object");
   }
@@ -1021,6 +1041,7 @@ export class WorkspaceTaskStore implements TaskStore {
               : null,
             acknowledgedAt: task.acknowledgedAt ?? null,
             recurringTaskId: task.recurringTaskId ?? null,
+            ...(task.arrangement === undefined ? {} : { arrangement: { ...task.arrangement } }),
           })),
           truncated: sorted.length > validated.limit,
         },
@@ -1053,6 +1074,7 @@ export class WorkspaceTaskStore implements TaskStore {
             recurrence: cloneRecurrence(task.recurrence),
             status: task.status,
             nextRunAt: task.nextRunAt,
+            ...(task.arrangement === undefined ? {} : { arrangement: { ...task.arrangement } }),
           })),
           truncated: sorted.length > validated.limit,
         },

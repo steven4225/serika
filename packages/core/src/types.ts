@@ -39,6 +39,24 @@ export interface RunRequest<TContext = unknown> {
   context?: TContext;
   idempotencyKey?: string;
   signal?: AbortSignal;
+  /** Foreground opt-in only; does not change execution limits or permission. */
+  enableSteering?: boolean;
+}
+
+export interface SteerRequest { id: string; text: string }
+export interface SteerResponse {
+  id: string;
+  status: "accepted" | "not_applied";
+  reason?: "closed" | "invalid" | "limit" | "conflict";
+}
+/** Runtime-owned safe-boundary mailbox. Never aborts an executing tool. */
+export interface RunSteering {
+  readonly signal: AbortSignal;
+  hasPending(): boolean;
+  drain(): Promise<SteerRequest[]>;
+  applied(request: SteerRequest, messageId: string): Promise<void>;
+  sealIfEmpty(): boolean;
+  close(reason: string): Promise<void>;
 }
 
 export interface TokenUsage {
@@ -77,6 +95,7 @@ export interface RunHandle {
   events: AsyncIterable<import("./events.js").AgentEvent>;
   result: Promise<RunResult>;
   cancel(reason?: string): Promise<void>;
+  steer?: (request: SteerRequest) => Promise<SteerResponse>;
 }
 
 export interface PrepareModelContextInput {
@@ -97,6 +116,8 @@ export interface BeforeToolExecuteInput {
   definition: AgentDefinition;
   context?: unknown;
   signal: AbortSignal;
+  /** Revokes stale approval only; distinct from Run/tool cancellation. */
+  steerSignal?: AbortSignal;
 }
 
 export type ToolExecutionDecision =
@@ -121,6 +142,7 @@ export interface AgentLoopInput<TContext = unknown> {
   messages: UIMessage[];
   context?: TContext;
   signal: AbortSignal;
+  steering?: RunSteering;
   prepareModelContext?: PrepareModelContext;
   beforeToolExecute?: BeforeToolExecute;
   beforeRunFinish?: (input: Omit<BeforeRunFinishInput, "runId" | "threadId">) => ReturnType<BeforeRunFinish>;

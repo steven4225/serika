@@ -342,6 +342,8 @@ interface PendingConfirmation {
   onAbort: () => void;
   resolve: (decision: ToolExecutionDecision) => void;
   reject: (reason: unknown) => void;
+  steerSignal?: AbortSignal;
+  onSteer?: () => void;
 }
 
 const SEARCH_DENIED_FETCH_REASON = "web_search was denied in this Run";
@@ -400,11 +402,13 @@ export function createToolConfirmation(
     if (pending !== entry) return;
     pending = undefined;
     entry.signal.removeEventListener("abort", entry.onAbort);
+    if (entry.onSteer) entry.steerSignal?.removeEventListener("abort", entry.onSteer);
     notifyPending();
   };
 
   const beforeToolExecute: BeforeToolExecute = (input) => {
     if (input.signal.aborted) return Promise.reject(abortReason(input.signal));
+    if (input.steerSignal?.aborted) return Promise.reject(abortReason(input.steerSignal));
     if (
       input.definition.id === AUTO_CONSOLIDATION_AGENT_ID &&
       AUTO_CONSOLIDATION_READ_TOOLS.has(input.toolName)
@@ -462,9 +466,15 @@ export function createToolConfirmation(
       onAbort,
       resolve,
       reject,
+      ...(input.steerSignal ? { steerSignal: input.steerSignal, onSteer: () => {
+        clearPending(entry);
+        reject(abortReason(input.steerSignal!));
+      } } : {}),
     };
     pending = entry;
     input.signal.addEventListener("abort", onAbort, { once: true });
+    if (entry.onSteer) entry.steerSignal?.addEventListener("abort", entry.onSteer, { once: true });
+    if (input.steerSignal?.aborted) { entry.onSteer?.(); return decision; }
     if (input.signal.aborted) {
       onAbort();
       return decision;

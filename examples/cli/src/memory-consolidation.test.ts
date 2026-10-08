@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { UIMessage } from "ai";
 import type { CandidateBatchInput, ConsolidationCursor } from "./memory-candidates.js";
 import type { MemoryConsolidationEntry, MemoryEntry, WorkspaceMemoryStore } from "./memory-store.js";
 import { AUTO_CONSOLIDATION_AGENT_ID, AUTO_CONSOLIDATION_SOURCE } from "./consolidation.js";
 import { CONSOLIDATION_MATERIAL_MAX_BYTES, CONSOLIDATION_MEMORIES_MAX_BYTES, consolidationPrefixHash, createMemoryConsolidation } from "./memory-consolidation.js";
 import { createAssertion } from "./memory-temporal.js";
+import { createMemoryStore } from "./memory-store.js";
 
 const user = (id: string, text = `用户 ${id}`): UIMessage => ({ id, role: "user", parts: [{ type: "text", text }] });
 function fixture(initial: UIMessage[] = [user("u1", "复盘先结论，再给步骤")], writePolicy?: "review" | "automatic") {
@@ -43,6 +47,31 @@ async function prepare(f: ReturnType<typeof fixture>, agent = AUTO_CONSOLIDATION
 }
 
 describe("native memory consolidation batch", () => {
+  it("captures injected commit time after write ownership, not the earlier observation", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "memory-commit-clock-"));
+    try {
+      const actual = createMemoryStore(directory);
+      let clock = new Date("2026-10-01T00:00:00.000Z");
+      let arrived!: () => void, release!: () => void;
+      const waiting = new Promise<void>(r => { arrived = r; });
+      const released = new Promise<void>(r => { release = r; });
+      const proxy = new Proxy(actual, { get(target, property) {
+        if (property === "commitCandidateBatch") return async (...args: Parameters<WorkspaceMemoryStore["commitCandidateBatch"]>) => { arrived(); await released; return target.commitCandidateBatch(...args); };
+        const value: unknown = Reflect.get(target, property); return typeof value === "function" ? value.bind(target) : value;
+      } });
+      const service = createMemoryConsolidation({ store: proxy, threadId: "thread", getMessages: async () => [user("u1", "复盘先结论，再给步骤")], now: () => new Date(clock), generateId: () => "clock-batch" });
+      service.begin(AUTO_CONSOLIDATION_AGENT_ID);
+      const batch = await service.prepare({ mode: "incremental" }); assert.ok(batch.ok);
+      assert.ok((await service.stage({ batchId: batch.value.batchId, proposals: [proposal()] })).ok);
+      const finalizing = service.finalize({ status: "completed" }); await waiting;
+      clock = new Date("2026-10-01T00:00:01.000Z");
+      assert.ok((await actual.add({ text: "concurrent independent fact" }, undefined, { now: clock })).ok);
+      release(); const finalized = await finalizing; assert.ok(finalized.ok, finalized.ok ? "" : finalized.error.message);
+      const listed = await actual.listCandidates({}, undefined, { boundThreadId: "thread", now: clock }); assert.ok(listed.ok);
+      assert.equal(listed.value.candidates[0]?.createdAt, clock.toISOString());
+    } finally { await rm(directory, { recursive: true, force: true }); }
+  });
+
   it("host automatic policy selects only eligible incremental drafts; missing/ambiguous require review", async () => {
     const f = fixture(undefined, "automatic");
     const batch = await prepare(f);

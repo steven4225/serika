@@ -90,6 +90,7 @@ describe("durable desktop notification adapter", () => {
 
 describe("task-worker CLI arguments", () => {
   it("requires the explicit workspace and accepts pnpm's separator", () => {
+    assert.deepEqual(parseTaskWorkerArgs(["--workspace", "/tmp/work", "--config", "/trusted/config.json"]), { workspace: "/tmp/work", configPath: "/trusted/config.json" });
     assert.deepEqual(parseTaskWorkerArgs(["--", "--workspace", "./sample"]), {
       workspace: "./sample",
     });
@@ -108,6 +109,8 @@ describe("task-worker CLI arguments", () => {
   });
 
   it("rejects an implicit workspace and unknown options", () => {
+    assert.throws(() => parseTaskWorkerArgs(["--workspace", "/tmp/work", "--config", "relative"]), /absolute/);
+    assert.throws(() => parseTaskWorkerArgs(["--workspace", "/tmp/work", "--config", "/a", "--config", "/b"]), /one absolute/);
     assert.throws(() => parseTaskWorkerArgs(["--workspace", "/tmp/work", "--notification-helper", "/trusted/helper"]), /requires --notify/);
     assert.throws(() => parseTaskWorkerArgs(["--workspace", "/tmp/work", "--notify", "--notification-helper", "relative"]), /absolute/);
     assert.throws(

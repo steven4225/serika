@@ -277,9 +277,12 @@ export function createMemoryConsolidation(options: {
   generateId?: () => string;
   /** Trusted host configuration; never supplied by the model or transcript. */
   writePolicy?: "review" | "automatic";
+  /** Registered host Skills only; text, transcript and model input cannot add IDs. */
+  consolidationAgentIds?: readonly string[];
 }): MemoryConsolidation {
   let batch: Batch | undefined;
   const now = options.now ?? (() => new Date());
+  const consolidationAgents = new Set([AUTO_CONSOLIDATION_AGENT_ID, ...(options.consolidationAgentIds ?? [])]);
   const readMessages = async (signal?: AbortSignal): Promise<MemoryResult<UIMessage[]>> => {
     try { const messages = await options.getMessages(signal); aborted(signal); return { ok: true, value: messages }; }
     catch (error) { aborted(signal); return fail("READ_FAILED", error instanceof Error ? error.message : "Unable to read transcript"); }
@@ -301,7 +304,7 @@ export function createMemoryConsolidation(options: {
       if (run === undefined) return fail("MEMORY_BATCH_INVALID", "No active consolidation lifecycle");
       run.prepareCount += 1;
       if (run.prepareCount !== 1) { run.invalid = true; return fail("MEMORY_BATCH_INVALID", "Prepare must be called exactly once"); }
-      const automatic = run.agentId === AUTO_CONSOLIDATION_AGENT_ID;
+      const automatic = consolidationAgents.has(run.agentId);
       const history = run.request?.mode === "history" ? run.request : undefined;
       if (!history && ((automatic && input.mode !== "incremental") || (!automatic && input.mode !== undefined) || (input.mode !== undefined && input.turns !== undefined) || (input.turns !== undefined && (!Number.isInteger(input.turns) || input.turns < 1 || input.turns > MAX_CONSOLIDATION_TURNS)))) { run.invalid = true; return fail("INVALID_INPUT", "Invalid preparation mode or turns"); }
       const capacity = await canStart(signal);
@@ -359,7 +362,7 @@ export function createMemoryConsolidation(options: {
       const loaded = await readMessages(signal);
       if (!loaded.ok) { run.invalid = true; return loaded; }
       const drafts: CandidateDraft[] = [];
-      const automatic = options.writePolicy === "automatic" && run.agentId === AUTO_CONSOLIDATION_AGENT_ID && run.request?.mode !== "history";
+      const automatic = options.writePolicy === "automatic" && consolidationAgents.has(run.agentId) && run.request?.mode !== "history";
       const autoAcceptIndexes: number[] = [];
       for (const proposal of input.proposals) {
         const parsed = proposalDraft(proposal, run.prepared, run.selected, loaded.value, options.threadId, now());
@@ -390,7 +393,7 @@ export function createMemoryConsolidation(options: {
       if (result.status !== "completed") { batch = undefined; return empty; }
       if (run.committed !== undefined) return run.committed.ok ? { ok: true, value: { ...run.committed.value, replayed: true } } : run.committed;
       const attempts = result.consolidationAttempts;
-      if (run.prepareCount === 0 && run.stageCount === 0 && run.agentId !== AUTO_CONSOLIDATION_AGENT_ID && (attempts === undefined || (attempts.prepare === 0 && attempts.stage === 0))) return empty;
+      if (run.prepareCount === 0 && run.stageCount === 0 && !consolidationAgents.has(run.agentId) && (attempts === undefined || (attempts.prepare === 0 && attempts.stage === 0))) return empty;
       aborted(signal);
       if (attempts !== undefined && (attempts.prepare !== 1 || attempts.stage !== 1)) { run.invalid = true; return fail("MEMORY_BATCH_INVALID", "Exactly one prepare and stage attempt is required, including rejected tool inputs"); }
       if (run.invalid || run.prepareCount !== 1 || run.stageCount !== 1 || run.prepared === undefined || run.selected === undefined || run.drafts === undefined) return fail("MEMORY_BATCH_INVALID", "Completed consolidation requires exactly one successful prepare and stage");
@@ -417,7 +420,7 @@ export function createMemoryConsolidation(options: {
         batchId: run.prepared.batchId, originThreadId: options.threadId, candidates: run.drafts,
         expectedCursor: run.expectedCursor ?? null, nextCursor: run.nextCursor ?? null,
         ...(run.autoAcceptIndexes === undefined ? {} : { autoAcceptIndexes: run.autoAcceptIndexes }),
-      }, signal, { boundThreadId: options.threadId, now: observedAt });
+      }, signal, { boundThreadId: options.threadId, ...(options.now === undefined ? {} : { commitClock: options.now }) });
       run.committed = committed;
       return committed.ok ? { ok: true, value: { ...committed.value, processedCount: run.selected.length } } : committed;
     },

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { AsyncChannel } from "./async-channel.js";
+import { SteeringMailbox } from "./steering.js";
 import type { AgentCatalog } from "./catalog.js";
 import { AgentError, toAgentError } from "./errors.js";
 import type {
@@ -135,22 +136,30 @@ export class DefaultAgentRuntime {
     const channel = new AsyncChannel<AgentEvent>();
 
     let sequence = 0;
-    const emit = async <TType extends AgentEventType>(
+    let eventWrites: Promise<void> = Promise.resolve();
+    const emit = <TType extends AgentEventType>(
       type: TType,
       data: AgentEventDataMap[TType],
     ): Promise<void> => {
-      const event = {
-        id: this.#idGenerator(),
-        type,
-        occurredAt: this.#now().toISOString(),
-        runId,
-        threadId: request.threadId,
-        sequence: ++sequence,
-        data,
-      } as AgentEvent;
-      await this.#store.append(event);
-      channel.push(event);
+      const write = eventWrites.then(async () => {
+        const event = {
+          id: this.#idGenerator(),
+          type,
+          occurredAt: this.#now().toISOString(),
+          runId,
+          threadId: request.threadId,
+          sequence: ++sequence,
+          data,
+        } as AgentEvent;
+        await this.#store.append(event);
+        channel.push(event);
+      });
+      eventWrites = write.catch(() => undefined);
+      return write;
     };
+
+    const steering = request.enableSteering
+      ? new SteeringMailbox(emit, (error) => controller.abort(error)) : undefined;
 
     const result = this.#execute({
       definition,
@@ -165,6 +174,7 @@ export class DefaultAgentRuntime {
         acceptingStop = false;
       },
       emit,
+      ...(steering ? { steering } : {}),
     }).finally(() => {
       request.signal?.removeEventListener("abort", onExternalAbort);
       channel.close();
@@ -179,6 +189,7 @@ export class DefaultAgentRuntime {
           cancelReason = reason ?? "user_requested";
         }
       },
+      ...(steering ? { steer: (value) => steering.submit(value) } : {}),
     };
   }
 
@@ -199,6 +210,7 @@ export class DefaultAgentRuntime {
       type: TType,
       data: AgentEventDataMap[TType],
     ) => Promise<void>;
+    steering?: SteeringMailbox;
   }): Promise<RunResult> {
     const {
       definition,
@@ -299,6 +311,7 @@ export class DefaultAgentRuntime {
           ? { context: options.parsedContext }
           : {}),
         signal: controller.signal,
+        ...(options.steering ? { steering: options.steering } : {}),
         ...(this.#prepareModelContext
           ? { prepareModelContext: this.#prepareModelContext }
           : {}),
@@ -318,6 +331,8 @@ export class DefaultAgentRuntime {
         ...(this.#beforeRunFinish ? { beforeRunFinish: (input) => this.#beforeRunFinish!({ ...input, runId, threadId: request.threadId }) } : {}),
         emit,
       });
+
+      await options.steering?.close("run_ended");
 
       if (outcome.stopReason === "approval_required") {
         await this.#store.transition(runId, version, "waiting_approval");
@@ -373,6 +388,7 @@ export class DefaultAgentRuntime {
       });
       return completed;
     } catch (error) {
+      await options.steering?.close(getStopCause() ?? "run_failed");
       if (transcriptCommitted) {
         // The transcript is a committed fact. A failed terminal transition
         // must not be rewritten as an ordinary Run failure.
@@ -456,6 +472,7 @@ export class DefaultAgentRuntime {
       await notify("run.failed", { error: agentError.data });
       return failed;
     } finally {
+      await options.steering?.close("run_ended");
       clearTimeout(timeout);
     }
   }

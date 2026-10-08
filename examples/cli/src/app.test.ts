@@ -30,8 +30,10 @@ describe("createRuntimeApp", () => {
         memory: { enabled: true, autoConsolidate: true, writePolicy },
       } }));
       let names: string[] = [];
+      let system = "";
       const model = new MockLanguageModelV3({ doStream: async options => {
         names = options.tools?.flatMap(tool => tool.type === "function" ? [tool.name] : []) ?? [];
+        system = JSON.stringify(options.prompt.filter(message => message.role === "system"));
         return { stream: simulateReadableStream({ chunks: [
           { type: "stream-start" as const, warnings: [] },
           { type: "finish" as const, finishReason: { unified: "stop" as const, raw: undefined }, usage: {
@@ -50,6 +52,15 @@ describe("createRuntimeApp", () => {
         assert.equal(names.includes("memory_revise"), writePolicy === "review");
         assert.ok(app.memoryConsolidation, "automatic lifecycle must remain registered");
         assert.ok(app.memoryStore, "desktop administrative operations retain their original store");
+        if (writePolicy === "automatic") {
+          const consolidation = await app.runtime.run({ agentId: app.autoConsolidationAgentId!, threadId: app.threadId,
+            messages: [{ id: "consolidation", role: "user", metadata: { source: "auto-consolidation" },
+              parts: [{ type: "text", text: "整理已提交的用户信息" }] }] });
+          assert.equal((await consolidation.result).status, "completed");
+          assert.match(system, /explicitly corrects the uniquely matched prior preference: use correct, not change/);
+          assert.match(system, /No effective date is needed for a correction/);
+          assert.match(system, /actually ambiguous, retain needs_review/);
+        }
       } finally { await app.dispose(); await rm(root, { recursive: true, force: true }); }
     });
   }

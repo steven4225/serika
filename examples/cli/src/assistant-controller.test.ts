@@ -1015,6 +1015,11 @@ describe("AssistantController", () => {
     let resumeEnds = 0;
     const app = appWith({
       autoConsolidationAgentId: "memory-consolidator",
+      memoryConsolidation: {
+        begin: () => undefined, discard: () => undefined,
+        canStart: async () => ({ ok: true, value: { canStart: true, pendingCount: 0 } }),
+        finalize: async () => ({ ok: true, value: { candidateIds: [], replayed: false } }),
+      } as unknown as NonNullable<RuntimeApp["memoryConsolidation"]>,
       runtime: {
         run: async (request: { agentId: string }) => {
           agentIds.push(request.agentId);
@@ -1117,6 +1122,11 @@ describe("AssistantController", () => {
     let cancelCount = 0;
     const controller = createAssistantController(appWith({
       autoConsolidationAgentId: "memory-consolidator",
+      memoryConsolidation: {
+        begin: () => undefined, discard: () => undefined,
+        canStart: async () => ({ ok: true, value: { canStart: true, pendingCount: 0 } }),
+        finalize: async () => ({ ok: true, value: { candidateIds: [], replayed: false } }),
+      } as unknown as NonNullable<RuntimeApp["memoryConsolidation"]>,
       runtime: {
         run: async (request: { agentId: string }) => {
           calls.push(request.agentId);
