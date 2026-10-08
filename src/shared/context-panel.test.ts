@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { ContextDiagnostics } from "@aisdk-agent/example-cli/dist/context-diagnostics.js";
-import { contextPanelReducer, initialContextPanel, preparationLabel } from "./context-panel.js";
+import { contextOverview, contextPanelReducer, initialContextPanel, preparationLabel } from "./context-panel.js";
 
 const value: ContextDiagnostics = {
   threadId: "thread",
@@ -13,6 +13,16 @@ const value: ContextDiagnostics = {
 };
 
 describe("context diagnostics panel", () => {
+  it("explains automatic management without inventing a current measurement or hiding a failed preparation behind old records", () => {
+    assert.match(contextOverview(value).title, /自动管理已开启/);
+    assert.match(contextOverview(value).description, /继续聊天即可/);
+    assert.doesNotMatch(contextOverview(value).description, /0.*tokens|使用率/);
+    assert.match(contextOverview({ ...value, enabled: false }).description, /完整对话记录不会.*删除/);
+    const lastPreparation = { at: "now", outcome: "failed" as const, compactionId: null, estimatedInputTokens: null, error: { code: "MODEL_TIMEOUT", message: "超时" } };
+    assert.equal(contextOverview({ ...value, lastPreparation }).failed, true);
+    assert.match(contextOverview({ ...value, lastPreparation }).title, /失败/);
+    assert.match(contextOverview({ ...value, lastPreparation: { ...lastPreparation, outcome: "reused", error: null } }).title, /上次发送前/);
+  });
   it("keeps the last successful read when a refresh fails, without claiming it is current", () => {
     const loaded = contextPanelReducer(
       contextPanelReducer(initialContextPanel, { type: "start", request: 1 }),

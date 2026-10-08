@@ -17,7 +17,7 @@ import { Button } from "./upstream/button.js";
 
 function Text({ row }: { row: TextRow }) {
   return <ZCodeMessage from={row.role} className={`zcode-text role-${row.role}`}>
-    <ZCodeMessageContent>{row.role === "user" ? <pre>{row.text}</pre> : <MessageContent text={row.text} />}</ZCodeMessageContent>
+    <ZCodeMessageContent>{row.steer ? <small className="muted">补充本轮要求</small> : null}{row.role === "user" ? <pre>{row.text}</pre> : <MessageContent text={row.text} />}</ZCodeMessageContent>
   </ZCodeMessage>;
 }
 
@@ -27,7 +27,7 @@ export function ZCodeTool({ row }: { row: ToolRow }) {
     <summary><Icon name={view.icon} size={15} /><span className="zcode-tool-name">{view.name}</span>
       {row.receipt ? <code className="zcode-tool-path" title={row.receipt.path}>{row.receipt.path}</code> : null}
       <span className="zcode-tool-status">{view.status}</span><Icon name="chevron" size={14} /></summary>
-    <div className="zcode-tool-body"><code>{row.toolName}</code>
+    <div className="zcode-tool-body">{view.name !== row.toolName ? <code>{row.toolName}</code> : null}
       {row.receipt ? <p>{row.receipt.bytes} 字节 · 工具回执，不等于任务验收</p> : null}
       {row.detail ? <p>{row.detail}</p> : null}
       {row.stdout ? <pre className="shell-stream stdout">{row.stdout}</pre> : null}

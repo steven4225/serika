@@ -35,6 +35,8 @@ test("only ordinary chat can preempt an automatic memory followup", () => {
   assert.equal(canSubmitComposer({ kind: "compacting" }), false);
   assert.equal(canSubmitComposer({ kind: "idle" }), true);
   assert.equal(headerStatus(background, "none").label, "后台整理记忆，可继续聊天");
+  assert.equal(headerStatus({ ...background, phase: "skill" }, "none").label, "后台 Skill，可继续聊天");
+  assert.equal(headerStatus({ kind: "running", runId: "manual", phase: "skill" }, "none").label, "正在运行 Skill");
 });
 
 test("deferring memory only hides its attention card, never higher priority decisions", () => {

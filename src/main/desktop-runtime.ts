@@ -6,6 +6,7 @@ import { enableDesktopMemory, resolveDesktopConfig } from "./desktop-config.js";
 import { createDesktopThread, listDesktopThreads, registerDesktopThread, resolveDesktopIdentity, selectDesktopThread, type DesktopIdentityResolution } from "./desktop-identity.js";
 import { discoverThreadDirectory, inspectThread } from "./thread-history.js";
 import { RuntimeBridge, TeeOutput, type Send } from "./runtime-bridge.js";
+import { changeModuleSetting, changeDreamingSetting, type ModuleSettingInput, type DreamingSettingInput } from "./module-settings.js";
 
 interface Options { userData: string; cwd: string; env: NodeJS.ProcessEnv; modelAlias: string; modelId?: string; model: LanguageModel; send: Send; taskAutomation?: TaskAutomationHost }
 
@@ -100,12 +101,13 @@ export class DesktopRuntime {
     } finally { this.#changing = false; }
   }
 
-  async #replace(select: () => Promise<DesktopIdentityResolution>, reuseUnchanged = false): Promise<void> {
+  async #replace(select: () => Promise<DesktopIdentityResolution>, reuseUnchanged = false, settings?: { rollback: () => Promise<void> }): Promise<void> {
     this.#assertIdle();
     this.#changing = true;
     this.#options.send({ type: "state", state: { kind: "command", name: "thread-switch" } });
     const previous = this.#identity;
     let disposed = false;
+    let configurationError: string | undefined;
     const transition = (async () => {
       try {
         const next = await select();
@@ -115,13 +117,15 @@ export class DesktopRuntime {
         this.#bridge = await this.#make(next);
         this.#identity = next;
       } catch (error) {
+        if (settings) configurationError = error instanceof Error ? error.message : String(error);
+        await settings?.rollback();
         if (disposed) this.#bridge = await this.#make(previous);
         // Restore persisted selection if activating the new controller failed.
         if (previous.identitySource === "saved") await selectDesktopThread(this.#scope(), previous.threadId);
         throw error;
       } finally {
         this.#changing = false;
-        this.#options.send({ type: "identity-changed", info: this.#bridge.info() });
+        this.#options.send({ type: "identity-changed", info: this.#bridge.info(), ...(settings ? { reason: "modules" as const, ...(configurationError ? { configurationError } : {}) } : {}) });
       }
     })();
     this.#transition = transition;
@@ -145,6 +149,20 @@ export class DesktopRuntime {
       await enableDesktopMemory(this.#identity.configPath);
       return this.#identity;
     });
+  }
+  setModuleEnabled(input: ModuleSettingInput) {
+    let undo: (() => Promise<void>) | undefined;
+    return this.#replace(async () => {
+      undo = await changeModuleSetting(this.#identity.configPath, input, this.#options.cwd);
+      return this.#identity;
+    }, false, { rollback: async () => { await undo?.(); } });
+  }
+  setDreamingEnabled(input: DreamingSettingInput) {
+    let undo: (() => Promise<void>) | undefined;
+    return this.#replace(async () => {
+      undo = await changeDreamingSetting(this.#identity.configPath, input, this.#options.cwd);
+      return this.#identity;
+    }, false, { rollback: async () => { await undo?.(); } });
   }
   async shutdown() {
     await this.#transition?.catch(() => undefined);

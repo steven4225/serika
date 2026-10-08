@@ -1,7 +1,11 @@
 import type { UIMessage } from "ai";
 import type { FormalMemory, MemoryPage, MemoryListInput, MemoryEditInput } from "@aisdk-agent/example-cli/dist/memory-management.js";
 import type { MemoryAction, MemoryActionPreview, MemoryHistoryInput, MemoryHistoryPage, MemoryMaintenance } from "@aisdk-agent/example-cli/dist/memory-controls.js";
-import type { AssistantRunOptions, AutomationResult } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
+import type { AssistantRunOptions, AssistantSteerRecord, AutomationResult } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
+export type { AssistantSteerRecord } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
+import type { AutomationDiagnostics, SkillRunInput, SkillResult } from "@aisdk-agent/example-cli/dist/automation-execution.js";
+import type { AutomationOverview, AutomationScheduleAction, ScheduleSkillInput, ScheduledSkillSaved } from "@aisdk-agent/example-cli/dist/automation-scheduling.js";
+import type { AssistantController } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
 import type { TaskListV3, TaskRecordV4 } from "@aisdk-agent/example-cli/dist/task-store.js";
 import type { MemoryConsolidationRequest, MemoryConsolidationSourcePage } from "@aisdk-agent/example-cli/dist/memory-consolidation.js";
 import type { MemoryTemporalQuery, MemoryTemporalView } from "@aisdk-agent/example-cli/dist/memory-store.js";
@@ -104,6 +108,8 @@ export interface UiSnapshot {
   state: UiState;
   /** Ordinary chat can preempt automatic consolidation; this grants no tool authority. */
   canSubmit: boolean;
+  canSteer: boolean;
+  steers: readonly AssistantSteerRecord[];
   pendingApproval: PendingApproval | null;
   recentOutput: string;
   outputTruncated: boolean;
@@ -117,12 +123,13 @@ export interface UiSnapshot {
 
 export type MainToRenderer =
   | { type: "task-result-available" }
-  | { type: "identity-changed"; info: AppInfo }
+  | { type: "identity-changed"; info: AppInfo; reason?: "modules"; configurationError?: string }
   | { type: "state"; state: UiState }
   | { type: "output"; text: string }
   | { type: "home"; text: string; reset?: boolean }
   | { type: "approval"; approval: PendingApproval }
   | { type: "approval-cleared"; approvalId: string }
+  | { type: "steer"; steer: AssistantSteerRecord }
   | { type: "event"; phase: RunPhase; event: AgentEvent }
   | { type: "result"; phase: RunPhase; result: RunResult }
   | { type: "shell-progress"; phase: RunPhase; runId: string; progress: ShellProgressChunk }
@@ -188,6 +195,7 @@ export interface ExecutionRunRecord {
   resultTextTruncated: boolean;
   errorPreview: string | null;
   tools: ExecutionToolRecord[];
+  steers?: AssistantSteerRecord[];
 }
 
 export type ListRunsResponse =
@@ -206,6 +214,7 @@ export interface RendererApi {
   discoverThreads(directory: string): Promise<ThreadSummary[]>;
   registerThread(input: { threadId: string; transcriptDirectory: string; confirmedWorkspace: true }): Promise<void>;
   enableMemory(): Promise<void>;
+  setModuleEnabled?(input: { id: string; enabled: boolean; expectedEnabled: boolean }): Promise<void>;
   consolidateMemory(input: MemoryConsolidationRequest): Promise<MemoryResult<{ runId: string }>>;
   listMemoryConsolidationSources(offset?: number): Promise<MemoryResult<MemoryConsolidationSourcePage>>;
   getRssSubscriptions(): Promise<RssResult<RssView>>;
@@ -219,17 +228,32 @@ export interface RendererApi {
   acknowledgeTaskResult(id: string): Promise<AutomationResult<TaskRecordV4>>;
   rssWorkerStatus(): Promise<RssWorkerResponse>;
   setRssWorkerEnabled(enabled: boolean): Promise<RssWorkerResponse>;
+  notificationStatus(): Promise<NotificationReadinessStatus>;
+  testNotification(): Promise<NotificationTestResult>;
   info(): Promise<AppInfo>;
   snapshot(): Promise<UiSnapshot>;
   history(): Promise<UIMessage[]>;
   home(): Promise<CommandResponse>;
   run(text: string, options?: AssistantRunOptions): Promise<RunResponse>;
+  steer(input: Parameters<AssistantController["steer"]>[0]): ReturnType<AssistantController["steer"]>;
   cancel(): Promise<void>;
   confirm(input: ConfirmInput): Promise<ConfirmResponse>;
   command(line: string): Promise<CommandResponse>;
   listRuns(): Promise<ListRunsResponse>;
   getRun(runId: string): Promise<GetRunResponse>;
   getContextDiagnostics(): Promise<ContextResult<ContextDiagnostics>>;
+  /** Bounded metadata only; no Skill instructions, source paths or tool authority. */
+  getAutomationDiagnostics(): Promise<AutomationDiagnostics>;
+  getAutomationOverview(): Promise<AutomationResult<AutomationOverview>>;
+  scheduleSkill(input: ScheduleSkillInput): Promise<AutomationResult<ScheduledSkillSaved>>;
+  changeAutomationSchedule(input: AutomationScheduleAction): Promise<AutomationResult<null>>;
+  getDreamingOverview(): ReturnType<AssistantController["getDreamingOverview"]>;
+  dream(): ReturnType<AssistantController["dream"]>;
+  changeLearnedSkill(input: Parameters<AssistantController["changeLearnedSkill"]>[0]): ReturnType<AssistantController["changeLearnedSkill"]>;
+  getLearnedSkillReferences(): Promise<ReturnType<AssistantController["getLearnedSkillReferences"]>>;
+  setDreamingEnabled(input: { enabled: boolean; expectedEnabled: boolean }): Promise<void>;
+  /** Success means a Run started, not that the Skill completed or its output is correct. */
+  runSkill(input: SkillRunInput): Promise<SkillResult<{ runId: string }>>;
   listMemories(input?: MemoryListInput): Promise<MemoryResult<MemoryPage>>;
   getMemory(id: string): Promise<MemoryResult<FormalMemory>>;
   updateMemory(input: MemoryEditInput): Promise<MemoryResult<FormalMemory>>;
@@ -278,17 +302,31 @@ export const IPC = {
   taskResultAck: "runloom:taskResultAck",
   rssWorkerStatus: "runloom:rssWorkerStatus",
   rssWorkerEnabled: "runloom:rssWorkerEnabled",
+  notificationStatus: "runloom:notificationStatus",
+  notificationTest: "runloom:notificationTest",
   info: "runloom:info",
+  moduleEnabled: "runloom:moduleEnabled",
   snapshot: "runloom:snapshot",
   history: "runloom:history",
   home: "runloom:home",
   run: "runloom:run",
+  steer: "runloom:steer",
   cancel: "runloom:cancel",
   confirm: "runloom:confirm",
   command: "runloom:command",
   listRuns: "runloom:listRuns",
   getRun: "runloom:getRun",
   contextDiagnostics: "runloom:contextDiagnostics",
+  automationDiagnostics: "runloom:automationDiagnostics",
+  automationOverview: "runloom:automationOverview",
+  scheduleSkill: "runloom:scheduleSkill",
+  automationScheduleChange: "runloom:automationScheduleChange",
+  dreamingOverview: "runloom:dreamingOverview",
+  dream: "runloom:dream",
+  learnedSkillChange: "runloom:learnedSkillChange",
+  learnedSkillReferences: "runloom:learnedSkillReferences",
+  dreamingEnabled: "runloom:dreamingEnabled",
+  runSkill: "runloom:runSkill",
   memoriesList: "runloom:memoriesList",
   memoryGet: "runloom:memoryGet",
   memoryUpdate: "runloom:memoryUpdate",
@@ -318,7 +356,16 @@ export const IPC = {
 } as const;
 
 export type RssWorkerResponse =
-  | { ok: true; registered: boolean; running: boolean; rssEnabled: boolean }
+  | { ok: true; registered: boolean; running: boolean; rssEnabled: boolean; notifyEnabled?: boolean; notificationRoutingEnabled?: boolean }
+  | { ok: false; message: string };
+
+export interface NotificationReadinessStatus {
+  helperConfigured: boolean;
+  authorization: "not_requested" | "authorized" | "denied" | "unknown";
+  message: string;
+}
+export type NotificationTestResult =
+  | { ok: true; submitted: true; message: string }
   | { ok: false; message: string };
 
 export interface ThreadSummary {

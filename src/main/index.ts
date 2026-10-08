@@ -12,6 +12,8 @@ import { DesktopRuntime } from "./desktop-runtime.js";
 import { installHideOnClose, installTray } from "./tray.js";
 import { loadDesktopEnvironment, safeStartupError } from "./desktop-env.js";
 import { createDesktopRssWorker } from "./rss-worker-service.js";
+import { createNotificationReadiness } from "./notification-readiness.js";
+import { configureBundledNotifications } from "./bundled-notifications.js";
 import { parseTaskResultLink } from "@aisdk-agent/example-cli/dist/task-result-link.js";
 import { openTaskNotificationResult } from "./task-notification-route.js";
 import type { RssAction } from "@aisdk-agent/example-cli/dist/rss-subscriptions.js";
@@ -56,7 +58,7 @@ function createWindow(): BrowserWindow {
     height: 800,
     minWidth: 320,
     minHeight: 480,
-    title: "Serika",
+    title: process.env.RUNLOOM_DESKTOP_TEST === "1" ? "Serika · 隔离测试" : "Serika",
     icon: appIconPath,
     // Keep macOS traffic lights native; close still uses installHideOnClose.
     ...(process.platform === "darwin"
@@ -74,6 +76,8 @@ function createWindow(): BrowserWindow {
     },
   });
   window.once("ready-to-show", () => window.show());
+  // Keep the native test identity visible; the HTML title must not erase it.
+  window.on("page-title-updated", event => event.preventDefault());
   window.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith("https://") || url.startsWith("http://")) void shell.openExternal(url);
     return { action: "deny" };
@@ -154,19 +158,23 @@ async function main(): Promise<void> {
   });
   try {
     await loadDesktopEnvironment();
+    await configureBundledNotifications({ resourcesPath: process.resourcesPath, desktopRoot: join(here, "../.."), packaged: app.isPackaged, env: process.env });
     const { modelAlias, model } = configureCliModel(createDemoModel, process.env);
-    const taskWorkerFor = (workspace: string) => createDesktopRssWorker({ workspace, home: app.getPath("home"), env: process.env,
+    const taskWorkerFor = (workspace: string, configPath?: string) => createDesktopRssWorker({ workspace, ...(configPath ? { configPath } : {}), home: app.getPath("home"), env: process.env,
       workerEntry: fileURLToPath(import.meta.resolve("@aisdk-agent/example-cli/dist/task-worker-entry.js")),
       todoist: !!process.env.TODOIST_API_TOKEN?.trim() });
     host = await DesktopRuntime.create({
       env: process.env, userData: app.getPath("userData"), cwd: process.cwd(),
       modelAlias, model, modelId: inspectCliModelConfig().modelId, send,
-      taskAutomation: { status: workspace => taskWorkerFor(workspace).automationStatus(), enable: workspace => taskWorkerFor(workspace).enableArrangement() },
+      taskAutomation: { status: (workspace, configPath) => taskWorkerFor(workspace, configPath).automationStatus(), enable: (workspace, configPath) => taskWorkerFor(workspace, configPath).enableArrangement() },
     });
-    const rssWorker = createDesktopRssWorker({ workspace: host.info().workspaceRoot ?? undefined, home: app.getPath("home"), env: process.env,
+    const rssWorker = createDesktopRssWorker({ workspace: host.info().workspaceRoot ?? undefined, ...(host.info().configPath ? { configPath: host.info().configPath! } : {}), home: app.getPath("home"), env: process.env,
       workerEntry: fileURLToPath(import.meta.resolve("@aisdk-agent/example-cli/dist/task-worker-entry.js")), todoist: !!process.env.TODOIST_API_TOKEN?.trim() });
     ipcMain.handle(IPC.rssWorkerStatus, () => rssWorker.status());
     ipcMain.handle(IPC.rssWorkerEnabled, (_event, enabled: unknown) => rssWorker.setEnabled(enabled));
+    const notifications = createNotificationReadiness({ workspace: host.info().workspaceRoot ?? undefined, env: process.env });
+    ipcMain.handle(IPC.notificationStatus, () => notifications.status());
+    ipcMain.handle(IPC.notificationTest, () => notifications.test());
   } catch (error) {
     const message = safeStartupError(error, process.env);
     rejectStartup(new Error(message));
@@ -198,6 +206,17 @@ async function main(): Promise<void> {
   ipcMain.handle(IPC.scheduledTask, (_event, id: string) => host.current.getScheduledTask(id));
   ipcMain.handle(IPC.taskResultAck, (_event, id: string) => host.current.acknowledgeTaskResult(id));
   ipcMain.handle(IPC.contextDiagnostics, () => host.current.getContextDiagnostics());
+  ipcMain.handle(IPC.moduleEnabled, (_event, input) => host.setModuleEnabled(input));
+  ipcMain.handle(IPC.automationDiagnostics, () => host.current.getAutomationDiagnostics());
+  ipcMain.handle(IPC.automationOverview, () => host.current.getAutomationOverview());
+  ipcMain.handle(IPC.scheduleSkill, (_event, input) => host.current.scheduleSkill(input));
+  ipcMain.handle(IPC.automationScheduleChange, (_event, input) => host.current.changeAutomationSchedule(input));
+  ipcMain.handle(IPC.dreamingOverview, () => host.current.getDreamingOverview());
+  ipcMain.handle(IPC.dream, () => host.current.dream());
+  ipcMain.handle(IPC.learnedSkillChange, (_event, input) => host.current.changeLearnedSkill(input));
+  ipcMain.handle(IPC.learnedSkillReferences, () => host.current.getLearnedSkillReferences());
+  ipcMain.handle(IPC.dreamingEnabled, (_event, input) => host.setDreamingEnabled(input));
+  ipcMain.handle(IPC.runSkill, (_event, input) => host.current.runSkill(input));
   ipcMain.handle(IPC.memoriesList, (_event, input) => host.current.listMemories(input));
   ipcMain.handle(IPC.memoryGet, (_event, id) => host.current.getMemory(id));
   ipcMain.handle(IPC.memoryUpdate, (_event, input) => host.current.updateMemory(input));
@@ -210,6 +229,7 @@ async function main(): Promise<void> {
   ipcMain.handle(IPC.history, () => host.current.history());
   ipcMain.handle(IPC.home, () => host.current.home());
   ipcMain.handle(IPC.run, (_event, text: string, options) => host.current.run(text, options));
+  ipcMain.handle(IPC.steer, (_event, input) => host.current.steer(input));
   ipcMain.handle(IPC.cancel, () => host.current.cancel());
   ipcMain.handle(IPC.confirm, (_event, input: ConfirmInput) => host.current.confirm(input));
   ipcMain.handle(IPC.command, (_event, line: string) => host.current.command(line));

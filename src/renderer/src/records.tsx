@@ -9,6 +9,7 @@ import {
   toolTone,
 } from "../../shared/execution-records.js";
 import type { ExecutionRunRecord, ExecutionToolRecord } from "../../shared/ui-contract.js";
+import { SteerStatus } from "./steer-status.js";
 
 export type RecordsState =
   | { status: "loading" }
@@ -119,6 +120,7 @@ export function RecordsPanel({
             <div className="hint">这次 Run 失败，但下面已返回的工具回执仍有效。</div>
           ) : null}
           {detail.run.errorPreview ? <pre className="record-preview">{detail.run.errorPreview}</pre> : null}
+          <SteerStatus records={detail.run.steers ?? []} />
           {detail.run.tools.map((item) => (
             <ToolReceipt key={item.toolCallId} tool={item} />
           ))}

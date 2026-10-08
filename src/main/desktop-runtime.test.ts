@@ -37,6 +37,43 @@ async function idle(host: DesktopRuntime) {
 }
 
 describe("normal desktop memory and history entry", () => {
+  it("applies capability switches to the real runtime, preserves history and identity, persists after restart and rolls back failed activation", async () => {
+    const root = await mkdtemp(join(tmpdir(), "serika-capability-runtime-"));
+    let calls = 0;
+    const changes: MainToRenderer[] = [];
+    const options = { userData: join(root, "profile"), cwd: root, env: {}, modelAlias: "mock",
+      model: new MockLanguageModelV3({ doStream: async () => { calls++; return response(); } }), send: (event: MainToRenderer) => { changes.push(event); } };
+    let host = await DesktopRuntime.create(options);
+    try {
+      const initial = host.info();
+      await host.current.run("保留当前对话", { memoryConsolidation: "exclude" });
+      await assert.rejects(host.setModuleEnabled({ id: "pomodoro", enabled: false, expectedEnabled: true }), /等待/);
+      await idle(host);
+      const transcriptCalls = calls;
+      await host.setModuleEnabled({ id: "pomodoro", enabled: false, expectedEnabled: true });
+      assert.equal(host.info().commands.includes("pomodoro"), false);
+      assert.equal(host.info().threadId, initial.threadId); assert.equal(host.info().directory, initial.directory);
+      assert.equal(calls, transcriptCalls);
+      assert.ok((await host.current.history()).some(message => message.role === "user"));
+      await host.shutdown(); host = await DesktopRuntime.create(options);
+      assert.equal(host.info().commands.includes("pomodoro"), false);
+      await host.setModuleEnabled({ id: "pomodoro", enabled: true, expectedEnabled: false });
+      assert.equal(host.info().commands.includes("pomodoro"), true);
+      await host.setModuleEnabled({ id: "web", enabled: true, expectedEnabled: false });
+      assert.equal(host.info().modules?.find(module => module.id === "web")?.enabled, true);
+      await host.setModuleEnabled({ id: "web", enabled: false, expectedEnabled: true });
+      // Valid config, but no credentials: assembly must fail and restore the prior config/runtime.
+      const path = host.info().configPath!;
+      const before = await readFile(path, "utf8");
+      await assert.rejects(host.setModuleEnabled({ id: "todoist", enabled: true, expectedEnabled: false }), /TODOIST_API_TOKEN/);
+      assert.ok(changes.some(event => event.type === "identity-changed" && event.reason === "modules" && event.configurationError?.includes("TODOIST_API_TOKEN")));
+      assert.equal(await readFile(path, "utf8"), before);
+      assert.equal(host.info().threadId, initial.threadId);
+      assert.equal(host.current.snapshot().state.kind, "idle");
+      assert.equal(host.info().modules?.find(module => module.id === "todoist")?.enabled, false);
+      assert.ok((await host.current.history()).some(message => message.role === "user"));
+    } finally { await host.shutdown(); await rm(root, { recursive: true, force: true }); }
+  });
   it("reuses verified empty conversations, keeps draft identities separate, and never hides tasks, receipts or unreadable records", async () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-history-activity-"));
     let calls = 0;

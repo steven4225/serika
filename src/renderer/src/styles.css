@@ -41,6 +41,13 @@ input, textarea, pre, .row-text, .home-body, .memory-body, .record-detail, .sess
   user-select: text; -webkit-user-select: text;
 }
 .hint, .muted, .meta { font-size: 12px; color: var(--muted); line-height: 1.7; }
+.steer-status-list { display: grid; gap: 5px; margin: 12px 0; }
+.steer-status { border-left: 2px solid var(--line-strong); padding: 5px 10px; color: var(--muted); font-size: 12px; }
+.steer-status summary { cursor: pointer; display: flex; gap: 12px; flex-wrap: wrap; }
+.steer-status p { color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; margin: 8px 0; }
+.steer-status small { display: block; }
+.steer-status.status-applied { border-color: var(--success); }
+.steer-status.status-not_applied { border-color: var(--orange); }
 .spacer { flex: 1; }
 .icon-button { width: 32px; height: 32px; padding: 0; border-color: transparent; color: var(--muted); background: transparent; flex: none; }
 button.ghost { padding: 4px 7px; background: transparent; color: var(--muted); border-color: transparent; font-size: 12px; }
@@ -501,6 +508,21 @@ button.chip { font-size: 12px; padding: 5px 9px; border-color: var(--line); }
 .capability-row small { display: block; color: var(--muted, #657184); font-size: 12px; line-height: 1.8; }
 .capability-status { flex-shrink: 0; font-size: 12px; color: #657184; padding-top: 2px; }
 .capability-status.enabled { color: #285dc1; }
+.capability-control { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.capability-confirm { padding: 16px; border-left: 3px solid var(--accent, #285dc1); background: var(--panel, #f5f7fb); margin-top: 20px; }
+.capability-confirm p { line-height: 1.6; max-width: 65ch; }
+.context-page { max-width: 760px; }
+.context-status-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.context-status-head h2 { font-size: 20px; margin: 8px 0 16px; }
+.context-explanation { color: var(--muted, #657184); font-size: 14px; line-height: 1.8; max-width: 58ch; }
+.context-usage { margin: 28px 0; display: grid; gap: 8px; }
+.context-usage strong { font-size: 22px; font-weight: 500; }
+.context-history-note { margin: 24px 0; font-size: 13px; line-height: 1.7; color: var(--muted, #657184); }
+.context-page details { border-top: 1px solid var(--border, #e5e8ed); padding: 18px 0; }
+.context-page summary { cursor: pointer; font-size: 13px; }
+.context-page details p { font-size: 13px; line-height: 1.7; max-width: 65ch; }
+.context-technical .home-body { margin-top: 18px; font-size: 12px; overflow-wrap: anywhere; }
+@media (max-width: 520px) { .capability-row { gap: 12px; } .capability-control { flex-direction: column; align-items: flex-end; } .context-status-head { align-items: flex-start; } }
 .focus-page { max-width: 720px; }
 .focus-intro { padding: 20px 0 28px; }
 .focus-intro h2 { margin: 0 0 12px; font-size: 24px; font-weight: 600; letter-spacing: -.5px; }

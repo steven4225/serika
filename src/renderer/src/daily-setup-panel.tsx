@@ -1,6 +1,8 @@
 import { useState } from "react";
 import type { AppInfo } from "../../shared/ui-contract.js";
 import { memorySetupChanges, memorySetupNeeded } from "./daily-setup.js";
+import { DailyAutomation } from "./daily-automation-panel.js";
+import { AutomationPanel } from "./automation-panel.js";
 
 export function MemorySetup({ info, busy }: { info: AppInfo; busy: boolean }) {
   const [preview, setPreview] = useState(false);
@@ -30,7 +32,7 @@ export function MemorySetup({ info, busy }: { info: AppInfo; busy: boolean }) {
   </div>;
 }
 
-export function DailySetup({ info, busy, onHistory }: { info: AppInfo; busy: boolean; onHistory: () => void }) {
+export function DailySetup({ info, busy, onHistory, onRun, automationRefresh }: { info: AppInfo; busy: boolean; onHistory: () => void; onRun: (runId: string) => void; automationRefresh: number }) {
   return <section className="card daily-setup" aria-label="日用状态">
     <div className="card-head">{info.entryMode === "test" ? "隔离测试入口" : "当前日用入口"}</div>
     <dl className="session-facts">
@@ -42,6 +44,8 @@ export function DailySetup({ info, busy, onHistory }: { info: AppInfo; busy: boo
       <dt>上下文压缩</dt><dd>{info.hasCompaction ? "已启用；本轮是否使用请查看上下文与压缩" : "未启用"}</dd>
     </dl>
     <MemorySetup info={info} busy={busy} />
+    <AutomationPanel key={`${info.configPath}:${info.workspaceRoot}:${info.threadId}`} identity={`${info.configPath}:${info.workspaceRoot}:${info.threadId}`} refreshSequence={automationRefresh} busy={busy} onRun={onRun} />
+    <DailyAutomation key={`${info.configPath}:${info.workspaceRoot}`} enabled={info.modules?.some(module => module.id === "task" && module.enabled) === true} busy={busy} />
     <button className="ghost" onClick={onHistory}>查找或恢复旧对话</button>
     <p className="hint">旧目录需要你确认属于当前工作区后登记，不会自动合并其他工作区的数据。</p>
   </section>;

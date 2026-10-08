@@ -15,7 +15,7 @@ const info = (): AppInfo => ({ entryMode: "test", configPath: "/fixture/config.j
   modelAlias: "mock", modelId: "UI fixture", temporaryThread: false, temporaryDirectory: false, identitySource: "saved",
   computer: { enabled: false, allowedBundleIds: [] }, tuiMode: true, commands: [], hasCompaction: false, hasResume: false,
   totalTimeoutMs: 600000, shellTimeoutMs: 300000, memory: { enabled: memoryEnabled, autoConsolidate: memoryEnabled, queryRewriteEnabled: memoryEnabled }, workTasks: true, modules: [] });
-const snapshot: UiSnapshot = { state: { kind: "idle" }, canSubmit: true, pendingApproval: null, recentOutput: "", outputTruncated: false,
+const snapshot: UiSnapshot = { state: { kind: "idle" }, canSubmit: true, canSteer: false, steers: [], pendingApproval: null, recentOutput: "", outputTruncated: false,
   toolActivity: [], lastPrimaryResult: null, lastConsolidationResult: null, resultTextTruncated: false, shellProgress: [] };
 const changeThread = (id: string) => { threadId = id; for (const listener of [...listeners]) listener({ type: "identity-changed", info: info() }); };
 const api = {

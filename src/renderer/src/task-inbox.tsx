@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import type { TaskListV3, TaskRecordV4 } from "@aisdk-agent/example-cli/dist/task-store.js";
 import { MessageContent } from "./markdown.js";
+import { automationArrangementLabel } from "./automation-schedule.js";
 
 const statuses = { scheduled: "已排期", running: "正在执行", completed: "执行结束", failed: "执行失败", cancelled: "已取消", interrupted: "执行中断，结果未确定" };
 
 export function taskResultPresentation(task: TaskRecordV4): { kind: string; status: string; notification: string } {
-  const kind = task.arrangement?.kind === "reminder" ? "提醒" : task.arrangement?.kind === "todoist-brief" ? "Todoist 日报" : task.arrangement?.kind === "rss-digest" ? "RSS 资讯" : "定时任务";
+  const kind = automationArrangementLabel(task.arrangement);
   const notification = task.notification === null ? "未安排系统通知" : task.notification.status === "submitted"
     ? "已提交系统通知，不代表你已看到"
     : task.notification.status === "failed" ? "系统通知提交失败" : "等待提交系统通知";
@@ -13,7 +14,7 @@ export function taskResultPresentation(task: TaskRecordV4): { kind: string; stat
 }
 
 /** One workspace inbox, backed only by existing TaskStore terminal records. */
-export function TaskInbox({ enabled, busy, focus }: { enabled: boolean; busy: boolean; focus?: { taskId: string; sequence: number } | null }) {
+export function TaskInbox({ enabled, busy, focus, onResultsRead }: { enabled: boolean; busy: boolean; focus?: { taskId: string; sequence: number } | null; onResultsRead?: () => void }) {
   const [page, setPage] = useState<TaskListV3 | null>(null);
   const [detail, setDetail] = useState<TaskRecordV4 | null>(null);
   const [error, setError] = useState("");
@@ -29,7 +30,7 @@ export function TaskInbox({ enabled, busy, focus }: { enabled: boolean; busy: bo
     try {
       const result = await window.runloom.getTaskInbox();
       if (request !== generation.current) return;
-      if (result.ok) setPage(result.value);
+      if (result.ok) { setPage(result.value); onResultsRead?.(); }
       else { setPage(null); setError(`${result.error.code}: ${result.error.message}`); }
     } catch (cause) {
       if (request === generation.current) { setPage(null); setError(`结果读取失败：${String(cause)}`); }
@@ -47,7 +48,7 @@ export function TaskInbox({ enabled, busy, focus }: { enabled: boolean; busy: bo
     try {
       const result = await window.runloom.getScheduledTask(id);
       if (request !== generation.current) return;
-      if (result.ok) setDetail(result.value);
+      if (result.ok) { setDetail(result.value); onResultsRead?.(); }
       else setError(`${result.error.code}: ${result.error.message}`);
     } catch (cause) { if (request === generation.current) setError(`详情读取失败：${String(cause)}`); }
     finally { if (request === generation.current) setWorking(false); }
@@ -74,9 +75,9 @@ export function TaskInbox({ enabled, busy, focus }: { enabled: boolean; busy: bo
   useEffect(() => {
     if (detail && focus?.taskId === detail.id) detailElement.current?.scrollIntoView({ block: "nearest" });
   }, [detail?.id, focus?.sequence]);
-  return <section className="card task-inbox" aria-label="定时任务结果收件箱">
+  return <section id="scheduled-results" className="card task-inbox" aria-label="定时任务结果收件箱">
     <div className="card-head"><span>定时任务收件箱</span><button className="ghost" disabled={!enabled || loading || working} onClick={() => void reload()}>刷新结果</button></div>
-    <p className="hint">提醒、日报和资讯的结果都在这里。没有变化的检查可不通知；失败与中断不会被当成“没有内容”。</p>
+    <p className="hint">提醒、日报、资讯和定时 Skill 的结果都在这里。没有变化的检查可不通知；失败与中断不会被当成“没有内容”。</p>
     {!enabled ? <p className="hint">当前配置未启用工作区任务模块，不能读取定时结果。</p> : null}
     {loading ? <p role="status">正在读取结果…</p> : null}
     {error ? <p className="error" role="alert">{error}。读取失败不代表没有结果。</p> : null}

@@ -5,6 +5,9 @@ import type { DesktopThread } from "./desktop-identity.js";
 import type { MemoryEditInput, MemoryListInput } from "@aisdk-agent/example-cli/dist/memory-management.js";
 import type { MemoryAction, MemoryHistoryInput } from "@aisdk-agent/example-cli/dist/memory-controls.js";
 import type { AssistantRunOptions } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
+import type { AutomationDiagnostics, SkillRunInput, SkillResult } from "@aisdk-agent/example-cli/dist/automation-execution.js";
+import type { AutomationScheduleAction, ScheduleSkillInput } from "@aisdk-agent/example-cli/dist/automation-scheduling.js";
+import type { DreamingChangeInput } from "@aisdk-agent/example-cli/dist/dreaming.js";
 import type { MemoryConsolidationRequest } from "@aisdk-agent/example-cli/dist/memory-consolidation.js";
 import type { MemoryTemporalQuery } from "@aisdk-agent/example-cli/dist/memory-store.js";
 import type {
@@ -185,6 +188,8 @@ export function assistantEventToRenderer(event: AssistantEvent): MainToRenderer 
       return { type: "approval", approval: event.approval };
     case "approval-cleared":
       return { type: "approval-cleared", approvalId: event.approvalId };
+    case "steer":
+      return { type: "steer", steer: event.steer };
     case "run-event":
       return { type: "event", phase: event.phase, event: event.event };
     case "run-result":
@@ -217,6 +222,8 @@ function toUiSnapshot(snapshot: AssistantSnapshot, shellProgress: UiSnapshot["sh
   return {
     state: toUiState(snapshot.state),
     canSubmit: snapshot.canSubmit,
+    canSteer: snapshot.canSteer,
+    steers: snapshot.steers,
     pendingApproval: snapshot.pendingApproval,
     recentOutput: snapshot.recentOutput,
     outputTruncated: snapshot.outputTruncated,
@@ -269,6 +276,9 @@ export class RuntimeBridge {
   }
 
   info(): AppInfo {
+    const automation = this.#controller.getAutomationDiagnostics();
+    const memorySkills = new Set(automation.skills.filter(skill => skill.kind === "memory-consolidate").map(skill => skill.id));
+    const autoConsolidate = automation.hooks.some(rule => rule.enabled !== false && memorySkills.has(rule.handler.id));
     return {
       modules: (["pomodoro", "read-file", "memory", "checkpoint", "task", "todoist", "shell", "web", "computer"] as const).map(id => ({
         id,
@@ -278,7 +288,7 @@ export class RuntimeBridge {
       moduleOptions: {
         webSearch: this.#app.moduleConfig?.webSearchEnabled === true,
         webFeed: this.#app.moduleConfig?.webFeedEnabled === true,
-        autoConsolidate: this.#app.autoConsolidationAgentId !== undefined,
+        autoConsolidate,
       },
       modelAlias: this.#identity.modelAlias,
       ...(this.#identity.modelId === undefined ? {} : { modelId: this.#identity.modelId }),
@@ -294,18 +304,19 @@ export class RuntimeBridge {
       temporaryDirectory: this.#identity.temporaryDirectory,
       workspaceRoot: this.#app.workspaceRoot ?? null,
       tuiMode: this.#app.tuiMode,
-      commands: [
+      commands: [...new Set([
         ...(this.#app.commands ? [...this.#app.commands.keys()] : []),
         ...(this.#app.compaction ? ["compact"] : []),
         ...(this.#app.resume ? ["resume"] : []),
-      ].sort(),
+        "skills", "hooks", "skill",
+      ])].sort(),
       hasCompaction: this.#app.compaction !== undefined,
       hasResume: this.#app.resume !== undefined,
       totalTimeoutMs: this.#app.moduleConfig?.totalTimeoutMs ?? TUI_DEFAULT_TOTAL_TIMEOUT_MS,
       shellTimeoutMs: this.#app.moduleConfig?.shellTimeoutMs ?? TUI_DEFAULT_SHELL_TIMEOUT_MS,
       memory: {
         enabled: this.#app.moduleConfig?.enabled.memory === true && this.#app.memoryStore !== undefined,
-        autoConsolidate: this.#app.autoConsolidationAgentId !== undefined,
+        autoConsolidate,
         writePolicy: this.#app.moduleConfig?.memoryWritePolicy ?? "review",
         queryRewriteEnabled: this.#app.moduleConfig?.memoryQueryRewriteEnabled === true,
       },
@@ -323,6 +334,22 @@ export class RuntimeBridge {
 
   getContextDiagnostics() {
     return this.#controller.getContextDiagnostics();
+  }
+
+  getAutomationDiagnostics(): AutomationDiagnostics {
+    return this.#controller.getAutomationDiagnostics();
+  }
+  getAutomationOverview() { return this.#controller.getAutomationOverview(); }
+  scheduleSkill(input: ScheduleSkillInput) { return this.#controller.scheduleSkill(input); }
+  changeAutomationSchedule(input: AutomationScheduleAction) { return this.#controller.changeAutomationSchedule(input); }
+  getDreamingOverview() { return this.#controller.getDreamingOverview(); }
+  dream() { return this.#controller.dream(); }
+  changeLearnedSkill(input: DreamingChangeInput) { return this.#controller.changeLearnedSkill(input); }
+  getLearnedSkillReferences() { return this.#controller.getLearnedSkillReferences(); }
+
+  /** Pass the complete invocation to strict host validation; never drop forged authority fields. */
+  runSkill(input: SkillRunInput): Promise<SkillResult<{ runId: string }>> {
+    return this.#controller.runSkill(input);
   }
   listMemories(input?: MemoryListInput) {
     if (input !== undefined && (typeof input !== "object" || input === null || Array.isArray(input))) return Promise.resolve(invalidInput("Invalid Memory page"));
@@ -372,6 +399,14 @@ export class RuntimeBridge {
 
   cancel(): Promise<void> {
     return this.#controller.cancel();
+  }
+
+  steer(input: Parameters<AssistantController["steer"]>[0]): ReturnType<AssistantController["steer"]> {
+    // Forward only the controller-owned Run and request identity, never authority.
+    if (typeof input !== "object" || input === null || Array.isArray(input)) {
+      return Promise.resolve({ ok: false, reason: "invalid" });
+    }
+    return this.#controller.steer({ expectedRunId: input.expectedRunId, id: input.id, text: input.text });
   }
 
   confirm(input: ConfirmInput): ConfirmResponse {

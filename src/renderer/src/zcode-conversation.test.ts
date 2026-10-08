@@ -12,6 +12,15 @@ const tool: ToolRow = { kind: "tool", key: "t1", toolCallId: "t1", toolName: "ed
 const interim: ConversationRow = { kind: "text", role: "assistant", key: "a1", text: "先核对当前文件。", committed: true };
 const answer: ConversationRow = { kind: "text", role: "assistant", key: "a2", text: "已修改。\n\n## 下一步\n这是要保留的完整正文。", committed: true };
 
+it("keeps applied steering in the same conversation turn with an explicit supplement label", () => {
+  const steer: ConversationRow = { kind: "text", role: "user", key: "steer-1", text: "只追加", committed: true, steer: true };
+  const rows: ConversationRow[] = [user, tool, steer, answer];
+  assert.equal(conversationTurns(rows, false).length, 1);
+  const rendered = renderToStaticMarkup(createElement(ZCodeConversation, { rows, running: false, streaming: "" }));
+  assert.match(rendered, /补充本轮要求/);
+  assert.match(rendered, /只追加/);
+});
+
 it("groups completed work before the final reply without rewriting text or losing row order", () => {
   const rows: ConversationRow[] = [user, interim, tool, answer, { kind: "result", key: "r1", status: "completed" }];
   const turns = conversationTurns(rows, false);
@@ -82,4 +91,29 @@ it("ported composer retains real controls and escaped drafts without inert attac
   assert.match(markup, /创建工作任务/);
   assert.match(markup, /aria-label="停止本轮"/);
   assert.doesNotMatch(markup, /添加附件|上传文件|<script>/);
+  assert.doesNotMatch(markup, /composer-notice|composer-hint|操作前确认|Enter 发送/);
+});
+
+it("shows actionable task feedback inside the composer instead of an always-present instruction footer", () => {
+  const markup = renderToStaticMarkup(createElement(ZCodePromptEditor, {
+    inputRef: { current: null }, value: "保留的草稿", "aria-label": "本轮任务指令", disabled: true,
+    notice: "任务已切换，原草稿仍保留。重新选择任务，或切回普通对话。",
+    leadingActions: null, submitControl: createElement("button", { disabled: true }, "继续此任务"),
+  }));
+  assert.match(markup, /class="zcode-composer-notice" role="status"/);
+  assert.match(markup, /重新选择任务/);
+  assert.match(markup, /保留的草稿/);
+  assert.match(markup, /disabled=""/);
+  assert.doesNotMatch(markup, /composer-hint|操作前确认|Enter 发送/);
+});
+
+it("does not repeat a raw tool name already shown in the disclosure title", () => {
+  const { receipt, ...withoutReceipt } = tool;
+  const markup = renderToStaticMarkup(createElement(ZCodeTool, { row: {
+    ...withoutReceipt, toolName: "add", status: "denied", detail: "TOOL_DENIED: User denied this tool call",
+  } }));
+  assert.match(markup, /zcode-tool-name">add</);
+  assert.doesNotMatch(markup, /<code>add<\/code>/);
+  assert.match(markup, /已拒绝/);
+  assert.match(markup, /TOOL_DENIED/);
 });

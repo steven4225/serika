@@ -9,9 +9,9 @@ import React, { useEffect, useLayoutEffect, useRef, type ReactNode, type RefObje
 import { Icon } from "../icons.js";
 import { ChatPromptShell } from "./upstream/chat-prompt-shell.js";
 
-export function ZCodePromptEditor({ inputRef, value, topContent, leadingActions, submitControl, hidden, ...inputProps }: Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "value" | "hidden"> & {
+export function ZCodePromptEditor({ inputRef, value, topContent, notice, leadingActions, submitControl, hidden, ...inputProps }: Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "value" | "hidden"> & {
   inputRef: RefObject<HTMLTextAreaElement | null>; value: string; topContent?: ReactNode;
-  leadingActions: ReactNode; submitControl: ReactNode; hidden?: boolean;
+  notice?: string | null; leadingActions: ReactNode; submitControl: ReactNode; hidden?: boolean;
 }) {
   useLayoutEffect(() => {
     const input = inputRef.current;
@@ -19,7 +19,7 @@ export function ZCodePromptEditor({ inputRef, value, topContent, leadingActions,
     input.style.height = "0px";
     input.style.height = `${Math.min(200, Math.max(56, input.scrollHeight))}px`;
   }, [value, hidden, inputRef]);
-  return <ChatPromptShell hidden={hidden ?? false} topContent={topContent} leadingActions={leadingActions} submitControl={submitControl}
+  return <ChatPromptShell hidden={hidden ?? false} topContent={<>{topContent}{notice ? <p className="zcode-composer-notice" role="status">{notice}</p> : null}</>} leadingActions={leadingActions} submitControl={submitControl}
     input={<textarea {...inputProps} className="zcode-chat-input" ref={inputRef} value={value} rows={2} />} />;
 }
 

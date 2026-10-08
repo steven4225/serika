@@ -58,7 +58,9 @@
 .zcode-settings-menu { position: absolute; left: 10px; bottom: 52px; width: 230px; padding: 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); z-index: 20; box-shadow: 0 8px 24px #0003; }
 .zcode-settings-menu button { width: 100%; justify-content: flex-start; height: 32px; }
 .zcode-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-.zcode-layout .main-shell { margin: 4px 4px 4px 0; background: var(--surface); border-radius: 12px; border: 1px solid var(--line); overflow: hidden; }
+/* The native window owns its outer corners. Do not inset a second rounded
+ * panel: that exposes the gray root surface along the top/right/bottom. */
+.zcode-layout .main-shell { margin: 0; background: var(--surface); border-radius: 0; border: 0; overflow: hidden; }
 .zcode-layout .header { height: 44px; min-height: 44px; padding: 8px 20px; border: 0; background: transparent; gap: 12px; }
 .zcode-layout .page-context { font-size: 13px; font-weight: 500; max-width: 60%; }
 .zcode-layout .run-state { font-size: 12px; }
@@ -93,7 +95,7 @@
 .zcode-layout .send-button.task-send { padding-inline: 8px; }
 .zcode-layout .send-button:disabled { background: var(--color-secondary); color: var(--muted); }
 .zcode-layout .send-button:hover:not(:disabled) { background: var(--color-primary); opacity: .85; border-color: transparent; }
-.zcode-layout .composer-hint { margin: 0; font-size: 11px; text-align: center; color: var(--muted); }
+.zcode-composer-notice { margin: 0; font-size: 12px; color: var(--orange); }
 .zcode-layout .model-mode-notice { background: var(--sunken); color: var(--muted); font-size: 12px; }
 .zcode-layout .attention-region { max-height: 45%; overflow-y: auto; }
 .zcode-layout .attention-region .approval { max-width: 896px; margin: 12px auto; }
@@ -163,7 +165,6 @@
 .zcode-prompt-leading { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
 .zcode-prompt-trailing { display: flex; align-items: center; gap: 10px; min-width: 0; max-width: 55%; }
 .zcode-model-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 11px; }
-.zcode-confirmation-hint { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); white-space: nowrap; }
 .zcode-stop-button { width: 30px; height: 30px; padding: 0; border-radius: 7px; border-color: var(--line); background: transparent; color: var(--text); flex: none; }
 .zcode-stop-button svg { fill: currentColor; width: 12px; height: 12px; }
 .zcode-prompt-options { position: relative; flex: none; }
@@ -182,7 +183,7 @@
 .zcode-layout .action-dock .approval .approval-content { max-height: 19vh; }
 @media (hover: none) { .zcode-message-actions { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .zcode-spinner { animation: none; } .zcode-message-actions, .zcode-work > summary > svg, .zcode-tool > summary > svg:last-child { transition: none; } }
-@media (max-width: 550px) { .zcode-confirmation-hint { display: none; } .zcode-layout .zcode-prompt-editor { padding: 10px; } .zcode-prompt-trailing { max-width: 75%; } .zcode-tool > summary { gap: 5px; } }
+@media (max-width: 550px) { .zcode-layout .zcode-prompt-editor { padding: 10px; } .zcode-prompt-trailing { max-width: 75%; } .zcode-tool > summary { gap: 5px; } }
 
 @media (min-width: 1128px) {
   .zcode-layout .conversation-thread { width: calc(100% - 32px); }

@@ -22,7 +22,7 @@ export interface ConversationTurn {
 export function conversationTurns(rows: readonly ConversationRow[], running: boolean): ConversationTurn[] {
   const groups: ConversationRow[][] = [];
   for (const row of rows) {
-    if ((row.kind === "text" && row.role === "user") || groups.length === 0) groups.push([]);
+    if ((row.kind === "text" && row.role === "user" && !row.steer) || groups.length === 0) groups.push([]);
     groups.at(-1)!.push(row);
   }
   return groups.map((group, index) => {

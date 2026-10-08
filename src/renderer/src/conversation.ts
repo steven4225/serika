@@ -44,6 +44,8 @@ export interface TextRow {
   text: string;
   /** Committed rows come from the Store; live rows come from the current Run. */
   committed: boolean;
+  /** Applied in the same Run; not a new conversation/task boundary. */
+  steer?: true;
 }
 
 export interface StepRow {
@@ -72,7 +74,8 @@ function committedToolStatus(part: Extract<UIMessage["parts"][number], { type: "
 } {
   switch (part.state) {
     case "output-error":
-      return part.errorText?.startsWith("TOOL_OUTCOME_UNKNOWN") ? { status: "unknown", detail: part.errorText } : part.errorText?.startsWith("TOOL_DENIED")
+      return part.errorText?.startsWith("STEER_SUPERSEDED") ? { status: "not_started", detail: "因补充要求停止，调用未派发" }
+        : part.errorText?.startsWith("TOOL_OUTCOME_UNKNOWN") ? { status: "unknown", detail: part.errorText } : part.errorText?.startsWith("TOOL_DENIED")
         ? { status: "denied", detail: part.errorText }
         : { status: "failed", detail: part.errorText };
     case "output-denied":
@@ -139,6 +142,7 @@ export function rowsFromHistory(messages: readonly UIMessage[]): ConversationRow
     }
     if (backgroundConsolidation) continue;
     const role = messageRole(message);
+    const steering = role === "user" && (message.metadata as { source?: string } | undefined)?.source === "steer";
     let text = "";
     let textIndex = 0;
     const flushText = (): void => {
@@ -146,7 +150,7 @@ export function rowsFromHistory(messages: readonly UIMessage[]): ConversationRow
         text = "";
         return;
       }
-      rows.push({ kind: "text", key: `h:${message.id}:text:${textIndex}`, role, text, committed: true });
+      rows.push({ kind: "text", key: `h:${message.id}:text:${textIndex}`, role, text, committed: true, ...(steering ? { steer: true as const } : {}) });
       textIndex += 1;
       text = "";
     };
@@ -206,7 +210,7 @@ function lastUserTurnStart(rows: readonly ConversationRow[]): number {
   let start = 0;
   for (let index = 0; index < rows.length; index += 1) {
     const row = rows[index]!;
-    if (row.kind === "text" && row.role === "user") start = index + 1;
+    if (row.kind === "text" && row.role === "user" && !row.steer) start = index + 1;
   }
   return start;
 }
@@ -326,6 +330,9 @@ export function applyEvent(live: LiveRun, event: AgentEvent): LiveRun {
         streaming: live.streaming,
       };
     }
+    case "tool.call.superseded":
+      return { rows: live.rows.map(row => row.kind === "tool" && row.toolCallId === event.data.toolCallId
+        ? { ...row, status: "not_started" as const, detail: "因补充要求停止，调用未派发" } : row), streaming: live.streaming };
     case "tool.call.failed": {
       const unknown = event.data.error.code === "TOOL_OUTCOME_UNKNOWN";
       return {

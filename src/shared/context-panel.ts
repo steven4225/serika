@@ -32,3 +32,12 @@ export function preparationLabel(outcome: "passthrough" | "reused" | "written" |
     failed: "准备失败（未证明安装成功）",
   }[outcome];
 }
+
+/** User-facing status without turning missing preparation into a budget measurement. */
+export function contextOverview(value: ContextDiagnostics): { title: string; description: string; failed: boolean } {
+  if (value.lastPreparation?.outcome === "failed") return { title: "上次对话准备失败", description: "上次发送前的上下文准备没有完成。请查看失败原因；旧的整理记录不代表这次成功。", failed: true };
+  if (!value.enabled) return { title: "自动摘要整理未开启", description: "目前只保留有限的近期对话。较早内容可能不进入模型；完整对话记录不会因此删除。", failed: false };
+  if (!value.lastPreparation) return { title: "自动管理已开启", description: "继续聊天即可。对话变长时会自动整理较早内容，并保留近期原文。完整历史不会删除。", failed: false };
+  if (["written", "reused"].includes(value.lastPreparation.outcome)) return { title: "上次发送前已使用整理摘要", description: "早期内容通过摘要提供，近期对话保留原文。完整历史仍在；摘要不保证包含每个细节。", failed: false };
+  return { title: "上次发送前无需新增整理", description: "继续聊天即可。系统会在需要时自动整理；一般不需要手动操作。", failed: false };
+}

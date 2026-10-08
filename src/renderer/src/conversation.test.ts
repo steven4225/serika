@@ -14,6 +14,22 @@ import {
 } from "./conversation.js";
 import type { ExecutionToolRecord } from "../../shared/ui-contract.js";
 
+it("marks superseded proposals unstarted and keeps applied steer within the original task/receipt boundary", () => {
+  const history = rowsFromHistory([
+    { id: "u1", role: "user", parts: [{ type: "text", text: "original" }] },
+    { id: "a1", role: "assistant", parts: [{ type: "dynamic-tool", toolName: "write_file", toolCallId: "old", state: "output-error", input: {}, errorText: "STEER_SUPERSEDED: no dispatch" }] },
+    { id: "s1", role: "user", metadata: { source: "steer", memoryConsolidation: "exclude" }, parts: [{ type: "text", text: "append only" }] },
+    { id: "a2", role: "assistant", parts: [{ type: "text", text: "done" }] },
+  ]);
+  assert.equal(history[1]?.kind === "tool" && history[1].status, "not_started");
+  assert.equal(history[2]?.kind === "text" && history[2].steer, true);
+  const receipt: ExecutionToolRecord = { toolCallId: "old", toolName: "write_file", status: "not_started", requestedAt: "2026-10-08T00:00:00Z", startedAt: null, finishedAt: null, inputPreview: "{}", inputTruncated: false, resultPreview: null, resultTruncated: false, errorPreview: null, shell: null };
+  assert.equal(overlayExecutionReceipts(history, [receipt]).filter(row => row.kind === "tool").length, 1);
+  const requested = applyEvent(emptyLiveRun, { id: "e1", type: "tool.call.requested", occurredAt: "2026-10-08T00:00:00Z", runId: "r1", threadId: "t1", sequence: 1, data: { toolCallId: "old", toolName: "write_file", input: {} } });
+  const superseded = applyEvent(requested, { id: "e2", type: "tool.call.superseded", occurredAt: "2026-10-08T00:00:01Z", runId: "r1", threadId: "t1", sequence: 2, data: { toolCallId: "old", toolName: "write_file", reason: "steer" } });
+  assert.equal(superseded.rows[0]?.kind === "tool" && superseded.rows[0].status, "not_started");
+});
+
 it("keeps background consolidation out of chat without hiding the next user turn", () => {
   const text = (id: string, role: "user" | "assistant", value: string) => ({ id, role, parts: [{ type: "text" as const, text: value }] });
   const messages = [text("u1", "user", "first"), text("a1", "assistant", "reply"),

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
-import { contextPanelReducer, initialContextPanel, preparationLabel } from "../../shared/context-panel.js";
+import { contextOverview, contextPanelReducer, initialContextPanel, preparationLabel } from "../../shared/context-panel.js";
 
 export function ContextPanel({ controllerIdle, refreshToken, hasCompaction }: {
   controllerIdle: boolean;
@@ -9,6 +9,7 @@ export function ContextPanel({ controllerIdle, refreshToken, hasCompaction }: {
   const [state, dispatch] = useReducer(contextPanelReducer, initialContextPanel);
   const [commandError, setCommandError] = useState<string | null>(null);
   const [commandPending, setCommandPending] = useState(false);
+  const [commandNotice, setCommandNotice] = useState<string | null>(null);
   const sequence = useRef(0);
   const refresh = useCallback(async () => {
     const request = ++sequence.current;
@@ -24,12 +25,21 @@ export function ContextPanel({ controllerIdle, refreshToken, hasCompaction }: {
   useEffect(() => { void refresh(); }, [refresh, refreshToken]);
 
   const compact = async () => {
-    if (!controllerIdle || commandPending || !hasCompaction) return;
+    if (!controllerIdle || commandPending || !hasCompaction || state.loading || state.error || state.value?.enabled !== true) return;
     setCommandPending(true);
     setCommandError(null);
+    setCommandNotice(null);
+    const beforeId = state.value?.latestValidCompaction?.id;
     try {
       const result = await window.runloom.command("/compact");
       if (!result.ok) setCommandError(result.reason === "failed" ? result.message : `压缩未完成：${result.reason}`);
+      else {
+        const diagnostics = await window.runloom.getContextDiagnostics();
+        if (!diagnostics.ok) setCommandError(`整理命令已结束，但结果无法读取：${diagnostics.error.message}`);
+        else setCommandNotice(diagnostics.value.latestValidCompaction?.id !== beforeId
+          ? "已生成新的整理摘要。完整对话记录保留；下一次发送时会重新准备上下文。"
+          : "这次无需生成新摘要，继续聊天即可。");
+      }
     } catch (cause: unknown) {
       setCommandError(String(cause));
     } finally {
@@ -40,14 +50,25 @@ export function ContextPanel({ controllerIdle, refreshToken, hasCompaction }: {
   const value = state.value;
   const latest = value?.latestValidCompaction;
   const preparation = value?.lastPreparation;
+  const overview = value ? contextOverview(value) : null;
   return (
-    <section className="card context">
-      <div className="card-head">
-        <span>上下文</span>
-        <span className="hint">估算，不是模型实际窗口测量</span>
-        <button className="ghost" disabled={state.loading} onClick={() => void refresh()}>刷新</button>
-      </div>
+    <section className="context-page">
+      <div className="context-status-head"><h2>{commandPending ? "正在整理对话…" : state.error ? "对话状态暂时不可用" : overview?.title ?? "正在读取对话状态…"}</h2><button className="ghost" disabled={state.loading || commandPending} onClick={() => void refresh()}>刷新状态</button></div>
       {state.error ? <div className="error">读取失败：{state.error}{value ? "（以下为上次成功读取，可能已过时）" : ""}</div> : null}
+      {overview ? <p className="context-explanation">{overview.description}</p> : null}
+      {preparation?.error ? <div className="error" role="alert">{preparation.error.message}</div> : null}
+      {value?.enabled && preparation?.estimatedInputTokens != null && preparation.outcome !== "failed" ? <div className="context-usage">
+        <span>上次发送前的输入估算</span><strong>{preparation.estimatedInputTokens.toLocaleString()} / {(value.budget.contextWindowTokens - value.budget.maxOutputTokens - value.budget.safetyMarginTokens).toLocaleString()} tokens</strong>
+        <p className="hint">已扣除回复预留和安全余量。这是估算，不是当前实时用量。</p>
+      </div> : null}
+      {value ? <div className="context-history-note">{latest ? `最近保存的整理摘要：${new Date(latest.createdAt).toLocaleString()}。历史记录不代表这轮已经使用。` : "这段对话还没有生成摘要。"}</div> : null}
+      {commandNotice ? <p role="status" className="context-history-note">{commandNotice}</p> : null}
+      {commandError ? <div className="error" role="alert">{commandError}</div> : null}
+      <details className="context-manual"><summary>需要提前整理？</summary><p>手动整理早期对话，可能调用模型并产生费用，不会删除原始历史。摘要可能省略细节，重要偏好应保存在长期记忆中。</p>
+        <button disabled={!controllerIdle || commandPending || state.loading || !!state.error || !hasCompaction || value?.enabled !== true} onClick={() => void compact()}>{commandPending ? "正在整理…" : "现在整理"}</button>
+        {!controllerIdle ? <p className="hint">等待当前处理结束后可操作。</p> : null}
+      </details>
+      <details className="context-technical"><summary>技术详情</summary>
       {value ? (
         <div className="home-body">
           <div>{value.enabled ? "模型摘要压缩已启用" : "模型摘要压缩未启用"}</div>
@@ -75,10 +96,7 @@ export function ContextPanel({ controllerIdle, refreshToken, hasCompaction }: {
           {!value.enabled ? <div className="hint">这不表示上下文完全不处理；仍沿用既有历史裁剪。</div> : null}
         </div>
       ) : <div className="muted">{state.loading ? "正在读取…" : "上下文诊断不可用"}</div>}
-      {commandError ? <div className="error">{commandError}</div> : null}
-      <div className="actions">
-        <button className="ghost" disabled={!controllerIdle || commandPending || !hasCompaction || value?.enabled !== true} onClick={() => void compact()}>手动压缩 /compact</button>
-      </div>
+      </details>
     </section>
   );
 }
