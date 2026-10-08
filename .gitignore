@@ -2,5 +2,7 @@ node_modules/
 out/
 dist/
 *.tsbuildinfo
+# electron-vite's transient bundled config is not a source modification.
+electron.vite.config.[0-9]*.mjs
 .env
 .DS_Store
