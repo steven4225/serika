@@ -423,6 +423,16 @@ export class AiSdkAgentLoop implements AgentLoop {
     let corrections = 0;
 
     while (steps < input.definition.limits.maxSteps) {
+      if (input.steering?.hasPending()) {
+        const requests = await input.steering.drain();
+        throwIfAborted(input.signal);
+        for (const request of requests) {
+          const messageId = input.generateId();
+          messages.push({ id: messageId, role: "user", metadata: { source: "steer", memoryConsolidation: "exclude" },
+            parts: [{ type: "text", text: request.text }] });
+          await input.steering.applied(request, messageId);
+        }
+      }
       steps += 1;
       await input.emit("step.started", { stepNumber: steps });
       throwIfAborted(input.signal);
@@ -592,8 +602,20 @@ export class AiSdkAgentLoop implements AgentLoop {
         assistantParts.push({ type: "text", text: stepText });
       }
 
+      let supersededBatch = false;
+      const supersede = async (call: PendingToolCall): Promise<boolean> => {
+        if (!supersededBatch && !input.steering?.hasPending()) return false;
+        supersededBatch = true;
+        assistantParts.push({ type: "dynamic-tool", toolName: call.toolName, toolCallId: call.toolCallId,
+          state: "output-error", input: call.input,
+          errorText: "STEER_SUPERSEDED: This proposed call was not dispatched because the user changed direction. Replan; no effect occurred." });
+        await input.emit("tool.call.superseded", { toolCallId: call.toolCallId, toolName: call.toolName, reason: "steer" });
+        return true;
+      };
+
       for (const call of pendingCalls) {
         throwIfAborted(input.signal);
+        if (supersededBatch || input.steering?.hasPending()) { await supersede(call); continue; }
         const registered = executableTools[call.toolName];
         if (!registered) {
           throw new AgentError({
@@ -628,6 +650,8 @@ export class AiSdkAgentLoop implements AgentLoop {
           // transcript's original value that will be passed to execute.
           const hookInput = structuredClone(call.input);
           let decision: unknown;
+          const steerSignal = input.steering?.signal;
+          const precheckSignal = steerSignal ? AbortSignal.any([input.signal, steerSignal]) : input.signal;
           try {
             decision = await awaitWithSignal(
               () =>
@@ -640,11 +664,13 @@ export class AiSdkAgentLoop implements AgentLoop {
                     ? { context: input.context }
                     : {}),
                   signal: input.signal,
+                  ...(steerSignal ? { steerSignal } : {}),
                 }),
-              input.signal,
+              precheckSignal,
             );
           } catch (error) {
             if (input.signal.aborted) throw abortReason(input.signal);
+            if (supersededBatch || input.steering?.hasPending()) { await supersede(call); continue; }
             if (
               error instanceof AgentError &&
               error.data.code === "TOOL_PRECHECK_FAILED"
@@ -657,6 +683,8 @@ export class AiSdkAgentLoop implements AgentLoop {
               error,
             );
           }
+
+          if (supersededBatch || input.steering?.hasPending()) { await supersede(call); continue; }
 
           const validatedDecision = validateToolExecutionDecision(
             decision,
@@ -684,6 +712,9 @@ export class AiSdkAgentLoop implements AgentLoop {
           toolName: call.toolName,
         });
         throwIfAborted(input.signal);
+        // The persisted start barrier is not the external dispatch boundary.
+        // A steer accepted while append() awaited still proves zero invocation.
+        if (supersededBatch || input.steering?.hasPending()) { await supersede(call); continue; }
 
         const metadata = this.#tools.metadata(call.toolName);
         const timeoutMs =
@@ -773,11 +804,15 @@ export class AiSdkAgentLoop implements AgentLoop {
       });
 
       if (pendingCalls.length === 0) {
+        if (input.steering?.hasPending() && steps < input.definition.limits.maxSteps) continue;
         const decision = input.beforeRunFinish ? await awaitWithSignal(() => input.beforeRunFinish!({
           messages: structuredClone(messages), definition: input.definition, context: input.context,
           signal: input.signal, text: stepText, steps, remainingSteps: input.definition.limits.maxSteps - steps, corrections,
         }), input.signal) : undefined;
         throwIfAborted(input.signal);
+        // A finish check may await disk/evidence reads. Admission stays open until
+        // the synchronous seal below; never drop a steer accepted during that wait.
+        if (input.steering?.hasPending() && steps < input.definition.limits.maxSteps) continue;
         if (decision !== undefined && (!decision || decision.kind !== "continue" && decision.kind !== "stop" ||
           decision.kind === "stop" && !["delivered", "needs_confirmation", "needs_information", "budget_exhausted", "needs_review"].includes(decision.reason))) {
           throw new AgentError({ code: "INTERNAL", message: "Completion decision is invalid", retryable: false, phase: "runtime" });
@@ -792,6 +827,10 @@ export class AiSdkAgentLoop implements AgentLoop {
             parts: [{ type: "text", text: `Program completion check (not user facts or tool permission):\n${decision.feedback}` }] });
           continue;
         }
+        if (input.steering && !input.steering.sealIfEmpty()) {
+          if (steps < input.definition.limits.maxSteps) continue;
+          await input.steering.close("budget_exhausted");
+        }
         if (decision !== undefined) await input.emit("run.completion.checked", { decision: "stop", reason: decision.kind === "stop" ? decision.reason : "budget_exhausted", corrections });
         return {
           text: stepText,
@@ -804,6 +843,7 @@ export class AiSdkAgentLoop implements AgentLoop {
       }
     }
 
+    await input.steering?.close("budget_exhausted");
     throw new AgentError({
       code: "RUN_LIMIT_EXCEEDED",
       message: `Run exceeded ${input.definition.limits.maxSteps} model steps`,

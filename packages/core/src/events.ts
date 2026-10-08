@@ -2,6 +2,10 @@ import type { AgentErrorData } from "./errors.js";
 import type { RunStatus, TokenUsage, CompletionReason } from "./types.js";
 
 export interface AgentEventDataMap {
+  "run.steer.accepted": { id: string; text: string };
+  "run.steer.applied": { id: string; messageId: string };
+  "run.steer.not_applied": { id: string; reason: string };
+  "tool.call.superseded": { toolCallId: string; toolName: string; reason: "steer" };
   "run.started": { agentId: string; agentVersion: string };
   "message.delta": { text: string };
   "step.started": { stepNumber: number };

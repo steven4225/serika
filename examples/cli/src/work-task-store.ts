@@ -387,6 +387,12 @@ function parseDocument(value: unknown): WorkTaskDocument {
   return { version: 1, tasks };
 }
 
+/** Validate an archived snapshot without changing the bytes used by its source hash. */
+export function validateArchivedWorkTask(value: unknown): WorkTask {
+  parseTask(value);
+  return value as WorkTask;
+}
+
 function requiredPassed(task: WorkTask): boolean {
   return task.acceptance.filter((item) => item.required).every((item) => item.status === "passed");
 }

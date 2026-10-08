@@ -237,6 +237,33 @@ describe("createTaskModule", () => {
   const reminder = { kind: "reminder", source: "none", notification: "always", declarationVersion: 1 } as const;
   const todoist = { kind: "todoist-brief", source: "todoist-planning", notification: "always", declarationVersion: 1 } as const;
 
+  it("requires host-pinned Skill validation for model-created one-time and recurring schedules", async () => {
+    const arrangement = { kind: "skill", source: "none", notification: "always", declarationVersion: 1,
+      skillId: "brief", skillHash: "a".repeat(64) } as const;
+    for (const name of ["task_create", "task_repeat_create"]) {
+      const input = { prompt: "Use only this input", runAt: "2099-01-01T00:00:00Z",
+        recurrence: { kind: "daily", time: "09:00", utcOffset: "+08:00" } as const, arrangement };
+      const unavailable = setup();
+      const denied = await toolByName(unavailable.tools, name).tool.execute!(input, toolContext()) as { ok: boolean };
+      assert.equal(denied.ok, false); assert.equal(unavailable.calls.length, 0);
+      let checked = 0;
+      const registered = setup({
+        create: async value => ({ ok: true, value: record({ arrangement: value.arrangement! }) }),
+        createRecurring: async value => ({ ok: true, value: recurringRecord({ arrangement: value.arrangement! }) }),
+      }, { checkSkillArrangement: async (declaration, prompt) => {
+        checked++; assert.deepEqual(declaration, arrangement); assert.equal(prompt, input.prompt);
+        return { ok: true, value: null };
+      } });
+      const saved = await toolByName(registered.tools, name).tool.execute!(input, toolContext());
+      assert.equal((saved as { ok: boolean }).ok, true); assert.equal(checked, 1);
+      const schema = toolByName(registered.tools, name).tool.outputSchema as unknown as { safeParse(value: unknown): { success: boolean } };
+      assert.equal(schema.safeParse(saved).success, true);
+      const stale = setup({}, { checkSkillArrangement: async () => ({ ok: false, error: { code: "SKILL_CHANGED", message: "Reload the registered version" } }) });
+      const failure = await toolByName(stale.tools, name).tool.execute!(input, toolContext());
+      assert.equal((failure as { ok: boolean }).ok, false); assert.equal(stale.calls.length, 0);
+    }
+  });
+
   it("passes complete reminder arrangements through the existing create and recurring stores", async () => {
     const { tools, calls } = setup({
       create: async input => ({ ok: true, value: record({ arrangement: input.arrangement! }) }),

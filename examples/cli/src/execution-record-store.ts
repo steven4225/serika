@@ -17,7 +17,18 @@ const SHA256 = /^[0-9a-f]{64}$/;
 export type ExecutionRunStatus = RunResult["status"] | "running" | "interrupted";
 export type ExecutionToolStatus =
   | "requested" | "not_started" | "started" | "completed" | "failed" | "unknown";
-export type ExecutionPhase = "primary" | "consolidation";
+export type ExecutionPhase = "primary" | "consolidation" | "skill";
+
+export interface AssistantSteerRecord {
+  id: string;
+  runId: string;
+  text: string;
+  status: "accepted" | "applied" | "not_applied";
+  receivedAt: string;
+  appliedAt?: string;
+  messageId?: string;
+  reason?: string;
+}
 
 export interface ExecutionToolRecord {
   toolCallId: string;
@@ -53,6 +64,11 @@ export interface ExecutionRunRecord {
   errorPreview: string | null;
   tools: ExecutionToolRecord[];
   completion?: RunResult["completion"];
+  /** Host-observed versions prepared during this primary Run; never model claims. */
+  memoryReferences?: { id: string; revision: number }[];
+  memoryReferencesTruncated?: boolean;
+  /** Audit only: never a replay queue. Unapplied messages remain visible after restart. */
+  steers?: AssistantSteerRecord[];
 }
 
 export type ExecutionRecordErrorCode =
@@ -68,7 +84,7 @@ export class ExecutionRecordError extends Error {
 }
 
 type Document = { version: 1; runs: ExecutionRunRecord[] };
-type ToolEvent = Extract<AgentEvent, { type: "tool.call.requested" | "tool.call.started" | "tool.call.completed" | "tool.call.failed" }>;
+type ToolEvent = Extract<AgentEvent, { type: "tool.call.requested" | "tool.call.started" | "tool.call.completed" | "tool.call.failed" | "tool.call.superseded" }>;
 const emptyDocument = (): Document => ({ version: 1, runs: [] });
 
 function fail(code: ExecutionRecordErrorCode, message: string): never {
@@ -218,12 +234,12 @@ function validateTool(value: unknown): ExecutionToolRecord {
   return value as unknown as ExecutionToolRecord;
 }
 
-function validateRun(value: unknown): ExecutionRunRecord {
+export function validateExecutionRunRecord(value: unknown): ExecutionRunRecord {
   if (!isObject(value)) fail("FILE_INVALID", "Run record must be an object");
   if (typeof value.runId !== "string" || !value.runId ||
       typeof value.threadId !== "string" || !value.threadId ||
       (value.workTaskId !== undefined && (typeof value.workTaskId !== "string" || !value.workTaskId)) ||
-      (value.phase !== "primary" && value.phase !== "consolidation") ||
+      (value.phase !== "primary" && value.phase !== "consolidation" && value.phase !== "skill") ||
       !["running", "completed", "failed", "cancelled", "timed_out", "interrupted"].includes(String(value.status)) ||
       !timestamp(value.startedAt) || (value.finishedAt !== null && !timestamp(value.finishedAt)) ||
       (value.resultTextPreview !== null && !validPreview(value.resultTextPreview)) ||
@@ -233,6 +249,22 @@ function validateRun(value: unknown): ExecutionRunRecord {
     fail("FILE_INVALID", "Run record contains invalid fields");
   }
   const tools = (value.tools as unknown[]).map(validateTool);
+  if (value.steers !== undefined && (!Array.isArray(value.steers) || value.steers.length > 8 ||
+      value.steers.some(item => !isObject(item) || typeof item.id !== "string" || !/^[A-Za-z0-9._:-]{1,128}$/.test(item.id) ||
+        item.runId !== value.runId || typeof item.text !== "string" || !item.text.trim() || Buffer.byteLength(item.text, "utf8") > 4096 ||
+        !["accepted", "applied", "not_applied"].includes(String(item.status)) || !timestamp(item.receivedAt) ||
+        (item.appliedAt !== undefined && !timestamp(item.appliedAt)) ||
+        (item.messageId !== undefined && (typeof item.messageId !== "string" || !item.messageId)) ||
+        (item.reason !== undefined && (typeof item.reason !== "string" || item.reason.length > 256))) ||
+      new Set(value.steers.map(item => (item as AssistantSteerRecord).id)).size !== value.steers.length)) {
+    fail("FILE_INVALID", "Steering receipts are invalid");
+  }
+  if (value.memoryReferences !== undefined && (!Array.isArray(value.memoryReferences) || value.memoryReferences.length > 16 ||
+      value.memoryReferences.some(item => !isObject(item) || Object.keys(item).some(key => !["id", "revision"].includes(key)) ||
+        typeof item.id !== "string" || !item.id || item.id.length > 256 || !Number.isSafeInteger(item.revision) || (item.revision as number) < 1))) {
+    fail("FILE_INVALID", "Memory version references are invalid");
+  }
+  if (value.memoryReferencesTruncated !== undefined && typeof value.memoryReferencesTruncated !== "boolean") fail("FILE_INVALID", "Memory reference coverage is invalid");
   if (value.completion !== undefined && (!isObject(value.completion) ||
       !["delivered", "needs_confirmation", "needs_information", "budget_exhausted", "needs_review"].includes(String(value.completion.reason)) ||
       !Number.isSafeInteger(value.completion.corrections) || (value.completion.corrections as number) < 0 || (value.completion.corrections as number) > 32)) {
@@ -250,7 +282,7 @@ function validateDocument(value: unknown): Document {
   if (!Array.isArray(value.runs) || value.runs.length > EXECUTION_RECORD_MAX_RUNS) {
     fail("FILE_INVALID", "Execution run list is invalid");
   }
-  const runs = (value.runs as unknown[]).map(validateRun);
+  const runs = (value.runs as unknown[]).map(validateExecutionRunRecord);
   if (new Set(runs.map((run) => run.runId)).size !== runs.length) {
     fail("FILE_INVALID", "Duplicate run ID");
   }
@@ -299,7 +331,7 @@ export class ExecutionRecordStore {
   }
 
   async startRun(input: { runId: string; threadId: string; workTaskId?: string; phase: ExecutionPhase; startedAt?: string }): Promise<void> {
-    if (!input.runId || !input.threadId || !["primary", "consolidation"].includes(input.phase) ||
+    if (!input.runId || !input.threadId || !["primary", "consolidation", "skill"].includes(input.phase) ||
         (input.workTaskId !== undefined && !input.workTaskId) ||
         (input.startedAt !== undefined && !timestamp(input.startedAt))) fail("INVALID_INPUT", "Invalid Run identity");
     await this.#mutate((document) => {
@@ -334,6 +366,14 @@ export class ExecutionRecordStore {
         return;
       }
       if (!tool || tool.toolName !== event.data.toolName) fail("CONFLICT", "Tool call identity mismatch");
+      if (event.type === "tool.call.superseded") {
+        if (tool.status !== "requested" && tool.status !== "started") fail("CONFLICT", "Dispatched tool cannot be superseded");
+        tool.status = "not_started";
+        tool.startedAt = null;
+        tool.finishedAt = event.occurredAt;
+        tool.errorPreview = "Superseded by a steering instruction before dispatch";
+        return;
+      }
       if (event.type === "tool.call.started") {
         if (tool.status !== "requested") fail("CONFLICT", "Tool call did not await start");
         tool.status = "started";
@@ -359,7 +399,30 @@ export class ExecutionRecordStore {
     }, runId);
   }
 
-  async finishRun(runId: string, result: RunResult): Promise<void> {
+  async recordSteerEvent(event: Extract<AgentEvent, { type: "run.steer.accepted" | "run.steer.applied" | "run.steer.not_applied" }>): Promise<void> {
+    await this.#mutate(document => {
+      const run = document.runs.find(item => item.runId === event.runId);
+      if (!run || run.phase !== "primary" || run.status !== "running") fail("CONFLICT", "Steering belongs to an active primary Run");
+      const steers = run.steers ??= [];
+      const previous = steers.find(item => item.id === event.data.id);
+      if (event.type === "run.steer.accepted") {
+        if (previous) {
+          if (previous.text !== event.data.text) fail("CONFLICT", "Steering ID already has different content");
+          return;
+        }
+        if (steers.length >= 8) fail("LIMIT_EXCEEDED", "Too many steering messages");
+        steers.push({ id: event.data.id, runId: event.runId, text: event.data.text,
+          status: "accepted", receivedAt: event.occurredAt });
+      } else {
+        if (!previous || previous.status !== "accepted") fail("CONFLICT", "Steering receipt cannot transition");
+        if (event.type === "run.steer.applied") {
+          previous.status = "applied"; previous.appliedAt = event.occurredAt; previous.messageId = event.data.messageId;
+        } else { previous.status = "not_applied"; previous.reason = event.data.reason.slice(0, 256); }
+      }
+    }, event.runId);
+  }
+
+  async finishRun(runId: string, result: RunResult, memory?: { references: { id: string; revision: number }[]; truncated: boolean }): Promise<void> {
     if (result.runId !== runId) fail("INVALID_INPUT", "Result belongs to another Run");
     await this.#mutate((document) => {
       const run = document.runs.find((item) => item.runId === runId);
@@ -371,7 +434,14 @@ export class ExecutionRecordStore {
       run.resultTextPreview = text.text;
       run.resultTextTruncated = text.truncated;
       run.errorPreview = result.error ? preview(result.error.message).text : null;
+      for (const steer of run.steers ?? []) {
+        if (steer.status === "accepted") { steer.status = "not_applied"; steer.reason = result.status; }
+      }
       if (result.completion !== undefined) run.completion = structuredClone(result.completion);
+      if (memory !== undefined && run.phase === "primary") {
+        run.memoryReferences = structuredClone(memory.references);
+        run.memoryReferencesTruncated = memory.truncated;
+      }
       for (const tool of run.tools) {
         if (tool.status === "started") tool.status = "unknown";
         else if (tool.status === "requested") tool.status = "not_started";
@@ -403,6 +473,9 @@ export class ExecutionRecordStore {
         recovered += 1;
         run.status = "interrupted";
         run.finishedAt = at;
+        for (const steer of run.steers ?? []) {
+          if (steer.status === "accepted") { steer.status = "not_applied"; steer.reason = "interrupted"; }
+        }
         for (const tool of run.tools) {
           if (tool.status === "started") tool.status = "unknown";
           else if (tool.status === "requested") tool.status = "not_started";

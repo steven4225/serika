@@ -1,6 +1,6 @@
 import type { AgentEvent, AgentStore, RunRecord } from "@aisdk-agent/core";
 import { AUTO_CONSOLIDATION_AGENT_ID } from "./consolidation.js";
-import type { ExecutionRecordStore } from "./execution-record-store.js";
+import type { ExecutionRecordStore, ExecutionPhase } from "./execution-record-store.js";
 import type { WorkTaskStore } from "./work-task-store.js";
 
 /**
@@ -14,6 +14,7 @@ export function createExecutionRecordAdapter(
   store: AgentStore,
   records: ExecutionRecordStore,
   workTasks?: WorkTaskStore,
+  phaseForAgent?: (agentId: string) => ExecutionPhase,
 ): {
   store: AgentStore;
   enable: () => void;
@@ -41,7 +42,7 @@ export function createExecutionRecordAdapter(
           runId: record.id,
           threadId: record.threadId,
           ...(binding === undefined ? {} : { workTaskId: binding.id }),
-          phase: record.agentId === AUTO_CONSOLIDATION_AGENT_ID ? "consolidation" : "primary",
+          phase: phaseForAgent?.(record.agentId) ?? (record.agentId === AUTO_CONSOLIDATION_AGENT_ID ? "consolidation" : "primary"),
           startedAt: record.createdAt,
         });
         await store.create(record);
@@ -61,9 +62,12 @@ export function createExecutionRecordAdapter(
     async append(event: AgentEvent) {
       if (enabled && (
         event.type === "tool.call.requested" || event.type === "tool.call.started" ||
-        event.type === "tool.call.completed" || event.type === "tool.call.failed"
+        event.type === "tool.call.completed" || event.type === "tool.call.failed" || event.type === "tool.call.superseded"
       )) {
         await records.recordToolEvent(event.runId, event);
+      }
+      if (enabled && (event.type === "run.steer.accepted" || event.type === "run.steer.applied" || event.type === "run.steer.not_applied")) {
+        await records.recordSteerEvent(event);
       }
       await store.append(event);
     },

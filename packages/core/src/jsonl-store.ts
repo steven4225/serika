@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import { appendFile, mkdir, readFile, truncate } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, open, readFile } from "node:fs/promises";
+import { join, resolve } from "node:path";
 import type { UIMessage } from "ai";
 import { AgentError } from "./errors.js";
 import type { AgentEvent } from "./events.js";
@@ -22,6 +22,32 @@ interface CommittedMessagesRecord {
   type: "thread.messages.committed";
   threadId: string;
   messages: UIMessage[];
+}
+
+// All instances addressing the same local transcript share one queue. External
+// processes must still hold the embedding application's exclusive Thread lease.
+const transcriptOperations = new Map<string, Promise<void>>();
+
+function serializeTranscriptOperation<T>(
+  path: string,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const previous = transcriptOperations.get(path) ?? Promise.resolve();
+  const result = previous.then(operation);
+  const settled = result.then(() => undefined, () => undefined);
+  transcriptOperations.set(path, settled);
+  void settled.then(() => {
+    if (transcriptOperations.get(path) === settled) {
+      transcriptOperations.delete(path);
+    }
+  });
+  return result;
+}
+
+// A newline is the commit boundary, including for otherwise valid JSON. Reads
+// ignore the unfinished suffix without changing bytes an active writer may own.
+function committedLines(content: string): string[] {
+  return content.slice(0, content.lastIndexOf("\n") + 1).split("\n");
 }
 
 function isJsonValue(value: unknown): value is ThreadContextCompactionRecord[string] {
@@ -92,7 +118,7 @@ export class JsonlAgentStore implements AgentStore, ContextCompactionStore {
   readonly #memory = new InMemoryAgentStore();
 
   constructor(options: JsonlAgentStoreOptions) {
-    this.#directory = options.directory;
+    this.#directory = resolve(options.directory);
   }
 
   create(record: RunRecord): Promise<void> {
@@ -113,58 +139,35 @@ export class JsonlAgentStore implements AgentStore, ContextCompactionStore {
   }
 
   async save(threadId: string, messages: UIMessage[]): Promise<void> {
-    await mkdir(this.#directory, { recursive: true });
     const record: CommittedMessagesRecord = {
       v: 1,
       type: "thread.messages.committed",
       threadId,
       messages,
     };
-    await appendFile(
-      this.#pathFor(threadId),
-      `${JSON.stringify(record)}\n`,
-      "utf8",
-    );
+    await this.#appendRecord(threadId, `${JSON.stringify(record)}\n`);
   }
 
   async appendContextCompaction(
     record: ThreadContextCompactionRecord,
   ): Promise<void> {
-    await mkdir(this.#directory, { recursive: true });
-    await appendFile(
-      this.#pathFor(record.threadId),
-      `${JSON.stringify(record)}\n`,
-      "utf8",
-    );
+    await this.#appendRecord(record.threadId, `${JSON.stringify(record)}\n`);
   }
 
   async getContextCompactions(
     threadId: string,
   ): Promise<ThreadContextCompactionRecord[]> {
     const path = this.#pathFor(threadId);
-    let content: string;
-    try {
-      content = await readFile(path, "utf8");
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
-      throw error;
-    }
-
-    const hasCompleteLastLine = content.endsWith("\n");
-    const lines = content.split("\n");
-    if (hasCompleteLastLine) lines.pop();
+    const content = await this.#readTranscript(path);
+    const lines = committedLines(content);
     const records: ThreadContextCompactionRecord[] = [];
 
-    for (const [index, line] of lines.entries()) {
+    for (const line of lines) {
       if (line.length === 0) continue;
       let value: unknown;
       try {
         value = JSON.parse(line);
       } catch {
-        if (index === lines.length - 1 && !hasCompleteLastLine) {
-          await this.#truncateIncompleteTail(path, content);
-          break;
-        }
         throw storageCorrupt(threadId);
       }
 
@@ -201,32 +204,16 @@ export class JsonlAgentStore implements AgentStore, ContextCompactionStore {
 
   async getMessages(threadId: string): Promise<UIMessage[]> {
     const path = this.#pathFor(threadId);
-    let content: string;
-    try {
-      content = await readFile(path, "utf8");
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
-      throw error;
-    }
-
-    const hasCompleteLastLine = content.endsWith("\n");
-    const lines = content.split("\n");
-    if (hasCompleteLastLine) lines.pop();
+    const content = await this.#readTranscript(path);
+    const lines = committedLines(content);
     let latest: UIMessage[] = [];
 
-    for (const [index, line] of lines.entries()) {
+    for (const line of lines) {
       if (line.length === 0) continue;
       let value: unknown;
       try {
         value = JSON.parse(line);
       } catch {
-        if (index === lines.length - 1 && !hasCompleteLastLine) {
-          // M-Local has no multi-process readers; discard only the incomplete
-          // tail so a later snapshot append starts on a fresh line.
-          const validPrefix = content.slice(0, content.lastIndexOf("\n") + 1);
-          await truncate(path, Buffer.byteLength(validPrefix));
-          break;
-        }
         throw storageCorrupt(threadId);
       }
 
@@ -270,8 +257,44 @@ export class JsonlAgentStore implements AgentStore, ContextCompactionStore {
     return join(this.#directory, `${fileName}.jsonl`);
   }
 
-  async #truncateIncompleteTail(path: string, content: string): Promise<void> {
-    const validPrefix = content.slice(0, content.lastIndexOf("\n") + 1);
-    await truncate(path, Buffer.byteLength(validPrefix));
+  #readTranscript(path: string): Promise<string> {
+    return serializeTranscriptOperation(path, async () => {
+      try {
+        return await readFile(path, "utf8");
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") return "";
+        throw error;
+      }
+    });
+  }
+
+  #appendRecord(threadId: string, serialized: string): Promise<void> {
+    const path = this.#pathFor(threadId);
+    return serializeTranscriptOperation(path, async () => {
+      await mkdir(this.#directory, { recursive: true });
+      const file = await open(path, "a+");
+      try {
+        // Check just the tail on the normal append path, not the whole history.
+        // Only this serialized writer repairs bytes after the last newline.
+        const { size } = await file.stat();
+        let end = size;
+        while (end > 0) {
+          const start = Math.max(0, end - 8_192);
+          const buffer = Buffer.alloc(end - start);
+          const { bytesRead } = await file.read(buffer, 0, buffer.length, start);
+          const newline = buffer.subarray(0, bytesRead).lastIndexOf(0x0a);
+          if (newline >= 0) {
+            const committedSize = start + newline + 1;
+            if (committedSize !== size) await file.truncate(committedSize);
+            break;
+          }
+          end = start;
+          if (end === 0) await file.truncate(0);
+        }
+        await file.writeFile(serialized, "utf8");
+      } finally {
+        await file.close();
+      }
+    });
   }
 }

@@ -1,11 +1,16 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { UIMessage } from "ai";
 import type { AgentEvent, RunHandle, RunResult } from "@aisdk-agent/core";
-import { AUTO_CONSOLIDATION_SOURCE } from "./consolidation.js";
-import { automaticConsolidationMessage, automaticConsolidationSkip, waitForConsolidationHandoff } from "./consolidation-lifecycle.js";
+import { automaticConsolidationSkip, waitForConsolidationHandoff } from "./consolidation-lifecycle.js";
+import { createRuntimeAutomation, MEMORY_SKILL_ID, type AutomationDiagnostics, type AutomationExecution, type SkillRunInput, type SkillResult } from "./automation-execution.js";
+import { createBuiltinSkill } from "./skill-catalog.js";
+import { DREAMING_AGENT_ID, type DreamingOverview, type DreamingResult, type DreamingChangeInput, type LearnedSkill, type LearnedSkillReferenceSnapshot } from "./dreaming.js";
+import type { HookRequest } from "./automation-hooks.js";
 import type { RuntimeApp } from "./app.js";
+import { scheduleRegisteredSkill, automationScheduleActionSchema, type ScheduleSkillInput, type ScheduledSkillSaved, type AutomationOverview, type AutomationScheduleAction } from "./automation-scheduling.js";
 import type { ContextDiagnostics, ContextResult } from "./context-diagnostics.js";
-import type { ExecutionRunRecord } from "./execution-record-store.js";
+import type { AssistantSteerRecord, ExecutionRunRecord } from "./execution-record-store.js";
+export type { AssistantSteerRecord } from "./execution-record-store.js";
 import { verifyAutomaticCriterion } from "./work-task-verification.js";
 import {
   type AcceptanceStatus,
@@ -41,6 +46,11 @@ const MAX_TOOL_SUMMARY_CHARS = 1_000;
 /** Application admission errors and persisted TaskStore errors share one honest result. */
 export type AutomationResult<T> = { ok: true; value: T } | { ok: false; error: { code: string; message: string } };
 
+export type DreamingControllerOverview = DreamingOverview & {
+  enabled: boolean;
+  lastAttempt?: { status: "running" | "completed" | "failed" | "cancelled" | "uncertain"; message?: string; runId?: string };
+};
+
 export interface ToolActivity {
   toolCallId: string;
   toolName: string;
@@ -53,7 +63,7 @@ export interface ToolActivity {
 
 export type AssistantState =
   | { kind: "idle" }
-  | { kind: "running"; runId: string | null; phase: "primary" | "consolidation"; background?: true }
+  | { kind: "running"; runId: string | null; phase: "primary" | "consolidation" | "skill"; background?: true }
   | { kind: "compacting" }
   | { kind: "resuming" }
   | { kind: "command"; name: string };
@@ -62,6 +72,8 @@ export interface AssistantSnapshot {
   state: AssistantState;
   /** Ordinary chat can interrupt automatic consolidation; edits/commands still require idle. */
   canSubmit: boolean;
+  canSteer: boolean;
+  steers: readonly AssistantSteerRecord[];
   pendingApproval: PendingToolApproval | null;
   recentOutput: string;
   outputTruncated: boolean;
@@ -73,11 +85,12 @@ export interface AssistantSnapshot {
 
 export type AssistantEvent =
   | { type: "state"; state: AssistantState }
+  | { type: "steer"; steer: AssistantSteerRecord }
   | { type: "approval"; approval: PendingToolApproval }
   | { type: "approval-cleared"; approvalId: string }
-  | { type: "run-event"; phase: "primary" | "consolidation"; event: AgentEvent }
-  | { type: "run-result"; phase: "primary" | "consolidation"; result: RunResult }
-  | { type: "shell-progress"; phase: "primary" | "consolidation"; runId: string; progress: ShellProgress }
+  | { type: "run-event"; phase: "primary" | "consolidation" | "skill"; event: AgentEvent }
+  | { type: "run-result"; phase: "primary" | "consolidation" | "skill"; result: RunResult }
+  | { type: "shell-progress"; phase: "primary" | "consolidation" | "skill"; runId: string; progress: ShellProgress }
   | { type: "work-task-updated"; task: WorkTask }
   | { type: "memory-updated"; reason: "proposals" | "review" | "write" }
   | { type: "memory-references-changed" }
@@ -93,12 +106,28 @@ export interface AssistantRunOptions {
   memoryConsolidation?: "exclude";
 }
 
+export type AssistantSteerResponse =
+  | { ok: true; steer: AssistantSteerRecord }
+  | { ok: false; reason: "busy" | "stale" | "invalid" | "limit" | "closed" | "conflict" | "failed"; message?: string };
+
 export type ControllerCommandResponse =
   | { ok: true }
   | { ok: false; reason: "busy" | "unknown" | "empty" | "cancelled" }
   | { ok: false; reason: "failed"; message: string };
 
 export interface AssistantController {
+  getDreamingOverview(): Promise<DreamingResult<DreamingControllerOverview>>;
+  /** Success means reflection started, not that any method was learned. */
+  dream(): Promise<DreamingResult<{ runId: string }>>;
+  changeLearnedSkill(input: DreamingChangeInput): Promise<DreamingResult<LearnedSkill>>;
+  getLearnedSkillReferences(): (LearnedSkillReferenceSnapshot & { runId: string }) | null;
+  getAutomationDiagnostics(): AutomationDiagnostics;
+  getAutomationOverview(): Promise<AutomationResult<AutomationOverview>>;
+  /** Explicit confirmation by the embedding user; saves intent, not execution. */
+  scheduleSkill(input: ScheduleSkillInput): Promise<AutomationResult<ScheduledSkillSaved>>;
+  changeAutomationSchedule(input: AutomationScheduleAction): Promise<AutomationResult<null>>;
+  /** Starts a pinned Skill; completion is a run-result or its execution receipt, not this response. */
+  runSkill(input: SkillRunInput): Promise<SkillResult<{ runId: string }>>;
   getSnapshot(): AssistantSnapshot;
   getHistory(): Promise<UIMessage[]>;
   getContextDiagnostics(): Promise<ContextResult<ContextDiagnostics>>;
@@ -157,6 +186,8 @@ export interface AssistantController {
   cancelWorkTask(input: { id: string; expectedRevision: number }): Promise<WorkTaskResult<WorkTask>>;
   requestWorkTaskChanges(input: { id: string; expectedRevision: number }): Promise<WorkTaskResult<WorkTask>>;
   run(text: string, options?: AssistantRunOptions): Promise<StartRunResponse>;
+  /** Supplement the active primary Run; this is not a queued or new Run. */
+  steer(input: { expectedRunId: string; id: string; text: string }): Promise<AssistantSteerResponse>;
   cancel(): Promise<void>;
   confirm(input: { approvalId: string; decision: "allow" | "deny" }): boolean;
   /**
@@ -194,10 +225,19 @@ function commandParts(line: string): { name: string; args: string } {
 
 
 export function createAssistantController(app: RuntimeApp): AssistantController {
+  // Compatibility for embedders supplying the pre-registry RuntimeApp shape.
+  const automation = app.automation ?? createRuntimeAutomation({
+    skills: app.autoConsolidationAgentId ? [createBuiltinSkill({ id: MEMORY_SKILL_ID,
+      description: "Legacy registered memory consolidator", kind: "memory-consolidate",
+      instructions: "Consolidate committed incremental material using the host's existing memory lifecycle.",
+      agentId: app.autoConsolidationAgentId })] : [],
+    registrations: [], workspaceRoot: app.workspaceRoot,
+  });
   app.enableExecutionRecords();
   let workTaskLease: Awaited<ReturnType<NonNullable<RuntimeApp["workTasks"]>["claimThread"]>> | undefined;
   let threadLease: Awaited<ReturnType<RuntimeApp["executionRecords"]["claimThread"]>> | undefined;
   let recoveryError: unknown;
+  let steers: AssistantSteerRecord[] = [];
   const recovery = (async () => {
     try {
       workTaskLease = await app.workTasks?.claimThread(app.threadId);
@@ -210,6 +250,8 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
           executionRecords: app.executionRecords,
         });
       }
+      const latest = (await app.executionRecords.listRuns(app.threadId, 50)).find(run => run.phase === "primary");
+      steers = structuredClone(latest?.steers ?? []);
     } catch (error) {
       await threadLease?.release().catch(() => undefined);
       threadLease = undefined;
@@ -240,8 +282,11 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
   let recentOutput = "";
   let outputTruncated = false;
   let lastPrimaryResult: RunResult | null = null;
-  let primaryMessageId: string | undefined;
   let primaryRunId: string | undefined;
+  let primaryContextMessageIds = new Set<string>();
+  const steerRequests = new Map<string, { text: string; response: Promise<AssistantSteerResponse> }>();
+  let primaryMemoryReferences = new Map<string, { id: string; revision: number }>();
+  let primaryMemoryReferencesTruncated = false;
   let lastConsolidationResult: RunResult | null = null;
   // A completed model Run is not proof that its proposal/cursor write succeeded.
   let consolidationFailure: string | undefined;
@@ -249,6 +294,8 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
   let consolidationRequest: MemoryConsolidationRequest | undefined;
   let lastConsolidationAttempt: MemoryMaintenance["consolidation"]["lastAttempt"];
   let lastConsolidationSkippedReason: string | undefined;
+  let lastDreamingAttempt: DreamingControllerOverview["lastAttempt"];
+  const dreamingThreadId = `dreaming-${createHash("sha256").update(app.workspaceRoot ?? app.threadId).digest("hex").slice(0, 24)}`;
   let resultTextTruncated = false;
   const toolActivity: ToolActivity[] = [];
   const toolNames = new Map<string, string>();
@@ -286,25 +333,43 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     if (state.kind !== "running" || state.runId === null) return;
     emit({ type: "shell-progress", phase: state.phase, runId: state.runId, progress });
   });
-  const unsubscribeMemoryReferences = app.subscribeMemoryReferences?.(() => emit({ type: "memory-references-changed" }));
+  const unsubscribeMemoryReferences = app.subscribeMemoryReferences?.(() => {
+    const references = app.getMemoryReferences?.();
+    if (references && primaryContextMessageIds.has(references.messageId)) {
+      for (const selected of references.selected) {
+        const key = `${selected.id}:${selected.revision}`;
+        if (primaryMemoryReferences.has(key)) continue;
+        if (primaryMemoryReferences.size >= 16) primaryMemoryReferencesTruncated = true;
+        else primaryMemoryReferences.set(key, { id: selected.id, revision: selected.revision });
+      }
+    }
+    emit({ type: "memory-references-changed" });
+  });
 
   const executeRun = async (
     agentId: string,
     message: UIMessage,
-    phase: "primary" | "consolidation",
+    phase: "primary" | "consolidation" | "skill",
     signal?: AbortSignal,
     started?: (handle: RunHandle) => void,
     background = false,
-  ): Promise<{ result: RunResult; requestedMemoryTool: boolean }> => {
+    executionThreadId = app.threadId,
+  ): Promise<{ result: RunResult; requestedMemoryTool: boolean; finalizationFailed: boolean }> => {
     app.toolConfirmation?.beginRun();
-    if (phase === "primary") { primaryMessageId = message.id; primaryRunId = undefined; }
+    if (phase === "primary") {
+      primaryRunId = undefined;
+      primaryContextMessageIds = new Set([message.id]);
+      steers = []; steerRequests.clear();
+      primaryMemoryReferences = new Map(); primaryMemoryReferencesTruncated = false;
+    }
     if (phase === "consolidation") { consolidationFailure = undefined; consolidationRunning = true; }
     try {
       app.memoryConsolidation?.begin(agentId, phase === "consolidation" ? consolidationRequest : undefined);
       const handle = await app.runtime.run({
         agentId,
-        threadId: app.threadId,
+        threadId: executionThreadId,
         messages: [message],
+        ...(phase === "primary" ? { enableSteering: true } : {}),
         context: { agentId, ...(phase === "primary" && activeWorkTask !== undefined ? { workTaskId: activeWorkTask.id, completionCheck: workTaskCompletionCheck } : {}) },
         ...(signal === undefined ? {} : { signal }),
       });
@@ -329,6 +394,18 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       const consolidationAttempts = { prepare: 0, stage: 0 };
       const pump = (async () => {
         for await (const event of handle.events) {
+          if (phase === "primary" && (event.type === "run.steer.accepted" || event.type === "run.steer.applied" || event.type === "run.steer.not_applied")) {
+            let record = steers.find(item => item.id === event.data.id);
+            if (event.type === "run.steer.accepted") {
+              if (!record) { record = { id: event.data.id, runId: event.runId, text: event.data.text, status: "accepted", receivedAt: event.occurredAt }; steers.push(record); }
+            } else if (record) {
+              if (event.type === "run.steer.applied") {
+                record.status = "applied"; record.messageId = event.data.messageId; record.appliedAt = event.occurredAt;
+                primaryContextMessageIds.add(event.data.messageId);
+              } else { record.status = "not_applied"; record.reason = event.data.reason; }
+            }
+            if (record) emit({ type: "steer", steer: structuredClone(record) });
+          }
           if (event.type === "run.completion.checked") {
             completionCorrections = event.data.corrections;
             if (event.data.decision === "continue") controller.recordOutput(`\n正在补齐任务证据（${completionCorrections}/2），仍需逐次确认工具。\n`);
@@ -429,7 +506,12 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       }
       let executionFinalized = true;
       try {
-        await app.executionRecords.finishRun(handle.runId, result);
+        await app.executionRecords.finishRun(handle.runId, result, phase === "primary"
+          ? { references: [...primaryMemoryReferences.values()], truncated: primaryMemoryReferencesTruncated } : undefined);
+        if (phase === "primary") {
+          const persisted = await app.executionRecords.getRun(app.threadId, handle.runId);
+          if (persisted?.steers) steers = structuredClone(persisted.steers);
+        }
       } catch (error) {
         executionFinalized = false;
         // The Run result is a fact even if its local audit receipt failed.
@@ -440,7 +522,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
         ? { ...result, text: result.text.slice(-MAX_RECENT_OUTPUT_CHARS) }
         : result;
       if (phase === "primary") lastPrimaryResult = retainedResult;
-      else lastConsolidationResult = retainedResult;
+      else if (phase === "consolidation") lastConsolidationResult = retainedResult;
       if (phase === "primary" && activeWorkTask !== undefined && app.workTasks !== undefined) {
         const record = executionFinalized
           ? await app.executionRecords.getRun(app.threadId, handle.runId).catch(() => null)
@@ -470,7 +552,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       // A primary result is published after its task settlement/delivery attempt;
       // consumers must still use the WorkTask criteria for business acceptance.
       emit({ type: "run-result", phase, result });
-      return { result, requestedMemoryTool };
+      return { result, requestedMemoryTool, finalizationFailed };
     } catch (error) {
       if (phase === "consolidation") consolidationFailure = String(error);
       throw error;
@@ -501,35 +583,109 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     return found;
   }
 
-  const startAutomaticConsolidation = (): void => {
-    if (closed || state.kind !== "idle" || backgroundTask || !app.autoConsolidationAgentId) return;
-    const agentId = app.autoConsolidationAgentId;
+  const invokeSkill = async (
+    input: SkillRunInput,
+    origin: Pick<AutomationExecution, "source" | "ruleId" | "event">,
+    signal: AbortSignal,
+    background: boolean,
+    started?: (runId: string) => void,
+    request?: MemoryConsolidationRequest,
+  ): Promise<SkillResult<{ runId: string }>> => {
+    const skill = automation.getSkill(input?.id);
+    if (!skill) return { ok: false, error: { code: "SKILL_UNAVAILABLE", message: "Skill is not registered" } };
+    const base = { skillId: skill.id, hash: skill.hash, ...origin };
+    const id = automation.record({ ...base, status: "starting" });
+    let runId: string | undefined;
+    try {
+      signal.throwIfAborted();
+      const prepared = await automation.prepare(input);
+      if (!prepared.ok) {
+        automation.record({ ...base, id, status: "failed", message: prepared.error.message });
+        if (skill.kind === "memory-consolidate") consolidationFailure = prepared.error.message;
+        return prepared;
+      }
+      signal.throwIfAborted();
+      if (skill.kind === "memory-consolidate") {
+        if (!app.memoryConsolidation) {
+          automation.record({ ...base, id, status: "failed", message: "Memory consolidation is unavailable" });
+          return memoryControlFailure("MEMORY_DISABLED", "Memory consolidation is unavailable");
+        }
+        const readiness = await app.memoryConsolidation?.canStart(signal);
+        if (readiness && (!readiness.ok || !readiness.value.canStart)) {
+          const failure = !readiness.ok ? readiness : memoryControlFailure("MEMORY_LIMIT_EXCEEDED", "Review pending candidates before consolidating");
+          consolidationFailure = `${failure.error.code}: ${failure.error.message}`;
+          if (readiness.ok) controller.recordOutput("\nMemory candidate queue is full; review pending candidates before consolidating.\n");
+          automation.record({ ...base, id, status: "failed", message: consolidationFailure });
+          return failure;
+        }
+        if (origin.source === "hook" && app.getMemoryConsolidationBacklog) {
+          const backlog = await app.getMemoryConsolidationBacklog();
+          if (!backlog.ok) {
+            consolidationFailure = `${backlog.error.code}: ${backlog.error.message}`;
+            automation.record({ ...base, id, status: "failed", message: consolidationFailure });
+            return backlog;
+          }
+          if (backlog.value === 0) {
+            const message = "没有尚未整理的合格增量";
+            lastConsolidationSkippedReason = message;
+            automation.record({ ...base, id, status: "skipped", message });
+            return { ok: false, error: { code: "SKILL_NO_MATERIAL", message } };
+          }
+        }
+        consolidationRequest = request;
+        if (request?.mode === "history") prepared.value.message.parts = [{ type: "text", text:
+          "调用 memory_prepare_consolidation，参数仍为 {\"mode\":\"incremental\"}，不要提供 turns。程序已经绑定用户选定的历史消息，模型不能另选范围；返回 selection.mode=history。本次不移动自动游标。再调用 memory_stage_candidates 一次，没有建议也提交空数组。只提出有来源的候选，不写正式记忆。" }];
+      }
+      controller.recordOutput(`\n[automation] ${origin.source === "hook" ? `规则 ${origin.ruleId}` : "手动调用"} → ${skill.id} · ${skill.hash.slice(0, 12)}${background ? "（新对话优先）" : ""}\n`);
+      const execution = await executeRun(skill.agentId, prepared.value.message,
+        skill.kind === "memory-consolidate" ? "consolidation" : "skill", signal, handle => {
+          runId = handle.runId;
+          automation.record({ ...base, id, runId, status: "running" });
+          started?.(runId);
+        }, background);
+      const failed = execution.result.status !== "completed" || execution.finalizationFailed;
+      automation.record({ ...base, id, ...(runId ? { runId } : {}),
+        status: signal.aborted || execution.result.status === "cancelled" ? "cancelled" : failed ? "failed" : "completed",
+        ...(failed ? { message: execution.result.error?.message ?? consolidationFailure ?? `Run ${execution.result.status}` } : {}),
+      });
+      return failed ? { ok: false, error: { code: "SKILL_EXECUTION_FAILED", message: execution.result.error?.message ?? consolidationFailure ?? `Run ${execution.result.status}` } }
+        : { ok: true, value: { runId: execution.result.runId } };
+    } catch (error) {
+      const message = String(error);
+      automation.record({ ...base, id, ...(runId ? { runId } : {}), status: signal.aborted ? "cancelled" : "failed", message });
+      if (skill.kind === "memory-consolidate" && !signal.aborted) consolidationFailure = message;
+      return { ok: false, error: { code: signal.aborted ? "SKILL_CANCELLED" : "SKILL_EXECUTION_FAILED", message } };
+    } finally {
+      if (skill.kind === "memory-consolidate") consolidationRequest = undefined;
+    }
+  };
+
+  const startAutomaticSkills = (requests: readonly HookRequest[]): void => {
+    if (closed || state.kind !== "idle" || backgroundTask || requests.length === 0) return;
     const background = new AbortController();
     backgroundController = background;
     const task = Promise.resolve().then(async () => {
       try {
-        const readiness = await app.memoryConsolidation?.canStart(background.signal);
-        if (background.signal.aborted) return;
-        if (readiness !== undefined && !readiness.ok) {
-          consolidationFailure = `${readiness.error.code}: ${readiness.error.message}`;
-          emit({ type: "error", message: `Automatic consolidation unavailable: ${consolidationFailure}` });
-          return;
-        }
-        if (readiness?.ok && !readiness.value.canStart) {
-          lastConsolidationSkippedReason = "待审候选已满，请先审核后重试整理";
-          controller.recordOutput("\nMemory candidate queue is full; review pending candidates before consolidating.\n");
-          return;
-        }
-        controller.recordOutput("\n正在后台整理记忆，新的对话优先。\n");
-        const consolidation = await executeRun(agentId, automaticConsolidationMessage(randomUUID()), "consolidation", background.signal, undefined, true);
-        if (consolidation.result.status === "failed" || consolidation.result.status === "timed_out") {
-          controller.recordOutput(`\nAutomatic consolidation failed: ${consolidation.result.error?.message ?? consolidation.result.status}\n`);
+        // One ephemeral matched batch, not an event queue. Abort abandons later handlers.
+        const seen = new Set<string>();
+        for (const request of requests) {
+          if (closed || background.signal.aborted) break;
+          const skill = automation.getSkill(request.skillId)!;
+          if (seen.has(skill.id)) {
+            automation.record({ skillId: skill.id, hash: skill.hash, source: "hook", ruleId: request.ruleId,
+              event: request.event.event, status: "skipped", message: "同一事件的相同 Skill 已合并" });
+            continue;
+          }
+          seen.add(skill.id);
+          const result = await invokeSkill({ id: skill.id, expectedHash: skill.hash,
+            ...(skill.kind === "text" ? { input: `Lifecycle event (host metadata only): ${JSON.stringify(request.event)}` } : {}) },
+            { source: "hook", ruleId: request.ruleId, event: request.event.event }, background.signal, true);
+          if (!result.ok && result.error.code !== "SKILL_NO_MATERIAL" && !background.signal.aborted) {
+            emit({ type: "error", message: `Automatic Skill failed: ${result.error.code}: ${result.error.message}` });
+          }
         }
       } catch (error) {
-        if (!background.signal.aborted) {
-          consolidationFailure = String(error);
-          emit({ type: "error", message: `Automatic consolidation failed: ${String(error)}` });
-        }
+        if (!background.signal.aborted) emit({ type: "error", message: `Automatic Skill failed: ${String(error)}` });
       } finally {
         if (backgroundController === background) backgroundController = undefined;
         const current = controller.getSnapshot().state;
@@ -537,11 +693,207 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       }
     });
     backgroundTask = task;
-    void task.finally(() => { if (backgroundTask === task) backgroundTask = undefined; });
-    setState({ kind: "running", runId: null, phase: "consolidation", background: true });
+    void task.finally(() => {
+      if (backgroundTask === task) backgroundTask = undefined;
+      startIdleDreaming();
+    });
+    const first = automation.getSkill(requests[0]!.skillId)!;
+    setState({ kind: "running", runId: null, phase: first.kind === "memory-consolidate" ? "consolidation" : "skill", background: true });
+  };
+
+  const startManualSkill = async (input: SkillRunInput, request?: MemoryConsolidationRequest): Promise<SkillResult<{ runId: string }>> => {
+    if (closed || state.kind !== "idle") return memoryControlFailure("BUSY", "Wait for the current operation to finish");
+    const skill = automation.getSkill(input?.id);
+    if (!skill) return memoryControlFailure("SKILL_UNAVAILABLE", "Skill is not registered");
+    const startup = new AbortController();
+    startupController = startup;
+    cancelRequested = false;
+    if (skill.kind === "memory-consolidate") {
+      lastConsolidationResult = null;
+      lastConsolidationSkippedReason = undefined;
+    }
+    setState({ kind: "running", phase: skill.kind === "memory-consolidate" ? "consolidation" : "skill", runId: null });
+    let resolveStarted!: (value: SkillResult<{ runId: string }>) => void;
+    const started = new Promise<SkillResult<{ runId: string }>>(resolve => { resolveStarted = resolve; });
+    activeTask = (async () => {
+      try {
+        await ensureRecovered();
+        const result = await invokeSkill(input, { source: "manual" }, startup.signal, false,
+          runId => resolveStarted({ ok: true, value: { runId } }), request);
+        resolveStarted(result);
+        if (!result.ok && !startup.signal.aborted) emit({ type: "error", message: `${result.error.code}: ${result.error.message}` });
+      } catch (error) {
+        resolveStarted(memoryControlFailure("SKILL_EXECUTION_FAILED", String(error)));
+        emit({ type: "error", message: String(error) });
+      } finally {
+        startupController = undefined;
+        setState({ kind: "idle" });
+      }
+    })();
+    return started;
+  };
+
+  const dreamingFailure = (code: string, message: string): DreamingResult<never> => ({ ok: false, error: { code, message } });
+  const startDreaming = (background: boolean): Promise<DreamingResult<{ runId: string }>> => {
+    if (!app.dreaming || app.moduleConfig?.automation?.dreaming?.enabled !== true) {
+      return Promise.resolve(dreamingFailure("DREAMING_DISABLED", "请先显式启用经验学习；不会默认读取任务或调用模型"));
+    }
+    if (closed || state.kind !== "idle" || backgroundTask) return Promise.resolve(dreamingFailure("BUSY", "请等待当前操作结束"));
+    const operation = new AbortController();
+    if (background) backgroundController = operation;
+    else startupController = operation;
+    cancelRequested = false;
+    setState({ kind: "running", phase: "skill", runId: null, ...(background ? { background: true as const } : {}) });
+    let resolveStarted!: (response: DreamingResult<{ runId: string }>) => void;
+    const started = new Promise<DreamingResult<{ runId: string }>>(resolve => { resolveStarted = resolve; });
+    let notStarted: DreamingResult<{ runId: string }> | undefined;
+    const task = (async () => {
+      let lease: Awaited<ReturnType<RuntimeApp["executionRecords"]["claimThread"]>> | undefined;
+      let workspaceLease: Awaited<ReturnType<NonNullable<RuntimeApp["workTasks"]>["claimThread"]>> | undefined;
+      let commitUncertain = false;
+      try {
+        await ensureRecovered();
+        operation.signal.throwIfAborted();
+        // One reflection owner per workspace, even across foreground Threads.
+        workspaceLease = await app.workTasks?.claimThread(dreamingThreadId);
+        operation.signal.throwIfAborted();
+        lease = await app.executionRecords.claimThread(dreamingThreadId);
+        await app.executionRecords.recoverInterrupted(dreamingThreadId);
+        operation.signal.throwIfAborted();
+        const prepared = await app.dreaming!.prepare(operation.signal);
+        if (!prepared.ok) throw new Error(`${prepared.error.code}: ${prepared.error.message}`);
+        if (!prepared.value) {
+          notStarted = dreamingFailure("DREAMING_NO_MATERIAL", "至少需要两条来源完整且有人工验收的独立任务经验");
+          return;
+        }
+        const batch = prepared.value;
+        lastDreamingAttempt = { status: "running" };
+        const execution = await executeRun(DREAMING_AGENT_ID, batch.message, "skill", operation.signal, handle => {
+          lastDreamingAttempt = { status: "running", runId: handle.runId };
+          resolveStarted({ ok: true, value: { runId: handle.runId } });
+        }, background, dreamingThreadId);
+        operation.signal.throwIfAborted();
+        if (execution.result.status !== "completed") throw new Error(execution.result.error?.message ?? `Run ${execution.result.status}`);
+        const committed = await app.dreaming!.commit(batch, execution.result.text, operation.signal);
+        if (!committed.ok) {
+          commitUncertain = committed.error.code === "DREAMING_COMMIT_UNCERTAIN";
+          throw new Error(`${committed.error.code}: ${committed.error.message}`);
+        }
+        lastDreamingAttempt = { status: "completed", runId: execution.result.runId,
+          message: committed.value.skillIds.length ? `已沉淀 ${committed.value.skillIds.length} 条可试用方法` : "已处理这批经验，没有可泛化的方法" };
+        controller.recordOutput(`\n[经验学习] ${lastDreamingAttempt.message}。文本方法不授予工具权限。\n`);
+      } catch (error) {
+        const cancelled = operation.signal.aborted && !commitUncertain;
+        const message = commitUncertain ? "经验写入回执未确认，可能已经保存；请刷新核对，不会自动重试这次提交" : cancelled ? "经验学习已停止，未完成的批次不会标记为已处理" : String(error);
+        lastDreamingAttempt = { ...lastDreamingAttempt, status: commitUncertain ? "uncertain" : cancelled ? "cancelled" : "failed", message };
+        notStarted = dreamingFailure(commitUncertain ? "DREAMING_COMMIT_UNCERTAIN" : cancelled ? "DREAMING_CANCELLED" : "DREAMING_FAILED", message);
+        if (!cancelled) emit({ type: "error", message: `经验学习失败：${message}` });
+      } finally {
+        await lease?.release().catch(error => emit({ type: "error", message: `经验学习租约释放失败：${String(error)}` }));
+        await workspaceLease?.release().catch(error => emit({ type: "error", message: `经验学习工作区租约释放失败：${String(error)}` }));
+        if (backgroundController === operation) backgroundController = undefined;
+        if (startupController === operation) startupController = undefined;
+        const current = controller.getSnapshot().state;
+        if (!background || (current.kind === "running" && current.background)) setState({ kind: "idle" });
+        if (notStarted) resolveStarted(notStarted);
+      }
+    })();
+    if (background) {
+      backgroundTask = task;
+      void task.finally(() => { if (backgroundTask === task) backgroundTask = undefined; });
+    } else activeTask = task;
+    return started;
+  };
+  const startIdleDreaming = (): void => {
+    if (!closed && state.kind === "idle" && !backgroundTask && app.dreaming && app.moduleConfig?.automation?.dreaming?.enabled === true) {
+      void startDreaming(true);
+    }
   };
 
   const controller: AssistantController = {
+    getDreamingOverview: async () => {
+      const enabled = app.moduleConfig?.automation?.dreaming?.enabled === true;
+      if (!app.dreaming) return { ok: true, value: { enabled: false, skills: [], pendingExperiences: 0, processedExperiences: 0 } };
+      const result = await app.dreaming.overview();
+      return result.ok ? { ok: true, value: { ...result.value, enabled, ...(lastDreamingAttempt ? { lastAttempt: structuredClone(lastDreamingAttempt) } : {}) } } : result;
+    },
+    dream: () => startDreaming(false),
+    getLearnedSkillReferences: () => {
+      const reference = app.getLearnedSkillReferences?.();
+      return reference && primaryContextMessageIds.has(reference.messageId) && primaryRunId ? { ...reference, runId: primaryRunId } : null;
+    },
+    changeLearnedSkill: async input => {
+      if (!app.dreaming) return dreamingFailure("DREAMING_UNAVAILABLE", "当前工作区不支持经验学习");
+      if (closed || state.kind !== "idle") return dreamingFailure("BUSY", "请等待当前操作结束");
+      const operation = new AbortController();
+      operationController = operation;
+      setState({ kind: "command", name: "learned-skill-change" });
+      let response!: DreamingResult<LearnedSkill>;
+      activeTask = (async () => {
+        try {
+          await ensureRecovered();
+          response = await app.dreaming!.change(input);
+        } catch (error) { response = dreamingFailure("DREAMING_WRITE_UNCONFIRMED", String(error)); }
+        finally { operationController = undefined; setState({ kind: "idle" }); }
+      })();
+      await activeTask;
+      return response;
+    },
+    getAutomationDiagnostics: () => automation.diagnostics(),
+    runSkill: input => startManualSkill(input),
+    getAutomationOverview: async () => {
+      const tasksEnabled = !!app.workspaceRoot && app.moduleConfig?.enabled.task === true;
+      const diagnostics = automation.diagnostics();
+      if (!tasksEnabled) return { ok: true, value: { tasksEnabled, diagnostics, scheduled: [], recurring: [], truncated: false } };
+      const tasks = createTaskStore(app.workspaceRoot!);
+      const [scheduled, recurring] = await Promise.all([tasks.list({ status: "pending", limit: 50 }), tasks.listRecurring({ limit: 50 })]);
+      if (!scheduled.ok) return scheduled;
+      if (!recurring.ok) return recurring;
+      return { ok: true, value: { tasksEnabled, diagnostics, scheduled: scheduled.value.tasks,
+        recurring: recurring.value.recurringTasks, truncated: scheduled.value.truncated || recurring.value.truncated } };
+    },
+    scheduleSkill: async input => {
+      if (!app.workspaceRoot || !app.moduleConfig?.enabled.task) return { ok: false, error: { code: "TASK_UNAVAILABLE", message: "排期需要启用工作区任务模块" } };
+      if (closed || state.kind !== "idle") return { ok: false, error: { code: "BUSY", message: "请等待当前操作结束，安排尚未保存" } };
+      const operation = new AbortController();
+      operationController = operation;
+      setState({ kind: "command", name: "schedule-skill" });
+      let response!: AutomationResult<ScheduledSkillSaved>;
+      activeTask = (async () => {
+        try {
+          await ensureRecovered();
+          response = await scheduleRegisteredSkill({ automation, store: createTaskStore(app.workspaceRoot!), input,
+            signal: operation.signal, ...(app.activateTaskAutomation ? { activate: app.activateTaskAutomation } : {}) });
+        } catch { response = { ok: false, error: { code: "SCHEDULE_SAVE_UNCONFIRMED", message: "排期保存结果未确认，请刷新当前安排；不会自动重试" } }; }
+        finally { operationController = undefined; setState({ kind: "idle" }); }
+      })();
+      await activeTask;
+      return response;
+    },
+    changeAutomationSchedule: async input => {
+      if (!app.workspaceRoot || !app.moduleConfig?.enabled.task) return { ok: false, error: { code: "TASK_UNAVAILABLE", message: "任务模块未启用" } };
+      const parsed = automationScheduleActionSchema.safeParse(input);
+      if (!parsed.success) return { ok: false, error: { code: "INVALID_INPUT", message: "选择已保存的安排和有效操作；单次安排只能取消" } };
+      if (closed || state.kind !== "idle") return { ok: false, error: { code: "BUSY", message: "请等待当前操作结束" } };
+      const operation = new AbortController(); operationController = operation;
+      setState({ kind: "command", name: "change-automation-schedule" });
+      let response!: AutomationResult<null>;
+      activeTask = (async () => {
+        try {
+          await ensureRecovered();
+          const value = parsed.data;
+          const tasks = createTaskStore(app.workspaceRoot!);
+          const changed = value.kind === "once" ? await tasks.cancel(value.id, operation.signal)
+            : value.action === "pause" ? await tasks.pauseRecurring(value.id, operation.signal)
+              : value.action === "resume" ? await tasks.resumeRecurring(value.id, operation.signal)
+                : await tasks.cancelRecurring(value.id, operation.signal);
+          response = changed.ok ? { ok: true, value: null } : changed;
+        } catch { response = { ok: false, error: { code: "SCHEDULE_CHANGE_UNCONFIRMED", message: "操作结果未确认，请刷新核对；不会重放执行" } }; }
+        finally { operationController = undefined; setState({ kind: "idle" }); }
+      })();
+      await activeTask;
+      return response;
+    },
     getTaskInbox: async () => {
       if (!app.workspaceRoot || !app.moduleConfig?.enabled.task) return { ok: false, error: { code: "TASK_UNAVAILABLE", message: "任务收件箱需要启用工作区任务模块" } };
       return createTaskStore(app.workspaceRoot).list({ inbox: true, limit: 50 });
@@ -622,6 +974,8 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     getSnapshot: () => ({
       state,
       canSubmit: !closed && (state.kind === "idle" || (state.kind === "running" && state.background === true)),
+      canSteer: !closed && !cancelRequested && state.kind === "running" && state.phase === "primary" && state.runId !== null && activeHandle?.runId === state.runId && activeHandle.steer !== undefined,
+      steers: structuredClone(steers),
       pendingApproval,
       recentOutput,
       outputTruncated,
@@ -630,11 +984,11 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       lastConsolidationResult,
       resultTextTruncated,
     }),
-    getHistory: () => app.store.getMessages(app.threadId),
+    getHistory: async () => { await recovery; return app.store.getMessages(app.threadId); },
     getContextDiagnostics: async () => {
       const diagnostics = await app.getContextDiagnostics();
       const source = diagnostics.ok ? diagnostics.value.lastPreparationSource : null;
-      if (source && source.messageId === primaryMessageId && primaryRunId) {
+      if (source && primaryContextMessageIds.has(source.messageId) && primaryRunId) {
         source.runId = primaryRunId;
       }
       return diagnostics;
@@ -649,7 +1003,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     },
     getMemoryReferences: () => {
       const reference = app.getMemoryReferences?.();
-      return reference && reference.messageId === primaryMessageId && primaryRunId ? { ...reference, runId: primaryRunId } : null;
+      return reference && primaryContextMessageIds.has(reference.messageId) && primaryRunId ? { ...reference, runId: primaryRunId } : null;
     },
     listMemories: async (input) => {
       if (!app.memoryStore || closed) return { ok: false, error: { code: "MEMORY_DISABLED", message: "Memory is unavailable" } };
@@ -748,7 +1102,8 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       if (!store) return memoryControlFailure("MEMORY_DISABLED", "Temporal Memory is unavailable");
       const counts = await store.inspectMemoryMaintenance(undefined, { boundThreadId: app.threadId });
       if (!counts.ok) return counts;
-      const enabled = app.autoConsolidationAgentId !== undefined;
+      const enabled = automation.diagnostics().hooks.some(rule => rule.enabled !== false &&
+        automation.getSkill(rule.handler.id)?.kind === "memory-consolidate");
       let backlogCount: number | undefined, backlogError: string | undefined;
       if (enabled) {
         const cursor = await store.getConsolidationCursor(app.threadId);
@@ -780,45 +1135,9 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     consolidateMemory: async (input) => {
       const validated = validateConsolidationRequest(input);
       if (!validated.ok) return validated;
-      if (closed || state.kind !== "idle") return memoryControlFailure("BUSY", "Wait for the current operation to finish");
-      if (!app.autoConsolidationAgentId || !app.memoryConsolidation) return memoryControlFailure("MEMORY_DISABLED", "Enable memory and consolidation in the configuration first");
-      const agentId = app.autoConsolidationAgentId;
-      const startup = new AbortController();
-      startupController = startup;
-      consolidationRequest = validated.value;
-      cancelRequested = false;
-      lastConsolidationResult = null;
-      lastConsolidationSkippedReason = undefined;
-      setState({ kind: "running", phase: "consolidation", runId: null });
-      let resolveStarted!: (value: MemoryResult<{ runId: string }>) => void;
-      const started = new Promise<MemoryResult<{ runId: string }>>(resolve => { resolveStarted = resolve; });
-      activeTask = (async () => {
-        try {
-          await ensureRecovered();
-          const ready = await app.memoryConsolidation!.canStart(startup.signal);
-          if (!ready.ok || !ready.value.canStart) {
-            const failure = !ready.ok ? ready : memoryControlFailure("MEMORY_LIMIT_EXCEEDED", "Review pending candidates before consolidating");
-            consolidationFailure = `${failure.error.code}: ${failure.error.message}`;
-            resolveStarted(failure);
-            return;
-          }
-          await executeRun(agentId, {
-            id: randomUUID(), role: "user", metadata: { source: AUTO_CONSOLIDATION_SOURCE },
-            parts: [{ type: "text", text: validated.value.mode === "history"
-              ? "调用 memory_prepare_consolidation，参数仍为 {\"mode\":\"incremental\"}，不要提供 turns。程序已经绑定用户选定的历史消息，模型不能另选范围；返回 selection.mode=history。本次不移动自动游标。再调用 memory_stage_candidates 一次，没有建议也提交空数组。只提出有来源的候选，不写正式记忆。"
-              : "请重试增量整理。先取材，再提交带资格分类的提案；没有建议也提交空数组。正式写入或待审由程序策略处理，不直接调用正式写入工具。" }],
-          }, "consolidation", startup.signal, handle => resolveStarted({ ok: true, value: { runId: handle.runId } }));
-        } catch (error) {
-          consolidationFailure = String(error);
-          resolveStarted(memoryControlFailure("CONSOLIDATION_FAILED", String(error)));
-          emit({ type: "error", message: `Memory consolidation failed: ${String(error)}` });
-        } finally {
-          consolidationRequest = undefined;
-          startupController = undefined;
-          setState({ kind: "idle" });
-        }
-      })();
-      return started;
+      const skill = automation.getSkill(MEMORY_SKILL_ID);
+      if (!skill || !app.memoryConsolidation) return memoryControlFailure("MEMORY_DISABLED", "Enable memory and consolidation in the configuration first");
+      return startManualSkill({ id: skill.id, expectedHash: skill.hash }, validated.value);
     },
     listMemoryCandidates: async (input) => {
       if (app.memoryStore === undefined || app.workspaceRoot === undefined) {
@@ -1023,7 +1342,10 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
         evidence,
         ...(input.note === undefined ? {} : { note: input.note }),
       });
-      if (updated.ok) emit({ type: "work-task-updated", task: updated.value });
+      if (updated.ok) {
+        emit({ type: "work-task-updated", task: updated.value });
+        if (updated.value.status === "completed") startIdleDreaming();
+      }
       return updated;
     },
     reconcileWorkTask: async (input) => {
@@ -1095,7 +1417,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       nextWorkTask = undefined;
       activeTask = (async () => {
         let startSettled = false;
-        let shouldConsolidate = false;
+        let pendingHooks: HookRequest[] = [];
         const settleStart = (response: StartRunResponse): void => {
           if (!startSettled) { startSettled = true; resolveStarted(response); }
         };
@@ -1118,8 +1440,21 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
           const skip = automaticConsolidationSkip({ enabled: app.autoConsolidationAgentId !== undefined,
             status: primary.result.status, requestedMemoryTool: primary.requestedMemoryTool,
             cancelled: cancelRequested || startup.signal.aborted, excluded: excludeFromConsolidation });
-          shouldConsolidate = skip === undefined;
           if (app.autoConsolidationAgentId) lastConsolidationSkippedReason = skip;
+          if (primary.result.status === "completed" && !cancelRequested && !startup.signal.aborted) {
+            const matched = automation.select({ event: "primary.completed", threadId: app.threadId,
+              runId: primary.result.runId, agentId: app.agentId, phase: "primary", status: "completed" });
+            pendingHooks = matched.filter(request => {
+              const skill = automation.getSkill(request.skillId)!;
+              if (skill.kind !== "memory-consolidate" || skip === undefined) return true;
+              automation.record({ skillId: skill.id, hash: skill.hash, source: "hook", ruleId: request.ruleId,
+                event: request.event.event, status: "skipped", message: skip });
+              return false;
+            });
+            if (app.autoConsolidationAgentId && !matched.some(request => automation.getSkill(request.skillId)?.kind === "memory-consolidate")) {
+              lastConsolidationSkippedReason = "当前配置没有匹配的记忆 Hook";
+            }
+          }
         } catch (error) {
           settleStart({ ok: false, reason: "starting" });
           emit({ type: "error", message: String(error) });
@@ -1133,11 +1468,42 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
             setState({ kind: "running", runId: activeHandle?.runId ?? null, phase: "consolidation", background: true });
           } else {
             setState({ kind: "idle" });
-            if (shouldConsolidate) startAutomaticConsolidation();
+            startAutomaticSkills(pendingHooks);
+            if (!pendingHooks.length && lastDreamingAttempt?.status === "cancelled") startIdleDreaming();
           }
         }
       })();
       return started;
+    },
+    steer: async (input) => {
+      if (!input || typeof input.expectedRunId !== "string" || typeof input.id !== "string" ||
+          !/^[A-Za-z0-9._:-]{1,128}$/.test(input.id) || typeof input.text !== "string" || !input.text.trim() || Buffer.byteLength(input.text, "utf8") > 4096) {
+        return { ok: false, reason: "invalid" };
+      }
+      const persisted = steers.find(item => item.id === input.id && item.runId === input.expectedRunId);
+      if (persisted) return persisted.text === input.text
+        ? { ok: true, steer: structuredClone(persisted) } : { ok: false, reason: "conflict" };
+      if (closed || cancelRequested) return { ok: false, reason: "closed" };
+      if (state.kind !== "running" || state.phase !== "primary" || state.background || state.runId === null || !activeHandle?.steer) return { ok: false, reason: "busy" };
+      if (activeHandle.runId !== input.expectedRunId || state.runId !== input.expectedRunId) return { ok: false, reason: "stale" };
+      const key = `${input.expectedRunId}:${input.id}`;
+      const existing = steerRequests.get(key);
+      if (existing) return existing.text === input.text ? existing.response : { ok: false, reason: "conflict" };
+      const handle = activeHandle;
+      const response = (async (): Promise<AssistantSteerResponse> => {
+        try {
+          const accepted = await handle.steer!({ id: input.id, text: input.text });
+          if (accepted.status !== "accepted") return { ok: false, reason: accepted.reason ?? "closed" };
+          const receipt = await app.executionRecords.getRun(app.threadId, handle.runId);
+          const record = receipt?.steers?.find(item => item.id === input.id);
+          if (!record) return { ok: false, reason: "failed", message: "Steering acknowledgement is uncertain; inspect this Run before retrying." };
+          return { ok: true, steer: structuredClone(record) };
+        } catch (error) {
+          return { ok: false, reason: "failed", message: `Steering acknowledgement is uncertain: ${String(error)}` };
+        }
+      })();
+      steerRequests.set(key, { text: input.text, response });
+      return response;
     },
     cancel: async () => {
       cancelRequested = true;
@@ -1151,6 +1517,34 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       const { name, args } = commandParts(line);
       if (name.length === 0) return { ok: false, reason: "empty" };
       if (closed || state.kind !== "idle") return { ok: false, reason: "busy" };
+      if (name === "skills" || name === "hooks") {
+        if (args.trim()) return { ok: false, reason: "failed", message: `Usage: /${name}` };
+        const diagnostics = automation.diagnostics();
+        if (name === "skills") {
+          controller.recordOutput(`\n[skills] ${diagnostics.skills.length ? diagnostics.skills.map(skill =>
+            `${skill.id}: ${skill.description}\nhash=${skill.hash}; tools=${skill.tools.join(",") || "none"}`).join("\n") : "没有已登记的 Skill"}\n使用 /skill <id> [输入] 运行；这不会创建定时安排。\n`);
+        } else {
+          controller.recordOutput(`\n[hooks] ${diagnostics.hooks.length ? diagnostics.hooks.map(rule =>
+            `${rule.id}: ${rule.event} → ${rule.handler.id} (${rule.enabled === false ? "disabled" : "enabled"})`).join("\n") : "当前配置未启用任何 Hook"}\n`);
+          for (const item of diagnostics.recent.slice(0, 10)) controller.recordOutput(
+            `${item.skillId}: ${item.status}${item.ruleId ? ` (${item.ruleId})` : " (manual)"}${item.runId ? ` Run ${item.runId}` : ""}${item.message ? `: ${item.message}` : ""}\n`);
+        }
+        return { ok: true };
+      }
+      if (name === "skill") {
+        const text = args.trim();
+        const boundary = text.search(/\s/);
+        const id = boundary < 0 ? text : text.slice(0, boundary);
+        const skill = automation.getSkill(id);
+        if (!skill) return { ok: false, reason: "failed", message: "Usage: /skill <registered-id> [input]. Use /skills to list available Skills." };
+        const input = boundary < 0 ? undefined : text.slice(boundary).trim();
+        const started = await startManualSkill({ id, expectedHash: skill.hash, ...(input ? { input } : {}) });
+        if (!started.ok) return { ok: false, reason: "failed", message: `${started.error.code}: ${started.error.message}` };
+        await activeTask;
+        const execution = automation.diagnostics().recent.find(item => item.runId === started.value.runId);
+        return execution?.status === "completed" ? { ok: true } : execution?.status === "cancelled"
+          ? { ok: false, reason: "cancelled" } : { ok: false, reason: "failed", message: execution?.message ?? "Skill did not complete" };
+      }
       const special = name === "compact" ? app.compaction : name === "resume" ? app.resume : undefined;
       const registered = app.commands?.get(name);
       if (special === undefined && registered === undefined) return { ok: false, reason: "unknown" };
@@ -1231,14 +1625,26 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     },
   };
   void recovery.then(async () => {
-    if (closed || state.kind !== "idle" || !app.memoryConsolidation || !app.memoryStore || !app.autoConsolidationAgentId) return;
+    if (closed || state.kind !== "idle") return;
     try {
       await ensureRecovered();
-      const cursor = await app.memoryStore.getConsolidationCursor(app.threadId);
-      if (!cursor.ok) { consolidationFailure = `${cursor.error.code}: ${cursor.error.message}`; emit({ type: "error", message: consolidationFailure }); return; }
-      const backlog = memoryConsolidationBacklog(await app.store.getMessages(app.threadId), cursor.value);
-      if (backlog.ok && backlog.value > 0) startAutomaticConsolidation();
-      else if (!backlog.ok) { consolidationFailure = `${backlog.error.code}: ${backlog.error.message}`; emit({ type: "error", message: consolidationFailure }); }
+      const matched = automation.select({ event: "thread.ready", threadId: app.threadId, agentId: app.agentId });
+      // Old RuntimeApp embedders have no backlog callback; retain the existing read check.
+      let requests = matched.filter(request => automation.getSkill(request.skillId)?.kind !== "memory-consolidate" ||
+        (app.memoryStore !== undefined && app.memoryConsolidation !== undefined));
+      if (requests.some(request => automation.getSkill(request.skillId)?.kind === "memory-consolidate")) {
+        const backlog = app.getMemoryConsolidationBacklog
+          ? await app.getMemoryConsolidationBacklog()
+          : await (async () => {
+            const cursor = await app.memoryStore!.getConsolidationCursor(app.threadId);
+            if (!cursor.ok) return cursor;
+            return memoryConsolidationBacklog(await app.store.getMessages(app.threadId), cursor.value);
+          })();
+        if (!backlog.ok) throw new Error(`${backlog.error.code}: ${backlog.error.message}`);
+        if (backlog.value === 0) requests = requests.filter(request => automation.getSkill(request.skillId)?.kind !== "memory-consolidate");
+      }
+      startAutomaticSkills(requests);
+      if (!requests.length) startIdleDreaming();
     } catch (error) { consolidationFailure = String(error); emit({ type: "error", message: String(error) }); }
   });
   return controller;

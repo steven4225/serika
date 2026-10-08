@@ -6,6 +6,9 @@ import { MEMORY_FILE_NAME } from "./memory-store.js";
 import { inspectCliModelConfig } from "./model-config.js";
 import { TASK_FILE_NAME } from "./task-store.js";
 import { resolveTuiModuleConfig } from "./tui-module-config.js";
+import { loadSkillPackages } from "./skill-catalog.js";
+import { builtinMemoryHookRules, compileHookRules } from "./automation-hooks.js";
+import { MEMORY_SKILL_ID } from "./automation-execution.js";
 
 export interface ReadinessCheck {
   id: string;
@@ -67,6 +70,14 @@ export async function checkTuiStartup(
       todoistTimeZone: env.RUNLOOM_TODOIST_TIMEZONE?.trim() || undefined,
     });
     identity.workspace = config.workspaceRoot;
+    const registrations = config.automation?.skills ?? [];
+    if (registrations.length && config.workspaceRoot === null) throw new Error("External Skills require an explicit workspace identity");
+    const skills = await loadSkillPackages(registrations, config.workspaceRoot ?? cwd);
+    if (skills.some(skill => skill.kind === "memory-consolidate") && !config.autoConsolidate) throw new Error("Memory Skills require memory.enabled and autoConsolidate");
+    const skillIds = [...(config.autoConsolidate ? [MEMORY_SKILL_ID] : []), ...skills.map(skill => skill.id)];
+    if (new Set(skillIds).size !== skillIds.length) throw new Error("Duplicate Skill id");
+    const hooks = compileHookRules(config.automation?.hooks ?? (config.autoConsolidate ? builtinMemoryHookRules(MEMORY_SKILL_ID) : []), skillIds);
+    checks.push({ id: "automation", level: "ok", message: `${skillIds.length} registered Skills; ${hooks.rules.filter(rule => rule.enabled).length} enabled Hook rules. Definitions checked only; nothing executed`, blocking: false });
     checks.push({ id: "config", level: "ok", message: `Configuration valid; source ${config.configPath ?? "CLI/defaults"}`, blocking: false });
     checks.push({ id: "modules", level: "ok", message: `Enabled modules: ${Object.entries(config.enabled).filter(([, enabled]) => enabled).map(([name]) => name).join(", ") || "none"}; web_search ${config.webSearchEnabled ? "on" : "off"}; feed_read ${config.webFeedEnabled ? "on" : "off"}`, blocking: false });
     checks.push({ id: "context-compaction", level: "ok", message: `Context compaction ${config.contextCompaction.enabled ? "enabled" : "disabled"}`, blocking: false });

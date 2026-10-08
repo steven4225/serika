@@ -9,6 +9,8 @@ import {
 } from "node:path";
 import { z } from "zod";
 import { computerConfigSchema, type ComputerConfig } from "./modules/computer-module.js";
+import { hooksConfigSchema, type HookRule } from "./automation-hooks.js";
+import { skillPackageRegistrationsSchema, type SkillPackageRegistration } from "./skill-catalog.js";
 import { resolveWorkspace, type TuiArgs } from "./cli-options.js";
 import {
   RUN_AUTHORIZED_FILE_TOOLS,
@@ -72,7 +74,22 @@ export interface ResolvedTuiModuleConfig {
   maxSteps: number;
   totalTimeoutMs: number;
   computer?: ComputerConfig;
+  automation?: AutomationConfig;
 }
+
+export interface AutomationConfig {
+  skills?: SkillPackageRegistration[] | undefined;
+  /** Explicit learning consent. Derived text guidance never grants tool authority. */
+  dreaming?: { enabled: boolean } | undefined;
+  /** Absent uses the legacy memory defaults; [] explicitly disables all hooks. */
+  hooks?: HookRule[] | undefined;
+}
+
+const automationConfigSchema = z.object({
+  skills: skillPackageRegistrationsSchema.optional(),
+  dreaming: z.object({ enabled: z.boolean() }).strict().optional(),
+  hooks: hooksConfigSchema.optional(),
+}).strict();
 
 const DEFAULT_TODOIST_TIME_ZONE = "Asia/Shanghai";
 const nonEmptyString = z.string().refine((value) => value.trim().length > 0);
@@ -161,6 +178,7 @@ const tuiModuleConfigV1Schema = z
     .strict(),
     fileAuthorizations: z.array(fileAuthorizationSchema).optional(),
     contextCompaction: contextCompactionSchema.optional(),
+    automation: automationConfigSchema.optional(),
     run: z
       .object({
         maxSteps: z.number().int().min(1).max(TUI_MAX_CONFIGURABLE_STEPS).optional(),
@@ -204,6 +222,7 @@ export interface TuiModuleConfigV1 {
   fileAuthorizations?: FileAuthorizationRule[] | undefined;
   contextCompaction?: ContextBudgetConfig | undefined;
   run?: { maxSteps?: number | undefined; totalTimeoutMs?: number | undefined } | undefined;
+  automation?: AutomationConfig | undefined;
 }
 
 function configPathFromArgs(args: TuiArgs): string | undefined {
@@ -387,7 +406,8 @@ async function normalizeShellSandbox(
   };
 }
 
-async function readTuiModuleConfig(configPath: string): Promise<TuiModuleConfigV1> {
+/** Pure schema read for other trusted hosts; does not resolve unrelated module paths. */
+export async function readTuiModuleConfig(configPath: string): Promise<TuiModuleConfigV1> {
   let source: string;
   try {
     source = await readFile(configPath, "utf8");
@@ -504,11 +524,11 @@ async function resolveConfiguredMode(
     workspaceRoot,
     enabled,
   );
-  if (fileAuthorizations.length > 0 || shellSandbox !== null || enabled.computer || memoryWritePolicy === "automatic") {
+  if (fileAuthorizations.length > 0 || shellSandbox !== null || enabled.computer || memoryWritePolicy === "automatic" || config.automation !== undefined) {
     const configRealPath = await realpath(absoluteConfigPath);
     if (workspaceRoot !== null && isPathWithin(workspaceRoot, configRealPath)) {
       throw new Error(
-        "TUI config with sandbox, fileAuthorizations, computer or automatic memory must be outside the workspace",
+        "TUI config with sandbox, fileAuthorizations, computer, automatic memory or automation must be outside the workspace",
       );
     }
   }
@@ -535,6 +555,7 @@ async function resolveConfiguredMode(
     maxSteps: config.run?.maxSteps ?? TUI_DEFAULT_MAX_STEPS,
     totalTimeoutMs: config.run?.totalTimeoutMs ?? TUI_DEFAULT_TOTAL_TIMEOUT_MS,
     ...(computer ? { computer } : {}),
+    ...(config.automation ? { automation: config.automation } : {}),
   };
 }
 

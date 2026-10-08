@@ -19,6 +19,7 @@ import type {
   TaskArrangement,
 } from "../task-store.js";
 import type { Recurrence } from "../recurrence.js";
+import type { SkillResult } from "../automation-execution.js";
 
 export type { TaskStore } from "../task-store.js";
 
@@ -62,20 +63,24 @@ const taskErrorSchema = z.object({
 
 const reminderArrangementSchema = z.object({ kind: z.literal("reminder"), source: z.literal("none"), notification: z.literal("always"), declarationVersion: z.literal(1) }).strict();
 const todoistArrangementSchema = z.object({ kind: z.literal("todoist-brief"), source: z.literal("todoist-planning"), notification: z.literal("always"), declarationVersion: z.literal(1) }).strict();
-const inputArrangementSchema = z.discriminatedUnion("kind", [reminderArrangementSchema, todoistArrangementSchema]);
-const arrangementSchema = z.discriminatedUnion("kind", [reminderArrangementSchema, todoistArrangementSchema,
+const skillArrangementSchema = z.object({ kind: z.literal("skill"), source: z.literal("none"), notification: z.literal("always"), declarationVersion: z.literal(1),
+  skillId: z.string().regex(/^[a-z][a-z0-9-]{0,63}$/), skillHash: z.string().regex(/^[a-f0-9]{64}$/) }).strict();
+const inputArrangementSchema = z.discriminatedUnion("kind", [reminderArrangementSchema, todoistArrangementSchema, skillArrangementSchema]);
+const arrangementSchema = z.discriminatedUnion("kind", [reminderArrangementSchema, todoistArrangementSchema, skillArrangementSchema,
   z.object({ kind: z.literal("rss-digest"), source: z.literal("existing-rss-binding"), notification: z.literal("new-items"), declarationVersion: z.literal(1) }).strict(),
 ]);
 const serviceSchema = z.object({ enabled: z.boolean(), message: z.string().optional() }).strict();
 
 export interface TaskModuleOptions {
+  /** Registry/source validation is supplied by the trusted host, not the model. */
+  checkSkillArrangement?: (arrangement: Extract<TaskArrangement, { kind: "skill" }>, prompt: string) => Promise<SkillResult<null>>;
   /** Trusted availability for this process's configured background Todoist source. */
   todoistPlanningAvailable?: boolean;
   checkTodoistPlanningAvailable?: () => Promise<boolean>;
   /** Host-owned service setup, included in the existing arrangement confirmation. */
   afterArrangementSaved?: () => Promise<{ enabled: boolean; message?: string }>;
 }
-type TaskToolResult<T> = TaskStoreResult<T> & { service?: { enabled: boolean; message?: string } };
+type TaskToolResult<T> = SkillResult<T> & { service?: { enabled: boolean; message?: string } };
 
 const taskRecordSchema = z.object({
   id: z.string(),
@@ -563,9 +568,14 @@ function parseRecurringCreate(
 
 /** Register the task tools and synchronous /task command adapter. */
 export function createTaskModule(store: TaskStore, options: TaskModuleOptions = {}): AgentModule {
-  async function checkArrangement(arrangement: TaskArrangement | undefined): Promise<TaskStoreResult<null>> {
+  async function checkArrangement(arrangement: TaskArrangement | undefined, prompt: string): Promise<SkillResult<null>> {
     if (arrangement === undefined) return { ok: true, value: null };
-    if (!inputArrangementSchema.safeParse(arrangement).success) return { ok: false, error: { code: "INVALID_INPUT", message: "Only complete reminder or Todoist planning arrangements are supported here; RSS requires the existing subscription binding" } };
+    if (!inputArrangementSchema.safeParse(arrangement).success) return { ok: false, error: { code: "INVALID_INPUT", message: "Only complete reminder, Todoist planning or registered Skill arrangements are supported here; RSS requires the existing subscription binding" } };
+    if (arrangement.kind === "skill") {
+      if (!options.checkSkillArrangement) return { ok: false, error: { code: "SKILL_UNAVAILABLE", message: "No registered Skill schedule validator is configured; no arrangement was saved" } };
+      if (Buffer.byteLength(prompt, "utf8") > 4096) return { ok: false, error: { code: "INVALID_INPUT", message: "Skill input exceeds 4 KiB" } };
+      return options.checkSkillArrangement(arrangement, prompt);
+    }
     if (arrangement.kind === "todoist-brief") {
       let available = options.todoistPlanningAvailable === true;
       try { if (options.checkTodoistPlanningAvailable !== undefined) available = await options.checkTodoistPlanningAvailable(); }
@@ -586,7 +596,7 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
     setup(ctx) {
       const taskCreateTool = tool({
         description:
-          "Schedule one future response. A complete arrangement can declare a deterministic reminder (none/always) or read-only Todoist brief (todoist-planning/always), declarationVersion 1. RSS is not accepted here. Existing approval covers saving the displayed arrangement and host background service setup; report returned service state separately from saved schedule or delivery.",
+          "Schedule one future response. A complete arrangement declares a deterministic reminder, read-only Todoist brief, or registered tool-free text Skill pinned by skillId/skillHash (source none, notification always), declarationVersion 1. Skill input is prompt, at most 4 KiB, with no inherited Memory or tools. RSS requires its existing binding. Approval covers saving the displayed arrangement and host background setup; report service state separately from execution or delivery.",
         inputSchema: taskCreateInputSchema,
         outputSchema: taskRecordOutputSchema,
         execute: async (
@@ -595,7 +605,7 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
         ): Promise<TaskToolResult<TaskRecordV3>> => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
-          const checked = await checkArrangement(input.arrangement); if (!checked.ok) return checked;
+          const checked = await checkArrangement(input.arrangement, input.prompt); if (!checked.ok) return checked;
           throwIfAborted(signal);
           const normalized: CreateTaskInput = { prompt: input.prompt, runAt: input.runAt, ...(input.arrangement === undefined ? {} : { arrangement: input.arrangement }) };
           return serviceAfterSave(await store.create(normalized, signal), input.arrangement);
@@ -679,7 +689,7 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
       });
       const taskRepeatCreateTool = tool({
         description:
-          "Create an active daily or weekly response schedule. A complete arrangement can declare a deterministic reminder or read-only Todoist brief, declarationVersion 1. RSS requires its existing bound subscription, not this tool. Approval covers saving and host background service setup; returned service state does not prove future execution or notification receipt.",
+          "Create an active daily or weekly response schedule with a fixed UTC offset. A complete arrangement declares a deterministic reminder, read-only Todoist brief, or registered tool-free text Skill pinned by skillId/skillHash (none/always), declarationVersion 1. Skill input is prompt, at most 4 KiB; no Memory or tools are inherited. RSS requires its existing bound subscription. Approval covers saving and host background setup; service state does not prove execution or receipt.",
         inputSchema: createRecurringTaskInputSchema,
         outputSchema: recurringTaskRecordOutputSchema,
         execute: async (
@@ -688,7 +698,7 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
         ): Promise<TaskToolResult<RecurringTaskRecord>> => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
-          const checked = await checkArrangement(input.arrangement); if (!checked.ok) return checked;
+          const checked = await checkArrangement(input.arrangement, input.prompt); if (!checked.ok) return checked;
           throwIfAborted(signal);
           const normalized: CreateRecurringTaskInput = { prompt: input.prompt, recurrence: input.recurrence, ...(input.arrangement === undefined ? {} : { arrangement: input.arrangement }) };
           return serviceAfterSave(await store.createRecurring(normalized, signal), input.arrangement);

@@ -8,6 +8,17 @@
 - Keep changes focused on the current module. Do not perform unrelated refactors or dependency upgrades.
 - Do not commit or push unless the user explicitly asks for a version-control checkpoint.
 
+## Maintenance-phase task admission
+
+- Apply this gate once the project is explicitly in its maintenance phase. Adding this rule does not declare that the current project is already in maintenance.
+- Do not use "完善", "优化", "增强健壮性", "重构", or "补充能力" as standalone development goals. Technical changes may be implementation means, not the user outcome.
+- Before admitting any maintenance task into development, state all three:
+  - **Before:** What can the user not do today, or which complete action currently fails?
+  - **After:** What complete action can the user perform after this version?
+  - **Demo:** How can the user personally verify the result within five minutes? Specify the entry point, necessary preconditions, steps, and observable pass/fail result.
+- If no concrete five-minute Demo can be given, the task must not enter development. Clarify the user outcome first.
+- Code changes, passing unit tests, test counts, and an assistant's success claim do not substitute for the user-observable Demo.
+
 ## Terminology and architecture
 
 - The project name is Runloom.
@@ -40,7 +51,7 @@
 
 ## MVP boundaries
 
-- Do not add multi-worker execution, parallel tools, queued Runs, Steering, Follow-up, multi-agent orchestration, RAG, automatic memory writes, or inferred global memory unless a later design discussion explicitly promotes it into scope. Explicit user-managed workspace memory, read-only candidate proposals, and its versioned lifecycle are part of the current TUI scope; memory text never grants execution permission; committed transcript text and compaction summaries are not current preferences, only the injected memory version is.
+- Do not add multi-worker execution, parallel tools, queued Runs, Follow-up, multi-agent orchestration, RAG, automatic memory writes, or inferred global memory unless a later design discussion explicitly promotes it into scope. Controller foreground-primary Steer is explicitly promoted: opt-in, bounded same-Run user corrections at safe boundaries, superseding unstarted tool calls and their approvals without cancelling executing tools, extending budget, granting permission or replaying accepted requests after restart. TUI and workers do not enable it. Explicit user-managed workspace memory, read-only candidate proposals, and its versioned lifecycle are part of the current TUI scope; memory text never grants execution permission; committed transcript text and compaction summaries are not current preferences, only the injected memory version is.
 - PostgreSQL may be selected as the persistence target while tests continue to use deterministic in-memory fakes around explicit ports.
 
 ## Local behavior milestone

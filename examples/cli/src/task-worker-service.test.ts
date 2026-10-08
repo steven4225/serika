@@ -1,9 +1,33 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { it } from "node:test";
 import { createTaskWorkerService } from "./task-worker-service.js";
+
+it("service explicitly records external Skill config without copying its body or credentials", async () => {
+  const root = await realpath(await mkdtemp(join(tmpdir(), "runloom-skill-service-")));
+  let registered = false;
+  try {
+    const workspace = join(root, "workspace"); await mkdir(workspace);
+    const configPath = join(root, "config.json"); await writeFile(configPath, '{"private":"never-copy-config-body"}');
+    const workerEntryPath = join(root, "worker.js"); await writeFile(workerEntryPath, "");
+    const service = createTaskWorkerService({ workspace, configPath, nodePath: await realpath(process.execPath), workerEntryPath, workingDirectory: root, launchAgentsDirectory: join(root, "LaunchAgents"), uid: 501, platform: "darwin", runner: async (_file, args) => {
+      if (args[0] === "bootstrap") registered = true;
+      return { exitCode: args[0] === "print" && !registered ? 113 : 0, stdout: "", stderr: "" };
+    } });
+    await service.enable();
+    const plist = await readFile(service.plistPath, "utf8");
+    assert.ok(plist.includes(`<string>--config</string><string>${configPath}</string>`));
+    assert.doesNotMatch(plist, /never-copy-config-body/);
+    assert.equal((await service.enable()).registered, true, "same pinned worker options are idempotent");
+    const original = plist;
+    await writeFile(service.plistPath, plist.replace(`<string>--config</string><string>${configPath}</string>`, ""));
+    await assert.rejects(service.enable(), /options differ/);
+    assert.equal(await readFile(service.plistPath, "utf8"), original.replace(`<string>--config</string><string>${configPath}</string>`, ""), "mismatched service is never silently rewritten");
+    assert.throws(() => createTaskWorkerService({ workspace, configPath: join(workspace, "config.json"), nodePath: process.execPath, workerEntryPath, workingDirectory: root, launchAgentsDirectory: root, uid: 501 }), /outside workspace/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
 
 it("service only installs explicitly, keeps secrets external, and reports actual launchctl state", async () => {
   const root = await realpath(await mkdtemp(join(tmpdir(), "runloom-service-")));

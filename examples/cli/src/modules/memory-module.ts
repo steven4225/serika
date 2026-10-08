@@ -358,6 +358,8 @@ const candidateStageOutputSchema = z.discriminatedUnion("ok", [
 ]);
 
 export interface MemoryModuleOptions {
+  /** Host-registered consolidation Skills, never model-provided IDs. */
+  consolidationAgentIds?: readonly string[];
   /** Active thread. Thread scope is bound to this id and cannot target another thread. */
   threadId?: string;
   /** Injectable clock for expiry checks and memory timestamps. */
@@ -409,7 +411,9 @@ export function createMemoryModule(
 ): AgentModule {
   const writeOptions = (): MemoryWriteOptions => ({
     ...(options.threadId === undefined ? {} : { boundThreadId: options.threadId }),
-    now: options.now?.() ?? new Date(),
+    // Production mutations capture commit time under flock. A pre-lock wall-clock
+    // snapshot can falsely look like rollback after another Thread writes first.
+    ...(options.now === undefined ? {} : { now: options.now() }),
   });
   const sourceFromCommittedUser = async (
     messageId: string,
@@ -563,7 +567,9 @@ export function createMemoryModule(
             execute: async (input, { abortSignal, context }): Promise<ConsolidationResult> => {
               const signal = abortSignal ?? neverAborted;
               throwIfAborted(signal);
-              if (input.mode === "incremental" && requestedAgentId(context) !== AUTO_CONSOLIDATION_AGENT_ID) {
+              const agentId = requestedAgentId(context);
+              if (input.mode === "incremental" && agentId !== AUTO_CONSOLIDATION_AGENT_ID &&
+                  !(agentId !== undefined && options.consolidationAgentIds?.includes(agentId))) {
                 return {
                   ok: false,
                   error: {

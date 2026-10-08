@@ -199,6 +199,8 @@ export interface MemoryWriteOptions {
   boundThreadId?: string;
   /** Injectable clock for expiry and timestamps. */
   now?: Date;
+  /** Trusted consolidation clock; called only after acquiring write ownership. */
+  commitClock?: () => Date;
 }
 
 export interface WorkspaceMemoryStore {
@@ -1149,7 +1151,7 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
           if (document.consolidationCursors.length > MEMORY_CURSORS_MAX) raise("MEMORY_LIMIT_EXCEEDED", "Consolidation cursor limit exceeded");
         }
         return { document, unchanged: cursor === null && document.candidates.length === originalCandidateCount, value: summary };
-      }, options?.now);
+      }, options?.commitClock ?? options?.now);
       return { ok: true, value };
     } catch (error) { return errorResult(error, signal, true); }
   }
@@ -1503,7 +1505,7 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
     }, now);
   }
 
-  async #mutateDocument<T>(signal: AbortSignal, operation: (document: MemoryDocument, now: Date) => { document: MemoryDocument; value: T; unchanged?: boolean }, now: Date | undefined): Promise<T> {
+  async #mutateDocument<T>(signal: AbortSignal, operation: (document: MemoryDocument, now: Date) => { document: MemoryDocument; value: T; unchanged?: boolean }, now: Date | (() => Date) | undefined): Promise<T> {
     await this.#inspectRoot(signal);
     const directory = dirname(this.#file);
     try {
@@ -1521,7 +1523,7 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
       throwIfAborted(signal);
       const current = await this.#load(signal);
       // Capture once, after ownership and reload. Waiting for flock is not a clock rollback.
-      const commitNow = now ?? new Date();
+      const commitNow = typeof now === "function" ? now() : now ?? new Date();
       const { document, value, unchanged } = operation(current, commitNow);
       if (!unchanged) {
         const stamp = validateTemporalTimestamp(commitNow.toISOString(), "Memory commit timestamp");
