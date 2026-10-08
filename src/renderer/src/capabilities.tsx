@@ -1,5 +1,6 @@
 import type { AppInfo } from "../../shared/ui-contract.js";
 import { useState } from "react";
+import { BuildIdentityPanel } from "./build-identity-panel.js";
 
 const labels: Record<string, [string, string]> = {
   pomodoro: ["番茄钟", "开始、查看和取消专注计时。"],
@@ -14,11 +15,12 @@ const labels: Record<string, [string, string]> = {
 };
 
 export function CapabilitiesPanel({ info, busy = false, initialError = null }: { info: AppInfo; busy?: boolean; initialError?: string | null }) {
+  const unavailable = info.runtimeRecovery !== undefined;
   const [selection, setSelection] = useState<{ id: string; enabled: boolean } | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(initialError ? `未应用：${initialError}` : null);
   const apply = async () => {
-    if (!selection || busy || saving || !window.runloom.setModuleEnabled) return;
+    if (!selection || busy || unavailable || saving || !window.runloom.setModuleEnabled) return;
     setSaving(true); setError(null);
     try {
       await window.runloom.setModuleEnabled({ ...selection, expectedEnabled: !selection.enabled });
@@ -28,12 +30,13 @@ export function CapabilitiesPanel({ info, busy = false, initialError = null }: {
   return <section className="capability-page">
     <p>选择这位助手可以使用的能力。更改会保存到当前配置，并在空闲时应用，当前对话不会删除。</p>
     {busy ? <p className="hint" role="status">当前正在处理，结束后才能更改能力。</p> : null}
+    {unavailable ? <p className="error" role="status">连接未恢复。以下是上次连接的配置，不能当作当前生效状态；重新连接后再更改能力。</p> : null}
     {error ? <p className="error" role="alert">{error}</p> : null}
     {selection ? <div className="capability-confirm" role="group" aria-label="确认能力变更">
       <strong>{selection.enabled ? "开启" : "关闭"}{labels[selection.id]?.[0] ?? selection.id}？</strong>
       {selection.id !== "pomodoro" ? <p className="hint">应用会重新加载能力；若番茄钟正在计时，会结束该计时。当前对话和未发送草稿保留。</p> : null}
       <p>{selection.id === "task" ? "只更改助手创建和查询安排的能力；已保存的安排和后台服务继续运行。暂停安排请到工作区的自动安排中操作。" : selection.id === "memory" ? "关闭后不再引用记忆或自动整理，已保存的记忆和候选不会删除。重新开启沿用原来的写入策略。" : selection.id === "pomodoro" ? "应用设置会结束本进程的专注计时；重新开启不会恢复原计时。" : "下一次对话将使用新的能力配置。已保存的数据保留，工具操作仍按原权限逐次确认。"}</p>
-      <div className="actions"><button disabled={busy || saving} onClick={() => void apply()}>{saving ? "正在应用…" : "保存并应用"}</button><button className="ghost" disabled={saving} onClick={() => { setSelection(null); setError(null); }}>取消</button></div>
+      <div className="actions"><button disabled={busy || unavailable || saving} onClick={() => void apply()}>{saving ? "正在应用…" : "保存并应用"}</button><button className="ghost" disabled={saving} onClick={() => { setSelection(null); setError(null); }}>取消</button></div>
     </div> : null}
     <div className="capability-list">{info.modules?.map(module => {
       const [name, description] = labels[module.id] ?? [module.id, "内置模块"];
@@ -42,11 +45,12 @@ export function CapabilitiesPanel({ info, busy = false, initialError = null }: {
           {module.id === "memory" && module.enabled ? <small>自动提取候选：{info.moduleOptions?.autoConsolidate ? "已开启" : "未开启"}</small> : null}
           {module.id === "web" && module.enabled ? <small>搜索：{info.moduleOptions?.webSearch ? "已开启" : "未开启"} · RSS：{info.moduleOptions?.webFeed ? "已开启" : "未开启"}</small> : null}
         </div><div className="capability-control"><span className={`capability-status ${module.enabled ? "enabled" : ""}`}>{module.enabled ? "已开启" : "已关闭"}</span>
-          <button className="ghost" disabled={busy || saving || !info.configPath || typeof window === "undefined" || !window.runloom.setModuleEnabled} aria-label={`${module.enabled ? "关闭" : "开启"}${name}`} onClick={() => { setSelection({ id: module.id, enabled: !module.enabled }); setError(null); }}>{module.enabled ? "关闭" : "开启"}</button>
+          <button className="ghost" disabled={busy || unavailable || saving || !info.configPath || typeof window === "undefined" || !window.runloom.setModuleEnabled} aria-label={`${module.enabled ? "关闭" : "开启"}${name}`} onClick={() => { setSelection({ id: module.id, enabled: !module.enabled }); setError(null); }}>{module.enabled ? "关闭" : "开启"}</button>
         </div>
       </div>;
     }) ?? <p>未收到模块配置，请重新连接。</p>}</div>
     <p className="hint">开启能力不等于授权执行。尚未配置的外部能力需要先设置凭据、驱动或允许的应用，不会自动安装或申请系统权限。</p>
     <details><summary>配置位置</summary><p className="hint">{info.configPath ?? "未指定"}</p></details>
+    <BuildIdentityPanel info={info.build} />
   </section>;
 }

@@ -1,5 +1,6 @@
 import { Writable } from "node:stream";
 import { lstat } from "node:fs/promises";
+import { readLoadedBuild } from "./build-identity.js";
 import { ExecutionRecordStore } from "@aisdk-agent/example-cli/dist/execution-record-store.js";
 import type { DesktopThread } from "./desktop-identity.js";
 import type { MemoryEditInput, MemoryListInput } from "@aisdk-agent/example-cli/dist/memory-management.js";
@@ -280,6 +281,7 @@ export class RuntimeBridge {
     const memorySkills = new Set(automation.skills.filter(skill => skill.kind === "memory-consolidate").map(skill => skill.id));
     const autoConsolidate = automation.hooks.some(rule => rule.enabled !== false && memorySkills.has(rule.handler.id));
     return {
+      build: readLoadedBuild(),
       modules: (["pomodoro", "read-file", "memory", "checkpoint", "task", "todoist", "shell", "web", "computer"] as const).map(id => ({
         id,
         enabled: this.#app.moduleConfig?.enabled[id] === true,

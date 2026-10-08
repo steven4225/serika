@@ -1,9 +1,75 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile, rm, symlink, stat } from "node:fs/promises";
+import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { it } from "node:test";
 import { changeModuleSetting, changeDreamingSetting } from "./module-settings.js";
+import { acquireFlock } from "@aisdk-agent/example-cli/dist/flock.js";
+
+it("serializes real competing processes so unrelated capability writes both survive", { timeout: 10_000 }, async () => {
+  const root = await mkdtemp(join(tmpdir(), "serika-config-process-lock-"));
+  const children: ReturnType<typeof spawn>[] = [];
+  let lock: Awaited<ReturnType<typeof acquireFlock>> | undefined;
+  try {
+    const workspace = join(root, "workspace"); await mkdir(workspace);
+    const path = join(root, "config.json");
+    await writeFile(path, JSON.stringify({ version: 1, workspace, modules: { shell: { enabled: true, timeoutMs: 45000 }, pomodoro: { enabled: true } } }));
+    lock = await acquireFlock(`${path}.lock`);
+    const operation = (id: "shell" | "pomodoro") => {
+      const script = `import { changeModuleSetting } from ${JSON.stringify(new URL("./module-settings.ts", import.meta.url).href)}; process.stdout.write("ready\\n"); await changeModuleSetting(${JSON.stringify(path)}, {id:${JSON.stringify(id)},enabled:false,expectedEnabled:true},${JSON.stringify(root)}); process.stdout.write("done\\n");`;
+      const child = spawn(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], { cwd: process.cwd(), stdio: ["ignore", "pipe", "pipe"] });
+      children.push(child);
+      let output = "", errors = "";
+      const ready = new Promise<void>(resolve => child.stdout!.on("data", data => { output += String(data); if (output.includes("ready\n")) resolve(); }));
+      child.stderr!.on("data", data => { errors += String(data); });
+      const finished = new Promise<void>((resolve, reject) => {
+        child.on("error", reject);
+        child.on("close", code => code === 0 ? resolve() : reject(new Error(errors || `config child exited ${code}`)));
+      });
+      return { ready, finished, output: () => output };
+    };
+    const first = operation("shell"), second = operation("pomodoro");
+    await Promise.all([first.ready, second.ready]);
+    await new Promise(resolve => setTimeout(resolve, 50));
+    assert.equal(first.output().includes("done"), false); assert.equal(second.output().includes("done"), false);
+    await lock.release(); lock = undefined;
+    await Promise.all([first.finished, second.finished]);
+    const config = JSON.parse(await readFile(path, "utf8"));
+    assert.deepEqual(config.modules.shell, { enabled: false, timeoutMs: 45000 });
+    assert.deepEqual(config.modules.pomodoro, { enabled: false });
+  } finally {
+    await lock?.release();
+    for (const child of children) if (child.exitCode === null) child.kill();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+it("rechecks state after taking the configuration lock, preserves mode, and rejects aliased unsafe lock files", async () => {
+  const root = await mkdtemp(join(tmpdir(), "serika-config-recheck-"));
+  try {
+    const workspace = join(root, "workspace"); await mkdir(workspace);
+    const path = join(root, "config.json");
+    const config = { version: 1, workspace, modules: { shell: { enabled: true } } };
+    await writeFile(path, JSON.stringify(config), { mode: 0o600 });
+    const lock = await acquireFlock(`${path}.lock`);
+    const pending = changeModuleSetting(path, { id: "shell", enabled: false, expectedEnabled: true }, root);
+    const result = assert.rejects(pending, /配置已变化/);
+    const changed = JSON.stringify({ ...config, modules: { shell: { enabled: false } } });
+    await writeFile(path, changed);
+    await lock.release(); await result;
+    assert.equal(await readFile(path, "utf8"), changed);
+    const undo = await changeModuleSetting(path, { id: "shell", enabled: true, expectedEnabled: false }, root);
+    assert.equal((await stat(path)).mode & 0o777, 0o600);
+    await undo(); assert.equal((await stat(path)).mode & 0o777, 0o600);
+    await rm(`${path}.lock`);
+    const sentinel = join(root, "sentinel"); await writeFile(sentinel, "unchanged");
+    await symlink(sentinel, `${path}.lock`);
+    await assert.rejects(changeModuleSetting(path, { id: "shell", enabled: true, expectedEnabled: false }, root));
+    assert.equal(await readFile(sentinel, "utf8"), "unchanged");
+    assert.equal(await readFile(path, "utf8"), changed);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
 
 it("opts into dreaming only on explicit CAS setting, preserves trusted rules, and refuses forged authority", async () => {
   const root = await mkdtemp(join(tmpdir(), "serika-dreaming-setting-"));

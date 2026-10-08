@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { writeFileSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, it } from "node:test";
+import { describe, it, mock } from "node:test";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { DesktopRuntime } from "./desktop-runtime.js";
@@ -37,6 +38,103 @@ async function idle(host: DesktopRuntime) {
 }
 
 describe("normal desktop memory and history entry", () => {
+  it("rejects a workspace changed between the identity check and actual app assembly", async () => {
+    const root = await mkdtemp(join(tmpdir(), "serika-runtime-workspace-race-"));
+    const workspace = join(root, "original"), other = join(root, "other"), configPath = join(root, "config.json");
+    await mkdir(workspace); await mkdir(other);
+    const config = { version: 1, workspace, modules: { memory: { enabled: false }, shell: { enabled: false } } };
+    await writeFile(configPath, JSON.stringify(config));
+    let calls = 0, switched = false;
+    const env: NodeJS.ProcessEnv = { RUNLOOM_CONFIG: configPath };
+    Object.defineProperty(env, "RUNLOOM_TODOIST_TIMEZONE", { get() {
+      if (!switched) { switched = true; writeFileSync(configPath, JSON.stringify({ ...config, workspace: other })); }
+      return undefined;
+    } });
+    const options = { userData: join(root, "profile"), cwd: root, env, modelAlias: "mock",
+      model: new MockLanguageModelV3({ doStream: async () => { calls++; return response(); } }), send: () => {} };
+    let host: DesktopRuntime | undefined;
+    try {
+      await assert.rejects(DesktopRuntime.create(options), /连接期间变化/);
+      assert.equal(calls, 0);
+      await writeFile(configPath, JSON.stringify(config));
+      host = await DesktopRuntime.create(options);
+      assert.equal(host.info().workspaceRoot, await realpath(workspace));
+      assert.equal(host.current.snapshot().state.kind, "idle");
+      assert.deepEqual(await host.current.listRuns(), { ok: true, runs: [] });
+      assert.equal(calls, 0, "reconnection after rejected assembly must not replay anything");
+    } finally { await host?.shutdown(); await rm(root, { recursive: true, force: true }); }
+  });
+  it("still rebuilds a usable controller when shutdown fails and a concurrent config edit prevents rollback", async () => {
+    const root = await mkdtemp(join(tmpdir(), "serika-runtime-rollback-conflict-"));
+    let calls = 0;
+    const events: MainToRenderer[] = [];
+    const host = await DesktopRuntime.create({ userData: join(root, "profile"), cwd: root, env: {}, modelAlias: "mock",
+      model: new MockLanguageModelV3({ doStream: async () => { calls++; return response(); } }), send: event => { events.push(event); } });
+    try {
+      await host.current.run("保留对话，不自动重做", { memoryConsolidation: "exclude" }); await idle(host);
+      const identity = host.info(), modelCalls = calls;
+      const bridge = host.current, shutdown = bridge.shutdown.bind(bridge);
+      const patched = mock.method(bridge, "shutdown", async () => {
+        await shutdown();
+        const external = JSON.parse(await readFile(identity.configPath!, "utf8"));
+        external.modules.todoist = { enabled: false };
+        external.modules.shell.enabled = false;
+        await writeFile(identity.configPath!, JSON.stringify(external));
+        throw new Error("simulated failure after shutdown released its leases");
+      });
+      await assert.rejects(host.setModuleEnabled({ id: "todoist", enabled: true, expectedEnabled: false }), /配置回滚未完成/);
+      patched.mock.restore();
+      assert.equal(host.recoveryError, undefined);
+      assert.equal(host.current.snapshot().state.kind, "idle");
+      assert.equal(host.info().threadId, identity.threadId);
+      assert.equal(host.info().modules?.find(module => module.id === "shell")?.enabled, false);
+      assert.equal(JSON.parse(await readFile(identity.configPath!, "utf8")).modules.shell.enabled, false, "must not erase the external config edit");
+      assert.ok((await host.current.history()).some(message => message.role === "user"));
+      assert.ok(events.some(event => event.type === "identity-changed" && event.configurationError?.includes("配置回滚未完成")));
+      assert.equal(calls, modelCalls, "rebuilding after a config conflict must never rerun the conversation");
+    } finally { await host.shutdown(); await rm(root, { recursive: true, force: true }); }
+  });
+
+  it("exposes a failed connection after activation and rollback both fail, then reconnects only the repaired original identity without replay", async () => {
+    const root = await mkdtemp(join(tmpdir(), "serika-runtime-reconnect-"));
+    let calls = 0;
+    const events: MainToRenderer[] = [];
+    const host = await DesktopRuntime.create({ userData: join(root, "profile"), cwd: root, env: {}, modelAlias: "mock",
+      model: new MockLanguageModelV3({ doStream: async () => { calls++; return response(); } }), send: event => { events.push(event); } });
+    try {
+      await host.current.run("重连后仍保留的消息", { memoryConsolidation: "exclude" }); await idle(host);
+      const identity = host.info(), modelCalls = calls;
+      const before = await readFile(identity.configPath!, "utf8");
+      const runs = await host.current.listRuns();
+      const bridge = host.current, shutdown = bridge.shutdown.bind(bridge);
+      const patched = mock.method(bridge, "shutdown", async () => {
+        await shutdown();
+        // An unrelated editor writes a still-unusable config after our setting.
+        await writeFile(identity.configPath!, await readFile(identity.configPath!, "utf8") + " ");
+      });
+      await assert.rejects(host.setModuleEnabled({ id: "todoist", enabled: true, expectedEnabled: false }), /连接未恢复/);
+      patched.mock.restore();
+      assert.match(host.recoveryError!, /连接未恢复/);
+      assert.throws(() => host.current, /连接未恢复/);
+      assert.equal(host.info().threadId, identity.threadId);
+      assert.equal(host.info().runtimeRecovery?.state, "failed");
+      assert.ok(events.some(event => event.type === "identity-changed" && event.info.runtimeRecovery?.state === "failed"));
+      await assert.rejects(host.retryConnection(), /仍未连接/);
+      const otherWorkspace = join(root, "other-workspace"); await mkdir(otherWorkspace);
+      await writeFile(identity.configPath!, JSON.stringify({ ...JSON.parse(before), workspace: otherWorkspace }));
+      await assert.rejects(host.retryConnection(), /仍未连接/, "retry cannot silently switch a trusted workspace");
+      await writeFile(identity.configPath!, before);
+      await host.retryConnection();
+      assert.equal(host.info().runtimeRecovery, undefined);
+      assert.equal(host.recoveryError, undefined);
+      assert.equal(host.info().threadId, identity.threadId);
+      assert.equal(host.info().directory, identity.directory);
+      assert.equal(host.current.snapshot().state.kind, "idle");
+      assert.ok((await host.current.history()).some(message => message.role === "user"));
+      assert.deepEqual(await host.current.listRuns(), runs, "retry does not create or replay a Run");
+      assert.equal(calls, modelCalls, "all failed/successful reconnect attempts are model-free");
+    } finally { await host.shutdown(); await rm(root, { recursive: true, force: true }); }
+  });
   it("applies capability switches to the real runtime, preserves history and identity, persists after restart and rolls back failed activation", async () => {
     const root = await mkdtemp(join(tmpdir(), "serika-capability-runtime-"));
     let calls = 0;

@@ -7,6 +7,8 @@ import { createDesktopThread, listDesktopThreads, registerDesktopThread, resolve
 import { discoverThreadDirectory, inspectThread } from "./thread-history.js";
 import { RuntimeBridge, TeeOutput, type Send } from "./runtime-bridge.js";
 import { changeModuleSetting, changeDreamingSetting, type ModuleSettingInput, type DreamingSettingInput } from "./module-settings.js";
+import type { AppInfo } from "../shared/ui-contract.js";
+import { readLoadedBuild } from "./build-identity.js";
 
 interface Options { userData: string; cwd: string; env: NodeJS.ProcessEnv; modelAlias: string; modelId?: string; model: LanguageModel; send: Send; taskAutomation?: TaskAutomationHost }
 
@@ -17,6 +19,9 @@ export class DesktopRuntime {
   #bridge!: RuntimeBridge;
   #changing = false;
   #transition: Promise<void> | undefined;
+  #available = true;
+  #lastInfo!: AppInfo;
+  #recoveryError: string | undefined;
 
   private constructor(options: Options) { this.#options = options; }
 
@@ -26,27 +31,42 @@ export class DesktopRuntime {
     const modules = await resolveTuiModuleConfig({ configPath: config.configPath }, { cwd: options.cwd });
     host.#identity = await resolveDesktopIdentity({ ...options, configPath: modules.configPath!, workspaceRoot: modules.workspaceRoot });
     host.#bridge = await host.#make(host.#identity);
+    host.#lastInfo = host.#bridge.info();
     return host;
   }
 
   get current(): RuntimeBridge {
     if (this.#changing) throw new Error("正在切换会话，请稍候");
+    if (!this.#available) throw new Error(this.#recoveryError ?? "助手连接未恢复，请重新连接");
     return this.#bridge;
   }
 
-  info() { return this.#bridge.info(); }
+  get recoveryError() { return this.#recoveryError; }
+  info(): AppInfo {
+    const info = this.#available ? this.#bridge.info() : this.#lastInfo;
+    return { ...info, build: readLoadedBuild(), ...(this.#recoveryError ? { runtimeRecovery: { state: "failed" as const, message: this.#recoveryError } } : {}) };
+  }
   #scope() { return { ...this.#options, configPath: this.#identity.configPath, workspaceRoot: this.#identity.workspaceRoot }; }
   #assertIdle() {
+    if (!this.#available) throw new Error(this.#recoveryError ?? "助手连接未恢复，请重新连接");
     if (this.#changing || this.#bridge.snapshot().state.kind !== "idle") throw new Error("请先等待当前执行或整理结束，再切换会话");
   }
 
   async #make(identity: DesktopIdentityResolution): Promise<RuntimeBridge> {
+    const config = await resolveTuiModuleConfig({ configPath: identity.configPath }, { cwd: this.#options.cwd });
+    if (config.workspaceRoot !== identity.workspaceRoot) throw new Error("配置工作区已变化，请恢复原工作区配置后重新连接；不会混入其他工作区");
     const output = new TeeOutput(this.#options.send);
     const app = await createRuntimeApp({
       args: ["--tui", identity.transcriptDirectory, "--thread", identity.threadId, "--config", identity.configPath],
       modelAlias: this.#options.modelAlias, model: this.#options.model, output, env: this.#options.env, cwd: this.#options.cwd,
       ...(this.#options.taskAutomation ? { taskAutomation: this.#options.taskAutomation } : {}),
     });
+    // Assembly rereads the config; do not publish a different workspace under
+    // the trusted old Thread/transcript identity if the file changed in between.
+    if (app.workspaceRoot !== identity.workspaceRoot || app.moduleConfig?.configPath !== identity.configPath) {
+      app.dispose();
+      throw new Error("配置工作区或入口在连接期间变化，请核对原配置后重新连接；不会混入其他工作区");
+    }
     const controller = createAssistantController(app);
     output.attach(controller);
     try {
@@ -106,26 +126,46 @@ export class DesktopRuntime {
     this.#changing = true;
     this.#options.send({ type: "state", state: { kind: "command", name: "thread-switch" } });
     const previous = this.#identity;
+    this.#lastInfo = this.#bridge.info();
     let disposed = false;
     let configurationError: string | undefined;
     const transition = (async () => {
       try {
         const next = await select();
         if (reuseUnchanged && next.threadId === previous.threadId && next.transcriptDirectory === previous.transcriptDirectory) return;
-        await this.#bridge.shutdown();
         disposed = true;
+        this.#available = false;
+        await this.#bridge.shutdown();
         this.#bridge = await this.#make(next);
+        this.#available = true;
+        this.#recoveryError = undefined;
         this.#identity = next;
       } catch (error) {
         if (settings) configurationError = error instanceof Error ? error.message : String(error);
-        await settings?.rollback();
-        if (disposed) this.#bridge = await this.#make(previous);
+        let rollbackFailed = false;
+        try { await settings?.rollback(); } catch { rollbackFailed = true; }
+        if (disposed) {
+          try {
+            this.#bridge = await this.#make(previous);
+            this.#available = true;
+            this.#recoveryError = undefined;
+          } catch {
+            this.#available = false;
+            this.#recoveryError = "助手连接未恢复。请核对配置或关闭占用该会话的其他实例，再点击重新连接；不会自动重做任务。";
+          }
+        }
         // Restore persisted selection if activating the new controller failed.
-        if (previous.identitySource === "saved") await selectDesktopThread(this.#scope(), previous.threadId);
+        try { if (previous.identitySource === "saved") await selectDesktopThread(this.#scope(), previous.threadId); }
+        catch { configurationError = "原会话选择未能保存，请核对保存目录；不会自动改选其他会话。"; }
+        if (rollbackFailed) {
+          configurationError = "配置回滚未完成（可能已被其他程序修改），未覆盖其他修改。" + (this.#available ? " 已重新连接当前磁盘配置，请重新核对模块开关。" : " 请核对配置后重新连接。");
+        }
+        if (!this.#available) throw new Error(this.#recoveryError);
+        if (rollbackFailed) throw new Error(configurationError);
         throw error;
       } finally {
         this.#changing = false;
-        this.#options.send({ type: "identity-changed", info: this.#bridge.info(), ...(settings ? { reason: "modules" as const, ...(configurationError ? { configurationError } : {}) } : {}) });
+        this.#options.send({ type: "identity-changed", info: this.info(), ...(settings ? { reason: "modules" as const, ...(configurationError ? { configurationError } : {}) } : {}) });
       }
     })();
     this.#transition = transition;
@@ -145,10 +185,11 @@ export class DesktopRuntime {
     }, true);
   }
   enableMemory() {
+    let undo: (() => Promise<void>) | undefined;
     return this.#replace(async () => {
-      await enableDesktopMemory(this.#identity.configPath);
+      undo = await enableDesktopMemory(this.#identity.configPath, this.#options.cwd);
       return this.#identity;
-    });
+    }, false, { rollback: async () => { await undo?.(); } });
   }
   setModuleEnabled(input: ModuleSettingInput) {
     let undo: (() => Promise<void>) | undefined;
@@ -164,8 +205,31 @@ export class DesktopRuntime {
       return this.#identity;
     }, false, { rollback: async () => { await undo?.(); } });
   }
+  /** Reconnect only the trusted selected identity; never resend a Run or tool. */
+  async retryConnection(): Promise<void> {
+    if (this.#changing) throw new Error("正在重新连接，请稍候");
+    if (this.#available) return;
+    this.#changing = true;
+    this.#options.send({ type: "state", state: { kind: "command", name: "runtime-reconnect" } });
+    const transition = (async () => {
+      try {
+        if (this.#identity.identitySource === "saved") await selectDesktopThread(this.#scope(), this.#identity.threadId);
+        this.#bridge = await this.#make(this.#identity);
+        this.#available = true;
+        this.#recoveryError = undefined;
+      } catch {
+        this.#recoveryError = "助手仍未连接。请核对配置或关闭占用该会话的其他实例后重试；不会自动重做任务。";
+        throw new Error(this.#recoveryError);
+      } finally {
+        this.#changing = false;
+        this.#options.send({ type: "identity-changed", info: this.info(), reason: "modules" });
+      }
+    })();
+    this.#transition = transition;
+    try { await transition; } finally { this.#transition = undefined; }
+  }
   async shutdown() {
     await this.#transition?.catch(() => undefined);
-    await this.#bridge.shutdown();
+    if (this.#available) await this.#bridge.shutdown();
   }
 }

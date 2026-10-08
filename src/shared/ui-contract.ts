@@ -1,4 +1,5 @@
 import type { UIMessage } from "ai";
+import type { ConversationDraftScope, ConversationDraft, ConversationDraftState, DesktopSteerInput, DesktopSteerResponse } from "./conversation-drafts.js";
 import type { FormalMemory, MemoryPage, MemoryListInput, MemoryEditInput } from "@aisdk-agent/example-cli/dist/memory-management.js";
 import type { MemoryAction, MemoryActionPreview, MemoryHistoryInput, MemoryHistoryPage, MemoryMaintenance } from "@aisdk-agent/example-cli/dist/memory-controls.js";
 import type { AssistantRunOptions, AssistantSteerRecord, AutomationResult } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
@@ -69,6 +70,9 @@ export interface ToolActivity {
 }
 
 export interface AppInfo {
+  runtimeRecovery?: { state: "failed"; message: string };
+  /** Actual loaded main-process identity; optional for preview/older bridges. */
+  build?: import("./build-identity.js").AppBuildInfo;
   entryMode?: "daily" | "test";
   /** Built-in support and current configuration only; not a permission grant. */
   modules?: { id: string; enabled: boolean }[];
@@ -207,6 +211,11 @@ export type GetRunResponse =
   | { ok: false; reason: "unavailable"; message: string };
 
 export interface RendererApi {
+  loadConversationDraft(scope: ConversationDraftScope): Promise<ConversationDraftState>;
+  saveConversationDraft(scope: ConversationDraftScope, draft: ConversationDraft): Promise<void>;
+  acknowledgeSteer(scope: ConversationDraftScope, id: string): Promise<AssistantSteerRecord | null>;
+  releaseSteer(scope: ConversationDraftScope, id: string): Promise<boolean>;
+  retryConnection(): Promise<void>;
   listThreads(query?: string): Promise<ThreadSummary[]>;
   createThread(options?: { preserveDraft: boolean }): Promise<void>;
   selectThread(threadId: string): Promise<void>;
@@ -235,7 +244,7 @@ export interface RendererApi {
   history(): Promise<UIMessage[]>;
   home(): Promise<CommandResponse>;
   run(text: string, options?: AssistantRunOptions): Promise<RunResponse>;
-  steer(input: Parameters<AssistantController["steer"]>[0]): ReturnType<AssistantController["steer"]>;
+  steer(input: DesktopSteerInput): Promise<DesktopSteerResponse>;
   cancel(): Promise<void>;
   confirm(input: ConfirmInput): Promise<ConfirmResponse>;
   command(line: string): Promise<CommandResponse>;
@@ -283,6 +292,11 @@ export interface RendererApi {
 }
 
 export const IPC = {
+  draftLoad: "runloom:draftLoad",
+  draftSave: "runloom:draftSave",
+  steerAcknowledge: "runloom:steerAcknowledge",
+  steerRelease: "runloom:steerRelease",
+  retryConnection: "runloom:retryConnection",
   taskResultOpen: "runloom:taskResultOpen",
   threadsList: "runloom:threadsList",
   threadCreate: "runloom:threadCreate",

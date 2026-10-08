@@ -61,6 +61,7 @@ import { DesktopWindowFrame } from "./zcode/upstream/desktop-window-frame.js";
 import { Button } from "./zcode/upstream/button.js";
 import { ArrowUp, Square } from "lucide-react";
 import { APPEARANCE_KEY, zcodeAppearance } from "./zcode/appearance.js";
+import { draftScope, type UncertainSteer } from "../../shared/conversation-drafts.js";
 import "./zcode/theme.css";
 
 const OUTPUT_MAX_CHARS = 64 * 1024;
@@ -261,7 +262,7 @@ export function App({ initialLayout }: { initialLayout?: DesktopLayout } = {}) {
   useEffect(() => window.runloom.onMessage(message => {
     if (message.type === "identity-changed") { setInitialSettings(message.reason === "modules"); setInitialSettingsError(message.configurationError ?? null); setIdentityGeneration(value => value + 1); }
   }), []);
-  // Reset evidence/previews on identity changes; keep only unsent, scoped drafts.
+  // Reset evidence/previews on identity changes; drafts also recover from main-process storage.
   const page = <AssistantPage key={identityGeneration} drafts={drafts.current} layout={layout} initialSettings={initialSettings} initialSettingsError={initialSettingsError} appearance={appearance} onAppearance={toggleAppearance} />;
   return layout === "zcode" ? <div className={`serika-zcode-shell theme-zai-${appearance}`}><DesktopWindowFrame title="Serika" isDesktop={true} isMacDesktop={document.documentElement.dataset.nativeWindowControls === "macos"}>{page}</DesktopWindowFrame></div> : page;
 }
@@ -285,7 +286,13 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const [approval, setApproval] = useState<PendingApproval | null>(null);
   const [canSteer, setCanSteer] = useState(false);
   const [steers, setSteers] = useState<readonly AssistantSteerRecord[]>([]);
-  const [uncertainSteer, setUncertainSteer] = useState<{ id: string; runId: string; text: string } | null>(null);
+  const [uncertainSteer, setUncertainSteer] = useState<UncertainSteer | null>(null);
+  const [draftReady, setDraftReady] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const [draftSaving, setDraftSaving] = useState(false);
+  const draftSave = useRef<Promise<void>>(Promise.resolve());
+  const draftSaveSequence = useRef(0);
+  const [reconnecting, setReconnecting] = useState(false);
   const steerReceipts = useRef<readonly AssistantSteerRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [input, setInput] = useState("");
@@ -538,10 +545,22 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
         const nextInfo = await window.runloom.info();
         if (cancelled) return;
         setInfo(nextInfo);
+        try {
+          const saved = await window.runloom.loadConversationDraft(draftScope(nextInfo));
+          if (cancelled) return;
+          drafts.set(draftKey(nextInfo), saved.draft);
+          setInput(saved.draft.text || saved.uncertainSteer?.text || "");
+          setExcludeFromMemory(saved.draft.excludeFromMemory);
+          setUncertainSteer(saved.uncertainSteer);
+          setDraftReady(true);
+        } catch {
+          if (cancelled) return;
+          const cached = drafts.get(draftKey(nextInfo));
+          setInput(cached?.text ?? "");
+          setDraftError("保存的草稿无法读取，未覆盖原文件。修复保存位置后重新加载；当前不会发送。");
+        }
+        if (nextInfo.runtimeRecovery) { setError(nextInfo.runtimeRecovery.message); return; }
         await openNotificationResult();
-        const draft = drafts.get(draftKey(nextInfo));
-        setInput(draft?.text ?? "");
-        setExcludeFromMemory(draft?.excludeFromMemory ?? false);
         const first = await window.runloom.snapshot();
         if (cancelled) return;
         applySnapshot(first);
@@ -573,11 +592,20 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   }, [applySnapshot, reloadHistory, loadRecords, loadFinalRun, drafts]);
 
   useEffect(() => {
-    if (!info) return;
+    if (!info || !draftReady) return;
     const key = draftKey(info);
     if (input.length) drafts.set(key, { text: input, excludeFromMemory });
     else drafts.delete(key);
-  }, [info, input, excludeFromMemory, drafts]);
+    const sequence = ++draftSaveSequence.current;
+    setDraftSaving(true);
+    const save = window.runloom.saveConversationDraft(draftScope(info), { text: input, excludeFromMemory });
+    draftSave.current = save;
+    void save.then(() => {
+      if (draftSaveSequence.current === sequence) { setDraftError(null); setDraftSaving(false); }
+    }).catch(() => {
+      if (draftSaveSequence.current === sequence) { setDraftError("草稿未保存，当前内容仍在输入框；修复保存位置后重试，不会发送。"); setDraftSaving(false); }
+    });
+  }, [info, input, excludeFromMemory, drafts, draftReady]);
 
   useEffect(() => {
     if (!detailsOpen) return;
@@ -651,30 +679,45 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     const line = composerText.trim();
     if ((!composingTask && line.length === 0) || sendInFlight.current || threadSwitchInFlight.current) return;
     setError(null);
+    if (!info || !draftReady || draftError || info.runtimeRecovery) { setError("请先恢复连接和草稿保存，再发送。"); return; }
     if (uncertainSteer !== null) { setError("上次补充的接收结果未知，请先核对；不会重复发送。"); return; }
     if (canSteerComposer(state, canSteer)) {
       if (line.length === 0) return;
       if (line.startsWith("/")) { setError("运行中只接收补充要求，命令请等本轮结束再执行。草稿已保留。"); return; }
-      const request = { expectedRunId: state.runId, id: crypto.randomUUID(), text: line };
+      const request = { expectedRunId: state.runId, id: crypto.randomUUID(), text: line, scope: draftScope(info), ...(composingTask && composerTask ? { taskId: composerTask.id } : {}) };
       sendInFlight.current = true;
       setSending(true);
+      let invokedSteer = false;
       try {
+        await draftSave.current;
+        invokedSteer = true;
         const response = await window.runloom.steer(request);
         if (!response.ok) {
           if (response.reason === "failed") {
-            setUncertainSteer({ id: request.id, runId: request.expectedRunId, text: line });
+            setUncertainSteer({ id: request.id, runId: request.expectedRunId, text: line, ...(request.taskId ? { taskId: request.taskId } : {}) });
             setError("补充要求的持久接收凭证尚未确认。请核对状态；草稿保留，不会自动重发。");
+          } else if (response.reason === "storage") {
+            setError("草稿存储不可用，补充未发送。请恢复保存位置后重试。");
+          } else if (response.reason === "unresolved") {
+            const saved = await window.runloom.loadConversationDraft(draftScope(info));
+            setUncertainSteer(saved.uncertainSteer);
+            setError("上一条补充仍待核对，不会发送新补充。");
           } else setError(steerFailureLabel(response.reason));
           return;
         }
         const records = mergeSteerRecords(steerReceipts.current, response.steer, latestPrimaryId.current);
         steerReceipts.current = records;
         setSteers(records);
-        if (composingTask) workTasks.setInstruction("");
-        else setInput(current => current.trim() === line ? "" : current);
+        const receipt = await window.runloom.acknowledgeSteer(draftScope(info), request.id);
+        if (!receipt) throw new Error("接收凭证尚未确认");
+        if (receipt.status !== "not_applied") {
+          if (composingTask) workTasks.setInstruction("");
+          else setInput(current => current.trim() === line ? "" : current);
+        }
       } catch {
+        if (!invokedSteer) { setDraftError("草稿未保存，补充未发送。请先重试保存。"); return; }
         // An IPC failure is not proof that the controller did not accept it.
-        setUncertainSteer({ id: request.id, runId: request.expectedRunId, text: line });
+        setUncertainSteer({ id: request.id, runId: request.expectedRunId, text: line, ...(request.taskId ? { taskId: request.taskId } : {}) });
         setError("补充要求的接收结果未收到。请核对状态；草稿保留，不会自动重发。");
       } finally { sendInFlight.current = false; setSending(false); }
       return;
@@ -687,6 +730,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     sendInFlight.current = true;
     setSending(true);
     try {
+      await draftSave.current;
       if (composingTask) {
         if (!composerTask || !taskActions(composerTask).run || workTasks.locked) {
           setError("当前任务不能开始下一轮，请先核对任务状态。"); return;
@@ -710,19 +754,17 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
       setExcludeFromMemory(false);
     } catch { setError("未收到启动结果。请核对当前状态，不会自动重发。"); }
     finally { sendInFlight.current = false; setSending(false); }
-  }, [composerText, composingTask, composerTask, workTasks, approval, state, excludeFromMemory, canSteer, uncertainSteer]);
+  }, [composerText, composingTask, composerTask, workTasks, approval, state, excludeFromMemory, canSteer, uncertainSteer, info, draftReady, draftError]);
 
   const busy = state.kind !== "idle";
   const steering = canSteerComposer(state, canSteer);
-  const composerReady = uncertainSteer === null && (steering || canSubmitComposer(state, composingTask ? "task" : composerText.trim().startsWith("/") ? "command" : "chat"));
+  const composerReady = draftReady && draftError === null && !info?.runtimeRecovery && uncertainSteer === null && (steering || canSubmitComposer(state, composingTask ? "task" : composerText.trim().startsWith("/") ? "command" : "chat"));
   const running = state.kind === "running";
   const activePrimary = running && state.phase === "primary";
   const recheckSteer = async () => {
-    if (!uncertainSteer) return;
+    if (!uncertainSteer || !info) return;
     try {
-      const response = await window.runloom.getRun(uncertainSteer.runId);
-      if (!response.ok) { setError("接收凭证暂不可用，草稿保持锁定，不会重发。"); return; }
-      const receipt = response.run?.steers?.find(record => record.id === uncertainSteer.id);
+      const receipt = await window.runloom.acknowledgeSteer(draftScope(info), uncertainSteer.id);
       if (!receipt) { setError("尚未查到这次补充的接收凭证，不能据此断言未发送；不会自动重发。"); return; }
       const records = mergeSteerRecords(steerReceipts.current, receipt, latestPrimaryId.current);
       steerReceipts.current = records;
@@ -732,8 +774,30 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
         if (composingTask && workTasks.instruction.trim() === uncertainSteer.text) workTasks.setInstruction("");
         else setInput(current => current.trim() === uncertainSteer.text ? "" : current);
       }
-      setError(null);
+      setError(receipt.status === "not_applied" && uncertainSteer.taskId
+        ? "这次工作任务补充未应用，原文已保留。此处恢复的是普通对话草稿；要继续原任务，请先打开并选择该任务，不会自动续做。"
+        : null);
     } catch { setError("核对失败，草稿保持锁定，不会重发。"); }
+  };
+  const releaseSteer = async () => {
+    if (!info || !uncertainSteer || busy) return;
+    try {
+      await draftSave.current;
+      if (!await window.runloom.releaseSteer(draftScope(info), uncertainSteer.id)) { setError("待核对记录已变化，请重新加载。"); return; }
+      setTaskComposerId(null);
+      setInput(current => current || uncertainSteer.text);
+      setUncertainSteer(null);
+      setError(uncertainSteer.taskId
+        ? "原任务补充的接收结果仍未确认，原文已保留为普通草稿。要继续原任务，请先打开并选择该任务；不会自动重发。"
+        : "原补充的接收结果仍未确认。草稿不会自动发送；如再次发送，将开启新一轮。");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "未解除待核对状态，草稿仍锁定；不会重发。"); }
+  };
+  const retryConnection = async () => {
+    if (reconnecting) return;
+    setReconnecting(true);
+    try { await window.runloom.retryConnection(); }
+    catch { setError("连接恢复失败。请修正配置后重试；不会重放之前的任务。"); }
+    finally { setReconnecting(false); }
   };
   const visibleRows: ConversationRow[] = [...history, ...(activePrimary ? [
     ...(submittedInput ? [{ kind: "text" as const, key: "submitted-input", role: "user" as const, text: submittedInput, committed: false }] : []),
@@ -756,7 +820,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
 
   const attention = attentionKind({ approval: approval !== null, unknownRuns: unknownRuns.length || (reviewTask ? 1 : 0), pendingMemory: pendingMemory.count, idle: !busy, memoryDeferred });
   const status = headerStatus(state, attention);
-  const stageLabel = info ? status.label : error ? "连接失败" : "正在连接";
+  const stageLabel = info?.runtimeRecovery ? "连接已停止" : info ? status.label : error ? "连接失败" : "正在连接";
   const pendingLabel = loadedCountLabel(pendingMemory.count, pendingMemory.hasMore);
   const refreshMemory = useCallback(() => setMemoryRefresh(value => value + 1), []);
   const threadDrafts = new Map(threads.flatMap(thread => {
@@ -770,6 +834,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     threadSwitchInFlight.current = true;
     setSwitchingThread(true);
     try {
+      await draftSave.current;
       if (input.length) drafts.set(draftKey(info), { text: input, excludeFromMemory });
       await window.runloom.createThread({ preserveDraft: input.length > 0 });
       setDetailsOpen(false);
@@ -782,7 +847,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     if (id === info.threadId) { setDetailsOpen(false); return; }
     threadSwitchInFlight.current = true;
     setSwitchingThread(true);
-    try { await window.runloom.selectThread(id); }
+    try { await draftSave.current; await window.runloom.selectThread(id); }
     catch { setError("对话切换未确认，请核对当前会话；不会自动重试。"); }
     finally { threadSwitchInFlight.current = false; setSwitchingThread(false); }
   };
@@ -930,13 +995,21 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
           </section>
         </div>
         <div className="action-dock">
+          {info?.runtimeRecovery ? <div className="error error-banner" role="alert"><span>助手连接已停止：{info.runtimeRecovery.message}。修正配置后重新连接，不会重做旧任务。</span><button type="button" className="ghost" disabled={reconnecting} onClick={() => void retryConnection()}>{reconnecting ? "正在连接…" : "重新连接"}</button></div> : null}
+          {draftError ? <div className="error error-banner" role="alert"><span>{draftError}</span><button type="button" className="ghost" onClick={() => {
+            if (!info) return;
+            if (!draftReady) { window.location.reload(); return; }
+            const save = window.runloom.saveConversationDraft(draftScope(info), { text: input, excludeFromMemory });
+            draftSave.current = save;
+            void save.then(() => setDraftError(null)).catch(() => setDraftError("草稿仍未保存，内容保留，请检查保存位置。"));
+          }}>重试保存</button></div> : null}
           {error ? <div className="error error-banner" role="alert"><span>{error}</span>{info ? <button className="icon-button" aria-label="关闭错误提示" onClick={() => setError(null)}><Icon name="close" size={16} /></button> : null}</div> : null}
-          {uncertainSteer ? <div className="attention-summary" role="status"><span>补充要求的接收凭证待核对，草稿不会重发。</span><button type="button" className="ghost" onClick={() => void recheckSteer()}>核对接收状态</button>{!busy ? <button type="button" className="ghost" onClick={() => { setTaskComposerId(null); setInput(current => current || uncertainSteer.text); setUncertainSteer(null); setError("原补充的接收结果仍未确认。草稿不会自动发送；如再次发送，将开启新一轮。"); }}>保留草稿，结束本次核对</button> : null}</div> : null}
+          {uncertainSteer ? <div className="attention-summary" role="status"><span>补充要求的接收凭证待核对，草稿不会重发。{uncertainSteer.taskId ? "原补充属于工作任务；核对前不会作为普通对话发送。" : ""}</span><details><summary>查看这次补充</summary><pre>{uncertainSteer.text}</pre></details><button type="button" className="ghost" onClick={() => void recheckSteer()}>核对接收状态</button>{!busy ? <button type="button" className="ghost" onClick={() => void releaseSteer()}>保留草稿，结束本次核对</button> : null}</div> : null}
           {layout === "zcode" && !detailsOpen && approval ? <ApprovalCard approval={approval} deciding={decidingId === approval.approvalId} onDecision={decision => void decide(decision)} /> : null}
           <ZCodePromptEditor inputRef={inputRef} hidden={detailsOpen} value={composerText} aria-label={composingTask ? "本轮任务指令" : "消息输入"}
               notice={steering ? "补充将进入当前这轮规划；已执行操作不会撤销，工具仍需重新确认。本条不整理为记忆。" : composingTask ? !composerTask ? "任务已切换，原草稿仍保留。重新选择任务，或切回普通对话。" : !busy && !taskActions(composerTask).run ? "本轮已结束，请从任务卡查看结果，或切回普通对话。" : null : null}
               topContent={<>{workTasks.task || composingTask ? <div className="composer-target" role="group" aria-label="发送方式"><button className={!composingTask ? "selected" : ""} type="button" aria-pressed={!composingTask} onClick={() => setTaskComposerId(null)}>普通对话</button><button className={composingTask ? "selected" : ""} type="button" aria-pressed={composingTask} disabled={!workTasks.task || (!taskActions(workTasks.task).run && !composingTask)} onClick={composeTask}>补充当前任务</button>{composingTask ? <span>{composerTask?.goal ?? "任务正在读取或已切换"}</span> : null}</div> : null}{excludeFromMemory && !composingTask ? <div className="zcode-draft-setting"><Icon name="memory" size={13} /><span>本条不整理为记忆</span><button type="button" className="icon-button" aria-label="恢复本条记忆整理" onClick={() => setExcludeFromMemory(false)}><Icon name="close" size={12} /></button></div> : null}</>}
-              disabled={sending || switchingThread || info === null || (composingTask && !composerTask)}
+              disabled={sending || switchingThread || info === null || !draftReady || !!info.runtimeRecovery || (composingTask && !composerTask)}
               placeholder={steering ? "执行中想改口？补充这轮的要求…" : composingTask && !composerTask ? "请重新选择任务输入，或切回普通对话…" : approval ? "可先写下一条；发送前请确认上方操作…" : !composerReady ? "可先写下一条，结束后再发送…" : composingTask ? "补充本轮要求；留空将使用任务目标…" : "描述你想完成的事…"}
               onChange={event => { if (!composingTask) setInput(event.target.value); else if (composerTask) workTasks.setInstruction(event.target.value); }}
               onKeyDown={event => {
@@ -951,6 +1024,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
                 <button type="button" className="ghost" aria-pressed={showOutput} onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); setShowOutput(value => !value); }}><Icon name="terminal" size={15} />{showOutput ? "隐藏系统输出" : "查看系统输出"}</button>
               </ZCodePromptOptions>}
               submitControl={<>
+                {!composingTask && input ? <span className="hint" role="status">{draftError ? "草稿未保存" : draftSaving ? "保存草稿…" : "草稿已保存"}</span> : null}
                 <span className="zcode-model-name" title="当前配置的模型；不代表本轮已联网验证">{info?.modelId ?? info?.modelAlias ?? "连接中"}</span>
                 {busy ? <Button type="button" variant="outline" size="icon" className="zcode-stop-button" aria-label={state.kind === "running" && state.phase === "consolidation" ? "停止整理" : "停止本轮"} title="停止本轮；已执行的操作不会撤回" onClick={() => void window.runloom.cancel().catch(() => setError("取消结果未收到，请核对当前状态。"))}><Square size={12} /></Button> : null}
                 {!busy || steering ? <Button type="button" size={steering || composingTask ? "default" : "icon"} className={`send-button${steering || composingTask ? " task-send" : ""}`}

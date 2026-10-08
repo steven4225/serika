@@ -8,7 +8,7 @@ export function bindTaskComposer(id: string | null, task: WorkTask | null):
   { kind: "chat" } | { kind: "task"; task: WorkTask | null } {
   return id === null ? { kind: "chat" } : { kind: "task", task: task?.id === id ? task : null };
 }
-/** Process-local only: never mix a draft into another workspace or persist it to disk. */
+/** Identity key shared by the in-memory cache and main-owned persistent storage. */
 export function draftKey(info: Pick<AppInfo, "workspaceRoot" | "directory" | "threadId">): string {
   return JSON.stringify([info.workspaceRoot, info.directory, info.threadId]);
 }

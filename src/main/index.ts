@@ -9,6 +9,8 @@ import { IPC, type ConfirmInput, type MainToRenderer } from "../shared/ui-contra
 import type { WorkTaskInputs, WorkTaskReadInput, WorkTaskArtifactInput } from "../shared/work-tasks.js";
 import { parseModuleNotification } from "./runtime-bridge.js";
 import { DesktopRuntime } from "./desktop-runtime.js";
+import { ConversationDraftStore } from "./conversation-draft-store.js";
+import { ConversationDraftSession } from "./conversation-draft-session.js";
 import { installHideOnClose, installTray } from "./tray.js";
 import { loadDesktopEnvironment, safeStartupError } from "./desktop-env.js";
 import { createDesktopRssWorker } from "./rss-worker-service.js";
@@ -185,6 +187,12 @@ async function main(): Promise<void> {
     return;
   }
 
+  const drafts = new ConversationDraftSession(host, new ConversationDraftStore(app.getPath("userData")));
+  ipcMain.handle(IPC.draftLoad, (_event, scope) => drafts.load(scope));
+  ipcMain.handle(IPC.draftSave, (_event, scope, draft) => drafts.save(scope, draft));
+  ipcMain.handle(IPC.steerAcknowledge, (_event, scope, id) => drafts.acknowledge(scope, id));
+  ipcMain.handle(IPC.steerRelease, (_event, scope, id) => drafts.release(scope, id));
+  ipcMain.handle(IPC.retryConnection, () => host.retryConnection());
   ipcMain.handle(IPC.threadsList, (_event, query) => host.listThreads(query));
   ipcMain.handle(IPC.threadCreate, (_event, options) => host.createThread(options));
   ipcMain.handle(IPC.threadSelect, (_event, threadId: string) => host.selectThread(threadId));
@@ -229,7 +237,7 @@ async function main(): Promise<void> {
   ipcMain.handle(IPC.history, () => host.current.history());
   ipcMain.handle(IPC.home, () => host.current.home());
   ipcMain.handle(IPC.run, (_event, text: string, options) => host.current.run(text, options));
-  ipcMain.handle(IPC.steer, (_event, input) => host.current.steer(input));
+  ipcMain.handle(IPC.steer, (_event, input) => drafts.steer(input));
   ipcMain.handle(IPC.cancel, () => host.current.cancel());
   ipcMain.handle(IPC.confirm, (_event, input: ConfirmInput) => host.current.confirm(input));
   ipcMain.handle(IPC.command, (_event, line: string) => host.current.command(line));
@@ -258,7 +266,7 @@ async function main(): Promise<void> {
     shuttingDown = true;
     quitting = true;
     tray.dispose();
-    void host.shutdown().finally(() => {
+    void drafts.flush().catch(() => undefined).then(() => host.shutdown()).finally(() => {
       app.quit();
     });
   });

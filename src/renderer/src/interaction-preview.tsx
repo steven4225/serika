@@ -4,6 +4,8 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App.js";
 import type { AppInfo, MainToRenderer, RendererApi, UiSnapshot } from "../../shared/ui-contract.js";
 import "./styles.css";
+import type { ConversationDraft, ConversationDraftScope } from "../../shared/conversation-drafts.js";
+const previewDrafts = new Map<string, ConversationDraft>();
 import { WorkTaskFlowPreview, installWorkTaskFlowApi } from "./work-task-flow-preview.js";
 
 let threadId = "preview-a";
@@ -19,6 +21,8 @@ const snapshot: UiSnapshot = { state: { kind: "idle" }, canSubmit: true, canStee
   toolActivity: [], lastPrimaryResult: null, lastConsolidationResult: null, resultTextTruncated: false, shellProgress: [] };
 const changeThread = (id: string) => { threadId = id; for (const listener of [...listeners]) listener({ type: "identity-changed", info: info() }); };
 const api = {
+  loadConversationDraft: async (scope: ConversationDraftScope) => ({ draft: previewDrafts.get(JSON.stringify(scope)) ?? { text: "", excludeFromMemory: false }, uncertainSteer: null }),
+  saveConversationDraft: async (scope: ConversationDraftScope, draft: ConversationDraft) => { previewDrafts.set(JSON.stringify(scope), draft); },
   info: async () => info(), snapshot: async () => structuredClone(snapshot), history: async () => [],
   listRuns: async () => ({ ok: true as const, runs: [] }), home: async () => ({ ok: true as const }),
   onMessage: (listener: (message: MainToRenderer) => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; },

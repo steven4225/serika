@@ -2,6 +2,11 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 import { IPC, type MainToRenderer, type RendererApi } from "../shared/ui-contract.js";
 
 const api: RendererApi = {
+  loadConversationDraft: scope => ipcRenderer.invoke(IPC.draftLoad, scope),
+  saveConversationDraft: (scope, draft) => ipcRenderer.invoke(IPC.draftSave, scope, draft),
+  acknowledgeSteer: (scope, id) => ipcRenderer.invoke(IPC.steerAcknowledge, scope, id),
+  releaseSteer: (scope, id) => ipcRenderer.invoke(IPC.steerRelease, scope, id),
+  retryConnection: () => ipcRenderer.invoke(IPC.retryConnection),
   listThreads: query => ipcRenderer.invoke(IPC.threadsList, query),
   createThread: options => ipcRenderer.invoke(IPC.threadCreate, options),
   selectThread: id => ipcRenderer.invoke(IPC.threadSelect, id),

@@ -30,7 +30,7 @@ async function open(root: string, model: LanguageModel) {
 it("wires a distinct typed Steer IPC route and strips renderer authority", async () => {
   const main = await readFile(new URL("./index.ts", import.meta.url), "utf8");
   const preload = await readFile(new URL("../preload/index.ts", import.meta.url), "utf8");
-  assert.match(main, /ipcMain\.handle\(IPC\.steer,.*host\.current\.steer\(input\)/);
+  assert.match(main, /ipcMain\.handle\(IPC\.steer,.*drafts\.steer\(input\)/);
   assert.match(preload, /steer: input => ipcRenderer\.invoke\(IPC\.steer, input\)/);
   assert.notEqual(IPC.steer, IPC.run);
 });
