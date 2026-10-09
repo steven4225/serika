@@ -69,6 +69,7 @@ export function createExecutionRecordAdapter(
       if (enabled && (event.type === "run.steer.accepted" || event.type === "run.steer.applied" || event.type === "run.steer.not_applied")) {
         await records.recordSteerEvent(event);
       }
+      if (enabled) await records.recordTraceEvent(event);
       await store.append(event);
     },
     list: (runId, afterSequence) => store.list(runId, afterSequence),
