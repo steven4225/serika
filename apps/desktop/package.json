@@ -1,0 +1,50 @@
+{
+  "name": "@aisdk-agent/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Runloom desktop front end. Consumes createRuntimeApp from the CLI package; contains no runtime logic.",
+  "main": "./out/main/index.js",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "install:local": "node scripts/install-local.mjs",
+    "daily": "node scripts/start-daily.mjs",
+    "dev": "node scripts/build-notification-helper.mjs && electron-vite dev",
+    "build": "node scripts/build-notification-helper.mjs && electron-vite build",
+    "preview": "electron-vite preview",
+    "ui:zcode": "vite --config vite.preview.config.ts",
+    "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
+    "test": "tsx --test src/shared/*.test.ts src/main/*.test.ts src/renderer/src/*.test.ts src/renderer/src/personal/*.test.ts && node --test scripts/*.test.mjs",
+    "check": "pnpm typecheck && pnpm test && pnpm build"
+  },
+  "dependencies": {
+    "@aisdk-agent/core": "workspace:*",
+    "@aisdk-agent/example-cli": "workspace:*",
+    "@radix-ui/react-slot": "1.2.4",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "lucide-react": "1.17.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "tailwind-merge": "3.5.0",
+    "undici": "7.29.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.2.2",
+    "@types/node": "26.1.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "5.2.0",
+    "ai": "7.0.37",
+    "electron": "44.4.5",
+    "electron-vite": "5.0.0",
+    "tailwindcss": "4.2.2",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vite": "7.3.6"
+  }
+}
