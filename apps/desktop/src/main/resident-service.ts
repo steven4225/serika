@@ -18,7 +18,8 @@ function absolute(value: string): string {
 export function resolveResidentPaths(home: string, workspace: string, uid = process.getuid?.() ?? 0) {
   if (!Number.isSafeInteger(uid) || uid < 0) throw new Error("常驻服务用户无效。");
   const hash = createHash("sha256").update(absolute(workspace)).digest("hex").slice(0, 20);
-  const socketRoot = `/private/tmp/serika-host-${uid}`;
+  // Preserve the macOS daily socket identity; portable tests use Linux's short temp root.
+  const socketRoot = `${process.platform === "darwin" ? "/private/tmp" : "/tmp"}/serika-host-${uid}`;
   const socketDirectory = join(socketRoot, hash);
   const stateDirectory = join(absolute(home), "Library/Application Support/Serika/resident", hash);
   return { label: `dev.serika.assistant-host.${hash}`, socketRoot, socketDirectory,

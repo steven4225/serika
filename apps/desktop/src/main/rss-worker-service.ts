@@ -62,6 +62,7 @@ export function createDesktopRssWorker(options: {
       envFile: trustedEnvFile, workerEntryPath: options.workerEntry,
       workingDirectory: dirname(dirname(dirname(dirname(options.workerEntry)))),
       launchAgentsDirectory: join(options.home, "Library/LaunchAgents"), uid: process.getuid!(), rss: true, notify: true,
+      platform: options.platform ?? process.platform,
       ...(notificationHelperPath === undefined ? {} : { notificationHelperPath }),
       ...(configPath === undefined ? {} : { configPath }),
       todoist: todoistConfigured, ...(options.runner ? { runner: options.runner } : {}) }) };

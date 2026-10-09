@@ -21,7 +21,7 @@ async function until(check: () => boolean | Promise<boolean>) {
 
 for (const detachAt of ["executing", "awaiting-approval"] as const) {
   test(`detaching while ${detachAt} preserves the same approval and approved Shell Run without cancellation or replay`, async () => {
-    const root = await mkdtemp("/private/tmp/serika-inflight-");
+    const root = await mkdtemp(`${process.platform === "darwin" ? "/private/tmp" : "/tmp"}/serika-inflight-`);
     const workspace = join(root, "workspace"), userData = join(root, "profile"), configPath = join(root, "config.json");
     await mkdir(workspace);
     await writeFile(configPath, JSON.stringify({ version: 1, workspace,

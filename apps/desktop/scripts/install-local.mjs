@@ -17,7 +17,7 @@ async function assertManagedBundle(desktop, bundle) {
 }
 
 /** Local checkout link only: never copy a bundle or replace a user's installed app. */
-export async function installLocalLauncher({ desktop, bundle, migrateFrom, applicationsDirectory = join(homedir(), "Applications"), register = (path) => execFileSync(LSREGISTER, ["-f", path], { stdio: "pipe" }) }) {
+export async function installLocalLauncher({ desktop, bundle, migrateFrom, applicationsDirectory = join(homedir(), "Applications"), register = (path) => execFileSync(LSREGISTER, ["-f", path], { stdio: "pipe" }), unregister = (path) => execFileSync(LSREGISTER, ["-u", path], { stdio: "pipe" }) }) {
   desktop = resolve(desktop);
   bundle = resolve(bundle);
   if (migrateFrom !== undefined && (!isAbsolute(migrateFrom) || resolve(migrateFrom) === desktop)) throw new Error("Migration source must be a distinct absolute checkout path.");
@@ -55,6 +55,9 @@ export async function installLocalLauncher({ desktop, bundle, migrateFrom, appli
     await unlink(temporary).catch(error => { if (error.code !== "ENOENT") throw error; });
   }
   // Registration is not a launch, notification permission request, or service enablement.
+  // Two managed bundles share one ID: retire only the explicitly validated old
+  // registration, otherwise LaunchServices may cold-launch the old checkout.
+  if (previousBundle) await unregister(previousBundle);
   await register(installedPath);
   return { bundle, installedPath, ...(previousBundle === undefined ? {} : { previousBundle }) };
 }

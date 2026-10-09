@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
-import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { it } from "node:test";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
@@ -28,7 +29,7 @@ async function until(check: () => boolean | Promise<boolean>) {
 const update = (id: number, text: string, userId = 42, type = "private", messageId = id): TelegramUpdate => ({ update_id: id,
   message: { message_id: messageId, date: 1, text, chat: { id: userId, type }, from: { id: userId, is_bot: false, first_name: "Owner" } } });
 async function fixture(stream: (call: number) => Promise<ReturnType<typeof response>> = async () => response()) {
-  const root = await mkdtemp("/private/tmp/serika-telegram-unit-");
+  const root = await realpath(await mkdtemp(join(tmpdir(), "serika-telegram-unit-")));
   const workspace = join(root, "workspace"), userData = join(root, "profile"), configPath = join(root, "config.json");
   await mkdir(workspace);
   await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { "read-file": { enabled: true }, memory: { enabled: false }, shell: { enabled: false }, task: { enabled: true } } }));
@@ -426,7 +427,7 @@ it("Task text gets an explicit preview and uses the existing WorkTask, not human
 });
 
 it("private state validates corruption and permission, and failed writes freeze subsequent admission", async () => {
-  const root = await mkdtemp("/private/tmp/serika-telegram-store-");
+  const root = await realpath(await mkdtemp(join(tmpdir(), "serika-telegram-store-")));
   try {
     const path = join(root, "private", "telegram.json"), store = new TelegramStore(path, root); await store.load();
     await store.update(data => { data.offset = 1; });

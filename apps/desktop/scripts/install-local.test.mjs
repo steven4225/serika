@@ -91,16 +91,19 @@ test("explicit migration replaces only the specified old checkout and keeps its 
     const installedPath = join(f.applicationsDirectory, "Serika.app");
     await symlink(oldBundle, installedPath);
     const bundle = await f.bundle("44.4.5");
-    const options = { ...f, bundle, register: () => {} };
+    const registrations = [];
+    const options = { ...f, bundle, register: path => registrations.push(["register", path]), unregister: path => registrations.push(["unregister", path]) };
     await assert.rejects(installLocalLauncher(options));
     await assert.rejects(installLocalLauncher({ ...options, migrateFrom: join(f.root, "wrong-checkout") }));
     assert.equal(await readlink(installedPath), oldBundle);
+    assert.deepEqual(registrations, [], "refused migrations never touch LaunchServices");
     assert.deepEqual(await installLocalLauncher({ ...options, migrateFrom: oldDesktop }), { bundle, installedPath, previousBundle: oldBundle });
+    assert.deepEqual(registrations, [["unregister", oldBundle], ["register", installedPath]]);
     assert.equal(await readlink(installedPath), bundle);
     assert.equal(await readFile(join(oldBundle, "Contents/Resources/serika-local.json"), "utf8"), marker);
     // Rollback is the same explicit, ownership-checked operation in reverse.
     await installLocalLauncher({ desktop: oldDesktop, bundle: oldBundle, applicationsDirectory: f.applicationsDirectory,
-      migrateFrom: f.desktop, register: () => {} });
+      migrateFrom: f.desktop, register: () => {}, unregister: path => assert.equal(path, bundle) });
     assert.equal(await readlink(installedPath), oldBundle);
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });

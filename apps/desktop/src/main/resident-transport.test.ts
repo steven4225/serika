@@ -20,7 +20,7 @@ function response() {
   ] }) };
 }
 async function fixture(doStream: () => Promise<ReturnType<typeof response>> = async () => response(), onStop?: () => void) {
-  const root = await mkdtemp("/private/tmp/serika-transport-");
+  const root = await mkdtemp(`${process.platform === "darwin" ? "/private/tmp" : "/tmp"}/serika-transport-`);
   const workspace = join(root, "workspace"), userData = join(root, "profile"), configPath = join(root, "config.json");
   await mkdir(workspace);
   await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: false } } }));

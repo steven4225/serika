@@ -9,7 +9,7 @@ import { residentStartup, saveResidentStartup } from "./resident-startup.js";
 import type { PendingApproval } from "../shared/ui-contract.js";
 
 it("the actual headless entry retains Thread, Run receipts and a timer when clients detach, change a capability and switch Thread", { timeout: 20_000 }, async () => {
-  const root = await mkdtemp("/private/tmp/serika-process-");
+  const root = await mkdtemp(`${process.platform === "darwin" ? "/private/tmp" : "/tmp"}/serika-process-`);
   const workspace = join(root, "workspace"), userData = join(root, "profile"), configPath = join(root, "config.json");
   const directory = join(root, "state"), identityPath = join(directory, "identity.json"), socket = join(root, "socket", "host.sock");
   const paths = { directory, token: join(directory, "auth-token"), socket };
