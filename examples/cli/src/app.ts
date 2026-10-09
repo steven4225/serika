@@ -66,6 +66,7 @@ import { createMemoryQueryRewriter, memoryQueryTopics, type MemoryReferenceSnaps
 import { createWebModule } from "./modules/web-module.js";
 import { createComputerModule } from "./modules/computer-module.js";
 import { createTaskStore } from "./task-store.js";
+import type { SavedTaskArrangement } from "./modules/task-module.js";
 import { createWorkTaskStore, type WorkTask, type WorkTaskStore } from "./work-task-store.js";
 import { createWorkTaskContextMessage } from "./work-task-context.js";
 import { createWorkTaskFinishCheck } from "./work-task-completion.js";
@@ -109,8 +110,14 @@ export interface RuntimeAppOptions {
   env?: NodeJS.ProcessEnv;
   cwd?: string;
   taskAutomation?: TaskAutomationHost;
+  /** Trusted destination registration after the task commit, before service activation. */
+  afterTaskArrangementSaved?: (saved: SavedTaskArrangement) => Promise<void>;
+  /** Host-owned disclosure in the shared approval preview, never a model argument. */
+  taskArrangementDestination?: () => string | null;
   /** Host-owned timer state survives this app's disposal and Thread changes. */
   pomodoroService?: PomodoroService;
+  /** Host-only source association persisted before a primary Run can dispatch. */
+  beforePrimaryRunCreate?: (record: import("@aisdk-agent/core").RunRecord) => Promise<void>;
 }
 
 /**
@@ -241,7 +248,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
   const executionRecordAdapter = createExecutionRecordAdapter(store, executionRecords, workTasks, agentId => {
     const skill = externalSkills.find(skill => skill.agentId === agentId);
     return agentId === AUTO_CONSOLIDATION_AGENT_ID || skill?.kind === "memory-consolidate" ? "consolidation" : skill || agentId === DREAMING_AGENT_ID ? "skill" : "primary";
-  });
+  }, options.beforePrimaryRunCreate);
   let activeWorkTaskMessage: UIMessage | undefined;
   let redrawAfterModuleNotification: (() => void) | undefined;
   const addRegistration = {
@@ -373,8 +380,13 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
                 const prepared = await registeredAutomation!.prepare({ id: skill.id, expectedHash: arrangement.skillHash, input: prompt });
                 return prepared.ok ? { ok: true, value: null } : prepared;
               },
+              ...(options.taskAutomation || options.afterTaskArrangementSaved ? {
+                afterArrangementSaved: async saved => {
+                  await options.afterTaskArrangementSaved?.(saved);
+                  return activateTaskAutomation ? activateTaskAutomation() : { enabled: false, message: "Arrangement saved; no background service configured" };
+                },
+              } : {}),
               ...(options.taskAutomation ? {
-                afterArrangementSaved: activateTaskAutomation!,
                 checkTodoistPlanningAvailable: async () => (await options.taskAutomation!.status(workspaceRoot!, moduleConfig?.configPath ?? undefined)).todoistPlanningAvailable,
               } : {}),
             })] : []),
@@ -392,15 +404,19 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     if (taskStore !== undefined && (input.toolName === "task_create" || input.toolName === "task_repeat_create")) {
       const request = typeof input.input === "object" && input.input !== null ? input.input as { arrangement?: { kind?: unknown; source?: unknown; skillId?: unknown; skillHash?: unknown }; runAt?: unknown; recurrence?: unknown; prompt?: unknown } : {};
       if (request.arrangement !== undefined) {
-        const render = (status?: Awaited<ReturnType<TaskAutomationHost["status"]>>) =>
+        const render = (status?: Awaited<ReturnType<TaskAutomationHost["status"]>>) => {
+          const destination = options.taskArrangementDestination?.();
+          return (
           `\n自动安排确认\n内容：${JSON.stringify(request.prompt)}\n时间：${JSON.stringify(request.runAt ?? request.recurrence)}\n` +
           `用途：${JSON.stringify(request.arrangement?.kind)}；来源：${JSON.stringify(request.arrangement?.source)}\n` +
           (request.arrangement?.kind === "skill" ? `Skill：${JSON.stringify(request.arrangement.skillId)}；固定版本：${JSON.stringify(request.arrangement.skillHash)}\n仅处理本次输入；不读取对话、记忆或工作区文件。版本变化时拒绝执行，不自动换新版本。输入将发送给后台配置的模型服务，可能产生费用。\n` : "") +
           "周期采用固定 UTC offset，不自动跟随夏令时；休眠/离线不保证准点，恢复后仅处理最近一期。\n" +
           "提醒不用模型；Todoist 只读查询；本安排不授权 Shell、文件、电脑操作或工作区记忆读取。\n" +
+          (destination ? `结果投递目的地：${destination.slice(0, 256)}。任务保存与投递登记并非原子；失败时不要重复创建，回桌面核对。\n` : "") +
           (request.arrangement?.kind === "todoist-brief" ? "Todoist 查询结果会发送给后台环境文件配置的模型服务，该服务可能不同于当前桌面模型。\n" : "") +
           (status ? `后台：${status.registered ? status.running ? "已注册且正在运行" : "已注册，当前未运行" : "尚未注册"}。${status.message ?? ""}\n确认将保存这条安排，并按需启用该工作区后台服务；启用失败时安排仍保存，结果会明确说明。\n` : "本入口没有后台服务接线；只保存安排，需要自行运行 worker 才会执行。\n") +
-          "通知提交不等于你已收到；结果保存在任务收件箱。允许本次安排？ [y/n] ";
+          "通知提交不等于你已收到；结果保存在任务收件箱。允许本次安排？ [y/n] ");
+        };
         return options.taskAutomation ? options.taskAutomation.status(workspaceRoot!, moduleConfig?.configPath ?? undefined).then(render, error => render({ available: false, registered: false, running: false, todoistPlanningAvailable: false, message: String(error) })) : render();
       }
     }

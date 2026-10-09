@@ -198,6 +198,8 @@ export interface TaskListInput {
   limit?: number;
   recurringTaskId?: string;
   inbox?: boolean;
+  /** Read-only keyset pagination for trusted delivery scans; tools need not expose it. */
+  before?: { createdAt: string; id: string };
 }
 
 export interface TaskList {
@@ -208,6 +210,7 @@ export interface TaskList {
 export interface TaskListV3 {
   tasks: TaskSummaryV3[];
   truncated: boolean;
+  nextCursor?: { createdAt: string; id: string };
 }
 
 export type TaskFinish =
@@ -807,6 +810,9 @@ function validateTaskListInput(input: unknown): Required<Pick<TaskListInput, "li
   if (input.inbox !== undefined && typeof input.inbox !== "boolean") {
     raise("INVALID_INPUT", "Task inbox filter must be a boolean");
   }
+  if (input.before !== undefined && (!isObject(input.before) || typeof input.before.createdAt !== "string" || !Number.isFinite(Date.parse(input.before.createdAt)) || typeof input.before.id !== "string" || !input.before.id)) {
+    raise("INVALID_INPUT", "Task list cursor is invalid");
+  }
   if (input.limit !== undefined &&
       (typeof input.limit !== "number" || !Number.isInteger(input.limit) ||
        input.limit < 1 || input.limit > TASK_LIST_MAX_LIMIT)) {
@@ -818,6 +824,7 @@ function validateTaskListInput(input: unknown): Required<Pick<TaskListInput, "li
       ? {}
       : { recurringTaskId: input.recurringTaskId }),
     ...(input.inbox === undefined ? {} : { inbox: input.inbox }),
+    ...(input.before === undefined ? {} : { before: input.before as { createdAt: string; id: string } }),
     limit: input.limit === undefined ? TASK_LIST_DEFAULT_LIMIT : input.limit,
   };
 }
@@ -994,6 +1001,10 @@ export class WorkspaceTaskStore implements TaskStore {
       const validated = validateTaskListInput(input);
       const document = await this.#read();
       const filtered = document.tasks.filter((task) => {
+        if (validated.before) {
+          const difference = Date.parse(task.createdAt) - Date.parse(validated.before.createdAt);
+          if (difference > 0 || (difference === 0 && task.id.localeCompare(validated.before.id) >= 0)) return false;
+        }
         if (
           validated.recurringTaskId !== undefined &&
           task.recurringTaskId !== validated.recurringTaskId
@@ -1044,6 +1055,7 @@ export class WorkspaceTaskStore implements TaskStore {
             ...(task.arrangement === undefined ? {} : { arrangement: { ...task.arrangement } }),
           })),
           truncated: sorted.length > validated.limit,
+          ...(sorted.length > validated.limit && visible.length ? { nextCursor: { createdAt: visible.at(-1)!.createdAt, id: visible.at(-1)!.id } } : {}),
         },
       };
     } catch (error) {

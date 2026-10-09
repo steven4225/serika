@@ -15,6 +15,8 @@ export function createExecutionRecordAdapter(
   records: ExecutionRecordStore,
   workTasks?: WorkTaskStore,
   phaseForAgent?: (agentId: string) => ExecutionPhase,
+  /** Trusted host barrier. Failure prevents model/tool dispatch; not a replay hook. */
+  beforePrimaryCreate?: (record: RunRecord) => Promise<void>,
 ): {
   store: AgentStore;
   enable: () => void;
@@ -38,13 +40,17 @@ export function createExecutionRecordAdapter(
         begunRevision = begun.value.revision;
       }
       try {
+        const phase = phaseForAgent?.(record.agentId) ?? (record.agentId === AUTO_CONSOLIDATION_AGENT_ID ? "consolidation" : "primary");
         await records.startRun({
           runId: record.id,
           threadId: record.threadId,
           ...(binding === undefined ? {} : { workTaskId: binding.id }),
-          phase: phaseForAgent?.(record.agentId) ?? (record.agentId === AUTO_CONSOLIDATION_AGENT_ID ? "consolidation" : "primary"),
+          phase,
           startedAt: record.createdAt,
         });
+        if (phase === "primary") {
+          await beforePrimaryCreate?.(record);
+        }
         await store.create(record);
       } catch (error) {
         // A failed Core create did not start a Run. Keep that fact visible.
