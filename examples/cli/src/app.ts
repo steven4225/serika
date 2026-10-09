@@ -52,7 +52,7 @@ import {
 import { createModuleHost } from "./module-host.js";
 import { createMemoryModule } from "./modules/memory-module.js";
 import { createCheckpointModule } from "./modules/checkpoint-module.js";
-import { createPomodoroModule } from "./modules/pomodoro-module.js";
+import { createPomodoroModule, type PomodoroService } from "./modules/pomodoro-module.js";
 import { createReadFileModule } from "./modules/read-file-module.js";
 import { createShellModule } from "./modules/shell-module.js";
 import type { ShellProgress } from "./modules/shell-module.js";
@@ -109,6 +109,8 @@ export interface RuntimeAppOptions {
   env?: NodeJS.ProcessEnv;
   cwd?: string;
   taskAutomation?: TaskAutomationHost;
+  /** Host-owned timer state survives this app's disposal and Thread changes. */
+  pomodoroService?: PomodoroService;
 }
 
 /**
@@ -305,7 +307,9 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     tuiMode
       ? createModuleHost(
           [
-            ...(moduleConfig!.enabled.pomodoro ? [createPomodoroModule()] : []),
+            ...(moduleConfig!.enabled.pomodoro
+              ? [createPomodoroModule(options.pomodoroService ? { service: options.pomodoroService } : {})]
+              : []),
             ...(todoistConfig !== undefined
               ? [createTodoistModule(todoistConfig)]
               : []),

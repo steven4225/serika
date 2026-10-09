@@ -10,6 +10,7 @@ import { MockLanguageModelV3 } from "ai/test";
 import { createRuntimeApp, PRIMARY_AGENT_ID } from "./app.js";
 import { createDemoModel } from "./demo-model.js";
 import { DEFAULT_CONTEXT_BUDGET_CONFIG } from "./context-budget.js";
+import { createPomodoroService } from "./modules/pomodoro-module.js";
 
 function capture(): { output: PassThrough; text(): string } {
   const output = new PassThrough();
@@ -21,6 +22,38 @@ function capture(): { output: PassThrough; text(): string } {
 }
 
 describe("createRuntimeApp", () => {
+  it("preserves an injected timer across app reassembly, disabled modules and Thread changes", async () => {
+    const root = await mkdtemp(join(tmpdir(), "serika-app-timer-owner-"));
+    const configPath = join(root, "config.json");
+    const service = createPomodoroService({ desktopNotifier: () => undefined });
+    const assemble = (thread: string) => createRuntimeApp({
+      args: ["--tui", join(root, "transcripts"), "--thread", thread, "--config", configPath],
+      modelAlias: "mock", model: createDemoModel(), output: capture().output, env: {}, cwd: root,
+      pomodoroService: service,
+    });
+    let app: Awaited<ReturnType<typeof assemble>> | undefined;
+    try {
+      await writeFile(configPath, JSON.stringify({ version: 1, modules: { pomodoro: { enabled: true } } }));
+      app = await assemble("first");
+      await app.commands!.get("pomodoro")!.execute("start 3");
+      const initial = service.status().status;
+      assert.equal(initial.state, "running");
+      app.dispose();
+      await writeFile(configPath, JSON.stringify({ version: 1, modules: { pomodoro: { enabled: false } } }));
+      app = await assemble("second");
+      assert.equal(app.commands!.has("pomodoro"), false);
+      assert.equal(service.status().status.state, "running");
+      app.dispose();
+      await writeFile(configPath, JSON.stringify({ version: 1, modules: { pomodoro: { enabled: true } } }));
+      app = await assemble("third");
+      const current = service.status().status;
+      assert.ok(initial.state === "running" && current.state === "running");
+      assert.equal(current.endsAt, initial.endsAt);
+      await app.commands!.get("pomodoro")!.execute("cancel");
+      assert.equal(service.status().status.state, "idle");
+    } finally { app?.dispose(); service.dispose(); await rm(root, { recursive: true, force: true }); }
+  });
+
   for (const writePolicy of ["review", "automatic"] as const) {
     it(`has exactly one conversation memory writer in ${writePolicy} mode`, async () => {
       const root = await mkdtemp(join(tmpdir(), "serika-memory-owner-"));
