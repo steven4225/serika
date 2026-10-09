@@ -1,0 +1,54 @@
+.personal-today {
+  --today-ink: var(--text);
+  --today-muted: var(--muted);
+  --today-shadow: -4px 8px 28px #6868680a, 0 2px 8px #6464640f;
+  color: var(--today-ink);
+  padding: 26px 30px 30px;
+  font-size: 15px;
+  line-height: 1.65;
+}
+.personal-today button { font: inherit; color: inherit; cursor: pointer; }
+.personal-today button:focus-visible { outline: 2px solid var(--text); outline-offset: 4px; }
+.personal-today h1, .personal-today h2, .personal-today p { margin: 0; }
+.today-welcome { padding: 0 2px 16px; }
+.today-clock, .today-date, .today-scope-note { color: var(--today-muted); font-size: 12px; }
+.today-welcome h1 { font-size: 26px; font-weight: 600; letter-spacing: -.04em; margin-top: 3px; }
+.today-card { padding: 25px 26px; background: var(--surface); border-radius: 22px; box-shadow: var(--today-shadow); }
+.today-greeting { margin-bottom: 20px; }
+.today-greeting h2 { font-size: 34px; line-height: 1.25; font-weight: 600; letter-spacing: -.045em; margin: 8px 0 14px; }
+.today-greeting > p:last-child { color: var(--muted); }
+.today-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.today-card-heading h2 { font-size: 20px; font-weight: 600; letter-spacing: -.025em; line-height: 1.4; }
+.today-icon-link { display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%; background: transparent; }
+.today-icon-link:hover, .today-text-link:hover { background: #ffffff5c; }
+.today-task-counts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 18px 0 9px; }
+.today-task-counts > div { display: flex; flex-direction: column; padding: 12px 14px; border-radius: 13px; background: var(--accent-soft); }
+.today-task-counts span, .today-task-counts small { color: var(--today-muted); font-size: 12px; white-space: nowrap; }
+.today-task-counts strong { font-size: 29px; line-height: 1.35; font-weight: 600; }
+.today-scope-note { font-size: 11px; }
+.today-current-task { display: flex; align-items: center; justify-content: space-between; gap: 14px; width: 100%; text-align: left; border: 0; border-top: 1px solid #0000000d; background: transparent; margin-top: 16px; padding: 15px 0 0; }
+.today-current-task > span { min-width: 0; display: flex; flex-direction: column; }
+.today-current-task small { color: var(--muted); font-size: 12px; }
+.today-current-task strong { font-weight: 500; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+.today-current-task > svg { flex: none; }
+.today-task-empty { border-top: 1px solid #0000000d; padding-top: 17px; margin-top: 16px !important; color: var(--muted); font-size: 13px; }
+.today-task-message { margin-top: 18px !important; color: var(--muted); }
+.personal-today .today-chat-button { display: block; margin: 20px auto 0; padding: 9px 25px; min-height: 42px; border: 0; border-radius: 999px; background: #30a46c; color: white; font-size: 14px; font-weight: 500; }
+.personal-today .today-chat-button:hover { background: #288d5c; }
+.today-memory { padding: 24px 2px 18px; }
+.today-memory p { margin-top: 6px; font-size: 14px; color: var(--muted); }
+.today-text-link { display: inline-flex; align-items: center; gap: 3px; padding: 4px 8px; background: transparent; border: 0; border-radius: 999px; font-size: 12px !important; }
+.personal-today .today-failure { color: #923e3e; overflow-wrap: anywhere; }
+.today-routines { display: grid; gap: 2px; border-top: 1px solid #0000000d; }
+.today-routines > button { display: flex; align-items: center; gap: 12px; text-align: left; width: 100%; border: 0; background: transparent; border-radius: 14px; padding: 14px 2px; }
+.today-routines > button:hover { background: #ffffff5c; }
+.today-routines > button > span { display: flex; flex: 1; flex-direction: column; }
+.today-routines strong { font-size: 14px; font-weight: 500; }
+.today-routines small { color: var(--muted); font-size: 12px; }
+@media (max-width: 1000px) { .personal-today { padding-right: 20px; padding-left: 20px; } }
+@media (max-width: 540px) {
+  .personal-today { padding: 20px 14px; }
+  .today-card { padding: 22px 20px; }
+  .today-task-counts { gap: 6px; }
+  .today-task-counts > div { padding: 10px; }
+}

@@ -1,0 +1,35 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { readFile } from "node:fs/promises";
+import type { TaskRecordV4 } from "@aisdk-agent/example-cli/dist/task-store.js";
+import { taskResultPresentation } from "./task-inbox.js";
+
+const task = (overrides: Partial<TaskRecordV4> = {}) => ({ status: "completed", notification: null, ...overrides }) as TaskRecordV4;
+test("task inbox labels kinds without treating model completion or system submission as user receipt", () => {
+  assert.equal(taskResultPresentation(task()).kind, "定时任务");
+  assert.equal(taskResultPresentation(task({ arrangement: { kind: "reminder", source: "none", notification: "always", declarationVersion: 1 } })).kind, "提醒");
+  assert.equal(taskResultPresentation(task({ arrangement: { kind: "todoist-brief", source: "todoist-planning", notification: "always", declarationVersion: 1 } })).kind, "Todoist 日报");
+  assert.equal(taskResultPresentation(task({ arrangement: { kind: "rss-digest", source: "existing-rss-binding", notification: "new-items", declarationVersion: 1 } })).kind, "RSS 资讯");
+  assert.match(taskResultPresentation(task({ arrangement: { kind: "skill", source: "none", notification: "always", declarationVersion: 1, skillId: "brief", skillHash: "a".repeat(64) } })).kind, /Skill brief · 版本 aaaaaaaaaaaa/);
+  const submitted = taskResultPresentation(task({ notification: { status: "submitted", attempts: 1, nextAttemptAt: null, error: null } }));
+  assert.equal(submitted.status, "执行结束");
+  assert.match(submitted.notification, /不代表你已看到/);
+  assert.match(taskResultPresentation(task({ status: "interrupted" })).status, /结果未确定/);
+  assert.match(taskResultPresentation(task({ status: "failed" })).status, /失败/);
+  assert.equal(taskResultPresentation(task()).notification, "未安排系统通知");
+});
+
+test("successful inbox/detail reads refresh the same workspace arrangements without polling or execution", async () => {
+  const inbox = await readFile(new URL("./task-inbox.tsx", import.meta.url), "utf8");
+  const app = await readFile(new URL("./App.tsx", import.meta.url), "utf8");
+  const daily = await readFile(new URL("./daily-setup-panel.tsx", import.meta.url), "utf8");
+  const arrangements = await readFile(new URL("./automation-panel.tsx", import.meta.url), "utf8");
+  assert.match(inbox, /if \(request !== generation\.current\) return;\s+if \(result\.ok\) \{ setPage\(result\.value\); onResultsRead\?\.\(\); \}/);
+  assert.match(inbox, /if \(request !== generation\.current\) return;\s+if \(result\.ok\) \{ setDetail\(result\.value\); onResultsRead\?\.\(\); \}/);
+  assert.match(app, /<TaskInbox key=\{`\$\{info\?\.configPath\}:\$\{info\?\.workspaceRoot\}`\}.*onResultsRead=\{\(\) => setAutomationRefresh\(value => value \+ 1\)\}/);
+  assert.match(daily, /<AutomationPanel.*refreshSequence=\{automationRefresh\}/);
+  assert.match(arrangements, /lastRefresh\.current = refreshSequence;\s+void reload\(\);\s+\}, \[refreshSequence\]\)/);
+  assert.match(arrangements, /setLoading\(true\); setError\(""\); setPreview\(null\)/);
+  assert.doesNotMatch(inbox + arrangements, /setInterval\(/);
+  assert.match(inbox, /提醒、日报、资讯和定时 Skill/);
+});
