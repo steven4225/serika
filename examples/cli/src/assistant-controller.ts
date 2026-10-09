@@ -321,9 +321,16 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     state = next;
     emit({ type: "state", state: next });
   };
+  let approvalTracePending: Promise<void> = Promise.resolve();
   const unsubscribeApproval = app.toolConfirmation?.subscribePending((next) => {
     const previous = pendingApproval;
     pendingApproval = next ?? null;
+    if (next !== undefined && previous?.approvalId !== next.approvalId) {
+      // The local approval hook does not emit Core's approval_required event.
+      // Observe real pending creation; never infer human waiting for auto-approved calls.
+      const write = app.executionRecords.recordApprovalRequested?.(app.threadId, next.toolCallId, next.toolName) ?? Promise.resolve();
+      approvalTracePending = Promise.all([approvalTracePending, write]).then(() => undefined).catch(() => undefined);
+    }
     if (previous !== null && (next === undefined || next.approvalId !== previous.approvalId)) {
       emit({ type: "approval-cleared", approvalId: previous.approvalId });
     }
@@ -506,6 +513,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       }
       let executionFinalized = true;
       try {
+        await approvalTracePending;
         await app.executionRecords.finishRun(handle.runId, result, phase === "primary"
           ? { references: [...primaryMemoryReferences.values()], truncated: primaryMemoryReferencesTruncated } : undefined);
         if (phase === "primary") {
@@ -1606,6 +1614,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       await controller.cancel();
       await activeTask;
       await backgroundTask;
+      await approvalTracePending;
       await recovery;
       const leaseReleases = await Promise.allSettled([
         threadLease?.release() ?? Promise.resolve(),

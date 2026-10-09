@@ -40,6 +40,20 @@ function code(result: { ok: true } | { ok: false; error: { code: string } }): st
 }
 
 describe("WorkspaceTaskStore", () => {
+  it("pages tied task timestamps without dropping older results or writing on reads", async () => {
+    const root = await workspace();
+    const now = Date.parse("2026-10-06T00:00:00Z");
+    let count = 0;
+    const store = createTaskStore(root, { now: () => now, generateId: () => `task-${String(++count).padStart(3, "0")}` });
+    for (let n = 0; n < 53; n++) assert((await store.create({ prompt: `item ${n}`, runAt: "2026-10-07T00:00:00Z" })).ok);
+    const original = await readFile(join(root, TASK_FILE_NAME), "utf8");
+    const first = await store.list({ limit: 50 }); assert(first.ok && first.value.truncated && first.value.nextCursor);
+    const last = await store.list({ limit: 50, before: first.value.nextCursor }); assert(last.ok);
+    assert.equal(last.value.truncated, false);
+    assert.equal(new Set([...first.value.tasks, ...last.value.tasks].map(x => x.id)).size, 53);
+    assert.equal(await readFile(join(root, TASK_FILE_NAME), "utf8"), original);
+    assert.equal(code(await store.list({ before: { createdAt: "invalid", id: "x" } })), "INVALID_INPUT");
+  });
   it("persists approved arrangements and a deterministic outcome without inventing a Run", async () => {
     const root = await workspace();
     let now = Date.parse("2026-10-06T00:00:00Z");

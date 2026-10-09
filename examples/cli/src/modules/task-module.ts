@@ -23,6 +23,10 @@ import type { SkillResult } from "../automation-execution.js";
 
 export type { TaskStore } from "../task-store.js";
 
+export type SavedTaskArrangement =
+  | { kind: "once"; task: TaskRecordV3 }
+  | { kind: "recurring"; task: RecurringTaskRecord };
+
 const taskStatusSchema = z.enum([
   "scheduled",
   "running",
@@ -78,7 +82,7 @@ export interface TaskModuleOptions {
   todoistPlanningAvailable?: boolean;
   checkTodoistPlanningAvailable?: () => Promise<boolean>;
   /** Host-owned service setup, included in the existing arrangement confirmation. */
-  afterArrangementSaved?: () => Promise<{ enabled: boolean; message?: string }>;
+  afterArrangementSaved?: (saved: SavedTaskArrangement) => Promise<{ enabled: boolean; message?: string }>;
 }
 type TaskToolResult<T> = SkillResult<T> & { service?: { enabled: boolean; message?: string } };
 
@@ -584,11 +588,11 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
     }
     return { ok: true, value: null };
   }
-  async function serviceAfterSave<T>(result: TaskStoreResult<T>, arrangement?: TaskArrangement): Promise<TaskToolResult<T>> {
+  async function serviceAfterSave<T extends TaskRecordV3 | RecurringTaskRecord>(result: TaskStoreResult<T>, kind: "once" | "recurring", arrangement?: TaskArrangement): Promise<TaskToolResult<T>> {
     if (!result.ok || arrangement === undefined || options.afterArrangementSaved === undefined) return result;
     // The arrangement is already committed. A service failure must not imply rollback,
     // and cancellation after that write must not be represented as zero effects.
-    try { return { ...result, service: await options.afterArrangementSaved() }; }
+    try { return { ...result, service: await options.afterArrangementSaved({ kind, task: result.value } as SavedTaskArrangement) }; }
     catch (error) { return { ...result, service: { enabled: false, message: `Arrangement saved, but background service setup failed: ${error instanceof Error ? error.message.slice(0, 512) : "unknown error"}` } }; }
   }
   return {
@@ -608,7 +612,7 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
           const checked = await checkArrangement(input.arrangement, input.prompt); if (!checked.ok) return checked;
           throwIfAborted(signal);
           const normalized: CreateTaskInput = { prompt: input.prompt, runAt: input.runAt, ...(input.arrangement === undefined ? {} : { arrangement: input.arrangement }) };
-          return serviceAfterSave(await store.create(normalized, signal), input.arrangement);
+          return serviceAfterSave(await store.create(normalized, signal), "once", input.arrangement);
         },
       });
       const taskListTool = tool({
@@ -701,7 +705,7 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
           const checked = await checkArrangement(input.arrangement, input.prompt); if (!checked.ok) return checked;
           throwIfAborted(signal);
           const normalized: CreateRecurringTaskInput = { prompt: input.prompt, recurrence: input.recurrence, ...(input.arrangement === undefined ? {} : { arrangement: input.arrangement }) };
-          return serviceAfterSave(await store.createRecurring(normalized, signal), input.arrangement);
+          return serviceAfterSave(await store.createRecurring(normalized, signal), "recurring", input.arrangement);
         },
       });
       const taskRepeatListTool = tool({

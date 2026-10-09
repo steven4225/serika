@@ -20,6 +20,27 @@ function event(type: "tool.call.requested" | "tool.call.started" | "tool.call.co
 }
 
 describe("execution record adapter", () => {
+  it("persists host source association before Core creation and fails closed", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "runloom-source-barrier-"));
+    try {
+      const base = new InMemoryAgentStore();
+      const records = createExecutionRecordStore(directory);
+      const seen: string[] = [];
+      const adapter = createExecutionRecordAdapter(base, records, undefined, id => id === "consolidator" ? "consolidation" : "primary", async record => {
+        assert.equal(await base.getRun(record.id), undefined);
+        assert.equal((await records.getRun(record.threadId, record.id))?.status, "running");
+        seen.push(record.id);
+        if (record.id === "blocked") throw new Error("source association unavailable");
+      });
+      adapter.enable();
+      await adapter.store.create(run);
+      await adapter.store.create({ ...run, id: "maintenance", threadId: "thread-2", agentId: "consolidator" });
+      await assert.rejects(adapter.store.create({ ...run, id: "blocked" }), /source association unavailable/);
+      assert.deepEqual(seen, ["run-1", "blocked"]);
+      assert.equal(await base.getRun("blocked"), undefined);
+      assert.equal((await records.getRun(run.threadId, "blocked"))?.status, "failed");
+    } finally { await rm(directory, { recursive: true, force: true }); }
+  });
   it("binds a WorkTask at the Run create barrier and consumes it once", async () => {
     const directory = await mkdtemp(join(tmpdir(), "runloom-audit-task-bind-"));
     try {

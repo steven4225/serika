@@ -26,8 +26,9 @@ function deferred<T>(): {
   return { promise, resolve };
 }
 
-async function waitFor(condition: () => boolean): Promise<void> {
-  const deadline = Date.now() + 1_000;
+// Integration cases persist real transcripts, leases and bounded trace metadata.
+async function waitFor(condition: () => boolean, timeoutMs = 5_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
   while (!condition()) {
     if (Date.now() > deadline) throw new Error("Timed out waiting for controller state");
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
@@ -397,6 +398,28 @@ describe("AssistantController memory candidates", () => {
 });
 
 describe("AssistantController", () => {
+  it("records a real pending confirmation once and restores its timestamp after restart", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "runloom-controller-trace-"));
+    try {
+      const controller = createAssistantController(await createRuntimeApp({
+        args: ["--tui", directory, "--thread", "trace-confirmation"], modelAlias: "mock", model: createDemoModel(),
+        output: new PassThrough(), env: {}, cwd: directory,
+      }));
+      try {
+        assert.ok((await controller.run("What is 20 + 22?")).ok);
+        await waitFor(() => controller.getSnapshot().pendingApproval !== null);
+        const pending = controller.getSnapshot().pendingApproval!;
+        assert.equal(pending.toolName, "add");
+        assert.equal(controller.confirm({ approvalId: pending.approvalId, decision: "allow" }), true);
+        await waitFor(() => controller.getSnapshot().state.kind === "idle");
+        const record = (await controller.listRuns())[0]!;
+        assert.ok(record.tools[0]?.approvalRequestedAt);
+        assert.equal(record.tools[0]?.status, "completed");
+        const reopened = await createExecutionRecordStore(directory).getRun("trace-confirmation", record.runId);
+        assert.equal(reopened?.tools[0]?.approvalRequestedAt, record.tools[0]?.approvalRequestedAt);
+      } finally { await controller.shutdown(); }
+    } finally { await rm(directory, { recursive: true, force: true }); }
+  });
   it("persists WorkTask memory exclusion across restart without excluding later ordinary chat", async () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-task-memory-exclusion-"));
     const config = join(root, "config.json");
@@ -450,13 +473,16 @@ describe("AssistantController", () => {
       try {
         const started = await controller.run("What is 20 + 22?");
         assert.equal(started.ok, true);
-        await waitFor(() => controller.getSnapshot().state.kind === "idle");
+        // Real receipt/trace flock writes under the full parallel test suite.
+        await waitFor(() => controller.getSnapshot().state.kind === "idle", 5_000);
         assert.equal(controller.getSnapshot().lastPrimaryResult?.status, "completed");
         assert.equal((await controller.getHistory())[0]?.role, "user");
         const recorded = await controller.listRuns();
         assert.equal(recorded.length, 1);
         assert.equal(recorded[0]?.status, "completed");
         assert.equal(recorded[0]?.tools[0]?.status, "completed");
+        assert.ok(recorded[0]?.trace?.events.some(event => event.type === "step.started"));
+        assert.ok(recorded[0]?.trace?.events.some(event => event.type === "step.completed"));
       } finally {
         await controller.shutdown();
       }
@@ -466,6 +492,7 @@ describe("AssistantController", () => {
       }));
       try {
         assert.equal((await reopened.listRuns())[0]?.status, "completed");
+        assert.ok((await reopened.listRuns())[0]?.trace?.events.some(event => event.type === "step.completed"));
       } finally {
         await reopened.shutdown();
       }

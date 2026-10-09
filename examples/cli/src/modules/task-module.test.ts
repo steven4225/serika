@@ -309,8 +309,9 @@ describe("createTaskModule", () => {
   it("runs service setup only after a typed arrangement commits, exposing failure without rollback", async () => {
     for (const fail of [false, true]) {
       let enabled = 0;
-      const { tools, calls } = setup({}, { afterArrangementSaved: async () => {
+      const { tools, calls } = setup({}, { afterArrangementSaved: async saved => {
         enabled += 1; assert.equal(calls[0]?.method, "create");
+        assert.deepEqual(saved, { kind: "once", task: record() }, "host receives the committed record, not model destination arguments");
         if (fail) throw new Error("launchd unavailable");
         return { enabled: true };
       } });

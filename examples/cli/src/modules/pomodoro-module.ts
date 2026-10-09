@@ -9,7 +9,7 @@ const MIN_MINUTES = 1;
 const MAX_MINUTES = 180;
 const MINUTE_MS = 60_000;
 
-export interface PomodoroModuleOptions {
+export interface PomodoroServiceOptions {
   now?: () => number;
   setTimeout?: (callback: () => void, delayMs: number) => unknown;
   clearTimeout?: (handle: unknown) => void;
@@ -18,6 +18,19 @@ export interface PomodoroModuleOptions {
    * reported separately so a desktop failure never changes timer state.
    */
   desktopNotifier?: PomodoroDesktopNotifier;
+}
+
+export interface PomodoroModuleOptions extends PomodoroServiceOptions {
+  /** The embedding host owns this service; disposing the module only unsubscribes. */
+  service?: PomodoroService;
+}
+
+export interface PomodoroService {
+  start(minutes?: number): PomodoroResult;
+  status(): PomodoroResult;
+  cancel(): PomodoroResult;
+  subscribe(listener: (message: string) => void): () => void;
+  dispose(): void;
 }
 
 export type PomodoroDesktopNotifier = (
@@ -177,94 +190,114 @@ function notifyMacDesktop(
   );
 }
 
-export function createPomodoroModule(
-  options: PomodoroModuleOptions = {},
-): AgentModule {
+/** In-process state owned by a host, independently of Thread/module registration. */
+export function createPomodoroService(
+  options: PomodoroServiceOptions = {},
+): PomodoroService {
   const now = options.now ?? Date.now;
   const schedule = options.setTimeout ?? ((callback, delayMs) => setTimeout(callback, delayMs));
   const clear = options.clearTimeout ?? ((handle) => clearTimeout(handle as NodeJS.Timeout));
   const desktopNotifier = options.desktopNotifier ?? notifyMacDesktop;
 
+  let running: RunningPomodoro | undefined;
+  let disposed = false;
+  const listeners = new Set<(message: string) => void>();
+  const notify = (message: string): void => {
+    for (const listener of listeners) listener(message);
+  };
+
+  const idleStatus = (): PomodoroStatus => ({ state: "idle" });
+
+  const statusAt = (time: number): PomodoroStatus => {
+    if (!running) return idleStatus();
+    return {
+      state: "running",
+      durationMinutes: running.durationMinutes,
+      endsAt: new Date(running.endsAtMs).toISOString(),
+      remainingSeconds: Math.max(0, Math.ceil((running.endsAtMs - time) / 1_000)),
+    };
+  };
+
+  const finish = (expected?: RunningPomodoro): void => {
+    const current = running;
+    if (!current || (expected !== undefined && current !== expected)) return;
+    clear(current.timer);
+    running = undefined;
+    const message = `番茄钟结束，已完成 ${current.durationMinutes} 分钟专注。`;
+    notify(message);
+    try {
+      desktopNotifier(message, (kind, error) => {
+        const label = kind === "notification" ? "桌面通知" : "提示音";
+        notify(`${label}发送失败：${errorMessage(error)}`);
+      });
+    } catch (error) {
+      notify(`桌面提醒失败：${errorMessage(error)}`);
+    }
+  };
+
+  const settleIfExpired = (time: number): void => {
+    if (running && time >= running.endsAtMs) finish(running);
+  };
+
+  const currentStatus = (): PomodoroStatus => {
+    const time = now();
+    settleIfExpired(time);
+    return statusAt(time);
+  };
+
+  const start = (minutes = DEFAULT_MINUTES): PomodoroResult => {
+    if (disposed) throw new Error("Pomodoro service is disposed");
+    if (!isWholeMinute(minutes)) {
+      throw new RangeError("Pomodoro minutes must be an integer from 1 to 180");
+    }
+    const startedAtMs = now();
+    settleIfExpired(startedAtMs);
+    if (running) return { outcome: "already_running", status: statusAt(startedAtMs) };
+    const endsAtMs = startedAtMs + minutes * MINUTE_MS;
+    const current: RunningPomodoro = { durationMinutes: minutes, endsAtMs, timer: undefined };
+    running = current;
+    current.timer = schedule(() => finish(current), endsAtMs - startedAtMs);
+    return { outcome: "started", status: statusAt(startedAtMs) };
+  };
+
+  const cancel = (): PomodoroResult => {
+    settleIfExpired(now());
+    if (!running) return { outcome: "not_running", status: idleStatus() };
+    clear(running.timer);
+    running = undefined;
+    return { outcome: "cancelled", status: idleStatus() };
+  };
+
+  const status = (): PomodoroResult => ({ outcome: "status", status: currentStatus() });
+
+  return {
+    start, status, cancel,
+    subscribe(listener) {
+      if (disposed) throw new Error("Pomodoro service is disposed");
+      listeners.add(listener);
+      return () => { listeners.delete(listener); };
+    },
+    dispose() {
+      if (disposed) return;
+      disposed = true;
+      if (running) clear(running.timer);
+      running = undefined;
+      listeners.clear();
+    },
+  };
+}
+
+export function createPomodoroModule(
+  options: PomodoroModuleOptions = {},
+): AgentModule {
   return {
     id: "pomodoro",
     setup(ctx) {
-      let running: RunningPomodoro | undefined;
-
-      const idleStatus = (): PomodoroStatus => ({ state: "idle" });
-
-      const statusAt = (time: number): PomodoroStatus => {
-        if (!running) return idleStatus();
-        return {
-          state: "running",
-          durationMinutes: running.durationMinutes,
-          endsAt: new Date(running.endsAtMs).toISOString(),
-          remainingSeconds: Math.max(
-            0,
-            Math.ceil((running.endsAtMs - time) / 1_000),
-          ),
-        };
-      };
-
-      const finish = (expected?: RunningPomodoro): void => {
-        const current = running;
-        if (!current || (expected !== undefined && current !== expected)) return;
-        running = undefined;
-        const message = `番茄钟结束，已完成 ${current.durationMinutes} 分钟专注。`;
-        ctx.notify(message);
-        try {
-          desktopNotifier(message, (kind, error) => {
-            const label = kind === "notification" ? "桌面通知" : "提示音";
-            ctx.notify(`${label}发送失败：${errorMessage(error)}`);
-          });
-        } catch (error) {
-          ctx.notify(`桌面提醒失败：${errorMessage(error)}`);
-        }
-      };
-
-      const settleIfExpired = (time: number): void => {
-        if (running && time >= running.endsAtMs) finish(running);
-      };
-
-      const currentStatus = (): PomodoroStatus => {
-        const time = now();
-        settleIfExpired(time);
-        return statusAt(time);
-      };
-
-      const start = (minutes = DEFAULT_MINUTES): PomodoroResult => {
-        const startedAtMs = now();
-        settleIfExpired(startedAtMs);
-        if (running) {
-          return { outcome: "already_running", status: statusAt(startedAtMs) };
-        }
-
-        const endsAtMs = startedAtMs + minutes * MINUTE_MS;
-        const current: RunningPomodoro = {
-          durationMinutes: minutes,
-          endsAtMs,
-          timer: undefined,
-        };
-        running = current;
-        current.timer = schedule(
-          () => finish(current),
-          endsAtMs - startedAtMs,
-        );
-
-        return { outcome: "started", status: statusAt(startedAtMs) };
-      };
-
-      const cancel = (): PomodoroResult => {
-        settleIfExpired(now());
-        if (!running) return { outcome: "not_running", status: idleStatus() };
-        clear(running.timer);
-        running = undefined;
-        return { outcome: "cancelled", status: idleStatus() };
-      };
-
-      const status = (): PomodoroResult => ({
-        outcome: "status",
-        status: currentStatus(),
-      });
+      const service = options.service ?? createPomodoroService(options);
+      const unsubscribe = service.subscribe((message) => ctx.notify(message));
+      const start = (minutes?: number): PomodoroResult => service.start(minutes);
+      const status = (): PomodoroResult => service.status();
+      const cancel = (): PomodoroResult => service.cancel();
 
       const startTool = tool({
         description:
@@ -354,9 +387,8 @@ export function createPomodoroModule(
       });
 
       return () => {
-        if (!running) return;
-        clear(running.timer);
-        running = undefined;
+        unsubscribe();
+        if (options.service === undefined) service.dispose();
       };
     },
   };

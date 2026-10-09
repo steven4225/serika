@@ -5,6 +5,7 @@ import type { RegisteredTool } from "@aisdk-agent/ai-sdk-adapter";
 import { createModuleHost } from "../module-host.js";
 import {
   createPomodoroModule,
+  createPomodoroService,
   type PomodoroModuleOptions,
   type PomodoroResult,
 } from "./pomodoro-module.js";
@@ -107,6 +108,60 @@ function result(value: unknown): PomodoroResult {
 }
 
 describe("createPomodoroModule", () => {
+  it("keeps host-owned state across disposal and routes completion only to the new adapter", async () => {
+    const clock = fakeClock();
+    const desktopCalls: string[] = [];
+    const service = createPomodoroService({ ...clock, desktopNotifier: message => desktopCalls.push(message) });
+    const oldMessages: string[] = [];
+    const oldHost = createModuleHost([createPomodoroModule({ service })], {
+      notify: (_id, message) => oldMessages.push(message),
+    });
+    const started = result(await executeTool(toolByName(oldHost.tools, "pomodoro_start"), { minutes: 1 }, toolOptions()));
+    oldHost.dispose();
+    assert.equal(clock.pending(), 1);
+    clock.advance(10_000);
+    const newMessages: string[] = [];
+    const newHost = createModuleHost([createPomodoroModule({ service })], {
+      notify: (_id, message) => newMessages.push(message),
+    });
+    try {
+      const current = result(await executeTool(toolByName(newHost.tools, "pomodoro_status"), {}, toolOptions()));
+      assert.equal(current.status.state, "running");
+      if (current.status.state === "running" && started.status.state === "running") {
+        assert.equal(current.status.endsAt, started.status.endsAt);
+        assert.equal(current.status.remainingSeconds, 50);
+      }
+      clock.advance(50_000);
+      assert.deepEqual(oldMessages, []);
+      assert.deepEqual(newMessages, ["番茄钟结束，已完成 1 分钟专注。"]);
+      assert.deepEqual(desktopCalls, newMessages);
+      assert.equal(clock.pending(), 0);
+    } finally { newHost.dispose(); service.dispose(); }
+  });
+
+  it("notifies outside a module lifetime and lets the owner cancel or dispose explicitly", () => {
+    const clock = fakeClock();
+    const desktopCalls: string[] = [];
+    const service = createPomodoroService({ ...clock, desktopNotifier: message => desktopCalls.push(message) });
+    const host = createModuleHost([createPomodoroModule({ service })], { notify: () => undefined });
+    service.start(1);
+    host.dispose();
+    clock.advance(60_000);
+    assert.equal(desktopCalls.length, 1);
+    assert.equal(service.status().status.state, "idle");
+    service.start(1);
+    assert.equal(service.cancel().outcome, "cancelled");
+    clock.advance(60_000);
+    assert.equal(desktopCalls.length, 1);
+    service.start(1);
+    service.dispose();
+    service.dispose();
+    clock.advance(60_000);
+    assert.equal(desktopCalls.length, 1);
+    assert.equal(clock.pending(), 0);
+    assert.throws(() => service.start(), /disposed/);
+  });
+
   it("registers the three tools and pomodoro command with required metadata", () => {
     const { host } = makeTest();
 

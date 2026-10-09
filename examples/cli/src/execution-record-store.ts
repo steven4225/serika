@@ -4,6 +4,7 @@ import { lstat, open, readFile, rename, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { AgentEvent, RunResult } from "@aisdk-agent/core";
 import { acquireFlock, tryAcquireFlock, type FlockHandle } from "./flock.js";
+import { compactTraceEvent, validTrace, validTraceUsage, TRACE_MAX_EVENTS, TRACE_MAX_BYTES, type ExecutionTrace } from "./execution-trace.js";
 
 export const EXECUTION_RECORD_FILE = "execution-records.json";
 export const EXECUTION_RECORD_MAX_RUNS = 50;
@@ -37,6 +38,8 @@ export interface ExecutionToolRecord {
   requestedAt: string;
   startedAt: string | null;
   finishedAt: string | null;
+  /** Actual confirmation creation observed by the Controller, not inferred from request latency. */
+  approvalRequestedAt?: string;
   inputPreview: string;
   inputTruncated: boolean;
   resultPreview: string | null;
@@ -69,6 +72,7 @@ export interface ExecutionRunRecord {
   memoryReferencesTruncated?: boolean;
   /** Audit only: never a replay queue. Unapplied messages remain visible after restart. */
   steers?: AssistantSteerRecord[];
+  trace?: ExecutionTrace;
 }
 
 export type ExecutionRecordErrorCode =
@@ -193,6 +197,7 @@ function validateTool(value: unknown): ExecutionToolRecord {
       !timestamp(value.requestedAt) ||
       (value.startedAt !== null && !timestamp(value.startedAt)) ||
       (value.finishedAt !== null && !timestamp(value.finishedAt)) ||
+      (value.approvalRequestedAt !== undefined && !timestamp(value.approvalRequestedAt)) ||
       !validPreview(value.inputPreview) || typeof value.inputTruncated !== "boolean" ||
       (value.resultPreview !== null && !validPreview(value.resultPreview)) ||
       typeof value.resultTruncated !== "boolean" ||
@@ -249,6 +254,7 @@ export function validateExecutionRunRecord(value: unknown): ExecutionRunRecord {
     fail("FILE_INVALID", "Run record contains invalid fields");
   }
   const tools = (value.tools as unknown[]).map(validateTool);
+  if (value.trace !== undefined && !validTrace(value.trace)) fail("FILE_INVALID", "Execution trace is invalid");
   if (value.steers !== undefined && (!Array.isArray(value.steers) || value.steers.length > 8 ||
       value.steers.some(item => !isObject(item) || typeof item.id !== "string" || !/^[A-Za-z0-9._:-]{1,128}$/.test(item.id) ||
         item.runId !== value.runId || typeof item.text !== "string" || !item.text.trim() || Buffer.byteLength(item.text, "utf8") > 4096 ||
@@ -310,6 +316,7 @@ export class ExecutionRecordStore {
   readonly #file: string;
   readonly #lock: string;
   readonly #now: () => Date;
+  readonly #traceGaps = new Set<string>();
 
   constructor(directory: string, options: { now?: () => Date } = {}) {
     this.#directory = resolve(directory);
@@ -342,8 +349,46 @@ export class ExecutionRecordStore {
         phase: input.phase,
         status: "running", startedAt: input.startedAt ?? this.#now().toISOString(), finishedAt: null,
         resultTextPreview: null, resultTextTruncated: false, errorPreview: null, tools: [],
+        trace: { version: 1, events: [], truncated: false, incomplete: false },
       });
     }, input.runId);
+  }
+
+  /** Optional display metadata must not prevent model execution or weaken tool barriers. */
+  async recordTraceEvent(event: AgentEvent): Promise<void> {
+    const compact = compactTraceEvent(event);
+    if (compact === null) return;
+    try {
+      await this.#mutate(document => {
+        const run = document.runs.find(item => item.runId === event.runId && item.threadId === event.threadId);
+        if (!run || run.status !== "running" || !run.trace) fail("CONFLICT", "Trace belongs to an active Run");
+        const trace = run.trace;
+        if (trace.events.some(item => item.sequence === compact.sequence)) return;
+        if (trace.events.length >= TRACE_MAX_EVENTS ||
+            Buffer.byteLength(JSON.stringify([...trace.events, compact])) > TRACE_MAX_BYTES) {
+          trace.truncated = true;
+          return;
+        }
+        trace.events.push(compact);
+        if (!validTrace(trace)) fail("INVALID_INPUT", "Invalid trace metadata");
+      }, event.runId);
+    } catch { this.#traceGaps.add(event.runId); }
+  }
+
+  async recordApprovalRequested(threadId: string, toolCallId: string, toolName: string): Promise<void> {
+    const at = this.#now().toISOString();
+    let runId: string | undefined;
+    try {
+      await this.#mutate(document => {
+        // Controller owns this Thread; tool IDs alone are never global identities.
+        const run = document.runs.find(item => item.threadId === threadId && item.status === "running" &&
+          item.tools.some(tool => tool.toolCallId === toolCallId && tool.toolName === toolName));
+        if (!run) return;
+        runId = run.runId;
+        const tool = run.tools.find(tool => tool.toolCallId === toolCallId)!;
+        tool.approvalRequestedAt ??= at;
+      });
+    } catch { if (runId) this.#traceGaps.add(runId); }
   }
 
   async recordToolEvent(runId: string, event: ToolEvent): Promise<void> {
@@ -434,6 +479,10 @@ export class ExecutionRecordStore {
       run.resultTextPreview = text.text;
       run.resultTextTruncated = text.truncated;
       run.errorPreview = result.error ? preview(result.error.message).text : null;
+      if (run.trace) {
+        if (validTraceUsage(result.usage)) run.trace.usage = structuredClone(result.usage);
+        if (Number.isSafeInteger(result.steps) && result.steps >= 0) run.trace.steps = result.steps;
+      }
       for (const steer of run.steers ?? []) {
         if (steer.status === "accepted") { steer.status = "not_applied"; steer.reason = result.status; }
       }
@@ -539,6 +588,9 @@ export class ExecutionRecordStore {
     try {
       const document = await this.#load();
       update(document);
+      for (const run of document.runs) {
+        if (run.trace && this.#traceGaps.has(run.runId)) run.trace.incomplete = true;
+      }
       const oldestPrunable = (): number => {
         for (let index = document.runs.length - 1; index >= 0; index -= 1) {
           const run = document.runs[index]!;
@@ -552,6 +604,13 @@ export class ExecutionRecordStore {
         document.runs.splice(index, 1);
       }
       let serialized = `${JSON.stringify(document)}\n`;
+      // Display metadata yields before authoritative tool receipts or dispatch barriers.
+      for (const run of [...document.runs].reverse()) {
+        if (Buffer.byteLength(serialized, "utf8") <= EXECUTION_RECORD_MAX_BYTES) break;
+        if (!run.trace?.events.length) continue;
+        run.trace.events = []; run.trace.truncated = true;
+        serialized = `${JSON.stringify(document)}\n`;
+      }
       while (Buffer.byteLength(serialized, "utf8") > EXECUTION_RECORD_MAX_BYTES) {
         const index = oldestPrunable();
         if (index < 0) fail("LIMIT_EXCEEDED", "Execution record file exceeds size limit");
@@ -567,6 +626,7 @@ export class ExecutionRecordStore {
         finally { await handle.close(); }
         await rename(temporary, this.#file);
         created = false;
+        for (const run of document.runs) this.#traceGaps.delete(run.runId);
       } finally {
         if (created) await rm(temporary, { force: true });
       }
