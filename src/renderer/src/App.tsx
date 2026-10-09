@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import type {
   AppInfo,
   CommandResponse,
@@ -30,7 +30,6 @@ import { baseName, parseHome, shortId, type HomeView } from "./home.js";
 import { MemoryPanel } from "./memory.js";
 import { MemoryConsolidationPanel, MemoryConsolidationNotice } from "./memory-consolidation.js";
 import { ThreadsPanel } from "./threads.js";
-import { RecentThreads } from "./recent-threads.js";
 import { MemoryReferences } from "./memory-references.js";
 import { ContextPanel } from "./context.js";
 import { RecordsPanel, type RecordDetailState, type RecordsState } from "./records.js";
@@ -51,18 +50,20 @@ import { TaskInbox } from "./task-inbox.js";
 import { unreconciledRuns, taskSelectionKey, taskActions } from "./work-task-data.js";
 import { bindTaskComposer, completionLabel, draftKey, type ConversationDraft } from "./navigation.js";
 import { DailySetup } from "./daily-setup-panel.js";
-import { dailySetupNotice } from "./daily-setup.js";
 import { desktopLayout, type DesktopLayout } from "./zcode/layout.js";
-import { ZCodeSidebar } from "./zcode/sidebar.js";
 import { ZCodeMessage, ZCodeMessageContent } from "./zcode/message.js";
-import { ZCodeConversation, ZCodeBackToBottom } from "./zcode/conversation.js";
-import { ZCodePromptEditor, ZCodePromptOptions } from "./zcode/prompt-editor.js";
+import { PersonalConversation as ZCodeConversation, PersonalBackToBottom as ZCodeBackToBottom } from "./personal/conversation.js";
+import { PersonalPromptEditor as ZCodePromptEditor, PersonalPromptOptions as ZCodePromptOptions } from "./personal/composer.js";
+import { TodayPanel } from "./personal/today.js";
+import { clampChatFraction, loadChatFraction, dashboardTabForDetail, PERSONAL_SPLIT_KEY, PERSONAL_COMPACT_BREAKPOINT } from "./personal/layout.js";
 import { DesktopWindowFrame } from "./zcode/upstream/desktop-window-frame.js";
 import { Button } from "./zcode/upstream/button.js";
-import { ArrowUp, Square } from "lucide-react";
-import { APPEARANCE_KEY, zcodeAppearance } from "./zcode/appearance.js";
+import { ArrowUp, Square, Search, Settings2 } from "lucide-react";
 import { draftScope, type UncertainSteer } from "../../shared/conversation-drafts.js";
 import "./zcode/theme.css";
+import "./personal/shell.css";
+import "./personal/today.css";
+import "./personal/conversation.css";
 
 const OUTPUT_MAX_CHARS = 64 * 1024;
 
@@ -253,10 +254,10 @@ export function App({ initialLayout }: { initialLayout?: DesktopLayout } = {}) {
   const [initialSettings, setInitialSettings] = useState(false);
   const [initialSettingsError, setInitialSettingsError] = useState<string | null>(null);
   const drafts = useRef(new Map<string, ConversationDraft>());
-  const [appearance, setAppearance] = useState(() => zcodeAppearance(localStorage.getItem(APPEARANCE_KEY)));
+  const [appearance, setAppearance] = useState<"dark" | "light">(() => localStorage.getItem("serika:personal-appearance") === "dark" ? "dark" : "light");
   const toggleAppearance = () => setAppearance(value => {
     const next = value === "dark" ? "light" : "dark";
-    localStorage.setItem(APPEARANCE_KEY, next);
+    localStorage.setItem("serika:personal-appearance", next);
     return next;
   });
   useEffect(() => window.runloom.onMessage(message => {
@@ -264,11 +265,27 @@ export function App({ initialLayout }: { initialLayout?: DesktopLayout } = {}) {
   }), []);
   // Reset evidence/previews on identity changes; drafts also recover from main-process storage.
   const page = <AssistantPage key={identityGeneration} drafts={drafts.current} layout={layout} initialSettings={initialSettings} initialSettingsError={initialSettingsError} appearance={appearance} onAppearance={toggleAppearance} />;
-  return layout === "zcode" ? <div className={`serika-zcode-shell theme-zai-${appearance}`}><DesktopWindowFrame title="Serika" isDesktop={true} isMacDesktop={document.documentElement.dataset.nativeWindowControls === "macos"}>{page}</DesktopWindowFrame></div> : page;
+  return <div className={`serika-personal-shell personal-theme-${appearance}`}><DesktopWindowFrame title="Serika" isDesktop={true} isMacDesktop={document.documentElement.dataset.nativeWindowControls === "macos"}>{page}</DesktopWindowFrame></div>;
 }
 
 function AssistantPage({ drafts, layout, initialSettings = false, initialSettingsError = null, appearance, onAppearance }: { drafts: Map<string, ConversationDraft>; layout: DesktopLayout; initialSettings?: boolean; initialSettingsError?: string | null; appearance: "dark" | "light"; onAppearance: () => void }) {
   const [info, setInfo] = useState<AppInfo | null>(null);
+  const [mobileDashboard, setMobileDashboard] = useState(initialSettings);
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const [chatFraction, setChatFraction] = useState(() => loadChatFraction(localStorage.getItem(PERSONAL_SPLIT_KEY)));
+  const splitRoot = useRef<HTMLDivElement | null>(null);
+  const compact = windowWidth < PERSONAL_COMPACT_BREAKPOINT;
+  const actualFraction = clampChatFraction(windowWidth, chatFraction);
+  useEffect(() => {
+    const resize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, []);
+  const saveSplit = (value: number) => {
+    const next = clampChatFraction(windowWidth, value);
+    setChatFraction(next);
+    try { localStorage.setItem(PERSONAL_SPLIT_KEY, String(next)); } catch { /* Layout remains usable without preference storage. */ }
+  };
   const [conversationTitle, setConversationTitle] = useState("当前对话");
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
   const [threadsLoading, setThreadsLoading] = useState(true);
@@ -285,6 +302,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const [lastResult, setLastResult] = useState<ConversationRow | null>(null);
   const [approval, setApproval] = useState<PendingApproval | null>(null);
   const [canSteer, setCanSteer] = useState(false);
+  useEffect(() => { if (approval) setMobileDashboard(false); }, [approval?.approvalId]);
   const [steers, setSteers] = useState<readonly AssistantSteerRecord[]>([]);
   const [uncertainSteer, setUncertainSteer] = useState<UncertainSteer | null>(null);
   const [draftReady, setDraftReady] = useState(false);
@@ -339,7 +357,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const traceVisible = useRef(false);
   const [traceFocusTool, setTraceFocusTool] = useState<string | null>(null);
   traceVisible.current = detailsOpen && detailTab === "records";
-  const taskRunStarted = useCallback((text: string) => { setSubmittedInput(text); followConversation.current = true; setDetailsOpen(false); }, []);
+  const taskRunStarted = useCallback((text: string) => { setSubmittedInput(text); followConversation.current = true; setDetailsOpen(false); setMobileDashboard(false); }, []);
   const workTasks = useWorkTasks(info?.workTasks === true, state.kind !== "idle", taskRefresh, taskRunStarted, taskSelectionKey(info), info ? draftScope(info) : null);
   const { composerTaskId: taskComposerId, setComposerTaskId: setTaskComposerId } = workTasks;
   const composerBinding = bindTaskComposer(taskComposerId, workTasks.task);
@@ -441,7 +459,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
       const route = await window.runloom.takeTaskResultOpen?.();
       if (!route || cancelled) return;
       setTaskResultFocus(previous => ({ ...route, sequence: (previous?.sequence ?? 0) + 1 }));
-      setDetailTab("home"); setDetailsOpen(true);
+      setDetailTab("home"); setDetailsOpen(true); setMobileDashboard(true);
     };
 
     const onMessage = (message: MainToRenderer): void => {
@@ -625,16 +643,16 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   }, [info, input, excludeFromMemory, drafts, draftReady]);
 
   useEffect(() => {
-    if (!detailsOpen) return;
+    if (!detailsOpen && !mobileDashboard) return;
     const close = (event: KeyboardEvent) => {
       // Let an inner disclosure/dialog consume Escape first.
-      if (event.key === "Escape" && !event.defaultPrevented) {
-        setDetailsOpen(false); event.preventDefault();
+      if (event.key === "Escape" && !event.isComposing && !event.defaultPrevented) {
+        setDetailsOpen(false); setMobileDashboard(false); event.preventDefault();
       }
     };
     window.addEventListener("keydown", close);
     return () => window.removeEventListener("keydown", close);
-  }, [detailsOpen]);
+  }, [detailsOpen, mobileDashboard]);
 
   useEffect(() => {
     if (!info || state.kind !== "idle") return;
@@ -668,13 +686,14 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key === "Escape" && !event.isComposing) {
-        if (detailsOpen) setDetailsOpen(false); else void window.runloom.hide();
+      if (event.key === "Escape" && !event.isComposing && !event.defaultPrevented) {
+        if (detailsOpen || mobileDashboard) { setDetailsOpen(false); setMobileDashboard(false); }
+        else void window.runloom.hide();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [detailsOpen]);
+  }, [detailsOpen, mobileDashboard]);
 
   const decide = useCallback(async (decision: "allow" | "deny") => {
     if (approval === null || decisionInFlight.current === approval.approvalId) return;
@@ -832,12 +851,12 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const homeView = parseHome(home);
   const unknownRuns = records.status === "ready" ? unreconciledRuns(records.runs, workTasks.tasks) : [];
   const reviewTask = workTasks.tasks.find(task => task.status === "needs_review");
-  const openDetails = (tab: typeof detailTab) => { setDetailTab(tab); setDetailsOpen(true); };
+  const openDetails = (tab: typeof detailTab) => { setDetailTab(tab); setDetailsOpen(true); setMobileDashboard(true); };
   const openMemory = (id: string | null = null) => { setMemoryFocus(current => ({ id, sequence: current.sequence + 1 })); openDetails("memory"); };
   const openTask = () => { setTaskFocused(true); openDetails("tasks"); };
   const composeTask = () => {
     if (!workTasks.task || !taskActions(workTasks.task).run || workTasks.locked) return;
-    setTaskComposerId(workTasks.task.id); setDetailsOpen(false);
+    setTaskComposerId(workTasks.task.id); setDetailsOpen(false); setMobileDashboard(false);
     requestAnimationFrame(() => inputRef.current?.focus());
   };
 
@@ -861,14 +880,14 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
       await workTasks.flushDrafts();
       if (input.length) drafts.set(draftKey(info), { text: input, excludeFromMemory });
       await window.runloom.createThread({ preserveDraft: input.length > 0 });
-      setDetailsOpen(false);
+      setDetailsOpen(false); setMobileDashboard(false);
     }
     catch { setError("新对话未打开，请查看当前会话；不会自动重试。"); }
     finally { threadSwitchInFlight.current = false; setSwitchingThread(false); }
   };
   const selectConversation = async (id: string) => {
     if (busy || sending || threadSwitchInFlight.current || !info) return;
-    if (id === info.threadId) { setDetailsOpen(false); return; }
+    if (id === info.threadId) { setDetailsOpen(false); setMobileDashboard(false); return; }
     threadSwitchInFlight.current = true;
     setSwitchingThread(true);
     try { await draftSave.current; await workTasks.flushDrafts(); await window.runloom.selectThread(id); }
@@ -883,68 +902,26 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   };
 
   return (
-    <div className={`app${layout === "zcode" ? " zcode-layout" : ""}${rows.length === 0 && !busy && !workTasks.task && !detailsOpen ? " conversation-draft" : ""}`}>
-      {layout === "zcode" ? <ZCodeSidebar threads={threads} currentId={info?.threadId ?? ""} drafts={threadDrafts}
-        workspaceRoot={info?.workspaceRoot ?? null} loading={threadsLoading} error={threadsError}
-        busy={busy || sending || switchingThread || !info} selected={detailsOpen ? detailTab : null}
-        pendingMemory={pendingLabel} unknownRuns={unknownRuns.length} appearance={appearance} onAppearance={onAppearance}
-        onNew={() => void newConversation()} onSelect={id => void selectConversation(id)}
-        onOpen={tab => { if (detailsOpen && detailTab === tab) setDetailsOpen(false); else if (tab === "memory") openMemory(); else openDetails(tab); }} onConversation={() => setDetailsOpen(false)} /> : null}
-      <aside className="sidebar" aria-label="主导航" hidden={layout === "zcode"}>
-        <div className="brand"><SerikaMark /><span>Serika</span></div>
-        <div className="sidebar-nav-scroll">
-        <nav className="primary-nav" aria-label="对话">
-          <button disabled={busy || sending || switchingThread || !info} onClick={() => void newConversation()} title="开始新对话；当前草稿保留在本窗口"><Icon name="new-chat" /><span>新对话</span></button>
-          <button className={!detailsOpen ? "selected" : ""} onClick={() => setDetailsOpen(false)} title="当前对话" aria-current={!detailsOpen ? "page" : undefined}>
-            <Icon name="chat" /><span>对话</span>
-          </button>
-          <button className={detailsOpen && detailTab === "tasks" ? "selected" : ""} onClick={() => { setTaskFocused(false); openDetails("tasks"); }} title="工作任务" aria-current={detailsOpen && detailTab === "tasks" ? "page" : undefined}><Icon name="activity" /><span>工作任务</span></button>
-        </nav>
-        {info ? <RecentThreads threads={threads} drafts={threadDrafts} currentId={info.threadId} loading={threadsLoading} error={threadsError} busy={busy || sending || switchingThread} onSelect={id => void selectConversation(id)} onAll={() => openDetails("threads")} /> : null}
-        <div className="sidebar-section">查阅</div>
-        <nav className="primary-nav" aria-label="查阅">
-          {([["records", "执行记录", "activity"], ["memory", "记忆", "memory"]] as const).map(([tab, label, icon]) =>
-            <button key={tab} className={detailsOpen && detailTab === tab ? "selected" : ""} title={label} aria-current={detailsOpen && detailTab === tab ? "page" : undefined} onClick={() => tab === "memory" ? openMemory() : openDetails(tab)}>
-              <Icon name={icon as IconName} /><span>{label}</span>{tab === "records" && unknownRuns.length ? <span className="nav-count" aria-label={`${unknownRuns.length} 条已加载执行尚待核对`}>{unknownRuns.length}</span> : tab === "memory" && pendingLabel ? <span className="nav-count" title={pendingMemory.hasMore ? "待审候选数量至少为此数" : "当前 Thread 待审候选"} aria-label={`${pendingLabel} 条待审记忆`}>{pendingLabel}</span> : null}
-            </button>)}
-        </nav>
-        <details className="sidebar-tools"><summary title="工作区与工具" aria-label="工作区与工具"><Icon name="modules" /><span>工作区与工具</span></summary><nav className="primary-nav" aria-label="工作区与工具">
-          <button className={detailsOpen && detailTab === "home" ? "selected" : ""} onClick={() => openDetails("home")} title="工作区、订阅与定时提醒"><Icon name="home" /><span>工作区与订阅</span></button>
-          <button className={detailsOpen && detailTab === "pomodoro" ? "selected" : ""} aria-current={detailsOpen && detailTab === "pomodoro" ? "page" : undefined} title="番茄钟" onClick={() => openDetails("pomodoro")}><Icon name="timer" /><span>番茄钟</span></button>
-        </nav></details>
-        </div>
-        <div className="sidebar-section maintenance-label">维护</div>
-        <nav className="primary-nav" aria-label="维护">
-          <button className={detailsOpen && detailTab === "modules" ? "selected" : ""} aria-current={detailsOpen && detailTab === "modules" ? "page" : undefined} title="模块能力" onClick={() => openDetails("modules")}><Icon name="modules" /><span>模块能力</span></button>
-          <button className={detailsOpen && detailTab === "context" ? "selected" : ""} aria-current={detailsOpen && detailTab === "context" ? "page" : undefined} title="上下文与压缩" onClick={() => openDetails("context")}><Icon name="context" /><span>上下文与压缩</span></button>
-        </nav>
-        <button className="workspace-switch" onClick={() => openDetails("home")} title={info?.workspaceRoot ?? "尚未配置工作区"}>
-          <span className="workspace-avatar">{info?.workspaceRoot ? baseName(info.workspaceRoot).slice(0, 1).toUpperCase() : "R"}</span>
-          <span className="workspace-copy"><strong>{info?.workspaceRoot ? baseName(info.workspaceRoot) : "当前会话"}</strong><small>{info?.workspaceRoot ? "本地工作区" : "未配置工作区"}</small></span>
-          <Icon name="chevron" size={14} />
-        </button>
-      </aside>
+    <div ref={splitRoot} className={`app personal-layout${compact ? " is-compact" : ""}${compact && mobileDashboard ? " show-dashboard" : ""}`} style={{ "--chat-fraction": actualFraction } as CSSProperties}>
       <div className="main-shell">
         <header className="header">
-          <span className="page-context" title={pageTitle}>{pageTitle}</span>
+          <span className="personal-name" title={conversationTitle}>Serika</span>
           <span className={`run-state ${status.tone}`} role="status"><span className={`state-dot ${status.tone}`} />{stageLabel}</span>
           <span className="spacer" />
-          {busy && (layout !== "zcode" || detailsOpen) ? <button className="cancel-button" onClick={() => void window.runloom.cancel().catch(() => setError("取消结果未收到，请核对当前状态。"))}><Icon name="stop" size={14} />{state.kind === "running" && state.phase === "consolidation" ? "停止整理" : "停止"}</button> : null}
+          <button className="personal-mobile-today" type="button" onClick={() => setMobileDashboard(true)}>今天<Icon name="chevron" size={14} /></button>
+          <button className="icon-button personal-new-chat" type="button" aria-label="新对话" title="新对话；保留当前草稿" disabled={busy || sending || switchingThread || !info} onClick={() => void newConversation()}><Icon name="new-chat" /></button>
         </header>
         {isMockModel(info?.modelAlias) || info?.entryMode === "test" ? <div className="model-mode-notice" role="status">{info?.entryMode === "test" ? "隔离测试 · 会话和记忆不属于日用工作区。" : ""}{isMockModel(info?.modelAlias) ? "模拟模型，不会调用真实模型。" : ""}</div> : null}
-        {info && !detailsOpen && !busy && attention === "none" && dailySetupNotice(info) ? <div className="attention-summary daily-setup-notice"><span>{dailySetupNotice(info)}</span><button className="ghost" onClick={() => openDetails("home")}>查看日用设置</button></div> : null}
-        {info && !detailsOpen && attention === "none" ? <MemoryConsolidationNotice key={`${info.workspaceRoot}:${info.threadId}`} enabled={info.memory.enabled} busy={busy} quiet={layout === "zcode"} running={state.kind === "running" && state.phase === "consolidation"} refreshToken={memoryRefresh} onOpen={() => openMemory()} /> : null}
-        {!detailsOpen && !busy && attention === "none" && memoryDeferred && pendingLabel ? <div className="attention-summary"><span>{pendingLabel} 条候选留待稍后审核，尚未保存为正式记忆。</span><button className="ghost" onClick={() => openMemory()}>查看候选</button></div> : null}
-        <div className="attention-region" hidden={(attention === "none" && !pendingMemory.error) || (attention === "memory" && detailsOpen)}>
-          {attention === "approval" && approval && (layout !== "zcode" || detailsOpen) ? <ApprovalCard approval={approval} deciding={decidingId === approval.approvalId} onDecision={decision => void decide(decision)} /> : null}
+        {info && attention === "none" ? <MemoryConsolidationNotice key={`${info.workspaceRoot}:${info.threadId}`} enabled={info.memory.enabled} busy={busy} quiet={true} running={state.kind === "running" && state.phase === "consolidation"} refreshToken={memoryRefresh} onOpen={() => openMemory()} /> : null}
+        <div className="attention-region" hidden={attention === "none" && !pendingMemory.error}>
           {attention === "unknown" ? <div className="review-notice" role="status"><Icon name="shield" size={16} /><span>有执行效果还没核对，不会自动重做。</span><button className="ghost" onClick={() => { if (reviewTask) { workTasks.select(reviewTask.id); openTask(); } else { openDetails("records"); const run = unknownRuns[0]; if (run) void openRecord(run.runId); } }}>{reviewTask ? "核对工作任务" : "查看回执"}<Icon name="chevron" size={14} /></button></div> : null}
-          {info ? <PendingMemory memory={info.memory} controllerIdle={!busy} refreshToken={memoryRefresh} visible={attention === "memory" && !detailsOpen} onStatus={setPendingMemory} onReviewed={refreshMemory} onLater={() => setMemoryDeferred(true)} onOpenCandidate={id => openMemory(id)} /> : null}
+          {info ? <PendingMemory memory={info.memory} controllerIdle={!busy} refreshToken={memoryRefresh} visible={attention === "memory"} onStatus={setPendingMemory} onReviewed={refreshMemory} onLater={() => setMemoryDeferred(true)} onOpenCandidate={id => openMemory(id)} /> : null}
           {pendingMemory.error && attention === "none" ? <div className="attention-summary"><span>记忆候选暂不可用，不能据此判断没有待审项。</span><button className="ghost" onClick={() => openDetails("memory")}>查看原因</button></div> : null}
           {attention === "approval" && (unknownRuns.length > 0 || pendingLabel) ? <div className="attention-summary">{unknownRuns.length > 0 ? <button className="ghost" onClick={() => openDetails("records")}>另有执行效果待核对</button> : null}{pendingLabel ? <button className="ghost" onClick={() => openDetails("memory")}>待审记忆 {pendingLabel}</button> : null}</div> : null}
           {attention === "unknown" && pendingLabel ? <div className="attention-summary"><button className="ghost" onClick={() => openDetails("memory")}>还有待审记忆 {pendingLabel}</button></div> : null}
         </div>
         <div className="workbench">
-          <main className="workspace-pane" hidden={detailsOpen}>
+          <main className="workspace-pane">
             <section className="conversation" aria-label="对话">
               <CurrentTask view={workTasks} onOpen={openTask} onCompose={composeTask} compact={busy} />
               <div className="rows" ref={conversationScroll} onScroll={() => {
@@ -956,10 +933,9 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
               }}>
                 {rows.length === 0 && !live.streaming && !workTasks.task ? <div className="conversation-empty">
                   <h1>你想完成什么？</h1>
-                  <button className="ghost" onClick={() => openDetails("threads")}>继续之前的对话<Icon name="chevron" size={14} /></button>
                 </div> : null}
                 <div className="conversation-thread">
-                  {layout === "zcode" ? <ZCodeConversation rows={rows} running={activePrimary} streaming={live.streaming} waitingForApproval={approval !== null} onTrace={(runId, toolCallId) => { setDetailTab("records"); setDetailsOpen(true); void openRecord(runId, toolCallId).catch(() => setError("执行追踪读取失败")); }} /> : rows.map(row => <Row key={row.key} row={row} delivered={delivered.has(row.key)} />)}
+                  {layout === "zcode" ? <ZCodeConversation rows={rows} running={activePrimary} streaming={live.streaming} waitingForApproval={approval !== null} onTrace={(runId, toolCallId) => { openDetails("records"); void openRecord(runId, toolCallId).catch(() => setError("执行追踪读取失败")); }} /> : rows.map(row => <Row key={row.key} row={row} delivered={delivered.has(row.key)} />)}
                   {info?.memory.enabled ? <MemoryReferences hideEmpty={layout === "zcode"} refreshToken={contextRefresh} runId={state.kind === "running" && state.phase === "primary" ? state.runId : latestPrimaryId.current} starting={state.kind === "running" && state.phase === "primary" && state.runId === null} /> : null}
                   {layout !== "zcode" && activePrimary && live.streaming ? <div className="row row-text role-assistant live">
                     <span className="role"><SerikaMark size={20} /> Serika <span className="streaming-label">正在回复</span></span>
@@ -978,12 +954,90 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
               {showOutput ? <div className="system-output"><div><Icon name="terminal" size={16} /><span>系统输出 · 仅供诊断</span><button className="icon-button" aria-label="关闭系统输出" onClick={() => setShowOutput(false)}><Icon name="close" size={16} /></button></div><pre className="output">{output || "暂无输出"}</pre></div> : null}
             </section>
           </main>
+        </div>
+        <div className="action-dock">
+          {info?.runtimeRecovery ? <div className="error error-banner" role="alert"><span>助手连接已停止：{info.runtimeRecovery.message}。修正配置后重新连接，不会重做旧任务。</span><button type="button" className="ghost" disabled={reconnecting} onClick={() => void retryConnection()}>{reconnecting ? "正在连接…" : "重新连接"}</button></div> : null}
+          {draftError ? <div className="error error-banner" role="alert"><span>{draftError}</span><button type="button" className="ghost" onClick={() => {
+            if (!info) return;
+            if (!draftReady) { window.location.reload(); return; }
+            const save = window.runloom.saveConversationDraft(draftScope(info), { text: input, excludeFromMemory });
+            draftSave.current = save;
+            void save.then(() => setDraftError(null)).catch(() => setDraftError("草稿仍未保存，内容保留，请检查保存位置。"));
+          }}>重试保存</button></div> : null}
+          {error ? <div className="error error-banner" role="alert"><span>{error}</span>{info ? <button className="icon-button" aria-label="关闭错误提示" onClick={() => setError(null)}><Icon name="close" size={16} /></button> : null}</div> : null}
+          {workTasks.draftError ? <div className="error error-banner" role="alert"><span>{workTasks.draftError}</span><button className="ghost" type="button" onClick={workTasks.retryDrafts}>重试任务草稿保存</button></div> : null}
+          {uncertainSteer ? <div className="attention-summary" role="status"><span>补充要求的接收凭证待核对，草稿不会重发。{uncertainSteer.taskId ? "原补充属于工作任务；核对前不会作为普通对话发送。" : ""}</span><details><summary>查看这次补充</summary><pre>{uncertainSteer.text}</pre></details><button type="button" className="ghost" onClick={() => void recheckSteer()}>核对接收状态</button>{!busy ? <button type="button" className="ghost" onClick={() => void releaseSteer()}>保留草稿，结束本次核对</button> : null}</div> : null}
+          {approval ? <ApprovalCard approval={approval} deciding={decidingId === approval.approvalId} onDecision={decision => void decide(decision)} /> : null}
+          <ZCodePromptEditor inputRef={inputRef} value={composerText} aria-label={composingTask ? "本轮任务指令" : "消息输入"}
+              notice={steering ? "补充将进入当前这轮规划；已执行操作不会撤销，工具仍需重新确认。本条不整理为记忆。" : composingTask ? !composerTask ? "任务已切换，原草稿仍保留。重新选择任务，或切回普通对话。" : !busy && !taskActions(composerTask).run ? "本轮已结束，请从任务卡查看结果，或切回普通对话。" : null : null}
+              topContent={<>{workTasks.task || composingTask ? <div className="composer-target" role="group" aria-label="发送方式"><button className={!composingTask ? "selected" : ""} type="button" aria-pressed={!composingTask} onClick={() => setTaskComposerId(null)}>普通对话</button><button className={composingTask ? "selected" : ""} type="button" aria-pressed={composingTask} disabled={!workTasks.task || (!taskActions(workTasks.task).run && !composingTask)} onClick={composeTask}>补充当前任务</button>{composingTask ? <span>{composerTask?.goal ?? `任务 ${taskComposerId} 暂不可用`}</span> : null}</div> : null}{excludeFromMemory && !composingTask ? <div className="zcode-draft-setting"><Icon name="memory" size={13} /><span>本条不整理为记忆</span><button type="button" className="icon-button" aria-label="恢复本条记忆整理" onClick={() => setExcludeFromMemory(false)}><Icon name="close" size={12} /></button></div> : null}</>}
+              disabled={sending || switchingThread || info === null || !draftReady || !!info.runtimeRecovery || (composingTask && !composerTask)}
+              placeholder={steering ? "补充这轮的要求…" : composingTask && !composerTask ? "重新选择任务，或切回对话…" : approval ? "先确认上方操作，再发送…" : !composerReady ? "可以先写，结束后再发送…" : composingTask ? "补充本轮要求…" : "和 Serika 聊天"}
+              onChange={event => { if (!composingTask) setInput(event.target.value); else if (composerTask) workTasks.setInstruction(event.target.value); }}
+              onKeyDown={event => {
+                if (composerReady && shouldSubmitComposer({ key: event.key, shiftKey: event.shiftKey, isComposing: event.nativeEvent.isComposing })) {
+                  event.preventDefault(); followConversation.current = true; void submit();
+                }
+              }}
+              leadingActions={<ZCodePromptOptions>
+                {info?.memory.enabled && !composingTask ? <label className="memory-exclusion" title="这条消息不进入现在或以后的记忆候选整理；不会删除对话记录，也不关闭已有记忆引用。"><input type="checkbox" checked={excludeFromMemory} disabled={sending} onChange={event => setExcludeFromMemory(event.target.checked)} />本条不整理为记忆</label> : null}
+                {info?.workTasks && !composingTask ? <button type="button" className="ghost" disabled={busy || workTasks.acting || sending} onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); setTaskDraft(input.trim()); setTaskFocused(true); openDetails("tasks"); setCreateTaskRequest(value => value + 1); }}><Icon name="activity" size={15} />{input.trim() ? "作为工作任务…" : "创建工作任务"}</button> : null}
+                {info && info.commands.length > 0 && !composingTask ? <><div className="command-caption">命令 · 填入后发送，不会立即执行</div><div className="zcode-command-list">{info.commands.map(name => <button type="button" key={name} disabled={busy} onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); prepareInput(`/${name} `); }}>/{name}</button>)}</div></> : null}
+                <button type="button" className="ghost" aria-pressed={showOutput} onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); setShowOutput(value => !value); }}><Icon name="terminal" size={15} />{showOutput ? "隐藏系统输出" : "查看系统输出"}</button>
+              </ZCodePromptOptions>}
+              submitControl={<>
+                {!composingTask && input ? <span className="hint" role="status">{draftError ? "草稿未保存" : draftSaving ? "保存草稿…" : "草稿已保存"}</span> : null}
+                {composingTask ? <span className="hint" role="status">{workTasks.draftError ? "任务草稿未保存" : workTasks.draftSaving ? "保存任务草稿…" : workTasks.draftReady ? "任务草稿已保存" : "正在恢复任务草稿…"}</span> : null}
+                <span className="zcode-model-name" title="当前配置的模型；不代表本轮已联网验证">{info?.modelId ?? info?.modelAlias ?? "连接中"}</span>
+                {busy ? <Button type="button" variant="outline" size="icon" className="zcode-stop-button" aria-label={state.kind === "running" && state.phase === "consolidation" ? "停止整理" : "停止本轮"} title="停止本轮；已执行的操作不会撤回" onClick={() => void window.runloom.cancel().catch(() => setError("取消结果未收到，请核对当前状态。"))}><Square size={12} /></Button> : null}
+                {!busy || steering ? <Button type="button" size={steering || composingTask ? "default" : "icon"} className={`send-button${steering || composingTask ? " task-send" : ""}`}
+                  aria-label={steering ? "补充要求" : composingTask ? composerTask?.status === "ready" ? "开始任务" : "继续此任务" : "发送消息"}
+                  title={steering ? "补充当前 Run 的要求，不启动新一轮" : composingTask ? "显式开启任务的新一轮；工具仍需确认" : "发送（Enter）· 换行（Shift + Enter）"}
+                  disabled={!composerReady || sending || switchingThread || !info || (steering ? !composerText.trim() : composingTask ? workTasks.locked || !composerTask || !taskActions(composerTask).run : !input.trim())}
+                  onClick={() => { followConversation.current = true; void submit(); }}>
+                  {steering ? "补充要求" : composingTask ? composerTask?.status === "ready" ? "开始任务" : "继续此任务" : <ArrowUp size={18} />}
+                </Button> : null}
+              </>}
+          />
+        </div>
+      </div>
+      <div className="personal-divider" role="separator" aria-label="调整对话栏宽度" aria-orientation="vertical"
+        aria-valuemin={Math.round(clampChatFraction(windowWidth, 0.3) * 100)} aria-valuemax={Math.round(clampChatFraction(windowWidth, 0.7) * 100)} aria-valuenow={Math.round(actualFraction * 100)} tabIndex={compact ? -1 : 0}
+        onDoubleClick={() => saveSplit(0.5)}
+        onKeyDown={event => { if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); saveSplit(actualFraction + (event.key === "ArrowLeft" ? -0.02 : 0.02)); } if (event.key === "Home") { event.preventDefault(); saveSplit(0.5); } }}
+        onPointerDown={event => { if (!compact) event.currentTarget.setPointerCapture(event.pointerId); }}
+        onPointerMove={event => { if (event.currentTarget.hasPointerCapture(event.pointerId)) { const bounds = splitRoot.current?.getBoundingClientRect(); if (bounds) saveSplit((event.clientX - bounds.left) / (bounds.width - 6)); } }}
+        onPointerUp={event => { if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }} />
+      <section className="personal-dashboard" aria-label="今天与个人助手">
+        <header className="personal-dashboard-header">
+          <button className="personal-mobile-back" type="button" onClick={() => setMobileDashboard(false)}><Icon name="chevron" size={14} style={{ transform: "rotate(180deg)" }} />对话</button>
+          <nav className="personal-segments" aria-label="个人助手页面">
+            {(["Today", "任务", "记忆", "serika"] as const).map(tab => <button type="button" key={tab}
+              aria-current={(detailsOpen ? dashboardTabForDetail(detailTab) : "Today") === tab ? "page" : undefined}
+              onClick={() => { if (tab === "Today") { setDetailsOpen(false); setMobileDashboard(true); } else if (tab === "任务") { setTaskFocused(false); openDetails("tasks"); } else if (tab === "记忆") openMemory(); else openDetails("modules"); }}>{tab}{tab === "记忆" && pendingLabel ? <span className="personal-segment-count">{pendingLabel}</span> : null}</button>)}
+          </nav>
+          <div className="personal-dashboard-actions">
+            <button type="button" className="personal-circle" aria-label="搜索历史对话" title="搜索历史对话" onClick={() => openDetails("threads")}><Search size={18} /></button>
+            <button type="button" className="personal-circle" aria-label="设置" title="设置" onClick={() => openDetails("modules")}><Settings2 size={18} /></button>
+          </div>
+        </header>
+        <div className="personal-today-scroll" hidden={detailsOpen}>
+          <TodayPanel info={info} tasks={workTasks.tasks} tasksLoading={workTasks.loading} tasksError={workTasks.error}
+            pendingMemory={pendingMemory.count} pendingMemoryError={pendingMemory.error}
+            onTasks={() => { setTaskFocused(false); openDetails("tasks"); }} onMemory={() => openMemory()}
+            onChat={() => { setMobileDashboard(false); requestAnimationFrame(() => inputRef.current?.focus()); }}
+            onPomodoro={() => openDetails("pomodoro")} onAutomation={() => openDetails("home")} />
+        </div>
+        {detailsOpen && ["modules", "records", "context"].includes(detailTab) ? <nav className="personal-settings-nav" aria-label="助手设置">
+          {([["modules", "模块"], ["records", "执行记录"], ["context", "上下文"], ["home", "工作区"], ["appearance", appearance === "dark" ? "浅色外观" : "深色外观"]] as const).map(([tab, label]) => <button type="button" key={tab} aria-current={detailTab === tab ? "page" : undefined}
+            onClick={() => { if (tab === "appearance") onAppearance(); else openDetails(tab); }}>{label}</button>)}
+        </nav> : null}
           <section className="inspector" hidden={!detailsOpen} aria-label={pageTitle}>
-            <div className="inspector-header"><div><h1>{pageTitle}</h1><p>{pageDescription}</p></div><button className="ghost" title="回到对话 · Escape" onClick={() => setDetailsOpen(false)}><Icon name="close" size={16} />回到对话</button></div>
+            <div className="inspector-header"><div><h1>{pageTitle}</h1><p>{pageDescription}</p></div><button className="ghost" title="回到今天 · Escape" onClick={() => { setDetailsOpen(false); setMobileDashboard(false); }}><Icon name="close" size={16} />回到今天</button></div>
             <div className="inspector-pane" ref={inspectorScroll} onScroll={() => { if (inspectorScroll.current) inspectorPositions.current.set(inspectorKey, inspectorScroll.current.scrollTop); }}>
               {detailTab === "threads" && info ? <ThreadsPanel info={info} drafts={threadDrafts} busy={busy || switchingThread} onSelect={selectConversation} onCreate={newConversation} onChanged={() => setThreadsRefresh(value => value + 1)} /> : null}
               <div hidden={detailTab !== "tasks"}>
-                <WorkTasksPanel view={workTasks} createRequest={createTaskRequest} initialGoal={taskDraft} focused={taskFocused} onCompose={composeTask} onCreated={() => { setDetailsOpen(false); setTaskFocused(true); }} onRun={runId => { openDetails("records"); void openRecord(runId).catch(() => setError("执行回执读取失败")); }} />
+                <WorkTasksPanel view={workTasks} createRequest={createTaskRequest} initialGoal={taskDraft} focused={taskFocused} onCompose={composeTask} onCreated={() => { setDetailsOpen(false); setMobileDashboard(false); setTaskFocused(true); }} onRun={runId => { openDetails("records"); void openRecord(runId).catch(() => setError("执行回执读取失败")); }} />
               </div>
               <div hidden={detailTab !== "home"}>
                 {info ? <DailySetup info={info} busy={busy} automationRefresh={automationRefresh} onHistory={() => openDetails("threads")} onRun={runId => { openDetails("records"); void openRecord(runId).catch(() => setError("执行结果读取失败")); }} /> : null}
@@ -1018,53 +1072,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
               <div hidden={detailTab !== "pomodoro"}>{info ? <PomodoroPanel enabled={info.commands.includes("pomodoro")} busy={busy} output={output} /> : null}</div>
             </div>
           </section>
-        </div>
-        <div className="action-dock">
-          {info?.runtimeRecovery ? <div className="error error-banner" role="alert"><span>助手连接已停止：{info.runtimeRecovery.message}。修正配置后重新连接，不会重做旧任务。</span><button type="button" className="ghost" disabled={reconnecting} onClick={() => void retryConnection()}>{reconnecting ? "正在连接…" : "重新连接"}</button></div> : null}
-          {draftError ? <div className="error error-banner" role="alert"><span>{draftError}</span><button type="button" className="ghost" onClick={() => {
-            if (!info) return;
-            if (!draftReady) { window.location.reload(); return; }
-            const save = window.runloom.saveConversationDraft(draftScope(info), { text: input, excludeFromMemory });
-            draftSave.current = save;
-            void save.then(() => setDraftError(null)).catch(() => setDraftError("草稿仍未保存，内容保留，请检查保存位置。"));
-          }}>重试保存</button></div> : null}
-          {error ? <div className="error error-banner" role="alert"><span>{error}</span>{info ? <button className="icon-button" aria-label="关闭错误提示" onClick={() => setError(null)}><Icon name="close" size={16} /></button> : null}</div> : null}
-          {workTasks.draftError ? <div className="error error-banner" role="alert"><span>{workTasks.draftError}</span><button className="ghost" type="button" onClick={workTasks.retryDrafts}>重试任务草稿保存</button></div> : null}
-          {uncertainSteer ? <div className="attention-summary" role="status"><span>补充要求的接收凭证待核对，草稿不会重发。{uncertainSteer.taskId ? "原补充属于工作任务；核对前不会作为普通对话发送。" : ""}</span><details><summary>查看这次补充</summary><pre>{uncertainSteer.text}</pre></details><button type="button" className="ghost" onClick={() => void recheckSteer()}>核对接收状态</button>{!busy ? <button type="button" className="ghost" onClick={() => void releaseSteer()}>保留草稿，结束本次核对</button> : null}</div> : null}
-          {layout === "zcode" && !detailsOpen && approval ? <ApprovalCard approval={approval} deciding={decidingId === approval.approvalId} onDecision={decision => void decide(decision)} /> : null}
-          <ZCodePromptEditor inputRef={inputRef} hidden={detailsOpen} value={composerText} aria-label={composingTask ? "本轮任务指令" : "消息输入"}
-              notice={steering ? "补充将进入当前这轮规划；已执行操作不会撤销，工具仍需重新确认。本条不整理为记忆。" : composingTask ? !composerTask ? "任务已切换，原草稿仍保留。重新选择任务，或切回普通对话。" : !busy && !taskActions(composerTask).run ? "本轮已结束，请从任务卡查看结果，或切回普通对话。" : null : null}
-              topContent={<>{workTasks.task || composingTask ? <div className="composer-target" role="group" aria-label="发送方式"><button className={!composingTask ? "selected" : ""} type="button" aria-pressed={!composingTask} onClick={() => setTaskComposerId(null)}>普通对话</button><button className={composingTask ? "selected" : ""} type="button" aria-pressed={composingTask} disabled={!workTasks.task || (!taskActions(workTasks.task).run && !composingTask)} onClick={composeTask}>补充当前任务</button>{composingTask ? <span>{composerTask?.goal ?? `任务 ${taskComposerId} 暂不可用`}</span> : null}</div> : null}{excludeFromMemory && !composingTask ? <div className="zcode-draft-setting"><Icon name="memory" size={13} /><span>本条不整理为记忆</span><button type="button" className="icon-button" aria-label="恢复本条记忆整理" onClick={() => setExcludeFromMemory(false)}><Icon name="close" size={12} /></button></div> : null}</>}
-              disabled={sending || switchingThread || info === null || !draftReady || !!info.runtimeRecovery || (composingTask && !composerTask)}
-              placeholder={steering ? "执行中想改口？补充这轮的要求…" : composingTask && !composerTask ? "请重新选择任务输入，或切回普通对话…" : approval ? "可先写下一条；发送前请确认上方操作…" : !composerReady ? "可先写下一条，结束后再发送…" : composingTask ? "补充本轮要求；留空将使用任务目标…" : "描述你想完成的事…"}
-              onChange={event => { if (!composingTask) setInput(event.target.value); else if (composerTask) workTasks.setInstruction(event.target.value); }}
-              onKeyDown={event => {
-                if (composerReady && shouldSubmitComposer({ key: event.key, shiftKey: event.shiftKey, isComposing: event.nativeEvent.isComposing })) {
-                  event.preventDefault(); followConversation.current = true; void submit();
-                }
-              }}
-              leadingActions={<ZCodePromptOptions>
-                {info?.memory.enabled && !composingTask ? <label className="memory-exclusion" title="这条消息不进入现在或以后的记忆候选整理；不会删除对话记录，也不关闭已有记忆引用。"><input type="checkbox" checked={excludeFromMemory} disabled={sending} onChange={event => setExcludeFromMemory(event.target.checked)} />本条不整理为记忆</label> : null}
-                {info?.workTasks && !composingTask ? <button type="button" className="ghost" disabled={busy || workTasks.acting || sending} onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); setTaskDraft(input.trim()); setTaskFocused(true); openDetails("tasks"); setCreateTaskRequest(value => value + 1); }}><Icon name="activity" size={15} />{input.trim() ? "作为工作任务…" : "创建工作任务"}</button> : null}
-                {info && info.commands.length > 0 && !composingTask ? <><div className="command-caption">命令 · 填入后发送，不会立即执行</div><div className="zcode-command-list">{info.commands.map(name => <button type="button" key={name} disabled={busy} onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); prepareInput(`/${name} `); }}>/{name}</button>)}</div></> : null}
-                <button type="button" className="ghost" aria-pressed={showOutput} onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); setShowOutput(value => !value); }}><Icon name="terminal" size={15} />{showOutput ? "隐藏系统输出" : "查看系统输出"}</button>
-              </ZCodePromptOptions>}
-              submitControl={<>
-                {!composingTask && input ? <span className="hint" role="status">{draftError ? "草稿未保存" : draftSaving ? "保存草稿…" : "草稿已保存"}</span> : null}
-                {composingTask ? <span className="hint" role="status">{workTasks.draftError ? "任务草稿未保存" : workTasks.draftSaving ? "保存任务草稿…" : workTasks.draftReady ? "任务草稿已保存" : "正在恢复任务草稿…"}</span> : null}
-                <span className="zcode-model-name" title="当前配置的模型；不代表本轮已联网验证">{info?.modelId ?? info?.modelAlias ?? "连接中"}</span>
-                {busy ? <Button type="button" variant="outline" size="icon" className="zcode-stop-button" aria-label={state.kind === "running" && state.phase === "consolidation" ? "停止整理" : "停止本轮"} title="停止本轮；已执行的操作不会撤回" onClick={() => void window.runloom.cancel().catch(() => setError("取消结果未收到，请核对当前状态。"))}><Square size={12} /></Button> : null}
-                {!busy || steering ? <Button type="button" size={steering || composingTask ? "default" : "icon"} className={`send-button${steering || composingTask ? " task-send" : ""}`}
-                  aria-label={steering ? "补充要求" : composingTask ? composerTask?.status === "ready" ? "开始任务" : "继续此任务" : "发送消息"}
-                  title={steering ? "补充当前 Run 的要求，不启动新一轮" : composingTask ? "显式开启任务的新一轮；工具仍需确认" : "发送（Enter）· 换行（Shift + Enter）"}
-                  disabled={!composerReady || sending || switchingThread || !info || (steering ? !composerText.trim() : composingTask ? workTasks.locked || !composerTask || !taskActions(composerTask).run : !input.trim())}
-                  onClick={() => { followConversation.current = true; void submit(); }}>
-                  {steering ? "补充要求" : composingTask ? composerTask?.status === "ready" ? "开始任务" : "继续此任务" : <ArrowUp size={18} />}
-                </Button> : null}
-              </>}
-          />
-        </div>
-      </div>
+      </section>
     </div>
   );
 }

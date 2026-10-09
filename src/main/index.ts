@@ -56,7 +56,7 @@ app.setName("Serika");
 
 function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
-    width: 1180,
+    width: 1200,
     height: 800,
     minWidth: 320,
     minHeight: 480,
@@ -67,7 +67,7 @@ function createWindow(): BrowserWindow {
       ? { titleBarStyle: "hidden" as const, trafficLightPosition: { x: 16, y: 20 } }
       : { frame: false }),
     transparent: false,
-    backgroundColor: "#fcfbf8",
+    backgroundColor: "#F9EFEB",
     hasShadow: true,
     show: false,
     webPreferences: {
