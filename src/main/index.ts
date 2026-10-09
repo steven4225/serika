@@ -191,6 +191,13 @@ async function main(): Promise<void> {
   }
 
   const drafts = new ConversationDraftSession(host, new ConversationDraftStore(app.getPath("userData")));
+  ipcMain.handle(IPC.telegramStatus, () => host.telegramStatus());
+  ipcMain.handle(IPC.telegramEnabled, (_event, enabled: boolean) => host.setTelegramEnabled(enabled));
+  ipcMain.handle(IPC.telegramPairing, () => host.beginTelegramPairing());
+  ipcMain.handle(IPC.telegramBind, (_event, code: string) => host.confirmTelegramPairing(code));
+  ipcMain.handle(IPC.telegramReview, (_event, input) => host.reviewTelegramInput(input));
+  ipcMain.handle(IPC.telegramTaskRoute, (_event, input) => host.setTelegramTaskRoute(input));
+  ipcMain.handle(IPC.telegramRetryDelivery, (_event, key) => host.retryTelegramDelivery(key));
   ipcMain.handle(IPC.draftLoad, (_event, scope) => drafts.load(scope));
   ipcMain.handle(IPC.draftSave, (_event, scope, draft) => drafts.save(scope, draft));
   ipcMain.handle(IPC.taskDraftSave, (_event, scope, update) => drafts.saveTask(scope, update));

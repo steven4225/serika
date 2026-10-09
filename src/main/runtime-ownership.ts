@@ -65,6 +65,13 @@ export class RuntimeOwnership {
   registerThread(...args: Parameters<DesktopRuntime["registerThread"]>) { return this.#active().registerThread(...args); }
   createThread(...args: Parameters<DesktopRuntime["createThread"]>) { return this.#active().createThread(...args); }
   selectThread(...args: Parameters<DesktopRuntime["selectThread"]>) { return this.#active().selectThread(...args); }
+  telegramStatus() { return this.#active().telegramStatus(); }
+  setTelegramEnabled(enabled: boolean) { return this.#active().setTelegramEnabled(enabled); }
+  beginTelegramPairing() { return this.#active().beginTelegramPairing(); }
+  confirmTelegramPairing(code: string) { return this.#active().confirmTelegramPairing(code); }
+  reviewTelegramInput(input: { key: string; note: string }) { return this.#active().reviewTelegramInput(input); }
+  setTelegramTaskRoute(input: { id: string; kind: "once" | "recurring"; enabled: boolean }) { return this.#active().setTelegramTaskRoute(input); }
+  retryTelegramDelivery(key: string) { return this.#active().retryTelegramDelivery(key); }
   enableMemory() { return this.#active().enableMemory(); }
   setModuleEnabled(...args: Parameters<DesktopRuntime["setModuleEnabled"]>) { return this.#active().setModuleEnabled(...args); }
   setDreamingEnabled(...args: Parameters<DesktopRuntime["setDreamingEnabled"]>) { return this.#active().setDreamingEnabled(...args); }

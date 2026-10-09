@@ -5,6 +5,9 @@ import { createDemoModel } from "@aisdk-agent/example-cli/dist/demo-model.js";
 import { configureCliModel, inspectCliModelConfig } from "@aisdk-agent/example-cli/dist/model-config.js";
 import { resolveTuiModuleConfig } from "@aisdk-agent/example-cli/dist/tui-module-config.js";
 import { DesktopRuntime } from "./desktop-runtime.js";
+import { createTelegramApi } from "./telegram-api.js";
+import { TelegramStore } from "./telegram-store.js";
+import { TelegramGateway } from "./telegram-gateway.js";
 import { readResidentStartup, retainResidentEnvironmentSource } from "./resident-startup.js";
 import { startResidentServer } from "./resident-transport.js";
 import { createDesktopRssWorker } from "./rss-worker-service.js";
@@ -27,8 +30,21 @@ async function main() {
     workerEntry: fileURLToPath(import.meta.resolve("@aisdk-agent/example-cli/dist/task-worker-entry.js")), todoist: !!process.env.TODOIST_API_TOKEN?.trim() });
   const server = await startResidentServer({ paths: { directory: dirname(identityPath), token: join(dirname(identityPath), "auth-token"), socket },
     scope: { userData: startup.userData, configPath: config.configPath, workspaceRoot: config.workspaceRoot },
-    createRuntime: send => DesktopRuntime.create({ ...startup, env: process.env, modelAlias, model, modelId: inspectCliModelConfig().modelId, send,
-      taskAutomation: { status: (workspace, configPath) => worker(workspace, configPath).automationStatus(), enable: (workspace, configPath) => worker(workspace, configPath).enableArrangement() } }),
+    createRuntime: async send => {
+      const runtime = await DesktopRuntime.create({ ...startup, env: process.env, modelAlias, model, modelId: inspectCliModelConfig().modelId, send,
+        taskAutomation: { status: (workspace, configPath) => worker(workspace, configPath).automationStatus(), enable: (workspace, configPath) => worker(workspace, configPath).enableArrangement() } });
+      try {
+        const store = new TelegramStore(join(dirname(identityPath), "telegram.json"), config.workspaceRoot!);
+        await store.load();
+        const token = process.env.TELEGRAM_BOT_TOKEN?.trim();
+        const gateway = new TelegramGateway(runtime, store, token ? createTelegramApi(token, fetch,
+          process.env.TELEGRAM_PROXY_URL ? { proxyUrl: process.env.TELEGRAM_PROXY_URL } : {}) : undefined);
+        runtime.attachTelegram(gateway);
+        await gateway.initialize();
+        return runtime;
+      } catch { runtime.telegramFailed(); }
+      return runtime;
+    },
     onStop: () => { void stop(); },
   });
   let stopping = false;

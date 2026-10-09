@@ -3,6 +3,13 @@ import { IPC, type MainToRenderer, type RendererApi } from "../shared/ui-contrac
 
 const api: RendererApi = {
   residentStatus: () => ipcRenderer.invoke(IPC.residentStatus),
+  telegramStatus: () => ipcRenderer.invoke(IPC.telegramStatus),
+  setTelegramEnabled: enabled => ipcRenderer.invoke(IPC.telegramEnabled, enabled),
+  beginTelegramPairing: () => ipcRenderer.invoke(IPC.telegramPairing),
+  confirmTelegramPairing: code => ipcRenderer.invoke(IPC.telegramBind, code),
+  reviewTelegramInput: input => ipcRenderer.invoke(IPC.telegramReview, input),
+  setTelegramTaskRoute: input => ipcRenderer.invoke(IPC.telegramTaskRoute, input),
+  retryTelegramDelivery: key => ipcRenderer.invoke(IPC.telegramRetryDelivery, key),
   setResidentEnabled: enabled => ipcRenderer.invoke(IPC.residentEnabled, enabled),
   loadConversationDraft: scope => ipcRenderer.invoke(IPC.draftLoad, scope),
   saveConversationDraft: (scope, draft) => ipcRenderer.invoke(IPC.draftSave, scope, draft),

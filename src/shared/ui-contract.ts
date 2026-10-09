@@ -184,6 +184,13 @@ export type GetRunResponse =
   | { ok: false; reason: "unavailable"; message: string };
 
 export interface RendererApi {
+  telegramStatus?(): Promise<import("./telegram.js").TelegramStatus>;
+  setTelegramEnabled?(enabled: boolean): Promise<import("./telegram.js").TelegramStatus>;
+  beginTelegramPairing?(): Promise<import("./telegram.js").TelegramStatus>;
+  confirmTelegramPairing?(code: string): Promise<import("./telegram.js").TelegramStatus>;
+  reviewTelegramInput?(input: { key: string; note: string }): Promise<import("./telegram.js").TelegramStatus>;
+  setTelegramTaskRoute?(input: { id: string; kind: "once" | "recurring"; enabled: boolean }): Promise<import("./telegram.js").TelegramStatus>;
+  retryTelegramDelivery?(key: string): Promise<import("./telegram.js").TelegramStatus>;
   residentStatus?(): Promise<ResidentServiceState>;
   setResidentEnabled?(enabled: boolean): Promise<ResidentServiceState>;
   loadConversationDraft(scope: ConversationDraftScope): Promise<ConversationDraftState>;
@@ -268,6 +275,13 @@ export interface RendererApi {
 }
 
 export const IPC = {
+  telegramStatus: "runloom:telegramStatus",
+  telegramEnabled: "runloom:telegramEnabled",
+  telegramPairing: "runloom:telegramPairing",
+  telegramBind: "runloom:telegramBind",
+  telegramReview: "runloom:telegramReview",
+  telegramTaskRoute: "runloom:telegramTaskRoute",
+  telegramRetryDelivery: "runloom:telegramRetryDelivery",
   residentStatus: "runloom:residentStatus",
   residentEnabled: "runloom:residentEnabled",
   draftLoad: "runloom:draftLoad",

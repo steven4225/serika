@@ -10,6 +10,11 @@ import { changeModuleSetting, changeDreamingSetting, type ModuleSettingInput, ty
 import type { AppInfo } from "../shared/ui-contract.js";
 import { readLoadedBuild } from "./build-identity.js";
 import { createPomodoroService, type PomodoroService } from "@aisdk-agent/example-cli/dist/modules/pomodoro-module.js";
+import { ExecutionRecordStore } from "@aisdk-agent/example-cli/dist/execution-record-store.js";
+import type { RunRecord } from "@aisdk-agent/core";
+import type { TelegramGateway } from "./telegram-gateway.js";
+import { telegramUnavailable } from "../shared/telegram.js";
+import { createTaskStore, type TaskListInput } from "@aisdk-agent/example-cli/dist/task-store.js";
 
 interface Options { userData: string; cwd: string; env: NodeJS.ProcessEnv; modelAlias: string; modelId?: string; model: LanguageModel; send: Send; taskAutomation?: TaskAutomationHost; /** Ownership transfers to this host, including final disposal. */ pomodoroService?: PomodoroService }
 
@@ -24,6 +29,14 @@ export class DesktopRuntime {
   #lastInfo!: AppInfo;
   #recoveryError: string | undefined;
   #pomodoroService: PomodoroService;
+  #telegram: TelegramGateway | undefined;
+  #telegramFailure: string | undefined;
+  #sourceBarrier: ((record: RunRecord) => Promise<void>) | undefined;
+  #channelListeners = new Set<Send>();
+  #send: Send = message => {
+    for (const listener of this.#channelListeners) listener(message);
+    this.#options.send(message);
+  };
 
   private constructor(options: Options) {
     this.#options = options;
@@ -49,6 +62,51 @@ export class DesktopRuntime {
   }
 
   get recoveryError() { return this.#recoveryError; }
+  attachTelegram(gateway: TelegramGateway) { if (this.#telegram) throw new Error("Telegram already attached"); this.#telegram = gateway; }
+  telegramStatus() { return this.#telegramFailure ? { ...telegramUnavailable(), available: true, connection: "failed" as const, lastError: this.#telegramFailure } : this.#telegram?.status() ?? telegramUnavailable(); }
+  telegramFailed() { this.#telegramFailure = "Telegram 配置或记录无法读取，未接收消息。桌面助手仍可使用；请检查可信环境文件和通道状态文件后重启。不会重建绑定或重做执行。"; }
+  setTelegramEnabled(enabled: boolean) { if (!this.#telegram) throw new Error("请先启用常驻助手"); return this.#telegram.setEnabled(enabled); }
+  beginTelegramPairing() { if (!this.#telegram) throw new Error("请先启用常驻助手"); return this.#telegram.beginPairing(); }
+  confirmTelegramPairing(code: string) { if (!this.#telegram) throw new Error("请先启用常驻助手"); return this.#telegram.confirmPairing(code); }
+  reviewTelegramInput(input: { key: string; note: string }) { if (!this.#telegram) throw new Error("请先启用常驻助手"); return this.#telegram.reviewInput(input); }
+  setTelegramTaskRoute(input: { id: string; kind: "once" | "recurring"; enabled: boolean }) { if (!this.#telegram) throw new Error("请先启用常驻助手"); return this.#telegram.setTaskRoute(input); }
+  retryTelegramDelivery(key: string) { if (!this.#telegram) throw new Error("请先启用常驻助手"); return this.#telegram.retryDelivery(key); }
+  /** Host-only channel surface, deliberately not in resident IPC's method whitelist. */
+  channelSubscribe(listener: Send) { this.#channelListeners.add(listener); return () => { this.#channelListeners.delete(listener); }; }
+  channelSnapshot() { return { info: this.info(), snapshot: this.#bridge.snapshot() }; }
+  /** Original workspace TaskStore, independent of foreground capability switches. */
+  #channelTaskStore() {
+    if (!this.#identity.workspaceRoot) throw new Error("当前没有确定的工作区，未读取安排");
+    return createTaskStore(this.#identity.workspaceRoot);
+  }
+  channelScheduledTask(id: string) { return this.#channelTaskStore().get(id); }
+  async channelRecurringTask(id: string) {
+    const result = await this.#channelTaskStore().getRecurring(id);
+    return result.ok ? { ok: true as const, value: result.value?.recurringTask ?? null } : result;
+  }
+  channelScheduledTasks(input: TaskListInput) { return this.#channelTaskStore().list(input); }
+  async channelCreateThread() { this.#assertIdle(); return createDesktopThread(this.#scope()); }
+  async channelReceipt(threadId: string, runId: string) {
+    const thread = (await listDesktopThreads(this.#scope())).find(item => item.threadId === threadId);
+    if (!thread) throw new Error("Telegram 对话未登记到当前工作区");
+    return new ExecutionRecordStore(thread.transcriptDirectory).getRun(threadId, runId);
+  }
+  async channelRun(threadId: string, text: string, task: boolean, bind: (record: RunRecord, taskId: string | null) => Promise<void>) {
+    let response: Awaited<ReturnType<RuntimeBridge["run"]>> = { ok: false, reason: "starting" };
+    await this.#replace(() => selectDesktopThread(this.#scope(), threadId), true, undefined, async () => {
+      let taskId: string | null = null;
+      this.#sourceBarrier = record => bind(record, taskId);
+      try {
+        if (task) {
+          const created = await this.#bridge.createWorkTask({ goal: text, acceptance: [{ id: "user-quality", description: "用户确认任务结果符合需求", required: true, method: "human", verification: { kind: "human" } }] });
+          if (!created.ok) throw new Error("工作任务未能保存，未启动执行");
+          taskId = created.value.id;
+          response = await this.#bridge.runWorkTask({ id: taskId, expectedRevision: created.value.revision });
+        } else response = await this.#bridge.run(text);
+      } finally { this.#sourceBarrier = undefined; }
+    });
+    return response;
+  }
   getLifecycleStatus() { return { pomodoroRunning: this.#pomodoroService.status().status.state === "running" }; }
   info(): AppInfo {
     const info = this.#available ? this.#bridge.info() : this.#lastInfo;
@@ -63,11 +121,14 @@ export class DesktopRuntime {
   async #make(identity: DesktopIdentityResolution): Promise<RuntimeBridge> {
     const config = await resolveTuiModuleConfig({ configPath: identity.configPath }, { cwd: this.#options.cwd });
     if (config.workspaceRoot !== identity.workspaceRoot) throw new Error("配置工作区已变化，请恢复原工作区配置后重新连接；不会混入其他工作区");
-    const output = new TeeOutput(this.#options.send);
+    const output = new TeeOutput(this.#send);
     const app = await createRuntimeApp({
       args: ["--tui", identity.transcriptDirectory, "--thread", identity.threadId, "--config", identity.configPath],
       modelAlias: this.#options.modelAlias, model: this.#options.model, output, env: this.#options.env, cwd: this.#options.cwd,
       pomodoroService: this.#pomodoroService,
+      beforePrimaryRunCreate: record => this.#sourceBarrier?.(record) ?? Promise.resolve(),
+      afterTaskArrangementSaved: saved => this.#telegram?.arrangementSaved(saved) ?? Promise.resolve(),
+      taskArrangementDestination: () => this.#telegram?.arrangementDestination() ?? null,
       ...(this.#options.taskAutomation ? { taskAutomation: this.#options.taskAutomation } : {}),
     });
     // Assembly rereads the config; do not publish a different workspace under
@@ -83,7 +144,7 @@ export class DesktopRuntime {
       await controller.listRuns();
       return new RuntimeBridge(app, controller, { modelAlias: this.#options.modelAlias,
         ...(this.#options.modelId === undefined ? {} : { modelId: this.#options.modelId }), temporaryThread: false, temporaryDirectory: false,
-        identitySource: identity.identitySource, entryMode: this.#options.env.RUNLOOM_DESKTOP_TEST === "1" ? "test" : "daily" }, output, this.#options.send);
+        identitySource: identity.identitySource, entryMode: this.#options.env.RUNLOOM_DESKTOP_TEST === "1" ? "test" : "daily" }, output, this.#send);
     } catch (error) { await controller.shutdown(); throw error; }
   }
 
@@ -130,7 +191,7 @@ export class DesktopRuntime {
     } finally { this.#changing = false; }
   }
 
-  async #replace(select: () => Promise<DesktopIdentityResolution>, reuseUnchanged = false, settings?: { rollback: () => Promise<void> }): Promise<void> {
+  async #replace(select: () => Promise<DesktopIdentityResolution>, reuseUnchanged = false, settings?: { rollback: () => Promise<void> }, activate?: () => Promise<void>): Promise<void> {
     this.#assertIdle();
     this.#changing = true;
     this.#options.send({ type: "state", state: { kind: "command", name: "thread-switch" } });
@@ -141,7 +202,7 @@ export class DesktopRuntime {
     const transition = (async () => {
       try {
         const next = await select();
-        if (reuseUnchanged && next.threadId === previous.threadId && next.transcriptDirectory === previous.transcriptDirectory) return;
+        if (reuseUnchanged && next.threadId === previous.threadId && next.transcriptDirectory === previous.transcriptDirectory) { await activate?.(); return; }
         disposed = true;
         this.#available = false;
         await this.#bridge.shutdown();
@@ -149,6 +210,7 @@ export class DesktopRuntime {
         this.#available = true;
         this.#recoveryError = undefined;
         this.#identity = next;
+        await activate?.();
       } catch (error) {
         if (settings) configurationError = error instanceof Error ? error.message : String(error);
         let rollbackFailed = false;
@@ -240,6 +302,7 @@ export class DesktopRuntime {
     try { await transition; } finally { this.#transition = undefined; }
   }
   async shutdown() {
+    await this.#telegram?.close();
     await this.#transition?.catch(() => undefined);
     try { if (this.#available) await this.#bridge.shutdown(); }
     finally { this.#pomodoroService.dispose(); }

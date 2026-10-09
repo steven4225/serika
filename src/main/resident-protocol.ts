@@ -7,7 +7,7 @@ export const MAX_RESIDENT_FRAME_BYTES = 8 * 1024 * 1024;
 export const MAX_RESIDENT_PENDING = 32;
 
 // Deliberately excludes shutdown, threadActivity, and arbitrary property access.
-export const RESIDENT_HOST_METHODS = ["listThreads", "discoverThreads", "registerThread", "createThread", "selectThread", "enableMemory", "setModuleEnabled", "setDreamingEnabled", "getLifecycleStatus", "retryConnection"] as const satisfies readonly (keyof DesktopRuntime)[];
+export const RESIDENT_HOST_METHODS = ["listThreads", "discoverThreads", "registerThread", "createThread", "selectThread", "enableMemory", "setModuleEnabled", "setDreamingEnabled", "getLifecycleStatus", "retryConnection", "telegramStatus", "setTelegramEnabled", "beginTelegramPairing", "confirmTelegramPairing", "reviewTelegramInput", "setTelegramTaskRoute", "retryTelegramDelivery"] as const satisfies readonly (keyof DesktopRuntime)[];
 export const RESIDENT_BRIDGE_METHODS = [
   "history", "home", "run", "steer", "cancel", "confirm", "command", "listRuns", "getRun",
   "getContextDiagnostics", "getAutomationDiagnostics", "getAutomationOverview", "scheduleSkill", "changeAutomationSchedule",
