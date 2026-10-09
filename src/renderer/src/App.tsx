@@ -21,6 +21,7 @@ import {
   canReuseReceiptHistory,
   resultRow,
   rowsFromHistory,
+  annotateHistoryTools,
   rowsFromToolActivity,
   type ConversationRow,
   type LiveRun,
@@ -398,11 +399,11 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     const request = ++historyRequest.current;
     const primaryId = latestPrimaryId.current;
     const completedId = latestCompletedPrimaryId.current;
-    const messages = await window.runloom.history();
+    const [messages, receipts, identity] = await Promise.all([window.runloom.history(), window.runloom.listRuns().catch(() => null), window.runloom.info()]);
     if (request !== historyRequest.current || primaryId !== latestPrimaryId.current || completedId !== latestCompletedPrimaryId.current) return;
     // Only a reread made after this primary Run completed can supply its full
     // outcomes. Provider tool IDs are not unique across the whole Thread.
-    const rows = rowsFromHistory(messages);
+    const rows = receipts?.ok ? annotateHistoryTools(rowsFromHistory(messages), receipts.runs, identity.threadId) : rowsFromHistory(messages);
     setStoredHistory({ rows: completedId === null ? rows : overlayShellProgress(rows, shellBuffer.current), runId: completedId });
   }, []);
 
@@ -935,7 +936,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
                   <h1>你想完成什么？</h1>
                 </div> : null}
                 <div className="conversation-thread">
-                  {layout === "zcode" ? <ZCodeConversation rows={rows} running={activePrimary} streaming={live.streaming} waitingForApproval={approval !== null} onTrace={(runId, toolCallId) => { openDetails("records"); void openRecord(runId, toolCallId).catch(() => setError("执行追踪读取失败")); }} /> : rows.map(row => <Row key={row.key} row={row} delivered={delivered.has(row.key)} />)}
+                  {layout === "zcode" ? <ZCodeConversation rows={rows} workspaceRoot={info?.workspaceRoot ?? undefined} running={activePrimary} streaming={live.streaming} waitingForApproval={approval !== null} onTrace={(runId, toolCallId) => { openDetails("records"); void openRecord(runId, toolCallId).catch(() => setError("执行追踪读取失败")); }} /> : rows.map(row => <Row key={row.key} row={row} delivered={delivered.has(row.key)} />)}
                   {info?.memory.enabled ? <MemoryReferences hideEmpty={layout === "zcode"} refreshToken={contextRefresh} runId={state.kind === "running" && state.phase === "primary" ? state.runId : latestPrimaryId.current} starting={state.kind === "running" && state.phase === "primary" && state.runId === null} /> : null}
                   {layout !== "zcode" && activePrimary && live.streaming ? <div className="row row-text role-assistant live">
                     <span className="role"><SerikaMark size={20} /> Serika <span className="streaming-label">正在回复</span></span>

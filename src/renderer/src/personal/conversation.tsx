@@ -3,7 +3,8 @@ import type { ConversationRow, TextRow, ToolRow } from "../conversation.js";
 import { Icon } from "../icons.js";
 import { MessageContent } from "../markdown.js";
 import { completionLabel } from "../navigation.js";
-import { conversationTurns, toolPresentation, workSummary, type ConversationFlowItem } from "../zcode/conversation-data.js";
+import { conversationTurns, isMissingFile, toolPresentation, workSummary, type ConversationFlowItem } from "../zcode/conversation-data.js";
+import { formatRecordTime } from "../../../shared/execution-records.js";
 
 type TraceHandler = ((runId: string, toolCallId: string) => void) | undefined;
 
@@ -14,16 +15,20 @@ function PersonalText({ row }: { row: TextRow }) {
   </article>;
 }
 
-export function PersonalTool({ row, onTrace }: { row: ToolRow; onTrace?: TraceHandler }) {
+export function PersonalTool({ row, onTrace, workspaceRoot }: { row: ToolRow; onTrace?: TraceHandler; workspaceRoot?: string | undefined }) {
   const view = toolPresentation(row);
-  return <details className={`personal-tool status-${row.status}`} open={view.attention || (row.status === "requested" && !!(row.stdout || row.stderr))}>
+  const path = row.inputPath ?? row.receipt?.path;
+  const missing = isMissingFile(row);
+  return <details className={`personal-tool status-${row.status}${missing ? " missing-file" : ""}`} open={view.attention || (row.status === "requested" && !!(row.stdout || row.stderr))}>
     <summary><Icon name={view.icon} size={15} /><span className="personal-tool-name">{view.name}</span>
-      {row.receipt ? <span className="personal-tool-path" title={row.receipt.path}>{row.receipt.path}</span> : null}
+      {path ? <span className="personal-tool-path" title={path}>{path}</span> : null}
       <span className="personal-tool-status">{view.status}</span><Icon name="chevron" size={13} /></summary>
     <div className="personal-tool-body">
-      {view.name !== row.toolName ? <code>{row.toolName}</code> : null}
+      {row.historical || row.recordedAt ? <p className="personal-receipt-meta">{row.historical ? "历史记录" : "本次调用"}{row.recordedAt ? <> · 请求于 <time dateTime={row.recordedAt}>{formatRecordTime(row.recordedAt)}</time></> : " · 时间未记录"}</p> : null}
+      {path && workspaceRoot ? <p className="personal-receipt-meta" title={workspaceRoot}>当前文件工作区：{workspaceRoot}</p> : null}
+      {view.name !== row.toolName && !missing ? <code>{row.toolName}</code> : null}
       {row.receipt ? <p>{row.receipt.bytes} 字节 · 工具回执，不等于任务验收</p> : null}
-      {row.detail ? <p>{row.detail}</p> : null}
+      {missing ? <><p>该路径没有文件，未读取到内容。本次读取不会创建文件，也不会自动重复执行。</p><details className="personal-tool-technical"><summary>技术详情</summary><code>{row.toolName}</code>{row.detail ? <p>{row.detail}</p> : null}</details></> : row.detail ? <p>{row.detail}</p> : null}
       {row.stdout ? <pre className="personal-tool-output stdout">{row.stdout}</pre> : null}
       {row.stderr ? <pre className="personal-tool-output stderr">{row.stderr}</pre> : null}
       {row.progressTruncated ? <p className="personal-tool-warning">输出已截断；不能据此判断执行成功</p> : null}
@@ -33,17 +38,18 @@ export function PersonalTool({ row, onTrace }: { row: ToolRow; onTrace?: TraceHa
   </details>;
 }
 
-function Work({ rows, onTrace }: { rows: ConversationRow[]; onTrace?: TraceHandler }) {
+function Work({ rows, onTrace, workspaceRoot }: { rows: ConversationRow[]; onTrace?: TraceHandler; workspaceRoot?: string | undefined }) {
   const summary = workSummary(rows);
+  const at = rows.find((row): row is ToolRow => row.kind === "tool" && !!row.recordedAt)?.recordedAt;
   return <details className={`personal-work${summary.needsAttention ? " needs-attention" : ""}`} open={summary.needsAttention || summary.pending}>
-    <summary><Icon name="activity" size={14} /><span>{summary.label}</span><Icon name="chevron" size={13} /></summary>
-    <div className="personal-work-content">{rows.map(row => row.kind === "tool" ? <PersonalTool key={row.key} row={row} onTrace={onTrace} /> : row.kind === "text" ? <PersonalText key={row.key} row={row} /> : null)}</div>
+    <summary><Icon name="activity" size={14} /><span>{summary.label}</span>{at ? <time className="personal-receipt-meta" dateTime={at}>{formatRecordTime(at)}</time> : null}<Icon name="chevron" size={13} /></summary>
+    <div className="personal-work-content">{rows.map(row => row.kind === "tool" ? <PersonalTool key={row.key} row={row} onTrace={onTrace} workspaceRoot={workspaceRoot} /> : row.kind === "text" ? <PersonalText key={row.key} row={row} /> : null)}</div>
   </details>;
 }
 
-function FlowItem({ item, onTrace }: { item: ConversationFlowItem; onTrace?: TraceHandler }) {
+function FlowItem({ item, onTrace, workspaceRoot }: { item: ConversationFlowItem; onTrace?: TraceHandler; workspaceRoot?: string | undefined }) {
   if (item.kind === "text") return <PersonalText row={item.row} />;
-  if (item.kind === "work") return <Work rows={item.rows} onTrace={onTrace} />;
+  if (item.kind === "work") return <Work rows={item.rows} onTrace={onTrace} workspaceRoot={workspaceRoot} />;
   return <div className={`personal-completion status-${item.row.status}`} role="status"><Icon name={item.row.completion?.reason === "delivered" ? "check" : "activity"} size={14} />
     <span>{completionLabel(item.row)}{item.row.detail ? ` · ${item.row.detail}` : ""}</span></div>;
 }
@@ -55,11 +61,12 @@ function ReplyActions({ text }: { text: string }) {
     <Icon name={copied === "copied" ? "check" : "copy"} size={14} /></button>{copied === "failed" ? <span role="alert">复制失败，请重试</span> : null}</div>;
 }
 
-export function PersonalConversation({ rows, running, streaming, waitingForApproval = false, onTrace }: {
+export function PersonalConversation({ rows, running, streaming, waitingForApproval = false, onTrace, workspaceRoot }: {
   rows: readonly ConversationRow[]; running: boolean; streaming: string; waitingForApproval?: boolean; onTrace?: TraceHandler;
+  workspaceRoot?: string | undefined;
 }) {
   return <>{conversationTurns(rows, running).map(turn => <section className="personal-turn" key={turn.key} aria-label="对话轮次">
-    {turn.items.map((item, index) => <FlowItem key={item.kind === "work" ? item.rows[0]!.key : item.row.key || index} item={item} onTrace={onTrace} />)}
+    {turn.items.map((item, index) => <FlowItem key={item.kind === "work" ? item.rows[0]!.key : item.row.key || index} item={item} onTrace={onTrace} workspaceRoot={workspaceRoot} />)}
     {!turn.running && turn.copyText ? <ReplyActions text={turn.copyText} /> : null}
   </section>)}
     {running && streaming ? <article className="personal-message role-assistant streaming" aria-label="正在回复"><MessageContent text={streaming} /></article> : null}

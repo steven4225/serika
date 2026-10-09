@@ -45,6 +45,27 @@ it("personal conversation exposes unknown effects, truncation and approval waits
   assert.match(render([user], true, "", true), /等待确认后继续/);
 });
 
+it("presents settled missing-file history with a real time and current workspace, not an outstanding action", () => {
+  const missing: ToolRow = { kind: "tool", key: "missing", toolCallId: "missing", toolName: "read_file", status: "failed", historical: true,
+    inputPath: "notes/work-plan.md", errorCode: "FILE_NOT_FOUND", recordedAt: "2026-10-08T12:17:00Z", detail: "FILE_NOT_FOUND: File not found: notes/work-plan.md" };
+  const markup = renderToStaticMarkup(createElement(PersonalConversation, { rows: [user, missing, reply], running: false, streaming: "", workspaceRoot: "/daily/personal" }));
+  assert.match(markup, /<details class="personal-work">/);
+  assert.match(markup, /历史执行 · 1 次工具调用 · 文件不存在/);
+  assert.match(markup, /dateTime="2026-10-08T12:17:00Z"/i);
+  assert.match(markup, /当前文件工作区：\/daily\/personal/);
+  assert.match(markup, /未读取到内容/);
+  assert.match(markup, /<details class="personal-tool-technical"><summary>技术详情/);
+  assert.doesNotMatch(markup, /有结果待查看|需要重新确认|自动重试|needs-attention/);
+  const { recordedAt, ...withoutTime } = missing;
+  const old = render([user, withoutTime, reply]);
+  assert.match(old, /时间未记录/);
+  assert.doesNotMatch(old, /<time/);
+  const unknown = render([user, { ...missing, status: "unknown" }, reply]);
+  assert.match(unknown, /needs-attention" open/);
+  assert.match(unknown, /效果未知/);
+  assert.doesNotMatch(unknown, /未读取到内容/);
+});
+
 it("personal conversation retains streaming, steering and explicit incomplete task outcomes", () => {
   const steer: ConversationRow = { ...user, key: "steer", text: "只追加，不覆盖。", steer: true };
   const markup = render([user, steer, { kind: "result", key: "result", status: "completed", completion: { reason: "budget_exhausted", corrections: 0 } }], true, "正在继续回复");

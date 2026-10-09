@@ -39,6 +39,11 @@
 .personal-layout .personal-tool-body p { margin: 5px 0; line-height: 1.65; }
 .personal-layout .personal-tool-output { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow: auto; padding: 10px; border-radius: 8px; background: var(--sunken); }
 .personal-layout .personal-tool-warning { color: #8a5931; }
+.personal-layout .personal-receipt-meta { font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
+.personal-layout .personal-work > summary { flex-wrap: wrap; }
+.personal-layout .personal-tool-technical { font-size: 11px; color: var(--muted); }
+.personal-layout .personal-tool-technical > summary { cursor: pointer; }
+.personal-layout .personal-tool.missing-file .personal-tool-status { color: #8a5931; }
 .personal-layout .personal-trace-link { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 5px 0; border: 0; background: transparent; color: var(--accent); }
 .personal-layout .personal-completion { display: flex; gap: 8px; color: var(--muted); font-size: 12px; line-height: 1.6; }
 .personal-layout .personal-completion svg { flex: none; margin-top: 3px; }

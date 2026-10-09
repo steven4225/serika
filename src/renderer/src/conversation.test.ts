@@ -8,6 +8,7 @@ import {
   emptyLiveRun,
   overlayShellProgress,
   rowsFromHistory,
+  annotateHistoryTools,
   rowsFromToolActivity,
   overlayExecutionReceipts,
   canReuseReceiptHistory,
@@ -46,6 +47,54 @@ it("reuses receipt history only for the same completed Run", () => {
   for (const status of ["failed", "cancelled", "interrupted", "timed_out", "running"] as const) {
     assert.equal(canReuseReceiptHistory({ runId: "current", status }, "current"), false);
   }
+});
+
+it("retains missing-file input and exact error code in history and live output, not assistant claims", () => {
+  const failure = { ok: false, error: { code: "FILE_NOT_FOUND", message: "File not found: notes/work-plan.md" } };
+  const rows = rowsFromHistory([{ id: "missing", role: "assistant", parts: [
+    { type: "dynamic-tool", toolName: "read_file", toolCallId: "read-1", state: "output-available", input: { path: "notes/work-plan.md" }, output: failure },
+    { type: "text", text: "文件存在，读取成功。" },
+  ] }]);
+  const row = rows[0];
+  assert.ok(row?.kind === "tool");
+  assert.equal(row.status, "failed");
+  assert.equal(row.errorCode, "FILE_NOT_FOUND");
+  assert.equal(row.inputPath, "notes/work-plan.md");
+  assert.equal(row.historical, true);
+  assert.equal(row.recordedAt, undefined);
+  const { historical, ...liveRow } = row;
+  const live = applyEvent({ rows: [liveRow], streaming: "" }, {
+    ...completed(failure), type: "tool.call.completed", data: { toolCallId: "read-1", toolName: "read_file", output: failure },
+  });
+  assert.equal(live.rows[0]?.kind === "tool" && live.rows[0].errorCode, "FILE_NOT_FOUND");
+});
+
+it("attaches history timestamps only for a unique current-Thread primary receipt, without altering its outcome", () => {
+  const rows = rowsFromHistory([{ id: "read", role: "assistant", parts: [
+    { type: "dynamic-tool", toolName: "read_file", toolCallId: "read-1", state: "output-available", input: { path: "notes/plan.md" }, output: { ok: false, error: { code: "FILE_NOT_FOUND" } } },
+  ] }]);
+  const tool: ExecutionToolRecord = { toolCallId: "read-1", toolName: "read_file", status: "completed", requestedAt: "2026-10-08T12:17:00Z", startedAt: null, finishedAt: null,
+    inputPreview: "{}", inputTruncated: false, resultPreview: '{"ok":true}', resultTruncated: false, errorPreview: null, shell: null, fileInput: { path: "notes/plan.md" } };
+  const run = { runId: "r1", threadId: "t1", phase: "primary" as const, status: "completed" as const, startedAt: tool.requestedAt, finishedAt: null,
+    resultTextPreview: null, resultTextTruncated: false, errorPreview: null, tools: [tool] };
+  const result = annotateHistoryTools(rows, [run], "t1")[0];
+  assert.ok(result?.kind === "tool");
+  assert.equal(result.runId, "r1");
+  assert.equal(result.recordedAt, tool.requestedAt);
+  assert.equal(result.status, "failed");
+  assert.equal(result.errorCode, "FILE_NOT_FOUND");
+  for (const receipts of [
+    [run, { ...run, runId: "r2" }],
+    [{ ...run, threadId: "foreign" }],
+    [{ ...run, phase: "consolidation" as const }],
+    [{ ...run, status: "interrupted" as const }],
+    [{ ...run, status: "failed" as const }],
+    [{ ...run, status: "cancelled" as const }],
+    [{ ...run, tools: [{ ...tool, fileInput: { path: "different.md" } }] }],
+    [],
+  ]) assert.deepEqual(annotateHistoryTools(rows, receipts, "t1"), rows);
+  const duplicate = [...rows, ...rows];
+  assert.deepEqual(annotateHistoryTools(duplicate, [run], "t1"), duplicate);
 });
 
 describe("conversation file receipts", () => {

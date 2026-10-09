@@ -22,8 +22,13 @@ export interface ToolRow {
   kind: "tool";
   key: string;
   toolCallId: string;
-  /** Known only from current Run events/snapshot, never guessed for old history. */
+  /** Current Run events/snapshot or a unique matching primary receipt; never guessed. */
   runId?: string;
+  /** Display facts from full input/output or an unambiguous saved receipt. */
+  inputPath?: string;
+  errorCode?: string;
+  recordedAt?: string;
+  historical?: true;
   toolName: string;
   status: ToolRowStatus;
   /** Only full history/event outcomes have this marker; never receipt previews. */
@@ -121,10 +126,23 @@ function withShellFields(
   };
 }
 
+function fileInputFields(input: unknown): Pick<ToolRow, "inputPath"> {
+  if (typeof input !== "object" || input === null) return {};
+  const path = (input as { path?: unknown }).path;
+  return typeof path === "string" && path.length > 0 ? { inputPath: path } : {};
+}
+
+function outputErrorCode(output: unknown): string | undefined {
+  if (typeof output !== "object" || output === null) return undefined;
+  const value = output as { ok?: unknown; error?: { code?: unknown } };
+  return value.ok === false && typeof value.error?.code === "string" ? value.error.code : undefined;
+}
+
 function withFileReceipt(row: ToolRow, output: unknown): ToolRow {
   const receipt = fileToolReceipt(row.toolName, output);
-  const { receipt: previousReceipt, ...withoutReceipt } = row;
-  return row.status === "ok" && receipt ? { ...withoutReceipt, receipt } : withoutReceipt;
+  const errorCode = outputErrorCode(output);
+  const { receipt: previousReceipt, errorCode: previousCode, ...withoutReceipt } = row;
+  return { ...withoutReceipt, ...(errorCode ? { errorCode } : {}), ...(row.status === "ok" && receipt ? { receipt } : {}) };
 }
 
 /**
@@ -169,6 +187,8 @@ export function rowsFromHistory(messages: readonly UIMessage[]): ConversationRow
           key: `h:${message.id}:${part.toolCallId}`,
           toolCallId: part.toolCallId,
           toolName: part.toolName,
+          historical: true,
+          ...fileInputFields(part.input),
           status: outcome.status,
           ...(["output-available", "output-error", "output-denied"].includes(part.state) ? { outcomeSource: "full" as const } : {}),
           ...(outcome.detail ? { detail: outcome.detail } : {}),
@@ -179,6 +199,30 @@ export function rowsFromHistory(messages: readonly UIMessage[]): ConversationRow
     flushText();
   }
   return rows;
+}
+
+/** Attach display metadata only. Reused provider IDs never establish Run ownership. */
+export function annotateHistoryTools(rows: readonly ConversationRow[], runs: readonly ExecutionRunRecord[], threadId: string): ConversationRow[] {
+  const key = (tool: Pick<ToolRow, "toolName" | "toolCallId">) => JSON.stringify([tool.toolName, tool.toolCallId]);
+  const occurrences = new Map<string, number>();
+  for (const row of rows) if (row.kind === "tool") occurrences.set(key(row), (occurrences.get(key(row)) ?? 0) + 1);
+  const owners = new Map<string, { runId: string; tool: ExecutionToolRecord }[]>();
+  for (const run of runs) {
+    // Only completed Runs commit ordinary conversation history. An uncommitted
+    // later failed/cancelled Run may reuse a provider ID from a pruned old Run.
+    if (run.threadId !== threadId || run.phase !== "primary" || run.status !== "completed") continue;
+    for (const tool of run.tools) owners.set(key(tool), [...(owners.get(key(tool)) ?? []), { runId: run.runId, tool }]);
+  }
+  return rows.map(row => {
+    if (row.kind !== "tool" || occurrences.get(key(row)) !== 1) return row;
+    const matches = owners.get(key(row));
+    if (matches?.length !== 1) return row;
+    const { tool, runId } = matches[0]!;
+    if (row.runId && row.runId !== runId) return row;
+    if (row.inputPath && tool.fileInput?.path && row.inputPath !== tool.fileInput.path) return row;
+    // Do not replace the full transcript outcome with a bounded preview.
+    return { ...row, runId, recordedAt: tool.requestedAt };
+  });
 }
 
 export function rowsFromToolActivity(activity: readonly ToolActivity[], runId?: string): ConversationRow[] {
@@ -192,12 +236,14 @@ export function rowsFromToolActivity(activity: readonly ToolActivity[], runId?: 
       ? presentComputerResult(item.toolName, parsed) ?? presentShellExec(parsed) ?? toolOutcome(parsed)
       : { status: "incomplete" as const, detail: "回执不完整，不能据此判断工具返回结果" };
     const unknown = item.outcomeUnknown === true;
+    const errorCode = complete ? outputErrorCode(parsed) : undefined;
     return {
     kind: "tool" as const,
     key: `t:${item.toolCallId}`,
     toolCallId: item.toolCallId,
     ...(runId ? { runId } : {}),
     toolName: item.toolName,
+    ...(errorCode ? { errorCode } : {}),
     status: unknown ? "unknown" : item.status === "failed" ? "failed" : returned.status,
     ...(unknown ? { detail: "效果未知 · 需人工核对，不自动重试" }
       : item.truncated ? { detail: "回执已截断，不能据此推断成功" } : returned.detail ? { detail: returned.detail } : {}),
@@ -254,14 +300,18 @@ export function overlayExecutionReceipts(
       : tool.status === "not_started" ? "调用未开始，未派发动作"
       : tool.status === "failed" ? tool.errorPreview ?? "调用失败"
       : returned.detail ?? (tool.resultTruncated ? "回执已截断，不能据此推断成功" : undefined);
+    const errorCode = tool.status === "completed" ? (existing?.outcomeSource === "full" ? existing.errorCode : complete ? outputErrorCode(parsed) : undefined) : undefined;
+    const metadata = { recordedAt: tool.requestedAt, ...(tool.fileInput?.path ? { inputPath: tool.fileInput.path } : {}) };
     const next: ToolRow = { kind: "tool", key: `receipt:${tool.toolName}:${tool.toolCallId}:${result.length}`, toolCallId: tool.toolCallId,
+      ...metadata, ...(errorCode ? { errorCode } : {}),
       toolName: tool.toolName, status, ...(runId ? { runId } : {}), ...(tool.shell ?? {}), ...(detail ? { detail } : {}) };
     if (index < 0) result.push(next);
     else {
       // A later authoritative failure/unknown must not keep an earlier success
       // receipt. A truncated *preview* need not erase a known full output.
-      const { receipt, outcomeSource, ...withoutReceipt } = existing!;
+      const { receipt, outcomeSource, errorCode: previousCode, ...withoutReceipt } = existing!;
       result[index] = { ...withoutReceipt, status, ...(detail ? { detail } : {}),
+        ...metadata, ...(errorCode ? { errorCode } : {}),
         ...(runId ? { runId } : {}),
         ...(tool.status === "completed" && outcomeSource === "full" ? { outcomeSource } : {}),
         ...(status === "ok" && receipt ? { receipt } : {}) };
@@ -314,6 +364,8 @@ export function applyEvent(live: LiveRun, event: AgentEvent): LiveRun {
             toolCallId: event.data.toolCallId,
             runId: event.runId,
             toolName: event.data.toolName,
+            recordedAt: event.occurredAt,
+            ...fileInputFields(event.data.input),
             status: "requested",
           },
         ],
@@ -343,8 +395,8 @@ export function applyEvent(live: LiveRun, event: AgentEvent): LiveRun {
       return {
         rows: live.rows.map((row) => {
           if (row.kind !== "tool" || row.toolCallId !== event.data.toolCallId) return row;
-          const { receipt, ...withoutReceipt } = row;
-          return { ...withoutReceipt, outcomeSource: "full", status: unknown ? "unknown" : event.data.error.code === "TOOL_DENIED" ? "denied" : "failed", detail: event.data.error.message };
+          const { receipt, errorCode, ...withoutReceipt } = row;
+          return { ...withoutReceipt, errorCode: event.data.error.code, outcomeSource: "full", status: unknown ? "unknown" : event.data.error.code === "TOOL_DENIED" ? "denied" : "failed", detail: event.data.error.message };
         }),
         streaming: live.streaming,
       };

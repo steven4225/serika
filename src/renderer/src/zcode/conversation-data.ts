@@ -52,16 +52,26 @@ export function conversationTurns(rows: readonly ConversationRow[], running: boo
 
 const attentionStatuses = new Set<ToolRow["status"]>(["failed", "unknown", "timed_out", "dispatched", "incomplete"]);
 
+export function isMissingFile(row: ToolRow): boolean {
+  return row.toolName === "read_file" && row.status === "failed" && row.errorCode === "FILE_NOT_FOUND";
+}
+
+function needsAttention(row: ToolRow): boolean {
+  // A settled historical failure is not a pending action. Unknown effects remain visible.
+  return attentionStatuses.has(row.status) && !isMissingFile(row) && !(row.historical && (row.status === "failed" || row.status === "timed_out"));
+}
+
 export function workSummary(rows: readonly ConversationRow[]): { label: string; needsAttention: boolean; pending: boolean } {
   const tools = rows.filter((row): row is ToolRow => row.kind === "tool");
-  const needsAttention = tools.some(row => attentionStatuses.has(row.status));
+  const attention = tools.some(needsAttention);
   const pending = tools.some(row => row.status === "requested");
-  return { label: `执行过程 · ${tools.length} 次工具调用${needsAttention ? " · 有结果待查看" : pending ? " · 调用未结束" : tools.some(row => row.status === "denied") ? " · 有调用被拒绝" : ""}`, needsAttention, pending };
+  const historical = tools.length > 0 && tools.every(row => row.historical);
+  return { label: `${historical ? "历史执行" : "执行过程"} · ${tools.length} 次工具调用${attention ? " · 有结果待查看" : pending ? " · 调用未结束" : tools.some(isMissingFile) ? " · 文件不存在" : tools.some(row => row.status === "failed" || row.status === "timed_out") ? " · 有调用未成功" : tools.some(row => row.status === "denied") ? " · 有调用被拒绝" : ""}`, needsAttention: attention, pending };
 }
 
 export function toolPresentation(row: ToolRow): { name: string; status: string; icon: "terminal" | "memory" | "timer" | "activity"; attention: boolean } {
-  const names: Record<string, string> = { computer_observe: "观察应用", computer_action: "操作应用", read_file: "读取文件", write_file: "写入文件", edit_file: "编辑文件", shell_exec: "运行命令", web_fetch: "读取网页", web_search: "搜索网页", feed_read: "读取订阅", memory_add: "保存记忆", memory_update: "更新记忆", task_create: "创建提醒", task_reschedule: "调整提醒", checkpoint_save: "保存进度" };
+  const names: Record<string, string> = { computer_observe: "观察应用", computer_action: "操作应用", read_file: "读取文件", list_directory: "查看目录", search_files: "查找文件", write_file: "写入文件", edit_file: "编辑文件", shell_exec: "运行命令", web_fetch: "读取网页", web_search: "搜索网页", feed_read: "读取订阅", memory_add: "保存记忆", memory_update: "更新记忆", task_create: "创建提醒", task_reschedule: "调整提醒", checkpoint_save: "保存进度" };
   const statuses: Record<ToolRow["status"], string> = { requested: "调用中", ok: "返回成功", incomplete: "回执不完整", observed: "观察已返回", dispatched: "已派发 · 待核对", not_started: "未执行", failed: "失败", denied: "已拒绝", unknown: "效果未知", timed_out: "超时", cancelled: "已取消" };
-  return { name: names[row.toolName] ?? row.toolName, status: statuses[row.status], attention: attentionStatuses.has(row.status),
+  return { name: names[row.toolName] ?? row.toolName, status: isMissingFile(row) ? "文件不存在" : statuses[row.status], attention: needsAttention(row),
     icon: row.toolName === "shell_exec" ? "terminal" : row.toolName.startsWith("memory_") ? "memory" : row.toolName.startsWith("task_") ? "timer" : "activity" };
 }

@@ -48,6 +48,14 @@ function run(overrides: Partial<ExecutionRunRecord> = {}): ExecutionRunRecord {
 }
 
 describe("execution record presentation", () => {
+  it("explains an exact complete missing-file result without claiming success or hiding unknown effects", () => {
+    const missing = tool({ toolName: "read_file", status: "completed", resultPreview: JSON.stringify({ ok: false, error: { code: "FILE_NOT_FOUND" } }) });
+    assert.equal(toolNote(missing), "文件不存在，未读取到内容");
+    assert.equal(toolTone(missing), "fail");
+    assert.doesNotMatch(toolNote({ ...missing, resultTruncated: true }), /文件不存在/);
+    assert.doesNotMatch(toolNote({ ...missing, status: "unknown" }), /文件不存在/);
+    assert.equal(toolTone({ ...missing, status: "unknown" }), "unknown");
+  });
   it("does not treat a query throw as an empty history", async () => {
     const wrapped = await wrapExecutionQuery(async () => {
       throw new Error("CONFLICT: Thread is already owned");

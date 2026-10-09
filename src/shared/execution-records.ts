@@ -112,6 +112,10 @@ export function completedOutcome(tool: ExecutionToolRecord): string {
   const parsed = parsePreviewJson(tool.resultPreview);
   const computer = presentComputerResult(tool.toolName, tool.resultTruncated ? undefined : parsed);
   if (computer) return tool.resultTruncated ? "Computer 回执已截断，效果待核对" : computer.detail;
+  if (tool.toolName === "read_file" && !tool.resultTruncated && typeof parsed === "object" && parsed !== null) {
+    const result = parsed as { ok?: unknown; error?: { code?: unknown } };
+    if (result.ok === false && result.error?.code === "FILE_NOT_FOUND") return "文件不存在，未读取到内容";
+  }
   if (typeof parsed === "object" && parsed !== null && "ok" in parsed) {
     return (parsed as { ok: unknown }).ok === true ? "ok:true" : "ok:false";
   }
