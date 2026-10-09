@@ -20,8 +20,8 @@
     "check": "pnpm typecheck && pnpm test && pnpm build"
   },
   "dependencies": {
-    "@aisdk-agent/core": "link:../aisdk-agent-framework/packages/core",
-    "@aisdk-agent/example-cli": "link:../aisdk-agent-framework/examples/cli",
+    "@aisdk-agent/core": "workspace:*",
+    "@aisdk-agent/example-cli": "workspace:*",
     "@radix-ui/react-slot": "1.2.4",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",

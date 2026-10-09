@@ -78,3 +78,39 @@ test("registration failure is reported and an explicit retry can register the in
     await installLocalLauncher({ ...f, bundle, register: () => {} });
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });
+
+test("explicit migration replaces only the specified old checkout and keeps its bundle for rollback", async () => {
+  const f = await fixture();
+  try {
+    const oldDesktop = join(f.root, "old-desktop");
+    const oldBundle = join(oldDesktop, "dist/local-44.4.5/Serika.app");
+    await mkdir(join(oldBundle, "Contents/Resources"), { recursive: true });
+    const marker = JSON.stringify({ desktop: oldDesktop, version: "44.4.5" });
+    await writeFile(join(oldBundle, "Contents/Resources/serika-local.json"), marker);
+    await mkdir(f.applicationsDirectory);
+    const installedPath = join(f.applicationsDirectory, "Serika.app");
+    await symlink(oldBundle, installedPath);
+    const bundle = await f.bundle("44.4.5");
+    const options = { ...f, bundle, register: () => {} };
+    await assert.rejects(installLocalLauncher(options));
+    await assert.rejects(installLocalLauncher({ ...options, migrateFrom: join(f.root, "wrong-checkout") }));
+    assert.equal(await readlink(installedPath), oldBundle);
+    assert.deepEqual(await installLocalLauncher({ ...options, migrateFrom: oldDesktop }), { bundle, installedPath, previousBundle: oldBundle });
+    assert.equal(await readlink(installedPath), bundle);
+    assert.equal(await readFile(join(oldBundle, "Contents/Resources/serika-local.json"), "utf8"), marker);
+    // Rollback is the same explicit, ownership-checked operation in reverse.
+    await installLocalLauncher({ desktop: oldDesktop, bundle: oldBundle, applicationsDirectory: f.applicationsDirectory,
+      migrateFrom: f.desktop, register: () => {} });
+    assert.equal(await readlink(installedPath), oldBundle);
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
+
+test("migration requires an absolute distinct source and an existing managed link", async () => {
+  const f = await fixture();
+  try {
+    const bundle = await f.bundle("44.4.5");
+    for (const migrateFrom of ["relative", f.desktop, join(f.root, "old-desktop")]) {
+      await assert.rejects(installLocalLauncher({ ...f, bundle, migrateFrom, register: () => {} }));
+    }
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});

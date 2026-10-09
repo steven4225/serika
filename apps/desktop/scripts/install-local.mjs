@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 import { lstat, mkdir, readFile, readlink, rename, symlink, unlink } from "node:fs/promises";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -17,23 +17,28 @@ async function assertManagedBundle(desktop, bundle) {
 }
 
 /** Local checkout link only: never copy a bundle or replace a user's installed app. */
-export async function installLocalLauncher({ desktop, bundle, applicationsDirectory = join(homedir(), "Applications"), register = (path) => execFileSync(LSREGISTER, ["-f", path], { stdio: "pipe" }) }) {
+export async function installLocalLauncher({ desktop, bundle, migrateFrom, applicationsDirectory = join(homedir(), "Applications"), register = (path) => execFileSync(LSREGISTER, ["-f", path], { stdio: "pipe" }) }) {
   desktop = resolve(desktop);
   bundle = resolve(bundle);
+  if (migrateFrom !== undefined && (!isAbsolute(migrateFrom) || resolve(migrateFrom) === desktop)) throw new Error("Migration source must be a distinct absolute checkout path.");
   await assertManagedBundle(desktop, bundle);
   await mkdir(applicationsDirectory, { recursive: true });
   const installedPath = join(applicationsDirectory, "Serika.app");
   let previous;
+  let previousBundle;
   try { previous = await lstat(installedPath); }
   catch (error) { if (error.code !== "ENOENT") throw error; }
   if (previous) {
     if (!previous.isSymbolicLink()) throw new Error("Serika.app already exists and is not a managed link; refusing to overwrite it.");
     const target = resolve(dirname(installedPath), await readlink(installedPath));
-    await assertManagedBundle(desktop, target);
+    await assertManagedBundle(migrateFrom === undefined ? desktop : resolve(migrateFrom), target);
+    if (migrateFrom !== undefined) previousBundle = target;
     if (target === bundle) {
       await register(installedPath);
       return { bundle, installedPath };
     }
+  } else if (migrateFrom !== undefined) {
+    throw new Error("Migration requires an existing launcher owned by the specified old checkout.");
   }
   const temporary = `${installedPath}.${randomUUID()}.tmp`;
   try {
@@ -51,14 +56,17 @@ export async function installLocalLauncher({ desktop, bundle, applicationsDirect
   }
   // Registration is not a launch, notification permission request, or service enablement.
   await register(installedPath);
-  return { bundle, installedPath };
+  return { bundle, installedPath, ...(previousBundle === undefined ? {} : { previousBundle }) };
 }
 
 async function main() {
   if (process.platform !== "darwin") throw new Error("install:local currently supports macOS only.");
+  const args = process.argv.slice(2);
+  if (args.length && (args.length !== 2 || args[0] !== "--migrate-from" || !isAbsolute(args[1]))) throw new Error("Usage: install:local [--migrate-from /absolute/old-desktop-checkout]");
+  const migrateFrom = args.length ? args[1] : undefined;
   const desktop = resolve(fileURLToPath(new URL("..", import.meta.url)));
-  for (const cwd of [resolve(desktop, "../aisdk-agent-framework"), desktop]) {
-    const result = spawnSync("pnpm", ["build"], { cwd, stdio: "inherit" });
+  for (const [cwd, script] of [[resolve(desktop, "../.."), "build:runtime"], [desktop, "build"]]) {
+    const result = spawnSync("pnpm", [script], { cwd, stdio: "inherit" });
     if (result.error) throw result.error;
     if (result.status !== 0) throw new Error(`Build failed in ${cwd} (${result.status ?? "terminated"}).`);
   }
@@ -68,7 +76,8 @@ async function main() {
   // Explicitly register our nested app so notification clicks can cold-launch
   // its delegate. This does not request notification permission or send anything.
   execFileSync(LSREGISTER, ["-f", join(bundle, "Contents/Resources/Serika Notifications.app")], { stdio: "pipe" });
-  const installed = await installLocalLauncher({ desktop, bundle });
+  const installed = await installLocalLauncher({ desktop, bundle, migrateFrom });
+  if (installed.previousBundle) process.stdout.write(`保留的旧入口（可回滚）：${installed.previousBundle}\n`);
   process.stdout.write(`Serika 本机入口已安装：${installed.installedPath}\n此入口依赖当前仓库；未启动应用或后台服务。\n`);
 }
 

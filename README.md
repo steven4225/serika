@@ -1,5 +1,24 @@
 # Runloom
 
+## Serika Electron 桌面（单仓入口）
+
+前后端现在同在本仓库：`packages/*` 是 Runtime，`examples/cli` 是应用/Controller，`apps/desktop` 是 Serika Electron 主进程、preload 和 React 页面。桌面使用原有 AgentLoop，不引入第二套执行循环。前端从旧仓 `runloom-desktop` 的 `f6de16b34e9a895c21c6b16efb2d0cf0c233e2f0` 带历史导入；旧仓仅保留作回滚，不再双向开发。
+
+在仓库根目录运行（Node >= 22.12，pnpm 版本以 `packageManager` 为准）：
+
+```sh
+pnpm install --frozen-lockfile
+pnpm typecheck
+pnpm test
+pnpm build
+```
+
+`typecheck` 和 `test` 覆盖两端；`build` 按 Runtime → Electron 顺序构建。仅后端使用 `pnpm build:runtime` / `pnpm test:runtime`。桌面可单独运行 `pnpm desktop:check`、`pnpm desktop:dev`；真实日用入口为 `pnpm desktop:daily`，macOS 安装入口为 `pnpm desktop:install`。Electron 不是网页预览；Linux 图形测试需要桌面会话及 Electron 的系统依赖。
+
+日用默认读取**根目录未提交的 `.env`**，也支持显式的绝对 `RUNLOOM_ENV_FILE`。不会从 Git 提供 Key，日用入口拒绝 mock。自动测试使用脚本模型，不声称证明真实模型或手机投递。
+
+迁仓不改变 bundle ID、`serika://`、原 userData、workspace、Thread、transcript、记忆、草稿或任务格式。已有本机入口和 launchd 服务需要显式切换路径，不在启动时偷偷替换。安装迁移、回滚和可直接交给 Grokbot 的检查步骤见 [桌面使用与验收](apps/desktop/README.md#单仓入口与-grokbot-检查)。
+
 这是一个已具备本地 Agent 执行能力的实验性运行时。M10 之后不再预建通用平台功能；当前是用真实小开发任务验证单 Agent 能否交付可 review 的修改。
 
 ## 当前结论

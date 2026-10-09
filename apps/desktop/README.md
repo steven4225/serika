@@ -2,6 +2,65 @@
 
 Electron 前端通过 `createRuntimeApp` + `createAssistantController` 接入后端，不创建第二条 AgentLoop。
 
+## 单仓入口与 Grokbot 检查
+
+当前目录为主仓的 `apps/desktop`。使用根目录 `pnpm-workspace.yaml` / `pnpm-lock.yaml`，不再安装 sibling 仓库。旧前端完整历史保留在导入提交的父链中，旧 checkout 保留作回滚，不再双向开发。下方早期验收记录里的旧绝对路径只是历史证据，不是当前启动入口。
+
+**Before：** Bot 只 clone 后端拿不到 Electron，前端还依赖本机 sibling 路径。
+
+**After：** clone 一个仓库即可安装、审查、构建并测试 Runtime 与桌面。
+
+**Demo：** 在根目录安装后运行 `pnpm build`，有图形桌面的机器运行 `pnpm desktop:dev`；确认是 Electron 窗口、Today 页面能打开任务/记忆/模块，输入和逐次确认仍走原 Controller。日用路径切换后再检查原对话和未发送草稿；不要求手机参与合仓。
+
+### 可交给 Grokbot 的步骤
+
+1. Clone `https://github.com/steven4225/runloom.git` 的迁移 PR 分支 `feat/desktop-monorepo`（合并后用 `main`），记录实际 commit，读取根目录与本目录 `AGENTS.md`。不要操作用户的 Mac，不获取或输出用户 Key，不改产品代码来让测试通过。
+2. 在根目录运行：
+
+   ```sh
+   pnpm install --frozen-lockfile
+   pnpm typecheck
+   pnpm test
+   pnpm build
+   ```
+
+   若 pnpm 未安装，按根 `packageManager` 安装同版本；Node 最低 22.12。Linux CI 检查 portable 桌面代码，macOS CI 另外构建 Swift 通知 helper。不存在 macOS 环境时，把通知、launchd、系统红绿灯标为 `not_run`。
+3. 有可用图形桌面才运行 `pnpm desktop:dev`。`dev` 没配真实模型时明确显示 mock，只用于界面检查，不能写成实际助手能力通过。云机器缺 DISPLAY 或 Electron 系统库时报告具体缺项，不用网页截图冒充 Electron。真实任务需通过 Bot 的安全密钥配置一个外部环境文件，显式设置 `RUNLOOM_MODEL` / `RUNLOOM_ENV_FILE`。
+4. 核对：对话输入/草稿、任务/记忆/模块入口、工具确认的允许与拒绝、执行追踪。不要准许测试范围外的 Shell、文件写入或 Computer 操作。分别记录构建、离线测试、真实模型、GUI 和平台专属功能的通过/失败/未运行，不用模型口头结论替代文件与回执。
+5. 输出结果，包含 commit、命令退出码、可复现步骤和截图。Telegram 手机确认及退出桌面后的提醒仍是独立日用验收，不是合仓通过条件。
+
+### 日用入口与现有安装迁移（macOS）
+
+```sh
+# 根目录；默认读取此处未提交的 .env，或传 RUNLOOM_ENV_FILE 的绝对路径。
+pnpm desktop:daily
+pnpm desktop:install
+```
+
+安装只生成源码 checkout 依赖的本机入口，不是已公证发行包。首次安装不启动应用或后台服务。原 `~/Applications/Serika.app` 若属于旧 checkout，普通安装会拒绝覆盖；确认原应用空闲、没有待确认操作且草稿已保存，完整退出桌面后，显式迁移：
+
+```sh
+pnpm desktop:install --migrate-from /absolute/path/to/runloom-desktop
+```
+
+只替换与参数中的旧 checkout 匹配的 managed symlink，原 bundle 和旧仓原样保留；命令输出旧 bundle 供回滚。userData 仍为 `~/Library/Application Support/@aisdk-agent/desktop`，bundle ID `app.serika.desktop.local`、`serika://` 和数据格式不变，不搬数据、不导入别的 workspace。
+
+**已有常驻与任务服务：** 先记录旧设置和路径；确认空闲后显式停用。新入口打开后再显式启用同一工作区的常驻服务及任务服务，沿用已有 env 文件和任务，不重复创建提醒。宿主入口和内置通知 helper 路径会变化；不把“已注册”当作新配置已生效，不自动替换不兼容服务。若暂不切服务，仍可审查/测试本 PR，但日用迁移不能写成已完成。
+
+**回滚：** 完整退出新桌面、显式停用新路径服务；在主仓根目录调用同一个受测安装函数，使用迁移命令输出的旧 bundle：
+
+```sh
+node --input-type=module -e '
+import { installLocalLauncher } from "./apps/desktop/scripts/install-local.mjs";
+await installLocalLauncher({
+  desktop: "/absolute/path/to/runloom-desktop",
+  bundle: "/absolute/path/to/runloom-desktop/dist/local-44.4.5/Serika.app",
+  migrateFrom: "/absolute/path/to/aisdk-agent-framework/apps/desktop"
+});'
+```
+
+替换示例绝对路径和旧 Electron 版本为输出值，不猜目标。该操作同样校验两边 marker；恢复旧服务参数后重新打开。只恢复入口和服务，不回滚用户数据，不覆盖未经校验的安装。
+
 ## Telegram 私聊入口与提醒投递
 
 Before：只能在桌面交办，手机不能处理同一次工具确认。
@@ -36,7 +95,7 @@ After：在已绑定私聊里创建完整提醒/简报安排，批准时明确�
 
 「只重试发送」只适用于已确定未提交的失败结果，遵守平台限流等待；不会重跑模型、增加 Run 或恢复工具确认。超时/响应丢失仍是 `unknown`，没有重发按钮。平台返回消息 ID 是 `submitted`，不是用户已读；关闭单项投递取消尚未发送的项，已发出/未知的一次无法撤回。任务保存、目的地登记和服务启用不是跨文件原子事务；若后两步失败，已保存任务不会被创建第二次，需显式核对并选择目的地/服务。
 
-Mac 关机或睡眠期间不承诺全天在线、准点提醒。前端迁仓库继续等待第二、三批日用验收，不在本批实施。
+Mac 关机或睡眠期间不承诺全天在线、准点提醒。前端已并入主仓；第二、三批手机日用验收仍独立记录，不由合仓或 CI 通过推定。
 
 ## 能力开关与对话容量
 

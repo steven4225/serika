@@ -4,7 +4,7 @@ import { parseEnv } from "node:util";
 
 export async function dailyEnvironment(desktop, inherited = process.env) {
   const env = { ...inherited };
-  env.RUNLOOM_ENV_FILE ??= resolve(desktop, "../aisdk-agent-framework/.env");
+  env.RUNLOOM_ENV_FILE ??= resolve(desktop, "../../.env");
   if (!isAbsolute(env.RUNLOOM_ENV_FILE)) throw new Error("RUNLOOM_ENV_FILE 必须是绝对路径。");
   let credentials;
   try {

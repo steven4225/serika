@@ -6,10 +6,11 @@ import { prepareMacLauncher } from "./mac-launcher.mjs";
 import { dailyEnvironment } from "./daily-environment.mjs";
 
 const desktop = fileURLToPath(new URL("..", import.meta.url));
-const backend = resolve(desktop, "../aisdk-agent-framework");
+const backend = resolve(desktop, "../..");
 const env = await dailyEnvironment(desktop);
-for (const cwd of [backend, desktop]) {
-  const result = spawnSync("pnpm", ["build"], { cwd, stdio: "inherit" });
+for (const [cwd, script] of [[backend, "build:runtime"], [desktop, "build"]]) {
+  const result = spawnSync("pnpm", [script], { cwd, stdio: "inherit" });
+  if (result.error) throw result.error;
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
 const electronBinary = createRequire(import.meta.url)("electron");
