@@ -29,6 +29,6 @@ export function PomodoroPanel({ enabled, busy, output }: { enabled: boolean; bus
     {busy ? <p className="hint">助手正在处理任务，结束后可操作番茄钟。</p> : null}
     {error ? <p role="alert" className="error">{error}</p> : null}
     <div className="focus-replies" role="log" aria-label="番茄钟回执"><h3>最近回执</h3>{replies.length ? replies.map((reply, index) => <p key={`${index}-${reply}`}>{reply}</p>) : <p className="hint">尚无回执。查询可获得后端当时的剩余时间；这里不显示推算的倒计时。</p>}</div>
-    <p className="hint">计时只属于当前进程，退出应用不会继续，也不跨重启恢复。完成回执不等于系统通知已送达。</p>
+    <p className="hint">计时属于助手宿主。开启常驻模式后，退出桌面仍会继续；未开启时完整退出会结束计时。宿主崩溃不恢复计时，完成回执不等于系统通知已送达。</p>
   </section>;
 }

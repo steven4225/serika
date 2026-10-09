@@ -1,11 +1,12 @@
-import type { DesktopRuntime } from "./desktop-runtime.js";
+import type { AppInfo } from "../shared/ui-contract.js";
+import type { RuntimeBridge } from "./runtime-bridge.js";
 import { ConversationDraftStore } from "./conversation-draft-store.js";
 import { draftScope, sameDraftScope, type ConversationDraftScope, type ConversationDraft, type DesktopSteerInput, type DesktopSteerResponse } from "../shared/conversation-drafts.js";
 import type { TaskDraftUpdate } from "../shared/conversation-drafts.js";
 
 /** Persist UI intent before dispatch. Neither loading nor acknowledging it replays a tool/Run. */
 export class ConversationDraftSession {
-  constructor(private host: Pick<DesktopRuntime, "info" | "current">, private store: ConversationDraftStore) {}
+  constructor(private host: { info(): AppInfo; current: Pick<RuntimeBridge, "snapshot" | "steer" | "getRun"> }, private store: ConversationDraftStore) {}
 
   #scope(expected: ConversationDraftScope) {
     const scope = draftScope(this.host.info());

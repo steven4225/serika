@@ -1,4 +1,5 @@
 import type { UIMessage } from "ai";
+import type { ResidentServiceState } from "./resident-service.js";
 import type { ConversationDraftScope, ConversationDraft, ConversationDraftState, DesktopSteerInput, DesktopSteerResponse, TaskDraftUpdate } from "./conversation-drafts.js";
 import type { FormalMemory, MemoryPage, MemoryListInput, MemoryEditInput } from "@aisdk-agent/example-cli/dist/memory-management.js";
 import type { MemoryAction, MemoryActionPreview, MemoryHistoryInput, MemoryHistoryPage, MemoryMaintenance } from "@aisdk-agent/example-cli/dist/memory-controls.js";
@@ -183,6 +184,8 @@ export type GetRunResponse =
   | { ok: false; reason: "unavailable"; message: string };
 
 export interface RendererApi {
+  residentStatus?(): Promise<ResidentServiceState>;
+  setResidentEnabled?(enabled: boolean): Promise<ResidentServiceState>;
   loadConversationDraft(scope: ConversationDraftScope): Promise<ConversationDraftState>;
   saveConversationDraft(scope: ConversationDraftScope, draft: ConversationDraft): Promise<void>;
   saveTaskDraft(scope: ConversationDraftScope, update: TaskDraftUpdate): Promise<void>;
@@ -265,6 +268,8 @@ export interface RendererApi {
 }
 
 export const IPC = {
+  residentStatus: "runloom:residentStatus",
+  residentEnabled: "runloom:residentEnabled",
   draftLoad: "runloom:draftLoad",
   draftSave: "runloom:draftSave",
   taskDraftSave: "runloom:taskDraftSave",

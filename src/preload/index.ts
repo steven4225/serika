@@ -2,6 +2,8 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 import { IPC, type MainToRenderer, type RendererApi } from "../shared/ui-contract.js";
 
 const api: RendererApi = {
+  residentStatus: () => ipcRenderer.invoke(IPC.residentStatus),
+  setResidentEnabled: enabled => ipcRenderer.invoke(IPC.residentEnabled, enabled),
   loadConversationDraft: scope => ipcRenderer.invoke(IPC.draftLoad, scope),
   saveConversationDraft: (scope, draft) => ipcRenderer.invoke(IPC.draftSave, scope, draft),
   saveTaskDraft: (scope, update) => ipcRenderer.invoke(IPC.taskDraftSave, scope, update),

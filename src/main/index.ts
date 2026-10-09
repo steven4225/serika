@@ -8,7 +8,7 @@ import type { CandidateListInput, CandidateResolveInput } from "@aisdk-agent/exa
 import { IPC, type ConfirmInput, type MainToRenderer } from "../shared/ui-contract.js";
 import type { WorkTaskInputs, WorkTaskReadInput, WorkTaskArtifactInput } from "../shared/work-tasks.js";
 import { parseModuleNotification } from "./runtime-bridge.js";
-import { DesktopRuntime } from "./desktop-runtime.js";
+import { RuntimeOwnership } from "./runtime-ownership.js";
 import { ConversationDraftStore } from "./conversation-draft-store.js";
 import { ConversationDraftSession } from "./conversation-draft-session.js";
 import { installHideOnClose, installTray } from "./tray.js";
@@ -143,7 +143,7 @@ async function main(): Promise<void> {
     window.hide();
   });
 
-  let host!: DesktopRuntime;
+  let host!: RuntimeOwnership;
   // Renderer can load before disk/config initialization finishes. Keep info waiting
   // for the actual result rather than returning a misleading "no IPC handler" error.
   let resolveStartup!: () => void;
@@ -165,8 +165,9 @@ async function main(): Promise<void> {
     const taskWorkerFor = (workspace: string, configPath?: string) => createDesktopRssWorker({ workspace, ...(configPath ? { configPath } : {}), home: app.getPath("home"), env: process.env,
       workerEntry: fileURLToPath(import.meta.resolve("@aisdk-agent/example-cli/dist/task-worker-entry.js")),
       todoist: !!process.env.TODOIST_API_TOKEN?.trim() });
-    host = await DesktopRuntime.create({
+    host = await RuntimeOwnership.create({
       env: process.env, userData: app.getPath("userData"), cwd: process.cwd(),
+      home: app.getPath("home"), hostEntry: join(here, "resident-entry.js"),
       modelAlias, model, modelId: inspectCliModelConfig().modelId, send,
       taskAutomation: { status: (workspace, configPath) => taskWorkerFor(workspace, configPath).automationStatus(), enable: (workspace, configPath) => taskWorkerFor(workspace, configPath).enableArrangement() },
     });
@@ -177,6 +178,8 @@ async function main(): Promise<void> {
     const notifications = createNotificationReadiness({ workspace: host.info().workspaceRoot ?? undefined, env: process.env });
     ipcMain.handle(IPC.notificationStatus, () => notifications.status());
     ipcMain.handle(IPC.notificationTest, () => notifications.test());
+    ipcMain.handle(IPC.residentStatus, () => host.residentStatus());
+    ipcMain.handle(IPC.residentEnabled, (_event, enabled: unknown) => host.setResidentEnabled(enabled));
   } catch (error) {
     const message = safeStartupError(error, process.env);
     rejectStartup(new Error(message));

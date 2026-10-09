@@ -8,6 +8,9 @@ const build = createBuildManifest(fileURLToPath(new URL(".", import.meta.url)));
 
 export default defineConfig({
   main: {
+    // Both entries share import.meta-relative diagnostics; keep their shared
+    // code beside build-identity.json, not in a nested chunks directory.
+    build: { rollupOptions: { input: { index: fileURLToPath(new URL("./src/main/index.ts", import.meta.url)), "resident-entry": fileURLToPath(new URL("./src/main/resident-entry.ts", import.meta.url)) }, output: { chunkFileNames: "[name]-[hash].js" } } },
     define: { __SERIKA_BUILD__: JSON.stringify(build) },
     // Bundle the imported icon instead of leaving a runtime path outside out/.
     publicDir: "src/main/public",

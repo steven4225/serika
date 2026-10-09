@@ -9,8 +9,9 @@ import { RuntimeBridge, TeeOutput, type Send } from "./runtime-bridge.js";
 import { changeModuleSetting, changeDreamingSetting, type ModuleSettingInput, type DreamingSettingInput } from "./module-settings.js";
 import type { AppInfo } from "../shared/ui-contract.js";
 import { readLoadedBuild } from "./build-identity.js";
+import { createPomodoroService, type PomodoroService } from "@aisdk-agent/example-cli/dist/modules/pomodoro-module.js";
 
-interface Options { userData: string; cwd: string; env: NodeJS.ProcessEnv; modelAlias: string; modelId?: string; model: LanguageModel; send: Send; taskAutomation?: TaskAutomationHost }
+interface Options { userData: string; cwd: string; env: NodeJS.ProcessEnv; modelAlias: string; modelId?: string; model: LanguageModel; send: Send; taskAutomation?: TaskAutomationHost; /** Ownership transfers to this host, including final disposal. */ pomodoroService?: PomodoroService }
 
 /** Owns desktop selection only. Each selected Thread still uses the original controller/loop. */
 export class DesktopRuntime {
@@ -22,17 +23,23 @@ export class DesktopRuntime {
   #available = true;
   #lastInfo!: AppInfo;
   #recoveryError: string | undefined;
+  #pomodoroService: PomodoroService;
 
-  private constructor(options: Options) { this.#options = options; }
+  private constructor(options: Options) {
+    this.#options = options;
+    this.#pomodoroService = options.pomodoroService ?? createPomodoroService();
+  }
 
   static async create(options: Options): Promise<DesktopRuntime> {
     const host = new DesktopRuntime(options);
-    const config = await resolveDesktopConfig(options);
-    const modules = await resolveTuiModuleConfig({ configPath: config.configPath }, { cwd: options.cwd });
-    host.#identity = await resolveDesktopIdentity({ ...options, configPath: modules.configPath!, workspaceRoot: modules.workspaceRoot });
-    host.#bridge = await host.#make(host.#identity);
-    host.#lastInfo = host.#bridge.info();
-    return host;
+    try {
+      const config = await resolveDesktopConfig(options);
+      const modules = await resolveTuiModuleConfig({ configPath: config.configPath }, { cwd: options.cwd });
+      host.#identity = await resolveDesktopIdentity({ ...options, configPath: modules.configPath!, workspaceRoot: modules.workspaceRoot });
+      host.#bridge = await host.#make(host.#identity);
+      host.#lastInfo = host.#bridge.info();
+      return host;
+    } catch (error) { host.#pomodoroService.dispose(); throw error; }
   }
 
   get current(): RuntimeBridge {
@@ -42,6 +49,7 @@ export class DesktopRuntime {
   }
 
   get recoveryError() { return this.#recoveryError; }
+  getLifecycleStatus() { return { pomodoroRunning: this.#pomodoroService.status().status.state === "running" }; }
   info(): AppInfo {
     const info = this.#available ? this.#bridge.info() : this.#lastInfo;
     return { ...info, build: readLoadedBuild(), ...(this.#recoveryError ? { runtimeRecovery: { state: "failed" as const, message: this.#recoveryError } } : {}) };
@@ -59,6 +67,7 @@ export class DesktopRuntime {
     const app = await createRuntimeApp({
       args: ["--tui", identity.transcriptDirectory, "--thread", identity.threadId, "--config", identity.configPath],
       modelAlias: this.#options.modelAlias, model: this.#options.model, output, env: this.#options.env, cwd: this.#options.cwd,
+      pomodoroService: this.#pomodoroService,
       ...(this.#options.taskAutomation ? { taskAutomation: this.#options.taskAutomation } : {}),
     });
     // Assembly rereads the config; do not publish a different workspace under
@@ -191,12 +200,14 @@ export class DesktopRuntime {
       return this.#identity;
     }, false, { rollback: async () => { await undo?.(); } });
   }
-  setModuleEnabled(input: ModuleSettingInput) {
+  async setModuleEnabled(input: ModuleSettingInput) {
     let undo: (() => Promise<void>) | undefined;
-    return this.#replace(async () => {
+    await this.#replace(async () => {
       undo = await changeModuleSetting(this.#identity.configPath, input, this.#options.cwd);
       return this.#identity;
     }, false, { rollback: async () => { await undo?.(); } });
+    // Unrelated adapter disposal and failed/rolled-back changes never cancel.
+    if (input.id === "pomodoro" && !input.enabled) this.#pomodoroService.cancel();
   }
   setDreamingEnabled(input: DreamingSettingInput) {
     let undo: (() => Promise<void>) | undefined;
@@ -230,6 +241,7 @@ export class DesktopRuntime {
   }
   async shutdown() {
     await this.#transition?.catch(() => undefined);
-    if (this.#available) await this.#bridge.shutdown();
+    try { if (this.#available) await this.#bridge.shutdown(); }
+    finally { this.#pomodoroService.dispose(); }
   }
 }

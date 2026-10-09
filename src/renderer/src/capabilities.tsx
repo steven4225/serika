@@ -1,6 +1,9 @@
 import type { AppInfo } from "../../shared/ui-contract.js";
 import { useState } from "react";
 import { BuildIdentityPanel } from "./build-identity-panel.js";
+import { ResidentServicePanel } from "./resident-service-panel.js";
+import type { ResidentServiceState } from "../../shared/resident-service.js";
+import { useEffect } from "react";
 
 const labels: Record<string, [string, string]> = {
   pomodoro: ["番茄钟", "开始、查看和取消专注计时。"],
@@ -19,6 +22,12 @@ export function CapabilitiesPanel({ info, busy = false, initialError = null }: {
   const [selection, setSelection] = useState<{ id: string; enabled: boolean } | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(initialError ? `未应用：${initialError}` : null);
+  const [resident, setResident] = useState<ResidentServiceState | null>(null);
+  const refreshResident = async () => {
+    if (!window.runloom.residentStatus) throw new Error("当前版本未接通常驻服务");
+    const value = await window.runloom.residentStatus(); setResident(value); return value;
+  };
+  useEffect(() => { if (window.runloom.residentStatus) void refreshResident().catch(() => undefined); }, []);
   const apply = async () => {
     if (!selection || busy || unavailable || saving || !window.runloom.setModuleEnabled) return;
     setSaving(true); setError(null);
@@ -34,8 +43,8 @@ export function CapabilitiesPanel({ info, busy = false, initialError = null }: {
     {error ? <p className="error" role="alert">{error}</p> : null}
     {selection ? <div className="capability-confirm" role="group" aria-label="确认能力变更">
       <strong>{selection.enabled ? "开启" : "关闭"}{labels[selection.id]?.[0] ?? selection.id}？</strong>
-      {selection.id !== "pomodoro" ? <p className="hint">应用会重新加载能力；若番茄钟正在计时，会结束该计时。当前对话和未发送草稿保留。</p> : null}
-      <p>{selection.id === "task" ? "只更改助手创建和查询安排的能力；已保存的安排和后台服务继续运行。暂停安排请到工作区的自动安排中操作。" : selection.id === "memory" ? "关闭后不再引用记忆或自动整理，已保存的记忆和候选不会删除。重新开启沿用原来的写入策略。" : selection.id === "pomodoro" ? "应用设置会结束本进程的专注计时；重新开启不会恢复原计时。" : "下一次对话将使用新的能力配置。已保存的数据保留，工具操作仍按原权限逐次确认。"}</p>
+      {selection.id !== "pomodoro" ? <p className="hint">空闲时重新加载助手能力。番茄钟和已有后台安排继续，当前对话和未发送草稿保留。</p> : null}
+      <p>{selection.id === "task" ? "只更改助手创建和查询安排的能力；已保存的安排和后台服务继续运行。暂停安排请到工作区的自动安排中操作。" : selection.id === "memory" ? "关闭后不再引用记忆或自动整理，已保存的记忆和候选不会删除。重新开启沿用原来的写入策略。" : selection.id === "pomodoro" ? (selection.enabled ? "重新开启计时能力，不恢复之前已经结束的计时。" : "关闭并结束当前计时；重新开启不会恢复原计时。") : "下一次对话将使用新的能力配置。已保存的数据保留，工具操作仍按原权限逐次确认。"}</p>
       <div className="actions"><button disabled={busy || unavailable || saving} onClick={() => void apply()}>{saving ? "正在应用…" : "保存并应用"}</button><button className="ghost" disabled={saving} onClick={() => { setSelection(null); setError(null); }}>取消</button></div>
     </div> : null}
     <div className="capability-list">{info.modules?.map(module => {
@@ -55,5 +64,8 @@ export function CapabilitiesPanel({ info, busy = false, initialError = null }: {
     <p className="hint">开启能力不等于授权执行。尚未配置的外部能力需要先设置凭据、驱动或允许的应用，不会自动安装或申请系统权限。</p>
     <details><summary>配置位置</summary><p className="hint">{info.configPath ?? "未指定"}</p></details>
     <BuildIdentityPanel info={info.build} />
+    {window.runloom.residentStatus && window.runloom.setResidentEnabled ? <ResidentServicePanel status={resident} busy={busy || saving || unavailable} refresh={refreshResident} setEnabled={async enabled => {
+      const value = await window.runloom.setResidentEnabled!(enabled); setResident(value); return value;
+    }} /> : null}
   </section>;
 }
