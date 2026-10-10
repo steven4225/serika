@@ -373,7 +373,8 @@ describe("normal desktop memory and history entry", () => {
       await host.enableMemory();
       assert.equal(host.info().threadId, initial.threadId);
       assert.equal(host.info().directory, initial.directory);
-      assert.equal(host.info().memory.queryRewriteEnabled, true);
+      assert.equal(host.info().memory.queryRewriteEnabled, false, "policy upgrade preserves disabled recall rewriting");
+      assert.equal(host.info().memory.writePolicy, "automatic");
       assert.equal(await readFile(file, "utf8"), transcript);
       const saved = JSON.parse(await readFile(configPath, "utf8"));
       assert.deepEqual(saved.modules.shell, legacy.modules.shell);
@@ -381,7 +382,8 @@ describe("normal desktop memory and history entry", () => {
       assert.ok(memories.ok); assert.equal(memories.value.entries.length, 0);
       await host.shutdown();
       host = await DesktopRuntime.create(options);
-      assert.equal(host.info().memory.queryRewriteEnabled, true);
+      assert.equal(host.info().memory.queryRewriteEnabled, false);
+      assert.equal(host.info().memory.writePolicy, "automatic");
       assert.equal(host.info().threadId, initial.threadId);
       assert.ok((await host.current.history()).some(message => message.role === "user" && message.parts.some(part => part.type === "text" && part.text === "保留这条日用历史")));
     } finally { await host.shutdown(); await rm(root, { recursive: true, force: true }); }

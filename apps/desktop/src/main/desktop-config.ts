@@ -120,7 +120,8 @@ export async function enableDesktopMemory(configPath: string, cwd = process.cwd(
     if (!isRecord(config) || config.modules !== undefined && !isRecord(config.modules)) throw new Error("无法读取模块配置");
     const modules = isRecord(config.modules) ? config.modules : {};
     const memory = isRecord(modules.memory) ? modules.memory : {};
-    const next = { ...config, modules: { ...modules, memory: { ...memory, enabled: true, autoConsolidate: true, writePolicy: "automatic", queryRewrite: { enabled: true } } } };
+    const policyOnly = memory.enabled === true && memory.autoConsolidate === true && memory.writePolicy !== "automatic";
+    const next = { ...config, modules: { ...modules, memory: { ...memory, enabled: true, autoConsolidate: true, writePolicy: "automatic", ...(!policyOnly ? { queryRewrite: { enabled: true } } : {}) } } };
     return `${JSON.stringify(next, null, 2)}\n`;
   });
   return result.rollback ?? (async () => {});

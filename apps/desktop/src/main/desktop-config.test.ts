@@ -15,6 +15,22 @@ import {
 } from "./desktop-config.js";
 
 describe("desktop TUI config", () => {
+  it("explicit review upgrade only changes policy, preserves query settings and supports rollback", async () => {
+    const root = await mkdtemp(join(tmpdir(), "serika-memory-policy-upgrade-"));
+    try {
+      const workspace = join(root, "workspace"); await mkdir(workspace);
+      const configPath = join(root, "runloom.json");
+      for (const queryRewrite of [undefined, { enabled: false }, { enabled: true }] as const) {
+        const config = { version: 1, workspace, modules: { memory: { enabled: true, autoConsolidate: true, writePolicy: "review", ...(queryRewrite ? { queryRewrite } : {}) }, shell: { enabled: false } } };
+        const original = JSON.stringify(config);
+        await writeFile(configPath, original);
+        const undo = await enableDesktopMemory(configPath);
+        assert.deepEqual(JSON.parse(await readFile(configPath, "utf8")), { ...config, modules: { ...config.modules, memory: { ...config.modules.memory, writePolicy: "automatic" } } });
+        await undo();
+        assert.equal(await readFile(configPath, "utf8"), original);
+      }
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
   it("explicitly enables automatic source-checked memory without replacing existing module settings", async () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-desktop-enable-memory-"));
     try {

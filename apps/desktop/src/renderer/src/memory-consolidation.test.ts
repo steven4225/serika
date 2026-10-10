@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import type { AppInfo } from "../../shared/ui-contract.js";
 import type { MemoryMaintenance } from "@aisdk-agent/example-cli/dist/memory-controls.js";
-import { consolidationStatusLabel, previewAutomaticMemoryUndo, memoryReceiptPresentation, memoryReceiptSummary } from "./memory-consolidation.js";
+import { MemoryConsolidationPanel, consolidationStatusLabel, previewAutomaticMemoryUndo, memoryReceiptPresentation, memoryReceiptSummary } from "./memory-consolidation.js";
 
 function maintenance(state: MemoryMaintenance["consolidation"]["state"]): MemoryMaintenance {
   return {
@@ -12,6 +15,16 @@ function maintenance(state: MemoryMaintenance["consolidation"]["state"]): Memory
 }
 
 describe("daily memory consolidation state", () => {
+  it("keeps human policy status in the main path and advanced setup collapsed", () => {
+    const info = { workspaceRoot: "/workspace", configPath: "/config.json", memory: { enabled: true, autoConsolidate: true, writePolicy: "automatic", queryRewriteEnabled: true } } as AppInfo;
+    const html = renderToStaticMarkup(createElement(MemoryConsolidationPanel, { info, busy: false, refreshToken: 0 }));
+    assert.ok(html.includes("明确偏好会自动记住；有歧义才需要你点一下。"));
+    assert.match(html, /<details class="memory-maintenance-disclosure"><summary>高级：自动整理与补整理/);
+    assert.equal(html.includes("改为自动记住"), false);
+    const review = renderToStaticMarkup(createElement(MemoryConsolidationPanel, { info: { ...info, memory: { ...info.memory, writePolicy: "review" } }, busy: false, refreshToken: 0 }));
+    assert.ok(review.indexOf("改为自动记住") < review.indexOf("memory-maintenance-disclosure"));
+    assert.equal(review.includes("明确偏好会自动记住；"), false);
+  });
   it("distinguishes disabled, loading, failed reads, processing and review", () => {
     assert.equal(consolidationStatusLabel(false, null, ""), "记忆未启用");
     assert.equal(consolidationStatusLabel(true, null, ""), "正在读取记忆状态…");
