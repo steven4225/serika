@@ -9,7 +9,7 @@ import type {
 import { AgentError } from "@aisdk-agent/core";
 import { ContextCompactor, readContextDiagnostics, reconcilePublishedSummary, summarySourceChunks, type ContextCompactorOptions } from "./context-compactor.js";
 import { compactPrefixHash, contextSummaryPrompt, type ContextCompactionRecord, type ContextSummaryV2, type Summarizer } from "./context-compaction.js";
-import { estimateMessageTokens, type ContextBudgetConfig } from "./context-budget.js";
+import { estimateContextBudget, estimateMessageTokens, type ContextBudgetConfig } from "./context-budget.js";
 import {
   CHECKPOINT_CONTEXT_MESSAGE_ID,
   checkpointAndMemoryContextMessages,
@@ -319,6 +319,7 @@ describe("ContextCompactor", () => {
     assert.equal(prepared[0]?.metadata && (prepared[0].metadata as { source?: string }).source, "context-compaction");
     assert.ok(prepared.some((message) => message.id === "u2"), "current user request must remain in context");
     assert.equal(prepared.at(-1)?.id, "a2");
+    assert.ok(!estimateContextBudget({ instructions: "instructions", messages: prepared }, budget).exceeds);
     assert.equal(store.records[0]?.type, "thread.context.compacted");
     assert.match(
       String(store.records[0]?.sourcePrefixHash ?? ""),
@@ -402,6 +403,78 @@ describe("ContextCompactor", () => {
     const prepared = await makeCompactor(store, second).prepare(messages, new AbortController().signal);
     assert.equal(second.calls, 0);
     assert.equal(prepared[0]?.metadata && (prepared[0].metadata as { source?: string }).source, "context-compaction");
+  });
+
+  for (const force of [false, true]) {
+    it(`rejects an old summary when added fixed context exceeds budget without a safe new boundary (force=${force})`, async () => {
+      const store = new FakeStore();
+      store.messages = [user("u1", "a".repeat(150)), assistant("a1", "b".repeat(150)), user("u2", "continue")];
+      store.records.push({ v: 2, type: "thread.context.compacted", threadId: "thread-1", id: "prior",
+        previousCompactionId: null, firstKeptMessageIndex: 2, firstKeptMessageId: "u2",
+        sourcePrefixHash: compactPrefixHash(store.messages, 2),
+        summary: { ...summary, goal: { text: "continue", evidenceMessageIds: ["u1"] }, pending: [], nextStep: null },
+        strategyVersion: "summary-json/v2", modelId: "mock/default", createdAt: new Date(0).toISOString(),
+        metrics: { estimatedInputBefore: 500, estimatedInputAfter: 100, durationMs: 1, attempts: 1 },
+      } as unknown as ThreadContextCompactionRecord);
+      const before = structuredClone(store.records);
+      const limitedBudget = { ...roomyBudget, contextWindowTokens: 1000, maxOutputTokens: 50,
+        safetyMarginTokens: 50, keepRecentTokens: 800, summaryMaxOutputTokens: 100 };
+      let instructions = "x".repeat(800);
+      const summarizer = new FakeSummarizer();
+      const compactor = makeCompactor(store, summarizer, limitedBudget, {
+        fixedContext: () => ({ instructions, tools: [], dynamicContext: "" }),
+      });
+      const prepared = await compactor.prepare(store.messages, new AbortController().signal, force);
+      assert.ok(!estimateContextBudget({ instructions, messages: prepared }, limitedBudget).exceeds);
+      instructions = "x".repeat(1600);
+      await assert.rejects(
+        () => compactor.prepare(store.messages, new AbortController().signal, force),
+        (error: unknown) => error instanceof AgentError && error.data.code === "CONTEXT_PREPARE_FAILED",
+      );
+      const diagnostics = await compactor.getDiagnostics();
+      assert.ok(diagnostics.ok);
+      assert.equal(diagnostics.value.lastPreparation?.outcome, "failed");
+      assert.equal(diagnostics.value.lastPreparation?.compactionId, null);
+      assert.equal(diagnostics.value.lastPreparation?.estimatedInputTokens, 1064);
+      assert.match(diagnostics.value.lastPreparation?.error?.message ?? "", /budget/);
+      assert.equal(diagnostics.value.latestValidCompaction?.id, "prior");
+      assert.equal(summarizer.calls, 0);
+      assert.deepEqual(store.records, before, "failure must not change the valid recovery boundary");
+    });
+  }
+
+  it("rejects a forced raw noop when the current user message cannot fit", async () => {
+    const store = new FakeStore();
+    const summarizer = new FakeSummarizer();
+    const compactor = makeCompactor(store, summarizer);
+    await assert.rejects(
+      () => compactor.prepare([user("huge", "x".repeat(4000))], new AbortController().signal, true),
+      (error: unknown) => error instanceof AgentError && error.data.code === "CONTEXT_PREPARE_FAILED",
+    );
+    const diagnostics = await compactor.getDiagnostics();
+    assert.ok(diagnostics.ok);
+    assert.equal(diagnostics.value.lastPreparation?.outcome, "failed");
+    assert.equal(summarizer.calls, 0);
+    assert.equal(store.records.length, 0);
+  });
+
+  it("rejects an oversized new summary before saving and records its final failed estimate", async () => {
+    const store = new FakeStore();
+    const messages = [user("u1", "old goal"), assistant("a1", "old result ".repeat(100)), user("u2", "continue")];
+    const compactor = makeCompactor(store, { complete: async () => ({ text: JSON.stringify({
+      ...summary, goal: { text: "x".repeat(1200), evidenceMessageIds: ["u1"] },
+    }) }) });
+    await assert.rejects(() => compactor.prepare(messages, new AbortController().signal),
+      (error: unknown) => error instanceof AgentError && error.data.code === "CONTEXT_PREPARE_FAILED");
+    const diagnostics = await compactor.getDiagnostics();
+    assert.ok(diagnostics.ok);
+    assert.equal(diagnostics.value.lastPreparation?.outcome, "failed");
+    assert.equal(diagnostics.value.lastPreparation?.compactionId, null);
+    const estimate = diagnostics.value.lastPreparation?.estimatedInputTokens;
+    assert.ok(estimate !== undefined && estimate !== null && estimate >
+      budget.contextWindowTokens - budget.maxOutputTokens - budget.safetyMarginTokens);
+    assert.match(diagnostics.value.lastPreparation?.error?.message ?? "", new RegExp(`${estimate} > 450 tokens`));
+    assert.equal(store.records.length, 0);
   });
 
   it("links a second compaction to the first and restores the latest summary after restart", async () => {
@@ -1115,8 +1188,14 @@ describe("ContextCompactor", () => {
     store.messages = messages;
     await makeCompactor(store, summarizer).prepare(messages, new AbortController().signal);
     assert.equal(summarizer.calls, 1);
-    const result = await makeCompactor(store, summarizer).compact(new AbortController().signal);
+    const reopened = makeCompactor(store, summarizer);
+    const result = await reopened.compact(new AbortController().signal);
     assert.equal(summarizer.calls, 1);
     assert.match(result.message, /没有可压缩内容/);
+    const diagnostics = await reopened.getDiagnostics();
+    assert.ok(diagnostics.ok);
+    assert.equal(diagnostics.value.lastPreparation?.compactionId, "compact-1");
+    assert.ok((diagnostics.value.lastPreparation?.estimatedInputTokens ?? Infinity) <=
+      budget.contextWindowTokens - budget.maxOutputTokens - budget.safetyMarginTokens);
   });
 });

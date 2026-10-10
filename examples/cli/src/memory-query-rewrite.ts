@@ -50,8 +50,14 @@ export function createMemoryQueryRewriter(model: LanguageModel, timeoutMs = 5000
     const bounded = boundedMemoryQuery(query).text;
     const key = JSON.stringify([messageId, bounded]);
     if (cache?.key === key) return cache.result;
-    const timeout = AbortSignal.timeout(timeoutMs);
-    const combined = AbortSignal.any([signal, timeout]);
+    const deadline = new AbortController();
+    // AbortSignal.timeout is unref'ed: a hanging provider could let a standalone
+    // process exit before degradation. Keep this deadline alive until settlement.
+    const timer = setTimeout(() => deadline.abort(new DOMException(
+      "Memory query rewrite exceeded its deadline", "TimeoutError",
+    )), timeoutMs);
+    const combined = AbortSignal.any([signal, deadline.signal]);
+    let removeAbortListener: (() => void) | undefined;
     let result: MemoryRewriteResult;
     try {
       const request = generateText({
@@ -68,7 +74,8 @@ export function createMemoryQueryRewriter(model: LanguageModel, timeoutMs = 5000
       const response = await new Promise<Awaited<typeof request>>((resolve, reject) => {
         const abort = () => reject(combined.reason);
         combined.addEventListener("abort", abort, { once: true });
-        request.then(resolve, reject).finally(() => combined.removeEventListener("abort", abort));
+        removeAbortListener = () => combined.removeEventListener("abort", abort);
+        request.then(resolve, reject);
         if (combined.aborted) abort();
       });
       signal.throwIfAborted();
@@ -77,6 +84,9 @@ export function createMemoryQueryRewriter(model: LanguageModel, timeoutMs = 5000
     } catch {
       signal.throwIfAborted();
       result = { state: "degraded", queries: [] };
+    } finally {
+      clearTimeout(timer);
+      removeAbortListener?.();
     }
     cache = { key, result };
     return result;

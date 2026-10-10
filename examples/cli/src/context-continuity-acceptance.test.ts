@@ -1,8 +1,19 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { fixtureApprovalAllowed, hasInjectedSummary, hasSuccessfulReadBeforeEdit, hasSuccessfulReadback, verifyContinuityTaskRun } from "./context-continuity-acceptance.js";
+import { continuityChildFailure, fixtureApprovalAllowed, hasInjectedSummary, hasSuccessfulReadBeforeEdit, hasSuccessfulReadback, verifyContinuityTaskRun } from "./context-continuity-acceptance.js";
 import type { ExecutionRunRecord, ExecutionToolRecord } from "./execution-record-store.js";
 import type { WorkTask } from "./work-task-store.js";
+
+test("continuity failure preserves the matching child cause, not just process exited 1", () => {
+  const failure = "CONTEXT_PREPARE_FAILED: Prepared context exceeds the configured input budget (30000 > 27648 tokens)";
+  assert.equal(continuityChildFailure("after", "1", { stage: "after", passed: false, failure }),
+    `after process exited 1: ${failure}`);
+  for (const report of [undefined, null, {}, { stage: "before", passed: false, failure },
+    { stage: "after", passed: true, failure }, { stage: "after", passed: false, failure: "" }]) {
+    assert.equal(continuityChildFailure("after", "1", report), "after process exited 1");
+  }
+  assert.equal(continuityChildFailure("before", "SIGTERM", undefined), "before process exited SIGTERM");
+});
 
 test("WorkTask continuity requires latest primary ownership and leaves quality unaccepted", () => {
   const task = { id: "task", threadId: "thread", status: "paused", runIds: ["old", "latest"],

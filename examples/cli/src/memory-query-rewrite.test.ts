@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
 import { describe, it } from "node:test";
+import { promisify } from "node:util";
 import { MockLanguageModelV3 } from "ai/test";
 import { createMemoryQueryRewriter, parseMemoryQueries, memoryQueryTopics } from "./memory-query-rewrite.js";
 import type { UIMessage } from "ai";
@@ -61,15 +63,37 @@ describe("bounded opt-in Memory query rewrite", () => {
   });
   it("timeout degrades but caller cancellation aborts even with a non-cooperative provider", async () => {
     const model = new MockLanguageModelV3({ doGenerate: () => new Promise(() => {}) });
-    const keepAlive = setTimeout(() => {}, 500);
-    try {
-      assert.deepEqual(await createMemoryQueryRewriter(model, 15)("one", "reports", new AbortController().signal), { state: "degraded", queries: [] });
-      const controller = new AbortController();
-      const promise = createMemoryQueryRewriter(model)("two", "reports", controller.signal);
-      controller.abort(new Error("user stopped"));
-      await assert.rejects(promise, /user stopped/);
-    } finally { clearTimeout(keepAlive); }
+    assert.deepEqual(await createMemoryQueryRewriter(model, 15)("one", "reports", new AbortController().signal), { state: "degraded", queries: [] });
+    const controller = new AbortController();
+    const promise = createMemoryQueryRewriter(model)("two", "reports", controller.signal);
+    controller.abort(new Error("user stopped"));
+    await assert.rejects(promise, /user stopped/);
   });
+  for (const mode of ["timeout", "success", "cancel"]) {
+    it(`settles ${mode} and exits normally in a standalone process without unrelated keep-alive handles`, async () => {
+      const { stdout, stderr } = await promisify(execFile)(process.execPath, ["--input-type=module", "-e", `
+        import { createMemoryQueryRewriter } from "./dist/memory-query-rewrite.js";
+        import { MockLanguageModelV3 } from "ai/test";
+        const mode = ${JSON.stringify(mode)};
+        const model = new MockLanguageModelV3({ doGenerate: async () => mode === "success" ? {
+          content: [{ type: "text", text: '{"queries":[]}' }],
+          finishReason: { unified: "stop", raw: undefined },
+          usage: ${JSON.stringify(usage)}, warnings: [],
+        } : new Promise(() => {}) });
+        const controller = new AbortController();
+        const pending = createMemoryQueryRewriter(model, mode === "timeout" ? 20 : 10000)("one", "reports", controller.signal);
+        if (mode === "cancel") controller.abort(new Error("user stopped"));
+        try { console.log(JSON.stringify(await pending)); }
+        catch (error) {
+          if (mode !== "cancel" || error.message !== "user stopped") throw error;
+          console.log("cancelled");
+        }
+      `], { cwd: new URL("../", import.meta.url), timeout: 5000 });
+      assert.equal(stderr, "");
+      assert.equal(stdout.trim(), mode === "cancel" ? "cancelled" :
+        JSON.stringify({ state: mode === "timeout" ? "degraded" : "succeeded", queries: [] }));
+    });
+  }
 });
 
 const now = new Date("2026-10-04T00:00:00Z");
