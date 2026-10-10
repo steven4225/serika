@@ -40,6 +40,12 @@ export async function verifyCrashArtifactAbsent(workspace: string) {
   return { path: ARTIFACT, exists: false, checkedWith: "lstat" } as const;
 }
 
+/** Fixture-only barrier; pending UI notification is not a receipt-write acknowledgement. */
+export async function gateAfterApprovalReceipt(receipt: Promise<void>, gate: () => Promise<void>) {
+  await receipt;
+  await gate();
+}
+
 function scriptedModel(recovering: boolean): LanguageModel {
   let step = 0;
   const calls = recovering ? [
@@ -76,6 +82,14 @@ async function child(root: string, scenario: Scenario, mode: ModelMode, recoveri
   const output = new PassThrough();
   const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", THREAD, "--config", configPath],
     modelAlias: configured.modelAlias, model, env: process.env, output, cwd: root });
+  let approvalReceipt = Promise.resolve();
+  if (!recovering && scenario === "before-dispatch") {
+    const recordApproval = app.executionRecords.recordApprovalRequested.bind(app.executionRecords);
+    app.executionRecords.recordApprovalRequested = (...args) => {
+      approvalReceipt = recordApproval(...args);
+      return approvalReceipt;
+    };
+  }
   const controller = createAssistantController(app);
   output.on("data", (chunk: Buffer) => controller.recordOutput(chunk.toString()));
   const approvals: Array<{ id: string; toolName: string; decision: string; effective: boolean }> = [];
@@ -91,7 +105,10 @@ async function child(root: string, scenario: Scenario, mode: ModelMode, recoveri
     assert.equal(receipt.workTaskId, taskId);
     assert.equal(receipt.tools.length, 1);
     assert.equal(receipt.tools[0]!.status, scenario === "before-dispatch" ? "requested" : scenario === "unrecorded-write" ? "started" : "completed");
-    if (scenario === "before-dispatch") assert.equal(disk, null);
+    if (scenario === "before-dispatch") {
+      assert.equal(disk, null);
+      assert.ok(receipt.tools[0]!.approvalRequestedAt, "Approval receipt must be persisted before supervisor readiness");
+    }
     else assert.equal(disk?.toString(), CONTENT);
     if (scenario === "recorded-write") assert.deepEqual(receipt.tools[0]!.fileWrite,
       { path: ARTIFACT, bytes: Buffer.byteLength(CONTENT), sha256: sha(CONTENT) });
@@ -121,7 +138,8 @@ async function child(root: string, scenario: Scenario, mode: ModelMode, recoveri
     const approval = event.approval; seen.add(approval.approvalId);
     if (!recovering && scenario === "before-dispatch" && crashFixtureAllows(approval.toolName, approval.input, false)) {
       const state = controller.getSnapshot().state; assert.ok(state.kind === "running" && state.runId !== null);
-      void gate(state.runId).catch((error) => { process.stderr.write(String(error)); process.exit(1); });
+      const runId = state.runId;
+      void gateAfterApprovalReceipt(approvalReceipt, () => gate(runId)).catch((error) => { process.stderr.write(String(error)); process.exit(1); });
       return; // Kill while the original per-call confirmation is still pending.
     }
     const decision = crashFixtureAllows(approval.toolName, approval.input, recovering) ? "allow" : "deny";
