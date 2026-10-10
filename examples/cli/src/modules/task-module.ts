@@ -20,6 +20,7 @@ import type {
   TaskArrangement,
 } from "../task-store.js";
 import type { Recurrence } from "../recurrence.js";
+import { reminderReadback, type ReminderSpeechAction } from "../reminder-speech.js";
 import type { SkillResult } from "../automation-execution.js";
 
 export type { TaskStore } from "../task-store.js";
@@ -84,8 +85,14 @@ export interface TaskModuleOptions {
   checkTodoistPlanningAvailable?: () => Promise<boolean>;
   /** Host-owned service setup, included in the existing arrangement confirmation. */
   afterArrangementSaved?: (saved: SavedTaskArrangement) => Promise<{ enabled: boolean; message?: string }>;
+  /** Display clock for reminder readback. Defaults to the process clock and timezone. */
+  now?: () => Date;
+  timeZone?: string;
 }
-type TaskToolResult<T> = SkillResult<T> & { service?: { enabled: boolean; message?: string } };
+type TaskToolResult<T> = SkillResult<T> & {
+  service?: { enabled: boolean; message?: string };
+  readback?: string;
+};
 
 const taskRecordSchema = z.object({
   id: z.string(),
@@ -179,7 +186,12 @@ const recurringTaskListInputSchema = z.object({
 const recurringTaskIdInputSchema = z.object({ id: z.string().min(1) });
 
 const taskRecordOutputSchema = z.discriminatedUnion("ok", [
-  z.object({ ok: z.literal(true), value: taskRecordSchema, service: serviceSchema.optional() }),
+  z.object({
+    ok: z.literal(true),
+    value: taskRecordSchema,
+    service: serviceSchema.optional(),
+    readback: z.string().optional(),
+  }),
   taskFailureSchema,
 ]);
 const taskListOutputSchema = z.discriminatedUnion("ok", [
@@ -193,7 +205,12 @@ const taskListOutputSchema = z.discriminatedUnion("ok", [
   taskFailureSchema,
 ]);
 const recurringTaskRecordOutputSchema = z.discriminatedUnion("ok", [
-  z.object({ ok: z.literal(true), value: recurringTaskRecordSchema, service: serviceSchema.optional() }),
+  z.object({
+    ok: z.literal(true),
+    value: recurringTaskRecordSchema,
+    service: serviceSchema.optional(),
+    readback: z.string().optional(),
+  }),
   taskFailureSchema,
 ]);
 const recurringTaskListOutputSchema = z.discriminatedUnion("ok", [
@@ -573,6 +590,26 @@ function parseRecurringCreate(
 
 /** Register the task tools and synchronous /task command adapter. */
 export function createTaskModule(store: TaskStore, options: TaskModuleOptions = {}): AgentModule {
+  function speechClock(): { now: Date; timeZone: string } {
+    return {
+      now: options.now?.() ?? new Date(),
+      timeZone: options.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+    };
+  }
+  function speakOnce(action: ReminderSpeechAction, result: TaskToolResult<TaskRecordV3>): TaskToolResult<TaskRecordV3> {
+    if (!result.ok || result.value.arrangement?.kind !== "reminder") return result;
+    return {
+      ...result,
+      readback: reminderReadback(action, { prompt: result.value.prompt, runAt: result.value.runAt, clock: speechClock() }),
+    };
+  }
+  function speakRecurring(action: ReminderSpeechAction, result: TaskToolResult<RecurringTaskRecord>): TaskToolResult<RecurringTaskRecord> {
+    if (!result.ok || result.value.arrangement?.kind !== "reminder") return result;
+    return {
+      ...result,
+      readback: reminderReadback(action, { prompt: result.value.prompt, recurrence: result.value.recurrence, clock: speechClock() }),
+    };
+  }
   async function checkArrangement(arrangement: TaskArrangement | undefined, prompt: string): Promise<SkillResult<null>> {
     if (arrangement === undefined) return { ok: true, value: null };
     if (!inputArrangementSchema.safeParse(arrangement).success) return { ok: false, error: { code: "INVALID_INPUT", message: "Only complete reminder, Todoist planning or registered Skill arrangements are supported here; RSS requires the existing subscription binding" } };
@@ -601,7 +638,7 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
     setup(ctx) {
       const taskCreateTool = tool({
         description:
-          "Schedule one future response. A complete arrangement declares a deterministic reminder, read-only Todoist brief, or registered tool-free text Skill pinned by skillId/skillHash (source none, notification always), declarationVersion 1. Skill input is prompt, at most 4 KiB, with no inherited Memory or tools. RSS requires its existing binding. Approval covers saving the displayed arrangement and host background setup; report service state separately from execution or delivery.",
+          "Schedule one future response. A natural-language reminder must set arrangement {kind:\"reminder\", source:\"none\", notification:\"always\", declarationVersion:1}; that kind delivers once without a model Run. A complete arrangement may instead declare a read-only Todoist brief or a registered tool-free text Skill pinned by skillId/skillHash (source none, notification always). Skill input is prompt, at most 4 KiB, with no inherited Memory or tools. RSS requires its existing binding. Approval covers saving the displayed arrangement and host background setup; report service state separately from execution or delivery. When the result includes readback, that sentence is the entire user-visible reply.",
         inputSchema: taskCreateInputSchema,
         outputSchema: taskRecordOutputSchema,
         execute: async (
@@ -613,7 +650,7 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
           const checked = await checkArrangement(input.arrangement, input.prompt); if (!checked.ok) return checked;
           throwIfAborted(signal);
           const normalized: CreateTaskInput = { prompt: input.prompt, runAt: input.runAt, ...(input.arrangement === undefined ? {} : { arrangement: input.arrangement }) };
-          return serviceAfterSave(await toolCommitResult(store.create(normalized, signal)), "once", input.arrangement);
+          return speakOnce("schedule", await serviceAfterSave(await toolCommitResult(store.create(normalized, signal)), "once", input.arrangement));
         },
       });
       const taskListTool = tool({
@@ -652,30 +689,30 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
         },
       });
       const taskCancelTool = tool({
-        description: "Cancel a scheduled task before the worker claims it.",
+        description: "Cancel a scheduled task before the worker claims it. For a reminder, the result readback is the entire user-visible reply.",
         inputSchema: taskCancelInputSchema,
         outputSchema: taskRecordOutputSchema,
         execute: async (
           { id }: { id: string },
           { abortSignal },
-        ): Promise<TaskStoreResult<TaskRecordV3>> => {
+        ): Promise<TaskToolResult<TaskRecordV3>> => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
-          return toolCommitResult(store.cancel(id, signal));
+          return speakOnce("cancel", await toolCommitResult(store.cancel(id, signal)));
         },
       });
       const taskRescheduleTool = tool({
         description:
-          "Change the future runAt of an existing one-time scheduled task without changing its ID. Running, terminal, and recurring occurrences cannot be rescheduled.",
+          "Change the future runAt of an existing one-time scheduled task without changing its ID. Running, terminal, and recurring occurrences cannot be rescheduled. For a reminder, the result readback is the entire user-visible reply.",
         inputSchema: taskRescheduleInputSchema,
         outputSchema: taskRecordOutputSchema,
         execute: async (
           { id, runAt }: { id: string; runAt: string },
           { abortSignal },
-        ): Promise<TaskStoreResult<TaskRecordV3>> => {
+        ): Promise<TaskToolResult<TaskRecordV3>> => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
-          return toolCommitResult(store.reschedule(id, runAt, signal));
+          return speakOnce("reschedule", await toolCommitResult(store.reschedule(id, runAt, signal)));
         },
       });
       const taskAckTool = tool({
@@ -694,7 +731,7 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
       });
       const taskRepeatCreateTool = tool({
         description:
-          "Create an active daily or weekly response schedule with a fixed UTC offset. A complete arrangement declares a deterministic reminder, read-only Todoist brief, or registered tool-free text Skill pinned by skillId/skillHash (none/always), declarationVersion 1. Skill input is prompt, at most 4 KiB; no Memory or tools are inherited. RSS requires its existing bound subscription. Approval covers saving and host background setup; service state does not prove execution or receipt.",
+          "Create an active daily or weekly response schedule with a fixed UTC offset. A natural-language reminder must set arrangement {kind:\"reminder\", source:\"none\", notification:\"always\", declarationVersion:1}. A complete arrangement may instead declare a read-only Todoist brief or a registered tool-free text Skill pinned by skillId/skillHash (none/always). Skill input is prompt, at most 4 KiB; no Memory or tools are inherited. RSS requires its existing bound subscription. Approval covers saving and host background setup; service state does not prove execution or receipt. When the result includes readback, that sentence is the entire user-visible reply.",
         inputSchema: createRecurringTaskInputSchema,
         outputSchema: recurringTaskRecordOutputSchema,
         execute: async (
@@ -706,7 +743,7 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
           const checked = await checkArrangement(input.arrangement, input.prompt); if (!checked.ok) return checked;
           throwIfAborted(signal);
           const normalized: CreateRecurringTaskInput = { prompt: input.prompt, recurrence: input.recurrence, ...(input.arrangement === undefined ? {} : { arrangement: input.arrangement }) };
-          return serviceAfterSave(await toolCommitResult(store.createRecurring(normalized, signal)), "recurring", input.arrangement);
+          return speakRecurring("schedule", await serviceAfterSave(await toolCommitResult(store.createRecurring(normalized, signal)), "recurring", input.arrangement));
         },
       });
       const taskRepeatListTool = tool({
@@ -741,42 +778,42 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
         },
       });
       const taskRepeatPauseTool = tool({
-        description: "Pause a response schedule without cancelling its history.",
+        description: "Pause a response schedule without cancelling its history. For a reminder, the result readback is the entire user-visible reply.",
         inputSchema: recurringTaskIdInputSchema,
         outputSchema: recurringTaskRecordOutputSchema,
         execute: async (
           { id }: { id: string },
           { abortSignal },
-        ): Promise<TaskStoreResult<RecurringTaskRecord>> => {
+        ): Promise<TaskToolResult<RecurringTaskRecord>> => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
-          return toolCommitResult(store.pauseRecurring(id, signal));
+          return speakRecurring("pause", await toolCommitResult(store.pauseRecurring(id, signal)));
         },
       });
       const taskRepeatResumeTool = tool({
-        description: "Resume a paused response schedule at its next occurrence.",
+        description: "Resume a paused response schedule at its next occurrence. For a reminder, the result readback is the entire user-visible reply.",
         inputSchema: recurringTaskIdInputSchema,
         outputSchema: recurringTaskRecordOutputSchema,
         execute: async (
           { id }: { id: string },
           { abortSignal },
-        ): Promise<TaskStoreResult<RecurringTaskRecord>> => {
+        ): Promise<TaskToolResult<RecurringTaskRecord>> => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
-          return toolCommitResult(store.resumeRecurring(id, signal));
+          return speakRecurring("resume", await toolCommitResult(store.resumeRecurring(id, signal)));
         },
       });
       const taskRepeatCancelTool = tool({
-        description: "Permanently cancel a response schedule and keep its history.",
+        description: "Permanently cancel a response schedule and keep its history. For a reminder, the result readback is the entire user-visible reply.",
         inputSchema: recurringTaskIdInputSchema,
         outputSchema: recurringTaskRecordOutputSchema,
         execute: async (
           { id }: { id: string },
           { abortSignal },
-        ): Promise<TaskStoreResult<RecurringTaskRecord>> => {
+        ): Promise<TaskToolResult<RecurringTaskRecord>> => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
-          return toolCommitResult(store.cancelRecurring(id, signal));
+          return speakRecurring("cancel", await toolCommitResult(store.cancelRecurring(id, signal)));
         },
       });
 
