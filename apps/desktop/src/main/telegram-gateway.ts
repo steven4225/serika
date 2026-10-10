@@ -2,7 +2,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import type { DesktopRuntime } from "./desktop-runtime.js";
 import { TelegramApiError, type TelegramApi, type TelegramUpdate } from "./telegram-api.js";
-import { TelegramStore, type TelegramInbound } from "./telegram-store.js";
+import { TelegramStore, type TelegramInbound, type TelegramTaskRoute } from "./telegram-store.js";
 import type { PendingApproval } from "../shared/ui-contract.js";
 import type { TelegramStatus } from "../shared/telegram.js";
 import type { SavedTaskArrangement } from "@aisdk-agent/example-cli/dist/modules/task-module.js";
@@ -122,40 +122,50 @@ export class TelegramGateway {
     if (!this.store.snapshot().enabled || !this.store.snapshot().owner) return;
     this.#scanning = (async () => {
       for (const route of this.store.snapshot().routes) {
-        const ids: string[] = [];
-        if (route.kind === "once") ids.push(route.id);
+        if (route.kind === "once") await this.#collectTask(route, route.id);
         else {
-          let before: TaskListInput["before"];
-          for (let page = 0; ; page++) {
+          let before: TaskListInput["before"] = route.scanBefore;
+          for (let page = 0; page < 20; page++) {
             const listed = await this.host.channelScheduledTasks({ recurringTaskId: route.id, limit: 50, ...(before ? { before } : {}) });
             if (!listed.ok) throw new Error("安排结果暂不可读；未标记为已发送");
-            ids.push(...listed.value.tasks.filter(x => Date.parse(x.runAt) >= Date.parse(route.fromRunAt) && ["completed", "failed", "interrupted"].includes(x.status)).map(x => x.id));
-            if (!listed.value.truncated) break;
-            if (page >= 19 || !listed.value.nextCursor) throw new Error("安排历史超过有界扫描范围；请核对待投递项，未将遗漏结果标成已发送");
-            before = listed.value.nextCursor;
+            for (const task of listed.value.tasks) {
+              if (Date.parse(task.runAt) >= Date.parse(route.fromRunAt) && ["completed", "failed", "interrupted"].includes(task.status)) await this.#collectTask(route, task.id);
+            }
+            // TaskStore pages descending creation time. Recurring instances are
+            // only created when due, so pre-opt-in instances cannot be new sends.
+            const reachedOld = listed.value.nextCursor !== null && listed.value.nextCursor !== undefined && Date.parse(listed.value.nextCursor.createdAt) < Date.parse(route.fromRunAt);
+            before = !listed.value.truncated || reachedOld ? undefined : listed.value.nextCursor ?? undefined;
+            if (listed.value.truncated && !reachedOld && !before) throw new Error("安排历史分页位置缺失；未标记遗漏结果");
+            await this.store.update(data => {
+              const current = data.routes.find(x => x.key === route.key && x.fromRunAt === route.fromRunAt);
+              if (current) { if (before) current.scanBefore = before; else delete current.scanBefore; }
+            });
+            // New results already found are deliverable even if the next read fails.
+            await this.#flush();
+            if (!before) break;
           }
         }
-        for (const id of ids) {
+      }
+      await this.#flush();
+    })().finally(() => { this.#scanning = undefined; });
+    return this.#scanning;
+  }
+  async #collectTask(route: TelegramTaskRoute, id: string) {
           const key = `scheduled:${id}`;
-          if (this.store.snapshot().deliveries.some(x => x.key === key)) continue;
+          if (await this.store.hasDelivery(key)) return;
           const result = await this.host.channelScheduledTask(id);
           if (!result.ok) throw new Error("安排结果暂不可读；未标记为已发送");
           const task = result.value;
           if (!task || task.id !== id || !task.arrangement || !["completed", "failed", "interrupted"].includes(task.status) || !task.finishedAt ||
-            (route.kind === "recurring" ? task.recurringTaskId !== route.id || Date.parse(task.runAt) < Date.parse(route.fromRunAt) : task.recurringTaskId !== null)) continue;
+            (route.kind === "recurring" ? task.recurringTaskId !== route.id || Date.parse(task.runAt) < Date.parse(route.fromRunAt) : task.recurringTaskId !== null)) return;
           // Under the configured --notify worker, null is the persisted empty RSS outcome.
-          if (task.arrangement.kind === "rss-digest" && task.status === "completed" && task.notification === null) continue;
+          if (task.arrangement.kind === "rss-digest" && task.status === "completed" && task.notification === null) return;
           const label = task.status === "completed" ? "安排已完成" : task.status === "interrupted" ? "安排中断，未自动重做；请回桌面核对" : "安排执行失败";
           const text = `${label}\n${task.resultText ?? task.error?.message ?? "没有结果正文"}\n任务: ${task.id}`.slice(0, 32_000);
           await this.store.update(data => {
             if (!data.enabled || !data.routes.some(x => x.key === route.key && x.fromRunAt === route.fromRunAt) || data.owner?.chatId !== route.chatId || data.owner.userId !== route.userId || data.deliveries.some(x => x.key === key)) return;
             data.deliveries.push({ key, routeKey: route.key, chatId: route.chatId, text, state: "pending", messageId: null });
           });
-        }
-      }
-      await this.#flush();
-    })().finally(() => { this.#scanning = undefined; });
-    return this.#scanning;
   }
   async reviewInput(input: { key: string; note: string }) {
     if (!input || typeof input.key !== "string" || typeof input.note !== "string" || !input.note.trim() || input.note.length > 2000) throw new Error("请填写核对后的实际观察（最多 2000 字）");
@@ -282,7 +292,7 @@ export class TelegramGateway {
         this.#pairing!.proposed = { userId: message.from!.id, chatId: message.chat.id, name: String(message.from!.first_name ?? "Telegram 用户").slice(0, 100) };
       } else if (owner && owner.userId === message.from!.id && owner.chatId === message.chat.id && text) {
         const key = `${message.chat.id}:${message.message_id}`;
-        if (!this.store.snapshot().inputs.some(x => x.key === key)) input = { key, updateId: update.update_id, text, state: "received", runId: null, taskId: null };
+        if (!await this.store.hasInput(key)) input = { key, updateId: update.update_id, text, state: "received", runId: null, taskId: null };
       }
     }
     // Offset acknowledgement is committed alongside accepted text, before next getUpdates.
@@ -303,6 +313,13 @@ export class TelegramGateway {
       await this.store.update(data => { data.inputs.find(x => x.key === input.key)!.state = "rejected"; });
       await this.#reply(`input:${input.key}`, owner.chatId, reason);
     };
+    if (text === "/confirm" || text === "当前确认") {
+      const running = this.#ownedRunning();
+      if (!running?.current.snapshot.pendingApproval) return reject("当前没有属于 Telegram 的待确认操作；没有批准任何操作。");
+      this.#approval = undefined; // Explicit refresh revokes the previous code.
+      await this.#publishApproval(running.source, running.current.snapshot.pendingApproval);
+      return reject("已重新发出当前操作的确认；旧短码失效，仍需你允许或拒绝。");
+    }
     const approval = /^(允许|拒绝) ([A-F0-9]{10})$/.exec(text);
     if (approval) {
       const pending = this.#approval, running = this.#ownedRunning(), snapshot = running?.current.snapshot;
@@ -310,7 +327,7 @@ export class TelegramGateway {
       const valid = pending && pending.code === approval[2] && pending.expires > this.now() && running?.source.runId === pending.runId &&
         snapshot?.pendingApproval?.approvalId === pending.approvalId && approvalHash(snapshot.pendingApproval) === pending.hash;
       const accepted = valid && this.host.current.confirm({ approvalId: pending.approvalId, decision: approval[1] === "允许" ? "allow" : "deny" }).accepted;
-      return reject(accepted ? "已处理这一次确认，不适用于后续操作。" : "确认已过期、已处理或不属于当前执行；没有批准任何操作。请查看当前确认。");
+      return reject(accepted ? "已处理这一次确认，不适用于后续操作。" : "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。");
     }
     if (/^(允许|拒绝)(?:\s|$)/.test(text)) return reject("请完整复制当前确认中的短码；普通“可以”不会授权工具。");
     if (text === "停止") {
@@ -324,7 +341,7 @@ export class TelegramGateway {
       const result = await this.host.current.steer({ id: randomUUID(), expectedRunId: running.source.runId!, text: text.replace(/^调整[:：]/, "").trim() });
       return reject(result.ok ? "调整已收到，会在安全边界应用；不是新增授权。" : "当前调整未接收，请在桌面查看执行状态。");
     }
-    if (text === "/start" || text === "/help") return reject("直接提问；任务：目标 → 开始 短码。工具确认用“允许 短码 / 拒绝 短码”。调整：新方向；停止。未知效果回桌面核对。");
+    if (text === "/start" || text === "/help") return reject("直接提问；任务：目标 → 开始 短码。工具确认用“允许 短码 / 拒绝 短码”；过期或丢失用 /confirm 获取新短码。调整：新方向；停止。未知效果回桌面核对。");
     if (/^(?:任务[:：]|\/task\s)/.test(text)) {
       const goal = text.replace(/^(?:任务[:：]|\/task\s)/, "").trim();
       if (!goal || goal.length > 8000) return reject("请用 1–8000 字说明任务目标。");
@@ -371,10 +388,10 @@ export class TelegramGateway {
     if (running?.source.runId !== source.runId || running.current.snapshot.pendingApproval?.approvalId !== approval.approvalId) return;
     const current = running.current.snapshot.pendingApproval;
     const hash = approvalHash(current);
-    const permit = this.#approval?.approvalId === current.approvalId && this.#approval.hash === hash ? this.#approval :
+    const permit = this.#approval?.approvalId === current.approvalId && this.#approval.hash === hash && this.#approval.expires > this.now() ? this.#approval :
       { code: code(), runId: source.runId!, approvalId: current.approvalId, hash, expires: this.now() + 5 * 60_000 };
     this.#approval = permit;
-    await this.#reply(`approval:${approval.approvalId}`, this.store.snapshot().owner!.chatId,
+    await this.#reply(`approval:${approval.approvalId}:${permit.code}`, this.store.snapshot().owner!.chatId,
       `请求使用 ${current.toolName}\n${(current.preview || JSON.stringify(current.input)).slice(0, 2500)}${["task_create", "task_repeat_create"].includes(current.toolName) ? "\n这个安排的结果将发送到本绑定私聊；保存、启用后台服务和投递是不同状态。" : ""}\n仅本次：允许 ${permit.code}\n或：拒绝 ${permit.code}\n五分钟有效；普通回复不代表授权。`);
   }
   async #finish(source: TelegramInbound, text?: string) {
@@ -397,6 +414,7 @@ export class TelegramGateway {
     await this.#flush();
   }
   async #reply(key: string, chatId: number, text: string) {
+    if (await this.store.hasDelivery(key)) return;
     await this.store.update(data => { if (!data.deliveries.some(x => x.key === key)) data.deliveries.push({ key, chatId, text: text.slice(0, 32_000), state: "pending", messageId: null }); });
     await this.#flush();
   }

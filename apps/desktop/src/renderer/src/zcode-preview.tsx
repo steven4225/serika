@@ -71,6 +71,7 @@ const api = {
   saveConversationDraft: async (scope: ConversationDraftScope, draft: ConversationDraft) => { previewDrafts.set(JSON.stringify(scope), draft); },
   saveTaskDraft: async () => {},
   info: async () => info(), snapshot: async () => structuredClone(snapshot), history: async () => structuredClone(histories.get(threadId) ?? []),
+  historyPage: async () => ({ threadId, messages: structuredClone(histories.get(threadId) ?? []), beforeId: null }),
   listRuns: async () => ({ ok: true as const, runs: [...receipts.values()].filter(run => run.threadId === threadId) }),
   getRun: async (id: string) => ({ ok: true as const, run: receipts.get(id) ?? null }),
   home: async () => ({ ok: true as const }), listThreads: async () => structuredClone(threads),

@@ -1,6 +1,7 @@
 import { Writable } from "node:stream";
 import { lstat } from "node:fs/promises";
 import { readLoadedBuild } from "./build-identity.js";
+import { historyPage, type HistoryPageInput } from "../shared/history.js";
 import { ExecutionRecordStore } from "@aisdk-agent/example-cli/dist/execution-record-store.js";
 import type { DesktopThread } from "./desktop-identity.js";
 import type { MemoryEditInput, MemoryListInput } from "@aisdk-agent/example-cli/dist/memory-management.js";
@@ -332,6 +333,10 @@ export class RuntimeBridge {
 
   history() {
     return this.#controller.getHistory();
+  }
+
+  async historyPage(input?: HistoryPageInput) {
+    return historyPage(await this.#controller.getHistory(), this.#app.threadId, input);
   }
 
   getContextDiagnostics() {

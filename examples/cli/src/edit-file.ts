@@ -60,7 +60,7 @@ export interface EditFileInput {
   newText: string;
 }
 
-const decoder = new TextDecoder("utf-8", { fatal: true });
+const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 const neverAborted = new AbortController().signal;
 
 function failure(

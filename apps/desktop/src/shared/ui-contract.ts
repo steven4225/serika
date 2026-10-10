@@ -1,4 +1,6 @@
 import type { UIMessage } from "ai";
+import type { HistoryPage, HistoryPageInput } from "./history.js";
+import type { BackupResult, RestoreResult } from "./backup.js";
 import type { ResidentServiceState } from "./resident-service.js";
 import type { ConversationDraftScope, ConversationDraft, ConversationDraftState, DesktopSteerInput, DesktopSteerResponse, TaskDraftUpdate } from "./conversation-drafts.js";
 import type { FormalMemory, MemoryPage, MemoryListInput, MemoryEditInput } from "@aisdk-agent/example-cli/dist/memory-management.js";
@@ -225,6 +227,9 @@ export interface RendererApi {
   info(): Promise<AppInfo>;
   snapshot(): Promise<UiSnapshot>;
   history(): Promise<UIMessage[]>;
+  historyPage(input?: HistoryPageInput): Promise<HistoryPage>;
+  backupData(): Promise<BackupResult | null>;
+  restoreData(): Promise<RestoreResult | null>;
   home(): Promise<CommandResponse>;
   run(text: string, options?: AssistantRunOptions): Promise<RunResponse>;
   steer(input: DesktopSteerInput): Promise<DesktopSteerResponse>;
@@ -315,6 +320,9 @@ export const IPC = {
   moduleEnabled: "runloom:moduleEnabled",
   snapshot: "runloom:snapshot",
   history: "runloom:history",
+  historyPage: "runloom:history-page",
+  backupData: "runloom:backup-data",
+  restoreData: "runloom:restore-data",
   home: "runloom:home",
   run: "runloom:run",
   steer: "runloom:steer",

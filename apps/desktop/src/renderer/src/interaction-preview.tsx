@@ -25,6 +25,7 @@ const api = {
   saveConversationDraft: async (scope: ConversationDraftScope, draft: ConversationDraft) => { previewDrafts.set(JSON.stringify(scope), draft); },
   saveTaskDraft: async () => {},
   info: async () => info(), snapshot: async () => structuredClone(snapshot), history: async () => [],
+  historyPage: async () => ({ threadId: info().threadId, messages: [], beforeId: null }),
   listRuns: async () => ({ ok: true as const, runs: [] }), home: async () => ({ ok: true as const }),
   onMessage: (listener: (message: MainToRenderer) => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
   listWorkTasks: async () => ({ ok: true as const, value: [] }), listThreads: async () => structuredClone(threads),

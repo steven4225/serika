@@ -115,7 +115,7 @@ export type WorkTaskErrorCode =
   | "WORK_TASK_VERSION_UNSUPPORTED"
   | "WORK_TASK_SYMLINK_NOT_ALLOWED"
   | "WORK_TASK_READ_FAILED"
-  | "WORK_TASK_WRITE_FAILED";
+  | "WORK_TASK_WRITE_FAILED" | "WORK_TASK_COMMIT_UNCERTAIN";
 
 export interface WorkTaskFailure {
   ok: false;
@@ -427,6 +427,7 @@ class WorkTaskStoreImpl implements WorkTaskStore {
   readonly #now: () => Date;
   readonly #generateId: () => string;
   readonly #executionRecords: Pick<ExecutionRecordStore, "getRun"> | undefined;
+  #commitUncertain = false;
 
   constructor(workspace: string, options: {
     now?: () => Date;
@@ -772,6 +773,7 @@ class WorkTaskStoreImpl implements WorkTaskStore {
     await this.#inspectOptionalFile(this.#lock, "lock");
     const lock = await acquireFlock(this.#lock);
     try {
+      if (this.#commitUncertain) raise("WORK_TASK_COMMIT_UNCERTAIN", "Work task save acknowledgement is uncertain; restart and reread before further writes");
       const document = await this.#load();
       const value = update(document);
       validateWritableDocument(document);
@@ -838,15 +840,26 @@ class WorkTaskStoreImpl implements WorkTaskStore {
     const temporary = join(directory, `.work-tasks.${randomUUID()}.tmp`);
     let handle;
     let created = false;
+    let renamed = false;
     try {
       handle = await open(temporary, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | constants.O_NOFOLLOW, 0o600);
       created = true;
       await handle.writeFile(serialized, "utf8");
+      await handle.sync();
       await handle.close();
       handle = undefined;
       await rename(temporary, this.#file);
+      renamed = true;
       created = false;
+      if (process.platform !== "win32") {
+        const handle = await open(directory, "r");
+        try { await handle.sync(); } finally { await handle.close(); }
+      }
     } catch {
+      if (renamed) {
+        this.#commitUncertain = true;
+        raise("WORK_TASK_COMMIT_UNCERTAIN", "Work task file was replaced but acknowledgement is uncertain; restart and reread, do not repeat creation");
+      }
       raise("WORK_TASK_WRITE_FAILED", "Unable to write work task file");
     } finally {
       if (handle) await handle.close().catch(() => undefined);

@@ -8,6 +8,7 @@ import {
 import { dirname, resolve } from "node:path";
 import { tool, type Tool } from "ai";
 import { z } from "zod";
+import { AgentError } from "@aisdk-agent/core";
 import {
   abortReason,
   rejectSymlinkComponents,
@@ -239,10 +240,8 @@ export async function writeFileToWorkspace(
       await unlink(target);
       return failure("WRITE_FAILED", `Unable to complete file write: ${relativePath || "."}`);
     } catch {
-      return failure(
-        "WRITE_FAILED",
-        `Unable to complete file write: ${relativePath || "."}; file may be incomplete`,
-      );
+      throw new AgentError({ code: "TOOL_OUTCOME_UNKNOWN", phase: "tool", retryable: false,
+        message: `Unable to confirm file state after write and cleanup failed: ${relativePath || "."}; inspect the file before another operation` });
     }
   }
 }

@@ -246,6 +246,7 @@ export const taskStoreErrorCodes = [
   "RECURRING_TASK_CANCELLED",
   "READ_FAILED",
   "WRITE_FAILED",
+  "COMMIT_UNCERTAIN",
 ] as const;
 
 export type TaskStoreErrorCode = (typeof taskStoreErrorCodes)[number];
@@ -912,6 +913,7 @@ export class WorkspaceTaskStore implements TaskStore {
   readonly #lockFile: string;
   readonly #now: () => number;
   readonly #generateId: () => string;
+  #commitUncertain = false;
 
   constructor(workspace: string, options: TaskStoreOptions = {}) {
     const root = resolve(workspace);
@@ -1605,10 +1607,14 @@ export class WorkspaceTaskStore implements TaskStore {
     await this.#ensureDirectory();
     const lock = await acquireFlock(this.#lockFile, signal);
     try {
+      if (this.#commitUncertain) raise("COMMIT_UNCERTAIN", "Task save acknowledgement is uncertain; restart and reread before further writes");
       throwIfAborted(signal);
       const document = await this.#read();
+      const before = JSON.stringify(document);
       const value = operation(document);
-      await this.#write(document, signal);
+      // Idle worker polling and exact receipt replays are reads, not writes.
+      // Preserve lazy migration and avoid replacing/fsyncing an unchanged file.
+      if (JSON.stringify(document) !== before) await this.#write(document, signal);
       return value;
     } finally {
       await lock.release();
@@ -1620,6 +1626,7 @@ export class WorkspaceTaskStore implements TaskStore {
     const temporary = join(this.#directory, `.tasks.json.runloom-${randomUUID()}.tmp`);
     let handle: Awaited<ReturnType<typeof open>> | undefined;
     let created = false;
+    let renamed = false;
     try {
       handle = await open(
         temporary,
@@ -1629,20 +1636,50 @@ export class WorkspaceTaskStore implements TaskStore {
       created = true;
       throwIfAborted(signal);
       await handle.writeFile(`${JSON.stringify(document)}\n`, "utf8");
+      await handle.sync();
       throwIfAborted(signal);
       await handle.close();
       handle = undefined;
       await rename(temporary, this.#file);
+      renamed = true;
       created = false;
+      if (process.platform !== "win32") {
+        const directory = await open(this.#directory, "r");
+        try { await directory.sync(); } finally { await directory.close(); }
+      }
     } catch (error) {
       if (handle !== undefined) await handle.close().catch(() => undefined);
       if (created) await rm(temporary, { force: true }).catch(() => undefined);
+      if (renamed) {
+        this.#commitUncertain = true;
+        raise("COMMIT_UNCERTAIN", "Task file was replaced but acknowledgement is uncertain; restart and reread, do not repeat execution");
+      }
       throw error;
     }
   }
 }
 
 export const TaskStore = WorkspaceTaskStore;
+
+/** Explicit offline restore: keep execution history, revoke all future dispatch. */
+export function restoreTaskDocument(value: unknown, restoredAt: string): TaskDocumentV4 {
+  validateStoredTimestamp(restoredAt, "Restore time");
+  const document = validateDocument(value);
+  for (const task of document.tasks) {
+    task.retryAt = null; task.pendingOutcome = null;
+    // Restored OS submission state is historical, never new notification intent.
+    if (task.notification?.status !== "submitted") task.notification = null;
+    if (task.status === "scheduled") { task.status = "cancelled"; task.finishedAt = restoredAt; }
+    if (task.status === "running") {
+      const error = { code: "RESTORED_INTERRUPTED", message: "Restored execution requires review; no model or tool was replayed" };
+      task.status = "interrupted"; task.finishedAt = restoredAt; task.error = error;
+      const attempt = task.attempts.at(-1)!;
+      attempt.status = "interrupted"; attempt.finishedAt = restoredAt; attempt.error = error;
+    }
+  }
+  for (const recurring of document.recurringTasks) if (recurring.status === "active") { recurring.status = "paused"; recurring.nextRunAt = null; }
+  return validateDocument(document);
+}
 
 export function createTaskStore(
   workspace: string,

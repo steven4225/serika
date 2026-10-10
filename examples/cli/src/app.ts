@@ -25,6 +25,7 @@ import { createMemoryConsolidation, memoryConsolidationBacklog, type MemoryConso
 import type { MemoryResult } from "./memory-candidates.js";
 import { createExecutionRecordAdapter } from "./execution-record-adapter.js";
 import { createExecutionRecordStore, type ExecutionRecordStore } from "./execution-record-store.js";
+import { acquireFlock } from "./flock.js";
 import {
   createCheckpointContextMessage,
   estimateContextInput,
@@ -33,6 +34,7 @@ import {
 } from "./context-window.js";
 import { ContextCompactor, readContextDiagnostics } from "./context-compactor.js";
 import { DEFAULT_CONTEXT_BUDGET_CONFIG } from "./context-budget.js";
+import { modelToolContext } from "./model-tool-context.js";
 import type { ContextDiagnostics, ContextResult } from "./context-diagnostics.js";
 import { createAiSdkSummarizer } from "./context-compaction.js";
 import { lookupTranscript } from "./work-summary.js";
@@ -237,7 +239,14 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     : (args[0] ?? (await mkdtemp(join(tmpdir(), "runloom-demo-"))));
   await mkdir(directory, { recursive: true });
   const threadId = tuiMode ? (tuiArgs?.threadId ?? randomUUID()) : "demo-thread";
-  const store = new JsonlAgentStore({ directory });
+  const store = new JsonlAgentStore({
+    directory,
+    // Snapshot replacement requires the existing POSIX cross-process lock.
+    // Windows keeps append-only storage, rather than pretending to have flock.
+    ...(process.platform === "win32" ? {} : {
+      acquireTranscriptLock: (path: string) => acquireFlock(`${path}.append.lock`),
+    }),
+  });
   const memoryConsolidation = memoryStore === undefined ? undefined : createMemoryConsolidation({
     store: memoryStore, threadId, getMessages: () => store.getMessages(threadId),
     writePolicy: moduleConfig?.memoryWritePolicy ?? "review",
@@ -830,14 +839,18 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       return createResumeContextMessage(activeResumeObservation);
     };
     const registeredTools = [addRegistration, ...(moduleHost?.tools ?? [])];
+    const tools = new ToolRegistry(registeredTools);
+    const primaryToolNames = registeredTools.map(({ metadata }) => metadata.name).filter(name =>
+      moduleConfig?.memoryWritePolicy !== "automatic" || !name.startsWith("memory_"));
+    const primaryToolContext = tuiMode && moduleConfig?.contextCompaction.enabled
+      ? await modelToolContext(tools.definitions(primaryToolNames)) : [];
     const catalog = new InMemoryAgentCatalog([
       {
         id: PRIMARY_AGENT_ID,
         version: "1",
         instructions: calculatorInstructions,
         model: modelAlias,
-        tools: registeredTools.map(({ metadata }) => metadata.name).filter(name =>
-          moduleConfig?.memoryWritePolicy !== "automatic" || !name.startsWith("memory_")),
+        tools: primaryToolNames,
         limits: {
           maxSteps: tuiMode ? (moduleConfig?.maxSteps ?? 8) : 4,
           totalTimeoutMs: tuiMode ? (moduleConfig?.totalTimeoutMs ?? TUI_DEFAULT_TOTAL_TIMEOUT_MS) : 10_000,
@@ -922,7 +935,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
               const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
               return {
                 instructions: calculatorInstructions,
-                tools: registeredTools.map(({ metadata }) => metadata),
+                tools: primaryToolContext,
                 dynamicContext: {
                   now: now.toISOString(),
                   timeZone,
@@ -938,7 +951,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       const startupPrefix = await referencePrefix([], AbortSignal.timeout(5_000));
       const fixedEstimate = estimateContextInput({
         instructions: calculatorInstructions,
-        tools: registeredTools.map(({ metadata }) => metadata),
+        tools: primaryToolContext,
         dynamicContext: { now: now.toISOString(), timeZone },
         messages: startupPrefix,
       });
@@ -964,7 +977,6 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
             : {}),
         })
       : undefined;
-    const tools = new ToolRegistry(registeredTools);
 
     if (
       commands !== undefined &&

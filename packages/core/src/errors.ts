@@ -18,6 +18,8 @@ export type AgentErrorCode =
   | "RUN_TIMEOUT"
   | "RUN_LIMIT_EXCEEDED"
   | "STORAGE_CORRUPT"
+  | "STORAGE_WRITE_FAILED"
+  | "STORAGE_COMMIT_UNCERTAIN"
   | "INTERNAL";
 
 export type AgentErrorPhase =

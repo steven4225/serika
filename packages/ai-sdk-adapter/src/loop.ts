@@ -251,6 +251,15 @@ function throwIfAborted(signal: AbortSignal): void {
   if (signal.aborted) throw abortReason(signal);
 }
 
+// AbortSignal.timeout uses an unreferenced timer. A hanging model/tool may be
+// the only pending work (including on Node 22); its deadline must keep the
+// process alive, and must be released when the invocation settles.
+function invocationDeadline(timeoutMs: number) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new DOMException("The operation timed out", "TimeoutError")), timeoutMs);
+  return { signal: controller.signal, dispose: () => clearTimeout(timer) };
+}
+
 const RETRYABLE_UNAVAILABLE_STATUS = new Set([408, 500, 502, 503, 504, 529]);
 
 function errorCause(error: unknown): unknown {
@@ -494,9 +503,8 @@ export class AiSdkAgentLoop implements AgentLoop {
 
       for (let attempt = 0; ; attempt += 1) {
         throwIfAborted(input.signal);
-        const stepTimeout = AbortSignal.timeout(
-          input.definition.limits.stepTimeoutMs,
-        );
+        const deadline = invocationDeadline(input.definition.limits.stepTimeoutMs);
+        const stepTimeout = deadline.signal;
         const stepSignal = AbortSignal.any([input.signal, stepTimeout]);
         const attemptCalls: PendingToolCall[] = [];
         let attemptText = "";
@@ -584,6 +592,8 @@ export class AiSdkAgentLoop implements AgentLoop {
             error: failure.data,
           });
           await sleepWithSignal(delayMs, input.signal);
+        } finally {
+          deadline.dispose();
         }
       }
 
@@ -719,9 +729,8 @@ export class AiSdkAgentLoop implements AgentLoop {
         const metadata = this.#tools.metadata(call.toolName);
         const timeoutMs =
           metadata?.timeoutMs ?? input.definition.limits.stepTimeoutMs;
-        const toolTimeout = AbortSignal.timeout(
-          timeoutMs,
-        );
+        const deadline = invocationDeadline(timeoutMs);
+        const toolTimeout = deadline.signal;
         const toolSignal = AbortSignal.any([input.signal, toolTimeout]);
 
         try {
@@ -792,6 +801,8 @@ export class AiSdkAgentLoop implements AgentLoop {
             toolName: call.toolName,
             error: errorData,
           });
+        } finally {
+          deadline.dispose();
         }
       }
 

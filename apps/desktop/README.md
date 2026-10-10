@@ -24,7 +24,7 @@ Electron 前端通过 `createRuntimeApp` + `createAssistantController` 接入后
    pnpm build
    ```
 
-   若 pnpm 未安装，按根 `packageManager` 安装同版本；Node 最低 22.12。Linux CI 检查 portable 桌面代码，macOS CI 另外构建 Swift 通知 helper。不存在 macOS 环境时，把通知、launchd、系统红绿灯标为 `not_run`。
+   若 pnpm 未安装，按根 `packageManager` 安装同版本。Runtime 最低 Node 22.12；当前 pnpm 11 工具链需要 Node ≥22.13（建议用 CI 的 26.4）。CI 单独在 22.12 上直接执行编译后的 Runtime 与桌面测试，不用 pnpm 的版本门槛遮住运行时兼容性。Linux CI 检查 portable 桌面代码，macOS CI 另外构建 Swift 通知 helper。不存在 macOS 环境时，把通知、launchd、系统红绿灯标为 `not_run`。
 3. 有可用图形桌面才运行 `pnpm desktop:dev`。`dev` 没配真实模型时明确显示 mock，只用于界面检查，不能写成实际助手能力通过。云机器缺 DISPLAY 或 Electron 系统库时报告具体缺项，不用网页截图冒充 Electron。真实任务需通过 Bot 的安全密钥配置一个外部环境文件，显式设置 `RUNLOOM_MODEL` / `RUNLOOM_ENV_FILE`。
 4. 核对：对话输入/草稿、任务/记忆/模块入口、工具确认的允许与拒绝、执行追踪。不要准许测试范围外的 Shell、文件写入或 Computer 操作。分别记录构建、离线测试、真实模型、GUI 和平台专属功能的通过/失败/未运行，不用模型口头结论替代文件与回执。
 5. 输出结果，包含 commit、命令退出码、可复现步骤和截图。Telegram 手机确认及退出桌面后的提醒仍是独立日用验收，不是合仓通过条件。
@@ -75,13 +75,13 @@ After：显式启用常驻助手后，可绑定一个 Telegram 账号，在私�
 2. 打开「serika → 模块能力」，先确认常驻助手已连接，再预览并连接 Telegram。默认关闭，不在应用启动时偷偷注册或绑定。使用 Bot API `getUpdates` 长轮询；已有 webhook 时明确失败，不删除它。不支持群聊、附件、转发消息和机器人代发。
 3. 点击「生成一次性绑定码」，在机器人私聊发送 `/start 绑定码`。刷新桌面，核对账号和私聊 ID，再点「确认这是我的账号并绑定」。私聊消息本身不能取得控制权。绑定在五分钟后过期；原绑定不会被新账号覆盖。
 4. 直接发文本是普通对话；`任务：目标` / `/task 目标` 生成预览，发送 `开始 短码` 后才创建并运行现有 WorkTask。第一版不从随意聊天猜任务、不让模型编造自动验收条件，使用用户质量项，交付与质量验收回桌面完成。任务目标确认不是工具授权。
-5. 工具确认严格使用 `允许 短码` / `拒绝 短码`；只绑定这一账号、私聊、Run、approvalId 和实际工具输入，五分钟有效、单次消费。普通“可以”不授权。桌面先处理后，旧短码失效；Steer 也不恢复旧授权。`调整：新方向` 走原来的安全边界；`停止` 只停止这条 Telegram 执行，不取消其他对话。
+5. 工具确认严格使用 `允许 短码` / `拒绝 短码`；只绑定这一账号、私聊、Run、approvalId 和实际工具输入，五分钟有效、单次消费。过期或丢失时发送 `/confirm`（或 `当前确认`），仅在原执行仍等待同一次确认时发新码，同时撤销旧码；不创建 Run、不延长执行预算。普通“可以”不授权。桌面先处理后，旧短码失效；Steer 也不恢复旧授权。`调整：新方向` 走原来的安全边界；`停止` 只停止这条 Telegram 执行，不取消其他对话。
 
 五分钟 Demo（需真实机器人 Token、本人绑定、Mac 保持运行联网）：私聊要求创建工作区根目录 `im-demo.md`；确认前文件不存在；复制当前短码允许这一次写入；重复短码必须被拒绝；桌面打开 Telegram 对话，核对相同 Run 的成功工具回执与实际文件。写入结果不等于后续读回验证；如请求读回，仍需确认那一次读取。
 
 恢复与隐私边界：入站文本与轮询 offset 同笔保存，来源/Run 关联在模型启动前落盘。绑定与收发记录放在当前工作区对应的 resident 私有状态目录 `telegram.json`，不作为执行真相或正式记忆。只有已绑定账号的普通文本进入原有对话沉淀；确认、控制指令与提醒回显不作为用户事实。忙时明确拒绝、不排队。重启后的旧授权失效；已开始但未知的消息不重放，回桌面核对。观察报告只解除通道待核对，不改旧回执、不证明成功；WorkTask 的 `needs_review` 必须先走原任务核对。
 
-发送先保存意图，再调用 `sendMessage`；`submitted` 只说明 Telegram 返回消息 ID，不证明你已收到或阅读。明确拒绝是 `failed`，超时/丢失回应是 `unknown`，不会盲目重发。确定已保存的终态回执可恢复待投递结果，不再调用模型；恢复预览截断会明确标注。记录有界，满了明确停止，不静默丢弃去重记录。重复更新、强制退出和离线网络测试仍不能代替上述日用 Demo。
+发送先保存意图，再调用 `sendMessage`；`submitted` 只说明 Telegram 返回消息 ID，不证明你已收到或阅读。明确拒绝是 `failed`，超时/丢失回应是 `unknown`，不会盲目重发。确定已保存的终态回执可恢复待投递结果，不再调用模型；恢复预览截断会明确标注。活动记录仍有界：超过整理阈值时先持久化已结束入站/已提交或取消投递到私有 `telegram-archive`，再缩减活动日志；归档继续参与去重，未知效果、未处理入站和失败投递不裁剪。若未解决记录本身占满容量，仍明确停止，不静默丢弃。归档随使用增长，不声称磁盘无限容量。重复更新、强制退出和离线网络测试仍不能代替上述日用 Demo。
 
 ### 关掉桌面之后接收提醒
 
@@ -91,7 +91,19 @@ After：在已绑定私聊里创建完整提醒/简报安排，批准时明确�
 
 五分钟 Demo：在私聊要求两分钟后提醒，批准 `task_create`，核对已排期和后台服务状态；空闲且草稿保存后退出 Electron，到点在 Telegram 收到正文；重开桌面查看同一任务和平台消息 ID。Mac 必须保持运行、联网，常驻助手和任务 worker 都须启用。模型解释的“已安排”不替代成功创建回执。
 
-宿主在原来的长轮询循环中读取已选安排的确定终态；正常情况下最多增加约 30 秒投递延迟。保存正文和目的地后才发送，重启可从归属正确的 TaskStore 终态补建待发送项，不再调用模型或执行任务。分页扫描每次最多 1000 个定期发生项，超过容量明确报错，不把遗漏记录算作已发送。RSS 成功但无通知意图表示没有新条目，不发送空简报。中断任务可投递中断说明，但不会重跑。
+宿主在原来的长轮询循环中读取已选安排的确定终态；正常情况下最多增加约 30 秒投递延迟。保存正文和目的地后才发送，重启可从归属正确的 TaskStore 终态补建待发送项，不再调用模型或执行任务。每轮分页扫描最多 1000 个定期发生项，逐页保存游标、投递已找到结果；超过时下轮续查，不再因旧历史过长整轮失败。遍历结束后重新检查近期记录，允许发现后来才结束的发生项；选择前的历史不外发。RSS 成功但无通知意图表示没有新条目，不发送空简报。中断任务可投递中断说明，但不会重跑。
+
+## 长对话与手动数据备份
+
+Before：长期对话的重复全量快照可能累积超过历史读取限额；大于 8 MiB 的一次历史 RPC 会断开常驻连接；没有桌面备份入口。
+
+After：历史列表流式读取完整记录，对话先显示有界最近页，点击「查看更早的对话」逐页加载。正常写入在跨进程同一锁内整理冗余快照，不删消息、不把模型摘要当磁盘压缩。完整单条历史记录仍有 16 MiB 的桌面安全上限，超过会报错而不是截断。大型 RPC 响应分块传输，单个响应最多 32 MiB，重连不重发操作。
+
+「serika → 模块能力 → 数据备份与恢复」可以选择导出位置。备份包含当前工作区已登记对话（含上下文摘要）、正式记忆、checkpoint、任务、RSS、经验和执行回执；不包含项目文件、环境/配置文件、Telegram 绑定凭据或 launchd 定义。已知当前凭据值若出现在正文中会拒绝导出，但无法替你识别所有敏感内容。备份逐份读取已提交数据，不是跨文件原子快照；操作应在空闲时进行。
+
+恢复只创建新目录和 `recovery.json`，不覆盖日用数据或自动切换配置。单次未执行任务取消、重复安排暂停、遗留执行中断，不恢复未来通知意图或授权；不会启动服务、模型或工具。原始回执另存 `receipts/`，当前可用回执仍遵守原保留上限。恢复副本是可供核对、手动接回的数据，不是一键恢复整个运行中的助手；相同 Thread 已在另一目录登记时，现有身份校验仍拒绝覆盖。
+
+五分钟 Demo：打开一条长对话，点击更早的对话，核对顺序和连接未断；在模块能力导出备份，再选它恢复副本。Finder 应出现全新的 `Serika-recovery-*` 目录，旧 workspace 不变、旧任务不启动。Telegram 等确认超过五分钟后发送 `/confirm`，只批准新短码，桌面同一 Run 应只有一次工具调用。
 
 「只重试发送」只适用于已确定未提交的失败结果，遵守平台限流等待；不会重跑模型、增加 Run 或恢复工具确认。超时/响应丢失仍是 `unknown`，没有重发按钮。平台返回消息 ID 是 `submitted`，不是用户已读；关闭单项投递取消尚未发送的项，已发出/未知的一次无法撤回。任务保存、目的地登记和服务启用不是跨文件原子事务；若后两步失败，已保存任务不会被创建第二次，需显式核对并选择目的地/服务。
 
@@ -121,40 +133,50 @@ Dock 导出补正：原头像 PNG 为 RGB、无透明通道，不能直接当作
 
 ## 启动与验证
 
-日用入口（自动构建两仓，读取后端现有受信任 `.env`；优先使用已配置模型，未指定时优先 Command Code，再 DeepSeek；没有真实模型凭据时报错）：
-
-```sh
-cd /Users/a1-6/Code/agents/runloom-desktop
-pnpm daily
-```
-
-默认配置、会话列表和 transcript 在 Electron userData 中持续保存。首次没有 `RUNLOOM_WORKSPACE` 时创建 `userData/workspaces/personal`；测试窗口应使用独立 userData 并设置 `RUNLOOM_DESKTOP_TEST=1`，页面会显示隔离验收标记。`pnpm dev` 仍是开发入口。已有进程要从托盘完整退出后再启动，关闭窗口只是隐藏。
-
-macOS 的 `pnpm daily` 使用本仓库 `dist/local-<Electron版本>/Serika.app`，而不是直接运行依赖里的 `Electron.app`。首次生成会复制 Electron 运行时、设置原生名称/图标并做本机 ad-hoc 签名；后续启动复用它，实际代码仍加载本仓库最新的 `out/`。Finder 也可双击该应用启动（默认读取后端 `.env`，特殊模型/配置覆盖仍用 `pnpm daily`）。这是依赖当前 checkout 的本机入口，不是独立安装包，不能复制给别人使用。`pnpm dev` / `pnpm preview` 仍使用 Electron 开发宿主，系统名称可能显示 Electron。日用默认 profile 始终是 `~/Library/Application Support/@aisdk-agent/desktop`，改品牌不迁移或清空旧历史；显式 `RUNLOOM_USER_DATA` 仍优先。
-
-原生名称补正验证：`pnpm run check` 通过（187 项桌面测试 + 2 项启动环境测试）；生成的本机 bundle 通过 `codesign --verify --deep --strict`。隔离副本使用独立 userData/workspace，通过 Cua 的新鲜原生窗口状态核对 `app_name`、窗口标题、应用菜单均为 Serika，界面显示隔离标记。没有打开日用历史或发送模型请求；日用旧历史保留由固定路径和相关测试覆盖，不冒称已做日用数据验收。
-
-先构建链接的后端，再启动桌面：
+日用入口（在统一仓库构建 Runtime 与 Electron，读取根目录现有受信任 `.env`；优先使用已配置模型，未指定时按现有凭据选择；没有真实模型凭据时报错，不回退 mock）：
 
 ```sh
 cd /Users/a1-6/Code/agents/aisdk-agent-framework
-pnpm build
-cd /Users/a1-6/Code/agents/runloom-desktop
-pnpm check
-pnpm dev
+pnpm desktop:daily
+```
+
+默认配置、会话列表和 transcript 在 Electron userData 中持续保存。首次没有 `RUNLOOM_WORKSPACE` 时创建 `userData/workspaces/personal`；测试窗口应使用独立 userData 并设置 `RUNLOOM_DESKTOP_TEST=1`，页面会显示隔离验收标记。根目录的 `pnpm desktop:dev` 仍是开发入口。已有进程要从托盘完整退出后再启动，关闭窗口只是隐藏。
+
+macOS 的 `pnpm desktop:daily` 使用 `apps/desktop/dist/local-<Electron版本>/Serika.app`，而不是直接运行依赖里的 `Electron.app`。首次生成会复制 Electron 运行时、设置原生名称/图标并做本机 ad-hoc 签名；后续启动复用它，实际代码仍加载本仓库最新的 `apps/desktop/out/`。Finder 也可双击该应用启动（默认读取根目录 `.env`，特殊模型/配置覆盖仍用 `pnpm desktop:daily`）。这是依赖当前 checkout 的本机入口，不是独立安装包，不能复制给别人使用。`pnpm desktop:dev` / `pnpm --filter @aisdk-agent/desktop preview` 仍使用 Electron 开发宿主，系统名称可能显示 Electron。日用默认 profile 始终是 `~/Library/Application Support/@aisdk-agent/desktop`，改品牌不迁移或清空旧历史；显式 `RUNLOOM_USER_DATA` 仍优先。
+
+原生名称补正验证：`pnpm run check` 通过（187 项桌面测试 + 2 项启动环境测试）；生成的本机 bundle 通过 `codesign --verify --deep --strict`。隔离副本使用独立 userData/workspace，通过 Cua 的新鲜原生窗口状态核对 `app_name`、窗口标题、应用菜单均为 Serika，界面显示隔离标记。没有打开日用历史或发送模型请求；日用旧历史保留由固定路径和相关测试覆盖，不冒称已做日用数据验收。
+
+在统一仓库检查并启动开发桌面：
+
+```sh
+cd /Users/a1-6/Code/agents/aisdk-agent-framework
+pnpm desktop:check
+pnpm desktop:dev
 ```
 
 使用真实模型与外部配置（配置不能放 workspace 内）：
 
 ```sh
-cd /Users/a1-6/Code/agents/runloom-desktop
-RUNLOOM_MODEL=deepseek RUNLOOM_CONFIG=/absolute/path/runloom.json \
-  node --env-file=../aisdk-agent-framework/.env node_modules/electron-vite/bin/electron-vite.js dev
+cd /Users/a1-6/Code/agents/aisdk-agent-framework/apps/desktop
+RUNLOOM_MODEL=command-code RUNLOOM_CONFIG=/absolute/path/runloom.json \
+  node --env-file=/absolute/path/serika.env node_modules/electron-vite/bin/electron-vite.js dev
 ```
 
 不指定身份时，Electron userData 下的 `desktop-identity.json` v2 按 config/workspace 保存当前 Thread 与最多 100 个对话入口；旧 v1 身份读取时保留，实际登记/切换才迁移。切到另一份配置/workspace 再回来仍能接回之前选择的 Thread。坏身份文件会报错，不会自动清空。第二份桌面进程只聚焦第一份窗口。
 
-侧栏「历史对话」可查看、创建、切换当前工作区的 Thread；切换要求 Controller 空闲，释放旧租约并装配同一套 Controller，所有旧预览/输入清空。旧目录先只读发现，再由用户确认所选对话属于当前工作区并登记；不复制、不合并 transcript，不把未登记的其他目录当成本工作区历史。列表发现不调用 Store 的截尾修复，不写 JSONL；坏/超限/未完整结束的历史明确报错，不能显示为空。
+「历史对话」可查看、创建、切换当前工作区的 Thread；切换要求 Controller 空闲，释放旧租约并装配同一套 Controller，所有旧预览/输入清空。旧目录先只读发现，再由用户确认所选对话属于当前工作区并登记；不复制、不合并 transcript，不把未登记的其他目录当成本工作区历史。列表与搜索逐条读取完整 JSONL，16 MiB 限制针对单条记录，不再拒绝累计超过 16 MiB 的重复历史文件。未完成尾只展示上一完整快照并明确提示，查询从不修尾或写文件；坏记录仍报错，不能显示为空。
+
+macOS/Linux 正常保存使用同一 transcript 路径的跨进程 append 锁。文件达到 8 MiB 且整理能减少至少四分之一时，在下一次追加前原子移除冗余全量快照；完整的最新消息（含 ID 与来源）、所有摘要和未知版本记录保留，不删除逻辑对话、不重放工具。文件同步后才确认保存；POSIX 同步父目录。替换后确认失败会报结果未知并停止该实例进一步写入，重启后重新读取，不能当作零写入重试。Windows 保持追加存储，不启用依赖 flock 的快照替换，也不声称 POSIX 目录同步保证；这不是机器断电或完整 Durable 的验收证明。
+
+默认测试将文件级并发限制为 4：这些测试会启动真实锁持有进程、读写并同步文件，不能按 CPU 数无限扩张并发再让夹具抢短期限。生产执行预算不因此改变。最低 Runtime 门禁在 Node 22.12 直接跑同一组测试；安装与构建使用 pnpm 11 支持的 Node 版本。
+
+本批交付：Before 是累计历史超过 16 MiB 后无法查询，写入回执只有原子替换而未同步确认，Node 22 的挂起调用可能在超时前退出。After 是累计大历史可只读查询、重复快照在受锁保护的正常保存中整理、回执确认失败阻止继续派发，模型与工具的截止时间会保持进程存活直到结算。
+
+五分钟核对（不用真实模型或删除日用数据）：
+
+1. 日用 Serika 完整退出重开，确认原对话仍在；搜索原对话中的词，打开原 Thread。
+2. 在已构建仓库运行 `pnpm --filter @aisdk-agent/desktop exec tsx --test src/main/thread-history.test.ts`，验证累计超过 16 MiB 的历史能发现与搜索，文件字节和修改时间不变。这是大文件夹具，不声称日用文件已经超过 16 MiB。
+3. 运行 `node --test examples/cli/dist/receipt-durability.test.js examples/cli/dist/transcript-storage.test.js`，验证真实跨进程锁、同步失败不派发、结果未知不自动重做。注入 IO 失败不是机器断电证明。
 
 `RUNLOOM_THREAD` / `RUNLOOM_TRANSCRIPTS` 可显式覆盖，不改写默认身份；部分覆盖从匹配身份补齐，无匹配时用稳定隔离默认值。以相同覆盖重启才能回到同一对话。`RUNLOOM_WORKSPACE` 只在首次生成配置时生效，已有配置以文件实际 workspace 为准。
 

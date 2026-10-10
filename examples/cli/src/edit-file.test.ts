@@ -32,6 +32,16 @@ function code(result: EditFileResult): string | undefined {
 }
 
 describe("editFileInWorkspace", () => {
+  it("preserves UTF-8 BOM and hashes the exact resulting bytes", async () => {
+    const directory = await workspace();
+    await writeFile(join(directory, "bom.txt"), "\ufeffheading\r\nvalue=old\r\n");
+    const result = await editFileInWorkspace(directory, { path: "bom.txt", oldText: "value=old", newText: "value=new" });
+    const expected = Buffer.from("\ufeffheading\r\nvalue=new\r\n");
+    assert.deepEqual(await readFile(join(directory, "bom.txt")), expected);
+    assert(result.ok);
+    assert.equal(result.bytes, expected.length);
+    assert.equal(result.sha256, createHash("sha256").update(expected).digest("hex"));
+  });
   it("replaces one literal occurrence and preserves exact text", async () => {
     const directory = await workspace();
     await writeFile(join(directory, "config.txt"), "port=3000\r\nname=app", "utf8");
