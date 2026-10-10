@@ -291,12 +291,29 @@ async function child(root: string, stage: Stage, workflow: Workflow) {
   if (failure) throw new Error(failure);
 }
 
+export function continuityChildFailure(stage: Stage, exit: string, report: unknown): string {
+  const message = `${stage} process exited ${exit}`;
+  if (typeof report === "object" && report !== null && "stage" in report && report.stage === stage &&
+    "passed" in report && report.passed === false && "failure" in report &&
+    typeof report.failure === "string" && report.failure.trim().length > 0) {
+    return `${message}: ${report.failure}`;
+  }
+  return message;
+}
+
 async function startChild(root: string, stage: Stage, workflow: Workflow) {
   await new Promise<void>((resolve, reject) => {
     const proc = spawn(process.execPath, [fileURLToPath(import.meta.url), "--child", root, stage, workflow], { env: process.env, stdio: "inherit" });
     const timer = setTimeout(() => proc.kill("SIGTERM"), 20 * 60_000);
     proc.once("error", (error) => { clearTimeout(timer); reject(error); });
-    proc.once("exit", (code, signal) => { clearTimeout(timer); code === 0 ? resolve() : reject(new Error(`${stage} process exited ${code ?? signal}`)); });
+    proc.once("exit", async (code, signal) => {
+      clearTimeout(timer);
+      if (code === 0) { resolve(); return; }
+      let report: unknown;
+      try { report = JSON.parse(await readFile(join(root, `${stage}-report.json`), "utf8")); }
+      catch { /* A startup failure or forced exit may leave no readable report. */ }
+      reject(new Error(continuityChildFailure(stage, String(code ?? signal), report)));
+    });
   });
 }
 

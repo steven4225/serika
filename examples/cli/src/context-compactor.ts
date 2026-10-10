@@ -536,8 +536,17 @@ export class ContextCompactor {
         },
         this.#options.budget,
       );
+    const checkPreparedBudget = (conversation: readonly UIMessage[]) => {
+      const estimate = estimatePrepared(conversation);
+      this.#preparedEstimate = estimate.inputTokens;
+      if (estimate.exceeds) {
+        throw contextError(`Prepared context exceeds the configured input budget (${estimate.inputTokens} > ${estimate.availableInputTokens} tokens)`);
+      }
+      return estimate;
+    };
     const finish = (conversation: UIMessage[], compactionId: string | null = null): UIMessage[] => {
-      this.#preparedEstimate = estimatePrepared(conversation).inputTokens;
+      // Reuse, noop and forced preparation must obey the same final budget.
+      checkPreparedBudget(conversation);
       this.#preparedCompactionId = compactionId;
       return conversation;
     };
@@ -637,7 +646,7 @@ export class ContextCompactor {
       const installed = compose(persisted.summary, persisted.firstKeptMessageIndex);
       if (force || !estimatePrepared(installed).exceeds) {
         this.#lastPrepare = { kind: "noop" };
-        return force ? finish(messages) : finish(installed, persisted.id);
+        return finish(installed, persisted.id);
       }
     }
 
@@ -688,10 +697,8 @@ export class ContextCompactor {
       summaryMessage(summary, { index: firstKept, id: keptMessages[0]?.id ?? null }),
       ...keptMessages,
     ];
-    const afterBudget = estimatePrepared(compactedMessages);
-    if (afterBudget.exceeds) {
-      throw contextError("Context remains over the configured input budget after compaction");
-    }
+    // Validate before persisting too: an unusable summary is not a new boundary.
+    const afterBudget = checkPreparedBudget(compactedMessages);
 
     const record: ContextCompactionRecord = {
       v: 2,
