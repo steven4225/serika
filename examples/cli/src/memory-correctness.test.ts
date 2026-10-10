@@ -89,6 +89,81 @@ test("restore identity Demo: preview and restore preserve verified identity, whi
   } finally { await f.cleanup(); }
 });
 
+test("restore conflict Demo: retract → conflicting new fact → restore is blocked until the current fact is retracted", async () => {
+  const f = await fixture();
+  try {
+    const first = await f.extract([f.statement("u1", "我喝咖啡不加糖。")]);
+    const oldId = first.result.accepted![0]!.memoryId;
+    const original = await f.store.inspectMemory(oldId); assert.ok(original.ok);
+    const withdrawn = await f.store.reviseMemory({ id: oldId, expectedRevision: 1, operation: "retract" }, undefined,
+      { now: new Date(f.now().getTime() + 100) });
+    assert.ok(withdrawn.ok);
+    const second = await f.extract([f.statement("u2", "我喝咖啡加糖。", coffee("sweetened"))]);
+    const currentId = second.result.accepted![0]!.memoryId;
+    assert.notEqual(currentId, oldId);
+    const input = { id: oldId, expectedRevision: withdrawn.entry.revision!, targetAssertionId: original.value.assertions[0]!.assertionId };
+    const options = { now: new Date(f.now().getTime() + 100), boundThreadId: "thread" };
+    const path = join(f.directory, ".runloom/memory.json");
+    const before = await readFile(path, "utf8");
+    const preview = await f.store.previewMemoryMutation({ operation: "restore", ...input }, undefined, options);
+    assert.equal(await readFile(path, "utf8"), before, "preview must not write");
+    const blocked = await f.store.restoreMemory(input, undefined, options);
+    const listed = await f.store.list(undefined, options); assert.ok(listed.ok);
+    assert.equal(listed.entries.filter(entry => entry.enabled).length, 1, "restoration must not activate opposite preferences together");
+    assert.equal(preview.ok, false); assert.equal(blocked.ok, false);
+    if (!preview.ok && !blocked.ok) {
+      assert.equal(preview.error.code, "MEMORY_TEMPORAL_CONFLICT");
+      assert.equal(blocked.error.code, "MEMORY_TEMPORAL_CONFLICT");
+      assert.match(blocked.error.message, /retract/i);
+    }
+    assert.equal(await readFile(path, "utf8"), before, "rejected restoration must not change any record");
+    assert.equal(listed.entries.find(entry => entry.enabled)?.text, "我喝咖啡加糖。");
+
+    const retractCurrent = await f.store.reviseMemory({ id: currentId, expectedRevision: 1, operation: "retract" }, undefined,
+      { now: new Date(f.now().getTime() + 200), boundThreadId: "thread" });
+    assert.ok(retractCurrent.ok);
+    const restored = await f.store.restoreMemory(input, undefined,
+      { now: new Date(f.now().getTime() + 300), boundThreadId: "thread" });
+    assert.ok(restored.ok);
+    const final = await f.store.list(undefined, { now: new Date(f.now().getTime() + 300) }); assert.ok(final.ok);
+    assert.deepEqual(final.entries.filter(entry => entry.enabled).map(entry => ({ id: entry.id, text: entry.text,
+      identity: entry.assertion?.factIdentity })), [{ id: oldId, text: "我喝咖啡不加糖。", identity: coffee() }]);
+  } finally { await f.cleanup(); }
+});
+
+for (const [label, blocked, other] of [
+  ["future overlapping fact", true, { validTime: { from: "2026-10-11T00:00:00.000Z", to: null, basis: "explicit" as const } }],
+  ["past nonoverlapping fact", false, { validTime: { from: null, to: "2026-10-10T00:00:01.200Z", basis: "explicit" as const } }],
+  ["different scope", false, { scope: { kind: "thread" as const, threadId: "other-thread" } }],
+  ["different scenario", false, { factIdentity: coffee("sweetened", "work") }],
+  ["disabled fact", false, { status: "disabled" as const }],
+  ["expired fact", false, { expiresAt: "2026-10-10T00:00:01.200Z" }],
+] as const) {
+  test(`restore conflict boundary: ${label}`, async () => {
+    const f = await fixture();
+    try {
+      const first = await f.extract([f.statement("u1", "我喝咖啡不加糖。")]);
+      const id = first.result.accepted![0]!.memoryId;
+      const original = await f.store.inspectMemory(id); assert.ok(original.ok);
+      const withdrawn = await f.store.reviseMemory({ id, expectedRevision: 1, operation: "retract" }, undefined,
+        { now: new Date(f.now().getTime() + 100) });
+      assert.ok(withdrawn.ok);
+      const added = await f.store.add({ text: "我喝咖啡加糖。", kind: "preference", factIdentity: coffee("sweetened"), ...other }, undefined,
+        { now: new Date(f.now().getTime() + 150) });
+      assert.ok(added.ok);
+      const input = { id, expectedRevision: withdrawn.entry.revision!, targetAssertionId: original.value.assertions[0]!.assertionId };
+      const options = { now: new Date(f.now().getTime() + 200), boundThreadId: "thread" };
+      const preview = await f.store.previewMemoryMutation({ operation: "restore", ...input }, undefined, options);
+      const restored = await f.store.restoreMemory(input, undefined, options);
+      assert.equal(preview.ok, !blocked); assert.equal(restored.ok, !blocked);
+      if (!preview.ok && !restored.ok) {
+        assert.equal(preview.error.code, "MEMORY_TEMPORAL_CONFLICT");
+        assert.equal(restored.error.code, "MEMORY_TEMPORAL_CONFLICT");
+      }
+    } finally { await f.cleanup(); }
+  });
+}
+
 for (const [label, text, identity] of [
   ["synonym", "咖啡甜味我不喜欢。", coffee()],
   ["conflict", "我喝咖啡加糖。", coffee("sweetened")],
