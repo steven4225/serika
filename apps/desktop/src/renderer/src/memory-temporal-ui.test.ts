@@ -4,7 +4,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { CandidatePreview } from "@aisdk-agent/example-cli/dist/memory-candidates.js";
 import type { MemoryReferenceSnapshot } from "@aisdk-agent/example-cli/dist/memory-query-rewrite.js";
-import { CandidateDetail, MemoryPanel, MemoryTabs } from "./memory.js";
+import { CandidateDetail, MemoryPanel, MemoryTabs, memoryTabOnOpen } from "./memory.js";
 import { MemoryReferenceDetails } from "./memory-references.js";
 import { MemoryActionPreviewDetails } from "./memory-temporal.js";
 
@@ -34,13 +34,25 @@ function detail(preview: CandidatePreview) {
 }
 
 describe("memory temporal review UI", () => {
-  it("starts with current-conversation review and separates saved memory from candidate decisions", () => {
-    const html = renderToStaticMarkup(createElement(MemoryPanel, { memory: { enabled: true, autoConsolidate: true }, temporaryThread: false, controllerIdle: true, refreshToken: 0 }));
-    assert.match(html, /aria-selected="true">待审核/);
-    for (const label of ["已保存", "审核记录", "只审核当前对话的候选"]) assert.ok(html.includes(label));
-    assert.equal(html.includes("更正、变化与管理"), false, "formal editor is not the default screen");
+  it("starts with saved memory, not an automatic empty review console", () => {
+    const html = renderToStaticMarkup(createElement(MemoryPanel, { memory: { enabled: true, autoConsolidate: true, writePolicy: "automatic" }, temporaryThread: false, controllerIdle: true, refreshToken: 0, focusRequest: { id: null, sequence: 1 } }));
+    assert.match(html, /aria-selected="true">已保存/);
+    assert.ok(html.indexOf("已保存") < html.indexOf("待审核"));
+    for (const label of ["审核记录", "这些记忆已经保存"]) assert.ok(html.includes(label));
+    for (const label of ["只审核当前对话的候选", "选择待审核候选", "核对并接受", "待审核（0"]) assert.equal(html.includes(label), false);
     const history = renderToStaticMarkup(createElement(MemoryTabs, { tab: "history", onSelect: () => {} }));
     assert.match(history, /aria-selected="true">审核记录/);
+  });
+
+  it("opens review only for current pending candidates or a specific candidate focus", () => {
+    const props = { memory: { enabled: true, autoConsolidate: true, writePolicy: "automatic" as const }, temporaryThread: false, controllerIdle: true, refreshToken: 0 };
+    const pending = renderToStaticMarkup(createElement(MemoryPanel, { ...props, pendingCount: 2, pendingHasMore: true }));
+    assert.match(pending, /aria-selected="true">待审核（2\+）/);
+    const focused = renderToStaticMarkup(createElement(MemoryPanel, { ...props, focusRequest: { id: "candidate-a", sequence: 1 } }));
+    assert.match(focused, /aria-selected="true">待审核/);
+    assert.equal(memoryTabOnOpen(0, null), "formal", "ordinary open is not a review request");
+    assert.equal(memoryTabOnOpen(1, null), "pending");
+    assert.equal(memoryTabOnOpen(0, "candidate-a"), "pending");
   });
 
   it("keeps checked quote/current/proposed/scope visible while internal metadata is collapsed", () => {

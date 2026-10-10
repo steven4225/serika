@@ -1,5 +1,10 @@
 import type { AppInfo } from "../../shared/ui-contract.js";
 
+/** Existing daily review configs get a policy-only, explicitly confirmed upgrade. */
+export function memoryAutomaticUpgradeNeeded(info: AppInfo): boolean {
+  return !info.recoveryWorkspace && info.memory.enabled && info.memory.autoConsolidate && info.memory.writePolicy !== "automatic";
+}
+
 export function memorySetupNeeded(info: AppInfo): boolean {
   return !info.memory.enabled || !info.memory.autoConsolidate || info.memory.queryRewriteEnabled !== true || info.memory.writePolicy !== "automatic";
 }
@@ -8,7 +13,7 @@ export function memorySetupChanges(info: AppInfo): string[] {
   return [
     ...(!info.memory.enabled ? ["启用正式记忆的读取与来源记录"] : []),
     ...(!info.memory.autoConsolidate ? ["启用对话结束后的增量整理"] : []),
-    ...(info.memory.queryRewriteEnabled !== true ? ["启用普通对话的同义查询改写"] : []),
+    ...(info.memory.queryRewriteEnabled !== true && !(info.memory.enabled && info.memory.autoConsolidate && info.memory.writePolicy !== "automatic") ? ["启用普通对话的同义查询改写"] : []),
     ...(info.memory.writePolicy !== "automatic" ? ["自动保存明确、可溯源的普通长期信息，歧义仍留待审核"] : []),
   ];
 }

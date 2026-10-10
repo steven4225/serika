@@ -134,18 +134,30 @@ export function CandidateDetail({
 }
 
 export type MemoryTab = "pending" | "formal" | "history";
-export function MemoryTabs({ tab, onSelect }: { tab: MemoryTab; onSelect: (tab: MemoryTab) => void }) {
+export function memoryTabOnOpen(pendingCount: number, candidateId?: string | null): MemoryTab {
+  return candidateId || pendingCount > 0 ? "pending" : "formal";
+}
+
+export function MemoryTabs({ tab, onSelect, pendingCount = 0, pendingHasMore = false }: { tab: MemoryTab; onSelect: (tab: MemoryTab) => void; pendingCount?: number; pendingHasMore?: boolean }) {
   return <div className="memory-tabs" role="tablist" aria-label="记忆视图">
-    {([["pending", "待审核"], ["formal", "已保存"], ["history", "审核记录"]] as const).map(([id, label]) =>
-      <button key={id} role="tab" aria-selected={tab === id} onClick={() => onSelect(id)}>{label}</button>)}
+    {([["formal", "已保存"], ["pending", "待审核"], ["history", "审核记录"]] as const).map(([id, label]) =>
+      <button key={id} role="tab" aria-selected={tab === id} onClick={() => onSelect(id)}>{label}{id === "pending" && pendingCount > 0 ? `（${pendingCount}${pendingHasMore ? "+" : ""}）` : ""}</button>)}
   </div>;
 }
 
-export function MemoryPanel(props: { memory: { enabled: boolean; autoConsolidate: boolean; queryRewriteEnabled?: boolean }; temporaryThread: boolean; controllerIdle: boolean; refreshToken: number; focusRequest?: { id: string | null; sequence: number } }) {
-  const [tab, setTab] = useState<MemoryTab>("pending");
-  useEffect(() => { if (props.focusRequest?.sequence) setTab("pending"); }, [props.focusRequest?.sequence]);
+export function MemoryPanel(props: { memory: { enabled: boolean; autoConsolidate: boolean; queryRewriteEnabled?: boolean; writePolicy?: "automatic" | "review" }; temporaryThread: boolean; controllerIdle: boolean; refreshToken: number; focusRequest?: { id: string | null; sequence: number }; pendingCount?: number; pendingHasMore?: boolean }) {
+  const count = props.memory.enabled ? props.pendingCount ?? 0 : 0;
+  const [tab, setTab] = useState<MemoryTab>(() => memoryTabOnOpen(count, props.focusRequest?.id));
+  const previous = useRef({ count, sequence: props.focusRequest?.sequence });
+  useEffect(() => {
+    const old = previous.current;
+    previous.current = { count, sequence: props.focusRequest?.sequence };
+    if (old.sequence !== props.focusRequest?.sequence) setTab(memoryTabOnOpen(count, props.focusRequest?.id));
+    else if (old.count === 0 && count > 0) setTab("pending");
+    else if (old.count > 0 && count === 0) setTab(current => current === "pending" ? "formal" : current);
+  }, [count, props.focusRequest?.id, props.focusRequest?.sequence]);
   return <>
-    <MemoryTabs tab={tab} onSelect={setTab} />
+    <MemoryTabs tab={tab} onSelect={setTab} pendingCount={count} pendingHasMore={props.pendingHasMore === true} />
     {tab === "formal" ? <>
       <p className="hint">这些记忆已经保存。某轮是否参考过，请看对话中的「本轮参考记忆」，保存不代表每轮都会引用。</p>
       <FormalMemories enabled={props.memory.enabled} controllerIdle={props.controllerIdle} refreshToken={props.refreshToken} queryRewriteEnabled={props.memory.queryRewriteEnabled === true} />
@@ -162,7 +174,7 @@ function CandidateMemories({
   focusRequest,
   onSaved,
 }: {
-  memory: { enabled: boolean; autoConsolidate: boolean };
+  memory: { enabled: boolean; autoConsolidate: boolean; writePolicy?: "automatic" | "review" };
   temporaryThread: boolean;
   controllerIdle: boolean;
   refreshToken: number;
@@ -316,11 +328,12 @@ function CandidateMemories({
   const fresh = seenRefresh.current === refreshToken;
   const acceptEnabled = memory.enabled && controllerIdle && fresh && canAccept(state);
   const rejectEnabled = memory.enabled && controllerIdle && fresh && canReject(state);
+  const automaticEmpty = mode === "pending" && memory.writePolicy === "automatic" && !state.listLoading && state.listError === null && state.candidates.length === 0;
 
   return (
     <section className={`card memory memory-${mode}`} aria-label={mode === "pending" ? "只审核当前对话的候选，接受前不会成为正式记忆" : "当前对话的审核记录"}>
       {!memory.enabled || !memory.autoConsolidate ? <div className="hint">{capabilityText(memory)}</div> : null}
-      {mode === "history" || state.preview === null ? <div className="hint">{mode === "history" ? "这是当前对话的审核记录，不是正式记忆的版本历史。" : "只审核当前对话的候选，接受前不会成为正式记忆。"}</div> : null}
+      {!automaticEmpty && (mode === "history" || state.preview === null) ? <div className="hint">{mode === "history" ? "这是当前对话的审核记录，不是正式记忆的版本历史。" : "只审核当前对话的候选，接受前不会成为正式记忆。"}</div> : null}
       {temporaryThread ? <div className="hint">重启后不会自动回到这些候选的来源对话。</div> : null}
       {state.open ? (
         <div className="memory-body">
@@ -352,9 +365,9 @@ function CandidateMemories({
             </div>
           ) : null}
           {memory.enabled && !state.listLoading && state.listError === null && state.candidates.length === 0 ? (
-            <div className="memory-empty">{state.filter === "pending" ? "没有待审核的候选。对话中出现新的长期信息后，可以在这里核对并接受。" : "当前对话没有此状态的候选。"}</div>
+            <div className="memory-empty">{state.filter === "pending" ? memory.writePolicy === "automatic" ? "没有需要你确认的内容，已记住的信息在「已保存」。" : "没有待审核的候选。" : "当前对话没有此状态的候选。"}</div>
           ) : null}
-          <details className="candidate-list-disclosure" open={mode === "history"}>
+          {mode === "history" || state.candidates.length > 0 ? <details className="candidate-list-disclosure" open={mode === "history"}>
           <summary>{mode === "history" ? "候选审核列表" : `选择待审核候选（已加载 ${state.candidates.length} 条）`}</summary>
           <div className="memory-list">
             {state.candidates.map((candidate) => (
@@ -369,7 +382,7 @@ function CandidateMemories({
           {state.nextOffset !== null ? (
             <button className="ghost" onClick={loadMore} disabled={state.listLoading}>加载下一页</button>
           ) : null}
-          </details>
+          </details> : null}
           {state.detailLoading ? <div className="muted">正在读取详情…</div> : null}
           {state.detailError ? <div className="error">{reviewErrorText(state.detailError, state.controllerIdle)}</div> : null}
           {state.preview ? (
