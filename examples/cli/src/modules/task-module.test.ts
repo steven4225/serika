@@ -17,6 +17,7 @@ import {
   TASK_REPEAT_COMMAND_USAGE,
   type TaskModuleOptions,
 } from "./task-module.js";
+import { reminderReadback } from "../reminder-speech.js";
 
 function record(overrides: Partial<TaskRecordV4> = {}): TaskRecordV4 {
   return {
@@ -265,14 +266,23 @@ describe("createTaskModule", () => {
   });
 
   it("passes complete reminder arrangements through the existing create and recurring stores", async () => {
+    const clock = { now: new Date("2026-09-11T01:00:00.000Z"), timeZone: "Asia/Shanghai" };
     const { tools, calls } = setup({
-      create: async input => ({ ok: true, value: record({ arrangement: input.arrangement! }) }),
-      createRecurring: async input => ({ ok: true, value: recurringRecord({ arrangement: input.arrangement! }) }),
-    });
+      create: async input => ({ ok: true, value: record({ prompt: input.prompt, arrangement: input.arrangement! }) }),
+      createRecurring: async input => ({ ok: true, value: recurringRecord({ prompt: input.prompt, arrangement: input.arrangement! }) }),
+    }, { now: () => clock.now, timeZone: clock.timeZone });
     const one = { prompt: "喝水", runAt: "2026-09-12T01:00:00Z", arrangement: reminder };
-    assert.deepEqual(await toolByName(tools, "task_create").tool.execute!(one, toolContext()), { ok: true, value: record({ arrangement: reminder }) });
+    assert.deepEqual(await toolByName(tools, "task_create").tool.execute!(one, toolContext()), {
+      ok: true,
+      value: record({ prompt: "喝水", arrangement: reminder }),
+      readback: reminderReadback("schedule", { prompt: "喝水", runAt: "2026-09-12T01:00:00.000Z", clock }),
+    });
     const repeated = { prompt: "喝水", recurrence: { kind: "daily", time: "09:00", utcOffset: "+08:00" } as const, arrangement: reminder };
-    assert.deepEqual(await toolByName(tools, "task_repeat_create").tool.execute!(repeated, toolContext()), { ok: true, value: recurringRecord({ arrangement: reminder }) });
+    assert.deepEqual(await toolByName(tools, "task_repeat_create").tool.execute!(repeated, toolContext()), {
+      ok: true,
+      value: recurringRecord({ prompt: "喝水", arrangement: reminder }),
+      readback: "已定：每天 9:00 提醒喝水",
+    });
     assert.equal(calls.length, 0);
     const output = toolByName(tools, "task_create").tool.outputSchema as unknown as { parse(value: unknown): { value: { arrangement?: unknown } } };
     assert.deepEqual(output.parse({ ok: true, value: record({ arrangement: reminder }) }).value.arrangement, reminder);
@@ -337,11 +347,19 @@ describe("createTaskModule", () => {
     await assert.rejects(toolByName(canceled.tools, "task_create").tool.execute!({ prompt: "日报", runAt: "2026-09-12T01:00:00Z", arrangement: todoist }, toolContext(before.signal)) as Promise<unknown>, /cancel before save/);
     assert.equal(canceled.calls.length, 0);
     const after = new AbortController(); let serviceCalls = 0;
+    const clock = { now: new Date("2026-09-11T01:00:00.000Z"), timeZone: "Asia/Shanghai" };
     const committed = setup({ create: async () => { after.abort(new Error("cancel after save")); return { ok: true, value: record({ arrangement: reminder }) }; } }, {
       afterArrangementSaved: async () => { serviceCalls += 1; return { enabled: true }; },
+      now: () => clock.now,
+      timeZone: clock.timeZone,
     });
     const result = await toolByName(committed.tools, "task_create").tool.execute!({ prompt: "喝水", runAt: "2026-09-12T01:00:00Z", arrangement: reminder }, toolContext(after.signal));
-    assert.deepEqual(result, { ok: true, value: record({ arrangement: reminder }), service: { enabled: true } });
+    assert.deepEqual(result, {
+      ok: true,
+      value: record({ arrangement: reminder }),
+      service: { enabled: true },
+      readback: reminderReadback("schedule", { prompt: record().prompt, runAt: record().runAt, clock }),
+    });
     assert.equal(serviceCalls, 1);
   });
 

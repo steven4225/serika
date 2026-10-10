@@ -122,6 +122,14 @@ RUNLOOM_MODEL=deepseek node --env-file=.env \
 
 若只验证 worker 下半链，可显式运行 `task-worker-context-acceptance.test.ts` 的真实模型测试。它经现有 Store 建立隔离 Memory、checkpoint 和每日重复任务，再启动生产 worker，核对结果、inbox、ack 和重启；普通 `pnpm test` 会跳过这项真实请求。该测试没有经过 TUI 的自然语言创建与人工 `y/n`，因此**不能单独使 A08 通过**。本轮下半链报告位于 `/private/tmp/runloom-phase1-20260926.sVyPSB/A08/normal-network-workspace-brief/report.md`，状态仍为 `not_run`；最初沙箱 DNS 失败与正常网络重试分别记在同目录上级的 `worker-dns-incident.md`。
 
+## 自然语言提醒
+
+入口是桌面或 `pnpm tui`，配置只打开 `modules.task.enabled`，workspace 指向隔离目录。不新增意图分类器，也不用 automation Hook。模型仍调用现有 `task_create` / `task_repeat_create` / `task_reschedule` / `task_cancel`（重复提醒的暂停、恢复、取消用 `task_repeat_pause` / `task_repeat_resume` / `task_repeat_cancel`），并带 `arrangement.kind: "reminder"`。
+
+1. 说「明早九点提醒我开会」。确认卡要出现时间、重复（不重复）和内容（开会），而不是工具 JSON。允许后，回复是一句中文，例如「已定：明天 9:00 提醒开会」，不含任务 ID 或 ISO 时间。磁盘上该任务的 arrangement 为 reminder。
+2. 接着说「改到十点」，确认卡显示新时间、原时间预览和同一条内容；允许后回复「已改到：…」，任务 ID 不变。再说「取消那个提醒」，确认后回复「已取消：…」，状态为 cancelled。每天或每周走 `task_repeat_create`，确认卡的重复为「每天」或「每周一」这类标签。时间含糊（「过会儿」「周末」）时，模型把默认时间放上确认卡，而不是先追问「你想几点」。
+3. 到期通知沿用现有 worker：reminder 不跑模型，桌面通知提交成功后记为 submitted，重启只重试未提交的通知，不第二次投递。离线证据见 `task-worker.test.ts` 的 deterministic reminder 与 `task-worker-delivery.test.ts` 的 notification-only retry。本项不验收 Telegram。保存成功本身不证明通知已经出现。
+
 ## 收口判断
 
 已有离线覆盖可引用，不为每个案例再写一套生产装配的 mock。真实任务必须走实际 TUI/worker 入口，程序检查产物和状态，人工审阅模型判断与用户反馈。发现断点先记录输入、预期、实际、证据和所属层；只修真实触发的产品问题。若 A01–A09 中仍有必需项 `failed`、`blocked` 或 `not_run`，阶段一只标部分完成。
