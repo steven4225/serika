@@ -50,6 +50,21 @@ function sendFrame(socket: Socket, frame: ResidentServerFrame | ResidentClientFr
   }
   if (!socket.destroyed) socket.write(data);
 }
+const MAX_RESPONSE_BYTES = 32 * 1024 * 1024;
+const RESPONSE_CHUNK_BYTES = 64 * 1024;
+async function sendResponse(socket: Socket, frame: Extract<ResidentServerFrame, { type: "response" }>): Promise<void> {
+  const data = Buffer.from(JSON.stringify(frame));
+  if (data.length + 1 <= MAX_RESIDENT_FRAME_BYTES) { sendFrame(socket, frame); return; }
+  if (data.length > MAX_RESPONSE_BYTES) throw new Error("单次结果超过读取限额，请使用分页入口");
+  const count = Math.ceil(data.length / RESPONSE_CHUNK_BYTES);
+  for (let index = 0; index < count; index++) {
+    if (socket.destroyed) return; // A read response is never retried as an operation.
+    const chunk: ResidentServerFrame = { type: "response-chunk", id: frame.id, index, count,
+      data: data.subarray(index * RESPONSE_CHUNK_BYTES, (index + 1) * RESPONSE_CHUNK_BYTES).toString("base64") };
+    // Respect socket backpressure instead of buffering the entire history.
+    await new Promise<void>((done, reject) => socket.write(JSON.stringify(chunk) + "\n", error => error ? reject(error) : done()));
+  }
+}
 function readFrames(socket: Socket, onFrame: (value: unknown) => void): void {
   let pending = Buffer.alloc(0);
   socket.on("data", (chunk: Buffer) => {
@@ -179,7 +194,7 @@ export async function startResidentServer(options: {
             const method = Reflect.get(target, request.method) as (...args: unknown[]) => unknown;
             value = await method.apply(target, request.args);
           }
-          sendFrame(socket, { type: "response", id: request.id, ok: true, value, state: state() });
+          await sendResponse(socket, { type: "response", id: request.id, ok: true, value, state: state() });
         } catch (error) {
           const message = safeError(error);
           sendFrame(socket, { type: "response", id: request.id, ok: false, error: message, state: state() });
@@ -208,6 +223,7 @@ export async function startResidentServer(options: {
 }
 
 export class ResidentClient {
+  #chunks = new Map<string, { count: number; next: number; bytes: number; chunks: Buffer[] }>();
   #socket!: Socket;
   #state!: ResidentState;
   #connected = false;
@@ -248,6 +264,7 @@ export class ResidentClient {
     const error = new Error("助手连接已断开，请核对执行记录后重新连接；请求可能已执行，不会自动重发");
     for (const request of this.#pending.values()) request.reject(error);
     this.#pending.clear();
+    this.#chunks.clear();
     if (wasConnected) this.#options.send({ type: "error", message: error.message });
   }
   async #connect(): Promise<void> {
@@ -265,7 +282,7 @@ export class ResidentClient {
       socket.once("connect", () => sendFrame(socket, { type: "hello", version: RESIDENT_VERSION, token, scope: this.#options.scope }));
       socket.on("error", error => { if (!ready) reject(error); });
       socket.on("close", () => { clearTimeout(timer); if (!ready) reject(new Error("助手服务连接未建立")); if (this.#socket === socket) this.#disconnected(); });
-      readFrames(socket, raw => {
+      const acceptFrame = (raw: unknown): void => {
         if (this.#socket !== socket) return;
         const frame = raw as ResidentServerFrame;
         if (!frame || typeof frame !== "object") { socket.destroy(); return; }
@@ -274,13 +291,32 @@ export class ResidentClient {
           ready = true; clearTimeout(timer); this.#state = frame.state; this.#connected = true; done(); return;
         }
         if (!ready) { socket.destroy(); return; }
+        if (frame.type === "response-chunk") {
+          if (!this.#pending.has(frame.id) || !Number.isSafeInteger(frame.count) || frame.count < 1 || frame.count > MAX_RESPONSE_BYTES / RESPONSE_CHUNK_BYTES ||
+            !Number.isSafeInteger(frame.index) || typeof frame.data !== "string" || frame.data.length > RESPONSE_CHUNK_BYTES * 2 || !/^[A-Za-z0-9+/]*={0,2}$/.test(frame.data)) { socket.destroy(); return; }
+          const assembly = this.#chunks.get(frame.id) ?? { count: frame.count, next: 0, bytes: 0, chunks: [] };
+          if (assembly.count !== frame.count || assembly.next !== frame.index) { socket.destroy(); return; }
+          const part = Buffer.from(frame.data, "base64");
+          assembly.bytes += part.length;
+          const totalBytes = [...this.#chunks.entries()].reduce((sum, [id, chunk]) => sum + (id === frame.id ? 0 : chunk.bytes), assembly.bytes);
+          if (assembly.bytes > MAX_RESPONSE_BYTES || totalBytes > MAX_RESPONSE_BYTES * 2 || part.length > RESPONSE_CHUNK_BYTES) { socket.destroy(); return; }
+          assembly.next++; assembly.chunks.push(part); this.#chunks.set(frame.id, assembly);
+          if (assembly.next === assembly.count) {
+            this.#chunks.delete(frame.id);
+            const complete = JSON.parse(Buffer.concat(assembly.chunks, assembly.bytes).toString("utf8")) as ResidentServerFrame;
+            if (complete.type !== "response" || complete.id !== frame.id) { socket.destroy(); return; }
+            acceptFrame(complete);
+          }
+          return;
+        }
         if (frame.type === "event") { this.#state = frame.state; this.#options.send(frame.message); }
         else if (frame.type === "response") {
           this.#state = frame.state;
           const request = this.#pending.get(frame.id); this.#pending.delete(frame.id);
           if (frame.ok) request?.resolve(frame.value); else request?.reject(new Error(frame.error));
         }
-      });
+      };
+      readFrames(socket, acceptFrame);
     });
   }
   #request(target: "host" | "current" | "state", method: string, args: unknown[]): Promise<unknown> {

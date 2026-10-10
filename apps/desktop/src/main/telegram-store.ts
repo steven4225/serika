@@ -1,6 +1,6 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { lstat, mkdir, open, readFile, rename, unlink } from "node:fs/promises";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
 import type { TelegramStatus } from "../shared/telegram.js";
 
 export interface TelegramInbound {
@@ -21,6 +21,7 @@ export interface TelegramTaskRoute {
   /** Existing recurring history before opt-in is never externalized. */
   fromRunAt: string;
   sourceKey?: string; sourceRunId?: string;
+  scanBefore?: { createdAt: string; id: string };
 }
 export interface TelegramData {
   version: 1; workspace: string; enabled: boolean; botId: number | null; offset: number;
@@ -45,6 +46,7 @@ function valid(data: TelegramData, workspace: string) {
       typeof x.id === "string" && !!x.id && ["once", "recurring"].includes(x.kind) && x.key === `${x.kind}:${x.id}` &&
       positive(x.chatId) && positive(x.userId) && x.chatId === data.owner?.chatId && x.userId === data.owner?.userId &&
       typeof x.fromRunAt === "string" && Number.isFinite(Date.parse(x.fromRunAt)) &&
+      (x.scanBefore === undefined || (typeof x.scanBefore.id === "string" && !!x.scanBefore.id && typeof x.scanBefore.createdAt === "string" && Number.isFinite(Date.parse(x.scanBefore.createdAt)))) &&
       (x.sourceKey === undefined || typeof x.sourceKey === "string" && typeof x.sourceRunId === "string" && !!x.sourceRunId));
 }
 /** Single resident owner, serial writes. A failed/uncertain write freezes further admission. */
@@ -70,10 +72,83 @@ export class TelegramStore {
     }
   }
   snapshot() { return structuredClone(this.#data); }
+  #archivePath(kind: "inputs" | "deliveries", key: string) {
+    return join(dirname(this.path), "telegram-archive", kind, createHash("sha256").update(key).digest("hex") + ".json");
+  }
+  async #archive(kind: "inputs" | "deliveries", record: TelegramInbound | TelegramDelivery) {
+    const path = this.#archivePath(kind, record.key), directory = dirname(path);
+    for (const parent of [dirname(directory), directory]) {
+      await mkdir(parent, { recursive: true, mode: 0o700 });
+      const stat = await lstat(parent);
+      if (!stat.isDirectory() || stat.isSymbolicLink() || (stat.mode & 0o077) || (process.getuid && stat.uid !== process.getuid())) throw new Error("Telegram 归档目录权限不安全");
+    }
+    const text = JSON.stringify(record);
+    try {
+      const existing = await lstat(path);
+      if (!existing.isFile() || existing.isSymbolicLink() || (existing.mode & 0o077) || (process.getuid && existing.uid !== process.getuid()) || existing.size > 128 * 1024 || await readFile(path, "utf8") !== text) throw new Error("Telegram 归档冲突；未丢弃活动记录");
+      return;
+    } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+    const temporary = `${path}.${randomUUID()}.tmp`;
+    try {
+      const file = await open(temporary, "wx", 0o600);
+      try { await file.writeFile(text); await file.sync(); } finally { await file.close(); }
+      await rename(temporary, path);
+      const parent = await open(directory, "r");
+      try { await parent.sync(); } finally { await parent.close(); }
+    } finally { await unlink(temporary).catch(() => undefined); }
+  }
+  /** Persist terminal channel history before removing it from the active journal. */
+  async #retain(next: TelegramData) {
+    let archivedAny = false;
+    if (next.inputs.length > 512) {
+      const terminal = next.inputs.filter(x => ["finished", "rejected", "reviewed"].includes(x.state) && x.updateId < next.offset);
+      const archived = new Set(terminal.slice(0, Math.max(0, terminal.length - 128)).map(x => x.key));
+      for (const record of terminal) if (archived.has(record.key)) { await this.#archive("inputs", record); archivedAny = true; }
+      next.inputs = next.inputs.filter(x => !archived.has(x.key));
+    }
+    if (next.deliveries.length > 1024) {
+      const terminal = next.deliveries.filter(x => x.state === "submitted" || x.state === "cancelled");
+      const archived = new Set(terminal.slice(0, Math.max(0, terminal.length - 256)).map(x => x.key));
+      for (const record of terminal) if (archived.has(record.key)) { await this.#archive("deliveries", record); archivedAny = true; }
+      next.deliveries = next.deliveries.filter(x => !archived.has(x.key));
+    }
+    // Newly created archive directories must be durable before the active
+    // journal forgets their terminal records.
+    if (archivedAny) {
+      try {
+        const archive = await open(join(dirname(this.path), "telegram-archive"), "r");
+        try { await archive.sync(); } finally { await archive.close(); }
+      } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+      const parent = await open(dirname(this.path), "r");
+      try { await parent.sync(); } finally { await parent.close(); }
+    }
+  }
+  async #hasArchived(kind: "inputs" | "deliveries", key: string): Promise<boolean> {
+    const path = this.#archivePath(kind, key);
+    try {
+      for (const parent of [dirname(dirname(path)), dirname(path)]) {
+        const stat = await lstat(parent);
+        if (!stat.isDirectory() || stat.isSymbolicLink() || (stat.mode & 0o077) || (process.getuid && stat.uid !== process.getuid())) throw new Error("Telegram 归档目录权限不安全");
+      }
+      const stat = await lstat(path);
+      if (!stat.isFile() || stat.isSymbolicLink() || (stat.mode & 0o077) || (process.getuid && stat.uid !== process.getuid()) || stat.size > 128 * 1024) throw new Error("Telegram 归档无效");
+      const record = JSON.parse(await readFile(path, "utf8")) as TelegramInbound | TelegramDelivery;
+      const terminal = kind === "inputs" ? ["finished", "rejected", "reviewed"] : ["submitted", "cancelled"];
+      if (record.key !== key || !terminal.includes(record.state)) throw new Error("Telegram 归档归属无效");
+      return true;
+    } catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return false; throw error; }
+  }
+  async hasDelivery(key: string): Promise<boolean> {
+    return this.#data.deliveries.some(x => x.key === key) || await this.#hasArchived("deliveries", key);
+  }
+  async hasInput(key: string): Promise<boolean> {
+    return this.#data.inputs.some(x => x.key === key) || await this.#hasArchived("inputs", key);
+  }
   update(change: (data: TelegramData) => void): Promise<void> {
     const operation = this.#tail.then(async () => {
       if (this.#failed) throw new Error("Telegram 保存未确认，已停止接收；请重启后核对，不会自动重做任务。");
       const next = this.snapshot(); change(next);
+      await this.#retain(next);
       if (!valid(next, this.workspace)) throw new Error("Telegram 记录无效或已满；未丢弃既有记录。");
       const serialized = JSON.stringify(next);
       if (Buffer.byteLength(serialized) > 16 * 1024 * 1024) throw new Error("Telegram 记录容量已满，未确认新的消息；未丢弃既有记录。");

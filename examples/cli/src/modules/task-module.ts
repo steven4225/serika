@@ -1,4 +1,5 @@
 import { tool } from "ai";
+import { toolCommitResult } from "../commit-outcome.js";
 import { z } from "zod";
 import type { RegisteredTool } from "@aisdk-agent/ai-sdk-adapter";
 import type { AgentModule } from "../module-host.js";
@@ -612,7 +613,7 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
           const checked = await checkArrangement(input.arrangement, input.prompt); if (!checked.ok) return checked;
           throwIfAborted(signal);
           const normalized: CreateTaskInput = { prompt: input.prompt, runAt: input.runAt, ...(input.arrangement === undefined ? {} : { arrangement: input.arrangement }) };
-          return serviceAfterSave(await store.create(normalized, signal), "once", input.arrangement);
+          return serviceAfterSave(await toolCommitResult(store.create(normalized, signal)), "once", input.arrangement);
         },
       });
       const taskListTool = tool({
@@ -660,7 +661,7 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
         ): Promise<TaskStoreResult<TaskRecordV3>> => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
-          return store.cancel(id, signal);
+          return toolCommitResult(store.cancel(id, signal));
         },
       });
       const taskRescheduleTool = tool({
@@ -674,7 +675,7 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
         ): Promise<TaskStoreResult<TaskRecordV3>> => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
-          return store.reschedule(id, runAt, signal);
+          return toolCommitResult(store.reschedule(id, runAt, signal));
         },
       });
       const taskAckTool = tool({
@@ -688,7 +689,7 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
         ): Promise<TaskStoreResult<TaskRecordV3>> => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
-          return store.acknowledge(id, signal);
+          return toolCommitResult(store.acknowledge(id, signal));
         },
       });
       const taskRepeatCreateTool = tool({
@@ -705,7 +706,7 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
           const checked = await checkArrangement(input.arrangement, input.prompt); if (!checked.ok) return checked;
           throwIfAborted(signal);
           const normalized: CreateRecurringTaskInput = { prompt: input.prompt, recurrence: input.recurrence, ...(input.arrangement === undefined ? {} : { arrangement: input.arrangement }) };
-          return serviceAfterSave(await store.createRecurring(normalized, signal), "recurring", input.arrangement);
+          return serviceAfterSave(await toolCommitResult(store.createRecurring(normalized, signal)), "recurring", input.arrangement);
         },
       });
       const taskRepeatListTool = tool({
@@ -749,7 +750,7 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
         ): Promise<TaskStoreResult<RecurringTaskRecord>> => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
-          return store.pauseRecurring(id, signal);
+          return toolCommitResult(store.pauseRecurring(id, signal));
         },
       });
       const taskRepeatResumeTool = tool({
@@ -762,7 +763,7 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
         ): Promise<TaskStoreResult<RecurringTaskRecord>> => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
-          return store.resumeRecurring(id, signal);
+          return toolCommitResult(store.resumeRecurring(id, signal));
         },
       });
       const taskRepeatCancelTool = tool({
@@ -775,7 +776,7 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
         ): Promise<TaskStoreResult<RecurringTaskRecord>> => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
-          return store.cancelRecurring(id, signal);
+          return toolCommitResult(store.cancelRecurring(id, signal));
         },
       });
 

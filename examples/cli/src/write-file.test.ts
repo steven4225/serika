@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
+import { AgentError } from "@aisdk-agent/core";
 import { createHash } from "node:crypto";
 import {
   mkdtemp,
@@ -39,6 +42,32 @@ function errorCode(result: WriteFileResult): string | undefined {
 }
 
 describe("writeFileToWorkspace", () => {
+  for (const cleanupFails of [false, true]) it(`partial write with cleanup ${cleanupFails ? "failure stops as unknown" : "success is an ordinary failure"}`, async t => {
+    const directory = await workspace(), path = join(directory, "partial.txt");
+    const originalOpen = fs.promises.open, originalUnlink = fs.promises.unlink;
+    t.mock.method(fs.promises, "open", async (...args: Parameters<typeof originalOpen>) => {
+      const handle = await originalOpen(...args);
+      if (args[0] === path) {
+        const write = handle.writeFile.bind(handle);
+        t.mock.method(handle, "writeFile", async () => { await write("p"); throw Object.assign(new Error("disk full"), { code: "ENOSPC" }); });
+      }
+      return handle;
+    });
+    t.mock.method(fs.promises, "unlink", async (...args: Parameters<typeof originalUnlink>) => {
+      if (cleanupFails && args[0] === path) throw Object.assign(new Error("cleanup denied"), { code: "EACCES" });
+      return originalUnlink(...args);
+    });
+    syncBuiltinESMExports();
+    try {
+      if (cleanupFails) {
+        await assert.rejects(writeFileToWorkspace(directory, "partial.txt", "payload"), error => error instanceof AgentError && error.data.code === "TOOL_OUTCOME_UNKNOWN");
+        assert.equal(await readFile(path, "utf8"), "p");
+      } else {
+        assert.equal(errorCode(await writeFileToWorkspace(directory, "partial.txt", "payload")), "WRITE_FAILED");
+        await assert.rejects(readFile(path), { code: "ENOENT" });
+      }
+    } finally { t.mock.restoreAll(); syncBuiltinESMExports(); }
+  });
   it("creates an empty and a UTF-8 file and reports normalized bytes", async () => {
     const directory = await workspace();
     const content = "标题\nhello 🌍\n";

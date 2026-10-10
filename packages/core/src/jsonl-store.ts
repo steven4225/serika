@@ -1,5 +1,6 @@
-import { createHash } from "node:crypto";
-import { mkdir, open, readFile } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import { constants } from "node:fs";
+import { mkdir, open, rename, rm, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { UIMessage } from "ai";
 import { AgentError } from "./errors.js";
@@ -12,9 +13,15 @@ import {
   type ThreadContextCompactionRecord,
 } from "./store.js";
 import type { RunResult, RunStatus } from "./types.js";
+import { readCommittedTranscriptLines } from "./transcript-reader.js";
 
 export interface JsonlAgentStoreOptions {
   directory: string;
+  /** Host-owned cross-process lock, shared by every writer to this path.
+   * Without it, automatic snapshot replacement is deliberately disabled.
+   */
+  acquireTranscriptLock?: (path: string) => Promise<{ release(): Promise<void> }>;
+  snapshotCleanupThresholdBytes?: number;
 }
 
 interface CommittedMessagesRecord {
@@ -46,8 +53,8 @@ function serializeTranscriptOperation<T>(
 
 // A newline is the commit boundary, including for otherwise valid JSON. Reads
 // ignore the unfinished suffix without changing bytes an active writer may own.
-function committedLines(content: string): string[] {
-  return content.slice(0, content.lastIndexOf("\n") + 1).split("\n");
+function parseLine(line: string, threadId: string): unknown {
+  try { return JSON.parse(line); } catch { throw storageCorrupt(threadId); }
 }
 
 function isJsonValue(value: unknown): value is ThreadContextCompactionRecord[string] {
@@ -116,9 +123,15 @@ function isCommittedMessagesRecord(
 export class JsonlAgentStore implements AgentStore, ContextCompactionStore {
   readonly #directory: string;
   readonly #memory = new InMemoryAgentStore();
+  readonly #acquireLock: JsonlAgentStoreOptions["acquireTranscriptLock"];
+  readonly #cleanupThreshold: number;
+  #commitUncertain = false;
 
   constructor(options: JsonlAgentStoreOptions) {
     this.#directory = resolve(options.directory);
+    this.#acquireLock = options.acquireTranscriptLock;
+    this.#cleanupThreshold = options.snapshotCleanupThresholdBytes ?? 8 * 1024 * 1024;
+    if (!Number.isSafeInteger(this.#cleanupThreshold) || this.#cleanupThreshold < 1) throw new Error("Invalid transcript cleanup threshold");
   }
 
   create(record: RunRecord): Promise<void> {
@@ -158,88 +171,82 @@ export class JsonlAgentStore implements AgentStore, ContextCompactionStore {
     threadId: string,
   ): Promise<ThreadContextCompactionRecord[]> {
     const path = this.#pathFor(threadId);
-    const content = await this.#readTranscript(path);
-    const lines = committedLines(content);
     const records: ThreadContextCompactionRecord[] = [];
 
-    for (const line of lines) {
-      if (line.length === 0) continue;
-      let value: unknown;
-      try {
-        value = JSON.parse(line);
-      } catch {
-        throw storageCorrupt(threadId);
-      }
+    await serializeTranscriptOperation(path, async () => {
+      for await (const item of this.#readTranscript(path)) {
+        if (!("line" in item)) continue;
+        const { line } = item;
+        if (line.length === 0) continue;
+        const value = parseLine(line, threadId);
 
-      // Invalid compaction records are ignored.  The compaction schema is
-      // owned by the caller and is intentionally opaque to core.
-      if (
-        typeof value === "object" &&
-        value !== null &&
-        "type" in value &&
-        value.type === "thread.context.compacted"
-      ) {
-        if (isContextCompactionRecord(value)) {
-          if (value.threadId === threadId && value.v === 2) records.push(value);
+        // Invalid compaction records are ignored. The compaction schema is
+        // owned by the caller and is intentionally opaque to core.
+        if (
+          typeof value === "object" &&
+          value !== null &&
+          "type" in value &&
+          value.type === "thread.context.compacted"
+        ) {
+          if (isContextCompactionRecord(value)) {
+            if (value.threadId === threadId && value.v === 2) records.push(value);
+          }
+          continue;
         }
-        continue;
-      }
 
-      if (
-        typeof value === "object" &&
-        value !== null &&
-        "v" in value &&
-        value.v !== 1
-      ) {
-        continue;
-      }
+        if (
+          typeof value === "object" &&
+          value !== null &&
+          "v" in value &&
+          value.v !== 1
+        ) {
+          continue;
+        }
 
-      if (!isCommittedMessagesRecord(value) || value.threadId !== threadId) {
-        throw storageCorrupt(threadId);
+        if (!isCommittedMessagesRecord(value) || value.threadId !== threadId) {
+          throw storageCorrupt(threadId);
+        }
       }
-    }
+    });
 
     return structuredClone(records);
   }
 
   async getMessages(threadId: string): Promise<UIMessage[]> {
     const path = this.#pathFor(threadId);
-    const content = await this.#readTranscript(path);
-    const lines = committedLines(content);
     let latest: UIMessage[] = [];
 
-    for (const line of lines) {
-      if (line.length === 0) continue;
-      let value: unknown;
-      try {
-        value = JSON.parse(line);
-      } catch {
-        throw storageCorrupt(threadId);
-      }
+    await serializeTranscriptOperation(path, async () => {
+      for await (const item of this.#readTranscript(path)) {
+        if (!("line" in item)) continue;
+        const { line } = item;
+        if (line.length === 0) continue;
+        const value = parseLine(line, threadId);
 
-      if (
-        typeof value === "object" &&
-        value !== null &&
-        "v" in value &&
-        value.v !== 1
-      ) {
-        continue;
+        if (
+          typeof value === "object" &&
+          value !== null &&
+          "v" in value &&
+          value.v !== 1
+        ) {
+          continue;
+        }
+        // Context summaries are an opaque companion record. They must not
+        // change the v1 committed-transcript semantics.
+        if (
+          typeof value === "object" &&
+          value !== null &&
+          "type" in value &&
+          value.type === "thread.context.compacted"
+        ) {
+          continue;
+        }
+        if (!isCommittedMessagesRecord(value) || value.threadId !== threadId) {
+          throw storageCorrupt(threadId);
+        }
+        latest = value.messages;
       }
-      // Context summaries are an opaque companion record.  They must not
-      // change the v1 committed-transcript semantics.
-      if (
-        typeof value === "object" &&
-        value !== null &&
-        "type" in value &&
-        value.type === "thread.context.compacted"
-      ) {
-        continue;
-      }
-      if (!isCommittedMessagesRecord(value) || value.threadId !== threadId) {
-        throw storageCorrupt(threadId);
-      }
-      latest = value.messages;
-    }
+    });
 
     return structuredClone(latest);
   }
@@ -257,43 +264,107 @@ export class JsonlAgentStore implements AgentStore, ContextCompactionStore {
     return join(this.#directory, `${fileName}.jsonl`);
   }
 
-  #readTranscript(path: string): Promise<string> {
-    return serializeTranscriptOperation(path, async () => {
-      try {
-        return await readFile(path, "utf8");
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === "ENOENT") return "";
-        throw error;
+  async *#readTranscript(path: string) {
+    try { yield* readCommittedTranscriptLines(path); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+  }
+
+  // Only redundant committed snapshots disappear. Full message IDs/content,
+  // all opaque summaries and future-version records survive unchanged. This is
+  // physical cleanup, not model compaction, memory pruning or tool recovery.
+  async #cleanupSnapshots(threadId: string, path: string): Promise<void> {
+    let size: number;
+    try { size = (await stat(path)).size; }
+    catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return; throw error; }
+    if (size < this.#cleanupThreshold) return;
+    let latest: string | undefined, snapshots = 0, companionsBytes = 0;
+    for await (const item of this.#readTranscript(path)) {
+      if (!("line" in item) || !item.line) continue;
+      const value = parseLine(item.line, threadId);
+      if (isCommittedMessagesRecord(value)) {
+        if (value.threadId !== threadId) throw storageCorrupt(threadId);
+        latest = item.line; snapshots++;
+      } else {
+        const record = value as Record<string, unknown> | null;
+        if (typeof record !== "object" || record === null ||
+          !(record.type === "thread.context.compacted" || ("v" in record && record.v !== 1))) throw storageCorrupt(threadId);
+        companionsBytes += Buffer.byteLength(item.line) + 1;
       }
-    });
+    }
+    if (!latest || snapshots < 2 || Buffer.byteLength(latest) + 1 + companionsBytes > size * 0.75) return;
+    const temporary = `${path}.${randomUUID()}.tmp`;
+    let renamed = false;
+    try {
+      const target = await open(temporary, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
+      try {
+        let seen = 0;
+        for await (const item of this.#readTranscript(path)) {
+          if (!("line" in item) || !item.line) continue;
+          if (isCommittedMessagesRecord(parseLine(item.line, threadId)) && ++seen !== snapshots) continue;
+          await target.writeFile(`${item.line}\n`, "utf8");
+        }
+        await target.sync();
+      } finally { await target.close(); }
+      await rename(temporary, path); renamed = true;
+      await this.#syncDirectory();
+    } catch (error) {
+      if (renamed) {
+        this.#commitUncertain = true;
+        throw new AgentError({ code: "STORAGE_COMMIT_UNCERTAIN", message: "Transcript cleanup acknowledgement is uncertain; reread after restart before continuing", retryable: false, phase: "storage" }, { cause: error });
+      }
+      throw error;
+    } finally { if (!renamed) await rm(temporary, { force: true }); }
+  }
+
+  async #syncDirectory(): Promise<void> {
+    // Windows does not expose directory fsync through Node. File data is still
+    // synced there; do not claim POSIX rename durability on that platform.
+    if (process.platform === "win32") return;
+    const directory = await open(this.#directory, "r");
+    try { await directory.sync(); } finally { await directory.close(); }
   }
 
   #appendRecord(threadId: string, serialized: string): Promise<void> {
     const path = this.#pathFor(threadId);
     return serializeTranscriptOperation(path, async () => {
+      if (this.#commitUncertain) throw new AgentError({ code: "STORAGE_COMMIT_UNCERTAIN", message: "Transcript save acknowledgement is uncertain; restart and reread before further writes", retryable: false, phase: "storage" });
       await mkdir(this.#directory, { recursive: true });
-      const file = await open(path, "a+");
+      const lock = await this.#acquireLock?.(path);
       try {
-        // Check just the tail on the normal append path, not the whole history.
-        // Only this serialized writer repairs bytes after the last newline.
-        const { size } = await file.stat();
-        let end = size;
-        while (end > 0) {
-          const start = Math.max(0, end - 8_192);
-          const buffer = Buffer.alloc(end - start);
-          const { bytesRead } = await file.read(buffer, 0, buffer.length, start);
-          const newline = buffer.subarray(0, bytesRead).lastIndexOf(0x0a);
-          if (newline >= 0) {
-            const committedSize = start + newline + 1;
-            if (committedSize !== size) await file.truncate(committedSize);
-            break;
+        if (this.#commitUncertain) throw new AgentError({ code: "STORAGE_COMMIT_UNCERTAIN", message: "Transcript save acknowledgement is uncertain; restart before further writes", retryable: false, phase: "storage" });
+        if (lock) await this.#cleanupSnapshots(threadId, path);
+        const file = await open(path, constants.O_RDWR | constants.O_CREAT | constants.O_APPEND | constants.O_NOFOLLOW, 0o600);
+        let writeStarted = false;
+        try {
+          // Check just the tail on the normal append path, not the whole history.
+          // Only this serialized writer repairs bytes after the last newline.
+          const { size } = await file.stat();
+          let end = size;
+          while (end > 0) {
+            const start = Math.max(0, end - 8_192);
+            const buffer = Buffer.alloc(end - start);
+            const { bytesRead } = await file.read(buffer, 0, buffer.length, start);
+            const newline = buffer.subarray(0, bytesRead).lastIndexOf(0x0a);
+            if (newline >= 0) {
+              const committedSize = start + newline + 1;
+              if (committedSize !== size) await file.truncate(committedSize);
+              break;
+            }
+            end = start;
+            if (end === 0) await file.truncate(0);
           }
-          end = start;
-          if (end === 0) await file.truncate(0);
-        }
-        await file.writeFile(serialized, "utf8");
+          writeStarted = true;
+          await file.writeFile(serialized, "utf8");
+          await file.sync();
+          await this.#syncDirectory();
+        } catch (error) {
+          if (writeStarted) this.#commitUncertain = true;
+          throw new AgentError({ code: writeStarted ? "STORAGE_COMMIT_UNCERTAIN" : "STORAGE_WRITE_FAILED",
+            message: writeStarted ? "Transcript save acknowledgement is uncertain; reread before retrying" : "Transcript save failed before append",
+            retryable: false, phase: "storage" }, { cause: error });
+        } finally { await file.close(); }
       } finally {
-        await file.close();
+        await lock?.release();
       }
     });
   }

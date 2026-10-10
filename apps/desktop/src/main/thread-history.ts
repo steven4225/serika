@@ -1,25 +1,28 @@
 import { createHash } from "node:crypto";
-import { lstat, readFile, readdir, realpath } from "node:fs/promises";
+import { lstat, readdir, realpath } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
+import { readCommittedTranscriptLines } from "@aisdk-agent/core";
 import type { DesktopThread } from "./desktop-identity.js";
 import type { ThreadSummary } from "../shared/ui-contract.js";
 
-const MAX_TRANSCRIPT_BYTES = 16 * 1024 * 1024;
+// The safety bound applies to a single logical snapshot, not duplicated disk
+// history. Large accumulated files can be searched without loading them whole.
+const MAX_RECORD_BYTES = 16 * 1024 * 1024;
 
-/** Read-only discovery; do not use JsonlAgentStore here because its tail repair mutates files. */
+/** Read-only discovery; never repairs tails or performs snapshot cleanup. */
 export async function inspectThread(thread: DesktopThread, query = ""): Promise<ThreadSummary> {
   const path = join(thread.transcriptDirectory, `${createHash("sha256").update(thread.threadId).digest("hex")}.jsonl`);
   try {
     const stat = await lstat(path);
-    if (!stat.isFile() || stat.isSymbolicLink() || stat.size > MAX_TRANSCRIPT_BYTES) throw new Error("Transcript is not a regular bounded file");
-    const raw = await readFile(path, "utf8");
-    if (Buffer.byteLength(raw) > MAX_TRANSCRIPT_BYTES) throw new Error("Transcript exceeds the discovery limit");
+    if (!stat.isFile() || stat.isSymbolicLink()) throw new Error("Transcript is not a regular file");
     let messages: Array<{ role: string; parts: Array<{ type: string; text?: string }>; metadata?: { source?: string } }> = [];
-    const lines = raw.split("\n");
-    const incompleteTail = lines.pop() !== "";
-    for (const line of lines) {
+    let incompleteTail = false;
+    for await (const item of readCommittedTranscriptLines(path, { maxLineBytes: MAX_RECORD_BYTES })) {
+      if (!("line" in item)) { incompleteTail = true; continue; }
+      const { line } = item;
       if (!line.trim()) continue;
       const record = JSON.parse(line);
+      if (record !== null && typeof record === "object" && "v" in record && record.v !== 1) continue;
       if (record.threadId !== thread.threadId) throw new Error("Transcript Thread identity does not match the file");
       if (record.type === "thread.messages.committed" && record.v === 1 && Array.isArray(record.messages)) {
         if (record.messages.some((message: { role?: string; parts?: unknown }) => !["user", "assistant", "system"].includes(message.role ?? "") || !Array.isArray(message.parts))) throw new Error("Invalid committed messages");
@@ -59,10 +62,11 @@ export async function discoverThreadDirectory(directory: unknown): Promise<Threa
   const found: ThreadSummary[] = [];
   for (const file of files) {
     const path = join(resolved, file.name);
-    const stat = await lstat(path);
-    if (stat.size > MAX_TRANSCRIPT_BYTES) throw new Error(`历史文件超过 16 MiB：${file.name}`);
-    const raw = await readFile(path, "utf8");
-    const first = raw.slice(0, raw.indexOf("\n") < 0 ? 0 : raw.indexOf("\n"));
+    let first = "";
+    for await (const item of readCommittedTranscriptLines(path, { maxLineBytes: MAX_RECORD_BYTES })) {
+      if ("line" in item) first = item.line;
+      break;
+    }
     if (!first) throw new Error(`没有完整历史记录：${file.name}`);
     const record = JSON.parse(first);
     if (typeof record.threadId !== "string" || !record.threadId || record.threadId.length > 256 || createHash("sha256").update(record.threadId).digest("hex") + ".jsonl" !== file.name) throw new Error(`无法核对会话身份：${file.name}`);

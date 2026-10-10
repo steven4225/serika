@@ -3,6 +3,7 @@ import { useState } from "react";
 import { BuildIdentityPanel } from "./build-identity-panel.js";
 import { ResidentServicePanel } from "./resident-service-panel.js";
 import { TelegramPanel } from "./telegram-panel.js";
+import { BackupPanel } from "./backup-panel.js";
 import type { ResidentServiceState } from "../../shared/resident-service.js";
 import { useEffect } from "react";
 
@@ -65,6 +66,7 @@ export function CapabilitiesPanel({ info, busy = false, initialError = null }: {
     <p className="hint">开启能力不等于授权执行。尚未配置的外部能力需要先设置凭据、驱动或允许的应用，不会自动安装或申请系统权限。</p>
     <details><summary>配置位置</summary><p className="hint">{info.configPath ?? "未指定"}</p></details>
     <BuildIdentityPanel info={info.build} />
+    <BackupPanel busy={busy || saving || unavailable} />
     <TelegramPanel busy={busy || saving || unavailable} />
     {window.runloom.residentStatus && window.runloom.setResidentEnabled ? <ResidentServicePanel status={resident} busy={busy || saving || unavailable} refresh={refreshResident} setEnabled={async enabled => {
       const value = await window.runloom.setResidentEnabled!(enabled); setResident(value); return value;

@@ -61,6 +61,7 @@ export class RuntimeOwnership {
   }
   #active() { if (this.#switching || !this.#host || this.#error) throw new Error(this.#error ?? "助手宿主暂不可用"); return this.#host; }
   listThreads(...args: Parameters<DesktopRuntime["listThreads"]>) { return this.#active().listThreads(...args); }
+  exportBackup(destination: string) { return this.#active().exportBackup(destination); }
   discoverThreads(...args: Parameters<DesktopRuntime["discoverThreads"]>) { return this.#active().discoverThreads(...args); }
   registerThread(...args: Parameters<DesktopRuntime["registerThread"]>) { return this.#active().registerThread(...args); }
   createThread(...args: Parameters<DesktopRuntime["createThread"]>) { return this.#active().createThread(...args); }

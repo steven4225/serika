@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import type { UIMessage } from "ai";
 import type {
   AppInfo,
   CommandResponse,
@@ -299,6 +300,9 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const [output, setOutput] = useState("");
   const [storedHistory, setStoredHistory] = useState<{ rows: ConversationRow[]; runId: string | null }>({ rows: [], runId: null });
   const history = storedHistory.rows;
+  const historyMessages = useRef<UIMessage[]>([]);
+  const [historyBefore, setHistoryBefore] = useState<string | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [live, setLive] = useState<LiveRun>(emptyLiveRun);
   const [lastResult, setLastResult] = useState<ConversationRow | null>(null);
   const [approval, setApproval] = useState<PendingApproval | null>(null);
@@ -399,13 +403,35 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     const request = ++historyRequest.current;
     const primaryId = latestPrimaryId.current;
     const completedId = latestCompletedPrimaryId.current;
-    const [messages, receipts, identity] = await Promise.all([window.runloom.history(), window.runloom.listRuns().catch(() => null), window.runloom.info()]);
+    const [page, receipts, identity] = await Promise.all([window.runloom.historyPage(), window.runloom.listRuns().catch(() => null), window.runloom.info()]);
     if (request !== historyRequest.current || primaryId !== latestPrimaryId.current || completedId !== latestCompletedPrimaryId.current) return;
+    if (page.threadId !== identity.threadId) return;
+    const messages = page.messages;
+    historyMessages.current = messages;
+    setHistoryBefore(page.beforeId);
     // Only a reread made after this primary Run completed can supply its full
     // outcomes. Provider tool IDs are not unique across the whole Thread.
     const rows = receipts?.ok ? annotateHistoryTools(rowsFromHistory(messages), receipts.runs, identity.threadId) : rowsFromHistory(messages);
     setStoredHistory({ rows: completedId === null ? rows : overlayShellProgress(rows, shellBuffer.current), runId: completedId });
   }, []);
+
+  const loadOlderHistory = async () => {
+    if (!historyBefore || historyLoading) return;
+    const request = ++historyRequest.current;
+    setHistoryLoading(true);
+    const area = conversationScroll.current, height = area?.scrollHeight ?? 0, top = area?.scrollTop ?? 0;
+    try {
+      const [page, identity, receipts] = await Promise.all([window.runloom.historyPage({ beforeId: historyBefore }), window.runloom.info(), window.runloom.listRuns().catch(() => null)]);
+      if (request !== historyRequest.current || page.threadId !== identity.threadId) return;
+      const messages = [...page.messages, ...historyMessages.current];
+      historyMessages.current = messages; setHistoryBefore(page.beforeId);
+      const rows = receipts?.ok ? annotateHistoryTools(rowsFromHistory(messages), receipts.runs, identity.threadId) : rowsFromHistory(messages);
+      followConversation.current = false;
+      setStoredHistory(current => ({ ...current, rows }));
+      requestAnimationFrame(() => { if (area) area.scrollTop = top + area.scrollHeight - height; });
+    } catch { setError("更早的对话读取失败；当前内容仍保留，可以重试"); }
+    finally { setHistoryLoading(false); }
+  };
 
   const loadFinalRun = useCallback(async (runId: string) => {
     const response = await window.runloom.getRun(runId);
@@ -936,6 +962,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
                   <h1>你想完成什么？</h1>
                 </div> : null}
                 <div className="conversation-thread">
+                  {historyBefore ? <button className="secondary" disabled={historyLoading} onClick={() => void loadOlderHistory()}>{historyLoading ? "正在读取…" : "查看更早的对话"}</button> : null}
                   {layout === "zcode" ? <ZCodeConversation rows={rows} workspaceRoot={info?.workspaceRoot ?? undefined} running={activePrimary} streaming={live.streaming} waitingForApproval={approval !== null} onTrace={(runId, toolCallId) => { openDetails("records"); void openRecord(runId, toolCallId).catch(() => setError("执行追踪读取失败")); }} /> : rows.map(row => <Row key={row.key} row={row} delivered={delivered.has(row.key)} />)}
                   {info?.memory.enabled ? <MemoryReferences hideEmpty={layout === "zcode"} refreshToken={contextRefresh} runId={state.kind === "running" && state.phase === "primary" ? state.runId : latestPrimaryId.current} starting={state.kind === "running" && state.phase === "primary" && state.runId === null} /> : null}
                   {layout !== "zcode" && activePrimary && live.streaming ? <div className="row row-text role-assistant live">

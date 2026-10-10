@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import { describe, it } from "node:test";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -57,12 +59,51 @@ async function open(root: string, thread = "work-thread", writes = false, model?
   return { app, bridge, controller, messages, calls: fixture.calls };
 }
 async function waitFor(condition: () => boolean) {
-  const deadline = Date.now() + 8_000;
+  // These scenarios exercise several real flock/fsync barriers per Run. This
+  // is a correctness wait, not the separate production timeout contract.
+  const deadline = Date.now() + 30_000;
   while (!condition() && Date.now() < deadline) await delay(10);
   assert.equal(condition(), true, "expected state within deadline");
 }
 
 describe("work task desktop boundary", () => {
+  it("a real partial write whose cleanup fails stops the loop with an unknown receipt and task needs_review", async t => {
+    const root = await prepare();
+    const desktop = await open(root, "work-thread", true);
+    const path = join(desktop.bridge.info().workspaceRoot!, "report.md");
+    let faultReached = false;
+    const originalOpen = fs.promises.open, originalUnlink = fs.promises.unlink;
+    t.mock.method(fs.promises, "open", async (...args: Parameters<typeof originalOpen>) => {
+      const handle = await originalOpen(...args);
+      if (args[0] === path) {
+        const write = handle.writeFile.bind(handle);
+        t.mock.method(handle, "writeFile", async () => { faultReached = true; await write("partial"); throw Object.assign(new Error("disk full"), { code: "ENOSPC" }); });
+      }
+      return handle;
+    });
+    t.mock.method(fs.promises, "unlink", async (...args: Parameters<typeof originalUnlink>) => {
+      if (args[0] === path) throw Object.assign(new Error("cannot remove"), { code: "EACCES" });
+      return originalUnlink(...args);
+    });
+    syncBuiltinESMExports();
+    try {
+      const created = await desktop.bridge.createWorkTask(createInput); assert(created.ok);
+      const run = await desktop.bridge.runWorkTask({ id: created.value.id, expectedRevision: created.value.revision }); assert(run.ok);
+      await waitFor(() => !!desktop.bridge.snapshot().pendingApproval);
+      assert(desktop.bridge.confirm({ approvalId: desktop.bridge.snapshot().pendingApproval!.approvalId, decision: "allow" }).accepted);
+      await waitFor(() => desktop.bridge.snapshot().state.kind === "idle");
+      assert(faultReached, "fault injection must hit the canonical workspace file");
+      assert.equal(desktop.calls(), 1, "unknown effects stop before another model step");
+      assert.equal(await readFile(path, "utf8"), "partial");
+      const task = await desktop.bridge.getWorkTask(created.value.id); assert(task.ok && task.value.status === "needs_review");
+      const receipt = await desktop.bridge.getRun(task.value.runIds.at(-1)!); assert(receipt.ok);
+      assert.equal(receipt.run?.tools[0]?.status, "unknown");
+      assert.equal((await desktop.bridge.runWorkTask({ id: task.value.id, expectedRevision: task.value.revision })).ok, false);
+    } finally {
+      t.mock.restoreAll(); syncBuiltinESMExports();
+      await desktop.bridge.shutdown(); await rm(root, { recursive: true, force: true });
+    }
+  });
   it("checks real file readback and meaningful Shell tests, restores review, and reworks in a new Run", async () => {
     const root = await prepare();
     const content = "# Goal\nDeliver a plan.\n# Checks\nRead back and test.\n# Next\nReview the plan.\n# Preserved\nKEEP-THIS\n";

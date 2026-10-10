@@ -86,6 +86,7 @@ export const checkpointStoreErrorCodes = [
   "CHECKPOINT_SYMLINK_NOT_ALLOWED",
   "CHECKPOINT_READ_FAILED",
   "CHECKPOINT_WRITE_FAILED",
+  "CHECKPOINT_COMMIT_UNCERTAIN",
 ] as const;
 
 export type CheckpointStoreErrorCode = (typeof checkpointStoreErrorCodes)[number];
@@ -395,6 +396,7 @@ export class WorkspaceCheckpointStoreImpl implements WorkspaceCheckpointStore {
   readonly #lockFile: string;
   readonly #now: () => Date;
   readonly #generateId: () => string;
+  #commitUncertain = false;
 
   constructor(
     workspace: string,
@@ -451,6 +453,7 @@ export class WorkspaceCheckpointStoreImpl implements WorkspaceCheckpointStore {
       await this.#ensureDirectory(signal);
       const lock = await acquireFlock(this.#lockFile, signal);
       try {
+        if (this.#commitUncertain) raise("CHECKPOINT_COMMIT_UNCERTAIN", "Checkpoint acknowledgement is uncertain; restart and reread before further writes");
         throwIfAborted(signal);
         const document = await this.#load(signal);
         const currentVersion = document.current?.version ?? null;
@@ -577,6 +580,7 @@ export class WorkspaceCheckpointStoreImpl implements WorkspaceCheckpointStore {
     const temporary = join(directory, `.checkpoint.json.runloom-${randomUUID()}.tmp`);
     let handle;
     let created = false;
+    let renamed = false;
     try {
       handle = await open(
         temporary,
@@ -586,14 +590,24 @@ export class WorkspaceCheckpointStoreImpl implements WorkspaceCheckpointStore {
       created = true;
       throwIfAborted(signal);
       await handle.writeFile(serialized, "utf8");
+      await handle.sync();
       throwIfAborted(signal);
       await handle.close();
       handle = undefined;
       await rename(temporary, this.#file);
+      renamed = true;
       created = false;
+      if (process.platform !== "win32") {
+        const handle = await open(directory, "r");
+        try { await handle.sync(); } finally { await handle.close(); }
+      }
     } catch (error) {
       if (handle) await handle.close().catch(() => undefined);
       if (created) await rm(temporary, { force: true }).catch(() => undefined);
+      if (renamed) {
+        this.#commitUncertain = true;
+        raise("CHECKPOINT_COMMIT_UNCERTAIN", "Checkpoint file was replaced but acknowledgement is uncertain; restart and reread before retrying");
+      }
       if (signal.aborted) throw abortReason(signal);
       throw error;
     }

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { appendFile, mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { appendFile, mkdtemp, open, readFile, readdir, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, it } from "node:test";
@@ -31,6 +31,63 @@ afterEach(async () => {
 });
 
 describe("JsonlAgentStore", () => {
+  it("cleans redundant snapshots under a host lock without changing message sources or opaque companions", async () => {
+    const directory = await temporaryDirectory();
+    let held = false, claims = 0;
+    const store = new JsonlAgentStore({ directory, snapshotCleanupThresholdBytes: 512,
+      acquireTranscriptLock: async () => {
+        assert.equal(held, false); held = true; claims++;
+        return { release: async () => { held = false; } };
+      },
+    });
+    const compact: ThreadContextCompactionRecord = { v: 2, type: "thread.context.compacted", threadId: "thread-1", id: "prefix", summary: { text: "原始摘要" } };
+    const messages = transcript("内容".repeat(500));
+    await store.save("thread-1", messages);
+    await store.appendContextCompaction(compact);
+    const [fileName] = await readdir(directory); const path = join(directory, fileName!);
+    const future = { v: 7, type: "future.record", payload: "保留未知数据" };
+    await appendFile(path, `${JSON.stringify(future)}\n`);
+    for (let i = 0; i < 6; i++) await store.save("thread-1", messages);
+    const before = await stat(path);
+    const reopened = new JsonlAgentStore({ directory });
+    assert.deepEqual(await reopened.getMessages("thread-1"), messages);
+    assert.deepEqual(await reopened.getContextCompactions("thread-1"), [compact]);
+    const raw = await readFile(path, "utf8");
+    assert.ok(raw.includes(JSON.stringify(future)));
+    assert.ok(before.size < Buffer.byteLength(JSON.stringify(messages)) * 4, "disk size follows current data, not number of saves");
+    assert.equal(claims, 8); assert.equal(held, false);
+    assert.equal((await stat(path)).mtimeMs, before.mtimeMs, "reopening is read-only");
+  });
+
+  it("does not replace snapshots without a cross-process host lock or erase a corrupt history during cleanup", async () => {
+    const directory = await temporaryDirectory();
+    const unprotected = new JsonlAgentStore({ directory, snapshotCleanupThresholdBytes: 1 });
+    await unprotected.save("thread-1", transcript("first"));
+    await unprotected.save("thread-1", transcript("latest"));
+    const [fileName] = await readdir(directory); const path = join(directory, fileName!);
+    assert.equal((await readFile(path, "utf8")).trimEnd().split("\n").length, 2);
+    await appendFile(path, "not-json\n");
+    const before = await readFile(path);
+    const protectedStore = new JsonlAgentStore({ directory, snapshotCleanupThresholdBytes: 1,
+      acquireTranscriptLock: async () => ({ release: async () => undefined }),
+    });
+    await assert.rejects(protectedStore.save("thread-1", transcript("do not mask corruption")), /corrupt/);
+    assert.deepEqual(await readFile(path), before);
+  });
+
+  it("reports unconfirmed append sync as uncertain and freezes writes until reopen", async (t) => {
+    const directory = await temporaryDirectory();
+    const store = new JsonlAgentStore({ directory });
+    const probe = await open(join(directory, "probe"), "w");
+    const prototype = Object.getPrototypeOf(probe); await probe.close();
+    const injected = t.mock.method(prototype, "sync", async () => { throw new Error("sync fault"); });
+    await assert.rejects(store.save("thread-1", transcript("written but unacknowledged")), error => error instanceof Error && "data" in error && (error.data as { code: string }).code === "STORAGE_COMMIT_UNCERTAIN");
+    injected.mock.restore();
+    await assert.rejects(store.save("thread-1", transcript("must not retry")), /restart/);
+    const reopened = new JsonlAgentStore({ directory });
+    assert.deepEqual(await reopened.getMessages("thread-1"), transcript("written but unacknowledged"));
+  });
+
   it("persists opaque context-compaction records without changing transcripts", async () => {
     const directory = await temporaryDirectory();
     const store = new JsonlAgentStore({ directory });

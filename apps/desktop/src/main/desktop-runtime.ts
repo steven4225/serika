@@ -15,6 +15,7 @@ import type { RunRecord } from "@aisdk-agent/core";
 import type { TelegramGateway } from "./telegram-gateway.js";
 import { telegramUnavailable } from "../shared/telegram.js";
 import { createTaskStore, type TaskListInput } from "@aisdk-agent/example-cli/dist/task-store.js";
+import { exportBackup } from "./backup.js";
 
 interface Options { userData: string; cwd: string; env: NodeJS.ProcessEnv; modelAlias: string; modelId?: string; model: LanguageModel; send: Send; taskAutomation?: TaskAutomationHost; /** Ownership transfers to this host, including final disposal. */ pomodoroService?: PomodoroService }
 
@@ -176,6 +177,17 @@ export class DesktopRuntime {
     const summaries = [];
     for (const thread of registered) summaries.push(await this.#inspect(thread, search));
     return summaries;
+  }
+
+  async exportBackup(destination: string) {
+    this.#assertIdle(); this.#changing = true;
+    try {
+      if (!this.#identity.workspaceRoot) throw new Error("没有固定工作区，不能备份");
+      const threads = await listDesktopThreads(this.#scope());
+      if (!threads.some(thread => thread.threadId === this.#identity.threadId && thread.transcriptDirectory === this.#identity.transcriptDirectory)) threads.unshift(this.#identity);
+      return await exportBackup({ workspace: this.#identity.workspaceRoot, threads, destination,
+        knownSecrets: Object.entries(this.#options.env).filter(([key]) => /(?:API_KEY|TOKEN|SECRET|PASSWORD)/i.test(key)).flatMap(([, value]) => value ? [value] : []) });
+    } finally { this.#changing = false; }
   }
 
   discoverThreads(directory: string) { return discoverThreadDirectory(directory); }

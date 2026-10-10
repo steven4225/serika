@@ -13,7 +13,7 @@
     "clean": "tsc -b --clean",
     "typecheck": "tsc -b --pretty false && pnpm --filter @aisdk-agent/desktop typecheck",
     "test": "pnpm test:runtime && pnpm desktop:test",
-    "test:runtime": "pnpm build:runtime && node --test packages/core/dist/*.test.js packages/core/dist/durable/*.test.js packages/ai-sdk-adapter/dist/*.test.js examples/cli/dist/*.test.js examples/cli/dist/acceptance/*.test.js examples/cli/dist/modules/*.test.js",
+    "test:runtime": "pnpm build:runtime && node --test --test-concurrency=4 packages/core/dist/*.test.js packages/core/dist/durable/*.test.js packages/ai-sdk-adapter/dist/*.test.js examples/cli/dist/*.test.js examples/cli/dist/acceptance/*.test.js examples/cli/dist/modules/*.test.js",
     "test:integration": "pnpm build:runtime && node --test --test-concurrency=1 packages/postgres/dist/**/*.integration.test.js",
     "test:all": "pnpm test && pnpm test:integration",
     "db:migrate": "pnpm build:runtime && node packages/postgres/dist/migrate.js up",

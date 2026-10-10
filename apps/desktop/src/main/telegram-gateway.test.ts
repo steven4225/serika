@@ -188,6 +188,42 @@ it("recurring opt-in excludes old history, pages past 50, and respects the persi
   } finally { await f.cleanup(); }
 });
 
+it("recurring delivery survives over 1000 occurrences, persists scan progress and revisits later completions", async t => {
+  const f = await fixture();
+  try {
+    await f.bind();
+    let clock = Date.now();
+    const tasks = createTaskStore(f.workspace, { now: () => clock });
+    const saved = await tasks.createRecurring({ prompt: "reminder", recurrence: { kind: "daily", time: "08:00", utcOffset: "+08:00" }, arrangement: reminder }); assert(saved.ok);
+    await f.gateway.setTaskRoute({ id: saved.value.id, kind: "recurring", enabled: true });
+    clock += 86_400_000;
+    const claim = await tasks.claimNextDue(); assert(claim.ok && claim.value);
+    assert((await tasks.finish(claim.value.id, { status: "completed", runId: null, execution: "deterministic", resultText: "result", notification: true })).ok);
+    const complete = await tasks.get(claim.value.id); assert(complete.ok);
+    const date = new Date(clock).toISOString();
+    let pages = 0, laterDone = false;
+    t.mock.method(f.host, "channelScheduledTasks", async (input: { before?: { id: string } }) => {
+      pages++;
+      const page = input.before ? Number(input.before.id) + 1 : 0;
+      const tasks = Array.from({ length: 50 }, (_, n) => ({ id: n === 0 ? page === 0 ? "newest" : page === 20 ? "oldest" : `running-${page}` : `running-${page}-${n}`, runAt: date,
+        status: n === 0 && (page === 0 || page === 20 || laterDone && page === 1) ? "completed" : "running" }));
+      return { ok: true, value: { tasks, truncated: page < 21, ...(page < 21 ? { nextCursor: { createdAt: date, id: String(page) } } : {}) } };
+    });
+    t.mock.method(f.host, "channelScheduledTask", async (id: string) => ({ ok: true, value: { ...complete.value, id } }));
+    await f.gateway.collectScheduledResults();
+    assert.equal(pages, 20); assert.equal(f.store.snapshot().routes[0]?.scanBefore?.id, "19");
+    assert.equal(f.store.snapshot().deliveries.find(x => x.key === "scheduled:newest")?.state, "submitted", "found results send before all history is scanned");
+    await f.gateway.collectScheduledResults();
+    assert.equal(pages, 22); assert.equal(f.store.snapshot().routes[0]?.scanBefore, undefined);
+    assert.equal(f.store.snapshot().deliveries.find(x => x.key === "scheduled:oldest")?.state, "submitted");
+    laterDone = true;
+    await f.gateway.collectScheduledResults();
+    assert.equal(f.store.snapshot().deliveries.find(x => x.key === "scheduled:running-1")?.state, "submitted");
+    assert.equal(f.store.snapshot().deliveries.filter(x => x.key === "scheduled:newest").length, 1);
+    assert.equal(f.calls(), 0);
+  } finally { t.mock.restoreAll(); await f.cleanup(); }
+});
+
 it("requires desktop binding; foreign, group, bot and duplicate deliveries cannot start Runs", async () => {
   const f = await fixture();
   try {
@@ -239,6 +275,47 @@ it("shares the real file approval, shortcodes are single-use and plain yes is no
     const receipt = await f.host.channelReceipt(f.store.snapshot().owner!.threadId, f.store.snapshot().inputs[0]!.runId!);
     assert.equal(receipt?.tools.length, 1); assert.equal(receipt?.tools[0]?.status, "completed");
     assert.equal((await f.host.current.history()).filter(x => x.role === "user").length, 1, "control text never becomes consolidation material");
+  } finally { await f.cleanup(); }
+});
+
+it("expired confirmation can be renewed without a new Run; both old and repeated codes grant nothing", async () => {
+  const f = await fixture(async n => response(n === 1 ? { name: "write_file", input: { path: "renewed.md", content: "one write" } } : undefined));
+  try {
+    await f.bind(); await f.gateway.receive(update(2, "写 renewed.md"));
+    await until(() => f.sent.some(x => x.includes("请求使用 write_file")));
+    const previous = /允许 ([A-F0-9]{10})/.exec(f.sent.find(x => x.includes("请求使用 write_file"))!)![1]!;
+    const run = f.store.snapshot().inputs.find(x => x.key === "42:2")!.runId;
+    f.advanceTime(5 * 60_000 + 1);
+    await f.gateway.receive(update(3, `允许 ${previous}`));
+    await assert.rejects(readFile(join(f.workspace, "renewed.md")), { code: "ENOENT" });
+    await f.gateway.receive(update(4, "/confirm"));
+    const refreshed = /允许 ([A-F0-9]{10})/.exec(f.sent.filter(x => x.includes("请求使用 write_file")).at(-1)!)![1]!;
+    assert.notEqual(refreshed, previous); assert.equal(f.calls(), 1);
+    await f.gateway.receive(update(5, `允许 ${previous}`));
+    await assert.rejects(readFile(join(f.workspace, "renewed.md")), { code: "ENOENT" });
+    await f.gateway.receive(update(6, `允许 ${refreshed}`));
+    await until(() => f.store.snapshot().inputs.find(x => x.key === "42:2")?.state === "finished");
+    await f.gateway.receive(update(7, `允许 ${refreshed}`));
+    assert.equal(await readFile(join(f.workspace, "renewed.md"), "utf8"), "one write");
+    assert.equal(f.store.snapshot().inputs.find(x => x.key === "42:2")!.runId, run);
+    assert.equal((await f.host.channelReceipt(f.store.snapshot().owner!.threadId, run!))?.tools.length, 1);
+  } finally { await f.cleanup(); }
+});
+
+it("archived inbound message IDs still dedupe even under a different update ID", async () => {
+  const f = await fixture();
+  try {
+    await f.bind();
+    await f.store.update(data => {
+      data.inputs = Array.from({ length: 513 }, (_, n) => ({ key: `42:${n + 2}`, updateId: n + 2, text: "old", state: "finished", runId: `old-${n}`, taskId: null }));
+      data.offset = 515;
+    });
+    assert(!f.store.snapshot().inputs.some(x => x.key === "42:2"));
+    await f.gateway.receive(update(515, "old repeated", 42, "private", 2));
+    assert.equal(f.calls(), 0); assert.equal(f.store.snapshot().offset, 516);
+    await f.gateway.receive(update(516, "fresh"));
+    await until(() => f.store.snapshot().inputs.find(x => x.key === "42:516")?.state === "finished");
+    assert.equal(f.calls(), 1);
   } finally { await f.cleanup(); }
 });
 

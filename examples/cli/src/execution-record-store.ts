@@ -78,7 +78,7 @@ export interface ExecutionRunRecord {
 export type ExecutionRecordErrorCode =
   | "INVALID_INPUT" | "NOT_FOUND" | "CONFLICT" | "LIMIT_EXCEEDED"
   | "FILE_INVALID" | "VERSION_UNSUPPORTED" | "SYMLINK_NOT_ALLOWED"
-  | "READ_FAILED" | "WRITE_FAILED";
+  | "READ_FAILED" | "WRITE_FAILED" | "COMMIT_UNCERTAIN";
 
 export class ExecutionRecordError extends Error {
   constructor(readonly code: ExecutionRecordErrorCode, message: string) {
@@ -317,6 +317,7 @@ export class ExecutionRecordStore {
   readonly #lock: string;
   readonly #now: () => Date;
   readonly #traceGaps = new Set<string>();
+  #commitUncertain = false;
 
   constructor(directory: string, options: { now?: () => Date } = {}) {
     this.#directory = resolve(directory);
@@ -580,12 +581,14 @@ export class ExecutionRecordStore {
   }
 
   async #mutate(update: (document: Document) => void, protectedRunId?: string): Promise<void> {
+    if (this.#commitUncertain) fail("COMMIT_UNCERTAIN", "Execution receipt acknowledgement is uncertain; restart and reconcile before further writes");
     await this.#inspectDirectory();
     if (await this.#inspectFile(this.#lock)) {
       // Existing regular lock file is safe to hand to flock.
     }
     const lock = await acquireFlock(this.#lock);
     try {
+      if (this.#commitUncertain) fail("COMMIT_UNCERTAIN", "Execution receipt acknowledgement is uncertain; restart before further writes");
       const document = await this.#load();
       update(document);
       for (const run of document.runs) {
@@ -619,14 +622,26 @@ export class ExecutionRecordStore {
       }
       const temporary = join(this.#directory, `.execution-records.${randomUUID()}.tmp`);
       let created = false;
+      let renamed = false;
       try {
         const handle = await open(temporary, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | constants.O_NOFOLLOW, 0o600);
         created = true;
-        try { await handle.writeFile(serialized, "utf8"); }
+        try { await handle.writeFile(serialized, "utf8"); await handle.sync(); }
         finally { await handle.close(); }
         await rename(temporary, this.#file);
+        renamed = true;
         created = false;
+        if (process.platform !== "win32") {
+          const directory = await open(this.#directory, "r");
+          try { await directory.sync(); } finally { await directory.close(); }
+        }
         for (const run of document.runs) this.#traceGaps.delete(run.runId);
+      } catch (error) {
+        if (renamed) {
+          this.#commitUncertain = true;
+          fail("COMMIT_UNCERTAIN", "Execution receipt was replaced but acknowledgement is uncertain; reread after restart, never replay tools");
+        }
+        fail("WRITE_FAILED", `Execution receipt save failed before replacement: ${String(error)}`);
       } finally {
         if (created) await rm(temporary, { force: true });
       }

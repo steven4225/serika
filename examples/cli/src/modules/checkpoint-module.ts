@@ -1,4 +1,5 @@
 import { tool } from "ai";
+import { toolCommitResult } from "../commit-outcome.js";
 import { z } from "zod";
 import type { RegisteredTool } from "@aisdk-agent/ai-sdk-adapter";
 import type { AgentModule } from "../module-host.js";
@@ -244,7 +245,7 @@ export function createCheckpointModule(
               if (signal.aborted) throw abortReason(signal);
             }
           }
-          return store.saveNextVersion(
+          return toolCommitResult(store.saveNextVersion(
             {
               expectedVersion,
               draft: draft as CheckpointDraft,
@@ -252,7 +253,7 @@ export function createCheckpointModule(
               ...(gitPin === undefined ? {} : { realityPins: { git: gitPin } }),
             },
             signal,
-          );
+          ));
         },
       });
 

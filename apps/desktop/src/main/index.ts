@@ -9,6 +9,7 @@ import { IPC, type ConfirmInput, type MainToRenderer } from "../shared/ui-contra
 import type { WorkTaskInputs, WorkTaskReadInput, WorkTaskArtifactInput } from "../shared/work-tasks.js";
 import { parseModuleNotification } from "./runtime-bridge.js";
 import { RuntimeOwnership } from "./runtime-ownership.js";
+import { restoreBackup } from "./backup.js";
 import { ConversationDraftStore } from "./conversation-draft-store.js";
 import { ConversationDraftSession } from "./conversation-draft-session.js";
 import { installHideOnClose, installTray } from "./tray.js";
@@ -246,6 +247,23 @@ async function main(): Promise<void> {
   ipcMain.handle(IPC.memoryMaintenance, () => host.current.getMemoryMaintenance());
   ipcMain.handle(IPC.memoryReferences, () => host.current.getMemoryReferences());
   ipcMain.handle(IPC.history, () => host.current.history());
+  ipcMain.handle(IPC.historyPage, (_event, input) => host.current.historyPage(input));
+  ipcMain.handle(IPC.backupData, async () => {
+    if (host.current.snapshot().state.kind !== "idle") throw new Error("请等待当前执行或整理结束，再备份");
+    const selected = await dialog.showSaveDialog(window, { title: "备份 Serika 数据", defaultPath: `Serika-${new Date().toISOString().replace(/[:.]/g, "-")}.serika-backup`, filters: [{ name: "Serika 数据备份", extensions: ["serika-backup"] }] });
+    if (selected.canceled || !selected.filePath) return null;
+    return host.exportBackup(selected.filePath);
+  });
+  ipcMain.handle(IPC.restoreData, async () => {
+    if (host.current.snapshot().state.kind !== "idle") throw new Error("请等待当前执行结束，再恢复副本");
+    const selected = await dialog.showOpenDialog(window, { title: "选择 Serika 备份", properties: ["openFile"], filters: [{ name: "Serika 数据备份", extensions: ["serika-backup"] }] });
+    if (selected.canceled || !selected.filePaths[0]) return null;
+    const location = await dialog.showOpenDialog(window, { title: "选择恢复副本的保存位置（不会覆盖日用数据）", properties: ["openDirectory", "createDirectory"] });
+    if (location.canceled || !location.filePaths[0]) return null;
+    if (host.current.snapshot().state.kind !== "idle") throw new Error("助手已开始执行；恢复未开始，请稍后重试");
+    const restored = await restoreBackup(selected.filePaths[0], location.filePaths[0]);
+    shell.showItemInFolder(restored.path); return restored;
+  });
   ipcMain.handle(IPC.home, () => host.current.home());
   ipcMain.handle(IPC.run, (_event, text: string, options) => host.current.run(text, options));
   ipcMain.handle(IPC.steer, (_event, input) => drafts.steer(input));

@@ -4,6 +4,7 @@ import {
   mkdtemp,
   mkdir,
   readFile,
+  stat,
   rm,
   writeFile,
 } from "node:fs/promises";
@@ -16,6 +17,7 @@ import {
   TASK_FILE_NAME,
   TASK_PROMPT_MAX_BYTES,
   createTaskStore,
+  restoreTaskDocument,
 } from "./task-store.js";
 import { acquireFlock } from "./flock.js";
 
@@ -40,6 +42,31 @@ function code(result: { ok: true } | { ok: false; error: { code: string } }): st
 }
 
 describe("WorkspaceTaskStore", () => {
+  it("restore preserves failed attempt history but disables its scheduled safe retry and pending notification", async () => {
+    const root = await workspace();
+    let now = Date.parse("2026-10-10T00:00:00Z");
+    const store = createTaskStore(root, { now: () => now });
+    const created = await store.create({ prompt: "retry", runAt: "2026-10-10T00:01:00Z" }); assert(created.ok);
+    now += 60_000; assert((await store.claimNextDue()).ok);
+    assert((await store.retry(created.value.id, { runId: null, error: { code: "MODEL_TIMEOUT", message: "timeout" }, nextRunAt: "2026-10-10T00:02:00Z" })).ok);
+    const restored = restoreTaskDocument(JSON.parse(await readFile(join(root, TASK_FILE_NAME), "utf8")), "2026-10-10T00:03:00Z");
+    assert.equal(restored.tasks[0]?.status, "cancelled"); assert.equal(restored.tasks[0]?.retryAt, null);
+    assert.equal(restored.tasks[0]?.attempts[0]?.status, "failed");
+    assert.equal(restored.tasks[0]?.attempts[0]?.error?.code, "MODEL_TIMEOUT");
+  });
+  it("idle claims do not replace or sync the unchanged task file", async () => {
+    const root = await workspace();
+    const store = createTaskStore(root);
+    assert((await store.create({ prompt: "future", runAt: "2099-01-01T00:00:00Z" })).ok);
+    const file = join(root, TASK_FILE_NAME), before = await stat(file);
+    const bytes = await readFile(file);
+    for (let n = 0; n < 3; n++) {
+      const claimed = await store.claimNextDue(); assert(claimed.ok && claimed.value === null);
+    }
+    const after = await stat(file);
+    assert.equal(after.ino, before.ino); assert.equal(after.mtimeMs, before.mtimeMs);
+    assert.deepEqual(await readFile(file), bytes);
+  });
   it("pages tied task timestamps without dropping older results or writing on reads", async () => {
     const root = await workspace();
     const now = Date.parse("2026-10-06T00:00:00Z");

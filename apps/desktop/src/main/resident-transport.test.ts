@@ -7,6 +7,26 @@ import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { DesktopRuntime } from "./desktop-runtime.js";
 import { ResidentClient, createResidentPaths, readResidentCredentials, startResidentServer } from "./resident-transport.js";
+import { historyPage, type HistoryPageInput } from "../shared/history.js";
+
+it("history larger than one frame crosses the real socket without disconnecting, and page reads are bounded", async t => {
+  const f = await fixture();
+  const messages = Array.from({ length: 150 }, (_, i) => ({ id: `large-${i}`, role: "assistant" as const, parts: [{ type: "text" as const, text: "x".repeat(64 * 1024) }] }));
+  const patched = t.mock.method(f.server.runtime.current, "history", async () => messages);
+  const paged = t.mock.method(f.server.runtime.current, "historyPage", async (input?: HistoryPageInput) => historyPage(messages, f.server.runtime.info().threadId, input));
+  const client = await ResidentClient.connect({ paths: f.paths, scope: f.scope, send: () => {} });
+  try {
+    assert(Buffer.byteLength(JSON.stringify(messages)) > 8 * 1024 * 1024);
+    assert.deepEqual(await client.current.history(), messages);
+    assert.equal(client.connected, true);
+    const first = await client.current.historyPage();
+    assert.equal(first.threadId, client.info().threadId); assert(first.beforeId);
+    assert(Buffer.byteLength(JSON.stringify(first)) < 2 * 1024 * 1024);
+    const older = await client.current.historyPage({ beforeId: first.beforeId });
+    assert.equal(older.messages.at(-1)?.id, messages[messages.findIndex(x => x.id === first.beforeId) - 1]?.id);
+    await client.refresh(); assert.equal(client.connected, true);
+  } finally { patched.mock.restore(); paged.mock.restore(); client.detach(); await f.cleanup(); }
+});
 
 function response() {
   return { stream: simulateReadableStream({ chunks: [
