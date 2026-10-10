@@ -13,16 +13,22 @@ import { discoverThreadDirectory } from "./thread-history.js";
 import type { MainToRenderer } from "../shared/ui-contract.js";
 
 function findMaterial(value: unknown): { batchId: string; turns: Array<{ user: { messageId: string; text: string } }> } | undefined {
+  if (typeof value === "string" && value.includes('"turns":')) {
+    const start = value.indexOf("\n{");
+    if (start >= 0) {
+      try { return findMaterial(JSON.parse(value.slice(start + 1))); } catch { return; }
+    }
+  }
   if (typeof value !== "object" || value === null) return;
   const object = value as Record<string, unknown>;
   if (typeof object.batchId === "string" && Array.isArray(object.turns)) return object as ReturnType<typeof findMaterial>;
   for (const child of Object.values(object).reverse()) { const result = findMaterial(child); if (result) return result; }
 }
-function response(toolName?: string, input?: unknown) {
+function response(toolName?: string, input?: unknown, text = "收到。") {
   return { stream: simulateReadableStream({ chunks: [
     { type: "stream-start" as const, warnings: [] },
     ...(toolName ? [{ type: "tool-call" as const, toolCallId: toolName, toolName, input: JSON.stringify(input) }] : [
-      { type: "text-start" as const, id: "text" }, { type: "text-delta" as const, id: "text", delta: "收到。" }, { type: "text-end" as const, id: "text" },
+      { type: "text-start" as const, id: "text" }, { type: "text-delta" as const, id: "text", delta: text }, { type: "text-end" as const, id: "text" },
     ]),
     { type: "finish" as const, finishReason: { unified: toolName ? "tool-calls" as const : "stop" as const, raw: undefined }, usage: {
       inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 1, text: 1, reasoning: undefined },
@@ -264,20 +270,19 @@ describe("normal desktop memory and history entry", () => {
   });
   it("uses generated daily identity, reviews/rejects proposals, recalls in a new Thread, and reopens either history", async () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-desktop-daily-test-"));
-    let step = 0, failStage = false;
+    let failStage = false;
     const events: MainToRenderer[] = [];
     const model = new MockLanguageModelV3({ doStream: async options => {
-      if (options.tools?.length !== 2) return response();
-      step++;
-      if (step % 3 === 1) return response("memory_prepare_consolidation", { mode: "incremental" });
-      if (step % 3 === 2) {
-        const material = findMaterial(options.prompt); assert.ok(material);
-        const user = material.turns[0]?.user;
-        return response("memory_stage_candidates", { batchId: material.batchId, proposals: user ? [{ action: "add",
+      const material = findMaterial(options.prompt);
+      if (!material) return response();
+      assert.equal(options.tools?.length ?? 0, 0);
+      const user = material.turns[0]?.user;
+      return response(undefined, undefined, JSON.stringify({ batchId: material.batchId, proposals: user ? [{ action: "add",
           text: user.text, scope: { kind: "workspace" }, recallTerms: ["总结报告"], kind: "preference", reason: "明确偏好",
-          sourceMessageId: user.messageId, sourceQuote: failStage ? "forged quote" : user.text }] : [] });
-      }
-      return response();
+          sourceMessageId: user.messageId, sourceQuote: failStage ? "forged quote" : user.text }] : [],
+        outcomes: material.turns.map(turn => ({ messageId: turn.user.messageId,
+          status: turn.user.messageId === user?.messageId ? "extracted" : "no_memory" })),
+      }));
     } });
     const options = { userData: join(root, "profile"), cwd: root, env: {}, modelAlias: "mock", model, send: (event: MainToRenderer) => events.push(event) };
     let host = await DesktopRuntime.create(options);

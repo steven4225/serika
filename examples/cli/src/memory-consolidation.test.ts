@@ -45,8 +45,25 @@ async function prepare(f: ReturnType<typeof fixture>, agent = AUTO_CONSOLIDATION
   if (!prepared.ok) throw new Error("Expected successful preparation");
   return prepared.value;
 }
+function noMemoryOutcomes(batch: Awaited<ReturnType<typeof prepare>>) {
+  return batch.turns.map(turn => ({ messageId: "user" in turn ? turn.user.messageId : turn.messages[0]!.id, status: "no_memory" }));
+}
 
 describe("native memory consolidation batch", () => {
+  it("does not mark eight read sources complete after only five proposals", async () => {
+    const messages = Array.from({ length: 8 }, (_, i) => user(`u${i + 1}`, `长期偏好 ${i + 1}`));
+    const f = fixture(messages);
+    const batch = await prepare(f);
+    assert.ok((await f.service.stage({ batchId: batch.batchId, proposals: messages.slice(0, 5).map(message => ({
+      action: "add", text: message.parts[0]!.type === "text" ? message.parts[0]!.text : "", reason: "明确偏好",
+      sourceMessageId: message.id, sourceQuote: `长期偏好 ${message.id.slice(1)}`,
+    })), outcomes: messages.map((message, index) => ({ messageId: message.id, status: index < 5 ? "extracted" : "deferred" })) })).ok);
+    const result = await f.service.finalize({ status: "completed" });
+    assert.ok(result.ok);
+    assert.equal(f.getCursor()?.throughMessageId, "u5");
+    const next = await prepare(f);
+    assert.deepEqual("bootstrap" in next ? next.turns.map(turn => turn.user.messageId) : [], ["u6", "u7", "u8"]);
+  });
   it("captures injected commit time after write ownership, not the earlier observation", async () => {
     const directory = await mkdtemp(join(tmpdir(), "memory-commit-clock-"));
     try {
@@ -170,7 +187,7 @@ describe("native memory consolidation batch", () => {
     assert.ok(prepared.ok);
     assert.deepEqual(prepared.value.selection, { mode: "history", messageIds: ["u0", "u1"] });
     assert.deepEqual(prepared.value.turns.map(turn => "user" in turn ? turn.user.messageId : turn.messages[0]!.id), ["u0", "u1"]);
-    assert.ok((await f.service.stage({ batchId: prepared.value.batchId, proposals: [] })).ok);
+    assert.ok((await f.service.stage({ batchId: prepared.value.batchId, proposals: [], outcomes: noMemoryOutcomes(prepared.value) })).ok);
     const final = await f.service.finalize({ status: "completed" });
     assert.ok(final.ok); assert.equal(final.value.processedCount, 2);
     assert.deepEqual(f.getCursor(), cursor);
@@ -203,7 +220,7 @@ describe("native memory consolidation batch", () => {
     const f = fixture();
     const prepared = await prepare(f);
     assert.deepEqual(prepared.memories, []);
-    assert.equal(await f.service.stage({ batchId: prepared.batchId, proposals: [proposal()] }).then((x) => x.ok), true);
+    assert.equal(await f.service.stage({ batchId: prepared.batchId, proposals: [proposal()], outcomes: [{ messageId: "u1", status: "extracted" }] }).then((x) => x.ok), true);
     assert.equal(f.committed.length, 0);
     const final = await f.service.finalize({ status: "completed" });
     assert.equal(final.ok, true);
@@ -226,7 +243,7 @@ describe("native memory consolidation batch", () => {
     assert.equal(missing.ok, false);
     assert.equal(f.committed.length, 0);
     const empty = await prepare(f);
-    await f.service.stage({ batchId: empty.batchId, proposals: [] });
+    await f.service.stage({ batchId: empty.batchId, proposals: [], outcomes: noMemoryOutcomes(empty) });
     assert.equal((await f.service.finalize({ status: "completed" })).ok, true);
     assert.equal(f.getCursor()?.throughMessageId, "u1");
   });
@@ -280,14 +297,14 @@ describe("native memory consolidation batch", () => {
     assert.ok("bootstrap" in boot && boot.bootstrap);
     if (!("bootstrap" in boot)) return;
     assert.deepEqual(boot.turns.map((turn) => turn.user.messageId), initial.slice(2).map((message) => message.id));
-    await f.service.stage({ batchId: boot.batchId, proposals: [] }); await f.service.finalize({ status: "completed" });
+    await f.service.stage({ batchId: boot.batchId, proposals: [], outcomes: noMemoryOutcomes(boot) }); await f.service.finalize({ status: "completed" });
     const appended = Array.from({ length: 12 }, (_, index) => user(`new${index}`));
     f.setMessages([...initial, ...appended]);
     const next = await prepare(f);
     if (!("bootstrap" in next)) return assert.fail("expected incremental material");
     assert.equal(next.bootstrap, false);
     assert.deepEqual(next.turns.map((turn) => turn.user.messageId), appended.slice(0, 8).map((message) => message.id));
-    await f.service.stage({ batchId: next.batchId, proposals: [] }); await f.service.finalize({ status: "completed" });
+    await f.service.stage({ batchId: next.batchId, proposals: [], outcomes: noMemoryOutcomes(next) }); await f.service.finalize({ status: "completed" });
     const last = await prepare(f);
     if (!("bootstrap" in last)) return assert.fail("expected incremental material");
     assert.deepEqual(last.turns.map((turn) => turn.user.messageId), appended.slice(8).map((message) => message.id));
@@ -295,7 +312,7 @@ describe("native memory consolidation batch", () => {
   it("cursor ignores automatic transcript markers but rejects changed ordinary prefixes", async () => {
     const initial = [user("u1", "复盘先结论，再给步骤")];
     const f = fixture(initial); const boot = await prepare(f);
-    await f.service.stage({ batchId: boot.batchId, proposals: [] }); await f.service.finalize({ status: "completed" });
+    await f.service.stage({ batchId: boot.batchId, proposals: [], outcomes: noMemoryOutcomes(boot) }); await f.service.finalize({ status: "completed" });
     f.setMessages([...initial, { ...user("auto"), metadata: { source: AUTO_CONSOLIDATION_SOURCE } }, user("u2")]);
     const next = await prepare(f);
     if (!("bootstrap" in next)) return assert.fail("expected incremental");
@@ -480,7 +497,7 @@ describe("native memory consolidation batch", () => {
       assert.equal(f.getCursor(), null);
     }
     const f = fixture(initial); const batch = await prepare(f);
-    await f.service.stage({ batchId: batch.batchId, proposals: [] }); await f.service.finalize({ status: "completed" });
+    await f.service.stage({ batchId: batch.batchId, proposals: [], outcomes: noMemoryOutcomes(batch) }); await f.service.finalize({ status: "completed" });
     const more = Array.from({ length: 10 }, (_, index) => user(`new${index}`, "复盘待处理"));
     f.setMessages([...initial, ...more]);
     const next = await prepare(f);

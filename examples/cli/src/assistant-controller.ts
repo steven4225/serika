@@ -36,7 +36,8 @@ import { formalMemory, memoryPage, validMemoryEdit, visibleMemory, type FormalMe
 import type { MemoryReferenceSnapshot } from "./memory-query-rewrite.js";
 import { memoryActionPreview, memoryCapacity, memoryControlFailure, memoryHistoryPage, temporalMemoryStore, validateMemoryAction, validateMemoryHistoryInput, type MemoryAction, type MemoryActionPreview, type MemoryHistoryInput, type MemoryHistoryPage, type MemoryMaintenance, type MemoryTemporalInput } from "./memory-controls.js";
 import type { MemoryTemporalView } from "./memory-store.js";
-import { consolidationSourcePage, memoryConsolidationBacklog, validateConsolidationRequest, type MemoryConsolidationRequest, type MemoryConsolidationSourcePage } from "./memory-consolidation.js";
+import { consolidationSourcePage, memoryConsolidationBacklog, prepareConsolidationExtraction, stageConsolidationExtraction, validateConsolidationRequest, type MemoryConsolidationRequest, type MemoryConsolidationSourcePage } from "./memory-consolidation.js";
+import { AUTO_CONSOLIDATION_AGENT_ID } from "./consolidation.js";
 import { readWorkTaskArtifact, workTaskDeliveryDraft, type WorkTaskReadInput, type WorkTaskArtifactInput, type WorkTaskReadResult, type WorkTaskDeliveryDraft, type WorkTaskArtifactPreview } from "./work-task-artifacts.js";
 
 const MAX_RECENT_OUTPUT_CHARS = 16 * 1024;
@@ -372,6 +373,8 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     if (phase === "consolidation") { consolidationFailure = undefined; consolidationRunning = true; }
     try {
       app.memoryConsolidation?.begin(agentId, phase === "consolidation" ? consolidationRequest : undefined);
+      const hostExtraction = app.hostConsolidationExtraction === true && phase === "consolidation" && agentId === AUTO_CONSOLIDATION_AGENT_ID && app.memoryConsolidation !== undefined;
+      if (hostExtraction) message = await prepareConsolidationExtraction(app.memoryConsolidation!, message, signal);
       const handle = await app.runtime.run({
         agentId,
         threadId: executionThreadId,
@@ -470,7 +473,10 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       let finalizationFailed = false;
       let accepted: NonNullable<NonNullable<MemoryMaintenance["consolidation"]["lastAttempt"]>["accepted"]> = [];
       try {
-        const finalized = await app.memoryConsolidation?.finalize({ ...result, consolidationAttempts }, signal);
+        const extracted = hostExtraction && result.status === "completed" ?
+          await stageConsolidationExtraction(app.memoryConsolidation!, result.text, signal) : undefined;
+        const finalized = extracted && !extracted.ok ? extracted : await app.memoryConsolidation?.finalize({ ...result,
+          ...(hostExtraction && consolidationAttempts.prepare === 0 && consolidationAttempts.stage === 0 ? {} : { consolidationAttempts }) }, signal);
         if (finalized !== undefined && !finalized.ok) {
           finalizationFailed = true;
           consolidationFailure = `${finalized.error.code}: ${finalized.error.message}`;

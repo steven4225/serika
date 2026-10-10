@@ -32,6 +32,8 @@ export interface BuiltinSkillInput {
   tools?: readonly string[];
   limits?: Partial<AgentLimits>;
   agentId?: string;
+  /** Host-owned memory extraction only; external packages cannot request this workflow. */
+  hostExtraction?: boolean;
 }
 
 export const SKILL_PACKAGE_MAX_COUNT = 32;
@@ -61,11 +63,11 @@ export const skillPackageRegistrationsSchema = z.array(z.object({
 }).strict()).max(SKILL_PACKAGE_MAX_COUNT);
 const MEMORY_TOOLS = ["memory_prepare_consolidation", "memory_stage_candidates"] as const;
 
-function descriptor(manifest: z.infer<typeof manifestSchema>, instructions: string, agentId: string): SkillDescriptor {
+function descriptor(manifest: z.infer<typeof manifestSchema>, instructions: string, agentId: string, hostExtraction = false): SkillDescriptor {
   if (instructions.trim().length === 0 || Buffer.byteLength(instructions, "utf8") > SKILL_INSTRUCTIONS_MAX_BYTES) {
     throw new Error(`Skill ${manifest.id}: instructions must be nonempty and at most ${SKILL_INSTRUCTIONS_MAX_BYTES} bytes`);
   }
-  const tools: string[] = manifest.kind === "text" ? [] : [...MEMORY_TOOLS];
+  const tools: string[] = manifest.kind === "text" || hostExtraction ? [] : [...MEMORY_TOOLS];
   if (manifest.tools !== undefined && (manifest.tools.length !== tools.length ||
     new Set(manifest.tools).size !== tools.length || manifest.tools.some(tool => !tools.includes(tool)))) {
     throw new Error(`Skill ${manifest.id}: ${manifest.kind} cannot request additional tools; expected ${tools.join(", ") || "no tools"}`);
@@ -97,7 +99,8 @@ export function createBuiltinSkill(input: BuiltinSkillInput): SkillDescriptor {
     ...(input.limits === undefined ? {} : { limits: input.limits }) });
   const agentId = input.agentId ?? `skill:${manifest.id}`;
   if (agentId.trim().length === 0 || agentId.length > 128) throw new Error("Invalid Skill agentId");
-  return descriptor(manifest, input.instructions, agentId);
+  if (input.hostExtraction && (input.kind !== "memory-consolidate" || input.limits?.maxSteps !== 1)) throw new Error("Host extraction requires a one-step memory Skill");
+  return descriptor(manifest, input.instructions, agentId, input.hostExtraction);
 }
 
 function inside(root: string, path: string): boolean {

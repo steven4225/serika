@@ -1094,6 +1094,39 @@ describe("runTui", () => {
     assert.equal(runtime.requests.length, 2);
   });
 
+  it("host-prepares and stages a one-shot JSON extraction without model tool calls", async () => {
+    const input = ttyInput(), output = ttyOutput();
+    const firstEvents = asyncQueue<AgentEvent>(), secondEvents = asyncQueue<AgentEvent>();
+    firstEvents.close(); secondEvents.close();
+    const payload = { batchId: "fixed-batch", proposals: [], outcomes: [{ messageId: "source", status: "no_memory" }] };
+    const runtime = testRuntime([
+      handleFor({ runId: "primary", threadId: "thread-1", events: firstEvents, result: Promise.resolve(completedResult("primary", "thread-1", "done")) }),
+      handleFor({ runId: "extraction", threadId: "thread-1", events: secondEvents, result: Promise.resolve(completedResult("extraction", "thread-1", JSON.stringify(payload))) }),
+    ]);
+    let agent = "", prepared = 0, staged = 0, finalized = false;
+    const service: MemoryConsolidation = {
+      begin: value => { agent = value; }, discard: () => {},
+      canStart: async () => ({ ok: true, value: { canStart: true, pendingCount: 0 } }),
+      prepare: async (value) => {
+        assert.equal(agent, "memory-consolidator"); assert.deepEqual(value, { mode: "incremental" }); prepared++;
+        return { ok: true, value: { batchId: "fixed-batch", memories: [], truncated: false, bootstrap: true,
+          turns: [{ user: { messageId: "source", text: "一次性问题" }, assistant: [], tools: [] }] } };
+      },
+      stage: async value => { assert.deepEqual(value, payload); staged++; return { ok: true, value: { staged: true, batchId: value.batchId, count: 0 } }; },
+      finalize: async value => {
+        if (agent === "memory-consolidator") { assert.deepEqual(value, { status: "completed" }); finalized = true; }
+        return { ok: true, value: { candidateIds: [], replayed: false } };
+      },
+    };
+    const tui = runTui({ ...tuiOptions, runtime: runtime.runtime, store: { getMessages: async () => [] }, input, output,
+      memoryConsolidation: service, autoConsolidationAgentId: "memory-consolidator", hostConsolidationExtraction: true });
+    await nextTurn(); input.write("普通对话\n"); await waitFor(() => finalized);
+    input.end(); await tui;
+    assert.equal(prepared, 1); assert.equal(staged, 1); assert.equal(runtime.requests.length, 2);
+    assert.match(JSON.stringify(runtime.requests[1]!.messages), /一次性问题/);
+    assert.doesNotMatch(output.text(), /整理未完成|整理确认失败/);
+  });
+
   it("skips consolidation when the user run requests a memory tool", async () => {
     const input = ttyInput();
     const output = ttyOutput();

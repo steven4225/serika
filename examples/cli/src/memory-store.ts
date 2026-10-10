@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { constants } from "node:fs";
 import {
   lstat,
@@ -12,9 +12,10 @@ import type { UIMessage } from "ai";
 import { acquireFlock } from "./flock.js";
 import { abortReason, throwIfAborted, validateWorkspacePath } from "./workspace-path.js";
 import { candidateFingerprint, MEMORY_PENDING_CANDIDATES_MAX, MEMORY_TERMINAL_CANDIDATES_MAX, MEMORY_BATCH_CANDIDATES_MAX, MEMORY_CURSORS_MAX } from "./memory-candidates.js";
-import type { CandidateBatchInput, CandidateBatchResult, CandidateDraft, CandidateListInput, CandidatePage, CandidatePreview, CandidateResolution, CandidateResolveInput, ConsolidationCursor, MemoryCandidate, MemoryResult } from "./memory-candidates.js";
+import type { CandidateBatchInput, CandidateBatchResult, CandidateDraft, CandidateListInput, CandidatePage, CandidatePreview, CandidateResolution, CandidateResolveInput, ConsolidationCursor, ConsolidationReceipt, MemoryCandidate, MemoryResult } from "./memory-candidates.js";
 import { MEMORY_ASSERTIONS_MAX, TemporalMemoryError, assertTemporalIntegrity, createAssertion, reviseAssertions, selectTemporalAssertions, validateAssertion, validateTemporalTimestamp, validateRecallTerms, validateValidTime } from "./memory-temporal.js";
 import type { MemoryAssertion, MemoryKind, MemoryValidTime } from "./memory-temporal.js";
+import { sameFact, sameFactSlot, validateFactIdentity, type MemoryFactIdentity } from "./memory-fact-identity.js";
 export type { MemoryAssertion, MemoryKind, MemoryValidTime } from "./memory-temporal.js";
 
 export const MEMORY_MAX_ENTRIES = 512;
@@ -104,6 +105,7 @@ export interface MemoryDocument {
   entries: MemoryRecord[];
   candidates: MemoryCandidate[];
   consolidationCursors: ConsolidationCursor[];
+  consolidationReceipts?: ConsolidationReceipt[];
 }
 
 export interface MemoryDocumentV1 {
@@ -112,6 +114,7 @@ export interface MemoryDocumentV1 {
 }
 
 export interface MemoryAddInput {
+  factIdentity?: MemoryFactIdentity;
   kind?: MemoryKind;
   recallTerms?: string[];
   validTime?: MemoryValidTime;
@@ -211,6 +214,7 @@ export interface WorkspaceMemoryStore {
   getCandidate(id: string, signal?: AbortSignal, options?: MemoryWriteOptions): Promise<MemoryResult<CandidatePreview>>;
   resolveCandidate(input: CandidateResolveInput, signal?: AbortSignal, options?: MemoryWriteOptions): Promise<MemoryResult<CandidateResolution>>;
   getConsolidationCursor(threadId: string, signal?: AbortSignal): Promise<MemoryResult<ConsolidationCursor | null>>;
+  getConsolidationReceipt?(threadId: string, signal?: AbortSignal): Promise<MemoryResult<ConsolidationReceipt | null>>;
   commitCandidateBatch(input: CandidateBatchInput, signal?: AbortSignal, options?: MemoryWriteOptions): Promise<MemoryResult<CandidateBatchResult>>;
   list(signal?: AbortSignal, options?: MemoryWriteOptions): Promise<MemoryListResult>;
   get(id: string, signal?: AbortSignal, options?: MemoryWriteOptions): Promise<MemoryEntryResult>;
@@ -398,13 +402,16 @@ function validateDraft(value: unknown, threadId: string): CandidateDraft {
   const expiresAt = validateTimestamp(change.expiresAt, "Candidate expiry");
   const evidence = { source, ...(sources === undefined ? {} : { sources }), reason };
   const controls = change.operation === "retract" || change.operation === "disable";
-  const fields = ["operation", "text", "expiresAt", ...(change.operation === "add" ? ["scope"] : ["memoryId", "expectedRevision"]), ...(controls ? [] : ["kind", "recallTerms", "validTime"]), ...(change.operation === "change" ? ["effectiveAt"] : [])];
+  const fields = ["operation", "text", "expiresAt", ...(change.operation === "add" ? ["scope"] : ["memoryId", "expectedRevision"]), ...(controls ? [] : ["kind", "recallTerms", "validTime", "factIdentity", "reuseSources"]), ...(change.operation === "change" ? ["effectiveAt"] : [])];
   if (Object.keys(change).some(key => !fields.includes(key))) raise("MEMORY_BATCH_INVALID", "Unknown candidate change field");
   const fact = {
+    ...(change.factIdentity === undefined ? {} : { factIdentity: validateFactIdentity(change.factIdentity) }),
+    ...(change.reuseSources === undefined ? {} : { reuseSources: true as const }),
     ...(change.kind === undefined ? {} : { kind: change.kind as MemoryKind }),
     ...(change.recallTerms === undefined ? {} : { recallTerms: validateRecallTerms(change.recallTerms) }),
     ...(change.validTime === undefined ? {} : { validTime: validateValidTime(change.validTime) }),
   };
+  if (change.reuseSources !== undefined && (change.reuseSources !== true || change.operation !== "correct" || change.factIdentity === undefined)) raise("MEMORY_BATCH_INVALID", "Source reuse requires an identified correction");
   if (change.kind !== undefined && !["preference", "fact", "event", "note"].includes(String(change.kind))) raise("MEMORY_BATCH_INVALID", "Invalid candidate kind");
   if (change.operation === "add") {
     const scope = validateScope(change.scope);
@@ -476,6 +483,44 @@ function validateCursors(value: unknown): ConsolidationCursor[] {
 
 function emptyDocument(): MemoryDocument { return { version: 4, lastWrittenAt: null, entries: [], candidates: [], consolidationCursors: [] }; }
 
+function validateConsolidationOutcomes(value: unknown): NonNullable<CandidateBatchInput["outcomes"]> {
+  if (!Array.isArray(value) || value.length > 8) raise("MEMORY_BATCH_INVALID", "Coverage must contain at most eight source outcomes");
+  const ids = new Set<string>();
+  return value.map(raw => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) raise("MEMORY_BATCH_INVALID", "Invalid source outcome");
+    const outcome = raw as Record<string, unknown>;
+    const messageId = nonEmpty(outcome.messageId, "Outcome message id");
+    if (Object.keys(outcome).some(key => !["messageId", "status"].includes(key)) || ids.has(messageId) || !["extracted", "no_memory", "deferred"].includes(String(outcome.status))) raise("MEMORY_BATCH_INVALID", "Invalid or duplicate source outcome");
+    ids.add(messageId);
+    return { messageId, status: outcome.status as "extracted" | "no_memory" | "deferred" };
+  });
+}
+function validateConsolidationReceipts(value: unknown): ConsolidationReceipt[] {
+  if (!Array.isArray(value) || value.length > MEMORY_CURSORS_MAX) raise("MEMORY_FILE_INVALID", "Invalid consolidation receipts");
+  const threads = new Set<string>();
+  return value.map(raw => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) raise("MEMORY_FILE_INVALID", "Invalid consolidation receipt");
+    const receipt = raw as Record<string, unknown>;
+    const threadId = nonEmpty(receipt.threadId, "Coverage Thread");
+    const outcomes = validateConsolidationOutcomes(receipt.outcomes);
+    const firstDeferred = outcomes.findIndex(outcome => outcome.status === "deferred");
+    const processedCount = firstDeferred < 0 ? outcomes.length : firstDeferred;
+    const committedAt = validateTimestamp(receipt.committedAt, "Coverage commit time");
+    const sourcePrefix = validateConsolidationSourcePrefix(receipt.sourcePrefix);
+    if (!Array.isArray(receipt.candidateIds) || receipt.candidateIds.length > MEMORY_BATCH_CANDIDATES_MAX || receipt.candidateIds.some(id => typeof id !== "string" || !id) || new Set(receipt.candidateIds).size !== receipt.candidateIds.length || (outcomes.length > 0 ? sourcePrefix?.throughMessageId !== outcomes.at(-1)?.messageId : sourcePrefix !== null)) raise("MEMORY_FILE_INVALID", "Coverage source prefix or candidate identities are invalid");
+    if (threads.has(threadId) || receipt.processedCount !== processedCount || !committedAt || typeof receipt.payloadHash !== "string" || !/^[a-f0-9]{64}$/.test(receipt.payloadHash)) raise("MEMORY_FILE_INVALID", "Invalid coverage receipt fields");
+    threads.add(threadId);
+    return { threadId, outcomes, processedCount, committedAt, sourcePrefix, candidateIds: receipt.candidateIds as string[], batchId: nonEmpty(receipt.batchId, "Coverage batch"), payloadHash: receipt.payloadHash };
+  });
+}
+function validateConsolidationSourcePrefix(value: unknown): ConsolidationReceipt["sourcePrefix"] {
+  if (value === null) return null;
+  if (!value || typeof value !== "object" || Array.isArray(value)) raise("MEMORY_BATCH_INVALID", "Coverage requires a source prefix");
+  const prefix = value as Record<string, unknown>;
+  if (Object.keys(prefix).length !== 2 || typeof prefix.prefixHash !== "string" || !/^[a-f0-9]{64}$/.test(prefix.prefixHash)) raise("MEMORY_BATCH_INVALID", "Invalid coverage prefix hash");
+  return { throughMessageId: nonEmpty(prefix.throughMessageId, "Coverage prefix boundary"), prefixHash: prefix.prefixHash };
+}
+
 function candidateThread(options: MemoryWriteOptions | undefined): string {
   return nonEmpty(options?.boundThreadId, "Active candidate Thread");
 }
@@ -519,8 +564,11 @@ function duplicateAdd(change: CandidateDraft["change"], records: readonly Memory
 
 /** Same proposed transition from different quotes needs one review, not two writes. */
 function samePendingChange(candidate: MemoryCandidate, draft: CandidateDraft, threadId: string): boolean {
-  return candidate.status === "pending" && candidate.originThreadId === threadId &&
-    JSON.stringify(candidate.change) === JSON.stringify(draft.change);
+  if (candidate.status !== "pending" || candidate.originThreadId !== threadId) return false;
+  if (JSON.stringify(candidate.change) === JSON.stringify(draft.change)) return true;
+  const old = candidate.change, next = draft.change;
+  return old.operation === "add" && next.operation === "add" && sameFact(old.factIdentity, next.factIdentity) &&
+    JSON.stringify([old.scope, old.expiresAt, old.kind, old.validTime]) === JSON.stringify([next.scope, next.expiresAt, next.kind, next.validTime]);
 }
 
 function validateRevision(value: unknown): number {
@@ -701,12 +749,12 @@ function projectRecord(record: MemoryRecord, now: Date): MemoryEntry {
   });
   return { id: record.id, revision: record.revision, text: assertion?.text ?? "", source: cloneSource(assertion?.sources[0] ?? { kind: "manual" }), enabled: record.status === "active" && assertion !== undefined,
     temporalState: assertion ? "applicable" : record.assertions.at(-1)?.state === "retracted" ? "retracted" : "not_applicable",
-    ...(assertion === undefined ? {} : { assertion: { assertionId: assertion.assertionId, kind: assertion.kind, recallTerms: [...assertion.recallTerms], validTime: { ...assertion.validTime }, systemTime: { ...assertion.systemTime }, state: assertion.state, sourceIds: assertion.sources.map(source => source.kind === "conversation" ? { kind: source.kind, threadId: source.threadId, messageId: source.messageId } : { kind: source.kind }) } }),
+    ...(assertion === undefined ? {} : { assertion: { ...(assertion.factIdentity === undefined ? {} : { factIdentity: structuredClone(assertion.factIdentity) }), assertionId: assertion.assertionId, kind: assertion.kind, recallTerms: [...assertion.recallTerms], validTime: { ...assertion.validTime }, systemTime: { ...assertion.systemTime }, state: assertion.state, sourceIds: assertion.sources.map(source => source.kind === "conversation" ? { kind: source.kind, threadId: source.threadId, messageId: source.messageId } : { kind: source.kind }) } }),
     scope: cloneScope(record.scope), pinned: record.pinned, status: record.status, expiresAt: record.expiresAt, createdAt: record.createdAt, updatedAt: record.updatedAt, history };
 }
 
 function newRecord(input: MemoryAddInput, now: string, sources: MemorySource[] = [input.source ?? { kind: "manual" }]): MemoryRecord {
-  const assertion = createAssertion({ text: input.text, ...(input.kind === undefined ? {} : { kind: input.kind }), ...(input.recallTerms === undefined ? {} : { recallTerms: input.recallTerms }), ...(input.validTime === undefined ? {} : { validTime: input.validTime }), sources }, randomUUID(), now);
+  const assertion = createAssertion({ ...(input.factIdentity === undefined ? {} : { factIdentity: input.factIdentity }), text: input.text, ...(input.kind === undefined ? {} : { kind: input.kind }), ...(input.recallTerms === undefined ? {} : { recallTerms: input.recallTerms }), ...(input.validTime === undefined ? {} : { validTime: input.validTime }), sources }, randomUUID(), now);
   const record: MemoryRecord = { id: randomUUID(), revision: 1, scope: input.scope ?? { kind: "workspace" }, pinned: input.pinned ?? false, status: input.status ?? (input.enabled === false ? "disabled" : "active"), expiresAt: input.expiresAt ?? null, createdAt: now, updatedAt: now, assertions: [assertion], historyCoverage: "complete", versions: [] };
   record.versions.push(recordVersion(record, assertion.assertionId));
   return record;
@@ -716,13 +764,17 @@ function newRecord(input: MemoryAddInput, now: string, sources: MemorySource[] =
 function applyCandidateRevision(record: MemoryRecord, candidate: MemoryCandidate, now: string, generateId = randomUUID): void {
   const change = candidate.change;
   if (change.operation === "add") raise("MEMORY_BATCH_INVALID", "Revision requires an existing record");
+  const previous = projectRecord(record, new Date(now)).assertion;
+  if ("factIdentity" in change && change.factIdentity && previous?.factIdentity && !sameFactSlot(previous.factIdentity, change.factIdentity)) raise("MEMORY_BATCH_INVALID", "Target identity attribute/scenario cannot change");
+  if ("reuseSources" in change && change.reuseSources && !sameFact(previous?.factIdentity, change.factIdentity)) raise("MEMORY_BATCH_INVALID", "Source reuse cannot change identity or value");
   const revised = change.operation === "disable" ? renewAssertions(record, now) : reviseAssertions(record.assertions, {
-    operation: change.operation === "update" ? "correct" : change.operation,
+    operation: "reuseSources" in change && change.reuseSources ? "support" : change.operation === "update" ? "correct" : change.operation,
     ...(change.operation === "retract" ? {} : { text: change.text }),
     ...("kind" in change && change.kind !== undefined ? { kind: change.kind } : {}),
     ...("recallTerms" in change && change.recallTerms !== undefined ? { recallTerms: change.recallTerms } : {}),
     ...("validTime" in change && change.validTime !== undefined ? { validTime: change.validTime } : {}),
     ...("effectiveAt" in change && change.effectiveAt !== undefined ? { effectiveAt: change.effectiveAt } : {}),
+    ...("factIdentity" in change && change.factIdentity !== undefined ? { factIdentity: change.factIdentity } : {}),
     sources: structuredClone(candidate.sources ?? [candidate.source]),
   }, now, generateId);
   record.assertions = revised.assertions;
@@ -735,8 +787,13 @@ function applyCandidateRevision(record: MemoryRecord, candidate: MemoryCandidate
 function acceptCandidate(document: MemoryDocument, candidate: MemoryCandidate, now: Date): void {
   const change = candidate.change;
   if (change.operation === "add") {
+    if (change.factIdentity && document.entries.some(record => {
+      const current = projectRecord(record, now);
+      return current.enabled && JSON.stringify(record.scope) === JSON.stringify(change.scope) && sameFactSlot(current.assertion?.factIdentity, change.factIdentity);
+    })) raise("MEMORY_REVISION_CONFLICT", "An identified fact already occupies this attribute/scenario; review a revision, not a second add");
     if (document.entries.length >= MEMORY_MAX_ENTRIES) raise("MEMORY_LIMIT_EXCEEDED", "Memory entry limit exceeded");
     const entry = newRecord({ text: change.text, scope: structuredClone(change.scope), expiresAt: change.expiresAt,
+      ...(change.factIdentity === undefined ? {} : { factIdentity: change.factIdentity }),
       ...(change.kind === undefined ? {} : { kind: change.kind }), ...(change.recallTerms === undefined ? {} : { recallTerms: change.recallTerms }), ...(change.validTime === undefined ? {} : { validTime: change.validTime }),
     }, now.toISOString(), structuredClone(candidate.sources ?? [candidate.source]));
     document.entries.push(entry); candidate.appliedResult = { memoryId: entry.id, revision: 1 };
@@ -882,10 +939,11 @@ export function validateMemoryDocument(value: unknown): MemoryDocument {
   const full = value as Record<string, unknown>;
   const candidates = version >= 3 ? validateCandidates(full.candidates) : [];
   const consolidationCursors = version >= 3 ? validateCursors(full.consolidationCursors) : [];
-  const stamps = [...entries.map((entry) => entry.updatedAt), ...candidates.flatMap((candidate) => [candidate.createdAt, candidate.resolvedAt]), ...consolidationCursors.map((cursor) => cursor.updatedAt)].filter((stamp): stamp is string => stamp !== null);
+  const consolidationReceipts = full.consolidationReceipts === undefined ? undefined : validateConsolidationReceipts(full.consolidationReceipts);
+  const stamps = [...entries.map((entry) => entry.updatedAt), ...candidates.flatMap((candidate) => [candidate.createdAt, candidate.resolvedAt]), ...consolidationCursors.map((cursor) => cursor.updatedAt), ...(consolidationReceipts ?? []).map(receipt => receipt.committedAt)].filter((stamp): stamp is string => stamp !== null);
   const lastWrittenAt = version === 4 ? validateTimestamp(full.lastWrittenAt, "Memory lastWrittenAt") : stamps.sort((a, b) => Date.parse(b) - Date.parse(a))[0] ?? null;
   if (version === 4 && stamps.some((stamp) => lastWrittenAt === null || Date.parse(stamp) > Date.parse(lastWrittenAt))) raise("MEMORY_FILE_INVALID", "Memory commit timestamp precedes recorded state");
-  return { version: 4, lastWrittenAt, entries, candidates, consolidationCursors };
+  return { version: 4, lastWrittenAt, entries, candidates, consolidationCursors, ...(consolidationReceipts === undefined ? {} : { consolidationReceipts }) };
 }
 
 function memoryMessageText(entries: readonly MemoryEntry[]): string {
@@ -1041,6 +1099,14 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
     } catch (error) { return errorResult(error, signal, false); }
   }
 
+  async getConsolidationReceipt(threadId: string, signal: AbortSignal = neverAborted): Promise<MemoryResult<ConsolidationReceipt | null>> {
+    try {
+      const document = await this.#load(signal);
+      const receipt = document.consolidationReceipts?.find(receipt => receipt.threadId === threadId);
+      return { ok: true, value: receipt ? structuredClone(receipt) : null };
+    } catch (error) { return errorResult(error, signal, false); }
+  }
+
   async getCandidate(id: string, signal: AbortSignal = neverAborted, options?: MemoryWriteOptions): Promise<MemoryResult<CandidatePreview>> {
     try {
       const threadId = candidateThread(options);
@@ -1092,9 +1158,18 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
       const indexes = input.autoAcceptIndexes ?? [];
       if (!Array.isArray(indexes) || indexes.some(index => !Number.isSafeInteger(index) || index < 0 || index >= drafts.length) || new Set(indexes).size !== indexes.length) raise("MEMORY_BATCH_INVALID", "Automatic acceptance indexes must name unique prepared drafts");
       const cursor = input.nextCursor === null ? null : validateCursor(input.nextCursor);
-      const expectedCursor = cursor && input.expectedCursor !== null ? validateCursor(input.expectedCursor) : null;
+      const expectedCursor = input.expectedCursor !== null ? validateCursor(input.expectedCursor) : null;
+      const outcomes = input.outcomes === undefined ? undefined : validateConsolidationOutcomes(input.outcomes);
+      const sourcePrefix = input.sourcePrefix === undefined ? null : validateConsolidationSourcePrefix(input.sourcePrefix);
+      const firstDeferred = outcomes?.findIndex(outcome => outcome.status === "deferred") ?? -1;
+      const processedCount = outcomes === undefined ? 0 : firstDeferred < 0 ? outcomes.length : firstDeferred;
+      if (outcomes !== undefined && cursor && cursor.throughMessageId !== outcomes[processedCount - 1]?.messageId) raise("MEMORY_BATCH_INVALID", "Cursor must stop at the completed contiguous source prefix");
+      if (input.incremental !== undefined && input.incremental !== true) raise("MEMORY_BATCH_INVALID", "Invalid incremental lifecycle flag");
+      if (input.incremental && outcomes !== undefined && (outcomes.length > 0 ? sourcePrefix?.throughMessageId !== outcomes.at(-1)?.messageId : sourcePrefix !== null)) raise("MEMORY_BATCH_INVALID", "Incremental coverage must bind the exact prepared prefix");
+      if (cursor && sourcePrefix && cursor.throughMessageId === sourcePrefix.throughMessageId && cursor.prefixHash !== sourcePrefix.prefixHash) raise("MEMORY_BATCH_INVALID", "Cursor and coverage disagree on the source prefix");
+      const payloadHash = createHash("sha256").update(JSON.stringify([drafts, expectedCursor, cursor, indexes, outcomes, input.incremental, sourcePrefix])).digest("hex");
       if (cursor && (cursor.threadId !== threadId || cursor.lastBatchId !== input.batchId)) raise("MEMORY_BATCH_INVALID", "Cursor must match batch and Thread");
-      if (automatic && cursor === null) raise("MEMORY_BATCH_INVALID", "Automatic acceptance requires an incremental cursor");
+      if (automatic && cursor === null && (outcomes === undefined || !input.incremental)) raise("MEMORY_BATCH_INVALID", "Automatic acceptance requires an incremental cursor or validated incremental coverage");
       const value = await this.#mutateDocument<CandidateBatchResult>(signal, (document, now) => {
         const summarize = (ids: string[], replayed: boolean): CandidateBatchResult => ({ candidateIds: ids, replayed,
           ...(automatic ? {
@@ -1103,6 +1178,11 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
           } : {}),
         });
         const existingCursor = document.consolidationCursors.find((c) => c.threadId === threadId) ?? null;
+        const existingReceipt = document.consolidationReceipts?.find(receipt => receipt.threadId === threadId && receipt.batchId === input.batchId);
+        if (existingReceipt) {
+          if (existingReceipt.payloadHash !== payloadHash) raise("MEMORY_BATCH_INVALID", "Batch replay coverage or proposals differ");
+          return { document, unchanged: true, value: summarize(existingReceipt.candidateIds, true) };
+        }
         const existingBatch = document.candidates.filter((c) => c.batchId === input.batchId && c.originThreadId === threadId);
         if (existingCursor?.lastBatchId === input.batchId || existingBatch.length > 0) {
           if (cursor && JSON.stringify(existingCursor) !== JSON.stringify(cursor)) raise("MEMORY_BATCH_INVALID", "Batch replay payload differs");
@@ -1115,7 +1195,7 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
           })])];
           return { document, unchanged: true, value: summarize(ids, true) };
         }
-        if (cursor && JSON.stringify(existingCursor) !== JSON.stringify(expectedCursor)) raise("MEMORY_CURSOR_MISMATCH", "Consolidation cursor changed since prepare");
+        if ((cursor || automatic || input.incremental) && JSON.stringify(existingCursor) !== JSON.stringify(expectedCursor)) raise("MEMORY_CURSOR_MISMATCH", "Consolidation cursor changed since prepare");
         const added: string[] = [];
         const originalCandidateCount = document.candidates.length;
         const toAccept: MemoryCandidate[] = [];
@@ -1150,7 +1230,12 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
           document.consolidationCursors.push(cursor);
           if (document.consolidationCursors.length > MEMORY_CURSORS_MAX) raise("MEMORY_LIMIT_EXCEEDED", "Consolidation cursor limit exceeded");
         }
-        return { document, unchanged: cursor === null && document.candidates.length === originalCandidateCount, value: summary };
+        if (outcomes !== undefined && input.incremental) {
+          document.consolidationReceipts = (document.consolidationReceipts ?? []).filter(receipt => receipt.threadId !== threadId);
+          document.consolidationReceipts.push({ threadId, batchId: input.batchId, payloadHash, outcomes, processedCount, sourcePrefix, candidateIds: summary.candidateIds, committedAt: now.toISOString() });
+          if (document.consolidationReceipts.length > MEMORY_CURSORS_MAX) raise("MEMORY_LIMIT_EXCEEDED", "Consolidation receipt limit exceeded");
+        }
+        return { document, unchanged: !(outcomes !== undefined && input.incremental) && cursor === null && document.candidates.length === originalCandidateCount, value: summary };
       }, options?.commitClock ?? options?.now);
       return { ok: true, value };
     } catch (error) { return errorResult(error, signal, true); }

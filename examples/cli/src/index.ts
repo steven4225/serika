@@ -60,7 +60,7 @@ try {
       ...(app.memoryConsolidation ? { memoryConsolidation: app.memoryConsolidation } : {}),
       ...(app.getMemoryConsolidationBacklog ? { getMemoryConsolidationBacklog: app.getMemoryConsolidationBacklog } : {}),
       ...(app.autoConsolidationAgentId
-        ? { autoConsolidationAgentId: app.autoConsolidationAgentId }
+        ? { autoConsolidationAgentId: app.autoConsolidationAgentId, ...(app.hostConsolidationExtraction ? { hostConsolidationExtraction: true as const } : {}) }
         : {}),
     });
   } else {

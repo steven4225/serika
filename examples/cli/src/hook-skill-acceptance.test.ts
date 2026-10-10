@@ -20,12 +20,12 @@ const SAVED_PREFERENCE = "复盘先结论，再给两条步骤。";
 const TEXT_INSTRUCTIONS = "CUSTOM_TEXT_SKILL: Return one concise sentence for supplied input only.";
 const MEMORY_INSTRUCTIONS = "CUSTOM_MEMORY_SKILL: Prepare committed incremental sources once; stage only exact user quotes once, then finish.";
 
-function response(toolName?: string, input?: unknown) {
+function response(toolName?: string, input?: unknown, text = "完成。") {
   return { stream: simulateReadableStream({ chunks: [
     { type: "stream-start" as const, warnings: [] },
     ...(toolName ? [{ type: "tool-call" as const, toolCallId: toolName, toolName, input: JSON.stringify(input) }] : [
       { type: "text-start" as const, id: "answer" },
-      { type: "text-delta" as const, id: "answer", delta: "完成。" },
+      { type: "text-delta" as const, id: "answer", delta: text },
       { type: "text-end" as const, id: "answer" },
     ]),
     { type: "finish" as const, finishReason: { unified: toolName ? "tool-calls" as const : "stop" as const, raw: undefined }, usage: {
@@ -37,6 +37,9 @@ function response(toolName?: string, input?: unknown) {
 
 interface PreparedMaterial { batchId: string; turns: Array<{ user: { messageId: string; text: string } }> }
 function preparedMaterial(value: unknown): PreparedMaterial | undefined {
+  if (typeof value === "string" && value.includes('"turns":')) {
+    try { return preparedMaterial(JSON.parse(value.slice(value.indexOf("\n{") + 1))); } catch { return undefined; }
+  }
   if (typeof value !== "object" || value === null) return undefined;
   const record = value as Record<string, unknown>;
   if (typeof record.batchId === "string" && Array.isArray(record.turns)) return record as unknown as PreparedMaterial;
@@ -54,11 +57,13 @@ function stageResponse(options: ModelOptions, sourceText = PREFERENCE, override 
   assert.ok(material, "actual prepare tool output must reach the next model step");
   const source = material.turns.find(turn => turn.user.text === sourceText)?.user;
   assert.ok(source, "proposal must use a committed user source from the prepared material");
-  return response("memory_stage_candidates", { batchId: material.batchId, proposals: [{
+  const payload = { batchId: material.batchId, outcomes: material.turns.map(turn => ({ messageId: turn.user.messageId,
+    status: turn.user.messageId === source.messageId ? "extracted" : "no_memory" })), proposals: [{
     action: "add", text: SAVED_PREFERENCE, kind: "preference", scope: { kind: "workspace" },
     sourceMessageId: source.messageId, sourceQuote: sourceText, reason: "用户明确长期偏好",
     eligibility: "durable_self_statement", ...override,
-  }] });
+  }] };
+  return options.tools?.length ? response("memory_stage_candidates", payload) : response(undefined, undefined, JSON.stringify(payload));
 }
 
 async function settle(controller: AssistantController) {
@@ -116,8 +121,12 @@ test("explicit hooks: [] disables followups but manual memory Skill saves, persi
   let calls = 0;
   const model = new MockLanguageModelV3({ doStream: async options => {
     calls += 1;
-    if (calls === 2) return response("memory_prepare_consolidation", { mode: "incremental" });
-    if (calls === 3) return stageResponse(options);
+    if (calls === 2) {
+      assert.equal(options.tools?.length ?? 0, 0);
+      assert.equal(options.prompt.filter(message => message.role === "assistant").length, 0);
+      assert.equal(options.prompt.filter(message => message.role === "user").length, 1);
+      return stageResponse(options);
+    }
     return response();
   } });
   try {
@@ -149,7 +158,7 @@ test("explicit hooks: [] disables followups but manual memory Skill saves, persi
     assert.equal(saved.entries[0]!.source?.kind, "conversation");
     const cursor = await app.memoryStore!.getConsolidationCursor(app.threadId);
     assert.ok(cursor.ok && cursor.value);
-    assert.equal(calls, 4, "memory completion must not recursively fire primary.completed");
+    assert.equal(calls, 2, "one extraction must not recursively fire primary.completed or request a second model step");
     const document = JSON.parse(await readFile(join(f.workspace, ".runloom", "memory.json"), "utf8"));
     assert.equal(document.version, 4);
     await controller.shutdown();
@@ -168,11 +177,10 @@ test("empty startup backlog emits no running state or model request and admits i
   let calls = 0;
   const model = new MockLanguageModelV3({ doStream: async options => {
     calls += 1;
-    if (calls === 1) return response("memory_prepare_consolidation", { mode: "incremental" });
-    if (calls === 2) {
+    if (calls === 1) {
       const batch = preparedMaterial(options.prompt); assert.ok(batch);
       assert.deepEqual(batch.turns, []);
-      return response("memory_stage_candidates", { batchId: batch.batchId, proposals: [] });
+      return response(undefined, undefined, JSON.stringify({ batchId: batch.batchId, proposals: [], outcomes: [] }));
     }
     return response();
   } });
@@ -204,7 +212,7 @@ test("empty startup backlog emits no running state or model request and admits i
     assert.equal((await controller.getRun(manual.value.runId))?.status, "completed");
     assert.ok((await controller.run("A new ordinary chat", { memoryConsolidation: "exclude" })).ok);
     await settle(controller);
-    assert.equal(calls, 4);
+    assert.equal(calls, 2);
     assert.equal(controller.getSnapshot().lastPrimaryResult?.status, "completed");
   } finally { await controller?.shutdown(); await f.cleanup(); }
 });
@@ -392,9 +400,7 @@ test("program opt-out survives JSONL and an invalid excluded source cannot advan
   let calls = 0, invalidSource = true, excludedId = "";
   const model = new MockLanguageModelV3({ doStream: async options => {
     calls += 1;
-    const step = calls - 2;
-    if (step === 1 || step === 4) return response("memory_prepare_consolidation", { mode: "incremental" });
-    if (step === 2 || step === 5) {
+    if (calls > 2) {
       const material = preparedMaterial(options.prompt); assert.ok(material);
       assert.equal(material.turns.some(turn => turn.user.text.includes("OPT_OUT_PRIVATE")), false);
       return stageResponse(options, PREFERENCE, invalidSource ? { sourceMessageId: excludedId, sourceQuote: "OPT_OUT_PRIVATE" } : {});
@@ -433,7 +439,7 @@ test("program opt-out survives JSONL and an invalid excluded source cannot advan
 });
 
 test("model failure after staging is not a successful memory Skill commit; retry still processes the source", async () => {
-  const f = await fixture();
+  const f = await fixture([], true, "memory-consolidate");
   let calls = 0;
   const model = new MockLanguageModelV3({ doStream: async options => {
     calls += 1;
@@ -445,8 +451,8 @@ test("model failure after staging is not a successful memory Skill commit; retry
   try {
     const { app, controller } = await f.open(model);
     assert.ok((await controller.run(PREFERENCE)).ok); await settle(controller);
-    const hash = await skillHash(controller, "memory-consolidate");
-    const failed = await controller.runSkill({ id: "memory-consolidate", expectedHash: hash }); assert.ok(failed.ok);
+    const hash = await skillHash(controller, "memory-custom");
+    const failed = await controller.runSkill({ id: "memory-custom", expectedHash: hash }); assert.ok(failed.ok);
     await settle(controller);
     assert.equal((await controller.getRun(failed.value.runId))?.status, "failed");
     assert.equal(controller.getAutomationDiagnostics().recent.find(item => item.runId === failed.value.runId)?.status, "failed");
@@ -456,7 +462,7 @@ test("model failure after staging is not a successful memory Skill commit; retry
     assert.deepEqual(await reopened.list(), { ok: true, entries: [] });
     const candidates = await controller.listMemoryCandidates(); assert.ok(candidates.ok);
     assert.deepEqual(candidates.value.candidates, []);
-    const retry = await controller.runSkill({ id: "memory-consolidate", expectedHash: hash }); assert.ok(retry.ok);
+    const retry = await controller.runSkill({ id: "memory-custom", expectedHash: hash }); assert.ok(retry.ok);
     await settle(controller);
     assert.equal((await controller.getRun(retry.value.runId))?.status, "completed");
     const saved = await reopened.list(); assert.ok(saved.ok);

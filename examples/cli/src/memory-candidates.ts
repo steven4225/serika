@@ -1,9 +1,10 @@
 import { createHash } from "node:crypto";
 import type { MemoryEntry, MemoryScope, MemorySource } from "./memory-store.js";
 import type { MemoryKind, MemoryValidTime } from "./memory-temporal.js";
+import type { MemoryFactIdentity } from "./memory-fact-identity.js";
 
 export type MemoryResult<T> = { ok: true; value: T } | { ok: false; error: { code: string; message: string } };
-type CandidateFact = { kind?: MemoryKind; recallTerms?: string[]; validTime?: MemoryValidTime };
+type CandidateFact = { kind?: MemoryKind; recallTerms?: string[]; validTime?: MemoryValidTime; factIdentity?: MemoryFactIdentity; reuseSources?: true };
 type CandidateTarget = { memoryId: string; expectedRevision: number; text: string; expiresAt: string | null };
 export type CandidateChange =
   | ({ operation: "add"; text: string; scope: MemoryScope; expiresAt: string | null } & CandidateFact)
@@ -27,6 +28,17 @@ export interface MemoryCandidate extends CandidateDraft {
 export interface ConsolidationCursor {
   threadId: string; throughMessageId: string; prefixHash: string; lastBatchId: string; updatedAt: string;
 }
+export interface ConsolidationOutcome {
+  messageId: string;
+  status: "extracted" | "no_memory" | "deferred";
+}
+/** Latest bounded coverage receipt per Thread, committed with candidates and cursor. */
+export interface ConsolidationReceipt {
+  threadId: string; batchId: string; payloadHash: string; outcomes: ConsolidationOutcome[];
+  processedCount: number; committedAt: string;
+  sourcePrefix: { throughMessageId: string; prefixHash: string } | null;
+  candidateIds: string[];
+}
 export interface CandidatePage { candidates: MemoryCandidate[]; nextOffset: number | null; truncated: boolean }
 export interface CandidatePreview {
   candidate: MemoryCandidate;
@@ -44,6 +56,11 @@ export interface CandidateBatchInput {
   expectedCursor: ConsolidationCursor | null; nextCursor: ConsolidationCursor | null;
   /** Trusted application policy only; the model stage tool never accepts this field. */
   autoAcceptIndexes?: number[];
+  /** Host-validated source coverage. Missing on older/manual callers. */
+  outcomes?: ConsolidationOutcome[];
+  /** Trusted lifecycle flag; selected history never overwrites incremental retry coverage. */
+  incremental?: true;
+  sourcePrefix?: ConsolidationReceipt["sourcePrefix"];
 }
 export interface CandidateBatchResult {
   /** All retained proposal identities, including existing reviews reused by deduplication. */
@@ -61,6 +78,10 @@ export const MEMORY_CURSORS_MAX = 1024;
 /** Fixed field ordering; scope is program-bound before this hash is calculated. */
 export function candidateFingerprint(originThreadId: string, draft: CandidateDraft): string {
   const change = draft.change;
+  if ("factIdentity" in change || "reuseSources" in change) {
+    const { factIdentity, reuseSources, ...legacyChange } = change;
+    return createHash("sha256").update(JSON.stringify(["runloom-memory-candidate/v3", candidateFingerprint(originThreadId, { ...draft, change: legacyChange }), factIdentity ?? null, reuseSources ?? false])).digest("hex");
+  }
   if (draft.sources !== undefined || change.operation !== "add" && change.operation !== "update" || "kind" in change || "recallTerms" in change || "validTime" in change || "effectiveAt" in change) {
     return createHash("sha256").update(JSON.stringify([
       "runloom-memory-candidate/v2", originThreadId,

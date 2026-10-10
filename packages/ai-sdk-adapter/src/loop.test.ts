@@ -348,6 +348,19 @@ describe("AiSdkAgentLoop", () => {
     );
   });
 
+  it("does not retry a host-declared one-shot Agent even for an empty transient failure", async () => {
+    let calls = 0;
+    const events: AgentEvent[] = [];
+    const model = new MockLanguageModelV3({ doStream: async () => { calls++; throw apiError(503); } });
+    const loop = new AiSdkAgentLoop({ models: new InMemoryModelRegistry({ test: model }), tools: new ToolRegistry(),
+      modelRetryDelaysMs: [0, 0], modelRetryDisabledAgentIds: [definition.id] });
+    await assert.rejects(loop.execute({ definition: { ...definition, tools: [], limits: { ...definition.limits, maxSteps: 1 } },
+      messages: [userMessage()], signal: new AbortController().signal, generateId: () => "assistant-1", emit: createEmit(events),
+    }), error => error instanceof AgentError && error.data.code === "MODEL_UNAVAILABLE");
+    assert.equal(calls, 1);
+    assert.equal(events.some(event => event.type === "model.retry.scheduled"), false);
+  });
+
   it("keeps model retries disabled unless the caller opts in", async () => {
     let modelCalls = 0;
     const events: AgentEvent[] = [];

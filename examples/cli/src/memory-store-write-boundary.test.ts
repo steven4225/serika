@@ -20,8 +20,11 @@ async function fixture() {
 const options = { boundThreadId: "commit-thread", now: new Date("2026-10-04T00:00:00Z") };
 function automaticBatch(): CandidateBatchInput {
   return {
+    incremental: true,
+    outcomes: [{ messageId: "user-auto", status: "extracted" }],
+    sourcePrefix: { throughMessageId: "user-auto", prefixHash: "a".repeat(64) },
     batchId: "auto-commit", originThreadId: options.boundThreadId, expectedCursor: null,
-    nextCursor: { threadId: options.boundThreadId, throughMessageId: "user-auto", prefixHash: "user-prefix", lastBatchId: "auto-commit", updatedAt: options.now.toISOString() },
+    nextCursor: { threadId: options.boundThreadId, throughMessageId: "user-auto", prefixHash: "a".repeat(64), lastBatchId: "auto-commit", updatedAt: options.now.toISOString() },
     candidates: [{ change: { operation: "add", text: "ordinary preference", kind: "preference", scope: { kind: "workspace" }, expiresAt: null }, source: { kind: "conversation", threadId: options.boundThreadId, messageId: "user-auto", quote: "ordinary preference" }, reason: "explicit lasting self statement" }],
     autoAcceptIndexes: [0],
   };
@@ -62,10 +65,12 @@ for (const boundary of ["before-rename", "after-rename"] as const) {
       if (boundary === "before-rename") {
         assert.equal(current, original); assert.equal(document.entries.length, 1);
         assert.deepEqual(document.candidates, []); assert.deepEqual(document.consolidationCursors, []);
+        assert.equal(document.consolidationReceipts, undefined);
       } else {
         assert.equal(document.entries.length, 2); assert.equal(document.candidates[0].status, "accepted");
         assert.equal(document.candidates[0].appliedResult.memoryId, document.entries[1].id);
         assert.equal(document.consolidationCursors[0].lastBatchId, input.batchId);
+        assert.deepEqual(document.consolidationReceipts[0].outcomes, input.outcomes);
         const replay = await createMemoryStore(root).commitCandidateBatch(input, undefined, options); assert.ok(replay.ok);
         assert.equal(replay.value.replayed, true); assert.equal(replay.value.accepted?.length, 1);
         assert.equal(await readFile(file, "utf8"), current);
@@ -97,6 +102,7 @@ it("automatic commit uncertainty retains formal fact, receipt and cursor; reread
   const document = JSON.parse(original);
   assert.equal(document.entries.length, 1); assert.equal(document.candidates[0].status, "accepted");
   assert.equal(document.consolidationCursors[0].lastBatchId, input.batchId);
+  assert.deepEqual(document.consolidationReceipts[0].outcomes, input.outcomes);
   const reopened = createMemoryStore(root);
   const replay = await reopened.commitCandidateBatch(input, undefined, options); assert.ok(replay.ok);
   assert.equal(replay.value.replayed, true); assert.equal(replay.value.accepted?.length, 1);

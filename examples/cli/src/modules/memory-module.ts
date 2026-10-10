@@ -51,13 +51,14 @@ const memorySourceSchema = z.discriminatedUnion("kind", [
 ]);
 const validTimeSchema = z.object({ from: z.string().nullable(), to: z.string().nullable(), basis: z.enum(["explicit", "reported", "unknown"]) }).strict();
 const memoryKindSchema = z.enum(["preference", "fact", "event", "note"]);
+const factIdentitySchema = z.object({ attribute: z.enum(["response_language", "review_format", "coffee", "residence"]), scenario: z.enum(["general", "work", "personal"]), value: z.string().min(1).refine(value => Buffer.byteLength(value) <= 96) }).strict();
 const factFields = { kind: memoryKindSchema.optional(), recallTerms: z.array(z.string().min(1).refine(value => Buffer.byteLength(value) <= 96)).max(3).optional(), validTime: validTimeSchema.optional() };
 const changeFactFields = { kind: factFields.kind, recallTerms: factFields.recallTerms };
 const sourceIdentifierSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("manual") }), z.object({ kind: z.literal("legacy") }),
   z.object({ kind: z.literal("conversation"), threadId: z.string(), messageId: z.string() }),
 ]);
-const assertionSchema = z.object({ assertionId: z.string(), text: z.string(), kind: memoryKindSchema, recallTerms: z.array(z.string()), validTime: validTimeSchema, systemTime: z.object({ from: z.string().nullable(), to: z.string().nullable() }), state: z.enum(["asserted", "retracted"]), sources: z.array(memorySourceSchema) });
+const assertionSchema = z.object({ factIdentity: factIdentitySchema.optional(), assertionId: z.string(), text: z.string(), kind: memoryKindSchema, recallTerms: z.array(z.string()), validTime: validTimeSchema, systemTime: z.object({ from: z.string().nullable(), to: z.string().nullable() }), state: z.enum(["asserted", "retracted"]), sources: z.array(memorySourceSchema) });
 const memoryEntrySchema = z.object({
   assertion: assertionSchema.omit({ text: true, sources: true }).extend({ sourceIds: z.array(sourceIdentifierSchema) }).optional(),
   id: z.string(),
@@ -302,10 +303,11 @@ function consolidationInputTooLarge(): AgentError {
 const neverAborted = new AbortController().signal;
 
 const candidateStatusSchema = z.enum(["pending", "accepted", "rejected", "stale"]);
+const candidateFactFields = { factIdentity: factIdentitySchema.optional(), reuseSources: z.literal(true).optional() };
 const candidateChangeSchema = z.discriminatedUnion("operation", [
-  z.object({ operation: z.literal("add"), text: z.string(), scope: memoryScopeSchema, expiresAt: z.string().nullable(), ...factFields }),
-  ...(["update", "correct"] as const).map(operation => z.object({ operation: z.literal(operation), memoryId: z.string(), expectedRevision: z.number().int().positive(), text: z.string(), expiresAt: z.string().nullable(), ...factFields })),
-  z.object({ operation: z.literal("change"), memoryId: z.string(), expectedRevision: z.number().int().positive(), text: z.string(), expiresAt: z.string().nullable(), ...changeFactFields, effectiveAt: z.string() }),
+  z.object({ operation: z.literal("add"), text: z.string(), scope: memoryScopeSchema, expiresAt: z.string().nullable(), ...factFields, factIdentity: factIdentitySchema.optional() }),
+  ...(["update", "correct"] as const).map(operation => z.object({ operation: z.literal(operation), memoryId: z.string(), expectedRevision: z.number().int().positive(), text: z.string(), expiresAt: z.string().nullable(), ...factFields, ...candidateFactFields })),
+  z.object({ operation: z.literal("change"), memoryId: z.string(), expectedRevision: z.number().int().positive(), text: z.string(), expiresAt: z.string().nullable(), ...changeFactFields, factIdentity: factIdentitySchema.optional(), effectiveAt: z.string() }),
   ...(["retract", "disable"] as const).map(operation => z.object({ operation: z.literal(operation), memoryId: z.string(), expectedRevision: z.number().int().positive(), text: z.string(), expiresAt: z.string().nullable() })),
 ]);
 const candidateSchema = z.object({
@@ -343,12 +345,15 @@ const proposalCommon = {
   reason: z.string().min(1),
   eligibility: z.enum(["durable_self_statement", "explicit_request", "needs_review", "ignore"]).optional(),
 };
+const proposalFactFields = { ...factFields, factIdentity: factIdentitySchema.optional() };
+const proposalChangeFactFields = { ...changeFactFields, factIdentity: factIdentitySchema.optional() };
 const candidateStageInputSchema = z.object({
   batchId: z.string().min(1),
+  outcomes: z.array(z.object({ messageId: z.string().min(1), status: z.enum(["extracted", "no_memory", "deferred"]) }).strict()).max(8).optional(),
   proposals: z.array(z.discriminatedUnion("action", [
-    z.object({ action: z.literal("add"), text: z.string().min(1), ...proposalCommon, ...factFields, expiresAt: z.string().nullable().optional(), scope: memoryScopeInputSchema.optional() }).strict(),
-    ...(["update", "correct"] as const).map(action => z.object({ action: z.literal(action), text: z.string().min(1), ...proposalCommon, ...factFields, expiresAt: z.string().nullable().optional(), memoryId: z.string().min(1), expectedRevision: z.number().int().positive() }).strict()),
-    z.object({ action: z.literal("change"), text: z.string().min(1), ...proposalCommon, ...changeFactFields, expiresAt: z.string().nullable().optional(), effectiveAt: z.string(), memoryId: z.string().min(1), expectedRevision: z.number().int().positive() }).strict(),
+    z.object({ action: z.literal("add"), text: z.string().min(1), ...proposalCommon, ...proposalFactFields, expiresAt: z.string().nullable().optional(), scope: memoryScopeInputSchema.optional() }).strict(),
+    ...(["update", "correct"] as const).map(action => z.object({ action: z.literal(action), text: z.string().min(1), ...proposalCommon, ...proposalFactFields, expiresAt: z.string().nullable().optional(), memoryId: z.string().min(1), expectedRevision: z.number().int().positive() }).strict()),
+    z.object({ action: z.literal("change"), text: z.string().min(1), ...proposalCommon, ...proposalChangeFactFields, expiresAt: z.string().nullable().optional(), effectiveAt: z.string(), memoryId: z.string().min(1), expectedRevision: z.number().int().positive() }).strict(),
     ...(["retract", "disable"] as const).map(action => z.object({ action: z.literal(action), text: z.string().min(1).optional(), ...proposalCommon, memoryId: z.string().min(1), expectedRevision: z.number().int().positive() }).strict()),
   ])).max(5),
 }).strict();
