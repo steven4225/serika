@@ -53,7 +53,9 @@ it("physical compact preserves memory cursor, exact quotes and valid summary; re
     const prepared = await consolidation.prepare({ mode: "incremental" }); assert(prepared.ok);
     assert((await consolidation.stage({ batchId: prepared.value.batchId, proposals: [{ action: "add", text: preference,
       sourceMessageId: "u1", sourceQuote: preference, reason: "明确长期偏好", kind: "preference",
-      scope: { kind: "workspace" }, expiresAt: null, eligibility: "durable_self_statement" }] })).ok);
+      scope: { kind: "workspace" }, expiresAt: null, eligibility: "durable_self_statement" }],
+      outcomes: [{ messageId: "u1", status: "extracted" }, { messageId: "u2", status: "no_memory" }],
+    })).ok);
     const finalized = await consolidation.finalize({ status: "completed" }); assert(finalized.ok);
     assert.equal(finalized.value.accepted?.length, 1);
     const memoryFile = join(workspace, ".runloom/memory.json"), originalMemory = await readFile(memoryFile);

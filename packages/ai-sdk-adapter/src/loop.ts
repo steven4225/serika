@@ -23,6 +23,8 @@ export interface AiSdkAgentLoopOptions {
   tools: ToolRegistry;
   /** Delays between model attempts; an empty/omitted value disables retries. */
   modelRetryDelaysMs?: readonly number[];
+  /** Host-owned one-shot workflows may opt out without changing other Agents' policy. */
+  modelRetryDisabledAgentIds?: readonly string[];
 }
 
 interface PendingToolCall {
@@ -413,10 +415,12 @@ export class AiSdkAgentLoop implements AgentLoop {
   readonly #models: ModelRegistry;
   readonly #tools: ToolRegistry;
   readonly #modelRetryDelaysMs: readonly number[];
+  readonly #modelRetryDisabledAgentIds: ReadonlySet<string>;
 
   constructor(options: AiSdkAgentLoopOptions) {
     this.#models = options.models;
     this.#tools = options.tools;
+    this.#modelRetryDisabledAgentIds = new Set(options.modelRetryDisabledAgentIds ?? []);
     this.#modelRetryDelaysMs = options.modelRetryDelaysMs
       ? [...options.modelRetryDelaysMs]
       : [];
@@ -578,6 +582,7 @@ export class AiSdkAgentLoop implements AgentLoop {
             input.definition.limits.stepTimeoutMs,
           );
           const canRetry =
+            !this.#modelRetryDisabledAgentIds.has(input.definition.id) &&
             !attemptHasOutput &&
             failure.data.retryable &&
             attempt < this.#modelRetryDelaysMs.length;

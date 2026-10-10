@@ -6,14 +6,16 @@ import {
   isExactUserQuote, isMemoryConsolidationExcluded, userStartedTurns,
   type ConsolidationTurn, type IncrementalConsolidationTurn,
 } from "./consolidation.js";
-import { candidateFingerprint, type CandidateBatchResult, type CandidateDraft, type ConsolidationCursor, type MemoryResult } from "./memory-candidates.js";
+import { candidateFingerprint, type CandidateBatchResult, type CandidateDraft, type ConsolidationCursor, type ConsolidationOutcome, type MemoryResult } from "./memory-candidates.js";
 import type { MemoryConsolidationEntry, MemoryEntry, WorkspaceMemoryStore } from "./memory-store.js";
 import { rankMemoryEntriesForQuery } from "./memory-retrieval.js";
 import { validateRecallTerms, validateTemporalTimestamp, validateValidTime, type MemoryKind, type MemoryValidTime } from "./memory-temporal.js";
+import { sameFact, sameFactSlot, validateFactIdentity, type MemoryFactIdentity } from "./memory-fact-identity.js";
 
 export const CONSOLIDATION_MATERIAL_MAX_BYTES = 64 * 1024;
 export const CONSOLIDATION_MEMORIES_MAX_BYTES = 24 * 1024;
 export const CONSOLIDATION_MEMORIES_MAX = 20;
+export const CONSOLIDATION_EXTRACTION_MAX_BYTES = 32 * 1024;
 
 /** Explicit history selection is bound by the controller, never chosen by the model. */
 export type MemoryConsolidationRequest =
@@ -42,6 +44,7 @@ export interface MemoryProposal {
   memoryId?: string;
   expectedRevision?: number;
   kind?: MemoryKind;
+  factIdentity?: MemoryFactIdentity;
   recallTerms?: string[];
   validTime?: MemoryValidTime;
   effectiveAt?: string;
@@ -60,7 +63,7 @@ export interface MemoryConsolidation {
   begin(agentId: string, request?: MemoryConsolidationRequest): void;
   canStart(signal?: AbortSignal): Promise<MemoryResult<{ canStart: boolean; pendingCount: number }>>;
   prepare(input: { mode?: "incremental"; turns?: number }, signal?: AbortSignal): Promise<MemoryResult<PreparedBatch>>;
-  stage(input: { batchId: string; proposals: unknown[] }, signal?: AbortSignal): Promise<MemoryResult<{ staged: true; batchId: string; count: number }>>;
+  stage(input: { batchId: string; proposals: unknown[]; outcomes?: unknown }, signal?: AbortSignal): Promise<MemoryResult<{ staged: true; batchId: string; count: number }>>;
   finalize(result: { status: string; consolidationAttempts?: { prepare: number; stage: number } }, signal?: AbortSignal): Promise<MemoryResult<CandidateBatchResult & { processedCount?: number }>>;
   discard(): void;
 }
@@ -75,9 +78,27 @@ interface Batch {
   selected?: OrdinaryTurn[];
   drafts?: CandidateDraft[];
   autoAcceptIndexes?: number[];
+  outcomes?: ConsolidationOutcome[];
+  processedCount?: number;
+  sourcePrefix?: { throughMessageId: string; prefixHash: string } | null;
   expectedCursor?: ConsolidationCursor | null;
   nextCursor?: ConsolidationCursor | null;
   committed?: MemoryResult<CandidateBatchResult>;
+}
+/** Built-in workflow: one tool-free Run; the host prepares and stages, never the model. */
+export async function prepareConsolidationExtraction(service: MemoryConsolidation, message: UIMessage, signal?: AbortSignal): Promise<UIMessage> {
+  const prepared = await service.prepare({ mode: "incremental" }, signal);
+  if (!prepared.ok) throw new Error(`${prepared.error.code}: ${prepared.error.message}`);
+  return { ...message, parts: [{ type: "text", text: "Extract only from this host-prepared material. Return one JSON object with batchId, proposals (at most five), and outcomes (one per source, in order).\n" + JSON.stringify(prepared.value) }] };
+}
+export async function stageConsolidationExtraction(service: MemoryConsolidation, text: string, signal?: AbortSignal): Promise<MemoryResult<{ staged: true; batchId: string; count: number }>> {
+  if (Buffer.byteLength(text) > CONSOLIDATION_EXTRACTION_MAX_BYTES) return fail("MEMORY_BATCH_INVALID", "Extraction exceeds the output budget");
+  let value: unknown;
+  try { value = JSON.parse(text); } catch { return fail("MEMORY_BATCH_INVALID", "Extraction must be a complete JSON object, not prose or a code fence"); }
+  if (!value || typeof value !== "object" || Array.isArray(value)) return fail("MEMORY_BATCH_INVALID", "Invalid extraction object");
+  const input = value as Record<string, unknown>;
+  if (Object.keys(input).some(key => !["batchId", "proposals", "outcomes"].includes(key)) || typeof input.batchId !== "string" || !Array.isArray(input.proposals) || !Array.isArray(input.outcomes)) return fail("MEMORY_BATCH_INVALID", "Extraction requires batchId, proposals and explicit outcomes");
+  return service.stage({ batchId: input.batchId, proposals: input.proposals, outcomes: input.outcomes }, signal);
 }
 const fail = (code: string, message: string): { ok: false; error: { code: string; message: string } } => ({ ok: false, error: { code, message } });
 function aborted(signal?: AbortSignal): void { signal?.throwIfAborted(); }
@@ -162,9 +183,11 @@ function relatedMemories(entries: ConsolidationMemory[], turns: OrdinaryTurn[], 
     return { ...value, relatedAssertions };
   });
   const byId = new Map(material.map((entry) => [entry.id, entry]));
-  const ranked = rankForTurns(material.map((entry) => ({ ...entry,
+  const lexical = rankForTurns(material.map((entry) => ({ ...entry,
     text: [entry.text, ...(entry.assertion?.recallTerms ?? []), ...(entry.relatedAssertions ?? []).flatMap((assertion) => [assertion.text, ...assertion.recallTerms])].join("\n"),
   })), turns).map((entry) => byId.get(entry.id)!);
+  // Small identity-bearing facts must be discoverable even when paraphrases share no lexical tokens.
+  const ranked = [...new Map([...lexical, ...material.filter(entry => entry.assertion?.factIdentity)].map(entry => [entry.id, entry])).values()];
   const selected: ConsolidationMemory[] = [];
   let trimmed = false;
   for (const entry of ranked) {
@@ -174,7 +197,7 @@ function relatedMemories(entries: ConsolidationMemory[], turns: OrdinaryTurn[], 
       candidate = { ...candidate, relatedAssertions: candidate.relatedAssertions!.slice(0, -1) };
       trimmed = true;
     }
-    if (candidate.relatedAssertions?.length === 0 && rankForTurns([candidate], turns).length === 0) continue;
+    if (candidate.relatedAssertions?.length === 0 && !candidate.assertion?.factIdentity && rankForTurns([candidate], turns).length === 0) continue;
     if (Buffer.byteLength(JSON.stringify([...selected, candidate])) <= CONSOLIDATION_MEMORIES_MAX_BYTES) selected.push(candidate);
   }
   return { entries: selected, truncated: trimmed || selected.length < ranked.length };
@@ -198,7 +221,7 @@ function proposalDraft(proposal: unknown, prepared: PreparedBatch, selected: Ord
   const p = proposal as Record<string, unknown>;
   const withdrawal = p.action === "retract" || p.action === "disable";
   const common = ["action", "text", "sourceMessageId", "sourceQuote", "sources", "reason", "eligibility"];
-  const fact = ["kind", "recallTerms", "expiresAt"];
+  const fact = ["kind", "recallTerms", "expiresAt", "factIdentity"];
   const allowed = p.action === "add" ? [...common, ...fact, "validTime", "scope"] :
     withdrawal ? [...common, "memoryId", "expectedRevision"] :
     [...common, ...fact, "memoryId", "expectedRevision", p.action === "change" ? "effectiveAt" : "validTime"];
@@ -224,13 +247,15 @@ function proposalDraft(proposal: unknown, prepared: PreparedBatch, selected: Ord
   const draftSource = sources[0]!;
   if (p.sources !== undefined && (p.sourceMessageId !== undefined || p.sourceQuote !== undefined) && (p.sourceMessageId !== draftSource.messageId || p.sourceQuote !== draftSource.quote)) return fail("MEMORY_SOURCE_INVALID", "Legacy source fields must agree with the first source");
   const provenance = { source: draftSource, ...(p.sources === undefined ? {} : { sources }), reason: p.reason as string };
-  let facts: { kind?: MemoryKind; recallTerms?: string[]; validTime?: MemoryValidTime; effectiveAt?: string } = {};
+  let facts: { kind?: MemoryKind; recallTerms?: string[]; validTime?: MemoryValidTime; effectiveAt?: string; factIdentity?: MemoryFactIdentity } = {};
   let expiry = p.expiresAt as string | null | undefined;
   try {
+    if (p.factIdentity !== undefined) facts.factIdentity = validateFactIdentity(p.factIdentity);
     if (p.kind !== undefined) {
       if (typeof p.kind !== "string" || !["preference", "fact", "event", "note"].includes(p.kind)) return fail("MEMORY_BATCH_INVALID", "Invalid memory kind");
       facts.kind = p.kind as MemoryKind;
     }
+    if (facts.factIdentity !== undefined && p.action === "add" && facts.kind !== "fact" && facts.kind !== "preference") return fail("MEMORY_BATCH_INVALID", "An identified add must be a fact or preference");
     if (p.recallTerms !== undefined) facts.recallTerms = validateRecallTerms(p.recallTerms);
     if (p.validTime !== undefined) {
       if (typeof p.validTime !== "object" || p.validTime === null || Array.isArray(p.validTime) || Object.keys(p.validTime).some((key) => !["from", "to", "basis"].includes(key))) return fail("MEMORY_BATCH_INVALID", "Invalid validTime fields");
@@ -326,6 +351,18 @@ export function createMemoryConsolidation(options: {
       }
       const eligible = all.slice(after + 1).filter((turn) => turn.user.text.trim().length > 0 && !isMemoryConsolidationExcluded(turn.messages[0]!) && (!automatic || !hasMemoryTool(turn.messages)));
       let selected = automatic && cursor.value !== null ? eligible.slice(0, MAX_CONSOLIDATION_TURNS) : eligible.slice(-(input.turns ?? MAX_CONSOLIDATION_TURNS));
+      if (automatic && !history && options.store.getConsolidationReceipt) {
+        const receipt = await options.store.getConsolidationReceipt(options.threadId, signal);
+        if (!receipt.ok) return receipt;
+        const deferred = receipt.value?.outcomes.find(outcome => outcome.status === "deferred")?.messageId;
+        if (deferred) {
+          const prefix = receipt.value!.sourcePrefix;
+          if (!prefix || consolidationPrefixHash(loaded.value, prefix.throughMessageId) !== prefix.prefixHash) return fail("MEMORY_CURSOR_MISMATCH", "Transcript changed since the deferred coverage receipt");
+          const index = eligible.findIndex(turn => turn.user.id === deferred);
+          if (index < 0) return fail("MEMORY_SOURCE_INVALID", "Deferred source is no longer eligible; no cursor was advanced");
+          if (cursor.value === null) selected = eligible.slice(index, index + MAX_CONSOLIDATION_TURNS);
+        }
+      }
       if (history) {
         const valid = validateConsolidationRequest(history);
         if (!valid.ok) return valid;
@@ -346,11 +383,9 @@ export function createMemoryConsolidation(options: {
       if (batch !== run) return fail("MEMORY_BATCH_INVALID", "Consolidation lifecycle changed during preparation");
       aborted(signal);
       run.prepared = material(); run.selected = selected; run.expectedCursor = cursor.value;
-      const last = selected.at(-1)?.user.id ?? all.at(-1)?.user.id;
-      run.nextCursor = automatic && !history && last !== undefined ? {
-        threadId: options.threadId, throughMessageId: last,
-        prefixHash: consolidationPrefixHash(loaded.value, last)!, lastBatchId: batchId, updatedAt: observedAt.toISOString(),
-      } : null;
+      const throughMessageId = selected.at(-1)?.user.id;
+      run.sourcePrefix = throughMessageId ? { throughMessageId, prefixHash: consolidationPrefixHash(loaded.value, throughMessageId)! } : null;
+      run.nextCursor = null; // Reading material is not evidence that it was processed.
       return { ok: true, value: structuredClone(run.prepared) };
     },
     async stage(input, signal) {
@@ -364,26 +399,87 @@ export function createMemoryConsolidation(options: {
       const drafts: CandidateDraft[] = [];
       const automatic = options.writePolicy === "automatic" && consolidationAgents.has(run.agentId) && run.request?.mode !== "history";
       const autoAcceptIndexes: number[] = [];
+      const covered = new Set<string>();
       for (const proposal of input.proposals) {
         const parsed = proposalDraft(proposal, run.prepared, run.selected, loaded.value, options.threadId, now());
         if (!parsed.ok) { run.invalid = true; return parsed; }
-        const eligibility = (proposal as MemoryProposal).eligibility;
+        for (const source of parsed.value.sources ?? [parsed.value.source]) covered.add(source.messageId);
+        let eligibility = (proposal as MemoryProposal).eligibility;
         // Conservative deny probes for recognizable credentials/explicit opt-out phrases.
         // This is not a universal natural-language privacy classifier. Metadata exclusion
         // remains the deterministic opt-out, enforced independently by source validation.
         const sourceText = (parsed.value.sources ?? [parsed.value.source]).map(source => run.selected!.find(turn => turn.user.id === source.messageId)!.user.text).join("\n");
-        const change = parsed.value.change;
+        let change = parsed.value.change;
         const control = change.operation === "retract" || change.operation === "disable";
-        if (eligibility === "ignore" || containsKnownCredentials(`${sourceText}\n${change.text}`) || containsKnownOptOut(sourceText) && !(control && eligibility === "explicit_request")) continue;
+        if (eligibility === "ignore" || containsKnownCredentials(`${sourceText}\n${JSON.stringify(change)}`) || containsKnownOptOut(sourceText) && !(control && eligibility === "explicit_request")) continue;
+        if (change.operation === "add" && change.factIdentity) {
+          const proposed = change;
+          const matches = run.prepared.memories.filter(entry => activeTarget(entry, now()) && entry.enabled &&
+            JSON.stringify(entry.scope ?? { kind: "workspace" }) === JSON.stringify(proposed.scope) &&
+            sameFactSlot(entry.assertion?.factIdentity, proposed.factIdentity));
+          if (matches.length === 1) {
+            const target = matches[0]!;
+            const identical = sameFact(target.assertion?.factIdentity, proposed.factIdentity) &&
+              (proposed.validTime === undefined || JSON.stringify(proposed.validTime) === JSON.stringify(target.assertion!.validTime)) &&
+              ((proposal as MemoryProposal).expiresAt === undefined || proposed.expiresAt === (target.expiresAt ?? null)) &&
+              (proposed.kind === undefined || proposed.kind === target.assertion!.kind);
+            // A synonymous observation retains the old wording/time and adds evidence.
+            // A differing add has no proved correction/change intent: require review.
+            change = { operation: "correct", memoryId: target.id, expectedRevision: target.revision!,
+              text: identical ? target.text : proposed.text,
+              expiresAt: (proposal as MemoryProposal).expiresAt === undefined ? target.expiresAt ?? null : proposed.expiresAt,
+              factIdentity: proposed.factIdentity!, kind: proposed.kind ?? target.assertion!.kind,
+              ...(identical ? { reuseSources: true, validTime: target.assertion!.validTime } : proposed.validTime === undefined ? {} : { validTime: proposed.validTime }) };
+            parsed.value.change = change;
+            if (!identical) eligibility = "needs_review";
+          } else if (matches.length > 1) eligibility = "needs_review";
+        }
+        const repeated = drafts.find(draft => {
+          const other = draft.change;
+          return "factIdentity" in other && "factIdentity" in change && sameFact(other.factIdentity, change.factIdentity) &&
+            (other.operation === "add" && change.operation === "add" && JSON.stringify([other.scope, other.expiresAt, other.kind, other.validTime]) === JSON.stringify([change.scope, change.expiresAt, change.kind, change.validTime]) ||
+              "reuseSources" in other && other.reuseSources && "reuseSources" in change && change.reuseSources && other.operation !== "add" && change.operation !== "add" && other.memoryId === change.memoryId);
+        });
+        if (repeated) {
+          // Consolidate evidence, never fact text. Keep the existing four-source bound.
+          const sources = [...(repeated.sources ?? [repeated.source]), ...(parsed.value.sources ?? [parsed.value.source])]
+            .filter((source, index, all) => all.findIndex(other => JSON.stringify(other) === JSON.stringify(source)) === index);
+          if (sources.length > 4) { run.invalid = true; return fail("MEMORY_BATCH_INVALID", "Repeated fact exceeds four sources; defer remaining observations to a later batch"); }
+          repeated.sources = sources; repeated.source = sources[0]!;
+          // One ambiguous observation must not become automatic through an earlier observation.
+          if (eligibility !== "durable_self_statement" && eligibility !== "explicit_request" || requiresKnownReview(sourceText)) {
+            const index = drafts.indexOf(repeated); const automaticIndex = autoAcceptIndexes.indexOf(index);
+            if (automaticIndex >= 0) autoAcceptIndexes.splice(automaticIndex, 1);
+          }
+          continue;
+        }
         if (drafts.some((draft) => candidateFingerprint(options.threadId, draft) === candidateFingerprint(options.threadId, parsed.value))) { run.invalid = true; return fail("MEMORY_BATCH_INVALID", "Duplicate proposal in one batch"); }
         const kind = "kind" in change && change.kind !== undefined ? change.kind : change.operation === "add" ? undefined : run.prepared.memories.find(entry => entry.id === change.memoryId)?.assertion?.kind;
         const supportedKind = control ? eligibility === "explicit_request" : kind === "preference" || kind === "fact" || eligibility === "explicit_request";
         if (automatic && supportedKind && !requiresKnownReview(sourceText) && (eligibility === "durable_self_statement" || eligibility === "explicit_request")) autoAcceptIndexes.push(drafts.length);
         drafts.push(parsed.value);
       }
+      const outcomes: ConsolidationOutcome[] = [];
+      if (input.outcomes !== undefined && (!Array.isArray(input.outcomes) || input.outcomes.length !== run.selected.length)) { run.invalid = true; return fail("MEMORY_BATCH_INVALID", "Every prepared source requires exactly one ordered outcome"); }
+      for (const [index, selected] of run.selected.entries()) {
+        // Legacy stages may save proposals but cannot attest full source coverage.
+        const raw = input.outcomes === undefined ? { messageId: selected.user.id, status: "deferred" } : (input.outcomes as unknown[])[index];
+        if (!raw || typeof raw !== "object" || Array.isArray(raw)) { run.invalid = true; return fail("MEMORY_BATCH_INVALID", "Invalid source outcome"); }
+        const outcome = raw as Record<string, unknown>;
+        if (Object.keys(outcome).some(key => !["messageId", "status"].includes(key)) || outcome.messageId !== selected.user.id || !["extracted", "no_memory", "deferred"].includes(String(outcome.status)) || outcome.status === "extracted" && !covered.has(selected.user.id) || outcome.status === "no_memory" && covered.has(selected.user.id)) { run.invalid = true; return fail("MEMORY_BATCH_INVALID", "Outcome must match the source and proposal coverage; deferred includes partially extracted sources"); }
+        outcomes.push(outcome as unknown as ConsolidationOutcome);
+      }
+      const firstDeferred = outcomes.findIndex(outcome => outcome.status === "deferred");
+      run.processedCount = firstDeferred < 0 ? outcomes.length : firstDeferred;
+      run.outcomes = outcomes;
+      const last = run.selected[run.processedCount - 1]?.user.id;
+      if (consolidationAgents.has(run.agentId) && run.request?.mode !== "history" && last !== undefined) run.nextCursor = {
+        threadId: options.threadId, throughMessageId: last, prefixHash: consolidationPrefixHash(loaded.value, last)!,
+        lastBatchId: run.prepared.batchId, updatedAt: now().toISOString(),
+      };
       if (batch !== run) return fail("MEMORY_BATCH_INVALID", "Consolidation lifecycle changed during staging");
       run.drafts = drafts;
-      if (automatic && run.nextCursor !== null && run.nextCursor !== undefined) run.autoAcceptIndexes = autoAcceptIndexes;
+      if (automatic) run.autoAcceptIndexes = autoAcceptIndexes;
       return { ok: true, value: { staged: true, batchId: input.batchId, count: drafts.length } };
     },
     async finalize(result, signal) {
@@ -404,6 +500,7 @@ export function createMemoryConsolidation(options: {
         if (source === undefined || source.text !== selected.user.text) return fail("MEMORY_SOURCE_INVALID", "Prepared source changed before candidate commit");
       }
       if (run.nextCursor != null && consolidationPrefixHash(loaded.value, run.nextCursor.throughMessageId) !== run.nextCursor.prefixHash) return fail("MEMORY_CURSOR_MISMATCH", "Transcript prefix changed before candidate commit");
+      if (run.sourcePrefix && consolidationPrefixHash(loaded.value, run.sourcePrefix.throughMessageId) !== run.sourcePrefix.prefixHash) return fail("MEMORY_CURSOR_MISMATCH", "Prepared transcript prefix changed before candidate commit");
       const observedAt = now();
       const listed = await readMaterial(observedAt, signal);
       if (!listed.ok) return listed;
@@ -420,9 +517,12 @@ export function createMemoryConsolidation(options: {
         batchId: run.prepared.batchId, originThreadId: options.threadId, candidates: run.drafts,
         expectedCursor: run.expectedCursor ?? null, nextCursor: run.nextCursor ?? null,
         ...(run.autoAcceptIndexes === undefined ? {} : { autoAcceptIndexes: run.autoAcceptIndexes }),
+        ...(run.outcomes === undefined ? {} : { outcomes: run.outcomes }),
+        ...(consolidationAgents.has(run.agentId) && run.request?.mode !== "history" ? { incremental: true as const } : {}),
+        sourcePrefix: run.sourcePrefix ?? null,
       }, signal, { boundThreadId: options.threadId, ...(options.now === undefined ? {} : { commitClock: options.now }) });
       run.committed = committed;
-      return committed.ok ? { ok: true, value: { ...committed.value, processedCount: run.selected.length } } : committed;
+      return committed.ok ? { ok: true, value: { ...committed.value, processedCount: run.processedCount ?? 0 } } : committed;
     },
   };
 }

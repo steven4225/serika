@@ -19,7 +19,7 @@ import {
   isAutoConsolidationRequest,
 } from "./consolidation.js";
 import { validateWorkspacePath } from "./workspace-path.js";
-import type { MemoryConsolidation } from "./memory-consolidation.js";
+import { prepareConsolidationExtraction, stageConsolidationExtraction, type MemoryConsolidation } from "./memory-consolidation.js";
 import type { MemoryResult } from "./memory-candidates.js";
 import { automaticConsolidationMessage, automaticConsolidationSkip, waitForConsolidationHandoff } from "./consolidation-lifecycle.js";
 
@@ -49,6 +49,7 @@ export interface RunTuiOptions {
   threadId: string;
   agentId: string;
   autoConsolidationAgentId?: string;
+  hostConsolidationExtraction?: true;
   memoryConsolidation?: MemoryConsolidation;
   /** This Thread's eligible committed backlog only; no model or cursor mutation. */
   getMemoryConsolidationBacklog?: () => Promise<MemoryResult<number>>;
@@ -1138,6 +1139,8 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
       options.toolConfirmation?.beginRun();
       options.memoryConsolidation?.begin(agentId);
       try {
+        const hostExtraction = options.hostConsolidationExtraction === true && agentId === AUTO_CONSOLIDATION_AGENT_ID && options.memoryConsolidation !== undefined;
+        if (hostExtraction) message = await prepareConsolidationExtraction(options.memoryConsolidation!, message, signal);
         const handle = await options.runtime.run({
           agentId,
           threadId: options.threadId,
@@ -1159,7 +1162,9 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
         const rendered = await eventsDone;
         if (options.memoryConsolidation) {
           try {
-            const finalized = await options.memoryConsolidation.finalize({ status: result.status, consolidationAttempts: rendered.consolidationAttempts }, signal);
+            const extracted = hostExtraction && result.status === "completed" ? await stageConsolidationExtraction(options.memoryConsolidation, result.text, signal) : undefined;
+            const finalized = extracted && !extracted.ok ? extracted : await options.memoryConsolidation.finalize({ status: result.status,
+              ...(hostExtraction && rendered.consolidationAttempts.prepare === 0 && rendered.consolidationAttempts.stage === 0 ? {} : { consolidationAttempts: rendered.consolidationAttempts }) }, signal);
             if (!finalized.ok) write(output, `\n[memory] ${finalized.error.code === "MEMORY_COMMIT_UNCERTAIN" ? "写入确认不确定，请先读取当前记忆；不能据此判定未保存" : "整理未完成"}：${finalized.error.message}\n`);
             else {
               const pending = finalized.value.pendingCandidateIds ?? finalized.value.candidateIds;

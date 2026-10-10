@@ -1,4 +1,5 @@
 import type { MemorySource } from "./memory-store.js";
+import { validateFactIdentity, type MemoryFactIdentity } from "./memory-fact-identity.js";
 
 export const MEMORY_ASSERTIONS_MAX = 64;
 
@@ -11,6 +12,7 @@ export interface MemoryValidTime {
 }
 
 export interface MemoryAssertion {
+  factIdentity?: MemoryFactIdentity;
   assertionId: string;
   text: string;
   kind: MemoryKind;
@@ -123,6 +125,7 @@ function validateSources(value: unknown): MemorySource[] {
 
 export function validateAssertion(value: unknown): MemoryAssertion {
   const assertion = object(value, "Memory assertion");
+  if (assertion.factIdentity !== undefined && assertion.kind !== "fact" && assertion.kind !== "preference") invalid("Only facts/preferences may carry an attribute identity");
   const text = nonBlank(assertion.text, "Memory assertion text");
   if (Buffer.byteLength(text, "utf8") > 2_048) invalid("Memory assertion text exceeds 2048 UTF-8 bytes");
   const systemTime = object(assertion.systemTime, "Memory systemTime");
@@ -132,6 +135,7 @@ export function validateAssertion(value: unknown): MemoryAssertion {
   if (from !== null && to !== null && Date.parse(from) > Date.parse(to)) invalid("Memory systemTime has inverted boundaries");
   if (assertion.state !== "asserted" && assertion.state !== "retracted") invalid("Memory assertion state must be asserted or retracted");
   return {
+    ...(assertion.factIdentity === undefined ? {} : { factIdentity: validateFactIdentity(assertion.factIdentity) }),
     assertionId: nonBlank(assertion.assertionId, "Memory assertion id"),
     text,
     kind: validateKind(assertion.kind),
@@ -144,6 +148,7 @@ export function validateAssertion(value: unknown): MemoryAssertion {
 }
 
 export interface CreateAssertionInput {
+  factIdentity?: MemoryFactIdentity;
   text: string;
   kind?: MemoryKind;
   recallTerms?: string[];
@@ -153,6 +158,7 @@ export interface CreateAssertionInput {
 
 export function createAssertion(input: CreateAssertionInput, assertionId: string, now: string): MemoryAssertion {
   return validateAssertion({
+    ...(input.factIdentity === undefined ? {} : { factIdentity: input.factIdentity }),
     assertionId,
     text: input.text,
     kind: input.kind ?? "note",
@@ -200,7 +206,8 @@ export function assertTemporalIntegrity(assertions: MemoryAssertion[]): void {
 }
 
 export interface ReviseAssertionsInput {
-  operation: "change" | "correct" | "retract";
+  operation: "change" | "correct" | "retract" | "support";
+  factIdentity?: MemoryFactIdentity;
   text?: string;
   kind?: MemoryKind;
   recallTerms?: string[];
@@ -237,8 +244,8 @@ export function reviseAssertions(assertions: MemoryAssertion[], input: ReviseAss
     const kind = input.kind ?? segment.kind;
     if (kind !== "fact" && kind !== "preference") invalid("A state change must remain a fact or preference");
     additions = [
-      createAssertion({ text: segment.text, kind: segment.kind, recallTerms: segment.recallTerms, validTime: { ...segment.validTime, to: effectiveAt }, sources: segment.sources }, newId(), timestamp),
-      createAssertion({ text: input.text, kind, recallTerms: input.recallTerms ?? segment.recallTerms, validTime: { from: effectiveAt, to: segment.validTime.to, basis: "explicit" }, sources }, newId(), timestamp),
+      createAssertion({ ...segment, text: segment.text, kind: segment.kind, recallTerms: segment.recallTerms, validTime: { ...segment.validTime, to: effectiveAt }, sources: segment.sources }, newId(), timestamp),
+      createAssertion({ ...(input.factIdentity === undefined ? {} : { factIdentity: input.factIdentity }), text: input.text, kind, recallTerms: input.recallTerms ?? segment.recallTerms, validTime: { from: effectiveAt, to: segment.validTime.to, basis: "explicit" }, sources }, newId(), timestamp),
     ];
   } else if (input.operation === "correct") {
     if (input.text === undefined) invalid("A correction requires replacement text");
@@ -246,15 +253,24 @@ export function reviseAssertions(assertions: MemoryAssertion[], input: ReviseAss
     if (recognized.length > 1 && input.validTime === undefined) conflict("Correcting multiple open recognitions requires an explicit replacement validTime");
     additions = [createAssertion({
       text: input.text,
+      ...(input.factIdentity === undefined ? {} : { factIdentity: input.factIdentity }),
       kind: input.kind ?? previous.kind,
       recallTerms: input.recallTerms ?? previous.recallTerms,
       validTime: input.validTime ?? previous.validTime,
       sources,
     }, newId(), timestamp)];
+  } else if (input.operation === "support") {
+    const matches = recognized.filter(assertion => assertion.text === input.text && JSON.stringify(assertion.validTime) === JSON.stringify(input.validTime));
+    if (matches.length !== 1 || input.effectiveAt !== undefined) conflict("Source reuse requires one unchanged applicable assertion");
+    const target = matches[0]!;
+    close = [target];
+    const combined = [...target.sources, ...sources].filter((source, index, all) => all.findIndex(other => JSON.stringify(other) === JSON.stringify(source)) === index);
+    // Old exact evidence remains in historical assertions; retain at most four in the current version.
+    additions = [createAssertion({ ...target, sources: combined.slice(-4) }, newId(), timestamp)];
   } else if (input.operation === "retract") {
     if (input.text !== undefined || input.kind !== undefined || input.recallTerms !== undefined || input.validTime !== undefined || input.effectiveAt !== undefined) invalid("Retraction only withdraws recognition; it cannot replace assertion contents or dates");
     if (recognized.length === 0) conflict("Memory recognition has already been retracted");
-    additions = [{ ...createAssertion({ text: previous.text, kind: previous.kind, recallTerms: previous.recallTerms, validTime: previous.validTime, sources }, newId(), timestamp), state: "retracted" }];
+    additions = [{ ...createAssertion({ ...previous, sources }, newId(), timestamp), state: "retracted" }];
   } else {
     invalid("Memory revision operation must be change, correct, or retract");
   }
