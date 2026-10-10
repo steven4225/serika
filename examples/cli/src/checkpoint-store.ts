@@ -349,7 +349,7 @@ function validateSnapshot(value: unknown): CheckpointSnapshot {
   return snapshot;
 }
 
-function validateDocument(value: unknown): CheckpointDocumentV1 {
+export function validateCheckpointDocument(value: unknown): CheckpointDocumentV1 {
   if (!isRecord(value)) raise("CHECKPOINT_FILE_INVALID", "Checkpoint file must contain a JSON object");
   assertKeys(value, ["schemaVersion", "current", "history"], "checkpoint file", "CHECKPOINT_FILE_INVALID");
   if (value.schemaVersion !== 1) {
@@ -545,7 +545,7 @@ export class WorkspaceCheckpointStoreImpl implements WorkspaceCheckpointStore {
     } catch {
       raise("CHECKPOINT_FILE_INVALID", "Checkpoint file must contain valid JSON");
     }
-    return validateDocument(value);
+    return validateCheckpointDocument(value);
   }
 
   async #inspectRoot(signal: AbortSignal): Promise<void> {

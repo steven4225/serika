@@ -858,7 +858,7 @@ function refreshCandidateTargets(document: MemoryDocument, now: string): void {
   pruneCandidates(document);
 }
 
-function validateDocument(value: unknown): MemoryDocument {
+export function validateMemoryDocument(value: unknown): MemoryDocument {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     raise("MEMORY_FILE_INVALID", "Memory file must contain a JSON object");
   }
@@ -1332,7 +1332,7 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
       document.entries[document.entries.indexOf(record)] = next;
       refreshCandidateTargets(document, stamp);
       document.lastWrittenAt = stamp;
-      validateDocument(document);
+      validateMemoryDocument(document);
       if (Buffer.byteLength(`${JSON.stringify(document)}\n`, "utf8") > MEMORY_FILE_MAX_BYTES) raise("MEMORY_LIMIT_EXCEEDED", "Memory file would exceed the 16 MiB limit");
       const proposedAssertion = next.assertions.find(assertion => assertion.assertionId === next.versions.at(-1)!.assertionId)!;
       const value = { current, proposedAssertion: structuredClone(proposedAssertion) };
@@ -1489,7 +1489,7 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
     } catch {
       raise("MEMORY_FILE_INVALID", "Memory file must contain valid JSON");
     }
-    return validateDocument(value);
+    return validateMemoryDocument(value);
   }
 
   async #mutate<T>(
@@ -1530,7 +1530,7 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
         if (document.lastWrittenAt !== null && Date.parse(stamp) < Date.parse(document.lastWrittenAt)) raise("MEMORY_CLOCK_ROLLBACK", "System clock moved backwards; no Memory write was made");
         document.lastWrittenAt = stamp;
         // Validate the complete prospective file before touching the old one.
-        validateDocument(document);
+        validateMemoryDocument(document);
         await this.#write(document, signal);
         committed = true;
       }

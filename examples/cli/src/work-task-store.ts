@@ -377,7 +377,7 @@ function parseTask(value: unknown): WorkTask {
   return task;
 }
 
-function parseDocument(value: unknown): WorkTaskDocument {
+export function validateWorkTaskDocument(value: unknown): WorkTaskDocument {
   if (!isRecord(value)) raise("WORK_TASK_FILE_INVALID", "Work task file must be an object");
   assertKeys(value, ["version", "tasks"], "document");
   if (value.version !== 1) raise("WORK_TASK_VERSION_UNSUPPORTED", "Unsupported work task version");
@@ -417,7 +417,7 @@ function validateWritableDocument(document: WorkTaskDocument): void {
     }
   }
   // Use the same cross-field validator as the read path before replacing the file.
-  parseDocument(document);
+  validateWorkTaskDocument(document);
 }
 
 class WorkTaskStoreImpl implements WorkTaskStore {
@@ -829,7 +829,7 @@ class WorkTaskStoreImpl implements WorkTaskStore {
       throw error;
     }
     if (!(await this.#inspectOptionalFile(this.#file, "file"))) return { version: 1, tasks: [] };
-    try { return parseDocument(JSON.parse(await readFile(this.#file, "utf8")) as unknown); }
+    try { return validateWorkTaskDocument(JSON.parse(await readFile(this.#file, "utf8")) as unknown); }
     catch (error) {
       if (error instanceof WorkTaskStoreError) throw error;
       if (error instanceof SyntaxError) raise("WORK_TASK_FILE_INVALID", "Work task file contains invalid JSON");

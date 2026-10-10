@@ -1687,6 +1687,9 @@ export function restoreTaskDocument(value: unknown, restoredAt: string): TaskDoc
   return validateDocument(document);
 }
 
+// Backup inspection shares the read contract without creating a Store or writes.
+export { validateDocument as validateTaskDocument };
+
 export function createTaskStore(
   workspace: string,
   options: TaskStoreOptions = {},

@@ -23,7 +23,7 @@ async function fixture() {
   await writeFile(join(transcripts, `${digest("foreign")}.jsonl`), record("foreign", "PRIVATE-FOREIGN") + "\n");
   await writeFile(join(workspace, ".env"), "API_KEY=PRIVATE-CONFIG");
   await writeFile(join(workspace, "project.txt"), "PROJECT-FILE");
-  await writeFile(join(workspace, ".runloom", "memory.json"), JSON.stringify({ version: 4, data: "saved memory" }));
+  await writeFile(join(workspace, ".runloom", "memory.json"), JSON.stringify({ version: 1, entries: [{ id: "saved", text: "saved memory", enabled: true }] }));
   const records = createExecutionRecordStore(transcripts);
   for (const threadId of ["daily", "foreign"]) {
     await records.startRun({ runId: `run-${threadId}`, threadId, phase: "primary", startedAt: new Date(0).toISOString() });
@@ -110,6 +110,86 @@ it("bad hashes, path traversal and mismatched transcript ownership fail before a
       await assert.rejects(restoreBackup(f.destination, f.root));
       assert.deepEqual(await readdir(f.root), entriesBefore);
     }
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
+
+for (const name of ["memory.json", "checkpoint.json", "work-tasks.json", "dreaming.json", "tasks.json", "rss.json", "receipt", "messages", "date"] as const) {
+  it(`rejects invalid ${name} even with a matching hash before preview or recovery writes`, async () => {
+    const f = await fixture();
+    try {
+      await exportBackup(f);
+      const archive = JSON.parse(gunzipSync(await readFile(f.destination)).toString());
+      if (name === "date") archive.createdAt = "not-a-date";
+      else if (name === "receipt") {
+        const entry = archive.entries.find((e: { path: string }) => e.path.startsWith("receipts/"));
+        entry.text = JSON.stringify({ version: 1, runs: [{ threadId: "daily", runId: "bad", status: "completed" }] });
+        entry.sha256 = digest(entry.text);
+      } else if (name === "messages") {
+        const entry = archive.entries.find((e: { path: string }) => e.path.endsWith(".jsonl"));
+        entry.text = JSON.stringify({ v: 1, type: "thread.messages.committed", threadId: "daily", messages: [null] }) + "\n";
+        entry.sha256 = digest(entry.text);
+      } else {
+        archive.entries = archive.entries.filter((e: { path: string }) => e.path !== `workspace/.runloom/${name}`);
+        const text = JSON.stringify({ version: 4, bogus: "hash alone does not prove readable data" });
+        archive.entries.push({ path: `workspace/.runloom/${name}`, text, sha256: digest(text) });
+      }
+      await writeFile(f.destination, gzipSync(JSON.stringify(archive)));
+      const before = await readdir(f.root), bytes = await readFile(f.destination);
+      await assert.rejects(previewBackup(f.destination));
+      await assert.rejects(restoreBackup(f.destination, f.root));
+      assert.deepEqual(await readdir(f.root), before, "validation happens before creating any recovery directory");
+      assert.deepEqual(await readFile(f.destination), bytes);
+    } finally { await rm(f.root, { recursive: true, force: true }); }
+  });
+}
+
+it("refuses corrupt sources instead of exporting a backup that only fails when opened", async () => {
+  const f = await fixture();
+  try {
+    const path = join(f.workspace, ".runloom", "memory.json");
+    await writeFile(path, JSON.stringify({ version: 4, entries: "invalid" }));
+    const bytes = await readFile(path);
+    await assert.rejects(exportBackup(f));
+    await assert.rejects(readFile(f.destination), { code: "ENOENT" });
+    assert.deepEqual(await readFile(path), bytes);
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
+
+it("uses the same complete archive validation at export, including legacy messages and duplicate Thread identities", async () => {
+  const f = await fixture();
+  try {
+    await assert.rejects(exportBackup({ ...f, threads: [...f.threads, ...f.threads] }), /清单无效/);
+    const path = join(f.transcripts, `${digest("daily")}.jsonl`);
+    await writeFile(path, JSON.stringify({ v: 1, threadId: "daily", type: "thread.messages.committed", messages: [null] }) + "\n");
+    const bytes = await readFile(path);
+    await assert.rejects(exportBackup(f), /对话归属或类型无效/);
+    await assert.rejects(readFile(f.destination), { code: "ENOENT" });
+    assert.deepEqual(await readFile(path), bytes);
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
+
+it("rejects valid JSON that exceeds the original Store read limit before preview or recovery writes", async () => {
+  const f = await fixture();
+  try {
+    await exportBackup(f);
+    const archive = JSON.parse(gunzipSync(await readFile(f.destination)).toString());
+    const text = JSON.stringify({ schemaVersion: 1, current: null, history: [] }) + " ".repeat(128 * 1024);
+    archive.entries.push({ path: "workspace/.runloom/checkpoint.json", text, sha256: digest(text) });
+    await writeFile(f.destination, gzipSync(JSON.stringify(archive)));
+    const before = await readdir(f.root);
+    await assert.rejects(previewBackup(f.destination), /读取限额/);
+    await assert.rejects(restoreBackup(f.destination, f.root), /读取限额/);
+    assert.deepEqual(await readdir(f.root), before);
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
+
+it("rejects short configured credentials in assistant text rather than silently exporting them", async () => {
+  const f = await fixture();
+  try {
+    const path = join(f.workspace, ".runloom", "memory.json");
+    await writeFile(path, JSON.stringify({ version: 1, entries: [{ id: "saved", text: "短凭据 k!3x", enabled: true }] }));
+    await assert.rejects(exportBackup({ ...f, knownSecrets: ["k!3x"] }), /凭据/);
+    await assert.rejects(readFile(f.destination), { code: "ENOENT" });
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });
 
