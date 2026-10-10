@@ -44,15 +44,23 @@ it("truncates display metadata without blocking or changing tool receipts", asyn
   assert.equal(run?.trace?.truncated, true);
   assert.equal(run?.tools[0]?.status, "unknown");
 }));
-it("optional trace failures leave a visible gap on next successful write, never weaken dispatch barrier", async () => fixture(async (store, dir) => {
+it("corrupt receipts fail at the trace barrier and leave a visible gap after explicit repair", async () => fixture(async (store, dir) => {
   const file = join(dir, EXECUTION_RECORD_FILE);
   const saved = await readFile(file, "utf8");
   await writeFile(file, "{broken");
-  await store.recordTraceEvent(event("step.started", { stepNumber: 1 }));
+  await assert.rejects(store.recordTraceEvent(event("step.started", { stepNumber: 1 })), /invalid JSON/);
   await assert.rejects(store.recordToolEvent("run", event("tool.call.requested", { toolCallId: "call", toolName: "write_file", input: {} }) as Extract<AgentEvent, { type: "tool.call.requested" }>));
   await writeFile(file, saved);
   await store.finishRun("run", { runId: "run", threadId: "thread", status: "failed", text: "", steps: 0, usage: {} });
   assert.equal((await store.getRun("thread", "run"))?.trace?.incomplete, true);
+}));
+it("invalid optional display metadata is omitted without poisoning sound receipt storage", async () => fixture(async store => {
+  await store.recordTraceEvent(event("step.started", { stepNumber: 0 }));
+  await store.recordToolEvent("run", event("tool.call.requested", { toolCallId: "call", toolName: "read_file", input: {} }, 2) as Extract<AgentEvent, { type: "tool.call.requested" }>);
+  const run = await store.getRun("thread", "run");
+  assert.deepEqual(run?.trace?.events, []);
+  assert.equal(run?.trace?.incomplete, true);
+  assert.equal(run?.tools[0]?.status, "requested");
 }));
 it("old receipts remain readable and malformed traces fail closed", async () => fixture(async (store, dir) => {
   const file = join(dir, EXECUTION_RECORD_FILE);

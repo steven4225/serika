@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { DesktopRuntime } from "./desktop-runtime.js";
 import { resolveDesktopConfig } from "./desktop-config.js";
 import { resolveTuiModuleConfig } from "@aisdk-agent/example-cli/dist/tui-module-config.js";
@@ -8,6 +8,7 @@ import { createResidentService, resolveResidentPaths } from "./resident-service.
 import { residentStartup, saveResidentStartup } from "./resident-startup.js";
 import type { AppInfo } from "../shared/ui-contract.js";
 import type { ResidentServiceState } from "../shared/resident-service.js";
+import { prepareRecoveryProfile, readRecoverySelection, saveRecoverySelection, type RecoverySelection } from "./recovery-profile.js";
 
 type Runtime = DesktopRuntime | (ResidentClient & RemoteRuntimeMethods);
 type Options = Parameters<typeof DesktopRuntime.create>[0] & { home: string; hostEntry: string;
@@ -25,6 +26,9 @@ export class RuntimeOwnership {
   #paths: ResidentPaths;
   #scope: ResidentScope;
   #startup: ReturnType<typeof residentStartup>;
+  #sourceOptions!: Options;
+  #recovery: RecoverySelection | null = null;
+  #restartRequired = false;
   private constructor(private options: Options, scope: ResidentScope) {
     this.#scope = scope;
     const paths = resolveResidentPaths(options.home, scope.workspaceRoot);
@@ -32,11 +36,16 @@ export class RuntimeOwnership {
     this.#startup = residentStartup(options.userData, options.cwd, { ...options.env, RUNLOOM_CONFIG: scope.configPath });
     this.#service = (options.serviceFactory ?? createResidentService)({ home: options.home, workspace: scope.workspaceRoot, hostEntry: options.hostEntry, identityPath: paths.identityPath, env: options.env });
   }
-  static async create(options: Options): Promise<RuntimeOwnership> {
+  static async create(sourceOptions: Options, ignoreRecoverySelection = false): Promise<RuntimeOwnership> {
+    const sourceConfigPath = resolve(sourceOptions.cwd, sourceOptions.env.RUNLOOM_CONFIG?.trim() || join(sourceOptions.userData, "runloom.json"));
+    const explicitIdentity = [sourceOptions.env.RUNLOOM_WORKSPACE, sourceOptions.env.RUNLOOM_THREAD, sourceOptions.env.RUNLOOM_TRANSCRIPTS].some(value => value?.trim());
+    const recovery = ignoreRecoverySelection || explicitIdentity ? null : await readRecoverySelection(sourceOptions.userData, sourceConfigPath);
+    const options = recovery ? { ...sourceOptions, env: { ...sourceOptions.env, RUNLOOM_CONFIG: recovery.configPath, RUNLOOM_WORKSPACE: undefined, RUNLOOM_THREAD: undefined, RUNLOOM_TRANSCRIPTS: undefined } } : sourceOptions;
     const selected = await resolveDesktopConfig(options);
     const config = await resolveTuiModuleConfig({ configPath: selected.configPath }, { cwd: options.cwd });
     if (!config.workspaceRoot || !config.configPath) throw new Error("桌面助手需要固定的工作区与配置");
     const owner = new RuntimeOwnership(options, { userData: options.userData, configPath: config.configPath, workspaceRoot: config.workspaceRoot });
+    owner.#sourceOptions = sourceOptions; owner.#recovery = recovery;
     const state = await owner.#service.status();
     if (!state.ok && process.platform === "darwin") throw new Error(state.message ?? "无法确认助手宿主状态，不会启动第二个执行宿主");
     if (state.registered) {
@@ -57,7 +66,8 @@ export class RuntimeOwnership {
   info(): AppInfo {
     const info = this.#host?.info() ?? this.#lastInfo;
     if (!info) throw new Error("助手尚未启动");
-    return this.#error ? { ...info, runtimeRecovery: { state: "failed", message: this.#error } } : info;
+    const visible = { ...info, ...(this.#recovery ? { recoveryWorkspace: { originalWorkspace: this.#recovery.sourceWorkspace } } : {}) };
+    return this.#error ? { ...visible, runtimeRecovery: { state: "failed", message: this.#error } } : visible;
   }
   #active() { if (this.#switching || !this.#host || this.#error) throw new Error(this.#error ?? "助手宿主暂不可用"); return this.#host; }
   listThreads(...args: Parameters<DesktopRuntime["listThreads"]>) { return this.#active().listThreads(...args); }
@@ -73,9 +83,47 @@ export class RuntimeOwnership {
   reviewTelegramInput(input: { key: string; note: string }) { return this.#active().reviewTelegramInput(input); }
   setTelegramTaskRoute(input: { id: string; kind: "once" | "recurring"; enabled: boolean }) { return this.#active().setTelegramTaskRoute(input); }
   retryTelegramDelivery(key: string) { return this.#active().retryTelegramDelivery(key); }
+  resolveTelegramDelivery(input: { key: string; action: "cancel" | "review"; note?: string }) { return this.#active().resolveTelegramDelivery(input); }
   enableMemory() { return this.#active().enableMemory(); }
   setModuleEnabled(...args: Parameters<DesktopRuntime["setModuleEnabled"]>) { return this.#active().setModuleEnabled(...args); }
   setDreamingEnabled(...args: Parameters<DesktopRuntime["setDreamingEnabled"]>) { return this.#active().setDreamingEnabled(...args); }
+  async activateRecovery(root: string | null) {
+    const host = this.#active();
+    if ([this.#sourceOptions.env.RUNLOOM_WORKSPACE, this.#sourceOptions.env.RUNLOOM_THREAD, this.#sourceOptions.env.RUNLOOM_TRANSCRIPTS].some(value => value?.trim())) throw new Error("当前入口显式指定了工作区或对话；请从正常日用入口打开后再接回恢复副本，不会覆盖显式身份");
+    if (host.current.snapshot().state.kind !== "idle") throw new Error("请等待当前执行、整理和确认结束，再切换恢复工作区");
+    this.#switching = true;
+    let finish!: () => void;
+    this.#transition = new Promise(resolve => { finish = resolve; });
+    let next: RuntimeOwnership | undefined, stopped = false;
+    try {
+      if (host instanceof ResidentClient || (await this.#service.status()).registered) throw new Error("请先显式关闭常驻助手，再切换恢复工作区；不会留下两份主执行宿主");
+      if ((await host.getLifecycleStatus()).pomodoroRunning) throw new Error("请先结束番茄钟，再切换恢复工作区；不会丢失计时");
+      const sourceConfigPath = resolve(this.#sourceOptions.cwd, this.#sourceOptions.env.RUNLOOM_CONFIG?.trim() || join(this.#sourceOptions.userData, "runloom.json"));
+      const selection = root === null ? null : await prepareRecoveryProfile({ root, userData: this.options.userData, cwd: this.options.cwd,
+        sourceConfigPath, sourceWorkspace: this.#recovery?.sourceWorkspace ?? this.#scope.workspaceRoot });
+      const nextOptions = selection ? { ...this.#sourceOptions, env: { ...this.#sourceOptions.env, RUNLOOM_CONFIG: selection.configPath,
+        RUNLOOM_THREAD: undefined, RUNLOOM_TRANSCRIPTS: undefined, RUNLOOM_WORKSPACE: undefined } } : this.#sourceOptions;
+      // Assemble and validate first. The restored workspace has independent
+      // identity/leases and no automatic consolidation or external connections.
+      next = await RuntimeOwnership.create(nextOptions, true);
+      if (selection && !(await next.current.listMemories()).ok) throw new Error("恢复副本的记忆无法读取；原工作区未切换，请核对备份");
+      this.#lastInfo = this.info();
+      stopped = true;
+      this.#host = undefined;
+      await host.shutdown();
+      await saveRecoverySelection(this.options.userData, selection);
+      this.#host = next.#host; next.#host = undefined;
+      this.options = next.options; this.#scope = next.#scope; this.#paths = next.#paths; this.#service = next.#service; this.#startup = next.#startup;
+      this.#recovery = selection; this.#error = undefined;
+    } catch (error) {
+      if (stopped) { this.#host = undefined; this.#restartRequired = true; this.#error = "恢复入口切换未确认，请退出重开核对已保存的工作区；不会重做旧任务。"; }
+      await next?.shutdown();
+      throw error;
+    } finally {
+      this.#switching = false; finish(); this.#transition = undefined;
+      this.options.send({ type: "identity-changed", info: this.info(), reason: "modules" });
+    }
+  }
   async #connect() {
     const deadline = Date.now() + 10_000;
     do {
@@ -136,6 +184,7 @@ export class RuntimeOwnership {
   }
   async retryConnection() {
     if (this.#switching) throw new Error("正在切换宿主，请稍候");
+    if (this.#restartRequired) throw new Error(this.#error);
     this.#switching = true;
     let finish!: () => void;
     this.#transition = new Promise(resolve => { finish = resolve; });

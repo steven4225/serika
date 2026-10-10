@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, unlink, open } from "node:fs/promises";
 import { isAbsolute, join, resolve } from "node:path";
 
 export interface DesktopIdentityPreference {
@@ -56,8 +56,10 @@ async function writeRegistry(userData: string, registry: IdentityRegistry): Prom
   const identityPath = join(userData, "desktop-identity.json");
   const temporaryPath = `${identityPath}.${randomUUID()}.tmp`;
   try {
-    await writeFile(temporaryPath, `${JSON.stringify(registry, null, 2)}\n`, { flag: "wx", mode: 0o600 });
+    const file = await open(temporaryPath, "wx", 0o600);
+    try { await file.writeFile(`${JSON.stringify(registry, null, 2)}\n`); await file.sync(); } finally { await file.close(); }
     await rename(temporaryPath, identityPath);
+    if (process.platform !== "win32") { const directory = await open(userData, "r"); try { await directory.sync(); } finally { await directory.close(); } }
   } finally {
     await unlink(temporaryPath).catch((error: NodeJS.ErrnoException) => { if (error.code !== "ENOENT") throw error; });
   }

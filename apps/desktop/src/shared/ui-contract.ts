@@ -1,6 +1,6 @@
 import type { UIMessage } from "ai";
 import type { HistoryPage, HistoryPageInput } from "./history.js";
-import type { BackupResult, RestoreResult } from "./backup.js";
+import type { BackupResult, RestoreResult, RestorePreview } from "./backup.js";
 import type { ResidentServiceState } from "./resident-service.js";
 import type { ConversationDraftScope, ConversationDraft, ConversationDraftState, DesktopSteerInput, DesktopSteerResponse, TaskDraftUpdate } from "./conversation-drafts.js";
 import type { FormalMemory, MemoryPage, MemoryListInput, MemoryEditInput } from "@aisdk-agent/example-cli/dist/memory-management.js";
@@ -75,6 +75,7 @@ export interface ToolActivity {
 }
 
 export interface AppInfo {
+  recoveryWorkspace?: { originalWorkspace: string };
   runtimeRecovery?: { state: "failed"; message: string };
   /** Actual loaded main-process identity; optional for preview/older bridges. */
   build?: import("./build-identity.js").AppBuildInfo;
@@ -193,6 +194,7 @@ export interface RendererApi {
   reviewTelegramInput?(input: { key: string; note: string }): Promise<import("./telegram.js").TelegramStatus>;
   setTelegramTaskRoute?(input: { id: string; kind: "once" | "recurring"; enabled: boolean }): Promise<import("./telegram.js").TelegramStatus>;
   retryTelegramDelivery?(key: string): Promise<import("./telegram.js").TelegramStatus>;
+  resolveTelegramDelivery?(input: { key: string; action: "cancel" | "review"; note?: string }): Promise<import("./telegram.js").TelegramStatus>;
   residentStatus?(): Promise<ResidentServiceState>;
   setResidentEnabled?(enabled: boolean): Promise<ResidentServiceState>;
   loadConversationDraft(scope: ConversationDraftScope): Promise<ConversationDraftState>;
@@ -229,7 +231,9 @@ export interface RendererApi {
   history(): Promise<UIMessage[]>;
   historyPage(input?: HistoryPageInput): Promise<HistoryPage>;
   backupData(): Promise<BackupResult | null>;
-  restoreData(): Promise<RestoreResult | null>;
+  previewRestoreData?(): Promise<RestorePreview | null>;
+  restoreData(previewId?: string): Promise<RestoreResult | null>;
+  activateRestoreData?(previewId: string | null): Promise<void>;
   home(): Promise<CommandResponse>;
   run(text: string, options?: AssistantRunOptions): Promise<RunResponse>;
   steer(input: DesktopSteerInput): Promise<DesktopSteerResponse>;
@@ -287,6 +291,7 @@ export const IPC = {
   telegramReview: "runloom:telegramReview",
   telegramTaskRoute: "runloom:telegramTaskRoute",
   telegramRetryDelivery: "runloom:telegramRetryDelivery",
+  telegramResolveDelivery: "runloom:telegramResolveDelivery",
   residentStatus: "runloom:residentStatus",
   residentEnabled: "runloom:residentEnabled",
   draftLoad: "runloom:draftLoad",
@@ -323,6 +328,8 @@ export const IPC = {
   historyPage: "runloom:history-page",
   backupData: "runloom:backup-data",
   restoreData: "runloom:restore-data",
+  previewRestoreData: "runloom:preview-restore-data",
+  activateRestoreData: "runloom:activate-restore-data",
   home: "runloom:home",
   run: "runloom:run",
   steer: "runloom:steer",

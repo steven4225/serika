@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { writeFileSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, rm, writeFile, realpath } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile, realpath, open } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it, mock } from "node:test";
@@ -38,6 +38,31 @@ async function idle(host: DesktopRuntime) {
 }
 
 describe("normal desktop memory and history entry", () => {
+  it("blocks new execution after a post-rename config acknowledgement fault until an explicit reread", async t => {
+    const root = await mkdtemp(join(tmpdir(), "serika-config-uncertain-"));
+    const workspace = join(root, "workspace"), configPath = join(root, "config.json"); await mkdir(workspace);
+    await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { shell: { enabled: true }, memory: { enabled: false } } }));
+    let calls = 0;
+    const host = await DesktopRuntime.create({ userData: join(root, "profile"), cwd: root, env: { RUNLOOM_CONFIG: configPath }, modelAlias: "mock",
+      model: new MockLanguageModelV3({ doStream: async () => { calls++; return response(); } }), send: () => {} });
+    try {
+      const probe = await open(root, "r"), prototype = Object.getPrototypeOf(probe), fd = probe.fd; await probe.close();
+      const original = prototype.sync;
+      let reached = false;
+      const fault = t.mock.method(prototype, "sync", async function(this: { fd: number; stat(): Promise<{ isDirectory(): boolean }> }) {
+        if ((await this.stat()).isDirectory() && !reached) { reached = true; throw new Error(`directory sync fault ${fd}`); }
+        return original.call(this);
+      });
+      await assert.rejects(host.setModuleEnabled({ id: "shell", enabled: false, expectedEnabled: true }), /配置保存结果未确认/);
+      fault.mock.restore();
+      assert.equal(reached, true); assert.equal(JSON.parse(await readFile(configPath, "utf8")).modules.shell.enabled, false);
+      assert.equal(host.info().runtimeRecovery?.state, "failed");
+      assert.throws(() => host.current, /暂停新执行/);
+      await host.retryConnection();
+      assert.equal(host.info().modules?.find(module => module.id === "shell")?.enabled, false);
+      assert.equal(host.current.snapshot().state.kind, "idle"); assert.equal(calls, 0);
+    } finally { await host.shutdown(); await rm(root, { recursive: true, force: true }); }
+  });
   it("rejects a workspace changed between the identity check and actual app assembly", async () => {
     const root = await mkdtemp(join(tmpdir(), "serika-runtime-workspace-race-"));
     const workspace = join(root, "original"), other = join(root, "other"), configPath = join(root, "config.json");

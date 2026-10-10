@@ -6,7 +6,7 @@ import { enableDesktopMemory, resolveDesktopConfig } from "./desktop-config.js";
 import { createDesktopThread, listDesktopThreads, registerDesktopThread, resolveDesktopIdentity, selectDesktopThread, type DesktopIdentityResolution } from "./desktop-identity.js";
 import { discoverThreadDirectory, inspectThread } from "./thread-history.js";
 import { RuntimeBridge, TeeOutput, type Send } from "./runtime-bridge.js";
-import { changeModuleSetting, changeDreamingSetting, type ModuleSettingInput, type DreamingSettingInput } from "./module-settings.js";
+import { changeModuleSetting, changeDreamingSetting, ConfigCommitUncertainError, type ModuleSettingInput, type DreamingSettingInput } from "./module-settings.js";
 import type { AppInfo } from "../shared/ui-contract.js";
 import { readLoadedBuild } from "./build-identity.js";
 import { createPomodoroService, type PomodoroService } from "@aisdk-agent/example-cli/dist/modules/pomodoro-module.js";
@@ -72,6 +72,7 @@ export class DesktopRuntime {
   reviewTelegramInput(input: { key: string; note: string }) { if (!this.#telegram) throw new Error("请先启用常驻助手"); return this.#telegram.reviewInput(input); }
   setTelegramTaskRoute(input: { id: string; kind: "once" | "recurring"; enabled: boolean }) { if (!this.#telegram) throw new Error("请先启用常驻助手"); return this.#telegram.setTaskRoute(input); }
   retryTelegramDelivery(key: string) { if (!this.#telegram) throw new Error("请先启用常驻助手"); return this.#telegram.retryDelivery(key); }
+  resolveTelegramDelivery(input: { key: string; action: "cancel" | "review"; note?: string }) { if (!this.#telegram) throw new Error("请先启用常驻助手"); return this.#telegram.resolveDelivery(input); }
   /** Host-only channel surface, deliberately not in resident IPC's method whitelist. */
   channelSubscribe(listener: Send) { this.#channelListeners.add(listener); return () => { this.#channelListeners.delete(listener); }; }
   channelSnapshot() { return { info: this.info(), snapshot: this.#bridge.snapshot() }; }
@@ -224,6 +225,15 @@ export class DesktopRuntime {
         this.#identity = next;
         await activate?.();
       } catch (error) {
+        if (error instanceof ConfigCommitUncertainError) {
+          // rename may already have published a different toolset. Never keep
+          // serving the previous controller, and never guess a rollback result.
+          this.#available = false;
+          this.#recoveryError = error.message;
+          configurationError = error.message;
+          if (!disposed) await this.#bridge.shutdown();
+          throw error;
+        }
         if (settings) configurationError = error instanceof Error ? error.message : String(error);
         let rollbackFailed = false;
         try { await settings?.rollback(); } catch { rollbackFailed = true; }

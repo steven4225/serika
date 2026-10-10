@@ -13,7 +13,7 @@ import {
   type ThreadContextCompactionRecord,
 } from "./store.js";
 import type { RunResult, RunStatus } from "./types.js";
-import { readCommittedTranscriptLines } from "./transcript-reader.js";
+import { encodeTranscriptUpdate, createThreadTranscriptReader, readThreadTranscript, MAX_TRANSCRIPT_RECORD_BYTES } from "./transcript-codec.js";
 
 export interface JsonlAgentStoreOptions {
   directory: string;
@@ -125,7 +125,10 @@ export class JsonlAgentStore implements AgentStore, ContextCompactionStore {
   readonly #memory = new InMemoryAgentStore();
   readonly #acquireLock: JsonlAgentStoreOptions["acquireTranscriptLock"];
   readonly #cleanupThreshold: number;
+  readonly #readTranscript = createThreadTranscriptReader();
+  readonly #runLeases = new Map<string, { runId: string; release(): Promise<void> }>();
   #commitUncertain = false;
+  #writeFailed = false;
 
   constructor(options: JsonlAgentStoreOptions) {
     this.#directory = resolve(options.directory);
@@ -134,37 +137,59 @@ export class JsonlAgentStore implements AgentStore, ContextCompactionStore {
     if (!Number.isSafeInteger(this.#cleanupThreshold) || this.#cleanupThreshold < 1) throw new Error("Invalid transcript cleanup threshold");
   }
 
-  create(record: RunRecord): Promise<void> {
-    return this.#memory.create(record);
+  async create(record: RunRecord): Promise<void> {
+    this.#assertWritable();
+    if (!this.#acquireLock) return this.#memory.create(record);
+    const path = this.#pathFor(record.threadId);
+    if (this.#runLeases.has(path)) throw new AgentError({ code: "RUN_CONFLICT", message: "Thread already has an active transcript owner", retryable: false, phase: "runtime" });
+    await this.#ensureDirectory();
+    // Wait outside the process queue: its current owner must still be able
+    // to save and finish the Run that will release this cross-process lease.
+    const lease = await this.#acquireLock(path);
+    try { await serializeTranscriptOperation(path, async () => {
+      this.#assertWritable();
+      if (this.#runLeases.has(path)) throw new AgentError({ code: "RUN_CONFLICT", message: "Thread already has an active transcript owner", retryable: false, phase: "runtime" });
+      // Cleanup runs before Core creates a Run, never between its tool calls.
+      await this.#cleanupSnapshots(record.threadId, path);
+      await this.#memory.create(record);
+      this.#runLeases.set(path, { runId: record.id, release: () => lease.release() });
+    }); } catch (error) { await lease.release(); throw error; }
   }
 
   getRun(runId: string): Promise<RunRecord | undefined> {
     return this.#memory.getRun(runId);
   }
 
-  transition(
+  async transition(
     runId: string,
     expectedVersion: number,
     status: RunStatus,
     result?: RunResult,
   ): Promise<RunRecord> {
-    return this.#memory.transition(runId, expectedVersion, status, result);
+    const updated = await this.#memory.transition(runId, expectedVersion, status, result);
+    if (["completed", "failed", "cancelled", "timed_out"].includes(status)) {
+      const path = this.#pathFor(updated.threadId);
+      const lease = this.#runLeases.get(path);
+      if (lease?.runId === runId) {
+        // Await an already admitted append before giving another process ownership.
+        await serializeTranscriptOperation(path, async () => {
+          await lease.release(); this.#runLeases.delete(path);
+        });
+      }
+    }
+    return updated;
   }
 
   async save(threadId: string, messages: UIMessage[]): Promise<void> {
-    const record: CommittedMessagesRecord = {
-      v: 1,
-      type: "thread.messages.committed",
-      threadId,
-      messages,
-    };
-    await this.#appendRecord(threadId, `${JSON.stringify(record)}\n`);
+    // Capture the caller's data before awaiting the shared writer lock.
+    const next = structuredClone(messages);
+    await this.#appendRecord(threadId, previous => encodeTranscriptUpdate(threadId, previous, next).join(""));
   }
 
   async appendContextCompaction(
     record: ThreadContextCompactionRecord,
   ): Promise<void> {
-    await this.#appendRecord(record.threadId, `${JSON.stringify(record)}\n`);
+    await this.#appendRecord(record.threadId, () => `${JSON.stringify(record)}\n`);
   }
 
   async getContextCompactions(
@@ -174,10 +199,8 @@ export class JsonlAgentStore implements AgentStore, ContextCompactionStore {
     const records: ThreadContextCompactionRecord[] = [];
 
     await serializeTranscriptOperation(path, async () => {
-      for await (const item of this.#readTranscript(path)) {
-        if (!("line" in item)) continue;
-        const { line } = item;
-        if (line.length === 0) continue;
+      const transcript = await this.#readMessages(path, threadId, true);
+      for (const line of transcript.companions) {
         const value = parseLine(line, threadId);
 
         // Invalid compaction records are ignored. The compaction schema is
@@ -214,41 +237,22 @@ export class JsonlAgentStore implements AgentStore, ContextCompactionStore {
 
   async getMessages(threadId: string): Promise<UIMessage[]> {
     const path = this.#pathFor(threadId);
-    let latest: UIMessage[] = [];
+    return serializeTranscriptOperation(path, async () => structuredClone((await this.#readMessages(path, threadId)).messages));
+  }
 
-    await serializeTranscriptOperation(path, async () => {
-      for await (const item of this.#readTranscript(path)) {
-        if (!("line" in item)) continue;
-        const { line } = item;
-        if (line.length === 0) continue;
-        const value = parseLine(line, threadId);
-
-        if (
-          typeof value === "object" &&
-          value !== null &&
-          "v" in value &&
-          value.v !== 1
-        ) {
-          continue;
-        }
-        // Context summaries are an opaque companion record. They must not
-        // change the v1 committed-transcript semantics.
-        if (
-          typeof value === "object" &&
-          value !== null &&
-          "type" in value &&
-          value.type === "thread.context.compacted"
-        ) {
-          continue;
-        }
-        if (!isCommittedMessagesRecord(value) || value.threadId !== threadId) {
-          throw storageCorrupt(threadId);
-        }
-        latest = value.messages;
-      }
-    });
-
-    return structuredClone(latest);
+  /** Physical maintenance only. A host lease is mandatory; active Runs reject
+   * local maintenance and block another process at the same append lease.
+   */
+  async compactThread(threadId: string): Promise<void> {
+    if (!this.#acquireLock) throw new AgentError({ code: "STORAGE_WRITE_FAILED", message: "Transcript cleanup requires the host cross-process append lease", retryable: false, phase: "storage" });
+    const path = this.#pathFor(threadId);
+    this.#assertWritable();
+    if (this.#runLeases.has(path)) throw new AgentError({ code: "RUN_CONFLICT", message: "Cannot compact a Thread during an active Run", retryable: false, phase: "storage" });
+    await this.#ensureDirectory();
+    const lease = await this.#acquireLock(path);
+    try { await serializeTranscriptOperation(path, async () => {
+      this.#assertWritable(); await this.#cleanupSnapshots(threadId, path);
+    }); } finally { await lease.release(); }
   }
 
   append(event: AgentEvent): Promise<void> {
@@ -264,9 +268,12 @@ export class JsonlAgentStore implements AgentStore, ContextCompactionStore {
     return join(this.#directory, `${fileName}.jsonl`);
   }
 
-  async *#readTranscript(path: string) {
-    try { yield* readCommittedTranscriptLines(path); }
-    catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+  async #readMessages(path: string, threadId: string, companions = false) {
+    try { return await this.#readTranscript(path, threadId, { companions }); }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      return { messages: [] as UIMessage[], companions: [] as string[], incompleteTail: false };
+    }
   }
 
   // Only redundant committed snapshots disappear. Full message IDs/content,
@@ -277,43 +284,31 @@ export class JsonlAgentStore implements AgentStore, ContextCompactionStore {
     try { size = (await stat(path)).size; }
     catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return; throw error; }
     if (size < this.#cleanupThreshold) return;
-    let latest: string | undefined, snapshots = 0, companionsBytes = 0;
-    for await (const item of this.#readTranscript(path)) {
-      if (!("line" in item) || !item.line) continue;
-      const value = parseLine(item.line, threadId);
-      if (isCommittedMessagesRecord(value)) {
-        if (value.threadId !== threadId) throw storageCorrupt(threadId);
-        latest = item.line; snapshots++;
-      } else {
-        const record = value as Record<string, unknown> | null;
-        if (typeof record !== "object" || record === null ||
-          !(record.type === "thread.context.compacted" || ("v" in record && record.v !== 1))) throw storageCorrupt(threadId);
-        companionsBytes += Buffer.byteLength(item.line) + 1;
-      }
-    }
-    if (!latest || snapshots < 2 || Buffer.byteLength(latest) + 1 + companionsBytes > size * 0.75) return;
+    // Maintenance verifies the complete file, never relying on a cached prefix.
+    const transcript = await readThreadTranscript(path, threadId, { companions: true });
+    // Delta chains can exceed the single-transaction limit. Optional physical
+    // cleanup must not make such a readable Thread impossible to continue.
+    if (Buffer.byteLength(JSON.stringify(transcript.messages)) > MAX_TRANSCRIPT_RECORD_BYTES) return;
+    const checkpoint = [...encodeTranscriptUpdate(threadId, [], transcript.messages, true), ...transcript.companions.map(line => line + "\n")];
+    if (checkpoint.reduce((bytes, line) => bytes + Buffer.byteLength(line), 0) > size * 0.75) return;
     const temporary = `${path}.${randomUUID()}.tmp`;
     let renamed = false;
     try {
       const target = await open(temporary, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
       try {
-        let seen = 0;
-        for await (const item of this.#readTranscript(path)) {
-          if (!("line" in item) || !item.line) continue;
-          if (isCommittedMessagesRecord(parseLine(item.line, threadId)) && ++seen !== snapshots) continue;
-          await target.writeFile(`${item.line}\n`, "utf8");
-        }
+        for (const line of checkpoint) await target.writeFile(line, "utf8");
         await target.sync();
       } finally { await target.close(); }
       await rename(temporary, path); renamed = true;
       await this.#syncDirectory();
     } catch (error) {
+      this.#writeFailed = true;
       if (renamed) {
         this.#commitUncertain = true;
         throw new AgentError({ code: "STORAGE_COMMIT_UNCERTAIN", message: "Transcript cleanup acknowledgement is uncertain; reread after restart before continuing", retryable: false, phase: "storage" }, { cause: error });
       }
-      throw error;
-    } finally { if (!renamed) await rm(temporary, { force: true }); }
+      throw new AgentError({ code: "STORAGE_WRITE_FAILED", message: "Transcript cleanup failed before replacement; restart and reread before continuing", retryable: false, phase: "storage" }, { cause: error });
+    } finally { if (!renamed) await rm(temporary, { force: true }).catch(() => undefined); }
   }
 
   async #syncDirectory(): Promise<void> {
@@ -324,48 +319,69 @@ export class JsonlAgentStore implements AgentStore, ContextCompactionStore {
     try { await directory.sync(); } finally { await directory.close(); }
   }
 
-  #appendRecord(threadId: string, serialized: string): Promise<void> {
+  async #ensureDirectory(): Promise<void> {
+    try { await mkdir(this.#directory, { recursive: true }); }
+    catch (error) {
+      this.#writeFailed = true;
+      throw new AgentError({ code: "STORAGE_WRITE_FAILED", message: "Transcript directory unavailable; restart and reread before further dispatch", retryable: false, phase: "storage" }, { cause: error });
+    }
+  }
+
+  #appendRecord(threadId: string, serialize: (previous: UIMessage[]) => string): Promise<void> {
     const path = this.#pathFor(threadId);
-    return serializeTranscriptOperation(path, async () => {
-      if (this.#commitUncertain) throw new AgentError({ code: "STORAGE_COMMIT_UNCERTAIN", message: "Transcript save acknowledgement is uncertain; restart and reread before further writes", retryable: false, phase: "storage" });
-      await mkdir(this.#directory, { recursive: true });
-      const lock = await this.#acquireLock?.(path);
-      try {
-        if (this.#commitUncertain) throw new AgentError({ code: "STORAGE_COMMIT_UNCERTAIN", message: "Transcript save acknowledgement is uncertain; restart before further writes", retryable: false, phase: "storage" });
+    const operation = async (lock?: { release(): Promise<void> }) => {
+        this.#assertWritable();
+        await this.#ensureDirectory();
         if (lock) await this.#cleanupSnapshots(threadId, path);
-        const file = await open(path, constants.O_RDWR | constants.O_CREAT | constants.O_APPEND | constants.O_NOFOLLOW, 0o600);
+        const serialized = serialize((await this.#readMessages(path, threadId)).messages);
         let writeStarted = false;
         try {
-          // Check just the tail on the normal append path, not the whole history.
-          // Only this serialized writer repairs bytes after the last newline.
-          const { size } = await file.stat();
-          let end = size;
-          while (end > 0) {
-            const start = Math.max(0, end - 8_192);
-            const buffer = Buffer.alloc(end - start);
-            const { bytesRead } = await file.read(buffer, 0, buffer.length, start);
-            const newline = buffer.subarray(0, bytesRead).lastIndexOf(0x0a);
-            if (newline >= 0) {
-              const committedSize = start + newline + 1;
-              if (committedSize !== size) await file.truncate(committedSize);
-              break;
+          const file = await open(path, constants.O_RDWR | constants.O_CREAT | constants.O_APPEND | constants.O_NOFOLLOW, 0o600);
+          try {
+            // Check just the tail on the normal append path, not the whole history.
+            // Only this serialized writer repairs bytes after the last newline.
+            const { size } = await file.stat();
+            let end = size;
+            while (end > 0) {
+              const start = Math.max(0, end - 8_192);
+              const buffer = Buffer.alloc(end - start);
+              const { bytesRead } = await file.read(buffer, 0, buffer.length, start);
+              const newline = buffer.subarray(0, bytesRead).lastIndexOf(0x0a);
+              if (newline >= 0) {
+                const committedSize = start + newline + 1;
+                if (committedSize !== size) await file.truncate(committedSize);
+                break;
+              }
+              end = start;
+              if (end === 0) await file.truncate(0);
             }
-            end = start;
-            if (end === 0) await file.truncate(0);
-          }
-          writeStarted = true;
-          await file.writeFile(serialized, "utf8");
-          await file.sync();
-          await this.#syncDirectory();
+            writeStarted = true;
+            await file.writeFile(serialized, "utf8");
+            await file.sync();
+            await this.#syncDirectory();
+          } finally { await file.close(); }
         } catch (error) {
+          this.#writeFailed = true;
           if (writeStarted) this.#commitUncertain = true;
           throw new AgentError({ code: writeStarted ? "STORAGE_COMMIT_UNCERTAIN" : "STORAGE_WRITE_FAILED",
             message: writeStarted ? "Transcript save acknowledgement is uncertain; reread before retrying" : "Transcript save failed before append",
             retryable: false, phase: "storage" }, { cause: error });
-        } finally { await file.close(); }
-      } finally {
-        await lock?.release();
-      }
-    });
+        }
+    };
+    // Register local admissions synchronously so a subsequent read sees every
+    // earlier local append. Never wait for another Run's lease inside the queue.
+    if (!this.#acquireLock || this.#runLeases.has(path)) return serializeTranscriptOperation(path, () => operation());
+    return (async () => {
+      this.#assertWritable();
+      await this.#ensureDirectory();
+      const lock = await this.#acquireLock!(path);
+      try { await serializeTranscriptOperation(path, () => operation(lock)); }
+      finally { await lock.release(); }
+    })();
+  }
+
+  #assertWritable(): void {
+    if (this.#commitUncertain) throw new AgentError({ code: "STORAGE_COMMIT_UNCERTAIN", message: "Transcript save acknowledgement is uncertain; restart and reread before further writes", retryable: false, phase: "storage" });
+    if (this.#writeFailed) throw new AgentError({ code: "STORAGE_WRITE_FAILED", message: "Transcript storage failed; restart and reread before further dispatch", retryable: false, phase: "storage" });
   }
 }

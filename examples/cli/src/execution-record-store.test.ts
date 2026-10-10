@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, rm, symlink, writeFile, stat } from "node:fs/promises";
+import { mkdtemp, open, readFile, rm, symlink, writeFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, it } from "node:test";
@@ -50,6 +50,36 @@ async function errorCode(operation: () => Promise<unknown>): Promise<string | un
 }
 
 describe("ExecutionRecordStore", () => {
+  for (const boundary of ["file", "directory"] as const) {
+    it(`stops receipt writes at ${boundary} sync failure, preserves the correct unknown boundary on reopen`, async (t) => {
+      const path = await directory();
+      const store = createExecutionRecordStore(path, { now });
+      await store.startRun({ runId: "run-1", threadId: "thread-1", phase: "primary" });
+      await store.recordToolEvent("run-1", toolEvent("tool.call.requested", { toolCallId: "write", toolName: "write_file", input: { path: "report.txt" } }));
+      const file = join(path, EXECUTION_RECORD_FILE), before = await readFile(file);
+      const probe = await open(file, "r"), prototype = Object.getPrototypeOf(probe), original = prototype.sync;
+      await probe.close();
+      const order: string[] = [];
+      const injected = t.mock.method(prototype, "sync", async function (this: typeof probe) {
+        const kind = (await this.stat()).isDirectory() ? "directory" : "file";
+        order.push(kind);
+        if (kind === boundary) throw new Error("sync fault");
+        return original.call(this);
+      });
+      const expected = boundary === "file" ? "WRITE_FAILED" : "COMMIT_UNCERTAIN";
+      assert.equal(await errorCode(() => store.recordToolEvent("run-1", toolEvent("tool.call.started", { toolCallId: "write", toolName: "write_file" }))), expected);
+      injected.mock.restore();
+      assert.deepEqual(order, boundary === "file" ? ["file"] : ["file", "directory"]);
+      if (boundary === "file") assert.deepEqual(await readFile(file), before);
+      assert.equal(await errorCode(() => store.startRun({ runId: "no-dispatch", threadId: "thread-2", phase: "primary" })), expected);
+      const reopened = createExecutionRecordStore(path, { now });
+      await reopened.recoverInterrupted("thread-1");
+      const recovered = await reopened.getRun("thread-1", "run-1");
+      assert.equal(recovered?.tools[0]?.status, boundary === "file" ? "not_started" : "unknown");
+      assert.equal(await reopened.getRun("thread-2", "no-dispatch"), null);
+    });
+  }
+
   it("persists bounded full readback evidence across reopen, never hashes a truncated display preview", async () => {
     const path = await directory();
     const store = createExecutionRecordStore(path, { now });

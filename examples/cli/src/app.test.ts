@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile, chmod, access } from "node:fs/promises";
+import { mkdir, mkdtemp, open, rm, writeFile, chmod, access } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
@@ -22,6 +22,38 @@ function capture(): { output: PassThrough; text(): string } {
 }
 
 describe("createRuntimeApp", () => {
+  for (const boundary of ["file", "directory"] as const) {
+    it(`receipt ${boundary} sync failure prevents model dispatch and a later Run in the real runtime`, async (t) => {
+      const root = await mkdtemp(join(tmpdir(), "serika-runtime-receipt-fault-"));
+      let requests = 0;
+      const model = new MockLanguageModelV3({ doStream: async () => { requests++; throw new Error("model must not be dispatched"); } });
+      const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", "sync-fault"],
+        modelAlias: "scripted", model, output: capture().output, env: {}, cwd: root });
+      try {
+        app.enableExecutionRecords();
+        const probe = await open(join(root, "probe"), "w"), prototype = Object.getPrototypeOf(probe), original = prototype.sync;
+        await probe.close();
+        let syncs = 0;
+        const injected = t.mock.method(prototype, "sync", async function (this: typeof probe) {
+          const kind = (await this.stat()).isDirectory() ? "directory" : "file";
+          // startRun succeeds; the second replacement is step.started before
+          // AiSdkAgentLoop calls its model. Exercise the optional trace seam.
+          if (kind === boundary && ++syncs === 2) throw new Error("receipt persistence fault");
+          return original.call(this);
+        });
+        const handle = await app.runtime.run({ agentId: app.agentId, threadId: app.threadId,
+          messages: [{ id: "u1", role: "user", parts: [{ type: "text", text: "hello" }] }] });
+        assert.equal((await handle.result).status, "failed");
+        injected.mock.restore();
+        assert.equal(requests, 0);
+        await assert.rejects(app.runtime.run({ agentId: app.agentId, threadId: app.threadId,
+          messages: [{ id: "u2", role: "user", parts: [{ type: "text", text: "must still stop" }] }] }), /restart|reconcile/);
+        assert.equal(requests, 0);
+        assert.deepEqual((await app.executionRecords.getRun(app.threadId, handle.runId))?.tools, []);
+      } finally { app.dispose(); await rm(root, { recursive: true, force: true }); }
+    });
+  }
+
   it("preserves an injected timer across app reassembly, disabled modules and Thread changes", async () => {
     const root = await mkdtemp(join(tmpdir(), "serika-app-timer-owner-"));
     const configPath = join(root, "config.json");

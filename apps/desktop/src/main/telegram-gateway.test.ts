@@ -143,6 +143,28 @@ it("a definite send failure can retry only delivery; concurrent, unknown and sta
   } finally { await f.cleanup(); }
 });
 
+it("handles all failed channel messages and unknown delivery observations without replay or false success", async () => {
+  const f = await fixture();
+  try {
+    await f.bind();
+    await f.store.update(data => {
+      data.deliveries.push({ key: "approval:expired", chatId: 42, text: "expired approval", state: "failed", messageId: null });
+      data.deliveries.push({ key: "result:unknown", chatId: 42, text: "unknown result", state: "unknown", messageId: null });
+      data.deliveries.push({ key: "result:sending", chatId: 42, text: "sending", state: "sending", messageId: null });
+    });
+    assert(f.gateway.status().deliveries.some(x => x.key === "approval:expired"));
+    const sends = f.sends(), calls = f.calls();
+    await f.gateway.resolveDelivery({ key: "approval:expired", action: "cancel" });
+    await assert.rejects(f.gateway.resolveDelivery({ key: "result:sending", action: "cancel" }), /发送中/);
+    await assert.rejects(f.gateway.resolveDelivery({ key: "result:unknown", action: "cancel" }), /结果未知/);
+    await assert.rejects(f.gateway.resolveDelivery({ key: "result:unknown", action: "review", note: " " }), /实际核对/);
+    await f.gateway.resolveDelivery({ key: "result:unknown", action: "review", note: "手机收到了一份；不再尝试发送" });
+    const record = f.store.snapshot().deliveries.find(x => x.key === "result:unknown")!;
+    assert.equal(record.state, "unknown"); assert.equal(record.messageId, null); assert(record.reviewReport);
+    assert.equal(f.sends(), sends); assert.equal(f.calls(), calls);
+  } finally { await f.cleanup(); }
+});
+
 it("reopening reconstructs a missing pending result from TaskStore without calling model, but never retries unknown send", async () => {
   const f = await fixture(); let restored: TelegramGateway | undefined;
   try {
@@ -299,7 +321,69 @@ it("expired confirmation can be renewed without a new Run; both old and repeated
     assert.equal(await readFile(join(f.workspace, "renewed.md"), "utf8"), "one write");
     assert.equal(f.store.snapshot().inputs.find(x => x.key === "42:2")!.runId, run);
     assert.equal((await f.host.channelReceipt(f.store.snapshot().owner!.threadId, run!))?.tools.length, 1);
+    console.log(JSON.stringify({ demo: "telegram-confirmation-renewal", expiredCodeRejected: true,
+      sameRun: true, successfulWrites: 1, repeatedCodeRejected: true, transport: "scripted", telegram: "not_run" }));
   } finally { await f.cleanup(); }
+});
+
+for (const outcome of ["not_sent", "unknown"] as const) {
+  it(`confirmation renewal reports ${outcome}, revokes the old code and never blindly resends it`, async () => {
+    const f = await fixture(async n => response(n === 1 ? { name: "write_file", input: { path: "renew-fault.md", content: "one write" } } : undefined));
+    try {
+      await f.bind(); await f.gateway.receive(update(2, "写 renew-fault.md"));
+      await until(() => f.sent.some(x => x.includes("请求使用 write_file")));
+      const old = /允许 ([A-F0-9]{10})/.exec(f.sent.find(x => x.includes("请求使用 write_file"))!)![1]!;
+      const runId = f.store.snapshot().inputs.find(x => x.key === "42:2")!.runId;
+      f.advanceTime(5 * 60_000 + 1);
+      f.failSend(new TelegramApiError(outcome === "not_sent" ? "403" : "NETWORK", outcome));
+      await f.gateway.receive(update(3, "/confirm"));
+      const notice = f.store.snapshot().deliveries.find(x => x.key === "input:42:3")!;
+      assert.match(notice.text, outcome === "not_sent" ? /发送明确失败/ : /发送结果未知/);
+      assert.doesNotMatch(notice.text, /已重新发出/);
+      const failedApproval = f.store.snapshot().deliveries.filter(x => x.key.startsWith("approval:")).at(-1)!;
+      assert.equal(failedApproval.state, outcome === "not_sent" ? "failed" : "unknown");
+      const sends = f.sends();
+      f.failSend(undefined); await f.gateway.collectScheduledResults();
+      assert.equal(f.sends(), sends, "recovery does not retry old failed or ambiguous confirmation sends");
+      await f.gateway.receive(update(4, `允许 ${old}`));
+      await assert.rejects(readFile(join(f.workspace, "renew-fault.md")), { code: "ENOENT" });
+      await f.gateway.receive(update(5, "当前确认"));
+      const renewed = /允许 ([A-F0-9]{10})/.exec(f.sent.filter(x => x.includes("请求使用 write_file")).at(-1)!)![1]!;
+      assert.notEqual(renewed, old); assert.equal(f.calls(), 1);
+      assert.equal(f.store.snapshot().deliveries.find(x => x.key === failedApproval.key)?.state, outcome === "not_sent" ? "cancelled" : "unknown");
+      await f.gateway.receive(update(6, `允许 ${renewed}`));
+      await until(() => f.store.snapshot().inputs.find(x => x.key === "42:2")?.state === "finished");
+      await f.gateway.receive(update(7, `允许 ${renewed}`));
+      assert.equal(await readFile(join(f.workspace, "renew-fault.md"), "utf8"), "one write");
+      assert.equal((await f.host.channelReceipt(f.store.snapshot().owner!.threadId, runId!))?.tools.length, 1);
+    } finally { await f.cleanup(); }
+  });
+}
+
+it("restart cancels queued stale confirmation sends, preserves ambiguous sends and never restores their authority", async () => {
+  const f = await fixture(); let restarted: TelegramGateway | undefined;
+  try {
+    await f.bind(); await f.gateway.close();
+    await f.store.update(data => {
+      data.deliveries.push(
+        { key: "approval:old:AAAAAAAAAA", chatId: 42, text: "stale pending code", state: "pending", messageId: null },
+        { key: "approval:old:BBBBBBBBBB", chatId: 42, text: "stale failed code", state: "failed", messageId: null },
+        { key: "approval:old:CCCCCCCCCC", chatId: 42, text: "ambiguous confirmation", state: "sending", messageId: null },
+        { key: "result:pending", chatId: 42, text: "saved result", state: "pending", messageId: null });
+    });
+    const store = new TelegramStore(f.store.path, f.workspace); await store.load();
+    restarted = new TelegramGateway(f.host, store, f.api); await restarted.initialize();
+    await until(() => store.snapshot().deliveries.find(x => x.key === "result:pending")?.state === "submitted");
+    assert.equal(store.snapshot().deliveries.find(x => x.key.endsWith("AAAAAAAAAA"))?.state, "cancelled");
+    assert.equal(store.snapshot().deliveries.find(x => x.key.endsWith("BBBBBBBBBB"))?.state, "cancelled");
+    assert.equal(store.snapshot().deliveries.find(x => x.key.endsWith("CCCCCCCCCC"))?.state, "unknown");
+    assert(!f.sent.some(x => x === "stale pending code" || x === "stale failed code" || x === "ambiguous confirmation"));
+    const sent = f.sends(); await restarted.collectScheduledResults(); assert.equal(f.sends(), sent);
+    await restarted.receive(update(2, "允许 AAAAAAAAAA"));
+    assert.match(f.sent.at(-1)!, /没有批准任何操作/);
+    await restarted.receive(update(3, "/confirm"));
+    assert.match(f.sent.at(-1)!, /当前没有/); assert.equal(f.calls(), 0);
+  } finally { await restarted?.close(); await f.cleanup(); }
 });
 
 it("archived inbound message IDs still dedupe even under a different update ID", async () => {
@@ -319,6 +403,109 @@ it("archived inbound message IDs still dedupe even under a different update ID",
   } finally { await f.cleanup(); }
 });
 
+it("recovering an input with a terminal receipt does not resend its archived submitted result", async () => {
+  const f = await fixture(); let restarted: TelegramGateway | undefined;
+  try {
+    await f.bind(); await f.gateway.receive(update(2, "ordinary chat"));
+    await until(() => f.store.snapshot().deliveries.find(x => x.key === "result:42:2")?.state === "submitted");
+    await f.gateway.close();
+    const sends = f.sends();
+    await f.store.update(data => {
+      // A recoverable channel association and an independently saved Run result.
+      // Archiving the submitted envelope must not erase the send dedupe marker.
+      data.inputs.find(x => x.key === "42:2")!.state = "bound";
+      const result = data.deliveries.find(x => x.key === "result:42:2")!;
+      data.deliveries = [result, ...Array.from({ length: 1024 }, (_, n) => ({
+        key: `result:older-${n}`, chatId: 42, text: "old result", state: "submitted" as const, messageId: n + 1,
+      }))];
+    });
+    assert(await f.store.hasDelivery("result:42:2"));
+    assert(!f.store.snapshot().deliveries.some(x => x.key === "result:42:2"));
+    const store = new TelegramStore(f.store.path, f.workspace); await store.load();
+    restarted = new TelegramGateway(f.host, store, f.api); await restarted.initialize();
+    await until(() => restarted!.status().connection === "online");
+    await until(() => store.snapshot().inputs.find(x => x.key === "42:2")?.state === "finished");
+    await restarted.start(); // Await receipt recovery and its delivery pass.
+    assert.equal(store.snapshot().inputs.find(x => x.key === "42:2")?.state, "finished");
+    assert.equal(f.calls(), 1, "saved receipts recover without re-running the model");
+    assert.equal(f.sends(), sends, "archived platform submission is not sent again");
+    assert(!store.snapshot().deliveries.some(x => x.key === "result:42:2"));
+  } finally { await restarted?.close(); await f.cleanup(); }
+});
+
+// This fixture durably archives ~2700 records with real file/directory fsync.
+// Its deadline covers disk work, not an external model or Telegram timeout.
+it("a full legacy journal resumes continuous channel traffic, preserves unresolved effects and dedupes after a second restart", { timeout: 120_000 }, async () => {
+  const f = await fixture(); let active: TelegramGateway | undefined;
+  try {
+    await f.bind(); await f.gateway.close();
+    const data = f.store.snapshot();
+    data.offset = 5000;
+    data.inputs = Array.from({ length: 1024 }, (_, n) => ({ key: `42:${n + 2}`, updateId: n + 2, text: "old private message",
+      state: n === 0 ? "unknown" : "finished", runId: n === 0 ? null : `old-run-${n}`, taskId: null }));
+    data.deliveries = Array.from({ length: 2048 }, (_, n) => ({ key: `result:legacy-${n}`, chatId: 42, text: "old result",
+      state: n === 0 ? "pending" : n === 1 ? "unknown" : n === 2 ? "failed" : n === 3 ? "sending" : "submitted",
+      messageId: n < 4 ? null : n + 1 }));
+    await writeFile(f.store.path, JSON.stringify(data), { mode: 0o600 });
+    let store = new TelegramStore(f.store.path, f.workspace); await store.load();
+    active = new TelegramGateway(f.host, store, f.api); await active.initialize();
+    await until(() => active!.status().connection === "online" && store.snapshot().deliveries.find(x => x.key === "result:legacy-0")?.state === "submitted");
+    assert.equal(active.status().awaitingReview, 1);
+    assert.equal(store.snapshot().deliveries.find(x => x.key === "result:legacy-1")?.state, "unknown");
+    assert.equal(store.snapshot().deliveries.find(x => x.key === "result:legacy-2")?.state, "failed");
+    assert.equal(store.snapshot().deliveries.find(x => x.key === "result:legacy-3")?.state, "unknown");
+    await active.receive(update(5000, "/help")); assert.equal(f.calls(), 0);
+    await f.host.selectThread(store.snapshot().owner!.threadId);
+    await active.reviewInput({ key: "42:2", note: "验收操作：核对该旧请求没有启动 Run；不重新执行" });
+    for (let id = 5001; id <= 5005; id++) {
+      await active.receive(update(id, `fresh message ${id}`));
+      await until(() => store.snapshot().inputs.find(x => x.key === `42:${id}`)?.state === "finished");
+      await until(() => store.snapshot().deliveries.find(x => x.key === `result:42:${id}`)?.state === "submitted");
+    }
+    assert.equal(f.calls(), 5);
+    assert(await store.hasInput("42:3")); assert(!store.snapshot().inputs.some(x => x.key === "42:3"));
+    const sends = f.sends();
+    await active.close();
+    store = new TelegramStore(f.store.path, f.workspace); await store.load();
+    active = new TelegramGateway(f.host, store, f.api); await active.initialize();
+    await until(() => active!.status().connection === "online");
+    await active.receive(update(5006, "duplicate old message", 42, "private", 3));
+    assert.equal(f.calls(), 5); assert.equal(f.sends(), sends);
+    await active.receive(update(5007, "after second restart"));
+    await until(() => store.snapshot().inputs.find(x => x.key === "42:5007")?.state === "finished");
+    assert.equal(f.calls(), 6); assert.equal(store.snapshot().offset, 5008);
+    assert.equal(store.snapshot().deliveries.find(x => x.key === "result:legacy-1")?.state, "unknown");
+    console.log(JSON.stringify({ demo: "telegram-lifecycle", seededInputs: 1024, seededDeliveries: 2048,
+      activeInputs: store.snapshot().inputs.length, activeDeliveries: store.snapshot().deliveries.length,
+      newRuns: f.calls(), oldMessageReplays: 0, unresolvedPreserved: true, transport: "scripted", telegram: "not_run" }));
+  } finally { await active?.close(); await f.cleanup(); }
+});
+
+for (const change of ["input", "owner"] as const) {
+  it(`a ${change} change invalidates a short code despite matching Run and approval ID`, async t => {
+    const f = await fixture(async n => response(n === 1 ? { name: "write_file", input: { path: "bound-input.md", content: "original input" } } : undefined));
+    try {
+      await f.bind(); await f.gateway.receive(update(2, "写 bound-input.md"));
+      await until(() => f.sent.some(x => x.includes("请求使用 write_file")));
+      const code = /允许 ([A-F0-9]{10})/.exec(f.sent.find(x => x.includes("请求使用 write_file"))!)![1]!;
+      if (change === "input") {
+        const original = f.host.channelSnapshot.bind(f.host);
+        t.mock.method(f.host, "channelSnapshot", () => {
+          const value = original();
+          if (value.snapshot.pendingApproval) value.snapshot.pendingApproval = { ...value.snapshot.pendingApproval, input: { path: "other.md", content: "different complete input" } };
+          return value;
+        });
+      } else await f.store.update(data => { data.owner = { ...data.owner!, userId: 43, chatId: 43 }; });
+      await f.gateway.receive(update(3, `允许 ${code}`, change === "owner" ? 43 : 42));
+      assert.match(f.sent.at(-1)!, /没有批准任何操作/);
+      assert(f.host.current.snapshot().pendingApproval);
+      assert.equal(f.calls(), 1);
+      await assert.rejects(readFile(join(f.workspace, "bound-input.md")), { code: "ENOENT" });
+      await assert.rejects(readFile(join(f.workspace, "other.md")), { code: "ENOENT" });
+    } finally { t.mock.restoreAll(); await f.cleanup(); }
+  });
+}
+
 it("desktop confirmation invalidates Telegram approval and busy input never steals another Thread", async () => {
   const f = await fixture(async n => response(n === 1 ? { name: "read_file", input: { path: "missing.md" } } : undefined));
   try {
@@ -336,6 +523,32 @@ it("desktop confirmation invalidates Telegram approval and busy input never stea
     await until(() => f.store.snapshot().inputs.find(x => x.key === "42:5")?.state === "finished");
     assert.equal(f.calls(), 3);
   } finally { await f.cleanup(); }
+});
+
+it("desktop handling while a confirmation send claim is persisted prevents sending the stale envelope", async () => {
+  const f = await fixture(async n => response(n === 1 ? { name: "write_file", input: { path: "stale-send.md", content: "must not write" } } : undefined));
+  let release!: () => void;
+  const hold = new Promise<void>(resolve => { release = resolve; });
+  const save = f.store.update.bind(f.store);
+  try {
+    await f.bind();
+    let held = false;
+    f.store.update = async change => {
+      await save(change);
+      if (!held && f.store.snapshot().deliveries.some(x => x.key.startsWith("approval:") && x.state === "sending")) {
+        held = true; await hold;
+      }
+    };
+    await f.gateway.receive(update(2, "write first plan"));
+    await until(() => held);
+    const pending = f.host.current.snapshot().pendingApproval!;
+    assert.equal(f.host.current.confirm({ approvalId: pending.approvalId, decision: "deny" }).accepted, true);
+    release();
+    await until(() => f.store.snapshot().inputs.find(x => x.key === "42:2")?.state === "finished");
+    assert(!f.sent.some(x => x.includes("请求使用 write_file")), "no stale permission envelope was sent after the awaited claim");
+    assert.equal(f.store.snapshot().deliveries.find(x => x.key.startsWith("approval:"))?.state, "cancelled");
+    await assert.rejects(readFile(join(f.workspace, "stale-send.md")), { code: "ENOENT" });
+  } finally { release(); f.store.update = save; await f.cleanup(); }
 });
 
 it("a source-barrier failure dispatches zero model calls", async () => {

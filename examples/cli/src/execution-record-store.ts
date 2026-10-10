@@ -318,6 +318,7 @@ export class ExecutionRecordStore {
   readonly #now: () => Date;
   readonly #traceGaps = new Set<string>();
   #commitUncertain = false;
+  #writeFailed = false;
 
   constructor(directory: string, options: { now?: () => Date } = {}) {
     this.#directory = resolve(directory);
@@ -355,7 +356,7 @@ export class ExecutionRecordStore {
     }, input.runId);
   }
 
-  /** Optional display metadata must not prevent model execution or weaken tool barriers. */
+  /** Invalid optional metadata may be omitted; actual storage failure stops dispatch. */
   async recordTraceEvent(event: AgentEvent): Promise<void> {
     const compact = compactTraceEvent(event);
     if (compact === null) return;
@@ -373,7 +374,12 @@ export class ExecutionRecordStore {
         trace.events.push(compact);
         if (!validTrace(trace)) fail("INVALID_INPUT", "Invalid trace metadata");
       }, event.runId);
-    } catch { this.#traceGaps.add(event.runId); }
+    } catch (error) {
+      this.#traceGaps.add(event.runId);
+      if (this.#writeFailed || this.#commitUncertain ||
+          !(error instanceof ExecutionRecordError) ||
+          !["INVALID_INPUT", "CONFLICT", "NOT_FOUND", "LIMIT_EXCEEDED"].includes(error.code)) throw error;
+    }
   }
 
   async recordApprovalRequested(threadId: string, toolCallId: string, toolName: string): Promise<void> {
@@ -389,7 +395,12 @@ export class ExecutionRecordStore {
         const tool = run.tools.find(tool => tool.toolCallId === toolCallId)!;
         tool.approvalRequestedAt ??= at;
       });
-    } catch { if (runId) this.#traceGaps.add(runId); }
+    } catch (error) {
+      if (runId) this.#traceGaps.add(runId);
+      if (this.#writeFailed || this.#commitUncertain ||
+          !(error instanceof ExecutionRecordError) ||
+          !["INVALID_INPUT", "CONFLICT", "NOT_FOUND", "LIMIT_EXCEEDED"].includes(error.code)) throw error;
+    }
   }
 
   async recordToolEvent(runId: string, event: ToolEvent): Promise<void> {
@@ -582,6 +593,7 @@ export class ExecutionRecordStore {
 
   async #mutate(update: (document: Document) => void, protectedRunId?: string): Promise<void> {
     if (this.#commitUncertain) fail("COMMIT_UNCERTAIN", "Execution receipt acknowledgement is uncertain; restart and reconcile before further writes");
+    if (this.#writeFailed) fail("WRITE_FAILED", "Execution receipt storage failed; restart and reconcile before further dispatch");
     await this.#inspectDirectory();
     if (await this.#inspectFile(this.#lock)) {
       // Existing regular lock file is safe to hand to flock.
@@ -589,6 +601,7 @@ export class ExecutionRecordStore {
     const lock = await acquireFlock(this.#lock);
     try {
       if (this.#commitUncertain) fail("COMMIT_UNCERTAIN", "Execution receipt acknowledgement is uncertain; restart before further writes");
+      if (this.#writeFailed) fail("WRITE_FAILED", "Execution receipt storage failed; restart and reconcile before further dispatch");
       const document = await this.#load();
       update(document);
       for (const run of document.runs) {
@@ -637,6 +650,7 @@ export class ExecutionRecordStore {
         }
         for (const run of document.runs) this.#traceGaps.delete(run.runId);
       } catch (error) {
+        this.#writeFailed = true;
         if (renamed) {
           this.#commitUncertain = true;
           fail("COMMIT_UNCERTAIN", "Execution receipt was replaced but acknowledgement is uncertain; reread after restart, never replay tools");

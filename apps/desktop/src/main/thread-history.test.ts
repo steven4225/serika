@@ -5,7 +5,51 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { it } from "node:test";
 import { discoverThreadDirectory, inspectThread } from "./thread-history.js";
-import { readCommittedTranscriptLines } from "@aisdk-agent/core";
+import { readCommittedTranscriptLines, JsonlAgentStore } from "@aisdk-agent/core";
+
+it("refreshes a many-Thread history list without reparsing unchanged snapshots and invalidates only the changed entry", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "serika-history-projection-"));
+  try {
+    const threads = Array.from({ length: 12 }, (_, index) => ({ threadId: `t${index}`, transcriptDirectory: directory }));
+    const store = new JsonlAgentStore({ directory });
+    for (const thread of threads) {
+      await store.save(thread.threadId, [{ id: "u", role: "user", parts: [{ type: "text", text: `对话 ${thread.threadId}` }] }]);
+      assert.equal((await inspectThread(thread)).messageCount, 1);
+    }
+    const original = JSON.parse;
+    let parsed = 0;
+    t.mock.method(JSON, "parse", (...args: Parameters<typeof JSON.parse>) => { parsed++; return original(...args); });
+    for (const thread of threads) assert.equal((await inspectThread(thread)).messageCount, 1);
+    assert.equal(parsed, 0, "small list projections survive eviction of full transcript cache entries");
+    await store.save(threads[0]!.threadId, [{ id: "u", role: "user", parts: [{ type: "text", text: "已变更的标题" }] }]);
+    const changed = await inspectThread(threads[0]!);
+    assert.equal(changed.title, "已变更的标题");
+    const before = parsed;
+    for (const thread of threads) await inspectThread(thread);
+    assert.equal(parsed, before);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+it("opens and searches a single >16 MiB legacy snapshot, then continues using small delta records without loss", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "serika-long-thread-"));
+  try {
+    const thread = { threadId: "long", transcriptDirectory: directory };
+    const messages = [{ id: "early", role: "user" as const, parts: [{ type: "text" as const, text: "早期重要信息" + "a".repeat(17 * 1024 * 1024) }] }];
+    const file = join(directory, createHash("sha256").update(thread.threadId).digest("hex") + ".jsonl");
+    await writeFile(file, JSON.stringify({ v: 1, type: "thread.messages.committed", threadId: thread.threadId, messages }) + "\n");
+    const before = await stat(file);
+    const old = await inspectThread(thread, "早期重要信息");
+    assert.equal(old.error, undefined); assert.equal(old.matchesQuery, true); assert.equal(old.messageCount, 1);
+    assert.equal((await stat(file)).mtimeMs, before.mtimeMs);
+    const store = new JsonlAgentStore({ directory });
+    const next = [...messages, { id: "new", role: "user" as const, parts: [{ type: "text" as const, text: "继续" }] }];
+    await store.save(thread.threadId, next);
+    assert.ok((await stat(file)).size - before.size < 2048);
+    assert.deepEqual(await new JsonlAgentStore({ directory }).getMessages(thread.threadId), next);
+    const found = await discoverThreadDirectory(directory);
+    assert.equal(found[0]?.messageCount, 2); assert.equal(found[0]?.error, undefined);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
 
 it("an oversized incomplete tail cannot hide the preceding committed snapshot; a complete oversized record fails", async () => {
   const directory = await mkdtemp(join(tmpdir(), "runloom-oversized-tail-"));
