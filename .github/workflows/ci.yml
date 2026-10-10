@@ -47,6 +47,9 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22.12.0
+      # Keep the originally failing standalone command explicit: do not rely
+      # on unrelated test files to keep deadline timers alive.
+      - run: node --test packages/ai-sdk-adapter/dist/loop.test.js
       - run: node --test --test-concurrency=4 packages/core/dist/*.test.js packages/core/dist/durable/*.test.js packages/ai-sdk-adapter/dist/*.test.js examples/cli/dist/*.test.js examples/cli/dist/acceptance/*.test.js examples/cli/dist/modules/*.test.js
       - run: node --import tsx --test --test-concurrency=4 src/shared/*.test.ts src/main/*.test.ts src/renderer/src/*.test.ts src/renderer/src/personal/*.test.ts
         working-directory: apps/desktop
