@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, open, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, it } from "node:test";
@@ -35,6 +35,21 @@ function input() {
 }
 
 describe("WorkTaskStore", () => {
+  it("a failed beginRun file sync blocks further execution admission until reopening", async (t) => {
+    const root = await workspace();
+    const store = createWorkTaskStore(root);
+    const created = await store.create(input()); assert(created.ok);
+    const file = join(root, ".runloom/work-tasks.json"), before = await readFile(file);
+    const probe = await open(file, "r"), prototype = Object.getPrototypeOf(probe); await probe.close();
+    const injected = t.mock.method(prototype, "sync", async () => { throw new Error("begin sync fault"); });
+    assert.equal(code(await store.beginRun(created.value.id, { expectedRevision: 1, runId: "blocked" })), "WORK_TASK_WRITE_FAILED");
+    injected.mock.restore();
+    assert.equal(code(await store.beginRun(created.value.id, { expectedRevision: 1, runId: "still-blocked" })), "WORK_TASK_WRITE_FAILED");
+    assert.deepEqual(await readFile(file), before);
+    const saved = await createWorkTaskStore(root).get(created.value.id); assert(saved.ok);
+    assert.equal(saved.value.status, "ready"); assert.deepEqual(saved.value.runIds, []);
+  });
+
   it("returns delivery for changes once under CAS, preserves the last delivery but invalidates acceptance", async () => {
     const directory = await workspace();
     const store = createWorkTaskStore(directory, { generateId: () => "rework" });

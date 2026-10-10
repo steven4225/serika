@@ -7,7 +7,9 @@ import { it } from "node:test";
 import { gzipSync, gunzipSync } from "node:zlib";
 import { createTaskStore, TASK_FILE_NAME } from "@aisdk-agent/example-cli/dist/task-store.js";
 import { createExecutionRecordStore } from "@aisdk-agent/example-cli/dist/execution-record-store.js";
-import { exportBackup, restoreBackup } from "./backup.js";
+import { exportBackup, restoreBackup, previewBackup } from "./backup.js";
+import { acquireFlock } from "@aisdk-agent/example-cli/dist/flock.js";
+import { JsonlAgentStore } from "@aisdk-agent/core";
 import { inspectThread } from "./thread-history.js";
 
 const digest = (text: string) => createHash("sha256").update(text).digest("hex");
@@ -108,5 +110,41 @@ it("bad hashes, path traversal and mismatched transcript ownership fail before a
       await assert.rejects(restoreBackup(f.destination, f.root));
       assert.deepEqual(await readdir(f.root), entriesBefore);
     }
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
+
+it("refuses a busy writer without partial export; preview is read-only and a changed archive cannot be restored", async () => {
+  const f = await fixture();
+  let lock: Awaited<ReturnType<typeof acquireFlock>> | undefined;
+  try {
+    lock = await acquireFlock(join(f.workspace, ".runloom", "memory.json.lock"));
+    await assert.rejects(exportBackup(f), /正在写入/);
+    await assert.rejects(readFile(f.destination), { code: "ENOENT" });
+    await lock.release(); lock = undefined;
+    await exportBackup(f);
+    const files = await readdir(f.root), bytes = await readFile(f.destination);
+    const preview = await previewBackup(f.destination);
+    assert.equal(preview.threads, 1); assert(preview.stores.includes("memory.json"));
+    assert.deepEqual(await readdir(f.root), files);
+    const changed = JSON.parse(gunzipSync(bytes).toString()); changed.createdAt = "2026-10-11T00:00:00Z";
+    await writeFile(f.destination, gzipSync(JSON.stringify(changed)));
+    await assert.rejects(restoreBackup(f.destination, f.root, preview.fingerprint), /预览后已变化/);
+    assert.deepEqual(await readdir(f.root), files);
+  } finally { await lock?.release(); await rm(f.root, { recursive: true, force: true }); }
+});
+
+it("exports a v3 delta chain as a self-contained backup and continues it after restore", async () => {
+  const f = await fixture();
+  try {
+    const store = new JsonlAgentStore({ directory: f.transcripts });
+    const previous = await store.getMessages("daily");
+    const next = [...previous, { id: "new", role: "user" as const, parts: [{ type: "text" as const, text: "新的已提交消息" }] }];
+    await store.save("daily", next);
+    await exportBackup(f);
+    const restored = await restoreBackup(f.destination, f.root);
+    const reopened = new JsonlAgentStore({ directory: restored.transcriptDirectory });
+    assert.deepEqual(await reopened.getMessages("daily"), next);
+    await reopened.save("daily", [...next, { id: "after", role: "assistant", parts: [{ type: "text", text: "恢复后继续" }] }]);
+    assert.equal((await inspectThread({ threadId: "daily", transcriptDirectory: restored.transcriptDirectory })).messageCount, 3);
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });

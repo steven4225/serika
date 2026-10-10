@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, open, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
@@ -20,6 +20,46 @@ function event(type: "tool.call.requested" | "tool.call.started" | "tool.call.co
 }
 
 describe("execution record adapter", () => {
+  it("does not swallow corrupt authoritative receipts at an optional trace barrier", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "runloom-receipt-corrupt-stop-"));
+    try {
+      const records = createExecutionRecordStore(directory);
+      const adapter = createExecutionRecordAdapter(new InMemoryAgentStore(), records);
+      adapter.enable();
+      await adapter.store.create(run);
+      await writeFile(join(directory, EXECUTION_RECORD_FILE), "{broken");
+      const trace: AgentEvent = { id: "step", type: "step.started", runId: run.id, threadId: run.threadId, sequence: 1, occurredAt: at, data: { stepNumber: 1 } };
+      await assert.rejects(adapter.store.append(trace), /invalid JSON/);
+      await assert.rejects(records.recordApprovalRequested(run.threadId, "call", "read_file"), /invalid JSON/);
+      assert.deepEqual(await adapter.store.list(run.id), [], "failed persistence does not publish the next execution step");
+    } finally { await rm(directory, { recursive: true, force: true }); }
+  });
+
+  it("a failed optional trace file sync blocks later tool dispatch even after the filesystem recovers", async (t) => {
+    const directory = await mkdtemp(join(tmpdir(), "runloom-receipt-sync-stop-"));
+    try {
+      const records = createExecutionRecordStore(directory);
+      const adapter = createExecutionRecordAdapter(new InMemoryAgentStore(), records);
+      adapter.enable();
+      await adapter.store.create(run);
+      await adapter.store.append(event("tool.call.requested", { toolCallId: "write-1", toolName: "write_file", input: { path: "report.txt" } }, 1));
+      const probe = await open(join(directory, EXECUTION_RECORD_FILE), "r");
+      const prototype = Object.getPrototypeOf(probe);
+      await probe.close();
+      const injected = t.mock.method(prototype, "sync", async () => { throw new Error("disk sync failed"); });
+      const trace: AgentEvent = { id: "step", type: "step.started", runId: run.id, threadId: run.threadId, sequence: 2, occurredAt: at, data: { stepNumber: 1 } };
+      await assert.rejects(adapter.store.append(trace), /WRITE_FAILED|save failed/);
+      injected.mock.restore();
+      let dispatched = false;
+      await assert.rejects(async () => {
+        await adapter.store.append(event("tool.call.started", { toolCallId: "write-1", toolName: "write_file" }, 3));
+        dispatched = true;
+      }, /restart|reconcile/);
+      assert.equal(dispatched, false);
+      assert.equal((await records.getRun(run.threadId, run.id))?.tools[0]?.status, "requested");
+    } finally { await rm(directory, { recursive: true, force: true }); }
+  });
+
   it("persists host source association before Core creation and fails closed", async () => {
     const directory = await mkdtemp(join(tmpdir(), "runloom-source-barrier-"));
     try {

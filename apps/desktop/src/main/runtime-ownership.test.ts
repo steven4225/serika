@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
-import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, open, readFile, rm, writeFile, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { mock, test } from "node:test";
 import { MockLanguageModelV3 } from "ai/test";
+import { simulateReadableStream } from "ai";
+import { createMemoryStore } from "@aisdk-agent/example-cli/dist/memory-store.js";
+import { JsonlAgentStore } from "@aisdk-agent/core";
+import { restoreBackup } from "./backup.js";
 import { RuntimeOwnership } from "./runtime-ownership.js";
 import { DesktopRuntime } from "./desktop-runtime.js";
 import { resolveResidentPaths, type ResidentServiceState } from "./resident-service.js";
@@ -17,7 +21,7 @@ function deferred<T>() {
 }
 
 async function fixture() {
-  const root = await mkdtemp(join(tmpdir(), "serika-runtime-ownership-"));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "serika-runtime-ownership-")));
   const workspace = join(root, "workspace"), configPath = join(root, "config.json");
   await mkdir(workspace);
   await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { pomodoro: { enabled: true } } }));
@@ -55,6 +59,49 @@ test("normal startup writes only identity fields and does not register a service
   } finally { await owner.shutdown(); await f.cleanup(); }
 });
 
+test("opens restored history and memory, continues, reopens the selected recovery profile and returns without changing the original", async () => {
+  const f = await fixture();
+  let calls = 0;
+  const options = { ...f.options, model: new MockLanguageModelV3({ doStream: async () => {
+    calls++;
+    return { stream: simulateReadableStream({ chunks: [{ type: "stream-start", warnings: [] }, { type: "text-start", id: "t" }, { type: "text-delta", id: "t", delta: "收到保存的偏好。" }, { type: "text-end", id: "t" },
+      { type: "finish", finishReason: { unified: "stop", raw: undefined }, usage: { inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 1, text: 1, reasoning: undefined } } }] }) };
+  } }) };
+  let owner = await RuntimeOwnership.create(options);
+  try {
+    const original = owner.info(), memory = createMemoryStore(original.workspaceRoot!);
+    const saved = await memory.add({ text: "复盘先写结论，再两条步骤" }); assert(saved.ok);
+    const transcript = new JsonlAgentStore({ directory: original.directory });
+    const messages = [{ id: "old-user", role: "user" as const, parts: [{ type: "text" as const, text: "旧对话可恢复" }] }];
+    await transcript.save(original.threadId, messages);
+    const memoryBefore = await readFile(join(original.workspaceRoot!, ".runloom", "memory.json"));
+    const configBefore = await readFile(original.configPath!);
+    const backup = join(f.root, "personal.serika-backup"); await owner.exportBackup(backup);
+    const recovered = await restoreBackup(backup, f.root);
+    await owner.activateRecovery(recovered.path);
+    assert.notEqual(owner.info().workspaceRoot, original.workspaceRoot);
+    assert.equal(owner.info().threadId, original.threadId); assert.equal(owner.info().recoveryWorkspace?.originalWorkspace, original.workspaceRoot);
+    assert.deepEqual(await owner.current.history(), messages);
+    const memories = await owner.current.listMemories(); assert(memories.ok && memories.value.entries.some(item => item.id === saved.entry.id));
+    assert.equal(calls, 0, "activation does not call a model or replay tasks");
+    assert((await owner.current.run("复盘怎么写", { memoryConsolidation: "exclude" })).ok);
+    while (owner.current.snapshot().state.kind !== "idle") await new Promise(resolve => setTimeout(resolve, 5));
+    assert.equal((await owner.current.getMemoryReferences())?.selected[0]?.id, saved.entry.id);
+    assert.equal(calls, 1); assert.equal((await owner.current.history()).length, 3);
+    await owner.shutdown(); owner = await RuntimeOwnership.create(options);
+    assert.equal(owner.info().workspaceRoot, join(recovered.path, "workspace"));
+    assert.equal((await owner.current.history()).length, 3); assert.equal(calls, 1);
+    await owner.activateRecovery(null);
+    assert.equal(owner.info().workspaceRoot, original.workspaceRoot);
+    assert.deepEqual(await owner.current.history(), messages);
+    assert.deepEqual(await readFile(join(original.workspaceRoot!, ".runloom", "memory.json")), memoryBefore);
+    assert.deepEqual(await readFile(original.configPath!), configBefore);
+    assert.deepEqual(f.counts(), { enableCalls: 0, disableCalls: 0, modelCalls: 0 });
+    await owner.shutdown(); owner = await RuntimeOwnership.create(options);
+    assert.equal(owner.info().workspaceRoot, original.workspaceRoot); assert.equal(owner.info().recoveryWorkspace, undefined);
+  } finally { await owner.shutdown(); await f.cleanup(); }
+});
+
 test("an active timer refuses ownership transfer without cancelling or registering", async () => {
   const f = await fixture();
   const owner = await RuntimeOwnership.create(f.options);
@@ -62,11 +109,69 @@ test("an active timer refuses ownership transfer without cancelling or registeri
     assert.equal((await owner.current.command("/pomodoro start 3")).ok, true);
     const bridge = owner.current;
     await assert.rejects(owner.setResidentEnabled(true), /先结束番茄钟/);
+    await assert.rejects(owner.activateRecovery(join(f.root, "not-a-recovery")), /先结束番茄钟/);
     assert.equal(owner.current, bridge);
     assert.deepEqual(f.counts(), { enableCalls: 0, disableCalls: 0, modelCalls: 0 });
     assert.equal((await owner.current.command("/pomodoro status")).ok, true);
     assert.ok(f.events.some(event => event.type === "output" && /番茄钟运行中，剩余/.test(event.text)));
     assert.equal((await owner.current.command("/pomodoro cancel")).ok, true);
+  } finally { await owner.shutdown(); await f.cleanup(); }
+});
+
+test("invalid recovery data leaves the original controller and selection usable", async () => {
+  const f = await fixture(); const owner = await RuntimeOwnership.create(f.options);
+  try {
+    const before = owner.info(), bridge = owner.current;
+    const backup = join(f.root, "backup.serika-backup"); await owner.exportBackup(backup);
+    const recovered = await restoreBackup(backup, f.root);
+    await mkdir(join(recovered.path, "workspace", ".runloom"), { recursive: true });
+    await writeFile(join(recovered.path, "workspace", ".runloom", "memory.json"), "broken");
+    await assert.rejects(owner.activateRecovery(recovered.path));
+    assert.equal(owner.current, bridge); assert.equal(owner.info().workspaceRoot, before.workspaceRoot);
+    await assert.rejects(readFile(join(f.options.userData, "recovery-selection.json")), { code: "ENOENT" });
+    assert.equal(f.counts().modelCalls, 0);
+  } finally { await owner.shutdown(); await f.cleanup(); }
+});
+
+test("uncertain selection persistence freezes admission and restart reads the committed recovery pointer", async t => {
+  const f = await fixture(); let owner = await RuntimeOwnership.create(f.options);
+  const backup = join(f.root, "backup.serika-backup"); await owner.exportBackup(backup);
+  const recovered = await restoreBackup(backup, f.root);
+  const originalWorkspace = owner.info().workspaceRoot;
+  const probe = await open(f.root, "r"), prototype = Object.getPrototypeOf(probe); await probe.close();
+  const originalSync = prototype.sync, originalShutdown = DesktopRuntime.prototype.shutdown;
+  let stopped = false, faulted = false;
+  const stop = t.mock.method(DesktopRuntime.prototype, "shutdown", async function(this: DesktopRuntime) {
+    await originalShutdown.call(this); stopped = true;
+  });
+  const sync = t.mock.method(prototype, "sync", async function(this: { stat(): Promise<{ isDirectory(): boolean }> }) {
+    if (stopped && !faulted && (await this.stat()).isDirectory()) { faulted = true; throw new Error("selection directory sync fault"); }
+    return originalSync.call(this);
+  });
+  try {
+    await assert.rejects(owner.activateRecovery(recovered.path), /恢复入口保存结果未确认/);
+    sync.mock.restore(); stop.mock.restore();
+    assert.equal(faulted, true); assert.equal(owner.info().workspaceRoot, originalWorkspace);
+    assert.equal(owner.info().runtimeRecovery?.state, "failed");
+    assert.throws(() => owner.current, /退出重开/); await assert.rejects(owner.retryConnection(), /退出重开/);
+    await owner.shutdown(); owner = await RuntimeOwnership.create(f.options);
+    assert.equal(owner.info().workspaceRoot, join(recovered.path, "workspace"));
+    assert.equal(owner.info().runtimeRecovery?.state, undefined); assert.equal(f.counts().modelCalls, 0);
+  } finally { sync.mock.restore(); stop.mock.restore(); await owner.shutdown(); await f.cleanup(); }
+});
+
+test("explicit Thread launch overrides recovery without overwriting its saved selection", async () => {
+  const f = await fixture(); let owner = await RuntimeOwnership.create(f.options);
+  try {
+    const backup = join(f.root, "backup.serika-backup"); await owner.exportBackup(backup);
+    const recovered = await restoreBackup(backup, f.root); await owner.activateRecovery(recovered.path);
+    const pointer = await readFile(join(f.options.userData, "recovery-selection.json"));
+    await owner.shutdown();
+    owner = await RuntimeOwnership.create({ ...f.options, env: { ...f.options.env, RUNLOOM_THREAD: "explicit-thread" } });
+    assert.equal(owner.info().threadId, "explicit-thread"); assert.equal(owner.info().workspaceRoot, join(f.root, "workspace"));
+    await assert.rejects(owner.activateRecovery(recovered.path), /显式指定/);
+    assert.deepEqual(await readFile(join(f.options.userData, "recovery-selection.json")), pointer);
+    assert.equal(f.counts().modelCalls, 0);
   } finally { await owner.shutdown(); await f.cleanup(); }
 });
 

@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import {
   mkdtemp,
   mkdir,
+  open,
   readFile,
   stat,
   rm,
@@ -42,6 +43,52 @@ function code(result: { ok: true } | { ok: false; error: { code: string } }): st
 }
 
 describe("WorkspaceTaskStore", () => {
+  for (const boundary of ["cancel-only", "file", "directory"] as const) {
+    it(`does not let simultaneous cancellation hide a ${boundary} persistence outcome`, { skip: boundary === "directory" && process.platform === "win32" }, async (t) => {
+      const root = await workspace(), store = createTaskStore(root);
+      assert((await store.create({ prompt: "existing", runAt: "2099-01-01T00:00:00Z" })).ok);
+      const probe = await open(join(root, TASK_FILE_NAME), "r");
+      const prototype = Object.getPrototypeOf(probe), original = prototype.sync;
+      await probe.close();
+      const controller = new AbortController();
+      const injected = t.mock.method(prototype, "sync", async function (this: typeof probe) {
+        const directory = (await this.stat()).isDirectory();
+        if (directory === (boundary === "directory")) {
+          if (boundary === "cancel-only") await original.call(this);
+          controller.abort(new Error("user cancelled"));
+          if (boundary !== "cancel-only") throw new Error("storage sync fault");
+          return;
+        }
+        return original.call(this);
+      });
+      try {
+        const writing = store.create({ prompt: "new", runAt: "2099-01-01T00:00:00Z" }, controller.signal);
+        if (boundary === "directory") assert.equal(code(await writing), "COMMIT_UNCERTAIN");
+        else await assert.rejects(writing, error => error === controller.signal.reason);
+      } finally { injected.mock.restore(); }
+      const next = await store.create({ prompt: "next", runAt: "2099-01-01T00:00:00Z" });
+      if (boundary === "cancel-only") assert(next.ok, "normal cancellation leaves sound storage writable");
+      else assert.equal(code(next), boundary === "file" ? "WRITE_FAILED" : "COMMIT_UNCERTAIN");
+    });
+  }
+
+  it("a failed claim file sync freezes further claims; reopening only sees the unchanged scheduled task", async (t) => {
+    const root = await workspace();
+    let now = Date.parse("2026-10-10T00:00:00Z");
+    const store = createTaskStore(root, { now: () => now });
+    const task = await store.create({ prompt: "must not run", runAt: "2026-10-10T00:01:00Z" }); assert(task.ok);
+    now += 60_000;
+    const file = join(root, TASK_FILE_NAME), before = await readFile(file);
+    const probe = await open(file, "r"), prototype = Object.getPrototypeOf(probe); await probe.close();
+    const injected = t.mock.method(prototype, "sync", async () => { throw new Error("claim sync fault"); });
+    assert.equal(code(await store.claimNextDue()), "WRITE_FAILED");
+    injected.mock.restore();
+    assert.equal(code(await store.claimNextDue()), "WRITE_FAILED");
+    assert.deepEqual(await readFile(file), before);
+    const saved = await createTaskStore(root).get(task.value.id); assert(saved.ok);
+    assert.equal(saved.value.status, "scheduled");
+  });
+
   it("restore preserves failed attempt history but disables its scheduled safe retry and pending notification", async () => {
     const root = await workspace();
     let now = Date.parse("2026-10-10T00:00:00Z");

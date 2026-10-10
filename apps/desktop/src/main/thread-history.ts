@@ -1,13 +1,19 @@
 import { createHash } from "node:crypto";
 import { lstat, readdir, realpath } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
-import { readCommittedTranscriptLines } from "@aisdk-agent/core";
+import { readCommittedTranscriptLines, createThreadTranscriptReader, MAX_TRANSCRIPT_RECORD_BYTES } from "@aisdk-agent/core";
 import type { DesktopThread } from "./desktop-identity.js";
 import type { ThreadSummary } from "../shared/ui-contract.js";
 
 // The safety bound applies to a single logical snapshot, not duplicated disk
 // history. Large accumulated files can be searched without loading them whole.
-const MAX_RECORD_BYTES = 16 * 1024 * 1024;
+const MAX_RECORD_BYTES = MAX_TRANSCRIPT_RECORD_BYTES;
+const readHistory = createThreadTranscriptReader();
+type SummaryProjection = Pick<ThreadSummary, "title" | "messageCount" | "preview" | "matchesQuery" | "savedAt" | "error">;
+// Small projections let a 100-Thread list stay warm without retaining 100 full
+// conversations. Search results are cached separately under the same stamp.
+const summaries = new Map<string, { stamp: string; value: SummaryProjection }>();
+const fileStamp = (stat: Awaited<ReturnType<typeof lstat>>) => `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}`;
 
 /** Read-only discovery; never repairs tails or performs snapshot cleanup. */
 export async function inspectThread(thread: DesktopThread, query = ""): Promise<ThreadSummary> {
@@ -15,20 +21,17 @@ export async function inspectThread(thread: DesktopThread, query = ""): Promise<
   try {
     const stat = await lstat(path);
     if (!stat.isFile() || stat.isSymbolicLink()) throw new Error("Transcript is not a regular file");
-    let messages: Array<{ role: string; parts: Array<{ type: string; text?: string }>; metadata?: { source?: string } }> = [];
-    let incompleteTail = false;
-    for await (const item of readCommittedTranscriptLines(path, { maxLineBytes: MAX_RECORD_BYTES })) {
-      if (!("line" in item)) { incompleteTail = true; continue; }
-      const { line } = item;
-      if (!line.trim()) continue;
-      const record = JSON.parse(line);
-      if (record !== null && typeof record === "object" && "v" in record && record.v !== 1) continue;
-      if (record.threadId !== thread.threadId) throw new Error("Transcript Thread identity does not match the file");
-      if (record.type === "thread.messages.committed" && record.v === 1 && Array.isArray(record.messages)) {
-        if (record.messages.some((message: { role?: string; parts?: unknown }) => !["user", "assistant", "system"].includes(message.role ?? "") || !Array.isArray(message.parts))) throw new Error("Invalid committed messages");
-        messages = record.messages;
-      } else if (record.type !== "thread.context.compacted") throw new Error("Invalid transcript record");
+    const key = JSON.stringify([path, thread.threadId, query]);
+    const cached = summaries.get(key);
+    summaries.delete(key);
+    if (cached?.stamp === fileStamp(stat)) {
+      summaries.set(key, cached);
+      return { ...thread, ...cached.value };
     }
+    const transcript = await readHistory(path, thread.threadId);
+    const messages = transcript.messages as Array<{ role: string; parts: Array<{ type: string; text?: string }>; metadata?: { source?: string } }>;
+    const incompleteTail = transcript.incompleteTail;
+    if (messages.some(message => !["user", "assistant", "system"].includes(message.role) || !Array.isArray(message.parts))) throw new Error("Invalid committed messages");
     let background = false;
     const conversation: Array<{ role: string; text: string }> = [];
     for (const message of messages) {
@@ -45,8 +48,13 @@ export async function inspectThread(thread: DesktopThread, query = ""): Promise<
     const matchIndex = query ? previewText.toLocaleLowerCase().indexOf(query.toLocaleLowerCase()) : -1;
     const start = Math.max(0, matchIndex - 30);
     const preview = `${start ? "…" : ""}${previewText.slice(start, start + 160)}${previewText.length > start + 160 ? "…" : ""}`;
-    return { ...thread, title, messageCount: messages.length, preview, matchesQuery: !query || !!matched,
+    const value: SummaryProjection = { title, messageCount: messages.length, preview, matchesQuery: !query || !!matched,
       savedAt: stat.mtime.toISOString(), ...(incompleteTail ? { error: "末尾有未完成记录；这里只展示最近完整快照" } : {}) };
+    if (fileStamp(await lstat(path)) === fileStamp(stat)) {
+      summaries.set(key, { stamp: fileStamp(stat), value });
+      while (summaries.size > 200) summaries.delete(summaries.keys().next().value!);
+    }
+    return { ...thread, ...value };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return { ...thread, title: "新对话", messageCount: 0 };
     return { ...thread, title: thread.threadId, messageCount: null, error: error instanceof Error ? error.message : "无法读取历史" };

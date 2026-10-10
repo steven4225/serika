@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
-import { appendFile, mkdtemp, open, readFile, readdir, rm, stat } from "node:fs/promises";
+import fs from "node:fs";
+import { appendFile, mkdtemp, open, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, it } from "node:test";
 import type { UIMessage } from "ai";
 import { JsonlAgentStore } from "./jsonl-store.js";
+import { encodeTranscriptUpdate, MAX_TRANSCRIPT_RECORD_BYTES } from "./transcript-codec.js";
 import type { ThreadContextCompactionRecord } from "./store.js";
 
 const directories: string[] = [];
@@ -31,6 +34,85 @@ afterEach(async () => {
 });
 
 describe("JsonlAgentStore", () => {
+  it("reuses a read-only snapshot and decodes only appended records, invalidating on replacement", async (t) => {
+    const directory = await temporaryDirectory();
+    const store = new JsonlAgentStore({ directory });
+    const messages = transcript("old history ".repeat(30_000));
+    await store.save("thread-1", messages);
+    await store.getMessages("thread-1");
+    const [fileName] = await readdir(directory);
+    const path = join(directory, fileName!);
+    const probe = await open(path, "r");
+    const prototype = Object.getPrototypeOf(probe);
+    const original = prototype.read;
+    await probe.close();
+    let bytes = 0;
+    t.mock.method(prototype, "read", async function (this: typeof probe, ...args: unknown[]) {
+      const result = await original.apply(this, args);
+      bytes += result.bytesRead;
+      return result;
+    });
+    assert.deepEqual(await store.getMessages("thread-1"), messages);
+    assert.equal(bytes, 0, "unchanged history must not be rescanned");
+    const next = [...messages, { id: "u2", role: "user" as const, parts: [{ type: "text" as const, text: "new suffix" }] }];
+    const delta = encodeTranscriptUpdate("thread-1", messages, next).join("");
+    await appendFile(path, delta);
+    assert.deepEqual(await store.getMessages("thread-1"), next);
+    assert.equal(bytes, Buffer.byteLength(delta), "only the new delta is read");
+    const replacement = transcript("replacement");
+    await writeFile(`${path}.replacement`, encodeTranscriptUpdate("thread-1", [], replacement).join(""));
+    await rename(`${path}.replacement`, path);
+    assert.deepEqual(await store.getMessages("thread-1"), replacement);
+  });
+
+  it("holds the append lease for the whole Run and releases it only at a terminal transition", async () => {
+    const directory = await temporaryDirectory();
+    let held = false, claims = 0;
+    const store = new JsonlAgentStore({ directory, acquireTranscriptLock: async () => {
+      assert.equal(held, false); held = true; claims++;
+      return { release: async () => { held = false; } };
+    } });
+    const at = new Date(0).toISOString();
+    await store.create({ id: "run", threadId: "thread-1", agentId: "agent", agentVersion: "1", status: "created", version: 0, createdAt: at, updatedAt: at });
+    assert.equal(held, true, "physical cleanup cannot enter while a Run owns its transcript");
+    await store.transition("run", 0, "running");
+    await assert.rejects(store.compactThread("thread-1"), /active Run/);
+    await store.appendContextCompaction({ v: 2, type: "thread.context.compacted", threadId: "thread-1" });
+    await store.save("thread-1", transcript("same Run save"));
+    assert.equal(claims, 1, "the owning Run reuses its lease for internal writes");
+    assert.equal(held, true);
+    await store.transition("run", 1, "completed");
+    assert.equal(held, false);
+  });
+
+  it("resumes pending chunk transactions and Unicode EOF lines without treating them as committed sources", async () => {
+    const directory = await temporaryDirectory();
+    const store = new JsonlAgentStore({ directory });
+    const original = transcript("committed");
+    await store.save("thread-1", original);
+    const [name] = await readdir(directory), path = join(directory, name!);
+    const next = transcript("新内容🙂".repeat(40_000));
+    const lines = encodeTranscriptUpdate("thread-1", original, next);
+    await appendFile(path, lines[0]!);
+    assert.deepEqual(await store.getMessages("thread-1"), original);
+    assert.deepEqual(await store.getMessages("thread-1"), original);
+    await appendFile(path, lines.slice(1).join(""));
+    assert.deepEqual(await store.getMessages("thread-1"), next);
+    const legacy = Buffer.from(JSON.stringify({ v: 1, type: "thread.messages.committed", threadId: "thread-1", messages: transcript("完整🙂来源") }) + "\n");
+    const split = legacy.indexOf(Buffer.from("🙂")) + 1;
+    await appendFile(path, legacy.subarray(0, split));
+    assert.deepEqual(await store.getMessages("thread-1"), next);
+    await appendFile(path, legacy.subarray(split));
+    assert.deepEqual(await store.getMessages("thread-1"), transcript("完整🙂来源"));
+    await writeFile(path, encodeTranscriptUpdate("thread-1", [], original).join(""));
+    assert.deepEqual(await store.getMessages("thread-1"), original, "truncation resets offsets and pending chunks");
+    const damaged = encodeTranscriptUpdate("thread-1", [], transcript("tampered"));
+    const commit = JSON.parse(damaged.at(-1)!); commit.payloadHash = "wrong";
+    damaged[damaged.length - 1] = JSON.stringify(commit) + "\n";
+    await appendFile(path, damaged.join(""));
+    await assert.rejects(store.getMessages("thread-1"), /corrupt/);
+  });
+
   it("cleans redundant snapshots under a host lock without changing message sources or opaque companions", async () => {
     const directory = await temporaryDirectory();
     let held = false, claims = 0;
@@ -65,7 +147,7 @@ describe("JsonlAgentStore", () => {
     await unprotected.save("thread-1", transcript("first"));
     await unprotected.save("thread-1", transcript("latest"));
     const [fileName] = await readdir(directory); const path = join(directory, fileName!);
-    assert.equal((await readFile(path, "utf8")).trimEnd().split("\n").length, 2);
+    assert.equal((await readFile(path, "utf8")).trimEnd().split("\n").filter(line => JSON.parse(line).type === "thread.messages.committed").length, 2);
     await appendFile(path, "not-json\n");
     const before = await readFile(path);
     const protectedStore = new JsonlAgentStore({ directory, snapshotCleanupThresholdBytes: 1,
@@ -73,6 +155,31 @@ describe("JsonlAgentStore", () => {
     });
     await assert.rejects(protectedStore.save("thread-1", transcript("do not mask corruption")), /corrupt/);
     assert.deepEqual(await readFile(path), before);
+  });
+
+  it("skips an over-capacity checkpoint without blocking continuation or deleting logical messages", async (t) => {
+    const directory = await temporaryDirectory();
+    const messages = transcript("checkpoint size boundary");
+    const store = new JsonlAgentStore({ directory, snapshotCleanupThresholdBytes: 1,
+      acquireTranscriptLock: async () => ({ release: async () => undefined }) });
+    await store.save("thread-1", messages);
+    const [name] = await readdir(directory), path = join(directory, name!);
+    const before = await readFile(path);
+    const serialized = JSON.stringify(messages), original = Buffer.byteLength;
+    // Exercise the 128 MiB logical-checkpoint boundary without allocating a
+    // >128 MiB test conversation. Large real legacy records have separate tests.
+    const injected = t.mock.method(Buffer, "byteLength", (value: Parameters<typeof original>[0], encoding?: BufferEncoding) =>
+      value === serialized ? MAX_TRANSCRIPT_RECORD_BYTES + 1 : original(value, encoding));
+    const at = new Date(0).toISOString();
+    try {
+      await store.compactThread("thread-1");
+      await store.create({ id: "run", threadId: "thread-1", agentId: "agent", agentVersion: "1", status: "created", version: 0, createdAt: at, updatedAt: at });
+    } finally { injected.mock.restore(); }
+    assert.deepEqual(await readFile(path), before);
+    const next = [...messages, { id: "next", role: "user" as const, parts: [{ type: "text" as const, text: "continue" }] }];
+    await store.save("thread-1", next);
+    await store.transition("run", 0, "completed");
+    assert.deepEqual(await new JsonlAgentStore({ directory }).getMessages("thread-1"), next);
   });
 
   it("reports unconfirmed append sync as uncertain and freezes writes until reopen", async (t) => {
@@ -84,8 +191,57 @@ describe("JsonlAgentStore", () => {
     await assert.rejects(store.save("thread-1", transcript("written but unacknowledged")), error => error instanceof Error && "data" in error && (error.data as { code: string }).code === "STORAGE_COMMIT_UNCERTAIN");
     injected.mock.restore();
     await assert.rejects(store.save("thread-1", transcript("must not retry")), /restart/);
+    const at = new Date(0).toISOString();
+    await assert.rejects(store.create({ id: "blocked-run", threadId: "thread-1", agentId: "agent", agentVersion: "1", status: "created", version: 0, createdAt: at, updatedAt: at }), /restart/);
+    assert.equal(await store.getRun("blocked-run"), undefined, "unprotected stores must also stop Run admission");
     const reopened = new JsonlAgentStore({ directory });
     assert.deepEqual(await reopened.getMessages("thread-1"), transcript("written but unacknowledged"));
+  });
+
+  it("freezes Run admission after a pre-append repair failure, retaining committed messages", async (t) => {
+    const directory = await temporaryDirectory();
+    const store = new JsonlAgentStore({ directory });
+    const messages = transcript("committed");
+    await store.save("thread-1", messages);
+    const [name] = await readdir(directory);
+    const path = join(directory, name!);
+    await appendFile(path, "pending tail");
+    const probe = await open(path, "r");
+    const prototype = Object.getPrototypeOf(probe); await probe.close();
+    const injected = t.mock.method(prototype, "truncate", async () => { throw new Error("repair failed"); });
+    await assert.rejects(store.save("thread-1", transcript("not written")), error => error instanceof Error && "data" in error && (error.data as { code: string }).code === "STORAGE_WRITE_FAILED");
+    injected.mock.restore();
+    await assert.rejects(store.save("thread-1", transcript("must not retry")), /restart/);
+    const at = new Date(0).toISOString();
+    await assert.rejects(store.create({ id: "blocked-run", threadId: "thread-1", agentId: "agent", agentVersion: "1", status: "created", version: 0, createdAt: at, updatedAt: at }), /restart/);
+    assert.deepEqual(await store.getMessages("thread-1"), messages);
+    assert.deepEqual(await new JsonlAgentStore({ directory }).getMessages("thread-1"), messages);
+  });
+
+  it("treats a close failure after append as uncertain rather than acknowledging or admitting another Run", async (t) => {
+    const directory = await temporaryDirectory();
+    const store = new JsonlAgentStore({ directory });
+    await store.save("thread-1", transcript("before"));
+    const [name] = await readdir(directory);
+    const path = join(directory, name!);
+    const originalOpen = fs.promises.open;
+    const injected = t.mock.method(fs.promises, "open", async (...args: Parameters<typeof originalOpen>) => {
+      const handle = await originalOpen(...args);
+      if (args[0] === path && typeof args[1] === "number" && args[1] & fs.constants.O_APPEND) {
+        const close = handle.close.bind(handle);
+        t.mock.method(handle, "close", async () => {
+          await close();
+          throw new Error("close acknowledgement failed");
+        });
+      }
+      return handle;
+    });
+    syncBuiltinESMExports();
+    try {
+      await assert.rejects(store.save("thread-1", transcript("after")), error => error instanceof Error && "data" in error && (error.data as { code: string }).code === "STORAGE_COMMIT_UNCERTAIN");
+    } finally { injected.mock.restore(); syncBuiltinESMExports(); }
+    await assert.rejects(store.save("thread-1", transcript("no retry")), /restart/);
+    assert.deepEqual(await new JsonlAgentStore({ directory }).getMessages("thread-1"), transcript("after"));
   });
 
   it("persists opaque context-compaction records without changing transcripts", async () => {
@@ -252,8 +408,8 @@ describe("JsonlAgentStore", () => {
     await reopened.save("thread-1", transcript("newly committed"));
     assert.deepEqual(await reopened.getMessages("thread-1"), transcript("newly committed"));
     const lines = (await readFile(path, "utf8")).trimEnd().split("\n");
-    assert.equal(lines.length, 2);
-    assert.ok(lines.every((line) => JSON.parse(line).type === "thread.messages.committed"));
+    assert.equal(lines.filter(line => JSON.parse(line).type === "thread.messages.committed").length, 2);
+    assert.ok(lines.every((line) => JSON.parse(line).v === 3));
   });
 
   it("does not expose a complete compaction tail before its newline", async () => {
@@ -306,7 +462,7 @@ describe("JsonlAgentStore", () => {
     assert.deepEqual(await first.getContextCompactions("thread-1"), records);
     const content = await readFile(path, "utf8");
     assert.ok(content.endsWith("\n"));
-    assert.equal(content.trimEnd().split("\n").length, 41);
+    assert.equal(content.trimEnd().split("\n").filter(line => JSON.parse(line).type === "thread.messages.committed").length, 21);
   });
 
   it("repairs a large UTF-8 pending tail when appending a compaction", async () => {
@@ -350,7 +506,7 @@ describe("JsonlAgentStore", () => {
     assert.equal(await readFile(path, "utf8"), '{"v":1,"type":');
     await reopened.save("thread-1", transcript("first commit"));
     assert.deepEqual(await reopened.getMessages("thread-1"), transcript("first commit"));
-    assert.equal((await readFile(path, "utf8")).trimEnd().split("\n").length, 1);
+    assert.equal((await readFile(path, "utf8")).trimEnd().split("\n").filter(line => JSON.parse(line).type === "thread.messages.committed").length, 1);
   });
 
   it("skips unknown record versions", async () => {
@@ -375,7 +531,7 @@ describe("JsonlAgentStore", () => {
     const [fileName] = await readdir(directory);
     assert.ok(fileName);
     await appendFile(join(directory, fileName), "not-json\n", "utf8");
-    await store.save("thread-1", transcript("later"));
+    await assert.rejects(store.save("thread-1", transcript("later")), /corrupt/);
 
     await assert.rejects(
       store.getMessages("thread-1"),
@@ -385,5 +541,38 @@ describe("JsonlAgentStore", () => {
         (error as { data?: { code?: string } }).data?.code ===
           "STORAGE_CORRUPT",
     );
+  });
+
+  it("keeps a >16 MiB conversation in bounded delta records and appends only new material", async () => {
+    const directory = await temporaryDirectory(), store = new JsonlAgentStore({ directory });
+    const messages = transcript("中文🙂".repeat(1_800_000));
+    await store.save("thread-1", messages);
+    const path = join(directory, (await readdir(directory))[0]!);
+    const before = (await stat(path)).size;
+    assert.ok(before > 16 * 1024 * 1024);
+    const next = [...messages, { id: "u2", role: "user" as const, parts: [{ type: "text" as const, text: "继续早期计划" }] }];
+    await store.save("thread-1", next);
+    assert.ok((await stat(path)).size - before < 2048, "the unchanged large prefix is not saved twice");
+    assert.ok((await readFile(path, "utf8")).split("\n").every(line => Buffer.byteLength(line) < 270_000));
+    assert.deepEqual(await new JsonlAgentStore({ directory }).getMessages("thread-1"), next);
+  });
+
+  it("ignores a complete but uncommitted chunk group, and detects committed checksum/base corruption", async () => {
+    const directory = await temporaryDirectory(), store = new JsonlAgentStore({ directory });
+    const previous = transcript("before"), next = transcript("after");
+    await store.save("thread-1", previous);
+    const path = join(directory, (await readdir(directory))[0]!);
+    const update = encodeTranscriptUpdate("thread-1", previous, next);
+    await appendFile(path, update.slice(0, -1).join(""));
+    const beforeRead = await readFile(path);
+    assert.deepEqual(await store.getMessages("thread-1"), previous);
+    assert.deepEqual(await readFile(path), beforeRead);
+    await appendFile(path, update.at(-1)!);
+    assert.deepEqual(await store.getMessages("thread-1"), next);
+    const corrupt = encodeTranscriptUpdate("thread-1", next, transcript("bad"));
+    const commit = JSON.parse(corrupt.at(-1)!); commit.baseHash = "wrong";
+    await appendFile(path, corrupt.slice(0, -1).join("") + JSON.stringify(commit) + "\n");
+    await assert.rejects(store.getMessages("thread-1"), /corrupt/);
+    await assert.rejects(store.save("thread-1", transcript("no overwrite")), /corrupt/);
   });
 });

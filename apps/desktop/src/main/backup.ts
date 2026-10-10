@@ -3,9 +3,10 @@ import { constants } from "node:fs";
 import { link, lstat, mkdir, open, realpath, rm, unlink } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, sep } from "node:path";
 import { gzipSync, gunzipSync } from "node:zlib";
-import { readCommittedTranscriptLines } from "@aisdk-agent/core";
+import { readThreadTranscript } from "@aisdk-agent/core";
 import { restoreTaskDocument } from "@aisdk-agent/example-cli/dist/task-store.js";
 import { validateExecutionRunRecord } from "@aisdk-agent/example-cli/dist/execution-record-store.js";
+import { tryAcquireFlock, type FlockHandle } from "@aisdk-agent/example-cli/dist/flock.js";
 import type { DesktopThread } from "./desktop-identity.js";
 import type { BackupResult, RestoreResult } from "../shared/backup.js";
 
@@ -31,7 +32,32 @@ async function writeNew(path: string, data: string | Buffer) {
   try { await file.writeFile(data); await file.sync(); } finally { await file.close(); }
 }
 
-export async function exportBackup(options: { workspace: string; threads: DesktopThread[]; destination: string; knownSecrets?: string[] }): Promise<BackupResult> {
+type ExportOptions = { workspace: string; threads: DesktopThread[]; destination: string; knownSecrets?: string[] };
+export async function exportBackup(options: ExportOptions): Promise<BackupResult> {
+  // Take all cooperating writer locks without waiting while holding another.
+  // On contention release everything; never deadlock a worker's multi-store flow.
+  const workspace = await realpath(options.workspace), locks: FlockHandle[] = [];
+  const paths = new Set(STORE_NAMES.map(name => join(workspace, ".runloom", `${name}.lock`)));
+  for (const thread of options.threads) {
+    const directory = await realpath(thread.transcriptDirectory);
+    paths.add(join(directory, "execution-records.json.lock"));
+    paths.add(join(directory, hash(thread.threadId) + ".jsonl.append.lock"));
+  }
+  try {
+    for (const path of [...paths].sort()) {
+      await mkdir(dirname(path), { recursive: true });
+      if (await realpath(dirname(path)) !== dirname(path)) throw new Error("备份锁路径含符号链接；未读取数据");
+      try { const stat = await lstat(path); if (!stat.isFile() || stat.isSymbolicLink()) throw new Error("备份锁不是普通文件"); }
+      catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+      const lock = await tryAcquireFlock(path);
+      if (!lock) throw new Error("数据正在写入；备份未开始，请稍后重试（未导出部分备份）");
+      locks.push(lock);
+    }
+    return await exportLockedBackup(options);
+  } finally { for (const lock of locks.reverse()) await lock.release(); }
+}
+
+async function exportLockedBackup(options: ExportOptions): Promise<BackupResult> {
   const workspace = await realpath(options.workspace), destination = options.destination;
   const distance = relative(workspace, destination);
   if (!isAbsolute(destination) || !(distance === ".." || distance.startsWith(`..${sep}`) || isAbsolute(distance))) throw new Error("请将备份保存在工作区之外");
@@ -56,18 +82,19 @@ export async function exportBackup(options: { workspace: string; threads: Deskto
     const filename = hash(thread.threadId) + ".jsonl", path = join(directory, filename);
     let latest: string | null = null; const compactions: string[] = [];
     try {
-      for await (const item of readCommittedTranscriptLines(path, { maxLineBytes: 16 * 1024 * 1024 })) {
-        if (!("line" in item) || !item.line.trim()) continue;
-        const record = JSON.parse(item.line);
+      const transcript = await readThreadTranscript(path, thread.threadId, { companions: true });
+      for (const line of transcript.companions) {
+        const record = JSON.parse(line);
         if (record.v === 2 && record.type === "thread.context.compacted") {
           if (record.threadId !== thread.threadId) throw new Error("备份摘要归属不符");
-          compactions.push(item.line); continue;
+          compactions.push(line); continue;
         }
         if (record.v !== 1) continue;
         if (record.threadId !== thread.threadId) throw new Error("备份对话归属不符");
-        if (record.type === "thread.messages.committed" && Array.isArray(record.messages)) latest = item.line;
-        else throw new Error("备份对话记录无效");
+        throw new Error("备份对话记录无效");
       }
+      // Portable standalone snapshot; does not require the original delta chain.
+      latest = JSON.stringify({ v: 1, type: "thread.messages.committed", threadId: thread.threadId, messages: transcript.messages });
     } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
     if (latest) add(`transcripts/${filename}`, [...compactions, latest].join("\n") + "\n");
     archive.threads.push(thread.threadId);
@@ -96,12 +123,14 @@ export async function exportBackup(options: { workspace: string; threads: Deskto
   return { path: destination, files: archive.entries.length, threads: archive.threads.length };
 }
 
-export async function restoreBackup(source: string, parent: string): Promise<RestoreResult> {
+async function loadArchive(source: string, expectedHash?: string): Promise<{ archive: Archive; fingerprint: string }> {
   const file = await open(source, constants.O_RDONLY | constants.O_NOFOLLOW);
-  let archive: Archive;
+  let archive: Archive, fingerprint: string;
   try {
     const stat = await file.stat(); if (!stat.isFile() || stat.size > MAX_BACKUP_BYTES) throw new Error("备份文件大小无效");
-    archive = JSON.parse(gunzipSync(await file.readFile(), { maxOutputLength: MAX_BACKUP_BYTES }).toString("utf8")) as Archive;
+    const bytes = await file.readFile(); fingerprint = createHash("sha256").update(bytes).digest("hex");
+    if (expectedHash && fingerprint !== expectedHash) throw new Error("备份自预览后已变化；请重新选择和核对");
+    archive = JSON.parse(gunzipSync(bytes, { maxOutputLength: MAX_BACKUP_BYTES }).toString("utf8")) as Archive;
   } finally { await file.close(); }
   if (!archive || archive.version !== 1 || typeof archive.originWorkspace !== "string" || !isAbsolute(archive.originWorkspace) ||
       !Array.isArray(archive.threads) || archive.threads.length > 100 || archive.threads.some(id => typeof id !== "string" || !id || id.length > 256) ||
@@ -123,6 +152,17 @@ export async function restoreBackup(source: string, parent: string): Promise<Res
       }
     }
   }
+  return { archive, fingerprint: fingerprint! };
+}
+
+export async function previewBackup(source: string) {
+  const { archive, fingerprint } = await loadArchive(source);
+  return { fingerprint, originWorkspace: archive.originWorkspace, createdAt: archive.createdAt, threads: archive.threads.length,
+    files: archive.entries.length, stores: STORE_NAMES.filter(name => archive.entries.some(entry => entry.path === `workspace/.runloom/${name}`)) };
+}
+
+export async function restoreBackup(source: string, parent: string, expectedHash?: string): Promise<RestoreResult> {
+  const { archive } = await loadArchive(source, expectedHash);
   const receipts = new Map<string, ReturnType<typeof validateExecutionRunRecord>>();
   for (const entry of archive.entries.filter(entry => entry.path.startsWith("receipts/"))) {
     const journal = JSON.parse(entry.text);
@@ -139,6 +179,8 @@ export async function restoreBackup(source: string, parent: string): Promise<Res
   await mkdir(target, { mode: 0o700 });
   const restoredAt = new Date().toISOString();
   try {
+    await mkdir(join(target, "workspace"), { mode: 0o700 });
+    await mkdir(join(target, "transcripts"), { mode: 0o700 });
     for (const entry of archive.entries) {
       let text = entry.text;
       if (entry.path === "workspace/.runloom/tasks.json") text = JSON.stringify(restoreTaskDocument(JSON.parse(text), restoredAt));

@@ -3,6 +3,9 @@ import { lstat, mkdir, open, readFile, rename, unlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { TelegramStatus } from "../shared/telegram.js";
 
+export const TELEGRAM_INPUT_LIMIT = 1024;
+export const TELEGRAM_DELIVERY_LIMIT = 2048;
+
 export interface TelegramInbound {
   key: string; updateId: number; text: string;
   state: "received" | "reserved" | "bound" | "finished" | "rejected" | "unknown" | "reviewed";
@@ -15,6 +18,7 @@ export interface TelegramDelivery {
   routeKey?: string;
   error?: string;
   retryAt?: string;
+  reviewReport?: string;
 }
 export interface TelegramTaskRoute {
   key: string; id: string; kind: "once" | "recurring"; chatId: number; userId: number;
@@ -28,19 +32,27 @@ export interface TelegramData {
   owner: TelegramStatus["owner"]; inputs: TelegramInbound[]; deliveries: TelegramDelivery[];
   routes: TelegramTaskRoute[];
 }
+const archivalInput = (input: TelegramInbound, offset: number) => ["finished", "rejected", "reviewed"].includes(input.state) && input.updateId < offset;
+const archivalDelivery = (delivery: TelegramDelivery) => delivery.state === "submitted" || delivery.state === "cancelled" || delivery.state === "unknown" && !!delivery.reviewReport;
+export function telegramCapacity(data: TelegramData): NonNullable<TelegramStatus["capacity"]> {
+  return { inputs: data.inputs.length, inputLimit: TELEGRAM_INPUT_LIMIT,
+    deliveries: data.deliveries.length, deliveryLimit: TELEGRAM_DELIVERY_LIMIT,
+    blocked: data.inputs.length >= TELEGRAM_INPUT_LIMIT && !data.inputs.some(x => archivalInput(x, data.offset)) ||
+      data.deliveries.length >= TELEGRAM_DELIVERY_LIMIT && !data.deliveries.some(archivalDelivery) };
+}
 function valid(data: TelegramData, workspace: string) {
   const positive = (n: unknown) => Number.isSafeInteger(n) && (n as number) > 0;
   return data?.version === 1 && data.workspace === workspace && typeof data.enabled === "boolean" &&
     (data.botId === null || positive(data.botId)) && Number.isSafeInteger(data.offset) && data.offset >= 0 &&
     (data.owner === null || (positive(data.owner.userId) && positive(data.owner.chatId) && typeof data.owner.name === "string" && typeof data.owner.threadId === "string" && !!data.owner.threadId)) &&
-    Array.isArray(data.inputs) && data.inputs.length <= 1024 && new Set(data.inputs.map(x => x.key)).size === data.inputs.length && data.inputs.every(x =>
+    Array.isArray(data.inputs) && data.inputs.length <= TELEGRAM_INPUT_LIMIT && new Set(data.inputs.map(x => x.key)).size === data.inputs.length && data.inputs.every(x =>
       typeof x.key === "string" && typeof x.text === "string" && x.text.length <= 16_384 && positive(x.updateId + 1) &&
       ["received", "reserved", "bound", "finished", "rejected", "unknown", "reviewed"].includes(x.state) && (x.runId === null || typeof x.runId === "string") && (x.taskId === null || typeof x.taskId === "string") &&
       (x.reviewReport === undefined || (typeof x.reviewReport === "string" && x.reviewReport.length > 0 && x.reviewReport.length <= 2000))) &&
-    Array.isArray(data.deliveries) && data.deliveries.length <= 2048 && new Set(data.deliveries.map(x => x.key)).size === data.deliveries.length && data.deliveries.every(x =>
+    Array.isArray(data.deliveries) && data.deliveries.length <= TELEGRAM_DELIVERY_LIMIT && new Set(data.deliveries.map(x => x.key)).size === data.deliveries.length && data.deliveries.every(x =>
       typeof x.key === "string" && positive(x.chatId) && typeof x.text === "string" && x.text.length <= 32_768 &&
       ["pending", "sending", "submitted", "failed", "unknown", "cancelled"].includes(x.state) && (x.messageId === null || positive(x.messageId)) &&
-      (x.routeKey === undefined || typeof x.routeKey === "string") && (x.error === undefined || typeof x.error === "string" && x.error.length <= 512) &&
+      (x.routeKey === undefined || typeof x.routeKey === "string") && (x.reviewReport === undefined || typeof x.reviewReport === "string" && x.reviewReport.trim().length > 0 && x.reviewReport.length <= 2000) && (x.error === undefined || typeof x.error === "string" && x.error.length <= 512) &&
       (x.retryAt === undefined || typeof x.retryAt === "string" && Number.isFinite(Date.parse(x.retryAt)))) &&
     Array.isArray(data.routes) && data.routes.length <= 128 && new Set(data.routes.map(x => x.key)).size === data.routes.length && data.routes.every(x =>
       typeof x.id === "string" && !!x.id && ["once", "recurring"].includes(x.kind) && x.key === `${x.kind}:${x.id}` &&
@@ -82,10 +94,19 @@ export class TelegramStore {
       const stat = await lstat(parent);
       if (!stat.isDirectory() || stat.isSymbolicLink() || (stat.mode & 0o077) || (process.getuid && stat.uid !== process.getuid())) throw new Error("Telegram 归档目录权限不安全");
     }
-    const text = JSON.stringify(record);
+    // The original task/Run remains the result source. Long-term channel
+    // archives retain deduplication/association, not a second copy of its body.
+    const { text: _body, ...metadata } = record;
+    const text = JSON.stringify(metadata);
     try {
       const existing = await lstat(path);
-      if (!existing.isFile() || existing.isSymbolicLink() || (existing.mode & 0o077) || (process.getuid && existing.uid !== process.getuid()) || existing.size > 128 * 1024 || await readFile(path, "utf8") !== text) throw new Error("Telegram 归档冲突；未丢弃活动记录");
+      if (!existing.isFile() || existing.isSymbolicLink() || (existing.mode & 0o077) || (process.getuid && existing.uid !== process.getuid()) || existing.size > 128 * 1024) throw new Error("Telegram 归档冲突；未丢弃活动记录");
+      const stored = JSON.parse(await readFile(path, "utf8")); delete stored.text;
+      if (JSON.stringify(stored) !== text) throw new Error("Telegram 归档冲突；未丢弃活动记录");
+      // A previous archive replacement may have been visible but unacknowledged.
+      // Confirm its directory again before forgetting the active copy.
+      const parent = await open(directory, "r");
+      try { await parent.sync(); } finally { await parent.close(); }
       return;
     } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
     const temporary = `${path}.${randomUUID()}.tmp`;
@@ -100,25 +121,23 @@ export class TelegramStore {
   /** Persist terminal channel history before removing it from the active journal. */
   async #retain(next: TelegramData) {
     let archivedAny = false;
-    if (next.inputs.length > 512) {
-      const terminal = next.inputs.filter(x => ["finished", "rejected", "reviewed"].includes(x.state) && x.updateId < next.offset);
-      const archived = new Set(terminal.slice(0, Math.max(0, terminal.length - 128)).map(x => x.key));
+    if (next.inputs.length > TELEGRAM_INPUT_LIMIT / 2) {
+      const terminal = next.inputs.filter(x => archivalInput(x, next.offset));
+      const archived = new Set(terminal.slice(0, Math.max(0, terminal.length - 128, next.inputs.length - TELEGRAM_INPUT_LIMIT)).map(x => x.key));
       for (const record of terminal) if (archived.has(record.key)) { await this.#archive("inputs", record); archivedAny = true; }
       next.inputs = next.inputs.filter(x => !archived.has(x.key));
     }
-    if (next.deliveries.length > 1024) {
-      const terminal = next.deliveries.filter(x => x.state === "submitted" || x.state === "cancelled");
-      const archived = new Set(terminal.slice(0, Math.max(0, terminal.length - 256)).map(x => x.key));
+    if (next.deliveries.length > TELEGRAM_DELIVERY_LIMIT / 2) {
+      const terminal = next.deliveries.filter(archivalDelivery);
+      const archived = new Set(terminal.slice(0, Math.max(0, terminal.length - 256, next.deliveries.length - TELEGRAM_DELIVERY_LIMIT)).map(x => x.key));
       for (const record of terminal) if (archived.has(record.key)) { await this.#archive("deliveries", record); archivedAny = true; }
       next.deliveries = next.deliveries.filter(x => !archived.has(x.key));
     }
     // Newly created archive directories must be durable before the active
     // journal forgets their terminal records.
     if (archivedAny) {
-      try {
-        const archive = await open(join(dirname(this.path), "telegram-archive"), "r");
-        try { await archive.sync(); } finally { await archive.close(); }
-      } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+      const archive = await open(join(dirname(this.path), "telegram-archive"), "r");
+      try { await archive.sync(); } finally { await archive.close(); }
       const parent = await open(dirname(this.path), "r");
       try { await parent.sync(); } finally { await parent.close(); }
     }
@@ -134,7 +153,7 @@ export class TelegramStore {
       if (!stat.isFile() || stat.isSymbolicLink() || (stat.mode & 0o077) || (process.getuid && stat.uid !== process.getuid()) || stat.size > 128 * 1024) throw new Error("Telegram 归档无效");
       const record = JSON.parse(await readFile(path, "utf8")) as TelegramInbound | TelegramDelivery;
       const terminal = kind === "inputs" ? ["finished", "rejected", "reviewed"] : ["submitted", "cancelled"];
-      if (record.key !== key || !terminal.includes(record.state)) throw new Error("Telegram 归档归属无效");
+      if (record.key !== key || !(terminal.includes(record.state) || kind === "deliveries" && record.state === "unknown" && "reviewReport" in record && !!record.reviewReport)) throw new Error("Telegram 归档归属无效");
       return true;
     } catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return false; throw error; }
   }
@@ -148,7 +167,8 @@ export class TelegramStore {
     const operation = this.#tail.then(async () => {
       if (this.#failed) throw new Error("Telegram 保存未确认，已停止接收；请重启后核对，不会自动重做任务。");
       const next = this.snapshot(); change(next);
-      await this.#retain(next);
+      try { await this.#retain(next); }
+      catch { this.#failed = true; throw new Error("Telegram 归档保存未确认，已停止接收；既有活动记录与接收位置未改变，请重启后核对。"); }
       if (!valid(next, this.workspace)) throw new Error("Telegram 记录无效或已满；未丢弃既有记录。");
       const serialized = JSON.stringify(next);
       if (Buffer.byteLength(serialized) > 16 * 1024 * 1024) throw new Error("Telegram 记录容量已满，未确认新的消息；未丢弃既有记录。");

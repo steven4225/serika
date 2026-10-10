@@ -24,11 +24,21 @@ async function locked<T>(path: string, operation: () => Promise<T>): Promise<T> 
     if (!(await file.stat()).isFile()) throw new Error("配置锁必须是常规文件");
   } finally { await file.close(); }
   const lock = await acquireFlock(lockPath);
-  try { return await operation(); } finally { await lock.release(); }
+  let result: T;
+  try { result = await operation(); }
+  catch (error) { await lock.release().catch(() => {}); throw error; }
+  try { await lock.release(); }
+  catch (error) { throw new ConfigCommitUncertainError(error); }
+  return result;
+}
+
+export class ConfigCommitUncertainError extends Error {
+  constructor(cause: unknown) { super("配置保存结果未确认，已暂停新执行。请重新连接并核对实际模块开关；不会自动重做任务。", { cause }); }
 }
 
 async function replace(path: string, expected: string | undefined, content: string, mode: number, cwd: string, validate: boolean) {
   const temporary = `${path}.${randomUUID()}.tmp`;
+  let renamed = false;
   try {
     const file = await open(temporary, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY, mode);
     try { await file.writeFile(content, "utf8"); await file.chmod(mode); await file.sync(); } finally { await file.close(); }
@@ -39,9 +49,12 @@ async function replace(path: string, expected: string | undefined, content: stri
     if (current !== expected) throw new Error("配置已被其他程序修改，未覆盖，请重新加载");
     // Advisory flock serializes cooperating writers. An editor ignoring it can
     // still race between this comparison and rename; this is not a filesystem CAS.
-    await rename(temporary, path);
+    await rename(temporary, path); renamed = true;
     const directory = await open(dirname(path), constants.O_RDONLY);
     try { await directory.sync(); } finally { await directory.close(); }
+  } catch (error) {
+    if (renamed) throw new ConfigCommitUncertainError(error);
+    throw error;
   } finally {
     await unlink(temporary).catch(error => { if (error.code !== "ENOENT") throw error; });
   }

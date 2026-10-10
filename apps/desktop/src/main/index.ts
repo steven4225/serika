@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { defaultUserDataPath, userDataPathFromEnv } from "./user-data-path.js";
 import { app, BrowserWindow, ipcMain, Notification, shell, dialog } from "electron";
@@ -9,7 +10,8 @@ import { IPC, type ConfirmInput, type MainToRenderer } from "../shared/ui-contra
 import type { WorkTaskInputs, WorkTaskReadInput, WorkTaskArtifactInput } from "../shared/work-tasks.js";
 import { parseModuleNotification } from "./runtime-bridge.js";
 import { RuntimeOwnership } from "./runtime-ownership.js";
-import { restoreBackup } from "./backup.js";
+import { restoreBackup, previewBackup } from "./backup.js";
+import type { RestoreResult } from "../shared/backup.js";
 import { ConversationDraftStore } from "./conversation-draft-store.js";
 import { ConversationDraftSession } from "./conversation-draft-session.js";
 import { installHideOnClose, installTray } from "./tray.js";
@@ -172,13 +174,16 @@ async function main(): Promise<void> {
       modelAlias, model, modelId: inspectCliModelConfig().modelId, send,
       taskAutomation: { status: (workspace, configPath) => taskWorkerFor(workspace, configPath).automationStatus(), enable: (workspace, configPath) => taskWorkerFor(workspace, configPath).enableArrangement() },
     });
-    const rssWorker = createDesktopRssWorker({ workspace: host.info().workspaceRoot ?? undefined, ...(host.info().configPath ? { configPath: host.info().configPath! } : {}), home: app.getPath("home"), env: process.env,
+    const rssWorker = () => createDesktopRssWorker({ workspace: host.info().workspaceRoot ?? undefined, ...(host.info().configPath ? { configPath: host.info().configPath! } : {}), home: app.getPath("home"), env: process.env,
       workerEntry: fileURLToPath(import.meta.resolve("@aisdk-agent/example-cli/dist/task-worker-entry.js")), todoist: !!process.env.TODOIST_API_TOKEN?.trim() });
-    ipcMain.handle(IPC.rssWorkerStatus, () => rssWorker.status());
-    ipcMain.handle(IPC.rssWorkerEnabled, (_event, enabled: unknown) => rssWorker.setEnabled(enabled));
-    const notifications = createNotificationReadiness({ workspace: host.info().workspaceRoot ?? undefined, env: process.env });
-    ipcMain.handle(IPC.notificationStatus, () => notifications.status());
-    ipcMain.handle(IPC.notificationTest, () => notifications.test());
+    ipcMain.handle(IPC.rssWorkerStatus, () => rssWorker().status());
+    ipcMain.handle(IPC.rssWorkerEnabled, (_event, enabled: unknown) => rssWorker().setEnabled(enabled));
+    const notificationScopes = new Map<string, ReturnType<typeof createNotificationReadiness>>();
+    const notifications = () => { const workspace = host.info().workspaceRoot ?? undefined, key = workspace ?? "";
+      if (!notificationScopes.has(key)) notificationScopes.set(key, createNotificationReadiness({ workspace, env: process.env }));
+      return notificationScopes.get(key)!; };
+    ipcMain.handle(IPC.notificationStatus, () => notifications().status());
+    ipcMain.handle(IPC.notificationTest, () => notifications().test());
     ipcMain.handle(IPC.residentStatus, () => host.residentStatus());
     ipcMain.handle(IPC.residentEnabled, (_event, enabled: unknown) => host.setResidentEnabled(enabled));
   } catch (error) {
@@ -199,6 +204,7 @@ async function main(): Promise<void> {
   ipcMain.handle(IPC.telegramReview, (_event, input) => host.reviewTelegramInput(input));
   ipcMain.handle(IPC.telegramTaskRoute, (_event, input) => host.setTelegramTaskRoute(input));
   ipcMain.handle(IPC.telegramRetryDelivery, (_event, key) => host.retryTelegramDelivery(key));
+  ipcMain.handle(IPC.telegramResolveDelivery, (_event, input) => host.resolveTelegramDelivery(input));
   ipcMain.handle(IPC.draftLoad, (_event, scope) => drafts.load(scope));
   ipcMain.handle(IPC.draftSave, (_event, scope, draft) => drafts.save(scope, draft));
   ipcMain.handle(IPC.taskDraftSave, (_event, scope, update) => drafts.saveTask(scope, update));
@@ -254,15 +260,54 @@ async function main(): Promise<void> {
     if (selected.canceled || !selected.filePath) return null;
     return host.exportBackup(selected.filePath);
   });
-  ipcMain.handle(IPC.restoreData, async () => {
+  let restoreSelection: { id: string; source: string; fingerprint: string; expires: number; scope: string | null; result?: RestoreResult } | undefined;
+  let restoreWorking = false;
+  ipcMain.handle(IPC.previewRestoreData, async () => {
+    if (restoreWorking) throw new Error("正在处理恢复，请稍候");
     if (host.current.snapshot().state.kind !== "idle") throw new Error("请等待当前执行结束，再恢复副本");
+    restoreWorking = true;
+    const scope = host.info().workspaceRoot;
+    try {
     const selected = await dialog.showOpenDialog(window, { title: "选择 Serika 备份", properties: ["openFile"], filters: [{ name: "Serika 数据备份", extensions: ["serika-backup"] }] });
     if (selected.canceled || !selected.filePaths[0]) return null;
+    const preview = await previewBackup(selected.filePaths[0]);
+    if (scope !== host.info().workspaceRoot || host.current.snapshot().state.kind !== "idle") throw new Error("工作区或执行状态已改变，请重新选择备份");
+    const id = randomUUID();
+    restoreSelection = { id, source: selected.filePaths[0], fingerprint: preview.fingerprint, expires: Date.now() + 30 * 60_000, scope };
+    const { fingerprint: _fingerprint, ...display } = preview;
+    return { ...display, id };
+    } finally { restoreWorking = false; }
+  });
+  ipcMain.handle(IPC.restoreData, async (_event, id: unknown) => {
+    if (restoreWorking) throw new Error("正在处理恢复，请稍候");
+    const selection = restoreSelection;
+    if (typeof id !== "string" || selection?.id !== id || selection.expires <= Date.now() || selection.scope !== host.info().workspaceRoot) throw new Error("请先选择备份并核对预览，过期或切换工作区后需重新选择");
+    if (selection.result) throw new Error("此备份已恢复；可直接接回，不会重复创建目录");
+    if (host.current.snapshot().state.kind !== "idle") throw new Error("请等待当前执行结束，再恢复副本");
+    restoreWorking = true;
+    try {
     const location = await dialog.showOpenDialog(window, { title: "选择恢复副本的保存位置（不会覆盖日用数据）", properties: ["openDirectory", "createDirectory"] });
     if (location.canceled || !location.filePaths[0]) return null;
+    if (restoreSelection !== selection || selection.expires <= Date.now() || selection.scope !== host.info().workspaceRoot) throw new Error("恢复预览已过期或工作区改变，请重新选择");
     if (host.current.snapshot().state.kind !== "idle") throw new Error("助手已开始执行；恢复未开始，请稍后重试");
-    const restored = await restoreBackup(selected.filePaths[0], location.filePaths[0]);
+    const restored = await restoreBackup(selection.source, location.filePaths[0], selection.fingerprint);
+    selection.result = restored;
     shell.showItemInFolder(restored.path); return restored;
+    } finally { restoreWorking = false; }
+  });
+  ipcMain.handle(IPC.activateRestoreData, async (_event, id: unknown) => {
+    if (restoreWorking) throw new Error("正在处理恢复，请稍候");
+    const selection = restoreSelection;
+    if (id !== null && (typeof id !== "string" || selection?.id !== id || !selection.result || selection.expires <= Date.now() || selection.scope !== host.info().workspaceRoot)) throw new Error("恢复副本未准备好或工作区已改变，请重新核对");
+    if (id === null && !host.info().recoveryWorkspace) throw new Error("当前不在恢复工作区");
+    restoreWorking = true;
+    const scope = host.info().workspaceRoot;
+    try {
+    await drafts.flush();
+    if (scope !== host.info().workspaceRoot || id !== null && (selection !== restoreSelection || selection!.expires <= Date.now())) throw new Error("工作区或恢复预览已改变，请重新核对");
+    await host.activateRecovery(id === null ? null : selection!.result!.path);
+    restoreSelection = undefined;
+    } finally { restoreWorking = false; }
   });
   ipcMain.handle(IPC.home, () => host.current.home());
   ipcMain.handle(IPC.run, (_event, text: string, options) => host.current.run(text, options));

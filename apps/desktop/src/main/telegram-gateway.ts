@@ -2,7 +2,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import type { DesktopRuntime } from "./desktop-runtime.js";
 import { TelegramApiError, type TelegramApi, type TelegramUpdate } from "./telegram-api.js";
-import { TelegramStore, type TelegramInbound, type TelegramTaskRoute } from "./telegram-store.js";
+import { TelegramStore, telegramCapacity, type TelegramInbound, type TelegramDelivery, type TelegramTaskRoute } from "./telegram-store.js";
 import type { PendingApproval } from "../shared/ui-contract.js";
 import type { TelegramStatus } from "../shared/telegram.js";
 import type { SavedTaskArrangement } from "@aisdk-agent/example-cli/dist/modules/task-module.js";
@@ -20,7 +20,7 @@ export class TelegramGateway {
   #error: string | null = null;
   #deliveryError: string | null = null;
   #pairing: TelegramStatus["pairing"] = null;
-  #approval: { code: string; runId: string; hash: string; approvalId: string; expires: number } | undefined;
+  #approval: { code: string; runId: string; threadId: string; userId: number; chatId: number; hash: string; approvalId: string; expires: number } | undefined;
   #taskProposal: { code: string; goal: string; expires: number } | undefined;
   #abort: AbortController | undefined;
   #poll: Promise<void> | undefined;
@@ -33,11 +33,14 @@ export class TelegramGateway {
     this.#remove = host.channelSubscribe(message => {
       // Capture association now, before a later Thread switch changes the selected runtime.
       const key = this.#activeKey;
-      if (message.type === "approval-cleared" && this.#approval?.approvalId === message.approvalId) this.#approval = undefined;
+      if (message.type === "approval-cleared" && this.#approval?.approvalId === message.approvalId) {
+        this.#approval = undefined;
+        this.#queue(() => this.#discardStaleApprovals());
+      }
       if (!key || !this.store.snapshot().enabled) return;
       const source = this.store.snapshot().inputs.find(input => input.key === key);
       if (!source?.runId) return;
-      if (message.type === "approval") this.#queue(() => this.#publishApproval(source, message.approval));
+      if (message.type === "approval") this.#queue(async () => { await this.#publishApproval(source, message.approval); });
       if (message.type === "result" && message.phase === "primary" && message.result.runId === source.runId) {
         this.#approval = undefined;
         this.#queue(() => this.#finish(source, message.result.text));
@@ -52,15 +55,16 @@ export class TelegramGateway {
     return { available: true, tokenConfigured: !!this.api, enabled: data.enabled, connection: this.#connection, botUsername: this.#botUsername,
       owner: data.owner, pairing: this.#pairing && Date.parse(this.#pairing.expiresAt) > this.now() ? structuredClone(this.#pairing) : null,
       lastError: this.#error ?? this.#deliveryError, awaitingReview: data.inputs.filter(x => x.state === "unknown").length,
-      failedDeliveries: data.deliveries.filter(x => x.state === "failed").length, unknownDeliveries: data.deliveries.filter(x => x.state === "unknown").length,
+      failedDeliveries: data.deliveries.filter(x => x.state === "failed").length, unknownDeliveries: data.deliveries.filter(x => x.state === "unknown" && !x.reviewReport).length,
       reviews: data.inputs.filter(x => x.state === "unknown").slice(0, 10).map(x => ({ key: x.key, runId: x.runId, taskId: x.taskId })),
       pendingDeliveries: data.deliveries.filter(x => x.state === "pending" || x.state === "sending").length,
+      capacity: telegramCapacity(data),
       routes: data.routes.map(x => ({ id: x.id, kind: x.kind, fromRunAt: x.fromRunAt })),
-      deliveries: data.deliveries.filter(x => /^(scheduled|result):/.test(x.key) && x.state !== "cancelled").reverse()
-        .sort((a, b) => Number(a.state === "submitted") - Number(b.state === "submitted")).slice(0, 20).map(x => ({
+      deliveries: data.deliveries.filter(x => x.state !== "cancelled").reverse()
+        .sort((a, b) => Number(a.state === "submitted" || !!a.reviewReport) - Number(b.state === "submitted" || !!b.reviewReport)).slice(0, 20).map(x => ({
         key: x.key, state: x.state as "pending" | "sending" | "submitted" | "failed" | "unknown", preview: x.text.slice(0, 160), messageId: x.messageId,
-        retryAllowed: x.state === "failed" && (!x.retryAt || Date.parse(x.retryAt) <= this.now()) && data.enabled && this.#connection === "online" && x.chatId === data.owner?.chatId,
-        error: x.error ?? null,
+        retryAllowed: /^(scheduled|result):/.test(x.key) && x.state === "failed" && (!x.retryAt || Date.parse(x.retryAt) <= this.now()) && data.enabled && this.#connection === "online" && x.chatId === data.owner?.chatId,
+        error: x.error ?? null, ...(x.reviewReport ? { reviewReport: x.reviewReport } : {}),
       })) };
   }
   /** The model cannot supply destinations. Only a saved tool result owned by this channel is routed. */
@@ -109,6 +113,21 @@ export class TelegramGateway {
       delivery.state = "pending";
     });
     await this.#flush(); // No model call, task claim, or execution restart.
+    return this.status();
+  }
+  async resolveDelivery(input: { key: string; action: "cancel" | "review"; note?: string }) {
+    if (!input || typeof input.key !== "string" || !["cancel", "review"].includes(input.action)) throw new Error("投递处理参数无效");
+    await this.store.update(next => {
+      const delivery = next.deliveries.find(item => item.key === input.key);
+      if (!delivery || delivery.chatId !== next.owner?.chatId) throw new Error("投递不属于当前绑定账号");
+      if (input.action === "cancel") {
+        if (!["pending", "failed"].includes(delivery.state)) throw new Error("只可停止尚未发送或明确失败的消息；发送中和结果未知不能当作未发送");
+        delivery.state = "cancelled";
+      } else {
+        if (delivery.state !== "unknown" || typeof input.note !== "string" || !input.note.trim() || input.note.length > 2000) throw new Error("未知投递需要填写实际核对观察");
+        delivery.reviewReport = input.note.trim(); // Keeps unknown; no claim of delivery or read.
+      }
+    });
     return this.status();
   }
   #scanning: Promise<void> | undefined;
@@ -187,7 +206,10 @@ export class TelegramGateway {
     // No model call, no tool, no approval restoration. Pending sends are not execution.
     await this.store.update(data => {
       for (const input of data.inputs) if (["reserved", "bound"].includes(input.state)) input.state = "unknown";
-      for (const delivery of data.deliveries) if (delivery.state === "sending") delivery.state = "unknown";
+      for (const delivery of data.deliveries) {
+        if (delivery.state === "sending") delivery.state = "unknown";
+        else if (delivery.key.startsWith("approval:") && ["pending", "failed"].includes(delivery.state)) delivery.state = "cancelled";
+      }
     });
     if (this.store.snapshot().enabled) void this.start(); // Offline IM must not block desktop startup.
   }
@@ -302,8 +324,26 @@ export class TelegramGateway {
   #ownedRunning() {
     const data = this.store.snapshot(), source = data.inputs.find(x => x.key === this.#activeKey);
     const current = this.host.channelSnapshot();
-    return source?.runId && current.info.threadId === data.owner?.threadId && current.snapshot.state.kind === "running" &&
+    return source?.state === "bound" && source.runId && current.info.threadId === data.owner?.threadId && current.snapshot.state.kind === "running" &&
       current.snapshot.state.phase === "primary" && current.snapshot.state.runId === source.runId ? { source, current } : undefined;
+  }
+  #liveApproval() {
+    const permit = this.#approval, owner = this.store.snapshot().owner, running = this.#ownedRunning();
+    const pending = running?.current.snapshot.pendingApproval;
+    return permit && owner && permit.expires > this.now() && owner.userId === permit.userId && owner.chatId === permit.chatId && owner.threadId === permit.threadId &&
+      running?.source.runId === permit.runId && pending?.approvalId === permit.approvalId && approvalHash(pending) === permit.hash ? permit : undefined;
+  }
+  #liveApprovalDelivery(key: string, chatId: number) {
+    const permit = this.#liveApproval();
+    return permit && chatId === permit.chatId && key === `approval:${permit.approvalId}:${permit.code}`;
+  }
+  async #discardStaleApprovals() {
+    await this.store.update(data => {
+      for (const delivery of data.deliveries) {
+        if (delivery.key.startsWith("approval:") && ["pending", "failed"].includes(delivery.state) &&
+            !this.#liveApprovalDelivery(delivery.key, delivery.chatId)) delivery.state = "cancelled";
+      }
+    });
   }
   async #process(input: TelegramInbound) {
     const owner = this.store.snapshot().owner;
@@ -317,15 +357,18 @@ export class TelegramGateway {
       const running = this.#ownedRunning();
       if (!running?.current.snapshot.pendingApproval) return reject("当前没有属于 Telegram 的待确认操作；没有批准任何操作。");
       this.#approval = undefined; // Explicit refresh revokes the previous code.
-      await this.#publishApproval(running.source, running.current.snapshot.pendingApproval);
-      return reject("已重新发出当前操作的确认；旧短码失效，仍需你允许或拒绝。");
+      const state = await this.#publishApproval(running.source, running.current.snapshot.pendingApproval);
+      const notice = state === "submitted" ? "Telegram 已接收新的当前确认；不代表你已阅读。" :
+        state === "failed" ? "新确认发送明确失败，未自动重发。请检查连接后再次发送 /confirm。" :
+        state === "unknown" ? "新确认发送结果未知，不会盲目重发。请核对手机；需要新的确认时再发送 /confirm。" :
+        state === "pending" ? "新确认已保存，等待发送；尚未确认 Telegram 已接收。" : "当前确认已变化或失效，没有批准任何操作。";
+      return reject(`${notice}\n旧短码失效，仍需你允许或拒绝同一次操作。`);
     }
     const approval = /^(允许|拒绝) ([A-F0-9]{10})$/.exec(text);
     if (approval) {
-      const pending = this.#approval, running = this.#ownedRunning(), snapshot = running?.current.snapshot;
+      const pending = this.#liveApproval();
       if (pending?.code === approval[2]) this.#approval = undefined; // Consume the matching capability before dispatch.
-      const valid = pending && pending.code === approval[2] && pending.expires > this.now() && running?.source.runId === pending.runId &&
-        snapshot?.pendingApproval?.approvalId === pending.approvalId && approvalHash(snapshot.pendingApproval) === pending.hash;
+      const valid = pending && pending.code === approval[2];
       const accepted = valid && this.host.current.confirm({ approvalId: pending.approvalId, decision: approval[1] === "允许" ? "allow" : "deny" }).accepted;
       return reject(accepted ? "已处理这一次确认，不适用于后续操作。" : "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。");
     }
@@ -384,19 +427,22 @@ export class TelegramGateway {
     }
   }
   async #publishApproval(source: TelegramInbound, approval: PendingApproval) {
-    const running = this.#ownedRunning();
-    if (running?.source.runId !== source.runId || running.current.snapshot.pendingApproval?.approvalId !== approval.approvalId) return;
+    const running = this.#ownedRunning(), owner = this.store.snapshot().owner;
+    if (!owner || running?.source.runId !== source.runId || running.current.snapshot.pendingApproval?.approvalId !== approval.approvalId) return;
     const current = running.current.snapshot.pendingApproval;
     const hash = approvalHash(current);
-    const permit = this.#approval?.approvalId === current.approvalId && this.#approval.hash === hash && this.#approval.expires > this.now() ? this.#approval :
-      { code: code(), runId: source.runId!, approvalId: current.approvalId, hash, expires: this.now() + 5 * 60_000 };
+    const permit = this.#liveApproval() ??
+      { code: code(), runId: source.runId!, threadId: owner.threadId, userId: owner.userId, chatId: owner.chatId,
+        approvalId: current.approvalId, hash, expires: this.now() + 5 * 60_000 };
     this.#approval = permit;
-    await this.#reply(`approval:${approval.approvalId}:${permit.code}`, this.store.snapshot().owner!.chatId,
+    await this.#discardStaleApprovals();
+    return this.#reply(`approval:${current.approvalId}:${permit.code}`, permit.chatId,
       `请求使用 ${current.toolName}\n${(current.preview || JSON.stringify(current.input)).slice(0, 2500)}${["task_create", "task_repeat_create"].includes(current.toolName) ? "\n这个安排的结果将发送到本绑定私聊；保存、启用后台服务和投递是不同状态。" : ""}\n仅本次：允许 ${permit.code}\n或：拒绝 ${permit.code}\n五分钟有效；普通回复不代表授权。`);
   }
   async #finish(source: TelegramInbound, text?: string) {
     const owner = this.store.snapshot().owner;
     if (!source.runId || !owner) return;
+    await this.#discardStaleApprovals();
     const run = await this.host.channelReceipt(owner.threadId, source.runId);
     if (!run || run.threadId !== owner.threadId || run.phase !== "primary" || run.runId !== source.runId || (source.taskId && run.workTaskId !== source.taskId) || run.status === "running") {
       await this.store.update(data => { data.inputs.find(x => x.key === source.key)!.state = "unknown"; });
@@ -406,17 +452,21 @@ export class TelegramGateway {
     const uncertain = run.status === "interrupted" || run.tools.some(x => x.status === "unknown");
     const label = uncertain ? "执行中断或效果未知，请回桌面核对；不会自动重做。" : run.status === "completed" ? source.taskId ? "任务这一轮已结束，结果仍需你在桌面验收。" : "本轮已结束。" : `本轮${run.status}；操作结果见桌面回执。`;
     const body = `${label}\n${(text ?? run.resultTextPreview ?? "").slice(0, 24_000)}${text === undefined && run.resultTextTruncated ? "\n[恢复的是回执预览，已截断；完整回复请看桌面]" : ""}\nRun: ${run.runId}`;
+    // Recovery still settles the input from its receipt, but an archived
+    // submitted/cancelled envelope must not be recreated as a new send.
+    const resultKey = `result:${source.key}`, delivered = await this.store.hasDelivery(resultKey);
     await this.store.update(data => {
       data.inputs.find(x => x.key === source.key)!.state = uncertain ? "unknown" : "finished";
-      if (!data.deliveries.some(x => x.key === `result:${source.key}`)) data.deliveries.push({ key: `result:${source.key}`, chatId: owner.chatId, text: body, state: "pending", messageId: null });
+      if (!delivered && !data.deliveries.some(x => x.key === resultKey)) data.deliveries.push({ key: resultKey, chatId: owner.chatId, text: body, state: "pending", messageId: null });
     });
     if (this.#activeKey === source.key) this.#activeKey = undefined;
     await this.#flush();
   }
-  async #reply(key: string, chatId: number, text: string) {
-    if (await this.store.hasDelivery(key)) return;
+  async #reply(key: string, chatId: number, text: string): Promise<TelegramDelivery["state"] | undefined> {
+    if (await this.store.hasDelivery(key)) return this.store.snapshot().deliveries.find(x => x.key === key)?.state;
     await this.store.update(data => { if (!data.deliveries.some(x => x.key === key)) data.deliveries.push({ key, chatId, text: text.slice(0, 32_000), state: "pending", messageId: null }); });
     await this.#flush();
+    return this.store.snapshot().deliveries.find(x => x.key === key)?.state;
   }
   #sending: Promise<void> | undefined;
   async #flush() {
@@ -432,10 +482,17 @@ export class TelegramGateway {
         await this.store.update(data => {
           const saved = data.deliveries.find(x => x.key === delivery.key)!;
           if (!data.enabled || saved.state !== "pending") return;
+          if (saved.key.startsWith("approval:") && !this.#liveApprovalDelivery(saved.key, saved.chatId)) { saved.state = "cancelled"; return; }
           if (saved.routeKey && !data.routes.some(x => x.key === saved.routeKey)) { saved.state = "cancelled"; return; }
           saved.state = "sending"; claimed = true;
         });
         if (!claimed) continue;
+        // The persisted claim may have awaited a write while desktop/Steer
+        // cleared the approval. No request has been sent at this boundary.
+        if (delivery.key.startsWith("approval:") && !this.#liveApprovalDelivery(delivery.key, delivery.chatId)) {
+          await this.store.update(data => { data.deliveries.find(x => x.key === delivery.key)!.state = "cancelled"; });
+          continue;
+        }
         try {
           const id = await this.api!.send(delivery.chatId, delivery.text, this.#abort!.signal);
           await this.store.update(data => { const saved = data.deliveries.find(x => x.key === delivery.key)!; saved.state = "submitted"; saved.messageId = id; delete saved.error; delete saved.retryAt; });

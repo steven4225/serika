@@ -898,6 +898,9 @@ function validateFinish(outcome: unknown): asserts outcome is TaskFinish {
 }
 
 function errorResult(error: unknown, signal: AbortSignal, write: boolean): TaskFailure {
+  // Cancellation after replacement cannot turn an uncertain commit into a
+  // proven cancelled write; callers must reconcile the saved state first.
+  if (error instanceof TaskStoreError && error.code === "COMMIT_UNCERTAIN") return fail(error.code, error.message);
   if (signal.aborted) throw abortReason(signal);
   if (error instanceof TaskStoreError) return fail(error.code, error.message);
   return fail(
@@ -914,6 +917,7 @@ export class WorkspaceTaskStore implements TaskStore {
   readonly #now: () => number;
   readonly #generateId: () => string;
   #commitUncertain = false;
+  #writeFailed = false;
 
   constructor(workspace: string, options: TaskStoreOptions = {}) {
     const root = resolve(workspace);
@@ -1608,6 +1612,7 @@ export class WorkspaceTaskStore implements TaskStore {
     const lock = await acquireFlock(this.#lockFile, signal);
     try {
       if (this.#commitUncertain) raise("COMMIT_UNCERTAIN", "Task save acknowledgement is uncertain; restart and reread before further writes");
+      if (this.#writeFailed) raise("WRITE_FAILED", "Task storage failed; restart and reconcile before further dispatch");
       throwIfAborted(signal);
       const document = await this.#read();
       const before = JSON.stringify(document);
@@ -1650,6 +1655,7 @@ export class WorkspaceTaskStore implements TaskStore {
     } catch (error) {
       if (handle !== undefined) await handle.close().catch(() => undefined);
       if (created) await rm(temporary, { force: true }).catch(() => undefined);
+      if (!signal.aborted || error !== abortReason(signal)) this.#writeFailed = true;
       if (renamed) {
         this.#commitUncertain = true;
         raise("COMMIT_UNCERTAIN", "Task file was replaced but acknowledgement is uncertain; restart and reread, do not repeat execution");

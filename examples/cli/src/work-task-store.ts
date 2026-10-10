@@ -428,6 +428,7 @@ class WorkTaskStoreImpl implements WorkTaskStore {
   readonly #generateId: () => string;
   readonly #executionRecords: Pick<ExecutionRecordStore, "getRun"> | undefined;
   #commitUncertain = false;
+  #writeFailed = false;
 
   constructor(workspace: string, options: {
     now?: () => Date;
@@ -774,6 +775,7 @@ class WorkTaskStoreImpl implements WorkTaskStore {
     const lock = await acquireFlock(this.#lock);
     try {
       if (this.#commitUncertain) raise("WORK_TASK_COMMIT_UNCERTAIN", "Work task save acknowledgement is uncertain; restart and reread before further writes");
+      if (this.#writeFailed) raise("WORK_TASK_WRITE_FAILED", "Work task storage failed; restart and reconcile before further dispatch");
       const document = await this.#load();
       const value = update(document);
       validateWritableDocument(document);
@@ -856,6 +858,7 @@ class WorkTaskStoreImpl implements WorkTaskStore {
         try { await handle.sync(); } finally { await handle.close(); }
       }
     } catch {
+      this.#writeFailed = true;
       if (renamed) {
         this.#commitUncertain = true;
         raise("WORK_TASK_COMMIT_UNCERTAIN", "Work task file was replaced but acknowledgement is uncertain; restart and reread, do not repeat creation");
