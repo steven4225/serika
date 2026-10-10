@@ -34,6 +34,7 @@ const documentSchema = z.object({
       (d.enabled && d.scheduleId === null)) ctx.addIssue({ code: "custom", message: "Invalid subscription identities or schedule" });
 });
 export type RssDocument = z.infer<typeof documentSchema>;
+export function validateRssDocument(value: unknown): RssDocument { return documentSchema.parse(value); }
 export type RssBatch = z.infer<typeof batchSchema>;
 export type RssView = {
   revision: number; enabled: boolean; scheduleId: string | null;

@@ -98,7 +98,7 @@ function archivedExperience(v: unknown): ArchivedExperience {
   if (!observed || hash(observed.source) !== hash(savedSource)) fail("DREAMING_FILE_INVALID", "Archived experience does not match its accepted source");
   return { source: savedSource, task, run };
 }
-function document(v: unknown): Document {
+export function validateDreamingDocument(v: unknown): Document {
   if (!object(v) || v.version !== 1 && v.version !== 2) fail("DREAMING_FILE_INVALID", "Unsupported or corrupt learned Skill store");
   keys(v, v.version === 1 ? ["version", "skills", "processed", "batches"] : ["version", "skills", "processed", "batches", "archive"]);
   const skills = array(v.skills, 32).map(skill), processed = array(v.processed, 512).map(digest);
@@ -139,11 +139,11 @@ export function createDreamingService(options: { workspaceRoot: string; workTask
       const buffer = Buffer.alloc(FILE_MAX + 1); let size = 0;
       while (size < buffer.length) { throwIfAborted(signal); const read = await handle.read(buffer, size, buffer.length - size, size); if (read.bytesRead === 0) break; size += read.bytesRead; }
       if (size > FILE_MAX) fail("DREAMING_FILE_INVALID", "Learned Skill file exceeds limit");
-      throwIfAborted(signal); try { return document(JSON.parse(buffer.subarray(0, size).toString("utf8"))); } catch (e) { if (e instanceof DreamingError) throw e; fail("DREAMING_FILE_INVALID", "Learned Skill file is not valid JSON"); }
+      throwIfAborted(signal); try { return validateDreamingDocument(JSON.parse(buffer.subarray(0, size).toString("utf8"))); } catch (e) { if (e instanceof DreamingError) throw e; fail("DREAMING_FILE_INVALID", "Learned Skill file is not valid JSON"); }
     } finally { await handle.close(); }
   }
   async function save(doc: Document, signal: AbortSignal): Promise<void> {
-    document(doc); const serialized = JSON.stringify(doc); if (Buffer.byteLength(serialized) > FILE_MAX) fail("DREAMING_LIMIT_EXCEEDED", "Learned Skill store is full");
+    validateDreamingDocument(doc); const serialized = JSON.stringify(doc); if (Buffer.byteLength(serialized) > FILE_MAX) fail("DREAMING_LIMIT_EXCEEDED", "Learned Skill store is full");
     const temp = `${file}.${randomUUID()}.tmp`; let renamed = false;
     try { const handle = await open(temp, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600); try { await handle.writeFile(serialized); await handle.sync(); } finally { await handle.close(); } throwIfAborted(signal); await rename(temp, file); renamed = true; const directory = await open(dirname(file), constants.O_RDONLY); try { await directory.sync(); } finally { await directory.close(); } } catch (e) { if (renamed) fail("DREAMING_COMMIT_UNCERTAIN", "Skill store was renamed; reread before retrying"); throw e; } finally { if (!renamed) await rm(temp, { force: true }); }
   }

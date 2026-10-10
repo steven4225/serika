@@ -4,17 +4,38 @@ import { link, lstat, mkdir, open, realpath, rm, unlink } from "node:fs/promises
 import { dirname, isAbsolute, join, relative, sep } from "node:path";
 import { gzipSync, gunzipSync } from "node:zlib";
 import { readThreadTranscript } from "@aisdk-agent/core";
-import { restoreTaskDocument } from "@aisdk-agent/example-cli/dist/task-store.js";
+import { restoreTaskDocument, validateTaskDocument } from "@aisdk-agent/example-cli/dist/task-store.js";
+import { MEMORY_FILE_MAX_BYTES, validateMemoryDocument } from "@aisdk-agent/example-cli/dist/memory-store.js";
+import { CHECKPOINT_FILE_MAX_BYTES, validateCheckpointDocument } from "@aisdk-agent/example-cli/dist/checkpoint-store.js";
+import { WORK_TASK_FILE_MAX_BYTES, validateWorkTaskDocument } from "@aisdk-agent/example-cli/dist/work-task-store.js";
+import { validateDreamingDocument } from "@aisdk-agent/example-cli/dist/dreaming.js";
+import { validateRssDocument } from "@aisdk-agent/example-cli/dist/rss-subscriptions.js";
 import { validateExecutionRunRecord } from "@aisdk-agent/example-cli/dist/execution-record-store.js";
 import { tryAcquireFlock, type FlockHandle } from "@aisdk-agent/example-cli/dist/flock.js";
 import type { DesktopThread } from "./desktop-identity.js";
 import type { BackupResult, RestoreResult } from "../shared/backup.js";
 
-const STORE_NAMES = ["memory.json", "checkpoint.json", "work-tasks.json", "dreaming.json", "tasks.json", "rss.json"];
+// Share the runtime's existing schema contracts; a valid hash is not proof
+// that these bytes can be opened by the corresponding Store after recovery.
+const STORES = {
+  "memory.json": { max: MEMORY_FILE_MAX_BYTES, validate: validateMemoryDocument },
+  "checkpoint.json": { max: CHECKPOINT_FILE_MAX_BYTES, validate: validateCheckpointDocument },
+  "work-tasks.json": { max: WORK_TASK_FILE_MAX_BYTES, validate: validateWorkTaskDocument },
+  "dreaming.json": { max: 1024 * 1024, validate: validateDreamingDocument },
+  "tasks.json": { max: 16 * 1024 * 1024, validate: validateTaskDocument },
+  "rss.json": { max: 1024 * 1024, validate: validateRssDocument },
+};
+const STORE_NAMES = Object.keys(STORES) as (keyof typeof STORES)[];
 const MAX_BACKUP_BYTES = 128 * 1024 * 1024;
 type Entry = { path: string; text: string; sha256: string };
 interface Archive { version: 1; originWorkspace: string; createdAt: string; threads: string[]; entries: Entry[] }
 const hash = (text: string) => createHash("sha256").update(text).digest("hex");
+function validateStore(name: keyof typeof STORES, text: string) {
+  const rule = STORES[name];
+  if (Buffer.byteLength(text) > rule.max) throw new Error(`备份 ${name} 超过存储读取限额；未导出或恢复`);
+  try { rule.validate(JSON.parse(text)); }
+  catch { throw new Error(`备份 ${name} 内容无效，无法由原存储读取；未导出或恢复`); }
+}
 async function readSafe(path: string, max = MAX_BACKUP_BYTES): Promise<string | null> {
   // Do not follow parent symlinks to unrelated private material.
   if (await realpath(dirname(path)).catch(error => { if (error.code === "ENOENT") return dirname(path); throw error; }) !== dirname(path)) throw new Error("备份路径含符号链接；未读取数据");
@@ -67,13 +88,13 @@ async function exportLockedBackup(options: ExportOptions): Promise<BackupResult>
   const archive: Archive = { version: 1, originWorkspace: workspace, createdAt: new Date().toISOString(), threads: [], entries: [] };
   let bytes = 0;
   const add = (path: string, text: string) => {
-    if (options.knownSecrets?.some(secret => secret.length >= 8 && text.includes(secret))) throw new Error("备份内容包含当前配置的凭据；未导出，请先移除正文中的敏感信息");
+    if (options.knownSecrets?.some(secret => secret.length > 0 && text.includes(secret))) throw new Error("备份内容包含当前配置的凭据；未导出，请先移除正文中的敏感信息");
     bytes += Buffer.byteLength(text); if (bytes > MAX_BACKUP_BYTES) throw new Error("备份数据超过 128 MiB；未截断或删除来源");
     archive.entries.push({ path, text, sha256: hash(text) });
   };
   for (const name of STORE_NAMES) {
-    const text = await readSafe(join(workspace, ".runloom", name), 16 * 1024 * 1024);
-    if (text !== null) { JSON.parse(text); add(`workspace/.runloom/${name}`, text); }
+    const text = await readSafe(join(workspace, ".runloom", name), STORES[name].max);
+    if (text !== null) { validateStore(name, text); add(`workspace/.runloom/${name}`, text); }
   }
   const journals = new Map<string, unknown[]>();
   const directories = new Map<string, string[]>();
@@ -114,6 +135,7 @@ async function exportLockedBackup(options: ExportOptions): Promise<BackupResult>
   for (const [directory, matching] of journals) {
     if (matching.length) add(`receipts/${hash(directory)}.json`, JSON.stringify({ version: 1, runs: matching }));
   }
+  validateArchive(archive);
   const encoded = Buffer.from(JSON.stringify(archive));
   if (encoded.length > MAX_BACKUP_BYTES) throw new Error("备份封装超过 128 MiB；未导出部分备份");
   const temporary = `${destination}.${randomUUID()}.tmp`;
@@ -132,7 +154,13 @@ async function loadArchive(source: string, expectedHash?: string): Promise<{ arc
     if (expectedHash && fingerprint !== expectedHash) throw new Error("备份自预览后已变化；请重新选择和核对");
     archive = JSON.parse(gunzipSync(bytes, { maxOutputLength: MAX_BACKUP_BYTES }).toString("utf8")) as Archive;
   } finally { await file.close(); }
+  validateArchive(archive);
+  return { archive, fingerprint: fingerprint! };
+}
+
+function validateArchive(archive: Archive) {
   if (!archive || archive.version !== 1 || typeof archive.originWorkspace !== "string" || !isAbsolute(archive.originWorkspace) ||
+      typeof archive.createdAt !== "string" || !Number.isFinite(Date.parse(archive.createdAt)) || new Date(archive.createdAt).toISOString() !== archive.createdAt ||
       !Array.isArray(archive.threads) || archive.threads.length > 100 || archive.threads.some(id => typeof id !== "string" || !id || id.length > 256) ||
       new Set(archive.threads).size !== archive.threads.length || !Array.isArray(archive.entries) || archive.entries.length > 207 ||
       archive.entries.some(entry => !entry || typeof entry !== "object") ||
@@ -141,18 +169,21 @@ async function loadArchive(source: string, expectedHash?: string): Promise<{ arc
   for (const entry of archive.entries) {
     if (!entry || typeof entry.path !== "string" || (!paths.has(entry.path) && !/^receipts\/[a-f0-9]{64}\.json$/.test(entry.path)) ||
       typeof entry.text !== "string" || entry.sha256 !== hash(entry.text)) throw new Error("备份内容或哈希校验失败；未恢复");
-    if (!entry.path.endsWith(".jsonl")) JSON.parse(entry.text);
+    if (entry.path.startsWith("workspace/.runloom/")) validateStore(entry.path.slice("workspace/.runloom/".length) as keyof typeof STORES, entry.text);
+    else if (!entry.path.endsWith(".jsonl")) JSON.parse(entry.text);
     else {
       const threadId = archive.threads.find(id => entry.path === `transcripts/${hash(id)}.jsonl`)!;
       if (!entry.text.endsWith("\n")) throw new Error("备份对话不是完整记录");
       for (const line of entry.text.split("\n").filter(line => line.trim())) {
         const record = JSON.parse(line);
         if (record.threadId !== threadId ||
-          !(record.v === 2 && record.type === "thread.context.compacted" || record.v === 1 && record.type === "thread.messages.committed" && Array.isArray(record.messages))) throw new Error("备份对话归属或类型无效");
+          !(record.v === 2 && record.type === "thread.context.compacted" || record.v === 1 && record.type === "thread.messages.committed" && Array.isArray(record.messages) &&
+            record.messages.every((message: { id?: unknown; role?: unknown; parts?: unknown } | null) => message && typeof message.id === "string" &&
+              ["user", "assistant", "system"].includes(String(message.role)) && Array.isArray(message.parts)))) throw new Error("备份对话归属或类型无效");
       }
     }
   }
-  return { archive, fingerprint: fingerprint! };
+  archiveReceipts(archive); // Validate before even exposing a restore preview.
 }
 
 export async function previewBackup(source: string) {
@@ -161,12 +192,11 @@ export async function previewBackup(source: string) {
     files: archive.entries.length, stores: STORE_NAMES.filter(name => archive.entries.some(entry => entry.path === `workspace/.runloom/${name}`)) };
 }
 
-export async function restoreBackup(source: string, parent: string, expectedHash?: string): Promise<RestoreResult> {
-  const { archive } = await loadArchive(source, expectedHash);
+function archiveReceipts(archive: Archive) {
   const receipts = new Map<string, ReturnType<typeof validateExecutionRunRecord>>();
   for (const entry of archive.entries.filter(entry => entry.path.startsWith("receipts/"))) {
     const journal = JSON.parse(entry.text);
-    if (journal.version !== 1 || !Array.isArray(journal.runs)) throw new Error("备份回执无效");
+    if (Buffer.byteLength(entry.text) > 256 * 1024 || journal.version !== 1 || !Array.isArray(journal.runs) || journal.runs.length > 50) throw new Error("备份回执无效");
     for (const run of journal.runs) {
       const checked = validateExecutionRunRecord(run);
       if (!archive.threads.includes(checked.threadId)) throw new Error("备份回执不属于登记的对话");
@@ -175,6 +205,12 @@ export async function restoreBackup(source: string, parent: string, expectedHash
       receipts.set(checked.runId, checked);
     }
   }
+  return receipts;
+}
+
+export async function restoreBackup(source: string, parent: string, expectedHash?: string): Promise<RestoreResult> {
+  const { archive } = await loadArchive(source, expectedHash);
+  const receipts = archiveReceipts(archive);
   const base = await realpath(parent), target = join(base, `Serika-recovery-${Date.now()}-${randomUUID().slice(0, 8)}`);
   await mkdir(target, { mode: 0o700 });
   const restoredAt = new Date().toISOString();
