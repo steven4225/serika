@@ -829,7 +829,7 @@ function applyMetadataRevision(record: MemoryRecord, input: Pick<MemoryUpdateInp
 }
 
 /** One transition is used by restoration previews and locked writes. */
-function applyRestoreRevision(current: MemoryRecord, input: MemoryRestoreInput, nowDate: Date, threadId?: string): void {
+function applyRestoreRevision(current: MemoryRecord, input: MemoryRestoreInput, nowDate: Date, entries: MemoryRecord[], threadId?: string): void {
   const now = nowDate.toISOString();
   const target = scopedTimeline(current, threadId).assertions.find((assertion) => assertion.assertionId === input.targetAssertionId && assertion.state === "asserted");
   if (!target) raise("MEMORY_ENTRY_NOT_FOUND", "Restorable assertion not found in this scope");
@@ -839,6 +839,15 @@ function applyRestoreRevision(current: MemoryRecord, input: MemoryRestoreInput, 
   const expiresAt = "expiresAt" in input ? validateTimestamp(input.expiresAt, "Restore expiry") : current.expiresAt;
   if (status === "active" && expiresAt !== null && Date.parse(expiresAt) <= nowDate.getTime()) raise("MEMORY_EXPIRED", "Restored active memory must not already be expired");
   if (current.updatedAt !== null && Date.parse(now) < Date.parse(current.updatedAt)) raise("MEMORY_CLOCK_ROLLBACK", "System clock moved backwards");
+  // Restore is effective [now, infinity); currently known future facts also overlap.
+  if (status === "active" && target.factIdentity && entries.some(record =>
+    record.id !== current.id && record.status === "active" && !isMemoryEntryExpired(record, nowDate) &&
+    JSON.stringify(record.scope) === JSON.stringify(current.scope) && record.assertions.some(assertion =>
+      assertion.state === "asserted" && assertion.systemTime.to === null &&
+      sameFactSlot(assertion.factIdentity, target.factIdentity) &&
+      (assertion.validTime.to === null || Date.parse(assertion.validTime.to) > nowDate.getTime())))) {
+    raise("MEMORY_TEMPORAL_CONFLICT", "Another active memory occupies this fact slot over the restored validity interval; explicitly retract it before restoring");
+  }
   const assertions = structuredClone(current.assertions);
   const prefix: MemoryAssertion[] = [];
   for (const assertion of assertions.filter((assertion) => assertion.systemTime.to === null)) {
@@ -1409,7 +1418,7 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
       const current = projectRecord(scopedTimeline(record, options?.boundThreadId), now);
       if (input.operation === "delete") return { ok: true, value: { current, proposedAssertion: null } };
       const next = structuredClone(record);
-      if (input.operation === "restore") applyRestoreRevision(next, input, now, options?.boundThreadId);
+      if (input.operation === "restore") applyRestoreRevision(next, input, now, document.entries, options?.boundThreadId);
       else if (input.operation === "metadata") {
         if (input.pinned !== undefined) validatePinned(input.pinned);
         if (input.status !== undefined) validateStatus(input.status);
@@ -1476,7 +1485,7 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
       if (typeof input !== "object" || input === null || Object.keys(input).some((key) => !["id", "expectedRevision", "targetAssertionId", "status", "expiresAt"].includes(key))) raise("INVALID_INPUT", "Invalid restore input");
       const record = await this.#mutate(signal, (entries, nowDate) => {
         const current = findWritableRecord(entries, input.id, input.expectedRevision, options);
-        applyRestoreRevision(current, input, nowDate, options?.boundThreadId);
+        applyRestoreRevision(current, input, nowDate, entries, options?.boundThreadId);
         return { next: entries, value: current };
       }, options?.now);
       return { ok: true, entry: projectRecord(record, new Date(record.updatedAt!)) };
