@@ -3,7 +3,20 @@ import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promis
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { crashFixtureAllows, runWorkTaskCrashAcceptance, verifyCrashArtifactAbsent } from "./work-task-crash-acceptance.js";
+import { crashFixtureAllows, gateAfterApprovalReceipt, runWorkTaskCrashAcceptance, verifyCrashArtifactAbsent } from "./work-task-crash-acceptance.js";
+
+test("before-dispatch gate waits for approval persistence and never gates a failed write", async () => {
+  let commit!: () => void, gateCalls = 0;
+  const pendingWrite = new Promise<void>((resolve) => { commit = resolve; });
+  const ready = gateAfterApprovalReceipt(pendingWrite, async () => { gateCalls++; });
+  try {
+    await Promise.resolve();
+    assert.equal(gateCalls, 0, "SIGKILL readiness must not race the owner's journal write");
+  } finally { commit(); await ready; }
+  assert.equal(gateCalls, 1);
+  await assert.rejects(gateAfterApprovalReceipt(Promise.reject(new Error("approval write failed")), async () => { gateCalls++; }), /approval write failed/);
+  assert.equal(gateCalls, 1, "failed persistence must not produce a ready boundary");
+});
 
 test("post-recovery absence check fails on a created file or dangling symlink", async () => {
   const workspace = await mkdtemp(join(tmpdir(), "runloom-crash-absence-"));
@@ -42,6 +55,9 @@ test("real process kills preserve not_started/unknown/completed and never replay
         const after = JSON.parse(await readFile(join(root, "after-report.json"), "utf8"));
         assert.equal(after.task.acceptance.find((c: { id: string }) => c.id === "quality").status, "not_run");
         if (scenario === "before-dispatch") {
+          const boundary = JSON.parse(await readFile(join(root, "crash-boundary.json"), "utf8"));
+          assert.ok(boundary.receipt.tools[0].approvalRequestedAt, "the exact pending approval receipt is already committed at the gate");
+          assert.equal(recovered.receipt.tools[0].approvalRequestedAt, boundary.receipt.tools[0].approvalRequestedAt);
           const absence = { path: "notes/crash-note.md", exists: false, checkedWith: "lstat" };
           assert.deepEqual(recovered.artifactAbsence, absence); assert.deepEqual(after.artifactAbsence, absence);
           await verifyCrashArtifactAbsent(join(root, "workspace"));
