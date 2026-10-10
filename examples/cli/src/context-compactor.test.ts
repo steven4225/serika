@@ -846,6 +846,47 @@ describe("ContextCompactor", () => {
     assert.equal(store.records.length, 0);
   });
 
+  for (const late of ["success", "failure"] as const) {
+    it(`compact cancel Demo: non-cooperative summary settles within 400ms and discards late ${late}`, async () => {
+      const store = new FakeStore();
+      const controller = new AbortController();
+      let start!: () => void, resolve!: (value: { text: string }) => void, reject!: (error: Error) => void;
+      const started = new Promise<void>(done => { start = done; });
+      const release = new Promise<{ text: string }>((done, fail) => { resolve = done; reject = fail; });
+      let calls = 0;
+      const summarizer: Summarizer = { complete: async () => {
+        calls++;
+        start();
+        return release; // Deliberately ignores its abort signal.
+      } };
+      const compactor = makeCompactor(store, summarizer);
+      const messages = [user("u1", "old request ".repeat(4)), assistant("a1", "old answer ".repeat(100)), user("u2", "continue")];
+      await store.save("thread-1", messages);
+      const pending = compactor.prepare(messages, controller.signal, true);
+      const settled = pending.then(() => ({ error: undefined }), error => ({ error }));
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await started;
+        controller.abort(new DOMException("compact cancelled", "AbortError"));
+        const result = await Promise.race([settled, new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error("compact still pending after 400ms")), 400);
+        })]);
+        assert.match(String(result.error), /compact cancelled/);
+        if (late === "success") resolve({ text: JSON.stringify(summary) });
+        else reject(new Error("late provider failure"));
+        await new Promise(resolve => setImmediate(resolve));
+        assert.equal(calls, 1);
+        assert.equal(store.records.length, 0);
+        assert.deepEqual(store.messages, messages);
+      } finally {
+        clearTimeout(timer);
+        controller.abort();
+        resolve({ text: JSON.stringify(summary) });
+        await settled;
+      }
+    });
+  }
+
   it("retries empty summary output and does not retry generic errors", async () => {
     const store = new FakeStore();
     let emptyCalls = 0;

@@ -855,10 +855,17 @@ export class ContextCompactor {
     maxOutputTokens: number,
     signal: AbortSignal,
   ): Promise<{ text: string; usage?: TokenUsage; finishReason?: string }> {
+    abortIfNeeded(signal);
     const controller = new AbortController();
-    const onAbort = (): void => controller.abort(abortError(signal));
-    if (signal.aborted) controller.abort(abortError(signal));
+    let rejectCancelled!: (error: Error) => void;
+    const cancelled = new Promise<never>((_, reject) => { rejectCancelled = reject; });
+    const onAbort = (): void => {
+      const error = abortError(signal);
+      controller.abort(error);
+      rejectCancelled(error);
+    };
     signal.addEventListener("abort", onAbort, { once: true });
+    if (signal.aborted) onAbort();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<never>((_, reject) => {
       timer = setTimeout(() => {
@@ -880,6 +887,7 @@ export class ContextCompactor {
           signal: controller.signal,
         }),
         timeout,
+        cancelled,
       ]);
     } finally {
       if (timer !== undefined) clearTimeout(timer);

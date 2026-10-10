@@ -848,7 +848,9 @@ function applyRestoreRevision(current: MemoryRecord, input: MemoryRestoreInput, 
       prefix.push({ ...structuredClone(assertion), assertionId: randomUUID(), systemTime: { from: now, to: null }, validTime: { ...assertion.validTime, to } });
     }
   }
-  const restored = createAssertion({ text: target.text, kind: target.kind, recallTerms: target.recallTerms, sources: target.sources, validTime: { from: now, to: null, basis: "reported" } }, randomUUID(), now);
+  const restored = createAssertion({ text: target.text, kind: target.kind, recallTerms: target.recallTerms, sources: target.sources,
+    ...(target.factIdentity === undefined ? {} : { factIdentity: target.factIdentity }),
+    validTime: { from: now, to: null, basis: "reported" } }, randomUUID(), now);
   current.assertions = [...assertions, ...prefix, restored];
   assertTemporalIntegrity(current.assertions);
   current.status = status;

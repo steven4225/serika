@@ -57,6 +57,73 @@ test("synonymous observations reuse one fact, preserve wording/time, and accumul
   } finally { await f.cleanup(); }
 });
 
+test("restore identity Demo: preview and restore preserve verified identity, while edited text does not inherit it", async () => {
+  const f = await fixture();
+  try {
+    const first = await f.extract([f.statement("u1", "我喝咖啡不加糖。")]);
+    const id = first.result.accepted![0]!.memoryId;
+    const original = await f.store.inspectMemory(id); assert.ok(original.ok);
+    const withdrawn = await f.store.reviseMemory({ id, expectedRevision: 1, operation: "retract" }, undefined,
+      { now: new Date(f.now().getTime() + 100) });
+    assert.ok(withdrawn.ok);
+    const input = { id, expectedRevision: withdrawn.entry.revision!, targetAssertionId: original.value.assertions[0]!.assertionId };
+    const options = { now: new Date(f.now().getTime() + 200) };
+    const disk = await readFile(join(f.directory, ".runloom/memory.json"), "utf8");
+    const preview = await f.store.previewMemoryMutation({ operation: "restore", ...input }, undefined, options);
+    assert.ok(preview.ok);
+    assert.deepEqual(preview.value.proposedAssertion?.factIdentity, coffee());
+    assert.equal(await readFile(join(f.directory, ".runloom/memory.json"), "utf8"), disk);
+    const restored = await f.store.restoreMemory(input, undefined, options); assert.ok(restored.ok);
+    assert.equal(restored.entry.text, "我喝咖啡不加糖。");
+    assert.deepEqual(restored.entry.assertion?.factIdentity, coffee());
+
+    const edited = await f.store.reviseMemory({ id, expectedRevision: restored.entry.revision!,
+      operation: "correct", text: "我喝咖啡加糖。" }, undefined, { now: new Date(f.now().getTime() + 300) });
+    assert.ok(edited.ok);
+    assert.equal(edited.entry.assertion?.factIdentity, undefined);
+    const restoredEdit = await f.store.restoreMemory({ id, expectedRevision: edited.entry.revision!,
+      targetAssertionId: edited.entry.assertion!.assertionId }, undefined, { now: new Date(f.now().getTime() + 400) });
+    assert.ok(restoredEdit.ok);
+    assert.equal(restoredEdit.entry.text, "我喝咖啡加糖。");
+    assert.equal(restoredEdit.entry.assertion?.factIdentity, undefined);
+  } finally { await f.cleanup(); }
+});
+
+for (const [label, text, identity] of [
+  ["synonym", "咖啡甜味我不喜欢。", coffee()],
+  ["conflict", "我喝咖啡加糖。", coffee("sweetened")],
+] as const) {
+  test(`restore identity Demo: retract → restore → ${label} cannot create a second active fact`, async () => {
+    const f = await fixture();
+    try {
+      const first = await f.extract([f.statement("u1", "我喝咖啡不加糖。")]);
+      const id = first.result.accepted![0]!.memoryId;
+      const original = await f.store.inspectMemory(id); assert.ok(original.ok);
+      const withdrawn = await f.store.reviseMemory({ id, expectedRevision: 1, operation: "retract" }, undefined,
+        { now: new Date(f.now().getTime() + 100) });
+      assert.ok(withdrawn.ok);
+      const restored = await f.store.restoreMemory({ id, expectedRevision: withdrawn.entry.revision!,
+        targetAssertionId: original.value.assertions[0]!.assertionId }, undefined, { now: new Date(f.now().getTime() + 200) });
+      assert.ok(restored.ok);
+      const next = await f.extract([f.statement("u2", text, identity)]);
+      const listed = await f.store.list(undefined, { now: f.now() }); assert.ok(listed.ok);
+      assert.equal(listed.entries.filter(entry => entry.enabled).length, 1);
+      assert.equal(listed.entries[0]?.text, "我喝咖啡不加糖。");
+      assert.deepEqual(listed.entries[0]?.assertion?.factIdentity, coffee());
+      assert.equal(next.result.accepted?.length, label === "synonym" ? 1 : 0);
+      assert.equal(next.result.pendingCandidateIds?.length, label === "synonym" ? 0 : 1);
+      if (label === "synonym") assert.equal(next.result.accepted?.[0]?.memoryId, id);
+      else {
+        const pending = await f.store.getCandidate(next.result.pendingCandidateIds![0]!, undefined,
+          { boundThreadId: "thread", now: f.now() });
+        assert.ok(pending.ok);
+        assert.equal(pending.value.candidate.change.operation, "correct");
+        assert.equal("memoryId" in pending.value.candidate.change ? pending.value.candidate.change.memoryId : null, id);
+      }
+    } finally { await f.cleanup(); }
+  });
+}
+
 test("same fact in one batch coalesces evidence; different scenarios coexist and ambiguous values need review", async () => {
   const f = await fixture();
   try {
