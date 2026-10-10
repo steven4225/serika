@@ -173,6 +173,106 @@ class CountingStore extends InMemoryAgentStore {
   }
 }
 
+async function within400ms<T>(pending: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([pending, new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error("still pending after 400ms")), 400);
+    })]);
+  } finally { clearTimeout(timer); }
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>(done => { resolve = done; });
+  return { promise, resolve };
+}
+
+for (const mode of ["request-hangs", "stream-hangs"] as const) {
+  for (const stop of ["step-timeout", "total-timeout", "cancel"] as const) {
+    it(`cancel wait Demo: ${mode} settles on ${stop} without provider cooperation`, async () => {
+      const started = deferred<void>();
+      const release = deferred<ReturnType<typeof toolCallResponse>>();
+      let close = () => {}, calls = 0, executions = 0, approvals = 0;
+      const events: AgentEvent[] = [];
+      const model = new MockLanguageModelV3({ doStream: async () => {
+        calls++;
+        started.resolve();
+        if (mode === "request-hangs") return release.promise;
+        return { stream: new ReadableStream({ start(controller) {
+          controller.enqueue({ type: "stream-start", warnings: [] });
+          close = () => controller.close();
+        } }) };
+      } });
+      const store = new CountingStore();
+      const runtime = new DefaultAgentRuntime({
+        catalog: new InMemoryAgentCatalog([{ ...definition, tools: ["double"], limits: {
+          maxSteps: 4, stepTimeoutMs: stop === "step-timeout" ? 40 : 2_000,
+          totalTimeoutMs: stop === "total-timeout" ? 100 : 5_000,
+        } }]), store,
+        loop: new AiSdkAgentLoop({ models: new InMemoryModelRegistry({ test: model }),
+          tools: doubleTool(() => { executions++; return { value: 4 }; }) }),
+        beforeToolExecute: async () => { approvals++; return { allow: true }; },
+      });
+      const handle = await runtime.run({ agentId: "test", threadId: "cancel-wait", messages: [userMessage()] });
+      const observed = (async () => { for await (const event of handle.events) events.push(event); })();
+      try {
+        await within400ms(started.promise);
+        if (stop === "cancel") await handle.cancel("cancel wait Demo");
+        const result = await within400ms(handle.result);
+        await observed;
+        assert.equal(result.status, stop === "step-timeout" ? "failed" : stop === "total-timeout" ? "timed_out" : "cancelled");
+        assert.equal(result.error?.code, stop === "step-timeout" ? "MODEL_TIMEOUT" : stop === "total-timeout" ? "RUN_TIMEOUT" : "RUN_CANCELLED");
+        const terminalEvents = events.length;
+        release.resolve(toolCallResponse("tool-calls")); // A late request may still return a tool call.
+        await new Promise(resolve => setImmediate(resolve));
+        assert.equal(events.length, terminalEvents, "late output cannot reopen the terminal Run");
+        assert.equal(calls, 1);
+        assert.equal(approvals, 0);
+        assert.equal(executions, 0);
+        assert.equal(store.saveCount, 0);
+      } finally {
+        await handle.cancel("fixture cleanup");
+        release.resolve(toolCallResponse("tool-calls"));
+        close();
+        await handle.result;
+        await observed;
+      }
+    });
+  }
+}
+
+it("cancel wait Demo: a late next-step tool call never replays an already completed tool", async () => {
+  const started = deferred<void>();
+  const release = deferred<ReturnType<typeof toolCallResponse>>();
+  let calls = 0, executions = 0, approvals = 0;
+  const model = new MockLanguageModelV3({ doStream: async () => {
+    if (++calls === 1) return toolCallResponse("tool-calls");
+    started.resolve();
+    return release.promise;
+  } });
+  const runtime = new DefaultAgentRuntime({ catalog: new InMemoryAgentCatalog([{ ...definition, tools: ["double"] }]),
+    store: new CountingStore(), loop: new AiSdkAgentLoop({ models: new InMemoryModelRegistry({ test: model }),
+      tools: doubleTool(() => { executions++; return { value: 4 }; }) }),
+    beforeToolExecute: async () => { approvals++; return { allow: true }; },
+  });
+  const handle = await runtime.run({ agentId: "test", threadId: "no-replay", messages: [userMessage()] });
+  try {
+    await within400ms(started.promise);
+    await handle.cancel("cancel after completed tool");
+    assert.equal((await within400ms(handle.result)).status, "cancelled");
+    release.resolve(toolCallResponse("tool-calls"));
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(calls, 2);
+    assert.equal(approvals, 1);
+    assert.equal(executions, 1);
+  } finally {
+    await handle.cancel("fixture cleanup");
+    release.resolve(toolCallResponse("tool-calls"));
+    await handle.result;
+  }
+});
+
 it("finish corrections keep the same loop, original tool confirmation and remaining step budget", async () => {
   const events: AgentEvent[] = [];
   let calls = 0, approvals = 0, executions = 0;

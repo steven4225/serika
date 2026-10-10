@@ -232,6 +232,24 @@ async function awaitWithSignal<T>(
   });
 }
 
+async function* modelStreamWithSignal<T>(stream: ReadableStream<T>, signal: AbortSignal): AsyncGenerator<T> {
+  const reader = stream.getReader();
+  let finished = false;
+  try {
+    while (true) {
+      // Provider abort is best effort; each read must settle independently.
+      const next = await awaitWithSignal(() => reader.read(), signal);
+      throwIfAborted(signal);
+      if (next.done) { finished = true; return; }
+      yield next.value;
+    }
+  } finally {
+    // A provider may also ignore cancellation of its stream. Do not await it.
+    if (!finished) void reader.cancel().catch(() => {});
+    reader.releaseLock();
+  }
+}
+
 function sleepWithSignal(delayMs: number, signal: AbortSignal): Promise<void> {
   if (signal.aborted) return Promise.reject(abortReason(signal));
   return new Promise<void>((resolve, reject) => {
@@ -529,7 +547,7 @@ export class AiSdkAgentLoop implements AgentLoop {
             telemetry: { isEnabled: false },
           });
 
-          for await (const part of result.stream) {
+          for await (const part of modelStreamWithSignal(result.stream, stepSignal)) {
             if (part.type === "text-delta") {
               attemptHasOutput = true;
               attemptText += part.text;
