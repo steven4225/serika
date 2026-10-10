@@ -14,7 +14,7 @@ Electron 前端通过 `createRuntimeApp` + `createAssistantController` 接入后
 
 ### 可交给 Grokbot 的步骤
 
-1. Clone `https://github.com/steven4225/runloom.git` 的迁移 PR 分支 `feat/desktop-monorepo`（合并后用 `main`），记录实际 commit，读取根目录与本目录 `AGENTS.md`。不要操作用户的 Mac，不获取或输出用户 Key，不改产品代码来让测试通过。
+1. Clone `https://github.com/steven4225/runloom.git` 的 `main`，记录实际 commit，读取根目录与本目录 `AGENTS.md`。不要操作用户的 Mac，不获取或输出用户 Key，不改产品代码来让测试通过。
 2. 在根目录运行：
 
    ```sh
@@ -127,7 +127,7 @@ After：模块能力页可预览并保存开关，空闲时重新装配同一个
 
 可见名称、Dock、窗口与对话头像使用 Serika。选定的头像在 `resources/serika-icon.png`；Dock / 原生窗口使用独立的 `resources/serika-dock.png`，1024px 画布带真实透明圆角和约 10% 外侧留白，主体约占 80%，不再使用满幅、不透明的头像 PNG。macOS 打包图标 `resources/serika.icns` 也来自 Dock 版；前端与主进程构建各自携带本地 PNG，不依赖生成器目录或联网加载。菜单栏仍使用适合 16px 的单色图标。
 
-这一轮只改品牌呈现，仓库名、包名、`RUNLOOM_*`、`window.runloom`、配置及 transcript 格式不变。主进程在改可见名称前固定原有 userData 路径，不因改名生成空白日用身份。完整退出后按原方式 `pnpm daily` 重开即可检查 Dock、侧栏和旧对话；关闭窗口只是隐藏，不会加载新版。
+这一轮只改品牌呈现，仓库名、包名、`RUNLOOM_*`、`window.runloom`、配置及 transcript 格式不变。主进程在改可见名称前固定原有 userData 路径，不因改名生成空白日用身份。完整退出后在主仓根目录用 `pnpm desktop:daily` 重开即可检查 Dock、侧栏和旧对话；关闭窗口只是隐藏，不会加载新版。
 
 图标是基于 CHAOS;CHILD 官方人物与标志参考制作的 AI 改编稿，原始生成文件仍保留。角色/原作素材公开分发授权尚未确认，不能把生成稿当成已取得角色授权。
 
@@ -143,6 +143,8 @@ Dock 导出补正：原头像 PNG 为 RGB、无透明通道，不能直接当作
 cd /Users/a1-6/Code/agents/aisdk-agent-framework
 pnpm desktop:daily
 ```
+
+路径核对（G）：推荐的日用、检查和开发入口均从主仓根目录运行；无需进入旧的 sibling 仓库。旧路径仅用于显式安装迁移／回滚或历史证据，不是当前启动入口。五分钟核对：在根目录运行 `pnpm typecheck`，再运行 `node --test apps/desktop/scripts/daily-environment.test.mjs` 验证启动环境加载；有图形桌面且应用空闲、草稿已保存时，可完整退出后按上面的日用命令打开，确认 Electron 和原对话。脚本测试不证明日用 GUI 已验收。
 
 默认配置、会话列表和 transcript 在 Electron userData 中持续保存。首次没有 `RUNLOOM_WORKSPACE` 时创建 `userData/workspaces/personal`；测试窗口应使用独立 userData 并设置 `RUNLOOM_DESKTOP_TEST=1`，页面会显示隔离验收标记。根目录的 `pnpm desktop:dev` 仍是开发入口。已有进程要从托盘完整退出后再启动，关闭窗口只是隐藏。
 
@@ -191,9 +193,9 @@ macOS/Linux 正常保存使用同一 transcript 路径的跨进程 append 锁。
 没有选择真实模型时，默认 mock 仍可用于界面调试，但主屏会显示明确警告，不把它当真实任务能力。日用启动请显式指定模型，复用受信任的环境文件（不显示或复制 Key）：
 
 ```sh
-cd /Users/a1-6/Code/agents/runloom-desktop
+cd /Users/a1-6/Code/agents/aisdk-agent-framework
 RUNLOOM_MODEL=command-code \
-RUNLOOM_ENV_FILE=/Users/a1-6/Code/agents/aisdk-agent-framework/.env pnpm dev
+RUNLOOM_ENV_FILE=/absolute/path/serika.env pnpm desktop:daily
 ```
 
 模型配置不会在运行中切换；修改后完整退出桌面并重新启动。
@@ -211,8 +213,9 @@ RUNLOOM_ENV_FILE=/Users/a1-6/Code/agents/aisdk-agent-framework/.env pnpm dev
 桌面支持 `RUNLOOM_MODEL=command-code`，复用后端模型入口。可通过主进程显式加载受信任的环境文件；已有进程环境变量优先，不隐式寻找 cwd 下的 `.env`，不把 Key 发往页面或 IPC：
 
 ```sh
-RUNLOOM_ENV_FILE=/Users/a1-6/Code/agents/aisdk-agent-framework/.env \
-RUNLOOM_CONFIG=/absolute/outside-workspace/runloom.json pnpm dev
+cd /Users/a1-6/Code/agents/aisdk-agent-framework
+RUNLOOM_ENV_FILE=/absolute/path/serika.env \
+RUNLOOM_CONFIG=/absolute/outside-workspace/runloom.json pnpm desktop:daily
 ```
 
 环境文件含 `RUNLOOM_MODEL=command-code` 与 `COMMAND_CODE_API_KEY`。缺凭据、坏文件或配置错误会显示启动失败，不静默回退模型。Computer 配置沿用外部 `modules.computer` 的 enabled/executable/allowedBundleIds；仅显示已配置，不承诺驱动可用，不自动安装、启动 daemon 或申请权限。本机 Cua Driver 不需要模型 Key。
@@ -265,7 +268,7 @@ macOS 桌面保留系统原生红黄绿窗口控制：红色沿用关闭后隐�
 
 ## 日用配置与记忆设置
 
-使用 `pnpm daily` 启动真实模型日用入口。「工作区」顶部的「当前日用入口」显示实际配置文件、workspace、对话目录、重开身份及记忆/压缩开关；隔离测试入口明确标为测试。该面板只显示配置状态，不代表模型联网或本轮已使用摘要。
+在主仓根目录使用 `pnpm desktop:daily` 启动真实模型日用入口。「工作区」顶部的「当前日用入口」显示实际配置文件、workspace、对话目录、重开身份及记忆/压缩开关；隔离测试入口明确标为测试。该面板只显示配置状态，不代表模型联网或本轮已使用摘要。
 
 旧配置不会被静默开启记忆。主屏空闲且无待处理事项时提示缺失设置；打开「查看日用设置」→「设置日用记忆」，先核对将启用的选项与配置路径，再点「确认启用」。自动整理已开启而查询改写未开启时，也可以补开。取消预览不写入；确认沿用现有主进程配置校验与 Controller 重载，不改工作区、会话、历史或其他模块，不接受任何候选。整理/查询改写使用当前模型，会产生费用。
 
@@ -339,7 +342,7 @@ pnpm exec vite src/renderer --host 127.0.0.1 --port 5199 --strictPort
 
 ## 第一批真实验收边界
 
-离线 `pnpm check` 不能替代以下两条真实 Electron 链；使用隔离 workspace、外部配置、固定 transcript，不用自己的敏感材料。
+在主仓根目录运行的离线 `pnpm desktop:check` 不能替代以下两条真实 Electron 链；使用隔离 workspace、外部配置、固定 transcript，不用自己的敏感材料。
 
 1. 开启 memory + autoConsolidate，普通对话陈述测试偏好且主 Run 不请求 memory 工具。展开候选，检查完整原话、revision、workspace 范围，点击接受。完整退出重开另一 Thread，查询与正文词法重合的问题，核对实际回答和记忆 ID。接受前正式 entries 不能增长；候选只属于来源 Thread。
 2. 开启压缩，进行有目标、约束和可检查文件的真实任务，直到自动阈值写入记录（不能用手动按钮代替）。继续任务，核对真实工具回执/磁盘，完整退出同 Thread 重启，查看合法历史记录与空的本进程准备结果；下一轮应显示实际 reused/written，重新读文件核对事实且重新确认写入。
@@ -365,7 +368,7 @@ Before：找旧对话要进入单独页面；保存后的正式记忆、待审�
 
 After：侧栏直接找回最近对话；从当前候选核对原话、已有内容、拟保存内容与范围；保存后进入「已保存」，退出重开后可在新对话验证引用。
 
-Demo 前提：使用配置固定的入口（`pnpm daily` 或自己的 `RUNLOOM_CONFIG`），模型为真实模型，工作区存在，记忆与自动整理显式开启。测试时使用单独的 userData 和 workspace，不覆盖日用配置。模型服务可用是前提；服务慢或失败不是「没有候选」。
+Demo 前提：在主仓根目录使用 `pnpm desktop:daily`（可显式指定自己的 `RUNLOOM_CONFIG`），模型为真实模型，工作区存在，记忆与自动整理显式开启。测试时使用单独的 userData 和 workspace，不覆盖日用配置。模型服务可用是前提；服务慢或失败不是「没有候选」。
 
 1. 在普通对话输入「我的长期写作偏好：我写复盘时先给一句结论，再列两条行动。这一轮只回复收到，不要调用工具。」不勾「本条不整理为记忆」。等主回复和整理都结束。
 2. 点击候选的「完整审核」，核对原话及拟保存内容，范围应为当前工作区；点击「保存这条记忆」。候选退出待审列表，保存回执出现；点击「查看已保存」核对正文。「审核记录」保存来源对话的接受/拒绝/失效记录，不是正式记忆的版本历史。
