@@ -14,7 +14,7 @@ Electron 前端通过 `createRuntimeApp` + `createAssistantController` 接入后
 
 ### 可交给 Grokbot 的步骤
 
-1. Clone `https://github.com/steven4225/runloom.git` 的 `main`，记录实际 commit，读取根目录与本目录 `AGENTS.md`。不要操作用户的 Mac，不获取或输出用户 Key，不改产品代码来让测试通过。
+1. Clone `https://github.com/steven4225/serika.git` 的 `main`，记录实际 commit，读取根目录与本目录 `AGENTS.md`。不要操作用户的 Mac，不获取或输出用户 Key，不改产品代码来让测试通过。
 2. 在根目录运行：
 
    ```sh

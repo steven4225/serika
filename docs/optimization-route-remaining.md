@@ -1,6 +1,6 @@
 # 剩余批次（A–D 已合并 main）
 
-已合并：https://github.com/steven4225/runloom/pull/117 （历史＋回执＋Telegram C／D）
+已合并：https://github.com/steven4225/serika/pull/117 （历史＋回执＋Telegram C／D）
 
 ## 继续按序（每批必须 commit＋push＋开 PR 或直接合入 main 前先 PR）
 
