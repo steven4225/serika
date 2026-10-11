@@ -5,6 +5,36 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createDesktopRssWorker } from "./rss-worker-service.js";
 import { resolveTuiModuleConfig } from "@aisdk-agent/example-cli/dist/tui-module-config.js";
+import { acquireFlock } from "@aisdk-agent/example-cli/dist/flock.js";
+import { createTaskWorkerHealthWriter } from "@aisdk-agent/example-cli/dist/task-worker-health.js";
+import { TASK_WORKER_LOCK_FILE_NAME } from "@aisdk-agent/example-cli/dist/task-store.js";
+
+it("Demo: worker startup evidence belongs to the loaded PID and held lock, not an old heartbeat", async () => {
+  const root = await realpath(await mkdtemp(join(tmpdir(), "serika-worker-version-")));
+  const workspace = join(root, "workspace"), envFile = join(root, "worker.env"), entry = join(root, "worker.js");
+  await mkdir(workspace); await writeFile(envFile, "RUNLOOM_MODEL=mock\n"); await writeFile(entry, "// fixture");
+  const lock = await acquireFlock(join(workspace, TASK_WORKER_LOCK_FILE_NAME));
+  const startedAt = "2026-10-10T00:00:00.000Z";
+  const calls: string[][] = [];
+  const args = [await realpath(process.execPath), `--env-file=${envFile}`, entry, "--workspace", workspace, "--notify", "--rss"];
+  const worker = createDesktopRssWorker({ workspace, home: root, workerEntry: entry, platform: "darwin",
+    env: { RUNLOOM_WORKER_NODE: process.execPath, RUNLOOM_WORKER_ENV_FILE: envFile },
+    runner: async (_file, arguments_) => { calls.push(arguments_); return { exitCode: 0,
+      stdout: `pid = 123\narguments = {\n${args.join("\n")}\n}\n`, stderr: "" }; } });
+  try {
+    await createTaskWorkerHealthWriter(workspace, { pid: 123, now: () => new Date(startedAt) }).heartbeat();
+    const live = await worker.status(); assert.ok(live.ok);
+    assert.equal(live.processStartedAt, startedAt);
+    assert.equal((await worker.automationStatus()).ready, true);
+    await createTaskWorkerHealthWriter(workspace, { pid: 456, now: () => new Date(startedAt) }).heartbeat();
+    const foreign = await worker.status(); assert.ok(foreign.ok); assert.equal(foreign.processStartedAt, null);
+    assert.equal((await worker.automationStatus()).ready, false, "launchd running alone is not ready");
+    await lock.release();
+    await createTaskWorkerHealthWriter(workspace, { pid: 123, now: () => new Date(startedAt) }).heartbeat();
+    const stale = await worker.status(); assert.ok(stale.ok); assert.equal(stale.processStartedAt, null);
+    assert.ok(calls.every(call => call[0] === "print"), "diagnostics cannot start/stop the service");
+  } finally { await lock.release(); await rm(root, { recursive: true, force: true }); }
+});
 
 it("desktop service never starts implicitly, rejects IPC paths/options and requires trusted credential-file paths", async () => {
   const worker = createDesktopRssWorker({ workspace: "/private/tmp/test", home: "/private/tmp/home", env: { COMMAND_CODE_API_KEY: "SECRET_FIXTURE" }, workerEntry: "/private/tmp/entry.js", platform: "darwin" });

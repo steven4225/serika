@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { createLoadedBuildReader, fingerprintBackendDist } from "./build-identity.js";
-import { buildStatus, type DesktopBuildManifest } from "../shared/build-identity.js";
+import { buildStatus, workerBuildStatus, type DesktopBuildManifest } from "../shared/build-identity.js";
 
 const manifest: DesktopBuildManifest = {
   schemaVersion: 1, id: "0123456789abcdef", version: "0.1.0", builtAt: "2026-10-08T00:00:00.000Z",
@@ -52,6 +52,27 @@ test("mixed backend artifacts warn instead of substituting source revision for l
   const unknown = createLoadedBuildReader(null, null, "/nonexistent/serika-build.json");
   assert.equal(unknown().backendMatchesBuild, null);
   assert.match(buildStatus(unknown()).text, /无法确认/);
+});
+
+test("Demo: an old resident build tells users to stop resident/worker, not just refresh the page", () => {
+  const info = { ...createLoadedBuildReader(manifest, manifest.backendDistFingerprint, "/missing")(), host: "resident" as const };
+  const current = { ...manifest, id: "fedcba9876543210", builtAt: "2026-10-11T00:00:00.000Z" };
+  const status = buildStatus(info, current);
+  assert.equal(status.warning, true);
+  assert.match(status.text, /常驻/);
+  assert.match(status.text, /worker|后台/);
+  assert.match(status.text, /退出托盘/);
+});
+
+test("Demo: worker started before the current build warns; absent startup evidence is not current", () => {
+  const old = workerBuildStatus({ running: true, processStartedAt: "2026-10-07T00:00:00.000Z" }, manifest);
+  assert.equal(old?.warning, true);
+  assert.match(old!.text, /启动早于.*构建/);
+  assert.match(old!.text, /退出托盘/);
+  assert.equal(workerBuildStatus({ running: false }, manifest), null);
+  const unknown = workerBuildStatus({ running: true, processStartedAt: null }, manifest);
+  assert.equal(unknown?.warning, true); assert.match(unknown!.text, /不能确认/);
+  assert.equal(workerBuildStatus({ running: true, processStartedAt: "2026-10-09T00:00:00.000Z" }, manifest)?.warning, false);
 });
 
 test("backend fingerprint uses actual project JS contents, not git HEAD or file timestamps", () => {

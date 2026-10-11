@@ -66,8 +66,9 @@ describe("task instructions", () => {
     assert.match(instructions, /过会儿/);
     assert.match(instructions, /周末/);
     assert.match(instructions, /已定：明天 9:00 提醒开会/);
-    assert.match(instructions, /已改到：明天 10:00 提醒开会/);
-    assert.match(instructions, /已取消：明天 9:00 提醒开会/);
+    assert.match(instructions, /COMPLETE readback/);
+    assert.match(instructions, /background-unavailable warning/);
+    assert.match(instructions, /taskSaved.*backgroundReady/);
     assert.match(instructions, /readback/);
     assert.match(instructions, /改到十点/);
     assert.match(instructions, /task_repeat_pause/);
@@ -79,7 +80,7 @@ describe("task instructions", () => {
     assert.match(instructions, /does not follow daylight saving time/);
     assert.match(instructions, /For a daily work brief, include the requested evidence and observation time, one priority, a 15-minute first step, and unknowns in that task prompt/);
     assert.match(instructions, /do not apply this format to other scheduled tasks/);
-    assert.match(instructions, /Do not add the task id, ISO timestamp, JSON, series ID, nextRunAt/);
+    assert.match(instructions, /Do not add the task id, ISO timestamp, JSON, series ID or nextRunAt/);
     assert.match(instructions, /If the tool fails or is denied, do not claim the reminder exists/);
     assert.match(instructions, /inbox: true/);
     assert.match(instructions, /task_get/);

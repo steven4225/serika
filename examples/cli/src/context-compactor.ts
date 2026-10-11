@@ -31,6 +31,7 @@ import {
 import { collectTranscriptToolFacts } from "./work-summary.js";
 import type { ContextDiagnostics, ContextResult } from "./context-diagnostics.js";
 import { CONTEXT_ESTIMATOR_VERSION } from "./context-budget.js";
+import { isAutoConsolidationRequest, withoutConsolidationTurns } from "./consolidation.js";
 
 const SUMMARY_TIMEOUT_MS = 30_000;
 const MANUAL_COMPACTION_TIMEOUT_MS = 120_000;
@@ -110,6 +111,9 @@ function validRecord(record: ContextCompactionRecord, messages: readonly UIMessa
     return false;
   }
   if (record.sourcePrefixHash !== compactPrefixHash(messages, index)) return false;
+  // Legacy summaries may have learned raw extraction JSON. Keep them on disk,
+  // but do not reinstall/merge one that covered auxiliary turns without exclusion.
+  if (record.consolidationExcluded !== true && messages.slice(0, index).some(isAutoConsolidationRequest)) return false;
   return parseContextSummary(JSON.stringify(record.summary)) !== undefined;
 }
 
@@ -516,7 +520,12 @@ export class ContextCompactor {
   ): Promise<UIMessage[]> {
     this.#lastPrepare = { kind: "passthrough" };
     this.#effectiveReferencePrefix = referencePrefix ?? [];
-    if (!this.#options.budget.enabled) return messages;
+    const visibleIds = new Set(withoutConsolidationTurns(messages).map(message => message.id));
+    const journalIds = new Set(messages.map(message => message.id));
+    const visible = (conversation: readonly UIMessage[]) => conversation.filter(message =>
+      // Injected summary messages are not journal entries.
+      !journalIds.has(message.id) || visibleIds.has(message.id));
+    if (!this.#options.budget.enabled) return visible(messages);
     abortIfNeeded(signal);
 
     const fixed = await this.#options.fixedContext(messages, signal);
@@ -532,7 +541,7 @@ export class ContextCompactor {
           tools: fixed.tools ?? [],
           memories: [],
           dynamicContext: fixed.dynamicContext ?? "",
-          messages: [...prefixInject, ...conversation],
+          messages: [...prefixInject, ...visible(conversation)],
         },
         this.#options.budget,
       );
@@ -548,7 +557,7 @@ export class ContextCompactor {
       // Reuse, noop and forced preparation must obey the same final budget.
       checkPreparedBudget(conversation);
       this.#preparedCompactionId = compactionId;
-      return conversation;
+      return visible(conversation);
     };
 
     // Resume is optional evidence, unlike Memory/checkpoint. Do not let it
@@ -651,7 +660,7 @@ export class ContextCompactor {
     }
 
     const keptMessages = messages.slice(firstKept);
-    const coveredMessages = messages.slice(0, firstKept);
+    const coveredMessages = visible(messages.slice(0, firstKept));
     const prefix = transcriptPrefix(messages);
     const previous = persisted?.summary;
     const started = Date.now();
@@ -664,10 +673,14 @@ export class ContextCompactor {
     // Re-reading the full prefix would eventually exhaust the fixed merge limit.
     const sourceStart = persisted?.firstKeptMessageIndex ?? 0;
     const incrementalUnits = omitted.filter(unit => unit.endIndex >= sourceStart).map(unit => ({
-      messages: unit.messages.slice(Math.max(0, sourceStart - unit.startIndex)),
-    }));
+      messages: visible(unit.messages.slice(Math.max(0, sourceStart - unit.startIndex))),
+    })).filter(unit => unit.messages.length > 0);
     const chunks = summarySourceChunks(incrementalUnits, summaryInputBudget);
-    if (chunks.length === 0 || chunks.length > MAX_SUMMARY_MERGES) {
+    if (chunks.length === 0) {
+      this.#lastPrepare = { kind: "noop" };
+      return persisted ? finish(compose(persisted.summary, persisted.firstKeptMessageIndex), persisted.id) : finish(messages);
+    }
+    if (chunks.length > MAX_SUMMARY_MERGES) {
       throw contextError("Context compaction source is too large for the bounded summary merge");
     }
     let summary = previous;
@@ -709,6 +722,7 @@ export class ContextCompactor {
       firstKeptMessageIndex: firstKept,
       firstKeptMessageId: keptMessages[0]?.id ?? null,
       sourcePrefixHash: compactPrefixHash(messages, firstKept),
+      consolidationExcluded: true,
       summary,
       strategyVersion: CONTEXT_SUMMARY_STRATEGY_VERSION,
       modelId: this.#options.modelId,
