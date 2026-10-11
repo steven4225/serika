@@ -6,6 +6,7 @@ import {
   canReject,
   capabilityText,
   candidateKindLabel,
+  candidateAcceptLabel,
   candidateOperationExplanation,
   candidateSources,
   initialMemoryPanel,
@@ -57,6 +58,19 @@ function ready(item: CandidatePreview = preview()) {
 }
 
 describe("memory candidate review state", () => {
+  it("undated change presents an explicit from-now choice, never an implicit correction", () => {
+    const open = preview();
+    open.candidate.change = { operation: "change", memoryId: "memory-1", expectedRevision: 1, text: "咖啡加糖", expiresAt: null, effectiveAt: null };
+    assert.equal(candidateKindLabel(open.candidate), "事实变更");
+    assert.equal(candidateAcceptLabel(open.candidate), "从现在开始用新偏好");
+    assert.match(candidateOperationExplanation(open.candidate), /旧记忆仍有效.*从现在开始.*历史/);
+    assert.deepEqual(resolvePayload(open, "accept"), { candidateId: "c1", expectedCandidateRevision: 1, decision: "accept", effectiveAt: "now" });
+    assert.deepEqual(resolvePayload(open, "reject"), { candidateId: "c1", expectedCandidateRevision: 1, decision: "reject" });
+    open.candidate.change.effectiveAt = "2026-10-01T00:00:00Z";
+    assert.equal(candidateAcceptLabel(open.candidate), "确认更新");
+    assert.equal("effectiveAt" in resolvePayload(open, "accept"), false, "known date is not replaced by now");
+  });
+
   it("sends the candidate revision from the open preview", () => {
     const open = preview();
     open.candidate.revision = 4;

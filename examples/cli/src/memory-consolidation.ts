@@ -263,7 +263,7 @@ function proposalDraft(proposal: unknown, prepared: PreparedBatch, selected: Ord
       if (facts.validTime.basis === "unknown" && (facts.validTime.from !== null || facts.validTime.to !== null)) return fail("MEMORY_BATCH_INVALID", "Unknown proposal time cannot invent an interval");
     }
     if (p.action === "change") {
-      facts.effectiveAt = validateTemporalTimestamp(p.effectiveAt, "Candidate change effectiveAt");
+      if (p.effectiveAt !== undefined) facts.effectiveAt = validateTemporalTimestamp(p.effectiveAt, "Candidate change effectiveAt");
       if (facts.kind !== undefined && facts.kind !== "fact" && facts.kind !== "preference") return fail("MEMORY_BATCH_INVALID", "A change must remain a fact or preference");
     }
     if (expiry !== undefined && expiry !== null) {
@@ -290,7 +290,7 @@ function proposalDraft(proposal: unknown, prepared: PreparedBatch, selected: Ord
     return { ok: true, value: { change: { operation: p.action as "retract" | "disable", memoryId: p.memoryId, expectedRevision: p.expectedRevision as number, text, expiresAt: target.expiresAt ?? null }, ...provenance } };
   }
   const targetFields = { memoryId: p.memoryId, expectedRevision: p.expectedRevision as number, text: p.text as string, expiresAt: expiry === undefined ? target.expiresAt ?? null : expiry };
-  if (p.action === "change") return { ok: true, value: { change: { operation: "change", ...targetFields, ...facts, effectiveAt: facts.effectiveAt! }, ...provenance } };
+  if (p.action === "change") return { ok: true, value: { change: { operation: "change", ...targetFields, ...facts, effectiveAt: facts.effectiveAt ?? null }, ...provenance } };
   return { ok: true, value: { change: { operation: p.action as "update" | "correct", ...targetFields, ...facts }, ...provenance } };
 }
 
@@ -405,6 +405,9 @@ export function createMemoryConsolidation(options: {
         if (!parsed.ok) { run.invalid = true; return parsed; }
         for (const source of parsed.value.sources ?? [parsed.value.source]) covered.add(source.messageId);
         let eligibility = (proposal as MemoryProposal).eligibility;
+        // Missing time is reviewable uncertainty, not a guessed transition or a
+        // reason to poison otherwise valid source-bound proposals in this batch.
+        if (eligibility !== "ignore" && parsed.value.change.operation === "change" && parsed.value.change.effectiveAt === null) eligibility = "needs_review";
         // Conservative deny probes for recognizable credentials/explicit opt-out phrases.
         // This is not a universal natural-language privacy classifier. Metadata exclusion
         // remains the deterministic opt-out, enforced independently by source validation.

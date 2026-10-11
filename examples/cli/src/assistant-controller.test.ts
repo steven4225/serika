@@ -338,7 +338,8 @@ describe("AssistantController memory candidates", () => {
       await controller.run("Prepare proposals");
       await waitFor(() => controller.getSnapshot().state.kind === "idle");
       assert.equal(controller.getSnapshot().lastPrimaryResult?.status, "completed");
-      assert.match(events[0] ?? "", /Memory consolidation did not complete.*disk failed/);
+      assert.match(events[0] ?? "", /不能当作已经记住.*旧记忆仍保留/);
+      assert.doesNotMatch(events[0] ?? "", /WRITE_FAILED|disk failed|Memory consolidation/);
     } finally { await controller.shutdown(); }
   });
 

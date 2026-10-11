@@ -107,6 +107,17 @@ describe("memory candidate IPC input", () => {
     const missing = sanitizeCandidateResolveInput({ approvalId: "apr-1", decision: "allow" });
     assert.equal("ok" in missing && missing.ok, false);
   });
+
+  it("forwards only an explicit from-now acceptance and rejects supplied dates or rejection overrides", () => {
+    const review = { candidateId: "c1", expectedCandidateRevision: 1, decision: "accept" };
+    assert.deepEqual(sanitizeCandidateResolveInput({ ...review, effectiveAt: "now", text: "forged", threadId: "other" }),
+      { ...review, effectiveAt: "now" });
+    for (const input of [{ ...review, effectiveAt: "2026-01-01T00:00:00Z" }, { ...review, effectiveAt: null },
+      { ...review, decision: "reject", effectiveAt: "now" }]) {
+      const result = sanitizeCandidateResolveInput(input);
+      assert.ok("ok" in result && result.ok === false);
+    }
+  });
 });
 
 describe("execution record queries", () => {

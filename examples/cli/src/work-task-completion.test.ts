@@ -47,7 +47,7 @@ it("corrects missing multiple tests in the same Run using one confirmed batch an
   try {
     const approvals = new Set<string>();
     controller.subscribe(event => {
-      if (event.type === "approval" && !approvals.has(event.approval.approvalId)) {
+      if (event.type === "approval" && event.approval.preview.trim() && !approvals.has(event.approval.approvalId)) {
         approvals.add(event.approval.approvalId);
         assert.equal(event.approval.toolName, "shell_exec");
         assert.deepEqual(event.approval.input, batch);
@@ -194,7 +194,7 @@ for (const scenario of ["correct", "readback", "deny", "exhaust", "manual", "cha
       const approvals = new Set<string>();
       const checks: string[] = [];
       controller.subscribe(event => {
-        if (event.type === "approval" && !approvals.has(event.approval.approvalId)) {
+        if (event.type === "approval" && event.approval.preview.trim() && !approvals.has(event.approval.approvalId)) {
           approvals.add(event.approval.approvalId);
           controller.confirm({ approvalId: event.approval.approvalId, decision: scenario === "deny" ? "deny" : "allow" });
         }

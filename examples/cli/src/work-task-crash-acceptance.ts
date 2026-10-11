@@ -134,7 +134,7 @@ async function child(root: string, scenario: Scenario, mode: ModelMode, recoveri
   }
   const seen = new Set<string>();
   controller.subscribe((event) => {
-    if (event.type !== "approval" || seen.has(event.approval.approvalId)) return;
+    if (event.type !== "approval" || !event.approval.preview.trim() || seen.has(event.approval.approvalId)) return;
     const approval = event.approval; seen.add(approval.approvalId);
     if (!recovering && scenario === "before-dispatch" && crashFixtureAllows(approval.toolName, approval.input, false)) {
       const state = controller.getSnapshot().state; assert.ok(state.kind === "running" && state.runId !== null);

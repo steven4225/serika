@@ -528,6 +528,9 @@ export function createToolConfirmation(
   }): boolean => {
     const entry = pending;
     if (entry === undefined || entry.approval.approvalId !== input.approvalId) return false;
+    // The empty approval is published before asynchronous preview preparation.
+    // All callers (desktop, IM and TUI), not just the renderer, must wait for it.
+    if (input.decision === "allow" && entry.approval.preview.trim().length === 0) return false;
     clearPending(entry);
     if (input.decision === "allow") {
       entry.resolve({ allow: true });

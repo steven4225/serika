@@ -216,6 +216,109 @@ test("same fact in one batch coalesces evidence; different scenarios coexist and
   } finally { await f.cleanup(); }
 });
 
+test("undated conflict Demo: pending conflict does not block same-batch or later facts across restart", async () => {
+  const f = await fixture();
+  try {
+    const first = await f.extract([f.statement("u1", "我喝咖啡不加糖。")]);
+    const id = first.result.accepted![0]!.memoryId;
+    f.addMessage("u2", "我喝咖啡加糖。");
+    const other = f.statement("u3", "回复请用中文。", { attribute: "response_language", scenario: "general", value: "zh" });
+    const next = await f.extract([{ action: "change", memoryId: id, expectedRevision: 1,
+      text: "我喝咖啡加糖。", kind: "preference", factIdentity: coffee("sweetened"),
+      sourceMessageId: "u2", sourceQuote: "我喝咖啡加糖。", reason: "偏好不同但未说明生效日", eligibility: "explicit_request" }, other]);
+    assert.equal(next.result.pendingCandidateIds?.length, 1);
+    assert.equal(next.result.accepted?.length, 1, "unrelated same-batch fact must be saved");
+    const listed = await f.store.list(undefined, { now: f.now() }); assert.ok(listed.ok);
+    assert.equal(listed.entries.find(entry => entry.id === id)?.text, "我喝咖啡不加糖。");
+    assert.equal(listed.entries.filter(entry => entry.assertion?.factIdentity?.attribute === "coffee" && entry.enabled).length, 1);
+    const pending = await f.store.getCandidate(next.result.pendingCandidateIds![0]!, undefined, { now: f.now(), boundThreadId: "thread" });
+    assert.ok(pending.ok);
+    assert.match(pending.value.candidate.reason, /生效|时间|确认/);
+    assert.equal(pending.value.candidate.change.operation, "change", "an ambiguous transition is not silently reclassified as correction");
+    assert.equal("effectiveAt" in pending.value.candidate.change && pending.value.candidate.change.effectiveAt, null, "missing effective date must not be invented");
+    const cursor = await f.store.getConsolidationCursor("thread"); assert.ok(cursor.ok);
+    assert.equal(cursor.value?.throughMessageId, "u3");
+    const receipt = await f.store.getConsolidationReceipt!("thread"); assert.ok(receipt.ok);
+    assert.equal(receipt.value?.outcomes.find(outcome => outcome.messageId === "u2")?.status, "extracted");
+    const later = await f.extract([f.statement("u4", "工作时我喝甜咖啡。", coffee("sweetened", "work"))]);
+    assert.equal(later.result.accepted?.length, 1, "new service/store must still save later facts");
+    const final = await f.store.listCandidates({ status: "pending" }, undefined, { boundThreadId: "thread", now: f.now() });
+    assert.ok(final.ok); assert.equal(final.value.candidates.length, 1);
+    const review = { candidateId: pending.value.candidate.id, expectedCandidateRevision: 1, decision: "accept" as const };
+    const options = { boundThreadId: "thread", now: new Date(f.now().getTime() + 100) };
+    const before = await readFile(join(f.directory, ".runloom/memory.json"), "utf8");
+    const notConfirmed = await f.store.resolveCandidate(review, undefined, options);
+    assert.equal(notConfirmed.ok, false, "plain accept must not guess an effective date");
+    assert.equal(await readFile(join(f.directory, ".runloom/memory.json"), "utf8"), before);
+    const confirmed = await f.store.resolveCandidate({ ...review, effectiveAt: "now" }, undefined, options);
+    assert.ok(confirmed.ok);
+    const updated = await f.store.queryMemory(id, {}, undefined, options); assert.ok(updated.ok);
+    assert.equal(updated.value.assertions[0]?.text, "我喝咖啡加糖。");
+    assert.equal(updated.value.assertions[0]?.validTime.from, options.now.toISOString());
+    const prior = await f.store.queryMemory(id, { validAt: f.now().toISOString() }, undefined, options); assert.ok(prior.ok);
+    assert.equal(prior.value.assertions[0]?.text, "我喝咖啡不加糖。", "explicit from-now confirmation preserves prior applicability");
+    const replay = await createMemoryStore(f.directory).resolveCandidate({ ...review, effectiveAt: "now" }, undefined,
+      { ...options, now: new Date(options.now.getTime() + 100) });
+    assert.ok(replay.ok); assert.equal(replay.value.replayed, true);
+  } finally { await f.cleanup(); }
+});
+
+for (const [label, extra] of [
+  ["malformed date", { effectiveAt: "not-a-date" }],
+  ["invented source", { sourceQuote: "我明确说了从今天开始" }],
+  ["stale target", { expectedRevision: 999 }],
+  ["foreign target", { memoryId: "foreign" }],
+] as const) test(`undated conflict safety: ${label} still rejects the whole batch without writing`, async () => {
+  const f = await fixture();
+  try {
+    const first = await f.extract([f.statement("u1", "我喝咖啡不加糖。")]);
+    f.addMessage("u2", "我喝咖啡加糖。");
+    const other = f.statement("u3", "回复请用中文。", { attribute: "response_language", scenario: "general", value: "zh" });
+    const service = f.service(); service.begin(AUTO_CONSOLIDATION_AGENT_ID);
+    const batch = await service.prepare({ mode: "incremental" }); assert.ok(batch.ok);
+    const path = join(f.directory, ".runloom/memory.json");
+    const before = await readFile(path, "utf8");
+    const staged = await service.stage({ batchId: batch.value.batchId, proposals: [other, { action: "change",
+      memoryId: first.result.accepted![0]!.memoryId, expectedRevision: 1, text: "我喝咖啡加糖。", kind: "preference",
+      factIdentity: coffee("sweetened"), sourceMessageId: "u2", sourceQuote: "我喝咖啡加糖。", reason: "待确认", eligibility: "explicit_request", ...extra }],
+      outcomes: [{ messageId: "u2", status: "extracted" }, { messageId: "u3", status: "extracted" }] });
+    assert.equal(staged.ok, false);
+    assert.equal((await service.finalize({ status: "completed" })).ok, false);
+    assert.equal(await readFile(path, "utf8"), before);
+  } finally { await f.cleanup(); }
+});
+
+test("undated conflict safety: store refuses forged automatic acceptance indexes", async () => {
+  const f = await fixture();
+  try {
+    const first = await f.extract([f.statement("u1", "我喝咖啡不加糖。")]);
+    const path = join(f.directory, ".runloom/memory.json");
+    const before = await readFile(path, "utf8");
+    const saved = await f.store.commitCandidateBatch({ batchId: "forged", originThreadId: "thread", expectedCursor: null, nextCursor: null,
+      autoAcceptIndexes: [0], candidates: [{ change: { operation: "change", memoryId: first.result.accepted![0]!.memoryId,
+        expectedRevision: 1, text: "咖啡加糖", expiresAt: null, effectiveAt: null, kind: "preference", factIdentity: coffee("sweetened") },
+        source: { kind: "conversation", threadId: "thread", messageId: "u2", quote: "咖啡加糖" }, reason: "待确认" }] },
+      undefined, { boundThreadId: "thread", now: f.now() });
+    assert.equal(saved.ok, false);
+    if (!saved.ok) assert.match(saved.error.message, /Undated changes require explicit review/);
+    assert.equal(await readFile(path, "utf8"), before);
+  } finally { await f.cleanup(); }
+});
+
+test("undated conflict safety: ignored material is not retained as a pending proposal", async () => {
+  const f = await fixture();
+  try {
+    const first = await f.extract([f.statement("u1", "我喝咖啡不加糖。")]);
+    f.addMessage("u2", "别人说咖啡要加糖。");
+    const extracted = await f.extract([{ action: "change", memoryId: first.result.accepted![0]!.memoryId, expectedRevision: 1,
+      text: "我喝咖啡加糖。", sourceMessageId: "u2", sourceQuote: "别人说咖啡要加糖。", reason: "第三方信息不应保留", eligibility: "ignore" }]);
+    assert.equal(extracted.result.pendingCandidateIds?.length, 0);
+    assert.equal(extracted.result.accepted?.length, 0);
+    const listed = await f.store.list(); assert.ok(listed.ok);
+    assert.equal(listed.entries[0]?.text, "我喝咖啡不加糖。");
+  } finally { await f.cleanup(); }
+});
+
 test("real value changes retain bitemporal history, and later source reuse does not erase the old segment", async () => {
   const f = await fixture();
   try {

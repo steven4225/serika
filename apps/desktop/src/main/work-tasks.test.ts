@@ -136,7 +136,7 @@ describe("work task desktop boundary", () => {
     const approved: string[] = [];
     const run = async (task: import("../shared/work-tasks.js").WorkTask, completionCheck = true, decision: "allow" | "deny" = "allow") => {
       const off = fixture.controller.subscribe(event => {
-        if (event.type !== "approval") return;
+        if (event.type !== "approval" || !event.approval.preview.trim()) return;
         approved.push(event.approval.toolName);
         fixture.bridge.confirm({ approvalId: event.approval.approvalId, decision });
       });

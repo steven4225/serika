@@ -85,7 +85,7 @@ process.stdin.on('end', () => {
       let cancelled: Promise<void> | undefined;
       let oldApproval: string | undefined;
       controller.subscribe(event => {
-        if (event.type !== "approval" || approvals.has(event.approval.approvalId)) return;
+        if (event.type !== "approval" || !event.approval.preview.trim() || approvals.has(event.approval.approvalId)) return;
         approvals.add(event.approval.approvalId);
         if (event.approval.toolName === "computer_action") {
           oldApproval = event.approval.approvalId;

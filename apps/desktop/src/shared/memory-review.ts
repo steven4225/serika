@@ -104,6 +104,7 @@ export function resolvePayload(preview: CandidatePreview, decision: "accept" | "
     candidateId: preview.candidate.id,
     expectedCandidateRevision: preview.candidate.revision,
     decision,
+    ...(decision === "accept" && preview.candidate.change.operation === "change" && preview.candidate.change.effectiveAt === null ? { effectiveAt: "now" as const } : {}),
   };
 }
 
@@ -154,7 +155,8 @@ export function candidateKindLabel(candidate: MemoryCandidate): string {
 export function candidateAcceptLabel(candidate: MemoryCandidate): string {
   switch (candidate.change.operation) {
     case "add": return "保存这条记忆";
-    case "update": case "change": return "确认更新";
+    case "update": return "确认更新";
+    case "change": return candidate.change.effectiveAt === null ? "从现在开始用新偏好" : "确认更新";
     case "correct": return "确认纠错";
     case "retract": return "确认撤回";
     case "disable": return "确认停用";
@@ -165,7 +167,9 @@ export function candidateOperationExplanation(candidate: MemoryCandidate): strin
   switch (candidate.change.operation) {
     case "add": return "接受后新增正式记忆。";
     case "update": return "更新已有记忆；系统保留此前记录。";
-    case "change": return "事实从指定时间起变化；此前适用的事实仍保留在历史里。";
+    case "change": return candidate.change.effectiveAt === null
+      ? "尚未说明生效时间，旧记忆仍有效。确认后从现在开始使用新偏好；此前事实保留在历史里。"
+      : "事实从指定时间起变化；此前适用的事实仍保留在历史里。";
     case "correct": return "纠正此前记错的事实，不把纠错日当成事实变化日。";
     case "retract": return "撤回对这条事实的认可，不再把它当作当前事实引用；历史仍保留。";
     case "disable": return "停止引用这条记忆；不改变事实历史，也不是永久删除。";
