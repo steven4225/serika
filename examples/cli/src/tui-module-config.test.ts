@@ -7,6 +7,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { resolveTuiModuleConfig } from "./tui-module-config.js";
+import { availableInputTokens, contextBudgetForMode } from "./context-budget.js";
 
 function configArgs(configPath: string) {
   return { configPath } as Parameters<typeof resolveTuiModuleConfig>[0];
@@ -463,6 +464,46 @@ describe("resolveTuiModuleConfig", () => {
       keepRecentTokens: 4_000,
       summaryMaxOutputTokens: 800,
     });
+    assert.equal(availableInputTokens(resolved.contextCompaction), 13_500);
+    assert.equal(resolved.contextCompaction.mode, undefined);
+  });
+
+  it("reads explicit context modes without changing their input budgets or independent summary chunks", async () => {
+    const { configDirectory } = await createConfigWorkspace();
+    for (const mode of ["daily", "long-task"] as const) {
+      const budget = contextBudgetForMode(mode);
+      const configPath = await writeConfig(configDirectory, {
+        version: 1, modules: {}, contextCompaction: budget,
+      }, `${mode}-context.json`);
+      const resolved = await resolveTuiModuleConfig(configArgs(configPath), { cwd: configDirectory });
+      assert.deepEqual(resolved.contextCompaction, budget);
+      assert.equal(availableInputTokens(resolved.contextCompaction), mode === "daily" ? 256_000 : 400_000);
+      assert.equal(resolved.contextCompaction.summaryInputChunkTokens, 32_000);
+      assert.equal(resolved.contextCompaction.triggerRatio, 0.85);
+      assert.equal(resolved.contextCompaction.warningRatio, 0.7);
+    }
+  });
+
+  it("rejects invalid context mode thresholds, summary chunks and input budgets beyond the provider window", async () => {
+    const { configDirectory } = await createConfigWorkspace();
+    const budget = contextBudgetForMode("daily");
+    for (const patch of [
+      { mode: "other" },
+      { triggerRatio: 1 },
+      { warningRatio: 0 },
+      { warningRatio: 0.9, triggerRatio: 0.85 },
+      { summaryInputChunkTokens: 23_999 },
+      { summaryInputChunkTokens: 32_001 },
+      { inputBudgetTokens: 1_000_000 },
+    ]) {
+      const configPath = await writeConfig(configDirectory, {
+        version: 1, modules: {}, contextCompaction: { ...budget, ...patch },
+      }, "invalid-mode-context.json");
+      await assert.rejects(
+        resolveTuiModuleConfig(configArgs(configPath), { cwd: configDirectory }),
+        /Invalid TUI config schema|Invalid context compaction budget/,
+      );
+    }
   });
 
   it("rejects an enabled context budget with no room for recent history", async () => {

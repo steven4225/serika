@@ -512,6 +512,9 @@ button.chip { font-size: 12px; padding: 5px 9px; border-color: var(--line); }
 .capability-confirm { padding: 16px; border-left: 3px solid var(--accent, #285dc1); background: var(--panel, #f5f7fb); margin-top: 20px; }
 .capability-confirm p { line-height: 1.6; max-width: 65ch; }
 .context-page { max-width: 760px; }
+.context-mode-picker { display: flex; flex-wrap: wrap; gap: 6px; }
+.context-mode-picker button { background: transparent; border: 1px solid var(--border); border-radius: 999px; padding: 7px 14px; color: var(--muted); }
+.context-mode-picker button[aria-pressed="true"] { background: var(--surface); color: var(--text); }
 .context-status-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .context-status-head h2 { font-size: 20px; margin: 8px 0 16px; }
 .context-explanation { color: var(--muted, #657184); font-size: 14px; line-height: 1.8; max-width: 58ch; }

@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { ContextDiagnostics } from "@aisdk-agent/example-cli/dist/context-diagnostics.js";
-import { contextOverview, contextPanelReducer, initialContextPanel, preparationLabel } from "./context-panel.js";
+import { contextInputBudget, contextModeLabel, contextOverview, contextPanelReducer, contextUsageLabel, initialContextPanel, preparationLabel } from "./context-panel.js";
+import { contextBudgetForMode } from "@aisdk-agent/example-cli/dist/context-budget.js";
 
 const value: ContextDiagnostics = {
   threadId: "thread",
@@ -13,6 +14,18 @@ const value: ContextDiagnostics = {
 };
 
 describe("context diagnostics panel", () => {
+  it("shows explicit input ceilings and conservative 70/85 percent labels without inventing a live measurement", () => {
+    const daily = contextBudgetForMode("daily"), long = contextBudgetForMode("long-task");
+    assert.equal(contextInputBudget(daily), 256_000); assert.equal(contextInputBudget(long), 400_000);
+    assert.equal(contextInputBudget(value.budget), 27_648);
+    assert.match(contextModeLabel(value.budget), /旧配置.*未切换/); assert.equal(contextModeLabel(daily), "日常");
+    assert.equal(contextUsageLabel({ ...value, budget: daily }), "尚无输入估算");
+    const status = (tokens: number, outcome: "noop" | "failed" = "noop") => contextUsageLabel({ ...value, budget: daily,
+      lastPreparation: { at: "now", outcome, compactionId: null, estimatedInputTokens: tokens, error: null } });
+    assert.equal(status(100_000), "上下文充足"); assert.equal(status(179_200), "接近整理区间");
+    assert.match(status(217_600), /下次准备.*检查/); assert.match(status(256_001), /超过预算/);
+    assert.match(status(100_000, "failed"), /整理失败/);
+  });
   it("explains automatic management without inventing a current measurement or hiding a failed preparation behind old records", () => {
     assert.match(contextOverview(value).title, /自动管理已开启/);
     assert.match(contextOverview(value).description, /继续聊天即可/);

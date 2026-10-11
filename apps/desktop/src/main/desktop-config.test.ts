@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import { DEFAULT_CONTEXT_BUDGET_CONFIG } from "@aisdk-agent/example-cli/dist/context-budget.js";
+import { DEFAULT_CONTEXT_BUDGET_CONFIG, contextBudgetForMode } from "@aisdk-agent/example-cli/dist/context-budget.js";
 import { changeModuleSetting } from "./module-settings.js";
 import {
   DESKTOP_DEFAULT_SHELL_TIMEOUT_MS,
@@ -75,8 +75,7 @@ describe("desktop TUI config", () => {
     assert.equal((config.modules as { shell: { enabled: boolean } }).shell.enabled, true);
     assert.ok(DESKTOP_DEFAULT_TOTAL_TIMEOUT_MS > 30_000);
     assert.ok(DESKTOP_DEFAULT_SHELL_TIMEOUT_MS > 30_000);
-    assert.equal((config.contextCompaction as { enabled: boolean }).enabled, true);
-    assert.equal((config.contextCompaction as { summaryMaxOutputTokens: number }).summaryMaxOutputTokens, 4096);
+    assert.deepEqual(config.contextCompaction, contextBudgetForMode("daily"));
     assert.equal((config.modules as { memory: { writePolicy: string } }).memory.writePolicy, "automatic");
   });
 
@@ -119,6 +118,22 @@ describe("desktop TUI config", () => {
       const config = JSON.parse(await readFile(configPath, "utf8"));
       assert.equal(config.contextCompaction.enabled, false);
       assert.equal(config.modules.memory, undefined);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
+  it("does not silently migrate legacy or explicit context budgets when filling desktop timeouts", async () => {
+    const root = await mkdtemp(join(tmpdir(), "serika-existing-context-budget-"));
+    try {
+      const configPath = join(root, "runloom.json");
+      for (const contextCompaction of [
+        { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled: true, summaryMaxOutputTokens: 4096 },
+        contextBudgetForMode("long-task"),
+      ]) {
+        await writeFile(configPath, JSON.stringify({ version: 1, modules: {}, contextCompaction }));
+        await resolveDesktopConfig({ env: {}, userData: root });
+        const config = JSON.parse(await readFile(configPath, "utf8"));
+        assert.deepEqual(config.contextCompaction, contextCompaction);
+      }
     } finally { await rm(root, { recursive: true, force: true }); }
   });
 

@@ -57,6 +57,7 @@ const api: RendererApi = {
   listRuns: () => ipcRenderer.invoke(IPC.listRuns),
   getRun: (runId) => ipcRenderer.invoke(IPC.getRun, runId),
   getContextDiagnostics: () => ipcRenderer.invoke(IPC.contextDiagnostics),
+  setContextMode: input => ipcRenderer.invoke(IPC.contextMode, input),
   getAutomationDiagnostics: () => ipcRenderer.invoke(IPC.automationDiagnostics),
   getAutomationOverview: () => ipcRenderer.invoke(IPC.automationOverview),
   scheduleSkill: input => ipcRenderer.invoke(IPC.scheduleSkill, input),

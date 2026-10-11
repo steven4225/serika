@@ -10,6 +10,10 @@ import {
   partitionMessagesForCompaction,
   splitMessageCompactionUnits,
   validateContextBudgetConfig,
+  availableInputTokens,
+  contextBudgetForMode,
+  contextBudgetThresholds,
+  contextBudgetStatus,
 } from "./context-budget.js";
 
 function textMessage(id: string, role: UIMessage["role"], text: string): UIMessage {
@@ -44,6 +48,37 @@ function toolMessage(
 }
 
 describe("context budget", () => {
+  it("uses decimal daily/long-task input ceilings independent of physical window reserves", () => {
+    for (const mode of ["daily", "long-task"] as const) {
+      const config = contextBudgetForMode(mode);
+      const ceiling = mode === "daily" ? 256_000 : 400_000;
+      assert.equal(availableInputTokens(config), ceiling);
+      assert.equal(validateContextBudgetConfig(config).ok, true);
+      const limits = contextBudgetThresholds(config);
+      assert.equal(limits.warningTokens, ceiling * 0.70);
+      assert.equal(limits.triggerTokens, ceiling * 0.85);
+      assert.equal(limits.predictedGrowthTokens, 12_288);
+      assert.equal(contextBudgetStatus(limits.warningTokens, config), "warning");
+      assert.equal(contextBudgetStatus(limits.triggerTokens - limits.predictedGrowthTokens, config), "compacting");
+      assert.equal(contextBudgetStatus(ceiling + 1, config), "exceeded");
+    }
+  });
+
+  it("validates new ratios, chunk size and physical-model ceiling without changing legacy input math", () => {
+    const daily = contextBudgetForMode("daily");
+    for (const invalid of [
+      { ...daily, inputBudgetTokens: 1_000_000 },
+      { ...daily, warningRatio: 0.85 },
+      { ...daily, triggerRatio: 1.1 },
+      { ...daily, summaryInputChunkTokens: 23_999 },
+      { ...daily, summaryInputChunkTokens: 32_001 },
+    ]) assert.equal(validateContextBudgetConfig(invalid).ok, false);
+    const legacy = { enabled: true, contextWindowTokens: 16_000, maxOutputTokens: 2_000,
+      safetyMarginTokens: 500, keepRecentTokens: 2_000, summaryMaxOutputTokens: 500 };
+    assert.equal(availableInputTokens(legacy), 13_500);
+    assert.equal(contextBudgetThresholds(legacy).triggerTokens, 13_500);
+    assert.equal(contextBudgetThresholds(legacy).predictedGrowthTokens, 0);
+  });
   it("uses the replaceable char-half estimator and counts message overhead", () => {
     assert.equal(estimateSerializedTokens("界"), 1);
     const estimate = estimateContextBudget(

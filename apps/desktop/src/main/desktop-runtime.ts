@@ -7,7 +7,7 @@ import { createDesktopThread, listDesktopThreads, registerDesktopThread, resolve
 import { discoverThreadDirectory, inspectThread } from "./thread-history.js";
 import { RuntimeBridge, TeeOutput, type Send } from "./runtime-bridge.js";
 import { changeModuleSetting, changeDreamingSetting, ConfigCommitUncertainError, type ModuleSettingInput, type DreamingSettingInput } from "./module-settings.js";
-import type { AppInfo } from "../shared/ui-contract.js";
+import type { AppInfo, ContextModeInput } from "../shared/ui-contract.js";
 import { readLoadedBuild } from "./build-identity.js";
 import { createPomodoroService, type PomodoroService } from "@aisdk-agent/example-cli/dist/modules/pomodoro-module.js";
 import { ExecutionRecordStore } from "@aisdk-agent/example-cli/dist/execution-record-store.js";
@@ -16,6 +16,7 @@ import type { TelegramGateway } from "./telegram-gateway.js";
 import { telegramUnavailable } from "../shared/telegram.js";
 import { createTaskStore, type TaskListInput } from "@aisdk-agent/example-cli/dist/task-store.js";
 import { exportBackup } from "./backup.js";
+import { changeContextMode } from "./context-settings.js";
 
 interface Options { userData: string; cwd: string; env: NodeJS.ProcessEnv; modelAlias: string; modelId?: string; model: LanguageModel; send: Send; taskAutomation?: TaskAutomationHost; /** Ownership transfers to this host, including final disposal. */ pomodoroService?: PomodoroService }
 
@@ -204,7 +205,7 @@ export class DesktopRuntime {
     } finally { this.#changing = false; }
   }
 
-  async #replace(select: () => Promise<DesktopIdentityResolution>, reuseUnchanged = false, settings?: { rollback: () => Promise<void> }, activate?: () => Promise<void>): Promise<void> {
+  async #replace(select: () => Promise<DesktopIdentityResolution>, reuseUnchanged = false, settings?: { rollback: () => Promise<void>; reason?: "modules" | "context" }, activate?: () => Promise<void>): Promise<void> {
     this.#assertIdle();
     this.#changing = true;
     this.#options.send({ type: "state", state: { kind: "command", name: "thread-switch" } });
@@ -258,7 +259,7 @@ export class DesktopRuntime {
         throw error;
       } finally {
         this.#changing = false;
-        this.#options.send({ type: "identity-changed", info: this.info(), ...(settings ? { reason: "modules" as const, ...(configurationError ? { configurationError } : {}) } : {}) });
+        this.#options.send({ type: "identity-changed", info: this.info(), ...(settings ? { reason: settings.reason ?? "modules", ...(configurationError ? { configurationError } : {}) } : {}) });
       }
     })();
     this.#transition = transition;
@@ -299,6 +300,13 @@ export class DesktopRuntime {
       undo = await changeDreamingSetting(this.#identity.configPath, input, this.#options.cwd);
       return this.#identity;
     }, false, { rollback: async () => { await undo?.(); } });
+  }
+  setContextMode(input: ContextModeInput) {
+    let undo: (() => Promise<void>) | undefined;
+    return this.#replace(async () => {
+      undo = await changeContextMode(this.#identity.configPath, input, this.#options.cwd);
+      return this.#identity;
+    }, false, { rollback: async () => { await undo?.(); }, reason: "context" });
   }
   /** Reconnect only the trusted selected identity; never resend a Run or tool. */
   async retryConnection(): Promise<void> {

@@ -18,6 +18,7 @@ import type { AgentEvent, RunResult } from "@aisdk-agent/core";
 import type { ExecutionRunRecord } from "@aisdk-agent/example-cli/dist/execution-record-store.js";
 export type { ExecutionRunRecord, ExecutionToolRecord } from "@aisdk-agent/example-cli/dist/execution-record-store.js";
 import type { ContextDiagnostics, ContextResult } from "@aisdk-agent/example-cli/dist/context-diagnostics.js";
+import type { ContextBudgetConfig } from "@aisdk-agent/example-cli/dist/context-budget.js";
 import type { RssAction, RssInbox, RssResult, RssView } from "@aisdk-agent/example-cli/dist/rss-subscriptions.js";
 import type { WorkTask, WorkTaskInputs, WorkTaskResult, WorkTaskReadInput, WorkTaskArtifactInput, WorkTaskReadResult, WorkTaskDeliveryDraft, WorkTaskArtifactPreview } from "./work-tasks.js";
 import type { WorkTaskContinuation } from "./work-tasks.js";
@@ -133,7 +134,7 @@ export interface UiSnapshot {
 
 export type MainToRenderer =
   | { type: "task-result-available" }
-  | { type: "identity-changed"; info: AppInfo; reason?: "modules"; configurationError?: string }
+  | { type: "identity-changed"; info: AppInfo; reason?: "modules" | "context"; configurationError?: string }
   | { type: "state"; state: UiState }
   | { type: "output"; text: string }
   | { type: "home"; text: string; reset?: boolean }
@@ -185,6 +186,8 @@ export type ListRunsResponse =
 export type GetRunResponse =
   | { ok: true; run: ExecutionRunRecord | null }
   | { ok: false; reason: "unavailable"; message: string };
+
+export interface ContextModeInput { mode: "daily" | "long-task"; expectedBudget: ContextBudgetConfig }
 
 export interface RendererApi {
   telegramStatus?(): Promise<import("./telegram.js").TelegramStatus>;
@@ -243,6 +246,7 @@ export interface RendererApi {
   listRuns(): Promise<ListRunsResponse>;
   getRun(runId: string): Promise<GetRunResponse>;
   getContextDiagnostics(): Promise<ContextResult<ContextDiagnostics>>;
+  setContextMode?(input: ContextModeInput): Promise<void>;
   /** Bounded metadata only; no Skill instructions, source paths or tool authority. */
   getAutomationDiagnostics(): Promise<AutomationDiagnostics>;
   getAutomationOverview(): Promise<AutomationResult<AutomationOverview>>;
@@ -339,6 +343,7 @@ export const IPC = {
   listRuns: "runloom:listRuns",
   getRun: "runloom:getRun",
   contextDiagnostics: "runloom:contextDiagnostics",
+  contextMode: "runloom:contextMode",
   automationDiagnostics: "runloom:automationDiagnostics",
   automationOverview: "runloom:automationOverview",
   scheduleSkill: "runloom:scheduleSkill",

@@ -13,7 +13,7 @@ import {
 } from "@aisdk-agent/core";
 import { AiSdkAgentLoop, InMemoryModelRegistry, ToolRegistry } from "@aisdk-agent/ai-sdk-adapter";
 import { ContextCompactor } from "./context-compactor.js";
-import type { ContextBudgetConfig } from "./context-budget.js";
+import { contextBudgetForMode, estimateContextBudget, type ContextBudgetConfig } from "./context-budget.js";
 import type { Summarizer } from "./context-compaction.js";
 
 const threadId = "auto-compaction-runtime";
@@ -167,3 +167,68 @@ it("cancelled automatic summary does not persist a partial record", async () => 
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+for (const mode of ["daily", "long-task"] as const) {
+  it(`Demo: ${mode} forecast compacts full-size JSONL history, continues the same Run, and reopens without replay`, async () => {
+    const directory = await mkdtemp(join(tmpdir(), `serika-${mode}-context-`));
+    try {
+      const store = new JsonlAgentStore({ directory });
+      const modeBudget = contextBudgetForMode(mode);
+      const oldMessages = Array.from({ length: mode === "daily" ? 20 : 32 }, (_, index) => [
+        message(`old-user-${index}`, "user", `Constraint ${index}: do not modify protected/. ${"u".repeat(8_000)}`),
+        message(`old-answer-${index}`, "assistant", "a".repeat(13_000)),
+      ]).flat();
+      await store.save(threadId, oldMessages);
+      let summaryCalls = 0;
+      const modeSummary = JSON.stringify({
+        version: 2,
+        goal: { text: "Continue the original task", evidenceMessageIds: ["old-user-0"] },
+        constraints: [{ text: "Do not modify protected/", evidenceMessageIds: ["old-user-0"] }],
+        decisions: [], actions: [], pending: [], files: [], nextStep: null,
+      });
+      const compactor = new ContextCompactor({
+        store, threadId, modelId: "mock", budget: modeBudget,
+        summarizer: { async complete() { summaryCalls += 1; return { text: modeSummary }; } },
+        fixedContext: () => ({ instructions: definition.instructions, tools: [], dynamicContext: "" }),
+      });
+      const raw = estimateContextBudget({ instructions: definition.instructions, messages: oldMessages }, modeBudget);
+      assert.ok(raw.inputTokens < modeBudget.inputBudgetTokens! * .85, "forecast must trigger before the actual 85% threshold");
+      let modelCalls = 0;
+      const model = new MockLanguageModelV3({ doStream: async ({ prompt }) => {
+        modelCalls += 1;
+        assert.match(JSON.stringify(prompt), /Context summary/);
+        assert.match(JSON.stringify(prompt), /Do not modify protected/);
+        return response("text");
+      } });
+      const runtime = new DefaultAgentRuntime({
+        catalog: new InMemoryAgentCatalog([{ ...definition, tools: [] }]),
+        store,
+        loop: new AiSdkAgentLoop({ models: new InMemoryModelRegistry({ mock: model }), tools: new ToolRegistry() }),
+        prepareModelContext: ({ messages, signal }) => compactor.prepare(messages, signal),
+      });
+      const handle = await runtime.run({ agentId: definition.id, threadId,
+        messages: [message("current-user", "user", "Continue without any tool.")] });
+      const events = (async () => { for await (const _event of handle.events) { /* drain */ } })();
+      const result = await handle.result;
+      assert.equal(result.status, "completed", JSON.stringify(result));
+      await events;
+      assert.equal(modelCalls, 1, "compaction must not create a second primary Run or replay tools");
+      assert.ok(summaryCalls > 4, "first large-window compaction must cross the old four-merge bound");
+      const reopened = new JsonlAgentStore({ directory });
+      const records = await reopened.getContextCompactions(threadId);
+      assert.equal(records.length, 1);
+      assert.ok((await reopened.getMessages(threadId)).length > oldMessages.length, "physical history remains intact");
+      const restored = new ContextCompactor({
+        store: reopened, threadId, modelId: "mock", budget: modeBudget,
+        summarizer: { async complete() { throw new Error("reopening a valid summary must not resummarize old history"); } },
+        fixedContext: () => ({ instructions: definition.instructions, tools: [], dynamicContext: "" }),
+      });
+      const prepared = await restored.prepare(await reopened.getMessages(threadId), new AbortController().signal);
+      const final = estimateContextBudget({ instructions: definition.instructions, messages: prepared }, modeBudget);
+      assert.ok(final.inputTokens < modeBudget.inputBudgetTokens! * .7);
+      assert.equal(prepared.some(item => item.id === "runloom-context-summary"), true);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+}

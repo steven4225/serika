@@ -1,4 +1,21 @@
 import type { ContextDiagnostics, ContextResult } from "@aisdk-agent/example-cli/dist/context-diagnostics.js";
+import { contextBudgetStatus, contextBudgetThresholds, type ContextBudgetConfig } from "@aisdk-agent/example-cli/dist/context-budget.js";
+
+export function contextModeLabel(budget: ContextBudgetConfig): string {
+  return budget.mode === "daily" ? "日常" : budget.mode === "long-task" ? "长任务" : "旧配置 / 自定义（未切换）";
+}
+
+export function contextInputBudget(budget: ContextBudgetConfig): number {
+  return contextBudgetThresholds(budget).availableInputTokens;
+}
+
+export function contextUsageLabel(value: ContextDiagnostics): string {
+  const prepared = value.lastPreparation;
+  if (!prepared || prepared.estimatedInputTokens === null) return "尚无输入估算";
+  if (prepared.outcome === "failed") return "整理失败，未证明本次输入可发送";
+  const status = contextBudgetStatus(prepared.estimatedInputTokens, value.budget);
+  return { normal: "上下文充足", warning: "接近整理区间", compacting: "下次准备会检查是否需要整理", exceeded: "估算超过预算，不能作为发送成功依据" }[status];
+}
 
 export interface ContextPanelState {
   request: number;

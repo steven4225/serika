@@ -22,6 +22,7 @@ import {
   estimateContextBudget,
   estimateMessageTokens,
   estimateSerializedTokens,
+  contextBudgetThresholds,
   keepRecentCompactionUnits,
   partitionMessagesForCompaction,
   type ContextBudgetConfig,
@@ -223,6 +224,7 @@ function fitSummarySourceMessage(message: UIMessage, maxTokens: number): UIMessa
 export function summarySourceChunks(
   units: readonly { messages: readonly UIMessage[] }[],
   maxTokens: number,
+  maxMerges = MAX_SUMMARY_MERGES,
 ): UIMessage[][] {
   const chunks: UIMessage[][] = [];
   let current: UIMessage[] = [];
@@ -232,7 +234,7 @@ export function summarySourceChunks(
     if (tokens > maxTokens) throw contextError("A compaction source fragment exceeds the source budget");
     if (current.length > 0 && currentTokens + tokens > maxTokens) {
       chunks.push(current); current = []; currentTokens = 0;
-      if (chunks.length >= MAX_SUMMARY_MERGES) throw contextError("Context compaction source is too large for the bounded summary merge");
+      if (chunks.length >= maxMerges) throw contextError("Context compaction source is too large for the bounded summary merge");
     }
     current.push(message); currentTokens += tokens;
   };
@@ -495,8 +497,14 @@ export class ContextCompactor {
   ): Promise<UIMessage[]> {
     this.#preparedEstimate = null;
     this.#preparedCompactionId = null;
+    const controller = new AbortController();
+    const onAbort = (): void => controller.abort(abortError(signal));
+    signal.addEventListener("abort", onAbort, { once: true });
+    if (signal.aborted) onAbort();
+    const jobTimeoutMs = this.#options.budget.inputBudgetTokens === undefined ? MANUAL_COMPACTION_TIMEOUT_MS : 600_000;
+    const timer = setTimeout(() => controller.abort(contextError(`Context preparation exceeded its ${jobTimeoutMs / 1000} second total budget`)), jobTimeoutMs);
     try {
-      const prepared = await this.#prepare(messages, signal, force, referencePrefix);
+      const prepared = await this.#prepare(messages, controller.signal, force, referencePrefix);
       this.#lastPreparation = {
         at: this.#now().toISOString(),
         outcome: this.#lastPrepare?.kind ?? "passthrough",
@@ -511,6 +519,9 @@ export class ContextCompactor {
         estimatedInputTokens: this.#preparedEstimate, error: diagnosticError(error),
       };
       throw error;
+    } finally {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", onAbort);
     }
   }
 
@@ -554,6 +565,7 @@ export class ContextCompactor {
       return estimate;
     };
     const finish = (conversation: UIMessage[], compactionId: string | null = null): UIMessage[] => {
+      abortIfNeeded(signal);
       // Reuse, noop and forced preparation must obey the same final budget.
       checkPreparedBudget(conversation);
       this.#preparedCompactionId = compactionId;
@@ -569,6 +581,7 @@ export class ContextCompactor {
     this.#effectiveReferencePrefix = prefixInject;
 
     const persisted = await this.#findLatestValid(messages);
+    abortIfNeeded(signal);
     const compose = (summary: ContextSummaryV2, firstKept: number): UIMessage[] => [
       ...transcriptPrefix(messages),
       summaryMessage(summary, {
@@ -577,16 +590,20 @@ export class ContextCompactor {
       }),
       ...messages.slice(firstKept),
     ];
+    const limits = contextBudgetThresholds(this.#options.budget);
+    const shouldCompact = (inputTokens: number): boolean => this.#options.budget.inputBudgetTokens === undefined
+      ? inputTokens > limits.availableInputTokens
+      : inputTokens + limits.predictedGrowthTokens >= limits.triggerTokens;
     if (!force && persisted !== undefined) {
       const installed = compose(persisted.summary, persisted.firstKeptMessageIndex);
-      if (!estimatePrepared(installed).exceeds) {
+      if (!shouldCompact(estimatePrepared(installed).inputTokens)) {
         this.#lastPrepare = { kind: "reused" };
         return finish(installed, persisted.id);
       }
     }
-    const rawBudget = estimatePrepared(messages);
+    const rawBudget = estimatePrepared(persisted === undefined ? messages : compose(persisted.summary, persisted.firstKeptMessageIndex));
     this.#preparedEstimate = rawBudget.inputTokens;
-    if (!force && !rawBudget.exceeds && persisted === undefined) {
+    if (!force && !shouldCompact(rawBudget.inputTokens) && persisted === undefined) {
       this.#lastPrepare = { kind: "passthrough" };
       return finish(messages);
     }
@@ -625,7 +642,8 @@ export class ContextCompactor {
         ...transcriptPrefix(messages),
         ...messages.slice(firstKept),
       ]);
-      return estimate.inputTokens + summaryReserve <= estimate.availableInputTokens;
+      const target = this.#options.budget.inputBudgetTokens === undefined ? estimate.availableInputTokens : limits.warningTokens;
+      return estimate.inputTokens + summaryReserve <= target;
     };
 
     // The stored summary replaces a prefix. A completed tool result that sits
@@ -635,7 +653,14 @@ export class ContextCompactor {
       const head = kept[0];
       if (head === undefined || !head.completeToolCalls) break;
       const laterCompleteTool = kept.slice(1).some((unit) => unit.completeToolCalls && unit.hasToolCall);
-      if (!head.hasToolCall && !laterCompleteTool) break;
+      // Keep the live request for proactive compression. Preserve the existing
+      // hard-overflow escape: request + completed tool result may be summarized
+      // together, but never remove the request alone or an incomplete call.
+      if (this.#options.budget.inputBudgetTokens !== undefined && head === currentUserUnit &&
+          (!laterCompleteTool || estimatePrepared([
+            ...transcriptPrefix(messages), ...messages.slice(head.startIndex),
+          ]).inputTokens + summaryReserve <= limits.availableInputTokens)) break;
+      if (this.#options.budget.inputBudgetTokens === undefined && !head.hasToolCall && !laterCompleteTool) break;
       omitted = [...omitted, head];
       kept = kept.slice(1);
     }
@@ -644,6 +669,7 @@ export class ContextCompactor {
       this.#lastPrepare = { kind: "noop" };
       if (force) return persisted === undefined ? finish(messages) : finish(compose(persisted.summary, persisted.firstKeptMessageIndex), persisted.id);
       if (persisted !== undefined) return finish(compose(persisted.summary, persisted.firstKeptMessageIndex), persisted.id);
+      if (!rawBudget.exceeds) return finish(messages);
       throw contextError("Context exceeds the configured input budget and has no safe compaction boundary");
     }
     if (kept.length === 0 && omitted.length === 0) {
@@ -666,7 +692,7 @@ export class ContextCompactor {
     const started = Date.now();
     const summaryInputBudget = Math.max(
       256,
-      this.#options.budget.keepRecentTokens,
+      this.#options.budget.summaryInputChunkTokens ?? this.#options.budget.keepRecentTokens,
     );
     // A validated persisted summary already covers this exact prefix. Merge only
     // new material, even when the old boundary now falls inside a complete turn.
@@ -675,12 +701,14 @@ export class ContextCompactor {
     const incrementalUnits = omitted.filter(unit => unit.endIndex >= sourceStart).map(unit => ({
       messages: visible(unit.messages.slice(Math.max(0, sourceStart - unit.startIndex))),
     })).filter(unit => unit.messages.length > 0);
-    const chunks = summarySourceChunks(incrementalUnits, summaryInputBudget);
+    const maxMerges = this.#options.budget.inputBudgetTokens === undefined ? MAX_SUMMARY_MERGES :
+      Math.min(16, Math.ceil(limits.availableInputTokens / summaryInputBudget) + 2);
+    const chunks = summarySourceChunks(incrementalUnits, summaryInputBudget, maxMerges);
     if (chunks.length === 0) {
       this.#lastPrepare = { kind: "noop" };
       return persisted ? finish(compose(persisted.summary, persisted.firstKeptMessageIndex), persisted.id) : finish(messages);
     }
-    if (chunks.length > MAX_SUMMARY_MERGES) {
+    if (chunks.length > maxMerges) {
       throw contextError("Context compaction source is too large for the bounded summary merge");
     }
     let summary = previous;
@@ -712,6 +740,7 @@ export class ContextCompactor {
     ];
     // Validate before persisting too: an unusable summary is not a new boundary.
     const afterBudget = checkPreparedBudget(compactedMessages);
+    abortIfNeeded(signal);
 
     const record: ContextCompactionRecord = {
       v: 2,
@@ -748,12 +777,13 @@ export class ContextCompactor {
     const onAbort = (): void => controller.abort(abortError(signal));
     if (signal.aborted) controller.abort(abortError(signal));
     signal.addEventListener("abort", onAbort, { once: true });
+    const manualTimeoutMs = this.#options.budget.inputBudgetTokens === undefined ? MANUAL_COMPACTION_TIMEOUT_MS : 600_000;
     const timer = setTimeout(() => controller.abort(new AgentError({
       code: "MODEL_TIMEOUT",
-      message: "Context compaction exceeded the 120 second manual budget",
+      message: `Context compaction exceeded the ${manualTimeoutMs / 1000} second manual budget`,
       retryable: true,
       phase: "runtime",
-    })), MANUAL_COMPACTION_TIMEOUT_MS);
+    })), manualTimeoutMs);
     try {
       const prepared = await this.prepare(messages, controller.signal, true);
       if (this.#lastPrepare?.kind === "written") {
@@ -805,9 +835,13 @@ export class ContextCompactor {
       abortIfNeeded(signal);
       if (delays[attempt]! > 0) {
         await new Promise<void>((resolve, reject) => {
-          const timer = setTimeout(resolve, delays[attempt]!);
+          const timer = setTimeout(() => {
+            signal.removeEventListener("abort", onAbort);
+            resolve();
+          }, delays[attempt]!);
           const onAbort = (): void => {
             clearTimeout(timer);
+            signal.removeEventListener("abort", onAbort);
             reject(abortError(signal));
           };
           signal.addEventListener("abort", onAbort, { once: true });
@@ -882,16 +916,17 @@ export class ContextCompactor {
     if (signal.aborted) onAbort();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<never>((_, reject) => {
+      const timeoutMs = this.#options.budget.inputBudgetTokens === undefined ? SUMMARY_TIMEOUT_MS : 90_000;
       timer = setTimeout(() => {
         const error = new AgentError({
           code: "MODEL_TIMEOUT",
-          message: "Context summary exceeded the 30 second budget",
+          message: `Context summary exceeded the ${timeoutMs / 1000} second budget`,
           retryable: true,
           phase: "model",
         });
         controller.abort(error);
         reject(error);
-      }, SUMMARY_TIMEOUT_MS);
+      }, timeoutMs);
     });
     try {
       return await Promise.race([
