@@ -253,7 +253,7 @@ function HomeBody({ view }: { view: HomeView }) {
 export function App({ initialLayout }: { initialLayout?: DesktopLayout } = {}) {
   const layout = initialLayout ?? desktopLayout(window.location.search);
   const [identityGeneration, setIdentityGeneration] = useState(0);
-  const [initialSettings, setInitialSettings] = useState(false);
+  const [initialSettings, setInitialSettings] = useState<false | "modules" | "context">(false);
   const [initialSettingsError, setInitialSettingsError] = useState<string | null>(null);
   const drafts = useRef(new Map<string, ConversationDraft>());
   const [appearance, setAppearance] = useState<"dark" | "light">(() => localStorage.getItem("serika:personal-appearance") === "dark" ? "dark" : "light");
@@ -263,16 +263,16 @@ export function App({ initialLayout }: { initialLayout?: DesktopLayout } = {}) {
     return next;
   });
   useEffect(() => window.runloom.onMessage(message => {
-    if (message.type === "identity-changed") { setInitialSettings(message.reason === "modules"); setInitialSettingsError(message.configurationError ?? null); setIdentityGeneration(value => value + 1); }
+    if (message.type === "identity-changed") { setInitialSettings(message.reason ?? false); setInitialSettingsError(message.configurationError ?? null); setIdentityGeneration(value => value + 1); }
   }), []);
   // Reset evidence/previews on identity changes; drafts also recover from main-process storage.
   const page = <AssistantPage key={identityGeneration} drafts={drafts.current} layout={layout} initialSettings={initialSettings} initialSettingsError={initialSettingsError} appearance={appearance} onAppearance={toggleAppearance} />;
   return <div className={`serika-personal-shell personal-theme-${appearance}`}><DesktopWindowFrame title="Serika" isDesktop={true} isMacDesktop={document.documentElement.dataset.nativeWindowControls === "macos"}>{page}</DesktopWindowFrame></div>;
 }
 
-function AssistantPage({ drafts, layout, initialSettings = false, initialSettingsError = null, appearance, onAppearance }: { drafts: Map<string, ConversationDraft>; layout: DesktopLayout; initialSettings?: boolean; initialSettingsError?: string | null; appearance: "dark" | "light"; onAppearance: () => void }) {
+function AssistantPage({ drafts, layout, initialSettings = false, initialSettingsError = null, appearance, onAppearance }: { drafts: Map<string, ConversationDraft>; layout: DesktopLayout; initialSettings?: false | "modules" | "context"; initialSettingsError?: string | null; appearance: "dark" | "light"; onAppearance: () => void }) {
   const [info, setInfo] = useState<AppInfo | null>(null);
-  const [mobileDashboard, setMobileDashboard] = useState(initialSettings);
+  const [mobileDashboard, setMobileDashboard] = useState(!!initialSettings);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [chatFraction, setChatFraction] = useState(() => loadChatFraction(localStorage.getItem(PERSONAL_SPLIT_KEY)));
   const splitRoot = useRef<HTMLDivElement | null>(null);
@@ -341,8 +341,8 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const latestPrimaryId = useRef<string | null>(null);
   const latestCompletedPrimaryId = useRef<string | null>(null);
   const historyRequest = useRef(0);
-  const [detailsOpen, setDetailsOpen] = useState(initialSettings);
-  const [detailTab, setDetailTab] = useState<"threads" | "tasks" | "home" | "records" | "memory" | "context" | "pomodoro" | "modules">(initialSettings ? "modules" : "home");
+  const [detailsOpen, setDetailsOpen] = useState(!!initialSettings);
+  const [detailTab, setDetailTab] = useState<"threads" | "tasks" | "home" | "records" | "memory" | "context" | "pomodoro" | "modules">(initialSettings || "home");
   const [sending, setSending] = useState(false);
   const sendInFlight = useRef(false);
   const homeBuffer = useRef("");
@@ -1094,7 +1094,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
                 onOpen={runId => void openRecord(runId).catch(() => setError("执行回执读取失败"))} /></div>
               <div hidden={detailTab !== "memory"}>{info ? <MemoryConsolidationPanel key={`${info.workspaceRoot}:${info.threadId}`} info={info} busy={busy} refreshToken={memoryRefresh} /> : null}{info ? <MemoryPanel key={`${info.workspaceRoot}:${info.threadId}`} memory={info.memory} temporaryThread={info.temporaryThread}
                 controllerIdle={!busy} refreshToken={memoryRefresh} focusRequest={memoryFocus} pendingCount={pendingMemory.count} pendingHasMore={pendingMemory.hasMore} /> : null}</div>
-              <div hidden={detailTab !== "context"}>{info ? <ContextPanel controllerIdle={!busy} refreshToken={contextRefresh}
+              <div hidden={detailTab !== "context"}>{info ? <ContextPanel controllerIdle={!busy} refreshToken={contextRefresh} initialError={initialSettings === "context" ? initialSettingsError : null}
                 hasCompaction={info.hasCompaction} /> : null}</div>
               <div hidden={detailTab !== "modules"}>{info ? <CapabilitiesPanel info={info} busy={busy} initialError={initialSettingsError} /> : null}</div>
               <div hidden={detailTab !== "pomodoro"}>{info ? <PomodoroPanel enabled={info.commands.includes("pomodoro")} busy={busy} output={output} /> : null}</div>

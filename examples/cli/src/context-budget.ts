@@ -15,6 +15,23 @@ export interface ContextBudgetConfig {
   safetyMarginTokens: number;
   keepRecentTokens: number;
   summaryMaxOutputTokens: number;
+  mode?: "daily" | "long-task" | undefined;
+  /** Application input ceiling, separate from the model's physical window. */
+  inputBudgetTokens?: number | undefined;
+  triggerRatio?: number | undefined;
+  warningRatio?: number | undefined;
+  summaryInputChunkTokens?: number | undefined;
+}
+
+export function contextBudgetForMode(mode: "daily" | "long-task"): ContextBudgetConfig {
+  return {
+    enabled: true, mode,
+    contextWindowTokens: 1_000_000, maxOutputTokens: 4_096, safetyMarginTokens: 32_768,
+    inputBudgetTokens: mode === "daily" ? 256_000 : 400_000,
+    keepRecentTokens: mode === "daily" ? 48_000 : 64_000,
+    summaryMaxOutputTokens: mode === "daily" ? 6_000 : 8_000,
+    triggerRatio: 0.85, warningRatio: 0.70, summaryInputChunkTokens: 32_000,
+  };
 }
 
 /** Values are intentionally conservative defaults for tests and local config. */
@@ -87,12 +104,33 @@ export function estimateMessageTokens(messages: readonly UIMessage[]): number {
 export function availableInputTokens(config: Pick<
   ContextBudgetConfig,
   "contextWindowTokens" | "maxOutputTokens" | "safetyMarginTokens"
->): number {
-  return (
+> & Pick<ContextBudgetConfig, "inputBudgetTokens">): number {
+  return config.inputBudgetTokens ?? (
     config.contextWindowTokens -
     config.maxOutputTokens -
     config.safetyMarginTokens
   );
+}
+
+/** Legacy configs deliberately keep the old hard-ceiling trigger. */
+export function contextBudgetThresholds(config: ContextBudgetConfig): {
+  availableInputTokens: number; warningTokens: number; triggerTokens: number; predictedGrowthTokens: number;
+} {
+  const available = availableInputTokens(config);
+  const modern = config.inputBudgetTokens !== undefined;
+  return {
+    availableInputTokens: available,
+    warningTokens: Math.floor(available * (config.warningRatio ?? (modern ? 0.70 : 1))),
+    triggerTokens: Math.floor(available * (config.triggerRatio ?? (modern ? 0.85 : 1))),
+    predictedGrowthTokens: modern ? Math.min(32_000, config.maxOutputTokens + 8_192) : 0,
+  };
+}
+
+export function contextBudgetStatus(inputTokens: number, config: ContextBudgetConfig): "normal" | "warning" | "compacting" | "exceeded" {
+  const limits = contextBudgetThresholds(config);
+  if (inputTokens > limits.availableInputTokens) return "exceeded";
+  if (inputTokens + limits.predictedGrowthTokens >= limits.triggerTokens) return "compacting";
+  return inputTokens >= limits.warningTokens ? "warning" : "normal";
 }
 
 export function validateContextBudgetConfig(
@@ -116,6 +154,20 @@ export function validateContextBudgetConfig(
       errors.push(`${field} must be a non-negative safe integer`);
     }
   }
+
+  for (const field of ["inputBudgetTokens", "summaryInputChunkTokens"] as const) {
+    const value = config[field];
+    if (value !== undefined && (!Number.isSafeInteger(value) || value <= 0)) errors.push(`${field} must be a positive safe integer`);
+  }
+  if (config.mode !== undefined && config.mode !== "daily" && config.mode !== "long-task") errors.push("mode must be daily or long-task");
+  const triggerRatio = config.triggerRatio ?? (config.inputBudgetTokens === undefined ? 1 : 0.85);
+  const warningRatio = config.warningRatio ?? (config.inputBudgetTokens === undefined ? 1 : 0.70);
+  if (!Number.isFinite(triggerRatio) || triggerRatio <= 0 || triggerRatio > 1) errors.push("triggerRatio must be greater than 0 and at most 1");
+  if (!Number.isFinite(warningRatio) || warningRatio <= 0 || warningRatio > triggerRatio ||
+      (config.warningRatio !== undefined && warningRatio === triggerRatio)) errors.push("warningRatio must be greater than 0 and below triggerRatio");
+  if (config.summaryInputChunkTokens !== undefined && (config.summaryInputChunkTokens < 24_000 || config.summaryInputChunkTokens > 32_000)) errors.push("summaryInputChunkTokens must be between 24000 and 32000");
+  const physicalInput = config.contextWindowTokens - config.maxOutputTokens - config.safetyMarginTokens;
+  if (config.inputBudgetTokens !== undefined && config.inputBudgetTokens > physicalInput) errors.push("inputBudgetTokens must fit the model window after output and safety reserves");
 
   const available = availableInputTokens(config);
   if (available <= 0) {
@@ -163,7 +215,7 @@ export function estimateContextBudget(
   config: Pick<
     ContextBudgetConfig,
     "contextWindowTokens" | "maxOutputTokens" | "safetyMarginTokens"
-  >,
+  > & Pick<ContextBudgetConfig, "inputBudgetTokens">,
 ): ContextBudgetEstimate {
   const estimate = estimateContextInput(input);
   const available = availableInputTokens(config);

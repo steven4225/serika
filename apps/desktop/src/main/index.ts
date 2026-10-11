@@ -232,6 +232,7 @@ async function main(): Promise<void> {
   ipcMain.handle(IPC.scheduledTask, (_event, id: string) => host.current.getScheduledTask(id));
   ipcMain.handle(IPC.taskResultAck, (_event, id: string) => host.current.acknowledgeTaskResult(id));
   ipcMain.handle(IPC.contextDiagnostics, () => host.current.getContextDiagnostics());
+  ipcMain.handle(IPC.contextMode, (_event, input) => host.setContextMode(input));
   ipcMain.handle(IPC.moduleEnabled, (_event, input) => host.setModuleEnabled(input));
   ipcMain.handle(IPC.automationDiagnostics, () => host.current.getAutomationDiagnostics());
   ipcMain.handle(IPC.automationOverview, () => host.current.getAutomationOverview());

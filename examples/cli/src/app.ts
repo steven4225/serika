@@ -33,7 +33,7 @@ import {
   validateContextBudgetConfig,
 } from "./context-window.js";
 import { ContextCompactor, readContextDiagnostics } from "./context-compactor.js";
-import { DEFAULT_CONTEXT_BUDGET_CONFIG } from "./context-budget.js";
+import { availableInputTokens, DEFAULT_CONTEXT_BUDGET_CONFIG } from "./context-budget.js";
 import { modelToolContext } from "./model-tool-context.js";
 import type { ContextDiagnostics, ContextResult } from "./context-diagnostics.js";
 import { createAiSdkSummarizer } from "./context-compaction.js";
@@ -761,7 +761,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
           ...(moduleConfig.enabled.shell ? [`Shell 命令时限: ${moduleConfig.shellTimeoutMs} ms`] : []),
           `上下文压缩: ${moduleConfig.contextCompaction.enabled ? "on" : "off"}`,
           ...(moduleConfig.contextCompaction.enabled
-            ? [`上下文预算: ${moduleConfig.contextCompaction.contextWindowTokens} tokens`]
+            ? [`上下文输入预算: ${availableInputTokens(moduleConfig.contextCompaction)} tokens`]
             : []),
           `Todoist token: ${todoistTokenPresent ? "present" : "missing"}`,
           `持久文件授权: ${moduleConfig.fileAuthorizations.length} 条`,

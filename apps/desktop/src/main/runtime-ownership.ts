@@ -88,6 +88,7 @@ export class RuntimeOwnership {
   resolveTelegramDelivery(input: { key: string; action: "cancel" | "review"; note?: string }) { return this.#active().resolveTelegramDelivery(input); }
   enableMemory() { return this.#active().enableMemory(); }
   setModuleEnabled(...args: Parameters<DesktopRuntime["setModuleEnabled"]>) { return this.#active().setModuleEnabled(...args); }
+  setContextMode(...args: Parameters<DesktopRuntime["setContextMode"]>) { return this.#active().setContextMode(...args); }
   setDreamingEnabled(...args: Parameters<DesktopRuntime["setDreamingEnabled"]>) { return this.#active().setDreamingEnabled(...args); }
   async activateRecovery(root: string | null) {
     const host = this.#active();

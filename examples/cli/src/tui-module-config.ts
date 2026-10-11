@@ -149,6 +149,11 @@ const contextCompactionSchema = z
     safetyMarginTokens: z.number().int().nonnegative(),
     keepRecentTokens: z.number().int().nonnegative(),
     summaryMaxOutputTokens: z.number().int().nonnegative(),
+    mode: z.enum(["daily", "long-task"]).optional(),
+    inputBudgetTokens: z.number().int().positive().optional(),
+    triggerRatio: z.number().gt(0).lt(1).optional(),
+    warningRatio: z.number().gt(0).lt(1).optional(),
+    summaryInputChunkTokens: z.number().int().positive().optional(),
   })
   .strict();
 

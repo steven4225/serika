@@ -9,7 +9,7 @@ import type {
 import { AgentError } from "@aisdk-agent/core";
 import { ContextCompactor, readContextDiagnostics, reconcilePublishedSummary, summarySourceChunks, type ContextCompactorOptions } from "./context-compactor.js";
 import { compactPrefixHash, contextSummaryPrompt, type ContextCompactionRecord, type ContextSummaryV2, type Summarizer } from "./context-compaction.js";
-import { estimateContextBudget, estimateMessageTokens, type ContextBudgetConfig } from "./context-budget.js";
+import { contextBudgetForMode, contextBudgetThresholds, estimateContextBudget, estimateMessageTokens, type ContextBudgetConfig } from "./context-budget.js";
 import {
   CHECKPOINT_CONTEXT_MESSAGE_ID,
   checkpointAndMemoryContextMessages,
@@ -136,6 +136,118 @@ function makeCompactor(
 }
 
 describe("ContextCompactor", () => {
+  for (const mode of ["daily", "long-task"] as const) {
+    it(`budget mode Demo: ${mode} predicts 85%, merges more than four independent 32K chunks and reuses effective summary`, async () => {
+      const store = new FakeStore();
+      const config = contextBudgetForMode(mode);
+      const turnCount = mode === "daily" ? 14 : 22;
+      const messages = Array.from({ length: turnCount }, (_, i) => [
+        user(`u${i + 1}`, `old-prefix-${i}:` + "x".repeat(29_900)), assistant(`a${i + 1}`, "done"),
+      ]).flat();
+      messages.push(user("current", "continue without replaying tools"));
+      const summarizer = new FakeSummarizer();
+      const before = estimateContextBudget({ instructions: "instructions", messages }, config);
+      const limits = contextBudgetThresholds(config);
+      assert.ok(before.inputTokens < limits.triggerTokens, "forecast should trigger before actual 85%");
+      assert.ok(before.inputTokens + limits.predictedGrowthTokens >= limits.triggerTokens);
+      const compactor = makeCompactor(store, summarizer, config);
+      const prepared = await compactor.prepare(messages, new AbortController().signal);
+      assert.ok(summarizer.calls > 4, "new-mode merge bound must not remain the legacy four chunks");
+      const after = estimateContextBudget({ instructions: "instructions", messages: prepared }, config);
+      assert.ok(after.inputTokens < limits.warningTokens);
+      assert.equal(prepared.at(-1)?.id, "current");
+      assert.equal(store.records.length, 1);
+      assert.equal(store.messages.length, 0, "compactor does not write or replace transcript");
+      const calls = summarizer.calls;
+      const reopened = makeCompactor(store, summarizer, config);
+      const reused = await reopened.prepare(messages, new AbortController().signal);
+      assert.deepEqual(reused, prepared);
+      assert.equal(summarizer.calls, calls, "covered raw history must not trigger repeated compaction");
+    });
+  }
+
+  it("budget mode Demo: 70% is a warning only and makes no summary call", async () => {
+    const store = new FakeStore();
+    const config = contextBudgetForMode("daily");
+    const summarizer = new FakeSummarizer();
+    const messages = [user("current", "x".repeat(358_400))];
+    const result = await makeCompactor(store, summarizer, config).prepare(messages, new AbortController().signal);
+    assert.deepEqual(result, messages);
+    assert.equal(summarizer.calls, 0);
+    assert.equal(store.records.length, 0);
+  });
+
+  it("budget mode Demo: incremental summaries never resend covered old user text", async () => {
+    const store = new FakeStore();
+    const config = contextBudgetForMode("daily");
+    const messages = Array.from({ length: 14 }, (_, i) => [user(`u${i + 1}`, `COVERED-${i}:` + "x".repeat(29_900)), assistant(`a${i + 1}`, "done")]).flat();
+    messages.push(user("current", "continue"));
+    await makeCompactor(store, new FakeSummarizer(), config).prepare(messages, new AbortController().signal);
+    const record = store.records[0] as unknown as ContextCompactionRecord;
+    const covered = messages.slice(0, record.firstKeptMessageIndex).filter(message => message.role === "user");
+    for (let i = 0; i < 12; i++) messages.push(user(`new-${i}`, "NEW:" + "y".repeat(29_900)), assistant(`new-a-${i}`, "done"));
+    messages.push(user("current-2", "next"));
+    let calls = 0;
+    const summarizer: Summarizer = { complete: async input => {
+      calls++;
+      for (const message of covered) {
+        const text = message.parts[0];
+        if (text?.type === "text") assert.ok(!input.prompt.includes(text.text), "covered raw user text must not reappear");
+      }
+      return { text: JSON.stringify(summary) };
+    } };
+    const prepared = await makeCompactor(store, summarizer, config).prepare(messages, new AbortController().signal);
+    assert.ok(calls > 4);
+    assert.equal(store.records.length, 2);
+    assert.ok(estimateContextBudget({ instructions: "instructions", messages: prepared }, config).inputTokens < 179_200);
+  });
+
+  it("budget mode Demo: protected current-user and fixed-context overflow fail without writing", async () => {
+    const store = new FakeStore();
+    const summarizer = new FakeSummarizer();
+    const config = contextBudgetForMode("daily");
+    const compactor = makeCompactor(store, summarizer, config);
+    await assert.rejects(compactor.prepare([user("current", "x".repeat(512_000))], new AbortController().signal), /no safe compaction boundary|exceeds/);
+    const fixedOverflow = makeCompactor(store, summarizer, config, { fixedContext: () => ({ instructions: "x".repeat(512_000) }) });
+    await assert.rejects(fixedOverflow.prepare([user("current", "hello")], new AbortController().signal), /no safe compaction boundary|exceeds/);
+    assert.equal(summarizer.calls, 0);
+    assert.equal(store.records.length, 0);
+  });
+
+  it("budget mode Demo: oversized completed same-Run tool output can be summarized, incomplete output cannot", async () => {
+    const config = contextBudgetForMode("daily");
+    const request = user("u1", "x".repeat(80_000));
+    const completed: UIMessage = { id: "result", role: "assistant", parts: [{ type: "dynamic-tool",
+      toolName: "read_file", toolCallId: "large-read", state: "output-available", input: { path: "notes/a.md" },
+      output: { ok: true, content: "y".repeat(500_000) } }] };
+    const store = new FakeStore();
+    const prepared = await makeCompactor(store, new FakeSummarizer(), config).prepare([request, completed], new AbortController().signal);
+    assert.ok(!estimateContextBudget({ instructions: "instructions", messages: prepared }, config).exceeds);
+    assert.equal(store.records.length, 1);
+    const pending: UIMessage = { id: "pending", role: "assistant", parts: [{ type: "dynamic-tool",
+      toolName: "read_file", toolCallId: "pending-read", state: "input-available", input: { text: "z".repeat(500_000) } }] };
+    const pendingStore = new FakeStore();
+    await assert.rejects(makeCompactor(pendingStore, new FakeSummarizer(), config).prepare([request, pending], new AbortController().signal), /exceeds|no safe compaction boundary/);
+    assert.equal(pendingStore.records.length, 0);
+  });
+
+  it("budget mode Demo: cancellation discards a non-cooperative late summary without persistence", async () => {
+    const store = new FakeStore();
+    const config = contextBudgetForMode("daily");
+    const messages = [user("u1", "x".repeat(420_000)), assistant("a1", "done"), user("current", "next")];
+    let release!: (value: { text: string }) => void;
+    let started!: () => void;
+    const entered = new Promise<void>(resolve => { started = resolve; });
+    const summarizer: Summarizer = { complete: async () => { started(); return new Promise(resolve => { release = resolve; }); } };
+    const controller = new AbortController();
+    const pending = makeCompactor(store, summarizer, config).prepare(messages, controller.signal);
+    await entered;
+    controller.abort(new Error("cancel new-mode compaction"));
+    await assert.rejects(pending, /cancel new-mode compaction/);
+    release({ text: JSON.stringify(summary) });
+    await new Promise(resolve => setTimeout(resolve, 20));
+    assert.equal(store.records.length, 0);
+  });
   it("preserves the middle and Unicode of user text, even when its turn cannot fit one source chunk", () => {
     for (const text of ["important-middle-constraint", `${"开头🙂".repeat(100)} NEVER DELETE OLD CHAPTERS ${"结尾🚀".repeat(100)}`]) {
       const chunks = summarySourceChunks([{ messages: [user("u1", text), assistant("a1", "large output ".repeat(500))] }], 256);
