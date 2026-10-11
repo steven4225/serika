@@ -94,7 +94,7 @@ export function formatOnceWhen(runAt: string, clock: ReminderSpeechClock): strin
   if (delta === 0) return `今天 ${hm}`;
   if (delta === 1) return `明天 ${hm}`;
   if (delta >= 2 && delta <= 6) return `周${weekdayName(target)} ${hm}`;
-  return `${target.month}月${target.day}日 ${hm}`;
+  return `${target.year}年${target.month}月${target.day}日 ${hm}`;
 }
 
 export function repeatLabel(recurrence: Recurrence): string {

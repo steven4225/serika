@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import type { ConversationRow, ToolRow } from "./conversation.js";
 import { PersonalConversation, PersonalTool } from "./personal/conversation.js";
 import { PersonalPromptEditor, PersonalPromptOptions } from "./personal/composer.js";
+import { rowsFromToolActivity } from "./conversation.js";
 
 const user: ConversationRow = { kind: "text", role: "user", key: "user", text: "帮我改一下计划", committed: true };
 const interim: ConversationRow = { kind: "text", role: "assistant", key: "interim", text: "先核对当前文件。", committed: true };
@@ -43,6 +44,16 @@ it("personal conversation exposes unknown effects, truncation and approval waits
   assert.match(markup, /输出已截断；不能据此判断执行成功/);
   assert.doesNotMatch(markup, /自动重试|重新执行/);
   assert.match(render([user], true, "", true), /等待确认后继续/);
+});
+
+it("failure activity Demo keeps a failed snapshot visibly failed after a completed assistant reply without a JSON summary", () => {
+  const rows = rowsFromToolActivity([{ toolCallId: "failed", toolName: "write_file", status: "failed", errorCode: "WRITE_FAILED",
+    summary: "WRITE_FAILED: 无法保存文件", truncated: false }], "completed-run");
+  const markup = render([user, ...rows, { ...reply, text: "本轮已结束。" }]);
+  assert.match(markup, /personal-tool status-failed/);
+  assert.match(markup, /personal-tool-status">失败/);
+  assert.match(markup, /无法保存文件/);
+  assert.doesNotMatch(markup, /返回成功|回执不完整|&quot;ok&quot;|&quot;error&quot;/);
 });
 
 it("presents settled missing-file history with a real time and current workspace, not an outstanding action", () => {

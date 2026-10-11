@@ -49,6 +49,7 @@ import { attentionKind, headerStatus, loadedCountLabel, deliveredReplyKeys, isMo
 import { CurrentTask, useWorkTasks, WorkTasksPanel } from "./work-tasks.js";
 import { RssPanel } from "./rss.js";
 import { TaskInbox } from "./task-inbox.js";
+import { SavedTaskNotice } from "./saved-task-notice.js";
 import { unreconciledRuns, taskSelectionKey, taskActions } from "./work-task-data.js";
 import { bindTaskComposer, completionLabel, draftKey, type ConversationDraft } from "./navigation.js";
 import { DailySetup } from "./daily-setup-panel.js";
@@ -939,6 +940,12 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
           <button className="icon-button personal-new-chat" type="button" aria-label="新对话" title="新对话；保留当前草稿" disabled={busy || sending || switchingThread || !info} onClick={() => void newConversation()}><Icon name="new-chat" /></button>
         </header>
         {isMockModel(info?.modelAlias) || info?.entryMode === "test" ? <div className="model-mode-notice" role="status">{info?.entryMode === "test" ? "隔离测试 · 会话和记忆不属于日用工作区。" : ""}{isMockModel(info?.modelAlias) ? "模拟模型，不会调用真实模型。" : ""}</div> : null}
+        {info ? <SavedTaskNotice key={`${info.configPath}:${info.workspaceRoot}`} enabled={!!info.workspaceRoot} refreshSequence={automationRefresh} onOpen={taskId => {
+          const workspaceRoot = info.workspaceRoot;
+          if (!workspaceRoot) return;
+          setTaskResultFocus(previous => ({ taskId, workspaceRoot, sequence: (previous?.sequence ?? 0) + 1 }));
+          openDetails("home");
+        }} /> : null}
         {info && attention === "none" ? <MemoryConsolidationNotice key={`${info.workspaceRoot}:${info.threadId}`} enabled={info.memory.enabled} busy={busy} quiet={true} running={state.kind === "running" && state.phase === "consolidation"} refreshToken={memoryRefresh} onOpen={() => openMemory()} /> : null}
         <div className="attention-region" hidden={attention === "none" && !pendingMemory.error}>
           {attention === "unknown" ? <div className="review-notice" role="status"><Icon name="shield" size={16} /><span>有执行效果还没核对，不会自动重做。</span><button className="ghost" onClick={() => { if (reviewTask) { workTasks.select(reviewTask.id); openTask(); } else { openDetails("records"); const run = unknownRuns[0]; if (run) void openRecord(run.runId); } }}>{reviewTask ? "核对工作任务" : "查看回执"}<Icon name="chevron" size={14} /></button></div> : null}
@@ -1072,7 +1079,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
               <div hidden={detailTab !== "home"}>
                 {info ? <DailySetup info={info} busy={busy} automationRefresh={automationRefresh} onContext={() => openDetails("context")} onHistory={() => openDetails("threads")} onRun={runId => { openDetails("records"); void openRecord(runId).catch(() => setError("执行结果读取失败")); }} /> : null}
                 <RssPanel key={info?.workspaceRoot ?? "no-workspace"} showInbox={false} enabled={!!info?.workspaceRoot && info.modules?.some(m => m.id === "task" && m.enabled) === true} busy={busy} />
-                <TaskInbox key={`${info?.configPath}:${info?.workspaceRoot}`} enabled={!!info?.workspaceRoot && info.modules?.some(m => m.id === "task" && m.enabled) === true} busy={busy} onResultsRead={() => setAutomationRefresh(value => value + 1)} focus={taskResultFocus?.workspaceRoot === info?.workspaceRoot ? taskResultFocus : null} />
+                <TaskInbox key={`${info?.configPath}:${info?.workspaceRoot}`} enabled={!!info?.workspaceRoot} canAcknowledge={info?.modules?.some(m => m.id === "task" && m.enabled) === true} busy={busy} onResultsRead={() => setAutomationRefresh(value => value + 1)} focus={taskResultFocus?.workspaceRoot === info?.workspaceRoot ? taskResultFocus : null} />
                 <section className="card home">
                   <div className="card-head"><span>工作区概览</span><button className="ghost" disabled={busy} onClick={() => void window.runloom.home().then(response => {
                     if (!response.ok) setError(commandError(response));

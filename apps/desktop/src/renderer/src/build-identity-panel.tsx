@@ -34,7 +34,7 @@ export function BuildIdentityPanel({ info, worker: initialWorker = null }: { inf
   if (!current) return <details><summary>当前版本</summary><p className="hint">当前入口未提供构建标识，不能确认版本。</p></details>;
   const status = buildStatus(current, rendererBuild);
   const background = worker?.ok === true ? workerBuildStatus(worker, rendererBuild ?? current.loaded)
-    : worker?.ok === false ? { warning: true, text: `后台版本状态不可用：${worker.message}。不能确认已加载新码；不会自动停止服务。` } : null;
+    : worker?.ok === false ? { warning: true, text: `后台版本状态不可用：${worker.message.trimEnd().replace(/[。.]+$/, "")}。不能确认已加载新码；不会自动停止服务。` } : null;
   return <details>
     <summary>当前版本{status.warning || background?.warning ? " · 需要核对" : ""}</summary>
     <p className={status.warning ? "error" : "hint"} role="status">{status.text}</p>

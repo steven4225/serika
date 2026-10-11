@@ -5,6 +5,11 @@ import type { TaskRecordV4 } from "@aisdk-agent/example-cli/dist/task-store.js";
 import { taskResultPresentation } from "./task-inbox.js";
 
 const task = (overrides: Partial<TaskRecordV4> = {}) => ({ status: "completed", notification: null, ...overrides }) as TaskRecordV4;
+test("saved reminder banner presentation contains the persisted result instead of only task id and completion", () => {
+  const saved = task({ id: "task-water", prompt: "不是横幅来源", resultText: "该喝水了，起来活动一下。", acknowledgedAt: null,
+    arrangement: { kind: "reminder", source: "none", notification: "always", declarationVersion: 1 } });
+  assert.match(JSON.stringify(taskResultPresentation(saved)), /该喝水了，起来活动一下。/);
+});
 test("task inbox labels kinds without treating model completion or system submission as user receipt", () => {
   assert.equal(taskResultPresentation(task()).kind, "定时任务");
   assert.equal(taskResultPresentation(task({ arrangement: { kind: "reminder", source: "none", notification: "always", declarationVersion: 1 } })).kind, "提醒");

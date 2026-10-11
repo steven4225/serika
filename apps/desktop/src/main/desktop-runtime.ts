@@ -129,6 +129,7 @@ export class DesktopRuntime {
       args: ["--tui", identity.transcriptDirectory, "--thread", identity.threadId, "--config", identity.configPath],
       modelAlias: this.#options.modelAlias, model: this.#options.model, output, env: this.#options.env, cwd: this.#options.cwd,
       pomodoroService: this.#pomodoroService,
+      allowWorkspaceTaskReads: true,
       beforePrimaryRunCreate: record => this.#sourceBarrier?.(record) ?? Promise.resolve(),
       afterTaskArrangementSaved: saved => this.#telegram?.arrangementSaved(saved) ?? Promise.resolve(),
       taskArrangementDestination: () => this.#telegram?.arrangementDestination() ?? null,

@@ -235,8 +235,11 @@ export function rowsFromToolActivity(activity: readonly ToolActivity[], runId?: 
     const returned = complete
       ? presentComputerResult(item.toolName, parsed) ?? presentShellExec(parsed) ?? toolOutcome(parsed)
       : { status: "incomplete" as const, detail: "回执不完整，不能据此判断工具返回结果" };
-    const unknown = item.outcomeUnknown === true;
-    const errorCode = complete ? outputErrorCode(parsed) : undefined;
+    const errorCode = item.errorCode ?? (complete ? outputErrorCode(parsed) : undefined);
+    const unknown = item.outcomeUnknown === true || errorCode === "TOOL_OUTCOME_UNKNOWN";
+    // Failure snapshots carry a human-readable error, not a success receipt.
+    // Do not discard that reason merely because it is not JSON.
+    const failureDetail = item.status === "failed" && !complete ? item.summary.trim() || "调用失败" : undefined;
     return {
     kind: "tool" as const,
     key: `t:${item.toolCallId}`,
@@ -244,8 +247,9 @@ export function rowsFromToolActivity(activity: readonly ToolActivity[], runId?: 
     ...(runId ? { runId } : {}),
     toolName: item.toolName,
     ...(errorCode ? { errorCode } : {}),
-    status: unknown ? "unknown" : item.status === "failed" ? "failed" : returned.status,
+    status: unknown ? "unknown" : errorCode === "TOOL_DENIED" ? "denied" : item.status === "failed" ? "failed" : returned.status,
     ...(unknown ? { detail: "效果未知 · 需人工核对，不自动重试" }
+      : failureDetail ? { detail: `${failureDetail}${item.truncated ? "（失败详情已截断）" : ""}` }
       : item.truncated ? { detail: "回执已截断，不能据此推断成功" } : returned.detail ? { detail: returned.detail } : {}),
   };
   });

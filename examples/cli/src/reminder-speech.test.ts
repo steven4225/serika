@@ -11,6 +11,17 @@ const clock = { now: new Date("2026-10-10T04:00:00.000Z"), timeZone: "Asia/Shang
 const tomorrowNine = "2026-10-11T01:00:00.000Z";
 
 describe("reminder speech", () => {
+  it("distant absolute reminder dates include the local year in confirmation and readback", () => {
+    assert.equal(formatOnceWhen("2027-10-20T01:00:00.000Z", clock), "2027年10月20日 9:00");
+    assert.equal(formatOnceWhen("2026-11-20T01:00:00.000Z", clock), "2026年11月20日 9:00");
+    assert.match(formatReminderConfirmation({ action: "save", prompt: "复查", runAt: "2027-10-20T01:00:00.000Z", clock }), /时间：2027年10月20日 9:00/);
+    assert.match(reminderReadback("schedule", { prompt: "复查", runAt: "2027-10-20T01:00:00.000Z", clock }), /2027年10月20日/);
+    assert.equal(formatOnceWhen("2027-01-01T00:00:00.000Z", {
+      now: new Date("2026-12-31T01:00:00.000Z"), timeZone: "Asia/Shanghai",
+    }), "明天 8:00", "nearby dates keep unambiguous relative wording");
+    assert.equal(formatOnceWhen("2026-12-31T18:00:00.000Z", clock), "2027年1月1日 2:00", "year follows the display timezone, not UTC");
+  });
+
   it("reads a saved one-time reminder back as plain Chinese", () => {
     assert.equal(reminderSubject("提醒我开会"), "开会");
     assert.equal(
@@ -28,7 +39,7 @@ describe("reminder speech", () => {
     assert.equal(formatOnceWhen(tomorrowNine, clock), "明天 9:00");
     assert.equal(formatOnceWhen("2026-10-10T01:00:00.000Z", clock), "今天 9:00");
     assert.equal(formatOnceWhen("2026-10-12T01:00:00.000Z", clock), "周一 9:00");
-    assert.equal(formatOnceWhen("2026-10-20T01:00:00.000Z", clock), "10月20日 9:00");
+    assert.equal(formatOnceWhen("2026-10-20T01:00:00.000Z", clock), "2026年10月20日 9:00");
     assert.equal(formatOnceWhen("过会儿", clock), "过会儿");
   });
 
