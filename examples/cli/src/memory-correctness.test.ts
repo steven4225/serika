@@ -261,6 +261,29 @@ test("a partially extracted source survives restart/new messages and commits the
   } finally { await f.cleanup(); }
 });
 
+test("identified add without kind rejects the real extractor payload without saving or advancing the cursor", async () => {
+  const f = await fixture();
+  try {
+    f.addMessage("u1", "我喝咖啡不加糖。");
+    const service = f.service(); service.begin(AUTO_CONSOLIDATION_AGENT_ID);
+    const prepared = await service.prepare({ mode: "incremental" }); assert.ok(prepared.ok);
+    const staged = await stageConsolidationExtraction(service, JSON.stringify({ batchId: prepared.value.batchId,
+      proposals: [{ action: "add", text: "用户喝咖啡不加糖。", reason: "用户明确自述持久偏好",
+        eligibility: "durable_self_statement", sources: [{ sourceMessageId: "u1", sourceQuote: "我喝咖啡不加糖。" }],
+        factIdentity: coffee() }], outcomes: [{ messageId: "u1", status: "extracted" }] }));
+    assert.equal(staged.ok, false);
+    if (!staged.ok) {
+      assert.equal(staged.error.code, "MEMORY_BATCH_INVALID");
+      assert.match(staged.error.message, /fact or preference/);
+    }
+    assert.equal((await service.finalize({ status: "completed" })).ok, false);
+    const listed = await f.store.list(); assert.ok(listed.ok); assert.equal(listed.entries.length, 0);
+    const candidates = await f.store.listCandidates({}, undefined, { boundThreadId: "thread" }); assert.ok(candidates.ok); assert.equal(candidates.value.candidates.length, 0);
+    const cursor = await f.store.getConsolidationCursor("thread"); assert.ok(cursor.ok); assert.equal(cursor.value, null);
+    const receipt = await f.store.getConsolidationReceipt!("thread"); assert.ok(receipt.ok); assert.equal(receipt.value, null);
+  } finally { await f.cleanup(); }
+});
+
 test("structured extraction rejects missing/mismatched coverage, malformed/truncated JSON and invented quotes without a commit", async () => {
   const f = await fixture();
   try {

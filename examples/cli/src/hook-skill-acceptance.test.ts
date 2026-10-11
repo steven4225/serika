@@ -154,10 +154,18 @@ for (const compact of [false, true]) test(`Demo: synonymous observation attaches
     }
     assert.equal(observations, 2);
     assert.equal(primaryPrompts.length, 3);
+    assert.ok(primaryPrompts.every(prompt => prompt.includes("do not describe it as one-off or invent an opt-out")),
+      "automatic primary chat must not invent a refusal before host consolidation settles");
     assert.equal(primaryPrompts.some(prompt => /Extract only from this host-prepared material|\\"batchId\\"/.test(prompt)), false,
       "primary model input must exclude consolidation request and JSON response");
     assert.equal(extractionInstructions.some(prompt => prompt.includes("no_memory when nothing new needs retention, including information already fully covered")), false,
       "new synonymous sources must not be instructed to disappear as no_memory");
+    for (const instructions of extractionInstructions) {
+      assert.match(instructions, /For an add with factIdentity, kind is REQUIRED and must be fact or preference/,
+        "tool-free extraction must declare the conditional kind requirement enforced by the host");
+      assert.match(instructions, /\\"action\\":\\"add\\",\\"kind\\":\\"preference\\"/,
+        "the extraction protocol must show the required kind in a complete add example");
+    }
     assert.doesNotMatch(primaryReplies.join(""), /batchId|outcomes/);
     const saved = await app.memoryStore!.list(); assert.ok(saved.ok);
     assert.equal(saved.entries.length, 1);
