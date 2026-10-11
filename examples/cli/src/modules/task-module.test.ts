@@ -270,17 +270,20 @@ describe("createTaskModule", () => {
     const { tools, calls } = setup({
       create: async input => ({ ok: true, value: record({ prompt: input.prompt, arrangement: input.arrangement! }) }),
       createRecurring: async input => ({ ok: true, value: recurringRecord({ prompt: input.prompt, arrangement: input.arrangement! }) }),
-    }, { now: () => clock.now, timeZone: clock.timeZone });
+    }, { now: () => clock.now, timeZone: clock.timeZone,
+      afterArrangementSaved: async () => ({ enabled: true, ready: true }) });
     const one = { prompt: "喝水", runAt: "2026-09-12T01:00:00Z", arrangement: reminder };
     assert.deepEqual(await toolByName(tools, "task_create").tool.execute!(one, toolContext()), {
       ok: true,
       value: record({ prompt: "喝水", arrangement: reminder }),
+      taskSaved: true, backgroundReady: true, service: { enabled: true, ready: true },
       readback: reminderReadback("schedule", { prompt: "喝水", runAt: "2026-09-12T01:00:00.000Z", clock }),
     });
     const repeated = { prompt: "喝水", recurrence: { kind: "daily", time: "09:00", utcOffset: "+08:00" } as const, arrangement: reminder };
     assert.deepEqual(await toolByName(tools, "task_repeat_create").tool.execute!(repeated, toolContext()), {
       ok: true,
       value: recurringRecord({ prompt: "喝水", arrangement: reminder }),
+      taskSaved: true, backgroundReady: true, service: { enabled: true, ready: true },
       readback: "已定：每天 9:00 提醒喝水",
     });
     assert.equal(calls.length, 0);
@@ -299,7 +302,7 @@ describe("createTaskModule", () => {
     }
     const { tools, calls } = setup({}, { todoistPlanningAvailable: false, checkTodoistPlanningAvailable: async () => true });
     const input = { prompt: "每日安排", runAt: "2026-09-12T01:00:00Z", arrangement: todoist };
-    assert.deepEqual(await toolByName(tools, "task_create").tool.execute!(input, toolContext()), { ok: true, value: record() });
+    assert.deepEqual(await toolByName(tools, "task_create").tool.execute!(input, toolContext()), { ok: true, value: record(), taskSaved: true, backgroundReady: false });
     assert.deepEqual(calls[0]?.args[0], input);
   });
 
@@ -341,6 +344,38 @@ describe("createTaskModule", () => {
     assert.deepEqual(result, { ok: false, error: { code: "INVALID_INPUT", message: "invalid date" } }); assert.equal(enabled, 0);
   });
 
+  it("Demo: saved reminder with unavailable background keeps the warning in its readback", async () => {
+    const saved = record({ arrangement: reminder, prompt: "喝水" });
+    const { tools } = setup({ create: async () => ({ ok: true, value: saved }) }, {
+      afterArrangementSaved: async () => ({ enabled: false, message: "后台配置路径含符号链接" }),
+    });
+    const create = toolByName(tools, "task_create");
+    const result = await create.tool.execute!({ prompt: "喝水", runAt: saved.runAt, arrangement: reminder }, toolContext()) as {
+      ok: boolean; taskSaved?: boolean; backgroundReady?: boolean; readback?: string;
+    };
+    assert.equal(result.ok, true, "saving is not rolled back by service failure");
+    assert.match(result.readback ?? "", /后台.*不可用|后台.*未就绪/);
+    assert.equal(result.taskSaved, true);
+    assert.equal(result.backgroundReady, false);
+    assert.equal((create.tool.outputSchema as unknown as { safeParse(value: unknown): { success: boolean } }).safeParse(result).success, true);
+  });
+
+  it("Demo: rescheduling/resuming checks readiness without enabling or replaying a worker", async () => {
+    const saved = record({ arrangement: reminder, prompt: "喝水" });
+    let enables = 0, checks = 0;
+    const { tools } = setup({ reschedule: async () => ({ ok: true, value: saved }),
+      resumeRecurring: async () => ({ ok: true, value: recurringRecord({ arrangement: reminder }) }) }, {
+      afterArrangementSaved: async () => { enables++; return { enabled: true, ready: true }; },
+      backgroundStatus: async () => { checks++; return { ready: false }; },
+    });
+    for (const [name, input] of [["task_reschedule", { id: saved.id, runAt: saved.runAt }], ["task_repeat_resume", { id: "repeat-1" }]] as const) {
+      const result = await toolByName(tools, name).tool.execute!(input, toolContext()) as { taskSaved: boolean; backgroundReady: boolean; readback: string };
+      assert.equal(result.taskSaved, true); assert.equal(result.backgroundReady, false);
+      assert.match(result.readback, /后台当前不可用或尚未就绪/);
+    }
+    assert.equal(checks, 2); assert.equal(enables, 0);
+  });
+
   it("cancels before a save but settles service setup after an already committed arrangement", async () => {
     const before = new AbortController();
     const canceled = setup({}, { checkTodoistPlanningAvailable: async () => { before.abort(new Error("cancel before save")); return true; } });
@@ -349,7 +384,7 @@ describe("createTaskModule", () => {
     const after = new AbortController(); let serviceCalls = 0;
     const clock = { now: new Date("2026-09-11T01:00:00.000Z"), timeZone: "Asia/Shanghai" };
     const committed = setup({ create: async () => { after.abort(new Error("cancel after save")); return { ok: true, value: record({ arrangement: reminder }) }; } }, {
-      afterArrangementSaved: async () => { serviceCalls += 1; return { enabled: true }; },
+      afterArrangementSaved: async () => { serviceCalls += 1; return { enabled: true, ready: true }; },
       now: () => clock.now,
       timeZone: clock.timeZone,
     });
@@ -357,7 +392,7 @@ describe("createTaskModule", () => {
     assert.deepEqual(result, {
       ok: true,
       value: record({ arrangement: reminder }),
-      service: { enabled: true },
+      service: { enabled: true, ready: true }, taskSaved: true, backgroundReady: true,
       readback: reminderReadback("schedule", { prompt: record().prompt, runAt: record().runAt, clock }),
     });
     assert.equal(serviceCalls, 1);

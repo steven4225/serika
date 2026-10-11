@@ -25,3 +25,14 @@ test("older preview without identity is unknown rather than assumed current", ()
   assert.match(markup, /不能确认版本/);
   assert.doesNotMatch(markup, /一致/);
 });
+
+test("Demo: version panel visibly warns about an old worker without a stop side effect", () => {
+  const markup = renderToStaticMarkup(createElement(BuildIdentityPanel, { info: {
+    loaded: { schemaVersion: 1, id: "0123456789abcdef", version: "0.1.0", builtAt: "2026-10-11T00:00:00.000Z",
+      frontendSource: { revision: null, dirty: false }, backendSource: { revision: null, dirty: false }, backendDistFingerprint: "c".repeat(64) },
+    backendDistAtStartup: "c".repeat(64), backendMatchesBuild: true, diskBuild: "same", diskBuildId: "0123456789abcdef",
+  }, worker: { ok: true, registered: true, running: true, rssEnabled: true, processStartedAt: "2026-10-10T00:00:00.000Z" } }));
+  assert.match(markup, /worker 启动早于当前桌面构建/);
+  assert.match(markup, /退出托盘/);
+  assert.match(markup, /不会自动停止或重做旧任务/);
+});

@@ -16,7 +16,7 @@ import {
   InMemoryModelRegistry,
   ToolRegistry,
 } from "@aisdk-agent/ai-sdk-adapter";
-import { AUTO_CONSOLIDATION_AGENT_ID, isAutoConsolidationRequest } from "./consolidation.js";
+import { AUTO_CONSOLIDATION_AGENT_ID, isAutoConsolidationRequest, withoutConsolidationTurns } from "./consolidation.js";
 import { createBuiltinSkill, loadSkillPackages, skillAgentDefinition } from "./skill-catalog.js";
 import { createRuntimeAutomation, MEMORY_SKILL_ID, type RuntimeAutomation } from "./automation-execution.js";
 import { createDreamingService, DREAMING_AGENT_ID, DREAMING_INSTRUCTIONS, type DreamingService, type LearnedSkillReferenceSnapshot } from "./dreaming.js";
@@ -99,7 +99,7 @@ export const PRIMARY_AGENT_ID = "calculator";
 
 /** Trusted embedding host, never model-supplied paths or service options. */
 export interface TaskAutomationHost {
-  status(workspace: string, configPath?: string): Promise<{ available: boolean; registered: boolean; running: boolean; todoistPlanningAvailable: boolean; message?: string }>;
+  status(workspace: string, configPath?: string): Promise<{ available: boolean; registered: boolean; running: boolean; ready?: boolean; todoistPlanningAvailable: boolean; message?: string }>;
   enable(workspace: string, configPath?: string): Promise<{ enabled: boolean; message?: string }>;
 }
 
@@ -197,7 +197,13 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
   const externalSkills = await loadSkillPackages(skillRegistrations, workspaceRoot ?? cwd);
   let registeredAutomation: RuntimeAutomation | undefined;
   const activateTaskAutomation = options.taskAutomation && workspaceRoot
-    ? () => options.taskAutomation!.enable(workspaceRoot, moduleConfig?.configPath ?? undefined) : undefined;
+    ? async () => {
+        const service = await options.taskAutomation!.enable(workspaceRoot, moduleConfig?.configPath ?? undefined);
+        try {
+          const status = await options.taskAutomation!.status(workspaceRoot, moduleConfig?.configPath ?? undefined);
+          return { ...service, ready: service.enabled && status.available && status.registered && status.running && status.ready === true };
+        } catch { return { ...service, ready: false, message: "安排已保存，但后台状态未能确认；请核对后台提醒，不要重复创建。" }; }
+      } : undefined;
   if (externalSkills.some(skill => skill.kind === "memory-consolidate") && !moduleConfig?.autoConsolidate) {
     throw new Error("Memory Skills require memory.enabled and autoConsolidate");
   }
@@ -384,6 +390,10 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
                 ]
               : []),
             ...(taskEnabled ? [createTaskModule(taskStore!, {
+              ...(options.taskAutomation ? { backgroundStatus: async () => {
+                const status = await options.taskAutomation!.status(workspaceRoot!, moduleConfig?.configPath ?? undefined);
+                return { ready: status.available && status.registered && status.running && status.ready === true, ...(status.message ? { message: status.message } : {}) };
+              } } : {}),
               todoistPlanningAvailable: todoistEnabled,
               checkSkillArrangement: async (arrangement, prompt) => {
                 const skill = registeredAutomation?.getSkill(arrangement.skillId);
@@ -764,7 +774,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
 
   const memoryProposalInstructions =
     "Return at most five proposals (or [] when evidence is insufficient). " +
-    "Report outcomes for every prepared user source in order: {messageId,status}. status is extracted only if ALL durable information in that message is accounted for by supplied existing memories and the new proposals, with at least one proposal for that source; no_memory when nothing new needs retention, including information already fully covered by supplied memories; deferred for an unprocessed or PARTIALLY processed message, including reaching the five-proposal limit. On retry, do not re-propose facts already saved just to complete coverage; extract the remainder. Never call a partial source complete. Quotes still have to be exact. " +
+    "Report outcomes for every prepared user source in order: {messageId,status}. status is extracted only if ALL durable information in that message is accounted for by supplied existing memories and the new proposals, with at least one proposal for that source; no_memory only for material without eligible durable information, or a source already attached to the supplied matching fact. A NEW user observation of an existing supported factIdentity is still extracted: propose add with the same identity and the new exact source so the host retains the old wording and attaches that source. On retry, do not re-propose the SAME source already attached; extract the remainder. Use deferred for an unprocessed or PARTIALLY processed message, including reaching the five-proposal limit. Never call a partial source complete. Quotes still have to be exact. " +
     "Do not turn a one-off task instruction, requested output format, or permission to propose into a lasting user fact or preference. The user must explicitly state the fact or recurring preference; they need not say the literal word long-term. A clear self-statement about stable work, residence or recurring preference can qualify, but an imperative only describes this task. " +
     "Negative examples: 'Create a short plan with Goal, Checks, Next sections' and '这次报告分三段' do not mean the user generally prefers that format; submit no preference proposal. Positive examples: 'I prefer all my reviews to start with a conclusion' and '我的长期写作偏好是先结论再步骤' explicitly state a lasting preference and may support a proposal. An explicit request to retain a specific event or note remains eligible as that kind, not an inferred preference. " +
     "Each proposal requires action, reason, and sources: one to four { sourceMessageId, sourceQuote } objects with exact quotes copied from supplied committed user material. Legacy sourceMessageId/sourceQuote is accepted for one source. " +
@@ -776,7 +786,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     "Use validTime only when supported by explicit user evidence; change uses effectiveAt rather than validTime. Never invent dates, silently equate uncertain claims, or choose an ambiguous target: explain the uncertainty and omit that proposal. Unknown time remains unknown. Usage expiresAt is separate from real-world validity. " +
     "Optional recallTerms contain at most three relevant retrieval phrases, each at most 96 UTF-8 bytes, never new facts or authority. Historical assertions are conflict-review material, not current facts to inject or revive. " +
     "Use recallTerms for alternate everyday names for the subject and action, so a user can ask about this fact without repeating its wording. Do not fill all three with copied body words, the same phrase reordered, or just a changed quantity. Keep the user's language and the same meaning; omit uncertain synonyms rather than inventing a broader fact. " +
-    "For each add, compare the related memories before proposing: if the same fact is already covered, submit no duplicate; if it contradicts a related fact, propose a source-backed correction/change against that exact target instead of a second add. Include useful alternate wording in recallTerms, without changing the fact. " +
+    "For each add, compare the related memories before proposing: a new source for the SAME supported factIdentity must be proposed for source attachment, not discarded as no_memory. This does not create a duplicate fact. Without a supported identity, do not invent one to deduplicate. If it contradicts a related fact, propose a source-backed correction/change against that exact target only when the user explicitly corrects/changes it; otherwise retain needs_review. Include useful alternate wording in recallTerms, without changing the fact. " +
     "For four supported attributes, optionally include factIdentity {attribute,scenario,value}: response_language values zh/en/bilingual; review_format conclusion_first/steps_first/detailed; coffee unsweetened/sweetened/black/none; residence value is the explicitly stated place. scenario is general/work/personal and must be stated or unambiguously general. Do not equate more nuanced preferences (e.g. no sugar and black coffee), contexts or uncertain values. Omit identity outside this vocabulary. Use the same identity for synonymous observations; propose add with its exact source and the host will reuse the matching fact rather than create another. A true change must use change with explicit effectiveAt, and a correction must explicitly target the previous fact. Do not claim identity classification proves truth. " +
     "Do not re-enable disabled/expired memories, broaden an existing memory's scope, invent source evidence, or submit pinned. Do not call active memory write tools during consolidation. " +
     (moduleConfig?.memoryWritePolicy === "automatic"
@@ -1242,7 +1252,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
                   prefix = prepared.prefix;
                   reference = prepared.reference;
                   if (contextCompactor === undefined) {
-                    const selected = selectModelContext(messages, [], {}, undefined, undefined, prefix);
+                    const selected = selectModelContext(withoutConsolidationTurns(messages), [], {}, undefined, undefined, prefix);
                     lastUncompactedPreparation = {
                       at: new Date().toISOString(), outcome: "passthrough", compactionId: null,
                       estimatedInputTokens: null, error: null,

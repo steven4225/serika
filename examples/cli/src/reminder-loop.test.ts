@@ -173,7 +173,7 @@ describe("natural-language reminder path", () => {
       assert.equal(confirmation.resolveApproval({ approvalId: card.approvalId, decision: "allow" }), true);
       const created = await handle.result;
       assert.equal(created.status, "completed");
-      assert.match(created.text, /^已定：.+提醒开会$/);
+      assert.match(created.text, /^已记下：.+提醒开会。.*后台当前不可用或尚未就绪/);
       assert.doesNotMatch(created.text, /runAt|task-/);
       const listed = await store.list({});
       assert.ok(listed.ok);
@@ -199,7 +199,7 @@ describe("natural-language reminder path", () => {
       assert.equal(confirmation.resolveApproval({ approvalId: moved.approvalId, decision: "allow" }), true);
       const rescheduled = await reschedule.result;
       assert.equal(rescheduled.status, "completed");
-      assert.match(rescheduled.text, /^已改到：.+提醒开会$/);
+      assert.match(rescheduled.text, /^已改到：.+提醒开会。.*后台当前不可用或尚未就绪/);
       const afterMove = await store.get(saved.value.id);
       assert.ok(afterMove.ok);
       assert.equal(afterMove.value.id, saved.value.id);
@@ -243,7 +243,7 @@ describe("natural-language reminder path", () => {
       assert.equal(confirmation.resolveApproval({ approvalId: repeating.approvalId, decision: "allow" }), true);
       const repeated = await daily.result;
       assert.equal(repeated.status, "completed");
-      assert.equal(repeated.text, "已定：每天 9:00 提醒喝水");
+      assert.match(repeated.text, /^已记下：每天 9:00 提醒喝水。.*后台当前不可用或尚未就绪/);
       const series = await store.listRecurring({});
       assert.ok(series.ok);
       assert.equal(series.value.recurringTasks[0]?.arrangement?.kind, "reminder");

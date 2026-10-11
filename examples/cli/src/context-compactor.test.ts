@@ -17,6 +17,7 @@ import {
   selectValidMemoryEntries,
 } from "./context-window.js";
 import type { CheckpointSnapshot } from "./checkpoint-store.js";
+import { AUTO_CONSOLIDATION_SOURCE } from "./consolidation.js";
 
 const budget: ContextBudgetConfig = {
   enabled: true,
@@ -71,6 +72,37 @@ class FakeSummarizer implements Summarizer {
     return { text: JSON.stringify(summary) };
   }
 }
+
+it("Demo: compaction excludes extraction JSON from model input/output but keeps physical prefix hashes", async () => {
+  const store = new FakeStore();
+  store.messages = [user("u1", "用户真实任务。".repeat(80)), assistant("a1", "原任务回复"),
+    { ...user("extract", 'Extract only from this host-prepared material.\n{"batchId":"secret-batch"}'), metadata: { source: AUTO_CONSOLIDATION_SOURCE } },
+    assistant("extracted", '{"batchId":"secret-batch","outcomes":[]}'),
+    user("u2", "继续任务"), assistant("a2", "回复"), user("u3", "下一步")];
+  let calls = 0;
+  const summarizer: Summarizer = { complete: async prompt => {
+    calls++;
+    assert.doesNotMatch(JSON.stringify(prompt), /secret-batch|Extract only from/);
+    return { text: JSON.stringify(summary) };
+  } };
+  const compactor = makeCompactor(store, summarizer, roomyBudget);
+  const prepared = await compactor.prepare(store.messages, new AbortController().signal, true);
+  assert.ok(calls > 0);
+  assert.doesNotMatch(JSON.stringify(prepared), /secret-batch|Extract only from/);
+  const record = store.records[0] as unknown as ContextCompactionRecord;
+  assert.equal(record.sourcePrefixHash, compactPrefixHash(store.messages, record.firstKeptMessageIndex));
+  const callsBeforeReopen = calls;
+  const reopened = makeCompactor(store, summarizer, roomyBudget);
+  assert.doesNotMatch(JSON.stringify(await reopened.prepare(store.messages, new AbortController().signal)), /secret-batch|Extract only from/);
+  assert.equal(calls, callsBeforeReopen, "restart may reuse validated summary without another extraction or model request");
+  assert.equal(store.messages.some(message => message.id === "extract"), true, "journal remains untouched");
+  // An otherwise hash-valid older summary may already contain the leaked JSON.
+  const { consolidationExcluded: _excluded, ...legacy } = record;
+  store.records = [{ ...legacy, summary: { ...record.summary,
+    goal: { text: '{"batchId":"secret-batch"}', evidenceMessageIds: ["u1"] } } } as unknown as ThreadContextCompactionRecord];
+  const legacyReopen = makeCompactor(store, summarizer, roomyBudget);
+  assert.doesNotMatch(JSON.stringify(await legacyReopen.prepare(store.messages, new AbortController().signal)), /secret-batch/);
+});
 
 class NonRetryableSummarizer implements Summarizer {
   calls = 0;

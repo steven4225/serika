@@ -378,7 +378,7 @@ export const IPC = {
 } as const;
 
 export type RssWorkerResponse =
-  | { ok: true; registered: boolean; running: boolean; rssEnabled: boolean; notifyEnabled?: boolean; notificationRoutingEnabled?: boolean; setupReady?: boolean; configurationMessage?: string }
+  | { ok: true; registered: boolean; running: boolean; rssEnabled: boolean; notifyEnabled?: boolean; notificationRoutingEnabled?: boolean; setupReady?: boolean; configurationMessage?: string; processStartedAt?: string | null }
   | { ok: false; message: string };
 
 export interface NotificationReadinessStatus {

@@ -65,6 +65,8 @@ export interface ContextCompactionRecord {
   firstKeptMessageIndex: number;
   firstKeptMessageId: string | null;
   sourcePrefixHash: string;
+  /** New summaries exclude auxiliary extraction turns while hashing the unchanged journal. */
+  consolidationExcluded?: true;
   summary: ContextSummaryV2;
   strategyVersion: typeof CONTEXT_SUMMARY_STRATEGY_VERSION;
   modelId: string;

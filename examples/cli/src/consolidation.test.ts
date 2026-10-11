@@ -10,7 +10,21 @@ import {
   isExactUserQuote,
   isMemoryConsolidationExcluded,
   selectIncrementalConsolidationTurns,
+  withoutConsolidationTurns,
 } from "./consolidation.js";
+
+it("primary filtering removes a complete extraction turn, not user-authored JSON or neighboring replies", () => {
+  const input: UIMessage[] = [
+    { id: "u1", role: "user", parts: [{ type: "text", text: '我希望输出 {"batchId":"example"}' }] },
+    { id: "a1", role: "assistant", parts: [{ type: "text", text: "正常回复" }] },
+    { id: "extract", role: "user", metadata: { source: AUTO_CONSOLIDATION_SOURCE }, parts: [{ type: "text", text: "内部请求" }] },
+    { id: "result", role: "assistant", parts: [{ type: "text", text: '{"batchId":"internal"}' }] },
+    { id: "u2", role: "user", parts: [{ type: "text", text: "继续" }] },
+    { id: "a2", role: "assistant", parts: [{ type: "text", text: "下一轮回复" }] },
+  ];
+  assert.deepEqual(withoutConsolidationTurns(input).map(message => message.id), ["u1", "a1", "u2", "a2"]);
+  assert.equal(input.length, 6, "no history deletion");
+});
 
 function message(
   id: string,

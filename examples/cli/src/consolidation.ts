@@ -26,6 +26,15 @@ export function isAutoConsolidationRequest(message: UIMessage): boolean {
   );
 }
 
+/** Keep the journal intact, but never show extraction requests/results to the primary model. */
+export function withoutConsolidationTurns(messages: readonly UIMessage[]): UIMessage[] {
+  let extraction = false;
+  return messages.filter(message => {
+    if (message.role === "user") extraction = isAutoConsolidationRequest(message);
+    return !extraction;
+  });
+}
+
 export interface ConsolidationMessage {
   id: string;
   role: "user" | "assistant";

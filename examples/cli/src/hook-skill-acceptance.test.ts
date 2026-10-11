@@ -76,7 +76,7 @@ async function settle(controller: AssistantController) {
   }
 }
 
-async function fixture(hooks: HookRule[] | null = [], withExternalSkill = false, kind: "text" | "memory-consolidate" = "text") {
+async function fixture(hooks: HookRule[] | null = [], withExternalSkill = false, kind: "text" | "memory-consolidate" = "text", compact = false) {
   const root = await mkdtemp(join(tmpdir(), "runloom-hook-skill-acceptance-"));
   const workspace = join(root, "workspace");
   const directory = join(root, "external-skill");
@@ -92,7 +92,9 @@ async function fixture(hooks: HookRule[] | null = [], withExternalSkill = false,
   const configPath = join(root, "config.json");
   await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: {
     memory: { enabled: true, autoConsolidate: true, writePolicy: "automatic" }, checkpoint: { enabled: true },
-  }, automation: { skills: withExternalSkill ? [{ id: skillId, directory }] : [], ...(hooks === null ? {} : { hooks }) } }));
+  }, ...(compact ? { contextCompaction: { enabled: true, contextWindowTokens: 30000, maxOutputTokens: 1024,
+    safetyMarginTokens: 512, keepRecentTokens: 256, summaryMaxOutputTokens: 1024 } } : {}),
+  automation: { skills: withExternalSkill ? [{ id: skillId, directory }] : [], ...(hooks === null ? {} : { hooks }) } }));
   const controllers: AssistantController[] = [];
   const open = async (model: MockLanguageModelV3, thread = "origin") => {
     const output = new PassThrough(); output.resume();
@@ -115,6 +117,57 @@ async function skillHash(controller: AssistantController, id: string) {
   assert.match(skill.hash, /^[a-f0-9]{64}$/);
   return skill.hash;
 }
+
+for (const compact of [false, true]) test(`Demo: synonymous observation attaches a source and extraction JSON stays out of primary chat (compaction=${compact})`, async () => {
+  const f = await fixture(null, false, "text", compact);
+  let observations = 0;
+  const primaryPrompts: string[] = [];
+  const primaryReplies: string[] = [];
+  const extractionInstructions: string[] = [];
+  const model = new MockLanguageModelV3({ doStream: async options => {
+    const instructions = JSON.stringify(options.prompt.filter(message => message.role === "system"));
+    if (instructions.includes("Perform ONE extraction")) {
+      const material = preparedMaterial(options.prompt); assert.ok(material);
+      // Exercise the actual production instructions, not a semantic heuristic in the host.
+      extractionInstructions.push(instructions);
+      observations++;
+      const source = material.turns[0]!.user;
+      return response(undefined, undefined, JSON.stringify({ batchId: material.batchId,
+        outcomes: [{ messageId: source.messageId, status: "extracted" }], proposals: [{
+          action: "add", text: "用户喝咖啡不加糖。", kind: "preference", scope: { kind: "workspace" },
+          factIdentity: { attribute: "coffee", scenario: "general", value: "unsweetened" },
+          sourceMessageId: source.messageId, sourceQuote: source.text,
+          reason: "新的同义观察", eligibility: "durable_self_statement",
+        }] }));
+    }
+    const prompt = JSON.stringify(options.prompt);
+    primaryPrompts.push(prompt);
+    return response(undefined, undefined, "了解。");
+  } });
+  try {
+    const { app, controller } = await f.open(model);
+    controller.subscribe(event => { if (event.type === "run-result" && event.phase === "primary") primaryReplies.push(event.result.text); });
+    for (const text of ["我喝咖啡不加糖。", "我喝咖啡不放糖。", "咖啡偏好是什么？"]) {
+      assert.ok((await controller.run(text, text.includes("是什么") ? { memoryConsolidation: "exclude" } : {})).ok);
+      await settle(controller);
+      assert.equal(controller.getSnapshot().lastPrimaryResult?.status, "completed");
+    }
+    assert.equal(observations, 2);
+    assert.equal(primaryPrompts.length, 3);
+    assert.equal(primaryPrompts.some(prompt => /Extract only from this host-prepared material|\\"batchId\\"/.test(prompt)), false,
+      "primary model input must exclude consolidation request and JSON response");
+    assert.equal(extractionInstructions.some(prompt => prompt.includes("no_memory when nothing new needs retention, including information already fully covered")), false,
+      "new synonymous sources must not be instructed to disappear as no_memory");
+    assert.doesNotMatch(primaryReplies.join(""), /batchId|outcomes/);
+    const saved = await app.memoryStore!.list(); assert.ok(saved.ok);
+    assert.equal(saved.entries.length, 1);
+    assert.equal(saved.entries[0]!.text, "用户喝咖啡不加糖。");
+    const inspected = await createMemoryStore(f.workspace).inspectMemory(saved.entries[0]!.id); assert.ok(inspected.ok);
+    assert.equal(inspected.value.assertions.at(-1)!.sources.length, 2);
+    const coverage = await app.memoryStore!.getConsolidationReceipt!(app.threadId); assert.ok(coverage.ok);
+    assert.equal(coverage.value?.outcomes[0]?.status, "extracted");
+  } finally { await f.cleanup(); }
+});
 
 test("explicit hooks: [] disables followups but manual memory Skill saves, persists and recalls in another Thread", async () => {
   const f = await fixture();

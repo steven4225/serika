@@ -75,7 +75,7 @@ const inputArrangementSchema = z.discriminatedUnion("kind", [reminderArrangement
 const arrangementSchema = z.discriminatedUnion("kind", [reminderArrangementSchema, todoistArrangementSchema, skillArrangementSchema,
   z.object({ kind: z.literal("rss-digest"), source: z.literal("existing-rss-binding"), notification: z.literal("new-items"), declarationVersion: z.literal(1) }).strict(),
 ]);
-const serviceSchema = z.object({ enabled: z.boolean(), message: z.string().optional() }).strict();
+const serviceSchema = z.object({ enabled: z.boolean(), ready: z.boolean().optional(), message: z.string().optional() }).strict();
 
 export interface TaskModuleOptions {
   /** Registry/source validation is supplied by the trusted host, not the model. */
@@ -84,13 +84,17 @@ export interface TaskModuleOptions {
   todoistPlanningAvailable?: boolean;
   checkTodoistPlanningAvailable?: () => Promise<boolean>;
   /** Host-owned service setup, included in the existing arrangement confirmation. */
-  afterArrangementSaved?: (saved: SavedTaskArrangement) => Promise<{ enabled: boolean; message?: string }>;
+  afterArrangementSaved?: (saved: SavedTaskArrangement) => Promise<{ enabled: boolean; ready?: boolean; message?: string }>;
+  /** Read-only readiness check for rescheduling/resuming; never enables a service. */
+  backgroundStatus?: () => Promise<{ ready: boolean; message?: string }>;
   /** Display clock for reminder readback. Defaults to the process clock and timezone. */
   now?: () => Date;
   timeZone?: string;
 }
 type TaskToolResult<T> = SkillResult<T> & {
-  service?: { enabled: boolean; message?: string };
+  service?: { enabled: boolean; ready?: boolean; message?: string };
+  taskSaved?: boolean;
+  backgroundReady?: boolean;
   readback?: string;
 };
 
@@ -190,6 +194,8 @@ const taskRecordOutputSchema = z.discriminatedUnion("ok", [
     ok: z.literal(true),
     value: taskRecordSchema,
     service: serviceSchema.optional(),
+    taskSaved: z.boolean().optional(),
+    backgroundReady: z.boolean().optional(),
     readback: z.string().optional(),
   }),
   taskFailureSchema,
@@ -209,6 +215,8 @@ const recurringTaskRecordOutputSchema = z.discriminatedUnion("ok", [
     ok: z.literal(true),
     value: recurringTaskRecordSchema,
     service: serviceSchema.optional(),
+    taskSaved: z.boolean().optional(),
+    backgroundReady: z.boolean().optional(),
     readback: z.string().optional(),
   }),
   taskFailureSchema,
@@ -590,6 +598,10 @@ function parseRecurringCreate(
 
 /** Register the task tools and synchronous /task command adapter. */
 export function createTaskModule(store: TaskStore, options: TaskModuleOptions = {}): AgentModule {
+  function executionReadback(readback: string, ready: boolean | undefined): string {
+    return ready === true ? readback : readback.replace(/^已定：/, "已记下：") +
+      "。但后台当前不可用或尚未就绪，到点不能保证执行；请在后台提醒中核对并启用服务，不要重复创建。";
+  }
   function speechClock(): { now: Date; timeZone: string } {
     return {
       now: options.now?.() ?? new Date(),
@@ -600,14 +612,18 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
     if (!result.ok || result.value.arrangement?.kind !== "reminder") return result;
     return {
       ...result,
-      readback: reminderReadback(action, { prompt: result.value.prompt, runAt: result.value.runAt, clock: speechClock() }),
+      readback: action === "schedule" || action === "reschedule"
+        ? executionReadback(reminderReadback(action, { prompt: result.value.prompt, runAt: result.value.runAt, clock: speechClock() }), result.backgroundReady)
+        : reminderReadback(action, { prompt: result.value.prompt, runAt: result.value.runAt, clock: speechClock() }),
     };
   }
   function speakRecurring(action: ReminderSpeechAction, result: TaskToolResult<RecurringTaskRecord>): TaskToolResult<RecurringTaskRecord> {
     if (!result.ok || result.value.arrangement?.kind !== "reminder") return result;
     return {
       ...result,
-      readback: reminderReadback(action, { prompt: result.value.prompt, recurrence: result.value.recurrence, clock: speechClock() }),
+      readback: action === "schedule" || action === "resume"
+        ? executionReadback(reminderReadback(action, { prompt: result.value.prompt, recurrence: result.value.recurrence, clock: speechClock() }), result.backgroundReady)
+        : reminderReadback(action, { prompt: result.value.prompt, recurrence: result.value.recurrence, clock: speechClock() }),
     };
   }
   async function checkArrangement(arrangement: TaskArrangement | undefined, prompt: string): Promise<SkillResult<null>> {
@@ -627,11 +643,23 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
     return { ok: true, value: null };
   }
   async function serviceAfterSave<T extends TaskRecordV3 | RecurringTaskRecord>(result: TaskStoreResult<T>, kind: "once" | "recurring", arrangement?: TaskArrangement): Promise<TaskToolResult<T>> {
-    if (!result.ok || arrangement === undefined || options.afterArrangementSaved === undefined) return result;
+    if (!result.ok || arrangement === undefined) return result;
     // The arrangement is already committed. A service failure must not imply rollback,
     // and cancellation after that write must not be represented as zero effects.
-    try { return { ...result, service: await options.afterArrangementSaved({ kind, task: result.value } as SavedTaskArrangement) }; }
-    catch (error) { return { ...result, service: { enabled: false, message: `Arrangement saved, but background service setup failed: ${error instanceof Error ? error.message.slice(0, 512) : "unknown error"}` } }; }
+    if (!options.afterArrangementSaved) return { ...result, taskSaved: true, backgroundReady: false };
+    try {
+      const service = await options.afterArrangementSaved({ kind, task: result.value } as SavedTaskArrangement);
+      return { ...result, service, taskSaved: true, backgroundReady: service.enabled && service.ready === true };
+    }
+    catch (error) { return { ...result, taskSaved: true, backgroundReady: false, service: { enabled: false, message: `Arrangement saved, but background service setup failed: ${error instanceof Error ? error.message.slice(0, 512) : "unknown error"}` } }; }
+  }
+  async function backgroundAfterUpdate<T extends TaskRecordV3 | RecurringTaskRecord>(result: TaskStoreResult<T>): Promise<TaskToolResult<T>> {
+    if (!result.ok || result.value.arrangement === undefined) return result;
+    // Update approval is not permission to register/start a worker.
+    try {
+      const status = await options.backgroundStatus?.();
+      return { ...result, taskSaved: true, backgroundReady: status?.ready === true };
+    } catch { return { ...result, taskSaved: true, backgroundReady: false }; }
   }
   return {
     id: "task",
@@ -712,7 +740,7 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
         ): Promise<TaskToolResult<TaskRecordV3>> => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
-          return speakOnce("reschedule", await toolCommitResult(store.reschedule(id, runAt, signal)));
+          return speakOnce("reschedule", await backgroundAfterUpdate(await toolCommitResult(store.reschedule(id, runAt, signal))));
         },
       });
       const taskAckTool = tool({
@@ -800,7 +828,7 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
         ): Promise<TaskToolResult<RecurringTaskRecord>> => {
           const signal = abortSignal ?? neverAborted;
           throwIfAborted(signal);
-          return speakRecurring("resume", await toolCommitResult(store.resumeRecurring(id, signal)));
+          return speakRecurring("resume", await backgroundAfterUpdate(await toolCommitResult(store.resumeRecurring(id, signal))));
         },
       });
       const taskRepeatCancelTool = tool({

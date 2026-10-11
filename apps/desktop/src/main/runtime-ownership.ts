@@ -66,7 +66,9 @@ export class RuntimeOwnership {
   info(): AppInfo {
     const info = this.#host?.info() ?? this.#lastInfo;
     if (!info) throw new Error("助手尚未启动");
-    const visible = { ...info, ...(this.#recovery ? { recoveryWorkspace: { originalWorkspace: this.#recovery.sourceWorkspace } } : {}) };
+    const visible = { ...info, ...(info.build ? { build: { ...info.build,
+      host: this.#host instanceof ResidentClient ? "resident" as const : "desktop" as const } } : {}),
+      ...(this.#recovery ? { recoveryWorkspace: { originalWorkspace: this.#recovery.sourceWorkspace } } : {}) };
     return this.#error ? { ...visible, runtimeRecovery: { state: "failed", message: this.#error } } : visible;
   }
   #active() { if (this.#switching || !this.#host || this.#error) throw new Error(this.#error ?? "助手宿主暂不可用"); return this.#host; }
@@ -127,7 +129,10 @@ export class RuntimeOwnership {
   async #connect() {
     const deadline = Date.now() + 10_000;
     do {
-      try { return await ResidentClient.connect({ paths: this.#paths, scope: this.#scope, send: this.options.send }); }
+      try { return await ResidentClient.connect({ paths: this.#paths, scope: this.#scope, send: message => this.options.send(
+        message.type === "identity-changed" && message.info.build
+          ? { ...message, info: { ...message.info, build: { ...message.info.build, host: "resident" } } }
+          : message) }); }
       catch { if (Date.now() >= deadline) throw new Error("常驻助手已启用，但连接尚未恢复；请重新连接，不会另开执行宿主"); }
       await new Promise(resolve => setTimeout(resolve, 250));
     } while (true);

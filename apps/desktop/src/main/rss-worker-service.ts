@@ -3,6 +3,9 @@ import { dirname, isAbsolute, join, resolve } from "node:path";
 import { parseEnv } from "node:util";
 import { assertWorkerPathSafe, createTaskWorkerService } from "@aisdk-agent/example-cli/dist/task-worker-service.js";
 import type { ServiceCommandRunner } from "@aisdk-agent/example-cli/dist/task-worker-service.js";
+import { readTaskWorkerHealth } from "@aisdk-agent/example-cli/dist/task-worker-health.js";
+import { createTaskStore } from "@aisdk-agent/example-cli/dist/task-store.js";
+import type { TaskAutomationHost } from "@aisdk-agent/example-cli/dist/app.js";
 import type { RssWorkerResponse } from "../shared/ui-contract.js";
 
 /** Inspect only launchctl's loaded argument block, never similarly named environment values. */
@@ -24,6 +27,14 @@ export function createDesktopRssWorker(options: {
   runner?: ServiceCommandRunner;
 }) {
   let busy = false;
+  async function loadedWorkerStart(running: boolean, stdout: string): Promise<string | null> {
+    if (!running || !options.workspace) return null;
+    const health = await readTaskWorkerHealth(options.workspace, createTaskStore(options.workspace));
+    const pid = Number(/^\s*pid\s*=\s*(\d+)\s*$/m.exec(stdout)?.[1]);
+    // A leftover heartbeat is not the currently loaded job's identity.
+    return health.ownership === "held" && health.heartbeat?.pid === pid && health.heartbeat.stoppedAt === null
+      ? health.heartbeat.startedAt : null;
+  }
   async function service() {
     if ((options.platform ?? process.platform) !== "darwin") throw new Error("后台服务目前仅支持 macOS。");
     if (!options.workspace) throw new Error("尚未配置工作区。");
@@ -79,7 +90,9 @@ export function createDesktopRssWorker(options: {
       const helperIndex = args.indexOf("--notification-helper");
       const notifyEnabled = status.registered && /^\s*--notify\s*$/m.test(status.command.stdout);
       const setupReady = !status.registered || JSON.stringify(loadedWorkerArguments(status.command.stdout)) === JSON.stringify(expectedArguments);
+      const processStartedAt = await loadedWorkerStart(status.running, status.command.stdout);
       return { ok: true, registered: status.registered, running: status.running,
+        processStartedAt,
         rssEnabled: status.registered && /^\s*--rss\s*$/m.test(status.command.stdout), notifyEnabled,
         notificationRoutingEnabled: notifyEnabled && notificationHelperPath !== undefined && helperIndex >= 0 && args[helperIndex + 1] === notificationHelperPath,
         setupReady, ...(!setupReady ? { configurationMessage: "已注册的后台服务与当前可信配置不一致；请先停用再启用。安排可以保存，但暂不能依赖执行或通知，不会自动替换服务。" } : {}) };
@@ -88,7 +101,7 @@ export function createDesktopRssWorker(options: {
       return { ok: false, message: error instanceof Error ? error.message : "后台服务操作失败。" };
     } finally { busy = false; }
   }
-  async function automationStatus() {
+  async function automationStatus(): Promise<Awaited<ReturnType<TaskAutomationHost["status"]>>> {
     try {
       const { worker, todoistConfigured, notificationHelperPath, configPath, expectedArguments } = await service();
       const status = await worker.status();
@@ -113,7 +126,8 @@ export function createDesktopRssWorker(options: {
           message: "已有后台服务当前加载的 Node、执行入口、环境文件或 RSS/Todoist 开关与可信配置不一致；安排可以保存，请显式停用后重新启用。不会自动替换服务。" };
       }
       const todoistPlanningAvailable = todoistConfigured && (!status.registered || argumentsLines.includes("--todoist"));
-      return { available: true, registered: status.registered, running: status.running, todoistPlanningAvailable,
+      return { available: true, registered: status.registered, running: status.running,
+        ready: await loadedWorkerStart(status.running, status.command.stdout) !== null, todoistPlanningAvailable,
         ...(options.todoist && !todoistPlanningAvailable ? { message: "已有服务未配置 Todoist；请在后台服务中显式停用后重新启用。" } : {}) };
     } catch (error) {
       return { available: false, registered: false, running: false, todoistPlanningAvailable: false,
