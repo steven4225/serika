@@ -28,7 +28,9 @@ it("composer sends current Run steer before approval/new-task admission and reta
   assert.ok(submit.indexOf("window.runloom.steer(request)") < submit.indexOf("await workTasks.run(line)"));
   assert.match(submit, /expectedRunId: state.runId, id: crypto.randomUUID\(\), text: line/);
   assert.match(app, /aria-label=\{steering \? "补充要求"/);
-  assert.match(app, /title="停止本轮；已执行的操作不会撤回"/);
+  assert.match(app, /"停止本轮；已执行的操作不会撤回"/);
+  assert.match(app, /"停止上下文压缩"/);
+  assert.match(app, /"停止记忆整理"/);
   assert.match(app, /核对接收状态/);
   assert.match(app, /if \(uncertainSteer !== null\)/);
   assert.match(app, /message\.runId !== latestPrimaryId\.current/);

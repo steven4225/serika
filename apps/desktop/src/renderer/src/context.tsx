@@ -5,10 +5,10 @@ import { contextBudgetThresholds, type ContextBudgetConfig } from "@aisdk-agent/
 export function ContextModeSelector({ budget, disabled, onSelect }: { budget: ContextBudgetConfig; disabled: boolean; onSelect: (mode: "daily" | "long-task") => void }) {
   return <div className="context-mode">
     <div className="context-mode-picker" role="group" aria-label="上下文模式">
-      {(["daily", "long-task"] as const).map(mode => <button key={mode} aria-pressed={budget.mode === mode} disabled={disabled || budget.mode === mode} onClick={() => onSelect(mode)}>{mode === "daily" ? "日常 · 256K" : "长任务 · 400K"}</button>)}
+      {(["daily", "long-task"] as const).map(mode => <button key={mode} aria-pressed={budget.mode === mode} disabled={disabled} onClick={() => { if (budget.mode !== mode) onSelect(mode); }}>{mode === "daily" ? "日常 · 256K" : "长任务 · 400K"}</button>)}
     </div>
     <p className="hint">当前：{contextModeLabel(budget)}。空闲时切换，下一次发送生效；这两档按 DeepSeek 1M 窗口配置，换模型请先核对窗口。</p>
-    {!budget.enabled ? <p className="hint">自动整理尚未启用，选择模式不会自动开启它。</p> : null}
+    {!budget.enabled ? <p className="hint">自动压缩尚未启用，选择模式不会自动开启它。</p> : null}
   </div>;
 }
 
@@ -58,9 +58,9 @@ export function ContextPanel({ controllerIdle, refreshToken, hasCompaction, init
       if (!result.ok) setCommandError(result.reason === "failed" ? result.message : `压缩未完成：${result.reason}`);
       else {
         const diagnostics = await window.runloom.getContextDiagnostics();
-        if (!diagnostics.ok) setCommandError(`整理命令已结束，但结果无法读取：${diagnostics.error.message}`);
+        if (!diagnostics.ok) setCommandError(`上下文压缩命令已结束，但结果无法读取：${diagnostics.error.message}`);
         else setCommandNotice(diagnostics.value.latestValidCompaction?.id !== beforeId
-          ? "已生成新的整理摘要。完整对话记录保留；下一次发送时会重新准备上下文。"
+          ? "已生成新的上下文摘要。完整对话记录保留；下一次发送时会重新准备上下文。"
           : "这次无需生成新摘要，继续聊天即可。");
       }
     } catch (cause: unknown) {
@@ -76,7 +76,7 @@ export function ContextPanel({ controllerIdle, refreshToken, hasCompaction, init
   const overview = value ? contextOverview(value) : null;
   return (
     <section className="context-page">
-      <div className="context-status-head"><h2>{modePending ? "正在切换模式…" : commandPending ? "正在整理对话…" : state.error ? "对话状态暂时不可用" : overview?.title ?? "正在读取对话状态…"}</h2><button className="ghost" disabled={state.loading || commandPending} onClick={() => void refresh()}>刷新状态</button></div>
+      <div className="context-status-head"><h2>{modePending ? "正在切换模式…" : commandPending ? "正在压缩上下文…" : state.error ? "对话状态暂时不可用" : overview?.title ?? "正在读取对话状态…"}</h2><button className="ghost" disabled={state.loading || commandPending} onClick={() => void refresh()}>刷新状态</button></div>
       {state.error ? <div className="error">读取失败：{state.error}{value ? "（以下为上次成功读取，可能已过时）" : ""}</div> : null}
       {value ? <ContextModeSelector budget={value.budget} disabled={!controllerIdle || commandPending || state.loading || !!state.error || !window.runloom.setContextMode} onSelect={mode => void selectMode(mode)} /> : null}
       {overview ? <p className="context-explanation">{overview.description}</p> : null}
@@ -85,14 +85,14 @@ export function ContextPanel({ controllerIdle, refreshToken, hasCompaction, init
         <span>上次发送前的输入估算 · {contextUsageLabel(value)}</span><strong>{preparation.estimatedInputTokens.toLocaleString()} / {contextInputBudget(value.budget).toLocaleString()} tokens</strong>
         <p className="hint">包含提示词、工具、记忆和对话。这是估算，不是当前实时用量；回复与安全余量另行预留。</p>
       </div> : null}
-      {value ? <div className="context-history-note">{latest ? `最近保存的整理摘要：${new Date(latest.createdAt).toLocaleString()}。历史记录不代表这轮已经使用。` : "这段对话还没有生成摘要。"}</div> : null}
+      {value ? <div className="context-history-note">{latest ? `最近保存的上下文摘要：${new Date(latest.createdAt).toLocaleString()}。历史记录不代表这轮已经使用。` : "这段对话还没有生成上下文摘要。"}</div> : null}
       {commandNotice ? <p role="status" className="context-history-note">{commandNotice}</p> : null}
       {commandError ? <div className="error" role="alert">{commandError}</div> : null}
-      <details className="context-manual"><summary>需要提前整理？</summary><p>手动整理早期对话，可能调用模型并产生费用，不会删除原始历史。摘要可能省略细节，重要偏好应保存在长期记忆中。</p>
-        <button disabled={!controllerIdle || commandPending || state.loading || !!state.error || !hasCompaction || value?.enabled !== true} onClick={() => void compact()}>{commandPending && !modePending ? "正在整理…" : "现在整理"}</button>
+      <details className="context-manual"><summary>需要提前压缩上下文？</summary><p>手动压缩早期对话，可能调用模型并产生费用，不会删除原始历史。摘要可能省略细节，重要偏好应保存在长期记忆中。</p>
+        <button disabled={!controllerIdle || commandPending || state.loading || !!state.error || !hasCompaction || value?.enabled !== true} onClick={() => void compact()}>{commandPending && !modePending ? "正在压缩上下文…" : "现在压缩上下文"}</button>
         {!controllerIdle ? <p className="hint">等待当前处理结束后可操作。</p> : null}
       </details>
-      <details className="context-technical"><summary>高级：预算与整理详情</summary>
+      <details className="context-technical"><summary>高级：预算与压缩详情</summary>
       {value ? (
         <div className="home-body">
           <div>{value.enabled ? "模型摘要压缩已启用" : "模型摘要压缩未启用"}</div>

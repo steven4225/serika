@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { FormalMemories } from "./formal-memories.js";
 import { pendingMemoryReducer } from "./pending-memory-data.js";
+import { memoryAutomationLabel } from "./memory-copy.js";
 import type { CandidatePreview } from "@aisdk-agent/example-cli/dist/memory-candidates.js";
 import { formatRecordTime } from "../../shared/execution-records.js";
 import {
   canAccept,
   canReject,
-  capabilityText,
   candidateKindLabel,
   candidateAcceptLabel,
   candidateOperationExplanation,
@@ -332,7 +332,7 @@ function CandidateMemories({
 
   return (
     <section className={`card memory memory-${mode}`} aria-label={mode === "pending" ? "只审核当前对话的候选，接受前不会成为正式记忆" : "当前对话的审核记录"}>
-      {!memory.enabled || !memory.autoConsolidate ? <div className="hint">{capabilityText(memory)}</div> : null}
+      {!memory.enabled || !memory.autoConsolidate ? <div className="hint">{memoryAutomationLabel(memory)}。{memory.enabled ? "仍可查看已有候选。" : "记忆模块未启用。"}</div> : null}
       {!automaticEmpty && (mode === "history" || state.preview === null) ? <div className="hint">{mode === "history" ? "这是当前对话的审核记录，不是正式记忆的版本历史。" : "只审核当前对话的候选，接受前不会成为正式记忆。"}</div> : null}
       {temporaryThread ? <div className="hint">重启后不会自动回到这些候选的来源对话。</div> : null}
       {state.open ? (

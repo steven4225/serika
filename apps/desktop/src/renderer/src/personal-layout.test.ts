@@ -44,11 +44,12 @@ it("saved split preferences reject invalid values without losing safe numeric pr
 });
 
 it("existing details remain reachable under the personal dashboard tabs", () => {
-  assert.equal(dashboardTabForDetail("home"), "Today");
+  assert.equal(dashboardTabForDetail("home"), "设置");
   assert.equal(dashboardTabForDetail("pomodoro"), "Today");
   assert.equal(dashboardTabForDetail("tasks"), "任务");
   assert.equal(dashboardTabForDetail("memory"), "记忆");
-  for (const detail of ["threads", "records", "context", "modules"]) {
-    assert.equal(dashboardTabForDetail(detail), "serika");
+  assert.equal(dashboardTabForDetail("threads"), null);
+  for (const detail of ["records", "context", "modules"]) {
+    assert.equal(dashboardTabForDetail(detail), "设置");
   }
 });

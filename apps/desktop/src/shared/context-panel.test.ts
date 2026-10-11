@@ -22,12 +22,12 @@ describe("context diagnostics panel", () => {
     assert.equal(contextUsageLabel({ ...value, budget: daily }), "尚无输入估算");
     const status = (tokens: number, outcome: "noop" | "failed" = "noop") => contextUsageLabel({ ...value, budget: daily,
       lastPreparation: { at: "now", outcome, compactionId: null, estimatedInputTokens: tokens, error: null } });
-    assert.equal(status(100_000), "上下文充足"); assert.equal(status(179_200), "接近整理区间");
+    assert.equal(status(100_000), "上下文充足"); assert.equal(status(179_200), "接近压缩区间");
     assert.match(status(217_600), /下次准备.*检查/); assert.match(status(256_001), /超过预算/);
-    assert.match(status(100_000, "failed"), /整理失败/);
+    assert.match(status(100_000, "failed"), /压缩失败/);
   });
   it("explains automatic management without inventing a current measurement or hiding a failed preparation behind old records", () => {
-    assert.match(contextOverview(value).title, /自动管理已开启/);
+    assert.match(contextOverview(value).title, /自动压缩已开启/);
     assert.match(contextOverview(value).description, /继续聊天即可/);
     assert.doesNotMatch(contextOverview(value).description, /0.*tokens|使用率/);
     assert.match(contextOverview({ ...value, enabled: false }).description, /完整对话记录不会.*删除/);
