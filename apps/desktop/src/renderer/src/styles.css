@@ -515,6 +515,7 @@ button.chip { font-size: 12px; padding: 5px 9px; border-color: var(--line); }
 .context-mode-picker { display: flex; flex-wrap: wrap; gap: 6px; }
 .context-mode-picker button { background: transparent; border: 1px solid var(--border); border-radius: 999px; padding: 7px 14px; color: var(--muted); }
 .context-mode-picker button[aria-pressed="true"] { background: var(--surface); color: var(--text); }
+.context-mode-picker button:disabled { opacity: .45; cursor: not-allowed; }
 .context-status-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .context-status-head h2 { font-size: 20px; margin: 8px 0 16px; }
 .context-explanation { color: var(--muted, #657184); font-size: 14px; line-height: 1.8; max-width: 58ch; }

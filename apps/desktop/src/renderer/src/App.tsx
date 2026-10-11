@@ -60,7 +60,7 @@ import { TodayPanel } from "./personal/today.js";
 import { clampChatFraction, loadChatFraction, dashboardTabForDetail, PERSONAL_SPLIT_KEY, PERSONAL_COMPACT_BREAKPOINT } from "./personal/layout.js";
 import { DesktopWindowFrame } from "./zcode/upstream/desktop-window-frame.js";
 import { Button } from "./zcode/upstream/button.js";
-import { ArrowUp, Square, Search, Settings2 } from "lucide-react";
+import { ArrowUp, Square, Search, Settings2, Sun, Moon } from "lucide-react";
 import { draftScope, type UncertainSteer } from "../../shared/conversation-drafts.js";
 import "./zcode/theme.css";
 import "./personal/shell.css";
@@ -1017,7 +1017,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
                 {!composingTask && input ? <span className="hint" role="status">{draftError ? "草稿未保存" : draftSaving ? "保存草稿…" : "草稿已保存"}</span> : null}
                 {composingTask ? <span className="hint" role="status">{workTasks.draftError ? "任务草稿未保存" : workTasks.draftSaving ? "保存任务草稿…" : workTasks.draftReady ? "任务草稿已保存" : "正在恢复任务草稿…"}</span> : null}
                 <span className="zcode-model-name" title="当前配置的模型；不代表本轮已联网验证">{info?.modelId ?? info?.modelAlias ?? "连接中"}</span>
-                {busy ? <Button type="button" variant="outline" size="icon" className="zcode-stop-button" aria-label={state.kind === "running" && state.phase === "consolidation" ? "停止整理" : "停止本轮"} title="停止本轮；已执行的操作不会撤回" onClick={() => void window.runloom.cancel().catch(() => setError("取消结果未收到，请核对当前状态。"))}><Square size={12} /></Button> : null}
+                {busy ? <Button type="button" variant="outline" size="icon" className="zcode-stop-button" aria-label={state.kind === "compacting" ? "停止上下文压缩" : state.kind === "running" && state.phase === "consolidation" ? "停止记忆整理" : "停止本轮"} title={state.kind === "compacting" ? "停止上下文压缩" : state.kind === "running" && state.phase === "consolidation" ? "停止记忆整理" : "停止本轮；已执行的操作不会撤回"} onClick={() => void window.runloom.cancel().catch(() => setError("取消结果未收到，请核对当前状态。"))}><Square size={12} /></Button> : null}
                 {!busy || steering ? <Button type="button" size={steering || composingTask ? "default" : "icon"} className={`send-button${steering || composingTask ? " task-send" : ""}`}
                   aria-label={steering ? "补充要求" : composingTask ? composerTask?.status === "ready" ? "开始任务" : "继续此任务" : "发送消息"}
                   title={steering ? "补充当前 Run 的要求，不启动新一轮" : composingTask ? "显式开启任务的新一轮；工具仍需确认" : "发送（Enter）· 换行（Shift + Enter）"}
@@ -1040,13 +1040,13 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
         <header className="personal-dashboard-header">
           <button className="personal-mobile-back" type="button" onClick={() => setMobileDashboard(false)}><Icon name="chevron" size={14} style={{ transform: "rotate(180deg)" }} />对话</button>
           <nav className="personal-segments" aria-label="个人助手页面">
-            {(["Today", "任务", "记忆", "serika"] as const).map(tab => <button type="button" key={tab}
+            {(["Today", "任务", "记忆"] as const).map(tab => <button type="button" key={tab}
               aria-current={(detailsOpen ? dashboardTabForDetail(detailTab) : "Today") === tab ? "page" : undefined}
-              onClick={() => { if (tab === "Today") { setDetailsOpen(false); setMobileDashboard(true); } else if (tab === "任务") { setTaskFocused(false); openDetails("tasks"); } else if (tab === "记忆") openMemory(); else openDetails("modules"); }}>{tab}{tab === "记忆" && pendingLabel ? <span className="personal-segment-count">{pendingLabel}</span> : null}</button>)}
+              onClick={() => { if (tab === "Today") { setDetailsOpen(false); setMobileDashboard(true); } else if (tab === "任务") { setTaskFocused(false); openDetails("tasks"); } else openMemory(); }}>{tab}{tab === "记忆" && pendingLabel ? <span className="personal-segment-count">{pendingLabel}</span> : null}</button>)}
           </nav>
           <div className="personal-dashboard-actions">
             <button type="button" className="personal-circle" aria-label="搜索历史对话" title="搜索历史对话" onClick={() => openDetails("threads")}><Search size={18} /></button>
-            <button type="button" className="personal-circle" aria-label="设置" title="设置" onClick={() => openDetails("modules")}><Settings2 size={18} /></button>
+            <button type="button" className="personal-circle" aria-label="设置" title="设置" aria-current={detailsOpen && dashboardTabForDetail(detailTab) === "设置" ? "page" : undefined} onClick={() => openDetails("modules")}><Settings2 size={18} /></button>
           </div>
         </header>
         <div className="personal-today-scroll" hidden={detailsOpen}>
@@ -1056,10 +1056,12 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
             onChat={() => { setMobileDashboard(false); requestAnimationFrame(() => inputRef.current?.focus()); }}
             onPomodoro={() => openDetails("pomodoro")} onAutomation={() => openDetails("home")} />
         </div>
-        {detailsOpen && ["modules", "records", "context"].includes(detailTab) ? <nav className="personal-settings-nav" aria-label="助手设置">
-          {([["modules", "模块"], ["records", "执行记录"], ["context", "上下文"], ["home", "工作区"], ["appearance", appearance === "dark" ? "浅色外观" : "深色外观"]] as const).map(([tab, label]) => <button type="button" key={tab} aria-current={detailTab === tab ? "page" : undefined}
-            onClick={() => { if (tab === "appearance") onAppearance(); else openDetails(tab); }}>{label}</button>)}
-        </nav> : null}
+        {detailsOpen && ["modules", "records", "context", "home"].includes(detailTab) ? <div className="personal-settings-toolbar">
+          <nav className="personal-settings-nav" aria-label="助手设置">
+            {([["modules", "模块"], ["records", "执行记录"], ["context", "上下文"], ["home", "工作区"]] as const).map(([tab, label]) => <button type="button" key={tab} aria-current={detailTab === tab ? "page" : undefined} onClick={() => openDetails(tab)}>{label}</button>)}
+          </nav>
+          <button type="button" className="personal-circle" aria-label={appearance === "dark" ? "切换为浅色外观" : "切换为深色外观"} title="切换外观" onClick={onAppearance}>{appearance === "dark" ? <Sun size={16} /> : <Moon size={16} />}</button>
+        </div> : null}
           <section className="inspector" hidden={!detailsOpen} aria-label={pageTitle}>
             <div className="inspector-header"><div><h1>{pageTitle}</h1><p>{pageDescription}</p></div><button className="ghost" title="回到今天 · Escape" onClick={() => { setDetailsOpen(false); setMobileDashboard(false); }}><Icon name="close" size={16} />回到今天</button></div>
             <div className="inspector-pane" ref={inspectorScroll} onScroll={() => { if (inspectorScroll.current) inspectorPositions.current.set(inspectorKey, inspectorScroll.current.scrollTop); }}>
@@ -1068,7 +1070,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
                 <WorkTasksPanel view={workTasks} createRequest={createTaskRequest} initialGoal={taskDraft} focused={taskFocused} onCompose={composeTask} onCreated={() => { setDetailsOpen(false); setMobileDashboard(false); setTaskFocused(true); }} onRun={runId => { openDetails("records"); void openRecord(runId).catch(() => setError("执行回执读取失败")); }} />
               </div>
               <div hidden={detailTab !== "home"}>
-                {info ? <DailySetup info={info} busy={busy} automationRefresh={automationRefresh} onHistory={() => openDetails("threads")} onRun={runId => { openDetails("records"); void openRecord(runId).catch(() => setError("执行结果读取失败")); }} /> : null}
+                {info ? <DailySetup info={info} busy={busy} automationRefresh={automationRefresh} onContext={() => openDetails("context")} onHistory={() => openDetails("threads")} onRun={runId => { openDetails("records"); void openRecord(runId).catch(() => setError("执行结果读取失败")); }} /> : null}
                 <RssPanel key={info?.workspaceRoot ?? "no-workspace"} showInbox={false} enabled={!!info?.workspaceRoot && info.modules?.some(m => m.id === "task" && m.enabled) === true} busy={busy} />
                 <TaskInbox key={`${info?.configPath}:${info?.workspaceRoot}`} enabled={!!info?.workspaceRoot && info.modules?.some(m => m.id === "task" && m.enabled) === true} busy={busy} onResultsRead={() => setAutomationRefresh(value => value + 1)} focus={taskResultFocus?.workspaceRoot === info?.workspaceRoot ? taskResultFocus : null} />
                 <section className="card home">
@@ -1092,7 +1094,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
                 onBack={() => { selectedRecordId.current = null; recordDetailRequest.current += 1; setTraceFocusTool(null); setRecordDetail({ status: "idle" }); }}
                 onRefresh={() => void loadRecords(selectedRecordId.current ?? undefined).catch(() => setError("执行记录读取失败"))}
                 onOpen={runId => void openRecord(runId).catch(() => setError("执行回执读取失败"))} /></div>
-              <div hidden={detailTab !== "memory"}>{info ? <MemoryConsolidationPanel key={`${info.workspaceRoot}:${info.threadId}`} info={info} busy={busy} refreshToken={memoryRefresh} /> : null}{info ? <MemoryPanel key={`${info.workspaceRoot}:${info.threadId}`} memory={info.memory} temporaryThread={info.temporaryThread}
+              <div hidden={detailTab !== "memory"}>{info ? <MemoryConsolidationPanel key={`${info.workspaceRoot}:${info.threadId}`} info={info} busy={busy} refreshToken={memoryRefresh} onSettings={() => openDetails("home")} /> : null}{info ? <MemoryPanel key={`${info.workspaceRoot}:${info.threadId}`} memory={info.memory} temporaryThread={info.temporaryThread}
                 controllerIdle={!busy} refreshToken={memoryRefresh} focusRequest={memoryFocus} pendingCount={pendingMemory.count} pendingHasMore={pendingMemory.hasMore} /> : null}</div>
               <div hidden={detailTab !== "context"}>{info ? <ContextPanel controllerIdle={!busy} refreshToken={contextRefresh} initialError={initialSettings === "context" ? initialSettingsError : null}
                 hasCompaction={info.hasCompaction} /> : null}</div>

@@ -6,6 +6,7 @@ import { TelegramPanel } from "./telegram-panel.js";
 import { BackupPanel } from "./backup-panel.js";
 import type { ResidentServiceState } from "../../shared/resident-service.js";
 import { useEffect } from "react";
+import { memoryAutomationLabel } from "./memory-copy.js";
 
 const labels: Record<string, [string, string]> = {
   pomodoro: ["番茄钟", "开始、查看和取消专注计时。"],
@@ -46,16 +47,16 @@ export function CapabilitiesPanel({ info, busy = false, initialError = null }: {
     {selection ? <div className="capability-confirm" role="group" aria-label="确认能力变更">
       <strong>{selection.enabled ? "开启" : "关闭"}{labels[selection.id]?.[0] ?? selection.id}？</strong>
       {selection.id !== "pomodoro" ? <p className="hint">空闲时重新加载助手能力。番茄钟和已有后台安排继续，当前对话和未发送草稿保留。</p> : null}
-      <p>{selection.id === "task" ? "只更改助手创建和查询安排的能力；已保存的安排和后台服务继续运行。暂停安排请到工作区的自动安排中操作。" : selection.id === "memory" ? "关闭后不再引用记忆或自动整理，已保存的记忆和候选不会删除。重新开启沿用原来的写入策略。" : selection.id === "pomodoro" ? (selection.enabled ? "重新开启计时能力，不恢复之前已经结束的计时。" : "关闭并结束当前计时；重新开启不会恢复原计时。") : "下一次对话将使用新的能力配置。已保存的数据保留，工具操作仍按原权限逐次确认。"}</p>
+      <p>{selection.id === "task" ? "只更改助手创建和查询安排的能力；已保存的安排和后台服务继续运行。暂停安排请到工作区的自动安排中操作。" : selection.id === "memory" ? "关闭后不再引用记忆或整理记忆，已保存的记忆和候选不会删除。重新开启沿用原来的写入策略。" : selection.id === "pomodoro" ? (selection.enabled ? "重新开启计时能力，不恢复之前已经结束的计时。" : "关闭并结束当前计时；重新开启不会恢复原计时。") : "下一次对话将使用新的能力配置。已保存的数据保留，工具操作仍按原权限逐次确认。"}</p>
       <div className="actions"><button disabled={busy || unavailable || saving} onClick={() => void apply()}>{saving ? "正在应用…" : "保存并应用"}</button><button className="ghost" disabled={saving} onClick={() => { setSelection(null); setError(null); }}>取消</button></div>
     </div> : null}
     <div className="capability-list">{info.modules?.map(module => {
       const [name, description] = labels[module.id] ?? [module.id, "内置模块"];
       return <div className="capability-row" key={module.id}>
         <div><strong>{name}</strong><p>{description}</p><small>{module.id}</small>
-          {module.id === "memory" && module.enabled ? <small>自动提取候选：{info.moduleOptions?.autoConsolidate ? "已开启" : "未开启"}</small> : null}
+          {module.id === "memory" ? <small>{memoryAutomationLabel(info.memory)}</small> : null}
           {module.id === "web" && module.enabled ? <small>搜索：{info.moduleOptions?.webSearch ? "已开启" : "未开启"} · RSS：{info.moduleOptions?.webFeed ? "已开启" : "未开启"}</small> : null}
-          {module.id === "task" ? <small>开启这里不会注册后台服务；关窗提醒请到“工作区与订阅 → 关窗口后继续提醒”显式启用，并单独核对通知授权。</small> : null}
+          {module.id === "task" ? <small>开启这里不会注册后台服务；关窗提醒请到“设置 → 工作区 → 关窗口后继续提醒”显式启用，并单独核对通知授权。</small> : null}
           {module.id === "todoist" && !module.enabled ? <small>当前无法查询 Todoist。开启前需在可信环境文件中设置 TODOIST_API_TOKEN；应用不会替你创建凭据。</small> : null}
           {module.id === "computer" ? <small>{!module.enabled ? "当前不会控制本机应用。" : "驱动和 macOS 权限仍需就绪。"}允许的应用：{info.computer.allowedBundleIds.length} 个；能力开关不会自动增添应用或申请系统权限。</small> : null}
         </div><div className="capability-control"><span className={`capability-status ${module.enabled ? "enabled" : ""}`}>{module.enabled ? "已开启" : "已关闭"}</span>

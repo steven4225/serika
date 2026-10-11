@@ -3,6 +3,7 @@ import type { FormalMemory } from "@aisdk-agent/example-cli/dist/memory-manageme
 import type { MemoryActionPreview, MemoryHistoryPage, MemoryMaintenance } from "@aisdk-agent/example-cli/dist/memory-controls.js";
 import type { MemoryAssertion, MemorySource, MemoryTemporalView } from "@aisdk-agent/example-cli/dist/memory-store.js";
 import { memoryKindLabel, timestampLabel } from "./memory-temporal-data.js";
+import { memoryAutomationLabel } from "./memory-copy.js";
 
 export function MemorySources({ sources }: { sources: readonly MemorySource[] }) {
   return <section className="memory-sources"><div className="memory-label">保存来源</div>
@@ -60,12 +61,12 @@ export function MemoryTemporalQueryResult({ view }: { view: MemoryTemporalView }
 }
 
 export function MemoryMaintenanceSummary({ value }: { value: MemoryMaintenance }) {
-  const labels = { off: "关闭", backlog: "有待处理材料", running: "整理中", failed: "整理失败", awaiting_review: "等待审核", idle: "暂无待处理材料" };
+  const labels = { off: "未运行", backlog: "有待处理材料", running: "记忆整理中", failed: "记忆整理失败", awaiting_review: "等待审核", idle: "暂无待处理材料" };
   return <section className="memory-maintenance-summary">
-    <p>自动整理：{labels[value.consolidation.state]}</p>
+    <p>{memoryAutomationLabel({ enabled: true, autoConsolidate: value.consolidation.enabled })} · {labels[value.consolidation.state]}</p>
     {value.consolidation.error ? <p className="error" role="alert">{value.consolidation.error}</p> : null}
     <p className="hint">正式记忆 {value.stored} / {value.capacity.entries} · 待审核 {value.pending} · 已过期 {value.expired} · 已停用 {value.disabled} · 重复建议 {value.duplicateSuggestions}</p>
-    {value.consolidation.backlogCount !== undefined ? <p className="hint">待整理用户材料：{value.consolidation.backlogCount} 条。</p> : null}
+    {value.consolidation.backlogCount !== undefined ? <p className="hint">待整理的记忆材料：{value.consolidation.backlogCount} 条。</p> : null}
     <p className="hint">文件上限 {Math.round(value.capacity.bytes / 1024 / 1024)} MiB，每条最多 {value.capacity.assertionsPerEntry} 份断言。达到容量会报错，不会自动裁剪或清理。</p>
   </section>;
 }

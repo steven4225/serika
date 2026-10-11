@@ -53,7 +53,7 @@ export function TodayPanel(props: TodayPanelProps) {
         {tasks.current ? <button type="button" className="today-current-task" onClick={props.onTasks}>
           <span><small>{tasks.currentStatus}</small><strong>{tasks.current.goal}</strong></span>
           <ChevronRight size={18} aria-hidden="true" />
-        </button> : <p className="today-task-empty">{props.tasks.length ? "当前没有待推进的任务。" : "还没有工作任务，先聊聊你想完成什么。"}</p>}
+        </button> : <p className="today-task-empty">{props.tasks.length ? "当前没有待推进的任务。" : "还没有工作任务。普通对话照常使用，需要执行并验收时再创建任务。"}</p>}
       </> : <p className={`today-task-message${tasks.state === "failed" ? " today-failure" : ""}`} role={tasks.state === "failed" ? "alert" : undefined}>{tasks.message}</p>}
       <button type="button" className="today-chat-button" onClick={props.onChat}>聊聊下一步</button>
     </section>
