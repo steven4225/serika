@@ -12,11 +12,13 @@ import {
 import type { ExecutionRunRecord, ExecutionToolRecord } from "../../shared/ui-contract.js";
 import { SteerStatus } from "./steer-status.js";
 import { runTimeline, usageLabel, durationLabel } from "./run-timeline.js";
+import { ModelUsagePanel } from "./model-usage.js";
+import type { ModelUsagePage } from "@aisdk-agent/example-cli/dist/model-usage.js";
 
 export type RecordsState =
   | { status: "loading" }
   | { status: "unavailable"; message: string }
-  | { status: "ready"; runs: ExecutionRunRecord[] };
+  | { status: "ready"; runs: ExecutionRunRecord[]; modelUsage?: ModelUsagePage };
 
 export type RecordDetailState =
   | { status: "idle" }
@@ -51,7 +53,7 @@ function ToolReceipt({ tool }: { tool: ExecutionToolRecord }) {
   );
 }
 
-export function RunTimeline({ run, focusTool }: { run: ExecutionRunRecord; focusTool?: string | null | undefined }) {
+export function RunTimeline({ run, focusTool, usageRecorded }: { run: ExecutionRunRecord; focusTool?: string | null | undefined; usageRecorded?: boolean }) {
   const focus = useRef<HTMLDetailsElement | null>(null);
   useEffect(() => {
     if (!focusTool || !focus.current) return;
@@ -62,7 +64,7 @@ export function RunTimeline({ run, focusTool }: { run: ExecutionRunRecord; focus
   return <div className="run-trace">
     <div className="trace-overview">
       <span>{run.status === "interrupted" ? "中断时间为发现时间，不是实际停止时间" : run.status === "running" ? "正在处理 · 随执行更新" : `本轮用时 ${durationLabel(run.startedAt, run.finishedAt)}（含等待确认）`}</span>
-      <span>{usageLabel(run.trace?.usage)} · 费用未记录</span>
+      <span>{usageRecorded ? "已完成步骤用量（不含失败尝试）：" : ""}{usageLabel(run.trace?.usage)} · {usageRecorded ? "调用与费用详见模型用量分项" : "费用未记录"}</span>
     </div>
     {!run.trace ? <p className="trace-coverage">旧记录未记录模型步骤与确认过程；以下只展示已有回执。</p> : null}
     {run.trace?.truncated || run.trace?.incomplete ? <p className="trace-coverage">{run.trace.truncated ? "追踪达到保留上限，部分节点未保留。" : ""}{run.trace.incomplete ? "部分追踪记录保存失败。" : ""} 工具回执独立核对，不补造缺失步骤。</p> : null}
@@ -119,6 +121,7 @@ export function RecordsPanel({
       {records.status === "ready" && records.runs.length === 0 ? (
         <div className="muted">暂无执行记录</div>
       ) : null}
+      {records.status === "ready" ? <ModelUsagePanel page={records.modelUsage} {...(selectedId ? { runId: selectedId } : {})} /> : null}
       {records.status === "ready" && selectedId === null ? (
         <div className="record-list">
           {records.runs.map((item) => (
@@ -156,7 +159,7 @@ export function RecordsPanel({
           ) : null}
           {detail.run.errorPreview ? <pre className="record-preview">{detail.run.errorPreview}</pre> : null}
           <SteerStatus records={detail.run.steers ?? []} />
-          <RunTimeline key={detail.run.runId} run={detail.run} focusTool={focusTool} />
+          <RunTimeline key={detail.run.runId} run={detail.run} focusTool={focusTool} usageRecorded={records.status === "ready" && records.modelUsage !== undefined} />
         </div>
       ) : null}
     </section>

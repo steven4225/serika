@@ -17,6 +17,7 @@ import {
 } from "@aisdk-agent/core";
 import type { ModelRegistry } from "./registries.js";
 import { ToolRegistry } from "./registries.js";
+import { normalizeTokenUsage, sumTokenUsage } from "./token-usage.js";
 
 export interface AiSdkAgentLoopOptions {
   models: ModelRegistry;
@@ -32,33 +33,6 @@ interface PendingToolCall {
   toolName: string;
   input: unknown;
   invalid: boolean;
-}
-
-function normalizeUsage(usage: LanguageModelUsage): TokenUsage {
-  const inputTokens = usage.inputTokens;
-  const outputTokens = usage.outputTokens;
-  return {
-    ...(inputTokens !== undefined ? { inputTokens } : {}),
-    ...(outputTokens !== undefined ? { outputTokens } : {}),
-    ...(inputTokens !== undefined || outputTokens !== undefined
-      ? { totalTokens: (inputTokens ?? 0) + (outputTokens ?? 0) }
-      : {}),
-  };
-}
-
-function addUsage(total: TokenUsage, next: TokenUsage): TokenUsage {
-  const add = (left?: number, right?: number) =>
-    left === undefined && right === undefined
-      ? undefined
-      : (left ?? 0) + (right ?? 0);
-  const inputTokens = add(total.inputTokens, next.inputTokens);
-  const outputTokens = add(total.outputTokens, next.outputTokens);
-  const totalTokens = add(total.totalTokens, next.totalTokens);
-  return {
-    ...(inputTokens !== undefined ? { inputTokens } : {}),
-    ...(outputTokens !== undefined ? { outputTokens } : {}),
-    ...(totalTokens !== undefined ? { totalTokens } : {}),
-  };
 }
 
 function validateStepOutcome(finishReason: string, toolCallCount: number): void {
@@ -579,7 +553,7 @@ export class AiSdkAgentLoop implements AgentLoop {
             throwIfAborted(input.signal);
           }
 
-          stepUsage = normalizeUsage(
+          stepUsage = normalizeTokenUsage(
             (await awaitWithSignal(
               () => result.usage,
               stepSignal,
@@ -620,7 +594,7 @@ export class AiSdkAgentLoop implements AgentLoop {
         }
       }
 
-      totalUsage = addUsage(totalUsage, stepUsage);
+      totalUsage = sumTokenUsage(steps === 1 ? undefined : totalUsage, stepUsage);
       await input.emit("step.completed", {
         stepNumber: steps,
         finishReason,

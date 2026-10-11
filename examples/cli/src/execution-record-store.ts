@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 import type { AgentEvent, RunResult } from "@aisdk-agent/core";
 import { acquireFlock, tryAcquireFlock, type FlockHandle } from "./flock.js";
 import { compactTraceEvent, validTrace, validTraceUsage, TRACE_MAX_EVENTS, TRACE_MAX_BYTES, type ExecutionTrace } from "./execution-trace.js";
+import { MODEL_CALL_LIMIT, validModelCall, type ModelCallRecord, type ModelUsagePage } from "./model-usage.js";
 
 export const EXECUTION_RECORD_FILE = "execution-records.json";
 export const EXECUTION_RECORD_MAX_RUNS = 50;
@@ -87,7 +88,7 @@ export class ExecutionRecordError extends Error {
   }
 }
 
-type Document = { version: 1; runs: ExecutionRunRecord[] };
+type Document = { version: 1; runs: ExecutionRunRecord[]; modelUsage?: ModelUsagePage };
 type ToolEvent = Extract<AgentEvent, { type: "tool.call.requested" | "tool.call.started" | "tool.call.completed" | "tool.call.failed" | "tool.call.superseded" }>;
 const emptyDocument = (): Document => ({ version: 1, runs: [] });
 
@@ -292,7 +293,15 @@ function validateDocument(value: unknown): Document {
   if (new Set(runs.map((run) => run.runId)).size !== runs.length) {
     fail("FILE_INVALID", "Duplicate run ID");
   }
-  return { version: 1, runs };
+  if (value.modelUsage !== undefined) {
+    const page = value.modelUsage;
+    if (!isObject(page) || !Array.isArray(page.calls) || page.calls.length > MODEL_CALL_LIMIT ||
+        !page.calls.every(validModelCall) || new Set(page.calls.map(call => call.id)).size !== page.calls.length ||
+        !Number.isSafeInteger(page.droppedCount) || (page.droppedCount as number) < 0) {
+      fail("FILE_INVALID", "Model usage records are invalid");
+    }
+  }
+  return { version: 1, runs, ...(value.modelUsage === undefined ? {} : { modelUsage: value.modelUsage as unknown as ModelUsagePage }) };
 }
 
 function filesystemCode(error: unknown): string | undefined {
@@ -529,6 +538,11 @@ export class ExecutionRecordStore {
     let recovered = 0;
     await this.#mutate((document) => {
       const at = this.#now().toISOString();
+      for (const call of document.modelUsage?.calls ?? []) {
+        if (call.threadId === threadId && call.status === "pending") {
+          call.status = "unknown"; call.finishedAt = at;
+        }
+      }
       for (const run of document.runs) {
         if (run.threadId !== threadId || run.status !== "running") continue;
         recovered += 1;
@@ -552,6 +566,33 @@ export class ExecutionRecordStore {
       fail("INVALID_INPUT", "Run list limit is invalid");
     }
     return (await this.#load()).runs.filter((run) => run.threadId === threadId).slice(0, limit);
+  }
+
+  /** Same journal/lock/durability boundary as execution receipts; metadata only, never replay. */
+  async startModelCall(call: ModelCallRecord): Promise<void> {
+    if (!validModelCall(call) || call.status !== "pending") fail("INVALID_INPUT", "Invalid model call");
+    await this.#mutate(document => {
+      const page = document.modelUsage ??= { calls: [], droppedCount: 0 };
+      if (page.calls.some(item => item.id === call.id)) fail("CONFLICT", "Duplicate model call");
+      page.calls.unshift(structuredClone(call));
+    });
+  }
+
+  async finishModelCall(id: string, status: ModelCallRecord["status"], usage: ModelCallRecord["usage"]): Promise<void> {
+    if (!["not_dispatched", "returned", "failed", "cancelled", "unknown"].includes(status) || !validTraceUsage(usage)) fail("INVALID_INPUT", "Invalid model call resolution");
+    await this.#mutate(document => {
+      const call = document.modelUsage?.calls.find(item => item.id === id);
+      if (!call) fail("NOT_FOUND", "Model call not found");
+      // Cancellation/recovery wins over late results. Exact repeats never add a call.
+      if (call.status !== "pending") return;
+      call.status = status; call.usage = structuredClone(usage); call.finishedAt = this.#now().toISOString();
+    });
+  }
+
+  async listModelUsage(threadId: string): Promise<ModelUsagePage> {
+    if (!threadId) fail("INVALID_INPUT", "Thread ID is required");
+    const page = (await this.#load()).modelUsage;
+    return { calls: page?.calls.filter(call => call.threadId === threadId) ?? [], droppedCount: page?.droppedCount ?? 0 };
   }
 
   async getRun(threadId: string, runId: string): Promise<ExecutionRunRecord | null> {
@@ -604,6 +645,18 @@ export class ExecutionRecordStore {
       if (this.#writeFailed) fail("WRITE_FAILED", "Execution receipt storage failed; restart and reconcile before further dispatch");
       const document = await this.#load();
       update(document);
+      const pruneCall = (): boolean => {
+        const page = document.modelUsage;
+        if (!page) return false;
+        let index = page.calls.length - 1;
+        while (index >= 0 && page.calls[index]!.status === "pending") index -= 1;
+        if (index < 0) return false;
+        page.calls.splice(index, 1); page.droppedCount += 1;
+        return true;
+      };
+      while ((document.modelUsage?.calls.length ?? 0) > MODEL_CALL_LIMIT) {
+        if (!pruneCall()) fail("LIMIT_EXCEEDED", "Active model calls exceed retention limit");
+      }
       for (const run of document.runs) {
         if (run.trace && this.#traceGaps.has(run.runId)) run.trace.incomplete = true;
       }
@@ -620,6 +673,10 @@ export class ExecutionRecordStore {
         document.runs.splice(index, 1);
       }
       let serialized = `${JSON.stringify(document)}\n`;
+      // Usage metadata yields before authoritative tool receipts, never evict active calls.
+      while (Buffer.byteLength(serialized, "utf8") > EXECUTION_RECORD_MAX_BYTES && pruneCall()) {
+        serialized = `${JSON.stringify(document)}\n`;
+      }
       // Display metadata yields before authoritative tool receipts or dispatch barriers.
       for (const run of [...document.runs].reverse()) {
         if (Buffer.byteLength(serialized, "utf8") <= EXECUTION_RECORD_MAX_BYTES) break;

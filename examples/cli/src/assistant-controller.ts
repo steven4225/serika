@@ -148,6 +148,7 @@ export interface AssistantController {
   getMemoryReferences(): (MemoryReferenceSnapshot & { runId: string }) | null;
   /** Newest-first local receipts for this Thread. They never authorize replay. */
   listRuns(limit?: number): Promise<ExecutionRunRecord[]>;
+  listModelUsage?(): Promise<import("./model-usage.js").ModelUsagePage>;
   getRun(runId: string): Promise<ExecutionRunRecord | null>;
   listMemoryCandidates(input?: CandidateListInput): Promise<MemoryResult<CandidatePage>>;
   getMemoryCandidate(id: string): Promise<MemoryResult<CandidatePreview>>;
@@ -1023,6 +1024,10 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     listRuns: async (limit) => {
       await ensureRecovered();
       return app.executionRecords.listRuns(app.threadId, limit);
+    },
+    listModelUsage: async () => {
+      await ensureRecovered();
+      return app.executionRecords.listModelUsage(app.threadId);
     },
     getRun: async (runId) => {
       await ensureRecovered();

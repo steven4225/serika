@@ -461,7 +461,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
       setRecords({ status: "unavailable", message: listed.message });
       return;
     }
-    setRecords({ status: "ready", runs: listed.runs });
+    setRecords({ status: "ready", runs: listed.runs, ...(listed.modelUsage ? { modelUsage: listed.modelUsage } : {}) });
     if (selectedRunId !== undefined && selectedRecordId.current === selectedRunId) await readRecord(selectedRunId);
   }, [readRecord]);
 

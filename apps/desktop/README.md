@@ -2,6 +2,36 @@
 
 Electron 前端通过 `createRuntimeApp` + `createAssistantController` 接入后端，不创建第二条 AgentLoop。
 
+## 模型用量分项（Batch 3）
+
+**Before：** 执行追踪只显示已完成聊天步骤的输入／输出／总 Token，无法分辨记忆沉淀、查询改写、摘要压缩和失败重试的用量。
+
+**After：** 「设置 → 执行记录 → 模型用量」按聊天／记忆沉淀／查询改写／上下文压缩（及显式 Skill）分组，每次 SDK 供应商调用尝试单独记录。实际重试分别记账；复用旧摘要或本地改写缓存不新增调用。缓存读／写分别保留，未报告显示「未知」，明确报告的 0 才显示 0。Run 详情只展示关联调用；手动压缩没有 Run，出现在当前对话列表。
+
+账本是现有 `execution-records.json` 的可选元数据，不是第二套执行真相源。启用前历史不回填，独立后台 worker 不在本批观测范围。共享日志最多保留最近 128 次调用；达到字节上限时终态用量先让出空间，不删正在等待的调用，界面显示裁剪数量。进程中断的未完成记录变为结果未知，不重放；取消后的迟到结果不覆盖终态。现有手动备份仅保留执行／工具回执，**不导出这批近期用量元数据**，恢复后不会凭旧总量造账。
+
+费用默认未知。只有外部受信任配置 `modelPricing` 精确匹配界面显示的 `provider` 与 `modelId`，且计费用量完整时才估算；价格按每百万 Token、指定币种，输入单价指非缓存输入。以下仅是配置结构示例，**不是任何供应商真实价格**：
+
+```json
+{
+  "modelPricing": [{
+    "provider": "COPY_EXACT_PROVIDER_FROM_RECORD",
+    "modelId": "COPY_EXACT_MODEL_ID_FROM_RECORD",
+    "currency": "CNY",
+    "inputPerMillion": 2,
+    "outputPerMillion": 4,
+    "cacheReadPerMillion": 0.2,
+    "cacheWritePerMillion": 3
+  }]
+}
+```
+
+供应商未报告缓存写入不等于没写入；缺缓存计数／必要缓存单价、失败／取消／结果未知的请求费用均显示未知。价格随每次调用保存快照，不因后改配置重算历史；**估算≠账单**，不跨币种合计。
+
+**五分钟 Demo（隔离环境，不改日用配置）：** 开启已有记忆自动整理、查询改写及上下文压缩，发一句明确偏好，待主对话与记忆沉淀完成，再从上下文页手动压缩。打开执行记录可展开四组用途并查看缓存与费用。重新读取同一账本不新增记录；再次准备已覆盖的旧摘要／复用同一消息的查询改写缓存，调用数不增加。故障注入验证重试两调用、取消迟到不重账。
+
+离线可复现命令：`pnpm build:runtime && node --test examples/cli/dist/model-usage.test.js packages/ai-sdk-adapter/dist/token-usage.test.js`。其中 Controller Demo 使用脚本供应商，覆盖真实装配、自动正式记忆写入、四用途账本、摘要复用和重开读取；它不证明真实供应商准确计费或日用 GUI 已加载本批。
+
 ## 单仓入口与 Grokbot 检查
 
 当前目录为主仓的 `apps/desktop`。使用根目录 `pnpm-workspace.yaml` / `pnpm-lock.yaml`，不再安装 sibling 仓库。旧前端完整历史保留在导入提交的父链中，旧 checkout 保留作回滚，不再双向开发。下方早期验收记录里的旧绝对路径只是历史证据，不是当前启动入口。

@@ -20,9 +20,11 @@ export function createExecutionRecordAdapter(
 ): {
   store: AgentStore;
   enable: () => void;
+  currentRun: () => { runId: string; phase: ExecutionPhase } | undefined;
   bindNextWorkTask: (input: { id: string; expectedRevision: number }) => () => void;
 } {
   let enabled = false;
+  let currentRun: { runId: string; phase: ExecutionPhase } | undefined;
   let nextWorkTask: { id: string; expectedRevision: number } | undefined;
   const audited: AgentStore = {
     async create(record: RunRecord) {
@@ -52,6 +54,7 @@ export function createExecutionRecordAdapter(
           await beforePrimaryCreate?.(record);
         }
         await store.create(record);
+        currentRun = { runId: record.id, phase };
       } catch (error) {
         // A failed Core create did not start a Run. Keep that fact visible.
         try { await records.failStart(record.id, error); } catch { /* Original failure wins. */ }
@@ -62,7 +65,11 @@ export function createExecutionRecordAdapter(
       }
     },
     getRun: (runId) => store.getRun(runId),
-    transition: (runId, version, status, result) => store.transition(runId, version, status, result),
+    async transition(runId, version, status, result) {
+      const transitioned = await store.transition(runId, version, status, result);
+      if (["completed", "failed", "cancelled", "timed_out"].includes(status) && currentRun?.runId === runId) currentRun = undefined;
+      return transitioned;
+    },
     save: (threadId, messages) => store.save(threadId, messages),
     getMessages: (threadId) => store.getMessages(threadId),
     async append(event: AgentEvent) {
@@ -83,6 +90,7 @@ export function createExecutionRecordAdapter(
   return {
     store: audited,
     enable: () => { enabled = true; },
+    currentRun: () => currentRun,
     bindNextWorkTask: (input) => {
       if (!input.id || !Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 1) {
         throw new Error("A valid WorkTask binding is required");

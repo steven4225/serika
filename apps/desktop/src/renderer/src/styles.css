@@ -366,6 +366,11 @@ button.chip { font-size: 12px; padding: 5px 9px; border-color: var(--line); }
 .session-facts dd { margin: 0; overflow-wrap: anywhere; }
 .session-facts dd small { display: block; color: var(--muted); font-size: 10px; margin-top: 3px; }
 .record-list { display: flex; flex-direction: column; gap: 7px; }
+.model-usage { margin: 12px 0; }
+.model-usage h3 { margin: 0 0 6px; font-size: 15px; }
+.model-usage-group { margin: 8px 0; }
+.model-usage-group > summary { cursor: pointer; }
+.model-usage-call { padding: 10px 12px; margin: 6px 0; background: var(--surface); border-radius: 12px; overflow-wrap: anywhere; font-size: 13px; line-height: 1.6; }
 .record-row { display: flex; align-items: center; gap: 7px; width: 100%; text-align: left; background: #f8f9f3; padding: 10px; font-size: 12px; flex-wrap: wrap; }
 .record-row.selected { border-color: #a7b79c; background: #edf1e7; }
 .record-summary { flex: 1; min-width: 0; overflow-wrap: anywhere; }

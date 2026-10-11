@@ -52,7 +52,7 @@ const natural = (v: unknown): v is number => Number.isSafeInteger(v) && (v as nu
 const positive = (v: unknown) => natural(v) && v > 0;
 const short = (v: unknown) => typeof v === "string" && v.length > 0 && v.length <= 80;
 export function validTraceUsage(v: unknown): v is TokenUsage {
-  return object(v) && Object.keys(v).every(k => ["inputTokens", "outputTokens", "totalTokens"].includes(k) && natural(v[k]));
+  return object(v) && Object.keys(v).every(k => ["inputTokens", "outputTokens", "totalTokens", "cacheReadTokens", "cacheWriteTokens"].includes(k) && natural(v[k]));
 }
 export function validTrace(v: unknown): v is ExecutionTrace {
   if (!object(v) || v.version !== 1 || typeof v.truncated !== "boolean" || typeof v.incomplete !== "boolean" ||
