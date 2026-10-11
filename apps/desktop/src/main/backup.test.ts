@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile, readdir, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, readFile, readdir, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { it } from "node:test";
@@ -8,7 +8,7 @@ import { gzipSync, gunzipSync } from "node:zlib";
 import { createTaskStore, TASK_FILE_NAME } from "@aisdk-agent/example-cli/dist/task-store.js";
 import { createExecutionRecordStore } from "@aisdk-agent/example-cli/dist/execution-record-store.js";
 import { exportBackup, restoreBackup, previewBackup } from "./backup.js";
-import { acquireFlock } from "@aisdk-agent/example-cli/dist/flock.js";
+import { acquireFlock, tryAcquireFlock } from "@aisdk-agent/example-cli/dist/flock.js";
 import { JsonlAgentStore } from "@aisdk-agent/core";
 import { inspectThread } from "./thread-history.js";
 
@@ -63,6 +63,30 @@ it("backup only registered assistant data; restoration is an offline copy with s
     const noDispatch = await recovered.claimNextDue(); assert(noDispatch.ok && noDispatch.value === null);
     assert.deepEqual(await readFile(join(f.workspace, TASK_FILE_NAME)), original);
     assert(!await readdir(restored.path).then(names => names.includes("config.json")));
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
+
+it("backup lock placeholders stay empty and reusable, never enter the archive, and are not unlinked", async () => {
+  const f = await fixture();
+  try {
+    await exportBackup(f);
+    const lockPath = join(f.workspace, ".runloom", "memory.json.lock");
+    const before = await lstat(lockPath);
+    assert.equal(before.size, 0);
+    const archive = JSON.parse(gunzipSync(await readFile(f.destination)).toString()) as { entries: Array<{ path: string }> };
+    assert.ok(archive.entries.every(entry => !entry.path.includes(".lock")));
+    const lock = await tryAcquireFlock(lockPath);
+    assert.ok(lock, "export releases the held lock, not the stable inode");
+    const destination = join(f.root, "saved-again.serika-backup");
+    try {
+      await assert.rejects(exportBackup({ ...f, destination }), /数据正在写入/);
+      await assert.rejects(readFile(destination), { code: "ENOENT" });
+    } finally { await lock.release(); }
+    await exportBackup({ ...f, destination });
+    const after = await lstat(lockPath);
+    assert.equal(after.ino, before.ino, "deleting the pathname would split concurrent lock ownership");
+    assert.equal(after.dev, before.dev);
+    assert.equal(after.size, 0);
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });
 

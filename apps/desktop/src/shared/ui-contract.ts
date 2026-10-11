@@ -71,6 +71,7 @@ export interface ToolActivity {
   toolName: string;
   status: "completed" | "failed";
   outcomeUnknown?: boolean;
+  errorCode?: string;
   summary: string;
   truncated: boolean;
 }

@@ -49,6 +49,25 @@ it("reuses receipt history only for the same completed Run", () => {
   }
 });
 
+it("failure activity Demo presents the actual failure message on snapshot reload rather than an incomplete JSON receipt", () => {
+  const [row] = rowsFromToolActivity([{ toolCallId: "fail", toolName: "write_file", status: "failed",
+    summary: "WRITE_FAILED: Unable to save this file", truncated: false }], "completed-run");
+  assert.ok(row?.kind === "tool");
+  assert.equal(row.status, "failed");
+  assert.equal(row.detail, "WRITE_FAILED: Unable to save this file");
+  assert.equal(row.runId, "completed-run");
+  assert.equal(row.receipt, undefined);
+  for (const [errorCode, status] of [["WRITE_FAILED", "failed"], ["TOOL_DENIED", "denied"], ["TOOL_OUTCOME_UNKNOWN", "unknown"]] as const) {
+    const [bounded] = rowsFromToolActivity([{ toolCallId: "fail", toolName: "write_file", status: "failed", errorCode,
+      summary: `${errorCode}: ${"x".repeat(990)}`.slice(0, 1_000), truncated: true }]);
+    assert.ok(bounded?.kind === "tool");
+    assert.equal(bounded.status, status);
+    assert.equal(bounded.errorCode, errorCode);
+    assert.equal(bounded.receipt, undefined);
+    assert.doesNotMatch(bounded.detail ?? "", /推断成功|返回成功/);
+  }
+});
+
 it("retains missing-file input and exact error code in history and live output, not assistant claims", () => {
   const failure = { ok: false, error: { code: "FILE_NOT_FOUND", message: "File not found: notes/work-plan.md" } };
   const rows = rowsFromHistory([{ id: "missing", role: "assistant", parts: [

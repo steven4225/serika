@@ -59,6 +59,8 @@ export interface ToolActivity {
   status: "completed" | "failed";
   /** Invocation failed, but the external effect is not known to have failed. */
   outcomeUnknown?: boolean;
+  /** From the complete error, never recovered by parsing a truncated preview. */
+  errorCode?: string;
   summary: string;
   truncated: boolean;
 }
@@ -432,14 +434,24 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
             }
           }
           if (event.type === "tool.call.completed" || event.type === "tool.call.failed") {
-            const raw = event.type === "tool.call.completed"
-              ? JSON.stringify(event.data.output) ?? ""
-              : event.data.error.message;
+            // A completed invocation may return an explicit failure. Classify
+            // before bounding the display preview; Run completion is unrelated.
+            const output = event.type === "tool.call.completed" ? event.data.output : undefined;
+            const returnedFailure = typeof output === "object" && output !== null && "ok" in output && output.ok === false;
+            const returnedError = returnedFailure && "error" in output && typeof output.error === "object" && output.error !== null ? output.error : undefined;
+            const errorCode = event.type === "tool.call.failed" ? event.data.error.code
+              : returnedError && "code" in returnedError && typeof returnedError.code === "string" ? returnedError.code : undefined;
+            const failureMessage = event.type === "tool.call.failed" ? event.data.error.message
+              : returnedError && "message" in returnedError && typeof returnedError.message === "string" ? returnedError.message : undefined;
+            const failed = event.type === "tool.call.failed" || returnedFailure;
+            const raw = failed ? [errorCode, failureMessage].filter(Boolean).join(": ") || "工具返回失败，详情见执行追踪"
+              : JSON.stringify(output) ?? "";
             const item: ToolActivity = {
               toolCallId: event.data.toolCallId,
               toolName: event.data.toolName ?? toolNames.get(event.data.toolCallId) ?? "unknown",
-              status: event.type === "tool.call.completed" ? "completed" : "failed",
-              ...(event.type === "tool.call.failed" && event.data.error.code === "TOOL_OUTCOME_UNKNOWN"
+              status: failed ? "failed" : "completed",
+              ...(errorCode ? { errorCode: errorCode.slice(0, 128) } : {}),
+              ...(errorCode === "TOOL_OUTCOME_UNKNOWN"
                 ? { outcomeUnknown: true } : {}),
               summary: raw.slice(0, MAX_TOOL_SUMMARY_CHARS),
               truncated: raw.length > MAX_TOOL_SUMMARY_CHARS,
@@ -910,11 +922,11 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       return response;
     },
     getTaskInbox: async () => {
-      if (!app.workspaceRoot || !app.moduleConfig?.enabled.task) return { ok: false, error: { code: "TASK_UNAVAILABLE", message: "任务收件箱需要启用工作区任务模块" } };
+      if (!app.workspaceRoot) return { ok: false, error: { code: "TASK_UNAVAILABLE", message: "定时结果读取需要确定的工作区" } };
       return createTaskStore(app.workspaceRoot).list({ inbox: true, limit: 50 });
     },
     getScheduledTask: async id => {
-      if (!app.workspaceRoot || !app.moduleConfig?.enabled.task) return { ok: false, error: { code: "TASK_UNAVAILABLE", message: "任务详情需要启用工作区任务模块" } };
+      if (!app.workspaceRoot) return { ok: false, error: { code: "TASK_UNAVAILABLE", message: "定时结果读取需要确定的工作区" } };
       if (typeof id !== "string" || !id.trim() || id.length > 256) return { ok: false, error: { code: "INVALID_INPUT", message: "无效任务 ID" } };
       return createTaskStore(app.workspaceRoot).get(id);
     },

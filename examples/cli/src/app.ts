@@ -51,7 +51,8 @@ import {
   resumeMatchesCheckpoint,
   type ResumeObservation,
 } from "./resume-observation.js";
-import { createModuleHost } from "./module-host.js";
+import { createModuleHost, type AgentModule } from "./module-host.js";
+import { createWorkspaceTaskReadApproval } from "./workspace-task-read-policy.js";
 import { createMemoryModule } from "./modules/memory-module.js";
 import { createCheckpointModule } from "./modules/checkpoint-module.js";
 import { createPomodoroModule, type PomodoroService } from "./modules/pomodoro-module.js";
@@ -113,6 +114,8 @@ export interface RuntimeAppOptions {
   env?: NodeJS.ProcessEnv;
   cwd?: string;
   taskAutomation?: TaskAutomationHost;
+  /** Trusted embedding opt-in: only built-in task_list/task_get in this workspace. */
+  allowWorkspaceTaskReads?: true;
   /** Trusted destination registration after the task commit, before service activation. */
   afterTaskArrangementSaved?: (saved: SavedTaskArrangement) => Promise<void>;
   /** Host-owned disclosure in the shared approval preview, never a model argument. */
@@ -327,6 +330,11 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     }
   };
 
+  const taskReadApproval = options.allowWorkspaceTaskReads === true && workspaceRoot !== undefined
+    ? createWorkspaceTaskReadApproval(workspaceRoot, PRIMARY_AGENT_ID) : undefined;
+  const captureBuiltinTaskModule = (module: AgentModule): AgentModule =>
+    taskReadApproval?.captureBuiltinModule(module) ?? module;
+
   const moduleHost =
     tuiMode
       ? createModuleHost(
@@ -389,7 +397,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
                   }),
                 ]
               : []),
-            ...(taskEnabled ? [createTaskModule(taskStore!, {
+            ...(taskEnabled ? [captureBuiltinTaskModule(createTaskModule(taskStore!, {
               ...(options.taskAutomation ? { backgroundStatus: async () => {
                 const status = await options.taskAutomation!.status(workspaceRoot!, moduleConfig?.configPath ?? undefined);
                 return { ready: status.available && status.registered && status.running && status.ready === true, ...(status.message ? { message: status.message } : {}) };
@@ -410,7 +418,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
               ...(options.taskAutomation ? {
                 checkTodoistPlanningAvailable: async () => (await options.taskAutomation!.status(workspaceRoot!, moduleConfig?.configPath ?? undefined)).todoistPlanningAvailable,
               } : {}),
-            })] : []),
+            }))] : []),
           ],
           {
             notify: (moduleId, message) => {
@@ -1294,6 +1302,11 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         ? { beforeToolExecute: (input) => {
           const skill = automation.skills.find(skill => skill.agentId === input.definition.id);
           if (skill?.kind === "memory-consolidate" && skill.tools.includes(input.toolName)) {
+            input.signal.throwIfAborted();
+            return { allow: true };
+          }
+          if (taskReadApproval?.allows({ agentId: input.definition.id, workspaceRoot,
+            toolName: input.toolName, registeredTool: registeredTools.find(tool => tool.metadata.name === input.toolName) })) {
             input.signal.throwIfAborted();
             return { allow: true };
           }

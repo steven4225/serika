@@ -26,6 +26,16 @@ test("older preview without identity is unknown rather than assumed current", ()
   assert.doesNotMatch(markup, /一致/);
 });
 
+test("build warning does not duplicate punctuation after a macOS service error", () => {
+  for (const message of ["后台服务仅支持 macOS。", "后台服务仅支持 macOS.", "后台服务仅支持 macOS。 "]) {
+    const markup = renderToStaticMarkup(createElement(BuildIdentityPanel, { info: {
+      loaded: null, backendDistAtStartup: null, backendMatchesBuild: null, diskBuild: "unavailable", diskBuildId: null,
+    }, worker: { ok: false, message } }));
+    assert.match(markup, /后台版本状态不可用：后台服务仅支持 macOS。不能确认/);
+    assert.doesNotMatch(markup, /macOS[。.\s]*[。.][。]/);
+  }
+});
+
 test("Demo: version panel visibly warns about an old worker without a stop side effect", () => {
   const markup = renderToStaticMarkup(createElement(BuildIdentityPanel, { info: {
     loaded: { schemaVersion: 1, id: "0123456789abcdef", version: "0.1.0", builtAt: "2026-10-11T00:00:00.000Z",

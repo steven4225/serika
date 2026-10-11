@@ -5,16 +5,18 @@ import { automationArrangementLabel } from "./automation-schedule.js";
 
 const statuses = { scheduled: "已排期", running: "正在执行", completed: "执行结束", failed: "执行失败", cancelled: "已取消", interrupted: "执行中断，结果未确定" };
 
-export function taskResultPresentation(task: TaskRecordV4): { kind: string; status: string; notification: string } {
+export function taskResultPresentation(task: TaskRecordV4): { kind: string; status: string; notification: string; body: string } {
   const kind = automationArrangementLabel(task.arrangement);
   const notification = task.notification === null ? "未安排系统通知" : task.notification.status === "submitted"
     ? "已提交系统通知，不代表你已看到"
     : task.notification.status === "failed" ? "系统通知提交失败" : "等待提交系统通知";
-  return { kind, status: statuses[task.status], notification };
+  const body = task.resultText?.trim() || (task.status === "failed" ? "任务执行失败，详情在收件箱。"
+    : task.status === "interrupted" ? "执行中断，结果尚未确定；不会自动重做。" : "没有保存结果正文，请查看详情。");
+  return { kind, status: statuses[task.status], notification, body };
 }
 
 /** One workspace inbox, backed only by existing TaskStore terminal records. */
-export function TaskInbox({ enabled, busy, focus, onResultsRead }: { enabled: boolean; busy: boolean; focus?: { taskId: string; sequence: number } | null; onResultsRead?: () => void }) {
+export function TaskInbox({ enabled, busy, canAcknowledge = true, focus, onResultsRead }: { enabled: boolean; busy: boolean; canAcknowledge?: boolean; focus?: { taskId: string; sequence: number } | null; onResultsRead?: () => void }) {
   const [page, setPage] = useState<TaskListV3 | null>(null);
   const [detail, setDetail] = useState<TaskRecordV4 | null>(null);
   const [error, setError] = useState("");
@@ -54,7 +56,7 @@ export function TaskInbox({ enabled, busy, focus, onResultsRead }: { enabled: bo
     finally { if (request === generation.current) setWorking(false); }
   };
   const acknowledge = async () => {
-    if (!detail || busy || working || detail.acknowledgedAt !== null) return;
+    if (!detail || !canAcknowledge || busy || working || detail.acknowledgedAt !== null) return;
     const id = detail.id;
     setWorking(true); setError(""); setNotice("");
     try {
@@ -78,7 +80,7 @@ export function TaskInbox({ enabled, busy, focus, onResultsRead }: { enabled: bo
   return <section id="scheduled-results" className="card task-inbox" aria-label="定时任务结果收件箱">
     <div className="card-head"><span>定时任务收件箱</span><button className="ghost" disabled={!enabled || loading || working} onClick={() => void reload()}>刷新结果</button></div>
     <p className="hint">提醒、日报、资讯和定时 Skill 的结果都在这里。没有变化的检查可不通知；失败与中断不会被当成“没有内容”。</p>
-    {!enabled ? <p className="hint">当前配置未启用工作区任务模块，不能读取定时结果。</p> : null}
+    {!enabled ? <p className="hint">当前未连接工作区，不能读取定时结果。</p> : null}
     {loading ? <p role="status">正在读取结果…</p> : null}
     {error ? <p className="error" role="alert">{error}。读取失败不代表没有结果。</p> : null}
     {notice ? <p role="status">{notice}</p> : null}
@@ -98,7 +100,7 @@ export function TaskInbox({ enabled, busy, focus, onResultsRead }: { enabled: bo
       {detail.error ? <p className="error" role="alert">{detail.error.code}: {detail.error.message}</p> : null}
       {detail.notification?.error ? <p className="error">通知错误：{detail.notification.error.code}: {detail.notification.error.message}。不会因此重新执行任务。</p> : null}
       <p className="hint">执行结束不等于内容质量已通过；提交系统通知不等于收到或已读。中断的任务不会从这里自动重放。</p>
-      <button className="ghost" disabled={busy || working || detail.acknowledgedAt !== null} onClick={() => void acknowledge()}>标为已读</button>
+      {canAcknowledge ? <button className="ghost" disabled={busy || working || detail.acknowledgedAt !== null} onClick={() => void acknowledge()}>标为已读</button> : <p className="hint">任务能力已关闭，仍可查看保存的结果；需要标为已读时请开启任务能力。</p>}
     </section> : null}
   </section>;
 }

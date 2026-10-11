@@ -1257,6 +1257,48 @@ describe("AssistantController", () => {
     await controller.shutdown();
   });
 
+  it("failure activity Demo preserves returned failure before truncation and a completed Run cannot overwrite it", async () => {
+    const output = { diagnostic: "x".repeat(2_000), ok: false, error: { code: "WRITE_FAILED", message: "Unable to save this file" } };
+    const controller = createAssistantController(appWith({ runtime: {
+      run: async () => ({ runId: "failed-activity", events: (async function* (): AsyncGenerator<AgentEvent> {
+        yield { id: "failure", type: "tool.call.completed", runId: "failed-activity", threadId: "controller-thread", sequence: 1,
+          occurredAt: "2026-10-11T00:00:00Z", data: { toolCallId: "failure", toolName: "write_file", output } };
+      })(), result: Promise.resolve(result("failed-activity", "completed")), cancel: async () => undefined }),
+    } as unknown as RuntimeApp["runtime"] }));
+    try {
+      await controller.run("Save the file");
+      await waitFor(() => controller.getSnapshot().state.kind === "idle");
+      const snapshot = controller.getSnapshot();
+      assert.equal(snapshot.lastPrimaryResult?.status, "completed");
+      assert.equal(snapshot.toolActivity[0]?.status, "failed");
+      assert.equal(snapshot.toolActivity[0]?.errorCode, "WRITE_FAILED");
+      assert.equal(snapshot.toolActivity[0]?.summary, "WRITE_FAILED: Unable to save this file");
+      assert.equal(snapshot.toolActivity[0]?.outcomeUnknown, undefined);
+    } finally { await controller.shutdown(); }
+  });
+
+  it("failure activity Demo retains unknown effects from structured outputs and failed events", async () => {
+    for (const type of ["tool.call.completed", "tool.call.failed"] as const) {
+      const error = { code: "TOOL_OUTCOME_UNKNOWN" as const, message: "Connection lost after dispatch", retryable: false, phase: "tool" as const };
+      const controller = createAssistantController(appWith({ runtime: {
+        run: async () => ({ runId: "unknown-activity", events: (async function* (): AsyncGenerator<AgentEvent> {
+          const base = { id: "unknown", runId: "unknown-activity", threadId: "controller-thread", sequence: 1, occurredAt: "2026-10-11T00:00:00Z" };
+          yield type === "tool.call.completed" ? { ...base, type, data: { toolCallId: "unknown", toolName: "write_file", output: { ok: false, error } } }
+            : { ...base, type, data: { toolCallId: "unknown", toolName: "write_file", error } };
+        })(), result: Promise.resolve(result("unknown-activity", "completed")), cancel: async () => undefined }),
+      } as unknown as RuntimeApp["runtime"] }));
+      try {
+        await controller.run("Save the file");
+        await waitFor(() => controller.getSnapshot().state.kind === "idle");
+        const [activity] = controller.getSnapshot().toolActivity;
+        assert.equal(activity?.status, "failed");
+        assert.equal(activity?.errorCode, "TOOL_OUTCOME_UNKNOWN");
+        assert.equal(activity?.outcomeUnknown, true);
+        assert.equal(activity?.summary, "TOOL_OUTCOME_UNKNOWN: Connection lost after dispatch");
+      } finally { await controller.shutdown(); }
+    }
+  });
+
   it("forwards live shell output only while its Run is active", async () => {
     const finished = deferred<RunResult>();
     let progressListener: Parameters<NonNullable<RuntimeApp["subscribeShellProgress"]>>[0] | undefined;
