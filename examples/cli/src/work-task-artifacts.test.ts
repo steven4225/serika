@@ -103,7 +103,7 @@ it("Controller display queries are read-only, version-bound, survive restart and
     const current = controller;
     const seen = new Set<string>();
     current.subscribe(event => {
-      if (event.type === "approval" && !seen.has(event.approval.approvalId)) {
+      if (event.type === "approval" && event.approval.preview.trim() && !seen.has(event.approval.approvalId)) {
         seen.add(event.approval.approvalId);
         current.confirm({ approvalId: event.approval.approvalId, decision: "allow" });
       }

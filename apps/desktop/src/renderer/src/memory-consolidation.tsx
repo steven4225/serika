@@ -5,6 +5,7 @@ import type { MemoryActionPreview } from "@aisdk-agent/example-cli/dist/memory-c
 import type { FormalMemory } from "@aisdk-agent/example-cli/dist/memory-management.js";
 import type { MemoryResult } from "@aisdk-agent/example-cli/dist/memory-candidates.js";
 import type { MemoryConsolidationSource, MemoryConsolidationRequest } from "@aisdk-agent/example-cli/dist/memory-consolidation.js";
+import { memoryConsolidationFailureText } from "@aisdk-agent/example-cli/dist/memory-failure.js";
 import { memoryAutomaticUpgradeNeeded } from "./daily-setup.js";
 import { MemoryActionPreviewDetails, MemorySources } from "./memory-temporal.js";
 import { memoryAutomationLabel } from "./memory-copy.js";
@@ -181,7 +182,7 @@ export function MemoryConsolidationPanel({ info, busy, refreshToken, onSettings 
     {c?.state !== "off" ? <p className="hint">{memoryAutomationLabel(info.memory)}</p> : null}
     {info.memory.enabled && info.memory.autoConsolidate ? <p className="hint">{info.memory.writePolicy === "automatic" ? "明确偏好会自动记住；有歧义才需要你点一下。" : "当前为人工审核模式，确认后才会记住。"}</p> : null}
     {memoryAutomaticUpgradeNeeded(info) ? <button className="ghost" disabled={!onSettings} onClick={onSettings}>在工作区设置</button> : null}
-    {c?.error ? <p className="error" role="alert">{c.error}。本次未成功推进记忆整理游标。</p> : null}
+    {c?.error ? <><p className="error" role="alert">{memoryConsolidationFailureText(c.error)}</p><details><summary>技术详情</summary><pre>{c.error}</pre></details></> : null}
     {maintenance && maintenance.pending >= 64 ? <p className="hint">待审核候选已达到上限，请先接受或拒绝候选，再整理新材料。暂时不审核不会丢弃候选。</p> : null}
     {statusError ? <><p className="error" role="alert">{statusError}。不能据此判断没有待整理记忆材料或候选。</p><button className="ghost" disabled={working} onClick={() => setStatusRefresh(value => value + 1)}>重新读取记忆整理状态</button></> : null}
     {error ? <p className="error" role="alert">{error}</p> : null}{notice ? <p role="status">{notice}</p> : null}

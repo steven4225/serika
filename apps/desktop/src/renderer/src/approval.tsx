@@ -1,3 +1,4 @@
+import React from "react";
 import type { PendingApproval } from "../../shared/ui-contract.js";
 import { describeComputerApproval } from "../../shared/computer.js";
 
@@ -8,6 +9,8 @@ export function ApprovalCard({ approval, deciding, onDecision }: {
 }) {
   const computer = describeComputerApproval(approval);
   const invalidComputer = approval.toolName.startsWith("computer_") && computer === undefined;
+  // Strip only the terminal control suffix, not user text containing [y/n].
+  const preview = approval.preview.replace(/(?:Allow this call\?|允许这次[^\n]*？)\s*\[y\/n\]\s*$/i, "").trim();
   return (
     <section className="card approval" aria-label="工具调用确认" aria-live="polite">
       <div className="card-head"><strong>等待你确认</strong><span className="hint">仅本次调用 · 不记住选择</span></div>
@@ -25,13 +28,13 @@ export function ApprovalCard({ approval, deciding, onDecision }: {
             observationId: computer.observationId, elementToken: computer.elementToken }, null, 2)}</pre></details>
         </> : <>
           <code>{approval.toolName}</code>
-          <pre className="prompt">{approval.preview || "正在生成预览…"}</pre>
+          <pre className="prompt">{preview || "正在生成预览…"}</pre>
           {invalidComputer ? <p className="error">目标信息不完整，不能允许本次操作；可拒绝或取消。</p> : null}
         </>}
       </div>
       <div className="actions">
         <button className="deny" disabled={deciding} onClick={() => onDecision("deny")}>拒绝本次调用</button>
-        <button className="allow" disabled={deciding || invalidComputer || (!computer && !approval.preview)} onClick={() => onDecision("allow")}>
+        <button className="allow" disabled={deciding || invalidComputer || !approval.preview.trim() || (!computer && !preview)} onClick={() => onDecision("allow")}>
           {deciding ? "正在提交确认…" : computer?.allowLabel ?? "允许本次调用"}
         </button>
       </div>

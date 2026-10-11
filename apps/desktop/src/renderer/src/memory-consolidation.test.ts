@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import type { AppInfo } from "../../shared/ui-contract.js";
 import type { MemoryMaintenance } from "@aisdk-agent/example-cli/dist/memory-controls.js";
 import { MemoryConsolidationPanel, consolidationStatusLabel, previewAutomaticMemoryUndo, memoryReceiptPresentation, memoryReceiptSummary } from "./memory-consolidation.js";
+import { memoryConsolidationFailureText } from "@aisdk-agent/example-cli/dist/memory-failure.js";
 
 function maintenance(state: MemoryMaintenance["consolidation"]["state"]): MemoryMaintenance {
   return {
@@ -15,6 +16,15 @@ function maintenance(state: MemoryMaintenance["consolidation"]["state"]): Memory
 }
 
 describe("daily memory consolidation state", () => {
+  it("reports unsaved versus uncertain memory in Chinese without raw model/storage errors", () => {
+    const failed = memoryConsolidationFailureText("MEMORY_BATCH_INVALID: Candidate change effectiveAt must be an ISO timestamp");
+    assert.match(failed, /不能当作已经记住.*旧记忆仍保留/);
+    assert.doesNotMatch(failed, /MEMORY_BATCH_INVALID|ISO|effectiveAt/);
+    const uncertain = memoryConsolidationFailureText("MEMORY_COMMIT_UNCERTAIN: directory sync failed");
+    assert.match(uncertain, /是否写入尚未确认.*先查看.*不会自动重复/);
+    assert.doesNotMatch(uncertain, /未写入|directory sync/);
+  });
+
   it("keeps human policy status in the main path and advanced setup collapsed", () => {
     const info = { workspaceRoot: "/workspace", configPath: "/config.json", memory: { enabled: true, autoConsolidate: true, writePolicy: "automatic", queryRewriteEnabled: true } } as AppInfo;
     const html = renderToStaticMarkup(createElement(MemoryConsolidationPanel, { info, busy: false, refreshToken: 0 }));

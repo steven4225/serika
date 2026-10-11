@@ -399,7 +399,7 @@ describe("native memory consolidation batch", () => {
       { systemTime: { from: "2026-10-01T00:00:00Z", to: null } },
       { validTime: { from: "2026-02-30T00:00:00Z", to: null, basis: "explicit" } },
       { validTime: { from: "2026-10-01T00:00:00Z", to: null, basis: "unknown" } },
-      { action: "change", memoryId: "m1", expectedRevision: 1 },
+      { action: "change", memoryId: "m1", expectedRevision: 1, effectiveAt: "not-a-date" },
       { action: "correct", memoryId: "m1", expectedRevision: 1, effectiveAt: "2026-10-02T00:00:00Z" },
       { action: "change", memoryId: "m1", expectedRevision: 1, effectiveAt: "2026-10-02T00:00:00Z", validTime: { from: null, to: null, basis: "unknown" } },
     ];

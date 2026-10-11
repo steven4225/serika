@@ -164,6 +164,7 @@ export const memoryStoreErrorCodes = [
   "MEMORY_CANDIDATE_STALE",
   "MEMORY_CURSOR_MISMATCH",
   "MEMORY_BATCH_INVALID",
+  "MEMORY_EFFECTIVE_AT_REQUIRED",
   "SYMLINK_NOT_ALLOWED",
   "READ_FAILED",
   "WRITE_FAILED",
@@ -421,7 +422,7 @@ function validateDraft(value: unknown, threadId: string): CandidateDraft {
   const target = { memoryId: nonEmpty(change.memoryId, "Target memory id"), expectedRevision: validateRevision(change.expectedRevision), text: change.text, expiresAt };
   if (change.operation === "update" || change.operation === "correct" || change.operation === "change") {
     if (change.operation === "change") {
-      const effectiveAt = validateTemporalTimestamp(change.effectiveAt, "Candidate effectiveAt");
+      const effectiveAt = change.effectiveAt === null ? null : validateTemporalTimestamp(change.effectiveAt, "Candidate effectiveAt");
       if (fact.validTime !== undefined) raise("MEMORY_BATCH_INVALID", "Change uses effectiveAt, not replacement validTime");
       return { change: { operation: "change", ...target, ...fact, effectiveAt }, ...evidence };
     }
@@ -764,6 +765,7 @@ function newRecord(input: MemoryAddInput, now: string, sources: MemorySource[] =
 function applyCandidateRevision(record: MemoryRecord, candidate: MemoryCandidate, now: string, generateId = randomUUID): void {
   const change = candidate.change;
   if (change.operation === "add") raise("MEMORY_BATCH_INVALID", "Revision requires an existing record");
+  if (change.operation === "change" && change.effectiveAt === null) raise("MEMORY_EFFECTIVE_AT_REQUIRED", "请确认是否从现在开始使用新偏好；旧记忆仍保留，尚未修改。");
   const previous = projectRecord(record, new Date(now)).assertion;
   if ("factIdentity" in change && change.factIdentity && previous?.factIdentity && !sameFactSlot(previous.factIdentity, change.factIdentity)) raise("MEMORY_BATCH_INVALID", "Target identity attribute/scenario cannot change");
   if ("reuseSources" in change && change.reuseSources && !sameFact(previous?.factIdentity, change.factIdentity)) raise("MEMORY_BATCH_INVALID", "Source reuse cannot change identity or value");
@@ -773,7 +775,7 @@ function applyCandidateRevision(record: MemoryRecord, candidate: MemoryCandidate
     ...("kind" in change && change.kind !== undefined ? { kind: change.kind } : {}),
     ...("recallTerms" in change && change.recallTerms !== undefined ? { recallTerms: change.recallTerms } : {}),
     ...("validTime" in change && change.validTime !== undefined ? { validTime: change.validTime } : {}),
-    ...("effectiveAt" in change && change.effectiveAt !== undefined ? { effectiveAt: change.effectiveAt } : {}),
+    ...("effectiveAt" in change && typeof change.effectiveAt === "string" ? { effectiveAt: change.effectiveAt } : {}),
     ...("factIdentity" in change && change.factIdentity !== undefined ? { factIdentity: change.factIdentity } : {}),
     sources: structuredClone(candidate.sources ?? [candidate.source]),
   }, now, generateId);
@@ -784,7 +786,7 @@ function applyCandidateRevision(record: MemoryRecord, candidate: MemoryCandidate
 }
 
 /** Caller owns the document lock and has rechecked applicability; no separate write. */
-function acceptCandidate(document: MemoryDocument, candidate: MemoryCandidate, now: Date): void {
+function acceptCandidate(document: MemoryDocument, candidate: MemoryCandidate, now: Date, effectiveAt?: "now"): void {
   const change = candidate.change;
   if (change.operation === "add") {
     if (change.factIdentity && document.entries.some(record => {
@@ -799,7 +801,11 @@ function acceptCandidate(document: MemoryDocument, candidate: MemoryCandidate, n
     document.entries.push(entry); candidate.appliedResult = { memoryId: entry.id, revision: 1 };
   } else {
     const entry = document.entries.find((entry) => entry.id === change.memoryId)!;
-    applyCandidateRevision(entry, candidate, now.toISOString());
+    // Keep the immutable proposal/fingerprint; the actual chosen effective
+    // timestamp is persisted in the formal assertion with its receipt.
+    const resolved = change.operation === "change" && change.effectiveAt === null && effectiveAt === "now"
+      ? { ...candidate, change: { ...change, effectiveAt: now.toISOString() } } : candidate;
+    applyCandidateRevision(entry, resolved, now.toISOString());
     candidate.appliedResult = { memoryId: entry.id, revision: entry.revision };
     for (const other of document.candidates) if (other.id !== candidate.id && other.status === "pending" && other.change.operation !== "add" && other.change.memoryId === entry.id) staleCandidate(other, "target_changed", now.toISOString());
   }
@@ -1131,10 +1137,15 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
       const { history: _history, ...currentVersion } = current ?? {};
       let reason: string | null = candidate.status !== "pending" ? candidate.status : staleReasonFor(candidate, document, now);
       let proposedAssertion: MemoryAssertion | undefined;
+      const undatedChange = change.operation === "change" && change.effectiveAt === null;
       if (reason === null && record !== undefined) {
         try {
           const proposedRecord = structuredClone(record);
-          applyCandidateRevision(proposedRecord, candidate, now.toISOString());
+          // Check the from-now choice on a copy only, including identity/kind
+          // invariants. No inferred date is stored in the pending proposal.
+          const previewCandidate = change.operation === "change" && undatedChange
+            ? { ...candidate, change: { ...change, effectiveAt: now.toISOString() } } : candidate;
+          applyCandidateRevision(proposedRecord, previewCandidate, now.toISOString());
           proposedAssertion = proposedRecord.assertions.find(assertion => assertion.assertionId === proposedRecord.versions.at(-1)!.assertionId);
         } catch (error) {
           if (!(error instanceof TemporalMemoryError) && !(error instanceof MemoryStoreError)) throw error;
@@ -1148,8 +1159,8 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
         proposed: applicable && scope ? { text: change.operation === "retract" ? "" : change.text, scope: structuredClone(scope), expiresAt: change.expiresAt, pinned: current?.pinned ?? false, status: change.operation === "disable" || current?.status === "disabled" ? "disabled" : "active",
           kind: proposedAssertion?.kind ?? ("kind" in change ? change.kind : undefined) ?? "note",
           recallTerms: [...(proposedAssertion?.recallTerms ?? ("recallTerms" in change ? change.recallTerms : undefined) ?? [])],
-          validTime: structuredClone(proposedAssertion?.validTime ?? ("validTime" in change ? change.validTime : undefined) ?? { from: null, to: null, basis: "unknown" as const }),
-          ...("effectiveAt" in change && change.effectiveAt !== undefined ? { effectiveAt: change.effectiveAt } : {}),
+          validTime: structuredClone(undatedChange ? { from: null, to: null, basis: "unknown" as const } : proposedAssertion?.validTime ?? ("validTime" in change ? change.validTime : undefined) ?? { from: null, to: null, basis: "unknown" as const }),
+          ...("effectiveAt" in change && change.effectiveAt !== null ? { effectiveAt: change.effectiveAt } : {}),
         } : null,
         applicable, unavailableReason: reason,
       };
@@ -1168,6 +1179,7 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
       const automatic = input.autoAcceptIndexes !== undefined;
       const indexes = input.autoAcceptIndexes ?? [];
       if (!Array.isArray(indexes) || indexes.some(index => !Number.isSafeInteger(index) || index < 0 || index >= drafts.length) || new Set(indexes).size !== indexes.length) raise("MEMORY_BATCH_INVALID", "Automatic acceptance indexes must name unique prepared drafts");
+      if (indexes.some(index => drafts[index]!.change.operation === "change" && drafts[index]!.change.effectiveAt === null)) raise("MEMORY_BATCH_INVALID", "Undated changes require explicit review and cannot be automatically accepted");
       const cursor = input.nextCursor === null ? null : validateCursor(input.nextCursor);
       const expectedCursor = input.expectedCursor !== null ? validateCursor(input.expectedCursor) : null;
       const outcomes = input.outcomes === undefined ? undefined : validateConsolidationOutcomes(input.outcomes);
@@ -1256,10 +1268,12 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
     try {
       const threadId = candidateThread(options);
       if (input.decision !== "accept" && input.decision !== "reject") raise("INVALID_INPUT", "Candidate decision must be accept or reject");
+      if (input.effectiveAt !== undefined && (input.effectiveAt !== "now" || input.decision !== "accept")) raise("INVALID_INPUT", "Effective time must be an explicit from-now acceptance");
       validateRevision(input.expectedCandidateRevision);
       const result = await this.#mutateDocument<MemoryResult<CandidateResolution>>(signal, (document, now) => {
         const candidate = document.candidates.find((c) => c.id === input.candidateId && c.originThreadId === threadId);
         if (!candidate) raise("MEMORY_CANDIDATE_NOT_FOUND", "Memory candidate not found");
+        if (input.effectiveAt !== undefined && !(candidate.change.operation === "change" && candidate.change.effectiveAt === null)) raise("INVALID_INPUT", "From-now acceptance cannot replace a known effective date or another operation");
         const expectedStatus = input.decision === "accept" ? "accepted" : "rejected";
         const resolution = (replayed: boolean): MemoryResult<CandidateResolution> => ({ ok: true, value: { candidateId: candidate.id, status: expectedStatus, memoryId: candidate.appliedResult?.memoryId ?? null, memoryRevision: candidate.appliedResult?.revision ?? null, replayed } });
         if (candidate.status !== "pending") {
@@ -1272,7 +1286,7 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
           staleCandidate(candidate, reason, now.toISOString()); pruneCandidates(document);
           return { document, value: fail("MEMORY_CANDIDATE_STALE", `Candidate is stale: ${reason}`) };
         }
-        if (input.decision === "accept") acceptCandidate(document, candidate, now);
+        if (input.decision === "accept") acceptCandidate(document, candidate, now, input.effectiveAt);
         else { candidate.status = "rejected"; candidate.revision += 1; candidate.resolvedAt = now.toISOString(); }
         pruneCandidates(document);
         return { document, value: resolution(false) };

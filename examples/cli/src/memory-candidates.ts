@@ -9,7 +9,8 @@ type CandidateTarget = { memoryId: string; expectedRevision: number; text: strin
 export type CandidateChange =
   | ({ operation: "add"; text: string; scope: MemoryScope; expiresAt: string | null } & CandidateFact)
   | ({ operation: "update" | "correct" } & CandidateTarget & CandidateFact)
-  | ({ operation: "change"; effectiveAt: string } & CandidateTarget & Omit<CandidateFact, "validTime">)
+  // null is an unresolved proposal, never an effective formal assertion.
+  | ({ operation: "change"; effectiveAt: string | null } & CandidateTarget & Omit<CandidateFact, "validTime">)
   | ({ operation: "retract" | "disable" } & CandidateTarget);
 export interface CandidateDraft {
   change: CandidateChange;
@@ -50,7 +51,11 @@ export interface CandidateResolution {
   candidateId: string; status: "accepted" | "rejected"; memoryId: string | null; memoryRevision: number | null; replayed: boolean;
 }
 export interface CandidateListInput { status?: MemoryCandidate["status"] | undefined; offset?: number | undefined; limit?: number | undefined }
-export interface CandidateResolveInput { candidateId: string; expectedCandidateRevision: number; decision: "accept" | "reject" }
+export interface CandidateResolveInput {
+  candidateId: string; expectedCandidateRevision: number; decision: "accept" | "reject";
+  /** Explicit user choice for an undated proposal; the store captures now under lock. */
+  effectiveAt?: "now";
+}
 export interface CandidateBatchInput {
   batchId: string; originThreadId: string; candidates: CandidateDraft[];
   expectedCursor: ConsolidationCursor | null; nextCursor: ConsolidationCursor | null;

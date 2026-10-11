@@ -2643,6 +2643,53 @@ describe("runTui", () => {
 });
 
 describe("createToolConfirmation", () => {
+  it("approval preview guard: delayed preview cannot be approved before publication", async () => {
+    const preview = deferred<string>();
+    const confirmation = createToolConfirmation(outputBuffer(), { generateId: () => "delayed", prompt: () => preview.promise });
+    const controller = new AbortController();
+    const decision = Promise.resolve(confirmation.beforeToolExecute(toolInput("task_reschedule", controller.signal, { id: "task-1" })));
+    try {
+      assert.equal(confirmation.resolveApproval({ approvalId: "delayed", decision: "allow" }), false);
+      assert.equal(confirmation.getPending()?.approvalId, "delayed");
+      preview.resolve("时间：明天，内容：喝水\n允许这次改期？ [y/n] ");
+      await Promise.resolve();
+      assert.equal(confirmation.resolveApproval({ approvalId: "delayed", decision: "allow" }), true);
+      assert.deepEqual(await decision, { allow: true });
+    } finally { controller.abort("cleanup"); await decision.catch(() => undefined); }
+  });
+
+  it("approval preview guard: whitespace is not ready, but denial remains available", async () => {
+    const confirmation = createToolConfirmation(outputBuffer(), { generateId: () => "blank", prompt: () => " \n\t " });
+    const controller = new AbortController();
+    const decision = Promise.resolve(confirmation.beforeToolExecute(toolInput("write_file", controller.signal, { path: "a.txt", content: "x" })));
+    try {
+      assert.equal(confirmation.resolveApproval({ approvalId: "blank", decision: "allow" }), false);
+      assert.equal(confirmation.resolveApproval({ approvalId: "blank", decision: "deny" }), true);
+      assert.equal((await decision).allow, false);
+    } finally { controller.abort("cleanup"); await decision.catch(() => undefined); }
+  });
+
+  it("approval replacement race: late old preview and stale decisions cannot approve the new call", async () => {
+    const oldPreview = deferred<string>();
+    let sequence = 0;
+    const confirmation = createToolConfirmation(outputBuffer(), { generateId: () => `race-${++sequence}`,
+      prompt: () => sequence === 1 ? oldPreview.promise : "内容：新操作\nAllow this call? [y/n] " });
+    const oldController = new AbortController();
+    const first = Promise.resolve(confirmation.beforeToolExecute(toolInput("write_file", oldController.signal, { path: "old.txt", content: "old" })));
+    oldController.abort("cancelled");
+    await assert.rejects(first, error => error === "cancelled");
+    const nextController = new AbortController();
+    const second = Promise.resolve(confirmation.beforeToolExecute(toolInput("write_file", nextController.signal, { path: "new.txt", content: "new" })));
+    try {
+      oldPreview.resolve("内容：旧操作迟到"); await Promise.resolve();
+      assert.equal(confirmation.getPending()?.approvalId, "race-2");
+      assert.match(confirmation.getPending()?.preview ?? "", /新操作/);
+      assert.equal(confirmation.resolveApproval({ approvalId: "race-1", decision: "allow" }), false);
+      assert.equal(confirmation.resolveApproval({ approvalId: "race-2", decision: "deny" }), true);
+      assert.equal((await second).allow, false);
+    } finally { nextController.abort("cleanup"); await second.catch(() => undefined); }
+  });
+
   it("resolves only the matching approval and rejects stale or repeated decisions", async () => {
     const output = outputBuffer();
     const changes: Array<string | undefined> = [];

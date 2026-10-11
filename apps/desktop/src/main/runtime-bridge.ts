@@ -152,7 +152,7 @@ export function sanitizeCandidateListInput(input: unknown): CandidateListInput |
   return result;
 }
 
-/** Accept only the review identity. Ignore approvalId, memory revision, and proposed text. */
+/** Keep the review identity and explicit from-now choice; never accept rewritten fact/source/scope fields. */
 export function sanitizeCandidateResolveInput(input: unknown): CandidateResolveInput | MemoryResult<never> {
   if (typeof input !== "object" || input === null || Array.isArray(input)) {
     return invalidInput("Candidate review input must be an object");
@@ -167,10 +167,14 @@ export function sanitizeCandidateResolveInput(input: unknown): CandidateResolveI
   if (record.decision !== "accept" && record.decision !== "reject") {
     return invalidInput("Candidate decision must be accept or reject");
   }
+  if (record.effectiveAt !== undefined && (record.effectiveAt !== "now" || record.decision !== "accept")) {
+    return invalidInput("Effective time must be an explicit from-now acceptance");
+  }
   return {
     candidateId: record.candidateId,
     expectedCandidateRevision: record.expectedCandidateRevision,
     decision: record.decision,
+    ...(record.effectiveAt === "now" ? { effectiveAt: "now" as const } : {}),
   };
 }
 

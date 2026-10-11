@@ -73,7 +73,7 @@ it("explicit rework uses a fresh approved Run and never accepts a prior write as
     const confirmations: boolean[] = [];
     const seen = new Set<string>();
     currentController.subscribe((event) => {
-      if (event.type !== "approval" || seen.has(event.approval.approvalId)) return;
+      if (event.type !== "approval" || !event.approval.preview.trim() || seen.has(event.approval.approvalId)) return;
       seen.add(event.approval.approvalId);
       const pending = event.approval;
       approvals.push(pending.approvalId);

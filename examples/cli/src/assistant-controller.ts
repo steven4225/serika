@@ -37,6 +37,7 @@ import type { MemoryReferenceSnapshot } from "./memory-query-rewrite.js";
 import { memoryActionPreview, memoryCapacity, memoryControlFailure, memoryHistoryPage, temporalMemoryStore, validateMemoryAction, validateMemoryHistoryInput, type MemoryAction, type MemoryActionPreview, type MemoryHistoryInput, type MemoryHistoryPage, type MemoryMaintenance, type MemoryTemporalInput } from "./memory-controls.js";
 import type { MemoryTemporalView } from "./memory-store.js";
 import { consolidationSourcePage, memoryConsolidationBacklog, prepareConsolidationExtraction, stageConsolidationExtraction, validateConsolidationRequest, type MemoryConsolidationRequest, type MemoryConsolidationSourcePage } from "./memory-consolidation.js";
+import { memoryConsolidationFailureText } from "./memory-failure.js";
 import { AUTO_CONSOLIDATION_AGENT_ID } from "./consolidation.js";
 import { readWorkTaskArtifact, workTaskDeliveryDraft, type WorkTaskReadInput, type WorkTaskArtifactInput, type WorkTaskReadResult, type WorkTaskDeliveryDraft, type WorkTaskArtifactPreview } from "./work-task-artifacts.js";
 
@@ -480,7 +481,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
         if (finalized !== undefined && !finalized.ok) {
           finalizationFailed = true;
           consolidationFailure = `${finalized.error.code}: ${finalized.error.message}`;
-          emit({ type: "error", message: `${finalized.error.code === "MEMORY_COMMIT_UNCERTAIN" ? "Memory write acknowledgement is uncertain; read current memory before retrying" : "Memory consolidation did not complete"}: ${finalized.error.code}: ${finalized.error.message}` });
+          emit({ type: "error", message: memoryConsolidationFailureText(consolidationFailure) });
         } else if (finalized?.ok) {
           lastProcessedCount = finalized.value.processedCount ?? 0;
           accepted = finalized.value.accepted ?? [];
@@ -501,7 +502,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       } catch (error) {
         finalizationFailed = true;
         consolidationFailure = String(error);
-        emit({ type: "error", message: `Memory consolidation acknowledgement failed; inspect current memory before retrying: ${String(error)}` });
+        emit({ type: "error", message: memoryConsolidationFailureText("acknowledgement: " + String(error)) });
       }
       if (phase === "consolidation") {
         const yielded = result.status === "cancelled" && signal?.aborted &&
