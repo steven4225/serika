@@ -16,6 +16,7 @@ import type { MemoryTemporalQuery, MemoryTemporalView } from "@aisdk-agent/examp
 import type { MemoryReferenceSnapshot } from "@aisdk-agent/example-cli/dist/memory-query-rewrite.js";
 import type { AgentEvent, RunResult } from "@aisdk-agent/core";
 import type { ExecutionRunRecord } from "@aisdk-agent/example-cli/dist/execution-record-store.js";
+import type { ModelUsagePage } from "@aisdk-agent/example-cli/dist/model-usage.js";
 export type { ExecutionRunRecord, ExecutionToolRecord } from "@aisdk-agent/example-cli/dist/execution-record-store.js";
 import type { ContextDiagnostics, ContextResult } from "@aisdk-agent/example-cli/dist/context-diagnostics.js";
 import type { ContextBudgetConfig } from "@aisdk-agent/example-cli/dist/context-budget.js";
@@ -181,7 +182,7 @@ export type ExecutionToolStatus =
   | "unknown";
 
 export type ListRunsResponse =
-  | { ok: true; runs: ExecutionRunRecord[] }
+  | { ok: true; runs: ExecutionRunRecord[]; modelUsage?: ModelUsagePage }
   | { ok: false; reason: "unavailable"; message: string };
 
 export type GetRunResponse =

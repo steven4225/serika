@@ -67,6 +67,8 @@ import {
 import { formatReminderConfirmation, readRecurrence } from "./reminder-speech.js";
 import { createTodoistModule } from "./modules/todoist-module.js";
 import { createMemoryQueryRewriter, memoryQueryTopics, type MemoryReferenceSnapshot } from "./memory-query-rewrite.js";
+import { observeModelUsage } from "./model-usage-observer.js";
+import type { ModelPurpose } from "./model-usage.js";
 import { createWebModule } from "./modules/web-module.js";
 import { createComputerModule } from "./modules/computer-module.js";
 import { createTaskStore } from "./task-store.js";
@@ -264,6 +266,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     consolidationAgentIds: externalSkills.filter(skill => skill.kind === "memory-consolidate").map(skill => skill.agentId),
   });
   const executionRecords = createExecutionRecordStore(directory);
+  let usageEnabled = false;
   const workTasks = workspaceRoot === undefined ? undefined : createWorkTaskStore(workspaceRoot, { executionRecords });
   const executionRecordAdapter = createExecutionRecordAdapter(store, executionRecords, workTasks, agentId => {
     const skill = externalSkills.find(skill => skill.agentId === agentId);
@@ -950,12 +953,21 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         instructions: DREAMING_INSTRUCTIONS, tools: [],
         limits: { maxSteps: 1, totalTimeoutMs: 60_000, stepTimeoutMs: 60_000, maxOutputTokens: 4096 } }] : []),
     ]);
-    const models = new InMemoryModelRegistry({ [modelAlias]: model });
+    const observedModel = (purpose?: ModelPurpose) => observeModelUsage(model, {
+      records: executionRecords, threadId, enabled: () => usageEnabled,
+      scope: () => {
+        const current = executionRecordAdapter.currentRun();
+        return { ...(current ? { runId: current.runId } : {}),
+          purpose: purpose ?? (current?.phase === "consolidation" ? "memory_consolidation" : current?.phase === "skill" ? "skill" : "chat") };
+      },
+      ...(moduleConfig?.modelPricing ? { prices: moduleConfig.modelPricing } : {}),
+    });
+    const models = new InMemoryModelRegistry({ [modelAlias]: observedModel() });
     const queryFrom = (messages: readonly UIMessage[]): string => {
       const user = [...messages].reverse().find((message) => message.role === "user" && !isAutoConsolidationRequest(message));
       return user?.parts.flatMap((part) => part.type === "text" ? [part.text] : []).join("\n") ?? "";
     };
-    const rewriteQuery = createMemoryQueryRewriter(model);
+    const rewriteQuery = createMemoryQueryRewriter(observedModel("query_rewrite"));
     let memoryReference: MemoryReferenceSnapshot | null = null;
     let learnedSkillReference: LearnedSkillReferenceSnapshot | null = null;
     const memoryReferenceListeners = new Set<() => void>();
@@ -1013,7 +1025,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
             store,
             threadId,
             modelId: modelAlias,
-            summarizer: createAiSdkSummarizer(model),
+            summarizer: createAiSdkSummarizer(observedModel("context_compaction")),
             budget: moduleConfig.contextCompaction,
             fixedContext: () => {
               const now = new Date();
@@ -1351,7 +1363,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       runtime,
       store,
       executionRecords,
-      enableExecutionRecords: executionRecordAdapter.enable,
+      enableExecutionRecords: () => { executionRecordAdapter.enable(); usageEnabled = true; },
       bindNextExecutionWorkTask: executionRecordAdapter.bindNextWorkTask,
       workTasks,
       workTaskContext: {

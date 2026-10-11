@@ -8,6 +8,7 @@ import {
   win32,
 } from "node:path";
 import { z } from "zod";
+import { validModelPrice, type ModelPrice } from "./model-usage.js";
 import { computerConfigSchema, type ComputerConfig } from "./modules/computer-module.js";
 import { hooksConfigSchema, type HookRule } from "./automation-hooks.js";
 import { skillPackageRegistrationsSchema, type SkillPackageRegistration } from "./skill-catalog.js";
@@ -75,6 +76,7 @@ export interface ResolvedTuiModuleConfig {
   totalTimeoutMs: number;
   computer?: ComputerConfig;
   automation?: AutomationConfig;
+  modelPricing?: readonly ModelPrice[];
 }
 
 export interface AutomationConfig {
@@ -183,6 +185,9 @@ const tuiModuleConfigV1Schema = z
     .strict(),
     fileAuthorizations: z.array(fileAuthorizationSchema).optional(),
     contextCompaction: contextCompactionSchema.optional(),
+    modelPricing: z.array(z.custom<ModelPrice>(validModelPrice)).max(16).refine(prices =>
+      new Set(prices.map(price => JSON.stringify([price.provider, price.modelId]))).size === prices.length,
+      "Duplicate provider/model price").optional(),
     automation: automationConfigSchema.optional(),
     run: z
       .object({
@@ -228,6 +233,7 @@ export interface TuiModuleConfigV1 {
   contextCompaction?: ContextBudgetConfig | undefined;
   run?: { maxSteps?: number | undefined; totalTimeoutMs?: number | undefined } | undefined;
   automation?: AutomationConfig | undefined;
+  modelPricing?: ModelPrice[] | undefined;
 }
 
 function configPathFromArgs(args: TuiArgs): string | undefined {
@@ -561,6 +567,7 @@ async function resolveConfiguredMode(
     totalTimeoutMs: config.run?.totalTimeoutMs ?? TUI_DEFAULT_TOTAL_TIMEOUT_MS,
     ...(computer ? { computer } : {}),
     ...(config.automation ? { automation: config.automation } : {}),
+    ...(config.modelPricing ? { modelPricing: config.modelPricing } : {}),
   };
 }
 

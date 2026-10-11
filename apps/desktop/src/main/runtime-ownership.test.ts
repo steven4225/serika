@@ -186,7 +186,7 @@ test("a failed enable confirmed unregistered restores the same local identity wi
     assert.equal(owner.info().directory, before.directory);
     assert.equal(owner.info().workspaceRoot, before.workspaceRoot);
     assert.equal(owner.current.snapshot().state.kind, "idle");
-    assert.deepEqual(await owner.current.listRuns(), { ok: true, runs: [] });
+    assert.deepEqual(await owner.current.listRuns(), { ok: true, runs: [], modelUsage: { calls: [], droppedCount: 0 } });
     assert.deepEqual(f.counts(), { enableCalls: 1, disableCalls: 0, modelCalls: 0 });
   } finally { await owner.shutdown(); await f.cleanup(); }
 });

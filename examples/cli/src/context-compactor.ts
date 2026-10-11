@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { sumTokenUsage } from "@aisdk-agent/ai-sdk-adapter";
 import type { UIMessage } from "ai";
 import {
   AgentError,
@@ -438,16 +439,7 @@ function formatUsage(usage: TokenUsage | undefined): string {
 }
 
 function addObservedUsage(previous: TokenUsage | undefined, next: TokenUsage): TokenUsage {
-  const sum = (left: number | undefined, right: number | undefined): number | undefined =>
-    left === undefined && right === undefined ? undefined : (left ?? 0) + (right ?? 0);
-  const inputTokens = sum(previous?.inputTokens, next.inputTokens);
-  const outputTokens = sum(previous?.outputTokens, next.outputTokens);
-  const totalTokens = sum(previous?.totalTokens, next.totalTokens);
-  return {
-    ...(inputTokens === undefined ? {} : { inputTokens }),
-    ...(outputTokens === undefined ? {} : { outputTokens }),
-    ...(totalTokens === undefined ? {} : { totalTokens }),
-  };
+  return sumTokenUsage(previous, next);
 }
 
 export class ContextCompactor {

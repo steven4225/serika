@@ -63,6 +63,9 @@ export interface TokenUsage {
   inputTokens?: number;
   outputTokens?: number;
   totalTokens?: number;
+  /** Absent means the provider did not report it, never an inferred zero. */
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
 }
 
 export interface RunResult {

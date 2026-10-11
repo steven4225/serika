@@ -91,7 +91,7 @@ describe("normal desktop memory and history entry", () => {
       host = await DesktopRuntime.create(options);
       assert.equal(host.info().workspaceRoot, await realpath(workspace));
       assert.equal(host.current.snapshot().state.kind, "idle");
-      assert.deepEqual(await host.current.listRuns(), { ok: true, runs: [] });
+      assert.deepEqual(await host.current.listRuns(), { ok: true, runs: [], modelUsage: { calls: [], droppedCount: 0 } });
       assert.equal(calls, 0, "reconnection after rejected assembly must not replay anything");
     } finally { await host?.shutdown(); await rm(root, { recursive: true, force: true }); }
   });

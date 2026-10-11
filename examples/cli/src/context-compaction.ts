@@ -1,5 +1,6 @@
 import { streamText, type LanguageModel, type UIMessage } from "ai";
 import { durable, type TokenUsage } from "@aisdk-agent/core";
+import { normalizeTokenUsage } from "@aisdk-agent/ai-sdk-adapter";
 
 export const CONTEXT_SUMMARY_VERSION = 2 as const;
 export const CONTEXT_SUMMARY_STRATEGY_VERSION = "summary-json/v2" as const;
@@ -107,13 +108,7 @@ export function createAiSdkSummarizer(model: LanguageModel): Summarizer {
         ...(usage === undefined
           ? {}
           : {
-              usage: {
-                ...(usage.inputTokens === undefined ? {} : { inputTokens: usage.inputTokens }),
-                ...(usage.outputTokens === undefined ? {} : { outputTokens: usage.outputTokens }),
-                ...(usage.inputTokens === undefined && usage.outputTokens === undefined
-                  ? {}
-                  : { totalTokens: (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0) }),
-              },
+              usage: normalizeTokenUsage(usage),
             }),
       };
     },

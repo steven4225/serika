@@ -429,8 +429,11 @@ export class RuntimeBridge {
   }
 
   async listRuns(): Promise<ListRunsResponse> {
+    const usage = await wrapExecutionQuery(async () => this.#controller.listModelUsage?.());
+    if (!usage.ok) return usage;
     return toListRunsResponse(
       await wrapExecutionQuery((): Promise<ExecutionRunRecord[]> => this.#controller.listRuns()),
+      usage.value,
     );
   }
 
