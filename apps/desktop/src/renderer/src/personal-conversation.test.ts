@@ -3,6 +3,7 @@ import { it } from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ConversationRow, ToolRow } from "./conversation.js";
+import { SerikaPersona } from "./icons.js";
 import { PersonalConversation, PersonalTool } from "./personal/conversation.js";
 import { PersonalPromptEditor, PersonalPromptOptions } from "./personal/composer.js";
 import { rowsFromToolActivity } from "./conversation.js";
@@ -20,6 +21,9 @@ it("personal conversation keeps a right user bubble and a safe full assistant re
   assert.match(markup, /这是完整正文/);
   assert.match(markup, /aria-label="复制回复"/);
   assert.doesNotMatch(markup, /今天 \d|<time|麦克风|avatar/);
+  const userArticle = markup.slice(markup.indexOf("personal-message role-user"), markup.indexOf("personal-assistant-row"));
+  assert.doesNotMatch(userArticle, /<img|serika-mark/);
+  assert.match(markup, /personal-assistant-row"><img class="serika-mark"[^>]*serika-icon\.png/);
   const unsafe = render([{ ...reply, text: "<script>alert(1)</script>\n\n[危险](javascript:alert(1))" }]);
   assert.doesNotMatch(unsafe, /<script>|href="javascript:/);
 });
@@ -83,6 +87,7 @@ it("personal conversation retains streaming, steering and explicit incomplete ta
   assert.match(markup, /补充本轮要求/);
   assert.match(markup, /只追加，不覆盖。/);
   assert.match(markup, /personal-message role-assistant streaming/);
+  assert.match(markup, /personal-assistant-row[\s\S]*serika-icon\.png[\s\S]*正在继续回复/);
   assert.match(markup, /正在继续回复/);
   assert.match(markup, /本轮额度已用完 · 任务尚未完成/);
   assert.doesNotMatch(markup, /aria-label="复制回复"/);
@@ -93,6 +98,15 @@ it("personal trace links require the row's exact known Run, not only a toolCallI
   assert.match(renderToStaticMarkup(createElement(PersonalTool, { row: tool, onTrace })), /查看本次执行追踪/);
   const { runId, ...historicalTool } = tool;
   assert.doesNotMatch(renderToStaticMarkup(createElement(PersonalTool, { row: historicalTool, onTrace })), /查看本次执行追踪/);
+});
+
+it("persona header stacks the application icon above the serika pill", () => {
+  const markup = renderToStaticMarkup(createElement(SerikaPersona, { size: 52 }));
+  assert.match(markup, /class="serika-persona"/);
+  assert.match(markup, /class="serika-mark"/);
+  assert.match(markup, /serika-icon\.png/);
+  assert.match(markup, /border-radius:50%/);
+  assert.match(markup, /class="serika-persona-name">serika</);
 });
 
 it("personal capsule composer forwards draft and input controls without unsupported attachment or microphone actions", () => {

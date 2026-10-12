@@ -2,6 +2,7 @@ import type { AppBuildInfo, DesktopBuildManifest, SourceRevision } from "../../s
 import { buildStatus, workerBuildStatus } from "../../shared/build-identity.js";
 import type { RssWorkerResponse } from "../../shared/ui-contract.js";
 import React, { useEffect, useState } from "react";
+import { SerikaMark } from "./icons.js";
 
 declare const __SERIKA_BUILD__: DesktopBuildManifest | undefined;
 const rendererBuild = typeof __SERIKA_BUILD__ === "undefined" ? null : __SERIKA_BUILD__ ?? null;
@@ -31,12 +32,12 @@ export function BuildIdentityPanel({ info, worker: initialWorker = null }: { inf
     catch { setError("版本核对失败，仍显示上次已加载信息。"); }
     finally { setChecking(false); }
   };
-  if (!current) return <details><summary>当前版本</summary><p className="hint">当前入口未提供构建标识，不能确认版本。</p></details>;
+  if (!current) return <details className="build-identity"><summary><SerikaMark size={18} />当前版本</summary><p className="hint">当前入口未提供构建标识，不能确认版本。</p></details>;
   const status = buildStatus(current, rendererBuild);
   const background = worker?.ok === true ? workerBuildStatus(worker, rendererBuild ?? current.loaded)
     : worker?.ok === false ? { warning: true, text: `后台版本状态不可用：${worker.message.trimEnd().replace(/[。.]+$/, "")}。不能确认已加载新码；不会自动停止服务。` } : null;
-  return <details>
-    <summary>当前版本{status.warning || background?.warning ? " · 需要核对" : ""}</summary>
+  return <details className="build-identity">
+    <summary><SerikaMark size={18} />当前版本{status.warning || background?.warning ? " · 需要核对" : ""}</summary>
     <p className={status.warning ? "error" : "hint"} role="status">{status.text}</p>
     {background ? <p className={background.warning ? "error" : "hint"} role="status">{background.text}</p> : null}
     {current.loaded ? <>

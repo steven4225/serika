@@ -29,7 +29,13 @@ export function Icon({ name, size = 18, style }: { name: IconName; size?: number
 
 const serikaIconUrl = new URL("../../../resources/serika-icon.png", import.meta.url).href;
 
+/** Circular crop of the packaged application icon. This is Serika's face. */
 export function SerikaMark({ size = 28 }: { size?: number }) {
   return <img className="serika-mark" src={serikaIconUrl} width={size} height={size} alt="" aria-hidden="true" draggable={false}
-    style={{ flexShrink: 0, borderRadius: size * 0.22, verticalAlign: "middle" }} />;
+    style={{ flexShrink: 0, width: size, height: size, borderRadius: "50%", objectFit: "cover", verticalAlign: "middle" }} />;
+}
+
+/** Header and empty-state face: round application icon above the serika pill. */
+export function SerikaPersona({ size = 48 }: { size?: number }) {
+  return <span className="serika-persona"><SerikaMark size={size} /><span className="serika-persona-name">serika</span></span>;
 }
