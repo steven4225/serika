@@ -3,12 +3,19 @@ import { it } from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ThreadSummary } from "../../../shared/ui-contract.js";
-import { SearchOverlay } from "./search-overlay.js";
+import { SearchOverlay, SearchResults } from "./search-overlay.js";
 import {
   deferredSearchHint,
+  inspectMessageSearch,
   messageSearchHits,
+  messageSearchNotice,
   nextSearchFilter,
+  revealSearchRow,
+  scrollOffsetToReveal,
   SEARCH_FILTERS,
+  SEARCH_HISTORY_UNAVAILABLE,
+  SEARCH_NO_MATCH,
+  SEARCH_PARTIAL_FAILURE,
   searchKeyAction,
 } from "./search.js";
 
@@ -54,6 +61,82 @@ it("message search uses human titles and drops identifier-only previews", () => 
   assert.equal(hits[1]?.title, "当前对话");
   assert.equal(hits[1]?.preview, "打开这段对话");
   assert.equal(messageSearchHits([thread({ threadId: "a", title: "空", matchesQuery: true })], "  ", new Map()).length, 0);
+});
+
+it("mixed keyword hits and corrupt history keep the hits and say some conversations cannot be searched", () => {
+  const inspection = inspectMessageSearch([
+    thread({ threadId: "good", title: "明天早上提醒喝水", preview: "记得喝水", matchesQuery: true }),
+    thread({ threadId: "bad", title: "坏掉的记录", preview: "读不出来", error: "STORAGE_CORRUPT", matchesQuery: false }),
+  ], "喝水", new Map());
+  assert.equal(inspection.hits.length, 1);
+  assert.equal(inspection.hits[0]?.title, "明天早上提醒喝水");
+  assert.equal(inspection.failedThreads, 1);
+  assert.equal(inspection.readableThreads, 1);
+  assert.equal(messageSearchNotice(inspection), "partial");
+  const html = renderToStaticMarkup(createElement(SearchResults, {
+    hits: inspection.hits,
+    notice: messageSearchNotice(inspection),
+    index: 0,
+    filter: "message",
+  }));
+  assert.match(html, /明天早上提醒喝水/);
+  assert.match(html, new RegExp(SEARCH_PARTIAL_FAILURE));
+  assert.doesNotMatch(html, /没有匹配/);
+  assert.doesNotMatch(html, /STORAGE_CORRUPT/);
+  assert.doesNotMatch(html, /坏掉的记录/);
+});
+
+it("history that all failed to load uses a failure empty state instead of no matches", () => {
+  const inspection = inspectMessageSearch([
+    thread({ threadId: "a", title: "甲", error: "STORAGE_CORRUPT" }),
+    thread({ threadId: "b", title: "乙", error: "STORAGE_CORRUPT" }),
+  ], "喝水", new Map());
+  assert.equal(inspection.hits.length, 0);
+  assert.equal(inspection.readableThreads, 0);
+  assert.equal(inspection.failedThreads, 2);
+  assert.equal(messageSearchNotice(inspection), "unavailable");
+  const html = renderToStaticMarkup(createElement(SearchResults, {
+    hits: inspection.hits,
+    notice: messageSearchNotice(inspection),
+    index: -1,
+    filter: "message",
+  }));
+  assert.match(html, new RegExp(SEARCH_HISTORY_UNAVAILABLE));
+  assert.doesNotMatch(html, new RegExp(SEARCH_NO_MATCH.replace("。", "")));
+  assert.doesNotMatch(html, /STORAGE_CORRUPT/);
+});
+
+it("moving selection past the fold scrolls that result row into view", () => {
+  const rowHeight = 48;
+  const viewportHeight = rowHeight * 4;
+  const count = 12;
+  const revealed: number[] = [];
+  const rows = Array.from({ length: count }, (_, rowIndex) => ({
+    top: rowIndex * rowHeight,
+    bottom: (rowIndex + 1) * rowHeight,
+    scrollIntoView(options?: { block?: string }) {
+      revealed.push(rowIndex);
+      assert.equal(options?.block, "nearest");
+    },
+  }));
+  let index = -1;
+  let scrollTop = 0;
+  for (let step = 0; step < 6; step += 1) {
+    const action = searchKeyAction({ key: "ArrowDown", shiftKey: false, filter: "message", index, count });
+    assert.equal(action.type, "move");
+    if (action.type !== "move") return;
+    index = action.index;
+    const row = rows[index];
+    assert.ok(row);
+    revealSearchRow(row);
+    scrollTop = scrollOffsetToReveal({ scrollTop, viewportHeight, top: row.top, bottom: row.bottom });
+  }
+  assert.ok(index >= 4);
+  const selected = rows[index];
+  assert.ok(selected);
+  assert.ok(selected.top >= scrollTop);
+  assert.ok(selected.bottom <= scrollTop + viewportHeight);
+  assert.equal(revealed.at(-1), index);
 });
 
 it("the empty overlay shows shortcut hints and does not render engineering ids", () => {

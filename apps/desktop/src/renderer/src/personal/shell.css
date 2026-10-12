@@ -145,6 +145,7 @@
 .personal-search-body { flex: 1; min-height: 0; overflow: auto; padding-bottom: 16px; }
 .personal-search-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; min-height: 320px; padding: 36px 28px 48px; color: #8d8794; text-align: center; }
 .personal-search-empty p { margin: 0; line-height: 1.7; }
+.personal-search-status { margin: 10px 22px 2px; font-size: 13px; color: var(--muted); }
 .personal-search-group { margin: 4px 22px 2px; font-size: 12px; color: var(--muted); }
 .personal-search-note { margin: 8px 22px 16px; font-size: 13px; color: var(--muted); }
 .personal-search-hit { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: calc(100% - 24px); margin: 2px 12px; padding: 12px 14px; border: 0; background: transparent; color: var(--text); text-align: left; }

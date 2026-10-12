@@ -14,6 +14,9 @@ export const SEARCH_FILTER_LABEL: Record<SearchFilter, string> = {
 };
 
 export const SEARCH_KEYBOARD_HINT = "按 Tab 切换筛选，按 ↑↓ 导航，按 ↩ 选择，按 ESC 关闭";
+export const SEARCH_NO_MATCH = "没有匹配的消息。";
+export const SEARCH_PARTIAL_FAILURE = "部分对话暂时无法搜索";
+export const SEARCH_HISTORY_UNAVAILABLE = "暂时搜不到历史，请稍后重试";
 
 const DEFERRED_FILTERS = ["file", "link", "image"] as const;
 export type DeferredSearchFilter = (typeof DEFERRED_FILTERS)[number];
@@ -34,12 +37,28 @@ export interface MessageSearchHit {
   preview: string;
 }
 
-/** Message hits reuse thread search. Titles and previews stay human; ids are not display text. */
-export function messageSearchHits(threads: readonly ThreadSummary[], query: string, drafts: ReadonlyMap<string, string>): MessageSearchHit[] {
+export interface MessageSearchInspection {
+  hits: MessageSearchHit[];
+  failedThreads: number;
+  readableThreads: number;
+}
+
+export type MessageSearchNotice = "none" | "partial" | "unavailable";
+
+function historyFailed(thread: ThreadSummary): boolean {
+  return typeof thread.error === "string" && thread.error.trim() !== "";
+}
+
+/** Message hits reuse thread search. A failed history read is counted, not shown as a hit. */
+export function inspectMessageSearch(threads: readonly ThreadSummary[], query: string, drafts: ReadonlyMap<string, string>): MessageSearchInspection {
   const needle = query.trim().toLocaleLowerCase();
-  if (!needle) return [];
+  if (!needle) return { hits: [], failedThreads: 0, readableThreads: 0 };
   const hits: MessageSearchHit[] = [];
+  let failedThreads = 0;
+  let readableThreads = 0;
   for (const thread of threads) {
+    if (historyFailed(thread)) failedThreads += 1;
+    else readableThreads += 1;
     const draft = drafts.get(thread.threadId);
     const draftHit = draft ? draft.toLocaleLowerCase().includes(needle) : false;
     if (thread.matchesQuery !== true && !draftHit) continue;
@@ -50,7 +69,31 @@ export function messageSearchHits(threads: readonly ThreadSummary[], query: stri
       preview: humanFacingTitle(previewSource, "打开这段对话"),
     });
   }
-  return hits;
+  return { hits, failedThreads, readableThreads };
+}
+
+export function messageSearchHits(threads: readonly ThreadSummary[], query: string, drafts: ReadonlyMap<string, string>): MessageSearchHit[] {
+  return inspectMessageSearch(threads, query, drafts).hits;
+}
+
+/** Partial when any history failed but something was still readable or matched. Unavailable when every read failed and nothing matched. */
+export function messageSearchNotice(inspection: Pick<MessageSearchInspection, "hits" | "failedThreads" | "readableThreads">): MessageSearchNotice {
+  if (inspection.failedThreads === 0) return "none";
+  if (inspection.hits.length === 0 && inspection.readableThreads === 0) return "unavailable";
+  return "partial";
+}
+
+export function scrollOffsetToReveal(input: { scrollTop: number; viewportHeight: number; top: number; bottom: number }): number {
+  const { scrollTop, viewportHeight, top, bottom } = input;
+  if (viewportHeight <= 0) return scrollTop;
+  if (bottom - top >= viewportHeight) return top;
+  if (top < scrollTop) return top;
+  if (bottom > scrollTop + viewportHeight) return Math.max(0, bottom - viewportHeight);
+  return scrollTop;
+}
+
+export function revealSearchRow(row: { scrollIntoView: (options?: { block?: "nearest" | "start" | "center" | "end" }) => void } | null | undefined): void {
+  row?.scrollIntoView({ block: "nearest" });
 }
 
 export function deferredSearchHint(filter: DeferredSearchFilter): string {
