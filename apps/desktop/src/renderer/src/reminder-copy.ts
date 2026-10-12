@@ -32,13 +32,39 @@ export function reminderSpeechLine(text: string | undefined): string | null {
   return line.length > 0 ? line : null;
 }
 
+const backgroundUnavailable = /后台(?:当前)?不可用|尚未就绪|不能保证执行/;
+
+function failurePrimary(text: string): string | null {
+  if (text.trim().length > 500 || !/\b(?:fail(?:ed|ure)?|cannot|unable|error)\b/i.test(text)) return null;
+  if (/\btask_reschedule\b/i.test(text)) return "这次提醒没有改成。";
+  if (/\btask_(?:repeat_)?create\b/i.test(text) || /\bcannot create\b/i.test(text)) return "这次提醒没有设成。";
+  return null;
+}
+
+/** Drop English status tokens without eating a warning that follows them. */
+function withoutEnglishStatus(text: string): string {
+  return text
+    .replace(/\bstatus\s*:\s*scheduled\b/gi, "")
+    .replace(/\bscheduled\b/gi, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/[ \t]*\n[ \t]*/g, "\n")
+    .replace(/\n{2,}/g, "\n")
+    .trim();
+}
+
 export function presentReminderReply(text: string): { primary: string; aside: string | null } {
+  const failure = failurePrimary(text);
+  if (failure !== null) return { primary: failure, aside: text };
+  if (backgroundUnavailable.test(text)) {
+    const primary = withoutEnglishStatus(text).replace(/已(?:定|记下)：/g, "").replace(/[ \t]{2,}/g, " ").trim();
+    return { primary, aside: primary === text.trim() ? null : text };
+  }
   if (!/\bscheduled\b/i.test(text)) return { primary: text, aside: null };
   const speech = reminderSpeechLine(text);
   if (speech !== null) return { primary: speech, aside: text.trim() === speech ? null : text };
-  const shortStatus = text.trim().length <= 500 && /\b(?:runAt|task_create|task id|status)\b/i.test(text);
+  const shortStatus = text.trim().length <= 500 && /\b(?:runAt|task_create|task_reschedule|task id|status)\b/i.test(text);
   if (!shortStatus) return { primary: text, aside: null };
-  return { primary: "这次安排已记下。", aside: text };
+  return { primary: "这段英文不能说明提醒已经设好。", aside: text };
 }
 
 export interface ReminderConfirmationCard {
@@ -64,9 +90,9 @@ function confirmationVerb(toolName: string): { title: string; allowLabel: string
   switch (toolName) {
     case "task_create":
     case "task_repeat_create":
-      return { title: "已设提醒", allowLabel: "确认保存", safety: "确认后才会保存。保存不等于已经提醒到你。" };
+      return { title: "设置提醒", allowLabel: "确认保存", safety: "确认后才会保存。保存不等于已经提醒到你。" };
     case "task_reschedule":
-      return { title: "已改提醒", allowLabel: "确认改期", safety: "确认后才会改时间。改期不等于已经送达。" };
+      return { title: "调整提醒", allowLabel: "确认改期", safety: "确认后才会改时间。改期不等于已经送达。" };
     case "task_cancel":
     case "task_repeat_cancel":
       return { title: "取消提醒", allowLabel: "确认取消", safety: "确认后才会取消。已经弹出的通知不会撤回。" };

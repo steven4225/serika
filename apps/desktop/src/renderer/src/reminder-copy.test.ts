@@ -30,7 +30,7 @@ it("confirmation card leads with the Chinese reminder, not the tool name", () =>
     ].join("\n"),
   });
   assert.ok(card);
-  assert.equal(card.title, "已设提醒：每天 9:00 喝水");
+  assert.equal(card.title, "设置提醒：每天 9:00 喝水");
   assert.equal(card.allowLabel, "确认保存");
   assert.match(card.safety, /保存不等于已经提醒到你/);
   assert.doesNotMatch(card.title + card.safety, /task_repeat_create|scheduled|runAt/);
@@ -84,8 +84,32 @@ it("reply primary line keeps the natural-language reminder and drops English sch
   assert.equal(mixed.primary, "已定：每天 9:00 提醒喝水");
   assert.match(mixed.aside ?? "", /scheduled/);
   const dump = presentReminderReply('{"status":"scheduled","runAt":"2026-10-11T01:00:00.000Z"}');
-  assert.equal(dump.primary, "这次安排已记下。");
+  assert.equal(dump.primary, "这段英文不能说明提醒已经设好。");
+  assert.doesNotMatch(dump.primary, /已定|已记下/);
   assert.equal(presentReminderReply("明天的会已经 scheduled 在日历里，我们按原计划走。").primary, "明天的会已经 scheduled 在日历里，我们按原计划走。");
+});
+
+it("keeps a background-unavailable warning on the primary line instead of collapsing to 已定 or 已记下", () => {
+  const text = "已定：每天 9:00 提醒喝水。但后台当前不可用或尚未就绪，到点不能保证执行；请在后台提醒中核对并启用服务，不要重复创建。\nstatus: scheduled";
+  const folded = "已定：每天 9:00 提醒喝水\n但后台当前不可用或尚未就绪，到点不能保证执行；请在后台提醒中核对并启用服务，不要重复创建。\nstatus: scheduled";
+  const noted = presentReminderReply(text.replace("已定：", "已记下："));
+  const view = presentReminderReply(text);
+  const split = presentReminderReply(folded);
+  for (const primary of [view.primary, noted.primary, split.primary]) {
+    assert.match(primary, /后台当前不可用或尚未就绪/);
+    assert.match(primary, /不要重复创建/);
+    assert.doesNotMatch(primary, /已定|已记下/);
+  }
+  assert.equal(presentReminderConfirmation({ toolName: "task_reschedule", preview: "提醒确认\n时间：明天 9:00\n内容：开会\n允许这次改期？ [y/n]" })?.title, "调整提醒：明天 9:00 开会");
+});
+
+it("keeps a failed create or reschedule as a Chinese failure instead of 已记下", () => {
+  const created = presentReminderReply("task_create failed: cannot create scheduled reminder");
+  const moved = presentReminderReply("task_reschedule failed: cannot create scheduled reminder");
+  assert.match(created.primary, /没有设成/);
+  assert.match(moved.primary, /没有改成/);
+  assert.doesNotMatch(`${created.primary}\n${moved.primary}`, /已定|已记下/);
+  assert.match(created.aside ?? "", /cannot create scheduled reminder/);
 });
 
 it("reminder home shows the subject and local time without the task id on the primary line", () => {

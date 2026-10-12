@@ -23,7 +23,7 @@ test("approval delayed preview becomes enabled only with visible content and hid
   assert.match(markup(approval("")), /class="allow" disabled=""/);
   const html = markup(approval("提醒确认\n时间：明天 上午10点\n内容：喝水\n允许这次改期？ [y/n] "));
   assert.doesNotMatch(html, /class="allow" disabled=""/);
-  assert.match(html, /<h3>已改提醒：明天 上午10点 喝水<\/h3>/);
+  assert.match(html, /<h3>调整提醒：明天 上午10点 喝水<\/h3>/);
   assert.match(html, /确认改期/);
   assert.doesNotMatch(html, /\[y\/n\]|task_reschedule|<pre class="prompt"/);
 });

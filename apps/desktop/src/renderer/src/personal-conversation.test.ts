@@ -88,6 +88,16 @@ it("reminder replies and tool cards lead with the Chinese sentence instead of ta
   assert.doesNotMatch(markup, /personal-tool-name">(?:task_create|创建提醒)/);
 });
 
+it("does not turn a background warning or a failed create into 已定 or 已记下", () => {
+  const warning = "已定：每天 9:00 提醒喝水。但后台当前不可用或尚未就绪，到点不能保证执行；请在后台提醒中核对并启用服务，不要重复创建。\nstatus: scheduled";
+  const failed = "task_create failed: cannot create scheduled reminder";
+  const warningPrimary = (render([user, { kind: "text", role: "assistant", key: "answer", text: warning, committed: true }]).split("原始回复")[0] ?? "");
+  const failedPrimary = (render([user, { kind: "text", role: "assistant", key: "answer", text: failed, committed: true }]).split("原始回复")[0] ?? "");
+  assert.match(warningPrimary, /后台当前不可用/);
+  assert.match(failedPrimary, /没有设成/);
+  assert.doesNotMatch(`${warningPrimary}\n${failedPrimary}`, /已定|已记下/);
+});
+
 it("personal conversation retains streaming, steering and explicit incomplete task outcomes", () => {
   const steer: ConversationRow = { ...user, key: "steer", text: "只追加，不覆盖。", steer: true };
   const markup = render([user, steer, { kind: "result", key: "result", status: "completed", completion: { reason: "budget_exhausted", corrections: 0 } }], true, "正在继续回复");

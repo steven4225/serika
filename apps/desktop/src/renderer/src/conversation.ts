@@ -7,7 +7,7 @@ import type { ShellProgressBuffer } from "../../shared/shell-progress.js";
 import { presentComputerResult } from "../../shared/computer.js";
 import type { ExecutionToolRecord, ExecutionRunRecord } from "../../shared/ui-contract.js";
 import { fileToolReceipt, type FileToolReceipt } from "./delivery-data.js";
-import { reminderSpeechLine } from "./reminder-copy.js";
+import { presentReminderReply } from "./reminder-copy.js";
 
 export type { ToolRowStatus };
 
@@ -346,8 +346,10 @@ function toolOutcome(output: unknown): { status: ToolRowStatus; detail?: string 
     const message = typeof record.error?.message === "string" ? record.error.message : "";
     return { status: code === "TOOL_DENIED" ? "denied" : code === "TOOL_OUTCOME_UNKNOWN" ? "unknown" : "failed", detail: message ? `${code}: ${message}` : code };
   }
-  const speech = typeof record.readback === "string" ? reminderSpeechLine(record.readback) : null;
-  return speech ? { status: "ok", detail: speech } : { status: "ok" };
+  if (typeof record.readback !== "string") return { status: "ok" };
+  const presented = presentReminderReply(record.readback);
+  const reminder = presented.primary !== record.readback || /已(?:定|记下|改到|取消|暂停|恢复)：/.test(record.readback);
+  return reminder ? { status: "ok", detail: presented.primary } : { status: "ok" };
 }
 
 export function applyEvent(live: LiveRun, event: AgentEvent): LiveRun {

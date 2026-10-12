@@ -26,7 +26,8 @@ function PersonalText({ row }: { row: TextRow }) {
 
 export function PersonalTool({ row, onTrace, workspaceRoot }: { row: ToolRow; onTrace?: TraceHandler; workspaceRoot?: string | undefined }) {
   const view = toolPresentation(row);
-  const spoken = row.toolName.startsWith("task_") ? reminderSpeechLine(row.detail) : null;
+  const reply = row.toolName.startsWith("task_") && row.detail ? presentReminderReply(row.detail) : null;
+  const spoken = reply && (reply.primary !== row.detail || reminderSpeechLine(row.detail) !== null) ? reply.primary : null;
   const path = row.inputPath ?? row.receipt?.path;
   const missing = isMissingFile(row);
   return <details className={`personal-tool status-${row.status}${missing ? " missing-file" : ""}`} open={view.attention || (row.status === "requested" && !!(row.stdout || row.stderr))}>
