@@ -21,7 +21,7 @@ const noop = () => {};
 const info = { workspaceRoot: "/workspace", configPath: "/config.json", memory: { enabled: true, autoConsolidate: false, writePolicy: "review", queryRewriteEnabled: false }, workTasks: true } as AppInfo;
 const maintenance: MemoryMaintenance = { stored: 0, pending: 0, expired: 0, disabled: 0, duplicateSuggestions: 0, capacity: { entries: 200, bytes: 1024, assertionsPerEntry: 10 }, consolidation: { enabled: false, state: "off" } };
 
-it("UI regression 1: workspace belongs to settings and never selects Today", async () => {
+it("UI regression 1: workspace belongs to settings and never selects 手札", async () => {
   assert.equal(dashboardTabForDetail("home"), "设置");
   const app = await source("./App.tsx");
   assert.match(app, /\["modules", "records", "context", "home"\]\.includes\(detailTab\)/);
@@ -67,7 +67,8 @@ it("UI regression 4: memory setup has one primary entry and workspace context is
 
 it("UI regression 5: settings has one explicit entrance and the persona pill is not that entrance", async () => {
   const app = await source("./App.tsx");
-  assert.match(app, /\["Today", "任务", "记忆", "serika"\]/);
+  assert.match(app, /\["手札", "任务", "记忆", "serika"\]/);
+  assert.doesNotMatch(app, /\["Today",/);
   assert.match(app, /openDetails\("persona"\)/);
   assert.doesNotMatch(app, /\["appearance",/);
   assert.match(app, /aria-label="设置"/);
@@ -75,18 +76,22 @@ it("UI regression 5: settings has one explicit entrance and the persona pill is 
   assert.match(app, /aria-label=\{appearance === "dark" \? "切换为浅色外观" : "切换为深色外观"\}/);
 });
 
-it("reminders stay reachable from Today and are not a top pill or a settings inbox", async () => {
+it("reminders stay reachable from 手札 and are not a top pill or a settings inbox", async () => {
   assert.equal(dashboardTabForDetail("reminders"), null);
   assert.equal(dashboardTabForDetail("persona"), "serika");
   assert.equal(dashboardTabForDetail("home"), "设置");
   const app = await source("./App.tsx");
-  assert.match(app, /\["Today", "任务", "记忆", "serika"\]/);
+  assert.match(app, /\["手札", "任务", "记忆", "serika"\]/);
+  assert.match(app, /aria-label="手札与个人助手"/);
+  assert.match(app, />手札</);
+  assert.match(app, /回到手札/);
+  assert.doesNotMatch(app, /["']Today["']|回到今天|今天与个人助手|>今天</);
   assert.match(app, /onAutomation=\{\(\) => openDetails\("reminders"\)\}/);
-  assert.doesNotMatch(app, /\["Today", "任务", "提醒", "记忆"\]/);
+  assert.doesNotMatch(app, /\["手札", "任务", "提醒", "记忆"\]/);
   assert.doesNotMatch(app, /\["modules", "records", "context", "home", "reminders"\]/);
 });
 
-it("UI regression 6: Today explicitly allows ordinary conversation without creating a task", () => {
+it("UI regression 6: 手札 explicitly allows ordinary conversation without creating a task", () => {
   const html = render(createElement(TodayPanel, { info, tasks: [], tasksLoading: false, tasksError: null, pendingMemory: 0, pendingMemoryError: null, onContinue: noop, onPomodoro: noop, onAutomation: noop }));
   assert.match(html, /普通对话照常使用/);
 });

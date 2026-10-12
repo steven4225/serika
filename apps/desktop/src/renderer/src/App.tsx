@@ -1044,7 +1044,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
           <span className="personal-conversation-title">{conversationTitle}</span>
           <span className={`run-state ${status.tone}`} role="status"><span className={`state-dot ${status.tone}`} />{stageLabel}</span>
           <span className="spacer" />
-          <button className="personal-mobile-today" type="button" onClick={() => setMobileDashboard(true)}>今天<Icon name="chevron" size={14} /></button>
+          <button className="personal-mobile-today" type="button" onClick={() => setMobileDashboard(true)}>手札<Icon name="chevron" size={14} /></button>
           {info?.workTasks ? <button className="personal-create-task" type="button" disabled={busy || sending || switchingThread} onClick={openCreateTask}><Icon name="new-chat" size={15} />创建任务</button> : null}
           {!dashboardOpen ? <button className="personal-sidebar-toggle" type="button" aria-label="搜索" title="搜索" onClick={() => setSearchOpen(true)}><Search size={16} /></button> : null}
           <button className="personal-sidebar-toggle" type="button" aria-pressed={dashboardOpen} aria-label={dashboardOpen ? "收起侧栏" : "展开侧栏"} title={dashboardOpen ? "收起侧栏，对话占满窗口" : "展开侧栏"} onClick={toggleSidebar}><Icon name="panel" size={16} /></button>
@@ -1156,13 +1156,13 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
         onPointerDown={event => { if (!compact) event.currentTarget.setPointerCapture(event.pointerId); }}
         onPointerMove={event => { if (event.currentTarget.hasPointerCapture(event.pointerId)) { const bounds = splitRoot.current?.getBoundingClientRect(); if (bounds) saveSplit((event.clientX - bounds.left) / (bounds.width - 6)); } }}
         onPointerUp={event => { if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }} />
-      <section className="personal-dashboard" aria-label="今天与个人助手">
+      <section className="personal-dashboard" aria-label="手札与个人助手">
         <header className="personal-dashboard-header">
           <button className="personal-mobile-back" type="button" onClick={() => setMobileDashboard(false)}><Icon name="chevron" size={14} style={{ transform: "rotate(180deg)" }} />对话</button>
           <nav className="personal-segments" aria-label="个人助手页面">
-            {(["Today", "任务", "记忆", "serika"] as const).map(tab => <button type="button" key={tab}
-              aria-current={(detailsOpen ? dashboardTabForDetail(detailTab) : "Today") === tab ? "page" : undefined}
-              onClick={() => { if (tab === "Today") { setDetailsOpen(false); setMobileDashboard(true); } else if (tab === "任务") { setTaskFocused(false); openDetails("tasks"); } else if (tab === "记忆") openMemory(); else openDetails("persona"); }}>{tab}{tab === "记忆" && pendingLabel ? <span className="personal-segment-count">{pendingLabel}</span> : null}</button>)}
+            {(["手札", "任务", "记忆", "serika"] as const).map(tab => <button type="button" key={tab}
+              aria-current={(detailsOpen ? dashboardTabForDetail(detailTab) : "手札") === tab ? "page" : undefined}
+              onClick={() => { if (tab === "手札") { setDetailsOpen(false); setMobileDashboard(true); } else if (tab === "任务") { setTaskFocused(false); openDetails("tasks"); } else if (tab === "记忆") openMemory(); else openDetails("persona"); }}>{tab}{tab === "记忆" && pendingLabel ? <span className="personal-segment-count">{pendingLabel}</span> : null}</button>)}
           </nav>
           <div className="personal-dashboard-actions">
             <button type="button" className="personal-circle" aria-label="搜索" title="搜索" aria-expanded={searchOpen} onClick={() => setSearchOpen(true)}><Search size={18} /></button>
@@ -1183,7 +1183,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
           <button type="button" className="personal-circle" aria-label={appearance === "dark" ? "切换为浅色外观" : "切换为深色外观"} title="切换外观" onClick={onAppearance}>{appearance === "dark" ? <Sun size={16} /> : <Moon size={16} />}</button>
         </div> : null}
           <section className="inspector" hidden={!detailsOpen} aria-label={pageTitle}>
-            {detailTab === "tasks" ? null : <div className="inspector-header"><div><h1>{pageTitle}</h1><p>{pageDescription}</p></div><button className="ghost" title="回到今天 · Escape" onClick={() => { setDetailsOpen(false); setMobileDashboard(false); }}><Icon name="close" size={16} />回到今天</button></div>}
+            {detailTab === "tasks" ? null : <div className="inspector-header"><div><h1>{pageTitle}</h1><p>{pageDescription}</p></div><button className="ghost" title="回到手札 · Escape" onClick={() => { setDetailsOpen(false); setMobileDashboard(false); }}><Icon name="close" size={16} />回到手札</button></div>}
             <div className="inspector-pane" ref={inspectorScroll} onScroll={() => { if (inspectorScroll.current) inspectorPositions.current.set(inspectorKey, inspectorScroll.current.scrollTop); }}>
               {detailTab === "threads" && info ? <ThreadsPanel info={info} drafts={threadDrafts} busy={busy || switchingThread} onSelect={selectConversation} onCreate={newConversation} onChanged={() => setThreadsRefresh(value => value + 1)} /> : null}
               <div hidden={detailTab !== "tasks"}>

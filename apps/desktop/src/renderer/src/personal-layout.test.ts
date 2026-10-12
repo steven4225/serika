@@ -69,7 +69,7 @@ it("collapsed chat keeps the create-task control in the shell", async () => {
 
 it("existing details remain reachable under the personal dashboard tabs", () => {
   assert.equal(dashboardTabForDetail("home"), "设置");
-  assert.equal(dashboardTabForDetail("pomodoro"), "Today");
+  assert.equal(dashboardTabForDetail("pomodoro"), "手札");
   assert.equal(dashboardTabForDetail("tasks"), "任务");
   assert.equal(dashboardTabForDetail("reminders"), null);
   assert.equal(dashboardTabForDetail("memory"), "记忆");
