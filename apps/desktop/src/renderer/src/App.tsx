@@ -65,6 +65,7 @@ import { DesktopWindowFrame } from "./zcode/upstream/desktop-window-frame.js";
 import { Button } from "./zcode/upstream/button.js";
 import { ArrowUp, Square, Search, Settings2, Sun, Moon } from "lucide-react";
 import { draftScope, type UncertainSteer } from "../../shared/conversation-drafts.js";
+import { ErrorBanner, FailureInline } from "./failure-notice.js";
 import "./zcode/theme.css";
 import "./personal/shell.css";
 import "./personal/today.css";
@@ -114,7 +115,7 @@ function Row({ row, delivered = false, layout = "classic" }: { row: Conversation
             {row.receipt ? <span className="tool-receipt"><code title={row.receipt.path}>{row.receipt.path}</code><span>{row.receipt.bytes} 字节</span></span> : null}
             <span className="tool-status">{toolStatusLabel(row.status)}</span><Icon name="chevron" size={14} /></summary>
           <div className="tool-body"><code>{row.toolName}</code>
-          {row.detail ? <div className="tool-detail">{row.detail}</div> : null}
+          {row.detail ? <div className="tool-detail"><FailureInline text={row.detail} /></div> : null}
           {row.stdout ? <pre className="shell-stream stdout">{row.stdout}</pre> : null}
           {row.stderr ? <pre className="shell-stream stderr">{row.stderr}</pre> : null}
           {row.progressTruncated ? <span className="truncated">输出已截断</span> : null}
@@ -128,7 +129,7 @@ function Row({ row, delivered = false, layout = "classic" }: { row: Conversation
         <div className={`row row-result status-${row.status}`}>
           {completionLabel(row)}
           {row.status === "completed" && !row.completion ? <span className="result-boundary" title="本轮结束仅表示 Run 正常结束，工具效果以回执为准；不是任务验收。">执行结果见回执</span> : null}
-          {row.detail ? <span className="tool-detail"> · {row.detail}</span> : null}
+          {row.detail ? <span className="tool-detail"> · <FailureInline text={row.detail} /></span> : null}
         </div>
       );
     default: {
@@ -1006,7 +1007,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
             draftSave.current = save;
             void save.then(() => setDraftError(null)).catch(() => setDraftError("草稿仍未保存，内容保留，请检查保存位置。"));
           }}>重试保存</button></div> : null}
-          {error ? <div className="error error-banner" role="alert"><span>{error}</span>{info ? <button className="icon-button" aria-label="关闭错误提示" onClick={() => setError(null)}><Icon name="close" size={16} /></button> : null}</div> : null}
+          {error ? info ? <ErrorBanner message={error} onClose={() => setError(null)} /> : <ErrorBanner message={error} /> : null}
           {workTasks.draftError ? <div className="error error-banner" role="alert"><span>{workTasks.draftError}</span><button className="ghost" type="button" onClick={workTasks.retryDrafts}>重试任务草稿保存</button></div> : null}
           {uncertainSteer ? <div className="attention-summary" role="status"><span>补充要求的接收凭证待核对，草稿不会重发。{uncertainSteer.taskId ? "原补充属于工作任务；核对前不会作为普通对话发送。" : ""}</span><details><summary>查看这次补充</summary><pre>{uncertainSteer.text}</pre></details><button type="button" className="ghost" onClick={() => void recheckSteer()}>核对接收状态</button>{!busy ? <button type="button" className="ghost" onClick={() => void releaseSteer()}>保留草稿，结束本次核对</button> : null}</div> : null}
           {approval ? <ApprovalCard approval={approval} deciding={decidingId === approval.approvalId} onDecision={decision => void decide(decision)} /> : null}

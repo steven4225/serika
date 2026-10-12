@@ -12,10 +12,20 @@ import {
   reminderSpeechLine,
   scheduleStatusLabel,
   type ReminderSpeechClock,
+  type ReminderReplyResult,
 } from "./reminder-copy.js";
 
 const clock: ReminderSpeechClock = { now: new Date("2026-10-10T04:00:00.000Z"), timeZone: "Asia/Shanghai" };
 const reminder = { kind: "reminder" as const };
+const savedReply = (readback: string, backgroundReady = true): ReminderReplyResult => ({ toolName: "task_create", status: "ok", reminder: { readback, backgroundReady } });
+const failedCreate: ReminderReplyResult = { toolName: "task_create", status: "failed" };
+
+it("preserves ordinary technical explanations and successful reminder subjects containing failure words", () => {
+  const explanation = "解释 task_create 的 error 字段：保存失败时返回错误；这不是在设置提醒。";
+  assert.deepEqual(presentReminderReply(explanation), { primary: explanation, aside: null });
+  const readback = "已定：明天9:00提醒我查看 task_create 的 error 日志";
+  assert.equal(presentReminderReply(readback).primary, readback);
+});
 
 it("confirmation card leads with the Chinese reminder, not the tool name", () => {
   const card = presentReminderConfirmation({
@@ -80,11 +90,11 @@ it("home and inbox lines stay Chinese and keep ids off the primary line", () => 
 
 it("reply primary line keeps the natural-language reminder and drops English scheduled", () => {
   assert.equal(reminderSpeechLine("已定：明天 9:00 提醒开会 scheduled"), "已定：明天 9:00 提醒开会");
-  const mixed = presentReminderReply("已定：每天 9:00 提醒喝水\nstatus: scheduled");
+  const mixed = presentReminderReply("已定：每天 9:00 提醒喝水\nstatus: scheduled", savedReply("已定：每天 9:00 提醒喝水"));
   assert.equal(mixed.primary, "已定：每天 9:00 提醒喝水");
   assert.match(mixed.aside ?? "", /scheduled/);
   const dump = presentReminderReply('{"status":"scheduled","runAt":"2026-10-11T01:00:00.000Z"}');
-  assert.equal(dump.primary, "这段英文不能说明提醒已经设好。");
+  assert.equal(dump.primary, '{"status":"scheduled","runAt":"2026-10-11T01:00:00.000Z"}', "unassociated prose stays intact and does not invent a save");
   assert.doesNotMatch(dump.primary, /已定|已记下/);
   assert.equal(presentReminderReply("明天的会已经 scheduled 在日历里，我们按原计划走。").primary, "明天的会已经 scheduled 在日历里，我们按原计划走。");
 });
@@ -92,9 +102,10 @@ it("reply primary line keeps the natural-language reminder and drops English sch
 it("keeps a background-unavailable warning on the primary line instead of collapsing to 已定 or 已记下", () => {
   const text = "已定：每天 9:00 提醒喝水。但后台当前不可用或尚未就绪，到点不能保证执行；请在后台提醒中核对并启用服务，不要重复创建。\nstatus: scheduled";
   const folded = "已定：每天 9:00 提醒喝水\n但后台当前不可用或尚未就绪，到点不能保证执行；请在后台提醒中核对并启用服务，不要重复创建。\nstatus: scheduled";
-  const noted = presentReminderReply(text.replace("已定：", "已记下："));
-  const view = presentReminderReply(text);
-  const split = presentReminderReply(folded);
+  const result = savedReply(text.replace("\nstatus: scheduled", ""), false);
+  const noted = presentReminderReply(text.replace("已定：", "已记下："), result);
+  const view = presentReminderReply(text, result);
+  const split = presentReminderReply(folded, result);
   for (const primary of [view.primary, noted.primary, split.primary]) {
     assert.match(primary, /后台当前不可用或尚未就绪/);
     assert.match(primary, /不要重复创建/);
@@ -104,8 +115,9 @@ it("keeps a background-unavailable warning on the primary line instead of collap
 });
 
 it("save failure after a scheduled line does not keep 已定 as the primary", () => {
-  const view = presentReminderReply("已定：每天 9:00 提醒喝水 scheduled\n但保存失败了");
-  assert.match(view.primary, /保存失败/);
+  const view = presentReminderReply("已定：每天 9:00 提醒喝水 scheduled\n但保存失败了", failedCreate);
+  assert.match(view.primary, /没有设成/);
+  assert.match(view.aside ?? "", /保存失败/);
   assert.doesNotMatch(view.primary, /已定|已记下/);
   assert.notEqual(view.primary, "已定：每天 9:00 提醒喝水");
 });
@@ -113,26 +125,26 @@ it("save failure after a scheduled line does not keep 已定 as the primary", ()
 it("a long reply containing task_create failed does not keep 已定 as the primary", () => {
   const text = `已定：每天 9:00 提醒喝水 scheduled\n${"垫".repeat(520)}\ntask_create failed: cannot create scheduled reminder`;
   assert.ok(text.length > 500);
-  const view = presentReminderReply(text);
+  const view = presentReminderReply(text, failedCreate);
   assert.match(view.primary, /没有设成/);
   assert.doesNotMatch(view.primary, /已定|已记下/);
 });
 
 it("an english backend unavailable warning does not keep 已定 as the primary", () => {
-  const view = presentReminderReply("已定：每天 9:00 提醒喝水 scheduled\nwarning: backend unavailable");
+  const view = presentReminderReply("已定：每天 9:00 提醒喝水 scheduled\nwarning: backend unavailable", savedReply("已记下：每天 9:00 提醒喝水\nwarning: backend unavailable", false));
   assert.match(view.primary, /backend unavailable/);
   assert.doesNotMatch(view.primary, /已定|已记下/);
 });
 
 it("后台服务未运行 does not keep 已记下 as the primary", () => {
-  const view = presentReminderReply("已记下：每天 9:00 提醒喝水\n后台服务未运行");
+  const view = presentReminderReply("已记下：每天 9:00 提醒喝水\n后台服务未运行", savedReply("已记下：每天 9:00 提醒喝水\n后台服务未运行", false));
   assert.match(view.primary, /未运行/);
   assert.doesNotMatch(view.primary, /已定|已记下/);
 });
 
 it("keeps a failed create or reschedule as a Chinese failure instead of 已记下", () => {
-  const created = presentReminderReply("task_create failed: cannot create scheduled reminder");
-  const moved = presentReminderReply("task_reschedule failed: cannot create scheduled reminder");
+  const created = presentReminderReply("task_create failed: cannot create scheduled reminder", failedCreate);
+  const moved = presentReminderReply("task_reschedule failed: cannot create scheduled reminder", { toolName: "task_reschedule", status: "failed" });
   assert.match(created.primary, /没有设成/);
   assert.match(moved.primary, /没有改成/);
   assert.doesNotMatch(`${created.primary}\n${moved.primary}`, /已定|已记下/);

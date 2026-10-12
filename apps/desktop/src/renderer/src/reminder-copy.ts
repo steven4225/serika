@@ -1,6 +1,7 @@
 import { formatOnceWhen, reminderWhen, type ReminderSpeechClock } from "@aisdk-agent/example-cli/dist/reminder-speech.js";
 import type { Recurrence } from "@aisdk-agent/example-cli/dist/recurrence.js";
 import type { PendingApproval } from "../../shared/ui-contract.js";
+import type { ConversationRow, ToolRow } from "./conversation.js";
 
 /**
  * Display copy for reminders the user already saved or is about to confirm.
@@ -32,38 +33,46 @@ export function reminderSpeechLine(text: string | undefined): string | null {
   return line.length > 0 ? line : null;
 }
 
-/** Full-text signals. A later clause must count even when an earlier line says 已定. */
-const degradedSignal = /失败|没有设成|没有改成|保存失败|不可用|未运行|尚未就绪|不能保证执行|不要重复创建|\b(?:unavailable|failed|failure|error|backend|cannot|unable)\b/i;
-const englishFailure = /\b(?:fail(?:ed|ure)?|cannot|unable|error)\b/i;
+export type ReminderReplyResult = Pick<ToolRow, "toolName" | "status" | "reminder">;
+const reminderWriteTools = new Set(["task_create", "task_repeat_create", "task_reschedule", "task_cancel", "task_repeat_cancel", "task_repeat_pause", "task_repeat_resume"]);
 
-/** Drop English status tokens without eating a warning that follows them. */
-function withoutEnglishStatus(text: string): string {
-  return text
-    .replace(/\bstatus\s*:\s*scheduled\b/gi, "")
-    .replace(/\bscheduled\b/gi, "")
-    .replace(/[ \t]{2,}/g, " ")
-    .replace(/[ \t]*\n[ \t]*/g, "\n")
-    .replace(/\n{2,}/g, "\n")
-    .trim();
-}
-
-function presentDegradedReply(text: string): { primary: string; aside: string | null } {
-  if (englishFailure.test(text) && /\btask_reschedule\b/i.test(text)) return { primary: "这次提醒没有改成。", aside: text };
-  if (englishFailure.test(text) && (/\btask_(?:repeat_)?create\b/i.test(text) || /\bcannot create\b/i.test(text))) {
-    return { primary: "这次提醒没有设成。", aside: text };
+/** Associate only preceding calls in this user turn; reads and prior turns grant no context. */
+export function reminderReplyContexts(rows: readonly ConversationRow[]): { byText: ReadonlyMap<string, ReminderReplyResult>; latest: ReminderReplyResult | undefined } {
+  const byText = new Map<string, ReminderReplyResult>();
+  let latest: ReminderReplyResult | undefined;
+  let writes = 0;
+  for (const row of rows) {
+    if (row.kind === "text" && row.role === "user" && !row.steer) { latest = undefined; writes = 0; }
+    else if (row.kind === "tool" && reminderWriteTools.has(row.toolName)) {
+      writes++;
+      latest = writes === 1 ? row : undefined; // A multi-operation report cannot be replaced by one receipt.
+    }
+    else if (row.kind === "text" && row.role === "assistant" && latest) byText.set(row.key, latest);
   }
-  const primary = withoutEnglishStatus(text).replace(/已(?:定|记下)：/g, "").replace(/[ \t]{2,}/g, " ").trim();
-  return { primary: primary.length > 0 ? primary : "这次提醒没有设成。", aside: primary === text.trim() ? null : text };
+  return { byText, latest };
 }
 
-export function presentReminderReply(text: string): { primary: string; aside: string | null } {
-  if (degradedSignal.test(text)) return presentDegradedReply(text);
-  if (!/\bscheduled\b/i.test(text)) return { primary: text, aside: null };
-  const speech = reminderSpeechLine(text);
-  if (speech !== null) return { primary: speech, aside: text.trim() === speech ? null : text };
-  const shortStatus = text.trim().length <= 500 && /\b(?:runAt|task_create|task_reschedule|task id|status)\b/i.test(text);
-  if (!shortStatus) return { primary: text, aside: null };
-  return { primary: "这段英文不能说明提醒已经设好。", aside: text };
+/** Never infer execution failure from a user's subject or ordinary assistant prose. */
+export function presentReminderReply(text: string, result?: ReminderReplyResult): { primary: string; aside: string | null } {
+  const plain = { primary: text, aside: null };
+  if (!result || !reminderWriteTools.has(result.toolName)) return plain;
+  // A technical explanation after a call is still an explanation, not a readback.
+  const receiptReply = /^\s*(?:已(?:定|记下|改到|取消|暂停|恢复)：|task_(?:repeat_)?(?:create|reschedule|cancel|pause|resume)\s+(?:failed|error)\b|\{\s*"(?:status|runAt)")/.test(text);
+  if (!receiptReply) return plain;
+  if (result.status === "failed" || result.status === "timed_out") {
+    const primary = result.toolName === "task_reschedule" ? "这次提醒没有改成。"
+      : result.toolName === "task_create" || result.toolName === "task_repeat_create" ? "这次提醒没有设成。" : "这次提醒操作没有完成。";
+    return { primary, aside: text };
+  }
+  if (result.status === "unknown") return { primary: "这次提醒是否设好还不确定。请先核对，不要重复创建。", aside: text };
+  if (result.status !== "ok") return plain;
+  if (!result.reminder) return plain; // Incomplete/legacy receipts cannot justify a shorter success claim.
+  let primary = result.reminder.readback;
+  if (result.reminder.backgroundReady === false) {
+    primary = primary.replace(/^已(?:定|记下)：/, "");
+    if (!primary.includes("到点不能保证执行")) primary += "。但后台当前不可用或尚未就绪，到点不能保证执行；请核对后台服务，不要重复创建。";
+  }
+  return { primary, aside: text.trim() === primary ? null : text };
 }
 
 export interface ReminderConfirmationCard {
