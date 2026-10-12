@@ -39,6 +39,6 @@ export function dashboardTabForDetail(detail: string): PersonalPill | null {
   if (detail === "tasks") return "任务";
   if (detail === "memory") return "记忆";
   if (detail === "persona") return "serika";
-  if (["modules", "records", "context", "home"].includes(detail)) return "设置";
+  if (detail === "settings" || ["modules", "records", "context", "home"].includes(detail)) return "设置";
   return null;
 }

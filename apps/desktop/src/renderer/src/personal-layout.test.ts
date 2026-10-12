@@ -75,6 +75,8 @@ it("existing details remain reachable under the personal dashboard tabs", () => 
   assert.equal(dashboardTabForDetail("memory"), "记忆");
   assert.equal(dashboardTabForDetail("persona"), "serika");
   assert.equal(dashboardTabForDetail("threads"), null);
+  assert.equal(dashboardTabForDetail("settings"), "设置");
+  assert.notEqual(dashboardTabForDetail("settings"), "serika");
   for (const detail of ["records", "context", "modules"]) {
     assert.equal(dashboardTabForDetail(detail), "设置");
   }
