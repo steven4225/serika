@@ -1,4 +1,4 @@
-import React, { useEffect, useState, type ReactNode } from "react";
+import React, { useEffect, useRef, useState, type ReactNode } from "react";
 import type { ContextBudgetConfig } from "@aisdk-agent/example-cli/dist/context-budget.js";
 import type { AppInfo } from "../../../shared/ui-contract.js";
 import type { ResidentServiceState } from "../../../shared/resident-service.js";
@@ -9,16 +9,33 @@ import { ResidentServicePanel } from "../resident-service-panel.js";
 import { DailyAutomation } from "../daily-automation-panel.js";
 import {
   applyThinkingChoice,
-  monthlyUsageView,
+  readRecordedCallsWhenActive,
+  readWhenHostReady,
+  recordedCallLabel,
   settingsBackTarget,
   settingsCopy,
   settingsRowDescription,
   SETTINGS_CONNECTION_ROWS,
   SETTINGS_OTHER_ROWS,
+  SETTINGS_RECORD_ROWS,
+  takeHostRead,
   thinkingChoiceForBudget,
+  type HostReadResult,
+  type RecordedCallView,
+  type SettingsListTarget,
   type SettingsRoute,
   type ThinkingChoice,
 } from "./settings-model.js";
+
+const EMPTY_CALLS: RecordedCallView = { recordedCalls: null, incomplete: false };
+
+async function readContextBudget(): Promise<HostReadResult<ContextBudgetConfig>> {
+  const readDiagnostics = window.runloom.getContextDiagnostics;
+  if (!readDiagnostics) return { ok: false, retry: false };
+  const result = await readDiagnostics();
+  if (!result.ok) return { ok: false, retry: true };
+  return { ok: true, value: result.value.budget };
+}
 
 export function SettingsFrame({ route, onBack, children }: { route: SettingsRoute; onBack: () => void; children: ReactNode }) {
   const copy = settingsCopy(route);
@@ -32,34 +49,45 @@ export function SettingsFrame({ route, onBack, children }: { route: SettingsRout
   </div>;
 }
 
-export function SettingsHome({ info, busy, onOpen }: { info: AppInfo | null; busy: boolean; onOpen: (route: SettingsRoute) => void }) {
+export function SettingsHome({ info, busy, usageActive, usageRefresh, onOpen }: {
+  info: AppInfo | null;
+  busy: boolean;
+  usageActive: boolean;
+  usageRefresh: number;
+  onOpen: (route: SettingsListTarget) => void;
+}) {
+  const usage = useRecordedCalls(usageActive, usageRefresh);
   return <>
     <section className="settings-subscription" aria-label="订阅">
       <SerikaPersona size={44} />
-      <div><strong>Serika</strong><p>本机助手</p><p>订阅未配置</p></div>
+      <div><strong>Serika</strong><p>本机助手</p><p>本地使用，无需订阅</p></div>
       <button type="button" className="settings-manage-button" onClick={() => onOpen("manage")}>管理</button>
     </section>
     <h2 className="settings-section">模式</h2>
-    <ThinkingModes busy={busy} />
+    <ThinkingModes busy={busy} hostReady={info !== null} />
     <p className="settings-note">选择 Serika 的思考方式。</p>
-    <MonthlyUsage />
+    <SettingsRows info={info} rows={SETTINGS_RECORD_ROWS} usage={usage} onOpen={onOpen} />
     <h2 className="settings-section">能力与连接</h2>
-    <SettingsRows info={info} rows={SETTINGS_CONNECTION_ROWS} onOpen={onOpen} />
+    <SettingsRows info={info} rows={SETTINGS_CONNECTION_ROWS} usage={usage} onOpen={onOpen} />
     <h2 className="settings-section">其他</h2>
-    <SettingsRows info={info} rows={SETTINGS_OTHER_ROWS} onOpen={onOpen} />
+    <SettingsRows info={info} rows={SETTINGS_OTHER_ROWS} usage={usage} onOpen={onOpen} />
   </>;
 }
 
-function SettingsRows({ info, rows, onOpen }: {
+function SettingsRows<Route extends SettingsListTarget>({ info, rows, usage, onOpen }: {
   info: AppInfo | null;
-  rows: readonly { route: SettingsRoute; title: string; description: string }[];
-  onOpen: (route: SettingsRoute) => void;
+  rows: readonly { route: Route; title: string; description: string }[];
+  usage: RecordedCallView;
+  onOpen: (route: Route) => void;
 }) {
   return <div className="settings-group">
-    {rows.map(row => <button type="button" className="settings-row" key={row.route} onClick={() => onOpen(row.route)}>
-      <span className="settings-row-copy"><strong>{row.title}</strong><small>{settingsRowDescription(row.route, info, row.description)}</small></span>
-      <Icon name="chevron" size={16} />
-    </button>)}
+    {rows.map(row => {
+      const detail = row.route === "records" ? recordedCallLabel(usage) ?? row.description : settingsRowDescription(row.route, info, row.description);
+      return <button type="button" className="settings-row" key={row.route} onClick={() => onOpen(row.route)}>
+        <span className="settings-row-copy"><strong>{row.title}</strong><small>{detail}</small></span>
+        <Icon name="chevron" size={16} />
+      </button>;
+    })}
   </div>;
 }
 
@@ -74,21 +102,33 @@ export function ThinkingModeCards({ current, disabled, onChoose }: { current: Th
   </div>;
 }
 
-function ThinkingModes({ busy }: { busy: boolean }) {
+function ThinkingModes({ busy, hostReady }: { busy: boolean; hostReady: boolean }) {
   const [budget, setBudget] = useState<ContextBudgetConfig | null>(null);
   const [phase, setPhase] = useState<"loading" | "ready" | "missing">("loading");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const load = async () => {
-    if (!window.runloom.getContextDiagnostics) { setPhase("missing"); return; }
-    try {
-      const result = await window.runloom.getContextDiagnostics();
-      if (!result.ok) { setPhase("missing"); return; }
-      setBudget(result.value.budget);
+  const request = useRef(0);
+  const hostReadyRef = useRef(hostReady);
+  hostReadyRef.current = hostReady;
+  const load = () => {
+    const id = ++request.current;
+    return readWhenHostReady({
+      hostReady: () => hostReadyRef.current && request.current === id,
+      isCurrent: () => request.current === id,
+      read: readContextBudget,
+    }).then(outcome => {
+      const accepted = takeHostRead(id, request.current, outcome);
+      if (!accepted) return;
+      if (accepted.status === "unavailable") { setBudget(null); setPhase("missing"); return; }
+      setBudget(accepted.value);
       setPhase("ready");
-    } catch { setPhase("missing"); }
+    });
   };
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    if (!hostReady) setPhase("loading");
+    void load();
+    return () => { request.current += 1; };
+  }, [hostReady]);
   const current = phase === "ready" ? thinkingChoiceForBudget(budget?.mode) : "unconfigured";
   const selectable = phase === "ready" && !!budget && !busy && !pending && typeof window !== "undefined" && !!window.runloom.setContextMode;
   const choose = async (choice: ThinkingChoice) => {
@@ -109,31 +149,33 @@ function ThinkingModes({ busy }: { busy: boolean }) {
   </>;
 }
 
-function MonthlyUsage() {
-  const [recordedCalls, setRecordedCalls] = useState<number | null>(null);
-  const [resetNote, setResetNote] = useState<string | null>(null);
+function useRecordedCalls(active: boolean, refreshToken: number): RecordedCallView {
+  const [view, setView] = useState<RecordedCallView>(EMPTY_CALLS);
+  const request = useRef(0);
+  const activeRef = useRef(active);
+  activeRef.current = active;
   useEffect(() => {
-    let active = true;
-    void window.runloom.listRuns().then(result => {
-      if (!active) return;
-      setRecordedCalls(monthlyUsageView(result.ok ? result.modelUsage : undefined).recordedCalls);
-    }).catch(() => { if (active) setRecordedCalls(null); });
-    return () => { active = false; };
-  }, []);
-  const usage = monthlyUsageView(recordedCalls === null ? undefined : { calls: Array.from({ length: recordedCalls }) });
-  return <section className="settings-usage" aria-label="月度用量">
-    <div className="settings-usage-head"><h2>月度用量</h2><strong>剩余 {usage.remaining}</strong></div>
-    <p>重置日 {usage.resetDay}</p>
-    {usage.recordedCalls !== null ? <p>本对话已记录 {usage.recordedCalls} 次模型调用。</p> : <p>用量未报告／未配置。</p>}
-    <button type="button" className="settings-reset" onClick={() => setResetNote("月度额度未配置，不能重置。")}>立即重置</button>
-    {resetNote ? <p role="status">{resetNote}</p> : null}
-  </section>;
+    const id = ++request.current;
+    void readRecordedCallsWhenActive({
+      active: () => activeRef.current && request.current === id,
+      isCurrent: () => request.current === id,
+      read: async () => {
+        const result = await window.runloom.listRuns();
+        return result.ok ? result.modelUsage : null;
+      },
+    }).then(outcome => {
+      if (request.current !== id || outcome.status === "stale") return;
+      setView(outcome.status === "ready" ? outcome.view : EMPTY_CALLS);
+    });
+    return () => { request.current += 1; };
+  }, [active, refreshToken]);
+  return view;
 }
 
 export function SettingsManage({ info }: { info: AppInfo | null }) {
   return <dl className="settings-manage" aria-label="身份">
     <div><dt>助手</dt><dd>Serika · 本机助手</dd></div>
-    <div><dt>订阅</dt><dd>未配置</dd></div>
+    <div><dt>订阅</dt><dd>本地使用，无需订阅</dd></div>
     <div><dt>试用</dt><dd>未配置</dd></div>
     <div><dt>模型</dt><dd>{info ? (info.modelId ?? info.modelAlias) : "未报告"}</dd></div>
     <div><dt>配置</dt><dd>{info?.configPath ?? "未配置"}</dd></div>

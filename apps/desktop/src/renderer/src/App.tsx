@@ -66,7 +66,7 @@ import { clearBriefContinue, planBriefContinue, readBriefContinue, writeBriefCon
 import { PersonaPanel } from "./personal/persona.js";
 import { SearchOverlay } from "./personal/search-overlay.js";
 import { SettingsAbout, SettingsDevices, SettingsFrame, SettingsGeneral, SettingsHome, SettingsManage, SettingsNotifications, SettingsShortcuts } from "./personal/settings.js";
-import { isConnectorModule, settingsRouteForInitial, type SettingsRoute } from "./personal/settings-model.js";
+import { isConnectorModule, settingsRouteForInitial, type SettingsListTarget, type SettingsRoute } from "./personal/settings-model.js";
 import { clampChatFraction, loadChatFraction, loadSidebarOpen, dashboardTabForDetail, PERSONAL_SPLIT_KEY, PERSONAL_SIDEBAR_KEY, PERSONAL_COMPACT_BREAKPOINT } from "./personal/layout.js";
 import { humanFacingTitle } from "../../shared/human-title.js";
 import { RemindersPanel } from "./reminders.js";
@@ -963,7 +963,8 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     setDetailTab(tab); setDetailsOpen(true); setMobileDashboard(true);
     if (!compact) rememberSidebar(true);
   };
-  const openSettings = (route: SettingsRoute) => {
+  const openSettings = (route: SettingsListTarget) => {
+    if (route === "records") { openDetails("records"); return; }
     setSettingsRoute(route);
     openDetails("settings");
   };
@@ -1214,7 +1215,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
               </div>
               <div hidden={detailTab !== "settings"}>
                 <SettingsFrame route={settingsRoute} onBack={backSettings}>
-                  {settingsRoute === "home" ? <SettingsHome info={info} busy={busy} onOpen={openSettings} /> : null}
+                  {settingsRoute === "home" ? <SettingsHome info={info} busy={busy} usageActive={detailsOpen && detailTab === "settings" && settingsRoute === "home"} usageRefresh={contextRefresh} onOpen={openSettings} /> : null}
                   {settingsRoute === "manage" ? <SettingsManage info={info} /> : null}
                   {settingsRoute === "connectors" && info ? <CapabilitiesPanel info={{ ...info, modules: (info.modules ?? []).filter(module => isConnectorModule(module.id)) }} busy={busy} initialError={initialSettings === "modules" ? initialSettingsError : null} intro="这些连接决定 Serika 能使用哪些本机文件、网页和应用。开启后，具体操作仍按原权限确认。" /> : null}
                   {settingsRoute === "devices" && info ? <SettingsDevices info={info} /> : null}
