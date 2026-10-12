@@ -18,7 +18,12 @@ test("task inbox labels kinds without treating model completion or system submis
   assert.match(taskResultPresentation(task({ arrangement: { kind: "skill", source: "none", notification: "always", declarationVersion: 1, skillId: "brief", skillHash: "a".repeat(64) } })).kind, /Skill brief · 版本 aaaaaaaaaaaa/);
   const submitted = taskResultPresentation(task({ notification: { status: "submitted", attempts: 1, nextAttemptAt: null, error: null } }));
   assert.equal(submitted.status, "执行结束");
+  assert.match(submitted.notification, /已提交系统通知/);
   assert.match(submitted.notification, /不代表你已看到/);
+  const omitted = taskResultPresentation(task({ notification: { status: "omitted", attempts: 1, nextAttemptAt: null, error: null } }));
+  assert.match(omitted.notification, /前台省略/);
+  assert.match(omitted.notification, /未向系统提交/);
+  assert.doesNotMatch(omitted.notification, /已提交系统通知/);
   assert.match(taskResultPresentation(task({ status: "interrupted" })).status, /结果未确定/);
   assert.match(taskResultPresentation(task({ status: "failed" })).status, /失败/);
   assert.equal(taskResultPresentation(task()).notification, "未安排系统通知");

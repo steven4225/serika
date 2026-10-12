@@ -505,6 +505,11 @@ button.chip { font-size: 12px; padding: 5px 9px; border-color: var(--line); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+.saved-task-notice { flex-direction: column; align-items: stretch; gap: 2px; color: var(--text); }
+.saved-task-notice > .saved-task-notice-title { margin: 0; color: var(--text); font-size: 15px; font-weight: 600; line-height: 1.45; }
+.saved-task-notice > .saved-task-notice-meta { margin: 0; color: var(--muted); font-size: 12px; font-weight: 400; line-height: 1.45; }
+.saved-task-notice > .saved-task-notice-actions { display: flex; align-items: center; justify-content: flex-start; gap: 8px; margin-top: 6px; }
+.saved-task-notice .saved-task-notice-actions .ghost { margin-left: 0; color: var(--muted); font-size: 12px; }
 /* Feature pages reuse the app's list, typography and restrained blue accent. */
 .capability-list { margin: 24px 0; }
 .capability-row { display: flex; justify-content: space-between; gap: 24px; padding: 20px 0; border-bottom: 1px solid var(--border, #e5e8ed); }

@@ -1,14 +1,30 @@
 import React, { useEffect, useRef, useState } from "react";
-import type { TaskListV3, TaskRecordV4 } from "@aisdk-agent/example-cli/dist/task-store.js";
+import type { TaskListV3, TaskNotification, TaskRecordV4 } from "@aisdk-agent/example-cli/dist/task-store.js";
 import { MessageContent } from "./markdown.js";
 import { automationArrangementLabel } from "./automation-schedule.js";
 import { inboxPrimaryLine, localWhen, reminderClock, scheduleStatusLabel } from "./reminder-copy.js";
 
+function notificationText(notification: TaskNotification | null): string {
+  if (notification === null) return "未安排系统通知";
+  switch (notification.status) {
+    case "submitted":
+      return "已提交系统通知，不代表你已看到";
+    case "omitted":
+      return "前台省略，未向系统提交";
+    case "failed":
+      return "系统通知提交失败";
+    case "pending":
+      return "等待提交系统通知";
+    default: {
+      const unreachable: never = notification.status;
+      return unreachable;
+    }
+  }
+}
+
 export function taskResultPresentation(task: TaskRecordV4, now = new Date()): { kind: string; status: string; notification: string; body: string } {
   const kind = automationArrangementLabel(task.arrangement);
-  const notification = task.notification === null ? "未安排系统通知" : task.notification.status === "submitted"
-    ? "已提交系统通知，不代表你已看到"
-    : task.notification.status === "failed" ? "系统通知提交失败" : "等待提交系统通知";
+  const notification = notificationText(task.notification);
   const body = task.resultText?.trim() || (task.status === "failed" ? "任务执行失败，详情在收件箱。"
     : task.status === "interrupted" ? "执行中断，结果尚未确定；不会自动重做。" : "没有保存结果正文，请查看详情。");
   return { kind, status: scheduleStatusLabel(task.status, task.runAt, now, task.arrangement?.kind), notification, body };

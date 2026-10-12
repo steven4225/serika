@@ -27,10 +27,11 @@ test("saved task banner reads latest persisted terminal detail without executing
   assert.equal(record, current);
   assert.equal(JSON.stringify([old, current]), before);
   const markup = renderToStaticMarkup(React.createElement(SavedTaskNoticeView, { task: record!, onOpen() {}, onDismiss() {} }));
-  assert.match(markup, /该喝水了，起来活动一下。/);
-  assert.match(markup, /结束时间 <time datetime="2026-10-11T12:00:00Z">/i);
-  assert.doesNotMatch(markup, /不是正文来源|已送达|已提醒|task-water/);
+  assert.match(markup, /saved-task-notice-title">该喝水了，起来活动一下。</);
+  assert.match(markup, /saved-task-notice-meta">提醒 · 执行结束 · 结束时间 <time datetime="2026-10-11T12:00:00Z">/i);
+  assert.match(markup, /class="allow">查看</);
   assert.match(markup, /收起定时结果提示，不标为已读/);
+  assert.doesNotMatch(markup, /不是正文来源|已送达|已提醒|task-water|查看结果/);
 });
 
 test("saved task banner renders persisted end time with year for each actual terminal status", () => {
@@ -91,13 +92,18 @@ test("saved task banner disposal drops delayed old workspace results and overlap
   assert.equal(reads, 1);
 });
 
-test("saved task banner keeps failure and interrupted labels and clearly clips long persisted results", () => {
+test("saved task banner keeps failure and interrupted titles and leaves long results for the inbox", () => {
   const view = (task: TaskRecordV4) => renderToStaticMarkup(React.createElement(SavedTaskNoticeView, { task, onOpen() {}, onDismiss() {} }));
-  assert.match(view(saved({ status: "failed", resultText: null })), /执行失败/);
-  assert.match(view(saved({ status: "interrupted", resultText: null })), /不会自动重做/);
+  const failed = view(saved({ status: "failed", resultText: null }));
+  assert.match(failed, /这次安排没有完成/);
+  assert.match(failed, /执行失败/);
+  const interrupted = view(saved({ status: "interrupted", resultText: null }));
+  assert.match(interrupted, /安排中断，不会自动重做/);
+  assert.match(interrupted, /执行中断，结果未确定/);
   const long = view(saved({ resultText: "水".repeat(281) }));
-  assert.match(long, /正文已截短/);
-  assert.doesNotMatch(long, /水{281}/);
+  assert.match(long, /saved-task-notice-title">水{41}…</);
+  assert.doesNotMatch(long, /水{42}/);
+  assert.match(long, /class="allow">查看</);
 });
 
 test("saved task banner mounts once per workspace with one cleaned up read timer and leaves OS privacy intact", async () => {
@@ -113,6 +119,8 @@ test("saved task banner mounts once per workspace with one cleaned up read timer
   let submitted = "";
   const notifier = createTaskDesktopNotifier(() => {}, { platform: "darwin", submit: async script => { submitted = script; } });
   await notifier(saved());
-  assert.match(submitted, /task-water/);
-  assert.doesNotMatch(submitted, /该喝水了|不是正文来源/);
+  assert.match(submitted, /with title "提醒时间到了"/);
+  assert.doesNotMatch(submitted, /该喝水了|起来活动一下/);
+  assert.match(submitted, /提醒已到，详情在收件箱。/);
+  assert.doesNotMatch(submitted, /task-water|不是正文来源/);
 });

@@ -21,6 +21,7 @@ import { createNotificationReadiness } from "./notification-readiness.js";
 import { configureBundledNotifications } from "./bundled-notifications.js";
 import { parseTaskResultLink } from "@aisdk-agent/example-cli/dist/task-result-link.js";
 import { openTaskNotificationResult } from "./task-notification-route.js";
+import { installDesktopFrontmostHint } from "./desktop-frontmost-hint.js";
 import type { RssAction } from "@aisdk-agent/example-cli/dist/rss-subscriptions.js";
 // Native icons need true transparent corners and optical padding. The avatar
 // stays full-size in the renderer; do not use its opaque square in the Dock.
@@ -147,6 +148,7 @@ async function main(): Promise<void> {
   });
 
   let host!: RuntimeOwnership;
+  let frontmostHint: ReturnType<typeof installDesktopFrontmostHint> | undefined;
   // Renderer can load before disk/config initialization finishes. Keep info waiting
   // for the actual result rather than returning a misleading "no IPC handler" error.
   let resolveStartup!: () => void;
@@ -174,6 +176,7 @@ async function main(): Promise<void> {
       modelAlias, model, modelId: inspectCliModelConfig().modelId, send,
       taskAutomation: { status: (workspace, configPath) => taskWorkerFor(workspace, configPath).automationStatus(), enable: (workspace, configPath) => taskWorkerFor(workspace, configPath).enableArrangement() },
     });
+    frontmostHint = installDesktopFrontmostHint(window, () => host.info().workspaceRoot ?? null);
     const rssWorker = () => createDesktopRssWorker({ workspace: host.info().workspaceRoot ?? undefined, ...(host.info().configPath ? { configPath: host.info().configPath! } : {}), home: app.getPath("home"), env: process.env,
       workerEntry: fileURLToPath(import.meta.resolve("@aisdk-agent/example-cli/dist/task-worker-entry.js")), todoist: !!process.env.TODOIST_API_TOKEN?.trim() });
     ipcMain.handle(IPC.rssWorkerStatus, () => rssWorker().status());
@@ -341,7 +344,7 @@ async function main(): Promise<void> {
     shuttingDown = true;
     quitting = true;
     tray.dispose();
-    void drafts.flush().catch(() => undefined).then(() => host.shutdown()).finally(() => {
+    void Promise.resolve(frontmostHint?.stop()).catch(() => undefined).then(() => drafts.flush().catch(() => undefined)).then(() => host.shutdown()).finally(() => {
       app.quit();
     });
   });
