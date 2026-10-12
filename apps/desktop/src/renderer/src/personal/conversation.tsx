@@ -5,30 +5,40 @@ import { MessageContent } from "../markdown.js";
 import { completionLabel } from "../navigation.js";
 import { conversationTurns, isMissingFile, toolPresentation, workSummary, type ConversationFlowItem } from "../zcode/conversation-data.js";
 import { formatRecordTime } from "../../../shared/execution-records.js";
+import { presentReminderReply, reminderSpeechLine } from "../reminder-copy.js";
 
 type TraceHandler = ((runId: string, toolCallId: string) => void) | undefined;
+
+function AssistantText({ text }: { text: string }) {
+  const view = presentReminderReply(text);
+  return <>
+    <MessageContent text={view.primary} />
+    {view.aside ? <details className="personal-tool-technical"><summary>原始回复</summary><MessageContent text={view.aside} /></details> : null}
+  </>;
+}
 
 function PersonalText({ row }: { row: TextRow }) {
   return <article className={`personal-message role-${row.role}`}>
     {row.steer ? <small className="personal-supplement">补充本轮要求</small> : null}
-    {row.role === "user" ? <pre className="personal-user-text">{row.text}</pre> : <MessageContent text={row.text} />}
+    {row.role === "user" ? <pre className="personal-user-text">{row.text}</pre> : <AssistantText text={row.text} />}
   </article>;
 }
 
 export function PersonalTool({ row, onTrace, workspaceRoot }: { row: ToolRow; onTrace?: TraceHandler; workspaceRoot?: string | undefined }) {
   const view = toolPresentation(row);
+  const spoken = row.toolName.startsWith("task_") ? reminderSpeechLine(row.detail) : null;
   const path = row.inputPath ?? row.receipt?.path;
   const missing = isMissingFile(row);
   return <details className={`personal-tool status-${row.status}${missing ? " missing-file" : ""}`} open={view.attention || (row.status === "requested" && !!(row.stdout || row.stderr))}>
-    <summary><Icon name={view.icon} size={15} /><span className="personal-tool-name">{view.name}</span>
+    <summary><Icon name={view.icon} size={15} /><span className="personal-tool-name">{spoken ?? view.name}</span>
       {path ? <span className="personal-tool-path" title={path}>{path}</span> : null}
       <span className="personal-tool-status">{view.status}</span><Icon name="chevron" size={13} /></summary>
     <div className="personal-tool-body">
       {row.historical || row.recordedAt ? <p className="personal-receipt-meta">{row.historical ? "历史记录" : "本次调用"}{row.recordedAt ? <> · 请求于 <time dateTime={row.recordedAt}>{formatRecordTime(row.recordedAt)}</time></> : " · 时间未记录"}</p> : null}
       {path && workspaceRoot ? <p className="personal-receipt-meta" title={workspaceRoot}>当前文件工作区：{workspaceRoot}</p> : null}
-      {view.name !== row.toolName && !missing ? <code>{row.toolName}</code> : null}
+      {spoken ? <details className="personal-tool-technical"><summary>技术详情</summary><code>{row.toolName}</code></details> : view.name !== row.toolName && !missing ? <code>{row.toolName}</code> : null}
       {row.receipt ? <p>{row.receipt.bytes} 字节 · 工具回执，不等于任务验收</p> : null}
-      {missing ? <><p>该路径没有文件，未读取到内容。本次读取不会创建文件，也不会自动重复执行。</p><details className="personal-tool-technical"><summary>技术详情</summary><code>{row.toolName}</code>{row.detail ? <p>{row.detail}</p> : null}</details></> : row.detail ? <p>{row.detail}</p> : null}
+      {missing ? <><p>该路径没有文件，未读取到内容。本次读取不会创建文件，也不会自动重复执行。</p><details className="personal-tool-technical"><summary>技术详情</summary><code>{row.toolName}</code>{row.detail ? <p>{row.detail}</p> : null}</details></> : spoken ? null : row.detail ? <p>{row.detail}</p> : null}
       {row.stdout ? <pre className="personal-tool-output stdout">{row.stdout}</pre> : null}
       {row.stderr ? <pre className="personal-tool-output stderr">{row.stderr}</pre> : null}
       {row.progressTruncated ? <p className="personal-tool-warning">输出已截断；不能据此判断执行成功</p> : null}
@@ -69,7 +79,7 @@ export function PersonalConversation({ rows, running, streaming, waitingForAppro
     {turn.items.map((item, index) => <FlowItem key={item.kind === "work" ? item.rows[0]!.key : item.row.key || index} item={item} onTrace={onTrace} workspaceRoot={workspaceRoot} />)}
     {!turn.running && turn.copyText ? <ReplyActions text={turn.copyText} /> : null}
   </section>)}
-    {running && streaming ? <article className="personal-message role-assistant streaming" aria-label="正在回复"><MessageContent text={streaming} /></article> : null}
+    {running && streaming ? <article className="personal-message role-assistant streaming" aria-label="正在回复"><AssistantText text={streaming} /></article> : null}
     {running && !streaming ? <p className="personal-loading" role="status"><span aria-hidden="true" />{waitingForApproval ? "等待确认后继续" : "正在处理"}</p> : null}
   </>;
 }

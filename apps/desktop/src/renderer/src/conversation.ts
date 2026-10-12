@@ -7,6 +7,7 @@ import type { ShellProgressBuffer } from "../../shared/shell-progress.js";
 import { presentComputerResult } from "../../shared/computer.js";
 import type { ExecutionToolRecord, ExecutionRunRecord } from "../../shared/ui-contract.js";
 import { fileToolReceipt, type FileToolReceipt } from "./delivery-data.js";
+import { reminderSpeechLine } from "./reminder-copy.js";
 
 export type { ToolRowStatus };
 
@@ -339,13 +340,14 @@ function flushStreaming(live: LiveRun, key: string): ConversationRow[] {
 
 function toolOutcome(output: unknown): { status: ToolRowStatus; detail?: string } {
   if (typeof output !== "object" || output === null) return { status: "ok" };
-  const record = output as { ok?: unknown; error?: { code?: unknown; message?: unknown } };
+  const record = output as { ok?: unknown; readback?: unknown; error?: { code?: unknown; message?: unknown } };
   if (record.ok === false) {
     const code = typeof record.error?.code === "string" ? record.error.code : "error";
     const message = typeof record.error?.message === "string" ? record.error.message : "";
     return { status: code === "TOOL_DENIED" ? "denied" : code === "TOOL_OUTCOME_UNKNOWN" ? "unknown" : "failed", detail: message ? `${code}: ${message}` : code };
   }
-  return { status: "ok" };
+  const speech = typeof record.readback === "string" ? reminderSpeechLine(record.readback) : null;
+  return speech ? { status: "ok", detail: speech } : { status: "ok" };
 }
 
 export function applyEvent(live: LiveRun, event: AgentEvent): LiveRun {

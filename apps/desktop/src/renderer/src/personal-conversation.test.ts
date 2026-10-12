@@ -77,6 +77,17 @@ it("presents settled missing-file history with a real time and current workspace
   assert.doesNotMatch(unknown, /未读取到内容/);
 });
 
+it("reminder replies and tool cards lead with the Chinese sentence instead of task_create or scheduled", () => {
+  const task: ToolRow = { kind: "tool", key: "task", toolCallId: "task-1", toolName: "task_create", status: "ok", detail: "已定：每天 9:00 提醒喝水" };
+  const answer: ConversationRow = { kind: "text", role: "assistant", key: "answer", text: "已定：每天 9:00 提醒喝水\nstatus: scheduled", committed: true };
+  const markup = render([user, task, answer]);
+  assert.match(markup, /personal-tool-name">已定：每天 9:00 提醒喝水/);
+  assert.match(markup, /<p>已定：每天 9:00 提醒喝水<\/p>/);
+  assert.match(markup, /<summary>技术详情<\/summary><code>task_create<\/code>/);
+  assert.doesNotMatch(markup.split("原始回复")[0] ?? "", /scheduled/);
+  assert.doesNotMatch(markup, /personal-tool-name">(?:task_create|创建提醒)/);
+});
+
 it("personal conversation retains streaming, steering and explicit incomplete task outcomes", () => {
   const steer: ConversationRow = { ...user, key: "steer", text: "只追加，不覆盖。", steer: true };
   const markup = render([user, steer, { kind: "result", key: "result", status: "completed", completion: { reason: "budget_exhausted", corrections: 0 } }], true, "正在继续回复");
