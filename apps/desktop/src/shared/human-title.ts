@@ -37,9 +37,12 @@ export function localScheduleLabel(value: string | null | undefined): string {
   if (!value || value.trim() === "" || value === "无") return "时间未记录";
   const parsed = Date.parse(value);
   if (!Number.isFinite(parsed)) return humanFacingTitle(value, "时间未记录");
+  const date = new Date(parsed);
+  const includeYear = date.getFullYear() !== new Date().getFullYear();
   return new Intl.DateTimeFormat("zh-CN", {
+    ...(includeYear ? { year: "numeric" as const } : {}),
     month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
-  }).format(new Date(parsed));
+  }).format(date);
 }
 
 export function recurrencePhrase(recurrence: { kind: string; time?: string; weekday?: number } | undefined): string | null {
@@ -85,10 +88,12 @@ export function reminderConfirmationView(toolName: string, preview: string): Rem
   const when = [repeat && repeat !== "不重复" && repeat !== "一次" ? repeat : null, known.get("时间")].filter(Boolean).join(" ");
   const subject = known.get("内容");
   const verb = REMINDER_VERBS[toolName] ?? "确认提醒";
-  const title = humanFacingTitle(`${verb}：${[when, subject].filter(Boolean).join(" ")}`, "确认这次提醒");
+  // The heading and fields are what the user approves. Keep order/task tokens;
+  // chrome titles still use humanFacingTitle, and the tool id stays under 详情.
+  const title = `${verb}：${[when, subject].filter(Boolean).join(" ")}`.replace(/\s+/g, " ").trim() || "确认这次提醒";
   const fields = ["时间", "重复", "内容", "原时间"].flatMap(label => {
     const value = known.get(label);
-    return value ? [{ label, value: humanFacingTitle(value, "未填写") }] : [];
+    return value ? [{ label, value }] : [];
   });
   return { title, fields, more: extra.length ? extra.join("\n") : null };
 }

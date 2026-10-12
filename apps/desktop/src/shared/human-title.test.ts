@@ -29,6 +29,19 @@ it("turns a reminder confirmation into a human heading and parks the long note",
   assert.equal(reminderConfirmationView("read_file", "读取 notes/plan.md"), null);
 });
 
+it("reminder confirmation keeps the business token in the text being approved", () => {
+  const subject = "检查订单 task_12345678";
+  const view = reminderConfirmationView("task_create", [
+    "提醒确认",
+    "时间：9:00",
+    "内容：" + subject,
+    "允许这次保存？ [y/n]",
+  ].join("\n"));
+  assert.match(view?.title ?? "", /task_12345678/);
+  assert.equal(view?.fields.find(field => field.label === "内容")?.value, subject);
+  assert.equal(humanFacingTitle(subject, "当前对话"), "检查订单");
+});
+
 it("names a saved reminder from its result and formats schedule times without the raw timestamp", () => {
   assert.equal(taskNoticeTitle({
     prompt: "不是正文来源", resultText: "该喝水了，起来活动一下。", status: "completed", arrangementKind: "reminder",
@@ -40,6 +53,13 @@ it("names a saved reminder from its result and formats schedule times without th
   assert.doesNotMatch(label, /T01:00:00|000Z/);
   assert.match(label, /\d/);
   assert.equal(localScheduleLabel("task-water"), "时间未记录");
+  const year = new Date().getFullYear();
+  const at = (value: number) => new Date(value, 0, 1, 9, 0, 0).toISOString();
+  const next = localScheduleLabel(at(year + 1));
+  const after = localScheduleLabel(at(year + 2));
+  assert.notEqual(next, after);
+  assert.match(next, new RegExp(String(year + 1)));
+  assert.match(after, new RegExp(String(year + 2)));
 });
 
 it("module notifications lead with the human sentence, not the module id", () => {
