@@ -12,8 +12,12 @@ import {
   groupTaskRows,
   inboxReturnTitle,
   nextComposerText,
+  nextTaskInstruction,
+  planScheduleContinueHandoff,
   planTaskContinueHandoff,
   planTaskCreateHandoff,
+  planTaskFollowUpHandoff,
+  returnedTaskSource,
   scheduledTaskRows,
   taskDayBucket,
   taskReturnLabel,
@@ -124,7 +128,68 @@ describe("tasks page", () => {
     const detail = page({ segment: "scheduled", reminders: view.rows, openedReminder: row });
     assert.match(detail, /<summary>编号<\/summary><code>task_hidden_water<\/code>/);
     assert.match(detail, /和 Serika 聊这件提醒/);
+    assert.match(detail, /取消提醒/);
+    assert.match(detail, /已经提醒到你/);
     assert.doesNotMatch(detail, /已定|已记下/);
+  });
+
+  it("shows a cancel failure on the open detail and keeps the list warning", () => {
+    const clock = { now, timeZone: "Asia/Shanghai" };
+    const view = scheduledTaskRows({
+      scheduled: [{ id: "task_hidden_water", promptPreview: "喝水", status: "scheduled", runAt: at(12, 20), arrangement: { kind: "reminder" } }],
+      recurring: [],
+    }, clock);
+    const row = view.rows[0];
+    assert.ok(row);
+    const message = "取消结果未确认，请刷新核对；不会自动重试。";
+    const detail = page({ segment: "scheduled", reminders: view.rows, openedReminder: row, pendingCancel: row, remindersError: message });
+    assert.match(detail, /取消结果未确认，请刷新核对/);
+    assert.match(detail, /请回到列表重新读取并核对这项安排是否还在/);
+    assert.match(detail, /不会自动重试/);
+    assert.match(detail, /确认取消/);
+    assert.doesNotMatch(detail, /task-group/);
+    const list = page({ segment: "scheduled", reminders: view.rows, remindersError: message });
+    assert.match(list, /取消结果未确认/);
+    assert.match(list, /读取失败不代表没有提醒/);
+  });
+
+  it("opens non-reminder schedules in 定时任务 instead of hiding them behind 设置", () => {
+    const clock = { now, timeZone: "Asia/Shanghai" };
+    const view = scheduledTaskRows({
+      scheduled: [
+        { id: "task_hidden_water", promptPreview: "喝水", status: "scheduled", runAt: at(12, 20), arrangement: { kind: "reminder" } },
+        { id: "task_hidden_digest", promptPreview: "邮件今日速览", status: "scheduled", runAt: at(12, 21), arrangement: { kind: "todoist-brief" } },
+      ],
+      recurring: [{
+        id: "task_hidden_rss",
+        promptPreview: "订阅摘要",
+        status: "active",
+        nextRunAt: at(13, 8),
+        recurrence: { kind: "daily", time: "08:00", utcOffset: "+08:00" },
+        arrangement: { kind: "rss-digest" },
+      }],
+    }, clock);
+    assert.equal(view.other, 0);
+    assert.deepEqual(view.rows.map(row => row.title), ["喝水", "邮件今日速览", "订阅摘要"]);
+    const digest = view.rows.find(row => row.id === "task_hidden_digest");
+    const rss = view.rows.find(row => row.id === "task_hidden_rss");
+    assert.equal(digest?.family, "schedule");
+    assert.equal(digest?.kindLabel, "Todoist 日报");
+    assert.equal(rss?.family, "schedule");
+    assert.equal(rss?.kindLabel, "RSS 资讯");
+    const list = page({ segment: "scheduled", reminders: view.rows, reminderOther: view.other });
+    assert.match(list, /邮件今日速览/);
+    assert.match(list, /Todoist 日报/);
+    assert.match(list, /订阅摘要/);
+    assert.match(list, /RSS 资讯/);
+    assert.doesNotMatch(list, /另有/);
+    assert.ok(digest);
+    const detail = page({ segment: "scheduled", reminders: view.rows, openedReminder: digest });
+    assert.match(detail, /邮件今日速览/);
+    assert.match(detail, /<summary>编号<\/summary><code>task_hidden_digest<\/code>/);
+    assert.match(detail, /取消这项安排/);
+    assert.match(detail, /和 Serika 聊这项安排/);
+    assert.doesNotMatch(detail, /已经提醒到你|另有/);
   });
 
   it("opens a task as a thread with artifacts, continue input, and the id only under 编号", () => {
@@ -153,6 +218,82 @@ describe("conversational create and return chip", () => {
     assert.equal(nextComposerText("已经在写", handoff), "已经在写");
     assert.doesNotMatch(TASK_CREATE_PROMPT, /已定|已记下/);
     for (const template of SCHEDULE_TEMPLATES) assert.doesNotMatch(`${template.prompt} ${template.blurb}`, /已定|已记下/);
+  });
+
+  it("keeps an unsent draft when 继续追问 or a task supplement would otherwise replace it", () => {
+    const source = returnedTaskSource({
+      id: "task_hidden_left",
+      status: "completed",
+      prompt: "项目周报",
+      resultText: "结论是通过",
+      runAt: at(12),
+    }, now);
+    const followUp = planTaskFollowUpHandoff(source);
+    assert.equal(followUp.policy, "fill");
+    assert.equal(nextComposerText("未发送的草稿", followUp), "未发送的草稿");
+    assert.equal(nextComposerText("", followUp), followUp.text);
+    assert.match(followUp.text, /结论是通过/);
+    const runnable = task("task_hidden_wake", "起床提醒", 11, "paused");
+    const supplement = planTaskContinueHandoff(runnable, "");
+    assert.equal(supplement.mode, "task");
+    assert.equal(supplement.policy, "fill");
+    assert.equal(nextTaskInstruction("先补这一段", supplement), null);
+    assert.equal(nextTaskInstruction("", supplement), supplement.text);
+    const reminder = planScheduleContinueHandoff({ title: "喝水", family: "reminder" }, "");
+    assert.equal(reminder.policy, "fill");
+    assert.equal(nextComposerText("提醒草稿还在", reminder), "提醒草稿还在");
+  });
+
+  it("keeps two same-prefix results distinguishable when continuing", () => {
+    const head = "项目周报".repeat(12);
+    const left = returnedTaskSource({
+      id: "task_hidden_left",
+      status: "completed",
+      prompt: "项目周报",
+      resultText: `${head}结论是通过`,
+      runAt: at(12),
+      arrangement: { kind: "rss-digest" },
+    }, now);
+    const right = returnedTaskSource({
+      id: "task_hidden_right",
+      status: "completed",
+      prompt: "项目周报",
+      resultText: `${head}结论是退回`,
+      runAt: at(12),
+      arrangement: { kind: "rss-digest" },
+    }, now);
+    assert.equal(inboxReturnTitle(left), inboxReturnTitle(right));
+    const chip = taskReturnLabel(inboxReturnTitle(left));
+    assert.match(chip, /继续追问/);
+    assert.doesNotMatch(chip, /task_hidden|结论是通过|结论是退回/);
+    const a = planTaskFollowUpHandoff(left);
+    const b = planTaskFollowUpHandoff(right);
+    assert.equal(a.mode, "chat");
+    assert.equal(a.taskId, null);
+    assert.equal(b.taskId, null);
+    assert.notEqual(a.text, b.text);
+    assert.match(a.text, /task_hidden_left/);
+    assert.match(b.text, /task_hidden_right/);
+    assert.match(a.text, /结论是通过/);
+    assert.match(b.text, /结论是退回/);
+    assert.match(a.text, /实际状态：completed/);
+    assert.match(b.text, /实际状态：completed/);
+    const failed = returnedTaskSource({
+      id: "task_hidden_failed",
+      status: "failed",
+      prompt: "喝水",
+      resultText: "已定：喝水",
+      error: { message: "没有发出" },
+      runAt: at(12),
+      arrangement: { kind: "reminder" },
+    }, now);
+    assert.equal(inboxReturnTitle(failed), "喝水");
+    assert.doesNotMatch(taskReturnLabel(inboxReturnTitle(failed)), /已定/);
+    const failedHandoff = planTaskFollowUpHandoff(failed);
+    assert.match(failedHandoff.text, /task_hidden_failed/);
+    assert.match(failedHandoff.text, /实际状态：failed/);
+    assert.match(failedHandoff.text, /没有发出/);
+    assert.match(failedHandoff.text, /已定：喝水/);
   });
 
   it("names a returned result in the chat chip and does not turn a failure into a saved reminder", () => {
@@ -189,7 +330,14 @@ it("the tasks shell hands create and returned results to the main composer", asy
   assert.match(app, /<TasksHome/);
   assert.match(app, /<TaskReturnChip/);
   assert.match(app, /planTaskCreateHandoff\(\)/);
-  assert.match(app, /planTaskFollowUpHandoff\(title\)/);
+  assert.match(app, /planTaskFollowUpHandoff\(source\)/);
+  const handoff = app.slice(app.indexOf("const applyTaskHandoff"), app.indexOf("const openCreateTask"));
+  assert.match(handoff, /nextTaskInstruction\(workTasks\.instruction, handoff\)/);
+  assert.match(handoff, /nextComposerText\(current, handoff\)/);
+  assert.doesNotMatch(handoff, /setInstruction\(handoff\.text\)/);
+  const model = await readFile(new URL("./tasks-model.ts", import.meta.url), "utf8");
+  const pageSource = await readFile(new URL("./tasks-page.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(`${model}\n${pageSource}`, /policy:\s*"replace"/);
   const createTask = app.slice(app.indexOf("const openCreateTask"), app.indexOf("const openMemory"));
   assert.match(createTask, /planTaskCreateHandoff\(\)/);
   assert.doesNotMatch(createTask, /setCreateTaskRequest|setTaskDraft/);

@@ -1,7 +1,8 @@
+import { reminderWhen } from "@aisdk-agent/example-cli/dist/reminder-speech.js";
 import type { WorkTask } from "../../../shared/work-tasks.js";
 import { humanFacingTitle } from "../../../shared/human-title.js";
 import type { ReminderSpeechClock } from "../reminder-copy.js";
-import { localWhen, reminderRows, type ReminderDisplayRow } from "../reminder-copy.js";
+import { localWhen, reminderRows, scheduleStatusLabel, type ReminderDisplayRow } from "../reminder-copy.js";
 import { taskActions, taskNextAction, taskStatusLabels, taskVerificationSummary } from "../work-task-data.js";
 
 /**
@@ -42,6 +43,7 @@ export interface TaskComposerHandoff {
   mode: "chat" | "task";
   taskId: string | null;
   text: string;
+  /** fill keeps a non-empty composer draft. replace is not used by create or continue. */
   policy: "fill" | "replace";
 }
 
@@ -54,20 +56,97 @@ export function taskFollowUpPrompt(title: string): string {
   return `我想继续了解「${name}」。请基于已经回来的结果回答。如果结果失败或还不确定，直接说明，不要说已经完成或已经提醒到我。`;
 }
 
-export function planTaskFollowUpHandoff(title: string): TaskComposerHandoff {
-  return { mode: "chat", taskId: null, text: taskFollowUpPrompt(title), policy: "replace" };
+/** Saved inbox result used to continue. The chip title is separate and display-only. */
+export interface ReturnedTaskSource {
+  id: string;
+  status: string;
+  statusLabel: string;
+  prompt: string;
+  resultText: string | null;
+  errorMessage: string | null;
+}
+
+export function returnedTaskSource(task: {
+  id: string;
+  status: string;
+  prompt?: string | null;
+  resultText?: string | null;
+  error?: { message?: string | null } | null;
+  runAt?: string | null;
+  arrangement?: { kind?: string } | null;
+}, now = new Date()): ReturnedTaskSource {
+  return {
+    id: task.id,
+    status: task.status,
+    statusLabel: scheduleStatusLabel(task.status, task.runAt, now, task.arrangement?.kind),
+    prompt: task.prompt ?? "",
+    resultText: task.resultText ?? null,
+    errorMessage: task.error?.message?.trim() || null,
+  };
+}
+
+function followUpBody(source: ReturnedTaskSource): string {
+  const result = source.resultText?.trim() ?? "";
+  const error = source.errorMessage?.trim() ?? "";
+  if (result && error && error !== result) return `${result}\n错误：${error}`;
+  if (result) return result;
+  if (error) return error;
+  const prompt = source.prompt.trim();
+  return prompt || "没有保存结果正文。";
+}
+
+/** Title in quotes is the chip summary. The source id, status and body are the result itself. */
+export function taskResultFollowUpPrompt(source: ReturnedTaskSource): string {
+  const name = humanFacingTitle(inboxReturnTitle(source), "这项任务");
+  return [
+    `我想继续了解「${name}」。引号里只是显示用的摘要。`,
+    `来源编号：${source.id}`,
+    `实际状态：${source.status}（${source.statusLabel}）`,
+    "结果全文：",
+    followUpBody(source),
+    "请基于这份来源编号、实际状态和结果全文回答。如果结果失败或还不确定，直接说明，不要说已经完成或已经提醒到我。",
+  ].join("\n");
+}
+
+export function planTaskFollowUpHandoff(source: ReturnedTaskSource): TaskComposerHandoff {
+  return { mode: "chat", taskId: null, text: taskResultFollowUpPrompt(source), policy: "fill" };
 }
 
 /** Runnable work continues in the existing task composer. Everything else stays ordinary chat. */
 export function planTaskContinueHandoff(task: WorkTask, draft: string): TaskComposerHandoff {
   const text = draft.trim() || taskFollowUpPrompt(humanFacingTitle(task.goal, "这项任务"));
-  if (taskActions(task).run) return { mode: "task", taskId: task.id, text, policy: "replace" };
-  return { mode: "chat", taskId: null, text, policy: "replace" };
+  if (taskActions(task).run) return { mode: "task", taskId: task.id, text, policy: "fill" };
+  return { mode: "chat", taskId: null, text, policy: "fill" };
+}
+
+export function planScheduleContinueHandoff(row: { title: string; family: "reminder" | "schedule" }, draft: string): TaskComposerHandoff {
+  const name = humanFacingTitle(row.title, row.family === "reminder" ? "这项提醒" : "这项安排");
+  const text = draft.trim() || scheduleContinueFallback(row.family, name);
+  return { mode: "chat", taskId: null, text, policy: "fill" };
+}
+
+function scheduleContinueFallback(family: "reminder" | "schedule", name: string): string {
+  switch (family) {
+    case "reminder":
+      return `我想调整「${name}」。先确认新的时间。确认之前不要说已经改好。`;
+    case "schedule":
+      return `我想调整「${name}」这项定时安排。先确认要改什么。确认之前不要说已经改好。`;
+    default: {
+      const unreachable: never = family;
+      return unreachable;
+    }
+  }
 }
 
 export function nextComposerText(current: string, handoff: TaskComposerHandoff): string {
   if (handoff.policy === "fill" && current.trim()) return current;
   return handoff.text;
+}
+
+/** Null means the current task supplement must not be written or autosaved. */
+export function nextTaskInstruction(current: string, handoff: TaskComposerHandoff): string | null {
+  const next = nextComposerText(current, handoff);
+  return next === current ? null : next;
 }
 
 export function taskReturnLabel(title: string): string {
@@ -180,23 +259,77 @@ export function taskProgressLines(task: WorkTask): string[] {
 export interface ScheduledTaskRow extends ReminderDisplayRow {
   at: string;
   title: string;
+  family: "reminder" | "schedule";
+  kindLabel: string;
 }
 
+function scheduleKindLabel(kind: string | undefined): string {
+  if (kind === "reminder") return "提醒";
+  if (kind === "todoist-brief") return "Todoist 日报";
+  if (kind === "rss-digest") return "RSS 资讯";
+  if (kind === "skill") return "定时技能";
+  return "定时安排";
+}
+
+function scheduleFamily(kind: string | undefined): "reminder" | "schedule" {
+  return kind === "reminder" ? "reminder" : "schedule";
+}
+
+/**
+ * The 定时任务 tab lists every arrangement in this overview, reminders and
+ * otherwise. `other` stays 0 because nothing in the payload is held back for 设置.
+ */
 export function scheduledTaskRows(input: Parameters<typeof reminderRows>[0], clock: ReminderSpeechClock): { rows: ScheduledTaskRow[]; other: number } {
   const atById = new Map<string, string>();
+  const kindByKey = new Map<string, string | undefined>();
   for (const task of input.scheduled) {
-    if (task.arrangement?.kind === "reminder") atById.set(task.id, task.runAt);
+    atById.set(task.id, task.runAt);
+    kindByKey.set(`once:${task.id}`, task.arrangement?.kind);
   }
   for (const task of input.recurring) {
-    if (task.arrangement?.kind === "reminder" && task.nextRunAt) atById.set(task.id, task.nextRunAt);
+    if (task.nextRunAt) atById.set(task.id, task.nextRunAt);
+    kindByKey.set(`recurring:${task.id}`, task.arrangement?.kind);
   }
-  const view = reminderRows(input, clock);
+  const reminders = reminderRows(input, clock);
+  const seen = new Set(reminders.rows.map(row => `${row.kind}:${row.id}`));
+  const extras: ReminderDisplayRow[] = [];
+  for (const task of input.scheduled) {
+    if (seen.has(`once:${task.id}`)) continue;
+    extras.push({
+      id: task.id,
+      subject: task.promptPreview,
+      when: localWhen(task.runAt, clock),
+      status: scheduleStatusLabel(task.status, task.runAt, clock.now, task.arrangement?.kind),
+      kind: "once",
+      canCancel: task.status === "scheduled",
+    });
+  }
+  for (const task of input.recurring) {
+    if (seen.has(`recurring:${task.id}`)) continue;
+    const phrase = reminderWhen({ recurrence: task.recurrence, clock }).phrase;
+    const next = task.nextRunAt === null ? null : localWhen(task.nextRunAt, clock);
+    extras.push({
+      id: task.id,
+      subject: task.promptPreview,
+      when: next === null ? phrase : `${phrase} · 下次 ${next}`,
+      status: scheduleStatusLabel(task.status, task.nextRunAt, clock.now, task.arrangement?.kind),
+      kind: "recurring",
+      canCancel: task.status !== "cancelled",
+    });
+  }
   return {
-    other: view.other,
-    rows: view.rows.map(row => ({
-      ...row,
-      at: atById.get(row.id) ?? "",
-      title: humanFacingTitle(row.subject, "提醒"),
-    })),
+    other: 0,
+    rows: [...reminders.rows, ...extras].map(row => {
+      const arrangementKind = kindByKey.get(`${row.kind}:${row.id}`);
+      const family = scheduleFamily(arrangementKind);
+      const kindLabel = scheduleKindLabel(arrangementKind);
+      return {
+        ...row,
+        at: atById.get(row.id) ?? "",
+        title: humanFacingTitle(row.subject, family === "reminder" ? "提醒" : kindLabel),
+        family,
+        kindLabel,
+      };
+    }),
   };
 }
