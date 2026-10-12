@@ -4,7 +4,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { AppInfo } from "../../shared/ui-contract.js";
 import type { MemoryMaintenance } from "@aisdk-agent/example-cli/dist/memory-controls.js";
-import { MemoryConsolidationPanel, consolidationStatusLabel, previewAutomaticMemoryUndo, memoryReceiptPresentation, memoryReceiptSummary } from "./memory-consolidation.js";
+import { MemoryConsolidationPanel, consolidationStatusLabel, loadSavedReceiptText, previewAutomaticMemoryUndo, memoryReceiptPresentation, memoryReceiptSummary, receiptSnapshotText } from "./memory-consolidation.js";
+import { savedMemoryNoticeText } from "./memory-copy.js";
 import { memoryConsolidationFailureText } from "@aisdk-agent/example-cli/dist/memory-failure.js";
 
 function maintenance(state: MemoryMaintenance["consolidation"]["state"]): MemoryMaintenance {
@@ -82,6 +83,42 @@ describe("daily memory consolidation state", () => {
     assert.equal(memoryReceiptSummary([{ ...receipt, operation: "add" }, { ...receipt, operation: "retract" }]), "已处理 2 条记忆");
     const noRead = { getMemory: async () => { throw new Error("must not read"); } } as unknown as Parameters<typeof previewAutomaticMemoryUndo>[1];
     for (const operation of ["retract", "disable"] as const) assert.equal((await previewAutomaticMemoryUndo({ ...receipt, operation }, noRead)).ok, false);
+  });
+
+  it("shows the v4 receipt body after the memory is edited to v5", async () => {
+    const history = {
+      versions: [
+        { revision: 5, assertionId: "assertion-v5" },
+        { revision: 4, assertionId: "assertion-v4" },
+      ],
+      assertions: [
+        { assertionId: "assertion-v5", text: "v5 body" },
+        { assertionId: "assertion-v4", text: "v4 body" },
+      ],
+    };
+    assert.equal(receiptSnapshotText(4, { revision: 5, text: "v5 body" }, history), "v4 body");
+    assert.equal(receiptSnapshotText(5, { revision: 5, text: "v5 body" }, history), "v5 body");
+    assert.equal(receiptSnapshotText(4, { revision: 5, text: "v5 body" }, { versions: [], assertions: [] }), null);
+    const historyCalls: number[] = [];
+    const api = {
+      getMemory: async () => ({ ok: true as const, value: { id: "memory-1", revision: 5, text: "v5 body" } }),
+      getMemoryHistory: async (input: { offset?: number }) => {
+        historyCalls.push(input.offset ?? 0);
+        if ((input.offset ?? 0) === 0) return { ok: true as const, value: { id: "memory-1", versions: [{ revision: 5, assertionId: "assertion-v5" }], assertions: [{ assertionId: "assertion-v5", text: "v5 body" }], nextOffset: 1 } };
+        return { ok: true as const, value: { id: "memory-1", versions: [{ revision: 4, assertionId: "assertion-v4" }], assertions: [{ assertionId: "assertion-v4", text: "v4 body" }], nextOffset: null } };
+      },
+    } as unknown as Parameters<typeof loadSavedReceiptText>[1];
+    const text = await loadSavedReceiptText({ memoryId: "memory-1", revision: 4 }, api);
+    assert.equal(text, "v4 body");
+    assert.deepEqual(historyCalls, [0, 1]);
+    const notice = savedMemoryNoticeText("已记住", text);
+    assert.equal(notice, "已记住：v4 body");
+    assert.equal(notice.includes("v5"), false);
+    const sameRevision = {
+      getMemory: async () => ({ ok: true as const, value: { id: "memory-1", revision: 4, text: "v4 body" } }),
+      getMemoryHistory: async () => { throw new Error("current revision must not read history"); },
+    } as unknown as Parameters<typeof loadSavedReceiptText>[1];
+    assert.equal(await loadSavedReceiptText({ memoryId: "memory-1", revision: 4 }, sameRevision), "v4 body");
   });
 
   it("undo previews only the exact saved version and never makes a write", async () => {

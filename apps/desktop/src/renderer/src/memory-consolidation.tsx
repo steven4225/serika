@@ -31,6 +31,54 @@ export function memoryReceiptSummary(accepted: readonly SavedMemoryReceipt[]): s
     ? `已记住 ${accepted.length} 条信息` : `已处理 ${accepted.length} 条记忆`;
 }
 
+type ReceiptHistoryRead = {
+  versions: readonly { revision: number; assertionId: string }[];
+  assertions: readonly { assertionId: string; text: string }[];
+};
+
+/**
+ * Text for one saved receipt. Current body is used only when its revision is the receipt revision.
+ * A newer body is not a substitute for the snapshot identified by that revision.
+ */
+export function receiptSnapshotText(
+  receiptRevision: number,
+  current: { revision?: number; text: string } | null,
+  history: ReceiptHistoryRead,
+): string | null {
+  if (current?.revision === receiptRevision) return current.text;
+  const version = history.versions.find(item => item.revision === receiptRevision);
+  if (!version) return null;
+  return history.assertions.find(item => item.assertionId === version.assertionId)?.text ?? null;
+}
+
+const RECEIPT_HISTORY_PAGE_LIMIT = 10;
+const RECEIPT_HISTORY_PAGE_MAX = 8;
+
+/** Read the body saved at `receipt.revision`, never a later revision of the same memory. */
+export async function loadSavedReceiptText(
+  receipt: { memoryId: string; revision: number },
+  api: Pick<Window["runloom"], "getMemory" | "getMemoryHistory">,
+): Promise<string | null> {
+  const current = await api.getMemory(receipt.memoryId);
+  if (!current.ok || current.value.id !== receipt.memoryId) return null;
+  if (current.value.revision === receipt.revision) return current.value.text;
+  const versions: { revision: number; assertionId: string }[] = [];
+  const assertions: { assertionId: string; text: string }[] = [];
+  let offset = 0;
+  for (let page = 0; page < RECEIPT_HISTORY_PAGE_MAX; page += 1) {
+    const history = await api.getMemoryHistory({ id: receipt.memoryId, offset, limit: RECEIPT_HISTORY_PAGE_LIMIT });
+    if (!history.ok || history.value.id !== receipt.memoryId) return null;
+    versions.push(...history.value.versions);
+    assertions.push(...history.value.assertions);
+    const text = receiptSnapshotText(receipt.revision, null, { versions, assertions });
+    if (text !== null) return text;
+    const next = history.value.nextOffset;
+    if (next === null || next <= offset) return null;
+    offset = next;
+  }
+  return null;
+}
+
 /** Undo binds to the saved revision, never to whatever newer value now occupies that id. */
 export async function previewAutomaticMemoryUndo(receipt: SavedMemoryReceipt, api: Pick<Window["runloom"], "getMemory" | "previewMemoryAction">): Promise<MemoryResult<MemoryActionPreview>> {
   if (memoryReceiptPresentation(receipt).undoLabel === null) return { ok: false, error: { code: "INVALID_INPUT", message: "这条记忆已经撤回或停用，请在记忆详情中查看历史；不会再次撤回。" } };
@@ -51,13 +99,13 @@ function AutomaticMemoryReceipts({ accepted, busy, refreshToken }: { accepted: r
   const receiptKey = accepted.map(receipt => `${receipt.memoryId}:${receipt.revision}:${receipt.operation ?? "unknown"}`).join("|");
   useEffect(() => { generation.current++; setPreview(null); setCurrent(null); setError(""); }, [refreshToken, receiptKey, busy]);
   useEffect(() => {
-    if (!accepted.length || typeof window === "undefined" || !window.runloom?.getMemory) return;
+    if (!accepted.length || typeof window === "undefined" || !window.runloom?.getMemory || !window.runloom.getMemoryHistory) return;
     let cancelled = false;
     void Promise.all(accepted.map(async receipt => {
       const key = `${receipt.memoryId}:${receipt.revision}`;
       try {
-        const result = await window.runloom.getMemory(receipt.memoryId);
-        return [key, result.ok ? result.value.text : ""] as const;
+        const text = await loadSavedReceiptText(receipt, window.runloom);
+        return [key, text ?? ""] as const;
       } catch {
         return [key, ""] as const;
       }
