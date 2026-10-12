@@ -69,15 +69,17 @@ window.runloom = fixtureApi as RendererApi;
 function Preview() {
   const [refresh, setRefresh] = useState(0);
   changed = () => setRefresh(value => value + 1);
-  return <main className="personal-layout" style={{ height: "100vh", overflow: "auto" }}>
+  return <div className="serika-personal-shell" style={{ height: "100vh" }}>
+    <main className="personal-layout" style={{ height: "100%", overflow: "auto", background: "var(--personal-today-background)" }}>
     <p className="hint" style={{ padding: "12px 24px 0" }}>隔离 UI fixture · Mock 数据 · 不代表 Electron 或真实模型验收</p>
-    <section className="personal-dashboard" style={{ minHeight: "100%" }}>
+    <section className="personal-dashboard" style={{ minHeight: "100%", background: "transparent", maxWidth: 520, width: "100%", margin: "0 auto" }}>
       <div className="inspector-pane">
         <MemoryPanel memory={{ enabled: true, autoConsolidate: true, writePolicy: "automatic" }} temporaryThread={false} controllerIdle refreshToken={refresh} />
         <MemoryReferences refreshToken={refresh} runId="fixture-run" starting={false} />
         <button className="ghost" onClick={() => { memories = memories.map(item => item.id === "fixture-writing" ? { ...item, text: "外部更新的正文", revision: (item.revision ?? 1) + 1 } : item); changed(); }}>模拟外部版本更新</button>
       </div>
     </section>
-  </main>;
+    </main>
+  </div>;
 }
 createRoot(document.getElementById("root")!).render(<Preview />);

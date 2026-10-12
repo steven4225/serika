@@ -66,5 +66,6 @@ it("shows from for one source and corroborated for several, with markdown sectio
   assert.match(full, /更新于 3 天前/);
   const understanding = memoryUnderstanding([project], now);
   assert.match(understanding.narrative, /教育背景/);
+  assert.equal(understanding.narrative.includes("#"), false);
   assert.equal(understanding.empty, false);
 });

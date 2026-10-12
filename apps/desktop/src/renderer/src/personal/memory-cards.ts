@@ -98,10 +98,21 @@ export function latestMemoryStamp(entries: readonly MemoryCardEntry[]): string |
   return best;
 }
 
+function plainMemoryText(text: string): string {
+  return text
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^[-*+]\s+/gm, "")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/[*_`]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export function memoryUnderstanding(entries: readonly MemoryCardEntry[], now: Date): { narrative: string; updatedLabel: string; empty: boolean } {
   const live = entries.filter(entry => entry.temporalState !== "retracted" && entry.preview.trim().length > 0);
   return {
-    narrative: live.map(entry => entry.preview.trim()).join("\n\n"),
+    narrative: live.map(entry => plainMemoryText(entry.preview)).filter(Boolean).join(" "),
     updatedLabel: memoryUpdatedLabel(latestMemoryStamp(live), now),
     empty: live.length === 0,
   };
