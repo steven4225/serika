@@ -58,6 +58,8 @@ import { ZCodeMessage, ZCodeMessageContent } from "./zcode/message.js";
 import { PersonalConversation as ZCodeConversation, PersonalBackToBottom as ZCodeBackToBottom } from "./personal/conversation.js";
 import { PersonalPromptEditor as ZCodePromptEditor, PersonalPromptOptions as ZCodePromptOptions } from "./personal/composer.js";
 import { TodayPanel } from "./personal/today.js";
+import { PersonaPanel } from "./personal/persona.js";
+import { SearchOverlay } from "./personal/search-overlay.js";
 import { clampChatFraction, loadChatFraction, loadSidebarOpen, dashboardTabForDetail, PERSONAL_SPLIT_KEY, PERSONAL_SIDEBAR_KEY, PERSONAL_COMPACT_BREAKPOINT } from "./personal/layout.js";
 import { humanFacingTitle } from "../../shared/human-title.js";
 import { RemindersPanel } from "./reminders.js";
@@ -354,7 +356,8 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const latestCompletedPrimaryId = useRef<string | null>(null);
   const historyRequest = useRef(0);
   const [detailsOpen, setDetailsOpen] = useState(!!initialSettings);
-  const [detailTab, setDetailTab] = useState<"threads" | "tasks" | "reminders" | "home" | "records" | "memory" | "context" | "pomodoro" | "modules">(initialSettings || "home");
+  const [detailTab, setDetailTab] = useState<"threads" | "tasks" | "reminders" | "home" | "records" | "memory" | "context" | "pomodoro" | "modules" | "persona">(initialSettings || "home");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const sendInFlight = useRef(false);
   const homeBuffer = useRef("");
@@ -685,13 +688,14 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     if (!detailsOpen && !mobileDashboard) return;
     const close = (event: KeyboardEvent) => {
       // Let an inner disclosure/dialog consume Escape first.
+      if (searchOpen) return;
       if (event.key === "Escape" && !event.isComposing && !event.defaultPrevented) {
         setDetailsOpen(false); setMobileDashboard(false); event.preventDefault();
       }
     };
     window.addEventListener("keydown", close);
     return () => window.removeEventListener("keydown", close);
-  }, [detailsOpen, mobileDashboard]);
+  }, [detailsOpen, mobileDashboard, searchOpen]);
 
   useEffect(() => {
     if (!info) return;
@@ -729,14 +733,21 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key === "Escape" && !event.isComposing && !event.defaultPrevented) {
+      if (event.isComposing) return;
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setSearchOpen(open => !open);
+        return;
+      }
+      if (searchOpen) return;
+      if (event.key === "Escape" && !event.defaultPrevented) {
         if (detailsOpen || mobileDashboard) { setDetailsOpen(false); setMobileDashboard(false); }
         else void window.runloom.hide();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [detailsOpen, mobileDashboard]);
+  }, [detailsOpen, mobileDashboard, searchOpen]);
 
   const decide = useCallback(async (decision: "allow" | "deny") => {
     if (approval === null || decisionInFlight.current === approval.approvalId) return;
@@ -930,8 +941,8 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     const draft = drafts.get(draftKey({ workspaceRoot: info?.workspaceRoot ?? null, directory: thread.transcriptDirectory, threadId: thread.threadId }));
     return draft?.text ? [[thread.threadId, draft.text] as const] : [];
   }));
-  const pageTitle = !detailsOpen ? conversationTitle : ({ threads: "全部对话", tasks: "工作任务", reminders: "提醒", home: "工作区", records: "执行记录", memory: "记忆", context: "上下文与压缩", pomodoro: "番茄钟", modules: "模块能力" })[detailTab];
-  const pageDescription = ({ threads: "继续之前的对话，或开始一段新对话。", tasks: "把需要执行和验收的事放在这里；普通聊天不用创建任务。", reminders: "查看已经设好的提醒，以及刚刚触发的结果。", home: "查看保存的进度、订阅和当前配置。提醒列表在「提醒」。", records: "核对每次执行的工具结果，区分完成、失败和未知效果。", memory: "已保存的记忆和待审核的候选，都在这里。", context: "长对话由系统自动管理，通常不需要你操作。", pomodoro: "专注计时，直接操作，不必发消息。", modules: "决定助手可以使用哪些能力。" })[detailTab];
+  const pageTitle = !detailsOpen ? conversationTitle : ({ threads: "全部对话", tasks: "工作任务", reminders: "提醒", home: "工作区", records: "执行记录", memory: "记忆", context: "上下文与压缩", pomodoro: "番茄钟", modules: "模块能力", persona: "serika" })[detailTab];
+  const pageDescription = ({ threads: "继续之前的对话，或开始一段新对话。", tasks: "把需要执行和验收的事放在这里；普通聊天不用创建任务。", reminders: "查看已经设好的提醒，以及刚刚触发的结果。", home: "查看保存的进度、订阅和当前配置。提醒列表在「提醒」。", records: "核对每次执行的工具结果，区分完成、失败和未知效果。", memory: "已保存的记忆和待审核的候选，都在这里。", context: "长对话由系统自动管理，通常不需要你操作。", pomodoro: "专注计时，直接操作，不必发消息。", modules: "决定助手可以使用哪些能力。", persona: "你的个人助手。" })[detailTab];
   const newConversation = async () => {
     if (busy || sending || threadSwitchInFlight.current || !info) return;
     threadSwitchInFlight.current = true;
@@ -972,6 +983,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
           <span className="spacer" />
           <button className="personal-mobile-today" type="button" onClick={() => setMobileDashboard(true)}>今天<Icon name="chevron" size={14} /></button>
           {info?.workTasks ? <button className="personal-create-task" type="button" disabled={busy || sending || switchingThread} onClick={openCreateTask}><Icon name="new-chat" size={15} />创建任务</button> : null}
+          {!dashboardOpen ? <button className="personal-sidebar-toggle" type="button" aria-label="搜索" title="搜索" onClick={() => setSearchOpen(true)}><Search size={16} /></button> : null}
           <button className="personal-sidebar-toggle" type="button" aria-pressed={dashboardOpen} aria-label={dashboardOpen ? "收起侧栏" : "展开侧栏"} title={dashboardOpen ? "收起侧栏，对话占满窗口" : "展开侧栏"} onClick={toggleSidebar}><Icon name="panel" size={16} /></button>
           <button className="icon-button personal-new-chat" type="button" aria-label="新对话" title="新对话；保留当前草稿" disabled={busy || sending || switchingThread || !info} onClick={() => void newConversation()}><Icon name="new-chat" /></button>
         </header>
@@ -1084,12 +1096,12 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
         <header className="personal-dashboard-header">
           <button className="personal-mobile-back" type="button" onClick={() => setMobileDashboard(false)}><Icon name="chevron" size={14} style={{ transform: "rotate(180deg)" }} />对话</button>
           <nav className="personal-segments" aria-label="个人助手页面">
-            {(["Today", "任务", "提醒", "记忆"] as const).map(tab => <button type="button" key={tab}
+            {(["Today", "任务", "记忆", "serika"] as const).map(tab => <button type="button" key={tab}
               aria-current={(detailsOpen ? dashboardTabForDetail(detailTab) : "Today") === tab ? "page" : undefined}
-              onClick={() => { if (tab === "Today") { setDetailsOpen(false); setMobileDashboard(true); } else if (tab === "任务") { setTaskFocused(false); openDetails("tasks"); } else if (tab === "提醒") openDetails("reminders"); else openMemory(); }}>{tab}{tab === "记忆" && pendingLabel ? <span className="personal-segment-count">{pendingLabel}</span> : null}</button>)}
+              onClick={() => { if (tab === "Today") { setDetailsOpen(false); setMobileDashboard(true); } else if (tab === "任务") { setTaskFocused(false); openDetails("tasks"); } else if (tab === "记忆") openMemory(); else openDetails("persona"); }}>{tab}{tab === "记忆" && pendingLabel ? <span className="personal-segment-count">{pendingLabel}</span> : null}</button>)}
           </nav>
           <div className="personal-dashboard-actions">
-            <button type="button" className="personal-circle" aria-label="搜索历史对话" title="搜索历史对话" onClick={() => openDetails("threads")}><Search size={18} /></button>
+            <button type="button" className="personal-circle" aria-label="搜索" title="搜索" aria-expanded={searchOpen} onClick={() => setSearchOpen(true)}><Search size={18} /></button>
             <button type="button" className="personal-circle" aria-label="设置" title="设置" aria-current={detailsOpen && dashboardTabForDetail(detailTab) === "设置" ? "page" : undefined} onClick={() => openDetails("modules")}><Settings2 size={18} /></button>
           </div>
         </header>
@@ -1147,9 +1159,11 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
                 hasCompaction={info.hasCompaction} /> : null}</div>
               <div hidden={detailTab !== "modules"}>{info ? <CapabilitiesPanel info={info} busy={busy} initialError={initialSettingsError} /> : null}</div>
               <div hidden={detailTab !== "pomodoro"}>{info ? <PomodoroPanel enabled={info.commands.includes("pomodoro")} busy={busy} output={output} /> : null}</div>
+              <div hidden={detailTab !== "persona"}><PersonaPanel /></div>
             </div>
           </section>
       </section>
+      {searchOpen ? <SearchOverlay drafts={threadDrafts} busy={busy || switchingThread} onClose={() => setSearchOpen(false)} onOpenThread={id => { setSearchOpen(false); void selectConversation(id); }} /> : null}
     </div>
   );
 }

@@ -101,9 +101,9 @@
 .personal-layout .personal-divider:hover, .personal-layout .personal-divider:focus-visible { background: var(--personal-hover); outline: none; }
 .personal-layout .personal-dashboard { display: flex; flex-direction: column; min-height: 0; min-width: 0; background: var(--personal-today-background); border-radius: 0 18px 18px 0; overflow: hidden; }
 .personal-layout .personal-dashboard-header { display: flex; align-items: center; gap: 12px; flex: none; min-height: 100px; padding: 28px 24px 18px; -webkit-app-region: drag; }
-.personal-layout .personal-segments { display: flex; flex: 1; min-width: 0; align-items: center; padding: 4px; border-radius: 99px; background: #ffffff5c; }
-.personal-layout .personal-segments button { flex: 1; padding: 8px 8px; min-width: 0; font-size: 14px; background: transparent; border: 0; color: var(--muted); }
-.personal-layout .personal-segments button[aria-current="page"] { background: var(--surface); color: var(--text); box-shadow: 0 2px 8px #6464640f; }
+.personal-layout .personal-segments { display: flex; flex: 1; min-width: 0; align-items: center; gap: 2px; padding: 0; border-radius: 0; background: transparent; }
+.personal-layout .personal-segments button { flex: none; padding: 7px 16px; min-width: 0; font-size: 15px; font-weight: 500; background: transparent; border: 0; color: var(--muted); }
+.personal-layout .personal-segments button[aria-current="page"] { background: #fff; color: var(--text); font-weight: 700; box-shadow: 0 1px 2px #39354214; }
 .personal-layout .personal-segment-count { font-size: 10px; padding: 0 4px; border-radius: 50%; background: var(--accent-soft); }
 .personal-layout .personal-dashboard-actions { display: flex; gap: 8px; flex: none; }
 .personal-layout .personal-circle { width: 36px; height: 36px; flex: none; padding: 0; border: 1px solid #ffffff66; background: #ffffff5c; color: var(--text); }
@@ -131,6 +131,28 @@
 .personal-layout .memory-references button { color: var(--text); }
 .personal-layout .capability-status { color: var(--muted); }
 .personal-layout .capability-status.enabled { color: var(--accent); }
+.personal-layout .persona-panel { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; }
+.personal-layout .persona-panel p { margin: 0; color: var(--muted); }
+.personal-search-layer { position: fixed; inset: 0; z-index: 40; display: flex; justify-content: center; align-items: flex-start; padding: 11vh 24px 24px; background: #39354238; backdrop-filter: blur(18px); }
+.personal-search-dialog { width: min(720px, 100%); max-height: min(680px, 78vh); display: flex; flex-direction: column; border-radius: 28px; background: #f7f4f6f2; color: var(--text); box-shadow: 0 24px 80px #39354233; overflow: hidden; }
+.personal-search-input-row { display: flex; align-items: center; gap: 12px; padding: 22px 22px 6px; color: #8d8794; }
+.personal-search-input-row input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 20px; outline: none; }
+.personal-search-input-row input::placeholder { color: #9a94a1; }
+.personal-search-filters { display: flex; align-items: center; gap: 6px; padding: 10px 16px 14px; }
+.personal-search-filters button { border: 0; background: transparent; color: var(--muted); font-size: 14px; font-weight: 500; padding: 6px 14px; }
+.personal-search-filters button[aria-pressed="true"] { background: #fff; color: var(--text); font-weight: 700; box-shadow: 0 1px 2px #39354214; }
+.personal-search-all { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; }
+.personal-search-body { flex: 1; min-height: 0; overflow: auto; padding-bottom: 16px; }
+.personal-search-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; min-height: 320px; padding: 36px 28px 48px; color: #8d8794; text-align: center; }
+.personal-search-empty p { margin: 0; line-height: 1.7; }
+.personal-search-status { margin: 10px 22px 2px; font-size: 13px; color: var(--muted); }
+.personal-search-group { margin: 4px 22px 2px; font-size: 12px; color: var(--muted); }
+.personal-search-note { margin: 8px 22px 16px; font-size: 13px; color: var(--muted); }
+.personal-search-hit { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: calc(100% - 24px); margin: 2px 12px; padding: 12px 14px; border: 0; background: transparent; color: var(--text); text-align: left; }
+.personal-search-hit[aria-selected="true"], .personal-search-hit:hover:not(:disabled) { background: #fff; }
+.personal-search-hit small { color: var(--muted); font-size: 13px; }
+.personal-theme-dark .personal-search-dialog { background: #2a2838f2; }
+.personal-theme-dark .personal-search-filters button[aria-pressed="true"], .personal-theme-dark .personal-search-hit[aria-selected="true"], .personal-theme-dark .personal-search-hit:hover:not(:disabled) { background: #3a3850; color: var(--text); }
 @media (max-width: 1050px) and (min-width: 906px) {
   .personal-layout .personal-dashboard-header { gap: 8px; padding-inline: 16px; }
   .personal-layout .personal-segments button { padding-inline: 6px; }
@@ -165,8 +187,10 @@
   --personal-today-background: linear-gradient(180deg, #1A1A2E 0%, #24233B 61.54%, #3B2A35 100%);
   color-scheme: dark;
 }
-.personal-theme-dark .personal-layout :is(.today-card, .personal-message.role-assistant, .personal-composer-pill, .inspector-pane .card, .personal-segments button[aria-current="page"], .personal-tool > summary, .zcode-prompt-menu) { background: #24233be6; color: var(--text); }
-.personal-theme-dark .personal-layout :is(.today-stat, .personal-message.role-user, .personal-work, .personal-segments, .personal-circle, .personal-completion, .personal-composer-leading summary) { background: #ffffff0d; color: var(--text); }
+.personal-theme-dark .personal-layout :is(.today-card, .personal-message.role-assistant, .personal-composer-pill, .inspector-pane .card, .personal-tool > summary, .zcode-prompt-menu) { background: #24233be6; color: var(--text); }
+.personal-theme-dark .personal-layout :is(.today-stat, .personal-message.role-user, .personal-work, .personal-circle, .personal-completion, .personal-composer-leading summary) { background: #ffffff0d; color: var(--text); }
+.personal-theme-dark .personal-layout .personal-segments { background: transparent; }
+.personal-theme-dark .personal-layout .personal-segments button[aria-current="page"] { background: #3a3850; color: var(--text); font-weight: 700; }
 .personal-theme-dark .serika-persona-name { background: #fff; color: #3a3644; }
 .personal-theme-dark .personal-layout :is(.personal-message, .personal-chat-input, .personal-tool-name, .personal-message .message-content, .today-content h1, .today-content h2, .today-stat strong, .today-text-link, .today-routines button strong) { color: var(--text); }
 .personal-theme-dark .personal-layout :is(.today-content p, .today-content small, .personal-work > summary, .personal-completion, .personal-loading, .personal-tool-status) { color: var(--muted); }

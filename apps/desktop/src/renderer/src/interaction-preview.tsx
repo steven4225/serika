@@ -12,7 +12,10 @@ let threadId = "preview-a";
 let sequence = 0;
 let memoryEnabled = false;
 const listeners = new Set<(message: MainToRenderer) => void>();
-const threads = [{ threadId, title: "当前对话", transcriptDirectory: "/fixture/transcripts", messageCount: 0 }];
+const threads = [
+  { threadId, title: "周末想把搜索做成聚光灯", transcriptDirectory: "/fixture/transcripts", messageCount: 2, preview: "周末想把搜索做成聚光灯，按消息找回以前聊过的话。" },
+  { threadId: "preview-b", title: "明天早上提醒喝水", transcriptDirectory: "/fixture/transcripts", messageCount: 1, preview: "明天早上提醒我喝水。" },
+];
 const info = (): AppInfo => ({ entryMode: "test", configPath: "/fixture/config.json", threadId, directory: "/fixture/transcripts", workspaceRoot: "/fixture/workspace",
   modelAlias: "mock", modelId: "UI fixture", temporaryThread: false, temporaryDirectory: false, identitySource: "saved",
   computer: { enabled: false, allowedBundleIds: [] }, tuiMode: true, commands: [], hasCompaction: false, hasResume: false,
@@ -28,8 +31,14 @@ const api = {
   historyPage: async () => ({ threadId: info().threadId, messages: [], beforeId: null }),
   listRuns: async () => ({ ok: true as const, runs: [] }), home: async () => ({ ok: true as const }),
   onMessage: (listener: (message: MainToRenderer) => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
-  listWorkTasks: async () => ({ ok: true as const, value: [] }), listThreads: async () => structuredClone(threads),
-  createThread: async () => { const id = `preview-${++sequence}`; threads.push({ threadId: id, title: "新对话", transcriptDirectory: "/fixture/transcripts", messageCount: 0 }); changeThread(id); },
+  listWorkTasks: async () => ({ ok: true as const, value: [] }),
+  takeTaskResultOpen: async () => null,
+  getTaskInbox: async () => ({ ok: true as const, value: { tasks: [], truncated: false } }),
+  listThreads: async (query?: string) => {
+    const needle = (query ?? "").trim().toLocaleLowerCase();
+    return threads.map(item => ({ ...item, matchesQuery: !needle || `${item.title} ${item.preview}`.toLocaleLowerCase().includes(needle) }));
+  },
+  createThread: async () => { const id = `preview-${++sequence}`; threads.push({ threadId: id, title: "新对话", transcriptDirectory: "/fixture/transcripts", messageCount: 0, preview: "" }); changeThread(id); },
   selectThread: async (id: string) => { changeThread(id); },
   enableMemory: async () => { memoryEnabled = true; changeThread(threadId); },
   listMemoryCandidates: async () => ({ ok: true as const, value: { candidates: [], nextOffset: null, truncated: false } }),
