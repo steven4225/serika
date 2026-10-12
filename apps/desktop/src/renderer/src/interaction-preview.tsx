@@ -2,11 +2,12 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App.js";
-import type { AppInfo, MainToRenderer, RendererApi, UiSnapshot } from "../../shared/ui-contract.js";
+import type { AppInfo, MainToRenderer, RendererApi, RssWorkerResponse, UiSnapshot } from "../../shared/ui-contract.js";
+import type { WorkTask } from "../../shared/work-tasks.js";
 import "./styles.css";
 import type { ConversationDraft, ConversationDraftScope } from "../../shared/conversation-drafts.js";
-const previewDrafts = new Map<string, ConversationDraft>();
 import { WorkTaskFlowPreview, installWorkTaskFlowApi } from "./work-task-flow-preview.js";
+const previewDrafts = new Map<string, ConversationDraft>();
 
 let threadId = "preview-a";
 let sequence = 0;
@@ -23,6 +24,77 @@ const info = (): AppInfo => ({ entryMode: "test", configPath: "/fixture/config.j
 const snapshot: UiSnapshot = { state: { kind: "idle" }, canSubmit: true, canSteer: false, steers: [], pendingApproval: null, recentOutput: "", outputTruncated: false,
   toolActivity: [], lastPrimaryResult: null, lastConsolidationResult: null, resultTextTruncated: false, shellProgress: [] };
 const changeThread = (id: string) => { threadId = id; for (const listener of [...listeners]) listener({ type: "identity-changed", info: info() }); };
+const briefMode = new URLSearchParams(location.search).get("brief");
+
+function shanghaiAt(hour: number, minute: number): string {
+  const day = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  return new Date(`${day}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00+08:00`).toISOString();
+}
+
+function fixtureTask(id: string, status: WorkTask["status"], goal: string, hour: number, minute: number): WorkTask {
+  const updatedAt = shanghaiAt(hour, minute);
+  return { id, revision: 1, threadId: "preview-a", goal, constraints: [], acceptance: [], status, runIds: [], delivery: null, reconciliations: [], createdAt: updatedAt, updatedAt };
+}
+
+function briefTasks(): WorkTask[] {
+  if (briefMode === "empty" || briefMode === "degraded") return [];
+  return [
+    fixtureTask("fixture-review", "needs_review", "周末交付的成本说明", 8, 30),
+    fixtureTask("fixture-paused", "paused", "长对话分页", 9, 10),
+  ];
+}
+
+function briefWorker(): RssWorkerResponse {
+  if (briefMode === "degraded") return { ok: false, message: "pid 4242 thread_abc12345 /tmp/runloom.sock" };
+  if (briefMode === "empty") return { ok: true, registered: false, running: false, rssEnabled: false };
+  return { ok: true, registered: true, running: true, rssEnabled: false, notifyEnabled: true, notificationRoutingEnabled: true };
+}
+
+function briefOverview() {
+  const quiet = briefMode === "empty" || briefMode === "degraded";
+  return {
+    tasksEnabled: true,
+    diagnostics: { skills: [], hooks: [], recent: [] },
+    scheduled: quiet ? [] : [{
+      id: "fixture-water",
+      promptPreview: "喝水",
+      runAt: shanghaiAt(20, 30),
+      status: "scheduled" as const,
+      finishedAt: null,
+      resultPreview: null,
+      error: null,
+      acknowledgedAt: null,
+      arrangement: { kind: "reminder" as const, source: "none" as const, notification: "always" as const, declarationVersion: 1 as const },
+    }],
+    recurring: [],
+    truncated: false,
+  };
+}
+
+function briefInbox() {
+  if (briefMode === "empty" || briefMode === "degraded") return { tasks: [], truncated: false };
+  const rows = [
+    ["备份对话框", 8, 10],
+    ["移动端确认", 8, 20],
+    ["模型测试", 8, 40],
+    ["真机通道", 9, 0],
+  ] as const;
+  return {
+    tasks: rows.map(([subject, hour, minute], index) => ({
+      id: `fixture-inbox-${index}`,
+      promptPreview: subject,
+      runAt: shanghaiAt(hour, minute),
+      status: "interrupted" as const,
+      finishedAt: shanghaiAt(hour, minute),
+      resultPreview: null,
+      error: null,
+      acknowledgedAt: null,
+      arrangement: { kind: "reminder" as const, source: "none" as const, notification: "always" as const, declarationVersion: 1 as const },
+    })),
+    truncated: false,
+  };
+}
+
 const api = {
   loadConversationDraft: async (scope: ConversationDraftScope) => ({ draft: previewDrafts.get(JSON.stringify(scope)) ?? { text: "", excludeFromMemory: false }, uncertainSteer: null }),
   saveConversationDraft: async (scope: ConversationDraftScope, draft: ConversationDraft) => { previewDrafts.set(JSON.stringify(scope), draft); },
@@ -31,9 +103,24 @@ const api = {
   historyPage: async () => ({ threadId: info().threadId, messages: [], beforeId: null }),
   listRuns: async () => ({ ok: true as const, runs: [] }), home: async () => ({ ok: true as const }),
   onMessage: (listener: (message: MainToRenderer) => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
-  listWorkTasks: async () => ({ ok: true as const, value: [] }),
+  listWorkTasks: async () => ({ ok: true as const, value: briefTasks().map(task => structuredClone(task)) }),
+  getWorkTask: async (id: string) => {
+    const task = briefTasks().find(item => item.id === id);
+    return task ? { ok: true as const, value: structuredClone(task) } : { ok: false as const, error: { code: "WORK_TASK_NOT_FOUND" as const, message: "fixture 没有这件任务" } };
+  },
+  getAutomationOverview: async () => ({ ok: true as const, value: briefOverview() }),
+  rssWorkerStatus: async () => briefWorker(),
+  getScheduledTask: async (id: string) => ({
+    ok: true as const,
+    value: {
+      id, prompt: "喝水", runAt: shanghaiAt(20, 30), status: "interrupted" as const,
+      createdAt: shanghaiAt(8, 10), startedAt: null, finishedAt: shanghaiAt(8, 10),
+      threadId: null, runId: null, resultText: null, error: null, recurringTaskId: null,
+      acknowledgedAt: shanghaiAt(8, 11), attempts: [], retryAt: null, notification: null, pendingOutcome: null,
+    },
+  }),
   takeTaskResultOpen: async () => null,
-  getTaskInbox: async () => ({ ok: true as const, value: { tasks: [], truncated: false } }),
+  getTaskInbox: async () => ({ ok: true as const, value: briefInbox() }),
   listThreads: async (query?: string) => {
     const needle = (query ?? "").trim().toLocaleLowerCase();
     return threads.map(item => ({ ...item, matchesQuery: !needle || `${item.title} ${item.preview}`.toLocaleLowerCase().includes(needle) }));

@@ -58,6 +58,8 @@ import { ZCodeMessage, ZCodeMessageContent } from "./zcode/message.js";
 import { PersonalConversation as ZCodeConversation, PersonalBackToBottom as ZCodeBackToBottom } from "./personal/conversation.js";
 import { PersonalPromptEditor as ZCodePromptEditor, PersonalPromptOptions as ZCodePromptOptions } from "./personal/composer.js";
 import { TodayPanel } from "./personal/today.js";
+import { useTodayBriefFeeds } from "./personal/today-feeds.js";
+import { clearBriefContinue, planBriefContinue, readBriefContinue, writeBriefContinue, type BriefContinueTarget } from "./personal/today-continue.js";
 import { PersonaPanel } from "./personal/persona.js";
 import { SearchOverlay } from "./personal/search-overlay.js";
 import { clampChatFraction, loadChatFraction, loadSidebarOpen, dashboardTabForDetail, PERSONAL_SPLIT_KEY, PERSONAL_SIDEBAR_KEY, PERSONAL_COMPACT_BREAKPOINT } from "./personal/layout.js";
@@ -358,6 +360,10 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const [detailsOpen, setDetailsOpen] = useState(!!initialSettings);
   const [detailTab, setDetailTab] = useState<"threads" | "tasks" | "reminders" | "home" | "records" | "memory" | "context" | "pomodoro" | "modules" | "persona">(initialSettings || "home");
   const [searchOpen, setSearchOpen] = useState(false);
+  const [briefNonce, setBriefNonce] = useState(0);
+  const briefHold = useRef<BriefContinueTarget | null>(null);
+  const briefAttempt = useRef<string | null>(null);
+  const briefFeeds = useTodayBriefFeeds(info?.workspaceRoot != null, automationRefresh);
   const [sending, setSending] = useState(false);
   const sendInFlight = useRef(false);
   const homeBuffer = useRef("");
@@ -685,6 +691,40 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   }, [info, input, excludeFromMemory, drafts, draftReady]);
 
   useEffect(() => {
+    if (!info || !draftReady || !workTasks.draftReady) return;
+    const pending = readBriefContinue(sessionStorage) ?? briefHold.current;
+    if (!pending || pending.threadId !== info.threadId) return;
+    if (uncertainSteer) {
+      briefHold.current = null;
+      clearBriefContinue(sessionStorage);
+      setError("还有一条补充没核对完，草稿先不动。核对之后再从今天继续。");
+      setDetailsOpen(false);
+      setMobileDashboard(false);
+      return;
+    }
+    const plan = planBriefContinue(pending);
+    if (plan.selectTaskId && workTasks.task?.id !== plan.selectTaskId) {
+      const known = workTasks.tasks.some(task => task.id === plan.selectTaskId);
+      if (workTasks.loading || (known && briefAttempt.current !== plan.selectTaskId)) {
+        if (briefAttempt.current !== plan.selectTaskId) {
+          briefAttempt.current = plan.selectTaskId;
+          workTasks.select(plan.selectTaskId);
+        }
+        return;
+      }
+    }
+    if (plan.composerTaskId !== undefined) setTaskComposerId(plan.composerTaskId);
+    if (plan.taskDraft && workTasks.task && (!plan.selectTaskId || workTasks.task.id === plan.selectTaskId)) workTasks.setInstruction(plan.taskDraft);
+    if (plan.ordinaryDraft) setInput(plan.ordinaryDraft);
+    briefHold.current = null;
+    briefAttempt.current = null;
+    clearBriefContinue(sessionStorage);
+    setDetailsOpen(false);
+    setMobileDashboard(false);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }, [info, draftReady, workTasks.draftReady, workTasks.task, workTasks.loading, workTasks.tasks, briefNonce, uncertainSteer]);
+
+  useEffect(() => {
     if (!detailsOpen && !mobileDashboard) return;
     const close = (event: KeyboardEvent) => {
       // Let an inner disclosure/dialog consume Escape first.
@@ -967,6 +1007,14 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     finally { threadSwitchInFlight.current = false; setSwitchingThread(false); }
   };
   const prepareInput = (text: string) => { setInput(text); inputRef.current?.focus(); };
+  const continueBrief = (target: BriefContinueTarget) => {
+    if (!info || sending || switchingThread) return;
+    if (target.threadId !== info.threadId && (busy || threadSwitchInFlight.current)) return;
+    briefHold.current = target;
+    try { writeBriefContinue(sessionStorage, target); } catch { /* The in-memory hold still applies in this page. */ }
+    if (target.threadId !== info.threadId) { void selectConversation(target.threadId); return; }
+    setBriefNonce(value => value + 1);
+  };
   const scrollToLatest = () => {
     followConversation.current = true;
     if (conversationScroll.current) conversationScroll.current.scrollTop = conversationScroll.current.scrollHeight;
@@ -1107,9 +1155,9 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
         </header>
         <div className="personal-today-scroll" hidden={detailsOpen}>
           <TodayPanel info={info} tasks={workTasks.tasks} tasksLoading={workTasks.loading} tasksError={workTasks.error}
-            pendingMemory={pendingMemory.count} pendingMemoryError={pendingMemory.error}
-            onTasks={() => { setTaskFocused(false); openDetails("tasks"); }} onMemory={() => openMemory()}
-            onChat={() => { setMobileDashboard(false); requestAnimationFrame(() => inputRef.current?.focus()); }}
+            pendingMemory={pendingMemory.count} pendingMemoryError={pendingMemory.error} feeds={briefFeeds}
+            continueDisabled={sending || switchingThread || info === null}
+            onContinue={continueBrief}
             onPomodoro={() => openDetails("pomodoro")} onAutomation={() => openDetails("reminders")} />
         </div>
         {detailsOpen && ["modules", "records", "context", "home"].includes(detailTab) ? <div className="personal-settings-toolbar">

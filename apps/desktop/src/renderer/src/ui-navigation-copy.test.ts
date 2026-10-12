@@ -87,7 +87,7 @@ it("reminders stay reachable from Today and are not a top pill or a settings inb
 });
 
 it("UI regression 6: Today explicitly allows ordinary conversation without creating a task", () => {
-  const html = render(createElement(TodayPanel, { info, tasks: [], tasksLoading: false, tasksError: null, pendingMemory: 0, pendingMemoryError: null, onTasks: noop, onMemory: noop, onChat: noop, onPomodoro: noop, onAutomation: noop }));
+  const html = render(createElement(TodayPanel, { info, tasks: [], tasksLoading: false, tasksError: null, pendingMemory: 0, pendingMemoryError: null, onContinue: noop, onPomodoro: noop, onAutomation: noop }));
   assert.match(html, /普通对话照常使用/);
 });
 
