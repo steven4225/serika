@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import type { AppInfo } from "../../shared/ui-contract.js";
 import { SerikaMark } from "./icons.js";
 import { memoryAutomaticUpgradeNeeded, memorySetupChanges, memorySetupNeeded } from "./daily-setup.js";
-import { DailyAutomation } from "./daily-automation-panel.js";
 import { AutomationPanel } from "./automation-panel.js";
 import { memoryAutomationLabel } from "./memory-copy.js";
 
@@ -49,7 +48,6 @@ export function DailySetup({ info, busy, onHistory, onRun, onContext, onReminder
     </dl>
     <MemorySetup info={info} busy={busy} />
     <AutomationPanel key={`${info.configPath}:${info.workspaceRoot}:${info.threadId}`} identity={`${info.configPath}:${info.workspaceRoot}:${info.threadId}`} refreshSequence={automationRefresh} busy={busy} onRun={onRun} onReminders={onReminders} />
-    <DailyAutomation key={`${info.configPath}:${info.workspaceRoot}`} enabled={info.modules?.some(module => module.id === "task" && module.enabled) === true} busy={busy} />
     <button className="ghost" onClick={onHistory}>查找或恢复旧对话</button>
     <p className="hint">旧目录需要你确认属于当前工作区后登记，不会自动合并其他工作区的数据。</p>
   </section>;

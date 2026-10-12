@@ -23,8 +23,11 @@ const maintenance: MemoryMaintenance = { stored: 0, pending: 0, expired: 0, disa
 
 it("UI regression 1: workspace belongs to settings and never selects 手札", async () => {
   assert.equal(dashboardTabForDetail("home"), "设置");
+  assert.equal(dashboardTabForDetail("settings"), "设置");
   const app = await source("./App.tsx");
-  assert.match(app, /\["modules", "records", "context", "home"\]\.includes\(detailTab\)/);
+  assert.match(app, /openSettings\("workspace"\)/);
+  assert.doesNotMatch(app, /personal-settings-nav|aria-label="助手设置"/);
+  assert.doesNotMatch(app, /\["modules", "模块"\]/);
 });
 
 it("UI regression 2: context compression and memory consolidation have distinct status and stop wording", async () => {
@@ -72,8 +75,9 @@ it("UI regression 5: settings has one explicit entrance and the persona pill is 
   assert.match(app, /openDetails\("persona"\)/);
   assert.doesNotMatch(app, /\["appearance",/);
   assert.match(app, /aria-label="设置"/);
-  assert.match(app, /onClick=\{\(\) => openDetails\("modules"\)\}/);
-  assert.match(app, /aria-label=\{appearance === "dark" \? "切换为浅色外观" : "切换为深色外观"\}/);
+  assert.match(app, /onClick=\{\(\) => openSettings\("home"\)\}/);
+  assert.doesNotMatch(app, /openDetails\("modules"\)/);
+  assert.match(await source("./personal/settings.tsx"), /aria-label=\{appearance === "dark" \? "切换为浅色外观" : "切换为深色外观"\}/);
 });
 
 it("reminders stay reachable from 手札 and are not a top pill or a settings inbox", async () => {
