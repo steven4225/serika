@@ -31,6 +31,28 @@ it("marks superseded proposals unstarted and keeps applied steer within the orig
   assert.equal(superseded.rows[0]?.kind === "tool" && superseded.rows[0].status, "not_started");
 });
 
+it("keeps a reminder readback in Chinese when the tool result also says scheduled", () => {
+  const requested = applyEvent(emptyLiveRun, {
+    id: "e1", type: "tool.call.requested", occurredAt: "2026-10-08T00:00:00Z", runId: "r1", threadId: "t1", sequence: 1,
+    data: { toolCallId: "task-1", toolName: "task_create", input: {} },
+  });
+  const completed = applyEvent(requested, {
+    id: "e2", type: "tool.call.completed", occurredAt: "2026-10-08T00:00:01Z", runId: "r1", threadId: "t1", sequence: 2,
+    data: { toolCallId: "task-1", toolName: "task_create", output: { ok: true, status: "scheduled", backgroundReady: true, readback: "已定：明天 9:00 提醒喝水" } },
+  });
+  const row = completed.rows[0];
+  assert.equal(row?.kind, "tool");
+  if (row?.kind !== "tool") return;
+  assert.equal(row.status, "ok");
+  assert.equal(row.detail, "已定：明天 9:00 提醒喝水");
+  assert.deepEqual(row.reminder, { readback: "已定：明天 9:00 提醒喝水", backgroundReady: true });
+  assert.doesNotMatch(row.detail, /scheduled/);
+  const [snapshot] = rowsFromToolActivity([{ toolCallId: "task-1", toolName: "task_create", status: "completed", summary: JSON.stringify({ ok: true, backgroundReady: true, readback: row.detail }), truncated: false }]);
+  assert.deepEqual(snapshot?.kind === "tool" && snapshot.reminder, row.reminder);
+  const [truncated] = rowsFromToolActivity([{ toolCallId: "task-1", toolName: "task_create", status: "completed", summary: JSON.stringify({ ok: true, readback: row.detail }), truncated: true }]);
+  assert.equal(truncated?.kind === "tool" && truncated.reminder, undefined);
+});
+
 it("keeps background consolidation out of chat without hiding the next user turn", () => {
   const text = (id: string, role: "user" | "assistant", value: string) => ({ id, role, parts: [{ type: "text" as const, text: value }] });
   const messages = [text("u1", "user", "first"), text("a1", "assistant", "reply"),

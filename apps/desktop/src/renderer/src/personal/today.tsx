@@ -65,7 +65,7 @@ export function TodayPanel(props: TodayPanelProps) {
 
     <div className="today-routines">
       <button type="button" onClick={props.onPomodoro}><Timer size={19} aria-hidden="true" /><span><strong>留一段专注时间</strong><small>打开番茄钟</small></span><ChevronRight size={15} aria-hidden="true" /></button>
-      <button type="button" onClick={props.onAutomation}><Bell size={19} aria-hidden="true" /><span><strong>别让小事被忘记</strong><small>查看提醒与定时任务</small></span><ChevronRight size={15} aria-hidden="true" /></button>
+      <button type="button" onClick={props.onAutomation}><Bell size={19} aria-hidden="true" /><span><strong>别让小事被忘记</strong><small>查看我的提醒</small></span><ChevronRight size={15} aria-hidden="true" /></button>
     </div>
   </div>;
 }
