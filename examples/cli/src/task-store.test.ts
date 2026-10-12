@@ -306,6 +306,32 @@ describe("WorkspaceTaskStore", () => {
     await store.acknowledge(created.value.id);
     const recorded = await store.recordNotification(created.value.id, { ok: true });
     assert(recorded.ok && recorded.value.notification?.status === "submitted");
+  });
+
+  it("persists foreground omission as omitted, not as an OS submission or a failure", async () => {
+    const root = await workspace();
+    let now = Date.parse("2026-09-11T00:00:00.000Z");
+    const store = createTaskStore(root, { now: () => now, generateId: () => "omit-1" });
+    const created = await store.create({ prompt: "喝水", runAt: "2026-09-11T00:01:00Z" });
+    assert(created.ok);
+    now += 60_000;
+    await store.claimNextDue();
+    await store.recordRunId(created.value.id, "run-omit");
+    await store.finish(created.value.id, { status: "completed", runId: "run-omit", resultText: "该喝水了", notification: true });
+    const omitted = await store.recordNotification(created.value.id, { ok: true, delivery: "omitted" });
+    assert(omitted.ok);
+    assert.equal(omitted.value.notification?.status, "omitted");
+    assert.equal(omitted.value.notification?.error, null);
+    assert.equal(omitted.value.notification?.nextAttemptAt, null);
+    assert.equal(omitted.value.notification?.attempts, 1);
+    const due = await store.listNotifications();
+    assert(due.ok && due.value.length === 0);
+    assert.deepEqual(await store.getHealthCounts(), { ok: true, value: { unacknowledgedCount: 1, notificationFailureCount: 0 } });
+    assert.equal(code(await store.recordNotification(created.value.id, { ok: true })), "INVALID_INPUT");
+    const reopened = await createTaskStore(root, { now: () => now }).get(created.value.id);
+    assert(reopened.ok && reopened.value.notification?.status === "omitted");
+    const restored = restoreTaskDocument(JSON.parse(await readFile(join(root, TASK_FILE_NAME), "utf8")), "2026-09-11T00:02:00.000Z");
+    assert.equal(restored.tasks[0]?.notification?.status, "omitted");
     const after = await store.listNotifications();
     assert(after.ok && after.value.length === 0);
   });

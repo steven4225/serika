@@ -100,10 +100,10 @@ describe("durable desktop notification adapter", () => {
     let script = "";
     const notify = createTaskDesktopNotifier(() => {}, { platform: "darwin", workspace: root, submit: async value => { script = value; } });
     await writeDesktopFrontmost(root, true);
-    await notify(reminder);
+    assert.equal(await notify(reminder), "foreground-omitted");
     assert.equal(script, "");
     await writeDesktopFrontmost(root, false);
-    await notify(reminder);
+    assert.equal(await notify(reminder), "submitted");
     assert.match(script, /with title "该喝水了"/);
     assert.match(script, /display notification "提醒已到，详情在收件箱。"/);
     assert.doesNotMatch(script, /task-water|不是通知来源|private workspace memory/);

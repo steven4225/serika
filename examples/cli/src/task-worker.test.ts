@@ -289,6 +289,25 @@ describe("task worker", () => {
     assert.equal(calls, 0);
   });
 
+  it("records foreground omission separately from OS submission", async () => {
+    const controller = new AbortController();
+    const terminal = { ...task(), status: "completed" as const, notification: { status: "pending" as const, attempts: 0, nextAttemptAt: null, error: null } };
+    const store = fakeStore(terminal);
+    store.listNotifications = async () => ({ ok: true, value: [terminal] });
+    store.recordNotification = async (_id, outcome) => {
+      assert.equal(outcome.ok, true);
+      assert.equal(outcome.ok ? outcome.delivery : undefined, "omitted");
+      controller.abort();
+      return { ok: true, value: terminal };
+    };
+    await runTaskWorker({
+      store,
+      signal: controller.signal,
+      notify: async () => "foreground-omitted",
+      runtime: { async run() { throw new Error("must not execute"); } },
+    });
+  });
+
   it("records OS acceptance as submitted without claiming user acknowledgement", async () => {
     const controller = new AbortController();
     const terminal = { ...task(), status: "completed" as const, notification: { status: "pending" as const, attempts: 0, nextAttemptAt: null, error: null } };
@@ -298,6 +317,7 @@ describe("task worker", () => {
     store.recordNotification = async (_id, outcome) => {
       order.push("submitted");
       assert.equal(outcome.ok, true);
+      assert.equal(outcome.ok ? outcome.delivery : "omitted", undefined);
       assert.equal(terminal.acknowledgedAt, null);
       controller.abort();
       return { ok: true, value: terminal };

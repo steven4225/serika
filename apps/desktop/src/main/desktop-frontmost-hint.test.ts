@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -48,4 +48,34 @@ test("a frontmost window publishes a hint and blur or quit removes it without to
   const main = await readFile(new URL("./index.ts", import.meta.url), "utf8");
   assert.match(main, /installDesktopFrontmostHint\(window, \(\) => host\.info\(\)\.workspaceRoot \?\? null\)/);
   assert.match(main, /frontmostHint\?\.stop\(\)/);
+});
+
+test("a frontmost hint write failure does not reject or emit unhandledRejection", async () => {
+  const root = await mkdtemp(join(tmpdir(), "serika-frontmost-eacces-"));
+  const rejections: unknown[] = [];
+  const onRejection = (reason: unknown) => { rejections.push(reason); };
+  process.on("unhandledRejection", onRejection);
+  try {
+    await chmod(root, 0o555);
+    const listeners = new Map<string, () => void>();
+    const window: FrontmostWindow = {
+      isDestroyed: () => false,
+      isVisible: () => true,
+      isFocused: () => true,
+      isMinimized: () => false,
+      on: (event, listener) => { listeners.set(event, listener); },
+    };
+    const hint = installDesktopFrontmostHint(window, () => root, { schedule: () => () => undefined });
+    listeners.get("focus")?.();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    assert.equal(rejections.length, 0);
+    await hint.settled();
+    await hint.stop();
+    assert.equal(rejections.length, 0);
+    assert.equal(await readDesktopFrontmost(root), false);
+  } finally {
+    process.off("unhandledRejection", onRejection);
+    await chmod(root, 0o755);
+    await rm(root, { recursive: true, force: true });
+  }
 });

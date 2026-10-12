@@ -2,7 +2,7 @@ import { isAbsolute, join, sep } from "node:path";
 import { access, realpath, stat } from "node:fs/promises";
 import { constants } from "node:fs";
 import { taskResultLink } from "./task-result-link.js";
-import { taskNotificationCopy } from "./task-notification-copy.js";
+import { FOREGROUND_NOTIFICATION_OMITTED, taskNotificationCopy, type DesktopNotificationDelivery } from "./task-notification-copy.js";
 import { readDesktopFrontmost } from "./task-notification-presentation.js";
 import { spawn } from "node:child_process";
 import { simulateReadableStream, type LanguageModel } from "ai";
@@ -146,7 +146,7 @@ function escapeAppleScriptString(value: string): string {
 export function createTaskDesktopNotifier(
   write: (text: string) => void = (text) => process.stderr.write(text),
   options: { platform?: string; submit?: (script: string) => Promise<void>; notificationHelperPath?: string; workspace?: string; submitCommand?: (file: string, args: string[]) => Promise<void> } = {},
-): (task: TaskRecord) => Promise<void> {
+): (task: TaskRecord) => Promise<DesktopNotificationDelivery> {
   const reportFailure = (error: unknown): void => {
     try {
       write(`task-worker notification failed: ${errorMessage(error)}\n`);
@@ -155,13 +155,12 @@ export function createTaskDesktopNotifier(
     }
   };
 
-  return async (task): Promise<void> => {
+  return async (task): Promise<DesktopNotificationDelivery> => {
     if ((options.platform ?? process.platform) !== "darwin") {
       throw new Error("macOS desktop notifications are unavailable");
     }
-    // The in-app banner is the foreground surface. Resolving here records the
-    // notification as handled so a later retry does not add a second alert.
-    if (await readDesktopFrontmost(options.workspace)) return;
+    // The in-app banner is the foreground surface. This is not OS submission.
+    if (await readDesktopFrontmost(options.workspace)) return FOREGROUND_NOTIFICATION_OMITTED;
     const copy = taskNotificationCopy(task);
 
     try {
@@ -175,12 +174,12 @@ export function createTaskDesktopNotifier(
           child.once("error", error => { clearTimeout(timer); reject(error); });
           child.once("close", (code, signal) => { clearTimeout(timer); code === 0 ? resolve() : reject(new Error(`Notification helper exited with ${signal ?? String(code)}`)); });
         });
-        return;
+        return "submitted";
       }
       const script = `display notification "${escapeAppleScriptString(copy.body)}" with title "${escapeAppleScriptString(copy.title)}"`;
       if (options.submit !== undefined) {
         await options.submit(script);
-        return;
+        return "submitted";
       }
       await new Promise<void>((resolve, reject) => {
         const child = spawn(
@@ -202,6 +201,7 @@ export function createTaskDesktopNotifier(
           } else resolve();
         });
       });
+      return "submitted";
     } catch (error) {
       reportFailure(error);
       throw error;

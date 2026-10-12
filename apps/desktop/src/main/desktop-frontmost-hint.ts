@@ -23,25 +23,30 @@ export function installDesktopFrontmostHint(
   let pending = Promise.resolve();
   const publish = (clear = false): Promise<void> => {
     pending = pending.catch(() => undefined).then(async () => {
-      if (stopped && !clear) return;
-      let root: string | null = null;
-      try { root = workspace(); } catch { root = null; }
-      const focused = !clear && root !== null && !window.isDestroyed() && window.isVisible() && window.isFocused() && !window.isMinimized();
-      const previous = hinted;
-      if (previous && previous !== root) {
-        await writeDesktopFrontmost(previous, false).catch(() => undefined);
-        if (hinted === previous) hinted = null;
-      }
-      if (!root) return;
-      if (!focused) {
-        if (hinted === root) {
-          await writeDesktopFrontmost(root, false);
-          hinted = null;
+      try {
+        if (stopped && !clear) return;
+        let root: string | null = null;
+        try { root = workspace(); } catch { root = null; }
+        const focused = !clear && root !== null && !window.isDestroyed() && window.isVisible() && window.isFocused() && !window.isMinimized();
+        const previous = hinted;
+        if (previous && previous !== root) {
+          await writeDesktopFrontmost(previous, false).catch(() => undefined);
+          if (hinted === previous) hinted = null;
         }
-        return;
+        if (!root) return;
+        if (!focused) {
+          if (hinted === root) {
+            await writeDesktopFrontmost(root, false);
+            hinted = null;
+          }
+          return;
+        }
+        await writeDesktopFrontmost(root, true);
+        hinted = root;
+      } catch {
+        // The hint file is advisory. EACCES and other write failures must not
+        // reject the desktop process or pretend the hint was published.
       }
-      await writeDesktopFrontmost(root, true);
-      hinted = root;
     });
     return pending;
   };
@@ -50,11 +55,12 @@ export function installDesktopFrontmostHint(
     timer.unref?.();
     return () => clearInterval(timer);
   });
-  const stopTimer = schedule(() => { void publish(); });
+  const tracked = (clear = false): void => { void publish(clear).catch(() => undefined); };
+  const stopTimer = schedule(() => { tracked(); });
   for (const event of ["focus", "blur", "show", "hide", "minimize", "restore"] as const) {
-    window.on(event, () => { void publish(); });
+    window.on(event, () => { tracked(); });
   }
-  void publish();
+  tracked();
   return {
     settled: () => pending,
     stop() {

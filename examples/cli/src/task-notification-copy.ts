@@ -1,5 +1,9 @@
 import type { TaskRecord } from "./task-store.js";
 
+/** Returned by the desktop notifier when the in-app window is already frontmost. */
+export const FOREGROUND_NOTIFICATION_OMITTED = "foreground-omitted" as const;
+export type DesktopNotificationDelivery = "submitted" | typeof FOREGROUND_NOTIFICATION_OMITTED;
+
 const TITLE_MAX_CHARACTERS = 42;
 
 function clipSentence(value: string): string | null {
