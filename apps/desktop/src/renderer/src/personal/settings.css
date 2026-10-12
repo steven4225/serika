@@ -4,26 +4,21 @@
 .personal-settings button:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
 .settings-push-header { display: flex; align-items: flex-start; gap: 10px; }
 .settings-push-header h1 { font-size: 22px; font-weight: 650; letter-spacing: -.03em; }
-.settings-push-header p, .settings-note, .settings-row small, .settings-mode span, .settings-usage p { color: var(--muted); font-size: 13px; }
+.settings-push-header p, .settings-note, .settings-row small, .settings-mode span { color: var(--muted); font-size: 13px; }
 .personal-layout .settings-back { display: grid; place-items: center; width: 36px; height: 36px; flex: none; padding: 0; border: 0; border-radius: 50%; background: #ffffff73; }
-.settings-section { margin: 8px 4px 0; color: var(--muted); font-size: 13px; font-weight: 600; }
-.settings-subscription, .settings-usage, .settings-group, .settings-shortcuts, .settings-manage { background: var(--surface); border-radius: 20px; box-shadow: -4px 8px 28px #6868680a, 0 2px 8px #6464640f; }
+.settings-section { margin: 8px 4px 0; color: var(--muted); font-size: 13px; font-weight: 600; letter-spacing: 0; }
+.settings-subscription, .settings-group, .settings-shortcuts, .settings-manage { background: var(--surface); border-radius: 20px; box-shadow: -4px 8px 28px #6868680a, 0 2px 8px #6464640f; }
 .settings-subscription { display: flex; align-items: center; gap: 14px; padding: 16px; }
 .settings-subscription > div, .settings-row-copy { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .settings-subscription strong { font-size: 16px; }
 .settings-subscription p, .settings-manage dd { color: var(--muted); font-size: 13px; }
-.personal-layout .settings-manage-button, .personal-layout .settings-reset { border: 0; background: #393542; color: #fff; padding: 8px 16px; font-size: 13px; font-weight: 600; }
-.personal-layout .settings-reset:disabled { opacity: .45; }
+.personal-layout .settings-manage-button { border: 0; background: #393542; color: #fff; padding: 8px 16px; font-size: 13px; font-weight: 600; }
 .settings-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .personal-layout .settings-mode { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-height: 132px; padding: 16px 40px 16px 16px; border: 0; border-radius: 18px; background: #ffffff8c; text-align: left; box-shadow: -4px 8px 28px #6868680a; }
 .personal-layout .settings-mode[aria-checked="true"] { background: var(--surface); box-shadow: inset 0 0 0 1.5px var(--text), -4px 8px 28px #6868680a; }
 .settings-mode strong { font-size: 16px; }
 .settings-mode-mark { position: absolute; top: 16px; right: 16px; width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid #b7b1bc; }
 .settings-mode[aria-checked="true"] .settings-mode-mark { border-color: var(--text); background: radial-gradient(circle, var(--text) 0 5px, transparent 6px); }
-.settings-usage { display: flex; flex-direction: column; gap: 8px; padding: 16px; }
-.settings-usage-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.settings-usage-head h2, .settings-section { letter-spacing: 0; }
-.settings-usage-head strong { font-size: 13px; font-weight: 600; }
 .settings-group { display: flex; flex-direction: column; overflow: hidden; }
 .personal-layout .settings-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 16px; border: 0; border-radius: 0; background: transparent; text-align: left; box-shadow: none; }
 .personal-layout .settings-row + .settings-row { box-shadow: inset 0 1px 0 var(--line); }
@@ -42,5 +37,5 @@
 .capability-technical summary { color: var(--muted); font-size: 12px; cursor: pointer; }
 .personal-theme-dark .settings-mode, .personal-theme-dark .settings-back { background: #ffffff0d; }
 .personal-theme-dark .settings-mode[aria-checked="true"], .personal-theme-dark .settings-row:hover:not(:disabled) { background: #3a3850; }
-.personal-theme-dark .settings-manage-button, .personal-theme-dark .settings-reset { background: #fff; color: #241f2b; }
+.personal-theme-dark .settings-manage-button { background: #fff; color: #241f2b; }
 @media (max-width: 560px) { .settings-modes { grid-template-columns: 1fr; } }
