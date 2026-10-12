@@ -21,6 +21,8 @@ import {
   type PendingMemoryAction,
   type PendingMemoryStatus,
 } from "./pending-memory-data.js";
+import { FailureAlert } from "./failure-notice.js";
+import { MemorySavedNotice } from "./memory-saved-notice.js";
 
 export type { PendingMemoryStatus } from "./pending-memory-data.js";
 
@@ -170,8 +172,8 @@ export function PendingMemory({ memory, controllerIdle, refreshToken, visible, o
         <h2 id="pending-memory-title">要接受这项记忆变更吗？</h2>
         <span className="hint">{status.hasMore ? `本次读取 ${status.count} 条，还有更多` : `${status.count} 条待审`}</span>
       </div>
-      {state.receipt ? <p className="memory-receipt" role="status">{state.receipt}</p> : null}
-      {status.error ? <p className="error" role="alert">{status.error}</p> : null}
+      {state.receipt ? state.receiptDetail ? <MemorySavedNotice primary={state.receipt} detail={state.receiptDetail} /> : <MemorySavedNotice primary={state.receipt} /> : null}
+      {status.error ? <FailureAlert text={status.error} /> : null}
       {status.loading ? <p className="hint">正在读取完整候选，核对后才能保存。</p> : null}
       {preview?.candidate.status === "pending" ? (
         <div className="pending-memory-body">

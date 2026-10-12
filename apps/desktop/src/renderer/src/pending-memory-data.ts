@@ -34,7 +34,7 @@ export function pendingMemoryReducer(state: MemoryPanelState, action: PendingMem
     } else if (action.result.ok && action.result.value.candidate.status !== "pending") {
       finishedId = action.result.value.candidate.id;
     } else if (action.result.ok && state.outcomeUnknown) {
-      next = { ...next, reviewError: null, receipt: "已重新读取：此候选仍为待审。上次审核没有自动重发。" };
+      next = { ...next, reviewError: null, receipt: "已重新读取：此候选仍为待审。上次审核没有自动重发。", receiptDetail: null };
     }
   }
   if (finishedId === null) return next;

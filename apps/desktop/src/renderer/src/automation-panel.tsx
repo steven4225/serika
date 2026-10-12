@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { FailureAlert } from "./failure-notice.js";
 import type { AutomationOverview, AutomationScheduleAction } from "@aisdk-agent/example-cli/dist/automation-scheduling.js";
 import { automationArrangementLabel, automationStatuses, skillSchedulePreview, type SkillScheduleDraft } from "./automation-schedule.js";
 import { DreamingPanel } from "./dreaming-panel.js";
@@ -69,7 +70,7 @@ export function AutomationPanel({ busy, identity, onRun, refreshSequence }: { bu
     <div className="card-head"><span>自动安排</span><button className="ghost" disabled={loading || working} onClick={() => void reload()}>刷新安排</button></div>
     <p className="hint">同一份 Skill 可以手动执行、由对话事件触发或按时间执行。排期不会授予工具权限，也不会自动使用对话或长期记忆。</p>
     {loading ? <p role="status">正在读取安排…</p> : null}
-    {error ? <p className="error" role="alert">{error}</p> : null}
+    {error ? <FailureAlert text={error} /> : null}
     {notice ? <p role="status">{notice}</p> : null}
     {view ? <>
       <details><summary>已安装 Skill（{view.diagnostics.skills.length}）与对话触发规则（{view.diagnostics.hooks.length}）</summary>

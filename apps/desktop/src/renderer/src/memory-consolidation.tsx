@@ -8,7 +8,8 @@ import type { MemoryConsolidationSource, MemoryConsolidationRequest } from "@ais
 import { memoryConsolidationFailureText } from "@aisdk-agent/example-cli/dist/memory-failure.js";
 import { memoryAutomaticUpgradeNeeded } from "./daily-setup.js";
 import { MemoryActionPreviewDetails, MemorySources } from "./memory-temporal.js";
-import { memoryAutomationLabel } from "./memory-copy.js";
+import { memoryAutomationLabel, savedMemoryNoticeText } from "./memory-copy.js";
+import { FailureAlert } from "./failure-notice.js";
 
 const labels = { off: memoryAutomationLabel({ enabled: true, autoConsolidate: false }), backlog: "等待记忆整理", running: "正在整理记忆", failed: "记忆整理失败", awaiting_review: "等待你审核候选", idle: "没有待整理的新增记忆材料" };
 type SavedMemoryReceipt = NonNullable<NonNullable<MemoryMaintenance["consolidation"]["lastAttempt"]>["accepted"]>[number] & {
@@ -45,9 +46,24 @@ function AutomaticMemoryReceipts({ accepted, busy, refreshToken }: { accepted: r
   const [error, setError] = useState("");
   const [working, setWorking] = useState(false);
   const [undone, setUndone] = useState<string[]>([]);
+  const [texts, setTexts] = useState<Record<string, string>>({});
   const generation = useRef(0);
   const receiptKey = accepted.map(receipt => `${receipt.memoryId}:${receipt.revision}:${receipt.operation ?? "unknown"}`).join("|");
   useEffect(() => { generation.current++; setPreview(null); setCurrent(null); setError(""); }, [refreshToken, receiptKey, busy]);
+  useEffect(() => {
+    if (!accepted.length || typeof window === "undefined" || !window.runloom?.getMemory) return;
+    let cancelled = false;
+    void Promise.all(accepted.map(async receipt => {
+      const key = `${receipt.memoryId}:${receipt.revision}`;
+      try {
+        const result = await window.runloom.getMemory(receipt.memoryId);
+        return [key, result.ok ? result.value.text : ""] as const;
+      } catch {
+        return [key, ""] as const;
+      }
+    })).then(pairs => { if (!cancelled) setTexts(Object.fromEntries(pairs)); });
+    return () => { cancelled = true; };
+  }, [receiptKey]);
   const act = async (operation: (isCurrent: () => boolean) => Promise<void>) => {
     if (busy || working) return;
     const requestGeneration = generation.current;
@@ -59,7 +75,8 @@ function AutomaticMemoryReceipts({ accepted, busy, refreshToken }: { accepted: r
   return <section aria-label="最近一次自动处理的记忆">
     <div className="memory-label">最近处理的正式记忆</div>
     {accepted.map(receipt => <div className="memory-actions" key={`${receipt.memoryId}:${receipt.revision}`}>
-      <span>{undone.includes(receipt.memoryId) ? "已撤回" : memoryReceiptPresentation(receipt).label} · <code>{receipt.memoryId}</code> · 版本 {receipt.revision}</span>
+      <span>{savedMemoryNoticeText(undone.includes(receipt.memoryId) ? "已撤回" : memoryReceiptPresentation(receipt).label, texts[`${receipt.memoryId}:${receipt.revision}`])}</span>
+      <details><summary>详情</summary><p>{`记忆 ${receipt.memoryId} · 版本 ${receipt.revision}`}</p></details>
       <button className="ghost" disabled={busy || working} onClick={() => void act(async isCurrent => {
         const result = await window.runloom.getMemory(receipt.memoryId);
         if (!isCurrent()) return;
@@ -86,7 +103,7 @@ function AutomaticMemoryReceipts({ accepted, busy, refreshToken }: { accepted: r
         });
       }}>确认撤回</button><button className="ghost" disabled={working} onClick={() => setPreview(null)}>保留</button></div>
     </div> : null}
-    {error ? <p className="error" role="alert">{error}</p> : null}
+    {error ? <FailureAlert text={error} /> : null}
   </section>;
 }
 
@@ -184,8 +201,8 @@ export function MemoryConsolidationPanel({ info, busy, refreshToken, onSettings 
     {memoryAutomaticUpgradeNeeded(info) ? <button className="ghost" disabled={!onSettings} onClick={onSettings}>在工作区设置</button> : null}
     {c?.error ? <><p className="error" role="alert">{memoryConsolidationFailureText(c.error)}</p><details><summary>技术详情</summary><pre>{c.error}</pre></details></> : null}
     {maintenance && maintenance.pending >= 64 ? <p className="hint">待审核候选已达到上限，请先接受或拒绝候选，再整理新材料。暂时不审核不会丢弃候选。</p> : null}
-    {statusError ? <><p className="error" role="alert">{statusError}。不能据此判断没有待整理记忆材料或候选。</p><button className="ghost" disabled={working} onClick={() => setStatusRefresh(value => value + 1)}>重新读取记忆整理状态</button></> : null}
-    {error ? <p className="error" role="alert">{error}</p> : null}{notice ? <p role="status">{notice}</p> : null}
+    {statusError ? <><FailureAlert text={statusError} suffix="不能据此判断没有待整理记忆材料或候选。" /><button className="ghost" disabled={working} onClick={() => setStatusRefresh(value => value + 1)}>重新读取记忆整理状态</button></> : null}
+    {error ? <FailureAlert text={error} /> : null}{notice ? <p role="status">{notice}</p> : null}
     <details className="memory-maintenance-disclosure">
       <summary>高级：记忆整理与历史补整理</summary>
     <AutomaticMemoryReceipts accepted={c?.lastAttempt?.accepted ?? []} busy={busy || working} refreshToken={refreshToken} />
