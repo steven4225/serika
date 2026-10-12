@@ -76,6 +76,7 @@ it("UI regression 5: settings has one explicit entrance and the persona pill is 
   assert.doesNotMatch(app, /\["appearance",/);
   assert.match(app, /aria-label="设置"/);
   assert.match(app, /onClick=\{\(\) => openSettings\("home"\)\}/);
+  assert.match(app, /detailTab === "tasks" \|\| detailTab === "settings" \|\| detailTab === "memory"/);
   assert.doesNotMatch(app, /openDetails\("modules"\)/);
   assert.match(await source("./personal/settings.tsx"), /aria-label=\{appearance === "dark" \? "切换为浅色外观" : "切换为深色外观"\}/);
 });

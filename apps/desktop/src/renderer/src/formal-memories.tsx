@@ -5,15 +5,18 @@ import type { MemoryAssertion, MemoryTemporalView } from "@aisdk-agent/example-c
 import { createMemoryActionDraft, explicitTimestamp, memoryActionFromDraft, memoryActionLabel, memoryAvailabilityLabel, memoryKindLabel, timestampLabel } from "./memory-temporal-data.js";
 import type { MemoryActionDraft, MemoryActionMode } from "./memory-temporal-data.js";
 import { CurrentMemoryDetails, MemoryActionPreviewDetails, MemoryHistory, MemoryMaintenanceSummary, MemoryTemporalQueryResult } from "./memory-temporal.js";
-import { memoryDisabledEmptyCopy, savedMemoryEmptyCopy } from "./memory-copy.js";
+import { memoryDisabledEmptyCopy } from "./memory-copy.js";
 import { FailureAlert } from "./failure-notice.js";
+import { MemoryBack, MemoryCardHome, MemoryCategoryFolder, MemoryUnderstanding } from "./personal/memory-home.js";
+import { memoryItemTitle, memoryUpdatedLabel, type MemoryCategoryId } from "./personal/memory-cards.js";
 
 const timePlaceholder = "2026-10-04T09:00:00+08:00";
 const modeOptions: MemoryActionMode[] = ["correct", "change", "retract", "pin", "disable", "expiry", "delete"];
 
 export function FormalMemories({ enabled, controllerIdle, refreshToken, queryRewriteEnabled }: { enabled: boolean; controllerIdle: boolean; refreshToken: number; queryRewriteEnabled: boolean }) {
   const [page, setPage] = useState<MemoryPage | null>(null);
-  const [offset, setOffset] = useState(0);
+  const [browse, setBrowse] = useState<{ view: "home" } | { view: "summary" } | { view: "category"; category: MemoryCategoryId } | { view: "item"; category: MemoryCategoryId }>({ view: "home" });
+  const [summaryTexts, setSummaryTexts] = useState<Record<string, string>>({});
   const [current, setCurrent] = useState<FormalMemory | null>(null);
   const [draft, setDraft] = useState<MemoryActionDraft | null>(null);
   const [preview, setPreview] = useState<MemoryActionPreview | null>(null);
@@ -46,13 +49,25 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken, queryRew
   const latestRefreshToken = useRef(refreshToken);
   latestRefreshToken.current = refreshToken;
 
-  const load = useCallback(async (start: number) => {
+  const load = useCallback(async () => {
     const request = ++sequence.current;
+    const entries: MemoryPage["entries"] = [];
+    let start = 0;
+    let truncated = false;
     try {
-      const result = await window.runloom.listMemories({ offset: start, limit: 20 });
+      for (let pageIndex = 0; pageIndex < 8; pageIndex += 1) {
+        const result = await window.runloom.listMemories({ offset: start, limit: 50 });
+        if (request !== sequence.current) return;
+        if (!result.ok) { setPage(null); setListError(`${result.error.code}: ${result.error.message}`); return; }
+        entries.push(...result.value.entries);
+        const next = result.value.nextOffset;
+        if (next === null) { truncated = false; break; }
+        if (next <= start || pageIndex === 7) { truncated = true; break; }
+        start = next;
+      }
       if (request !== sequence.current) return;
-      if (!result.ok) { setPage(null); setListError(`${result.error.code}: ${result.error.message}`); return; }
-      setPage(result.value); setOffset(start); setListError(null);
+      setPage({ entries, nextOffset: truncated ? start : null });
+      setListError(null);
     } catch { if (request === sequence.current) { setPage(null); setListError("记忆读取失败，请重新加载"); } }
   }, []);
   const loadMaintenance = useCallback(async () => {
@@ -96,12 +111,24 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken, queryRew
   useEffect(() => {
     setPreview(null); setStale(true); ++detailSequence.current; ++previewSequence.current; ++querySequence.current;
     setHistory(null); setQueryResult(null);
-    if (enabled) { void load(0); void loadMaintenance(); }
+    if (enabled) { void load(); void loadMaintenance(); }
     return () => { ++sequence.current; ++detailSequence.current; ++historySequence.current; ++previewSequence.current; ++querySequence.current; ++maintenanceSequence.current; };
   }, [enabled, refreshToken, load, loadMaintenance]);
   useEffect(() => {
     if (!controllerIdle) { setPreview(null); setStale(true); ++previewSequence.current; }
   }, [controllerIdle]);
+  useEffect(() => {
+    if (browse.view !== "summary" || page === null) return;
+    const ids = page.entries.filter(entry => entry.temporalState !== "retracted").slice(0, 24).map(entry => entry.id);
+    let cancelled = false;
+    void Promise.all(ids.map(async id => {
+      try {
+        const result = await window.runloom.getMemory(id);
+        return [id, result.ok ? result.value.text : ""] as const;
+      } catch { return [id, ""] as const; }
+    })).then(pairs => { if (!cancelled) setSummaryTexts(Object.fromEntries(pairs)); });
+    return () => { cancelled = true; };
+  }, [browse.view, page]);
 
   const ready = current !== null && !stale && detailToken === refreshToken && controllerIdle && !busy;
   function editDraft(changes: Partial<MemoryActionDraft>) {
@@ -137,7 +164,7 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken, queryRew
         setCurrent(result.value); setHistory(null); setQueryResult(null); setError(null);
         setNotice(action.operation === "delete" ? "已永久删除本条正式记忆与历史。旧对话未删除。" : "已保存新的正式版本。详情需要重新加载后才能继续操作。");
         if (result.value) setDraft(createMemoryActionDraft(result.value)); else setDraft(null);
-        await Promise.all([load(offset), loadMaintenance()]);
+        await Promise.all([load(), loadMaintenance()]);
       }
     } catch { setError("保存结果未确认，请重新加载核对；不要直接重复保存。"); }
     finally { mutation.current = false; setBusy(false); }
@@ -161,30 +188,43 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken, queryRew
   }
   if (!enabled) return <p className="hint">{memoryDisabledEmptyCopy()}</p>;
   const restoreAssertion = history?.assertions.find(assertion => assertion.assertionId === draft?.targetAssertionId);
+  const entries = page?.entries ?? [];
+  const now = new Date();
+  function showItem(id: string, category: MemoryCategoryId) {
+    setBrowse({ view: "item", category });
+    void open(id);
+  }
   return <section className="formal-memories">
-    <p className="hint">这里只显示当前工作区和当前对话可见的正式记忆。对话范围的记忆不会自动用于其他对话。</p>
-    <details className="memory-maintenance"><summary>整理与容量</summary>
-      {maintenance ? <MemoryMaintenanceSummary value={maintenance} /> : <p className="hint">{maintenanceError ? "无法读取维护状态" : "读取中…"}</p>}
-      {maintenanceError ? <FailureAlert text={maintenanceError} /> : null}
-      <p className="hint">同义查询改写：{queryRewriteEnabled ? "已启用；普通对话有一次有界模型请求，失败回退词法匹配。" : "关闭；按正文和已批准检索词匹配。"}</p>
-      <button className="ghost" onClick={() => void loadMaintenance()}>刷新维护状态</button>
-    </details>
-    <button className="ghost" onClick={() => void load(offset)}>刷新列表</button>
-    {listError ? <FailureAlert text={listError} /> : null}
-    {error ? <FailureAlert text={error} /> : null}
+    {listError ? <><FailureAlert text={listError} /><button className="ghost" onClick={() => void load()}>重新读取</button></> : null}
+    {error && browse.view === "item" ? <FailureAlert text={error} /> : null}
     {notice ? <p className="hint" role="status">{notice}</p> : null}
-    {page === null && !listError ? <p className="hint">读取中…</p> : null}
-    {page?.entries.length === 0 ? <p className="memory-empty">{savedMemoryEmptyCopy()}</p> : null}
-    <div className="formal-memory-list">{page?.entries.map(entry => <button className="formal-memory-item" key={entry.id} onClick={() => void open(entry.id)} disabled={busy}>
-      <span>{entry.preview || (entry.temporalState === "retracted" ? "已撤回的记忆" : "当前没有适用内容")}{entry.truncated ? "…" : ""}</span>
-      <small>{entry.scope?.kind === "thread" ? "仅当前对话" : "工作区"} · {memoryAvailabilityLabel(entry)}{entry.pinned ? " · 固定" : ""}</small>
-    </button>)}</div>
-    <div className="actions">{offset > 0 ? <button className="ghost" onClick={() => void load(Math.max(0, offset - 20))}>上一页</button> : null}{page?.nextOffset !== null && page?.nextOffset !== undefined ? <button className="ghost" onClick={() => void load(page.nextOffset!)}>下一页</button> : null}</div>
-    {current && draft ? <div className="memory-detail">
-      <div className="hint">{current.scope?.kind === "thread" ? "仅当前对话" : "工作区，可供其他对话使用"}</div>
-      <details><summary>记录与版本</summary><div className="hint">{current.id} · revision {current.revision ?? 1}</div></details>
-      <p className="hint">有效期：{timestampLabel(current.expiresAt, "无")} · {current.pinned ? "已固定" : "未固定"} · {memoryAvailabilityLabel(current)}</p>
+    {browse.view === "home" ? <>
+      <MemoryCardHome loaded={page !== null} entries={entries} now={now} onOpenSummary={() => setBrowse({ view: "summary" })} onOpenCategory={category => setBrowse({ view: "category", category })} />
+      {page?.nextOffset !== null && page?.nextOffset !== undefined ? <p className="hint">还有更多记忆没有载入，分类计数只覆盖已读取的部分。</p> : null}
+      <details className="memory-maintenance"><summary>整理与容量</summary>
+        <p className="hint">这里只显示当前工作区和当前对话可见的正式记忆。对话范围的记忆不会自动用于其他对话。</p>
+        {maintenance ? <MemoryMaintenanceSummary value={maintenance} /> : <p className="hint">{maintenanceError ? "无法读取维护状态" : "读取中…"}</p>}
+        {maintenanceError ? <FailureAlert text={maintenanceError} /> : null}
+        <p className="hint">同义查询改写：{queryRewriteEnabled ? "已启用；普通对话有一次有界模型请求，失败回退词法匹配。" : "关闭；按正文和已批准检索词匹配。"}</p>
+        <button className="ghost" onClick={() => void load()}>刷新列表</button>
+        <button className="ghost" onClick={() => void loadMaintenance()}>刷新维护状态</button>
+      </details>
+    </> : null}
+    {browse.view === "summary" ? <MemoryUnderstanding entries={entries} texts={summaryTexts} now={now} onBack={() => setBrowse({ view: "home" })} /> : null}
+    {browse.view === "category" ? <MemoryCategoryFolder category={browse.category} entries={entries} now={now} onBack={() => setBrowse({ view: "home" })} onOpen={id => showItem(id, browse.category)} /> : null}
+    {browse.view === "item" && (!current || !draft) ? <div className="memory-folder">
+      <MemoryBack label="记忆" onBack={() => setBrowse({ view: "category", category: browse.category })} />
+      {error ? null : <p className="hint">读取中…</p>}
+    </div> : null}
+    {browse.view === "item" && current && draft ? <div className="memory-detail">
+      <MemoryBack label={memoryItemTitle(current.text || "记忆")} onBack={() => setBrowse({ view: "category", category: browse.category })} />
+      <p className="memory-updated">{memoryUpdatedLabel(current.updatedAt ?? current.createdAt, now)}</p>
       <CurrentMemoryDetails current={current} assertion={currentAssertion} />
+      <details><summary>记录与版本</summary>
+        <div className="hint">{current.scope?.kind === "thread" ? "仅当前对话" : "工作区，可供其他对话使用"}</div>
+        <div className="hint">{current.id} · revision {current.revision ?? 1}</div>
+        <p className="hint">有效期：{timestampLabel(current.expiresAt, "无")} · {current.pinned ? "已固定" : "未固定"} · {memoryAvailabilityLabel(current)}</p>
+      </details>
       {stale ? <p className="hint">详情已过期或正在运行。重新加载详情后才能操作。</p> : null}
       <button className="ghost" disabled={busy} onClick={() => void open(current.id)}>重新加载详情</button>
       <details className="memory-action-editor memory-temporal-form" ref={actionEditor} open={actionOpen} onToggle={event => setActionOpen(event.currentTarget.open)}>

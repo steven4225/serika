@@ -80,6 +80,7 @@ import "./zcode/theme.css";
 import "./personal/shell.css";
 import "./personal/today.css";
 import "./personal/tasks.css";
+import "./personal/memory.css";
 import "./personal/settings.css";
 import "./personal/conversation.css";
 
@@ -1016,7 +1017,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     return draft?.text ? [[thread.threadId, draft.text] as const] : [];
   }));
   const pageTitle = !detailsOpen ? conversationTitle : ({ threads: "全部对话", tasks: "任务", reminders: "提醒", home: "工作区", records: "执行记录", memory: "记忆", context: "上下文与压缩", pomodoro: "番茄钟", modules: "模块能力", persona: "serika", settings: "设置" })[detailTab];
-  const pageDescription = ({ threads: "继续之前的对话，或开始一段新对话。", tasks: "把需要执行和验收的事放在这里；普通聊天不用创建任务。", reminders: "查看已经设好的提醒，以及刚刚触发的结果。", home: "查看保存的进度、订阅和当前配置。提醒列表在「提醒」。", records: "核对每次执行的工具结果，区分完成、失败和未知效果。", memory: "已保存的记忆和待审核的候选，都在这里。", context: "长对话由系统自动管理，通常不需要你操作。", pomodoro: "专注计时，直接操作，不必发消息。", modules: "决定助手可以使用哪些能力。", persona: "你的个人助手。", settings: "外观、偏好和应用信息" })[detailTab];
+  const pageDescription = ({ threads: "继续之前的对话，或开始一段新对话。", tasks: "把需要执行和验收的事放在这里；普通聊天不用创建任务。", reminders: "查看已经设好的提醒，以及刚刚触发的结果。", home: "查看保存的进度、订阅和当前配置。提醒列表在「提醒」。", records: "核对每次执行的工具结果，区分完成、失败和未知效果。", memory: "已经记住的偏好、项目和工作。", context: "长对话由系统自动管理，通常不需要你操作。", pomodoro: "专注计时，直接操作，不必发消息。", modules: "决定助手可以使用哪些能力。", persona: "你的个人助手。", settings: "外观、偏好和应用信息" })[detailTab];
   const newConversation = async () => {
     if (busy || sending || threadSwitchInFlight.current || !info) return;
     threadSwitchInFlight.current = true;
@@ -1196,7 +1197,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
             onPomodoro={() => openDetails("pomodoro")} onAutomation={() => openDetails("reminders")} />
         </div>
           <section className="inspector" hidden={!detailsOpen} aria-label={pageTitle}>
-            {detailTab === "tasks" || detailTab === "settings" ? null : <div className="inspector-header"><div><h1>{pageTitle}</h1><p>{pageDescription}</p></div><button className="ghost" title="回到手札 · Escape" onClick={() => { setDetailsOpen(false); setMobileDashboard(false); }}><Icon name="close" size={16} />回到手札</button></div>}
+            {detailTab === "tasks" || detailTab === "settings" || detailTab === "memory" ? null : <div className="inspector-header"><div><h1>{pageTitle}</h1><p>{pageDescription}</p></div><button className="ghost" title="回到手札 · Escape" onClick={() => { setDetailsOpen(false); setMobileDashboard(false); }}><Icon name="close" size={16} />回到手札</button></div>}
             <div className="inspector-pane" ref={inspectorScroll} onScroll={() => { if (inspectorScroll.current) inspectorPositions.current.set(inspectorKey, inspectorScroll.current.scrollTop); }}>
               {detailTab === "threads" && info ? <ThreadsPanel info={info} drafts={threadDrafts} busy={busy || switchingThread} onSelect={selectConversation} onCreate={newConversation} onChanged={() => setThreadsRefresh(value => value + 1)} /> : null}
               <div hidden={detailTab !== "tasks"}>

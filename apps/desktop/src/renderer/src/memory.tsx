@@ -136,8 +136,10 @@ export function CandidateDetail({
 }
 
 export type MemoryTab = "pending" | "formal" | "history";
+/** Saved cards are the ordinary page. A specific candidate is the only review deep link. */
 export function memoryTabOnOpen(pendingCount: number, candidateId?: string | null): MemoryTab {
-  return candidateId || pendingCount > 0 ? "pending" : "formal";
+  void pendingCount;
+  return candidateId ? "pending" : "formal";
 }
 
 export function MemoryTabs({ tab, onSelect, pendingCount = 0, pendingHasMore = false }: { tab: MemoryTab; onSelect: (tab: MemoryTab) => void; pendingCount?: number; pendingHasMore?: boolean }) {
@@ -155,16 +157,24 @@ export function MemoryPanel(props: { memory: { enabled: boolean; autoConsolidate
     const old = previous.current;
     previous.current = { count, sequence: props.focusRequest?.sequence };
     if (old.sequence !== props.focusRequest?.sequence) setTab(memoryTabOnOpen(count, props.focusRequest?.id));
-    else if (old.count === 0 && count > 0) setTab("pending");
     else if (old.count > 0 && count === 0) setTab(current => current === "pending" ? "formal" : current);
   }, [count, props.focusRequest?.id, props.focusRequest?.sequence]);
-  return <>
-    <MemoryTabs tab={tab} onSelect={setTab} pendingCount={count} pendingHasMore={props.pendingHasMore === true} />
+  return <div className="personal-memory">
     {tab === "formal" ? <>
-      <p className="hint">这些记忆已经保存。某轮是否参考过，请看对话中的「本轮参考记忆」，保存不代表每轮都会引用。</p>
+      {count > 0 ? <button type="button" className="memory-review-banner" onClick={() => setTab("pending")}>待确认（{count}{props.pendingHasMore ? "+" : ""}）</button> : null}
       <FormalMemories enabled={props.memory.enabled} controllerIdle={props.controllerIdle} refreshToken={props.refreshToken} queryRewriteEnabled={props.memory.queryRewriteEnabled === true} />
-    </> : <CandidateMemories key={tab} {...props} mode={tab} onSaved={() => setTab("formal")} />}
-  </>;
+      <details className="memory-advanced">
+        <summary>高级</summary>
+        {!props.memory.enabled || !props.memory.autoConsolidate ? <p className="hint">{memoryAutomationLabel(props.memory)}。{props.memory.enabled ? "仍可查看已有候选。" : "记忆模块未启用。"}</p> : null}
+        <p className="hint">这些记忆已经保存。某轮是否参考过，请看对话中的「本轮参考记忆」，保存不代表每轮都会引用。</p>
+        <button type="button" className="ghost" onClick={() => setTab("history")}>审核记录</button>
+      </details>
+    </> : <div className="memory-review">
+      <button type="button" className="ghost memory-review-back" onClick={() => setTab("formal")}>返回记忆</button>
+      <MemoryTabs tab={tab} onSelect={setTab} pendingCount={count} pendingHasMore={props.pendingHasMore === true} />
+      <CandidateMemories key={tab} {...props} mode={tab} onSaved={() => setTab("formal")} />
+    </div>}
+  </div>;
 }
 
 function CandidateMemories({

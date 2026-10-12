@@ -4,14 +4,21 @@ import type { MemoryActionPreview, MemoryHistoryPage, MemoryMaintenance } from "
 import type { MemoryAssertion, MemorySource, MemoryTemporalView } from "@aisdk-agent/example-cli/dist/memory-store.js";
 import { memoryKindLabel, timestampLabel } from "./memory-temporal-data.js";
 import { memoryAutomationLabel } from "./memory-copy.js";
+import { memorySourcePhrase } from "./personal/memory-cards.js";
+import { MessageContent } from "./markdown.js";
 import { FailureAlert } from "./failure-notice.js";
 
 export function MemorySources({ sources }: { sources: readonly MemorySource[] }) {
-  return <section className="memory-sources"><div className="memory-label">保存来源</div>
-    {sources.length === 0 ? <p className="hint">没有附带可核对的来源。</p> : sources.map((source, index) => <div key={index}>
-      {source.kind === "conversation" ? <><blockquote className="memory-text">{source.quote}</blockquote><div className="hint">Thread {source.threadId} · 消息 {source.messageId}</div></> :
+  return <section className="memory-sources">
+    <p className="memory-source-line">{memorySourcePhrase(sources)}</p>
+    {sources.map((source, index) => <div key={index}>
+      {source.kind === "conversation" ? <blockquote className="memory-text">{source.quote}</blockquote> :
         <p className="hint">{source.kind === "manual" ? "用户手动记录或纠正" : "旧格式迁入，未附原话"}</p>}
     </div>)}
+    {sources.some(source => source.kind === "conversation") ? <details>
+      <summary>来源记录</summary>
+      {sources.map((source, index) => source.kind === "conversation" ? <div className="hint" key={index}>{source.threadId} · {source.messageId}</div> : null)}
+    </details> : null}
   </section>;
 }
 
@@ -94,7 +101,7 @@ export function MemoryActionPreviewDetails({ preview }: { preview: MemoryActionP
 export function CurrentMemoryDetails({ current, assertion }: { current: FormalMemory; assertion: MemoryAssertion | undefined }) {
   const metadata = current.assertion;
   return <section className="memory-current-content">
-    <div className="memory-label">当前适用内容</div>{current.text ? <pre className="memory-text">{current.text}</pre> : <p className="hint">{current.temporalState === "retracted" ? "已撤回，不再注入。历史保留，可从下面选择有效内容恢复。" : "当前没有适用内容，可查看历史及事实适用时间。"}</p>}
+    {current.text ? <MessageContent text={current.text} /> : <p className="hint">{current.temporalState === "retracted" ? "已撤回，不再注入。历史保留，可从下面选择有效内容恢复。" : "当前没有适用内容，可查看历史及事实适用时间。"}</p>}
     {metadata ? <><p className="hint">{memoryKindLabel[metadata.kind]} · {metadata.state === "retracted" ? "已撤回，不再注入" : "已记录"}</p>
       <details><summary>事实时间与检索详情</summary><p className="hint">断言 {metadata.assertionId}</p><MemoryTimeDetails assertion={metadata} />
       <p className="hint">检索词：{metadata.recallTerms.length ? metadata.recallTerms.join("、") : "未设置"}</p></details></> : current.temporalState === undefined ? <p className="hint">旧格式记录：没有完整的断言与时间元数据。</p> : null}

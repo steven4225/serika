@@ -117,8 +117,7 @@ function AutomaticMemoryReceipts({ accepted, busy, refreshToken }: { accepted: r
     finally { setWorking(false); }
   };
   if (!accepted.length) return null;
-  return <section aria-label="最近一次自动处理的记忆">
-    <div className="memory-label">最近处理的正式记忆</div>
+  return <section className="memory-saved-toast" aria-label="最近一次自动处理的记忆" role="status">
     {accepted.map(receipt => <div className="memory-actions" key={`${receipt.memoryId}:${receipt.revision}`}>
       <span>{savedMemoryNoticeText(undone.includes(receipt.memoryId) ? "已撤回" : memoryReceiptPresentation(receipt).label, texts[`${receipt.memoryId}:${receipt.revision}`])}</span>
       <details><summary>详情</summary><p>{`记忆 ${receipt.memoryId} · 版本 ${receipt.revision}`}</p></details>
@@ -237,10 +236,12 @@ export function MemoryConsolidationPanel({ info, busy, refreshToken, onSettings 
     if (!offset) setSelected([]);
   });
   const c = maintenance?.consolidation;
+  const headline = consolidationStatusLabel(info.memory.enabled, maintenance, statusError);
+  const showHeadline = headline !== "正在读取记忆状态…" && headline !== "没有待整理的新增记忆材料" && headline !== "记忆整理完成，没有新增候选" && !headline.startsWith("已记住") && !headline.startsWith("已处理");
   return <section className="card memory-consolidation" aria-label="记忆整理状态">
-    <div className="card-head"><span>{consolidationStatusLabel(info.memory.enabled, maintenance, statusError)}</span>
+    {showHeadline ? <div className="card-head"><span>{headline}</span>
       {info.memory.enabled && info.memory.autoConsolidate && (c?.state === "failed" || c?.state === "backlog") ? <button className="ghost" disabled={busy || working || maintenance === null || maintenance.pending >= 64} onClick={() => void consolidate({ mode: "incremental" })}>{c?.state === "failed" ? "重试记忆整理" : "整理待处理记忆材料"}</button> : null}
-    </div>
+    </div> : null}
     {c?.state !== "off" ? <p className="hint">{memoryAutomationLabel(info.memory)}</p> : null}
     {info.memory.enabled && info.memory.autoConsolidate ? <p className="hint">{info.memory.writePolicy === "automatic" ? "明确偏好会自动记住；有歧义才需要你点一下。" : "当前为人工审核模式，确认后才会记住。"}</p> : null}
     {memoryAutomaticUpgradeNeeded(info) ? <button className="ghost" disabled={!onSettings} onClick={onSettings}>在工作区设置</button> : null}
@@ -248,9 +249,9 @@ export function MemoryConsolidationPanel({ info, busy, refreshToken, onSettings 
     {maintenance && maintenance.pending >= 64 ? <p className="hint">待审核候选已达到上限，请先接受或拒绝候选，再整理新材料。暂时不审核不会丢弃候选。</p> : null}
     {statusError ? <><FailureAlert text={statusError} suffix="不能据此判断没有待整理记忆材料或候选。" /><button className="ghost" disabled={working} onClick={() => setStatusRefresh(value => value + 1)}>重新读取记忆整理状态</button></> : null}
     {error ? <FailureAlert text={error} /> : null}{notice ? <p role="status">{notice}</p> : null}
+    <AutomaticMemoryReceipts accepted={c?.lastAttempt?.accepted ?? []} busy={busy || working} refreshToken={refreshToken} />
     <details className="memory-maintenance-disclosure">
       <summary>高级：记忆整理与历史补整理</summary>
-    <AutomaticMemoryReceipts accepted={c?.lastAttempt?.accepted ?? []} busy={busy || working} refreshToken={refreshToken} />
     {!info.memory.enabled || !info.memory.autoConsolidate ? <>
       <p className="hint">可在工作区开启记忆自动整理：从已提交原话保存明确的普通长期信息，有歧义的建议留待审核。同义提问可额外发送一次有界查询。</p>
       {!info.workspaceRoot ? <p className="hint">当前配置没有 workspace，请先设置工作区。</p> : null}
