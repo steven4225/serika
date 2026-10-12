@@ -11,11 +11,11 @@ import { TelegramStore } from "./telegram-store.js";
 import { TelegramApiError, createTelegramApi, type TelegramApi, type TelegramUpdate } from "./telegram-api.js";
 import { createTaskStore, TASK_FILE_NAME, RSS_DIGEST_TASK_PROMPT } from "@aisdk-agent/example-cli/dist/task-store.js";
 
-function response(tool?: { name: string; input: unknown }) {
+function response(tool?: { name: string; input: unknown }, text = "已完成请求。") {
   return { stream: simulateReadableStream({ chunks: [
     { type: "stream-start" as const, warnings: [] },
     ...(tool ? [{ type: "tool-call" as const, toolCallId: "call-1", toolName: tool.name, input: JSON.stringify(tool.input) }] : [
-      { type: "text-start" as const, id: "text" }, { type: "text-delta" as const, id: "text", delta: "已完成请求。" }, { type: "text-end" as const, id: "text" },
+      { type: "text-start" as const, id: "text" }, { type: "text-delta" as const, id: "text", delta: text }, { type: "text-end" as const, id: "text" },
     ]),
     { type: "finish" as const, finishReason: { unified: tool ? "tool-calls" as const : "stop" as const, raw: undefined }, usage: {
       inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 1, text: 1, reasoning: undefined },
@@ -62,6 +62,73 @@ async function fixture(stream: (call: number) => Promise<ReturnType<typeof respo
 }
 
 const reminder = { kind: "reminder", source: "none", notification: "always", declarationVersion: 1 } as const;
+it("Telegram result copy: ordinary replies omit gateway wrappers without changing model prose or Run linkage", async () => {
+  const texts = ["已完成请求。", "正文中提到本轮已结束。\nRun: 用户自己给出的编号\n但后台当前不可用，到点不会执行。"];
+  const f = await fixture(async n => response(undefined, texts[n - 1]));
+  try {
+    await f.bind();
+    for (const [index, text] of texts.entries()) {
+      const id = index + 2, key = `result:42:${id}`;
+      await f.gateway.receive(update(id, "只回复原文"));
+      await until(() => f.store.snapshot().deliveries.find(x => x.key === key)?.state === "submitted");
+      const source = f.store.snapshot().inputs.find(x => x.key === `42:${id}`)!;
+      const receipt = await f.host.channelReceipt(f.store.snapshot().owner!.threadId, source.runId!);
+      assert.equal(receipt?.resultTextPreview, text);
+      assert.equal(f.store.snapshot().deliveries.find(x => x.key === key)?.text, text);
+      assert.equal(f.sent.at(-1), text);
+      assert.equal(source.state, "finished");
+      await f.gateway.receive(update(id, "只回复原文"));
+      assert.equal(f.calls(), index + 1, "duplicate input never reruns the model");
+    }
+  } finally { await f.cleanup(); }
+});
+
+for (const scenario of [
+  { name: "completed", status: "completed", text: "原始回复。", expected: "原始回复。" },
+  { name: "empty", status: "completed", text: " \n ", expected: "这次没有可显示的回复，请查看桌面执行记录。" },
+  { name: "task", status: "completed", text: "阶段结果。", task: true, expected: "任务这一轮已结束，结果仍需你在桌面验收。\n阶段结果。" },
+  { name: "failed", status: "failed", text: "部分回复。", expected: "这次执行失败了；操作结果请查看桌面回执。\n部分回复。" },
+  { name: "cancelled", status: "cancelled", text: null, expected: "本轮已停止；已执行的操作不会撤回，操作结果请查看桌面回执。" },
+  { name: "interrupted", status: "interrupted", text: "部分回复。", expected: "执行中断或效果未知，请回桌面核对；不会自动重做。\n部分回复。" },
+  { name: "unknown tool", status: "completed", text: "模型声称完成。", unknown: true, expected: "执行中断或效果未知，请回桌面核对；不会自动重做。\n模型声称完成。" },
+  { name: "truncated receipt", status: "completed", text: "部分回执。", truncated: true, expected: "部分回执。\n[恢复的是回执预览，已截断；完整回复请看桌面]" },
+] as const) {
+  it(`Telegram result copy: recovery preserves ${scenario.name} boundaries without a new Run or visible Run suffix`, async () => {
+    const f = await fixture();
+    let restarted: TelegramGateway | undefined;
+    try {
+      await f.bind(); await f.gateway.receive(update(2, "保存真实回执"));
+      await until(() => f.store.snapshot().deliveries.find(x => x.key === "result:42:2")?.state === "submitted");
+      const source = f.store.snapshot().inputs.find(x => x.key === "42:2")!;
+      const receipt = await f.host.channelReceipt(f.store.snapshot().owner!.threadId, source.runId!);
+      assert(receipt);
+      await f.gateway.close();
+      const taskId = "task" in scenario ? "fixture-task" : null;
+      await f.store.update(data => { data.inputs[0]!.state = "bound"; data.inputs[0]!.taskId = taskId; data.deliveries = []; });
+      // Fault injection at the owned receipt boundary; the initial Run and Store are real.
+      f.host.channelReceipt = async () => ({ ...receipt, status: scenario.status,
+        ...(taskId ? { workTaskId: taskId } : {}), resultTextPreview: scenario.text,
+        resultTextTruncated: "truncated" in scenario,
+        tools: "unknown" in scenario ? [{ toolCallId: "unknown-call", toolName: "write_file", status: "unknown", requestedAt: receipt.startedAt,
+          startedAt: receipt.startedAt, finishedAt: receipt.finishedAt, inputPreview: "{}", inputTruncated: false,
+          resultPreview: null, resultTruncated: false, errorPreview: "效果未知", shell: null }] : [],
+      });
+      const store = new TelegramStore(f.store.path, f.store.workspace); await store.load();
+      restarted = new TelegramGateway(f.host, store, f.api); await restarted.initialize(); await restarted.start();
+      await until(() => store.snapshot().deliveries.find(x => x.key === "result:42:2")?.state === "submitted");
+      const delivery = store.snapshot().deliveries.find(x => x.key === "result:42:2")!;
+      assert.equal(delivery.text, scenario.expected);
+      assert.equal(f.sent.at(-1), scenario.expected);
+      assert(!delivery.text.includes(receipt.runId), "trace identity stays in records, not the bubble");
+      assert.equal(store.snapshot().inputs[0]!.runId, receipt.runId);
+      assert.equal(store.snapshot().inputs[0]!.state, scenario.status === "interrupted" || "unknown" in scenario ? "unknown" : "finished");
+      const sends = f.sends(); await restarted.start();
+      assert.equal(f.sends(), sends, "a delivered result is not sent again");
+      assert.equal(f.calls(), 1, "recovery does not rerun model or tools");
+    } finally { await restarted?.close(); await f.cleanup(); }
+  });
+}
+
 async function savedReminder(f: Awaited<ReturnType<typeof fixture>>, route = true) {
   let clock = Date.now();
   const tasks = createTaskStore(f.workspace, { now: () => clock });
@@ -271,7 +338,8 @@ it("requires desktop binding; foreign, group, bot and duplicate deliveries canno
     assert.equal(f.host.info().threadId, f.store.snapshot().owner!.threadId);
     assert.equal((await f.host.channelReceipt(f.host.info().threadId, input.runId!))?.runId, input.runId);
     assert.equal(f.store.snapshot().offset, 7);
-    assert.match(f.sent.at(-1)!, /本轮已结束/);
+    await until(() => f.store.snapshot().deliveries.find(x => x.key === "result:42:5")?.state === "submitted");
+    assert.equal(f.sent.at(-1), "已完成请求。");
     assert.equal((await f.host.current.history()).filter(x => x.role === "user").length, 1);
   } finally { await f.cleanup(); }
 });

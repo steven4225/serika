@@ -450,8 +450,15 @@ export class TelegramGateway {
       return;
     }
     const uncertain = run.status === "interrupted" || run.tools.some(x => x.status === "unknown");
-    const label = uncertain ? "执行中断或效果未知，请回桌面核对；不会自动重做。" : run.status === "completed" ? source.taskId ? "任务这一轮已结束，结果仍需你在桌面验收。" : "本轮已结束。" : `本轮${run.status}；操作结果见桌面回执。`;
-    const body = `${label}\n${(text ?? run.resultTextPreview ?? "").slice(0, 24_000)}${text === undefined && run.resultTextTruncated ? "\n[恢复的是回执预览，已截断；完整回复请看桌面]" : ""}\nRun: ${run.runId}`;
+    const label = uncertain ? "执行中断或效果未知，请回桌面核对；不会自动重做。"
+      : run.status === "completed" ? source.taskId ? "任务这一轮已结束，结果仍需你在桌面验收。" : ""
+      : run.status === "cancelled" ? "本轮已停止；已执行的操作不会撤回，操作结果请查看桌面回执。"
+      : "这次执行失败了；操作结果请查看桌面回执。";
+    const reply = text ?? run.resultTextPreview ?? "";
+    // Ordinary replies are model prose. Keep safety notices, but trace identity
+    // stays in source.runId and the result delivery key, not in the chat bubble.
+    const body = [label, reply.trim() ? reply.slice(0, 24_000) : label ? "" : "这次没有可显示的回复，请查看桌面执行记录。",
+      text === undefined && run.resultTextTruncated ? "[恢复的是回执预览，已截断；完整回复请看桌面]" : ""].filter(Boolean).join("\n");
     // Recovery still settles the input from its receipt, but an archived
     // submitted/cancelled envelope must not be recreated as a new send.
     const resultKey = `result:${source.key}`, delivered = await this.store.hasDelivery(resultKey);
