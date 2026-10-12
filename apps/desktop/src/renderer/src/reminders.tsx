@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { AutomationScheduleAction } from "@aisdk-agent/example-cli/dist/automation-scheduling.js";
 import { reminderClock, reminderRows, type ReminderDisplayRow } from "./reminder-copy.js";
 
