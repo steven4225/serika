@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { FormalMemories } from "./formal-memories.js";
 import { pendingMemoryReducer } from "./pending-memory-data.js";
-import { memoryAutomationLabel } from "./memory-copy.js";
+import { memoryAutomationLabel, memoryCandidateEmptyCopy } from "./memory-copy.js";
+import { FailureAlert } from "./failure-notice.js";
+import { MemorySavedNotice } from "./memory-saved-notice.js";
 import type { CandidatePreview } from "@aisdk-agent/example-cli/dist/memory-candidates.js";
 import { formatRecordTime } from "../../shared/execution-records.js";
 import {
@@ -349,15 +351,12 @@ function CandidateMemories({
             ))}
             <button className="ghost" onClick={refresh} disabled={!memory.enabled || state.listLoading}>刷新</button>
           </div> : null}
-          {receipt ? <div className="memory-receipt" role="status">
-            <p>{receipt.startsWith("已接受") ? "已保存这项变更。接下来可以审核下一条。" : receipt}</p>
-            {receipt.startsWith("已接受") ? <><button className="ghost" onClick={onSaved}>查看已保存</button><details><summary>写入回执</summary>{receipt}</details></> : null}
-          </div> : null}
-          {state.reviewError ? <div className="error">{state.reviewError}</div> : null}
+          {receipt ? state.receiptDetail ? <MemorySavedNotice primary={receipt} detail={state.receiptDetail} onSaved={onSaved} /> : <MemorySavedNotice primary={receipt} /> : null}
+          {state.reviewError ? <FailureAlert text={state.reviewError} /> : null}
           {!memory.enabled ? null : state.listLoading && state.candidates.length === 0 ? (
             <div className="muted">正在读取候选…</div>
           ) : null}
-          {state.listError ? <div className="error">{listErrorText(state.listError)}</div> : null}
+          {state.listError ? <FailureAlert text={listErrorText(state.listError)} /> : null}
           {mode === "history" && memory.enabled && !state.listLoading && state.listError === null ? (
             <div className="hint">
               {loadedLabel(state.candidates.length)}
@@ -365,7 +364,7 @@ function CandidateMemories({
             </div>
           ) : null}
           {memory.enabled && !state.listLoading && state.listError === null && state.candidates.length === 0 ? (
-            <div className="memory-empty">{state.filter === "pending" ? memory.writePolicy === "automatic" ? "没有需要你确认的内容，已记住的信息在「已保存」。" : "没有待审核的候选。" : "当前对话没有此状态的候选。"}</div>
+            <div className="memory-empty">{memoryCandidateEmptyCopy(state.filter, memory.writePolicy)}</div>
           ) : null}
           {mode === "history" || state.candidates.length > 0 ? <details className="candidate-list-disclosure" open={mode === "history"}>
           <summary>{mode === "history" ? "候选审核列表" : `选择待审核候选（已加载 ${state.candidates.length} 条）`}</summary>
@@ -384,7 +383,7 @@ function CandidateMemories({
           ) : null}
           </details> : null}
           {state.detailLoading ? <div className="muted">正在读取详情…</div> : null}
-          {state.detailError ? <div className="error">{reviewErrorText(state.detailError, state.controllerIdle)}</div> : null}
+          {state.detailError ? <FailureAlert text={reviewErrorText(state.detailError, state.controllerIdle)} /> : null}
           {state.preview ? (
             <CandidateDetail
               preview={state.preview}

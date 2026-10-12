@@ -14,6 +14,7 @@ import { ZCodeMessage, ZCodeMessageActions, ZCodeMessageContent } from "./messag
 import { conversationTurns, toolPresentation, workSummary, type ConversationFlowItem } from "./conversation-data.js";
 import { ChatLoading } from "./upstream/chat-loading.js";
 import { Button } from "./upstream/button.js";
+import { FailureInline } from "../failure-notice.js";
 type TraceHandler = ((runId: string, toolCallId: string) => void) | undefined;
 
 function Text({ row }: { row: TextRow }) {
@@ -30,7 +31,7 @@ export function ZCodeTool({ row, onTrace }: { row: ToolRow; onTrace?: TraceHandl
       <span className="zcode-tool-status">{view.status}</span><Icon name="chevron" size={14} /></summary>
     <div className="zcode-tool-body">{view.name !== row.toolName ? <code>{row.toolName}</code> : null}
       {row.receipt ? <p>{row.receipt.bytes} 字节 · 工具回执，不等于任务验收</p> : null}
-      {row.detail ? <p>{row.detail}</p> : null}
+      {row.detail ? <p><FailureInline text={row.detail} /></p> : null}
       {row.stdout ? <pre className="shell-stream stdout">{row.stdout}</pre> : null}
       {row.stderr ? <pre className="shell-stream stderr">{row.stderr}</pre> : null}
       {row.progressTruncated ? <span className="truncated">输出已截断；不能据此判断执行成功</span> : null}
@@ -52,7 +53,7 @@ function FlowItem({ item, running, onTrace }: { item: ConversationFlowItem; runn
   if (item.kind === "text") return <Text row={item.row} />;
   if (item.kind === "work") return <Work rows={item.rows} running={running} onTrace={onTrace} />;
   return <div className={`zcode-completion status-${item.row.status}`} role="status"><Icon name={item.row.completion?.reason === "delivered" ? "check" : "activity"} size={14} />
-    <span>{completionLabel(item.row)}{item.row.detail ? ` · ${item.row.detail}` : ""}</span></div>;
+    <span>{completionLabel(item.row)}{item.row.detail ? <> · <FailureInline text={item.row.detail} /></> : null}</span></div>;
 }
 
 function ReplyActions({ text }: { text: string }) {

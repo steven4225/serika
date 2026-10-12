@@ -4,23 +4,11 @@ import type { TaskRecord } from "./task-store.js";
 export const FOREGROUND_NOTIFICATION_OMITTED = "foreground-omitted" as const;
 export type DesktopNotificationDelivery = "submitted" | typeof FOREGROUND_NOTIFICATION_OMITTED;
 
-const TITLE_MAX_CHARACTERS = 42;
-
-function clipSentence(value: string): string | null {
-  const flat = value.replace(/[\u0000-\u001F\u007F]+/g, " ").replace(/\s+/g, " ").trim();
-  if (!flat) return null;
-  const characters = Array.from(flat);
-  if (characters.length <= TITLE_MAX_CHARACTERS) return flat;
-  return `${characters.slice(0, TITLE_MAX_CHARACTERS - 1).join("")}…`;
-}
-
 function completedTitle(task: TaskRecord): string {
   const kind = task.arrangement?.kind;
-  if (kind === "reminder") {
-    const source = task.resultText?.trim() ? task.resultText : task.prompt;
-    return clipSentence(source) ?? "提醒时间到了";
-  }
   switch (kind) {
+    case "reminder":
+      return "提醒时间到了";
     case "todoist-brief":
       return "Todoist 日报已保存";
     case "rss-digest":
@@ -36,7 +24,7 @@ function completedTitle(task: TaskRecord): string {
   }
 }
 
-/** Lock-screen title is one short sentence. Long results stay in the inbox. */
+/** Lock-screen copy omits all prompt/result content; it stays in the application inbox. */
 export function taskNotificationCopy(task: TaskRecord): { title: string; body: string } {
   switch (task.status) {
     case "completed":

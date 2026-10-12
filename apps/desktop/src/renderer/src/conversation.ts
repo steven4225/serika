@@ -35,6 +35,8 @@ export interface ToolRow {
   outcomeSource?: "full";
   /** Full history/event output only, never a bounded summary or model claim. */
   receipt?: FileToolReceipt;
+  /** Program-owned readback and readiness from a successful full tool result. */
+  reminder?: { readback: string; backgroundReady?: boolean };
   detail?: string;
   stdout?: string;
   stderr?: string;
@@ -75,10 +77,7 @@ function messageRole(message: UIMessage): TextRow["role"] {
   return message.role === "user" || message.role === "assistant" ? message.role : "system";
 }
 
-function committedToolStatus(part: Extract<UIMessage["parts"][number], { type: "dynamic-tool" }>): {
-  status: ToolRowStatus;
-  detail?: string;
-} {
+function committedToolStatus(part: Extract<UIMessage["parts"][number], { type: "dynamic-tool" }>): Pick<ToolRow, "status" | "detail" | "reminder"> {
   switch (part.state) {
     case "output-error":
       return part.errorText?.startsWith("STEER_SUPERSEDED") ? { status: "not_started", detail: "因补充要求停止，调用未派发" }
@@ -192,6 +191,7 @@ export function rowsFromHistory(messages: readonly UIMessage[]): ConversationRow
           status: outcome.status,
           ...(["output-available", "output-error", "output-denied"].includes(part.state) ? { outcomeSource: "full" as const } : {}),
           ...(outcome.detail ? { detail: outcome.detail } : {}),
+          ...(outcome.reminder ? { reminder: outcome.reminder } : {}),
         };
         rows.push(part.state === "output-available" ? withFileReceipt(withShellFields(row, part.output), part.output) : row);
       }
@@ -232,7 +232,7 @@ export function rowsFromToolActivity(activity: readonly ToolActivity[], runId?: 
     if (!item.truncated && item.summary.trim()) {
       try { parsed = JSON.parse(item.summary); complete = true; } catch { /* display-only bounded preview */ }
     }
-    const returned = complete
+    const returned: Pick<ToolRow, "status" | "detail" | "reminder"> = complete
       ? presentComputerResult(item.toolName, parsed) ?? presentShellExec(parsed) ?? toolOutcome(parsed)
       : { status: "incomplete" as const, detail: "回执不完整，不能据此判断工具返回结果" };
     const errorCode = item.errorCode ?? (complete ? outputErrorCode(parsed) : undefined);
@@ -248,6 +248,7 @@ export function rowsFromToolActivity(activity: readonly ToolActivity[], runId?: 
     toolName: item.toolName,
     ...(errorCode ? { errorCode } : {}),
     status: unknown ? "unknown" : errorCode === "TOOL_DENIED" ? "denied" : item.status === "failed" ? "failed" : returned.status,
+    ...(!unknown && item.status === "completed" && !item.truncated && returned.reminder ? { reminder: returned.reminder } : {}),
     ...(unknown ? { detail: "效果未知 · 需人工核对，不自动重试" }
       : failureDetail ? { detail: `${failureDetail}${item.truncated ? "（失败详情已截断）" : ""}` }
       : item.truncated ? { detail: "回执已截断，不能据此推断成功" } : returned.detail ? { detail: returned.detail } : {}),
@@ -337,15 +338,17 @@ function flushStreaming(live: LiveRun, key: string): ConversationRow[] {
   return [...live.rows, { kind: "text", key, role: "assistant", text: live.streaming, committed: false }];
 }
 
-function toolOutcome(output: unknown): { status: ToolRowStatus; detail?: string } {
+function toolOutcome(output: unknown): Pick<ToolRow, "status" | "detail" | "reminder"> {
   if (typeof output !== "object" || output === null) return { status: "ok" };
-  const record = output as { ok?: unknown; error?: { code?: unknown; message?: unknown } };
+  const record = output as { ok?: unknown; readback?: unknown; backgroundReady?: unknown; error?: { code?: unknown; message?: unknown } };
   if (record.ok === false) {
     const code = typeof record.error?.code === "string" ? record.error.code : "error";
     const message = typeof record.error?.message === "string" ? record.error.message : "";
     return { status: code === "TOOL_DENIED" ? "denied" : code === "TOOL_OUTCOME_UNKNOWN" ? "unknown" : "failed", detail: message ? `${code}: ${message}` : code };
   }
-  return { status: "ok" };
+  if (record.ok !== true || typeof record.readback !== "string" || !/^已(?:定|记下|改到|取消|暂停|恢复)：/.test(record.readback)) return { status: "ok" };
+  return { status: "ok", detail: record.readback, reminder: { readback: record.readback,
+    ...(typeof record.backgroundReady === "boolean" ? { backgroundReady: record.backgroundReady } : {}) } };
 }
 
 export function applyEvent(live: LiveRun, event: AgentEvent): LiveRun {
@@ -376,7 +379,7 @@ export function applyEvent(live: LiveRun, event: AgentEvent): LiveRun {
         streaming: "",
       };
     case "tool.call.completed": {
-      const outcome = presentComputerResult(event.data.toolName, event.data.output) ?? presentShellExec(event.data.output) ?? toolOutcome(event.data.output);
+      const outcome: Pick<ToolRow, "status" | "detail" | "reminder"> = presentComputerResult(event.data.toolName, event.data.output) ?? presentShellExec(event.data.output) ?? toolOutcome(event.data.output);
       return {
         rows: live.rows.map((row) => {
           if (row.kind !== "tool" || row.toolCallId !== event.data.toolCallId) return row;
@@ -385,6 +388,7 @@ export function applyEvent(live: LiveRun, event: AgentEvent): LiveRun {
             status: outcome.status,
             outcomeSource: "full",
             ...(outcome.detail ? { detail: outcome.detail } : {}),
+            ...(outcome.reminder ? { reminder: outcome.reminder } : {}),
           };
           return withFileReceipt(withShellFields(next, event.data.output), event.data.output);
         }),

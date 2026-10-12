@@ -8,7 +8,11 @@ export function SavedTaskNoticeView({ task, onOpen, onDismiss }: {
   task: TaskRecordV4; onOpen: (taskId: string) => void; onDismiss: () => void;
 }) {
   const { kind, status } = taskResultPresentation(task);
-  const { title } = taskNotificationCopy(task);
+  // The in-app banner may show the saved reminder; OS copy must stay private.
+  const reminder = task.status === "completed" && task.arrangement?.kind === "reminder"
+    ? (task.resultText?.trim() || task.prompt).replace(/[\u0000-\u001F\u007F]+/g, " ").replace(/\s+/g, " ").trim() : "";
+  const characters = Array.from(reminder);
+  const title = reminder ? characters.length > 42 ? `${characters.slice(0, 41).join("")}…` : reminder : taskNotificationCopy(task).title;
   const finishedAt = task.finishedAt && Number.isFinite(Date.parse(task.finishedAt)) ? task.finishedAt : null;
   const timestamp = finishedAt ?? (Number.isFinite(Date.parse(task.runAt)) ? task.runAt : null);
   const timeLabel = finishedAt ? "结束时间" : "计划时间";

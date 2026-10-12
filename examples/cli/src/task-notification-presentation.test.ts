@@ -14,14 +14,23 @@ const task = (override: Partial<TaskRecord> = {}): TaskRecord => ({
 });
 
 describe("task notification copy", () => {
-  it("uses the reminder sentence as the title and keeps other results out of the lock screen", () => {
+  it("keeps reminder prompt and saved result private on the lock screen", () => {
+    for (const resultText of ["私密用药内容", null]) {
+      const copy = taskNotificationCopy(task({ prompt: "私密银行内容", resultText,
+        arrangement: { kind: "reminder", source: "none", notification: "always", declarationVersion: 1 } }));
+      assert.deepEqual(copy, { title: "提醒时间到了", body: "提醒已到，详情在收件箱。" });
+      assert.doesNotMatch(JSON.stringify(copy), /私密|task-water|sensitive preference|private workspace memory/);
+    }
+  });
+
+  it("uses a reminder status title and keeps all results out of the lock screen", () => {
     const reminder = taskNotificationCopy(task({
       prompt: "不是通知来源", resultText: "该喝水了，起来活动一下。",
       arrangement: { kind: "reminder", source: "none", notification: "always", declarationVersion: 1 },
     }));
-    assert.equal(reminder.title, "该喝水了，起来活动一下。");
+    assert.equal(reminder.title, "提醒时间到了");
     assert.equal(reminder.body, "提醒已到，详情在收件箱。");
-    assert.doesNotMatch(`${reminder.title}\n${reminder.body}`, /task-water|不是通知来源|private workspace memory|已完成/);
+    assert.doesNotMatch(`${reminder.title}\n${reminder.body}`, /task-water|该喝水了|不是通知来源|private workspace memory|已完成/);
 
     const report = taskNotificationCopy(task({
       id: "task-brief-91f3", prompt: "生成日报", resultText: "私密日程".repeat(40),
@@ -37,14 +46,13 @@ describe("task notification copy", () => {
     assert.equal(taskNotificationCopy(task()).title, "定时结果已保存");
   });
 
-  it("clips a long reminder without putting the remainder in the body", () => {
+  it("omits a long reminder from both title and body instead of treating clipping as privacy", () => {
     const copy = taskNotificationCopy(task({
       resultText: "水".repeat(80),
       arrangement: { kind: "reminder", source: "none", notification: "always", declarationVersion: 1 },
     }));
-    assert.equal(Array.from(copy.title).length, 42);
-    assert.match(copy.title, /…$/);
-    assert.doesNotMatch(copy.body, /水/);
+    assert.equal(copy.title, "提醒时间到了");
+    assert.doesNotMatch(copy.title + copy.body, /水|…/);
     assert.equal(copy.body, "提醒已到，详情在收件箱。");
   });
 

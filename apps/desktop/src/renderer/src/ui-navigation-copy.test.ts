@@ -73,6 +73,15 @@ it("UI regression 5: settings has one explicit entrance and appearance is not a 
   assert.match(app, /aria-label=\{appearance === "dark" \? "切换为浅色外观" : "切换为深色外观"\}/);
 });
 
+it("reminders are a personal page, not a settings inbox", async () => {
+  assert.equal(dashboardTabForDetail("reminders"), "提醒");
+  assert.equal(dashboardTabForDetail("home"), "设置");
+  const app = await source("./App.tsx");
+  assert.match(app, /\["Today", "任务", "提醒", "记忆"\]/);
+  assert.match(app, /onAutomation=\{\(\) => openDetails\("reminders"\)\}/);
+  assert.doesNotMatch(app, /\["modules", "records", "context", "home", "reminders"\]/);
+});
+
 it("UI regression 6: Today explicitly allows ordinary conversation without creating a task", () => {
   const html = render(createElement(TodayPanel, { info, tasks: [], tasksLoading: false, tasksError: null, pendingMemory: 0, pendingMemoryError: null, onTasks: noop, onMemory: noop, onChat: noop, onPomodoro: noop, onAutomation: noop }));
   assert.match(html, /普通对话照常使用/);

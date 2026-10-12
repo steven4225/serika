@@ -91,7 +91,7 @@ describe("durable desktop notification adapter", () => {
       notificationHelperPath: "/trusted/helper", submitCommand: async () => { throw new Error("notifications denied"); } });
     await assert.rejects(rejected(task), /notifications denied/);
   });
-  it("puts the reminder sentence in the title and skips submission while the desktop is frontmost", async () => {
+  it("uses a private reminder title and skips submission while the desktop is frontmost", async () => {
     const root = await mkdtemp(join(tmpdir(), "serika-notify-frontmost-"));
     const reminder: TaskRecord = {
       ...task, id: "task-water", prompt: "不是通知来源", resultText: "该喝水了",
@@ -104,9 +104,9 @@ describe("durable desktop notification adapter", () => {
     assert.equal(script, "");
     await writeDesktopFrontmost(root, false);
     assert.equal(await notify(reminder), "submitted");
-    assert.match(script, /with title "该喝水了"/);
+    assert.match(script, /with title "提醒时间到了"/);
     assert.match(script, /display notification "提醒已到，详情在收件箱。"/);
-    assert.doesNotMatch(script, /task-water|不是通知来源|private workspace memory/);
+    assert.doesNotMatch(script, /task-water|该喝水了|不是通知来源|private workspace memory/);
     await rm(root, { recursive: true, force: true });
   });
 });

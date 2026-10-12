@@ -47,6 +47,7 @@ it("existing details remain reachable under the personal dashboard tabs", () => 
   assert.equal(dashboardTabForDetail("home"), "设置");
   assert.equal(dashboardTabForDetail("pomodoro"), "Today");
   assert.equal(dashboardTabForDetail("tasks"), "任务");
+  assert.equal(dashboardTabForDetail("reminders"), "提醒");
   assert.equal(dashboardTabForDetail("memory"), "记忆");
   assert.equal(dashboardTabForDetail("threads"), null);
   for (const detail of ["records", "context", "modules"]) {

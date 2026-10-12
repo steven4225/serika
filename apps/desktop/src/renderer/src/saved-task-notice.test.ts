@@ -119,7 +119,8 @@ test("saved task banner mounts once per workspace with one cleaned up read timer
   let submitted = "";
   const notifier = createTaskDesktopNotifier(() => {}, { platform: "darwin", submit: async script => { submitted = script; } });
   await notifier(saved());
-  assert.match(submitted, /with title "该喝水了，起来活动一下。"/);
+  assert.match(submitted, /with title "提醒时间到了"/);
+  assert.doesNotMatch(submitted, /该喝水了|起来活动一下/);
   assert.match(submitted, /提醒已到，详情在收件箱。/);
   assert.doesNotMatch(submitted, /task-water|不是正文来源/);
 });
