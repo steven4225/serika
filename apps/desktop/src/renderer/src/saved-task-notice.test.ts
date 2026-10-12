@@ -96,8 +96,9 @@ test("saved task banner keeps failure and interrupted labels and clearly clips l
   assert.match(view(saved({ status: "failed", resultText: null })), /执行失败/);
   assert.match(view(saved({ status: "interrupted", resultText: null })), /不会自动重做/);
   const long = view(saved({ resultText: "水".repeat(281) }));
-  assert.match(long, /正文已截短/);
-  assert.doesNotMatch(long, /水{281}/);
+  assert.match(long, /水{42}…/);
+  assert.doesNotMatch(long, /水{80}/);
+  assert.doesNotMatch(long, /task-water/);
 });
 
 test("saved task banner mounts once per workspace with one cleaned up read timer and leaves OS privacy intact", async () => {

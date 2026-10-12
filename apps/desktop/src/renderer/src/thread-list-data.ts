@@ -1,4 +1,5 @@
 import type { ThreadSummary } from "../../shared/ui-contract.js";
+import { humanFacingTitle } from "../../shared/human-title.js";
 
 /** Display only. A missing probe or an error is never proof of emptiness. */
 export function visibleThreads(threads: readonly ThreadSummary[], currentId: string, drafts: ReadonlyMap<string, string> = new Map(), showEmpty = false): ThreadSummary[] {
@@ -12,5 +13,6 @@ export function visibleThreads(threads: readonly ThreadSummary[], currentId: str
 }
 
 export function threadTitle(thread: ThreadSummary, draft?: string): string {
-  return thread.emptyVerified && draft ? draft.replace(/\s+/g, " ").slice(0, 48) : thread.title;
+  const draftTitle = thread.emptyVerified && draft ? draft.replace(/\s+/g, " ").trim().slice(0, 48) : "";
+  return humanFacingTitle(draftTitle || thread.title, "当前对话");
 }

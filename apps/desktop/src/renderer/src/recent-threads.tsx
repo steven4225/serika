@@ -21,7 +21,7 @@ export function RecentThreads({ threads, currentId, loading, error, busy, onSele
     {!loading && !error ? recentThreads(threads, currentId, drafts).map(thread => <button key={thread.threadId}
       className={thread.threadId === currentId ? "recent-thread selected" : "recent-thread"}
       aria-current={thread.threadId === currentId ? "true" : undefined}
-      disabled={busy || !!thread.error} title={thread.error ?? thread.title}
+      disabled={busy || !!thread.error} title={thread.error ?? threadTitle(thread, drafts?.get(thread.threadId))}
       onClick={() => onSelect(thread.threadId)}>
       <span>{threadTitle(thread, drafts?.get(thread.threadId))}</span><small>{thread.error ? "记录暂不可读" : drafts?.has(thread.threadId) ? "有未发送草稿" : thread.threadId === currentId ? "当前对话" : thread.taskCount ? "有工作任务" : thread.savedAt ? formatRecordTime(thread.savedAt) : "有执行记录"}</small>
     </button>) : null}

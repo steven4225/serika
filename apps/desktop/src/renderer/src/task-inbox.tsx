@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import type { TaskListV3, TaskRecordV4 } from "@aisdk-agent/example-cli/dist/task-store.js";
 import { MessageContent } from "./markdown.js";
 import { automationArrangementLabel } from "./automation-schedule.js";
+import { humanFacingTitle, localScheduleLabel } from "../../shared/human-title.js";
 
 const statuses = { scheduled: "已排期", running: "正在执行", completed: "执行结束", failed: "执行失败", cancelled: "已取消", interrupted: "执行中断，结果未确定" };
 
@@ -86,15 +87,17 @@ export function TaskInbox({ enabled, busy, canAcknowledge = true, focus, onResul
     {notice ? <p role="status">{notice}</p> : null}
     {enabled && !loading && !error && page?.tasks.length === 0 ? <p>没有未读的定时结果。排期中的任务不在此列表。</p> : null}
     {page?.tasks.map(task => <div className="capability-row" key={task.id}>
-      <div><strong>{task.promptPreview}</strong><p>{statuses[task.status]} · 排期 {task.runAt}</p><small>结束 {task.finishedAt ?? "尚未记录"} · {task.id}</small>
-        {task.error ? <p className="error">{task.error.code}: {task.error.messagePreview}</p> : null}
+      <div><strong>{humanFacingTitle(task.promptPreview, automationArrangementLabel(task.arrangement))}</strong><p>{statuses[task.status]} · {localScheduleLabel(task.runAt)}</p><small>结束 {task.finishedAt ? localScheduleLabel(task.finishedAt) : "尚未记录"}</small>
+        {task.error ? <p className="error">{humanFacingTitle(task.error.messagePreview, "执行没有完成，打开详情查看原因。")}</p> : null}
+        <details className="technical-id"><summary>编号</summary><code>{task.id}</code></details>
       </div><button className="ghost" disabled={working || loading} onClick={() => void open(task.id)}>查看结果</button>
     </div>)}
     {page?.truncated ? <p className="hint">只显示最近 50 条未读结果；标为已读后刷新可查看更早的记录。</p> : null}
     {detail && presentation ? <section ref={detailElement} className="card" aria-label="定时结果详情">
       <div className="card-head"><span>{presentation.kind} · {presentation.status}</span><button className="ghost" disabled={working} onClick={() => { setDetail(null); setError(""); }}>收起</button></div>
-      <p>{detail.prompt}</p>
-      <dl className="session-facts"><dt>排期时间</dt><dd>{detail.runAt}</dd><dt>实际开始</dt><dd>{detail.startedAt ?? "未记录"}</dd><dt>结束时间</dt><dd>{detail.finishedAt ?? "未记录"}</dd><dt>通知</dt><dd>{presentation.notification}</dd><dt>已读</dt><dd>{detail.acknowledgedAt ?? "尚未标为已读"}</dd></dl>
+      <p>{humanFacingTitle(detail.prompt, presentation.kind)}</p>
+      <details className="technical-id"><summary>编号</summary><code>{detail.id}</code></details>
+      <dl className="session-facts"><dt>排期时间</dt><dd>{localScheduleLabel(detail.runAt)}</dd><dt>实际开始</dt><dd>{detail.startedAt ? localScheduleLabel(detail.startedAt) : "未记录"}</dd><dt>结束时间</dt><dd>{detail.finishedAt ? localScheduleLabel(detail.finishedAt) : "未记录"}</dd><dt>通知</dt><dd>{presentation.notification}</dd><dt>已读</dt><dd>{detail.acknowledgedAt ? localScheduleLabel(detail.acknowledgedAt) : "尚未标为已读"}</dd></dl>
       {detail.startedAt && Date.parse(detail.startedAt) - Date.parse(detail.runAt) > 1_000 ? <p className="hint">实际开始晚于排期；此结果不是准点执行的证明。</p> : null}
       {detail.resultText !== null ? <MessageContent text={detail.resultText} /> : <p className="hint">没有保存结果正文。</p>}
       {detail.error ? <p className="error" role="alert">{detail.error.code}: {detail.error.message}</p> : null}
