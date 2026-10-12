@@ -23,9 +23,16 @@ test("approval delayed preview becomes enabled only with visible content and hid
   assert.match(markup(approval("")), /class="allow" disabled=""/);
   const html = markup(approval("提醒确认\n时间：明天 上午10点\n内容：喝水\n允许这次改期？ [y/n] "));
   assert.doesNotMatch(html, /class="allow" disabled=""/);
+  assert.match(html, /喝水/);
   assert.match(html, /<h3>调整提醒：明天 上午10点 喝水<\/h3>/);
   assert.match(html, /确认改期/);
-  assert.doesNotMatch(html, /\[y\/n\]|task_reschedule|<pre class="prompt"/);
+  assert.doesNotMatch(html, /\[y\/n\]/);
+  assert.doesNotMatch(html.slice(0, html.indexOf("<summary>详情</summary>")), /task_reschedule|<pre class="prompt"/);
+  assert.ok(html.indexOf("调整提醒：明天 上午10点 喝水") < html.indexOf("<summary>详情</summary>"));
+  assert.ok(html.indexOf("<summary>详情</summary>") < html.indexOf("task_reschedule"));
+  const order = markup(approval("提醒确认\n时间：9:00\n内容：检查订单 task_12345678\n允许这次保存？ [y/n]"));
+  const primary = order.slice(0, order.indexOf("<summary>详情</summary>"));
+  assert.match(primary, /检查订单 task_12345678/);
 });
 
 test("structured computer preview also waits for backend publication before enabling allow", () => {
@@ -33,4 +40,7 @@ test("structured computer preview also waits for backend publication before enab
   assert.match(markup(value), /列出指定应用窗口/);
   assert.match(markup(value), /class="allow" disabled=""/);
   assert.doesNotMatch(markup({ ...value, preview: "观察指定应用窗口" }), /class="allow" disabled=""/);
+  const exact = markup({ ...value, preview: "观察指定窗口", input: { bundleId: "com.apple.TextEdit", pid: 42, windowId: 731 } });
+  assert.match(exact, /已选定，编号在详情里/);
+  assert.match(exact.slice(exact.indexOf("<summary>技术详情</summary>")), /windowId[^\d]+731/);
 });

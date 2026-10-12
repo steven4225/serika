@@ -9,6 +9,7 @@ import type { CandidateListInput, CandidateResolveInput } from "@aisdk-agent/exa
 import { IPC, type ConfirmInput, type MainToRenderer } from "../shared/ui-contract.js";
 import type { WorkTaskInputs, WorkTaskReadInput, WorkTaskArtifactInput } from "../shared/work-tasks.js";
 import { parseModuleNotification } from "./runtime-bridge.js";
+import { moduleNotificationCopy } from "../shared/human-title.js";
 import { RuntimeOwnership } from "./runtime-ownership.js";
 import { restoreBackup, previewBackup } from "./backup.js";
 import type { RestoreResult } from "../shared/backup.js";
@@ -102,7 +103,8 @@ function notifyIfHidden(window: BrowserWindow, message: MainToRenderer): void {
   if (notification === undefined) return;
   if (window.isVisible() && window.isFocused()) return;
   if (!Notification.isSupported()) return;
-  const shown = new Notification({ title: `Serika · ${notification.moduleId}`, body: notification.message });
+  const copy = moduleNotificationCopy(notification.moduleId, notification.message);
+  const shown = new Notification({ title: copy.title, body: copy.body });
   shown.on("click", () => {
     window.show();
     window.focus();

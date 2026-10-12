@@ -1,9 +1,10 @@
 import type { SkillSummary } from "@aisdk-agent/example-cli/dist/automation-execution.js";
 import type { ScheduleSkillInput } from "@aisdk-agent/example-cli/dist/automation-scheduling.js";
 import type { TaskArrangement } from "@aisdk-agent/example-cli/dist/task-store.js";
+import { humanFacingTitle } from "../../shared/human-title.js";
 
 export function automationArrangementLabel(arrangement?: TaskArrangement): string {
-  if (arrangement?.kind === "skill") return `Skill ${arrangement.skillId} · 版本 ${arrangement.skillHash.slice(0, 12)}`;
+  if (arrangement?.kind === "skill") return `Skill ${humanFacingTitle(arrangement.skillId, "文本技能")}`;
   if (arrangement?.kind === "reminder") return "提醒";
   if (arrangement?.kind === "todoist-brief") return "Todoist 日报";
   if (arrangement?.kind === "rss-digest") return "RSS 资讯";

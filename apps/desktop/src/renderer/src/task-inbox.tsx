@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import type { TaskListV3, TaskNotification, TaskRecordV4 } from "@aisdk-agent/example-cli/dist/task-store.js";
 import { MessageContent } from "./markdown.js";
 import { automationArrangementLabel } from "./automation-schedule.js";
+import { humanFacingTitle } from "../../shared/human-title.js";
 import { inboxPrimaryLine, localWhen, reminderClock, scheduleStatusLabel } from "./reminder-copy.js";
 
 function notificationText(notification: TaskNotification | null): string {
@@ -105,8 +106,8 @@ export function TaskInbox({ enabled, busy, canAcknowledge = true, focus, onResul
       const line = inboxPrimaryLine(task, clock);
       return <div className="capability-row" key={task.id}>
         <div><strong>{line.subject}</strong><p>{line.when} · {line.status}</p>
-          <details><summary>编号</summary><code>{task.id}</code></details>
-          {task.error ? <p className="error">{task.error.code}: {task.error.messagePreview}</p> : null}
+          <details className="technical-id"><summary>编号</summary><code>{task.id}</code></details>
+          {task.error ? <p className="error">{humanFacingTitle(task.error.messagePreview, "执行没有完成，打开详情查看原因。")}</p> : null}
         </div><button className="ghost" disabled={working || loading} onClick={() => void open(task.id)}>查看结果</button>
       </div>;
     })}

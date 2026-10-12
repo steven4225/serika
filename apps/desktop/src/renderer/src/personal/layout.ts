@@ -1,4 +1,5 @@
 export const PERSONAL_SPLIT_KEY = "serika:personal-chat-fraction";
+export const PERSONAL_SIDEBAR_KEY = "serika:personal-sidebar";
 export const PERSONAL_COMPACT_BREAKPOINT = 906;
 
 const DEFAULT_CHAT_FRACTION = 0.5;
@@ -23,6 +24,11 @@ export function loadChatFraction(raw: string | null): number {
   const parsed = Number(raw);
   if (!Number.isFinite(parsed)) return DEFAULT_CHAT_FRACTION;
   return Math.max(MIN_CHAT_FRACTION, Math.min(MAX_CHAT_FRACTION, parsed));
+}
+
+/** Missing or unknown values keep the dashboard open. Only an explicit collapse hides it. */
+export function loadSidebarOpen(raw: string | null): boolean {
+  return raw !== "collapsed";
 }
 
 export function dashboardTabForDetail(detail: string): "Today" | "任务" | "提醒" | "记忆" | "设置" | null {

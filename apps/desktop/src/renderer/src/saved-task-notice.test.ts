@@ -101,6 +101,7 @@ test("saved task banner keeps failure and interrupted titles and leaves long res
   assert.match(interrupted, /安排中断，不会自动重做/);
   assert.match(interrupted, /执行中断，结果未确定/);
   const long = view(saved({ resultText: "水".repeat(281) }));
+  assert.doesNotMatch(long, /task-water/);
   assert.match(long, /saved-task-notice-title">水{41}…</);
   assert.doesNotMatch(long, /水{42}/);
   assert.match(long, /class="allow">查看</);
