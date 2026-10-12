@@ -65,20 +65,24 @@ it("UI regression 4: memory setup has one primary entry and workspace context is
   assert.match(daily, /onClick=\{onContext\}/);
 });
 
-it("UI regression 5: settings has one explicit entrance and appearance is not a navigation page", async () => {
+it("UI regression 5: settings has one explicit entrance and the persona pill is not that entrance", async () => {
   const app = await source("./App.tsx");
-  assert.doesNotMatch(app, /\["Today", "任务", "记忆", "serika"\]/);
+  assert.match(app, /\["Today", "任务", "记忆", "serika"\]/);
+  assert.match(app, /openDetails\("persona"\)/);
   assert.doesNotMatch(app, /\["appearance",/);
   assert.match(app, /aria-label="设置"/);
+  assert.match(app, /onClick=\{\(\) => openDetails\("modules"\)\}/);
   assert.match(app, /aria-label=\{appearance === "dark" \? "切换为浅色外观" : "切换为深色外观"\}/);
 });
 
-it("reminders are a personal page, not a settings inbox", async () => {
-  assert.equal(dashboardTabForDetail("reminders"), "提醒");
+it("reminders stay reachable from Today and are not a top pill or a settings inbox", async () => {
+  assert.equal(dashboardTabForDetail("reminders"), null);
+  assert.equal(dashboardTabForDetail("persona"), "serika");
   assert.equal(dashboardTabForDetail("home"), "设置");
   const app = await source("./App.tsx");
-  assert.match(app, /\["Today", "任务", "提醒", "记忆"\]/);
+  assert.match(app, /\["Today", "任务", "记忆", "serika"\]/);
   assert.match(app, /onAutomation=\{\(\) => openDetails\("reminders"\)\}/);
+  assert.doesNotMatch(app, /\["Today", "任务", "提醒", "记忆"\]/);
   assert.doesNotMatch(app, /\["modules", "records", "context", "home", "reminders"\]/);
 });
 
