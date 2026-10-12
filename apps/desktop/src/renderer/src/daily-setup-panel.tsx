@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import type { AppInfo } from "../../shared/ui-contract.js";
+import { SerikaMark } from "./icons.js";
 import { memoryAutomaticUpgradeNeeded, memorySetupChanges, memorySetupNeeded } from "./daily-setup.js";
 import { DailyAutomation } from "./daily-automation-panel.js";
 import { AutomationPanel } from "./automation-panel.js";
@@ -37,7 +38,7 @@ export function MemorySetup({ info, busy }: { info: AppInfo; busy: boolean }) {
 
 export function DailySetup({ info, busy, onHistory, onRun, onContext, onReminders, automationRefresh }: { info: AppInfo; busy: boolean; onHistory: () => void; onRun: (runId: string) => void; onContext: () => void; onReminders: () => void; automationRefresh: number }) {
   return <section className="card daily-setup" aria-label="日用状态">
-    <div className="card-head">{info.entryMode === "test" ? "隔离测试入口" : "当前日用入口"}</div>
+    <div className="card-head"><SerikaMark size={28} /><span>{info.entryMode === "test" ? "隔离测试入口" : "当前日用入口"}</span></div>
     <dl className="session-facts">
       <dt>当前配置</dt><dd>{info.configPath ?? "未提供配置文件"}</dd>
       <dt>工作区</dt><dd>{info.workspaceRoot ?? "未配置"}</dd>

@@ -39,7 +39,7 @@ import { ApprovalCard } from "./approval.js";
 import { shouldSubmitComposer, canSubmitComposer, canSteerComposer } from "../../shared/composer.js";
 import { mergeSteerRecords, steerFailureLabel } from "../../shared/steer.js";
 import { SteerStatus } from "./steer-status.js";
-import { Icon, SerikaMark, type IconName } from "./icons.js";
+import { Icon, SerikaMark, SerikaPersona, type IconName } from "./icons.js";
 import { MessageContent } from "./markdown.js";
 import { CapabilitiesPanel } from "./capabilities.js";
 import { PomodoroPanel } from "./pomodoro.js";
@@ -966,7 +966,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     <div ref={splitRoot} className={`app personal-layout${compact ? " is-compact" : ""}${compact && mobileDashboard ? " show-dashboard" : ""}${!compact && !sidebarOpen ? " sidebar-collapsed" : ""}`} style={{ "--chat-fraction": actualFraction } as CSSProperties}>
       <div className="main-shell">
         <header className="header">
-          <span className="personal-name">Serika</span>
+          <span className="personal-name"><SerikaPersona size={52} /></span>
           <span className="personal-conversation-title">{conversationTitle}</span>
           <span className={`run-state ${status.tone}`} role="status"><span className={`state-dot ${status.tone}`} />{stageLabel}</span>
           <span className="spacer" />
@@ -1002,6 +1002,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
                 if (followConversation.current) setUnreadOutput(false);
               }}>
                 {rows.length === 0 && !live.streaming && !workTasks.task ? <div className="conversation-empty">
+                  <SerikaPersona size={72} />
                   <h1>你想完成什么？</h1>
                 </div> : null}
                 <div className="conversation-thread">
@@ -1125,7 +1126,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
                   }).catch(() => setError("概览读取失败"))}>刷新</button></div>
                   <p className="hint">项目进度来自保存的 checkpoint。提醒和刚触发的结果在「提醒」。这里不检查 Git 或文件现状。</p><HomeBody view={homeView} />
                 </section>
-                {info ? <section className="card session-card"><div className="card-head">会话与配置</div><Identity info={info} />
+                {info ? <section className="card session-card"><div className="card-head"><SerikaPersona size={44} /><span>会话与配置</span></div><Identity info={info} />
                   <dl className="session-facts">
                     <dt>模型</dt><dd>{info.modelId ?? info.modelAlias}<small>配置值，不代表已联网验证</small></dd>
                     <dt>工作区</dt><dd>{info.workspaceRoot ?? "未配置"}</dd>

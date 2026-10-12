@@ -1,4 +1,6 @@
 .personal-layout .personal-turn { display: flex; flex-direction: column; align-items: stretch; gap: 16px; min-width: 0; }
+.personal-layout .personal-assistant-row { display: flex; align-items: flex-start; gap: 10px; max-width: 100%; min-width: 0; }
+.personal-layout .personal-assistant-row > .serika-mark { margin-top: 2px; }
 .personal-layout .personal-turn + .personal-turn { margin-top: 24px; }
 .personal-layout .personal-message { max-width: 100%; min-width: 0; color: var(--text); }
 .personal-layout .personal-message.role-assistant { align-self: flex-start; width: fit-content; padding: 18px 22px; border-radius: 18px; background: var(--surface); box-shadow: -4px 8px 28px #6868680a, 0 2px 8px #6464640f; }

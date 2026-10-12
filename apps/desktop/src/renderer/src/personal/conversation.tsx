@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import type { ConversationRow, TextRow, ToolRow } from "../conversation.js";
-import { Icon } from "../icons.js";
+import { Icon, SerikaMark } from "../icons.js";
 import { MessageContent } from "../markdown.js";
 import { completionLabel } from "../navigation.js";
 import { conversationTurns, isMissingFile, toolPresentation, workSummary, type ConversationFlowItem } from "../zcode/conversation-data.js";
@@ -19,10 +19,12 @@ function AssistantText({ text, result }: { text: string; result?: ReminderReplyR
 }
 
 function PersonalText({ row, result }: { row: TextRow; result?: ReminderReplyResult | undefined }) {
-  return <article className={`personal-message role-${row.role}`}>
+  const article = <article className={`personal-message role-${row.role}`}>
     {row.steer ? <small className="personal-supplement">补充本轮要求</small> : null}
     {row.role === "user" ? <pre className="personal-user-text">{row.text}</pre> : <AssistantText text={row.text} result={result} />}
   </article>;
+  if (row.role !== "assistant") return article;
+  return <div className="personal-assistant-row"><SerikaMark size={32} />{article}</div>;
 }
 
 export function PersonalTool({ row, onTrace, workspaceRoot }: { row: ToolRow; onTrace?: TraceHandler; workspaceRoot?: string | undefined }) {
@@ -82,8 +84,8 @@ export function PersonalConversation({ rows, running, streaming, waitingForAppro
     {turn.items.map((item, index) => <FlowItem key={item.kind === "work" ? item.rows[0]!.key : item.row.key || index} item={item} onTrace={onTrace} workspaceRoot={workspaceRoot} results={results.byText} />)}
     {!turn.running && turn.copyText ? <ReplyActions text={turn.copyText} /> : null}
   </section>)}
-    {running && streaming ? <article className="personal-message role-assistant streaming" aria-label="正在回复"><AssistantText text={streaming} result={results.latest} /></article> : null}
-    {running && !streaming ? <p className="personal-loading" role="status"><span aria-hidden="true" />{waitingForApproval ? "等待确认后继续" : "正在处理"}</p> : null}
+    {running && streaming ? <div className="personal-assistant-row"><SerikaMark size={32} /><article className="personal-message role-assistant streaming" aria-label="正在回复"><AssistantText text={streaming} result={results.latest} /></article></div> : null}
+    {running && !streaming ? <div className="personal-assistant-row"><SerikaMark size={32} /><p className="personal-loading" role="status"><span aria-hidden="true" />{waitingForApproval ? "等待确认后继续" : "正在处理"}</p></div> : null}
   </>;
 }
 

@@ -208,6 +208,11 @@ button.chip { font-size: 12px; padding: 5px 9px; border-color: var(--line); }
 .conversation-thread { width: 100%; max-width: 740px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
 .conversation-empty { max-width: 720px; margin: auto; padding: clamp(26px, 10vh, 90px) 6px 28px; }
 .welcome-mark { color: #b77d5f; display: block; margin-bottom: 26px; }
+.serika-mark { border-radius: 50%; object-fit: cover; display: inline-block; vertical-align: middle; flex: none; }
+.serika-persona > .serika-mark { display: block; }
+.serika-persona { display: inline-flex; flex-direction: column; align-items: center; gap: 0; line-height: 1; flex: none; }
+.serika-persona-name { position: relative; z-index: 1; margin-top: -8px; display: inline-flex; align-items: center; justify-content: center; min-width: 52px; height: 22px; padding: 0 10px; border-radius: 999px; background: #fff; color: #5c5866; font-size: 12px; font-weight: 550; letter-spacing: 0; box-shadow: 0 1px 4px #00000014, 0 0 0 1px #0000000a; }
+.build-identity > summary { display: flex; align-items: center; gap: 8px; width: fit-content; }
 .eyebrow { font-size: 11px; color: var(--muted); letter-spacing: .04em; }
 .conversation-empty h1 { font-size: clamp(26px, 3.1vw, 38px); font-weight: 500; letter-spacing: -1.1px; line-height: 1.4; margin: 9px 0 17px; }
 .conversation-empty p { font-size: 14px; line-height: 1.9; color: var(--muted); margin: 0; }
