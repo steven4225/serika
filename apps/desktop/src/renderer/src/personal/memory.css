@@ -16,7 +16,7 @@
 .memory-summary-card h2, .memory-back-row h1 { font-size: 22px; font-weight: 650; letter-spacing: -.03em; }
 .memory-updated, .memory-source-line, .memory-category-card small, .memory-item-card small { color: var(--muted); font-size: 13px; font-weight: 500; }
 .memory-summary-body, .memory-item-card p { color: var(--text); font-size: 14px; line-height: 1.7; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
-.memory-item-card p { -webkit-line-clamp: 3; }
+.memory-item-card p { -webkit-line-clamp: 3; white-space: pre-line; }
 .memory-section-label { margin-top: 6px; font-size: 20px; font-weight: 650; }
 .memory-bento { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .memory-category-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 12px; }

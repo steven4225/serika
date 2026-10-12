@@ -18,6 +18,7 @@ function daysAgo(days: number): string {
 }
 
 function remembered(input: { id: string; text: string; kind: "preference" | "fact" | "note"; updatedDays: number; sources: MemoryAssertion["sources"]; factIdentity?: NonNullable<FormalMemory["assertion"]>["factIdentity"] }): FormalMemory {
+  for (const source of input.sources) if (source.kind === "conversation") quotes.set(`${input.id}:${source.messageId}`, source.quote);
   const updatedAt = daysAgo(input.updatedDays);
   const source = input.sources[0] ?? { kind: "manual" as const };
   return {
@@ -33,6 +34,7 @@ function remembered(input: { id: string; text: string; kind: "preference" | "fac
 }
 
 const quote = (messageId: string, text: string) => ({ kind: "conversation" as const, threadId: "fixture-a", messageId, quote: text });
+const quotes = new Map<string, string>();
 let memories: FormalMemory[] = [
   remembered({ id: "fixture-writing", kind: "preference", updatedDays: 1, text: "复盘先给一行结论，再列两条可执行步骤。", sources: [quote("fixture-source", "我的复盘偏好是：先给一行结论，再列两条可执行步骤。")] }),
   remembered({ id: "fixture-coffee", kind: "fact", updatedDays: 3, text: "咖啡不加糖。", factIdentity: { attribute: "coffee", scenario: "personal", value: "unsweetened" }, sources: [quote("coffee-source", "咖啡不加糖。")] }),
@@ -50,7 +52,7 @@ const fixtureApi: Pick<RendererApi, "listMemories" | "getMemory" | "getMemoryHis
   getMemory: async id => ({ ok: true, value: structuredClone(byId(id)) }),
   getMemoryHistory: async ({ id }) => {
     const item = byId(id);
-    const sources = item.assertion?.sourceIds.map(source => source.kind === "conversation" ? quote(source.messageId, item.text) : source) ?? [];
+    const sources = item.assertion?.sourceIds.map(source => source.kind === "conversation" ? quote(source.messageId, quotes.get(`${item.id}:${source.messageId}`) ?? "原话未附带") : source) ?? [];
     return { ok: true, value: { id: item.id, revision: item.revision ?? 1, historyCoverage: "complete", nextOffset: null, versions: [{ revision: item.revision ?? 1, assertionId: item.assertion?.assertionId ?? id, scope: { kind: "workspace" }, pinned: false, status: "active", expiresAt: null, changedAt: item.updatedAt ?? null }], assertions: [{ assertionId: item.assertion?.assertionId ?? id, text: item.text, kind: item.assertion?.kind ?? "note", recallTerms: [], validTime: { from: null, to: null, basis: "unknown" }, systemTime: { from: item.updatedAt ?? null, to: null }, state: "asserted", sources }] } };
   },
   getMemoryMaintenance: async () => ({ ok: true, value: { stored: memories.length, pending: 0, expired: 0, disabled: 0, duplicateSuggestions: 0, capacity: { entries: 512, bytes: 16 * 1024 * 1024, assertionsPerEntry: 64 }, consolidation: { enabled: true, state: "idle" } } }),
