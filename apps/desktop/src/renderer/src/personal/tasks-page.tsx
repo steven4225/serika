@@ -10,14 +10,17 @@ import {
   TASK_EXAMPLE_PROMPTS,
   groupTaskRows,
   inboxReturnTitle,
+  planScheduleContinueHandoff,
   planTaskContinueHandoff,
   planTaskCreateHandoff,
+  returnedTaskSource,
   scheduledTaskRows,
   taskArtifactCards,
   taskProgressLines,
   taskReturnLabel,
   taskWhenLabel,
   workTaskRows,
+  type ReturnedTaskSource,
   type ScheduledTaskRow,
   type TaskComposerHandoff,
 } from "./tasks-model.js";
@@ -60,7 +63,7 @@ export function TasksPage(props: TasksPageProps) {
   }
   return <div className="personal-tasks">
     {props.segment === "tasks" && props.openedTask ? <WorkTaskThread task={props.openedTask} now={now} busy={props.busy} advanced={props.advanced} onBack={props.onBack} onContinue={props.onContinue} /> : null}
-    {props.segment === "scheduled" && props.openedReminder ? <ReminderThread row={props.openedReminder} now={now} busy={props.busy} pendingCancel={props.pendingCancel} onBack={props.onBack} onContinue={props.onContinue} onCancel={props.onCancelReminder} onConfirmCancel={props.onConfirmCancel} onDismissCancel={props.onDismissCancel} /> : null}
+    {props.segment === "scheduled" && props.openedReminder ? <ReminderThread row={props.openedReminder} now={now} busy={props.busy} error={props.remindersError} pendingCancel={props.pendingCancel} onBack={props.onBack} onContinue={props.onContinue} onCancel={props.onCancelReminder} onConfirmCancel={props.onConfirmCancel} onDismissCancel={props.onDismissCancel} /> : null}
     {detail ? null : <>
       <header className="task-topbar">
         <h1>任务</h1>
@@ -96,11 +99,11 @@ function ScheduledTaskList(props: TasksPageProps & { now: Date; clock: ReturnTyp
   const groups = groupTaskRows(props.reminders, props.now);
   const empty = !props.remindersLoading && !props.remindersError && props.reminders.length === 0;
   return <>
-    {props.remindersLoading ? <p className="task-note" role="status">正在读取提醒…</p> : null}
+    {props.remindersLoading ? <p className="task-note" role="status">正在读取定时任务…</p> : null}
     {props.remindersError ? <p className="task-warning" role="alert">{props.remindersError}。读取失败不代表没有提醒。</p> : null}
     {groups.map(group => <section className="task-group" key={group.bucket} aria-label={group.bucket}>
       <h2>{group.bucket}</h2>
-      {group.items.map(item => <button type="button" className="task-row" key={`${item.kind}:${item.id}`} disabled={props.busy} onClick={() => props.onOpenReminder(item.id)}><span>{item.title}</span><small>{item.when} · {item.status}</small></button>)}
+      {group.items.map(item => <button type="button" className="task-row" key={`${item.kind}:${item.id}`} disabled={props.busy} onClick={() => props.onOpenReminder(item.id)}><span>{item.title}</span><small>{scheduleRowMeta(item)}</small></button>)}
     </section>)}
     {props.reminderOther > 0 ? <p className="task-note">另有 {props.reminderOther} 条其他定时安排。<button type="button" className="ghost" onClick={props.onOpenSettings}>在设置里查看</button></p> : null}
     {empty || props.remindersError ? <section className="task-template-list" aria-label="为你推荐">
@@ -145,10 +148,76 @@ function WorkTaskThread({ task, now, busy, advanced, onBack, onContinue }: {
   </section>;
 }
 
-function ReminderThread({ row, now, busy, pendingCancel, onBack, onContinue, onCancel, onConfirmCancel, onDismissCancel }: {
+function scheduleRowMeta(row: ScheduledTaskRow): string {
+  const when = `${row.when} · ${row.status}`;
+  return row.family === "schedule" ? `${row.kindLabel} · ${when}` : when;
+}
+
+function scheduleNotice(family: ScheduledTaskRow["family"]): string {
+  switch (family) {
+    case "reminder":
+      return "保存或改期之后才会生效，这不代表已经提醒到你。";
+    case "schedule":
+      return "这里查看这项定时安排。确认之前不会把它说成已经改好。";
+    default: {
+      const unreachable: never = family;
+      return unreachable;
+    }
+  }
+}
+
+function scheduleCancelLabel(family: ScheduledTaskRow["family"]): string {
+  switch (family) {
+    case "reminder":
+      return "取消提醒…";
+    case "schedule":
+      return "取消这项安排…";
+    default: {
+      const unreachable: never = family;
+      return unreachable;
+    }
+  }
+}
+
+function scheduleChatLabel(family: ScheduledTaskRow["family"]): string {
+  switch (family) {
+    case "reminder":
+      return "和 Serika 聊这件提醒";
+    case "schedule":
+      return "和 Serika 聊这项安排";
+    default: {
+      const unreachable: never = family;
+      return unreachable;
+    }
+  }
+}
+
+function scheduleConfirmCopy(row: ScheduledTaskRow): { title: string; body: string; label: string } {
+  switch (row.family) {
+    case "reminder":
+      return {
+        title: `取消「${row.title}」？`,
+        body: "只停止以后的提醒，不会撤回已经弹出的通知，也不会重做已经发生的结果。",
+        label: "取消提醒确认",
+      };
+    case "schedule":
+      return {
+        title: `取消定时安排「${row.title}」？`,
+        body: "只停止以后的执行，不会撤回已经发生的结果，也不会自动重做。",
+        label: "取消定时安排确认",
+      };
+    default: {
+      const unreachable: never = row.family;
+      return unreachable;
+    }
+  }
+}
+
+function ReminderThread({ row, now, busy, error, pendingCancel, onBack, onContinue, onCancel, onConfirmCancel, onDismissCancel }: {
   row: ScheduledTaskRow;
   now: Date;
   busy: boolean;
+  error: string;
   pendingCancel: ScheduledTaskRow | null;
   onBack: () => void;
   onContinue: (handoff: TaskComposerHandoff) => void;
@@ -159,27 +228,27 @@ function ReminderThread({ row, now, busy, pendingCancel, onBack, onContinue, onC
   const [draft, setDraft] = useState("");
   const clock = reminderClock(now);
   const when = row.at ? taskWhenLabel(row.at, now, clock) : row.when;
+  const chatting = scheduleChatLabel(row.family);
+  const confirming = pendingCancel && pendingCancel.id === row.id ? pendingCancel : null;
+  const confirmCopy = confirming ? scheduleConfirmCopy(confirming) : null;
   return <section className="task-thread" aria-label={row.title}>
     <header className="task-thread-heading">
       <button type="button" className="task-back" aria-label="返回定时任务" onClick={onBack}>‹</button>
-      <div className="task-thread-copy"><h1>{row.title}</h1><p className="task-thread-meta">{when} · {row.status}</p></div>
+      <div className="task-thread-copy"><h1>{row.title}</h1><p className="task-thread-meta">{row.family === "schedule" ? `${row.kindLabel} · ` : ""}{when} · {row.status}</p></div>
     </header>
-    <article className="task-bubble"><p>{row.when}</p><p>{row.status}。保存或改期之后才会生效，这不代表已经提醒到你。</p></article>
-    {row.canCancel ? <button type="button" className="ghost" disabled={busy} onClick={() => onCancel(row)}>取消提醒…</button> : null}
-    {pendingCancel && pendingCancel.id === row.id ? <div className="task-bubble" role="group" aria-label="取消提醒确认">
-      <strong>取消「{pendingCancel.title}」？</strong>
-      <p>只停止以后的提醒，不会撤回已经弹出的通知，也不会重做已经发生的结果。</p>
+    <article className="task-bubble"><p>{row.when}</p><p>{row.status}。{scheduleNotice(row.family)}</p></article>
+    {error ? <p className="task-warning" role="alert">{error}请回到列表重新读取并核对这项安排是否还在；不会自动重试。</p> : null}
+    {row.canCancel ? <button type="button" className="ghost" disabled={busy} onClick={() => onCancel(row)}>{scheduleCancelLabel(row.family)}</button> : null}
+    {confirmCopy ? <div className="task-bubble" role="group" aria-label={confirmCopy.label}>
+      <strong>{confirmCopy.title}</strong>
+      <p>{confirmCopy.body}</p>
       <div className="task-examples">
         <button type="button" disabled={busy} onClick={onConfirmCancel}>确认取消</button>
         <button type="button" disabled={busy} onClick={onDismissCancel}>先不要</button>
       </div>
     </div> : null}
-    <form className="task-thread-compose" onSubmit={event => {
-      event.preventDefault();
-      const text = draft.trim() || `我想调整「${row.title}」。先确认新的时间。确认之前不要说已经改好。`;
-      onContinue({ mode: "chat", taskId: null, text, policy: "replace" });
-    }}>
-      <input aria-label="和 Serika 聊这件提醒" placeholder="和 Serika 聊这件提醒" value={draft} onChange={event => setDraft(event.target.value)} />
+    <form className="task-thread-compose" onSubmit={event => { event.preventDefault(); onContinue(planScheduleContinueHandoff(row, draft)); }}>
+      <input aria-label={chatting} placeholder={chatting} value={draft} onChange={event => setDraft(event.target.value)} />
       <button type="submit" disabled={busy}>继续</button>
     </form>
     <details className="technical-id"><summary>编号</summary><code>{row.id}</code></details>
@@ -194,13 +263,13 @@ export function TaskReturnChipView({ label, onContinue }: { label: string; onCon
 export function TaskReturnChip({ enabled, refreshSequence, onContinue }: {
   enabled: boolean;
   refreshSequence: number;
-  onContinue: (title: string) => void;
+  onContinue: (source: ReturnedTaskSource) => void;
 }) {
-  const [title, setTitle] = useState<string | null>(null);
+  const [source, setSource] = useState<ReturnedTaskSource | null>(null);
   useEffect(() => {
-    if (!enabled) { setTitle(null); return; }
+    if (!enabled) { setSource(null); return; }
     const reader = createSavedTaskNoticeReader(window.runloom, task => {
-      setTitle(task ? inboxReturnTitle(task) : null);
+      setSource(task ? returnedTaskSource(task) : null);
     }, () => { /* The saved-task banner already reports a read failure. The chip stays hidden. */ });
     const refresh = () => { if (!document.hidden) void reader.refresh(); };
     refresh();
@@ -209,9 +278,9 @@ export function TaskReturnChip({ enabled, refreshSequence, onContinue }: {
     document.addEventListener("visibilitychange", refresh);
     return () => { reader.dispose(); window.clearInterval(timer); window.removeEventListener("focus", refresh); document.removeEventListener("visibilitychange", refresh); };
   }, [enabled, refreshSequence]);
-  if (!title) return null;
-  const label = taskReturnLabel(title);
-  return <TaskReturnChipView label={label} onContinue={() => onContinue(title)} />;
+  if (!source) return null;
+  const label = taskReturnLabel(inboxReturnTitle(source));
+  return <TaskReturnChipView label={label} onContinue={() => onContinue(source)} />;
 }
 
 export function TasksHome({

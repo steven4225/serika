@@ -60,7 +60,7 @@ import { PersonalConversation as ZCodeConversation, PersonalBackToBottom as ZCod
 import { PersonalPromptEditor as ZCodePromptEditor, PersonalPromptOptions as ZCodePromptOptions } from "./personal/composer.js";
 import { TodayPanel } from "./personal/today.js";
 import { TaskReturnChip, TasksHome } from "./personal/tasks-page.js";
-import { nextComposerText, planTaskCreateHandoff, planTaskFollowUpHandoff, type TaskComposerHandoff } from "./personal/tasks-model.js";
+import { nextComposerText, nextTaskInstruction, planTaskCreateHandoff, planTaskFollowUpHandoff, type TaskComposerHandoff } from "./personal/tasks-model.js";
 import { useTodayBriefFeeds } from "./personal/today-feeds.js";
 import { clearBriefContinue, planBriefContinue, readBriefContinue, writeBriefContinue, type BriefContinueTarget } from "./personal/today-continue.js";
 import { PersonaPanel } from "./personal/persona.js";
@@ -981,7 +981,10 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     if (handoff.mode === "task" && handoff.taskId) {
       workTasks.select(handoff.taskId);
       setTaskComposerId(handoff.taskId);
-      workTasks.setInstruction(handoff.text);
+      if (workTasks.task?.id === handoff.taskId) {
+        const next = nextTaskInstruction(workTasks.instruction, handoff);
+        if (next !== null) workTasks.setInstruction(next);
+      }
     } else {
       setTaskComposerId(null);
       setInput(current => nextComposerText(current, handoff));
@@ -1104,7 +1107,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
                     <MessageContent text={live.streaming} />
                   </div> : null}
                   {layout !== "zcode" && activePrimary && !live.streaming ? <div className="working-indicator" role="status"><span /><span /><span /><small>{approval ? "等待你的确认" : "正在处理"}</small></div> : null}
-                  <TaskReturnChip enabled={!!info?.workspaceRoot} refreshSequence={automationRefresh} onContinue={title => applyTaskHandoff(planTaskFollowUpHandoff(title))} />
+                  <TaskReturnChip enabled={!!info?.workspaceRoot} refreshSequence={automationRefresh} onContinue={source => applyTaskHandoff(planTaskFollowUpHandoff(source))} />
                   <SteerStatus records={steers} onRestore={text => {
                     setTaskComposerId(null);
                     setInput(current => current ? `${current}\n${text}` : text);
