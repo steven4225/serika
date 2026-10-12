@@ -79,7 +79,11 @@ it("pin, disable, expiry, retraction and permanent delete are explicit revision-
 
 it("current details show every verified saved quote while history distinguishes applicability from knowledge", () => {
   const html = renderToStaticMarkup(createElement(CurrentMemoryDetails, { current, assertion }));
-  for (const expected of ["事实适用时间", "系统记录时间", "2026-09-01", "2026-10-01", "是的，以后都按这个格式。", "回顾结构"]) assert.ok(html.includes(expected), expected);
+  for (const expected of ["事实适用时间", "系统记录时间", "2026-09-01", "2026-10-01", "是的，以后都按这个格式。", "回顾结构", "corroborated: 对话 + 对话"]) assert.ok(html.includes(expected), expected);
+  const beforeSources = html.slice(0, html.indexOf("来源记录"));
+  assert.equal(beforeSources.includes("m1"), false);
+  assert.equal(beforeSources.includes("m2"), false);
+  assert.match(html.slice(html.indexOf("来源记录")), /m1/);
   const page: MemoryHistoryPage = { id: "memory", revision: 3, historyCoverage: "legacy_partial", assertions: [assertion, { ...assertion, assertionId: "retracted", state: "retracted" }], versions: [{ revision: 3, assertionId: "assertion-old", scope: { kind: "workspace" }, status: "disabled", pinned: false, expiresAt: null, changedAt: "2026-10-01T00:00:00Z" }], nextOffset: null };
   const history = renderToStaticMarkup(createElement(MemoryHistory, { page, ready: false, onRestore: () => undefined }));
   assert.match(history, /历史不完整/);
