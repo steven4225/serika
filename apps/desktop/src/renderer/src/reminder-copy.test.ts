@@ -103,6 +103,33 @@ it("keeps a background-unavailable warning on the primary line instead of collap
   assert.equal(presentReminderConfirmation({ toolName: "task_reschedule", preview: "提醒确认\n时间：明天 9:00\n内容：开会\n允许这次改期？ [y/n]" })?.title, "调整提醒：明天 9:00 开会");
 });
 
+it("save failure after a scheduled line does not keep 已定 as the primary", () => {
+  const view = presentReminderReply("已定：每天 9:00 提醒喝水 scheduled\n但保存失败了");
+  assert.match(view.primary, /保存失败/);
+  assert.doesNotMatch(view.primary, /已定|已记下/);
+  assert.notEqual(view.primary, "已定：每天 9:00 提醒喝水");
+});
+
+it("a long reply containing task_create failed does not keep 已定 as the primary", () => {
+  const text = `已定：每天 9:00 提醒喝水 scheduled\n${"垫".repeat(520)}\ntask_create failed: cannot create scheduled reminder`;
+  assert.ok(text.length > 500);
+  const view = presentReminderReply(text);
+  assert.match(view.primary, /没有设成/);
+  assert.doesNotMatch(view.primary, /已定|已记下/);
+});
+
+it("an english backend unavailable warning does not keep 已定 as the primary", () => {
+  const view = presentReminderReply("已定：每天 9:00 提醒喝水 scheduled\nwarning: backend unavailable");
+  assert.match(view.primary, /backend unavailable/);
+  assert.doesNotMatch(view.primary, /已定|已记下/);
+});
+
+it("后台服务未运行 does not keep 已记下 as the primary", () => {
+  const view = presentReminderReply("已记下：每天 9:00 提醒喝水\n后台服务未运行");
+  assert.match(view.primary, /未运行/);
+  assert.doesNotMatch(view.primary, /已定|已记下/);
+});
+
 it("keeps a failed create or reschedule as a Chinese failure instead of 已记下", () => {
   const created = presentReminderReply("task_create failed: cannot create scheduled reminder");
   const moved = presentReminderReply("task_reschedule failed: cannot create scheduled reminder");

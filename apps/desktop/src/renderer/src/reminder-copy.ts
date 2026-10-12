@@ -32,14 +32,9 @@ export function reminderSpeechLine(text: string | undefined): string | null {
   return line.length > 0 ? line : null;
 }
 
-const backgroundUnavailable = /后台(?:当前)?不可用|尚未就绪|不能保证执行/;
-
-function failurePrimary(text: string): string | null {
-  if (text.trim().length > 500 || !/\b(?:fail(?:ed|ure)?|cannot|unable|error)\b/i.test(text)) return null;
-  if (/\btask_reschedule\b/i.test(text)) return "这次提醒没有改成。";
-  if (/\btask_(?:repeat_)?create\b/i.test(text) || /\bcannot create\b/i.test(text)) return "这次提醒没有设成。";
-  return null;
-}
+/** Full-text signals. A later clause must count even when an earlier line says 已定. */
+const degradedSignal = /失败|没有设成|没有改成|保存失败|不可用|未运行|尚未就绪|不能保证执行|不要重复创建|\b(?:unavailable|failed|failure|error|backend|cannot|unable)\b/i;
+const englishFailure = /\b(?:fail(?:ed|ure)?|cannot|unable|error)\b/i;
 
 /** Drop English status tokens without eating a warning that follows them. */
 function withoutEnglishStatus(text: string): string {
@@ -52,13 +47,17 @@ function withoutEnglishStatus(text: string): string {
     .trim();
 }
 
-export function presentReminderReply(text: string): { primary: string; aside: string | null } {
-  const failure = failurePrimary(text);
-  if (failure !== null) return { primary: failure, aside: text };
-  if (backgroundUnavailable.test(text)) {
-    const primary = withoutEnglishStatus(text).replace(/已(?:定|记下)：/g, "").replace(/[ \t]{2,}/g, " ").trim();
-    return { primary, aside: primary === text.trim() ? null : text };
+function presentDegradedReply(text: string): { primary: string; aside: string | null } {
+  if (englishFailure.test(text) && /\btask_reschedule\b/i.test(text)) return { primary: "这次提醒没有改成。", aside: text };
+  if (englishFailure.test(text) && (/\btask_(?:repeat_)?create\b/i.test(text) || /\bcannot create\b/i.test(text))) {
+    return { primary: "这次提醒没有设成。", aside: text };
   }
+  const primary = withoutEnglishStatus(text).replace(/已(?:定|记下)：/g, "").replace(/[ \t]{2,}/g, " ").trim();
+  return { primary: primary.length > 0 ? primary : "这次提醒没有设成。", aside: primary === text.trim() ? null : text };
+}
+
+export function presentReminderReply(text: string): { primary: string; aside: string | null } {
+  if (degradedSignal.test(text)) return presentDegradedReply(text);
   if (!/\bscheduled\b/i.test(text)) return { primary: text, aside: null };
   const speech = reminderSpeechLine(text);
   if (speech !== null) return { primary: speech, aside: text.trim() === speech ? null : text };
