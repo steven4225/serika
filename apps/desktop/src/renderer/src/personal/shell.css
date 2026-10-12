@@ -196,4 +196,5 @@
 .personal-theme-dark .personal-layout :is(.today-content p, .today-content small, .personal-work > summary, .personal-completion, .personal-loading, .personal-tool-status) { color: var(--muted); }
 .personal-theme-dark .personal-today { --today-ink: #e7e5ec; --today-muted: #bbb8d1; }
 .personal-theme-dark .personal-layout :is(.today-greeting > p:last-child, .today-current-task small, .today-task-empty, .today-task-message, .today-memory p, .today-routines small, .today-text-link, .personal-trace-link, .personal-supplement, .personal-reply-actions button, .zcode-prompt-menu .ghost, .zcode-command-list button) { color: var(--muted); }
-.personal-theme-dark .personal-layout :is(.personal-message .message-content pre, .personal-message .message-content code, .personal-message .code-block-head, .personal-tool-output, .today-task-counts > div, .conversation-list-open) { background: #ffffff0d; color: var(--text); }
+.personal-theme-dark .personal-layout :is(.personal-message .message-content pre, .personal-message .message-content code, .personal-message .code-block-head, .personal-tool-output, .today-task-counts > div, .today-quote, .today-group li, .today-direction-chip, .today-secondary-button, .conversation-list-open) { background: #ffffff0d; color: var(--text); }
+.personal-theme-dark .today-risk { background: #c47b3a24; color: #e3c2a4; }

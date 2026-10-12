@@ -7,12 +7,12 @@ import type { WorkTask } from "../../../shared/work-tasks.js";
 import { todayClock, todayMemorySummary, todayTaskSummary } from "./today-data.js";
 import { TodayPanel, type TodayPanelProps } from "./today.js";
 
-const info = { workTasks: true, memory: { enabled: true, autoConsolidate: true } } as AppInfo;
+const info = { threadId: "current", workTasks: true, memory: { enabled: true, autoConsolidate: true } } as AppInfo;
 const task = (status: WorkTask["status"]): WorkTask => ({ id: status, revision: 1, threadId: "thread", goal: `任务 ${status}`, constraints: [], acceptance: [], status, runIds: [], delivery: null, reconciliations: [], createdAt: "2026-10-08T00:00:00.000Z", updatedAt: "2026-10-08T00:00:00.000Z" });
 const noop = () => undefined;
 function render(overrides: Partial<TodayPanelProps> = {}) {
   return renderToStaticMarkup(createElement(TodayPanel, { info, tasks: [], tasksLoading: false, tasksError: null, pendingMemory: 0, pendingMemoryError: null,
-    onTasks: noop, onMemory: noop, onChat: noop, onPomodoro: noop, onAutomation: noop, ...overrides }));
+    now: new Date("2026-10-08T06:00:00Z"), onContinue: noop, onPomodoro: noop, onAutomation: noop, ...overrides }));
 }
 
 describe("personal Today view", () => {
@@ -50,9 +50,9 @@ describe("personal Today view", () => {
     assert.match(render(), /还没有工作任务/);
     assert.match(render({ tasks: [task("completed")] }), /当前没有待推进的任务/);
   });
-  it("keeps one green chat action and real memory states, without fabricated weather or research", () => {
+  it("keeps a chat action and real memory states, without fabricated weather or research", () => {
     const html = render({ pendingMemory: 2 });
-    assert.equal((html.match(/class="today-chat-button"/g) ?? []).length, 1);
+    assert.match(html, /class="today-chat-button"/);
     assert.match(html, /当前会话有 2 条记忆等你确认/);
     assert.match(html, /查看我的提醒|打开番茄钟/);
     assert.doesNotMatch(html, /天气|研究结果|ryan|自动开始/);

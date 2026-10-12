@@ -1,8 +1,15 @@
 import React, { useEffect, useState } from "react";
-import { ArrowUpRight, Bell, ChevronRight, Timer } from "lucide-react";
 import type { AppInfo } from "../../../shared/ui-contract.js";
 import type { WorkTask } from "../../../shared/work-tasks.js";
-import { todayClock, todayMemorySummary, todayTaskSummary } from "./today-data.js";
+import {
+  buildTodayBrief,
+  visibleBriefCards,
+  type BriefAction,
+  type BriefBody,
+  type BriefCard,
+  type TodayBriefFeeds,
+  type TodayBriefModel,
+} from "./today-brief.js";
 
 export interface TodayPanelProps {
   info: AppInfo | null;
@@ -11,61 +18,117 @@ export interface TodayPanelProps {
   tasksError: string | null;
   pendingMemory: number;
   pendingMemoryError: string | null;
-  onTasks: () => void;
-  onMemory: () => void;
-  onChat: () => void;
+  feeds?: TodayBriefFeeds;
+  now?: Date;
+  continueDisabled?: boolean;
+  onContinue: (target: BriefAction["target"]) => void;
   onPomodoro: () => void;
   onAutomation: () => void;
 }
 
 export function TodayPanel(props: TodayPanelProps) {
-  const [now, setNow] = useState(() => new Date());
+  const [liveNow, setLiveNow] = useState(() => new Date());
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), 60_000);
+    if (props.now) return;
+    const timer = window.setInterval(() => setLiveNow(new Date()), 60_000);
     return () => window.clearInterval(timer);
-  }, []);
-  const clock = todayClock(now);
-  const tasks = todayTaskSummary(props.info, props.tasks, props.tasksLoading, props.tasksError);
+  }, [props.now]);
+  const brief = buildTodayBrief({
+    now: props.now ?? liveNow,
+    info: props.info,
+    tasks: props.tasks,
+    tasksLoading: props.tasksLoading,
+    tasksError: props.tasksError,
+    pendingMemory: props.pendingMemory,
+    pendingMemoryError: props.pendingMemoryError,
+    feeds: props.feeds ?? { reminders: [], remindersState: "ready", inbox: [], inboxState: "ready", worker: { ok: true, registered: false, running: false, rssEnabled: false }, workerState: "ready" },
+  });
   return <div className="personal-today">
-    <header className="today-welcome">
-      <time className="today-clock" dateTime={now.toISOString()}>{clock.time} · 上海时间</time>
-      <h1>欢迎回来</h1>
-    </header>
-
-    <section className="today-card today-greeting" aria-labelledby="today-greeting-title">
-      <p className="today-date">{clock.date}</p>
-      <h2 id="today-greeting-title">{clock.greeting}</h2>
-      <p>把想做的事交给 Serika。<br />任务、记忆和提醒，都在这里。</p>
-    </section>
-
-    <section className="today-card today-tasks" aria-labelledby="today-tasks-title">
-      <div className="today-card-heading">
-        <h2 id="today-tasks-title">当前任务</h2>
-        {props.info?.workTasks ? <button type="button" className="today-icon-link" onClick={props.onTasks} aria-label="查看当前会话的工作任务"><ArrowUpRight size={18} aria-hidden="true" /></button> : null}
-      </div>
-      {tasks.state === "ready" ? <>
-        <div className="today-task-counts" aria-label="当前会话已加载任务的状态">
-          <div><span>进行中</span><strong>{tasks.ongoing}</strong><small>待开始或继续</small></div>
-          <div><span>待决定</span><strong>{tasks.awaiting}</strong><small>核对或验收</small></div>
-          <div><span>已验收</span><strong>{tasks.completed}</strong><small>验收已通过</small></div>
+    {brief.mode === "connecting" || brief.mode === "reading" ? <p className="today-task-message" role="status">{brief.message}</p> : null}
+    {brief.mode === "empty" && brief.next ? <section className="today-card today-empty" aria-label="下一次简报">
+      <p className="today-section-stamp">{brief.next.when}</p>
+      <h2>{brief.next.name}</h2>
+      <p>到了这个时段，这里会汇总当时的任务、提醒和连接状态。现在还没有可汇总的内容。</p>
+      {brief.emptyLead ? <p>{brief.emptyLead}</p> : null}
+    </section> : null}
+    {brief.status ? <StatusCard card={brief.status} disabled={props.continueDisabled === true} onContinue={props.onContinue} /> : null}
+    {brief.sections.map(section => {
+      const open = expanded[section.key] === true;
+      const shown = visibleBriefCards(section.cards, open);
+      return <section className="today-section" key={section.key} aria-labelledby={`brief-${section.key}`}>
+        <p className="today-section-stamp">{section.when}</p>
+        <h2 id={`brief-${section.key}`}>{section.name}</h2>
+        <div className="today-brief-list">
+          {shown.map(card => <BriefCardView key={card.key} card={card} disabled={props.continueDisabled === true} onContinue={props.onContinue} />)}
         </div>
-        <p className="today-scope-note">仅当前会话已加载的任务，不含其他会话。</p>
-        {tasks.current ? <button type="button" className="today-current-task" onClick={props.onTasks}>
-          <span><small>{tasks.currentStatus}</small><strong>{tasks.current.goal}</strong></span>
-          <ChevronRight size={18} aria-hidden="true" />
-        </button> : <p className="today-task-empty">{props.tasks.length ? "当前没有待推进的任务。" : "还没有工作任务。普通对话照常使用，需要执行并验收时再创建任务。"}</p>}
-      </> : <p className={`today-task-message${tasks.state === "failed" ? " today-failure" : ""}`} role={tasks.state === "failed" ? "alert" : undefined}>{tasks.message}</p>}
-      <button type="button" className="today-chat-button" onClick={props.onChat}>聊聊下一步</button>
-    </section>
-
-    <section className="today-memory" aria-labelledby="today-memory-title">
-      <div className="today-card-heading"><h2 id="today-memory-title">记忆</h2><button type="button" className="today-text-link" onClick={props.onMemory}>查看<ChevronRight size={15} aria-hidden="true" /></button></div>
-      <p className={props.pendingMemoryError && props.info?.memory.enabled ? "today-failure" : undefined}>{todayMemorySummary(props.info, props.pendingMemory, props.pendingMemoryError)}</p>
-    </section>
-
-    <div className="today-routines">
-      <button type="button" onClick={props.onPomodoro}><Timer size={19} aria-hidden="true" /><span><strong>留一段专注时间</strong><small>打开番茄钟</small></span><ChevronRight size={15} aria-hidden="true" /></button>
-      <button type="button" onClick={props.onAutomation}><Bell size={19} aria-hidden="true" /><span><strong>别让小事被忘记</strong><small>查看我的提醒</small></span><ChevronRight size={15} aria-hidden="true" /></button>
+        {section.cards.length > shown.length || open && section.cards.length > 3 ? <button type="button" className="today-expand" aria-expanded={open} onClick={() => setExpanded(current => ({ ...current, [section.key]: !open }))}>{open ? "收起" : "展开更多"}</button> : null}
+      </section>;
+    })}
+    {brief.footer ? <p className="today-scope-note today-footer">{brief.footer}</p> : null}
+    <div className="today-quiet-links">
+      <button type="button" onClick={props.onAutomation}>查看我的提醒</button>
+      <button type="button" onClick={props.onPomodoro}>打开番茄钟</button>
     </div>
+  </div>;
+}
+
+function StatusCard({ card, disabled, onContinue }: { card: NonNullable<TodayBriefModel["status"]>; disabled: boolean; onContinue: TodayPanelProps["onContinue"] }) {
+  return <section className="today-card today-status" aria-label={card.title}>
+    <p className="today-eyebrow">{card.eyebrow}</p>
+    <h3>{card.title}</h3>
+    <p>{card.body}</p>
+    {card.risk ? <p className="today-risk" role="note">{card.risk}</p> : null}
+    {card.action ? <Actions actions={[card.action]} disabled={disabled} onContinue={onContinue} /> : null}
+  </section>;
+}
+
+function BriefCardView({ card, disabled, onContinue }: { card: BriefCard; disabled: boolean; onContinue: TodayPanelProps["onContinue"] }) {
+  const direction = card.actions.some(action => action.tone === "direction");
+  return <article className="today-card today-brief-card">
+    <p className="today-eyebrow">{card.eyebrow}</p>
+    <h3>{card.title}</h3>
+    <Body body={card.body} />
+    {card.risk ? <p className="today-risk" role="note">{card.risk}</p> : null}
+    <Actions actions={card.actions} direction={direction} disabled={disabled} onContinue={onContinue} />
+  </article>;
+}
+
+function Body({ body }: { body: BriefBody }) {
+  switch (body.kind) {
+    case "kpis":
+      return <>
+        {body.lead ? <p className="today-lead">{body.lead}</p> : null}
+        <div className="today-task-counts" aria-label="当前会话已加载任务的状态">
+          {body.cells.map(cell => <div key={cell.label}><span>{cell.label}</span><strong>{cell.value}</strong><small>{cell.note}</small></div>)}
+        </div>
+        {body.notes.map(note => <p className="today-scope-note" key={note}>{note}</p>)}
+      </>;
+    case "groups":
+      return <>
+        {body.groups.map(group => <div className="today-group" key={group.title}>
+          <h4>{group.title}</h4>
+          <ul>{group.lines.map(line => <li key={line}>{line}</li>)}</ul>
+        </div>)}
+        {body.more ? <p className="today-scope-note">{body.more}</p> : null}
+      </>;
+    case "quote":
+      return <>
+        {body.note ? <p className="today-lead">{body.note}</p> : null}
+        <blockquote className="today-quote">{body.text}</blockquote>
+      </>;
+    case "text":
+      return <p>{body.text}</p>;
+    default: {
+      const unreachable: never = body;
+      return unreachable;
+    }
+  }
+}
+
+function Actions({ actions, direction = false, disabled, onContinue }: { actions: readonly BriefAction[]; direction?: boolean; disabled: boolean; onContinue: TodayPanelProps["onContinue"] }) {
+  if (actions.length === 0) return null;
+  return <div className={direction ? "today-directions" : "today-actions"} role={direction ? "group" : undefined} aria-label={direction ? "选择方向" : undefined}>
+    {actions.map(action => <button type="button" key={action.label} className={action.tone === "direction" ? "today-direction-chip" : action.tone === "primary" ? "today-chat-button" : "today-secondary-button"} disabled={disabled} onClick={() => onContinue(action.target)}>{action.label}</button>)}
   </div>;
 }
