@@ -194,7 +194,7 @@ it("the tasks shell hands create and returned results to the main composer", asy
   assert.match(createTask, /planTaskCreateHandoff\(\)/);
   assert.doesNotMatch(createTask, /setCreateTaskRequest|setTaskDraft/);
   assert.match(app, /onAutomation=\{\(\) => openDetails\("reminders"\)\}/);
-  assert.match(app, /\["Today", "任务", "记忆", "serika"\]/);
+  assert.match(app, /\["手札", "任务", "记忆", "serika"\]/);
   assert.match(app, /setCreateTaskRequest\(value => value \+ 1\)/);
   const rows = workTaskRows([task("task_hidden_wake", "起床提醒", 11)]);
   assert.equal(rows[0]?.title, "起床提醒");
