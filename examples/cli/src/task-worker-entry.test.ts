@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { createTaskDesktopNotifier, createTaskWorkerAgent, parseTaskWorkerArgs } from "./task-worker-entry.js";
+import { writeDesktopFrontmost } from "./task-notification-presentation.js";
 import { InMemoryAgentStore } from "@aisdk-agent/core";
 import { MockLanguageModelV3 } from "ai/test";
 import { simulateReadableStream } from "ai";
@@ -63,8 +64,9 @@ describe("durable desktop notification adapter", () => {
     const pending = notify(task).then(() => { settled = true; });
     await Promise.resolve();
     assert.equal(settled, false);
-    assert.match(script, /task-notification/);
-    assert.doesNotMatch(script, /sensitive preference|private workspace memory/);
+    assert.match(script, /with title "定时结果已保存"/);
+    assert.match(script, /display notification "详情在收件箱。"/);
+    assert.doesNotMatch(script, /task-notification|sensitive preference|private workspace memory|Runloom|已完成/);
     release();
     await pending;
   });
@@ -80,11 +82,32 @@ describe("durable desktop notification adapter", () => {
       notificationHelperPath: "/trusted/terminal-notifier", submitCommand: async (file, args) => { command = { file, args }; } });
     await notify(task);
     assert.equal(command?.file, "/trusted/terminal-notifier");
+    assert.equal(command!.args[command!.args.indexOf("-title") + 1], "定时结果已保存");
+    assert.equal(command!.args[command!.args.indexOf("-message") + 1], "详情在收件箱。");
     assert.match(command!.args[command!.args.indexOf("-open") + 1]!, /^serika:\/\/task-result\/task-notification\?workspace=[a-f0-9]{64}$/);
+    assert.doesNotMatch(`${command!.args[command!.args.indexOf("-title") + 1]}\n${command!.args[command!.args.indexOf("-message") + 1]}`, /task-notification|private-work|sensitive preference|private workspace memory/);
     assert.doesNotMatch(JSON.stringify(command!.args), /private-work|sensitive preference|private workspace memory|-execute|-sender/);
     const rejected = createTaskDesktopNotifier(() => {}, { platform: "darwin", workspace: "/private/tmp/work",
       notificationHelperPath: "/trusted/helper", submitCommand: async () => { throw new Error("notifications denied"); } });
     await assert.rejects(rejected(task), /notifications denied/);
+  });
+  it("puts the reminder sentence in the title and skips submission while the desktop is frontmost", async () => {
+    const root = await mkdtemp(join(tmpdir(), "serika-notify-frontmost-"));
+    const reminder: TaskRecord = {
+      ...task, id: "task-water", prompt: "不是通知来源", resultText: "该喝水了",
+      arrangement: { kind: "reminder", source: "none", notification: "always", declarationVersion: 1 },
+    };
+    let script = "";
+    const notify = createTaskDesktopNotifier(() => {}, { platform: "darwin", workspace: root, submit: async value => { script = value; } });
+    await writeDesktopFrontmost(root, true);
+    await notify(reminder);
+    assert.equal(script, "");
+    await writeDesktopFrontmost(root, false);
+    await notify(reminder);
+    assert.match(script, /with title "该喝水了"/);
+    assert.match(script, /display notification "提醒已到，详情在收件箱。"/);
+    assert.doesNotMatch(script, /task-water|不是通知来源|private workspace memory/);
+    await rm(root, { recursive: true, force: true });
   });
 });
 

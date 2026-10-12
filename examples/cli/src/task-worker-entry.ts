@@ -2,6 +2,7 @@ import { isAbsolute, join, sep } from "node:path";
 import { access, realpath, stat } from "node:fs/promises";
 import { constants } from "node:fs";
 import { taskResultLink } from "./task-result-link.js";
+import { readDesktopFrontmost, taskNotificationCopy } from "./task-notification-presentation.js";
 import { spawn } from "node:child_process";
 import { simulateReadableStream, type LanguageModel } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
@@ -133,26 +134,6 @@ export function parseTaskWorkerArgs(args: readonly string[]): TaskWorkerArgs {
   };
 }
 
-function taskStatusLabel(status: TaskRecord["status"]): string {
-  switch (status) {
-    case "completed":
-      return "已完成";
-    case "failed":
-      return "失败";
-    case "cancelled":
-      return "已取消";
-    case "interrupted":
-      return "已中断";
-    default:
-      return status;
-  }
-}
-
-function taskNotificationMessage(task: TaskRecord): string {
-  // Lock-screen notifications must not disclose workspace memory or task text.
-  return `任务 ${task.id}：${taskStatusLabel(task.status)}。请在 inbox 查看结果；不代表业务验收通过。`;
-}
-
 function escapeAppleScriptString(value: string): string {
   return value
     .replaceAll("\\", "\\\\")
@@ -174,15 +155,18 @@ export function createTaskDesktopNotifier(
   };
 
   return async (task): Promise<void> => {
-    const message = taskNotificationMessage(task);
     if ((options.platform ?? process.platform) !== "darwin") {
       throw new Error("macOS desktop notifications are unavailable");
     }
+    // The in-app banner is the foreground surface. Resolving here records the
+    // notification as handled so a later retry does not add a second alert.
+    if (await readDesktopFrontmost(options.workspace)) return;
+    const copy = taskNotificationCopy(task);
 
     try {
       if (options.notificationHelperPath !== undefined) {
         if (!options.workspace) throw new Error("Clickable notifications require a workspace");
-        const args = ["-title", "Serika", "-message", message, "-group", taskResultLink(options.workspace, task.id), "-open", taskResultLink(options.workspace, task.id)];
+        const args = ["-title", copy.title, "-message", copy.body, "-group", taskResultLink(options.workspace, task.id), "-open", taskResultLink(options.workspace, task.id)];
         if (options.submitCommand) await options.submitCommand(options.notificationHelperPath, args);
         else await new Promise<void>((resolve, reject) => {
           const child = spawn(options.notificationHelperPath!, args, { stdio: "ignore" });
@@ -192,7 +176,7 @@ export function createTaskDesktopNotifier(
         });
         return;
       }
-      const script = `display notification "${escapeAppleScriptString(message)}" with title "Runloom"`;
+      const script = `display notification "${escapeAppleScriptString(copy.body)}" with title "${escapeAppleScriptString(copy.title)}"`;
       if (options.submit !== undefined) {
         await options.submit(script);
         return;
