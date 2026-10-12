@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import type { TaskRecordV4 } from "@aisdk-agent/example-cli/dist/task-store.js";
-import { taskNotificationCopy } from "@aisdk-agent/example-cli/dist/task-notification-presentation.js";
+import { taskNotificationCopy } from "@aisdk-agent/example-cli/dist/task-notification-copy.js";
 import { createSavedTaskNoticeReader } from "../../shared/saved-task-result.js";
 import { taskResultPresentation } from "./task-inbox.js";
 

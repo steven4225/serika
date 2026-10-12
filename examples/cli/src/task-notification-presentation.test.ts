@@ -4,7 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 import type { TaskRecord } from "./task-store.js";
-import { readDesktopFrontmost, taskNotificationCopy, writeDesktopFrontmost } from "./task-notification-presentation.js";
+import { taskNotificationCopy } from "./task-notification-copy.js";
+import { readDesktopFrontmost, writeDesktopFrontmost } from "./task-notification-presentation.js";
 
 const task = (override: Partial<TaskRecord> = {}): TaskRecord => ({
   id: "task-water", prompt: "sensitive preference", runAt: "2026-10-11T11:59:00.000Z", status: "completed",
