@@ -169,18 +169,20 @@ describe("memory candidate review state", () => {
       type: "resolve-result",
       result: { ok: true, value: { candidateId: "a", status: "accepted", memoryId: "mem", memoryRevision: 1, replayed: false } },
     });
-    const receipt = "已接受候选。写入记忆 mem，本次写入版本为 revision 1。";
     assert.equal(state.receipt, null);
     state = { ...state, resolving: true };
     state = memoryPanelReducer(state, {
       type: "resolve-result",
       result: { ok: true, value: { candidateId: "a", status: "accepted", memoryId: "mem", memoryRevision: 1, replayed: false } },
     });
-    assert.equal(state.receipt, receipt);
+    assert.equal(state.receipt, "已记住这项内容。");
+    assert.equal(state.receiptDetail, "记忆 mem · 版本 1");
+    assert.doesNotMatch(state.receipt ?? "", /mem/);
     state = memoryPanelReducer(state, { type: "invalidate", listRequest: 3, detailRequest: 3 });
     assert.deepEqual(state.candidates, []);
     assert.equal(state.nextOffset, null);
-    assert.equal(state.receipt, receipt);
+    assert.equal(state.receipt, "已记住这项内容。");
+    assert.equal(state.receiptDetail, "记忆 mem · 版本 1");
   });
 
   it("disables accept when the preview must be reread, and still allows reject of a pending candidate", () => {
@@ -330,7 +332,8 @@ describe("memory candidate review state", () => {
       ...initialMemoryPanel(),
       preview: preview("a", "甲"),
       selectedId: "a",
-      receipt: "已接受候选。写入记忆 mem，本次写入版本为 revision 1。",
+      receipt: "已记住：先给结论",
+      receiptDetail: "记忆 mem · 版本 1",
     };
     const opened = memoryPanelReducer(accepted, { type: "select", id: "b", request: 2 });
     assert.equal(opened.receipt, null);

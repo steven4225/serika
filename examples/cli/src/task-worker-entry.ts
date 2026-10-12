@@ -2,6 +2,8 @@ import { isAbsolute, join, sep } from "node:path";
 import { access, realpath, stat } from "node:fs/promises";
 import { constants } from "node:fs";
 import { taskResultLink } from "./task-result-link.js";
+import { FOREGROUND_NOTIFICATION_OMITTED, taskNotificationCopy, type DesktopNotificationDelivery } from "./task-notification-copy.js";
+import { readDesktopFrontmost } from "./task-notification-presentation.js";
 import { spawn } from "node:child_process";
 import { simulateReadableStream, type LanguageModel } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
@@ -133,26 +135,6 @@ export function parseTaskWorkerArgs(args: readonly string[]): TaskWorkerArgs {
   };
 }
 
-function taskStatusLabel(status: TaskRecord["status"]): string {
-  switch (status) {
-    case "completed":
-      return "已完成";
-    case "failed":
-      return "失败";
-    case "cancelled":
-      return "已取消";
-    case "interrupted":
-      return "已中断";
-    default:
-      return status;
-  }
-}
-
-function taskNotificationMessage(task: TaskRecord): string {
-  // Lock-screen notifications must not disclose workspace memory or task text.
-  return `任务 ${task.id}：${taskStatusLabel(task.status)}。请在 inbox 查看结果；不代表业务验收通过。`;
-}
-
 function escapeAppleScriptString(value: string): string {
   return value
     .replaceAll("\\", "\\\\")
@@ -164,7 +146,7 @@ function escapeAppleScriptString(value: string): string {
 export function createTaskDesktopNotifier(
   write: (text: string) => void = (text) => process.stderr.write(text),
   options: { platform?: string; submit?: (script: string) => Promise<void>; notificationHelperPath?: string; workspace?: string; submitCommand?: (file: string, args: string[]) => Promise<void> } = {},
-): (task: TaskRecord) => Promise<void> {
+): (task: TaskRecord) => Promise<DesktopNotificationDelivery> {
   const reportFailure = (error: unknown): void => {
     try {
       write(`task-worker notification failed: ${errorMessage(error)}\n`);
@@ -173,16 +155,18 @@ export function createTaskDesktopNotifier(
     }
   };
 
-  return async (task): Promise<void> => {
-    const message = taskNotificationMessage(task);
+  return async (task): Promise<DesktopNotificationDelivery> => {
     if ((options.platform ?? process.platform) !== "darwin") {
       throw new Error("macOS desktop notifications are unavailable");
     }
+    // The in-app banner is the foreground surface. This is not OS submission.
+    if (await readDesktopFrontmost(options.workspace)) return FOREGROUND_NOTIFICATION_OMITTED;
+    const copy = taskNotificationCopy(task);
 
     try {
       if (options.notificationHelperPath !== undefined) {
         if (!options.workspace) throw new Error("Clickable notifications require a workspace");
-        const args = ["-title", "Serika", "-message", message, "-group", taskResultLink(options.workspace, task.id), "-open", taskResultLink(options.workspace, task.id)];
+        const args = ["-title", copy.title, "-message", copy.body, "-group", taskResultLink(options.workspace, task.id), "-open", taskResultLink(options.workspace, task.id)];
         if (options.submitCommand) await options.submitCommand(options.notificationHelperPath, args);
         else await new Promise<void>((resolve, reject) => {
           const child = spawn(options.notificationHelperPath!, args, { stdio: "ignore" });
@@ -190,12 +174,12 @@ export function createTaskDesktopNotifier(
           child.once("error", error => { clearTimeout(timer); reject(error); });
           child.once("close", (code, signal) => { clearTimeout(timer); code === 0 ? resolve() : reject(new Error(`Notification helper exited with ${signal ?? String(code)}`)); });
         });
-        return;
+        return "submitted";
       }
-      const script = `display notification "${escapeAppleScriptString(message)}" with title "Runloom"`;
+      const script = `display notification "${escapeAppleScriptString(copy.body)}" with title "${escapeAppleScriptString(copy.title)}"`;
       if (options.submit !== undefined) {
         await options.submit(script);
-        return;
+        return "submitted";
       }
       await new Promise<void>((resolve, reject) => {
         const child = spawn(
@@ -217,6 +201,7 @@ export function createTaskDesktopNotifier(
           } else resolve();
         });
       });
+      return "submitted";
     } catch (error) {
       reportFailure(error);
       throw error;

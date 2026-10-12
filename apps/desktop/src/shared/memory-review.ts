@@ -33,7 +33,10 @@ export interface MemoryPanelState {
   resolving: boolean;
   /** The last review IPC did not return. Buttons stay off until a later read succeeds. */
   outcomeUnknown: boolean;
+  /** What was remembered. Never an internal id. */
   receipt: string | null;
+  /** Write identity for「详情」. Not the primary line. */
+  receiptDetail: string | null;
   reviewError: string | null;
 }
 
@@ -72,6 +75,7 @@ export function initialMemoryPanel(): MemoryPanelState {
     resolving: false,
     outcomeUnknown: false,
     receipt: null,
+    receiptDetail: null,
     reviewError: null,
   };
 }
@@ -108,15 +112,50 @@ export function resolvePayload(preview: CandidatePreview, decision: "accept" | "
   };
 }
 
-export function receiptText(value: CandidateResolution): string {
-  if (value.replayed) return "该决定此前已完成，返回原回执；没有重复写入。";
-  if (value.status === "rejected") return "已拒绝候选，正式记忆未修改。";
-  return `已接受候选。写入记忆 ${value.memoryId ?? ""}，本次写入版本为 revision ${String(value.memoryRevision ?? "")}。`;
+function clipReceiptText(text: string): string {
+  const flat = text.replace(/\s+/g, " ").trim();
+  const chars = Array.from(flat);
+  return chars.length > 80 ? `${chars.slice(0, 80).join("")}…` : flat;
+}
+
+function receiptLead(operation: MemoryCandidate["change"]["operation"] | undefined): string {
+  switch (operation) {
+    case "add":
+      return "已记住";
+    case "update":
+    case "correct":
+    case "change":
+      return "已更新";
+    case "retract":
+      return "已撤回";
+    case "disable":
+      return "已停用";
+    case undefined:
+      return "已记住";
+    default: {
+      const exhaustive: never = operation;
+      return exhaustive;
+    }
+  }
+}
+
+/** Primary line names what changed. Identifiers belong in `receiptDetail`. */
+export function receiptText(value: CandidateResolution, preview: CandidatePreview | null): string {
+  if (value.replayed) return "这项之前已经处理过，没有再次写入。";
+  if (value.status === "rejected") return "没有保存这项变更。";
+  const lead = receiptLead(preview?.candidate.change.operation);
+  const remembered = clipReceiptText(preview?.proposed?.text || preview?.candidate.change.text || "");
+  return remembered ? `${lead}：${remembered}` : `${lead}这项内容。`;
+}
+
+export function receiptDetail(value: CandidateResolution): string | null {
+  if (value.replayed || value.status !== "accepted") return null;
+  return `记忆 ${value.memoryId ?? "未知"} · 版本 ${value.memoryRevision ?? "未知"}`;
 }
 
 export function reviewErrorText(error: { code: string; message: string }, controllerIdle: boolean): string {
-  if (error.code === "MEMORY_DISABLED") return "记忆模块未启用";
-  if (error.code === "MEMORY_CANDIDATE_NOT_FOUND") return "当前 Thread 不可见或记录已不存在";
+  if (error.code === "MEMORY_DISABLED") return "记忆还没开启。";
+  if (error.code === "MEMORY_CANDIDATE_NOT_FOUND") return "这条内容已经不在当前对话里。";
   if (error.code === "MEMORY_CANDIDATE_STALE") return `${error.code}: ${error.message}`;
   if (error.code === "MEMORY_CANDIDATE_CONFLICT") {
     if (!controllerIdle || /idle|closed/i.test(error.message)) return "当前忙，空闲后再试";
@@ -127,7 +166,7 @@ export function reviewErrorText(error: { code: string; message: string }, contro
 }
 
 export function listErrorText(error: { code: string; message: string }): string {
-  if (error.code === "MEMORY_DISABLED") return "记忆模块未启用";
+  if (error.code === "MEMORY_DISABLED") return "记忆还没开启。";
   return `${error.code}: ${error.message}`;
 }
 
@@ -337,6 +376,7 @@ export function memoryPanelReducer(state: MemoryPanelState, action: MemoryPanelA
         reviewError: null,
         outcomeUnknown: false,
         receipt: null,
+        receiptDetail: null,
       };
     case "detail-result": {
       if (action.request !== state.detailRequest || action.id !== state.selectedId) return state;
@@ -392,7 +432,7 @@ export function memoryPanelReducer(state: MemoryPanelState, action: MemoryPanelA
       if (state.resolving) return state;
       if (action.decision === "accept" && !canAccept(state)) return state;
       if (action.decision === "reject" && !canReject(state)) return state;
-      return { ...state, resolving: true, reviewError: null, receipt: null };
+      return { ...state, resolving: true, reviewError: null, receipt: null, receiptDetail: null };
     }
     case "resolve-result": {
       if (!state.resolving) return state;
@@ -407,7 +447,8 @@ export function memoryPanelReducer(state: MemoryPanelState, action: MemoryPanelA
         ...state,
         resolving: false,
         reviewError: null,
-        receipt: receiptText(action.result.value),
+        receipt: receiptText(action.result.value, state.preview),
+        receiptDetail: receiptDetail(action.result.value),
       };
     }
     case "resolve-unconfirmed":

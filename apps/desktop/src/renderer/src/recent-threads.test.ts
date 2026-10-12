@@ -40,5 +40,6 @@ it("hides only positively verified unused histories, preserving current, drafts,
   for (const id of ["current", "draft", "error", "task", "receipt", "not-inspected"]) assert.ok(result.some(row => row.threadId === id));
   assert.equal(visibleThreads(rows, "current", drafts, true).length, rows.length);
   assert.equal(threadTitle(empty("draft"), drafts.get("draft")), "尚未发送的项目计划");
+  assert.equal(threadTitle({ ...thread("6f1c2a90-7b34-41d2-9abc-0d11e22f3344"), threadId: "6f1c2a90-7b34-41d2-9abc-0d11e22f3344" }), "当前对话");
   assert.equal(rows.length, 7, "filtering neither deletes nor mutates registered entries");
 });

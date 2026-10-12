@@ -6,13 +6,61 @@ import type { ConversationRow, ToolRow } from "./conversation.js";
 import { SerikaPersona } from "./icons.js";
 import { PersonalConversation, PersonalTool } from "./personal/conversation.js";
 import { PersonalPromptEditor, PersonalPromptOptions } from "./personal/composer.js";
-import { rowsFromToolActivity } from "./conversation.js";
+import { rowsFromHistory, rowsFromToolActivity } from "./conversation.js";
 
 const user: ConversationRow = { kind: "text", role: "user", key: "user", text: "帮我改一下计划", committed: true };
 const interim: ConversationRow = { kind: "text", role: "assistant", key: "interim", text: "先核对当前文件。", committed: true };
 const tool: ToolRow = { kind: "tool", key: "tool", toolCallId: "call-1", runId: "run-1", toolName: "edit_file", status: "ok", receipt: { kind: "file", path: "notes/plan.md", bytes: 18 } };
 const reply: ConversationRow = { kind: "text", role: "assistant", key: "reply", text: "已修改。\n\n这是完整正文。", committed: true };
 const render = (rows: readonly ConversationRow[], running = false, streaming = "", waitingForApproval = false) => renderToStaticMarkup(createElement(PersonalConversation, { rows, running, streaming, waitingForApproval }));
+
+it("does not rewrite a successful tool-backed reminder subject as a failure", () => {
+  const readback = "已定：明天9:00提醒我查看 task_create 的 error 日志";
+  const rows = rowsFromHistory([
+    { id: "u", role: "user", parts: [{ type: "text", text: "设置提醒" }] },
+    { id: "a", role: "assistant", parts: [
+      { type: "dynamic-tool", toolCallId: "reminder", toolName: "task_create", state: "output-available", input: {}, output: { ok: true, backgroundReady: true, readback } },
+      { type: "text", text: readback },
+    ] },
+  ]);
+  const markup = render(rows);
+  assert.match(markup, /已定：明天9:00提醒我查看 task_create 的 error 日志/);
+  assert.doesNotMatch(markup, /这次提醒没有设成/);
+});
+
+it("keeps all four false-success cases out of the main reply using actual tool outcomes", () => {
+  const readback = "已记下：每天 9:00 提醒喝水。但后台当前不可用或尚未就绪，到点不能保证执行；不要重复创建。";
+  for (const sample of [
+    { output: { ok: false, error: { code: "SAVE_FAILED", message: "保存失败了" } }, text: "已定：喝水 scheduled\n但保存失败了", expected: /没有设成/ },
+    { output: { ok: false, error: { code: "TASK_FAILED", message: "failed" } }, text: `已定：喝水 scheduled\n${"垫".repeat(520)}\ntask_create failed`, expected: /没有设成/ },
+    { output: { ok: true, backgroundReady: false, readback }, text: "已定：喝水 scheduled\nbackend unavailable", expected: /后台当前不可用/ },
+    { output: { ok: true, backgroundReady: false, readback }, text: "已记下：喝水\n后台服务未运行", expected: /到点不能保证执行/ },
+  ]) {
+    const rows = rowsFromHistory([
+      { id: "u", role: "user", parts: [{ type: "text", text: "提醒喝水" }] },
+      { id: "a", role: "assistant", parts: [
+        { type: "dynamic-tool", toolCallId: "r", toolName: "task_create", state: "output-available", input: {}, output: sample.output },
+        { type: "text", text: sample.text },
+      ] },
+    ]);
+    for (const markup of [render(rows), render(rows.slice(0, -1), true, sample.text)]) {
+      const primary = markup.split('class="personal-message role-assistant')[1]?.split("原始回复")[0] ?? "";
+      assert.match(primary, sample.expected);
+      assert.doesNotMatch(primary, /已定|已记下/);
+    }
+  }
+});
+
+it("does not carry reminder status to a new user turn or hide multi-operation reports", () => {
+  const task: ToolRow = { kind: "tool", key: "task", toolCallId: "task-1", toolName: "task_create", status: "failed" };
+  const explanation = "解释 task_create 的 error 字段：这只是代码说明。";
+  assert.doesNotMatch(render([user, task, { ...reply, text: explanation }]), /这次提醒没有设成/);
+  const next = { ...reply, text: "已定：是一个自然语言示例，不是在创建提醒。" };
+  assert.match(render([user, task, { ...user, key: "next" }, next]), /已定：是一个自然语言示例/);
+  const succeeded: ToolRow = { ...task, key: "second", toolCallId: "task-2", status: "ok", reminder: { readback: "已定：第二条提醒", backgroundReady: true } };
+  const report = "已定：第二条提醒。第一条保存失败了，请查看详情。";
+  assert.match(render([user, task, succeeded, { ...reply, text: report }]), /第一条保存失败了/);
+});
 
 it("personal conversation keeps a right user bubble and a safe full assistant reply, without invented timestamps", () => {
   const markup = render([user, reply]);
@@ -79,6 +127,30 @@ it("presents settled missing-file history with a real time and current workspace
   assert.match(unknown, /needs-attention" open/);
   assert.match(unknown, /效果未知/);
   assert.doesNotMatch(unknown, /未读取到内容/);
+});
+
+it("reminder replies and tool cards lead with the Chinese sentence instead of task_create or scheduled", () => {
+  const task: ToolRow = { kind: "tool", key: "task", toolCallId: "task-1", toolName: "task_create", status: "ok", detail: "已定：每天 9:00 提醒喝水",
+    reminder: { readback: "已定：每天 9:00 提醒喝水", backgroundReady: true } };
+  const answer: ConversationRow = { kind: "text", role: "assistant", key: "answer", text: "已定：每天 9:00 提醒喝水\nstatus: scheduled", committed: true };
+  const markup = render([user, task, answer]);
+  assert.match(markup, /personal-tool-name">已定：每天 9:00 提醒喝水/);
+  assert.match(markup, /<p>已定：每天 9:00 提醒喝水<\/p>/);
+  assert.match(markup, /<summary>技术详情<\/summary><code>task_create<\/code>/);
+  assert.doesNotMatch(markup.split("原始回复")[0] ?? "", /scheduled/);
+  assert.doesNotMatch(markup, /personal-tool-name">(?:task_create|创建提醒)/);
+});
+
+it("does not turn a background warning or a failed create into 已定 or 已记下", () => {
+  const warning = "已定：每天 9:00 提醒喝水。但后台当前不可用或尚未就绪，到点不能保证执行；请在后台提醒中核对并启用服务，不要重复创建。\nstatus: scheduled";
+  const failed = "task_create failed: cannot create scheduled reminder";
+  const task: ToolRow = { kind: "tool", key: "task", toolCallId: "task-1", toolName: "task_create", status: "ok", detail: warning.replace("\nstatus: scheduled", ""),
+    reminder: { readback: warning.replace("\nstatus: scheduled", ""), backgroundReady: false } };
+  const warningPrimary = (render([user, task, { kind: "text", role: "assistant", key: "answer", text: warning, committed: true }]).split("原始回复")[0] ?? "");
+  const failedPrimary = (render([user, { ...task, status: "failed", reminder: undefined, detail: failed }, { kind: "text", role: "assistant", key: "answer", text: failed, committed: true }]).split("原始回复")[0] ?? "");
+  assert.match(warningPrimary, /后台当前不可用/);
+  assert.match(failedPrimary, /没有设成/);
+  assert.doesNotMatch(`${warningPrimary}\n${failedPrimary}`, /已定|已记下/);
 });
 
 it("personal conversation retains streaming, steering and explicit incomplete task outcomes", () => {

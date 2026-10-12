@@ -58,11 +58,15 @@ import { ZCodeMessage, ZCodeMessageContent } from "./zcode/message.js";
 import { PersonalConversation as ZCodeConversation, PersonalBackToBottom as ZCodeBackToBottom } from "./personal/conversation.js";
 import { PersonalPromptEditor as ZCodePromptEditor, PersonalPromptOptions as ZCodePromptOptions } from "./personal/composer.js";
 import { TodayPanel } from "./personal/today.js";
-import { clampChatFraction, loadChatFraction, dashboardTabForDetail, PERSONAL_SPLIT_KEY, PERSONAL_COMPACT_BREAKPOINT } from "./personal/layout.js";
+import { clampChatFraction, loadChatFraction, loadSidebarOpen, dashboardTabForDetail, PERSONAL_SPLIT_KEY, PERSONAL_SIDEBAR_KEY, PERSONAL_COMPACT_BREAKPOINT } from "./personal/layout.js";
+import { humanFacingTitle } from "../../shared/human-title.js";
+import { RemindersPanel } from "./reminders.js";
+import { presentHomeTaskItem, reminderClock } from "./reminder-copy.js";
 import { DesktopWindowFrame } from "./zcode/upstream/desktop-window-frame.js";
 import { Button } from "./zcode/upstream/button.js";
 import { ArrowUp, Square, Search, Settings2, Sun, Moon } from "lucide-react";
 import { draftScope, type UncertainSteer } from "../../shared/conversation-drafts.js";
+import { ErrorBanner, FailureInline } from "./failure-notice.js";
 import "./zcode/theme.css";
 import "./personal/shell.css";
 import "./personal/today.css";
@@ -112,7 +116,7 @@ function Row({ row, delivered = false, layout = "classic" }: { row: Conversation
             {row.receipt ? <span className="tool-receipt"><code title={row.receipt.path}>{row.receipt.path}</code><span>{row.receipt.bytes} 字节</span></span> : null}
             <span className="tool-status">{toolStatusLabel(row.status)}</span><Icon name="chevron" size={14} /></summary>
           <div className="tool-body"><code>{row.toolName}</code>
-          {row.detail ? <div className="tool-detail">{row.detail}</div> : null}
+          {row.detail ? <div className="tool-detail"><FailureInline text={row.detail} /></div> : null}
           {row.stdout ? <pre className="shell-stream stdout">{row.stdout}</pre> : null}
           {row.stderr ? <pre className="shell-stream stderr">{row.stderr}</pre> : null}
           {row.progressTruncated ? <span className="truncated">输出已截断</span> : null}
@@ -126,7 +130,7 @@ function Row({ row, delivered = false, layout = "classic" }: { row: Conversation
         <div className={`row row-result status-${row.status}`}>
           {completionLabel(row)}
           {row.status === "completed" && !row.completion ? <span className="result-boundary" title="本轮结束仅表示 Run 正常结束，工具效果以回执为准；不是任务验收。">执行结果见回执</span> : null}
-          {row.detail ? <span className="tool-detail"> · {row.detail}</span> : null}
+          {row.detail ? <span className="tool-detail"> · <FailureInline text={row.detail} /></span> : null}
         </div>
       );
     default: {
@@ -227,21 +231,26 @@ function HomeBody({ view }: { view: HomeView }) {
   if (view.sections.length === 0 && view.unparsed.length === 0) {
     return <div className="muted">正在读取…</div>;
   }
+  const clock = reminderClock();
   return (
     <div className="home-body">
       {view.sections.map((section) => (
         <div className="home-section" key={section.title}>
           <div className="home-title">
-            <span>{section.title}</span>
+            <span>{section.title === "本地任务" ? "提醒与定时结果" : section.title}</span>
             {section.summary ? <span className="home-summary">{section.summary}</span> : null}
           </div>
           {section.items.length > 0 ? (
             <ul className="home-items">
-              {section.items.map((item, index) => (
-                <li key={index} className={item.kind}>
-                  {item.text}
-                </li>
-              ))}
+              {section.items.map((item, index) => {
+                const shown = section.title === "本地任务" ? presentHomeTaskItem(item.text, clock) : { primary: item.text, detail: null };
+                return (
+                  <li key={index} className={item.kind}>
+                    {shown.primary}
+                    {shown.detail ? <small>{shown.detail}</small> : null}
+                  </li>
+                );
+              })}
             </ul>
           ) : null}
         </div>
@@ -276,8 +285,10 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const [mobileDashboard, setMobileDashboard] = useState(!!initialSettings);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [chatFraction, setChatFraction] = useState(() => loadChatFraction(localStorage.getItem(PERSONAL_SPLIT_KEY)));
+  const [sidebarOpen, setSidebarOpen] = useState(() => loadSidebarOpen(localStorage.getItem(PERSONAL_SIDEBAR_KEY)));
   const splitRoot = useRef<HTMLDivElement | null>(null);
   const compact = windowWidth < PERSONAL_COMPACT_BREAKPOINT;
+  const dashboardOpen = compact ? mobileDashboard : sidebarOpen;
   const actualFraction = clampChatFraction(windowWidth, chatFraction);
   useEffect(() => {
     const resize = () => setWindowWidth(window.innerWidth);
@@ -343,7 +354,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const latestCompletedPrimaryId = useRef<string | null>(null);
   const historyRequest = useRef(0);
   const [detailsOpen, setDetailsOpen] = useState(!!initialSettings);
-  const [detailTab, setDetailTab] = useState<"threads" | "tasks" | "home" | "records" | "memory" | "context" | "pomodoro" | "modules">(initialSettings || "home");
+  const [detailTab, setDetailTab] = useState<"threads" | "tasks" | "reminders" | "home" | "records" | "memory" | "context" | "pomodoro" | "modules">(initialSettings || "home");
   const [sending, setSending] = useState(false);
   const sendInFlight = useRef(false);
   const homeBuffer = useRef("");
@@ -487,7 +498,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
       const route = await window.runloom.takeTaskResultOpen?.();
       if (!route || cancelled) return;
       setTaskResultFocus(previous => ({ ...route, sequence: (previous?.sequence ?? 0) + 1 }));
-      setDetailTab("home"); setDetailsOpen(true); setMobileDashboard(true);
+      setDetailTab("reminders"); setDetailsOpen(true); setMobileDashboard(true);
     };
 
     const onMessage = (message: MainToRenderer): void => {
@@ -683,13 +694,17 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   }, [detailsOpen, mobileDashboard]);
 
   useEffect(() => {
-    if (!info || state.kind !== "idle") return;
+    if (!info) return;
     let active = true;
-    setThreadsLoading(true);
+    const idle = state.kind === "idle";
+    if (idle) setThreadsLoading(true);
     void window.runloom.listThreads().then(threads => {
-      if (active) { setThreads(threads); setThreadsError(null); setConversationTitle(threads.find(thread => thread.threadId === info.threadId)?.title || "当前对话"); }
-    }).catch(() => { if (active) setThreadsError("对话列表读取失败"); })
-      .finally(() => { if (active) setThreadsLoading(false); });
+      if (!active) return;
+      // The header title stays human while a confirmation is open; the list itself refreshes only when idle.
+      setConversationTitle(humanFacingTitle(threads.find(thread => thread.threadId === info.threadId)?.title, "当前对话"));
+      if (idle) { setThreads(threads); setThreadsError(null); }
+    }).catch(() => { if (active && idle) setThreadsError("对话列表读取失败"); })
+      .finally(() => { if (active && idle) setThreadsLoading(false); });
     return () => { active = false; };
   }, [info, state.kind, threadsRefresh]);
 
@@ -879,7 +894,25 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const homeView = parseHome(home);
   const unknownRuns = records.status === "ready" ? unreconciledRuns(records.runs, workTasks.tasks) : [];
   const reviewTask = workTasks.tasks.find(task => task.status === "needs_review");
-  const openDetails = (tab: typeof detailTab) => { setDetailTab(tab); setDetailsOpen(true); setMobileDashboard(true); };
+  const rememberSidebar = (open: boolean) => {
+    setSidebarOpen(open);
+    try { localStorage.setItem(PERSONAL_SIDEBAR_KEY, open ? "open" : "collapsed"); } catch { /* The in-memory choice still applies for this window. */ }
+  };
+  const openDetails = (tab: typeof detailTab) => {
+    setDetailTab(tab); setDetailsOpen(true); setMobileDashboard(true);
+    if (!compact) rememberSidebar(true);
+  };
+  const toggleSidebar = () => {
+    if (compact) { setMobileDashboard(value => !value); return; }
+    rememberSidebar(!sidebarOpen);
+  };
+  const openCreateTask = () => {
+    if (!info?.workTasks || busy || sending || switchingThread) return;
+    setTaskDraft(input.trim());
+    setTaskFocused(true);
+    openDetails("tasks");
+    setCreateTaskRequest(value => value + 1);
+  };
   const openMemory = (id: string | null = null) => { setMemoryFocus(current => ({ id, sequence: current.sequence + 1 })); openDetails("memory"); };
   const openTask = () => { setTaskFocused(true); openDetails("tasks"); };
   const composeTask = () => {
@@ -897,8 +930,8 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     const draft = drafts.get(draftKey({ workspaceRoot: info?.workspaceRoot ?? null, directory: thread.transcriptDirectory, threadId: thread.threadId }));
     return draft?.text ? [[thread.threadId, draft.text] as const] : [];
   }));
-  const pageTitle = !detailsOpen ? conversationTitle : ({ threads: "全部对话", tasks: "工作任务", home: "工作区", records: "执行记录", memory: "记忆", context: "上下文与压缩", pomodoro: "番茄钟", modules: "模块能力" })[detailTab];
-  const pageDescription = ({ threads: "继续之前的对话，或开始一段新对话。", tasks: "把需要执行和验收的事放在这里；普通聊天不用创建任务。", home: "查看保存的进度、定时提醒、订阅和当前配置。", records: "核对每次执行的工具结果，区分完成、失败和未知效果。", memory: "已保存的记忆和待审核的候选，都在这里。", context: "长对话由系统自动管理，通常不需要你操作。", pomodoro: "专注计时，直接操作，不必发消息。", modules: "决定助手可以使用哪些能力。" })[detailTab];
+  const pageTitle = !detailsOpen ? conversationTitle : ({ threads: "全部对话", tasks: "工作任务", reminders: "提醒", home: "工作区", records: "执行记录", memory: "记忆", context: "上下文与压缩", pomodoro: "番茄钟", modules: "模块能力" })[detailTab];
+  const pageDescription = ({ threads: "继续之前的对话，或开始一段新对话。", tasks: "把需要执行和验收的事放在这里；普通聊天不用创建任务。", reminders: "查看已经设好的提醒，以及刚刚触发的结果。", home: "查看保存的进度、订阅和当前配置。提醒列表在「提醒」。", records: "核对每次执行的工具结果，区分完成、失败和未知效果。", memory: "已保存的记忆和待审核的候选，都在这里。", context: "长对话由系统自动管理，通常不需要你操作。", pomodoro: "专注计时，直接操作，不必发消息。", modules: "决定助手可以使用哪些能力。" })[detailTab];
   const newConversation = async () => {
     if (busy || sending || threadSwitchInFlight.current || !info) return;
     threadSwitchInFlight.current = true;
@@ -930,13 +963,16 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   };
 
   return (
-    <div ref={splitRoot} className={`app personal-layout${compact ? " is-compact" : ""}${compact && mobileDashboard ? " show-dashboard" : ""}`} style={{ "--chat-fraction": actualFraction } as CSSProperties}>
+    <div ref={splitRoot} className={`app personal-layout${compact ? " is-compact" : ""}${compact && mobileDashboard ? " show-dashboard" : ""}${!compact && !sidebarOpen ? " sidebar-collapsed" : ""}`} style={{ "--chat-fraction": actualFraction } as CSSProperties}>
       <div className="main-shell">
         <header className="header">
-          <span className="personal-name" title={conversationTitle}><SerikaPersona size={52} /></span>
+          <span className="personal-name"><SerikaPersona size={52} /></span>
+          <span className="personal-conversation-title">{conversationTitle}</span>
           <span className={`run-state ${status.tone}`} role="status"><span className={`state-dot ${status.tone}`} />{stageLabel}</span>
           <span className="spacer" />
           <button className="personal-mobile-today" type="button" onClick={() => setMobileDashboard(true)}>今天<Icon name="chevron" size={14} /></button>
+          {info?.workTasks ? <button className="personal-create-task" type="button" disabled={busy || sending || switchingThread} onClick={openCreateTask}><Icon name="new-chat" size={15} />创建任务</button> : null}
+          <button className="personal-sidebar-toggle" type="button" aria-pressed={dashboardOpen} aria-label={dashboardOpen ? "收起侧栏" : "展开侧栏"} title={dashboardOpen ? "收起侧栏，对话占满窗口" : "展开侧栏"} onClick={toggleSidebar}><Icon name="panel" size={16} /></button>
           <button className="icon-button personal-new-chat" type="button" aria-label="新对话" title="新对话；保留当前草稿" disabled={busy || sending || switchingThread || !info} onClick={() => void newConversation()}><Icon name="new-chat" /></button>
         </header>
         {isMockModel(info?.modelAlias) || info?.entryMode === "test" ? <div className="model-mode-notice" role="status">{info?.entryMode === "test" ? "隔离测试 · 会话和记忆不属于日用工作区。" : ""}{isMockModel(info?.modelAlias) ? "模拟模型，不会调用真实模型。" : ""}</div> : null}
@@ -944,7 +980,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
           const workspaceRoot = info.workspaceRoot;
           if (!workspaceRoot) return;
           setTaskResultFocus(previous => ({ taskId, workspaceRoot, sequence: (previous?.sequence ?? 0) + 1 }));
-          openDetails("home");
+          openDetails("reminders");
         }} /> : null}
         {info && attention === "none" ? <MemoryConsolidationNotice key={`${info.workspaceRoot}:${info.threadId}`} enabled={info.memory.enabled} busy={busy} quiet={true} running={state.kind === "running" && state.phase === "consolidation"} refreshToken={memoryRefresh} onOpen={() => openMemory()} /> : null}
         <div className="attention-region" hidden={attention === "none" && !pendingMemory.error}>
@@ -1000,13 +1036,13 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
             draftSave.current = save;
             void save.then(() => setDraftError(null)).catch(() => setDraftError("草稿仍未保存，内容保留，请检查保存位置。"));
           }}>重试保存</button></div> : null}
-          {error ? <div className="error error-banner" role="alert"><span>{error}</span>{info ? <button className="icon-button" aria-label="关闭错误提示" onClick={() => setError(null)}><Icon name="close" size={16} /></button> : null}</div> : null}
+          {error ? info ? <ErrorBanner message={error} onClose={() => setError(null)} /> : <ErrorBanner message={error} /> : null}
           {workTasks.draftError ? <div className="error error-banner" role="alert"><span>{workTasks.draftError}</span><button className="ghost" type="button" onClick={workTasks.retryDrafts}>重试任务草稿保存</button></div> : null}
           {uncertainSteer ? <div className="attention-summary" role="status"><span>补充要求的接收凭证待核对，草稿不会重发。{uncertainSteer.taskId ? "原补充属于工作任务；核对前不会作为普通对话发送。" : ""}</span><details><summary>查看这次补充</summary><pre>{uncertainSteer.text}</pre></details><button type="button" className="ghost" onClick={() => void recheckSteer()}>核对接收状态</button>{!busy ? <button type="button" className="ghost" onClick={() => void releaseSteer()}>保留草稿，结束本次核对</button> : null}</div> : null}
           {approval ? <ApprovalCard approval={approval} deciding={decidingId === approval.approvalId} onDecision={decision => void decide(decision)} /> : null}
           <ZCodePromptEditor inputRef={inputRef} value={composerText} aria-label={composingTask ? "本轮任务指令" : "消息输入"}
               notice={steering ? "补充将进入当前这轮规划；已执行操作不会撤销，工具仍需重新确认。本条不整理为记忆。" : composingTask ? !composerTask ? "任务已切换，原草稿仍保留。重新选择任务，或切回普通对话。" : !busy && !taskActions(composerTask).run ? "本轮已结束，请从任务卡查看结果，或切回普通对话。" : null : null}
-              topContent={<>{workTasks.task || composingTask ? <div className="composer-target" role="group" aria-label="发送方式"><button className={!composingTask ? "selected" : ""} type="button" aria-pressed={!composingTask} onClick={() => setTaskComposerId(null)}>普通对话</button><button className={composingTask ? "selected" : ""} type="button" aria-pressed={composingTask} disabled={!workTasks.task || (!taskActions(workTasks.task).run && !composingTask)} onClick={composeTask}>补充当前任务</button>{composingTask ? <span>{composerTask?.goal ?? `任务 ${taskComposerId} 暂不可用`}</span> : null}</div> : null}{excludeFromMemory && !composingTask ? <div className="zcode-draft-setting"><Icon name="memory" size={13} /><span>本条不整理为记忆</span><button type="button" className="icon-button" aria-label="恢复本条记忆整理" onClick={() => setExcludeFromMemory(false)}><Icon name="close" size={12} /></button></div> : null}</>}
+              topContent={<>{workTasks.task || composingTask ? <div className="composer-target" role="group" aria-label="发送方式"><button className={!composingTask ? "selected" : ""} type="button" aria-pressed={!composingTask} onClick={() => setTaskComposerId(null)}>普通对话</button><button className={composingTask ? "selected" : ""} type="button" aria-pressed={composingTask} disabled={!workTasks.task || (!taskActions(workTasks.task).run && !composingTask)} onClick={composeTask}>补充当前任务</button>{composingTask ? <span>{composerTask ? humanFacingTitle(composerTask.goal, "当前任务") : "当前任务暂不可用"}</span> : null}</div> : null}{excludeFromMemory && !composingTask ? <div className="zcode-draft-setting"><Icon name="memory" size={13} /><span>本条不整理为记忆</span><button type="button" className="icon-button" aria-label="恢复本条记忆整理" onClick={() => setExcludeFromMemory(false)}><Icon name="close" size={12} /></button></div> : null}</>}
               disabled={sending || switchingThread || info === null || !draftReady || !!info.runtimeRecovery || (composingTask && !composerTask)}
               placeholder={steering ? "补充这轮的要求…" : composingTask && !composerTask ? "重新选择任务，或切回对话…" : approval ? "先确认上方操作，再发送…" : !composerReady ? "可以先写，结束后再发送…" : composingTask ? "补充本轮要求…" : "和 Serika 聊天"}
               onChange={event => { if (!composingTask) setInput(event.target.value); else if (composerTask) workTasks.setInstruction(event.target.value); }}
@@ -1038,7 +1074,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
         </div>
       </div>
       <div className="personal-divider" role="separator" aria-label="调整对话栏宽度" aria-orientation="vertical"
-        aria-valuemin={Math.round(clampChatFraction(windowWidth, 0.3) * 100)} aria-valuemax={Math.round(clampChatFraction(windowWidth, 0.7) * 100)} aria-valuenow={Math.round(actualFraction * 100)} tabIndex={compact ? -1 : 0}
+        aria-valuemin={Math.round(clampChatFraction(windowWidth, 0.3) * 100)} aria-valuemax={Math.round(clampChatFraction(windowWidth, 0.7) * 100)} aria-valuenow={Math.round(actualFraction * 100)} tabIndex={compact || !sidebarOpen ? -1 : 0}
         onDoubleClick={() => saveSplit(0.5)}
         onKeyDown={event => { if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); saveSplit(actualFraction + (event.key === "ArrowLeft" ? -0.02 : 0.02)); } if (event.key === "Home") { event.preventDefault(); saveSplit(0.5); } }}
         onPointerDown={event => { if (!compact) event.currentTarget.setPointerCapture(event.pointerId); }}
@@ -1048,9 +1084,9 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
         <header className="personal-dashboard-header">
           <button className="personal-mobile-back" type="button" onClick={() => setMobileDashboard(false)}><Icon name="chevron" size={14} style={{ transform: "rotate(180deg)" }} />对话</button>
           <nav className="personal-segments" aria-label="个人助手页面">
-            {(["Today", "任务", "记忆"] as const).map(tab => <button type="button" key={tab}
+            {(["Today", "任务", "提醒", "记忆"] as const).map(tab => <button type="button" key={tab}
               aria-current={(detailsOpen ? dashboardTabForDetail(detailTab) : "Today") === tab ? "page" : undefined}
-              onClick={() => { if (tab === "Today") { setDetailsOpen(false); setMobileDashboard(true); } else if (tab === "任务") { setTaskFocused(false); openDetails("tasks"); } else openMemory(); }}>{tab}{tab === "记忆" && pendingLabel ? <span className="personal-segment-count">{pendingLabel}</span> : null}</button>)}
+              onClick={() => { if (tab === "Today") { setDetailsOpen(false); setMobileDashboard(true); } else if (tab === "任务") { setTaskFocused(false); openDetails("tasks"); } else if (tab === "提醒") openDetails("reminders"); else openMemory(); }}>{tab}{tab === "记忆" && pendingLabel ? <span className="personal-segment-count">{pendingLabel}</span> : null}</button>)}
           </nav>
           <div className="personal-dashboard-actions">
             <button type="button" className="personal-circle" aria-label="搜索历史对话" title="搜索历史对话" onClick={() => openDetails("threads")}><Search size={18} /></button>
@@ -1062,7 +1098,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
             pendingMemory={pendingMemory.count} pendingMemoryError={pendingMemory.error}
             onTasks={() => { setTaskFocused(false); openDetails("tasks"); }} onMemory={() => openMemory()}
             onChat={() => { setMobileDashboard(false); requestAnimationFrame(() => inputRef.current?.focus()); }}
-            onPomodoro={() => openDetails("pomodoro")} onAutomation={() => openDetails("home")} />
+            onPomodoro={() => openDetails("pomodoro")} onAutomation={() => openDetails("reminders")} />
         </div>
         {detailsOpen && ["modules", "records", "context", "home"].includes(detailTab) ? <div className="personal-settings-toolbar">
           <nav className="personal-settings-nav" aria-label="助手设置">
@@ -1077,15 +1113,18 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
               <div hidden={detailTab !== "tasks"}>
                 <WorkTasksPanel view={workTasks} createRequest={createTaskRequest} initialGoal={taskDraft} focused={taskFocused} onCompose={composeTask} onCreated={() => { setDetailsOpen(false); setMobileDashboard(false); setTaskFocused(true); }} onRun={runId => { openDetails("records"); void openRecord(runId).catch(() => setError("执行回执读取失败")); }} />
               </div>
-              <div hidden={detailTab !== "home"}>
-                {info ? <DailySetup info={info} busy={busy} automationRefresh={automationRefresh} onContext={() => openDetails("context")} onHistory={() => openDetails("threads")} onRun={runId => { openDetails("records"); void openRecord(runId).catch(() => setError("执行结果读取失败")); }} /> : null}
-                <RssPanel key={info?.workspaceRoot ?? "no-workspace"} showInbox={false} enabled={!!info?.workspaceRoot && info.modules?.some(m => m.id === "task" && m.enabled) === true} busy={busy} />
+              <div hidden={detailTab !== "reminders"}>
+                <RemindersPanel enabled={!!info?.workspaceRoot} busy={busy} identity={`${info?.configPath ?? ""}:${info?.workspaceRoot ?? ""}`} refreshSequence={automationRefresh} onSettings={() => openDetails("home")} />
                 <TaskInbox key={`${info?.configPath}:${info?.workspaceRoot}`} enabled={!!info?.workspaceRoot} canAcknowledge={info?.modules?.some(m => m.id === "task" && m.enabled) === true} busy={busy} onResultsRead={() => setAutomationRefresh(value => value + 1)} focus={taskResultFocus?.workspaceRoot === info?.workspaceRoot ? taskResultFocus : null} />
+              </div>
+              <div hidden={detailTab !== "home"}>
+                {info ? <DailySetup info={info} busy={busy} automationRefresh={automationRefresh} onContext={() => openDetails("context")} onHistory={() => openDetails("threads")} onReminders={() => openDetails("reminders")} onRun={runId => { openDetails("records"); void openRecord(runId).catch(() => setError("执行结果读取失败")); }} /> : null}
+                <RssPanel key={info?.workspaceRoot ?? "no-workspace"} showInbox={false} enabled={!!info?.workspaceRoot && info.modules?.some(m => m.id === "task" && m.enabled) === true} busy={busy} />
                 <section className="card home">
                   <div className="card-head"><span>工作区概览</span><button className="ghost" disabled={busy} onClick={() => void window.runloom.home().then(response => {
                     if (!response.ok) setError(commandError(response));
                   }).catch(() => setError("概览读取失败"))}>刷新</button></div>
-                  <p className="hint">项目进度来自保存的 checkpoint；本地任务来自任务存储。这里不检查 Git 或文件现状。</p><HomeBody view={homeView} />
+                  <p className="hint">项目进度来自保存的 checkpoint。提醒和刚触发的结果在「提醒」。这里不检查 Git 或文件现状。</p><HomeBody view={homeView} />
                 </section>
                 {info ? <section className="card session-card"><div className="card-head"><SerikaPersona size={44} /><span>会话与配置</span></div><Identity info={info} />
                   <dl className="session-facts">

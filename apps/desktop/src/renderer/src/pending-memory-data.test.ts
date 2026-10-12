@@ -103,7 +103,9 @@ describe("conversation pending memory", () => {
     assert.equal(done.preview, null);
     assert.equal(done.selectedId, null);
     assert.deepEqual(done.candidates.map((item) => item.id), ["b"]);
-    assert.match(done.receipt ?? "", /memory-a/);
+    assert.match(done.receipt ?? "", /完整拟保存正文/);
+    assert.doesNotMatch(done.receipt ?? "", /memory-a/);
+    assert.match(done.receiptDetail ?? "", /memory-a/);
     const next = pendingMemoryReducer(done, { type: "select", id: "b", request: 2 });
     assert.equal(canAccept(next), false);
     const opened = pendingMemoryReducer(next, { type: "detail-result", request: 2, id: "b", result: { ok: true, value: preview("b") } });

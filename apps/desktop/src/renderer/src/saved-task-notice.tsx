@@ -1,14 +1,18 @@
 import React, { useEffect, useState } from "react";
 import type { TaskRecordV4 } from "@aisdk-agent/example-cli/dist/task-store.js";
+import { taskNotificationCopy } from "@aisdk-agent/example-cli/dist/task-notification-copy.js";
 import { createSavedTaskNoticeReader } from "../../shared/saved-task-result.js";
 import { taskResultPresentation } from "./task-inbox.js";
 
 export function SavedTaskNoticeView({ task, onOpen, onDismiss }: {
   task: TaskRecordV4; onOpen: (taskId: string) => void; onDismiss: () => void;
 }) {
-  const { kind, status, body } = taskResultPresentation(task);
-  const characters = Array.from(body);
-  const clipped = characters.length > 280;
+  const { kind, status } = taskResultPresentation(task);
+  // The in-app banner may show the saved reminder; OS copy must stay private.
+  const reminder = task.status === "completed" && task.arrangement?.kind === "reminder"
+    ? (task.resultText?.trim() || task.prompt).replace(/[\u0000-\u001F\u007F]+/g, " ").replace(/\s+/g, " ").trim() : "";
+  const characters = Array.from(reminder);
+  const title = reminder ? characters.length > 42 ? `${characters.slice(0, 41).join("")}…` : reminder : taskNotificationCopy(task).title;
   const finishedAt = task.finishedAt && Number.isFinite(Date.parse(task.finishedAt)) ? task.finishedAt : null;
   const timestamp = finishedAt ?? (Number.isFinite(Date.parse(task.runAt)) ? task.runAt : null);
   const timeLabel = finishedAt ? "结束时间" : "计划时间";
@@ -16,16 +20,20 @@ export function SavedTaskNoticeView({ task, onOpen, onDismiss }: {
     year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit",
     hourCycle: "h23", timeZoneName: "short",
   }).format(new Date(timestamp)) : null;
+  const time = timestamp
+    ? <>{timeLabel} <time dateTime={timestamp}>{localTime}</time>{!finishedAt ? "（结束时间未记录）" : ""}</>
+    : "时间未记录";
   return <div className="review-notice saved-task-notice" role="status" aria-label="已保存的定时结果">
-    <span><strong>{kind} · {status}</strong><br />
-      <small>{timestamp ? <>{timeLabel} <time dateTime={timestamp}>{localTime}</time>{!finishedAt ? "（结束时间未记录）" : ""}</> : "时间未记录"}</small><br />
-      {characters.slice(0, 280).join("")}{clipped ? "…（正文已截短）" : ""}</span>
-    <button type="button" className="ghost" onClick={() => onOpen(task.id)}>查看结果</button>
-    <button type="button" className="ghost" aria-label="收起定时结果提示，不标为已读" onClick={onDismiss}>收起</button>
+    <p className="saved-task-notice-title">{title}</p>
+    <p className="saved-task-notice-meta">{kind} · {status} · {time}</p>
+    <div className="saved-task-notice-actions">
+      <button type="button" className="allow" onClick={() => onOpen(task.id)}>查看</button>
+      <button type="button" className="ghost" aria-label="收起定时结果提示，不标为已读" onClick={onDismiss}>收起</button>
+    </div>
   </div>;
 }
 
-/** One window-level read refresh. OS notifications keep their separate privacy-safe summary. */
+/** One window-level read refresh. Viewing and dismissing do not run the task or mark it read. */
 export function SavedTaskNotice({ enabled, refreshSequence, onOpen }: {
   enabled: boolean; refreshSequence: number; onOpen: (taskId: string) => void;
 }) {

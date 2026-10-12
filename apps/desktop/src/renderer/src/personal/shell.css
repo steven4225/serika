@@ -53,7 +53,17 @@
   border: 0; gap: 10px; background: transparent; -webkit-app-region: drag;
 }
 .personal-layout .header button, .personal-layout .personal-dashboard-header button { -webkit-app-region: no-drag; }
-.personal-layout .personal-name { display: inline-flex; align-items: center; -webkit-app-region: no-drag; }
+.personal-layout .personal-name { display: inline-flex; align-items: center; flex: none; -webkit-app-region: no-drag; }
+.personal-layout .personal-conversation-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 550; color: var(--muted); }
+.personal-layout .personal-create-task { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; background: #ffffff5c; border: 0; color: var(--text); font-size: 13px; font-weight: 550; flex: none; }
+.personal-layout .personal-sidebar-toggle { width: 36px; height: 36px; flex: none; padding: 0; border: 0; border-radius: 50%; background: #ffffff5c; color: var(--text); }
+.personal-layout.app.sidebar-collapsed { grid-template-columns: minmax(0, 1fr); padding-right: 0; }
+.personal-layout.app.sidebar-collapsed > .main-shell { grid-column: 1 / -1; width: 100%; max-width: none; }
+.personal-layout.sidebar-collapsed > :is(.personal-dashboard, .personal-divider) { display: none; }
+.personal-layout.sidebar-collapsed :is(.conversation-thread, .action-dock, .attention-region) { width: 100%; max-width: none; margin-inline: 0; align-self: stretch; }
+.personal-layout .technical-id { margin-top: 4px; font-size: 12px; color: var(--muted); }
+.personal-layout .technical-id summary { cursor: pointer; }
+.personal-layout .technical-id code { display: block; margin-top: 2px; overflow-wrap: anywhere; }
 .personal-layout .header .run-state { font-size: 12px; color: var(--muted); }
 .personal-layout .state-dot { width: 6px; height: 6px; background: #a2a3a7; }
 .personal-layout .state-dot.working { background: #a98b5f; }

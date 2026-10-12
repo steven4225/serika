@@ -36,7 +36,7 @@ export function MemorySetup({ info, busy }: { info: AppInfo; busy: boolean }) {
   </div>;
 }
 
-export function DailySetup({ info, busy, onHistory, onRun, onContext, automationRefresh }: { info: AppInfo; busy: boolean; onHistory: () => void; onRun: (runId: string) => void; onContext: () => void; automationRefresh: number }) {
+export function DailySetup({ info, busy, onHistory, onRun, onContext, onReminders, automationRefresh }: { info: AppInfo; busy: boolean; onHistory: () => void; onRun: (runId: string) => void; onContext: () => void; onReminders: () => void; automationRefresh: number }) {
   return <section className="card daily-setup" aria-label="日用状态">
     <div className="card-head"><SerikaMark size={28} /><span>{info.entryMode === "test" ? "隔离测试入口" : "当前日用入口"}</span></div>
     <dl className="session-facts">
@@ -48,7 +48,7 @@ export function DailySetup({ info, busy, onHistory, onRun, onContext, automation
       <dt>上下文压缩</dt><dd>{info.hasCompaction ? "已启用" : "未启用"} · <button className="ghost" onClick={onContext}>查看上下文压缩</button></dd>
     </dl>
     <MemorySetup info={info} busy={busy} />
-    <AutomationPanel key={`${info.configPath}:${info.workspaceRoot}:${info.threadId}`} identity={`${info.configPath}:${info.workspaceRoot}:${info.threadId}`} refreshSequence={automationRefresh} busy={busy} onRun={onRun} />
+    <AutomationPanel key={`${info.configPath}:${info.workspaceRoot}:${info.threadId}`} identity={`${info.configPath}:${info.workspaceRoot}:${info.threadId}`} refreshSequence={automationRefresh} busy={busy} onRun={onRun} onReminders={onReminders} />
     <DailyAutomation key={`${info.configPath}:${info.workspaceRoot}`} enabled={info.modules?.some(module => module.id === "task" && module.enabled) === true} busy={busy} />
     <button className="ghost" onClick={onHistory}>查找或恢复旧对话</button>
     <p className="hint">旧目录需要你确认属于当前工作区后登记，不会自动合并其他工作区的数据。</p>

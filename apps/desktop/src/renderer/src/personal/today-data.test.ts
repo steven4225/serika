@@ -54,7 +54,7 @@ describe("personal Today view", () => {
     const html = render({ pendingMemory: 2 });
     assert.equal((html.match(/class="today-chat-button"/g) ?? []).length, 1);
     assert.match(html, /当前会话有 2 条记忆等你确认/);
-    assert.match(html, /查看提醒与定时任务|打开番茄钟/);
+    assert.match(html, /查看我的提醒|打开番茄钟/);
     assert.doesNotMatch(html, /天气|研究结果|ryan|自动开始/);
     assert.equal(todayMemorySummary(null, 0, null), "正在连接记忆…");
     assert.equal(todayMemorySummary({ ...info, memory: { enabled: false, autoConsolidate: false } }, 0, null), "记忆未启用。");
