@@ -85,6 +85,6 @@ export function RssPanel({ enabled, busy, showInbox = true }: { enabled: boolean
       <small>任务 ID：{task.id}</small><MessageContent text={task.text} />{task.textTruncated ? <p className="hint">显示内容已截断；完整结果保存在任务 inbox。</p> : null}
       <button className="ghost" disabled={disabled} onClick={() => { setPending(true); void window.runloom.acknowledgeRssResult(task.id).then(async result => { if (result.ok) await reloadInbox(); else setInboxError(result.error.message); }).catch(() => setInboxError("确认失败，请刷新核对。")).finally(() => setPending(false)); }}>标为已读</button>
     </details>)}
-    {inbox?.truncated ? <p className="hint">只显示最近 5 条未确认结果；标为已读后刷新可看更早记录。</p> : null}</> : <p className="hint">资讯结果与提醒、日报统一显示在下面的定时任务收件箱。</p>}
+    {inbox?.truncated ? <p className="hint">只显示最近 5 条未确认结果；标为已读后刷新可看更早记录。</p> : null}</> : <p className="hint">资讯结果与提醒、日报统一显示在「提醒」页的刚刚触发。</p>}
   </section>;
 }

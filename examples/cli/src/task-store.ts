@@ -86,11 +86,15 @@ export interface TaskAttempt {
   error: TaskError | null;
 }
 export interface TaskNotification {
-  status: "pending" | "submitted" | "failed";
+  status: "pending" | "submitted" | "failed" | "omitted";
   attempts: number;
   nextAttemptAt: string | null;
   error: TaskError | null;
 }
+/** `omitted` means the desktop was frontmost, so no system notification was submitted. */
+export type TaskNotificationRecord =
+  | { ok: true; delivery?: "omitted" }
+  | { ok: false; error: TaskError; nextAttemptAt: string | null };
 export interface TaskRecordV4 extends TaskRecordV3 {
   attempts: TaskAttempt[];
   retryAt: string | null;
@@ -265,7 +269,7 @@ export interface TaskStore {
   recordRunId(id: string, runId: string): Promise<TaskStoreResult<TaskRecordV4>>;
   retry(id: string, input: { error: TaskError; runId: string | null; nextRunAt: string }): Promise<TaskStoreResult<TaskRecordV4>>;
   listNotifications(now?: number): Promise<TaskStoreResult<TaskRecordV4[]>>;
-  recordNotification(id: string, outcome: { ok: true } | { ok: false; error: TaskError; nextAttemptAt: string | null }): Promise<TaskStoreResult<TaskRecordV4>>;
+  recordNotification(id: string, outcome: TaskNotificationRecord): Promise<TaskStoreResult<TaskRecordV4>>;
   create(input: CreateTaskInput, signal?: AbortSignal): Promise<TaskStoreResult<TaskRecordV4>>;
   list(input?: TaskListInput): Promise<TaskStoreResult<TaskListV3>>;
   get(id: string): Promise<TaskStoreResult<TaskRecordV4>>;
@@ -514,10 +518,11 @@ function validateDeliveryFields(value: Record<string, unknown>, version: number)
   let notification: TaskNotification | null = null;
   if (value.notification !== null) {
     const raw = value.notification;
-    if (!isObject(raw) || !["pending", "submitted", "failed"].includes(raw.status as string) || !Number.isInteger(raw.attempts) || (raw.attempts as number) < 0 || (raw.attempts as number) > TASK_MAX_NOTIFICATION_ATTEMPTS || !["completed", "failed", "interrupted"].includes(value.status as string)) raise("TASK_FILE_INVALID", "Invalid notification state");
+    if (!isObject(raw) || !["pending", "submitted", "failed", "omitted"].includes(raw.status as string) || !Number.isInteger(raw.attempts) || (raw.attempts as number) < 0 || (raw.attempts as number) > TASK_MAX_NOTIFICATION_ATTEMPTS || !["completed", "failed", "interrupted"].includes(value.status as string)) raise("TASK_FILE_INVALID", "Invalid notification state");
     if (raw.nextAttemptAt !== null) validateStoredTimestamp(raw.nextAttemptAt, "Notification nextAttemptAt");
     const error = raw.error === null ? null : validateTaskError(raw.error);
-    if ((raw.status === "failed") !== (error !== null) || (raw.status === "failed" && raw.attempts === 0) || (raw.status === "submitted" && (raw.nextAttemptAt !== null || raw.attempts === 0)) || (raw.status === "pending" && (raw.attempts !== 0 || raw.nextAttemptAt === null)) || (raw.attempts === TASK_MAX_NOTIFICATION_ATTEMPTS && raw.nextAttemptAt !== null)) raise("TASK_FILE_INVALID", "Inconsistent notification state");
+    const settled = raw.status === "submitted" || raw.status === "omitted";
+    if ((raw.status === "failed") !== (error !== null) || (raw.status === "failed" && raw.attempts === 0) || (settled && (raw.nextAttemptAt !== null || raw.attempts === 0)) || (raw.status === "pending" && (raw.attempts !== 0 || raw.nextAttemptAt === null)) || (raw.attempts === TASK_MAX_NOTIFICATION_ATTEMPTS && raw.nextAttemptAt !== null)) raise("TASK_FILE_INVALID", "Inconsistent notification state");
     notification = { status: raw.status as TaskNotification["status"], attempts: raw.attempts as number, nextAttemptAt: raw.nextAttemptAt as string | null, error };
   }
   let pendingOutcome: TaskFinish | null = null;
@@ -1489,11 +1494,11 @@ export class WorkspaceTaskStore implements TaskStore {
   async listNotifications(now = this.#now()): Promise<TaskStoreResult<TaskRecordV4[]>> {
     try {
       if (!Number.isFinite(now)) raise("INVALID_INPUT", "Notification time must be finite");
-      return { ok: true, value: (await this.#read()).tasks.filter((task) => task.acknowledgedAt === null && task.notification !== null && task.notification.status !== "submitted" && task.notification.attempts < TASK_MAX_NOTIFICATION_ATTEMPTS && task.notification.nextAttemptAt !== null && Date.parse(task.notification.nextAttemptAt) <= now).slice(0, TASK_LIST_MAX_LIMIT).map(cloneRecord) };
+      return { ok: true, value: (await this.#read()).tasks.filter((task) => task.acknowledgedAt === null && task.notification !== null && notificationIsDue(task.notification, now)).slice(0, TASK_LIST_MAX_LIMIT).map(cloneRecord) };
     } catch (error) { return errorResult(error, neverAborted, false); }
   }
 
-  async recordNotification(id: string, outcome: { ok: true } | { ok: false; error: TaskError; nextAttemptAt: string | null }): Promise<TaskStoreResult<TaskRecordV4>> {
+  async recordNotification(id: string, outcome: TaskNotificationRecord): Promise<TaskStoreResult<TaskRecordV4>> {
     try {
       if (!outcome.ok) {
         validateTaskError(outcome.error);
@@ -1501,10 +1506,10 @@ export class WorkspaceTaskStore implements TaskStore {
       }
       return await this.#updateTask(id, (task) => {
         const notification = task.notification;
-        if (!notification || notification.status === "submitted" || notification.attempts >= TASK_MAX_NOTIFICATION_ATTEMPTS) raise("INVALID_INPUT", "Notification is not pending");
+        if (!notification || !notificationCanRecord(notification)) raise("INVALID_INPUT", "Notification is not pending");
         if (!outcome.ok && outcome.nextAttemptAt !== null && Date.parse(outcome.nextAttemptAt) <= this.#now()) raise("INVALID_INPUT", "Notification retry must be in the future");
         notification.attempts += 1;
-        notification.status = outcome.ok ? "submitted" : "failed";
+        notification.status = notificationStatusFor(outcome);
         notification.error = outcome.ok ? null : { ...outcome.error };
         notification.nextAttemptAt = outcome.ok || notification.attempts >= TASK_MAX_NOTIFICATION_ATTEMPTS ? null : outcome.nextAttemptAt;
         return task;
@@ -1667,14 +1672,73 @@ export class WorkspaceTaskStore implements TaskStore {
 
 export const TaskStore = WorkspaceTaskStore;
 
+function notificationCanRecord(notification: TaskNotification): boolean {
+  switch (notification.status) {
+    case "pending":
+    case "failed":
+      return notification.attempts < TASK_MAX_NOTIFICATION_ATTEMPTS;
+    case "submitted":
+    case "omitted":
+      return false;
+    default: {
+      const unreachable: never = notification.status;
+      return unreachable;
+    }
+  }
+}
+
+function notificationIsDue(notification: TaskNotification, now: number): boolean {
+  switch (notification.status) {
+    case "pending":
+    case "failed":
+      return notification.attempts < TASK_MAX_NOTIFICATION_ATTEMPTS && notification.nextAttemptAt !== null && Date.parse(notification.nextAttemptAt) <= now;
+    case "submitted":
+    case "omitted":
+      return false;
+    default: {
+      const unreachable: never = notification.status;
+      return unreachable;
+    }
+  }
+}
+
+function notificationStatusFor(outcome: TaskNotificationRecord): TaskNotification["status"] {
+  if (!outcome.ok) return "failed";
+  switch (outcome.delivery) {
+    case "omitted":
+      return "omitted";
+    case undefined:
+      return "submitted";
+    default: {
+      const unreachable: never = outcome.delivery;
+      return unreachable;
+    }
+  }
+}
+
+function notificationSurvivesRestore(status: TaskNotification["status"]): boolean {
+  switch (status) {
+    case "submitted":
+    case "omitted":
+      return true;
+    case "pending":
+    case "failed":
+      return false;
+    default: {
+      const unreachable: never = status;
+      return unreachable;
+    }
+  }
+}
+
 /** Explicit offline restore: keep execution history, revoke all future dispatch. */
 export function restoreTaskDocument(value: unknown, restoredAt: string): TaskDocumentV4 {
   validateStoredTimestamp(restoredAt, "Restore time");
   const document = validateDocument(value);
   for (const task of document.tasks) {
     task.retryAt = null; task.pendingOutcome = null;
-    // Restored OS submission state is historical, never new notification intent.
-    if (task.notification?.status !== "submitted") task.notification = null;
+    // Submitted and foreground-omitted states are historical. Pending intent is not restored.
+    if (task.notification === null || !notificationSurvivesRestore(task.notification.status)) task.notification = null;
     if (task.status === "scheduled") { task.status = "cancelled"; task.finishedAt = restoredAt; }
     if (task.status === "running") {
       const error = { code: "RESTORED_INTERRUPTED", message: "Restored execution requires review; no model or tool was replayed" };

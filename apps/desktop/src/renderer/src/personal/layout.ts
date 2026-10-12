@@ -31,9 +31,10 @@ export function loadSidebarOpen(raw: string | null): boolean {
   return raw !== "collapsed";
 }
 
-export function dashboardTabForDetail(detail: string): "Today" | "任务" | "记忆" | "设置" | null {
+export function dashboardTabForDetail(detail: string): "Today" | "任务" | "提醒" | "记忆" | "设置" | null {
   if (detail === "pomodoro") return "Today";
   if (detail === "tasks") return "任务";
+  if (detail === "reminders") return "提醒";
   if (detail === "memory") return "记忆";
   if (["modules", "records", "context", "home"].includes(detail)) return "设置";
   return null;

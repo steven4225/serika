@@ -6,6 +6,7 @@ import type {
   RunResult,
 } from "@aisdk-agent/core";
 import { AgentError } from "@aisdk-agent/core";
+import { FOREGROUND_NOTIFICATION_OMITTED, type DesktopNotificationDelivery } from "./task-notification-copy.js";
 import type { TaskError, TaskFinish, TaskRecord, TaskRecordV4, TaskStore } from "./task-store.js";
 import type { TaskWorkerSnapshotContext } from "./task-worker-context.js";
 
@@ -43,7 +44,7 @@ export interface TaskWorkerOptions {
   /** Process availability is not itself authorization for an arrangement. */
   todoistPlanningAvailable?: boolean;
   now?: () => number;
-  notify?: (task: TaskRecord) => Promise<void>;
+  notify?: (task: TaskRecord) => Promise<void | DesktopNotificationDelivery>;
   prepareTask?: (task: TaskRecord, signal: AbortSignal) => Promise<PreparedWorkerTask | undefined>;
   prepareSkillTask?: (task: TaskRecord, signal: AbortSignal) => Promise<PreparedWorkerTask>;
   recoverPreparedTasks?: () => Promise<void>;
@@ -341,13 +342,30 @@ async function executeTask(
   );
 }
 
+function notificationRecord(delivery: void | DesktopNotificationDelivery): { ok: true; delivery?: "omitted" } {
+  switch (delivery) {
+    case FOREGROUND_NOTIFICATION_OMITTED:
+      return { ok: true, delivery: "omitted" };
+    case "submitted":
+      return { ok: true };
+    default: {
+      if (typeof delivery === "string") {
+        const unreachable: never = delivery;
+        return unreachable;
+      }
+      return { ok: true };
+    }
+  }
+}
+
 async function drainNotifications(options: TaskWorkerOptions): Promise<void> {
   if (options.notify === undefined) return;
   const due = unwrap(await options.store.listNotifications((options.now ?? Date.now)()));
   for (const task of due) {
     if (options.signal.aborted) return;
+    let delivery: void | DesktopNotificationDelivery;
     try {
-      await options.notify(task);
+      delivery = await options.notify(task);
     } catch (error) {
       const attempt = (task.notification?.attempts ?? 0) + 1;
       unwrap(await options.store.recordNotification(task.id, {
@@ -359,9 +377,10 @@ async function drainNotifications(options: TaskWorkerOptions): Promise<void> {
       }));
       continue;
     }
-    // OS submission and this write cannot be atomic. A crash here may resend
-    // the same notification, but must never replay the model task.
-    unwrap(await options.store.recordNotification(task.id, { ok: true }));
+    // The record is separate from OS submission. A crash before this write may
+    // submit again, but must never replay the model task. Foreground omission
+    // is not an OS submission.
+    unwrap(await options.store.recordNotification(task.id, notificationRecord(delivery)));
   }
 }
 

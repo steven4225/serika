@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
+import { FailureAlert } from "./failure-notice.js";
 import type { AutomationOverview, AutomationScheduleAction } from "@aisdk-agent/example-cli/dist/automation-scheduling.js";
 import { automationArrangementLabel, automationStatuses, skillSchedulePreview, type SkillScheduleDraft } from "./automation-schedule.js";
-import { humanFacingTitle, localScheduleLabel, recurrencePhrase } from "../../shared/human-title.js";
+import { humanFacingTitle } from "../../shared/human-title.js";
 import { DreamingPanel } from "./dreaming-panel.js";
+import { localWhen, reminderClock, scheduleStatusLabel } from "./reminder-copy.js";
 
 /** A workspace drawer section, not another parallel application or a model loop. */
-export function AutomationPanel({ busy, identity, onRun, refreshSequence }: { busy: boolean; identity: string; onRun: (runId: string) => void; refreshSequence: number }) {
+export function AutomationPanel({ busy, identity, onRun, onReminders, refreshSequence }: { busy: boolean; identity: string; onRun: (runId: string) => void; onReminders: () => void; refreshSequence: number }) {
   const [view, setView] = useState<AutomationOverview | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -70,7 +72,7 @@ export function AutomationPanel({ busy, identity, onRun, refreshSequence }: { bu
     <div className="card-head"><span>自动安排</span><button className="ghost" disabled={loading || working} onClick={() => void reload()}>刷新安排</button></div>
     <p className="hint">同一份 Skill 可以手动执行、由对话事件触发或按时间执行。排期不会授予工具权限，也不会自动使用对话或长期记忆。</p>
     {loading ? <p role="status">正在读取安排…</p> : null}
-    {error ? <p className="error" role="alert">{error}</p> : null}
+    {error ? <FailureAlert text={error} /> : null}
     {notice ? <p role="status">{notice}</p> : null}
     {view ? <>
       <details><summary>已安装 Skill（{view.diagnostics.skills.length}）与对话触发规则（{view.diagnostics.hooks.length}）</summary>
@@ -92,13 +94,20 @@ export function AutomationPanel({ busy, identity, onRun, refreshSequence }: { bu
       {!view.tasksEnabled ? <p className="hint">任务模块未启用，无法排期；已安装 Skill 和 Hook 的状态仍可查看。</p> : null}
       {preview ? <div className="memory-setup-preview" role="group" aria-label="Skill 排期预览"><strong>{humanFacingTitle(selected?.description || preview.input.id, "这项安排")}：{preview.label}</strong><p>{preview.input.input}</p><details className="technical-id"><summary>固定版本</summary><code>{preview.hash}</code></details><p className="hint">只执行这份固定版本。没有工具、Shell、文件写入或记忆注入；后台模型可能产生费用。确认后会尝试登记当前工作区后台服务，关窗口后也可执行；服务或通知权限不可用会明确提示，安排仍保留。</p><div className="memory-actions"><button disabled={busy || working} onClick={() => void create()}>确认排期</button><button className="ghost" disabled={working} onClick={() => setPreview(null)}>取消</button></div></div> : null}
       <h4>已经安排</h4>
-      {!view.scheduled.length && !view.recurring.length ? <p className="hint">没有待执行安排。已经结束的结果在下面的收件箱，不会从这里重放。</p> : null}
-      {view.scheduled.map(task => <div className="capability-row" key={task.id}><div><strong>{humanFacingTitle(task.promptPreview, automationArrangementLabel(task.arrangement))}</strong><p>{automationStatuses[task.status] ?? "状态待查看"} · {localScheduleLabel(task.runAt)}</p><small>{automationArrangementLabel(task.arrangement)}</small><details className="technical-id"><summary>编号</summary><code>{task.id}</code></details></div>{task.status === "scheduled" ? <button className="ghost" disabled={busy || working} onClick={() => { setChange({ id: task.id, kind: "once", action: "cancel" }); setPreview(null); }}>取消安排…</button> : null}</div>)}
-      {view.recurring.map(task => <div className="capability-row" key={task.id}><div><strong>{humanFacingTitle(task.promptPreview, automationArrangementLabel(task.arrangement))}</strong><p>{automationStatuses[task.status] ?? "状态待查看"} · {recurrencePhrase(task.recurrence) ?? "按计划"} · 下次 {localScheduleLabel(task.nextRunAt)}</p><small>{automationArrangementLabel(task.arrangement)}</small><details className="technical-id"><summary>编号</summary><code>{task.id}</code></details></div>{task.status !== "cancelled" ? <div className="memory-actions"><button className="ghost" disabled={busy || working} onClick={() => { setChange({ id: task.id, kind: "recurring", action: task.status === "paused" ? "resume" : "pause" }); setPreview(null); }}>{task.status === "paused" ? "恢复…" : "暂停…"}</button><button className="ghost" disabled={busy || working} onClick={() => { setChange({ id: task.id, kind: "recurring", action: "cancel" }); setPreview(null); }}>取消系列…</button></div> : null}</div>)}
+      {!view.scheduled.length && !view.recurring.length ? <p className="hint">没有待执行安排。已经结束的结果在「提醒」页，不会从这里重放。</p> : null}
+      {view.scheduled.map(task => {
+        const clock = reminderClock();
+        return <div className="capability-row" key={task.id}><div><strong>{task.promptPreview}</strong><p>{localWhen(task.runAt, clock)} · {scheduleStatusLabel(task.status, task.runAt, clock.now, task.arrangement?.kind)}</p><small>{automationArrangementLabel(task.arrangement)}</small><details><summary>编号</summary><code>{task.id}</code></details></div>{task.status === "scheduled" ? <button className="ghost" disabled={busy || working} onClick={() => { setChange({ id: task.id, kind: "once", action: "cancel" }); setPreview(null); }}>取消安排…</button> : null}</div>;
+      })}
+      {view.recurring.map(task => {
+        const clock = reminderClock();
+        const next = task.nextRunAt ? localWhen(task.nextRunAt, clock) : "无";
+        return <div className="capability-row" key={task.id}><div><strong>{task.promptPreview}</strong><p>{scheduleStatusLabel(task.status, task.nextRunAt, clock.now, task.arrangement?.kind)} · 下次 {next}</p><small>{automationArrangementLabel(task.arrangement)}</small><details><summary>编号</summary><code>{task.id}</code></details></div>{task.status !== "cancelled" ? <div className="memory-actions"><button className="ghost" disabled={busy || working} onClick={() => { setChange({ id: task.id, kind: "recurring", action: task.status === "paused" ? "resume" : "pause" }); setPreview(null); }}>{task.status === "paused" ? "恢复…" : "暂停…"}</button><button className="ghost" disabled={busy || working} onClick={() => { setChange({ id: task.id, kind: "recurring", action: "cancel" }); setPreview(null); }}>取消系列…</button></div> : null}</div>;
+      })}
       {view.truncated ? <p className="hint">只显示有界的最近安排；列表不是全部历史。</p> : null}
       {change ? <div className="memory-setup-preview"><p>确认{change.action === "pause" ? "暂停" : change.action === "resume" ? "恢复后续排期" : "取消"}这项安排？只变更后续安排，不重放已执行、失败或效果未知的结果，也不撤回已经提交的通知。</p><details className="technical-id"><summary>编号</summary><code>{change.id}</code></details><div className="memory-actions"><button disabled={busy || working} onClick={() => void act(() => window.runloom.changeAutomationSchedule(change), "安排状态已变更；已有结果仍保留。")}>确认变更</button><button className="ghost" disabled={working} onClick={() => setChange(null)}>返回</button></div></div> : null}
       <details><summary>本次进程的 Hook / 手动执行记录（{view.diagnostics.recent.length}）</summary><p className="hint">重启后这里会清空；不是后台任务的持久历史。</p>{view.diagnostics.recent.map(item => <div className="capability-row" key={item.id}><p>{item.skillId} · {item.source === "hook" ? "事件触发" : "手动执行"} · {automationStatuses[item.status] ?? item.status}{item.message ? `：${item.message}` : ""}</p>{item.runId ? <button className="ghost" onClick={() => onRun(item.runId!)}>查看执行结果</button> : null}</div>)}</details>
-      <a href="#scheduled-results">查看定时执行结果</a>
+      <button type="button" className="ghost" onClick={onReminders}>打开提醒，查看刚刚触发的结果</button>
     </> : null}
   </section></>;
 }

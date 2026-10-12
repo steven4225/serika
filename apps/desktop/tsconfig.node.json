@@ -19,6 +19,7 @@
     "src/shared/**/*.ts",
     "src/renderer/src/conversation.ts",
     "src/renderer/src/conversation.test.ts",
+    "src/renderer/src/reminder-copy.ts",
     "src/renderer/src/delivery-data.ts"
   ]
 }
