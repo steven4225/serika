@@ -96,9 +96,9 @@ describe("daily memory consolidation state", () => {
         { assertionId: "assertion-v4", text: "v4 body" },
       ],
     };
-    assert.equal(receiptSnapshotText(4, { revision: 5, text: "v5 body" }, history), "v4 body");
-    assert.equal(receiptSnapshotText(5, { revision: 5, text: "v5 body" }, history), "v5 body");
-    assert.equal(receiptSnapshotText(4, { revision: 5, text: "v5 body" }, { versions: [], assertions: [] }), null);
+    assert.equal(receiptSnapshotText(4, history), "v4 body");
+    assert.equal(receiptSnapshotText(5, history), "v5 body");
+    assert.equal(receiptSnapshotText(4, { versions: [], assertions: [] }), null);
     const historyCalls: number[] = [];
     const api = {
       getMemory: async () => ({ ok: true as const, value: { id: "memory-1", revision: 5, text: "v5 body" } }),
@@ -116,9 +116,26 @@ describe("daily memory consolidation state", () => {
     assert.equal(notice.includes("v5"), false);
     const sameRevision = {
       getMemory: async () => ({ ok: true as const, value: { id: "memory-1", revision: 4, text: "v4 body" } }),
-      getMemoryHistory: async () => { throw new Error("current revision must not read history"); },
+      getMemoryHistory: async () => ({ ok: true as const, value: { id: "memory-1", ...history, nextOffset: null } }),
     } as unknown as Parameters<typeof loadSavedReceiptText>[1];
     assert.equal(await loadSavedReceiptText({ memoryId: "memory-1", revision: 4 }, sameRevision), "v4 body");
+  });
+
+  it("uses the saved assertion for a future-effective receipt even at the current revision", async () => {
+    let historyCalls = 0;
+    const history = {
+      versions: [{ revision: 2, assertionId: "tomorrow" }],
+      assertions: [{ assertionId: "today", text: "咖啡不加糖" }, { assertionId: "tomorrow", text: "明日起咖啡加糖" }],
+    };
+    const api = {
+      getMemory: async () => ({ ok: true as const, value: { id: "coffee", revision: 2, text: "咖啡不加糖" } }),
+      getMemoryHistory: async () => { historyCalls++; return { ok: true as const, value: { id: "coffee", ...history, nextOffset: null } }; },
+    } as unknown as Parameters<typeof loadSavedReceiptText>[1];
+    assert.equal(await loadSavedReceiptText({ memoryId: "coffee", revision: 2 }, api), "明日起咖啡加糖");
+    assert.equal(historyCalls, 1);
+    assert.equal(receiptSnapshotText(2, history), "明日起咖啡加糖");
+    const missing = { ...api, getMemoryHistory: async () => ({ ok: true as const, value: { id: "coffee", versions: [], assertions: [], nextOffset: null } }) } as unknown as Parameters<typeof loadSavedReceiptText>[1];
+    assert.equal(await loadSavedReceiptText({ memoryId: "coffee", revision: 2 }, missing), null, "no current-body fallback when the saved snapshot is unavailable");
   });
 
   it("undo previews only the exact saved version and never makes a write", async () => {

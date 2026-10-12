@@ -37,15 +37,13 @@ type ReceiptHistoryRead = {
 };
 
 /**
- * Text for one saved receipt. Current body is used only when its revision is the receipt revision.
- * A newer body is not a substitute for the snapshot identified by that revision.
+ * Text for one saved receipt, identified by its version's assertion.
+ * The current time projection can differ even at the same revision.
  */
 export function receiptSnapshotText(
   receiptRevision: number,
-  current: { revision?: number; text: string } | null,
   history: ReceiptHistoryRead,
 ): string | null {
-  if (current?.revision === receiptRevision) return current.text;
   const version = history.versions.find(item => item.revision === receiptRevision);
   if (!version) return null;
   return history.assertions.find(item => item.assertionId === version.assertionId)?.text ?? null;
@@ -61,7 +59,6 @@ export async function loadSavedReceiptText(
 ): Promise<string | null> {
   const current = await api.getMemory(receipt.memoryId);
   if (!current.ok || current.value.id !== receipt.memoryId) return null;
-  if (current.value.revision === receipt.revision) return current.value.text;
   const versions: { revision: number; assertionId: string }[] = [];
   const assertions: { assertionId: string; text: string }[] = [];
   let offset = 0;
@@ -70,7 +67,7 @@ export async function loadSavedReceiptText(
     if (!history.ok || history.value.id !== receipt.memoryId) return null;
     versions.push(...history.value.versions);
     assertions.push(...history.value.assertions);
-    const text = receiptSnapshotText(receipt.revision, null, { versions, assertions });
+    const text = receiptSnapshotText(receipt.revision, { versions, assertions });
     if (text !== null) return text;
     const next = history.value.nextOffset;
     if (next === null || next <= offset) return null;
