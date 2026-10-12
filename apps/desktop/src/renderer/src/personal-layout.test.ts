@@ -61,6 +61,10 @@ it("collapsed chat keeps the create-task control in the shell", async () => {
   assert.match(app, /创建任务/);
   assert.match(app, /aria-label=\{dashboardOpen \? "收起侧栏" : "展开侧栏"\}/);
   assert.match(css, /\.personal-layout\.sidebar-collapsed > :is\(\.personal-dashboard, \.personal-divider\) \{ display: none; \}/);
+  assert.match(css, /\.personal-layout\.app\.sidebar-collapsed \{ grid-template-columns: minmax\(0, 1fr\); padding-right: 0; \}/);
+  assert.match(css, /\.personal-layout\.app\.sidebar-collapsed > \.main-shell \{ grid-column: 1 \/ -1; width: 100%; max-width: none; \}/);
+  assert.match(css, /\.personal-layout\.sidebar-collapsed :is\(\.conversation-thread, \.action-dock, \.attention-region\) \{ width: 100%; max-width: none; margin-inline: 0; align-self: stretch; \}/);
+  assert.doesNotMatch(css, /\.sidebar-collapsed[^{]*\{[^}]*--chat-fraction/);
 });
 
 it("existing details remain reachable under the personal dashboard tabs", () => {
