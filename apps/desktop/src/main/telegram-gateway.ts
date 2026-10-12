@@ -451,7 +451,7 @@ export class TelegramGateway {
     }
     const uncertain = run.status === "interrupted" || run.tools.some(x => x.status === "unknown");
     const label = uncertain ? "执行中断或效果未知，请回桌面核对；不会自动重做。"
-      : run.status === "completed" ? source.taskId ? "任务这一轮已结束，结果仍需你在桌面验收。" : ""
+      : run.status === "completed" ? source.taskId ? "结果仍需你在桌面验收。" : ""
       : run.status === "cancelled" ? "本轮已停止；已执行的操作不会撤回，操作结果请查看桌面回执。"
       : "这次执行失败了；操作结果请查看桌面回执。";
     const reply = text ?? run.resultTextPreview ?? "";

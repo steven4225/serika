@@ -86,7 +86,7 @@ it("Telegram result copy: ordinary replies omit gateway wrappers without changin
 for (const scenario of [
   { name: "completed", status: "completed", text: "原始回复。", expected: "原始回复。" },
   { name: "empty", status: "completed", text: " \n ", expected: "这次没有可显示的回复，请查看桌面执行记录。" },
-  { name: "task", status: "completed", text: "阶段结果。", task: true, expected: "任务这一轮已结束，结果仍需你在桌面验收。\n阶段结果。" },
+  { name: "task", status: "completed", text: "阶段结果。", task: true, expected: "结果仍需你在桌面验收。\n阶段结果。" },
   { name: "failed", status: "failed", text: "部分回复。", expected: "这次执行失败了；操作结果请查看桌面回执。\n部分回复。" },
   { name: "cancelled", status: "cancelled", text: null, expected: "本轮已停止；已执行的操作不会撤回，操作结果请查看桌面回执。" },
   { name: "interrupted", status: "interrupted", text: "部分回复。", expected: "执行中断或效果未知，请回桌面核对；不会自动重做。\n部分回复。" },
@@ -119,6 +119,7 @@ for (const scenario of [
       const delivery = store.snapshot().deliveries.find(x => x.key === "result:42:2")!;
       assert.equal(delivery.text, scenario.expected);
       assert.equal(f.sent.at(-1), scenario.expected);
+      if ("task" in scenario) assert.doesNotMatch(delivery.text, /这一轮已结束|本轮已结束|Run:/);
       assert(!delivery.text.includes(receipt.runId), "trace identity stays in records, not the bubble");
       assert.equal(store.snapshot().inputs[0]!.runId, receipt.runId);
       assert.equal(store.snapshot().inputs[0]!.state, scenario.status === "interrupted" || "unknown" in scenario ? "unknown" : "finished");
