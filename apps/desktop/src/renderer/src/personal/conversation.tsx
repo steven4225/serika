@@ -5,6 +5,7 @@ import { MessageContent } from "../markdown.js";
 import { completionLabel } from "../navigation.js";
 import { conversationTurns, isMissingFile, toolPresentation, workSummary, type ConversationFlowItem } from "../zcode/conversation-data.js";
 import { formatRecordTime } from "../../../shared/execution-records.js";
+import { FailureInline } from "../failure-notice.js";
 
 type TraceHandler = ((runId: string, toolCallId: string) => void) | undefined;
 
@@ -28,7 +29,7 @@ export function PersonalTool({ row, onTrace, workspaceRoot }: { row: ToolRow; on
       {path && workspaceRoot ? <p className="personal-receipt-meta" title={workspaceRoot}>当前文件工作区：{workspaceRoot}</p> : null}
       {view.name !== row.toolName && !missing ? <code>{row.toolName}</code> : null}
       {row.receipt ? <p>{row.receipt.bytes} 字节 · 工具回执，不等于任务验收</p> : null}
-      {missing ? <><p>该路径没有文件，未读取到内容。本次读取不会创建文件，也不会自动重复执行。</p><details className="personal-tool-technical"><summary>技术详情</summary><code>{row.toolName}</code>{row.detail ? <p>{row.detail}</p> : null}</details></> : row.detail ? <p>{row.detail}</p> : null}
+      {missing ? <><p>该路径没有文件，未读取到内容。本次读取不会创建文件，也不会自动重复执行。</p><details className="personal-tool-technical"><summary>技术详情</summary><code>{row.toolName}</code>{row.detail ? <p>{row.detail}</p> : null}</details></> : row.detail ? <p><FailureInline text={row.detail} /></p> : null}
       {row.stdout ? <pre className="personal-tool-output stdout">{row.stdout}</pre> : null}
       {row.stderr ? <pre className="personal-tool-output stderr">{row.stderr}</pre> : null}
       {row.progressTruncated ? <p className="personal-tool-warning">输出已截断；不能据此判断执行成功</p> : null}
@@ -51,7 +52,7 @@ function FlowItem({ item, onTrace, workspaceRoot }: { item: ConversationFlowItem
   if (item.kind === "text") return <PersonalText row={item.row} />;
   if (item.kind === "work") return <Work rows={item.rows} onTrace={onTrace} workspaceRoot={workspaceRoot} />;
   return <div className={`personal-completion status-${item.row.status}`} role="status"><Icon name={item.row.completion?.reason === "delivered" ? "check" : "activity"} size={14} />
-    <span>{completionLabel(item.row)}{item.row.detail ? ` · ${item.row.detail}` : ""}</span></div>;
+    <span>{completionLabel(item.row)}{item.row.detail ? <> · <FailureInline text={item.row.detail} /></> : null}</span></div>;
 }
 
 function ReplyActions({ text }: { text: string }) {

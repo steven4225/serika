@@ -4,6 +4,7 @@ import type { MemoryActionPreview, MemoryHistoryPage, MemoryMaintenance } from "
 import type { MemoryAssertion, MemorySource, MemoryTemporalView } from "@aisdk-agent/example-cli/dist/memory-store.js";
 import { memoryKindLabel, timestampLabel } from "./memory-temporal-data.js";
 import { memoryAutomationLabel } from "./memory-copy.js";
+import { FailureAlert } from "./failure-notice.js";
 
 export function MemorySources({ sources }: { sources: readonly MemorySource[] }) {
   return <section className="memory-sources"><div className="memory-label">保存来源</div>
@@ -56,7 +57,7 @@ export function MemoryTemporalQueryResult({ view }: { view: MemoryTemporalView }
     {view.historyCoverage === "legacy_partial" ? <p className="hint">历史覆盖不完整，查询不能证明过去没有其他记录。</p> : null}
     {view.validTimeUncertain ? <p className="hint">部分事实的适用时间未知。</p> : null}
     {view.systemTimeUncertain ? <p className="hint">部分系统记录时间未知。</p> : null}
-    {view.assertions.length === 0 ? <p className="hint">这个时间视图没有可见断言，不代表记忆已被永久删除。</p> : view.assertions.map(assertion => <MemoryAssertionDetails assertion={assertion} key={assertion.assertionId} />)}
+    {view.assertions.length === 0 ? <p className="hint">这个时间点没有可显示的记忆，不代表记忆已被永久删除。</p> : view.assertions.map(assertion => <MemoryAssertionDetails assertion={assertion} key={assertion.assertionId} />)}
   </section>;
 }
 
@@ -64,7 +65,7 @@ export function MemoryMaintenanceSummary({ value }: { value: MemoryMaintenance }
   const labels = { off: "未运行", backlog: "有待处理材料", running: "记忆整理中", failed: "记忆整理失败", awaiting_review: "等待审核", idle: "暂无待处理材料" };
   return <section className="memory-maintenance-summary">
     <p>{memoryAutomationLabel({ enabled: true, autoConsolidate: value.consolidation.enabled })} · {labels[value.consolidation.state]}</p>
-    {value.consolidation.error ? <p className="error" role="alert">{value.consolidation.error}</p> : null}
+    {value.consolidation.error ? <FailureAlert text={value.consolidation.error} /> : null}
     <p className="hint">正式记忆 {value.stored} / {value.capacity.entries} · 待审核 {value.pending} · 已过期 {value.expired} · 已停用 {value.disabled} · 重复建议 {value.duplicateSuggestions}</p>
     {value.consolidation.backlogCount !== undefined ? <p className="hint">待整理的记忆材料：{value.consolidation.backlogCount} 条。</p> : null}
     <p className="hint">文件上限 {Math.round(value.capacity.bytes / 1024 / 1024)} MiB，每条最多 {value.capacity.assertionsPerEntry} 份断言。达到容量会报错，不会自动裁剪或清理。</p>

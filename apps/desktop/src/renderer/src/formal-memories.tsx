@@ -5,6 +5,8 @@ import type { MemoryAssertion, MemoryTemporalView } from "@aisdk-agent/example-c
 import { createMemoryActionDraft, explicitTimestamp, memoryActionFromDraft, memoryActionLabel, memoryAvailabilityLabel, memoryKindLabel, timestampLabel } from "./memory-temporal-data.js";
 import type { MemoryActionDraft, MemoryActionMode } from "./memory-temporal-data.js";
 import { CurrentMemoryDetails, MemoryActionPreviewDetails, MemoryHistory, MemoryMaintenanceSummary, MemoryTemporalQueryResult } from "./memory-temporal.js";
+import { memoryDisabledEmptyCopy, savedMemoryEmptyCopy } from "./memory-copy.js";
+import { FailureAlert } from "./failure-notice.js";
 
 const timePlaceholder = "2026-10-04T09:00:00+08:00";
 const modeOptions: MemoryActionMode[] = ["correct", "change", "retract", "pin", "disable", "expiry", "delete"];
@@ -157,22 +159,22 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken, queryRew
     setActionOpen(true); setHistoryOpen(false);
     requestAnimationFrame(() => actionEditor.current?.scrollIntoView({ block: "nearest" }));
   }
-  if (!enabled) return <p className="hint">记忆模块未启用，不是空记忆库。</p>;
+  if (!enabled) return <p className="hint">{memoryDisabledEmptyCopy()}</p>;
   const restoreAssertion = history?.assertions.find(assertion => assertion.assertionId === draft?.targetAssertionId);
   return <section className="formal-memories">
     <p className="hint">这里只显示当前工作区和当前对话可见的正式记忆。对话范围的记忆不会自动用于其他对话。</p>
     <details className="memory-maintenance"><summary>整理与容量</summary>
       {maintenance ? <MemoryMaintenanceSummary value={maintenance} /> : <p className="hint">{maintenanceError ? "无法读取维护状态" : "读取中…"}</p>}
-      {maintenanceError ? <p className="error" role="alert">{maintenanceError}</p> : null}
+      {maintenanceError ? <FailureAlert text={maintenanceError} /> : null}
       <p className="hint">同义查询改写：{queryRewriteEnabled ? "已启用；普通对话有一次有界模型请求，失败回退词法匹配。" : "关闭；按正文和已批准检索词匹配。"}</p>
       <button className="ghost" onClick={() => void loadMaintenance()}>刷新维护状态</button>
     </details>
     <button className="ghost" onClick={() => void load(offset)}>刷新列表</button>
-    {listError ? <p className="error" role="alert">{listError}</p> : null}
-    {error ? <p className="error" role="alert">{error}</p> : null}
+    {listError ? <FailureAlert text={listError} /> : null}
+    {error ? <FailureAlert text={error} /> : null}
     {notice ? <p className="hint" role="status">{notice}</p> : null}
     {page === null && !listError ? <p className="hint">读取中…</p> : null}
-    {page?.entries.length === 0 ? <p>没有可见的正式记忆。</p> : null}
+    {page?.entries.length === 0 ? <p className="memory-empty">{savedMemoryEmptyCopy()}</p> : null}
     <div className="formal-memory-list">{page?.entries.map(entry => <button className="formal-memory-item" key={entry.id} onClick={() => void open(entry.id)} disabled={busy}>
       <span>{entry.preview || (entry.temporalState === "retracted" ? "已撤回的记忆" : "当前没有适用内容")}{entry.truncated ? "…" : ""}</span>
       <small>{entry.scope?.kind === "thread" ? "仅当前对话" : "工作区"} · {memoryAvailabilityLabel(entry)}{entry.pinned ? " · 固定" : ""}</small>
@@ -221,7 +223,7 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken, queryRew
         <div className="actions"><button className="ghost" onClick={() => { ++previewSequence.current; setPreview(null); }}>返回编辑</button><button className={preview.input.operation === "delete" ? "deny" : "allow"} disabled={!ready} onClick={() => void save()}>{preview.input.operation === "delete" ? "确认永久删除" : "确认保存"}</button></div>
       </section> : null}
       <details className="memory-history-drawer" open={historyOpen} onToggle={event => setHistoryOpen(event.currentTarget.open)}><summary>内容与管理历史</summary>
-        {historyError ? <p className="error" role="alert">{historyError}</p> : history ? <><MemoryHistory page={history} onRestore={chooseRestore} ready={ready} />
+        {historyError ? <FailureAlert text={historyError} /> : history ? <><MemoryHistory page={history} onRestore={chooseRestore} ready={ready} />
           <div className="actions">{history.nextOffset !== null ? <button className="ghost" onClick={() => void loadHistory(current.id, history.nextOffset!, detailSequence.current)}>下一页历史</button> : null}<button className="ghost" onClick={() => void loadHistory(current.id, 0, detailSequence.current)}>最新历史</button></div>
         </> : <p className="hint">{stale ? "请重新加载详情。" : "读取历史中…"}</p>}
       </details>
@@ -230,7 +232,7 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken, queryRew
         <label className="memory-label" htmlFor="memory-query-known">系统认知时间</label><input id="memory-query-known" type="text" placeholder={timePlaceholder} value={query.knownAt} disabled={stale} onChange={event => { ++querySequence.current; setQueryResult(null); setQuery(value => ({ ...value, knownAt: event.target.value })); }} />
         <label><input type="checkbox" checked={query.includeDisabled} disabled={stale} onChange={event => { ++querySequence.current; setQueryResult(null); setQuery(value => ({ ...value, includeDisabled: event.target.checked })); }} />查询时包含停用记录（不代表会注入）</label>
         <div className="actions"><button className="ghost" disabled={stale || busy} onClick={() => void queryAt()}>查询此时间视图</button></div>
-        {queryError ? <p className="error" role="alert">{queryError}</p> : null}{queryResult ? <MemoryTemporalQueryResult view={queryResult} /> : null}
+        {queryError ? <FailureAlert text={queryError} /> : null}{queryResult ? <MemoryTemporalQueryResult view={queryResult} /> : null}
       </details>
     </div> : null}
   </section>;
