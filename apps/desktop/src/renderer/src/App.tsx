@@ -58,6 +58,8 @@ import { ZCodeMessage, ZCodeMessageContent } from "./zcode/message.js";
 import { PersonalConversation as ZCodeConversation, PersonalBackToBottom as ZCodeBackToBottom } from "./personal/conversation.js";
 import { PersonalPromptEditor as ZCodePromptEditor, PersonalPromptOptions as ZCodePromptOptions } from "./personal/composer.js";
 import { TodayPanel } from "./personal/today.js";
+import { TaskReturnChip, TasksHome } from "./personal/tasks-page.js";
+import { nextComposerText, planTaskCreateHandoff, planTaskFollowUpHandoff, type TaskComposerHandoff } from "./personal/tasks-model.js";
 import { useTodayBriefFeeds } from "./personal/today-feeds.js";
 import { clearBriefContinue, planBriefContinue, readBriefContinue, writeBriefContinue, type BriefContinueTarget } from "./personal/today-continue.js";
 import { PersonaPanel } from "./personal/persona.js";
@@ -74,6 +76,7 @@ import { ErrorBanner, FailureInline } from "./failure-notice.js";
 import "./zcode/theme.css";
 import "./personal/shell.css";
 import "./personal/today.css";
+import "./personal/tasks.css";
 import "./personal/conversation.css";
 
 const OUTPUT_MAX_CHARS = 64 * 1024;
@@ -957,12 +960,24 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     if (compact) { setMobileDashboard(value => !value); return; }
     rememberSidebar(!sidebarOpen);
   };
+  const applyTaskHandoff = (handoff: TaskComposerHandoff) => {
+    if (!info || sending || switchingThread) return;
+    if (uncertainSteer) { setError("还有一条补充没核对完，草稿先不动。"); return; }
+    if (handoff.mode === "task" && handoff.taskId) {
+      workTasks.select(handoff.taskId);
+      setTaskComposerId(handoff.taskId);
+      workTasks.setInstruction(handoff.text);
+    } else {
+      setTaskComposerId(null);
+      setInput(current => nextComposerText(current, handoff));
+    }
+    if (compact) setMobileDashboard(false);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  };
   const openCreateTask = () => {
     if (!info?.workTasks || busy || sending || switchingThread) return;
-    setTaskDraft(input.trim());
-    setTaskFocused(true);
     openDetails("tasks");
-    setCreateTaskRequest(value => value + 1);
+    applyTaskHandoff(planTaskCreateHandoff());
   };
   const openMemory = (id: string | null = null) => { setMemoryFocus(current => ({ id, sequence: current.sequence + 1 })); openDetails("memory"); };
   const openTask = () => { setTaskFocused(true); openDetails("tasks"); };
@@ -981,7 +996,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     const draft = drafts.get(draftKey({ workspaceRoot: info?.workspaceRoot ?? null, directory: thread.transcriptDirectory, threadId: thread.threadId }));
     return draft?.text ? [[thread.threadId, draft.text] as const] : [];
   }));
-  const pageTitle = !detailsOpen ? conversationTitle : ({ threads: "全部对话", tasks: "工作任务", reminders: "提醒", home: "工作区", records: "执行记录", memory: "记忆", context: "上下文与压缩", pomodoro: "番茄钟", modules: "模块能力", persona: "serika" })[detailTab];
+  const pageTitle = !detailsOpen ? conversationTitle : ({ threads: "全部对话", tasks: "任务", reminders: "提醒", home: "工作区", records: "执行记录", memory: "记忆", context: "上下文与压缩", pomodoro: "番茄钟", modules: "模块能力", persona: "serika" })[detailTab];
   const pageDescription = ({ threads: "继续之前的对话，或开始一段新对话。", tasks: "把需要执行和验收的事放在这里；普通聊天不用创建任务。", reminders: "查看已经设好的提醒，以及刚刚触发的结果。", home: "查看保存的进度、订阅和当前配置。提醒列表在「提醒」。", records: "核对每次执行的工具结果，区分完成、失败和未知效果。", memory: "已保存的记忆和待审核的候选，都在这里。", context: "长对话由系统自动管理，通常不需要你操作。", pomodoro: "专注计时，直接操作，不必发消息。", modules: "决定助手可以使用哪些能力。", persona: "你的个人助手。" })[detailTab];
   const newConversation = async () => {
     if (busy || sending || threadSwitchInFlight.current || !info) return;
@@ -1074,6 +1089,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
                     <MessageContent text={live.streaming} />
                   </div> : null}
                   {layout !== "zcode" && activePrimary && !live.streaming ? <div className="working-indicator" role="status"><span /><span /><span /><small>{approval ? "等待你的确认" : "正在处理"}</small></div> : null}
+                  <TaskReturnChip enabled={!!info?.workspaceRoot} refreshSequence={automationRefresh} onContinue={title => applyTaskHandoff(planTaskFollowUpHandoff(title))} />
                   <SteerStatus records={steers} onRestore={text => {
                     setTaskComposerId(null);
                     setInput(current => current ? `${current}\n${text}` : text);
@@ -1167,11 +1183,18 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
           <button type="button" className="personal-circle" aria-label={appearance === "dark" ? "切换为浅色外观" : "切换为深色外观"} title="切换外观" onClick={onAppearance}>{appearance === "dark" ? <Sun size={16} /> : <Moon size={16} />}</button>
         </div> : null}
           <section className="inspector" hidden={!detailsOpen} aria-label={pageTitle}>
-            <div className="inspector-header"><div><h1>{pageTitle}</h1><p>{pageDescription}</p></div><button className="ghost" title="回到今天 · Escape" onClick={() => { setDetailsOpen(false); setMobileDashboard(false); }}><Icon name="close" size={16} />回到今天</button></div>
+            {detailTab === "tasks" ? null : <div className="inspector-header"><div><h1>{pageTitle}</h1><p>{pageDescription}</p></div><button className="ghost" title="回到今天 · Escape" onClick={() => { setDetailsOpen(false); setMobileDashboard(false); }}><Icon name="close" size={16} />回到今天</button></div>}
             <div className="inspector-pane" ref={inspectorScroll} onScroll={() => { if (inspectorScroll.current) inspectorPositions.current.set(inspectorKey, inspectorScroll.current.scrollTop); }}>
               {detailTab === "threads" && info ? <ThreadsPanel info={info} drafts={threadDrafts} busy={busy || switchingThread} onSelect={selectConversation} onCreate={newConversation} onChanged={() => setThreadsRefresh(value => value + 1)} /> : null}
               <div hidden={detailTab !== "tasks"}>
-                <WorkTasksPanel view={workTasks} createRequest={createTaskRequest} initialGoal={taskDraft} focused={taskFocused} onCompose={composeTask} onCreated={() => { setDetailsOpen(false); setMobileDashboard(false); setTaskFocused(true); }} onRun={runId => { openDetails("records"); void openRecord(runId).catch(() => setError("执行回执读取失败")); }} />
+                <TasksHome
+                  tasksEnabled={info?.workTasks === true} tasks={workTasks.tasks} selected={workTasks.task} loading={workTasks.loading} error={workTasks.error}
+                  busy={busy || sending || switchingThread || workTasks.acting} focused={taskFocused} workspaceReady={!!info?.workspaceRoot}
+                  refreshToken={automationRefresh} identity={`${info?.configPath ?? ""}:${info?.workspaceRoot ?? ""}`} formRequest={createTaskRequest}
+                  onSelect={workTasks.select} onCreate={applyTaskHandoff} onContinue={applyTaskHandoff} onOpenSettings={() => openDetails("home")}
+                  advancedForm={<WorkTasksPanel view={workTasks} createRequest={createTaskRequest} initialGoal={taskDraft} focused={false} onCompose={composeTask} onCreated={() => { setDetailsOpen(false); setMobileDashboard(false); setTaskFocused(true); }} onRun={runId => { openDetails("records"); void openRecord(runId).catch(() => setError("执行回执读取失败")); }} />}
+                  advancedDetail={<WorkTasksPanel view={workTasks} focused={true} onCompose={composeTask} onRun={runId => { openDetails("records"); void openRecord(runId).catch(() => setError("执行回执读取失败")); }} />}
+                />
               </div>
               <div hidden={detailTab !== "reminders"}>
                 <RemindersPanel enabled={!!info?.workspaceRoot} busy={busy} identity={`${info?.configPath ?? ""}:${info?.workspaceRoot ?? ""}`} refreshSequence={automationRefresh} onSettings={() => openDetails("home")} />

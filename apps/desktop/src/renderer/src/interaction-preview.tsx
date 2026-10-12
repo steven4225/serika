@@ -25,6 +25,14 @@ const snapshot: UiSnapshot = { state: { kind: "idle" }, canSubmit: true, canStee
   toolActivity: [], lastPrimaryResult: null, lastConsolidationResult: null, resultTextTruncated: false, shellProgress: [] };
 const changeThread = (id: string) => { threadId = id; for (const listener of [...listeners]) listener({ type: "identity-changed", info: info() }); };
 const briefMode = new URLSearchParams(location.search).get("brief");
+const taskFixture = new URLSearchParams(location.search).get("tasks") === "1";
+
+function daysAgo(days: number, hour: number, minute: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  date.setHours(hour, minute, 0, 0);
+  return date.toISOString();
+}
 
 function shanghaiAt(hour: number, minute: number): string {
   const day = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
@@ -36,7 +44,21 @@ function fixtureTask(id: string, status: WorkTask["status"], goal: string, hour:
   return { id, revision: 1, threadId: "preview-a", goal, constraints: [], acceptance: [], status, runIds: [], delivery: null, reconciliations: [], createdAt: updatedAt, updatedAt };
 }
 
+function waveTask(id: string, status: WorkTask["status"], goal: string, days: number, hour: number, minute: number): WorkTask {
+  const updatedAt = daysAgo(days, hour, minute);
+  return {
+    id, revision: 2, threadId: "thread_hidden_preview", goal, constraints: [], status, runIds: [], reconciliations: [],
+    createdAt: updatedAt, updatedAt,
+    acceptance: [{ id: "file", description: "留下今日说明", method: "automatic", verification: { kind: "artifact_exists", path: "notes/morning.md", requireReadback: true }, required: true, status: "passed", evidenceRefs: [], note: null }],
+    delivery: id === "task_hidden_wake" ? { summary: "起床啦。先喝口水，慢慢坐起来，今天的事等清醒了再想。", artifactRefs: ["notes/morning.md"], evidence: [], unresolved: [] } : null,
+  };
+}
+
 function briefTasks(): WorkTask[] {
+  if (taskFixture) return [
+    waveTask("task_hidden_wake", "awaiting_acceptance", "起床提醒", 1, 10, 53),
+    waveTask("task_hidden_research", "paused", "三线关联分析：agent-memory-map × Runloom PR #113 × pi-learn", 3, 16, 5),
+  ];
   if (briefMode === "empty" || briefMode === "degraded") return [];
   return [
     fixtureTask("fixture-review", "needs_review", "周末交付的成本说明", 8, 30),
@@ -51,6 +73,7 @@ function briefWorker(): RssWorkerResponse {
 }
 
 function briefOverview() {
+  if (taskFixture) return { tasksEnabled: true, diagnostics: { skills: [], hooks: [], recent: [] }, scheduled: [], recurring: [], truncated: false };
   const quiet = briefMode === "empty" || briefMode === "degraded";
   return {
     tasksEnabled: true,
@@ -72,6 +95,14 @@ function briefOverview() {
 }
 
 function briefInbox() {
+  if (taskFixture) return {
+    tasks: [{
+      id: "task_hidden_return", promptPreview: "起床提醒", runAt: daysAgo(0, 10, 53), status: "completed" as const,
+      finishedAt: daysAgo(0, 10, 53), resultPreview: null, error: null, acknowledgedAt: null,
+      arrangement: { kind: "reminder" as const, source: "none" as const, notification: "always" as const, declarationVersion: 1 as const },
+    }],
+    truncated: false,
+  };
   if (briefMode === "empty" || briefMode === "degraded") return { tasks: [], truncated: false };
   const rows = [
     ["备份对话框", 8, 10],
@@ -112,7 +143,13 @@ const api = {
   rssWorkerStatus: async () => briefWorker(),
   getScheduledTask: async (id: string) => ({
     ok: true as const,
-    value: {
+    value: taskFixture ? {
+      id, prompt: "起床提醒", runAt: daysAgo(0, 10, 53), status: "completed" as const,
+      createdAt: daysAgo(0, 10, 53), startedAt: daysAgo(0, 10, 53), finishedAt: daysAgo(0, 10, 53),
+      threadId: null, runId: null, resultText: "起床啦。先喝口水，慢慢坐起来。", error: null, recurringTaskId: null,
+      acknowledgedAt: null, attempts: [], retryAt: null, notification: null, pendingOutcome: null,
+      arrangement: { kind: "reminder" as const, source: "none" as const, notification: "always" as const, declarationVersion: 1 as const },
+    } : {
       id, prompt: "喝水", runAt: shanghaiAt(20, 30), status: "interrupted" as const,
       createdAt: shanghaiAt(8, 10), startedAt: null, finishedAt: shanghaiAt(8, 10),
       threadId: null, runId: null, resultText: null, error: null, recurringTaskId: null,
