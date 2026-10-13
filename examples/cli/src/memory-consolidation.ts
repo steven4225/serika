@@ -401,15 +401,21 @@ export function createMemoryConsolidation(options: {
       const automatic = options.writePolicy === "automatic" && consolidationAgents.has(run.agentId) && run.request?.mode !== "history";
       const autoAcceptIndexes: number[] = [];
       const covered = new Set<string>();
+      const intentionallyIgnored = new Set<string>();
+      const partiallyIgnored = new Set<string>();
+      const dropped = new Set<string>();
       const contradictions = run.selected.filter(turn => hasOpposingSelfStatements(turn.user.text) &&
         !containsKnownCredentials(turn.user.text) && !containsKnownOptOut(turn.user.text));
       const reviewSources = new Set(contradictions.map(turn => turn.user.id));
       for (const proposal of input.proposals) {
         const parsed = proposalDraft(proposal, run.prepared, run.selected, loaded.value, options.threadId, now());
         if (!parsed.ok) { run.invalid = true; return parsed; }
-        for (const source of parsed.value.sources ?? [parsed.value.source]) covered.add(source.messageId);
+        const sources = parsed.value.sources ?? [parsed.value.source];
         // Preserve the whole contradictory group below, even if extraction omitted a side.
-        if ((parsed.value.sources ?? [parsed.value.source]).some(source => reviewSources.has(source.messageId))) continue;
+        if (sources.some(source => reviewSources.has(source.messageId))) {
+          for (const source of sources) dropped.add(source.messageId);
+          continue;
+        }
         let eligibility = (proposal as MemoryProposal).eligibility;
         // Missing time is reviewable uncertainty, not a guessed transition or a
         // reason to poison otherwise valid source-bound proposals in this batch.
@@ -420,11 +426,22 @@ export function createMemoryConsolidation(options: {
         const sourceText = (parsed.value.sources ?? [parsed.value.source]).map(source => run.selected!.find(turn => turn.user.id === source.messageId)!.user.text).join("\n");
         let change = parsed.value.change;
         const control = change.operation === "retract" || change.operation === "disable";
-        if (eligibility === "ignore" || containsKnownCredentials(`${sourceText}\n${JSON.stringify(change)}`) || containsKnownOptOut(sourceText) && !(control && eligibility === "explicit_request")) continue;
+        const privacyExcluded = containsKnownCredentials(`${sourceText}\n${JSON.stringify(change)}`) || containsKnownOptOut(sourceText) && !(control && eligibility === "explicit_request");
         const quotes = (parsed.value.sources ?? [parsed.value.source]).map(source => source.quote).join("\n");
         const targetId = change.operation === "add" ? undefined : change.memoryId;
         const proposedKind = "kind" in change && change.kind !== undefined ? change.kind : run.prepared.memories.find(entry => entry.id === targetId)?.assertion?.kind;
-        if ((proposedKind === "event" || proposedKind === "note") && isReminderInstruction(quotes)) continue;
+        const reminderExcluded = (proposedKind === "event" || proposedKind === "note") && isReminderInstruction(quotes);
+        if (eligibility === "ignore" || privacyExcluded || reminderExcluded) {
+          // An intentional omission is not an extracted memory. A filtered
+          // excerpt alone cannot attest that the rest of a mixed source is done.
+          for (const source of sources) {
+            const wholeSource = run.selected.find(turn => turn.user.id === source.messageId)!.user.text;
+            const clauses = wholeSource.split(/[。.!！?？；;\n]|另外|此外|同时|而且/).map(clause => clause.trim()).filter(Boolean);
+            const wholeReminder = clauses.length > 0 && clauses.every(isReminderInstruction);
+            (privacyExcluded || source.quote === wholeSource && (!reminderExcluded || wholeReminder) ? intentionallyIgnored : partiallyIgnored).add(source.messageId);
+          }
+          continue;
+        }
         if (change.operation !== "retract" && change.operation !== "disable") {
           const scenario = statedScenario(sourceText);
           const bodyScenario = statedScenario(change.text);
@@ -515,8 +532,10 @@ export function createMemoryConsolidation(options: {
         drafts.push({ change: { operation: "add", text: turn.user.text, kind: "note", scope: { kind: "workspace" }, expiresAt: null },
           source: { kind: "conversation", threadId: options.threadId, messageId: turn.user.id, quote: turn.user.text },
           reason: "这段原话包含相互矛盾的偏好，整组保留待你确认；尚未写入有效记忆。" });
-        covered.add(turn.user.id);
       }
+      // Only retained drafts (including pending review) prove extraction. Parsing
+      // a proposal that was subsequently dropped must not consume its sources.
+      for (const draft of drafts) for (const source of draft.sources ?? [draft.source]) covered.add(source.messageId);
       // Compare the entire batch, including review-only observations. Neither
       // conflicting new value gets to win merely by ordering or eligibility.
       for (let index = autoAcceptIndexes.length - 1; index >= 0; index--) {
@@ -538,6 +557,12 @@ export function createMemoryConsolidation(options: {
         let outcome = raw as Record<string, unknown>;
         if (reviewSources.has(selected.user.id) && outcome.messageId === selected.user.id && ["extracted", "no_memory", "deferred"].includes(String(outcome.status))) {
           outcome = { ...outcome, status: drafts.some(draft => draft.source.messageId === selected.user.id) ? "extracted" : "deferred" };
+        } else if (outcome.messageId === selected.user.id && ["extracted", "no_memory"].includes(String(outcome.status))) {
+          if (dropped.has(selected.user.id)) outcome = { ...outcome, status: "deferred" };
+          else if (!covered.has(selected.user.id)) {
+            if (partiallyIgnored.has(selected.user.id)) outcome = { ...outcome, status: "deferred" };
+            else if (intentionallyIgnored.has(selected.user.id)) outcome = { ...outcome, status: "no_memory" };
+          }
         }
         if (Object.keys(outcome).some(key => !["messageId", "status"].includes(key)) || outcome.messageId !== selected.user.id || !["extracted", "no_memory", "deferred"].includes(String(outcome.status)) || outcome.status === "extracted" && !covered.has(selected.user.id) || outcome.status === "no_memory" && covered.has(selected.user.id)) { run.invalid = true; return fail("MEMORY_BATCH_INVALID", "Outcome must match the source and proposal coverage; deferred includes partially extracted sources"); }
         outcomes.push(outcome as unknown as ConsolidationOutcome);

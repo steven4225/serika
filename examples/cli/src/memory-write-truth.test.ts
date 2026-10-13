@@ -17,7 +17,10 @@ async function fixture(text: string, metadata?: Record<string, unknown>) {
   service.begin(AUTO_CONSOLIDATION_AGENT_ID);
   const proposal = (extra: Partial<MemoryProposal> = {}): MemoryProposal => ({ action: "add", text, kind: "preference",
     sourceMessageId: "u1", sourceQuote: text, reason: "用户陈述", eligibility: "durable_self_statement", ...extra });
-  return { store, service, proposal, async extract(proposals: MemoryProposal[], status = "extracted") {
+  return { store, service, proposal, reopen: () => createMemoryConsolidation({ store: createMemoryStore(directory), threadId: "thread",
+    getMessages: async () => messages, writePolicy: "automatic", now: () => new Date("2026-10-13T06:07:01Z") }),
+  addMessage: (id: string, value: string) => messages.push({ id, role: "user", parts: [{ type: "text", text: value }] }),
+  async extract(proposals: MemoryProposal[], status = "extracted") {
     const prepared = await service.prepare({ mode: "incremental" }); assert.ok(prepared.ok);
     const staged = await service.stage({ batchId: prepared.value.batchId, proposals, outcomes: [{ messageId: "u1", status }] });
     assert.ok(staged.ok, staged.ok ? "" : staged.error.message);
@@ -106,6 +109,108 @@ test("write truth: reminder request is not an event memory, independent preferen
     ]);
     assert.deepEqual(r.saved.map(x => x.text), ["我喜欢先给结论"]);
     assert.equal(r.pending.length, 0);
+  } finally { await f.cleanup(); }
+});
+
+test("coverage: pure reminder is intentionally no_memory and may advance the cursor", async () => {
+  const f = await fixture("三分钟后提醒我喝水");
+  try {
+    const r = await f.extract([f.proposal({ kind: "event", eligibility: "explicit_request" })]);
+    assert.equal(r.saved.length, 0); assert.equal(r.pending.length, 0);
+    const receipt = await f.store.getConsolidationReceipt!("thread"); assert.ok(receipt.ok);
+    assert.deepEqual(receipt.value?.outcomes, [{ messageId: "u1", status: "no_memory" }]);
+    const cursor = await f.store.getConsolidationCursor("thread"); assert.ok(cursor.ok);
+    assert.equal(cursor.value?.throughMessageId, "u1");
+  } finally { await f.cleanup(); }
+});
+
+test("coverage: a filtered reminder excerpt cannot consume remaining eligible source text", async () => {
+  const f = await fixture("三分钟后提醒我喝水。另外，我喜欢先给结论。");
+  try {
+    const r = await f.extract([f.proposal({ text: "三分钟后喝水", kind: "event",
+      sourceQuote: "三分钟后提醒我喝水", eligibility: "explicit_request" })]);
+    assert.equal(r.saved.length, 0); assert.equal(r.pending.length, 0);
+    const receipt = await f.store.getConsolidationReceipt!("thread"); assert.ok(receipt.ok);
+    assert.equal(receipt.value?.outcomes[0]?.status, "deferred");
+    assert.deepEqual(await f.store.getConsolidationCursor("thread"), { ok: true, value: null });
+    const reopened = f.reopen(); reopened.begin(AUTO_CONSOLIDATION_AGENT_ID);
+    const retry = await reopened.prepare({ mode: "incremental" }); assert.ok(retry.ok);
+    assert.equal(retry.value.turns.length, 1);
+    assert.ok("user" in retry.value.turns[0]!);
+    assert.equal(retry.value.turns[0].user.messageId, "u1");
+  } finally { await f.cleanup(); }
+});
+
+test("coverage: quoting a whole mixed reminder source cannot hide its independent preference", async () => {
+  const f = await fixture("三分钟后提醒我喝水。另外，我喜欢先给结论。");
+  try {
+    await f.extract([f.proposal({ kind: "event", eligibility: "explicit_request" })]);
+    const receipt = await f.store.getConsolidationReceipt!("thread"); assert.ok(receipt.ok);
+    assert.equal(receipt.value?.outcomes[0]?.status, "deferred");
+    assert.deepEqual(await f.store.getConsolidationCursor("thread"), { ok: true, value: null });
+  } finally { await f.cleanup(); }
+});
+
+test("coverage: a discarded multi-source proposal cannot advance its eligible source", async () => {
+  const f = await fixture("我喜欢先给结论");
+  try {
+    f.addMessage("u2", "我喜欢喝茶；我讨厌喝茶");
+    const prepared = await f.service.prepare({ mode: "incremental" }); assert.ok(prepared.ok);
+    const staged = await f.service.stage({ batchId: prepared.value.batchId, proposals: [f.proposal({
+      sources: [{ sourceMessageId: "u1", sourceQuote: "我喜欢先给结论" },
+        { sourceMessageId: "u2", sourceQuote: "我喜欢喝茶" }],
+    })], outcomes: [{ messageId: "u1", status: "extracted" }, { messageId: "u2", status: "extracted" }] });
+    assert.ok(staged.ok, staged.ok ? "" : staged.error.message);
+    assert.ok((await f.service.finalize({ status: "completed" })).ok);
+    const receipt = await f.store.getConsolidationReceipt!("thread"); assert.ok(receipt.ok);
+    assert.deepEqual(receipt.value?.outcomes, [{ messageId: "u1", status: "deferred" }, { messageId: "u2", status: "extracted" }]);
+    assert.deepEqual(await f.store.getConsolidationCursor("thread"), { ok: true, value: null });
+    const saved = await f.store.list(); assert.ok(saved.ok); assert.equal(saved.entries.length, 0);
+    const pending = await f.store.listCandidates({ status: "pending" }, undefined, { boundThreadId: "thread" }); assert.ok(pending.ok);
+    assert.deepEqual(pending.value.candidates.map(candidate => candidate.source.messageId), ["u2"]);
+    const reopened = f.reopen(); reopened.begin(AUTO_CONSOLIDATION_AGENT_ID);
+    const retry = await reopened.prepare({ mode: "incremental" }); assert.ok(retry.ok);
+    assert.equal(retry.value.turns.length, 2);
+    assert.ok((await reopened.stage({ batchId: retry.value.batchId, proposals: [f.proposal()],
+      outcomes: [{ messageId: "u1", status: "extracted" }, { messageId: "u2", status: "no_memory" }] })).ok);
+    assert.ok((await reopened.finalize({ status: "completed" })).ok);
+    const retriedSaved = await f.store.list(); assert.ok(retriedSaved.ok);
+    assert.deepEqual(retriedSaved.entries.map(entry => entry.text), ["我喜欢先给结论"]);
+    const cursor = await f.store.getConsolidationCursor("thread"); assert.ok(cursor.ok);
+    assert.equal(cursor.value?.throughMessageId, "u2");
+  } finally { await f.cleanup(); }
+});
+
+test("coverage: oversized contradictory source remains deferred for retry", async () => {
+  const f = await fixture(`我喜欢喝茶；我讨厌喝茶。${"补充说明".repeat(200)}`);
+  try {
+    const r = await f.extract([f.proposal({ text: "我喜欢喝茶", sourceQuote: "我喜欢喝茶" })]);
+    assert.equal(r.saved.length, 0); assert.equal(r.pending.length, 0);
+    const receipt = await f.store.getConsolidationReceipt!("thread"); assert.ok(receipt.ok);
+    assert.equal(receipt.value?.outcomes[0]?.status, "deferred");
+    assert.deepEqual(await f.store.getConsolidationCursor("thread"), { ok: true, value: null });
+    const reopened = f.reopen(); reopened.begin(AUTO_CONSOLIDATION_AGENT_ID);
+    const retry = await reopened.prepare({ mode: "incremental" }); assert.ok(retry.ok);
+    assert.equal(retry.value.turns.length, 1);
+  } finally { await f.cleanup(); }
+});
+
+for (const [name, extra] of [
+  ["invalid source", { sourceQuote: "模型编造的原话" }],
+  ["oversized proposal", { text: "偏好".repeat(500) }],
+] as const) test(`coverage: ${name} fails without committing or advancing`, async () => {
+  const f = await fixture("我喜欢先给结论");
+  try {
+    const prepared = await f.service.prepare({ mode: "incremental" }); assert.ok(prepared.ok);
+    const staged = await f.service.stage({ batchId: prepared.value.batchId, proposals: [f.proposal(extra)],
+      outcomes: [{ messageId: "u1", status: "extracted" }] });
+    assert.equal(staged.ok, false);
+    assert.equal((await f.service.finalize({ status: "completed" })).ok, false);
+    assert.deepEqual(await f.store.getConsolidationCursor("thread"), { ok: true, value: null });
+    assert.deepEqual(await f.store.getConsolidationReceipt!("thread"), { ok: true, value: null });
+    const reopened = f.reopen(); reopened.begin(AUTO_CONSOLIDATION_AGENT_ID);
+    const retry = await reopened.prepare({ mode: "incremental" }); assert.ok(retry.ok);
+    assert.equal(retry.value.turns.length, 1);
   } finally { await f.cleanup(); }
 });
 
