@@ -43,6 +43,37 @@ async function waitFor(condition: () => boolean): Promise<void> {
 }
 
 describe("Memory Phase B application integration", () => {
+  for (const sourceQuote of [undefined, "记住我刚才说的那条。"] as const) {
+    it(`current-source excerpt Demo: approved previous-message reference cannot write (${sourceQuote ?? "omitted quote"})`, async () => {
+      const setup = await fixture();
+      let nextInput: { text: string; sourceQuote?: string } | undefined;
+      const model = new MockLanguageModelV3({ doStream: async () => {
+        const input = nextInput; nextInput = undefined;
+        return { stream: simulateReadableStream({ chunks: [
+          { type: "stream-start" as const, warnings: [] },
+          ...(input ? [{ type: "tool-call" as const, toolCallId: "remember-earlier", toolName: "memory_add", input: JSON.stringify(input) }] : []),
+          { type: "finish" as const, finishReason: { unified: input ? "tool-calls" as const : "stop" as const, raw: undefined }, usage },
+        ] }) };
+      } });
+      const app = await createRuntimeApp({ ...setup, modelAlias: "mock", model, output: new PassThrough(), env: {}, cwd: setup.root });
+      const controller = createAssistantController(app);
+      try {
+        assert.ok((await controller.run("我喝咖啡不加糖。")).ok);
+        await waitFor(() => controller.getSnapshot().state.kind === "idle");
+        nextInput = { text: "我喝咖啡不加糖。", ...(sourceQuote === undefined ? {} : { sourceQuote }) };
+        assert.ok((await controller.run("记住我刚才说的那条。")).ok);
+        await waitFor(() => controller.getSnapshot().pendingApproval !== null || controller.getSnapshot().state.kind === "idle");
+        const approval = controller.getSnapshot().pendingApproval;
+        assert.ok(approval, "the normal approval boundary is unchanged");
+        assert.equal(controller.confirm({ approvalId: approval.approvalId, decision: "allow" }), true);
+        await waitFor(() => controller.getSnapshot().state.kind === "idle");
+        assert.deepEqual(await app.memoryStore!.list(), { ok: true, entries: [] }, "approval cannot invent source evidence");
+        assert.match(JSON.stringify(await controller.getHistory()), /INVALID_INPUT/);
+        assert.deepEqual(await createMemoryStore(setup.workspace).list(), { ok: true, entries: [] });
+      } finally { await controller.shutdown(); await rm(setup.root, { recursive: true, force: true }); }
+    });
+  }
+
   it("current-user source Demo: memory_add binds the real uncommitted user ID without asking the model to invent it", async () => {
     const setup = await fixture();
     const quote = "请记住，我喝咖啡不加糖。";
@@ -55,7 +86,7 @@ describe("Memory Phase B application integration", () => {
       return { stream: simulateReadableStream({ chunks: [
         { type: "stream-start" as const, warnings: [] },
         ...(requests === 1 ? [{ type: "tool-call" as const, toolCallId: "remember-current", toolName: "memory_add",
-          input: JSON.stringify({ text: "用户喝咖啡不加糖。", kind: "preference", sourceQuote: quote }) }] : []),
+          input: JSON.stringify({ text: "我喝咖啡不加糖。", kind: "preference", sourceQuote: quote }) }] : []),
         { type: "finish" as const, finishReason: { unified: requests === 1 ? "tool-calls" as const : "stop" as const, raw: undefined }, usage },
       ] }) };
     } });
@@ -207,7 +238,7 @@ describe("Memory Phase B application integration", () => {
     const app = await createRuntimeApp({ ...setup, modelAlias: "mock", model, output: new PassThrough(), env: {}, cwd: setup.root });
     const controller = createAssistantController(app);
     try {
-      assert.equal((await controller.run("Save only the named preference; exclude my conversation from later consolidation", { memoryConsolidation: "exclude" })).ok, true);
+      assert.equal((await controller.run("Save this: Explicitly approved preference; exclude my conversation from later consolidation", { memoryConsolidation: "exclude" })).ok, true);
       await waitFor(() => controller.getSnapshot().pendingApproval !== null);
       assert.deepEqual(await app.memoryStore!.list(), { ok: true, entries: [] });
       const approval = controller.getSnapshot().pendingApproval!;

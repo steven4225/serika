@@ -120,6 +120,20 @@ function toolByName(tools: RegisteredTool[], name: string): RegisteredTool {
 }
 
 describe("createMemoryModule", () => {
+  for (const sourceQuote of [undefined, "记住我刚才说的那条。", "我喝咖啡不加糖。"] as const) {
+    it(`current-source excerpt: rejects earlier facts with sourceQuote=${sourceQuote ?? "omitted"}`, async () => {
+      const { store, calls } = createStore();
+      const add = toolByName(setupTools(store, async () => [textMessage("earlier", "user", "我喝咖啡不加糖。")], {
+        threadId: "thread-a", getCurrentUserMessage: () => textMessage("current", "user", "记住我刚才说的那条。"),
+      }), "memory_add").tool;
+      const result = await add.execute!({ text: "我喝咖啡不加糖。", ...(sourceQuote === undefined ? {} : { sourceQuote }) },
+        { toolCallId: "reference-only", messages: [], context: {} });
+      assert.equal(result.ok, false, "an earlier fact must not borrow the current request as evidence");
+      assert.equal(result.error?.code, "INVALID_INPUT");
+      assert.equal(calls.length, 0);
+    });
+  }
+
   it("host-bound memory_add ignores model source IDs and validates quotes against only the current user", async () => {
     const { store, calls } = createStore();
     let current: UIMessage | undefined = textMessage("real-current", "user", "请记住，我喝咖啡不加糖。");
@@ -135,6 +149,8 @@ describe("createMemoryModule", () => {
       kind: "conversation", threadId: "thread-a", messageId: "real-current", quote: "咖啡不加糖",
     } });
     assert.equal((await add.execute!({ text: "咖啡加糖", sourceQuote: "咖啡加糖" }, context)).ok, false);
+    assert.equal((await add.execute!({ text: "咖啡加糖" }, context)).ok, false, "a current source cannot support rewritten content");
+    assert.equal((await add.execute!({ text: "咖啡不加糖", sourceQuote: "请记住" }, context)).ok, false, "the selected quote must contain the saved text");
     assert.equal(calls.length, 1, "a made-up quote must not write");
     current = textMessage("next-user", "user", "请记住，我住在北京。");
     assert.equal((await add.execute!({ text: "住在北京" }, context)).ok, true);

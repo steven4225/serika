@@ -451,7 +451,7 @@ export function createMemoryModule(
     }
     return { ok: true as const, source: { kind: "conversation" as const, threadId: options.threadId, messageId, quote } };
   };
-  const sourceFromCurrentUser = (quote?: string): Awaited<ReturnType<typeof sourceFromCommittedUser>> => {
+  const sourceFromCurrentUser = (memoryText: string, quote?: string): Awaited<ReturnType<typeof sourceFromCommittedUser>> => {
     const message = options.getCurrentUserMessage?.();
     const origin = message?.metadata && typeof message.metadata === "object" && "source" in message.metadata
       ? message.metadata.source : undefined;
@@ -462,6 +462,9 @@ export function createMemoryModule(
     const excerpt = quote ?? text;
     if (!isExactUserQuote(text, excerpt)) {
       return { ok: false, error: { code: "INVALID_INPUT", message: "记忆来源必须是当前用户消息中的原文，不能引用其他消息或编造内容。" } };
+    }
+    if (!isExactUserQuote(excerpt, memoryText)) {
+      return { ok: false, error: { code: "INVALID_INPUT", message: "text 必须摘录自当前用户消息的来源原文，不能改写或借用之前的内容。请用户在当前消息中重新说出要记住的内容。" } };
     }
     return { ok: true, source: { kind: "conversation", threadId: options.threadId, messageId: message.id, quote: excerpt } };
   };
@@ -516,7 +519,7 @@ export function createMemoryModule(
       const memoryAddTool = tool({
         description: "Save a workspace memory only after the user explicitly confirms it. " +
           (options.getCurrentUserMessage
-            ? "The host binds the current user message as the source. Do not supply or invent sourceMessageId. Optional sourceQuote must be an exact excerpt of the current user message; if omitted, the host uses its full text. "
+            ? "The host binds the current user message as the source. Do not supply or invent sourceMessageId. text must be a verbatim excerpt of that current message, not a paraphrase or a fact from earlier messages. Optional sourceQuote must be an exact excerpt containing text; if omitted, the host uses the full current message. If the user only refers to an earlier fact, ask them to restate it. "
             : "If it was proposed from conversation, supply the committed user sourceMessageId and a sourceQuote copied exactly from that message; the program verifies the quote. ") +
           "A memory is active by default. scope.kind thread means the active thread; do not supply a thread id. expiresAt is optional.",
         inputSchema: options.getCurrentUserMessage ? memoryAddFieldsSchema.omit({ sourceMessageId: true }) : memoryAddInputSchema,
@@ -528,7 +531,7 @@ export function createMemoryModule(
           throwIfAborted(signal);
           const bound = bindScope(scope, options.threadId);
           if (!bound.ok) return bound;
-          const provenance = options.getCurrentUserMessage ? sourceFromCurrentUser(sourceQuote) : sourceMessageId === undefined || sourceQuote === undefined
+          const provenance = options.getCurrentUserMessage ? sourceFromCurrentUser(text, sourceQuote) : sourceMessageId === undefined || sourceQuote === undefined
             ? undefined
             : await sourceFromCommittedUser(sourceMessageId, sourceQuote, signal);
           if (provenance !== undefined && !provenance.ok) return provenance;

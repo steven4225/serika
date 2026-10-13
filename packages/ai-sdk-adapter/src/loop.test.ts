@@ -1678,7 +1678,7 @@ describe("AiSdkAgentLoop", () => {
     assert.equal(modelCall, 2);
     assert.equal(outcome.steps, 2);
     assert.match(JSON.stringify(outcome.messages), /TOOL_INVALID_INPUT/);
-    assert.match(JSON.stringify(outcome.messages), /Required fields \(case-sensitive\): value/);
+    assert.match(JSON.stringify(outcome.messages), /value: invalid type/);
     assert.match(JSON.stringify(outcome.messages), /No tool was executed/);
     assert.ok(
       events.some(
@@ -1697,7 +1697,7 @@ describe("AiSdkAgentLoop", () => {
       doStream: async (params) => {
         modelCall += 1;
         if (modelCall === 2) {
-          assert.match(JSON.stringify(params.prompt), /Required fields \(case-sensitive\): value/);
+          assert.match(JSON.stringify(params.prompt), /value: required/);
         }
         if (modelCall === 3) return textResponse("4");
         return { stream: simulateReadableStream({ chunks: [
@@ -1735,6 +1735,59 @@ describe("AiSdkAgentLoop", () => {
     assert.ok(events.some((event) => event.type === "tool.call.failed" && event.data.toolCallId === "invalid"));
     assert.equal(events.filter((event) => event.type === "tool.call.started").length, 1);
   });
+
+  for (const scenario of [
+    { name: "wrong kind with text present", input: '{"text":"PRIVATE_TEXT","kind":"PRIVATE_VALUE"}', expected: /kind: invalid value/, validateCount: 0 },
+    { name: "wrong sourceQuote type", input: '{"text":"PRIVATE_TEXT","sourceQuote":42}', expected: /sourceQuote: invalid type/, validateCount: 0 },
+    { name: "missing text", input: '{"kind":"preference"}', expected: /text: required/, validateCount: 0 },
+    { name: "root field combination", input: '{"text":"PRIVATE_TEXT","sourceQuote":"PRIVATE_QUOTE"}', expected: /Field combination or object constraints failed/, validateCount: 1 },
+    { name: "malformed JSON", input: '{"text":"PRIVATE_TEXT",', expected: /Invalid JSON arguments/, validateCount: 0 },
+    { name: "untrusted field name", input: '{"text":"PRIVATE_TEXT","PRIVATE_FIELD":"PRIVATE_VALUE"}', expected: /Field combination or object constraints failed/, validateCount: 0 },
+  ]) {
+    it(`invalid-input diagnostic: ${scenario.name} without leaking input or revalidating`, async () => {
+      let modelCalls = 0;
+      let validations = 0;
+      let executions = 0;
+      let approvals = 0;
+      const events: AgentEvent[] = [];
+      const model = new MockLanguageModelV3({ doStream: async () => {
+        if (++modelCalls > 1) return textResponse("Please correct the arguments.");
+        return { stream: simulateReadableStream({ chunks: [
+          { type: "stream-start" as const, warnings: [] },
+          { type: "tool-call" as const, toolCallId: "invalid", toolName: "remember", input: scenario.input },
+          { type: "finish" as const, finishReason: { unified: "tool-calls" as const, raw: undefined }, usage },
+        ] }) };
+      } });
+      const inputSchema = z.object({ text: z.string(), kind: z.enum(["preference", "fact"]).optional(),
+        sourceQuote: z.string().optional(), sourceMessageId: z.string().optional() }).strict().superRefine(async (value, ctx) => {
+        validations++;
+        if ((value.sourceQuote === undefined) !== (value.sourceMessageId === undefined)) {
+          ctx.addIssue({ code: "custom", message: `PRIVATE_VALIDATION_MESSAGE ${value.text}` });
+        }
+      });
+      await new AiSdkAgentLoop({
+        models: new InMemoryModelRegistry({ test: model }),
+        tools: new ToolRegistry([{
+          metadata: { name: "remember", version: "1", risk: "write", timeoutMs: 1_000, idempotent: false },
+          tool: tool({ inputSchema, execute: () => { executions++; return { ok: true }; } }),
+        }]),
+      }).execute({
+        definition: { ...definition, tools: ["remember"] }, messages: [userMessage()],
+        signal: new AbortController().signal, generateId: () => `message-${modelCalls}`,
+        beforeToolExecute: () => { approvals++; return { allow: true }; }, emit: createEmit(events),
+      });
+      const failure = events.find(event => event.type === "tool.call.failed");
+      assert.ok(failure?.type === "tool.call.failed");
+      assert.equal(failure.data.error.code, "TOOL_INVALID_INPUT");
+      assert.match(failure.data.error.message, scenario.expected);
+      assert.match(failure.data.error.message, /No tool was executed/);
+      assert.doesNotMatch(JSON.stringify(failure), /PRIVATE_|Required fields/);
+      assert.equal(executions, 0);
+      assert.equal(approvals, 0);
+      assert.equal(validations, scenario.validateCount, "diagnostics must reuse the SDK validation result");
+      assert.equal(modelCalls, 2);
+    });
+  }
 
   it("feeds a tool execution error back to the model and continues", async () => {
     let modelCall = 0;
