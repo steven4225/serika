@@ -13,8 +13,17 @@ export async function changeContextMode(configPath: string, input: ContextModeIn
   const result = await updateDesktopConfig(configPath, cwd, async (before, path) => {
     const current = await resolveTuiModuleConfig({ configPath: path }, { cwd });
     if (!isDeepStrictEqual(current.contextCompaction, input.expectedBudget)) throw new Error("上下文配置已变化，请刷新后再选择模式");
+    // A usage preset is not evidence that the selected model has a 1M window.
+    // Preserve the operator's physical capacity/reserves and fail before writing
+    // if the requested 256K/400K input ceiling does not fit.
+    const budget = { ...contextBudgetForMode(input.mode), enabled: current.contextCompaction.enabled,
+      contextWindowTokens: current.contextCompaction.contextWindowTokens,
+      maxOutputTokens: current.contextCompaction.maxOutputTokens,
+      safetyMarginTokens: current.contextCompaction.safetyMarginTokens };
+    const validation = validateContextBudgetConfig(budget);
+    if (!validation.ok) throw new Error(`当前配置的模型窗口装不下这个档位，请先核对模型容量并设置匹配的预算；原配置未改变。${validation.errors.join("; ")}`);
     const config = JSON.parse(before!);
-    return JSON.stringify({ ...config, contextCompaction: { ...contextBudgetForMode(input.mode), enabled: current.contextCompaction.enabled } }, null, 2) + "\n";
+    return JSON.stringify({ ...config, contextCompaction: budget }, null, 2) + "\n";
   });
   return result.rollback ?? (async () => {});
 }

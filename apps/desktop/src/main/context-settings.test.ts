@@ -13,7 +13,7 @@ import type { MainToRenderer } from "../shared/ui-contract.js";
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "serika-context-mode-"));
   const workspace = join(root, "workspace"), configPath = join(root, "config.json"); await mkdir(workspace);
-  const budget = { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled: true };
+  const budget = { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled: true, contextWindowTokens: 1_000_000, safetyMarginTokens: 32_768 };
   await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: false } }, contextCompaction: budget }));
   let calls = 0; const events: MainToRenderer[] = [];
   const options = { userData: join(root, "profile"), cwd: root, env: { RUNLOOM_CONFIG: configPath }, modelAlias: "mock", send: (event: MainToRenderer) => { events.push(event); },
@@ -89,5 +89,28 @@ it("explicit mode selection preserves disabled compaction and rejects renderer a
     const undo = await changeContextMode(f.configPath, { mode: "daily", expectedBudget }, f.root);
     assert.deepEqual(JSON.parse(await readFile(f.configPath, "utf8")).contextCompaction, { ...contextBudgetForMode("daily"), enabled: false });
     await undo(); assert.equal(await readFile(f.configPath, "utf8"), before);
+  } finally { await f.cleanup(); }
+});
+
+it("mode selection never enlarges the configured physical model window or its output reserve", async () => {
+  const f = await fixture();
+  try {
+    for (const mode of ["daily", "long-task"] as const) {
+      const budget = { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled: true, contextWindowTokens: 128_000 };
+      const raw = JSON.parse(await readFile(f.configPath, "utf8")); raw.contextCompaction = budget;
+      await writeFile(f.configPath, JSON.stringify(raw));
+      const before = await readFile(f.configPath, "utf8");
+      await assert.rejects(changeContextMode(f.configPath, { mode, expectedBudget: budget }, f.root), /模型窗口|model window/);
+      assert.equal(await readFile(f.configPath, "utf8"), before, "insufficient capacity must not save an invented 1M window");
+    }
+    const budget = { ...f.budget, contextWindowTokens: 512_000, maxOutputTokens: 8192, safetyMarginTokens: 16_384 };
+    const raw = JSON.parse(await readFile(f.configPath, "utf8")); raw.contextCompaction = budget;
+    await writeFile(f.configPath, JSON.stringify(raw));
+    await changeContextMode(f.configPath, { mode: "long-task", expectedBudget: budget }, f.root);
+    const saved = JSON.parse(await readFile(f.configPath, "utf8")).contextCompaction;
+    assert.equal(saved.contextWindowTokens, 512_000);
+    assert.equal(saved.maxOutputTokens, 8192);
+    assert.equal(saved.safetyMarginTokens, 16_384);
+    assert.equal(saved.inputBudgetTokens, 400_000);
   } finally { await f.cleanup(); }
 });

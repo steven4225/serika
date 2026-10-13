@@ -13,7 +13,7 @@ import { acquireFlock } from "./flock.js";
 import { abortReason, throwIfAborted, validateWorkspacePath } from "./workspace-path.js";
 import { candidateFingerprint, MEMORY_PENDING_CANDIDATES_MAX, MEMORY_TERMINAL_CANDIDATES_MAX, MEMORY_BATCH_CANDIDATES_MAX, MEMORY_CURSORS_MAX } from "./memory-candidates.js";
 import type { CandidateBatchInput, CandidateBatchResult, CandidateDraft, CandidateListInput, CandidatePage, CandidatePreview, CandidateResolution, CandidateResolveInput, ConsolidationCursor, ConsolidationReceipt, MemoryCandidate, MemoryResult } from "./memory-candidates.js";
-import { MEMORY_ASSERTIONS_MAX, TemporalMemoryError, assertTemporalIntegrity, createAssertion, reviseAssertions, selectTemporalAssertions, validateAssertion, validateTemporalTimestamp, validateRecallTerms, validateValidTime } from "./memory-temporal.js";
+import { MEMORY_ASSERTIONS_MAX, TemporalMemoryError, assertTemporalIntegrity, createAssertion, overlaps, reviseAssertions, selectTemporalAssertions, validateAssertion, validateTemporalTimestamp, validateRecallTerms, validateValidTime } from "./memory-temporal.js";
 import type { MemoryAssertion, MemoryKind, MemoryValidTime } from "./memory-temporal.js";
 import { sameFact, sameFactSlot, validateFactIdentity, type MemoryFactIdentity } from "./memory-fact-identity.js";
 export type { MemoryAssertion, MemoryKind, MemoryValidTime } from "./memory-temporal.js";
@@ -785,27 +785,39 @@ function applyCandidateRevision(record: MemoryRecord, candidate: MemoryCandidate
   finishRecordRevision(record, revised.displayAssertionId, now);
 }
 
+/** Check all currently known intervals, including future facts, not just today's projection. */
+function factSlotConflict(proposed: MemoryRecord, entries: readonly MemoryRecord[], now: Date): boolean {
+  if (proposed.status !== "active" || isMemoryEntryExpired(proposed, now)) return false;
+  return entries.some(record => record.id !== proposed.id && record.status === "active" && !isMemoryEntryExpired(record, now) &&
+    JSON.stringify(record.scope) === JSON.stringify(proposed.scope) && record.assertions.some(other =>
+      other.state === "asserted" && other.systemTime.to === null && proposed.assertions.some(assertion =>
+        assertion.state === "asserted" && assertion.systemTime.to === null &&
+        sameFactSlot(assertion.factIdentity, other.factIdentity) && overlaps(assertion.validTime, other.validTime))));
+}
+
+/** Preview only; used under the same lock for automatic classification and actual acceptance. */
+function candidateRecord(document: MemoryDocument, candidate: MemoryCandidate, now: Date, effectiveAt?: "now"): MemoryRecord {
+  const change = candidate.change;
+  if (change.operation === "add") return newRecord(change, now.toISOString(), structuredClone(candidate.sources ?? [candidate.source]));
+  const record = structuredClone(document.entries.find(entry => entry.id === change.memoryId)!);
+  const resolved = change.operation === "change" && change.effectiveAt === null && effectiveAt === "now"
+    ? { ...candidate, change: { ...change, effectiveAt: now.toISOString() } } : candidate;
+  applyCandidateRevision(record, resolved, now.toISOString());
+  return record;
+}
+
 /** Caller owns the document lock and has rechecked applicability; no separate write. */
 function acceptCandidate(document: MemoryDocument, candidate: MemoryCandidate, now: Date, effectiveAt?: "now"): void {
   const change = candidate.change;
+  const entry = candidateRecord(document, candidate, now, effectiveAt);
+  if (factSlotConflict(entry, document.entries, now)) raise("MEMORY_REVISION_CONFLICT", "同一偏好的有效时间与另一条记忆重叠，请先审核或撤回冲突记忆；没有覆盖原记忆。");
   if (change.operation === "add") {
-    if (change.factIdentity && document.entries.some(record => {
-      const current = projectRecord(record, now);
-      return current.enabled && JSON.stringify(record.scope) === JSON.stringify(change.scope) && sameFactSlot(current.assertion?.factIdentity, change.factIdentity);
-    })) raise("MEMORY_REVISION_CONFLICT", "An identified fact already occupies this attribute/scenario; review a revision, not a second add");
     if (document.entries.length >= MEMORY_MAX_ENTRIES) raise("MEMORY_LIMIT_EXCEEDED", "Memory entry limit exceeded");
-    const entry = newRecord({ text: change.text, scope: structuredClone(change.scope), expiresAt: change.expiresAt,
-      ...(change.factIdentity === undefined ? {} : { factIdentity: change.factIdentity }),
-      ...(change.kind === undefined ? {} : { kind: change.kind }), ...(change.recallTerms === undefined ? {} : { recallTerms: change.recallTerms }), ...(change.validTime === undefined ? {} : { validTime: change.validTime }),
-    }, now.toISOString(), structuredClone(candidate.sources ?? [candidate.source]));
     document.entries.push(entry); candidate.appliedResult = { memoryId: entry.id, revision: 1 };
   } else {
-    const entry = document.entries.find((entry) => entry.id === change.memoryId)!;
     // Keep the immutable proposal/fingerprint; the actual chosen effective
     // timestamp is persisted in the formal assertion with its receipt.
-    const resolved = change.operation === "change" && change.effectiveAt === null && effectiveAt === "now"
-      ? { ...candidate, change: { ...change, effectiveAt: now.toISOString() } } : candidate;
-    applyCandidateRevision(entry, resolved, now.toISOString());
+    document.entries[document.entries.findIndex(record => record.id === entry.id)] = entry;
     candidate.appliedResult = { memoryId: entry.id, revision: entry.revision };
     for (const other of document.candidates) if (other.id !== candidate.id && other.status === "pending" && other.change.operation !== "add" && other.change.memoryId === entry.id) staleCandidate(other, "target_changed", now.toISOString());
   }
@@ -1138,14 +1150,12 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
       let reason: string | null = candidate.status !== "pending" ? candidate.status : staleReasonFor(candidate, document, now);
       let proposedAssertion: MemoryAssertion | undefined;
       const undatedChange = change.operation === "change" && change.effectiveAt === null;
-      if (reason === null && record !== undefined) {
+      if (reason === null) {
         try {
-          const proposedRecord = structuredClone(record);
           // Check the from-now choice on a copy only, including identity/kind
           // invariants. No inferred date is stored in the pending proposal.
-          const previewCandidate = change.operation === "change" && undatedChange
-            ? { ...candidate, change: { ...change, effectiveAt: now.toISOString() } } : candidate;
-          applyCandidateRevision(proposedRecord, previewCandidate, now.toISOString());
+          const proposedRecord = candidateRecord(document, candidate, now, undatedChange ? "now" : undefined);
+          if (factSlotConflict(proposedRecord, document.entries, now)) reason = "MEMORY_REVISION_CONFLICT";
           proposedAssertion = proposedRecord.assertions.find(assertion => assertion.assertionId === proposedRecord.versions.at(-1)!.assertionId);
         } catch (error) {
           if (!(error instanceof TemporalMemoryError) && !(error instanceof MemoryStoreError)) throw error;
@@ -1240,7 +1250,20 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
             toAccept.push(candidate);
           }
         }
+        // Classify the whole prospective set before accepting any member. Do not
+        // choose the first of two conflicting new facts or roll back unrelated facts.
+        const proposed = new Map<MemoryCandidate, MemoryRecord>();
         for (const candidate of toAccept) {
+          try { proposed.set(candidate, candidateRecord(document, candidate, now)); }
+          catch (error) {
+            // Capacity is not bad source data. Keep the evidence as a pending
+            // review while saving unrelated facts; never prune temporal history.
+            if (!(error instanceof TemporalMemoryError || error instanceof MemoryStoreError) || error.code !== "MEMORY_HISTORY_FULL") throw error;
+          }
+        }
+        const conflicts = new Set([...proposed].filter(([, record]) => factSlotConflict(record, [...document.entries, ...proposed.values()], now)).map(([candidate]) => candidate));
+        for (const candidate of toAccept) {
+          if (!proposed.has(candidate) || conflicts.has(candidate)) continue;
           const reason = staleReasonFor(candidate, document, now);
           if (reason !== null) raise("MEMORY_CANDIDATE_STALE", `Automatic target unavailable: ${reason}`);
           acceptCandidate(document, candidate, now);

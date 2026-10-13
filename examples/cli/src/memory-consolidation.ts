@@ -9,7 +9,7 @@ import {
 import { candidateFingerprint, type CandidateBatchResult, type CandidateDraft, type ConsolidationCursor, type ConsolidationOutcome, type MemoryResult } from "./memory-candidates.js";
 import type { MemoryConsolidationEntry, MemoryEntry, WorkspaceMemoryStore } from "./memory-store.js";
 import { rankMemoryEntriesForQuery } from "./memory-retrieval.js";
-import { validateRecallTerms, validateTemporalTimestamp, validateValidTime, type MemoryKind, type MemoryValidTime } from "./memory-temporal.js";
+import { overlaps, validateRecallTerms, validateTemporalTimestamp, validateValidTime, type MemoryKind, type MemoryValidTime } from "./memory-temporal.js";
 import { sameFact, sameFactSlot, validateFactIdentity, type MemoryFactIdentity } from "./memory-fact-identity.js";
 
 export const CONSOLIDATION_MATERIAL_MAX_BYTES = 64 * 1024;
@@ -419,7 +419,8 @@ export function createMemoryConsolidation(options: {
           const proposed = change;
           const matches = run.prepared.memories.filter(entry => activeTarget(entry, now()) && entry.enabled &&
             JSON.stringify(entry.scope ?? { kind: "workspace" }) === JSON.stringify(proposed.scope) &&
-            sameFactSlot(entry.assertion?.factIdentity, proposed.factIdentity));
+            sameFactSlot(entry.assertion?.factIdentity, proposed.factIdentity) &&
+            overlaps(entry.assertion!.validTime, proposed.validTime ?? { from: null, to: null }));
           if (matches.length === 1) {
             const target = matches[0]!;
             const identical = sameFact(target.assertion?.factIdentity, proposed.factIdentity) &&
@@ -461,6 +462,18 @@ export function createMemoryConsolidation(options: {
         const supportedKind = control ? eligibility === "explicit_request" : kind === "preference" || kind === "fact" || eligibility === "explicit_request";
         if (automatic && supportedKind && !requiresKnownReview(sourceText) && (eligibility === "durable_self_statement" || eligibility === "explicit_request")) autoAcceptIndexes.push(drafts.length);
         drafts.push(parsed.value);
+      }
+      // Compare the entire batch, including review-only observations. Neither
+      // conflicting new value gets to win merely by ordering or eligibility.
+      for (let index = autoAcceptIndexes.length - 1; index >= 0; index--) {
+        const position = autoAcceptIndexes[index]!;
+        const change = drafts[position]!.change;
+        if (change.operation === "add" && drafts.some((draft, otherIndex) => {
+          const other = draft.change;
+          return otherIndex !== position && other.operation === "add" &&
+            JSON.stringify(other.scope) === JSON.stringify(change.scope) && sameFactSlot(other.factIdentity, change.factIdentity) &&
+            overlaps(other.validTime ?? { from: null, to: null }, change.validTime ?? { from: null, to: null });
+        })) autoAcceptIndexes.splice(index, 1);
       }
       const outcomes: ConsolidationOutcome[] = [];
       if (input.outcomes !== undefined && (!Array.isArray(input.outcomes) || input.outcomes.length !== run.selected.length)) { run.invalid = true; return fail("MEMORY_BATCH_INVALID", "Every prepared source requires exactly one ordered outcome"); }
