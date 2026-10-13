@@ -958,7 +958,8 @@ describe("runTui", () => {
     assert.equal(loadedThreadId, "thread-1");
     assert.equal(runtime.requests.length, 1);
     assert.equal(runtime.requests[0]?.messages.length, 1);
-    assert.deepEqual(runtime.requests[0]?.messages[0], message("new-user-id", "user", "new prompt"));
+    assert.deepEqual(runtime.requests[0]?.messages[0], { ...message("new-user-id", "user", "new prompt"), metadata: runtime.requests[0]?.messages[0]?.metadata });
+    assert.equal(typeof (runtime.requests[0]?.messages[0]?.metadata as Record<string, unknown>).sentAt, "string");
     assert.match(output.text(), /old user message/);
     assert.match(output.text(), /old assistant answer/);
     assert.match(output.text(), /\[tool add\] \{"value":42\}/);
@@ -2423,7 +2424,7 @@ describe("runTui", () => {
     assert.equal(runtime.requests[0]?.messages.length, 1);
     assert.deepEqual(
       runtime.requests[0]?.messages[0],
-      message("new-user-id", "user", "next user message"),
+      { ...message("new-user-id", "user", "next user message"), metadata: runtime.requests[0]?.messages[0]?.metadata },
     );
     input.end();
     await tui;

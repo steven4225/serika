@@ -2,12 +2,12 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdir, open, readFile, rename, stat, unlink } from "node:fs/promises";
 import { isAbsolute, join, resolve } from "node:path";
 import type { ConversationDraftScope, ConversationDraft, ConversationDraftState, UncertainSteer } from "../shared/conversation-drafts.js";
-import { emptyTaskDrafts, type TaskCreationDraft, type TaskDrafts, type TaskDraftUpdate } from "../shared/conversation-drafts.js";
+import { emptyTaskDrafts, MAX_CONVERSATION_DRAFT_BYTES, type TaskCreationDraft, type TaskDrafts, type TaskDraftUpdate } from "../shared/conversation-drafts.js";
 export type { ConversationDraftScope, ConversationDraft, ConversationDraftState, UncertainSteer } from "../shared/conversation-drafts.js";
 interface StoredConversation extends ConversationDraftState { scope: ConversationDraftScope }
 interface DraftRegistry { version: 1; conversations: Record<string, StoredConversation> }
 
-const MAX_DRAFT_BYTES = 64 * 1024;
+const MAX_DRAFT_BYTES = MAX_CONVERSATION_DRAFT_BYTES;
 const MAX_STEER_BYTES = 4 * 1024;
 const MAX_FILE_BYTES = 2 * 1024 * 1024;
 const MAX_CONVERSATIONS = 100;
@@ -71,6 +71,7 @@ export class ConversationDraftStore {
   }
 
   async saveDraft(scope: ConversationDraftScope, draft: ConversationDraft): Promise<void> {
+    if (typeof draft?.text === "string" && Buffer.byteLength(draft.text) > MAX_DRAFT_BYTES) throw new Error("内容太长，请分段。已有草稿未被覆盖。");
     if (!validDraft(draft)) throw new Error("Invalid conversation draft or draft exceeds 64 KiB");
     const captured = { text: draft.text, excludeFromMemory: draft.excludeFromMemory };
     await this.#update(scope, state => { state.draft = captured; });

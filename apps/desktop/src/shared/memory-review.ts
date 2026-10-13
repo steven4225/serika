@@ -156,13 +156,14 @@ export function receiptDetail(value: CandidateResolution): string | null {
 export function reviewErrorText(error: { code: string; message: string }, controllerIdle: boolean): string {
   if (error.code === "MEMORY_DISABLED") return "记忆还没开启。";
   if (error.code === "MEMORY_CANDIDATE_NOT_FOUND") return "这条内容已经不在当前对话里。";
-  if (error.code === "MEMORY_CANDIDATE_STALE") return `${error.code}: ${error.message}`;
+  if (error.code === "MEMORY_CANDIDATE_STALE" || error.code === "MEMORY_REVISION_CONFLICT") return "记忆已经变化，请刷新后重新确认；这次没有覆盖原内容。";
+  if (error.code === "MEMORY_TEMPORAL_CONFLICT") return "同一场景已有不同的有效记忆，请先确认要保留哪一条；原记忆没有被覆盖。";
   if (error.code === "MEMORY_CANDIDATE_CONFLICT") {
     if (!controllerIdle || /idle|closed/i.test(error.message)) return "当前忙，空闲后再试";
     if (/revision|already/i.test(error.message)) return "候选已变化，请重新核对后再审核";
-    return error.message;
+    return "这条记忆与当前内容有冲突，请刷新并重新确认；尚未保存。";
   }
-  return `${error.code}: ${error.message}`;
+  return "这次没有完成记忆操作，请刷新后核对当前内容再试。";
 }
 
 export function listErrorText(error: { code: string; message: string }): string {

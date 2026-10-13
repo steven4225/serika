@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { userMessageClock } from "./memory-observation-policy.js";
 import type { UIMessage } from "ai";
 import type { AgentEvent, RunHandle, RunResult } from "@aisdk-agent/core";
 import { automaticConsolidationSkip, waitForConsolidationHandoff } from "./consolidation-lifecycle.js";
@@ -505,10 +506,10 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
           }
           if (finalized.value.candidateIds.length > 0 && !finalized.value.replayed) {
             emit({ type: "memory-updated", reason: "proposals" });
-            if (pendingIds.length > 0) controller.recordOutput(`\nMemory candidates saved for review: ${pendingIds.join(", ")}\n`);
+            if (pendingIds.length > 0) controller.recordOutput(`\n有 ${pendingIds.length} 项记忆需要你确认；原记忆没有被覆盖。请在记忆页查看。\n`);
             for (const receipt of accepted) {
               const label = receipt.operation === "retract" ? "已撤回" : receipt.operation === "disable" ? "已停用" : receipt.operation === "add" ? "已保存" : "已更新";
-              controller.recordOutput(`\n[memory] ${label}：${receipt.memoryId} · revision ${receipt.revision}（可在记忆中查看来源与历史）\n`);
+              controller.recordOutput(`\n记忆${label}，可在记忆页查看或撤回。\n`);
             }
           }
         }
@@ -1443,7 +1444,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       const started = new Promise<StartRunResponse>((resolve) => { resolveStarted = resolve; });
       const userMessage: UIMessage = {
         id: randomUUID(), role: "user", parts: [{ type: "text", text: text.trim() }],
-        ...(excludeFromConsolidation ? { metadata: { memoryConsolidation: "exclude" } } : {}),
+        metadata: { ...userMessageClock(), ...(excludeFromConsolidation ? { memoryConsolidation: "exclude" } : {}) },
       };
       activeWorkTask = nextWorkTask;
       nextWorkTask = undefined;

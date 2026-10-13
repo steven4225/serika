@@ -51,7 +51,7 @@ const memorySourceSchema = z.discriminatedUnion("kind", [
 ]);
 const validTimeSchema = z.object({ from: z.string().nullable(), to: z.string().nullable(), basis: z.enum(["explicit", "reported", "unknown"]) }).strict();
 const memoryKindSchema = z.enum(["preference", "fact", "event", "note"]);
-const factIdentitySchema = z.object({ attribute: z.enum(["response_language", "review_format", "coffee", "residence"]), scenario: z.enum(["general", "work", "personal"]), value: z.string().min(1).refine(value => Buffer.byteLength(value) <= 96) }).strict();
+const factIdentitySchema = z.object({ attribute: z.enum(["response_language", "review_format", "coffee", "residence"]), scenario: z.string().min(1).refine(value => Buffer.byteLength(value) <= 96), value: z.string().min(1).refine(value => Buffer.byteLength(value) <= 96) }).strict();
 const factFields = { kind: memoryKindSchema.optional(), recallTerms: z.array(z.string().min(1).refine(value => Buffer.byteLength(value) <= 96)).max(3).optional(), validTime: validTimeSchema.optional() };
 const changeFactFields = { kind: factFields.kind, recallTerms: factFields.recallTerms };
 const sourceIdentifierSchema = z.discriminatedUnion("kind", [

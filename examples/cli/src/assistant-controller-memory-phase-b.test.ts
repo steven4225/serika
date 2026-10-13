@@ -67,15 +67,17 @@ describe("AssistantController memory consolidation controls", () => {
       assert.equal(requests.length, 1);
       assert.equal(readinessChecks, 0);
       assert.deepEqual(requests[0]?.messages[0], {
-        id: requests[0]?.messages[0]?.id, role: "user", metadata: { memoryConsolidation: "exclude" },
+        id: requests[0]?.messages[0]?.id, role: "user", metadata: requests[0]?.messages[0]?.metadata,
         parts: [{ type: "text", text: "Sensitive ordinary conversation" }],
       });
+      assert.equal((requests[0]?.messages[0]?.metadata as Record<string, unknown>).memoryConsolidation, "exclude");
+      assert.equal(typeof (requests[0]?.messages[0]?.metadata as Record<string, unknown>).sentAt, "string");
       assert.equal(controller.getSnapshot().lastConsolidationResult, null);
 
       assert.equal((await controller.run("Ordinary next conversation")).ok, true);
       await idle(controller);
       assert.deepEqual(requests.map((request) => request.agentId), [PRIMARY_AGENT_ID, PRIMARY_AGENT_ID, "memory-consolidator"]);
-      assert.equal(requests[1]?.messages[0]?.metadata, undefined, "exclusion is not remembered for the next Run");
+      assert.equal((requests[1]?.messages[0]?.metadata as Record<string, unknown>).memoryConsolidation, undefined, "exclusion is not remembered for the next Run");
       assert.equal(readinessChecks, 1);
       assert.equal(controller.getSnapshot().lastConsolidationResult?.runId, "run-3");
     } finally { await controller.shutdown(); }

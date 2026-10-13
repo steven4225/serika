@@ -39,6 +39,8 @@ export interface ConsolidationMessage {
   id: string;
   role: "user" | "assistant";
   text: string;
+  sentAt?: string | null;
+  timeZone?: string | null;
 }
 
 export interface ConsolidationTurn {
@@ -57,6 +59,8 @@ export interface IncrementalConsolidationTurn {
   user: {
     messageId: string;
     text: string;
+    sentAt?: string | null;
+    timeZone?: string | null;
   };
   assistant: Array<{
     messageId: string;

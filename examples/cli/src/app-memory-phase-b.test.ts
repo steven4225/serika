@@ -302,7 +302,7 @@ describe("Memory Phase B application integration", () => {
       const memories = await app.memoryStore!.list();
       assert.equal(memories.ok && memories.entries.length, 1);
       const user = (await controller.getHistory()).find((message) => message.role === "user");
-      assert.deepEqual(user?.metadata, { memoryConsolidation: "exclude" });
+      assert.equal((user?.metadata as Record<string, unknown>).memoryConsolidation, "exclude");
     } finally { await controller.shutdown(); await rm(setup.root, { recursive: true, force: true }); }
   });
 

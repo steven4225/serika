@@ -449,7 +449,8 @@ describe("AssistantController", () => {
       controller = await open();
       const history = await controller.getHistory();
       const instruction = history.find(message => message.role === "user");
-      assert.deepEqual(instruction?.metadata, { memoryConsolidation: "exclude" });
+      assert.equal((instruction?.metadata as Record<string, unknown>).memoryConsolidation, "exclude");
+      assert.equal(typeof (instruction?.metadata as Record<string, unknown>).sentAt, "string");
       assert.equal((await controller.listRuns()).length, 1, "no automatic consolidation Run for task instruction");
       assert.ok((await controller.run("我的长期写作偏好是先结论后步骤", { memoryConsolidation: "exclude" })).ok);
       await waitFor(() => controller.getSnapshot().state.kind === "idle");
@@ -458,7 +459,7 @@ describe("AssistantController", () => {
       await waitFor(() => controller.getSnapshot().state.kind === "idle");
       const latest = (await controller.getHistory()).find(message => message.role === "user"
         && message.parts.some(part => part.type === "text" && part.text === "Ordinary chat stays eligible"));
-      assert.equal(latest?.metadata, undefined);
+      assert.equal((latest?.metadata as Record<string, unknown>).memoryConsolidation, undefined);
       assert.ok((await controller.listRuns()).some(run => run.phase === "consolidation"));
     } finally { await controller.shutdown(); await rm(root, { recursive: true, force: true }); }
   });
@@ -576,7 +577,7 @@ describe("AssistantController", () => {
         run: async (request: { agentId: string; messages: Array<{ metadata?: unknown }> }) => {
           requestedAgents.push(request.agentId);
           assert.equal(request.agentId, PRIMARY_AGENT_ID);
-          assert.deepEqual(request.messages[0]?.metadata, { memoryConsolidation: "exclude" });
+          assert.equal((request.messages[0]?.metadata as Record<string, unknown>).memoryConsolidation, "exclude");
           assert.ok(boundTask);
           const begun = await workTasks.beginRun(boundTask.id, {
             expectedRevision: boundTask.expectedRevision, runId: "work-run-1",

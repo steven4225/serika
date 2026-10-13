@@ -476,7 +476,8 @@ test("program opt-out survives JSONL and an invalid excluded source cannot advan
     excludedId = excluded.id;
     // Use the actual Controller-generated source ID, not an invented fixture ID.
     const history = await new JsonlAgentStore({ directory: join(f.root, "transcripts") }).getMessages(app.threadId);
-    assert.deepEqual(excluded.metadata, { memoryConsolidation: "exclude" });
+    assert.equal((excluded.metadata as Record<string, unknown>).memoryConsolidation, "exclude");
+    assert.equal(typeof (excluded.metadata as Record<string, unknown>).sentAt, "string");
     assert.deepEqual(history[0]?.metadata, excluded.metadata);
     assert.ok((await controller.run(PREFERENCE)).ok);
     await settle(controller);
