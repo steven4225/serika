@@ -14,6 +14,7 @@ import {
 import {
   CONSOLIDATION_RESULT_MAX_BYTES,
   createMemoryModule,
+  type MemoryModuleOptions,
   type MemoryEntry,
   type WorkspaceMemoryStore,
 } from "./memory-module.js";
@@ -85,7 +86,7 @@ function createStore(): {
 function setupTools(
   store: WorkspaceMemoryStore,
   getMessages?: () => Promise<UIMessage[]>,
-  options?: { threadId?: string; now?: () => Date; consolidation?: MemoryConsolidation },
+  options?: MemoryModuleOptions,
 ): RegisteredTool[] {
   const tools: RegisteredTool[] = [];
   createMemoryModule(store, getMessages, options).setup({
@@ -119,6 +120,42 @@ function toolByName(tools: RegisteredTool[], name: string): RegisteredTool {
 }
 
 describe("createMemoryModule", () => {
+  it("host-bound memory_add ignores model source IDs and validates quotes against only the current user", async () => {
+    const { store, calls } = createStore();
+    let current: UIMessage | undefined = textMessage("real-current", "user", "请记住，我喝咖啡不加糖。");
+    const add = toolByName(setupTools(store, async () => { throw new Error("must not read committed provenance"); }, {
+      threadId: "thread-a", getCurrentUserMessage: () => current,
+    }), "memory_add").tool;
+    const schema = asSchema(add.inputSchema);
+    assert.doesNotMatch(JSON.stringify(await schema.jsonSchema), /sourceMessageId/);
+    const context = { toolCallId: "host-source", messages: [], context: {} };
+    const result = await add.execute!({ text: "咖啡不加糖", sourceMessageId: "invented", sourceQuote: "咖啡不加糖" }, context);
+    assert.equal(result.ok, true);
+    assert.deepEqual(calls[0]?.args[0], { text: "咖啡不加糖", source: {
+      kind: "conversation", threadId: "thread-a", messageId: "real-current", quote: "咖啡不加糖",
+    } });
+    assert.equal((await add.execute!({ text: "咖啡加糖", sourceQuote: "咖啡加糖" }, context)).ok, false);
+    assert.equal(calls.length, 1, "a made-up quote must not write");
+    current = textMessage("next-user", "user", "请记住，我住在北京。");
+    assert.equal((await add.execute!({ text: "住在北京" }, context)).ok, true);
+    assert.deepEqual(calls[1]?.args[0], { text: "住在北京", source: {
+      kind: "conversation", threadId: "thread-a", messageId: "next-user", quote: "请记住，我住在北京。",
+    } });
+    for (const invalid of [
+      undefined, textMessage("assistant", "assistant", "fact"), textMessage("empty", "user", " "),
+      ...["auto-consolidation", "work-task", "automation-skill", "dreaming", "learned-skill-reference"].map(source => ({
+        ...textMessage(source, "user", "fact"), metadata: { source },
+      })),
+    ]) {
+      current = invalid;
+      assert.equal((await add.execute!({ text: "fact" }, context)).ok, false);
+    }
+    assert.equal(calls.length, 2, "missing/synthetic sources never fall back to manual or a previous source");
+    const cancelled = new AbortController(); cancelled.abort(new Error("cancelled"));
+    await assert.rejects(add.execute!({ text: "fact" }, { ...context, abortSignal: cancelled.signal }), /cancelled/);
+    assert.equal(calls.length, 2);
+  });
+
   it("raises unknown outcome for non-idempotent writes but returns candidate commit uncertainty for safe receipt replay", async () => {
     const { store } = createStore();
     const uncertain = { ok: false as const, error: { code: "MEMORY_COMMIT_UNCERTAIN" as const, message: "Directory sync failed after rename" } };

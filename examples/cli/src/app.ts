@@ -273,6 +273,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     return agentId === AUTO_CONSOLIDATION_AGENT_ID || skill?.kind === "memory-consolidate" ? "consolidation" : skill || agentId === DREAMING_AGENT_ID ? "skill" : "primary";
   }, options.beforePrimaryRunCreate);
   let activeWorkTaskMessage: UIMessage | undefined;
+  let currentMemorySource: { message: UIMessage; signal: AbortSignal } | undefined;
   let redrawAfterModuleNotification: (() => void) | undefined;
   const addRegistration = {
     metadata: {
@@ -379,6 +380,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
                     memoryStore!,
                     () => store.getMessages(threadId),
                     { threadId, consolidationAgentIds: externalSkills.filter(skill => skill.kind === "memory-consolidate").map(skill => skill.agentId),
+                      getCurrentUserMessage: () => currentMemorySource?.signal.aborted ? undefined : currentMemorySource?.message,
                       ...(memoryConsolidation ? { consolidation: memoryConsolidation } : {}) },
                   ),
                 ]
@@ -873,9 +875,9 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         memoryProposalInstructions +
         "Permission to propose but not save allows pending candidates; an explicit instruction not to remember or consolidate the information means no proposal for it. " +
         "Use memory_candidates_list to find stable candidate IDs; when the user explicitly names one to accept, call memory_apply_candidate with candidateId and expectedCandidateRevision and wait for y/n. Do not reconstruct staged candidates using memory_add/update. Denial leaves the candidate pending. Report the actual receipt, including replay or stale failure. Candidates belong to this Thread and are not injected. " +
-        "Direct explicit remember requests use memory_add; ordinary text/administrative edits retain memory_update. Use memory_revise for an explicit change, correction, or retraction under current expectedRevision. " +
+        "Direct explicit remember requests use memory_add: the host binds the current user message as its source, so never invent or supply sourceMessageId. Optional sourceQuote must be copied exactly from that current message; omitting it uses the full current message. Ordinary text/administrative edits retain memory_update. Use memory_revise for an explicit change, correction, or retraction under current expectedRevision. " +
         "A real change requires a timezone timestamp explicitly grounded in the user's effective date; do not turn a correction into invented historical truth. " +
-        "Use memory_query only for an explicitly requested historical validAt/knownAt view; current injected references already state their temporal view, assertion identity, and source IDs, not source quotes. Current references are a selection, not all history. New memory defaults to workspace; thread scope is program-bound. Temporary usage may use expiresAt, not an invented validTime.to. memory_list lists current versions; memory_get provides requested history. Pinned changes require explicit user request. Conversation sources must be exact committed user quotes; a direct current-message save uses manual source. Do not invent sources or claim missing JSONL evidence can be opened. Active injected Memory overrides conflicting older transcript/compaction, while the latest user request remains authoritative."
+        "Use memory_query only for an explicitly requested historical validAt/knownAt view; current injected references already state their temporal view, assertion identity, and source IDs, not source quotes. Current references are a selection, not all history. New memory defaults to workspace; thread scope is program-bound. Temporary usage may use expiresAt, not an invented validTime.to. memory_list lists current versions; memory_get provides requested history. Pinned changes require explicit user request. Conversation sources for updates/revisions must be exact committed user quotes; memory_add instead uses the host-bound current user message, even before transcript commit. Do not invent sources or claim missing JSONL evidence can be opened. Active injected Memory overrides conflicting older transcript/compaction, while the latest user request remains authoritative."
       : "") +
     (checkpointEnabled
       ? " When project checkpoint tools are available, use checkpoint_get only when the user explicitly asks to inspect a checkpoint. The latest checkpoint is already supplied as a bounded reference in model context when available; it is a saved work-state snapshot, not current disk evidence and not permission. Its optional Git pin is from save time, not current Git state; do not infer a merged PR or passed tests from checkpoint prose. When a /resume Git observation is injected, use its program-determined reconciliation status and observedAt as the latest Git evidence, while keeping checkpoint as saved intent. Repeating /resume without a new checkpoint save does not move the saved pin or resolve stale status. /resume does not authorize tools; any nextActions still use the existing tools and y/n. If checkpoint conflicts with active injected Memory, follow Memory. Only call checkpoint_prepare when the user explicitly asks to save or update the checkpoint; it returns only the current checkpoint and injectable Memory, does not invoke a model or collect recent conversation messages. Use the current conversation already in context to draft concise fields, then call checkpoint_save with the observed expectedVersion; the complete draft and version will be shown for y/n confirmation. Do not submit realityPins yourself or claim it was saved unless the tool returns ok:true. A completed checkpoint remains current; updating it creates the next version. Do not automatically create or update checkpoints."
@@ -1229,6 +1231,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       ...(tuiMode
         ? {
             prepareModelContext: async ({ messages, signal, definition }) => {
+              currentMemorySource = undefined;
               if (definition.id === DREAMING_AGENT_ID) {
                 // Reflection runs on a separate maintenance Thread. Never inherit its old batches.
                 let index = -1;
@@ -1258,6 +1261,12 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
               }
               if (definition.id !== PRIMARY_AGENT_ID) return selectModelContext(messages);
               const currentUser = [...messages].reverse().find(message => message.role === "user");
+              // Runtime requires one new user message per Run. Capture it before
+              // reference injection/compaction; WorkTask contracts are not user facts.
+              if (memoryEnabled && moduleConfig?.memoryWritePolicy !== "automatic" && currentUser && !activeWorkTaskMessage) {
+                signal.throwIfAborted();
+                currentMemorySource = { message: currentUser, signal };
+              }
               const preparationSource = currentUser ? {
                 messageId: currentUser.id,
                 workTaskId: typeof activeWorkTaskMessage?.metadata === "object" && activeWorkTaskMessage.metadata !== null &&

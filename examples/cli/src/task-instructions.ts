@@ -10,6 +10,19 @@ export type TaskContextInjectionOptions = TaskInstructionsContext & {
   definitionId: string;
 };
 
+/** Give the model one unambiguous local calendar date, including its UTC offset. */
+export function formatLocalTaskTime(now: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone, year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", fractionalSecondDigits: 3,
+    hourCycle: "h23", timeZoneName: "longOffset",
+  }).formatToParts(now);
+  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find(part => part.type === type)!.value;
+  const zone = value("timeZoneName");
+  const offset = zone === "GMT" ? "+00:00" : zone.replace("GMT", "");
+  return `${value("year")}-${value("month")}-${value("day")}T${value("hour")}:${value("minute")}:${value("second")}.${value("fractionalSecond")}${offset}`;
+}
+
 /**
  * The task module accepts absolute ISO timestamps. Keep the relative-time
  * guidance at the model boundary so a natural-language request becomes a
@@ -25,8 +38,8 @@ export function buildTaskInstructions({
     "For one reminder, call task_create. For every day or every week, use task_repeat_create rather than task_create. " +
     "For example, '明早九点提醒我开会' and '一分钟后提醒我喝水' must call task_create; '每天九点提醒我喝水' must call task_repeat_create. Do not only explain the /task command and do not claim that a reminder was saved without a successful tool result. " +
     "task_create requires prompt and runAt. runAt must be an ISO 8601 timestamp with an explicit timezone (use Z or a numeric offset), never a date-only or timezone-less local time. Put only the reminder subject in prompt, such as 开会, not the whole user sentence. " +
-    `The current time is ${now.toISOString()} and the local timezone is ${timeZone}. ` +
-    "Convert relative times from that context, using that timezone's numeric UTC offset. " +
+    `The current local time is ${formatLocalTaskTime(now, timeZone)} and the local timezone is ${timeZone}. ` +
+    "Resolve today/tomorrow (今天/明天) from this LOCAL calendar date, not the UTC date. Convert relative times from that context using the target date's offset in this timezone. " +
     "If the clock is incomplete, choose a default and call the tool anyway so the confirmation card shows it. A missing clock time defaults to 09:00 local. '过会儿' means 30 minutes after the current time above. '周末' means the next Saturday at 10:00 local, or Sunday at 10:00 if that Saturday has already passed, or today at 10:00 when it is Sunday before 10:00. Do not ask「你想几点」 before the tool call. " +
     "task_repeat_create recurrence is daily { kind: 'daily', time: 'HH:mm', utcOffset: '+08:00' } or weekly { kind: 'weekly', weekday: 1..7 (Monday..Sunday), time: 'HH:mm', utcOffset: '+08:00' }; the numeric UTC offset must be the local offset above. A fixed UTC offset does not follow daylight saving time; do not promise the same local clock time across DST changes. " +
     "Do not use the daily work-brief format for a reminder. For a daily work brief, include the requested evidence and observation time, one priority, a 15-minute first step, and unknowns in that task prompt; do not apply this format to other scheduled tasks. " +

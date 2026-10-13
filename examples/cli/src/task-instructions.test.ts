@@ -15,6 +15,7 @@ import {
 import {
   buildTaskContextMessage,
   buildTaskInstructions,
+  formatLocalTaskTime,
   injectTaskContext,
 } from "./task-instructions.js";
 
@@ -49,6 +50,29 @@ function textResponse(text: string) {
 }
 
 describe("task instructions", () => {
+  for (const [utc, local] of [
+    ["2026-10-12T16:30:00.000Z", "2026-10-13T00:30:00.000+08:00"],
+    ["2026-10-31T16:30:00.000Z", "2026-11-01T00:30:00.000+08:00"],
+    ["2026-12-31T16:30:00.000Z", "2027-01-01T00:30:00.000+08:00"],
+  ]) it(`local-clock Demo: midnight reference uses the Beijing calendar date (${local})`, () => {
+    const instructions = buildTaskInstructions({ now: new Date(utc!), timeZone: "Asia/Shanghai" });
+    assert.ok(instructions.includes(local!), "the model must see a local date and its numeric offset together");
+    assert.ok(!instructions.includes(utc!), "do not present the previous UTC day as now");
+  });
+
+  it("formats the actual timezone offset, including UTC, fractional offsets and DST", () => {
+    for (const [utc, zone, local] of [
+      ["2026-10-12T16:30:00.123Z", "UTC", "2026-10-12T16:30:00.123+00:00"],
+      ["2026-10-12T16:30:00.000Z", "Asia/Kathmandu", "2026-10-12T22:15:00.000+05:45"],
+      ["2026-03-08T06:59:00.000Z", "America/New_York", "2026-03-08T01:59:00.000-05:00"],
+      ["2026-03-08T07:01:00.000Z", "America/New_York", "2026-03-08T03:01:00.000-04:00"],
+    ]) {
+      assert.equal(formatLocalTaskTime(new Date(utc!), zone!), local);
+      assert.equal(new Date(formatLocalTaskTime(new Date(utc!), zone!)).toISOString(), utc);
+    }
+    assert.throws(() => formatLocalTaskTime(new Date(), "Invalid/Zone"), RangeError);
+  });
+
   it("gives the model a verifiable current-time context and task contract", () => {
     const instructions = buildTaskInstructions({
       now: new Date("2026-09-15T01:02:03.000Z"),
@@ -58,7 +82,7 @@ describe("task instructions", () => {
     assert.match(instructions, /一分钟后提醒我喝水/);
     assert.match(instructions, /明早九点提醒我开会/);
     assert.match(instructions, /task_create/);
-    assert.match(instructions, /2026-09-15T01:02:03\.000Z/);
+    assert.match(instructions, /2026-09-15T09:02:03\.000\+08:00/);
     assert.match(instructions, /Asia\/Shanghai/);
     assert.match(instructions, /ISO 8601/);
     assert.match(instructions, /kind: "reminder"/);
@@ -117,9 +141,9 @@ describe("task instructions", () => {
     assert.equal(firstText?.type, "text");
     assert.equal(secondText?.type, "text");
     if (firstText?.type !== "text" || secondText?.type !== "text") return;
-    assert.match(firstText.text, /2026-09-15T01:02:03\.000Z/);
-    assert.doesNotMatch(firstText.text, /2026-09-15T01:03:03\.000Z/);
-    assert.match(secondText.text, /2026-09-15T01:03:03\.000Z/);
+    assert.match(firstText.text, /2026-09-15T09:02:03\.000\+08:00/);
+    assert.doesNotMatch(firstText.text, /2026-09-15T09:03:03\.000\+08:00/);
+    assert.match(secondText.text, /2026-09-15T09:03:03\.000\+08:00/);
   });
 
   it("injects task guidance only for the enabled calculator agent", () => {
@@ -203,10 +227,10 @@ describe("task instructions", () => {
 
     assert.equal(contextCalls, 2);
     assert.equal(prompts.length, 2);
-    assert.match(prompts[0]!, /2026-09-15T01:02:03\.000Z/);
-    assert.doesNotMatch(prompts[0]!, /2026-09-15T01:03:03\.000Z/);
-    assert.match(prompts[1]!, /2026-09-15T01:03:03\.000Z/);
-    assert.doesNotMatch(prompts[1]!, /2026-09-15T01:02:03\.000Z/);
+    assert.match(prompts[0]!, /2026-09-15T09:02:03\.000\+08:00/);
+    assert.doesNotMatch(prompts[0]!, /2026-09-15T09:03:03\.000\+08:00/);
+    assert.match(prompts[1]!, /2026-09-15T09:03:03\.000\+08:00/);
+    assert.doesNotMatch(prompts[1]!, /2026-09-15T09:02:03\.000\+08:00/);
     const transcript = await store.getMessages("task-instructions-runtime");
     assert.equal(
       transcript.some((message) => message.id === "runloom-task-instructions"),
