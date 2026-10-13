@@ -178,7 +178,7 @@ function end(value: string | null): number {
   return value === null ? Number.POSITIVE_INFINITY : Date.parse(value);
 }
 
-function overlaps(left: { from: string | null; to: string | null }, right: { from: string | null; to: string | null }): boolean {
+export function overlaps(left: { from: string | null; to: string | null }, right: { from: string | null; to: string | null }): boolean {
   return Math.max(start(left.from), start(right.from)) < Math.min(end(left.to), end(right.to));
 }
 

@@ -1,5 +1,8 @@
 import {
   APICallError,
+  InvalidToolInputError,
+  JSONParseError,
+  TypeValidationError,
   asSchema,
   convertToModelMessages,
   stepCountIs,
@@ -33,6 +36,34 @@ interface PendingToolCall {
   toolName: string;
   input: unknown;
   invalid: boolean;
+  validationError?: unknown;
+}
+
+function invalidInputHint(call: PendingToolCall, schemaFields: readonly string[]): string {
+  // Reuse the SDK's validation, never its message/input (which may contain secrets).
+  // Report only schema-owned top-level field names, not arbitrary record keys.
+  let cause = InvalidToolInputError.isInstance(call.validationError) ? call.validationError.cause : undefined;
+  if (JSONParseError.isInstance(cause)) return "Invalid JSON arguments.";
+  if (TypeValidationError.isInstance(cause)) cause = cause.cause;
+  const issues = Array.isArray(cause) ? cause
+    : cause && typeof cause === "object" && "issues" in cause && Array.isArray(cause.issues) ? cause.issues : [];
+  const hints = new Set<string>();
+  for (const issue of issues.slice(0, 8)) {
+    if (!issue || typeof issue !== "object") continue;
+    const field = Array.isArray(issue.path) ? issue.path[0] : undefined;
+    if (typeof field !== "string" || !schemaFields.includes(field)) {
+      hints.add("Field combination or object constraints failed");
+      continue;
+    }
+    const missing = issue.path.length === 1 && issue.code === "invalid_type" &&
+      call.input !== null && typeof call.input === "object" &&
+      (!Object.hasOwn(call.input, field) || (call.input as Record<string, unknown>)[field] === undefined);
+    const reason = missing ? "required" : issue.code === "invalid_type" ? "invalid type"
+      : issue.code === "invalid_value" || issue.code === "invalid_enum_value" ? "invalid value" : "constraint failed";
+    hints.add(`${field.slice(0, 64)}: ${reason}`);
+  }
+  return hints.size > 0 ? `${[...hints].join("; ")}. Check the named fields (case-sensitive).`
+    : "Arguments failed validation; check the tool's input schema and field combinations.";
 }
 
 function validateStepOutcome(finishReason: string, toolCallCount: number): void {
@@ -533,6 +564,7 @@ export class AiSdkAgentLoop implements AgentLoop {
                 toolName: part.toolName,
                 input: part.input,
                 invalid: part.invalid === true,
+                ...(part.invalid === true ? { validationError: part.error } : {}),
               };
               attemptCalls.push(call);
               await input.emit("tool.call.requested", {
@@ -634,15 +666,10 @@ export class AiSdkAgentLoop implements AgentLoop {
         }
 
         if (call.invalid) {
-          // Return schema names, not the SDK exception (which can contain the whole input).
-          // Keep invalid calls unexecuted, but give the model enough information to correct them.
           const schema = await asSchema(registered.inputSchema).jsonSchema;
-          const required = (schema.required ?? []).slice(0, 16).map((name: string) => name.slice(0, 64));
-          const hint = required.length > 0
-            ? ` Required fields (case-sensitive): ${required.join(", ")}.`
-            : " Check the tool's input schema.";
+          const hint = invalidInputHint(call, Object.keys(schema.properties ?? {}));
           const error = toolError("TOOL_INVALID_INPUT", call.toolName,
-            `Tool input is invalid: ${call.toolName}.${hint} No tool was executed.`);
+            `Tool input is invalid: ${call.toolName}. ${hint} No tool was executed.`);
           assistantParts.push(toolResultError(call, error.data));
           await input.emit("tool.call.failed", {
             toolCallId: call.toolCallId,

@@ -4,6 +4,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { it } from "node:test";
+import { DEFAULT_CONTEXT_BUDGET_CONFIG } from "@aisdk-agent/example-cli/dist/context-budget.js";
 import { ResidentClient } from "./resident-transport.js";
 import { residentStartup, saveResidentStartup } from "./resident-startup.js";
 import type { PendingApproval } from "../shared/ui-contract.js";
@@ -15,7 +16,8 @@ it("the actual headless entry retains Thread, Run receipts and a timer when clie
   const paths = { directory, token: join(directory, "auth-token"), socket };
   const scope = { userData, configPath, workspaceRoot: workspace };
   await mkdir(workspace);
-  await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { pomodoro: { enabled: true }, shell: { enabled: false }, memory: { enabled: false } } }));
+  await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { pomodoro: { enabled: true }, shell: { enabled: false }, memory: { enabled: false } },
+    contextCompaction: { ...DEFAULT_CONTEXT_BUDGET_CONFIG, contextWindowTokens: 512_000 } }));
   await saveResidentStartup(identityPath, residentStartup(userData, root, { RUNLOOM_CONFIG: configPath, RUNLOOM_MODEL: "mock", RUNLOOM_DESKTOP_TEST: "1" }), false);
   const child = spawn(process.execPath, ["--import", import.meta.resolve("tsx"), fileURLToPath(new URL("./resident-entry.ts", import.meta.url)), "--identity", identityPath, "--socket", socket], {
     cwd: fileURLToPath(new URL("../..", import.meta.url)), env: { ...process.env, RUNLOOM_MODEL: "mock" }, stdio: ["ignore", "pipe", "pipe"],
@@ -66,6 +68,7 @@ it("the actual headless entry retains Thread, Run receipts and a timer when clie
     await client.setContextMode({ mode: "long-task", expectedBudget: beforeMode.value.budget });
     const afterMode = await client.current.getContextDiagnostics(); assert(afterMode.ok);
     assert.equal(afterMode.value.budget.mode, "long-task"); assert.equal(afterMode.value.budget.inputBudgetTokens, 400_000);
+    assert.equal(afterMode.value.budget.contextWindowTokens, 512_000, "resident mode selection must preserve configured capacity");
     assert.equal((await client.getLifecycleStatus()).pomodoroRunning, true, "mode selection must not end the independent timer");
     client.detach(); client = await connect();
     const reconnectedMode = await client.current.getContextDiagnostics(); assert(reconnectedMode.ok);

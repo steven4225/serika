@@ -216,6 +216,109 @@ test("same fact in one batch coalesces evidence; different scenarios coexist and
   } finally { await f.cleanup(); }
 });
 
+test("support capacity Demo: the 65th observation stays pending without blocking unrelated or later facts", async () => {
+  const f = await fixture();
+  try {
+    let id = "";
+    for (let index = 1; index <= 64; index++) {
+      const result = await f.extract([f.statement(`u${index}`, `我的咖啡一直不加糖（确认 ${index}）。`)]);
+      id = result.result.accepted![0]!.memoryId;
+    }
+    const before = await f.store.inspectMemory(id); assert.ok(before.ok);
+    const result = await f.extract([f.statement("u65", "我喝咖啡仍然不加糖。"),
+      f.statement("u66", "回复用中文。", { attribute: "response_language", scenario: "general", value: "zh" })]);
+    assert.equal(result.result.accepted?.length, 1);
+    assert.equal(result.result.pendingCandidateIds?.length, 1);
+    const options = { boundThreadId: "thread", now: f.now() };
+    const pending = await f.store.getCandidate(result.result.pendingCandidateIds![0]!, undefined, options); assert.ok(pending.ok);
+    assert.equal(pending.value.applicable, false);
+    assert.match(pending.value.unavailableReason!, /历史|history/i);
+    assert.equal(pending.value.candidate.source.messageId, "u65", "overflow evidence remains reviewable, not discarded");
+    const after = await f.store.inspectMemory(id); assert.ok(after.ok);
+    assert.deepEqual(after.value, before.value, "do not prune or rewrite old evidence to fit");
+    const cursor = await f.store.getConsolidationCursor("thread"); assert.ok(cursor.ok);
+    assert.equal(cursor.value?.throughMessageId, "u66");
+    const later = await f.extract([f.statement("u67", "我的咖啡不放糖。"),
+      f.statement("u68", "工作时咖啡加糖。", coffee("sweetened", "work"))]);
+    assert.equal(later.result.accepted?.length, 1);
+    assert.deepEqual(later.result.pendingCandidateIds, result.result.pendingCandidateIds, "do not grow duplicate unresolvable reviews");
+    const manual = await f.store.resolveCandidate({ candidateId: result.result.pendingCandidateIds![0]!, expectedCandidateRevision: 1, decision: "accept" },
+      undefined, { ...options, now: f.now() });
+    assert.equal(manual.ok, false);
+    if (!manual.ok) assert.equal(manual.error.code, "MEMORY_HISTORY_FULL");
+  } finally { await f.cleanup(); }
+});
+
+test("new-slot conflict Demo: both conflicting adds need review without blocking unrelated or later facts", async () => {
+  const f = await fixture();
+  try {
+    const result = await f.extract([f.statement("u1", "咖啡不加糖。"),
+      f.statement("u2", "咖啡加糖。", coffee("sweetened")),
+      f.statement("u3", "回复用中文。", { attribute: "response_language", scenario: "general", value: "zh" })]);
+    assert.equal(result.result.accepted?.length, 1);
+    assert.equal(result.result.pendingCandidateIds?.length, 2, "do not silently pick either conflicting value");
+    const listed = await f.store.list(undefined, { now: f.now() }); assert.ok(listed.ok);
+    assert.deepEqual(listed.entries.map(entry => entry.assertion?.factIdentity?.attribute), ["response_language"]);
+    const cursor = await f.store.getConsolidationCursor("thread"); assert.ok(cursor.ok);
+    assert.equal(cursor.value?.throughMessageId, "u3");
+    const later = await f.extract([f.statement("u4", "工作时咖啡不加糖。", coffee("unsweetened", "work"))]);
+    assert.equal(later.result.accepted?.length, 1);
+    const options = { boundThreadId: "thread", now: f.now() };
+    const accept = (candidateId: string) => f.store.resolveCandidate({ candidateId, expectedCandidateRevision: 1, decision: "accept" }, undefined, options);
+    assert.ok((await accept(result.result.pendingCandidateIds![0]!)).ok);
+    const preview = await f.store.getCandidate(result.result.pendingCandidateIds![1]!, undefined, options); assert.ok(preview.ok);
+    assert.equal(preview.value.applicable, false, "preview must agree with locked conflict rejection");
+    const blocked = await accept(result.result.pendingCandidateIds![1]!);
+    assert.equal(blocked.ok, false);
+    if (!blocked.ok) assert.equal(blocked.error.code, "MEMORY_REVISION_CONFLICT");
+  } finally { await f.cleanup(); }
+});
+
+test("future-slot conflict Demo: a known future preference blocks overlapping automatic and reviewed adds", async () => {
+  const f = await fixture();
+  try {
+    await f.extract([{ ...f.statement("u1", "十一月起咖啡加糖。", coffee("sweetened")),
+      validTime: { from: "2026-11-01T00:00:00.000Z", to: null, basis: "explicit" } }]);
+    const result = await f.extract([f.statement("u2", "咖啡不加糖。"),
+      f.statement("u3", "回复用中文。", { attribute: "response_language", scenario: "general", value: "zh" })]);
+    assert.equal(result.result.accepted?.length, 1);
+    assert.equal(result.result.pendingCandidateIds?.length, 1);
+    const preview = await f.store.getCandidate(result.result.pendingCandidateIds![0]!, undefined, { boundThreadId: "thread", now: f.now() });
+    assert.ok(preview.ok); assert.equal(preview.value.applicable, false);
+    const blocked = await f.store.resolveCandidate({ candidateId: result.result.pendingCandidateIds![0]!, expectedCandidateRevision: 1, decision: "accept" },
+      undefined, { boundThreadId: "thread", now: f.now() });
+    assert.equal(blocked.ok, false);
+    if (!blocked.ok) assert.equal(blocked.error.code, "MEMORY_REVISION_CONFLICT");
+    const listed = await f.store.list(undefined, { now: new Date("2026-11-02T00:00:00Z") }); assert.ok(listed.ok);
+    assert.equal(listed.entries.filter(entry => entry.enabled && entry.assertion?.factIdentity?.attribute === "coffee").length, 1);
+  } finally { await f.cleanup(); }
+});
+
+test("new-slot conflict: a review-only proposal cannot silently lose to the automatic proposal", async () => {
+  const f = await fixture();
+  try {
+    const result = await f.extract([f.statement("u1", "咖啡不加糖。"),
+      { ...f.statement("u2", "咖啡可能要加糖。", coffee("sweetened")), eligibility: "needs_review" }]);
+    assert.equal(result.result.accepted?.length, 0);
+    assert.equal(result.result.pendingCandidateIds?.length, 2);
+  } finally { await f.cleanup(); }
+});
+
+for (const separateBatches of [false, true]) test(`fact-slot boundary: adjacent validity intervals and scopes remain automatic (separate batches: ${separateBatches})`, async () => {
+  const f = await fixture();
+  try {
+    const first: MemoryProposal = { ...f.statement("u1", "十一月前咖啡不加糖。"), validTime: { from: null, to: "2026-11-01T00:00:00.000Z", basis: "explicit" } };
+    if (separateBatches) assert.equal((await f.extract([first])).result.accepted?.length, 1);
+    const result = await f.extract([
+      ...(separateBatches ? [] : [first]),
+      { ...f.statement("u2", "十一月起咖啡加糖。", coffee("sweetened")), validTime: { from: "2026-11-01T00:00:00.000Z", to: null, basis: "explicit" } },
+      { ...f.statement("u3", "本会话咖啡加糖。", coffee("sweetened")), scope: { kind: "thread" } },
+    ]);
+    assert.equal(result.result.accepted?.length, separateBatches ? 2 : 3);
+    assert.equal(result.result.pendingCandidateIds?.length, 0);
+  } finally { await f.cleanup(); }
+});
+
 test("undated conflict Demo: pending conflict does not block same-batch or later facts across restart", async () => {
   const f = await fixture();
   try {

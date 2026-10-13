@@ -6,6 +6,7 @@ import { PassThrough } from "node:stream";
 import { describe, it } from "node:test";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
+import { AgentError } from "@aisdk-agent/core";
 import { createRuntimeApp } from "./app.js";
 import { createAssistantController } from "./assistant-controller.js";
 import { createMemoryStore } from "./memory-store.js";
@@ -43,6 +44,162 @@ async function waitFor(condition: () => boolean): Promise<void> {
 }
 
 describe("Memory Phase B application integration", () => {
+  it("no-new-user memory Demo: a scheduled message cannot reuse the preceding user's memory source", { timeout: 15_000 }, async () => {
+    const setup = await fixture();
+    const text = "我喜欢喝美式。";
+    let callTool = true;
+    let modelCalls = 0;
+    const model = new MockLanguageModelV3({ doStream: async () => {
+      modelCalls++;
+      const invoke = callTool; callTool = false;
+      return { stream: simulateReadableStream({ chunks: [
+        { type: "stream-start" as const, warnings: [] },
+        ...(invoke ? [{ type: "tool-call" as const, toolCallId: `remember-${modelCalls}`, toolName: "memory_add", input: JSON.stringify({ text }) }] : []),
+        { type: "finish" as const, finishReason: { unified: invoke ? "tool-calls" as const : "stop" as const, raw: undefined }, usage },
+      ] }) };
+    } });
+    const app = await createRuntimeApp({ ...setup, modelAlias: "mock", model, output: new PassThrough(), env: {}, cwd: setup.root });
+    const controller = createAssistantController(app);
+    try {
+      assert.ok((await controller.run(`记住${text}`)).ok);
+      await waitFor(() => controller.getSnapshot().pendingApproval !== null);
+      assert.equal(controller.confirm({ approvalId: controller.getSnapshot().pendingApproval!.approvalId, decision: "allow" }), true);
+      await waitFor(() => controller.getSnapshot().state.kind === "idle");
+      const saved = await app.memoryStore!.list(); assert.ok(saved.ok);
+      assert.equal(saved.entries.length, 1);
+      assert.equal(saved.entries[0]!.text, text);
+      const before = await readFile(join(setup.workspace, ".runloom", "memory.json"));
+      const userCalls = modelCalls;
+      await assert.rejects(app.runtime.run({ agentId: app.agentId, threadId: app.threadId, messages: [] }),
+        error => error instanceof AgentError && error.data.code === "INVALID_REQUEST");
+      assert.equal(modelCalls, userCalls, "no new user message cannot start a provider call");
+
+      // Fault injection into the primary toolset: real typed reminders skip the
+      // model entirely. Even here, a scheduled-task envelope is not a user fact.
+      callTool = true;
+      const scheduled = await app.runtime.run({ agentId: app.agentId, threadId: app.threadId, messages: [{
+        id: "scheduled-without-new-user", role: "user", metadata: { source: "scheduled-task" },
+        parts: [{ type: "text", text: `提醒到期：${text}` }],
+      }] });
+      await waitFor(() => controller.getSnapshot().pendingApproval !== null);
+      assert.equal(controller.confirm({ approvalId: controller.getSnapshot().pendingApproval!.approvalId, decision: "allow" }), true);
+      assert.equal((await scheduled.result).status, "completed");
+      const history = await controller.getHistory();
+      const afterScheduled = history.slice(history.findIndex(message => message.id === "scheduled-without-new-user") + 1);
+      assert.match(JSON.stringify(afterScheduled), /INVALID_INPUT/);
+      assert.match(JSON.stringify(afterScheduled), /没有可绑定的当前用户消息/);
+      assert.equal(modelCalls, userCalls + 2, "the attempted tool call was actually exercised");
+      assert.deepEqual(await readFile(join(setup.workspace, ".runloom", "memory.json")), before);
+      assert.deepEqual(await createMemoryStore(setup.workspace).list(), saved, "no new memory or source is saved");
+    } finally { await controller.shutdown(); await rm(setup.root, { recursive: true, force: true }); }
+  });
+
+  for (const sourceQuote of [undefined, "记住我刚才说的那条。"] as const) {
+    it(`current-source excerpt Demo: approved previous-message reference cannot write (${sourceQuote ?? "omitted quote"})`, async () => {
+      const setup = await fixture();
+      let nextInput: { text: string; sourceQuote?: string } | undefined;
+      const model = new MockLanguageModelV3({ doStream: async () => {
+        const input = nextInput; nextInput = undefined;
+        return { stream: simulateReadableStream({ chunks: [
+          { type: "stream-start" as const, warnings: [] },
+          ...(input ? [{ type: "tool-call" as const, toolCallId: "remember-earlier", toolName: "memory_add", input: JSON.stringify(input) }] : []),
+          { type: "finish" as const, finishReason: { unified: input ? "tool-calls" as const : "stop" as const, raw: undefined }, usage },
+        ] }) };
+      } });
+      const app = await createRuntimeApp({ ...setup, modelAlias: "mock", model, output: new PassThrough(), env: {}, cwd: setup.root });
+      const controller = createAssistantController(app);
+      try {
+        assert.ok((await controller.run("我喝咖啡不加糖。")).ok);
+        await waitFor(() => controller.getSnapshot().state.kind === "idle");
+        nextInput = { text: "我喝咖啡不加糖。", ...(sourceQuote === undefined ? {} : { sourceQuote }) };
+        assert.ok((await controller.run("记住我刚才说的那条。")).ok);
+        await waitFor(() => controller.getSnapshot().pendingApproval !== null || controller.getSnapshot().state.kind === "idle");
+        const approval = controller.getSnapshot().pendingApproval;
+        assert.ok(approval, "the normal approval boundary is unchanged");
+        assert.equal(controller.confirm({ approvalId: approval.approvalId, decision: "allow" }), true);
+        await waitFor(() => controller.getSnapshot().state.kind === "idle");
+        assert.deepEqual(await app.memoryStore!.list(), { ok: true, entries: [] }, "approval cannot invent source evidence");
+        assert.match(JSON.stringify(await controller.getHistory()), /INVALID_INPUT/);
+        assert.deepEqual(await createMemoryStore(setup.workspace).list(), { ok: true, entries: [] });
+      } finally { await controller.shutdown(); await rm(setup.root, { recursive: true, force: true }); }
+    });
+  }
+
+  it("current-user source Demo: memory_add binds the real uncommitted user ID without asking the model to invent it", async () => {
+    const setup = await fixture();
+    const quote = "请记住，我喝咖啡不加糖。";
+    let requests = 0;
+    const model = new MockLanguageModelV3({ doStream: async ({ tools }) => {
+      const add = tools?.find(tool => tool.type === "function" && tool.name === "memory_add");
+      assert.ok(add?.type === "function");
+      assert.doesNotMatch(JSON.stringify(add.inputSchema), /sourceMessageId/);
+      requests++;
+      return { stream: simulateReadableStream({ chunks: [
+        { type: "stream-start" as const, warnings: [] },
+        ...(requests === 1 ? [{ type: "tool-call" as const, toolCallId: "remember-current", toolName: "memory_add",
+          input: JSON.stringify({ text: "我喝咖啡不加糖。", kind: "preference", sourceQuote: quote }) }] : []),
+        { type: "finish" as const, finishReason: { unified: requests === 1 ? "tool-calls" as const : "stop" as const, raw: undefined }, usage },
+      ] }) };
+    } });
+    const app = await createRuntimeApp({ ...setup, modelAlias: "mock", model, output: new PassThrough(), env: {}, cwd: setup.root });
+    const controller = createAssistantController(app);
+    try {
+      assert.ok((await controller.run(quote)).ok);
+      await waitFor(() => controller.getSnapshot().pendingApproval !== null || controller.getSnapshot().state.kind === "idle");
+      const approval = controller.getSnapshot().pendingApproval;
+      assert.ok(approval, "a quote without a guessed source ID must reach ordinary write approval");
+      assert.deepEqual(await app.memoryStore!.list(), { ok: true, entries: [] });
+      assert.equal((await controller.getHistory()).some(message => message.role === "user"), false, "source is not committed yet");
+      assert.equal(controller.confirm({ approvalId: approval.approvalId, decision: "allow" }), true);
+      await waitFor(() => controller.getSnapshot().state.kind === "idle");
+      const saved = await app.memoryStore!.list(); assert.ok(saved.ok);
+      assert.equal(saved.entries.length, 1);
+      const user = (await controller.getHistory()).find(message => message.role === "user"); assert.ok(user);
+      assert.deepEqual(saved.entries[0]!.source, { kind: "conversation", threadId: app.threadId, messageId: user.id, quote });
+      const reopened = await createMemoryStore(setup.workspace).list(); assert.ok(reopened.ok);
+      assert.deepEqual(reopened.entries[0]!.source, saved.entries[0]!.source);
+    } finally { await controller.shutdown(); await rm(setup.root, { recursive: true, force: true }); }
+  });
+
+  it("current-user source Demo: denial/cancellation never write and later Runs bind only their own user", async () => {
+    const setup = await fixture();
+    let callTool = false;
+    let quote = "";
+    const model = new MockLanguageModelV3({ doStream: async () => {
+      const invoke = callTool; callTool = false;
+      return { stream: simulateReadableStream({ chunks: [
+        { type: "stream-start" as const, warnings: [] },
+        ...(invoke ? [{ type: "tool-call" as const, toolCallId: "remember", toolName: "memory_add",
+          input: JSON.stringify({ text: quote }) }] : []),
+        { type: "finish" as const, finishReason: { unified: invoke ? "tool-calls" as const : "stop" as const, raw: undefined }, usage },
+      ] }) };
+    } });
+    const app = await createRuntimeApp({ ...setup, modelAlias: "mock", model, output: new PassThrough(), env: {}, cwd: setup.root });
+    const controller = createAssistantController(app);
+    try {
+      let savedCount = 0;
+      for (const [index, decision] of ["deny", "cancel", "allow", "allow"].entries()) {
+        quote = `请记住第 ${index} 条测试偏好。`; callTool = true;
+        assert.ok((await controller.run(quote)).ok);
+        await waitFor(() => controller.getSnapshot().pendingApproval !== null || controller.getSnapshot().state.kind === "idle");
+        const approval = controller.getSnapshot().pendingApproval; assert.ok(approval);
+        if (decision === "cancel") await controller.cancel();
+        else assert.equal(controller.confirm({ approvalId: approval.approvalId, decision: decision as "allow" | "deny" }), true);
+        await waitFor(() => controller.getSnapshot().state.kind === "idle");
+        const saved = await app.memoryStore!.list(); assert.ok(saved.ok);
+        if (decision === "allow") savedCount++;
+        assert.equal(saved.entries.length, savedCount);
+        if (decision === "allow") {
+          const user = (await controller.getHistory()).find(message => message.role === "user" && message.parts.some(part => part.type === "text" && part.text === quote));
+          assert.ok(user);
+          assert.deepEqual(saved.entries.find(entry => entry.text === quote)?.source, {
+            kind: "conversation", threadId: app.threadId, messageId: user.id, quote,
+          });
+        }
+      }
+    } finally { await controller.shutdown(); await rm(setup.root, { recursive: true, force: true }); }
+  });
+
   it("publishes the exact selected temporal provenance without quotes, terms, or history", async () => {
     const setup = await fixture();
     const modelPrompts: string[] = [];
@@ -132,7 +289,7 @@ describe("Memory Phase B application integration", () => {
     const app = await createRuntimeApp({ ...setup, modelAlias: "mock", model, output: new PassThrough(), env: {}, cwd: setup.root });
     const controller = createAssistantController(app);
     try {
-      assert.equal((await controller.run("Save only the named preference; exclude my conversation from later consolidation", { memoryConsolidation: "exclude" })).ok, true);
+      assert.equal((await controller.run("Save this: Explicitly approved preference; exclude my conversation from later consolidation", { memoryConsolidation: "exclude" })).ok, true);
       await waitFor(() => controller.getSnapshot().pendingApproval !== null);
       assert.deepEqual(await app.memoryStore!.list(), { ok: true, entries: [] });
       const approval = controller.getSnapshot().pendingApproval!;
