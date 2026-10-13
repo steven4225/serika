@@ -1,5 +1,6 @@
 import { createInterface } from "node:readline/promises";
 import { randomUUID } from "node:crypto";
+import { userMessageClock } from "./memory-observation-policy.js";
 import type { Readable, Writable } from "node:stream";
 import type { UIMessage } from "ai";
 import type {
@@ -1171,8 +1172,8 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
             if (!finalized.ok) write(output, `\n[memory] ${finalized.error.code === "MEMORY_COMMIT_UNCERTAIN" ? "写入确认不确定，请先读取当前记忆；不能据此判定未保存" : "整理未完成"}：${finalized.error.message}\n`);
             else {
               const pending = finalized.value.pendingCandidateIds ?? finalized.value.candidateIds;
-              if (pending.length > 0) write(output, `\n[memory] 待审核候选：${pending.join(", ")}（尚未写入有效记忆）\n`);
-              for (const receipt of finalized.value.accepted ?? []) write(output, `\n[memory] ${receipt.operation === "retract" ? "已撤回" : receipt.operation === "disable" ? "已停用" : receipt.operation === "add" ? "已保存" : "已更新"}：${receipt.memoryId} · revision ${receipt.revision}\n`);
+              if (pending.length > 0) write(output, `\n有 ${pending.length} 项记忆需要你确认，尚未写入有效记忆。\n`);
+              for (const receipt of finalized.value.accepted ?? []) write(output, `\n记忆${receipt.operation === "retract" ? "已撤回" : receipt.operation === "disable" ? "已停用" : receipt.operation === "add" ? "已保存" : "已更新"}，可查看或撤回。\n`);
             }
           } catch (error) {
             write(output, `\n[memory] 整理确认失败，请先核对当前记忆：${String(error)}\n`);
@@ -1255,6 +1256,7 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
         id: generateId(),
         role: "user",
         parts: [{ type: "text", text }],
+        metadata: userMessageClock(),
       };
       options.resume?.beginRun();
       let primary: Awaited<ReturnType<typeof executeRun>>;

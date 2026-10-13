@@ -9,6 +9,12 @@ async function fixture(run: (root: string) => Promise<void>): Promise<void> {
   const root = await mkdtemp(join(tmpdir(), "serika-drafts-"));
   try { await run(root); } finally { await rm(root, { recursive: true, force: true }); }
 }
+it("over 64 KiB explains splitting and preserves the previously saved draft", async () => fixture(async root => {
+  const store = new ConversationDraftStore(root);
+  await store.saveDraft(scope(root), { text: "保留已有草稿", excludeFromMemory: false });
+  await assert.rejects(store.saveDraft(scope(root), { text: "长".repeat(23000), excludeFromMemory: false }), /内容太长，请分段/);
+  assert.equal((await store.load(scope(root))).draft.text, "保留已有草稿");
+}));
 function scope(root: string): ConversationDraftScope {
   return { workspaceRoot: join(root, "workspace"), directory: join(root, "transcripts"), threadId: "personal" };
 }
@@ -156,7 +162,7 @@ describe("conversation drafts", () => {
 
   it("bounds text and record count without deleting old drafts, and returns write errors honestly", async () => fixture(async root => {
     const store = new ConversationDraftStore(join(root, "user-data"));
-    await assert.rejects(store.saveDraft(scope(root), { text: "界".repeat(22_000), excludeFromMemory: false }), /64 KiB/);
+    await assert.rejects(store.saveDraft(scope(root), { text: "界".repeat(22_000), excludeFromMemory: false }), /内容太长，请分段/);
     await assert.rejects(store.saveUncertainSteer(scope(root), { ...pending, text: "界".repeat(1400) }), /4 KiB/);
     for (let i = 0; i < 100; i++) await store.saveDraft({ ...scope(root), threadId: `thread-${i}` }, { text: `draft-${i}`, excludeFromMemory: false });
     const before = await readFile(store.path, "utf8");

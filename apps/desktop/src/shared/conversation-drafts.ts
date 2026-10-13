@@ -1,4 +1,10 @@
 import type { AssistantSteerResponse } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
+export const MAX_CONVERSATION_DRAFT_BYTES = 64 * 1024;
+export function conversationDraftError(text: string): string {
+  return new TextEncoder().encode(text).length > MAX_CONVERSATION_DRAFT_BYTES
+    ? "内容太长，请分段。当前内容仍保留在输入框，尚未保存或发送。"
+    : "草稿未保存，当前内容仍在输入框；请检查保存位置后重试，不会发送。";
+}
 /** Obtain this identity from the active main-process AppInfo, never renderer input. */
 export interface ConversationDraftScope {
   workspaceRoot: string | null;

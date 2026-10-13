@@ -11,6 +11,7 @@ import type { MemoryConsolidationEntry, MemoryEntry, WorkspaceMemoryStore } from
 import { rankMemoryEntriesForQuery } from "./memory-retrieval.js";
 import { overlaps, validateRecallTerms, validateTemporalTimestamp, validateValidTime, type MemoryKind, type MemoryValidTime } from "./memory-temporal.js";
 import { sameFact, sameFactSlot, validateFactIdentity, type MemoryFactIdentity } from "./memory-fact-identity.js";
+import { hasOpposingSelfStatements, hasRelativeTime, isReminderInstruction, messageClock, statedScenario } from "./memory-observation-policy.js";
 
 export const CONSOLIDATION_MATERIAL_MAX_BYTES = 64 * 1024;
 export const CONSOLIDATION_MEMORIES_MAX_BYTES = 24 * 1024;
@@ -375,8 +376,8 @@ export function createMemoryConsolidation(options: {
       let memories = related.entries;
       let truncated = related.truncated || !history && eligible.length > selected.length;
       const material = (): PreparedBatch => automatic
-        ? { batchId, truncated, memories, bootstrap, ...(history ? { selection: { mode: "history" as const, messageIds: [...history.messageIds] } } : {}), turns: selected.map((turn) => ({ user: { messageId: turn.user.id, text: turn.user.text }, assistant: [], tools: [] })) }
-        : { batchId, truncated, memories, turns: selected.map((turn) => ({ messages: [{ id: turn.user.id, role: "user", text: turn.user.text }] })) };
+        ? { batchId, truncated, memories, bootstrap, ...(history ? { selection: { mode: "history" as const, messageIds: [...history.messageIds] } } : {}), turns: selected.map((turn) => ({ user: { messageId: turn.user.id, text: turn.user.text, ...messageClock(turn.messages[0]!) }, assistant: [], tools: [] })) }
+        : { batchId, truncated, memories, turns: selected.map((turn) => ({ messages: [{ id: turn.user.id, role: "user", text: turn.user.text, ...messageClock(turn.messages[0]!) }] })) };
       while (Buffer.byteLength(JSON.stringify(material())) > CONSOLIDATION_MATERIAL_MAX_BYTES && memories.length > 0) { memories = memories.slice(0, -1); truncated = true; }
       while (!history && Buffer.byteLength(JSON.stringify(material())) > CONSOLIDATION_MATERIAL_MAX_BYTES && selected.length > 1) { selected = selected.slice(0, -1); truncated = true; }
       if (Buffer.byteLength(JSON.stringify(material())) > CONSOLIDATION_MATERIAL_MAX_BYTES) return fail("MEMORY_BATCH_INVALID", "One user message exceeds the consolidation material budget; no text or cursor was truncated");
@@ -400,10 +401,15 @@ export function createMemoryConsolidation(options: {
       const automatic = options.writePolicy === "automatic" && consolidationAgents.has(run.agentId) && run.request?.mode !== "history";
       const autoAcceptIndexes: number[] = [];
       const covered = new Set<string>();
+      const contradictions = run.selected.filter(turn => hasOpposingSelfStatements(turn.user.text) &&
+        !containsKnownCredentials(turn.user.text) && !containsKnownOptOut(turn.user.text));
+      const reviewSources = new Set(contradictions.map(turn => turn.user.id));
       for (const proposal of input.proposals) {
         const parsed = proposalDraft(proposal, run.prepared, run.selected, loaded.value, options.threadId, now());
         if (!parsed.ok) { run.invalid = true; return parsed; }
         for (const source of parsed.value.sources ?? [parsed.value.source]) covered.add(source.messageId);
+        // Preserve the whole contradictory group below, even if extraction omitted a side.
+        if ((parsed.value.sources ?? [parsed.value.source]).some(source => reviewSources.has(source.messageId))) continue;
         let eligibility = (proposal as MemoryProposal).eligibility;
         // Missing time is reviewable uncertainty, not a guessed transition or a
         // reason to poison otherwise valid source-bound proposals in this batch.
@@ -415,6 +421,46 @@ export function createMemoryConsolidation(options: {
         let change = parsed.value.change;
         const control = change.operation === "retract" || change.operation === "disable";
         if (eligibility === "ignore" || containsKnownCredentials(`${sourceText}\n${JSON.stringify(change)}`) || containsKnownOptOut(sourceText) && !(control && eligibility === "explicit_request")) continue;
+        const quotes = (parsed.value.sources ?? [parsed.value.source]).map(source => source.quote).join("\n");
+        const targetId = change.operation === "add" ? undefined : change.memoryId;
+        const proposedKind = "kind" in change && change.kind !== undefined ? change.kind : run.prepared.memories.find(entry => entry.id === targetId)?.assertion?.kind;
+        if ((proposedKind === "event" || proposedKind === "note") && isReminderInstruction(quotes)) continue;
+        if (change.operation !== "retract" && change.operation !== "disable") {
+          const scenario = statedScenario(sourceText);
+          const bodyScenario = statedScenario(change.text);
+          const identity = "factIdentity" in change ? change.factIdentity : undefined;
+          const uncertainScene = scenario.limited && (!scenario.scenario || !bodyScenario.limited || bodyScenario.scenario !== scenario.scenario || !identity || identity.scenario !== scenario.scenario) ||
+            bodyScenario.limited && (!bodyScenario.scenario || bodyScenario.scenario !== scenario.scenario) ||
+            identity !== undefined && identity.scenario !== "general" && identity.scenario !== bodyScenario.scenario;
+          if (uncertainScene) {
+            eligibility = "needs_review";
+            if ("factIdentity" in change && identity && scenario.scenario) change.factIdentity = { ...identity, scenario: scenario.scenario };
+            else if ("factIdentity" in change) { const { factIdentity: _identity, ...rest } = change; change = rest; }
+            parsed.value.reason = "这条偏好有使用场景限制，请确认适用范围后再保存。";
+          }
+          if (change.operation !== "add") {
+            const targetId = change.memoryId;
+            const target = run.prepared.memories.find(entry => entry.id === targetId)!;
+            const oldQualifier = statedScenario(target.text);
+            const oldScene = target.assertion?.factIdentity?.scenario ?? oldQualifier.scenario ?? (oldQualifier.limited ? undefined : "general");
+            const newScene = ("factIdentity" in change ? change.factIdentity?.scenario : undefined) ?? scenario.scenario ?? (scenario.limited ? undefined : "general");
+            if (oldScene !== newScene && (oldScene !== undefined || newScene !== undefined) || uncertainScene) {
+              // A different/unknown scene is not a correction of the old scene.
+              const { memoryId: _id, expectedRevision: _revision, operation: _operation, ...fact } = change;
+              const { effectiveAt: _time, reuseSources: _reuse, ...fields } = fact as typeof fact & { effectiveAt?: unknown; reuseSources?: unknown };
+              change = { ...fields, operation: "add", scope: target.scope ?? { kind: "workspace" } };
+              eligibility = "needs_review";
+            }
+          }
+          if (hasRelativeTime(quotes) && (parsed.value.sources ?? [parsed.value.source]).some(source =>
+            messageClock(run.selected!.find(turn => turn.user.id === source.messageId)!.messages[0]!).sentAt === null)) {
+            if ("validTime" in change && change.validTime?.basis === "explicit") {
+              change = { ...change, validTime: { from: null, to: null, basis: "unknown" } }; eligibility = "needs_review";
+            }
+            if (change.operation === "change") { change = { ...change, effectiveAt: null }; eligibility = "needs_review"; }
+          }
+          parsed.value.change = change;
+        }
         if (change.operation === "add" && change.factIdentity) {
           const proposed = change;
           const matches = run.prepared.memories.filter(entry => activeTarget(entry, now()) && entry.enabled &&
@@ -463,6 +509,14 @@ export function createMemoryConsolidation(options: {
         if (automatic && supportedKind && !requiresKnownReview(sourceText) && (eligibility === "durable_self_statement" || eligibility === "explicit_request")) autoAcceptIndexes.push(drafts.length);
         drafts.push(parsed.value);
       }
+      for (const turn of contradictions) {
+        // Over-size or over-capacity groups stay deferred, never clipped or silently dropped.
+        if (drafts.length >= 5 || Buffer.byteLength(turn.user.text) > 2048) continue;
+        drafts.push({ change: { operation: "add", text: turn.user.text, kind: "note", scope: { kind: "workspace" }, expiresAt: null },
+          source: { kind: "conversation", threadId: options.threadId, messageId: turn.user.id, quote: turn.user.text },
+          reason: "这段原话包含相互矛盾的偏好，整组保留待你确认；尚未写入有效记忆。" });
+        covered.add(turn.user.id);
+      }
       // Compare the entire batch, including review-only observations. Neither
       // conflicting new value gets to win merely by ordering or eligibility.
       for (let index = autoAcceptIndexes.length - 1; index >= 0; index--) {
@@ -481,7 +535,10 @@ export function createMemoryConsolidation(options: {
         // Legacy stages may save proposals but cannot attest full source coverage.
         const raw = input.outcomes === undefined ? { messageId: selected.user.id, status: "deferred" } : (input.outcomes as unknown[])[index];
         if (!raw || typeof raw !== "object" || Array.isArray(raw)) { run.invalid = true; return fail("MEMORY_BATCH_INVALID", "Invalid source outcome"); }
-        const outcome = raw as Record<string, unknown>;
+        let outcome = raw as Record<string, unknown>;
+        if (reviewSources.has(selected.user.id) && outcome.messageId === selected.user.id && ["extracted", "no_memory", "deferred"].includes(String(outcome.status))) {
+          outcome = { ...outcome, status: drafts.some(draft => draft.source.messageId === selected.user.id) ? "extracted" : "deferred" };
+        }
         if (Object.keys(outcome).some(key => !["messageId", "status"].includes(key)) || outcome.messageId !== selected.user.id || !["extracted", "no_memory", "deferred"].includes(String(outcome.status)) || outcome.status === "extracted" && !covered.has(selected.user.id) || outcome.status === "no_memory" && covered.has(selected.user.id)) { run.invalid = true; return fail("MEMORY_BATCH_INVALID", "Outcome must match the source and proposal coverage; deferred includes partially extracted sources"); }
         outcomes.push(outcome as unknown as ConsolidationOutcome);
       }

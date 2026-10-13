@@ -109,7 +109,8 @@ describe("memory candidate review state", () => {
       type: "resolve-result",
       result: { ok: false, error: { code: "MEMORY_CANDIDATE_STALE", message: "Candidate is stale: target_changed" } },
     });
-    assert.match(stale.reviewError ?? "", /MEMORY_CANDIDATE_STALE/);
+    assert.match(stale.reviewError ?? "", /记忆已经变化.*刷新/);
+    assert.doesNotMatch(stale.reviewError ?? "", /MEMORY_CANDIDATE_STALE|target_changed/);
     assert.equal(stale.resolving, false);
   });
 

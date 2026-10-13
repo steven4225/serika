@@ -53,6 +53,7 @@ import { TaskInbox } from "./task-inbox.js";
 import { SavedTaskNotice } from "./saved-task-notice.js";
 import { unreconciledRuns, taskSelectionKey, taskActions } from "./work-task-data.js";
 import { bindTaskComposer, completionLabel, draftKey, type ConversationDraft } from "./navigation.js";
+import { conversationDraftError } from "../../shared/conversation-drafts.js";
 import { DailySetup } from "./daily-setup-panel.js";
 import { desktopLayout, type DesktopLayout } from "./zcode/layout.js";
 import { ZCodeMessage, ZCodeMessageContent } from "./zcode/message.js";
@@ -695,7 +696,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     void save.then(() => {
       if (draftSaveSequence.current === sequence) { setDraftError(null); setDraftSaving(false); }
     }).catch(() => {
-      if (draftSaveSequence.current === sequence) { setDraftError("草稿未保存，当前内容仍在输入框；修复保存位置后重试，不会发送。"); setDraftSaving(false); }
+      if (draftSaveSequence.current === sequence) { setDraftError(conversationDraftError(input)); setDraftSaving(false); }
     });
   }, [info, input, excludeFromMemory, drafts, draftReady]);
 
