@@ -4,6 +4,7 @@ import { MessageContent } from "./markdown.js";
 import { automationArrangementLabel } from "./automation-schedule.js";
 import { humanFacingTitle } from "../../shared/human-title.js";
 import { inboxPrimaryLine, localWhen, reminderClock, scheduleStatusLabel } from "./reminder-copy.js";
+import { NotificationSettingsButton } from "./notification-settings-button.js";
 
 function notificationText(notification: TaskNotification | null): string {
   if (notification === null) return "未安排系统通知";
@@ -106,7 +107,6 @@ export function TaskInbox({ enabled, busy, canAcknowledge = true, focus, onResul
       const line = inboxPrimaryLine(task, clock);
       return <div className="capability-row" key={task.id}>
         <div><strong>{line.subject}</strong><p>{line.when} · {line.status}</p>
-          <details className="technical-id"><summary>编号</summary><code>{task.id}</code></details>
           {task.error ? <p className="error">{humanFacingTitle(task.error.messagePreview, "执行没有完成，打开详情查看原因。")}</p> : null}
         </div><button className="ghost" disabled={working || loading} onClick={() => void open(task.id)}>查看结果</button>
       </div>;
@@ -116,11 +116,11 @@ export function TaskInbox({ enabled, busy, canAcknowledge = true, focus, onResul
       <div className="card-head"><span>{presentation.kind} · {presentation.status}</span><button className="ghost" disabled={working} onClick={() => { setDetail(null); setError(""); }}>收起</button></div>
       <p>{detail.prompt}</p>
       <dl className="session-facts"><dt>排期时间</dt><dd>{localWhen(detail.runAt, clock)}</dd><dt>实际开始</dt><dd>{detail.startedAt ? localWhen(detail.startedAt, clock) : "未记录"}</dd><dt>结束时间</dt><dd>{detail.finishedAt ? localWhen(detail.finishedAt, clock) : "未记录"}</dd><dt>通知</dt><dd>{presentation.notification}</dd><dt>已读</dt><dd>{detail.acknowledgedAt ? localWhen(detail.acknowledgedAt, clock) : "尚未标为已读"}</dd></dl>
-      <details><summary>原始时间与编号</summary><p>{detail.runAt}</p><code>{detail.id}</code></details>
+      <details><summary>高级：诊断信息</summary><p>{detail.runAt}</p><code>{detail.id}</code></details>
       {detail.startedAt && Date.parse(detail.startedAt) - Date.parse(detail.runAt) > 1_000 ? <p className="hint">实际开始晚于排期；此结果不是准点执行的证明。</p> : null}
       {detail.resultText !== null ? <MessageContent text={detail.resultText} /> : <p className="hint">没有保存结果正文。</p>}
       {detail.error ? <p className="error" role="alert">{detail.error.code}: {detail.error.message}</p> : null}
-      {detail.notification?.error ? <p className="error">通知错误：{detail.notification.error.code}: {detail.notification.error.message}。不会因此重新执行任务。</p> : null}
+      {detail.notification?.status === "failed" ? <p className="error">系统通知提交失败，结果仍保留。请核对通知权限和组件；不会因此重新执行任务。<NotificationSettingsButton /></p> : null}
       <p className="hint">执行结束不等于内容质量已通过；提交系统通知不等于收到或已读。中断的任务不会从这里自动重放。</p>
       {canAcknowledge ? <button className="ghost" disabled={busy || working || detail.acknowledgedAt !== null} onClick={() => void acknowledge()}>标为已读</button> : <p className="hint">任务能力已关闭，仍可查看保存的结果；需要标为已读时请开启任务能力。</p>}
     </section> : null}

@@ -17,7 +17,12 @@ export interface MemoryCardEntry {
   updatedAt?: string | null;
   createdAt?: string | null;
   temporalState?: "applicable" | "retracted" | "not_applicable";
+  enabled?: boolean;
+  status?: string;
+  expiresAt?: string | null;
   assertion?: {
+    state?: "asserted" | "retracted";
+    validTime?: { from: string | null; to: string | null };
     kind?: string;
     factIdentity?: { attribute?: string; scenario?: string };
     sourceIds?: readonly { kind: "manual" | "legacy" | "conversation" }[];
@@ -35,9 +40,18 @@ export function memoryCategory(entry: Pick<MemoryCardEntry, "assertion">): Memor
   return "project";
 }
 
-export function memoryCategoryCounts(entries: readonly MemoryCardEntry[]): Record<MemoryCategoryId, number> {
+/** This is a current view, not a history or a claim that inactive records were deleted. */
+export function isCurrentMemory(entry: MemoryCardEntry, now: Date): boolean {
+  if (entry.enabled === false || entry.status === "disabled" || entry.temporalState === "retracted" || entry.temporalState === "not_applicable" || entry.assertion?.state === "retracted") return false;
+  if (entry.expiresAt && (!Number.isFinite(Date.parse(entry.expiresAt)) || Date.parse(entry.expiresAt) <= now.getTime())) return false;
+  const time = entry.assertion?.validTime;
+  if (time?.from && Date.parse(time.from) > now.getTime() || time?.to && Date.parse(time.to) <= now.getTime()) return false;
+  return true;
+}
+
+export function memoryCategoryCounts(entries: readonly MemoryCardEntry[], now = new Date()): Record<MemoryCategoryId, number> {
   const counts: Record<MemoryCategoryId, number> = { preference: 0, project: 0, work: 0 };
-  for (const entry of entries) counts[memoryCategory(entry)] += 1;
+  for (const entry of entries) if (isCurrentMemory(entry, now)) counts[memoryCategory(entry)] += 1;
   return counts;
 }
 
@@ -48,7 +62,7 @@ export function memoryCountLabel(count: number): string {
 export function memorySourcePhrase(sources: readonly { kind: "manual" | "legacy" | "conversation" }[]): string {
   if (sources.length === 0) return "来源未附带";
   const labels = sources.map(source => sourceLabel(source.kind));
-  return sources.length === 1 ? `from ${labels[0]}` : `corroborated: ${labels.join(" + ")}`;
+  return sources.length === 1 ? `来自${labels[0]}` : `多条来源：${labels.join("、")}`;
 }
 
 function sourceLabel(kind: "manual" | "legacy" | "conversation"): string {
@@ -87,10 +101,10 @@ export function memoryUpdatedLabel(iso: string | null | undefined, now: Date): s
   return `更新于 ${date.getMonth() + 1}月${date.getDate()}日`;
 }
 
-export function latestMemoryStamp(entries: readonly MemoryCardEntry[]): string | null {
+export function latestMemoryStamp(entries: readonly MemoryCardEntry[], now = new Date()): string | null {
   let best: string | null = null;
   for (const entry of entries) {
-    if (entry.temporalState === "retracted") continue;
+    if (!isCurrentMemory(entry, now)) continue;
     const stamp = entry.updatedAt ?? entry.createdAt ?? null;
     if (!stamp || Number.isNaN(Date.parse(stamp))) continue;
     if (best === null || Date.parse(stamp) > Date.parse(best)) best = stamp;
@@ -110,10 +124,10 @@ function plainMemoryText(text: string): string {
 }
 
 export function memoryUnderstanding(entries: readonly MemoryCardEntry[], now: Date): { narrative: string; updatedLabel: string; empty: boolean } {
-  const live = entries.filter(entry => entry.temporalState !== "retracted" && entry.preview.trim().length > 0);
+  const live = entries.filter(entry => isCurrentMemory(entry, now) && entry.preview.trim().length > 0);
   return {
     narrative: live.map(entry => plainMemoryText(entry.preview)).filter(Boolean).join(" "),
-    updatedLabel: memoryUpdatedLabel(latestMemoryStamp(live), now),
+    updatedLabel: memoryUpdatedLabel(latestMemoryStamp(live, now), now),
     empty: live.length === 0,
   };
 }

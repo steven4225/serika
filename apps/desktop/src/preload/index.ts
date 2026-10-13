@@ -40,6 +40,7 @@ const api: RendererApi = {
   setRssWorkerEnabled: enabled => ipcRenderer.invoke(IPC.rssWorkerEnabled, enabled),
   notificationStatus: () => ipcRenderer.invoke(IPC.notificationStatus),
   testNotification: () => ipcRenderer.invoke(IPC.notificationTest),
+  openNotificationSettings: () => ipcRenderer.invoke(IPC.notificationSettings),
   info: () => ipcRenderer.invoke(IPC.info),
   snapshot: () => ipcRenderer.invoke(IPC.snapshot),
   history: () => ipcRenderer.invoke(IPC.history),

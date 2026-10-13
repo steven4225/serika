@@ -89,7 +89,7 @@ describe("today brief stream", () => {
     const html = render({ now: afternoon, feeds: { ...offFeeds, worker: { ok: false, message: "pid 4242 thread_abc12345" } } });
     assert.match(html, /今天 20:00/);
     assert.match(html, /晚间简报/);
-    assert.match(html, /后台状态看不清/);
+    assert.match(html, /后台状态读取失败/);
     assert.match(html, /还没有工作任务/);
     assert.match(html, /聊聊这个/);
     assert.doesNotMatch(html, /4242|thread_abc12345|task_|run_|mem_|pid/);

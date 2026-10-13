@@ -22,3 +22,11 @@ it("keeps advanced context details closed and does not add warning popups", () =
   assert.match(html, /<details class="context-technical"><summary>高级：预算与压缩详情/);
   assert.doesNotMatch(html, /<details[^>]*open|role="dialog"/);
 });
+
+it("mode panel leads with the actual custom window rather than a claimed 1M window", () => {
+  const budget = { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled: true, contextWindowTokens: 32768, maxOutputTokens: 4096, safetyMarginTokens: 1024 };
+  const html = renderToStaticMarkup(createElement(ContextModeSelector, { budget, disabled: false, onSelect() {} }));
+  assert.match(html, /实际窗口[^<]*32,768/);
+  assert.match(html, /输入预算[^<]*27,648/);
+  assert.doesNotMatch(html, /这两档按 DeepSeek 1M 窗口配置/);
+});

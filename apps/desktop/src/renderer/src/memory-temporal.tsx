@@ -33,7 +33,8 @@ export function MemoryTimeDetails({ assertion }: { assertion: Pick<MemoryAsserti
 
 export function MemoryAssertionDetails({ assertion, showSources = true }: { assertion: MemoryAssertion; showSources?: boolean }) {
   return <section className="memory-assertion">
-    <div className="hint">{memoryKindLabel[assertion.kind]} · {assertion.state === "retracted" ? "已撤回" : "已记录"} · {assertion.assertionId}</div>
+    <div className="hint">{memoryKindLabel[assertion.kind]} · {assertion.state === "retracted" ? "已撤回" : "已记录"}</div>
+    <details className="memory-engineering"><summary>高级：记录标识</summary><code>{assertion.assertionId}</code></details>
     <pre className="memory-text">{assertion.text}</pre>
     <MemoryTimeDetails assertion={assertion} />
     <p className="hint">检索词：{assertion.recallTerms.length ? assertion.recallTerms.join("、") : "未设置"}（只用于匹配，不作为事实注入）</p>
@@ -92,7 +93,7 @@ export function MemoryActionPreviewDetails({ preview }: { preview: MemoryActionP
     {input.operation === "correct" ? <p className="hint">这是纠正记录，不声明现实在此刻发生变化；保留旧的系统认知供历史查询。</p> : null}
     {input.operation === "change" ? <p className="hint">实际变化发生于 {timestampLabel(input.effectiveAt, "未知")}；此前适用的事实会保留。</p> : null}
     {input.operation === "retract" ? <p className="hint">撤回当前断言后不再注入，历史仍保留。旧对话、旧摘要和已经发出的回复不会被删除。</p> : null}
-    {input.operation === "restore" ? <p className="hint">恢复为新的 revision，从确认保存时起适用；不重启旧任务，不恢复工具授权。</p> : null}
+    {input.operation === "restore" ? <p className="hint">从确认保存时起恢复使用这份内容；保留历史，不重启旧任务，也不恢复工具授权。</p> : null}
     {input.operation === "delete" ? <p className="error">永久删除本条正式记忆、历史和相关候选内容，不能从这里恢复。旧对话、旧摘要与已发出的回复不会因此删除。</p> : null}
     {preview.warnings.map((warning, index) => <p className="hint" key={index}>{warning}</p>)}
   </section>;

@@ -47,7 +47,8 @@ describe("context diagnostics panel", () => {
     );
     assert.equal(failed.value, value);
     assert.equal(failed.loading, false);
-    assert.equal(failed.error, "READ_FAILED: broken");
+    assert.match(failed.error ?? "", /读取.*失败.*刷新/);
+    assert.doesNotMatch(failed.error ?? "", /READ_FAILED|broken/);
   });
 
   it("ignores stale success and stale failure from earlier requests", () => {

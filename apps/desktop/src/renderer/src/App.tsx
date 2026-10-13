@@ -141,7 +141,7 @@ function Row({ row, delivered = false, layout = "classic" }: { row: Conversation
       return (
         <div className={`row row-result status-${row.status}`}>
           {completionLabel(row)}
-          {row.status === "completed" && !row.completion ? <span className="result-boundary" title="本轮结束仅表示 Run 正常结束，工具效果以回执为准；不是任务验收。">执行结果见回执</span> : null}
+          {row.status === "completed" && !row.completion ? <span className="result-boundary" title="对话结束不等于任务已验收，工具效果以执行记录为准。">执行结果见回执</span> : null}
           {row.detail ? <span className="tool-detail"> · <FailureInline text={row.detail} /></span> : null}
         </div>
       );
@@ -207,7 +207,7 @@ function Identity({ info }: { info: AppInfo }) {
       </span>
       <span
         className="pill"
-        title={`主 Run ${info.totalTimeoutMs} ms（确认等待不计时）\nShell ${info.shellTimeoutMs} ms\n超过 30 秒的任务两条都要大于任务时长`}
+        title={`处理时限 ${info.totalTimeoutMs / 1000} 秒（确认等待不计时）\n命令时限 ${info.shellTimeoutMs / 1000} 秒\n长任务需要两项时限都足够`}
       >
         {Math.round(info.totalTimeoutMs / 1000)}s / {Math.round(info.shellTimeoutMs / 1000)}s
       </span>
@@ -1160,7 +1160,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
                 {busy ? <Button type="button" variant="outline" size="icon" className="zcode-stop-button" aria-label={state.kind === "compacting" ? "停止上下文压缩" : state.kind === "running" && state.phase === "consolidation" ? "停止记忆整理" : "停止本轮"} title={state.kind === "compacting" ? "停止上下文压缩" : state.kind === "running" && state.phase === "consolidation" ? "停止记忆整理" : "停止本轮；已执行的操作不会撤回"} onClick={() => void window.runloom.cancel().catch(() => setError("取消结果未收到，请核对当前状态。"))}><Square size={12} /></Button> : null}
                 {!busy || steering ? <Button type="button" size={steering || composingTask ? "default" : "icon"} className={`send-button${steering || composingTask ? " task-send" : ""}`}
                   aria-label={steering ? "补充要求" : composingTask ? composerTask?.status === "ready" ? "开始任务" : "继续此任务" : "发送消息"}
-                  title={steering ? "补充当前 Run 的要求，不启动新一轮" : composingTask ? "显式开启任务的新一轮；工具仍需确认" : "发送（Enter）· 换行（Shift + Enter）"}
+                  title={steering ? "补充当前正在处理的要求，不另开一轮" : composingTask ? "显式开始下一次任务处理；工具仍需确认" : "发送（Enter）· 换行（Shift + Enter）"}
                   disabled={!composerReady || sending || switchingThread || !info || (steering ? !composerText.trim() : composingTask ? workTasks.locked || !composerTask || !taskActions(composerTask).run : !input.trim())}
                   onClick={() => { followConversation.current = true; void submit(); }}>
                   {steering ? "补充要求" : composingTask ? composerTask?.status === "ready" ? "开始任务" : "继续此任务" : <ArrowUp size={18} />}

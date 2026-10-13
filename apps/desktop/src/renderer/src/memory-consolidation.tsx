@@ -134,7 +134,7 @@ function AutomaticMemoryReceipts({ accepted, busy, refreshToken }: { accepted: r
       })}>{memoryReceiptPresentation(receipt).undoLabel}</button> : null}
     </div>)}
     {current && !preview ? <div className="memory-current-content"><pre className="memory-text">{current.text || "当前没有适用内容"}</pre>
-      <p className="hint">当前版本 {current.revision}；此处读取的是当前正式记忆，不是历史写入回执。</p>
+      <p className="hint">下面是当前保存的内容；撤回前请核对，历史仍会保留。</p>
       <MemorySources sources={current.source ? [current.source] : []} />
     </div> : null}
     {preview ? <div role="group" aria-label="撤回自动记忆预览"><p className="hint">这会撤回当前整条记忆，不是恢复到修改前的版本。若要恢复旧内容，请在记忆详情中选择历史版本。</p><MemoryActionPreviewDetails preview={preview} />

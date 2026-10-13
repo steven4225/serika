@@ -3,7 +3,17 @@ import { mkdtemp, rm, chmod, symlink, writeFile, realpath } from "node:fs/promis
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { it } from "node:test";
-import { createNotificationReadiness } from "./notification-readiness.js";
+import { createNotificationReadiness, openSystemNotificationSettings } from "./notification-readiness.js";
+
+it("notification settings opens only the fixed OS pane, never grants consent or runs tasks", async () => {
+  const urls: string[] = [];
+  const result = await openSystemNotificationSettings(async url => { urls.push(url); }, "darwin");
+  assert.equal(result.ok, true);
+  assert.deepEqual(urls, ["x-apple.systempreferences:com.apple.Notifications-Settings.extension"]);
+  assert.equal((await openSystemNotificationSettings(async () => { throw new Error("secret internal error"); }, "darwin")).ok, false);
+  assert.equal((await openSystemNotificationSettings(async url => { urls.push(url); }, "linux")).ok, false);
+  assert.equal(urls.length, 1);
+});
 
 const fixture = async () => {
   const root = await realpath(await mkdtemp(join(tmpdir(), "serika-notification-ready-")));

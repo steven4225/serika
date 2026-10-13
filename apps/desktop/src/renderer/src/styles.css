@@ -636,8 +636,8 @@ button.chip { font-size: 12px; padding: 5px 9px; border-color: var(--line); }
 .trace-node:last-child { border-left-color: transparent; }
 .trace-node summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; cursor: pointer; padding: 7px 6px; list-style: none; border-radius: 6px; }
 .trace-node summary::-webkit-details-marker { display: none; }
-.trace-node summary::after { content: "+"; margin-left: auto; color: var(--muted); }
-.trace-node details[open] > summary::after { content: "−"; }
+.trace-node summary::after { content: ""; margin-left: auto; color: var(--muted); width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); }
+.trace-node details[open] > summary::after { transform: rotate(45deg); }
 .trace-node summary:hover, .trace-node.focused summary { background: var(--sunken); }
 .trace-node summary:focus-visible, .trace-node details:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .trace-marker { position: absolute; left: -4px; top: 14px; width: 7px; height: 7px; background: var(--muted); border-radius: 50%; }

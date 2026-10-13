@@ -6,7 +6,7 @@ import type { FormalMemory } from "@aisdk-agent/example-cli/dist/memory-manageme
 import type { MemoryActionPreview, MemoryHistoryPage, MemoryMaintenance } from "@aisdk-agent/example-cli/dist/memory-controls.js";
 import type { MemoryAssertion } from "@aisdk-agent/example-cli/dist/memory-store.js";
 import { createMemoryActionDraft, explicitTimestamp, memoryActionFromDraft, memoryAvailabilityLabel } from "./memory-temporal-data.js";
-import { CurrentMemoryDetails, MemoryActionPreviewDetails, MemoryHistory, MemoryMaintenanceSummary, MemoryTemporalQueryResult } from "./memory-temporal.js";
+import { CurrentMemoryDetails, MemoryAssertionDetails, MemoryActionPreviewDetails, MemoryHistory, MemoryMaintenanceSummary, MemoryTemporalQueryResult } from "./memory-temporal.js";
 
 const assertion: MemoryAssertion = {
   assertionId: "assertion-old", text: "复盘先给结论，再列两步。", kind: "preference", recallTerms: ["回顾结构"],
@@ -22,6 +22,13 @@ const current: FormalMemory = {
     sourceIds: assertion.sources.map(source => source.kind === "conversation" ? { kind: source.kind, threadId: source.threadId, messageId: source.messageId } : source),
   },
 };
+
+it("memory content leads with a human status and moves assertion identities into closed diagnostics", () => {
+  const html = renderToStaticMarkup(createElement(MemoryAssertionDetails, { assertion }));
+  assert.match(html, /<div class="hint">偏好 · 已记录<\/div>/);
+  assert.match(html, /<details class="memory-engineering"><summary>高级：记录标识<\/summary>/);
+  assert.doesNotMatch(html, /<details[^>]*open/);
+});
 
 it("temporal editor requires explicit ISO instants, rejects nonexistent dates and local-time guesses", () => {
   for (const value of ["2026-10-04", "2026-10-04T09:00", "2026-10-04T09:00:00", "2026-02-29T09:00:00+08:00", "2026-10-04T25:00:00Z", "2026-10-04T09:00:00+24:00"]) assert.equal(explicitTimestamp(value), false, value);
@@ -79,7 +86,7 @@ it("pin, disable, expiry, retraction and permanent delete are explicit revision-
 
 it("current details show every verified saved quote while history distinguishes applicability from knowledge", () => {
   const html = renderToStaticMarkup(createElement(CurrentMemoryDetails, { current, assertion }));
-  for (const expected of ["事实适用时间", "系统记录时间", "2026-09-01", "2026-10-01", "是的，以后都按这个格式。", "回顾结构", "corroborated: 对话 + 对话"]) assert.ok(html.includes(expected), expected);
+  for (const expected of ["事实适用时间", "系统记录时间", "2026-09-01", "2026-10-01", "是的，以后都按这个格式。", "回顾结构", "多条来源：对话、对话"]) assert.ok(html.includes(expected), expected);
   const beforeSources = html.slice(0, html.indexOf("来源记录"));
   assert.equal(beforeSources.includes("m1"), false);
   assert.equal(beforeSources.includes("m2"), false);
