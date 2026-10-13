@@ -3,11 +3,12 @@ import type { TaskRecordV4 } from "@aisdk-agent/example-cli/dist/task-store.js";
 import { taskNotificationCopy } from "@aisdk-agent/example-cli/dist/task-notification-copy.js";
 import { createSavedTaskNoticeReader } from "../../shared/saved-task-result.js";
 import { taskResultPresentation } from "./task-inbox.js";
+import { NotificationSettingsButton } from "./notification-settings-button.js";
 
 export function SavedTaskNoticeView({ task, onOpen, onDismiss }: {
   task: TaskRecordV4; onOpen: (taskId: string) => void; onDismiss: () => void;
 }) {
-  const { kind, status } = taskResultPresentation(task);
+  const { kind, status, notification } = taskResultPresentation(task);
   // The in-app banner may show the saved reminder; OS copy must stay private.
   const reminder = task.status === "completed" && task.arrangement?.kind === "reminder"
     ? (task.resultText?.trim() || task.prompt).replace(/[\u0000-\u001F\u007F]+/g, " ").replace(/\s+/g, " ").trim() : "";
@@ -26,6 +27,8 @@ export function SavedTaskNoticeView({ task, onOpen, onDismiss }: {
   return <div className="review-notice saved-task-notice" role="status" aria-label="已保存的定时结果">
     <p className="saved-task-notice-title">{title}</p>
     <p className="saved-task-notice-meta">{kind} · {status} · {time}</p>
+    {task.notification ? <p className={task.notification.status === "failed" ? "error" : "hint"}>{notification}</p> : null}
+    {task.notification?.status === "failed" ? <p className="hint">到期结果已保存，但系统通知未提交成功。请核对通知权限和组件；不会重新执行任务。<NotificationSettingsButton /></p> : null}
     <div className="saved-task-notice-actions">
       <button type="button" className="allow" onClick={() => onOpen(task.id)}>查看</button>
       <button type="button" className="ghost" aria-label="收起定时结果提示，不标为已读" onClick={onDismiss}>收起</button>

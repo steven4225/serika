@@ -19,6 +19,16 @@ const port = (tasks: TaskRecordV4[], get = async (id: string) => tasks.find(task
   async getScheduledTask(id) { return { ok: true, value: await get(id) }; },
 });
 
+test("saved banner surfaces persisted notification failure and an OS settings entry without rerunning", () => {
+  const task = saved({ notification: { status: "failed", attempts: 1, submittedAt: null, error: { code: "NOTIFICATION_FAILED", message: "permission denied" } } as TaskRecordV4["notification"] });
+  const before = JSON.stringify(task);
+  const html = renderToStaticMarkup(React.createElement(SavedTaskNoticeView, { task, onOpen() {}, onDismiss() {} }));
+  assert.match(html, /系统通知.*失败/);
+  assert.match(html, /打开系统通知设置/);
+  assert.doesNotMatch(html, /permission denied|NOTIFICATION_FAILED/);
+  assert.equal(JSON.stringify(task), before);
+});
+
 test("saved task banner reads latest persisted terminal detail without executing or marking read", async () => {
   const old = saved({ id: "older", finishedAt: "2026-10-11T10:00:00Z" });
   const current = saved();

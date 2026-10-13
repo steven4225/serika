@@ -13,6 +13,15 @@ export type NotificationTestResult =
   | { ok: true; submitted: true; message: string }
   | { ok: false; message: string };
 
+/** Fixed user-requested destination; renderer input cannot select a URL or grant consent. */
+export async function openSystemNotificationSettings(openExternal: (url: string) => Promise<void>, platform: string = process.platform): Promise<{ ok: boolean; message: string }> {
+  if (platform !== "darwin") return { ok: false, message: "请在操作系统的通知设置中允许 Serika 通知。" };
+  try {
+    await openExternal("x-apple.systempreferences:com.apple.Notifications-Settings.extension");
+    return { ok: true, message: "已请求打开系统通知设置，请亲自选择通知权限；这不会开启后台或重做任务。" };
+  } catch { return { ok: false, message: "未能打开系统设置。请手动进入系统设置 → 通知 → Serika 通知。" }; }
+}
+
 const runHelper: ServiceCommandRunner = (file, args) => new Promise((resolveResult, reject) => {
   // No shell, raw output in IPC, model input, task body or API credentials in argv.
   const child = spawn(file, args, { stdio: ["ignore", "pipe", "pipe"] });

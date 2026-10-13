@@ -8,7 +8,7 @@ import { CurrentMemoryDetails, MemoryActionPreviewDetails, MemoryHistory, Memory
 import { memoryDisabledEmptyCopy } from "./memory-copy.js";
 import { FailureAlert } from "./failure-notice.js";
 import { MemoryBack, MemoryCardHome, MemoryCategoryFolder, MemoryUnderstanding } from "./personal/memory-home.js";
-import { memoryItemTitle, memoryUpdatedLabel, type MemoryCategoryId } from "./personal/memory-cards.js";
+import { isCurrentMemory, memoryCategory, memoryItemTitle, memoryUpdatedLabel, type MemoryCategoryId } from "./personal/memory-cards.js";
 
 const timePlaceholder = "2026-10-04T09:00:00+08:00";
 const modeOptions: MemoryActionMode[] = ["correct", "change", "retract", "pin", "disable", "expiry", "delete"];
@@ -47,6 +47,8 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken, queryRew
   const currentRevision = useRef<number | undefined>(undefined);
   const actionEditor = useRef<HTMLDetailsElement>(null);
   const latestRefreshToken = useRef(refreshToken);
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => { const timer = window.setInterval(() => setNow(new Date()), 60_000); return () => window.clearInterval(timer); }, []);
   latestRefreshToken.current = refreshToken;
 
   const load = useCallback(async () => {
@@ -119,7 +121,7 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken, queryRew
   }, [controllerIdle]);
   useEffect(() => {
     if (browse.view !== "summary" || page === null) return;
-    const ids = page.entries.filter(entry => entry.temporalState !== "retracted").slice(0, 24).map(entry => entry.id);
+    const ids = page.entries.filter(entry => isCurrentMemory(entry, new Date())).slice(0, 24).map(entry => entry.id);
     let cancelled = false;
     void Promise.all(ids.map(async id => {
       try {
@@ -189,7 +191,6 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken, queryRew
   if (!enabled) return <p className="hint">{memoryDisabledEmptyCopy()}</p>;
   const restoreAssertion = history?.assertions.find(assertion => assertion.assertionId === draft?.targetAssertionId);
   const entries = page?.entries ?? [];
-  const now = new Date();
   function showItem(id: string, category: MemoryCategoryId) {
     setBrowse({ view: "item", category });
     void open(id);
@@ -208,6 +209,9 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken, queryRew
         <p className="hint">同义查询改写：{queryRewriteEnabled ? "已启用；普通对话有一次有界模型请求，失败回退词法匹配。" : "关闭；按正文和已批准检索词匹配。"}</p>
         <button className="ghost" onClick={() => void load()}>刷新列表</button>
         <button className="ghost" onClick={() => void loadMaintenance()}>刷新维护状态</button>
+        <details className="inactive-memory-records"><summary>停用、过期与历史记录</summary>
+          {entries.filter(entry => !isCurrentMemory(entry, now)).map(entry => <button className="ghost" key={entry.id} onClick={() => showItem(entry.id, memoryCategory(entry))}>{entry.preview.trim() ? memoryItemTitle(entry.preview) : "历史记忆"} · {entry.temporalState === "retracted" ? "已撤回" : entry.enabled === false || entry.status === "disabled" ? "已停用" : "当前不生效"}</button>)}
+        </details>
       </details>
     </> : null}
     {browse.view === "summary" ? <MemoryUnderstanding entries={entries} texts={summaryTexts} now={now} onBack={() => setBrowse({ view: "home" })} /> : null}
@@ -220,7 +224,7 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken, queryRew
       <MemoryBack label={memoryItemTitle(current.text || "记忆")} onBack={() => setBrowse({ view: "category", category: browse.category })} />
       <p className="memory-updated">{memoryUpdatedLabel(current.updatedAt ?? current.createdAt, now)}</p>
       <CurrentMemoryDetails current={current} assertion={currentAssertion} />
-      <details><summary>记录与版本</summary>
+      <details><summary>高级：记录与版本</summary>
         <div className="hint">{current.scope?.kind === "thread" ? "仅当前对话" : "工作区，可供其他对话使用"}</div>
         <div className="hint">{current.id} · revision {current.revision ?? 1}</div>
         <p className="hint">有效期：{timestampLabel(current.expiresAt, "无")} · {current.pinned ? "已固定" : "未固定"} · {memoryAvailabilityLabel(current)}</p>
@@ -247,7 +251,7 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken, queryRew
             {draft.changeValidTime ? <><label className="memory-label" htmlFor="memory-valid-from">适用开始（未知留空）</label><input id="memory-valid-from" type="text" placeholder={timePlaceholder} value={draft.validFrom} disabled={!ready} onChange={event => editDraft({ validFrom: event.target.value })} /><label className="memory-label" htmlFor="memory-valid-to">适用结束（未指定留空；该时刻起不再适用）</label><input id="memory-valid-to" type="text" placeholder={timePlaceholder} value={draft.validTo} disabled={!ready} onChange={event => editDraft({ validTo: event.target.value })} /></> : null}
           </>}
         </> : null}
-        {draft.mode === "restore" ? <><p className="hint">恢复断言 {draft.targetAssertionId}。会创建新版本，不改写旧历史。</p>{restoreAssertion ? <pre className="memory-text">{restoreAssertion.text}</pre> : null}
+        {draft.mode === "restore" ? <><p className="hint">恢复下面这份内容，保留此前的修改历史。</p>{restoreAssertion ? <pre className="memory-text">{restoreAssertion.text}</pre> : null}
           <label className="memory-label" htmlFor="memory-restore-status">恢复后的状态（必须明确选择）</label><select id="memory-restore-status" value={draft.restoreStatus} disabled={!ready} onChange={event => editDraft({ restoreStatus: event.target.value as MemoryActionDraft["restoreStatus"] })}><option value="">请选择</option><option value="active">启用</option><option value="disabled">保持停用</option></select>
         </> : null}
         {draft.mode === "expiry" || draft.mode === "restore" ? <>
@@ -258,7 +262,7 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken, queryRew
         {draft.mode === "retract" ? <p className="hint">撤回表示不再主张这条事实。历史保留，不等于永久删除。</p> : null}
         <div className="actions"><button className="ghost" disabled={!ready} onClick={() => void stage()}>预览{memoryActionLabel[draft.mode]}</button></div>
       </details>
-      {preview ? <section className="memory-edit-preview"><h3>保存前核对</h3><p className="hint">按 revision {preview.input.expectedRevision} 保存；版本变化会拒绝，不会覆盖。</p>
+      {preview ? <section className="memory-edit-preview"><h3>保存前核对</h3><p className="hint">若内容已被其他操作修改，这次会停止保存，不会覆盖。</p>
         <MemoryActionPreviewDetails preview={preview} />
         <div className="actions"><button className="ghost" onClick={() => { ++previewSequence.current; setPreview(null); }}>返回编辑</button><button className={preview.input.operation === "delete" ? "deny" : "allow"} disabled={!ready} onClick={() => void save()}>{preview.input.operation === "delete" ? "确认永久删除" : "确认保存"}</button></div>
       </section> : null}

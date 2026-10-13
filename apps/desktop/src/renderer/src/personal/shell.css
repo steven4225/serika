@@ -198,3 +198,14 @@
 .personal-theme-dark .personal-layout :is(.today-greeting > p:last-child, .today-current-task small, .today-task-empty, .today-task-message, .today-memory p, .today-routines small, .today-text-link, .personal-trace-link, .personal-supplement, .personal-reply-actions button, .zcode-prompt-menu .ghost, .zcode-command-list button) { color: var(--muted); }
 .personal-theme-dark .personal-layout :is(.personal-message .message-content pre, .personal-message .message-content code, .personal-message .code-block-head, .personal-tool-output, .today-task-counts > div, .today-quote, .today-group li, .today-direction-chip, .today-secondary-button, .conversation-list-open) { background: #ffffff0d; color: var(--text); }
 .personal-theme-dark .today-risk { background: #c47b3a24; color: #e3c2a4; }
+
+/* Shared disclosure affordance; identifiers stay in closed advanced sections. */
+.personal-layout details > summary { list-style: none; cursor: pointer; }
+.personal-layout details > summary::-webkit-details-marker { display: none; }
+.personal-layout details > summary::marker { content: ""; }
+.personal-layout details > summary::before { content: none; }
+.personal-layout details > summary::after { content: ""; display: inline-block; flex: none; width: 6px; height: 6px; margin-left: 10px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); transition: transform .15s; vertical-align: 2px; }
+.personal-layout details[open] > summary::after { transform: rotate(45deg); }
+.personal-layout details > summary > :is(.lucide-chevron-right, .lucide-chevron-down, .lucide-chevron-up) { display: none; }
+.notification-settings-entry { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.inactive-memory-records .ghost { display: block; margin: 6px 0; }

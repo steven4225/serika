@@ -18,7 +18,7 @@ import { ConversationDraftSession } from "./conversation-draft-session.js";
 import { installHideOnClose, installTray } from "./tray.js";
 import { loadDesktopEnvironment, safeStartupError } from "./desktop-env.js";
 import { createDesktopRssWorker } from "./rss-worker-service.js";
-import { createNotificationReadiness } from "./notification-readiness.js";
+import { createNotificationReadiness, openSystemNotificationSettings } from "./notification-readiness.js";
 import { configureBundledNotifications } from "./bundled-notifications.js";
 import { parseTaskResultLink } from "@aisdk-agent/example-cli/dist/task-result-link.js";
 import { openTaskNotificationResult } from "./task-notification-route.js";
@@ -189,6 +189,7 @@ async function main(): Promise<void> {
       return notificationScopes.get(key)!; };
     ipcMain.handle(IPC.notificationStatus, () => notifications().status());
     ipcMain.handle(IPC.notificationTest, () => notifications().test());
+    ipcMain.handle(IPC.notificationSettings, () => openSystemNotificationSettings(url => shell.openExternal(url)));
     ipcMain.handle(IPC.residentStatus, () => host.residentStatus());
     ipcMain.handle(IPC.residentEnabled, (_event, enabled: unknown) => host.setResidentEnabled(enabled));
   } catch (error) {

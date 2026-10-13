@@ -35,11 +35,11 @@ it("groups saved memories into 偏好、项目 and 工作 without a health folde
   assert.match(home, /更新于 今天|更新时间未记录|还没有更新/);
 });
 
-it("shows from for one source and corroborated for several, with markdown sections in the full text", () => {
+it("uses Chinese source copy with markdown sections in the full text", () => {
   assert.equal(memorySourcePhrase([]), "来源未附带");
-  assert.equal(memorySourcePhrase([{ kind: "conversation" }]), "from 对话");
-  assert.equal(memorySourcePhrase([{ kind: "manual" }]), "from 手动记录");
-  assert.equal(memorySourcePhrase([{ kind: "conversation" }, { kind: "legacy" }]), "corroborated: 对话 + 旧记录");
+  assert.equal(memorySourcePhrase([{ kind: "conversation" }]), "来自对话");
+  assert.equal(memorySourcePhrase([{ kind: "manual" }]), "来自手动记录");
+  assert.equal(memorySourcePhrase([{ kind: "conversation" }, { kind: "legacy" }]), "多条来源：对话、旧记录");
   const project = entry({
     id: "background",
     preview: "## 教育背景\n宁波大学",
@@ -53,7 +53,7 @@ it("shows from for one source and corroborated for several, with markdown sectio
   assert.equal(memoryUpdatedLabel(localIso(12), now), "更新于 今天");
   const folder = renderToStaticMarkup(createElement(MemoryCategoryFolder, { category: "project", entries: [project], now, onBack: () => {}, onOpen: () => {} }));
   assert.match(folder, /教育背景/);
-  assert.match(folder, /corroborated: 对话 \+ 手动记录/);
+  assert.match(folder, /多条来源：对话、手动记录/);
   assert.equal(folder.includes(project.id), false);
   const full = renderToStaticMarkup(createElement(MemoryUnderstanding, {
     entries: [project],
@@ -62,10 +62,27 @@ it("shows from for one source and corroborated for several, with markdown sectio
     onBack: () => {},
   }));
   assert.match(full, /<h2>教育背景<\/h2>/);
-  assert.match(full, /corroborated: 对话 \+ 手动记录/);
+  assert.match(full, /多条来源：对话、手动记录/);
   assert.match(full, /更新于 3 天前/);
   const understanding = memoryUnderstanding([project], now);
   assert.match(understanding.narrative, /教育背景/);
   assert.equal(understanding.narrative.includes("#"), false);
   assert.equal(understanding.empty, false);
+});
+
+it("understanding and category counts show only currently effective memories", () => {
+  const live = entry({ id: "live", preview: "当前偏好", temporalState: "applicable", assertion: { kind: "preference" } });
+  const inactive: MemoryCardEntry[] = [
+    { id: "disabled", preview: "停用偏好", temporalState: "applicable", enabled: false, status: "disabled" },
+    { id: "expired", preview: "过期事实", temporalState: "applicable", expiresAt: localIso(10) },
+    { id: "retracted", preview: "", temporalState: "retracted" },
+    { id: "future", preview: "未来偏好", temporalState: "not_applicable" },
+  ];
+  const entries = [live, ...inactive];
+  assert.equal(memoryUnderstanding(entries, now).narrative, "当前偏好");
+  assert.deepEqual(memoryCategoryCounts(entries, now), { preference: 1, project: 0, work: 0 });
+  for (const component of [MemoryCardHome, MemoryUnderstanding]) {
+    const html = renderToStaticMarkup(createElement(component, { entries, loaded: true, texts: { disabled: "停用偏好", expired: "过期事实", future: "未来偏好" }, now, onBack() {}, onOpenSummary() {}, onOpenCategory() {} }));
+    assert.doesNotMatch(html, /停用偏好|过期事实|未来偏好|未命名|已撤回|from 对话/);
+  }
 });

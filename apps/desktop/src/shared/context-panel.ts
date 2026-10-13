@@ -9,6 +9,14 @@ export function contextInputBudget(budget: ContextBudgetConfig): number {
   return contextBudgetThresholds(budget).availableInputTokens;
 }
 
+export function contextErrorText(error: { code?: string; message?: string }): string {
+  if (/CANCEL|ABORT/i.test(error.code ?? "")) return "上下文压缩已停止，未因此删除历史；可以继续聊天。";
+  if (/TIMEOUT|TIMED_OUT/i.test(error.code ?? "") || /timed?\s*out|deadline/i.test(error.message ?? "")) return "上下文压缩超时，这次尚未完成；请稍后重试，完整历史仍保留。";
+  if (/BUDGET|LIMIT|TOO_LARGE/i.test(error.code ?? "") || /budget|too (?:large|long)|exceed.*(?:tokens|window)/i.test(error.message ?? "")) return "本次内容超过可用上下文预算，尚未发送。请分段发送或先压缩历史；完整记录仍保留。";
+  if (/READ|IPC|STORAGE/i.test(error.code ?? "")) return "上下文状态读取失败，请刷新核对；旧记录不代表这次成功。";
+  return "上下文操作未确认完成，请刷新核对后再试；完整历史仍保留。";
+}
+
 export function contextUsageLabel(value: ContextDiagnostics): string {
   const prepared = value.lastPreparation;
   if (!prepared || prepared.estimatedInputTokens === null) return "尚无输入估算";
@@ -37,7 +45,7 @@ export function contextPanelReducer(state: ContextPanelState, action:
   if (action.request !== state.request) return state;
   return action.result.ok
     ? { ...state, loading: false, value: action.result.value, error: null }
-    : { ...state, loading: false, error: `${action.result.error.code}: ${action.result.error.message}` };
+    : { ...state, loading: false, error: contextErrorText(action.result.error) };
 }
 
 export function preparationLabel(outcome: "passthrough" | "reused" | "written" | "noop" | "failed"): string {

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { NotificationReadinessStatus, RssWorkerResponse } from "../../shared/ui-contract.js";
 import { backgroundActionAllowed, backgroundServiceLabel, notificationPermissionLabel } from "./daily-automation.js";
+import { NotificationSettingsButton } from "./notification-settings-button.js";
 
 /** Explicit setup in the user's workspace, not an automatic service on app launch. */
 export function DailyAutomation({ enabled, busy }: { enabled: boolean; busy: boolean }) {
@@ -39,6 +40,7 @@ export function DailyAutomation({ enabled, busy }: { enabled: boolean; busy: boo
     {permission ? <p className="hint">{permission.message}</p> : null}
     <div className="memory-actions">
       <button className="ghost" disabled={busy || working || permission?.helperConfigured !== true} onClick={() => void act("test")}>{working ? "正在处理…" : "发送测试通知"}</button>
+      <NotificationSettingsButton />
       <button className="ghost" disabled={busy || working || !enabled || worker?.ok !== true || worker.registered} onClick={() => setPreview(true)}>启用后台提醒…</button>
       <button className="ghost" disabled={busy || working || worker?.ok !== true || !worker.registered} onClick={() => setPreview(false)}>停用后台提醒…</button>
     </div>

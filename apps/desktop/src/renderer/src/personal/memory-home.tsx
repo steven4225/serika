@@ -4,6 +4,7 @@ import { MessageContent } from "../markdown.js";
 import { savedMemoryEmptyCopy } from "../memory-copy.js";
 import {
   MEMORY_CATEGORIES,
+  isCurrentMemory,
   memoryCategory,
   memoryCategoryCounts,
   memoryCountLabel,
@@ -32,7 +33,7 @@ export function MemoryCardHome({ loaded, entries, now, onOpenSummary, onOpenCate
   onOpenCategory: (category: MemoryCategoryId) => void;
 }) {
   const understanding = memoryUnderstanding(entries, now);
-  const counts = memoryCategoryCounts(entries);
+  const counts = memoryCategoryCounts(entries, now);
   return <div className="memory-home" data-memory-view="home">
     <button type="button" className="memory-summary-card" onClick={onOpenSummary} aria-label="我对你的了解，打开全文">
       <span className="memory-summary-mark" aria-hidden="true"><Crown size={22} /></span>
@@ -63,14 +64,14 @@ export function MemoryCategoryFolder({ category, entries, now, onBack, onOpen }:
   onOpen: (id: string) => void;
 }) {
   const name = MEMORY_CATEGORIES.find(item => item.id === category)?.name ?? "记忆";
-  const items = entries.filter(entry => memoryCategory(entry) === category);
+  const items = entries.filter(entry => isCurrentMemory(entry, now) && memoryCategory(entry) === category);
   return <div className="memory-folder" data-memory-view="category">
     <MemoryBack label={name} onBack={onBack} />
     <p className="memory-updated">{memoryCountLabel(items.length)}</p>
     {items.length === 0 ? <p className="memory-empty">{savedMemoryEmptyCopy()}</p> : null}
     {items.map(entry => <button type="button" className="memory-item-card" key={entry.id} onClick={() => onOpen(entry.id)}>
       <strong>{memoryItemTitle(entry.preview)}</strong>
-      <small>{memoryUpdatedLabel(entry.updatedAt ?? entry.createdAt, now)}{entry.temporalState === "retracted" ? " · 已撤回" : ""}</small>
+      <small>{memoryUpdatedLabel(entry.updatedAt ?? entry.createdAt, now)}</small>
       <p>{entry.preview.replace(/^#{1,6}\s+/gm, "").trim() || "当前没有适用内容"}{entry.truncated ? "…" : ""}</p>
       <span className="memory-source-line">{memorySourcePhrase(entry.assertion?.sourceIds ?? [])}</span>
     </button>)}
@@ -84,7 +85,7 @@ export function MemoryUnderstanding({ entries, texts, now, onBack }: {
   onBack: () => void;
 }) {
   const understanding = memoryUnderstanding(entries, now);
-  const live = entries.filter(entry => entry.temporalState !== "retracted");
+  const live = entries.filter(entry => isCurrentMemory(entry, now));
   return <div className="memory-understanding" data-memory-view="summary">
     <MemoryBack label="我对你的了解" onBack={onBack} />
     {!understanding.empty ? <p className="memory-updated">{understanding.updatedLabel}</p> : null}

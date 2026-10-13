@@ -231,6 +231,7 @@ export interface RendererApi {
   setRssWorkerEnabled(enabled: boolean): Promise<RssWorkerResponse>;
   notificationStatus(): Promise<NotificationReadinessStatus>;
   testNotification(): Promise<NotificationTestResult>;
+  openNotificationSettings?(): Promise<{ ok: boolean; message: string }>;
   info(): Promise<AppInfo>;
   snapshot(): Promise<UiSnapshot>;
   history(): Promise<UIMessage[]>;
@@ -327,6 +328,7 @@ export const IPC = {
   rssWorkerEnabled: "runloom:rssWorkerEnabled",
   notificationStatus: "runloom:notificationStatus",
   notificationTest: "runloom:notificationTest",
+  notificationSettings: "runloom:notificationSettings",
   info: "runloom:info",
   moduleEnabled: "runloom:moduleEnabled",
   snapshot: "runloom:snapshot",
