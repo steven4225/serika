@@ -6,6 +6,7 @@ import { PassThrough } from "node:stream";
 import { describe, it } from "node:test";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
+import { AgentError } from "@aisdk-agent/core";
 import { createRuntimeApp } from "./app.js";
 import { createAssistantController } from "./assistant-controller.js";
 import { createMemoryStore } from "./memory-store.js";
@@ -43,6 +44,56 @@ async function waitFor(condition: () => boolean): Promise<void> {
 }
 
 describe("Memory Phase B application integration", () => {
+  it("no-new-user memory Demo: a scheduled message cannot reuse the preceding user's memory source", { timeout: 15_000 }, async () => {
+    const setup = await fixture();
+    const text = "我喜欢喝美式。";
+    let callTool = true;
+    let modelCalls = 0;
+    const model = new MockLanguageModelV3({ doStream: async () => {
+      modelCalls++;
+      const invoke = callTool; callTool = false;
+      return { stream: simulateReadableStream({ chunks: [
+        { type: "stream-start" as const, warnings: [] },
+        ...(invoke ? [{ type: "tool-call" as const, toolCallId: `remember-${modelCalls}`, toolName: "memory_add", input: JSON.stringify({ text }) }] : []),
+        { type: "finish" as const, finishReason: { unified: invoke ? "tool-calls" as const : "stop" as const, raw: undefined }, usage },
+      ] }) };
+    } });
+    const app = await createRuntimeApp({ ...setup, modelAlias: "mock", model, output: new PassThrough(), env: {}, cwd: setup.root });
+    const controller = createAssistantController(app);
+    try {
+      assert.ok((await controller.run(`记住${text}`)).ok);
+      await waitFor(() => controller.getSnapshot().pendingApproval !== null);
+      assert.equal(controller.confirm({ approvalId: controller.getSnapshot().pendingApproval!.approvalId, decision: "allow" }), true);
+      await waitFor(() => controller.getSnapshot().state.kind === "idle");
+      const saved = await app.memoryStore!.list(); assert.ok(saved.ok);
+      assert.equal(saved.entries.length, 1);
+      assert.equal(saved.entries[0]!.text, text);
+      const before = await readFile(join(setup.workspace, ".runloom", "memory.json"));
+      const userCalls = modelCalls;
+      await assert.rejects(app.runtime.run({ agentId: app.agentId, threadId: app.threadId, messages: [] }),
+        error => error instanceof AgentError && error.data.code === "INVALID_REQUEST");
+      assert.equal(modelCalls, userCalls, "no new user message cannot start a provider call");
+
+      // Fault injection into the primary toolset: real typed reminders skip the
+      // model entirely. Even here, a scheduled-task envelope is not a user fact.
+      callTool = true;
+      const scheduled = await app.runtime.run({ agentId: app.agentId, threadId: app.threadId, messages: [{
+        id: "scheduled-without-new-user", role: "user", metadata: { source: "scheduled-task" },
+        parts: [{ type: "text", text: `提醒到期：${text}` }],
+      }] });
+      await waitFor(() => controller.getSnapshot().pendingApproval !== null);
+      assert.equal(controller.confirm({ approvalId: controller.getSnapshot().pendingApproval!.approvalId, decision: "allow" }), true);
+      assert.equal((await scheduled.result).status, "completed");
+      const history = await controller.getHistory();
+      const afterScheduled = history.slice(history.findIndex(message => message.id === "scheduled-without-new-user") + 1);
+      assert.match(JSON.stringify(afterScheduled), /INVALID_INPUT/);
+      assert.match(JSON.stringify(afterScheduled), /没有可绑定的当前用户消息/);
+      assert.equal(modelCalls, userCalls + 2, "the attempted tool call was actually exercised");
+      assert.deepEqual(await readFile(join(setup.workspace, ".runloom", "memory.json")), before);
+      assert.deepEqual(await createMemoryStore(setup.workspace).list(), saved, "no new memory or source is saved");
+    } finally { await controller.shutdown(); await rm(setup.root, { recursive: true, force: true }); }
+  });
+
   for (const sourceQuote of [undefined, "记住我刚才说的那条。"] as const) {
     it(`current-source excerpt Demo: approved previous-message reference cannot write (${sourceQuote ?? "omitted quote"})`, async () => {
       const setup = await fixture();
