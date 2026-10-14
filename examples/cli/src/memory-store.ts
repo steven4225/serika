@@ -205,6 +205,8 @@ export interface MemoryWriteOptions {
   now?: Date;
   /** Trusted consolidation clock; called only after acquiring write ownership. */
   commitClock?: () => Date;
+  /** Host-validated incremental explicit intent only; never accepted by model tools. */
+  automaticResolveNowIndexes?: number[];
 }
 
 export interface WorkspaceMemoryStore {
@@ -814,7 +816,7 @@ function candidateRecord(document: MemoryDocument, candidate: MemoryCandidate, n
 }
 
 /** Caller owns the document lock and has rechecked applicability; no separate write. */
-function acceptCandidate(document: MemoryDocument, candidate: MemoryCandidate, now: Date, effectiveAt?: "now"): void {
+function acceptCandidate(document: MemoryDocument, candidate: MemoryCandidate, now: Date, effectiveAt?: "now", preservedPending?: MemoryCandidate): void {
   const change = candidate.change;
   const entry = candidateRecord(document, candidate, now, effectiveAt);
   if (factSlotConflict(entry, document.entries, now)) raise("MEMORY_REVISION_CONFLICT", "同一偏好的有效时间与另一条记忆重叠，请先审核或撤回冲突记忆；没有覆盖原记忆。");
@@ -826,7 +828,7 @@ function acceptCandidate(document: MemoryDocument, candidate: MemoryCandidate, n
     // timestamp is persisted in the formal assertion with its receipt.
     document.entries[document.entries.findIndex(record => record.id === entry.id)] = entry;
     candidate.appliedResult = { memoryId: entry.id, revision: entry.revision };
-    for (const other of document.candidates) if (other.id !== candidate.id && other.status === "pending" && other.change.operation !== "add" && other.change.memoryId === entry.id) staleCandidate(other, "target_changed", now.toISOString());
+    for (const other of document.candidates) if (other !== preservedPending && other.id !== candidate.id && other.status === "pending" && other.change.operation !== "add" && other.change.memoryId === entry.id) staleCandidate(other, "target_changed", now.toISOString());
   }
   candidate.status = "accepted"; candidate.revision += 1; candidate.resolvedAt = now.toISOString();
 }
@@ -1195,8 +1197,10 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
       const drafts = input.candidates.map((draft) => validateDraft(draft, threadId));
       const automatic = input.autoAcceptIndexes !== undefined;
       const indexes = input.autoAcceptIndexes ?? [];
+      const resolveNowIndexes = options?.automaticResolveNowIndexes ?? [];
       if (!Array.isArray(indexes) || indexes.some(index => !Number.isSafeInteger(index) || index < 0 || index >= drafts.length) || new Set(indexes).size !== indexes.length) raise("MEMORY_BATCH_INVALID", "Automatic acceptance indexes must name unique prepared drafts");
-      if (indexes.some(index => drafts[index]!.change.operation === "change" && drafts[index]!.change.effectiveAt === null)) raise("MEMORY_BATCH_INVALID", "Undated changes require explicit review and cannot be automatically accepted");
+      if (!Array.isArray(resolveNowIndexes) || new Set(resolveNowIndexes).size !== resolveNowIndexes.length || resolveNowIndexes.some(index => !Number.isSafeInteger(index) || !indexes.includes(index) || drafts[index]!.change.operation !== "change" || drafts[index]!.change.effectiveAt !== null) || resolveNowIndexes.length > 0 && !input.incremental) raise("MEMORY_BATCH_INVALID", "Host from-now indexes require incremental automatic undated changes");
+      if (indexes.some(index => drafts[index]!.change.operation === "change" && drafts[index]!.change.effectiveAt === null && !resolveNowIndexes.includes(index))) raise("MEMORY_BATCH_INVALID", "Undated changes require explicit review and cannot be automatically accepted");
       const cursor = input.nextCursor === null ? null : validateCursor(input.nextCursor);
       const expectedCursor = input.expectedCursor !== null ? validateCursor(input.expectedCursor) : null;
       const outcomes = input.outcomes === undefined ? undefined : validateConsolidationOutcomes(input.outcomes);
@@ -1210,6 +1214,7 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
       if (input.expectedReceiptHash !== undefined && (input.expectedReceiptHash !== null && !/^[a-f0-9]{64}$/.test(input.expectedReceiptHash) || !input.incremental)) raise("MEMORY_BATCH_INVALID", "Invalid retry receipt precondition");
       const payload: unknown[] = [drafts, expectedCursor, cursor, indexes, outcomes, input.incremental, sourcePrefix];
       if (input.expectedReceiptHash !== undefined) payload.push(input.expectedReceiptHash);
+      if (resolveNowIndexes.length) payload.push({ resolveNowIndexes });
       const payloadHash = createHash("sha256").update(JSON.stringify(payload)).digest("hex");
       if (cursor && (cursor.threadId !== threadId || cursor.lastBatchId !== input.batchId)) raise("MEMORY_BATCH_INVALID", "Cursor must match batch and Thread");
       if (automatic && cursor === null && (outcomes === undefined || !input.incremental)) raise("MEMORY_BATCH_INVALID", "Automatic acceptance requires an incremental cursor or validated incremental coverage");
@@ -1243,7 +1248,8 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
         const added: string[] = [];
         const originalCandidateCount = document.candidates.length;
         const toAccept: MemoryCandidate[] = [];
-        const autoTargets = new Set<string>();
+        const resolveNow = new Set<MemoryCandidate>();
+        const autoTargets = new Map<string, MemoryCandidate[]>();
         for (const [index, draft] of drafts.entries()) {
           const fingerprint = candidateFingerprint(threadId, draft);
           const existing = document.candidates.find((c) => c.fingerprint === fingerprint || samePendingChange(c, draft, threadId));
@@ -1254,18 +1260,65 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
           if (reason !== null) raise("MEMORY_CANDIDATE_STALE", `Candidate target unavailable: ${reason}`);
           document.candidates.push(candidate); added.push(candidate.id);
           if (indexes.includes(index)) {
+            if (resolveNowIndexes.includes(index)) {
+              const change = candidate.change;
+              if (change.operation !== "change") raise("MEMORY_BATCH_INVALID", "Host transition must be a change");
+              const record = document.entries.find(entry => entry.id === change.memoryId)!;
+              const target = projectRecord(record, now);
+              if (!target.enabled || target.assertion?.kind !== "preference" || change.kind !== "preference" ||
+                !sameFactSlot(target.assertion.factIdentity, change.factIdentity) || sameFact(target.assertion.factIdentity, change.factIdentity) ||
+                (target.expiresAt ?? null) !== change.expiresAt) raise("MEMORY_BATCH_INVALID", "Host transition must retain the current preference slot, scope and expiry");
+              resolveNow.add(candidate);
+            }
             if (candidate.change.operation !== "add") {
-              if (autoTargets.has(candidate.change.memoryId)) raise("MEMORY_BATCH_INVALID", "An automatic batch cannot change the same target twice");
-              autoTargets.add(candidate.change.memoryId);
+              const peers = autoTargets.get(candidate.change.memoryId) ?? [];
+              peers.push(candidate); autoTargets.set(candidate.change.memoryId, peers);
             }
             toAccept.push(candidate);
           }
+        }
+        // The sole multi-mutation exception is host-bound source reinforcement
+        // of the old value followed by an explicit current transition. Both
+        // immutable proposals must name the same original CAS revision.
+        const pairedChanges = new Map<MemoryCandidate, MemoryCandidate>();
+        const pairedSupports = new Map<MemoryCandidate, MemoryCandidate>();
+        for (const [memoryId, peers] of autoTargets) {
+          if (peers.length < 2) continue;
+          const transition = peers.find(candidate => resolveNow.has(candidate));
+          const support = peers.find(candidate => candidate.change.operation === "correct" && candidate.change.reuseSources);
+          const current = projectRecord(document.entries.find(entry => entry.id === memoryId)!, now);
+          const transitionSources = transition?.sources ?? (transition ? [transition.source] : []);
+          const transitionPosition = outcomes?.findIndex(outcome => outcome.messageId === transitionSources[0]?.messageId) ?? -1;
+          const priorSources = (support?.sources ?? (support ? [support.source] : [])).every(source => {
+            const position = outcomes?.findIndex(outcome => outcome.messageId === source.messageId) ?? -1;
+            return position >= 0 && position < transitionPosition;
+          });
+          if (peers.length !== 2 || !transition || !support || transition === support || support.change.operation !== "correct" || transition.change.operation !== "change" ||
+            transitionSources.length !== 1 || !priorSources || transitionPosition < 0 ||
+            support.change.expectedRevision !== transition.change.expectedRevision || current.revision !== support.change.expectedRevision ||
+            support.change.text !== current.text || support.change.kind !== current.assertion?.kind ||
+            !sameFact(support.change.factIdentity, current.assertion?.factIdentity) || support.change.expiresAt !== (current.expiresAt ?? null) ||
+            JSON.stringify(support.change.validTime) !== JSON.stringify(current.assertion?.validTime) ||
+            support.change.recallTerms !== undefined && JSON.stringify(support.change.recallTerms) !== JSON.stringify(current.assertion?.recallTerms)) {
+            raise("MEMORY_BATCH_INVALID", "An automatic batch cannot change the same target twice");
+          }
+          pairedChanges.set(transition, support); pairedSupports.set(support, transition);
         }
         // Classify the whole prospective set before accepting any member. Do not
         // choose the first of two conflicting new facts or roll back unrelated facts.
         const proposed = new Map<MemoryCandidate, MemoryRecord>();
         for (const candidate of toAccept) {
-          try { proposed.set(candidate, candidateRecord(document, candidate, now)); }
+          if (pairedChanges.has(candidate)) continue;
+          const transition = pairedSupports.get(candidate);
+          try {
+            const record = candidateRecord(document, candidate, now, resolveNow.has(candidate) ? "now" : undefined);
+            if (transition) {
+              const reinforced = { ...document, entries: document.entries.map(entry => entry.id === record.id ? record : entry) };
+              const changed = candidateRecord(reinforced, transition, now, "now");
+              proposed.set(transition, changed);
+            }
+            proposed.set(candidate, record);
+          }
           catch (error) {
             // Capacity is not bad source data. Keep the evidence as a pending
             // review while saving unrelated facts; never prune temporal history.
@@ -1273,11 +1326,22 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
           }
         }
         const conflicts = new Set([...proposed].filter(([, record]) => factSlotConflict(record, [...document.entries, ...proposed.values()], now)).map(([candidate]) => candidate));
-        for (const candidate of toAccept) {
+        const ordered = [...toAccept.filter(candidate => !pairedChanges.has(candidate)), ...toAccept.filter(candidate => pairedChanges.has(candidate))];
+        for (const candidate of ordered) {
           if (!proposed.has(candidate) || conflicts.has(candidate)) continue;
-          const reason = staleReasonFor(candidate, document, now);
+          const peer = pairedSupports.get(candidate) ?? pairedChanges.get(candidate);
+          if (peer && (!proposed.has(peer) || conflicts.has(peer))) continue;
+          const support = pairedChanges.get(candidate);
+          // Rebind only to the exact successful source attachment performed in
+          // this transaction; the persisted proposal/fingerprint stays intact.
+          let applicability = candidate;
+          if (support) {
+            if (candidate.change.operation === "add" || support.status !== "accepted" || support.appliedResult?.revision !== candidate.change.expectedRevision + 1) raise("MEMORY_REVISION_CONFLICT", "Paired source attachment changed unexpectedly");
+            applicability = { ...candidate, change: { ...candidate.change, expectedRevision: support.appliedResult.revision } };
+          }
+          const reason = staleReasonFor(applicability, document, now);
           if (reason !== null) raise("MEMORY_CANDIDATE_STALE", `Automatic target unavailable: ${reason}`);
-          acceptCandidate(document, candidate, now);
+          acceptCandidate(document, candidate, now, resolveNow.has(candidate) ? "now" : undefined, pairedSupports.get(candidate));
         }
         const summary = summarize([...new Set(added)], false);
         pruneCandidates(document, toAccept.map(candidate => candidate.id));

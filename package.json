@@ -26,6 +26,7 @@
     "eval:e2e": "pnpm build:runtime && pnpm --filter @aisdk-agent/eval e2e",
     "eval:guards": "pnpm build:runtime && pnpm --filter @aisdk-agent/eval guards",
     "eval:test": "pnpm build:runtime && pnpm --filter @aisdk-agent/eval test",
+    "eval:recall": "pnpm build:runtime && pnpm --filter @aisdk-agent/eval recall",
     "eval:view": "pnpm --filter @aisdk-agent/eval run view",
     "task-worker": "pnpm build:runtime && node examples/cli/dist/task-worker-entry.js",
     "desktop:test": "pnpm build:runtime && pnpm --filter @aisdk-agent/desktop test",

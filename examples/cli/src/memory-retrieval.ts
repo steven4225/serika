@@ -1,21 +1,24 @@
 import type { UIMessage } from "ai";
+import { createHash } from "node:crypto";
 import { selectInjectableMemoryEntries, type MemoryEntry } from "./memory-store.js";
 import { validateRecallTerms, validateTemporalTimestamp, validateValidTime } from "./memory-temporal.js";
+import type { MemorySemanticHit } from "./memory-semantic-index.js";
 
 export const MEMORY_QUERY_MAX_BYTES = 4_096;
 export const RETRIEVED_MEMORY_MAX_BYTES = 8_192;
 export const RETRIEVED_MEMORY_MAX_ENTRIES = 12;
 export const PINNED_MEMORY_MAX_BYTES = 4_096;
 export const PINNED_MEMORY_MAX_ENTRIES = 2;
+export function memorySemanticTextHash(text: string): string { return createHash("sha256").update(text, "utf8").digest("hex"); }
 
-export interface MemoryQuery { query: string; threadId?: string; now: Date; rewrittenQueries?: readonly string[] }
+export interface MemoryQuery { query: string; threadId?: string; now: Date; rewrittenQueries?: readonly string[]; semanticHits?: readonly MemorySemanticHit[]; maxBytes?: number; maxEntries?: number }
 export interface MemoryTemporalView { validAt: string; knownAt: string }
 /** Factual provenance only. Lookup phrases and source quotes never enter a reference. */
 export type MemoryReferenceAssertion = Pick<NonNullable<MemoryEntry["assertion"]>, "assertionId" | "kind" | "validTime" | "systemTime" | "state" | "sourceIds">;
 export interface MemorySelectedReference {
   id: string;
   revision: number;
-  reason: "pinned" | "matched" | "recall_term" | "rewritten";
+  reason: "pinned" | "matched" | "recall_term" | "rewritten" | "semantic" | "hybrid" | "stable_profile";
   assertion?: MemoryReferenceAssertion;
 }
 export interface MemorySelection {
@@ -88,7 +91,7 @@ function rankForText(entries: readonly MemoryEntry[], query: string, texts: (ent
     const matches = tokenized.terms.filter((term) => entryTerms.has(term)).length;
     return { entry, matches, phrase: tokenized.terms.length > 0 && text.some((value) => value.includes(tokenized.normalizedQuery)) };
   }).filter((item) => item.matches > 0).sort((a, b) =>
-    Number(b.phrase) - Number(a.phrase) || b.matches - a.matches || stableOrder(a.entry, b.entry)).map((item) => item.entry);
+    Number(b.phrase) - Number(a.phrase) || b.matches - a.matches || relevanceTieOrder(a.entry, b.entry)).map((item) => item.entry);
 }
 
 /** A selected reference, not a complete inventory or a source of authority. */
@@ -123,15 +126,16 @@ function bytes(selection: MemorySelection): number {
 
 /** Keep the one already-budgeted reference adjacent to this question, not before old answers. */
 export function placeCurrentMemoryReference(messages: UIMessage[], messageId: string | undefined): UIMessage[] {
-  const index = messages.findIndex(message => message.id === "runloom-workspace-memory" &&
-    (message.metadata as { source?: string } | undefined)?.source === "workspace-memory");
-  if (index < 0) return messages;
-  const reference = messages[index]!;
-  const conversation = messages.filter((_, position) => position !== index);
+  const isReference = (message: UIMessage) =>
+    (message.id === "runloom-workspace-memory" && (message.metadata as { source?: string } | undefined)?.source === "workspace-memory") ||
+    (message.id === "runloom-memory-context-view" && (message.metadata as { source?: string } | undefined)?.source === "memory-context-view");
+  const references = messages.filter(isReference);
+  if (references.length === 0) return messages;
+  const conversation = messages.filter(message => !isReference(message));
   const current = messageId === undefined ? -1 : conversation.findIndex(message => message.id === messageId && message.role === "user");
   // Compaction can replace a completed current interaction as a whole; append rather
   // than inserting between a tool call and its result in that case.
-  conversation.splice(current < 0 ? conversation.length : current, 0, reference);
+  conversation.splice(current < 0 ? conversation.length : current, 0, ...references);
   return conversation;
 }
 function stableOrder(a: MemoryEntry, b: MemoryEntry): number {
@@ -140,6 +144,14 @@ function stableOrder(a: MemoryEntry, b: MemoryEntry): number {
     return Number.isFinite(parsed) ? parsed : 0;
   };
   return date(b) - date(a) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+}
+
+/** Kind breaks relevance ties only; no quotas, heat or zero-match filler.
+ * Unknown legacy kinds retain their prior recency ordering, below known stable facts.
+ */
+function relevanceTieOrder(a: MemoryEntry, b: MemoryEntry): number {
+  const stable = (entry: MemoryEntry) => Number(entry.assertion?.kind === "preference" || entry.assertion?.kind === "fact");
+  return stable(b) - stable(a) || stableOrder(a, b);
 }
 
 function referenceAssertion(assertion: NonNullable<MemoryEntry["assertion"]>): MemoryReferenceAssertion {
@@ -155,6 +167,7 @@ function referenceAssertion(assertion: NonNullable<MemoryEntry["assertion"]>): M
 
 /** Defense against stale or malformed projections supplied by non-store callers. */
 function currentlyApplicable(entry: MemoryEntry, now: number): boolean {
+  if (entry.temporalState !== undefined && entry.temporalState !== "applicable") return false;
   const assertion = entry.assertion;
   if (assertion === undefined) return true; // Compatibility entries have no temporal metadata.
   try {
@@ -178,11 +191,19 @@ function currentlyApplicable(entry: MemoryEntry, now: number): boolean {
   } catch { return false; }
 }
 
-/** Deterministic lexical retrieval. This intentionally makes no semantic-recall claim. */
+export function selectEligibleMemoryEntries(entries: readonly MemoryEntry[], input: { now: Date; threadId?: string }): MemoryEntry[] {
+  return selectInjectableMemoryEntries(entries, { now: input.now, ...(input.threadId === undefined ? {} : { threadId: input.threadId }) })
+    .filter((entry) => currentlyApplicable(entry, input.now.getTime()));
+}
+
+/** Pins precede bounded hybrid selection; absent semantic hits preserves legacy ordering. */
 export function retrieveMemories(entries: readonly MemoryEntry[], input: MemoryQuery): MemorySelection {
   const clipped = boundedMemoryQuery(input.query);
-  const eligible = selectInjectableMemoryEntries(entries, { now: input.now, ...(input.threadId === undefined ? {} : { threadId: input.threadId }) })
-    .filter((entry) => currentlyApplicable(entry, input.now.getTime()));
+  const eligible = selectEligibleMemoryEntries(entries, input);
+  const maxBytes = typeof input.maxBytes === "number" && Number.isFinite(input.maxBytes)
+    ? Math.max(0, Math.min(RETRIEVED_MEMORY_MAX_BYTES, Math.floor(input.maxBytes))) : RETRIEVED_MEMORY_MAX_BYTES;
+  const maxEntries = typeof input.maxEntries === "number" && Number.isFinite(input.maxEntries)
+    ? Math.max(0, Math.min(RETRIEVED_MEMORY_MAX_ENTRIES, Math.floor(input.maxEntries))) : RETRIEVED_MEMORY_MAX_ENTRIES;
   const observedAt = input.now.toISOString();
   const selection: MemorySelection = {
     entries: [], bytes: 0, truncated: false, queryTruncated: clipped.truncated,
@@ -190,7 +211,7 @@ export function retrieveMemories(entries: readonly MemoryEntry[], input: MemoryQ
   };
   const chosen = new Set<string>();
   const add = (entry: MemoryEntry, reason: MemorySelectedReference["reason"], limit: number): boolean => {
-    if (selection.entries.length >= RETRIEVED_MEMORY_MAX_ENTRIES) return false;
+    if (selection.entries.length >= maxEntries) return false;
     const { history: _history, ...current } = entry;
     const selected: MemorySelectedReference = {
       id: entry.id, revision: entry.revision ?? 1, reason,
@@ -205,20 +226,54 @@ export function retrieveMemories(entries: readonly MemoryEntry[], input: MemoryQ
     return true;
   };
   for (const entry of eligible.filter((entry) => entry.pinned === true).sort(stableOrder)) {
-    if (selection.entries.length >= PINNED_MEMORY_MAX_ENTRIES || !add(entry, "pinned", PINNED_MEMORY_MAX_BYTES)) selection.truncated = true;
+    if (selection.entries.length >= PINNED_MEMORY_MAX_ENTRIES || !add(entry, "pinned", Math.min(PINNED_MEMORY_MAX_BYTES, maxBytes))) selection.truncated = true;
+  }
+  if (input.semanticHits !== undefined && input.semanticHits.length > 0) {
+    const available = eligible.filter(entry => !chosen.has(entry.id));
+    const lexical: MemoryEntry[] = [];
+    const seen = new Set<string>();
+    const append = (lane: MemoryEntry[]) => { for (const entry of lane) if (!seen.has(entry.id)) { seen.add(entry.id); lexical.push(entry); } };
+    for (const query of [clipped.text, ...(input.rewrittenQueries ?? []).slice(0, 3)]) {
+      append(rankMemoryEntriesForQuery(available, boundedMemoryQuery(query).text));
+      append(rankMemoryEntriesForRecallTerms(available, boundedMemoryQuery(query).text));
+    }
+    // Hits are hints only: reread current supplied facts, never cache text or old revisions.
+    const byId = new Map(available.map(entry => [entry.id, entry]));
+    const vector = input.semanticHits.filter(hit => {
+      const entry = byId.get(hit.id);
+      return entry !== undefined && hit.revision === (entry.revision ?? 1) && hit.textHash === memorySemanticTextHash(entry.text)
+        && Number.isFinite(hit.score) && hit.score >= 0.5 && hit.score <= 1;
+    }).sort((a, b) => b.score - a.score || relevanceTieOrder(byId.get(a.id)!, byId.get(b.id)!));
+    const scores = new Map<string, { score: number; lexical: boolean; semantic: boolean }>();
+    for (const [lane, isLexical] of [[lexical.map(entry => entry.id), true], [vector.map(hit => hit.id), false]] as const) {
+      const laneSeen = new Set<string>();
+      let rank = 0;
+      for (const id of lane) {
+        if (laneSeen.has(id)) continue;
+        laneSeen.add(id);
+        const item = scores.get(id) ?? { score: 0, lexical: false, semantic: false };
+        item.score += 1 / (60 + ++rank);
+        if (isLexical) item.lexical = true; else item.semantic = true;
+        scores.set(id, item);
+      }
+    }
+    const ranked = [...scores].sort((a, b) => b[1].score - a[1].score || relevanceTieOrder(byId.get(a[0])!, byId.get(b[0])!));
+    for (const [id, item] of ranked) if (!add(byId.get(id)!, item.lexical && item.semantic ? "hybrid" : item.semantic ? "semantic" : "matched", maxBytes)) selection.truncated = true;
+    selection.bytes = bytes(selection);
+    return selection;
   }
   const ranked = rankMemoryEntriesForQuery(eligible.filter((entry) => !chosen.has(entry.id)), clipped.text);
-  for (const entry of ranked) if (!add(entry, "matched", RETRIEVED_MEMORY_MAX_BYTES)) selection.truncated = true;
+  for (const entry of ranked) if (!add(entry, "matched", maxBytes)) selection.truncated = true;
   for (const entry of rankMemoryEntriesForRecallTerms(eligible.filter((entry) => !chosen.has(entry.id)), clipped.text)) {
-    if (!add(entry, "recall_term", RETRIEVED_MEMORY_MAX_BYTES)) selection.truncated = true;
+    if (!add(entry, "recall_term", maxBytes)) selection.truncated = true;
   }
   // Original matches always precede expansion; expansion never bypasses eligibility or budgets.
   for (const query of (input.rewrittenQueries ?? []).slice(0, 3)) {
     for (const entry of rankMemoryEntriesForQuery(eligible.filter(entry => !chosen.has(entry.id)), boundedMemoryQuery(query).text)) {
-      if (!add(entry, "rewritten", RETRIEVED_MEMORY_MAX_BYTES)) selection.truncated = true;
+      if (!add(entry, "rewritten", maxBytes)) selection.truncated = true;
     }
     for (const entry of rankMemoryEntriesForRecallTerms(eligible.filter(entry => !chosen.has(entry.id)), boundedMemoryQuery(query).text)) {
-      if (!add(entry, "rewritten", RETRIEVED_MEMORY_MAX_BYTES)) selection.truncated = true;
+      if (!add(entry, "rewritten", maxBytes)) selection.truncated = true;
     }
   }
   selection.bytes = bytes(selection);
