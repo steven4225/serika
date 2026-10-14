@@ -33,7 +33,8 @@ import {
   validateContextBudgetConfig,
 } from "./context-window.js";
 import { ContextCompactor, readContextDiagnostics } from "./context-compactor.js";
-import { availableInputTokens, DEFAULT_CONTEXT_BUDGET_CONFIG } from "./context-budget.js";
+import { availableInputTokens, DEFAULT_CONTEXT_BUDGET_CONFIG, effectiveContextBudget } from "./context-budget.js";
+import { resolveModelContextWindow } from "./model-config.js";
 import { modelToolContext } from "./model-tool-context.js";
 import type { ContextDiagnostics, ContextResult } from "./context-diagnostics.js";
 import { createAiSdkSummarizer } from "./context-compaction.js";
@@ -188,6 +189,9 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         todoistTimeZone: env.RUNLOOM_TODOIST_TIMEZONE?.trim() || undefined,
       })
     : undefined;
+  const requestedContextBudget = moduleConfig?.contextCompaction;
+  const modelCapacity = typeof model === "string" ? undefined : resolveModelContextWindow(model, env, moduleConfig?.modelContextWindows);
+  if (moduleConfig && modelCapacity) moduleConfig.contextCompaction = effectiveContextBudget(moduleConfig.contextCompaction, modelCapacity);
   const workspaceRoot = moduleConfig?.workspaceRoot ?? undefined;
   const memoryEnabled = moduleConfig?.enabled.memory ?? false;
   const checkpointEnabled = moduleConfig?.enabled.checkpoint ?? false;
@@ -1036,6 +1040,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
             modelId: modelAlias,
             summarizer: createAiSdkSummarizer(observedModel("context_compaction")),
             budget: moduleConfig.contextCompaction,
+            modelContextWindowTokens: moduleConfig.contextCompaction.contextWindowTokens,
             fixedContext: () => {
               const now = new Date();
               const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -1405,7 +1410,11 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
           store, threadId, moduleConfig?.contextCompaction ?? DEFAULT_CONTEXT_BUDGET_CONFIG,
           lastUncompactedPreparation,
         ));
-        if (result.ok) result.value.lastPreparationSource = result.value.lastPreparation ? source : null;
+        if (result.ok) {
+          result.value.lastPreparationSource = result.value.lastPreparation ? source : null;
+          if (requestedContextBudget) result.value.requestedBudget = structuredClone(requestedContextBudget);
+          if (modelCapacity) result.value.modelCapacity = structuredClone(modelCapacity);
+        }
         return result;
       },
       getMemoryReferences: () => memoryReference === null ? null : structuredClone(memoryReference),

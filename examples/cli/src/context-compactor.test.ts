@@ -136,6 +136,17 @@ function makeCompactor(
 }
 
 describe("ContextCompactor", () => {
+  it("a model-bound summary window checks the complete prompt before dispatch", async () => {
+    const store = new FakeStore();
+    const summarizer = new FakeSummarizer();
+    await assert.rejects(makeCompactor(store, summarizer, budget, {
+      modelContextWindowTokens: 510,
+    }).prepare([
+      user("u1", "old ".repeat(40)), assistant("a1", "old result ".repeat(100)), user("u2", "new"),
+    ], new AbortController().signal), /摘要.*窗口/);
+    assert.equal(summarizer.calls, 0);
+    assert.equal(store.records.length, 0);
+  });
   for (const mode of ["daily", "long-task"] as const) {
     it(`budget mode Demo: ${mode} predicts 85%, merges more than four independent 32K chunks and reuses effective summary`, async () => {
       const store = new FakeStore();

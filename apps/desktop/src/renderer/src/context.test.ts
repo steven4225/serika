@@ -17,6 +17,18 @@ it("shows only two profile choices, no implicit legacy upgrade, and disables mod
   assert.match(legacy, /选择模式不会自动开启/);
 });
 
+it("separates preset intent from effective budget and labels unknown capacity unverified", () => {
+  const requestedBudget = contextBudgetForMode("long-task");
+  const budget = { ...requestedBudget, contextWindowTokens: 128_000, inputBudgetTokens: 91_136 };
+  const html = renderToStaticMarkup(createElement(ContextModeSelector, { budget, requestedBudget,
+    modelCapacity: { provider: "test", modelId: "unknown", contextWindowTokens: 128_000, source: "unverified_fallback" }, disabled: false, onSelect() {} }));
+  assert.match(html, /容量未核实/);
+  assert.match(html, /输入预算[^<]*91,136/);
+  assert.match(html, /档位目标[^<]*400,000/);
+  assert.match(html, /不证明供应商支持/);
+  assert.doesNotMatch(html, /实际窗口/);
+});
+
 it("keeps advanced context details closed and does not add warning popups", () => {
   const html = renderToStaticMarkup(createElement(ContextPanel, { controllerIdle: true, refreshToken: 0, hasCompaction: true }));
   assert.match(html, /<details class="context-technical"><summary>高级：预算与压缩详情/);

@@ -14,10 +14,11 @@ async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "serika-context-mode-"));
   const workspace = join(root, "workspace"), configPath = join(root, "config.json"); await mkdir(workspace);
   const budget = { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled: true, contextWindowTokens: 1_000_000, safetyMarginTokens: 32_768 };
-  await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: false } }, contextCompaction: budget }));
+  await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: false } }, contextCompaction: budget,
+    modelContextWindows: [{ provider: "test", modelId: "test", contextWindowTokens: 1_000_000 }] }));
   let calls = 0; const events: MainToRenderer[] = [];
   const options = { userData: join(root, "profile"), cwd: root, env: { RUNLOOM_CONFIG: configPath }, modelAlias: "mock", send: (event: MainToRenderer) => { events.push(event); },
-    model: new MockLanguageModelV3({ doStream: async () => { calls++; return { stream: simulateReadableStream({ chunks: [
+    model: new MockLanguageModelV3({ provider: "test", modelId: "test", doStream: async () => { calls++; return { stream: simulateReadableStream({ chunks: [
       { type: "stream-start" as const, warnings: [] }, { type: "text-start" as const, id: "t" }, { type: "text-delta" as const, id: "t", delta: "收到" }, { type: "text-end" as const, id: "t" },
       { type: "finish" as const, finishReason: { unified: "stop" as const, raw: undefined }, usage: { inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 1, text: 1, reasoning: undefined } } },
     ] }) }; } }),
@@ -46,6 +47,26 @@ it("mode selection preserves conversation, rejects busy/stale changes and persis
     await host.shutdown(); host = await DesktopRuntime.create(f.options);
     assert.deepEqual(await readBudget(host), contextBudgetForMode("long-task"));
     assert.deepEqual(await host.current.history(), history); assert.equal(f.calls(), calls, "mode change and restart never replay a Run");
+  } finally { await host.shutdown(); await f.cleanup(); }
+});
+
+it("small actual model capacity keeps requested mode CAS separate and reapplies the cap after reopen", async () => {
+  const f = await fixture();
+  const raw = JSON.parse(await readFile(f.configPath, "utf8"));
+  raw.modelContextWindows[0].contextWindowTokens = 128_000;
+  await writeFile(f.configPath, JSON.stringify(raw));
+  let host = await DesktopRuntime.create(f.options);
+  try {
+    const before = await host.current.getContextDiagnostics(); assert(before.ok);
+    assert.equal(before.value.budget.contextWindowTokens, 128_000);
+    await host.setContextMode({ mode: "long-task", expectedBudget: before.value.requestedBudget! });
+    const after = await host.current.getContextDiagnostics(); assert(after.ok);
+    assert.equal(after.value.budget.inputBudgetTokens, 91_136);
+    assert.equal(after.value.requestedBudget?.inputBudgetTokens, 400_000);
+    assert.equal(after.value.budget.keepRecentTokens, 64_000);
+    await host.shutdown(); host = await DesktopRuntime.create(f.options);
+    assert.equal((await readBudget(host)).inputBudgetTokens, 91_136);
+    assert.equal(f.calls(), 0, "reading capacity and switching never invoke or replay a model");
   } finally { await host.shutdown(); await f.cleanup(); }
 });
 

@@ -77,6 +77,7 @@ export interface ResolvedTuiModuleConfig {
   computer?: ComputerConfig;
   automation?: AutomationConfig;
   modelPricing?: readonly ModelPrice[];
+  modelContextWindows?: readonly import("./context-budget.js").ModelContextWindow[];
 }
 
 export interface AutomationConfig {
@@ -188,6 +189,10 @@ const tuiModuleConfigV1Schema = z
     modelPricing: z.array(z.custom<ModelPrice>(validModelPrice)).max(16).refine(prices =>
       new Set(prices.map(price => JSON.stringify([price.provider, price.modelId]))).size === prices.length,
       "Duplicate provider/model price").optional(),
+    modelContextWindows: z.array(z.object({ provider: nonEmptyString, modelId: nonEmptyString,
+      contextWindowTokens: z.number().int().positive().max(Number.MAX_SAFE_INTEGER) }).strict()).max(16).refine(windows =>
+      new Set(windows.map(item => JSON.stringify([item.provider, item.modelId]))).size === windows.length,
+      "Duplicate provider/model context window").optional(),
     automation: automationConfigSchema.optional(),
     run: z
       .object({
@@ -234,6 +239,7 @@ export interface TuiModuleConfigV1 {
   run?: { maxSteps?: number | undefined; totalTimeoutMs?: number | undefined } | undefined;
   automation?: AutomationConfig | undefined;
   modelPricing?: ModelPrice[] | undefined;
+  modelContextWindows?: import("./context-budget.js").ModelContextWindow[] | undefined;
 }
 
 function configPathFromArgs(args: TuiArgs): string | undefined {
@@ -568,6 +574,7 @@ async function resolveConfiguredMode(
     ...(computer ? { computer } : {}),
     ...(config.automation ? { automation: config.automation } : {}),
     ...(config.modelPricing ? { modelPricing: config.modelPricing } : {}),
+    ...(config.modelContextWindows ? { modelContextWindows: config.modelContextWindows } : {}),
   };
 }
 

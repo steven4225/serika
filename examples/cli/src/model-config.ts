@@ -1,5 +1,24 @@
 import { defaultSettingsMiddleware, wrapLanguageModel, type LanguageModel } from "ai";
 import { createConfiguredModel } from "@aisdk-agent/ai-sdk-adapter";
+import { UNKNOWN_MODEL_CONTEXT_WINDOW_TOKENS, type ModelCapacityEvidence, type ModelContextWindow } from "./context-budget.js";
+
+/** Capacity is operator-declared and exact-model-bound; aliases never imply a window. */
+export function resolveModelContextWindow(model: { provider: string; modelId: string }, env: NodeJS.ProcessEnv,
+  configured: readonly ModelContextWindow[] = []): ModelCapacityEvidence {
+  const identity = { provider: model.provider, modelId: model.modelId };
+  const mode = env.RUNLOOM_MODEL;
+  const prefix = mode === "command-code" ? "COMMAND_CODE" : mode === "deepseek" ? "DEEPSEEK" : mode === "minimax-m3" ? "MINIMAX" : undefined;
+  const configuredId = prefix ? env[`${prefix}_MODEL_ID`] ?? (mode === "command-code" ? "deepseek/deepseek-v4.1-flash" : mode === "deepseek" ? "deepseek-flash" : "MiniMax-M3") : undefined;
+  const raw = prefix && configuredId === model.modelId ? env[`${prefix}_CONTEXT_WINDOW_TOKENS`] : undefined;
+  if (raw !== undefined) {
+    const tokens = Number(raw);
+    if (!/^\d+$/.test(raw) || !Number.isSafeInteger(tokens) || tokens <= 0) throw new Error("模型窗口配置必须是正整数，请核对 CONTEXT_WINDOW_TOKENS；尚未发送请求。");
+    return { ...identity, contextWindowTokens: tokens, source: "environment" };
+  }
+  const found = configured.find(item => item.provider === model.provider && item.modelId === model.modelId);
+  return { ...identity, contextWindowTokens: found?.contextWindowTokens ?? UNKNOWN_MODEL_CONTEXT_WINDOW_TOKENS,
+    source: found ? "configuration" : "unverified_fallback" };
+}
 
 export function inspectCliModelConfig(env: NodeJS.ProcessEnv = process.env): {
   alias: string;
