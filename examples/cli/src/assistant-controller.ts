@@ -494,7 +494,8 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       try {
         const extracted = hostExtraction && result.status === "completed" ?
           await stageConsolidationExtraction(app.memoryConsolidation!, result.text, signal) : undefined;
-        const finalized = extracted && !extracted.ok ? extracted : await app.memoryConsolidation?.finalize({ ...result,
+        const finalized = await app.memoryConsolidation?.finalize({ ...result,
+          ...(extracted && !extracted.ok ? { extractionFailed: true } : {}),
           ...(hostExtraction && consolidationAttempts.prepare === 0 && consolidationAttempts.stage === 0 ? {} : { consolidationAttempts }) }, signal);
         if (finalized !== undefined && !finalized.ok) {
           finalizationFailed = true;
@@ -507,7 +508,9 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
           lastCandidateCount = pendingIds.length;
           if (!finalized.value.replayed) for (const outcome of finalized.value.outcomes ?? []) {
             if (outcome.status === "not_saved") {
-              const message = "这条记忆没保存：内容太长，请分段再告诉我。原话仍保留在对话里。";
+              const message = outcome.reason === "retry_exhausted"
+                ? memoryConsolidationFailureText("MEMORY_RETRY_EXHAUSTED")
+                : "这条记忆没保存：内容太长，请分段再告诉我。原话仍保留在对话里。";
               controller.recordOutput(`\n${message}\n`);
               emit({ type: "error", message });
             }
@@ -515,6 +518,14 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
           if (phase === "consolidation" || consolidationAttempts.prepare > 0 || consolidationAttempts.stage > 0) {
             consolidationFailure = result.status === "completed" ? undefined : result.error?.message ?? `Consolidation Run ${result.status}`;
           }
+          const deferred = finalized.value.outcomes?.some(outcome => outcome.status === "deferred");
+          if (finalized.value.outcomes?.some(outcome => outcome.status === "not_saved" && outcome.reason === "retry_exhausted")) consolidationFailure = "MEMORY_RETRY_EXHAUSTED";
+          else if (deferred || extracted && !extracted.ok) {
+            consolidationFailure = "MEMORY_EXTRACTION_DEFERRED";
+            if (!finalized.value.replayed) emit({ type: "error", message: memoryConsolidationFailureText(consolidationFailure) });
+          }
+          if (deferred || finalized.value.outcomes?.some(outcome => outcome.status === "not_saved" && outcome.reason === "retry_exhausted")) finalizationFailed = true;
+          if (finalized.value.outcomes?.length && !finalized.value.candidateIds.length && !finalized.value.replayed) emit({ type: "memory-updated", reason: "proposals" });
           if (finalized.value.candidateIds.length > 0 && !finalized.value.replayed) {
             emit({ type: "memory-updated", reason: "proposals" });
             if (pendingIds.length > 0) controller.recordOutput(`\n有 ${pendingIds.length} 项记忆需要你确认；原记忆没有被覆盖。请在记忆页查看。\n`);

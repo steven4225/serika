@@ -492,11 +492,15 @@ function validateConsolidationOutcomes(value: unknown): NonNullable<CandidateBat
     const outcome = raw as Record<string, unknown>;
     const messageId = nonEmpty(outcome.messageId, "Outcome message id");
     const unsaved = outcome.status === "not_saved";
-    if (Object.keys(outcome).some(key => !(unsaved ? ["messageId", "status", "reason"] : ["messageId", "status"]).includes(key)) || ids.has(messageId) ||
-      !["extracted", "no_memory", "deferred", "not_saved"].includes(String(outcome.status)) || unsaved && outcome.reason !== "too_large") raise("MEMORY_BATCH_INVALID", "Invalid or duplicate source outcome");
+    const attempts = outcome.attempts;
+    if (Object.keys(outcome).some(key => !(unsaved ? ["messageId", "status", "reason", "attempts"] : ["messageId", "status", "attempts"]).includes(key)) || ids.has(messageId) ||
+      !["extracted", "no_memory", "deferred", "not_saved"].includes(String(outcome.status)) || unsaved && !["too_large", "retry_exhausted"].includes(String(outcome.reason)) ||
+      attempts !== undefined && (!Number.isInteger(attempts) || Number(attempts) < 1 || Number(attempts) > 3 || outcome.status !== "deferred" && !(unsaved && outcome.reason === "retry_exhausted")) ||
+      unsaved && outcome.reason === "retry_exhausted" && attempts !== 3) raise("MEMORY_BATCH_INVALID", "Invalid or duplicate source outcome");
     ids.add(messageId);
-    if (unsaved) return { messageId, status: "not_saved" as const, reason: "too_large" as const };
-    return { messageId, status: outcome.status as "extracted" | "no_memory" | "deferred" };
+    const retry = attempts === undefined ? {} : { attempts: Number(attempts) };
+    if (unsaved) return { messageId, status: "not_saved" as const, reason: outcome.reason as "too_large" | "retry_exhausted", ...retry };
+    return { messageId, status: outcome.status as "extracted" | "no_memory" | "deferred", ...retry };
   });
 }
 function validateConsolidationReceipts(value: unknown): ConsolidationReceipt[] {
@@ -1203,7 +1207,10 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
       if (input.incremental !== undefined && input.incremental !== true) raise("MEMORY_BATCH_INVALID", "Invalid incremental lifecycle flag");
       if (input.incremental && outcomes !== undefined && (outcomes.length > 0 ? sourcePrefix?.throughMessageId !== outcomes.at(-1)?.messageId : sourcePrefix !== null)) raise("MEMORY_BATCH_INVALID", "Incremental coverage must bind the exact prepared prefix");
       if (cursor && sourcePrefix && cursor.throughMessageId === sourcePrefix.throughMessageId && cursor.prefixHash !== sourcePrefix.prefixHash) raise("MEMORY_BATCH_INVALID", "Cursor and coverage disagree on the source prefix");
-      const payloadHash = createHash("sha256").update(JSON.stringify([drafts, expectedCursor, cursor, indexes, outcomes, input.incremental, sourcePrefix])).digest("hex");
+      if (input.expectedReceiptHash !== undefined && (input.expectedReceiptHash !== null && !/^[a-f0-9]{64}$/.test(input.expectedReceiptHash) || !input.incremental)) raise("MEMORY_BATCH_INVALID", "Invalid retry receipt precondition");
+      const payload: unknown[] = [drafts, expectedCursor, cursor, indexes, outcomes, input.incremental, sourcePrefix];
+      if (input.expectedReceiptHash !== undefined) payload.push(input.expectedReceiptHash);
+      const payloadHash = createHash("sha256").update(JSON.stringify(payload)).digest("hex");
       if (cursor && (cursor.threadId !== threadId || cursor.lastBatchId !== input.batchId)) raise("MEMORY_BATCH_INVALID", "Cursor must match batch and Thread");
       if (automatic && cursor === null && (outcomes === undefined || !input.incremental)) raise("MEMORY_BATCH_INVALID", "Automatic acceptance requires an incremental cursor or validated incremental coverage");
       const value = await this.#mutateDocument<CandidateBatchResult>(signal, (document, now) => {
@@ -1232,6 +1239,7 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
           return { document, unchanged: true, value: summarize(ids, true) };
         }
         if ((cursor || automatic || input.incremental) && JSON.stringify(existingCursor) !== JSON.stringify(expectedCursor)) raise("MEMORY_CURSOR_MISMATCH", "Consolidation cursor changed since prepare");
+        if (input.expectedReceiptHash !== undefined && (document.consolidationReceipts?.find(receipt => receipt.threadId === threadId)?.payloadHash ?? null) !== input.expectedReceiptHash) raise("MEMORY_CURSOR_MISMATCH", "Consolidation retry receipt changed since prepare");
         const added: string[] = [];
         const originalCandidateCount = document.candidates.length;
         const toAccept: MemoryCandidate[] = [];
