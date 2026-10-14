@@ -9,7 +9,9 @@ export function resolveModelContextWindow(model: { provider: string; modelId: st
   const mode = env.RUNLOOM_MODEL;
   const prefix = mode === "command-code" ? "COMMAND_CODE" : mode === "deepseek" ? "DEEPSEEK" : mode === "minimax-m3" ? "MINIMAX" : undefined;
   const configuredId = prefix ? env[`${prefix}_MODEL_ID`] ?? (mode === "command-code" ? "deepseek/deepseek-v4.1-flash" : mode === "deepseek" ? "deepseek-flash" : "MiniMax-M3") : undefined;
-  const raw = prefix && configuredId === model.modelId ? env[`${prefix}_CONTEXT_WINDOW_TOKENS`] : undefined;
+  // configureCliModel creates only this exact adapter provider. A foreign
+  // provider may use the same model ID; its capacity must not inherit this env.
+  const raw = prefix && model.provider === "openai-compatible.chat" && configuredId === model.modelId ? env[`${prefix}_CONTEXT_WINDOW_TOKENS`] : undefined;
   if (raw !== undefined) {
     const tokens = Number(raw);
     if (!/^\d+$/.test(raw) || !Number.isSafeInteger(tokens) || tokens <= 0) throw new Error("模型窗口配置必须是正整数，请核对 CONTEXT_WINDOW_TOKENS；尚未发送请求。");

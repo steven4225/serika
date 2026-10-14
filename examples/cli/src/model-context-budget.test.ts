@@ -6,16 +6,15 @@ import { Writable } from "node:stream";
 import { it } from "node:test";
 import { MockLanguageModelV3 } from "ai/test";
 import { createRuntimeApp } from "./app.js";
-import { createDemoModel } from "./demo-model.js";
 import { contextBudgetForMode, effectiveContextBudget, validateContextBudgetConfig } from "./context-budget.js";
-import { resolveModelContextWindow } from "./model-config.js";
+import { configureCliModel, resolveModelContextWindow } from "./model-config.js";
 
 async function diagnostics(env: NodeJS.ProcessEnv, window = 1_000_000, windows: unknown[] = [], modelId?: string) {
   const root = await mkdtemp(join(tmpdir(), "serika-model-budget-"));
   const configPath = join(root, "config.json");
   await writeFile(configPath, JSON.stringify({ version: 1, modules: {}, modelContextWindows: windows,
     contextCompaction: { ...contextBudgetForMode("daily"), contextWindowTokens: window } }));
-  const model = modelId ? new MockLanguageModelV3({ provider: "test", modelId }) : createDemoModel();
+  const model = new MockLanguageModelV3({ provider: "openai-compatible.chat", modelId: modelId ?? "fixture-model" });
   // Only a local model stub is used; capacity is tied to the actual model id.
   const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", "capacity", "--config", configPath],
     modelAlias: "mock/default", model, env: { RUNLOOM_MODEL: "command-code", COMMAND_CODE_MODEL_ID: model.modelId, ...env }, cwd: root,
@@ -43,7 +42,7 @@ it("unknown model capacity does not inherit a template 1M window", async () => {
 });
 
 it("capacity configuration matches exact provider and model, not aliases or other models", async () => {
-  const model = createDemoModel();
+  const model = new MockLanguageModelV3({ provider: "openai-compatible.chat", modelId: "fixture-model" });
   const value = await diagnostics({}, 1_000_000, [
     { provider: model.provider, modelId: model.modelId, contextWindowTokens: 512_000 },
     { provider: "another", modelId: model.modelId, contextWindowTokens: 1_000_000 },
@@ -53,6 +52,18 @@ it("capacity configuration matches exact provider and model, not aliases or othe
   assert.equal(resolveModelContextWindow({ provider: "test", modelId: "different" }, {
     RUNLOOM_MODEL: "command-code", COMMAND_CODE_MODEL_ID: "old-model", COMMAND_CODE_CONTEXT_WINDOW_TOKENS: "1000000",
   }).source, "unverified_fallback");
+});
+
+it("same model ID on another provider never inherits this route's environment capacity", () => {
+  const env = { RUNLOOM_MODEL: "command-code", COMMAND_CODE_MODEL_ID: "same-id", COMMAND_CODE_CONTEXT_WINDOW_TOKENS: "1000000" };
+  assert.equal(resolveModelContextWindow({ provider: "other-provider.chat", modelId: "same-id" }, env).source, "unverified_fallback");
+  assert.equal(resolveModelContextWindow({ provider: "other-provider.chat", modelId: "same-id" }, env,
+    [{ provider: "other-provider.chat", modelId: "same-id", contextWindowTokens: 64_000 }]).contextWindowTokens, 64_000);
+  // Construct the real adapter without calling it, so its provider identity is
+  // verified rather than assumed by the local model fixtures.
+  const { model } = configureCliModel(() => new MockLanguageModelV3(), { ...env, COMMAND_CODE_API_KEY: "fixture-key" });
+  assert.notEqual(typeof model, "string");
+  if (typeof model !== "string") assert.equal(resolveModelContextWindow(model, env).source, "environment");
 });
 
 it("explicit smaller physical limits remain authoritative and tiny windows fail before a model request", async () => {
@@ -67,7 +78,7 @@ it("explicit smaller physical limits remain authoritative and tiny windows fail 
   const small = effectiveContextBudget({ ...requested, summaryMaxOutputTokens: 1024 }, { ...large, contextWindowTokens: 24_000 });
   assert.equal(small.summaryInputChunkTokens, 16_832);
   assert.equal(validateContextBudgetConfig(small).ok, true);
-  assert.throws(() => resolveModelContextWindow({ provider: "test", modelId: "current" }, {
+  assert.throws(() => resolveModelContextWindow({ provider: "openai-compatible.chat", modelId: "current" }, {
     RUNLOOM_MODEL: "command-code", COMMAND_CODE_MODEL_ID: "current", COMMAND_CODE_CONTEXT_WINDOW_TOKENS: "NaN",
   }), /正整数/);
 });
