@@ -503,6 +503,13 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
           accepted = finalized.value.accepted ?? [];
           const pendingIds = finalized.value.pendingCandidateIds ?? finalized.value.candidateIds;
           lastCandidateCount = pendingIds.length;
+          if (!finalized.value.replayed) for (const outcome of finalized.value.outcomes ?? []) {
+            if (outcome.status === "not_saved") {
+              const message = "这条记忆没保存：内容太长，请分段再告诉我。原话仍保留在对话里。";
+              controller.recordOutput(`\n${message}\n`);
+              emit({ type: "error", message });
+            }
+          }
           if (phase === "consolidation" || consolidationAttempts.prepare > 0 || consolidationAttempts.stage > 0) {
             consolidationFailure = result.status === "completed" ? undefined : result.error?.message ?? `Consolidation Run ${result.status}`;
           }

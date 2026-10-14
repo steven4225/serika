@@ -491,8 +491,11 @@ function validateConsolidationOutcomes(value: unknown): NonNullable<CandidateBat
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) raise("MEMORY_BATCH_INVALID", "Invalid source outcome");
     const outcome = raw as Record<string, unknown>;
     const messageId = nonEmpty(outcome.messageId, "Outcome message id");
-    if (Object.keys(outcome).some(key => !["messageId", "status"].includes(key)) || ids.has(messageId) || !["extracted", "no_memory", "deferred"].includes(String(outcome.status))) raise("MEMORY_BATCH_INVALID", "Invalid or duplicate source outcome");
+    const unsaved = outcome.status === "not_saved";
+    if (Object.keys(outcome).some(key => !(unsaved ? ["messageId", "status", "reason"] : ["messageId", "status"]).includes(key)) || ids.has(messageId) ||
+      !["extracted", "no_memory", "deferred", "not_saved"].includes(String(outcome.status)) || unsaved && outcome.reason !== "too_large") raise("MEMORY_BATCH_INVALID", "Invalid or duplicate source outcome");
     ids.add(messageId);
+    if (unsaved) return { messageId, status: "not_saved" as const, reason: "too_large" as const };
     return { messageId, status: outcome.status as "extracted" | "no_memory" | "deferred" };
   });
 }

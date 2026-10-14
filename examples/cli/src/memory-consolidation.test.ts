@@ -228,7 +228,8 @@ describe("native memory consolidation batch", () => {
     assert.equal(f.committed[0]?.candidates[0]?.source.threadId, "thread");
     assert.equal(f.getCursor()?.throughMessageId, "u1");
     const replay = await f.service.finalize({ status: "completed" });
-    assert.deepEqual(replay, { ok: true, value: { candidateIds: ["c0"], replayed: true } });
+    assert.deepEqual(replay, { ok: true, value: { candidateIds: ["c0"], replayed: true, processedCount: 1,
+      outcomes: [{ messageId: "u1", status: "extracted" }] } });
     assert.equal(f.committed.length, 1);
   });
   it("requires an explicit empty stage, and never advances on failed or cancelled Runs", async () => {

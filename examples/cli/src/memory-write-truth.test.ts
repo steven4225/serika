@@ -182,17 +182,18 @@ test("coverage: a discarded multi-source proposal cannot advance its eligible so
   } finally { await f.cleanup(); }
 });
 
-test("coverage: oversized contradictory source remains deferred for retry", async () => {
+test("coverage: oversized contradictory group records unsaved rather than retrying forever", async () => {
   const f = await fixture(`我喜欢喝茶；我讨厌喝茶。${"补充说明".repeat(200)}`);
   try {
     const r = await f.extract([f.proposal({ text: "我喜欢喝茶", sourceQuote: "我喜欢喝茶" })]);
     assert.equal(r.saved.length, 0); assert.equal(r.pending.length, 0);
     const receipt = await f.store.getConsolidationReceipt!("thread"); assert.ok(receipt.ok);
-    assert.equal(receipt.value?.outcomes[0]?.status, "deferred");
-    assert.deepEqual(await f.store.getConsolidationCursor("thread"), { ok: true, value: null });
+    assert.deepEqual(receipt.value?.outcomes[0], { messageId: "u1", status: "not_saved", reason: "too_large" });
+    const cursor = await f.store.getConsolidationCursor("thread"); assert.ok(cursor.ok);
+    assert.equal(cursor.value?.throughMessageId, "u1");
     const reopened = f.reopen(); reopened.begin(AUTO_CONSOLIDATION_AGENT_ID);
     const retry = await reopened.prepare({ mode: "incremental" }); assert.ok(retry.ok);
-    assert.equal(retry.value.turns.length, 1);
+    assert.equal(retry.value.turns.length, 0);
   } finally { await f.cleanup(); }
 });
 

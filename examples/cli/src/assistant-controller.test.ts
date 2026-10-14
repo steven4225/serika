@@ -343,6 +343,37 @@ describe("AssistantController memory candidates", () => {
     } finally { await controller.shutdown(); }
   });
 
+  it("shows a persisted oversized-memory disposition in plain language without replay duplication", async () => {
+    for (const replayed of [false, true]) {
+      const outputs: string[] = [];
+      const warnings: string[] = [];
+      const controller = createAssistantController(appWith({
+        memoryConsolidation: {
+          begin: () => undefined, discard: () => undefined,
+          finalize: async () => ({ ok: true, value: { candidateIds: [], replayed, processedCount: 1,
+            outcomes: [{ messageId: "source", status: "not_saved", reason: "too_large" }] } }),
+        } as unknown as NonNullable<RuntimeApp["memoryConsolidation"]>,
+        runtime: { run: async () => handle("primary", {
+          promise: Promise.resolve(result("primary", "completed")), resolve: () => undefined,
+        }, () => undefined) } as unknown as RuntimeApp["runtime"],
+      }));
+      controller.subscribe(event => {
+        if (event.type === "output") outputs.push(event.text);
+        if (event.type === "error") warnings.push(event.message);
+      });
+      try {
+        await controller.run("记住这段很长的偏好");
+        await waitFor(() => controller.getSnapshot().state.kind === "idle");
+        if (replayed) { assert.equal(outputs.length, 0); assert.equal(warnings.length, 0); }
+        else {
+          assert.match(outputs.join(""), /没保存.*内容太长.*分段/);
+          assert.doesNotMatch(outputs.join(""), /已记住|source|too_large/);
+          assert.match(warnings.join(""), /没保存.*内容太长.*分段/, "normal UI receives the warning without opening diagnostic output");
+        }
+      } finally { await controller.shutdown(); }
+    }
+  });
+
   it("does not start the automatic model when the pending candidate queue is full", async () => {
     let runs = 0;
     const controller = createAssistantController(appWith({

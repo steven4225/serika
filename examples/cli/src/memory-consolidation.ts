@@ -65,7 +65,7 @@ export interface MemoryConsolidation {
   canStart(signal?: AbortSignal): Promise<MemoryResult<{ canStart: boolean; pendingCount: number }>>;
   prepare(input: { mode?: "incremental"; turns?: number }, signal?: AbortSignal): Promise<MemoryResult<PreparedBatch>>;
   stage(input: { batchId: string; proposals: unknown[]; outcomes?: unknown }, signal?: AbortSignal): Promise<MemoryResult<{ staged: true; batchId: string; count: number }>>;
-  finalize(result: { status: string; consolidationAttempts?: { prepare: number; stage: number } }, signal?: AbortSignal): Promise<MemoryResult<CandidateBatchResult & { processedCount?: number }>>;
+  finalize(result: { status: string; consolidationAttempts?: { prepare: number; stage: number } }, signal?: AbortSignal): Promise<MemoryResult<CandidateBatchResult & { processedCount?: number; outcomes?: ConsolidationOutcome[] }>>;
   discard(): void;
 }
 interface OrdinaryTurn { user: { id: string; text: string }; messages: UIMessage[] }
@@ -412,6 +412,7 @@ export function createMemoryConsolidation(options: {
       const partiallyIgnored = new Set<string>();
       const dropped = new Set<string>();
       const fallbackSources = new Set<string>();
+      const oversizedSources = new Set<string>();
       const contradictions = run.selected.filter(turn => hasOpposingSelfStatements(turn.user.text) &&
         !containsKnownCredentials(turn.user.text) && !containsKnownOptOut(turn.user.text));
       const reviewSources = new Set(contradictions.map(turn => turn.user.id));
@@ -599,8 +600,9 @@ export function createMemoryConsolidation(options: {
         drafts.push(parsed.value);
       }
       for (const turn of contradictions) {
-        // Over-size or over-capacity groups stay deferred, never clipped or silently dropped.
-        if (drafts.length >= 5 || Buffer.byteLength(turn.user.text) > 2048) continue;
+        // Do not clip a contradictory group into a misleading partial fact.
+        if (Buffer.byteLength(turn.user.text) > 2048) { oversizedSources.add(turn.user.id); continue; }
+        if (drafts.length >= 5) continue;
         drafts.push({ change: { operation: "add", text: turn.user.text, kind: "note", scope: { kind: "workspace" }, expiresAt: null },
           source: { kind: "conversation", threadId: options.threadId, messageId: turn.user.id, quote: turn.user.text },
           reason: "这段原话包含相互矛盾的偏好，整组保留待你确认；尚未写入有效记忆。" });
@@ -614,7 +616,8 @@ export function createMemoryConsolidation(options: {
         // No model proposal is not proof that a recognized durable statement has
         // no memory. Preserve it for explicit review without fabricating a paraphrase.
         dropped.add(turn.user.id);
-        if (drafts.length >= 5 || Buffer.byteLength(turn.user.text) > 2048) continue;
+        if (Buffer.byteLength(turn.user.text) > 2048) { oversizedSources.add(turn.user.id); continue; }
+        if (drafts.length >= 5) continue;
         const scenario = statedScenario(turn.user.text);
         const restriction = statedThreadScope(turn.user.text);
         drafts.push({ change: { operation: "add", text: turn.user.text, kind: "preference", expiresAt: null,
@@ -646,6 +649,15 @@ export function createMemoryConsolidation(options: {
         const raw = input.outcomes === undefined ? { messageId: selected.user.id, status: "deferred" } : (input.outcomes as unknown[])[index];
         if (!raw || typeof raw !== "object" || Array.isArray(raw)) { run.invalid = true; return fail("MEMORY_BATCH_INVALID", "Invalid source outcome"); }
         let outcome = raw as Record<string, unknown>;
+        // The model cannot claim a terminal size disposition. Only the host's
+        // actual failed whole-source retention can produce it, in this commit.
+        if (Object.keys(outcome).some(key => !["messageId", "status"].includes(key)) || outcome.messageId !== selected.user.id || !["extracted", "no_memory", "deferred"].includes(String(outcome.status))) {
+          run.invalid = true; return fail("MEMORY_BATCH_INVALID", "Invalid model source outcome");
+        }
+        if (oversizedSources.has(selected.user.id) && !covered.has(selected.user.id) && outcome.status !== "deferred") {
+          outcomes.push({ messageId: selected.user.id, status: "not_saved", reason: "too_large" });
+          continue;
+        }
         if (fallbackSources.has(selected.user.id) && outcome.messageId === selected.user.id && ["extracted", "no_memory"].includes(String(outcome.status))) {
           outcome = { ...outcome, status: "extracted" };
         } else if (reviewSources.has(selected.user.id) && outcome.messageId === selected.user.id && ["extracted", "no_memory", "deferred"].includes(String(outcome.status))) {
@@ -678,7 +690,8 @@ export function createMemoryConsolidation(options: {
       const empty = { ok: true as const, value: { candidateIds: [], replayed: false } };
       if (run === undefined) return empty;
       if (result.status !== "completed") { batch = undefined; return empty; }
-      if (run.committed !== undefined) return run.committed.ok ? { ok: true, value: { ...run.committed.value, replayed: true } } : run.committed;
+      if (run.committed !== undefined) return run.committed.ok ? { ok: true, value: { ...run.committed.value, replayed: true,
+        processedCount: run.processedCount ?? 0, ...(run.outcomes ? { outcomes: run.outcomes } : {}) } } : run.committed;
       const attempts = result.consolidationAttempts;
       if (run.prepareCount === 0 && run.stageCount === 0 && !consolidationAgents.has(run.agentId) && (attempts === undefined || (attempts.prepare === 0 && attempts.stage === 0))) return empty;
       aborted(signal);
@@ -713,7 +726,8 @@ export function createMemoryConsolidation(options: {
         sourcePrefix: run.sourcePrefix ?? null,
       }, signal, { boundThreadId: options.threadId, ...(options.now === undefined ? {} : { commitClock: options.now }) });
       run.committed = committed;
-      return committed.ok ? { ok: true, value: { ...committed.value, processedCount: run.processedCount ?? 0 } } : committed;
+      return committed.ok ? { ok: true, value: { ...committed.value, processedCount: run.processedCount ?? 0,
+        ...(run.outcomes ? { outcomes: run.outcomes } : {}) } } : committed;
     },
   };
 }
