@@ -11,7 +11,7 @@ import type { MemoryConsolidationEntry, MemoryEntry, WorkspaceMemoryStore } from
 import { rankMemoryEntriesForQuery } from "./memory-retrieval.js";
 import { overlaps, validateRecallTerms, validateTemporalTimestamp, validateValidTime, type MemoryKind, type MemoryValidTime } from "./memory-temporal.js";
 import { sameFact, sameFactSlot, validateFactIdentity, type MemoryFactIdentity } from "./memory-fact-identity.js";
-import { hasOpposingSelfStatements, hasRelativeTime, isReminderInstruction, messageClock, statedScenario } from "./memory-observation-policy.js";
+import { hasOpposingSelfStatements, hasRelativeTime, isReminderInstruction, messageClock, reviewablePreference, statedLanguagePreference, statedPreference, statedScenario, statedThreadScope } from "./memory-observation-policy.js";
 
 export const CONSOLIDATION_MATERIAL_MAX_BYTES = 64 * 1024;
 export const CONSOLIDATION_MEMORIES_MAX_BYTES = 24 * 1024;
@@ -204,7 +204,7 @@ function relatedMemories(entries: ConsolidationMemory[], turns: OrdinaryTurn[], 
   return { entries: selected, truncated: trimmed || selected.length < ranked.length };
 }
 function activeTarget(entry: MemoryEntry, now: Date): boolean {
-  return (entry.status === "active" || entry.status === undefined && entry.enabled) &&
+  return entry.temporalState !== "retracted" && (entry.status === "active" || entry.status === undefined && entry.enabled) &&
     (entry.expiresAt == null || Date.parse(entry.expiresAt) > now.getTime());
 }
 function containsKnownCredentials(text: string): boolean {
@@ -283,7 +283,14 @@ function proposalDraft(proposal: unknown, prepared: PreparedBatch, selected: Ord
     return { ok: true, value: { change: { operation: "add", text: p.text as string, scope, expiresAt: expiry ?? null, ...facts }, ...provenance } };
   }
   const target = prepared.memories.find((entry) => entry.id === p.memoryId && entry.revision === p.expectedRevision);
-  if (typeof p.memoryId !== "string" || !Number.isInteger(p.expectedRevision) || (p.expectedRevision as number) < 1 || target === undefined || !withdrawal && !activeTarget(target, now)) return fail("MEMORY_BATCH_INVALID", "Target must be the provided revision; fact edits require an active, unexpired record");
+  if (typeof p.memoryId !== "string" || !Number.isInteger(p.expectedRevision) || (p.expectedRevision as number) < 1 || target === undefined) return fail("MEMORY_BATCH_INVALID", "Target must be the provided revision");
+  if (!withdrawal && target.temporalState === "retracted" && target.status === "active") {
+    // A new observation is not authorization to edit or restore a withdrawn fact.
+    // Only a supplied, matching revision may take this independent review path.
+    const { effectiveAt: _time, ...fields } = facts;
+    return { ok: true, value: { change: { operation: "add", text: p.text as string, scope: target.scope ?? { kind: "workspace" }, expiresAt: expiry ?? null, ...fields }, ...provenance } };
+  }
+  if (!withdrawal && !activeTarget(target, now)) return fail("MEMORY_BATCH_INVALID", "Fact edits require an active, unexpired record");
   if (withdrawal) {
     const text = target.text || target.relatedAssertions?.at(-1)?.text;
     if (text === undefined || text.trim().length === 0) return fail("MEMORY_BATCH_INVALID", "Target has no display fact to withdraw");
@@ -404,6 +411,7 @@ export function createMemoryConsolidation(options: {
       const intentionallyIgnored = new Set<string>();
       const partiallyIgnored = new Set<string>();
       const dropped = new Set<string>();
+      const fallbackSources = new Set<string>();
       const contradictions = run.selected.filter(turn => hasOpposingSelfStatements(turn.user.text) &&
         !containsKnownCredentials(turn.user.text) && !containsKnownOptOut(turn.user.text));
       const reviewSources = new Set(contradictions.map(turn => turn.user.id));
@@ -442,7 +450,44 @@ export function createMemoryConsolidation(options: {
           }
           continue;
         }
+        if (!control) {
+          // A source can contain independent facts. Validate each proposed body
+          // against the source's clauses, not only its first recognized attribute.
+          const observations = sources.flatMap(source => source.quote.split(/[。；;\n]|另外|此外|同时|而且/).flatMap(clause => {
+            const observed = statedPreference(clause) ?? statedLanguagePreference(clause);
+            return observed ? [observed] : [];
+          }));
+          const body = statedPreference(change.text) ?? statedLanguagePreference(change.text);
+          const identity = "factIdentity" in change ? change.factIdentity : undefined;
+          if (observations.length > 0 && (!body || !observations.some(observed => observed.attribute === body.attribute && observed.value === body.value) ||
+            identity && (identity.attribute !== body.attribute || identity.value !== body.value))) {
+            // Exact provenance alone cannot justify an unrelated extracted body.
+            // Keep the original supported statement for review below, never the invented fact.
+            for (const source of sources) dropped.add(source.messageId);
+            continue;
+          }
+          if ((proposal as MemoryProposal).action !== "add" && run.prepared.memories.some(entry =>
+            entry.id === (proposal as MemoryProposal).memoryId && entry.temporalState === "retracted")) {
+            eligibility = "needs_review";
+            parsed.value.reason = "原偏好已撤回；这条新观察保留为独立待审，不会自动恢复或改写旧记忆。";
+          }
+        }
         if (change.operation !== "retract" && change.operation !== "disable") {
+          const restriction = statedThreadScope(sourceText);
+          const restrictedScope = restriction ? { kind: "thread" as const, threadId: options.threadId } : undefined;
+          if (restrictedScope) {
+            if (change.operation === "add") change = { ...change, scope: restrictedScope };
+            else if (run.prepared.memories.find(entry => entry.id === targetId)?.scope?.kind !== "thread") {
+              // A thread-only observation must not edit the shared workspace fact.
+              const { memoryId: _id, expectedRevision: _revision, operation: _operation, ...fact } = change;
+              const { effectiveAt: _time, reuseSources: _reuse, ...fields } = fact as typeof fact & { effectiveAt?: unknown; reuseSources?: unknown };
+              change = { ...fields, operation: "add", scope: restrictedScope };
+            }
+            if (restriction === "ambiguous") {
+              eligibility = "needs_review";
+              parsed.value.reason = "这条记忆的有效范围不明确，先仅限当前对话，请确认后再保存。";
+            }
+          }
           const scenario = statedScenario(sourceText);
           const bodyScenario = statedScenario(change.text);
           const identity = "factIdentity" in change ? change.factIdentity : undefined;
@@ -451,13 +496,39 @@ export function createMemoryConsolidation(options: {
             identity !== undefined && identity.scenario !== "general" && identity.scenario !== bodyScenario.scenario;
           if (uncertainScene) {
             eligibility = "needs_review";
-            if ("factIdentity" in change && identity && scenario.scenario) change.factIdentity = { ...identity, scenario: scenario.scenario };
+            // The full source may contain several clauses/scenes. Never bind
+            // one clause to a different scene merely recognized in its source.
+            if ("factIdentity" in change && identity && scenario.scenario && bodyScenario.scenario === scenario.scenario) change.factIdentity = { ...identity, scenario: scenario.scenario };
             else if ("factIdentity" in change) { const { factIdentity: _identity, ...rest } = change; change = rest; }
             parsed.value.reason = "这条偏好有使用场景限制，请确认适用范围后再保存。";
           }
           if (change.operation !== "add") {
             const targetId = change.memoryId;
             const target = run.prepared.memories.find(entry => entry.id === targetId)!;
+            if ((change.operation === "change" || change.operation === "correct" || change.operation === "update") &&
+              target.assertion?.factIdentity && !change.factIdentity) {
+              if (change.text === target.text && !uncertainScene) change = { ...change, factIdentity: { ...target.assertion.factIdentity } };
+              else {
+                // Changed text cannot reuse the old value, but accepting it
+                // without a new identity would silently lose conflict checks.
+                eligibility = "needs_review";
+                parsed.value.reason = "这条偏好的新值还没有核对清楚，请确认后再保存；原偏好没有被覆盖。";
+              }
+            }
+            if ((change.operation === "change" || change.operation === "correct" || change.operation === "update") &&
+              change.recallTerms === undefined && (change.text !== target.text ||
+              JSON.stringify(change.factIdentity ?? null) !== JSON.stringify(target.assertion?.factIdentity ?? null))) {
+              // A new body/value must not keep retrieval terms describing the old value.
+              change = { ...change, recallTerms: [] };
+            }
+            if ((change.operation === "correct" || change.operation === "update") &&
+              sameFactSlot(target.assertion?.factIdentity, "factIdentity" in change ? change.factIdentity : undefined) &&
+              !sameFact(target.assertion?.factIdentity, "factIdentity" in change ? change.factIdentity : undefined) &&
+              !/(?:更正|纠正|修正|之前.{0,12}(?:说错|记错)|\b(?:correct|correction|previously wrong)\b)/i.test(quotes)) {
+              // A model's explicit_request label/reason is not user correction intent.
+              eligibility = "needs_review";
+              parsed.value.reason = "这条偏好与已保存的内容不同，请确认；原偏好没有被覆盖。";
+            }
             const oldQualifier = statedScenario(target.text);
             const oldScene = target.assertion?.factIdentity?.scenario ?? oldQualifier.scenario ?? (oldQualifier.limited ? undefined : "general");
             const newScene = ("factIdentity" in change ? change.factIdentity?.scenario : undefined) ?? scenario.scenario ?? (scenario.limited ? undefined : "general");
@@ -465,7 +536,7 @@ export function createMemoryConsolidation(options: {
               // A different/unknown scene is not a correction of the old scene.
               const { memoryId: _id, expectedRevision: _revision, operation: _operation, ...fact } = change;
               const { effectiveAt: _time, reuseSources: _reuse, ...fields } = fact as typeof fact & { effectiveAt?: unknown; reuseSources?: unknown };
-              change = { ...fields, operation: "add", scope: target.scope ?? { kind: "workspace" } };
+              change = { ...fields, operation: "add", scope: restrictedScope ?? target.scope ?? { kind: "workspace" } };
               eligibility = "needs_review";
             }
           }
@@ -496,6 +567,7 @@ export function createMemoryConsolidation(options: {
               text: identical ? target.text : proposed.text,
               expiresAt: (proposal as MemoryProposal).expiresAt === undefined ? target.expiresAt ?? null : proposed.expiresAt,
               factIdentity: proposed.factIdentity!, kind: proposed.kind ?? target.assertion!.kind,
+              ...(identical ? {} : { recallTerms: proposed.recallTerms ?? [] }),
               ...(identical ? { reuseSources: true, validTime: target.assertion!.validTime } : proposed.validTime === undefined ? {} : { validTime: proposed.validTime }) };
             parsed.value.change = change;
             if (!identical) eligibility = "needs_review";
@@ -533,6 +605,25 @@ export function createMemoryConsolidation(options: {
           source: { kind: "conversation", threadId: options.threadId, messageId: turn.user.id, quote: turn.user.text },
           reason: "这段原话包含相互矛盾的偏好，整组保留待你确认；尚未写入有效记忆。" });
       }
+      for (const turn of run.selected) {
+        if (drafts.some(draft => (draft.sources ?? [draft.source]).some(source => source.messageId === turn.user.id)) ||
+          intentionallyIgnored.has(turn.user.id) || reviewSources.has(turn.user.id) || containsKnownCredentials(turn.user.text) ||
+          containsKnownOptOut(turn.user.text) || isReminderInstruction(turn.user.text)) continue;
+        const observed = reviewablePreference(turn.user.text);
+        if (!observed) continue;
+        // No model proposal is not proof that a recognized durable statement has
+        // no memory. Preserve it for explicit review without fabricating a paraphrase.
+        dropped.add(turn.user.id);
+        if (drafts.length >= 5 || Buffer.byteLength(turn.user.text) > 2048) continue;
+        const scenario = statedScenario(turn.user.text);
+        const restriction = statedThreadScope(turn.user.text);
+        drafts.push({ change: { operation: "add", text: turn.user.text, kind: "preference", expiresAt: null,
+          scope: restriction ? { kind: "thread", threadId: options.threadId } : { kind: "workspace" },
+          ...(!scenario.limited || scenario.scenario ? { factIdentity: { ...observed, scenario: scenario.scenario ?? "general" } } : {}) },
+          source: { kind: "conversation", threadId: options.threadId, messageId: turn.user.id, quote: turn.user.text },
+          reason: "这条偏好尚未整理成可核对的事实，保留原话供你确认；没有覆盖已有记忆。" });
+        fallbackSources.add(turn.user.id);
+      }
       // Only retained drafts (including pending review) prove extraction. Parsing
       // a proposal that was subsequently dropped must not consume its sources.
       for (const draft of drafts) for (const source of draft.sources ?? [draft.source]) covered.add(source.messageId);
@@ -555,7 +646,9 @@ export function createMemoryConsolidation(options: {
         const raw = input.outcomes === undefined ? { messageId: selected.user.id, status: "deferred" } : (input.outcomes as unknown[])[index];
         if (!raw || typeof raw !== "object" || Array.isArray(raw)) { run.invalid = true; return fail("MEMORY_BATCH_INVALID", "Invalid source outcome"); }
         let outcome = raw as Record<string, unknown>;
-        if (reviewSources.has(selected.user.id) && outcome.messageId === selected.user.id && ["extracted", "no_memory", "deferred"].includes(String(outcome.status))) {
+        if (fallbackSources.has(selected.user.id) && outcome.messageId === selected.user.id && ["extracted", "no_memory"].includes(String(outcome.status))) {
+          outcome = { ...outcome, status: "extracted" };
+        } else if (reviewSources.has(selected.user.id) && outcome.messageId === selected.user.id && ["extracted", "no_memory", "deferred"].includes(String(outcome.status))) {
           outcome = { ...outcome, status: drafts.some(draft => draft.source.messageId === selected.user.id) ? "extracted" : "deferred" };
         } else if (outcome.messageId === selected.user.id && ["extracted", "no_memory"].includes(String(outcome.status))) {
           if (dropped.has(selected.user.id)) outcome = { ...outcome, status: "deferred" };

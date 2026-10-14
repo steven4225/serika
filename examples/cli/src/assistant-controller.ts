@@ -109,6 +109,8 @@ export type StartRunResponse =
 export interface AssistantRunOptions {
   /** Exclude this ordinary user message from present and future memory consolidation. */
   memoryConsolidation?: "exclude";
+  /** Trusted channel receipt clock; never accepted from renderer run options. */
+  receivedAt?: string;
 }
 
 export type AssistantSteerResponse =
@@ -1444,7 +1446,8 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       const started = new Promise<StartRunResponse>((resolve) => { resolveStarted = resolve; });
       const userMessage: UIMessage = {
         id: randomUUID(), role: "user", parts: [{ type: "text", text: text.trim() }],
-        metadata: { ...userMessageClock(), ...(excludeFromConsolidation ? { memoryConsolidation: "exclude" } : {}) },
+        metadata: { ...userMessageClock(), ...(options?.receivedAt ? { receivedAt: options.receivedAt, sentAt: options.receivedAt, timeZone: "Asia/Shanghai" } : {}),
+          ...(excludeFromConsolidation ? { memoryConsolidation: "exclude" } : {}) },
       };
       activeWorkTask = nextWorkTask;
       nextWorkTask = undefined;

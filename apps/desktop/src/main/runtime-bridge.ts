@@ -400,6 +400,16 @@ export class RuntimeBridge {
   async run(text: string, options?: AssistantRunOptions): Promise<RunResponse> {
     // No renderer-supplied metadata, model options or authority may cross this boundary.
     const safeOptions = options?.memoryConsolidation === "exclude" ? { memoryConsolidation: "exclude" as const } : undefined;
+    return this.#runWithOptions(text, safeOptions);
+  }
+
+  /** Trusted gateway clock, deliberately separate from renderer run options. */
+  async runFromChannel(text: string, receivedAt?: string): Promise<RunResponse> {
+    if (receivedAt !== undefined && (!/\+08:00$/.test(receivedAt) || !Number.isFinite(Date.parse(receivedAt)))) throw new Error("消息接收时间无效，未启动执行");
+    return this.#runWithOptions(text, receivedAt ? { receivedAt } : undefined);
+  }
+
+  async #runWithOptions(text: string, safeOptions?: AssistantRunOptions): Promise<RunResponse> {
     if (text.trim().length === 0) return { ok: false, reason: "empty" };
     if (this.#controller.getSnapshot().state.kind !== "idle") {
       return this.#controller.run(text, safeOptions);
