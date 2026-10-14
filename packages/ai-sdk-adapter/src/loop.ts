@@ -18,8 +18,9 @@ import {
   type AgentLoopInput,
   type TokenUsage,
 } from "@aisdk-agent/core";
+import { createHash } from "node:crypto";
 import type { ModelRegistry } from "./registries.js";
-import { ToolRegistry } from "./registries.js";
+import { ToolRegistry, type ToolMetadata } from "./registries.js";
 import { normalizeTokenUsage, sumTokenUsage } from "./token-usage.js";
 
 export interface AiSdkAgentLoopOptions {
@@ -434,6 +435,37 @@ function isAsyncIterable(value: unknown): value is AsyncIterable<unknown> {
   );
 }
 
+// Exact built-in registration names only. Task/feed polling and write tools are
+// deliberately excluded; this guard never grants permission or retries tools.
+const noProgressReadTools = new Set(["read_file", "list_directory", "search_files", "web_fetch", "web_search"]);
+
+function noProgressFingerprint(call: PendingToolCall, output: unknown, metadata: ToolMetadata | undefined): string | undefined {
+  if (!noProgressReadTools.has(call.toolName) || metadata?.risk !== "read" || !metadata.idempotent) return undefined;
+  // web_fetch owns this transport sampling timestamp. Do not strip arbitrary
+  // timestamps/IDs: mtime, scheduled times and business versions mean progress.
+  let businessOutput = output;
+  if (call.toolName === "web_fetch" && output && typeof output === "object" && "value" in output &&
+    output.value && typeof output.value === "object" && !Array.isArray(output.value)) {
+    const { fetchedAt: _fetchedAt, ...value } = output.value as Record<string, unknown>;
+    businessOutput = { ...output, value };
+  }
+  try {
+    const canonical = JSON.stringify([call.toolName, call.input, businessOutput], (_key, value: unknown) => {
+      if (value === undefined || typeof value === "function" || typeof value === "symbol" ||
+        typeof value === "number" && !Number.isFinite(value)) throw new Error("Not a JSON tool observation");
+      if (value && typeof value === "object" && !Array.isArray(value)) {
+        return Object.fromEntries(Object.entries(value).sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0));
+      }
+      return value;
+    });
+    return createHash("sha256").update(canonical).digest("hex");
+  } catch {
+    // Unsupported/circular outputs keep the existing SDK path, not a new tool
+    // failure or a false observation of unchanged business state.
+    return undefined;
+  }
+}
+
 export class AiSdkAgentLoop implements AgentLoop {
   readonly #models: ModelRegistry;
   readonly #tools: ToolRegistry;
@@ -457,11 +489,15 @@ export class AiSdkAgentLoop implements AgentLoop {
     let steps = 0;
     let totalUsage: TokenUsage = {};
     let corrections = 0;
+    // Six read observations cover three repetitions of a one/two-call cycle.
+    let recentToolObservations: string[] = [];
+    let noProgressFeedback: string | undefined;
 
     while (steps < input.definition.limits.maxSteps) {
       if (input.steering?.hasPending()) {
         const requests = await input.steering.drain();
         throwIfAborted(input.signal);
+        if (requests.length > 0) { recentToolObservations = []; noProgressFeedback = undefined; }
         for (const request of requests) {
           const messageId = input.generateId();
           messages.push({ id: messageId, role: "user", metadata: { source: "steer", memoryConsolidation: "exclude" },
@@ -522,6 +558,11 @@ export class AiSdkAgentLoop implements AgentLoop {
       const modelMessages = await convertToModelMessages(modelInput, {
         tools: modelTools,
       });
+      // Internal guard feedback belongs only to this model request, never the
+      // assistant transcript, emitted chat text or persisted user-fact sources.
+      const modelInstructions = noProgressFeedback === undefined ? input.definition.instructions
+        : `${input.definition.instructions}\n\n${noProgressFeedback}`;
+      noProgressFeedback = undefined;
       throwIfAborted(input.signal);
       let pendingCalls: PendingToolCall[] = [];
       let stepText = "";
@@ -540,7 +581,7 @@ export class AiSdkAgentLoop implements AgentLoop {
         try {
           const result = streamText({
             model,
-            instructions: input.definition.instructions,
+            instructions: modelInstructions,
             messages: modelMessages,
             tools: modelTools,
             stopWhen: stepCountIs(1),
@@ -654,6 +695,10 @@ export class AiSdkAgentLoop implements AgentLoop {
 
       for (const call of pendingCalls) {
         throwIfAborted(input.signal);
+        const previousObservations = recentToolObservations;
+        // Denied/invalid/superseded calls, polling and writes break continuity.
+        recentToolObservations = [];
+        noProgressFeedback = undefined;
         if (supersededBatch || input.steering?.hasPending()) { await supersede(call); continue; }
         const registered = executableTools[call.toolName];
         if (!registered) {
@@ -756,6 +801,8 @@ export class AiSdkAgentLoop implements AgentLoop {
         const deadline = invocationDeadline(timeoutMs);
         const toolTimeout = deadline.signal;
         const toolSignal = AbortSignal.any([input.signal, toolTimeout]);
+        let completedOutput: unknown;
+        let completed = false;
 
         try {
           if (!registered.execute) {
@@ -787,6 +834,8 @@ export class AiSdkAgentLoop implements AgentLoop {
             toolName: call.toolName,
             output,
           });
+          completedOutput = output;
+          completed = true;
         } catch (error) {
           if (input.signal.aborted) throw abortReason(input.signal);
           if (
@@ -827,6 +876,31 @@ export class AiSdkAgentLoop implements AgentLoop {
           });
         } finally {
           deadline.dispose();
+        }
+        throwIfAborted(input.signal);
+        if (completed) {
+          const fingerprint = noProgressFingerprint(call, completedOutput, metadata);
+          if (fingerprint !== undefined) {
+            recentToolObservations = [...previousObservations, fingerprint].slice(-6);
+            let count = 1, period = 1;
+            for (const size of [1, 2]) {
+              const length = recentToolObservations.length;
+              if (length < size * 2) continue;
+              const last = recentToolObservations.slice(-size);
+              const equals = (start: number) => last.every((value, offset) => recentToolObservations[start + offset] === value);
+              if (!equals(length - size * 2)) continue;
+              period = size;
+              count = length >= size * 3 && equals(length - size * 3) ? 3 : 2;
+              break;
+            }
+            if (count >= 3) {
+              // The third read/cycle completed and its events stay truthful.
+              // Stop outside the tool catch so it cannot become a failed effect.
+              throw new AgentError({ code: "RUN_LIMIT_EXCEEDED", retryable: false, phase: "runtime",
+                message: `重复查询 ${call.toolName}${period === 2 ? " 等两步循环" : ""} 三次没有新进展，已停止本次执行。请换个查询方式或补充信息；已执行的工具不会自动重跑。` });
+            }
+            if (count === 2) noProgressFeedback = `Program guard NO_PROGRESS (not user facts or tool permission): ${call.toolName}${period === 2 ? " 等两步循环" : ""} 相同参数的查询结果没有变化。请换个方法，不要继续重复同一查询；第三次无进展会停止。不要把这条内部反馈作为对用户的回复。`;
+          }
         }
       }
 
