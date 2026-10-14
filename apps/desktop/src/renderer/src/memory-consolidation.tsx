@@ -156,6 +156,7 @@ export function consolidationStatusLabel(enabled: boolean, maintenance: MemoryMa
   if (error) return "记忆整理状态读取失败";
   if (!maintenance) return "正在读取记忆状态…";
   const consolidation = maintenance.consolidation;
+  if (consolidation.state === "failed" && consolidation.error) return memoryConsolidationFailureText(consolidation.error);
   const accepted = consolidation.lastAttempt?.accepted ?? [];
   const saved = accepted.length;
   if (consolidation.lastAttempt?.status === "completed" && saved > 0) {
@@ -191,6 +192,7 @@ export function MemoryConsolidationNotice({ enabled, busy, running = false, quie
   if (!running && !error && !emptyAttempt && accepted.length === 0 && c?.state !== "failed" && c?.state !== "backlog" && c?.state !== "running") return null;
   const title = running ? labels.running : consolidationStatusLabel(enabled, maintenance, error);
   return <div className="memory-consolidation"><div className="attention-summary" role="status"><span>{title}{c?.state === "backlog" && c.backlogCount !== undefined ? `（${c.backlogCount} 条取材范围内消息）` : ""}</span><button className="ghost" onClick={onOpen}>查看记忆</button></div>
+    {c?.error ? <p className="error" role="alert">{memoryConsolidationFailureText(c.error)}</p> : null}
     <AutomaticMemoryReceipts accepted={accepted} busy={busy} refreshToken={refreshToken} />
   </div>;
 }
