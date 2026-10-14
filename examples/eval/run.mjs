@@ -7,6 +7,7 @@ import { requireLive } from './provider.mjs';
 import { manifest, finishReport, evaluationFiles } from './report.mjs';
 import { reliabilityCases, reliabilitySpec } from './reliability-cases.mjs';
 import { dailyCompactionCases, dailyCompactionSpec } from './daily-compaction.mjs';
+import { compactionFidelityCases, compactionFidelitySpec } from './compaction-fidelity.mjs';
 
 const mode = process.argv[2];
 if (!['offline', 'live', 'e2e', 'view'].includes(mode)) throw new Error('使用 offline / live / e2e / view');
@@ -46,16 +47,19 @@ if (mode === 'view') {
   if (mode === 'e2e') {
     const option = name => { const at = process.argv.indexOf(name); return at < 0 ? undefined : process.argv[at + 1]; };
     const suite = option('--suite') ?? 'seed';
-    if (!['seed', 'reliability', 'daily-compaction'].includes(suite)) throw new Error('suite must be seed, reliability or daily-compaction');
-    const raw = suite === 'reliability' ? reliabilityCases : suite === 'daily-compaction' ? dailyCompactionCases : JSON.parse(await readFile(join(cwd, 'e2e-cases.json'), 'utf8'));
+    if (!['seed', 'reliability', 'daily-compaction', 'compaction-fidelity'].includes(suite)) throw new Error('suite must be seed, reliability, daily-compaction or compaction-fidelity');
+    const raw = suite === 'reliability' ? reliabilityCases : suite === 'daily-compaction' ? dailyCompactionCases
+      : suite === 'compaction-fidelity' ? compactionFidelityCases : JSON.parse(await readFile(join(cwd, 'e2e-cases.json'), 'utf8'));
     const repeat = Number(option('--repeat') ?? 3);
     if (!Number.isInteger(repeat) || repeat < 1 || repeat > 5) throw new Error('repeat must be 1..5');
     if (suite === 'reliability' && repeat > 3) throw new Error('Reliability fixtures have exactly three expression/data variants, not five identical repeats');
     if (suite === 'daily-compaction' && repeat !== 1) throw new Error('This daily-scale first batch runs each mode/scenario exactly once');
+    if (suite === 'compaction-fidelity' && repeat !== 1) throw new Error('Continuous fidelity cases run once each; 3/5 are compaction rounds, not case repeats');
     if (suite !== 'seed' && (!['command-code', 'command-code/default'].includes(process.env.RUNLOOM_MODEL) || process.env.COMMAND_CODE_MODEL_ID !== 'deepseek/deepseek-v4.1-flash-fast')) throw new Error('Reliability run requires Command Code deepseek/deepseek-v4.1-flash-fast');
     const ids = option('--cases')?.split(',') ?? raw.map(c => c.id);
     if (new Set(ids).size !== ids.length || ids.some(id => !raw.some(c => c.id === id))) throw new Error('unknown or duplicate case ID');
-    const plan = await manifest(ids, repeat, { suite, repeatSemantics: suite === 'reliability' ? `每场景 ${repeat} 个明确的表达／数据变体，各独立运行一次；不是重试或 ${ids.length * repeat} 个不同任务` : suite === 'daily-compaction' ? '每档位、每场景独立运行一次；日用 256K／长任务 400K 配置与大体量合成历史，不代表模型物理上限或原生日用验收' : `每场景相同输入独立重复 ${repeat} 次`,
+    const plan = await manifest(ids, repeat, { suite, repeatSemantics: suite === 'reliability' ? `每场景 ${repeat} 个明确的表达／数据变体，各独立运行一次；不是重试或 ${ids.length * repeat} 个不同任务` : suite === 'daily-compaction' ? '每档位、每场景独立运行一次；日用 256K／长任务 400K 配置与大体量合成历史，不代表模型物理上限或原生日用验收'
+      : suite === 'compaction-fidelity' ? '两项独立回归任务：日常档连续3轮／长任务档连续5轮压缩，逐轮快照＋新进程复用；轮数不是独立样本数，不代表产品可靠性或模型物理容量' : `每场景相同输入独立重复 ${repeat} 次`,
       plannedByCategory: Object.fromEntries([...new Set(raw.map(c => c.category))].map(category => [category, ids.filter(id => raw.find(c => c.id === id).category === category).length * repeat])) });
     const dir = join(cwd, 'results', `${new Date().toISOString().replace(/[:.]/g, '-')}-${plan.gitCommit.slice(0, 7)}-${plan.runtimeVariant}`);
     await mkdir(join(dir, 'evidence'), { recursive: true });
@@ -68,7 +72,7 @@ if (mode === 'view') {
     await writeFile(join(dir, 'guards.json'), guards);
     const tests = join(dir, 'cases.json');
     const specs = suite === 'reliability' ? ids.flatMap(id => Array.from({ length: repeat }, (_, variant) => reliabilitySpec(id, variant)))
-      : ids.map(id => suite === 'daily-compaction' ? dailyCompactionSpec(id) : raw.find(c => c.id === id));
+      : ids.map(id => suite === 'daily-compaction' ? dailyCompactionSpec(id) : suite === 'compaction-fidelity' ? compactionFidelitySpec(id) : raw.find(c => c.id === id));
     await writeFile(join(dir, 'frozen-eval/resolved-specs.json'), JSON.stringify(specs, null, 2));
     const rows = specs.map(c => ({ description: `${c.id}: ${c.title}${c.contextMode ? ` / ${c.contextMode}` : c.variant != null ? ` / 变体${c.variant + 1}` : ''}`,
       vars: { caseId: c.id, ...(c.variant != null ? { variant: c.variant } : {}), input: c.turns[0] } }));

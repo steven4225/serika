@@ -10,6 +10,7 @@ import { reliabilityCases, reliabilitySpec } from './reliability-cases.mjs';
 import { contextBudgetForMode, estimateMessageTokens, partitionMessagesForCompaction, keepRecentCompactionUnits } from '@aisdk-agent/example-cli/dist/context-budget.js';
 import { summarySourceChunks } from '@aisdk-agent/example-cli/dist/context-compactor.js';
 import { dailyCompactionCases, dailyCompactionSpec, fixtureHistory } from './daily-compaction.mjs';
+import { compactionFidelityCases, compactionFidelitySpec } from './compaction-fidelity.mjs';
 import { createMemoryStore } from '@aisdk-agent/example-cli/dist/memory-store.js';
 import { createMemoryConsolidation } from '@aisdk-agent/example-cli/dist/memory-consolidation.js';
 import { AUTO_CONSOLIDATION_AGENT_ID } from '@aisdk-agent/example-cli/dist/consolidation.js';
@@ -137,7 +138,8 @@ test('all frozen fixture configs are accepted by the real runtime resolver witho
     const workspace = join(root, 'workspace'); await mkdir(workspace);
     const cases = [...JSON.parse(await readFile(new URL('./e2e-cases.json', import.meta.url), 'utf8')),
       ...reliabilityCases.flatMap(c => [0, 1, 2].map(v => reliabilitySpec(c.id, v))),
-      ...dailyCompactionCases.map(c => dailyCompactionSpec(c.id))];
+      ...dailyCompactionCases.map(c => dailyCompactionSpec(c.id)),
+      ...compactionFidelityCases.map(c => compactionFidelitySpec(c.id))];
     for (const spec of cases) {
       const config = join(root, 'config.json');
       await writeFile(config, JSON.stringify(fixtureConfig(spec, workspace)));

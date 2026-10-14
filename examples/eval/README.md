@@ -2,6 +2,20 @@
 
 不需要 PostgreSQL，不启动桌面、常驻服务或 worker。每条案例独立创建临时 workspace/config/transcript，结束后清理；不读取日用配置、历史或记忆。结果留在此目录的 `results/`，不提交 Git。
 
+## 连续压缩保真回归（独立新套件）
+
+`CF03` 用日常档连续压缩 3 轮，`CF05` 用长任务档连续压缩 5 轮；每轮追加越过该档位 85% 触发线的独立合成历史。目标、已确认决策、未完成事项、未获批准的部署以及完整历史工具对只在第一轮提供，后续素材不补答案。每轮保存实际摘要与预算快照，检查完整增量链和无工具重放；最后另起新进程，检查复用摘要不新增压缩调用。使用现有 Controller／AgentLoop，不新增执行框架。
+
+五分钟离线 Demo：`pnpm eval:test` 可验证 Oracle 的正例和丢失目标／权限等负例，不收费。下面是真实模型命令，需用户在自己的终端配置 Key 并明确承担调用费用；本次新增套件的真实模型结果仍为 **not_run**，不能用离线绿测代替：
+
+```sh
+SERIKA_EVAL_LIVE=1 RUNLOOM_MODEL=command-code \
+COMMAND_CODE_MODEL_ID=deepseek/deepseek-v4.1-flash-fast \
+pnpm eval:e2e --suite compaction-fidelity --cases CF03,CF05 --repeat 1
+```
+
+分母是两项任务，不是 8 项独立测试：任一轮失败会使整项任务失败。事实验收采用固定字面短语及来源 ID，是可复核的保守回归 Oracle，不是通用语义质量评分；同义改写可能被判失败，应保留原始证据人工复核而不是回写分数。报告冻结新 suite/spec/Oracle 指纹，不改旧 RC／RD／RL 题目或历史报告；不宣称模型物理 1M、Electron／TG 或日用重载已验收。
+
 ## 五分钟开始
 
 在仓库根目录，Node >=22.22（eval 工具的要求；运行时原有 >=22.12 要求不变）：

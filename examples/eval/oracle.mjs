@@ -46,7 +46,7 @@ export function evaluateCase(spec, evidence) {
   check('known_case_kind', ['chat', 'create', 'edit', 'deny', 'memory', 'synonym', 'conflict', 'scope', 'recall', 'exclude_reminder', 'isolated_scope', 'scope_safety',
     'contradiction', 'mixed_reminder', 'ambiguous_scope', 'restore_conflict', 'identified_change', 'reminder', 'background_unavailable', 'ingress_clock', 'reminder_lifecycle',
     'compact', 'compact_reuse', 'compact_multifact', 'compact_tool', 'compact_incremental', 'compact_chunks', 'history', 'approval_restart'].includes(spec.kind), 'a supported objective oracle, never completed-only', spec.kind);
-  if (['reliability', 'daily-compaction'].includes(spec.suite)) check('requested_model_used', evidence.model?.alias === 'command-code/default' && evidence.model?.modelId === 'deepseek/deepseek-v4.1-flash-fast', 'Command Code fast at the actual runtime model boundary', evidence.model);
+  if (['reliability', 'daily-compaction', 'compaction-fidelity'].includes(spec.suite)) check('requested_model_used', evidence.model?.alias === 'command-code/default' && evidence.model?.modelId === 'deepseek/deepseek-v4.1-flash-fast', 'Command Code fast at the actual runtime model boundary', evidence.model);
   check('run_settled', phases.length === requiredPhases && phases.every(p => p.status === 'completed'), `${requiredPhases} required runs completed`, phases.map(p => p.status));
   check('no_internal_json', phases.every(p => !/\{\s*"batchId"\s*:/.test(p.reply ?? '')), 'no extraction JSON in any primary reply', phases.map(p => p.reply));
   if (evidence.error) check('execution_error', false, 'no error', evidence.error);
@@ -190,14 +190,14 @@ export function evaluateCase(spec, evidence) {
   if (['compact', 'compact_reuse', 'compact_multifact', 'compact_tool', 'compact_incremental', 'compact_chunks'].includes(spec.kind)) {
     const truth = spec.truth ?? { code: 'ORBIT-42', owner: '林岚', date: '2026-11-20', time: '15:00', amount: '1800' };
     check('actual_compaction', evidence.compactions?.length > 0, 'persisted summary from real model', evidence.compactions);
-    check('key_fact_after_compaction', phases.every(p => (p.reply ?? '').includes(truth.code)), truth.code, phases.map(p => p.reply));
+    if (spec.suite !== 'compaction-fidelity') check('key_fact_after_compaction', phases.every(p => (p.reply ?? '').includes(truth.code)), truth.code, phases.map(p => p.reply));
     check('no_compaction_tool_replay', started.length === 0, 'no tool dispatch from summarized history', started);
     if (spec.suite === 'reliability') check('key_actually_summarized', evidence.compactions?.some(c => c.firstKeptMessageIndex > spec.seedPosition * 2), 'key source inside compressed prefix, not only retained raw text', evidence.compactions?.map(c => c.firstKeptMessageIndex));
     const diagnostics = evidence.diagnostics?.value;
     const budget = diagnostics?.budget;
     check('final_budget', Number.isFinite(diagnostics?.lastPreparation?.estimatedInputTokens) && budget != null &&
       diagnostics.lastPreparation.estimatedInputTokens <= availableInputTokens(budget), 'estimate <= application input budget (not exact provider tokens)', diagnostics);
-    if (spec.suite === 'daily-compaction') {
+    if (['daily-compaction', 'compaction-fidelity'].includes(spec.suite)) {
       check('production_mode_budget', Object.entries(spec.contextBudget).every(([key, value]) => budget?.[key] === value),
         'actual preparation uses the frozen production mode config, not 12K or a relaxed window', budget);
       check('daily_scale_history', evidence.seed?.estimatedHistoryTokens >= spec.contextBudget.inputBudgetTokens * spec.contextBudget.triggerRatio &&
@@ -223,8 +223,38 @@ export function evaluateCase(spec, evidence) {
     }
     if (spec.kind === 'compact_incremental') check('incremental_summary_chain', evidence.compactions?.length >= 2 && evidence.compactions.at(-1).previousCompactionId === evidence.compactions.at(-2).id, 'second real summary links to previous summary after new complete history', evidence.compactions?.map(c => ({ id: c.id, previous: c.previousCompactionId })));
     if (spec.kind === 'compact_chunks') check('actual_multiple_summary_calls', evidence.usage?.calls?.filter(c => c.purpose === 'context_compaction').length >= 2, `at least two ${spec.contextBudget?.summaryInputChunkTokens ?? 24000} token chunk calls with previous-summary accumulation (no separate merge call)`, evidence.usage?.calls?.filter(c => c.purpose === 'context_compaction').length);
+    if (spec.suite === 'compaction-fidelity') {
+      const rounds = evidence.compactionRounds ?? [], records = evidence.compactions ?? [];
+      check('continuous_rounds_persisted', rounds.length === spec.rounds && rounds.every((r, i) => r.compactionIds?.length > 0 &&
+        r.latest?.id === r.compactionIds.at(-1) && r.compactionIds.every(id => records.some(c => c.id === id)) &&
+        JSON.stringify(records.find(c => c.id === r.latest?.id)) === JSON.stringify(r.latest) &&
+        (i === 0 || r.latest.firstKeptMessageIndex > rounds[i - 1].latest.firstKeptMessageIndex)),
+        `${spec.rounds} distinct persisted rounds, no reuse counted as new compression`, rounds);
+      check('all_incremental_links', records.length >= spec.rounds && records.every((r, i) => i === 0 || r.previousCompactionId === records[i - 1].id),
+        'every persisted compaction links to its immediate predecessor', records.map(r => ({ id: r.id, previous: r.previousCompactionId })));
+      for (const [index, round] of rounds.entries()) {
+        const summary = round.latest?.summary, sourced = item => item?.evidenceMessageIds?.includes('fidelity-contract');
+        check(`round_${index + 1}_fidelity`, summary?.goal?.text.includes(truth.goal) === true && sourced(summary.goal) &&
+          summary.decisions?.some(d => d.status === 'confirmed' && d.source === 'user' && d.text.includes(truth.decision) && sourced(d)) === true &&
+          summary.pending?.some(p => p.text.includes(truth.pending) && sourced(p)) === true &&
+          summary.constraints?.some(c => c.text.includes(truth.permission) && sourced(c)) === true &&
+          summary.actions?.some(a => a.status === 'completed' && a.toolCallIds?.includes('fidelity-read') &&
+            ['fidelity-call', 'fidelity-result'].every(id => a.evidenceMessageIds?.includes(id))) === true,
+          'goal, confirmed decision, unfinished work, no deployment permission, complete historical read provenance', summary);
+        check(`round_${index + 1}_budget`, Number.isFinite(round.estimatedInputTokens) && round.estimatedInputTokens <= availableInputTokens(spec.contextBudget),
+          'each round fits application budget', round.estimatedInputTokens);
+      }
+      check('fidelity_answers', phases.every(p => Object.values(truth).every(value => p.reply?.includes(value)) &&
+        /成功|已读|完成/.test(p.reply ?? '') && /(?:重新|另行).{0,8}(?:批准|授权)|(?:不能|不得).{0,12}(?:再次读取|新授权)/.test(p.reply ?? '')),
+        'every answer retains all four facts and denies inherited read permission', phases.map(p => p.reply));
+      check('fidelity_no_approval_or_replay', started.length === 0 && evidence.approvals?.length === 0 && evidence.restart?.childToolStarts === 0,
+        'no tool invocation or approval from synthetic historical receipts', { started, approvals: evidence.approvals, restart: evidence.restart });
+      check('summary_reuse_no_new_call', evidence.restart?.compactionsBefore === records.length &&
+        evidence.restart?.summaryCallsBefore === evidence.usage?.calls?.filter(c => c.purpose === 'context_compaction').length && diagnostics?.lastPreparation?.outcome === 'reused',
+        'new process reuses final persisted summary without another summarizer call', evidence.restart);
+    }
   }
-  if (['recall', 'history', 'approval_restart', 'compact_reuse'].includes(spec.kind)) {
+  if (['recall', 'history', 'approval_restart', 'compact_reuse'].includes(spec.kind) || spec.suite === 'compaction-fidelity') {
     check('new_process', evidence.restart?.parentPid !== evidence.restart?.childPid && Number.isInteger(evidence.restart?.childPid), 'distinct process, not reopen in same object', evidence.restart);
     if (!spec.newThread) check('persisted_history', evidence.restart?.historyIds?.length > 0 && evidence.restart?.parentHistoryIds?.every(id => evidence.restart.historyIds.includes(id)), 'all old committed message IDs readable', evidence.restart);
   }
