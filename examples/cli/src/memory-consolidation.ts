@@ -655,6 +655,17 @@ export function createMemoryConsolidation(options: {
               factIdentity: proposed.factIdentity!, kind: proposed.kind ?? target.assertion!.kind,
               ...(identical ? {} : { recallTerms: proposed.recallTerms ?? [] }),
               ...(identical ? { reuseSources: true, validTime: target.assertion!.validTime } : proposed.validTime === undefined ? {} : { validTime: proposed.validTime }) };
+            if (!identical && proposed.validTime === undefined &&
+              (target.assertion!.kind === "preference" || target.assertion!.kind === "fact") &&
+              (proposed.kind === undefined || proposed.kind === "preference" || proposed.kind === "fact") &&
+              (target.assertion!.validTime.from !== null || target.assertion!.validTime.to !== null)) {
+              // An undated contradiction cannot retrospectively correct a dated
+              // timeline. Keep its original evidence pending until the user
+              // explicitly chooses a from-now change; do not erase old segments.
+              const { operation: _operation, validTime: _validTime, reuseSources: _reuseSources, ...fields } = change;
+              change = { ...fields, operation: "change", effectiveAt: null };
+              parsed.value.reason = "这条偏好与已保存的内容不同，请确认是否从现在开始使用；原偏好没有被覆盖。";
+            }
             parsed.value.change = change;
             if (!identical) eligibility = "needs_review";
           } else if (matches.length > 1) eligibility = "needs_review";

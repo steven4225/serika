@@ -28,6 +28,14 @@ export class MemoryEmbeddingError extends Error {
   constructor(readonly failure: MemoryEmbeddingFailure, message: string) { super(message); }
 }
 export interface MemorySemanticHit { id: string; revision: number; textHash: string; score: number }
+/** Preparation-local metadata only. Contains no query, fact text, vector or ineligible identity. */
+export interface MemorySemanticDiagnostics {
+  threshold: number;
+  eligibleCount: number;
+  indexedCount: number;
+  candidates: Array<Omit<MemorySemanticHit, "score"> & { score: number | null;
+    reason: "selected" | "below_threshold" | "candidate_limit" | "not_indexed" | "invalid_score" }>;
+}
 interface CachedVector { id: string; revision: number; textHash: string; vector: number[] }
 interface Cache { version: 1; modelId: string; dimension: number; records: CachedVector[] }
 const MAX_CACHE_BYTES = 16 * 1024 * 1024;
@@ -35,6 +43,7 @@ const MAX_DIMENSION = 4096;
 const MAX_ENTRIES = 512;
 /** Cold indexing advances during normal preparations, never a background model loop. */
 export const MEMORY_SEMANTIC_WARMUP_BATCH = 20;
+export const MEMORY_SEMANTIC_SCORE_THRESHOLD = 0.5;
 function validVector(value: unknown, dimension?: number): value is number[] {
   if (!Array.isArray(value) || value.length < 1 || value.length > MAX_DIMENSION || (dimension !== undefined && value.length !== dimension)
     || !Array.from(value).every(item => typeof item === "number" && Number.isFinite(item))) return false;
@@ -122,8 +131,12 @@ export class LocalMemorySemanticIndex {
   readonly #timeoutMs: number;
   #lastState: "ready" | "warming" | "degraded" = "ready";
   #lastFailure: MemoryEmbeddingFailure | undefined;
+  #lastDiagnostics: MemorySemanticDiagnostics | undefined;
   get lastState(): "ready" | "warming" | "degraded" { return this.#lastState; }
   get lastFailure(): MemoryEmbeddingFailure | undefined { return this.#lastFailure ? { ...this.#lastFailure } : undefined; }
+  get lastDiagnostics(): MemorySemanticDiagnostics | undefined {
+    return this.#lastDiagnostics ? { ...this.#lastDiagnostics, candidates: this.#lastDiagnostics.candidates.map(item => ({ ...item })) } : undefined;
+  }
   constructor(input: { file: string; embedding: MemoryEmbeddingPort; timeoutMs?: number }) {
     this.#file = resolve(input.file);
     this.#embedding = input.embedding;
@@ -131,6 +144,7 @@ export class LocalMemorySemanticIndex {
       ? Math.max(1, Math.min(10_000, Math.floor(input.timeoutMs))) : 5_000;
   }
   async search(entries: readonly MemoryEntry[], input: { query: string; now: Date; threadId?: string; signal?: AbortSignal }): Promise<MemorySemanticHit[]> {
+    this.#lastDiagnostics = undefined;
     input.signal?.throwIfAborted();
     this.#lastFailure = undefined;
     const stage: MemoryEmbeddingFailure = { code: "cache_read_failed" };
@@ -199,7 +213,18 @@ export class LocalMemorySemanticIndex {
     signal.throwIfAborted();
     this.#lastState = records.length < current.length ? "warming" : "ready";
     const queryVector = vectors.at(-1)!;
-    return records.map(record => ({ id: record.id, revision: record.revision, textHash: record.textHash, score: cosine(record.vector, queryVector) }))
-      .filter(hit => Number.isFinite(hit.score) && hit.score >= 0.5).sort((a, b) => b.score - a.score || a.id.localeCompare(b.id)).slice(0, 12);
+    const scored = records.map(record => ({ id: record.id, revision: record.revision, textHash: record.textHash, score: cosine(record.vector, queryVector) }));
+    const hits = scored.filter(hit => Number.isFinite(hit.score) && hit.score >= MEMORY_SEMANTIC_SCORE_THRESHOLD)
+      .sort((a, b) => b.score - a.score || a.id.localeCompare(b.id)).slice(0, 12);
+    const byId = new Map(scored.map(hit => [hit.id, hit]));
+    const selected = new Set(hits.map(hit => hit.id));
+    this.#lastDiagnostics = { threshold: MEMORY_SEMANTIC_SCORE_THRESHOLD, eligibleCount: current.length, indexedCount: records.length,
+      candidates: current.map(item => {
+        const score = byId.get(item.id)?.score;
+        return { ...item, score: score !== undefined && Number.isFinite(score) ? score : null,
+          reason: score === undefined ? "not_indexed" : !Number.isFinite(score) ? "invalid_score"
+            : score < MEMORY_SEMANTIC_SCORE_THRESHOLD ? "below_threshold" : selected.has(item.id) ? "selected" : "candidate_limit" };
+      }) };
+    return hits;
   }
 }

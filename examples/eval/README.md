@@ -27,6 +27,12 @@ unset DASHSCOPE_API_KEY
 
 `pnpm eval:test` 只测试 Oracle 和 fixture HTTP 报告链路，临时 fixture 结果会清理，**不是实际 embedding 模型成绩**。
 
+记忆 v1 接入复验可在自己的终端执行 `zsh examples/eval/Start-Memory-Acceptance.command`，只在隐藏提示中输入百炼 Key。原 MR01–MR12 与开发者编写的独立 MH01–MH04 各跑一次、分母分别报告；环境失败立即停止，不自动重试。也可单独执行 `pnpm eval:recall --live --suite=validation --provider=dashscope --model=qwen3.7-text-embedding-flash`。MH 不是盲测保留集，用显式禁止标签约束无关事件／偏好和跨 Thread 命中，原 MR 的评分、0.5 阈值、Top-3、RRF 60 都不变。
+
+新报告的 `embedding.diagnostics` 列出合格范围内候选分数与 `below_threshold / candidate_limit / not_indexed / invalid_score` 原因，不保留向量或供应商响应正文。`precisionWarnings` 单列“题目通过但夹带额外记忆”，不能把任务命中率宣传成精确率。旧报告不补写分数、重新评分或宣称已查明低于阈值的具体数值。
+
+完整 Controller 自动保存→明确更新→普通冲突审核→参考注入的回归在 `examples/cli/src/app-memory-chain-acceptance.test.ts`，桌面主进程/renderer 接线在 `apps/desktop/src/renderer/src/desktop-memory-semantic.test.ts`。它们使用真实存储与 Runtime，但模型提取、embedding/HTTP 响应是 fixture；模拟 TG Thread 只验共用运行时的范围隔离，不证明真实 Telegram 收发或原生 Electron 点击，也不计入真实模型成功率。
+
 ## 连续压缩保真回归（独立新套件）
 
 `CF03` 用日常档连续压缩 3 轮，`CF05` 用长任务档连续压缩 5 轮；每轮追加越过该档位 85% 触发线的独立合成历史。目标、已确认决策、未完成事项、未获批准的部署、成功读取及结果未知的非幂等写入工具对只在第一轮提供，后续素材不补答案。每轮保存实际摘要与预算快照，检查完整增量链、unknown 写结果未被改写为成功／失败及无工具重放；最后另起新进程，检查复用摘要不新增压缩调用。使用现有 Controller／AgentLoop，不新增执行框架。

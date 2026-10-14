@@ -21,6 +21,14 @@ const noop = () => {};
 const info = { workspaceRoot: "/workspace", configPath: "/config.json", memory: { enabled: true, autoConsolidate: false, writePolicy: "review", queryRewriteEnabled: false }, workTasks: true } as AppInfo;
 const maintenance: MemoryMaintenance = { stored: 0, pending: 0, expired: 0, disabled: 0, duplicateSuggestions: 0, capacity: { entries: 200, bytes: 1024, assertionsPerEntry: 10 }, consolidation: { enabled: false, state: "off" } };
 
+it("message exclusion explains the actual cloud inference boundary without claiming it disables saved keyword references", async () => {
+  const app = await source("./App.tsx");
+  const hint = app.match(/className="memory-exclusion" title="([^"]+)"/)?.[1];
+  assert.ok(hint);
+  assert.match(hint, /已有记忆仍可通过关键词引用/);
+  assert.match(hint, /本条不触发语义检索或画像引用/);
+});
+
 it("UI regression 1: workspace belongs to settings and never selects 手札", async () => {
   assert.equal(dashboardTabForDetail("home"), "设置");
   assert.equal(dashboardTabForDetail("settings"), "设置");

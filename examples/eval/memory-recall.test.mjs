@@ -24,6 +24,21 @@ test('ranking oracle requires preferred first result and retains false positives
   assert.equal(scoreRecall(spec, [{ label: 'event0', text: 'event' }, { label: 'coffee', text: 'fact' }]).passed, false);
   const result = scoreRecall(spec, [{ label: 'coffee', text: 'fact' }, { label: 'event0', text: 'event' }]);
   assert.equal(result.passed, true); assert.equal(result.precision, .5);
+  const rows = [{ id: spec.id, spec, category: spec.category,
+    hybrid: { selected: [{ label: 'coffee', text: 'fact' }, { label: 'event0', text: 'event' }], oracle: result } }];
+  const formatted = recall.formatRecallResult({ root: '/isolated/report', summary: {
+    ...summarizeRecall(rows, 1), rows, probe: false, environmentFailure: null } });
+  assert.deepEqual(formatted.precisionWarnings, [{ caseId: 'MR05', casePassed: true, precision: .5,
+    unexpected: ['event0'], evidence: '/isolated/report/MR05/evidence.json' }]);
+});
+
+test('separate validation suite uses new tasks and explicitly rejects off-target topical hits', () => {
+  assert.equal(recall.memoryRecallValidationCases?.length, 4);
+  assert.ok(recall.memoryRecallValidationCases.every(spec => !memoryRecallCases.some(original => original.id === spec.id || original.query === spec.query)));
+  assert.equal(memoryRecallCases.length, 12, 'original suite remains frozen');
+  const spec = recall.memoryRecallValidationCases.find(spec => spec.id === 'MH02');
+  assert.equal(scoreRecall(spec, [{ label: 'weekly_style', text: 'saved' }, { label: 'weekly_event', text: 'saved' }]).passed, false);
+  assert.equal(scoreRecall(spec, [{ label: 'weekly_style', text: 'saved' }]).passed, true);
 });
 
 test('unfinished semantic runs are not scored as lexical successes, unexecuted cases stay in the denominator', () => {
@@ -86,8 +101,43 @@ test('fixture HTTP transport exercises all reporting paths without claiming real
     assert.deepEqual(lifecycle.hybrid.selected.map(entry => entry.label), ['coffee']);
     assert.ok(lifecycle.embedding.httpRequests.every(call => call.inputCount <= 10));
     assert.ok(summary.rows.find(row => row.id === 'MR11').hybrid.selected[0].text.includes('不加糖'));
+    const diagnostic = summary.rows.find(row => row.id === 'MR01').embedding.diagnostics;
+    assert.equal(diagnostic?.threshold, .5);
+    assert.equal(diagnostic?.candidates.length, 2);
+    assert.equal(diagnostic?.candidates.every(item => item.reason === 'selected' && item.score === 1), true);
+    assert.ok(diagnostic.candidates.every(item => !('text' in item) && !('vector' in item)));
     assert.ok((await readFile(join(root, 'MR11', '.runloom', 'memory.json'), 'utf8')).includes('我喝咖啡加糖'));
     assert.equal(JSON.parse(await readFile(join(root, 'manifest.json'), 'utf8')).config.modelId, 'fixture-not-real-embedding');
+  } finally {
+    await new Promise(resolve => server.close(resolve));
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('validation run writes a separate manifest and retains stricter precision failures without altering regression data', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'memory-recall-validation-test-'));
+  const server = createServer(async (request, response) => {
+    const chunks = []; for await (const chunk of request) chunks.push(chunk);
+    const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    response.setHeader('Content-Type', 'application/json');
+    response.end(JSON.stringify({ data: body.input.map((_, index) => ({ index, embedding: [1, 0] })) }));
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const { root, summary } = await runMemoryRecall({ live: true, suite: 'validation', provider: 'local', env: {},
+      baseURL: `http://127.0.0.1:${server.address().port}/v1`, modelId: 'fixture-not-real-embedding', outputRoot: directory });
+    assert.equal(summary.environmentFailure, null);
+    assert.equal(summary.hybrid.executed, 4);
+    assert.equal(summary.hybrid.planned, 4);
+    assert.equal(summary.hybrid.passed, 0, 'same-topic extra answers are visible quality failures, not silently accepted');
+    assert.deepEqual(summary.rows.map(row => row.id), ['MH01', 'MH02', 'MH03', 'MH04']);
+    assert.ok(root.includes('memory-recall-validation-'));
+    const manifest = JSON.parse(await readFile(join(root, 'manifest.json'), 'utf8'));
+    assert.equal(manifest.suite, 'memory-recall-validation-v1');
+    assert.equal(manifest.threshold, .5);
+    assert.equal(manifest.rrfK, 60);
+    assert.deepEqual(manifest.caseIds, ['MH01', 'MH02', 'MH03', 'MH04']);
+    await assert.rejects(runMemoryRecall({ live: true, suite: 'invented', env: {} }), /Unknown recall suite/);
   } finally {
     await new Promise(resolve => server.close(resolve));
     await rm(directory, { recursive: true, force: true });

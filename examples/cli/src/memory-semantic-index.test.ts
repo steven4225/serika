@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { it } from "node:test";
 import { createServer } from "node:http";
-import { LocalMemorySemanticIndex, MEMORY_SEMANTIC_WARMUP_BATCH, type MemoryEmbeddingPort } from "./memory-semantic-index.js";
+import { LocalMemorySemanticIndex, MEMORY_SEMANTIC_WARMUP_BATCH, memorySemanticTextHash, type MemoryEmbeddingPort } from "./memory-semantic-index.js";
 import { retrieveMemories } from "./memory-retrieval.js";
 import { createLocalMemoryEmbedder } from "./memory-embedding-client.js";
 import type { MemoryEntry } from "./memory-store.js";
@@ -29,12 +29,57 @@ it("recalls fixture paraphrase, exact named facts and never unrelated below thre
   assert.deepEqual(await index.search(entries, { query: "天气", now }), []);
 }));
 
+it("retains bounded score rejection reasons without text, vectors or foreign IDs", async () => fixture(async file => {
+  const entries = [fact("below", "source-secret"), ...Array.from({ length: 13 }, (_, n) => fact(`hit-${String(n).padStart(2, "0")}`, "answer-secret")),
+    fact("foreign-secret-id", "private-secret", { scope: { kind: "thread", threadId: "foreign" } })];
+  const embedding: MemoryEmbeddingPort = { modelId: "fixture", async embed(texts) {
+    return texts.map(text => text === "source-secret" ? [.4, Math.sqrt(.84)] : [1, 0]);
+  } };
+  const index = new LocalMemorySemanticIndex({ file, embedding });
+  const hits = await index.search(entries, { query: "query-secret", now, threadId: "origin" });
+  assert.equal(hits.length, 12);
+  const diagnostics = index.lastDiagnostics;
+  assert.equal(diagnostics?.threshold, .5);
+  assert.equal(diagnostics?.eligibleCount, 14);
+  assert.equal(diagnostics?.indexedCount, 14);
+  assert.deepEqual(diagnostics?.candidates.find(item => item.id === "below"), {
+    id: "below", revision: 1, textHash: memorySemanticTextHash("source-secret"),
+    score: .4, reason: "below_threshold",
+  });
+  assert.equal(diagnostics?.candidates.filter(item => item.reason === "selected").length, 12);
+  assert.equal(diagnostics?.candidates.find(item => item.id === "hit-12")?.reason, "candidate_limit");
+  assert.ok(!JSON.stringify(diagnostics).includes("secret"));
+  assert.ok(!JSON.stringify(diagnostics).includes("vector"));
+  diagnostics!.candidates[0]!.reason = "not_indexed";
+  assert.equal(index.lastDiagnostics?.candidates[0]?.reason, "below_threshold", "caller cannot mutate the next diagnostic read");
+}));
+
+it("diagnostics distinguish a cold not-indexed fact and reset after degradation", async () => fixture(async file => {
+  let failure = false;
+  const embedding: MemoryEmbeddingPort = { modelId: "fixture", async embed(texts) {
+    if (failure) throw Error("provider-secret");
+    return texts.map(() => [1, 0]);
+  } };
+  const index = new LocalMemorySemanticIndex({ file, embedding });
+  const entries = Array.from({ length: MEMORY_SEMANTIC_WARMUP_BATCH + 1 }, (_, n) => fact(`fact-${n}`, "source-secret"));
+  await index.search(entries, { query: "query-secret", now });
+  assert.equal(index.lastState, "warming");
+  assert.equal(index.lastDiagnostics?.indexedCount, MEMORY_SEMANTIC_WARMUP_BATCH);
+  assert.deepEqual(index.lastDiagnostics?.candidates.at(-1), { id: "fact-20", revision: 1,
+    textHash: memorySemanticTextHash("source-secret"), score: null, reason: "not_indexed" });
+  failure = true;
+  await index.search(entries, { query: "query-secret", now });
+  assert.equal(index.lastState, "degraded");
+  assert.equal(index.lastDiagnostics, undefined, "old successful scores are not evidence for a failed preparation");
+}));
+
 it("filters foreign threads and inactive/expired facts before sending embedding material", async () => fixture(async file => {
   const calls: string[][] = [];
   const entries = [writing, fact("private", "私密复盘", { scope: { kind: "thread", threadId: "secret" } }), fact("off", "停用复盘", { enabled: false }), fact("expired", "过期复盘", { expiresAt: "2020-01-01T00:00:00Z" }), fact("retracted", "撤回复盘", { temporalState: "retracted" })];
   const index = new LocalMemorySemanticIndex({ file, embedding: port(calls) });
   assert.deepEqual((await index.search(entries, { query: "回顾", now, threadId: "current" })).map(hit => hit.id), ["writing"]);
   assert.deepEqual(calls[0], [writing.text, "回顾"]);
+  assert.deepEqual(index.lastDiagnostics?.candidates.map(item => item.id), ["writing"], "diagnostics also honor scope and lifecycle filtering");
 }));
 
 it("restart reuses fact vectors and refreshes changed revisions without storing fact text", async () => fixture(async file => {
@@ -108,6 +153,7 @@ it("embedding deadline bounds uncooperative ports and caller cancellation propag
   const pending = index.search([writing], { query: "回顾", now, signal: controller.signal });
   controller.abort(new Error("foreground cancelled"));
   await assert.rejects(pending, /foreground cancelled/);
+  assert.equal(index.lastDiagnostics, undefined);
 }));
 
 it("hybrid top-k keeps pins first, honors current hashes and the serialized budget", async () => fixture(async file => {

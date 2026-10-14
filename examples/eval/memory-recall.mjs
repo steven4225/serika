@@ -36,6 +36,22 @@ export const memoryRecallCases = [
     gold: ['work', 'personal'], noUnconditionalProfile: true },
 ];
 
+// Developer-authored validation set, not a blind benchmark or a regrade of MR01–MR12.
+// Off-target topical entries are explicitly forbidden here, using the existing oracle.
+export const memoryRecallValidationCases = [
+  { id: 'MH01', category: 'paraphrase', query: '你平时应该用哪种语言回答我？', facts: [
+    fact('reply_language', '请默认用简体中文回复。'), fact('background', '我是后端工程师。', 'fact')],
+    gold: ['reply_language'], forbidden: ['background'] },
+  { id: 'MH02', category: 'precision', query: '我的周报格式偏好是什么？', facts: [
+    fact('weekly_style', '周报先列风险，再列本周进展。'), fact('weekly_event', '周报记录：本周已经写完。', 'event')],
+    gold: ['weekly_style'], forbidden: ['weekly_event'] },
+  { id: 'MH03', category: 'precision', query: '周报提交截止时间是什么时候？', facts: [
+    fact('weekly_deadline', '周报提交截止时间是每周五下午五点。', 'event'), fact('weekly_style', '周报先列风险，再列本周进展。')],
+    gold: ['weekly_deadline'], forbidden: ['weekly_style'] },
+  { id: 'MH04', category: 'irrelevant', query: '咖啡为什么会影响睡眠？', facts: [
+    fact('coffee', '我喜欢美式咖啡。'), fact('language', '请默认用简体中文回复。')], gold: [] },
+];
+
 /** Gold labels are fixture-owned, never supplied by the model or by the candidate ranks. */
 export function scoreRecall(spec, selected, profile = []) {
   const labels = selected.map(entry => entry.label), relevant = new Set(spec.gold);
@@ -71,6 +87,10 @@ export function summarizeRecall(rows, planned) {
 
 /** A completed negative measurement is not a transport failure or a missing report. */
 export function formatRecallResult({ root, summary }) {
+  const precisionWarnings = summary.rows.filter(row => row.hybrid?.oracle.unexpected.length).map(row => ({
+    caseId: row.id, casePassed: row.hybrid.oracle.passed, precision: row.hybrid.oracle.precision,
+    unexpected: row.hybrid.oracle.unexpected, evidence: join(root, row.id, 'evidence.json'),
+  }));
   const failedCases = summary.rows.filter(row => row.hybrid?.oracle.passed === false).map(row => ({
     caseId: row.id, category: row.category, query: row.spec.query, expected: row.spec.gold,
     selected: row.hybrid.selected.map(entry => entry.label), missing: row.hybrid.oracle.missing,
@@ -83,16 +103,18 @@ export function formatRecallResult({ root, summary }) {
   return { report: root, status,
     ...(summary.probe ? { probe: true, embedding: summary.rows[0]?.embedding }
       : { lexical: summary.lexical, hybrid: summary.hybrid, percentagePointChange: summary.percentagePointChange }),
-    failedCases, environmentFailure: summary.environmentFailure };
+    failedCases, precisionWarnings, environmentFailure: summary.environmentFailure };
 }
 
-export async function runMemoryRecall({ live = false, probe = false, provider = 'dashscope', baseURL, modelId, env = process.env,
+export async function runMemoryRecall({ live = false, probe = false, suite = 'regression', provider = 'dashscope', baseURL, modelId, env = process.env,
   outputRoot = join(dirname(fileURLToPath(import.meta.url)), 'results') } = {}) {
   if (!live) throw Error('Use --live only with an explicitly configured embedding service; no mock scores are generated.');
+  if (!['regression', 'validation'].includes(suite)) throw Error('Unknown recall suite; use regression or validation.');
   const config = normalizeEmbeddingConfig({ provider, baseURL, modelId });
-  const cases = probe ? memoryRecallCases.slice(0, 1) : memoryRecallCases;
+  const suiteCases = suite === 'validation' ? memoryRecallValidationCases : memoryRecallCases;
+  const cases = probe ? suiteCases.slice(0, 1) : suiteCases;
   if (config.provider === 'dashscope' && !env.DASHSCOPE_API_KEY) throw Error('Configure DASHSCOPE_API_KEY in the host environment, never in chat or report files.');
-  const requestedRoot = join(resolve(outputRoot), `memory-recall-${new Date().toISOString().replaceAll(':', '-')}-${randomUUID().slice(0, 8)}`);
+  const requestedRoot = join(resolve(outputRoot), `memory-recall-${suite === 'validation' ? 'validation-' : ''}${new Date().toISOString().replaceAll(':', '-')}-${randomUUID().slice(0, 8)}`);
   await mkdir(requestedRoot, { recursive: true, mode: 0o700 });
   const root = await realpath(requestedRoot); // macOS /var temp aliases are not index authority.
   const now = new Date('2026-10-14T04:00:00.000Z'), seedNow = new Date('2026-09-30T04:00:00.000Z');
@@ -103,11 +125,13 @@ export async function runMemoryRecall({ live = false, probe = false, provider = 
   const sourceFiles = ['memory-retrieval', 'memory-semantic-index', 'memory-embedding-client', 'memory-context-view', 'memory-store'];
   const runtimeHashes = Object.fromEntries(await Promise.all(sourceFiles.map(async file => [file,
     hash(await readFile(new URL(`../cli/dist/${file}.js`, import.meta.url)))])));
-  const manifest = { suite: probe ? 'memory-embedding-probe-v1' : 'memory-recall-v1', source: '我的 eval',
+  const manifest = { suite: probe ? 'memory-embedding-probe-v1' : suite === 'validation' ? 'memory-recall-validation-v1' : 'memory-recall-v1', source: '我的 eval',
     kind: probe ? 'connectivity-diagnostic-not-recall-accuracy' : `real-${config.provider}-embedding-retrieval-not-chat-e2e`, probe, config,
     modelVerification: 'Configured endpoint/model; compatible response identity is not independently verified.',
     gitCommit, runtimeHashes, evalFingerprint: hash(await readFile(fileURLToPath(import.meta.url))),
-    planned: cases.length, topK: 3, threshold: 0.5, rrfK: 60, corpus: 'isolated synthetic formal memory', now: now.toISOString() };
+    planned: cases.length, caseIds: cases.map(spec => spec.id), topK: 3, threshold: 0.5, rrfK: 60,
+    ...(suite === 'validation' ? { datasetRole: 'developer-authored independent validation; not blind held-out data' } : {}),
+    corpus: 'isolated synthetic formal memory', now: now.toISOString() };
   await writeFile(join(root, 'manifest.json'), JSON.stringify(manifest, null, 2));
   await writeFile(join(root, 'frozen-eval.mjs'), await readFile(fileURLToPath(import.meta.url)));
   let environmentFailure = null;
@@ -152,7 +176,8 @@ export async function runMemoryRecall({ live = false, probe = false, provider = 
       const index = new LocalMemorySemanticIndex({ file: join(workspace, '.runloom', 'memory-semantic-index.json'), embedding: embedder });
       const started = Date.now(), hits = await index.search(snapshot.entries, input);
       row.embedding = { state: index.lastState === 'ready' && !httpRequests.length ? 'not_applicable' : index.lastState, durationMs: Date.now() - started,
-        requestMode: embedder.requestMode, usage: embedder.lastUsage, httpRequests, hits, failure: index.lastFailure, responseMapping: embedder.lastResponseMapping };
+        requestMode: embedder.requestMode, usage: embedder.lastUsage, httpRequests, hits, diagnostics: index.lastDiagnostics,
+        failure: index.lastFailure, responseMapping: embedder.lastResponseMapping };
       if (index.lastState !== 'ready') throw Error(`Embedding ${index.lastState}: ${index.lastFailure?.code ?? 'unknown'}; lexical fallback is not semantic acceptance.`);
       const hybridSelection = retrieveMemories(snapshot.entries, { ...input, semanticHits: hits }), hybrid = selected(hybridSelection);
       row.hybrid = { selected: hybrid, reasons: hybridSelection.selected, oracle: scoreRecall(spec, hybrid, profile) };
@@ -169,16 +194,16 @@ export async function runMemoryRecall({ live = false, probe = false, provider = 
     embeddingCasesExecuted: rows.filter(row => row.embedding?.httpRequests.length).length,
     policyOnlyCases: rows.filter(row => row.embedding?.state === 'not_applicable').length, rows };
   const result = formatRecallResult({ root, summary });
-  summary.status = result.status; summary.failedCases = result.failedCases;
+  summary.status = result.status; summary.failedCases = result.failedCases; summary.precisionWarnings = result.precisionWarnings;
   await writeFile(join(root, 'summary.json'), JSON.stringify(summary, null, 2));
   return { root, summary };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2);
-  if (args.some(arg => arg !== '--live' && arg !== '--probe' && !arg.startsWith('--provider=') && !arg.startsWith('--base-url=') && !arg.startsWith('--model='))) throw Error('Unknown argument');
+  if (args.some(arg => arg !== '--live' && arg !== '--probe' && !arg.startsWith('--suite=') && !arg.startsWith('--provider=') && !arg.startsWith('--base-url=') && !arg.startsWith('--model='))) throw Error('Unknown argument');
   const option = name => args.find(arg => arg.startsWith(`${name}=`))?.slice(name.length + 1);
-  const result = await runMemoryRecall({ live: args.includes('--live'), probe: args.includes('--probe'), provider: option('--provider'), baseURL: option('--base-url'), modelId: option('--model') });
+  const result = await runMemoryRecall({ live: args.includes('--live'), probe: args.includes('--probe'), suite: option('--suite'), provider: option('--provider'), baseURL: option('--base-url'), modelId: option('--model') });
   const output = formatRecallResult(result);
   console.log(JSON.stringify(output, null, 2));
   if (result.summary.environmentFailure) {
