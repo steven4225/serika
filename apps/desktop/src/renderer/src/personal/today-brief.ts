@@ -374,7 +374,7 @@ export function buildTodayBrief(input: TodayBriefInput): TodayBriefModel {
       title: "有记忆等你确认",
       body: { kind: "quote", note: null, text: `当前会话有 ${input.pendingMemory} 条记忆等你确认。` },
       risk: "确认之前不会写成正式记忆。",
-      actions: threadId ? [{ label: "聊聊这个", tone: "primary", target: threadTarget(threadId, "我们先看等确认的记忆，你来决定记不记。先不要自动写入。") }] : [],
+      actions: [], // Explicit review belongs to the host card, never a model chat.
     }, true);
   }
 

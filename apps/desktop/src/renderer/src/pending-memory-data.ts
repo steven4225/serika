@@ -2,7 +2,7 @@ import type { MemoryPanelAction, MemoryPanelState } from "../../shared/memory-re
 import { initialMemoryPanel, listErrorText, memoryPanelReducer, reviewErrorText } from "../../shared/memory-review.js";
 
 export interface PendingMemoryStatus {
-  /** Pending candidates in the returned page, never a claimed total. */
+  /** Verified actionable candidates in the scoped read, not storage/capability totals. */
   count: number;
   hasMore: boolean;
   loading: boolean;
