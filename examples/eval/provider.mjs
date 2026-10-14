@@ -12,6 +12,15 @@ import { createDemoModel } from '@aisdk-agent/example-cli/dist/demo-model.js';
 import { configureCliModel, inspectCliModelConfig } from '@aisdk-agent/example-cli/dist/model-config.js';
 import { ContextCompactor } from '@aisdk-agent/example-cli/dist/context-compactor.js';
 import { runE2E } from './e2e.mjs';
+import { consolidationPrefixHash } from '@aisdk-agent/example-cli/dist/memory-consolidation.js';
+
+/** Only an explicit offline deferred-fault case may inspect an unfinished receipt. */
+export function expectedDeferredCoverage(vars, mode, consolidation, receipt, cursor, messages) {
+  return Boolean(mode === 'offline' && vars.offlineOnly === true && vars.expected?.coverage === 'deferred' && vars.expected?.cursorAdvanced === false &&
+    consolidation.error === 'MEMORY_EXTRACTION_DEFERRED' && receipt?.threadId === 'eval' && receipt.processedCount === 0 &&
+    receipt.outcomes?.some(outcome => outcome.status === 'deferred' && outcome.attempts >= 1 && outcome.attempts < 3) &&
+    cursor === null && receipt.sourcePrefix && consolidationPrefixHash(messages, receipt.sourcePrefix.throughMessageId) === receipt.sourcePrefix.prefixHash);
+}
 
 export function requireLive(env) {
   if (env.SERIKA_EVAL_LIVE !== '1') throw new Error('真实模型评测需显式设置 SERIKA_EVAL_LIVE=1，可能产生费用');
@@ -124,7 +133,12 @@ export default class SerikaProvider {
           if (!maintenance.ok) throw new Error('读取记忆整理状态失败');
           const attempt = maintenance.value.consolidation.lastAttempt;
           if (attempt && ['failed', 'uncertain', 'cancelled'].includes(attempt.status)) {
-            throw new Error(`记忆整理未完成落盘：${maintenance.value.consolidation.error ?? attempt.message ?? attempt.status}`);
+            const receipt = await app.memoryStore.getConsolidationReceipt('eval');
+            const cursor = await app.memoryStore.getConsolidationCursor('eval');
+            if (!receipt.ok || !cursor.ok || !expectedDeferredCoverage(vars, mode, maintenance.value.consolidation,
+              receipt.value, cursor.value, await app.store.getMessages('eval'))) {
+              throw new Error(`记忆整理未完成落盘：${maintenance.value.consolidation.error ?? attempt.message ?? attempt.status}`);
+            }
           }
         }
       }
