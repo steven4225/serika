@@ -255,3 +255,139 @@ test('flash probe binds three zero-index singleton responses and records real re
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('relevance opt-in freezes both model boundaries and saves independent call evidence without changing the oracle', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'memory-recall-relevance-test-'));
+  const originalFetch = globalThis.fetch;
+  let modelRequests = 0;
+  globalThis.fetch = async (url, options) => {
+    const body = JSON.parse(options.body);
+    if (String(url).endsWith('/embeddings')) {
+      assert.equal(body.model, 'qwen3.7-text-embedding-flash');
+      return new Response(JSON.stringify({ data: [{ index: 0, embedding: [1, 0] }], usage: { prompt_tokens: 2, total_tokens: 2 } }));
+    }
+    assert.equal(String(url), 'https://api.commandcode.ai/provider/v1/chat/completions');
+    modelRequests++;
+    assert.equal(body.model, 'deepseek/deepseek-v4.1-flash-fast');
+    // A valid empty decision proves the final oracle is not the earlier hybrid success.
+    return new Response(JSON.stringify({ id: 'fixture-response', object: 'chat.completion', created: 1,
+      model: body.model, choices: [{ index: 0, message: { role: 'assistant', content: JSON.stringify({ selectedIds: [], queries: [] }) }, finish_reason: 'stop' }],
+      usage: { prompt_tokens: 11, completion_tokens: 3, total_tokens: 14 } }));
+  };
+  try {
+    await assert.rejects(runMemoryRecall({ live: true, relevance: true, env: { DASHSCOPE_API_KEY: 'fixture-embedding-secret' }, outputRoot: directory }), /COMMAND_CODE_API_KEY/);
+    await assert.rejects(runMemoryRecall({ live: true, relevance: true, probe: true, env: {}, outputRoot: directory }), /probe.*relevance|relevance.*probe/i);
+    const { root, summary } = await runMemoryRecall({ live: true, relevance: true, suite: 'validation', env: {
+      DASHSCOPE_API_KEY: 'fixture-embedding-secret', COMMAND_CODE_API_KEY: 'fixture-main-secret',
+      COMMAND_CODE_MODEL_ID: 'wrong-env-model', COMMAND_CODE_BASE_URL: 'https://wrong.example/v1' }, outputRoot: directory });
+    assert.equal(summary.environmentFailure, null);
+    assert.equal(modelRequests, 4, 'exactly one judgment per eligible case, no separate rewrite');
+    assert.equal(summary.hybrid.executed, 4);
+    assert.equal(summary.hybrid.passed, 1, 'only the empty-gold case passes a valid empty judgment');
+    assert.equal(summary.rows[0].hybridBeforeRelevance.selected.length, 2);
+    assert.deepEqual(summary.rows[0].hybrid.selected, []);
+    const relevance = summary.rows[0].relevance;
+    assert.equal(relevance.state, 'succeeded');
+    assert.equal(relevance.candidateCount, 2);
+    assert.deepEqual(relevance.selectedIds, []);
+    assert.deepEqual(relevance.queries, []);
+    assert.equal(relevance.model.alias, 'command-code/default');
+    assert.equal(relevance.model.modelId, 'deepseek/deepseek-v4.1-flash-fast');
+    assert.equal(relevance.httpRequests.length, 1);
+    assert.equal(relevance.httpRequests[0].httpStatus, 200);
+    assert.equal(relevance.calls[0].usage.inputTokens, 11);
+    assert.equal(relevance.calls[0].usage.outputTokens, 3);
+    assert.equal(relevance.usage.totalTokens, 14);
+    const manifest = JSON.parse(await readFile(join(root, 'manifest.json'), 'utf8'));
+    assert.equal(manifest.pipeline, 'hybrid+relevance');
+    assert.equal(manifest.relevance.modelId, 'deepseek/deepseek-v4.1-flash-fast');
+    assert.ok(manifest.runtimeHashes['memory-relevance']);
+    assert.deepEqual(manifest.caseIds, ['MH01', 'MH02', 'MH03', 'MH04']);
+    assert.ok(!JSON.stringify(summary).includes('fixture-main-secret'));
+    assert.ok(!JSON.stringify(summary).includes('fixture-embedding-secret'));
+    assert.equal(recall.formatRecallResult({ root, summary }).pipeline, 'hybrid+relevance');
+  } finally {
+    globalThis.fetch = originalFetch;
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('acceptance launcher prompts two hidden keys only with relevance opt-in and never places them in command arguments', async () => {
+  const script = await readFile(new URL('./Start-Memory-Acceptance.command', import.meta.url), 'utf8');
+  assert.ok(script.indexOf('unsetopt XTRACE') < script.indexOf('read -r -s'));
+  assert.match(script, /read -r -s 'DASHSCOPE_API_KEY\?/);
+  assert.match(script, /if \[\[ "\$serika_memory_relevance" == true \]\]; then\s+read -r -s 'COMMAND_CODE_API_KEY\?/);
+  assert.match(script, /trap 'unset DASHSCOPE_API_KEY COMMAND_CODE_API_KEY SERIKA_MEMORY_RELEVANCE' EXIT/);
+  assert.ok(!script.includes('--api-key='));
+  assert.match(script, /if \(\( \$# != 1 \)\) \|\| \[\[ "\$1" != '--relevance' \]\]/);
+  assert.match(script, /if \(result\.summary\.environmentFailure\)/);
+});
+
+test('relevance degradation stops after one judgment without crediting the ordinary hybrid fallback', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'memory-recall-relevance-failure-test-'));
+  const originalFetch = globalThis.fetch;
+  let modelRequests = 0;
+  globalThis.fetch = async (url, options) => {
+    if (String(url).endsWith('/embeddings')) return new Response(JSON.stringify({ data: [{ index: 0, embedding: [1, 0] }] }));
+    modelRequests++;
+    return new Response(JSON.stringify({ error: { message: 'upstream-error-secret-must-not-be-recorded' } }), { status: 503 });
+  };
+  try {
+    const { root, summary } = await runMemoryRecall({ live: true, relevance: true, env: {
+      DASHSCOPE_API_KEY: 'fixture-embedding-secret', COMMAND_CODE_API_KEY: 'fixture-main-secret' }, outputRoot: directory });
+    assert.equal(modelRequests, 1);
+    assert.equal(summary.environmentFailure.code, 'relevance_degraded');
+    assert.equal(summary.hybrid.executed, 0);
+    assert.equal(summary.hybrid.unexecuted, 12);
+    assert.equal(summary.rows[0].hybridBeforeRelevance.oracle.passed, true);
+    assert.equal(summary.rows[0].relevance.state, 'degraded');
+    const evidence = await readFile(join(root, 'MR01', 'evidence.json'), 'utf8');
+    assert.ok(!evidence.includes('upstream-error-secret'));
+    assert.ok(!evidence.includes('fixture-main-secret'));
+    assert.equal(recall.formatRecallResult({ root, summary }).status, 'environment_failed');
+  } finally {
+    globalThis.fetch = originalFetch;
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('relevance evaluation passes below-threshold pool hints and keeps foreign-thread cases call-free', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'memory-recall-relevance-pool-test-'));
+  const originalFetch = globalThis.fetch;
+  const fixtureFacts = new Set(memoryRecallCases.flatMap(spec => spec.facts.flatMap(fact => [fact.text, fact.correctedText].filter(Boolean))));
+  let modelRequests = 0;
+  globalThis.fetch = async (url, options) => {
+    const body = JSON.parse(options.body);
+    if (String(url).endsWith('/embeddings')) return new Response(JSON.stringify({ data: [{ index: 0,
+      embedding: fixtureFacts.has(body.input) ? [.4, Math.sqrt(.84)] : [1, 0] }] }));
+    modelRequests++;
+    const prompt = JSON.parse(body.messages.findLast(message => message.role === 'user').content);
+    const selectedIds = prompt.question === memoryRecallCases[1].query
+      ? [prompt.candidates.find(item => item.text === memoryRecallCases[1].facts[0].text).id] : [];
+    return new Response(JSON.stringify({ choices: [{ index: 0, message: { role: 'assistant', content: JSON.stringify({ selectedIds, queries: ['复盘格式'] }) }, finish_reason: 'stop' }],
+      usage: { prompt_tokens: 5, completion_tokens: 2, total_tokens: 7 } }));
+  };
+  try {
+    const { summary } = await runMemoryRecall({ live: true, relevance: true, env: {
+      DASHSCOPE_API_KEY: 'fixture-embedding-secret', COMMAND_CODE_API_KEY: 'fixture-main-secret' }, outputRoot: directory });
+    assert.equal(summary.environmentFailure, null);
+    assert.equal(summary.hybrid.executed, 12);
+    assert.equal(modelRequests, 11);
+    const paraphrase = summary.rows.find(row => row.id === 'MR02');
+    assert.deepEqual(paraphrase.embedding.hits, []);
+    assert.equal(paraphrase.embedding.diagnostics.candidates[0].reason, 'below_threshold');
+    assert.equal(paraphrase.hybridBeforeRelevance.oracle.passed, false);
+    assert.equal(paraphrase.relevance.candidateCount, 2);
+    assert.deepEqual(paraphrase.hybrid.selected.map(item => item.label), ['style']);
+    assert.equal(paraphrase.hybrid.oracle.passed, true);
+    const foreign = summary.rows.find(row => row.id === 'MR08');
+    assert.equal(foreign.relevance.state, 'not_applicable');
+    assert.equal(foreign.relevance.candidateCount, 0);
+    assert.deepEqual(foreign.relevance.calls, []);
+    assert.deepEqual(foreign.relevance.httpRequests, []);
+    assert.equal(foreign.hybrid.oracle.passed, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+    await rm(directory, { recursive: true, force: true });
+  }
+});

@@ -11,14 +11,15 @@ export const PINNED_MEMORY_MAX_BYTES = 4_096;
 export const PINNED_MEMORY_MAX_ENTRIES = 2;
 export function memorySemanticTextHash(text: string): string { return createHash("sha256").update(text, "utf8").digest("hex"); }
 
-export interface MemoryQuery { query: string; threadId?: string; now: Date; rewrittenQueries?: readonly string[]; semanticHits?: readonly MemorySemanticHit[]; maxBytes?: number; maxEntries?: number }
+export interface MemoryRelevanceHit { id: string; revision: number; textHash: string }
+export interface MemoryQuery { query: string; threadId?: string; now: Date; rewrittenQueries?: readonly string[]; semanticHits?: readonly MemorySemanticHit[]; relevanceSelection?: readonly MemoryRelevanceHit[]; maxBytes?: number; maxEntries?: number }
 export interface MemoryTemporalView { validAt: string; knownAt: string }
 /** Factual provenance only. Lookup phrases and source quotes never enter a reference. */
 export type MemoryReferenceAssertion = Pick<NonNullable<MemoryEntry["assertion"]>, "assertionId" | "kind" | "validTime" | "systemTime" | "state" | "sourceIds">;
 export interface MemorySelectedReference {
   id: string;
   revision: number;
-  reason: "pinned" | "matched" | "recall_term" | "rewritten" | "semantic" | "hybrid" | "stable_profile";
+  reason: "pinned" | "matched" | "recall_term" | "rewritten" | "semantic" | "hybrid" | "stable_profile" | "relevance";
   assertion?: MemoryReferenceAssertion;
 }
 export interface MemorySelection {
@@ -227,6 +228,18 @@ export function retrieveMemories(entries: readonly MemoryEntry[], input: MemoryQ
   };
   for (const entry of eligible.filter((entry) => entry.pinned === true).sort(stableOrder)) {
     if (selection.entries.length >= PINNED_MEMORY_MAX_ENTRIES || !add(entry, "pinned", Math.min(PINNED_MEMORY_MAX_BYTES, maxBytes))) selection.truncated = true;
+  }
+  // A successful empty verdict is meaningful, not permission for lexical fallback.
+  if (input.relevanceSelection !== undefined) {
+    const byId = new Map(eligible.map(entry => [entry.id, entry]));
+    for (const hit of input.relevanceSelection) {
+      const entry = byId.get(hit.id);
+      if (entry === undefined || chosen.has(entry.id) || hit.revision !== (entry.revision ?? 1)
+        || hit.textHash !== memorySemanticTextHash(entry.text)) continue;
+      if (!add(entry, "relevance", maxBytes)) selection.truncated = true;
+    }
+    selection.bytes = bytes(selection);
+    return selection;
   }
   if (input.semanticHits !== undefined && input.semanticHits.length > 0) {
     const available = eligible.filter(entry => !chosen.has(entry.id));

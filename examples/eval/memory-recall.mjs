@@ -8,6 +8,11 @@ import { createMemoryEmbedder, normalizeEmbeddingConfig } from '@aisdk-agent/exa
 import { LocalMemorySemanticIndex } from '@aisdk-agent/example-cli/dist/memory-semantic-index.js';
 import { retrieveMemories } from '@aisdk-agent/example-cli/dist/memory-retrieval.js';
 import { buildMemoryContextView } from '@aisdk-agent/example-cli/dist/memory-context-view.js';
+import { configureCliModel } from '@aisdk-agent/example-cli/dist/model-config.js';
+import { observeModelUsage } from '@aisdk-agent/example-cli/dist/model-usage-observer.js';
+
+const relevanceModel = { alias: 'command-code/default', provider: 'openai-compatible.chat',
+  modelId: 'deepseek/deepseek-v4.1-flash-fast', baseURL: 'https://api.commandcode.ai/provider/v1' };
 
 const fact = (label, text, kind = 'preference', extra = {}) => ({ label, text, kind, ...extra });
 const style = fact('style', '复盘先给一行结论，再列两条可执行步骤。');
@@ -101,20 +106,25 @@ export function formatRecallResult({ root, summary }) {
     : summary.hybrid.executed !== summary.hybrid.planned ? 'incomplete'
     : summary.hybrid.passed !== summary.hybrid.planned ? 'completed_with_failures' : 'completed_pass';
   return { report: root, status,
+    ...(summary.relevance ? { pipeline: 'hybrid+relevance' } : {}),
     ...(summary.probe ? { probe: true, embedding: summary.rows[0]?.embedding }
       : { lexical: summary.lexical, hybrid: summary.hybrid, percentagePointChange: summary.percentagePointChange }),
     failedCases, precisionWarnings, environmentFailure: summary.environmentFailure };
 }
 
-export async function runMemoryRecall({ live = false, probe = false, suite = 'regression', provider = 'dashscope', baseURL, modelId, env = process.env,
+export async function runMemoryRecall({ live = false, probe = false, relevance = false, suite = 'regression', provider = 'dashscope', baseURL, modelId, env = process.env,
   outputRoot = join(dirname(fileURLToPath(import.meta.url)), 'results') } = {}) {
   if (!live) throw Error('Use --live only with an explicitly configured embedding service; no mock scores are generated.');
   if (!['regression', 'validation'].includes(suite)) throw Error('Unknown recall suite; use regression or validation.');
+  if (relevance && probe) throw Error('Embedding probe cannot enable relevance judgment.');
+  if (relevance && !env.COMMAND_CODE_API_KEY?.trim()) throw Error('Configure COMMAND_CODE_API_KEY in the host environment, never in chat or report files.');
   const config = normalizeEmbeddingConfig({ provider, baseURL, modelId });
+  if (relevance && (config.provider !== 'dashscope' || config.modelId !== 'qwen3.7-text-embedding-flash')) throw Error('Relevance acceptance requires the fixed DashScope qwen3.7-text-embedding-flash configuration.');
+  const relevanceSelector = relevance ? (await import('@aisdk-agent/example-cli/dist/memory-relevance.js')).createMemoryRelevanceSelector : null;
   const suiteCases = suite === 'validation' ? memoryRecallValidationCases : memoryRecallCases;
   const cases = probe ? suiteCases.slice(0, 1) : suiteCases;
   if (config.provider === 'dashscope' && !env.DASHSCOPE_API_KEY) throw Error('Configure DASHSCOPE_API_KEY in the host environment, never in chat or report files.');
-  const requestedRoot = join(resolve(outputRoot), `memory-recall-${suite === 'validation' ? 'validation-' : ''}${new Date().toISOString().replaceAll(':', '-')}-${randomUUID().slice(0, 8)}`);
+  const requestedRoot = join(resolve(outputRoot), `memory-recall-${suite === 'validation' ? 'validation-' : ''}${relevance ? 'relevance-' : ''}${new Date().toISOString().replaceAll(':', '-')}-${randomUUID().slice(0, 8)}`);
   await mkdir(requestedRoot, { recursive: true, mode: 0o700 });
   const root = await realpath(requestedRoot); // macOS /var temp aliases are not index authority.
   const now = new Date('2026-10-14T04:00:00.000Z'), seedNow = new Date('2026-09-30T04:00:00.000Z');
@@ -122,12 +132,15 @@ export async function runMemoryRecall({ live = false, probe = false, suite = 're
   const hash = value => createHash('sha256').update(value).digest('hex');
   let gitCommit = null;
   try { gitCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dirname(fileURLToPath(import.meta.url)), encoding: 'utf8' }).trim(); } catch { /* non-git export */ }
-  const sourceFiles = ['memory-retrieval', 'memory-semantic-index', 'memory-embedding-client', 'memory-context-view', 'memory-store'];
+  const sourceFiles = ['memory-retrieval', 'memory-semantic-index', 'memory-embedding-client', 'memory-context-view', 'memory-store',
+    ...(relevance ? ['memory-relevance', 'model-config', 'model-usage-observer'] : [])];
   const runtimeHashes = Object.fromEntries(await Promise.all(sourceFiles.map(async file => [file,
     hash(await readFile(new URL(`../cli/dist/${file}.js`, import.meta.url)))])));
   const manifest = { suite: probe ? 'memory-embedding-probe-v1' : suite === 'validation' ? 'memory-recall-validation-v1' : 'memory-recall-v1', source: '我的 eval',
     kind: probe ? 'connectivity-diagnostic-not-recall-accuracy' : `real-${config.provider}-embedding-retrieval-not-chat-e2e`, probe, config,
     modelVerification: 'Configured endpoint/model; compatible response identity is not independently verified.',
+    ...(relevance ? { pipeline: 'hybrid+relevance', relevance: { ...relevanceModel, maxCallsPerCase: 1, timeoutMs: 5000,
+      separateQueryRewrite: false } } : {}),
     gitCommit, runtimeHashes, evalFingerprint: hash(await readFile(fileURLToPath(import.meta.url))),
     planned: cases.length, caseIds: cases.map(spec => spec.id), topK: 3, threshold: 0.5, rrfK: 60,
     ...(suite === 'validation' ? { datasetRole: 'developer-authored independent validation; not blind held-out data' } : {}),
@@ -180,7 +193,45 @@ export async function runMemoryRecall({ live = false, probe = false, suite = 're
         failure: index.lastFailure, responseMapping: embedder.lastResponseMapping };
       if (index.lastState !== 'ready') throw Error(`Embedding ${index.lastState}: ${index.lastFailure?.code ?? 'unknown'}; lexical fallback is not semantic acceptance.`);
       const hybridSelection = retrieveMemories(snapshot.entries, { ...input, semanticHits: hits }), hybrid = selected(hybridSelection);
-      row.hybrid = { selected: hybrid, reasons: hybridSelection.selected, oracle: scoreRecall(spec, hybrid, profile) };
+      const ordinaryHybrid = { selected: hybrid, reasons: hybridSelection.selected, oracle: scoreRecall(spec, hybrid, profile) };
+      if (!relevance) row.hybrid = ordinaryHybrid;
+      else {
+        row.hybridBeforeRelevance = ordinaryHybrid;
+        const calls = [], modelRequests = [];
+        const configured = configureCliModel(() => { throw Error('Mock relevance is not permitted'); }, { ...env,
+          RUNLOOM_MODEL: 'command-code', COMMAND_CODE_MODEL_ID: relevanceModel.modelId, COMMAND_CODE_BASE_URL: relevanceModel.baseURL }, {
+          fetch: async (url, options) => {
+            const body = JSON.parse(options.body);
+            const request = { modelId: body.model, submittedAt: new Date().toISOString() };
+            modelRequests.push(request);
+            try { const response = await fetch(url, options); request.httpStatus = response.status; return response; }
+            catch (error) { request.transportFailure = true; throw error; }
+          },
+        });
+        const observed = observeModelUsage(configured.model, { records: {
+          startModelCall: async call => { calls.push(structuredClone(call)); },
+          finishModelCall: async (id, status, usage) => {
+            const call = calls.find(item => item.id === id);
+            if (call) Object.assign(call, { status, usage: { ...usage }, finishedAt: new Date().toISOString() });
+          },
+        }, threadId: spec.id, enabled: () => true, scope: () => ({ purpose: 'query_rewrite' }) });
+        const started = Date.now();
+        const decision = await relevanceSelector(observed)(spec.id, spec.query, snapshot.entries, { ...input,
+          signal: new AbortController().signal, semanticCandidates: index.lastDiagnostics?.candidates
+            .filter(item => item.score !== null).map(({ id, revision, textHash, score }) => ({ id, revision, textHash, score })) });
+        row.relevance = { state: decision.state, selectedIds: decision.selected.map(item => item.id), queries: decision.queries,
+          candidateCount: decision.candidateCount, truncated: decision.truncated, durationMs: Date.now() - started,
+          model: { ...relevanceModel }, usage: calls.length === 1 ? { ...calls[0].usage } : {}, calls, httpRequests: modelRequests };
+        if (decision.state === 'degraded' || modelRequests.length > 1 || calls.length > 1) {
+          environmentFailure = { caseId: spec.id, code: 'relevance_degraded', message: 'Relevance judgment degraded; ordinary hybrid fallback is not relevance acceptance.' };
+        } else {
+          const fresh = await store.list(undefined, { now });
+          if (!fresh.ok) throw Error(fresh.error.code);
+          const finalSelection = retrieveMemories(fresh.entries, { ...input, relevanceSelection: decision.selected });
+          const final = selected(finalSelection);
+          row.hybrid = { selected: final, reasons: finalSelection.selected, oracle: scoreRecall(spec, final, profile) };
+        }
+      }
       row.profile = profile;
     } catch (error) {
       environmentFailure = { caseId: spec.id, message: error.message,
@@ -189,7 +240,7 @@ export async function runMemoryRecall({ live = false, probe = false, suite = 're
     await writeFile(join(workspace, 'evidence.json'), JSON.stringify(rows.at(-1)?.id === spec.id ? rows.at(-1) : { id: spec.id, environmentFailure }, null, 2));
     if (environmentFailure) break; // No retries; remaining planned cases remain visible as unexecuted.
   }
-  const summary = { ...summarizeRecall(rows, manifest.planned), environmentFailure, probe,
+  const summary = { ...summarizeRecall(rows, manifest.planned), environmentFailure, probe, ...(relevance ? { relevance: true } : {}),
     ...(probe ? { percentagePointChange: null } : {}),
     embeddingCasesExecuted: rows.filter(row => row.embedding?.httpRequests.length).length,
     policyOnlyCases: rows.filter(row => row.embedding?.state === 'not_applicable').length, rows };
@@ -201,9 +252,9 @@ export async function runMemoryRecall({ live = false, probe = false, suite = 're
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2);
-  if (args.some(arg => arg !== '--live' && arg !== '--probe' && !arg.startsWith('--suite=') && !arg.startsWith('--provider=') && !arg.startsWith('--base-url=') && !arg.startsWith('--model='))) throw Error('Unknown argument');
+  if (args.some(arg => arg !== '--live' && arg !== '--probe' && arg !== '--relevance' && !arg.startsWith('--suite=') && !arg.startsWith('--provider=') && !arg.startsWith('--base-url=') && !arg.startsWith('--model='))) throw Error('Unknown argument');
   const option = name => args.find(arg => arg.startsWith(`${name}=`))?.slice(name.length + 1);
-  const result = await runMemoryRecall({ live: args.includes('--live'), probe: args.includes('--probe'), suite: option('--suite'), provider: option('--provider'), baseURL: option('--base-url'), modelId: option('--model') });
+  const result = await runMemoryRecall({ live: args.includes('--live'), probe: args.includes('--probe'), relevance: args.includes('--relevance'), suite: option('--suite'), provider: option('--provider'), baseURL: option('--base-url'), modelId: option('--model') });
   const output = formatRecallResult(result);
   console.log(JSON.stringify(output, null, 2));
   if (result.summary.environmentFailure) {

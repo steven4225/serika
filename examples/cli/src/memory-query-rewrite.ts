@@ -13,6 +13,8 @@ export interface MemoryReferenceSnapshot {
   rewrite: MemoryRewriteState;
   /** Preparation evidence only, not a promise of future service availability. */
   semantic?: { state: "off" | "ready" | "warming" | "degraded" | "not_applicable"; modelId?: string };
+  /** A bounded read-only relevance decision; usage shares query_rewrite and is not a truth proof. */
+  relevance?: { state: "succeeded" | "degraded" | "not_applicable"; candidateCount: number; truncated: boolean };
   contextView?: { profileCount: number; continuationCount: number; truncated: boolean };
   /** Combined memory/context-view UIMessage packaging under the shared reference budget. */
   referenceBytes?: number;

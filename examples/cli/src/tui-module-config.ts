@@ -69,6 +69,7 @@ export interface ResolvedTuiModuleConfig {
   memoryWritePolicy?: "review" | "automatic";
   memoryQueryRewriteEnabled?: boolean;
   memorySemantic?: ResolvedEmbeddingConfig;
+  memorySemanticRelevanceEnabled?: boolean;
   memoryContextViewEnabled?: boolean;
   todoistTimeZone: string | null;
   fileAuthorizations: readonly FileAuthorizationRule[];
@@ -112,7 +113,7 @@ const memoryModuleSchema = z
     autoConsolidate: z.boolean().optional(),
     writePolicy: z.enum(["review", "automatic"]).optional(),
     queryRewrite: z.object({ enabled: z.boolean() }).strict().optional(),
-    semantic: z.object({ enabled: z.boolean(), provider: z.enum(["local", "dashscope"]).optional(), baseURL: nonEmptyString.optional(), modelId: nonEmptyString.optional() }).strict().optional(),
+    semantic: z.object({ enabled: z.boolean(), provider: z.enum(["local", "dashscope"]).optional(), baseURL: nonEmptyString.optional(), modelId: nonEmptyString.optional(), relevance: z.object({ enabled: z.boolean() }).strict().optional() }).strict().optional(),
     contextView: z.object({ enabled: z.boolean() }).strict().optional(),
   })
   .strict();
@@ -218,7 +219,7 @@ export interface TuiModuleConfigV1 {
     "read-file"?: { enabled: boolean } | undefined;
     memory?:
       | { enabled: boolean; autoConsolidate?: boolean | undefined; writePolicy?: "review" | "automatic" | undefined; queryRewrite?: { enabled: boolean } | undefined;
-          semantic?: { enabled: boolean; provider?: "local" | "dashscope" | undefined; baseURL?: string | undefined; modelId?: string | undefined } | undefined;
+          semantic?: { enabled: boolean; provider?: "local" | "dashscope" | undefined; baseURL?: string | undefined; modelId?: string | undefined; relevance?: { enabled: boolean } | undefined } | undefined;
           contextView?: { enabled: boolean } | undefined }
       | undefined;
     checkpoint?: { enabled: boolean } | undefined;
@@ -499,6 +500,8 @@ async function resolveConfiguredMode(
   const memoryQueryRewriteEnabled = config.modules.memory?.queryRewrite?.enabled ?? false;
   const memoryContextViewEnabled = config.modules.memory?.contextView?.enabled ?? false;
   const semanticConfig = config.modules.memory?.semantic;
+  const memorySemanticRelevanceEnabled = semanticConfig?.relevance?.enabled ?? false;
+  if (memorySemanticRelevanceEnabled && !semanticConfig?.enabled) throw new Error("memory.semantic.relevance requires memory.semantic.enabled");
   const memorySemantic = semanticConfig?.enabled ? normalizeEmbeddingConfig({
     ...(semanticConfig.provider ? { provider: semanticConfig.provider } : {}),
     ...(semanticConfig.modelId ? { modelId: semanticConfig.modelId } : {}),
@@ -579,6 +582,7 @@ async function resolveConfiguredMode(
     autoConsolidate,
     memoryWritePolicy,
     memoryQueryRewriteEnabled,
+    memorySemanticRelevanceEnabled,
     memoryContextViewEnabled,
     ...(memorySemantic ? { memorySemantic } : {}),
     todoistTimeZone,

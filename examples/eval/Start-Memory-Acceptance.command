@@ -1,11 +1,22 @@
 #!/bin/zsh
 set -eu
 unsetopt XTRACE
+serika_memory_relevance=false
+if (( $# > 0 )); then
+  if (( $# != 1 )) || [[ "$1" != '--relevance' ]]; then
+    print -u2 '只接受可选参数 --relevance；无参数保持原 embedding 召回评测。'
+    exit 1
+  fi
+  serika_memory_relevance=true
+fi
 serika_memory_repo="${0:A:h:h:h}"
 cd "$serika_memory_repo"
 pnpm build:runtime
 print '本轮仅测真实 embedding 召回：原 MR 12 题＋独立 MH 验证 4 题，各执行一次。'
 print '固定 DashScope qwen3.7-text-embedding-flash；实际调用会产生费用。'
+if [[ "$serika_memory_relevance" == true ]]; then
+  print '额外启用 Command Code deepseek/deepseek-v4.1-flash-fast：每题最多一次相关性＋同义词判定，不另调查询改写。'
+fi
 print '使用隔离合成记忆，新报告；不读日用数据，不启动桌面／worker／TG，不重试。'
 read -r -s 'DASHSCOPE_API_KEY?百炼 API Key（隐藏输入，粘贴后按 Enter）: '
 print
@@ -14,13 +25,23 @@ if [[ -z "$DASHSCOPE_API_KEY" ]]; then
   exit 1
 fi
 export DASHSCOPE_API_KEY
-trap 'unset DASHSCOPE_API_KEY' EXIT
+trap 'unset DASHSCOPE_API_KEY COMMAND_CODE_API_KEY SERIKA_MEMORY_RELEVANCE' EXIT
+if [[ "$serika_memory_relevance" == true ]]; then
+  read -r -s 'COMMAND_CODE_API_KEY?Command Code API Key（隐藏输入，粘贴后按 Enter）: '
+  print
+  if [[ -z "$COMMAND_CODE_API_KEY" ]]; then
+    print -u2 'Command Code Key 为空，未启动。'
+    exit 1
+  fi
+  export COMMAND_CODE_API_KEY
+fi
+export SERIKA_MEMORY_RELEVANCE="$serika_memory_relevance"
 node --input-type=module <<'NODE'
 import { runMemoryRecall, formatRecallResult } from './examples/eval/memory-recall.mjs';
 let failed = false;
 try {
   for (const suite of ['regression', 'validation']) {
-    const result = await runMemoryRecall({ live: true, suite,
+    const result = await runMemoryRecall({ live: true, suite, relevance: process.env.SERIKA_MEMORY_RELEVANCE === 'true',
       provider: 'dashscope', modelId: 'qwen3.7-text-embedding-flash' });
     console.log(JSON.stringify(formatRecallResult(result), null, 2));
     if (result.summary.environmentFailure) {

@@ -71,6 +71,7 @@ import {
 import { formatReminderConfirmation, readRecurrence } from "./reminder-speech.js";
 import { createTodoistModule } from "./modules/todoist-module.js";
 import { createMemoryQueryRewriter, memoryQueryTopics, type MemoryReferenceSnapshot } from "./memory-query-rewrite.js";
+import { createMemoryRelevanceSelector, type MemoryRelevanceResult } from "./memory-relevance.js";
 import { observeModelUsage } from "./model-usage-observer.js";
 import type { ModelPurpose } from "./model-usage.js";
 import { createWebModule } from "./modules/web-module.js";
@@ -986,11 +987,14 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       return user?.parts.flatMap((part) => part.type === "text" ? [part.text] : []).join("\n") ?? "";
     };
     const rewriteQuery = createMemoryQueryRewriter(observedModel("query_rewrite"));
+    // Relevance replaces the configured rewrite call, never adds a second one.
+    // Its actual usage shares the existing auxiliary retrieval-purpose ledger.
+    const selectRelevance = createMemoryRelevanceSelector(observedModel("query_rewrite"));
     const embedding = memoryEnabled && moduleConfig?.memorySemantic
       ? options.memoryEmbedding ?? createMemoryEmbedder(moduleConfig.memorySemantic, env) : undefined;
     const semanticIndex = embedding && workspaceRoot
       ? new LocalMemorySemanticIndex({ file: join(workspaceRoot, ".runloom", "memory-semantic-index.json"), embedding }) : undefined;
-    let semanticCache: { key: string; hits: MemorySemanticHit[]; state: "ready" | "warming" | "degraded" } | undefined;
+    let semanticCache: { key: string; hits: MemorySemanticHit[]; candidates: MemorySemanticHit[]; state: "ready" | "warming" | "degraded" } | undefined;
     let memoryReference: MemoryReferenceSnapshot | null = null;
     let learnedSkillReference: LearnedSkillReferenceSnapshot | null = null;
     const memoryReferenceListeners = new Set<() => void>();
@@ -1021,41 +1025,65 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       const origin = (user?.metadata as { source?: unknown } | undefined)?.source;
       const ordinaryPrimary = primary && user !== undefined && query.trim().length > 0 && !activeWorkTaskMessage
         && !isMemoryConsolidationExcluded(user) && (origin === undefined || origin === "steer");
-      const rewrite = ordinaryPrimary && moduleConfig?.memoryQueryRewriteEnabled
+      const relevanceEnabled = moduleConfig?.memorySemanticRelevanceEnabled === true;
+      const rewrite = ordinaryPrimary && !relevanceEnabled && moduleConfig?.memoryQueryRewriteEnabled
         ? await rewriteQuery(user.id, query, signal, memoryQueryTopics(messages, user.id)) : undefined;
       let entries = memoryStore === undefined ? undefined : await readMemoryEntries(memoryStore, signal, now);
       let semantic: NonNullable<MemoryReferenceSnapshot["semantic"]> = { state: semanticIndex ? "not_applicable" : "off" };
       let semanticHits: MemorySemanticHit[] | undefined;
+      let semanticCandidates: MemorySemanticHit[] | undefined;
       const eligibleForEmbedding = entries ? selectEligibleMemoryEntries(entries, { now, threadId }) : [];
       if (ordinaryPrimary && semanticIndex && embedding && entries && eligibleForEmbedding.length > 0) {
         const key = JSON.stringify([user.id, boundedMemoryQuery(query).text, embedding.modelId,
           eligibleForEmbedding.map(entry => [entry.id, entry.revision ?? 1, memorySemanticTextHash(entry.text)])]);
         if (semanticCache?.key !== key) {
           const hits = await semanticIndex.search(entries, { query, now, threadId, signal });
-          semanticCache = { key, hits, state: semanticIndex.lastState };
+          const candidates = semanticIndex.lastDiagnostics?.candidates.flatMap(item => item.score === null ? []
+            : [{ id: item.id, revision: item.revision, textHash: item.textHash, score: item.score }]) ?? hits;
+          semanticCache = { key, hits, candidates, state: semanticIndex.lastState };
         }
         semanticHits = semanticCache.hits;
+        semanticCandidates = semanticCache.candidates;
         semantic = { state: semanticCache.state, modelId: moduleConfig?.memorySemantic?.modelId ?? embedding.modelId };
         // External inference can overlap a formal edit. Only fresh eligible revisions
         // can be injected; retrieval verifies every returned id/revision/text hash.
+        entries = await readMemoryEntries(memoryStore!, signal, new Date());
+      }
+      let relevance: MemoryRelevanceResult | undefined = relevanceEnabled
+        ? { state: "not_applicable", selected: [], queries: [], candidateCount: 0, truncated: false } : undefined;
+      if (ordinaryPrimary && relevanceEnabled && entries) {
+        relevance = await selectRelevance(user.id, query, entries, {
+          now: new Date(), threadId, signal, ...(semanticCandidates ? { semanticCandidates } : {}),
+          recentUserTopics: memoryQueryTopics(messages, user.id),
+        });
+        // The decision binds the shown revision and hash. New/changed facts must
+        // not enter through lexical matches or derived profiles in later steps.
         entries = await readMemoryEntries(memoryStore!, signal, new Date());
       }
       const selectedAt = new Date();
       if (semantic.state !== "off" && entries && selectEligibleMemoryEntries(entries, { now: selectedAt, threadId }).length === 0) {
         semantic = { state: "not_applicable" };
       }
+      // A judged empty answer or an empty eligible pool is a strict empty
+      // selection for ordinary input, not permission for profile fallback.
+      // Excluded/scheduled/WorkTask preparations retain their existing path.
+      const relevanceSelection = ordinaryPrimary && relevanceEnabled && relevance
+        && (relevance.state === "succeeded" || relevance.state === "not_applicable") ? relevance.selected : undefined;
       let view: ReturnType<typeof buildMemoryContextView> | undefined;
       if (ordinaryPrimary && entries && moduleConfig?.memoryContextViewEnabled) {
         const tasks = await workTasks?.list({ threadId, limit: 100 });
         signal.throwIfAborted();
         if (tasks && !tasks.ok) throw new Error(`Unable to prepare current Thread continuation: ${tasks.error.message}`);
-        view = buildMemoryContextView(entries, tasks?.ok ? tasks.value : [], { threadId, now: selectedAt,
+        const profileEntries = relevanceSelection === undefined ? entries : entries.filter(entry => entry.pinned || relevanceSelection.some(hit =>
+          hit.id === entry.id && hit.revision === (entry.revision ?? 1) && hit.textHash === memorySemanticTextHash(entry.text)));
+        view = buildMemoryContextView(profileEntries, tasks?.ok ? tasks.value : [], { threadId, now: selectedAt,
           excludedMemoryIds: entries.filter(entry => entry.pinned).map(entry => entry.id) });
       }
       const profileIds = new Set(view?.profile.map(item => item.id));
       const selection = entries === undefined ? undefined : retrieveMemories(entries.filter(entry => !profileIds.has(entry.id)), {
-        query, threadId, now: selectedAt, ...(rewrite ? { rewrittenQueries: rewrite.queries } : {}),
+        query, threadId, now: selectedAt, ...(rewrite ? { rewrittenQueries: rewrite.queries } : relevance ? { rewrittenQueries: relevance.queries } : {}),
         ...(semanticHits ? { semanticHits } : {}),
+        ...(relevanceSelection === undefined ? {} : { relevanceSelection }),
         maxBytes: RETRIEVED_MEMORY_MAX_BYTES - (view?.bytes ?? 0),
         maxEntries: RETRIEVED_MEMORY_MAX_ENTRIES - (view?.profile.length ?? 0),
       });
@@ -1064,10 +1092,11 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       const memoryMessage = selection && (selection.entries.length > 0 || !view?.profile.length)
         ? createRetrievedMemoryContextMessage(selection) : undefined;
       const reference: MemoryReferenceSnapshot | null = primary && user && selection ? {
-        messageId: user.id, preparedAt: new Date().toISOString(), truncated: selection.truncated || (view?.truncated ?? false), queryTruncated: selection.queryTruncated,
+        messageId: user.id, preparedAt: new Date().toISOString(), truncated: selection.truncated || (view?.truncated ?? false) || (relevance?.truncated ?? false), queryTruncated: selection.queryTruncated,
         temporalView: selection.temporalView,
-        rewrite: rewrite?.state ?? (moduleConfig?.memoryQueryRewriteEnabled ? "not_applicable" : "off"),
+        rewrite: rewrite?.state ?? (!relevanceEnabled && moduleConfig?.memoryQueryRewriteEnabled ? "not_applicable" : "off"),
         semantic,
+        ...(relevance ? { relevance: { state: relevance.state, candidateCount: relevance.candidateCount, truncated: relevance.truncated } } : {}),
         ...(view ? { contextView: { profileCount: view.profile.length, continuationCount: view.continuation.length, truncated: view.truncated } } : {}),
         referenceBytes: (memoryMessage ? selection.bytes : 0) + (view?.bytes ?? 0),
         selected: [...(view?.profile.map(({ id, revision, text, assertion }) => ({ id, revision, text, assertion, reason: "stable_profile" as const })) ?? []),
