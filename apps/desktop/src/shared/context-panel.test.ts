@@ -14,6 +14,14 @@ const value: ContextDiagnostics = {
 };
 
 describe("context diagnostics panel", () => {
+  it("uses prepared input rather than an oversized historical prefix for budget status", () => {
+    const actual = { ...value, budget: { ...value.budget, inputBudgetTokens: 27_648 },
+      latestValidCompaction: { id: "compacted", createdAt: "now", modelId: "small", firstKeptMessageIndex: 20, firstKeptMessageId: "recent",
+        metrics: { estimatedInputBefore: 100_000, estimatedInputAfter: 12_000, durationMs: 1, attempts: 1 } },
+      lastPreparation: { at: "now", outcome: "written" as const, compactionId: "compacted", estimatedInputTokens: 12_000, error: null } };
+    assert.doesNotMatch(contextUsageLabel(actual), /超过预算/);
+    assert.equal(contextUsageLabel(actual), "下次准备会检查是否需要压缩上下文");
+  });
   it("shows explicit input ceilings and conservative 70/85 percent labels without inventing a live measurement", () => {
     const daily = contextBudgetForMode("daily"), long = contextBudgetForMode("long-task");
     assert.equal(contextInputBudget(daily), 256_000); assert.equal(contextInputBudget(long), 400_000);

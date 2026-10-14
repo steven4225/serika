@@ -47,6 +47,8 @@ export interface ContextCompactorOptions {
   modelId: string;
   summarizer: Summarizer;
   budget: ContextBudgetConfig;
+  /** Actual runtime capacity bound; direct legacy fixtures may omit it. */
+  modelContextWindowTokens?: number;
   fixedContext: (messages: readonly UIMessage[], signal: AbortSignal) =>
     | Omit<ContextInputParts, "messages">
     | Promise<Omit<ContextInputParts, "messages">>;
@@ -896,6 +898,10 @@ export class ContextCompactor {
     signal: AbortSignal,
   ): Promise<{ text: string; usage?: TokenUsage; finishReason?: string }> {
     abortIfNeeded(signal);
+    const window = this.#options.modelContextWindowTokens;
+    if (window !== undefined && estimateSerializedTokens(prompt) + maxOutputTokens + this.#options.budget.safetyMarginTokens > window) {
+      throw contextError("上下文摘要输入超过当前模型窗口，尚未发送摘要请求；请核对模型容量和摘要预算。");
+    }
     const controller = new AbortController();
     let rejectCancelled!: (error: Error) => void;
     const cancelled = new Promise<never>((_, reject) => { rejectCancelled = reject; });

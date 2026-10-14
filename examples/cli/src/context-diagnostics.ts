@@ -10,6 +10,9 @@ export interface ContextDiagnostics {
   threadId: string;
   enabled: boolean;
   budget: ContextBudgetConfig;
+  /** Operator intent for CAS; budget above is the actual process projection. */
+  requestedBudget?: ContextBudgetConfig;
+  modelCapacity?: import("./context-budget.js").ModelCapacityEvidence;
   estimatorVersion: "char-half/v1";
   latestValidCompaction: {
     id: string;

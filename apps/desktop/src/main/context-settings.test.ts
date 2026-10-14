@@ -14,10 +14,11 @@ async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "serika-context-mode-"));
   const workspace = join(root, "workspace"), configPath = join(root, "config.json"); await mkdir(workspace);
   const budget = { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled: true, contextWindowTokens: 1_000_000, safetyMarginTokens: 32_768 };
-  await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: false } }, contextCompaction: budget }));
+  await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: false } }, contextCompaction: budget,
+    modelContextWindows: [{ provider: "test", modelId: "test", contextWindowTokens: 1_000_000 }] }));
   let calls = 0; const events: MainToRenderer[] = [];
   const options = { userData: join(root, "profile"), cwd: root, env: { RUNLOOM_CONFIG: configPath }, modelAlias: "mock", send: (event: MainToRenderer) => { events.push(event); },
-    model: new MockLanguageModelV3({ doStream: async () => { calls++; return { stream: simulateReadableStream({ chunks: [
+    model: new MockLanguageModelV3({ provider: "test", modelId: "test", doStream: async () => { calls++; return { stream: simulateReadableStream({ chunks: [
       { type: "stream-start" as const, warnings: [] }, { type: "text-start" as const, id: "t" }, { type: "text-delta" as const, id: "t", delta: "收到" }, { type: "text-end" as const, id: "t" },
       { type: "finish" as const, finishReason: { unified: "stop" as const, raw: undefined }, usage: { inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 1, text: 1, reasoning: undefined } } },
     ] }) }; } }),
@@ -46,6 +47,49 @@ it("mode selection preserves conversation, rejects busy/stale changes and persis
     await host.shutdown(); host = await DesktopRuntime.create(f.options);
     assert.deepEqual(await readBudget(host), contextBudgetForMode("long-task"));
     assert.deepEqual(await host.current.history(), history); assert.equal(f.calls(), calls, "mode change and restart never replay a Run");
+  } finally { await host.shutdown(); await f.cleanup(); }
+});
+
+it("small actual model capacity keeps requested mode CAS separate and reapplies the cap after reopen", async () => {
+  const f = await fixture();
+  const raw = JSON.parse(await readFile(f.configPath, "utf8"));
+  raw.modelContextWindows[0].contextWindowTokens = 128_000;
+  await writeFile(f.configPath, JSON.stringify(raw));
+  let host = await DesktopRuntime.create(f.options);
+  try {
+    const before = await host.current.getContextDiagnostics(); assert(before.ok);
+    assert.equal(before.value.budget.contextWindowTokens, 128_000);
+    await host.setContextMode({ mode: "long-task", expectedBudget: before.value.requestedBudget! });
+    const after = await host.current.getContextDiagnostics(); assert(after.ok);
+    assert.equal(after.value.budget.inputBudgetTokens, 91_136);
+    assert.equal(after.value.requestedBudget?.inputBudgetTokens, 400_000);
+    assert.equal(after.value.budget.keepRecentTokens, 64_000);
+    await host.shutdown(); host = await DesktopRuntime.create(f.options);
+    assert.equal((await readBudget(host)).inputBudgetTokens, 91_136);
+    assert.equal(f.calls(), 0, "reading capacity and switching never invoke or replay a model");
+  } finally { await host.shutdown(); await f.cleanup(); }
+});
+
+it("32K legacy desktop may select either mode while retaining requested intent and actual capacity", async () => {
+  const f = await fixture();
+  const raw = JSON.parse(await readFile(f.configPath, "utf8"));
+  raw.contextCompaction = { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled: true };
+  raw.modelContextWindows[0].contextWindowTokens = 32768;
+  await writeFile(f.configPath, JSON.stringify(raw));
+  const host = await DesktopRuntime.create(f.options);
+  try {
+    await host.current.run("短消息不会超过32K窗口", { memoryConsolidation: "exclude" }); await idle(host);
+    const prepared = await host.current.getContextDiagnostics(); assert(prepared.ok); assert(prepared.value.lastPreparation);
+    for (const mode of ["daily", "long-task"] as const) {
+      const before = await host.current.getContextDiagnostics(); assert(before.ok);
+      await host.setContextMode({ mode, expectedBudget: before.value.requestedBudget! });
+      const after = await host.current.getContextDiagnostics(); assert(after.ok);
+      assert.equal(after.value.budget.contextWindowTokens, 32768);
+      assert(after.value.budget.inputBudgetTokens! <= 32768 - after.value.budget.maxOutputTokens - after.value.budget.safetyMarginTokens);
+      assert.equal(after.value.requestedBudget?.inputBudgetTokens, mode === "daily" ? 256_000 : 400_000);
+      assert.equal(after.value.lastPreparation, null);
+    }
+    assert.equal(f.calls(), 1, "mode changes cannot reuse old preparation metrics or dispatch a new model call");
   } finally { await host.shutdown(); await f.cleanup(); }
 });
 
@@ -92,16 +136,17 @@ it("explicit mode selection preserves disabled compaction and rejects renderer a
   } finally { await f.cleanup(); }
 });
 
-it("mode selection never enlarges the configured physical model window or its output reserve", async () => {
+it("mode selection keeps a smaller declared physical ceiling while storing the preset as intent", async () => {
   const f = await fixture();
   try {
     for (const mode of ["daily", "long-task"] as const) {
       const budget = { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled: true, contextWindowTokens: 128_000 };
       const raw = JSON.parse(await readFile(f.configPath, "utf8")); raw.contextCompaction = budget;
       await writeFile(f.configPath, JSON.stringify(raw));
-      const before = await readFile(f.configPath, "utf8");
-      await assert.rejects(changeContextMode(f.configPath, { mode, expectedBudget: budget }, f.root), /模型窗口|model window/);
-      assert.equal(await readFile(f.configPath, "utf8"), before, "insufficient capacity must not save an invented 1M window");
+      await changeContextMode(f.configPath, { mode, expectedBudget: budget }, f.root);
+      const saved = JSON.parse(await readFile(f.configPath, "utf8")).contextCompaction;
+      assert.equal(saved.contextWindowTokens, 128_000, "preset intent must not invent a 1M physical capacity");
+      assert.equal(saved.inputBudgetTokens, mode === "daily" ? 256_000 : 400_000);
     }
     const budget = { ...f.budget, contextWindowTokens: 512_000, maxOutputTokens: 8192, safetyMarginTokens: 16_384 };
     const raw = JSON.parse(await readFile(f.configPath, "utf8")); raw.contextCompaction = budget;
