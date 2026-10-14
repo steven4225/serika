@@ -10,6 +10,7 @@ import {
   InMemoryAgentStore,
   type AgentEvent,
   type BeforeToolExecute,
+  type RunSteering,
 } from "@aisdk-agent/core";
 import { AiSdkAgentLoop } from "./loop.js";
 import { InMemoryModelRegistry, ToolRegistry } from "./registries.js";
@@ -167,12 +168,14 @@ function createEmit(events: AgentEvent[]) {
 describe("no-progress tool guard", () => {
   function fixture(options: {
     name?: string;
+    names?: string[];
     risk?: "read" | "write";
     idempotent?: boolean;
     inputs?: Record<string, unknown>[];
-    output?: (invocation: number) => unknown;
+    output?: (invocation: number, name: string) => unknown;
     beforeToolExecute?: BeforeToolExecute;
     signal?: AbortSignal;
+    steering?: RunSteering;
     onEvent?: (event: AgentEvent) => void;
   } = {}) {
     const name = options.name ?? "web_fetch";
@@ -186,26 +189,111 @@ describe("no-progress tool guard", () => {
       if (index >= inputs.length) return textResponse("done");
       return { stream: simulateReadableStream({ chunks: [
         { type: "stream-start" as const, warnings: [] },
-        { type: "tool-call" as const, toolCallId: `guard-${index}`, toolName: name, input: JSON.stringify(inputs[index]) },
+        { type: "tool-call" as const, toolCallId: `guard-${index}`, toolName: options.names?.[index] ?? name, input: JSON.stringify(inputs[index]) },
         { type: "finish" as const, finishReason: { unified: "tool-calls" as const, raw: undefined }, usage },
       ] }) };
     } });
-    const tools = new ToolRegistry([{ metadata: { name, version: "1", risk: options.risk ?? "read",
+    const names = [...new Set(options.names ?? [name])];
+    const tools = new ToolRegistry(names.map(name => ({ metadata: { name, version: "1", risk: options.risk ?? "read",
       idempotent: options.idempotent ?? true, timeoutMs: 1_000 },
       tool: tool({ inputSchema: z.record(z.string(), z.unknown()), execute: () => {
         executions++;
-        return options.output?.(executions) ?? { ok: true, value: { text: "same", fetchedAt: `time-${executions}` } };
+        return options.output?.(executions, name) ?? { ok: true, value: { text: "same", fetchedAt: `time-${executions}` } };
       } }),
-    }]);
+    })));
     const loop = new AiSdkAgentLoop({ models: new InMemoryModelRegistry({ test: model }), tools });
-    const run = () => loop.execute({ definition: { ...definition, tools: [name], limits: { ...definition.limits, maxSteps: 8 } },
+    const run = () => loop.execute({ definition: { ...definition, tools: names, limits: { ...definition.limits, maxSteps: 8 } },
       messages: [userMessage()], signal: options.signal ?? new AbortController().signal,
       generateId: () => `guard-message-${++ids}`,
       emit: async (type, data) => { await emit(type, data); options.onEvent?.(events.at(-1)!); },
       ...(options.beforeToolExecute ? { beforeToolExecute: options.beforeToolExecute } : {}),
+      ...(options.steering ? { steering: options.steering } : {}),
     });
     return { run, loop, events, prompts, counts: () => ({ modelCalls, executions }), resetModel: () => { modelCalls = 0; } };
   }
+
+  it("ABAB timestamp-only reads warn on the second cycle and stop on the third cycle", async () => {
+    const names = ["web_fetch", "read_file", "web_fetch", "read_file", "web_fetch", "read_file"];
+    const f = fixture({ names, inputs: Array.from({ length: 6 }, (_, index) => index % 2 ? { path: "report.md" } : { url: "https://example.com" }),
+      output: (invocation, name) => ({ ok: true, value: { text: name, ...(name === "web_fetch" ? { fetchedAt: `time-${invocation}` } : {}) } }) });
+    await assert.rejects(f.run(), error => error instanceof AgentError && error.data.code === "RUN_LIMIT_EXCEEDED" && /没有新进展/.test(error.data.message));
+    assert.deepEqual(f.counts(), { modelCalls: 6, executions: 6 });
+    assert.match(JSON.stringify(f.prompts[4]), /NO_PROGRESS/);
+    assert.doesNotMatch(JSON.stringify(f.prompts.slice(0, 4)), /NO_PROGRESS/);
+    assert.equal(f.events.filter(event => event.type === "tool.call.completed").length, 6);
+    assert.equal(f.events.filter(event => event.type === "tool.call.failed").length, 0);
+  });
+
+  it("guard feedback is system-only context, not assistant transcript or visible chat events", async () => {
+    const f = fixture({ inputs: [{}, {}] });
+    const result = await f.run();
+    assert.match(JSON.stringify(f.prompts[2]), /NO_PROGRESS/);
+    assert.doesNotMatch(JSON.stringify(result.messages), /NO_PROGRESS/);
+    assert.doesNotMatch(JSON.stringify(f.events), /NO_PROGRESS/);
+    const prompt = f.prompts[2] as Array<{ role: string; content: unknown }>;
+    assert.ok(prompt.some(message => message.role === "system" && JSON.stringify(message.content).includes("NO_PROGRESS")));
+    assert.ok(!prompt.some(message => message.role !== "system" && JSON.stringify(message.content).includes("NO_PROGRESS")));
+  });
+
+  it("successful Runtime persistence excludes internal feedback and retains original read receipts", async () => {
+    const f = fixture({ inputs: [{}, {}] });
+    const store = new InMemoryAgentStore();
+    const runtime = new DefaultAgentRuntime({ catalog: new InMemoryAgentCatalog([{ ...definition, tools: ["web_fetch"] }]), store, loop: f.loop });
+    const handle = await runtime.run({ agentId: "test", threadId: "guard-persisted", messages: [userMessage()] });
+    assert.equal((await handle.result).status, "completed");
+    const persisted = await store.getMessages("guard-persisted");
+    assert.doesNotMatch(JSON.stringify(persisted), /NO_PROGRESS|请换个方法/);
+    assert.equal(persisted.flatMap(message => message.parts).filter(part => part.type === "dynamic-tool").length, 2);
+    assert.match(JSON.stringify(f.prompts[2]), /NO_PROGRESS/);
+    assert.doesNotMatch(JSON.stringify(await store.list(handle.runId)), /NO_PROGRESS/);
+  });
+
+  it("a two-argument cycle of the same built-in tool is also bounded", async () => {
+    const f = fixture({ inputs: Array.from({ length: 6 }, (_, index) => ({ url: index % 2 ? "https://two.test" : "https://one.test" })) });
+    await assert.rejects(f.run(), error => error instanceof AgentError && error.data.code === "RUN_LIMIT_EXCEEDED");
+    assert.equal(f.counts().executions, 6);
+  });
+
+  it("changing either tool's business result breaks the repeated cycle", async () => {
+    const names = ["web_fetch", "read_file", "web_fetch", "read_file", "web_fetch", "read_file"];
+    const f = fixture({ names, inputs: Array.from({ length: 6 }, () => ({})), output: (invocation, name) => ({
+      value: { text: `${name}-${Math.ceil(invocation / 2)}`, ...(name === "web_fetch" ? { fetchedAt: `${invocation}` } : {}) },
+    }) });
+    assert.equal((await f.run()).text, "done");
+    assert.equal(f.counts().executions, 6);
+    assert.doesNotMatch(JSON.stringify(f.prompts), /NO_PROGRESS/);
+  });
+
+  it("a denied cycle step breaks continuity without bypassing its approval", async () => {
+    let approvals = 0;
+    const f = fixture({ inputs: Array.from({ length: 6 }, (_, index) => ({ url: index % 2 ? "https://two.test" : "https://one.test" })),
+      beforeToolExecute: () => ++approvals === 4 ? { allow: false, reason: "denied" } : { allow: true } });
+    assert.equal((await f.run()).text, "done");
+    assert.equal(approvals, 6); assert.equal(f.counts().executions, 5);
+    assert.doesNotMatch(JSON.stringify(f.prompts), /NO_PROGRESS/);
+  });
+
+  it("new user steering after the second cycle clears both history and pending feedback", async () => {
+    let pending = false, completed = 0, applied = 0;
+    const steering: RunSteering = { signal: new AbortController().signal, hasPending: () => pending,
+      drain: async () => { pending = false; return [{ id: "change", text: "这是新方向，请重新查看" }]; },
+      applied: async () => { applied++; }, sealIfEmpty: () => !pending, close: async () => {} };
+    const f = fixture({ steering, inputs: Array.from({ length: 6 }, (_, index) => ({ url: index % 2 ? "https://two.test" : "https://one.test" })),
+      onEvent: event => { if (event.type === "tool.call.completed" && ++completed === 4) pending = true; } });
+    const result = await f.run();
+    assert.equal(result.text, "done"); assert.equal(f.counts().executions, 6); assert.equal(applied, 1);
+    assert.doesNotMatch(JSON.stringify(f.prompts), /NO_PROGRESS/);
+    assert.ok(result.messages.some(message => message.role === "user" && JSON.stringify(message.metadata ?? {}).includes('"source":"steer"')));
+  });
+
+  it("cancellation after the second cycle takes priority over feedback or a third cycle", async () => {
+    const abort = new AbortController(); let completed = 0;
+    const f = fixture({ signal: abort.signal, inputs: Array.from({ length: 6 }, (_, index) => ({ url: index % 2 ? "https://two.test" : "https://one.test" })),
+      onEvent: event => { if (event.type === "tool.call.completed" && ++completed === 4) abort.abort(new Error("cancel cycle")); } });
+    await assert.rejects(f.run(), /cancel cycle/);
+    assert.deepEqual(f.counts(), { modelCalls: 4, executions: 4 });
+    assert.doesNotMatch(JSON.stringify(f.prompts), /NO_PROGRESS/);
+  });
 
   it("timestamp-only web results warn the next model step then stop honestly on the third call", async () => {
     const f = fixture();
