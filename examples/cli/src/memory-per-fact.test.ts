@@ -232,3 +232,29 @@ test(`per-fact: over-limit exact source for invalid content defers only that sou
     assert.equal(pending.value.candidates.length, 0, "never clip an over-limit source into review");
   } finally { await f.cleanup(); }
 });
+
+test("per-fact: oversized invalid content terminates after three reopened attempts and preserves an independent saved fact", async () => {
+  const f = await fixture();
+  try {
+    const longQuote = "我住在杭州。" + "这是待核对的补充材料。".repeat(100);
+    f.message("u1", longQuote); f.message("u2", "我的回复语言偏好是中文。");
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      await f.extract([
+        f.proposal("u1", longQuote, { kind: "invalid" }),
+        f.proposal("u2", "我的回复语言偏好是中文。", { kind: "preference", factIdentity: { attribute: "response_language", scenario: "general", value: "zh" } }),
+      ]);
+      const receipt = await f.reopen().getConsolidationReceipt!("thread"); assert.ok(receipt.ok && receipt.value);
+      const outcome = receipt.value.outcomes[0]!;
+      assert.equal((outcome as unknown as { attempts: number }).attempts, attempt);
+      assert.equal(outcome.status, attempt === 3 ? "not_saved" : "deferred");
+      const stored = await f.reopen().list(); assert.ok(stored.ok);
+      assert.deepEqual(stored.entries.map(entry => entry.assertion?.factIdentity?.attribute), ["response_language"]);
+      const pending = await f.reopen().listCandidates({}, undefined, { boundThreadId: "thread" }); assert.ok(pending.ok);
+      assert.equal(pending.value.candidates.length, 0);
+    }
+    f.message("u3", "我喝咖啡不加糖。");
+    const next = await f.extract([f.proposal("u3", "我喝咖啡不加糖。", { kind: "preference", factIdentity: { attribute: "coffee", scenario: "general", value: "unsweetened" } })]);
+    assert.equal(next.processedCount, 1);
+    const stored = await f.reopen().list(); assert.ok(stored.ok); assert.equal(stored.entries.length, 2);
+  } finally { await f.cleanup(); }
+});
