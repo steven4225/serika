@@ -8,10 +8,10 @@ import { ContextModeSelector, ContextPanel } from "./context.js";
 it("shows only two profile choices, no implicit legacy upgrade, and disables mode changes while busy", () => {
   const render = (budget = contextBudgetForMode("daily"), disabled = false) => renderToStaticMarkup(createElement(ContextModeSelector, { budget, disabled, onSelect: () => {} }));
   const daily = render();
-  assert.match(daily, /aria-label="上下文模式"/); assert.match(daily, /aria-pressed="true">日常 · 256K/);
-  assert.match(daily, /aria-pressed="false">长任务 · 400K/); assert.match(daily, /下一次发送生效/);
+  assert.match(daily, /aria-label="上下文模式"/); assert.match(daily, /aria-pressed="true">日常/);
+  assert.match(daily, /aria-pressed="false">长任务/); assert.match(daily, /下一次发送生效/);
   const busy = render(contextBudgetForMode("daily"), true);
-  assert.match(busy, /aria-pressed="false" disabled="">长任务 · 400K/);
+  assert.match(busy, /aria-pressed="false" disabled="">长任务/);
   const legacy = render(DEFAULT_CONTEXT_BUDGET_CONFIG);
   assert.match(legacy, /旧配置.*未切换/); assert.doesNotMatch(legacy, /aria-pressed="true"/);
   assert.match(legacy, /选择模式不会自动开启/);
@@ -23,10 +23,20 @@ it("separates preset intent from effective budget and labels unknown capacity un
   const html = renderToStaticMarkup(createElement(ContextModeSelector, { budget, requestedBudget,
     modelCapacity: { provider: "test", modelId: "unknown", contextWindowTokens: 128_000, source: "unverified_fallback" }, disabled: false, onSelect() {} }));
   assert.match(html, /容量未核实/);
-  assert.match(html, /输入预算[^<]*91,136/);
-  assert.match(html, /档位目标[^<]*400,000/);
+  assert.match(html, /当前有效输入上限[^<]*91,136/);
+  assert.match(html, /档位目标上限[^<]*400,000/);
   assert.match(html, /不证明供应商支持/);
   assert.doesNotMatch(html, /实际窗口/);
+});
+
+it("small-window mode buttons say profile intent rather than promising 256K or 400K", () => {
+  const requestedBudget = contextBudgetForMode("daily");
+  const budget = { ...requestedBudget, contextWindowTokens: 32768, inputBudgetTokens: 26624, safetyMarginTokens: 2048 };
+  const html = renderToStaticMarkup(createElement(ContextModeSelector, { budget, requestedBudget,
+    modelCapacity: { provider: "test", modelId: "small", contextWindowTokens: 32768, source: "configuration" }, disabled: false, onSelect() {} }));
+  assert.doesNotMatch(html, />日常 · 256K|>长任务 · 400K/);
+  assert.match(html, /目标上限[^<]*256,000/);
+  assert.match(html, /当前有效输入上限[^<]*26,624/);
 });
 
 it("keeps advanced context details closed and does not add warning popups", () => {
@@ -39,6 +49,6 @@ it("mode panel leads with the actual custom window rather than a claimed 1M wind
   const budget = { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled: true, contextWindowTokens: 32768, maxOutputTokens: 4096, safetyMarginTokens: 1024 };
   const html = renderToStaticMarkup(createElement(ContextModeSelector, { budget, disabled: false, onSelect() {} }));
   assert.match(html, /实际窗口[^<]*32,768/);
-  assert.match(html, /输入预算[^<]*27,648/);
+  assert.match(html, /当前有效输入上限[^<]*27,648/);
   assert.doesNotMatch(html, /这两档按 DeepSeek 1M 窗口配置/);
 });

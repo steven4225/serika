@@ -25,7 +25,7 @@ import type { DockerShellSandboxConfig } from "./modules/docker-shell-runner.js"
 import { SHELL_EXEC_MAX_TIMEOUT_MS, SHELL_EXEC_TIMEOUT_MS } from "./modules/shell-module.js";
 import {
   DEFAULT_CONTEXT_BUDGET_CONFIG,
-  validateContextBudgetConfig,
+  validateRequestedContextBudgetConfig,
   type ContextBudgetConfig,
 } from "./context-budget.js";
 
@@ -462,7 +462,7 @@ async function resolveConfiguredMode(
   const absoluteConfigPath = resolvePath(cwd, configPath);
   const config = await readTuiModuleConfig(absoluteConfigPath);
   const contextCompaction = config.contextCompaction ?? DEFAULT_CONTEXT_BUDGET_CONFIG;
-  const contextBudgetValidation = validateContextBudgetConfig(contextCompaction);
+  const contextBudgetValidation = validateRequestedContextBudgetConfig(contextCompaction);
   if (contextCompaction.enabled && !contextBudgetValidation.ok) {
     throw new Error(`Invalid context compaction budget: ${contextBudgetValidation.errors.join("; ")}`);
   }

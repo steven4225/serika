@@ -70,6 +70,29 @@ it("small actual model capacity keeps requested mode CAS separate and reapplies 
   } finally { await host.shutdown(); await f.cleanup(); }
 });
 
+it("32K legacy desktop may select either mode while retaining requested intent and actual capacity", async () => {
+  const f = await fixture();
+  const raw = JSON.parse(await readFile(f.configPath, "utf8"));
+  raw.contextCompaction = { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled: true };
+  raw.modelContextWindows[0].contextWindowTokens = 32768;
+  await writeFile(f.configPath, JSON.stringify(raw));
+  const host = await DesktopRuntime.create(f.options);
+  try {
+    await host.current.run("短消息不会超过32K窗口", { memoryConsolidation: "exclude" }); await idle(host);
+    const prepared = await host.current.getContextDiagnostics(); assert(prepared.ok); assert(prepared.value.lastPreparation);
+    for (const mode of ["daily", "long-task"] as const) {
+      const before = await host.current.getContextDiagnostics(); assert(before.ok);
+      await host.setContextMode({ mode, expectedBudget: before.value.requestedBudget! });
+      const after = await host.current.getContextDiagnostics(); assert(after.ok);
+      assert.equal(after.value.budget.contextWindowTokens, 32768);
+      assert(after.value.budget.inputBudgetTokens! <= 32768 - after.value.budget.maxOutputTokens - after.value.budget.safetyMarginTokens);
+      assert.equal(after.value.requestedBudget?.inputBudgetTokens, mode === "daily" ? 256_000 : 400_000);
+      assert.equal(after.value.lastPreparation, null);
+    }
+    assert.equal(f.calls(), 1, "mode changes cannot reuse old preparation metrics or dispatch a new model call");
+  } finally { await host.shutdown(); await f.cleanup(); }
+});
+
 it("failed mode activation rolls back the old config and reconnects without replay", async t => {
   const f = await fixture(); const host = await DesktopRuntime.create(f.options);
   try {
@@ -113,16 +136,17 @@ it("explicit mode selection preserves disabled compaction and rejects renderer a
   } finally { await f.cleanup(); }
 });
 
-it("mode selection never enlarges the configured physical model window or its output reserve", async () => {
+it("mode selection keeps a smaller declared physical ceiling while storing the preset as intent", async () => {
   const f = await fixture();
   try {
     for (const mode of ["daily", "long-task"] as const) {
       const budget = { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled: true, contextWindowTokens: 128_000 };
       const raw = JSON.parse(await readFile(f.configPath, "utf8")); raw.contextCompaction = budget;
       await writeFile(f.configPath, JSON.stringify(raw));
-      const before = await readFile(f.configPath, "utf8");
-      await assert.rejects(changeContextMode(f.configPath, { mode, expectedBudget: budget }, f.root), /模型窗口|model window/);
-      assert.equal(await readFile(f.configPath, "utf8"), before, "insufficient capacity must not save an invented 1M window");
+      await changeContextMode(f.configPath, { mode, expectedBudget: budget }, f.root);
+      const saved = JSON.parse(await readFile(f.configPath, "utf8")).contextCompaction;
+      assert.equal(saved.contextWindowTokens, 128_000, "preset intent must not invent a 1M physical capacity");
+      assert.equal(saved.inputBudgetTokens, mode === "daily" ? 256_000 : 400_000);
     }
     const budget = { ...f.budget, contextWindowTokens: 512_000, maxOutputTokens: 8192, safetyMarginTokens: 16_384 };
     const raw = JSON.parse(await readFile(f.configPath, "utf8")); raw.contextCompaction = budget;

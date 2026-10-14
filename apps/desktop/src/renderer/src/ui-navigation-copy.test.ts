@@ -104,9 +104,9 @@ it("UI regression 6: 手札 explicitly allows ordinary conversation without crea
 it("UI regression 7: selected context mode remains enabled while actual busy controls are disabled", () => {
   const props = { budget: contextBudgetForMode("daily"), disabled: false, onSelect: noop };
   const html = render(createElement(ContextModeSelector, props));
-  assert.match(html, /aria-pressed="true">日常 · 256K/);
+  assert.match(html, /aria-pressed="true">日常/);
   assert.doesNotMatch(html, /disabled/);
-  assert.match(render(createElement(ContextModeSelector, { ...props, disabled: true })), /aria-pressed="true" disabled="">日常 · 256K/);
+  assert.match(render(createElement(ContextModeSelector, { ...props, disabled: true })), /aria-pressed="true" disabled="">日常/);
 });
 
 it("optional memory tab selection shares the settings pill instead of an underline", async () => {

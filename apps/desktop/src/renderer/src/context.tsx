@@ -6,10 +6,10 @@ import type { ModelCapacityEvidence } from "@aisdk-agent/example-cli/dist/contex
 export function ContextModeSelector({ budget, requestedBudget, modelCapacity, disabled, onSelect }: { budget: ContextBudgetConfig; requestedBudget?: ContextBudgetConfig; modelCapacity?: ModelCapacityEvidence; disabled: boolean; onSelect: (mode: "daily" | "long-task") => void }) {
   return <div className="context-mode">
     <div className="context-mode-picker" role="group" aria-label="上下文模式">
-      {(["daily", "long-task"] as const).map(mode => <button key={mode} aria-pressed={budget.mode === mode} disabled={disabled} onClick={() => { if (budget.mode !== mode) onSelect(mode); }}>{mode === "daily" ? "日常 · 256K" : "长任务 · 400K"}</button>)}
+      {(["daily", "long-task"] as const).map(mode => <button key={mode} aria-pressed={budget.mode === mode} disabled={disabled} onClick={() => { if (budget.mode !== mode) onSelect(mode); }}>{mode === "daily" ? "日常" : "长任务"}</button>)}
     </div>
-    <p className="context-actual-budget">{modelCapacity?.source === "unverified_fallback" ? "临时窗口上限（容量未核实）" : "实际窗口"} {budget.contextWindowTokens.toLocaleString()} tokens · 输入预算 {contextInputBudget(budget).toLocaleString()} tokens</p>
-    {requestedBudget && contextInputBudget(requestedBudget) !== contextInputBudget(budget) ? <p className="hint">档位目标 {contextInputBudget(requestedBudget).toLocaleString()} tokens；当前按模型窗口与回复预留收紧。</p> : null}
+    <p className="context-actual-budget">{modelCapacity?.source === "unverified_fallback" ? "临时窗口上限（容量未核实）" : "实际窗口"} {budget.contextWindowTokens.toLocaleString()} tokens · 当前有效输入上限 {contextInputBudget(budget).toLocaleString()} tokens</p>
+    {requestedBudget?.inputBudgetTokens !== undefined ? <p className="hint">档位目标上限 {requestedBudget.inputBudgetTokens.toLocaleString()} tokens，不是当前模型容量；实际使用以上有效上限。</p> : null}
     {modelCapacity?.source === "unverified_fallback" ? <p className="hint">未配置该模型的容量，暂用保守上限；这不证明供应商支持该窗口，请核对后配置。</p> : null}
     <p className="hint">当前：{contextModeLabel(budget)}。以上是本进程实际配置，不是供应商承诺。空闲时切换，下一次发送生效；换模型后重新计算预算。</p>
     {!budget.enabled ? <p className="hint">自动压缩尚未启用，选择模式不会自动开启它。</p> : null}
