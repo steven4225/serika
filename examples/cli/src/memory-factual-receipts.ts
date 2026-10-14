@@ -3,6 +3,7 @@ import type { WorkspaceMemoryStore } from "./memory-store.js";
 import type { MemoryResult } from "./memory-candidates.js";
 import { findCommittedUserMessage, isExactUserQuote } from "./consolidation.js";
 import { consolidationPrefixHash } from "./memory-consolidation.js";
+import { memoryConsolidationFailureText } from "./memory-failure.js";
 
 /** Read-only display projection of the latest incremental batch, not a second journal. */
 export interface MemoryFactReceipt {
@@ -55,8 +56,9 @@ export async function readMemoryFactReceipts(
             : `这项记忆暂时不能确认，尚未保存：${text}；请在记忆页核对。`);
         }
       }
-      if (outcome.status === "not_saved") lines.push("这条记忆没保存：内容太长，请分段再告诉我。原话仍保留在对话里。");
-      else if (outcome.status === "deferred") lines.push("这条记忆尚未整理完成，后续会继续处理。");
+      if (outcome.status === "not_saved") lines.push(outcome.reason === "retry_exhausted"
+        ? memoryConsolidationFailureText("MEMORY_RETRY_EXHAUSTED") : "这条记忆没保存：内容太长，请分段再告诉我。原话仍保留在对话里。");
+      else if (outcome.status === "deferred") lines.push("这条记忆尚未整理完成，后续最多重试 3 次；原话仍保留。");
       if (lines.length) rows.push({ id: `${receipt.batchId}:${outcome.messageId}`, threadId,
         sourceMessageId: outcome.messageId, text: [...new Set(lines)].join("\n") });
     }

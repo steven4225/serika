@@ -164,7 +164,7 @@ test("coverage: a discarded multi-source proposal cannot advance its eligible so
     assert.ok(staged.ok, staged.ok ? "" : staged.error.message);
     assert.ok((await f.service.finalize({ status: "completed" })).ok);
     const receipt = await f.store.getConsolidationReceipt!("thread"); assert.ok(receipt.ok);
-    assert.deepEqual(receipt.value?.outcomes, [{ messageId: "u1", status: "deferred" }, { messageId: "u2", status: "extracted" }]);
+    assert.deepEqual(receipt.value?.outcomes, [{ messageId: "u1", status: "deferred", attempts: 1 }, { messageId: "u2", status: "extracted" }]);
     assert.deepEqual(await f.store.getConsolidationCursor("thread"), { ok: true, value: null });
     const saved = await f.store.list(); assert.ok(saved.ok); assert.equal(saved.entries.length, 0);
     const pending = await f.store.listCandidates({ status: "pending" }, undefined, { boundThreadId: "thread" }); assert.ok(pending.ok);

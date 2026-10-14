@@ -6,7 +6,7 @@ import {
   isExactUserQuote, isMemoryConsolidationExcluded, userStartedTurns,
   type ConsolidationTurn, type IncrementalConsolidationTurn,
 } from "./consolidation.js";
-import { candidateFingerprint, type CandidateBatchResult, type CandidateDraft, type ConsolidationCursor, type ConsolidationOutcome, type MemoryResult } from "./memory-candidates.js";
+import { candidateFingerprint, type CandidateBatchResult, type CandidateDraft, type ConsolidationCursor, type ConsolidationOutcome, type ConsolidationReceipt, type MemoryResult } from "./memory-candidates.js";
 import type { MemoryConsolidationEntry, MemoryEntry, WorkspaceMemoryStore } from "./memory-store.js";
 import { rankMemoryEntriesForQuery } from "./memory-retrieval.js";
 import { overlaps, validateRecallTerms, validateTemporalTimestamp, validateValidTime, type MemoryKind, type MemoryValidTime } from "./memory-temporal.js";
@@ -65,7 +65,7 @@ export interface MemoryConsolidation {
   canStart(signal?: AbortSignal): Promise<MemoryResult<{ canStart: boolean; pendingCount: number }>>;
   prepare(input: { mode?: "incremental"; turns?: number }, signal?: AbortSignal): Promise<MemoryResult<PreparedBatch>>;
   stage(input: { batchId: string; proposals: unknown[]; outcomes?: unknown }, signal?: AbortSignal): Promise<MemoryResult<{ staged: true; batchId: string; count: number }>>;
-  finalize(result: { status: string; consolidationAttempts?: { prepare: number; stage: number } }, signal?: AbortSignal): Promise<MemoryResult<CandidateBatchResult & { processedCount?: number; outcomes?: ConsolidationOutcome[] }>>;
+  finalize(result: { status: string; extractionFailed?: boolean; consolidationAttempts?: { prepare: number; stage: number } }, signal?: AbortSignal): Promise<MemoryResult<CandidateBatchResult & { processedCount?: number; outcomes?: ConsolidationOutcome[] }>>;
   discard(): void;
 }
 interface OrdinaryTurn { user: { id: string; text: string }; messages: UIMessage[] }
@@ -83,6 +83,7 @@ interface Batch {
   processedCount?: number;
   sourcePrefix?: { throughMessageId: string; prefixHash: string } | null;
   expectedCursor?: ConsolidationCursor | null;
+  previousReceipt?: ConsolidationReceipt | null;
   nextCursor?: ConsolidationCursor | null;
   committed?: MemoryResult<CandidateBatchResult>;
 }
@@ -366,6 +367,7 @@ export function createMemoryConsolidation(options: {
       if (automatic && !history && options.store.getConsolidationReceipt) {
         const receipt = await options.store.getConsolidationReceipt(options.threadId, signal);
         if (!receipt.ok) return receipt;
+        run.previousReceipt = receipt.value;
         const deferred = receipt.value?.outcomes.find(outcome => outcome.status === "deferred")?.messageId;
         if (deferred) {
           const prefix = receipt.value!.sourcePrefix;
@@ -765,8 +767,17 @@ export function createMemoryConsolidation(options: {
       const attempts = result.consolidationAttempts;
       if (run.prepareCount === 0 && run.stageCount === 0 && !consolidationAgents.has(run.agentId) && (attempts === undefined || (attempts.prepare === 0 && attempts.stage === 0))) return empty;
       aborted(signal);
-      if (attempts !== undefined && (attempts.prepare !== 1 || attempts.stage !== 1)) { run.invalid = true; return fail("MEMORY_BATCH_INVALID", "Exactly one prepare and stage attempt is required, including rejected tool inputs"); }
-      if (run.invalid || run.prepareCount !== 1 || run.stageCount !== 1 || run.prepared === undefined || run.selected === undefined || run.drafts === undefined) return fail("MEMORY_BATCH_INVALID", "Completed consolidation requires exactly one successful prepare and stage");
+      const incremental = consolidationAgents.has(run.agentId) && run.request?.mode !== "history";
+      const failedExtraction = result.extractionFailed === true && incremental && run.prepareCount === 1 && run.prepared !== undefined && run.selected !== undefined;
+      if (!failedExtraction && attempts !== undefined && (attempts.prepare !== 1 || attempts.stage !== 1)) { run.invalid = true; return fail("MEMORY_BATCH_INVALID", "Exactly one prepare and stage attempt is required, including rejected tool inputs"); }
+      if (!failedExtraction && (run.invalid || run.prepareCount !== 1 || run.stageCount !== 1 || run.prepared === undefined || run.selected === undefined || run.drafts === undefined)) return fail("MEMORY_BATCH_INVALID", "Completed consolidation requires exactly one successful prepare and stage");
+      if (run.prepared === undefined || run.selected === undefined) return fail("MEMORY_BATCH_INVALID", "No prepared extraction sources");
+      if (failedExtraction) {
+        // A rejected proposal is never persisted. Only retry coverage of the
+        // unchanged host-prepared source can be committed below.
+        run.drafts = []; run.autoAcceptIndexes = [];
+        run.outcomes = run.selected.map(turn => ({ messageId: turn.user.id, status: "deferred" }));
+      }
       const loaded = await readMessages(signal);
       if (!loaded.ok) return loaded;
       for (const selected of run.selected) {
@@ -778,7 +789,7 @@ export function createMemoryConsolidation(options: {
       const observedAt = now();
       const listed = await readMaterial(observedAt, signal);
       if (!listed.ok) return listed;
-      for (const draft of run.drafts) {
+      for (const draft of run.drafts ?? []) {
         if (draft.change.operation === "add") continue;
         const change = draft.change;
         const target = listed.value.find((entry) => entry.id === change.memoryId && visible(entry, options.threadId));
@@ -787,13 +798,28 @@ export function createMemoryConsolidation(options: {
       }
       if (batch !== run) return fail("MEMORY_BATCH_INVALID", "Consolidation lifecycle changed before commit");
       aborted(signal);
+      if (incremental && run.outcomes) {
+        // Mutate only once: replay returns run.committed before this point.
+        run.outcomes = run.outcomes.map(outcome => {
+          if (outcome.status !== "deferred") return outcome;
+          const previous = run.previousReceipt?.outcomes.find(saved => saved.messageId === outcome.messageId && saved.status === "deferred");
+          const attempts = (previous?.attempts ?? 0) + 1;
+          return attempts >= 3 ? { messageId: outcome.messageId, status: "not_saved" as const, reason: "retry_exhausted" as const, attempts: 3 } : { ...outcome, attempts };
+        });
+        const firstDeferred = run.outcomes.findIndex(outcome => outcome.status === "deferred");
+        run.processedCount = firstDeferred < 0 ? run.outcomes.length : firstDeferred;
+        const last = run.selected[run.processedCount - 1]?.user.id;
+        run.nextCursor = last === undefined ? null : { threadId: options.threadId, throughMessageId: last,
+          prefixHash: consolidationPrefixHash(loaded.value, last)!, lastBatchId: run.prepared.batchId, updatedAt: now().toISOString() };
+      }
       const committed = await options.store.commitCandidateBatch({
-        batchId: run.prepared.batchId, originThreadId: options.threadId, candidates: run.drafts,
+        batchId: run.prepared.batchId, originThreadId: options.threadId, candidates: run.drafts ?? [],
         expectedCursor: run.expectedCursor ?? null, nextCursor: run.nextCursor ?? null,
         ...(run.autoAcceptIndexes === undefined ? {} : { autoAcceptIndexes: run.autoAcceptIndexes }),
         ...(run.outcomes === undefined ? {} : { outcomes: run.outcomes }),
         ...(consolidationAgents.has(run.agentId) && run.request?.mode !== "history" ? { incremental: true as const } : {}),
         sourcePrefix: run.sourcePrefix ?? null,
+        ...(run.previousReceipt === undefined ? {} : { expectedReceiptHash: run.previousReceipt?.payloadHash ?? null }),
       }, signal, { boundThreadId: options.threadId, ...(options.now === undefined ? {} : { commitClock: options.now }) });
       run.committed = committed;
       return committed.ok ? { ok: true, value: { ...committed.value, processedCount: run.processedCount ?? 0,

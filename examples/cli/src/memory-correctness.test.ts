@@ -318,7 +318,7 @@ test("oversized fallback does not turn a transient deferred outcome into a termi
     const result = await f.extract([], [{ messageId: "u1", status: "deferred" }]);
     assert.equal(result.result.processedCount, 0);
     const receipt = await f.store.getConsolidationReceipt!("thread"); assert.ok(receipt.ok);
-    assert.deepEqual(receipt.value?.outcomes, [{ messageId: "u1", status: "deferred" }]);
+    assert.deepEqual(receipt.value?.outcomes, [{ messageId: "u1", status: "deferred", attempts: 1 }]);
   } finally { await f.cleanup(); }
 });
 

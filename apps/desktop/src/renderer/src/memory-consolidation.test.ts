@@ -48,6 +48,14 @@ describe("daily memory consolidation state", () => {
     assert.equal(consolidationStatusLabel(true, maintenance("awaiting_review"), ""), "等待你审核候选");
   });
 
+  it("keeps disk-write and uncertain-commit warnings in the daily summary", () => {
+    const value = maintenance("failed");
+    value.consolidation.error = "WRITE_FAILED: disk failed";
+    assert.match(consolidationStatusLabel(true, value, ""), /保存失败.*旧记忆仍保留/);
+    value.consolidation.error = "MEMORY_COMMIT_UNCERTAIN: directory sync failed";
+    assert.match(consolidationStatusLabel(true, value, ""), /是否写入尚未确认.*不会自动重复/);
+  });
+
   it("only calls a successful completed zero-candidate attempt empty", () => {
     const value = maintenance("idle");
     assert.equal(consolidationStatusLabel(true, value, ""), "没有待整理的新增记忆材料");

@@ -96,3 +96,20 @@ test("a completed extraction with a failed durable commit cannot produce a saved
     const pending = await store.listCandidates({}, undefined, { boundThreadId: "receipts" }); assert.ok(pending.ok); assert.deepEqual(pending.value.candidates, []);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+test("a reopened exhausted extraction receipt tells the remaining truth instead of calling it too-large", async () => {
+  const root = await mkdtemp(join(tmpdir(), "memory-receipt-retry-exhausted-"));
+  const messages: UIMessage[] = [{ id: "u1", role: "user", parts: [{ type: "text", text: "尚未确定的偏好。" }] }];
+  try {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const store = createMemoryStore(root);
+      const service = createMemoryConsolidation({ store, threadId: "receipts", getMessages: async () => messages });
+      service.begin(AUTO_CONSOLIDATION_AGENT_ID); assert.ok((await service.prepare({ mode: "incremental" })).ok);
+      assert.ok((await service.finalize({ status: "completed", extractionFailed: true })).ok);
+    }
+    const read = await readMemoryFactReceipts(createMemoryStore(root), "receipts", messages); assert.ok(read.ok);
+    assert.equal(read.value.length, 1);
+    assert.match(read.value[0]!.text, /剩余记忆没保存.*3 次.*原话仍保留/);
+    assert.doesNotMatch(read.value[0]!.text, /内容太长|已记住|以后会继续处理/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

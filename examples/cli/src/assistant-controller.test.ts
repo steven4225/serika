@@ -374,6 +374,28 @@ describe("AssistantController memory candidates", () => {
     }
   });
 
+  it("shows persisted retry exhaustion without reporting it as too-large or silently complete", async () => {
+    const warnings: string[] = [];
+    const controller = createAssistantController(appWith({
+      memoryConsolidation: {
+        begin: () => undefined, discard: () => undefined,
+        finalize: async () => ({ ok: true, value: { candidateIds: [], replayed: false, processedCount: 1,
+          outcomes: [{ messageId: "source", status: "not_saved", reason: "retry_exhausted", attempts: 3 }] } }),
+      } as unknown as NonNullable<RuntimeApp["memoryConsolidation"]>,
+      runtime: { run: async () => handle("primary", {
+        promise: Promise.resolve(result("primary", "completed")), resolve: () => undefined,
+      }, () => undefined) } as unknown as RuntimeApp["runtime"],
+    }));
+    controller.subscribe(event => { if (event.type === "error") warnings.push(event.message); });
+    try {
+      await controller.run("记住我的偏好");
+      await waitFor(() => controller.getSnapshot().state.kind === "idle");
+      assert.equal(warnings.length, 1);
+      assert.match(warnings[0]!, /剩余记忆没保存.*3 次.*原话仍保留/);
+      assert.doesNotMatch(warnings[0]!, /内容太长|已记住|MEMORY_RETRY/);
+    } finally { await controller.shutdown(); }
+  });
+
   it("does not start the automatic model when the pending candidate queue is full", async () => {
     let runs = 0;
     const controller = createAssistantController(appWith({
@@ -1246,6 +1268,36 @@ describe("AssistantController", () => {
       const candidates = await memoryStore.listCandidates({}, undefined, { boundThreadId: "controller-thread" });
       assert.equal(candidates.ok && candidates.value.candidates.length, 0, "cancelled staged batch is not committed");
     } finally { await controller.shutdown(); await rm(workspace, { recursive: true, force: true }); }
+  });
+
+  it("persists invalid host JSON attempts across Controller restarts without silently declaring memory saved", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "controller-invalid-memory-json-"));
+    const messages = [{ id: "source", role: "user" as const, parts: [{ type: "text" as const, text: "暂未确定的偏好。" }] }];
+    try {
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        const memoryStore = createMemoryStore(workspace);
+        const service = createMemoryConsolidation({ store: memoryStore, threadId: "controller-thread", getMessages: async () => messages });
+        const warnings: string[] = [];
+        const controller = createAssistantController(appWith({
+          memoryStore, memoryConsolidation: service, autoConsolidationAgentId: "memory-consolidator", hostConsolidationExtraction: true,
+          store: { getMessages: async () => messages } as unknown as RuntimeApp["store"],
+          runtime: { run: async () => handle(`invalid-${attempt}`, {
+            promise: Promise.resolve({ ...result(`invalid-${attempt}`, "completed"), text: "not-json" }), resolve: () => undefined,
+          }, () => undefined) } as unknown as RuntimeApp["runtime"],
+        }));
+        controller.subscribe(event => { if (event.type === "error") warnings.push(event.message); });
+        try {
+          await waitFor(() => controller.getSnapshot().lastConsolidationResult != null && controller.getSnapshot().state.kind === "idle");
+          const maintenance = await controller.getMemoryMaintenance(); assert.ok(maintenance.ok);
+          const receipt = await memoryStore.getConsolidationReceipt!("controller-thread"); assert.ok(receipt.ok && receipt.value, JSON.stringify(maintenance.value.consolidation));
+          assert.equal(receipt.value.outcomes[0]!.attempts, attempt);
+          assert.equal(receipt.value.outcomes[0]!.status, attempt === 3 ? "not_saved" : "deferred");
+          assert.match(warnings.join("\n"), attempt === 3 ? /剩余记忆没保存.*3 次/ : /尚未完成.*剩余内容未保存/);
+          assert.equal(maintenance.value.consolidation.state, "failed");
+          assert.equal(maintenance.value.consolidation.lastAttempt?.status, "failed");
+        } finally { await controller.shutdown(); }
+      }
+    } finally { await rm(workspace, { recursive: true, force: true }); }
   });
 
   it("bounds activity retained for a renderer reload", async () => {
