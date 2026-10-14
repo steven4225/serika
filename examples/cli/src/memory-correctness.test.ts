@@ -141,7 +141,11 @@ test("eval repair mixed-source validation still rejects an invented language val
     assert.equal(listed.entries.length, 1);
     assert.equal(listed.entries[0]!.assertion?.factIdentity?.attribute, "coffee");
     const receipt = await f.store.getConsolidationReceipt!("thread"); assert.ok(receipt.ok && receipt.value);
-    assert.equal(receipt.value.outcomes[0]!.status, "deferred", "discarded language must not advance coverage");
+    assert.equal(receipt.value.outcomes[0]!.status, "extracted", "the rejected body now has an actionable source-only review");
+    const pending = await f.store.listCandidates({ status: "pending" }, undefined, { boundThreadId: "thread" }); assert.ok(pending.ok);
+    assert.equal(pending.value.candidates.length, 1);
+    assert.equal(pending.value.candidates[0]!.change.text, quote);
+    assert.equal("factIdentity" in pending.value.candidates[0]!.change, false);
   } finally { await f.cleanup(); }
 });
 
@@ -377,12 +381,15 @@ test("eval repair boundary: rejected unrelated extraction cannot block same-batc
     const first = await f.extract([{ action: "add", text: "用户喜欢喝茶。", kind: "preference", reason: "明确陈述", eligibility: "durable_self_statement",
       sourceMessageId: "u1", sourceQuote: quote }, language], [{ messageId: "u1", status: "deferred" }, { messageId: "u2", status: "extracted" }]);
     assert.equal(first.result.accepted?.length, 1); assert.equal(first.result.processedCount, 0);
+    const previous = await f.store.listCandidates({}, undefined, { boundThreadId: "thread" }); assert.ok(previous.ok);
+    const reviewId = previous.value.candidates[0]!.id;
     const residence = f.statement("u3", "我住在上海。", { attribute: "residence", scenario: "general", value: "上海" });
     await f.extract([residence], [{ messageId: "u1", status: "extracted" }, { messageId: "u2", status: "no_memory" }, { messageId: "u3", status: "extracted" }]);
     const listed = await f.store.list(); assert.ok(listed.ok);
     assert.deepEqual(listed.entries.map(entry => entry.assertion?.factIdentity?.attribute).sort(), ["residence", "response_language"]);
     const pending = await f.store.listCandidates({ status: "pending" }, undefined, { boundThreadId: "thread" }); assert.ok(pending.ok);
     assert.equal(pending.value.candidates.length, 1); assert.equal(pending.value.candidates[0]!.source.messageId, "u1");
+    assert.equal(pending.value.candidates[0]!.id, reviewId, "exact original reuses the existing actionable review");
   } finally { await f.cleanup(); }
 });
 
@@ -982,7 +989,7 @@ test("a partially extracted source survives restart/new messages and commits the
   } finally { await f.cleanup(); }
 });
 
-test("identified add without kind rejects the real extractor payload without saving or advancing the cursor", async () => {
+test("identified add without kind retains only the real source for review, never the model paraphrase", async () => {
   const f = await fixture();
   try {
     f.addMessage("u1", "我喝咖啡不加糖。");
@@ -992,16 +999,14 @@ test("identified add without kind rejects the real extractor payload without sav
       proposals: [{ action: "add", text: "用户喝咖啡不加糖。", reason: "用户明确自述持久偏好",
         eligibility: "durable_self_statement", sources: [{ sourceMessageId: "u1", sourceQuote: "我喝咖啡不加糖。" }],
         factIdentity: coffee() }], outcomes: [{ messageId: "u1", status: "extracted" }] }));
-    assert.equal(staged.ok, false);
-    if (!staged.ok) {
-      assert.equal(staged.error.code, "MEMORY_BATCH_INVALID");
-      assert.match(staged.error.message, /fact or preference/);
-    }
-    assert.equal((await service.finalize({ status: "completed" })).ok, false);
+    assert.equal(staged.ok, true);
+    assert.equal((await service.finalize({ status: "completed" })).ok, true);
     const listed = await f.store.list(); assert.ok(listed.ok); assert.equal(listed.entries.length, 0);
-    const candidates = await f.store.listCandidates({}, undefined, { boundThreadId: "thread" }); assert.ok(candidates.ok); assert.equal(candidates.value.candidates.length, 0);
-    const cursor = await f.store.getConsolidationCursor("thread"); assert.ok(cursor.ok); assert.equal(cursor.value, null);
-    const receipt = await f.store.getConsolidationReceipt!("thread"); assert.ok(receipt.ok); assert.equal(receipt.value, null);
+    const candidates = await f.store.listCandidates({}, undefined, { boundThreadId: "thread" }); assert.ok(candidates.ok); assert.equal(candidates.value.candidates.length, 1);
+    assert.equal(candidates.value.candidates[0]!.change.text, "我喝咖啡不加糖。");
+    assert.equal("factIdentity" in candidates.value.candidates[0]!.change, false);
+    const cursor = await f.store.getConsolidationCursor("thread"); assert.ok(cursor.ok); assert.equal(cursor.value?.throughMessageId, "u1");
+    const receipt = await f.store.getConsolidationReceipt!("thread"); assert.ok(receipt.ok); assert.equal(receipt.value?.outcomes[0]?.status, "extracted");
   } finally { await f.cleanup(); }
 });
 
