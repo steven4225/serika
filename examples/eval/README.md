@@ -2,6 +2,30 @@
 
 不需要 PostgreSQL，不启动桌面、常驻服务或 worker。每条案例独立创建临时 workspace/config/transcript，结束后清理；不读取日用配置、历史或记忆。结果留在此目录的 `results/`，不提交 Git。
 
+## 连续压缩保真回归（独立新套件）
+
+`CF03` 用日常档连续压缩 3 轮，`CF05` 用长任务档连续压缩 5 轮；每轮追加越过该档位 85% 触发线的独立合成历史。目标、已确认决策、未完成事项、未获批准的部署、成功读取及结果未知的非幂等写入工具对只在第一轮提供，后续素材不补答案。每轮保存实际摘要与预算快照，检查完整增量链、unknown 写结果未被改写为成功／失败及无工具重放；最后另起新进程，检查复用摘要不新增压缩调用。使用现有 Controller／AgentLoop，不新增执行框架。
+
+五分钟离线 Demo：`pnpm eval:test` 可验证 Oracle 的正例和丢失目标／权限等负例，不收费。下面是真实模型命令，需用户在自己的终端配置 Key 并明确承担调用费用；本次新增套件的真实模型结果仍为 **not_run**，不能用离线绿测代替：
+
+先核实供应商对当前精确模型的窗口声明，再在终端设置 `COMMAND_CODE_CONTEXT_WINDOW_TOKENS` 为已核实的正整数，或配置同一 `provider + modelId` 的 `modelContextWindows`。不要为了通过测试猜填 1M。日常／长任务的完整输入目标分别要求窗口至少容纳 256K／400K 加 4,096 输出预留和 32,768 安全余量。容量未知的保守上限或较小模型不能被记为“大体量档位通过”。新 CF Oracle 分开核对冻结的请求档位和真实有效预算，允许已核实的非 1M 窗口，但不放松输入目标、近期保留、摘要或分块要求；旧 RD／RL 判分和历史报告保持不变。
+
+```sh
+SERIKA_EVAL_LIVE=1 RUNLOOM_MODEL=command-code \
+COMMAND_CODE_MODEL_ID=deepseek/deepseek-v4.1-flash-fast \
+pnpm eval:e2e --suite compaction-fidelity --cases CF03,CF05 --repeat 1
+```
+
+另有独立的 **32K 有效预算**套件 `CE03/CE05`：在隔离配置中为精确 provider/model 设置 32,768 上限，仍保留日常／长任务档位意图，按 Runtime 的真实投影生成历史（输入 26,624、近期原文 20,480、摘要输出 2,048、输入分块 22,528）。它只证明配置小窗口下的连续压缩链路，不能并入 CF 满档或旧 RD/RL 的分母，也不证明供应商容量；真实模型仍为 **not_run**。
+
+```sh
+SERIKA_EVAL_LIVE=1 RUNLOOM_MODEL=command-code \
+COMMAND_CODE_MODEL_ID=deepseek/deepseek-v4.1-flash-fast \
+pnpm eval:e2e --suite compaction-fidelity-effective --cases CE03,CE05 --repeat 1
+```
+
+分母是两项任务，不是 8 项独立测试：任一轮失败会使整项任务失败。事实验收采用固定字面短语及来源 ID，是可复核的保守回归 Oracle，不是通用语义质量评分；同义改写可能被判失败，应保留原始证据人工复核而不是回写分数。报告冻结新 suite/spec/Oracle 指纹，不改旧 RC／RD／RL 题目或历史报告；不宣称模型物理 1M、Electron／TG 或日用重载已验收。
+
 ## 五分钟开始
 
 在仓库根目录，Node >=22.22（eval 工具的要求；运行时原有 >=22.12 要求不变）：

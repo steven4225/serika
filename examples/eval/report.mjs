@@ -7,7 +7,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const repo = join(here, '../..');
 const escape = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const command = (...args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8' }).trim();
-export const evaluationFiles = ['e2e-cases.json', 'reliability-cases.mjs', 'daily-compaction.mjs', 'e2e.mjs', 'oracle.mjs', 'provider.mjs', 'assertions.mjs', 'run.mjs', 'report.mjs'];
+export const evaluationFiles = ['e2e-cases.json', 'reliability-cases.mjs', 'daily-compaction.mjs', 'compaction-fidelity.mjs', 'e2e.mjs', 'oracle.mjs', 'provider.mjs', 'assertions.mjs', 'run.mjs', 'report.mjs'];
 export async function manifest(caseIds, repeat, options = {}) {
   const fingerprint = createHash('sha256');
   for (const file of evaluationFiles) fingerprint.update(file).update(await readFile(join(here, file)));

@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
-import SerikaProvider, { requireLive } from './provider.mjs';
+import SerikaProvider, { requireLive, expectedDeferredCoverage } from './provider.mjs';
+import { consolidationPrefixHash } from '@aisdk-agent/example-cli/dist/memory-consolidation.js';
 import check from './assertions.mjs';
 
 // Test commands are always offline even if the caller's shell opted into live.
@@ -23,6 +24,21 @@ test('grader rejects false success, missing evidence and extraction JSON leakage
 });
 
 const cases = JSON.parse(await readFile(new URL('./cases.json', import.meta.url), 'utf8'));
+test('expected deferred fault inspection still rejects unknown writes, missing receipts, changed sources and live mode', () => {
+  const vars = { offlineOnly: true, expected: { coverage: 'deferred', cursorAdvanced: false } };
+  const messages = [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'fixture' }] }];
+  const receipt = { threadId: 'eval', processedCount: 0, outcomes: [{ status: 'deferred', attempts: 1 }],
+    sourcePrefix: { throughMessageId: 'u1', prefixHash: consolidationPrefixHash(messages, 'u1') } };
+  const state = { error: 'MEMORY_EXTRACTION_DEFERRED' };
+  assert.equal(expectedDeferredCoverage(vars, 'offline', state, receipt, null, messages), true);
+  for (const code of ['WRITE_FAILED', 'MEMORY_COMMIT_UNCERTAIN', 'MEMORY_RETRY_EXHAUSTED', 'MEMORY_EXTRACTION_DEFERRED: malformed proposal']) {
+    assert.equal(expectedDeferredCoverage(vars, 'offline', { error: code }, receipt, null, messages), false);
+  }
+  assert.equal(expectedDeferredCoverage(vars, 'live', state, receipt, null, messages), false);
+  assert.equal(expectedDeferredCoverage(vars, 'offline', state, null, null, messages), false);
+  assert.equal(expectedDeferredCoverage(vars, 'offline', state, receipt, { throughMessageId: 'u1' }, messages), false);
+  assert.equal(expectedDeferredCoverage(vars, 'offline', state, receipt, null, [{ ...messages[0], parts: [{ type: 'text', text: 'changed' }] }]), false);
+});
 test('provider rejects consolidation commit failure rather than reporting chat success', async () => {
   const vars = structuredClone(cases[2].vars);
   vars.extractions[0][0].action = 'invalid-action';

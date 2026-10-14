@@ -10,6 +10,7 @@ import { JsonlAgentStore } from '@aisdk-agent/core';
 import { evaluateCase, fixtureApproval, summarizeUsage } from './oracle.mjs';
 import { reliabilitySpec } from './reliability-cases.mjs';
 import { dailyCompactionSpec, fixtureHistory } from './daily-compaction.mjs';
+import { compactionFidelitySpec, effectiveCompactionFidelitySpec, compactionFidelityHistory, isCompactionFidelity } from './compaction-fidelity.mjs';
 import { contextBudgetForMode } from '@aisdk-agent/example-cli/dist/context-budget.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -26,13 +27,23 @@ const { formatLocalTaskTime } = await import(runtime('task-instructions'));
 const cases = JSON.parse(await readFile(join(here, 'e2e-cases.json'), 'utf8'));
 const compactBudget = { enabled: true, contextWindowTokens: 12000, maxOutputTokens: 1024,
   safetyMarginTokens: 512, keepRecentTokens: 1500, summaryMaxOutputTokens: 2048, summaryInputChunkTokens: 24000 };
+const compactionHistory = (spec, generation = 0) => isCompactionFidelity(spec)
+  ? compactionFidelityHistory(spec, generation) : fixtureHistory(spec, generation);
 
 export function fixtureConfig(spec, workspace) {
   const memory = spec.category === 'memory';
   return { version: 1, workspace,
     modules: { 'read-file': { enabled: true }, memory: { enabled: memory, autoConsolidate: memory, writePolicy: memory ? 'automatic' : 'review', queryRewrite: { enabled: !!spec.rewrite } },
       task: { enabled: spec.category === 'reminders' } },
-    ...(spec.category === 'compaction' ? { contextCompaction: spec.contextBudget ?? (spec.contextMode ? contextBudgetForMode(spec.contextMode) : compactBudget) } : {}), run: { maxSteps: 8, totalTimeoutMs: 120000 } };
+    ...(spec.modelContextWindows ? { modelContextWindows: spec.modelContextWindows } : {}),
+    ...(spec.category === 'compaction' ? { contextCompaction: spec.requestedContextBudget ?? spec.contextBudget ?? (spec.contextMode ? contextBudgetForMode(spec.contextMode) : compactBudget) } : {}), run: { maxSteps: 8, totalTimeoutMs: 120000 } };
+}
+
+export function fixtureRuntimeEnvironment(spec, env) {
+  // Capacity env overrides config in production. This explicitly capped suite
+  // must not inherit a separate full-window declaration from the caller.
+  return spec.suite === 'compaction-fidelity-effective'
+    ? { ...env, COMMAND_CODE_CONTEXT_WINDOW_TOKENS: undefined } : env;
 }
 
 export function createFixtureApprover(spec, restarted, confirm, approvals, boundary = {}) {
@@ -171,10 +182,10 @@ async function stage(root, spec, restarted) {
   const taskService = { available: spec.kind !== 'background_unavailable', registered: false, running: false,
     ready: false, todoistPlanningAvailable: false, message: '隔离验收后台未运行，到点不会执行；这里只验证保存，不声称通知送达。' };
   const app = await createRuntimeApp({ args: ['--tui', join(root, 'transcripts'), '--thread', threadId, '--config', join(root, 'config.json')],
-    ...selected, output, cwd: root, env: process.env, allowWorkspaceTaskReads: true,
+    ...selected, output, cwd: root, env: fixtureRuntimeEnvironment(spec, process.env), allowWorkspaceTaskReads: true,
     taskAutomation: { status: async () => taskService, enable: async () => ({ enabled: false, message: taskService.message }) } });
   controller = createAssistantController(app);
-  const phases = [], approvals = [], memorySnapshots = [], administrativeActions = [];
+  const phases = [], approvals = [], memorySnapshots = [], administrativeActions = [], compactionRounds = [];
   let withdrawnMemory;
   let error = null, historyAtOpen;
   try {
@@ -184,6 +195,7 @@ async function stage(root, spec, restarted) {
     const boundary = { taskIds: [] };
     controller.subscribe(createFixtureApprover(spec, restarted, input => controller.confirm(input), approvals, boundary));
     for (const text of restarted ? [spec.afterRestart] : spec.turns) {
+      const compactionsBefore = isCompactionFidelity(spec) ? await app.store.getContextCompactions(threadId) : [];
       const tasksBefore = spec.category === 'reminders' ? checked(await createTaskStore(join(root, 'workspace')).list({ limit: 50 }), 'tasksBefore').tasks : null;
       boundary.taskIds = tasksBefore?.map(task => task.id) ?? [];
       const before = app.memoryStore ? await collectMemorySnapshot(join(root, 'workspace'), app, threadId) : null;
@@ -207,6 +219,12 @@ async function stage(root, spec, restarted) {
         throw new Error(`CONSOLIDATION_FAILED: ${maintenance.consolidation.error ?? maintenance.consolidation.lastAttempt.message}`);
       }
       if (snapshot.lastPrimaryResult?.status !== 'completed') throw new Error(`RUN_FAILED: ${snapshot.lastPrimaryResult?.error?.message ?? snapshot.lastPrimaryResult?.status}`);
+      if (isCompactionFidelity(spec) && !restarted) {
+        const records = await app.store.getContextCompactions(threadId);
+        const diagnostics = checked(await controller.getContextDiagnostics(), 'round diagnostics');
+        compactionRounds.push({ compactionIds: records.filter(r => !compactionsBefore.some(c => c.id === r.id)).map(r => r.id),
+          latest: records.at(-1) ?? null, estimatedInputTokens: diagnostics.lastPreparation?.estimatedInputTokens });
+      }
       if (spec.kind === 'restore_conflict' && phases.length === 1) {
         const old = before === null ? null : (await collectMemorySnapshot(join(root, 'workspace'), app, threadId)).formal
           .find(m => m.enabled && m.assertion?.factIdentity?.attribute === 'coffee' && m.assertion.factIdentity.value === 'unsweetened');
@@ -229,15 +247,15 @@ async function stage(root, spec, restarted) {
           administrativeActions.push({ action: 'restore_after_explicit_retract', ok: restored.ok, error: restored.error ?? null });
         }
       }
-      if (spec.kind === 'compact_incremental' && phases.length === 1) {
+      if (spec.kind === 'compact_incremental' && !restarted && phases.length < spec.turns.length) {
         const history = await app.store.getMessages(threadId);
-        await app.store.save(threadId, [...history, ...fixtureHistory(spec, 1).messages]);
+        await app.store.save(threadId, [...history, ...compactionHistory(spec, phases.length).messages]);
       }
     }
   } catch (cause) {
     error = safeError(cause);
   }
-  const evidence = await collectEvidence(root, spec, app, controller, { threadId, historyAtOpen, phases, approvals, memorySnapshots, administrativeActions, error, taskService,
+  const evidence = await collectEvidence(root, spec, app, controller, { threadId, historyAtOpen, phases, approvals, memorySnapshots, administrativeActions, compactionRounds, error, taskService,
     model: { alias: selected.modelAlias, provider: selected.model.provider, modelId: selected.model.modelId } });
   try { await controller.shutdown(); } catch (cause) { evidence.error ??= safeError(cause); }
   return evidence;
@@ -259,7 +277,9 @@ async function restartedStage(root, spec) {
 }
 
 export async function runE2E(caseId, variant = 0) {
-  const spec = cases.find(c => c.id === caseId) ?? (/^R[DL]\d\d$/.test(caseId) ? dailyCompactionSpec(caseId) : reliabilitySpec(caseId, variant));
+  const spec = cases.find(c => c.id === caseId) ?? (/^CF\d\d$/.test(caseId) ? compactionFidelitySpec(caseId)
+    : /^CE\d\d$/.test(caseId) ? effectiveCompactionFidelitySpec(caseId)
+    : /^R[DL]\d\d$/.test(caseId) ? dailyCompactionSpec(caseId) : reliabilitySpec(caseId, variant));
   if (!spec) throw new Error('Unknown frozen E2E case ID');
   const root = await mkdtemp(join(tmpdir(), 'serika-promptfoo-e2e-'));
   const workspace = join(root, 'workspace');
@@ -276,7 +296,7 @@ export async function runE2E(caseId, variant = 0) {
     await writeFile(join(root, 'config.json'), JSON.stringify(fixtureConfig(spec, workspace)));
     if (spec.category === 'compaction') {
       const store = new JsonlAgentStore({ directory: join(root, 'transcripts') });
-      seed = fixtureHistory(spec);
+      seed = compactionHistory(spec);
       await store.save('eval', seed.messages);
     }
     const first = await stage(root, spec, false);
@@ -285,6 +305,7 @@ export async function runE2E(caseId, variant = 0) {
       const second = await restartedStage(root, spec);
       evidence = { ...second, phases: [...first.phases, ...second.phases], approvals: [...first.approvals, ...second.approvals],
         memorySnapshots: [...first.memorySnapshots, ...second.memorySnapshots], originMemories: first.memories, originCandidates: first.candidates,
+        compactionRounds: first.compactionRounds,
         originReferences: first.references,
         usage: { calls: [...(first.usage?.calls ?? []), ...(second.usage?.calls ?? [])].filter((c, i, all) => all.findIndex(v => v.id === c.id) === i), droppedCount: Math.max(first.usage?.droppedCount ?? 0, second.usage?.droppedCount ?? 0) },
         restart: { parentPid: first.pid, childPid: second.pid, newThread: !!spec.newThread, parentHistoryIds: first.historyIds, historyIds: second.historyAtOpen,
@@ -302,7 +323,7 @@ export async function runE2E(caseId, variant = 0) {
     category: spec.category, title: spec.title, source: spec.source ?? '固定种子集', layer: 'real_model_backend', startedAt,
     finishedAt: new Date().toISOString(), durationMs: Date.now() - Date.parse(startedAt), failureClass,
     oracle, evidence, usage, model: evidence.model ?? null,
-    boundaries: { nativeElectron: 'not_run', telegram: 'not_run', simulatedTelegramIngressClock: spec.kind === 'ingress_clock', realWorker: 'not_run', productionLargeWindow: seed?.metadata ? 'production_budget_synthetic_history' : 'not_run', providerMaximumWindow: 'not_verified', syntheticInputs: true, seededCompactionHistory: spec.category === 'compaction' } };
+    boundaries: { nativeElectron: 'not_run', telegram: 'not_run', simulatedTelegramIngressClock: spec.kind === 'ingress_clock', realWorker: 'not_run', productionLargeWindow: spec.suite === 'compaction-fidelity-effective' ? 'not_run_32K_effective_scale_only' : seed?.metadata ? 'production_budget_synthetic_history' : 'not_run', providerMaximumWindow: 'not_verified', syntheticInputs: true, seededCompactionHistory: spec.category === 'compaction' } };
   // Persist safe synthetic evidence BEFORE cleanup. No user workspace or credentials copied.
   try {
     const base = join(here, 'results');
@@ -315,7 +336,9 @@ export async function runE2E(caseId, variant = 0) {
       const seeds = join(dir, 'fixtures', id); await mkdir(seeds, { recursive: true });
       await writeFile(join(seeds, 'history.json'), JSON.stringify(seed.messages));
       await writeFile(join(seeds, 'metadata.json'), JSON.stringify(seed.metadata, null, 2));
-      if (spec.kind === 'compact_incremental') await writeFile(join(seeds, 'incremental-history.json'), JSON.stringify(fixtureHistory(spec, 1).messages));
+      if (spec.kind === 'compact_incremental') for (let generation = 1; generation < spec.turns.length; generation++) {
+        await writeFile(join(seeds, generation === 1 ? 'incremental-history.json' : `incremental-history-${generation}.json`), JSON.stringify(compactionHistory(spec, generation).messages));
+      }
     }
     if (evidence.memorySnapshots?.length) {
       const snapshots = join(dir, 'snapshots', id); await mkdir(snapshots, { recursive: true });
