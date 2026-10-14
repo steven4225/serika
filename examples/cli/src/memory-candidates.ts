@@ -29,10 +29,10 @@ export interface MemoryCandidate extends CandidateDraft {
 export interface ConsolidationCursor {
   threadId: string; throughMessageId: string; prefixHash: string; lastBatchId: string; updatedAt: string;
 }
-export interface ConsolidationOutcome {
-  messageId: string;
-  status: "extracted" | "no_memory" | "deferred";
-}
+export type ConsolidationOutcome =
+  | { messageId: string; status: "extracted" | "no_memory" | "deferred"; attempts?: number }
+  /** Host-only terminal disposition; the original remains in committed history. */
+  | { messageId: string; status: "not_saved"; reason: "too_large" | "retry_exhausted"; attempts?: number };
 /** Latest bounded coverage receipt per Thread, committed with candidates and cursor. */
 export interface ConsolidationReceipt {
   threadId: string; batchId: string; payloadHash: string; outcomes: ConsolidationOutcome[];
@@ -66,6 +66,8 @@ export interface CandidateBatchInput {
   /** Trusted lifecycle flag; selected history never overwrites incremental retry coverage. */
   incremental?: true;
   sourcePrefix?: ConsolidationReceipt["sourcePrefix"];
+  /** Host CAS for persisted retries even when the cursor has not advanced. */
+  expectedReceiptHash?: string | null;
 }
 export interface CandidateBatchResult {
   /** All retained proposal identities, including existing reviews reused by deduplication. */

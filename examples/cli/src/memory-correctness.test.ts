@@ -6,7 +6,7 @@ import { test } from "node:test";
 import type { UIMessage } from "ai";
 import { AUTO_CONSOLIDATION_AGENT_ID } from "./consolidation.js";
 import { createMemoryConsolidation, prepareConsolidationExtraction, stageConsolidationExtraction, type MemoryProposal } from "./memory-consolidation.js";
-import { createMemoryStore } from "./memory-store.js";
+import { createMemoryStore, type WorkspaceMemoryStore } from "./memory-store.js";
 import type { MemoryFactIdentity } from "./memory-fact-identity.js";
 import { retrieveMemories } from "./memory-retrieval.js";
 
@@ -17,7 +17,7 @@ async function fixture() {
   let messages: UIMessage[] = [], sequence = 0;
   let clock = new Date("2026-10-10T00:00:00.000Z");
   const store = createMemoryStore(directory);
-  const service = () => createMemoryConsolidation({ store: createMemoryStore(directory), threadId: "thread",
+  const service = (override?: WorkspaceMemoryStore) => createMemoryConsolidation({ store: override ?? createMemoryStore(directory), threadId: "thread",
     getMessages: async () => messages, writePolicy: "automatic", now: () => new Date(clock), generateId: () => `batch-${++sequence}` });
   const extract = async (proposals: MemoryProposal[], outcomes?: Array<{ messageId: string; status: string }>) => {
     clock = new Date(clock.getTime() + 1000);
@@ -272,17 +272,81 @@ test("eval repair boundary: deferred fallback reuses the existing pending review
   } finally { await f.cleanup(); }
 });
 
-test("eval repair boundary: oversized fallback stays deferred with no clipped quote or cursor advance", async () => {
+test("oversized fallback records an explicit unsaved disposition and advances later sources across restart", async () => {
   const f = await fixture();
   try {
-    f.addMessage("u1", `我的咖啡偏好是加糖。${"补充说明。".repeat(200)}`);
-    const extracted = await f.extract([], [{ messageId: "u1", status: "no_memory" }]);
-    assert.equal(extracted.result.processedCount, 0);
-    const cursor = await f.store.getConsolidationCursor("thread"); assert.ok(cursor.ok); assert.equal(cursor.value, null);
+    const text = `我的咖啡偏好是加糖。${"补充说明。".repeat(200)}`;
+    f.addMessage("u1", text);
+    const residence = f.statement("u2", "我住在杭州。", { attribute: "residence", scenario: "general", value: "杭州" });
+    const extracted = await f.extract([residence], [{ messageId: "u1", status: "no_memory" }, { messageId: "u2", status: "extracted" }]);
+    assert.equal(extracted.result.processedCount, 2);
+    assert.ok(JSON.stringify(extracted.prepared).includes(text), "the source is not clipped or replaced");
+    const cursor = await f.store.getConsolidationCursor("thread"); assert.ok(cursor.ok); assert.equal(cursor.value?.throughMessageId, "u2");
     const receipt = await f.store.getConsolidationReceipt!("thread"); assert.ok(receipt.ok);
-    assert.equal(receipt.value?.outcomes[0]?.status, "deferred");
+    assert.deepEqual(receipt.value?.outcomes[0], { messageId: "u1", status: "not_saved", reason: "too_large" });
+    const reopened = createMemoryStore(f.directory);
+    assert.deepEqual(await reopened.getConsolidationReceipt!("thread"), receipt);
     const pending = await f.store.listCandidates({ status: "pending" }, undefined, { boundThreadId: "thread" }); assert.ok(pending.ok);
     assert.equal(pending.value.candidates.length, 0);
+    const next = await f.extract([f.statement("u3", "我喝咖啡不加糖。")]);
+    assert.equal(next.result.processedCount, 1);
+    assert.equal("user" in next.prepared.turns[0]! && next.prepared.turns[0].user.messageId, "u3");
+  } finally { await f.cleanup(); }
+});
+
+test("oversized source with a valid short exact quote is saved normally", async () => {
+  const f = await fixture();
+  try {
+    const quote = "我的咖啡偏好是加糖。";
+    f.addMessage("u1", `${quote}${"补充说明。".repeat(200)}`);
+    const result = await f.extract([{ action: "add", text: quote, sourceMessageId: "u1", sourceQuote: quote,
+      kind: "preference", factIdentity: coffee("sweetened"), reason: "明确偏好", eligibility: "durable_self_statement" }]);
+    assert.equal(result.result.processedCount, 1); assert.equal(result.result.accepted?.length, 1);
+    const receipt = await f.store.getConsolidationReceipt!("thread"); assert.ok(receipt.ok);
+    assert.deepEqual(receipt.value?.outcomes, [{ messageId: "u1", status: "extracted" }]);
+  } finally { await f.cleanup(); }
+});
+
+test("oversized fallback does not turn a transient deferred outcome into a terminal disposition", async () => {
+  const f = await fixture();
+  try {
+    f.addMessage("u1", `我喝咖啡加糖。${"补充说明。".repeat(200)}`);
+    const result = await f.extract([], [{ messageId: "u1", status: "deferred" }]);
+    assert.equal(result.result.processedCount, 0);
+    const receipt = await f.store.getConsolidationReceipt!("thread"); assert.ok(receipt.ok);
+    assert.deepEqual(receipt.value?.outcomes, [{ messageId: "u1", status: "deferred", attempts: 1 }]);
+  } finally { await f.cleanup(); }
+});
+
+test("oversized disposition and cursor do not survive a failed commit or cancelled extraction", async () => {
+  const f = await fixture();
+  try {
+    f.addMessage("u1", `我喝咖啡加糖。${"补充说明。".repeat(200)}`);
+    const failing = new Proxy(f.store, { get(target, property) {
+      if (property === "commitCandidateBatch") return async () => ({ ok: false, error: { code: "MEMORY_WRITE_FAILED", message: "injected" } });
+      const value = Reflect.get(target, property); return typeof value === "function" ? value.bind(target) : value;
+    } });
+    for (const status of ["completed", "cancelled"]) {
+      const service = f.service(failing); service.begin(AUTO_CONSOLIDATION_AGENT_ID);
+      const batch = await service.prepare({ mode: "incremental" }); assert.ok(batch.ok);
+      assert.ok((await service.stage({ batchId: batch.value.batchId, proposals: [], outcomes: [{ messageId: "u1", status: "no_memory" }] })).ok);
+      assert.equal((await service.finalize({ status })).ok, status === "cancelled");
+      const cursor = await f.store.getConsolidationCursor("thread"); assert.ok(cursor.ok); assert.equal(cursor.value, null);
+      const receipt = await f.store.getConsolidationReceipt!("thread"); assert.ok(receipt.ok); assert.equal(receipt.value, null);
+    }
+  } finally { await f.cleanup(); }
+});
+
+test("model cannot forge an oversized terminal disposition", async () => {
+  const f = await fixture();
+  try {
+    f.addMessage("u1", "我喝咖啡加糖。");
+    const service = f.service(); service.begin(AUTO_CONSOLIDATION_AGENT_ID);
+    const batch = await service.prepare({ mode: "incremental" }); assert.ok(batch.ok);
+    const staged = await service.stage({ batchId: batch.value.batchId, proposals: [],
+      outcomes: [{ messageId: "u1", status: "not_saved", reason: "too_large" }] });
+    assert.equal(staged.ok, false); assert.equal((await service.finalize({ status: "completed" })).ok, false);
+    const cursor = await f.store.getConsolidationCursor("thread"); assert.ok(cursor.ok); assert.equal(cursor.value, null);
   } finally { await f.cleanup(); }
 });
 
