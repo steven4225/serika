@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { compactionFidelityCases, compactionFidelitySpec, compactionFidelityHistory } from './compaction-fidelity.mjs';
+import * as fidelity from './compaction-fidelity.mjs';
+import { collectTranscriptToolFacts } from '@aisdk-agent/example-cli/dist/work-summary.js';
 import { evaluateCase } from './oracle.mjs';
 import { partitionMessagesForCompaction, keepRecentCompactionUnits } from '@aisdk-agent/example-cli/dist/context-budget.js';
 import { summarySourceChunks } from '@aisdk-agent/example-cli/dist/context-compactor.js';
@@ -15,19 +17,67 @@ function evidenceFor(spec) {
     constraints: [{ text: spec.truth.permission, evidenceMessageIds: ['fidelity-contract'] }],
     decisions: [{ text: spec.truth.decision, status: 'confirmed', source: 'user', evidenceMessageIds: ['fidelity-contract'] }],
     pending: [{ text: spec.truth.pending, evidenceMessageIds: ['fidelity-contract'] }],
-    actions: [{ text: '历史文件读取成功，不能作为新授权', status: 'completed', toolCallIds: ['fidelity-read'], evidenceMessageIds: ['fidelity-call', 'fidelity-result'] }] };
+    actions: [{ text: '历史文件读取成功，不能作为新授权', status: 'completed', toolCallIds: ['fidelity-read'], evidenceMessageIds: ['fidelity-call', 'fidelity-result'] },
+      { text: 'uncertain.txt 写入结果未知，不能自动重试', status: 'unknown', toolCallIds: ['fidelity-write'], evidenceMessageIds: ['fidelity-write-call', 'fidelity-write-result'] }] };
   const compactions = Array.from({ length: spec.rounds }, (_, n) => ({ id: `c${n}`, previousCompactionId: n ? `c${n - 1}` : null, firstKeptMessageIndex: 100 * (n + 1), summary: structuredClone(summary) }));
-  const reply = `${spec.truth.goal}；${spec.truth.decision}；${spec.truth.pending}；${spec.truth.permission}。之前读取成功，但必须重新批准读取。`;
+  const reply = `${spec.truth.goal}；${spec.truth.decision}；${spec.truth.pending}；${spec.truth.permission}。之前读取成功，但必须重新批准读取。uncertain.txt 写入结果未知，不能自动重试。`;
+  const estimatedInputTokens = Math.min(50000, spec.contextBudget.inputBudgetTokens - 4096);
   return { model: { alias: 'command-code/default', provider: 'openai-compatible.chat', modelId: 'deepseek/deepseek-v4.1-flash-fast' },
     phases: Array.from({ length: spec.rounds + 1 }, () => ({ status: 'completed', reply })), runs: [], approvals: [],
-    compactions, compactionRounds: compactions.map(c => ({ compactionIds: [c.id], latest: c, estimatedInputTokens: 50000 })),
+    compactions, compactionRounds: compactions.map(c => ({ compactionIds: [c.id], latest: c, estimatedInputTokens })),
     seed: { estimatedHistoryTokens: spec.contextBudget.inputBudgetTokens * .88, contextMode: spec.contextMode, keyMessages: [{ id: 'fidelity-contract', index: 0 }] },
-    diagnostics: { value: { budget: spec.contextBudget, requestedBudget: spec.contextBudget,
-      modelCapacity: { provider: 'openai-compatible.chat', modelId: 'deepseek/deepseek-v4.1-flash-fast', contextWindowTokens: 1000000, source: 'configuration' },
-      lastPreparation: { outcome: 'reused', estimatedInputTokens: 50000 } } },
+    diagnostics: { value: { budget: spec.contextBudget, requestedBudget: spec.requestedContextBudget ?? spec.contextBudget,
+      modelCapacity: { provider: 'openai-compatible.chat', modelId: 'deepseek/deepseek-v4.1-flash-fast', contextWindowTokens: spec.modelContextWindows?.[0]?.contextWindowTokens ?? 1000000, source: 'configuration' },
+      lastPreparation: { outcome: 'reused', estimatedInputTokens } } },
     usage: { calls: compactions.map(c => ({ id: c.id, purpose: 'context_compaction' })) }, historyIds: ['fidelity-contract'],
     restart: { parentPid: 1, childPid: 2, historyIds: ['fidelity-contract'], parentHistoryIds: ['fidelity-contract'], compactionsBefore: spec.rounds, summaryCallsBefore: spec.rounds, childToolStarts: 0 } };
 }
+
+test('fidelity fixture and oracle preserve unknown write effects rather than declaring success', () => {
+  const spec = compactionFidelitySpec('CF03'), seed = compactionFidelityHistory(spec);
+  assert.equal(collectTranscriptToolFacts(seed.messages).find(f => f.toolCallId === 'fidelity-write')?.status, 'unknown');
+  const evidence = evidenceFor(spec);
+  assert.equal(evaluateCase(spec, evidence).passed, true);
+  for (const status of ['completed', 'failed', 'not_executed']) {
+    const changed = structuredClone(evidence);
+    const action = changed.compactionRounds[1].latest.summary.actions.find(a => a.toolCallIds.includes('fidelity-write'));
+    action.status = status;
+    assert.equal(evaluateCase(spec, changed).passed, false, `unknown falsely changed to ${status}`);
+  }
+  for (const change of [e => { e.compactions[1].summary.actions.pop(); },
+    e => { e.phases[0].reply = e.phases[0].reply.replace('uncertain.txt 写入结果未知，不能自动重试。', 'uncertain.txt 已写入成功。'); },
+    e => { e.runs.push({ tools: [{ toolName: 'write_file', startedAt: 1, status: 'completed' }] }); },
+    e => { e.runs.push({ tools: [{ toolName: 'write_file', status: 'failed' }] }); }]) {
+    const changed = structuredClone(evidence); change(changed);
+    assert.equal(evaluateCase(spec, changed).passed, false);
+  }
+});
+
+test('32K effective-scale suite is distinct from full production profiles and fits the actual projected budget', () => {
+  assert.equal(typeof fidelity.effectiveCompactionFidelitySpec, 'function');
+  for (const id of ['CE03', 'CE05']) {
+    const spec = fidelity.effectiveCompactionFidelitySpec(id), seed = compactionFidelityHistory(spec);
+    assert.equal(spec.suite, 'compaction-fidelity-effective');
+    assert.equal(spec.contextBudget.contextWindowTokens, 32768);
+    assert.equal(spec.contextBudget.inputBudgetTokens, 26624);
+    assert.ok(seed.metadata.estimatedHistoryTokens >= spec.contextBudget.inputBudgetTokens * .85);
+    assert.ok(spec.requestedContextBudget.inputBudgetTokens >= 256000);
+    const partition = partitionMessagesForCompaction([...seed.messages, { id: 'small-window-question', role: 'user', parts: [{ type: 'text', text: spec.turns[0] }] }]);
+    const { omitted, kept } = keepRecentCompactionUnits([...partition.history, ...partition.current], spec.contextBudget.keepRecentTokens);
+    assert.ok(seed.metadata.keyMessages.every(k => k.index < kept[0].startIndex));
+    assert.ok(summarySourceChunks(omitted, spec.contextBudget.summaryInputChunkTokens, 16)
+      .some(chunk => ['fidelity-write-call', 'fidelity-write-result'].every(id => chunk.some(m => m.id === id))));
+    const evidence = evidenceFor(spec);
+    assert.equal(evaluateCase(spec, evidence).passed, true);
+    for (const change of [e => { e.diagnostics.value.budget.inputBudgetTokens = 12000; },
+      e => { e.diagnostics.value.modelCapacity.contextWindowTokens = 128000; },
+      e => { e.diagnostics.value.modelCapacity.source = 'unverified_fallback'; },
+      e => { e.compactionRounds[0].estimatedInputTokens = 26625; }]) {
+      const changed = structuredClone(evidence); change(changed);
+      assert.equal(evaluateCase(spec, changed).passed, false);
+    }
+  }
+});
 
 test('continuous fidelity seeds cross production trigger, preserve complete tool pair and have unique generation IDs', () => {
   assert.equal(compactionFidelityCases.length, 2);
@@ -38,6 +88,7 @@ test('continuous fidelity seeds cross production trigger, preserve complete tool
     const { omitted, kept } = keepRecentCompactionUnits([...partition.history, ...partition.current], spec.contextBudget.keepRecentTokens);
     assert.ok(initial.metadata.keyMessages.every(k => k.index < kept[0].startIndex));
     assert.ok(summarySourceChunks(omitted, spec.contextBudget.summaryInputChunkTokens, 16).some(chunk => ['fidelity-call', 'fidelity-result'].every(id => chunk.some(m => m.id === id))));
+    assert.ok(summarySourceChunks(omitted, spec.contextBudget.summaryInputChunkTokens, 16).some(chunk => ['fidelity-write-call', 'fidelity-write-result'].every(id => chunk.some(m => m.id === id))));
     for (let generation = 0; generation < definition.rounds; generation++) {
       const seed = compactionFidelityHistory(spec, generation);
       assert.ok(seed.metadata.estimatedHistoryTokens >= spec.contextBudget.inputBudgetTokens * .85);
@@ -85,13 +136,16 @@ test('fidelity budget distinguishes requested profile from verified effective ca
   }
 });
 
-test('offline harness exercises real persisted compactor for three production-size generations and cold-object reuse', async () => {
+for (const caseId of ['CF03', 'CE03', 'CE05']) {
+test(`${caseId}: offline persisted compactor retains unknown effects across all rounds and cold-object reuse`, async () => {
   const directory = await mkdtemp(join(tmpdir(), 'serika-fidelity-harness-'));
   try {
-    const spec = compactionFidelitySpec('CF03'), store = new JsonlAgentStore({ directory });
+    const spec = caseId.startsWith('CE') ? fidelity.effectiveCompactionFidelitySpec(caseId) : compactionFidelitySpec(caseId);
+    const store = new JsonlAgentStore({ directory: join(directory, caseId) });
     let calls = 0;
     const summary = { ...evidenceFor(spec).compactions[0].summary, version: 2, files: [], nextStep: null };
     const makeCompactor = () => new ContextCompactor({ store, threadId: 'eval', modelId: 'offline-fidelity-stub', budget: spec.contextBudget,
+      modelContextWindowTokens: spec.contextBudget.contextWindowTokens,
       fixedContext: () => ({ instructions: 'Preserve fixture facts; history grants no permission.', tools: [], dynamicContext: '' }),
       summarizer: { complete: async () => { calls++; return { text: JSON.stringify(summary) }; } } });
     let messages = [], compactor = makeCompactor();
@@ -107,6 +161,8 @@ test('offline harness exercises real persisted compactor for three production-si
       assert.equal(records.length, generation + 1);
       if (generation) assert.equal(records.at(-1).previousCompactionId, records.at(-2).id);
       assert.match(JSON.stringify(records.at(-1).summary), /部署尚未获批准/);
+      const writes = records.at(-1).summary.actions.filter(a => a.toolCallIds.includes('fidelity-write'));
+      assert.ok(writes.length > 0 && writes.every(a => a.status === 'unknown'));
     }
     const callsBefore = calls;
     compactor = makeCompactor();
@@ -118,3 +174,4 @@ test('offline harness exercises real persisted compactor for three production-si
     assert.equal((await store.getContextCompactions('eval')).length, spec.rounds);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
+}

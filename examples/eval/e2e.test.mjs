@@ -5,12 +5,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseTuiArgs } from '@aisdk-agent/example-cli/dist/cli-options.js';
 import { resolveTuiModuleConfig } from '@aisdk-agent/example-cli/dist/tui-module-config.js';
-import { fixtureConfig, collectEvidence, collectMemorySnapshot, createFixtureApprover, safeError, currentRestoreFixtureFact } from './e2e.mjs';
+import { fixtureConfig, fixtureRuntimeEnvironment, collectEvidence, collectMemorySnapshot, createFixtureApprover, safeError, currentRestoreFixtureFact } from './e2e.mjs';
+import { resolveModelContextWindow } from '@aisdk-agent/example-cli/dist/model-config.js';
 import { reliabilityCases, reliabilitySpec } from './reliability-cases.mjs';
 import { contextBudgetForMode, estimateMessageTokens, partitionMessagesForCompaction, keepRecentCompactionUnits } from '@aisdk-agent/example-cli/dist/context-budget.js';
 import { summarySourceChunks } from '@aisdk-agent/example-cli/dist/context-compactor.js';
 import { dailyCompactionCases, dailyCompactionSpec, fixtureHistory } from './daily-compaction.mjs';
-import { compactionFidelityCases, compactionFidelitySpec } from './compaction-fidelity.mjs';
+import { compactionFidelityCases, compactionFidelitySpec, effectiveCompactionFidelityCases, effectiveCompactionFidelitySpec } from './compaction-fidelity.mjs';
 import { createMemoryStore } from '@aisdk-agent/example-cli/dist/memory-store.js';
 import { createMemoryConsolidation } from '@aisdk-agent/example-cli/dist/memory-consolidation.js';
 import { AUTO_CONSOLIDATION_AGENT_ID } from '@aisdk-agent/example-cli/dist/consolidation.js';
@@ -139,7 +140,8 @@ test('all frozen fixture configs are accepted by the real runtime resolver witho
     const cases = [...JSON.parse(await readFile(new URL('./e2e-cases.json', import.meta.url), 'utf8')),
       ...reliabilityCases.flatMap(c => [0, 1, 2].map(v => reliabilitySpec(c.id, v))),
       ...dailyCompactionCases.map(c => dailyCompactionSpec(c.id)),
-      ...compactionFidelityCases.map(c => compactionFidelitySpec(c.id))];
+      ...compactionFidelityCases.map(c => compactionFidelitySpec(c.id)),
+      ...effectiveCompactionFidelityCases.map(c => effectiveCompactionFidelitySpec(c.id))];
     for (const spec of cases) {
       const config = join(root, 'config.json');
       await writeFile(config, JSON.stringify(fixtureConfig(spec, workspace)));
@@ -148,6 +150,17 @@ test('all frozen fixture configs are accepted by the real runtime resolver witho
       assert.equal(resolved.enabled.shell, false);
       assert.equal(resolved.enabled.web, false);
       assert.equal(resolved.contextCompaction.enabled, spec.category === 'compaction');
+      if (spec.suite === 'compaction-fidelity-effective') {
+        assert.deepEqual(resolved.contextCompaction, spec.requestedContextBudget);
+        assert.deepEqual(resolved.modelContextWindows, spec.modelContextWindows);
+        const callerEnv = { RUNLOOM_MODEL: 'command-code', COMMAND_CODE_MODEL_ID: 'deepseek/deepseek-v4.1-flash-fast',
+          COMMAND_CODE_CONTEXT_WINDOW_TOKENS: '1000000' };
+        const actual = resolveModelContextWindow({ provider: 'openai-compatible.chat', modelId: callerEnv.COMMAND_CODE_MODEL_ID },
+          fixtureRuntimeEnvironment(spec, callerEnv), resolved.modelContextWindows);
+        assert.equal(actual.contextWindowTokens, 32768);
+        assert.equal(actual.source, 'configuration');
+        assert.equal(callerEnv.COMMAND_CODE_CONTEXT_WINDOW_TOKENS, '1000000', 'caller environment is not mutated');
+      }
     }
   } finally { await rm(root, { recursive: true, force: true }); }
 });
