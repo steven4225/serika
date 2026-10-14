@@ -34,6 +34,24 @@ test("real Controller/Bridge pagination counts four actionable adds in both Toda
     }));
     const expired = { ...drafts[0]!, change: { ...drafts[0]!.change, text: "已经过期的待审", expiresAt: "2000-01-01T00:00:00.000Z" }, source: { ...drafts[0]!.source, messageId: "expired" } };
     const batch = await app.memoryStore!.commitCandidateBatch({ batchId: "pending-batch", originThreadId: "pending-thread", expectedCursor: null, nextCursor: null, candidates: [...drafts, expired] }, undefined, { boundThreadId: "pending-thread", now: new Date("1999-01-01T00:00:00.000Z") }); assert.ok(batch.ok, JSON.stringify(batch));
+    const expiredPreview = await bridge.getMemoryCandidate(batch.value.candidateIds[4]!); assert.ok(expiredPreview.ok);
+    assert.equal(expiredPreview.value.candidate.status, "pending");
+    assert.equal(expiredPreview.value.applicable, false);
+    assert.equal(expiredPreview.value.unavailableReason, "expired");
+    const occupied = await app.memoryStore!.checkCandidateCapacity(); assert.ok(occupied.ok); assert.equal(occupied.value.pendingCount, 5);
+    const withExpired = await loadActionablePending(bridge, "pending-thread"); assert.ok(withExpired.ok);
+    assert.equal(withExpired.value.candidates.length, 5, "expired pending remains visible and counted while it occupies capacity and can be rejected");
+    let expiredState = pendingMemoryReducer(initialPendingMemory(), { type: "list-result", request: 0, result: withExpired });
+    expiredState = pendingMemoryReducer(expiredState, { type: "select", id: expiredPreview.value.candidate.id, request: 1 });
+    expiredState = pendingMemoryReducer(expiredState, { type: "detail-result", id: expiredPreview.value.candidate.id, request: 1, result: expiredPreview });
+    assert.equal(canAccept(expiredState), false); assert.equal(canReject(expiredState), true);
+    const expiredCard = renderToStaticMarkup(createElement(PendingMemoryCard, { state: expiredState, status: pendingMemoryStatus(expiredState, true, true, true), enabled: true, visible: true, controllerIdle: true, fresh: true, onResolve: () => {}, onReload: () => {} }));
+    assert.match(expiredCard, /5 条待审/);
+    assert.match(expiredCard, /已经过期/);
+    assert.match(expiredCard, /disabled=""[^>]*>保存这条记忆/);
+    assert.doesNotMatch(expiredCard, /disabled=""[^>]*>不保存这项/);
+    const discardExpired = await bridge.resolveMemoryCandidate(resolvePayload(expiredPreview.value, "reject")); assert.ok(discardExpired.ok);
+    const freed = await app.memoryStore!.checkCandidateCapacity(); assert.ok(freed.ok); assert.equal(freed.value.pendingCount, 4);
     const foreign = await app.memoryStore!.commitCandidateBatch({ batchId: "foreign", originThreadId: "foreign-thread", expectedCursor: null, nextCursor: null, candidates: [{ ...drafts[0]!, source: { ...drafts[0]!.source, threadId: "foreign-thread" } }] }, undefined, { boundThreadId: "foreign-thread" }); assert.ok(foreign.ok);
     const api = { listMemoryCandidates: (input: Parameters<RuntimeBridge["listMemoryCandidates"]>[0]) => bridge!.listMemoryCandidates({ ...input, limit: 2 }), getMemoryCandidate: (id: string) => bridge!.getMemoryCandidate(id) };
     const page = await loadActionablePending(api, "pending-thread"); assert.ok(page.ok);
@@ -76,7 +94,7 @@ test("real Controller/Bridge pagination counts four actionable adds in both Toda
     }] }, undefined, { boundThreadId: "pending-thread" }); assert.ok(toStale.ok);
     const changed = await controller.updateMemory({ id: entry.id, expectedRevision: entry.revision!, text: "手动调整后的内容" }); assert.ok(changed.ok);
     const stale = await bridge.getMemoryCandidate(toStale.value.candidateIds[0]!); assert.ok(stale.ok); assert.equal(stale.value.candidate.status, "stale");
-    const stable = await loadActionablePending(api, "pending-thread"); assert.ok(stable.ok); assert.equal(stable.value.candidates.length, 3, "stale updates and expired adds do not inflate the count");
+    const stable = await loadActionablePending(api, "pending-thread"); assert.ok(stable.ok); assert.equal(stable.value.candidates.length, 3, "terminal stale updates do not inflate the count");
     const identity = { attribute: "coffee" as const, scenario: "general" as const, value: "unsweetened" as const };
     const seed = await app.memoryStore!.commitCandidateBatch({ batchId: "coffee-current", originThreadId: "pending-thread", expectedCursor: null, nextCursor: null, candidates: [{
       change: { operation: "add", text: "我喝咖啡不加糖", kind: "preference", factIdentity: identity, scope: { kind: "workspace" }, expiresAt: null }, source: { ...drafts[0]!.source, messageId: "coffee-current", quote: "我喝咖啡不加糖" }, reason: "明确长期偏好",
@@ -111,6 +129,10 @@ test("pending read keeps capacity-limited reviews, filters foreign/stale detail,
   const preview = { candidate, current: null, proposed: null, applicable: false, unavailableReason: "MEMORY_LIMIT_EXCEEDED" } as import("@aisdk-agent/example-cli/dist/memory-candidates.js").CandidatePreview;
   const read = await loadActionablePending({ listMemoryCandidates: async () => ({ ok: true, value: { candidates: [candidate, { ...candidate, id: "foreign", originThreadId: "other" }, { ...candidate, id: "stale", status: "stale" }], nextOffset: null, truncated: false } }), getMemoryCandidate: async () => ({ ok: true, value: preview }) }, "thread");
   assert.ok(read.ok); assert.deepEqual(read.value.candidates.map(item => item.id), ["limited"]);
+  for (const unavailableReason of ["expired", "target_changed", "target_missing", "MEMORY_REVISION_CONFLICT"]) {
+    const pending = await loadActionablePending({ listMemoryCandidates: async () => ({ ok: true, value: { candidates: [candidate], nextOffset: null, truncated: false } }), getMemoryCandidate: async () => ({ ok: true, value: { ...preview, unavailableReason } }) }, "thread");
+    assert.ok(pending.ok); assert.equal(pending.value.candidates.length, 1, `${unavailableReason} does not silently settle a pending review`);
+  }
   const failed = await loadActionablePending({ listMemoryCandidates: async () => ({ ok: false, error: { code: "READ_FAILED", message: "fixture" } }), getMemoryCandidate: async () => ({ ok: true, value: preview }) }, "thread");
   assert.equal(failed.ok, false, "read failure is not zero pending");
 });

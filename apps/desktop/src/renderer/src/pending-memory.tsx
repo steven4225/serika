@@ -177,7 +177,9 @@ export function PendingMemoryCard({ state, status, enabled, visible, controllerI
   const unavailableReason = preview ? unavailableLabel(preview) : null;
   const unavailable = unavailableReason === "MEMORY_REVISION_CONFLICT" || unavailableReason === "MEMORY_TEMPORAL_CONFLICT"
     ? "当前已有不同的有效记忆，暂时不能直接保存；可以不保存这项，或打开详细审核。"
-    : unavailableReason?.includes("LIMIT") ? "记忆历史或容量已满，暂时不能保存；可以保留原记忆，或打开详细审核。"
+    : unavailableReason === "expired" || unavailableReason === "MEMORY_EXPIRED" ? "这项已经过期，不能保存；仍可选择不保存这项，移出待确认列表。"
+      : unavailableReason === "target_changed" || unavailableReason === "target_missing" ? "原记忆已经变化或不存在，不能直接保存；仍可保留原记忆，或打开详细审核。"
+        : unavailableReason?.includes("LIMIT") ? "记忆历史或容量已满，暂时不能保存；可以保留原记忆，或打开详细审核。"
       : unavailableReason ? "这项暂时不能直接保存，请打开详细审核核对；原记忆没有被覆盖。" : null;
   const ready = visible && controllerIdle && fresh;
 

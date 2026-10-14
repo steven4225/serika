@@ -23,10 +23,9 @@ export async function loadActionablePending(api: PendingMemoryReadApi, threadId:
         return detail;
       }
       const preview = detail.value;
-      // A semantic conflict/capacity limit may disable acceptance, but the
-      // user can still reject it. Only definite expiry/target loss is omitted.
-      const invalid = ["expired", "target_changed", "target_missing", "duplicate", "MEMORY_EXPIRED"].includes(preview.unavailableReason ?? "");
-      if (preview.candidate.originThreadId === threadId && preview.candidate.status === "pending" && !invalid) candidates.push(preview.candidate);
+      // Preview unavailability never resolves a pending candidate. Even expiry
+      // or target loss still occupies capacity and permits explicit rejection.
+      if (preview.candidate.originThreadId === threadId && preview.candidate.status === "pending") candidates.push(preview.candidate);
     }
     const next = page.value.nextOffset;
     if (next === null) return { ok: true, value: { candidates, nextOffset: null, truncated: false } };
