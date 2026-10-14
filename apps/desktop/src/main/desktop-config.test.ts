@@ -77,6 +77,9 @@ describe("desktop TUI config", () => {
     assert.ok(DESKTOP_DEFAULT_SHELL_TIMEOUT_MS > 30_000);
     assert.deepEqual(config.contextCompaction, contextBudgetForMode("daily"));
     assert.equal((config.modules as { memory: { writePolicy: string } }).memory.writePolicy, "automatic");
+    const memory = (config.modules as { memory: { contextView?: { enabled: boolean }; semantic?: unknown } }).memory;
+    assert.deepEqual(memory.contextView, { enabled: true });
+    assert.equal(memory.semantic, undefined, "new defaults cannot install or silently enable an embedding service");
   });
 
   it("fills missing timeouts without changing explicit values", () => {
@@ -89,6 +92,18 @@ describe("desktop TUI config", () => {
     assert.equal((config.run as { totalTimeoutMs: number; maxSteps: number }).totalTimeoutMs, DESKTOP_DEFAULT_TOTAL_TIMEOUT_MS);
     assert.equal((config.run as { maxSteps: number }).maxSteps, 8);
     assert.equal((config.modules as { shell: { timeoutMs: number } }).shell.timeoutMs, 45_000);
+  });
+
+  it("does not silently enable derived profile or semantic indexing in existing daily configurations", async () => {
+    const root = await mkdtemp(join(tmpdir(), "serika-existing-memory-config-"));
+    try {
+      const workspace = join(root, "workspace"); await mkdir(workspace);
+      const configPath = join(root, "runloom.json");
+      const config = { version: 1, workspace, modules: { memory: { enabled: true, autoConsolidate: true, writePolicy: "automatic" }, shell: { enabled: false } } };
+      await writeFile(configPath, JSON.stringify(config));
+      await resolveDesktopConfig({ env: {}, userData: root, cwd: root });
+      assert.deepEqual(JSON.parse(await readFile(configPath, "utf8")).modules.memory, config.modules.memory);
+    } finally { await rm(root, { recursive: true, force: true }); }
   });
 
   it("leaves RUNLOOM_CONFIG untouched", async () => {

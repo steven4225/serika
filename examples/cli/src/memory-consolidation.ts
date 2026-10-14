@@ -49,6 +49,8 @@ export interface MemoryProposal {
   recallTerms?: string[];
   validTime?: MemoryValidTime;
   effectiveAt?: string;
+  /** Source-bound explicit present preference transition; not an approval token. */
+  changeIntent?: { type: "replace_from_now"; sourceQuote: string };
   /** Model judgment, never a source of authorization or a semantic guarantee. */
   eligibility?: "durable_self_statement" | "explicit_request" | "needs_review" | "ignore";
 }
@@ -79,6 +81,7 @@ interface Batch {
   selected?: OrdinaryTurn[];
   drafts?: CandidateDraft[];
   autoAcceptIndexes?: number[];
+  resolveNowIndexes?: number[];
   outcomes?: ConsolidationOutcome[];
   processedCount?: number;
   sourcePrefix?: { throughMessageId: string; prefixHash: string } | null;
@@ -218,6 +221,33 @@ function containsKnownOptOut(text: string): boolean {
 function requiresKnownReview(text: string): boolean {
   return /(?:不要|不得|别)(?:保存|写入)|(?:未经|没有).{0,12}(?:确认|同意).{0,12}(?:不得|不要|不准)|(?:先|等).{0,10}(?:审核|确认).{0,10}(?:再|才).{0,8}(?:保存|写入)|\b(?:do not|don't) (?:save|write)|\bproposals? only\b/i.test(text);
 }
+/** A deliberately narrow affirmative anchor, not a general intent classifier.
+ * The full single-source clause is required so qualifiers cannot be stripped.
+ */
+function explicitFromNow(proposal: MemoryProposal, draft: CandidateDraft, selected: OrdinaryTurn[], memories: ConsolidationMemory[], threadId: string, now: Date): boolean {
+  const change = draft.change;
+  if (change.operation !== "change" || change.effectiveAt !== null || !proposal.changeIntent) return false;
+  const sources = draft.sources ?? [draft.source];
+  if (sources.length !== 1) return false;
+  const source = sources[0]!;
+  const whole = selected.find(turn => turn.user.id === source.messageId)?.user.text;
+  if (proposal.changeIntent.sourceQuote !== source.quote || source.quote !== whole) return false;
+  const text = source.quote.trim();
+  if (!/^(?:(?:从现在起|从现在开始|以后|今后)[，,\s]*(?:我|咖啡|复盘|回复|回答)|我(?:的)?(?:从现在起|从现在开始|以后|今后|现在)|(?:请)?把我的)/.test(text) ||
+    !/(?:改成|改为)/.test(text) ||
+    /[?？“”「」"‘’；;\n]|如果|假如|假设|假装|设想|例如|比如|举例|示例|转述|他|她|朋友|同事|妈妈|爸爸|别人|不要|不改|别改|不想|不希望|不愿|打算|计划|没决定|不确定|假话|不能|不应|禁止|拒绝|不是|并非|明天|明年|下周|下个月|之后|以后再|将来|等到|考虑|可能|试试/.test(text)) return false;
+  const target = memories.find(entry => entry.id === change.memoryId && entry.revision === change.expectedRevision);
+  const identity = change.factIdentity;
+  const observed = statedPreference(text) ?? statedLanguagePreference(text);
+  const body = statedPreference(change.text) ?? statedLanguagePreference(change.text);
+  const restricted = statedThreadScope(text);
+  return !!target && target.enabled && activeTarget(target, now) && target.assertion?.kind === "preference" && change.kind === "preference" &&
+    sameFactSlot(target.assertion.factIdentity, identity) && !sameFact(target.assertion.factIdentity, identity) &&
+    !!identity && !!observed && !!body && observed.attribute === identity.attribute && observed.value === identity.value &&
+    body.attribute === identity.attribute && body.value === identity.value &&
+    (change.expiresAt ?? null) === (target.expiresAt ?? null) &&
+    (restricted === undefined || restricted === "explicit" && target.scope?.kind === "thread" && target.scope.threadId === threadId);
+}
 type ProposalDraftResult = MemoryResult<CandidateDraft> & { contentInvalid?: true };
 const invalidProposalContent = (message: string): ProposalDraftResult => ({ ...fail("MEMORY_BATCH_INVALID", message), contentInvalid: true });
 function proposalDraft(proposal: unknown, prepared: PreparedBatch, selected: OrdinaryTurn[], messages: UIMessage[], threadId: string, now: Date, oversizedSourceProbe = false): ProposalDraftResult {
@@ -228,7 +258,7 @@ function proposalDraft(proposal: unknown, prepared: PreparedBatch, selected: Ord
   const fact = ["kind", "recallTerms", "expiresAt", "factIdentity"];
   const allowed = p.action === "add" ? [...common, ...fact, "validTime", "scope"] :
     withdrawal ? [...common, "memoryId", "expectedRevision"] :
-    [...common, ...fact, "memoryId", "expectedRevision", p.action === "change" ? "effectiveAt" : "validTime"];
+    [...common, ...fact, "memoryId", "expectedRevision", ...(p.action === "change" ? ["effectiveAt", "changeIntent"] : ["validTime"])];
   if (typeof p.action !== "string" || !["add", "update", "change", "correct", "retract", "disable"].includes(p.action) || Object.keys(p).some((key) => !allowed.includes(key))) return fail("MEMORY_BATCH_INVALID", "Unknown proposal action or field");
   if (p.eligibility !== undefined && (typeof p.eligibility !== "string" || !["durable_self_statement", "explicit_request", "needs_review", "ignore"].includes(p.eligibility))) return fail("MEMORY_BATCH_INVALID", "Invalid proposal eligibility");
   for (const [field, limit] of [["text", 2048], ["reason", 512]] as const) {
@@ -251,6 +281,14 @@ function proposalDraft(proposal: unknown, prepared: PreparedBatch, selected: Ord
   const draftSource = sources[0]!;
   if (p.sources !== undefined && (p.sourceMessageId !== undefined || p.sourceQuote !== undefined) && (p.sourceMessageId !== draftSource.messageId || p.sourceQuote !== draftSource.quote)) return fail("MEMORY_SOURCE_INVALID", "Legacy source fields must agree with the first source");
   const provenance = { source: draftSource, ...(p.sources === undefined ? {} : { sources }), reason: p.reason as string };
+  if (p.changeIntent !== undefined) {
+    const intent = p.changeIntent;
+    if (!intent || typeof intent !== "object" || Array.isArray(intent) || Object.keys(intent).some(key => !["type", "sourceQuote"].includes(key)) ||
+      (intent as Record<string, unknown>).type !== "replace_from_now" || typeof (intent as Record<string, unknown>).sourceQuote !== "string") return fail("MEMORY_BATCH_INVALID", "Invalid preference change intent");
+    if (!sources.some(source => source.quote === (intent as Record<string, unknown>).sourceQuote)) return fail("MEMORY_SOURCE_INVALID", "Change intent must quote its bound user source exactly");
+    // The model may not substitute its own clock for a host-bound transition.
+    if (p.effectiveAt !== undefined) return fail("MEMORY_BATCH_INVALID", "From-now intent must not supply a model effective time");
+  }
   let facts: { kind?: MemoryKind; recallTerms?: string[]; validTime?: MemoryValidTime; effectiveAt?: string; factIdentity?: MemoryFactIdentity } = {};
   let expiry = p.expiresAt as string | null | undefined;
   try {
@@ -413,6 +451,7 @@ export function createMemoryConsolidation(options: {
       const drafts: CandidateDraft[] = [];
       const automatic = options.writePolicy === "automatic" && consolidationAgents.has(run.agentId) && run.request?.mode !== "history";
       const autoAcceptIndexes: number[] = [];
+      const resolveNowIndexes: number[] = [];
       const covered = new Set<string>();
       const intentionallyIgnored = new Set<string>();
       const partiallyIgnored = new Set<string>();
@@ -459,7 +498,8 @@ export function createMemoryConsolidation(options: {
         if (contentReview && eligibility !== "ignore") eligibility = "needs_review";
         // Missing time is reviewable uncertainty, not a guessed transition or a
         // reason to poison otherwise valid source-bound proposals in this batch.
-        if (eligibility !== "ignore" && parsed.value.change.operation === "change" && parsed.value.change.effectiveAt === null) eligibility = "needs_review";
+        const fromNowIntent = automatic && explicitFromNow(proposal as MemoryProposal, parsed.value, run.selected, run.prepared.memories, options.threadId, now());
+        if (eligibility !== "ignore" && parsed.value.change.operation === "change" && parsed.value.change.effectiveAt === null && !fromNowIntent) eligibility = "needs_review";
         // Conservative deny probes for recognizable credentials/explicit opt-out phrases.
         // This is not a universal natural-language privacy classifier. Metadata exclusion
         // remains the deterministic opt-out, enforced independently by source validation.
@@ -641,7 +681,10 @@ export function createMemoryConsolidation(options: {
         if (drafts.some((draft) => candidateFingerprint(options.threadId, draft) === candidateFingerprint(options.threadId, parsed.value))) { run.invalid = true; return fail("MEMORY_BATCH_INVALID", "Duplicate proposal in one batch"); }
         const kind = "kind" in change && change.kind !== undefined ? change.kind : change.operation === "add" ? undefined : run.prepared.memories.find(entry => entry.id === change.memoryId)?.assertion?.kind;
         const supportedKind = control ? eligibility === "explicit_request" : kind === "preference" || kind === "fact" || eligibility === "explicit_request";
-        if (automatic && supportedKind && !requiresKnownReview(sourceText) && (eligibility === "durable_self_statement" || eligibility === "explicit_request")) autoAcceptIndexes.push(drafts.length);
+        if (automatic && supportedKind && !requiresKnownReview(sourceText) && (eligibility === "durable_self_statement" || eligibility === "explicit_request")) {
+          autoAcceptIndexes.push(drafts.length);
+          if (fromNowIntent && change.operation === "change" && change.effectiveAt === null) resolveNowIndexes.push(drafts.length);
+        }
         drafts.push(parsed.value);
         if (contentReview) for (const source of sources) fallbackSources.add(source.messageId);
       }
@@ -755,6 +798,7 @@ export function createMemoryConsolidation(options: {
       if (batch !== run) return fail("MEMORY_BATCH_INVALID", "Consolidation lifecycle changed during staging");
       run.drafts = drafts;
       if (automatic) run.autoAcceptIndexes = autoAcceptIndexes;
+      run.resolveNowIndexes = resolveNowIndexes.filter(index => autoAcceptIndexes.includes(index));
       return { ok: true, value: { staged: true, batchId: input.batchId, count: drafts.length } };
     },
     async finalize(result, signal) {
@@ -775,7 +819,7 @@ export function createMemoryConsolidation(options: {
       if (failedExtraction) {
         // A rejected proposal is never persisted. Only retry coverage of the
         // unchanged host-prepared source can be committed below.
-        run.drafts = []; run.autoAcceptIndexes = [];
+        run.drafts = []; run.autoAcceptIndexes = []; run.resolveNowIndexes = [];
         run.outcomes = run.selected.map(turn => ({ messageId: turn.user.id, status: "deferred" }));
       }
       const loaded = await readMessages(signal);
@@ -820,7 +864,8 @@ export function createMemoryConsolidation(options: {
         ...(consolidationAgents.has(run.agentId) && run.request?.mode !== "history" ? { incremental: true as const } : {}),
         sourcePrefix: run.sourcePrefix ?? null,
         ...(run.previousReceipt === undefined ? {} : { expectedReceiptHash: run.previousReceipt?.payloadHash ?? null }),
-      }, signal, { boundThreadId: options.threadId, ...(options.now === undefined ? {} : { commitClock: options.now }) });
+      }, signal, { boundThreadId: options.threadId, ...(options.now === undefined ? {} : { commitClock: options.now }),
+        ...(run.resolveNowIndexes?.length ? { automaticResolveNowIndexes: run.resolveNowIndexes } : {}) });
       run.committed = committed;
       return committed.ok ? { ok: true, value: { ...committed.value, processedCount: run.processedCount ?? 0,
         ...(run.outcomes ? { outcomes: run.outcomes } : {}) } } : committed;

@@ -16,11 +16,14 @@ import {
   InMemoryModelRegistry,
   ToolRegistry,
 } from "@aisdk-agent/ai-sdk-adapter";
-import { AUTO_CONSOLIDATION_AGENT_ID, isAutoConsolidationRequest, withoutConsolidationTurns } from "./consolidation.js";
+import { AUTO_CONSOLIDATION_AGENT_ID, isAutoConsolidationRequest, isMemoryConsolidationExcluded, withoutConsolidationTurns } from "./consolidation.js";
 import { createBuiltinSkill, loadSkillPackages, skillAgentDefinition } from "./skill-catalog.js";
 import { createRuntimeAutomation, MEMORY_SKILL_ID, type RuntimeAutomation } from "./automation-execution.js";
 import { createDreamingService, DREAMING_AGENT_ID, DREAMING_INSTRUCTIONS, type DreamingService, type LearnedSkillReferenceSnapshot } from "./dreaming.js";
-import { retrieveMemories, createRetrievedMemoryContextMessage, placeCurrentMemoryReference } from "./memory-retrieval.js";
+import { retrieveMemories, createRetrievedMemoryContextMessage, placeCurrentMemoryReference, boundedMemoryQuery, selectEligibleMemoryEntries, memorySemanticTextHash, RETRIEVED_MEMORY_MAX_BYTES, RETRIEVED_MEMORY_MAX_ENTRIES } from "./memory-retrieval.js";
+import { LocalMemorySemanticIndex, type MemoryEmbeddingPort, type MemorySemanticHit } from "./memory-semantic-index.js";
+import { createMemoryEmbedder } from "./memory-embedding-client.js";
+import { buildMemoryContextView } from "./memory-context-view.js";
 import { createMemoryConsolidation, memoryConsolidationBacklog, type MemoryConsolidation } from "./memory-consolidation.js";
 import type { MemoryResult } from "./memory-candidates.js";
 import { createExecutionRecordAdapter } from "./execution-record-adapter.js";
@@ -127,6 +130,8 @@ export interface RuntimeAppOptions {
   pomodoroService?: PomodoroService;
   /** Host-only source association persisted before a primary Run can dispatch. */
   beforePrimaryRunCreate?: (record: import("@aisdk-agent/core").RunRecord) => Promise<void>;
+  /** Trusted test/host port; never selected by the model or inherited from chat credentials. */
+  memoryEmbedding?: MemoryEmbeddingPort;
 }
 
 /**
@@ -798,17 +803,18 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     "Do not turn a one-off task instruction, requested output format, or permission to propose into a lasting user fact or preference. The user must explicitly state the fact or recurring preference; they need not say the literal word long-term. A clear self-statement about stable work, residence or recurring preference can qualify, but an imperative only describes this task. " +
     "Negative examples: 'Create a short plan with Goal, Checks, Next sections' and '这次报告分三段' do not mean the user generally prefers that format; submit no preference proposal. Positive examples: 'I prefer all my reviews to start with a conclusion' and '我的长期写作偏好是先结论再步骤' explicitly state a lasting preference and may support a proposal. An explicit request to retain a specific event or note remains eligible as that kind, not an inferred preference. " +
     "Each proposal requires action, reason, and sources: one to four { sourceMessageId, sourceQuote } objects with exact quotes copied from supplied committed user material. Legacy sourceMessageId/sourceQuote is accepted for one source. " +
-    "Use add for a new independent memory; change for a real transition with an explicitly stated effectiveAt; correct when a prior claim was wrong; retract when the user withdraws recognition; disable when the user asks to stop using retained memory. Legacy update is a correction, not a real-world transition. Existing targets require memoryId and the supplied expectedRevision. " +
+    "Use add for a new independent memory; change for a real transition with an explicitly stated effectiveAt, or the source-bound from-now intent described below; correct when a prior claim was wrong; retract when the user withdraws recognition; disable when the user asks to stop using retained memory. Legacy update is a correction, not a real-world transition. Existing targets require memoryId and the supplied expectedRevision. " +
+    'Only a change may carry changeIntent {"type":"replace_from_now","sourceQuote":"<complete single prepared user message>"}. Use it for an affirmative current self-preference transition such as 从现在起咖啡改成加糖。, 以后，我喝咖啡改成加糖。, 我现在喝咖啡改成加糖。 or 请把我的咖啡偏好改为加糖。 in the SAME known slot, scene and scope. Use change, not add/correct, for this real transition; ordinary 我喝咖啡加糖 is not permission to replace. Its quote must copy the FULL single user message, not strip conditions, negation or other people. With this intent OMIT effectiveAt: the host resolves now under the commit lock. Different scenes are separate facts, never a replacement target. Ordinary contradictions, quoted examples, future/conditional statements and ambiguous targets still need review; eligibility explicit_request cannot supply missing user intent. ' +
     "For example, '我更正之前关于咖啡口味的偏好：不是加糖，而是无糖。请记住这条更正。' explicitly corrects the uniquely matched prior preference: use correct, not change, and in automatic mode eligibility explicit_request. No effective date is needed for a correction; do not invent one or require review only because it differs from the old fact. If the target or the user's intended meaning is actually ambiguous, retain needs_review instead. " +
     "Distinguish opting out of saving new/current material from withdrawing an already saved, uniquely identified fact. For the former submit no proposal; for the latter use retract or disable with eligibility explicit_request and the provided target revision, even when the user says don't remember that fact anymore. Never add the withdrawal instruction as a new fact. " +
     "Only add accepts scope. If the source limits a fact to the current conversation, propose scope {kind:thread}; the host binds the actual Thread id, never invent one. Scope is separate from factIdentity.scenario: current-conversation-only does NOT mean work/personal. Unclear scope restrictions require needs_review, never a workspace-wide add. Do not edit a workspace fact using a thread-only observation: propose a separate thread add. Every target edit (update/change/correct/retract/disable) must OMIT scope entirely, even if it equals the existing scope: the program retains that scope. Do not include pinned, enabled, or other fields copied from the target. A correct proposal has action, memoryId, expectedRevision, text, sources, reason and optional supported fact fields; it has no scope or effectiveAt. " +
     "Add/change/correct and legacy update require complete text; retract/disable may omit text and must not rewrite target contents. Use the JSON field kind to distinguish preference, fact, event, and note. For an add with factIdentity, kind is REQUIRED and must be fact or preference; omitting it or using event/note rejects the entire batch without saving or advancing the cursor. " +
     'Example add shape (replace placeholders with actual prepared evidence, never copy sample evidence): {"action":"add","kind":"preference","text":"用户喝咖啡不加糖。","reason":"明确的持续偏好","eligibility":"durable_self_statement","sources":[{"sourceMessageId":"<prepared messageId>","sourceQuote":"<exact user quote>"}],"factIdentity":{"attribute":"coffee","scenario":"general","value":"unsweetened"}}. Only include this identity when the actual user evidence supports it. A past event is not automatically expired current state. ' +
-    "Use validTime only when supported by explicit user evidence; change uses effectiveAt rather than validTime. Never invent dates or silently equate uncertain claims. If the target is unambiguous but a transition has no effective date, omit effectiveAt and mark needs_review: the host retains an undated pending change, never writes it automatically or changes it into a correction. For an ambiguous target, defer that source; do not guess a target or call it no_memory. Unknown time remains unknown. Usage expiresAt is separate from real-world validity. " +
+    "Use validTime only when supported by explicit user evidence; change uses effectiveAt or the validated from-now intent rather than validTime. Never invent dates or silently equate uncertain claims. If the target is unambiguous but a transition has no effective date or valid from-now intent, omit effectiveAt and mark needs_review: the host retains an undated pending change, never changes it into a correction. For an ambiguous target, defer that source; do not guess a target or call it no_memory. Unknown time remains unknown. Usage expiresAt is separate from real-world validity. " +
     "Optional recallTerms contain at most three relevant retrieval phrases, each at most 96 UTF-8 bytes, never new facts or authority. Historical assertions are conflict-review material, not current facts to inject or revive. " +
     "Use recallTerms for alternate everyday names for the subject and action, so a user can ask about this fact without repeating its wording. Do not fill all three with copied body words, the same phrase reordered, or just a changed quantity. Keep the user's language and the same meaning; omit uncertain synonyms rather than inventing a broader fact. " +
     "For each add, compare the related memories before proposing: a new source for the SAME supported factIdentity must be proposed for source attachment, not discarded as no_memory. This does not create a duplicate fact. Without a supported identity, do not invent one to deduplicate. If it contradicts a related fact, propose a source-backed correction/change against that exact target only when the user explicitly corrects/changes it; otherwise retain needs_review. A new conflicting self-statement (e.g. 我喜欢咖啡加糖) is NOT itself an explicit correction; your reason or eligibility label cannot supply missing user intent. Include useful alternate wording in recallTerms, without changing the fact. " +
-    "For four supported attributes, optionally include factIdentity {attribute,scenario,value}: response_language values zh/en/bilingual; review_format conclusion_first/steps_first/detailed; coffee unsweetened/sweetened/black/none; residence value is the explicitly stated place. scenario is general/work/personal or the user's exact quoted scene label (at most 96 UTF-8 bytes). A limited scene must agree with both source and saved text, NEVER default to general. Uncertain/unsupported qualifiers require needs_review and no guessed identity. Compare conflicts only within the SAME scene; a different scene is an independent add, not a correction of another scene. Do not equate nuanced preferences (e.g. no sugar and black coffee), contexts or uncertain values. Omit identity outside the supported attributes. Use the same identity for synonymous observations; propose add with its exact source and the host will reuse the matching fact rather than create another. A true change must use change with explicit effectiveAt, and a correction must explicitly target the previous fact. Do not claim identity classification proves truth. " +
+    "For four supported attributes, optionally include factIdentity {attribute,scenario,value}: response_language values zh/en/bilingual; review_format conclusion_first/steps_first/detailed; coffee unsweetened/sweetened/black/none; residence value is the explicitly stated place. scenario is general/work/personal or the user's exact quoted scene label (at most 96 UTF-8 bytes). A limited scene must agree with both source and saved text, NEVER default to general. Uncertain/unsupported qualifiers require needs_review and no guessed identity. Compare conflicts only within the SAME scene; a different scene is an independent add, not a correction of another scene. Do not equate nuanced preferences (e.g. no sugar and black coffee), contexts or uncertain values. Omit identity outside the supported attributes. Use the same identity for synonymous observations; propose add with its exact source and the host will reuse the matching fact rather than create another. A true change must use change with explicit effectiveAt or a valid from-now intent, and a correction must explicitly target the previous fact. Do not claim identity classification proves truth. " +
     "When changing the text of a target with a verified factIdentity, include the new supported factIdentity for that same attribute/scene; never copy the old value onto contradictory new text. If the new value cannot be classified from the exact user evidence, retain needs_review. Missing identity is not permission to erase conflict protection. Unchanged text may retain its verified identity. " +
     "Do not re-enable disabled/expired memories, broaden an existing memory's scope, invent source evidence, or submit pinned. Do not call active memory write tools during consolidation. " +
     (moduleConfig?.memoryWritePolicy === "automatic"
@@ -980,6 +986,11 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       return user?.parts.flatMap((part) => part.type === "text" ? [part.text] : []).join("\n") ?? "";
     };
     const rewriteQuery = createMemoryQueryRewriter(observedModel("query_rewrite"));
+    const embedding = memoryEnabled && moduleConfig?.memorySemantic
+      ? options.memoryEmbedding ?? createMemoryEmbedder(moduleConfig.memorySemantic, env) : undefined;
+    const semanticIndex = embedding && workspaceRoot
+      ? new LocalMemorySemanticIndex({ file: join(workspaceRoot, ".runloom", "memory-semantic-index.json"), embedding }) : undefined;
+    let semanticCache: { key: string; hits: MemorySemanticHit[]; state: "ready" | "warming" | "degraded" } | undefined;
     let memoryReference: MemoryReferenceSnapshot | null = null;
     let learnedSkillReference: LearnedSkillReferenceSnapshot | null = null;
     const memoryReferenceListeners = new Set<() => void>();
@@ -1007,17 +1018,60 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
               JSON.stringify(selected.value.map(skill => ({ id: skill.id, revision: skill.revision, title: skill.title, instructions: skill.instructions }))) }] };
         }
       }
-      const rewrite = primary && user && query.trim() && !activeWorkTaskMessage && moduleConfig?.memoryQueryRewriteEnabled
+      const origin = (user?.metadata as { source?: unknown } | undefined)?.source;
+      const ordinaryPrimary = primary && user !== undefined && query.trim().length > 0 && !activeWorkTaskMessage
+        && !isMemoryConsolidationExcluded(user) && (origin === undefined || origin === "steer");
+      const rewrite = ordinaryPrimary && moduleConfig?.memoryQueryRewriteEnabled
         ? await rewriteQuery(user.id, query, signal, memoryQueryTopics(messages, user.id)) : undefined;
-      const selection = memoryStore === undefined ? undefined : retrieveMemories(await readMemoryEntries(memoryStore, signal, now), {
-        query, threadId, now, ...(rewrite ? { rewrittenQueries: rewrite.queries } : {}),
+      let entries = memoryStore === undefined ? undefined : await readMemoryEntries(memoryStore, signal, now);
+      let semantic: NonNullable<MemoryReferenceSnapshot["semantic"]> = { state: semanticIndex ? "not_applicable" : "off" };
+      let semanticHits: MemorySemanticHit[] | undefined;
+      const eligibleForEmbedding = entries ? selectEligibleMemoryEntries(entries, { now, threadId }) : [];
+      if (ordinaryPrimary && semanticIndex && embedding && entries && eligibleForEmbedding.length > 0) {
+        const key = JSON.stringify([user.id, boundedMemoryQuery(query).text, embedding.modelId,
+          eligibleForEmbedding.map(entry => [entry.id, entry.revision ?? 1, memorySemanticTextHash(entry.text)])]);
+        if (semanticCache?.key !== key) {
+          const hits = await semanticIndex.search(entries, { query, now, threadId, signal });
+          semanticCache = { key, hits, state: semanticIndex.lastState };
+        }
+        semanticHits = semanticCache.hits;
+        semantic = { state: semanticCache.state, modelId: moduleConfig?.memorySemantic?.modelId ?? embedding.modelId };
+        // External inference can overlap a formal edit. Only fresh eligible revisions
+        // can be injected; retrieval verifies every returned id/revision/text hash.
+        entries = await readMemoryEntries(memoryStore!, signal, new Date());
+      }
+      const selectedAt = new Date();
+      if (semantic.state !== "off" && entries && selectEligibleMemoryEntries(entries, { now: selectedAt, threadId }).length === 0) {
+        semantic = { state: "not_applicable" };
+      }
+      let view: ReturnType<typeof buildMemoryContextView> | undefined;
+      if (ordinaryPrimary && entries && moduleConfig?.memoryContextViewEnabled) {
+        const tasks = await workTasks?.list({ threadId, limit: 100 });
+        signal.throwIfAborted();
+        if (tasks && !tasks.ok) throw new Error(`Unable to prepare current Thread continuation: ${tasks.error.message}`);
+        view = buildMemoryContextView(entries, tasks?.ok ? tasks.value : [], { threadId, now: selectedAt,
+          excludedMemoryIds: entries.filter(entry => entry.pinned).map(entry => entry.id) });
+      }
+      const profileIds = new Set(view?.profile.map(item => item.id));
+      const selection = entries === undefined ? undefined : retrieveMemories(entries.filter(entry => !profileIds.has(entry.id)), {
+        query, threadId, now: selectedAt, ...(rewrite ? { rewrittenQueries: rewrite.queries } : {}),
+        ...(semanticHits ? { semanticHits } : {}),
+        maxBytes: RETRIEVED_MEMORY_MAX_BYTES - (view?.bytes ?? 0),
+        maxEntries: RETRIEVED_MEMORY_MAX_ENTRIES - (view?.profile.length ?? 0),
       });
-      const memoryMessage = selection ? createRetrievedMemoryContextMessage(selection) : undefined;
+      // The profile is also a current formal reference. Do not put a contradictory
+      // "selected entries: []" inventory beside a nonempty derived profile.
+      const memoryMessage = selection && (selection.entries.length > 0 || !view?.profile.length)
+        ? createRetrievedMemoryContextMessage(selection) : undefined;
       const reference: MemoryReferenceSnapshot | null = primary && user && selection ? {
-        messageId: user.id, preparedAt: new Date().toISOString(), truncated: selection.truncated, queryTruncated: selection.queryTruncated,
+        messageId: user.id, preparedAt: new Date().toISOString(), truncated: selection.truncated || (view?.truncated ?? false), queryTruncated: selection.queryTruncated,
         temporalView: selection.temporalView,
         rewrite: rewrite?.state ?? (moduleConfig?.memoryQueryRewriteEnabled ? "not_applicable" : "off"),
-        selected: selection.selected.map(item => ({ ...item, text: selection.entries.find(entry => entry.id === item.id)!.text })),
+        semantic,
+        ...(view ? { contextView: { profileCount: view.profile.length, continuationCount: view.continuation.length, truncated: view.truncated } } : {}),
+        referenceBytes: (memoryMessage ? selection.bytes : 0) + (view?.bytes ?? 0),
+        selected: [...(view?.profile.map(({ id, revision, text, assertion }) => ({ id, revision, text, assertion, reason: "stable_profile" as const })) ?? []),
+          ...selection.selected.map(item => ({ ...item, text: selection.entries.find(entry => entry.id === item.id)!.text }))],
       } : null;
       return { reference, prefix: [
         ...(taskEnabled ? [buildTaskContextMessage({ now, timeZone,
@@ -1026,6 +1080,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         ...(resumeMessage ? [resumeMessage] : []),
         ...(checkpointMessage ? [checkpointMessage] : []),
         ...(memoryMessage ? [memoryMessage] : []),
+        ...(view?.message ? [view.message] : []),
         ...(learnedMessage ? [learnedMessage] : []),
         ...(activeWorkTaskMessage ? [activeWorkTaskMessage] : []),
       ] };

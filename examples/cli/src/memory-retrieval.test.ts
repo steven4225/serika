@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { createRetrievedMemoryContextMessage, placeCurrentMemoryReference, retrieveMemories, tokenizeMemoryQuery, rankMemoryEntriesForQuery } from "./memory-retrieval.js";
+import { createRetrievedMemoryContextMessage, placeCurrentMemoryReference, retrieveMemories, tokenizeMemoryQuery, rankMemoryEntriesForQuery, memorySemanticTextHash } from "./memory-retrieval.js";
 import type { MemoryEntry } from "./memory-store.js";
 
 const now = new Date("2026-10-01T00:00:00.000Z");
@@ -18,6 +18,59 @@ const corpus = [
   memory("private", "复盘私密要求。", { scope: { kind: "thread", threadId: "private" } }),
   memory("current-private", "开发使用 Rust。", { scope: { kind: "thread", threadId: "current" } }),
 ];
+describe("minimal kind-aware retrieval ordering", () => {
+  function typed(id: string, text: string, kind: "preference" | "fact" | "event" | "note", updatedAt: string): MemoryEntry {
+    return memory(id, text, { updatedAt, assertion: { assertionId: `a:${id}`, kind, state: "asserted", recallTerms: [],
+      validTime: { from: null, to: null, basis: "unknown" }, systemTime: { from: null, to: null }, sourceIds: [{ kind: "manual" }] } });
+  }
+  it("does not let equally matching recent events crowd out a current preference", () => {
+    const preference = typed("current", "咖啡不加糖", "preference", "2026-09-01T00:00:00.000Z");
+    const events = Array.from({ length: 15 }, (_, n) => typed(`event:${n}`, `咖啡记录 ${n}`, "event", "2026-09-30T00:00:00.000Z"));
+    const selected = retrieveMemories([...events, preference], { query: "咖啡", now, maxEntries: 3 });
+    assert.equal(selected.entries[0]?.id, "current");
+    assert.equal(selected.entries.length, 3);
+  });
+  it("still puts a more relevant event ahead of a weaker preference", () => {
+    const event = typed("event", "杭州咖啡节", "event", "2026-09-01T00:00:00.000Z");
+    const preference = typed("preference", "咖啡不加糖", "preference", "2026-09-30T00:00:00.000Z");
+    assert.equal(retrieveMemories([preference, event], { query: "杭州咖啡节", now }).entries[0]?.id, "event");
+  });
+  it("uses the same relevance tie-break for hybrid ranks without adding irrelevant facts", () => {
+    const fact = typed("fact", "住在杭州", "fact", "2026-09-01T00:00:00.000Z");
+    const event = typed("event", "杭州旅游", "event", "2026-09-30T00:00:00.000Z");
+    const other = typed("other", "喜欢咖啡", "preference", "2026-09-30T00:00:00.000Z");
+    const hits = [event, fact].map(entry => ({ id: entry.id, revision: 1, textHash: memorySemanticTextHash(entry.text), score: 0.8 }));
+    const selected = retrieveMemories([event, fact, other], { query: "杭州", now, semanticHits: hits, maxEntries: 1 });
+    assert.equal(selected.entries[0]?.id, "fact");
+    assert.ok(!selected.entries.some(entry => entry.id === "other"));
+  });
+});
+describe("hybrid Memory selection", () => {
+  const hit = (entry: MemoryEntry, score = 1) => ({ id: entry.id, revision: entry.revision ?? 1, textHash: memorySemanticTextHash(entry.text), score });
+  it("fuses lexical and semantic ranks while preserving exact named facts", () => {
+    const exact = memory("named", "Serika 使用 TypeScript"), related = memory("related", "复盘先给结论"), irrelevant = memory("other", "晚饭七点");
+    const selection = retrieveMemories([exact, related, irrelevant], { query: "Serika", now, semanticHits: [hit(related), hit(exact, 0.9)] });
+    assert.deepEqual(selection.entries.map(entry => entry.id), ["named", "related"]);
+    assert.deepEqual(selection.selected.map(reference => reference.reason), ["hybrid", "semantic"]);
+  });
+  it("does not turn invalid, below-threshold or duplicate semantic hints into filler", () => {
+    const entry = memory("writing", "复盘先给结论");
+    for (const semanticHits of [[hit(entry, 0.49)], [hit(entry, NaN)], [hit(entry, Infinity)], [{ ...hit(entry), revision: 0 }], [{ ...hit(entry), textHash: "fake" }]]) {
+      assert.deepEqual(retrieveMemories([entry], { query: "回顾", now, semanticHits }).entries, []);
+    }
+    assert.deepEqual(retrieveMemories([entry], { query: "回顾", now, semanticHits: [hit(entry), hit(entry)] }).entries.map(item => item.id), ["writing"]);
+  });
+  it("shares a lower serialized budget without changing pinned priority or clipping text", () => {
+    const entries = Array.from({ length: 12 }, (_, n) => memory(String(n), "复盘 " + "汉字".repeat(200)));
+    const pin = memory("pin", "pinned unrelated", { pinned: true });
+    const selected = retrieveMemories([pin, ...entries], { query: "回顾", now, maxBytes: 6144, semanticHits: entries.map(entry => hit(entry)) });
+    assert.equal(selected.entries[0]?.id, "pin");
+    assert.ok(selected.bytes <= 6144);
+    assert.ok(selected.entries.length < 12);
+    assert.equal(selected.bytes, Buffer.byteLength(JSON.stringify(createRetrievedMemoryContextMessage(selected)), "utf8"));
+    assert.ok(selected.entries.slice(1).every(entry => entry.text === entries[0]?.text));
+  });
+});
 const evalCases: Array<{ name: string; query: string; expected: string[]; forbidden?: string[]; threadId?: string; semanticBoundary?: boolean; entries?: MemoryEntry[] }> = [
   { name: "direct Chinese", query: "复盘", expected: ["writing"] },
   { name: "Chinese question", query: "我复盘偏好的格式是什么？", expected: ["writing"] },

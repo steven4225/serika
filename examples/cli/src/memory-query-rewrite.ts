@@ -11,6 +11,11 @@ export interface MemoryReferenceSnapshot {
   truncated: boolean;
   queryTruncated: boolean;
   rewrite: MemoryRewriteState;
+  /** Preparation evidence only, not a promise of future service availability. */
+  semantic?: { state: "off" | "ready" | "warming" | "degraded" | "not_applicable"; modelId?: string };
+  contextView?: { profileCount: number; continuationCount: number; truncated: boolean };
+  /** Combined memory/context-view UIMessage packaging under the shared reference budget. */
+  referenceBytes?: number;
 }
 export interface MemoryRewriteResult { state: "succeeded" | "degraded"; queries: string[] }
 

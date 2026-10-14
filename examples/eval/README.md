@@ -2,6 +2,31 @@
 
 不需要 PostgreSQL，不启动桌面、常驻服务或 worker。每条案例独立创建临时 workspace/config/transcript，结束后清理；不读取日用配置、历史或记忆。结果留在此目录的 `results/`，不提交 Git。
 
+## 云端真实召回对照（独立 MR01–MR12）
+
+默认采用 DashScope `qwen3.7-text-embedding-flash`，需要你自己的百炼 Key。只发送隔离合成记忆／查询，不读取日用数据；不安装 Ollama、不下载模型、不读聊天 Key、不启动服务。zsh 可用隐藏输入（不要把 Key 发到聊天或写入配置）：
+
+```sh
+read -rs 'DASHSCOPE_API_KEY?请输入百炼 Key（隐藏输入）：'
+export DASHSCOPE_API_KEY
+pnpm eval:recall --live --provider=dashscope --model=qwen3.7-text-embedding-flash
+unset DASHSCOPE_API_KEY
+```
+
+默认 `https://dashscope.aliyuncs.com/compatible-mode/v1`；也接受控制台给出的真实北京／新加坡／香港工作空间 URL，可用 `--base-url=实际URL`，Key 的地域要一致。不支持任意代理域名、URL 内凭据或重定向。已有本机服务才用 `--provider=local --base-url=http://127.0.0.1:11434/v1 --model=qwen3-embedding:0.6b`；该路径不读取专用云端 Key。缺 Key 会直接报环境未配置，不生成成功分数。
+
+首次接线或环境失败可显式运行 `pnpm eval:recall --live --probe --provider=dashscope --model=qwen3.7-text-embedding-flash`，只对 MR01 的两条合成事实和查询执行一次准备，不自动重试。该模型已实测批量响应索引全部为 0，因此固定用单条字符串请求绑定输入与向量（probe 共 3 次 HTTP 请求，最多 10 个并发，仍受整体准备截止时间约束）；不先试批量再补发，也不按数组位置猜配向量。报告记录 `requestMode`、各请求的数量／输入哈希与真实完整 usage；其他模型和本机服务仍按索引校验批量响应。该报告单独标为 `memory-embedding-probe-v1`，不是十二题召回成绩，不计算百分点变化。完整评测和 probe 都保留安全错误分类：HTTP 状态、JSON／响应结构、向量数量／格式、截止时间或索引读写，绝不保留供应商错误正文、凭据或原始异常文本；HTTP 200 不等于有效向量已写入索引。
+
+十二项固定题标注“我的 eval”，每题独立生成正式 `memory.json`；同一题分别跑关键词基线与生产混合检索，Top-3、0.5 阈值、RRF k=60 固定，不自动调参。覆盖直接／同义询问、事件挤占偏好、更精确事件、无关问题、Thread 隔离、禁用／过期／撤回、旧文本、场景不进入无条件画像。正式库是合成测试数据，embedding 是实际所选 HTTP 服务；**这是召回模块评测，不是完整聊天、语义提取或日用 Electron 验收**。兼容服务的响应模型身份未独立验证，manifest 会明确记下这个边界。
+
+报告在新的 `results/memory-recall-*/`，保留 manifest、实际构建文件哈希、冻结的 Eval 程序、每题 `evidence.json`、正式库／索引、返回分数、HTTP 请求数量／时间／输入哈希、选中正文与版本。`summary.json` 分开列计划／执行／未执行、任务命中通过率、平均 Recall@3／Precision@3、无关题误召回和禁止引用命中。任务通过指必需答案进入 Top-3 且安全／第一位条件满足；它**不等于 Top-3 每条都相关**，额外命中仍作为 unexpected 和较低 precision 留下。未知 usage 不算零。
+
+没有符合范围的事实时，该题是 `not_applicable`、只验程序过滤，不算 embedding 调用；报告单列 `embeddingCasesExecuted` 和 `policyOnlyCases`。服务失败／超时不把关键词降级算语义通过，不重试；保存失败证据，剩余题保留未执行，两边未全部执行时不计算百分点提升。旧 RM／RD／RL 报告和评分不动。完整运行后先看误召回和漏召回原文，再决定是否调阈值；当前不声称任何真实准确率提升。
+
+终端与新报告明确区分 `environment_failed`（接线／解析／超时导致未测完）和 `completed_with_failures`（完整测完，但有真实漏召回或排序不达标）；后者列出 `failedCases` 的问题、预期／实际标签和证据路径。两者都保留退出码 1，以便自动化拦下未达标结果；`ELIFECYCLE` 本身不表示接口还没接通，也不应靠改退出码或历史分数掩盖漏召回。
+
+`pnpm eval:test` 只测试 Oracle 和 fixture HTTP 报告链路，临时 fixture 结果会清理，**不是实际 embedding 模型成绩**。
+
 ## 连续压缩保真回归（独立新套件）
 
 `CF03` 用日常档连续压缩 3 轮，`CF05` 用长任务档连续压缩 5 轮；每轮追加越过该档位 85% 触发线的独立合成历史。目标、已确认决策、未完成事项、未获批准的部署、成功读取及结果未知的非幂等写入工具对只在第一轮提供，后续素材不补答案。每轮保存实际摘要与预算快照，检查完整增量链、unknown 写结果未被改写为成功／失败及无工具重放；最后另起新进程，检查复用摘要不新增压缩调用。使用现有 Controller／AgentLoop，不新增执行框架。
