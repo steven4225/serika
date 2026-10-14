@@ -198,7 +198,16 @@ export function evaluateCase(spec, evidence) {
     check('final_budget', Number.isFinite(diagnostics?.lastPreparation?.estimatedInputTokens) && budget != null &&
       diagnostics.lastPreparation.estimatedInputTokens <= availableInputTokens(budget), 'estimate <= application input budget (not exact provider tokens)', diagnostics);
     if (['daily-compaction', 'compaction-fidelity'].includes(spec.suite)) {
-      check('production_mode_budget', Object.entries(spec.contextBudget).every(([key, value]) => budget?.[key] === value),
+      if (spec.suite === 'compaction-fidelity') {
+        const capacity = diagnostics?.modelCapacity;
+        check('production_mode_budget', Object.entries(spec.contextBudget).every(([key, value]) => diagnostics?.requestedBudget?.[key] === value) &&
+          Object.entries(spec.contextBudget).filter(([key]) => key !== 'contextWindowTokens').every(([key, value]) => budget?.[key] === value) &&
+          ['configuration', 'environment'].includes(capacity?.source) && capacity?.provider === evidence.model?.provider && capacity?.modelId === evidence.model?.modelId &&
+          Number.isSafeInteger(capacity?.contextWindowTokens) && capacity.contextWindowTokens > 0 &&
+          budget?.contextWindowTokens === Math.min(spec.contextBudget.contextWindowTokens, capacity.contextWindowTokens) &&
+          budget.inputBudgetTokens <= budget.contextWindowTokens - budget.maxOutputTokens - budget.safetyMarginTokens,
+          'frozen requested profile and verified effective capacity support the full daily/long-task input target; no assumed 1M', diagnostics);
+      } else check('production_mode_budget', Object.entries(spec.contextBudget).every(([key, value]) => budget?.[key] === value),
         'actual preparation uses the frozen production mode config, not 12K or a relaxed window', budget);
       check('daily_scale_history', evidence.seed?.estimatedHistoryTokens >= spec.contextBudget.inputBudgetTokens * spec.contextBudget.triggerRatio &&
         evidence.seed?.contextMode === spec.contextMode, 'history itself crosses the normal 85% production trigger', evidence.seed);

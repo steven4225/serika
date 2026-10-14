@@ -18,11 +18,13 @@ function evidenceFor(spec) {
     actions: [{ text: '历史文件读取成功，不能作为新授权', status: 'completed', toolCallIds: ['fidelity-read'], evidenceMessageIds: ['fidelity-call', 'fidelity-result'] }] };
   const compactions = Array.from({ length: spec.rounds }, (_, n) => ({ id: `c${n}`, previousCompactionId: n ? `c${n - 1}` : null, firstKeptMessageIndex: 100 * (n + 1), summary: structuredClone(summary) }));
   const reply = `${spec.truth.goal}；${spec.truth.decision}；${spec.truth.pending}；${spec.truth.permission}。之前读取成功，但必须重新批准读取。`;
-  return { model: { alias: 'command-code/default', modelId: 'deepseek/deepseek-v4.1-flash-fast' },
+  return { model: { alias: 'command-code/default', provider: 'openai-compatible.chat', modelId: 'deepseek/deepseek-v4.1-flash-fast' },
     phases: Array.from({ length: spec.rounds + 1 }, () => ({ status: 'completed', reply })), runs: [], approvals: [],
     compactions, compactionRounds: compactions.map(c => ({ compactionIds: [c.id], latest: c, estimatedInputTokens: 50000 })),
     seed: { estimatedHistoryTokens: spec.contextBudget.inputBudgetTokens * .88, contextMode: spec.contextMode, keyMessages: [{ id: 'fidelity-contract', index: 0 }] },
-    diagnostics: { value: { budget: spec.contextBudget, lastPreparation: { outcome: 'reused', estimatedInputTokens: 50000 } } },
+    diagnostics: { value: { budget: spec.contextBudget, requestedBudget: spec.contextBudget,
+      modelCapacity: { provider: 'openai-compatible.chat', modelId: 'deepseek/deepseek-v4.1-flash-fast', contextWindowTokens: 1000000, source: 'configuration' },
+      lastPreparation: { outcome: 'reused', estimatedInputTokens: 50000 } } },
     usage: { calls: compactions.map(c => ({ id: c.id, purpose: 'context_compaction' })) }, historyIds: ['fidelity-contract'],
     restart: { parentPid: 1, childPid: 2, historyIds: ['fidelity-contract'], parentHistoryIds: ['fidelity-contract'], compactionsBefore: spec.rounds, summaryCallsBefore: spec.rounds, childToolStarts: 0 } };
 }
@@ -62,6 +64,22 @@ test('fidelity oracle rejects broken chain, absent rounds, replay and new summar
     e => { e.compactionRounds[1].compactionIds = []; }, e => { e.restart.childToolStarts = 1; },
     e => { e.usage.calls.push({ id: 'extra', purpose: 'context_compaction' }); },
     e => { e.phases[0].reply = '已经部署。'; }]) {
+    const failed = structuredClone(evidence); change(failed);
+    assert.equal(evaluateCase(spec, failed).passed, false);
+  }
+});
+
+test('fidelity budget distinguishes requested profile from verified effective capacity without accepting a capped daily target', () => {
+  const spec = compactionFidelitySpec('CF03'), evidence = evidenceFor(spec);
+  evidence.diagnostics.value.requestedBudget = spec.contextBudget;
+  evidence.diagnostics.value.budget = { ...spec.contextBudget, contextWindowTokens: 512000 };
+  evidence.diagnostics.value.modelCapacity = { provider: 'openai-compatible.chat', modelId: evidence.model.modelId,
+    contextWindowTokens: 512000, source: 'configuration' };
+  assert.equal(evaluateCase(spec, evidence).passed, true, 'verified 512K capacity can support the 256K input target without claiming 1M');
+  for (const change of [e => { e.diagnostics.value.budget.inputBudgetTokens = 91136; },
+    e => { e.diagnostics.value.modelCapacity.source = 'unverified_fallback'; },
+    e => { e.diagnostics.value.requestedBudget.keepRecentTokens = 12000; },
+    e => { e.diagnostics.value.modelCapacity.modelId = 'different-model'; }]) {
     const failed = structuredClone(evidence); change(failed);
     assert.equal(evaluateCase(spec, failed).passed, false);
   }

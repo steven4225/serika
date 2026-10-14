@@ -8,6 +8,8 @@
 
 五分钟离线 Demo：`pnpm eval:test` 可验证 Oracle 的正例和丢失目标／权限等负例，不收费。下面是真实模型命令，需用户在自己的终端配置 Key 并明确承担调用费用；本次新增套件的真实模型结果仍为 **not_run**，不能用离线绿测代替：
 
+先核实供应商对当前精确模型的窗口声明，再在终端设置 `COMMAND_CODE_CONTEXT_WINDOW_TOKENS` 为已核实的正整数，或配置同一 `provider + modelId` 的 `modelContextWindows`。不要为了通过测试猜填 1M。日常／长任务的完整输入目标分别要求窗口至少容纳 256K／400K 加 4,096 输出预留和 32,768 安全余量。容量未知的保守上限或较小模型不能被记为“大体量档位通过”。新 CF Oracle 分开核对冻结的请求档位和真实有效预算，允许已核实的非 1M 窗口，但不放松输入目标、近期保留、摘要或分块要求；旧 RD／RL 判分和历史报告保持不变。
+
 ```sh
 SERIKA_EVAL_LIVE=1 RUNLOOM_MODEL=command-code \
 COMMAND_CODE_MODEL_ID=deepseek/deepseek-v4.1-flash-fast \
