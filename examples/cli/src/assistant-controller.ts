@@ -39,6 +39,7 @@ import { memoryActionPreview, memoryCapacity, memoryControlFailure, memoryHistor
 import type { MemoryTemporalView } from "./memory-store.js";
 import { consolidationSourcePage, memoryConsolidationBacklog, prepareConsolidationExtraction, stageConsolidationExtraction, validateConsolidationRequest, type MemoryConsolidationRequest, type MemoryConsolidationSourcePage } from "./memory-consolidation.js";
 import { memoryConsolidationFailureText } from "./memory-failure.js";
+import { readMemoryFactReceipts, type MemoryFactReceipt } from "./memory-factual-receipts.js";
 import { AUTO_CONSOLIDATION_AGENT_ID } from "./consolidation.js";
 import { readWorkTaskArtifact, workTaskDeliveryDraft, type WorkTaskReadInput, type WorkTaskArtifactInput, type WorkTaskReadResult, type WorkTaskDeliveryDraft, type WorkTaskArtifactPreview } from "./work-task-artifacts.js";
 
@@ -137,6 +138,7 @@ export interface AssistantController {
   runSkill(input: SkillRunInput): Promise<SkillResult<{ runId: string }>>;
   getSnapshot(): AssistantSnapshot;
   getHistory(): Promise<UIMessage[]>;
+  getMemoryReceipts(): Promise<MemoryResult<MemoryFactReceipt[]>>;
   getContextDiagnostics(): Promise<ContextResult<ContextDiagnostics>>;
   listMemories(input?: MemoryListInput): Promise<MemoryResult<MemoryPage>>;
   getMemory(id: string): Promise<MemoryResult<FormalMemory>>;
@@ -1034,6 +1036,10 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       resultTextTruncated,
     }),
     getHistory: async () => { await recovery; return app.store.getMessages(app.threadId); },
+    getMemoryReceipts: async () => {
+      await recovery;
+      return readMemoryFactReceipts(app.memoryStore, app.threadId, await app.store.getMessages(app.threadId));
+    },
     getContextDiagnostics: async () => {
       const diagnostics = await app.getContextDiagnostics();
       const source = diagnostics.ok ? diagnostics.value.lastPreparationSource : null;

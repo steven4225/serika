@@ -23,6 +23,7 @@ import {
   resultRow,
   rowsFromHistory,
   annotateHistoryTools,
+  annotateMemoryReceipts,
   rowsFromToolActivity,
   type ConversationRow,
   type LiveRun,
@@ -437,13 +438,15 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     const [page, receipts, identity] = await Promise.all([window.runloom.historyPage(), window.runloom.listRuns().catch(() => null), window.runloom.info()]);
     if (request !== historyRequest.current || primaryId !== latestPrimaryId.current || completedId !== latestCompletedPrimaryId.current) return;
     if (page.threadId !== identity.threadId) return;
+    if (page.memoryReceiptError) setError(page.memoryReceiptError);
     const messages = page.messages;
     historyMessages.current = messages;
     setHistoryBefore(page.beforeId);
     // Only a reread made after this primary Run completed can supply its full
     // outcomes. Provider tool IDs are not unique across the whole Thread.
     const rows = receipts?.ok ? annotateHistoryTools(rowsFromHistory(messages), receipts.runs, identity.threadId) : rowsFromHistory(messages);
-    setStoredHistory({ rows: completedId === null ? rows : overlayShellProgress(rows, shellBuffer.current), runId: completedId });
+    const withMemory = annotateMemoryReceipts(rows, page.memoryReceipts ?? [], identity.threadId);
+    setStoredHistory({ rows: completedId === null ? withMemory : overlayShellProgress(withMemory, shellBuffer.current), runId: completedId });
   }, []);
 
   const loadOlderHistory = async () => {
@@ -454,11 +457,12 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     try {
       const [page, identity, receipts] = await Promise.all([window.runloom.historyPage({ beforeId: historyBefore }), window.runloom.info(), window.runloom.listRuns().catch(() => null)]);
       if (request !== historyRequest.current || page.threadId !== identity.threadId) return;
+      if (page.memoryReceiptError) setError(page.memoryReceiptError);
       const messages = [...page.messages, ...historyMessages.current];
       historyMessages.current = messages; setHistoryBefore(page.beforeId);
       const rows = receipts?.ok ? annotateHistoryTools(rowsFromHistory(messages), receipts.runs, identity.threadId) : rowsFromHistory(messages);
       followConversation.current = false;
-      setStoredHistory(current => ({ ...current, rows }));
+      setStoredHistory(current => ({ ...current, rows: annotateMemoryReceipts(rows, page.memoryReceipts ?? [], identity.threadId) }));
       requestAnimationFrame(() => { if (area) area.scrollTop = top + area.scrollHeight - height; });
     } catch { setError("更早的对话读取失败；当前内容仍保留，可以重试"); }
     finally { setHistoryLoading(false); }
@@ -610,6 +614,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
         case "memory-updated":
           if (message.reason === "proposals") setMemoryDeferred(false);
           setMemoryRefresh((value) => value + 1);
+          void reloadHistory().catch((cause: unknown) => setError(String(cause)));
           return;
         case "work-task-updated":
           setTaskRefresh((value) => value + 1);
@@ -672,6 +677,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
 
     return () => {
       cancelled = true;
+      historyRequest.current += 1;
       recordListRequest.current += 1;
       recordDetailRequest.current += 1;
       if (recordRefreshTimer.current !== null) clearTimeout(recordRefreshTimer.current);
@@ -1081,7 +1087,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
         {info && attention === "none" ? <MemoryConsolidationNotice key={`${info.workspaceRoot}:${info.threadId}`} enabled={info.memory.enabled} busy={busy} quiet={true} running={state.kind === "running" && state.phase === "consolidation"} refreshToken={memoryRefresh} onOpen={() => openMemory()} /> : null}
         <div className="attention-region" hidden={attention === "none" && !pendingMemory.error}>
           {attention === "unknown" ? <div className="review-notice" role="status"><Icon name="shield" size={16} /><span>有执行效果还没核对，不会自动重做。</span><button className="ghost" onClick={() => { if (reviewTask) { workTasks.select(reviewTask.id); openTask(); } else { openDetails("records"); const run = unknownRuns[0]; if (run) void openRecord(run.runId); } }}>{reviewTask ? "核对工作任务" : "查看回执"}<Icon name="chevron" size={14} /></button></div> : null}
-          {info ? <PendingMemory memory={info.memory} controllerIdle={!busy} refreshToken={memoryRefresh} visible={attention === "memory"} onStatus={setPendingMemory} onReviewed={refreshMemory} onLater={() => setMemoryDeferred(true)} onOpenCandidate={id => openMemory(id)} /> : null}
+          {attention === "memory" ? <div className="attention-summary"><span>有 {pendingLabel} 条记忆等你确认。</span><button className="ghost" onClick={() => { setDetailsOpen(false); setMobileDashboard(true); }}>在手札里处理</button><button className="ghost" onClick={() => openMemory()}>详细审核</button></div> : null}
           {pendingMemory.error && attention === "none" ? <div className="attention-summary"><span>记忆候选暂不可用，不能据此判断没有待审项。</span><button className="ghost" onClick={() => openDetails("memory")}>查看原因</button></div> : null}
           {attention === "approval" && (unknownRuns.length > 0 || pendingLabel) ? <div className="attention-summary">{unknownRuns.length > 0 ? <button className="ghost" onClick={() => openDetails("records")}>另有执行效果待核对</button> : null}{pendingLabel ? <button className="ghost" onClick={() => openDetails("memory")}>待审记忆 {pendingLabel}</button> : null}</div> : null}
           {attention === "unknown" && pendingLabel ? <div className="attention-summary"><button className="ghost" onClick={() => openDetails("memory")}>还有待审记忆 {pendingLabel}</button></div> : null}
@@ -1193,6 +1199,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
         <div className="personal-today-scroll" hidden={detailsOpen}>
           <TodayPanel info={info} tasks={workTasks.tasks} tasksLoading={workTasks.loading} tasksError={workTasks.error}
             pendingMemory={pendingMemory.count} pendingMemoryError={pendingMemory.error} feeds={briefFeeds}
+            memoryReview={info ? <PendingMemory key={`${info.workspaceRoot}:${info.threadId}`} threadId={info.threadId} memory={info.memory} controllerIdle={!busy} refreshToken={memoryRefresh} visible={!detailsOpen} onStatus={setPendingMemory} onReviewed={refreshMemory} onOpenCandidate={id => openMemory(id)} /> : null}
             continueDisabled={sending || switchingThread || info === null}
             onContinue={continueBrief}
             onPomodoro={() => openDetails("pomodoro")} onAutomation={() => openDetails("reminders")} />
@@ -1255,7 +1262,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
                 onRefresh={() => void loadRecords(selectedRecordId.current ?? undefined).catch(() => setError("执行记录读取失败"))}
                 onOpen={runId => void openRecord(runId).catch(() => setError("执行回执读取失败"))} /></div>
               <div hidden={detailTab !== "memory"}>{info ? <MemoryConsolidationPanel key={`${info.workspaceRoot}:${info.threadId}`} info={info} busy={busy} refreshToken={memoryRefresh} onSettings={() => openSettings("workspace")} /> : null}{info ? <MemoryPanel key={`${info.workspaceRoot}:${info.threadId}`} memory={info.memory} temporaryThread={info.temporaryThread}
-                controllerIdle={!busy} refreshToken={memoryRefresh} focusRequest={memoryFocus} pendingCount={pendingMemory.count} pendingHasMore={pendingMemory.hasMore} /> : null}</div>
+                threadId={info.threadId} controllerIdle={!busy} refreshToken={memoryRefresh} focusRequest={memoryFocus} pendingCount={pendingMemory.count} pendingHasMore={pendingMemory.hasMore} /> : null}</div>
               <div hidden={detailTab !== "pomodoro"}>{info ? <PomodoroPanel enabled={info.commands.includes("pomodoro")} busy={busy} output={output} /> : null}</div>
               <div hidden={detailTab !== "persona"}><PersonaPanel /></div>
             </div>

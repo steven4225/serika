@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { it } from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { ConversationRow, ToolRow } from "./conversation.js";
+import { annotateMemoryReceipts, rowsFromHistory, type ConversationRow, type ToolRow } from "./conversation.js";
 import { conversationTurns, workSummary } from "./zcode/conversation-data.js";
 import { ZCodeConversation, ZCodeTool } from "./zcode/conversation.js";
 import { ZCodePromptEditor, ZCodePromptOptions } from "./zcode/prompt-editor.js";
@@ -11,6 +11,30 @@ const user: ConversationRow = { kind: "text", role: "user", key: "u1", text: "�
 const tool: ToolRow = { kind: "tool", key: "t1", toolCallId: "t1", toolName: "edit_file", status: "ok", receipt: { kind: "file", path: "notes/plan.md", bytes: 18 } };
 const interim: ConversationRow = { kind: "text", role: "assistant", key: "a1", text: "先核对当前文件。", committed: true };
 const answer: ConversationRow = { kind: "text", role: "assistant", key: "a2", text: "已修改。\n\n## 下一步\n这是要保留的完整正文。", committed: true };
+
+it("renders source-bound host memory receipts outside model reply and copy text", () => {
+  const source = { ...user, memoryReceipts: [{ id: "batch:u1", threadId: "thread", sourceMessageId: "u1", text: "当时已保存：咖啡不加糖。" }] };
+  const markup = renderToStaticMarkup(createElement(ZCodeConversation, { rows: [source, answer], running: false, streaming: "" }));
+  assert.match(markup, /记忆回执（最近一批）/);
+  assert.match(markup, /当时已保存：咖啡不加糖/);
+  assert.match(markup, /role="status"/);
+  assert.doesNotMatch(markup, /batch:u1/);
+  assert.equal(conversationTurns([source, answer], false)[0]!.copyText, answer.text);
+});
+
+it("attaches only the current Thread's host receipt to the matching committed user and deduplicates replay", () => {
+  const rows = rowsFromHistory([{ id: "u1", role: "user", parts: [{ type: "text", text: "记住我喝咖啡不加糖" }] },
+    { id: "a1", role: "assistant", parts: [{ type: "text", text: "明白" }] }]);
+  const receipt = { id: "batch:u1", threadId: "thread", sourceMessageId: "u1", text: "当时已保存：咖啡不加糖" };
+  const attached = annotateMemoryReceipts(rows, [receipt, receipt, { ...receipt, id: "foreign", threadId: "other" },
+    { ...receipt, id: "unrelated", sourceMessageId: "a1" }], "thread");
+  const markup = renderToStaticMarkup(createElement(ZCodeConversation, { rows: attached, running: false, streaming: "" }));
+  assert.equal((markup.match(/当时已保存/g) ?? []).length, 1);
+  assert.deepEqual(annotateMemoryReceipts(attached, [receipt], "thread"), attached, "restart refresh replaces the same projection");
+  const removed = annotateMemoryReceipts(attached, [receipt], "other");
+  assert.doesNotMatch(renderToStaticMarkup(createElement(ZCodeConversation, { rows: removed, running: false, streaming: "" })), /当时已保存/);
+  assert.equal(rows.some(row => row.kind === "text" && row.memoryReceipts), false, "display projection never mutates source rows");
+});
 
 it("keeps applied steering in the same conversation turn with an explicit supplement label", () => {
   const steer: ConversationRow = { kind: "text", role: "user", key: "steer-1", text: "只追加", committed: true, steer: true };

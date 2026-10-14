@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   canAccept,
   canReject,
@@ -23,11 +23,14 @@ import {
 } from "./pending-memory-data.js";
 import { FailureAlert } from "./failure-notice.js";
 import { MemorySavedNotice } from "./memory-saved-notice.js";
+import { loadActionablePending } from "./pending-memory-query.js";
+import type { MemoryPanelState } from "../../shared/memory-review.js";
 
 export type { PendingMemoryStatus } from "./pending-memory-data.js";
 
 interface PendingMemoryProps {
   memory: { enabled: boolean; autoConsolidate: boolean };
+  threadId: string;
   controllerIdle: boolean;
   refreshToken: number;
   visible: boolean;
@@ -38,7 +41,7 @@ interface PendingMemoryProps {
 }
 
 /** Always mounted for counts; visibility never grants authority to review. */
-export function PendingMemory({ memory, controllerIdle, refreshToken, visible, onStatus, onReviewed, onLater, onOpenCandidate }: PendingMemoryProps) {
+export function PendingMemory({ memory, threadId, controllerIdle, refreshToken, visible, onStatus, onReviewed, onLater, onOpenCandidate }: PendingMemoryProps) {
   const [state, setState] = useState(initialPendingMemory);
   const stateRef = useRef(state);
   const enabledRef = useRef(memory.enabled);
@@ -66,14 +69,14 @@ export function PendingMemory({ memory, controllerIdle, refreshToken, visible, o
 
   const fetchList = useCallback(async (request: number) => {
     try {
-      const result = await window.runloom.listMemoryCandidates({ status: "pending", limit: 20 });
+      const result = await loadActionablePending(window.runloom, threadId);
       if (enabledRef.current) apply({ type: "list-result", request, result });
     } catch {
       if (enabledRef.current) apply({ type: "list-result", request, result: {
         ok: false, error: { code: "IPC_FAILED", message: "候选读取未确认，请刷新核对" },
       } });
     }
-  }, [apply]);
+  }, [apply, threadId]);
 
   const fetchDetail = useCallback(async (request: number, id: string) => {
     try {
@@ -158,21 +161,35 @@ export function PendingMemory({ memory, controllerIdle, refreshToken, visible, o
     }).finally(() => { resolveLock.current = false; });
   };
 
-  if (!memory.enabled || (!status.loading && status.count === 0 && status.error === null)) return null;
+  return <PendingMemoryCard state={state} status={status} enabled={memory.enabled} visible={visible} controllerIdle={controllerIdle} fresh={fresh} onResolve={resolve} onReload={reload} onLater={onLater} onOpenCandidate={onOpenCandidate} />;
+}
+
+/** Same complete preview and deterministic actions used by the live Today card. */
+export function PendingMemoryCard({ state, status, enabled, visible, controllerIdle, fresh, onResolve, onReload, onLater, onOpenCandidate }: {
+  state: MemoryPanelState; status: PendingMemoryStatus; enabled: boolean; visible: boolean; controllerIdle: boolean; fresh: boolean;
+  onResolve: (decision: "accept" | "reject") => void; onReload: () => void; onLater?: (() => void) | undefined; onOpenCandidate?: ((id: string) => void) | undefined;
+}) {
+  if (!enabled || (!status.loading && status.count === 0 && status.error === null)) return null;
   const preview = state.preview;
   const change = preview?.candidate.change;
   const scope = preview ? scopeLabel(preview) : null;
   const expiresAt = preview?.proposed ? preview.proposed.expiresAt : change?.expiresAt;
-  const unavailable = preview ? unavailableLabel(preview) : null;
+  const unavailableReason = preview ? unavailableLabel(preview) : null;
+  const unavailable = unavailableReason === "MEMORY_REVISION_CONFLICT" || unavailableReason === "MEMORY_TEMPORAL_CONFLICT"
+    ? "当前已有不同的有效记忆，暂时不能直接保存；可以不保存这项，或打开详细审核。"
+    : unavailableReason === "expired" || unavailableReason === "MEMORY_EXPIRED" ? "这项已经过期，不能保存；仍可选择不保存这项，移出待确认列表。"
+      : unavailableReason === "target_changed" || unavailableReason === "target_missing" ? "原记忆已经变化或不存在，不能直接保存；仍可保留原记忆，或打开详细审核。"
+        : unavailableReason?.includes("LIMIT") ? "记忆历史或容量已满，暂时不能保存；可以保留原记忆，或打开详细审核。"
+      : unavailableReason ? "这项暂时不能直接保存，请打开详细审核核对；原记忆没有被覆盖。" : null;
   const ready = visible && controllerIdle && fresh;
 
   return (
     <section className="pending-memory" hidden={!visible} aria-labelledby="pending-memory-title">
       <div className="pending-memory-heading">
-        <h2 id="pending-memory-title">要接受这项记忆变更吗？</h2>
+        <h2 id="pending-memory-title">{!change ? "正在核对待确认的记忆" : change.operation === "add" ? "要记住这项内容吗？" : change.operation === "retract" ? "要撤回这项记忆吗？" : change.operation === "disable" ? "要停用这项记忆吗？" : "要把原来的记忆改成这项吗？"}</h2>
         <span className="hint">{status.hasMore ? `本次读取 ${status.count} 条，还有更多` : `${status.count} 条待审`}</span>
       </div>
-      {state.receipt ? state.receiptDetail ? <MemorySavedNotice primary={state.receipt} detail={state.receiptDetail} /> : <MemorySavedNotice primary={state.receipt} /> : null}
+      {state.receipt ? <MemorySavedNotice primary={state.receipt} /> : null}
       {status.error ? <FailureAlert text={status.error} /> : null}
       {status.loading ? <p className="hint">正在读取完整候选，核对后才能保存。</p> : null}
       {preview?.candidate.status === "pending" ? (
@@ -203,31 +220,27 @@ export function PendingMemory({ memory, controllerIdle, refreshToken, visible, o
             <summary>来源与变更说明</summary>
             <p>{preview.candidate.reason}</p>
             {candidateSources(preview).map((source, index) => <div key={`${source.threadId}:${source.messageId}:${index}`}>
-              <p className="hint">来源 {index + 1} Thread：{source.threadId}</p>
-              <p className="hint">消息：{source.messageId}</p>
+              <blockquote>{source.quote}</blockquote>
             </div>)}
             <p className="hint">拟保存类型：{memoryKindLabel(preview.proposed?.kind)}</p>
             <p className="hint">检索词：{preview.proposed?.recallTerms?.join("、") || "无"}（只帮助查找）</p>
             {preview.proposed?.effectiveAt ? <p className="hint">事实变化生效于：{preview.proposed.effectiveAt}</p> : null}
             <p className="hint">系统认知时间：{change?.operation === "disable" ? "事实认知历史不变，接受时记录停用" : "接受时记录；尚未写入"}</p>
             {preview.current ? <div>
-              <p className="hint">当前断言：{preview.current.assertion?.assertionId ?? "未提供"}；revision {preview.current.revision ?? "未提供"}</p>
               <p className="hint">原事实适用时间：{validTimeLabel(preview.current.assertion?.validTime)}</p>
               <p className="hint">原系统认知时间：{systemTimeLabel(preview.current.assertion?.systemTime)}</p>
             </div> : null}
-            <p className="hint">候选版本：{preview.candidate.revision}</p>
-            {change && change.operation !== "add" ? <p className="hint">变更目标：{change.memoryId}；预期记忆版本：{change.expectedRevision}</p> : null}
           </details>
           {!controllerIdle ? <p className="hint">助手正在处理任务，空闲后再接受或拒绝。</p> : null}
           <div className="actions pending-memory-actions">
             {onLater ? <button className="ghost" onClick={onLater} disabled={state.resolving}>稍后审核</button> : null}
-            {onOpenCandidate ? <button className="ghost" onClick={() => onOpenCandidate(preview.candidate.id)} disabled={state.resolving}>完整审核</button> : null}
-            <button className="ghost" onClick={reload} disabled={state.resolving || state.listLoading}>重新读取</button>
-            <button className="deny" onClick={() => resolve("reject")} disabled={!ready || !canReject(state)}>拒绝</button>
-            <button className="allow" onClick={() => resolve("accept")} disabled={!ready || !canAccept(state)}>{state.resolving ? "正在审核…" : candidateAcceptLabel(preview.candidate)}</button>
+            {onOpenCandidate ? <button className="ghost" onClick={() => onOpenCandidate(preview.candidate.id)} disabled={state.resolving}>详细审核</button> : null}
+            <button className="ghost" onClick={onReload} disabled={state.resolving || state.listLoading}>重新读取</button>
+            <button className="deny" onClick={() => onResolve("reject")} disabled={!ready || !canReject(state)}>{change?.operation === "add" ? "不保存这项" : "保留原记忆"}</button>
+            <button className="allow" onClick={() => onResolve("accept")} disabled={!ready || !canAccept(state)}>{state.resolving ? "正在处理…" : candidateAcceptLabel(preview.candidate)}</button>
           </div>
         </div>
-      ) : status.error ? <button className="ghost" onClick={reload} disabled={state.listLoading}>重新读取候选</button> : null}
+      ) : status.error ? <button className="ghost" onClick={onReload} disabled={state.listLoading}>重新读取候选</button> : null}
     </section>
   );
 }

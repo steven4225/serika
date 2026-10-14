@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { FormalMemories } from "./formal-memories.js";
 import { pendingMemoryReducer } from "./pending-memory-data.js";
+import { loadActionablePending } from "./pending-memory-query.js";
 import { memoryAutomationLabel, memoryCandidateEmptyCopy } from "./memory-copy.js";
 import { FailureAlert } from "./failure-notice.js";
 import { MemorySavedNotice } from "./memory-saved-notice.js";
@@ -149,7 +150,7 @@ export function MemoryTabs({ tab, onSelect, pendingCount = 0, pendingHasMore = f
   </div>;
 }
 
-export function MemoryPanel(props: { memory: { enabled: boolean; autoConsolidate: boolean; queryRewriteEnabled?: boolean; writePolicy?: "automatic" | "review" }; temporaryThread: boolean; controllerIdle: boolean; refreshToken: number; focusRequest?: { id: string | null; sequence: number }; pendingCount?: number; pendingHasMore?: boolean }) {
+export function MemoryPanel(props: { memory: { enabled: boolean; autoConsolidate: boolean; queryRewriteEnabled?: boolean; writePolicy?: "automatic" | "review" }; threadId?: string; temporaryThread: boolean; controllerIdle: boolean; refreshToken: number; focusRequest?: { id: string | null; sequence: number }; pendingCount?: number; pendingHasMore?: boolean }) {
   const count = props.memory.enabled ? props.pendingCount ?? 0 : 0;
   const [tab, setTab] = useState<MemoryTab>(() => memoryTabOnOpen(count, props.focusRequest?.id));
   const previous = useRef({ count, sequence: props.focusRequest?.sequence });
@@ -183,6 +184,7 @@ function CandidateMemories({
   controllerIdle,
   refreshToken,
   mode,
+  threadId,
   focusRequest,
   onSaved,
 }: {
@@ -191,6 +193,7 @@ function CandidateMemories({
   controllerIdle: boolean;
   refreshToken: number;
   mode: "pending" | "history";
+  threadId?: string;
   focusRequest?: { id: string | null; sequence: number };
   onSaved: () => void;
 }) {
@@ -217,9 +220,9 @@ function CandidateMemories({
 
   const fetchList = useCallback(async (request: number, filter: CandidateFilter, offset?: number) => {
     try {
-      const result = await window.runloom.listMemoryCandidates(
-        offset === undefined ? { status: filter, limit: 20 } : { status: filter, offset, limit: 20 },
-      );
+      const result = filter === "pending"
+        ? await loadActionablePending(window.runloom, threadId ?? (await window.runloom.info()).threadId)
+        : await window.runloom.listMemoryCandidates(offset === undefined ? { status: filter, limit: 20 } : { status: filter, offset, limit: 20 });
       dispatch({ type: "list-result", request, result });
     } catch {
       dispatch({
@@ -228,7 +231,7 @@ function CandidateMemories({
         result: { ok: false, error: { code: "IPC_FAILED", message: "列表结果未确认，请刷新核对" } },
       });
     }
-  }, [dispatch]);
+  }, [dispatch, threadId]);
 
   const fetchDetail = useCallback(async (request: number, id: string) => {
     try {

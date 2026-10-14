@@ -7,6 +7,7 @@ import type { ShellProgressBuffer } from "../../shared/shell-progress.js";
 import { presentComputerResult } from "../../shared/computer.js";
 import type { ExecutionToolRecord, ExecutionRunRecord } from "../../shared/ui-contract.js";
 import { fileToolReceipt, type FileToolReceipt } from "./delivery-data.js";
+import type { MemoryFactReceipt } from "@aisdk-agent/example-cli/dist/memory-factual-receipts.js";
 
 export type { ToolRowStatus };
 
@@ -55,6 +56,7 @@ export interface TextRow {
   committed: boolean;
   /** Applied in the same Run; not a new conversation/task boundary. */
   steer?: true;
+  memoryReceipts?: readonly MemoryFactReceipt[];
 }
 
 export interface StepRow {
@@ -72,6 +74,17 @@ export interface ResultRow {
 }
 
 export type ConversationRow = ToolRow | TextRow | StepRow | ResultRow;
+
+/** Display-only attachment; never append host wording to committed messages. */
+export function annotateMemoryReceipts(rows: readonly ConversationRow[], receipts: readonly MemoryFactReceipt[], threadId: string): ConversationRow[] {
+  return rows.map(row => {
+    if (row.kind !== "text" || row.role !== "user" || !row.committed) return row;
+    const { memoryReceipts: previous, ...source } = row;
+    const matching = receipts.filter(r => r.threadId === threadId && row.key === `h:${r.sourceMessageId}:text:0`)
+      .filter((r, i, all) => all.findIndex(other => other.id === r.id) === i);
+    return matching.length ? { ...source, memoryReceipts: matching } : source;
+  });
+}
 
 function messageRole(message: UIMessage): TextRow["role"] {
   return message.role === "user" || message.role === "assistant" ? message.role : "system";
