@@ -94,8 +94,8 @@ describe("native memory consolidation batch", () => {
     const batch = await prepare(f);
     assert.ok((await f.service.stage({ batchId: batch.batchId, proposals: [
       proposal({ kind: "preference", eligibility: "durable_self_statement" }),
-      proposal({ text: "uncertain preference", eligibility: "needs_review" }),
-      proposal({ text: "legacy review" }),
+      proposal({ text: "复盘先结论（适用范围待确认）", eligibility: "needs_review" }),
+      proposal({ text: "复盘先结论（旧格式）" }),
       proposal({ text: "not durable", eligibility: "ignore" }),
     ] })).ok);
     assert.ok((await f.service.finalize({ status: "completed" })).ok);
@@ -171,7 +171,7 @@ describe("native memory consolidation batch", () => {
     assert.ok((await f.service.stage({ batchId: batch.batchId, proposals: [
       proposal({ kind: "event", eligibility: "durable_self_statement" }),
       proposal({ action: "retract", memoryId: "old", expectedRevision: 1, eligibility: "durable_self_statement" }),
-      proposal({ text: "explicit retained note", kind: "note", eligibility: "explicit_request" }),
+      proposal({ text: "复盘先结论，另存一条说明", kind: "note", eligibility: "explicit_request" }),
     ] })).ok);
     assert.ok((await f.service.finalize({ status: "completed" })).ok);
     assert.deepEqual(f.committed[0]!.autoAcceptIndexes, [2]);

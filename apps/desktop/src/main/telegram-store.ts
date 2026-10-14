@@ -8,6 +8,8 @@ export const TELEGRAM_DELIVERY_LIMIT = 2048;
 
 export interface TelegramInbound {
   key: string; updateId: number; text: string;
+  /** Host receipt clock. Legacy records may omit it; never invent it on read. */
+  receivedAt?: string;
   state: "received" | "reserved" | "bound" | "finished" | "rejected" | "unknown" | "reviewed";
   runId: string | null; taskId: string | null;
   reviewReport?: string;
@@ -47,6 +49,7 @@ function valid(data: TelegramData, workspace: string) {
     (data.owner === null || (positive(data.owner.userId) && positive(data.owner.chatId) && typeof data.owner.name === "string" && typeof data.owner.threadId === "string" && !!data.owner.threadId)) &&
     Array.isArray(data.inputs) && data.inputs.length <= TELEGRAM_INPUT_LIMIT && new Set(data.inputs.map(x => x.key)).size === data.inputs.length && data.inputs.every(x =>
       typeof x.key === "string" && typeof x.text === "string" && x.text.length <= 16_384 && positive(x.updateId + 1) &&
+      (x.receivedAt === undefined || typeof x.receivedAt === "string" && /\+08:00$/.test(x.receivedAt) && Number.isFinite(Date.parse(x.receivedAt))) &&
       ["received", "reserved", "bound", "finished", "rejected", "unknown", "reviewed"].includes(x.state) && (x.runId === null || typeof x.runId === "string") && (x.taskId === null || typeof x.taskId === "string") &&
       (x.reviewReport === undefined || (typeof x.reviewReport === "string" && x.reviewReport.length > 0 && x.reviewReport.length <= 2000))) &&
     Array.isArray(data.deliveries) && data.deliveries.length <= TELEGRAM_DELIVERY_LIMIT && new Set(data.deliveries.map(x => x.key)).size === data.deliveries.length && data.deliveries.every(x =>

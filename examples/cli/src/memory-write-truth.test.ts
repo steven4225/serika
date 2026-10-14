@@ -152,12 +152,13 @@ test("coverage: quoting a whole mixed reminder source cannot hide its independen
 });
 
 test("coverage: a discarded multi-source proposal cannot advance its eligible source", async () => {
-  const f = await fixture("我喜欢先给结论");
+  // Outside the bounded preference probe, an omitted fact must still remain retriable.
+  const f = await fixture("我偏好简短回答");
   try {
     f.addMessage("u2", "我喜欢喝茶；我讨厌喝茶");
     const prepared = await f.service.prepare({ mode: "incremental" }); assert.ok(prepared.ok);
     const staged = await f.service.stage({ batchId: prepared.value.batchId, proposals: [f.proposal({
-      sources: [{ sourceMessageId: "u1", sourceQuote: "我喜欢先给结论" },
+      sources: [{ sourceMessageId: "u1", sourceQuote: "我偏好简短回答" },
         { sourceMessageId: "u2", sourceQuote: "我喜欢喝茶" }],
     })], outcomes: [{ messageId: "u1", status: "extracted" }, { messageId: "u2", status: "extracted" }] });
     assert.ok(staged.ok, staged.ok ? "" : staged.error.message);
@@ -175,7 +176,7 @@ test("coverage: a discarded multi-source proposal cannot advance its eligible so
       outcomes: [{ messageId: "u1", status: "extracted" }, { messageId: "u2", status: "no_memory" }] })).ok);
     assert.ok((await reopened.finalize({ status: "completed" })).ok);
     const retriedSaved = await f.store.list(); assert.ok(retriedSaved.ok);
-    assert.deepEqual(retriedSaved.entries.map(entry => entry.text), ["我喜欢先给结论"]);
+    assert.deepEqual(retriedSaved.entries.map(entry => entry.text), ["我偏好简短回答"]);
     const cursor = await f.store.getConsolidationCursor("thread"); assert.ok(cursor.ok);
     assert.equal(cursor.value?.throughMessageId, "u2");
   } finally { await f.cleanup(); }

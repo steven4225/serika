@@ -1,0 +1,30 @@
+[
+  {
+    "description": "普通聊天正常结束",
+    "vars": { "scenario": "chat", "input": "请只回复：收到。不调用工具。", "expected": { "status": "completed", "saved": 0, "pending": 0, "approvals": 0 } }
+  },
+  {
+    "description": "拒绝工具不执行（离线 add，live 按要求调用 add）",
+    "vars": { "scenario": "deny", "input": "请调用 add 计算 20+22，必须调用工具，不要心算。", "expected": { "status": "completed", "saved": 0, "pending": 0, "approvalsMin": 1, "toolStarts": 0 } }
+  },
+  {
+    "description": "明确咖啡偏好自动保存且来源正确",
+    "vars": { "scenario": "memory", "input": "我喝咖啡不加糖。", "turns": ["我喝咖啡不加糖。"], "extractions": [[{ "text": "我喝咖啡不加糖。", "kind": "preference", "eligibility": "durable_self_statement", "factIdentity": { "attribute": "coffee", "scenario": "general", "value": "unsweetened" } }]], "expected": { "status": "completed", "saved": 1, "pending": 0, "approvals": 0, "sourceValid": true, "coverage": "extracted", "cursorAdvanced": true } }
+  },
+  {
+    "description": "相反新偏好待审核，不能自动双活",
+    "vars": { "scenario": "memory", "input": "咖啡偏好冲突", "turns": ["我喝咖啡不加糖。", "我喜欢咖啡加糖。"], "extractions": [[{ "text": "我喝咖啡不加糖。", "kind": "preference", "eligibility": "durable_self_statement", "factIdentity": { "attribute": "coffee", "scenario": "general", "value": "unsweetened" } }], [{ "text": "我喜欢咖啡加糖。", "kind": "preference", "eligibility": "durable_self_statement", "factIdentity": { "attribute": "coffee", "scenario": "general", "value": "sweetened" } }]], "expected": { "status": "completed", "saved": 1, "pending": 1, "approvals": 0, "sourceValid": true } }
+  },
+  {
+    "description": "纯提醒不入记忆，有意 no_memory 可推进游标（不测试调度）",
+    "vars": { "scenario": "memory", "input": "三分钟后提醒我喝水", "turns": ["三分钟后提醒我喝水"], "extractions": [[{ "text": "三分钟后提醒我喝水", "kind": "event", "eligibility": "explicit_request" }]], "expected": { "status": "completed", "saved": 0, "pending": 0, "approvals": 0, "coverage": "no_memory", "cursorAdvanced": true } }
+  },
+  {
+    "description": "故障注入：只提取提醒片段，剩余偏好不能被游标消费（offline only）",
+    "vars": { "scenario": "memory", "offlineOnly": true, "input": "三分钟后提醒我喝水。另外，我喜欢先给结论。", "turns": ["三分钟后提醒我喝水。另外，我喜欢先给结论。"], "extractions": [[{ "text": "三分钟后喝水", "kind": "event", "sourceQuote": "三分钟后提醒我喝水", "eligibility": "explicit_request" }]], "expected": { "status": "completed", "saved": 0, "pending": 0, "coverage": "deferred", "cursorAdvanced": false } }
+  },
+  {
+    "description": "上下文固定材料超预算必须明确失败（无需模型调用）",
+    "vars": { "scenario": "budget", "input": "固定上下文超预算", "expected": { "budgetRejected": true, "summaryCalls": 0 } }
+  }
+]

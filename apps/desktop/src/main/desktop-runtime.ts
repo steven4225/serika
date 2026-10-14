@@ -94,7 +94,7 @@ export class DesktopRuntime {
     if (!thread) throw new Error("Telegram 对话未登记到当前工作区");
     return new ExecutionRecordStore(thread.transcriptDirectory).getRun(threadId, runId);
   }
-  async channelRun(threadId: string, text: string, task: boolean, bind: (record: RunRecord, taskId: string | null) => Promise<void>) {
+  async channelRun(threadId: string, text: string, task: boolean, bind: (record: RunRecord, taskId: string | null) => Promise<void>, receivedAt?: string) {
     let response: Awaited<ReturnType<RuntimeBridge["run"]>> = { ok: false, reason: "starting" };
     await this.#replace(() => selectDesktopThread(this.#scope(), threadId), true, undefined, async () => {
       let taskId: string | null = null;
@@ -105,7 +105,7 @@ export class DesktopRuntime {
           if (!created.ok) throw new Error("工作任务未能保存，未启动执行");
           taskId = created.value.id;
           response = await this.#bridge.runWorkTask({ id: taskId, expectedRevision: created.value.revision });
-        } else response = await this.#bridge.run(text);
+        } else response = await this.#bridge.runFromChannel(text, receivedAt);
       } finally { this.#sourceBarrier = undefined; }
     });
     return response;

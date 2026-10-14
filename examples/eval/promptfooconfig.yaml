@@ -1,0 +1,14 @@
+description: Serika runtime boundary evaluation (scripted offline / explicit live)
+prompts:
+  - '{{input}}'
+providers:
+  - id: file://provider.mjs
+tests: file://cases.json
+defaultTest:
+  options:
+    disableVarExpansion: true
+  assert:
+    - type: javascript
+      value: file://assertions.mjs
+evaluateOptions:
+  maxConcurrency: 1

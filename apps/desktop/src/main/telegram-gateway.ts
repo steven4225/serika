@@ -7,6 +7,7 @@ import type { PendingApproval } from "../shared/ui-contract.js";
 import type { TelegramStatus } from "../shared/telegram.js";
 import type { SavedTaskArrangement } from "@aisdk-agent/example-cli/dist/modules/task-module.js";
 import type { TaskListInput } from "@aisdk-agent/example-cli/dist/task-store.js";
+import { formatLocalTaskTime } from "@aisdk-agent/example-cli/dist/task-instructions.js";
 
 type Host = Pick<DesktopRuntime, "channelSubscribe" | "channelSnapshot" | "channelCreateThread" | "channelRun" | "channelReceipt" | "channelScheduledTask" | "channelRecurringTask" | "channelScheduledTasks" | "current">;
 function code() { return randomBytes(5).toString("hex").toUpperCase(); }
@@ -298,6 +299,7 @@ export class TelegramGateway {
     }
   }
   async receive(update: TelegramUpdate) {
+    const receivedAt = formatLocalTaskTime(new Date(this.now()), "Asia/Shanghai");
     if (!Number.isSafeInteger(update?.update_id) || update.update_id < 0 || !this.store.snapshot().enabled) return;
     if (update.update_id < this.store.snapshot().offset) return;
     const message = update.message;
@@ -314,7 +316,7 @@ export class TelegramGateway {
         this.#pairing!.proposed = { userId: message.from!.id, chatId: message.chat.id, name: String(message.from!.first_name ?? "Telegram 用户").slice(0, 100) };
       } else if (owner && owner.userId === message.from!.id && owner.chatId === message.chat.id && text) {
         const key = `${message.chat.id}:${message.message_id}`;
-        if (!await this.store.hasInput(key)) input = { key, updateId: update.update_id, text, state: "received", runId: null, taskId: null };
+        if (!await this.store.hasInput(key)) input = { key, updateId: update.update_id, text, receivedAt, state: "received", runId: null, taskId: null };
       }
     }
     // Offset acknowledgement is committed alongside accepted text, before next getUpdates.
@@ -412,7 +414,7 @@ export class TelegramGateway {
           if (saved.state !== "reserved" || saved.runId !== null) throw new Error("Source already used");
           saved.state = "bound"; saved.runId = record.id; saved.taskId = taskId;
         });
-      });
+      }, input.receivedAt);
       if (!result.ok) {
         const bound = this.store.snapshot().inputs.find(x => x.key === input.key)!;
         if (bound.runId) await this.#finish(bound);

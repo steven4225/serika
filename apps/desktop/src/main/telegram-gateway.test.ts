@@ -10,6 +10,7 @@ import { TelegramGateway } from "./telegram-gateway.js";
 import { TelegramStore } from "./telegram-store.js";
 import { TelegramApiError, createTelegramApi, type TelegramApi, type TelegramUpdate } from "./telegram-api.js";
 import { createTaskStore, TASK_FILE_NAME, RSS_DIGEST_TASK_PROMPT } from "@aisdk-agent/example-cli/dist/task-store.js";
+import { formatLocalTaskTime } from "@aisdk-agent/example-cli/dist/task-instructions.js";
 
 function response(tool?: { name: string; input: unknown }, text = "已完成请求。") {
   return { stream: simulateReadableStream({ chunks: [
@@ -28,7 +29,7 @@ async function until(check: () => boolean | Promise<boolean>) {
 }
 const update = (id: number, text: string, userId = 42, type = "private", messageId = id): TelegramUpdate => ({ update_id: id,
   message: { message_id: messageId, date: 1, text, chat: { id: userId, type }, from: { id: userId, is_bot: false, first_name: "Owner" } } });
-async function fixture(stream: (call: number) => Promise<ReturnType<typeof response>> = async () => response()) {
+async function fixture(stream: (call: number, prompt?: string) => Promise<ReturnType<typeof response>> = async () => response()) {
   const root = await realpath(await mkdtemp(join(tmpdir(), "serika-telegram-unit-")));
   const workspace = join(root, "workspace"), userData = join(root, "profile"), configPath = join(root, "config.json");
   await mkdir(workspace);
@@ -36,7 +37,7 @@ async function fixture(stream: (call: number) => Promise<ReturnType<typeof respo
   let calls = 0;
   let time = Date.now(), activations = 0;
   const host = await DesktopRuntime.create({ userData, cwd: root, env: { RUNLOOM_CONFIG: configPath }, modelAlias: "mock",
-    model: new MockLanguageModelV3({ doStream: async () => stream(++calls) }), send: () => {},
+    model: new MockLanguageModelV3({ doStream: async ({ prompt }) => stream(++calls, JSON.stringify(prompt)) }), send: () => {},
     taskAutomation: { status: async () => ({ available: true, registered: true, running: true, todoistPlanningAvailable: false }), enable: async () => { activations++; return { enabled: true }; } } });
   const store = new TelegramStore(join(root, "private", "telegram.json"), host.info().workspaceRoot!);
   await store.load();
@@ -57,9 +58,28 @@ async function fixture(stream: (call: number) => Promise<ReturnType<typeof respo
   return { root, workspace, host, store, gateway, api, sent, bind, calls: () => calls, sends: () => sends,
     activations: () => activations,
     failSend: (error: TelegramApiError | undefined) => { sendError = error; },
-    advanceTime: (ms: number) => { time += ms; },
+    advanceTime: (ms: number) => { time += ms; }, now: () => time,
     cleanup: async () => { await host.shutdown(); await rm(root, { recursive: true, force: true }); } };
 }
+
+it("Telegram receive clock is persisted at +08:00 and used for relative reminders despite delayed admission", async () => {
+  let promptText = "";
+  const f = await fixture(async (_n, prompt) => { promptText = prompt ?? ""; return response(); });
+  try {
+    await f.bind();
+    const receivedAt = formatLocalTaskTime(new Date(f.now()), "Asia/Shanghai");
+    const original = f.host.channelRun.bind(f.host);
+    f.host.channelRun = async (...args) => { f.advanceTime(45_000); return original(...args); };
+    await f.gateway.receive(update(2, "两分钟后提醒我喝水。"));
+    await until(() => f.store.snapshot().deliveries.find(x => x.key === "result:42:2")?.state === "submitted");
+    const input = f.store.snapshot().inputs.find(x => x.key === "42:2")!;
+    assert.equal((input as typeof input & { receivedAt?: string }).receivedAt, receivedAt);
+    assert.ok(promptText.includes(`message was received at ${receivedAt}`), "the model must use this input clock, not an earlier conversation or run clock");
+    await f.gateway.receive(update(2, "两分钟后提醒我喝水。"));
+    assert.equal((f.store.snapshot().inputs.find(x => x.key === "42:2") as typeof input & { receivedAt?: string }).receivedAt, receivedAt);
+    assert.equal(f.calls(), 1);
+  } finally { await f.cleanup(); }
+});
 
 const reminder = { kind: "reminder", source: "none", notification: "always", declarationVersion: 1 } as const;
 it("Telegram result copy: ordinary replies omit gateway wrappers without changing model prose or Run linkage", async () => {
