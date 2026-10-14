@@ -218,7 +218,9 @@ function containsKnownOptOut(text: string): boolean {
 function requiresKnownReview(text: string): boolean {
   return /(?:不要|不得|别)(?:保存|写入)|(?:未经|没有).{0,12}(?:确认|同意).{0,12}(?:不得|不要|不准)|(?:先|等).{0,10}(?:审核|确认).{0,10}(?:再|才).{0,8}(?:保存|写入)|\b(?:do not|don't) (?:save|write)|\bproposals? only\b/i.test(text);
 }
-function proposalDraft(proposal: unknown, prepared: PreparedBatch, selected: OrdinaryTurn[], messages: UIMessage[], threadId: string, now: Date): MemoryResult<CandidateDraft> {
+type ProposalDraftResult = MemoryResult<CandidateDraft> & { contentInvalid?: true };
+const invalidProposalContent = (message: string): ProposalDraftResult => ({ ...fail("MEMORY_BATCH_INVALID", message), contentInvalid: true });
+function proposalDraft(proposal: unknown, prepared: PreparedBatch, selected: OrdinaryTurn[], messages: UIMessage[], threadId: string, now: Date, oversizedSourceProbe = false): ProposalDraftResult {
   if (typeof proposal !== "object" || proposal === null || Array.isArray(proposal)) return fail("MEMORY_BATCH_INVALID", "Proposal must be an object");
   const p = proposal as Record<string, unknown>;
   const withdrawal = p.action === "retract" || p.action === "disable";
@@ -231,7 +233,7 @@ function proposalDraft(proposal: unknown, prepared: PreparedBatch, selected: Ord
   if (p.eligibility !== undefined && (typeof p.eligibility !== "string" || !["durable_self_statement", "explicit_request", "needs_review", "ignore"].includes(p.eligibility))) return fail("MEMORY_BATCH_INVALID", "Invalid proposal eligibility");
   for (const [field, limit] of [["text", 2048], ["reason", 512]] as const) {
     if (withdrawal && field === "text" && p.text === undefined) continue;
-    if (typeof p[field] !== "string" || p[field].trim().length === 0 || Buffer.byteLength(p[field]) > limit) return fail("MEMORY_BATCH_INVALID", `${field} is empty or exceeds its byte limit`);
+    if (typeof p[field] !== "string" || p[field].trim().length === 0 || Buffer.byteLength(p[field]) > limit) return invalidProposalContent(`${field} is empty or exceeds its byte limit`);
   }
   const rawSources = p.sources === undefined ? [{ sourceMessageId: p.sourceMessageId, sourceQuote: p.sourceQuote }] : p.sources;
   if (!Array.isArray(rawSources) || rawSources.length < 1 || rawSources.length > 4) return fail("MEMORY_SOURCE_INVALID", "A proposal requires one to four exact user sources");
@@ -240,7 +242,7 @@ function proposalDraft(proposal: unknown, prepared: PreparedBatch, selected: Ord
     if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return fail("MEMORY_SOURCE_INVALID", "Source must be an object");
     const item = raw as Record<string, unknown>;
     if (Object.keys(item).some((key) => !["sourceMessageId", "sourceQuote"].includes(key)) || typeof item.sourceMessageId !== "string" || !selected.some((turn) => turn.user.id === item.sourceMessageId)) return fail("MEMORY_SOURCE_INVALID", "Source must belong to the prepared user window");
-    if (typeof item.sourceQuote !== "string" || item.sourceQuote.trim().length === 0 || Buffer.byteLength(item.sourceQuote) > 2048) return fail("MEMORY_SOURCE_INVALID", "Source quote is empty or exceeds 2048 bytes");
+    if (typeof item.sourceQuote !== "string" || item.sourceQuote.trim().length === 0) return fail("MEMORY_SOURCE_INVALID", "Source quote is empty");
     const source = findCommittedUserMessage(messages, item.sourceMessageId);
     if (source === undefined || !isExactUserQuote(source.text, item.sourceQuote)) return fail("MEMORY_SOURCE_INVALID", "Source quote must exactly match a unique committed non-excluded user message");
     if (sources.some((existing) => existing.messageId === item.sourceMessageId && existing.quote === item.sourceQuote)) return fail("MEMORY_SOURCE_INVALID", "Duplicate source quote");
@@ -254,15 +256,15 @@ function proposalDraft(proposal: unknown, prepared: PreparedBatch, selected: Ord
   try {
     if (p.factIdentity !== undefined) facts.factIdentity = validateFactIdentity(p.factIdentity);
     if (p.kind !== undefined) {
-      if (typeof p.kind !== "string" || !["preference", "fact", "event", "note"].includes(p.kind)) return fail("MEMORY_BATCH_INVALID", "Invalid memory kind");
+      if (typeof p.kind !== "string" || !["preference", "fact", "event", "note"].includes(p.kind)) return invalidProposalContent("Invalid memory kind");
       facts.kind = p.kind as MemoryKind;
     }
-    if (facts.factIdentity !== undefined && p.action === "add" && facts.kind !== "fact" && facts.kind !== "preference") return fail("MEMORY_BATCH_INVALID", "An identified add must be a fact or preference");
+    if (facts.factIdentity !== undefined && p.action === "add" && facts.kind !== "fact" && facts.kind !== "preference") return invalidProposalContent("An identified add must be a fact or preference");
     if (p.recallTerms !== undefined) facts.recallTerms = validateRecallTerms(p.recallTerms);
     if (p.validTime !== undefined) {
-      if (typeof p.validTime !== "object" || p.validTime === null || Array.isArray(p.validTime) || Object.keys(p.validTime).some((key) => !["from", "to", "basis"].includes(key))) return fail("MEMORY_BATCH_INVALID", "Invalid validTime fields");
+      if (typeof p.validTime !== "object" || p.validTime === null || Array.isArray(p.validTime) || Object.keys(p.validTime).some((key) => !["from", "to", "basis"].includes(key))) return invalidProposalContent("Invalid validTime fields");
       facts.validTime = validateValidTime(p.validTime);
-      if (facts.validTime.basis === "unknown" && (facts.validTime.from !== null || facts.validTime.to !== null)) return fail("MEMORY_BATCH_INVALID", "Unknown proposal time cannot invent an interval");
+      if (facts.validTime.basis === "unknown" && (facts.validTime.from !== null || facts.validTime.to !== null)) return invalidProposalContent("Unknown proposal time cannot invent an interval");
     }
     if (p.action === "change") {
       if (p.effectiveAt !== undefined) facts.effectiveAt = validateTemporalTimestamp(p.effectiveAt, "Candidate change effectiveAt");
@@ -270,9 +272,9 @@ function proposalDraft(proposal: unknown, prepared: PreparedBatch, selected: Ord
     }
     if (expiry !== undefined && expiry !== null) {
       expiry = validateTemporalTimestamp(expiry, "Candidate expiresAt");
-      if (Date.parse(expiry) <= now.getTime()) return fail("MEMORY_BATCH_INVALID", "expiresAt must be in the future");
+      if (Date.parse(expiry) <= now.getTime()) return invalidProposalContent("expiresAt must be in the future");
     }
-  } catch (error) { return fail("MEMORY_BATCH_INVALID", error instanceof Error ? error.message : "Invalid fact fields"); }
+  } catch (error) { return invalidProposalContent(error instanceof Error ? error.message : "Invalid fact fields"); }
   if (p.action === "add") {
     let scope: { kind: "workspace" } | { kind: "thread"; threadId: string } = { kind: "workspace" };
     if (p.scope !== undefined) {
@@ -281,8 +283,10 @@ function proposalDraft(proposal: unknown, prepared: PreparedBatch, selected: Ord
       if (Object.keys(value).length !== 1 || (value.kind !== "workspace" && value.kind !== "thread")) return fail("MEMORY_BATCH_INVALID", "Scope cannot name a Thread id");
       if (value.kind === "thread") scope = { kind: "thread", threadId };
     }
+    if (!oversizedSourceProbe && sources.some(source => Buffer.byteLength(source.quote) > 2048)) return fail("MEMORY_SOURCE_INVALID", "Source quote exceeds 2048 bytes");
     return { ok: true, value: { change: { operation: "add", text: p.text as string, scope, expiresAt: expiry ?? null, ...facts }, ...provenance } };
   }
+  if (sources.some(source => Buffer.byteLength(source.quote) > 2048)) return fail("MEMORY_SOURCE_INVALID", "Source quote exceeds 2048 bytes");
   const target = prepared.memories.find((entry) => entry.id === p.memoryId && entry.revision === p.expectedRevision);
   if (typeof p.memoryId !== "string" || !Number.isInteger(p.expectedRevision) || (p.expectedRevision as number) < 1 || target === undefined) return fail("MEMORY_BATCH_INVALID", "Target must be the provided revision");
   if (!withdrawal && target.temporalState === "retracted" && target.status === "active") {
@@ -414,13 +418,37 @@ export function createMemoryConsolidation(options: {
       const partiallyIgnored = new Set<string>();
       const dropped = new Set<string>();
       const fallbackSources = new Set<string>();
+      const contentDeferredSources = new Set<string>();
+      let pendingReviews: CandidateDraft[] | undefined;
       const oversizedSources = new Set<string>();
       const contradictions = run.selected.filter(turn => hasOpposingSelfStatements(turn.user.text) &&
         !containsKnownCredentials(turn.user.text) && !containsKnownOptOut(turn.user.text));
       const reviewSources = new Set(contradictions.map(turn => turn.user.id));
       for (const proposal of input.proposals) {
-        const parsed = proposalDraft(proposal, run.prepared, run.selected, loaded.value, options.threadId, now());
-        if (!parsed.ok) { run.invalid = true; return parsed; }
+        let parsed = proposalDraft(proposal, run.prepared, run.selected, loaded.value, options.threadId, now());
+        let contentReview = false;
+        if (!parsed.ok && parsed.contentInvalid && proposal && typeof proposal === "object" && !Array.isArray(proposal) && "action" in proposal && proposal.action === "add") {
+          const raw = proposal as Record<string, unknown>;
+          const firstSource = Array.isArray(raw.sources) ? raw.sources[0] : raw;
+          const quote = firstSource && typeof firstSource === "object" && "sourceQuote" in firstSource ? firstSource.sourceQuote : undefined;
+          // Replace only invalid content. Revalidate the unchanged source, scope,
+          // action and unknown-field envelope; none can gain permission through fallback.
+          const { text: _text, reason: _reason, kind: _kind, factIdentity: _identity, recallTerms: _terms,
+            validTime: _time, expiresAt: _expiry, ...envelope } = raw;
+          if (typeof quote === "string" && Buffer.byteLength(quote) > 2048) {
+            // Validate provenance and authority without persisting/clipping the
+            // oversized quote. A failed content repair remains retryable.
+            const probe = proposalDraft({ ...envelope, text: "原话超出待审容量", kind: "note", reason: "保留重试" },
+              run.prepared, run.selected, loaded.value, options.threadId, now(), true);
+            if (!probe.ok) { run.invalid = true; return { ok: false, error: probe.error }; }
+            for (const source of probe.value.sources ?? [probe.value.source]) contentDeferredSources.add(source.messageId);
+            continue;
+          }
+          parsed = proposalDraft({ ...envelope, text: quote, kind: "note", reason: "这条内容尚未核对，保留原话供你确认；没有自动保存。" },
+            run.prepared, run.selected, loaded.value, options.threadId, now());
+          contentReview = true;
+        }
+        if (!parsed.ok) { run.invalid = true; return { ok: false, error: parsed.error }; }
         const sources = parsed.value.sources ?? [parsed.value.source];
         // Preserve the whole contradictory group below, even if extraction omitted a side.
         if (sources.some(source => reviewSources.has(source.messageId))) {
@@ -428,6 +456,7 @@ export function createMemoryConsolidation(options: {
           continue;
         }
         let eligibility = (proposal as MemoryProposal).eligibility;
+        if (contentReview && eligibility !== "ignore") eligibility = "needs_review";
         // Missing time is reviewable uncertainty, not a guessed transition or a
         // reason to poison otherwise valid source-bound proposals in this batch.
         if (eligibility !== "ignore" && parsed.value.change.operation === "change" && parsed.value.change.effectiveAt === null) eligibility = "needs_review";
@@ -456,17 +485,31 @@ export function createMemoryConsolidation(options: {
         if (!control) {
           // A source can contain independent facts. Validate each proposed body
           // against the source's clauses, not only its first recognized attribute.
-          const observations = sources.flatMap(source => source.quote.split(/[。；;\n]|另外|此外|同时|而且/).flatMap(clause => {
-            const observed = statedPreference(clause) ?? statedLanguagePreference(clause);
-            return observed ? [observed] : [];
-          }));
+          const observations = sources.flatMap(source => source.quote.split(/[。；;\n]|另外|此外|同时|而且/).flatMap(clause =>
+            [statedPreference(clause), statedLanguagePreference(clause)].flatMap(observed => observed ? [observed] : [])));
           const body = statedPreference(change.text) ?? statedLanguagePreference(change.text);
           const identity = "factIdentity" in change ? change.factIdentity : undefined;
-          if (observations.length > 0 && (!body || !observations.some(observed => observed.attribute === body.attribute && observed.value === body.value) ||
+          // A declared residence is independent of an unrelated coffee clause.
+          // Require a verbatim self-residence statement, not merely a city name
+          // appearing in both texts ("杭州咖啡" is not a residence observation).
+          const residence = identity?.attribute === "residence";
+          const verifiedResidence = residence && sources.some(source => source.quote.includes(change.text.trim())) &&
+            /我(?:目前|现在)?(?:居住|住)(?:在|于)|我的(?:住址|居住地)(?:是|在|为)/.test(change.text) &&
+            change.text.normalize("NFKC").toLowerCase().includes(identity.value) &&
+            !/[?？“”「」"]|如果|假如|假设|例如|比如|举例|转述|(?:他|她|朋友)说|不是|并非/.test(quotes);
+          if (residence && !verifiedResidence || !verifiedResidence && observations.length > 0 && (!body ||
+            !observations.some(observed => observed.attribute === body.attribute && observed.value === body.value) ||
             identity && (identity.attribute !== body.attribute || identity.value !== body.value))) {
             // Exact provenance alone cannot justify an unrelated extracted body.
-            // Keep the original supported statement for review below, never the invented fact.
-            for (const source of sources) dropped.add(source.messageId);
+            // Keep this fact's verified original, even when another fact from
+            // the same message has already been retained. Never retain the bad body.
+            const restriction = statedThreadScope(sourceText);
+            const scope = restriction ? { kind: "thread" as const, threadId: options.threadId } : change.operation === "add" ? change.scope :
+              run.prepared.memories.find(entry => entry.id === targetId)!.scope ?? { kind: "workspace" as const };
+            const review: CandidateDraft = { ...parsed.value, change: { operation: "add", text: sources[0]!.quote, kind: "note", scope, expiresAt: null },
+              reason: "这条事实与原话还没有核对一致，保留原话供你确认；没有覆盖已有记忆。" };
+            if (!drafts.some(draft => candidateFingerprint(options.threadId, draft) === candidateFingerprint(options.threadId, review))) drafts.push(review);
+            for (const source of sources) fallbackSources.add(source.messageId);
             continue;
           }
           if ((proposal as MemoryProposal).action !== "add" && run.prepared.memories.some(entry =>
@@ -600,6 +643,7 @@ export function createMemoryConsolidation(options: {
         const supportedKind = control ? eligibility === "explicit_request" : kind === "preference" || kind === "fact" || eligibility === "explicit_request";
         if (automatic && supportedKind && !requiresKnownReview(sourceText) && (eligibility === "durable_self_statement" || eligibility === "explicit_request")) autoAcceptIndexes.push(drafts.length);
         drafts.push(parsed.value);
+        if (contentReview) for (const source of sources) fallbackSources.add(source.messageId);
       }
       for (const turn of contradictions) {
         // Do not clip a contradictory group into a misleading partial fact.
@@ -611,6 +655,7 @@ export function createMemoryConsolidation(options: {
       }
       for (const turn of run.selected) {
         if (drafts.some(draft => (draft.sources ?? [draft.source]).some(source => source.messageId === turn.user.id)) ||
+          contentDeferredSources.has(turn.user.id) ||
           intentionallyIgnored.has(turn.user.id) || reviewSources.has(turn.user.id) || containsKnownCredentials(turn.user.text) ||
           containsKnownOptOut(turn.user.text) || isReminderInstruction(turn.user.text)) continue;
         const observed = reviewablePreference(turn.user.text);
@@ -620,6 +665,27 @@ export function createMemoryConsolidation(options: {
         dropped.add(turn.user.id);
         if (Buffer.byteLength(turn.user.text) > 2048) { oversizedSources.add(turn.user.id); continue; }
         if (drafts.length >= 5) continue;
+        if (pendingReviews === undefined) {
+          pendingReviews = [];
+          let offset: number | null = 0;
+          do {
+            const page = await options.store.listCandidates({ status: "pending", offset, limit: 50 }, signal, { boundThreadId: options.threadId });
+            if (!page.ok) { run.invalid = true; return page; }
+            pendingReviews.push(...page.value.candidates);
+            offset = page.value.nextOffset;
+          } while (offset !== null);
+        }
+        const previous = pendingReviews.find(draft => draft.change.operation === "add" && draft.change.kind === "note" &&
+          draft.change.text === turn.user.text && (draft.sources ?? [draft.source]).length === 1 &&
+          draft.source.messageId === turn.user.id && draft.source.quote === turn.user.text);
+        if (previous) {
+          // Same exact pending original, not semantic similarity. Preserve its
+          // fingerprint so store dedup reuses the actionable review.
+          drafts.push({ change: structuredClone(previous.change), source: previous.source,
+            ...(previous.sources ? { sources: previous.sources } : {}), reason: previous.reason });
+          fallbackSources.add(turn.user.id);
+          continue;
+        }
         const scenario = statedScenario(turn.user.text);
         const restriction = statedThreadScope(turn.user.text);
         drafts.push({ change: { operation: "add", text: turn.user.text, kind: "preference", expiresAt: null,
@@ -655,6 +721,10 @@ export function createMemoryConsolidation(options: {
         // actual failed whole-source retention can produce it, in this commit.
         if (Object.keys(outcome).some(key => !["messageId", "status"].includes(key)) || outcome.messageId !== selected.user.id || !["extracted", "no_memory", "deferred"].includes(String(outcome.status))) {
           run.invalid = true; return fail("MEMORY_BATCH_INVALID", "Invalid model source outcome");
+        }
+        if (contentDeferredSources.has(selected.user.id)) {
+          outcomes.push({ messageId: selected.user.id, status: "deferred" });
+          continue;
         }
         if (oversizedSources.has(selected.user.id) && !covered.has(selected.user.id) && outcome.status !== "deferred") {
           outcomes.push({ messageId: selected.user.id, status: "not_saved", reason: "too_large" });

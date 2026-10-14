@@ -20,6 +20,7 @@ function fixture(initial: UIMessage[] = [user("u1", "复盘先结论，再给步
   const committed: CandidateBatchInput[] = [];
   const store = {
     list: async () => ({ ok: true as const, entries }),
+    listCandidates: async () => ({ ok: true as const, value: { candidates: [], nextOffset: null, truncated: false } }),
     checkCandidateCapacity: async () => ({ ok: true as const, value: { canStart: pending < 64, pendingCount: pending } }),
     getConsolidationCursor: async () => ({ ok: true as const, value: cursor }),
     commitCandidateBatch: async (input: CandidateBatchInput, signal?: AbortSignal) => {
@@ -396,10 +397,7 @@ describe("native memory consolidation batch", () => {
   it("validates temporal/recall fields and never lets a model write recognition timestamps", async () => {
     const target: MemoryEntry = { id: "m1", text: "复盘先结论，再给步骤", revision: 1, enabled: true, status: "active" };
     const invalid = [
-      { recallTerms: ["a", "b", "c", "d"] }, { recallTerms: ["界".repeat(33)] },
       { systemTime: { from: "2026-10-01T00:00:00Z", to: null } },
-      { validTime: { from: "2026-02-30T00:00:00Z", to: null, basis: "explicit" } },
-      { validTime: { from: "2026-10-01T00:00:00Z", to: null, basis: "unknown" } },
       { action: "change", memoryId: "m1", expectedRevision: 1, effectiveAt: "not-a-date" },
       { action: "correct", memoryId: "m1", expectedRevision: 1, effectiveAt: "2026-10-02T00:00:00Z" },
       { action: "change", memoryId: "m1", expectedRevision: 1, effectiveAt: "2026-10-02T00:00:00Z", validTime: { from: null, to: null, basis: "unknown" } },
@@ -409,6 +407,17 @@ describe("native memory consolidation batch", () => {
       assert.equal((await f.service.stage({ batchId: batch.batchId, proposals: [proposal(extra)] })).ok, false);
       assert.equal((await f.service.finalize({ status: "completed" })).ok, false);
       assert.equal(f.getCursor(), null);
+    }
+    for (const extra of [
+      { recallTerms: ["a", "b", "c", "d"] }, { recallTerms: ["界".repeat(33)] },
+      { validTime: { from: "2026-02-30T00:00:00Z", to: null, basis: "explicit" } },
+      { validTime: { from: "2026-10-01T00:00:00Z", to: null, basis: "unknown" } },
+    ]) {
+      const f = fixture(); const batch = await prepare(f);
+      assert.equal((await f.service.stage({ batchId: batch.batchId, proposals: [proposal(extra)] })).ok, true);
+      assert.equal((await f.service.finalize({ status: "completed" })).ok, true);
+      assert.deepEqual(f.committed[0]!.candidates[0]!.change, { operation: "add", text: "复盘先结论，再给步骤",
+        kind: "note", scope: { kind: "workspace" }, expiresAt: null });
     }
     const f = fixture(); f.setEntries([target]); const batch = await prepare(f);
     assert.equal((await f.service.stage({ batchId: batch.batchId, proposals: [proposal({ action: "change", memoryId: "m1", expectedRevision: 1,

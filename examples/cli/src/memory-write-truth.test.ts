@@ -199,7 +199,6 @@ test("coverage: oversized contradictory group records unsaved rather than retryi
 
 for (const [name, extra] of [
   ["invalid source", { sourceQuote: "模型编造的原话" }],
-  ["oversized proposal", { text: "偏好".repeat(500) }],
 ] as const) test(`coverage: ${name} fails without committing or advancing`, async () => {
   const f = await fixture("我喜欢先给结论");
   try {
@@ -213,6 +212,34 @@ for (const [name, extra] of [
     const reopened = f.reopen(); reopened.begin(AUTO_CONSOLIDATION_AGENT_ID);
     const retry = await reopened.prepare({ mode: "incremental" }); assert.ok(retry.ok);
     assert.equal(retry.value.turns.length, 1);
+  } finally { await f.cleanup(); }
+});
+
+test("coverage: oversized extracted body retains the short exact source for actionable review", async () => {
+  const original = "我喜欢先给结论";
+  const f = await fixture(original);
+  try {
+    const result = await f.extract([f.proposal({ text: "偏好".repeat(500) })]);
+    assert.equal(result.saved.length, 0, "oversized model body is not an automatic fact");
+    assert.equal(result.pending.length, 1);
+    const candidate = result.pending[0]!;
+    assert.equal(candidate.change.text, original);
+    assert.ok("kind" in candidate.change);
+    assert.equal(candidate.change.kind, "note");
+    assert.equal(candidate.source.quote, original);
+    const receipt = await f.store.getConsolidationReceipt!("thread"); assert.ok(receipt.ok);
+    assert.equal(receipt.value?.outcomes[0]?.status, "extracted", "coverage is backed by a retained actionable review");
+    const cursor = await f.store.getConsolidationCursor("thread"); assert.ok(cursor.ok);
+    assert.equal(cursor.value?.throughMessageId, "u1");
+    const reopened = f.reopen(); reopened.begin(AUTO_CONSOLIDATION_AGENT_ID);
+    const next = await reopened.prepare({ mode: "incremental" }); assert.ok(next.ok);
+    assert.equal(next.value.turns.length, 0);
+    const preview = await f.store.getCandidate(candidate.id, undefined, { boundThreadId: "thread" }); assert.ok(preview.ok);
+    assert.equal(preview.value.applicable, true, "restart leaves a normal approval path");
+    const accepted = await f.store.resolveCandidate({ candidateId: candidate.id, expectedCandidateRevision: candidate.revision,
+      decision: "accept" }, undefined, { boundThreadId: "thread" }); assert.ok(accepted.ok);
+    const saved = await f.store.list(); assert.ok(saved.ok);
+    assert.deepEqual(saved.entries.map(entry => entry.text), [original], "explicit approval saves only the source, never the oversized body");
   } finally { await f.cleanup(); }
 });
 
