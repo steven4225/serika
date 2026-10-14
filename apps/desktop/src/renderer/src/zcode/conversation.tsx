@@ -19,7 +19,9 @@ type TraceHandler = ((runId: string, toolCallId: string) => void) | undefined;
 
 function Text({ row }: { row: TextRow }) {
   return <ZCodeMessage from={row.role} className={`zcode-text role-${row.role}`}>
-    <ZCodeMessageContent>{row.steer ? <small className="muted">补充本轮要求</small> : null}{row.role === "user" ? <pre>{row.text}</pre> : <MessageContent text={row.text} />}</ZCodeMessageContent>
+    <ZCodeMessageContent>{row.steer ? <small className="muted">补充本轮要求</small> : null}{row.role === "user" ? <pre>{row.text}</pre> : <MessageContent text={row.text} />}
+      {row.role === "user" ? row.memoryReceipts?.map(receipt => <small key={receipt.id} className="muted" role="status" style={{ whiteSpace: "pre-wrap" }}>记忆回执（最近一批）：{receipt.text}</small>) : null}
+    </ZCodeMessageContent>
   </ZCodeMessage>;
 }
 

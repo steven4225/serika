@@ -340,7 +340,12 @@ export class RuntimeBridge {
   }
 
   async historyPage(input?: HistoryPageInput) {
-    return historyPage(await this.#controller.getHistory(), this.#app.threadId, input);
+    const page = historyPage(await this.#controller.getHistory(), this.#app.threadId, input);
+    const receipts = await this.#controller.getMemoryReceipts();
+    if (!receipts.ok) return { ...page, memoryReceipts: [], memoryReceiptError: receipts.error.message };
+    // Latest batch is bounded. Return its full projection so loading an older
+    // page cannot erase receipts already attached to newer loaded messages.
+    return { ...page, memoryReceipts: receipts.value };
   }
 
   getContextDiagnostics() {

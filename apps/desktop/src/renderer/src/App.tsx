@@ -23,6 +23,7 @@ import {
   resultRow,
   rowsFromHistory,
   annotateHistoryTools,
+  annotateMemoryReceipts,
   rowsFromToolActivity,
   type ConversationRow,
   type LiveRun,
@@ -437,13 +438,15 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     const [page, receipts, identity] = await Promise.all([window.runloom.historyPage(), window.runloom.listRuns().catch(() => null), window.runloom.info()]);
     if (request !== historyRequest.current || primaryId !== latestPrimaryId.current || completedId !== latestCompletedPrimaryId.current) return;
     if (page.threadId !== identity.threadId) return;
+    if (page.memoryReceiptError) setError(page.memoryReceiptError);
     const messages = page.messages;
     historyMessages.current = messages;
     setHistoryBefore(page.beforeId);
     // Only a reread made after this primary Run completed can supply its full
     // outcomes. Provider tool IDs are not unique across the whole Thread.
     const rows = receipts?.ok ? annotateHistoryTools(rowsFromHistory(messages), receipts.runs, identity.threadId) : rowsFromHistory(messages);
-    setStoredHistory({ rows: completedId === null ? rows : overlayShellProgress(rows, shellBuffer.current), runId: completedId });
+    const withMemory = annotateMemoryReceipts(rows, page.memoryReceipts ?? [], identity.threadId);
+    setStoredHistory({ rows: completedId === null ? withMemory : overlayShellProgress(withMemory, shellBuffer.current), runId: completedId });
   }, []);
 
   const loadOlderHistory = async () => {
@@ -454,11 +457,12 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     try {
       const [page, identity, receipts] = await Promise.all([window.runloom.historyPage({ beforeId: historyBefore }), window.runloom.info(), window.runloom.listRuns().catch(() => null)]);
       if (request !== historyRequest.current || page.threadId !== identity.threadId) return;
+      if (page.memoryReceiptError) setError(page.memoryReceiptError);
       const messages = [...page.messages, ...historyMessages.current];
       historyMessages.current = messages; setHistoryBefore(page.beforeId);
       const rows = receipts?.ok ? annotateHistoryTools(rowsFromHistory(messages), receipts.runs, identity.threadId) : rowsFromHistory(messages);
       followConversation.current = false;
-      setStoredHistory(current => ({ ...current, rows }));
+      setStoredHistory(current => ({ ...current, rows: annotateMemoryReceipts(rows, page.memoryReceipts ?? [], identity.threadId) }));
       requestAnimationFrame(() => { if (area) area.scrollTop = top + area.scrollHeight - height; });
     } catch { setError("更早的对话读取失败；当前内容仍保留，可以重试"); }
     finally { setHistoryLoading(false); }
@@ -610,6 +614,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
         case "memory-updated":
           if (message.reason === "proposals") setMemoryDeferred(false);
           setMemoryRefresh((value) => value + 1);
+          void reloadHistory().catch((cause: unknown) => setError(String(cause)));
           return;
         case "work-task-updated":
           setTaskRefresh((value) => value + 1);
@@ -672,6 +677,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
 
     return () => {
       cancelled = true;
+      historyRequest.current += 1;
       recordListRequest.current += 1;
       recordDetailRequest.current += 1;
       if (recordRefreshTimer.current !== null) clearTimeout(recordRefreshTimer.current);
