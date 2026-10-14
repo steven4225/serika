@@ -519,7 +519,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
           const deferred = finalized.value.outcomes?.some(outcome => outcome.status === "deferred");
           if (finalized.value.outcomes?.some(outcome => outcome.status === "not_saved" && outcome.reason === "retry_exhausted")) consolidationFailure = "MEMORY_RETRY_EXHAUSTED";
           else if (deferred || extracted && !extracted.ok) {
-            consolidationFailure = "MEMORY_EXTRACTION_DEFERRED";
+            consolidationFailure = "MEMORY_EXTRACTION_DEFERRED" + (extracted && !extracted.ok ? `: ${extracted.error.code}: ${extracted.error.message}` : "");
             if (!finalized.value.replayed) emit({ type: "error", message: memoryConsolidationFailureText(consolidationFailure) });
           }
           if (deferred || finalized.value.outcomes?.some(outcome => outcome.status === "not_saved" && outcome.reason === "retry_exhausted")) finalizationFailed = true;
