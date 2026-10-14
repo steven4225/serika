@@ -1,0 +1,21 @@
+{
+  "name": "@aisdk-agent/eval",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.22.0" },
+  "scripts": {
+    "eval": "node run.mjs offline",
+    "eval:live": "node run.mjs live",
+    "e2e": "node run.mjs e2e",
+    "guards": "node guards.mjs",
+    "test": "node --test *.test.mjs",
+    "view": "node run.mjs view"
+  },
+  "dependencies": {
+    "@aisdk-agent/example-cli": "workspace:*",
+    "@aisdk-agent/core": "workspace:*",
+    "ai": "7.0.37"
+  },
+  "devDependencies": { "promptfoo": "0.124.1" }
+}

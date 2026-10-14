@@ -5,4 +5,6 @@ out/
 .env
 .DS_Store
 .runloom/
+examples/eval/results/
+examples/eval/.promptfoo/
 electron.vite.config.[0-9]*.mjs
