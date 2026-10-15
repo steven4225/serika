@@ -19,6 +19,97 @@ async function fixture(fn: (file: string) => Promise<void>): Promise<void> {
 }
 const port = (calls: string[][] = [], modelId = "fixture-v1"): MemoryEmbeddingPort => ({ modelId, async embed(texts) { calls.push([...texts]); return texts.map(vector); } });
 
+it("maintenance completes bounded fact-only batches and restart never re-embeds completed facts", async () => fixture(async file => {
+  const calls: string[][] = [];
+  const entries = Array.from({ length: 45 }, (_, n) => fact(`fact-${n}`, `Serika fact ${n}`));
+  const index = new LocalMemorySemanticIndex({ file, embedding: port(calls) });
+  assert.deepEqual(await index.maintain(entries, { now }), {
+    state: "warming", eligibleCount: 45, indexedCount: 20, remainingCount: 25, embeddedCount: 20,
+  });
+  assert.equal((await index.maintain(entries, { now })).remainingCount, 5);
+  const restarted = new LocalMemorySemanticIndex({ file, embedding: port(calls) });
+  assert.deepEqual(await restarted.maintain(entries, { now }), {
+    state: "ready", eligibleCount: 45, indexedCount: 45, remainingCount: 0, embeddedCount: 5,
+  });
+  assert.equal((await restarted.maintain(entries, { now })).embeddedCount, 0);
+  assert.deepEqual(calls.map(call => call.length), [20, 20, 5]);
+  assert.deepEqual(calls.flat(), entries.map(entry => entry.text), "maintenance never invents an embedding query");
+}));
+
+it("maintenance retains foreign cache vectors but only sends eligible facts and refreshes revisions", async () => fixture(async file => {
+  const calls: string[][] = [];
+  const privateA = fact("private-a", "A private", { scope: { kind: "thread", threadId: "A" } });
+  const privateB = fact("private-b", "B private", { scope: { kind: "thread", threadId: "B" } });
+  const entries = [writing, privateA, privateB, fact("off", "off private", { enabled: false })];
+  const index = new LocalMemorySemanticIndex({ file, embedding: port(calls) });
+  await index.maintain(entries, { now, threadId: "A" });
+  await index.maintain(entries, { now, threadId: "B" });
+  assert.deepEqual(calls, [[writing.text, privateA.text], [privateB.text]]);
+  const changed = entries.map(entry => entry.id === "private-a" ? { ...entry, revision: 2 } : entry);
+  await index.maintain(changed, { now, threadId: "B" });
+  await index.maintain(changed, { now, threadId: "A" });
+  assert.deepEqual(calls.at(-1), [privateA.text]);
+  assert.equal(calls.length, 3);
+}));
+
+it("concurrent maintenance and search share one cache update instead of duplicating a batch", async () => fixture(async file => {
+  const calls: string[][] = [];
+  const index = new LocalMemorySemanticIndex({ file, embedding: port(calls) });
+  const entries = Array.from({ length: 25 }, (_, n) => fact(`fact-${n}`, `Serika ${n}`));
+  await Promise.all([index.maintain(entries, { now }), index.search(entries, { now, query: "Serika" })]);
+  assert.deepEqual(calls.map(call => call.length), [20, 6]);
+  assert.equal(new Set(calls.flat().filter(text => text !== "Serika")).size, 25);
+  assert.equal((await index.maintain(entries, { now })).remainingCount, 0);
+}));
+
+it("cancelled maintenance neither commits vectors nor dispatches queued work", async () => fixture(async file => {
+  const active = new AbortController(), queued = new AbortController();
+  let started!: () => void;
+  const ready = new Promise<void>(resolve => { started = resolve; });
+  let release!: () => void;
+  const hold = new Promise<void>(resolve => { release = resolve; });
+  let calls = 0;
+  const index = new LocalMemorySemanticIndex({ file, embedding: { modelId: "fixture", async embed(texts) {
+    calls++; started(); await hold; return texts.map(vector);
+  } } });
+  const first = index.maintain([writing], { now, signal: active.signal });
+  await ready;
+  const second = index.maintain([writing], { now, signal: queued.signal });
+  active.abort(new Error("active cancelled")); queued.abort(new Error("queued cancelled"));
+  await assert.rejects(first, /active cancelled/);
+  await assert.rejects(second, /queued cancelled/);
+  release();
+  await new Promise(resolve => setTimeout(resolve, 10));
+  assert.equal(calls, 1);
+  await assert.rejects(readFile(file), { code: "ENOENT" });
+}));
+
+it("maintenance deadlines report incomplete coverage, do not retry and forbid a late cache write", async () => fixture(async file => {
+  let calls = 0;
+  let release!: () => void;
+  const hold = new Promise<void>(resolve => { release = resolve; });
+  const index = new LocalMemorySemanticIndex({ file, timeoutMs: 10, embedding: { modelId: "fixture", async embed(texts) {
+    calls++; await hold; return texts.map(vector);
+  } } });
+  assert.deepEqual(await index.maintain([writing], { now }), {
+    state: "degraded", eligibleCount: 1, indexedCount: 0, remainingCount: 1, embeddedCount: 0,
+  });
+  assert.equal(index.lastFailure?.code, "deadline_exceeded");
+  release();
+  await new Promise(resolve => setTimeout(resolve, 10));
+  assert.equal(calls, 1);
+  await assert.rejects(readFile(file), { code: "ENOENT" });
+}));
+
+it("maintenance rejects invalid foreign identities before any provider dispatch", async () => fixture(async file => {
+  const calls: string[][] = [];
+  const foreign = fact("foreign", "foreign text", { scope: { kind: "thread", threadId: "foreign" }, revision: 0 });
+  const index = new LocalMemorySemanticIndex({ file, embedding: port(calls) });
+  assert.equal((await index.maintain([writing, foreign], { now })).state, "degraded");
+  assert.equal(index.lastFailure?.code, "index_input_invalid");
+  assert.equal(calls.length, 0);
+}));
+
 it("recalls fixture paraphrase, exact named facts and never unrelated below threshold", async () => fixture(async file => {
   const entries = [writing, fact("named", "Serika 使用 TypeScript")];
   const index = new LocalMemorySemanticIndex({ file, embedding: port() });
@@ -94,6 +185,86 @@ it("restart reuses fact vectors and refreshes changed revisions without storing 
   assert.deepEqual(calls[2], ["Serika", "回顾"]);
   const hits = await second.search([writing], { query: "回顾", now });
   assert.deepEqual(retrieveMemories([{ ...writing, revision: 2, text: "Serika" }], { query: "回顾", now, semanticHits: hits }).entries, []);
+}));
+
+it("A to B to A across new instances reuses valid fact vectors without exposing foreign Thread facts", async () => fixture(async file => {
+  const calls: string[][] = [];
+  const shared = fact("shared", "Serika 使用 TypeScript。");
+  const privateA = fact("private-a", "A 私有复盘先给结论。", { scope: { kind: "thread", threadId: "A" } });
+  const privateB = fact("private-b", "B 私有复盘先列风险。", { scope: { kind: "thread", threadId: "B" } });
+  // Each preparation receives the complete current formal projection, not a prefiltered view.
+  const entries = [shared, privateA, privateB];
+  const query = "回顾应该怎么组织？";
+  const search = async (threadId: string) => {
+    const index = new LocalMemorySemanticIndex({ file, embedding: port(calls) });
+    const hits = await index.search(entries, { query, now, threadId });
+    assert.equal(index.lastState, "ready");
+    const foreignId = threadId === "A" ? privateB.id : privateA.id;
+    assert.ok(!hits.some(hit => hit.id === foreignId));
+    assert.ok(!index.lastDiagnostics?.candidates.some(candidate => candidate.id === foreignId));
+    assert.deepEqual(retrieveMemories(entries, { query, now, threadId, semanticHits: hits }).entries.map(entry => entry.id),
+      [threadId === "A" ? privateA.id : privateB.id]);
+  };
+  await search("A");
+  assert.deepEqual(calls[0], [shared.text, privateA.text, query]);
+  await search("B");
+  assert.deepEqual(calls[1], [privateB.text, query], "B does not send A's private text or re-embed the shared fact");
+  await search("A");
+  assert.deepEqual(calls[2], [query], "returning to A only embeds the new query, not the unchanged private fact");
+  assert.equal(calls.flat().filter(text => text === privateA.text).length, 1);
+  assert.equal(calls.flat().filter(text => text === privateB.text).length, 1);
+}));
+
+it("cross-Thread preparations evict changed and deleted vectors before restart reuse", async () => {
+  for (const mutation of ["revision", "text", "delete"] as const) await fixture(async file => {
+    const calls: string[][] = [];
+    const privateA = fact("private-a", "A 私有复盘先给结论。", { scope: { kind: "thread", threadId: "A" } });
+    const query = "回顾";
+    const search = (entries: MemoryEntry[], threadId: string) =>
+      new LocalMemorySemanticIndex({ file, embedding: port(calls) }).search(entries, { query, now, threadId });
+    const original = [writing, privateA];
+    const oldHits = await search(original, "A");
+    const changed = mutation === "delete" ? undefined : { ...privateA,
+      ...(mutation === "revision" ? { revision: 2 } : { text: "A 私有复盘先列风险。" }) };
+    const current = changed ? [writing, changed] : [writing];
+    await search(current, "B");
+    assert.deepEqual(calls[1], [query], "B cannot send the changed foreign fact");
+    const cache = JSON.parse(await readFile(file, "utf8")) as { records: Array<{ id: string }> };
+    assert.ok(!cache.records.some(record => record.id === privateA.id), "invalidated foreign vector is removed on disk");
+    const hits = await search(current, "A");
+    assert.deepEqual(calls[2], changed ? [changed.text, query] : [query]);
+    assert.equal(hits.some(hit => hit.id === privateA.id), changed !== undefined);
+    assert.ok(!retrieveMemories(current, { query: "", now, threadId: "A", semanticHits: oldHits }).entries
+      .some(entry => entry.id === privateA.id), "old vector identity cannot revive after a fact change or deletion");
+  });
+});
+
+it("retained foreign lifecycle vectors cannot enter embedding inputs, hits or diagnostics after restart", async () => {
+  for (const mutation of [{ enabled: false }, { temporalState: "retracted" }, { expiresAt: now.toISOString() }] satisfies Partial<MemoryEntry>[]) await fixture(async file => {
+    const calls: string[][] = [];
+    const privateA = fact("private-a", "A 私有复盘。", { scope: { kind: "thread", threadId: "A" } });
+    await new LocalMemorySemanticIndex({ file, embedding: port(calls) }).search([writing, privateA], { query: "回顾", now, threadId: "A" });
+    const current = [writing, { ...privateA, ...mutation }];
+    for (const threadId of ["B", "A"]) {
+      const index = new LocalMemorySemanticIndex({ file, embedding: port(calls) });
+      assert.deepEqual((await index.search(current, { query: "回顾", now, threadId })).map(hit => hit.id), [writing.id]);
+      assert.deepEqual(index.lastDiagnostics?.candidates.map(item => item.id), [writing.id]);
+    }
+    assert.deepEqual(calls.slice(1), [["回顾"], ["回顾"]]);
+  });
+});
+
+it("complete formal projection validates foreign duplicate IDs, revisions and the cache capacity before embedding", async () => fixture(async file => {
+  const foreign = fact("foreign", "外部复盘。", { scope: { kind: "thread", threadId: "foreign" } });
+  const calls: string[][] = [];
+  for (const entries of [[writing, foreign, foreign], [writing, { ...foreign, revision: 0 }],
+    [writing, ...Array.from({ length: 512 }, (_, n) => ({ ...foreign, id: `foreign-${n}` }))]]) {
+    const index = new LocalMemorySemanticIndex({ file, embedding: port(calls) });
+    assert.deepEqual(await index.search(entries, { query: "回顾", now, threadId: "current" }), []);
+    assert.equal(index.lastState, "degraded");
+    assert.equal(index.lastFailure?.code, "index_input_invalid");
+  }
+  assert.equal(calls.length, 0);
 }));
 
 it("corrupt cache and model change rebuild but never read a symlink cache", async () => fixture(async file => {

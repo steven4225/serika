@@ -200,6 +200,68 @@ describe("source-bound from-now preference changes", () => {
       assert.deepEqual(current.entry.scope, { kind: "thread", threadId: "thread" });
     } finally { await f.cleanup(); }
   });
+  it("accepts an explicit current transition with a leading or interposed current-thread qualifier", async () => {
+    for (const text of [
+      "从现在起，仅在当前对话里，我的咖啡改成加糖。",
+      "以后，只在本次聊天里，我喝咖啡改成加糖。",
+      "仅当前对话有效，从现在起，我的咖啡改成加糖。",
+      "只在这个对话中，请把我的咖啡偏好改为加糖。",
+    ]) {
+      const f = await setup(text, "automatic", { scope: { kind: "thread", threadId: "thread" } });
+      try {
+        assert.ok((await stage(f)).ok, text);
+        const committed = await f.service.finalize({ status: "completed" }); assert.ok(committed.ok);
+        assert.equal(committed.value.accepted?.length, 1, text);
+        assert.equal(committed.value.pendingCandidateIds?.length, 0, text);
+        const current = await createMemoryStore(f.directory).get(f.target.id, undefined, { now }); assert.ok(current.ok);
+        assert.equal(current.entry.revision, 2, text);
+        assert.equal(current.entry.assertion?.factIdentity?.value, "sweetened", text);
+        assert.equal(current.entry.assertion?.validTime.from, now.toISOString(), text);
+        assert.deepEqual(current.entry.scope, { kind: "thread", threadId: "thread" }, text);
+        assert.equal(current.entry.source?.kind === "conversation" && current.entry.source.quote, text);
+      } finally { await f.cleanup(); }
+    }
+  });
+  it("does not strip unsafe qualifiers or widen a scoped transition to a workspace target", async () => {
+    for (const text of [
+      "从现在起，仅在当前对话里，我的咖啡改成加糖。",
+      "从现在起，仅在当前对话里，如果可以，我的咖啡改成加糖。",
+      "从现在起，仅在当前对话里，我的朋友喝咖啡改成加糖。",
+      "仅当前对话有效，从现在起，我不想喝咖啡改成加糖。",
+      "仅当前对话有效，从现在起，我明天喝咖啡改成加糖。",
+      "从现在起，仅在当前对话里，我的咖啡改成加糖？",
+      "从现在起，仅在当前对话里，我的咖啡改成加糖；我喝咖啡不加糖。",
+      "仅当前对话有效，朋友说从现在起我的咖啡改成加糖。",
+      "从现在起，仅在当前对话里，“我的咖啡改成加糖”。",
+    ]) {
+      // The first source is valid only for a thread target. All others remain
+      // non-authorizing even for that target: the full original is still checked.
+      const f = await setup(text, "automatic", text === "从现在起，仅在当前对话里，我的咖啡改成加糖。"
+        ? {} : { scope: { kind: "thread", threadId: "thread" } });
+      try {
+        assert.ok((await stage(f)).ok, text);
+        const committed = await f.service.finalize({ status: "completed" }); assert.ok(committed.ok);
+        assert.equal(committed.value.accepted?.length ?? 0, 0, text);
+        assert.equal(committed.value.pendingCandidateIds?.length, 1, text);
+        const current = await f.store.get(f.target.id, undefined, { now }); assert.ok(current.ok);
+        assert.equal(current.entry.revision, f.target.revision, text);
+        assert.equal(current.entry.text, f.target.text, text);
+      } finally { await f.cleanup(); }
+    }
+  });
+  it("does not accept a scoped transition after the model strips the complete-source requirement", async () => {
+    const text = "从现在起，仅在当前对话里，如果可以，我的咖啡改成加糖。";
+    const f = await setup(text, "automatic", { scope: { kind: "thread", threadId: "thread" } });
+    try {
+      const stripped = "我的咖啡改成加糖。";
+      assert.ok((await stage(f, { ...f.proposal, sourceQuote: stripped,
+        changeIntent: { type: "replace_from_now", sourceQuote: stripped } })).ok);
+      const committed = await f.service.finalize({ status: "completed" }); assert.ok(committed.ok);
+      assert.equal(committed.value.accepted?.length ?? 0, 0);
+      const current = await f.store.get(f.target.id, undefined, { now }); assert.ok(current.ok);
+      assert.equal(current.entry.revision, f.target.revision);
+    } finally { await f.cleanup(); }
+  });
   it("does not overwrite expired, disabled or not-yet-effective targets", async () => {
     for (const targetInput of [
       { enabled: false },

@@ -11,7 +11,7 @@ import type { MemoryConsolidationEntry, MemoryEntry, WorkspaceMemoryStore } from
 import { rankMemoryEntriesForQuery } from "./memory-retrieval.js";
 import { overlaps, validateRecallTerms, validateTemporalTimestamp, validateValidTime, type MemoryKind, type MemoryValidTime } from "./memory-temporal.js";
 import { sameFact, sameFactSlot, validateFactIdentity, type MemoryFactIdentity } from "./memory-fact-identity.js";
-import { hasOpposingSelfStatements, hasRelativeTime, isReminderInstruction, messageClock, reviewablePreference, statedLanguagePreference, statedPreference, statedScenario, statedThreadScope } from "./memory-observation-policy.js";
+import { hasOpposingSelfStatements, hasRelativeTime, isReminderInstruction, messageClock, reviewablePreference, statedEverydayPreference, statedLanguagePreference, statedPreference, statedScenario, statedThreadScope } from "./memory-observation-policy.js";
 
 export const CONSOLIDATION_MATERIAL_MAX_BYTES = 64 * 1024;
 export const CONSOLIDATION_MEMORIES_MAX_BYTES = 24 * 1024;
@@ -233,13 +233,20 @@ function explicitFromNow(proposal: MemoryProposal, draft: CandidateDraft, select
   const whole = selected.find(turn => turn.user.id === source.messageId)?.user.text;
   if (proposal.changeIntent.sourceQuote !== source.quote || source.quote !== whole) return false;
   const text = source.quote.trim();
-  if (!/^(?:(?:从现在起|从现在开始|以后|今后)[，,\s]*(?:我|咖啡|复盘|回复|回答)|我(?:的)?(?:从现在起|从现在开始|以后|今后|现在)|(?:请)?把我的)/.test(text) ||
+  const everyday = change.factIdentity !== undefined && "version" in change.factIdentity;
+  const guardedText = everyday ? text.replace(/「([^」\n]{1,60})」\s*场景/g, "$1场景") : text;
+  // Admit only a scope-only clause around the existing affirmative anchor.
+  // Never strip it (or other qualifiers) from the source checked below.
+  const threadScope = "(?:仅|只)(?:在)?(?:当前|本(?:次|段)?|这(?:个|次|段)?)(?:对话|会话|聊天)(?:范围|里|内|中)?(?:有效)?[，,\\s]*";
+  const scenePrefix = everyday ? "(?:(?:在)?「[^」\\n]{1,60}」\\s*场景[，,\\s]*)?" : "";
+  const affirmative = new RegExp(`^(?:${threadScope})?(?:(?:从现在起|从现在开始|以后|今后)[，,\\s]*(?:${threadScope})?${scenePrefix}(?:我|咖啡|复盘|回复|回答)|我(?:的)?(?:从现在起|从现在开始|以后|今后|现在)|(?:请)?把我的)`);
+  if (!affirmative.test(text) ||
     !/(?:改成|改为)/.test(text) ||
-    /[?？“”「」"‘’；;\n]|如果|假如|假设|假装|设想|例如|比如|举例|示例|转述|他|她|朋友|同事|妈妈|爸爸|别人|不要|不改|别改|不想|不希望|不愿|打算|计划|没决定|不确定|假话|不能|不应|禁止|拒绝|不是|并非|明天|明年|下周|下个月|之后|以后再|将来|等到|考虑|可能|试试/.test(text)) return false;
+    /[?？“”「」"‘’；;\n]|如果|假如|假设|假装|设想|例如|比如|举例|示例|转述|他|她|朋友|同事|妈妈|爸爸|别人|不要|不改|别改|不想|不希望|不愿|打算|计划|没决定|不确定|假话|不能|不应|禁止|拒绝|不是|并非|明天|明年|下周|下个月|之后|以后再|将来|等到|考虑|可能|试试/.test(guardedText)) return false;
   const target = memories.find(entry => entry.id === change.memoryId && entry.revision === change.expectedRevision);
   const identity = change.factIdentity;
-  const observed = statedPreference(text) ?? statedLanguagePreference(text);
-  const body = statedPreference(change.text) ?? statedLanguagePreference(change.text);
+  const observed = statedPreference(text) ?? statedLanguagePreference(text) ?? statedEverydayPreference(text);
+  const body = statedPreference(change.text) ?? statedLanguagePreference(change.text) ?? statedEverydayPreference(change.text, "body");
   const restricted = statedThreadScope(text);
   return !!target && target.enabled && activeTarget(target, now) && target.assertion?.kind === "preference" && change.kind === "preference" &&
     sameFactSlot(target.assertion.factIdentity, identity) && !sameFact(target.assertion.factIdentity, identity) &&
@@ -526,8 +533,8 @@ export function createMemoryConsolidation(options: {
           // A source can contain independent facts. Validate each proposed body
           // against the source's clauses, not only its first recognized attribute.
           const observations = sources.flatMap(source => source.quote.split(/[。；;\n]|另外|此外|同时|而且/).flatMap(clause =>
-            [statedPreference(clause), statedLanguagePreference(clause)].flatMap(observed => observed ? [observed] : [])));
-          const body = statedPreference(change.text) ?? statedLanguagePreference(change.text);
+            [statedPreference(clause), statedLanguagePreference(clause), statedEverydayPreference(clause)].flatMap(observed => observed ? [observed] : [])));
+          const body = statedPreference(change.text) ?? statedLanguagePreference(change.text) ?? statedEverydayPreference(change.text, "body");
           const identity = "factIdentity" in change ? change.factIdentity : undefined;
           // A declared residence is independent of an unrelated coffee clause.
           // Require a verbatim self-residence statement, not merely a city name
@@ -537,7 +544,10 @@ export function createMemoryConsolidation(options: {
             /我(?:目前|现在)?(?:居住|住)(?:在|于)|我的(?:住址|居住地)(?:是|在|为)/.test(change.text) &&
             change.text.normalize("NFKC").toLowerCase().includes(identity.value) &&
             !/[?？“”「」"]|如果|假如|假设|例如|比如|举例|转述|(?:他|她|朋友)说|不是|并非/.test(quotes);
-          if (residence && !verifiedResidence || !verifiedResidence && observations.length > 0 && (!body ||
+          const everyday = identity !== undefined && "version" in identity;
+          const unverifiedEveryday = everyday && (!body || !observations.some(observed => observed.attribute === identity.attribute && observed.value === identity.value) ||
+            body.attribute !== identity.attribute || body.value !== identity.value);
+          if (unverifiedEveryday || residence && !verifiedResidence || !verifiedResidence && observations.length > 0 && (!body ||
             !observations.some(observed => observed.attribute === body.attribute && observed.value === body.value) ||
             identity && (identity.attribute !== body.attribute || identity.value !== body.value))) {
             // Exact provenance alone cannot justify an unrelated extracted body.
@@ -561,6 +571,13 @@ export function createMemoryConsolidation(options: {
         if (change.operation !== "retract" && change.operation !== "disable") {
           const restriction = statedThreadScope(sourceText);
           const restrictedScope = restriction ? { kind: "thread" as const, threadId: options.threadId } : undefined;
+          if (!restriction && change.operation === "add" && change.scope.kind === "thread") {
+            // A model-invented Thread scope must not bypass conflicts with the
+            // existing workspace fact. Retain the proposal for review rather
+            // than silently widening it or accepting a separate active fact.
+            eligibility = "needs_review";
+            parsed.value.reason = "这条记忆的对话范围没有得到原话支持，请确认适用范围；尚未自动保存，也没有覆盖已有记忆。";
+          }
           if (restrictedScope) {
             if (change.operation === "add") change = { ...change, scope: restrictedScope };
             else if (run.prepared.memories.find(entry => entry.id === targetId)?.scope?.kind !== "thread") {

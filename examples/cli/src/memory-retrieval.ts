@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { selectInjectableMemoryEntries, type MemoryEntry } from "./memory-store.js";
 import { validateRecallTerms, validateTemporalTimestamp, validateValidTime } from "./memory-temporal.js";
 import type { MemorySemanticHit } from "./memory-semantic-index.js";
+import { statedThreadScope } from "./memory-observation-policy.js";
 
 export const MEMORY_QUERY_MAX_BYTES = 4_096;
 export const RETRIEVED_MEMORY_MAX_BYTES = 8_192;
@@ -194,7 +195,10 @@ function currentlyApplicable(entry: MemoryEntry, now: number): boolean {
 
 export function selectEligibleMemoryEntries(entries: readonly MemoryEntry[], input: { now: Date; threadId?: string }): MemoryEntry[] {
   return selectInjectableMemoryEntries(entries, { now: input.now, ...(input.threadId === undefined ? {} : { threadId: input.threadId }) })
-    .filter((entry) => currentlyApplicable(entry, input.now.getTime()));
+    // Legacy workspace metadata cannot authorize broadening an explicitly
+    // conversation-limited body. Exclude, never guess its intended Thread.
+    .filter((entry) => (entry.scope?.kind === "thread" || statedThreadScope(entry.text) !== "explicit")
+      && currentlyApplicable(entry, input.now.getTime()));
 }
 
 /** Pins precede bounded hybrid selection; absent semantic hits preserves legacy ordering. */

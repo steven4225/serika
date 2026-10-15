@@ -12,6 +12,15 @@ fi
 serika_memory_repo="${0:A:h:h:h}"
 cd "$serika_memory_repo"
 pnpm build:runtime
+node --input-type=module <<'VERSION'
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+const commit = execFileSync('git', ['rev-parse', '--short=12', 'HEAD'], { encoding: 'utf8' }).trim();
+const runtime = createHash('sha256').update(readFileSync('./examples/cli/dist/memory-relevance.js')).digest('hex');
+console.log(`本次构建：commit=${commit} relevanceRuntime=${runtime}`);
+console.log('仅本次新生成报告代表这版结果；旧报告不覆盖、不改判。');
+VERSION
 print '本轮仅测真实 embedding 召回：原 MR 12 题＋独立 MH 验证 4 题，各执行一次。'
 print '固定 DashScope qwen3.7-text-embedding-flash；实际调用会产生费用。'
 if [[ "$serika_memory_relevance" == true ]]; then

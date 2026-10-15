@@ -4,6 +4,7 @@ import { AgentError } from "@aisdk-agent/core";
 import type { RegisteredTool } from "@aisdk-agent/ai-sdk-adapter";
 import type { AgentModule } from "../module-host.js";
 import type { MemoryConsolidation } from "../memory-consolidation.js";
+import { validateFactIdentity } from "../memory-fact-identity.js";
 import { MAX_CONTEXT_BYTES } from "../context-window.js";
 import {
   AUTO_CONSOLIDATION_AGENT_ID,
@@ -51,7 +52,13 @@ const memorySourceSchema = z.discriminatedUnion("kind", [
 ]);
 const validTimeSchema = z.object({ from: z.string().nullable(), to: z.string().nullable(), basis: z.enum(["explicit", "reported", "unknown"]) }).strict();
 const memoryKindSchema = z.enum(["preference", "fact", "event", "note"]);
-const factIdentitySchema = z.object({ attribute: z.enum(["response_language", "review_format", "coffee", "residence"]), scenario: z.string().min(1).refine(value => Buffer.byteLength(value) <= 96), value: z.string().min(1).refine(value => Buffer.byteLength(value) <= 96) }).strict();
+const identityScenarioSchema = z.string().min(1).refine(value => Buffer.byteLength(value) <= 96 && !/[\r\n\u0000]/.test(value));
+const factIdentitySchema = z.union([
+  z.object({ attribute: z.enum(["response_language", "review_format", "coffee", "residence"]), scenario: identityScenarioSchema, value: z.string().min(1).refine(value => Buffer.byteLength(value) <= 96) }).strict(),
+  z.object({ version: z.literal(2), subject: z.literal("user"), attribute: z.enum(["diet_spiciness", "notification_channel"]), scenario: identityScenarioSchema, value: z.string().min(1).refine(value => Buffer.byteLength(value) <= 96) }).strict().refine(value => {
+    try { validateFactIdentity(value); return true; } catch { return false; }
+  }),
+]);
 const factFields = { kind: memoryKindSchema.optional(), recallTerms: z.array(z.string().min(1).refine(value => Buffer.byteLength(value) <= 96)).max(3).optional(), validTime: validTimeSchema.optional() };
 const changeFactFields = { kind: factFields.kind, recallTerms: factFields.recallTerms };
 const sourceIdentifierSchema = z.discriminatedUnion("kind", [

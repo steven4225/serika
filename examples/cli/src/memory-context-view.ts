@@ -1,5 +1,6 @@
 import type { UIMessage } from "ai";
-import { selectInjectableMemoryEntries, type MemoryEntry, type MemoryScope } from "./memory-store.js";
+import type { MemoryEntry, MemoryScope } from "./memory-store.js";
+import { selectEligibleMemoryEntries } from "./memory-retrieval.js";
 import { validateFactIdentity } from "./memory-fact-identity.js";
 import { validateTemporalTimestamp, validateValidTime } from "./memory-temporal.js";
 import { statedScenario } from "./memory-observation-policy.js";
@@ -80,7 +81,7 @@ export function buildMemoryContextView(entries: readonly MemoryEntry[], tasks: r
   const excluded = new Set(input.excludedMemoryIds);
   const order = (left: { id: string; updatedAt?: string | null }, right: { id: string; updatedAt?: string | null }): number =>
     (Date.parse(right.updatedAt ?? "") || 0) - (Date.parse(left.updatedAt ?? "") || 0) || left.id.localeCompare(right.id);
-  const profiles = selectInjectableMemoryEntries(entries, { threadId: input.threadId, now: input.now })
+  const profiles = selectEligibleMemoryEntries(entries, { threadId: input.threadId, now: input.now })
     .filter(entry => !excluded.has(entry.id)).sort(order)
     .flatMap(entry => { const reference = profileReference(entry, input.now.getTime()); return reference ? [reference] : []; });
   const continuation = tasks.filter(task => task.threadId === input.threadId && task.id !== input.activeTaskId

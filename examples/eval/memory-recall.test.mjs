@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createServer } from 'node:http';
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -321,6 +323,25 @@ test('acceptance launcher prompts two hidden keys only with relevance opt-in and
   assert.ok(!script.includes('--api-key='));
   assert.match(script, /if \(\( \$# != 1 \)\) \|\| \[\[ "\$1" != '--relevance' \]\]/);
   assert.match(script, /if \(result\.summary\.environmentFailure\)/);
+});
+
+test('acceptance launcher identifies the built judgment version before asking for any key', async () => {
+  const script = await readFile(new URL('./Start-Memory-Acceptance.command', import.meta.url), 'utf8');
+  assert.match(script, /本次构建/);
+  assert.ok(script.indexOf("<<'VERSION'") < script.indexOf("read -r -s"));
+  assert.match(script, /git.*rev-parse/);
+  assert.match(script, /cli\/dist\/memory-relevance\.js/);
+  assert.match(script, /createHash\('sha256'\)/);
+  const code = script.match(/<<'VERSION'\n([\s\S]*?)\nVERSION/)?.[1];
+  assert.ok(code);
+  const output = execFileSync(process.execPath, ['--input-type=module', '-e', code], {
+    cwd: new URL('../../', import.meta.url), encoding: 'utf8',
+    env: { ...process.env, DASHSCOPE_API_KEY: 'fixture-hidden-dashscope', COMMAND_CODE_API_KEY: 'fixture-hidden-command' },
+  });
+  const expected = createHash('sha256').update(await readFile(new URL('../cli/dist/memory-relevance.js', import.meta.url))).digest('hex');
+  assert.ok(output.includes(`relevanceRuntime=${expected}`));
+  assert.match(output, /commit=[a-f0-9]{12}/);
+  assert.doesNotMatch(output, /fixture-hidden/);
 });
 
 test('relevance degradation stops after one judgment without crediting the ordinary hybrid fallback', async () => {

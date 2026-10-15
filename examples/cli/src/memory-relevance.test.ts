@@ -132,3 +132,42 @@ test("captured MR10/11/12: prompt distinguishes bare-topic recall from a specifi
   } }));
   assert.equal((await selector("topic", "复盘", [style], input())).state, "succeeded");
 });
+
+// These fixtures verify the request contract and output wiring, not model semantic accuracy.
+test("content relevance request separates general-knowledge answers from response style while retaining explicit preference and topic recall", async () => {
+  const language = entry("language", "请默认用简体中文回复。");
+  const tone = entry("tone", "回答尽量简短。");
+  const breakfast = entry("breakfast", "工作日早餐吃燕麦。");
+  const weekend = entry("weekend", "休息日早餐吃面包。");
+  const facts = [language, tone, style, breakfast, weekend];
+  const cases = [
+    { question: "为什么月亮会有阴晴圆缺？", selectedIds: [] },
+    { question: "解释 TCP 三次握手的原理。", selectedIds: [] },
+    { question: "光合作用需要哪些条件？", selectedIds: [] },
+    { question: "我要求你用什么语言回答？", selectedIds: ["language"] },
+    { question: "我希望复盘怎么组织内容？", selectedIds: ["style"] },
+    { question: "早餐", selectedIds: ["breakfast", "weekend"] },
+  ];
+  let calls = 0;
+  const selector = createMemoryRelevanceSelector(new MockLanguageModelV3({ doGenerate: async options => {
+    const fixture = cases[calls++]!;
+    const system = JSON.stringify(options.prompt.filter(message => message.role === "system"));
+    assert.match(system, /selectedIds is content relevance, not response personalization/);
+    assert.match(system, /language, tone, length or formatting alone/);
+    assert.match(system, /explicitly asks about their saved communication preferences/);
+    assert.match(system, /bare topic or category/);
+    assert.match(system, /preserve all distinct scenes/);
+    assert.equal(options.tools, undefined);
+    const user = options.prompt.find(message => message.role === "user");
+    assert.ok(JSON.stringify(user).includes(fixture.question));
+    return response(JSON.stringify({ selectedIds: fixture.selectedIds, queries: [] }));
+  } }));
+  for (const [index, fixture] of cases.entries()) {
+    const result = await selector(`content-boundary-${index}`, fixture.question, facts, {
+      ...input(), semanticCandidates: facts.map(fact => hit(fact)),
+    });
+    assert.equal(result.state, "succeeded");
+    assert.deepEqual(result.selected.map(item => item.id), fixture.selectedIds);
+  }
+  assert.equal(calls, cases.length);
+});
