@@ -28,13 +28,30 @@ export class MemoryEmbeddingError extends Error {
   constructor(readonly failure: MemoryEmbeddingFailure, message: string) { super(message); }
 }
 export interface MemorySemanticHit { id: string; revision: number; textHash: string; score: number }
+/** Scope-local cache coverage, not a claim about retrieval quality or other Threads. */
+export interface MemorySemanticCoverage {
+  state: "ready" | "warming" | "degraded";
+  eligibleCount: number;
+  indexedCount: number;
+  remainingCount: number;
+  embeddedCount: number;
+}
+/** Preparation-local metadata only. Contains no query, fact text, vector or ineligible identity. */
+export interface MemorySemanticDiagnostics {
+  threshold: number;
+  eligibleCount: number;
+  indexedCount: number;
+  candidates: Array<Omit<MemorySemanticHit, "score"> & { score: number | null;
+    reason: "selected" | "below_threshold" | "candidate_limit" | "not_indexed" | "invalid_score" }>;
+}
 interface CachedVector { id: string; revision: number; textHash: string; vector: number[] }
 interface Cache { version: 1; modelId: string; dimension: number; records: CachedVector[] }
 const MAX_CACHE_BYTES = 16 * 1024 * 1024;
 const MAX_DIMENSION = 4096;
 const MAX_ENTRIES = 512;
-/** Cold indexing advances during normal preparations, never a background model loop. */
+/** Each preparation or host-owned idle maintenance slice has the same bounded batch. */
 export const MEMORY_SEMANTIC_WARMUP_BATCH = 20;
+export const MEMORY_SEMANTIC_SCORE_THRESHOLD = 0.5;
 function validVector(value: unknown, dimension?: number): value is number[] {
   if (!Array.isArray(value) || value.length < 1 || value.length > MAX_DIMENSION || (dimension !== undefined && value.length !== dimension)
     || !Array.from(value).every(item => typeof item === "number" && Number.isFinite(item))) return false;
@@ -122,8 +139,15 @@ export class LocalMemorySemanticIndex {
   readonly #timeoutMs: number;
   #lastState: "ready" | "warming" | "degraded" = "ready";
   #lastFailure: MemoryEmbeddingFailure | undefined;
+  #lastDiagnostics: MemorySemanticDiagnostics | undefined;
+  #pending: Promise<unknown> = Promise.resolve();
+  #lastCoverage: MemorySemanticCoverage | undefined;
   get lastState(): "ready" | "warming" | "degraded" { return this.#lastState; }
   get lastFailure(): MemoryEmbeddingFailure | undefined { return this.#lastFailure ? { ...this.#lastFailure } : undefined; }
+  get lastCoverage(): MemorySemanticCoverage | undefined { return this.#lastCoverage ? { ...this.#lastCoverage } : undefined; }
+  get lastDiagnostics(): MemorySemanticDiagnostics | undefined {
+    return this.#lastDiagnostics ? { ...this.#lastDiagnostics, candidates: this.#lastDiagnostics.candidates.map(item => ({ ...item })) } : undefined;
+  }
   constructor(input: { file: string; embedding: MemoryEmbeddingPort; timeoutMs?: number }) {
     this.#file = resolve(input.file);
     this.#embedding = input.embedding;
@@ -131,6 +155,15 @@ export class LocalMemorySemanticIndex {
       ? Math.max(1, Math.min(10_000, Math.floor(input.timeoutMs))) : 5_000;
   }
   async search(entries: readonly MemoryEntry[], input: { query: string; now: Date; threadId?: string; signal?: AbortSignal }): Promise<MemorySemanticHit[]> {
+    return (await this.#run(entries, input, false)).hits;
+  }
+  /** One cancellable slice only. The application owns idle admission and fresh-snapshot scheduling. */
+  async maintain(entries: readonly MemoryEntry[], input: { now: Date; threadId?: string; signal?: AbortSignal }): Promise<MemorySemanticCoverage> {
+    return (await this.#run(entries, { ...input, query: "" }, true)).coverage;
+  }
+  async #run(entries: readonly MemoryEntry[], input: { query: string; now: Date; threadId?: string; signal?: AbortSignal }, maintenance: boolean): Promise<{ hits: MemorySemanticHit[]; coverage: MemorySemanticCoverage }> {
+    this.#lastDiagnostics = undefined;
+    this.#lastCoverage = undefined;
     input.signal?.throwIfAborted();
     this.#lastFailure = undefined;
     const stage: MemoryEmbeddingFailure = { code: "cache_read_failed" };
@@ -143,35 +176,51 @@ export class LocalMemorySemanticIndex {
         rejectAbort = () => reject(signal.reason);
         signal.addEventListener("abort", rejectAbort, { once: true });
       });
-      const result = await Promise.race([this.#search(entries, input, signal, stage), aborted]);
+      // Serialize the actual operation, not only the deadline race. A port which ignores
+      // cancellation cannot overlap a later writer or commit after its cancelled slice.
+      const work = this.#pending.then(() => {
+        signal.throwIfAborted();
+        return this.#search(entries, input, signal, stage, maintenance);
+      });
+      this.#pending = work.catch(() => {});
+      const result = await Promise.race([work, aborted]);
       return result;
     } catch (error) {
       input.signal?.throwIfAborted();
       this.#lastState = "degraded";
       this.#lastFailure = deadline.signal.aborted ? { code: "deadline_exceeded" }
         : error instanceof MemoryEmbeddingError ? { ...error.failure } : { ...stage };
-      return [];
+      const eligibleCount = selectEligibleMemoryEntries(entries, input).length;
+      this.#lastCoverage = { state: "degraded", eligibleCount, indexedCount: 0, remainingCount: eligibleCount, embeddedCount: 0 };
+      return { hits: [], coverage: { ...this.#lastCoverage } };
     } finally { clearTimeout(timer); if (rejectAbort) signal.removeEventListener("abort", rejectAbort); }
   }
   async #search(entries: readonly MemoryEntry[], input: { query: string; now: Date; threadId?: string }, signal: AbortSignal,
-    stage: MemoryEmbeddingFailure): Promise<MemorySemanticHit[]> {
+    stage: MemoryEmbeddingFailure, maintenance: boolean): Promise<{ hits: MemorySemanticHit[]; coverage: MemorySemanticCoverage }> {
     const query = boundedMemoryQuery(input.query).text.trim();
     const eligible = selectEligibleMemoryEntries(entries, input);
-    if (!query || eligible.length === 0) { this.#lastState = "ready"; return []; }
+    if ((!query && !maintenance) || eligible.length === 0) {
+      this.#lastState = "ready";
+      this.#lastCoverage = { state: "ready", eligibleCount: eligible.length, indexedCount: 0, remainingCount: eligible.length, embeddedCount: 0 };
+      return { hits: [], coverage: { ...this.#lastCoverage } };
+    }
     stage.code = "index_input_invalid";
-    if (eligible.length > MAX_ENTRIES || !this.#embedding.modelId.trim()) throw Error("Invalid semantic index input");
+    if (entries.length > MAX_ENTRIES || !this.#embedding.modelId.trim()) throw Error("Invalid semantic index input");
     stage.code = "cache_read_failed";
     const cache = await readCache(this.#file, this.#embedding.modelId);
     signal.throwIfAborted();
     stage.code = "index_input_invalid";
     const cached = new Map(cache?.records.map(record => [record.id, record]) ?? []);
-    const current = eligible.map(entry => ({ id: entry.id, revision: entry.revision ?? 1, textHash: memorySemanticTextHash(entry.text) }));
-    if (new Set(current.map(item => item.id)).size !== current.length || current.some(item => !Number.isSafeInteger(item.revision) || item.revision < 1)) {
+    const allCurrent = new Map(entries.map(entry => [entry.id,
+      { id: entry.id, revision: entry.revision ?? 1, textHash: memorySemanticTextHash(entry.text) }]));
+    if (allCurrent.size !== entries.length || [...allCurrent.values()].some(item => !Number.isSafeInteger(item.revision) || item.revision < 1)) {
       throw Error("Invalid current semantic facts");
     }
-    // Evict stale vectors first. Scope and lifecycle visibility come from today's facts.
+    const current = eligible.map(entry => allCurrent.get(entry.id)!);
+    // Cache validity uses the complete formal projection, not this Thread's visibility.
+    // Foreign vectors may be retained locally, but never embedded, scored or diagnosed here.
     for (const [id, old] of cached) {
-      const item = current.find(record => record.id === id);
+      const item = allCurrent.get(id);
       if (!item || old.revision !== item.revision || old.textHash !== item.textHash) cached.delete(id);
     }
     const missing = current.filter(item => {
@@ -180,11 +229,12 @@ export class LocalMemorySemanticIndex {
     }).slice(0, MEMORY_SEMANTIC_WARMUP_BATCH);
     const textById = new Map(eligible.map(entry => [entry.id, entry.text]));
     stage.code = "embedding_failed";
-    const vectors = await this.#embedding.embed([...missing.map(item => textById.get(item.id)!), query], signal);
+    const texts = [...missing.map(item => textById.get(item.id)!), ...(maintenance ? [] : [query])];
+    const vectors = texts.length ? await this.#embedding.embed(texts, signal) : [];
     signal.throwIfAborted();
     stage.code = "index_vector_invalid";
-    const dimension = vectors.at(-1)?.length;
-    if (!Array.isArray(vectors) || vectors.length !== missing.length + 1 || !vectors.every(value => validVector(value, dimension))) throw Error("Invalid embedding vectors");
+    const dimension = vectors.at(-1)?.length ?? cache?.dimension;
+    if (!Array.isArray(vectors) || vectors.length !== texts.length || !vectors.every(value => validVector(value, dimension))) throw Error("Invalid embedding vectors");
     // Changing dimensions under the same model identifier invalidates the entire cache.
     // No automatic second provider call: next preparation can rebuild it.
     if (cache && cache.dimension !== dimension) {
@@ -195,11 +245,26 @@ export class LocalMemorySemanticIndex {
     for (let i = 0; i < missing.length; i++) cached.set(missing[i]!.id, { ...missing[i]!, vector: [...vectors[i]!] });
     const records = current.flatMap(item => { const record = cached.get(item.id); return record ? [record] : []; });
     stage.code = "cache_write_failed";
-    await writeCache(this.#file, { version: 1, modelId: this.#embedding.modelId, dimension: dimension!, records }, signal);
+    await writeCache(this.#file, { version: 1, modelId: this.#embedding.modelId, dimension: dimension!, records: [...cached.values()] }, signal);
     signal.throwIfAborted();
     this.#lastState = records.length < current.length ? "warming" : "ready";
+    this.#lastCoverage = { state: this.#lastState, eligibleCount: current.length, indexedCount: records.length,
+      remainingCount: current.length - records.length, embeddedCount: missing.length };
+    const coverage = { ...this.#lastCoverage };
+    if (maintenance) return { hits: [], coverage };
     const queryVector = vectors.at(-1)!;
-    return records.map(record => ({ id: record.id, revision: record.revision, textHash: record.textHash, score: cosine(record.vector, queryVector) }))
-      .filter(hit => Number.isFinite(hit.score) && hit.score >= 0.5).sort((a, b) => b.score - a.score || a.id.localeCompare(b.id)).slice(0, 12);
+    const scored = records.map(record => ({ id: record.id, revision: record.revision, textHash: record.textHash, score: cosine(record.vector, queryVector) }));
+    const hits = scored.filter(hit => Number.isFinite(hit.score) && hit.score >= MEMORY_SEMANTIC_SCORE_THRESHOLD)
+      .sort((a, b) => b.score - a.score || a.id.localeCompare(b.id)).slice(0, 12);
+    const byId = new Map(scored.map(hit => [hit.id, hit]));
+    const selected = new Set(hits.map(hit => hit.id));
+    this.#lastDiagnostics = { threshold: MEMORY_SEMANTIC_SCORE_THRESHOLD, eligibleCount: current.length, indexedCount: records.length,
+      candidates: current.map(item => {
+        const score = byId.get(item.id)?.score;
+        return { ...item, score: score !== undefined && Number.isFinite(score) ? score : null,
+          reason: score === undefined ? "not_indexed" : !Number.isFinite(score) ? "invalid_score"
+            : score < MEMORY_SEMANTIC_SCORE_THRESHOLD ? "below_threshold" : selected.has(item.id) ? "selected" : "candidate_limit" };
+      }) };
+    return { hits, coverage };
   }
 }

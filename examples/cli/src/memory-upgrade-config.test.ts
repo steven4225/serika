@@ -6,6 +6,33 @@ import { describe, it } from "node:test";
 import { resolveTuiModuleConfig } from "./tui-module-config.js";
 
 describe("memory upgrade trusted configuration", () => {
+  it("requires explicit semantic relevance opt-in and never adds a second auxiliary model call to existing configs", async () => {
+    const root = await mkdtemp(join(tmpdir(), "memory-relevance-config-"));
+    const workspace = join(root, "workspace"); await mkdir(workspace);
+    const file = join(root, "config.json");
+    try {
+      for (const semantic of [undefined, { enabled: true }, { enabled: true, relevance: { enabled: false } }]) {
+        await writeFile(file, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: true,
+          queryRewrite: { enabled: true }, ...(semantic ? { semantic } : {}),
+        } } }));
+        const config = await resolveTuiModuleConfig({ configPath: file }, { cwd: root });
+        assert.equal(config.memorySemanticRelevanceEnabled, false);
+        assert.equal(config.memoryQueryRewriteEnabled, true, "legacy explicit query rewrite remains configured");
+      }
+      await writeFile(file, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: true,
+        queryRewrite: { enabled: true }, semantic: { enabled: true, relevance: { enabled: true } },
+      } } }));
+      assert.equal((await resolveTuiModuleConfig({ configPath: file }, { cwd: root })).memorySemanticRelevanceEnabled, true);
+      for (const memory of [
+        { enabled: true, semantic: { enabled: false, relevance: { enabled: true } } },
+        { enabled: false, semantic: { enabled: true, relevance: { enabled: true } } },
+        { enabled: true, semantic: { enabled: true, relevance: { enabled: true, model: "another-model" } } },
+      ]) {
+        await writeFile(file, JSON.stringify({ version: 1, workspace, modules: { memory } }));
+        await assert.rejects(resolveTuiModuleConfig({ configPath: file }, { cwd: root }));
+      }
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
   it("keeps legacy defaults and explicitly resolves the local endpoint and derived view", async () => {
     const root = await mkdtemp(join(tmpdir(), "memory-upgrade-config-"));
     const workspace = join(root, "workspace"); await mkdir(workspace);

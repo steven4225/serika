@@ -12,7 +12,7 @@ import {
   type CheckpointDraft,
 } from "../checkpoint-store.js";
 import { createCheckpointModule } from "./checkpoint-module.js";
-import { retrieveMemories } from "../memory-retrieval.js";
+import { memorySemanticTextHash, retrieveMemories } from "../memory-retrieval.js";
 
 function draft(overrides: Partial<CheckpointDraft> = {}): CheckpointDraft {
   return {
@@ -54,6 +54,21 @@ function toolByName(tools: RegisteredTool[], name: string): RegisteredTool {
 const context = { toolCallId: "checkpoint-test", messages: [], context: {} };
 
 describe("createCheckpointModule", () => {
+  it("accepts the host relevance-selection reason in checkpoint output", async () => {
+    const root = await createWorkspace();
+    try {
+      const selected = retrieveMemories([
+        { id: "relevant", revision: 1, text: "Review format", enabled: true },
+      ], { query: "weekly recap", now: new Date("2026-10-01T00:00:00Z"), relevanceSelection: [
+        { id: "relevant", revision: 1, textHash: memorySemanticTextHash("Review format") },
+      ] });
+      const tools = setupTools(createCheckpointStore(root), { threadId: "thread-a", getMemorySelection: async () => selected });
+      const tool = toolByName(tools, "checkpoint_prepare").tool;
+      const prepared = await tool.execute!({}, context);
+      assert.equal((await asSchema(tool.outputSchema!).validate!(prepared)).success, true);
+      assert.deepEqual((prepared as { selection: { selected: Array<{ reason: string }> } }).selection.selected.map(item => item.reason), ["relevance"]);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
   it("exposes pinned-only selection metadata without presenting all eligible memories", async () => {
     const root = await createWorkspace();
     const selected = retrieveMemories([

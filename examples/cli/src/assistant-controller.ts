@@ -275,6 +275,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
   const ensureRecovered = async (): Promise<void> => {
     await recovery;
     if (recoveryError !== undefined) throw recoveryError;
+    lifecycleReady = true;
   };
   let state: AssistantState = { kind: "idle" };
   let activeHandle: RunHandle | undefined;
@@ -283,6 +284,10 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
   let activeTask: Promise<void> | undefined;
   let backgroundTask: Promise<void> | undefined;
   let backgroundController: AbortController | undefined;
+  let memoryIndexRequested = true;
+  let memoryIndexRunning = false;
+  let lifecycleReady = false;
+  let idleDreamingRequested = false;
   let nextWorkTask: WorkTask | undefined;
   let activeWorkTask: WorkTask | undefined;
   let workTaskCompletionCheck = true;
@@ -313,6 +318,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
   const listeners = new Set<(event: AssistantEvent) => void>();
 
   const emit = (event: AssistantEvent): void => {
+    if (event.type === "memory-updated") memoryIndexRequested = true;
     for (const listener of listeners) {
       try { listener(event); } catch { /* A disconnected view cannot fail a Run. */ }
     }
@@ -330,6 +336,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
   const setState = (next: AssistantState): void => {
     state = next;
     emit({ type: "state", state: next });
+    if (next.kind === "idle") queueMicrotask(() => { startMemoryIndexMaintenance(); });
   };
   let approvalTracePending: Promise<void> = Promise.resolve();
   const unsubscribeApproval = app.toolConfirmation?.subscribePending((next) => {
@@ -752,6 +759,32 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     setState({ kind: "running", runId: null, phase: first.kind === "memory-consolidate" ? "consolidation" : "skill", background: true });
   };
 
+  const startMemoryIndexMaintenance = (): boolean => {
+    if (!lifecycleReady || closed || state.kind !== "idle" || backgroundTask || !memoryIndexRequested || !app.maintainMemoryIndex) return false;
+    memoryIndexRequested = false;
+    memoryIndexRunning = true;
+    const operation = new AbortController();
+    backgroundController = operation;
+    const task = Promise.resolve().then(async () => {
+      try {
+        operation.signal.throwIfAborted();
+        await app.maintainMemoryIndex!(operation.signal);
+      } catch {
+        if (!operation.signal.aborted) emit({ type: "error", message: "记忆索引补齐失败；当前仍可使用关键词检索，本次不会自动重试。" });
+      } finally {
+        memoryIndexRunning = false;
+        if (backgroundController === operation) backgroundController = undefined;
+        if (backgroundTask === task) backgroundTask = undefined;
+        const current = controller.getSnapshot().state;
+        if (current.kind === "running" && current.background) setState({ kind: "idle" });
+        if (idleDreamingRequested) startIdleDreaming();
+      }
+    });
+    backgroundTask = task;
+    setState({ kind: "running", runId: null, phase: "skill", background: true });
+    return true;
+  };
+
   const startManualSkill = async (input: SkillRunInput, request?: MemoryConsolidationRequest): Promise<SkillResult<{ runId: string }>> => {
     if (closed || state.kind !== "idle") return memoryControlFailure("BUSY", "Wait for the current operation to finish");
     const skill = automation.getSkill(input?.id);
@@ -856,7 +889,10 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     return started;
   };
   const startIdleDreaming = (): void => {
+    idleDreamingRequested = true;
+    if (startMemoryIndexMaintenance()) return;
     if (!closed && state.kind === "idle" && !backgroundTask && app.dreaming && app.moduleConfig?.automation?.dreaming?.enabled === true) {
+      idleDreamingRequested = false;
       void startDreaming(true);
     }
   };
@@ -1463,6 +1499,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       startupController = startup;
       setState({ kind: "running", runId: null, phase: "primary" });
       if (previousBackground) {
+        if (memoryIndexRunning) memoryIndexRequested = true;
         backgroundController?.abort(new DOMException("Foreground chat has priority", "AbortError"));
         void activeHandle?.cancel("Foreground chat has priority").catch(error => emit({ type: "error", message: String(error) }));
       }
@@ -1705,6 +1742,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
         if (backlog.value === 0) requests = requests.filter(request => automation.getSkill(request.skillId)?.kind !== "memory-consolidate");
       }
       startAutomaticSkills(requests);
+      lifecycleReady = true;
       if (!requests.length) startIdleDreaming();
     } catch (error) { consolidationFailure = String(error); emit({ type: "error", message: String(error) }); }
   });

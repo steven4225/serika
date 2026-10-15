@@ -13,6 +13,18 @@ const baseline: MemoryReferenceSnapshot & { runId: string } = {
 const html = (patch: Partial<MemoryReferenceSnapshot> = {}, hideEmpty = false) => renderToStaticMarkup(createElement(MemoryReferenceDetails, { reference: { ...baseline, ...patch }, hideEmpty }));
 
 describe("truthful semantic and derived-reference presentation", () => {
+  it("discloses relevance selection, its displaced rewrite usage and visible degraded fallback", () => {
+    const selected = html({ semantic: { state: "ready" }, relevance: { state: "succeeded", candidateCount: 4, truncated: false },
+      selected: [{ id: "judged", revision: 1, text: "相关事实", reason: "relevance" }] });
+    for (const text of ["相关性筛选通过", "本轮相关性筛选已完成", "不保证判断正确", "最多一次辅助模型调用", "查询改写"]) assert.ok(selected.includes(text), text);
+    assert.equal(selected.includes("同义查询改写未启用"), false);
+    const degraded = html({ relevance: { state: "degraded", candidateCount: 4, truncated: false } }, true);
+    assert.ok(degraded.includes("相关性筛选失败或超时"));
+    assert.ok(degraded.includes("已启用的原有检索路径"));
+    assert.ok(degraded.includes("不代表记忆库为空"));
+    const truncated = html({ relevance: { state: "succeeded", candidateCount: 32, truncated: true } }, true);
+    assert.ok(truncated.includes("筛选材料达到上限"));
+  });
   it("labels semantic, hybrid and stable-profile selections without implying guaranteed relevance", () => {
     const markup = html({ semantic: { state: "ready", modelId: "local-embedding" }, selected: [
       { id: "semantic", revision: 1, text: "one", reason: "semantic" },

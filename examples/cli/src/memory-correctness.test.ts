@@ -714,7 +714,10 @@ for (const [label, text, identity] of [
         const pending = await f.store.getCandidate(next.result.pendingCandidateIds![0]!, undefined,
           { boundThreadId: "thread", now: f.now() });
         assert.ok(pending.ok);
-        assert.equal(pending.value.candidate.change.operation, "correct");
+        assert.equal(pending.value.candidate.change.operation, "change", "an undated conflict cannot retrospectively rewrite restored dated applicability");
+        assert.ok(pending.value.candidate.change.operation === "change");
+        assert.equal(pending.value.candidate.change.effectiveAt, null);
+        assert.equal(pending.value.applicable, true, "the review can be explicitly confirmed from now");
         assert.equal("memoryId" in pending.value.candidate.change ? pending.value.candidate.change.memoryId : null, id);
       }
     } finally { await f.cleanup(); }

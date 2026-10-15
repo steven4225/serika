@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { selectInjectableMemoryEntries, type MemoryEntry } from "./memory-store.js";
 import { validateRecallTerms, validateTemporalTimestamp, validateValidTime } from "./memory-temporal.js";
 import type { MemorySemanticHit } from "./memory-semantic-index.js";
+import { statedThreadScope } from "./memory-observation-policy.js";
 
 export const MEMORY_QUERY_MAX_BYTES = 4_096;
 export const RETRIEVED_MEMORY_MAX_BYTES = 8_192;
@@ -11,14 +12,15 @@ export const PINNED_MEMORY_MAX_BYTES = 4_096;
 export const PINNED_MEMORY_MAX_ENTRIES = 2;
 export function memorySemanticTextHash(text: string): string { return createHash("sha256").update(text, "utf8").digest("hex"); }
 
-export interface MemoryQuery { query: string; threadId?: string; now: Date; rewrittenQueries?: readonly string[]; semanticHits?: readonly MemorySemanticHit[]; maxBytes?: number; maxEntries?: number }
+export interface MemoryRelevanceHit { id: string; revision: number; textHash: string }
+export interface MemoryQuery { query: string; threadId?: string; now: Date; rewrittenQueries?: readonly string[]; semanticHits?: readonly MemorySemanticHit[]; relevanceSelection?: readonly MemoryRelevanceHit[]; maxBytes?: number; maxEntries?: number }
 export interface MemoryTemporalView { validAt: string; knownAt: string }
 /** Factual provenance only. Lookup phrases and source quotes never enter a reference. */
 export type MemoryReferenceAssertion = Pick<NonNullable<MemoryEntry["assertion"]>, "assertionId" | "kind" | "validTime" | "systemTime" | "state" | "sourceIds">;
 export interface MemorySelectedReference {
   id: string;
   revision: number;
-  reason: "pinned" | "matched" | "recall_term" | "rewritten" | "semantic" | "hybrid" | "stable_profile";
+  reason: "pinned" | "matched" | "recall_term" | "rewritten" | "semantic" | "hybrid" | "stable_profile" | "relevance";
   assertion?: MemoryReferenceAssertion;
 }
 export interface MemorySelection {
@@ -193,7 +195,10 @@ function currentlyApplicable(entry: MemoryEntry, now: number): boolean {
 
 export function selectEligibleMemoryEntries(entries: readonly MemoryEntry[], input: { now: Date; threadId?: string }): MemoryEntry[] {
   return selectInjectableMemoryEntries(entries, { now: input.now, ...(input.threadId === undefined ? {} : { threadId: input.threadId }) })
-    .filter((entry) => currentlyApplicable(entry, input.now.getTime()));
+    // Legacy workspace metadata cannot authorize broadening an explicitly
+    // conversation-limited body. Exclude, never guess its intended Thread.
+    .filter((entry) => (entry.scope?.kind === "thread" || statedThreadScope(entry.text) !== "explicit")
+      && currentlyApplicable(entry, input.now.getTime()));
 }
 
 /** Pins precede bounded hybrid selection; absent semantic hits preserves legacy ordering. */
@@ -227,6 +232,18 @@ export function retrieveMemories(entries: readonly MemoryEntry[], input: MemoryQ
   };
   for (const entry of eligible.filter((entry) => entry.pinned === true).sort(stableOrder)) {
     if (selection.entries.length >= PINNED_MEMORY_MAX_ENTRIES || !add(entry, "pinned", Math.min(PINNED_MEMORY_MAX_BYTES, maxBytes))) selection.truncated = true;
+  }
+  // A successful empty verdict is meaningful, not permission for lexical fallback.
+  if (input.relevanceSelection !== undefined) {
+    const byId = new Map(eligible.map(entry => [entry.id, entry]));
+    for (const hit of input.relevanceSelection) {
+      const entry = byId.get(hit.id);
+      if (entry === undefined || chosen.has(entry.id) || hit.revision !== (entry.revision ?? 1)
+        || hit.textHash !== memorySemanticTextHash(entry.text)) continue;
+      if (!add(entry, "relevance", maxBytes)) selection.truncated = true;
+    }
+    selection.bytes = bytes(selection);
+    return selection;
   }
   if (input.semanticHits !== undefined && input.semanticHits.length > 0) {
     const available = eligible.filter(entry => !chosen.has(entry.id));
