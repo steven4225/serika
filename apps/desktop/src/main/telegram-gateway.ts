@@ -1,13 +1,15 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import type { DesktopRuntime } from "./desktop-runtime.js";
-import { TelegramApiError, type TelegramApi, type TelegramUpdate } from "./telegram-api.js";
+import { TelegramApiError, type TelegramApi, type TelegramUpdate, type TelegramKeyboard } from "./telegram-api.js";
 import { TelegramStore, telegramCapacity, type TelegramInbound, type TelegramDelivery, type TelegramTaskRoute } from "./telegram-store.js";
 import type { PendingApproval } from "../shared/ui-contract.js";
 import type { TelegramStatus } from "../shared/telegram.js";
 import type { SavedTaskArrangement } from "@aisdk-agent/example-cli/dist/modules/task-module.js";
 import type { TaskListInput } from "@aisdk-agent/example-cli/dist/task-store.js";
 import { formatLocalTaskTime } from "@aisdk-agent/example-cli/dist/task-instructions.js";
+import { telegramParts, telegramApprovalText, telegramBoundedText } from "./telegram-format.js";
+import { formatCapabilityStatus } from "@aisdk-agent/example-cli/dist/capability-status.js";
 
 type Host = Pick<DesktopRuntime, "channelSubscribe" | "channelSnapshot" | "channelCreateThread" | "channelRun" | "channelReceipt" | "channelScheduledTask" | "channelRecurringTask" | "channelScheduledTasks" | "current">;
 function code() { return randomBytes(5).toString("hex").toUpperCase(); }
@@ -41,6 +43,15 @@ export class TelegramGateway {
       if (!key || !this.store.snapshot().enabled) return;
       const source = this.store.snapshot().inputs.find(input => input.key === key);
       if (!source?.runId) return;
+      if (message.type === "event" && message.phase === "primary" && message.event.runId === source.runId) {
+        const event = message.event;
+        if (event.type === "tool.call.requested" && ["task_create", "task_repeat_create"].includes(event.data.toolName)) {
+          const input = event.data.input as { arrangement?: { kind?: unknown } } | null;
+          if (input?.arrangement?.kind === "reminder") this.#queue(() => this.#reminderReceipt(source, event.data.toolCallId));
+        }
+        if (event.type === "tool.call.completed") this.#queue(() => this.#reminderReceipt(source, event.data.toolCallId, { output: event.data.output }));
+        if (event.type === "tool.call.failed") this.#queue(() => this.#reminderReceipt(source, event.data.toolCallId, { errorCode: event.data.error.code }));
+      }
       if (message.type === "approval") this.#queue(async () => { await this.#publishApproval(source, message.approval); });
       if (message.type === "result" && message.phase === "primary" && message.result.runId === source.runId) {
         this.#approval = undefined;
@@ -50,6 +61,24 @@ export class TelegramGateway {
   }
   #queue(action: () => Promise<void>) {
     this.#events = this.#events.then(action).catch(() => { this.#error = "Telegram 记录或投递未确认；请查看连接状态和桌面回执，不会重做执行。"; });
+  }
+  async #reminderReceipt(source: TelegramInbound, toolCallId: string, resolution?: { output?: unknown; errorCode?: string }) {
+    const current = this.store.snapshot().inputs.find(x => x.key === source.key);
+    if (!current || current.runId !== source.runId) return;
+    if (resolution && !current.reminderReceipts?.some(x => x.toolCallId === toolCallId)) return;
+    const { output, errorCode } = resolution ?? {};
+    const result = output && typeof output === "object" ? output as { ok?: boolean; readback?: unknown } : undefined;
+    const text = errorCode === "TOOL_OUTCOME_UNKNOWN" ? "提醒保存结果未知；请先核对，不要重复创建。"
+      : errorCode === "TOOL_DENIED" ? "已取消，这条提醒未保存。"
+      : errorCode !== undefined || result?.ok === false ? "这条提醒未保存，请核对时间与内容后再试。"
+      : result?.ok === true && typeof result.readback === "string" ? telegramBoundedText(result.readback, 12_000)
+      : "提醒保存状态尚未确认；请先核对，不要重复创建。";
+    await this.store.update(data => {
+      const saved = data.inputs.find(x => x.key === source.key)!;
+      const receipts = saved.reminderReceipts ??= [];
+      const receipt = receipts.find(x => x.toolCallId === toolCallId);
+      if (receipt) receipt.text = text; else receipts.push({ toolCallId, text });
+    });
   }
   status(): TelegramStatus {
     const data = this.store.snapshot();
@@ -112,6 +141,7 @@ export class TelegramGateway {
       const delivery = next.deliveries.find(x => x.key === key);
       if (!next.enabled || !delivery || delivery.state !== "failed" || delivery.chatId !== next.owner?.chatId || (delivery.retryAt && Date.parse(delivery.retryAt) > this.now())) throw new Error("只有明确未发送的失败结果可以重试；未知、已提交和限流等待中的消息不会重发");
       delivery.state = "pending";
+      for (const part of delivery.parts ?? []) if (part.state === "failed") part.state = "pending";
     });
     await this.#flush(); // No model call, task claim, or execution restart.
     return this.status();
@@ -181,10 +211,10 @@ export class TelegramGateway {
           // Under the configured --notify worker, null is the persisted empty RSS outcome.
           if (task.arrangement.kind === "rss-digest" && task.status === "completed" && task.notification === null) return;
           const label = task.status === "completed" ? "安排已完成" : task.status === "interrupted" ? "安排中断，未自动重做；请回桌面核对" : "安排执行失败";
-          const text = `${label}\n${task.resultText ?? task.error?.message ?? "没有结果正文"}\n任务: ${task.id}`.slice(0, 32_000);
+          const text = telegramBoundedText(`${label}\n${task.resultText ?? task.error?.message ?? "没有结果正文"}`);
           await this.store.update(data => {
             if (!data.enabled || !data.routes.some(x => x.key === route.key && x.fromRunAt === route.fromRunAt) || data.owner?.chatId !== route.chatId || data.owner.userId !== route.userId || data.deliveries.some(x => x.key === key)) return;
-            data.deliveries.push({ key, routeKey: route.key, chatId: route.chatId, text, state: "pending", messageId: null });
+            data.deliveries.push({ key, routeKey: route.key, chatId: route.chatId, text, parts: this.#parts(text, true), state: "pending", messageId: null });
           });
   }
   async reviewInput(input: { key: string; note: string }) {
@@ -210,6 +240,7 @@ export class TelegramGateway {
       for (const delivery of data.deliveries) {
         if (delivery.state === "sending") delivery.state = "unknown";
         else if (delivery.key.startsWith("approval:") && ["pending", "failed"].includes(delivery.state)) delivery.state = "cancelled";
+        for (const part of delivery.parts ?? []) if (part.state === "sending") part.state = "unknown";
       }
     });
     if (this.store.snapshot().enabled) void this.start(); // Offline IM must not block desktop startup.
@@ -308,8 +339,19 @@ export class TelegramGateway {
       Number.isSafeInteger(message.from.id) && message.from.id > 0 && Number.isSafeInteger(message.chat.id) && message.chat.id > 0 &&
       Number.isSafeInteger(message.message_id) && message.message_id > 0 && typeof message.text === "string" && message.text.length <= 16_384;
     const owner = this.store.snapshot().owner;
+    const callback = update.callback_query;
     let input: TelegramInbound | undefined;
-    if (privateText && message) {
+    if (callback && owner && typeof callback.id === "string" && callback.id.length > 0 && callback.id.length <= 256 &&
+        callback.from?.is_bot === false && callback.from.id === owner.userId && callback.message?.chat.type === "private" &&
+        callback.message.chat.id === owner.chatId && callback.message.from?.is_bot === true && callback.message.from.id === this.store.snapshot().botId &&
+        Number.isSafeInteger(callback.message.message_id) && callback.message.message_id > 0) {
+      const key = `callback:${callback.id}`;
+      // Unknown payloads stay control messages: they must never become model input.
+      const command = /^(allow|deny):([A-F0-9]{10})$/.exec(callback.data ?? "");
+      if (!await this.store.hasInput(key)) input = { key, updateId: update.update_id, receivedAt, state: "received", runId: null, taskId: null,
+        text: command ? `${command[1] === "allow" ? "允许" : "拒绝"} ${command[2]}` : "允许",
+        callback: { id: callback.id, messageId: callback.message.message_id } };
+    } else if (!callback && privateText && message) {
       const text = message.text!.trim();
       const pairing = this.status().pairing;
       if (!owner && pairing && text === `/start ${pairing.code}` && !pairing.proposed) {
@@ -322,6 +364,11 @@ export class TelegramGateway {
     // Offset acknowledgement is committed alongside accepted text, before next getUpdates.
     await this.store.update(data => { if (input) data.inputs.push(input); data.offset = Math.max(data.offset, update.update_id + 1); });
     if (input) await this.#process(input);
+    if (callback && typeof callback.id === "string" && callback.id.length > 0 && callback.id.length <= 256 && this.api && this.#abort) {
+      // Closing the spinner is presentation only; failure must not undo or replay a control.
+      try { await this.api.answerCallback(callback.id, this.#abort.signal); }
+      catch { this.#error = "手机按钮回执未确认；请查看聊天中的实际处理结果，不要重复创建。"; }
+    }
   }
   #ownedRunning() {
     const data = this.store.snapshot(), source = data.inputs.find(x => x.key === this.#activeKey);
@@ -366,15 +413,24 @@ export class TelegramGateway {
         state === "pending" ? "新确认已保存，等待发送；尚未确认 Telegram 已接收。" : "当前确认已变化或失效，没有批准任何操作。";
       return reject(`${notice}\n旧短码失效，仍需你允许或拒绝同一次操作。`);
     }
-    const approval = /^(允许|拒绝) ([A-F0-9]{10})$/.exec(text);
+    if (text === "/details") {
+      const running = this.#ownedRunning();
+      return reject(running?.current.snapshot.pendingApproval
+        ? telegramBoundedText(running.current.snapshot.pendingApproval.preview || JSON.stringify(running.current.snapshot.pendingApproval.input), 8000)
+        : "当前没有属于 Telegram 的待确认操作。");
+    }
+    const approval = /^(允许|拒绝)[\s:：]*([A-F0-9]{10})$/i.exec(text);
     if (approval) {
       const pending = this.#liveApproval();
-      if (pending?.code === approval[2]) this.#approval = undefined; // Consume the matching capability before dispatch.
-      const valid = pending && pending.code === approval[2];
+      const matches = pending && pending.code === approval[2]!.toUpperCase();
+      const envelope = matches ? this.store.snapshot().deliveries.find(x => x.key === `approval:${pending.approvalId}:${pending.code}`) : undefined;
+      // A callback must originate from the exact delivered preview, not a copied payload on another message.
+      const valid = matches && (!input.callback || envelope?.messageId === input.callback.messageId && envelope.state === "submitted");
+      if (valid) this.#approval = undefined; // Consume before dispatch, including competing phone/desktop decisions.
       const accepted = valid && this.host.current.confirm({ approvalId: pending.approvalId, decision: approval[1] === "允许" ? "allow" : "deny" }).accepted;
       return reject(accepted ? "已处理这一次确认，不适用于后续操作。" : "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。");
     }
-    if (/^(允许|拒绝)(?:\s|$)/.test(text)) return reject("请完整复制当前确认中的短码；普通“可以”不会授权工具。");
+    if (/^(允许|拒绝)(?:[\s:：A-Za-z0-9]|$)/.test(text)) return reject("请点当前确认下的按钮，或完整发送“允许 短码 / 拒绝 短码”；发送 /confirm 可刷新确认。");
     if (text === "停止") {
       if (!this.#ownedRunning()) return reject("没有属于 Telegram 的当前执行；未停止其他对话。");
       await this.host.current.cancel();
@@ -386,7 +442,13 @@ export class TelegramGateway {
       const result = await this.host.current.steer({ id: randomUUID(), expectedRunId: running.source.runId!, text: text.replace(/^调整[:：]/, "").trim() });
       return reject(result.ok ? "调整已收到，会在安全边界应用；不是新增授权。" : "当前调整未接收，请在桌面查看执行状态。");
     }
-    if (text === "/start" || text === "/help") return reject("直接提问；任务：目标 → 开始 短码。工具确认用“允许 短码 / 拒绝 短码”；过期或丢失用 /confirm 获取新短码。调整：新方向；停止。未知效果回桌面核对。");
+    if (text === "/capabilities") {
+      const info = this.host.channelSnapshot().info;
+      if (info.runtimeRecovery) return reject("助手连接未恢复；缓存配置不能证明当前能力。请先恢复连接，本条未调用模型或执行工具。");
+      const status = info.capabilities;
+      return reject(status ? formatCapabilityStatus(status) : "当前连接未提供能力状态；无法据此判断已注册或可用。");
+    }
+    if (text === "/start" || text === "/help") return reject("直接提问或说“几分钟后提醒我…”；点确认卡下的按钮即可批准或取消。备用：允许 短码 / 拒绝 短码。/confirm 刷新当前确认，/details 查看详情，/capabilities 查看真实能力状态。调整：新方向；停止。工作任务用“任务：目标 → 开始 短码”。");
     if (/^(?:任务[:：]|\/task\s)/.test(text)) {
       const goal = text.replace(/^(?:任务[:：]|\/task\s)/, "").trim();
       if (!goal || goal.length > 8000) return reject("请用 1–8000 字说明任务目标。");
@@ -439,7 +501,9 @@ export class TelegramGateway {
     this.#approval = permit;
     await this.#discardStaleApprovals();
     return this.#reply(`approval:${current.approvalId}:${permit.code}`, permit.chatId,
-      `请求使用 ${current.toolName}\n${(current.preview || JSON.stringify(current.input)).slice(0, 2500)}${["task_create", "task_repeat_create"].includes(current.toolName) ? "\n这个安排的结果将发送到本绑定私聊；保存、启用后台服务和投递是不同状态。" : ""}\n仅本次：允许 ${permit.code}\n或：拒绝 ${permit.code}\n五分钟有效；普通回复不代表授权。`);
+      telegramApprovalText(current.toolName, (current.preview || JSON.stringify(current.input)).slice(0, 2500), permit.code, current.input, new Date(this.now())),
+      { inline_keyboard: [[{ text: ["task_create", "task_repeat_create"].includes(current.toolName) ? "确认保存" : "允许这次", callback_data: `allow:${permit.code}` },
+        { text: "取消", callback_data: `deny:${permit.code}` }]] });
   }
   async #finish(source: TelegramInbound, text?: string) {
     const owner = this.store.snapshot().owner;
@@ -456,26 +520,32 @@ export class TelegramGateway {
       : run.status === "completed" ? source.taskId ? "结果仍需你在桌面验收。" : ""
       : run.status === "cancelled" ? "本轮已停止；已执行的操作不会撤回，操作结果请查看桌面回执。"
       : "这次执行失败了；操作结果请查看桌面回执。";
-    const reply = text ?? run.resultTextPreview ?? "";
+    const reminders = this.store.snapshot().inputs.find(x => x.key === source.key)?.reminderReceipts;
+    const reply = reminders?.length ? reminders.map(x => run.tools.some(tool => tool.toolCallId === x.toolCallId && tool.status === "not_started")
+      ? "这条提醒未保存（操作尚未开始）。" : x.text).join("\n") : text ?? run.resultTextPreview ?? "";
     // Ordinary replies are model prose. Keep safety notices, but trace identity
     // stays in source.runId and the result delivery key, not in the chat bubble.
-    const body = [label, reply.trim() ? reply.slice(0, 24_000) : label ? "" : "这次没有可显示的回复，请查看桌面执行记录。",
-      text === undefined && run.resultTextTruncated ? "[恢复的是回执预览，已截断；完整回复请看桌面]" : ""].filter(Boolean).join("\n");
+    const body = telegramBoundedText([label, reply.trim() ? reply : label ? "" : "这次没有可显示的回复，请查看桌面执行记录。",
+      !reminders?.length && text === undefined && run.resultTextTruncated ? "[恢复的是回执预览，已截断；完整回复请看桌面]" : ""].filter(Boolean).join("\n"));
     // Recovery still settles the input from its receipt, but an archived
     // submitted/cancelled envelope must not be recreated as a new send.
     const resultKey = `result:${source.key}`, delivered = await this.store.hasDelivery(resultKey);
     await this.store.update(data => {
       data.inputs.find(x => x.key === source.key)!.state = uncertain ? "unknown" : "finished";
-      if (!delivered && !data.deliveries.some(x => x.key === resultKey)) data.deliveries.push({ key: resultKey, chatId: owner.chatId, text: body, state: "pending", messageId: null });
+      if (!delivered && !data.deliveries.some(x => x.key === resultKey)) data.deliveries.push({ key: resultKey, chatId: owner.chatId, text: body, parts: this.#parts(body, true), state: "pending", messageId: null });
     });
     if (this.#activeKey === source.key) this.#activeKey = undefined;
     await this.#flush();
   }
-  async #reply(key: string, chatId: number, text: string): Promise<TelegramDelivery["state"] | undefined> {
+  async #reply(key: string, chatId: number, text: string, keyboard?: TelegramKeyboard): Promise<TelegramDelivery["state"] | undefined> {
     if (await this.store.hasDelivery(key)) return this.store.snapshot().deliveries.find(x => x.key === key)?.state;
-    await this.store.update(data => { if (!data.deliveries.some(x => x.key === key)) data.deliveries.push({ key, chatId, text: text.slice(0, 32_000), state: "pending", messageId: null }); });
+    const body = telegramBoundedText(text);
+    await this.store.update(data => { if (!data.deliveries.some(x => x.key === key)) data.deliveries.push({ key, chatId, text: body, parts: this.#parts(body, false), ...(keyboard ? { keyboard } : {}), state: "pending", messageId: null }); });
     await this.#flush();
     return this.store.snapshot().deliveries.find(x => x.key === key)?.state;
+  }
+  #parts(text: string, markdown: boolean): NonNullable<TelegramDelivery["parts"]> {
+    return telegramParts(text, markdown).map(text => ({ text, state: "pending", messageId: null }));
   }
   #sending: Promise<void> | undefined;
   async #flush() {
@@ -503,12 +573,47 @@ export class TelegramGateway {
           continue;
         }
         try {
-          const id = await this.api!.send(delivery.chatId, delivery.text, this.#abort!.signal);
-          await this.store.update(data => { const saved = data.deliveries.find(x => x.key === delivery.key)!; saved.state = "submitted"; saved.messageId = id; delete saved.error; delete saved.retryAt; });
+          const parts = delivery.parts;
+          for (let index = 0; index < (parts?.length ?? 1); index++) {
+            if (parts?.[index]!.state === "submitted") continue;
+            // Pace additional parts before the authority check/dispatch claim. Never retry a send.
+            if (parts && index > 0) {
+              try { await delay(1050, undefined, { signal: this.#abort!.signal }); }
+              catch { throw new TelegramApiError("CANCELLED_BEFORE_SEND", "not_sent"); }
+            }
+            // Revalidate revocable authority before every part, not just the first.
+            const latest = this.store.snapshot();
+            if (!latest.enabled || latest.deliveries.find(x => x.key === delivery.key)?.state === "cancelled" ||
+              delivery.routeKey && !latest.routes.some(x => x.key === delivery.routeKey) ||
+              delivery.key.startsWith("approval:") && !this.#liveApprovalDelivery(delivery.key, delivery.chatId)) {
+              await this.store.update(data => { data.deliveries.find(x => x.key === delivery.key)!.state = "cancelled"; });
+              break;
+            }
+            if (parts) await this.store.update(data => { data.deliveries.find(x => x.key === delivery.key)!.parts![index]!.state = "sending"; });
+            const admitted = this.store.snapshot();
+            if (!admitted.enabled || delivery.routeKey && !admitted.routes.some(x => x.key === delivery.routeKey) ||
+              delivery.key.startsWith("approval:") && !this.#liveApprovalDelivery(delivery.key, delivery.chatId)) {
+              await this.store.update(data => {
+                const saved = data.deliveries.find(x => x.key === delivery.key)!; saved.state = "cancelled";
+                if (saved.parts) saved.parts[index]!.state = "pending"; // No network dispatch occurred.
+              });
+              break;
+            }
+            const id = await this.api!.send(delivery.chatId, parts ? parts[index]!.text : delivery.text, this.#abort!.signal, parts ? "HTML" : undefined,
+              index === (parts?.length ?? 1) - 1 ? delivery.keyboard : undefined);
+            await this.store.update(data => {
+              const saved = data.deliveries.find(x => x.key === delivery.key)!;
+              if (saved.parts) { saved.parts[index]!.state = "submitted"; saved.parts[index]!.messageId = id; }
+              if (index === (parts?.length ?? 1) - 1) saved.state = "submitted";
+              saved.messageId = id; delete saved.error; delete saved.retryAt;
+            });
+          }
         } catch (error) {
           await this.store.update(data => {
             const saved = data.deliveries.find(x => x.key === delivery.key)!;
             saved.state = error instanceof TelegramApiError && error.outcome === "not_sent" ? "failed" : "unknown";
+            const part = saved.parts?.find(x => x.state === "sending");
+            if (part) part.state = saved.state;
             saved.error = error instanceof TelegramApiError ? error.message.slice(0, 512) : "发送结果未知，不会自动重发";
             if (error instanceof TelegramApiError && error.retryAfter > 0) saved.retryAt = new Date(this.now() + error.retryAfter * 1000).toISOString();
           });

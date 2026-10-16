@@ -172,11 +172,12 @@ describe("task-worker startup validation", () => {
     try {
       const store = createTaskStore(root);
       const created = await store.create({
-        runAt: new Date(Date.now() + 100).toISOString(),
+        // Real flock/fsync under the full suite can exceed 100 ms before create validates the time.
+        runAt: new Date(Date.now() + 2000).toISOString(),
         prompt: "Create today's plan from Todoist.",
       });
       assert.ok(created.ok);
-      await new Promise((resolve) => setTimeout(resolve, 150));
+      await new Promise((resolve) => setTimeout(resolve, Math.max(0, Date.parse(created.value.runAt) - Date.now()) + 20));
       const entry = fileURLToPath(new URL("./task-worker-entry.js", import.meta.url));
       const child = spawn(process.execPath, [entry, "--workspace", root, "--todoist"], {
         env: { ...process.env, RUNLOOM_MODEL: "mock", ...environment },

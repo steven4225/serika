@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { chmod, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, open, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { it } from "node:test";
@@ -29,7 +29,31 @@ async function until(check: () => boolean | Promise<boolean>) {
 }
 const update = (id: number, text: string, userId = 42, type = "private", messageId = id): TelegramUpdate => ({ update_id: id,
   message: { message_id: messageId, date: 1, text, chat: { id: userId, type }, from: { id: userId, is_bot: false, first_name: "Owner" } } });
-async function fixture(stream: (call: number, prompt?: string) => Promise<ReturnType<typeof response>> = async () => response()) {
+it("bound TG owner queries actual capability registration without a model, tools or config writes", async () => {
+  const f = await fixture();
+  try {
+    await f.bind();
+    await f.gateway.receive(update(2, "/capabilities"));
+    assert.equal(f.calls(), 0);
+    assert.match(f.sent.join("\n"), /read_file/);
+    assert.match(f.sent.join("\n"), /CUA：未配置/);
+    assert.match(f.sent.join("\n"), /服务和系统权限尚未检查/);
+    assert.equal(f.host.info().capabilities!.modules.find(item => item.id === "shell")!.state, "disabled");
+  } finally { await f.cleanup(); }
+});
+it("TG capability queries never present cached registration as current during runtime recovery", async t => {
+  const f = await fixture();
+  try {
+    await f.bind();
+    const snapshot = f.host.channelSnapshot();
+    t.mock.method(f.host, "channelSnapshot", () => ({ ...snapshot, info: { ...snapshot.info, runtimeRecovery: { state: "failed" as const, message: "offline" } } }));
+    await f.gateway.receive(update(2, "/capabilities"));
+    assert.match(f.sent.join("\n"), /缓存配置不能证明当前能力/);
+    assert.doesNotMatch(f.sent.join("\n"), /read_file/);
+    assert.equal(f.calls(), 0);
+  } finally { await f.cleanup(); }
+});
+async function fixture(stream: (call: number, prompt?: string) => Promise<ReturnType<typeof response>> = async () => response(), backgroundReady = true) {
   const root = await realpath(await mkdtemp(join(tmpdir(), "serika-telegram-unit-")));
   const workspace = join(root, "workspace"), userData = join(root, "profile"), configPath = join(root, "config.json");
   await mkdir(workspace);
@@ -38,14 +62,16 @@ async function fixture(stream: (call: number, prompt?: string) => Promise<Return
   let time = Date.now(), activations = 0;
   const host = await DesktopRuntime.create({ userData, cwd: root, env: { RUNLOOM_CONFIG: configPath }, modelAlias: "mock",
     model: new MockLanguageModelV3({ doStream: async ({ prompt }) => stream(++calls, JSON.stringify(prompt)) }), send: () => {},
-    taskAutomation: { status: async () => ({ available: true, registered: true, running: true, todoistPlanningAvailable: false }), enable: async () => { activations++; return { enabled: true }; } } });
+    taskAutomation: { status: async () => ({ available: true, registered: true, running: backgroundReady, ready: backgroundReady, todoistPlanningAvailable: false }), enable: async () => { activations++; return { enabled: backgroundReady, ready: backgroundReady }; } } });
   const store = new TelegramStore(join(root, "private", "telegram.json"), host.info().workspaceRoot!);
   await store.load();
   const sent: string[] = [];
+  const keyboards: { messageId: number; markup: unknown }[] = [], answered: string[] = [];
   let sends = 0, sendError: TelegramApiError | undefined;
   const api: TelegramApi = { identity: async () => ({ id: 100, username: "serika_test" }), webhook: async () => ({ url: "" }),
     updates: async (_offset, signal) => new Promise(resolve => { if (signal.aborted) resolve([]); else signal.addEventListener("abort", () => resolve([]), { once: true }); }),
-    send: async (_chat, text) => { sends++; if (sendError) throw sendError; sent.push(text); return sends; } };
+    send: async (_chat, text, _signal, _format, markup) => { sends++; if (sendError) throw sendError; sent.push(text); if (markup) keyboards.push({ messageId: sends, markup }); return sends; },
+    answerCallback: async id => { answered.push(id); } };
   const gateway = new TelegramGateway(host, store, api, () => time);
   host.attachTelegram(gateway);
   await gateway.initialize();
@@ -55,7 +81,7 @@ async function fixture(stream: (call: number, prompt?: string) => Promise<Return
     assert.equal(store.snapshot().owner, null, "private message alone must not own the assistant");
     await gateway.confirmPairing(code);
   };
-  return { root, workspace, host, store, gateway, api, sent, bind, calls: () => calls, sends: () => sends,
+  return { root, workspace, host, store, gateway, api, sent, keyboards, answered, bind, calls: () => calls, sends: () => sends,
     activations: () => activations,
     failSend: (error: TelegramApiError | undefined) => { sendError = error; },
     advanceTime: (ms: number) => { time += ms; }, now: () => time,
@@ -82,6 +108,291 @@ it("Telegram receive clock is persisted at +08:00 and used for relative reminder
 });
 
 const reminder = { kind: "reminder", source: "none", notification: "always", declarationVersion: 1 } as const;
+const callback = (id: number, data: string, messageId: number, userId = 42): TelegramUpdate => ({ update_id: id,
+  callback_query: { id: `callback-${id}`, data, from: { id: userId, is_bot: false, first_name: "Owner" },
+    message: { message_id: messageId, chat: { id: userId, type: "private" }, from: { id: 100, is_bot: true, first_name: "Serika" } } } });
+
+it("package2: phone button saves one reminder, emits host readback, and delivers its due result once", async () => {
+  const f = await fixture(async n => response(n === 1 ? { name: "task_create", input: { prompt: "手机按钮提醒", runAt: new Date(Date.now() + 120_000).toISOString(), arrangement: reminder } } : undefined, "模型乱说：保存失败，请去电脑批准。"));
+  try {
+    await f.bind(); await f.gateway.receive(update(2, "两分钟后提醒我喝水"));
+    await until(() => f.store.snapshot().deliveries.some(x => x.key.startsWith("approval:") && x.state === "submitted"));
+    const approval = f.store.snapshot().deliveries.find(x => x.key.startsWith("approval:"))!;
+    assert.equal(f.keyboards.length, 1, "phone confirmation must have inline controls");
+    const markup = f.keyboards[0]!.markup as { inline_keyboard: { text: string; callback_data: string }[][] };
+    const allow = markup.inline_keyboard[0]![0]!.callback_data;
+    assert.equal(markup.inline_keyboard[0]![0]!.text, "确认保存");
+    assert.match(approval.text, /北京时间|UTC\+08:00/);
+    assert.ok(approval.text.length < 650, "primary phone preview must be compact");
+    await f.gateway.receive(callback(3, allow, approval.messageId!));
+    await until(() => f.store.snapshot().inputs.find(x => x.key === "42:2")?.state === "finished");
+    await until(() => f.store.snapshot().deliveries.find(x => x.key === "result:42:2")?.state === "submitted");
+    assert.ok(f.answered.includes("callback-3"));
+    assert.ok(f.sent.some(text => /已定：|已记下：/.test(text)), "persisted tool result, not model prose, supplies the readback");
+    assert.ok(!f.sent.some(text => text.includes("模型乱说")));
+    const route = f.store.snapshot().routes[0]!;
+    await f.gateway.receive(callback(4, allow, approval.messageId!));
+    assert.equal(f.activations(), 1);
+    const tasks = createTaskStore(f.workspace, { now: () => Date.now() + 180_000 });
+    const claimed = await tasks.claimNextDue(); assert(claimed.ok && claimed.value);
+    assert.equal(claimed.value.id, route.id);
+    const finished = await tasks.finish(route.id, { status: "completed", execution: "deterministic", runId: null, resultText: "手机按钮提醒到点了", notification: true }); assert(finished.ok);
+    await f.gateway.collectScheduledResults(); await f.gateway.collectScheduledResults();
+    assert.equal(f.sent.filter(text => text.includes("手机按钮提醒到点了")).length, 1);
+    assert.equal(f.calls(), 2, "control messages and scheduled delivery do not start extra model calls");
+    assert.equal((await f.host.current.history()).filter(x => x.role === "user").length, 1);
+  } finally { await f.cleanup(); }
+});
+
+for (const render of [ (code: string) => `允许${code.toLowerCase()}`, (code: string) => `允许：\n${code}`, (code: string) => `允许　 ${code}` ]) {
+  it(`package2: phone approval spelling ${render("ABCDEF1234")} bypasses busy admission`, async () => {
+    const f = await fixture(async n => response(n === 1 ? { name: "task_create", input: { prompt: "兼容短码", runAt: new Date(Date.now() + 120_000).toISOString(), arrangement: reminder } } : undefined));
+    try {
+      await f.bind(); await f.gateway.receive(update(2, "两分钟后提醒我"));
+      await until(() => f.sent.some(x => x.includes("需要你确认 · 创建提醒")));
+      const code = /允许 ([A-F0-9]{10})/.exec(f.sent.find(x => x.includes("需要你确认 · 创建提醒"))!)![1]!;
+      await f.gateway.receive(update(3, render(code)));
+      assert.doesNotMatch(f.sent.at(-1)!, /正在处理其他消息/);
+      assert.equal(f.host.current.snapshot().pendingApproval, null);
+      await until(() => f.store.snapshot().inputs.find(x => x.key === "42:2")?.state === "finished");
+      assert.equal(f.activations(), 1);
+    } finally { await f.cleanup(); }
+  });
+}
+
+it("package2: incomplete phone control is not a new chat and a denied reminder cannot get model success copy", async () => {
+  const f = await fixture(async n => response(n === 1 ? { name: "task_create", input: { prompt: "不要保存", runAt: new Date(Date.now() + 120_000).toISOString(), arrangement: reminder } } : undefined, "已定：我擅自说成功"));
+  try {
+    await f.bind(); await f.gateway.receive(update(2, "提醒我"));
+    await until(() => f.sent.some(x => x.includes("需要你确认 · 创建提醒")));
+    await f.gateway.receive(update(3, "允许id"));
+    assert.doesNotMatch(f.sent.at(-1)!, /正在处理其他消息/);
+    assert.ok(f.host.current.snapshot().pendingApproval);
+    const code = /允许 ([A-F0-9]{10})/.exec(f.sent.find(x => x.includes("需要你确认 · 创建提醒"))!)![1]!;
+    await f.gateway.receive(update(4, `拒绝${code}`));
+    await until(() => f.store.snapshot().inputs.find(x => x.key === "42:2")?.state === "finished");
+    await until(() => f.store.snapshot().deliveries.find(x => x.key === "result:42:2")?.state === "submitted");
+    assert.equal(f.store.snapshot().routes.length, 0);
+    assert.ok(!f.sent.some(x => x.includes("我擅自说成功")));
+    assert.ok(f.sent.some(x => x.includes("未保存")));
+  } finally { await f.cleanup(); }
+});
+
+it("package2: saved reminder retains the background-unavailable warning and survives gateway restart", async () => {
+  const f = await fixture(async n => response(n === 1 ? { name: "task_create", input: { prompt: "后台不可用", runAt: new Date(Date.now() + 120_000).toISOString(), arrangement: reminder } } : undefined, "已定，保证准点送达"), false);
+  let restarted: TelegramGateway | undefined;
+  try {
+    await f.bind(); await f.gateway.receive(update(2, "提醒我"));
+    await until(() => f.store.snapshot().deliveries.some(x => x.key.startsWith("approval:") && x.state === "submitted"));
+    const approval = f.store.snapshot().deliveries.find(x => x.key.startsWith("approval:"))!;
+    const code = /允许 ([A-F0-9]{10})/.exec(approval.text)![1]!;
+    await f.gateway.receive(callback(3, `allow:${code}`, approval.messageId!));
+    await until(() => f.store.snapshot().deliveries.find(x => x.key === "result:42:2")?.state === "submitted");
+    const result = f.store.snapshot().deliveries.find(x => x.key === "result:42:2")!;
+    assert.match(result.text, /已记下：/); assert.match(result.text, /后台当前不可用或尚未就绪/);
+    assert.doesNotMatch(result.text, /保证准点/);
+    assert.equal(f.store.snapshot().routes.length, 1, "save and delivery route survive unavailable worker");
+    await f.gateway.close();
+    const sends = f.sends(), store = new TelegramStore(f.store.path, f.workspace); await store.load();
+    assert.ok(store.snapshot().inputs.find(x => x.key === "42:2")?.reminderReceipts?.[0]?.text.includes("后台当前不可用"));
+    restarted = new TelegramGateway(f.host, store, f.api); await restarted.initialize(); await restarted.start();
+    await restarted.receive(callback(4, `allow:${code}`, approval.messageId!));
+    assert.equal(f.activations(), 1); assert.equal(f.calls(), 2);
+    assert.equal(f.sent.filter(text => text === result.parts![0]!.text).length, 1);
+    assert.ok(f.sends() > sends, "stale callback gets a refusal, never a new creation");
+  } finally { await restarted?.close(); await f.cleanup(); }
+});
+
+it("package2: copied or foreign callback cannot consume a valid confirmation; callback answer failure never replays it", async () => {
+  const f = await fixture(async n => response(n === 1 ? { name: "task_create", input: { prompt: "精确绑定", runAt: new Date(Date.now() + 120_000).toISOString(), arrangement: reminder } } : undefined));
+  try {
+    await f.bind(); await f.gateway.receive(update(2, "提醒我"));
+    await until(() => f.store.snapshot().deliveries.some(x => x.key.startsWith("approval:") && x.state === "submitted"));
+    const approval = f.store.snapshot().deliveries.find(x => x.key.startsWith("approval:"))!;
+    const code = /允许 ([A-F0-9]{10})/.exec(approval.text)![1]!;
+    const foreign = callback(3, `allow:${code}`, approval.messageId!); foreign.callback_query!.from.id = 43;
+    await f.gateway.receive(foreign);
+    await f.gateway.receive(callback(4, `allow:${code}`, approval.messageId! + 1));
+    assert.ok(f.host.current.snapshot().pendingApproval); assert.equal(f.activations(), 0);
+    f.api.answerCallback = async () => { throw new TelegramApiError("NETWORK", "unknown"); };
+    await f.gateway.receive(callback(5, `allow:${code}`, approval.messageId!));
+    await until(() => f.store.snapshot().deliveries.find(x => x.key === "result:42:2")?.state === "submitted");
+    await f.gateway.receive(callback(5, `allow:${code}`, approval.messageId!));
+    await f.gateway.receive(callback(6, `allow:${code}`, approval.messageId!));
+    assert.equal(f.activations(), 1); assert.equal(f.calls(), 2);
+    assert.equal(f.store.snapshot().routes.length, 1);
+  } finally { await f.cleanup(); }
+});
+
+for (const invalidation of ["expired", "desktop"] as const) {
+  it(`package2: ${invalidation} phone buttons grant nothing and stop remains a control`, async () => {
+    const f = await fixture(async n => response(n === 1 ? { name: "task_create", input: { prompt: "过期按钮", runAt: new Date(Date.now() + 120_000).toISOString(), arrangement: reminder } } : undefined));
+    try {
+      await f.bind(); await f.gateway.receive(update(2, "提醒我"));
+      await until(() => f.store.snapshot().deliveries.some(x => x.key.startsWith("approval:") && x.state === "submitted"));
+      const approval = f.store.snapshot().deliveries.find(x => x.key.startsWith("approval:"))!;
+      const code = /允许 ([A-F0-9]{10})/.exec(approval.text)![1]!;
+      if (invalidation === "expired") f.advanceTime(5 * 60_000 + 1);
+      else f.host.current.confirm({ approvalId: f.host.current.snapshot().pendingApproval!.approvalId, decision: "deny" });
+      await f.gateway.receive(callback(3, `allow:${code}`, approval.messageId!));
+      assert.equal(f.activations(), 0);
+      assert.ok(f.sent.some(x => x.includes("没有批准任何操作")));
+      if (invalidation === "expired") {
+        await f.gateway.receive(update(4, "停止"));
+        await until(() => f.host.current.snapshot().state.kind === "idle");
+        await until(() => f.store.snapshot().deliveries.find(x => x.key === "result:42:2")?.state === "submitted");
+        assert.match(f.store.snapshot().deliveries.find(x => x.key === "result:42:2")!.text, /提醒未保存/);
+        assert.ok(!f.sent.some(x => x.includes("本条未排队")));
+      }
+      assert.equal(f.store.snapshot().routes.length, 0);
+    } finally { await f.cleanup(); }
+  });
+}
+
+it("package2: invalid schedule returns a host failure instead of model success", async () => {
+  const f = await fixture(async n => response(n === 1 ? { name: "task_create", input: { prompt: "过期时间", runAt: "2020-01-01T00:00:00Z", arrangement: reminder } } : undefined, "已定：无视失败"));
+  try {
+    await f.bind(); await f.gateway.receive(update(2, "提醒我"));
+    await until(() => f.store.snapshot().deliveries.some(x => x.key.startsWith("approval:") && x.state === "submitted"));
+    const approval = f.store.snapshot().deliveries.find(x => x.key.startsWith("approval:"))!;
+    const code = /允许 ([A-F0-9]{10})/.exec(approval.text)![1]!;
+    await f.gateway.receive(callback(3, `allow:${code}`, approval.messageId!));
+    await until(() => f.store.snapshot().deliveries.find(x => x.key === "result:42:2")?.state === "submitted");
+    const result = f.store.snapshot().deliveries.find(x => x.key === "result:42:2")!;
+    assert.match(result.text, /这条提醒未保存/); assert.doesNotMatch(result.text, /无视失败/);
+    assert.equal(f.activations(), 0); assert.equal(f.store.snapshot().routes.length, 0);
+  } finally { await f.cleanup(); }
+});
+
+it("package2: uncertain reminder commit is reported as unknown, not unsaved, and repeated approval never recreates it", { skip: process.platform === "win32" }, async t => {
+  const f = await fixture(async n => response(n === 1 ? { name: "task_create", input: { prompt: "未知写入", runAt: new Date(Date.now() + 120_000).toISOString(), arrangement: reminder } } : undefined, "模型虚报成功"));
+  try {
+    await f.bind(); await f.gateway.receive(update(2, "提醒我"));
+    await until(() => f.store.snapshot().deliveries.some(x => x.key.startsWith("approval:") && x.state === "submitted"));
+    const approval = f.store.snapshot().deliveries.find(x => x.key.startsWith("approval:"))!;
+    const code = /允许 ([A-F0-9]{10})/.exec(approval.text)![1]!;
+    const directory = join(f.workspace, ".runloom"), target = await stat(directory);
+    const probe = await open(directory, "r"), prototype = Object.getPrototypeOf(probe), originalSync = prototype.sync;
+    await probe.close(); let injected = false;
+    const fault = t.mock.method(prototype, "sync", async function (this: typeof probe) {
+      const current = await this.stat();
+      if (!injected && current.isDirectory() && current.ino === target.ino && current.dev === target.dev) {
+        injected = true; throw new Error("task directory acknowledgement failed");
+      }
+      return originalSync.call(this);
+    });
+    try {
+      await f.gateway.receive(callback(3, `allow:${code}`, approval.messageId!));
+      await until(() => f.store.snapshot().deliveries.find(x => x.key === "result:42:2")?.state === "submitted");
+    } finally { fault.mock.restore(); }
+    assert.ok(injected);
+    const result = f.store.snapshot().deliveries.find(x => x.key === "result:42:2")!;
+    assert.match(result.text, /保存结果未知/); assert.doesNotMatch(result.text, /这条提醒未保存|模型虚报成功/);
+    assert.equal(f.store.snapshot().inputs.find(x => x.key === "42:2")?.state, "unknown");
+    const saved = await createTaskStore(f.workspace).list({ limit: 50 }); assert(saved.ok);
+    assert.equal(saved.value.tasks.length, 1, "rename happened even though acknowledgement failed");
+    await f.gateway.receive(callback(4, `allow:${code}`, approval.messageId!));
+    assert.equal(f.activations(), 0); assert.equal(f.calls(), 1);
+    const after = await createTaskStore(f.workspace).list({ limit: 50 }); assert(after.ok && after.value.tasks.length === 1);
+  } finally { await f.cleanup(); }
+});
+
+for (const outcome of ["not_sent", "unknown"] as const) {
+  it(`package2: ${outcome} host receipt send does not undo or recreate a saved reminder`, async () => {
+    const f = await fixture(async n => response(n === 1 ? { name: "task_create", input: { prompt: "回执断网", runAt: new Date(Date.now() + 120_000).toISOString(), arrangement: reminder } } : undefined, "忽略程序回执"));
+    try {
+      await f.bind(); await f.gateway.receive(update(2, "提醒我"));
+      await until(() => f.store.snapshot().deliveries.some(x => x.key.startsWith("approval:") && x.state === "submitted"));
+      const approval = f.store.snapshot().deliveries.find(x => x.key.startsWith("approval:"))!;
+      const code = /允许 ([A-F0-9]{10})/.exec(approval.text)![1]!;
+      f.failSend(new TelegramApiError(outcome === "not_sent" ? "400" : "NETWORK", outcome));
+      await f.gateway.receive(callback(3, `allow:${code}`, approval.messageId!));
+      const state = outcome === "not_sent" ? "failed" : "unknown";
+      await until(() => f.store.snapshot().deliveries.find(x => x.key === "result:42:2")?.state === state);
+      const result = f.store.snapshot().deliveries.find(x => x.key === "result:42:2")!;
+      assert.match(result.text, /已定：/); assert.doesNotMatch(result.text, /忽略程序回执/);
+      f.failSend(undefined);
+      if (outcome === "not_sent") await f.gateway.retryDelivery(result.key);
+      else await assert.rejects(f.gateway.retryDelivery(result.key), /未知/);
+      assert.equal(f.activations(), 1); assert.equal(f.calls(), 2);
+      const saved = await createTaskStore(f.workspace).list({ limit: 50 }); assert(saved.ok && saved.value.tasks.length === 1);
+    } finally { await f.cleanup(); }
+  });
+}
+it("formatted multipart result retries only the definitely rejected part after reopen, never the Run", async () => {
+  const f = await fixture(async () => response(undefined, '# 报告\n\n' + '长文😀 '.repeat(1800)));
+  let restarted: TelegramGateway | undefined;
+  try {
+    await f.bind();
+    const send = f.api.send;
+    let resultSends = 0;
+    const dispatched: number[] = [];
+    f.api.send = async (...args) => {
+      assert.equal(args[3], 'HTML');
+      dispatched.push(performance.now());
+      if (++resultSends === 2) throw new TelegramApiError('429', 'not_sent', 1);
+      return send(...args);
+    };
+    await f.gateway.receive(update(2, '返回长报告'));
+    const key = 'result:42:2';
+    await until(() => f.store.snapshot().deliveries.find(x => x.key === key)?.state === 'failed');
+    const before = f.store.snapshot().deliveries.find(x => x.key === key)!;
+    assert.equal(before.parts![0]!.state, 'submitted');
+    assert.equal(before.parts![1]!.state, 'failed');
+    assert.ok(dispatched[1]! - dispatched[0]! >= 1000, 'additional parts are paced');
+    assert.ok(before.parts!.length > 2);
+    await assert.rejects(f.gateway.retryDelivery(key), /限流/);
+    const firstText = before.parts![0]!.text;
+    await f.gateway.close(); f.advanceTime(2000);
+    const store = new TelegramStore(f.store.path, f.workspace); await store.load();
+    restarted = new TelegramGateway(f.host, store, f.api, f.now); await restarted.initialize(); await restarted.start();
+    assert.equal(resultSends, 2, 'definite failures also require explicit retry');
+    await restarted.retryDelivery(key);
+    const after = store.snapshot().deliveries.find(x => x.key === key)!;
+    assert.equal(after.state, 'submitted');
+    assert.ok(after.parts!.every(part => part.state === 'submitted'));
+    assert.equal(f.sent.filter(text => text === firstText).length, 1);
+    assert.equal(resultSends, after.parts!.length + 1);
+    assert.equal(f.calls(), 1);
+  } finally { await restarted?.close(); await f.cleanup(); }
+});
+
+it("an ambiguous multipart send stops remaining parts and stays blocked after restart", async () => {
+  const f = await fixture(async () => response(undefined, '正文'.repeat(6000)));
+  let restarted: TelegramGateway | undefined;
+  try {
+    await f.bind();
+    const send = f.api.send; let attempts = 0;
+    f.api.send = async (...args) => { if (++attempts === 2) throw new TelegramApiError('NETWORK', 'unknown'); return send(...args); };
+    await f.gateway.receive(update(2, '长回复'));
+    const key = 'result:42:2';
+    await until(() => f.store.snapshot().deliveries.find(x => x.key === key)?.state === 'unknown');
+    const delivery = f.store.snapshot().deliveries.find(x => x.key === key)!;
+    assert.deepEqual(delivery.parts!.slice(0, 3).map(x => x.state), ['submitted', 'unknown', 'pending']);
+    await f.gateway.close();
+    const store = new TelegramStore(f.store.path, f.workspace); await store.load();
+    restarted = new TelegramGateway(f.host, store, f.api); await restarted.initialize(); await restarted.start();
+    await assert.rejects(restarted.retryDelivery(key), /未知/);
+    assert.equal(attempts, 2);
+    assert.equal(f.calls(), 1);
+  } finally { await restarted?.close(); await f.cleanup(); }
+});
+
+it("a crash in a persisted part dispatch does not restore send permission", async () => {
+  const f = await fixture(); let restarted: TelegramGateway | undefined;
+  try {
+    await f.bind(); await f.gateway.close();
+    await f.store.update(data => data.deliveries.push({ key: 'result:crash', chatId: 42, text: 'long', state: 'sending', messageId: 9,
+      parts: [{ text: '1/3\nfirst', state: 'submitted', messageId: 9 }, { text: '2/3\nsecond', state: 'sending', messageId: null }, { text: '3/3\nthird', state: 'pending', messageId: null }] }));
+    const sends = f.sends();
+    const store = new TelegramStore(f.store.path, f.workspace); await store.load();
+    restarted = new TelegramGateway(f.host, store, f.api); await restarted.initialize(); await restarted.start();
+    assert.equal(store.snapshot().deliveries.at(-1)!.state, 'unknown');
+    assert.equal(store.snapshot().deliveries.at(-1)!.parts![1]!.state, 'unknown');
+    assert.equal(f.sends(), sends);
+    assert.equal(f.calls(), 0);
+  } finally { await restarted?.close(); await f.cleanup(); }
+});
 it("Telegram result copy: ordinary replies omit gateway wrappers without changing model prose or Run linkage", async () => {
   const texts = ["已完成请求。", "正文中提到本轮已结束。\nRun: 用户自己给出的编号\n但后台当前不可用，到点不会执行。"];
   const f = await fixture(async n => response(undefined, texts[n - 1]));
@@ -167,9 +478,9 @@ it("approved Telegram arrangement saves the exact destination before worker acti
   const f = await fixture(async n => response(n === 1 ? { name: "task_create", input: { prompt: "手机提醒", runAt: new Date(Date.now() + 120_000).toISOString(), arrangement: reminder } } : undefined));
   try {
     await f.bind(); await f.gateway.receive(update(2, "两分钟后提醒我"));
-    await until(() => f.sent.some(x => x.includes("请求使用 task_create")));
-    const preview = f.sent.find(x => x.includes("请求使用 task_create"))!;
-    assert.match(preview, /结果将发送到本绑定私聊/);
+    await until(() => f.sent.some(x => x.includes("需要你确认 · 创建提醒")));
+    const preview = f.sent.find(x => x.includes("需要你确认 · 创建提醒"))!;
+    assert.match(preview, /结果将发送到当前 TG 私聊/);
     assert.match(f.host.current.snapshot().pendingApproval!.preview!, /Telegram 已绑定私聊 42/, "desktop and Telegram share destination disclosure");
     assert.equal(f.store.snapshot().routes.length, 0);
     assert.equal(f.activations(), 0);
@@ -376,7 +687,7 @@ it("shares the real file approval, shortcodes are single-use and plain yes is no
     await assert.rejects(readFile(join(f.workspace, "demo.md")), { code: "ENOENT" });
     await f.gateway.receive(update(3, "可以"));
     await assert.rejects(readFile(join(f.workspace, "demo.md")), { code: "ENOENT" });
-    const code = /允许 ([A-F0-9]{10})/.exec(f.sent.find(x => x.includes("请求使用 write_file"))!)![1]!;
+    const code = /允许 ([A-F0-9]{10})/.exec(f.sent.find(x => x.includes("需要你确认 · 写入文件"))!)![1]!;
     await f.gateway.receive(update(4, `允许 ${code}`));
     assert.match(f.sent.at(-1)!, /已处理这一次确认/);
     await until(() => f.store.snapshot().inputs[0]!.state === "finished");
@@ -393,14 +704,14 @@ it("expired confirmation can be renewed without a new Run; both old and repeated
   const f = await fixture(async n => response(n === 1 ? { name: "write_file", input: { path: "renewed.md", content: "one write" } } : undefined));
   try {
     await f.bind(); await f.gateway.receive(update(2, "写 renewed.md"));
-    await until(() => f.sent.some(x => x.includes("请求使用 write_file")));
-    const previous = /允许 ([A-F0-9]{10})/.exec(f.sent.find(x => x.includes("请求使用 write_file"))!)![1]!;
+    await until(() => f.sent.some(x => x.includes("需要你确认 · 写入文件")));
+    const previous = /允许 ([A-F0-9]{10})/.exec(f.sent.find(x => x.includes("需要你确认 · 写入文件"))!)![1]!;
     const run = f.store.snapshot().inputs.find(x => x.key === "42:2")!.runId;
     f.advanceTime(5 * 60_000 + 1);
     await f.gateway.receive(update(3, `允许 ${previous}`));
     await assert.rejects(readFile(join(f.workspace, "renewed.md")), { code: "ENOENT" });
     await f.gateway.receive(update(4, "/confirm"));
-    const refreshed = /允许 ([A-F0-9]{10})/.exec(f.sent.filter(x => x.includes("请求使用 write_file")).at(-1)!)![1]!;
+    const refreshed = /允许 ([A-F0-9]{10})/.exec(f.sent.filter(x => x.includes("需要你确认 · 写入文件")).at(-1)!)![1]!;
     assert.notEqual(refreshed, previous); assert.equal(f.calls(), 1);
     await f.gateway.receive(update(5, `允许 ${previous}`));
     await assert.rejects(readFile(join(f.workspace, "renewed.md")), { code: "ENOENT" });
@@ -420,8 +731,8 @@ for (const outcome of ["not_sent", "unknown"] as const) {
     const f = await fixture(async n => response(n === 1 ? { name: "write_file", input: { path: "renew-fault.md", content: "one write" } } : undefined));
     try {
       await f.bind(); await f.gateway.receive(update(2, "写 renew-fault.md"));
-      await until(() => f.sent.some(x => x.includes("请求使用 write_file")));
-      const old = /允许 ([A-F0-9]{10})/.exec(f.sent.find(x => x.includes("请求使用 write_file"))!)![1]!;
+      await until(() => f.sent.some(x => x.includes("需要你确认 · 写入文件")));
+      const old = /允许 ([A-F0-9]{10})/.exec(f.sent.find(x => x.includes("需要你确认 · 写入文件"))!)![1]!;
       const runId = f.store.snapshot().inputs.find(x => x.key === "42:2")!.runId;
       f.advanceTime(5 * 60_000 + 1);
       f.failSend(new TelegramApiError(outcome === "not_sent" ? "403" : "NETWORK", outcome));
@@ -437,7 +748,7 @@ for (const outcome of ["not_sent", "unknown"] as const) {
       await f.gateway.receive(update(4, `允许 ${old}`));
       await assert.rejects(readFile(join(f.workspace, "renew-fault.md")), { code: "ENOENT" });
       await f.gateway.receive(update(5, "当前确认"));
-      const renewed = /允许 ([A-F0-9]{10})/.exec(f.sent.filter(x => x.includes("请求使用 write_file")).at(-1)!)![1]!;
+      const renewed = /允许 ([A-F0-9]{10})/.exec(f.sent.filter(x => x.includes("需要你确认 · 写入文件")).at(-1)!)![1]!;
       assert.notEqual(renewed, old); assert.equal(f.calls(), 1);
       assert.equal(f.store.snapshot().deliveries.find(x => x.key === failedApproval.key)?.state, outcome === "not_sent" ? "cancelled" : "unknown");
       await f.gateway.receive(update(6, `允许 ${renewed}`));
@@ -575,8 +886,8 @@ for (const change of ["input", "owner"] as const) {
     const f = await fixture(async n => response(n === 1 ? { name: "write_file", input: { path: "bound-input.md", content: "original input" } } : undefined));
     try {
       await f.bind(); await f.gateway.receive(update(2, "写 bound-input.md"));
-      await until(() => f.sent.some(x => x.includes("请求使用 write_file")));
-      const code = /允许 ([A-F0-9]{10})/.exec(f.sent.find(x => x.includes("请求使用 write_file"))!)![1]!;
+      await until(() => f.sent.some(x => x.includes("需要你确认 · 写入文件")));
+      const code = /允许 ([A-F0-9]{10})/.exec(f.sent.find(x => x.includes("需要你确认 · 写入文件"))!)![1]!;
       if (change === "input") {
         const original = f.host.channelSnapshot.bind(f.host);
         t.mock.method(f.host, "channelSnapshot", () => {
@@ -605,7 +916,7 @@ it("desktop confirmation invalidates Telegram approval and busy input never stea
     await f.gateway.receive(update(3, "调整：another"));
     await f.gateway.receive(update(4, "IM message while desktop busy"));
     assert.equal(f.calls(), 1);
-    assert.equal(f.sent.some(x => x.includes("请求使用")), false, "desktop tool details must not leak to IM");
+    assert.equal(f.sent.some(x => x.includes("需要你确认 ·")), false, "desktop tool details must not leak to IM");
     f.host.current.confirm({ approvalId: f.host.current.snapshot().pendingApproval!.approvalId, decision: "deny" });
     await until(() => f.host.current.snapshot().state.kind === "idle");
     await f.gateway.receive(update(5, "ordinary chat"));
@@ -634,7 +945,7 @@ it("desktop handling while a confirmation send claim is persisted prevents sendi
     assert.equal(f.host.current.confirm({ approvalId: pending.approvalId, decision: "deny" }).accepted, true);
     release();
     await until(() => f.store.snapshot().inputs.find(x => x.key === "42:2")?.state === "finished");
-    assert(!f.sent.some(x => x.includes("请求使用 write_file")), "no stale permission envelope was sent after the awaited claim");
+    assert(!f.sent.some(x => x.includes("需要你确认 · 写入文件")), "no stale permission envelope was sent after the awaited claim");
     assert.equal(f.store.snapshot().deliveries.find(x => x.key.startsWith("approval:"))?.state, "cancelled");
     await assert.rejects(readFile(join(f.workspace, "stale-send.md")), { code: "ENOENT" });
   } finally { release(); f.store.update = save; await f.cleanup(); }
@@ -662,8 +973,8 @@ it("Steer supersedes old approval without authorizing it; control messages stay 
   const f = await fixture(async n => response(n === 1 ? { name: "write_file", input: { path: "steer.md", content: "must not write" } } : undefined));
   try {
     await f.bind(); await f.gateway.receive(update(2, "write first plan"));
-    await until(() => f.sent.some(x => x.includes("请求使用 write_file")));
-    const code = /允许 ([A-F0-9]{10})/.exec(f.sent.find(x => x.includes("请求使用 write_file"))!)![1]!;
+    await until(() => f.sent.some(x => x.includes("需要你确认 · 写入文件")));
+    const code = /允许 ([A-F0-9]{10})/.exec(f.sent.find(x => x.includes("需要你确认 · 写入文件"))!)![1]!;
     await f.gateway.receive(update(3, "调整：不要写文件，只解释下一步"));
     await until(() => f.store.snapshot().inputs[0]!.state === "finished");
     await f.gateway.receive(update(4, `允许 ${code}`));
@@ -685,8 +996,8 @@ it("desktop handling invalidates the IM short code, and expired binding/approval
     await assert.rejects(f.gateway.confirmPairing(stale), /过期/);
     await f.bind();
     await f.gateway.receive(update(2, "write request"));
-    await until(() => f.sent.some(x => x.includes("请求使用 write_file")));
-    const code = /允许 ([A-F0-9]{10})/.exec(f.sent.find(x => x.includes("请求使用 write_file"))!)![1]!;
+    await until(() => f.sent.some(x => x.includes("需要你确认 · 写入文件")));
+    const code = /允许 ([A-F0-9]{10})/.exec(f.sent.find(x => x.includes("需要你确认 · 写入文件"))!)![1]!;
     f.advanceTime(5 * 60_000 + 1);
     await f.gateway.receive(update(3, `允许 ${code}`));
     assert.ok(f.host.current.snapshot().pendingApproval);
@@ -704,7 +1015,7 @@ it("Stop cancels only the bound primary Run, never replays a pending tool", asyn
   const f = await fixture(async n => response(n === 1 ? { name: "write_file", input: { path: "stopped.md", content: "must not write" } } : undefined));
   try {
     await f.bind(); await f.gateway.receive(update(2, "write request"));
-    await until(() => f.sent.some(x => x.includes("请求使用 write_file")));
+    await until(() => f.sent.some(x => x.includes("需要你确认 · 写入文件")));
     await f.gateway.receive(update(3, "停止"));
     await until(() => f.store.snapshot().inputs[0]!.state === "finished");
     const source = f.store.snapshot().inputs[0]!;

@@ -4,7 +4,10 @@ export interface TelegramUpdate {
   update_id: number;
   message?: { message_id: number; date: number; chat: { id: number; type: string };
     from?: { id: number; is_bot: boolean; first_name: string; username?: string }; text?: string; forward_origin?: unknown; via_bot?: unknown };
+  callback_query?: { id: string; from: { id: number; is_bot: boolean; first_name: string }; data?: string;
+    message?: { message_id: number; chat: { id: number; type: string }; from?: { id: number; is_bot: boolean; first_name: string } } };
 }
+export interface TelegramKeyboard { inline_keyboard: { text: string; callback_data: string }[][] }
 export class TelegramApiError extends Error {
   constructor(readonly code: string, readonly outcome: "not_sent" | "unknown", readonly retryAfter = 0) {
     super(code === "NETWORK" ? "Telegram 网络请求未确认；不会重发可能已提交的消息。" : `Telegram 请求失败（${code}）。`);
@@ -14,7 +17,8 @@ export interface TelegramApi {
   identity(signal: AbortSignal): Promise<{ id: number; username: string }>;
   webhook(signal: AbortSignal): Promise<{ url: string }>;
   updates(offset: number, signal: AbortSignal): Promise<TelegramUpdate[]>;
-  send(chatId: number, text: string, signal: AbortSignal): Promise<number>;
+  send(chatId: number, text: string, signal: AbortSignal, format?: "HTML", keyboard?: TelegramKeyboard): Promise<number>;
+  answerCallback(id: string, signal: AbortSignal): Promise<void>;
   close?(): Promise<void>;
 }
 /** One request per call, no hidden retry. Never surface fetch errors containing token URLs. */
@@ -51,10 +55,14 @@ export function createTelegramApi(token: string, request: typeof fetch = fetch, 
     close: async () => { await dispatcher?.close(); },
     identity: signal => call("getMe", {}, signal),
     webhook: signal => call("getWebhookInfo", {}, signal),
-    updates: (offset, signal) => call("getUpdates", { offset, timeout: 30, limit: 50, allowed_updates: ["message"] }, signal, 40_000),
-    send: async (chatId, text, signal) => {
-      // Plain text, deliberately bounded rather than several ambiguous sends.
-      const result = await call<{ message_id: number }>("sendMessage", { chat_id: chatId, text: text.length > 4000 ? `${text.slice(0, 3900)}\n[已截断；完整内容见桌面执行记录]` : text,
+    updates: (offset, signal) => call("getUpdates", { offset, timeout: 30, limit: 50, allowed_updates: ["message", "callback_query"] }, signal, 40_000),
+    answerCallback: async (id, signal) => { await call("answerCallbackQuery", { callback_query_id: id }, signal); },
+    send: async (chatId, text, signal, format, keyboard) => {
+      // New formatted parts are bounded before durable admission. Legacy plain sends retain their policy.
+      if (format && (!text || text.length > 4096)) throw new TelegramApiError("INVALID_PART", "not_sent");
+      const result = await call<{ message_id: number }>("sendMessage", { chat_id: chatId, text: format ? text : text.length > 4000 ? `${text.slice(0, 3900)}\n[已截断；完整内容见桌面执行记录]` : text,
+        ...(format ? { parse_mode: format } : {}),
+        ...(keyboard ? { reply_markup: keyboard } : {}),
         link_preview_options: { is_disabled: true } }, signal);
       if (!Number.isSafeInteger(result?.message_id)) throw new TelegramApiError("INVALID_RESPONSE", "unknown");
       return result.message_id;

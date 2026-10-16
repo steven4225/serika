@@ -12,8 +12,37 @@ import {
   rowsFromToolActivity,
   overlayExecutionReceipts,
   canReuseReceiptHistory,
+  withSteerRecords,
 } from "./conversation.js";
 import type { ExecutionToolRecord } from "../../shared/ui-contract.js";
+
+it("shows an accepted correction as a normal user message in order, then updates it without duplication", () => {
+  const event = { id: "e", runId: "r1", threadId: "t1", occurredAt: "2026-10-16T00:00:00Z", sequence: 1 };
+  const accepted = applyEvent({ rows: [], streaming: "原来的分析" }, {
+    ...event, type: "run.steer.accepted", data: { id: "s1", text: "先别改文件，只分析原因" },
+  });
+  assert.deepEqual(accepted.rows.filter(row => row.kind === "text").map(row => [row.role, row.text]),
+    [["assistant", "原来的分析"], ["user", "先别改文件，只分析原因"]]);
+  assert.equal(accepted.streaming, "");
+  const applied = applyEvent(accepted, { ...event, sequence: 2, type: "run.steer.applied", data: { id: "s1", messageId: "msg1" } });
+  const correction = applied.rows.filter(row => row.kind === "text" && row.role === "user");
+  assert.equal(correction.length, 1);
+  assert.equal(correction[0]?.key, "h:msg1:text:0");
+});
+
+it("retains failed corrections after reconnect, without duplicating a committed correction or claiming success", () => {
+  const base = { id: "s1", runId: "r1", text: "只分析原因", receivedAt: "2026-10-16T00:00:00Z" };
+  const committed = rowsFromHistory([{ id: "msg1", role: "user", metadata: { source: "steer" }, parts: [{ type: "text", text: base.text }] }]);
+  const rows = withSteerRecords(committed, [{ ...base, status: "applied", messageId: "msg1" }]);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0]?.kind === "text" && rows[0].committed, true);
+  for (const reason of ["cancelled", "budget_exhausted", "run_failed"]) {
+    const restored = withSteerRecords([], [{ ...base, status: "not_applied", reason }]);
+    assert.equal(restored.length, 1);
+    assert.ok(restored[0]?.kind === "text" && restored[0].role === "user" && restored[0].text === base.text);
+    assert.equal(restored[0].steerRecord?.status, "not_applied");
+  }
+});
 
 it("marks superseded proposals unstarted and keeps applied steer within the original task/receipt boundary", () => {
   const history = rowsFromHistory([

@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import type { TaskRecordV4 } from "@aisdk-agent/example-cli/dist/task-store.js";
 import { taskNotificationCopy } from "@aisdk-agent/example-cli/dist/task-notification-copy.js";
-import { createSavedTaskNoticeReader } from "../../shared/saved-task-result.js";
+import { createSavedTaskNoticeReader, createTaskNoticeDismissals } from "../../shared/saved-task-result.js";
 import { taskResultPresentation } from "./task-inbox.js";
 import { NotificationSettingsButton } from "./notification-settings-button.js";
 
@@ -30,31 +30,33 @@ export function SavedTaskNoticeView({ task, onOpen, onDismiss }: {
     {task.notification ? <p className={task.notification.status === "failed" ? "error" : "hint"}>{notification}</p> : null}
     {task.notification?.status === "failed" ? <p className="hint">到期结果已保存，但系统通知未提交成功。请核对通知权限和组件；不会重新执行任务。<NotificationSettingsButton /></p> : null}
     <div className="saved-task-notice-actions">
-      <button type="button" className="allow" onClick={() => onOpen(task.id)}>查看</button>
+      <button type="button" className="allow" onClick={() => { onOpen(task.id); onDismiss(); }}>查看</button>
       <button type="button" className="ghost" aria-label="收起定时结果提示，不标为已读" onClick={onDismiss}>收起</button>
     </div>
   </div>;
 }
 
 /** One window-level read refresh. Viewing and dismissing do not run the task or mark it read. */
-export function SavedTaskNotice({ enabled, refreshSequence, onOpen }: {
-  enabled: boolean; refreshSequence: number; onOpen: (taskId: string) => void;
+export function SavedTaskNotice({ enabled, workspaceRoot, refreshSequence, onOpen, onDismiss }: {
+  enabled: boolean; workspaceRoot: string; refreshSequence: number; onOpen: (taskId: string) => void; onDismiss?: () => void;
 }) {
   const [task, setTask] = useState<TaskRecordV4 | null>(null);
   const [error, setError] = useState("");
-  const [dismissed, setDismissed] = useState<string | null>(null);
+  const dismissals = useMemo(() => createTaskNoticeDismissals({
+    getItem: key => window.localStorage.getItem(key), setItem: (key, value) => window.localStorage.setItem(key, value),
+  }, workspaceRoot), [workspaceRoot]);
   useEffect(() => {
     if (!enabled) { setTask(null); setError(""); return; }
-    const reader = createSavedTaskNoticeReader(window.runloom, setTask, setError);
+    const reader = createSavedTaskNoticeReader(window.runloom, setTask, setError, dismissals.has);
     const onFocus = () => { if (!document.hidden) void reader.refresh(); };
     onFocus();
     const timer = window.setInterval(onFocus, 15_000);
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onFocus);
     return () => { reader.dispose(); window.clearInterval(timer); window.removeEventListener("focus", onFocus); document.removeEventListener("visibilitychange", onFocus); };
-  }, [enabled, refreshSequence]);
+  }, [enabled, refreshSequence, dismissals]);
   if (!enabled) return null;
   if (error) return <div className="attention-summary" role="status"><span>{error}</span></div>;
-  if (!task || dismissed === `${task.id}:${task.finishedAt}`) return null;
-  return <SavedTaskNoticeView task={task} onOpen={onOpen} onDismiss={() => setDismissed(`${task.id}:${task.finishedAt}`)} />;
+  if (!task || dismissals.has(task)) return null;
+  return <SavedTaskNoticeView task={task} onOpen={onOpen} onDismiss={() => { dismissals.dismiss(task); setTask(null); onDismiss?.(); }} />;
 }

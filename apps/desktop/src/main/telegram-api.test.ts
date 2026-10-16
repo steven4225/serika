@@ -5,6 +5,35 @@ import { createTelegramApi, TelegramApiError } from "./telegram-api.js";
 
 const token = "123:THIS_IS_A_PRIVATE_TEST_TOKEN";
 
+it("phone controls use callback updates, inline buttons and a separate one-shot callback answer", async () => {
+  const requests: { method: string; body: Record<string, unknown> }[] = [];
+  const api = createTelegramApi(token, async (url, init) => {
+    const method = String(url).split("/").at(-1)!;
+    requests.push({ method, body: JSON.parse(String(init?.body)) });
+    return new Response(JSON.stringify({ ok: true, result: method === "sendMessage" ? { message_id: 7 } : true }));
+  });
+  const signal = new AbortController().signal;
+  await api.updates(9, signal);
+  const keyboard = { inline_keyboard: [[{ text: "确认保存", callback_data: "allow:ABCDEF1234" }, { text: "取消", callback_data: "deny:ABCDEF1234" }]] };
+  await api.send(42, "提醒确认", signal, "HTML", keyboard);
+  await api.answerCallback("callback-1", signal);
+  assert.deepEqual(requests[0]!.body.allowed_updates, ["message", "callback_query"]);
+  assert.deepEqual(requests[1]!.body.reply_markup, keyboard);
+  assert.deepEqual(requests[2], { method: "answerCallbackQuery", body: { callback_query_id: "callback-1" } });
+});
+
+it("formatted sends use explicit HTML and never truncate a prepared part", async () => {
+  let body: Record<string, unknown> = {};
+  const api = createTelegramApi(token, async (_url, init) => {
+    body = JSON.parse(String(init?.body));
+    return new Response(JSON.stringify({ ok: true, result: { message_id: 1 } }));
+  });
+  const html = '<b>结论</b>\n' + '水'.repeat(4000);
+  await api.send(42, html, new AbortController().signal, 'HTML');
+  assert.equal(body.parse_mode, 'HTML');
+  assert.equal(body.text, html);
+});
+
 it("Telegram proxy is channel-scoped, shared by polling and sending, and never retries ambiguous sends", async () => {
   const global = getGlobalDispatcher();
   const seen: unknown[] = [];

@@ -54,6 +54,8 @@ const validTimeSchema = z.object({ from: z.string().nullable(), to: z.string().n
 const memoryKindSchema = z.enum(["preference", "fact", "event", "note"]);
 const identityScenarioSchema = z.string().min(1).refine(value => Buffer.byteLength(value) <= 96 && !/[\r\n\u0000]/.test(value));
 const factIdentitySchema = z.union([
+  z.object({ version: z.literal(3), subject: identityScenarioSchema, attribute: identityScenarioSchema,
+    scenario: identityScenarioSchema, value: identityScenarioSchema }).strict(),
   z.object({ attribute: z.enum(["response_language", "review_format", "coffee", "residence"]), scenario: identityScenarioSchema, value: z.string().min(1).refine(value => Buffer.byteLength(value) <= 96) }).strict(),
   z.object({ version: z.literal(2), subject: z.literal("user"), attribute: z.enum(["diet_spiciness", "notification_channel"]), scenario: identityScenarioSchema, value: z.string().min(1).refine(value => Buffer.byteLength(value) <= 96) }).strict().refine(value => {
     try { validateFactIdentity(value); return true; } catch { return false; }
@@ -353,8 +355,9 @@ const proposalCommon = {
   reason: z.string().min(1),
   eligibility: z.enum(["durable_self_statement", "explicit_request", "needs_review", "ignore"]).optional(),
 };
-const proposalFactFields = { ...factFields, factIdentity: factIdentitySchema.optional() };
-const proposalChangeFactFields = { ...changeFactFields, factIdentity: factIdentitySchema.optional() };
+const genericFactEvidence = { factEvidence: z.object({ statementQuote: z.string().min(1), targetQuote: z.string().min(1).optional() }).strict().optional() };
+const proposalFactFields = { ...factFields, ...genericFactEvidence, factIdentity: factIdentitySchema.optional() };
+const proposalChangeFactFields = { ...changeFactFields, ...genericFactEvidence, factIdentity: factIdentitySchema.optional() };
 const candidateStageInputSchema = z.object({
   batchId: z.string().min(1),
   outcomes: z.array(z.object({ messageId: z.string().min(1), status: z.enum(["extracted", "no_memory", "deferred"]) }).strict()).max(8).optional(),

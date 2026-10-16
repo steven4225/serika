@@ -4,6 +4,7 @@ import type { Recurrence } from "./recurrence.js";
 import type { TaskStore, TaskSummaryV3, RecurringTaskSummary, TaskRecordV4, RecurringTaskRecord } from "./task-store.js";
 
 export interface ScheduleSkillInput {
+  operationId?: string;
   id: string;
   expectedHash: string;
   input: string;
@@ -33,6 +34,7 @@ const recurrence = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("weekly"), weekday: z.number().int().min(1).max(7), time: z.string(), utcOffset: z.string() }).strict(),
 ]);
 const schedule = z.object({
+  operationId: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/).optional(),
   id: z.string().regex(/^[a-z][a-z0-9-]{0,63}$/),
   expectedHash: z.string().regex(/^[a-f0-9]{64}$/),
   input: z.string().refine(value => value.trim().length > 0 && Buffer.byteLength(value, "utf8") <= 4096),
@@ -63,8 +65,8 @@ export async function scheduleRegisteredSkill(options: {
   const arrangement = { kind: "skill" as const, source: "none" as const, notification: "always" as const,
     declarationVersion: 1 as const, skillId: skill.id, skillHash: skill.hash };
   const saved = value.recurrence !== undefined
-    ? await options.store.createRecurring({ prompt: value.input, recurrence: value.recurrence, arrangement }, options.signal)
-    : await options.store.create({ prompt: value.input, runAt: value.runAt!, arrangement }, options.signal);
+    ? await options.store.createRecurring({ prompt: value.input, recurrence: value.recurrence, arrangement, ...(value.operationId ? { operationId: value.operationId } : {}) }, options.signal)
+    : await options.store.create({ prompt: value.input, runAt: value.runAt!, arrangement, ...(value.operationId ? { operationId: value.operationId } : {}) }, options.signal);
   if (!saved.ok) return saved;
   // Saving and enabling launchd are not one transaction. Never disguise a saved
   // arrangement as rolled back when activation fails or cancellation comes late.

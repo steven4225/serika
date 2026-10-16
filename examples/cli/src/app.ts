@@ -76,6 +76,9 @@ import { observeModelUsage } from "./model-usage-observer.js";
 import type { ModelPurpose } from "./model-usage.js";
 import { createWebModule } from "./modules/web-module.js";
 import { createComputerModule } from "./modules/computer-module.js";
+import { capabilityStatus, formatCapabilityStatus, type CapabilityStatus } from "./capability-status.js";
+import { RecipeStore } from "./recipe-store.js";
+import { createRecipeModule } from "./modules/recipe-module.js";
 import { createTaskStore } from "./task-store.js";
 import type { SavedTaskArrangement } from "./modules/task-module.js";
 import { createWorkTaskStore, type WorkTask, type WorkTaskStore } from "./work-task-store.js";
@@ -158,6 +161,7 @@ export interface RuntimeApp {
   directory: string;
   workspaceRoot: string | undefined;
   moduleConfig: ResolvedTuiModuleConfig | undefined;
+  getCapabilities?(): CapabilityStatus;
   toolConfirmation: ToolConfirmation | undefined;
   commands: ReadonlyMap<string, TuiCommand> | undefined;
   compaction: TuiCompaction | undefined;
@@ -278,6 +282,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     consolidationAgentIds: externalSkills.filter(skill => skill.kind === "memory-consolidate").map(skill => skill.agentId),
   });
   const executionRecords = createExecutionRecordStore(directory);
+  const recipes = tuiMode && shellEnabled && workspaceRoot ? new RecipeStore(workspaceRoot) : undefined;
   let usageEnabled = false;
   const workTasks = workspaceRoot === undefined ? undefined : createWorkTaskStore(workspaceRoot, { executionRecords });
   const executionRecordAdapter = createExecutionRecordAdapter(store, executionRecords, workTasks, agentId => {
@@ -378,6 +383,11 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
             ...(moduleConfig!.computer
               ? [createComputerModule(moduleConfig!.computer, { env })]
               : []),
+            ...(recipes ? [createRecipeModule({ store: recipes, records: executionRecords, threadId,
+              currentRun: executionRecordAdapter.currentRun,
+              shell: { timeoutMs: moduleConfig!.shellTimeoutMs, onProgress: notifyShellProgress,
+                ...(shellSandbox ? { sandbox: shellSandbox } : {}) },
+            })] : []),
             ...(webEnabled
               ? [
                   createWebModule({
@@ -451,6 +461,23 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   });
   const toolConfirmationPrompt: ToolConfirmationPrompt = (input) => {
+    if (input.toolName === "computer_check") return "\n检查 CUA 连接\n只检查已配置驱动的可执行性和连接，返回允许列表中的运行应用；不读取窗口、截图或应用内容。不会启动服务、安装驱动或授予系统权限。Allow this call? [y/n] ";
+    if (recipes && input.toolName.startsWith("recipe_")) {
+      const value = input.input as { id?: string; expectedHash?: string; command?: string; cwd?: string; action?: string; hash?: string };
+      if (input.toolName === "recipe_run" && value.id && value.expectedHash) {
+        return recipes.get(value.id, value.expectedHash, input.signal).then(version =>
+          `\n运行命令配方：${version.id}\n${version.description}\n命令：${version.command}\n目录：${version.cwd}\n版本：${version.hash}\n${shellSandbox ? "沿用当前 Docker 沙箱配置。" : "这会运行主机命令，工作目录不是系统隔离。"}\n仅批准这次执行；配方不授予持久权限，外部脚本和依赖不随版本冻结。Allow this call? [y/n] `,
+          () => "\n配方已变化、停用或无法读取。本次不能执行，请取消并重新查看。Allow this call? [y/n] ");
+      }
+      if (input.toolName === "recipe_manage" && value.id) {
+        return recipes.list(input.signal).then(list => {
+          const entry = list.find(item => item.id === value.id);
+          const target = entry?.versions.find(version => version.hash === (value.action === "rollback" ? value.hash : entry.activeHash));
+          return `\n${value.action === "disable" ? "停用" : value.action === "enable" ? "启用" : "回退"}命令配方：${value.id}\n${target ? `${target.description}\n命令：${target.command}\n目录：${target.cwd}\n版本：${target.hash}` : "目标版本不存在；操作不会成功。"}\n不会执行命令或授予权限，也不撤销过去已发生的操作。Allow this call? [y/n] `;
+        });
+      }
+      return `\n登记命令配方：${value.id}\n命令：${value.command}\n目录：${value.cwd}\n程序会核对本轮真实测试回执。不会执行配方、安装工具或授予后续权限。Allow this call? [y/n] `;
+    }
     if (taskStore !== undefined && (input.toolName === "task_create" || input.toolName === "task_repeat_create")) {
       const request = typeof input.input === "object" && input.input !== null ? input.input as { arrangement?: { kind?: unknown; source?: unknown; skillId?: unknown; skillHash?: unknown }; runAt?: unknown; recurrence?: unknown; prompt?: unknown } : {};
       if (request.arrangement !== undefined) {
@@ -826,11 +853,12 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     'Example add shape (replace placeholders with actual prepared evidence, never copy sample evidence): {"action":"add","kind":"preference","text":"用户喝咖啡不加糖。","reason":"明确的持续偏好","eligibility":"durable_self_statement","sources":[{"sourceMessageId":"<prepared messageId>","sourceQuote":"<exact user quote>"}],"factIdentity":{"attribute":"coffee","scenario":"general","value":"unsweetened"}}. Only include this identity when the actual user evidence supports it. A past event is not automatically expired current state. ' +
     "Use validTime only when supported by explicit user evidence; change uses effectiveAt or the validated from-now intent rather than validTime. Never invent dates or silently equate uncertain claims. If the target is unambiguous but a transition has no effective date or valid from-now intent, omit effectiveAt and mark needs_review: the host retains an undated pending change, never changes it into a correction. For an ambiguous target, defer that source; do not guess a target or call it no_memory. Unknown time remains unknown. Usage expiresAt is separate from real-world validity. " +
     "Optional recallTerms contain at most three relevant retrieval phrases, each at most 96 UTF-8 bytes, never new facts or authority. Historical assertions are conflict-review material, not current facts to inject or revive. " +
-    "A historical same-value assertion does not account for a new source. Compare a new observation against the supplied CURRENT assertion in the same slot/scene/scope, not a matching old relatedAssertion. If the current value differs, an ordinary contradiction requires a source-backed add with eligibility needs_review, even when an older assertion has the new value. Include the complete new source and its supported factIdentity; only the host binds a conflicting add to the current target for review. Do not attach this new source to the old assertion, restore it, invent changeIntent, or return proposals [] with extracted. For example current coffee is sweetened r2, historical r1 is unsweetened, and the new source only says 我喝咖啡不加糖: retain an unsweetened needs_review proposal, keeping current sweetened unchanged. This is neither an automatic change nor a historical duplicate. " +
+    "A historical same-value assertion does not account for a new source. Compare CURRENT same-slot/scene/scope assertions, not historical matches. An ordinary contradiction requires a source-backed add with eligibility needs_review; only the host binds its target. Never attach new evidence to an old assertion, revive it, invent intent, or return empty proposals with extracted. " +
     "Use recallTerms for alternate everyday names for the subject and action, so a user can ask about this fact without repeating its wording. Do not fill all three with copied body words, the same phrase reordered, or just a changed quantity. Keep the user's language and the same meaning; omit uncertain synonyms rather than inventing a broader fact. " +
-    "For each add, compare the related memories before proposing: a new source for the SAME supported factIdentity must be proposed for source attachment, not discarded as no_memory. This does not create a duplicate fact. Without a supported identity, do not invent one to deduplicate. If it contradicts a related fact, propose a source-backed correction/change against that exact target only when the user explicitly corrects/changes it; otherwise retain needs_review. A new conflicting self-statement (e.g. 我喜欢咖啡加糖) is NOT itself an explicit correction; your reason or eligibility label cannot supply missing user intent. Include useful alternate wording in recallTerms, without changing the fact. " +
-    "For four supported attributes, optionally include factIdentity {attribute,scenario,value}: response_language values zh/en/bilingual; review_format conclusion_first/steps_first/detailed; coffee unsweetened/sweetened/black/none; residence value is the explicitly stated place. scenario is general/work/personal or the user's exact quoted scene label (at most 96 UTF-8 bytes). A limited scene must agree with both source and saved text, NEVER default to general. Uncertain/unsupported qualifiers require needs_review and no guessed identity. Compare conflicts only within the SAME scene; a different scene is an independent add, not a correction of another scene. Do not equate nuanced preferences (e.g. no sugar and black coffee), contexts or uncertain values. Omit identity outside the supported attributes. Use the same identity for synonymous observations; propose add with its exact source and the host will reuse the matching fact rather than create another. A true change must use change with explicit effectiveAt or a valid from-now intent, and a correction must explicitly target the previous fact. Do not claim identity classification proves truth. " +
+    "A new source for the same supported identity needs an add for source attachment, not no_memory. Never invent identity to deduplicate or treat an ordinary contradiction as explicit correction. Only user intent permits a targeted correction/change. " +
+    "Legacy factIdentity {attribute,scenario,value}: response_language zh/en/bilingual; review_format conclusion_first/steps_first/detailed; coffee unsweetened/sweetened/black/none; residence is the stated place. scenario is general/work/personal or an exact source scene <=96 UTF-8 bytes. Scene must agree with source AND body; never generalize a restriction. Unknown qualifiers need review, not guessed identity. Only same-scene slots conflict; other scenes are independent adds. No sugar is not necessarily black coffee. Same supported identity observations use add to attach exact sources. Real changes require effectiveAt or valid from-now intent; corrections target the old fact. Classification does not prove truth. Never relabel legacy slots as v3. " +
     'Two additional domains ONLY use {version:2,subject:"user",attribute,scenario,value}: diet_spiciness none/mild/medium/hot = 不辣/微辣/中辣/重辣; notification_channel in_app/system/telegram = 应用内/系统通知/Telegram. Exact self-statements: 我的饮食辣度是微辣 or 我的通知渠道是应用内 (是/为). Changes: 从现在起，我的饮食辣度改成微辣 (改成/改为), using full-source changeIntent and existing target rules. Scene: 在「工作日早餐」场景，我的饮食辣度是微辣。 Preserve the scene in identity/text; Thread scope stays separate. Unknown qualifiers/synonyms, negation, future, conditional or third-person evidence stay review-only. Legacy identities keep their old shape. Notification facts grant NO service, permission or delivery authority. ' +
+    'Other explicit facts/preferences may use factIdentity {version:3,subject,attribute,scenario,value}, strings <=96 UTF-8 bytes. Subject/attribute/value are literal source spans, not ontology keys; scenario is general or an exact source scene. factEvidence {statementQuote} quotes an exact source span containing all fields (except general) AND the proposed text verbatim. Example 我主要用 VS Code。: subject 我, attribute 主要用, value VS Code. Reuse existing slot labels; do not guess aliases or classify old unidentified facts. Affirmative 从现在起 or 已经迁到/改用 may use change with full-source changeIntent, no effectiveAt (host now), including same-kind fact targets. For an elliptical update only when ONE complete visible v3 target is unambiguous, factEvidence may also carry targetQuote equal to its exact body; proposed text must be that body with its old literal value replaced once by the new source value. Multiple possible targets or truncated material require review. Ordinary contradictions, uncertain subjects/slots, paraphrases, negation, conditions and unknown dates need review; they grant no change permission. Different subjects/scenes/scopes are independent. ' +
     "When changing the text of a target with a verified factIdentity, include the new supported factIdentity for that same attribute/scene; never copy the old value onto contradictory new text. If the new value cannot be classified from the exact user evidence, retain needs_review. Missing identity is not permission to erase conflict protection. Unchanged text may retain its verified identity. " +
     "Do not re-enable disabled/expired memories, broaden an existing memory's scope, invent source evidence, or submit pinned. Do not call active memory write tools during consolidation. " +
     (moduleConfig?.memoryWritePolicy === "automatic"
@@ -856,6 +884,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
   } as const;
 
   const calculatorInstructions =
+    (tuiMode ? "When asked what you can do or why CUA/MCP is unavailable, call capability_status for actual registered tools. Report static configuration separately from untested service connectivity/OS permissions; never infer access from another application's installed packages. " : "") +
+    (recipes ? "For an explicitly requested reusable capability, use the existing file/Shell tools to build and verify a small workspace command or script, then recipe_save only its EXACT successful shell_exec command/cwd and call id from THIS Run. Test after the final change. Ask for registration only when the user wants reuse; do not silently install, alter configuration or restart the host. A command batch may perform the user-approved steps under one confirmation, but is not an OS sandbox. Use /authorize file-path rules or Docker-only /authorize-shell only when explicitly set by the user; no host-wide permission is inferred. In later chats call recipe_list, then recipe_run with the current hash and a fresh approval. recipe_manage can disable/enable or roll back a tested command version. Recipes are command recipes, not text Skills; they confer no permissions, dynamic MCP or tool installation. A version pins command text, not external scripts, dependencies or business correctness. Report those limits. Unknown outcomes require inspection, never automatic replay. " : "") +
     "Use the add tool ONLY when the user actually requests arithmetic addition, then answer briefly; never call add or perform dummy 1+1 for memory/preference statements or ordinary chat. In automatic memory mode, briefly acknowledge the statement and let the host consolidate; do not claim it was saved before the host write receipt. " +
     "A tool's y/n confirmation happens before that tool executes. After receiving ok:true, report the completed result; do not say you are still waiting for confirmation. If the call was denied, failed, or has an unknown outcome, do not report success. " +
     (moduleConfig?.enabled["read-file"] || shellEnabled
@@ -962,6 +992,13 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       return createResumeContextMessage(activeResumeObservation);
     };
     const registeredTools = [addRegistration, ...(moduleHost?.tools ?? [])];
+    const getCapabilities = () => capabilityStatus(moduleConfig, registeredTools.map(item => item.metadata.name).filter(name =>
+      moduleConfig?.memoryWritePolicy !== "automatic" || !name.startsWith("memory_")));
+    const statusRegistration = { metadata: { name: "capability_status", version: "1", risk: "read" as const, timeoutMs: 1000, idempotent: true },
+      tool: tool({ description: "Read current host-registered tools and static capability/permission mode. No service probes, process/app inspection, credentials, installation or writes. Service/OS permission health remains not_checked.",
+        inputSchema: z.object({}).strict(), execute: async () => getCapabilities() }) };
+    if (tuiMode) registeredTools.push(statusRegistration);
+    commands?.set("capabilities", { name: "capabilities", execute: () => { output.write(`${formatCapabilityStatus(getCapabilities())}\n`); } });
     const tools = new ToolRegistry(registeredTools);
     const primaryToolNames = registeredTools.map(({ metadata }) => metadata.name).filter(name =>
       moduleConfig?.memoryWritePolicy !== "automatic" || !name.startsWith("memory_"));
@@ -1450,6 +1487,10 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         : {}),
       ...(toolConfirmation
         ? { beforeToolExecute: (input) => {
+          if (input.definition.id === PRIMARY_AGENT_ID && input.toolName === "capability_status" &&
+            registeredTools.find(item => item.metadata.name === input.toolName) === statusRegistration) {
+            input.signal.throwIfAborted(); return { allow: true };
+          }
           const skill = automation.skills.find(skill => skill.agentId === input.definition.id);
           if (skill?.kind === "memory-consolidate" && skill.tools.includes(input.toolName)) {
             input.signal.throwIfAborted();
@@ -1516,6 +1557,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       directory,
       workspaceRoot,
       moduleConfig,
+      getCapabilities,
       toolConfirmation,
       commands,
       compaction: contextCompactor

@@ -183,6 +183,12 @@ window.runloom = new Proxy(api as unknown as RendererApi, { get(target, property
   if (property in target) return Reflect.get(target, property);
   return async () => { throw new Error(`Isolated fixture does not implement ${String(property)}`); };
 } });
+// Browser regression control for the real App; never loaded by Electron.
+if (new URLSearchParams(location.search).has("lifecycle")) Object.assign(window, {
+  lifecycleFixture: { snapshot, emit: (message: MainToRenderer) => {
+    for (const listener of listeners) listener(message);
+  } },
+});
 if (new URLSearchParams(location.search).has("work-task-flow")) {
   installWorkTaskFlowApi();
   createRoot(document.getElementById("root")!).render(<WorkTaskFlowPreview />);

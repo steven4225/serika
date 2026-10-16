@@ -2,6 +2,8 @@ import { createHash, randomUUID } from "node:crypto";
 import { lstat, mkdir, open, readFile, rename, unlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { TelegramStatus } from "../shared/telegram.js";
+import type { TelegramKeyboard } from "./telegram-api.js";
+import { EXECUTION_RECORD_MAX_TOOLS } from "@aisdk-agent/example-cli/dist/execution-record-store.js";
 
 export const TELEGRAM_INPUT_LIMIT = 1024;
 export const TELEGRAM_DELIVERY_LIMIT = 2048;
@@ -10,6 +12,10 @@ export interface TelegramInbound {
   key: string; updateId: number; text: string;
   /** Host receipt clock. Legacy records may omit it; never invent it on read. */
   receivedAt?: string;
+  /** Button identity, persisted before control dispatch. Never restored as authorization. */
+  callback?: { id: string; messageId: number };
+  /** Program-generated reminder receipts, not model success claims. */
+  reminderReceipts?: { toolCallId: string; text: string }[];
   state: "received" | "reserved" | "bound" | "finished" | "rejected" | "unknown" | "reviewed";
   runId: string | null; taskId: string | null;
   reviewReport?: string;
@@ -21,6 +27,9 @@ export interface TelegramDelivery {
   error?: string;
   retryAt?: string;
   reviewReport?: string;
+  keyboard?: TelegramKeyboard;
+  /** Optional for old journals. Each formatted part has its own persisted dispatch/ack boundary. */
+  parts?: { text: string; state: "pending" | "sending" | "submitted" | "failed" | "unknown"; messageId: number | null }[];
 }
 export interface TelegramTaskRoute {
   key: string; id: string; kind: "once" | "recurring"; chatId: number; userId: number;
@@ -30,7 +39,7 @@ export interface TelegramTaskRoute {
   scanBefore?: { createdAt: string; id: string };
 }
 export interface TelegramData {
-  version: 1; workspace: string; enabled: boolean; botId: number | null; offset: number;
+  version: 1 | 2; workspace: string; enabled: boolean; botId: number | null; offset: number;
   owner: TelegramStatus["owner"]; inputs: TelegramInbound[]; deliveries: TelegramDelivery[];
   routes: TelegramTaskRoute[];
 }
@@ -44,17 +53,35 @@ export function telegramCapacity(data: TelegramData): NonNullable<TelegramStatus
 }
 function valid(data: TelegramData, workspace: string) {
   const positive = (n: unknown) => Number.isSafeInteger(n) && (n as number) > 0;
-  return data?.version === 1 && data.workspace === workspace && typeof data.enabled === "boolean" &&
+  return [1, 2].includes(data?.version) && data.workspace === workspace && typeof data.enabled === "boolean" &&
     (data.botId === null || positive(data.botId)) && Number.isSafeInteger(data.offset) && data.offset >= 0 &&
     (data.owner === null || (positive(data.owner.userId) && positive(data.owner.chatId) && typeof data.owner.name === "string" && typeof data.owner.threadId === "string" && !!data.owner.threadId)) &&
     Array.isArray(data.inputs) && data.inputs.length <= TELEGRAM_INPUT_LIMIT && new Set(data.inputs.map(x => x.key)).size === data.inputs.length && data.inputs.every(x =>
       typeof x.key === "string" && typeof x.text === "string" && x.text.length <= 16_384 && positive(x.updateId + 1) &&
       (x.receivedAt === undefined || typeof x.receivedAt === "string" && /\+08:00$/.test(x.receivedAt) && Number.isFinite(Date.parse(x.receivedAt))) &&
+      (x.callback === undefined || typeof x.callback.id === "string" && x.callback.id.length > 0 && x.callback.id.length <= 256 && positive(x.callback.messageId)) &&
+      (x.reminderReceipts === undefined || Array.isArray(x.reminderReceipts) && x.reminderReceipts.length <= EXECUTION_RECORD_MAX_TOOLS &&
+        new Set(x.reminderReceipts.map(receipt => receipt.toolCallId)).size === x.reminderReceipts.length &&
+        x.reminderReceipts.every(receipt => typeof receipt.toolCallId === "string" && receipt.toolCallId.length > 0 && receipt.toolCallId.length <= 256 &&
+          typeof receipt.text === "string" && receipt.text.length > 0 && receipt.text.length <= 12_000)) &&
       ["received", "reserved", "bound", "finished", "rejected", "unknown", "reviewed"].includes(x.state) && (x.runId === null || typeof x.runId === "string") && (x.taskId === null || typeof x.taskId === "string") &&
       (x.reviewReport === undefined || (typeof x.reviewReport === "string" && x.reviewReport.length > 0 && x.reviewReport.length <= 2000))) &&
     Array.isArray(data.deliveries) && data.deliveries.length <= TELEGRAM_DELIVERY_LIMIT && new Set(data.deliveries.map(x => x.key)).size === data.deliveries.length && data.deliveries.every(x =>
       typeof x.key === "string" && positive(x.chatId) && typeof x.text === "string" && x.text.length <= 32_768 &&
       ["pending", "sending", "submitted", "failed", "unknown", "cancelled"].includes(x.state) && (x.messageId === null || positive(x.messageId)) &&
+      (x.keyboard === undefined || x.key.startsWith("approval:") && Array.isArray(x.keyboard.inline_keyboard) && x.keyboard.inline_keyboard.length === 1 &&
+        x.keyboard.inline_keyboard.every(row => Array.isArray(row) && row.length === 2 && row.every(button => typeof button.text === "string" && button.text.length > 0 && button.text.length <= 32 &&
+          typeof button.callback_data === "string" && /^(allow|deny):[A-F0-9]{10}$/.test(button.callback_data)))) &&
+      (x.parts === undefined || data.version === 2 && Array.isArray(x.parts) && x.parts.length > 0 && x.parts.length <= 128 &&
+        x.parts.every((part, i) => typeof part.text === "string" && part.text.length > 0 && part.text.length <= 4096 &&
+          ["pending", "sending", "submitted", "failed", "unknown"].includes(part.state) &&
+          (part.state === "submitted" ? positive(part.messageId) : part.messageId === null) &&
+          (i === 0 || part.state !== "submitted" || x.parts![i - 1]!.state === "submitted") &&
+          (["pending", "submitted"].includes(part.state) ||
+            (i === 0 || x.parts![i - 1]!.state === "submitted") && x.parts!.slice(i + 1).every(part => part.state === "pending"))) &&
+        (!["pending", "sending", "failed"].includes(x.state) || x.parts.every(part => part.state !== "unknown" &&
+          (part.state !== "sending" || x.state === "sending") && (part.state !== "failed" || x.state === "failed"))) &&
+        (x.state !== "submitted" || x.parts.every(part => part.state === "submitted"))) &&
       (x.routeKey === undefined || typeof x.routeKey === "string") && (x.reviewReport === undefined || typeof x.reviewReport === "string" && x.reviewReport.trim().length > 0 && x.reviewReport.length <= 2000) && (x.error === undefined || typeof x.error === "string" && x.error.length <= 512) &&
       (x.retryAt === undefined || typeof x.retryAt === "string" && Number.isFinite(Date.parse(x.retryAt)))) &&
     Array.isArray(data.routes) && data.routes.length <= 128 && new Set(data.routes.map(x => x.key)).size === data.routes.length && data.routes.every(x =>
@@ -100,7 +127,10 @@ export class TelegramStore {
     // The original task/Run remains the result source. Long-term channel
     // archives retain deduplication/association, not a second copy of its body.
     const { text: _body, ...metadata } = record;
-    const text = JSON.stringify(metadata);
+    if ("reminderReceipts" in metadata) delete metadata.reminderReceipts;
+    if ("keyboard" in metadata) delete metadata.keyboard;
+    const text = JSON.stringify({ ...metadata, ...("parts" in record && record.parts
+      ? { parts: record.parts.map(({ text: _partBody, ...part }) => part) } : {}) });
     try {
       const existing = await lstat(path);
       if (!existing.isFile() || existing.isSymbolicLink() || (existing.mode & 0o077) || (process.getuid && existing.uid !== process.getuid()) || existing.size > 128 * 1024) throw new Error("Telegram 归档冲突；未丢弃活动记录");
@@ -170,6 +200,8 @@ export class TelegramStore {
     const operation = this.#tail.then(async () => {
       if (this.#failed) throw new Error("Telegram 保存未确认，已停止接收；请重启后核对，不会自动重做任务。");
       const next = this.snapshot(); change(next);
+      // Old binaries must reject multipart journals, not resend a partly delivered body as one message.
+      if (next.deliveries.some(x => x.parts)) next.version = 2;
       try { await this.#retain(next); }
       catch { this.#failed = true; throw new Error("Telegram 归档保存未确认，已停止接收；既有活动记录与接收位置未改变，请重启后核对。"); }
       if (!valid(next, this.workspace)) throw new Error("Telegram 记录无效或已满；未丢弃既有记录。");

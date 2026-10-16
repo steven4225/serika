@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import type { TaskRecordV4 } from "@aisdk-agent/example-cli/dist/task-store.js";
 import { createTaskDesktopNotifier } from "@aisdk-agent/example-cli/dist/task-worker-entry.js";
 import type { RendererApi } from "../../shared/ui-contract.js";
-import { createSavedTaskNoticeReader, readSavedTaskNotice } from "../../shared/saved-task-result.js";
+import { createSavedTaskNoticeReader, createTaskNoticeDismissals, readSavedTaskNotice } from "../../shared/saved-task-result.js";
 import { SavedTaskNoticeView } from "./saved-task-notice.js";
 
 const saved = (override: Partial<TaskRecordV4> = {}): TaskRecordV4 => ({
@@ -80,6 +80,45 @@ test("saved task banner rereads acknowledge state and rejects a replaced or nont
   }
   assert.equal(await readSavedTaskNotice(port([saved({ status: "running" })])), null);
   assert.equal(await readSavedTaskNotice(port([])), null);
+});
+
+test("a dismissed result stays out of the banner without changing its unread record", async () => {
+  const task = saved();
+  const before = JSON.stringify(task);
+  assert.equal(await readSavedTaskNotice(port([task]), () => true), null);
+  assert.equal(JSON.stringify(task), before);
+});
+
+test("banner dismissal survives remount, is workspace scoped, and does not hide a later occurrence", async () => {
+  const values = new Map<string, string>();
+  const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); } };
+  const task = saved();
+  const before = JSON.stringify(task);
+  const alreadyMounted = createTaskNoticeDismissals(storage, "/workspace-a");
+  createTaskNoticeDismissals(storage, "/workspace-a").dismiss(task);
+  assert.equal(alreadyMounted.has(task), true, "opening from the inbox updates an already mounted banner");
+  const reopened = createTaskNoticeDismissals(storage, "/workspace-a");
+  assert.equal(await readSavedTaskNotice(port([task]), reopened.has), null);
+  assert.equal(createTaskNoticeDismissals(storage, "/workspace-b").has(task), false);
+  const later = saved({ finishedAt: "2026-10-12T12:00:00Z" });
+  assert.equal(await readSavedTaskNotice(port([later]), reopened.has), later);
+  assert.equal(JSON.stringify(task), before);
+  assert.doesNotMatch(JSON.stringify([...values]), /该喝水了|不是正文来源/);
+});
+
+test("unavailable preference storage still permits window-local dismissal", () => {
+  const dismissals = createTaskNoticeDismissals({ getItem() { throw new Error("unavailable"); }, setItem() { throw new Error("unavailable"); } }, "/workspace");
+  assert.equal(dismissals.has(saved()), false);
+  dismissals.dismiss(saved());
+  assert.equal(dismissals.has(saved()), true);
+});
+
+test("viewing the result also dismisses its banner without executing the task", () => {
+  const actions: string[] = [];
+  const view = SavedTaskNoticeView({ task: saved(), onOpen: id => { actions.push(id); }, onDismiss: () => { actions.push("dismiss"); } });
+  const buttons = view.props.children.at(-1).props.children;
+  buttons[0].props.onClick();
+  assert.deepEqual(actions, ["task-water", "dismiss"]);
 });
 
 test("saved task banner disposal drops delayed old workspace results and overlapping refreshes", async () => {

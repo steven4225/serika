@@ -7,8 +7,10 @@ import { conversationTurns, isMissingFile, toolPresentation, workSummary, type C
 import { formatRecordTime } from "../../../shared/execution-records.js";
 import { presentReminderReply, reminderSpeechLine, reminderReplyContexts, type ReminderReplyResult } from "../reminder-copy.js";
 import { FailureInline } from "../failure-notice.js";
+import { SteerStatus } from "../steer-status.js";
 
 type TraceHandler = ((runId: string, toolCallId: string) => void) | undefined;
+type RestoreSteer = ((text: string) => void) | undefined;
 
 function AssistantText({ text, result }: { text: string; result?: ReminderReplyResult | undefined }) {
   const view = presentReminderReply(text, result);
@@ -18,10 +20,10 @@ function AssistantText({ text, result }: { text: string; result?: ReminderReplyR
   </>;
 }
 
-function PersonalText({ row, result }: { row: TextRow; result?: ReminderReplyResult | undefined }) {
+function PersonalText({ row, result, onRestoreSteer }: { row: TextRow; result?: ReminderReplyResult | undefined; onRestoreSteer?: RestoreSteer }) {
   const article = <article className={`personal-message role-${row.role}`}>
-    {row.steer ? <small className="personal-supplement">补充本轮要求</small> : null}
     {row.role === "user" ? <pre className="personal-user-text">{row.text}</pre> : <AssistantText text={row.text} result={result} />}
+    {row.steerRecord ? <SteerStatus records={[row.steerRecord]} onRestore={onRestoreSteer} /> : null}
   </article>;
   if (row.role !== "assistant") return article;
   return <div className="personal-assistant-row"><SerikaMark size={32} />{article}</div>;
@@ -61,8 +63,8 @@ function Work({ rows, onTrace, workspaceRoot, results }: { rows: ConversationRow
   </details>;
 }
 
-function FlowItem({ item, onTrace, workspaceRoot, results }: { item: ConversationFlowItem; onTrace?: TraceHandler; workspaceRoot?: string | undefined; results: ReadonlyMap<string, ReminderReplyResult> }) {
-  if (item.kind === "text") return <PersonalText row={item.row} result={results.get(item.row.key)} />;
+function FlowItem({ item, onTrace, workspaceRoot, results, onRestoreSteer }: { item: ConversationFlowItem; onTrace?: TraceHandler; workspaceRoot?: string | undefined; results: ReadonlyMap<string, ReminderReplyResult>; onRestoreSteer?: RestoreSteer }) {
+  if (item.kind === "text") return <PersonalText row={item.row} result={results.get(item.row.key)} onRestoreSteer={onRestoreSteer} />;
   if (item.kind === "work") return <Work rows={item.rows} onTrace={onTrace} workspaceRoot={workspaceRoot} results={results} />;
   return <div className={`personal-completion status-${item.row.status}`} role="status"><Icon name={item.row.completion?.reason === "delivered" ? "check" : "activity"} size={14} />
     <span>{completionLabel(item.row)}{item.row.detail ? <> · <FailureInline text={item.row.detail} /></> : null}</span></div>;
@@ -75,13 +77,14 @@ function ReplyActions({ text }: { text: string }) {
     <Icon name={copied === "copied" ? "check" : "copy"} size={14} /></button>{copied === "failed" ? <span role="alert">复制失败，请重试</span> : null}</div>;
 }
 
-export function PersonalConversation({ rows, running, streaming, waitingForApproval = false, onTrace, workspaceRoot }: {
+export function PersonalConversation({ rows, running, streaming, waitingForApproval = false, onTrace, workspaceRoot, onRestoreSteer }: {
   rows: readonly ConversationRow[]; running: boolean; streaming: string; waitingForApproval?: boolean; onTrace?: TraceHandler;
   workspaceRoot?: string | undefined;
+  onRestoreSteer?: RestoreSteer;
 }) {
   const results = reminderReplyContexts(rows);
   return <>{conversationTurns(rows, running).map(turn => <section className="personal-turn" key={turn.key} aria-label="对话轮次">
-    {turn.items.map((item, index) => <FlowItem key={item.kind === "work" ? item.rows[0]!.key : item.row.key || index} item={item} onTrace={onTrace} workspaceRoot={workspaceRoot} results={results.byText} />)}
+    {turn.items.map((item, index) => <FlowItem key={item.kind === "work" ? item.rows[0]!.key : item.row.key || index} item={item} onTrace={onTrace} workspaceRoot={workspaceRoot} results={results.byText} onRestoreSteer={onRestoreSteer} />)}
     {!turn.running && turn.copyText ? <ReplyActions text={turn.copyText} /> : null}
   </section>)}
     {running && streaming ? <div className="personal-assistant-row"><SerikaMark size={32} /><article className="personal-message role-assistant streaming" aria-label="正在回复"><AssistantText text={streaming} result={results.latest} /></article></div> : null}

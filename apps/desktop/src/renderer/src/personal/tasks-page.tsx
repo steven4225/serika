@@ -3,24 +3,19 @@ import type { AutomationScheduleAction } from "@aisdk-agent/example-cli/dist/aut
 import type { WorkTask } from "../../../shared/work-tasks.js";
 import { humanFacingTitle } from "../../../shared/human-title.js";
 import { reminderClock, type ReminderDisplayRow } from "../reminder-copy.js";
-import { createSavedTaskNoticeReader } from "../../../shared/saved-task-result.js";
 import { Clock, Plus } from "lucide-react";
 import {
   SCHEDULE_TEMPLATES,
   TASK_EXAMPLE_PROMPTS,
   groupTaskRows,
-  inboxReturnTitle,
   planScheduleContinueHandoff,
   planTaskContinueHandoff,
   planTaskCreateHandoff,
-  returnedTaskSource,
   scheduledTaskRows,
   taskArtifactCards,
   taskProgressLines,
-  taskReturnLabel,
   taskWhenLabel,
   workTaskRows,
-  type ReturnedTaskSource,
   type ScheduledTaskRow,
   type TaskComposerHandoff,
 } from "./tasks-model.js";
@@ -253,34 +248,6 @@ function ReminderThread({ row, now, busy, error, pendingCancel, onBack, onContin
     </form>
     <details className="technical-id"><summary>编号</summary><code>{row.id}</code></details>
   </section>;
-}
-
-export function TaskReturnChipView({ label, onContinue }: { label: string; onContinue: () => void }) {
-  return <button type="button" className="task-return-chip" onClick={onContinue}>{label}</button>;
-}
-
-/** Unread terminal inbox result, shown in the main chat. Viewing it does not acknowledge or rerun. */
-export function TaskReturnChip({ enabled, refreshSequence, onContinue }: {
-  enabled: boolean;
-  refreshSequence: number;
-  onContinue: (source: ReturnedTaskSource) => void;
-}) {
-  const [source, setSource] = useState<ReturnedTaskSource | null>(null);
-  useEffect(() => {
-    if (!enabled) { setSource(null); return; }
-    const reader = createSavedTaskNoticeReader(window.runloom, task => {
-      setSource(task ? returnedTaskSource(task) : null);
-    }, () => { /* The saved-task banner already reports a read failure. The chip stays hidden. */ });
-    const refresh = () => { if (!document.hidden) void reader.refresh(); };
-    refresh();
-    const timer = window.setInterval(refresh, 15_000);
-    window.addEventListener("focus", refresh);
-    document.addEventListener("visibilitychange", refresh);
-    return () => { reader.dispose(); window.clearInterval(timer); window.removeEventListener("focus", refresh); document.removeEventListener("visibilitychange", refresh); };
-  }, [enabled, refreshSequence]);
-  if (!source) return null;
-  const label = taskReturnLabel(inboxReturnTitle(source));
-  return <TaskReturnChipView label={label} onContinue={() => onContinue(source)} />;
 }
 
 export function TasksHome({

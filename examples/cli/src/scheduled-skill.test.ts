@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { it } from "node:test";
 import { createTaskStore, validateTaskArrangement, type TaskRecord } from "./task-store.js";
 import { loadScheduledSkillAutomation, prepareScheduledSkillTask } from "./scheduled-skill.js";
+import { scheduleRegisteredSkill } from "./automation-scheduling.js";
 
 async function fixture() {
   const root = await realpath(await mkdtemp(join(tmpdir(), "runloom-scheduled-skill-")));
@@ -17,6 +18,19 @@ async function fixture() {
   await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: {}, automation: { skills: [{ id: "brief", directory }], hooks: [] } }));
   return { root, workspace, directory, configPath };
 }
+
+it("desktop scheduling operation ID survives real scheduling validation and Store reopen", async () => {
+  const f = await fixture();
+  try {
+    const automation = await loadScheduledSkillAutomation({ configPath: f.configPath, workspaceRoot: f.workspace });
+    const skill = automation.getSkill("brief")!;
+    const input = { id: skill.id, expectedHash: skill.hash, input: "review", runAt: "2099-01-01T00:00:00Z", operationId: "schedule-replay" };
+    const first = await scheduleRegisteredSkill({ automation, store: createTaskStore(f.workspace), input, signal: new AbortController().signal });
+    const replay = await scheduleRegisteredSkill({ automation, store: createTaskStore(f.workspace), input, signal: new AbortController().signal });
+    assert.ok(first.ok && replay.ok); assert.equal(first.value.task!.id, replay.value.task!.id);
+    const list = await createTaskStore(f.workspace).list(); assert.ok(list.ok); assert.equal(list.value.tasks.length, 1);
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
 
 it("scheduled Skill declaration pins exact id/hash, survives recurring/list projection, and rejects forged privileges", async () => {
   const f = await fixture();

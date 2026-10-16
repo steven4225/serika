@@ -9,7 +9,8 @@ import type { TaskListV3 } from "@aisdk-agent/example-cli/dist/task-store.js";
 import { TodayPanel, type TodayPanelProps } from "./today.js";
 import { buildTodayBrief, inboxNotificationNote, nextBriefSlot, visibleBriefCards, type BriefContinueTarget, type TodayBriefFeeds, type TodayFeedInbox } from "./today-brief.js";
 import { briefContinueTarget, planBriefContinue, readBriefContinue, writeBriefContinue, clearBriefContinue } from "./today-continue.js";
-import { projectInboxFeeds } from "./today-feeds.js";
+import { projectInboxFeeds, projectReminderFeeds } from "./today-feeds.js";
+import type { AutomationOverview } from "@aisdk-agent/example-cli/dist/automation-scheduling.js";
 
 const info = { threadId: "thread_abc12345", workTasks: true, memory: { enabled: true, autoConsolidate: true }, workspaceRoot: "/workspace" } as AppInfo;
 const now = new Date("2026-10-08T01:00:00Z");
@@ -18,6 +19,14 @@ const task = (status: WorkTask["status"], goal = `任务 ${status}`, updatedAt =
   id: `task_abc12345-${status}`, revision: 1, threadId: "thread_abc12345", goal, constraints: [], acceptance: [], status, runIds: ["run_abc12345"], delivery: null, reconciliations: [], createdAt: updatedAt, updatedAt,
 });
 const noop = () => undefined;
+
+it("viewed terminal reminders stay in history, not in the current brief or upcoming arrangements", () => {
+  const item = { id: "done", promptPreview: "睡觉", runAt: now.toISOString(), status: "completed", finishedAt: now.toISOString(), resultPreview: "该睡觉了", acknowledgedAt: null, error: null };
+  const list = { tasks: [item], truncated: false } as TaskListV3;
+  assert.deepEqual(projectInboxFeeds(list, now, () => true), []);
+  assert.equal(list.tasks[0]?.acknowledgedAt, null);
+  assert.deepEqual(projectReminderFeeds({ scheduled: [item], recurring: [] } as unknown as AutomationOverview, now), []);
+});
 function render(overrides: Partial<TodayPanelProps> = {}) {
   return renderToStaticMarkup(createElement(TodayPanel, {
     info, tasks: [], tasksLoading: false, tasksError: null, pendingMemory: 0, pendingMemoryError: null,

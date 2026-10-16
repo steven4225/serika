@@ -85,6 +85,7 @@ export interface AppInfo {
   entryMode?: "daily" | "test";
   /** Built-in support and current configuration only; not a permission grant. */
   modules?: { id: string; enabled: boolean }[];
+  capabilities?: import("@aisdk-agent/example-cli/dist/capability-status.js").CapabilityStatus;
   moduleOptions?: { webSearch: boolean; webFeed: boolean; autoConsolidate: boolean };
   configPath?: string | null;
   modelAlias: string;
