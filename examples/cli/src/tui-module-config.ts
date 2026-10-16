@@ -1,3 +1,4 @@
+import { herdrBindingSchema, type HerdrBinding } from "./local-terminal.js";
 import { lstat, readFile, realpath } from "node:fs/promises";
 import {
   dirname,
@@ -64,6 +65,7 @@ export interface TelegramAutonomyGrant { workspaceRoot: string; botId: number; u
 export interface ResolvedTuiModuleConfig {
   telegramAutonomy?: TelegramAutonomyGrant;
   desktopAutonomy?: { workspaceRoot: string };
+  herdrBinding?: HerdrBinding;
   configPath: string | null;
   workspaceRoot: string | null;
   enabled: Record<BuiltinModuleId, boolean>;
@@ -195,6 +197,7 @@ const tuiModuleConfigV1Schema = z
     })
     .strict(),
     telegramAutonomy: z.object({ workspaceRoot: nonEmptyString, botId: z.number().int().positive().safe(), userId: z.number().int().positive().safe(), chatId: z.number().int().positive().safe(), threadId: nonEmptyString }).strict().optional(),
+    herdrBinding: herdrBindingSchema.optional(),
     desktopAutonomy: z.object({ workspaceRoot: nonEmptyString }).strict().optional(),
     fileAuthorizations: z.array(fileAuthorizationSchema).optional(),
     contextCompaction: contextCompactionSchema.optional(),
@@ -250,6 +253,7 @@ export interface TuiModuleConfigV1 {
   };
   telegramAutonomy?: TelegramAutonomyGrant | undefined;
   desktopAutonomy?: { workspaceRoot: string } | undefined;
+  herdrBinding?: HerdrBinding | undefined;
   fileAuthorizations?: FileAuthorizationRule[] | undefined;
   contextCompaction?: ContextBudgetConfig | undefined;
   run?: { maxSteps?: number | undefined; totalTimeoutMs?: number | undefined } | undefined;
@@ -567,7 +571,7 @@ async function resolveConfiguredMode(
     workspaceRoot,
     enabled,
   );
-  if (config.telegramAutonomy || config.desktopAutonomy || fileAuthorizations.length > 0 || shellSandbox !== null || enabled.computer || memoryWritePolicy === "automatic" || config.automation !== undefined || memorySemantic) {
+  if (config.herdrBinding || config.telegramAutonomy || config.desktopAutonomy || fileAuthorizations.length > 0 || shellSandbox !== null || enabled.computer || memoryWritePolicy === "automatic" || config.automation !== undefined || memorySemantic) {
     const configRealPath = await realpath(absoluteConfigPath);
     if (workspaceRoot !== null && isPathWithin(workspaceRoot, configRealPath)) {
       throw new Error(
@@ -583,6 +587,7 @@ async function resolveConfiguredMode(
 
   return {
     ...(config.telegramAutonomy?.workspaceRoot === workspaceRoot ? { telegramAutonomy: config.telegramAutonomy } : {}),
+    ...(config.herdrBinding?.workspaceRoot === workspaceRoot ? { herdrBinding: config.herdrBinding } : {}),
     ...(config.desktopAutonomy && config.desktopAutonomy.workspaceRoot === workspaceRoot
       ? { desktopAutonomy: { workspaceRoot } } : {}),
     configPath: absoluteConfigPath,

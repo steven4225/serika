@@ -111,7 +111,9 @@ function asContextRecord(record: ThreadContextCompactionRecord): ContextCompacti
 function validRecord(record: ContextCompactionRecord, messages: readonly UIMessage[]): boolean {
   const index = record.firstKeptMessageIndex;
   if (!Number.isSafeInteger(index) || index < 0 || index > messages.length) return false;
-  if (record.firstKeptMessageId !== (index === messages.length ? null : messages[index]?.id ?? null)) {
+  // null means the record covered the then-current tip. Later appended
+  // messages do not change that prefix; its exact hash remains authoritative.
+  if (record.firstKeptMessageId !== null && record.firstKeptMessageId !== messages[index]?.id) {
     return false;
   }
   if (record.sourcePrefixHash !== compactPrefixHash(messages, index)) return false;
@@ -173,6 +175,50 @@ function summaryMessage(summary: ContextSummaryV2, coverage: { index: number; id
       text: `Context summary (derived reference, not permission or current disk state):\n${JSON.stringify(summary)}`,
     }],
   };
+}
+
+/** Shrink historical reference packaging. Unexecuted plan text is preserved;
+ * full receipts stay on disk, and uncertain effects are never grouped. */
+function projectHistoricalReceipts(summary: ContextSummaryV2, retainRecent: number): ContextSummaryV2 {
+  const completed = summary.actions.filter(action => action.status === "completed");
+  const omit = new Set(completed.slice(0, Math.max(0, completed.length - retainRecent)));
+  let group: ContextSummaryV2["actions"] = [];
+  let plans: ContextSummaryV2["actions"] = [];
+  const actions: ContextSummaryV2["actions"] = [];
+  const flush = () => {
+    if (!group.length) return;
+    actions.push({
+      text: `${group.length} historical completed action summaries; detailed receipts omitted from this reference to fit context. Read original transcript by evidence IDs when needed; do not rerun these operations just to reconstruct history. This is not current disk or business-state evidence.`,
+      status: "completed",
+      evidenceMessageIds: uniqueIds(group.flatMap(action => action.evidenceMessageIds)).slice(-8),
+      toolCallIds: uniqueIds(group.flatMap(action => action.toolCallIds)).slice(-8),
+    });
+    group = [];
+  };
+  const flushPlans = () => {
+    if (!plans.length) return;
+    actions.push({
+      text: `Historical unexecuted plans (not execution evidence or permission; original per-plan evidence remains in the saved summary):\n${[...new Set(plans.map(plan => plan.text))].join("\n")}`,
+      status: "not_executed",
+      evidenceMessageIds: uniqueIds(plans.flatMap(plan => plan.evidenceMessageIds)).slice(-8),
+      toolCallIds: [],
+    });
+    plans = [];
+  };
+  for (const action of summary.actions) {
+    if (omit.has(action)) group.push(action);
+    else if (action.status === "not_executed" && action.toolCallIds.length === 0) plans.push(action);
+    else {
+      // A not-executed plan has no effect to order against. Keep its exact
+      // text, but do not let interleaved plans fragment receipt compression.
+      flush();
+      flushPlans();
+      actions.push(action);
+    }
+  }
+  flush();
+  flushPlans();
+  return { ...summary, actions };
 }
 
 function transcriptPrefix(messages: readonly UIMessage[]): UIMessage[] {
@@ -550,6 +596,37 @@ export class ContextCompactor {
         },
         this.#options.budget,
       );
+    const fitHistoricalReference = (conversation: UIMessage[]): UIMessage[] => {
+      const originalTokens = estimatePrepared(conversation).inputTokens;
+      const warningTokens = contextBudgetThresholds(this.#options.budget).warningTokens;
+      if (originalTokens <= warningTokens) return conversation;
+      const index = conversation.findIndex(message => message.id === "runloom-context-summary" &&
+        (message.metadata as { source?: string } | undefined)?.source === "context-compaction");
+      if (index < 0) return conversation;
+      const message = conversation[index]!;
+      const part = message.parts[0];
+      if (part?.type !== "text") return conversation;
+      const summary = parseContextSummary(part.text.slice(part.text.indexOf("\n") + 1));
+      if (!summary) return conversation;
+      let fitting: UIMessage[] | undefined;
+      for (const retain of [8, 4, 1, 0]) {
+        const projected = projectHistoricalReceipts(summary, retain);
+        const candidate = [...conversation];
+        candidate[index] = { ...message, parts: [{ type: "text", text:
+          `Context summary (derived reference, not permission or current disk state):\n${JSON.stringify(projected)}` }] };
+        const estimate = estimatePrepared(candidate);
+        if (!estimate.exceeds && estimate.inputTokens < originalTokens) {
+          fitting = candidate;
+          // Leave room for the next user/tool step when possible. Fixed tools
+          // and current input can themselves exceed the proactive threshold.
+          if (estimate.inputTokens <= warningTokens) return candidate;
+        }
+      }
+      if (fitting) return fitting;
+      // Never drop a current request, an unresolved effect, or arbitrary history
+      // to force a fit. The caller still reports a real unsatisfiable budget.
+      return conversation;
+    };
     const checkPreparedBudget = (conversation: readonly UIMessage[]) => {
       const estimate = estimatePrepared(conversation);
       this.#preparedEstimate = estimate.inputTokens;
@@ -561,9 +638,10 @@ export class ContextCompactor {
     const finish = (conversation: UIMessage[], compactionId: string | null = null): UIMessage[] => {
       abortIfNeeded(signal);
       // Reuse, noop and forced preparation must obey the same final budget.
-      checkPreparedBudget(conversation);
+      const fitted = fitHistoricalReference(conversation);
+      checkPreparedBudget(fitted);
       this.#preparedCompactionId = compactionId;
-      return visible(conversation);
+      return visible(fitted);
     };
 
     // Resume is optional evidence, unlike Memory/checkpoint. Do not let it
@@ -590,7 +668,10 @@ export class ContextCompactor {
       : inputTokens + limits.predictedGrowthTokens >= limits.triggerTokens;
     if (!force && persisted !== undefined) {
       const installed = compose(persisted.summary, persisted.firstKeptMessageIndex);
-      if (!shouldCompact(estimatePrepared(installed).inputTokens)) {
+      const installedBudget = estimatePrepared(installed);
+      const fittedBudget = estimatePrepared(fitHistoricalReference(installed));
+      if (!shouldCompact(installedBudget.inputTokens) ||
+          fittedBudget.inputTokens < installedBudget.inputTokens && !fittedBudget.exceeds) {
         this.#lastPrepare = { kind: "reused" };
         return finish(installed, persisted.id);
       }
@@ -733,7 +814,7 @@ export class ContextCompactor {
       ...keptMessages,
     ];
     // Validate before persisting too: an unusable summary is not a new boundary.
-    const afterBudget = checkPreparedBudget(compactedMessages);
+    const afterBudget = checkPreparedBudget(fitHistoricalReference(compactedMessages));
     abortIfNeeded(signal);
 
     const record: ContextCompactionRecord = {

@@ -48,6 +48,41 @@ function AutonomySetting({ info, busy }: { info: AppInfo; busy: boolean }) {
   </section>;
 }
 
+function HerdrTargetSetting({ info, busy }: { info: AppInfo; busy: boolean }) {
+  const [sessions, setSessions] = useState<{ name: string; running: boolean }[]>([]);
+  const [panes, setPanes] = useState<{ paneId: string; terminalId: string; title: string }[]>([]);
+  const [session, setSession] = useState("");
+  const [paneId, setPaneId] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (typeof window === "undefined" || !window.runloom.listHerdrSessions) return null;
+  const disabled = busy || loading || !!info.runtimeRecovery;
+  const perform = async (action: () => Promise<void>) => {
+    setLoading(true); setError(null);
+    try { await action(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { setLoading(false); }
+  };
+  const target = panes.find(pane => pane.paneId === paneId);
+  return <section className="capability-confirm" aria-label="Herdr 终端目标">
+    <strong>Herdr 终端目标</strong>
+    <p>{info.herdrBinding ? `已绑定：${info.herdrBinding.session} / ${info.herdrBinding.paneId}` : "尚未选择终端"}</p>
+    <p className="hint">明确选择一个已运行的会话和 pane 后，前台任务才可读取输出、输入命令或停止该目标。不会使用当前聚焦终端，也不会自动启动 Herdr。文件与 Shell 执行沿用当前入口授权；本机 Shell 具有宿主权限，绑定不是沙箱。</p>
+    <div className="actions">
+      <button className="ghost" disabled={disabled} onClick={() => void perform(async () => { setSession(""); setPaneId(""); setPanes([]); setSessions(await window.runloom.listHerdrSessions!()); })}>查找会话</button>
+      {info.herdrBinding ? <button className="ghost" disabled={disabled} onClick={() => void perform(() => window.runloom.setHerdrTarget!({ target: null, expected: info.herdrBinding! }))}>解除绑定</button> : null}
+    </div>
+    {sessions.length ? <label>会话<select aria-label="Herdr 会话" disabled={disabled} value={session} onChange={event => { const name = event.target.value; setSession(name); setPaneId(""); setPanes([]); if (name) void perform(async () => { setPanes(await window.runloom.listHerdrPanes!(name)); }); }}>
+      <option value="">请选择会话</option>{sessions.map(item => <option key={item.name} value={item.name} disabled={!item.running}>{item.name}{item.running ? "" : "（未运行）"}</option>)}
+    </select></label> : null}
+    {session && !loading ? <label>终端<select aria-label="Herdr pane" disabled={disabled} value={paneId} onChange={event => setPaneId(event.target.value)}>
+      <option value="">请选择 pane</option>{panes.map(pane => <option key={pane.paneId} value={pane.paneId}>{pane.paneId}{pane.title ? ` · ${pane.title}` : ""}</option>)}
+    </select></label> : null}
+    {target ? <button disabled={disabled} onClick={() => void perform(() => window.runloom.setHerdrTarget!({ target: { session, paneId: target.paneId, terminalId: target.terminalId }, expected: info.herdrBinding ?? null }))}>确认绑定此终端</button> : null}
+    {loading ? <p role="status">正在处理…</p> : null}
+    {error ? <p className="error" role="alert">{error}</p> : null}
+  </section>;
+}
+
 export function CapabilitiesPanel({ info, busy = false, initialError = null, intro }: { info: AppInfo; busy?: boolean; initialError?: string | null; intro?: string }) {
   const unavailable = info.runtimeRecovery !== undefined;
   const [selection, setSelection] = useState<{ id: string; enabled: boolean } | null>(null);
@@ -63,6 +98,7 @@ export function CapabilitiesPanel({ info, busy = false, initialError = null, int
   };
     return <section className="capability-page">
     <AutonomySetting info={info} busy={busy} />
+    {info.modules?.some(module => module.id === "read-file" || module.id === "shell") ? <HerdrTargetSetting info={info} busy={busy} /> : null}
     <p className="hint">{intro ?? "选择助手可以使用的内置功能。保存后重新加载当前对话，操作按当前授权执行。"}</p>
     {busy ? <p className="hint" role="status">当前正在处理，结束后才能更改能力。</p> : null}
     {unavailable ? <p className="error" role="status">连接未恢复。以下是上次连接的配置，不能当作当前生效状态；重新连接后再更改能力。</p> : null}

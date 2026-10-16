@@ -91,6 +91,9 @@ export class RuntimeOwnership {
   enableMemory() { return this.#active().enableMemory(); }
   setModuleEnabled(...args: Parameters<DesktopRuntime["setModuleEnabled"]>) { return this.#active().setModuleEnabled(...args); }
   setContextMode(...args: Parameters<DesktopRuntime["setContextMode"]>) { return this.#active().setContextMode(...args); }
+  listHerdrSessions() { return this.#active().listHerdrSessions(); }
+  listHerdrPanes(session: string) { return this.#active().listHerdrPanes(session); }
+  setHerdrTarget(...args: Parameters<DesktopRuntime["setHerdrTarget"]>) { return this.#active().setHerdrTarget(...args); }
   setAutonomyEnabled(...args: Parameters<DesktopRuntime["setAutonomyEnabled"]>) { return this.#active().setAutonomyEnabled(...args); }
   setDreamingEnabled(...args: Parameters<DesktopRuntime["setDreamingEnabled"]>) { return this.#active().setDreamingEnabled(...args); }
   async activateRecovery(root: string | null) {

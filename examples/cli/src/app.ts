@@ -1,3 +1,4 @@
+import { LOCAL_CLI_INSTRUCTIONS, herdrInstructions, type HerdrBinding } from "./local-terminal.js";
 import { AUTONOMOUS_MAX_STEPS, AUTONOMOUS_TOTAL_TIMEOUT_MS, AUTONOMOUS_SHELL_TIMEOUT_MS, AUTONOMOUS_INSTRUCTIONS, createForegroundTaskReference, placeForegroundTaskReference } from "./foreground-autonomy.js";
 import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp } from "node:fs/promises";
@@ -77,7 +78,7 @@ import { observeModelUsage } from "./model-usage-observer.js";
 import type { ModelPurpose } from "./model-usage.js";
 import { createWebModule } from "./modules/web-module.js";
 import { createComputerModule } from "./modules/computer-module.js";
-import { capabilityStatus, formatCapabilityStatus, type CapabilityStatus } from "./capability-status.js";
+import { capabilityStatus, capabilityInstructions, formatCapabilityStatus, type CapabilityStatus } from "./capability-status.js";
 import { RecipeStore } from "./recipe-store.js";
 import { createRecipeModule } from "./modules/recipe-module.js";
 import { createTaskStore } from "./task-store.js";
@@ -129,6 +130,7 @@ export interface RuntimeAppOptions {
   allowWorkspaceTaskReads?: true;
   /** Only the desktop host may enable persisted workspace autonomy. TUI/worker do not opt in. */
   allowDesktopAutonomy?: true;
+  allowLocalTerminalControl?: true;
   /** Trusted gateway validates the saved private-chat identity at Run start. */
   authorizeTelegramAutonomy?: (grant: import("./tui-module-config.js").TelegramAutonomyGrant) => boolean;
   /** Trusted destination registration after the task commit, before service activation. */
@@ -159,6 +161,7 @@ export interface RuntimeApp {
   beginForegroundExecution?: (entry: "desktop" | "telegram" | undefined, request?: UIMessage) => boolean;
   endForegroundExecution?: () => void;
   desktopAutonomyEnabled?: boolean;
+  herdrBinding?: HerdrBinding;
   telegramAutonomyEnabled?: () => boolean;
   bindNextExecutionWorkTask: (input: { id: string; expectedRevision: number }) => () => void;
   workTasks: WorkTaskStore | undefined;
@@ -1009,11 +1012,13 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       }
       return createResumeContextMessage(activeResumeObservation);
     };
-    const primaryInstructions = () => autonomousRun
+    const primaryInstructions = () => (autonomousRun
       ? calculatorInstructions
         .replaceAll("The command and workspace-relative cwd will be shown for y/n confirmation.", "File tools and local shell_exec are host-authorized for this Run.")
         .replaceAll("Shell remains per-call confirmation.", "Local Shell follows this Run's host authorization.") + "\n" + AUTONOMOUS_INSTRUCTIONS
-      : calculatorInstructions;
+      : calculatorInstructions) + ((foregroundEntry === "desktop" || foregroundEntry === "telegram" && autonomousRun) && options.allowLocalTerminalControl && moduleConfig?.enabled.shell && !moduleConfig.shellSandbox
+        ? "\n" + LOCAL_CLI_INSTRUCTIONS + "\n" + herdrInstructions(moduleConfig.herdrBinding) : "") +
+      (foregroundEntry ? "\n" + capabilityInstructions(getCapabilities()) : "");
     const registeredTools = [addRegistration, ...(moduleHost?.tools ?? [])];
     const getCapabilities = () => capabilityStatus(moduleConfig, registeredTools.map(item => item.metadata.name).filter(name =>
       moduleConfig?.memoryWritePolicy !== "automatic" || !name.startsWith("memory_")), foregroundEntry ? autonomousRun : desktopAutonomyEnabled, foregroundEntry);
@@ -1204,7 +1209,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         ...(view?.message ? [view.message] : []),
         ...(learnedMessage ? [learnedMessage] : []),
         ...(activeWorkTaskMessage ? [activeWorkTaskMessage] : []),
-        ...(primary && autonomousRun && foregroundTaskRequest ? [createForegroundTaskReference(foregroundTaskRequest, messages)] : []),
+        ...(primary && autonomousRun && foregroundTaskRequest ? createForegroundTaskReference(foregroundTaskRequest, messages) : []),
       ] };
     };
     const referencePrefix = async (messages: readonly UIMessage[], signal: AbortSignal) => (await buildReferencePrefix(messages, signal)).prefix;
@@ -1412,9 +1417,9 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     const runtime = new DefaultAgentRuntime({
       catalog: { get: agentId => {
         const definition = catalog.get(agentId);
-        return definition && agentId === PRIMARY_AGENT_ID && autonomousRun ? { ...definition,
+        return definition && agentId === PRIMARY_AGENT_ID ? { ...definition,
           instructions: primaryInstructions(),
-          limits: { ...definition.limits, maxSteps: AUTONOMOUS_MAX_STEPS, totalTimeoutMs: AUTONOMOUS_TOTAL_TIMEOUT_MS },
+          ...(autonomousRun ? { limits: { ...definition.limits, maxSteps: AUTONOMOUS_MAX_STEPS, totalTimeoutMs: AUTONOMOUS_TOTAL_TIMEOUT_MS } } : {}),
         } : definition;
       } },
       store: executionRecordAdapter.store,
@@ -1423,6 +1428,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         tools,
         ...(tuiMode ? { modelRetryDelaysMs: [250, 1_000] } : {}),
         modelRetryDisabledAgentIds: [AUTO_CONSOLIDATION_AGENT_ID],
+        repeatedShellGuard: agentId => agentId === PRIMARY_AGENT_ID && options.allowLocalTerminalControl === true && autonomousRun &&
+          (foregroundEntry === "desktop" || foregroundEntry === "telegram"),
       }),
       ...(tuiMode
         ? {
@@ -1617,6 +1624,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       ...(activateTaskAutomation ? { activateTaskAutomation } : {}),
       ...(memoryStore ? { memoryStore } : {}),
       desktopAutonomyEnabled,
+      ...(options.allowLocalTerminalControl && moduleConfig?.herdrBinding ? { herdrBinding: moduleConfig.herdrBinding } : {}),
       telegramAutonomyEnabled,
       beginForegroundExecution: (entry, request) => {
         foregroundEntry = entry;

@@ -242,6 +242,29 @@ describe("ContextCompactor", () => {
     assert.equal(pendingStore.records.length, 0);
   });
 
+  it("reuses a tip-covering summary after append, but rejects changed covered content", async () => {
+    const store = new FakeStore(), summarizer = new FakeSummarizer();
+    const config = contextBudgetForMode("daily");
+    const messages: UIMessage[] = [user("u1", "continue"), { id: "large", role: "assistant", parts: [{
+      type: "dynamic-tool", toolName: "read_file", toolCallId: "large", state: "output-available",
+      input: { path: "notes/a.md" }, output: { ok: true, content: "x".repeat(500_000) },
+    }] }];
+    const compactor = makeCompactor(store, summarizer, config);
+    await compactor.prepare(messages, new AbortController().signal);
+    const record = store.records.at(-1) as unknown as ContextCompactionRecord;
+    assert.equal(record.firstKeptMessageIndex, messages.length);
+    assert.equal(record.firstKeptMessageId, null);
+    const calls = summarizer.calls;
+    const appended = [...messages, user("next", "answer from the observed results")];
+    const prepared = await compactor.prepare(appended, new AbortController().signal);
+    assert.equal(summarizer.calls, calls, "an appended message must not invalidate the unchanged hashed prefix");
+    assert.equal(prepared.at(-1)?.id, "next");
+    await makeCompactor(store, summarizer, config).prepare(appended, new AbortController().signal);
+    assert.equal(summarizer.calls, calls, "reopen uses the same prefix proof");
+    await makeCompactor(store, summarizer, config).prepare([user("u1", "CHANGED"), ...appended.slice(1)], new AbortController().signal);
+    assert.ok(summarizer.calls > calls, "changing covered content still invalidates the summary");
+  });
+
   it("budget mode Demo: cancellation discards a non-cooperative late summary without persistence", async () => {
     const store = new FakeStore();
     const config = contextBudgetForMode("daily");
@@ -1394,4 +1417,85 @@ describe("ContextCompactor", () => {
     assert.ok((diagnostics.value.lastPreparation?.estimatedInputTokens ?? Infinity) <=
       budget.contextWindowTokens - budget.maxOutputTokens - budget.safetyMarginTokens);
   });
+});
+
+it("automatically fits an already compacted history when completed receipts fill the remaining budget", async () => {
+  const store = new FakeStore();
+  const messages = [user("u1", "old task"), assistant("a1", "old result"), user("current", "continue")];
+  const oldSummary: ContextSummaryV2 = { ...structuredClone(summary), actions: [
+    ...Array.from({ length: 32 }, (_, i) => ({ text: `Successful historical shell command ${i}: ` + "observed output ".repeat(12),
+      status: "completed" as const, toolCallIds: [`tool-${i}`], evidenceMessageIds: ["a1"] })),
+    { text: "An earlier dispatch has UNKNOWN effects; reconcile, never replay", status: "unknown", toolCallIds: ["uncertain"], evidenceMessageIds: ["a1"] },
+  ] };
+  const record: ContextCompactionRecord = { v: 2, type: "thread.context.compacted", threadId: "thread-1", id: "old-summary",
+    firstKeptMessageIndex: 2, firstKeptMessageId: "current", sourcePrefixHash: compactPrefixHash(messages, 2), previousCompactionId: null,
+    summary: oldSummary, consolidationExcluded: true, strategyVersion: "summary-json/v2", modelId: "mock/default", createdAt: new Date(0).toISOString(),
+    metrics: { estimatedInputBefore: 9000, estimatedInputAfter: 8000, durationMs: 1, attempts: 1 } };
+  store.records = [record as unknown as ThreadContextCompactionRecord];
+  const original = structuredClone(store.records);
+  const summarizer = new FakeSummarizer();
+  const prepared = await makeCompactor(store, summarizer, { ...roomyBudget, inputBudgetTokens: 1940 }).prepare(messages, new AbortController().signal);
+  assert.equal(estimateContextBudget({ instructions: "instructions", messages: prepared }, roomyBudget).exceeds, false);
+  assert.equal(prepared.at(-1)?.id, "current");
+  assert.match(JSON.stringify(prepared), /UNKNOWN effects/);
+  assert.match(JSON.stringify(prepared), /historical.*receipts/i);
+  assert.ok(JSON.stringify(prepared).length < JSON.stringify(oldSummary).length / 2);
+  assert.equal(summarizer.calls, 0, "fitting program-verified historical receipt references needs no paid request");
+  assert.deepEqual(store.records, original, "fitting a reference must not rewrite the stored summary or original journal");
+  const reopened = await makeCompactor(store, summarizer, { ...roomyBudget, inputBudgetTokens: 1940 }).prepare(messages, new AbortController().signal);
+  assert.deepEqual(reopened, prepared);
+});
+
+it("receipt fitting never drops unknown/failed effects or the current request to force a fit", async () => {
+  const store = new FakeStore();
+  const messages = [user("u1", "old"), assistant("a1", "done"), user("current", "CURRENT REQUEST")];
+  const protectedActions: ContextSummaryV2["actions"] = [
+    { text: "UNKNOWN EFFECT ".repeat(150), status: "unknown", toolCallIds: ["unknown"], evidenceMessageIds: ["a1"] },
+    { text: "FAILED EFFECT ".repeat(150), status: "failed", toolCallIds: ["failed"], evidenceMessageIds: ["a1"] },
+  ];
+  store.records = [{ v: 2, type: "thread.context.compacted", threadId: "thread-1", id: "protected",
+    firstKeptMessageIndex: 2, firstKeptMessageId: "current", sourcePrefixHash: compactPrefixHash(messages, 2),
+    previousCompactionId: null, summary: { ...summary, actions: protectedActions }, consolidationExcluded: true,
+    strategyVersion: "summary-json/v2", modelId: "mock/default", createdAt: new Date(0).toISOString(),
+    metrics: { estimatedInputBefore: 9000, estimatedInputAfter: 8000, durationMs: 1, attempts: 1 },
+  } as unknown as ThreadContextCompactionRecord];
+  const original = structuredClone({ messages, records: store.records });
+  const summarizer = new FakeSummarizer();
+  await assert.rejects(makeCompactor(store, summarizer, { ...roomyBudget, inputBudgetTokens: 1940 })
+    .prepare(messages, new AbortController().signal), /Prepared context exceeds/);
+  assert.deepEqual({ messages, records: store.records }, original);
+  assert.equal(summarizer.calls, 0);
+});
+
+
+it("fits historical unexecuted plans without treating them as effects or dropping pending work", async () => {
+  const store = new FakeStore();
+  const messages = [user("u1", "old request"), assistant("a1", "old proposals"), user("current", "CURRENT REQUEST")];
+  const oldSummary: ContextSummaryV2 = { ...structuredClone(summary),
+    constraints: [{ text: "Never install software", evidenceMessageIds: ["u1"] }],
+    pending: [{ text: "User still wants the actual Pi version probe", evidenceMessageIds: ["u1"] }],
+    actions: Array.from({ length: 25 }, (_, i) => ({ text: `Historical proposed check ${i}, never executed: ` + "proposal details ".repeat(2),
+      status: "not_executed" as const, toolCallIds: [], evidenceMessageIds: ["a1"] })),
+  };
+  store.records = [{ v: 2, type: "thread.context.compacted", threadId: "thread-1", id: "planned-summary",
+    firstKeptMessageIndex: 2, firstKeptMessageId: "current", sourcePrefixHash: compactPrefixHash(messages, 2),
+    previousCompactionId: null, summary: oldSummary, consolidationExcluded: true,
+    strategyVersion: "summary-json/v2", modelId: "mock/default", createdAt: new Date(0).toISOString(),
+    metrics: { estimatedInputBefore: 9000, estimatedInputAfter: 8000, durationMs: 1, attempts: 1 },
+  } as unknown as ThreadContextCompactionRecord];
+  const original = structuredClone(store.records);
+  const summarizer = new FakeSummarizer();
+  const prepared = await makeCompactor(store, summarizer, { ...roomyBudget, inputBudgetTokens: 1940 })
+    .prepare(messages, new AbortController().signal);
+  assert.equal(estimateContextBudget({ instructions: "instructions", messages: prepared }, roomyBudget).exceeds, false);
+  assert.equal(prepared.at(-1)?.id, "current");
+  assert.match(JSON.stringify(prepared), /CURRENT REQUEST|User still wants/);
+  const ref = JSON.parse((prepared[0]!.parts[0] as { text: string }).text.split("\n").slice(1).join("\n")) as ContextSummaryV2;
+  assert.deepEqual(ref.constraints, oldSummary.constraints);
+  assert.deepEqual(ref.pending, oldSummary.pending);
+  assert.ok(ref.actions.every(action => action.status === "not_executed" && action.toolCallIds.length === 0));
+  assert.match(JSON.stringify(ref.actions), /not execution evidence/);
+  for (const action of oldSummary.actions) assert.ok(ref.actions.some(item => item.text.includes(action.text.trim())));
+  assert.deepEqual(store.records, original);
+  assert.equal(summarizer.calls, 0);
 });

@@ -917,6 +917,7 @@ it("desktop confirmation invalidates Telegram approval and busy input never stea
     await f.gateway.receive(update(3, "调整：another"));
     await f.gateway.receive(update(4, "IM message while desktop busy"));
     assert.equal(f.calls(), 1);
+    assert.match(f.sent.at(-1)!, /不属于此 TG 对话/);
     assert.equal(f.sent.some(x => x.includes("需要你确认 ·")), false, "desktop tool details must not leak to IM");
     f.host.current.confirm({ approvalId: f.host.current.snapshot().pendingApproval!.approvalId, decision: "deny" });
     await until(() => f.host.current.snapshot().state.kind === "idle");
@@ -976,9 +977,13 @@ it("Steer supersedes old approval without authorizing it; control messages stay 
     await f.bind(); await f.gateway.receive(update(2, "write first plan"));
     await until(() => f.sent.some(x => x.includes("需要你确认 · 写入文件")));
     const code = /允许 ([A-F0-9]{10})/.exec(f.sent.find(x => x.includes("需要你确认 · 写入文件"))!)![1]!;
-    await f.gateway.receive(update(3, "调整：不要写文件，只解释下一步"));
-    await until(() => f.store.snapshot().inputs[0]!.state === "finished");
-    await f.gateway.receive(update(4, `允许 ${code}`));
+    await f.gateway.receive(update(3, "为什么还在运行，直接结束"));
+    assert.match(f.sent.at(-1)!, /调整：/);
+    assert.match(f.sent.at(-1)!, /停止/);
+    assert.equal(f.calls(), 1, "plain busy messages are not silently promoted into Steer or another model call");
+    await f.gateway.receive(update(4, "调整：不要写文件，只解释下一步"));
+    await until(() => f.store.snapshot().inputs.find(x => x.key === "42:2")?.state === "finished");
+    await f.gateway.receive(update(5, `允许 ${code}`));
     assert.match(f.sent.at(-1)!, /没有批准任何操作/);
     await assert.rejects(readFile(join(f.workspace, "steer.md")), { code: "ENOENT" });
     const history = await f.host.current.history();
@@ -1187,7 +1192,7 @@ it("independent TG authorization runs chat and WorkTasks through real file/Shell
       shell('test "$(cat answer.txt)" = right'),
       { name: "edit_file", input: { path: "answer.txt", oldText: "wrong", newText: "right" } },
       { name: "read_file", input: { path: "answer.txt" } },
-      ...Array.from({ length: 6 }, () => shell('test "$(cat answer.txt)" = right')),
+      ...Array.from({ length: 6 }, (_, n) => shell(`test "$(cat answer.txt)" = right && test ${n} -ge 0`)),
     ]);
     await f.gateway.receive(update(6, "修复并运行多条检查"));
     await until(() => f.store.snapshot().inputs.find(x => x.key === "42:6")?.state === "finished", 60_000);
@@ -1286,4 +1291,29 @@ it("TG independent authority crosses the resident socket with identity CAS, with
     assert.equal((await client.setTelegramAutonomyEnabled({ ...input, enabled: false, expectedEnabled: true })).autonomyEnabled, false);
     assert.equal(f.calls(), 1);
   } finally { client?.detach(); await server?.close(); await f.cleanup(); }
+});
+
+
+it("authorized TG stops repeated successful Shell and delivers the real stop reason with receipts", async () => {
+  const prompts: string[] = [];
+  const f = await fixture(async (n, prompt) => {
+    prompts.push(prompt ?? "");
+    return response({ name: "shell_exec", input: { command: "printf pi-guard-proof", cwd: "." } }, "", `shell-repeat-${n}`);
+  }, true, true);
+  try {
+    await f.bind();
+    const owner = f.store.snapshot().owner!;
+    await f.host.setTelegramAutonomyEnabled({ enabled: true, expectedEnabled: false,
+      expectedOwner: { userId: owner.userId, chatId: owner.chatId, threadId: owner.threadId } });
+    await f.gateway.receive(update(2, "查询版本并交付"));
+    await until(() => f.store.snapshot().inputs.find(x => x.key === "42:2")?.state === "finished", 30_000);
+    const input = f.store.snapshot().inputs.find(x => x.key === "42:2")!;
+    const run = await f.host.channelReceipt(owner.threadId, input.runId!);
+    assert.equal(run?.status, "failed"); assert.equal(run?.tools.length, 3);
+    assert.ok(run?.tools.every(t => t.status === "completed" && t.shell?.exitCode === 0));
+    assert.match(run?.errorPreview ?? "", /重复命令/);
+    assert.ok(prompts.some(prompt => prompt.includes("SHELL_REPETITION")));
+    await until(() => f.sent.some(text => text.includes("重复命令")), 5_000);
+    assert.ok(f.sent.some(text => text.includes("不会自动重跑")));
+  } finally { await f.cleanup(); }
 });
