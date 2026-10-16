@@ -61,7 +61,8 @@ export function useWorkTasks(enabled: boolean, busy: boolean, refreshToken: numb
   const saveDraft = (update: TaskDraftUpdate) => {
     if (!scope || !draftReady || draftIdentity.current !== scopeIdentity) return;
     const next = structuredClone(draftState.current);
-    if (update.kind === "creation") next.creation = update.value;
+    if (update.kind === "created") next.composerTaskId = update.taskId;
+    else if (update.kind === "creation") next.creation = update.value;
     else if (update.kind === "composer") next.composerTaskId = update.taskId;
     else if (update.text) next.instructions[update.taskId] = update.text;
     else delete next.instructions[update.taskId];

@@ -41,13 +41,14 @@ export const SCHEDULE_TEMPLATES: readonly ScheduleTemplate[] = [
 
 export interface TaskComposerHandoff {
   mode: "chat" | "task";
+  purpose?: "arrangement";
   taskId: string | null;
   text: string;
   /** fill keeps a non-empty composer draft. replace is not used by create or continue. */
   policy: "fill" | "replace";
 }
 
-export function planTaskCreateHandoff(prompt = TASK_CREATE_PROMPT): TaskComposerHandoff {
+export function planTaskCreateHandoff(prompt = ""): TaskComposerHandoff {
   return { mode: "chat", taskId: null, text: prompt, policy: "fill" };
 }
 

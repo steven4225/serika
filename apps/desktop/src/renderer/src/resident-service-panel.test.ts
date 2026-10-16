@@ -13,7 +13,7 @@ it("service panel never draws a failed status query as disabled, or registration
   assert.equal(residentServiceLabel({ ...base, registered: true, running: true }), "常驻进程运行中");
   const html = renderToStaticMarkup(React.createElement(ResidentServicePanel, { status: base, busy: true,
     refresh: async () => base, setEnabled: async () => base }));
-  assert.match(html, /新的工具请求仍需确认/);
+  assert.match(html, /新工具操作仍需确认/);
   assert.match(html, /不会自动结束或转移计时/);
   assert.match(html, /不保证崩溃后计时恢复/);
   assert.match(html, /请先结束当前执行/);

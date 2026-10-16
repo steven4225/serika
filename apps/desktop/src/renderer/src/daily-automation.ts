@@ -2,8 +2,8 @@ import type { NotificationReadinessStatus, RssWorkerResponse } from "../../share
 
 export function backgroundServiceLabel(worker: RssWorkerResponse | null): string {
   if (!worker) return "正在查询…";
-  if (!worker.ok) return `状态不可用：${worker.message}`;
-  if (worker.setupReady === false) return worker.configurationMessage ?? "后台服务配置不一致；请先停用再启用，暂不能依赖提醒";
+  if (!worker.ok) return "状态不可用；请刷新或查看配置诊断，暂不能依赖提醒";
+  if (worker.setupReady === false) return "后台服务配置未就绪；请查看配置诊断，暂不能依赖提醒";
   if (!worker.registered) return "未启用；关窗口后不会执行提醒";
   if (!worker.running) return "已注册，但当前未报告运行进程；暂不能依赖提醒";
   if (worker.notifyEnabled !== true) return "进程运行中，但未确认通知配置";

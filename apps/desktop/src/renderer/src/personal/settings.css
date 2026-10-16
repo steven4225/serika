@@ -39,3 +39,35 @@
 .personal-theme-dark .settings-mode[aria-checked="true"], .personal-theme-dark .settings-row:hover:not(:disabled) { background: #3a3850; }
 .personal-theme-dark .settings-manage-button { background: #fff; color: #241f2b; }
 @media (max-width: 560px) { .settings-modes { grid-template-columns: 1fr; } }
+
+/* Settings use the same helper text scale as their navigation rows. */
+.personal-settings .hint, .personal-settings small, .personal-settings summary,
+.personal-memory .hint, .memory-import .hint { font-size: 13px; line-height: 1.6; color: var(--muted); }
+.settings-push-header p, .settings-note, .settings-row small, .settings-mode span { line-height: 1.6; }
+.personal-settings .capability-page { display: flex; flex-direction: column; gap: 16px; }
+.personal-settings .capability-list { background: var(--surface); border-radius: 20px; padding: 0 16px; }
+.personal-settings .capability-row { gap: 16px; padding: 16px 0; }
+.personal-settings .capability-row:last-child { border-bottom: 0; }
+.personal-settings .capability-row > div:first-child { flex: 1; min-width: 0; }
+.personal-settings .card { background: var(--surface); border: 0; border-radius: 20px; padding: 18px; }
+.personal-settings .card-head { font-size: 15px; }
+.personal-settings details > summary, .memory-import details > summary { cursor: pointer; }
+.personal-settings details[open] > summary { margin-bottom: 12px; }
+.personal-settings .memory-actions { flex-wrap: wrap; }
+.personal-settings .memory-actions button { white-space: normal; height: auto; }
+.skills-page { display: flex; flex-direction: column; gap: 12px; }
+.recipe-entry { padding: 16px 0; border-top: 1px solid var(--line); }
+.skills-page pre, .skills-page code { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; }
+.skills-page textarea, .memory-import textarea { width: 100%; min-height: 96px; resize: vertical; font: inherit; line-height: 1.6; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--text); }
+.memory-import { margin: 12px 0; }
+.import-entry { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--line); padding-top: 14px; }
+.memory-import label { font-size: 13px; line-height: 1.6; }
+.memory-import-file { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.memory-import .memory-actions { flex-wrap: wrap; }
+.memory-import .memory-actions button { white-space: normal; }
+.memory-import li { overflow-wrap: anywhere; margin-bottom: 10px; white-space: pre-wrap; }
+.personal-settings .session-facts { font-size: 13px; line-height: 1.6; }
+@media (max-width: 560px) {
+  .personal-settings .capability-row { flex-wrap: wrap; }
+  .personal-settings .capability-control { flex-direction: row; align-items: center; }
+}

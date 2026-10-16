@@ -25,7 +25,7 @@ function validScope(value: unknown): value is ConversationDraftScope {
     && boundedString(value.directory, 4096, true) && isAbsolute(value.directory) && boundedString(value.threadId, 256, true);
 }
 function validDraft(value: unknown): value is ConversationDraft {
-  return isObject(value) && boundedString(value.text, MAX_DRAFT_BYTES) && typeof value.excludeFromMemory === "boolean";
+  return isObject(value) && boundedString(value.text, MAX_DRAFT_BYTES) && typeof value.excludeFromMemory === "boolean" && (value.createTask === undefined || value.createTask === true);
 }
 function validSteer(value: unknown): value is UncertainSteer {
   return isObject(value) && boundedString(value.id, 256, true) && boundedString(value.runId, 256, true) && boundedString(value.text, MAX_STEER_BYTES, true)
@@ -73,20 +73,26 @@ export class ConversationDraftStore {
   async saveDraft(scope: ConversationDraftScope, draft: ConversationDraft): Promise<void> {
     if (typeof draft?.text === "string" && Buffer.byteLength(draft.text) > MAX_DRAFT_BYTES) throw new Error("内容太长，请分段。已有草稿未被覆盖。");
     if (!validDraft(draft)) throw new Error("Invalid conversation draft or draft exceeds 64 KiB");
-    const captured = { text: draft.text, excludeFromMemory: draft.excludeFromMemory };
+    const captured: ConversationDraft = { text: draft.text, excludeFromMemory: draft.excludeFromMemory, ...(draft.createTask ? { createTask: true } : {}) };
     await this.#update(scope, state => { state.draft = captured; });
   }
 
   async saveTaskDraft(scope: ConversationDraftScope, update: TaskDraftUpdate): Promise<void> {
     const captured = structuredClone(update);
-    if (!isObject(captured) || !["creation", "instruction", "composer"].includes(captured.kind)) throw new Error("Invalid task draft update");
+    if (!isObject(captured) || !["creation", "instruction", "composer", "created"].includes(captured.kind)) throw new Error("Invalid task draft update");
     if (captured.kind === "creation" && captured.value !== null && !validCreation(captured.value)) throw new Error("Invalid task creation draft");
     if (captured.kind === "instruction" && (!validTaskId(captured.taskId) || !boundedString(captured.text, MAX_DRAFT_BYTES)
       || (captured.expectedText !== undefined && !boundedString(captured.expectedText, MAX_DRAFT_BYTES)))) throw new Error("Invalid task instruction draft");
+    if (captured.kind === "created" && (!validTaskId(captured.taskId) || !boundedString(captured.expectedGoal, MAX_DRAFT_BYTES, true))) throw new Error("Invalid created task binding");
     if (captured.kind === "composer" && captured.taskId !== null && !validTaskId(captured.taskId)) throw new Error("Invalid task composer target");
     await this.#update(scope, state => {
       const tasks = state.taskDrafts ?? emptyTaskDrafts();
-      if (captured.kind === "creation") tasks.creation = captured.value;
+      if (captured.kind === "created") {
+        if (tasks.composerTaskId === captured.taskId && !state.draft.createTask && state.draft.text === "") return;
+        if (state.draft.createTask !== true || state.draft.text.trim() !== captured.expectedGoal.trim()) throw new Error("Task draft changed before binding");
+        tasks.composerTaskId = captured.taskId; state.draft = { text: "", excludeFromMemory: false };
+      }
+      else if (captured.kind === "creation") tasks.creation = captured.value;
       else if (captured.kind === "composer") tasks.composerTaskId = captured.taskId;
       else {
         if (captured.expectedText !== undefined && (tasks.instructions[captured.taskId] ?? "").trim() !== captured.expectedText.trim()) return;
@@ -149,7 +155,7 @@ export class ConversationDraftStore {
       const state = registry.conversations[key] ?? { scope: normalized, ...emptyState() };
       update(state);
       // Empty drafts do not consume the bounded registry indefinitely.
-      if (state.draft.text === "" && !state.draft.excludeFromMemory && state.uncertainSteer === null && !state.taskDrafts) delete registry.conversations[key];
+      if (state.draft.text === "" && !state.draft.createTask && !state.draft.excludeFromMemory && state.uncertainSteer === null && !state.taskDrafts) delete registry.conversations[key];
       else registry.conversations[key] = state;
       if (Object.keys(registry.conversations).length > MAX_CONVERSATIONS) throw new Error("Conversation draft storage is full (100 conversations); existing drafts were not removed");
       await this.#write(registry);

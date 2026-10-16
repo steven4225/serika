@@ -131,8 +131,6 @@
 .personal-layout .memory-references button { color: var(--text); }
 .personal-layout .capability-status { color: var(--muted); }
 .personal-layout .capability-status.enabled { color: var(--accent); }
-.personal-layout .persona-panel { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; }
-.personal-layout .persona-panel p { margin: 0; color: var(--muted); }
 .personal-search-layer { position: fixed; inset: 0; z-index: 40; display: flex; justify-content: center; align-items: flex-start; padding: 11vh 24px 24px; background: #39354238; backdrop-filter: blur(18px); }
 .personal-search-dialog { width: min(720px, 100%); max-height: min(680px, 78vh); display: flex; flex-direction: column; border-radius: 28px; background: #f7f4f6f2; color: var(--text); box-shadow: 0 24px 80px #39354233; overflow: hidden; }
 .personal-search-input-row { display: flex; align-items: center; gap: 12px; padding: 22px 22px 6px; color: #8d8794; }

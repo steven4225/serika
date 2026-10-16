@@ -175,6 +175,7 @@ export interface RuntimeApp {
   /** Trusted host service activation; no renderer-provided executable/config paths. */
   activateTaskAutomation?: () => Promise<{ enabled: boolean; message?: string }>;
   memoryStore?: WorkspaceMemoryStore;
+  recipes?: RecipeStore;
   memoryConsolidation?: MemoryConsolidation;
   /** Host-owned, cancellable idle work. No Run, query, tool, or background service. */
   maintainMemoryIndex?: (signal: AbortSignal) => Promise<void>;
@@ -1586,6 +1587,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       getLearnedSkillReferences: () => learnedSkillReference === null ? null : structuredClone(learnedSkillReference),
       ...(activateTaskAutomation ? { activateTaskAutomation } : {}),
       ...(memoryStore ? { memoryStore } : {}),
+      ...(recipes ? { recipes } : {}),
       ...(memoryConsolidation ? { memoryConsolidation } : {}),
       ...(maintainMemoryIndex ? { maintainMemoryIndex } : {}),
       ...(memoryStore ? { getMemoryConsolidationBacklog: async () => {

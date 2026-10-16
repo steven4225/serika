@@ -203,16 +203,12 @@ function threadTarget(threadId: string, draft: string): BriefContinueTarget {
 }
 
 function workerAttention(worker: RssWorkerResponse | null, state: TodayBriefFeeds["workerState"]): { attention: boolean; known: boolean; title: string; body: string; risk: string | null; draft: string } | null {
-  const issue = (raw: string | undefined, fallback: string) => {
-    const message = humanError(raw, fallback).replace(/\bpid\s*[:=]?\s*\d+\b/gi, "").trim();
-    return /[\u4e00-\u9fff]/.test(message) ? message : fallback;
-  };
   if (state === "hidden") return null;
   if (state === "checking") {
     return { attention: false, known: false, title: "正在查看后台", body: "还在确认关窗口之后提醒能不能执行。", risk: null, draft: "我想先确认后台提醒现在能不能依赖。" };
   }
-  if (worker === null || !worker.ok) return { attention: true, known: true, title: "后台状态读取失败", body: worker && !worker.ok ? issue(worker.message, "请在设置 → 通知中刷新后台状态；读取失败不代表服务已停止。") : "尚未读到后台状态，请在设置 → 通知中刷新。", risk: "暂不能确认是否会到点执行；不要重复创建提醒。", draft: "请帮我核对后台状态读取失败的原因，不重复创建提醒。" };
-  if (worker.setupReady === false) return { attention: true, known: true, title: "后台配置未就绪", body: issue(worker.configurationMessage, "后台配置与当前工作区不一致，请在设置 → 通知中核对。"), risk: "暂不能依赖到点提醒。", draft: "请帮我核对后台配置，不重复创建提醒。" };
+  if (worker === null || !worker.ok) return { attention: true, known: true, title: "后台状态读取失败", body: "请在设置 → 通知与后台中核对。读取失败不代表服务已停止。", risk: "暂不能确认是否会到点执行；不要重复创建提醒。", draft: "请帮我核对后台状态读取失败的原因，不重复创建提醒。" };
+  if (worker.setupReady === false) return { attention: true, known: true, title: "后台配置未就绪", body: "后台配置与当前工作区不一致，请在设置 → 通知与后台中核对。", risk: "暂不能依赖到点提醒。", draft: "请帮我核对后台配置，不重复创建提醒。" };
   if (!worker.registered) {
     return { attention: true, known: true, title: "后台提醒还没开启", body: "关窗口之后不会执行提醒。安排可以先保存，但不会自己开始执行。", risk: null, draft: "后台提醒现在还没开启。先别把到点提醒当成已经会执行。" };
   }

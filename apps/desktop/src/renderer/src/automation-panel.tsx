@@ -4,7 +4,6 @@ import { FailureAlert } from "./failure-notice.js";
 import type { AutomationOverview, AutomationScheduleAction } from "@aisdk-agent/example-cli/dist/automation-scheduling.js";
 import { automationArrangementLabel, automationStatuses, skillSchedulePreview, type SkillScheduleDraft } from "./automation-schedule.js";
 import { humanFacingTitle } from "../../shared/human-title.js";
-import { DreamingPanel } from "./dreaming-panel.js";
 import { localWhen, reminderClock, scheduleStatusLabel } from "./reminder-copy.js";
 
 /** A workspace drawer section, not another parallel application or a model loop. */
@@ -72,7 +71,7 @@ export function AutomationPanel({ busy, identity, onRun, onReminders, refreshSeq
   };
   const textSkills = view?.diagnostics.skills.filter(skill => skill.kind === "text" && skill.tools.length === 0) ?? [];
   const selected = textSkills.find(skill => skill.id === draft.skillId);
-  return <><DreamingPanel busy={busy} identity={identity} refreshSequence={refreshSequence} /><section className="card" aria-label="自动安排">
+  return <><section className="card" aria-label="自动安排">
     <div className="card-head"><span>自动安排</span><button className="ghost" disabled={loading || working} onClick={() => void reload()}>刷新安排</button></div>
     <p className="hint">同一份 Skill 可以手动执行、由对话事件触发或按时间执行。排期不会授予工具权限，也不会自动使用对话或长期记忆。</p>
     {loading ? <p role="status">正在读取安排…</p> : null}

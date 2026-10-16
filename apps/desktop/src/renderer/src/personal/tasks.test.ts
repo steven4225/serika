@@ -214,7 +214,7 @@ describe("conversational create and return chip", () => {
     const handoff = planTaskCreateHandoff();
     assert.equal(handoff.mode, "chat");
     assert.equal(handoff.policy, "fill");
-    assert.equal(nextComposerText("", handoff), TASK_CREATE_PROMPT);
+    assert.equal(nextComposerText("", handoff), "");
     assert.equal(nextComposerText("已经在写", handoff), "已经在写");
     assert.doesNotMatch(TASK_CREATE_PROMPT, /已定|已记下/);
     for (const template of SCHEDULE_TEMPLATES) assert.doesNotMatch(`${template.prompt} ${template.blurb}`, /已定|已记下/);
@@ -326,7 +326,7 @@ it("the tasks shell hands create and returned results to the main composer", asy
   const app = await readFile(new URL("../App.tsx", import.meta.url), "utf8");
   assert.match(app, /<TasksHome/);
   assert.doesNotMatch(app, /<TaskReturnChip/);
-  assert.match(app, /planTaskCreateHandoff\(\)/);
+  assert.match(app, /createAndStartTask\(window.runloom/);
   assert.doesNotMatch(app, /planTaskFollowUpHandoff\(source\)/);
   const handoff = app.slice(app.indexOf("const applyTaskHandoff"), app.indexOf("const openCreateTask"));
   assert.match(handoff, /nextTaskInstruction\(workTasks\.instruction, handoff\)/);
@@ -336,10 +336,10 @@ it("the tasks shell hands create and returned results to the main composer", asy
   const pageSource = await readFile(new URL("./tasks-page.tsx", import.meta.url), "utf8");
   assert.doesNotMatch(`${model}\n${pageSource}`, /policy:\s*"replace"/);
   const createTask = app.slice(app.indexOf("const openCreateTask"), app.indexOf("const openMemory"));
-  assert.match(createTask, /planTaskCreateHandoff\(\)/);
+  assert.match(createTask, /createThread\(\{ preserveDraft: true, taskDraft: text \}\)/);
   assert.doesNotMatch(createTask, /setCreateTaskRequest|setTaskDraft/);
   assert.match(app, /onAutomation=\{\(\) => openDetails\("reminders"\)\}/);
-  assert.match(app, /\["手札", "任务", "记忆", "serika"\]/);
+  assert.match(app, /\["手札", "任务", "记忆"\]/);
   assert.match(app, /setCreateTaskRequest\(value => value \+ 1\)/);
   const rows = workTaskRows([task("task_hidden_wake", "起床提醒", 11)]);
   assert.equal(rows[0]?.title, "起床提醒");

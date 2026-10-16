@@ -16,6 +16,8 @@ import type { TelegramGateway } from "./telegram-gateway.js";
 import { telegramUnavailable } from "../shared/telegram.js";
 import { createTaskStore, type TaskListInput } from "@aisdk-agent/example-cli/dist/task-store.js";
 import { exportBackup } from "./backup.js";
+import { ConversationDraftStore } from "./conversation-draft-store.js";
+import { MAX_CONVERSATION_DRAFT_BYTES } from "../shared/conversation-drafts.js";
 import { changeContextMode } from "./context-settings.js";
 
 interface Options { userData: string; cwd: string; env: NodeJS.ProcessEnv; modelAlias: string; modelId?: string; model: LanguageModel; send: Send; taskAutomation?: TaskAutomationHost; /** Ownership transfers to this host, including final disposal. */ pomodoroService?: PomodoroService }
@@ -270,12 +272,16 @@ export class DesktopRuntime {
   selectThread(threadId: string) {
     return this.#replace(() => selectDesktopThread(this.#scope(), threadId));
   }
-  createThread(options?: { preserveDraft: boolean }) {
+  createThread(options?: { preserveDraft: boolean; taskDraft?: string; chatDraft?: string }) {
     return this.#replace(async () => {
       if (options !== undefined && (typeof options !== "object" || options === null || typeof options.preserveDraft !== "boolean")) throw new Error("新对话参数无效");
-      // Repeated clicks on an unused conversation reuse it; drafts remain separate.
-      if (!options?.preserveDraft && (await this.#inspect(this.#identity)).emptyVerified) return this.#identity;
+      for (const draft of [options?.taskDraft, options?.chatDraft]) {
+        if (draft !== undefined && (typeof draft !== "string" || Buffer.byteLength(draft) > MAX_CONVERSATION_DRAFT_BYTES)) throw new Error("Invalid conversation draft");
+      }
+      if (options?.taskDraft !== undefined && options.chatDraft !== undefined) throw new Error("Ambiguous draft target");
+      if (options?.taskDraft === undefined && options?.chatDraft === undefined && !options?.preserveDraft && (await this.#inspect(this.#identity)).emptyVerified) return this.#identity;
       const thread = await createDesktopThread(this.#scope());
+      if (options?.taskDraft !== undefined || options?.chatDraft !== undefined) await new ConversationDraftStore(this.#options.userData).saveDraft({ workspaceRoot: this.#identity.workspaceRoot, directory: thread.transcriptDirectory, threadId: thread.threadId }, { text: options.taskDraft ?? options.chatDraft ?? "", excludeFromMemory: false, ...(options.taskDraft !== undefined ? { createTask: true } : {}) });
       return selectDesktopThread(this.#scope(), thread.threadId);
     }, true);
   }

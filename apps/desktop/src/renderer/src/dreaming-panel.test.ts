@@ -4,7 +4,7 @@ import { it } from "node:test";
 
 it("uses the existing workspace and host receipts, distinguishes errors from no skills, and guards identity/version changes", async () => {
   const panel = await readFile(new URL("./dreaming-panel.tsx", import.meta.url), "utf8");
-  const workspace = await readFile(new URL("./automation-panel.tsx", import.meta.url), "utf8");
+  const workspace = await readFile(new URL("./skills-panel.tsx", import.meta.url), "utf8");
   assert.match(workspace, /<DreamingPanel busy=\{busy\} identity=\{identity\}/);
   assert.match(panel, /captured !== context\.current \|\| request !== generation\.current/);
   assert.match(panel, /expectedRevision: skill\.revision/);

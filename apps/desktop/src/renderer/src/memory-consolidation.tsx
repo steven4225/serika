@@ -246,7 +246,7 @@ export function MemoryConsolidationPanel({ info, busy, refreshToken, onSettings 
     </div> : null}
     {c?.state !== "off" ? <p className="hint">{memoryAutomationLabel(info.memory)}</p> : null}
     {info.memory.enabled && info.memory.autoConsolidate ? <p className="hint">{info.memory.writePolicy === "automatic" ? "明确偏好会自动记住；有歧义才需要你点一下。" : "当前为人工审核模式，确认后才会记住。"}</p> : null}
-    {memoryAutomaticUpgradeNeeded(info) ? <button className="ghost" disabled={!onSettings} onClick={onSettings}>在工作区设置</button> : null}
+    {memoryAutomaticUpgradeNeeded(info) ? <button className="ghost" disabled={!onSettings} onClick={onSettings}>打开记忆设置</button> : null}
     {c?.error ? <><p className="error" role="alert">{memoryConsolidationFailureText(c.error)}</p><details><summary>技术详情</summary><pre>{c.error}</pre></details></> : null}
     {maintenance && maintenance.pending >= 64 ? <p className="hint">待审核候选已达到上限，请先接受或拒绝候选，再整理新材料。暂时不审核不会丢弃候选。</p> : null}
     {statusError ? <><FailureAlert text={statusError} suffix="不能据此判断没有待整理记忆材料或候选。" /><button className="ghost" disabled={working} onClick={() => setStatusRefresh(value => value + 1)}>重新读取记忆整理状态</button></> : null}
@@ -260,7 +260,7 @@ export function MemoryConsolidationPanel({ info, busy, refreshToken, onSettings 
     </> : <>
       <p className="hint">新对话成功结束后在空闲时整理记忆，新的聊天优先。首次最多取最近 8 条；更早的内容须由你选择补整理记忆。当前{info.memory.writePolicy === "automatic" ? "明确事实自动保存，有歧义的候选才需审核" : "所有候选接受后才保存"}。</p>
     </>}
-    {!memoryAutomaticUpgradeNeeded(info) ? <button className="ghost" disabled={!onSettings} onClick={onSettings}>在工作区设置</button> : null}
+    {!memoryAutomaticUpgradeNeeded(info) ? <button className="ghost" disabled={!onSettings} onClick={onSettings}>打开记忆设置</button> : null}
     {c?.state === "running" ? <p className="hint" role="status">正在从已提交的用户原话整理记忆，新的对话可以优先处理。失败可以重试，不会批量接受旧候选。</p> : null}
     {c?.backlogCount !== undefined ? <p className="hint">自动取材范围内待处理：{c.backlogCount} 条用户消息。这个数量不代表所有旧历史。</p> : null}
     {c?.lastSkippedReason ? <p className="hint">本轮未整理记忆：{c.lastSkippedReason}。</p> : null}

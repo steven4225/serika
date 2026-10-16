@@ -105,7 +105,7 @@ function ScheduledTaskList(props: TasksPageProps & { now: Date; clock: ReturnTyp
       <h2>为你推荐</h2>
       {SCHEDULE_TEMPLATES.map(template => <div className="task-template" key={template.id}>
         <div className="task-template-copy"><strong>{template.title}</strong><span>{template.blurb}</span></div>
-        <button type="button" className="task-template-add" aria-label={`用「${template.title}」开始`} disabled={props.busy} onClick={() => props.onCreate(planTaskCreateHandoff(template.prompt))}><Plus size={16} aria-hidden="true" /></button>
+        <button type="button" className="task-template-add" aria-label={`用「${template.title}」开始`} disabled={props.busy} onClick={() => props.onCreate({ ...planTaskCreateHandoff(template.prompt), purpose: "arrangement" })}><Plus size={16} aria-hidden="true" /></button>
       </div>)}
     </section> : null}
   </>;

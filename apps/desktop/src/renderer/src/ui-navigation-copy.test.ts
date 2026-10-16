@@ -33,7 +33,7 @@ it("UI regression 1: workspace belongs to settings and never selects 手札", as
   assert.equal(dashboardTabForDetail("home"), "设置");
   assert.equal(dashboardTabForDetail("settings"), "设置");
   const app = await source("./App.tsx");
-  assert.match(app, /openSettings\("workspace"\)/);
+  assert.match(app, /openSettings\("advanced"\)/);
   assert.doesNotMatch(app, /personal-settings-nav|aria-label="助手设置"/);
   assert.doesNotMatch(app, /\["modules", "模块"\]/);
 });
@@ -56,7 +56,7 @@ it("UI regression 3: the memory automation off state uses the same phrase across
   assert.match(render(createElement(MemoryMaintenanceSummary, { value: maintenance })), new RegExp(expected));
   assert.match(render(createElement(MemoryConsolidationPanel, { info, busy: false, refreshToken: 0 })), new RegExp(expected));
   assert.match(render(createElement(MemoryPanel, { memory: info.memory, pendingCount: 1, temporaryThread: false, controllerIdle: true, refreshToken: 0 })), new RegExp(expected));
-  for (const file of ["./capabilities.tsx", "./daily-setup-panel.tsx"]) assert.match(await source(file), /memoryAutomationLabel\(/);
+  for (const file of ["./capabilities.tsx"]) assert.match(await source(file), /memoryAutomationLabel\(/);
 });
 
 it("memory automation label distinguishes enabled capability from write policy", () => {
@@ -71,16 +71,16 @@ it("memory automation label distinguishes enabled capability from write policy",
 it("UI regression 4: memory setup has one primary entry and workspace context is a navigation link", async () => {
   const html = render(createElement(MemoryConsolidationPanel, { info, busy: false, refreshToken: 0 }));
   assert.doesNotMatch(html, /设置日用记忆|改为自动记住/);
-  assert.match(html, /在工作区设置/);
-  const daily = await source("./daily-setup-panel.tsx");
-  assert.match(daily, /onClick=\{onContext\}/);
+  assert.match(html, /打开记忆设置/);
+  const app = await source("./App.tsx");
+  assert.match(app, /openSettings\("context"\)/);
 });
 
 it("UI regression 5: settings has one explicit entrance and the persona pill is not that entrance", async () => {
   const app = await source("./App.tsx");
-  assert.match(app, /\["手札", "任务", "记忆", "serika"\]/);
+  assert.match(app, /\["手札", "任务", "记忆"\]/);
   assert.doesNotMatch(app, /\["Today",/);
-  assert.match(app, /openDetails\("persona"\)/);
+  assert.doesNotMatch(app, /openDetails\("persona"\)/);
   assert.doesNotMatch(app, /\["appearance",/);
   assert.match(app, /aria-label="设置"/);
   assert.match(app, /onClick=\{\(\) => openSettings\("home"\)\}/);
@@ -91,10 +91,10 @@ it("UI regression 5: settings has one explicit entrance and the persona pill is 
 
 it("reminders stay reachable from 手札 and are not a top pill or a settings inbox", async () => {
   assert.equal(dashboardTabForDetail("reminders"), null);
-  assert.equal(dashboardTabForDetail("persona"), "serika");
+  assert.equal(dashboardTabForDetail("persona"), null);
   assert.equal(dashboardTabForDetail("home"), "设置");
   const app = await source("./App.tsx");
-  assert.match(app, /\["手札", "任务", "记忆", "serika"\]/);
+  assert.match(app, /\["手札", "任务", "记忆"\]/);
   assert.match(app, /aria-label="手札与个人助手"/);
   assert.match(app, />手札</);
   assert.match(app, /回到手札/);

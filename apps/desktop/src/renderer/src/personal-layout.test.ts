@@ -73,7 +73,7 @@ it("existing details remain reachable under the personal dashboard tabs", () => 
   assert.equal(dashboardTabForDetail("tasks"), "任务");
   assert.equal(dashboardTabForDetail("reminders"), null);
   assert.equal(dashboardTabForDetail("memory"), "记忆");
-  assert.equal(dashboardTabForDetail("persona"), "serika");
+  assert.equal(dashboardTabForDetail("persona"), null);
   assert.equal(dashboardTabForDetail("threads"), null);
   assert.equal(dashboardTabForDetail("settings"), "设置");
   assert.notEqual(dashboardTabForDetail("settings"), "serika");

@@ -2,7 +2,7 @@ import type { AppInfo } from "../../shared/ui-contract.js";
 import type { RunResult } from "@aisdk-agent/core";
 import type { WorkTask } from "../../shared/work-tasks.js";
 
-export interface ConversationDraft { text: string; excludeFromMemory: boolean }
+export type { ConversationDraft } from "../../shared/conversation-drafts.js";
 /** An unavailable task stays a task target; loading must never route it to chat. */
 export function bindTaskComposer(id: string | null, task: WorkTask | null):
   { kind: "chat" } | { kind: "task"; task: WorkTask | null } {

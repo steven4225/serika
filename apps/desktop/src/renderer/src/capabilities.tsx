@@ -7,7 +7,7 @@ const labels: Record<string, [string, string]> = {
   "read-file": ["工作区文件", "读取、创建和编辑工作区文件，操作受现有权限约束。"],
   memory: ["长期记忆", "记住你的偏好与事实，在之后的对话中按需引用。"],
   checkpoint: ["项目快照", "保存工作意图，通过 /resume 核对 Git 现状。"],
-  task: ["定时任务", "一次性与重复排期、改期、结果 inbox；执行需要 worker。"],
+  task: ["定时任务", "创建提醒与定期安排，由独立后台服务处理到期事项。"],
   todoist: ["Todoist", "查询外部任务；还需要有效的服务凭据。"],
   shell: ["命令执行", "运行 Shell，展示进度与执行回执。"],
   web: ["网页与信息来源", "获取公开网页，搜索与 RSS 另有配置开关。"],
@@ -30,20 +30,20 @@ export function CapabilitiesPanel({ info, busy = false, initialError = null, int
     finally { setSaving(false); }
   };
     return <section className="capability-page">
-    <p>{intro ?? "选择这位助手可以使用的能力。更改会保存到当前配置，并在空闲时应用，当前对话不会删除。"}</p>
+    <p className="hint">{intro ?? "选择助手可以使用的内置功能。保存后重新加载当前对话，具体操作仍需确认。"}</p>
     {busy ? <p className="hint" role="status">当前正在处理，结束后才能更改能力。</p> : null}
     {unavailable ? <p className="error" role="status">连接未恢复。以下是上次连接的配置，不能当作当前生效状态；重新连接后再更改能力。</p> : null}
     {error ? <p className="error" role="alert">{error}</p> : null}
     {selection ? <div className="capability-confirm" role="group" aria-label="确认能力变更">
       <strong>{selection.enabled ? "开启" : "关闭"}{moduleName(selection.id)}？</strong>
       {selection.id !== "pomodoro" ? <p className="hint">空闲时重新加载助手能力。番茄钟和已有后台安排继续，当前对话和未发送草稿保留。</p> : null}
-      <p>{selection.id === "task" ? "只更改助手创建和查询安排的能力；已保存的安排和后台服务继续运行。暂停安排请到工作区的自动安排中操作。" : selection.id === "memory" ? "关闭后不再引用记忆或整理记忆，已保存的记忆和候选不会删除。重新开启沿用原来的写入策略。" : selection.id === "pomodoro" ? (selection.enabled ? "重新开启计时能力，不恢复之前已经结束的计时。" : "关闭并结束当前计时；重新开启不会恢复原计时。") : "下一次对话将使用新的能力配置。已保存的数据保留，工具操作仍按原权限逐次确认。"}</p>
+      <p>{selection.id === "task" ? "只更改助手创建和查询安排的能力；已保存的安排和后台服务继续运行。暂停安排请到任务页的定时安排中操作。" : selection.id === "memory" ? "关闭后不再引用记忆或整理记忆，已保存的记忆和候选不会删除。重新开启沿用原来的写入策略。" : selection.id === "pomodoro" ? (selection.enabled ? "重新开启计时能力，不恢复之前已经结束的计时。" : "关闭并结束当前计时；重新开启不会恢复原计时。") : "下一次对话将使用新的能力配置。已保存的数据保留，工具操作仍按原权限逐次确认。"}</p>
       <div className="actions"><button disabled={busy || unavailable || saving} onClick={() => void apply()}>{saving ? "正在应用…" : "保存并应用"}</button><button className="ghost" disabled={saving} onClick={() => { setSelection(null); setError(null); }}>取消</button></div>
     </div> : null}
     <div className="capability-list">{info.modules?.map(module => {
       const [name, description] = labels[module.id] ?? ["这项能力", "当前配置里的一项能力。"];
       return <div className="capability-row" key={module.id}>
-        <div><strong>{name}</strong><p>{description}</p><details className="capability-technical"><summary>内部标识</summary><code>{module.id}</code></details>
+        <div><strong>{name}</strong><p>{description}</p><details className="capability-technical"><summary>技术详情</summary><code>{module.id}</code></details>
           {module.id === "memory" ? <small>{memoryAutomationLabel(info.memory)}</small> : null}
           {module.id === "web" && module.enabled ? <small>搜索：{info.moduleOptions?.webSearch ? "已开启" : "未开启"} · RSS：{info.moduleOptions?.webFeed ? "已开启" : "未开启"}</small> : null}
           {module.id === "task" ? <small>开启这里不会注册后台服务；关窗提醒请到“设置 → 通知 → 关窗口后继续提醒”显式启用，并单独核对通知授权。</small> : null}

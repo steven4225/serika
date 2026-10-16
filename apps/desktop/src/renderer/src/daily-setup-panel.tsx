@@ -1,9 +1,6 @@
 import React, { useState } from "react";
 import type { AppInfo } from "../../shared/ui-contract.js";
-import { SerikaMark } from "./icons.js";
 import { memoryAutomaticUpgradeNeeded, memorySetupChanges, memorySetupNeeded } from "./daily-setup.js";
-import { AutomationPanel } from "./automation-panel.js";
-import { memoryAutomationLabel } from "./memory-copy.js";
 
 export function MemorySetup({ info, busy }: { info: AppInfo; busy: boolean }) {
   const [preview, setPreview] = useState(false);
@@ -33,22 +30,4 @@ export function MemorySetup({ info, busy }: { info: AppInfo; busy: boolean }) {
     {!info.configPath ? <p className="hint">当前没有可修改的配置文件。</p> : null}
     {error ? <p className="error" role="alert">{error}。请核对当前配置后重试。</p> : null}
   </div>;
-}
-
-export function DailySetup({ info, busy, onHistory, onRun, onContext, onReminders, automationRefresh }: { info: AppInfo; busy: boolean; onHistory: () => void; onRun: (runId: string) => void; onContext: () => void; onReminders: () => void; automationRefresh: number }) {
-  return <section className="card daily-setup" aria-label="日用状态">
-    <div className="card-head"><SerikaMark size={28} /><span>{info.entryMode === "test" ? "隔离测试入口" : "当前日用入口"}</span></div>
-    <dl className="session-facts">
-      <dt>当前配置</dt><dd>{info.configPath ?? "未提供配置文件"}</dd>
-      <dt>工作区</dt><dd>{info.workspaceRoot ?? "未配置"}</dd>
-      <dt>对话保存位置</dt><dd>{info.directory}</dd>
-      <dt>重开会话</dt><dd>{info.identitySource === "explicit" ? "本次为显式覆盖；移除覆盖后回到默认身份" : info.temporaryThread || info.temporaryDirectory ? "临时身份，不保证重开回到当前对话" : "当前选择已保存，重开继续此会话"}</dd>
-      <dt>记忆</dt><dd>{info.memory.enabled ? "已启用" : "未启用"}；{info.memory.writePolicy === "automatic" ? "明确事实自动保存" : "候选人工审核"}；{memoryAutomationLabel(info.memory)}；同义召回{info.memory.queryRewriteEnabled === true ? "已开" : "未开"}</dd>
-      <dt>上下文压缩</dt><dd>{info.hasCompaction ? "已启用" : "未启用"} · <button className="ghost" onClick={onContext}>查看上下文压缩</button></dd>
-    </dl>
-    <MemorySetup info={info} busy={busy} />
-    <AutomationPanel key={`${info.configPath}:${info.workspaceRoot}:${info.threadId}`} identity={`${info.configPath}:${info.workspaceRoot}:${info.threadId}`} refreshSequence={automationRefresh} busy={busy} onRun={onRun} onReminders={onReminders} />
-    <button className="ghost" onClick={onHistory}>查找或恢复旧对话</button>
-    <p className="hint">旧目录需要你确认属于当前工作区后登记，不会自动合并其他工作区的数据。</p>
-  </section>;
 }

@@ -12,6 +12,7 @@ export const RESIDENT_BRIDGE_METHODS = [
   "history", "historyPage", "home", "run", "steer", "cancel", "confirm", "command", "listRuns", "getRun",
   "getContextDiagnostics", "getAutomationDiagnostics", "getAutomationOverview", "scheduleSkill", "changeAutomationSchedule",
   "getDreamingOverview", "dream", "changeLearnedSkill", "getLearnedSkillReferences", "runSkill",
+  "previewMemoryImport", "confirmMemoryImport", "getMemoryImportReceipt", "listRecipes", "changeRecipe",
   "listMemories", "getMemory", "updateMemory", "getMemoryHistory", "queryMemory", "previewMemoryAction", "applyMemoryAction", "getMemoryMaintenance",
   "consolidateMemory", "listMemoryConsolidationSources", "getMemoryReferences",
   "getRssSubscriptions", "updateRssSubscriptions", "getRssInbox", "acknowledgeRssResult", "getTaskInbox", "getScheduledTask", "acknowledgeTaskResult",
