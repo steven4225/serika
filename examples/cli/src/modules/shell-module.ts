@@ -98,6 +98,8 @@ export interface ShellProgress {
 }
 
 export interface ShellModuleOptions {
+  /** Trusted host Run snapshot; metadata still bounds the maximum invocation. */
+  commandTimeoutMs?: () => number;
   timeoutMs?: number;
   onProgress?: ((event: ShellProgress) => void) | undefined;
   sandbox?: DockerShellSandboxConfig;
@@ -420,7 +422,7 @@ export function createShellExecTool(
         workspaceRoot,
         input,
         abortSignal ?? neverAborted,
-        { timeoutMs: options.timeoutMs ?? SHELL_EXEC_TIMEOUT_MS, onOutput },
+        { timeoutMs: options.commandTimeoutMs?.() ?? options.timeoutMs ?? SHELL_EXEC_TIMEOUT_MS, onOutput },
       );
     },
   });

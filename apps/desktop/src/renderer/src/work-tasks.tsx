@@ -235,7 +235,7 @@ function CreateTask({ view, onClose, initialGoal = "" }: { view: WorkTaskView; o
     <label>约束 <small>每行一条，可留空</small><textarea aria-label="任务约束" value={constraints} onChange={event => setConstraints(event.target.value)} rows={2} /></label>
     <label>必须通过的测试命令 <small>每行一条，可留空</small><textarea aria-label="验收测试命令" placeholder="pnpm test" value={commands} onChange={event => setCommands(event.target.value)} rows={2} /></label>
     {lines(commands).length > 0 ? <label>测试目录 <small>相对工作区</small><input aria-label="验收测试目录" value={testCwd} onChange={event => setTestCwd(event.target.value)} placeholder="." /></label> : null}
-    <p className="hint">测试最后运行。之后再改文件、运行 Shell 或操作应用会使旧测试失效；同目录多条测试可能合成一条需确认的命令。</p></details>
+    <p className="hint">测试最后运行。之后再改文件、运行 Shell 或操作应用会使旧测试失效；同目录多条测试可能合成一条命令，按当前授权执行。</p></details>
     <section className="task-create-checks" aria-label="创建前验收摘要"><strong>这项任务如何算完成</strong>{taskFormAcceptance(artifacts, human, commands, testCwd).length ? <ul>{taskFormAcceptance(artifacts, human, commands, testCwd).map(item => <li key={item.id}>{item.method === "automatic" ? "程序核验：" : "你来审核："}{item.description}</li>)}</ul> : <p className="hint">至少填写一个产物、人工验收项或测试命令。</p>}<p className="hint">上述项目均为必需项。文件须本轮写入、读回并与当前磁盘一致。创建不执行，也不授予工具权限。</p></section>
     <div className="work-task-buttons"><button className="allow" type="submit" disabled={view.locked || !goal.trim() || (!lines(artifacts).length && !lines(human).length && !lines(commands).length)}>创建任务，不执行</button><button type="button" onClick={onClose} disabled={view.acting}>关闭</button></div>
     </fieldset>
@@ -309,7 +309,7 @@ function TaskDetail({ task, view, onRun, onCompose }: { task: WorkTask; view: Wo
     {actions.run && !onCompose ? <form className="work-task-form" onSubmit={event => { event.preventDefault(); void view.run(view.instruction); }}>
       <label>本轮补充指令 <small>可留空，默认使用任务目标；启动失败会保留</small><textarea aria-label="本轮任务指令" disabled={view.acting || view.loading || task.status === "running"} rows={2} value={view.instruction} onChange={event => view.setInstruction(event.target.value)} /></label>
       <div className="work-task-buttons"><button className="allow" disabled={view.locked} type="submit">{task.status === "ready" ? "开始执行" : "开始下一轮"}</button></div>
-      <p className="hint">开启新 Run，不重放之前的工具。工具仍需逐次确认；本轮结束不会自动标为验收通过。</p>
+      <p className="hint">开启新 Run，不重放之前的工具。工具按当前授权执行；本轮结束不会自动标为验收通过。</p>
     </form> : null}
     {task.delivery ? <section><h3>{["paused", "running", "needs_review"].includes(task.status) ? "上次交付（已退回，需重新提交）" : "当前交付"}</h3><pre>{task.delivery.summary}</pre>{task.delivery.artifactRefs.length ? <ul>{task.delivery.artifactRefs.map((ref, index) => <li key={index}><code>{ref}</code></li>)}</ul> : null}{task.delivery.unresolved.length ? <div className="work-task-warning"><strong>未解决事项</strong><ul>{task.delivery.unresolved.map((item, index) => <li key={index}>{item}</li>)}</ul></div> : null}</section> : null}
     {actions.rework ? <button disabled={view.locked} onClick={() => setReworkPreview(true)}>退回修改…</button> : null}

@@ -18,33 +18,41 @@
 .personal-layout .personal-message .message-content :is(pre, code, th), .personal-layout .personal-message .code-block-head { background: var(--sunken); color: var(--text); }
 .personal-layout .personal-message .message-content pre code { background: transparent; }
 .personal-layout .personal-message .code-block-head button { color: var(--muted); border: 0; background: transparent; }
-.personal-layout .personal-work { color: var(--muted); background: #ffffff5c; border-radius: 14px; padding: 0 13px; min-width: 0; }
+.personal-layout .personal-work { color: var(--muted); background: #ffffff5c; border-radius: 12px; padding: 0 12px; min-width: 0; }
 .personal-layout .personal-work > summary, .personal-layout .personal-tool > summary { display: flex; align-items: center; gap: 8px; min-width: 0; cursor: pointer; list-style: none; }
-.personal-layout .personal-work > summary { min-height: 39px; font-size: 12px; }
+.personal-layout .personal-work > summary { min-height: 40px; padding: 7px 0; font-size: 12px; }
+.personal-layout .personal-work-heading { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 3px; line-height: 1.6; }
+.personal-layout .personal-work-facts { color: var(--muted); }
+.personal-layout .personal-work-notice { color: #8a5931; font-size: 11px; }
 .personal-layout :is(.personal-work, .personal-tool) > summary::-webkit-details-marker { display: none; }
 .personal-layout :is(.personal-work, .personal-tool) > summary > svg { flex: none; }
-.personal-layout :is(.personal-work, .personal-tool) > summary > svg:last-child { margin-left: auto; }
-.personal-layout :is(.personal-work, .personal-tool)[open] > summary > svg:last-child { transform: rotate(90deg); }
+.personal-layout :is(.personal-work, .personal-tool) > summary::after { margin-left: auto; }
 .personal-layout .personal-work.needs-attention > summary { color: #8a5931; }
-.personal-layout .personal-work-content { display: flex; flex-direction: column; gap: 12px; padding: 5px 0 13px; }
+.personal-layout .personal-work-content { display: flex; flex-direction: column; gap: 2px; padding: 3px 0 10px; }
 .personal-layout .personal-work-content .personal-message.role-assistant { padding: 10px 14px; box-shadow: none; background: #ffffff80; }
 .personal-layout .personal-work-content .personal-message .message-content { font-size: 13px; }
 .personal-layout .personal-tool { min-width: 0; font-size: 12px; }
-.personal-layout .personal-tool > summary { min-height: 34px; padding: 6px 8px; border-radius: 10px; background: #ffffff80; flex-wrap: wrap; }
-.personal-layout .personal-tool-name { color: var(--text); }
-.personal-layout .personal-tool-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; max-width: 50%; }
-.personal-layout .personal-tool-status { margin-left: auto; font-size: 11px; color: var(--muted); }
-.personal-layout .personal-tool > summary > svg:last-child { margin-left: 0; }
+.personal-layout .personal-work .personal-tool > summary { min-height: 29px; padding: 4px 2px; border-radius: 5px; background: transparent; flex-wrap: nowrap; line-height: 1.5; }
+.personal-layout .personal-tool > summary:hover { background: var(--sunken); }
+.personal-layout .personal-tool-mark { flex: none; width: 16px; text-align: center; color: var(--muted); }
+.personal-layout .personal-tool.status-failed .personal-tool-mark { color: #a04444; }
+.personal-layout .personal-tool-name { color: var(--text); flex-shrink: 0; }
+.personal-layout .personal-tool-path, .personal-layout .personal-tool-command { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.personal-layout .personal-tool-command { color: var(--text); font-size: 12px; background: transparent; padding: 0; }
+.personal-layout .personal-tool-status { margin-left: auto; flex-shrink: 0; font-size: 11px; color: var(--muted); }
+.personal-layout .personal-tool-input { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 160px; overflow: auto; font-size: 12px; }
+.personal-layout .personal-file-change pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 180px; overflow: auto; margin: 4px 0 8px; padding: 8px; border-radius: 6px; background: var(--sunken); }
+.personal-layout .personal-work-more { align-self: flex-start; border: 0; background: transparent; color: var(--accent); font-size: 11px; padding: 6px 2px; cursor: pointer; }
 .personal-layout .personal-tool:is(.status-unknown, .status-incomplete, .status-dispatched, .status-timed_out, .status-denied) .personal-tool-status { color: #8a5931; }
 .personal-layout .personal-tool.status-failed .personal-tool-status { color: #a04444; }
-.personal-layout .personal-tool-body { margin: 7px 8px 0; padding-left: 10px; border-left: 1px solid #0000000d; overflow-wrap: anywhere; }
+.personal-layout .personal-tool-body { margin: 2px 0 8px 24px; overflow-wrap: anywhere; }
 .personal-layout .personal-tool-body p { margin: 5px 0; line-height: 1.65; }
-.personal-layout .personal-tool-output { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow: auto; padding: 10px; border-radius: 8px; background: var(--sunken); }
+.personal-layout .personal-tool-output { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow: auto; margin: 4px 0; padding: 10px 12px; font-size: 12px; line-height: 1.65; border-radius: 8px; background: var(--sunken); }
 .personal-layout .personal-tool-warning { color: #8a5931; }
 .personal-layout .personal-receipt-meta { font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
 .personal-layout .personal-work > summary { flex-wrap: wrap; }
-.personal-layout .personal-tool-technical { font-size: 11px; color: var(--muted); }
-.personal-layout .personal-tool-technical > summary { cursor: pointer; }
+.personal-layout .personal-tool-technical { margin-top: 6px; font-size: 11px; color: var(--muted); }
+.personal-layout .personal-tool-technical > summary { cursor: pointer; font-size: 10px; opacity: .75; }
 .personal-layout .personal-tool.missing-file .personal-tool-status { color: #8a5931; }
 .personal-layout .personal-trace-link { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 5px 0; border: 0; background: transparent; color: var(--accent); }
 .personal-layout .personal-completion { display: flex; gap: 8px; color: var(--muted); font-size: 12px; line-height: 1.6; }
@@ -94,3 +102,10 @@
   .personal-layout .personal-composer-pill { gap: 8px; padding: 8px 10px; }
   .personal-layout .personal-tool-path { max-width: 75%; }
 }
+
+.personal-layout .personal-file-change small { font-size: 10px; color: var(--muted); }
+.personal-layout .personal-file-change .change-before { border-left: 2px solid #b6666655; }
+.personal-layout .personal-file-change .change-after { border-left: 2px solid #699c7955; }
+.personal-layout .personal-output-empty { font-size: 11px; color: var(--muted); }
+.personal-layout .review-notice.execution-review { padding: 4px 10px; gap: 6px; font-size: 11px; border: 0; background: transparent; box-shadow: none; }
+.personal-layout .execution-review button { padding: 2px 5px; font-size: 11px; }

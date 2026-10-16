@@ -7,6 +7,7 @@ import { afterEach, describe, it } from "node:test";
 import type { AgentEvent, RunResult } from "@aisdk-agent/core";
 import {
   EXECUTION_RECORD_FILE,
+  EXECUTION_RECORD_MAX_TOOLS,
   ExecutionRecordError,
   createExecutionRecordStore,
   readFileWriteReceipt,
@@ -50,6 +51,25 @@ async function errorCode(operation: () => Promise<unknown>): Promise<string | un
 }
 
 describe("ExecutionRecordStore", () => {
+  it("keeps receipts beyond the old 64-call limit and rejects dispatch at the new bounded capacity", async () => {
+    const path = await directory();
+    const store = createExecutionRecordStore(path, { now });
+    await store.startRun({ runId: "run-1", threadId: "thread-1", phase: "primary" });
+    for (let index = 0; index < 129; index++) {
+      await store.recordToolEvent("run-1", toolEvent("tool.call.requested", { toolCallId: `call-${index}`, toolName: "read_file", input: { path: "file.txt" } }));
+    }
+    const file = join(path, EXECUTION_RECORD_FILE);
+    const document = JSON.parse(await readFile(file, "utf8"));
+    assert.equal(document.runs[0].tools.length, 129);
+    const template = { ...document.runs[0].tools[0], inputPreview: "x".repeat(2048), inputTruncated: true };
+    document.runs[0].tools = Array.from({ length: EXECUTION_RECORD_MAX_TOOLS }, (_, index) => ({ ...template, toolCallId: `call-${index}` }));
+    await writeFile(file, JSON.stringify(document));
+    assert.ok((await stat(file)).size > 256 * 1024, "long Runs also exceed the former document size limit");
+    const reopened = createExecutionRecordStore(path, { now });
+    assert.equal((await reopened.getRun("thread-1", "run-1"))?.tools.length, EXECUTION_RECORD_MAX_TOOLS);
+    assert.equal(await errorCode(() => reopened.recordToolEvent("run-1", toolEvent("tool.call.requested", { toolCallId: "overflow", toolName: "shell_exec", input: { command: "never" } }))), "LIMIT_EXCEEDED");
+    assert.equal((await reopened.getRun("thread-1", "run-1"))?.tools.some(tool => tool.toolCallId === "overflow"), false);
+  });
   for (const boundary of ["file", "directory"] as const) {
     it(`stops receipt writes at ${boundary} sync failure, preserves the correct unknown boundary on reopen`, async (t) => {
       const path = await directory();

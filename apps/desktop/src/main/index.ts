@@ -205,6 +205,7 @@ async function main(): Promise<void> {
 
   const drafts = new ConversationDraftSession(host, new ConversationDraftStore(app.getPath("userData")));
   ipcMain.handle(IPC.telegramStatus, () => host.telegramStatus());
+  ipcMain.handle(IPC.telegramAutonomyEnabled, (_event, input) => host.setTelegramAutonomyEnabled(input));
   ipcMain.handle(IPC.telegramEnabled, (_event, enabled: boolean) => host.setTelegramEnabled(enabled));
   ipcMain.handle(IPC.telegramPairing, () => host.beginTelegramPairing());
   ipcMain.handle(IPC.telegramBind, (_event, code: string) => host.confirmTelegramPairing(code));
@@ -249,6 +250,7 @@ async function main(): Promise<void> {
   ipcMain.handle(IPC.dream, () => host.current.dream());
   ipcMain.handle(IPC.learnedSkillChange, (_event, input) => host.current.changeLearnedSkill(input));
   ipcMain.handle(IPC.learnedSkillReferences, () => host.current.getLearnedSkillReferences());
+  ipcMain.handle(IPC.autonomyEnabled, (_event, input) => host.setAutonomyEnabled(input));
   ipcMain.handle(IPC.dreamingEnabled, (_event, input) => host.setDreamingEnabled(input));
   ipcMain.handle(IPC.runSkill, (_event, input) => host.current.runSkill(input));
   ipcMain.handle(IPC.memoryLibraryGet, () => host.current.getMemoryLibrary());

@@ -59,7 +59,11 @@ export const TUI_MAX_CONFIGURABLE_STEPS = 32;
 export const TUI_DEFAULT_TOTAL_TIMEOUT_MS = 120_000;
 export const TUI_MAX_TOTAL_TIMEOUT_MS = 30 * 60_000;
 
+export interface TelegramAutonomyGrant { workspaceRoot: string; botId: number; userId: number; chatId: number; threadId: string }
+
 export interface ResolvedTuiModuleConfig {
+  telegramAutonomy?: TelegramAutonomyGrant;
+  desktopAutonomy?: { workspaceRoot: string };
   configPath: string | null;
   workspaceRoot: string | null;
   enabled: Record<BuiltinModuleId, boolean>;
@@ -190,6 +194,8 @@ const tuiModuleConfigV1Schema = z
         computer: computerConfigSchema.optional(),
     })
     .strict(),
+    telegramAutonomy: z.object({ workspaceRoot: nonEmptyString, botId: z.number().int().positive().safe(), userId: z.number().int().positive().safe(), chatId: z.number().int().positive().safe(), threadId: nonEmptyString }).strict().optional(),
+    desktopAutonomy: z.object({ workspaceRoot: nonEmptyString }).strict().optional(),
     fileAuthorizations: z.array(fileAuthorizationSchema).optional(),
     contextCompaction: contextCompactionSchema.optional(),
     modelPricing: z.array(z.custom<ModelPrice>(validModelPrice)).max(16).refine(prices =>
@@ -242,6 +248,8 @@ export interface TuiModuleConfigV1 {
         }
       | undefined;
   };
+  telegramAutonomy?: TelegramAutonomyGrant | undefined;
+  desktopAutonomy?: { workspaceRoot: string } | undefined;
   fileAuthorizations?: FileAuthorizationRule[] | undefined;
   contextCompaction?: ContextBudgetConfig | undefined;
   run?: { maxSteps?: number | undefined; totalTimeoutMs?: number | undefined } | undefined;
@@ -559,11 +567,11 @@ async function resolveConfiguredMode(
     workspaceRoot,
     enabled,
   );
-  if (fileAuthorizations.length > 0 || shellSandbox !== null || enabled.computer || memoryWritePolicy === "automatic" || config.automation !== undefined || memorySemantic) {
+  if (config.telegramAutonomy || config.desktopAutonomy || fileAuthorizations.length > 0 || shellSandbox !== null || enabled.computer || memoryWritePolicy === "automatic" || config.automation !== undefined || memorySemantic) {
     const configRealPath = await realpath(absoluteConfigPath);
     if (workspaceRoot !== null && isPathWithin(workspaceRoot, configRealPath)) {
       throw new Error(
-        "TUI config with sandbox, fileAuthorizations, computer, automatic memory or automation must be outside the workspace",
+        "TUI config with sandbox, fileAuthorizations, computer, automatic memory, automation or foreground autonomy must be outside the workspace",
       );
     }
   }
@@ -574,6 +582,9 @@ async function resolveConfiguredMode(
     : null;
 
   return {
+    ...(config.telegramAutonomy?.workspaceRoot === workspaceRoot ? { telegramAutonomy: config.telegramAutonomy } : {}),
+    ...(config.desktopAutonomy && config.desktopAutonomy.workspaceRoot === workspaceRoot
+      ? { desktopAutonomy: { workspaceRoot } } : {}),
     configPath: absoluteConfigPath,
     workspaceRoot,
     enabled,

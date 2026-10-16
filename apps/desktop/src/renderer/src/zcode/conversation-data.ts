@@ -18,11 +18,20 @@ export interface ConversationTurn {
   copyText: string;
 }
 
-/** Preserve the row order; only completed work before the final reply can fold. */
+/** Preserve row order inside one work group; only settled trailing text is a final reply. */
 export function conversationTurns(rows: readonly ConversationRow[], running: boolean): ConversationTurn[] {
   const groups: ConversationRow[][] = [];
+  let activeRun: string | undefined;
   for (const row of rows) {
-    if ((row.kind === "text" && row.role === "user" && !row.steer) || groups.length === 0) groups.push([]);
+    const userBoundary = row.kind === "text" && row.role === "user" && !row.steer;
+    // Failed/cancelled Runs may have no committed user message. Known Run
+    // identities still keep their receipts out of the previous completed task.
+    const runBoundary = row.kind === "tool" && row.runId && activeRun && row.runId !== activeRun;
+    if (userBoundary || runBoundary || groups.length === 0) {
+      groups.push([]);
+      activeRun = undefined;
+    }
+    if (row.kind === "tool" && row.runId) activeRun = row.runId;
     groups.at(-1)!.push(row);
   }
   return groups.map((group, index) => {
@@ -32,7 +41,7 @@ export function conversationTurns(rows: readonly ConversationRow[], running: boo
     // A text before an unresolved/later tool is not a final answer. Never lift it
     // over the tool, and never infer a successful run from assistant wording.
     const finalReply = !live && tail?.kind === "text" && tail.role === "assistant" ? tail : undefined;
-    const foldWork = group.some(row => row.kind === "tool") && finalReply !== undefined;
+    const foldWork = group.some(row => row.kind === "tool");
     const items: ConversationFlowItem[] = [];
     for (const row of group) {
       if (row.kind === "result") {
@@ -50,14 +59,14 @@ export function conversationTurns(rows: readonly ConversationRow[], running: boo
   });
 }
 
-const attentionStatuses = new Set<ToolRow["status"]>(["failed", "unknown", "timed_out", "dispatched", "incomplete"]);
+const attentionStatuses = new Set<ToolRow["status"]>(["unknown", "timed_out", "dispatched", "incomplete"]);
 
 export function isMissingFile(row: ToolRow): boolean {
   return row.toolName === "read_file" && row.status === "failed" && row.errorCode === "FILE_NOT_FOUND";
 }
 
 function needsAttention(row: ToolRow): boolean {
-  // A settled historical failure is not a pending action. Unknown effects remain visible.
+  // A known failure stays in the summary, without forcing the whole log open.
   return attentionStatuses.has(row.status) && !isMissingFile(row) && !(row.historical && (row.status === "failed" || row.status === "timed_out"));
 }
 
@@ -67,6 +76,32 @@ export function workSummary(rows: readonly ConversationRow[]): { label: string; 
   const pending = tools.some(row => row.status === "requested");
   const historical = tools.length > 0 && tools.every(row => row.historical);
   return { label: `${historical ? "历史执行" : "执行过程"} · ${tools.length} 次工具调用${attention ? " · 有结果待查看" : pending ? " · 调用未结束" : tools.some(isMissingFile) ? " · 文件不存在" : tools.some(row => row.status === "failed" || row.status === "timed_out") ? " · 有调用未成功" : tools.some(row => row.status === "denied") ? " · 有调用被拒绝" : ""}`, needsAttention: attention, pending };
+}
+
+/** Compact facts only: arbitrary Shell success does not establish task/check completion. */
+export function compactWorkSummary(rows: readonly ConversationRow[], running: boolean, waitingForApproval: boolean) {
+  const tools = rows.filter((row): row is ToolRow => row.kind === "tool");
+  const { needsAttention, pending } = workSummary(rows);
+  const commands = tools.filter(row => row.toolName === "shell_exec").length;
+  const changed = new Set(tools.filter(row => (row.toolName === "write_file" || row.toolName === "edit_file") && row.status === "ok" && row.receipt)
+    .map(row => row.receipt!.path)).size;
+  const failedCommands = tools.filter(row => row.toolName === "shell_exec" && row.status === "failed").length;
+  const failedOthers = tools.filter(row => row.toolName !== "shell_exec" && row.status === "failed" && !isMissingFile(row)).length;
+  const notices = [
+    tools.some(row => row.status === "unknown") ? "效果未知 · 需人工核对，不自动重做" : "",
+    tools.some(row => row.status === "dispatched") ? "动作已派发 · 待核对" : "",
+    tools.some(row => row.status === "incomplete") ? "回执不完整 · 待核对" : "",
+    tools.some(row => row.status === "timed_out") ? "有调用超时" : "",
+    failedCommands ? `曾有 ${failedCommands} 次命令失败` : "",
+    failedOthers ? `曾有 ${failedOthers} 次调用失败` : "",
+    tools.some(isMissingFile) ? "文件不存在" : "",
+    tools.some(row => row.status === "denied") ? "有调用被拒绝" : "",
+  ].filter(Boolean);
+  const settled = tools.filter(row => row.status !== "requested").length;
+  const title = running ? `${waitingForApproval ? "等待确认后继续" : "正在执行"} · 已结束 ${settled} 步`
+    : `${tools.length > 0 && tools.every(row => row.historical) ? "历史执行" : "执行过程"} · ${tools.length} 步`;
+  return { title, facts: [changed ? `修改 ${changed} 个文件` : "", commands ? `${commands} 次命令` : ""].filter(Boolean).join(" · "),
+    notice: notices.join(" · "), needsAttention, pending };
 }
 
 export function toolPresentation(row: ToolRow): { name: string; status: string; icon: "terminal" | "memory" | "timer" | "activity"; attention: boolean } {

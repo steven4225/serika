@@ -41,7 +41,7 @@ export function createWorkTaskFinishCheck(env: VerificationEnvironment & { workT
     if (input.corrections >= WORK_TASK_MAX_CORRECTIONS || input.remainingSteps <= 0) return { kind: "stop", reason: "budget_exhausted" };
     return { kind: "continue", feedback: [
       "Do not end this WorkTask yet: the following required program checks are not satisfied. Correct only these missing steps within the original goal and constraints, then finish again.",
-      "Read current files before editing. New tool calls still require their original confirmation. Never replay unknown effects or repeat a denied call; do not self-accept human quality.",
+      "Read current files before editing. New tool calls follow the current host authorization policy. Never replay unknown effects or repeat a denied call; do not self-accept human quality.",
       ...(testBatch ? [`After edits, execute this exact Shell batch once for all required tests: ${JSON.stringify(testBatch)}. Later Shell/file/computer actions invalidate it.`] : []),
       ...missing.map(({ criterion, result }) => JSON.stringify({ id: criterion.id, verification: criterion.verification, status: result.status, note: result.note })),
     ].join("\n").slice(0, 8192) };

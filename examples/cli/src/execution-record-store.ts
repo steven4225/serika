@@ -9,8 +9,8 @@ import { MODEL_CALL_LIMIT, validModelCall, type ModelCallRecord, type ModelUsage
 
 export const EXECUTION_RECORD_FILE = "execution-records.json";
 export const EXECUTION_RECORD_MAX_RUNS = 50;
-export const EXECUTION_RECORD_MAX_TOOLS = 64;
-export const EXECUTION_RECORD_MAX_BYTES = 256 * 1024;
+export const EXECUTION_RECORD_MAX_TOOLS = 1024;
+export const EXECUTION_RECORD_MAX_BYTES = 8 * 1024 * 1024;
 export const EXECUTION_RECORD_PREVIEW_BYTES = 2 * 1024;
 const FILE_WRITE_MAX_BYTES = 65_536;
 const FILE_PATH_MAX_BYTES = 1_024;

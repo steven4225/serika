@@ -1,3 +1,4 @@
+import { AUTONOMOUS_MAX_STEPS, AUTONOMOUS_TOTAL_TIMEOUT_MS, AUTONOMOUS_SHELL_TIMEOUT_MS, AUTONOMOUS_INSTRUCTIONS, createForegroundTaskReference, placeForegroundTaskReference } from "./foreground-autonomy.js";
 import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -126,6 +127,10 @@ export interface RuntimeAppOptions {
   taskAutomation?: TaskAutomationHost;
   /** Trusted embedding opt-in: only built-in task_list/task_get in this workspace. */
   allowWorkspaceTaskReads?: true;
+  /** Only the desktop host may enable persisted workspace autonomy. TUI/worker do not opt in. */
+  allowDesktopAutonomy?: true;
+  /** Trusted gateway validates the saved private-chat identity at Run start. */
+  authorizeTelegramAutonomy?: (grant: import("./tui-module-config.js").TelegramAutonomyGrant) => boolean;
   /** Trusted destination registration after the task commit, before service activation. */
   afterTaskArrangementSaved?: (saved: SavedTaskArrangement) => Promise<void>;
   /** Host-owned disclosure in the shared approval preview, never a model argument. */
@@ -151,6 +156,10 @@ export interface RuntimeApp {
   /** Local receipts for the embedded assistant; not a replay log. */
   executionRecords: ExecutionRecordStore;
   enableExecutionRecords: () => void;
+  beginForegroundExecution?: (entry: "desktop" | "telegram" | undefined, request?: UIMessage) => boolean;
+  endForegroundExecution?: () => void;
+  desktopAutonomyEnabled?: boolean;
+  telegramAutonomyEnabled?: () => boolean;
   bindNextExecutionWorkTask: (input: { id: string; expectedRevision: number }) => () => void;
   workTasks: WorkTaskStore | undefined;
   workTaskContext: {
@@ -206,6 +215,13 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
   const modelCapacity = typeof model === "string" ? undefined : resolveModelContextWindow(model, env, moduleConfig?.modelContextWindows);
   if (moduleConfig && modelCapacity) moduleConfig.contextCompaction = effectiveContextBudget(moduleConfig.contextCompaction, modelCapacity);
   const workspaceRoot = moduleConfig?.workspaceRoot ?? undefined;
+  const desktopAutonomyEnabled = options.allowDesktopAutonomy === true &&
+    moduleConfig?.desktopAutonomy?.workspaceRoot === workspaceRoot && workspaceRoot !== undefined && !moduleConfig?.shellSandbox;
+  const telegramAutonomyEnabled = () => !!moduleConfig?.telegramAutonomy && !moduleConfig.shellSandbox &&
+    options.authorizeTelegramAutonomy?.(moduleConfig.telegramAutonomy) === true;
+  let autonomousRun = false;
+  let foregroundTaskRequest: UIMessage | undefined;
+  let foregroundEntry: "desktop" | "telegram" | undefined;
   const memoryEnabled = moduleConfig?.enabled.memory ?? false;
   const checkpointEnabled = moduleConfig?.enabled.checkpoint ?? false;
   const taskEnabled = moduleConfig?.enabled.task ?? false;
@@ -376,7 +392,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
               ? [
                   createShellModule(workspaceRoot!, {
                     ...(shellSandbox === undefined ? {} : { sandbox: shellSandbox }),
-                    timeoutMs: moduleConfig!.shellTimeoutMs,
+                    timeoutMs: !moduleConfig!.shellSandbox && (desktopAutonomyEnabled || moduleConfig!.telegramAutonomy && options.authorizeTelegramAutonomy) ? AUTONOMOUS_SHELL_TIMEOUT_MS : moduleConfig!.shellTimeoutMs,
+                    commandTimeoutMs: () => autonomousRun ? AUTONOMOUS_SHELL_TIMEOUT_MS : moduleConfig!.shellTimeoutMs,
                     onProgress: notifyShellProgress,
                   }),
                 ]
@@ -992,9 +1009,14 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       }
       return createResumeContextMessage(activeResumeObservation);
     };
+    const primaryInstructions = () => autonomousRun
+      ? calculatorInstructions
+        .replaceAll("The command and workspace-relative cwd will be shown for y/n confirmation.", "File tools and local shell_exec are host-authorized for this Run.")
+        .replaceAll("Shell remains per-call confirmation.", "Local Shell follows this Run's host authorization.") + "\n" + AUTONOMOUS_INSTRUCTIONS
+      : calculatorInstructions;
     const registeredTools = [addRegistration, ...(moduleHost?.tools ?? [])];
     const getCapabilities = () => capabilityStatus(moduleConfig, registeredTools.map(item => item.metadata.name).filter(name =>
-      moduleConfig?.memoryWritePolicy !== "automatic" || !name.startsWith("memory_")));
+      moduleConfig?.memoryWritePolicy !== "automatic" || !name.startsWith("memory_")), foregroundEntry ? autonomousRun : desktopAutonomyEnabled, foregroundEntry);
     const statusRegistration = { metadata: { name: "capability_status", version: "1", risk: "read" as const, timeoutMs: 1000, idempotent: true },
       tool: tool({ description: "Read current host-registered tools and static capability/permission mode. No service probes, process/app inspection, credentials, installation or writes. Service/OS permission health remains not_checked.",
         inputSchema: z.object({}).strict(), execute: async () => getCapabilities() }) };
@@ -1009,7 +1031,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       {
         id: PRIMARY_AGENT_ID,
         version: "1",
-        instructions: calculatorInstructions,
+        instructions: primaryInstructions(),
         model: modelAlias,
         tools: primaryToolNames,
         limits: {
@@ -1182,6 +1204,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         ...(view?.message ? [view.message] : []),
         ...(learnedMessage ? [learnedMessage] : []),
         ...(activeWorkTaskMessage ? [activeWorkTaskMessage] : []),
+        ...(primary && autonomousRun && foregroundTaskRequest ? [createForegroundTaskReference(foregroundTaskRequest, messages)] : []),
       ] };
     };
     const referencePrefix = async (messages: readonly UIMessage[], signal: AbortSignal) => (await buildReferencePrefix(messages, signal)).prefix;
@@ -1200,7 +1223,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
               const now = new Date();
               const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
               return {
-                instructions: calculatorInstructions,
+                instructions: primaryInstructions(),
                 tools: primaryToolContext,
                 dynamicContext: {
                   now: now.toISOString(),
@@ -1216,7 +1239,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const startupPrefix = await referencePrefix([], AbortSignal.timeout(5_000));
       const fixedEstimate = estimateContextInput({
-        instructions: calculatorInstructions,
+        instructions: primaryInstructions(),
         tools: primaryToolContext,
         dynamicContext: { now: now.toISOString(), timeZone },
         messages: startupPrefix,
@@ -1381,13 +1404,19 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
             output.write("修改或删除配置后需重启 TUI 生效。\n");
           }
           output.write(
-            "Shell 的下一 Run 授权只在 Docker sandbox 模式可用；host 模式仍逐次确认。Shell、memory、checkpoint、Todoist、task 不受持久文件授权影响。\n",
+            "Shell 的下一 Run 授权只在 Docker sandbox 模式可用；host 模式默认逐次确认，桌面可显式开启工作区自主执行。Shell、memory、checkpoint、Todoist、task 不受持久文件授权影响。\n",
           );
         },
       });
     }
     const runtime = new DefaultAgentRuntime({
-      catalog,
+      catalog: { get: agentId => {
+        const definition = catalog.get(agentId);
+        return definition && agentId === PRIMARY_AGENT_ID && autonomousRun ? { ...definition,
+          instructions: primaryInstructions(),
+          limits: { ...definition.limits, maxSteps: AUTONOMOUS_MAX_STEPS, totalTimeoutMs: AUTONOMOUS_TOTAL_TIMEOUT_MS },
+        } : definition;
+      } },
       store: executionRecordAdapter.store,
       loop: new AiSdkAgentLoop({
         models,
@@ -1455,7 +1484,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
                       estimatedInputTokens: null, error: null,
                     };
                     publishMemoryReference(reference);
-                    return placeCurrentMemoryReference(selected, currentUser?.id);
+                    return placeForegroundTaskReference(placeCurrentMemoryReference(selected, currentUser?.id));
                   }
                 } catch (error) {
                   learnedSkillReference = null;
@@ -1474,7 +1503,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
                 try {
                   const conversation = await contextCompactor.prepare(messages, signal, false, prefix);
                   publishMemoryReference(reference);
-                  return placeCurrentMemoryReference([...contextCompactor.effectiveReferencePrefix, ...conversation], currentUser?.id);
+                  return placeForegroundTaskReference(placeCurrentMemoryReference([...contextCompactor.effectiveReferencePrefix, ...conversation], currentUser?.id));
                 } catch (error) {
                   learnedSkillReference = null;
                   publishMemoryReference(null);
@@ -1587,6 +1616,15 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       getLearnedSkillReferences: () => learnedSkillReference === null ? null : structuredClone(learnedSkillReference),
       ...(activateTaskAutomation ? { activateTaskAutomation } : {}),
       ...(memoryStore ? { memoryStore } : {}),
+      desktopAutonomyEnabled,
+      telegramAutonomyEnabled,
+      beginForegroundExecution: (entry, request) => {
+        foregroundEntry = entry;
+        autonomousRun = entry === "desktop" ? desktopAutonomyEnabled : entry === "telegram" && moduleConfig?.telegramAutonomy?.threadId === threadId && telegramAutonomyEnabled();
+        foregroundTaskRequest = autonomousRun && request ? structuredClone(request) : undefined;
+        return autonomousRun;
+      },
+      endForegroundExecution: () => { autonomousRun = false; foregroundEntry = undefined; foregroundTaskRequest = undefined; },
       ...(recipes ? { recipes } : {}),
       ...(memoryConsolidation ? { memoryConsolidation } : {}),
       ...(maintainMemoryIndex ? { maintainMemoryIndex } : {}),

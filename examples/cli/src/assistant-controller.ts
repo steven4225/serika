@@ -115,6 +115,8 @@ export interface AssistantRunOptions {
   attachments?: ChatAttachment[];
   /** Exclude this ordinary user message from present and future memory consolidation. */
   memoryConsolidation?: "exclude";
+  /** Trusted bridge only; renderer options are sanitized before reaching here. */
+  desktopEntry?: true;
   /** Trusted channel receipt clock; never accepted from renderer run options. */
   receivedAt?: string;
   /** Trusted embedding channel; renderer options cannot set it. */
@@ -187,7 +189,7 @@ export interface AssistantController {
   getWorkTaskDeliveryDraft(input: WorkTaskReadInput): Promise<WorkTaskReadResult<WorkTaskDeliveryDraft>>;
   getWorkTaskContinuation(input: WorkTaskReadInput): Promise<WorkTaskResult<WorkTaskContinuation>>;
   getWorkTaskArtifact(input: WorkTaskArtifactInput): Promise<WorkTaskReadResult<WorkTaskArtifactPreview>>;
-  runWorkTask(input: { id: string; expectedRevision: number; instruction?: string; completionCheck?: boolean; source?: "telegram" }): Promise<StartRunResponse>;
+  runWorkTask(input: { id: string; expectedRevision: number; instruction?: string; completionCheck?: boolean; source?: "telegram" }, options?: { desktopEntry?: true }): Promise<StartRunResponse>;
   submitWorkTaskDelivery(input: {
     id: string;
     expectedRevision: number;
@@ -395,8 +397,10 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     background = false,
     executionThreadId = app.threadId,
     source?: "telegram",
+    desktopEntry = false,
   ): Promise<{ result: RunResult; requestedMemoryTool: boolean; finalizationFailed: boolean }> => {
-    app.toolConfirmation?.beginRun();
+    const autonomous = phase === "primary" && app.beginForegroundExecution?.(source === "telegram" ? "telegram" : desktopEntry ? "desktop" : undefined, message) === true;
+    app.toolConfirmation?.beginRun(autonomous);
     if (phase === "primary") {
       primaryRunId = undefined;
       primaryContextMessageIds = new Set([message.id]);
@@ -451,7 +455,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
           }
           if (event.type === "run.completion.checked") {
             completionCorrections = event.data.corrections;
-            if (event.data.decision === "continue") controller.recordOutput(`\n正在补齐任务证据（${completionCorrections}/2），仍需逐次确认工具。\n`);
+            if (event.data.decision === "continue") controller.recordOutput(`\n正在补齐任务证据（${completionCorrections}/2），工具按当前授权执行。\n`);
           }
           if (event.type === "tool.call.requested") {
             toolNames.set(event.data.toolCallId, event.data.toolName);
@@ -640,6 +644,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       }
       activeHandle = undefined;
       app.toolConfirmation?.endRun();
+      app.endForegroundExecution?.();
     }
   };
 
@@ -1430,7 +1435,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
         return { ok: false, error: { code: "WORK_TASK_READ_FAILED", message: "Unable to read artifact preview or its execution receipt" } };
       }
     },
-    runWorkTask: async (input) => {
+    runWorkTask: async (input, options) => {
       if (await workTaskRecoveryFailure() !== undefined) return { ok: false, reason: "starting" };
       if (app.workTasks === undefined || app.workspaceRoot === undefined) return { ok: false, reason: "starting" };
       if (closed || state.kind !== "idle" || nextWorkTask !== undefined || activeWorkTask !== undefined) {
@@ -1459,6 +1464,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
         const started = await controller.run(input.instruction?.trim() || found.value.goal, {
           memoryConsolidation: "exclude",
           ...(input.source ? { source: input.source } : {}),
+          ...(options?.desktopEntry ? { desktopEntry: true } : {}),
         });
         clearBinding();
         clearBinding = undefined;
@@ -1623,7 +1629,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
           try {
             primary = await executeRun(app.agentId, userMessage, "primary", startup.signal, (handle) => {
               settleStart({ ok: true, runId: handle.runId });
-            }, false, app.threadId, options?.source);
+            }, false, app.threadId, options?.source, options?.desktopEntry === true);
           } finally {
             app.resume?.endRun();
           }

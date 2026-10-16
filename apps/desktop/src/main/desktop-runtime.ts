@@ -6,7 +6,7 @@ import { enableDesktopMemory, resolveDesktopConfig } from "./desktop-config.js";
 import { createDesktopThread, listDesktopThreads, registerDesktopThread, resolveDesktopIdentity, selectDesktopThread, type DesktopIdentityResolution } from "./desktop-identity.js";
 import { discoverThreadDirectory, inspectThread } from "./thread-history.js";
 import { RuntimeBridge, TeeOutput, type Send } from "./runtime-bridge.js";
-import { changeModuleSetting, changeDreamingSetting, ConfigCommitUncertainError, type ModuleSettingInput, type DreamingSettingInput } from "./module-settings.js";
+import { changeModuleSetting, changeDreamingSetting, changeAutonomySetting, changeTelegramAutonomySetting, type AutonomySettingInput, ConfigCommitUncertainError, type ModuleSettingInput, type DreamingSettingInput } from "./module-settings.js";
 import type { AppInfo, ContextModeInput } from "../shared/ui-contract.js";
 import { readLoadedBuild } from "./build-identity.js";
 import { createPomodoroService, type PomodoroService } from "@aisdk-agent/example-cli/dist/modules/pomodoro-module.js";
@@ -69,6 +69,17 @@ export class DesktopRuntime {
   attachTelegram(gateway: TelegramGateway) { if (this.#telegram) throw new Error("Telegram already attached"); this.#telegram = gateway; }
   telegramStatus() { return this.#telegramFailure ? { ...telegramUnavailable(), available: true, connection: "failed" as const, lastError: this.#telegramFailure } : this.#telegram?.status() ?? telegramUnavailable(); }
   telegramFailed() { this.#telegramFailure = "Telegram 配置或记录无法读取，未接收消息。桌面助手仍可使用；请检查可信环境文件和通道状态文件后重启。不会重建绑定或重做执行。"; }
+  channelTelegramAutonomyEnabled() { return this.#available && this.#bridge.telegramAutonomyEnabled(); }
+  async setTelegramAutonomyEnabled(input: import("../shared/telegram.js").TelegramAutonomySettingInput) {
+    let undo: (() => Promise<void>) | undefined;
+    await this.#replace(async () => {
+      const binding = this.#telegram?.autonomyBinding();
+      if (!binding || binding.workspaceRoot !== this.#identity.workspaceRoot) throw new Error("请先连接并核对当前工作区的 Telegram 私聊绑定");
+      undo = await changeTelegramAutonomySetting(this.#identity.configPath, input, this.#options.cwd, binding, this.#bridge.telegramAutonomyEnabled());
+      return this.#identity;
+    }, false, { rollback: async () => { await undo?.(); } });
+    return this.telegramStatus();
+  }
   setTelegramEnabled(enabled: boolean) { if (!this.#telegram) throw new Error("请先启用常驻助手"); return this.#telegram.setEnabled(enabled); }
   beginTelegramPairing() { if (!this.#telegram) throw new Error("请先启用常驻助手"); return this.#telegram.beginPairing(); }
   confirmTelegramPairing(code: string) { if (!this.#telegram) throw new Error("请先启用常驻助手"); return this.#telegram.confirmPairing(code); }
@@ -106,7 +117,7 @@ export class DesktopRuntime {
           const created = await this.#bridge.createWorkTask({ goal: text, acceptance: [{ id: "user-quality", description: "用户确认任务结果符合需求", required: true, method: "human", verification: { kind: "human" } }] });
           if (!created.ok) throw new Error("工作任务未能保存，未启动执行");
           taskId = created.value.id;
-          response = await this.#bridge.runWorkTask({ id: taskId, expectedRevision: created.value.revision }, "telegram");
+          response = await this.#bridge.runWorkTaskFromChannel({ id: taskId, expectedRevision: created.value.revision });
         } else response = await this.#bridge.runFromChannel(text, receivedAt);
       } finally { this.#sourceBarrier = undefined; }
     });
@@ -141,6 +152,8 @@ export class DesktopRuntime {
       modelAlias: this.#options.modelAlias, model: this.#options.model, output, env: this.#options.env, cwd: this.#options.cwd,
       pomodoroService: this.#pomodoroService,
       allowWorkspaceTaskReads: true,
+      allowDesktopAutonomy: true,
+      authorizeTelegramAutonomy: grant => this.#telegram?.matchesAutonomyGrant(grant) === true,
       beforePrimaryRunCreate: record => this.#sourceBarrier?.(record) ?? Promise.resolve(),
       afterTaskArrangementSaved: saved => this.#telegram?.arrangementSaved(saved) ?? Promise.resolve(),
       taskArrangementDestination: () => this.#telegram?.arrangementDestination() ?? null,
@@ -309,6 +322,13 @@ export class DesktopRuntime {
     }, false, { rollback: async () => { await undo?.(); } });
     // Unrelated adapter disposal and failed/rolled-back changes never cancel.
     if (input.id === "pomodoro" && !input.enabled) this.#pomodoroService.cancel();
+  }
+  setAutonomyEnabled(input: AutonomySettingInput) {
+    let undo: (() => Promise<void>) | undefined;
+    return this.#replace(async () => {
+      undo = await changeAutonomySetting(this.#identity.configPath, input, this.#options.cwd, this.#identity.workspaceRoot);
+      return this.#identity;
+    }, false, { rollback: async () => { await undo?.(); } });
   }
   setDreamingEnabled(input: DreamingSettingInput) {
     let undo: (() => Promise<void>) | undefined;

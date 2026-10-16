@@ -11,6 +11,7 @@ export function TelegramPanel({ busy }: { busy: boolean }) {
   const [status, setStatus] = useState<TelegramStatus | null>(null);
   const [error, setError] = useState("");
   const [working, setWorking] = useState(false);
+  const [autonomyPreview, setAutonomyPreview] = useState(false);
   const [enablePreview, setEnablePreview] = useState(false);
   const [review, setReview] = useState<{ key: string; note: string } | null>(null);
   const [deliveryReview, setDeliveryReview] = useState<{ key: string; note: string } | null>(null);
@@ -46,12 +47,24 @@ export function TelegramPanel({ busy }: { busy: boolean }) {
     {status?.lastError ? <p className="hint">{status.lastError}</p> : null}
     {status?.capacity?.blocked ? <p className="error" role="alert">容量已满，请处理待核对或明确发送失败的项后重新连接。</p> : null}
     {status?.available && !status.tokenConfigured ? <p>在常驻助手使用的外部环境文件中添加 <code>TELEGRAM_BOT_TOKEN</code>，重启服务后再连接。不要把 Token 发到对话里。应用不会复制密钥到配置或页面。</p> : null}
-    <p className="hint">在手机私聊中交办事项和批准操作。Mac 与常驻助手需保持运行、联网。</p>
+    <p className="hint">在手机私聊中交办事项。Mac 与常驻助手需保持运行、联网。</p>
     {status?.owner ? <div><strong>已绑定：{status.owner.name}</strong><button className="ghost" disabled={busy || working} onClick={() => void act(async () => { await window.runloom.selectThread(status.owner!.threadId); return window.runloom.telegramStatus!(); })}>打开 Telegram 对话</button></div> : null}
+    {status?.owner && window.runloom.setTelegramAutonomyEnabled ? <div className="telegram-autonomy">
+      <p><strong>私聊自主执行：{status.autonomyEnabled ? "已开启" : "未开启"}</strong></p>
+      <p className="hint">仅当前绑定私聊的聊天和工作任务；与桌面授权独立。更改在新执行中生效，执行中请用“停止”。</p>
+      <button className="ghost" disabled={busy || working} onClick={() => status.autonomyEnabled
+        ? void act(() => window.runloom.setTelegramAutonomyEnabled!({ enabled: false, expectedEnabled: true, expectedOwner: { userId: status.owner!.userId, chatId: status.owner!.chatId, threadId: status.owner!.threadId } }))
+        : setAutonomyPreview(true)}>{status.autonomyEnabled ? "关闭私聊自主执行" : "开启私聊自主执行…"}</button>
+      {autonomyPreview ? <div className="memory-setup-preview"><strong>允许 {status.owner.name} 从当前绑定私聊自主执行？</strong>
+        <p>该私聊可连续读取、修改文件并执行本机命令。本机 Shell 使用 Serika 进程的权限，可以访问工作区外；工作区不是系统沙箱。后台和定时任务不继承此授权。</p>
+        <button disabled={busy || working} onClick={() => void act(async () => { const next = await window.runloom.setTelegramAutonomyEnabled!({ enabled: true, expectedEnabled: false, expectedOwner: { userId: status.owner!.userId, chatId: status.owner!.chatId, threadId: status.owner!.threadId } }); setAutonomyPreview(false); return next; })}>确认授权当前私聊</button>
+        <button className="ghost" onClick={() => setAutonomyPreview(false)}>取消</button>
+      </div> : null}
+    </div> : null}
     <details><summary>连接诊断</summary>
       {status?.owner ? <p className="hint">账号 {status.owner.userId} · 私聊 {status.owner.chatId}</p> : null}
       {status?.capacity ? <p className="hint">活动入站 {status.capacity.inputs}/{status.capacity.inputLimit} · 活动投递 {status.capacity.deliveries}/{status.capacity.deliveryLimit}。已结束记录保留归档去重标记。</p> : null}
-      <p className="hint">共享当前工作区记忆，使用独立对话。普通聊天忙时拒绝，不排队；确认、拒绝和停止优先处理。工具逐次确认。</p>
+      <p className="hint">共享当前工作区记忆，使用独立对话。普通聊天忙时拒绝，不排队；确认、拒绝和停止优先处理。文件和命令是否逐次确认，取决于私聊独立授权；其他工具沿用原权限。</p>
     </details>
     {status?.pairing ? <div className="memory-setup-preview"><strong>在机器人私聊发送：<code>/start {status.pairing.code}</code></strong><p className="hint">有效至 {new Date(status.pairing.expiresAt).toLocaleTimeString()}。发送后点击刷新，再核对账号。</p>
       {status.pairing.proposed ? <><p>待绑定：{status.pairing.proposed.name} · 账号 {status.pairing.proposed.userId} · 私聊 {status.pairing.proposed.chatId}</p><button disabled={busy || working} onClick={() => void act(() => window.runloom.confirmTelegramPairing!(status.pairing!.code))}>确认这是我的账号并绑定</button></> : null}

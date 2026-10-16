@@ -94,7 +94,7 @@ export interface ToolConfirmation {
   setPendingAuthorization(rule: RunAuthorizationInput): void;
   setPendingShellAuthorization(): void;
   setPendingWebAuthorization(origins: readonly string[]): void;
-  beginRun(): void;
+  beginRun(autonomous?: boolean): void;
   endRun(): void;
 }
 
@@ -367,6 +367,7 @@ export function createToolConfirmation(
   let activeRunAuthorization: RunAuthorization | undefined;
   let nextShellAuthorization = false;
   let activeShellAuthorization = false;
+  let activeAutonomy = false;
   let nextWebAuthorization: WebAuthorization | undefined;
   let activeWebAuthorization: WebAuthorization | undefined;
   const pendingListeners = new Set<(pending: PendingToolApproval | undefined) => void>();
@@ -428,6 +429,10 @@ export function createToolConfirmation(
         allow: false,
         reason: SEARCH_DENIED_FETCH_REASON,
       });
+    }
+    if (activeAutonomy && (input.toolName === "shell_exec" ||
+      (RUN_AUTHORIZED_FILE_TOOLS as readonly string[]).includes(input.toolName))) {
+      return Promise.resolve({ allow: true });
     }
     if (activeShellAuthorization && input.toolName === "shell_exec") {
       return Promise.resolve({ allow: true });
@@ -578,7 +583,8 @@ export function createToolConfirmation(
     nextWebAuthorization = { allowedOrigins: normalized, lifetime: "run" };
   };
 
-  const beginRun = (): void => {
+  const beginRun = (autonomous = false): void => {
+    activeAutonomy = autonomous;
     searchDeniedThisRun = false;
     activeRunAuthorization = nextRunAuthorization;
     nextRunAuthorization = undefined;
@@ -590,6 +596,7 @@ export function createToolConfirmation(
   };
 
   const endRun = (): void => {
+    activeAutonomy = false;
     searchDeniedThisRun = false;
     activeRunAuthorization = undefined;
     activeShellAuthorization = false;

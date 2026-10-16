@@ -167,6 +167,48 @@ it("attaches history timestamps only for a unique current-Thread primary receipt
   assert.deepEqual(annotateHistoryTools(duplicate, [run], "t1"), duplicate);
 });
 
+it("projects exact Shell input from live events and history, and only complete receipt previews after reconnect", () => {
+  const input = { command: "node check.mjs\nprintf done", cwd: "project" };
+  const requested = applyEvent(emptyLiveRun, { id: "command", type: "tool.call.requested", occurredAt: "2026-10-16T00:00:00Z", runId: "run", threadId: "thread", sequence: 1,
+    data: { toolCallId: "shell", toolName: "shell_exec", input } });
+  const history = rowsFromHistory([{ id: "command", role: "assistant", parts: [{ type: "dynamic-tool", toolName: "shell_exec", toolCallId: "shell", state: "input-available", input }] }]);
+  const receipt: ExecutionToolRecord = { toolCallId: "shell", toolName: "shell_exec", status: "completed", requestedAt: "2026-10-16T00:00:00Z", startedAt: null, finishedAt: null,
+    inputPreview: JSON.stringify(input), inputTruncated: false, resultPreview: null, resultTruncated: true, errorPreview: null,
+    shell: { exitCode: 0, cancelled: false, timedOut: false } };
+  for (const rows of [requested.rows, history, overlayExecutionReceipts([], [receipt]), overlayExecutionReceipts(requested.rows, [receipt])]) {
+    const row = rows[0];
+    assert.ok(row?.kind === "tool");
+    assert.equal(row.inputCommand, input.command);
+    assert.equal(row.inputCwd, "project");
+  }
+  const merged = overlayExecutionReceipts(requested.rows, [receipt])[0];
+  assert.equal(merged?.kind === "tool" && merged.exitCode, 0);
+  for (const invalid of [{ ...receipt, inputTruncated: true }, { ...receipt, inputPreview: '{"command":' }]) {
+    const row = overlayExecutionReceipts([], [invalid])[0];
+    assert.ok(row?.kind === "tool");
+    assert.equal(row.inputCommand, undefined);
+    assert.equal(row.inputCwd, undefined);
+  }
+  const output = { ok: true, exitCode: 0, timedOut: false, cancelled: false, output: "sum check passed" };
+  const completed = applyEvent(requested, { id: "done", type: "tool.call.completed", occurredAt: "2026-10-16T00:00:01Z", runId: "run", threadId: "thread", sequence: 2,
+    data: { toolCallId: "shell", toolName: "shell_exec", output } });
+  const saved = rowsFromHistory([{ id: "done", role: "assistant", parts: [{ type: "dynamic-tool", toolName: "shell_exec", toolCallId: "shell", state: "output-available", input, output }] }]);
+  const reloaded = overlayExecutionReceipts([], [{ ...receipt, resultPreview: JSON.stringify(output), resultTruncated: false }]);
+  for (const row of [completed.rows[0], saved[0], reloaded[0]]) {
+    assert.ok(row?.kind === "tool");
+    assert.equal(row.output, "sum check passed");
+  }
+});
+
+it("keeps bounded file-change intent separate from the write outcome", () => {
+  const [row] = rowsFromHistory([{ id: "edit", role: "assistant", parts: [{ type: "dynamic-tool", toolName: "edit_file", toolCallId: "edit", state: "output-denied", approval: { id: "approval", approved: false },
+    input: { path: "sum.js", oldText: "a - b", newText: `a + b${"x".repeat(4_001)}` } }] }]);
+  assert.ok(row?.kind === "tool");
+  assert.equal(row.status, "denied");
+  assert.deepEqual(row.fileChange, { before: "a - b", after: `a + b${"x".repeat(3_995)}`, truncated: true });
+  assert.equal(row.receipt, undefined);
+});
+
 describe("conversation file receipts", () => {
   const output = { ok: true, path: "notes/next-actions.md", bytes: 3838 };
 
@@ -412,4 +454,19 @@ it("shows persisted attachments once without displaying host document wrappers o
   assert.ok(rows[0]?.kind === "text");
   assert.equal(rows[0].text, "帮我读一下");
   assert.deepEqual(rows[0].attachments, [{ name: "note.md" }, { name: "pixel.png", url: data }]);
+});
+
+it("projects bounded file contents only from successful full outcomes, never saved previews", () => {
+  const row = (output: unknown) => rowsFromHistory([{ id: "a", role: "assistant", parts: [{ type: "dynamic-tool", toolCallId: "read", toolName: "read_file", state: "output-available", input: { path: "sum.js" }, output }] }])[0];
+  const full = row({ ok: true, path: "sum.js", content: "export const sum = (a, b) => a + b;", bytes: 34 });
+  assert.ok(full?.kind === "tool"); assert.equal(full.fileContent?.text, "export const sum = (a, b) => a + b;");
+  const saved: ExecutionToolRecord = { toolCallId: "read", toolName: "read_file", status: "unknown", requestedAt: "2026-10-16T10:00:00Z", startedAt: null, finishedAt: null, inputPreview: "{}", inputTruncated: false, resultPreview: null, resultTruncated: false, errorPreview: null, shell: null };
+  const unknown = overlayExecutionReceipts([full], [saved])[0];
+  assert.ok(unknown?.kind === "tool"); assert.equal(unknown.fileContent, undefined);
+  const long = row({ ok: true, path: "sum.js", content: "x".repeat(11999) + "😀tail", bytes: 12007 });
+  assert.ok(long?.kind === "tool"); assert.equal(long.fileContent?.text.length, 11999); assert.equal(long.fileContent?.truncated, true);
+  const failed = row({ ok: false, content: "must not show", error: { code: "READ_FAILED", message: "failed" } });
+  assert.ok(failed?.kind === "tool"); assert.equal(failed.fileContent, undefined);
+  const preview = rowsFromToolActivity([{ toolCallId: "read", toolName: "read_file", status: "completed", summary: '{"ok":true,"content":"preview"}', truncated: false }])[0];
+  assert.ok(preview?.kind === "tool"); assert.equal(preview.fileContent, undefined);
 });

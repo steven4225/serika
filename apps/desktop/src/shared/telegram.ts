@@ -1,8 +1,11 @@
+export interface TelegramAutonomySettingInput { enabled: boolean; expectedEnabled: boolean; expectedOwner: { userId: number; chatId: number; threadId: string } }
+
 /** Status only. Bot credentials never cross renderer or resident IPC. */
 export interface TelegramStatus {
   available: boolean;
   tokenConfigured: boolean;
   enabled: boolean;
+  autonomyEnabled?: boolean;
   connection: "disabled" | "connecting" | "online" | "failed";
   botUsername: string | null;
   owner: { userId: number; chatId: number; name: string; threadId: string } | null;

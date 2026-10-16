@@ -27,6 +27,11 @@ export interface ToolRow {
   runId?: string;
   /** Display facts from full input/output or an unambiguous saved receipt. */
   inputPath?: string;
+  /** Display-only Shell intent from complete host input; never inferred from output. */
+  inputCommand?: string;
+  inputCwd?: string;
+  fileContent?: { text: string; truncated: boolean };
+  fileChange?: { before?: string; after: string; truncated: boolean };
   errorCode?: string;
   recordedAt?: string;
   historical?: true;
@@ -41,6 +46,8 @@ export interface ToolRow {
   detail?: string;
   stdout?: string;
   stderr?: string;
+  /** Combined final Shell output; live streams keep their separate channels. */
+  output?: string;
   progressTruncated?: boolean;
   timedOut?: boolean;
   cancelled?: boolean;
@@ -137,13 +144,36 @@ function withShellFields(
     cancelled: shell.cancelled,
     progressTruncated: row.progressTruncated === true || shell.truncated,
     ...(shell.exitCode !== undefined ? { exitCode: shell.exitCode } : {}),
+    ...shellOutputFields(output),
   };
 }
 
-function fileInputFields(input: unknown): Pick<ToolRow, "inputPath"> {
+function shellOutputFields(output: unknown): Pick<ToolRow, "output"> {
+  if (typeof output !== "object" || output === null) return {};
+  const text = (output as { output?: unknown }).output;
+  return typeof text === "string" ? { output: text } : {};
+}
+
+function toolInputFields(toolName: string, input: unknown): Pick<ToolRow, "inputPath" | "inputCommand" | "inputCwd" | "fileChange"> {
   if (typeof input !== "object" || input === null) return {};
-  const path = (input as { path?: unknown }).path;
-  return typeof path === "string" && path.length > 0 ? { inputPath: path } : {};
+  if (toolName === "shell_exec") {
+    const { command, cwd } = input as { command?: unknown; cwd?: unknown };
+    return { ...(typeof command === "string" && command.length > 0 ? { inputCommand: command } : {}),
+      ...(typeof cwd === "string" && cwd.length > 0 ? { inputCwd: cwd } : {}) };
+  }
+  const { path, oldText, newText, content } = input as { path?: unknown; oldText?: unknown; newText?: unknown; content?: unknown };
+  const after = toolName === "edit_file" && typeof oldText === "string" && typeof newText === "string" ? newText
+    : toolName === "write_file" && typeof content === "string" ? content : undefined;
+  const before = toolName === "edit_file" && typeof oldText === "string" ? oldText : undefined;
+  const preview = (text: string) => text.slice(0, 4_000).replace(/[\uD800-\uDBFF]$/u, "");
+  return { ...(typeof path === "string" && path.length > 0 ? { inputPath: path } : {}),
+    ...(after !== undefined ? { fileChange: { after: preview(after), ...(before !== undefined ? { before: preview(before) } : {}),
+      truncated: after.length > 4_000 || (before?.length ?? 0) > 4_000 } } : {}) };
+}
+
+function receiptInputFields(tool: ExecutionToolRecord): ReturnType<typeof toolInputFields> {
+  if (tool.inputTruncated) return {};
+  try { return toolInputFields(tool.toolName, JSON.parse(tool.inputPreview)); } catch { return {}; }
 }
 
 function outputErrorCode(output: unknown): string | undefined {
@@ -155,8 +185,13 @@ function outputErrorCode(output: unknown): string | undefined {
 function withFileReceipt(row: ToolRow, output: unknown): ToolRow {
   const receipt = fileToolReceipt(row.toolName, output);
   const errorCode = outputErrorCode(output);
-  const { receipt: previousReceipt, errorCode: previousCode, ...withoutReceipt } = row;
-  return { ...withoutReceipt, ...(errorCode ? { errorCode } : {}), ...(row.status === "ok" && receipt ? { receipt } : {}) };
+  const { receipt: previousReceipt, errorCode: previousCode, fileContent: previousContent, ...withoutReceipt } = row;
+  const value = output as { ok?: unknown; content?: unknown; entries?: { name?: unknown; type?: unknown }[]; truncated?: unknown } | null;
+  const content = row.toolName === "read_file" && typeof value?.content === "string" ? value.content
+    : row.toolName === "list_directory" && Array.isArray(value?.entries) ? value.entries.map(entry => typeof entry.name === "string" ? `${entry.type === "directory" ? "▸ " : "  "}${entry.name}` : "").join("\n") : undefined;
+  const fileContent = row.status === "ok" && value?.ok === true && content !== undefined
+    ? { text: content.slice(0, 12_000).replace(/[\uD800-\uDBFF]$/u, ""), truncated: content.length > 12_000 || value.truncated === true } : undefined;
+  return { ...withoutReceipt, ...(fileContent ? { fileContent } : {}), ...(errorCode ? { errorCode } : {}), ...(row.status === "ok" && receipt ? { receipt } : {}) };
 }
 
 /**
@@ -212,7 +247,7 @@ export function rowsFromHistory(messages: readonly UIMessage[]): ConversationRow
           toolCallId: part.toolCallId,
           toolName: part.toolName,
           historical: true,
-          ...fileInputFields(part.input),
+          ...toolInputFields(part.toolName, part.input),
           status: outcome.status,
           ...(["output-available", "output-error", "output-denied"].includes(part.state) ? { outcomeSource: "full" as const } : {}),
           ...(outcome.detail ? { detail: outcome.detail } : {}),
@@ -331,7 +366,8 @@ export function overlayExecutionReceipts(
       : tool.status === "failed" ? tool.errorPreview ?? "调用失败"
       : returned.detail ?? (tool.resultTruncated ? "回执已截断，不能据此推断成功" : undefined);
     const errorCode = tool.status === "completed" ? (existing?.outcomeSource === "full" ? existing.errorCode : complete ? outputErrorCode(parsed) : undefined) : undefined;
-    const metadata = { recordedAt: tool.requestedAt, ...(tool.fileInput?.path ? { inputPath: tool.fileInput.path } : {}) };
+    const metadata = { ...receiptInputFields(tool), ...(complete && tool.toolName === "shell_exec" ? shellOutputFields(parsed) : {}),
+      recordedAt: tool.requestedAt, ...(tool.fileInput?.path ? { inputPath: tool.fileInput.path } : {}) };
     const next: ToolRow = { kind: "tool", key: `receipt:${tool.toolName}:${tool.toolCallId}:${result.length}`, toolCallId: tool.toolCallId,
       ...metadata, ...(errorCode ? { errorCode } : {}),
       toolName: tool.toolName, status, ...(runId ? { runId } : {}), ...(tool.shell ?? {}), ...(detail ? { detail } : {}) };
@@ -339,12 +375,13 @@ export function overlayExecutionReceipts(
     else {
       // A later authoritative failure/unknown must not keep an earlier success
       // receipt. A truncated *preview* need not erase a known full output.
-      const { receipt, outcomeSource, errorCode: previousCode, ...withoutReceipt } = existing!;
+      const { receipt, fileContent, outcomeSource, errorCode: previousCode, ...withoutReceipt } = existing!;
       result[index] = { ...withoutReceipt, status, ...(detail ? { detail } : {}),
-        ...metadata, ...(errorCode ? { errorCode } : {}),
+        ...(tool.shell ?? {}), ...metadata, ...(errorCode ? { errorCode } : {}),
         ...(runId ? { runId } : {}),
         ...(tool.status === "completed" && outcomeSource === "full" ? { outcomeSource } : {}),
-        ...(status === "ok" && receipt ? { receipt } : {}) };
+        ...(status === "ok" && receipt ? { receipt } : {}),
+        ...(status === "ok" && fileContent ? { fileContent } : {}) };
     }
   }
   return result;
@@ -426,7 +463,7 @@ export function applyEvent(live: LiveRun, event: AgentEvent): LiveRun {
             runId: event.runId,
             toolName: event.data.toolName,
             recordedAt: event.occurredAt,
-            ...fileInputFields(event.data.input),
+            ...toolInputFields(event.data.toolName, event.data.input),
             status: "requested",
           },
         ],
@@ -457,7 +494,7 @@ export function applyEvent(live: LiveRun, event: AgentEvent): LiveRun {
       return {
         rows: live.rows.map((row) => {
           if (row.kind !== "tool" || row.toolCallId !== event.data.toolCallId) return row;
-          const { receipt, errorCode, ...withoutReceipt } = row;
+          const { receipt, fileContent, errorCode, ...withoutReceipt } = row;
           return { ...withoutReceipt, errorCode: event.data.error.code, outcomeSource: "full", status: unknown ? "unknown" : event.data.error.code === "TOOL_DENIED" ? "denied" : "failed", detail: event.data.error.message };
         }),
         streaming: live.streaming,
