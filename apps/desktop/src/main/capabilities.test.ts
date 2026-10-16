@@ -21,6 +21,14 @@ test("capability configuration and pomodoro commands share the real timer withou
   try {
     assert.equal(bridge.info().modules?.find(module => module.id === "pomodoro")?.enabled, true);
     assert.equal(bridge.info().modules?.find(module => module.id === "web")?.enabled, false);
+    const capabilities = bridge.info().capabilities!;
+    assert.equal(capabilities.modules.find(module => module.id === "computer")?.state, "disabled");
+    assert.equal(capabilities.computer.service, "not_checked");
+    assert.equal(capabilities.computer.permissions, "not_checked");
+    assert.ok(capabilities.tools.includes("pomodoro_start"));
+    assert.ok(!capabilities.tools.includes("computer_observe"));
+    assert.equal((await bridge.command("/capabilities")).ok, true);
+    assert.match(bridge.snapshot().recentOutput, /配置／实际注册，不是健康检查/);
     assert.deepEqual(bridge.info().moduleOptions, { webSearch: false, webFeed: false, autoConsolidate: false });
     assert.equal((await bridge.command("/pomodoro start 1")).ok, true);
     assert.equal((await bridge.command("/pomodoro start 2")).ok, true);

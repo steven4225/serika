@@ -374,7 +374,7 @@ export async function executeShellCommand(
   });
 }
 
-function createShellExecTool(
+export function createShellExecTool(
   workspaceRoot: string,
   options: ShellModuleOptions = {},
 ): Tool<ShellExecInput, ShellExecResult> {

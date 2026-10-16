@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { access } from "node:fs/promises";
+import { constants } from "node:fs";
 import { tool } from "ai";
 import { z } from "zod";
 import type { AgentModule } from "../module-host.js";
@@ -124,6 +126,33 @@ export function createComputerModule(config: ComputerConfig, options: { call?: D
     if (!windows.some((w) => w.pid === target.pid && w.window_id === target.windowId)) throw new Error("Window no longer belongs to this application process");
   };
   return { id: "computer", setup(ctx) {
+    ctx.registerTool({
+      metadata: { name: "computer_check", version: "1", risk: "read", idempotent: true, timeoutMs: 12_000 },
+      tool: tool({ description: "Explicit approved CUA connectivity check only. Checks the configured driver executable and calls list_apps, returns ONLY running bundle IDs from the allowlist, no windows, titles, screenshots or app content. Never starts a daemon or grants OS permission. Connectivity does not prove Accessibility permission; no hidden fallback.",
+        inputSchema: z.object({}).strict(),
+        execute: async (_, { abortSignal }) => {
+          const signal = abortSignal ?? new AbortController().signal;
+          if (disposed) return failure("Computer module is closed");
+          signal.throwIfAborted();
+          if (!options.call) {
+            try { await access(parsed.executable!, constants.X_OK); }
+            catch (error) { return { ok: false, service: "not_checked", permissions: "not_checked",
+              error: { code: (error as NodeJS.ErrnoException).code === "EACCES" ? "DRIVER_EXECUTABLE_DENIED" : "DRIVER_EXECUTABLE_UNAVAILABLE",
+                message: "Configured driver is missing or cannot be executed; no daemon was started" } }; }
+          }
+          try {
+            const apps = appsSchema.parse(await call("list_apps", {}, signal)).apps;
+            return { ok: true, service: "reachable", permissions: "not_checked",
+              runningAllowedApps: [...new Set(apps.filter(app => app.running && parsed.allowedBundleIds!.includes(app.bundle_id)).map(app => app.bundle_id))],
+              note: "仅证实驱动返回了进程列表，不证明辅助功能权限或业务操作成功；如需观察某个允许的应用，另行批准 computer_observe。" };
+          } catch {
+            if (signal.aborted) throw signal.reason;
+            return { ok: false, service: "check_failed", permissions: "not_checked",
+              error: { code: "COMPUTER_HEALTH_UNVERIFIED", message: "Driver request failed; service connectivity or permission cause is not established. No retry or daemon start." } };
+          }
+        },
+      }),
+    });
     ctx.registerTool({
       metadata: { name: "computer_observe", version: "1", risk: "read", idempotent: true, timeoutMs: 35_000 },
       tool: tool({ description: "Observe one explicitly allowed local app. Omit pid/windowId to list its running windows; supply both for a bounded AX-only observation. Requires confirmation; no screenshot. " + untrusted,

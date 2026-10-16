@@ -33,7 +33,7 @@ export function taskResultPresentation(task: TaskRecordV4, now = new Date()): { 
 }
 
 /** One workspace inbox, backed only by existing TaskStore terminal records. */
-export function TaskInbox({ enabled, busy, canAcknowledge = true, focus, onResultsRead }: { enabled: boolean; busy: boolean; canAcknowledge?: boolean; focus?: { taskId: string; sequence: number } | null; onResultsRead?: () => void }) {
+export function TaskInbox({ enabled, busy, canAcknowledge = true, focus, onResultsRead, onResultOpened }: { enabled: boolean; busy: boolean; canAcknowledge?: boolean; focus?: { taskId: string; sequence: number } | null; onResultsRead?: () => void; onResultOpened?: (task: TaskRecordV4) => void }) {
   const [page, setPage] = useState<TaskListV3 | null>(null);
   const [detail, setDetail] = useState<TaskRecordV4 | null>(null);
   const [error, setError] = useState("");
@@ -67,7 +67,7 @@ export function TaskInbox({ enabled, busy, canAcknowledge = true, focus, onResul
     try {
       const result = await window.runloom.getScheduledTask(id);
       if (request !== generation.current) return;
-      if (result.ok) { setDetail(result.value); onResultsRead?.(); }
+      if (result.ok) { setDetail(result.value); onResultOpened?.(result.value); onResultsRead?.(); }
       else setError(`${result.error.code}: ${result.error.message}`);
     } catch (cause) { if (request === generation.current) setError(`详情读取失败：${String(cause)}`); }
     finally { if (request === generation.current) setWorking(false); }

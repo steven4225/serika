@@ -287,6 +287,7 @@ export class RuntimeBridge {
     const autoConsolidate = automation.hooks.some(rule => rule.enabled !== false && memorySkills.has(rule.handler.id));
     return {
       build: readLoadedBuild(),
+      ...(this.#app.getCapabilities ? { capabilities: this.#app.getCapabilities() } : {}),
       modules: (["pomodoro", "read-file", "memory", "checkpoint", "task", "todoist", "shell", "web", "computer"] as const).map(id => ({
         id,
         enabled: this.#app.moduleConfig?.enabled[id] === true,

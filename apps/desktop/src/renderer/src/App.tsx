@@ -14,6 +14,8 @@ import type {
 import { ShellProgressBuffer } from "../../shared/shell-progress.js";
 import {
   applyEvent,
+  applySteerRecord,
+  withSteerRecords,
   applyShellProgress,
   emptyLiveRun,
   finishRun,
@@ -52,6 +54,7 @@ import { CurrentTask, useWorkTasks, WorkTasksPanel } from "./work-tasks.js";
 import { RssPanel } from "./rss.js";
 import { TaskInbox } from "./task-inbox.js";
 import { SavedTaskNotice } from "./saved-task-notice.js";
+import { createTaskNoticeDismissals } from "../../shared/saved-task-result.js";
 import { unreconciledRuns, taskSelectionKey, taskActions } from "./work-task-data.js";
 import { bindTaskComposer, completionLabel, draftKey, type ConversationDraft } from "./navigation.js";
 import { conversationDraftError } from "../../shared/conversation-drafts.js";
@@ -61,8 +64,8 @@ import { ZCodeMessage, ZCodeMessageContent } from "./zcode/message.js";
 import { PersonalConversation as ZCodeConversation, PersonalBackToBottom as ZCodeBackToBottom } from "./personal/conversation.js";
 import { PersonalPromptEditor as ZCodePromptEditor, PersonalPromptOptions as ZCodePromptOptions } from "./personal/composer.js";
 import { TodayPanel } from "./personal/today.js";
-import { TaskReturnChip, TasksHome } from "./personal/tasks-page.js";
-import { nextComposerText, nextTaskInstruction, planTaskCreateHandoff, planTaskFollowUpHandoff, type TaskComposerHandoff } from "./personal/tasks-model.js";
+import { TasksHome } from "./personal/tasks-page.js";
+import { nextComposerText, nextTaskInstruction, planTaskCreateHandoff, type TaskComposerHandoff } from "./personal/tasks-model.js";
 import { useTodayBriefFeeds } from "./personal/today-feeds.js";
 import { clearBriefContinue, planBriefContinue, readBriefContinue, writeBriefContinue, type BriefContinueTarget } from "./personal/today-continue.js";
 import { PersonaPanel } from "./personal/persona.js";
@@ -108,19 +111,21 @@ function commandError(response: CommandResponse): string {
   }
 }
 
-function Row({ row, delivered = false, layout = "classic" }: { row: ConversationRow; delivered?: boolean; layout?: DesktopLayout }) {
+function Row({ row, delivered = false, layout = "classic", onRestoreSteer }: { row: ConversationRow; delivered?: boolean; layout?: DesktopLayout; onRestoreSteer?: (text: string) => void }) {
   switch (row.kind) {
     case "text":
       if (layout === "zcode") return <ZCodeMessage from={row.role} className={`row row-text role-${row.role}${row.committed ? "" : " live"}`}>
         <ZCodeMessageContent>
           {row.role !== "user" ? <span className="role">{row.role === "assistant" ? <><SerikaMark size={18} /> Serika</> : "系统"}</span> : null}
           {row.role === "assistant" ? <AssistantReply text={row.text} delivered={delivered} /> : <pre>{row.text}</pre>}
+          {row.steerRecord ? <SteerStatus records={[row.steerRecord]} onRestore={onRestoreSteer} /> : null}
         </ZCodeMessageContent>
       </ZCodeMessage>;
       return (
         <div className={`row row-text role-${row.role}${row.committed ? "" : " live"}`}>
           {row.role !== "user" ? <span className="role">{row.role === "assistant" ? <><SerikaMark size={20} /> Serika</> : "系统"}</span> : null}
           {row.role === "assistant" ? <AssistantReply text={row.text} delivered={delivered} /> : <pre>{row.text}</pre>}
+          {row.steerRecord ? <SteerStatus records={[row.steerRecord]} onRestore={onRestoreSteer} /> : null}
         </div>
       );
     case "tool":
@@ -374,7 +379,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const [briefNonce, setBriefNonce] = useState(0);
   const briefHold = useRef<BriefContinueTarget | null>(null);
   const briefAttempt = useRef<string | null>(null);
-  const briefFeeds = useTodayBriefFeeds(info?.workspaceRoot != null, automationRefresh);
+  const briefFeeds = useTodayBriefFeeds(info?.workspaceRoot != null, automationRefresh, info?.workspaceRoot);
   const [sending, setSending] = useState(false);
   const sendInFlight = useRef(false);
   const homeBuffer = useRef("");
@@ -401,6 +406,12 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const composingTask = composerBinding.kind === "task";
   const composerTask = composerBinding.kind === "task" ? composerBinding.task : null;
   const composerText = composingTask ? composerTask ? workTasks.instruction : "" : input;
+  const composerFinishedRun = useRef<string | null>(null);
+  useEffect(() => {
+    if (!lastResult || composerFinishedRun.current === lastResult.key) return;
+    composerFinishedRun.current = lastResult.key;
+    if (taskComposerId) setTaskComposerId(null);
+  }, [lastResult, taskComposerId, setTaskComposerId]);
   const inspectorKey = detailTab === "tasks" ? `tasks:${workTasks.task?.id ?? "none"}:${taskFocused}` : detailTab === "settings" ? `settings:${settingsRoute}` : detailTab;
   useLayoutEffect(() => {
     if (detailsOpen && inspectorScroll.current) inspectorScroll.current.scrollTop = inspectorPositions.current.get(inspectorKey) ?? 0;
@@ -581,6 +592,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
           if (records === steerReceipts.current) return;
           steerReceipts.current = records;
           setSteers(records);
+          setLive(previous => applySteerRecord(previous, message.steer));
           return;
         }
         case "event":
@@ -953,10 +965,10 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     catch { setError("连接恢复失败。请修正配置后重试；不会重放之前的任务。"); }
     finally { setReconnecting(false); }
   };
-  const visibleRows: ConversationRow[] = [...history, ...(activePrimary ? [
+  const visibleRows: ConversationRow[] = withSteerRecords([...history, ...(activePrimary ? [
     ...(submittedInput ? [{ kind: "text" as const, key: "submitted-input", role: "user" as const, text: submittedInput, committed: false }] : []),
     ...live.rows,
-  ] : [])];
+  ] : [])], steers);
   const rows = [...(!activePrimary && finalRecord ? overlayExecutionReceipts(visibleRows, finalRecord.tools, { reuseHistory: canReuseReceiptHistory(finalRecord, storedHistory.runId), runId: finalRecord.runId }) : visibleRows),
     ...(!activePrimary && lastResult ? [lastResult] : [])];
   const delivered = deliveredReplyKeys(rows);
@@ -1062,6 +1074,11 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     if (conversationScroll.current) conversationScroll.current.scrollTop = conversationScroll.current.scrollHeight;
     setUnreadOutput(false);
   };
+  const restoreSteer = (text: string) => {
+    setTaskComposerId(null);
+    setInput(current => current ? `${current}\n${text}` : text);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  };
 
   return (
     <div ref={splitRoot} className={`app personal-layout${compact ? " is-compact" : ""}${compact && mobileDashboard ? " show-dashboard" : ""}${!compact && !sidebarOpen ? " sidebar-collapsed" : ""}`} style={{ "--chat-fraction": actualFraction } as CSSProperties}>
@@ -1078,7 +1095,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
           <button className="icon-button personal-new-chat" type="button" aria-label="新对话" title="新对话；保留当前草稿" disabled={busy || sending || switchingThread || !info} onClick={() => void newConversation()}><Icon name="new-chat" /></button>
         </header>
         {isMockModel(info?.modelAlias) || info?.entryMode === "test" ? <div className="model-mode-notice" role="status">{info?.entryMode === "test" ? "隔离测试 · 会话和记忆不属于日用工作区。" : ""}{isMockModel(info?.modelAlias) ? "模拟模型，不会调用真实模型。" : ""}</div> : null}
-        {info ? <SavedTaskNotice key={`${info.configPath}:${info.workspaceRoot}`} enabled={!!info.workspaceRoot} refreshSequence={automationRefresh} onOpen={taskId => {
+        {info ? <SavedTaskNotice key={`${info.configPath}:${info.workspaceRoot}`} enabled={!!info.workspaceRoot} workspaceRoot={info.workspaceRoot ?? ""} refreshSequence={automationRefresh} onDismiss={() => setAutomationRefresh(value => value + 1)} onOpen={taskId => {
           const workspaceRoot = info.workspaceRoot;
           if (!workspaceRoot) return;
           setTaskResultFocus(previous => ({ taskId, workspaceRoot, sequence: (previous?.sequence ?? 0) + 1 }));
@@ -1109,19 +1126,13 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
                 </div> : null}
                 <div className="conversation-thread">
                   {historyBefore ? <button className="secondary" disabled={historyLoading} onClick={() => void loadOlderHistory()}>{historyLoading ? "正在读取…" : "查看更早的对话"}</button> : null}
-                  {layout === "zcode" ? <ZCodeConversation rows={rows} workspaceRoot={info?.workspaceRoot ?? undefined} running={activePrimary} streaming={live.streaming} waitingForApproval={approval !== null} onTrace={(runId, toolCallId) => { openDetails("records"); void openRecord(runId, toolCallId).catch(() => setError("执行追踪读取失败")); }} /> : rows.map(row => <Row key={row.key} row={row} delivered={delivered.has(row.key)} />)}
+                  {layout === "zcode" ? <ZCodeConversation rows={rows} onRestoreSteer={restoreSteer} workspaceRoot={info?.workspaceRoot ?? undefined} running={activePrimary} streaming={live.streaming} waitingForApproval={approval !== null} onTrace={(runId, toolCallId) => { openDetails("records"); void openRecord(runId, toolCallId).catch(() => setError("执行追踪读取失败")); }} /> : rows.map(row => <Row key={row.key} row={row} onRestoreSteer={restoreSteer} delivered={delivered.has(row.key)} />)}
                   {info?.memory.enabled ? <MemoryReferences hideEmpty={layout === "zcode"} refreshToken={contextRefresh} runId={state.kind === "running" && state.phase === "primary" ? state.runId : latestPrimaryId.current} starting={state.kind === "running" && state.phase === "primary" && state.runId === null} /> : null}
                   {layout !== "zcode" && activePrimary && live.streaming ? <div className="row row-text role-assistant live">
                     <span className="role"><SerikaMark size={20} /> Serika <span className="streaming-label">正在回复</span></span>
                     <MessageContent text={live.streaming} />
                   </div> : null}
                   {layout !== "zcode" && activePrimary && !live.streaming ? <div className="working-indicator" role="status"><span /><span /><span /><small>{approval ? "等待你的确认" : "正在处理"}</small></div> : null}
-                  <TaskReturnChip enabled={!!info?.workspaceRoot} refreshSequence={automationRefresh} onContinue={source => applyTaskHandoff(planTaskFollowUpHandoff(source))} />
-                  <SteerStatus records={steers} onRestore={text => {
-                    setTaskComposerId(null);
-                    setInput(current => current ? `${current}\n${text}` : text);
-                    requestAnimationFrame(() => inputRef.current?.focus());
-                  }} />
                   <div ref={conversationEnd} />
                 </div>
               </div>
@@ -1144,10 +1155,10 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
           {uncertainSteer ? <div className="attention-summary" role="status"><span>补充要求的接收凭证待核对，草稿不会重发。{uncertainSteer.taskId ? "原补充属于工作任务；核对前不会作为普通对话发送。" : ""}</span><details><summary>查看这次补充</summary><pre>{uncertainSteer.text}</pre></details><button type="button" className="ghost" onClick={() => void recheckSteer()}>核对接收状态</button>{!busy ? <button type="button" className="ghost" onClick={() => void releaseSteer()}>保留草稿，结束本次核对</button> : null}</div> : null}
           {approval ? <ApprovalCard approval={approval} deciding={decidingId === approval.approvalId} onDecision={decision => void decide(decision)} /> : null}
           <ZCodePromptEditor inputRef={inputRef} value={composerText} aria-label={composingTask ? "本轮任务指令" : "消息输入"}
-              notice={steering ? "补充将进入当前这轮规划；已执行操作不会撤销，工具仍需重新确认。本条不整理为记忆。" : composingTask ? !composerTask ? "任务已切换，原草稿仍保留。重新选择任务，或切回普通对话。" : !busy && !taskActions(composerTask).run ? "本轮已结束，请从任务卡查看结果，或切回普通对话。" : null : null}
+              notice={composingTask ? !composerTask ? "任务已切换，原草稿仍保留。重新选择任务，或切回普通对话。" : !busy && !taskActions(composerTask).run ? "本轮已结束，请从任务卡查看结果，或切回普通对话。" : null : null}
               topContent={<>{workTasks.task || composingTask ? <div className="composer-target" role="group" aria-label="发送方式"><button className={!composingTask ? "selected" : ""} type="button" aria-pressed={!composingTask} onClick={() => setTaskComposerId(null)}>普通对话</button><button className={composingTask ? "selected" : ""} type="button" aria-pressed={composingTask} disabled={!workTasks.task || (!taskActions(workTasks.task).run && !composingTask)} onClick={composeTask}>补充当前任务</button>{composingTask ? <span>{composerTask ? humanFacingTitle(composerTask.goal, "当前任务") : "当前任务暂不可用"}</span> : null}</div> : null}{excludeFromMemory && !composingTask ? <div className="zcode-draft-setting"><Icon name="memory" size={13} /><span>本条不整理为记忆</span><button type="button" className="icon-button" aria-label="恢复本条记忆整理" onClick={() => setExcludeFromMemory(false)}><Icon name="close" size={12} /></button></div> : null}</>}
               disabled={sending || switchingThread || info === null || !draftReady || !!info.runtimeRecovery || (composingTask && !composerTask)}
-              placeholder={steering ? "补充这轮的要求…" : composingTask && !composerTask ? "重新选择任务，或切回对话…" : approval ? "先确认上方操作，再发送…" : !composerReady ? "可以先写，结束后再发送…" : composingTask ? "补充本轮要求…" : "和 Serika 聊天"}
+              placeholder={composingTask && !composerTask ? "重新选择任务，或切回对话…" : approval && !steering ? "先确认上方操作，再发送…" : !composerReady ? "可以先写，结束后再发送…" : "和 Serika 聊天"}
               onChange={event => { if (!composingTask) setInput(event.target.value); else if (composerTask) workTasks.setInstruction(event.target.value); }}
               onKeyDown={event => {
                 if (composerReady && shouldSubmitComposer({ key: event.key, shiftKey: event.shiftKey, isComposing: event.nativeEvent.isComposing })) {
@@ -1165,12 +1176,12 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
                 {composingTask ? <span className="hint" role="status">{workTasks.draftError ? "任务草稿未保存" : workTasks.draftSaving ? "保存任务草稿…" : workTasks.draftReady ? "任务草稿已保存" : "正在恢复任务草稿…"}</span> : null}
                 <span className="zcode-model-name" title="当前配置的模型；不代表本轮已联网验证">{info?.modelId ?? info?.modelAlias ?? "连接中"}</span>
                 {busy ? <Button type="button" variant="outline" size="icon" className="zcode-stop-button" aria-label={state.kind === "compacting" ? "停止上下文压缩" : state.kind === "running" && state.phase === "consolidation" ? "停止记忆整理" : "停止本轮"} title={state.kind === "compacting" ? "停止上下文压缩" : state.kind === "running" && state.phase === "consolidation" ? "停止记忆整理" : "停止本轮；已执行的操作不会撤回"} onClick={() => void window.runloom.cancel().catch(() => setError("取消结果未收到，请核对当前状态。"))}><Square size={12} /></Button> : null}
-                {!busy || steering ? <Button type="button" size={steering || composingTask ? "default" : "icon"} className={`send-button${steering || composingTask ? " task-send" : ""}`}
-                  aria-label={steering ? "补充要求" : composingTask ? composerTask?.status === "ready" ? "开始任务" : "继续此任务" : "发送消息"}
-                  title={steering ? "补充当前正在处理的要求，不另开一轮" : composingTask ? "显式开始下一次任务处理；工具仍需确认" : "发送（Enter）· 换行（Shift + Enter）"}
+                {composerReady ? <Button type="button" size={composingTask && !steering ? "default" : "icon"} className={`send-button${composingTask && !steering ? " task-send" : ""}`}
+                  aria-label={composingTask && !steering ? composerTask?.status === "ready" ? "开始任务" : "继续此任务" : "发送消息"}
+                  title={steering ? "发送到当前这轮，等待正在执行的步骤结束后处理" : composingTask ? "显式开始下一次任务处理；工具仍需确认" : "发送（Enter）· 换行（Shift + Enter）"}
                   disabled={!composerReady || sending || switchingThread || !info || (steering ? !composerText.trim() : composingTask ? workTasks.locked || !composerTask || !taskActions(composerTask).run : !input.trim())}
                   onClick={() => { followConversation.current = true; void submit(); }}>
-                  {steering ? "补充要求" : composingTask ? composerTask?.status === "ready" ? "开始任务" : "继续此任务" : <ArrowUp size={18} />}
+                  {composingTask && !steering ? composerTask?.status === "ready" ? "开始任务" : "继续此任务" : <ArrowUp size={18} />}
                 </Button> : null}
               </>}
           />
@@ -1220,7 +1231,9 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
               </div>
               <div hidden={detailTab !== "reminders"}>
                 <RemindersPanel enabled={!!info?.workspaceRoot} busy={busy} identity={`${info?.configPath ?? ""}:${info?.workspaceRoot ?? ""}`} refreshSequence={automationRefresh} onSettings={() => openSettings("workspace")} />
-                <TaskInbox key={`${info?.configPath}:${info?.workspaceRoot}`} enabled={!!info?.workspaceRoot} canAcknowledge={info?.modules?.some(m => m.id === "task" && m.enabled) === true} busy={busy} onResultsRead={() => setAutomationRefresh(value => value + 1)} focus={taskResultFocus?.workspaceRoot === info?.workspaceRoot ? taskResultFocus : null} />
+                <TaskInbox key={`${info?.configPath}:${info?.workspaceRoot}`} enabled={!!info?.workspaceRoot} canAcknowledge={info?.modules?.some(m => m.id === "task" && m.enabled) === true} busy={busy} onResultsRead={() => setAutomationRefresh(value => value + 1)} onResultOpened={task => {
+                  if (info?.workspaceRoot) createTaskNoticeDismissals(window.localStorage, info.workspaceRoot).dismiss(task);
+                }} focus={taskResultFocus?.workspaceRoot === info?.workspaceRoot ? taskResultFocus : null} />
               </div>
               <div hidden={detailTab !== "settings"}>
                 <SettingsFrame route={settingsRoute} onBack={backSettings}>

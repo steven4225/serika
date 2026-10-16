@@ -5,7 +5,7 @@ import type { ToolActivity } from "../../shared/ui-contract.js";
 import type { ToolRowStatus } from "../../shared/tool-status.js";
 import type { ShellProgressBuffer } from "../../shared/shell-progress.js";
 import { presentComputerResult } from "../../shared/computer.js";
-import type { ExecutionToolRecord, ExecutionRunRecord } from "../../shared/ui-contract.js";
+import type { AssistantSteerRecord, ExecutionToolRecord, ExecutionRunRecord } from "../../shared/ui-contract.js";
 import { fileToolReceipt, type FileToolReceipt } from "./delivery-data.js";
 import type { MemoryFactReceipt } from "@aisdk-agent/example-cli/dist/memory-factual-receipts.js";
 
@@ -56,6 +56,7 @@ export interface TextRow {
   committed: boolean;
   /** Applied in the same Run; not a new conversation/task boundary. */
   steer?: true;
+  steerRecord?: AssistantSteerRecord;
   memoryReceipts?: readonly MemoryFactReceipt[];
 }
 
@@ -351,6 +352,25 @@ function flushStreaming(live: LiveRun, key: string): ConversationRow[] {
   return [...live.rows, { kind: "text", key, role: "assistant", text: live.streaming, committed: false }];
 }
 
+/** A receipt is a user message, not a second task or a claim of model compliance. */
+export function applySteerRecord(live: LiveRun, record: AssistantSteerRecord): LiveRun {
+  const key = record.messageId ? `h:${record.messageId}:text:0` : `steer:${record.runId}:${record.id}`;
+  const index = live.rows.findIndex(row => row.key === key || row.kind === "text" &&
+    row.steerRecord?.id === record.id && row.steerRecord.runId === record.runId);
+  if (index >= 0) {
+    const previous = live.rows[index]!;
+    if (previous.kind !== "text" || previous.steerRecord?.status !== "accepted" && record.status === "accepted") return live;
+    return { ...live, rows: live.rows.map((row, i) => i === index ? { ...previous, key, steer: true, steerRecord: record } : row) };
+  }
+  return { rows: [...flushStreaming(live, `steer:${record.runId}:${record.id}:before`),
+    { kind: "text", key, role: "user", text: record.text, committed: false, steer: true, steerRecord: record }], streaming: "" };
+}
+
+/** Reconnect/failed Runs retain accepted text even if no transcript was committed. */
+export function withSteerRecords(rows: readonly ConversationRow[], records: readonly AssistantSteerRecord[]): ConversationRow[] {
+  return records.reduce((live, record) => applySteerRecord(live, record), { rows: [...rows], streaming: "" }).rows;
+}
+
 function toolOutcome(output: unknown): Pick<ToolRow, "status" | "detail" | "reminder"> {
   if (typeof output !== "object" || output === null) return { status: "ok" };
   const record = output as { ok?: unknown; readback?: unknown; backgroundReady?: unknown; error?: { code?: unknown; message?: unknown } };
@@ -367,6 +387,16 @@ function toolOutcome(output: unknown): Pick<ToolRow, "status" | "detail" | "remi
 export function applyEvent(live: LiveRun, event: AgentEvent): LiveRun {
   const seq = String(event.sequence);
   switch (event.type) {
+    case "run.steer.accepted":
+      return applySteerRecord(live, { ...event.data, runId: event.runId, status: "accepted", receivedAt: event.occurredAt });
+    case "run.steer.applied":
+    case "run.steer.not_applied": {
+      const previous = live.rows.find(row => row.kind === "text" && row.steerRecord?.id === event.data.id && row.steerRecord.runId === event.runId);
+      if (previous?.kind !== "text" || !previous.steerRecord) return live;
+      return applySteerRecord(live, event.type === "run.steer.applied"
+        ? { ...previous.steerRecord, status: "applied", messageId: event.data.messageId, appliedAt: event.occurredAt }
+        : { ...previous.steerRecord, status: "not_applied", reason: event.data.reason });
+    }
     case "step.started":
       return {
         rows: [...flushStreaming(live, `s:${seq}:text`), { kind: "step", key: `s:${seq}`, step: event.data.stepNumber }],

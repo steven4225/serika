@@ -71,6 +71,7 @@ it("full legacy journals retain unresolved effects, archive terminal records and
     const data: TelegramData = { version: 1, workspace: root, enabled: false, botId: null, offset: 2000, owner: null, routes: [],
       inputs: Array.from({ length: 1024 }, (_, n) => ({ key: `42:${n}`, updateId: n, text: "old", state: n === 0 ? "unknown" : "finished", runId: `run-${n}`, taskId: null })),
       deliveries: Array.from({ length: 2048 }, (_, n) => ({ key: `result:${n}`, chatId: 42, text: "result", state: n === 0 ? "unknown" : n === 1 ? "failed" : "submitted", messageId: n + 1 })) };
+    data.inputs[1]!.reminderReceipts = [{ toolCallId: "saved", text: "private reminder readback" }];
     await writeFile(path, JSON.stringify(data), { mode: 0o600 });
     const store = new TelegramStore(path, root); await store.load();
     assert.equal(telegramCapacity(store.snapshot()).blocked, false, "terminal records can make room even at the count cap");
@@ -84,6 +85,9 @@ it("full legacy journals retain unresolved effects, archive terminal records and
     assert(await reopened.hasInput("42:1")); assert(await reopened.hasDelivery("result:2"));
     assert(!reopened.snapshot().inputs.some(x => x.key === "42:1"));
     assert(!reopened.snapshot().deliveries.some(x => x.key === "result:2"));
+    const sourceMarker = await readFile(join(directory, "telegram-archive", "inputs", createHash("sha256").update("42:1").digest("hex") + ".json"), "utf8");
+    assert.ok(!sourceMarker.includes("private reminder readback"));
+    assert.equal(JSON.parse(sourceMarker).reminderReceipts, undefined, "archives keep dedupe metadata, not reminder body copies");
     const marker = JSON.parse(await readFile(join(directory, "telegram-archive", "deliveries", createHash("sha256").update("result:2").digest("hex") + ".json"), "utf8"));
     assert.equal(marker.text, undefined); assert.equal(marker.messageId, 3);
     assert(!await reopened.hasInput("never")); assert(!await reopened.hasDelivery("never"));
@@ -114,5 +118,32 @@ it("unresolved capacity is rejected, never silently pruned", async () => {
     assert.equal(telegramCapacity(store.snapshot()).blocked, true);
     await assert.rejects(store.update(data => data.inputs.push({ key: "new", updateId: 1024, text: "new", state: "received", runId: null, taskId: null })), /已满/);
     assert.equal(store.snapshot().inputs.length, 1024);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+it("multipart delivery archives retain per-part receipts but not another copy of private bodies", async () => {
+  const root = await realpath(await mkdtemp(join(tmpdir(), "serika-channel-parts-archive-")));
+  try {
+    const store = new TelegramStore(join(root, 'private', 'telegram.json'), root); await store.load();
+    await store.update(data => { data.deliveries = Array.from({ length: 1025 }, (_, n) => ({ key: `result:${n}`, chatId: 42,
+      text: 'private body', state: 'submitted', messageId: n + 1,
+      parts: [{ text: '<b>private rendered body</b>', state: 'submitted', messageId: n + 1 }] })); });
+    const archive = join(root, 'private', 'telegram-archive', 'deliveries', createHash('sha256').update('result:0').digest('hex') + '.json');
+    const text = await readFile(archive, 'utf8');
+    assert.ok(!text.includes('private'));
+    assert.deepEqual(JSON.parse(text).parts, [{ state: 'submitted', messageId: 1 }]);
+    const reopened = new TelegramStore(store.path, root); await reopened.load();
+    assert.ok(await reopened.hasDelivery('result:0'));
+    assert.equal(reopened.snapshot().version, 2, 'old binaries cannot interpret multipart retries as legacy single sends');
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+it("inconsistent multipart retry state fails closed before persistence", async () => {
+  const root = await realpath(await mkdtemp(join(tmpdir(), "serika-channel-parts-invalid-")));
+  try {
+    const store = new TelegramStore(join(root, 'private', 'telegram.json'), root); await store.load();
+    await assert.rejects(store.update(data => data.deliveries.push({ key: 'result:bad', chatId: 42, text: 'body', state: 'failed', messageId: null,
+      parts: [{ text: 'unknown must not be retried', state: 'unknown', messageId: null }] })), /无效/);
+    assert.equal(store.snapshot().deliveries.length, 0);
   } finally { await rm(root, { recursive: true, force: true }); }
 });

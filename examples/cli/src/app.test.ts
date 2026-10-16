@@ -386,7 +386,7 @@ describe("createRuntimeApp", () => {
       assert.ok(app.commands);
       assert.deepEqual(
         [...app.commands.keys()].sort(),
-        ["history", "home", "modules", "permissions"],
+        ["capabilities", "history", "home", "modules", "permissions"],
       );
       assert.equal(app.compaction, undefined);
       assert.equal(app.resume, undefined);

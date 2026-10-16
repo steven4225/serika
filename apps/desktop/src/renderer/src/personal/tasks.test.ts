@@ -5,7 +5,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { WorkTask } from "../../../shared/work-tasks.js";
 import { presentReminderConfirmation, presentReminderReply } from "../reminder-copy.js";
-import { TaskReturnChipView, TasksPage, type TasksPageProps } from "./tasks-page.js";
+import { TasksPage, type TasksPageProps } from "./tasks-page.js";
 import {
   SCHEDULE_TEMPLATES,
   TASK_CREATE_PROMPT,
@@ -302,9 +302,6 @@ describe("conversational create and return chip", () => {
     assert.equal(inboxReturnTitle({ status: "failed", prompt: "喝水", resultText: "已定：喝水" }), "喝水");
     assert.equal(inboxReturnTitle({ status: "interrupted", prompt: "thread_hidden_alpha", resultText: "已记下：完成了" }), "这项任务");
     assert.equal(inboxReturnTitle({ status: "completed", prompt: "起床提醒", resultText: "起床啦。先喝口水。" }), "起床啦。先喝口水。");
-    const html = renderToStaticMarkup(createElement(TaskReturnChipView, { label: taskReturnLabel("起床提醒"), onContinue: noop }));
-    assert.match(html, /来自任务：起床提醒 · 继续追问/);
-    assert.doesNotMatch(html, /已定|已记下|task_/);
   });
 
   it("keeps reminder confirmation and failure copy on the existing cards", () => {
@@ -328,9 +325,9 @@ describe("conversational create and return chip", () => {
 it("the tasks shell hands create and returned results to the main composer", async () => {
   const app = await readFile(new URL("../App.tsx", import.meta.url), "utf8");
   assert.match(app, /<TasksHome/);
-  assert.match(app, /<TaskReturnChip/);
+  assert.doesNotMatch(app, /<TaskReturnChip/);
   assert.match(app, /planTaskCreateHandoff\(\)/);
-  assert.match(app, /planTaskFollowUpHandoff\(source\)/);
+  assert.doesNotMatch(app, /planTaskFollowUpHandoff\(source\)/);
   const handoff = app.slice(app.indexOf("const applyTaskHandoff"), app.indexOf("const openCreateTask"));
   assert.match(handoff, /nextTaskInstruction\(workTasks\.instruction, handoff\)/);
   assert.match(handoff, /nextComposerText\(current, handoff\)/);

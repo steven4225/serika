@@ -37,7 +37,7 @@ test("successful inbox/detail reads refresh the same workspace arrangements with
   const daily = await readFile(new URL("./daily-setup-panel.tsx", import.meta.url), "utf8");
   const arrangements = await readFile(new URL("./automation-panel.tsx", import.meta.url), "utf8");
   assert.match(inbox, /if \(request !== generation\.current\) return;\s+if \(result\.ok\) \{ setPage\(result\.value\); onResultsRead\?\.\(\); \}/);
-  assert.match(inbox, /if \(request !== generation\.current\) return;\s+if \(result\.ok\) \{ setDetail\(result\.value\); onResultsRead\?\.\(\); \}/);
+  assert.match(inbox, /if \(request !== generation\.current\) return;\s+if \(result\.ok\) \{ setDetail\(result\.value\); onResultOpened\?\.\(result\.value\); onResultsRead\?\.\(\); \}/);
   assert.match(app, /<TaskInbox key=\{`\$\{info\?\.configPath\}:\$\{info\?\.workspaceRoot\}`\}.*onResultsRead=\{\(\) => setAutomationRefresh\(value => value \+ 1\)\}/);
   assert.match(daily, /<AutomationPanel.*refreshSequence=\{automationRefresh\}/);
   assert.match(arrangements, /lastRefresh\.current = refreshSequence;\s+void reload\(\);\s+\}, \[refreshSequence\]\)/);

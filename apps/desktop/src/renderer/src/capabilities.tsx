@@ -49,6 +49,11 @@ export function CapabilitiesPanel({ info, busy = false, initialError = null, int
           {module.id === "task" ? <small>开启这里不会注册后台服务；关窗提醒请到“设置 → 通知 → 关窗口后继续提醒”显式启用，并单独核对通知授权。</small> : null}
           {module.id === "todoist" && !module.enabled ? <small>当前无法查询 Todoist。开启前需在可信环境文件中设置 TODOIST_API_TOKEN；应用不会替你创建凭据。</small> : null}
           {module.id === "computer" ? <small>{!module.enabled ? "当前不会控制本机应用。" : "驱动和 macOS 权限仍需就绪。"}允许的应用：{info.computer.allowedBundleIds.length} 个；能力开关不会自动增添应用或申请系统权限。</small> : null}
+          {info.capabilities ? <details className="capability-technical"><summary>实际工具与就绪情况</summary>
+            <p>当前注册：{info.capabilities.modules.find(item => item.id === module.id)?.registeredTools.join("、") || "未注册对话工具"}</p>
+            {module.id === "computer" ? <p>驱动连接和系统权限尚未实际检查；不会自动启动驱动、申请权限或读取其他应用。</p> : null}
+            {module.id === "shell" ? <p>{info.capabilities.shell.warning} 命令配方可通过 /recipes 查看，执行仍需本次批准。</p> : null}
+          </details> : null}
         </div><div className="capability-control"><span className={`capability-status ${module.enabled ? "enabled" : ""}`}>{module.enabled ? "已开启" : "已关闭"}</span>
           <button className="ghost" disabled={busy || unavailable || saving || !info.configPath || typeof window === "undefined" || !window.runloom.setModuleEnabled} aria-label={`${module.enabled ? "关闭" : "开启"}${name}`} onClick={() => { setSelection({ id: module.id, enabled: !module.enabled }); setError(null); }}>{module.enabled ? "关闭" : "开启"}</button>
         </div>

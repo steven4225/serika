@@ -12,9 +12,7 @@ it("renders accepted/applied/not-applied distinctly and restores only by explici
   const render = (record: AssistantSteerRecord, restore?: (text: string) => void) => renderToStaticMarkup(React.createElement(SteerStatus, { records: [record], onRestore: restore }));
   assert.match(render({ ...base, status: "accepted" }), /等待当前步骤结束/);
   const applied = render({ ...base, status: "applied" });
-  assert.match(applied, /已加入后续规划/);
-  assert.match(applied, /不代表模型已收到、已执行或一定遵从/);
-  assert.doesNotMatch(applied, /<button/);
+  assert.equal(applied, "", "applied text belongs in the conversation, not a second status card");
   const failed = render({ ...base, status: "not_applied", reason: "cancelled" }, () => { throw new Error("render must not resubmit"); });
   assert.match(failed, /本轮未应用/);
   assert.match(failed, /移回草稿，不自动发送/);
@@ -27,7 +25,8 @@ it("composer sends current Run steer before approval/new-task admission and reta
   assert.ok(submit.indexOf("window.runloom.steer(request)") < submit.indexOf("if (approval !== null)"));
   assert.ok(submit.indexOf("window.runloom.steer(request)") < submit.indexOf("await workTasks.run(line)"));
   assert.match(submit, /expectedRunId: state.runId, id: crypto.randomUUID\(\), text: line/);
-  assert.match(app, /aria-label=\{steering \? "补充要求"/);
+  assert.doesNotMatch(app, /"补充这轮的要求…"|"已加入后续规划"|<TaskReturnChip/);
+  assert.match(app, /\{composerReady \? <Button/);
   assert.match(app, /"停止本轮；已执行的操作不会撤回"/);
   assert.match(app, /"停止上下文压缩"/);
   assert.match(app, /"停止记忆整理"/);

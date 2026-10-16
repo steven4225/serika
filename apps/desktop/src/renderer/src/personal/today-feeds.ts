@@ -4,6 +4,7 @@ import type { AutomationOverview } from "@aisdk-agent/example-cli/dist/automatio
 import type { TaskListV3 } from "@aisdk-agent/example-cli/dist/task-store.js";
 import type { RssWorkerResponse } from "../../../shared/ui-contract.js";
 import { humanFacingTitle } from "../../../shared/human-title.js";
+import { createTaskNoticeDismissals } from "../../../shared/saved-task-result.js";
 import { localWhen, reminderClock, scheduleStatusLabel } from "../reminder-copy.js";
 import { checkingFeeds, hiddenFeeds, type TodayBriefFeeds, type TodayFeedInbox, type TodayFeedReminder } from "./today-brief.js";
 
@@ -26,7 +27,7 @@ export function projectReminderFeeds(overview: AutomationOverview, now: Date): T
   const clock = reminderClock(now);
   const reminders: TodayFeedReminder[] = [];
   for (const task of overview.scheduled) {
-    if (task.status === "cancelled") continue;
+    if (task.status !== "scheduled" && task.status !== "running") continue;
     reminders.push({
       eyebrow: eyebrow(task.arrangement?.kind),
       subject: subject(task.promptPreview, "即将到来的安排"),
@@ -52,8 +53,8 @@ export function projectReminderFeeds(overview: AutomationOverview, now: Date): T
  * Inbox summaries do not carry notification state. Leave it null so a brief
  * cannot describe foreground omission as a submitted notification.
  */
-export function projectInboxFeeds(list: TaskListV3, now: Date): TodayFeedInbox[] {
-  return list.tasks.filter(task => task.acknowledgedAt === null && task.status !== "cancelled").slice(0, 6).map(task => ({
+export function projectInboxFeeds(list: TaskListV3, now: Date, isDismissed = (_task: TaskListV3["tasks"][number]) => false): TodayFeedInbox[] {
+  return list.tasks.filter(task => task.acknowledgedAt === null && task.status !== "cancelled" && !isDismissed(task)).slice(0, 6).map(task => ({
     eyebrow: eyebrow(task.arrangement?.kind),
     subject: subject(task.resultPreview || task.promptPreview, "定时结果"),
     at: task.finishedAt ?? task.runAt,
@@ -74,14 +75,14 @@ function optional<T>(load: (() => Promise<T>) | undefined): Promise<T | null> {
   return load().catch(() => null);
 }
 
-export async function loadTodayBriefFeeds(api: TodayFeedApi, now = new Date()): Promise<TodayBriefFeeds> {
+export async function loadTodayBriefFeeds(api: TodayFeedApi, now = new Date(), isDismissed?: (task: TaskListV3["tasks"][number]) => boolean): Promise<TodayBriefFeeds> {
   const [overview, inbox, worker] = await Promise.all([
     optional(api.getAutomationOverview),
     optional(api.getTaskInbox),
     optional(api.rssWorkerStatus),
   ]);
   const reminders = overview?.ok ? projectReminderFeeds(overview.value, now) : [];
-  const inboxItems = inbox?.ok ? projectInboxFeeds(inbox.value, now) : [];
+  const inboxItems = inbox?.ok ? projectInboxFeeds(inbox.value, now, isDismissed) : [];
   const workerValue: RssWorkerResponse | null = worker ?? (api.rssWorkerStatus ? { ok: false, message: "" } : null);
   return {
     reminders,
@@ -93,7 +94,7 @@ export async function loadTodayBriefFeeds(api: TodayFeedApi, now = new Date()): 
   };
 }
 
-export function useTodayBriefFeeds(enabled: boolean, refreshToken: number): TodayBriefFeeds {
+export function useTodayBriefFeeds(enabled: boolean, refreshToken: number, workspaceRoot?: string | null): TodayBriefFeeds {
   const [feeds, setFeeds] = useState<TodayBriefFeeds>(enabled ? checkingFeeds : hiddenFeeds);
   useEffect(() => {
     if (!enabled) {
@@ -103,8 +104,11 @@ export function useTodayBriefFeeds(enabled: boolean, refreshToken: number): Toda
     let active = true;
     setFeeds(checkingFeeds);
     const api = typeof window === "undefined" ? {} : window.runloom;
-    void loadTodayBriefFeeds(api).then(next => { if (active) setFeeds(next); });
+    const dismissals = workspaceRoot ? createTaskNoticeDismissals({
+      getItem: key => window.localStorage.getItem(key), setItem: (key, value) => window.localStorage.setItem(key, value),
+    }, workspaceRoot) : null;
+    void loadTodayBriefFeeds(api, new Date(), dismissals?.has).then(next => { if (active) setFeeds(next); });
     return () => { active = false; };
-  }, [enabled, refreshToken]);
+  }, [enabled, refreshToken, workspaceRoot]);
   return feeds;
 }

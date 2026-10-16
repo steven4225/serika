@@ -36,6 +36,24 @@ function harness(overrides: { action?: unknown; state?: unknown; changed?: () =>
 }
 
 describe("allowed local application computer tools", () => {
+  it("explicit health check probes only connection and filters unrelated app metadata; never reads UI or claims OS permission", async () => {
+    const h = harness();
+    const result = await h.invoke("computer_check", {});
+    assert.equal(result.ok, true);
+    assert.equal(result.service, "reachable"); assert.equal(result.permissions, "not_checked");
+    assert.deepEqual(result.runningAllowedApps, ["com.apple.TextEdit"]);
+    assert.deepEqual(h.calls.map(item => item.name), ["list_apps"]);
+    assert.doesNotMatch(JSON.stringify(result), /com.other.App|Private/);
+  });
+  it("health failures stay unverified, do not leak driver text or guess missing OS permission", async () => {
+    let calls = 0;
+    const host = createModuleHost([createComputerModule(config, { call: async () => { calls++; throw new Error("SECRET unrelated driver body"); } })], { notify() {} });
+    const registered = host.tools.find(item => item.metadata.name === "computer_check")!;
+    const result = await registered.tool.execute!({}, { toolCallId: "health", messages: [], context: undefined, abortSignal: new AbortController().signal }) as { service: string; permissions: string };
+    assert.equal(result.service, "check_failed"); assert.equal(result.permissions, "not_checked");
+    assert.equal(calls, 1); assert.doesNotMatch(JSON.stringify(result), /SECRET/);
+    host.dispose();
+  });
   it("excludes app menus and their tokens from the exact-window observation", async () => {
     const h = harness({ state: { ...state, elements: [...state.elements, { element_index: 100, role: "AXMenuBar", element_token: "menu-root" }, { element_index: 101, parent_index: 100, role: "AXMenuItem", label: "Private recent document", element_token: "menu-item" }] } });
     const observed = await h.observe();
@@ -155,7 +173,7 @@ describe("allowed local application computer tools", () => {
       const next = await h.observe();
       h.host.dispose();
       assert.equal((await h.action(next.observationId)).ok, false);
-      assert.equal(h.host.tools[1]!.metadata.idempotent, false);
+      assert.equal(h.host.tools.find(item => item.metadata.name === "computer_action")!.metadata.idempotent, false);
     }
   });
   it("allows a fresh read after a dispatched but not business-verified click without repeating the action", async () => {

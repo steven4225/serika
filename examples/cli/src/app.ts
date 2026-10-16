@@ -76,6 +76,9 @@ import { observeModelUsage } from "./model-usage-observer.js";
 import type { ModelPurpose } from "./model-usage.js";
 import { createWebModule } from "./modules/web-module.js";
 import { createComputerModule } from "./modules/computer-module.js";
+import { capabilityStatus, formatCapabilityStatus, type CapabilityStatus } from "./capability-status.js";
+import { RecipeStore } from "./recipe-store.js";
+import { createRecipeModule } from "./modules/recipe-module.js";
 import { createTaskStore } from "./task-store.js";
 import type { SavedTaskArrangement } from "./modules/task-module.js";
 import { createWorkTaskStore, type WorkTask, type WorkTaskStore } from "./work-task-store.js";
@@ -158,6 +161,7 @@ export interface RuntimeApp {
   directory: string;
   workspaceRoot: string | undefined;
   moduleConfig: ResolvedTuiModuleConfig | undefined;
+  getCapabilities?(): CapabilityStatus;
   toolConfirmation: ToolConfirmation | undefined;
   commands: ReadonlyMap<string, TuiCommand> | undefined;
   compaction: TuiCompaction | undefined;
@@ -278,6 +282,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     consolidationAgentIds: externalSkills.filter(skill => skill.kind === "memory-consolidate").map(skill => skill.agentId),
   });
   const executionRecords = createExecutionRecordStore(directory);
+  const recipes = tuiMode && shellEnabled && workspaceRoot ? new RecipeStore(workspaceRoot) : undefined;
   let usageEnabled = false;
   const workTasks = workspaceRoot === undefined ? undefined : createWorkTaskStore(workspaceRoot, { executionRecords });
   const executionRecordAdapter = createExecutionRecordAdapter(store, executionRecords, workTasks, agentId => {
@@ -378,6 +383,11 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
             ...(moduleConfig!.computer
               ? [createComputerModule(moduleConfig!.computer, { env })]
               : []),
+            ...(recipes ? [createRecipeModule({ store: recipes, records: executionRecords, threadId,
+              currentRun: executionRecordAdapter.currentRun,
+              shell: { timeoutMs: moduleConfig!.shellTimeoutMs, onProgress: notifyShellProgress,
+                ...(shellSandbox ? { sandbox: shellSandbox } : {}) },
+            })] : []),
             ...(webEnabled
               ? [
                   createWebModule({
@@ -451,6 +461,23 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   });
   const toolConfirmationPrompt: ToolConfirmationPrompt = (input) => {
+    if (input.toolName === "computer_check") return "\n检查 CUA 连接\n只检查已配置驱动的可执行性和连接，返回允许列表中的运行应用；不读取窗口、截图或应用内容。不会启动服务、安装驱动或授予系统权限。Allow this call? [y/n] ";
+    if (recipes && input.toolName.startsWith("recipe_")) {
+      const value = input.input as { id?: string; expectedHash?: string; command?: string; cwd?: string; action?: string; hash?: string };
+      if (input.toolName === "recipe_run" && value.id && value.expectedHash) {
+        return recipes.get(value.id, value.expectedHash, input.signal).then(version =>
+          `\n运行命令配方：${version.id}\n${version.description}\n命令：${version.command}\n目录：${version.cwd}\n版本：${version.hash}\n${shellSandbox ? "沿用当前 Docker 沙箱配置。" : "这会运行主机命令，工作目录不是系统隔离。"}\n仅批准这次执行；配方不授予持久权限，外部脚本和依赖不随版本冻结。Allow this call? [y/n] `,
+          () => "\n配方已变化、停用或无法读取。本次不能执行，请取消并重新查看。Allow this call? [y/n] ");
+      }
+      if (input.toolName === "recipe_manage" && value.id) {
+        return recipes.list(input.signal).then(list => {
+          const entry = list.find(item => item.id === value.id);
+          const target = entry?.versions.find(version => version.hash === (value.action === "rollback" ? value.hash : entry.activeHash));
+          return `\n${value.action === "disable" ? "停用" : value.action === "enable" ? "启用" : "回退"}命令配方：${value.id}\n${target ? `${target.description}\n命令：${target.command}\n目录：${target.cwd}\n版本：${target.hash}` : "目标版本不存在；操作不会成功。"}\n不会执行命令或授予权限，也不撤销过去已发生的操作。Allow this call? [y/n] `;
+        });
+      }
+      return `\n登记命令配方：${value.id}\n命令：${value.command}\n目录：${value.cwd}\n程序会核对本轮真实测试回执。不会执行配方、安装工具或授予后续权限。Allow this call? [y/n] `;
+    }
     if (taskStore !== undefined && (input.toolName === "task_create" || input.toolName === "task_repeat_create")) {
       const request = typeof input.input === "object" && input.input !== null ? input.input as { arrangement?: { kind?: unknown; source?: unknown; skillId?: unknown; skillHash?: unknown }; runAt?: unknown; recurrence?: unknown; prompt?: unknown } : {};
       if (request.arrangement !== undefined) {
@@ -856,6 +883,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
   } as const;
 
   const calculatorInstructions =
+    (tuiMode ? "When asked what you can do or why CUA/MCP is unavailable, call capability_status for actual registered tools. Report static configuration separately from untested service connectivity/OS permissions; never infer access from another application's installed packages. " : "") +
+    (recipes ? "For an explicitly requested reusable capability, use the existing file/Shell tools to build and verify a small workspace command or script, then recipe_save only its EXACT successful shell_exec command/cwd and call id from THIS Run. Test after the final change. Ask for registration only when the user wants reuse; do not silently install, alter configuration or restart the host. A command batch may perform the user-approved steps under one confirmation, but is not an OS sandbox. Use /authorize file-path rules or Docker-only /authorize-shell only when explicitly set by the user; no host-wide permission is inferred. In later chats call recipe_list, then recipe_run with the current hash and a fresh approval. recipe_manage can disable/enable or roll back a tested command version. Recipes are command recipes, not text Skills; they confer no permissions, dynamic MCP or tool installation. A version pins command text, not external scripts, dependencies or business correctness. Report those limits. Unknown outcomes require inspection, never automatic replay. " : "") +
     "Use the add tool ONLY when the user actually requests arithmetic addition, then answer briefly; never call add or perform dummy 1+1 for memory/preference statements or ordinary chat. In automatic memory mode, briefly acknowledge the statement and let the host consolidate; do not claim it was saved before the host write receipt. " +
     "A tool's y/n confirmation happens before that tool executes. After receiving ok:true, report the completed result; do not say you are still waiting for confirmation. If the call was denied, failed, or has an unknown outcome, do not report success. " +
     (moduleConfig?.enabled["read-file"] || shellEnabled
@@ -962,6 +991,13 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       return createResumeContextMessage(activeResumeObservation);
     };
     const registeredTools = [addRegistration, ...(moduleHost?.tools ?? [])];
+    const getCapabilities = () => capabilityStatus(moduleConfig, registeredTools.map(item => item.metadata.name).filter(name =>
+      moduleConfig?.memoryWritePolicy !== "automatic" || !name.startsWith("memory_")));
+    const statusRegistration = { metadata: { name: "capability_status", version: "1", risk: "read" as const, timeoutMs: 1000, idempotent: true },
+      tool: tool({ description: "Read current host-registered tools and static capability/permission mode. No service probes, process/app inspection, credentials, installation or writes. Service/OS permission health remains not_checked.",
+        inputSchema: z.object({}).strict(), execute: async () => getCapabilities() }) };
+    if (tuiMode) registeredTools.push(statusRegistration);
+    commands?.set("capabilities", { name: "capabilities", execute: () => { output.write(`${formatCapabilityStatus(getCapabilities())}\n`); } });
     const tools = new ToolRegistry(registeredTools);
     const primaryToolNames = registeredTools.map(({ metadata }) => metadata.name).filter(name =>
       moduleConfig?.memoryWritePolicy !== "automatic" || !name.startsWith("memory_"));
@@ -1450,6 +1486,10 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         : {}),
       ...(toolConfirmation
         ? { beforeToolExecute: (input) => {
+          if (input.definition.id === PRIMARY_AGENT_ID && input.toolName === "capability_status" &&
+            registeredTools.find(item => item.metadata.name === input.toolName) === statusRegistration) {
+            input.signal.throwIfAborted(); return { allow: true };
+          }
           const skill = automation.skills.find(skill => skill.agentId === input.definition.id);
           if (skill?.kind === "memory-consolidate" && skill.tools.includes(input.toolName)) {
             input.signal.throwIfAborted();
@@ -1516,6 +1556,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       directory,
       workspaceRoot,
       moduleConfig,
+      getCapabilities,
       toolConfirmation,
       commands,
       compaction: contextCompactor

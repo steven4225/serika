@@ -11,9 +11,9 @@ export function mergeSteerRecords(records: readonly AssistantSteerRecord[], next
 
 export function steerStatusLabel(record: AssistantSteerRecord): string {
   switch (record.status) {
-    case "accepted": return "已接收，等待当前步骤结束";
-    case "applied": return "已加入后续规划";
-    case "not_applied": return "本轮未应用，内容仍可移回草稿";
+    case "accepted": return "等待当前步骤结束后处理";
+    case "applied": return "";
+    case "not_applied": return "本轮未应用，消息已保留";
   }
 }
 

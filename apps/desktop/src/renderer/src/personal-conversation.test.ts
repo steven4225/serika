@@ -156,7 +156,7 @@ it("does not turn a background warning or a failed create into 已定 or 已记�
 it("personal conversation retains streaming, steering and explicit incomplete task outcomes", () => {
   const steer: ConversationRow = { ...user, key: "steer", text: "只追加，不覆盖。", steer: true };
   const markup = render([user, steer, { kind: "result", key: "result", status: "completed", completion: { reason: "budget_exhausted", corrections: 0 } }], true, "正在继续回复");
-  assert.match(markup, /补充本轮要求/);
+  assert.doesNotMatch(markup, /补充本轮要求|后续规划/);
   assert.match(markup, /只追加，不覆盖。/);
   assert.match(markup, /personal-message role-assistant streaming/);
   assert.match(markup, /personal-assistant-row[\s\S]*serika-icon\.png[\s\S]*正在继续回复/);
