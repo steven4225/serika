@@ -70,6 +70,16 @@ it("uses Chinese source copy with markdown sections in the full text", () => {
   assert.equal(understanding.empty, false);
 });
 
+it("shows separate saved entries and an explicit full-list link instead of a joined narrative", () => {
+  const entries = ["first", "second", "third", "fourth"].map(id => entry({ id, preview: `${id} saved text` }));
+  const html = renderToStaticMarkup(createElement(MemoryCardHome, { loaded: true, entries, now, onOpenSummary: () => {}, onOpenCategory: () => {} }));
+  assert.match(html, /<ul class="memory-summary-items">/);
+  assert.equal((html.match(/<li>/g) ?? []).length, 3);
+  assert.match(html, /first saved text/);
+  assert.doesNotMatch(html, /fourth saved text/);
+  assert.match(html, /查看全部 4 条记忆/);
+});
+
 it("understanding and category counts show only currently effective memories", () => {
   const live = entry({ id: "live", preview: "当前偏好", temporalState: "applicable", assertion: { kind: "preference" } });
   const inactive: MemoryCardEntry[] = [

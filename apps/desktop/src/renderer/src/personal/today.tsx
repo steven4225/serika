@@ -68,7 +68,6 @@ export function TodayPanel(props: TodayPanelProps) {
         {section.cards.length > shown.length || open && section.cards.length > 3 ? <button type="button" className="today-expand" aria-expanded={open} onClick={() => setExpanded(current => ({ ...current, [section.key]: !open }))}>{open ? "收起" : "展开更多"}</button> : null}
       </section>;
     })}
-    {brief.footer ? <p className="today-scope-note today-footer">{brief.footer}</p> : null}
     <div className="today-quiet-links">
       <button type="button" onClick={props.onAutomation}>查看我的提醒</button>
       <button type="button" onClick={props.onPomodoro}>打开番茄钟</button>

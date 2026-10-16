@@ -34,12 +34,18 @@ export function MemoryCardHome({ loaded, entries, now, onOpenSummary, onOpenCate
 }) {
   const understanding = memoryUnderstanding(entries, now);
   const counts = memoryCategoryCounts(entries, now);
+  const current = entries.filter(entry => isCurrentMemory(entry, now) && entry.preview.trim());
   return <div className="memory-home" data-memory-view="home">
     <button type="button" className="memory-summary-card" onClick={onOpenSummary} aria-label="我对你的了解，打开全文">
       <span className="memory-summary-mark" aria-hidden="true"><Crown size={22} /></span>
       <h2>我对你的了解</h2>
       {loaded && !understanding.empty ? <p className="memory-updated">{understanding.updatedLabel}</p> : <p className="memory-updated">{loaded ? "还没有更新" : "读取中…"}</p>}
-      <p className="memory-summary-body">{loaded ? (understanding.empty ? savedMemoryEmptyCopy() : understanding.narrative) : "正在读取已经记住的内容。"}</p>
+      {loaded && current.length > 0 ? <>
+        <ul className="memory-summary-items">{current.slice(0, 3).map(entry => <li key={entry.id}>
+          <p className="memory-summary-body">{entry.preview.replace(/^#{1,6}\s+/gm, "").trim()}{entry.truncated ? "…" : ""}</p>
+        </li>)}</ul>
+        <span className="memory-summary-more">查看全部 {current.length} 条记忆</span>
+      </> : <p className="memory-summary-body">{loaded ? savedMemoryEmptyCopy() : "正在读取已经记住的内容。"}</p>}
     </button>
     <h2 className="memory-section-label">全部</h2>
     <div className="memory-bento">

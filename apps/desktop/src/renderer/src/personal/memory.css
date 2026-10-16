@@ -7,7 +7,7 @@
   width: 100%; border: 0; border-radius: 22px; background: #fff; color: var(--text); text-align: left;
   box-shadow: -4px 8px 28px #6868680a, 0 2px 8px #6464640f; padding: 20px 22px;
 }
-.personal-memory button.memory-summary-card { min-height: 148px; }
+.personal-memory button.memory-summary-card { gap: 12px; padding: 24px; }
 .personal-memory button.memory-category-card { min-height: 132px; }
 .personal-memory button.memory-summary-card:hover,
 .personal-memory button.memory-category-card:hover,
@@ -15,8 +15,11 @@
 .memory-summary-mark { display: grid; place-items: center; width: 28px; height: 28px; color: #e39b2b; }
 .memory-summary-card h2, .memory-back-row h1 { font-size: 22px; font-weight: 650; letter-spacing: -.03em; }
 .memory-updated, .memory-source-line, .memory-category-card small, .memory-item-card small { color: var(--muted); font-size: 13px; font-weight: 500; }
-.memory-summary-body, .memory-item-card p { color: var(--text); font-size: 14px; line-height: 1.7; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
-.memory-item-card p { -webkit-line-clamp: 3; white-space: pre-line; }
+.memory-summary-body, .memory-item-card p { color: var(--text); font-size: 16px; line-height: 1.75; overflow-wrap: anywhere; white-space: pre-line; }
+.memory-summary-items { display: grid; gap: 16px; width: 100%; margin: 4px 0; padding: 0; list-style: none; }
+.memory-summary-items li + li { padding-top: 16px; border-top: 1px solid var(--line); }
+.memory-summary-more { font-size: 14px; line-height: 1.6; color: var(--muted); }
+.memory-item-card p { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .memory-section-label { margin-top: 6px; font-size: 20px; font-weight: 650; }
 .memory-bento { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .memory-category-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 12px; }
@@ -29,7 +32,7 @@
 .personal-memory button.memory-back { width: 36px; height: 36px; flex: none; padding: 0; border: 0; border-radius: 12px; background: #ffffff73; }
 .memory-understanding article, .memory-saved-toast { padding: 16px 18px; border-radius: 18px; background: #fff; box-shadow: -4px 8px 28px #6868680a, 0 2px 8px #6464640f; }
 .memory-understanding h2 { font-size: 16px; font-weight: 650; }
-.memory-understanding .message-content { font-size: 15px; }
+.memory-understanding .message-content { font-size: 16px; line-height: 1.75; }
 .personal-memory .memory-review-banner { justify-content: flex-start; width: 100%; border: 0; border-radius: 16px; background: #fff6ea; color: #8a5931; font-weight: 650; padding: 12px 16px; }
 .personal-memory .memory-review-banner:hover { background: #fff1de; }
 .personal-layout .inspector-pane .card.memory-consolidation { background: transparent; box-shadow: none; padding: 0; margin-bottom: 4px; }
@@ -44,3 +47,18 @@
 .personal-theme-dark .personal-memory button.memory-back,
 .personal-theme-dark .personal-memory .memory-review-banner { background: #ffffff14; color: var(--text); }
 @media (max-width: 720px) { .memory-bento { grid-template-columns: 1fr; } }
+.memory-page-tools { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+.memory-page-tools > .memory-import { flex: 1 1 180px; }
+.memory-page-tools .memory-import { margin: 0; }
+.memory-page-tools > .memory-advanced { flex: 1 1 180px; }
+.memory-page-tools > .memory-advanced[open] { flex-basis: 100%; }
+.personal-layout .memory-page-tools button.ghost,
+.personal-layout .memory-page-tools > details > summary,
+.personal-layout .memory-maintenance > summary,
+.personal-layout .memory-advanced > summary,
+.personal-layout .memory-maintenance-disclosure > summary { min-height: 44px; padding: 10px 12px; font-size: 15px; line-height: 1.6; color: var(--text); cursor: pointer; }
+.personal-layout .memory-page-tools .hint { font-size: 14px; line-height: 1.6; }
+.personal-layout .memory-maintenance,
+.personal-layout .personal-memory > .memory-advanced,
+.personal-layout .memory-maintenance-disclosure { border-top: 1px solid var(--line); }
+.composer-create-mode { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 12px 12px; font-size: 14px; line-height: 1.6; color: var(--text); }

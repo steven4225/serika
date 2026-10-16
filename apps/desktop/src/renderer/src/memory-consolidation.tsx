@@ -244,8 +244,6 @@ export function MemoryConsolidationPanel({ info, busy, refreshToken, onSettings 
     {showHeadline ? <div className="card-head"><span>{headline}</span>
       {info.memory.enabled && info.memory.autoConsolidate && (c?.state === "failed" || c?.state === "backlog") ? <button className="ghost" disabled={busy || working || maintenance === null || maintenance.pending >= 64} onClick={() => void consolidate({ mode: "incremental" })}>{c?.state === "failed" ? "重试记忆整理" : "整理待处理记忆材料"}</button> : null}
     </div> : null}
-    {c?.state !== "off" ? <p className="hint">{memoryAutomationLabel(info.memory)}</p> : null}
-    {info.memory.enabled && info.memory.autoConsolidate ? <p className="hint">{info.memory.writePolicy === "automatic" ? "明确偏好会自动记住；有歧义才需要你点一下。" : "当前为人工审核模式，确认后才会记住。"}</p> : null}
     {memoryAutomaticUpgradeNeeded(info) ? <button className="ghost" disabled={!onSettings} onClick={onSettings}>打开记忆设置</button> : null}
     {c?.error ? <><p className="error" role="alert">{memoryConsolidationFailureText(c.error)}</p><details><summary>技术详情</summary><pre>{c.error}</pre></details></> : null}
     {maintenance && maintenance.pending >= 64 ? <p className="hint">待审核候选已达到上限，请先接受或拒绝候选，再整理新材料。暂时不审核不会丢弃候选。</p> : null}
@@ -253,7 +251,9 @@ export function MemoryConsolidationPanel({ info, busy, refreshToken, onSettings 
     {error ? <FailureAlert text={error} /> : null}{notice ? <p role="status">{notice}</p> : null}
     <AutomaticMemoryReceipts accepted={c?.lastAttempt?.accepted ?? []} busy={busy || working} refreshToken={refreshToken} />
     <details className="memory-maintenance-disclosure">
-      <summary>高级：记忆整理与历史补整理</summary>
+      <summary>记忆整理与历史补整理</summary>
+    <p className="hint">{memoryAutomationLabel(info.memory)}</p>
+    {info.memory.enabled && info.memory.autoConsolidate ? <p className="hint">{info.memory.writePolicy === "automatic" ? "符合自动保存条件的记忆会在整理后保存；存在歧义的建议需要审核。" : "当前为人工审核模式，确认后才会记住。"}</p> : null}
     {!info.memory.enabled || !info.memory.autoConsolidate ? <>
       <p className="hint">可在工作区开启记忆自动整理：从已提交原话保存明确的普通长期信息，有歧义的建议留待审核。同义提问可额外发送一次有界查询。</p>
       {!info.workspaceRoot ? <p className="hint">当前配置没有 workspace，请先设置工作区。</p> : null}
