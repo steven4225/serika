@@ -23,6 +23,11 @@
 .task-template-copy strong { font-size: 15px; font-weight: 600; }
 .task-template-copy span { color: var(--muted); font-size: 13px; line-height: 1.45; }
 .task-template-add { display: grid; place-items: center; width: 36px; height: 36px; flex: none; padding: 0; border: 0; border-radius: 50%; background: #ffffffa8; color: var(--text); }
+.task-arrangements { margin-top: 12px; }
+.task-arrangements .entry-card-copy { gap: 2px; }
+.task-arrangements .entry-card-copy > span { line-height: 1.45; }
+.task-arrangements-body { padding: 16px; background: var(--surface); border-radius: 0 0 18px 18px; }
+.personal-layout .task-arrangements[open] > summary { border-radius: 18px 18px 0 0; box-shadow: none; }
 .task-thread { display: flex; flex-direction: column; gap: 14px; min-height: 420px; }
 .task-thread-heading { display: flex; align-items: flex-start; gap: 8px; }
 .task-back { width: 36px; height: 36px; flex: none; padding: 0; border: 0; background: #ffffff73; }
