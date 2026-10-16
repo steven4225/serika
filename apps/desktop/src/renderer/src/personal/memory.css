@@ -51,6 +51,7 @@
 .memory-page-tools .memory-import { margin: 0; }
 .personal-layout .memory-page-tools .hint { font-size: 14px; line-height: 1.6; }
 .personal-layout :is(.memory-maintenance, .memory-advanced, .memory-maintenance-disclosure) { border: 0; }
+.personal-layout .formal-memories > .memory-maintenance { margin-top: 12px; }
 .personal-layout :is(.memory-maintenance, .memory-advanced, .memory-maintenance-disclosure)[open] { background: var(--surface); border-radius: 18px; padding: 0 16px 16px; }
 .personal-layout :is(.memory-maintenance, .memory-advanced, .memory-maintenance-disclosure)[open] > .personal-entry-card { width: calc(100% + 32px); margin: 0 -16px 12px; box-shadow: none; }
 .composer-create-mode { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 12px 12px; font-size: 14px; line-height: 1.6; color: var(--text); }
