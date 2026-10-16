@@ -1,3 +1,4 @@
+import { EntryCardContent } from "./personal/entry-card.js";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { FormalMemory, MemoryPage } from "@aisdk-agent/example-cli/dist/memory-management.js";
 import type { MemoryActionPreview, MemoryHistoryPage, MemoryMaintenance } from "@aisdk-agent/example-cli/dist/memory-controls.js";
@@ -202,7 +203,7 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken, queryRew
     {browse.view === "home" ? <>
       <MemoryCardHome loaded={page !== null} entries={entries} now={now} onOpenSummary={() => setBrowse({ view: "summary" })} onOpenCategory={category => setBrowse({ view: "category", category })} />
       {page?.nextOffset !== null && page?.nextOffset !== undefined ? <p className="hint">还有更多记忆没有载入，分类计数只覆盖已读取的部分。</p> : null}
-      <details className="memory-maintenance"><summary>整理与容量</summary>
+      <details className="memory-maintenance"><summary className="personal-entry-card"><EntryCardContent title="整理与容量" description="查看存储用量，管理停用与历史记忆。" /></summary>
         <p className="hint">这里只显示当前工作区和当前对话可见的正式记忆。对话范围的记忆不会自动用于其他对话。</p>
         {maintenance ? <MemoryMaintenanceSummary value={maintenance} /> : <p className="hint">{maintenanceError ? "无法读取维护状态" : "读取中…"}</p>}
         {maintenanceError ? <FailureAlert text={maintenanceError} /> : null}

@@ -64,9 +64,9 @@
 .today-directions { display: grid; grid-template-columns: 1fr 1fr; }
 .today-direction-chip, .today-secondary-button { min-height: 42px; padding: 10px 14px; border: 0; border-radius: 16px; background: var(--accent-soft); text-align: left; font-size: 14px; font-weight: 550; }
 .today-secondary-button { border-radius: 999px; }
-.today-expand, .today-quiet-links button { margin-top: 8px; padding: 8px 12px; border: 0; background: transparent; color: var(--muted); font-size: 13px; }
+.today-expand { margin-top: 8px; padding: 8px 12px; border: 0; background: transparent; color: var(--muted); font-size: 13px; }
 .today-footer { margin-top: 18px; }
-.today-quiet-links { display: flex; gap: 8px; margin-top: 8px; }
+.today-quiet-links { display: grid; gap: 12px; margin-top: 16px; }
 .today-empty > p:last-child { color: var(--muted); }
 @media (max-width: 540px) {
   .personal-today { padding: 20px 14px; }

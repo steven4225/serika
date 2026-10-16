@@ -1,3 +1,4 @@
+import { EntryCardContent } from "./personal/entry-card.js";
 import { useRef, useState } from "react";
 import type { MemoryImportEntry, MemoryImportPreview, MemoryImportReceipt } from "@aisdk-agent/example-cli/dist/memory-import.js";
 import { submitCreation } from "./creation-operation.js";
@@ -47,7 +48,7 @@ export function MemoryImport({ enabled, busy, identity, onSaved }: { enabled: bo
   };
   const edit = (index: number, value: Partial<typeof entries[number]>) => { setPreview(null); setEntries(entries.map((entry, i) => i === index ? { ...entry, ...value } : entry)); };
   return <section className="memory-import">
-    <button type="button" className="ghost" disabled={!enabled || busy || working} onClick={() => setOpen(!open)}>{open ? "收起导入" : "导入记忆"}</button>
+    <button type="button" className="personal-entry-card" aria-expanded={open} disabled={!enabled || busy || working} onClick={() => setOpen(!open)}><EntryCardContent title={open ? "收起导入" : "导入记忆"} description="粘贴或选择文本，预览后保存。" /></button>
     {pending && !open ? <p className="error" role="status">有一批导入需要核对。<button className="ghost" onClick={() => setOpen(true)}>查看保存回执</button></p> : null}
     {open ? <div className="card" aria-label="导入记忆">
       <p className="hint">粘贴文本或选择 .txt / .md 文件，按空行拆分。确认后存入当前工作区，来源为人工导入；不会调用模型或授予工具权限。</p>

@@ -1,3 +1,4 @@
+import { EntryCardContent } from "./personal/entry-card.js";
 import React, { useEffect, useRef, useState } from "react";
 import type { AppInfo } from "../../shared/ui-contract.js";
 import type { MemoryMaintenance } from "@aisdk-agent/example-cli/dist/memory-controls.js";
@@ -251,7 +252,7 @@ export function MemoryConsolidationPanel({ info, busy, refreshToken, onSettings 
     {error ? <FailureAlert text={error} /> : null}{notice ? <p role="status">{notice}</p> : null}
     <AutomaticMemoryReceipts accepted={c?.lastAttempt?.accepted ?? []} busy={busy || working} refreshToken={refreshToken} />
     <details className="memory-maintenance-disclosure">
-      <summary>记忆整理与历史补整理</summary>
+      <summary className="personal-entry-card"><EntryCardContent title="记忆整理与历史补整理" description="查看整理状态，选择历史对话补整理。" /></summary>
     <p className="hint">{memoryAutomationLabel(info.memory)}</p>
     {info.memory.enabled && info.memory.autoConsolidate ? <p className="hint">{info.memory.writePolicy === "automatic" ? "符合自动保存条件的记忆会在整理后保存；存在歧义的建议需要审核。" : "当前为人工审核模式，确认后才会记住。"}</p> : null}
     {!info.memory.enabled || !info.memory.autoConsolidate ? <>
