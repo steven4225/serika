@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { submitCreation } from "./creation-operation.js";
 import type { RunResponse } from "../../shared/ui-contract.js";
 import type { WorkTask, WorkTaskInputs, WorkTaskObservedOutcome, WorkTaskResult, WorkTaskArtifactPreview, WorkTaskDeliveryDraft } from "../../shared/work-tasks.js";
 import { criterionStatusLabels, isTaskRun, lines, taskFormAcceptance, selectCurrentTask, restoredTaskId, taskActions, taskStatusLabels, taskNextAction, taskVerificationSummary, readTaskSelection, saveTaskSelection, TASK_TEMPLATES, type TaskTemplateId } from "./work-task-data.js";
@@ -165,7 +166,8 @@ export function useWorkTasks(enabled: boolean, busy: boolean, refreshToken: numb
       draftWrite.current = Promise.resolve();
       for (const update of updates) saveDraft(update);
     },
-    create: (input: WorkTaskInputs["createWorkTask"]) => change(() => window.runloom.createWorkTask(input), "任务已创建；尚未执行。"),
+    create: (input: WorkTaskInputs["createWorkTask"]) => change(() => submitCreation(window.localStorage, `${scopeIdentity}:work`, input,
+      operationId => window.runloom.createWorkTask({ ...input, operationId })), "任务已创建；尚未执行。"),
     run: async (instruction: string) => {
       if (!task) return false;
       const id = task.id;

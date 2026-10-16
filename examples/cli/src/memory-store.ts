@@ -1265,9 +1265,10 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
               if (change.operation !== "change") raise("MEMORY_BATCH_INVALID", "Host transition must be a change");
               const record = document.entries.find(entry => entry.id === change.memoryId)!;
               const target = projectRecord(record, now);
-              if (!target.enabled || target.assertion?.kind !== "preference" || change.kind !== "preference" ||
-                !sameFactSlot(target.assertion.factIdentity, change.factIdentity) || sameFact(target.assertion.factIdentity, change.factIdentity) ||
-                (target.expiresAt ?? null) !== change.expiresAt) raise("MEMORY_BATCH_INVALID", "Host transition must retain the current preference slot, scope and expiry");
+              const genericFact = change.factIdentity && "version" in change.factIdentity && change.factIdentity.version === 3 && target.assertion?.kind === "fact";
+              if (!target.enabled || !(target.assertion?.kind === "preference" || genericFact) || change.kind !== target.assertion?.kind ||
+                !sameFactSlot(target.assertion?.factIdentity, change.factIdentity) || sameFact(target.assertion?.factIdentity, change.factIdentity) ||
+                (target.expiresAt ?? null) !== change.expiresAt) raise("MEMORY_BATCH_INVALID", "Host transition must retain the current fact slot, kind, scope and expiry");
               resolveNow.add(candidate);
             }
             if (candidate.change.operation !== "add") {

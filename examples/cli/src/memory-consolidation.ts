@@ -46,6 +46,8 @@ export interface MemoryProposal {
   expectedRevision?: number;
   kind?: MemoryKind;
   factIdentity?: MemoryFactIdentity;
+  /** An exact statement span containing all literal generic identity fields. */
+  factEvidence?: { statementQuote: string; targetQuote?: string };
   recallTerms?: string[];
   validTime?: MemoryValidTime;
   effectiveAt?: string;
@@ -224,7 +226,7 @@ function requiresKnownReview(text: string): boolean {
 /** A deliberately narrow affirmative anchor, not a general intent classifier.
  * The full single-source clause is required so qualifiers cannot be stripped.
  */
-function explicitFromNow(proposal: MemoryProposal, draft: CandidateDraft, selected: OrdinaryTurn[], memories: ConsolidationMemory[], threadId: string, now: Date): boolean {
+function explicitFromNow(proposal: MemoryProposal, draft: CandidateDraft, selected: OrdinaryTurn[], memories: ConsolidationMemory[], threadId: string, now: Date, truncated = false): boolean {
   const change = draft.change;
   if (change.operation !== "change" || change.effectiveAt !== null || !proposal.changeIntent) return false;
   const sources = draft.sources ?? [draft.source];
@@ -233,6 +235,22 @@ function explicitFromNow(proposal: MemoryProposal, draft: CandidateDraft, select
   const whole = selected.find(turn => turn.user.id === source.messageId)?.user.text;
   if (proposal.changeIntent.sourceQuote !== source.quote || source.quote !== whole) return false;
   const text = source.quote.trim();
+  if (change.factIdentity && "version" in change.factIdentity && change.factIdentity.version === 3) {
+    const target = memories.find(entry => entry.id === change.memoryId && entry.revision === change.expectedRevision);
+    const restriction = statedThreadScope(text);
+    const implicit = !text.includes(change.factIdentity.subject) || !text.includes(change.factIdentity.attribute);
+    const unambiguous = !implicit || !truncated && memories.filter(entry => activeTarget(entry, now) && entry.enabled &&
+      entry.assertion?.factIdentity && "version" in entry.assertion.factIdentity && entry.assertion.factIdentity.version === 3 &&
+      entry.assertion.kind === change.kind).length === 1;
+    return unambiguous && genericEvidenceMatches(proposal, source.quote, change.text, target) &&
+      /从现在起|从现在开始|(?:已经|已)(?:迁到|改用|改为|换成)|(?:现在|以后|今后).{0,40}(?:改成|改为|改用|换成)/.test(text) &&
+      !/[?？“”"‘’；;\n]|如果|假如|假设|例如|比如|转述|朋友|同事|不要|不改|别改|打算|计划|不确定|明天|明年|后天|下周|下个月|将来|等到|考虑|可能|试试|不想|不希望|不愿|不能|禁止|拒绝|昨天|前天|去年|上周|以前|曾经|\d{4}[年/-]/.test(text) &&
+      !!target && target.enabled && activeTarget(target, now) &&
+      (target.assertion?.kind === "fact" || target.assertion?.kind === "preference") && change.kind === target.assertion.kind &&
+      sameFactSlot(target.assertion.factIdentity, change.factIdentity) && !sameFact(target.assertion.factIdentity, change.factIdentity) &&
+      (change.expiresAt ?? null) === (target.expiresAt ?? null) &&
+      (restriction === undefined || restriction === "explicit" && target.scope?.kind === "thread" && target.scope.threadId === threadId);
+  }
   const everyday = change.factIdentity !== undefined && "version" in change.factIdentity;
   const guardedText = everyday ? text.replace(/「([^」\n]{1,60})」\s*场景/g, "$1场景") : text;
   // Admit only a scope-only clause around the existing affirmative anchor.
@@ -255,6 +273,27 @@ function explicitFromNow(proposal: MemoryProposal, draft: CandidateDraft, select
     (change.expiresAt ?? null) === (target.expiresAt ?? null) &&
     (restricted === undefined || restricted === "explicit" && target.scope?.kind === "thread" && target.scope.threadId === threadId);
 }
+function genericEvidenceMatches(proposal: MemoryProposal, source: string, body: string, target?: ConsolidationMemory): boolean {
+  const identity = proposal.factIdentity;
+  const evidence = proposal.factEvidence;
+  if (!identity || !("version" in identity) || identity.version !== 3 || !evidence ||
+    typeof evidence !== "object" || Array.isArray(evidence) || Object.keys(evidence).some(key => !["statementQuote", "targetQuote"].includes(key)) ||
+    typeof evidence.statementQuote !== "string" || !evidence.statementQuote.trim() ||
+    !source.includes(evidence.statementQuote)) return false;
+  const old = target?.assertion?.factIdentity;
+  if (evidence.targetQuote !== undefined) {
+    // Explicit elliptical updates inherit only an exact, unique target's slot.
+    // The output must be precisely its old body with one literal value replaced.
+    return proposal.action === "change" && !!target && evidence.targetQuote === target.text && !!old &&
+      sameFactSlot(old, identity) && target.text.split(old.value).length === 2 &&
+      body === target.text.replace(old.value, identity.value) && evidence.statementQuote.includes(identity.value);
+  }
+  if (!evidence.statementQuote.includes(body.trim())) return false;
+  // Literal agreement is necessary, not a semantic entailment/consent proof.
+  // Unknown aliases are review-only rather than silently canonicalized.
+  return [identity.subject, identity.attribute, identity.value, ...(identity.scenario === "general" ? [] : [identity.scenario])]
+    .every(value => evidence.statementQuote.includes(value) && body.includes(value));
+}
 type ProposalDraftResult = MemoryResult<CandidateDraft> & { contentInvalid?: true };
 const invalidProposalContent = (message: string): ProposalDraftResult => ({ ...fail("MEMORY_BATCH_INVALID", message), contentInvalid: true });
 function proposalDraft(proposal: unknown, prepared: PreparedBatch, selected: OrdinaryTurn[], messages: UIMessage[], threadId: string, now: Date, oversizedSourceProbe = false): ProposalDraftResult {
@@ -262,7 +301,7 @@ function proposalDraft(proposal: unknown, prepared: PreparedBatch, selected: Ord
   const p = proposal as Record<string, unknown>;
   const withdrawal = p.action === "retract" || p.action === "disable";
   const common = ["action", "text", "sourceMessageId", "sourceQuote", "sources", "reason", "eligibility"];
-  const fact = ["kind", "recallTerms", "expiresAt", "factIdentity"];
+  const fact = ["kind", "recallTerms", "expiresAt", "factIdentity", "factEvidence"];
   const allowed = p.action === "add" ? [...common, ...fact, "validTime", "scope"] :
     withdrawal ? [...common, "memoryId", "expectedRevision"] :
     [...common, ...fact, "memoryId", "expectedRevision", ...(p.action === "change" ? ["effectiveAt", "changeIntent"] : ["validTime"])];
@@ -505,7 +544,7 @@ export function createMemoryConsolidation(options: {
         if (contentReview && eligibility !== "ignore") eligibility = "needs_review";
         // Missing time is reviewable uncertainty, not a guessed transition or a
         // reason to poison otherwise valid source-bound proposals in this batch.
-        const fromNowIntent = automatic && explicitFromNow(proposal as MemoryProposal, parsed.value, run.selected, run.prepared.memories, options.threadId, now());
+        const fromNowIntent = automatic && explicitFromNow(proposal as MemoryProposal, parsed.value, run.selected, run.prepared.memories, options.threadId, now(), run.prepared.truncated);
         if (eligibility !== "ignore" && parsed.value.change.operation === "change" && parsed.value.change.effectiveAt === null && !fromNowIntent) eligibility = "needs_review";
         // Conservative deny probes for recognizable credentials/explicit opt-out phrases.
         // This is not a universal natural-language privacy classifier. Metadata exclusion
@@ -544,10 +583,14 @@ export function createMemoryConsolidation(options: {
             /我(?:目前|现在)?(?:居住|住)(?:在|于)|我的(?:住址|居住地)(?:是|在|为)/.test(change.text) &&
             change.text.normalize("NFKC").toLowerCase().includes(identity.value) &&
             !/[?？“”「」"]|如果|假如|假设|例如|比如|举例|转述|(?:他|她|朋友)说|不是|并非/.test(quotes);
-          const everyday = identity !== undefined && "version" in identity;
+          const generic = identity !== undefined && "version" in identity && identity.version === 3;
+          const unverifiedGeneric = generic && (!sources.some(source => genericEvidenceMatches(proposal as MemoryProposal, source.quote, change.text,
+            run.prepared!.memories.find(entry => entry.id === targetId))) ||
+            /[?？“”"‘’]|如果|假如|假设|例如|比如|转述|朋友说|同事说|不是|并非/.test(sourceText));
+          const everyday = identity !== undefined && "version" in identity && identity.version === 2;
           const unverifiedEveryday = everyday && (!body || !observations.some(observed => observed.attribute === identity.attribute && observed.value === identity.value) ||
             body.attribute !== identity.attribute || body.value !== identity.value);
-          if (unverifiedEveryday || residence && !verifiedResidence || !verifiedResidence && observations.length > 0 && (!body ||
+          if (unverifiedGeneric || unverifiedEveryday || residence && !verifiedResidence || !generic && !verifiedResidence && observations.length > 0 && (!body ||
             !observations.some(observed => observed.attribute === body.attribute && observed.value === body.value) ||
             identity && (identity.attribute !== body.attribute || identity.value !== body.value))) {
             // Exact provenance alone cannot justify an unrelated extracted body.
@@ -566,6 +609,11 @@ export function createMemoryConsolidation(options: {
             entry.id === (proposal as MemoryProposal).memoryId && entry.temporalState === "retracted")) {
             eligibility = "needs_review";
             parsed.value.reason = "原偏好已撤回；这条新观察保留为独立待审，不会自动恢复或改写旧记忆。";
+          }
+          if (generic && change.operation !== "add") {
+            const target = run.prepared.memories.find(entry => entry.id === targetId)!;
+            if (!sameFactSlot(target.assertion?.factIdentity, identity) ||
+              !sameFact(target.assertion?.factIdentity, identity) && !fromNowIntent) eligibility = "needs_review";
           }
         }
         if (change.operation !== "retract" && change.operation !== "disable") {

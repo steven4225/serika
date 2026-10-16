@@ -12,6 +12,7 @@ import { dirname, join, resolve } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 
 import { acquireFlock } from "./flock.js";
+import { creationReceipt, readCreationReceipt, type CreationReceipt } from "./creation-idempotency.js";
 import { latestOccurrence, nextOccurrence, type Recurrence } from "./recurrence.js";
 import { abortReason, throwIfAborted, validateWorkspacePath } from "./workspace-path.js";
 
@@ -96,6 +97,7 @@ export type TaskNotificationRecord =
   | { ok: true; delivery?: "omitted" }
   | { ok: false; error: TaskError; nextAttemptAt: string | null };
 export interface TaskRecordV4 extends TaskRecordV3 {
+  creation?: CreationReceipt;
   attempts: TaskAttempt[];
   retryAt: string | null;
   notification: TaskNotification | null;
@@ -131,6 +133,7 @@ export type TaskDocument = TaskDocumentV4;
 export type RecurringTaskStatus = "active" | "paused" | "cancelled";
 
 export interface RecurringTaskRecord {
+  creation?: CreationReceipt;
   id: string;
   prompt: string;
   recurrence: Recurrence;
@@ -141,6 +144,7 @@ export interface RecurringTaskRecord {
 }
 
 export interface CreateRecurringTaskInput {
+  operationId?: string;
   prompt: string;
   recurrence: Recurrence;
   arrangement?: TaskArrangement;
@@ -171,6 +175,7 @@ export interface RecurringTaskDetail {
 }
 
 export interface CreateTaskInput {
+  operationId?: string;
   prompt: string;
   runAt: string;
   arrangement?: TaskArrangement;
@@ -349,6 +354,7 @@ function cloneError(error: TaskError | null): TaskError | null {
 
 function cloneRecord(record: TaskRecordV4): TaskRecordV4 {
   return { ...record, error: cloneError(record.error),
+    ...(record.creation ? { creation: { ...record.creation } } : {}),
     ...(record.arrangement ? { arrangement: { ...record.arrangement } } : {}),
     attempts: record.attempts.map((attempt) => ({ ...attempt, error: cloneError(attempt.error) })),
     notification: record.notification === null ? null : { ...record.notification, error: cloneError(record.notification.error) },
@@ -361,6 +367,7 @@ function cloneRecurrence(recurrence: Recurrence): Recurrence {
 
 function cloneRecurringTask(record: RecurringTaskRecord): RecurringTaskRecord {
   return { ...record, recurrence: cloneRecurrence(record.recurrence),
+    ...(record.creation ? { creation: { ...record.creation } } : {}),
     ...(record.arrangement ? { arrangement: { ...record.arrangement } } : {}) };
 }
 
@@ -646,6 +653,7 @@ function validateRecord(value: unknown, version: 1 | 2 | 3 | 4): TaskRecordV4 {
     ...(arrangement ? { arrangement } : {}),
     ...(value.execution === "deterministic" ? { execution: "deterministic" as const } : {}),
     ...validateDeliveryFields(value, version),
+    ...(value.creation === undefined ? {} : { creation: readCreationReceipt(value.creation)! }),
   };
 }
 
@@ -709,6 +717,7 @@ function validateRecurringTask(value: unknown): RecurringTaskRecord {
     status: value.status,
     createdAt: value.createdAt as string,
     nextRunAt: value.nextRunAt as string | null,
+    ...(value.creation === undefined ? {} : { creation: readCreationReceipt(value.creation)! }),
     ...(value.arrangement === undefined ? {} : { arrangement: storedArrangement(value.arrangement)! }),
   };
 }
@@ -750,6 +759,8 @@ function validateDocument(value: unknown): TaskDocumentV4 {
       raise("TASK_FILE_INVALID", `Task references missing recurring task: ${task.recurringTaskId}`);
     }
   }
+  const operations = [...tasks, ...recurringTasks].flatMap(task => task.creation ? [task.creation.operationId] : []);
+  if (new Set(operations).size !== operations.length) raise("TASK_FILE_INVALID", "Duplicate creation operation ID");
   return { version: 4, tasks, recurringTasks };
 }
 
@@ -757,9 +768,10 @@ function validateCreateInput(input: unknown): CreateTaskInput & { runAt: string 
   if (!isObject(input)) raise("INVALID_INPUT", "Task input must be an object");
   validatePrompt(input.prompt);
   validateSkillPrompt(input.prompt, input.arrangement);
-  if (isObject(input.arrangement) && input.arrangement.kind === "skill" && Object.keys(input).some(key => !["prompt", "runAt", "arrangement"].includes(key))) raise("INVALID_INPUT", "Unexpected scheduled Skill field");
+  if (isObject(input.arrangement) && input.arrangement.kind === "skill" && Object.keys(input).some(key => !["prompt", "runAt", "arrangement", "operationId"].includes(key))) raise("INVALID_INPUT", "Unexpected scheduled Skill field");
   const runAt = normalizeRunAt(input.runAt);
-  return { prompt: input.prompt, runAt, ...(input.arrangement === undefined ? {} : { arrangement: validateTaskArrangement(input.arrangement) }) };
+  return { prompt: input.prompt, runAt, ...(input.arrangement === undefined ? {} : { arrangement: validateTaskArrangement(input.arrangement) }),
+    ...(input.operationId === undefined ? {} : { operationId: input.operationId as string }) };
 }
 
 function validateCreateRecurringInput(
@@ -769,7 +781,7 @@ function validateCreateRecurringInput(
   if (!isObject(input)) raise("INVALID_INPUT", "Recurring task input must be an object");
   validatePrompt(input.prompt);
   validateSkillPrompt(input.prompt, input.arrangement);
-  if (isObject(input.arrangement) && input.arrangement.kind === "skill" && Object.keys(input).some(key => !["prompt", "recurrence", "arrangement"].includes(key))) raise("INVALID_INPUT", "Unexpected scheduled Skill field");
+  if (isObject(input.arrangement) && input.arrangement.kind === "skill" && Object.keys(input).some(key => !["prompt", "recurrence", "arrangement", "operationId"].includes(key))) raise("INVALID_INPUT", "Unexpected scheduled Skill field");
   if (!isObject(input.recurrence)) {
     raise("INVALID_INPUT", "Recurring task recurrence must be an object");
   }
@@ -794,7 +806,8 @@ function validateCreateRecurringInput(
         time: recurrence.time as string,
         utcOffset: recurrence.utcOffset as string,
       };
-  return { prompt: input.prompt, recurrence: normalized, ...(input.arrangement === undefined ? {} : { arrangement: validateTaskArrangement(input.arrangement) }) };
+  return { prompt: input.prompt, recurrence: normalized, ...(input.arrangement === undefined ? {} : { arrangement: validateTaskArrangement(input.arrangement) }),
+    ...(input.operationId === undefined ? {} : { operationId: input.operationId as string }) };
 }
 
 function isTaskListStatusFilter(value: unknown): value is TaskListStatusFilter {
@@ -943,10 +956,11 @@ export class WorkspaceTaskStore implements TaskStore {
     try {
       throwIfAborted(signal);
       const normalized = validateCreateInput(input);
-      if (Date.parse(normalized.runAt) <= this.#now()) {
-        raise("INVALID_INPUT", "Task runAt must be later than the current time");
-      }
+      const { operationId, ...payload } = normalized;
+      const receipt = creationReceipt(operationId, { kind: "once", ...payload });
+      if (!receipt && Date.parse(normalized.runAt) <= this.#now()) raise("INVALID_INPUT", "Task runAt must be later than the current time");
       const task: TaskRecordV4 = {
+        ...(receipt ? { creation: receipt } : {}),
         id: this.#generateId(),
         prompt: normalized.prompt,
         runAt: normalized.runAt,
@@ -965,6 +979,12 @@ export class WorkspaceTaskStore implements TaskStore {
       };
       if (task.id.length === 0) raise("WRITE_FAILED", "Task id generator returned an empty id");
       const value = await this.#update(signal, (document) => {
+        const existing = receipt && [...document.tasks, ...document.recurringTasks].find(item => item.creation?.operationId === receipt.operationId);
+        if (existing) {
+          if (existing.creation!.requestHash !== receipt.requestHash || !("runAt" in existing)) raise("INVALID_INPUT", "同一创建操作的内容已变化，请先核对原安排。");
+          return existing as TaskRecordV4;
+        }
+        if (Date.parse(normalized.runAt) <= this.#now()) raise("INVALID_INPUT", "Task runAt must be later than the current time");
         document.tasks.push(task);
         return task;
       });
@@ -982,7 +1002,10 @@ export class WorkspaceTaskStore implements TaskStore {
       throwIfAborted(signal);
       const now = this.#now();
       const normalized = validateCreateRecurringInput(input, now);
+      const { operationId, ...payload } = normalized;
+      const receipt = creationReceipt(operationId, { kind: "recurring", ...payload });
       const recurringTask: RecurringTaskRecord = {
+        ...(receipt ? { creation: receipt } : {}),
         id: this.#generateId(),
         prompt: normalized.prompt,
         recurrence: cloneRecurrence(normalized.recurrence),
@@ -998,6 +1021,11 @@ export class WorkspaceTaskStore implements TaskStore {
         raise("WRITE_FAILED", "Recurring task id generator returned an empty id");
       }
       const value = await this.#update(signal, (document) => {
+        const existing = receipt && [...document.tasks, ...document.recurringTasks].find(item => item.creation?.operationId === receipt.operationId);
+        if (existing) {
+          if (existing.creation!.requestHash !== receipt.requestHash || !("recurrence" in existing)) raise("INVALID_INPUT", "同一创建操作的内容已变化，请先核对原安排。");
+          return existing as RecurringTaskRecord;
+        }
         document.recurringTasks.push(recurringTask);
         return recurringTask;
       });

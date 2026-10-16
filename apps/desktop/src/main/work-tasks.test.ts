@@ -67,6 +67,23 @@ async function waitFor(condition: () => boolean) {
 }
 
 describe("work task desktop boundary", () => {
+  it("creation identity reaches the real Store through the desktop sanitizer and survives a reopened bridge", async () => {
+    const root = await prepare();
+    let desktop = await open(root);
+    try {
+      const input = { ...createInput, operationId: "desktop-create-replay" };
+      const first = await desktop.bridge.createWorkTask(input); assert.ok(first.ok);
+      assert.equal(first.value.creation?.operationId, input.operationId);
+      assert.equal(desktop.calls(), 0, "creating a task must not start execution");
+      await desktop.bridge.shutdown();
+      desktop = await open(root);
+      const replay = await desktop.bridge.createWorkTask(input); assert.ok(replay.ok);
+      assert.equal(replay.value.id, first.value.id);
+      const list = await desktop.bridge.listWorkTasks(); assert.ok(list.ok); assert.equal(list.value.length, 1);
+      assert.equal((await desktop.bridge.createWorkTask({ ...input, goal: "changed goal" })).ok, false);
+      assert.equal(sanitizeWorkTaskInput("createWorkTask", { ...input, operationId: "bad id" }).ok, false);
+    } finally { await desktop.bridge.shutdown(); await rm(root, { recursive: true, force: true }); }
+  });
   it("a real partial write whose cleanup fails stops the loop with an unknown receipt and task needs_review", async t => {
     const root = await prepare();
     const desktop = await open(root, "work-thread", true);

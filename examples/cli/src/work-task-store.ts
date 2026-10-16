@@ -4,6 +4,7 @@ import { lstat, mkdir, open, readFile, rename, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 import { acquireFlock, tryAcquireFlock, type FlockHandle } from "./flock.js";
+import { creationReceipt, readCreationReceipt, type CreationReceipt } from "./creation-idempotency.js";
 import { matchesFileWritePath, readFileWriteReceipt, hasMatchingFileReadback, type ExecutionRecordStore, type ExecutionToolRecord } from "./execution-record-store.js";
 import { rejectSymlinkComponents, validateWorkspacePath } from "./workspace-path.js";
 import { invalidatesTaskTest, matchesTaskTestCommand } from "./work-task-shell-evidence.js";
@@ -78,6 +79,7 @@ export interface WorkTaskReconciliation {
 }
 
 export interface WorkTask {
+  creation?: CreationReceipt;
   id: string;
   revision: number;
   threadId: string;
@@ -93,6 +95,7 @@ export interface WorkTask {
 }
 
 export interface CreateWorkTaskInput {
+  operationId?: string;
   threadId: string;
   goal: string;
   constraints?: string[];
@@ -318,7 +321,7 @@ function parseReconciliation(value: unknown): WorkTaskReconciliation {
 
 function parseTask(value: unknown): WorkTask {
   if (!isRecord(value)) raise("WORK_TASK_FILE_INVALID", "Task must be an object");
-  assertKeys(value, ["id", "revision", "threadId", "goal", "constraints", "acceptance", "status", "runIds", "delivery", "reconciliations", "createdAt", "updatedAt"], "task");
+  assertKeys(value, ["id", "revision", "threadId", "goal", "constraints", "acceptance", "status", "runIds", "delivery", "reconciliations", "createdAt", "updatedAt", "creation"], "task");
   if (!Number.isSafeInteger(value.revision) || (value.revision as number) < 1 ||
       !workTaskStatuses.includes(value.status as WorkTaskStatus) || !timestamp(value.createdAt) || !timestamp(value.updatedAt) ||
       !Array.isArray(value.acceptance) || value.acceptance.length > LIMITS.acceptance || value.delivery === undefined) {
@@ -336,6 +339,7 @@ function parseTask(value: unknown): WorkTask {
     raise("WORK_TASK_FILE_INVALID", "Task contains duplicate IDs");
   }
   const task: WorkTask = {
+    ...(value.creation === undefined ? {} : { creation: readCreationReceipt(value.creation)! }),
     id: text(value.id, "id", 128, true), revision: value.revision as number,
     threadId: text(value.threadId, "threadId", 256, true), goal: text(value.goal, "goal", LIMITS.goalBytes, true),
     constraints: strings(value.constraints, "constraints", LIMITS.constraints, LIMITS.textBytes, true), acceptance,
@@ -384,6 +388,8 @@ export function validateWorkTaskDocument(value: unknown): WorkTaskDocument {
   if (!Array.isArray(value.tasks) || value.tasks.length > WORK_TASK_MAX_ENTRIES) raise("WORK_TASK_FILE_INVALID", "Task list is invalid");
   const tasks = value.tasks.map(parseTask);
   if (new Set(tasks.map((task) => task.id)).size !== tasks.length) raise("WORK_TASK_FILE_INVALID", "Duplicate task ID");
+  const operations = tasks.flatMap(task => task.creation ? [task.creation.operationId] : []);
+  if (new Set(operations).size !== operations.length) raise("WORK_TASK_FILE_INVALID", "Duplicate creation operation ID");
   return { version: 1, tasks };
 }
 
@@ -475,7 +481,15 @@ class WorkTaskStoreImpl implements WorkTaskStore {
         status: "ready", runIds: [], delivery: null, createdAt: at, updatedAt: at,
         reconciliations: [],
       };
+      const receipt = creationReceipt(input.operationId, { threadId: task.threadId, goal: task.goal, constraints: task.constraints,
+        acceptance: task.acceptance.map(({ id, description, method, verification, required }) => ({ id, description, method, verification, required })) });
+      if (receipt) task.creation = receipt;
       return await this.#mutate((document) => {
+        const existing = receipt && document.tasks.find(item => item.creation?.operationId === receipt.operationId);
+        if (existing) {
+          if (existing.creation!.requestHash !== receipt.requestHash) raise("WORK_TASK_INVALID_INPUT", "同一创建操作的内容已变化，请先核对原任务。");
+          return existing;
+        }
         if (document.tasks.length >= WORK_TASK_MAX_ENTRIES) raise("WORK_TASK_LIMIT_EXCEEDED", "Work task limit reached");
         if (document.tasks.some((item) => item.id === task.id)) raise("WORK_TASK_INVALID_INPUT", "Generated task ID already exists");
         document.tasks.unshift(task);
@@ -777,11 +791,12 @@ class WorkTaskStoreImpl implements WorkTaskStore {
       if (this.#commitUncertain) raise("WORK_TASK_COMMIT_UNCERTAIN", "Work task save acknowledgement is uncertain; restart and reread before further writes");
       if (this.#writeFailed) raise("WORK_TASK_WRITE_FAILED", "Work task storage failed; restart and reconcile before further dispatch");
       const document = await this.#load();
+      const before = JSON.stringify(document);
       const value = update(document);
       validateWritableDocument(document);
       const serialized = `${JSON.stringify(document)}\n`;
       if (Buffer.byteLength(serialized, "utf8") > WORK_TASK_FILE_MAX_BYTES) raise("WORK_TASK_LIMIT_EXCEEDED", "Work task file exceeds size limit");
-      await this.#write(serialized);
+      if (JSON.stringify(document) !== before) await this.#write(serialized);
       return { ok: true, value: structuredClone(value) };
     } finally { await lock.release(); }
   }

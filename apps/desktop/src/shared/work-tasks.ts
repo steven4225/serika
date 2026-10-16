@@ -21,6 +21,7 @@ export function sanitizeWorkTaskInput<K extends keyof WorkTaskInputs>(operation:
   if (!record(input)) return invalid();
   let value: WorkTaskInputs[keyof WorkTaskInputs];
   if (operation === "createWorkTask") {
+    if (input.operationId !== undefined && (typeof input.operationId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(input.operationId))) return invalid();
     if (!text(input.goal) || (input.constraints !== undefined && !texts(input.constraints)) || !Array.isArray(input.acceptance)) return invalid();
     const acceptance: WorkTaskInputs["createWorkTask"]["acceptance"] = [];
     for (const item of input.acceptance) {
@@ -35,7 +36,8 @@ export function sanitizeWorkTaskInput<K extends keyof WorkTaskInputs>(operation:
         acceptance.push({ id: item.id, description: item.description, required: item.required, method: "automatic", verification: { kind: "shell_exit_zero", command: item.verification.command, cwd: item.verification.cwd } });
       } else return invalid();
     }
-    value = { goal: input.goal, acceptance, ...(input.constraints === undefined ? {} : { constraints: input.constraints }) };
+    value = { goal: input.goal, acceptance, ...(input.constraints === undefined ? {} : { constraints: input.constraints }),
+      ...(input.operationId === undefined ? {} : { operationId: input.operationId as string }) };
   } else {
     if (!text(input.id) || !Number.isSafeInteger(input.expectedRevision) || (input.expectedRevision as number) < 1) return invalid();
     const identity = { id: input.id, expectedRevision: input.expectedRevision as number };

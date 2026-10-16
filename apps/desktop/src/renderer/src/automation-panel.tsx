@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { submitCreation } from "./creation-operation.js";
 import { FailureAlert } from "./failure-notice.js";
 import type { AutomationOverview, AutomationScheduleAction } from "@aisdk-agent/example-cli/dist/automation-scheduling.js";
 import { automationArrangementLabel, automationStatuses, skillSchedulePreview, type SkillScheduleDraft } from "./automation-schedule.js";
@@ -19,6 +20,7 @@ export function AutomationPanel({ busy, identity, onRun, onReminders, refreshSeq
   const generation = useRef(0);
   const context = useRef(identity);
   const lastRefresh = useRef(refreshSequence);
+  const inFlight = useRef(false);
   context.current = identity;
   const reload = async () => {
     const request = ++generation.current;
@@ -46,7 +48,8 @@ export function AutomationPanel({ busy, identity, onRun, onReminders, refreshSeq
     void reload();
   }, [refreshSequence]);
   const act = async (operation: () => Promise<{ ok: boolean; error?: { code: string; message: string } }>, success: string) => {
-    if (busy || working) return;
+    if (busy || working || inFlight.current) return;
+    inFlight.current = true;
     const captured = context.current;
     setWorking(true); setError(""); setNotice("");
     try {
@@ -55,13 +58,14 @@ export function AutomationPanel({ busy, identity, onRun, onReminders, refreshSeq
       if (!result.ok) setError(`${result.error?.code ?? "FAILED"}: ${result.error?.message ?? "操作失败"}`);
       else { if (success) setNotice(success); setPreview(null); setChange(null); await reload(); }
     } catch { if (captured === context.current) setError("操作结果未确认，请刷新核对；不会自动重试。"); }
-    finally { if (captured === context.current) setWorking(false); }
+    finally { inFlight.current = false; if (captured === context.current) setWorking(false); }
   };
   const create = async () => {
     if (!preview) return;
     const saved = preview;
     await act(async () => {
-      const result = await window.runloom.scheduleSkill(saved.input);
+      const result = await submitCreation(window.localStorage, `${identity}:schedule`, saved.input,
+        operationId => window.runloom.scheduleSkill({ ...saved.input, operationId }));
       if (result.ok && context.current === identity) setNotice(`已排期，不代表已经执行。${result.value.service.enabled ? "后台服务已登记，不代表正在运行或已送达通知。" : `后台服务未启用：${result.value.service.message ?? "请检查后台配置"}；到期执行尚无保证。`}`);
       return result;
     }, "");
