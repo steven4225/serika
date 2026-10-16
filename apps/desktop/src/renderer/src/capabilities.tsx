@@ -16,6 +16,38 @@ const labels: Record<string, [string, string]> = {
 
 const moduleName = (id: string) => labels[id]?.[0] ?? "这项能力";
 
+function AutonomySetting({ info, busy }: { info: AppInfo; busy: boolean }) {
+  const [confirming, setConfirming] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (!info.autonomy || typeof window === "undefined" || !window.runloom.setAutonomyEnabled) return null;
+  const enabled = info.autonomy.enabled;
+  const apply = async () => {
+    setSaving(true); setError(null);
+    try {
+      await window.runloom.setAutonomyEnabled!({ enabled: !enabled, expectedEnabled: enabled });
+      setConfirming(false);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { setSaving(false); }
+  };
+  const locked = busy || saving || !!info.runtimeRecovery || !info.autonomy.workspaceRoot;
+  return <section className="capability-row" aria-label="本机自主执行">
+    <div><strong>本机自主执行 · {enabled ? "已开启" : "已关闭"}</strong>
+      <p>交办后连续读取、修改文件和执行命令，无需逐条确认。仅对当前工作区的桌面聊天与任务执行生效。</p>
+      <small>当前工作区：{info.autonomy.workspaceRoot ?? "未选择"}</small>
+      {confirming ? <div className="capability-confirm" role="group" aria-label="确认自主执行变更">
+        <strong>{enabled ? "关闭本机自主执行？" : "信任此工作区并开启本机自主执行？"}</strong>
+        <p>本机 Shell 使用 Serika 进程拥有的本机权限，可以访问工作区外；工作区不是沙箱。</p>
+        <p>授权重启后仍有效，直到关闭。仅空闲时可更改；执行中可先停止。Telegram 和后台任务不继承此授权，其他工具保留原权限。</p>
+        <p>开启后每轮最多 128 步、30 分钟，单条命令最长 10 分钟。未启用的工具不会自动开启。</p>
+        <div className="actions"><button disabled={locked} onClick={() => void apply()}>{saving ? "正在应用…" : enabled ? "关闭并恢复逐次确认" : "信任并开启"}</button><button className="ghost" disabled={saving} onClick={() => setConfirming(false)}>取消</button></div>
+      </div> : <button className="ghost" disabled={locked} onClick={() => { setConfirming(true); setError(null); }}>{enabled ? "关闭自主执行" : "开启自主执行"}</button>}
+      {busy ? <p className="hint">执行结束或停止后才能更改授权。</p> : null}
+      {error ? <p role="alert" className="error">{error}</p> : null}
+    </div>
+  </section>;
+}
+
 export function CapabilitiesPanel({ info, busy = false, initialError = null, intro }: { info: AppInfo; busy?: boolean; initialError?: string | null; intro?: string }) {
   const unavailable = info.runtimeRecovery !== undefined;
   const [selection, setSelection] = useState<{ id: string; enabled: boolean } | null>(null);
@@ -30,14 +62,15 @@ export function CapabilitiesPanel({ info, busy = false, initialError = null, int
     finally { setSaving(false); }
   };
     return <section className="capability-page">
-    <p className="hint">{intro ?? "选择助手可以使用的内置功能。保存后重新加载当前对话，具体操作仍需确认。"}</p>
+    <AutonomySetting info={info} busy={busy} />
+    <p className="hint">{intro ?? "选择助手可以使用的内置功能。保存后重新加载当前对话，操作按当前授权执行。"}</p>
     {busy ? <p className="hint" role="status">当前正在处理，结束后才能更改能力。</p> : null}
     {unavailable ? <p className="error" role="status">连接未恢复。以下是上次连接的配置，不能当作当前生效状态；重新连接后再更改能力。</p> : null}
     {error ? <p className="error" role="alert">{error}</p> : null}
     {selection ? <div className="capability-confirm" role="group" aria-label="确认能力变更">
       <strong>{selection.enabled ? "开启" : "关闭"}{moduleName(selection.id)}？</strong>
       {selection.id !== "pomodoro" ? <p className="hint">空闲时重新加载助手能力。番茄钟和已有后台安排继续，当前对话和未发送草稿保留。</p> : null}
-      <p>{selection.id === "task" ? "只更改助手创建和查询安排的能力；已保存的安排和后台服务继续运行。暂停安排请到任务页的定时安排中操作。" : selection.id === "memory" ? "关闭后不再引用记忆或整理记忆，已保存的记忆和候选不会删除。重新开启沿用原来的写入策略。" : selection.id === "pomodoro" ? (selection.enabled ? "重新开启计时能力，不恢复之前已经结束的计时。" : "关闭并结束当前计时；重新开启不会恢复原计时。") : "下一次对话将使用新的能力配置。已保存的数据保留，工具操作仍按原权限逐次确认。"}</p>
+      <p>{selection.id === "task" ? "只更改助手创建和查询安排的能力；已保存的安排和后台服务继续运行。暂停安排请到任务页的定时安排中操作。" : selection.id === "memory" ? "关闭后不再引用记忆或整理记忆，已保存的记忆和候选不会删除。重新开启沿用原来的写入策略。" : selection.id === "pomodoro" ? (selection.enabled ? "重新开启计时能力，不恢复之前已经结束的计时。" : "关闭并结束当前计时；重新开启不会恢复原计时。") : "下一次对话将使用新的能力配置。已保存的数据保留，操作按当前授权执行。"}</p>
       <div className="actions"><button disabled={busy || unavailable || saving} onClick={() => void apply()}>{saving ? "正在应用…" : "保存并应用"}</button><button className="ghost" disabled={saving} onClick={() => { setSelection(null); setError(null); }}>取消</button></div>
     </div> : null}
     <div className="capability-list">{info.modules?.map(module => {

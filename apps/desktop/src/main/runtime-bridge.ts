@@ -296,6 +296,7 @@ export class RuntimeBridge {
         id,
         enabled: this.#app.moduleConfig?.enabled[id] === true,
       })),
+      autonomy: { enabled: this.#app.desktopAutonomyEnabled === true, workspaceRoot: this.#app.workspaceRoot ?? null },
       configPath: this.#app.moduleConfig?.configPath ?? null,
       moduleOptions: {
         webSearch: this.#app.moduleConfig?.webSearchEnabled === true,
@@ -419,10 +420,12 @@ export class RuntimeBridge {
     // No renderer-supplied metadata, model options or authority may cross this boundary.
     const attachments = validateChatAttachments(options?.attachments);
     const safeOptions = { ...(options?.memoryConsolidation === "exclude" ? { memoryConsolidation: "exclude" as const } : {}), ...(attachments.length ? { attachments } : {}) };
-    return this.#runWithOptions(text, safeOptions);
+    return this.#runWithOptions(text, { ...safeOptions, desktopEntry: true });
   }
 
   /** Trusted gateway clock, deliberately separate from renderer run options. */
+  telegramAutonomyEnabled() { return this.#app.telegramAutonomyEnabled?.() === true; }
+
   async runFromChannel(text: string, receivedAt?: string): Promise<RunResponse> {
     if (receivedAt !== undefined && (!/\+08:00$/.test(receivedAt) || !Number.isFinite(Date.parse(receivedAt)))) throw new Error("消息接收时间无效，未启动执行");
     return this.#runWithOptions(text, { source: "telegram", ...(receivedAt ? { receivedAt } : {}) });
@@ -541,11 +544,16 @@ export class RuntimeBridge {
   cancelWorkTask(input: WorkTaskInputs["cancelWorkTask"]) { return this.#writeTask("cancelWorkTask", input); }
   requestWorkTaskChanges(input: WorkTaskInputs["requestWorkTaskChanges"]) { return this.#writeTask("requestWorkTaskChanges", input); }
 
-  async runWorkTask(input: WorkTaskInputs["runWorkTask"], source?: "telegram"): Promise<RunResponse> {
+  runWorkTask(input: WorkTaskInputs["runWorkTask"]): Promise<RunResponse> { return this.#startWorkTask(input); }
+
+  /** Trusted gateway only; deliberately absent from resident/renderer method dispatch. */
+  runWorkTaskFromChannel(input: WorkTaskInputs["runWorkTask"]): Promise<RunResponse> { return this.#startWorkTask(input, "telegram"); }
+
+  async #startWorkTask(input: WorkTaskInputs["runWorkTask"], source?: "telegram"): Promise<RunResponse> {
     const sanitized = sanitizeWorkTaskInput("runWorkTask", input);
     if (!sanitized.ok) return { ok: false, reason: "starting" };
     if (this.#controller.getSnapshot().state.kind !== "idle") return { ok: false, reason: "busy" };
-    return this.#controller.runWorkTask({ ...sanitized.value, ...(source ? { source } : {}) });
+    return this.#controller.runWorkTask({ ...sanitized.value, ...(source ? { source } : {}) }, source === "telegram" ? undefined : { desktopEntry: true });
   }
 
   async shutdown(): Promise<void> {

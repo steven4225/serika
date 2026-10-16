@@ -2,7 +2,7 @@ import type { ResolvedTuiModuleConfig } from "./tui-module-config.js";
 import { BUILTIN_MODULE_IDS } from "./tui-module-config.js";
 
 /** Registration evidence only. Never probes apps, services, credentials or package directories. */
-export function capabilityStatus(config: ResolvedTuiModuleConfig | undefined, tools: readonly string[]) {
+export function capabilityStatus(config: ResolvedTuiModuleConfig | undefined, tools: readonly string[], desktopAutonomy = false, entry: "desktop" | "telegram" = "desktop") {
   const prefixes: Record<string, readonly string[]> = {
     pomodoro: ["pomodoro_"], "read-file": ["read_file", "write_file", "edit_file", "search_files", "list_directory"],
     memory: ["memory_"], checkpoint: ["checkpoint_"], task: ["task_"], todoist: ["todoist_"],
@@ -19,8 +19,8 @@ export function capabilityStatus(config: ResolvedTuiModuleConfig | undefined, to
       };
     }),
     tools: [...tools],
-    shell: { mode: config?.shellSandbox ? "docker" : "host", authority: "current_run_only; no permissions inherited from recipes",
-      warning: config?.shellSandbox ? "沿用配置的挂载与网络限制。" : "工作目录不是操作系统隔离；主机命令仍需明确批准。" },
+    shell: { mode: config?.shellSandbox ? "docker" : "host", authority: desktopAutonomy ? `explicit_workspace_${entry}_primary; no background inheritance` : "current_run_only; no permissions inherited from recipes",
+      warning: desktopAutonomy ? `当前工作区${entry === "telegram" ? "绑定 Telegram 私聊" : "桌面"}前台文件与本机 Shell 已授权；其他入口不继承。Shell 使用进程的本机权限，工作区不是沙箱。` : config?.shellSandbox ? "沿用配置的挂载与网络限制。" : "工作目录不是操作系统隔离；主机命令仍需明确批准。" },
     computer: { configured: !!config?.computer, allowedBundleIds: config?.computer?.allowedBundleIds ?? [],
       service: "not_checked" as const, permissions: "not_checked" as const,
       next: "配置与工具注册不证明服务或系统权限就绪。批准 computer_check 可单独检查连接（不读取窗口内容），批准 computer_observe 才观察指定的允许应用；不会启动驱动或授予系统权限。" },

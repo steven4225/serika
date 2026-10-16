@@ -84,6 +84,7 @@ export interface AppInfo {
   memoryLibrary?: true;
   attachments?: true;
   pomodoroControls?: true;
+  autonomy?: { enabled: boolean; workspaceRoot: string | null };
   recoveryWorkspace?: { originalWorkspace: string };
   runtimeRecovery?: { state: "failed"; message: string };
   /** Actual loaded main-process identity; optional for preview/older bridges. */
@@ -207,6 +208,7 @@ export interface RendererApi {
   changeRecipe(input: RecipeChange): Promise<MemoryResult<RecipeEntry>>;
 
   telegramStatus?(): Promise<import("./telegram.js").TelegramStatus>;
+  setTelegramAutonomyEnabled?(input: import("./telegram.js").TelegramAutonomySettingInput): Promise<import("./telegram.js").TelegramStatus>;
   setTelegramEnabled?(enabled: boolean): Promise<import("./telegram.js").TelegramStatus>;
   beginTelegramPairing?(): Promise<import("./telegram.js").TelegramStatus>;
   confirmTelegramPairing?(code: string): Promise<import("./telegram.js").TelegramStatus>;
@@ -273,6 +275,7 @@ export interface RendererApi {
   dream(): ReturnType<AssistantController["dream"]>;
   changeLearnedSkill(input: Parameters<AssistantController["changeLearnedSkill"]>[0]): ReturnType<AssistantController["changeLearnedSkill"]>;
   getLearnedSkillReferences(): Promise<ReturnType<AssistantController["getLearnedSkillReferences"]>>;
+  setAutonomyEnabled?(input: { enabled: boolean; expectedEnabled: boolean }): Promise<void>;
   setDreamingEnabled(input: { enabled: boolean; expectedEnabled: boolean }): Promise<void>;
   /** Success means a Run started, not that the Skill completed or its output is correct. */
   runSkill(input: SkillRunInput): Promise<SkillResult<{ runId: string }>>;
@@ -316,6 +319,7 @@ export const IPC = {
   changeRecipe: "runloom:changeRecipe",
 
   telegramStatus: "runloom:telegramStatus",
+  telegramAutonomyEnabled: "runloom:telegramAutonomyEnabled",
   telegramEnabled: "runloom:telegramEnabled",
   telegramPairing: "runloom:telegramPairing",
   telegramBind: "runloom:telegramBind",
@@ -380,6 +384,7 @@ export const IPC = {
   dream: "runloom:dream",
   learnedSkillChange: "runloom:learnedSkillChange",
   learnedSkillReferences: "runloom:learnedSkillReferences",
+  autonomyEnabled: "runloom:autonomyEnabled",
   dreamingEnabled: "runloom:dreamingEnabled",
   runSkill: "runloom:runSkill",
   memoryLibraryGet: "memory-library:get",

@@ -80,6 +80,7 @@ export class RuntimeOwnership {
   createThread(...args: Parameters<DesktopRuntime["createThread"]>) { return this.#active().createThread(...args); }
   selectThread(...args: Parameters<DesktopRuntime["selectThread"]>) { return this.#active().selectThread(...args); }
   telegramStatus() { return this.#active().telegramStatus(); }
+  setTelegramAutonomyEnabled(...args: Parameters<DesktopRuntime["setTelegramAutonomyEnabled"]>) { return this.#active().setTelegramAutonomyEnabled(...args); }
   setTelegramEnabled(enabled: boolean) { return this.#active().setTelegramEnabled(enabled); }
   beginTelegramPairing() { return this.#active().beginTelegramPairing(); }
   confirmTelegramPairing(code: string) { return this.#active().confirmTelegramPairing(code); }
@@ -90,6 +91,7 @@ export class RuntimeOwnership {
   enableMemory() { return this.#active().enableMemory(); }
   setModuleEnabled(...args: Parameters<DesktopRuntime["setModuleEnabled"]>) { return this.#active().setModuleEnabled(...args); }
   setContextMode(...args: Parameters<DesktopRuntime["setContextMode"]>) { return this.#active().setContextMode(...args); }
+  setAutonomyEnabled(...args: Parameters<DesktopRuntime["setAutonomyEnabled"]>) { return this.#active().setAutonomyEnabled(...args); }
   setDreamingEnabled(...args: Parameters<DesktopRuntime["setDreamingEnabled"]>) { return this.#active().setDreamingEnabled(...args); }
   async activateRecovery(root: string | null) {
     const host = this.#active();

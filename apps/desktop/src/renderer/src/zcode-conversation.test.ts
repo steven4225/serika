@@ -61,17 +61,17 @@ it("groups completed work before the final reply without rewriting text or losin
 });
 
 it("does not promote text before a later tool into a final answer or collapse a live answer", () => {
-  assert.deepEqual(conversationTurns([user, interim, tool], false)[0]?.items.map(item => item.kind), ["text", "text", "work"]);
+  assert.deepEqual(conversationTurns([user, interim, tool], false)[0]?.items.map(item => item.kind), ["text", "work"]);
   const running = conversationTurns([user, interim, tool, answer], true)[0]!;
   assert.equal(running.running, true);
-  assert.deepEqual(running.items.map(item => item.kind), ["text", "text", "work", "text"]);
+  assert.deepEqual(running.items.map(item => item.kind), ["text", "work"]);
   const markup = renderToStaticMarkup(createElement(ZCodeConversation, { rows: [user, interim, tool], running: true, streaming: "正在逐字回复" }));
   assert.match(markup, /正在逐字回复/);
   assert.doesNotMatch(markup, /aria-label="复制回复"/);
 });
 
-it("keeps unknown/failure/incomplete effects visible without a success claim or replay action", () => {
-  for (const status of ["unknown", "failed", "incomplete", "timed_out", "dispatched"] as const) {
+it("keeps unresolved effects expanded, while retaining known failures in the summary without a success claim", () => {
+  for (const status of ["unknown", "incomplete", "timed_out", "dispatched"] as const) {
     const { receipt, ...withoutReceipt } = tool;
     const row: ToolRow = { ...withoutReceipt, status };
     assert.equal(workSummary([row]).needsAttention, true);
@@ -80,6 +80,9 @@ it("keeps unknown/failure/incomplete effects visible without a success claim or 
     assert.match(markup, /class="zcode-work needs-attention" open=""/);
     assert.doesNotMatch(markup, /程序检查通过|自动重试|重新执行/);
   }
+  const failed = { ...tool, status: "failed" as const };
+  assert.equal(workSummary([failed]).needsAttention, false);
+  assert.match(workSummary([failed]).label, /有调用未成功/);
   assert.match(workSummary([{ ...tool, status: "denied" }]).label, /有调用被拒绝/);
   assert.equal(workSummary([{ ...tool, status: "requested" }]).pending, true);
 });

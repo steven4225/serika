@@ -6,16 +6,17 @@ import { it } from "node:test";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { DesktopRuntime } from "./desktop-runtime.js";
+import { ResidentClient, createResidentPaths, startResidentServer } from "./resident-transport.js";
 import { TelegramGateway } from "./telegram-gateway.js";
 import { TelegramStore } from "./telegram-store.js";
 import { TelegramApiError, createTelegramApi, type TelegramApi, type TelegramUpdate } from "./telegram-api.js";
 import { createTaskStore, TASK_FILE_NAME, RSS_DIGEST_TASK_PROMPT } from "@aisdk-agent/example-cli/dist/task-store.js";
 import { formatLocalTaskTime } from "@aisdk-agent/example-cli/dist/task-instructions.js";
 
-function response(tool?: { name: string; input: unknown }, text = "已完成请求。") {
+function response(tool?: { name: string; input: unknown }, text = "已完成请求。", callId = "call-1") {
   return { stream: simulateReadableStream({ chunks: [
     { type: "stream-start" as const, warnings: [] },
-    ...(tool ? [{ type: "tool-call" as const, toolCallId: "call-1", toolName: tool.name, input: JSON.stringify(tool.input) }] : [
+    ...(tool ? [{ type: "tool-call" as const, toolCallId: callId, toolName: tool.name, input: JSON.stringify(tool.input) }] : [
       { type: "text-start" as const, id: "text" }, { type: "text-delta" as const, id: "text", delta: text }, { type: "text-end" as const, id: "text" },
     ]),
     { type: "finish" as const, finishReason: { unified: tool ? "tool-calls" as const : "stop" as const, raw: undefined }, usage: {
@@ -23,8 +24,8 @@ function response(tool?: { name: string; input: unknown }, text = "已完成请�
     } },
   ] }) };
 }
-async function until(check: () => boolean | Promise<boolean>) {
-  const deadline = Date.now() + 10_000;
+async function until(check: () => boolean | Promise<boolean>, timeoutMs = 10_000) {
+  const deadline = Date.now() + timeoutMs;
   while (!await check()) { if (Date.now() > deadline) throw new Error("Telegram state did not settle"); await new Promise(done => setTimeout(done, 5)); }
 }
 const update = (id: number, text: string, userId = 42, type = "private", messageId = id): TelegramUpdate => ({ update_id: id,
@@ -53,11 +54,11 @@ it("TG capability queries never present cached registration as current during ru
     assert.equal(f.calls(), 0);
   } finally { await f.cleanup(); }
 });
-async function fixture(stream: (call: number, prompt?: string) => Promise<ReturnType<typeof response>> = async () => response(), backgroundReady = true) {
+async function fixture(stream: (call: number, prompt?: string) => Promise<ReturnType<typeof response>> = async () => response(), backgroundReady = true, shellEnabled = false) {
   const root = await realpath(await mkdtemp(join(tmpdir(), "serika-telegram-unit-")));
   const workspace = join(root, "workspace"), userData = join(root, "profile"), configPath = join(root, "config.json");
   await mkdir(workspace);
-  await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { "read-file": { enabled: true }, memory: { enabled: false }, shell: { enabled: false }, task: { enabled: true } } }));
+  await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { "read-file": { enabled: true }, memory: { enabled: false }, shell: { enabled: shellEnabled }, task: { enabled: true } } }));
   let calls = 0;
   let time = Date.now(), activations = 0;
   const host = await DesktopRuntime.create({ userData, cwd: root, env: { RUNLOOM_CONFIG: configPath }, modelAlias: "mock",
@@ -1145,4 +1146,144 @@ it("API never leaks token URLs or retries sends, and refuses an existing webhook
     finally { await gateway.close(); }
     assert.equal(f.calls(), 0);
   } finally { await f.cleanup(); }
+});
+
+it("independent TG authorization runs chat and WorkTasks through real file/Shell tools, persists and restores per-call confirmation when disabled", async () => {
+  type Call = { name: string; input: Record<string, unknown> };
+  let plan: Call[] = [], step = 0;
+  const prompts: string[] = [];
+  const f = await fixture(async (_n, prompt) => { prompts.push(prompt ?? ""); const index = step++; return response(plan[index], "交付完成。", `autonomy-${index}`); }, true, true);
+  const shell = (command: string): Call => ({ name: "shell_exec", input: { command, cwd: "." } });
+  const reset = (calls: Call[]) => { step = 0; plan = calls; prompts.length = 0; };
+  const idle = () => f.host.current.snapshot().state.kind === "idle";
+  try {
+    await f.bind();
+    const owner = f.store.snapshot().owner!;
+    const setting = (enabled: boolean, expectedEnabled: boolean) => ({ enabled, expectedEnabled, expectedOwner: { userId: owner.userId, chatId: owner.chatId, threadId: owner.threadId } });
+    assert.equal(f.gateway.status().autonomyEnabled, false);
+    // Desktop authorization does not authorize the channel.
+    await f.host.setAutonomyEnabled({ enabled: true, expectedEnabled: false });
+    reset([shell("touch no-inheritance")]);
+    await f.gateway.receive(update(2, "执行命令"));
+    await until(() => !!f.host.current.snapshot().pendingApproval);
+    assert.equal(f.gateway.status().autonomyEnabled, false);
+    await assert.rejects(f.host.setTelegramAutonomyEnabled(setting(true, false)), /等待/);
+    await f.gateway.receive(update(3, "停止")); await until(idle);
+    await until(() => f.store.snapshot().inputs.find(x => x.key === "42:2")?.state === "finished");
+    await assert.rejects(readFile(join(f.workspace, "no-inheritance")));
+    await f.host.setAutonomyEnabled({ enabled: false, expectedEnabled: true });
+    await assert.rejects(f.host.setTelegramAutonomyEnabled({ ...setting(true, false), expectedOwner: { ...setting(true, false).expectedOwner, userId: 99 } }), /绑定已变化/);
+    await f.host.setTelegramAutonomyEnabled(setting(true, false));
+    assert.equal(f.gateway.status().autonomyEnabled, true);
+    assert.equal(f.host.info().autonomy?.enabled, false);
+    await assert.rejects(f.host.setTelegramAutonomyEnabled(setting(false, false)), /配置已变化/);
+    const config = JSON.parse(await readFile(join(f.root, "config.json"), "utf8"));
+    assert.deepEqual(config.telegramAutonomy, { workspaceRoot: f.workspace, botId: 100, userId: 42, chatId: 42, threadId: owner.threadId });
+    // Foreign users and group chats never reach a model or execute.
+    const calls = f.calls(); await f.gateway.receive(update(4, "非法任务", 99)); await f.gateway.receive(update(5, "非法任务", 42, "group"));
+    assert.equal(f.calls(), calls);
+    reset([
+      { name: "write_file", input: { path: "answer.txt", content: "wrong" } },
+      shell('test "$(cat answer.txt)" = right'),
+      { name: "edit_file", input: { path: "answer.txt", oldText: "wrong", newText: "right" } },
+      { name: "read_file", input: { path: "answer.txt" } },
+      ...Array.from({ length: 6 }, () => shell('test "$(cat answer.txt)" = right')),
+    ]);
+    await f.gateway.receive(update(6, "修复并运行多条检查"));
+    await until(() => f.store.snapshot().inputs.find(x => x.key === "42:6")?.state === "finished", 60_000);
+    const input = f.store.snapshot().inputs.find(x => x.key === "42:6")!;
+    const run = await f.host.channelReceipt(owner.threadId, input.runId!);
+    assert.equal(run?.status, "completed"); assert.equal(run?.tools.length, 10);
+    assert.equal(run?.tools[1]?.shell?.exitCode, 1); assert.equal(run?.tools.at(-1)?.shell?.exitCode, 0);
+    assert.equal(run?.tools.some(tool => tool.approvalRequestedAt), false);
+    assert.equal(await readFile(join(f.workspace, "answer.txt"), "utf8"), "right");
+    assert.ok(prompts[0]?.includes("host has explicitly authorized"));
+    reset([shell("test -f answer.txt"), { name: "read_file", input: { path: "answer.txt" } }]);
+    await f.gateway.receive(update(7, "任务：检查交付"));
+    const proposal = [...f.sent].reverse().find(text => text.includes("任务目标："))!;
+    assert.match(proposal, /文件和本机命令已授权连续执行/);
+    const code = /开始 ([A-F0-9]{10})/.exec(proposal)![1]!;
+    await f.gateway.receive(update(8, `开始 ${code}`));
+    await until(() => f.store.snapshot().inputs.find(x => x.key === "42:8")?.state === "finished");
+    const taskInput = f.store.snapshot().inputs.find(x => x.key === "42:8")!;
+    assert.ok(taskInput.taskId);
+    const taskRun = await f.host.channelReceipt(owner.threadId, taskInput.runId!);
+    assert.equal(taskRun?.tools.some(tool => tool.approvalRequestedAt), false);
+    const task = await f.host.current.getWorkTask(taskInput.taskId!); assert.ok(task.ok); assert.equal(task.value.status, "paused"); // TG creates human-only criteria: no automatic completion evidence was declared.
+    assert.equal(taskRun?.completion?.reason, "needs_information");
+    // Other tools keep their existing per-call approval.
+    reset([{ name: "recipe_list", input: {} }]);
+    await f.gateway.receive(update(9, "读取安排")); await until(() => !!f.host.current.snapshot().pendingApproval);
+    assert.equal(f.host.current.snapshot().pendingApproval?.toolName, "recipe_list");
+    await f.gateway.receive(update(10, "停止")); await until(idle);
+    await until(() => f.store.snapshot().inputs.find(x => x.key === "42:9")?.state === "finished");
+    await f.host.setTelegramAutonomyEnabled(setting(false, true));
+    reset([shell("touch after-disable")]);
+    await f.gateway.receive(update(11, "执行命令")); await until(() => !!f.host.current.snapshot().pendingApproval);
+    await f.gateway.receive(update(12, "停止")); await until(idle);
+    await assert.rejects(readFile(join(f.workspace, "after-disable")));
+  } finally { await f.cleanup(); }
+});
+
+it("TG grant survives host restart but never authorizes a changed bot/user/chat/Thread or desktop entry, and cancelled effects are not replayed", async () => {
+  let step = 0;
+  const f = await fixture(async () => step++ === 0 ? response({ name: "shell_exec", input: { command: "printf started > marker; sleep 60; touch must-not-complete", cwd: "." } }) : response(), true, true);
+  let restarted: DesktopRuntime | undefined;
+  try {
+    await f.bind(); const owner = f.store.snapshot().owner!;
+    await f.host.setTelegramAutonomyEnabled({ enabled: true, expectedEnabled: false, expectedOwner: { userId: owner.userId, chatId: owner.chatId, threadId: owner.threadId } });
+    const binding = f.gateway.autonomyBinding()!;
+    for (const key of ["botId", "userId", "chatId", "threadId", "workspaceRoot"] as const) {
+      assert.equal(f.gateway.matchesAutonomyGrant({ ...binding, [key]: typeof binding[key] === "number" ? 99 : "foreign" }), false);
+    }
+    await f.gateway.receive(update(2, "执行长命令"));
+    await until(async () => { try { return await readFile(join(f.workspace, "marker"), "utf8") === "started"; } catch { return false; } });
+    assert.equal(f.host.current.snapshot().pendingApproval, null);
+    await f.gateway.receive(update(3, "停止"));
+    await until(() => f.store.snapshot().inputs.find(x => x.key === "42:2")?.state === "unknown");
+    const input = f.store.snapshot().inputs.find(x => x.key === "42:2")!;
+    const cancelled = await f.host.channelReceipt(owner.threadId, input.runId!);
+    assert.equal(cancelled?.tools[0]?.status, "unknown");
+    await f.host.shutdown();
+    let modelCalls = 0;
+    restarted = await DesktopRuntime.create({ userData: join(f.root, "profile"), cwd: f.root, env: { RUNLOOM_CONFIG: join(f.root, "config.json") }, modelAlias: "mock", model: new MockLanguageModelV3({ doStream: async () => { modelCalls++; return response({ name: "shell_exec", input: { command: "touch desktop-must-not-run", cwd: "." } }); } }), send: () => {} });
+    const store = new TelegramStore(f.store.path, f.workspace); await store.load();
+    const gateway = new TelegramGateway(restarted, store, f.api, f.now); restarted.attachTelegram(gateway); await gateway.initialize(); await gateway.start();
+    assert.equal(gateway.status().autonomyEnabled, true); assert.equal(modelCalls, 0);
+    assert.equal((await restarted.channelReceipt(owner.threadId, input.runId!))?.tools[0]?.status, "unknown");
+    await gateway.receive(update(4, "继续执行")); assert.equal(modelCalls, 0); // unknown channel input blocks admission
+    await restarted.current.run("桌面没有独立授权", { source: "telegram", desktopEntry: true } as never);
+    await until(() => !!restarted!.current.snapshot().pendingApproval);
+    await restarted.current.cancel(); await until(() => restarted!.current.snapshot().state.kind === "idle");
+    await assert.rejects(readFile(join(f.workspace, "desktop-must-not-run")));
+    await assert.rejects(readFile(join(f.workspace, "must-not-complete")));
+    await store.update(data => { data.botId = 200; }); assert.equal(gateway.status().autonomyEnabled, false);
+  } finally { await restarted?.shutdown(); await f.cleanup(); }
+});
+
+it("TG independent authority crosses the resident socket with identity CAS, without exposing host-only channel entry points", async () => {
+  const f = await fixture(async () => response({ name: "shell_exec", input: { command: "touch forged-channel", cwd: "." } }), true, true);
+  let client: Awaited<ReturnType<typeof ResidentClient.connect>> | undefined;
+  let server: Awaited<ReturnType<typeof startResidentServer>> | undefined;
+  try {
+    await f.bind(); const owner = f.store.snapshot().owner!;
+    const scope = { userData: join(f.root, "profile"), configPath: join(f.root, "config.json"), workspaceRoot: f.workspace };
+    const paths = createResidentPaths(scope.userData, join(f.root, "host.sock"));
+    server = await startResidentServer({ paths, scope, createRuntime: async () => f.host });
+    client = await ResidentClient.connect({ paths, scope, send: () => {} });
+    const input = { enabled: true, expectedEnabled: false, expectedOwner: { userId: owner.userId, chatId: owner.chatId, threadId: owner.threadId } };
+    assert.equal((await client.setTelegramAutonomyEnabled(input)).autonomyEnabled, true);
+    const created = await client.current.createWorkTask({ goal: "unauthorized desktop task", acceptance: [{ id: "human", description: "user acceptance", required: true, method: "human", verification: { kind: "human" } }] });
+    assert.ok(created.ok);
+    // A second RPC argument must not spoof the trusted TG source.
+    const startTask = client.current.runWorkTask as (...args: unknown[]) => Promise<unknown>;
+    await startTask({ id: created.value.id, expectedRevision: created.value.revision }, "telegram");
+    await until(() => !!f.host.current.snapshot().pendingApproval);
+    const state = f.host.current.snapshot().state; assert.ok(state.kind === "running"); assert.equal(state.source, undefined);
+    await client.current.cancel(); await until(() => f.host.current.snapshot().state.kind === "idle");
+    await assert.rejects(readFile(join(f.workspace, "forged-channel")));
+    await assert.rejects(client.setTelegramAutonomyEnabled(input), /配置已变化/);
+    assert.equal((await client.setTelegramAutonomyEnabled({ ...input, enabled: false, expectedEnabled: true })).autonomyEnabled, false);
+    assert.equal(f.calls(), 1);
+  } finally { client?.detach(); await server?.close(); await f.cleanup(); }
 });

@@ -79,7 +79,8 @@ it("personal conversation keeps a right user bubble and a safe full assistant re
 it("personal conversation keeps tool logs inside a collapsed execution disclosure after completion", () => {
   const markup = render([user, interim, { ...tool, stdout: "private tool stdout" }, reply]);
   assert.match(markup, /<details class="personal-work">/);
-  assert.match(markup, /执行过程 · 1 次工具调用/);
+  assert.match(markup, /执行过程 · 1 步/);
+  assert.match(markup, /修改 1 个文件/);
   assert.match(markup, /private tool stdout/);
   assert.match(markup, /personal-tool-output stdout/);
   assert.ok(markup.indexOf("personal-work") < markup.indexOf("private tool stdout"));
@@ -93,7 +94,7 @@ it("personal conversation exposes unknown effects, truncation and approval waits
   assert.match(markup, /personal-work needs-attention" open=""/);
   assert.match(markup, /效果未知/);
   assert.match(markup, /副作用尚未核对/);
-  assert.match(markup, /输出已截断；不能据此判断执行成功/);
+  assert.match(markup, /输出已截断/);
   assert.doesNotMatch(markup, /自动重试|重新执行/);
   assert.match(render([user], true, "", true), /等待确认后继续/);
 });
@@ -113,11 +114,12 @@ it("presents settled missing-file history with a real time and current workspace
     inputPath: "notes/work-plan.md", errorCode: "FILE_NOT_FOUND", recordedAt: "2026-10-08T12:17:00Z", detail: "FILE_NOT_FOUND: File not found: notes/work-plan.md" };
   const markup = renderToStaticMarkup(createElement(PersonalConversation, { rows: [user, missing, reply], running: false, streaming: "", workspaceRoot: "/daily/personal" }));
   assert.match(markup, /<details class="personal-work">/);
-  assert.match(markup, /历史执行 · 1 次工具调用 · 文件不存在/);
+  assert.match(markup, /历史执行 · 1 步/);
+  assert.match(markup, /文件不存在/);
   assert.match(markup, /dateTime="2026-10-08T12:17:00Z"/i);
   assert.match(markup, /当前文件工作区：\/daily\/personal/);
   assert.match(markup, /未读取到内容/);
-  assert.match(markup, /<details class="personal-tool-technical"><summary>技术详情/);
+  assert.match(markup, /<details class="personal-tool-technical"><summary>诊断详情/);
   assert.doesNotMatch(markup, /有结果待查看|需要重新确认|自动重试|needs-attention/);
   const { recordedAt, ...withoutTime } = missing;
   const old = render([user, withoutTime, reply]);
@@ -136,7 +138,7 @@ it("reminder replies and tool cards lead with the Chinese sentence instead of ta
   const markup = render([user, task, answer]);
   assert.match(markup, /personal-tool-name">已定：每天 9:00 提醒喝水/);
   assert.match(markup, /<p>已定：每天 9:00 提醒喝水<\/p>/);
-  assert.match(markup, /<summary>技术详情<\/summary><code>task_create<\/code>/);
+  assert.match(markup, /<summary>诊断详情<\/summary><code>task_create<\/code>/);
   assert.doesNotMatch(markup.split("原始回复")[0] ?? "", /scheduled/);
   assert.doesNotMatch(markup, /personal-tool-name">(?:task_create|创建提醒)/);
 });
@@ -170,6 +172,72 @@ it("personal trace links require the row's exact known Run, not only a toolCallI
   assert.match(renderToStaticMarkup(createElement(PersonalTool, { row: tool, onTrace })), /查看本次执行追踪/);
   const { runId, ...historicalTool } = tool;
   assert.doesNotMatch(renderToStaticMarkup(createElement(PersonalTool, { row: historicalTool, onTrace })), /查看本次执行追踪/);
+});
+
+it("collapses a settled failure and success together, retaining failure notice and exact command exits", () => {
+  const failed: ToolRow = { kind: "tool", key: "failed", toolCallId: "failed", toolName: "shell_exec", status: "failed", inputCommand: "node check.mjs", inputCwd: ".", exitCode: 1, detail: "assertion failed" };
+  const passed: ToolRow = { ...failed, key: "passed", toolCallId: "passed", status: "ok", exitCode: 0, detail: "exit 0" };
+  for (const rows of [[user, failed, tool, passed, reply], [user, failed, tool, passed]]) {
+    const markup = render(rows);
+    assert.match(markup, /<details class="personal-work">/);
+    assert.match(markup, /曾有 1 次命令失败/);
+    assert.match(markup, /修改 1 个文件 · 2 次命令/);
+    assert.match(markup, /personal-tool-command" title="node check.mjs">node check.mjs/);
+    assert.match(markup, /失败 · exit 1/);
+    assert.match(markup, /personal-tool-status">exit 0/);
+    assert.match(markup, /assertion failed/);
+    assert.match(markup, /执行目录：\./);
+    assert.doesNotMatch(markup, /最后检查通过|任务完成|返回成功/);
+  }
+});
+
+it("shows only the latest three calls while running and keeps older unknown effects visible", () => {
+  const calls: ToolRow[] = Array.from({ length: 6 }, (_, i) => ({ kind: "tool", key: `call-${i}`, toolCallId: `call-${i}`, toolName: "shell_exec", status: i === 5 ? "requested" : "ok", inputCommand: `echo step-${i}` }));
+  const markup = render([user, interim, ...calls], true);
+  assert.equal((markup.match(/<details class="personal-work/g) ?? []).length, 1);
+  assert.match(markup, /is-running" open=""/);
+  assert.match(markup, /正在执行 · 已结束 5 步/);
+  assert.match(markup, /查看全部过程（6 步）/);
+  assert.doesNotMatch(markup, /echo step-[012]/);
+  for (const i of [3, 4, 5]) assert.match(markup, new RegExp(`echo step-${i}`));
+  const unknown = render([user, { ...calls[0]!, status: "unknown", detail: "需人工确认远端效果" }, ...calls.slice(1)], true);
+  assert.match(unknown, /echo step-0/);
+  assert.match(unknown, /效果未知 · 需人工核对，不自动重做/);
+  assert.match(unknown, /需人工确认远端效果/);
+  const awaiting = render([user, ...calls], true, "", true);
+  assert.match(awaiting, /等待确认后继续 · 已结束 5 步/);
+  assert.doesNotMatch(awaiting, /检查通过/);
+});
+
+it("escapes Shell commands and never masks unknown effects with an exit-zero label", () => {
+  const command = 'printf "<script>hi</script>"\necho next';
+  const row: ToolRow = { kind: "tool", key: "shell", toolCallId: "shell", toolName: "shell_exec", status: "unknown", inputCommand: command, exitCode: 0 };
+  const markup = render([user, row, reply]);
+  assert.match(markup, /&lt;script&gt;hi&lt;\/script&gt;/);
+  assert.doesNotMatch(markup, /<script>|personal-tool-status">exit 0|最后检查通过/);
+  assert.match(markup, /personal-tool-status">效果未知/);
+  assert.match(markup, /needs-attention" open/);
+});
+
+it("keeps a cancelled Run's receipts separate when its new user message was not committed", () => {
+  const unknown: ToolRow = { kind: "tool", key: "cancelled-shell", toolCallId: "cancelled-shell", runId: "run-2", toolName: "shell_exec", status: "unknown", inputCommand: "sleep 60" };
+  const markup = render([user, tool, reply, unknown, { kind: "result", key: "cancelled", status: "cancelled" }]);
+  assert.equal((markup.match(/aria-label="对话轮次"/g) ?? []).length, 2);
+  assert.match(markup, /执行过程 · 1 步/);
+  assert.doesNotMatch(markup, /执行过程 · 2 步/);
+  assert.ok(markup.indexOf("这是完整正文") < markup.indexOf("效果未知"));
+  assert.match(markup, /personal-work needs-attention" open/);
+});
+
+it("shows edit intent on expansion without claiming a refused edit happened", () => {
+  const markup = render([user, { ...tool, status: "denied", receipt: undefined, fileChange: { before: "a - b", after: "a + b", truncated: true } }, reply]);
+  assert.match(markup, /请求的修改 · 以执行回执为准/);
+  assert.match(markup, /替换前/);
+  assert.match(markup, /a - b/);
+  assert.match(markup, /替换后/);
+  assert.match(markup, /a \+ b/);
+  assert.match(markup, /修改预览已截断/);
+  assert.doesNotMatch(markup, /修改 1 个文件|工具已返回成功/);
 });
 
 it("persona header stacks the application icon above the serika pill", () => {
@@ -211,4 +279,23 @@ it("personal composer hides only the presentation while keeping a supplied draft
   assert.match(markup, /保留的草稿/);
   assert.match(markup, /发送/);
   assert.doesNotMatch(markup, /personal-composer-feedback|personal-composer-notice/);
+});
+
+it("expands directly to content/output while keeping metadata in a closed diagnostic disclosure", () => {
+  const markup = renderToStaticMarkup(createElement(PersonalTool, { row: { ...tool, toolName: "read_file", historical: true, recordedAt: "2026-10-16T10:00:00Z", inputPath: "sum.js", fileContent: { text: "return a + b", truncated: false } }, workspaceRoot: "/absolute/workspace", onTrace: () => {} }));
+  const main = markup.split('<details class="personal-tool-technical">')[0]!;
+  assert.match(main, /return a \+ b/); assert.doesNotMatch(main, /历史记录|read_file|字节|当前文件工作区|查看本次执行追踪|请求于/);
+  assert.match(markup, /<details class="personal-tool-technical"><summary>诊断详情/);
+  assert.match(markup, /\/absolute\/workspace/);
+  const shell = renderToStaticMarkup(createElement(PersonalTool, { row: { ...tool, toolName: "shell_exec", inputCommand: "node check.mjs", receipt: undefined, output: "passed", detail: "exitCode=0", exitCode: 0 } }));
+  const body = shell.split('class="personal-tool-body">')[1]!.split('<details class="personal-tool-technical">')[0]!;
+  assert.match(body, /passed/); assert.doesNotMatch(body, /exitCode|node check|shell_exec/);
+});
+
+it("shortens known workspace paths in Shell display and preserves the exact raw output in diagnostics", () => {
+  const output = "file:///absolute/workspace/check.mjs:2\nError: expected sum\n  at /absolute/workspace/check.mjs:2:24";
+  const markup = renderToStaticMarkup(createElement(PersonalTool, { row: { ...tool, toolName: "shell_exec", status: "failed", output, receipt: undefined, exitCode: 1 }, workspaceRoot: "/absolute/workspace" }));
+  const visible = markup.split('<details class="personal-tool-technical">')[0]!;
+  assert.match(visible, /\.\/check.mjs:2/); assert.match(visible, /Error: expected sum/); assert.doesNotMatch(visible, /absolute\/workspace/);
+  assert.match(markup, /原始命令输出/); assert.match(markup, /file:\/\/\/absolute\/workspace\/check.mjs/);
 });

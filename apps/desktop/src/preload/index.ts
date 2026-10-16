@@ -4,6 +4,7 @@ import { IPC, type MainToRenderer, type RendererApi } from "../shared/ui-contrac
 const api: RendererApi = {
   residentStatus: () => ipcRenderer.invoke(IPC.residentStatus),
   telegramStatus: () => ipcRenderer.invoke(IPC.telegramStatus),
+  setTelegramAutonomyEnabled: input => ipcRenderer.invoke(IPC.telegramAutonomyEnabled, input),
   setTelegramEnabled: enabled => ipcRenderer.invoke(IPC.telegramEnabled, enabled),
   beginTelegramPairing: () => ipcRenderer.invoke(IPC.telegramPairing),
   confirmTelegramPairing: code => ipcRenderer.invoke(IPC.telegramBind, code),
@@ -68,6 +69,7 @@ const api: RendererApi = {
   dream: () => ipcRenderer.invoke(IPC.dream),
   changeLearnedSkill: input => ipcRenderer.invoke(IPC.learnedSkillChange, input),
   getLearnedSkillReferences: () => ipcRenderer.invoke(IPC.learnedSkillReferences),
+  setAutonomyEnabled: input => ipcRenderer.invoke(IPC.autonomyEnabled, input),
   setDreamingEnabled: input => ipcRenderer.invoke(IPC.dreamingEnabled, input),
   runSkill: input => ipcRenderer.invoke(IPC.runSkill, input),
   getMemoryLibrary: () => ipcRenderer.invoke(IPC.memoryLibraryGet),
