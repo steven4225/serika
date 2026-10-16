@@ -217,37 +217,57 @@ describe("no-progress tool guard", () => {
   const shellSuccess = (output = "0.87.0\n") => ({ ok: true, exitCode: 0, termination: "exited", signal: null,
     cancelled: false, timedOut: false, output, truncated: false });
 
-  it("opted-in non-idempotent Shell warns on the second identical success and stops on the third", async () => {
+  it("opted-in non-idempotent Shell warns on the second identical success and asks for a tool-free final answer on the third", async () => {
     const f = fixture({ name: "shell_exec", guardShell: true, risk: "write", idempotent: false,
       inputs: [{ command: "pi --version" }, { command: "pi --version", cwd: "." }, { command: "pi --version" }], output: () => shellSuccess() });
-    await assert.rejects(f.run(), error => error instanceof AgentError && error.data.code === "RUN_LIMIT_EXCEEDED" && /重复命令/.test(error.data.message));
-    assert.deepEqual(f.counts(), { executions: 3, modelCalls: 3 });
+    assert.equal((await f.run()).text, "done");
+    assert.deepEqual(f.counts(), { executions: 3, modelCalls: 4 });
     assert.match(JSON.stringify(f.prompts[2]), /SHELL_REPETITION/);
+    assert.match(JSON.stringify(f.prompts[3]), /SHELL_REPETITION_FINAL/);
     assert.equal(f.events.filter(e => e.type === "tool.call.completed").length, 3);
     assert.equal(f.events.filter(e => e.type === "tool.call.failed").length, 0);
   });
 
-  it("detects repeated Shell results across interleaved successful commands", async () => {
-    const commands = ["pi --version", "pi --help", "pi --version", "command -v pi", "pi --version"];
+  it("stops without dispatch when the model still requests a tool after the final-answer step", async () => {
     const f = fixture({ name: "shell_exec", guardShell: true, risk: "write", idempotent: false,
-      inputs: commands.map(command => ({ command })), output: () => shellSuccess() });
-    await assert.rejects(f.run(), /重复命令/);
-    assert.equal(f.counts().executions, 5);
+      inputs: Array.from({ length: 5 }, () => ({ command: "pi --version" })), output: () => shellSuccess() });
+    await assert.rejects(f.run(), error => error instanceof AgentError && error.data.code === "RUN_LIMIT_EXCEEDED" && /重复命令/.test(error.data.message));
+    assert.deepEqual(f.counts(), { executions: 3, modelCalls: 4 });
   });
 
-  it("Shell guard preserves opt-out, changing output and unsuccessful/truncated results", async () => {
+  it("detects the same Shell fact across command/cwd variants and interleaved commands", async () => {
+    const commands = ["pi --version", "pi --help", "command pi --version", "cd . && pi --version"];
+    const f = fixture({ name: "shell_exec", guardShell: true, risk: "write", idempotent: false,
+      inputs: commands.map(command => ({ command })), output: (n: number) => shellSuccess(n === 2 ? "Usage: pi\n" : "0.87.0\n") });
+    assert.equal((await f.run()).text, "done");
+    assert.equal(f.counts().executions, 4);
+    assert.match(JSON.stringify(f.prompts[4]), /SHELL_REPETITION_FINAL/);
+  });
+
+  it("Shell guard preserves opt-out, changing output, failures and fact-free empty output", async () => {
     const inputs = Array.from({ length: 4 }, () => ({ command: "check" }));
     for (const options of [
       { guardShell: false, output: () => shellSuccess() },
       { guardShell: true, output: (n: number) => shellSuccess(String(n)) },
       { guardShell: true, output: () => ({ ...shellSuccess(), exitCode: 1 }) },
-      { guardShell: true, output: () => ({ ...shellSuccess(), truncated: true }) },
     ]) {
       const f = fixture({ name: "shell_exec", risk: "write", idempotent: false, inputs, ...options });
       assert.equal((await f.run()).text, "done");
       assert.equal(f.counts().executions, 4);
       assert.doesNotMatch(JSON.stringify(f.prompts), /SHELL_REPETITION/);
     }
+    const empty = fixture({ name: "shell_exec", guardShell: true, risk: "write", idempotent: false,
+      inputs: Array.from({ length: 4 }, (_, n) => ({ command: `test -f file-${n}` })), output: () => shellSuccess("") });
+    assert.equal((await empty.run()).text, "done");
+    assert.equal(empty.counts().executions, 4);
+    assert.doesNotMatch(JSON.stringify(empty.prompts), /SHELL_REPETITION/);
+  });
+
+  it("clipped identical Shell output still counts as the same observed fact", async () => {
+    const f = fixture({ name: "shell_exec", guardShell: true, risk: "write", idempotent: false,
+      inputs: Array.from({ length: 3 }, () => ({ command: "pi --help" })), output: () => ({ ...shellSuccess("Usage: pi ..."), truncated: true }) });
+    assert.equal((await f.run()).text, "done");
+    assert.match(JSON.stringify(f.prompts[3]), /SHELL_REPETITION_FINAL/);
   });
 
   it("Shell denial and intervening tools break repetition without retaining a warning", async () => {

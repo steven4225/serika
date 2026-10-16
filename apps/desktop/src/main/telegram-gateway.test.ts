@@ -1294,10 +1294,11 @@ it("TG independent authority crosses the resident socket with identity CAS, with
 });
 
 
-it("authorized TG stops repeated successful Shell and delivers the real stop reason with receipts", async () => {
+it("authorized TG turns repeated successful Shell into a tool-free final answer with receipts", async () => {
   const prompts: string[] = [];
   const f = await fixture(async (n, prompt) => {
     prompts.push(prompt ?? "");
+    if ((prompt ?? "").includes("SHELL_REPETITION_FINAL")) return response(undefined, "Pi 版本是 pi-guard-proof，已据现有结果交付。");
     return response({ name: "shell_exec", input: { command: "printf pi-guard-proof", cwd: "." } }, "", `shell-repeat-${n}`);
   }, true, true);
   try {
@@ -1309,11 +1310,27 @@ it("authorized TG stops repeated successful Shell and delivers the real stop rea
     await until(() => f.store.snapshot().inputs.find(x => x.key === "42:2")?.state === "finished", 30_000);
     const input = f.store.snapshot().inputs.find(x => x.key === "42:2")!;
     const run = await f.host.channelReceipt(owner.threadId, input.runId!);
-    assert.equal(run?.status, "failed"); assert.equal(run?.tools.length, 3);
+    assert.equal(run?.status, "completed"); assert.equal(run?.tools.length, 3);
     assert.ok(run?.tools.every(t => t.status === "completed" && t.shell?.exitCode === 0));
-    assert.match(run?.errorPreview ?? "", /重复命令/);
     assert.ok(prompts.some(prompt => prompt.includes("SHELL_REPETITION")));
-    await until(() => f.sent.some(text => text.includes("重复命令")), 5_000);
-    assert.ok(f.sent.some(text => text.includes("不会自动重跑")));
+    await until(() => f.sent.some(text => text.includes("已据现有结果交付")), 5_000);
+  } finally { await f.cleanup(); }
+});
+
+it("authorized TG stops without dispatch when the model ignores the tool-free final step", async () => {
+  const f = await fixture(async n => response({ name: "shell_exec", input: { command: "printf pi-guard-proof", cwd: "." } }, "", `shell-stop-${n}`), true, true);
+  try {
+    await f.bind();
+    const owner = f.store.snapshot().owner!;
+    await f.host.setTelegramAutonomyEnabled({ enabled: true, expectedEnabled: false,
+      expectedOwner: { userId: owner.userId, chatId: owner.chatId, threadId: owner.threadId } });
+    await f.gateway.receive(update(2, "查询版本并交付"));
+    await until(() => f.store.snapshot().inputs.find(x => x.key === "42:2")?.state === "finished", 30_000);
+    const input = f.store.snapshot().inputs.find(x => x.key === "42:2")!;
+    const run = await f.host.channelReceipt(owner.threadId, input.runId!);
+    assert.equal(run?.status, "failed");
+    assert.deepEqual(run?.tools.map(t => t.status), ["completed", "completed", "completed", "not_started"]);
+    assert.match(run?.errorPreview ?? "", /重复命令/);
+    await until(() => f.sent.some(text => text.includes("不会自动重跑")), 5_000);
   } finally { await f.cleanup(); }
 });
