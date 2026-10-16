@@ -36,7 +36,7 @@ it("settings home is a grouped push list and keeps engineering ids off the chrom
   assert.match(html, /aria-label="回到手札"/);
   assert.match(html, /<h1>设置<\/h1>/);
   assert.match(html, /外观、偏好和应用信息/);
-  for (const title of ["连接应用", "文件与网页", "电脑控制", "技能", "Telegram", "通用", "通知与后台", "高级", "快捷键", "关于", "平衡", "性能"]) assert.match(html, new RegExp(title));
+  for (const title of ["连接应用", "文件与网页", "电脑控制", "技能", "Telegram", "通用", "记忆设置", "通知与后台", "高级", "快捷键", "关于", "平衡", "性能"]) assert.match(html, new RegExp(title));
   assert.doesNotMatch(html, /执行记录与用量|本地使用，无需订阅|云电脑|入会提醒|退出登录未配置|已开启 \d+ 项/);
   assert.doesNotMatch(html, /月度用量|立即重置|剩余 未报告|重置日 未配置|订阅未配置|近期保留记录|已记录 \d+ 次/);
   assert.doesNotMatch(html, /aria-label="助手设置"|personal-settings-nav|>模块<|>执行记录<|>上下文</);

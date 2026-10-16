@@ -228,7 +228,7 @@ export function MemoryConsolidationPanel({ info, busy, refreshToken, onSettings 
   const consolidate = (request: MemoryConsolidationRequest) => act(async () => {
     const result = await window.runloom.consolidateMemory(request);
     if (!result.ok) setError(`${result.error.code}: ${result.error.message}`);
-    else { setNotice(info.memory.writePolicy === "automatic" ? "记忆整理已开始。明确、可溯源的普通信息会自动保存；有歧义的候选仍需审核。" : "记忆整理已开始。当前为人工审核模式，接受候选前不会保存为正式记忆。"); setSelected([]); setStatusRefresh(value => value + 1); }
+    else { setNotice(info.memory.writePolicy === "automatic" ? "记忆整理已开始。符合保存条件的内容会自动保存，不确定的内容暂不保存。" : "记忆整理已开始。当前为人工审核模式，接受候选前不会保存为正式记忆。"); setSelected([]); setStatusRefresh(value => value + 1); }
   });
   const loadSources = (offset = 0) => act(async () => {
     const result = await window.runloom.listMemoryConsolidationSources(offset);
@@ -240,32 +240,21 @@ export function MemoryConsolidationPanel({ info, busy, refreshToken, onSettings 
   });
   const c = maintenance?.consolidation;
   const headline = consolidationStatusLabel(info.memory.enabled, maintenance, statusError);
-  const showHeadline = headline !== "正在读取记忆状态…" && headline !== "没有待整理的新增记忆材料" && headline !== "记忆整理完成，没有新增候选" && !headline.startsWith("已记住") && !headline.startsWith("已处理");
+  const showHeadline = info.memory.writePolicy !== "automatic" && headline !== "正在读取记忆状态…" && headline !== "没有待整理的新增记忆材料" && headline !== "记忆整理完成，没有新增候选" && !headline.startsWith("已记住") && !headline.startsWith("已处理");
   return <section className="card memory-consolidation" aria-label="记忆整理状态">
     {showHeadline ? <div className="card-head"><span>{headline}</span>
       {info.memory.enabled && info.memory.autoConsolidate && (c?.state === "failed" || c?.state === "backlog") ? <button className="ghost" disabled={busy || working || maintenance === null || maintenance.pending >= 64} onClick={() => void consolidate({ mode: "incremental" })}>{c?.state === "failed" ? "重试记忆整理" : "整理待处理记忆材料"}</button> : null}
     </div> : null}
     {memoryAutomaticUpgradeNeeded(info) ? <button className="ghost" disabled={!onSettings} onClick={onSettings}>打开记忆设置</button> : null}
     {c?.error ? <><p className="error" role="alert">{memoryConsolidationFailureText(c.error)}</p><details><summary>技术详情</summary><pre>{c.error}</pre></details></> : null}
-    {maintenance && maintenance.pending >= 64 ? <p className="hint">待审核候选已达到上限，请先接受或拒绝候选，再整理新材料。暂时不审核不会丢弃候选。</p> : null}
+    {maintenance && maintenance.pending >= 64 ? <p className="hint">未保存内容已达到容量上限，自动整理暂时无法继续。已有记忆保持不变，可在“未保存内容与处理记录”中按需管理。</p> : null}
     {statusError ? <><FailureAlert text={statusError} suffix="不能据此判断没有待整理记忆材料或候选。" /><button className="ghost" disabled={working} onClick={() => setStatusRefresh(value => value + 1)}>重新读取记忆整理状态</button></> : null}
     {error ? <FailureAlert text={error} /> : null}{notice ? <p role="status">{notice}</p> : null}
-    <AutomaticMemoryReceipts accepted={c?.lastAttempt?.accepted ?? []} busy={busy || working} refreshToken={refreshToken} />
+
     <details className="memory-maintenance-disclosure">
-      <summary className="personal-entry-card"><EntryCardContent title="记忆整理与历史补整理" description="查看整理状态，选择历史对话补整理。" /></summary>
-    <p className="hint">{memoryAutomationLabel(info.memory)}</p>
-    {info.memory.enabled && info.memory.autoConsolidate ? <p className="hint">{info.memory.writePolicy === "automatic" ? "符合自动保存条件的记忆会在整理后保存；存在歧义的建议需要审核。" : "当前为人工审核模式，确认后才会记住。"}</p> : null}
-    {!info.memory.enabled || !info.memory.autoConsolidate ? <>
-      <p className="hint">可在工作区开启记忆自动整理：从已提交原话保存明确的普通长期信息，有歧义的建议留待审核。同义提问可额外发送一次有界查询。</p>
-      {!info.workspaceRoot ? <p className="hint">当前配置没有 workspace，请先设置工作区。</p> : null}
-    </> : <>
-      <p className="hint">新对话成功结束后在空闲时整理记忆，新的聊天优先。首次最多取最近 8 条；更早的内容须由你选择补整理记忆。当前{info.memory.writePolicy === "automatic" ? "明确事实自动保存，有歧义的候选才需审核" : "所有候选接受后才保存"}。</p>
-    </>}
-    {!memoryAutomaticUpgradeNeeded(info) ? <button className="ghost" disabled={!onSettings} onClick={onSettings}>打开记忆设置</button> : null}
-    {c?.state === "running" ? <p className="hint" role="status">正在从已提交的用户原话整理记忆，新的对话可以优先处理。失败可以重试，不会批量接受旧候选。</p> : null}
-    {c?.backlogCount !== undefined ? <p className="hint">自动取材范围内待处理：{c.backlogCount} 条用户消息。这个数量不代表所有旧历史。</p> : null}
-    {c?.lastSkippedReason ? <p className="hint">本轮未整理记忆：{c.lastSkippedReason}。</p> : null}
-    {c?.lastAttempt ? <p className="hint">最近一次{c.lastAttempt.mode === "history" ? "历史记忆补整理" : "增量记忆整理"}：{c.lastAttempt.status === "failed" ? "失败" : `核对 ${c.lastAttempt.processedCount} 条材料，自动处理 ${c.lastAttempt.accepted?.length ?? 0} 条正式记忆，待审候选 ${c.lastAttempt.candidateCount} 条`}。{c.lastAttempt.status === "completed" && c.lastAttempt.candidateCount === 0 && !c.lastAttempt.accepted?.length ? "本次没有新增记忆或候选。" : ""}</p> : null}
+      <summary className="personal-entry-card"><EntryCardContent title="历史对话补整理" description="按需选择以前的对话，不影响日常自动整理。" /></summary>
+    <p className="hint">{!info.memory.enabled || !info.memory.autoConsolidate ? memoryAutomationLabel(info.memory) : info.memory.writePolicy === "automatic" ? "新对话结束后在后台自动整理，不打断聊天。不确定的内容暂不保存。" : "当前使用手动确认保存。"}</p>
+    <button className="ghost" disabled={!onSettings} onClick={onSettings}>记忆设置</button>
     {info.memory.enabled && info.memory.autoConsolidate ? <details className="history-consolidation">
       <summary>选择历史消息补整理记忆</summary><p className="hint">只处理当前 Thread 中勾选的 1–8 条用户消息，不移动记忆整理游标。标记“不参与记忆”的内容不能选择。</p>
       <button className="ghost" disabled={busy || working} onClick={() => void loadSources()}>读取可选历史</button>

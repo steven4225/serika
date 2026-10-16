@@ -34,23 +34,27 @@ function detail(preview: CandidatePreview) {
 }
 
 describe("memory temporal review UI", () => {
-  it("starts with saved cards, not an automatic empty review console", () => {
-    const html = renderToStaticMarkup(createElement(MemoryPanel, { memory: { enabled: true, autoConsolidate: true, writePolicy: "automatic" }, temporaryThread: false, controllerIdle: true, refreshToken: 0, focusRequest: { id: null, sequence: 1 } }));
-    assert.match(html, /我对你的了解/);
-    for (const label of ["偏好", "项目", "工作", "全部"]) assert.ok(html.includes(label), label);
+  it("starts with the memory library and keeps management records in settings", () => {
+    const html = renderToStaticMarkup(createElement(MemoryPanel, { libraryAvailable: true, memory: { enabled: true, autoConsolidate: true, writePolicy: "automatic" }, temporaryThread: false, controllerIdle: true, refreshToken: 0, focusRequest: { id: null, sequence: 1 } }));
+    assert.match(html, /memory-library/);
+    assert.match(html, /新建文件夹/);
+    assert.match(html, /导入文件/);
     assert.equal(html.includes("健康"), false);
-    assert.ok(html.indexOf("我对你的了解") < html.indexOf("memory-advanced"));
-    assert.match(html, /这些记忆已经保存/);
+    assert.doesNotMatch(html, /未保存内容与处理记录|停用与历史记忆|查看处理记录/);
+    const management = renderToStaticMarkup(createElement(MemoryPanel, { managementOnly: true, memory: { enabled: true, autoConsolidate: true, writePolicy: "automatic" }, temporaryThread: false, controllerIdle: true, refreshToken: 0 }));
+    assert.match(management, /未保存内容与处理记录|查看处理记录/);
+    assert.match(management, /停用与历史记忆/);
+    assert.doesNotMatch(management, /我对你的了解|memory-category-card/);
     for (const label of ["只审核当前对话的候选", "选择待审核候选", "核对并接受", "待审核（0", "待确认（0"]) assert.equal(html.includes(label), false, label);
     const history = renderToStaticMarkup(createElement(MemoryTabs, { tab: "history", onSelect: () => {} }));
     assert.match(history, /aria-selected="true">审核记录/);
   });
 
-  it("keeps a pending count as a banner and opens the review console only for a specific candidate", () => {
-    const props = { memory: { enabled: true, autoConsolidate: true, writePolicy: "automatic" as const }, temporaryThread: false, controllerIdle: true, refreshToken: 0 };
+  it("keeps automatic-mode candidates quiet and opens review only on an explicit candidate link", () => {
+    const props = { libraryAvailable: true, memory: { enabled: true, autoConsolidate: true, writePolicy: "automatic" as const }, temporaryThread: false, controllerIdle: true, refreshToken: 0 };
     const pending = renderToStaticMarkup(createElement(MemoryPanel, { ...props, pendingCount: 2, pendingHasMore: true }));
-    assert.match(pending, /待确认（2\+）/);
-    assert.match(pending, /我对你的了解/);
+    assert.doesNotMatch(pending, /待确认|待审核（2/);
+    assert.match(pending, /memory-library/);
     assert.equal(pending.includes("只审核当前对话的候选"), false);
     assert.equal(pending.includes("aria-selected=\"true\">待审核"), false);
     const focused = renderToStaticMarkup(createElement(MemoryPanel, { ...props, focusRequest: { id: "candidate-a", sequence: 1 } }));

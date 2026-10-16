@@ -18,7 +18,7 @@ export function attentionKind(input: { approval: boolean; unknownRuns: number; p
 export function headerStatus(state: UiState, attention: AttentionKind): { label: string; tone: "idle" | "active" | "awaiting" | "review" } {
   if (attention === "approval") return { label: "等待确认", tone: "awaiting" };
   switch (state.kind) {
-    case "running": return { label: state.phase === "skill" && state.background === true ? "后台 Skill，可继续聊天" : state.phase === "consolidation" && state.background === true ? "后台整理记忆，可继续聊天" : state.runId === null ? "正在启动" : state.phase === "skill" ? "正在运行 Skill" : state.phase === "consolidation" ? "正在整理记忆" : "正在处理", tone: "active" };
+    case "running": return { label: state.source === "telegram" ? "正在处理 Telegram 消息" : state.phase === "skill" && state.background === true ? "后台 Skill，可继续聊天" : state.phase === "consolidation" && state.background === true ? "后台整理记忆，可继续聊天" : state.runId === null ? "正在启动" : state.phase === "skill" ? "正在运行 Skill" : state.phase === "consolidation" ? "正在整理记忆" : "正在处理", tone: "active" };
     case "compacting": return { label: "正在压缩上下文", tone: "active" };
     case "resuming": return { label: "正在核对工作区", tone: "active" };
     case "command": return { label: state.name === "memory-review" ? "审核记忆" : "正在执行命令", tone: "active" };

@@ -35,7 +35,10 @@ test("host timer survives capability reassembly and Thread switching; only expli
     send: event => { events.push(event); }, pomodoroService: service,
   });
   try {
-    assert.equal((await host.current.command("/pomodoro start 3")).ok, true);
+    assert.throws(() => host.pomodoro("start", 0), /1|180/);
+    assert.throws(() => host.pomodoro("unknown"), /无效|操作/);
+    assert.equal(host.pomodoro("status").status.state, "idle");
+    assert.equal(host.pomodoro("start", 3).status.state, "running");
     const started = service.status().status;
     assert.equal(started.state, "running");
     assert.deepEqual(host.getLifecycleStatus(), { pomodoroRunning: true });
@@ -67,14 +70,21 @@ test("host timer survives capability reassembly and Thread switching; only expli
     assert.equal(host.info().commands.includes("pomodoro"), false);
     advance(180_000);
     assert.deepEqual(notifications, []);
+    assert.throws(() => host.pomodoro("start", 1), /尚未就绪/);
 
     await host.setModuleEnabled({ id: "pomodoro", enabled: true, expectedEnabled: false });
-    assert.equal((await host.current.command("/pomodoro start 1")).ok, true);
+    assert.equal(host.pomodoro("start", 1).status.state, "running");
+    advance(60_000);
+    assert.equal(host.pomodoro("status").status.state, "idle");
+    assert.equal(notifications.length, 1);
+    assert.equal(host.pomodoro("start", 1).status.state, "running");
+    assert.equal(host.pomodoro("cancel").status.state, "idle");
+    assert.equal(host.pomodoro("start", 1).status.state, "running");
     assert.equal(timers.size, 1);
     await host.shutdown();
     assert.equal(timers.size, 0);
     advance(60_000);
-    assert.deepEqual(notifications, []);
+    assert.equal(notifications.length, 1);
     assert.throws(() => service.start(), /disposed/);
     assert.equal(modelCalls, 0);
     assert.ok(events.some(event => event.type === "identity-changed"));

@@ -72,6 +72,7 @@ export class RuntimeOwnership {
     return this.#error ? { ...visible, runtimeRecovery: { state: "failed", message: this.#error } } : visible;
   }
   #active() { if (this.#switching || !this.#host || this.#error) throw new Error(this.#error ?? "助手宿主暂不可用"); return this.#host; }
+  pomodoro(...args: Parameters<DesktopRuntime["pomodoro"]>) { return this.#active().pomodoro(...args); }
   listThreads(...args: Parameters<DesktopRuntime["listThreads"]>) { return this.#active().listThreads(...args); }
   exportBackup(destination: string) { return this.#active().exportBackup(destination); }
   discoverThreads(...args: Parameters<DesktopRuntime["discoverThreads"]>) { return this.#active().discoverThreads(...args); }

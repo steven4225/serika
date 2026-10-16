@@ -1,3 +1,4 @@
+import { memoryLibrarySchema, memoryLibraryActionSchema, emptyMemoryLibrary, memoryLibraryDocuments, memoryLibraryView, memoryDocumentChunks, type MemoryLibrary, type MemoryLibraryAction, type MemoryLibraryView, type MemoryLibraryDocument } from "./memory-library.js";
 import { memoryImportEntriesSchema, memoryImportConfirmSchema, memoryImportReceiptSchema, MEMORY_IMPORT_MAX_RECEIPTS, type MemoryImportEntry, type MemoryImportConfirm, type MemoryImportPreview, type MemoryImportReceipt } from "./memory-import.js";
 import { createHash, randomUUID } from "node:crypto";
 import { constants } from "node:fs";
@@ -101,7 +102,8 @@ export interface MemoryRecord {
 }
 
 export interface MemoryDocument {
-  version: 4;
+  library?: MemoryLibrary;
+  version: 4 | 5;
   lastWrittenAt: string | null;
   entries: MemoryRecord[];
   candidates: MemoryCandidate[];
@@ -212,6 +214,9 @@ export interface MemoryWriteOptions {
 }
 
 export interface WorkspaceMemoryStore {
+  getLibrary?(threadId: string, signal?: AbortSignal): Promise<MemoryResult<MemoryLibraryView>>;
+  readLibraryDocument?(id: string, threadId: string, signal?: AbortSignal): Promise<MemoryResult<MemoryLibraryDocument>>;
+  changeLibrary?(input: MemoryLibraryAction, threadId: string, signal?: AbortSignal): Promise<MemoryResult<MemoryLibraryView>>;
   previewImport?(entries: MemoryImportEntry[], signal?: AbortSignal): Promise<MemoryResult<MemoryImportPreview>>;
   confirmImport?(input: MemoryImportConfirm, threadId: string, signal?: AbortSignal): Promise<MemoryResult<MemoryImportReceipt>>;
   importReceipt?(operationId: string, threadId: string, signal?: AbortSignal): Promise<MemoryResult<MemoryImportReceipt | null>>;
@@ -989,12 +994,12 @@ export function validateMemoryDocument(value: unknown): MemoryDocument {
   }
 
   const version = document.version;
-  if (version !== 1 && version !== 2 && version !== 3 && version !== 4) raise("MEMORY_VERSION_UNSUPPORTED", "Unsupported memory file version");
+  if (version !== 1 && version !== 2 && version !== 3 && version !== 4 && version !== 5) raise("MEMORY_VERSION_UNSUPPORTED", "Unsupported memory file version");
 
   const ids = new Set<string>();
   const entries: MemoryRecord[] = [];
   for (const value of document.entries) {
-    const entry = version === 4 ? validateRecord(value) : migrateEntry(version === 1 ? normalizeLegacyEntry(value) : validateV2Entry(value));
+    const entry = version >= 4 ? validateRecord(value) : migrateEntry(version === 1 ? normalizeLegacyEntry(value) : validateV2Entry(value));
     if (ids.has(entry.id)) raise("MEMORY_ENTRY_INVALID", `Duplicate memory entry id: ${entry.id}`);
     ids.add(entry.id);
     entries.push(entry);
@@ -1004,10 +1009,24 @@ export function validateMemoryDocument(value: unknown): MemoryDocument {
   const consolidationCursors = version >= 3 ? validateCursors(full.consolidationCursors) : [];
   const consolidationReceipts = full.consolidationReceipts === undefined ? undefined : validateConsolidationReceipts(full.consolidationReceipts);
   const parsedImports = zImportReceipts(full.importReceipts);
+  const libraryResult = full.library === undefined ? undefined : memoryLibrarySchema.safeParse(full.library);
+  if (libraryResult && !libraryResult.success) raise("MEMORY_FILE_INVALID", "Invalid memory document library");
+  const library = libraryResult?.data;
+  if (library) {
+    const folders = new Set(library.folders.map(folder => folder.id));
+    const docs = new Set(library.documents.map(document => document.id));
+    const linked = library.documents.flatMap(document => document.entryIds);
+    if (folders.size !== library.folders.length || docs.size !== library.documents.length || new Set(linked).size !== linked.length ||
+      library.documents.some(document => document.folderId !== null && !folders.has(document.folderId))) raise("MEMORY_FILE_INVALID", "Invalid memory library references");
+    for (const document of library.documents) for (const id of document.entryIds) {
+      const record = entries.find(record => record.id === id);
+      if (record && JSON.stringify(record.scope) !== JSON.stringify(document.scope)) raise("MEMORY_FILE_INVALID", "Memory document scope mismatch");
+    }
+  }
   const stamps = [...entries.map((entry) => entry.updatedAt), ...candidates.flatMap((candidate) => [candidate.createdAt, candidate.resolvedAt]), ...consolidationCursors.map((cursor) => cursor.updatedAt), ...(consolidationReceipts ?? []).map(receipt => receipt.committedAt), ...(parsedImports ?? []).map(receipt => receipt.committedAt)].filter((stamp): stamp is string => stamp !== null);
-  const lastWrittenAt = version === 4 ? validateTimestamp(full.lastWrittenAt, "Memory lastWrittenAt") : stamps.sort((a, b) => Date.parse(b) - Date.parse(a))[0] ?? null;
-  if (version === 4 && stamps.some((stamp) => lastWrittenAt === null || Date.parse(stamp) > Date.parse(lastWrittenAt))) raise("MEMORY_FILE_INVALID", "Memory commit timestamp precedes recorded state");
-  return { version: 4, lastWrittenAt, entries, candidates, consolidationCursors, ...(consolidationReceipts === undefined ? {} : { consolidationReceipts }), ...(parsedImports === undefined ? {} : { importReceipts: parsedImports }) };
+  const lastWrittenAt = version >= 4 ? validateTimestamp(full.lastWrittenAt, "Memory lastWrittenAt") : stamps.sort((a, b) => Date.parse(b) - Date.parse(a))[0] ?? null;
+  if (version >= 4 && stamps.some((stamp) => lastWrittenAt === null || Date.parse(stamp) > Date.parse(lastWrittenAt))) raise("MEMORY_FILE_INVALID", "Memory commit timestamp precedes recorded state");
+  return { version: version === 5 ? 5 : 4, lastWrittenAt, entries, candidates, consolidationCursors, ...(library ? { library } : {}), ...(consolidationReceipts === undefined ? {} : { consolidationReceipts }), ...(parsedImports === undefined ? {} : { importReceipts: parsedImports }) };
 }
 
 function memoryMessageText(entries: readonly MemoryEntry[]): string {
@@ -1417,6 +1436,93 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
         return { document, value: resolution(false) };
       }, options?.now);
       return result;
+    } catch (error) { return errorResult(error, signal, true); }
+  }
+
+  async getLibrary(threadId: string, signal: AbortSignal = neverAborted): Promise<MemoryResult<MemoryLibraryView>> {
+    try {
+      const doc = await this.#load(signal), now = new Date();
+      return { ok: true, value: memoryLibraryView(doc.library ?? emptyMemoryLibrary(), doc.entries.map(record => projectRecord(record, now)), threadId) };
+    } catch (error) { return errorResult(error, signal, false); }
+  }
+  async readLibraryDocument(id: string, threadId: string, signal: AbortSignal = neverAborted): Promise<MemoryResult<MemoryLibraryDocument>> {
+    try {
+      const doc = await this.#load(signal), now = new Date();
+      const value = memoryLibraryDocuments(doc.library ?? emptyMemoryLibrary(), doc.entries.map(record => projectRecord(record, now)), threadId).find(document => document.id === id);
+      return value ? { ok: true, value } : fail("MEMORY_ENTRY_NOT_FOUND", "记忆文档不存在或不属于当前对话");
+    } catch (error) { return errorResult(error, signal, false); }
+  }
+  async changeLibrary(raw: MemoryLibraryAction, threadId: string, signal: AbortSignal = neverAborted): Promise<MemoryResult<MemoryLibraryView>> {
+    try {
+      const parsed = memoryLibraryActionSchema.safeParse(raw);
+      if (!parsed.success) return fail("INVALID_INPUT", "文件夹或文档输入无效，文档最多 64 KiB");
+      const input = parsed.data;
+      const value = await this.#mutateDocument(signal, (document, now) => {
+        const library = document.library ?? emptyMemoryLibrary();
+        if (input.expectedRevision !== library.revision) raise("MEMORY_REVISION_CONFLICT", "文件夹或文档已经变化，请重新读取后再保存");
+        const folderExists = (folderId: string | null) => folderId === null || library.folders.some(folder => folder.id === folderId);
+        if (input.operation === "create-folder") {
+          if (library.folders.length >= 64) raise("MEMORY_LIMIT_EXCEEDED", "最多 64 个文件夹");
+          if (library.folders.some(folder => folder.id === input.id || folder.name === input.name)) raise("INVALID_INPUT", "文件夹名称已存在");
+          library.folders.push({ id: input.id, name: input.name });
+        } else if (input.operation === "rename-folder" || input.operation === "remove-folder") {
+          const folder = library.folders.find(folder => folder.id === input.id);
+          if (!folder) raise("MEMORY_ENTRY_NOT_FOUND", "文件夹不存在");
+          if (input.operation === "rename-folder") {
+            if (library.folders.some(other => other.id !== folder.id && other.name === input.name)) raise("INVALID_INPUT", "文件夹名称已存在");
+            folder.name = input.name;
+          } else {
+            if (library.documents.some(document => document.folderId === folder.id)) raise("INVALID_INPUT", "请先移走文件夹中的文档；不会连同记忆一起删除");
+            library.folders = library.folders.filter(item => item.id !== folder.id);
+          }
+        } else {
+          if (!folderExists(input.folderId)) raise("MEMORY_ENTRY_NOT_FOUND", "目标文件夹不存在");
+          const projections = document.entries.map(record => projectRecord(record, now));
+          const current = memoryLibraryDocuments(library, projections, threadId).find(document => document.id === input.id);
+          if (library.documents.some(document => document.id === input.id) && !current) raise("MEMORY_ENTRY_NOT_FOUND", "文档不属于当前对话");
+          if (current?.missing) raise("MEMORY_ENTRY_NOT_FOUND", "文档有记录已删除，请先在管理记录中核对，不能保存不完整正文");
+          let target = library.documents.find(document => document.id === input.id);
+          if (input.operation === "organize-document") {
+            if (!current) raise("MEMORY_ENTRY_NOT_FOUND", "文档不存在");
+            if (!target) { target = { id: current.id, title: current.title, folderId: null, entryIds: current.entries.map(entry => entry.id), scope: current.scope }; library.documents.push(target); }
+            target.title = input.title; target.folderId = input.folderId;
+          } else {
+            if (!current && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.id)) raise("INVALID_INPUT", "新文档标识无效");
+            if (current && JSON.stringify(input.entries) !== JSON.stringify(current.entries) || !current && input.entries.length) raise("MEMORY_REVISION_CONFLICT", "正文已经变化，请重新读取后核对");
+            let chunks: string[];
+            try { chunks = memoryDocumentChunks(input.text); } catch (error) { raise("INVALID_INPUT", error instanceof Error ? error.message : "文档正文无效"); }
+            const previousIds = current?.entries.map(entry => entry.id) ?? [];
+            if (document.entries.length + Math.max(0, chunks.length - previousIds.length) > MEMORY_MAX_ENTRIES) raise("MEMORY_LIMIT_EXCEEDED", "记忆空间不足，文档未保存");
+            const ids: string[] = [];
+            for (let index = 0; index < Math.max(chunks.length, previousIds.length); index++) {
+              const entryId = previousIds[index], text = chunks[index];
+              if (!entryId) {
+                if (text === undefined) continue;
+                const record = newRecord({ text, kind: "note", source: { kind: "manual" }, scope: current?.scope ?? { kind: "workspace" } }, now.toISOString());
+                document.entries.push(record); ids.push(record.id); continue;
+              }
+              const record = document.entries.find(record => record.id === entryId)!;
+              assertThreadBinding(record.scope, { boundThreadId: threadId });
+              if (text === undefined) { applyMetadataRevision(record, { status: "disabled" }, now.toISOString()); continue; }
+              const projected = projectRecord(record, now);
+              if (text !== projected.text) {
+                const revised = reviseAssertions(record.assertions, { operation: "correct", text, sources: [{ kind: "manual" }] }, now.toISOString(), randomUUID);
+                record.assertions = revised.assertions; finishRecordRevision(record, revised.displayAssertionId, now.toISOString());
+              }
+              ids.push(record.id);
+            }
+            if (!target) { target = { id: input.id, title: input.title, folderId: input.folderId, entryIds: ids, scope: current?.scope ?? { kind: "workspace" } }; library.documents.push(target); }
+            target.title = input.title; target.folderId = input.folderId; target.entryIds = ids;
+            refreshCandidateTargets(document, now.toISOString());
+          }
+        }
+        library.revision++; document.library = library;
+        // Older writers must fail closed rather than discard folder/title metadata.
+        // Reads and ordinary v4 writes do not migrate; only an explicit library action opts in.
+        document.version = 5;
+        return { document, value: memoryLibraryView(library, document.entries.map(record => projectRecord(record, now)), threadId) };
+      }, undefined);
+      return { ok: true, value };
     } catch (error) { return errorResult(error, signal, true); }
   }
 

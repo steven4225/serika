@@ -138,7 +138,7 @@ describe("WorkspaceMemoryStore", () => {
     const malformed = await store.list();
     assert.equal(malformed.ok ? undefined : malformed.error.code, "MEMORY_FILE_INVALID");
 
-    await writeFile(file, JSON.stringify({ version: 5, entries: [] }));
+    await writeFile(file, JSON.stringify({ version: 6, entries: [] }));
     const unsupported = await store.list();
     assert.equal(unsupported.ok ? undefined : unsupported.error.code, "MEMORY_VERSION_UNSUPPORTED");
 

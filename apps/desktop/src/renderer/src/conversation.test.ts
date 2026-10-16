@@ -400,3 +400,16 @@ describe("conversation shell display", () => {
     assert.equal(live[0]?.kind === "tool" && live[0].stdout, "current logs");
   });
 });
+
+it("shows persisted attachments once without displaying host document wrappers or accepting remote image URLs", () => {
+  const data = "data:image/png;base64,aGVsbG8=";
+  const rows = rowsFromHistory([{ id: "attached", role: "user", metadata: { attachments: [{ name: "note.md", mediaType: "text/markdown" }, { name: "pixel.png", mediaType: "image/png" }] }, parts: [
+    { type: "text", text: "帮我读一下" },
+    { type: "text", text: '\n<attached-document name="note.md">\nprivate text\n</attached-document>' },
+    { type: "file", filename: "pixel.png", mediaType: "image/png", url: data },
+  ] }]);
+  assert.equal(rows.length, 1);
+  assert.ok(rows[0]?.kind === "text");
+  assert.equal(rows[0].text, "帮我读一下");
+  assert.deepEqual(rows[0].attachments, [{ name: "note.md" }, { name: "pixel.png", url: data }]);
+});

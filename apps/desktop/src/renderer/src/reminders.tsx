@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import type { AutomationScheduleAction } from "@aisdk-agent/example-cli/dist/automation-scheduling.js";
 import { reminderClock, reminderRows, type ReminderDisplayRow } from "./reminder-copy.js";
 
-export function ReminderHome({ rows, other, truncated, loading, error, pendingCancel, working, onCancel, onConfirmCancel, onDismissCancel, onSettings }: {
+export function ReminderHome({ rows, other, truncated, loading, error, pendingCancel, working, onCancel, onConfirmCancel, onDismissCancel }: {
   rows: readonly ReminderDisplayRow[];
   other: number;
   truncated: boolean;
@@ -13,7 +13,6 @@ export function ReminderHome({ rows, other, truncated, loading, error, pendingCa
   onCancel: (row: ReminderDisplayRow) => void;
   onConfirmCancel: () => void;
   onDismissCancel: () => void;
-  onSettings: () => void;
 }) {
   return <section className="card" aria-label="我的提醒">
     <div className="card-head"><span>我的提醒</span></div>
@@ -30,7 +29,7 @@ export function ReminderHome({ rows, other, truncated, loading, error, pendingCa
       {row.canCancel ? <button type="button" className="ghost" disabled={working} onClick={() => onCancel(row)}>取消提醒…</button> : null}
     </div>)}
     {truncated ? <p className="hint">只显示最近的一部分安排。</p> : null}
-    {other > 0 ? <p className="hint">另有 {other} 条其他定时安排。<button type="button" className="ghost" onClick={onSettings}>在设置里查看</button></p> : null}
+    {other > 0 ? <p className="hint">另有 {other} 条其他定时安排。可在下方「管理定时安排与订阅」查看。</p> : null}
     {pendingCancel ? <div className="memory-setup-preview" role="group" aria-label="取消提醒确认">
       <strong>取消「{pendingCancel.subject}」？</strong>
       <p>只停止以后的提醒，不会撤回已经弹出的通知，也不会重做已经发生的结果。</p>
@@ -43,12 +42,11 @@ export function ReminderHome({ rows, other, truncated, loading, error, pendingCa
 }
 
 /** Reads the existing task arrangements. It does not start a worker or replay a result. */
-export function RemindersPanel({ enabled, busy, identity, refreshSequence, onSettings }: {
+export function RemindersPanel({ enabled, busy, identity, refreshSequence }: {
   enabled: boolean;
   busy: boolean;
   identity: string;
   refreshSequence: number;
-  onSettings: () => void;
 }) {
   const [rows, setRows] = useState<ReminderDisplayRow[]>([]);
   const [other, setOther] = useState(0);
@@ -132,5 +130,5 @@ export function RemindersPanel({ enabled, busy, identity, refreshSequence, onSet
   };
   return !enabled ? <section className="card" aria-label="我的提醒"><p className="hint">当前没有工作区，还不能查看提醒。</p></section> : <ReminderHome
     rows={rows} other={other} truncated={truncated} loading={loading} error={error} pendingCancel={pendingCancel} working={busy || working}
-    onCancel={setPendingCancel} onConfirmCancel={() => void confirmCancel()} onDismissCancel={() => setPendingCancel(null)} onSettings={onSettings} />;
+    onCancel={setPendingCancel} onConfirmCancel={() => void confirmCancel()} onDismissCancel={() => setPendingCancel(null)} />;
 }

@@ -91,18 +91,30 @@ describe("today brief stream", () => {
     assert.doesNotMatch(html, /task_abc12345|thread_abc12345|run_abc12345/);
   });
 
-  it("shows the next brief and a human worker status when nothing is waiting", () => {
+  it("shows the next brief without background diagnostics when no arrangements exist", () => {
     const afternoon = new Date("2026-10-08T06:00:00Z");
     assert.deepEqual(nextBriefSlot(afternoon), { when: "今天 20:00", name: "晚间简报" });
     assert.deepEqual(nextBriefSlot(new Date("2026-10-08T16:30:00Z")), { when: "今天 8:00", name: "晨间简报" });
     const html = render({ now: afternoon, feeds: { ...offFeeds, worker: { ok: false, message: "pid 4242 thread_abc12345" } } });
     assert.match(html, /今天 20:00/);
     assert.match(html, /晚间简报/);
-    assert.match(html, /后台状态读取失败/);
+    assert.doesNotMatch(html, /后台状态读取失败|today-background-notice/);
     assert.match(html, /还没有工作任务/);
-    assert.match(html, /聊聊这个/);
+    assert.doesNotMatch(html, /聊聊这个/);
     assert.doesNotMatch(html, /4242|thread_abc12345|task_|run_|mem_|pid/);
     assert.doesNotMatch(html, /today-task-counts/);
+  });
+
+  it("shows a compact settings notice only when saved arrangements need attention", () => {
+    const reminders = [{ eyebrow: "提醒", subject: "喝水", whenLabel: "今天 20:30", at: "2026-10-08T12:30:00.000Z", status: "已设好，到点提醒" }];
+    const html = render({ onBackgroundSettings: noop, feeds: { ...offFeeds, reminders, worker: { ok: false, message: "pid 4242 thread_abc12345" } } });
+    assert.match(html, /<aside class="today-background-notice"/);
+    assert.match(html, /暂时无法确认已设安排能否按时执行/);
+    assert.match(html, /查看设置/);
+    assert.doesNotMatch(html.match(/<aside[^>]*>[\s\S]*?<\/aside>/)?.[0] ?? "", /聊聊这个/);
+    assert.doesNotMatch(html, /后台状态读取失败|服务已停止|pid 4242|thread_abc12345/);
+    const healthy = render({ feeds: { ...offFeeds, reminders, worker: { ok: true, registered: true, running: true, rssEnabled: true, notifyEnabled: true, notificationRoutingEnabled: true } } });
+    assert.doesNotMatch(healthy, /today-background-notice/);
   });
 
   it("keeps foreground omission distinct from a submitted notification", () => {

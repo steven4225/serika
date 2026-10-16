@@ -290,6 +290,6 @@ export function contextSummaryPrompt(input: {
     "decisions, actions, and files use the same item fields (non-empty text and evidenceMessageIds). decisions also need source (user or assistant) and status (confirmed, proposed, superseded, or withdrawn). actions also need status (completed, failed, not_executed, or unknown) and toolCallIds (actual ids, or [] when none). files also need non-empty path and purpose. Use [] for decisions, actions, or files when there is no evidence.",
     "Preserve the newest user goal, constraints, withdrawals, and decisions. Distinguish confirmed user decisions from assistant proposals. Tool statuses must reflect evidence in the transcript; unknown side effects remain unknown. Do not claim current disk state without a tool result.",
     input.previousSummary === undefined ? "Previous summary: none" : `Previous summary:\n${JSON.stringify(input.previousSummary)}`,
-    `Transcript to merge:\n${JSON.stringify(input.messages)}`,
+    `Transcript to merge:\n${JSON.stringify(input.messages.map(message => ({ ...message, parts: message.parts.map(part => part.type === "file" ? { type: "text", text: `[Attached file: ${part.filename ?? "unnamed"} (${part.mediaType}); bytes omitted. Do not infer its contents.]` } : part) })))}`,
   ].join("\n\n");
 }

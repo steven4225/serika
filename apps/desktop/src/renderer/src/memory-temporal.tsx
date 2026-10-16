@@ -103,9 +103,11 @@ export function CurrentMemoryDetails({ current, assertion }: { current: FormalMe
   const metadata = current.assertion;
   return <section className="memory-current-content">
     {current.text ? <MessageContent text={current.text} /> : <p className="hint">{current.temporalState === "retracted" ? "已撤回，不再注入。历史保留，可从下面选择有效内容恢复。" : "当前没有适用内容，可查看历史及事实适用时间。"}</p>}
-    {metadata ? <><p className="hint">{memoryKindLabel[metadata.kind]} · {metadata.state === "retracted" ? "已撤回，不再注入" : "已记录"}</p>
-      <details><summary>事实时间与检索详情</summary><p className="hint">断言 {metadata.assertionId}</p><MemoryTimeDetails assertion={metadata} />
-      <p className="hint">检索词：{metadata.recallTerms.length ? metadata.recallTerms.join("、") : "未设置"}</p></details></> : current.temporalState === undefined ? <p className="hint">旧格式记录：没有完整的断言与时间元数据。</p> : null}
-    {metadata || current.temporalState === undefined ? <MemorySources sources={assertion?.sources ?? (current.source ? [current.source] : [])} /> : null}
+    <p className="hint">{current.scope?.kind === "thread" ? "仅当前对话" : "工作区记忆"}{current.pinned ? " · 已置顶" : ""}{current.status === "disabled" ? " · 已停用" : ""}</p>
+    <details><summary>更多详情</summary>
+      {metadata ? <><p className="hint">{memoryKindLabel[metadata.kind]} · {metadata.state === "retracted" ? "已撤回" : "已记录"}</p><MemoryTimeDetails assertion={metadata} /><p className="hint">检索词：{metadata.recallTerms.length ? metadata.recallTerms.join("、") : "未设置"}</p></> : current.temporalState === undefined ? <p className="hint">旧格式记录：没有完整的时间记录。</p> : null}
+      <p className="hint">有效期：{timestampLabel(current.expiresAt, "无")}</p>
+      <MemorySources sources={assertion?.sources ?? (current.source ? [current.source] : [])} />
+    </details>
   </section>;
 }

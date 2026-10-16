@@ -111,7 +111,7 @@ it("ported composer retains real controls and escaped drafts without inert attac
     submitControl: createElement("button", { type: "button", "aria-label": "停止本轮" }, "停止"),
   }));
   assert.match(markup, /&lt;script&gt;draft&lt;\/script&gt;/);
-  assert.match(markup, /aria-label="输入选项"/);
+  assert.match(markup, /aria-label="更多操作"/);
   assert.match(markup, /创建工作任务/);
   assert.match(markup, /aria-label="停止本轮"/);
   assert.doesNotMatch(markup, /添加附件|上传文件|<script>/);

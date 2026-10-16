@@ -157,6 +157,7 @@ async function main(): Promise<void> {
   let rejectStartup!: (error: Error) => void;
   const startup = new Promise<void>((resolve, reject) => { resolveStartup = resolve; rejectStartup = reject; });
   void startup.catch(() => undefined);
+  ipcMain.handle(IPC.pomodoro, (_event, action, minutes) => host.pomodoro(action, minutes));
   ipcMain.handle(IPC.info, async () => { await startup; return host.info(); });
   ipcMain.handle(IPC.taskResultOpen, async () => {
     await startup;
@@ -250,6 +251,9 @@ async function main(): Promise<void> {
   ipcMain.handle(IPC.learnedSkillReferences, () => host.current.getLearnedSkillReferences());
   ipcMain.handle(IPC.dreamingEnabled, (_event, input) => host.setDreamingEnabled(input));
   ipcMain.handle(IPC.runSkill, (_event, input) => host.current.runSkill(input));
+  ipcMain.handle(IPC.memoryLibraryGet, () => host.current.getMemoryLibrary());
+  ipcMain.handle(IPC.memoryDocumentRead, (_event, id) => host.current.readMemoryDocument(id));
+  ipcMain.handle(IPC.memoryLibraryChange, (_event, input) => host.current.changeMemoryLibrary(input));
   ipcMain.handle(IPC.memoriesList, (_event, input) => host.current.listMemories(input));
   ipcMain.handle(IPC.memoryGet, (_event, id) => host.current.getMemory(id));
   ipcMain.handle(IPC.previewMemoryImport, (_event, input) => host.current.previewMemoryImport(input));

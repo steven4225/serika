@@ -75,3 +75,6 @@
   .today-task-counts > div { padding: 10px; }
   .today-directions { grid-template-columns: 1fr; }
 }
+
+.today-background-notice { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 14px; padding: 8px 2px; color: var(--today-muted); font-size: 13px; }
+.today-background-notice .ghost { flex: none; padding: 2px 0; font-size: inherit; text-decoration: underline; text-underline-offset: 3px; }

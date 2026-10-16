@@ -194,7 +194,7 @@ it("personal capsule composer forwards draft and input controls without unsuppor
   assert.match(markup, /placeholder="和 Serika 聊天"/);
   assert.match(markup, /disabled=""/);
   assert.match(markup, /rows="1"/);
-  assert.match(markup, /aria-label="输入选项"/);
+  assert.match(markup, /aria-label="更多操作"/);
   assert.match(markup, /创建工作任务/);
   assert.match(markup, /aria-label="停止本轮"/);
   assert.match(markup, /personal-composer-notice" role="status"/);

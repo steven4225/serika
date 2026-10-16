@@ -1,3 +1,5 @@
+import type { MemoryLibraryAction } from "@aisdk-agent/example-cli/dist/memory-library.js";
+import { validateChatAttachments } from "@aisdk-agent/example-cli/dist/chat-attachments.js";
 import type { MemoryImportEntry, MemoryImportConfirm, MemoryImportPreview, MemoryImportReceipt } from "@aisdk-agent/example-cli/dist/memory-import.js";
 import type { RecipeChange } from "@aisdk-agent/example-cli/dist/recipe-store.js";
 import { Writable } from "node:stream";
@@ -370,6 +372,9 @@ export class RuntimeBridge {
   runSkill(input: SkillRunInput): Promise<SkillResult<{ runId: string }>> {
     return this.#controller.runSkill(input);
   }
+  getMemoryLibrary() { return this.#controller.getMemoryLibrary(); }
+  readMemoryDocument(id: string) { return this.#controller.readMemoryDocument(id); }
+  changeMemoryLibrary(input: MemoryLibraryAction) { return this.#controller.changeMemoryLibrary(input); }
   listMemories(input?: MemoryListInput) {
     if (input !== undefined && (typeof input !== "object" || input === null || Array.isArray(input))) return Promise.resolve(invalidInput("Invalid Memory page"));
     return this.#controller.listMemories(input);
@@ -412,18 +417,19 @@ export class RuntimeBridge {
 
   async run(text: string, options?: AssistantRunOptions): Promise<RunResponse> {
     // No renderer-supplied metadata, model options or authority may cross this boundary.
-    const safeOptions = options?.memoryConsolidation === "exclude" ? { memoryConsolidation: "exclude" as const } : undefined;
+    const attachments = validateChatAttachments(options?.attachments);
+    const safeOptions = { ...(options?.memoryConsolidation === "exclude" ? { memoryConsolidation: "exclude" as const } : {}), ...(attachments.length ? { attachments } : {}) };
     return this.#runWithOptions(text, safeOptions);
   }
 
   /** Trusted gateway clock, deliberately separate from renderer run options. */
   async runFromChannel(text: string, receivedAt?: string): Promise<RunResponse> {
     if (receivedAt !== undefined && (!/\+08:00$/.test(receivedAt) || !Number.isFinite(Date.parse(receivedAt)))) throw new Error("消息接收时间无效，未启动执行");
-    return this.#runWithOptions(text, receivedAt ? { receivedAt } : undefined);
+    return this.#runWithOptions(text, { source: "telegram", ...(receivedAt ? { receivedAt } : {}) });
   }
 
   async #runWithOptions(text: string, safeOptions?: AssistantRunOptions): Promise<RunResponse> {
-    if (text.trim().length === 0) return { ok: false, reason: "empty" };
+    if (text.trim().length === 0 && !safeOptions?.attachments?.length) return { ok: false, reason: "empty" };
     if (this.#controller.getSnapshot().state.kind !== "idle") {
       return this.#controller.run(text, safeOptions);
     }
@@ -535,11 +541,11 @@ export class RuntimeBridge {
   cancelWorkTask(input: WorkTaskInputs["cancelWorkTask"]) { return this.#writeTask("cancelWorkTask", input); }
   requestWorkTaskChanges(input: WorkTaskInputs["requestWorkTaskChanges"]) { return this.#writeTask("requestWorkTaskChanges", input); }
 
-  async runWorkTask(input: WorkTaskInputs["runWorkTask"]): Promise<RunResponse> {
+  async runWorkTask(input: WorkTaskInputs["runWorkTask"], source?: "telegram"): Promise<RunResponse> {
     const sanitized = sanitizeWorkTaskInput("runWorkTask", input);
     if (!sanitized.ok) return { ok: false, reason: "starting" };
     if (this.#controller.getSnapshot().state.kind !== "idle") return { ok: false, reason: "busy" };
-    return this.#controller.runWorkTask(sanitized.value);
+    return this.#controller.runWorkTask({ ...sanitized.value, ...(source ? { source } : {}) });
   }
 
   async shutdown(): Promise<void> {

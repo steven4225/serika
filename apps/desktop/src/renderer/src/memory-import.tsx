@@ -12,7 +12,7 @@ export function splitImportText(text: string): MemoryImportEntry[] {
   return entries;
 }
 
-export function MemoryImport({ enabled, busy, identity, onSaved }: { enabled: boolean; busy: boolean; identity: string; onSaved: () => void }) {
+export function MemoryImport({ enabled, busy, identity, onSaved, recoveryOnly = false }: { recoveryOnly?: boolean; enabled: boolean; busy: boolean; identity: string; onSaved: () => void }) {
   const key = `serika:memory-import:${identity}`;
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
@@ -47,11 +47,12 @@ export function MemoryImport({ enabled, busy, identity, onSaved }: { enabled: bo
     });
   };
   const edit = (index: number, value: Partial<typeof entries[number]>) => { setPreview(null); setEntries(entries.map((entry, i) => i === index ? { ...entry, ...value } : entry)); };
+  if (recoveryOnly && !pending && !receipt) return null;
   return <section className="memory-import">
-    <button type="button" className="personal-entry-card" aria-expanded={open} disabled={!enabled || busy || working} onClick={() => setOpen(!open)}><EntryCardContent title={open ? "收起导入" : "导入记忆"} description="粘贴或选择文本，预览后保存。" /></button>
+    <button type="button" className="personal-entry-card" aria-expanded={open} disabled={!enabled || busy || working} onClick={() => setOpen(!open)}><EntryCardContent title={recoveryOnly ? "旧导入记录" : "导入记忆"} description={recoveryOnly ? "核对之前尚未确认的保存结果。" : "粘贴或选择文本，预览后保存。"} /></button>
     {pending && !open ? <p className="error" role="status">有一批导入需要核对。<button className="ghost" onClick={() => setOpen(true)}>查看保存回执</button></p> : null}
     {open ? <div className="card" aria-label="导入记忆">
-      <p className="hint">粘贴文本或选择 .txt / .md 文件，按空行拆分。确认后存入当前工作区，来源为人工导入；不会调用模型或授予工具权限。</p>
+      <p className="hint">粘贴文本或选择 .txt / .md 文件，按空行拆分。预览确认后保存到当前工作区。</p>
       {!pending && !receipt ? <>
         <label className="memory-import-file">选择文本文件<input type="file" accept=".txt,.md,text/plain,text/markdown" disabled={working || busy} onChange={event => {
           const file = event.target.files?.[0]; event.target.value = "";
@@ -81,7 +82,7 @@ export function MemoryImport({ enabled, busy, identity, onSaved }: { enabled: bo
         if (!result.ok) throw new Error(result.error.message);
         if (result.value) saved(result.value); else { setCheckedMissing(true); setNotice("当前操作已结束，未查到这批保存回执。可结束核对后重新预览；不会自动提交。"); }
       })}>查询保存回执</button>{checkedMissing ? <button className="ghost" disabled={busy || working} onClick={() => { window.localStorage.removeItem(key); setPending(null); setCheckedMissing(false); setPreview(null); setNotice(""); }}>结束核对，重新预览</button> : null}</div> : null}
-      {receipt ? <div role="status"><strong>导入回执：新增 {receipt.items.filter(item => item.status === "saved").length} 条，跳过 {receipt.items.filter(item => item.status === "existing").length} 条</strong><p className="hint">这是当次保存回执。之后的编辑、停用或删除以当前记忆列表为准。</p><button className="ghost" onClick={() => { setReceipt(null); setEntries([]); setText(""); }}>继续导入</button></div> : null}
+      {receipt ? <div role="status"><strong>已导入：新增 {receipt.items.filter(item => item.status === "saved").length} 条，跳过 {receipt.items.filter(item => item.status === "existing").length} 条</strong><p className="hint">这是当次保存回执。之后的编辑、停用或删除以当前记忆列表为准。</p><button className="ghost" onClick={() => { setReceipt(null); setEntries([]); setText(""); }}>继续导入</button></div> : null}
       {notice ? <p className="error" role="alert">{notice}</p> : null}
     </div> : null}
   </section>;

@@ -157,10 +157,15 @@ export function estimateSerializedTokens(value: unknown): number {
 }
 
 export function estimateMessageTokens(messages: readonly UIMessage[]): number {
-  return (
-    estimateSerializedTokens(messages) +
-    messages.length * MESSAGE_OVERHEAD_TOKENS
-  );
+  let imageTokens = 0;
+  const budgetMessages = messages.map(message => ({ ...message, parts: message.parts.map(part => {
+    if (part.type !== "file" || !part.mediaType.startsWith("image/")) return part;
+    // Base64 bytes are not text tokens. Reserve a conservative image allowance;
+    // providers still enforce their own image and context limits.
+    imageTokens += 16_384;
+    return { ...part, url: "[image attachment]" };
+  }) }));
+  return estimateSerializedTokens(budgetMessages) + imageTokens + messages.length * MESSAGE_OVERHEAD_TOKENS;
 }
 
 export function availableInputTokens(config: Pick<

@@ -4,6 +4,7 @@ export const SETTINGS_ROUTES = [
   "devices",
   "skills",
   "channels",
+  "memory",
   "advanced",
   "files",
   "general",
@@ -48,6 +49,7 @@ export function settingsCopy(route: SettingsRoute): { title: string; description
     case "devices": return { title: "电脑控制", description: "查看允许控制的应用、驱动与实际注册的工具。" };
     case "skills": return { title: "技能", description: "使用已加载的文本技能、命令配方和已审核的经验。" };
     case "channels": return { title: "Telegram", description: "连接手机私聊，接收回复、确认操作和提醒结果。" };
+    case "memory": return { title: "记忆设置", description: "设置日常聊天中的自动记忆。" };
     case "advanced": return { title: "高级", description: "数据位置、上下文、内置功能与执行诊断。" };
     case "files": return { title: "文件与网页", description: "访问工作区文件、公开网页、搜索和 RSS 来源。" };
     case "general": return { title: "通用", description: "切换 Serika 的浅色或深色外观。" };
@@ -72,6 +74,7 @@ export const SETTINGS_CONNECTION_ROWS = [
 
 export const SETTINGS_OTHER_ROWS = [
   { route: "general", title: "通用", description: "切换 Serika 的浅色或深色外观。" },
+  { route: "memory", title: "记忆设置", description: "设置日常聊天中的自动记忆。" },
   { route: "notifications", title: "通知与后台", description: "检查系统通知、后台提醒和常驻助手的运行状态。" },
   { route: "shortcuts", title: "快捷键", description: "搜索、发送和显示窗口。" },
   { route: "advanced", title: "高级", description: "数据位置、上下文、内置功能与执行诊断。" },

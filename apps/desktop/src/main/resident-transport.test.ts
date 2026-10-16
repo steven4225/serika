@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import { chmod, lstat, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createConnection } from "node:net";
 import { join } from "node:path";
@@ -11,12 +12,12 @@ import { historyPage, type HistoryPageInput } from "../shared/history.js";
 
 it("history larger than one frame crosses the real socket without disconnecting, and page reads are bounded", async t => {
   const f = await fixture();
-  const messages = Array.from({ length: 150 }, (_, i) => ({ id: `large-${i}`, role: "assistant" as const, parts: [{ type: "text" as const, text: "x".repeat(64 * 1024) }] }));
+  const messages = Array.from({ length: 280 }, (_, i) => ({ id: `large-${i}`, role: "assistant" as const, parts: [{ type: "text" as const, text: "x".repeat(64 * 1024) }] }));
   const patched = t.mock.method(f.server.runtime.current, "history", async () => messages);
   const paged = t.mock.method(f.server.runtime.current, "historyPage", async (input?: HistoryPageInput) => historyPage(messages, f.server.runtime.info().threadId, input));
   const client = await ResidentClient.connect({ paths: f.paths, scope: f.scope, send: () => {} });
   try {
-    assert(Buffer.byteLength(JSON.stringify(messages)) > 8 * 1024 * 1024);
+    assert(Buffer.byteLength(JSON.stringify(messages)) > 16 * 1024 * 1024);
     assert.deepEqual(await client.current.history(), messages);
     assert.equal(client.connected, true);
     const first = await client.current.historyPage();
@@ -39,11 +40,11 @@ function response() {
     } },
   ] }) };
 }
-async function fixture(doStream: () => Promise<ReturnType<typeof response>> = async () => response(), onStop?: () => void) {
+async function fixture(doStream: () => Promise<ReturnType<typeof response>> = async () => response(), onStop?: () => void, memoryEnabled = false) {
   const root = await mkdtemp(`${process.platform === "darwin" ? "/private/tmp" : "/tmp"}/serika-transport-`);
   const workspace = join(root, "workspace"), userData = join(root, "profile"), configPath = join(root, "config.json");
   await mkdir(workspace);
-  await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: false } } }));
+  await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: memoryEnabled } } }));
   const paths = createResidentPaths(userData, join(root, "socket", "host.sock"));
   const scope = { userData, configPath, workspaceRoot: workspace };
   let creates = 0;
@@ -182,4 +183,42 @@ it("a lost mutating response rejects as uncertain and is never resent on reconne
     assert.equal(Reflect.get(client.current, "shutdown"), undefined);
     assert.equal(Reflect.get(client.current, "threadActivity"), undefined);
   } finally { release(); patched.mock.restore(); client.detach(); await f.cleanup(); }
+});
+
+
+it("bounded attachments larger than the old frame limit cross the resident socket intact", async t => {
+  const f = await fixture();
+  const bytes = Buffer.alloc(4.5 * 1024 * 1024, 1);
+  Buffer.from([137,80,78,71,13,10,26,10]).copy(bytes);
+  const attachments = [1, 2].map(n => ({ name: `image${n}.png`, mediaType: "image/png" as const, data: bytes.toString("base64") }));
+  const patched = t.mock.method(f.server.runtime.current, "run", async (_text: string, options?: Parameters<typeof f.server.runtime.current.run>[1]) => {
+    assert.deepEqual(options?.attachments, attachments);
+    return { ok: true as const, runId: "transport-attachment" };
+  });
+  const client = await ResidentClient.connect({ paths: f.paths, scope: f.scope, send: () => {} });
+  try {
+    assert.ok(Buffer.byteLength(JSON.stringify(attachments)) > 8 * 1024 * 1024);
+    assert.deepEqual(await client.current.run("read", { attachments }), { ok: true, runId: "transport-attachment" });
+    assert.equal(client.connected, true);
+  } finally { patched.mock.restore(); client.detach(); await f.cleanup(); }
+});
+
+
+it("memory folder and document operations cross the real resident socket and survive reconnect", async () => {
+  const f = await fixture(undefined, undefined, true);
+  const client = await ResidentClient.connect({ paths: f.paths, scope: f.scope, send: () => {} });
+  try {
+    assert.equal(client.info().memoryLibrary, true);
+    const initial = await client.current.getMemoryLibrary(); assert.ok(initial.ok);
+    const folderId = randomUUID(), documentId = randomUUID();
+    const folder = await client.current.changeMemoryLibrary({ operation: "create-folder", id: folderId, name: "角色设定", expectedRevision: initial.value.revision }); assert.ok(folder.ok);
+    const text = "# Character\n\n温暖直接。\n";
+    assert.ok((await client.current.changeMemoryLibrary({ operation: "save-document", id: documentId, title: "Character", folderId, text, entries: [], expectedRevision: folder.value.revision })).ok);
+    client.detach(); await client.reconnect();
+    const document = await client.current.readMemoryDocument(documentId); assert.ok(document.ok);
+    assert.equal(document.value.text, text); assert.equal(document.value.folderId, folderId);
+    const view = await client.current.getMemoryLibrary(); assert.ok(view.ok); assert.equal(view.value.folders[0]?.name, "角色设定");
+    const forged = await client.current.changeMemoryLibrary({ operation: "save-document", id: randomUUID(), title: "forged", folderId: null, text: "no scope authority", entries: [], expectedRevision: view.value.revision, scope: { kind: "workspace" } } as Parameters<typeof client.current.changeMemoryLibrary>[0]);
+    assert.equal(forged.ok ? null : forged.error.code, "INVALID_INPUT");
+  } finally { client.detach(); await f.cleanup(); }
 });
