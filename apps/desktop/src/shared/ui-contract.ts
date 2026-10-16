@@ -1,3 +1,4 @@
+import type { MemoryLibraryAction, MemoryLibraryView, MemoryLibraryDocument } from "@aisdk-agent/example-cli/dist/memory-library.js";
 import type { MemoryImportEntry, MemoryImportConfirm, MemoryImportPreview, MemoryImportReceipt } from "@aisdk-agent/example-cli/dist/memory-import.js";
 import type { RecipeEntry, RecipeChange } from "@aisdk-agent/example-cli/dist/recipe-store.js";
 import type { UIMessage } from "ai";
@@ -48,7 +49,7 @@ export type RunPhase = "primary" | "consolidation" | "skill";
 
 export type UiState =
   | { kind: "idle" }
-  | { kind: "running"; runId: string | null; phase: RunPhase; background?: true }
+  | { kind: "running"; runId: string | null; phase: RunPhase; background?: true; source?: "telegram" }
   | { kind: "compacting" }
   | { kind: "resuming" }
   | { kind: "command"; name: string };
@@ -80,6 +81,9 @@ export interface ToolActivity {
 }
 
 export interface AppInfo {
+  memoryLibrary?: true;
+  attachments?: true;
+  pomodoroControls?: true;
   recoveryWorkspace?: { originalWorkspace: string };
   runtimeRecovery?: { state: "failed"; message: string };
   /** Actual loaded main-process identity; optional for preview/older bridges. */
@@ -195,6 +199,7 @@ export type GetRunResponse =
 export interface ContextModeInput { mode: "daily" | "long-task"; expectedBudget: ContextBudgetConfig }
 
 export interface RendererApi {
+  pomodoro?(action: "status" | "start" | "cancel", minutes?: number): Promise<import("@aisdk-agent/example-cli/dist/modules/pomodoro-module.js").PomodoroResult>;
   previewMemoryImport(entries: MemoryImportEntry[]): Promise<MemoryResult<MemoryImportPreview>>;
   confirmMemoryImport(input: MemoryImportConfirm): Promise<MemoryResult<MemoryImportReceipt>>;
   getMemoryImportReceipt(operationId: string): Promise<MemoryResult<MemoryImportReceipt | null>>;
@@ -271,6 +276,9 @@ export interface RendererApi {
   setDreamingEnabled(input: { enabled: boolean; expectedEnabled: boolean }): Promise<void>;
   /** Success means a Run started, not that the Skill completed or its output is correct. */
   runSkill(input: SkillRunInput): Promise<SkillResult<{ runId: string }>>;
+  getMemoryLibrary(): Promise<MemoryResult<MemoryLibraryView>>;
+  readMemoryDocument(id: string): Promise<MemoryResult<MemoryLibraryDocument>>;
+  changeMemoryLibrary(input: MemoryLibraryAction): Promise<MemoryResult<MemoryLibraryView>>;
   listMemories(input?: MemoryListInput): Promise<MemoryResult<MemoryPage>>;
   getMemory(id: string): Promise<MemoryResult<FormalMemory>>;
   updateMemory(input: MemoryEditInput): Promise<MemoryResult<FormalMemory>>;
@@ -300,6 +308,7 @@ export interface RendererApi {
 }
 
 export const IPC = {
+  pomodoro: "runloom:pomodoro",
   previewMemoryImport: "runloom:previewMemoryImport",
   confirmMemoryImport: "runloom:confirmMemoryImport",
   getMemoryImportReceipt: "runloom:getMemoryImportReceipt",
@@ -373,6 +382,9 @@ export const IPC = {
   learnedSkillReferences: "runloom:learnedSkillReferences",
   dreamingEnabled: "runloom:dreamingEnabled",
   runSkill: "runloom:runSkill",
+  memoryLibraryGet: "memory-library:get",
+  memoryDocumentRead: "memory-library:read",
+  memoryLibraryChange: "memory-library:change",
   memoriesList: "runloom:memoriesList",
   memoryGet: "runloom:memoryGet",
   memoryUpdate: "runloom:memoryUpdate",

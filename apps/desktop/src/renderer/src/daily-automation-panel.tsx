@@ -48,6 +48,7 @@ export function DailyAutomation({ enabled, busy }: { enabled: boolean; busy: boo
     <div className="card-head"><span>后台提醒</span></div>
     <p role="status">{backgroundServiceLabel(worker)}</p>
     <p className="hint">处理已经保存的到期提醒和定期安排。独立服务运行时，关闭窗口或退出桌面仍可处理；Mac 需保持运行。</p>
+    {worker?.ok && worker.setupReady === false ? <div className="background-recovery" role="status"><strong>定时提醒尚未就绪</strong><p>后台服务配置与当前应用不匹配，已保存的提醒、规划和 RSS 检查可能无法按时执行。</p><p>先点击“停用后台提醒”并确认，确认已停用后再点击“启用后台提醒”。这不会删除安排；如果操作失败，请查看下方配置诊断。</p></div> : null}
     {worker && (!worker.ok || worker.configurationMessage) ? <details><summary>配置诊断</summary><p className="hint">{worker.ok ? worker.configurationMessage : worker.message}</p></details> : null}
     <div className="memory-actions">
       <button className="ghost" disabled={busy || working || !enabled || worker?.ok !== true || worker.registered} onClick={() => setPreview(true)}>启用后台提醒…</button>

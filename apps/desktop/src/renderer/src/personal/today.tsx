@@ -27,6 +27,7 @@ export interface TodayPanelProps {
   onContinue: (target: BriefAction["target"]) => void;
   onPomodoro: () => void;
   onAutomation: () => void;
+  onBackgroundSettings?: (() => void) | undefined;
 }
 
 export function TodayPanel(props: TodayPanelProps) {
@@ -56,7 +57,7 @@ export function TodayPanel(props: TodayPanelProps) {
       <p>到了这个时段，这里会汇总当时的任务、提醒和连接状态。现在还没有可汇总的内容。</p>
       {brief.emptyLead ? <p>{brief.emptyLead}</p> : null}
     </section> : null}
-    {brief.status ? <StatusCard card={brief.status} disabled={props.continueDisabled === true} onContinue={props.onContinue} /> : null}
+    {brief.status ? <StatusCard card={brief.status} disabled={props.continueDisabled === true} onContinue={props.onContinue} onBackgroundSettings={props.onBackgroundSettings} /> : null}
     {brief.sections.map(section => {
       const open = expanded[section.key] === true;
       const shown = visibleBriefCards(section.cards, open);
@@ -76,7 +77,11 @@ export function TodayPanel(props: TodayPanelProps) {
   </div>;
 }
 
-function StatusCard({ card, disabled, onContinue }: { card: NonNullable<TodayBriefModel["status"]>; disabled: boolean; onContinue: TodayPanelProps["onContinue"] }) {
+function StatusCard({ card, disabled, onContinue, onBackgroundSettings }: { card: NonNullable<TodayBriefModel["status"]>; disabled: boolean; onContinue: TodayPanelProps["onContinue"]; onBackgroundSettings?: (() => void) | undefined }) {
+  if (card.eyebrow === "后台") return <aside className="today-background-notice" aria-label={card.title}>
+    <p>{card.body}</p>
+    {onBackgroundSettings ? <button type="button" className="ghost" onClick={onBackgroundSettings}>查看设置</button> : null}
+  </aside>;
   return <section className="today-card today-status" aria-label={card.title}>
     <p className="today-eyebrow">{card.eyebrow}</p>
     <h3>{card.title}</h3>

@@ -48,6 +48,7 @@ export interface ToolRow {
 }
 
 export interface TextRow {
+  attachments?: { name: string; url?: string }[];
   kind: "text";
   key: string;
   role: "user" | "assistant" | "system";
@@ -162,6 +163,15 @@ function withFileReceipt(row: ToolRow, output: unknown): ToolRow {
  * Walk parts in order so tool rows sit where the call happened, and merge
  * adjacent text parts of one message into a single row.
  */
+function messageAttachments(message: UIMessage): { name: string; url?: string }[] {
+  const raw = (message.metadata as { attachments?: { name?: unknown }[] } | undefined)?.attachments;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(item => typeof item?.name === "string").slice(0, 4).map(item => {
+    const part = message.parts.find(part => part.type === "file" && part.filename === item.name);
+    return { name: item.name as string, ...(part?.type === "file" && /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(part.url) ? { url: part.url } : {}) };
+  });
+}
+
 export function rowsFromHistory(messages: readonly UIMessage[]): ConversationRow[] {
   const rows: ConversationRow[] = [];
   let backgroundConsolidation = false;
@@ -183,12 +193,13 @@ export function rowsFromHistory(messages: readonly UIMessage[]): ConversationRow
         text = "";
         return;
       }
-      rows.push({ kind: "text", key: `h:${message.id}:text:${textIndex}`, role, text, committed: true, ...(steering ? { steer: true as const } : {}) });
+      rows.push({ kind: "text", key: `h:${message.id}:text:${textIndex}`, role, text, committed: true, ...(role === "user" && textIndex === 0 ? { attachments: messageAttachments(message) } : {}), ...(steering ? { steer: true as const } : {}) });
       textIndex += 1;
       text = "";
     };
     for (const part of message.parts) {
       if (part.type === "text") {
+        if (messageAttachments(message).length && part.text.startsWith("\n<attached-document name=")) continue;
         text += part.text;
         continue;
       }

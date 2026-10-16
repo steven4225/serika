@@ -106,16 +106,25 @@ export class DesktopRuntime {
           const created = await this.#bridge.createWorkTask({ goal: text, acceptance: [{ id: "user-quality", description: "用户确认任务结果符合需求", required: true, method: "human", verification: { kind: "human" } }] });
           if (!created.ok) throw new Error("工作任务未能保存，未启动执行");
           taskId = created.value.id;
-          response = await this.#bridge.runWorkTask({ id: taskId, expectedRevision: created.value.revision });
+          response = await this.#bridge.runWorkTask({ id: taskId, expectedRevision: created.value.revision }, "telegram");
         } else response = await this.#bridge.runFromChannel(text, receivedAt);
       } finally { this.#sourceBarrier = undefined; }
     });
     return response;
   }
+  pomodoro(action: unknown, minutes?: unknown) {
+    if (!this.#available || this.#changing || !this.info().commands.includes("pomodoro")) throw new Error("番茄钟尚未就绪，请稍后重试");
+    if (action !== "status" && action !== "start" && action !== "cancel") throw new Error("番茄钟操作无效");
+    if (action === "status") return this.#pomodoroService.status();
+    if (this.#bridge.snapshot().state.kind !== "idle") throw new Error("助手正在处理消息，请结束后操作番茄钟");
+    if (action === "cancel") return this.#pomodoroService.cancel();
+    if (action === "start" && typeof minutes === "number" && Number.isInteger(minutes) && minutes >= 1 && minutes <= 180) return this.#pomodoroService.start(minutes);
+    throw new Error("请选择 1–180 分钟的专注时长");
+  }
   getLifecycleStatus() { return { pomodoroRunning: this.#pomodoroService.status().status.state === "running" }; }
   info(): AppInfo {
     const info = this.#available ? this.#bridge.info() : this.#lastInfo;
-    return { ...info, build: readLoadedBuild(), ...(this.#recoveryError ? { runtimeRecovery: { state: "failed" as const, message: this.#recoveryError } } : {}) };
+    return { ...info, attachments: true, pomodoroControls: true, memoryLibrary: true, build: readLoadedBuild(), ...(this.#recoveryError ? { runtimeRecovery: { state: "failed" as const, message: this.#recoveryError } } : {}) };
   }
   #scope() { return { ...this.#options, configPath: this.#identity.configPath, workspaceRoot: this.#identity.workspaceRoot }; }
   #assertIdle() {

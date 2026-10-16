@@ -50,8 +50,8 @@ describe("personal Today view", () => {
     assert.match(render(), /还没有工作任务/);
     assert.match(render({ tasks: [task("completed")] }), /当前没有待推进的任务/);
   });
-  it("keeps a chat action and real memory states, without fabricated weather or research", () => {
-    const html = render({ pendingMemory: 2 });
+  it("keeps task continuation and real memory states, without fabricated weather or research", () => {
+    const html = render({ pendingMemory: 2, tasks: [task("paused")] });
     assert.match(html, /class="today-chat-button"/);
     assert.match(html, /当前会话有 2 条记忆等你确认/);
     assert.match(html, /查看我的提醒|打开番茄钟/);

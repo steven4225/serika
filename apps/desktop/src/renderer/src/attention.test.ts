@@ -62,3 +62,10 @@ test("delivery folding does not cross user turns or fold pre-tool and streaming 
     { kind: "tool", key: "tool2", toolName: "read_file", toolCallId: "two", status: "requested" }, text("live", "assistant", false)];
   assert.deepEqual([...deliveredReplyKeys(rows)], ["final"]);
 });
+
+
+test("trusted Telegram work is identified in both starting and active states", () => {
+  for (const runId of [null, "phone-run"]) assert.equal(headerStatus({ kind: "running", phase: "primary", source: "telegram", runId }, "none").label, "正在处理 Telegram 消息");
+  assert.equal(headerStatus({ kind: "running", phase: "primary", source: "telegram", runId: "r" }, "approval").label, "等待确认");
+  assert.equal(headerStatus({ kind: "idle" }, "none").label, "空闲");
+});

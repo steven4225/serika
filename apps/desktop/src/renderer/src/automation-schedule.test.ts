@@ -34,6 +34,6 @@ it("places unified arrangements in the existing workspace and invalidates stale 
   assert.match(panel, /message\.phase !== "primary"/);
   assert.match(panel, /重启后这里会清空/);
   assert.match(panel, /不会自动重试/);
-  assert.match(panel, /打开提醒，查看刚刚触发的结果/);
+  assert.doesNotMatch(panel, /打开提醒，查看刚刚触发的结果/);
   assert.doesNotMatch(panel, /\{task\.runAt\}/);
 });

@@ -55,7 +55,7 @@ it("UI regression 3: the memory automation off state uses the same phrase across
   assert.equal(consolidationStatusLabel(true, maintenance, ""), expected);
   assert.match(render(createElement(MemoryMaintenanceSummary, { value: maintenance })), new RegExp(expected));
   assert.match(render(createElement(MemoryConsolidationPanel, { info, busy: false, refreshToken: 0 })), new RegExp(expected));
-  assert.match(render(createElement(MemoryPanel, { memory: info.memory, pendingCount: 1, temporaryThread: false, controllerIdle: true, refreshToken: 0 })), new RegExp(expected));
+  assert.doesNotMatch(render(createElement(MemoryPanel, { memory: info.memory, pendingCount: 0, temporaryThread: false, controllerIdle: true, refreshToken: 0 })), /引用说明与审核记录/);
   for (const file of ["./capabilities.tsx"]) assert.match(await source(file), /memoryAutomationLabel\(/);
 });
 
@@ -64,14 +64,13 @@ it("memory automation label distinguishes enabled capability from write policy",
   assert.equal(memoryAutomationLabel({ enabled: false, autoConsolidate: true }), "记忆自动整理：关");
   const review = { ...info, memory: { ...info.memory, autoConsolidate: true } };
   const html = render(createElement(MemoryConsolidationPanel, { info: review, busy: false, refreshToken: 0 }));
-  assert.match(html, /记忆自动整理：开/);
-  assert.match(html, /人工审核模式/);
+  assert.match(html, /当前使用手动确认保存/);
 });
 
 it("UI regression 4: memory setup has one primary entry and workspace context is a navigation link", async () => {
   const html = render(createElement(MemoryConsolidationPanel, { info, busy: false, refreshToken: 0 }));
   assert.doesNotMatch(html, /设置日用记忆|改为自动记住/);
-  assert.match(html, /打开记忆设置/);
+  assert.match(html, /记忆设置/);
   const app = await source("./App.tsx");
   assert.match(app, /openSettings\("context"\)/);
 });
@@ -105,7 +104,7 @@ it("reminders stay reachable from 手札 and are not a top pill or a settings in
 });
 
 it("UI regression 6: 手札 explicitly allows ordinary conversation without creating a task", () => {
-  const html = render(createElement(TodayPanel, { info, tasks: [], tasksLoading: false, tasksError: null, pendingMemory: 0, pendingMemoryError: null, onContinue: noop, onPomodoro: noop, onAutomation: noop }));
+  const html = render(createElement(TodayPanel, { info, tasks: [], tasksLoading: false, tasksError: null, pendingMemory: 0, pendingMemoryError: null, onContinue: noop, onPomodoro: noop, onAutomation: noop, now: new Date("2026-10-16T09:00:00+08:00") }));
   assert.match(html, /普通对话照常使用/);
 });
 
@@ -121,4 +120,14 @@ it("optional memory tab selection shares the settings pill instead of an underli
   const css = await source("./personal/shell.css");
   assert.match(css, /:is\(\.personal-settings-nav, \.memory-tabs\) button:is\(\[aria-current="page"\], \[aria-selected="true"\]\)/);
   assert.match(css, /\.personal-layout \.memory-tabs \{[^}]*border: 0/);
+});
+
+it("schedule management belongs to reminders instead of task templates", async () => {
+  const app = await source("./App.tsx");
+  assert.doesNotMatch(app, /detailTab === "tasks" && info \? <details className="task-arrangements"/);
+  const reminders = app.slice(app.indexOf('<div hidden={detailTab !== "reminders"}>'), app.indexOf('<div hidden={detailTab !== "settings"}>'));
+  assert.match(reminders, /管理定时安排与订阅/);
+  assert.match(reminders, /<AutomationPanel/);
+  assert.match(reminders, /<RssPanel/);
+  assert.doesNotMatch(reminders, /onSettings/);
 });

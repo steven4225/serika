@@ -3,7 +3,7 @@
  * packages/ui/src/prompt-editor/ChatPromptEditor.tsx and v4/ConversationComposer.tsx.
  * Copyright 2026 Z.AI Co., Ltd. Apache-2.0; third-party/zcode/NOTICE.md.
  * Modified by Serika: existing textarea/IME/draft and controller callbacks,
- * no Lexical, mentions, attachments, queue, account or upstream services.
+ * no Lexical, mentions, queue, account or upstream services. Attachments belong to the host.
  */
 import React, { useEffect, useLayoutEffect, useRef, type ReactNode, type RefObject, type TextareaHTMLAttributes } from "react";
 import { Icon } from "../icons.js";
@@ -39,6 +39,6 @@ export function ZCodePromptOptions({ children }: { children: ReactNode }) {
     document.addEventListener("keydown", escape);
     return () => { document.removeEventListener("pointerdown", outside); document.removeEventListener("keydown", escape); };
   }, []);
-  return <details ref={menu} className="zcode-prompt-options"><summary title="输入选项" aria-label="输入选项"><Icon name="new-chat" size={18} /></summary>
+  return <details ref={menu} className="zcode-prompt-options"><summary title="更多操作" aria-label="更多操作"><Icon name="new-chat" size={18} /></summary>
     <div className="zcode-prompt-menu">{children}</div></details>;
 }

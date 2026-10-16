@@ -163,3 +163,9 @@
 - Runtime specifications, discussion notes, scratch files, and personal knowledge-base material are local working documents unless the user explicitly approves versioning a specific file.
 - Do not stage local specifications or notes merely because they are under the repository directory.
 - Never commit credentials, `.env` files, generated output, dependency directories, editor state, or Obsidian metadata.
+
+## Desktop memory documents
+
+- Explicit desktop library actions create persistent named folders and titled documents over the existing formal-memory assertions. The library stores only metadata and ordered entry references; it is not a second fact store. Import/edit are idle Controller operations, create no model Run, preserve record scope/history and invalidate affected candidates. A document is at most 64 KiB, internally split into bounded assertions; the existing retrieval budget and source/authority rules still apply. Unowned current entries appear in 未归档; automatic consolidation never invents folder names or reorganizes documents.
+- Library writes use both library revision CAS and exact body entry revisions, under the existing atomic Memory lock/rename boundary. Failed/unknown results retain drafts and require explicit reread, never automatic resend. Folder names are metadata, not filesystem paths or tool permissions. Existing inactive/expired/retracted records are not revived by organizing or editing their title.
+- Memory v1-v4 reads and ordinary writes retain their compatibility behavior. Only an explicit library mutation opts the workspace into Memory v5, which uses the same v4 assertion representation plus library metadata. All subsequent writers preserve v5. Older binaries must fail on the unknown version rather than discard metadata: upgrade every host/worker sharing that workspace before production use, and do not downgrade by editing the version field. No production migration is implied by a build or an isolated demo.

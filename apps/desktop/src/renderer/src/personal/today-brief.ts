@@ -202,31 +202,20 @@ function threadTarget(threadId: string, draft: string): BriefContinueTarget {
   return { kind: "thread", threadId, taskId: null, compose: false, draft };
 }
 
-function workerAttention(worker: RssWorkerResponse | null, state: TodayBriefFeeds["workerState"]): { attention: boolean; known: boolean; title: string; body: string; risk: string | null; draft: string } | null {
-  if (state === "hidden") return null;
-  if (state === "checking") {
-    return { attention: false, known: false, title: "正在查看后台", body: "还在确认关窗口之后提醒能不能执行。", risk: null, draft: "我想先确认后台提醒现在能不能依赖。" };
-  }
-  if (worker === null || !worker.ok) return { attention: true, known: true, title: "后台状态读取失败", body: "请在设置 → 通知与后台中核对。读取失败不代表服务已停止。", risk: "暂不能确认是否会到点执行；不要重复创建提醒。", draft: "请帮我核对后台状态读取失败的原因，不重复创建提醒。" };
-  if (worker.setupReady === false) return { attention: true, known: true, title: "后台配置未就绪", body: "后台配置与当前工作区不一致，请在设置 → 通知与后台中核对。", risk: "暂不能依赖到点提醒。", draft: "请帮我核对后台配置，不重复创建提醒。" };
-  if (!worker.registered) {
-    return { attention: true, known: true, title: "后台提醒还没开启", body: "关窗口之后不会执行提醒。安排可以先保存，但不会自己开始执行。", risk: null, draft: "后台提醒现在还没开启。先别把到点提醒当成已经会执行。" };
-  }
-  if (!worker.running) {
-    return { attention: true, known: true, title: "后台已登记，但现在没在运行", body: "暂时不能依赖到点提醒。", risk: "到点不能保证执行。", draft: "后台提醒现在没在运行。先别把到点提醒当成已经会执行。" };
-  }
-  if (worker.notifyEnabled !== true) {
-    return { attention: true, known: true, title: "后台在运行，通知还没确认", body: "进程在，不代表系统通知已经准备好，也不代表你已经收到。", risk: null, draft: "后台在运行，但通知还没确认。先别当成我已经收到提醒。" };
-  }
-  if (worker.notificationRoutingEnabled !== true) {
-    return { attention: true, known: true, title: "后台在运行，点通知还没接上", body: "就算系统通知弹出来，点击也不会打开结果。", risk: null, draft: "后台提醒的通知点击还没接上。先别当成点开会回到结果。" };
-  }
-  return { attention: false, known: true, title: "后台提醒可用", body: "已配置系统通知。提交了通知也不代表你已经看到。", risk: null, draft: "我想确认后台提醒现在是可用的，但提交通知不等于我已经看到。" };
+function workerAttention(worker: RssWorkerResponse | null, state: TodayBriefFeeds["workerState"]): string | null {
+  if (state !== "ready") return null;
+  if (worker === null || !worker.ok) return "暂时无法确认已设安排能否按时执行。";
+  if (worker.setupReady === false) return "后台配置需要更新，已设安排可能无法按时执行。";
+  if (!worker.registered) return "后台提醒还没开启，关窗口后已设安排不会执行。";
+  if (!worker.running) return "后台暂未运行，已设安排可能无法按时执行。";
+  if (worker.notifyEnabled !== true) return "系统通知尚未就绪，到点后可能看不到提醒。";
+  if (worker.notificationRoutingEnabled !== true) return "通知点击尚未接通，请在「我的提醒」查看结果。";
+  return null;
 }
 
 export function buildTodayBrief(input: TodayBriefInput): TodayBriefModel {
   const footer = ORDINARY_CHAT;
-  const emptyLead = input.info?.workTasks && input.tasks.length === 0 && !input.tasksError ? "还没有工作任务。" : null;
+  const emptyLead = input.info?.workTasks && input.tasks.length === 0 && !input.tasksError ? "还没有工作任务，普通对话照常使用。" : null;
   if (!input.info) return { mode: "connecting", message: "正在连接工作区…", next: null, status: null, sections: [], footer: null, emptyLead: null };
   if (input.tasksLoading) return { mode: "reading", message: "正在读取当前会话的任务…", next: null, status: null, sections: [], footer, emptyLead: null };
   const feedsPending = input.feeds.remindersState === "loading" || input.feeds.inboxState === "loading" || input.feeds.workerState === "checking";
@@ -413,8 +402,8 @@ export function buildTodayBrief(input: TodayBriefInput): TodayBriefModel {
     status = { eyebrow: "连接", title: "助手连接已停止", body: "修正配置后重新连接。不会重做旧任务，也不会把没完成的事说成已经成功。", risk: "不会自动重试。", action: statusAction("助手连接停了。先别把没做完的事当成已经成功。") };
   } else if (!input.info.workspaceRoot && sections.length === 0) {
     status = { eyebrow: "连接", title: "还没有工作区", body: "对话仍然可以使用。提醒和定时结果要有工作区之后才会出现在简报里。", risk: null, action: statusAction("还没有工作区。我们先用对话继续。") };
-  } else if (worker && (worker.attention || sections.length === 0) && worker.known) {
-    status = { eyebrow: "后台", title: worker.title, body: worker.body, risk: worker.risk, action: statusAction(worker.draft) };
+  } else if (worker && input.feeds.remindersState === "ready" && input.feeds.reminders.length > 0) {
+    status = { eyebrow: "后台", title: "定时安排提示", body: worker, risk: null, action: null };
   }
 
   if (sections.length === 0) {

@@ -124,3 +124,29 @@ describe("AssistantController memory consolidation controls", () => {
     } finally { await controller.shutdown(); }
   });
 });
+
+it("memory library operations bind the host Thread, serialize with foreground work and create no Run", async () => {
+  const calls: string[] = [], events: string[] = [];
+  const view = { revision: 0, folders: [], documents: [] };
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const controller = createAssistantController(appWith({ memoryStore: {
+    getLibrary: async (threadId: string) => { calls.push(`list:${threadId}`); return { ok: true, value: view }; },
+    readLibraryDocument: async (id: string, threadId: string) => { calls.push(`read:${threadId}:${id}`); return { ok: false, error: { code: "MEMORY_ENTRY_NOT_FOUND", message: "not found" } }; },
+    changeLibrary: async (_input: unknown, threadId: string) => { calls.push(`change:${threadId}`); await gate; return { ok: true, value: { ...view, revision: 1 } }; },
+  } as unknown as NonNullable<RuntimeApp["memoryStore"]> }));
+  controller.subscribe(event => { if (event.type === "memory-updated") events.push(event.reason); });
+  try {
+    assert.ok((await controller.getMemoryLibrary()).ok);
+    assert.equal((await controller.readMemoryDocument("doc")).ok, false);
+    const input = { operation: "create-folder" as const, id: "12345678-1234-4123-8123-123456789abc", name: "角色", expectedRevision: 0 };
+    const saving = controller.changeMemoryLibrary(input);
+    assert.equal(controller.getSnapshot().state.kind, "command");
+    const second = await controller.changeMemoryLibrary(input); assert.equal(second.ok ? null : second.error.code, "BUSY");
+    const foreground = await controller.run("cannot race document save"); assert.equal(foreground.ok ? null : foreground.reason, "busy");
+    release(); assert.ok((await saving).ok);
+    assert.equal(controller.getSnapshot().state.kind, "idle");
+    assert.deepEqual(calls, ["list:memory-controls", "read:memory-controls:doc", "change:memory-controls"]);
+    assert.deepEqual(events, ["write"]);
+  } finally { release(); await controller.shutdown(); }
+});

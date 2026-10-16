@@ -1,6 +1,6 @@
-import { EntryCardContent } from "./personal/entry-card.js";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { FormalMemories } from "./formal-memories.js";
+import { MemoryLibraryPanel } from "./memory-library.js";
 import { pendingMemoryReducer } from "./pending-memory-data.js";
 import { loadActionablePending } from "./pending-memory-query.js";
 import { memoryAutomationLabel, memoryCandidateEmptyCopy } from "./memory-copy.js";
@@ -151,7 +151,7 @@ export function MemoryTabs({ tab, onSelect, pendingCount = 0, pendingHasMore = f
   </div>;
 }
 
-export function MemoryPanel(props: { memory: { enabled: boolean; autoConsolidate: boolean; queryRewriteEnabled?: boolean; writePolicy?: "automatic" | "review" }; threadId?: string; temporaryThread: boolean; controllerIdle: boolean; refreshToken: number; focusRequest?: { id: string | null; sequence: number }; pendingCount?: number; pendingHasMore?: boolean }) {
+export function MemoryPanel(props: { libraryAvailable?: boolean; onManage?: () => void; managementOnly?: boolean; memory: { enabled: boolean; autoConsolidate: boolean; queryRewriteEnabled?: boolean; writePolicy?: "automatic" | "review" }; threadId?: string; temporaryThread: boolean; controllerIdle: boolean; refreshToken: number; focusRequest?: { id: string | null; sequence: number }; pendingCount?: number; pendingHasMore?: boolean }) {
   const count = props.memory.enabled ? props.pendingCount ?? 0 : 0;
   const [tab, setTab] = useState<MemoryTab>(() => memoryTabOnOpen(count, props.focusRequest?.id));
   const previous = useRef({ count, sequence: props.focusRequest?.sequence });
@@ -163,14 +163,12 @@ export function MemoryPanel(props: { memory: { enabled: boolean; autoConsolidate
   }, [count, props.focusRequest?.id, props.focusRequest?.sequence]);
   return <div className="personal-memory">
     {tab === "formal" ? <>
-      {count > 0 ? <button type="button" className="memory-review-banner" onClick={() => setTab("pending")}>待确认（{count}{props.pendingHasMore ? "+" : ""}）</button> : null}
-      <FormalMemories enabled={props.memory.enabled} controllerIdle={props.controllerIdle} refreshToken={props.refreshToken} queryRewriteEnabled={props.memory.queryRewriteEnabled === true} />
-      <details className="memory-advanced">
-        <summary className="personal-entry-card"><EntryCardContent title="引用说明与审核记录" description="了解记忆如何被引用，查看审核记录。" /></summary>
-        {!props.memory.enabled || !props.memory.autoConsolidate ? <p className="hint">{memoryAutomationLabel(props.memory)}。{props.memory.enabled ? "仍可查看已有候选。" : "记忆模块未启用。"}</p> : null}
-        <p className="hint">这些记忆已经保存。某轮是否参考过，请看对话中的「本轮参考记忆」，保存不代表每轮都会引用。</p>
-        <button type="button" className="ghost" onClick={() => setTab("history")}>审核记录</button>
-      </details>
+      {count > 0 && props.memory.writePolicy !== "automatic" ? <button type="button" className="memory-review-banner" onClick={() => setTab("pending")}>待确认（{count}{props.pendingHasMore ? "+" : ""}）</button> : null}
+      <>{props.managementOnly ? <FormalMemories enabled={props.memory.enabled} controllerIdle={props.controllerIdle} refreshToken={props.refreshToken} queryRewriteEnabled={props.memory.queryRewriteEnabled === true} managementOnly /> : props.libraryAvailable ? <MemoryLibraryPanel enabled={props.memory.enabled} controllerIdle={props.controllerIdle} refreshToken={props.refreshToken} onManage={props.onManage} /> : <p role="status">当前助手宿主需要更新后才能使用记忆文件夹。</p>}</>
+      {props.managementOnly ? <details className="memory-secondary"><summary>未保存内容与处理记录</summary>
+        <button type="button" className="ghost" onClick={() => setTab("pending")}>查看未保存内容</button>
+        <button type="button" className="ghost" onClick={() => setTab("history")}>查看处理记录</button>
+      </details> : null}
     </> : <div className="memory-review">
       <button type="button" className="ghost memory-review-back" onClick={() => setTab("formal")}>返回记忆</button>
       <MemoryTabs tab={tab} onSelect={setTab} pendingCount={count} pendingHasMore={props.pendingHasMore === true} />

@@ -1,3 +1,5 @@
+import type { MemoryLibraryAction, MemoryLibraryView, MemoryLibraryDocument } from "./memory-library.js";
+import { validateChatAttachments, chatAttachmentParts, type ChatAttachment } from "./chat-attachments.js";
 import type { MemoryImportEntry, MemoryImportConfirm, MemoryImportPreview, MemoryImportReceipt } from "./memory-import.js";
 import { recipeChangeSchema, RecipeError, type RecipeEntry, type RecipeChange } from "./recipe-store.js";
 import { createHash, randomUUID } from "node:crypto";
@@ -71,7 +73,7 @@ export interface ToolActivity {
 
 export type AssistantState =
   | { kind: "idle" }
-  | { kind: "running"; runId: string | null; phase: "primary" | "consolidation" | "skill"; background?: true }
+  | { kind: "running"; runId: string | null; phase: "primary" | "consolidation" | "skill"; background?: true; source?: "telegram" }
   | { kind: "compacting" }
   | { kind: "resuming" }
   | { kind: "command"; name: string };
@@ -110,10 +112,13 @@ export type StartRunResponse =
   | { ok: false; reason: "busy" | "empty" | "starting" };
 
 export interface AssistantRunOptions {
+  attachments?: ChatAttachment[];
   /** Exclude this ordinary user message from present and future memory consolidation. */
   memoryConsolidation?: "exclude";
   /** Trusted channel receipt clock; never accepted from renderer run options. */
   receivedAt?: string;
+  /** Trusted embedding channel; renderer options cannot set it. */
+  source?: "telegram";
 }
 
 export type AssistantSteerResponse =
@@ -148,6 +153,9 @@ export interface AssistantController {
   getHistory(): Promise<UIMessage[]>;
   getMemoryReceipts(): Promise<MemoryResult<MemoryFactReceipt[]>>;
   getContextDiagnostics(): Promise<ContextResult<ContextDiagnostics>>;
+  getMemoryLibrary(): Promise<MemoryResult<MemoryLibraryView>>;
+  readMemoryDocument(id: string): Promise<MemoryResult<MemoryLibraryDocument>>;
+  changeMemoryLibrary(input: MemoryLibraryAction): Promise<MemoryResult<MemoryLibraryView>>;
   listMemories(input?: MemoryListInput): Promise<MemoryResult<MemoryPage>>;
   getMemory(id: string): Promise<MemoryResult<FormalMemory>>;
   updateMemory(input: MemoryEditInput): Promise<MemoryResult<FormalMemory>>;
@@ -179,7 +187,7 @@ export interface AssistantController {
   getWorkTaskDeliveryDraft(input: WorkTaskReadInput): Promise<WorkTaskReadResult<WorkTaskDeliveryDraft>>;
   getWorkTaskContinuation(input: WorkTaskReadInput): Promise<WorkTaskResult<WorkTaskContinuation>>;
   getWorkTaskArtifact(input: WorkTaskArtifactInput): Promise<WorkTaskReadResult<WorkTaskArtifactPreview>>;
-  runWorkTask(input: { id: string; expectedRevision: number; instruction?: string; completionCheck?: boolean }): Promise<StartRunResponse>;
+  runWorkTask(input: { id: string; expectedRevision: number; instruction?: string; completionCheck?: boolean; source?: "telegram" }): Promise<StartRunResponse>;
   submitWorkTaskDelivery(input: {
     id: string;
     expectedRevision: number;
@@ -386,6 +394,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     started?: (handle: RunHandle) => void,
     background = false,
     executionThreadId = app.threadId,
+    source?: "telegram",
   ): Promise<{ result: RunResult; requestedMemoryTool: boolean; finalizationFailed: boolean }> => {
     app.toolConfirmation?.beginRun();
     if (phase === "primary") {
@@ -420,7 +429,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
             : `${running.error.code}: ${running.error.message}` });
         }
       }
-      if (!background || !signal?.aborted) setState({ kind: "running", runId: handle.runId, phase, ...(background ? { background: true as const } : {}) });
+      if (!background || !signal?.aborted) setState({ kind: "running", runId: handle.runId, phase, ...(phase === "primary" && source ? { source } : {}), ...(background ? { background: true as const } : {}) });
       started?.(handle);
       if (cancelRequested || signal?.aborted) await handle.cancel("Cancelled before Run started");
       let requestedMemoryTool = false;
@@ -1156,6 +1165,31 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       })();
       await activeTask; return result;
     },
+    getMemoryLibrary: async () => {
+      if (!app.memoryStore?.getLibrary || closed) return memoryControlFailure("MEMORY_DISABLED", "记忆文档未就绪");
+      return app.memoryStore.getLibrary(app.threadId);
+    },
+    readMemoryDocument: async (id) => {
+      if (!app.memoryStore?.readLibraryDocument || closed) return memoryControlFailure("MEMORY_DISABLED", "记忆文档未就绪");
+      if (typeof id !== "string" || !id || id.length > 256) return memoryControlFailure("INVALID_INPUT", "文档标识无效");
+      return app.memoryStore.readLibraryDocument(id, app.threadId);
+    },
+    changeMemoryLibrary: async (input) => {
+      if (!app.memoryStore?.changeLibrary) return memoryControlFailure("MEMORY_DISABLED", "记忆文档未就绪");
+      if (closed || state.kind !== "idle") return memoryControlFailure("BUSY", "请等当前处理结束后再保存记忆文档");
+      const operation = new AbortController(); operationController = operation;
+      setState({ kind: "command", name: "memory-document" });
+      let result!: MemoryResult<MemoryLibraryView>;
+      activeTask = (async () => {
+        try {
+          await ensureRecovered();
+          result = await app.memoryStore!.changeLibrary!(input, app.threadId, operation.signal);
+          if (result.ok) emit({ type: "memory-updated", reason: "write" });
+        } catch { result = memoryControlFailure("WRITE_FAILED", "保存结果未确认，请重新读取核对，不要直接重复保存"); }
+        finally { operationController = undefined; setState({ kind: "idle" }); }
+      })();
+      await activeTask; return result;
+    },
     listMemories: async (input) => {
       if (!app.memoryStore || closed) return { ok: false, error: { code: "MEMORY_DISABLED", message: "Memory is unavailable" } };
       const result = await app.memoryStore.list();
@@ -1424,6 +1458,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
         // Persist the existing exclusion marker so later history consolidation also skips it.
         const started = await controller.run(input.instruction?.trim() || found.value.goal, {
           memoryConsolidation: "exclude",
+          ...(input.source ? { source: input.source } : {}),
         });
         clearBinding();
         clearBinding = undefined;
@@ -1539,10 +1574,11 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       return cancelled;
     },
     run: async (text, options) => {
-      if (text.trim().length === 0) return { ok: false, reason: "empty" };
+      const attachments = validateChatAttachments(options?.attachments);
+      if (text.trim().length === 0 && attachments.length === 0) return { ok: false, reason: "empty" };
       const previousBackground = state.kind === "running" && state.background === true ? backgroundTask : undefined;
       if (closed || (state.kind !== "idle" && previousBackground === undefined)) return { ok: false, reason: "busy" };
-      const excludeFromConsolidation = options?.memoryConsolidation === "exclude";
+      const excludeFromConsolidation = options?.memoryConsolidation === "exclude" || attachments.length > 0;
       lastConsolidationSkippedReason = undefined;
 
       cancelRequested = false;
@@ -1553,7 +1589,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       resultTextTruncated = false;
       const startup = new AbortController();
       startupController = startup;
-      setState({ kind: "running", runId: null, phase: "primary" });
+      setState({ kind: "running", runId: null, phase: "primary", ...(options?.source ? { source: options.source } : {}) });
       if (previousBackground) {
         if (memoryIndexRunning) memoryIndexRequested = true;
         backgroundController?.abort(new DOMException("Foreground chat has priority", "AbortError"));
@@ -1562,9 +1598,10 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       let resolveStarted!: (response: StartRunResponse) => void;
       const started = new Promise<StartRunResponse>((resolve) => { resolveStarted = resolve; });
       const userMessage: UIMessage = {
-        id: randomUUID(), role: "user", parts: [{ type: "text", text: text.trim() }],
+        id: randomUUID(), role: "user", parts: [{ type: "text", text: text.trim() || "请查看附件。" }, ...chatAttachmentParts(attachments)],
         metadata: { ...userMessageClock(), ...(options?.receivedAt ? { receivedAt: options.receivedAt, sentAt: options.receivedAt, timeZone: "Asia/Shanghai" } : {}),
-          ...(excludeFromConsolidation ? { memoryConsolidation: "exclude" } : {}) },
+          ...(excludeFromConsolidation ? { memoryConsolidation: "exclude" } : {}),
+          ...(attachments.length ? { attachments: attachments.map(({ name, mediaType }) => ({ name, mediaType })) } : {}) },
       };
       activeWorkTask = nextWorkTask;
       nextWorkTask = undefined;
@@ -1586,7 +1623,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
           try {
             primary = await executeRun(app.agentId, userMessage, "primary", startup.signal, (handle) => {
               settleStart({ ok: true, runId: handle.runId });
-            });
+            }, false, app.threadId, options?.source);
           } finally {
             app.resume?.endRun();
           }
