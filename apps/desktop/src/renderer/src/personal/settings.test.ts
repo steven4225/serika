@@ -12,7 +12,6 @@ import {
   recordedCallLabel,
   recordedCallView,
   SETTINGS_HOST_RETRY_MS,
-  SETTINGS_RECORD_ROWS,
   settingsBackTarget,
   settingsCopy,
   settingsRouteForInitial,
@@ -33,16 +32,12 @@ const info = {
 } as AppInfo;
 
 it("settings home is a grouped push list and keeps engineering ids off the chrome", () => {
-  const html = render(createElement(SettingsFrame, { route: "home", onBack() {} }, createElement(SettingsHome, { info, busy: false, usageActive: false, usageRefresh: 0, onOpen() {} })));
+  const html = render(createElement(SettingsFrame, { route: "home", onBack() {} }, createElement(SettingsHome, { info, busy: false, onOpen() {} })));
   assert.match(html, /aria-label="回到手札"/);
   assert.match(html, /<h1>设置<\/h1>/);
   assert.match(html, /外观、偏好和应用信息/);
-  for (const title of ["连接应用", "设备", "技能", "聊天渠道", "工作区", "通用", "通知", "快捷键", "关于", "平衡", "性能", "执行记录与用量", "管理", "其他", "Serika", "本机助手"]) {
-    assert.match(html, new RegExp(title));
-  }
-  assert.match(html, /本地使用，无需订阅/);
-  assert.match(html, /核对每次执行的工具结果，以及近期模型调用。/);
-  assert.equal(SETTINGS_RECORD_ROWS[0]?.route, "records");
+  for (const title of ["连接应用", "文件与网页", "电脑控制", "技能", "Telegram", "通用", "通知与后台", "高级", "快捷键", "关于", "平衡", "性能"]) assert.match(html, new RegExp(title));
+  assert.doesNotMatch(html, /执行记录与用量|本地使用，无需订阅|云电脑|入会提醒|退出登录未配置|已开启 \d+ 项/);
   assert.doesNotMatch(html, /月度用量|立即重置|剩余 未报告|重置日 未配置|订阅未配置|近期保留记录|已记录 \d+ 次/);
   assert.doesNotMatch(html, /aria-label="助手设置"|personal-settings-nav|>模块<|>执行记录<|>上下文</);
   assert.doesNotMatch(html, /mem_|read-file|pomodoro|todoist/);
@@ -184,19 +179,18 @@ it("recorded calls refresh only while settings usage is active and ignore a late
 
 it("opening settings stays on the gear and does not select the persona pill", async () => {
   assert.equal(dashboardTabForDetail("settings"), "设置");
-  assert.equal(dashboardTabForDetail("persona"), "serika");
+  assert.equal(dashboardTabForDetail("persona"), null);
   assert.notEqual(dashboardTabForDetail("settings"), "serika");
   assert.equal(settingsRouteForInitial(false), "home");
-  assert.equal(settingsRouteForInitial("modules"), "skills");
+  assert.equal(settingsRouteForInitial("modules"), "advanced");
   assert.equal(settingsRouteForInitial("context"), "context");
   const app = await readFile(new URL("../App.tsx", import.meta.url), "utf8");
   const settings = await readFile(new URL("./settings.tsx", import.meta.url), "utf8");
-  assert.match(app, /\["手札", "任务", "记忆", "serika"\]/);
+  assert.match(app, /\["手札", "任务", "记忆"\]/);
   assert.match(app, /onClick=\{\(\) => openSettings\("home"\)\}/);
-  assert.match(app, /else openDetails\("persona"\)/);
+  assert.doesNotMatch(app, /openDetails\("persona"\)/);
   assert.match(app, /if \(route === "records"\) \{ openDetails\("records"\); return; \}/);
-  assert.match(app, /usageActive=\{detailsOpen && detailTab === "settings" && settingsRoute === "home"\}/);
-  assert.match(app, /usageRefresh=\{contextRefresh\}/);
+  assert.doesNotMatch(settings, /window\.runloom\.listRuns\(/);
   assert.match(settings, /readWhenHostReady\(/);
   assert.match(settings, /hostReady=\{info !== null\}/);
   assert.doesNotMatch(settings, /useEffect\(\(\) => \{ void load\(\); \}, \[\]\)/);

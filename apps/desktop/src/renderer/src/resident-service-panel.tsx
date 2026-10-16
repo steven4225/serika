@@ -35,10 +35,11 @@ export function ResidentServicePanel({ status, busy, refresh, setEnabled }: {
   };
   const registered = status?.ok === true && status.registered;
   return <section className="card" aria-label="退出桌面后继续工作">
-    <div className="card-head"><span>退出桌面后继续工作</span><button className="ghost" disabled={working} onClick={() => void act()}>刷新状态</button></div>
+    <div className="card-head"><span>常驻助手</span><button className="ghost" disabled={working} onClick={() => void act()}>刷新状态</button></div>
     <p role="status">{residentServiceLabel(status)}</p>
-    {status?.message ? <p className="hint">{status.message}</p> : null}
-    <p className="hint">显式启用后，助手在本机独立运行；关闭窗口或退出桌面不结束已批准的操作。首次切换常驻模式或停止服务前，请先结束番茄钟，不会自动结束或转移计时。新的工具请求仍需确认，不会自动扩大权限。Mac 需保持运行与联网；这不保证崩溃后计时恢复或睡眠期间准点提醒。</p>
+    {status?.message ? <><p className="hint">{status.ok && !status.compatible ? "运行配置尚未就绪，请查看配置诊断。" : "请查看配置诊断，核对当前状态。"}</p><details><summary>配置诊断</summary><p className="hint">{status.message}</p></details></> : null}
+    <p className="hint">启用后由独立助手处理聊天和 Telegram，退出桌面后继续运行。与上面的后台提醒服务分别控制。</p>
+    <details><summary>运行条件</summary><p className="hint">Mac 需保持运行与联网。新工具操作仍需确认；切换或停止前请先结束番茄钟，不会自动结束或转移计时。不保证崩溃后计时恢复或睡眠期间准点提醒。</p></details>
     <div className="memory-actions">
       <button className="ghost" disabled={busy || working || status?.ok !== true || registered || !status.compatible} onClick={() => setPreview(true)}>启用常驻助手…</button>
       <button className="ghost" disabled={busy || working || !registered} onClick={() => setPreview(false)}>停止常驻助手…</button>

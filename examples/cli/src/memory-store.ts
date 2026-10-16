@@ -1,3 +1,4 @@
+import { memoryImportEntriesSchema, memoryImportConfirmSchema, memoryImportReceiptSchema, MEMORY_IMPORT_MAX_RECEIPTS, type MemoryImportEntry, type MemoryImportConfirm, type MemoryImportPreview, type MemoryImportReceipt } from "./memory-import.js";
 import { createHash, randomUUID } from "node:crypto";
 import { constants } from "node:fs";
 import {
@@ -106,6 +107,7 @@ export interface MemoryDocument {
   candidates: MemoryCandidate[];
   consolidationCursors: ConsolidationCursor[];
   consolidationReceipts?: ConsolidationReceipt[];
+  importReceipts?: MemoryImportReceipt[];
 }
 
 export interface MemoryDocumentV1 {
@@ -210,6 +212,9 @@ export interface MemoryWriteOptions {
 }
 
 export interface WorkspaceMemoryStore {
+  previewImport?(entries: MemoryImportEntry[], signal?: AbortSignal): Promise<MemoryResult<MemoryImportPreview>>;
+  confirmImport?(input: MemoryImportConfirm, threadId: string, signal?: AbortSignal): Promise<MemoryResult<MemoryImportReceipt>>;
+  importReceipt?(operationId: string, threadId: string, signal?: AbortSignal): Promise<MemoryResult<MemoryImportReceipt | null>>;
   /** Only consolidation receives old assertions, never primary/worker references. */
   listConsolidationMaterial?(signal?: AbortSignal, options?: MemoryWriteOptions): Promise<MemoryResult<MemoryConsolidationEntry[]>>;
   checkCandidateCapacity(signal?: AbortSignal): Promise<MemoryResult<{ pendingCount: number; canStart: boolean }>>;
@@ -953,6 +958,26 @@ function refreshCandidateTargets(document: MemoryDocument, now: string): void {
   pruneCandidates(document);
 }
 
+function zImportReceipts(value: unknown): MemoryImportReceipt[] | undefined {
+  if (value === undefined) return;
+  if (!Array.isArray(value) || value.length > MEMORY_IMPORT_MAX_RECEIPTS) raise("MEMORY_FILE_INVALID", "Invalid import receipts");
+  const receipts = value.map(item => {
+    const parsed = memoryImportReceiptSchema.safeParse(item);
+    if (!parsed.success) raise("MEMORY_FILE_INVALID", "Invalid import receipt");
+    return parsed.data;
+  });
+  if (new Set(receipts.map(item => item.operationId)).size !== receipts.length) raise("MEMORY_FILE_INVALID", "Duplicate import receipt");
+  return receipts;
+}
+const importSnapshot = (doc: MemoryDocument) => createHash("sha256").update(JSON.stringify(doc)).digest("hex");
+function existingImport(doc: MemoryDocument, entry: MemoryImportEntry, now: Date): string | null {
+  return doc.entries.find(record => {
+    const current = projectRecord(record, now);
+    return record.scope.kind === "workspace" && current.enabled && current.temporalState === "applicable" &&
+      (record.expiresAt === null || Date.parse(record.expiresAt) > now.getTime()) && current.text === entry.text && current.assertion?.kind === entry.kind;
+  })?.id ?? null;
+}
+
 export function validateMemoryDocument(value: unknown): MemoryDocument {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     raise("MEMORY_FILE_INVALID", "Memory file must contain a JSON object");
@@ -978,10 +1003,11 @@ export function validateMemoryDocument(value: unknown): MemoryDocument {
   const candidates = version >= 3 ? validateCandidates(full.candidates) : [];
   const consolidationCursors = version >= 3 ? validateCursors(full.consolidationCursors) : [];
   const consolidationReceipts = full.consolidationReceipts === undefined ? undefined : validateConsolidationReceipts(full.consolidationReceipts);
-  const stamps = [...entries.map((entry) => entry.updatedAt), ...candidates.flatMap((candidate) => [candidate.createdAt, candidate.resolvedAt]), ...consolidationCursors.map((cursor) => cursor.updatedAt), ...(consolidationReceipts ?? []).map(receipt => receipt.committedAt)].filter((stamp): stamp is string => stamp !== null);
+  const parsedImports = zImportReceipts(full.importReceipts);
+  const stamps = [...entries.map((entry) => entry.updatedAt), ...candidates.flatMap((candidate) => [candidate.createdAt, candidate.resolvedAt]), ...consolidationCursors.map((cursor) => cursor.updatedAt), ...(consolidationReceipts ?? []).map(receipt => receipt.committedAt), ...(parsedImports ?? []).map(receipt => receipt.committedAt)].filter((stamp): stamp is string => stamp !== null);
   const lastWrittenAt = version === 4 ? validateTimestamp(full.lastWrittenAt, "Memory lastWrittenAt") : stamps.sort((a, b) => Date.parse(b) - Date.parse(a))[0] ?? null;
   if (version === 4 && stamps.some((stamp) => lastWrittenAt === null || Date.parse(stamp) > Date.parse(lastWrittenAt))) raise("MEMORY_FILE_INVALID", "Memory commit timestamp precedes recorded state");
-  return { version: 4, lastWrittenAt, entries, candidates, consolidationCursors, ...(consolidationReceipts === undefined ? {} : { consolidationReceipts }) };
+  return { version: 4, lastWrittenAt, entries, candidates, consolidationCursors, ...(consolidationReceipts === undefined ? {} : { consolidationReceipts }), ...(parsedImports === undefined ? {} : { importReceipts: parsedImports }) };
 }
 
 function memoryMessageText(entries: readonly MemoryEntry[]): string {
@@ -1422,6 +1448,52 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
     if (!result.ok) return result;
     const entry = result.entries.find((value) => value.id === id);
     return entry ? { ok: true, entry: cloneEntry(entry) } : fail("MEMORY_ENTRY_NOT_FOUND", `Memory entry not found: ${id}`);
+  }
+
+  async previewImport(raw: MemoryImportEntry[], signal: AbortSignal = neverAborted): Promise<MemoryResult<MemoryImportPreview>> {
+    try {
+      const parsed = memoryImportEntriesSchema.safeParse(raw);
+      if (!parsed.success) return fail("INVALID_INPUT", "Import requires 1..32 nonblank entries, each <=2 KiB, with text and kind only");
+      const doc = await this.#load(signal), now = new Date();
+      return { ok: true, value: { snapshot: importSnapshot(doc), stored: doc.entries.length,
+        available: MEMORY_MAX_ENTRIES - doc.entries.length, entries: parsed.data.map(entry => ({ ...entry, existingId: existingImport(doc, entry, now) })) } };
+    } catch (error) { return errorResult(error, signal, false); }
+  }
+  async importReceipt(operationId: string, threadId: string, signal: AbortSignal = neverAborted): Promise<MemoryResult<MemoryImportReceipt | null>> {
+    try {
+      if (typeof operationId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(operationId)) return fail("INVALID_INPUT", "Invalid import operation id");
+      const value = (await this.#load(signal)).importReceipts?.find(item => item.operationId === operationId && item.threadId === threadId) ?? null;
+      return { ok: true, value };
+    } catch (error) { return errorResult(error, signal, false); }
+  }
+  async confirmImport(raw: MemoryImportConfirm, threadId: string, signal: AbortSignal = neverAborted): Promise<MemoryResult<MemoryImportReceipt>> {
+    try {
+      const parsed = memoryImportConfirmSchema.safeParse(raw);
+      if (!parsed.success || !threadId || threadId.length > 256) return fail("INVALID_INPUT", "Invalid import confirmation");
+      const input = parsed.data;
+      const requestHash = createHash("sha256").update(JSON.stringify({ threadId, entries: input.entries, snapshot: input.snapshot })).digest("hex");
+      const value = await this.#mutateDocument(signal, (document, now) => {
+        const old = document.importReceipts?.find(item => item.operationId === input.operationId);
+        if (old) {
+          if (old.requestHash !== requestHash || old.threadId !== threadId) raise("MEMORY_REVISION_CONFLICT", "Import operation belongs to different content or Thread");
+          return { document, value: old, unchanged: true };
+        }
+        if (input.snapshot !== importSnapshot(document)) raise("MEMORY_REVISION_CONFLICT", "Memory changed after preview; preview again before saving");
+        if ((document.importReceipts?.length ?? 0) >= MEMORY_IMPORT_MAX_RECEIPTS) raise("MEMORY_LIMIT_EXCEEDED", "Import receipt storage is full; existing receipts were preserved");
+        const items: MemoryImportReceipt["items"] = [];
+        for (const entry of input.entries) {
+          const existing = existingImport(document, entry, now);
+          if (existing) { items.push({ id: existing, status: "existing" }); continue; }
+          if (document.entries.length >= MEMORY_MAX_ENTRIES) raise("MEMORY_LIMIT_EXCEEDED", "Memory capacity exceeded; no entries imported");
+          const record = newRecord({ text: entry.text, kind: entry.kind, source: { kind: "manual" }, scope: { kind: "workspace" } }, now.toISOString());
+          document.entries.push(record); items.push({ id: record.id, status: "saved" });
+        }
+        const receipt: MemoryImportReceipt = { operationId: input.operationId, requestHash, threadId, items, committedAt: now.toISOString() };
+        (document.importReceipts ??= []).push(receipt);
+        return { document, value: receipt };
+      }, undefined);
+      return { ok: true, value };
+    } catch (error) { return errorResult(error, signal, true); }
   }
 
   async add(

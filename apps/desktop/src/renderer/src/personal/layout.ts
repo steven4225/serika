@@ -31,14 +31,13 @@ export function loadSidebarOpen(raw: string | null): boolean {
   return raw !== "collapsed";
 }
 
-export type PersonalPill = "手札" | "任务" | "记忆" | "serika" | "设置";
+export type PersonalPill = "手札" | "任务" | "记忆" | "设置";
 
-/** Top pills are 手札, tasks, memory and the persona. Reminders stay a 手札 destination. */
+/** Top pills are 手札, tasks, memory and settings. Reminders stay a 手札 destination. */
 export function dashboardTabForDetail(detail: string): PersonalPill | null {
   if (detail === "pomodoro") return "手札";
   if (detail === "tasks") return "任务";
   if (detail === "memory") return "记忆";
-  if (detail === "persona") return "serika";
   if (detail === "settings" || ["modules", "records", "context", "home"].includes(detail)) return "设置";
   return null;
 }

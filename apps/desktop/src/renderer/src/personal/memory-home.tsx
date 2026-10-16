@@ -1,5 +1,5 @@
 import React from "react";
-import { Briefcase, ChevronLeft, Crown, Folder, Sparkles } from "lucide-react";
+import { Briefcase, ChevronLeft, ChevronRight, Crown, Folder, Sparkles } from "lucide-react";
 import { MessageContent } from "../markdown.js";
 import { savedMemoryEmptyCopy } from "../memory-copy.js";
 import {
@@ -34,22 +34,27 @@ export function MemoryCardHome({ loaded, entries, now, onOpenSummary, onOpenCate
 }) {
   const understanding = memoryUnderstanding(entries, now);
   const counts = memoryCategoryCounts(entries, now);
+  const current = entries.filter(entry => isCurrentMemory(entry, now) && entry.preview.trim());
   return <div className="memory-home" data-memory-view="home">
     <button type="button" className="memory-summary-card" onClick={onOpenSummary} aria-label="我对你的了解，打开全文">
-      <span className="memory-summary-mark" aria-hidden="true"><Crown size={22} /></span>
-      <h2>我对你的了解</h2>
+      <span className="memory-summary-heading"><span className="memory-summary-mark" aria-hidden="true"><Crown size={22} /></span><h2>我对你的了解</h2></span>
       {loaded && !understanding.empty ? <p className="memory-updated">{understanding.updatedLabel}</p> : <p className="memory-updated">{loaded ? "还没有更新" : "读取中…"}</p>}
-      <p className="memory-summary-body">{loaded ? (understanding.empty ? savedMemoryEmptyCopy() : understanding.narrative) : "正在读取已经记住的内容。"}</p>
+      {loaded && current.length > 0 ? <>
+        <ul className="memory-summary-items">{current.slice(0, 3).map(entry => <li key={entry.id}>
+          <p className="memory-summary-body">{entry.preview.replace(/^#{1,6}\s+/gm, "").trim()}{entry.truncated ? "…" : ""}</p>
+        </li>)}</ul>
+        <span className="memory-summary-more">查看全部 {current.length} 条记忆</span>
+      </> : <p className="memory-summary-body">{loaded ? savedMemoryEmptyCopy() : "正在读取已经记住的内容。"}</p>}
     </button>
     <h2 className="memory-section-label">全部</h2>
     <div className="memory-bento">
       {MEMORY_CATEGORIES.map(category => {
         const Icon = ICONS[category.id];
         const count = counts[category.id];
-        return <button type="button" className="memory-category-card" key={category.id} data-category={category.id} onClick={() => onOpenCategory(category.id)} aria-label={`${category.name}，${loaded ? memoryCountLabel(count) : "读取中"}`}>
+        return <button type="button" className="personal-entry-card memory-category-card" key={category.id} data-category={category.id} onClick={() => onOpenCategory(category.id)} aria-label={`${category.name}，${loaded ? memoryCountLabel(count) : "读取中"}`}>
           <span className={`memory-category-icon ${category.id}`} aria-hidden="true"><Icon size={18} /></span>
-          <strong>{category.name}</strong>
-          <small>{loaded ? memoryCountLabel(count) : "读取中"}</small>
+          <span className="entry-card-copy"><strong>{category.name}</strong><span>{loaded ? memoryCountLabel(count) : "读取中"}</span></span>
+          <span className="entry-card-arrow" aria-hidden="true"><ChevronRight size={18} /></span>
         </button>;
       })}
     </div>

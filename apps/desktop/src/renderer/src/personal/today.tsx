@@ -1,3 +1,4 @@
+import { EntryCardContent } from "./entry-card.js";
 import React, { useEffect, useState } from "react";
 import type { AppInfo } from "../../../shared/ui-contract.js";
 import type { WorkTask } from "../../../shared/work-tasks.js";
@@ -68,10 +69,9 @@ export function TodayPanel(props: TodayPanelProps) {
         {section.cards.length > shown.length || open && section.cards.length > 3 ? <button type="button" className="today-expand" aria-expanded={open} onClick={() => setExpanded(current => ({ ...current, [section.key]: !open }))}>{open ? "收起" : "展开更多"}</button> : null}
       </section>;
     })}
-    {brief.footer ? <p className="today-scope-note today-footer">{brief.footer}</p> : null}
     <div className="today-quiet-links">
-      <button type="button" onClick={props.onAutomation}>查看我的提醒</button>
-      <button type="button" onClick={props.onPomodoro}>打开番茄钟</button>
+      <button type="button" className="personal-entry-card" onClick={props.onAutomation}><EntryCardContent title="查看我的提醒" description="查看提醒安排和已经收到的结果。" /></button>
+      <button type="button" className="personal-entry-card" onClick={props.onPomodoro}><EntryCardContent title="打开番茄钟" description="开始专注计时，或查看当前进度。" /></button>
     </div>
   </div>;
 }

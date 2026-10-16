@@ -19,6 +19,7 @@ export function TelegramPanel({ busy }: { busy: boolean }) {
   const [routePreview, setRoutePreview] = useState<{ id: string; kind: "once" | "recurring"; label: string } | null>(null);
   const [workerState, setWorkerState] = useState("");
   const inFlight = useRef(false);
+  const deliveryDetails = useRef<HTMLDetailsElement>(null);
   const act = async (action: () => Promise<TelegramStatus>) => {
     if (inFlight.current) return;
     inFlight.current = true; setWorking(true); setError("");
@@ -43,10 +44,15 @@ export function TelegramPanel({ busy }: { busy: boolean }) {
     <div className="card-head"><span>从 Telegram 使用 Serika</span><button className="ghost" disabled={working} onClick={() => void act(() => window.runloom.telegramStatus!())}>刷新状态</button></div>
     <p role="status">{label}{status?.botUsername ? ` · @${status.botUsername}` : ""}</p>
     {status?.lastError ? <p className="hint">{status.lastError}</p> : null}
-    {status?.capacity ? <p className="hint">活动入站 {status.capacity.inputs}/{status.capacity.inputLimit} · 活动投递 {status.capacity.deliveries}/{status.capacity.deliveryLimit}。已结束记录自动归档去重标记，不长期重复保存回复正文。{status.capacity.blocked ? "容量已满：先处理下方待核对或明确发送失败的项，再重新连接；不会丢弃未知效果。" : ""}</p> : null}
+    {status?.capacity?.blocked ? <p className="error" role="alert">容量已满，请处理待核对或明确发送失败的项后重新连接。</p> : null}
     {status?.available && !status.tokenConfigured ? <p>在常驻助手使用的外部环境文件中添加 <code>TELEGRAM_BOT_TOKEN</code>，重启服务后再连接。不要把 Token 发到对话里。应用不会复制密钥到配置或页面。</p> : null}
-    <p className="hint">单人私聊文本，共享当前工作区记忆、独立对话。工具逐次确认；Mac 必须运行并联网。忙时拒绝，不排队；退出桌面后仍由同一个常驻助手处理。</p>
-    {status?.owner ? <div><strong>已绑定：{status.owner.name}</strong><p className="hint">账号 {status.owner.userId} · 私聊 {status.owner.chatId}</p><button className="ghost" disabled={busy || working} onClick={() => void act(async () => { await window.runloom.selectThread(status.owner!.threadId); return window.runloom.telegramStatus!(); })}>打开 Telegram 对话</button></div> : null}
+    <p className="hint">在手机私聊中交办事项和批准操作。Mac 与常驻助手需保持运行、联网。</p>
+    {status?.owner ? <div><strong>已绑定：{status.owner.name}</strong><button className="ghost" disabled={busy || working} onClick={() => void act(async () => { await window.runloom.selectThread(status.owner!.threadId); return window.runloom.telegramStatus!(); })}>打开 Telegram 对话</button></div> : null}
+    <details><summary>连接诊断</summary>
+      {status?.owner ? <p className="hint">账号 {status.owner.userId} · 私聊 {status.owner.chatId}</p> : null}
+      {status?.capacity ? <p className="hint">活动入站 {status.capacity.inputs}/{status.capacity.inputLimit} · 活动投递 {status.capacity.deliveries}/{status.capacity.deliveryLimit}。已结束记录保留归档去重标记。</p> : null}
+      <p className="hint">共享当前工作区记忆，使用独立对话。普通聊天忙时拒绝，不排队；确认、拒绝和停止优先处理。工具逐次确认。</p>
+    </details>
     {status?.pairing ? <div className="memory-setup-preview"><strong>在机器人私聊发送：<code>/start {status.pairing.code}</code></strong><p className="hint">有效至 {new Date(status.pairing.expiresAt).toLocaleTimeString()}。发送后点击刷新，再核对账号。</p>
       {status.pairing.proposed ? <><p>待绑定：{status.pairing.proposed.name} · 账号 {status.pairing.proposed.userId} · 私聊 {status.pairing.proposed.chatId}</p><button disabled={busy || working} onClick={() => void act(() => window.runloom.confirmTelegramPairing!(status.pairing!.code))}>确认这是我的账号并绑定</button></> : null}
     </div> : null}
@@ -56,8 +62,8 @@ export function TelegramPanel({ busy }: { busy: boolean }) {
       {status?.connection === "online" && !status.owner ? <button className="ghost" disabled={busy || working} onClick={() => void act(() => window.runloom.beginTelegramPairing!())}>生成一次性绑定码</button> : null}
     </div>
     {enablePreview ? <div className="memory-setup-preview"><strong>允许当前工作区连接你的 Telegram 机器人？</strong><p>绑定前不接收任务；绑定后仅向该私聊发送你交办的回复和工具确认。不会外发旧桌面对话、自动转发全部提醒或扩大权限。</p><button disabled={busy || working} onClick={() => void act(() => window.runloom.setTelegramEnabled!(true))}>确认连接</button><button className="ghost" disabled={working} onClick={() => setEnablePreview(false)}>取消</button></div> : null}
-    {status && (status.awaitingReview || status.failedDeliveries || status.unknownDeliveries) ? <p className="hint">效果待核对 {status.awaitingReview} · 发送失败 {status.failedDeliveries} · 发送结果未知 {status.unknownDeliveries}。投递失败不重做任务；未知投递不自动重发。</p> : null}
-    {status?.owner ? <details><summary>提醒与简报投递 · 已选择 {status.routes.length} 项 · 待发送 {status.pendingDeliveries}</summary>
+    {status && (status.awaitingReview || status.failedDeliveries || status.unknownDeliveries) ? <div className="error" role="status">效果待核对 {status.awaitingReview} · 发送失败 {status.failedDeliveries} · 发送结果未知 {status.unknownDeliveries}。<button className="ghost" onClick={() => { if (deliveryDetails.current) { deliveryDetails.current.open = true; deliveryDetails.current.scrollIntoView({ block: "nearest" }); } }}>查看并核对</button><p className="hint">投递失败不重做任务；未知投递不自动重发。</p></div> : null}
+    {status?.owner ? <details ref={deliveryDetails}><summary>提醒投递设置与回执 · 已选择 {status.routes.length} 项 · 待发送 {status.pendingDeliveries}</summary>
       <p className="hint">在 Telegram 新建的完整安排发送到这个私聊；桌面旧安排必须逐项选择。执行、平台接收和你已阅读是不同状态。</p>
       <button className="ghost" disabled={working} onClick={() => void loadArrangements()}>查看可选择的已有安排</button>
       {workerState ? <p className="hint">{workerState}</p> : null}

@@ -10,7 +10,7 @@ test("daily service states never equate registration or running alone with route
   assert.match(backgroundServiceLabel({ ok: true, registered: true, running: true, rssEnabled: true, notifyEnabled: true, notificationRoutingEnabled: true }), /后台服务运行中/);
   assert.match(backgroundServiceLabel({ ok: false, message: "无法查询" }), /状态不可用/);
   assert.match(backgroundServiceLabel({ ok: true, registered: true, running: true, rssEnabled: true, notifyEnabled: true, notificationRoutingEnabled: true,
-    setupReady: false, configurationMessage: "参数不一致，请先停用再启用" }), /参数不一致/);
+    setupReady: false, configurationMessage: "参数不一致，请先停用再启用" }), /配置未就绪.*暂不能依赖提醒/);
 });
 
 test("closing the task capability does not block an explicitly authorized service stop", () => {

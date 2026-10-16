@@ -7,7 +7,7 @@ type Overview = Extract<Awaited<ReturnType<RendererApi["getDreamingOverview"]>>,
 type References = Awaited<ReturnType<RendererApi["getLearnedSkillReferences"]>>;
 type Change = Parameters<RendererApi["changeLearnedSkill"]>[0];
 
-/** Derived methods stay in the existing workspace drawer, separate from factual memory. */
+/** Learned methods share the skills page, separate from factual memory. */
 export function DreamingPanel({ busy, identity, refreshSequence }: { busy: boolean; identity: string; refreshSequence: number }) {
   const [view, setView] = useState<Overview | null>(null);
   const [references, setReferences] = useState<References>(null);
@@ -61,17 +61,18 @@ export function DreamingPanel({ busy, identity, refreshSequence }: { busy: boole
   };
   return <section className="card" aria-label="经验学习">
     <div className="card-head"><span>经验学习</span><button className="ghost" disabled={loading || working} onClick={() => void reload()}>刷新经验</button></div>
-    <p className="hint">从至少两条独立、已验收的工作任务提炼可复用方法，不把模型的自述当成功，不写成你的个人事实。应用打开且空闲时沉淀，新对话可以打断；这不是关窗后的夜间服务。</p>
+    <p className="hint">从已验收的任务中总结做法，供之后的任务复用。</p>
     {loading ? <p role="status">正在读取经验…</p> : null}
     {error ? <FailureAlert text={error} /> : null}
     {notice ? <p role="status">{notice}</p> : null}
     {view ? <>
       <div className="memory-actions"><span>{view.enabled ? "经验学习已开启" : "经验学习未开启"}</span><button className="ghost" disabled={busy || working} onClick={() => view.enabled ? void changeEnabled(false) : setEnablePreview(true)}>{view.enabled ? "关闭学习" : "开启学习…"}</button><button disabled={busy || working || !view.enabled || view.pendingExperiences < 2} onClick={() => void act(() => window.runloom.dream(), "已启动沉淀；完成与失败以下方状态和执行记录为准，不代表已经生成 Skill。")}>沉淀经验</button></div>
       {enablePreview ? <div className="memory-setup-preview"><p>开启后，模型可以读取当前工作区中有验收证据的任务经验，可能产生模型费用。低风险文本方法会进入试用，可查看来源、停用和恢复版本；不会增加 Shell、文件、应用控制或后台读取权限。</p><div className="memory-actions"><button disabled={busy || working} onClick={() => void changeEnabled(true)}>确认开启</button><button className="ghost" onClick={() => setEnablePreview(false)}>取消</button></div></div> : null}
-      <p className="hint">等待沉淀：{view.pendingExperiences} 条合格经验。{view.pendingExperiences < 2 ? "需至少两条独立经验，暂不调用模型。" : "是否产出方法仍取决于证据，不保证每次生成 Skill。"}未知效果、来源无法核对或依赖会话私有记忆的任务不计入。</p>
-      {view.lastAttempt ? <p role="status">最近沉淀：{{ running: "正在处理", completed: "已完成", failed: "失败，未算作已处理", cancelled: "已打断，未算作已处理", uncertain: "保存结果未确认，请刷新核对" }[view.lastAttempt.status]}{view.lastAttempt.message ? ` · ${presentFailure(view.lastAttempt.message).summary}` : ""}</p> : <p className="hint">本进程还没有沉淀记录，已有 Skill 不代表刚刚重新学习过。</p>}
+      <p className="hint">可供学习的经验：{view.pendingExperiences} 条。{view.pendingExperiences < 2 ? "还需至少两条独立经验才能开始。" : "可以开始沉淀，不保证每次都会产生新方法。"}</p>
+      {view.lastAttempt ? <p role="status">最近沉淀：{{ running: "正在处理", completed: "已完成", failed: "失败，未算作已处理", cancelled: "已打断，未算作已处理", uncertain: "保存结果未确认，请刷新核对" }[view.lastAttempt.status]}{view.lastAttempt.message ? ` · ${presentFailure(view.lastAttempt.message).summary}` : ""}</p> : null}
       {view.lastAttempt?.message && presentFailure(view.lastAttempt.message).detail ? <details><summary>详情</summary><pre>{presentFailure(view.lastAttempt.message).detail}</pre></details> : null}
-      {view.skills.length === 0 ? <p className="hint">暂无已沉淀 Skill。它与未开启、等待处理或处理失败是不同状态。</p> : null}
+      {view.skills.length === 0 ? <p className="hint">还没有学到可复用的方法。</p> : null}
+      <details><summary>学习条件与运行方式</summary><p className="hint">从至少两条独立、已验收的工作任务提炼方法，不把模型自述当成功，不写成个人事实。未知效果、来源无法核对或依赖会话私有记忆的任务不计入。只在应用打开且空闲时处理，新对话可以打断；不会另行启用关窗后的后台学习服务。当前进程没有处理记录不代表从未学过方法。</p></details>
       {view.skills.map(skill => <details key={skill.id} className="memory-detail memory-technical"><summary>{skill.title} · v{skill.revision} · {skill.needsReview ? "来源或依赖变化，暂不选用" : skill.enabled ? "试用中" : "已停用"}</summary><p>{skill.description}</p><pre className="memory-text">{skill.instructions}</pre><div className="memory-actions"><button className="ghost" disabled={busy || working} onClick={() => void act(() => window.runloom.changeLearnedSkill({ id: skill.id, expectedRevision: skill.revision, action: skill.enabled ? "disable" : "enable" }), skill.enabled ? "已停用，后续对话不会再选用；已产生的回复不会改写。" : "已启用，后续任务会按相关性选择；不恢复旧权限。")}>{skill.enabled ? "停用" : "启用"}</button></div>
         <h4>验收来源</h4>{skill.sources.map(source => <p key={`${source.taskId}:${source.taskRevision}:${source.runId}`}><code>{source.taskId}</code> · 任务 v{source.taskRevision} · {source.acceptedAt}<br /><small>Thread {source.threadId} · Run {source.runId}<br />验收项 {source.criterionIds.join("、")} · 证据哈希 {source.evidenceHash}</small></p>)}
         <details><summary>版本与依赖</summary><p className="hint">恢复只生成新的方法版本，不重做旧工具，不改写旧回执。依赖记忆变化时，由后端重新核对可用性。</p>{skill.versions.map(version => <div key={version.revision}><p>v{version.revision} · {version.title} · {version.createdAt}</p><pre>{version.instructions}</pre><small>记忆依赖：{JSON.stringify(version.memoryDependencies)}</small>{version.revision !== skill.revision ? <button className="ghost" disabled={busy || working} onClick={() => setRestore({ id: skill.id, expectedRevision: skill.revision, action: "restore", restoreRevision: version.revision })}>恢复此版本…</button> : null}</div>)}</details>

@@ -1,3 +1,4 @@
+import { EntryCardContent } from "./personal/entry-card.js";
 import React, { useEffect, useRef, useState } from "react";
 import type { AppInfo } from "../../shared/ui-contract.js";
 import type { MemoryMaintenance } from "@aisdk-agent/example-cli/dist/memory-controls.js";
@@ -244,23 +245,23 @@ export function MemoryConsolidationPanel({ info, busy, refreshToken, onSettings 
     {showHeadline ? <div className="card-head"><span>{headline}</span>
       {info.memory.enabled && info.memory.autoConsolidate && (c?.state === "failed" || c?.state === "backlog") ? <button className="ghost" disabled={busy || working || maintenance === null || maintenance.pending >= 64} onClick={() => void consolidate({ mode: "incremental" })}>{c?.state === "failed" ? "重试记忆整理" : "整理待处理记忆材料"}</button> : null}
     </div> : null}
-    {c?.state !== "off" ? <p className="hint">{memoryAutomationLabel(info.memory)}</p> : null}
-    {info.memory.enabled && info.memory.autoConsolidate ? <p className="hint">{info.memory.writePolicy === "automatic" ? "明确偏好会自动记住；有歧义才需要你点一下。" : "当前为人工审核模式，确认后才会记住。"}</p> : null}
-    {memoryAutomaticUpgradeNeeded(info) ? <button className="ghost" disabled={!onSettings} onClick={onSettings}>在工作区设置</button> : null}
+    {memoryAutomaticUpgradeNeeded(info) ? <button className="ghost" disabled={!onSettings} onClick={onSettings}>打开记忆设置</button> : null}
     {c?.error ? <><p className="error" role="alert">{memoryConsolidationFailureText(c.error)}</p><details><summary>技术详情</summary><pre>{c.error}</pre></details></> : null}
     {maintenance && maintenance.pending >= 64 ? <p className="hint">待审核候选已达到上限，请先接受或拒绝候选，再整理新材料。暂时不审核不会丢弃候选。</p> : null}
     {statusError ? <><FailureAlert text={statusError} suffix="不能据此判断没有待整理记忆材料或候选。" /><button className="ghost" disabled={working} onClick={() => setStatusRefresh(value => value + 1)}>重新读取记忆整理状态</button></> : null}
     {error ? <FailureAlert text={error} /> : null}{notice ? <p role="status">{notice}</p> : null}
     <AutomaticMemoryReceipts accepted={c?.lastAttempt?.accepted ?? []} busy={busy || working} refreshToken={refreshToken} />
     <details className="memory-maintenance-disclosure">
-      <summary>高级：记忆整理与历史补整理</summary>
+      <summary className="personal-entry-card"><EntryCardContent title="记忆整理与历史补整理" description="查看整理状态，选择历史对话补整理。" /></summary>
+    <p className="hint">{memoryAutomationLabel(info.memory)}</p>
+    {info.memory.enabled && info.memory.autoConsolidate ? <p className="hint">{info.memory.writePolicy === "automatic" ? "符合自动保存条件的记忆会在整理后保存；存在歧义的建议需要审核。" : "当前为人工审核模式，确认后才会记住。"}</p> : null}
     {!info.memory.enabled || !info.memory.autoConsolidate ? <>
       <p className="hint">可在工作区开启记忆自动整理：从已提交原话保存明确的普通长期信息，有歧义的建议留待审核。同义提问可额外发送一次有界查询。</p>
       {!info.workspaceRoot ? <p className="hint">当前配置没有 workspace，请先设置工作区。</p> : null}
     </> : <>
       <p className="hint">新对话成功结束后在空闲时整理记忆，新的聊天优先。首次最多取最近 8 条；更早的内容须由你选择补整理记忆。当前{info.memory.writePolicy === "automatic" ? "明确事实自动保存，有歧义的候选才需审核" : "所有候选接受后才保存"}。</p>
     </>}
-    {!memoryAutomaticUpgradeNeeded(info) ? <button className="ghost" disabled={!onSettings} onClick={onSettings}>在工作区设置</button> : null}
+    {!memoryAutomaticUpgradeNeeded(info) ? <button className="ghost" disabled={!onSettings} onClick={onSettings}>打开记忆设置</button> : null}
     {c?.state === "running" ? <p className="hint" role="status">正在从已提交的用户原话整理记忆，新的对话可以优先处理。失败可以重试，不会批量接受旧候选。</p> : null}
     {c?.backlogCount !== undefined ? <p className="hint">自动取材范围内待处理：{c.backlogCount} 条用户消息。这个数量不代表所有旧历史。</p> : null}
     {c?.lastSkippedReason ? <p className="hint">本轮未整理记忆：{c.lastSkippedReason}。</p> : null}

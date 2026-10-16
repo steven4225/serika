@@ -131,8 +131,6 @@
 .personal-layout .memory-references button { color: var(--text); }
 .personal-layout .capability-status { color: var(--muted); }
 .personal-layout .capability-status.enabled { color: var(--accent); }
-.personal-layout .persona-panel { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; }
-.personal-layout .persona-panel p { margin: 0; color: var(--muted); }
 .personal-search-layer { position: fixed; inset: 0; z-index: 40; display: flex; justify-content: center; align-items: flex-start; padding: 11vh 24px 24px; background: #39354238; backdrop-filter: blur(18px); }
 .personal-search-dialog { width: min(720px, 100%); max-height: min(680px, 78vh); display: flex; flex-direction: column; border-radius: 28px; background: #f7f4f6f2; color: var(--text); box-shadow: 0 24px 80px #39354233; overflow: hidden; }
 .personal-search-input-row { display: flex; align-items: center; gap: 12px; padding: 22px 22px 6px; color: #8d8794; }
@@ -206,6 +204,26 @@
 .personal-layout details > summary::before { content: none; }
 .personal-layout details > summary::after { content: ""; display: inline-block; flex: none; width: 6px; height: 6px; margin-left: 10px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); transition: transform .15s; vertical-align: 2px; }
 .personal-layout details[open] > summary::after { transform: rotate(45deg); }
+
+/* Match the existing task template cards for navigation and management. */
+.personal-layout :is(button, summary).personal-entry-card {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  width: 100%; min-width: 0; min-height: 76px; margin: 0; padding: 14px 14px 14px 16px;
+  border: 0; border-radius: 18px; background: var(--surface); color: var(--text);
+  text-align: left; cursor: pointer;
+  box-shadow: -4px 8px 28px #6868680a, 0 2px 8px #6464640f;
+}
+.personal-layout .personal-entry-card:hover { background: var(--surface); }
+.personal-layout .personal-entry-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.personal-layout .personal-entry-card:disabled { opacity: .55; cursor: default; }
+.entry-card-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 4px; }
+.entry-card-copy strong { font-size: 15px; line-height: 1.5; font-weight: 600; }
+.entry-card-copy > span { color: var(--muted); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.entry-card-arrow { display: grid; place-items: center; width: 36px; height: 36px; flex: none; border-radius: 50%; background: #ffffffa8; }
+.personal-layout details > summary.personal-entry-card::after { content: none; }
+.personal-layout details[open] > summary.personal-entry-card .entry-card-arrow,
+.personal-layout button.personal-entry-card[aria-expanded="true"] .entry-card-arrow { transform: rotate(90deg); }
+.personal-theme-dark .entry-card-arrow { background: #ffffff14; }
 .personal-layout details > summary > :is(.lucide-chevron-right, .lucide-chevron-down, .lucide-chevron-up) { display: none; }
 .notification-settings-entry { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .inactive-memory-records .ghost { display: block; margin: 6px 0; }

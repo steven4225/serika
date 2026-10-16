@@ -2,32 +2,25 @@ import React, { useEffect, useRef, useState, type ReactNode } from "react";
 import type { ContextBudgetConfig } from "@aisdk-agent/example-cli/dist/context-budget.js";
 import type { AppInfo } from "../../../shared/ui-contract.js";
 import type { ResidentServiceState } from "../../../shared/resident-service.js";
-import { Icon, SerikaPersona } from "../icons.js";
+import { Icon } from "../icons.js";
 import { BuildIdentityPanel } from "../build-identity-panel.js";
 import { BackupPanel } from "../backup-panel.js";
 import { ResidentServicePanel } from "../resident-service-panel.js";
 import { DailyAutomation } from "../daily-automation-panel.js";
 import {
   applyThinkingChoice,
-  readRecordedCallsWhenActive,
   readWhenHostReady,
-  recordedCallLabel,
   settingsBackTarget,
   settingsCopy,
-  settingsRowDescription,
   SETTINGS_CONNECTION_ROWS,
   SETTINGS_OTHER_ROWS,
-  SETTINGS_RECORD_ROWS,
   takeHostRead,
   thinkingChoiceForBudget,
   type HostReadResult,
-  type RecordedCallView,
   type SettingsListTarget,
   type SettingsRoute,
   type ThinkingChoice,
 } from "./settings-model.js";
-
-const EMPTY_CALLS: RecordedCallView = { recordedCalls: null, incomplete: false };
 
 async function readContextBudget(): Promise<HostReadResult<ContextBudgetConfig>> {
   const readDiagnostics = window.runloom.getContextDiagnostics;
@@ -49,42 +42,30 @@ export function SettingsFrame({ route, onBack, children }: { route: SettingsRout
   </div>;
 }
 
-export function SettingsHome({ info, busy, usageActive, usageRefresh, onOpen }: {
+export function SettingsHome({ info, busy, onOpen }: {
   info: AppInfo | null;
   busy: boolean;
-  usageActive: boolean;
-  usageRefresh: number;
   onOpen: (route: SettingsListTarget) => void;
 }) {
-  const usage = useRecordedCalls(usageActive, usageRefresh);
   return <>
-    <section className="settings-subscription" aria-label="订阅">
-      <SerikaPersona size={44} />
-      <div><strong>Serika</strong><p>本机助手</p><p>本地使用，无需订阅</p></div>
-      <button type="button" className="settings-manage-button" onClick={() => onOpen("manage")}>管理</button>
-    </section>
     <h2 className="settings-section">模式</h2>
     <ThinkingModes busy={busy} hostReady={info !== null} />
     <p className="settings-note">选择 Serika 的思考方式。</p>
-    <SettingsRows info={info} rows={SETTINGS_RECORD_ROWS} usage={usage} onOpen={onOpen} />
     <h2 className="settings-section">能力与连接</h2>
-    <SettingsRows info={info} rows={SETTINGS_CONNECTION_ROWS} usage={usage} onOpen={onOpen} />
+    <SettingsRows rows={SETTINGS_CONNECTION_ROWS} onOpen={onOpen} />
     <h2 className="settings-section">其他</h2>
-    <SettingsRows info={info} rows={SETTINGS_OTHER_ROWS} usage={usage} onOpen={onOpen} />
+    <SettingsRows rows={SETTINGS_OTHER_ROWS} onOpen={onOpen} />
   </>;
 }
 
-function SettingsRows<Route extends SettingsListTarget>({ info, rows, usage, onOpen }: {
-  info: AppInfo | null;
+function SettingsRows<Route extends SettingsRoute>({ rows, onOpen }: {
   rows: readonly { route: Route; title: string; description: string }[];
-  usage: RecordedCallView;
   onOpen: (route: Route) => void;
 }) {
   return <div className="settings-group">
     {rows.map(row => {
-      const detail = row.route === "records" ? recordedCallLabel(usage) ?? row.description : settingsRowDescription(row.route, info, row.description);
       return <button type="button" className="settings-row" key={row.route} onClick={() => onOpen(row.route)}>
-        <span className="settings-row-copy"><strong>{row.title}</strong><small>{detail}</small></span>
+        <span className="settings-row-copy"><strong>{row.title}</strong><small>{row.description}</small></span>
         <Icon name="chevron" size={16} />
       </button>;
     })}
@@ -149,61 +130,17 @@ function ThinkingModes({ busy, hostReady }: { busy: boolean; hostReady: boolean 
   </>;
 }
 
-function useRecordedCalls(active: boolean, refreshToken: number): RecordedCallView {
-  const [view, setView] = useState<RecordedCallView>(EMPTY_CALLS);
-  const request = useRef(0);
-  const activeRef = useRef(active);
-  activeRef.current = active;
-  useEffect(() => {
-    const id = ++request.current;
-    void readRecordedCallsWhenActive({
-      active: () => activeRef.current && request.current === id,
-      isCurrent: () => request.current === id,
-      read: async () => {
-        const result = await window.runloom.listRuns();
-        return result.ok ? result.modelUsage : null;
-      },
-    }).then(outcome => {
-      if (request.current !== id || outcome.status === "stale") return;
-      setView(outcome.status === "ready" ? outcome.view : EMPTY_CALLS);
-    });
-    return () => { request.current += 1; };
-  }, [active, refreshToken]);
-  return view;
-}
-
-export function SettingsManage({ info }: { info: AppInfo | null }) {
-  return <dl className="settings-manage" aria-label="身份">
-    <div><dt>助手</dt><dd>Serika · 本机助手</dd></div>
-    <div><dt>订阅</dt><dd>本地使用，无需订阅</dd></div>
-    <div><dt>试用</dt><dd>未配置</dd></div>
-    <div><dt>模型</dt><dd>{info ? (info.modelId ?? info.modelAlias) : "未报告"}</dd></div>
-    <div><dt>配置</dt><dd>{info?.configPath ?? "未配置"}</dd></div>
-  </dl>;
-}
-
-export function SettingsDevices({ info }: { info: AppInfo }) {
-  return <section className="settings-detail" aria-label="设备">
-    <div className="settings-group">
-      <div className="settings-row" role="group"><span className="settings-row-copy"><strong>这台电脑</strong><small>{info.computer.enabled ? "本机应用控制已开启。" : "本机应用控制未开启。"}允许的应用 {info.computer.allowedBundleIds.length} 个。</small></span></div>
-      <div className="settings-row" role="group"><span className="settings-row-copy"><strong>云电脑</strong><small>未配置</small></span></div>
-    </div>
-  </section>;
-}
-
 export function SettingsGeneral({ appearance, busy, onAppearance }: { appearance: "dark" | "light"; busy: boolean; onAppearance: () => void }) {
   return <section className="settings-detail" aria-label="通用">
     <div className="settings-group">
       <div className="settings-row" role="group"><span className="settings-row-copy"><strong>外观</strong><small>{appearance === "dark" ? "深色" : "浅色"}</small></span>
         <button type="button" className="ghost" aria-label={appearance === "dark" ? "切换为浅色外观" : "切换为深色外观"} onClick={onAppearance}>{appearance === "dark" ? "浅色" : "深色"}</button>
       </div>
-      <div className="settings-row" role="group"><span className="settings-row-copy"><strong>语言</strong><small>界面为中文。语言切换未配置。</small></span></div>
     </div>
-    <ResidentSettings busy={busy} />
   </section>;
 }
 
-function ResidentSettings({ busy }: { busy: boolean }) {
+export function ResidentSettings({ busy }: { busy: boolean }) {
   const [resident, setResident] = useState<ResidentServiceState | null>(null);
   const available = typeof window !== "undefined" && !!window.runloom.residentStatus && !!window.runloom.setResidentEnabled;
   const refresh = async () => {
@@ -224,9 +161,7 @@ function ResidentSettings({ busy }: { busy: boolean }) {
 export function SettingsNotifications({ enabled, busy }: { enabled: boolean; busy: boolean }) {
   return <section className="settings-detail" aria-label="通知">
     <DailyAutomation enabled={enabled} busy={busy} />
-    <div className="settings-group">
-      <div className="settings-row" role="group"><span className="settings-row-copy"><strong>入会提醒</strong><small>未配置</small></span></div>
-    </div>
+    <ResidentSettings busy={busy} />
   </section>;
 }
 
@@ -247,7 +182,6 @@ export function SettingsShortcuts() {
 
 export function SettingsAbout({ info, busy }: { info: AppInfo; busy: boolean }) {
   return <section className="settings-detail" aria-label="关于">
-    <p className="settings-note">退出登录未配置。Serika 使用这台电脑上的配置。</p>
     <BuildIdentityPanel info={info.build} />
     <BackupPanel busy={busy} />
   </section>;

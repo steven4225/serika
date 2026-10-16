@@ -1,3 +1,5 @@
+import type { MemoryImportEntry, MemoryImportConfirm, MemoryImportPreview, MemoryImportReceipt } from "@aisdk-agent/example-cli/dist/memory-import.js";
+import type { RecipeChange } from "@aisdk-agent/example-cli/dist/recipe-store.js";
 import { Writable } from "node:stream";
 import { lstat } from "node:fs/promises";
 import { readLoadedBuild } from "./build-identity.js";
@@ -376,6 +378,11 @@ export class RuntimeBridge {
     if (typeof id !== "string" || !id || id.length > 256) return Promise.resolve(invalidInput("Invalid Memory id"));
     return this.#controller.getMemory(id);
   }
+  previewMemoryImport(entries: MemoryImportEntry[]) { return this.#controller.previewMemoryImport(entries); }
+  confirmMemoryImport(input: MemoryImportConfirm) { return this.#controller.confirmMemoryImport(input); }
+  getMemoryImportReceipt(operationId: string) { return this.#controller.getMemoryImportReceipt(operationId); }
+  listRecipes() { return this.#controller.listRecipes(); }
+  changeRecipe(input: RecipeChange) { return this.#controller.changeRecipe(input); }
   updateMemory(input: MemoryEditInput) { return this.#controller.updateMemory(input); }
   getMemoryHistory(input: MemoryHistoryInput) { return this.#controller.getMemoryHistory(input); }
   queryMemory(input: MemoryTemporalQuery & { id: string }) { return this.#controller.queryMemory(input); }

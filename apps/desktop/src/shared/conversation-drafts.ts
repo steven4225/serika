@@ -11,13 +11,14 @@ export interface ConversationDraftScope {
   directory: string;
   threadId: string;
 }
-export interface ConversationDraft { text: string; excludeFromMemory: boolean }
+export interface ConversationDraft { text: string; excludeFromMemory: boolean; createTask?: true }
 export interface UncertainSteer { id: string; runId: string; text: string; taskId?: string }
 export interface TaskCreationDraft {
   goal: string; constraints: string; artifacts: string; human: string; commands: string; testCwd: string; template: string | null;
 }
 export interface TaskDrafts { creation: TaskCreationDraft | null; instructions: Record<string, string>; composerTaskId: string | null }
-export type TaskDraftUpdate = { kind: "creation"; value: TaskCreationDraft | null }
+export type TaskDraftUpdate = { kind: "created"; taskId: string; expectedGoal: string }
+  | { kind: "creation"; value: TaskCreationDraft | null }
   | { kind: "instruction"; taskId: string; text: string; expectedText?: string }
   | { kind: "composer"; taskId: string | null };
 export function emptyTaskDrafts(): TaskDrafts { return { creation: null, instructions: {}, composerTaskId: null }; }

@@ -13,6 +13,8 @@ export const recipeDefinitionSchema = z.object({
   command: text(1024), cwd: text(512),
 }).strict();
 export const recipeHashSchema = z.string().regex(/^[a-f0-9]{64}$/);
+export const recipeChangeSchema = z.object({ id: recipeDefinitionSchema.shape.id, expectedRevision: z.number().int().positive(), action: z.enum(["enable", "disable", "rollback"]), hash: recipeHashSchema.optional() }).strict();
+export type RecipeChange = z.infer<typeof recipeChangeSchema>;
 const versionSchema = recipeDefinitionSchema.extend({
   hash: recipeHashSchema, tested: z.object({ threadId: text(256), runId: text(256), toolCallId: text(256) }).strict(),
 }).strict();

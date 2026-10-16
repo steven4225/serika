@@ -29,11 +29,12 @@ describe("daily memory consolidation state", () => {
   it("keeps human policy status in the main path and advanced setup collapsed", () => {
     const info = { workspaceRoot: "/workspace", configPath: "/config.json", memory: { enabled: true, autoConsolidate: true, writePolicy: "automatic", queryRewriteEnabled: true } } as AppInfo;
     const html = renderToStaticMarkup(createElement(MemoryConsolidationPanel, { info, busy: false, refreshToken: 0 }));
-    assert.ok(html.includes("明确偏好会自动记住；有歧义才需要你点一下。"));
-    assert.match(html, /<details class="memory-maintenance-disclosure"><summary>高级：记忆整理与历史补整理/);
+    assert.ok(html.includes("符合自动保存条件的记忆会在整理后保存；存在歧义的建议需要审核。"));
+    assert.match(html, /<details class="memory-maintenance-disclosure"><summary class="personal-entry-card">/);
+    assert.ok(html.includes("记忆整理与历史补整理"));
     assert.equal(html.includes("改为自动记住"), false);
     const review = renderToStaticMarkup(createElement(MemoryConsolidationPanel, { info: { ...info, memory: { ...info.memory, writePolicy: "review" } }, busy: false, refreshToken: 0 }));
-    assert.ok(review.indexOf("在工作区设置") < review.indexOf("memory-maintenance-disclosure"));
+    assert.ok(review.indexOf("打开记忆设置") < review.indexOf("memory-maintenance-disclosure"));
     assert.equal(review.includes("改为自动记住"), false, "the actual configuration action lives only in workspace");
     assert.equal(review.includes("明确偏好会自动记住；"), false);
   });

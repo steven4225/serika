@@ -79,7 +79,7 @@ function WorkTaskList(props: TasksPageProps & { now: Date }) {
     {!props.tasksEnabled ? <p className="task-note">工作任务还没启用。你仍然可以直接说想做什么。</p> : null}
     {props.loading ? <p className="task-note" role="status">正在读取任务…</p> : null}
     {props.error ? <p className="task-warning" role="alert">{props.error}。读取失败不代表没有任务。</p> : null}
-    {!props.loading && !props.error && props.tasksEnabled && groups.length === 0 ? <p className="task-note">还没有任务。点右上角，用对话说你想做成什么。</p> : null}
+    {!props.loading && !props.error && props.tasksEnabled && groups.length === 0 ? <p className="task-note">还没有任务</p> : null}
     {groups.map(group => <section className="task-group" key={group.bucket} aria-label={group.bucket}>
       <h2>{group.bucket}</h2>
       {group.items.map(item => <button type="button" className="task-row" key={item.key} disabled={props.busy} onClick={() => props.onOpenTask(item.key)}><span>{item.title}</span></button>)}
@@ -105,7 +105,7 @@ function ScheduledTaskList(props: TasksPageProps & { now: Date; clock: ReturnTyp
       <h2>为你推荐</h2>
       {SCHEDULE_TEMPLATES.map(template => <div className="task-template" key={template.id}>
         <div className="task-template-copy"><strong>{template.title}</strong><span>{template.blurb}</span></div>
-        <button type="button" className="task-template-add" aria-label={`用「${template.title}」开始`} disabled={props.busy} onClick={() => props.onCreate(planTaskCreateHandoff(template.prompt))}><Plus size={16} aria-hidden="true" /></button>
+        <button type="button" className="task-template-add" aria-label={`用「${template.title}」开始`} disabled={props.busy} onClick={() => props.onCreate({ ...planTaskCreateHandoff(template.prompt), purpose: "arrangement" })}><Plus size={16} aria-hidden="true" /></button>
       </div>)}
     </section> : null}
   </>;

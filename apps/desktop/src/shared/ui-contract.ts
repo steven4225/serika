@@ -1,3 +1,5 @@
+import type { MemoryImportEntry, MemoryImportConfirm, MemoryImportPreview, MemoryImportReceipt } from "@aisdk-agent/example-cli/dist/memory-import.js";
+import type { RecipeEntry, RecipeChange } from "@aisdk-agent/example-cli/dist/recipe-store.js";
 import type { UIMessage } from "ai";
 import type { HistoryPage, HistoryPageInput } from "./history.js";
 import type { BackupResult, RestoreResult, RestorePreview } from "./backup.js";
@@ -193,6 +195,12 @@ export type GetRunResponse =
 export interface ContextModeInput { mode: "daily" | "long-task"; expectedBudget: ContextBudgetConfig }
 
 export interface RendererApi {
+  previewMemoryImport(entries: MemoryImportEntry[]): Promise<MemoryResult<MemoryImportPreview>>;
+  confirmMemoryImport(input: MemoryImportConfirm): Promise<MemoryResult<MemoryImportReceipt>>;
+  getMemoryImportReceipt(operationId: string): Promise<MemoryResult<MemoryImportReceipt | null>>;
+  listRecipes(): Promise<MemoryResult<RecipeEntry[]>>;
+  changeRecipe(input: RecipeChange): Promise<MemoryResult<RecipeEntry>>;
+
   telegramStatus?(): Promise<import("./telegram.js").TelegramStatus>;
   setTelegramEnabled?(enabled: boolean): Promise<import("./telegram.js").TelegramStatus>;
   beginTelegramPairing?(): Promise<import("./telegram.js").TelegramStatus>;
@@ -210,7 +218,7 @@ export interface RendererApi {
   releaseSteer(scope: ConversationDraftScope, id: string): Promise<boolean>;
   retryConnection(): Promise<void>;
   listThreads(query?: string): Promise<ThreadSummary[]>;
-  createThread(options?: { preserveDraft: boolean }): Promise<void>;
+  createThread(options?: { preserveDraft: boolean; taskDraft?: string; chatDraft?: string }): Promise<void>;
   selectThread(threadId: string): Promise<void>;
   chooseHistoryDirectory(): Promise<string | null>;
   discoverThreads(directory: string): Promise<ThreadSummary[]>;
@@ -292,6 +300,12 @@ export interface RendererApi {
 }
 
 export const IPC = {
+  previewMemoryImport: "runloom:previewMemoryImport",
+  confirmMemoryImport: "runloom:confirmMemoryImport",
+  getMemoryImportReceipt: "runloom:getMemoryImportReceipt",
+  listRecipes: "runloom:listRecipes",
+  changeRecipe: "runloom:changeRecipe",
+
   telegramStatus: "runloom:telegramStatus",
   telegramEnabled: "runloom:telegramEnabled",
   telegramPairing: "runloom:telegramPairing",

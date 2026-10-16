@@ -176,3 +176,15 @@ describe("conversation drafts", () => {
     await assert.rejects(new ConversationDraftStore(blocked).saveDraft(scope(root), { text: "not saved", excludeFromMemory: false }), /refusing to reset/);
   }));
 });
+
+it("task draft mode survives reopen; binding a saved task clears creation intent atomically and rejects stale goals", async () => fixture(async root => {
+  const store = new ConversationDraftStore(root), identity = scope(root);
+  await store.saveDraft(identity, { text: "new task", excludeFromMemory: false, createTask: true });
+  assert.equal((await new ConversationDraftStore(root).load(identity)).draft.createTask, true);
+  await assert.rejects(store.saveTaskDraft(identity, { kind: "created", taskId: "task-1", expectedGoal: "old task" }), /changed/);
+  assert.equal((await store.load(identity)).taskDrafts?.composerTaskId, undefined);
+  await store.saveTaskDraft(identity, { kind: "created", taskId: "task-1", expectedGoal: "new task" });
+  const saved = await new ConversationDraftStore(root).load(identity);
+  assert.deepEqual(saved.draft, { text: "", excludeFromMemory: false });
+  assert.equal(saved.taskDrafts?.composerTaskId, "task-1");
+}));

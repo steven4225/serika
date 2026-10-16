@@ -28,7 +28,7 @@ it("uses fixed offsets for recurring plans and rejects impossible dates, input a
 
 it("places unified arrangements in the existing workspace and invalidates stale workspace/Thread responses", async () => {
   const panel = await readFile(new URL("./automation-panel.tsx", import.meta.url), "utf8");
-  const daily = await readFile(new URL("./daily-setup-panel.tsx", import.meta.url), "utf8");
+  const daily = await readFile(new URL("./App.tsx", import.meta.url), "utf8");
   assert.match(daily, /<AutomationPanel.*info\.threadId/);
   assert.match(panel, /captured !== context\.current \|\| request !== generation\.current/);
   assert.match(panel, /message\.phase !== "primary"/);

@@ -410,3 +410,23 @@ describe("normal desktop memory and history entry", () => {
     } finally { await owner?.shutdown(); await host.shutdown(); await rm(root, { recursive: true, force: true }); }
   });
 });
+
+it("create-task opens a distinct Thread with persistent creation intent before identity-changed, preserving the old draft and making no model call", async () => {
+  const root = await mkdtemp(join(tmpdir(), "serika-task-entry-"));
+  const { ConversationDraftStore } = await import("./conversation-draft-store.js");
+  const drafts = new ConversationDraftStore(join(root, "profile"));
+  let calls = 0;
+  const host = await DesktopRuntime.create({ userData: join(root, "profile"), cwd: root, env: {}, modelAlias: "mock",
+    model: new MockLanguageModelV3({ doStream: async () => { calls++; return response(); } }), send() {} });
+  try {
+    const first = host.info();
+    await drafts.saveDraft(first, { text: "old unsent draft", excludeFromMemory: true });
+    await host.createThread({ preserveDraft: true, taskDraft: "" });
+    const second = host.info(); assert.notEqual(second.threadId, first.threadId);
+    assert.deepEqual((await drafts.load(second)).draft, { text: "", excludeFromMemory: false, createTask: true });
+    assert.equal((await drafts.load(first)).draft.text, "old unsent draft");
+    await host.createThread({ preserveDraft: true, chatDraft: "Use a recipe" });
+    assert.deepEqual((await drafts.load(host.info())).draft, { text: "Use a recipe", excludeFromMemory: false });
+    assert.equal(calls, 0);
+  } finally { await host.shutdown(); await rm(root, { recursive: true, force: true }); }
+});
