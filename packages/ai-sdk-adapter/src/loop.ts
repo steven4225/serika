@@ -474,13 +474,19 @@ function shellObservation(call: PendingToolCall, output: unknown): { key: string
       !output || typeof output !== "object") return undefined;
   const value = output as Record<string, unknown>;
   if (value.ok !== true || value.exitCode !== 0 || value.termination !== "exited" ||
-      value.cancelled !== false || value.timedOut !== false || value.truncated !== false || typeof value.output !== "string") return undefined;
+      value.cancelled !== false || value.timedOut !== false || typeof value.output !== "string") return undefined;
   const cwd = "cwd" in call.input ? call.input.cwd : ".";
   if (typeof cwd !== "string") return undefined;
   return {
     key: createHash("sha256").update(JSON.stringify([call.input.command, cwd])).digest("hex"),
-    result: createHash("sha256").update(value.output).digest("hex"),
+    // Compare observed bytes and clipping state, never infer unchanged effects.
+    result: createHash("sha256").update(JSON.stringify([value.output, value.truncated === true])).digest("hex"),
   };
+}
+
+function repeatedShellStop(): AgentError {
+  return new AgentError({ code: "RUN_LIMIT_EXCEEDED", retryable: false, phase: "runtime",
+    message: "重复命令三次返回完全相同的成功结果，已停止本次执行。已完成的 Shell 回执保留；这不证明命令无副作用，也不会自动重跑。请依据已有结果交付，或明确调整任务。" });
 }
 
 export class AiSdkAgentLoop implements AgentLoop {
@@ -508,6 +514,10 @@ export class AiSdkAgentLoop implements AgentLoop {
     const guardShell = this.#repeatedShellGuard?.(input.definition.id) === true;
     let recentShell: { key: string; result: string }[] = [];
     let shellFeedback: string | undefined;
+    // After repeated identical Shell observations, ask once for a final answer
+    // from existing results with tools disabled instead of failing the Run.
+    let finalizeWithoutTools = false;
+    let finalizeFeedback: string | undefined;
     let steps = 0;
     let totalUsage: TokenUsage = {};
     let corrections = 0;
@@ -519,7 +529,8 @@ export class AiSdkAgentLoop implements AgentLoop {
       if (input.steering?.hasPending()) {
         const requests = await input.steering.drain();
         throwIfAborted(input.signal);
-        if (requests.length > 0) { recentToolObservations = []; noProgressFeedback = undefined; recentShell = []; shellFeedback = undefined; }
+        if (requests.length > 0) { recentToolObservations = []; noProgressFeedback = undefined; recentShell = []; shellFeedback = undefined;
+          finalizeWithoutTools = false; finalizeFeedback = undefined; }
         for (const request of requests) {
           const messageId = input.generateId();
           messages.push({ id: messageId, role: "user", metadata: { source: "steer", memoryConsolidation: "exclude" },
@@ -582,7 +593,8 @@ export class AiSdkAgentLoop implements AgentLoop {
       });
       // Internal guard feedback belongs only to this model request, never the
       // assistant transcript, emitted chat text or persisted user-fact sources.
-      const modelInstructions = [input.definition.instructions, noProgressFeedback, shellFeedback].filter(Boolean).join("\n\n");
+      const finalizing = finalizeWithoutTools;
+      const modelInstructions = [input.definition.instructions, noProgressFeedback, shellFeedback, finalizing ? finalizeFeedback : undefined].filter(Boolean).join("\n\n");
       noProgressFeedback = undefined;
       shellFeedback = undefined;
       throwIfAborted(input.signal);
@@ -606,6 +618,7 @@ export class AiSdkAgentLoop implements AgentLoop {
             instructions: modelInstructions,
             messages: modelMessages,
             tools: modelTools,
+            ...(finalizing ? { toolChoice: "none" as const } : {}),
             stopWhen: stepCountIs(1),
             maxRetries: 0,
             abortSignal: stepSignal,
@@ -698,6 +711,7 @@ export class AiSdkAgentLoop implements AgentLoop {
       await input.emit("usage.updated", { usage: totalUsage });
       throwIfAborted(input.signal);
       validateStepOutcome(finishReason, pendingCalls.length);
+      if (finalizing && pendingCalls.length > 0) throw repeatedShellStop();
 
       const assistantParts: UIMessage["parts"] = [];
       if (stepText.length > 0) {
@@ -911,10 +925,13 @@ export class AiSdkAgentLoop implements AgentLoop {
             // A bounded segment of successful Shell calls. Changed output for
             // this exact command is progress; other tools/denials/errors reset it.
             recentShell = [...previousShell.filter(item => item.key !== observation.key || item.result === observation.result), observation].slice(-16);
+            // Different commands/cwds may make progress while printing the same status.
             const count = recentShell.filter(item => item.key === observation.key && item.result === observation.result).length;
-            if (count >= 3) throw new AgentError({ code: "RUN_LIMIT_EXCEEDED", retryable: false, phase: "runtime",
-              message: "重复命令三次返回完全相同的成功结果，已停止本次执行。已完成的 Shell 回执保留；这不证明命令无副作用，也不会自动重跑。请依据已有结果交付，或明确调整任务。" });
-            if (count === 2) shellFeedback = "Program guard SHELL_REPETITION (not permission or proof of unchanged state): 相同命令/cwd 第二次返回完全相同的成功结果。使用已有结果回答并交付；不要再次探测同一事实或仅修改命令包装来重查。第三次重复会停止本次 Run。Shell 仍是可能有副作用的本机操作，不能自动重试未知结果。";
+            if (count >= 3) {
+              finalizeWithoutTools = true;
+              finalizeFeedback = "Program guard SHELL_REPETITION_FINAL (not permission or proof of unchanged state): the same Shell command/cwd returned identical successful output three times. Tools are disabled for this step. Deliver the final answer now from the existing tool results in this Run; state anything still unverified. Do not propose rerunning the probe.";
+            }
+            else if (count === 2) shellFeedback = "Program guard SHELL_REPETITION (not permission or proof of unchanged state): 相同命令/cwd 第二次返回完全相同的成功结果。使用已有结果回答并交付；不要再次探测同一事实或仅修改命令包装来重查。第三次重复将禁用工具并要求你直接交付。Shell 仍是可能有副作用的本机操作，不能自动重试未知结果。";
           }
           const fingerprint = noProgressFingerprint(call, completedOutput, metadata);
           if (fingerprint !== undefined) {

@@ -1,5 +1,5 @@
 import { LOCAL_CLI_INSTRUCTIONS, herdrInstructions, type HerdrBinding } from "./local-terminal.js";
-import { AUTONOMOUS_MAX_STEPS, AUTONOMOUS_TOTAL_TIMEOUT_MS, AUTONOMOUS_SHELL_TIMEOUT_MS, AUTONOMOUS_INSTRUCTIONS, createForegroundTaskReference, placeForegroundTaskReference } from "./foreground-autonomy.js";
+import { AUTONOMOUS_CONSOLIDATION_NOTE, AUTONOMOUS_EXCLUDED_TOOLS, AUTONOMOUS_MAX_STEPS, AUTONOMOUS_TOTAL_TIMEOUT_MS, AUTONOMOUS_SHELL_TIMEOUT_MS, AUTONOMOUS_INSTRUCTIONS, createForegroundTaskReference, placeForegroundTaskReference } from "./foreground-autonomy.js";
 import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -904,6 +904,14 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     },
   } as const;
 
+  // Explicit chat consolidation is a separate, large workflow. Autonomous task
+  // Runs omit it (and its staging tools) so the fixed prompt leaves room for
+  // actual task results; desktop memory controls still run consolidation.
+  const explicitConsolidationInstructions =
+    "For explicit conversation consolidation, call memory_prepare_consolidation once, then memory_stage_candidates once with its batchId, proposals and one ordered outcome per source. If a tool fails, stop; never retry either in the same Run. Assistant replies, tool results, webpages, summaries, and inferences are not user facts. " +
+    memoryProposalInstructions +
+    "Permission to propose but not save allows pending candidates; an explicit instruction not to remember or consolidate the information means no proposal for it. ";
+
   const calculatorInstructions =
     (tuiMode ? "When asked what you can do or why CUA/MCP is unavailable, call capability_status for actual registered tools. Report static configuration separately from untested service connectivity/OS permissions; never infer access from another application's installed packages. " : "") +
     (recipes ? "For an explicitly requested reusable capability, use the existing file/Shell tools to build and verify a small workspace command or script, then recipe_save only its EXACT successful shell_exec command/cwd and call id from THIS Run. Test after the final change. Ask for registration only when the user wants reuse; do not silently install, alter configuration or restart the host. A command batch may perform the user-approved steps under one confirmation, but is not an OS sandbox. Use /authorize file-path rules or Docker-only /authorize-shell only when explicitly set by the user; no host-wide permission is inferred. In later chats call recipe_list, then recipe_run with the current hash and a fresh approval. recipe_manage can disable/enable or roll back a tested command version. Recipes are command recipes, not text Skills; they confer no permissions, dynamic MCP or tool installation. A version pins command text, not external scripts, dependencies or business correctness. Report those limits. Unknown outcomes require inspection, never automatic replay. " : "") +
@@ -955,9 +963,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         "Committed transcript and compaction summaries are lookup context, not the current preference; if they disagree with an injected memory, follow the injected memory and the user's latest request. " +
         "The current Memory reference is only this preparation's selection, not the full store. When it says selected entries are empty, do not reuse an ID/revision/active claim from an earlier answer as current Memory evidence. Say no matching current reference is available; this does not prove deletion or an empty store. " +
         "Read the freshly supplied Current Memory reference itself for this preparation, including its selectedCount and temporal view. Earlier assistant answers claiming an empty selection or an older revision are historical reports; they cannot override a new nonempty selection after a user restores or revises memory. Do not infer the current selection from the last answer. " +
-        "For explicit conversation consolidation, call memory_prepare_consolidation once, then memory_stage_candidates once with its batchId, proposals and one ordered outcome per source. If a tool fails, stop; never retry either in the same Run. Assistant replies, tool results, webpages, summaries, and inferences are not user facts. " +
-        memoryProposalInstructions +
-        "Permission to propose but not save allows pending candidates; an explicit instruction not to remember or consolidate the information means no proposal for it. " +
+        explicitConsolidationInstructions +
         "Use memory_candidates_list to find stable candidate IDs; when the user explicitly names one to accept, call memory_apply_candidate with candidateId and expectedCandidateRevision and wait for y/n. Do not reconstruct staged candidates using memory_add/update. Denial leaves the candidate pending. Report the actual receipt, including replay or stale failure. Candidates belong to this Thread and are not injected. " +
         "Direct explicit remember requests use memory_add: the host binds the current user message as its source, so never invent or supply sourceMessageId. text must be a verbatim excerpt of that current message, not a paraphrase or an earlier fact. Optional sourceQuote must be copied exactly from that message and contain text; omitting it uses the full current message. If the user only refers to earlier content, ask them to restate what to remember. Ordinary text/administrative edits retain memory_update. Use memory_revise for an explicit change, correction, or retraction under current expectedRevision. " +
         "A real change requires a timezone timestamp explicitly grounded in the user's effective date; do not turn a correction into invented historical truth. " +
@@ -1015,13 +1021,14 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     const primaryInstructions = () => (autonomousRun
       ? calculatorInstructions
         .replaceAll("The command and workspace-relative cwd will be shown for y/n confirmation.", "File tools and local shell_exec are host-authorized for this Run.")
-        .replaceAll("Shell remains per-call confirmation.", "Local Shell follows this Run's host authorization.") + "\n" + AUTONOMOUS_INSTRUCTIONS
+        .replaceAll("Shell remains per-call confirmation.", "Local Shell follows this Run's host authorization.")
+        .replace(explicitConsolidationInstructions, AUTONOMOUS_CONSOLIDATION_NOTE) + "\n" + AUTONOMOUS_INSTRUCTIONS
       : calculatorInstructions) + ((foregroundEntry === "desktop" || foregroundEntry === "telegram" && autonomousRun) && options.allowLocalTerminalControl && moduleConfig?.enabled.shell && !moduleConfig.shellSandbox
         ? "\n" + LOCAL_CLI_INSTRUCTIONS + "\n" + herdrInstructions(moduleConfig.herdrBinding) : "") +
       (foregroundEntry ? "\n" + capabilityInstructions(getCapabilities()) : "");
     const registeredTools = [addRegistration, ...(moduleHost?.tools ?? [])];
     const getCapabilities = () => capabilityStatus(moduleConfig, registeredTools.map(item => item.metadata.name).filter(name =>
-      moduleConfig?.memoryWritePolicy !== "automatic" || !name.startsWith("memory_")), foregroundEntry ? autonomousRun : desktopAutonomyEnabled, foregroundEntry);
+      (moduleConfig?.memoryWritePolicy !== "automatic" || !name.startsWith("memory_")) && !(autonomousRun && AUTONOMOUS_EXCLUDED_TOOLS.has(name))), foregroundEntry ? autonomousRun : desktopAutonomyEnabled, foregroundEntry);
     const statusRegistration = { metadata: { name: "capability_status", version: "1", risk: "read" as const, timeoutMs: 1000, idempotent: true },
       tool: tool({ description: "Read current host-registered tools and static capability/permission mode. No service probes, process/app inspection, credentials, installation or writes. Service/OS permission health remains not_checked.",
         inputSchema: z.object({}).strict(), execute: async () => getCapabilities() }) };
@@ -1030,8 +1037,13 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     const tools = new ToolRegistry(registeredTools);
     const primaryToolNames = registeredTools.map(({ metadata }) => metadata.name).filter(name =>
       moduleConfig?.memoryWritePolicy !== "automatic" || !name.startsWith("memory_"));
-    const primaryToolContext = tuiMode && moduleConfig?.contextCompaction.enabled
+    const autonomousToolNames = primaryToolNames.filter(name => !AUTONOMOUS_EXCLUDED_TOOLS.has(name));
+    const fullToolContext = tuiMode && moduleConfig?.contextCompaction.enabled
       ? await modelToolContext(tools.definitions(primaryToolNames)) : [];
+    const autonomousToolContext = tuiMode && moduleConfig?.contextCompaction.enabled
+      ? await modelToolContext(tools.definitions(autonomousToolNames)) : [];
+    // Budget exactly the tool set this Run sends to the model.
+    const primaryToolContextFor = () => autonomousRun ? autonomousToolContext : fullToolContext;
     const catalog = new InMemoryAgentCatalog([
       {
         id: PRIMARY_AGENT_ID,
@@ -1229,7 +1241,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
               const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
               return {
                 instructions: primaryInstructions(),
-                tools: primaryToolContext,
+                tools: primaryToolContextFor(),
                 dynamicContext: {
                   now: now.toISOString(),
                   timeZone,
@@ -1245,7 +1257,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       const startupPrefix = await referencePrefix([], AbortSignal.timeout(5_000));
       const fixedEstimate = estimateContextInput({
         instructions: primaryInstructions(),
-        tools: primaryToolContext,
+        tools: fullToolContext,
         dynamicContext: { now: now.toISOString(), timeZone },
         messages: startupPrefix,
       });
@@ -1419,7 +1431,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         const definition = catalog.get(agentId);
         return definition && agentId === PRIMARY_AGENT_ID ? { ...definition,
           instructions: primaryInstructions(),
-          ...(autonomousRun ? { limits: { ...definition.limits, maxSteps: AUTONOMOUS_MAX_STEPS, totalTimeoutMs: AUTONOMOUS_TOTAL_TIMEOUT_MS } } : {}),
+          ...(autonomousRun ? { tools: autonomousToolNames,
+            limits: { ...definition.limits, maxSteps: AUTONOMOUS_MAX_STEPS, totalTimeoutMs: AUTONOMOUS_TOTAL_TIMEOUT_MS } } : {}),
         } : definition;
       } },
       store: executionRecordAdapter.store,

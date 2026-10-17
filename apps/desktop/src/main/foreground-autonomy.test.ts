@@ -259,10 +259,11 @@ it("retains the exact active request after same-Run compaction consumes its user
     assert.ok(lastPrompt.some(message => message.role === "user" && JSON.stringify(message.content).includes(request)),
       "after a compacted tool result, the model still needs the exact current user task, not only an assistant summary");
     const progress = lastPrompt.find(message => JSON.stringify(message.content).includes("Current Run tool receipts"));
-    assert.equal(progress?.role, "assistant", "actual compacted results survive independently of a summary that omitted all actions");
+    assert.equal(progress?.role, "user", "actual compacted results travel with the restored request, never as a trailing assistant prefill");
+    assert.match(JSON.stringify(progress?.content), new RegExp(request));
     assert.match(JSON.stringify(progress?.content), /bounded tool content/);
     assert.match(JSON.stringify(progress?.content), /read_file/);
-    assert.notEqual(lastPrompt.at(-1)?.role, "user", "the current task must not look like a new request after its results");
+    assert.equal(lastPrompt.at(-1), progress, "the merged request and receipts close the prompt; no trailing assistant prefill");
     assert.doesNotMatch(JSON.stringify(await host.current.history()), /runloom-foreground-task/,
       "the retained request is process-local model context, not another committed user message");
     assert.equal(events.some(event => event.type === "approval"), false);

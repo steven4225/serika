@@ -17,14 +17,26 @@ it("retains the current request before surviving current tool results, never as 
   assert.notEqual(prepared.at(-1)?.role, "user");
 });
 
-it("retains bounded host-observed current Run results when compaction consumes the original tool message", () => {
+it("retains bounded host-observed current Run results inside the restored user reference when compaction consumes the tool message", () => {
   const reference = createForegroundTaskReference(request, [request, result]);
   const prepared = placeForegroundTaskReference([...reference, summary]);
-  const progress = prepared.find(m => m.id === "runloom-foreground-progress");
-  assert.equal(progress?.role, "assistant");
-  assert.match(JSON.stringify(progress?.parts), /0.87.0/);
-  assert.match(JSON.stringify(progress?.parts), /version/);
-  assert.ok(prepared.findIndex(m => m.id === "runloom-foreground-task") < prepared.indexOf(progress!));
+  assert.equal(prepared.some(m => m.id === "runloom-foreground-progress"), false, "no trailing assistant prefill message");
+  const task = prepared.find(m => m.id === "runloom-foreground-task");
+  assert.equal(task?.role, "user");
+  assert.match(JSON.stringify(task?.parts), /0.87.0/);
+  assert.match(JSON.stringify(task?.parts), /version/);
+  assert.equal(prepared.at(-1)?.id, "runloom-foreground-task");
+});
+
+it("does not repeat receipts for tool results that survived compaction", () => {
+  const second: UIMessage = { id: "second", role: "assistant", parts: [{ type: "dynamic-tool", toolName: "shell_exec",
+    toolCallId: "help", state: "output-available", input: { command: "pi --help" }, output: { ok: true, exitCode: 0, output: "Usage: pi\n" } }] };
+  const reference = createForegroundTaskReference(request, [request, result, second]);
+  const prepared = placeForegroundTaskReference([...reference, summary, second]);
+  const task = JSON.stringify(prepared.find(m => m.id === "runloom-foreground-task")?.parts);
+  assert.match(task, /0.87.0/);
+  assert.doesNotMatch(task, /Usage: pi/);
+  assert.ok(prepared.findIndex(m => m.id === "runloom-foreground-task") < prepared.findIndex(m => m.id === "second"));
 });
 
 it("does not duplicate a surviving request, leak previous Runs or lose same-Run corrections", () => {
@@ -36,7 +48,7 @@ it("does not duplicate a surviving request, leak previous Runs or lose same-Run 
   assert.deepEqual(prepared, [request, result, correction]);
   const compacted = placeForegroundTaskReference([...refs, summary]);
   assert.match(JSON.stringify(compacted), /不要再探测/);
-  assert.doesNotMatch(JSON.stringify(compacted.find(m => m.id === "runloom-foreground-progress")), /"messageId":"old"/);
+  assert.doesNotMatch(JSON.stringify(compacted), /"messageId":"old"/);
 });
 
 it("bounds direct receipt previews and makes truncation and omitted evidence explicit", () => {
