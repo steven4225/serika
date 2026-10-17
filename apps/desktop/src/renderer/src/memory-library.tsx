@@ -164,7 +164,7 @@ export function MemoryLibraryPanel({ enabled, controllerIdle, refreshToken, onMa
           <button disabled={blocked || !library} onClick={beginFolder}><Plus size={16} />新建文件夹</button>
           {folderId && library ? <button disabled={blocked} onClick={() => { setFolderDraft({ operation: "rename-folder", id: folderId, name: folderName, expectedRevision: library.revision }); closeMenu(); }}>重命名文件夹</button> : null}
         </div>
-      </details> : document && !draft ? <div className="actions"><button className="ghost" aria-label="重新读取文档" disabled={blocked} onClick={() => void open(document.id)}><RotateCw size={16} /></button><button className="ghost" disabled={blocked || document.missing || changed} onClick={() => setDraft({ id: document.id, title: document.title, text: document.text, folderId: document.folderId, entries: document.entries, expectedRevision: document.libraryRevision })}>编辑</button></div> : null}
+      </details> : document && !draft ? <div className="actions">{error ? <button className="ghost" aria-label="重新读取文档" disabled={blocked} onClick={() => void open(document.id)}><RotateCw size={16} /></button> : null}<button className="ghost" disabled={blocked || document.missing || changed} onClick={() => setDraft({ id: document.id, title: document.title, text: document.text, folderId: document.folderId, entries: document.entries, expectedRevision: document.libraryRevision })}>编辑</button></div> : null}
     </div>
     <input ref={picker} type="file" accept=".txt,.md,text/plain,text/markdown" hidden onChange={event => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) void importFile(file); }} />
     {error ? <p role="alert" className="memory-library-error">{error}</p> : null}

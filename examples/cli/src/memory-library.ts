@@ -50,8 +50,8 @@ export function memoryLibraryDocuments(library: MemoryLibrary, entries: MemoryEn
   });
   for (const entry of visible) {
     if (owned.has(entry.id)) continue;
-    const title = entry.text.split(/\r?\n/).find(line => line.trim())?.replace(/^#{1,6}\s+/, "").trim() ?? "未命名记忆";
-    documents.push({ id: legacyDocumentId(entry.id), libraryRevision: library.revision, title: Array.from(title).slice(0, 60).join(""), folderId: null,
+    // Legacy entries have no user-given title; their text belongs in the preview/body.
+    documents.push({ id: legacyDocumentId(entry.id), libraryRevision: library.revision, title: "记忆条目", folderId: null,
       scope: entry.scope ?? { kind: "workspace" }, text: entry.text, preview: Array.from(entry.text).slice(0, 120).join(""),
       updatedAt: entry.updatedAt ?? entry.createdAt ?? null, active: active(entry, now), missing: false,
       entries: [{ id: entry.id, revision: entry.revision ?? 1 }] });

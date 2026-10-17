@@ -24,7 +24,7 @@ it("reads legacy memory as unfiled documents without creating files or guessing 
   const added = await store.add({ text: "# 爱好\n跑步" }); assert.ok(added.ok);
   const before = await readFile(file, "utf8");
   const view = value(await store.getLibrary("a"));
-  assert.equal(view.documents[0]?.title, "爱好"); assert.equal(view.documents[0]?.folderId, null);
+  assert.equal(view.documents[0]?.title, "记忆条目"); assert.equal(view.documents[0]?.folderId, null);
   const doc = value(await store.readLibraryDocument(legacyDocumentId(added.entry.id), "a"));
   assert.equal(doc.text, "# 爱好\n跑步"); assert.equal(doc.libraryRevision, 0);
   assert.equal(await readFile(file, "utf8"), before); assert.equal(JSON.parse(before).version, 4);
