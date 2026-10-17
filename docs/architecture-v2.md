@@ -96,12 +96,13 @@ apps/telegram ┘        (领域：记忆/任务/上下文/沉淀，扩展 API)
   - 已完成：工具确认与 Run 授权（`createToolConfirmation`、文件/Shell/网页授权规则）从 `tui.ts` 原样拆到 `tool-confirmation.ts`。`app.ts`、Controller 和桌面链路不再为确认逻辑依赖终端界面文件；`tui.ts` 1468 → 927 行，只剩终端渲染和命令。
   - 已完成（A1）：`createRuntimeApp` 不再接收 argv，改为结构化装配参数：`directory`（transcript 目录）加 `assistant?: AssistantAssembly`（`threadId`、`configPath`，或不带配置文件的 `workspace`/`autoConsolidate`/`todoistEnabled` 简写；省略 `assistant` 即离线 demo）。CLI 在入口把 `--tui` 参数解析成这份结构；桌面端、测试和 eval 直接传值（约 100 处调用一并改写）。参数组合校验不变：CLI 解析时由 `assertAssemblyCombination` 报具体参数，结构化入口由原有的配置解析检查拒绝。模块配置仍是文件路径：配置文件是否位于工作区内是现有的信任边界（自主执行、沙箱、自动记忆、授权都依赖它），不改成内存对象。`assembly.test.ts` 验证同一进程两个实例的 transcript 与工作区互不可见；包内没有进程级可变状态，也不读 home 目录。
   - 已完成：命令行入口拆到 `apps/cli`（`@serika/cli`）。挪过去的是 `index.ts`、`tui.ts`（终端渲染和命令）、`parseTuiArgs`/`TuiArgs`，以及 `tui.test.ts`、`cli-options.test.ts` 的解析部分、启动检查测试和 4 个启动 CLI 进程的测试（原在 `tui-module-config.test.ts`，现为 `cli-entry.test.ts`）。CLI 只从 `@serika/assistant` 的公开入口取值，测试另用 `./testing`；`apps/cli/src/package-boundary.test.ts` 防止回退。留在 assistant 的：`resolveWorkspace`（改放 `resolve-workspace.ts`，worker、定时 Skill、模块配置都用它）；`TuiCommand`/`TuiCompaction`/`TuiResume` 移到 `host-commands.ts`（`RuntimeApp` 的字段类型）；启动检查的装配校验改名 `checkAssistantStartup(assembly | Error)` 留在 assistant，CLI 的 `checkTuiStartup(argv)` 只负责解析参数，解析失败照旧报为阻塞的 config 检查，快照内容不变。没把整份启动检查挪走，是因为它校验的是装配语义（Skill、Hook、数据文件位置），挪走就要把这些内部常量和函数都公开。`tool-confirmation` 的横幅测试测的是确认逻辑，留在 assistant；`src/acceptance/*` 和 `*-acceptance.ts` 都不经过 CLI 入口，也留下。eval 不再解析 argv，直接把 `{ configPath }` 交给配置解析。
+  - 调整：群聊 bot 开线时间从「第 3 步完成后」推迟到「个人 agent 重构完成、日常稳定后（至少 4.5 之后）」，见 §4.2。A1–A3 仍按原步骤验收。
 
 ## 4.2 未来：群聊 bot（独立线）
 
 主线只做「我自己在本机用的助手」。群聊 bot 以后另开一条线，做成独立实例：自己的进程、home 和数据，只用「聊天 + 网页读取」这类扩展，与私人助手不共享记忆、文件或凭据。说话人建模、访客权限、群消息处理、事实归属都只在那条线里做，主线不为它加字段或分支判断。
 
-那条线在第 3 步完成后再开（依赖 `packages/assistant` 的公开接口），形态是新应用（如 `apps/group-bot`）加自己的长期分支。
+那条线等个人 agent 重构完成、日常使用稳定后再开（至少在第 4.5 步之后：bot 实例怎样独立存放数据取决于 home 的设计），依赖 `packages/assistant` 的公开接口，形态是新应用（如 `apps/group-bot`）加自己的长期分支。在此之前主线只按下面的 A1–A3 保留边界，不为它做别的工作。
 
 主线为它保留的边界（作为验收标准，用测试保证）：
 
