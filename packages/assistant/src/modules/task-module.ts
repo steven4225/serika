@@ -2,6 +2,7 @@ import { tool } from "ai";
 import { toolCommitResult } from "../commit-outcome.js";
 import { z } from "zod";
 import type { RegisteredTool } from "@serika/ai-sdk-adapter";
+import type { BeforeToolExecuteInput } from "@serika/core";
 import type { AgentModule } from "../module-host.js";
 import type {
   CreateTaskInput,
@@ -20,7 +21,7 @@ import type {
   TaskArrangement,
 } from "../task-store.js";
 import type { Recurrence } from "../recurrence.js";
-import { reminderReadback, type ReminderSpeechAction } from "../reminder-speech.js";
+import { formatReminderConfirmation, readRecurrence, reminderReadback, type ReminderSpeechAction } from "../reminder-speech.js";
 import type { SkillResult } from "../automation-execution.js";
 
 export type { TaskStore } from "../task-store.js";
@@ -90,6 +91,27 @@ export interface TaskModuleOptions {
   /** Display clock for reminder readback. Defaults to the process clock and timezone. */
   now?: () => Date;
   timeZone?: string;
+  /** Trusted background-service status, shown on the arrangement confirmation card. */
+  automationStatus?: () => Promise<TaskAutomationStatus>;
+  /** Where arrangement results are delivered, shown on the confirmation card. */
+  arrangementDestination?: () => string | null;
+  /** Registered text Skills the primary agent may schedule, listed in its instructions. */
+  schedulableSkills?: readonly { id: string; hash: string; description: string }[];
+}
+
+export interface TaskAutomationStatus {
+  available: boolean;
+  registered: boolean;
+  running: boolean;
+  ready?: boolean;
+  todoistPlanningAvailable: boolean;
+  message?: string;
+}
+
+const TASK_INSTRUCTIONS = " For a user-requested reminder, call task_create once or task_repeat_create for daily or weekly, with arrangement {kind:\"reminder\",source:\"none\",notification:\"always\",declarationVersion:1}. Put the reminder subject in prompt. If the clock is incomplete, choose the default from the task instructions and call the tool so the confirmation card shows time, repeat, and text; do not ask「你想几点」 first. After success, the user-visible reply is exactly the tool result readback, such as「已定：明天 9:00 提醒开会」, with no task id or JSON. A daily or weekly Todoist briefing still uses todoist-brief and asks when the source is missing; never invent a Todoist source. The tool preview is the one arrangement confirmation including background activation where wired. Do not create arbitrary scheduled shell/file/computer jobs. RSS uses its existing bound subscription setup, never an arbitrary task prompt. A saved arrangement is not proof the worker ran or that a notification was delivered; report service.enabled false honestly when present. ";
+
+function skillScheduleInstructions(skills: readonly { id: string; hash: string; description: string }[]): string {
+  return ` For an explicitly requested registered Skill schedule, the arrangement is {kind:"skill",source:"none",notification:"always",declarationVersion:1,skillId,skillHash}. Use the exact registered hash and the user-provided input as prompt (at most 4 KiB). Never schedule memory consolidation, infer a new Skill, grant tools or include private conversation/Memory as input without an explicit user instruction. These text Skills receive only their declared input, not current/news/workspace data. Available schedule Skills: ${JSON.stringify(skills.map(skill => ({ id: skill.id, hash: skill.hash, description: skill.description.slice(0, 80) })))}`;
 }
 type TaskToolResult<T> = SkillResult<T> & {
   service?: { enabled: boolean; ready?: boolean; message?: string };
@@ -608,6 +630,93 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
       timeZone: options.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
     };
   }
+  /** The y/n cards for arrangements and reminders; `undefined` keeps the generic card. */
+  function confirmation(input: BeforeToolExecuteInput): string | Promise<string | undefined> | undefined {
+    if (input.toolName === "task_create" || input.toolName === "task_repeat_create") {
+      const request = typeof input.input === "object" && input.input !== null ? input.input as { arrangement?: { kind?: unknown; source?: unknown; skillId?: unknown; skillHash?: unknown }; runAt?: unknown; recurrence?: unknown; prompt?: unknown } : {};
+      if (request.arrangement !== undefined) {
+        const render = (status?: TaskAutomationStatus) => {
+          const destination = options.arrangementDestination?.();
+          const delivery = destination
+            ? `结果投递目的地：${destination.slice(0, 256)}。任务保存与投递登记并非原子；失败时不要重复创建，回桌面核对。`
+            : "";
+          if (request.arrangement?.kind === "reminder") {
+            const recurrence = readRecurrence(request.recurrence);
+            const service = status === undefined
+              ? "本入口只保存提醒；需要自行运行 worker，到期才会提交通知。通知提交不等于已经送达。"
+              : `${status.registered ? status.running ? "后台已注册且正在运行" : "后台已注册，当前未运行" : "后台尚未注册"}。确认后保存这条提醒，并按需启用该工作区后台服务；启用失败时提醒仍保存。到期通知只提交一次，这次确认不代表已经送达。${status.message ? ` ${status.message}` : ""}`;
+            return formatReminderConfirmation({
+              action: "save",
+              prompt: typeof request.prompt === "string" ? request.prompt : "",
+              ...(typeof request.runAt === "string" ? { runAt: request.runAt } : {}),
+              ...(recurrence === undefined ? {} : { recurrence }),
+              clock: speechClock(),
+              footnote: delivery.length > 0 ? `${service} ${delivery}` : service,
+            });
+          }
+          return (
+          `\n自动安排确认\n内容：${JSON.stringify(request.prompt)}\n时间：${JSON.stringify(request.runAt ?? request.recurrence)}\n` +
+          `用途：${JSON.stringify(request.arrangement?.kind)}；来源：${JSON.stringify(request.arrangement?.source)}\n` +
+          (request.arrangement?.kind === "skill" ? `Skill：${JSON.stringify(request.arrangement.skillId)}；固定版本：${JSON.stringify(request.arrangement.skillHash)}\n仅处理本次输入；不读取对话、记忆或工作区文件。版本变化时拒绝执行，不自动换新版本。输入将发送给后台配置的模型服务，可能产生费用。\n` : "") +
+          "周期采用固定 UTC offset，不自动跟随夏令时；休眠/离线不保证准点，恢复后仅处理最近一期。\n" +
+          "提醒不用模型；Todoist 只读查询；本安排不授权 Shell、文件、电脑操作或工作区记忆读取。\n" +
+          (destination ? `结果投递目的地：${destination.slice(0, 256)}。任务保存与投递登记并非原子；失败时不要重复创建，回桌面核对。\n` : "") +
+          (request.arrangement?.kind === "todoist-brief" ? "Todoist 查询结果会发送给后台环境文件配置的模型服务，该服务可能不同于当前桌面模型。\n" : "") +
+          (status ? `后台：${status.registered ? status.running ? "已注册且正在运行" : "已注册，当前未运行" : "尚未注册"}。${status.message ?? ""}\n确认将保存这条安排，并按需启用该工作区后台服务；启用失败时安排仍保存，结果会明确说明。\n` : "本入口没有后台服务接线；只保存安排，需要自行运行 worker 才会执行。\n") +
+          "通知提交不等于你已收到；结果保存在任务收件箱。允许本次安排？ [y/n] ");
+        };
+        return options.automationStatus ? options.automationStatus().then(render, error => render({ available: false, registered: false, running: false, todoistPlanningAvailable: false, message: String(error) })) : render();
+      }
+    }
+    if (input.toolName === "task_cancel" || input.toolName === "task_repeat_pause" || input.toolName === "task_repeat_resume" || input.toolName === "task_repeat_cancel") {
+      const request = typeof input.input === "object" && input.input !== null ? input.input as { id?: unknown } : {};
+      const id = typeof request.id === "string" ? request.id : "";
+      if (input.toolName === "task_cancel") {
+        return store.get(id).then((current) => {
+          if (!current.ok || current.value.arrangement?.kind !== "reminder") return undefined;
+          return formatReminderConfirmation({
+            action: "cancel",
+            prompt: current.value.prompt,
+            runAt: current.value.runAt,
+            clock: speechClock(),
+            footnote: "取消后不会再为这条提醒提交通知。已经提交的通知不会撤回。",
+          });
+        });
+      }
+      const action = input.toolName === "task_repeat_pause" ? "pause" as const : input.toolName === "task_repeat_resume" ? "resume" as const : "cancel" as const;
+      return store.getRecurring(id).then((current) => {
+        const series = current.ok ? current.value.recurringTask : undefined;
+        if (series?.arrangement?.kind !== "reminder") return undefined;
+        return formatReminderConfirmation({
+          action,
+          prompt: series.prompt,
+          recurrence: series.recurrence,
+          clock: speechClock(),
+          footnote: "只变更后续安排，不重放已经执行的结果，也不撤回已经提交的通知。",
+        });
+      });
+    }
+    if (input.toolName === "task_reschedule") {
+      const request = typeof input.input === "object" && input.input !== null
+        ? input.input as { id?: unknown; runAt?: unknown }
+        : {};
+      return store.get(typeof request.id === "string" ? request.id : "")
+        .then((current) => {
+          if (current.ok && current.value.arrangement?.kind === "reminder" && typeof request.runAt === "string") {
+            return formatReminderConfirmation({
+              action: "reschedule",
+              prompt: current.value.prompt,
+              runAt: request.runAt,
+              previousRunAt: current.value.runAt,
+              clock: speechClock(),
+              footnote: "保存时会再次核对状态。改期不代表通知已经送达。",
+            });
+          }
+          return formatTaskRescheduleConfirmation(request, current);
+        });
+    }
+    return undefined;
+  }
   function speakOnce(action: ReminderSpeechAction, result: TaskToolResult<TaskRecordV3>): TaskToolResult<TaskRecordV3> {
     if (!result.ok || result.value.arrangement?.kind !== "reminder") return result;
     return {
@@ -845,18 +954,23 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
         },
       });
 
-      ctx.registerTool({ metadata: options.afterArrangementSaved === undefined ? taskCreateMetadata : { ...taskCreateMetadata, timeoutMs: 30_000 }, tool: taskCreateTool });
-      ctx.registerTool({ metadata: taskListMetadata, tool: taskListTool });
-      ctx.registerTool({ metadata: taskGetMetadata, tool: taskGetTool });
-      ctx.registerTool({ metadata: taskCancelMetadata, tool: taskCancelTool });
-      ctx.registerTool({ metadata: taskRescheduleMetadata, tool: taskRescheduleTool });
-      ctx.registerTool({ metadata: taskAckMetadata, tool: taskAckTool });
-      ctx.registerTool({ metadata: options.afterArrangementSaved === undefined ? taskRepeatCreateMetadata : { ...taskRepeatCreateMetadata, timeoutMs: 30_000 }, tool: taskRepeatCreateTool });
-      ctx.registerTool({ metadata: taskRepeatListMetadata, tool: taskRepeatListTool });
-      ctx.registerTool({ metadata: taskRepeatGetMetadata, tool: taskRepeatGetTool });
-      ctx.registerTool({ metadata: taskRepeatPauseMetadata, tool: taskRepeatPauseTool });
-      ctx.registerTool({ metadata: taskRepeatResumeMetadata, tool: taskRepeatResumeTool });
-      ctx.registerTool({ metadata: taskRepeatCancelMetadata, tool: taskRepeatCancelTool });
+      const permission = { confirmation };
+      ctx.registerTool({ metadata: options.afterArrangementSaved === undefined ? taskCreateMetadata : { ...taskCreateMetadata, timeoutMs: 30_000 }, tool: taskCreateTool }, permission);
+      ctx.registerTool({ metadata: taskListMetadata, tool: taskListTool }, permission);
+      ctx.registerTool({ metadata: taskGetMetadata, tool: taskGetTool }, permission);
+      ctx.registerTool({ metadata: taskCancelMetadata, tool: taskCancelTool }, permission);
+      ctx.registerTool({ metadata: taskRescheduleMetadata, tool: taskRescheduleTool }, permission);
+      ctx.registerTool({ metadata: taskAckMetadata, tool: taskAckTool }, permission);
+      ctx.registerTool({ metadata: options.afterArrangementSaved === undefined ? taskRepeatCreateMetadata : { ...taskRepeatCreateMetadata, timeoutMs: 30_000 }, tool: taskRepeatCreateTool }, permission);
+      ctx.registerTool({ metadata: taskRepeatListMetadata, tool: taskRepeatListTool }, permission);
+      ctx.registerTool({ metadata: taskRepeatGetMetadata, tool: taskRepeatGetTool }, permission);
+      ctx.registerTool({ metadata: taskRepeatPauseMetadata, tool: taskRepeatPauseTool }, permission);
+      ctx.registerTool({ metadata: taskRepeatResumeMetadata, tool: taskRepeatResumeTool }, permission);
+      ctx.registerTool({ metadata: taskRepeatCancelMetadata, tool: taskRepeatCancelTool }, permission);
+      ctx.addInstructions(TASK_INSTRUCTIONS);
+      if (options.schedulableSkills !== undefined && options.schedulableSkills.length > 0) {
+        ctx.addInstructions(skillScheduleInstructions(options.schedulableSkills));
+      }
 
       ctx.registerCommand({
         name: "task",

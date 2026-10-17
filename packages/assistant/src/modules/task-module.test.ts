@@ -18,6 +18,7 @@ import {
   type TaskModuleOptions,
 } from "./task-module.js";
 import { reminderReadback } from "../reminder-speech.js";
+import { createModuleHost, type ToolPermissionFacts } from "../module-host.js";
 
 function record(overrides: Partial<TaskRecordV4> = {}): TaskRecordV4 {
   return {
@@ -140,6 +141,7 @@ function setup(overrides: Partial<TaskStore> = {}, options: TaskModuleOptions = 
   commands: Map<string, { name: string; execute(args: string): void | Promise<void> }>;
   notifications: string[];
   calls: Array<{ method: string; args: unknown[] }>;
+  store: TaskStore;
 } {
   const calls: Array<{ method: string; args: unknown[] }> = [];
   const callsFor = <T>(method: string, value: T) =>
@@ -207,7 +209,7 @@ function setup(overrides: Partial<TaskStore> = {}, options: TaskModuleOptions = 
     addInstructions: () => {}, isAssembled: () => false, registerCommand: (command) => commands.set(command.name, command),
     notify: (message) => notifications.push(message),
   });
-  return { tools, commands, notifications, calls };
+  return { tools, commands, notifications, calls, store };
 }
 
 function toolByName(tools: RegisteredTool[], name: string): RegisteredTool {
@@ -237,6 +239,40 @@ async function settle(): Promise<void> {
 describe("createTaskModule", () => {
   const reminder = { kind: "reminder", source: "none", notification: "always", declarationVersion: 1 } as const;
   const todoist = { kind: "todoist-brief", source: "todoist-planning", notification: "always", declarationVersion: 1 } as const;
+
+  it("declares the arrangement and reminder cards and adds its instructions", async () => {
+    const reminderTask = record({ arrangement: reminder });
+    let status: () => Promise<Awaited<ReturnType<NonNullable<TaskModuleOptions["automationStatus"]>>>> = async () =>
+      ({ available: true, registered: true, running: true, todoistPlanningAvailable: false });
+    const { store } = setup({ get: async (id: string) => ({ ok: true as const, value: id === "reminder" ? reminderTask : record() }) } as Partial<TaskStore>);
+    const host = createModuleHost([createTaskModule(store, {
+      automationStatus: () => status(), arrangementDestination: () => "飞书群",
+      schedulableSkills: [{ id: "brief", hash: "h1", description: "d".repeat(100) }],
+    })], { notify() {} });
+    assert.deepEqual([...host.toolPermissions.keys()], ["task_create", "task_list", "task_get", "task_cancel", "task_reschedule", "task_ack",
+      "task_repeat_create", "task_repeat_list", "task_repeat_get", "task_repeat_pause", "task_repeat_resume", "task_repeat_cancel"]);
+    for (const declared of host.toolPermissions.values()) assert.equal(declared.defaults, undefined);
+    const card = (toolName: string, input: unknown) => host.toolPermissions.get(toolName)!.confirmation!(
+      { toolName, input } as Parameters<NonNullable<ToolPermissionFacts["confirmation"]>>[0]);
+    assert.equal(card("task_create", { prompt: "x", runAt: "2026-09-12T01:00:00.000Z" }), undefined, "no arrangement keeps the generic card");
+    assert.equal(card("task_list", {}), undefined);
+    const skill = { kind: "skill", source: "none", notification: "always", declarationVersion: 1, skillId: "brief", skillHash: "h1" };
+    const saved = String(await card("task_create", { prompt: "x", runAt: "2026-09-12T01:00:00.000Z", arrangement: skill }));
+    assert.match(saved, /^\n自动安排确认\n/);
+    assert.match(saved, /结果投递目的地：飞书群。/);
+    assert.match(saved, /后台：已注册且正在运行。/);
+    status = async () => { throw new Error("down"); };
+    assert.match(String(await card("task_create", { prompt: "x", runAt: "2026-09-12T01:00:00.000Z", arrangement: skill })), /后台：尚未注册。Error: down\n/);
+    assert.equal(await card("task_cancel", { id: "plain" }), undefined, "only reminders get the reminder card");
+    assert.match(String(await card("task_cancel", { id: "reminder" })), /取消后不会再为这条提醒提交通知/);
+    const instructions = host.instructions("task");
+    assert.match(instructions, /^ For a user-requested reminder, call task_create once/);
+    assert.ok(instructions.endsWith(`Available schedule Skills: ${JSON.stringify([{ id: "brief", hash: "h1", description: "d".repeat(80) }])}`));
+    host.dispose();
+    const plain = createModuleHost([createTaskModule(store)], { notify() {} });
+    assert.doesNotMatch(plain.instructions("task"), /registered Skill schedule/);
+    plain.dispose();
+  });
 
   it("requires host-pinned Skill validation for model-created one-time and recurring schedules", async () => {
     const arrangement = { kind: "skill", source: "none", notification: "always", declarationVersion: 1,

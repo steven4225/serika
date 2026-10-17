@@ -43,6 +43,7 @@ import { createExecutionRecordStore as recordsForFacts } from "./execution-recor
  * Permission facts as the migrated built-in modules declare them, for tests
  * that drive the permission rules directly instead of assembling an app.
  * `shell: "docker"` declares the Docker-sandboxed executor instead of the host.
+ * The task module declares only confirmation cards that read its store, so it is left out.
  */
 export function builtinToolPermissions(options: { shell?: "host" | "docker" } = {}): ReadonlyMap<string, ToolPermissionFacts> {
   const shell = options.shell === "docker"

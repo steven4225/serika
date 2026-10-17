@@ -63,11 +63,7 @@ import { createReadFileModule } from "./modules/read-file-module.js";
 import { createShellModule } from "./modules/shell-module.js";
 import type { ShellProgress } from "./modules/shell-module.js";
 import { assertDockerShellSandboxAvailable } from "./modules/docker-shell-runner.js";
-import {
-  createTaskModule,
-  formatTaskRescheduleConfirmation,
-} from "./modules/task-module.js";
-import { formatReminderConfirmation, readRecurrence } from "./reminder-speech.js";
+import { createTaskModule } from "./modules/task-module.js";
 import { createTodoistModule } from "./modules/todoist-module.js";
 import { createMemoryQueryRewriter, type MemoryReferenceSnapshot } from "./memory-query-rewrite.js";
 import { createMemoryRelevanceSelector } from "./memory-relevance.js";
@@ -450,6 +446,12 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
                 return { ready: status.available && status.registered && status.running && status.ready === true, ...(status.message ? { message: status.message } : {}) };
               } } : {}),
               todoistPlanningAvailable: todoistEnabled,
+              ...(options.taskAutomation ? {
+                automationStatus: () => options.taskAutomation!.status(workspaceRoot!, moduleConfig?.configPath ?? undefined),
+              } : {}),
+              ...(options.taskArrangementDestination ? { arrangementDestination: options.taskArrangementDestination } : {}),
+              schedulableSkills: externalSkills.flatMap(skill => skill.kind === "text"
+                ? [{ id: skill.id, hash: skill.hash, description: skill.description }] : []),
               checkSkillArrangement: async (arrangement, prompt) => {
                 const skill = registeredAutomation?.getSkill(arrangement.skillId);
                 if (!skill || skill.kind !== "text") return { ok: false, error: { code: "SKILL_NOT_SCHEDULABLE", message: "Only a registered text Skill may be scheduled" } };
@@ -476,94 +478,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         )
       : undefined;
 
-  const reminderClock = () => ({
-    now: new Date(),
-    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-  });
   const toolConfirmationPrompt: ToolConfirmationPrompt = (input) => {
-    if (taskStore !== undefined && (input.toolName === "task_create" || input.toolName === "task_repeat_create")) {
-      const request = typeof input.input === "object" && input.input !== null ? input.input as { arrangement?: { kind?: unknown; source?: unknown; skillId?: unknown; skillHash?: unknown }; runAt?: unknown; recurrence?: unknown; prompt?: unknown } : {};
-      if (request.arrangement !== undefined) {
-        const render = (status?: Awaited<ReturnType<TaskAutomationHost["status"]>>) => {
-          const destination = options.taskArrangementDestination?.();
-          const delivery = destination
-            ? `结果投递目的地：${destination.slice(0, 256)}。任务保存与投递登记并非原子；失败时不要重复创建，回桌面核对。`
-            : "";
-          if (request.arrangement?.kind === "reminder") {
-            const recurrence = readRecurrence(request.recurrence);
-            const service = status === undefined
-              ? "本入口只保存提醒；需要自行运行 worker，到期才会提交通知。通知提交不等于已经送达。"
-              : `${status.registered ? status.running ? "后台已注册且正在运行" : "后台已注册，当前未运行" : "后台尚未注册"}。确认后保存这条提醒，并按需启用该工作区后台服务；启用失败时提醒仍保存。到期通知只提交一次，这次确认不代表已经送达。${status.message ? ` ${status.message}` : ""}`;
-            return formatReminderConfirmation({
-              action: "save",
-              prompt: typeof request.prompt === "string" ? request.prompt : "",
-              ...(typeof request.runAt === "string" ? { runAt: request.runAt } : {}),
-              ...(recurrence === undefined ? {} : { recurrence }),
-              clock: reminderClock(),
-              footnote: delivery.length > 0 ? `${service} ${delivery}` : service,
-            });
-          }
-          return (
-          `\n自动安排确认\n内容：${JSON.stringify(request.prompt)}\n时间：${JSON.stringify(request.runAt ?? request.recurrence)}\n` +
-          `用途：${JSON.stringify(request.arrangement?.kind)}；来源：${JSON.stringify(request.arrangement?.source)}\n` +
-          (request.arrangement?.kind === "skill" ? `Skill：${JSON.stringify(request.arrangement.skillId)}；固定版本：${JSON.stringify(request.arrangement.skillHash)}\n仅处理本次输入；不读取对话、记忆或工作区文件。版本变化时拒绝执行，不自动换新版本。输入将发送给后台配置的模型服务，可能产生费用。\n` : "") +
-          "周期采用固定 UTC offset，不自动跟随夏令时；休眠/离线不保证准点，恢复后仅处理最近一期。\n" +
-          "提醒不用模型；Todoist 只读查询；本安排不授权 Shell、文件、电脑操作或工作区记忆读取。\n" +
-          (destination ? `结果投递目的地：${destination.slice(0, 256)}。任务保存与投递登记并非原子；失败时不要重复创建，回桌面核对。\n` : "") +
-          (request.arrangement?.kind === "todoist-brief" ? "Todoist 查询结果会发送给后台环境文件配置的模型服务，该服务可能不同于当前桌面模型。\n" : "") +
-          (status ? `后台：${status.registered ? status.running ? "已注册且正在运行" : "已注册，当前未运行" : "尚未注册"}。${status.message ?? ""}\n确认将保存这条安排，并按需启用该工作区后台服务；启用失败时安排仍保存，结果会明确说明。\n` : "本入口没有后台服务接线；只保存安排，需要自行运行 worker 才会执行。\n") +
-          "通知提交不等于你已收到；结果保存在任务收件箱。允许本次安排？ [y/n] ");
-        };
-        return options.taskAutomation ? options.taskAutomation.status(workspaceRoot!, moduleConfig?.configPath ?? undefined).then(render, error => render({ available: false, registered: false, running: false, todoistPlanningAvailable: false, message: String(error) })) : render();
-      }
-    }
-    if (taskStore !== undefined && (input.toolName === "task_cancel" || input.toolName === "task_repeat_pause" || input.toolName === "task_repeat_resume" || input.toolName === "task_repeat_cancel")) {
-      const request = typeof input.input === "object" && input.input !== null ? input.input as { id?: unknown } : {};
-      const id = typeof request.id === "string" ? request.id : "";
-      if (input.toolName === "task_cancel") {
-        return taskStore.get(id).then((current) => {
-          if (!current.ok || current.value.arrangement?.kind !== "reminder") return undefined;
-          return formatReminderConfirmation({
-            action: "cancel",
-            prompt: current.value.prompt,
-            runAt: current.value.runAt,
-            clock: reminderClock(),
-            footnote: "取消后不会再为这条提醒提交通知。已经提交的通知不会撤回。",
-          });
-        });
-      }
-      const action = input.toolName === "task_repeat_pause" ? "pause" as const : input.toolName === "task_repeat_resume" ? "resume" as const : "cancel" as const;
-      return taskStore.getRecurring(id).then((current) => {
-        const series = current.ok ? current.value.recurringTask : undefined;
-        if (series?.arrangement?.kind !== "reminder") return undefined;
-        return formatReminderConfirmation({
-          action,
-          prompt: series.prompt,
-          recurrence: series.recurrence,
-          clock: reminderClock(),
-          footnote: "只变更后续安排，不重放已经执行的结果，也不撤回已经提交的通知。",
-        });
-      });
-    }
-    if (taskStore !== undefined && input.toolName === "task_reschedule") {
-      const request = typeof input.input === "object" && input.input !== null
-        ? input.input as { id?: unknown; runAt?: unknown }
-        : {};
-      return taskStore.get(typeof request.id === "string" ? request.id : "")
-        .then((current) => {
-          if (current.ok && current.value.arrangement?.kind === "reminder" && typeof request.runAt === "string") {
-            return formatReminderConfirmation({
-              action: "reschedule",
-              prompt: current.value.prompt,
-              runAt: request.runAt,
-              previousRunAt: current.value.runAt,
-              clock: reminderClock(),
-              footnote: "保存时会再次核对状态。改期不代表通知已经送达。",
-            });
-          }
-          return formatTaskRescheduleConfirmation(request, current);
-        });
-    }
     if (input.toolName === "todoist_list_tasks") {
       return (
         `\nTool: ${input.toolName}\n` +
@@ -739,10 +654,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     (todoistEnabled && moduleConfig?.enabled["read-file"]
       ? ` ${todoistPlanSaveInstructions}`
       : "") +
-    (taskEnabled ? " For a user-requested reminder, call task_create once or task_repeat_create for daily or weekly, with arrangement {kind:\"reminder\",source:\"none\",notification:\"always\",declarationVersion:1}. Put the reminder subject in prompt. If the clock is incomplete, choose the default from the task instructions and call the tool so the confirmation card shows time, repeat, and text; do not ask「你想几点」 first. After success, the user-visible reply is exactly the tool result readback, such as「已定：明天 9:00 提醒开会」, with no task id or JSON. A daily or weekly Todoist briefing still uses todoist-brief and asks when the source is missing; never invent a Todoist source. The tool preview is the one arrangement confirmation including background activation where wired. Do not create arbitrary scheduled shell/file/computer jobs. RSS uses its existing bound subscription setup, never an arbitrary task prompt. A saved arrangement is not proof the worker ran or that a notification was delivered; report service.enabled false honestly when present. " : "") +
-    (taskEnabled && externalSkills.some(skill => skill.kind === "text")
-      ? ` For an explicitly requested registered Skill schedule, the arrangement is {kind:"skill",source:"none",notification:"always",declarationVersion:1,skillId,skillHash}. Use the exact registered hash and the user-provided input as prompt (at most 4 KiB). Never schedule memory consolidation, infer a new Skill, grant tools or include private conversation/Memory as input without an explicit user instruction. These text Skills receive only their declared input, not current/news/workspace data. Available schedule Skills: ${JSON.stringify(externalSkills.filter(skill => skill.kind === "text").map(skill => ({ id: skill.id, hash: skill.hash, description: skill.description.slice(0, 80) })))}`
-      : "");
+    (moduleHost?.instructions("task", run) ?? "");
   const baseInstructions = instructionsFor({ autonomous: false });
   const autonomousBaseInstructions = instructionsFor({ autonomous: true });
 
