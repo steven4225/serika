@@ -103,10 +103,8 @@ import {
   type ShellSandboxMode,
   type ToolConfirmation,
   type ToolConfirmationPrompt,
-  type TuiCommand,
-  type TuiCompaction,
-  type TuiResume,
-} from "./tui.js";
+} from "./tool-confirmation.js";
+import type { TuiCommand, TuiCompaction, TuiResume } from "./tui.js";
 
 /** The interactive agent that receives the full module tool set. */
 export const PRIMARY_AGENT_ID = "calculator";

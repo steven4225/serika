@@ -12,7 +12,7 @@ import { createDemoModel } from "./demo-model.js";
 import { EXECUTION_RECORD_FILE } from "./execution-record-store.js";
 import { createExecutionRecordStore } from "./execution-record-store.js";
 import { createWorkTaskStore } from "./work-task-store.js";
-import { createToolConfirmation, type PendingToolApproval } from "./tui.js";
+import { createToolConfirmation, type PendingToolApproval } from "./tool-confirmation.js";
 import { createMemoryStore, type WorkspaceMemoryStore } from "./memory-store.js";
 import type { CandidateResolution, MemoryResult } from "./memory-candidates.js";
 import { createMemoryConsolidation } from "./memory-consolidation.js";

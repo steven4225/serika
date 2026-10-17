@@ -17,7 +17,7 @@ import { resolveWorkspace, type TuiArgs } from "./cli-options.js";
 import {
   RUN_AUTHORIZED_FILE_TOOLS,
   type RunAuthorizedFileTool,
-} from "./tui.js";
+} from "./tool-confirmation.js";
 import {
   rejectSymlinkComponents,
   validateWorkspacePath,

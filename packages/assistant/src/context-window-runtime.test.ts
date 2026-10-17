@@ -28,7 +28,7 @@ import {
 import { createModuleHost } from "./module-host.js";
 import { createMemoryModule } from "./modules/memory-module.js";
 import type { MemoryEntry, WorkspaceMemoryStore } from "./memory-store.js";
-import { createToolConfirmation } from "./tui.js";
+import { createToolConfirmation } from "./tool-confirmation.js";
 import { lookupTranscript } from "./work-summary.js";
 
 const definition = {

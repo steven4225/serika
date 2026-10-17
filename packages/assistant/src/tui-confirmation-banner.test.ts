@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Writable } from "node:stream";
 import type { BeforeToolExecuteInput, ToolExecutionDecision } from "@serika/core";
-import { createToolConfirmation } from "./tui.js";
+import { createToolConfirmation } from "./tool-confirmation.js";
 
 const BANNER = "[confirmation] Waiting for y/n; the tool has not run yet.";
 

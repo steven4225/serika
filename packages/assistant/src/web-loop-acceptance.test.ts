@@ -16,7 +16,7 @@ import {
 import { Writable } from "node:stream";
 import { createModuleHost } from "./module-host.js";
 import { createWebModule } from "./modules/web-module.js";
-import { createToolConfirmation } from "./tui.js";
+import { createToolConfirmation } from "./tool-confirmation.js";
 
 const usage = {
   inputTokens: { total: 3, noCache: 3, cacheRead: undefined, cacheWrite: undefined },

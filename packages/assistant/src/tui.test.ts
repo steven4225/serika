@@ -38,11 +38,8 @@ import { createCheckpointModule } from "./modules/checkpoint-module.js";
 import { createReadFileModule } from "./modules/read-file-module.js";
 import type { ReadFileResult } from "./read-file.js";
 import { createWriteFileTool } from "./write-file.js";
-import {
-  createToolConfirmation,
-  runTui,
-  type RunAuthorization,
-} from "./tui.js";
+import { createToolConfirmation, type RunAuthorization } from "./tool-confirmation.js";
+import { runTui } from "./tui.js";
 
 type TestRuntime = {
   requests: RunRequest[];

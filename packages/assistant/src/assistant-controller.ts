@@ -29,7 +29,7 @@ import {
 import { recoverRunningWorkTasks } from "./work-task-recovery.js";
 import { workTaskContinuation, type WorkTaskContinuation } from "./work-task-continuation.js";
 import type { ShellProgress } from "./modules/shell-module.js";
-import type { PendingToolApproval } from "./tui.js";
+import type { PendingToolApproval } from "./tool-confirmation.js";
 import type {
   CandidateListInput, CandidatePage, CandidatePreview, CandidateResolution,
   CandidateResolveInput, MemoryResult,

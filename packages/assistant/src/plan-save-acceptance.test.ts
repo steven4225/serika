@@ -21,7 +21,7 @@ import { createModuleHost } from "./module-host.js";
 import { createReadFileModule } from "./modules/read-file-module.js";
 import { createTodoistModule } from "./modules/todoist-module.js";
 import { todoistPlanSaveInstructions } from "./todoist-plan-save-instructions.js";
-import { createToolConfirmation } from "./tui.js";
+import { createToolConfirmation } from "./tool-confirmation.js";
 
 const definition = {
   id: "daily-plan",
