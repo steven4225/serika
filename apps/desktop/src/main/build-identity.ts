@@ -41,7 +41,7 @@ export function fingerprintBackendDist(roots: readonly string[]): string | null 
 }
 
 function backendPaths(): { roots: string[]; directory: string } {
-  const cliDist = dirname(fileURLToPath(import.meta.resolve("@serika/example-cli")));
+  const cliDist = dirname(fileURLToPath(import.meta.resolve("@serika/assistant")));
   return {
     directory: dirname(cliDist),
     roots: [cliDist, dirname(fileURLToPath(import.meta.resolve("@serika/core"))),

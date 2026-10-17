@@ -34,7 +34,7 @@
 ```sh
 pnpm build
 RUNLOOM_MODEL=deepseek node --env-file=.env \
-  examples/cli/dist/task-worker-entry.js \
+  packages/assistant/dist/task-worker-entry.js \
   --workspace /绝对/物理路径/workspace \
   --workspace-context --safe-retry --notify
 ```
@@ -44,9 +44,9 @@ RUNLOOM_MODEL=deepseek node --env-file=.env \
 ## 桌面接入 API（不修改桌面仓）
 
 ```ts
-import { createTaskWorkerService } from "@serika/example-cli/dist/task-worker-service.js";
-import { readTaskWorkerHealth } from "@serika/example-cli/dist/task-worker-health.js";
-import { createTaskStore } from "@serika/example-cli/dist/task-store.js";
+import { createTaskWorkerService } from "@serika/assistant/dist/task-worker-service.js";
+import { readTaskWorkerHealth } from "@serika/assistant/dist/task-worker-health.js";
+import { createTaskStore } from "@serika/assistant/dist/task-store.js";
 
 const service = createTaskWorkerService({
   workspace, nodePath, workerEntryPath, workingDirectory,

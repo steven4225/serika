@@ -4,12 +4,12 @@ import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { MockLanguageModelV3 } from 'ai/test';
-import { LocalMemorySemanticIndex, MEMORY_SEMANTIC_WARMUP_BATCH } from '@serika/example-cli/internal/memory-semantic-index.js';
-import { createMemoryEmbedder, normalizeEmbeddingConfig } from '@serika/example-cli/internal/memory-embedding-client.js';
-import { createMemoryRelevanceSelector } from '@serika/example-cli/internal/memory-relevance.js';
-import { memorySemanticTextHash, retrieveMemories, selectEligibleMemoryEntries } from '@serika/example-cli/internal/memory-retrieval.js';
-import { createMemoryStore } from '@serika/example-cli/internal/memory-store.js';
-import { configureCliModel } from '@serika/example-cli/internal/model-config.js';
+import { LocalMemorySemanticIndex, MEMORY_SEMANTIC_WARMUP_BATCH } from '@serika/assistant/internal/memory-semantic-index.js';
+import { createMemoryEmbedder, normalizeEmbeddingConfig } from '@serika/assistant/internal/memory-embedding-client.js';
+import { createMemoryRelevanceSelector } from '@serika/assistant/internal/memory-relevance.js';
+import { memorySemanticTextHash, retrieveMemories, selectEligibleMemoryEntries } from '@serika/assistant/internal/memory-retrieval.js';
+import { createMemoryStore } from '@serika/assistant/internal/memory-store.js';
+import { configureCliModel } from '@serika/assistant/internal/model-config.js';
 import { makeScaleFixture, scaleNow } from './memory-recall-scale.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
@@ -155,7 +155,7 @@ export async function runCompleteness({ live = false, reuseIndex, env = process.
     COMMAND_CODE_BASE_URL: 'https://api.commandcode.ai/provider/v1',
   }, { fetch: observedFetch('relevance') }).model) : offline.selector;
   const runtimeHashes = Object.fromEntries(await Promise.all(['memory-store', 'memory-semantic-index', 'memory-relevance', 'memory-retrieval', 'memory-embedding-client', 'model-config'].map(async name =>
-    [name, hash(await readFile(new URL(`../cli/dist/${name}.js`, import.meta.url)))])));
+    [name, hash(await readFile(new URL(`../../packages/assistant/dist/${name}.js`, import.meta.url)))])));
   const source = await readFile(fileURLToPath(import.meta.url));
   let gitCommit = null;
   try { gitCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dirname(fileURLToPath(import.meta.url)), encoding: 'utf8' }).trim(); } catch { /* non-git export */ }

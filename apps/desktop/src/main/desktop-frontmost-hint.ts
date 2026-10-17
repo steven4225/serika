@@ -1,4 +1,4 @@
-import { writeDesktopFrontmost } from "@serika/example-cli";
+import { writeDesktopFrontmost } from "@serika/assistant";
 
 export interface FrontmostWindow {
   isDestroyed(): boolean;

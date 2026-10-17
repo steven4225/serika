@@ -3,12 +3,12 @@ import { execFileSync } from 'node:child_process';
 import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createMemoryStore } from '@serika/example-cli/internal/memory-store.js';
-import { createMemoryEmbedder, normalizeEmbeddingConfig } from '@serika/example-cli/internal/memory-embedding-client.js';
-import { LocalMemorySemanticIndex, MEMORY_SEMANTIC_WARMUP_BATCH } from '@serika/example-cli/internal/memory-semantic-index.js';
-import { retrieveMemories } from '@serika/example-cli/internal/memory-retrieval.js';
-import { buildMemoryContextView } from '@serika/example-cli/internal/memory-context-view.js';
-import { configureCliModel } from '@serika/example-cli/internal/model-config.js';
+import { createMemoryStore } from '@serika/assistant/internal/memory-store.js';
+import { createMemoryEmbedder, normalizeEmbeddingConfig } from '@serika/assistant/internal/memory-embedding-client.js';
+import { LocalMemorySemanticIndex, MEMORY_SEMANTIC_WARMUP_BATCH } from '@serika/assistant/internal/memory-semantic-index.js';
+import { retrieveMemories } from '@serika/assistant/internal/memory-retrieval.js';
+import { buildMemoryContextView } from '@serika/assistant/internal/memory-context-view.js';
+import { configureCliModel } from '@serika/assistant/internal/model-config.js';
 import { scoreRecall, summarizeRecall } from './memory-recall.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
@@ -111,7 +111,7 @@ export async function runScaleRecall({ live = false, relevance = false, env = pr
   const ownSource = await readFile(fileURLToPath(import.meta.url)), oracleSource = await readFile(new URL('./memory-recall.mjs', import.meta.url));
   const runtimeFiles = ['memory-store', 'memory-retrieval', 'memory-semantic-index', 'memory-embedding-client', 'memory-relevance',
     'memory-context-view', 'memory-fact-identity', 'memory-observation-policy', 'memory-temporal', 'memory-candidates', 'model-config'];
-  const runtimeHashes = Object.fromEntries(await Promise.all(runtimeFiles.map(async name => [name, hash(await readFile(new URL(`../cli/dist/${name}.js`, import.meta.url)))])));
+  const runtimeHashes = Object.fromEntries(await Promise.all(runtimeFiles.map(async name => [name, hash(await readFile(new URL(`../../packages/assistant/dist/${name}.js`, import.meta.url)))])));
   let gitCommit = null;
   try { gitCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dirname(fileURLToPath(import.meta.url)), encoding: 'utf8' }).trim(); } catch { /* non-git export */ }
   const manifest = { suite: 'memory-recall-scale-v1', source: '我的 eval', datasetRole: 'developer-authored synthetic scale set; not blind held-out data',
@@ -139,7 +139,7 @@ export async function runScaleRecall({ live = false, relevance = false, env = pr
   let environmentFailure = null;
   let selectRelevance;
   if (relevance) {
-    const { createMemoryRelevanceSelector } = await import('@serika/example-cli/internal/memory-relevance.js');
+    const { createMemoryRelevanceSelector } = await import('@serika/assistant/internal/memory-relevance.js');
     const configured = configureCliModel(() => { throw Error('No mock model'); }, { ...env, RUNLOOM_MODEL: 'command-code',
       COMMAND_CODE_MODEL_ID: relevanceModel.modelId, COMMAND_CODE_BASE_URL: relevanceModel.baseURL }, {
       fetch: async (url, options) => {

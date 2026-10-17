@@ -24,8 +24,8 @@
 
 ```sh
 pnpm build:runtime
-node --test examples/cli/dist/transcript-maintenance.test.js examples/cli/dist/transcript-storage.test.js
-node --test --test-name-pattern='receipt.*sync failure' examples/cli/dist/app.test.js
+node --test packages/assistant/dist/transcript-maintenance.test.js packages/assistant/dist/transcript-storage.test.js
+node --test --test-name-pattern='receipt.*sync failure' packages/assistant/dist/app.test.js
 ```
 
 第一条验收建立约 36.9 MB 的旧重复快照，然后使用真实文件存储与 compact 整理至约 216 KB，重开原 Thread，在真实 Runtime／AgentLoop 中继续一次文件读取。输出明确记录 `model: scripted` 和 `electron: not_run`，没有付费模型调用。

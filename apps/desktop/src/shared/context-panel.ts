@@ -1,6 +1,6 @@
-import type { ContextDiagnostics, ContextResult } from "@serika/example-cli";
-import { contextBudgetStatus, contextBudgetThresholds } from "@serika/example-cli/browser";
-import type { ContextBudgetConfig } from "@serika/example-cli";
+import type { ContextDiagnostics, ContextResult } from "@serika/assistant";
+import { contextBudgetStatus, contextBudgetThresholds } from "@serika/assistant/browser";
+import type { ContextBudgetConfig } from "@serika/assistant";
 
 export function contextModeLabel(budget: ContextBudgetConfig): string {
   return budget.mode === "daily" ? "日常" : budget.mode === "long-task" ? "长任务" : "旧配置 / 自定义（未切换）";

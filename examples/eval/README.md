@@ -46,7 +46,7 @@ unset DASHSCOPE_API_KEY COMMAND_CODE_API_KEY
 
 新报告目录带 `relevance-`，manifest 标记 `pipeline: hybrid+relevance`、固定主模型配置与相关运行组件哈希。每题保留 `hybridBeforeRelevance`，最后的 `hybrid` 仍由原 Oracle 独立评分；`relevance` 证据列出 state、选中 ID、检索词、合格候选数量、耗时、实际 SDK 模型调用／usage 和安全 HTTP 状态，不保存请求正文、Key 或上游错误正文。没有合格候选可为 `not_applicable`，无需主模型调用；服务故障／超时／非法判定的 `degraded` 则是环境失败，不能把普通 hybrid 降级记成 relevance 通过，立即停批且不重试。两份报告的分母仍分别为 12 和 4，质量失败保持红项并继续另一套，不能将不同题集直接合算百分点或当成完整聊天验收。
 
-完整 Controller 自动保存→明确更新→普通冲突审核→参考注入的回归在 `examples/cli/src/app-memory-chain-acceptance.test.ts`，桌面主进程/renderer 接线在 `apps/desktop/src/renderer/src/desktop-memory-semantic.test.ts`。它们使用真实存储与 Runtime，但模型提取、embedding/HTTP 响应是 fixture；模拟 TG Thread 只验共用运行时的范围隔离，不证明真实 Telegram 收发或原生 Electron 点击，也不计入真实模型成功率。
+完整 Controller 自动保存→明确更新→普通冲突审核→参考注入的回归在 `packages/assistant/src/app-memory-chain-acceptance.test.ts`，桌面主进程/renderer 接线在 `apps/desktop/src/renderer/src/desktop-memory-semantic.test.ts`。它们使用真实存储与 Runtime，但模型提取、embedding/HTTP 响应是 fixture；模拟 TG Thread 只验共用运行时的范围隔离，不证明真实 Telegram 收发或原生 Electron 点击，也不计入真实模型成功率。
 
 ## 连续压缩保真回归（独立新套件）
 

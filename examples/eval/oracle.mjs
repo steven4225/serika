@@ -1,5 +1,5 @@
-import { estimatedModelCost } from '@serika/example-cli/internal/model-usage.js';
-import { availableInputTokens } from '@serika/example-cli/internal/context-budget.js';
+import { estimatedModelCost } from '@serika/assistant/internal/model-usage.js';
+import { availableInputTokens } from '@serika/assistant/internal/context-budget.js';
 import { isCompactionFidelity } from './compaction-fidelity.mjs';
 
 /** Fixture authority is exact and never delegated to model text or a previous Run. */

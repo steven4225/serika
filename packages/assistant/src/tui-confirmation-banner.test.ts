@@ -35,7 +35,7 @@ test("real y/n wait: banner with 'has not run yet' is written before the preview
   const confirmation = createToolConfirmation(output);
 
   const decision = confirmation.beforeToolExecute(
-    toolInput("read_file", { path: "examples/cli/src/tui.ts" }),
+    toolInput("read_file", { path: "packages/assistant/src/tui.ts" }),
   ) as Promise<ToolExecutionDecision>;
   let settled = false;
   void decision.then(() => {

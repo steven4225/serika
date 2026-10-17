@@ -1,9 +1,9 @@
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { createDemoModel } from "@serika/example-cli";
-import { configureCliModel, inspectCliModelConfig } from "@serika/example-cli";
-import { resolveTuiModuleConfig } from "@serika/example-cli";
+import { createDemoModel } from "@serika/assistant";
+import { configureCliModel, inspectCliModelConfig } from "@serika/assistant";
+import { resolveTuiModuleConfig } from "@serika/assistant";
 import { DesktopRuntime } from "./desktop-runtime.js";
 import { createTelegramApi } from "./telegram-api.js";
 import { TelegramStore } from "./telegram-store.js";
@@ -27,7 +27,7 @@ async function main() {
   if (!config.workspaceRoot || !config.configPath) throw new Error("常驻助手需要固定工作区与配置");
   const { modelAlias, model } = configureCliModel(createDemoModel, process.env);
   const worker = (workspace: string, configPath?: string) => createDesktopRssWorker({ workspace, ...(configPath ? { configPath } : {}), home: homedir(), env: process.env,
-    workerEntry: fileURLToPath(import.meta.resolve("@serika/example-cli/task-worker-entry")), todoist: !!process.env.TODOIST_API_TOKEN?.trim() });
+    workerEntry: fileURLToPath(import.meta.resolve("@serika/assistant/task-worker-entry")), todoist: !!process.env.TODOIST_API_TOKEN?.trim() });
   const server = await startResidentServer({ paths: { directory: dirname(identityPath), token: join(dirname(identityPath), "auth-token"), socket },
     scope: { userData: startup.userData, configPath: config.configPath, workspaceRoot: config.workspaceRoot },
     createRuntime: async send => {

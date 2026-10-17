@@ -5,11 +5,11 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PassThrough } from 'node:stream';
 import { setTimeout as delay } from 'node:timers/promises';
-import { createRuntimeApp } from '@serika/example-cli/internal/app.js';
-import { createAssistantController } from '@serika/example-cli/internal/assistant-controller.js';
-import { configureCliModel } from '@serika/example-cli/internal/model-config.js';
-import { createMemoryStore } from '@serika/example-cli/internal/memory-store.js';
-import { retrieveMemories } from '@serika/example-cli/internal/memory-retrieval.js';
+import { createRuntimeApp } from '@serika/assistant/internal/app.js';
+import { createAssistantController } from '@serika/assistant/internal/assistant-controller.js';
+import { configureCliModel } from '@serika/assistant/internal/model-config.js';
+import { createMemoryStore } from '@serika/assistant/internal/memory-store.js';
+import { retrieveMemories } from '@serika/assistant/internal/memory-retrieval.js';
 import { createTransitionFetch, transitionModel, transitionSafeError } from './memory-transition-acceptance.mjs';
 
 export const everydayOracleVersion = 'memory-everyday-oracle-v1';
@@ -204,7 +204,7 @@ export async function runMemoryEveryday({ live = false, env = process.env, outpu
   let gitCommit = null;
   try { gitCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dirname(fileURLToPath(import.meta.url)), encoding: 'utf8' }).trim(); } catch { /* exported source */ }
   const runtimeHashes = Object.fromEntries(await Promise.all(['app', 'assistant-controller', 'memory-consolidation', 'memory-observation-policy', 'memory-fact-identity', 'memory-store', 'memory-retrieval', 'model-config'].map(async name =>
-    [name, hash(await readFile(new URL(`../cli/dist/${name}.js`, import.meta.url)))])));
+    [name, hash(await readFile(new URL(`../../packages/assistant/dist/${name}.js`, import.meta.url)))])));
   await writeFile(join(root, 'manifest.json'), JSON.stringify({ suite: 'memory-everyday-v1', source: '我的 eval',
     kind: 'real-model-controller-consolidation-isolated', datasetRole: 'developer-authored canonical vocabulary; not blind held-out',
     oracleVersion: everydayOracleVersion, model: transitionModel, requestedModelId: transitionModel.modelId,

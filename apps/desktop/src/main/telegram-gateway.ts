@@ -5,11 +5,11 @@ import { TelegramApiError, type TelegramApi, type TelegramUpdate, type TelegramK
 import { TelegramStore, telegramCapacity, type TelegramInbound, type TelegramDelivery, type TelegramTaskRoute } from "./telegram-store.js";
 import type { PendingApproval } from "../shared/ui-contract.js";
 import type { TelegramStatus } from "../shared/telegram.js";
-import type { SavedTaskArrangement } from "@serika/example-cli";
-import type { TaskListInput } from "@serika/example-cli";
-import { formatLocalTaskTime } from "@serika/example-cli";
+import type { SavedTaskArrangement } from "@serika/assistant";
+import type { TaskListInput } from "@serika/assistant";
+import { formatLocalTaskTime } from "@serika/assistant";
 import { telegramParts, telegramApprovalText, telegramBoundedText } from "./telegram-format.js";
-import { formatCapabilityStatus } from "@serika/example-cli";
+import { formatCapabilityStatus } from "@serika/assistant";
 
 type Host = Pick<DesktopRuntime, "channelTelegramAutonomyEnabled" | "channelSubscribe" | "channelSnapshot" | "channelCreateThread" | "channelRun" | "channelReceipt" | "channelScheduledTask" | "channelRecurringTask" | "channelScheduledTasks" | "current">;
 function code() { return randomBytes(5).toString("hex").toUpperCase(); }
@@ -80,11 +80,11 @@ export class TelegramGateway {
       if (receipt) receipt.text = text; else receipts.push({ toolCallId, text });
     });
   }
-  autonomyBinding(): import("@serika/example-cli").TelegramAutonomyGrant | null {
+  autonomyBinding(): import("@serika/assistant").TelegramAutonomyGrant | null {
     const data = this.store.snapshot();
     return data.owner && data.botId ? { workspaceRoot: data.workspace, botId: data.botId, userId: data.owner.userId, chatId: data.owner.chatId, threadId: data.owner.threadId } : null;
   }
-  matchesAutonomyGrant(grant: import("@serika/example-cli").TelegramAutonomyGrant) {
+  matchesAutonomyGrant(grant: import("@serika/assistant").TelegramAutonomyGrant) {
     const binding = this.autonomyBinding();
     return !!binding && Object.keys(binding).every(key => binding[key as keyof typeof binding] === grant[key as keyof typeof grant]);
   }

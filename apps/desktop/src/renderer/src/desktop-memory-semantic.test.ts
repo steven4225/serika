@@ -7,7 +7,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
-import { createMemoryStore } from "@serika/example-cli/testing";
+import { createMemoryStore } from "@serika/assistant/testing";
 import { DesktopRuntime } from "../../main/desktop-runtime.js";
 import { loadDesktopEnvironment } from "../../main/desktop-env.js";
 import { MemoryReferenceDetails } from "./memory-references.js";

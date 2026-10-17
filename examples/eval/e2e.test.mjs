@@ -3,18 +3,18 @@ import { test } from 'node:test';
 import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseTuiArgs } from '@serika/example-cli/internal/cli-options.js';
-import { resolveTuiModuleConfig } from '@serika/example-cli/internal/tui-module-config.js';
+import { parseTuiArgs } from '@serika/assistant/internal/cli-options.js';
+import { resolveTuiModuleConfig } from '@serika/assistant/internal/tui-module-config.js';
 import { fixtureConfig, fixtureRuntimeEnvironment, collectEvidence, collectMemorySnapshot, createFixtureApprover, safeError, currentRestoreFixtureFact } from './e2e.mjs';
-import { resolveModelContextWindow } from '@serika/example-cli/internal/model-config.js';
+import { resolveModelContextWindow } from '@serika/assistant/internal/model-config.js';
 import { reliabilityCases, reliabilitySpec } from './reliability-cases.mjs';
-import { contextBudgetForMode, estimateMessageTokens, partitionMessagesForCompaction, keepRecentCompactionUnits } from '@serika/example-cli/internal/context-budget.js';
-import { summarySourceChunks } from '@serika/example-cli/internal/context-compactor.js';
+import { contextBudgetForMode, estimateMessageTokens, partitionMessagesForCompaction, keepRecentCompactionUnits } from '@serika/assistant/internal/context-budget.js';
+import { summarySourceChunks } from '@serika/assistant/internal/context-compactor.js';
 import { dailyCompactionCases, dailyCompactionSpec, fixtureHistory } from './daily-compaction.mjs';
 import { compactionFidelityCases, compactionFidelitySpec, effectiveCompactionFidelityCases, effectiveCompactionFidelitySpec } from './compaction-fidelity.mjs';
-import { createMemoryStore } from '@serika/example-cli/internal/memory-store.js';
-import { createMemoryConsolidation } from '@serika/example-cli/internal/memory-consolidation.js';
-import { AUTO_CONSOLIDATION_AGENT_ID } from '@serika/example-cli/internal/consolidation.js';
+import { createMemoryStore } from '@serika/assistant/internal/memory-store.js';
+import { createMemoryConsolidation } from '@serika/assistant/internal/memory-consolidation.js';
+import { AUTO_CONSOLIDATION_AGENT_ID } from '@serika/assistant/internal/consolidation.js';
 
 test('restore fixture explicitly approves only the matching real pending coffee source before exercising restoration', async () => {
   const root = await mkdtemp(join(tmpdir(), 'serika-eval-restore-test-'));

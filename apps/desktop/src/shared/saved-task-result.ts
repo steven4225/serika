@@ -1,4 +1,4 @@
-import type { TaskRecordV4 } from "@serika/example-cli";
+import type { TaskRecordV4 } from "@serika/assistant";
 import type { RendererApi } from "./ui-contract.js";
 
 type SavedResultReader = Pick<RendererApi, "getTaskInbox" | "getScheduledTask">;

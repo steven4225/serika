@@ -29,10 +29,10 @@
 
 ```sh
 pnpm build:runtime
-node --test examples/cli/dist/memory-correctness.test.js \
-  examples/cli/dist/memory-consolidation.test.js \
-  examples/cli/dist/memory-store-write-boundary.test.js \
-  examples/cli/dist/hook-skill-acceptance.test.js
+node --test packages/assistant/dist/memory-correctness.test.js \
+  packages/assistant/dist/memory-consolidation.test.js \
+  packages/assistant/dist/memory-store-write-boundary.test.js \
+  packages/assistant/dist/hook-skill-acceptance.test.js
 ```
 
 这些测试使用脚本模型，真实文件、MemoryStore 锁及重建服务；崩溃测试是真子进程 SIGKILL。覆盖 8 来源/5 提案、单来源六事实的部分提交/重建续办、同义复用、时间段保留、冲突待审、程序排除、取消/抢占、前后 rename、不确定提交后的读回/幂等重放。它们不证明真实模型语义质量或 Electron 点击链。

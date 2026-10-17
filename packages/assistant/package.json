@@ -1,5 +1,5 @@
 {
-  "name": "@serika/example-cli",
+  "name": "@serika/assistant",
   "version": "0.1.0",
   "private": true,
   "type": "module",

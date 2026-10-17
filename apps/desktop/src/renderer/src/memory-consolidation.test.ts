@@ -3,10 +3,10 @@ import { describe, it } from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { AppInfo } from "../../shared/ui-contract.js";
-import type { MemoryMaintenance } from "@serika/example-cli";
+import type { MemoryMaintenance } from "@serika/assistant";
 import { MemoryConsolidationPanel, consolidationStatusLabel, loadSavedReceiptText, previewAutomaticMemoryUndo, memoryReceiptPresentation, memoryReceiptSummary, receiptSnapshotText } from "./memory-consolidation.js";
 import { savedMemoryNoticeText } from "./memory-copy.js";
-import { memoryConsolidationFailureText } from "@serika/example-cli";
+import { memoryConsolidationFailureText } from "@serika/assistant";
 
 function maintenance(state: MemoryMaintenance["consolidation"]["state"]): MemoryMaintenance {
   return {

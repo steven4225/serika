@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import type { FormalMemory, MemoryPage } from "@serika/example-cli";
-import type { MemoryActionPreview, MemoryHistoryPage, MemoryMaintenance } from "@serika/example-cli";
-import type { MemoryAssertion } from "@serika/example-cli";
+import type { FormalMemory, MemoryPage } from "@serika/assistant";
+import type { MemoryActionPreview, MemoryHistoryPage, MemoryMaintenance } from "@serika/assistant";
+import type { MemoryAssertion } from "@serika/assistant";
 import { createMemoryActionDraft, memoryActionFromDraft, memoryActionLabel, memoryKindLabel, timestampLabel } from "./memory-temporal-data.js";
 import type { MemoryActionDraft, MemoryActionMode } from "./memory-temporal-data.js";
 import { CurrentMemoryDetails, MemoryActionPreviewDetails, MemoryHistory } from "./memory-temporal.js";

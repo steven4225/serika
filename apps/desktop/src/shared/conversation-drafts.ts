@@ -1,4 +1,4 @@
-import type { AssistantSteerResponse } from "@serika/example-cli";
+import type { AssistantSteerResponse } from "@serika/assistant";
 export const MAX_CONVERSATION_DRAFT_BYTES = 64 * 1024;
 export function conversationDraftError(text: string): string {
   return new TextEncoder().encode(text).length > MAX_CONVERSATION_DRAFT_BYTES

@@ -3,6 +3,6 @@
   "references": [
     { "path": "./packages/core" },
     { "path": "./packages/ai-sdk-adapter" },
-    { "path": "./examples/cli" }
+    { "path": "./packages/assistant" }
   ]
 }

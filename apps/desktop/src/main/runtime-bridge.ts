@@ -1,23 +1,23 @@
-import type { MemoryLibraryAction } from "@serika/example-cli";
-import { validateChatAttachments } from "@serika/example-cli";
-import type { RecipeChange } from "@serika/example-cli";
+import type { MemoryLibraryAction } from "@serika/assistant";
+import { validateChatAttachments } from "@serika/assistant";
+import type { RecipeChange } from "@serika/assistant";
 import { Writable } from "node:stream";
 import { lstat } from "node:fs/promises";
 import { readLoadedBuild } from "./build-identity.js";
 import { historyPage, type HistoryPageInput } from "../shared/history.js";
-import { ExecutionRecordStore } from "@serika/example-cli";
+import { ExecutionRecordStore } from "@serika/assistant";
 import type { DesktopThread } from "./desktop-identity.js";
-import type { MemoryEditInput, MemoryListInput } from "@serika/example-cli";
-import type { MemoryAction, MemoryHistoryInput } from "@serika/example-cli";
-import type { AssistantRunOptions } from "@serika/example-cli";
-import type { AutomationDiagnostics, SkillRunInput, SkillResult } from "@serika/example-cli";
-import type { AutomationScheduleAction, ScheduleSkillInput } from "@serika/example-cli";
-import type { DreamingChangeInput } from "@serika/example-cli";
-import type { MemoryConsolidationRequest } from "@serika/example-cli";
-import type { AssistantController, AssistantEvent, AssistantSnapshot, AssistantState } from "@serika/example-cli";
-import type { RuntimeApp } from "@serika/example-cli";
-import type { RssAction } from "@serika/example-cli";
-import type { ExecutionRunRecord } from "@serika/example-cli";
+import type { MemoryEditInput, MemoryListInput } from "@serika/assistant";
+import type { MemoryAction, MemoryHistoryInput } from "@serika/assistant";
+import type { AssistantRunOptions } from "@serika/assistant";
+import type { AutomationDiagnostics, SkillRunInput, SkillResult } from "@serika/assistant";
+import type { AutomationScheduleAction, ScheduleSkillInput } from "@serika/assistant";
+import type { DreamingChangeInput } from "@serika/assistant";
+import type { MemoryConsolidationRequest } from "@serika/assistant";
+import type { AssistantController, AssistantEvent, AssistantSnapshot, AssistantState } from "@serika/assistant";
+import type { RuntimeApp } from "@serika/assistant";
+import type { RssAction } from "@serika/assistant";
+import type { ExecutionRunRecord } from "@serika/assistant";
 import { ShellProgressBuffer } from "../shared/shell-progress.js";
 import { sanitizeWorkTaskInput, type WorkTask, type WorkTaskInputs, type WorkTaskResult } from "../shared/work-tasks.js";
 import type { WorkTaskReadInput, WorkTaskArtifactInput, WorkTaskReadResult, WorkTaskDeliveryDraft, WorkTaskArtifactPreview } from "../shared/work-tasks.js";
@@ -27,7 +27,7 @@ import {
   toListRunsResponse,
   wrapExecutionQuery,
 } from "../shared/execution-records.js";
-import type { CandidateListInput, CandidatePage, CandidatePreview, CandidateResolution, CandidateResolveInput, MemoryResult } from "@serika/example-cli";
+import type { CandidateListInput, CandidatePage, CandidatePreview, CandidateResolution, CandidateResolveInput, MemoryResult } from "@serika/assistant";
 import type {
   AppInfo,
   CommandResponse,

@@ -9,9 +9,9 @@ await mkdir(join(here, 'results'), { recursive: true });
 const groups = [
   ['eval_oracle', ['examples/eval/oracle.test.mjs', 'examples/eval/provider.test.mjs', 'examples/eval/e2e.test.mjs', 'examples/eval/report.test.mjs', 'examples/eval/reliability.test.mjs', 'examples/eval/regrade.test.mjs']],
   ['loop_deadline_cancel', ['packages/ai-sdk-adapter/dist/loop.test.js']],
-  ['memory_correctness', ['examples/cli/dist/memory-correctness.test.js', 'examples/cli/dist/memory-write-truth.test.js', 'examples/cli/dist/memory-store.test.js', 'examples/cli/dist/memory-candidate-store.test.js']],
-  ['context_budget_cancel_rewrite', ['examples/cli/dist/context-compactor.test.js', 'examples/cli/dist/memory-query-rewrite.test.js']],
-  ['storage_receipts', ['packages/core/dist/jsonl-store.test.js', 'examples/cli/dist/execution-record-store.test.js']],
+  ['memory_correctness', ['packages/assistant/dist/memory-correctness.test.js', 'packages/assistant/dist/memory-write-truth.test.js', 'packages/assistant/dist/memory-store.test.js', 'packages/assistant/dist/memory-candidate-store.test.js']],
+  ['context_budget_cancel_rewrite', ['packages/assistant/dist/context-compactor.test.js', 'packages/assistant/dist/memory-query-rewrite.test.js']],
+  ['storage_receipts', ['packages/core/dist/jsonl-store.test.js', 'packages/assistant/dist/execution-record-store.test.js']],
 ];
 const identity = await manifest([], 0);
 const records = [];

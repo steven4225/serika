@@ -11,7 +11,7 @@
 ```sh
 pnpm build
 RUNLOOM_MODEL=command-code node --env-file=.env \
-  examples/cli/dist/task-worker-entry.js \
+  packages/assistant/dist/task-worker-entry.js \
   --workspace /绝对物理路径/workspace --rss --notify
 ```
 

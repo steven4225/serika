@@ -1,9 +1,9 @@
-import type { AssistantController } from "@serika/example-cli";
-import type { WorkTaskResult } from "@serika/example-cli";
-export type { WorkTaskContinuation } from "@serika/example-cli";
-export type { WorkTaskReadInput, WorkTaskArtifactInput, WorkTaskReadResult, WorkTaskDeliveryDraft, WorkTaskArtifactPreview } from "@serika/example-cli";
+import type { AssistantController } from "@serika/assistant";
+import type { WorkTaskResult } from "@serika/assistant";
+export type { WorkTaskContinuation } from "@serika/assistant";
+export type { WorkTaskReadInput, WorkTaskArtifactInput, WorkTaskReadResult, WorkTaskDeliveryDraft, WorkTaskArtifactPreview } from "@serika/assistant";
 
-export type { WorkTask, WorkTaskResult, WorkTaskStatus, WorkTaskObservedOutcome } from "@serika/example-cli";
+export type { WorkTask, WorkTaskResult, WorkTaskStatus, WorkTaskObservedOutcome } from "@serika/assistant";
 
 export type WorkTaskInputs = {
   [K in "createWorkTask" | "runWorkTask" | "submitWorkTaskDelivery" | "recordHumanAcceptance" | "reconcileWorkTask" | "cancelWorkTask" | "requestWorkTaskChanges"]: Parameters<AssistantController[K]>[0];

@@ -1,5 +1,5 @@
-import type { CandidatePage, CandidatePreview, CandidateResolution, CandidateResolveInput, MemoryCandidate, MemoryResult } from "@serika/example-cli";
-import type { MemoryKind, MemoryValidTime } from "@serika/example-cli";
+import type { CandidatePage, CandidatePreview, CandidateResolution, CandidateResolveInput, MemoryCandidate, MemoryResult } from "@serika/assistant";
+import type { MemoryKind, MemoryValidTime } from "@serika/assistant";
 
 export type CandidateFilter = "pending" | "accepted" | "rejected" | "stale";
 

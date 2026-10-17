@@ -6,13 +6,13 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { MockLanguageModelV3 } from 'ai/test';
 import { simulateReadableStream } from 'ai';
 import { JsonlAgentStore } from '@serika/core';
-import { createRuntimeApp } from '@serika/example-cli/internal/app.js';
-import { createAssistantController } from '@serika/example-cli/internal/assistant-controller.js';
-import { createDemoModel } from '@serika/example-cli/internal/demo-model.js';
-import { configureCliModel, inspectCliModelConfig } from '@serika/example-cli/internal/model-config.js';
-import { ContextCompactor } from '@serika/example-cli/internal/context-compactor.js';
+import { createRuntimeApp } from '@serika/assistant/internal/app.js';
+import { createAssistantController } from '@serika/assistant/internal/assistant-controller.js';
+import { createDemoModel } from '@serika/assistant/internal/demo-model.js';
+import { configureCliModel, inspectCliModelConfig } from '@serika/assistant/internal/model-config.js';
+import { ContextCompactor } from '@serika/assistant/internal/context-compactor.js';
 import { runE2E } from './e2e.mjs';
-import { consolidationPrefixHash } from '@serika/example-cli/internal/memory-consolidation.js';
+import { consolidationPrefixHash } from '@serika/assistant/internal/memory-consolidation.js';
 
 /** Only an explicit offline deferred-fault case may inspect an unfinished receipt. */
 export function expectedDeferredCoverage(vars, mode, consolidation, receipt, cursor, messages) {

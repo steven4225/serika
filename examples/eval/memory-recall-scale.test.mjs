@@ -4,9 +4,9 @@ import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { LocalMemorySemanticIndex } from '@serika/example-cli/internal/memory-semantic-index.js';
-import { createMemoryStore } from '@serika/example-cli/internal/memory-store.js';
-import { selectEligibleMemoryEntries } from '@serika/example-cli/internal/memory-retrieval.js';
+import { LocalMemorySemanticIndex } from '@serika/assistant/internal/memory-semantic-index.js';
+import { createMemoryStore } from '@serika/assistant/internal/memory-store.js';
+import { selectEligibleMemoryEntries } from '@serika/assistant/internal/memory-retrieval.js';
 import { makeScaleFixture, scaleSizes, scaleNow, scaleRequestBudget, createScaleRequestGuard, prepareScaleIndex, summarizeScale, runScaleRecall } from './memory-recall-scale.mjs';
 
 test('scale fixtures freeze eight objective queries per corpus, with gold at head/middle/tail and three forbidden facts', () => {

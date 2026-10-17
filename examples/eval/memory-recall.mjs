@@ -3,13 +3,13 @@ import { execFileSync } from 'node:child_process';
 import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createMemoryStore } from '@serika/example-cli/internal/memory-store.js';
-import { createMemoryEmbedder, normalizeEmbeddingConfig } from '@serika/example-cli/internal/memory-embedding-client.js';
-import { LocalMemorySemanticIndex } from '@serika/example-cli/internal/memory-semantic-index.js';
-import { retrieveMemories } from '@serika/example-cli/internal/memory-retrieval.js';
-import { buildMemoryContextView } from '@serika/example-cli/internal/memory-context-view.js';
-import { configureCliModel } from '@serika/example-cli/internal/model-config.js';
-import { observeModelUsage } from '@serika/example-cli/internal/model-usage-observer.js';
+import { createMemoryStore } from '@serika/assistant/internal/memory-store.js';
+import { createMemoryEmbedder, normalizeEmbeddingConfig } from '@serika/assistant/internal/memory-embedding-client.js';
+import { LocalMemorySemanticIndex } from '@serika/assistant/internal/memory-semantic-index.js';
+import { retrieveMemories } from '@serika/assistant/internal/memory-retrieval.js';
+import { buildMemoryContextView } from '@serika/assistant/internal/memory-context-view.js';
+import { configureCliModel } from '@serika/assistant/internal/model-config.js';
+import { observeModelUsage } from '@serika/assistant/internal/model-usage-observer.js';
 
 const relevanceModel = { alias: 'command-code/default', provider: 'openai-compatible.chat',
   modelId: 'deepseek/deepseek-v4.1-flash-fast', baseURL: 'https://api.commandcode.ai/provider/v1' };
@@ -120,7 +120,7 @@ export async function runMemoryRecall({ live = false, probe = false, relevance =
   if (relevance && !env.COMMAND_CODE_API_KEY?.trim()) throw Error('Configure COMMAND_CODE_API_KEY in the host environment, never in chat or report files.');
   const config = normalizeEmbeddingConfig({ provider, baseURL, modelId });
   if (relevance && (config.provider !== 'dashscope' || config.modelId !== 'qwen3.7-text-embedding-flash')) throw Error('Relevance acceptance requires the fixed DashScope qwen3.7-text-embedding-flash configuration.');
-  const relevanceSelector = relevance ? (await import('@serika/example-cli/internal/memory-relevance.js')).createMemoryRelevanceSelector : null;
+  const relevanceSelector = relevance ? (await import('@serika/assistant/internal/memory-relevance.js')).createMemoryRelevanceSelector : null;
   const suiteCases = suite === 'validation' ? memoryRecallValidationCases : memoryRecallCases;
   const cases = probe ? suiteCases.slice(0, 1) : suiteCases;
   if (config.provider === 'dashscope' && !env.DASHSCOPE_API_KEY) throw Error('Configure DASHSCOPE_API_KEY in the host environment, never in chat or report files.');
@@ -135,7 +135,7 @@ export async function runMemoryRecall({ live = false, probe = false, relevance =
   const sourceFiles = ['memory-retrieval', 'memory-semantic-index', 'memory-embedding-client', 'memory-context-view', 'memory-store',
     ...(relevance ? ['memory-relevance', 'model-config', 'model-usage-observer'] : [])];
   const runtimeHashes = Object.fromEntries(await Promise.all(sourceFiles.map(async file => [file,
-    hash(await readFile(new URL(`../cli/dist/${file}.js`, import.meta.url)))])));
+    hash(await readFile(new URL(`../../packages/assistant/dist/${file}.js`, import.meta.url)))])));
   const manifest = { suite: probe ? 'memory-embedding-probe-v1' : suite === 'validation' ? 'memory-recall-validation-v1' : 'memory-recall-v1', source: '我的 eval',
     kind: probe ? 'connectivity-diagnostic-not-recall-accuracy' : `real-${config.provider}-embedding-retrieval-not-chat-e2e`, probe, config,
     modelVerification: 'Configured endpoint/model; compatible response identity is not independently verified.',

@@ -3,9 +3,9 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { it } from "node:test";
-import { createRuntimeApp } from "@serika/example-cli";
-import { createAssistantController } from "@serika/example-cli";
-import { createDemoModel } from "@serika/example-cli";
+import { createRuntimeApp } from "@serika/assistant";
+import { createAssistantController } from "@serika/assistant";
+import { createDemoModel } from "@serika/assistant";
 import { RuntimeBridge, TeeOutput, assistantEventToRenderer } from "./runtime-bridge.js";
 import type { MainToRenderer } from "../shared/ui-contract.js";
 

@@ -1,5 +1,5 @@
 import type { UIMessage } from "ai";
-import type { MemoryFactReceipt } from "@serika/example-cli";
+import type { MemoryFactReceipt } from "@serika/assistant";
 export interface HistoryPageInput { beforeId?: string; limit?: number }
 export interface HistoryPage { threadId: string; messages: UIMessage[]; beforeId: string | null; memoryReceipts?: MemoryFactReceipt[]; memoryReceiptError?: string }
 

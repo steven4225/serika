@@ -8,7 +8,7 @@ import { describe, it, mock } from "node:test";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { DesktopRuntime } from "./desktop-runtime.js";
-import { ExecutionRecordStore } from "@serika/example-cli";
+import { ExecutionRecordStore } from "@serika/assistant";
 import type { MainToRenderer } from "../shared/ui-contract.js";
 
 function findMaterial(value: unknown): { batchId: string; turns: Array<{ user: { messageId: string; text: string } }> } | undefined {

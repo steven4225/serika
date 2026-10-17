@@ -1,7 +1,7 @@
 import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
-import { readRecurrence, reminderSubject, reminderWhen } from "@serika/example-cli";
+import { readRecurrence, reminderSubject, reminderWhen } from "@serika/assistant";
 
 const parser = unified().use(remarkParse).use(remarkGfm);
 interface MarkdownNode {

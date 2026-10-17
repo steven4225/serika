@@ -3,9 +3,9 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { it } from "node:test";
-import { createRuntimeApp } from "@serika/example-cli";
-import { createAssistantController } from "@serika/example-cli";
-import { createDemoModel } from "@serika/example-cli";
+import { createRuntimeApp } from "@serika/assistant";
+import { createAssistantController } from "@serika/assistant";
+import { createDemoModel } from "@serika/assistant";
 import { RuntimeBridge, TeeOutput } from "./runtime-bridge.js";
 
 it("desktop manages recipes through idle Controller ports, without Runs, tools or forged sources", async () => {

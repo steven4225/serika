@@ -152,7 +152,7 @@ worker 必须使用同一份可信配置，绝对路径位于 canonical workspac
 
 ```sh
 RUNLOOM_MODEL=command-code node --env-file=.env \
-  examples/cli/dist/task-worker-entry.js \
+  packages/assistant/dist/task-worker-entry.js \
   --workspace /absolute/path/to/personal-workspace \
   --config /absolute/trusted/config.json
 ```
@@ -169,14 +169,14 @@ RUNLOOM_MODEL=command-code node --env-file=.env \
 
 ```sh
 pnpm build
-node --env-file=.env examples/cli/dist/index.js --check --config /absolute/path/to/config.json
+node --env-file=.env packages/assistant/dist/index.js --check --config /absolute/path/to/config.json
 ```
 
 默认测试使用脚本模型，真实模型验收显式开启，费用请求上限五次，不重跑整个案例、不允许 mock 回退：
 
 ```sh
 RUNLOOM_MODEL=command-code RUNLOOM_HOOK_SKILL_ACCEPTANCE=1 \
-  node --env-file=.env --test examples/cli/dist/hook-skill-real-acceptance.test.js
+  node --env-file=.env --test packages/assistant/dist/hook-skill-real-acceptance.test.js
 ```
 
 真实案例验证外部记忆包由配置 Hook 调用、自动写入与精确来源、游标、关闭并重开 Controller 后新 Thread 的当前参考和实际回答。它不证明 OS 进程重启、Electron 点击链或通知。
@@ -185,7 +185,7 @@ RUNLOOM_MODEL=command-code RUNLOOM_HOOK_SKILL_ACCEPTANCE=1 \
 
 ```sh
 RUNLOOM_MODEL=command-code RUNLOOM_SCHEDULED_SKILL_ACCEPTANCE=1 \
-  node --env-file=.env --test examples/cli/dist/scheduled-skill-real-acceptance.test.js
+  node --env-file=.env --test packages/assistant/dist/scheduled-skill-real-acceptance.test.js
 ```
 
 它验证同一登记包的手动/定时实际回答、生产 worker 循环、结果入库、ack 重开仍保留与不重放。worker 子进程锁、SIGTERM 和重启由默认离线验收另测，使用脚本模型并明确标注。真实模型、子进程、Electron 点击、launchd 和系统通知分别报告，不能相互冒充。

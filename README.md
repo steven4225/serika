@@ -2,7 +2,7 @@
 
 ## Serika Electron 桌面（单仓入口）
 
-前后端现在同在本仓库：`packages/*` 是 Runtime，`examples/cli` 是应用/Controller，`apps/desktop` 是 Serika Electron 主进程、preload 和 React 页面。桌面使用原有 AgentLoop，不引入第二套执行循环。前端从旧仓 `runloom-desktop` 的 `f6de16b34e9a895c21c6b16efb2d0cf0c233e2f0` 带历史导入；旧仓仅保留作回滚，不再双向开发。
+前后端现在同在本仓库：`packages/*` 是 Runtime，`packages/assistant` 是应用/Controller，`apps/desktop` 是 Serika Electron 主进程、preload 和 React 页面。桌面使用原有 AgentLoop，不引入第二套执行循环。前端从旧仓 `runloom-desktop` 的 `f6de16b34e9a895c21c6b16efb2d0cf0c233e2f0` 带历史导入；旧仓仅保留作回滚，不再双向开发。
 
 在仓库根目录运行（Node >= 22.12，pnpm 版本以 `packageManager` 为准）：
 
@@ -55,7 +55,7 @@ pnpm build
 
 ```bash
 pnpm build
-RUNLOOM_MODEL=deepseek node --env-file=.env examples/cli/dist/index.js --tui /absolute/path/to/transcripts --thread computer-user --config /absolute/path/to/config.json
+RUNLOOM_MODEL=deepseek node --env-file=.env packages/assistant/dist/index.js --tui /absolute/path/to/transcripts --thread computer-user --config /absolute/path/to/config.json
 ```
 
 测试指令：`只观察 TextEdit 的窗口，告诉我有哪些控件，不要修改内容。` 确认后再指定窗口和动作。桌面端通过原有 `createRuntimeApp` / Controller 配置和 approvalId 接线即可，本次未修改桌面仓。`--check` 只检查配置，不证明驱动运行或操作成功。
@@ -70,7 +70,7 @@ RUNLOOM_MODEL=deepseek node --env-file=.env examples/cli/dist/index.js --tui /ab
 
 取消会终止 Serika 的 CLI 客户端，不能证明 daemon 已撤回动作；派发后的取消必须核对实际应用，不能直接重新执行。离线测试不操作真实桌面。真机封板另做：隔离 TextEdit 文档，在批准应用里观察→确认输入→再观察并人工核对；拒绝时无动作、非白名单应用拒绝、取消/驱动断连不重试。未完成这些场景前只能称接入实现，不能称本机控制已封板。
 
-可重复的真实模型验收入口为 `examples/cli/dist/computer-native-acceptance.js`，默认不会在 `pnpm test` 中运行。显式 opt-in 后可测隔离 TextEdit 的一次输入、拒绝或确认前取消；每次报告独立保留，`backendPassed` 不等于 Electron/完整封板。参数、严格授权范围及桌面接线说明见 [本机 Computer 接线与验收](docs/embedding-assistant-controller.md#本机-computer-接线与验收)。
+可重复的真实模型验收入口为 `packages/assistant/dist/computer-native-acceptance.js`，默认不会在 `pnpm test` 中运行。显式 opt-in 后可测隔离 TextEdit 的一次输入、拒绝或确认前取消；每次报告独立保留，`backendPassed` 不等于 Electron/完整封板。参数、严格授权范围及桌面接线说明见 [本机 Computer 接线与验收](docs/embedding-assistant-controller.md#本机-computer-接线与验收)。
 
 ## 阶段
 
@@ -231,9 +231,9 @@ RUNLOOM_MODEL=mock pnpm tui -- ./var/runloom --thread daily-plan --config ./runl
 
 ```bash
 mkdir -p ./var/personal-workspace ./var/personal-transcripts
-RUNLOOM_MODEL=deepseek node --env-file=.env examples/cli/dist/index.js \
+RUNLOOM_MODEL=deepseek node --env-file=.env packages/assistant/dist/index.js \
   --tui ./var/personal-transcripts --thread personal --config ./docs/daily.example.json --check
-RUNLOOM_MODEL=deepseek node --env-file=.env examples/cli/dist/index.js \
+RUNLOOM_MODEL=deepseek node --env-file=.env packages/assistant/dist/index.js \
   --tui ./var/personal-transcripts --thread personal --config ./docs/daily.example.json
 ```
 
@@ -336,7 +336,7 @@ COMMAND_CODE_API_KEY=<your-command-code-api-key>
 
 ```sh
 pnpm build
-RUNLOOM_MODEL=command-code node --env-file=.env examples/cli/dist/index.js \
+RUNLOOM_MODEL=command-code node --env-file=.env packages/assistant/dist/index.js \
   --tui ./var/runloom --thread personal --workspace ./var/notes
 ```
 
@@ -364,7 +364,7 @@ DEEPSEEK_API_KEY=<your-deepseek-api-key>
 ```bash
 pnpm build
 mkdir -p ./var/notes
-RUNLOOM_MODEL=deepseek node --env-file=.env examples/cli/dist/index.js --tui ./var/runloom --thread personal --workspace ./var/notes
+RUNLOOM_MODEL=deepseek node --env-file=.env packages/assistant/dist/index.js --tui ./var/runloom --thread personal --workspace ./var/notes
 ```
 
 例如输入：`把“本周只推进 Serika 的资料保存与找回”保存为 first-note.md。` 核对路径和正文后由操作人输入 `y/n`。使用相同目录和 thread 重启后，可请求查找并读取该笔记。`.env` 不会由普通 CLI/worker 自动加载，上述命令通过 Node 的 `--env-file` 加载。
@@ -391,7 +391,7 @@ RUNLOOM_MODEL=deepseek node --env-file=.env examples/cli/dist/index.js --tui ./v
 worker 使用同一模型配置，但不读取 TUI `--config`；加 `--todoist` 仍需单独配置 `TODOIST_API_TOKEN`：
 
 ```bash
-RUNLOOM_MODEL=deepseek node --env-file=.env examples/cli/dist/task-worker-entry.js --workspace ./var/notes
+RUNLOOM_MODEL=deepseek node --env-file=.env packages/assistant/dist/task-worker-entry.js --workspace ./var/notes
 ```
 
 此模式明确关闭 thinking。当前循环不回传 `reasoning_content`，而 DeepSeek 思考模式下的工具对话要求回传该字段；本次仅适配非思考模式的文本和工具调用，不宣称支持思考模式或图像输入。默认模型名与参数依据 [DeepSeek 接入文档](https://api-docs.deepseek.com/) 和 [思考模式约定](https://api-docs.deepseek.com/guides/thinking_mode/)。
@@ -465,7 +465,7 @@ R3c 的真实验收是：指定 URL 阅读、搜索→原文核验→报告保�
 
 ```bash
 pnpm build
-RUNLOOM_ACCEPTANCE_MODEL=minimax-m3 node --env-file=.env --test examples/cli/dist/task-acceptance.test.js
+RUNLOOM_ACCEPTANCE_MODEL=minimax-m3 node --env-file=.env --test packages/assistant/dist/task-acceptance.test.js
 ```
 
 `.env` 需自行配置且不应提交；普通 CLI/worker 不自动加载它，应先导出变量或使用 Node 的 `--env-file`。验收创建临时 workspace 并在结束后清理，不修改日常任务。此测试覆盖命令模块和真实 worker 进程，不是终端交互 UI 测试，也不证明操作系统会自动唤醒已退出的 worker。

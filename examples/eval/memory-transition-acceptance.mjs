@@ -5,10 +5,10 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PassThrough } from 'node:stream';
 import { setTimeout as delay } from 'node:timers/promises';
-import { createRuntimeApp } from '@serika/example-cli/internal/app.js';
-import { createAssistantController } from '@serika/example-cli/internal/assistant-controller.js';
-import { configureCliModel } from '@serika/example-cli/internal/model-config.js';
-import { createMemoryStore } from '@serika/example-cli/internal/memory-store.js';
+import { createRuntimeApp } from '@serika/assistant/internal/app.js';
+import { createAssistantController } from '@serika/assistant/internal/assistant-controller.js';
+import { configureCliModel } from '@serika/assistant/internal/model-config.js';
+import { createMemoryStore } from '@serika/assistant/internal/memory-store.js';
 
 export const transitionModel = Object.freeze({ alias: 'command-code/default', modelId: 'deepseek/deepseek-v4.1-flash-fast',
   baseURL: 'https://api.commandcode.ai/provider/v1' });
@@ -252,7 +252,7 @@ export async function runMemoryTransitions({ live = false, env = process.env, ou
   let gitCommit = null;
   try { gitCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dirname(fileURLToPath(import.meta.url)), encoding: 'utf8' }).trim(); } catch { /* export */ }
   const runtimeHashes = Object.fromEntries(await Promise.all(['app', 'assistant-controller', 'memory-consolidation', 'memory-store', 'model-config'].map(async name =>
-    [name, hash(await readFile(new URL(`../cli/dist/${name}.js`, import.meta.url)))])));
+    [name, hash(await readFile(new URL(`../../packages/assistant/dist/${name}.js`, import.meta.url)))])));
   const manifest = { suite: 'memory-transition-v1', source: '我的 eval', kind: 'real-model-controller-consolidation-isolated',
     oracleVersion: transitionOracleVersion,
     datasetRole: 'developer-authored regression; not blind held-out', model: transitionModel, requestedModelId: transitionModel.modelId,

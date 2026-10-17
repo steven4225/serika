@@ -3,8 +3,8 @@ import { test } from "node:test";
 import { mkdtemp, rm, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createTaskStore } from "@serika/example-cli";
-import { taskResultLink } from "@serika/example-cli/testing";
+import { createTaskStore } from "@serika/assistant";
+import { taskResultLink } from "@serika/assistant/testing";
 import { openTaskNotificationResult } from "./task-notification-route.js";
 
 test("notification clicks read the exact record without acknowledgement, execution or cross-workspace reads", async () => {

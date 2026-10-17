@@ -1,8 +1,8 @@
 // Isolated browser fixture; no Electron IPC, real model or user workspace.
 import React, { useState } from "react";
 import { createRoot } from "react-dom/client";
-import type { FormalMemory } from "@serika/example-cli";
-import type { MemoryAssertion } from "@serika/example-cli";
+import type { FormalMemory } from "@serika/assistant";
+import type { MemoryAssertion } from "@serika/assistant";
 import type { RendererApi } from "../../shared/ui-contract.js";
 import { MemoryPanel } from "./memory.js";
 import { MemoryReferences } from "./memory-references.js";

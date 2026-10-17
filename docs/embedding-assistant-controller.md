@@ -1,14 +1,14 @@
 # 嵌入 AssistantController（桌面等前端接入说明）
 
-本文是 `createRuntimeApp` + `createAssistantController` 的接入契约摘要。行为以源码为准：[app.ts](../examples/cli/src/app.ts)、[assistant-controller.ts](../examples/cli/src/assistant-controller.ts)。
+本文是 `createRuntimeApp` + `createAssistantController` 的接入契约摘要。行为以源码为准：[app.ts](../packages/assistant/src/app.ts)、[assistant-controller.ts](../packages/assistant/src/assistant-controller.ts)。
 
 ## 稳定导入路径
 
 包通过 `exports` 暴露 `./dist/*.js`（含 `types`）。前端只应使用这些深路径：
 
 ```ts
-import { createRuntimeApp } from "@serika/example-cli/dist/app.js";
-import { createAssistantController } from "@serika/example-cli/dist/assistant-controller.js";
+import { createRuntimeApp } from "@serika/assistant/dist/app.js";
+import { createAssistantController } from "@serika/assistant/dist/assistant-controller.js";
 ```
 
 包根（`"."`）故意不导出：`dist/index.js` 是会立即执行的 CLI 入口，不是库。
@@ -66,7 +66,7 @@ Controller 只给本进程当前 primary 用户消息对得上的实际准备补
 ```sh
 pnpm build
 RUNLOOM_CONTEXT_CONTINUITY=1 RUNLOOM_MODEL=deepseek node --env-file=.env \
-  examples/cli/dist/context-continuity-acceptance.js
+  packages/assistant/dist/context-continuity-acceptance.js
 ```
 
 从新隔离目录开始，固定 32K 窗口 / 4K 输出预留 / 1K 安全余量 / 8K 近期保留 / 4K 摘要输出；最多十二轮真实文件任务触发自动压缩，没有手动 `/compact` 或补造 transcript。自动压缩后继续编辑，等子进程完全退出，再改入外部磁盘标记并启动独立子进程恢复同一 Thread。两边配置哈希必须一致，实际模型输入须带摘要，重新读文件后编辑必须有成功回执，已有正文和保护文件须保留。
@@ -92,7 +92,7 @@ RUNLOOM_CONTEXT_CONTINUITY=1 RUNLOOM_MODEL=deepseek node --env-file=.env \
 
 `verify.mjs` 原始无失败门槛未改；另存 `verify-recovery.mjs`、`recovery-before-evidence.json`、`recovery-after-evidence.json`，明确 `cleanFromStart:false`、`recoveryChecksPassed:true`、`fullCleanElectronAcceptance:not_passed`。这是实际桌面**正常退出后的恢复链**，不等于崩溃未知副作用重放、从头无失败链、多次成功率或通用任务质量。记忆面板 accept/reject 的真实点击也不由这份文件任务证据覆盖。
 
-`await controller.getContextDiagnostics()` 返回 `ContextResult<ContextDiagnostics>`（类型导入 `@serika/example-cli/dist/context-diagnostics.js`）。该查询只读取当前 Thread 的已提交 transcript 和通过现有前缀校验的压缩记录，不创建 Run、不调用模型、不写 JSONL，也不把摘要正文送进 IPC。
+`await controller.getContextDiagnostics()` 返回 `ContextResult<ContextDiagnostics>`（类型导入 `@serika/assistant/dist/context-diagnostics.js`）。该查询只读取当前 Thread 的已提交 transcript 和通过现有前缀校验的压缩记录，不创建 Run、不调用模型、不写 JSONL，也不把摘要正文送进 IPC。
 
 - `enabled`/`budget`/`estimatorVersion` 是实际加载配置；`char-half/v1` 是估算，不是 provider tokenizer 计数。
 - `latestValidCompaction` 是历史中仍与已提交 transcript 前缀匹配的最近记录，包含边界、模型、时间与 metrics。没有合法记录是 `null`；读取失败返回 `ok:false`，不能画成“未压缩”。
@@ -212,7 +212,7 @@ const receipt = await controller.resolveMemoryCandidate({
 ```sh
 pnpm build
 RUNLOOM_COMPUTER_ACCEPTANCE=1 RUNLOOM_MODEL=command-code node --env-file=.env \
-  examples/cli/dist/computer-native-acceptance.js \
+  packages/assistant/dist/computer-native-acceptance.js \
   /absolute/outside-workspace/computer-test.json native-test.txt deny
 ```
 
@@ -255,7 +255,7 @@ RUNLOOM_COMPUTER_ACCEPTANCE=1 RUNLOOM_MODEL=command-code node --env-file=.env \
 ```sh
 pnpm build
 RUNLOOM_MODEL=command-code RUNLOOM_MEMORY_TEMPORAL_ACCEPTANCE=1 \
-  node --env-file=.env --test examples/cli/dist/memory-temporal-acceptance.test.js
+  node --env-file=.env --test packages/assistant/dist/memory-temporal-acceptance.test.js
 ```
 
 可选同义查询改写（配置仍为 v1；不新增 Memory 文件版本；旧配置默认关）：
@@ -271,7 +271,7 @@ RUNLOOM_MODEL=command-code RUNLOOM_MEMORY_TEMPORAL_ACCEPTANCE=1 \
 ```sh
 pnpm build
 RUNLOOM_MODEL=command-code RUNLOOM_MEMORY_RECALL_ACCEPTANCE=1 \
-  node --env-file=.env --test examples/cli/dist/memory-recall-live.test.js
+  node --env-file=.env --test packages/assistant/dist/memory-recall-live.test.js
 ```
 
 2026-10-04 首版提示词实际 2/3，`回顾要怎样组织内容？` 没召回 `复盘…`。依据此失败修改为“不同内容名词/类别同义词”后，新版本同一固定三例 3/3；直问仍中、同义问题补中、天气没有误中。旧失败不作废；三例不证明普遍召回或真实答案质量，Electron 真模型整链仍 `not_run`。

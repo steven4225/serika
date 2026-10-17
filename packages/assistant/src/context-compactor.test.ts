@@ -1345,8 +1345,8 @@ describe("ContextCompactor", () => {
           toolName: "read_file",
           toolCallId: "read-1",
           state: "output-available",
-          input: { path: "examples/cli/src/tui.ts" },
-          output: { ok: true, path: "examples/cli/src/tui.ts", content: "x".repeat(8_000), bytes: 8_000 },
+          input: { path: "packages/assistant/src/tui.ts" },
+          output: { ok: true, path: "packages/assistant/src/tui.ts", content: "x".repeat(8_000), bytes: 8_000 },
         }],
       },
     ], new AbortController().signal);

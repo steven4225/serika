@@ -330,7 +330,7 @@ test('acceptance launcher identifies the built judgment version before asking fo
   assert.match(script, /本次构建/);
   assert.ok(script.indexOf("<<'VERSION'") < script.indexOf("read -r -s"));
   assert.match(script, /git.*rev-parse/);
-  assert.match(script, /cli\/dist\/memory-relevance\.js/);
+  assert.match(script, /packages\/assistant\/dist\/memory-relevance\.js/);
   assert.match(script, /createHash\('sha256'\)/);
   const code = script.match(/<<'VERSION'\n([\s\S]*?)\nVERSION/)?.[1];
   assert.ok(code);
@@ -338,7 +338,7 @@ test('acceptance launcher identifies the built judgment version before asking fo
     cwd: new URL('../../', import.meta.url), encoding: 'utf8',
     env: { ...process.env, DASHSCOPE_API_KEY: 'fixture-hidden-dashscope', COMMAND_CODE_API_KEY: 'fixture-hidden-command' },
   });
-  const expected = createHash('sha256').update(await readFile(new URL('../cli/dist/memory-relevance.js', import.meta.url))).digest('hex');
+  const expected = createHash('sha256').update(await readFile(new URL('../../packages/assistant/dist/memory-relevance.js', import.meta.url))).digest('hex');
   assert.ok(output.includes(`relevanceRuntime=${expected}`));
   assert.match(output, /commit=[a-f0-9]{12}/);
   assert.doesNotMatch(output, /fixture-hidden/);

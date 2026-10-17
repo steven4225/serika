@@ -17,7 +17,7 @@
 
 ## 固定案例
 
-案例定义以 `examples/cli/src/work-task-eval-cases.ts` 为准；顺序、ID、fixture ID、检查和硬失败均视为首批冻结合同。
+案例定义以 `packages/assistant/src/work-task-eval-cases.ts` 为准；顺序、ID、fixture ID、检查和硬失败均视为首批冻结合同。
 
 | ID | 类别 | 固定目标 | 主要失败门槛 |
 | --- | --- | --- | --- |
@@ -31,7 +31,7 @@
 `work-task-eval-cases.test.ts` 只验证目录冻结和记录类型可接入；它不执行 fixture、模型、网络或验收。
 
 WT01–WT06 的固定输入与操作边界见
-[`examples/cli/fixtures/work-task-eval/README.md`](../examples/cli/fixtures/work-task-eval/README.md)。
+[`packages/assistant/fixtures/work-task-eval/README.md`](../packages/assistant/fixtures/work-task-eval/README.md)。
 其中仓库变更是隔离代码样例，SampleDesk 是虚构项目，都不是 Serika 生产代码或
 当前项目状态。研究案例使用真实官方来源；WT06 具体覆盖版本差异与缺失证据，
 不人为编造同范围冲突，也不能从另外五个案例推断它通过。
@@ -62,7 +62,7 @@ WT01–WT06 的固定输入与操作边界见
     artifacts/
 ```
 
-`result.json` 使用 `examples/cli/src/acceptance/contracts.ts` 的 `AcceptanceCaseResult`：
+`result.json` 使用 `packages/assistant/src/acceptance/contracts.ts` 的 `AcceptanceCaseResult`：
 
 - `caseId` 必须是 WT01–WT06，`attemptId` 在该案例下唯一；
 - `execution` 使用案例定义中的固定值；WT01–WT04 为真实模型、无网络的 `runtime_test`，WT05–WT06 为真实模型、受控网络；
@@ -79,7 +79,7 @@ WT01–WT06 的固定输入与操作边界见
 
 ```bash
 pnpm build
-node --test examples/cli/dist/work-task-eval-cases.test.js
+node --test packages/assistant/dist/work-task-eval-cases.test.js
 ```
 
 它证明 6 个案例顺序和类别冻结、hard failure 均绑定必需检查、初始 checks 可组成 `AcceptanceCaseResult` 且不会虚构已执行工作。它不调用真实模型，不能替代下面的外部尝试记录。
@@ -411,7 +411,7 @@ Electron 人工点击，或连续压缩/重启后的真实任务整链已经通�
 ```sh
 pnpm build
 RUNLOOM_CONTEXT_CONTINUITY=1 RUNLOOM_MODEL=command-code node --env-file=.env \
-  examples/cli/dist/context-continuity-acceptance.js --work-task
+  packages/assistant/dist/context-continuity-acceptance.js --work-task
 ```
 
 沿用固定预算 32768 窗口 / 4096 输出预留 / 1024 安全余量 / 8192 近期保留 /
@@ -528,7 +528,7 @@ continue)` 只回到 paused。该记录是程序模拟操作人的报告，不�
 ```sh
 pnpm build
 RUNLOOM_WORK_TASK_CRASH_ACCEPTANCE=1 RUNLOOM_MODEL=command-code node --env-file=.env \
-  examples/cli/dist/work-task-crash-acceptance.js
+  packages/assistant/dist/work-task-crash-acceptance.js
 ```
 
 默认 `pnpm test` 使用 scripted model，但子进程、flock、生产文件工具和 SIGKILL 都是真的。
@@ -568,7 +568,7 @@ Command Code `deepseek/deepseek-v4.1-flash` 三例均 passed，没有整例重�
 
 ```sh
 RUNLOOM_WORK_TASK_CRASH_ACCEPTANCE=1 RUNLOOM_MODEL=command-code node --env-file=.env \
-  examples/cli/dist/work-task-crash-acceptance.js --scenario before-dispatch
+  packages/assistant/dist/work-task-crash-acceptance.js --scenario before-dispatch
 ```
 
 `report.scenarios` 明确本次选取范围，passed 只表示选中案例通过，不冒充全三例复跑。
@@ -604,9 +604,9 @@ RUNLOOM_WORK_TASK_CRASH_ACCEPTANCE=1 RUNLOOM_MODEL=command-code node --env-file=
 ```sh
 pnpm build
 RUNLOOM_WORK_TASK_COMPLETION_ACCEPTANCE=1 RUNLOOM_MODEL=command-code \
-  node --env-file=.env examples/cli/dist/work-task-completion-acceptance.js baseline
+  node --env-file=.env packages/assistant/dist/work-task-completion-acceptance.js baseline
 RUNLOOM_WORK_TASK_COMPLETION_ACCEPTANCE=1 RUNLOOM_MODEL=command-code \
-  node --env-file=.env examples/cli/dist/work-task-completion-acceptance.js improved
+  node --env-file=.env packages/assistant/dist/work-task-completion-acceptance.js improved
 ```
 
 baseline 关闭本批结束检查，由验收程序显式提交交付；improved 默认启用并自动提交。

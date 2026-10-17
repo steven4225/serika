@@ -17,7 +17,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 const commit = execFileSync('git', ['rev-parse', '--short=12', 'HEAD'], { encoding: 'utf8' }).trim();
-const runtime = createHash('sha256').update(readFileSync('./examples/cli/dist/memory-relevance.js')).digest('hex');
+const runtime = createHash('sha256').update(readFileSync('./packages/assistant/dist/memory-relevance.js')).digest('hex');
 console.log(`本次构建：commit=${commit} relevanceRuntime=${runtime}`);
 console.log('仅本次新生成报告代表这版结果；旧报告不覆盖、不改判。');
 VERSION

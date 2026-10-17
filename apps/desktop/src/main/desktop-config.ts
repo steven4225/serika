@@ -1,6 +1,6 @@
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { contextBudgetForMode } from "@serika/example-cli";
+import { contextBudgetForMode } from "@serika/assistant";
 import { updateDesktopConfig } from "./module-settings.js";
 
 /** Desktop defaults sit above the 30s Shell / 120s Run floors so a >30s task can finish. */

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import type { ContextDiagnostics } from "@serika/example-cli";
+import type { ContextDiagnostics } from "@serika/assistant";
 import type { WorkTask, WorkTaskContinuation } from "../../shared/work-tasks.js";
 import { preparationLabel } from "../../shared/context-panel.js";
 

@@ -4,10 +4,10 @@ import { mkdtemp, writeFile, rm, realpath, mkdir, readFile, symlink } from "node
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createDesktopRssWorker } from "./rss-worker-service.js";
-import { resolveTuiModuleConfig } from "@serika/example-cli";
-import { acquireFlock } from "@serika/example-cli";
-import { createTaskWorkerHealthWriter } from "@serika/example-cli/testing";
-import { TASK_WORKER_LOCK_FILE_NAME } from "@serika/example-cli/testing";
+import { resolveTuiModuleConfig } from "@serika/assistant";
+import { acquireFlock } from "@serika/assistant";
+import { createTaskWorkerHealthWriter } from "@serika/assistant/testing";
+import { TASK_WORKER_LOCK_FILE_NAME } from "@serika/assistant/testing";
 
 it("Demo: worker startup evidence belongs to the loaded PID and held lock, not an old heartbeat", async () => {
   const root = await realpath(await mkdtemp(join(tmpdir(), "serika-worker-version-")));

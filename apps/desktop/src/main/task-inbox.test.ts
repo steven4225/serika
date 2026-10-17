@@ -3,11 +3,11 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { createRuntimeApp } from "@serika/example-cli";
-import { createAssistantController } from "@serika/example-cli";
-import { createDemoModel } from "@serika/example-cli";
-import { createTaskStore } from "@serika/example-cli";
-import { TASK_FILE_NAME } from "@serika/example-cli/testing";
+import { createRuntimeApp } from "@serika/assistant";
+import { createAssistantController } from "@serika/assistant";
+import { createDemoModel } from "@serika/assistant";
+import { createTaskStore } from "@serika/assistant";
+import { TASK_FILE_NAME } from "@serika/assistant/testing";
 import { RuntimeBridge, TeeOutput } from "./runtime-bridge.js";
 import { readSavedTaskNotice } from "../shared/saved-task-result.js";
 

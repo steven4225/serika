@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { it } from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { FormalMemory } from "@serika/example-cli";
-import type { MemoryActionPreview, MemoryHistoryPage, MemoryMaintenance } from "@serika/example-cli";
-import type { MemoryAssertion } from "@serika/example-cli";
+import type { FormalMemory } from "@serika/assistant";
+import type { MemoryActionPreview, MemoryHistoryPage, MemoryMaintenance } from "@serika/assistant";
+import type { MemoryAssertion } from "@serika/assistant";
 import { createMemoryActionDraft, explicitTimestamp, memoryActionFromDraft, memoryAvailabilityLabel } from "./memory-temporal-data.js";
 import { CurrentMemoryDetails, MemoryAssertionDetails, MemoryActionPreviewDetails, MemoryHistory, MemoryMaintenanceSummary } from "./memory-temporal.js";
 

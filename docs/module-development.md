@@ -2,11 +2,11 @@
 
 本文是 Serika 当前 CLI 模块的短指南，不是插件 SDK，也不是第二份数据契约。接口和行为以源码为准：
 
-- [module-host.ts](../examples/cli/src/module-host.ts)：模块生命周期与注册上下文
-- [tui-module-config.ts](../examples/cli/src/tui-module-config.ts)：TUI 配置解析
-- [index.ts](../examples/cli/src/index.ts)：TUI 应用层装配、确认链与 `/modules`
-- [task-worker-entry.ts](../examples/cli/src/task-worker-entry.ts)：后台 worker 的显式工具清单
-- [read-file-module.ts](../examples/cli/src/modules/read-file-module.ts) 和 [todoist-module.ts](../examples/cli/src/modules/todoist-module.ts)：现有接入实例
+- [module-host.ts](../packages/assistant/src/module-host.ts)：模块生命周期与注册上下文
+- [tui-module-config.ts](../packages/assistant/src/tui-module-config.ts)：TUI 配置解析
+- [index.ts](../packages/assistant/src/index.ts)：TUI 应用层装配、确认链与 `/modules`
+- [task-worker-entry.ts](../packages/assistant/src/task-worker-entry.ts)：后台 worker 的显式工具清单
+- [read-file-module.ts](../packages/assistant/src/modules/read-file-module.ts) 和 [todoist-module.ts](../packages/assistant/src/modules/todoist-module.ts)：现有接入实例
 
 ## 一条接入路径
 
@@ -48,9 +48,9 @@ const host = createModuleHost(
 
 ### 3. 选择入口
 
-TUI 的模块选择由 [tui-module-config.ts](../examples/cli/src/tui-module-config.ts) 的严格 `version: 1` 配置和入口装配决定。配置启用模块不会自动授权 worker；配置变更需要重启。
+TUI 的模块选择由 [tui-module-config.ts](../packages/assistant/src/tui-module-config.ts) 的严格 `version: 1` 配置和入口装配决定。配置启用模块不会自动授权 worker；配置变更需要重启。
 
-worker 不读取 TUI `--config`。后台能力只由 [task-worker-entry.ts](../examples/cli/src/task-worker-entry.ts) 的显式清单决定：当前 `--todoist` 只开放已经检查过的 `todoist_list_tasks`。不要按元数据 `risk: "read"` 自动开放其他工具，也不要把新增 TUI 模块默认为后台能力。
+worker 不读取 TUI `--config`。后台能力只由 [task-worker-entry.ts](../packages/assistant/src/task-worker-entry.ts) 的显式清单决定：当前 `--todoist` 只开放已经检查过的 `todoist_list_tasks`。不要按元数据 `risk: "read"` 自动开放其他工具，也不要把新增 TUI 模块默认为后台能力。
 
 ### 4. 工具与命令执行
 
@@ -58,7 +58,7 @@ worker 不读取 TUI `--config`。后台能力只由 [task-worker-entry.ts](../e
 
 命令的 `execute(args)` 是本地空闲态入口；它不自动创建 Run，也不自动写入 transcript。`/todoist list` 会联网，因此不能笼统宣称所有命令都是只读。`/modules` 和计算器 `add` 是 CLI 入口直接装配的能力，不是 `AgentModule`。
 
-`RegisteredTool` 依赖当前 AI SDK adapter，模块属于 `examples/cli` 的应用层组合，不是跨运行时的插件 SDK。`ToolRisk`、`idempotent` 等元数据用于现有运行路径的描述，不自动形成沙箱或 Exactly Once 保证。
+`RegisteredTool` 依赖当前 AI SDK adapter，模块属于 `packages/assistant` 的应用层组合，不是跨运行时的插件 SDK。`ToolRisk`、`idempotent` 等元数据用于现有运行路径的描述，不自动形成沙箱或 Exactly Once 保证。
 
 ## 必须保留的边界
 

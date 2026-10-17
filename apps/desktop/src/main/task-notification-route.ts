@@ -1,6 +1,6 @@
-import { parseTaskResultLink, taskResultWorkspaceKey } from "@serika/example-cli";
-import type { AutomationResult } from "@serika/example-cli";
-import type { TaskRecordV4 } from "@serika/example-cli";
+import { parseTaskResultLink, taskResultWorkspaceKey } from "@serika/assistant";
+import type { AutomationResult } from "@serika/assistant";
+import type { TaskRecordV4 } from "@serika/assistant";
 
 /** Notification payload can only select a record in the current workspace. */
 export async function openTaskNotificationResult(link: string, workspaceRoot: string | null,

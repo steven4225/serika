@@ -4,14 +4,14 @@ import { link, lstat, mkdir, open, realpath, rm, unlink } from "node:fs/promises
 import { dirname, isAbsolute, join, relative, sep } from "node:path";
 import { gzipSync, gunzipSync } from "node:zlib";
 import { readThreadTranscript } from "@serika/core";
-import { restoreTaskDocument, validateTaskDocument } from "@serika/example-cli";
-import { MEMORY_FILE_MAX_BYTES, validateMemoryDocument } from "@serika/example-cli";
-import { CHECKPOINT_FILE_MAX_BYTES, validateCheckpointDocument } from "@serika/example-cli";
-import { WORK_TASK_FILE_MAX_BYTES, validateWorkTaskDocument } from "@serika/example-cli";
-import { validateDreamingDocument } from "@serika/example-cli";
-import { validateRssDocument } from "@serika/example-cli";
-import { validateExecutionRunRecord } from "@serika/example-cli";
-import { tryAcquireFlock, type FlockHandle } from "@serika/example-cli";
+import { restoreTaskDocument, validateTaskDocument } from "@serika/assistant";
+import { MEMORY_FILE_MAX_BYTES, validateMemoryDocument } from "@serika/assistant";
+import { CHECKPOINT_FILE_MAX_BYTES, validateCheckpointDocument } from "@serika/assistant";
+import { WORK_TASK_FILE_MAX_BYTES, validateWorkTaskDocument } from "@serika/assistant";
+import { validateDreamingDocument } from "@serika/assistant";
+import { validateRssDocument } from "@serika/assistant";
+import { validateExecutionRunRecord } from "@serika/assistant";
+import { tryAcquireFlock, type FlockHandle } from "@serika/assistant";
 import type { DesktopThread } from "./desktop-identity.js";
 import type { BackupResult, RestoreResult } from "../shared/backup.js";
 

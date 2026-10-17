@@ -13,7 +13,7 @@ import type { ExecutionRunRecord, ExecutionToolRecord } from "../../shared/ui-co
 import { SteerStatus } from "./steer-status.js";
 import { runTimeline, usageLabel, durationLabel } from "./run-timeline.js";
 import { ModelUsagePanel } from "./model-usage.js";
-import type { ModelUsagePage } from "@serika/example-cli";
+import type { ModelUsagePage } from "@serika/assistant";
 
 export type RecordsState =
   | { status: "loading" }

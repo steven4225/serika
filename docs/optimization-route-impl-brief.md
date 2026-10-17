@@ -55,7 +55,7 @@
 **Before：** `execution-record-store` 为 tmp→writeFile→rename，无 file/dir sync。  
 **After：** 与 TelegramStore 同级的持久化边界；写入失败或不确定则停止相关派发，不把未知效果画成失败后自动重试。
 
-依据：`examples/cli/src/execution-record-store.ts`。
+依据：`packages/assistant/src/execution-record-store.ts`。
 
 **同批处理：** transcript、执行回执、WorkTask、后台任务记录的关键持久化策略一致。
 

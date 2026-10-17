@@ -1,30 +1,30 @@
-import type { MemoryLibraryAction, MemoryLibraryView, MemoryLibraryDocument } from "@serika/example-cli";
-import type { RecipeEntry, RecipeChange } from "@serika/example-cli";
+import type { MemoryLibraryAction, MemoryLibraryView, MemoryLibraryDocument } from "@serika/assistant";
+import type { RecipeEntry, RecipeChange } from "@serika/assistant";
 import type { UIMessage } from "ai";
 import type { HistoryPage, HistoryPageInput } from "./history.js";
 import type { BackupResult, RestoreResult, RestorePreview } from "./backup.js";
 import type { ResidentServiceState } from "./resident-service.js";
 import type { ConversationDraftScope, ConversationDraft, ConversationDraftState, DesktopSteerInput, DesktopSteerResponse, TaskDraftUpdate } from "./conversation-drafts.js";
-import type { FormalMemory, MemoryPage, MemoryListInput, MemoryEditInput } from "@serika/example-cli";
-import type { MemoryAction, MemoryActionPreview, MemoryHistoryInput, MemoryHistoryPage, MemoryMaintenance } from "@serika/example-cli";
-import type { AssistantRunOptions, AssistantSteerRecord, AutomationResult } from "@serika/example-cli";
-export type { AssistantSteerRecord } from "@serika/example-cli";
-import type { AutomationDiagnostics, SkillRunInput, SkillResult } from "@serika/example-cli";
-import type { AutomationOverview, AutomationScheduleAction, ScheduleSkillInput, ScheduledSkillSaved } from "@serika/example-cli";
-import type { AssistantController } from "@serika/example-cli";
-import type { TaskListV3, TaskRecordV4 } from "@serika/example-cli";
-import type { MemoryConsolidationRequest, MemoryConsolidationSourcePage } from "@serika/example-cli";
-import type { MemoryReferenceSnapshot } from "@serika/example-cli";
+import type { FormalMemory, MemoryPage, MemoryListInput, MemoryEditInput } from "@serika/assistant";
+import type { MemoryAction, MemoryActionPreview, MemoryHistoryInput, MemoryHistoryPage, MemoryMaintenance } from "@serika/assistant";
+import type { AssistantRunOptions, AssistantSteerRecord, AutomationResult } from "@serika/assistant";
+export type { AssistantSteerRecord } from "@serika/assistant";
+import type { AutomationDiagnostics, SkillRunInput, SkillResult } from "@serika/assistant";
+import type { AutomationOverview, AutomationScheduleAction, ScheduleSkillInput, ScheduledSkillSaved } from "@serika/assistant";
+import type { AssistantController } from "@serika/assistant";
+import type { TaskListV3, TaskRecordV4 } from "@serika/assistant";
+import type { MemoryConsolidationRequest, MemoryConsolidationSourcePage } from "@serika/assistant";
+import type { MemoryReferenceSnapshot } from "@serika/assistant";
 import type { AgentEvent, RunResult } from "@serika/core";
-import type { ExecutionRunRecord } from "@serika/example-cli";
-import type { ModelUsagePage } from "@serika/example-cli";
-export type { ExecutionRunRecord, ExecutionToolRecord } from "@serika/example-cli";
-import type { ContextDiagnostics, ContextResult } from "@serika/example-cli";
-import type { ContextBudgetConfig } from "@serika/example-cli";
-import type { RssAction, RssInbox, RssResult, RssView } from "@serika/example-cli";
+import type { ExecutionRunRecord } from "@serika/assistant";
+import type { ModelUsagePage } from "@serika/assistant";
+export type { ExecutionRunRecord, ExecutionToolRecord } from "@serika/assistant";
+import type { ContextDiagnostics, ContextResult } from "@serika/assistant";
+import type { ContextBudgetConfig } from "@serika/assistant";
+import type { RssAction, RssInbox, RssResult, RssView } from "@serika/assistant";
 import type { WorkTask, WorkTaskInputs, WorkTaskResult, WorkTaskReadInput, WorkTaskArtifactInput, WorkTaskReadResult, WorkTaskDeliveryDraft, WorkTaskArtifactPreview } from "./work-tasks.js";
 import type { WorkTaskContinuation } from "./work-tasks.js";
-import type { CandidateListInput, CandidatePage, CandidatePreview, CandidateResolution, CandidateResolveInput, MemoryResult } from "@serika/example-cli";
+import type { CandidateListInput, CandidatePage, CandidatePreview, CandidateResolution, CandidateResolveInput, MemoryResult } from "@serika/assistant";
 
 /**
  * The only surface between the Electron main process and the renderer.
@@ -83,7 +83,7 @@ export interface AppInfo {
   entryMode?: "daily" | "test";
   /** Built-in support and current configuration only; not a permission grant. */
   modules?: { id: string; enabled: boolean }[];
-  capabilities?: import("@serika/example-cli").CapabilityStatus;
+  capabilities?: import("@serika/assistant").CapabilityStatus;
   moduleOptions?: { webSearch: boolean; webFeed: boolean; autoConsolidate: boolean };
   configPath?: string | null;
   modelAlias: string;
@@ -191,7 +191,7 @@ export type GetRunResponse =
 export interface ContextModeInput { mode: "daily" | "long-task"; expectedBudget: ContextBudgetConfig }
 
 export interface RendererApi {
-  pomodoro?(action: "status" | "start" | "cancel", minutes?: number): Promise<import("@serika/example-cli").PomodoroResult>;
+  pomodoro?(action: "status" | "start" | "cancel", minutes?: number): Promise<import("@serika/assistant").PomodoroResult>;
   listRecipes(): Promise<MemoryResult<RecipeEntry[]>>;
   changeRecipe(input: RecipeChange): Promise<MemoryResult<RecipeEntry>>;
 

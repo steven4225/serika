@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import type { TaskRecordV4 } from "@serika/example-cli";
-import { taskNotificationCopy } from "@serika/example-cli/browser";
+import type { TaskRecordV4 } from "@serika/assistant";
+import { taskNotificationCopy } from "@serika/assistant/browser";
 import { createSavedTaskNoticeReader, createTaskNoticeDismissals } from "../../shared/saved-task-result.js";
 import { taskResultPresentation } from "./task-inbox.js";
 import { NotificationSettingsButton } from "./notification-settings-button.js";

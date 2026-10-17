@@ -30,7 +30,7 @@ Electron 前端通过 `createRuntimeApp` + `createAssistantController` 接入后
 
 **五分钟 Demo（隔离环境，不改日用配置）：** 开启已有记忆自动整理、查询改写及上下文压缩，发一句明确偏好，待主对话与记忆沉淀完成，再从上下文页手动压缩。打开执行记录可展开四组用途并查看缓存与费用。重新读取同一账本不新增记录；再次准备已覆盖的旧摘要／复用同一消息的查询改写缓存，调用数不增加。故障注入验证重试两调用、取消迟到不重账。
 
-离线可复现命令：`pnpm build:runtime && node --test examples/cli/dist/model-usage.test.js packages/ai-sdk-adapter/dist/token-usage.test.js`。其中 Controller Demo 使用脚本供应商，覆盖真实装配、自动正式记忆写入、四用途账本、摘要复用和重开读取；它不证明真实供应商准确计费或日用 GUI 已加载本批。
+离线可复现命令：`pnpm build:runtime && node --test packages/assistant/dist/model-usage.test.js packages/ai-sdk-adapter/dist/token-usage.test.js`。其中 Controller Demo 使用脚本供应商，覆盖真实装配、自动正式记忆写入、四用途账本、摘要复用和重开读取；它不证明真实供应商准确计费或日用 GUI 已加载本批。
 
 ## 单仓入口与 Grokbot 检查
 
@@ -212,7 +212,7 @@ macOS/Linux 正常保存使用同一 transcript 路径的跨进程 append 锁。
 
 1. 日用 Serika 完整退出重开，确认原对话仍在；搜索原对话中的词，打开原 Thread。
 2. 在已构建仓库运行 `pnpm --filter @serika/desktop exec tsx --test src/main/thread-history.test.ts`，验证累计超过 16 MiB 的历史能发现与搜索，文件字节和修改时间不变。这是大文件夹具，不声称日用文件已经超过 16 MiB。
-3. 运行 `node --test examples/cli/dist/receipt-durability.test.js examples/cli/dist/transcript-storage.test.js`，验证真实跨进程锁、同步失败不派发、结果未知不自动重做。注入 IO 失败不是机器断电证明。
+3. 运行 `node --test packages/assistant/dist/receipt-durability.test.js packages/assistant/dist/transcript-storage.test.js`，验证真实跨进程锁、同步失败不派发、结果未知不自动重做。注入 IO 失败不是机器断电证明。
 
 `RUNLOOM_THREAD` / `RUNLOOM_TRANSCRIPTS` 可显式覆盖，不改写默认身份；部分覆盖从匹配身份补齐，无匹配时用稳定隔离默认值。以相同覆盖重启才能回到同一对话。`RUNLOOM_WORKSPACE` 只在首次生成配置时生效，已有配置以文件实际 workspace 为准。
 

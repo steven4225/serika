@@ -35,7 +35,7 @@
 ```sh
 pnpm build:runtime
 node --test --test-name-pattern='undated conflict|approval preview guard|approval replacement race' \
-  examples/cli/dist/memory-correctness.test.js examples/cli/dist/tui.test.js
+  packages/assistant/dist/memory-correctness.test.js packages/assistant/dist/tui.test.js
 
 pnpm --filter @serika/desktop exec tsx --test \
   src/renderer/src/approval.test.ts src/shared/memory-review.test.ts \

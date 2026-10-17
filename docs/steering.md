@@ -39,7 +39,7 @@ await controller.steer({ expectedRunId, id, text });
 ```sh
 pnpm build
 RUNLOOM_STEERING_ACCEPTANCE=1 node --env-file=.env --test \
-  examples/cli/dist/steering-real-acceptance.test.js
+  packages/assistant/dist/steering-real-acceptance.test.js
 ```
 
 此入口还检查逐字追加正文，包括空行。模型额外插入或遗漏空行也会失败，不能将「旧操作已拦住」与「精确正文通过」混成一个通过结论。

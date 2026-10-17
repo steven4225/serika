@@ -1,6 +1,6 @@
-import type { SkillSummary } from "@serika/example-cli";
-import type { ScheduleSkillInput } from "@serika/example-cli";
-import type { TaskArrangement } from "@serika/example-cli";
+import type { SkillSummary } from "@serika/assistant";
+import type { ScheduleSkillInput } from "@serika/assistant";
+import type { TaskArrangement } from "@serika/assistant";
 import { humanFacingTitle } from "../../shared/human-title.js";
 
 export function automationArrangementLabel(arrangement?: TaskArrangement): string {

@@ -31,7 +31,7 @@
   report.md                # 同一结果的人类可读视图
 ```
 
-`result.json` 使用 `examples/cli/src/acceptance/contracts.ts` 的 `AcceptanceCaseResult`：`schemaVersion: 1`，`caseId`、`attemptId`、commit/dirty/modelId/脱敏配置 digest、入口/模型/网络类型、开始结束时间、Run/Thread ID、各项检查、证据路径、失败层、耗时和可获得的 usage。`usage: null` 表示不可得，不填零。`passed` 需要所有必需检查通过；确定失败优先于随后未跑或受阻。修复后新建 attempt，不覆盖第一次失败。不得在报告、配置摘要、终端副本中保存 API key 或完整鉴权 Header。
+`result.json` 使用 `packages/assistant/src/acceptance/contracts.ts` 的 `AcceptanceCaseResult`：`schemaVersion: 1`，`caseId`、`attemptId`、commit/dirty/modelId/脱敏配置 digest、入口/模型/网络类型、开始结束时间、Run/Thread ID、各项检查、证据路径、失败层、耗时和可获得的 usage。`usage: null` 表示不可得，不填零。`passed` 需要所有必需检查通过；确定失败优先于随后未跑或受阻。修复后新建 attempt，不覆盖第一次失败。不得在报告、配置摘要、终端副本中保存 API key 或完整鉴权 Header。
 
 `review.json` 由 `start` 生成，操作人在任务结束后补 `humanChecks`（检查 ID、状态、证据 ID、理由）、`evidence`（ID、类型、相对路径）、Run/Thread ID、失败归因与可获得的 usage。每个检查 ID 必须对应 `cases.ts` 中的项目；`failed` 记录首次失败，缺模型服务或凭据等无法开始的项目记 `blocked`。
 
@@ -72,7 +72,7 @@ pnpm acceptance finish "$RUNLOOM_EVIDENCE_ROOT/A07/feed-live-1"
 在一次性 workspace 之外放置 TUI 配置文件，`version: 1`，`workspace` 指向该 workspace 的绝对路径；只开启本案例需要的模块。固定 transcript 目录与 thread。以下命令使用已在本地 `.env` 中配置的 DeepSeek，不读取或打印 key：
 
 ```bash
-RUNLOOM_MODEL=deepseek node --env-file=.env examples/cli/dist/index.js \
+RUNLOOM_MODEL=deepseek node --env-file=.env packages/assistant/dist/index.js \
   --tui "$RUNLOOM_TEST_TRANSCRIPTS" \
   --thread "$RUNLOOM_TEST_THREAD" \
   --config "$RUNLOOM_TEST_CONFIG"
@@ -114,7 +114,7 @@ RUNLOOM_MODEL=deepseek node --env-file=.env examples/cli/dist/index.js \
 
 ```bash
 RUNLOOM_MODEL=deepseek node --env-file=.env \
-  examples/cli/dist/task-worker-entry.js \
+  packages/assistant/dist/task-worker-entry.js \
   --workspace "$RUNLOOM_TEST_WORKSPACE" --workspace-context
 ```
 

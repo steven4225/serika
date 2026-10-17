@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { it } from "node:test";
-import { DEFAULT_CONTEXT_BUDGET_CONFIG } from "@serika/example-cli/testing";
+import { DEFAULT_CONTEXT_BUDGET_CONFIG } from "@serika/assistant/testing";
 import { ResidentClient } from "./resident-transport.js";
 import { residentStartup, saveResidentStartup } from "./resident-startup.js";
 import type { PendingApproval } from "../shared/ui-contract.js";

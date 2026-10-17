@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { contextErrorText, contextInputBudget, contextModeLabel, contextOverview, contextPanelReducer, contextUsageLabel, initialContextPanel, preparationLabel } from "../../shared/context-panel.js";
-import { contextBudgetThresholds } from "@serika/example-cli/browser";
-import type { ContextBudgetConfig } from "@serika/example-cli";
-import type { ModelCapacityEvidence } from "@serika/example-cli";
+import { contextBudgetThresholds } from "@serika/assistant/browser";
+import type { ContextBudgetConfig } from "@serika/assistant";
+import type { ModelCapacityEvidence } from "@serika/assistant";
 
 export function ContextModeSelector({ budget, requestedBudget, modelCapacity, disabled, onSelect }: { budget: ContextBudgetConfig; requestedBudget?: ContextBudgetConfig; modelCapacity?: ModelCapacityEvidence; disabled: boolean; onSelect: (mode: "daily" | "long-task") => void }) {
   return <div className="context-mode">

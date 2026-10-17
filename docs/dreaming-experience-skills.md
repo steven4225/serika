@@ -73,7 +73,7 @@ pnpm test
 ```sh
 RUNLOOM_DREAMING_ACCEPTANCE=1 node --env-file=.env --test \
   --test-name-pattern='real configured model' \
-  examples/cli/dist/dreaming-acceptance.test.js
+  packages/assistant/dist/dreaming-acceptance.test.js
 ```
 
 用隔离 fixture 验收，拒绝 mock fallback。来源夹具的人工接受不代表生产内容质量。运行时重开与原生 Electron 人工点击、完整进程重启是不同证据；报告不能拼成已经全部封板。

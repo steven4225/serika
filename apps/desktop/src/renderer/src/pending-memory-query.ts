@@ -1,4 +1,4 @@
-import type { CandidateListInput, CandidatePage, CandidatePreview, MemoryCandidate, MemoryResult } from "@serika/example-cli";
+import type { CandidateListInput, CandidatePage, CandidatePreview, MemoryCandidate, MemoryResult } from "@serika/assistant";
 
 export interface PendingMemoryReadApi {
   listMemoryCandidates(input: CandidateListInput): Promise<MemoryResult<CandidatePage>>;

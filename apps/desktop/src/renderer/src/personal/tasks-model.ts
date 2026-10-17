@@ -1,4 +1,4 @@
-import { reminderWhen } from "@serika/example-cli/browser";
+import { reminderWhen } from "@serika/assistant/browser";
 import type { WorkTask } from "../../../shared/work-tasks.js";
 import { humanFacingTitle } from "../../../shared/human-title.js";
 import type { ReminderSpeechClock } from "../reminder-copy.js";

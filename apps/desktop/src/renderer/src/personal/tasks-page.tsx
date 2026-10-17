@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import type { AutomationScheduleAction } from "@serika/example-cli";
+import type { AutomationScheduleAction } from "@serika/assistant";
 import type { WorkTask } from "../../../shared/work-tasks.js";
 import { humanFacingTitle } from "../../../shared/human-title.js";
 import { reminderClock, type ReminderDisplayRow } from "../reminder-copy.js";

@@ -12,7 +12,7 @@ export async function manifest(caseIds, repeat, options = {}) {
   const fingerprint = createHash('sha256');
   for (const file of evaluationFiles) fingerprint.update(file).update(await readFile(join(here, file)));
   const runtimeVariant = process.env.SERIKA_EVAL_BASELINE === '1' ? 'before' : 'after';
-  const runtimeDirectory = runtimeVariant === 'before' ? join(here, 'results/baseline-b15a2fd-runtime/cli') : join(repo, 'examples/cli/dist');
+  const runtimeDirectory = runtimeVariant === 'before' ? join(here, 'results/baseline-b15a2fd-runtime/cli') : join(repo, 'packages/assistant/dist');
   const runtimeFingerprint = createHash('sha256');
   for (const file of (await readdir(runtimeDirectory, { recursive: true })).filter(f => f.endsWith('.js') && !f.endsWith('.test.js')).sort()) {
     runtimeFingerprint.update(file).update(await readFile(join(runtimeDirectory, file)));

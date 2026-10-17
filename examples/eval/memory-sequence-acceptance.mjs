@@ -5,10 +5,10 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PassThrough } from 'node:stream';
 import { setTimeout as delay } from 'node:timers/promises';
-import { createRuntimeApp } from '@serika/example-cli/internal/app.js';
-import { createAssistantController } from '@serika/example-cli/internal/assistant-controller.js';
-import { configureCliModel } from '@serika/example-cli/internal/model-config.js';
-import { createMemoryStore } from '@serika/example-cli/internal/memory-store.js';
+import { createRuntimeApp } from '@serika/assistant/internal/app.js';
+import { createAssistantController } from '@serika/assistant/internal/assistant-controller.js';
+import { configureCliModel } from '@serika/assistant/internal/model-config.js';
+import { createMemoryStore } from '@serika/assistant/internal/memory-store.js';
 import { createTransitionFetch, transitionModel, transitionSafeError } from './memory-transition-acceptance.mjs';
 
 export const sequenceCases = Object.freeze([
@@ -109,7 +109,7 @@ export async function runMemorySequence({ live = false, env = process.env, outpu
   } }), { mode: 0o600 });
   const source = await readFile(fileURLToPath(import.meta.url));
   const runtimeHashes = Object.fromEntries(await Promise.all(['app', 'assistant-controller', 'memory-consolidation', 'memory-store', 'model-config'].map(async name =>
-    [name, hash(await readFile(new URL(`../cli/dist/${name}.js`, import.meta.url)))])));
+    [name, hash(await readFile(new URL(`../../packages/assistant/dist/${name}.js`, import.meta.url)))])));
   let gitCommit = null;
   try { gitCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dirname(fileURLToPath(import.meta.url)), encoding: 'utf8' }).trim(); } catch { /* export */ }
   await writeFile(join(root, 'manifest.json'), JSON.stringify({ suite: 'memory-sequence-v1', source: '我的 eval', requestedModelId: transitionModel.modelId,

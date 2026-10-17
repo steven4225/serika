@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { mock, test } from "node:test";
 import { MockLanguageModelV3 } from "ai/test";
 import { simulateReadableStream } from "ai";
-import { createMemoryStore } from "@serika/example-cli/testing";
+import { createMemoryStore } from "@serika/assistant/testing";
 import { JsonlAgentStore } from "@serika/core";
 import { restoreBackup } from "./backup.js";
 import { RuntimeOwnership } from "./runtime-ownership.js";

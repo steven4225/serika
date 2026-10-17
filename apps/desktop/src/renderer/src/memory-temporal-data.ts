@@ -1,6 +1,6 @@
-import type { FormalMemory } from "@serika/example-cli";
-import type { MemoryAction } from "@serika/example-cli";
-import type { MemoryKind } from "@serika/example-cli";
+import type { FormalMemory } from "@serika/assistant";
+import type { MemoryAction } from "@serika/assistant";
+import type { MemoryKind } from "@serika/assistant";
 
 export type MemoryActionMode = "correct" | "change" | "retract" | "pin" | "disable" | "expiry" | "restore" | "delete";
 export interface MemoryActionDraft {

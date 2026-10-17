@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import type { AutomationResult } from "@serika/example-cli";
-import type { AutomationOverview } from "@serika/example-cli";
-import type { TaskListV3 } from "@serika/example-cli";
+import type { AutomationResult } from "@serika/assistant";
+import type { AutomationOverview } from "@serika/assistant";
+import type { TaskListV3 } from "@serika/assistant";
 import type { RssWorkerResponse } from "../../../shared/ui-contract.js";
 import { humanFacingTitle } from "../../../shared/human-title.js";
 import { createTaskNoticeDismissals } from "../../../shared/saved-task-result.js";

@@ -17,10 +17,10 @@ it("desktop uses only the assistant package's public entries, never its internal
   const offenders: string[] = [];
   for (const file of await sources(src)) {
     const text = await readFile(file, "utf8");
-    if (/@serika\/example-cli\/(dist|internal)\//.test(text)) offenders.push(file.slice(src.length));
+    if (/@serika\/assistant\/(dist|internal)\//.test(text)) offenders.push(file.slice(src.length));
     // Renderer code is bundled for the browser: runtime values come only from the browser-safe entry.
     if (/[/\\]renderer[/\\]/.test(file) && !file.includes(".test.") &&
-      /^import (?!type )[^;]*from "@serika\/example-cli(\/testing)?";/m.test(text)) offenders.push(`${file.slice(src.length)} (runtime import outside /browser)`);
+      /^import (?!type )[^;]*from "@serika\/assistant(\/testing)?";/m.test(text)) offenders.push(`${file.slice(src.length)} (runtime import outside /browser)`);
   }
   assert.deepEqual(offenders, []);
 });

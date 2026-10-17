@@ -27,7 +27,7 @@
 - Preserve this dependency direction:
 
   ```text
-  apps/desktop -> examples/cli (assistant domain + controller) -> packages/ai-sdk-adapter -> packages/core
+  apps/desktop -> packages/assistant (assistant domain + controller) -> packages/ai-sdk-adapter -> packages/core
   ```
 
 - `packages/core` must not import the AI SDK adapter, the assistant domain, Electron or any storage engine.

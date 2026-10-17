@@ -86,12 +86,13 @@ apps/telegram ┘        (领域：记忆/任务/上下文/沉淀，扩展 API)
 - 第 2 步：完成。
   - `loop.ts` 963 → 343 行。中断、模型错误分类、工具错误这三组辅助函数原样拆到 `abort.ts`、`model-errors.ts`、`tool-errors.ts`，逻辑不变。
   - core 新增 `afterToolCall` hook：返回 `feedback`（只追加到下一次模型请求，不进 transcript 和事件）或 `stop`（以 `RUN_LIMIT_EXCEEDED` 结束，已完成的调用保持真实）。hook 本身抛错或返回无效决定按 `INTERNAL` 失败，不重放工具。
-  - 防重复查询守卫（应用工具名、中文文案）从 adapter 移到 `examples/cli/src/no-progress-guard.ts`，作为 `afterToolCall` 挂上；状态从本次 Run 的消息推出，不再存在 loop 里。测试随之迁移。
+  - 防重复查询守卫（应用工具名、中文文案）从 adapter 移到 `packages/assistant/src/no-progress-guard.ts`（当时在 `examples/cli`），作为 `afterToolCall` 挂上；状态从本次 Run 的消息推出，不再存在 loop 里。测试随之迁移。
   - `add` 演示工具只在离线 mock 模型（`createDemoModel()`）下注册，真实模型的工具列表和指令里不再出现它；需要它的自定义 mock 测试显式传 `demoTools: true`。
   - 没做：`beforeToolExecute` 抛错仍让 Run 失败（fail closed）。工具执行失败、拒绝、参数无效本来就编码成工具结果消息；precheck 自身出错不是模型能修的问题，改成消息只会让模型重试。
 - 第 3 步（进行中）：
   - 已完成：桌面端对 `example-cli` 内部文件的引用 44 个模块 → 0。`example-cli` 只开放显式列出的公开入口：`.`（`src/api.ts`，宿主用）、`./browser`（`src/browser.ts`，不含 Node 依赖，渲染进程运行时只能从这里取值）、`./testing`（测试夹具）、`./task-worker-entry`（worker 进程入口）。`./internal/*.js` 只留给 `examples/eval` 这类内部评测。`apps/desktop/src/main/package-boundary.test.ts` 防止回退。
   - 已完成：桌面端 IPC 纯转发方法（77 个：当前会话 56、宿主 21）改为一张表 `apps/desktop/src/shared/ipc-forwards.ts`，主进程 `registerForwardedIpc` 和 preload 都由表生成，`ui-contract.ts` 不再为它们各写一个通道常量。新增一个直通方法从改 6 处变成改 3 处（实现、`RendererApi` 声明、表里一行）。有参数校验、副作用或拼装逻辑的通道仍然手写。常驻进程的 `RESIDENT_*` 方法列表是安全白名单，没有并进这张表。
+  - 已完成：`examples/cli` 改名搬到 `packages/assistant`，包名 `@serika/example-cli` → `@serika/assistant`。只改路径和包名，源码内容不动；仓库内命令、文档链接、CI 和 lockfile 同步更新。第 1 节「现状」和第 5 节度量基线描述的是改造前，保留旧名。
 
 ## 4.2 未来：群聊 bot（独立线）
 

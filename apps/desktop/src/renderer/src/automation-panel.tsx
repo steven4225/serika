@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { submitCreation } from "./creation-operation.js";
 import { FailureAlert } from "./failure-notice.js";
-import type { AutomationOverview, AutomationScheduleAction } from "@serika/example-cli";
+import type { AutomationOverview, AutomationScheduleAction } from "@serika/assistant";
 import { automationArrangementLabel, automationStatuses, skillSchedulePreview, type SkillScheduleDraft } from "./automation-schedule.js";
 import { humanFacingTitle } from "../../shared/human-title.js";
 import { localWhen, reminderClock, scheduleStatusLabel } from "./reminder-copy.js";

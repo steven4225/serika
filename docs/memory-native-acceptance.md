@@ -10,7 +10,7 @@ pnpm test
 git diff --check
 ```
 
-固定词法 Eval 在 `examples/cli/src/memory-retrieval.test.ts`：28 例，直接匹配、中英文问句、scope、禁用/过期、pin、旧 history、预算均给预期/禁止 ID。强同义改写两例记录实际 0/2 命中，代表首版词法边界，不是语义能力通过。另测真实最终 JSON 字节、Unicode 查询边界、大项跳过、空选材和最多 12 条。
+固定词法 Eval 在 `packages/assistant/src/memory-retrieval.test.ts`：28 例，直接匹配、中英文问句、scope、禁用/过期、pin、旧 history、预算均给预期/禁止 ID。强同义改写两例记录实际 0/2 命中，代表首版词法边界，不是语义能力通过。另测真实最终 JSON 字节、Unicode 查询边界、大项跳过、空选材和最多 12 条。
 
 消费路径测试检查：普通/压缩使用同一份引用；摘要生成期间更新只影响下次 preparation；重启当前 revision；worker task.prompt 单次读取且无 Thread 私有项；checkpoint pinned-only；候选和历史从不注入。
 
@@ -21,7 +21,7 @@ git diff --check
 ```sh
 pnpm build
 RUNLOOM_MEMORY_ACCEPTANCE=1 RUNLOOM_MODEL=deepseek \
-  node --env-file=.env examples/cli/dist/memory-native-acceptance.js
+  node --env-file=.env packages/assistant/dist/memory-native-acceptance.js
 ```
 
 也可使用已配置的 `RUNLOOM_MODEL=minimax-m3` 或 `RUNLOOM_MODEL=command-code`（后者使用 `COMMAND_CODE_API_KEY`）。无显式 opt-in 时入口拒绝，普通 `pnpm test` 不联网。命令返回隔离 root 和 passed；不要把 root 放进自己的日用 workspace，也不要删除它再声称有证据。

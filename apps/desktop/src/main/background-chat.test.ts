@@ -6,8 +6,8 @@ import { setTimeout as delay } from "node:timers/promises";
 import { test } from "node:test";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
-import { createRuntimeApp } from "@serika/example-cli";
-import { createAssistantController } from "@serika/example-cli";
+import { createRuntimeApp } from "@serika/assistant";
+import { createAssistantController } from "@serika/assistant";
 import { RuntimeBridge, TeeOutput } from "./runtime-bridge.js";
 import { canSubmitComposer } from "../shared/composer.js";
 

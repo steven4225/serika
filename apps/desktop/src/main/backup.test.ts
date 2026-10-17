@@ -5,11 +5,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { it } from "node:test";
 import { gzipSync, gunzipSync } from "node:zlib";
-import { createTaskStore } from "@serika/example-cli";
-import { TASK_FILE_NAME } from "@serika/example-cli/testing";
-import { createExecutionRecordStore } from "@serika/example-cli/testing";
+import { createTaskStore } from "@serika/assistant";
+import { TASK_FILE_NAME } from "@serika/assistant/testing";
+import { createExecutionRecordStore } from "@serika/assistant/testing";
 import { exportBackup, restoreBackup, previewBackup } from "./backup.js";
-import { acquireFlock, tryAcquireFlock } from "@serika/example-cli";
+import { acquireFlock, tryAcquireFlock } from "@serika/assistant";
 import { JsonlAgentStore } from "@serika/core";
 import { inspectThread } from "./thread-history.js";
 

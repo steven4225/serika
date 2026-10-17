@@ -14,7 +14,7 @@
     "view": "node run.mjs view"
   },
   "dependencies": {
-    "@serika/example-cli": "workspace:*",
+    "@serika/assistant": "workspace:*",
     "@serika/core": "workspace:*",
     "ai": "7.0.37"
   },

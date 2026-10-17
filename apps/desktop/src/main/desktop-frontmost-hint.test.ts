@@ -3,7 +3,7 @@ import { chmod, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { readDesktopFrontmost } from "@serika/example-cli/testing";
+import { readDesktopFrontmost } from "@serika/assistant/testing";
 import { installDesktopFrontmostHint, type FrontmostWindow } from "./desktop-frontmost-hint.js";
 
 test("a frontmost window publishes a hint and blur or quit removes it without touching task files", async () => {

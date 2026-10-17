@@ -2,7 +2,7 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 import { chmod, lstat, mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { createConnection, createServer, type Socket } from "node:net";
 import { dirname, join, resolve } from "node:path";
-import { tryAcquireFlock } from "@serika/example-cli";
+import { tryAcquireFlock } from "@serika/assistant";
 import { MAX_RESIDENT_FRAME_BYTES, MAX_RESIDENT_PENDING, RESIDENT_BRIDGE_METHODS, RESIDENT_HOST_METHODS, RESIDENT_VERSION, type RemoteRuntimeBridge, type RemoteRuntimeMethods, type ResidentClientFrame, type ResidentScope, type ResidentServerFrame, type ResidentState } from "./resident-protocol.js";
 import type { DesktopRuntime } from "./desktop-runtime.js";
 import type { Send } from "./runtime-bridge.js";

@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { constants } from "node:fs";
 import { access, lstat, realpath } from "node:fs/promises";
 import { isAbsolute, resolve, sep } from "node:path";
-import type { ServiceCommandRunner } from "@serika/example-cli";
+import type { ServiceCommandRunner } from "@serika/assistant";
 
 export interface NotificationReadinessStatus {
   helperConfigured: boolean;

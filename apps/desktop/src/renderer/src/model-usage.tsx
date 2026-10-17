@@ -1,6 +1,6 @@
 import React from "react";
-import { estimatedModelCost, MODEL_PURPOSE_LABELS } from "@serika/example-cli/browser";
-import type { ModelCallRecord, ModelUsagePage, ModelPurpose } from "@serika/example-cli";
+import { estimatedModelCost, MODEL_PURPOSE_LABELS } from "@serika/assistant/browser";
+import type { ModelCallRecord, ModelUsagePage, ModelPurpose } from "@serika/assistant";
 import { formatRecordTime } from "../../shared/execution-records.js";
 
 const token = (value: number | undefined) => value === undefined ? "未知" : value.toLocaleString("zh-CN");

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { it } from "node:test";
-import type { AssistantController } from "@serika/example-cli";
-import type { RuntimeApp } from "@serika/example-cli";
+import type { AssistantController } from "@serika/assistant";
+import type { RuntimeApp } from "@serika/assistant";
 import { RuntimeBridge, TeeOutput } from "./runtime-bridge.js";
 
 it("forwards structured diagnostics unchanged, without running a command or preparing context", async () => {

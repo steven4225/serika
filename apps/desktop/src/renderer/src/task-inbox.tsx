@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import type { TaskListV3, TaskNotification, TaskRecordV4 } from "@serika/example-cli";
+import type { TaskListV3, TaskNotification, TaskRecordV4 } from "@serika/assistant";
 import { MessageContent } from "./markdown.js";
 import { automationArrangementLabel } from "./automation-schedule.js";
 import { humanFacingTitle } from "../../shared/human-title.js";

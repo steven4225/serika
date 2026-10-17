@@ -4,8 +4,8 @@ import { constants } from "node:fs";
 import { access, chmod, lstat, mkdir, readFile, realpath, rm } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { parseEnv } from "node:util";
-import { assertWorkerPathSafe, writeWorkerFileAtomic } from "@serika/example-cli";
-import type { ServiceCommandRunner } from "@serika/example-cli";
+import { assertWorkerPathSafe, writeWorkerFileAtomic } from "@serika/assistant";
+import type { ServiceCommandRunner } from "@serika/assistant";
 import type { ResidentServiceState } from "../shared/resident-service.js";
 export type { ResidentServiceState } from "../shared/resident-service.js";
 

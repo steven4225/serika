@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { assistantEventToRenderer, sanitizeCandidateListInput, sanitizeCandidateResolveInput } from "./runtime-bridge.js";
-import type { AssistantEvent } from "@serika/example-cli";
-import type { ExecutionRunRecord } from "@serika/example-cli";
+import type { AssistantEvent } from "@serika/assistant";
+import type { ExecutionRunRecord } from "@serika/assistant";
 import { toGetRunResponse, toListRunsResponse, wrapExecutionQuery } from "../shared/execution-records.js";
 
 describe("assistantEventToRenderer", () => {

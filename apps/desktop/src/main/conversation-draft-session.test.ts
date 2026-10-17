@@ -6,7 +6,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { describe, it } from "node:test";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
-import type { AssistantSteerRecord } from "@serika/example-cli";
+import type { AssistantSteerRecord } from "@serika/assistant";
 import { ConversationDraftStore } from "./conversation-draft-store.js";
 import { ConversationDraftSession } from "./conversation-draft-session.js";
 import { DesktopRuntime } from "./desktop-runtime.js";

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { it } from "node:test";
 import { readFile } from "node:fs/promises";
 import { skillSchedulePreview, automationStatuses, type SkillScheduleDraft } from "./automation-schedule.js";
-import type { SkillSummary } from "@serika/example-cli";
+import type { SkillSummary } from "@serika/assistant";
 
 const skill: SkillSummary = { id: "brief", description: "Short text", kind: "text",
   hash: "a".repeat(64), tools: [], limits: { maxSteps: 1, totalTimeoutMs: 120000, stepTimeoutMs: 30000 } } as unknown as SkillSummary;

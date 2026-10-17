@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { CandidatePreview, MemoryCandidate } from "@serika/example-cli";
+import type { CandidatePreview, MemoryCandidate } from "@serika/assistant";
 import { canAccept, canReject, resolvePayload, scopeLabel, sourceQuote } from "../../shared/memory-review.js";
 import { initialPendingMemory, pendingMemoryReducer, pendingMemoryStatus } from "./pending-memory-data.js";
 

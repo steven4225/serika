@@ -3,7 +3,7 @@ import { lstat, mkdir, open, readFile, rename, unlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { TelegramStatus } from "../shared/telegram.js";
 import type { TelegramKeyboard } from "./telegram-api.js";
-import { EXECUTION_RECORD_MAX_TOOLS } from "@serika/example-cli";
+import { EXECUTION_RECORD_MAX_TOOLS } from "@serika/assistant";
 
 export const TELEGRAM_INPUT_LIMIT = 1024;
 export const TELEGRAM_DELIVERY_LIMIT = 2048;

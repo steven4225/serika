@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { PomodoroStatus } from "@serika/example-cli";
+import type { PomodoroStatus } from "@serika/assistant";
 import { validPomodoroMinutes } from "./pomodoro-data.js";
 
 export function PomodoroPanel({ enabled, busy, output }: { enabled: boolean; busy: boolean; output: string }) {

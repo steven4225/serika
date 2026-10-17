@@ -3,9 +3,9 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { it } from "node:test";
-import { createRuntimeApp } from "@serika/example-cli";
-import { createAssistantController } from "@serika/example-cli";
-import { createDemoModel } from "@serika/example-cli";
+import { createRuntimeApp } from "@serika/assistant";
+import { createAssistantController } from "@serika/assistant";
+import { createDemoModel } from "@serika/assistant";
 import { RuntimeBridge, TeeOutput } from "./runtime-bridge.js";
 
 it("temporal desktop IPC previews without writes, preserves history and requires explicit restore choices", async () => {
