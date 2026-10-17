@@ -32,6 +32,14 @@ pnpm build
 
 完整设计见 [docs/architecture-v0.md](docs/architecture-v0.md)。
 
+## 浏览器操作（现有本机 Shell）
+
+桌面普通聊天及已独立授权的 Telegram 前台可复用 `shell_exec` 调用已安装的 `ego-browser`，完成打开网页、读取渲染内容、点击和填表。无需开启 `computer` 模块；Shell 注册与浏览器安装、连接就绪分别核对。当前不自动安装浏览器、导入登录数据、接管用户标签页或升级软件。
+
+先安装并完成 ego lite 自身的引导，再交办例如：`用浏览器打开这个测试页，读出标题，填写测试内容，点击预览并核对显示结果。` 宿主指引会先检查 CLI 和本地使用说明；macOS 的常驻进程 PATH 缺少 `~/.local/bin` 时可使用已核实的绝对路径。交互页通过新的任务空间操作，同一目标复用空间，动作后观察确认；超时后的未知效果不自动重放。保留需要用户继续查看的结果页，普通完成任务关闭其创建的空间。
+
+这条路径使用本机 Shell 与浏览器现有访问权限，保留当前工具授权，不提供 `web_fetch` 的公开 GET 限制或 OS 隔离。只读公开网页仍可使用 `web_fetch`；发送、发布、付款、删除和账户变更按用户具体授权处理。后台 worker、记忆整理和 text Skill 不因此获得浏览器工具。
+
 ## 本机指定应用（Cua Driver，实验性）
 
 接入现有主 AgentLoop 的 `computer_observe` / `computer_action`，不新增循环、不改变桌面前端或 worker。默认关闭，只支持 macOS；用户须先安装并启动 [Cua Driver](https://cua.ai/docs/cua-driver/quickstart)，自行完成它的系统权限配置。Runloom 不安装驱动、不启动 daemon、不申请权限，也不连接 Cua Cloud。

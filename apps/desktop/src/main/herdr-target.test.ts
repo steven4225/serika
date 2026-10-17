@@ -79,12 +79,16 @@ it("resident target selection reaches foreground prompts and real Shell receipts
     const started = await host.current.run("操作选中的终端并核实结果"); assert.ok(started.ok); await idle();
     assert.equal(await readFile(join(workspace, "terminal-proof.txt"), "utf8"), "terminal-proof");
     assert.ok(instructions[0]?.includes("terminal-identity")); assert.ok(instructions[0]?.includes("Local CLI capability"));
+    assert.ok(instructions[0]?.includes("Browser CLI capability"));
+    assert.ok(instructions[0]?.includes('$HOME/.local/bin/ego-browser'));
+    assert.equal(host.info().computer.enabled, false);
     assert.equal(events.some(event => event.type === "approval"), false);
     const record = await host.current.getRun(started.runId); assert.ok(record.ok && record.run);
     assert.equal(record.run.tools[0]?.shell?.exitCode, 0);
     index = 1; instructions = [];
     await host.channelRun(host.info().threadId, "普通未授权TG消息", false, async () => {}); await idle();
     assert.equal(instructions[0]?.includes("Local CLI capability"), false);
+    assert.equal(instructions[0]?.includes("Browser CLI capability"), false);
     assert.equal(instructions[0]?.includes("terminal-identity"), false);
     await client.setHerdrTarget({ target: null, expected: binding });
     assert.equal(host.info().herdrBinding, undefined);
