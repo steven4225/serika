@@ -20,7 +20,11 @@ function bounded(value: unknown, name: string, max = 256): string {
 export class HerdrTargets {
   constructor(private readonly env: NodeJS.ProcessEnv, private readonly cwd: string, private readonly workspaceRoot?: string | null) {}
   async #binary() {
-    for (const directory of (this.env.PATH ?? "/usr/bin:/bin").split(delimiter)) {
+    // Finder/launchd often omit Homebrew. Keep explicit PATH precedence, then
+    // inspect only the standard macOS installation directories (never a shell).
+    const directories = [...(this.env.PATH ?? "/usr/bin:/bin").split(delimiter),
+      ...(process.platform === "darwin" ? ["/opt/homebrew/bin", "/usr/local/bin"] : [])];
+    for (const directory of new Set(directories)) {
       if (!isAbsolute(directory)) continue;
       const candidate = resolve(directory, "herdr");
       try {

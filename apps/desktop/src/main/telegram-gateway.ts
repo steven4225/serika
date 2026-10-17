@@ -11,7 +11,7 @@ import { formatLocalTaskTime } from "@aisdk-agent/example-cli/dist/task-instruct
 import { telegramParts, telegramApprovalText, telegramBoundedText } from "./telegram-format.js";
 import { formatCapabilityStatus } from "@aisdk-agent/example-cli/dist/capability-status.js";
 
-type Host = Pick<DesktopRuntime, "channelTelegramAutonomyEnabled" | "channelSubscribe" | "channelSnapshot" | "channelCreateThread" | "channelRun" | "channelReceipt" | "channelScheduledTask" | "channelRecurringTask" | "channelScheduledTasks" | "current">;
+type Host = Pick<DesktopRuntime, "channelTelegramAutonomyEnabled" | "channelTelegramToolApprovalSkipped" | "channelSubscribe" | "channelSnapshot" | "channelCreateThread" | "channelRun" | "channelReceipt" | "channelScheduledTask" | "channelRecurringTask" | "channelScheduledTasks" | "current">;
 function code() { return randomBytes(5).toString("hex").toUpperCase(); }
 function approvalHash(value: PendingApproval) {
   // Preview is asynchronous presentation, not authority; hash the actual operation.
@@ -90,7 +90,7 @@ export class TelegramGateway {
   }
   status(): TelegramStatus {
     const data = this.store.snapshot();
-    return { autonomyEnabled: this.host.channelTelegramAutonomyEnabled(), available: true, tokenConfigured: !!this.api, enabled: data.enabled, connection: this.#connection, botUsername: this.#botUsername,
+    return { autonomyEnabled: this.host.channelTelegramAutonomyEnabled(), toolApprovalSkipped: this.host.channelTelegramToolApprovalSkipped(), available: true, tokenConfigured: !!this.api, enabled: data.enabled, connection: this.#connection, botUsername: this.#botUsername,
       owner: data.owner, pairing: this.#pairing && Date.parse(this.#pairing.expiresAt) > this.now() ? structuredClone(this.#pairing) : null,
       lastError: this.#error ?? this.#deliveryError, awaitingReview: data.inputs.filter(x => x.state === "unknown").length,
       failedDeliveries: data.deliveries.filter(x => x.state === "failed").length, unknownDeliveries: data.deliveries.filter(x => x.state === "unknown" && !x.reviewReport).length,
@@ -423,8 +423,10 @@ export class TelegramGateway {
     }
     if (text === "/details") {
       const running = this.#ownedRunning();
+      const permit = this.#liveApproval();
       return reject(running?.current.snapshot.pendingApproval
-        ? telegramBoundedText(running.current.snapshot.pendingApproval.preview || JSON.stringify(running.current.snapshot.pendingApproval.input), 8000)
+        ? [telegramBoundedText(running.current.snapshot.pendingApproval.preview || JSON.stringify(running.current.snapshot.pendingApproval.input), 8000),
+          permit ? `按钮不可用时，可发送：允许 ${permit.code} / 拒绝 ${permit.code}` : "确认已失效，发送 /confirm 刷新。"].join("\n\n")
         : "当前没有属于 Telegram 的待确认操作。");
     }
     const approval = /^(允许|拒绝)[\s:：]*([A-F0-9]{10})$/i.exec(text);
@@ -436,7 +438,7 @@ export class TelegramGateway {
       const valid = matches && (!input.callback || envelope?.messageId === input.callback.messageId && envelope.state === "submitted");
       if (valid) this.#approval = undefined; // Consume before dispatch, including competing phone/desktop decisions.
       const accepted = valid && this.host.current.confirm({ approvalId: pending.approvalId, decision: approval[1] === "允许" ? "allow" : "deny" }).accepted;
-      return reject(accepted ? "已处理这一次确认，不适用于后续操作。" : "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。");
+      return reject(accepted ? approval[1] === "允许" ? "已允许。" : "已取消这次操作。" : "确认已失效，没有批准任何操作。发送 /confirm 获取当前确认。");
     }
     if (/^(允许|拒绝)(?:[\s:：A-Za-z0-9]|$)/.test(text)) return reject("请点当前确认下的按钮，或完整发送“允许 短码 / 拒绝 短码”；发送 /confirm 可刷新确认。");
     if (text === "停止") {
@@ -455,17 +457,20 @@ export class TelegramGateway {
       if (info.runtimeRecovery) return reject("助手连接未恢复；缓存配置不能证明当前能力。请先恢复连接，本条未调用模型或执行工具。");
       const status = info.capabilities;
       const enabled = this.host.channelTelegramAutonomyEnabled();
-      const channelStatus = status ? { ...status, shell: { ...status.shell, authority: enabled ? "explicit_workspace_telegram_primary; no background inheritance" : "current_run_only",
-        warning: enabled ? "当前绑定私聊已授权文件和本机命令连续执行；其他工具仍需确认。Shell 使用进程本机权限，工作区不是系统沙箱。" : status.shell.mode === "docker" ? "沿用配置的挂载与网络限制；工具仍需确认。" : "当前私聊未授权自主执行，文件和本机命令仍需确认。" } } : undefined;
+      const trusted = this.host.channelTelegramToolApprovalSkipped();
+      const channelStatus = status ? { ...status, toolApproval: trusted ? "trusted_telegram" as const : "per_tool" as const, shell: { ...status.shell, authority: enabled ? "explicit_workspace_telegram_primary; no background inheritance" : "current_run_only",
+        warning: trusted ? "当前绑定私聊的已注册工具无需逐次确认；其他入口不继承。Shell 使用进程本机权限，工作区不是系统沙箱。" : enabled ? "当前绑定私聊已授权文件和本机命令连续执行；其他工具仍需确认。Shell 使用进程本机权限，工作区不是系统沙箱。" : status.shell.mode === "docker" ? "沿用配置的挂载与网络限制；工具仍需确认。" : "当前私聊未授权自主执行，文件和本机命令仍需确认。" } } : undefined;
       return reject(channelStatus ? formatCapabilityStatus(channelStatus) : "当前连接未提供能力状态；无法据此判断已注册或可用。");
     }
-    if (text === "/start" || text === "/help") return reject("直接提问或说“几分钟后提醒我…”；点确认卡下的按钮即可批准或取消。备用：允许 短码 / 拒绝 短码。/confirm 刷新当前确认，/details 查看详情，/capabilities 查看真实能力状态。调整：新方向；停止。工作任务用“任务：目标 → 开始 短码”。");
+    if (text === "/start" || text === "/help") return reject(this.host.channelTelegramToolApprovalSkipped()
+      ? "直接提问或说“几分钟后提醒我…”；当前私聊的已注册工具无需逐次确认。/capabilities 查看能力状态。调整：新方向；停止。工作任务用“任务：目标 → 开始 短码”。"
+      : "直接提问或说“几分钟后提醒我…”；点确认卡下的按钮即可批准或取消。备用：允许 短码 / 拒绝 短码。/confirm 刷新当前确认，/details 查看详情，/capabilities 查看真实能力状态。调整：新方向；停止。工作任务用“任务：目标 → 开始 短码”。");
     if (/^(?:任务[:：]|\/task\s)/.test(text)) {
       const goal = text.replace(/^(?:任务[:：]|\/task\s)/, "").trim();
       if (!goal || goal.length > 8000) return reject("请用 1–8000 字说明任务目标。");
       if (this.#activeKey || this.host.channelSnapshot().snapshot.state.kind !== "idle") return reject("助手正在处理，请结束后再交办；没有排队或启动任务。");
       this.#taskProposal = { goal, code: code(), expires: this.now() + 5 * 60_000 };
-      return reject(`任务目标：${goal}\n验收由你确认，不会让模型给自己通过。\n发送“开始 ${this.#taskProposal.code}”创建并执行；${this.host.channelTelegramAutonomyEnabled() ? "文件和本机命令已授权连续执行，随时发送“停止”。其他工具仍需批准。" : "工具操作需另行批准，可在桌面 Telegram 设置中开启独立自主执行授权。"}`);
+      return reject(`任务目标：${goal}\n验收由你确认，不会让模型给自己通过。\n发送“开始 ${this.#taskProposal.code}”创建并执行；${this.host.channelTelegramToolApprovalSkipped() ? "已注册工具无需逐次确认，随时发送“停止”。" : this.host.channelTelegramAutonomyEnabled() ? "文件和本机命令已授权连续执行，随时发送“停止”。其他工具仍需批准。" : "工具操作需另行批准，可在桌面 Telegram 设置中开启独立自主执行授权。"}`);
     }
     let task = false, goal = text;
     const begin = /^开始 ([A-F0-9]{10})$/.exec(text);
@@ -514,7 +519,7 @@ export class TelegramGateway {
     this.#approval = permit;
     await this.#discardStaleApprovals();
     return this.#reply(`approval:${current.approvalId}:${permit.code}`, permit.chatId,
-      telegramApprovalText(current.toolName, (current.preview || JSON.stringify(current.input)).slice(0, 2500), permit.code, current.input, new Date(this.now())),
+      telegramApprovalText(current.toolName, current.input, new Date(this.now())),
       { inline_keyboard: [[{ text: ["task_create", "task_repeat_create"].includes(current.toolName) ? "确认保存" : "允许这次", callback_data: `allow:${permit.code}` },
         { text: "取消", callback_data: `deny:${permit.code}` }]] });
   }

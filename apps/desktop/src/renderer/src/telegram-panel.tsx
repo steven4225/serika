@@ -50,14 +50,15 @@ export function TelegramPanel({ busy }: { busy: boolean }) {
     <p className="hint">在手机私聊中交办事项。Mac 与常驻助手需保持运行、联网。</p>
     {status?.owner ? <div><strong>已绑定：{status.owner.name}</strong><button className="ghost" disabled={busy || working} onClick={() => void act(async () => { await window.runloom.selectThread(status.owner!.threadId); return window.runloom.telegramStatus!(); })}>打开 Telegram 对话</button></div> : null}
     {status?.owner && window.runloom.setTelegramAutonomyEnabled ? <div className="telegram-autonomy">
-      <p><strong>私聊自主执行：{status.autonomyEnabled ? "已开启" : "未开启"}</strong></p>
+      <p><strong>私聊自主执行：{status.toolApprovalSkipped ? "信任当前私聊，无需工具确认" : status.autonomyEnabled ? "仅文件和本机命令" : "未开启"}</strong></p>
       <p className="hint">仅当前绑定私聊的聊天和工作任务；与桌面授权独立。更改在新执行中生效，执行中请用“停止”。</p>
-      <button className="ghost" disabled={busy || working} onClick={() => status.autonomyEnabled
+      <button className="ghost" disabled={busy || working} onClick={() => status.toolApprovalSkipped
         ? void act(() => window.runloom.setTelegramAutonomyEnabled!({ enabled: false, expectedEnabled: true, expectedOwner: { userId: status.owner!.userId, chatId: status.owner!.chatId, threadId: status.owner!.threadId } }))
-        : setAutonomyPreview(true)}>{status.autonomyEnabled ? "关闭私聊自主执行" : "开启私聊自主执行…"}</button>
-      {autonomyPreview ? <div className="memory-setup-preview"><strong>允许 {status.owner.name} 从当前绑定私聊自主执行？</strong>
-        <p>该私聊可连续读取、修改文件并执行本机命令。本机 Shell 使用 Serika 进程的权限，可以访问工作区外；工作区不是系统沙箱。后台和定时任务不继承此授权。</p>
-        <button disabled={busy || working} onClick={() => void act(async () => { const next = await window.runloom.setTelegramAutonomyEnabled!({ enabled: true, expectedEnabled: false, expectedOwner: { userId: status.owner!.userId, chatId: status.owner!.chatId, threadId: status.owner!.threadId } }); setAutonomyPreview(false); return next; })}>确认授权当前私聊</button>
+        : setAutonomyPreview(true)}>{status.toolApprovalSkipped ? "关闭私聊自主执行" : "信任当前私聊…"}</button>
+      {status.autonomyEnabled && !status.toolApprovalSkipped ? <button className="ghost" disabled={busy || working} onClick={() => void act(() => window.runloom.setTelegramAutonomyEnabled!({ enabled: false, expectedEnabled: true, expectedOwner: { userId: status.owner!.userId, chatId: status.owner!.chatId, threadId: status.owner!.threadId } }))}>关闭私聊自主执行</button> : null}
+      {autonomyPreview ? <div className="memory-setup-preview"><strong>信任 {status.owner.name} 的当前绑定私聊？</strong>
+        <p>该私聊交办的任务可连续使用已注册工具，不再逐工具确认，包括网页读取、文件修改和本机命令。本机 Shell 可以访问工作区外，工作区不是系统沙箱。其他账号、群聊、后台和定时任务不继承此设置。</p>
+        <button disabled={busy || working} onClick={() => void act(async () => { const next = await window.runloom.setTelegramAutonomyEnabled!({ enabled: true, expectedEnabled: status.autonomyEnabled === true, toolApproval: "skip", ...(status.toolApprovalSkipped ? { expectedToolApproval: "skip" as const } : {}), expectedOwner: { userId: status.owner!.userId, chatId: status.owner!.chatId, threadId: status.owner!.threadId } }); setAutonomyPreview(false); return next; })}>确认信任当前私聊</button>
         <button className="ghost" onClick={() => setAutonomyPreview(false)}>取消</button>
       </div> : null}
     </div> : null}

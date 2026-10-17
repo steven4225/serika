@@ -1,5 +1,5 @@
 import { LOCAL_CLI_INSTRUCTIONS, herdrInstructions, type HerdrBinding } from "./local-terminal.js";
-import { AUTONOMOUS_CONSOLIDATION_NOTE, AUTONOMOUS_EXCLUDED_TOOLS, AUTONOMOUS_MAX_STEPS, AUTONOMOUS_TOTAL_TIMEOUT_MS, AUTONOMOUS_SHELL_TIMEOUT_MS, AUTONOMOUS_INSTRUCTIONS, createForegroundTaskReference, placeForegroundTaskReference } from "./foreground-autonomy.js";
+import { AUTONOMOUS_CONSOLIDATION_NOTE, AUTONOMOUS_EXCLUDED_TOOLS, AUTONOMOUS_MAX_STEPS, AUTONOMOUS_TOTAL_TIMEOUT_MS, AUTONOMOUS_SHELL_TIMEOUT_MS, AUTONOMOUS_INSTRUCTIONS, TRUSTED_TELEGRAM_INSTRUCTIONS, createForegroundTaskReference, placeForegroundTaskReference } from "./foreground-autonomy.js";
 import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -163,6 +163,7 @@ export interface RuntimeApp {
   desktopAutonomyEnabled?: boolean;
   herdrBinding?: HerdrBinding;
   telegramAutonomyEnabled?: () => boolean;
+  telegramToolApprovalSkipped?: () => boolean;
   bindNextExecutionWorkTask: (input: { id: string; expectedRevision: number }) => () => void;
   workTasks: WorkTaskStore | undefined;
   workTaskContext: {
@@ -223,6 +224,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
   const telegramAutonomyEnabled = () => !!moduleConfig?.telegramAutonomy && !moduleConfig.shellSandbox &&
     options.authorizeTelegramAutonomy?.(moduleConfig.telegramAutonomy) === true;
   let autonomousRun = false;
+  let trustedTelegramRun = false;
   let foregroundTaskRequest: UIMessage | undefined;
   let foregroundEntry: "desktop" | "telegram" | undefined;
   const memoryEnabled = moduleConfig?.enabled.memory ?? false;
@@ -1022,7 +1024,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       ? calculatorInstructions
         .replaceAll("The command and workspace-relative cwd will be shown for y/n confirmation.", "File tools and local shell_exec are host-authorized for this Run.")
         .replaceAll("Shell remains per-call confirmation.", "Local Shell follows this Run's host authorization.")
-        .replace(explicitConsolidationInstructions, AUTONOMOUS_CONSOLIDATION_NOTE) + "\n" + AUTONOMOUS_INSTRUCTIONS
+        .replace(explicitConsolidationInstructions, AUTONOMOUS_CONSOLIDATION_NOTE) + "\n" + (trustedTelegramRun ? TRUSTED_TELEGRAM_INSTRUCTIONS : AUTONOMOUS_INSTRUCTIONS)
       : calculatorInstructions) + ((foregroundEntry === "desktop" || foregroundEntry === "telegram" && autonomousRun) && options.allowLocalTerminalControl && moduleConfig?.enabled.shell && !moduleConfig.shellSandbox
         ? "\n" + LOCAL_CLI_INSTRUCTIONS + "\n" + herdrInstructions(moduleConfig.herdrBinding) : "") +
       (foregroundEntry ? "\n" + capabilityInstructions(getCapabilities()) : "");
@@ -1551,6 +1553,11 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
             input.signal.throwIfAborted();
             return { allow: true };
           }
+          if (trustedTelegramRun && input.definition.id === PRIMARY_AGENT_ID) {
+            input.signal.throwIfAborted();
+            input.steerSignal?.throwIfAborted();
+            return { allow: true };
+          }
           return toolConfirmation.beforeToolExecute(input);
         } }
         : {}),
@@ -1639,13 +1646,15 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       desktopAutonomyEnabled,
       ...(options.allowLocalTerminalControl && moduleConfig?.herdrBinding ? { herdrBinding: moduleConfig.herdrBinding } : {}),
       telegramAutonomyEnabled,
+      telegramToolApprovalSkipped: () => telegramAutonomyEnabled() && moduleConfig?.telegramAutonomy?.toolApproval === "skip",
       beginForegroundExecution: (entry, request) => {
         foregroundEntry = entry;
         autonomousRun = entry === "desktop" ? desktopAutonomyEnabled : entry === "telegram" && moduleConfig?.telegramAutonomy?.threadId === threadId && telegramAutonomyEnabled();
+        trustedTelegramRun = entry === "telegram" && autonomousRun && moduleConfig?.telegramAutonomy?.toolApproval === "skip";
         foregroundTaskRequest = autonomousRun && request ? structuredClone(request) : undefined;
         return autonomousRun;
       },
-      endForegroundExecution: () => { autonomousRun = false; foregroundEntry = undefined; foregroundTaskRequest = undefined; },
+      endForegroundExecution: () => { autonomousRun = false; trustedTelegramRun = false; foregroundEntry = undefined; foregroundTaskRequest = undefined; },
       ...(recipes ? { recipes } : {}),
       ...(memoryConsolidation ? { memoryConsolidation } : {}),
       ...(maintainMemoryIndex ? { maintainMemoryIndex } : {}),
