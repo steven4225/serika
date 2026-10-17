@@ -98,7 +98,7 @@ async function fixture(hooks: HookRule[] | null = [], withExternalSkill = false,
   const controllers: AssistantController[] = [];
   const open = async (model: MockLanguageModelV3, thread = "origin") => {
     const output = new PassThrough(); output.resume();
-    const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", thread, "--config", configPath],
+    const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: thread, configPath },
       modelAlias: "scripted", model, output, env: {}, cwd: root });
     const controller = createAssistantController(app); controllers.push(controller);
     await controller.listRuns(); // Wait for real Thread leases/recovery, not a startup timing guess.
@@ -248,7 +248,7 @@ test("empty startup backlog emits no running state or model request and admits i
   let controller: AssistantController | undefined;
   try {
     const output = new PassThrough(); output.resume();
-    const app = await createRuntimeApp({ args: ["--tui", join(f.root, "transcripts"), "--thread", "empty-startup", "--config", f.configPath],
+    const app = await createRuntimeApp({ directory: join(f.root, "transcripts"), assistant: { threadId: "empty-startup", configPath: f.configPath },
       modelAlias: "scripted", model, output, env: {}, cwd: f.root });
     const originalBacklog = app.getMemoryConsolidationBacklog!;
     let markChecked!: () => void;

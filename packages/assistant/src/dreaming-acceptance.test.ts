@@ -50,7 +50,7 @@ async function fixture(model: MockLanguageModelV3) {
   await configure(false);
   const open = async (thread: string, settle = true, selected: { model: LanguageModel; modelAlias: string } = { model, modelAlias: "scripted" }) => {
     const output = new PassThrough(); output.resume();
-    const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", thread, "--config", config],
+    const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: thread, configPath: config },
       cwd: root, env: {}, ...selected, output });
     const controller = createAssistantController(app);
     await controller.listRuns();

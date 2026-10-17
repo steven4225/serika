@@ -43,7 +43,7 @@ import { modelToolContext } from "./model-tool-context.js";
 import type { ContextDiagnostics, ContextResult } from "./context-diagnostics.js";
 import { createAiSdkSummarizer } from "./context-compaction.js";
 import { lookupTranscript } from "./work-summary.js";
-import { parseTuiArgs } from "./cli-options.js";
+import type { AssistantAssembly } from "./assembly.js";
 import { createMemoryStore, type WorkspaceMemoryStore } from "./memory-store.js";
 import { formatMemoryHealth, readMemoryHealth } from "./memory-health.js";
 import { createCheckpointStore, type WorkspaceCheckpointStore } from "./checkpoint-store.js";
@@ -116,8 +116,14 @@ export interface TaskAutomationHost {
 }
 
 export interface RuntimeAppOptions {
-  /** Process arguments after the executable and entry, e.g. `process.argv.slice(2)`. */
-  args: readonly string[];
+  /** Transcript directory for this instance. Omitted: a new temporary directory. */
+  directory?: string;
+  /**
+   * Assemble the full assistant (modules, memory, tasks) from these values.
+   * Omitted: the offline demo with one fixed Thread and no modules.
+   * The CLI builds this from `--tui` flags; hosts pass it directly.
+   */
+  assistant?: AssistantAssembly;
   modelAlias: string;
   model: LanguageModel;
   /** Where module notifications, command output, and confirmation prompts are written. */
@@ -201,14 +207,14 @@ export interface RuntimeApp {
 }
 
 export async function createRuntimeApp(options: RuntimeAppOptions): Promise<RuntimeApp> {
-  const { args, modelAlias, model, output } = options;
+  const { modelAlias, model, output } = options;
   const env = options.env ?? process.env;
   const cwd = options.cwd ?? process.cwd();
 
-  const tuiMode = args[0] === "--tui";
-  const tuiArgs = tuiMode ? parseTuiArgs(args.slice(1)) : undefined;
-  const moduleConfig: ResolvedTuiModuleConfig | undefined = tuiMode
-    ? await resolveTuiModuleConfig(tuiArgs!, {
+  const assembly = options.assistant;
+  const tuiMode = assembly !== undefined;
+  const moduleConfig: ResolvedTuiModuleConfig | undefined = assembly
+    ? await resolveTuiModuleConfig(assembly, {
         cwd,
         todoistTimeZone: env.RUNLOOM_TODOIST_TIMEZONE?.trim() || undefined,
       })
@@ -282,11 +288,10 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     execute: async ({ left, right }) => ({ value: left + right }),
   });
 
-  const directory = tuiMode
-    ? (tuiArgs?.directory ?? (await mkdtemp(join(tmpdir(), "runloom-tui-"))))
-    : (args[0] ?? (await mkdtemp(join(tmpdir(), "runloom-demo-"))));
+  const directory = options.directory ??
+    (await mkdtemp(join(tmpdir(), tuiMode ? "runloom-tui-" : "runloom-demo-")));
   await mkdir(directory, { recursive: true });
-  const threadId = tuiMode ? (tuiArgs?.threadId ?? randomUUID()) : "demo-thread";
+  const threadId = assembly ? (assembly.threadId ?? randomUUID()) : "demo-thread";
   const store = new JsonlAgentStore({
     directory,
     // Snapshot replacement requires the existing POSIX cross-process lock.
@@ -739,8 +744,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       workspaceRoot: workspaceRoot ?? null,
       directory,
       threadId,
-      temporaryDirectory: tuiArgs?.directory === undefined,
-      temporaryThread: tuiArgs?.threadId === undefined,
+      temporaryDirectory: options.directory === undefined,
+      temporaryThread: assembly?.threadId === undefined,
       checkpointEnabled,
       taskEnabled,
       ...(checkpointStore === undefined ? {} : { checkpointStore }),

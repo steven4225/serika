@@ -21,7 +21,7 @@ async function fixture(onEmbed?: (texts: readonly string[]) => Promise<void>) {
   assert.ok((await memory.add({ text: "disabled secret", enabled: false })).ok);
   const batches: string[][] = [];
   const output = new PassThrough(); output.resume();
-  const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", "current", "--config", config],
+  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "current", configPath: config },
     modelAlias: "fixture", model: new MockLanguageModelV3({ doGenerate: async () => assert.fail("No model Run for maintenance") }),
     output, env: {}, cwd: root, memoryEmbedding: { modelId: "fixture/index", embed: async texts => {
       batches.push([...texts]); await onEmbed?.(texts); return texts.map(() => [1, 0]);

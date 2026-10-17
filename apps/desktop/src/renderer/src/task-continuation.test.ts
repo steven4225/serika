@@ -86,7 +86,7 @@ it("renders actual Controller/bridge preparation for the latest task Run, but no
         } },
       ] }) }) });
       const output = new TeeOutput(() => undefined);
-      const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", "panel-thread", "--config", join(root, "config.json")], modelAlias: "mock", model, output, env: {}, cwd: root });
+      const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "panel-thread", configPath: join(root, "config.json") }, modelAlias: "mock", model, output, env: {}, cwd: root });
       const controller = createAssistantController(app);
       output.attach(controller);
       return new RuntimeBridge(app, controller, { modelAlias: "mock", temporaryThread: false, temporaryDirectory: false }, output, () => undefined);

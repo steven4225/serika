@@ -74,7 +74,7 @@ test("real configured model: ordinary preference auto-saves, restarts, recalls, 
   let controller: AssistantController | undefined;
   const open = async (thread: string) => {
     const output = new PassThrough(); output.resume();
-    const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", thread, "--config", config],
+    const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: thread, configPath: config },
       ...selected, output, env: process.env, cwd: root });
     const next = createAssistantController(app);
     let approvals = 0;

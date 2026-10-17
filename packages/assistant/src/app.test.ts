@@ -27,7 +27,7 @@ describe("createRuntimeApp", () => {
       const root = await mkdtemp(join(tmpdir(), "serika-runtime-receipt-fault-"));
       let requests = 0;
       const model = new MockLanguageModelV3({ doStream: async () => { requests++; throw new Error("model must not be dispatched"); } });
-      const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", "sync-fault"],
+      const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "sync-fault" },
         modelAlias: "scripted", model, output: capture().output, env: {}, cwd: root });
       try {
         app.enableExecutionRecords();
@@ -59,7 +59,7 @@ describe("createRuntimeApp", () => {
     const configPath = join(root, "config.json");
     const service = createPomodoroService({ desktopNotifier: () => undefined });
     const assemble = (thread: string) => createRuntimeApp({
-      args: ["--tui", join(root, "transcripts"), "--thread", thread, "--config", configPath],
+      directory: join(root, "transcripts"), assistant: { threadId: thread, configPath },
       modelAlias: "mock", model: createDemoModel(), output: capture().output, env: {}, cwd: root,
       pomodoroService: service,
     });
@@ -107,7 +107,7 @@ describe("createRuntimeApp", () => {
           } },
         ] }) };
       } });
-      const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", "writer", "--config", configPath],
+      const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "writer", configPath },
         modelAlias: "mock", model, output: capture().output, env: {}, cwd: root });
       try {
         const handle = await app.runtime.run({ agentId: app.agentId, threadId: app.threadId,
@@ -158,7 +158,7 @@ describe("createRuntimeApp", () => {
         ] }) };
       } });
       const app = await createRuntimeApp({
-        args: ["--tui", join(root, "transcripts"), "--thread", "research", "--config", configPath],
+        directory: join(root, "transcripts"), assistant: { threadId: "research", configPath },
         modelAlias: "mock", model, output: capture().output, env: {}, cwd: root,
       });
       try {
@@ -209,7 +209,7 @@ describe("createRuntimeApp", () => {
         : [{ type: "stream-start" as const, warnings: [] }, { type: "finish" as const, finishReason: { unified: "stop" as const, raw: undefined }, usage }];
       return { stream: simulateReadableStream<(typeof chunks)[number]>({ chunks }) };
     } });
-    const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", "computer-denial", "--config", configPath], modelAlias: "mock", model, output: capture().output, env: {}, cwd: root });
+    const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "computer-denial", configPath }, modelAlias: "mock", model, output: capture().output, env: {}, cwd: root });
     try {
       const handle = await app.runtime.run({ agentId: app.agentId, threadId: app.threadId, messages: [{ id: "user-computer", role: "user", parts: [{ type: "text", text: "Observe my permitted app" }] }] });
       for (const name of names) {
@@ -243,7 +243,7 @@ describe("createRuntimeApp", () => {
           } },
         ] }) };
       } });
-      const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", "current-memory", "--config", configPath],
+      const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "current-memory", configPath },
         modelAlias: "mock", model, output: capture().output, env: {}, cwd: root });
       try {
         const run = async (id: string, text: string) => {
@@ -275,7 +275,7 @@ describe("createRuntimeApp", () => {
         contextCompaction: { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled },
       }), "utf8");
       const app = await createRuntimeApp({
-        args: ["--tui", join(root, "transcripts"), "--thread", "diagnostics", "--config", configPath],
+        directory: join(root, "transcripts"), assistant: { threadId: "diagnostics", configPath },
         modelAlias: "mock", model: createDemoModel(), output: capture().output, env: {}, cwd: root,
       });
       try {
@@ -323,7 +323,7 @@ describe("createRuntimeApp", () => {
     const directory = await mkdtemp(join(tmpdir(), "runloom-app-demo-"));
     const { output } = capture();
     const app = await createRuntimeApp({
-      args: [directory],
+      directory,
       modelAlias: "mock",
       model: createDemoModel(),
       output,
@@ -370,7 +370,7 @@ describe("createRuntimeApp", () => {
     await writeFile(configPath, JSON.stringify({ version: 1, modules: {} }), "utf8");
     const { output, text } = capture();
     const app = await createRuntimeApp({
-      args: ["--tui", transcripts, "--thread", "app-test", "--config", configPath],
+      directory: transcripts, assistant: { threadId: "app-test", configPath },
       modelAlias: "mock",
       model: createDemoModel(),
       output,
@@ -411,7 +411,7 @@ describe("createRuntimeApp", () => {
     await writeFile(configPath, JSON.stringify({ version: 1, modules: {}, run: { totalTimeoutMs: 25 } }), "utf8");
     const { output } = capture();
     const app = await createRuntimeApp({
-      args: ["--tui", join(root, "transcripts"), "--thread", "timeout-test", "--config", configPath],
+      directory: join(root, "transcripts"), assistant: { threadId: "timeout-test", configPath },
       modelAlias: "mock",
       model: new MockLanguageModelV3({
         doStream: async () => {
@@ -479,7 +479,7 @@ describe("createRuntimeApp", () => {
       },
     });
     const app = await createRuntimeApp({
-      args: ["--tui", transcripts, "--thread", "shell-progress", "--config", configPath],
+      directory: transcripts, assistant: { threadId: "shell-progress", configPath },
       modelAlias: "mock", model, output: capture().output, env: {}, cwd: root,
     });
     try {

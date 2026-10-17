@@ -44,7 +44,7 @@ async function fixture(allowWorkspaceTaskReads: boolean) {
     ];
     return { stream: simulateReadableStream<(typeof chunks)[number]>({ chunks }) };
   } });
-  const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", "daily-read", "--config", configPath],
+  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "daily-read", configPath },
     modelAlias: "scripted", model, output: new PassThrough(), env: {}, cwd: root,
     ...(allowWorkspaceTaskReads ? { allowWorkspaceTaskReads: true as const } : {}),
   });

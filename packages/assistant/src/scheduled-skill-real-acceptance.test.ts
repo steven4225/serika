@@ -73,7 +73,7 @@ test("opt-in real model: manual and scheduled registered Skill use the productio
   await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { task: { enabled: true } },
     automation: { skills: [{ id: "simple-plan", directory }], hooks: [] } }));
   const output = new PassThrough(); output.resume();
-  const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", "origin", "--config", configPath],
+  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "origin", configPath },
     ...configured, output, env, cwd: root });
   const controller = createAssistantController(app);
   const stopped = new AbortController();

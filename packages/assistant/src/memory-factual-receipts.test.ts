@@ -23,7 +23,7 @@ test("real Controller projects persisted saved, pending, deferred and too-large 
     // Store is finalized under explicit automatic fixture policy below; prevent
     // the real Controller from starting an unrelated background extraction.
     await writeFile(config, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: true } } }));
-    const open = () => createRuntimeApp({ args: ["--tui", join(root, "history"), "--thread", "receipts", "--config", config],
+    const open = () => createRuntimeApp({ directory: join(root, "history"), assistant: { threadId: "receipts", configPath: config },
       model: createDemoModel(), modelAlias: "mock/default", output: new PassThrough(), cwd: root });
     let app = await open(); controller = createAssistantController(app);
     const texts = ["以后请用中文回答我。", "我喜欢喝茶。", "我的咖啡偏好是加糖。" + "补充说明。".repeat(200), "尚未处理的事实", "今天天气怎样？"];

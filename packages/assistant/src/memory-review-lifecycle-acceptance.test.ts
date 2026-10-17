@@ -28,7 +28,7 @@ test("Controller review rejects a preview whose formal target changed before con
       doStream: async () => { assert.fail("Candidate review must not start a Run"); },
     });
     const app = await createRuntimeApp({
-      args: ["--tui", join(root, "transcripts"), "--thread", "review-thread", "--config", config],
+      directory: join(root, "transcripts"), assistant: { threadId: "review-thread", configPath: config },
       modelAlias: "fixture/not-real-model", model, output, env: {}, cwd: root,
     });
     controller = createAssistantController(app);

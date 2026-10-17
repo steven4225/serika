@@ -52,7 +52,7 @@ for (const domain of [
       outcomes: [{ messageId: source.messageId, status: "extracted" }] }));
   } });
   const output = new PassThrough(); output.resume();
-  const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", "t", "--config", config], model, modelAlias: "fixture/no-network", output, env: {}, cwd: root });
+  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "t", configPath: config }, model, modelAlias: "fixture/no-network", output, env: {}, cwd: root });
   const controller = createAssistantController(app);
   try {
     for (const text of [statement(domain.before), domain.attribute === "部署位置" ? `已经迁到${domain.after}。` : `从现在起${statement(domain.after)}`, statement(domain.after)]) {

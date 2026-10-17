@@ -3,6 +3,7 @@ import { configureCliModel } from "./model-config.js";
 import { checkTuiStartup, readinessExitCode } from "./startup-check.js";
 import { createRuntimeApp, type RuntimeApp } from "./app.js";
 import { runTui } from "./tui.js";
+import { parseTuiArgs } from "./cli-options.js";
 
 const args = process.argv.slice(2);
 if (args.includes("--check")) {
@@ -12,8 +13,13 @@ if (args.includes("--check")) {
   process.exit(readinessExitCode(snapshot));
 }
 const { modelAlias, model } = configureCliModel(createDemoModel);
+// `--tui [directory] [flags]` assembles the full assistant; anything else runs
+// the offline demo, whose optional first argument is the transcript directory.
+const tuiArgs = args[0] === "--tui" ? parseTuiArgs(args.slice(1)) : undefined;
+const { directory, ...assistant } = tuiArgs ?? { directory: args[0] };
 const app = await createRuntimeApp({
-  args,
+  ...(directory !== undefined ? { directory } : {}),
+  ...(tuiArgs ? { assistant } : {}),
   modelAlias,
   model,
   output: process.stdout,

@@ -12,7 +12,7 @@ it("desktop manages recipes through idle Controller ports, without Runs, tools o
   const root = await mkdtemp(join(tmpdir(), "serika-import-bridge-")); await mkdir(join(root, "workspace"));
   await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, workspace: "./workspace", modules: { memory: { enabled: true }, shell: { enabled: true } } }));
   const output = new TeeOutput(() => {});
-  const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", "import-thread", "--config", join(root, "config.json")], modelAlias: "mock", model: createDemoModel(), output, env: {}, cwd: root });
+  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "import-thread", configPath: join(root, "config.json") }, modelAlias: "mock", model: createDemoModel(), output, env: {}, cwd: root });
   const controller = createAssistantController(app); output.attach(controller);
   const bridge = new RuntimeBridge(app, controller, { modelAlias: "mock", temporaryThread: false, temporaryDirectory: false }, output, () => {});
   try {

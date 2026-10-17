@@ -15,7 +15,7 @@ it("formal Memory bridge edits actual current versions, validates IPC, preserves
   await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, workspace: "./workspace", modules: { memory: { enabled: true } } }));
   const messages: MainToRenderer[] = [];
   const output = new TeeOutput(message => messages.push(message));
-  const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", "bridge-a", "--config", join(root, "config.json")], modelAlias: "mock", model: createDemoModel(), output, env: {}, cwd: root });
+  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "bridge-a", configPath: join(root, "config.json") }, modelAlias: "mock", model: createDemoModel(), output, env: {}, cwd: root });
   const controller = createAssistantController(app); output.attach(controller);
   const bridge = new RuntimeBridge(app, controller, { modelAlias: "mock", temporaryThread: false, temporaryDirectory: false }, output, message => messages.push(message));
   try {

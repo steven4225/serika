@@ -27,7 +27,7 @@ async function diagnostics(env: NodeJS.ProcessEnv, window = 1_000_000, windows: 
     ] }) };
   } });
   // Only a local model stub is used; capacity is tied to the actual model id.
-  const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", "capacity", "--config", configPath],
+  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "capacity", configPath },
     modelAlias: "mock/default", model, env: { RUNLOOM_MODEL: "command-code", COMMAND_CODE_MODEL_ID: model.modelId, ...env }, cwd: root,
     output: new Writable({ write(_chunk, _encoding, callback) { callback(); } }) });
   try {

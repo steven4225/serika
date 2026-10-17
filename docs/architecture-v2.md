@@ -94,7 +94,7 @@ apps/telegram ┘        (领域：记忆/任务/上下文/沉淀，扩展 API)
   - 已完成：桌面端 IPC 纯转发方法（77 个：当前会话 56、宿主 21）改为一张表 `apps/desktop/src/shared/ipc-forwards.ts`，主进程 `registerForwardedIpc` 和 preload 都由表生成，`ui-contract.ts` 不再为它们各写一个通道常量。新增一个直通方法从改 6 处变成改 3 处（实现、`RendererApi` 声明、表里一行）。有参数校验、副作用或拼装逻辑的通道仍然手写。常驻进程的 `RESIDENT_*` 方法列表是安全白名单，没有并进这张表。
   - 已完成：`examples/cli` 改名搬到 `packages/assistant`，包名 `@serika/example-cli` → `@serika/assistant`。只改路径和包名，源码内容不动；仓库内命令、文档链接、CI 和 lockfile 同步更新。第 1 节「现状」和第 5 节度量基线描述的是改造前，保留旧名。
   - 已完成：工具确认与 Run 授权（`createToolConfirmation`、文件/Shell/网页授权规则）从 `tui.ts` 原样拆到 `tool-confirmation.ts`。`app.ts`、Controller 和桌面链路不再为确认逻辑依赖终端界面文件；`tui.ts` 1468 → 927 行，只剩终端渲染和命令。
-  - 发现：`createRuntimeApp` 靠 CLI 参数装配（`args[0] === "--tui"` 加配置文件路径），桌面端也是拼一组假 argv（`desktop-runtime.ts`）调进来。拆 `apps/cli` 之前要先把它改成结构化装配参数，这也是 A1 的前提。
+  - 已完成（A1）：`createRuntimeApp` 不再接收 argv，改为结构化装配参数：`directory`（transcript 目录）加 `assistant?: AssistantAssembly`（`threadId`、`configPath`，或不带配置文件的 `workspace`/`autoConsolidate`/`todoistEnabled` 简写；省略 `assistant` 即离线 demo）。CLI 在入口把 `--tui` 参数解析成这份结构；桌面端、测试和 eval 直接传值（约 100 处调用一并改写）。参数组合校验不变：CLI 解析时由 `assertAssemblyCombination` 报具体参数，结构化入口由原有的配置解析检查拒绝。模块配置仍是文件路径：配置文件是否位于工作区内是现有的信任边界（自主执行、沙箱、自动记忆、授权都依赖它），不改成内存对象。`assembly.test.ts` 验证同一进程两个实例的 transcript 与工作区互不可见；包内没有进程级可变状态，也不读 home 目录。
 
 ## 4.2 未来：群聊 bot（独立线）
 

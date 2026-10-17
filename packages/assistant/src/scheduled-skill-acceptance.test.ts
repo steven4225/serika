@@ -55,7 +55,7 @@ async function fixture(model: MockLanguageModelV3) {
     task: { enabled: true }, memory: { enabled: true, autoConsolidate: true }, checkpoint: { enabled: true },
   }, automation: { skills: [{ id: "brief", directory }], hooks: [] } }));
   const output = new PassThrough(); output.resume();
-  const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", "origin", "--config", configPath],
+  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "origin", configPath },
     modelAlias: "scripted", model, output, env: {}, cwd: root });
   const controller = createAssistantController(app);
   await controller.listRuns();

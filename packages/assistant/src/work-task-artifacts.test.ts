@@ -96,7 +96,7 @@ it("Controller display queries are read-only, version-bound, survive restart and
       { type: "finish" as const, finishReason: { unified: calls === 1 ? "tool-calls" as const : "stop" as const, raw: undefined }, usage },
     ] }) };
   } });
-  const options = { args: ["--tui", join(root, "transcripts"), "--thread", "thread", "--config", config], cwd: root, env: {}, modelAlias: "mock", model };
+  const options = { directory: join(root, "transcripts"), assistant: { threadId: "thread", configPath: config }, cwd: root, env: {}, modelAlias: "mock", model };
   let controller: ReturnType<typeof createAssistantController> | undefined;
   try {
     controller = createAssistantController(await createRuntimeApp({ ...options, output: new PassThrough() }));
@@ -160,8 +160,8 @@ it("Controller display queries are read-only, version-bound, survive restart and
     assert.equal(restartedDiagnostics.value.lastPreparationSource, null);
     assert.equal(calls, 2);
     await controller.shutdown();
-    const foreignArgs = [...options.args]; foreignArgs[3] = "other-thread";
-    controller = createAssistantController(await createRuntimeApp({ ...options, args: foreignArgs, output: new PassThrough() }));
+    const foreignOptions = { ...options, assistant: { ...options.assistant, threadId: "other-thread" } };
+    controller = createAssistantController(await createRuntimeApp({ ...foreignOptions, output: new PassThrough() }));
     const foreign = await controller.getWorkTaskArtifact({ ...input, path: "notes/plan.md" });
     assert.ok(!foreign.ok); assert.equal(foreign.error.code, "WORK_TASK_NOT_FOUND");
     assert.equal((await controller.getWorkTaskContinuation(input)).ok, false);

@@ -28,7 +28,7 @@ describe("assembled memory upgrade", () => {
     let prompt = "";
     const model = new MockLanguageModelV3({ doStream: async options => { prompt = JSON.stringify(options.prompt); return response(false); } });
     const output = new PassThrough(); output.resume();
-    const app = await createRuntimeApp({ demoTools: true, args: ["--tui", join(root, "transcripts"), "--thread", "current", "--config", config], modelAlias: "fixture", model, output,
+    const app = await createRuntimeApp({ demoTools: true, directory: join(root, "transcripts"), assistant: { threadId: "current", configPath: config }, modelAlias: "fixture", model, output,
       env: { OPENAI_API_KEY: "fixture-chat-key-must-not-be-used" }, cwd: root });
     try {
       const handle = await app.runtime.run({ agentId: app.agentId, threadId: app.threadId, messages: [{ id: "cloud-query", role: "user", parts: [{ type: "text", text: "咖啡" }] }] });
@@ -55,7 +55,7 @@ describe("assembled memory upgrade", () => {
     const prompts: string[] = [], embeddings: string[][] = [];
     const model = new MockLanguageModelV3({ doStream: async ({ prompt }) => { prompts.push(JSON.stringify(prompt)); return response(++calls === 1); } });
     const output = new PassThrough(); output.resume();
-    const open = () => createRuntimeApp({ demoTools: true, args: ["--tui", join(root, "transcripts"), "--thread", "current", "--config", config], modelAlias: "fixture", model, output,
+    const open = () => createRuntimeApp({ demoTools: true, directory: join(root, "transcripts"), assistant: { threadId: "current", configPath: config }, modelAlias: "fixture", model, output,
       memoryEmbedding: { modelId: "deterministic-fixture-not-real-model", embed: async texts => { embeddings.push([...texts]); return texts.map(() => [1, 0]); } }, env: {}, cwd: root });
     let app = await open();
     app.toolConfirmation!.subscribePending(pending => { if (pending) app.toolConfirmation!.resolveApproval({ approvalId: pending.approvalId, decision: "allow" }); });
@@ -101,7 +101,7 @@ describe("assembled memory upgrade", () => {
       return response(false);
     } });
     const output = new PassThrough(); output.resume();
-    const app = await createRuntimeApp({ demoTools: true, args: ["--tui", join(root, "transcripts"), "--thread", "current", "--config", config], modelAlias: "fixture", model, output, env: {}, cwd: root });
+    const app = await createRuntimeApp({ demoTools: true, directory: join(root, "transcripts"), assistant: { threadId: "current", configPath: config }, modelAlias: "fixture", model, output, env: {}, cwd: root });
     try {
       const handle = await app.runtime.run({ agentId: app.agentId, threadId: app.threadId, messages: [{ id: "new-topic", role: "user", parts: [{ type: "text", text: "你好" }] }] });
       const pump = (async () => { for await (const _event of handle.events) {} })();
@@ -128,7 +128,7 @@ describe("assembled memory upgrade", () => {
     let embeddings = 0, prompt = "";
     const model = new MockLanguageModelV3({ doStream: async options => { prompt = JSON.stringify(options.prompt); return response(false); } });
     const output = new PassThrough(); output.resume();
-    const app = await createRuntimeApp({ demoTools: true, args: ["--tui", join(root, "transcripts"), "--thread", "current", "--config", config], modelAlias: "fixture", model, output, env: {}, cwd: root,
+    const app = await createRuntimeApp({ demoTools: true, directory: join(root, "transcripts"), assistant: { threadId: "current", configPath: config }, modelAlias: "fixture", model, output, env: {}, cwd: root,
       memoryEmbedding: { modelId: "race-fixture", embed: async texts => {
         embeddings += 1;
         assert.ok((await memory.update(saved.entry.id, { expectedRevision: 1, enabled: false })).ok);

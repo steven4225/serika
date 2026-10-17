@@ -13,7 +13,8 @@ import { normalizeEmbeddingConfig, type ResolvedEmbeddingConfig } from "./memory
 import { computerConfigSchema, type ComputerConfig } from "./modules/computer-module.js";
 import { hooksConfigSchema, type HookRule } from "./automation-hooks.js";
 import { skillPackageRegistrationsSchema, type SkillPackageRegistration } from "./skill-catalog.js";
-import { resolveWorkspace, type TuiArgs } from "./cli-options.js";
+import { resolveWorkspace } from "./cli-options.js";
+import type { AssistantAssembly } from "./assembly.js";
 import {
   RUN_AUTHORIZED_FILE_TOOLS,
   type RunAuthorizedFileTool,
@@ -258,7 +259,7 @@ export interface TuiModuleConfigV1 {
   modelContextWindows?: import("./context-budget.js").ModelContextWindow[] | undefined;
 }
 
-function configPathFromArgs(args: TuiArgs): string | undefined {
+function configPathFromArgs(args: AssistantAssembly): string | undefined {
   if (!("configPath" in args)) return undefined;
   const configPath = args.configPath;
   if (configPath !== undefined && typeof configPath !== "string") {
@@ -463,7 +464,7 @@ export async function readTuiModuleConfig(configPath: string): Promise<TuiModule
 }
 
 async function resolveConfiguredMode(
-  args: TuiArgs,
+  args: AssistantAssembly,
   configPath: string,
   cwd: string,
 ): Promise<ResolvedTuiModuleConfig> {
@@ -618,7 +619,7 @@ async function resolveConfiguredMode(
 }
 
 async function resolveLegacyMode(
-  args: TuiArgs,
+  args: AssistantAssembly,
   cwd: string,
   todoistTimeZone: string | undefined,
 ): Promise<ResolvedTuiModuleConfig> {
@@ -667,7 +668,7 @@ async function resolveLegacyMode(
 }
 
 export function resolveTuiModuleConfig(
-  args: TuiArgs,
+  args: AssistantAssembly,
   options: {
     cwd: string;
     todoistTimeZone?: string | undefined;

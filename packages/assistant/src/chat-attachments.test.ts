@@ -48,7 +48,7 @@ test("real Controller sends image bytes and text content to the model adapter an
     { type: "finish", finishReason: { unified: "stop", raw: undefined }, usage: { inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 1, text: 1, reasoning: undefined } } },
   ] }) }; } });
   const open = async () => { const controller = createAssistantController(await createRuntimeApp({
-    args: ["--tui", root, "--thread", "attachments"], modelAlias: "mock", model, output: new PassThrough(), env: {}, cwd: root,
+    directory: root, assistant: { threadId: "attachments" }, modelAlias: "mock", model, output: new PassThrough(), env: {}, cwd: root,
   }));
     controller.subscribe(event => { if (event.type === "approval") controller.confirm({ approvalId: event.approval.approvalId, decision: "deny" }); });
     return controller;

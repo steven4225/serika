@@ -78,7 +78,7 @@ process.stdin.on('end', () => {
       const output = new PassThrough();
       let controller: AssistantController | undefined;
       output.on("data", (chunk: Buffer) => controller?.recordOutput(chunk.toString()));
-      const options = { args: ["--tui", join(root, "transcripts"), "--thread", "computer-fault", "--config", configPath],
+      const options = { directory: join(root, "transcripts"), assistant: { threadId: "computer-fault", configPath },
         modelAlias: "mock", model, output, env: process.env, cwd: root };
       controller = createAssistantController(await createRuntimeApp(options));
       const approvals = new Set<string>();

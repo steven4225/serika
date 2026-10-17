@@ -23,7 +23,7 @@ async function fixture(autoConsolidate = false) {
   await mkdir(workspace);
   const configPath = join(root, "config.json");
   await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: true, autoConsolidate, ...(autoConsolidate ? { writePolicy: "review" } : {}) } } }));
-  return { root, workspace, configPath, args: ["--tui", join(root, "transcripts"), "--thread", "memory-app-b", "--config", configPath] };
+  return { root, workspace, configPath, directory: join(root, "transcripts"), assistant: { threadId: "memory-app-b", configPath } };
 }
 
 function quietModel(observe?: (options: Parameters<MockLanguageModelV3["doStream"]>[0]) => void) {

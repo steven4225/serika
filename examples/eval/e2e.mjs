@@ -181,7 +181,7 @@ async function stage(root, spec, restarted) {
   output.on('data', chunk => controller?.recordOutput(chunk.toString()));
   const taskService = { available: spec.kind !== 'background_unavailable', registered: false, running: false,
     ready: false, todoistPlanningAvailable: false, message: '隔离验收后台未运行，到点不会执行；这里只验证保存，不声称通知送达。' };
-  const app = await createRuntimeApp({ args: ['--tui', join(root, 'transcripts'), '--thread', threadId, '--config', join(root, 'config.json')],
+  const app = await createRuntimeApp({ directory: join(root, 'transcripts'), assistant: { threadId: threadId, configPath: join(root, 'config.json') },
     ...selected, output, cwd: root, env: fixtureRuntimeEnvironment(spec, process.env), allowWorkspaceTaskReads: true,
     taskAutomation: { status: async () => taskService, enable: async () => ({ enabled: false, message: taskService.message }) } });
   controller = createAssistantController(app);

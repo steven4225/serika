@@ -16,7 +16,7 @@ test("desktop unified inbox reads real task results, preserves notification dist
   const workspace = join(root, "workspace"); await mkdir(workspace);
   await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, workspace, modules: { task: { enabled: true } } }));
   const output = new TeeOutput(() => undefined);
-  const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", "inbox-thread", "--config", join(root, "config.json")],
+  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "inbox-thread", configPath: join(root, "config.json") },
     modelAlias: "mock", model: createDemoModel(), output, env: {}, cwd: root });
   const controller = createAssistantController(app); output.attach(controller);
   const bridge = new RuntimeBridge(app, controller, { modelAlias: "mock", temporaryThread: false, temporaryDirectory: false }, output, () => undefined);
@@ -59,7 +59,7 @@ test("saved reminder banner stays readable with task tools disabled and grants n
   const workspace = join(root, "workspace"); await mkdir(workspace);
   await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, workspace, modules: { task: { enabled: false } } }));
   const output = new TeeOutput(() => undefined);
-  const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", "disabled-tools", "--config", join(root, "config.json")],
+  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "disabled-tools", configPath: join(root, "config.json") },
     modelAlias: "mock", model: createDemoModel(), output, env: {}, cwd: root });
   const controller = createAssistantController(app); output.attach(controller);
   const bridge = new RuntimeBridge(app, controller, { modelAlias: "mock", temporaryThread: false, temporaryDirectory: false }, output, () => undefined);

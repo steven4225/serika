@@ -42,7 +42,7 @@ it("corrects missing multiple tests in the same Run using one confirmed batch an
     ] }) };
   } });
   const output = new PassThrough(); output.resume();
-  const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", "thread", "--config", join(root, "config.json")], cwd: root, env: {}, modelAlias: "mock", model, output });
+  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "thread", configPath: join(root, "config.json") }, cwd: root, env: {}, modelAlias: "mock", model, output });
   const controller = createAssistantController(app);
   try {
     const approvals = new Set<string>();
@@ -187,7 +187,7 @@ for (const scenario of ["correct", "readback", "deny", "exhaust", "manual", "cha
           usage: { inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 1, text: 1, reasoning: undefined } } },
       ] }) };
     } });
-    const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", "thread", "--config", join(root, "config.json")],
+    const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "thread", configPath: join(root, "config.json") },
       cwd: root, env: {}, modelAlias: "mock", model, output: new PassThrough() });
     const controller = createAssistantController(app);
     try {

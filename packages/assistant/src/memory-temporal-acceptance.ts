@@ -56,7 +56,7 @@ async function child(root: string, stage: Stage) {
   async function open(thread: string) {
     await controller?.shutdown();
     const output = new PassThrough();
-    app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", thread, "--config", configPath],
+    app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: thread, configPath },
       modelAlias: configured.modelAlias, model, output, env: process.env, cwd: root });
     controller = createAssistantController(app);
     output.on("data", (chunk: Buffer) => controller!.recordOutput(chunk.toString()));

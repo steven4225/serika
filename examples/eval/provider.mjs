@@ -113,7 +113,7 @@ export default class SerikaProvider {
         modules: { memory: { enabled: memory, autoConsolidate: memory, writePolicy: memory ? 'automatic' : 'review' } } }));
       const selected = mode === 'live' ? configureCliModel(createDemoModel) : { modelAlias: 'eval/scripted', model: scriptedModel(vars) };
       const output = new PassThrough(); output.resume();
-      const app = await createRuntimeApp({ args: ['--tui', join(root, 'transcripts'), '--thread', 'eval', '--config', config],
+      const app = await createRuntimeApp({ directory: join(root, 'transcripts'), assistant: { threadId: 'eval', configPath: config },
         ...selected, output, cwd: root, env: mode === 'live' ? process.env : {} });
       controller = createAssistantController(app);
       let approvals = 0;

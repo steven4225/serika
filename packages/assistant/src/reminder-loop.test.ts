@@ -142,7 +142,7 @@ describe("natural-language reminder path", () => {
     });
     const output = new PassThrough();
     const app = await createRuntimeApp({
-      args: ["--tui", join(root, "transcripts"), "--thread", "reminder", "--config", configPath],
+      directory: join(root, "transcripts"), assistant: { threadId: "reminder", configPath },
       modelAlias: "scripted",
       model,
       output,

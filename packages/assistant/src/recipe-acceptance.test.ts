@@ -42,7 +42,7 @@ it("real Shell → receipt-checked registration → new Thread/process reconstru
   const closers: (() => Promise<void>)[] = [];
   const open = async (thread: string, next: () => ReturnType<typeof response>) => {
     let output = "";
-    const app = await createRuntimeApp({ args: ["--tui", join(f.root, "transcripts"), "--thread", thread, "--config", f.config],
+    const app = await createRuntimeApp({ directory: join(f.root, "transcripts"), assistant: { threadId: thread, configPath: f.config },
       modelAlias: "scripted", model: new MockLanguageModelV3({ doStream: async () => next() }), env: {}, cwd: f.root,
       output: new Writable({ write(chunk, _encoding, done) { output += String(chunk); done(); } }) });
     const controller = createAssistantController(app);
@@ -107,7 +107,7 @@ it("registration refuses a guessed receipt, mismatched command and a real failed
   for (const mode of ["missing", "mismatch", "failed", "stale"] as const) {
     const f = await fixture(); let step = 0;
     const command = mode === "failed" ? "exit 7" : "printf tested";
-    const app = await createRuntimeApp({ args: ["--tui", join(f.root, "transcripts"), "--thread", "guard", "--config", f.config],
+    const app = await createRuntimeApp({ directory: join(f.root, "transcripts"), assistant: { threadId: "guard", configPath: f.config },
       modelAlias: "scripted", model: new MockLanguageModelV3({ doStream: async () => {
         step++;
         if (mode !== "missing" && step === 1) return response({ name: "shell_exec", id: "test", input: { command, cwd: "." } });
@@ -134,7 +134,7 @@ it("denying a recipe or disabling it while its preview is open prevents real She
     const def = { ...definition, command: "touch should-not-exist" };
     const recipes = new RecipeStore(f.workspace);
     const entry = await recipes.save(def, { threadId: "old", runId: "tested", toolCallId: "test" }, 0, signal());
-    const app = await createRuntimeApp({ args: ["--tui", join(f.root, "transcripts"), "--thread", "guard", "--config", f.config],
+    const app = await createRuntimeApp({ directory: join(f.root, "transcripts"), assistant: { threadId: "guard", configPath: f.config },
       modelAlias: "scripted", model: new MockLanguageModelV3({ doStream: async () => ++step === 1 ? response({ name: "recipe_run", id: "run", input: { id: def.id, expectedHash: entry.activeHash } }) : response() }),
       env: {}, cwd: f.root, output: new Writable({ write(_chunk, _encoding, done) { done(); } }) });
     const controller = createAssistantController(app);

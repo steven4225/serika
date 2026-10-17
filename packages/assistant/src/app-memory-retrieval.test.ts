@@ -39,7 +39,7 @@ describe("question-based Memory app context", () => {
       doStream: async () => response(),
     });
     const output = new PassThrough(); output.resume();
-    const open = () => createRuntimeApp({ demoTools: true, args: ["--tui", join(root, "transcripts"), "--thread", "topic-thread", "--config", join(root, "config.json")], modelAlias: "mock", model, output, env: {}, cwd: root });
+    const open = () => createRuntimeApp({ demoTools: true, directory: join(root, "transcripts"), assistant: { threadId: "topic-thread", configPath: join(root, "config.json") }, modelAlias: "mock", model, output, env: {}, cwd: root });
     let app = await open();
     const run = async (id: string, text: string) => {
       const handle = await app.runtime.run({ agentId: app.agentId, threadId: app.threadId, messages: [{ id, role: "user", parts: [{ type: "text", text }] }] });
@@ -79,8 +79,8 @@ describe("question-based Memory app context", () => {
         return response();
       } });
       const output = new PassThrough(); output.resume();
-      const args = ["--tui", join(root, "transcripts"), "--thread", "fresh-thread", "--config", config];
-      let app = await createRuntimeApp({ demoTools: true, args, modelAlias: "mock", model, output, env: {}, cwd: root });
+      const assembly = { directory: join(root, "transcripts"), assistant: { threadId: "fresh-thread", configPath: config } };
+      let app = await createRuntimeApp({ demoTools: true, ...assembly, modelAlias: "mock", model, output, env: {}, cwd: root });
       app.toolConfirmation!.subscribePending((pending) => {
         if (pending) {
           // A write between steps must be seen on the next hook, not a stale cached prefix.
@@ -103,7 +103,7 @@ describe("question-based Memory app context", () => {
         assert.ok(references.length > 0);
         assert.doesNotMatch(JSON.stringify(references), /sourceQuote|history/);
         app.dispose();
-        app = await createRuntimeApp({ demoTools: true, args, modelAlias: "mock", model, output, env: {}, cwd: root });
+        app = await createRuntimeApp({ demoTools: true, ...assembly, modelAlias: "mock", model, output, env: {}, cwd: root });
         await run("复盘格式是什么？不要查询工具。", "question-two");
         assert.match(prompts.at(-1)!, /先结论再三步/);
         assert.doesNotMatch(prompts.at(-1)!, /先结论再两步/);

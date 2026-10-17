@@ -52,7 +52,7 @@ async function open(root: string, thread = "work-thread", writes = false, model?
   const send = (message: MainToRenderer) => { messages.push(message); };
   const output = new TeeOutput(send);
   const fixture = testModel(writes);
-  const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", thread, "--config", join(root, "config.json")], modelAlias: "mock", model: model ?? fixture.model, output, env: {}, cwd: root });
+  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: thread, configPath: join(root, "config.json") }, modelAlias: "mock", model: model ?? fixture.model, output, env: {}, cwd: root });
   const controller = createAssistantController(app);
   output.attach(controller);
   const bridge = new RuntimeBridge(app, controller, { modelAlias: "mock", temporaryThread: false, temporaryDirectory: false }, output, send);

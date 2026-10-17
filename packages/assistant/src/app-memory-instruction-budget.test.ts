@@ -23,7 +23,7 @@ for (const writePolicy of ["automatic", "review"] as const) {
         memory: { enabled: true, autoConsolidate: true, writePolicy },
       } }));
       const model = new MockLanguageModelV3({ doStream: async () => assert.fail("Construction must not invoke a model") });
-      app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", "instruction-budget", "--config", config],
+      app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "instruction-budget", configPath: config },
         modelAlias: "fixture/no-network", model, output, env: {}, cwd: root });
       const skill = app.automation?.getSkill(MEMORY_SKILL_ID);
       assert.ok(skill, "Automatic consolidation must register its real memory Skill");

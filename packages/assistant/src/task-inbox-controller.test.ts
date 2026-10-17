@@ -15,7 +15,7 @@ test("unified controller inbox reads actual deterministic reminders and explicit
   const config = join(root, "config.json");
   await writeFile(config, JSON.stringify({ version: 1, workspace, modules: { task: { enabled: true } } }));
   const output = new PassThrough(); output.resume();
-  const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", "inbox", "--config", config],
+  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "inbox", configPath: config },
     model: createDemoModel(), modelAlias: "mock/default", output, env: {}, cwd: root });
   const controller = createAssistantController(app);
   let now = Date.now();

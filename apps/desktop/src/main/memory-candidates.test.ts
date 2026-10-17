@@ -30,7 +30,7 @@ async function openDesktop(root: string, thread: string, memory: boolean, model:
   const messages: MainToRenderer[] = [];
   const output = new TeeOutput((message) => { messages.push(message); });
   const app = await createRuntimeApp({
-    args: ["--tui", join(root, "transcripts"), "--thread", thread, "--config", join(root, "runloom.json")],
+    directory: join(root, "transcripts"), assistant: { threadId: thread, configPath: join(root, "runloom.json") },
     modelAlias: "mock",
     model,
     output,

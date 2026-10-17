@@ -53,7 +53,7 @@ describe("native Memory app wiring", () => {
         return response();
       } });
       const output = new PassThrough(); output.resume();
-      const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", "review", "--config", config], modelAlias: "mock", model, output, env: {}, cwd: root });
+      const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "review", configPath: config }, modelAlias: "mock", model, output, env: {}, cwd: root });
       await app.store.save("review", [{ id: "source-user", role: "user", parts: [{ type: "text", text: "我喜欢先结论后步骤。" }] }]);
       const controller = createAssistantController(app);
       let allowApply = false;

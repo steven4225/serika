@@ -25,7 +25,7 @@ it("opt-in real-model consolidation distinguishes task format from lasting prefe
       const config = join(root, `${test.id}.json`);
       await writeFile(config, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: true, autoConsolidate: true } } }));
       const output = new PassThrough(); output.resume();
-      const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", test.id, "--config", config], ...configured, output, env: process.env, cwd: root });
+      const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: test.id, configPath: config }, ...configured, output, env: process.env, cwd: root });
       const controller = createAssistantController(app);
       const phases: string[] = [];
       const statuses: string[] = [];

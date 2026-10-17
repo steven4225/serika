@@ -456,7 +456,7 @@ describe("AssistantController", () => {
     const directory = await mkdtemp(join(tmpdir(), "runloom-controller-trace-"));
     try {
       const controller = createAssistantController(await createRuntimeApp({
-        args: ["--tui", directory, "--thread", "trace-confirmation"], modelAlias: "mock", model: createDemoModel(),
+        directory, assistant: { threadId: "trace-confirmation" }, modelAlias: "mock", model: createDemoModel(),
         output: new PassThrough(), env: {}, cwd: directory,
       }));
       try {
@@ -481,7 +481,7 @@ describe("AssistantController", () => {
       modules: { memory: { enabled: true, autoConsolidate: true } } }));
     const open = async () => {
       const instance = createAssistantController(await createRuntimeApp({
-        args: ["--tui", join(root, "transcripts"), "--thread", "task-memory", "--config", config],
+        directory: join(root, "transcripts"), assistant: { threadId: "task-memory", configPath: config },
         modelAlias: "mock", model: createDemoModel(), output: new PassThrough(), env: {}, cwd: root,
       }));
       instance.subscribe(event => {
@@ -521,7 +521,7 @@ describe("AssistantController", () => {
     const directory = await mkdtemp(join(tmpdir(), "runloom-controller-app-"));
     try {
       const app = await createRuntimeApp({
-        args: [directory], modelAlias: "mock", model: createDemoModel(),
+        directory, modelAlias: "mock", model: createDemoModel(),
         output: new PassThrough(), env: {}, cwd: directory,
       });
       const controller = createAssistantController(app);
@@ -542,7 +542,7 @@ describe("AssistantController", () => {
         await controller.shutdown();
       }
       const reopened = createAssistantController(await createRuntimeApp({
-        args: [directory], modelAlias: "mock", model: createDemoModel(),
+        directory, modelAlias: "mock", model: createDemoModel(),
         output: new PassThrough(), env: {}, cwd: directory,
       }));
       try {
@@ -561,7 +561,7 @@ describe("AssistantController", () => {
     const file = join(directory, EXECUTION_RECORD_FILE);
     await writeFile(file, "{broken");
     const app = await createRuntimeApp({
-      args: [directory], modelAlias: "mock", model: createDemoModel(),
+      directory, modelAlias: "mock", model: createDemoModel(),
       output: new PassThrough(), env: {}, cwd: directory,
     });
     const controller = createAssistantController(app);

@@ -1,14 +1,9 @@
 import { realpath, stat } from "node:fs/promises";
 import { resolve as resolvePath } from "node:path";
+import { assertAssemblyCombination, type AssistantAssembly } from "./assembly.js";
 
-export interface TuiArgs {
-  directory?: string;
-  threadId?: string;
-  configPath?: string;
-  workspace?: string;
-  autoConsolidate?: boolean;
-  todoistEnabled?: boolean;
-}
+/** CLI form of an assembly: `--tui [directory] --thread … --config …`. */
+export type TuiArgs = AssistantAssembly & { directory?: string };
 
 /**
  * Parse the arguments that follow --tui. A single positional argument is the
@@ -73,19 +68,7 @@ export function parseTuiArgs(args: readonly string[]): TuiArgs {
     directory = arg;
   }
 
-  if (configPath !== undefined) {
-    if (workspace !== undefined) {
-      throw new Error("--config cannot be combined with --workspace");
-    }
-    if (todoistEnabled) {
-      throw new Error("--config cannot be combined with --todoist");
-    }
-    if (autoConsolidate) {
-      throw new Error("--config cannot be combined with --auto-consolidate");
-    }
-  }
-
-  return {
+  const parsed: TuiArgs = {
     ...(directory !== undefined ? { directory } : {}),
     ...(threadId !== undefined ? { threadId } : {}),
     ...(configPath !== undefined ? { configPath } : {}),
@@ -93,6 +76,8 @@ export function parseTuiArgs(args: readonly string[]): TuiArgs {
     ...(autoConsolidate ? { autoConsolidate: true } : {}),
     ...(todoistEnabled ? { todoistEnabled: true } : {}),
   };
+  assertAssemblyCombination(parsed);
+  return parsed;
 }
 
 /**

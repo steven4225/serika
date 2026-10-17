@@ -148,7 +148,7 @@ export class DesktopRuntime {
     if (config.workspaceRoot !== identity.workspaceRoot) throw new Error("配置工作区已变化，请恢复原工作区配置后重新连接；不会混入其他工作区");
     const output = new TeeOutput(this.#send);
     const app = await createRuntimeApp({
-      args: ["--tui", identity.transcriptDirectory, "--thread", identity.threadId, "--config", identity.configPath],
+      directory: identity.transcriptDirectory, assistant: { threadId: identity.threadId, configPath: identity.configPath },
       modelAlias: this.#options.modelAlias, model: this.#options.model, output, env: this.#options.env, cwd: this.#options.cwd,
       pomodoroService: this.#pomodoroService,
       allowWorkspaceTaskReads: true,

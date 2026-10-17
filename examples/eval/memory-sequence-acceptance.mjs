@@ -125,7 +125,7 @@ export async function runMemorySequence({ live = false, env = process.env, outpu
   let controller, app;
   output.on('data', chunk => controller?.recordOutput(chunk.toString()));
   try {
-    app = await createRuntimeApp({ args: ['--tui', join(root, 'transcripts'), '--thread', threadId, '--config', config], ...selected, output, env: fixedEnv, cwd: root });
+    app = await createRuntimeApp({ directory: join(root, 'transcripts'), assistant: { threadId: threadId, configPath: config }, ...selected, output, env: fixedEnv, cwd: root });
     controller = createAssistantController(app);
     controller.subscribe(event => {
       if (event.type === 'approval') controller.confirm({ approvalId: event.approval.approvalId, decision: 'deny' });

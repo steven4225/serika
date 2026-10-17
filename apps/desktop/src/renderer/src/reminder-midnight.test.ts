@@ -76,7 +76,7 @@ for (const [relative, expectedRunAt] of [
     } });
     const output = new PassThrough();
     const app = await createRuntimeApp({
-      args: ["--tui", join(root, "transcripts"), "--thread", "midnight", "--config", config],
+      directory: join(root, "transcripts"), assistant: { threadId: "midnight", configPath: config },
       modelAlias: "mock", model, output, env: {}, cwd: root,
     });
     const controller = createAssistantController(app);

@@ -44,7 +44,7 @@ export async function runNativeMemoryAcceptance(): Promise<{ root: string; passe
     await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: true, autoConsolidate: automatic } }, contextCompaction: budget }));
     const output = new PassThrough();
     output.on("data", (chunk: Buffer) => controller?.recordOutput(chunk.toString()));
-    app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", thread, "--config", configPath], modelAlias: configured.modelAlias, model, output, env: process.env, cwd: root });
+    app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: thread, configPath }, modelAlias: configured.modelAlias, model, output, env: process.env, cwd: root });
     controller = createAssistantController(app);
     controller.subscribe((event) => {
       if (event.type === "approval") {

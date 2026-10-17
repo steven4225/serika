@@ -96,7 +96,7 @@ it("physical compact preserves memory cursor, exact quotes and valid summary; re
       ] }) };
     } });
     const output = new PassThrough(); output.resume();
-    app = await createRuntimeApp({ args: ["--tui", directory, "--thread", threadId, "--config", config],
+    app = await createRuntimeApp({ directory, assistant: { threadId: threadId, configPath: config },
       modelAlias: "scripted", model, output, env: {}, cwd: root });
     app.enableExecutionRecords();
     assert.equal(calls, 0, "opening committed history never runs the model or old tools");

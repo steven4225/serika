@@ -135,7 +135,7 @@ test("unsupported-scope review retains the exact source and can be inspected/rej
     const config = join(f.root, "config.json");
     await writeFile(config, JSON.stringify({ version: 1, workspace: f.workspace, modules: { memory: { enabled: true } } }));
     const output = new PassThrough(); output.resume();
-    const app = await createRuntimeApp({ args: ["--tui", join(f.root, "transcripts"), "--thread", "origin", "--config", config],
+    const app = await createRuntimeApp({ directory: join(f.root, "transcripts"), assistant: { threadId: "origin", configPath: config },
       modelAlias: "fixture/no-model-call", model: new MockLanguageModelV3({ doStream: async () => assert.fail("Idle review must not call a model") }),
       output, env: {}, cwd: f.root });
     const controller = createAssistantController(app);

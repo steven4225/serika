@@ -120,7 +120,7 @@ async function child(root: string, stage: Stage, workflow: Workflow) {
     },
   } });
   const output = new PassThrough();
-  const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", THREAD, "--config", join(root, "config.json")],
+  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: THREAD, configPath: join(root, "config.json") },
     modelAlias: configured.modelAlias, model, output, env: process.env, cwd: root });
   const controller = createAssistantController(app);
   const approvals: Array<{ round: string; toolName: string; approvalId: string; allowed: boolean }> = [];

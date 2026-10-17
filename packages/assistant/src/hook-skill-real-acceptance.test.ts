@@ -71,7 +71,7 @@ test("opt-in real model: external memory Skill hook saves exact user provenance 
   await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules, automation: { hooks: [] } }));
   const output = () => { const stream = new PassThrough(); stream.resume(); return stream; };
   const appOptions = (thread: string) => ({
-    args: ["--tui", join(root, "transcripts"), "--thread", thread, "--config", configPath],
+    directory: join(root, "transcripts"), assistant: { threadId: thread, configPath },
     ...configured, output: output(), env, cwd: root,
   });
   const controllers: AssistantController[] = [];

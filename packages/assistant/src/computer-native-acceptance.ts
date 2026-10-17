@@ -62,8 +62,7 @@ export async function runComputerNativeAcceptance(configPath: string, title: str
   let host: ReturnType<typeof createModuleHost> | undefined;
   try {
     // Static config and trusted-path validation must complete before any driver call.
-    app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", `native-${scenario}`,
-      "--config", resolve(configPath)], ...configured, output, env: process.env, cwd: process.cwd() });
+    app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: `native-${scenario}`, configPath: resolve(configPath) }, ...configured, output, env: process.env, cwd: process.cwd() });
     controller = createAssistantController(app);
     const config = z.object({ modules: z.object({ computer: computerConfigSchema }).strict() }).parse(JSON.parse(await readFile(configPath, "utf8")));
     assert.equal(config.modules.computer.enabled, true);

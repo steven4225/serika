@@ -135,7 +135,7 @@ async function executeCase(test, root, env, deadlineMs) {
     userMessageId: null, phaseResults, before: await capture(workspace, store, threadId, test, seedId) };
   output.on('data', chunk => controller?.recordOutput(chunk.toString()));
   try {
-    app = await createRuntimeApp({ args: ['--tui', join(directory, 'transcripts'), '--thread', threadId, '--config', config], ...selected, output, env, cwd: directory });
+    app = await createRuntimeApp({ directory: join(directory, 'transcripts'), assistant: { threadId: threadId, configPath: config }, ...selected, output, env, cwd: directory });
     controller = createAssistantController(app);
     controller.subscribe(event => {
       if (event.type === 'approval') controller.confirm({ approvalId: event.approval.approvalId, decision: 'deny' });

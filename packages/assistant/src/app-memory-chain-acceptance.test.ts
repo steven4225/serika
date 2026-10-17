@@ -72,7 +72,7 @@ async function fixture(extract: Extract) {
   const controllers: AssistantController[] = [];
   const open = async (threadId: string) => {
     const output = new PassThrough(); output.resume();
-    const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", threadId, "--config", config],
+    const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: threadId, configPath: config },
       modelAlias: "fixture/not-real-model", model, output, env: {}, cwd: root,
       memoryEmbedding: { modelId: "fixture/not-real-embedding", embed: async texts => {
         embeddingInputs.push([...texts]);

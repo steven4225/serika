@@ -86,7 +86,7 @@ async function fixture(mode: "documented_change" | "recorded_add") {
       outcomes: sources.map(item => ({ messageId: item.messageId, status: "extracted" })) }));
   } });
   const output = new PassThrough(); output.resume();
-  const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", "origin", "--config", config],
+  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "origin", configPath: config },
     modelAlias: "fixture/not-real-model", model, output, env: {}, cwd: root });
   const controller = createAssistantController(app);
   controller.subscribe(event => { if (event.type === "approval") assert.fail("Tool-free automatic extraction must not request approval"); });

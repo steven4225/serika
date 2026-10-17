@@ -33,7 +33,7 @@ async function setup(rewrite = false) {
   });
   const open = async (thread = "thread-a") => {
     const output = new PassThrough(); output.resume();
-    const app = await createRuntimeApp({ demoTools: true, args: ["--tui", join(root, "transcripts"), "--thread", thread, "--config", config], modelAlias: "mock", model, output, env: {}, cwd: root });
+    const app = await createRuntimeApp({ demoTools: true, directory: join(root, "transcripts"), assistant: { threadId: thread, configPath: config }, modelAlias: "mock", model, output, env: {}, cwd: root });
     return { app, controller: createAssistantController(app) };
   };
   return { root, config, open, model, prompts, counts: () => ({ primary, rewrites }) };

@@ -174,7 +174,7 @@ async function executeCase(test, root, env, deadlineMs) {
   evidence.phaseResults = phaseResults;
   let deadline;
   try {
-    app = await createRuntimeApp({ args: ['--tui', join(directory, 'transcripts'), '--thread', threadId, '--config', config],
+    app = await createRuntimeApp({ directory: join(directory, 'transcripts'), assistant: { threadId: threadId, configPath: config },
       ...selected, output, env, cwd: directory });
     controller = createAssistantController(app);
     controller.subscribe(event => {

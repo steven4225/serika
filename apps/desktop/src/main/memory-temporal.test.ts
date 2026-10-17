@@ -13,7 +13,7 @@ it("temporal desktop IPC previews without writes, preserves history and requires
   const workspace = join(root, "workspace"); await mkdir(workspace);
   await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: true } } }));
   const output = new TeeOutput(() => {});
-  const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", "a", "--config", join(root, "config.json")], modelAlias: "mock", model: createDemoModel(), output, env: {}, cwd: root });
+  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "a", configPath: join(root, "config.json") }, modelAlias: "mock", model: createDemoModel(), output, env: {}, cwd: root });
   const controller = createAssistantController(app); output.attach(controller);
   const bridge = new RuntimeBridge(app, controller, { modelAlias: "mock", temporaryThread: false, temporaryDirectory: false }, output, () => {});
   controller.subscribe(event => { if (event.type === "approval") controller.confirm({ approvalId: event.approval.approvalId, decision: "deny" }); });
@@ -44,7 +44,7 @@ it("temporal desktop IPC previews without writes, preserves history and requires
 it("desktop exclusion reaches the Controller's persistent ordinary-message metadata", async () => {
   const root = await mkdtemp(join(tmpdir(), "runloom-memory-exclude-bridge-"));
   const output = new TeeOutput(() => {});
-  const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", "exclude"], modelAlias: "mock", model: createDemoModel(), output, env: {}, cwd: root });
+  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "exclude" }, modelAlias: "mock", model: createDemoModel(), output, env: {}, cwd: root });
   const controller = createAssistantController(app); output.attach(controller);
   const bridge = new RuntimeBridge(app, controller, { modelAlias: "mock", temporaryThread: false, temporaryDirectory: false }, output, () => {});
   controller.subscribe(event => { if (event.type === "approval") controller.confirm({ approvalId: event.approval.approvalId, decision: "allow" }); });

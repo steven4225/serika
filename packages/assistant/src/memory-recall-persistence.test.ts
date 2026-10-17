@@ -183,8 +183,8 @@ describe("Memory recall through the real workspace file and fresh store instance
           { type: "finish" as const, finishReason: { unified: "stop" as const, raw: undefined }, usage },
         ] }) };
       } });
-      const args = ["--tui", join(root, "transcripts"), "--thread", threadId, "--config", config];
-      const openApp = () => createRuntimeApp({ args, modelAlias: "mock", model, output, env: {}, cwd: root });
+      const assembly = { directory: join(root, "transcripts"), assistant: { threadId, configPath: config } };
+      const openApp = () => createRuntimeApp({ ...assembly, modelAlias: "mock", model, output, env: {}, cwd: root });
       app = await openApp();
       await app.store.save(threadId, history);
       assert.ok(app.compaction);

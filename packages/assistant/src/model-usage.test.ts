@@ -192,7 +192,7 @@ test("actual AgentLoop streaming retry preserves two call attempts without chang
       return streamResponse("ok");
     } });
     const output = new PassThrough(); output.resume();
-    app = await createRuntimeApp({ args: ["--tui", join(f.directory, "transcripts"), "--thread", "thread"], modelAlias: "fixture", model, output, env: {}, cwd: f.directory });
+    app = await createRuntimeApp({ directory: join(f.directory, "transcripts"), assistant: { threadId: "thread" }, modelAlias: "fixture", model, output, env: {}, cwd: f.directory });
     app.enableExecutionRecords();
     const handle = await app.runtime.run({ agentId: app.agentId, threadId: "thread", messages: [{ id: "user", role: "user", parts: [{ type: "text", text: "hello" }] }] });
     assert.equal((await handle.result).status, "completed");
@@ -228,7 +228,7 @@ test("Demo: real Controller wiring records chat/consolidation/rewrite/compaction
     return streamResponse("已收到。");
   } });
   const output = new PassThrough(); output.resume();
-  const app = await createRuntimeApp({ args: ["--tui", directory, "--thread", "thread", "--config", config], modelAlias: "fixture", model, output, env: {}, cwd: f.directory });
+  const app = await createRuntimeApp({ directory, assistant: { threadId: "thread", configPath: config }, modelAlias: "fixture", model, output, env: {}, cwd: f.directory });
   const controller = createAssistantController(app);
   try {
     const started = await controller.run("我喝咖啡不加糖。"); assert.ok(started.ok);

@@ -80,7 +80,7 @@ async function child(root: string, scenario: Scenario, mode: ModelMode, recoveri
     wrapStream: async ({ doStream }) => { modelRequests++; return doStream(); },
   } });
   const output = new PassThrough();
-  const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", THREAD, "--config", configPath],
+  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: THREAD, configPath },
     modelAlias: configured.modelAlias, model, env: process.env, output, cwd: root });
   let approvalReceipt = Promise.resolve();
   if (!recovering && scenario === "before-dispatch") {
@@ -282,7 +282,7 @@ async function scenario(root: string, fault: Scenario, mode: ModelMode) {
         const contenderModel = new MockLanguageModelV3({ doStream: async () => {
           contenderRequests++; throw new Error("Contender must never invoke a model");
         } });
-        const app = await createRuntimeApp({ args: ["--tui", join(root, "contender-transcripts"), "--thread", THREAD, "--config", join(root, "config.json")],
+        const app = await createRuntimeApp({ directory: join(root, "contender-transcripts"), assistant: { threadId: THREAD, configPath: join(root, "config.json") },
           modelAlias: "mock-never-run", model: contenderModel, env: {}, output, cwd: root });
         const contender = createAssistantController(app);
         try {
