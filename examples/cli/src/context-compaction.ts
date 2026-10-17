@@ -1,5 +1,5 @@
 import { streamText, type LanguageModel, type UIMessage } from "ai";
-import { durable, type TokenUsage } from "@serika/core";
+import { hashCanonicalJson, type CanonicalJsonValue, type TokenUsage } from "@serika/core";
 import { normalizeTokenUsage } from "@serika/ai-sdk-adapter";
 
 export const CONTEXT_SUMMARY_VERSION = 2 as const;
@@ -118,9 +118,7 @@ export function createAiSdkSummarizer(model: LanguageModel): Summarizer {
 /** Hashes only persisted transcript messages, never injected memory or summaries. */
 export function compactPrefixHash(messages: readonly UIMessage[], endExclusive: number): string {
   const prefix = messages.slice(0, endExclusive).map(({ id, role, parts }) => ({ id, role, parts }));
-  const canonicalHash = durable.hashCanonicalJson(
-    JSON.parse(JSON.stringify(prefix)) as Parameters<typeof durable.hashCanonicalJson>[0],
-  );
+  const canonicalHash = hashCanonicalJson(JSON.parse(JSON.stringify(prefix)) as CanonicalJsonValue);
   return `${COMPACT_PREFIX_HASH_VERSION}:${canonicalHash.slice("jcs-sha256:v1:".length)}`;
 }
 

@@ -23,26 +23,23 @@
 
 - The project name is Serika.
 - Core domain language uses `Thread`; do not introduce `Session` as an alias.
+- Current architecture and refactor boundaries: `docs/architecture-v2.md`. Architecture decisions: `docs/adr/`.
 - Preserve this dependency direction:
 
   ```text
-  Application / Harness
-          -> Durable Runtime
-          -> Orchestrator
-          -> ModelInvoker / ToolExecutor ports
-          <- infrastructure adapters
+  apps/desktop -> examples/cli (assistant domain + controller) -> packages/ai-sdk-adapter -> packages/core
   ```
 
-- The Orchestrator is a pure state machine. It must not access PostgreSQL, call models or tools, read the system clock, generate IDs, or perform external effects.
-- PostgreSQL is the durable source of truth. Do not add Redis, Kafka, or another source of execution truth in the MVP.
+- `packages/core` must not import the AI SDK adapter, the assistant domain, Electron or any storage engine.
+- The workspace files (JSON/JSONL under `.runloom/`) are the local source of truth. The former PostgreSQL durable orchestrator was removed (ADR 0001); do not reintroduce a second source of execution truth.
 
-## Durable execution invariants
+## Tool side-effect invariants
 
 - The identity hierarchy is `Thread -> Run -> Turn -> Action -> Attempt`; an Approval binds to a Tool Action.
 - A Thread has at most one active Run in the MVP.
 - Each external effect is represented by one Action; each real invocation is represented by a new persisted Attempt.
 - External model and tool calls run outside database transactions. Persist intent before the call and persist its resolution in a new short transaction afterward.
-- AI SDK and Tool adapters do not retry tools or hide retries by default. The interactive TUI may explicitly opt into bounded model-request retries for a still-empty step; Durable Runtime remains the owner of external-effect retry policy and every real invocation must remain auditable as an Attempt.
+- AI SDK and Tool adapters do not retry tools or hide retries by default. The interactive TUI may explicitly opt into bounded model-request retries for a still-empty step; The Runtime remains the owner of external-effect retry policy and every real invocation must remain auditable.
 - A tool without an explicit replay-safety classification is treated as non-idempotent and defaults to one attempt.
 - Never automatically retry a non-idempotent tool when dispatch or outcome is unknown; transition to reconciliation instead.
 - Approval is persisted before any Tool Attempt is created. Approval authorizes execution but does not execute the tool inside the approval transaction.
@@ -52,7 +49,6 @@
 ## MVP boundaries
 
 - Do not add multi-worker execution, parallel tools, queued Runs, Follow-up, multi-agent orchestration, RAG, automatic memory writes, or inferred global memory unless a later design discussion explicitly promotes it into scope. Controller foreground-primary Steer is explicitly promoted: opt-in, bounded same-Run user corrections at safe boundaries, superseding unstarted tool calls and their approvals without cancelling executing tools, extending budget, granting permission or replaying accepted requests after restart. TUI and workers do not enable it. Explicit user-managed workspace memory, read-only candidate proposals, and its versioned lifecycle are part of the current TUI scope; memory text never grants execution permission; committed transcript text and compaction summaries are not current preferences, only the injected memory version is.
-- PostgreSQL may be selected as the persistence target while tests continue to use deterministic in-memory fakes around explicit ports.
 
 ## Local behavior milestone
 
@@ -113,22 +109,9 @@
 - Embedded model usage observes the SDK provider boundary without owning execution/retry policy: chat, consolidation, query rewrite, compaction and explicit Skills share bounded optional metadata in the existing execution journal. Retries are separate call attempts; local rewrite/summary reuse is not a call. Missing cache/token fields and interrupted/cancelled usage remain unknown, never zero; explicit provider/model pricing is snapshotted for estimates only, never invoices. No prompt/raw response/credential retention, worker accounting, historical backfill or tool replay is implied.
 - Ctrl+C cancels a running handle and waits for its result; Ctrl+C while idle exits. If startup is still awaiting `runtime.run()`, or stdin closes, record the stop request and cancel as soon as the handle arrives.
 
-## PostgreSQL persistence
+## Stable hashes
 
-- The PostgreSQL adapter lives in `packages/postgres`; Core must not import `pg`, Kysely, migration types, SQLSTATE types, or database row types.
-- Use `pg` for pooling, Kysely for typed queries and short transaction callbacks, and `node-pg-migrate` for immutable forward migration history. Never run migrations automatically during application startup.
-- Persist current relational state rather than event-sourcing `DurableEvent`. IDs are Runtime-generated non-empty text values; PostgreSQL does not generate domain identities.
-- Use strong columns for identity, status, time, versions, scheduling, constraints and frequently queried discriminators. Use versioned JSONB payloads only for JSON content, model/tool data, resolutions, errors and evidence.
-- Only Serika `JsonValue` crosses a JSONB boundary. Do not persist SDK objects, `undefined`, `Date`, `BigInt`, class instances or non-finite numbers.
-- Stable request and tool-input hashes use the versioned `jcs-sha256:v1` protocol over RFC 8785 canonical JSON; never hash `jsonb::text`.
-- An external Effect and its `Attempt(not_dispatched)` are committed atomically. The Effect remains in `effect_outbox` until a separate transaction records the dispatch boundary and removes the row.
-- `EffectDispatcher` is a non-reentrant, single-worker batch service. Outbox scans are hints; the locked Run transaction must revalidate the candidate and commit `dispatched` before invoking an external port.
-- ModelInvoker and ToolExecutor are SDK-neutral Core ports. They receive immutable invocation data plus one Runtime-owned `AbortSignal`; they never retry, persist state, create IDs, or decide orchestration policy.
-- A Tool invocation is pinned by `toolsetVersion`, `toolName` and `toolCallId`. Do not resolve an active Run against an unversioned current Tool implementation.
-- `not_applied` requires proof that no external side effect occurred. Timeouts, connection loss and unclassified Adapter errors are `outcome_unknown`; an unknown non-idempotent Tool always requires reconciliation.
-- Persist a Stop Request before aborting an active in-process Attempt. Active AbortControllers are process-local acceleration and never replace durable Stop state.
-- Duplicate Outbox writes are idempotent only when their complete Effect payloads match. A conflicting payload is an invariant failure, not `ON CONFLICT DO NOTHING` success.
-- PostgreSQL integration tests use the pinned `postgres:18.4-alpine` Testcontainer and the same Repository Contract as the in-memory reference adapter.
+- Stable content hashes (for example compaction prefix hashes) use the versioned `jcs-sha256:v1` protocol over RFC 8785 canonical JSON via `hashCanonicalJson` in `@serika/core`. Never change the output format of an existing version; persisted hashes depend on it.
 
 ## Testing and quality
 
