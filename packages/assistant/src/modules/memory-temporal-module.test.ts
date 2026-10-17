@@ -18,7 +18,7 @@ async function setup(messages: UIMessage[] = []) {
   const now = new Date("2026-10-04T00:00:00Z");
   const tools: RegisteredTool[] = [];
   const consolidation = createMemoryConsolidation({ store, threadId: "thread-a", now: () => now, getMessages: async () => messages });
-  createMemoryModule(store, async () => messages, { threadId: "thread-a", now: () => now, consolidation }).setup({ registerTool: tool => tools.push(tool), registerCommand: () => {}, notify: () => {} });
+  createMemoryModule(store, async () => messages, { threadId: "thread-a", now: () => now, consolidation }).setup({ registerTool: tool => tools.push(tool), addInstructions: () => {}, isAssembled: () => false, registerCommand: () => {}, notify: () => {} });
   const tool = (name: string) => { const found = tools.find(tool => tool.metadata.name === name); assert.ok(found); return found; };
   return { root, store, tool, now, consolidation };
 }
@@ -87,7 +87,7 @@ it("non-idempotent temporal commit uncertainty escapes as unknown, not an ordina
   const { store, now } = await setup();
   store.reviseMemory = async () => ({ ok: false, error: { code: "MEMORY_COMMIT_UNCERTAIN", message: "rename already happened" } });
   const tools: RegisteredTool[] = [];
-  createMemoryModule(store, undefined, { threadId: "thread-a", now: () => now }).setup({ registerTool: tool => tools.push(tool), registerCommand: () => {}, notify: () => {} });
+  createMemoryModule(store, undefined, { threadId: "thread-a", now: () => now }).setup({ registerTool: tool => tools.push(tool), addInstructions: () => {}, isAssembled: () => false, registerCommand: () => {}, notify: () => {} });
   const revise = tools.find(tool => tool.metadata.name === "memory_revise")!;
   await assert.rejects(revise.tool.execute!({ id: "memory", expectedRevision: 1, operation: "correct", text: "new" }, context), error => error instanceof AgentError && error.data.code === "TOOL_OUTCOME_UNKNOWN");
 });

@@ -91,7 +91,7 @@ function setupTools(
   const tools: RegisteredTool[] = [];
   createMemoryModule(store, getMessages, options).setup({
     registerTool: (registered) => tools.push(registered),
-    registerCommand: () => {},
+    addInstructions: () => {}, isAssembled: () => false, registerCommand: () => {},
     notify: () => {},
   });
   return tools;

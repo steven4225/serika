@@ -15,8 +15,8 @@ export function createWorkspaceTaskReadApproval(workspaceRoot: string, primaryAg
         setup(context) {
           return module.setup({
             ...context,
-            registerTool(registered) {
-              context.registerTool(registered);
+            registerTool(registered, permission) {
+              context.registerTool(registered, permission);
               if (registered.metadata.name === "task_list" || registered.metadata.name === "task_get") {
                 trusted.set(registered.metadata.name, registered);
               }

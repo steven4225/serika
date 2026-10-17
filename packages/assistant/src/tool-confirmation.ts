@@ -7,6 +7,7 @@ import type {
 } from "@serika/core";
 import { dirname, resolve, sep } from "node:path";
 import { AUTO_CONSOLIDATION_AGENT_ID } from "./consolidation.js";
+import type { ToolPermissionFacts } from "./module-host.js";
 import { validateWorkspacePath } from "./workspace-path.js";
 
 export interface ToolConfirmation {
@@ -34,7 +35,7 @@ export interface ToolConfirmation {
  * - `tool`: every call of one read-risk tool;
  * - `directory`: one file tool writing files directly in one workspace
  *   directory (`scope`, "" is the root), not its subdirectories;
- * - `origin`: `web_fetch` of one exact web origin.
+ * - `origin`: one tool reading one exact web origin (a tool declaring an origin scope).
  */
 export interface RememberedGrant {
   id: string;
@@ -46,6 +47,8 @@ export interface RememberedGrant {
 }
 
 export type ToolRiskLookup = (toolName: string) => string | undefined;
+/** Permission facts the registering module declared for a tool. */
+export type ToolPermissionLookup = (toolName: string) => ToolPermissionFacts | undefined;
 
 /** One tool call awaiting a user decision. The preview may still be loading. */
 export interface PendingToolApproval {
@@ -205,11 +208,11 @@ function normalizeWebOrigin(origin: string): string {
   return parsed.origin;
 }
 
-function webInputOrigin(input: unknown): string | undefined {
-  if (typeof input !== "object" || input === null || !("url" in input)) {
+function inputOrigin(input: unknown, argument: string): string | undefined {
+  if (typeof input !== "object" || input === null || !(argument in input)) {
     return undefined;
   }
-  const value = (input as { url?: unknown }).url;
+  const value = (input as Record<string, unknown>)[argument];
   if (typeof value !== "string") return undefined;
   try {
     const parsed = new URL(value);
@@ -220,12 +223,18 @@ function webInputOrigin(input: unknown): string | undefined {
   }
 }
 
+/** The web origin a tool's declared origin scope reads from this input. */
+function scopedOrigin(facts: ToolPermissionFacts | undefined, input: unknown): string | undefined {
+  return facts?.scope?.kind === "origin" ? inputOrigin(input, facts.scope.argument) : undefined;
+}
+
 function webAuthorizationAllows(
   authorization: WebAuthorization | undefined,
   input: BeforeToolExecuteInput,
+  facts: ToolPermissionFacts | undefined,
 ): boolean {
-  if (authorization === undefined || input.toolName !== "web_fetch") return false;
-  const origin = webInputOrigin(input.input);
+  if (authorization === undefined || facts?.defaults?.runAuthorization !== "origin") return false;
+  const origin = scopedOrigin(facts, input.input);
   return origin !== undefined && authorization.allowedOrigins.includes(origin);
 }
 
@@ -307,6 +316,7 @@ function grantCandidate(
   input: BeforeToolExecuteInput,
   workspaceRoot: string | undefined,
   toolRisk: ToolRiskLookup | undefined,
+  facts: ToolPermissionFacts | undefined,
 ): GrantCandidate | undefined {
   const { toolName } = input;
   const agentId = input.definition.id;
@@ -320,10 +330,10 @@ function grantCandidate(
     return { agentId, toolName, kind: "directory", scope,
       label: `本次对话内允许 ${toolName} 改动 ${place} 下的文件（不含子目录）` };
   }
-  if (toolName === "web_fetch") {
-    const origin = webInputOrigin(input.input);
+  if (facts?.defaults?.remember === "scope" && facts.scope?.kind === "origin") {
+    const origin = scopedOrigin(facts, input.input);
     if (origin === undefined) return undefined;
-    return { agentId, toolName, kind: "origin", scope: origin, label: `本次对话内允许 web_fetch 读取 ${origin}` };
+    return { agentId, toolName, kind: "origin", scope: origin, label: `本次对话内允许 ${toolName} 读取 ${origin}` };
   }
   if (toolRisk?.(toolName) === "read") {
     return { agentId, toolName, kind: "tool", scope: "", label: `本次对话内不再询问 ${toolName}` };
@@ -346,8 +356,6 @@ interface PendingConfirmation {
   onSteer?: () => void;
 }
 
-const SEARCH_DENIED_FETCH_REASON = "web_search was denied in this Run";
-
 export function createToolConfirmation(
   output: Writable,
   options: {
@@ -359,10 +367,14 @@ export function createToolConfirmation(
     shellSandboxMode?: ShellSandboxMode;
     /** Declared tool risk; only read-risk tools can be remembered by name. */
     toolRisk?: ToolRiskLookup;
+    /** Permission facts declared by the registering modules. */
+    toolPermissions?: ToolPermissionLookup;
   } = {},
 ): ToolConfirmation {
   let pending: PendingConfirmation | undefined;
-  let searchDeniedThisRun = false;
+  /** Tools denied for the rest of this Run because a declared denial blocks them, with the reason. */
+  const blockedThisRun = new Map<string, string>();
+  const facts = (toolName: string) => options.toolPermissions?.(toolName);
   let nextRunAuthorization: RunAuthorization | undefined;
   let activeRunAuthorization: RunAuthorization | undefined;
   let nextShellAuthorization = false;
@@ -427,13 +439,11 @@ export function createToolConfirmation(
     if (AUTO_APPROVED_TOOL_NAMES.has(input.toolName)) {
       return Promise.resolve({ allow: true });
     }
-    if (
-      searchDeniedThisRun &&
-      (input.toolName === "web_fetch" || input.toolName === "feed_read")
-    ) {
+    const blockedReason = blockedThisRun.get(input.toolName);
+    if (blockedReason !== undefined) {
       return Promise.resolve({
         allow: false,
-        reason: SEARCH_DENIED_FETCH_REASON,
+        reason: blockedReason,
       });
     }
     if (activeAutonomy && (input.toolName === "shell_exec" ||
@@ -443,7 +453,7 @@ export function createToolConfirmation(
     if (activeShellAuthorization && input.toolName === "shell_exec") {
       return Promise.resolve({ allow: true });
     }
-    if (webAuthorizationAllows(activeWebAuthorization, input)) {
+    if (webAuthorizationAllows(activeWebAuthorization, input, facts(input.toolName))) {
       return Promise.resolve({ allow: true });
     }
     if (
@@ -453,7 +463,7 @@ export function createToolConfirmation(
       return Promise.resolve({ allow: true });
     }
     const candidate = rememberedActive
-      ? grantCandidate(input, options.workspaceRoot, options.toolRisk)
+      ? grantCandidate(input, options.workspaceRoot, options.toolRisk, facts(input.toolName))
       : undefined;
     if (candidate !== undefined && remembered.some((grant) => sameGrant(grant, candidate))) {
       return Promise.resolve({ allow: true });
@@ -566,7 +576,10 @@ export function createToolConfirmation(
       }
       entry.resolve({ allow: true });
     } else {
-      if (entry.approval.toolName === "web_search") searchDeniedThisRun = true;
+      const denied = entry.approval.toolName;
+      for (const blocked of facts(denied)?.denialBlocksForRun ?? []) {
+        if (!blockedThisRun.has(blocked)) blockedThisRun.set(blocked, `${denied} was denied in this Run`);
+      }
       entry.resolve({ allow: false, reason: "User denied this tool call" });
     }
     return true;
@@ -615,7 +628,7 @@ export function createToolConfirmation(
   const beginRun = (autonomous = false, source?: "telegram"): void => {
     activeAutonomy = autonomous;
     rememberedActive = source !== "telegram";
-    searchDeniedThisRun = false;
+    blockedThisRun.clear();
     activeRunAuthorization = nextRunAuthorization;
     nextRunAuthorization = undefined;
     activeShellAuthorization =
@@ -628,7 +641,7 @@ export function createToolConfirmation(
   const endRun = (): void => {
     activeAutonomy = false;
     rememberedActive = true;
-    searchDeniedThisRun = false;
+    blockedThisRun.clear();
     activeRunAuthorization = undefined;
     activeShellAuthorization = false;
     activeWebAuthorization = undefined;

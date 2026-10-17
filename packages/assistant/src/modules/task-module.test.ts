@@ -204,7 +204,7 @@ function setup(overrides: Partial<TaskStore> = {}, options: TaskModuleOptions = 
   const notifications: string[] = [];
   createTaskModule(store, options).setup({
     registerTool: (registered) => tools.push(registered),
-    registerCommand: (command) => commands.set(command.name, command),
+    addInstructions: () => {}, isAssembled: () => false, registerCommand: (command) => commands.set(command.name, command),
     notify: (message) => notifications.push(message),
   });
   return { tools, commands, notifications, calls };

@@ -17,7 +17,7 @@ test("memory tool output schemas preserve new versioned facts and reject invalid
     assert.ok(seeded.ok);
     const tools: RegisteredTool[] = [];
     createMemoryModule(store, async () => [], { threadId: "thread" }).setup({
-      registerTool: registered => tools.push(registered), registerCommand: () => {}, notify: () => {},
+      registerTool: registered => tools.push(registered), addInstructions: () => {}, isAssembled: () => false, registerCommand: () => {}, notify: () => {},
     });
     const list = tools.find(registered => registered.metadata.name === "memory_list")!.tool;
     const output = await list.execute!({}, { toolCallId: "list", messages: [], context: {} });

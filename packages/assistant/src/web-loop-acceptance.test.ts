@@ -182,7 +182,8 @@ it("does not fetch a page after web_search is denied in the same step", async ()
       callback();
     },
   });
-  const confirmation = createToolConfirmation(output);
+  // The web_search denial latch is a fact the web module declares.
+  const confirmation = createToolConfirmation(output, { toolPermissions: name => moduleHost.toolPermissions.get(name) });
   confirmation.beginRun();
   const model = new MockLanguageModelV3({
     doStream: async (options) => {

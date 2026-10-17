@@ -3,8 +3,13 @@ import { Writable } from "node:stream";
 import { describe, it } from "node:test";
 import type { BeforeToolExecuteInput } from "@serika/core";
 import { createPermissionExtension } from "./permission-extension.js";
+import { createModuleHost } from "./module-host.js";
+import { createWebModule } from "./modules/web-module.js";
 
 type PermissionOptions = Parameters<typeof createPermissionExtension>[1];
+
+/** The web module's declared permission facts, as the host collects them. */
+const webPermissions = createModuleHost([createWebModule({ searchEnabled: true, feedEnabled: true })], { notify() {} }).toolPermissions;
 
 function sink(): Writable & { text: string } {
   const stream = new Writable({ write(chunk, _encoding, done) { stream.text += String(chunk); done(); } }) as Writable & { text: string };
@@ -57,7 +62,7 @@ describe("permission extension", () => {
     assert.deepEqual(names({}), []);
     assert.deepEqual(names({ fileToolsEnabled: true }), [], "file grants need a workspace");
     assert.deepEqual(names({ fileToolsEnabled: true, workspaceRoot: "/tmp/ws", shell: { enabled: true, sandbox: undefined },
-      web: { enabled: true, searchEnabled: false }, report: { configPath: null, workspaceRoot: "/tmp/ws" } }),
+      web: { enabled: true, searchEnabled: false }, toolPermissions: webPermissions, report: { configPath: null, workspaceRoot: "/tmp/ws" } }),
     ["authorize", "authorize-shell", "authorize-web", "permissions"]);
   });
 });

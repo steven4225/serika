@@ -1,6 +1,6 @@
 import type { Writable } from "node:stream";
 import type { BeforeToolExecute, BeforeToolExecuteInput } from "@serika/core";
-import type { ModuleCommand } from "./module-host.js";
+import type { ModuleCommand, ToolPermissionFacts } from "./module-host.js";
 import type { DockerShellSandboxConfig } from "./modules/docker-shell-runner.js";
 import type { RuntimeExtension } from "./runtime-extension.js";
 import {
@@ -31,7 +31,10 @@ export function createPermissionExtension(output: Writable, options: {
   /** File tools are registered, so `/authorize` can grant them for one Run. */
   fileToolsEnabled: boolean;
   shell: { enabled: boolean; sandbox: DockerShellSandboxConfig | undefined };
+  /** Only for the `/permissions` report. */
   web: { enabled: boolean; searchEnabled: boolean };
+  /** Permission facts declared by the assembled modules, by tool name. */
+  toolPermissions?: ReadonlyMap<string, ToolPermissionFacts>;
   /** Present when a module configuration was resolved; enables `/permissions`. */
   report: { configPath: string | null; workspaceRoot: string | null } | undefined;
   /**
@@ -49,6 +52,7 @@ export function createPermissionExtension(output: Writable, options: {
     ...(workspaceRoot !== undefined ? { workspaceRoot } : {}),
     shellSandboxMode: shellSandbox === undefined ? "host" : "docker",
     ...(options.toolRisk ? { toolRisk: options.toolRisk } : {}),
+    ...(options.toolPermissions ? { toolPermissions: (name: string) => options.toolPermissions!.get(name) } : {}),
     ...(fileAuthorizations.length > 0
       ? {
           persistentAuthorizations: fileAuthorizations.map(
@@ -130,7 +134,10 @@ export function createPermissionExtension(output: Writable, options: {
       },
     });
   }
-  if (options.web.enabled) {
+  // `/authorize-web` exists only when an assembled tool declares origin authorization.
+  const originTools = [...(options.toolPermissions ?? new Map<string, ToolPermissionFacts>())]
+    .flatMap(([name, facts]) => facts.defaults?.runAuthorization === "origin" ? [name] : []);
+  if (originTools.length > 0) {
     commands.push({
       name: "authorize-web",
       execute(args) {
@@ -142,7 +149,7 @@ export function createPermissionExtension(output: Writable, options: {
         try {
           confirmation.setPendingWebAuthorization(origins);
           output.write(
-            `\n[authorize-web] 已为下一次 Run 授权 web_fetch 访问：${origins.join(", ")}。Run 结束、失败或取消后失效；其它 origin 仍需确认。\n`,
+            `\n[authorize-web] 已为下一次 Run 授权 ${originTools.join("/")} 访问：${origins.join(", ")}。Run 结束、失败或取消后失效；其它 origin 仍需确认。\n`,
           );
         } catch (error) {
           output.write(`\n[authorize-web] Invalid origin: ${String(error)}\n`);

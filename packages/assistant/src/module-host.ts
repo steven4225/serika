@@ -8,9 +8,30 @@ export interface ModuleCommand {
   execute(args: string): void | Promise<void>;
 }
 
+/**
+ * Facts a module states about one of its tools. The host's permission rules
+ * read them instead of tool-name lists; the module never decides an approval.
+ */
+export interface ToolPermissionFacts {
+  /** Where a grant's scope comes from: the web origin of a URL argument. */
+  readonly scope?: { readonly kind: "origin"; readonly argument: string };
+  readonly defaults?: {
+    /** `scope`: an approval may be remembered for this conversation, per scope. */
+    readonly remember?: "scope";
+    /** `origin`: `/authorize-web` may allow listed origins for one Run. */
+    readonly runAuthorization?: "origin";
+  };
+  /** Denying this tool also denies these tools for the rest of the Run. */
+  readonly denialBlocksForRun?: readonly string[];
+}
+
 export interface ModuleContext {
-  registerTool(tool: RegisteredTool): void;
+  registerTool(tool: RegisteredTool, permission?: ToolPermissionFacts): void;
   registerCommand(command: ModuleCommand): void;
+  /** Primary-agent instructions, included only because this module is assembled. */
+  addInstructions(text: string): void;
+  /** Whether another module is assembled in the same host (read-only). */
+  isAssembled(moduleId: string): boolean;
   notify(message: string): void;
 }
 
@@ -22,6 +43,12 @@ export interface AgentModule {
 export interface ModuleHost {
   readonly tools: readonly RegisteredTool[];
   readonly commands: ReadonlyMap<string, ModuleCommand>;
+  /** Permission facts by tool name, for tools whose module declared them. */
+  readonly toolPermissions: ReadonlyMap<string, ToolPermissionFacts>;
+  /** The module that registered each tool. */
+  readonly toolModules: ReadonlyMap<string, string>;
+  /** One assembled module's instructions, or "" when it is not assembled or added none. */
+  instructions(moduleId: string): string;
   dispose(): void;
 }
 
@@ -63,6 +90,9 @@ export function createModuleHost(
 
   const tools: RegisteredTool[] = [];
   const commands = new Map<string, ModuleCommand>();
+  const toolPermissions = new Map<string, ToolPermissionFacts>();
+  const toolModules = new Map<string, string>();
+  const instructions = new Map<string, string>();
   const setupRecords: SetupRecord[] = [];
 
   const failStartup = (error: unknown, records: readonly SetupRecord[]): never => {
@@ -78,15 +108,18 @@ export function createModuleHost(
 
   for (const module of modules) {
     const moduleTools: RegisteredTool[] = [];
+    const modulePermissions = new Map<string, ToolPermissionFacts>();
     const moduleCommands = new Map<string, ModuleCommand>();
+    let moduleInstructions = "";
     let registrationOpen = true;
 
     const context: ModuleContext = {
-      registerTool(tool) {
+      registerTool(tool, permission) {
         if (!registrationOpen) {
           throw new Error(`Module registration is closed: ${module.id}`);
         }
         moduleTools.push(tool);
+        if (permission !== undefined) modulePermissions.set(tool.metadata.name, permission);
       },
       registerCommand(command) {
         if (!registrationOpen) {
@@ -97,6 +130,13 @@ export function createModuleHost(
         }
         moduleCommands.set(command.name, command);
       },
+      addInstructions(text) {
+        if (!registrationOpen) {
+          throw new Error(`Module registration is closed: ${module.id}`);
+        }
+        moduleInstructions += text;
+      },
+      isAssembled: (moduleId) => moduleIds.has(moduleId),
       notify(message) {
         options.notify(module.id, message);
       },
@@ -125,6 +165,9 @@ export function createModuleHost(
     }
 
     tools.push(...moduleTools);
+    for (const tool of moduleTools) toolModules.set(tool.metadata.name, module.id);
+    for (const [name, permission] of modulePermissions) toolPermissions.set(name, permission);
+    if (moduleInstructions.length > 0) instructions.set(module.id, moduleInstructions);
     for (const [name, command] of moduleCommands) commands.set(name, command);
     setupRecords.push({ dispose });
   }
@@ -136,6 +179,9 @@ export function createModuleHost(
   return {
     tools: exposedTools,
     commands: exposedCommands,
+    toolPermissions: new Map(toolPermissions),
+    toolModules: new Map(toolModules),
+    instructions: (moduleId) => instructions.get(moduleId) ?? "",
     dispose() {
       if (disposed) return;
       disposed = true;

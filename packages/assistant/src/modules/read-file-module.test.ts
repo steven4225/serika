@@ -27,7 +27,7 @@ describe("createReadFileModule", () => {
     const notifications: string[] = [];
     createReadFileModule(workspaceRoot).setup({
       registerTool: (tool) => tools.push(tool),
-      registerCommand: (command) => commands.set(command.name, command),
+      addInstructions: () => {}, isAssembled: () => false, registerCommand: (command) => commands.set(command.name, command),
       notify: (message) => notifications.push(message),
     });
 
@@ -80,7 +80,7 @@ describe("createReadFileModule", () => {
     const commands = new Map<string, { name: string; execute(args: string): void }>();
     createReadFileModule(workspaceRoot).setup({
       registerTool: () => {},
-      registerCommand: (command) => commands.set(command.name, command),
+      addInstructions: () => {}, isAssembled: () => false, registerCommand: (command) => commands.set(command.name, command),
       notify: (message) => notifications.push(message),
     });
 

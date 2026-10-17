@@ -293,4 +293,28 @@ describe("createWebModule", () => {
     assert.deepEqual(requests, ["https://other.example/article"]);
     host.dispose();
   });
+  it("declares web_fetch origin scope and the web_search denial latch as facts", () => {
+    const host = createModuleHost([createWebModule({ searchEnabled: true, feedEnabled: true })], { notify() {} });
+    assert.deepEqual(Object.fromEntries(host.toolPermissions), {
+      web_fetch: { scope: { kind: "origin", argument: "url" }, defaults: { remember: "scope", runAuthorization: "origin" } },
+      web_search: { denialBlocksForRun: ["web_fetch", "feed_read"] },
+    });
+    assert.deepEqual([...host.toolModules.values()], ["web", "web", "web"]);
+    host.dispose();
+  });
+
+  it("adds instructions only for its registered tools, in fetch, feed, search order", () => {
+    const text = (options: Parameters<typeof createWebModule>[0], readFile = false) =>
+      createModuleHost([...(readFile ? [{ id: "read-file", setup() {} }] : []), createWebModule(options)], { notify() {} })
+        .instructions("web");
+    const minimal = text({});
+    assert.match(minimal, /^When web_fetch is available/);
+    assert.match(minimal, /When file tools are unavailable, do not claim a research report was saved/);
+    assert.doesNotMatch(minimal, /feed_read with that URL|When web_search is available/);
+    assert.match(text({}, true), /After a successful write_file or edit_file, read_file the saved report/);
+    const full = text({ searchEnabled: true, feedEnabled: true });
+    const order = ["When web_fetch is available", "call feed_read with that URL", "When web_search is available"]
+      .map(marker => full.indexOf(marker));
+    assert.ok(order.every((position, index) => position >= 0 && (index === 0 || position > order[index - 1]!)), String(order));
+  });
 });

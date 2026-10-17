@@ -171,4 +171,48 @@ describe("createModuleHost", () => {
     notify("workspace");
     assert.deepEqual(notifications, [["read-file", "workspace"]]);
   });
+  it("collects declared permission facts, tool ownership, and per-module instructions", () => {
+    let late!: ModuleContext;
+    const seen: boolean[] = [];
+    const host = createModuleHost(
+      [
+        moduleWithSetup("one", (context) => {
+          context.registerTool(registeredTool("plain"));
+          context.registerTool(registeredTool("scoped"), {
+            scope: { kind: "origin", argument: "url" },
+            defaults: { remember: "scope" },
+          });
+          context.addInstructions("first. ");
+          context.addInstructions("second. ");
+          seen.push(context.isAssembled("two"), context.isAssembled("missing"));
+          late = context;
+        }),
+        moduleWithSetup("two", (context) => {
+          context.registerTool(registeredTool("other"), { denialBlocksForRun: ["plain"] });
+        }),
+      ],
+      { notify() {} },
+    );
+
+    assert.deepEqual(seen, [true, false], "a module sees every assembled module, even later ones");
+    assert.deepEqual([...host.toolModules], [["plain", "one"], ["scoped", "one"], ["other", "two"]]);
+    assert.deepEqual([...host.toolPermissions.keys()], ["scoped", "other"], "tools without facts have no entry");
+    assert.deepEqual(host.toolPermissions.get("other"), { denialBlocksForRun: ["plain"] });
+    assert.equal(host.instructions("one"), "first. second. ");
+    assert.equal(host.instructions("two"), "");
+    assert.equal(host.instructions("missing"), "");
+    assert.throws(() => late.addInstructions("late"), /registration is closed: one/);
+    assert.equal(host.instructions("one"), "first. second. ");
+  });
+
+  it("leaves no permission facts or instructions from a failed module", () => {
+    assert.throws(() => createModuleHost(
+      [moduleWithSetup("broken", (context) => {
+        context.registerTool(registeredTool("half"), { defaults: { remember: "scope" } });
+        context.addInstructions("never. ");
+        throw new Error("boom");
+      })],
+      { notify() {} },
+    ), /boom/);
+  });
 });

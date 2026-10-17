@@ -34,6 +34,7 @@ import {
   createModuleHost,
   createReadFileModule,
   createToolConfirmation,
+  createWebModule,
   createWriteFileTool,
   type CheckpointDraft,
   type ReadFileResult,
@@ -4179,10 +4180,16 @@ describe("createToolConfirmation sandbox shell authorization", () => {
   });
 });
 
+/** Confirmation with the permission facts the web module declares, as the app assembles it. */
+function webConfirmation(output: Writable) {
+  const facts = createModuleHost([createWebModule({ searchEnabled: true, feedEnabled: true })], { notify() {} }).toolPermissions;
+  return createToolConfirmation(output, { toolPermissions: name => facts.get(name) });
+}
+
 describe("createToolConfirmation web authorization", () => {
   it("allows only exact authorized origins for one Run", async () => {
     const output = outputBuffer();
-    const confirmation = createToolConfirmation(output);
+    const confirmation = webConfirmation(output);
     confirmation.setPendingWebAuthorization([
       "https://example.com/",
       "http://docs.example.test",
@@ -4226,7 +4233,7 @@ describe("createToolConfirmation web authorization", () => {
 
   it("does not reuse web authorization after the Run ends", async () => {
     const output = outputBuffer();
-    const confirmation = createToolConfirmation(output);
+    const confirmation = webConfirmation(output);
     confirmation.setPendingWebAuthorization(["https://example.com"]);
     confirmation.beginRun();
     const first = confirmation.beforeToolExecute(
@@ -4252,7 +4259,7 @@ describe("createToolConfirmation web authorization", () => {
   });
 
   it("rejects non-origin web authorization values", () => {
-    const confirmation = createToolConfirmation(outputBuffer());
+    const confirmation = webConfirmation(outputBuffer());
     assert.throws(
       () => confirmation.setPendingWebAuthorization(["https://example.com/docs"]),
       /exact origin/,
@@ -4265,7 +4272,7 @@ describe("createToolConfirmation web authorization", () => {
 
   it("still prompts for feed_read after /authorize-web and honors n", async () => {
     const output = outputBuffer();
-    const confirmation = createToolConfirmation(output);
+    const confirmation = webConfirmation(output);
     confirmation.setPendingWebAuthorization(["https://example.com"]);
     confirmation.beginRun();
 
@@ -4287,7 +4294,7 @@ describe("createToolConfirmation web authorization", () => {
 
   it("denies feed_read without another prompt after web_search is refused", async () => {
     const output = outputBuffer();
-    const confirmation = createToolConfirmation(output);
+    const confirmation = webConfirmation(output);
     confirmation.beginRun();
 
     const search = confirmation.beforeToolExecute(
@@ -4314,7 +4321,7 @@ describe("createToolConfirmation web authorization", () => {
 
   it("denies later web_fetch without a prompt after web_search is refused", async () => {
     const output = outputBuffer();
-    const confirmation = createToolConfirmation(output);
+    const confirmation = webConfirmation(output);
     confirmation.beginRun();
 
     const search = confirmation.beforeToolExecute(
@@ -4348,7 +4355,7 @@ describe("createToolConfirmation web authorization", () => {
 
   it("does not let /authorize-web bypass a denied web_search in the same Run", async () => {
     const output = outputBuffer();
-    const confirmation = createToolConfirmation(output);
+    const confirmation = webConfirmation(output);
     confirmation.setPendingWebAuthorization(["https://nodejs.org"]);
     confirmation.beginRun();
 
@@ -4374,7 +4381,7 @@ describe("createToolConfirmation web authorization", () => {
 
   it("clears the search-denial latch when the Run ends", async () => {
     const output = outputBuffer();
-    const confirmation = createToolConfirmation(output);
+    const confirmation = webConfirmation(output);
     confirmation.beginRun();
     const search = confirmation.beforeToolExecute(
       toolInput("web_search", new AbortController().signal, { query: "event loop" }),
@@ -4402,7 +4409,7 @@ describe("createToolConfirmation web authorization", () => {
 
   it("still asks for web_fetch after an approved web_search", async () => {
     const output = outputBuffer();
-    const confirmation = createToolConfirmation(output);
+    const confirmation = webConfirmation(output);
     confirmation.beginRun();
     const search = confirmation.beforeToolExecute(
       toolInput("web_search", new AbortController().signal, { query: "event loop" }),
@@ -4428,7 +4435,7 @@ describe("createToolConfirmation web authorization", () => {
 
   it("does not latch web_fetch denial after an aborted search confirmation", async () => {
     const output = outputBuffer();
-    const confirmation = createToolConfirmation(output);
+    const confirmation = webConfirmation(output);
     confirmation.beginRun();
     const controller = new AbortController();
     const search = confirmation.beforeToolExecute(

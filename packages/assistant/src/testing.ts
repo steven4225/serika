@@ -18,6 +18,7 @@ export type { CheckpointDraft } from "./checkpoint-store.js";
 export { createModuleHost } from "./module-host.js";
 export { createCheckpointModule } from "./modules/checkpoint-module.js";
 export { createReadFileModule } from "./modules/read-file-module.js";
+export { createWebModule } from "./modules/web-module.js";
 export type { ReadFileResult } from "./read-file.js";
 export { createBuiltinSkill } from "./skill-catalog.js";
 export { createToolConfirmation } from "./tool-confirmation.js";

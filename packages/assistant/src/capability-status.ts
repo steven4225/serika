@@ -2,15 +2,11 @@ import type { ResolvedTuiModuleConfig } from "./tui-module-config.js";
 import { BUILTIN_MODULE_IDS } from "./tui-module-config.js";
 
 /** Registration evidence only. Never probes apps, services, credentials or package directories. */
-export function capabilityStatus(config: ResolvedTuiModuleConfig | undefined, tools: readonly string[], desktopAutonomy = false, entry: "desktop" | "telegram" = "desktop") {
-  const prefixes: Record<string, readonly string[]> = {
-    pomodoro: ["pomodoro_"], "read-file": ["read_file", "write_file", "edit_file", "search_files", "list_directory"],
-    memory: ["memory_"], checkpoint: ["checkpoint_"], task: ["task_"], todoist: ["todoist_"],
-    shell: ["shell_exec"], web: ["web_", "feed_"], computer: ["computer_"],
-  };
+export function capabilityStatus(config: ResolvedTuiModuleConfig | undefined, tools: readonly string[], toolModules: ReadonlyMap<string, string>, desktopAutonomy = false, entry: "desktop" | "telegram" = "desktop") {
   return {
     modules: BUILTIN_MODULE_IDS.map(id => {
-      const registeredTools = tools.filter(name => prefixes[id]!.some(prefix => name.startsWith(prefix)));
+      // Ownership is what the module host recorded at registration, not a name prefix.
+      const registeredTools = tools.filter(name => toolModules.get(name) === id);
       const enabled = config?.enabled[id] === true;
       return { id, enabled, registeredTools,
         state: !enabled ? "disabled" as const : registeredTools.length ? "registered" as const : "not_registered" as const,

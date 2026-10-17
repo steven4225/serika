@@ -4,6 +4,11 @@ import { describe, it } from "node:test";
 import type { BeforeToolExecuteInput } from "@serika/core";
 import { createToolConfirmation, type ToolRiskLookup } from "./tool-confirmation.js";
 import { createPermissionExtension } from "./permission-extension.js";
+import { createModuleHost } from "./module-host.js";
+import { createWebModule } from "./modules/web-module.js";
+
+/** The web module's declared permission facts, as the host collects them. */
+const webPermissions = createModuleHost([createWebModule({ searchEnabled: true, feedEnabled: true })], { notify() {} }).toolPermissions;
 
 function sink(): Writable & { text: string } {
   const stream = new Writable({ write(chunk, _encoding, done) { stream.text += String(chunk); done(); } }) as Writable & { text: string };
@@ -24,7 +29,7 @@ const risk: ToolRiskLookup = (name) => ({
 } as Record<string, "read" | "write">)[name];
 
 function setup(output = sink()) {
-  return createToolConfirmation(output, { prompt: () => "preview\nAllow this call? [y/n] ", workspaceRoot: "/tmp/ws", toolRisk: risk });
+  return createToolConfirmation(output, { prompt: () => "preview\nAllow this call? [y/n] ", workspaceRoot: "/tmp/ws", toolRisk: risk, toolPermissions: name => webPermissions.get(name) });
 }
 
 /** Starts a call, checks whether it waits, and answers it when it does. */
@@ -141,7 +146,7 @@ describe("remembered conversation grants", () => {
     const output = sink();
     const permission = createPermissionExtension(output, {
       prompt: () => "preview", workspaceRoot: "/tmp/ws", fileAuthorizations: [], fileToolsEnabled: true,
-      shell: { enabled: false, sandbox: undefined }, web: { enabled: true, searchEnabled: false },
+      shell: { enabled: false, sandbox: undefined }, web: { enabled: true, searchEnabled: false }, toolPermissions: webPermissions,
       report: { configPath: null, workspaceRoot: "/tmp/ws" }, autoApprove: [], toolRisk: risk,
     });
     const confirmation = permission.confirmation;

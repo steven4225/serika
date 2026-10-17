@@ -60,7 +60,7 @@ describe("createShellModule", () => {
     const tools: RegisteredTool[] = [];
     createShellModule(workspaceRoot).setup({
       registerTool: (registered) => tools.push(registered),
-      registerCommand: () => {},
+      addInstructions: () => {}, isAssembled: () => false, registerCommand: () => {},
       notify: () => {},
     });
 
@@ -104,7 +104,7 @@ describe("createShellModule", () => {
       },
     }).setup({
       registerTool: (registered) => tools.push(registered),
-      registerCommand: () => {},
+      addInstructions: () => {}, isAssembled: () => false, registerCommand: () => {},
       notify: () => {},
     });
 
@@ -125,7 +125,7 @@ describe("createShellModule", () => {
     const tools: RegisteredTool[] = [];
     createShellModule(workspaceRoot, { timeoutMs: 50 }).setup({
       registerTool: (registered) => tools.push(registered),
-      registerCommand: () => {},
+      addInstructions: () => {}, isAssembled: () => false, registerCommand: () => {},
       notify: () => {},
     });
     const shell = registeredTool(tools, "shell_exec");
@@ -149,7 +149,7 @@ describe("createShellModule", () => {
       },
     }).setup({
       registerTool: (registered) => tools.push(registered),
-      registerCommand: () => {},
+      addInstructions: () => {}, isAssembled: () => false, registerCommand: () => {},
       notify: () => {},
     });
 
@@ -182,7 +182,7 @@ describe("createShellModule", () => {
       },
     }).setup({
       registerTool: (registered) => tools.push(registered),
-      registerCommand: () => {},
+      addInstructions: () => {}, isAssembled: () => false, registerCommand: () => {},
       notify: () => {},
     });
     const shell = registeredTool(tools, "shell_exec");
@@ -198,7 +198,7 @@ describe("createShellModule", () => {
     const tools: RegisteredTool[] = [];
     createShellModule(workspaceRoot).setup({
       registerTool: (registered) => tools.push(registered),
-      registerCommand: () => {},
+      addInstructions: () => {}, isAssembled: () => false, registerCommand: () => {},
       notify: () => {},
     });
 

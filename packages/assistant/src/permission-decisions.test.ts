@@ -9,6 +9,8 @@ import { createPermissionExtension, type PermissionExtension } from "./permissio
 import { RUN_AUTHORIZED_FILE_TOOLS } from "./tool-confirmation.js";
 import type { FileAuthorizationRule } from "./tui-module-config.js";
 import { PERMISSION_DECISIONS } from "./permission-decisions.snapshot.js";
+import { createModuleHost } from "./module-host.js";
+import { createWebModule } from "./modules/web-module.js";
 
 /**
  * Locks the current tool permission decisions before permission rules move
@@ -73,6 +75,10 @@ const TOOLS: ReadonlyArray<readonly [name: string, risk: string, input: unknown,
 const RISK = new Map(TOOLS.map(([name, risk]) => [name, risk]));
 
 type Shell = "host" | "docker";
+/** Permission facts come from the real modules, so a module's declarations are part of what is locked. */
+function moduleToolPermissions() {
+  return createModuleHost([createWebModule({ searchEnabled: true, feedEnabled: true })], { notify() {} }).toolPermissions;
+}
 function extension(shell: Shell, fileAuthorizations: readonly FileAuthorizationRule[] = []) {
   const sink = new Writable({ write(_chunk, _encoding, done) { done(); } });
   return createPermissionExtension(sink, {
@@ -82,6 +88,7 @@ function extension(shell: Shell, fileAuthorizations: readonly FileAuthorizationR
     fileToolsEnabled: true,
     shell: { enabled: true, sandbox: shell === "docker" ? { backend: "docker", image: "img", readablePaths: [], writablePaths: [] } : undefined },
     web: { enabled: true, searchEnabled: true },
+    toolPermissions: moduleToolPermissions(),
     report: undefined,
     autoApprove: [],
     toolRisk: name => RISK.get(name),
@@ -201,6 +208,7 @@ async function buildTable(): Promise<Record<string, string>> {
     const ext = createPermissionExtension(sink, {
       prompt: () => undefined, workspaceRoot: WORKSPACE, fileAuthorizations: [], fileToolsEnabled: files,
       shell: { enabled: shell, sandbox: undefined }, web: { enabled: web, searchEnabled: web },
+      ...(web ? { toolPermissions: moduleToolPermissions() } : {}),
       report: report ? { configPath: null, workspaceRoot: WORKSPACE } : undefined, autoApprove: [],
     });
     record("commands", `files=${files} shell=${shell} web=${web} report=${report}`, (ext.commands ?? []).map(command => `/${command.name}`).join(" ") || "(none)");
