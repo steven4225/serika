@@ -295,10 +295,16 @@ describe("createWebModule", () => {
   });
   it("declares web_fetch origin scope and the web_search denial latch as facts", () => {
     const host = createModuleHost([createWebModule({ searchEnabled: true, feedEnabled: true })], { notify() {} });
-    assert.deepEqual(Object.fromEntries(host.toolPermissions), {
-      web_fetch: { scope: { kind: "origin", argument: "url" }, defaults: { remember: "scope", runAuthorization: "scope" } },
-      web_search: { denialBlocksForRun: ["web_fetch", "feed_read"] },
-    });
+    const { confirmation: fetchCard, ...fetchFacts } = host.toolPermissions.get("web_fetch")!;
+    const { confirmation: searchCard, ...searchFacts } = host.toolPermissions.get("web_search")!;
+    assert.deepEqual(fetchFacts, { scope: { kind: "origin", argument: "url" }, defaults: { remember: "scope", runAuthorization: "scope" } });
+    assert.deepEqual(searchFacts, { denialBlocksForRun: ["web_fetch", "feed_read"] });
+    const call = (toolName: string, input: unknown) => ({ toolName, input }) as Parameters<NonNullable<typeof fetchCard>>[0];
+    assert.equal(fetchCard?.(call("web_fetch", { url: "https://example.com/a" })),
+      "\nTool: web_fetch\nURL: \"https://example.com/a\"\nReading this public HTTP(S) page will place its contents in the model context and the successful Run's committed transcript.\nAllow this call? [y/n] ");
+    assert.match(String(searchCard?.(call("web_search", { query: "q" }))), /^\nTool: web_search\nQuery: "q"\nSending this query/);
+    assert.match(String(host.toolPermissions.get("feed_read")?.confirmation?.(call("feed_read", { url: "https://e.com/f" }))),
+      /^\nTool: feed_read\nFeed URL: "https:\/\/e.com\/f"\n/);
     assert.deepEqual([...host.toolModules.values()], ["web", "web", "web"]);
     host.dispose();
   });

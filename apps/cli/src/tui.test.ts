@@ -2961,7 +2961,7 @@ describe("createToolConfirmation", () => {
     assert.match(output.text(), /Command: "pwd"/);
     assert.match(output.text(), /Cwd: "src" \(relative to sandbox mounts\)/);
     assert.match(output.text(), /Docker sandbox/);
-    assert.match(output.text(), /no network/);
+    assert.match(output.text(), /network none; root filesystem read-only/);
     assert.match(output.text(), /Unmounted host files are not visible/);
     assert.doesNotMatch(output.text(), /not an operating-system sandbox/);
     assert.match(output.text(), /Allow this call\? \[y\/n\]/);

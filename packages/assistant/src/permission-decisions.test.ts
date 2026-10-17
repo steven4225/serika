@@ -78,11 +78,14 @@ const RISK = new Map(TOOLS.map(([name, risk]) => [name, risk]));
 type Shell = "host" | "docker";
 /**
  * Permission facts come from the real modules, so a module's declarations are
- * part of what is locked. Recipe and computer_check cards came from the app's
- * own prompt before they moved into their modules and were never locked
- * here; the module tests cover them.
+ * part of what is locked. These tools' cards came from the app's own prompt
+ * before they moved into their modules and were never locked here (the
+ * snapshot saw the generic card); the module tests cover them. shell_exec is
+ * not listed: its app card replaced the internal fallback card, and the
+ * snapshot now records the card the app actually shows.
  */
-const APP_CARD_TOOLS = new Set(["recipe_list", "recipe_save", "recipe_manage", "recipe_run", "computer_check"]);
+const APP_CARD_TOOLS = new Set(["recipe_list", "recipe_save", "recipe_manage", "recipe_run", "computer_check",
+  "web_fetch", "feed_read", "web_search"]);
 function moduleToolPermissions(shell: Shell) {
   return new Map([...builtinToolPermissions({ shell })].map(([name, facts]) => {
     if (!APP_CARD_TOOLS.has(name)) return [name, facts] as const;

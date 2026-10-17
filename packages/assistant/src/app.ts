@@ -587,80 +587,12 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       );
     }
 
-    if (input.toolName === "shell_exec") {
-      const shellInput =
-        typeof input.input === "object" && input.input !== null
-          ? (input.input as { command?: unknown; cwd?: unknown })
-          : {};
-      if (shellSandbox !== undefined) {
-        return (
-          `\nTool: ${input.toolName}\n` +
-          `Command: ${JSON.stringify(shellInput.command)}\n` +
-          `Cwd: ${JSON.stringify(shellInput.cwd ?? ".")} (relative to sandbox mounts)\n` +
-          `Docker sandbox image: ${shellSandbox.image}; network none; root filesystem read-only.\n` +
-          `Readable: ${shellSandbox.readablePaths.join(",") || "none"}; writable: ${shellSandbox.writablePaths.join(",") || "none"}.\n` +
-          "Unmounted host files are not visible. Output may be truncated.\n" +
-          "Allow this call? [y/n] "
-        );
-      }
-      return (
-        `\nTool: ${input.toolName}\n` +
-        `Command: ${JSON.stringify(shellInput.command)}\n` +
-        `Cwd: ${JSON.stringify(shellInput.cwd ?? ".")} (relative to workspace)\n` +
-        "The command will run with the configured workspace as its root context; " +
-        "this is not an operating-system sandbox. Output may be truncated.\n" +
-        "Allow this call? [y/n] "
-      );
-    }
-
     if (input.toolName === "todoist_list_tasks") {
       return (
         `\nTool: ${input.toolName}\n` +
         `Input: ${JSON.stringify(input.input)}\n` +
         "Reading Todoist tasks will place their contents in the model context " +
         "and the successful Run's committed transcript.\n" +
-        "Allow this call? [y/n] "
-      );
-    }
-
-    if (input.toolName === "feed_read") {
-      const url =
-        typeof input.input === "object" && input.input !== null && "url" in input.input
-          ? (input.input as { url?: unknown }).url
-          : undefined;
-      return (
-        `\nTool: ${input.toolName}\n` +
-        `Feed URL: ${JSON.stringify(url)}\n` +
-        "Reading this public feed will place its bounded items in the model context " +
-        "and the successful Run's committed transcript. Feed titles and summaries are discovery data; " +
-        "factual claims require opening the original article with web_fetch.\n" +
-        "Allow this call? [y/n] "
-      );
-    }
-
-    if (input.toolName === "web_fetch") {
-      const url =
-        typeof input.input === "object" && input.input !== null && "url" in input.input
-          ? (input.input as { url?: unknown }).url
-          : undefined;
-      return (
-        `\nTool: ${input.toolName}\n` +
-        `URL: ${JSON.stringify(url)}\n` +
-        "Reading this public HTTP(S) page will place its contents in the model context and the successful Run's committed transcript.\n" +
-        "Allow this call? [y/n] "
-      );
-    }
-
-    if (input.toolName === "web_search") {
-      const query =
-        typeof input.input === "object" && input.input !== null && "query" in input.input
-          ? (input.input as { query?: unknown }).query
-          : undefined;
-      return (
-        `\nTool: ${input.toolName}\n` +
-        `Query: ${JSON.stringify(query)}\n` +
-        "Sending this query to the configured public search provider will place the returned titles, URLs, and snippets in the model context and the successful Run's committed transcript. " +
-        "Search results are for discovery; factual claims require opening the original URL with web_fetch.\n" +
         "Allow this call? [y/n] "
       );
     }

@@ -107,18 +107,22 @@ const SHELL_HOST_INSTRUCTIONS =
  * Run. Only a Docker-sandboxed executor may be authorized for a whole Run;
  * host execution must continue to ask for every call.
  */
-function shellPermission(sandboxed: boolean): ToolPermissionFacts {
+function shellPermission(sandbox: DockerShellSandboxConfig | undefined): ToolPermissionFacts {
   return {
-    defaults: { remember: "never", autonomy: "allow", ...(sandboxed ? { runAuthorization: "tool" as const } : {}) },
+    defaults: { remember: "never", autonomy: "allow", ...(sandbox !== undefined ? { runAuthorization: "tool" as const } : {}) },
     confirmation({ toolName, input }) {
-      if (typeof input !== "object" || input === null) return undefined;
-      const shellInput = input as { command?: unknown; cwd?: unknown };
-      if (sandboxed) {
+      const shellInput =
+        typeof input === "object" && input !== null
+          ? (input as { command?: unknown; cwd?: unknown })
+          : {};
+      if (sandbox !== undefined) {
         return (
           `\nTool: ${toolName}\n` +
           `Command: ${JSON.stringify(shellInput.command)}\n` +
           `Cwd: ${JSON.stringify(shellInput.cwd ?? ".")} (relative to sandbox mounts)\n` +
-          "The command runs in the configured Docker sandbox with declared mounts, a read-only root filesystem, and no network. Unmounted host files are not visible. Output may be truncated.\n" +
+          `Docker sandbox image: ${sandbox.image}; network none; root filesystem read-only.\n` +
+          `Readable: ${sandbox.readablePaths.join(",") || "none"}; writable: ${sandbox.writablePaths.join(",") || "none"}.\n` +
+          "Unmounted host files are not visible. Output may be truncated.\n" +
           "Allow this call? [y/n] "
         );
       }
@@ -126,7 +130,8 @@ function shellPermission(sandboxed: boolean): ToolPermissionFacts {
         `\nTool: ${toolName}\n` +
         `Command: ${JSON.stringify(shellInput.command)}\n` +
         `Cwd: ${JSON.stringify(shellInput.cwd ?? ".")} (relative to workspace)\n` +
-        "Output may be truncated; the workspace cwd is not an operating-system sandbox.\n" +
+        "The command will run with the configured workspace as its root context; " +
+        "this is not an operating-system sandbox. Output may be truncated.\n" +
         "Allow this call? [y/n] "
       );
     },
@@ -477,7 +482,7 @@ export function createShellModule(
           options.timeoutMs ?? SHELL_EXEC_TIMEOUT_MS,
         ),
         tool: createShellExecTool(workspaceRoot, options),
-      }, shellPermission(options.sandbox !== undefined));
+      }, shellPermission(options.sandbox));
       context.addInstructions(options.sandbox !== undefined
         ? SHELL_DOCKER_INSTRUCTIONS
         : ({ autonomous }) => autonomous
