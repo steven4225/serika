@@ -89,6 +89,7 @@ import type { WorkTaskContinuation } from "./work-task-continuation.js";
 import {
   buildTaskContextMessage,
 } from "./task-instructions.js";
+import { createNoProgressGuard } from "./no-progress-guard.js";
 import { todoistPlanSaveInstructions } from "./todoist-plan-save-instructions.js";
 import {
   resolveTuiModuleConfig,
@@ -1424,6 +1425,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         ...(tuiMode ? { modelRetryDelaysMs: [250, 1_000] } : {}),
         modelRetryDisabledAgentIds: [AUTO_CONSOLIDATION_AGENT_ID],
       }),
+      afterToolCall: createNoProgressGuard(name => tools.metadata(name)),
       ...(tuiMode
         ? {
             prepareModelContext: async ({ messages, signal, definition }) => {

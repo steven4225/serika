@@ -38,6 +38,7 @@ import { createTaskWorkerHealthWriter } from "./task-worker-health.js";
 import { createRssDigestWorker } from "./rss-digest.js";
 import { loadScheduledSkillAutomation, prepareScheduledSkillTask } from "./scheduled-skill.js";
 import { skillAgentDefinition, type SkillDescriptor } from "./skill-catalog.js";
+import { createNoProgressGuard } from "./no-progress-guard.js";
 
 interface TaskWorkerArgs {
   workspace: string;
@@ -336,6 +337,7 @@ export function createTaskWorkerAgent(
         maxOutputTokens: 2_048,
       },
     } as const;
+    const toolRegistry = new ToolRegistry(registeredTools);
     const planningQueries = new WeakSet<AbortSignal>();
     const runtime = new DefaultAgentRuntime({
       catalog: new InMemoryAgentCatalog([definition, {
@@ -359,8 +361,9 @@ export function createTaskWorkerAgent(
         models: new InMemoryModelRegistry({
           [options.modelAlias]: options.model,
         }),
-        tools: new ToolRegistry(registeredTools),
+        tools: toolRegistry,
       }),
+      afterToolCall: createNoProgressGuard(name => toolRegistry.metadata(name)),
       prepareModelContext: ({ messages, context, definition }: {
         messages: import("ai").UIMessage[];
         context?: unknown;

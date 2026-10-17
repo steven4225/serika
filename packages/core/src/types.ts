@@ -131,6 +131,30 @@ export type BeforeToolExecute = (
   input: BeforeToolExecuteInput,
 ) => ToolExecutionDecision | Promise<ToolExecutionDecision>;
 
+export interface AfterToolCallInput {
+  toolName: string;
+  toolCallId: string;
+  input: unknown;
+  output: unknown;
+  /** A copy of the messages this Run produced so far (no earlier thread history), ending with this call's result. */
+  runMessages: UIMessage[];
+  definition: AgentDefinition;
+  context?: unknown;
+  signal: AbortSignal;
+}
+
+/**
+ * Hooks return decisions instead of throwing. `feedback` is appended to the next
+ * model request's instructions only (never the transcript or events); `stop`
+ * ends the Run with RUN_LIMIT_EXCEEDED after this already completed call.
+ */
+export type AfterToolCallDecision = { kind: "feedback"; text: string } | { kind: "stop"; message: string };
+
+/** Called once after each successfully completed tool call. */
+export type AfterToolCall = (
+  input: AfterToolCallInput,
+) => AfterToolCallDecision | undefined | Promise<AfterToolCallDecision | undefined>;
+
 export interface LoopOutcome {
   text: string;
   messages: UIMessage[];
@@ -148,6 +172,7 @@ export interface AgentLoopInput<TContext = unknown> {
   steering?: RunSteering;
   prepareModelContext?: PrepareModelContext;
   beforeToolExecute?: BeforeToolExecute;
+  afterToolCall?: AfterToolCall;
   beforeRunFinish?: (input: Omit<BeforeRunFinishInput, "runId" | "threadId">) => ReturnType<BeforeRunFinish>;
   generateId(): string;
   emit: import("./events.js").EmitAgentEvent;

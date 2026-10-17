@@ -16,6 +16,7 @@ import type {
   RunResult,
   PrepareModelContext,
   BeforeToolExecute,
+  AfterToolCall,
   BeforeRunFinish,
 } from "./types.js";
 
@@ -33,6 +34,7 @@ export interface AgentRuntimeOptions {
   now?: () => Date;
   prepareModelContext?: PrepareModelContext;
   beforeToolExecute?: BeforeToolExecute;
+  afterToolCall?: AfterToolCall;
   beforeRunFinish?: BeforeRunFinish;
 }
 
@@ -44,6 +46,7 @@ export class DefaultAgentRuntime {
   readonly #now: () => Date;
   readonly #prepareModelContext: PrepareModelContext | undefined;
   readonly #beforeToolExecute: BeforeToolExecute | undefined;
+  readonly #afterToolCall: AfterToolCall | undefined;
   readonly #beforeRunFinish: BeforeRunFinish | undefined;
 
   constructor(options: AgentRuntimeOptions) {
@@ -54,6 +57,7 @@ export class DefaultAgentRuntime {
     this.#now = options.now ?? (() => new Date());
     this.#prepareModelContext = options.prepareModelContext;
     this.#beforeToolExecute = options.beforeToolExecute;
+    this.#afterToolCall = options.afterToolCall;
     this.#beforeRunFinish = options.beforeRunFinish;
   }
 
@@ -327,6 +331,7 @@ export class DefaultAgentRuntime {
               },
             } satisfies Pick<Parameters<AgentLoop["execute"]>[0], "beforeToolExecute">
           : {}),
+        ...(this.#afterToolCall ? { afterToolCall: this.#afterToolCall } : {}),
         generateId: this.#idGenerator,
         ...(this.#beforeRunFinish ? { beforeRunFinish: (input) => this.#beforeRunFinish!({ ...input, runId, threadId: request.threadId }) } : {}),
         emit,
