@@ -76,8 +76,19 @@ const TOOLS: ReadonlyArray<readonly [name: string, risk: string, input: unknown,
 const RISK = new Map(TOOLS.map(([name, risk]) => [name, risk]));
 
 type Shell = "host" | "docker";
-/** Permission facts come from the real modules, so a module's declarations are part of what is locked. */
-const moduleToolPermissions = builtinToolPermissions;
+/**
+ * Permission facts come from the real modules, so a module's declarations are
+ * part of what is locked. Recipe cards came from the app's own prompt before
+ * they moved into the recipe module and were never locked here; the recipe
+ * module tests cover them.
+ */
+function moduleToolPermissions(shell: Shell) {
+  return new Map([...builtinToolPermissions({ shell })].map(([name, facts]) => {
+    if (!name.startsWith("recipe_")) return [name, facts] as const;
+    const { confirmation, ...withoutCard } = facts;
+    return [name, withoutCard] as const;
+  }));
+}
 function extension(shell: Shell, fileAuthorizations: readonly FileAuthorizationRule[] = []) {
   const sink = new Writable({ write(_chunk, _encoding, done) { done(); } });
   return createPermissionExtension(sink, {
@@ -86,7 +97,7 @@ function extension(shell: Shell, fileAuthorizations: readonly FileAuthorizationR
     fileAuthorizations,
     shell: { enabled: true, sandbox: shell === "docker" ? { backend: "docker", image: "img", readablePaths: [], writablePaths: [] } : undefined },
     web: { enabled: true, searchEnabled: true },
-    toolPermissions: moduleToolPermissions(),
+    toolPermissions: moduleToolPermissions(shell),
     report: undefined,
     autoApprove: [],
     toolRisk: name => RISK.get(name),

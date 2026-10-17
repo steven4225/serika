@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, it } from "node:test";
 import type { RegisteredTool } from "@serika/ai-sdk-adapter";
-import { createModuleHost } from "../module-host.js";
+import { createModuleHost, type ToolPermissionFacts } from "../module-host.js";
 import { createReadFileModule, RUN_AUTHORIZED_FILE_TOOLS } from "./read-file-module.js";
 
 const directories: string[] = [];
@@ -102,14 +102,17 @@ describe("createReadFileModule", () => {
     }
     assert.deepEqual(RUN_AUTHORIZED_FILE_TOOLS.filter(name => facts.get(name)?.defaults?.remember === "scope"),
       ["write_file", "edit_file"], "only writes are remembered per directory; reads fall back to read risk");
-    assert.equal(facts.get("read_file")?.confirmation?.({ path: "a.md" }),
-      "Path: \"a.md\"\nReading this file will place its contents in the model context and the completed run's committed transcript.\n");
-    assert.equal(facts.get("read_file")?.confirmation?.({}), undefined);
-    assert.equal(facts.get("write_file")?.confirmation?.({ path: "a.md", content: "x" }), "Path: \"a.md\"\nContent: \"x\"\n");
-    assert.equal(facts.get("edit_file")?.confirmation?.({ path: "a.md", oldText: "o", newText: "n" }),
-      "Path: \"a.md\"\nOld text: \"o\"\nNew text: \"n\"\n");
+    const card = (toolName: string, input: unknown) =>
+      facts.get(toolName)?.confirmation?.({ toolName, input } as Parameters<NonNullable<ToolPermissionFacts["confirmation"]>>[0]);
+    assert.equal(card("read_file", { path: "a.md" }),
+      "\nTool: read_file\nPath: \"a.md\"\nReading this file will place its contents in the model context and the completed run's committed transcript.\nAllow this call? [y/n] ");
+    assert.equal(card("read_file", {}), undefined);
+    assert.equal(card("write_file", { path: "a.md", content: "x" }), "\nTool: write_file\nPath: \"a.md\"\nContent: \"x\"\nAllow this call? [y/n] ");
+    assert.equal(card("edit_file", { path: "a.md", oldText: "o", newText: "n" }),
+      "\nTool: edit_file\nPath: \"a.md\"\nOld text: \"o\"\nNew text: \"n\"\nAllow this call? [y/n] ");
     assert.equal(facts.get("list_directory")?.confirmation, undefined);
     assert.match(host.instructions("read-file"), /^When workspace file tools are available/);
     assert.match(host.instructions("read-file"), /Shell remains per-call confirmation\. $/);
+    assert.match(host.instructions("read-file", { autonomous: true }), /Local Shell follows this Run's host authorization\. $/);
   });
 });

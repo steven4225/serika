@@ -215,4 +215,12 @@ describe("createModuleHost", () => {
       { notify() {} },
     ), /boom/);
   });
+  it("words function-form instructions for the Run and keeps their order", () => {
+    const host = createModuleHost([moduleWithSetup("one", (context) => {
+      context.addInstructions("fixed. ");
+      context.addInstructions(({ autonomous }) => autonomous ? "host-authorized. " : "asks y/n. ");
+    })], { notify() {} });
+    assert.equal(host.instructions("one"), "fixed. asks y/n. ");
+    assert.equal(host.instructions("one", { autonomous: true }), "fixed. host-authorized. ");
+  });
 });

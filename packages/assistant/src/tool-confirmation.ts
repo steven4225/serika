@@ -60,10 +60,6 @@ export interface PendingToolApproval {
   remember?: { label: string };
 }
 
-/** Shell approval can be scoped to a single Run only when the executor is an
- * actual sandbox. Host execution must continue to ask for every call. */
-export type ShellSandboxMode = "none" | "host" | "docker";
-
 /** A non-persistent file-tool rule that applies to one subsequent Run. */
 export interface RunAuthorization {
   workspaceRoot: string;
@@ -223,39 +219,12 @@ function webAuthorizationAllows(
   return origin !== undefined && authorization.allowedOrigins.includes(origin);
 }
 
-function confirmationPrompt(
-  toolName: string,
-  input: unknown,
-  facts: ToolPermissionFacts | undefined,
-  shellSandboxMode: ShellSandboxMode = "none",
-): string {
-  if (toolName === "shell_exec" && typeof input === "object" && input !== null) {
-    const shellInput = input as { command?: unknown; cwd?: unknown };
-    if (shellSandboxMode === "docker") {
-      return (
-        `\nTool: ${toolName}\n` +
-        `Command: ${JSON.stringify(shellInput.command)}\n` +
-        `Cwd: ${JSON.stringify(shellInput.cwd ?? ".")} (relative to sandbox mounts)\n` +
-        "The command runs in the configured Docker sandbox with declared mounts, a read-only root filesystem, and no network. Unmounted host files are not visible. Output may be truncated.\n" +
-        "Allow this call? [y/n] "
-      );
-    }
-    return (
-      `\nTool: ${toolName}\n` +
-      `Command: ${JSON.stringify(shellInput.command)}\n` +
-      `Cwd: ${JSON.stringify(shellInput.cwd ?? ".")} (relative to workspace)\n` +
-      "Output may be truncated; the workspace cwd is not an operating-system sandbox.\n" +
-      "Allow this call? [y/n] "
-    );
-  }
-  const detail = facts?.confirmation?.(input);
-  if (detail !== undefined) return `\nTool: ${toolName}\n${detail}Allow this call? [y/n] `;
+function confirmationPrompt(toolName: string, input: unknown): string {
   return `\nTool: ${toolName}\nInput: ${JSON.stringify(input)}\nAllow this call? [y/n] `;
 }
 
 /** Tools whose approval is never remembered, whatever their declared risk. */
-const NEVER_REMEMBERED_PREFIXES = ["computer_", "recipe_", "memory_"] as const;
-const NEVER_REMEMBERED_TOOLS = new Set(["shell_exec"]);
+const NEVER_REMEMBERED_PREFIXES = ["computer_", "memory_"] as const;
 const MAX_REMEMBERED_GRANTS = 64;
 
 type GrantCandidate = Omit<RememberedGrant, "id">;
@@ -275,7 +244,7 @@ function grantCandidate(
 ): GrantCandidate | undefined {
   const { toolName } = input;
   const agentId = input.definition.id;
-  if (NEVER_REMEMBERED_TOOLS.has(toolName) ||
+  if (facts?.defaults?.remember === "never" ||
     NEVER_REMEMBERED_PREFIXES.some((prefix) => toolName.startsWith(prefix))) return undefined;
   if (facts?.defaults?.remember === "scope" && facts.scope?.kind === "workspacePath") {
     if (workspaceRoot === undefined) return undefined;
@@ -319,7 +288,6 @@ export function createToolConfirmation(
     generateId?: () => string;
     workspaceRoot?: string;
     persistentAuthorizations?: readonly RunAuthorizationInput[];
-    shellSandboxMode?: ShellSandboxMode;
     /** Declared tool risk; only read-risk tools can be remembered by name. */
     toolRisk?: ToolRiskLookup;
     /** Permission facts the assembled modules declared, by tool name. */
@@ -330,6 +298,9 @@ export function createToolConfirmation(
   /** Tools denied for the rest of this Run because a declared denial blocks them, with the reason. */
   const blockedThisRun = new Map<string, string>();
   const facts = (toolName: string) => options.toolPermissions?.get(toolName);
+  /** Some assembled tool may be authorized as a whole for one Run (`/authorize-shell`). */
+  const toolAuthorizable = () =>
+    [...(options.toolPermissions?.values() ?? [])].some((declared) => declared.defaults?.runAuthorization === "tool");
   let nextRunAuthorization: RunAuthorization | undefined;
   let activeRunAuthorization: RunAuthorization | undefined;
   let nextShellAuthorization = false;
@@ -401,10 +372,10 @@ export function createToolConfirmation(
         reason: blockedReason,
       });
     }
-    if (activeAutonomy && (input.toolName === "shell_exec" || facts(input.toolName)?.defaults?.autonomy === "allow")) {
+    if (activeAutonomy && facts(input.toolName)?.defaults?.autonomy === "allow") {
       return Promise.resolve({ allow: true });
     }
-    if (activeShellAuthorization && input.toolName === "shell_exec") {
+    if (activeShellAuthorization && facts(input.toolName)?.defaults?.runAuthorization === "tool") {
       return Promise.resolve({ allow: true });
     }
     if (webAuthorizationAllows(activeWebAuthorization, input, facts(input.toolName))) {
@@ -489,7 +460,7 @@ export function createToolConfirmation(
     };
     let customPrompt: string | Promise<string | undefined> | undefined;
     try {
-      customPrompt = options.prompt?.(input);
+      customPrompt = options.prompt?.(input) ?? facts(input.toolName)?.confirmation?.(input);
     } catch (error) {
       clearPending(entry);
       reject(error);
@@ -498,14 +469,14 @@ export function createToolConfirmation(
     if (customPrompt instanceof Promise) {
       void customPrompt.then(
         (text) =>
-          writePrompt(text ?? confirmationPrompt(input.toolName, input.input, facts(input.toolName), options.shellSandboxMode)),
+          writePrompt(text ?? confirmationPrompt(input.toolName, input.input)),
         (error: unknown) => {
           clearPending(entry);
           reject(error);
         },
       );
     } else {
-      writePrompt(customPrompt ?? confirmationPrompt(input.toolName, input.input, facts(input.toolName), options.shellSandboxMode));
+      writePrompt(customPrompt ?? confirmationPrompt(input.toolName, input.input));
     }
     return decision;
   };
@@ -563,7 +534,7 @@ export function createToolConfirmation(
   };
 
   const setPendingShellAuthorization = (): void => {
-    if (options.shellSandboxMode !== "docker") {
+    if (!toolAuthorizable()) {
       throw new Error(
         "Shell authorization requires Docker sandbox mode; host shell remains per-call confirmation",
       );
@@ -586,7 +557,7 @@ export function createToolConfirmation(
     activeRunAuthorization = nextRunAuthorization;
     nextRunAuthorization = undefined;
     activeShellAuthorization =
-      options.shellSandboxMode === "docker" && nextShellAuthorization;
+      toolAuthorizable() && nextShellAuthorization;
     nextShellAuthorization = false;
     activeWebAuthorization = nextWebAuthorization;
     nextWebAuthorization = undefined;

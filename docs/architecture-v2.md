@@ -113,6 +113,7 @@ apps/telegram ┘        (领域：记忆/任务/上下文/沉淀，扩展 API)
   - A2 第 3 步（逐个模块迁移，每个模块单独验证、单独提交；权限快照保持不变，指令文本与迁移前逐字一致）：
     - 番茄钟：权限事实新增 `defaults.approval: "auto"`（任何 agent 都不需 y/n），`tool-confirmation.ts` 的番茄钟名单删除；指令片段移入模块。
     - 文件：工具声明 `scope: workspacePath/path`、`runAuthorization: "scope"`（`/authorize` 与配置 `fileAuthorizations` 只认声明了路径授权的工具）、`autonomy: "allow"`（自主执行时放行）、写/改按目录记住（`remember: "scope"`），以及 read/write/edit 的确认卡内容；`RUN_AUTHORIZED_FILE_TOOLS` 移到文件模块（配置格式仍用它校验），`createPermissionExtension` 去掉 `fileToolsEnabled`，`/authorize` 按声明注册；web 的 `runAuthorization` 统一为 `"scope"`；指令片段移入模块。唯一可见差异：`/authorize` 填错工具名时提示里的工具顺序改为注册顺序（read_file, list_directory, search_files, write_file, edit_file），已加测试锁定。
+    - Shell + 命令配方：`confirmation` 声明改为完整确认卡（可异步，与 app 自定义卡同一约定），文件卡随之调整；`addInstructions` 增加函数形式 `({ autonomous }) => text`，`app.ts` 删除自主执行时对指令的 `replaceAll`，改为分别组装普通/自主两份指令（Shell 主机模式、文件两处措辞由模块自己给出）。`shell_exec` 声明 `remember: "never"`、`autonomy: "allow"`，只有 Docker 沙箱执行器声明 `runAuthorization: "tool"`（`/authorize-shell` 的放行与拒绝据此判断，`shellSandboxMode` 选项删除），Shell 确认卡移入模块；配方工具声明 `remember: "never"`，配方确认卡从 `app.ts` 移入配方模块并补了测试（之前没有）；Shell、配方指令移入模块。权限快照不变（快照测试里去掉配方卡，因为它原本来自 app 自定义卡、从未被快照覆盖）。仍留在宿主：开发任务那段（文件或 Shell 任一装配时出现）。
   - 调整：群聊 bot 开线时间从「第 3 步完成后」推迟到「个人 agent 重构完成、日常稳定后（至少 4.5 之后）」，见 §4.2。A1–A3 仍按原步骤验收。
 
 ## 4.2 未来：群聊 bot（独立线）

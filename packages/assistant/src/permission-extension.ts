@@ -47,7 +47,6 @@ export function createPermissionExtension(output: Writable, options: {
   const confirmation = createToolConfirmation(output, {
     prompt: options.prompt,
     ...(workspaceRoot !== undefined ? { workspaceRoot } : {}),
-    shellSandboxMode: shellSandbox === undefined ? "host" : "docker",
     ...(options.toolRisk ? { toolRisk: options.toolRisk } : {}),
     ...(options.toolPermissions ? { toolPermissions: options.toolPermissions } : {}),
     ...(fileAuthorizations.length > 0

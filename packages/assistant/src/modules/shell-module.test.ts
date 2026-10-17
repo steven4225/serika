@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { afterEach, describe, it } from "node:test";
 import type { RegisteredTool } from "@serika/ai-sdk-adapter";
 import { DOCKER_CLEANUP_TIMEOUT_MS } from "./docker-shell-runner.js";
+import { createModuleHost, type ToolPermissionFacts } from "../module-host.js";
 import {
   SHELL_EXEC_DOCKER_TOOL_TIMEOUT_MS,
   SHELL_EXEC_KILL_GRACE_MS,
@@ -356,5 +357,19 @@ describe("executeShellCommand", () => {
         },
       },
     );
+  });
+  it("declares never-remembered shell calls, sandbox-only Run authorization, cards and instructions", () => {
+    const sandbox = { backend: "docker" as const, image: "img", readablePaths: [], writablePaths: [] };
+    const host = createModuleHost([createShellModule("/tmp", {})], { notify() {} });
+    const docker = createModuleHost([createShellModule("/tmp", { sandbox })], { notify() {} });
+    assert.deepEqual(host.toolPermissions.get("shell_exec")?.defaults, { remember: "never", autonomy: "allow" });
+    assert.deepEqual(docker.toolPermissions.get("shell_exec")?.defaults, { remember: "never", autonomy: "allow", runAuthorization: "tool" });
+    const card = (module: typeof host) => module.toolPermissions.get("shell_exec")?.confirmation?.(
+      { toolName: "shell_exec", input: { command: "ls" } } as Parameters<NonNullable<ToolPermissionFacts["confirmation"]>>[0]);
+    assert.match(String(card(host)), /^\nTool: shell_exec\nCommand: "ls"\nCwd: "\." \(relative to workspace\)\n/);
+    assert.match(String(card(docker)), /\(relative to sandbox mounts\)\nThe command runs in the configured Docker sandbox/);
+    assert.match(host.instructions("shell"), /will be shown for y\/n confirmation\./);
+    assert.match(host.instructions("shell", { autonomous: true }), /File tools and local shell_exec are host-authorized for this Run\./);
+    assert.equal(docker.instructions("shell", { autonomous: true }), docker.instructions("shell"));
   });
 });

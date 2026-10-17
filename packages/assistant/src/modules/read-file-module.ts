@@ -44,13 +44,15 @@ function filePermission(extra: Pick<ToolPermissionFacts, "confirmation"> & { rem
 }
 
 const readFilePermission = filePermission({
-  confirmation(input) {
+  confirmation({ toolName, input }) {
     const path = inputObject(input)?.path;
     if (typeof path !== "string") return undefined;
     return (
+      `\nTool: ${toolName}\n` +
       `Path: ${JSON.stringify(path)}\n` +
       "Reading this file will place its contents in the model context and the " +
-      "completed run's committed transcript.\n"
+      "completed run's committed transcript.\n" +
+      "Allow this call? [y/n] "
     );
   },
 });
@@ -58,22 +60,29 @@ const readFilePermission = filePermission({
 /** Writes are remembered per directory, without subdirectories. */
 const writeFilePermission = filePermission({
   remember: "scope",
-  confirmation(input) {
+  confirmation({ toolName, input }) {
     const writeInput = inputObject(input);
     if (writeInput === undefined) return undefined;
-    return `Path: ${JSON.stringify(writeInput.path)}\nContent: ${JSON.stringify(writeInput.content)}\n`;
+    return (
+      `\nTool: ${toolName}\n` +
+      `Path: ${JSON.stringify(writeInput.path)}\n` +
+      `Content: ${JSON.stringify(writeInput.content)}\n` +
+      "Allow this call? [y/n] "
+    );
   },
 });
 
 const editFilePermission = filePermission({
   remember: "scope",
-  confirmation(input) {
+  confirmation({ toolName, input }) {
     const editInput = inputObject(input);
     if (editInput === undefined) return undefined;
     return (
+      `\nTool: ${toolName}\n` +
       `Path: ${JSON.stringify(editInput.path)}\n` +
       `Old text: ${JSON.stringify(editInput.oldText)}\n` +
-      `New text: ${JSON.stringify(editInput.newText)}\n`
+      `New text: ${JSON.stringify(editInput.newText)}\n` +
+      "Allow this call? [y/n] "
     );
   },
 });
@@ -142,7 +151,10 @@ export function createReadFileModule(workspaceRoot: string): AgentModule {
         metadata: editFileMetadata,
         tool: createEditFileTool(workspaceRoot),
       }, editFilePermission);
-      ctx.addInstructions(FILE_INSTRUCTIONS);
+      // In an autonomous Run, local Shell follows the Run's host authorization.
+      ctx.addInstructions(({ autonomous }) => autonomous
+        ? FILE_INSTRUCTIONS.replaceAll("Shell remains per-call confirmation.", "Local Shell follows this Run's host authorization.")
+        : FILE_INSTRUCTIONS);
       ctx.registerCommand({
         name: "workspace",
         execute(args) {

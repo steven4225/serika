@@ -27,16 +27,27 @@ export { createWriteFileTool } from "./write-file.js";
 import { createModuleHost as createHostForFacts, type ToolPermissionFacts } from "./module-host.js";
 import { createPomodoroModule as pomodoroForFacts } from "./modules/pomodoro-module.js";
 import { createReadFileModule as readFileForFacts } from "./modules/read-file-module.js";
+import { createRecipeModule as recipesForFacts } from "./modules/recipe-module.js";
+import { createShellModule as shellForFacts } from "./modules/shell-module.js";
 import { createWebModule as webForFacts } from "./modules/web-module.js";
+import { RecipeStore as RecipeStoreForFacts } from "./recipe-store.js";
+import { createExecutionRecordStore as recordsForFacts } from "./execution-record-store.js";
 
 /**
  * Permission facts as the migrated built-in modules declare them, for tests
  * that drive the permission rules directly instead of assembling an app.
+ * `shell: "docker"` declares the Docker-sandboxed executor instead of the host.
  */
-export function builtinToolPermissions(): ReadonlyMap<string, ToolPermissionFacts> {
+export function builtinToolPermissions(options: { shell?: "host" | "docker" } = {}): ReadonlyMap<string, ToolPermissionFacts> {
+  const shell = options.shell === "docker"
+    ? { sandbox: { backend: "docker" as const, image: "img", readablePaths: [], writablePaths: [] } }
+    : {};
   const host = createHostForFacts([
     pomodoroForFacts(),
     readFileForFacts("."),
+    shellForFacts(".", shell),
+    recipesForFacts({ store: new RecipeStoreForFacts("."), records: recordsForFacts("."), threadId: "facts",
+      currentRun: () => undefined, shell }),
     webForFacts({ searchEnabled: true, feedEnabled: true }),
   ], { notify() {} });
   host.dispose();

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { it } from "node:test";
 import { RecipeStore, recipeHash } from "./recipe-store.js";
-import { createModuleHost } from "./module-host.js";
+import { createModuleHost, type ToolPermissionFacts } from "./module-host.js";
 import { createRecipeModule } from "./modules/recipe-module.js";
 import { createExecutionRecordStore } from "./execution-record-store.js";
 
@@ -86,4 +86,29 @@ it("recipe commit failure before rename leaves old data; after rename remains un
       }
     } finally { await rm(f.root, { recursive: true, force: true }); }
   }
+});
+it("recipe tools are never remembered and their cards show the exact recipe version", async () => {
+  const f = await fixture();
+  try {
+    const saved = await f.store.save(definition, proof, 0, signal());
+    const facts = (sandboxed: boolean) => createModuleHost([createRecipeModule({ store: f.store, records: createExecutionRecordStore(f.root),
+      threadId: "thread", currentRun: () => undefined,
+      shell: sandboxed ? { sandbox: { backend: "docker", image: "img", readablePaths: [], writablePaths: [] } } : {} })], { notify() {} }).toolPermissions;
+    const host = facts(false);
+    assert.deepEqual([...host.keys()], ["recipe_list", "recipe_save", "recipe_manage", "recipe_run"]);
+    for (const declared of host.values()) assert.equal(declared.defaults?.remember, "never");
+    const card = (toolName: string, input: unknown, sandboxed = false) => facts(sandboxed).get(toolName)!.confirmation!(
+      { toolName, input, toolCallId: "call", signal: signal() } as Parameters<NonNullable<ToolPermissionFacts["confirmation"]>>[0]);
+    const runCard = `\n运行命令配方：summary\nSummary\n命令：printf summary\n目录：.\n版本：${saved.activeHash}\n`;
+    assert.equal(await card("recipe_run", { id: "summary", expectedHash: saved.activeHash }),
+      `${runCard}这会运行主机命令，工作目录不是系统隔离。\n仅批准这次执行；配方不授予持久权限，外部脚本和依赖不随版本冻结。Allow this call? [y/n] `);
+    assert.equal(await card("recipe_run", { id: "summary", expectedHash: saved.activeHash }, true),
+      `${runCard}沿用当前 Docker 沙箱配置。\n仅批准这次执行；配方不授予持久权限，外部脚本和依赖不随版本冻结。Allow this call? [y/n] `);
+    assert.equal(await card("recipe_run", { id: "summary", expectedHash: "f".repeat(64) }),
+      "\n配方已变化、停用或无法读取。本次不能执行，请取消并重新查看。Allow this call? [y/n] ");
+    assert.equal(await card("recipe_manage", { id: "summary", action: "disable" }),
+      `\n停用命令配方：summary\nSummary\n命令：printf summary\n目录：.\n版本：${saved.activeHash}\n不会执行命令或授予权限，也不撤销过去已发生的操作。Allow this call? [y/n] `);
+    assert.equal(card("recipe_save", { id: "summary", command: "printf summary", cwd: "." }),
+      "\n登记命令配方：summary\n命令：printf summary\n目录：.\n程序会核对本轮真实测试回执。不会执行配方、安装工具或授予后续权限。Allow this call? [y/n] ");
+  } finally { await rm(f.root, { recursive: true, force: true }); }
 });

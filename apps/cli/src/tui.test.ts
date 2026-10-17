@@ -64,8 +64,13 @@ function deferred<T>(): {
 }
 
 /** Confirmation with the permission facts the built-in modules declare, as the app assembles them. */
-function moduleConfirmation(output: Writable, options: Parameters<typeof createToolConfirmation>[1] = {}) {
-  return createToolConfirmation(output, { toolPermissions: builtinToolPermissions(), ...options });
+function moduleConfirmation(
+  output: Writable,
+  { shellSandboxMode, ...options }: Parameters<typeof createToolConfirmation>[1] & { shellSandboxMode?: "none" | "host" | "docker" } = {},
+) {
+  // The shell module declares one-Run authorization only for its Docker-sandboxed executor.
+  const toolPermissions = builtinToolPermissions({ shell: shellSandboxMode === "docker" ? "docker" : "host" });
+  return createToolConfirmation(output, { toolPermissions, ...options });
 }
 
 function outputBuffer(): Writable & { text(): string } {

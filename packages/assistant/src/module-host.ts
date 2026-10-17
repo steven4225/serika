@@ -1,4 +1,5 @@
 import type { RegisteredTool } from "@serika/ai-sdk-adapter";
+import type { BeforeToolExecuteInput } from "@serika/core";
 
 export type Dispose = () => void;
 
@@ -24,30 +25,41 @@ export interface ToolPermissionFacts {
     /**
      * `scope`: an approval may be remembered for this conversation, per scope
      * (an origin, or the directory of a workspace path without subdirectories).
+     * `never`: an approval is never remembered, whatever the declared risk.
      */
-    readonly remember?: "scope";
+    readonly remember?: "scope" | "never";
     /**
      * `scope`: a one-Run authorization may allow listed scopes (`/authorize-web`
      * for origins; `/authorize` and configured file rules for workspace paths).
+     * `tool`: `/authorize-shell` may allow every call of the tool for one Run.
      */
-    readonly runAuthorization?: "scope";
+    readonly runAuthorization?: "scope" | "tool";
     /** `allow`: an autonomous Run executes calls without y/n confirmation. */
     readonly autonomy?: "allow";
   };
   /** Denying this tool also denies these tools for the rest of the Run. */
   readonly denialBlocksForRun?: readonly string[];
   /**
-   * The y/n card's detail lines for this input, between the tool name and the
-   * question; `undefined` falls back to the generic input line.
+   * The whole y/n card for this call, which may load asynchronously;
+   * `undefined` falls back to the generic card.
    */
-  confirmation?(input: unknown): string | undefined;
+  confirmation?(input: BeforeToolExecuteInput): string | Promise<string | undefined> | undefined;
+}
+
+/** What module instructions may depend on for one Run. */
+export interface InstructionRun {
+  /** The Run executes host-authorized tools without y/n confirmation. */
+  readonly autonomous: boolean;
 }
 
 export interface ModuleContext {
   registerTool(tool: RegisteredTool, permission?: ToolPermissionFacts): void;
   registerCommand(command: ModuleCommand): void;
-  /** Primary-agent instructions, included only because this module is assembled. */
-  addInstructions(text: string): void;
+  /**
+   * Primary-agent instructions, included only because this module is
+   * assembled. The function form words them for an autonomous Run.
+   */
+  addInstructions(text: string | ((run: InstructionRun) => string)): void;
   /** Whether another module is assembled in the same host (read-only). */
   isAssembled(moduleId: string): boolean;
   notify(message: string): void;
@@ -66,7 +78,7 @@ export interface ModuleHost {
   /** The module that registered each tool. */
   readonly toolModules: ReadonlyMap<string, string>;
   /** One assembled module's instructions, or "" when it is not assembled or added none. */
-  instructions(moduleId: string): string;
+  instructions(moduleId: string, run?: InstructionRun): string;
   dispose(): void;
 }
 
@@ -110,7 +122,7 @@ export function createModuleHost(
   const commands = new Map<string, ModuleCommand>();
   const toolPermissions = new Map<string, ToolPermissionFacts>();
   const toolModules = new Map<string, string>();
-  const instructions = new Map<string, string>();
+  const instructions = new Map<string, ((run: InstructionRun) => string)[]>();
   const setupRecords: SetupRecord[] = [];
 
   const failStartup = (error: unknown, records: readonly SetupRecord[]): never => {
@@ -128,7 +140,7 @@ export function createModuleHost(
     const moduleTools: RegisteredTool[] = [];
     const modulePermissions = new Map<string, ToolPermissionFacts>();
     const moduleCommands = new Map<string, ModuleCommand>();
-    let moduleInstructions = "";
+    const moduleInstructions: ((run: InstructionRun) => string)[] = [];
     let registrationOpen = true;
 
     const context: ModuleContext = {
@@ -152,7 +164,7 @@ export function createModuleHost(
         if (!registrationOpen) {
           throw new Error(`Module registration is closed: ${module.id}`);
         }
-        moduleInstructions += text;
+        moduleInstructions.push(typeof text === "string" ? () => text : text);
       },
       isAssembled: (moduleId) => moduleIds.has(moduleId),
       notify(message) {
@@ -199,7 +211,8 @@ export function createModuleHost(
     commands: exposedCommands,
     toolPermissions: new Map(toolPermissions),
     toolModules: new Map(toolModules),
-    instructions: (moduleId) => instructions.get(moduleId) ?? "",
+    instructions: (moduleId, run = { autonomous: false }) =>
+      (instructions.get(moduleId) ?? []).map(part => part(run)).join(""),
     dispose() {
       if (disposed) return;
       disposed = true;
