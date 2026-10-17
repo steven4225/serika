@@ -18,10 +18,27 @@ export type { CheckpointDraft } from "./checkpoint-store.js";
 export { createModuleHost } from "./module-host.js";
 export { createCheckpointModule } from "./modules/checkpoint-module.js";
 export { createReadFileModule } from "./modules/read-file-module.js";
-export { createPomodoroModule } from "./modules/pomodoro-module.js";
-export { createWebModule } from "./modules/web-module.js";
 export type { ReadFileResult } from "./read-file.js";
 export { createBuiltinSkill } from "./skill-catalog.js";
 export { createToolConfirmation } from "./tool-confirmation.js";
 export type { RunAuthorization } from "./tool-confirmation.js";
 export { createWriteFileTool } from "./write-file.js";
+
+import { createModuleHost as createHostForFacts, type ToolPermissionFacts } from "./module-host.js";
+import { createPomodoroModule as pomodoroForFacts } from "./modules/pomodoro-module.js";
+import { createReadFileModule as readFileForFacts } from "./modules/read-file-module.js";
+import { createWebModule as webForFacts } from "./modules/web-module.js";
+
+/**
+ * Permission facts as the migrated built-in modules declare them, for tests
+ * that drive the permission rules directly instead of assembling an app.
+ */
+export function builtinToolPermissions(): ReadonlyMap<string, ToolPermissionFacts> {
+  const host = createHostForFacts([
+    pomodoroForFacts(),
+    readFileForFacts("."),
+    webForFacts({ searchEnabled: true, feedEnabled: true }),
+  ], { notify() {} });
+  host.dispose();
+  return host.toolPermissions;
+}

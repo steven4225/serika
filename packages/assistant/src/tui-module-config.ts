@@ -18,7 +18,7 @@ import type { AssistantAssembly } from "./assembly.js";
 import {
   RUN_AUTHORIZED_FILE_TOOLS,
   type RunAuthorizedFileTool,
-} from "./tool-confirmation.js";
+} from "./modules/read-file-module.js";
 import {
   rejectSymlinkComponents,
   validateWorkspacePath,

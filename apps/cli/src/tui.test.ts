@@ -31,11 +31,10 @@ import {
   CHECKPOINT_FILE_NAME,
   createCheckpointModule,
   createCheckpointStore,
+  builtinToolPermissions,
   createModuleHost,
-  createPomodoroModule,
   createReadFileModule,
   createToolConfirmation,
-  createWebModule,
   createWriteFileTool,
   type CheckpointDraft,
   type ReadFileResult,
@@ -65,12 +64,8 @@ function deferred<T>(): {
 }
 
 /** Confirmation with the permission facts the built-in modules declare, as the app assembles them. */
-function moduleConfirmation(output: Writable) {
-  const facts = createModuleHost([
-    createPomodoroModule(),
-    createWebModule({ searchEnabled: true, feedEnabled: true }),
-  ], { notify() {} }).toolPermissions;
-  return createToolConfirmation(output, { toolPermissions: name => facts.get(name) });
+function moduleConfirmation(output: Writable, options: Parameters<typeof createToolConfirmation>[1] = {}) {
+  return createToolConfirmation(output, { toolPermissions: builtinToolPermissions(), ...options });
 }
 
 function outputBuffer(): Writable & { text(): string } {
@@ -402,7 +397,7 @@ function createConfirmationRuntime(
   confirmation: ReturnType<typeof createToolConfirmation>;
   executeCount: { value: number };
 } {
-  const confirmation = createToolConfirmation(output);
+  const confirmation = moduleConfirmation(output);
   const store = new CountingStore();
   const executeCount = { value: 0 };
   const add = tool({
@@ -619,7 +614,7 @@ async function createWriteFileConfirmationRuntime(options: {
 }> {
   const workspace = await mkdtemp(join(tmpdir(), "runloom-tui-write-file-"));
   const output = ttyOutput();
-  const confirmation = createToolConfirmation(output);
+  const confirmation = moduleConfirmation(output);
   const store = new CountingStore();
   const runtime = new DefaultAgentRuntime({
     catalog: new InMemoryAgentCatalog([
@@ -715,7 +710,7 @@ async function createCheckpointConfirmationRuntime(): Promise<{
 }> {
   const workspace = await mkdtemp(join(tmpdir(), "runloom-tui-checkpoint-"));
   const output = ttyOutput();
-  const confirmation = createToolConfirmation(output);
+  const confirmation = moduleConfirmation(output);
   const store = new CountingStore();
   const checkpointStore = createCheckpointStore(workspace, {
     generateId: () => "checkpoint-test",
@@ -783,7 +778,7 @@ async function createReadFileConfirmationRuntime(options: {
   await writeFile(join(workspace, "notes.txt"), "hello from workspace");
 
   const output = ttyOutput();
-  const confirmation = createToolConfirmation(output);
+  const confirmation = moduleConfirmation(output);
   const store = new CountingStore();
   const readCount = { value: 0 };
   const host = createModuleHost([createReadFileModule(workspace)], {
@@ -2656,7 +2651,7 @@ describe("runTui", () => {
 describe("createToolConfirmation", () => {
   it("approval preview guard: delayed preview cannot be approved before publication", async () => {
     const preview = deferred<string>();
-    const confirmation = createToolConfirmation(outputBuffer(), { generateId: () => "delayed", prompt: () => preview.promise });
+    const confirmation = moduleConfirmation(outputBuffer(), { generateId: () => "delayed", prompt: () => preview.promise });
     const controller = new AbortController();
     const decision = Promise.resolve(confirmation.beforeToolExecute(toolInput("task_reschedule", controller.signal, { id: "task-1" })));
     try {
@@ -2670,7 +2665,7 @@ describe("createToolConfirmation", () => {
   });
 
   it("approval preview guard: whitespace is not ready, but denial remains available", async () => {
-    const confirmation = createToolConfirmation(outputBuffer(), { generateId: () => "blank", prompt: () => " \n\t " });
+    const confirmation = moduleConfirmation(outputBuffer(), { generateId: () => "blank", prompt: () => " \n\t " });
     const controller = new AbortController();
     const decision = Promise.resolve(confirmation.beforeToolExecute(toolInput("write_file", controller.signal, { path: "a.txt", content: "x" })));
     try {
@@ -2683,7 +2678,7 @@ describe("createToolConfirmation", () => {
   it("approval replacement race: late old preview and stale decisions cannot approve the new call", async () => {
     const oldPreview = deferred<string>();
     let sequence = 0;
-    const confirmation = createToolConfirmation(outputBuffer(), { generateId: () => `race-${++sequence}`,
+    const confirmation = moduleConfirmation(outputBuffer(), { generateId: () => `race-${++sequence}`,
       prompt: () => sequence === 1 ? oldPreview.promise : "内容：新操作\nAllow this call? [y/n] " });
     const oldController = new AbortController();
     const first = Promise.resolve(confirmation.beforeToolExecute(toolInput("write_file", oldController.signal, { path: "old.txt", content: "old" })));
@@ -2705,7 +2700,7 @@ describe("createToolConfirmation", () => {
     const output = outputBuffer();
     const changes: Array<string | undefined> = [];
     let nextId = 0;
-    const confirmation = createToolConfirmation(output, {
+    const confirmation = moduleConfirmation(output, {
       generateId: () => `approval-${++nextId}`,
     });
     const unsubscribe = confirmation.subscribePending((pending) => {
@@ -2745,7 +2740,7 @@ describe("createToolConfirmation", () => {
     const output = outputBuffer();
     const preview = deferred<string>();
     const changes: Array<string | undefined> = [];
-    const confirmation = createToolConfirmation(output, {
+    const confirmation = moduleConfirmation(output, {
       generateId: () => "approval-async",
       prompt: () => preview.promise,
       onPendingChange: (pending) => { changes.push(pending?.preview); },
@@ -2774,7 +2769,7 @@ describe("createToolConfirmation", () => {
   it("keeps approval pending when a UI observer throws", async () => {
     const output = outputBuffer();
     const changes: Array<string | undefined> = [];
-    const confirmation = createToolConfirmation(output, {
+    const confirmation = moduleConfirmation(output, {
       onPendingChange: () => { throw new Error("renderer disconnected"); },
     });
     confirmation.subscribePending(() => { throw new Error("stale listener"); });
@@ -2795,7 +2790,7 @@ describe("createToolConfirmation", () => {
 
   it("allows only the consolidator's prepare and stage without prompting", async () => {
     const output = outputBuffer();
-    const confirmation = createToolConfirmation(output);
+    const confirmation = moduleConfirmation(output);
 
     const decision = confirmation.beforeToolExecute(
       toolInput(
@@ -2813,7 +2808,7 @@ describe("createToolConfirmation", () => {
 
   it("keeps memory tools on normal confirmation paths outside the consolidator read", async () => {
     const output = outputBuffer();
-    const confirmation = createToolConfirmation(output);
+    const confirmation = moduleConfirmation(output);
 
     const primaryRead = confirmation.beforeToolExecute(
       toolInput("memory_prepare_consolidation", new AbortController().signal),
@@ -2842,7 +2837,7 @@ describe("createToolConfirmation", () => {
 
   it("keeps checkpoint reads and writes on normal y/n confirmation even with file authorization", async () => {
     const output = outputBuffer();
-    const confirmation = createToolConfirmation(output, {
+    const confirmation = moduleConfirmation(output, {
       workspaceRoot: "/workspace",
       persistentAuthorizations: [{
         tools: ["read_file", "write_file"],
@@ -2902,7 +2897,7 @@ describe("createToolConfirmation", () => {
 
   it("identifies a read_file path and explains where file contents go", async () => {
     const output = outputBuffer();
-    const confirmation = createToolConfirmation(output);
+    const confirmation = moduleConfirmation(output);
     const pending = confirmation.beforeToolExecute(
       toolInput("read_file", new AbortController().signal, {
         path: "docs/usage.md",
@@ -2924,7 +2919,7 @@ describe("createToolConfirmation", () => {
 
   it("shows shell command and workspace-relative cwd before confirmation", async () => {
     const output = outputBuffer();
-    const confirmation = createToolConfirmation(output);
+    const confirmation = moduleConfirmation(output);
     const pending = confirmation.beforeToolExecute(
       toolInput("shell_exec", new AbortController().signal, {
         command: "pnpm test",
@@ -2947,7 +2942,7 @@ describe("createToolConfirmation", () => {
 
   it("describes Docker sandbox isolation in the shell confirmation prompt", async () => {
     const output = outputBuffer();
-    const confirmation = createToolConfirmation(output, {
+    const confirmation = moduleConfirmation(output, {
       shellSandboxMode: "docker",
     });
     const pending = confirmation.beforeToolExecute(
@@ -2975,7 +2970,7 @@ describe("createToolConfirmation", () => {
 
   it("shows the complete write_file confirmation input as JSON fields", async () => {
     const output = outputBuffer();
-    const confirmation = createToolConfirmation(output);
+    const confirmation = moduleConfirmation(output);
     const pending = confirmation.beforeToolExecute(
       toolInput("write_file", new AbortController().signal, {
         path: "notes/escape\n.txt",
@@ -2997,7 +2992,7 @@ describe("createToolConfirmation", () => {
 
   it("shows the complete edit_file old and new text as JSON fields", async () => {
     const output = outputBuffer();
-    const confirmation = createToolConfirmation(output);
+    const confirmation = moduleConfirmation(output);
     const pending = confirmation.beforeToolExecute(
       toolInput("edit_file", new AbortController().signal, {
         path: "notes.txt",
@@ -3021,7 +3016,7 @@ describe("createToolConfirmation", () => {
 
   it("supports an asynchronous custom confirmation prompt and keeps the default for other tools", async () => {
     const output = outputBuffer();
-    const confirmation = createToolConfirmation(output, {
+    const confirmation = moduleConfirmation(output, {
       prompt: async ({ toolName, input }) =>
         toolName === "memory_update"
           ? `Current memory: ${JSON.stringify(input)}\nAllow this call? [y/n] `
@@ -3060,7 +3055,7 @@ describe("createToolConfirmation", () => {
         callback();
       },
     });
-    confirmation = createToolConfirmation(output);
+    confirmation = moduleConfirmation(output);
 
     const decision = confirmation.beforeToolExecute(
       toolInput("add", new AbortController().signal),
@@ -3071,7 +3066,7 @@ describe("createToolConfirmation", () => {
 
   it("keeps invalid input pending and treats abort as cancellation, not denial", async () => {
     const output = outputBuffer();
-    const confirmation = createToolConfirmation(output);
+    const confirmation = moduleConfirmation(output);
     const controller = new AbortController();
     const pending = Promise.resolve(
       confirmation.beforeToolExecute(toolInput("add", controller.signal)),
@@ -3092,7 +3087,7 @@ describe("createToolConfirmation", () => {
 
   it("registers one pending confirmation before prompting and clears it on y or n", async () => {
     const output = outputBuffer();
-    const confirmation = createToolConfirmation(output);
+    const confirmation = moduleConfirmation(output);
     const first = Promise.resolve(
       confirmation.beforeToolExecute(
         toolInput("add", new AbortController().signal),
@@ -3379,7 +3374,7 @@ describe("runTui tool confirmation", () => {
   it("handles two tool calls one confirmation at a time", async () => {
     const input = ttyInput();
     const output = ttyOutput();
-    const confirmation = createToolConfirmation(output);
+    const confirmation = moduleConfirmation(output);
     const store = new CountingStore();
     const executions: string[] = [];
     const usage = {
@@ -3810,7 +3805,7 @@ describe("createToolConfirmation run-scoped authorization", () => {
 
   it("allows normalized in-scope paths for explicitly authorized tools", async () => {
     const output = outputBuffer();
-    const confirmation = createToolConfirmation(output, { workspaceRoot });
+    const confirmation = moduleConfirmation(output, { workspaceRoot });
     authorizeFileScope(confirmation, {
       tools: ["read_file"],
       allowedPaths: ["docs/"],
@@ -3836,7 +3831,7 @@ describe("createToolConfirmation run-scoped authorization", () => {
 
   it("does not widen authorization to tools outside the explicit whitelist", async () => {
     const output = outputBuffer();
-    const confirmation = createToolConfirmation(output, { workspaceRoot });
+    const confirmation = moduleConfirmation(output, { workspaceRoot });
     authorizeFileScope(confirmation, {
       tools: ["read_file"],
       allowedPaths: ["docs/"],
@@ -3859,7 +3854,7 @@ describe("createToolConfirmation run-scoped authorization", () => {
 
   it("asks again for an out-of-scope normalized path and never executes it after denial", async () => {
     const output = outputBuffer();
-    const confirmation = createToolConfirmation(output, { workspaceRoot });
+    const confirmation = moduleConfirmation(output, { workspaceRoot });
     authorizeFileScope(confirmation, {
       tools: ["read_file"],
       allowedPaths: ["docs/"],
@@ -3903,7 +3898,7 @@ describe("createToolConfirmation run-scoped authorization", () => {
 
   it("clears authorization when the Run ends and does not reuse it on the next Run", async () => {
     const output = outputBuffer();
-    const confirmation = createToolConfirmation(output, { workspaceRoot });
+    const confirmation = moduleConfirmation(output, { workspaceRoot });
     authorizeFileScope(confirmation, {
       tools: ["read_file"],
       allowedPaths: ["docs/"],
@@ -3933,7 +3928,7 @@ describe("createToolConfirmation run-scoped authorization", () => {
 
   it("does not let an aborted Run leave an authorization active", async () => {
     const output = outputBuffer();
-    const confirmation = createToolConfirmation(output, { workspaceRoot });
+    const confirmation = moduleConfirmation(output, { workspaceRoot });
     authorizeFileScope(confirmation, {
       tools: ["read_file"],
       allowedPaths: ["docs/"],
@@ -3972,7 +3967,7 @@ describe("createToolConfirmation persistent authorization", () => {
 
   it("allows every listed file tool under a persisted path scope", async () => {
     const output = outputBuffer();
-    const confirmation = createToolConfirmation(output, {
+    const confirmation = moduleConfirmation(output, {
       workspaceRoot,
       persistentAuthorizations: [
         persistentFileScope({
@@ -3999,7 +3994,7 @@ describe("createToolConfirmation persistent authorization", () => {
 
   it("keeps path and tool boundaries under persisted authorization", async () => {
     const output = outputBuffer();
-    const confirmation = createToolConfirmation(output, {
+    const confirmation = moduleConfirmation(output, {
       workspaceRoot,
       persistentAuthorizations: [persistentFileScope()],
     });
@@ -4044,7 +4039,7 @@ describe("createToolConfirmation persistent authorization", () => {
 
   it("does not clear persisted authorization when a Run ends", async () => {
     const output = outputBuffer();
-    const confirmation = createToolConfirmation(output, {
+    const confirmation = moduleConfirmation(output, {
       workspaceRoot,
       persistentAuthorizations: [persistentFileScope()],
     });
@@ -4067,7 +4062,7 @@ describe("createToolConfirmation persistent authorization", () => {
 
   it("restores y/n after persisted rules are removed and the TUI is restarted", async () => {
     const firstOutput = outputBuffer();
-    const first = createToolConfirmation(firstOutput, {
+    const first = moduleConfirmation(firstOutput, {
       workspaceRoot,
       persistentAuthorizations: [persistentFileScope()],
     });
@@ -4077,7 +4072,7 @@ describe("createToolConfirmation persistent authorization", () => {
     assert.deepEqual(await allowed, { allow: true });
 
     const secondOutput = outputBuffer();
-    const restarted = createToolConfirmation(secondOutput, { workspaceRoot });
+    const restarted = moduleConfirmation(secondOutput, { workspaceRoot });
     const prompted = restarted.beforeToolExecute(
       toolInput("read_file", new AbortController().signal, { path: "docs/guide.md" }),
     );
@@ -4092,7 +4087,7 @@ describe("createToolConfirmation persistent authorization", () => {
 
   it("does not restore next-Run /authorize after a new confirmation is created", async () => {
     const firstOutput = outputBuffer();
-    const first = createToolConfirmation(firstOutput, { workspaceRoot });
+    const first = moduleConfirmation(firstOutput, { workspaceRoot });
     first.setPendingAuthorization({
       tools: ["write_file"],
       allowedPaths: ["docs/"],
@@ -4100,7 +4095,7 @@ describe("createToolConfirmation persistent authorization", () => {
     });
 
     const secondOutput = outputBuffer();
-    const restarted = createToolConfirmation(secondOutput, { workspaceRoot });
+    const restarted = moduleConfirmation(secondOutput, { workspaceRoot });
     const prompted = restarted.beforeToolExecute(
       toolInput("write_file", new AbortController().signal, { path: "docs/report.md" }),
     );
@@ -4118,7 +4113,7 @@ describe("createToolConfirmation persistent authorization", () => {
 describe("createToolConfirmation sandbox shell authorization", () => {
   it("allows shell calls for one Docker-sandboxed Run only", async () => {
     const output = outputBuffer();
-    const confirmation = createToolConfirmation(output, {
+    const confirmation = moduleConfirmation(output, {
       shellSandboxMode: "docker",
     });
 
@@ -4149,7 +4144,7 @@ describe("createToolConfirmation sandbox shell authorization", () => {
   it("keeps host and unsandboxed shell on per-call confirmation", async () => {
     for (const shellSandboxMode of ["host", "none"] as const) {
       const output = outputBuffer();
-      const confirmation = createToolConfirmation(output, { shellSandboxMode });
+      const confirmation = moduleConfirmation(output, { shellSandboxMode });
       assert.throws(
         () => confirmation.setPendingShellAuthorization(),
         /requires Docker sandbox mode/,
@@ -4170,7 +4165,7 @@ describe("createToolConfirmation sandbox shell authorization", () => {
 
   it("does not let shell authorization widen to file or other tools", async () => {
     const output = outputBuffer();
-    const confirmation = createToolConfirmation(output, {
+    const confirmation = moduleConfirmation(output, {
       shellSandboxMode: "docker",
     });
     confirmation.setPendingShellAuthorization();

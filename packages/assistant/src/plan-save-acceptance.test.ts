@@ -216,19 +216,6 @@ async function createFixture(options: { writeDenied: boolean }) {
   const output = new PassThrough();
   const rendered: string[] = [];
   output.on("data", (chunk) => rendered.push(String(chunk)));
-  const confirmation = createToolConfirmation(output);
-  const confirmedTools: string[] = [];
-  const beforeToolExecute: BeforeToolExecute = (input) => {
-    confirmedTools.push(input.toolName);
-    const decision = confirmation.beforeToolExecute(input);
-    queueMicrotask(() => {
-      confirmation.handleLine(
-        options.writeDenied && input.toolName === "write_file" ? "n" : "y",
-      );
-    });
-    return decision;
-  };
-
   const host = createModuleHost(
     [
       createTodoistModule({
@@ -241,6 +228,20 @@ async function createFixture(options: { writeDenied: boolean }) {
     ],
     { notify: () => undefined },
   );
+  // The confirmation reads the permission facts the assembled modules declared.
+  const confirmation = createToolConfirmation(output, { toolPermissions: host.toolPermissions });
+  const confirmedTools: string[] = [];
+  const beforeToolExecute: BeforeToolExecute = (input) => {
+    confirmedTools.push(input.toolName);
+    const decision = confirmation.beforeToolExecute(input);
+    queueMicrotask(() => {
+      confirmation.handleLine(
+        options.writeDenied && input.toolName === "write_file" ? "n" : "y",
+      );
+    });
+    return decision;
+  };
+
   const calls: string[] = [];
   const todoistResults: RecordValue[] = [];
   const writeInputs: WriteFileInput[] = [];

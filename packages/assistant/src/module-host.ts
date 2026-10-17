@@ -13,18 +13,34 @@ export interface ModuleCommand {
  * read them instead of tool-name lists; the module never decides an approval.
  */
 export interface ToolPermissionFacts {
-  /** Where a grant's scope comes from: the web origin of a URL argument. */
-  readonly scope?: { readonly kind: "origin"; readonly argument: string };
+  /**
+   * Where a grant's scope comes from: the web origin of a URL argument, or a
+   * workspace-relative path argument.
+   */
+  readonly scope?: { readonly kind: "origin" | "workspacePath"; readonly argument: string };
   readonly defaults?: {
     /** `auto`: calls run without y/n confirmation, for every agent. */
     readonly approval?: "auto";
-    /** `scope`: an approval may be remembered for this conversation, per scope. */
+    /**
+     * `scope`: an approval may be remembered for this conversation, per scope
+     * (an origin, or the directory of a workspace path without subdirectories).
+     */
     readonly remember?: "scope";
-    /** `origin`: `/authorize-web` may allow listed origins for one Run. */
-    readonly runAuthorization?: "origin";
+    /**
+     * `scope`: a one-Run authorization may allow listed scopes (`/authorize-web`
+     * for origins; `/authorize` and configured file rules for workspace paths).
+     */
+    readonly runAuthorization?: "scope";
+    /** `allow`: an autonomous Run executes calls without y/n confirmation. */
+    readonly autonomy?: "allow";
   };
   /** Denying this tool also denies these tools for the rest of the Run. */
   readonly denialBlocksForRun?: readonly string[];
+  /**
+   * The y/n card's detail lines for this input, between the tool name and the
+   * question; `undefined` falls back to the generic input line.
+   */
+  confirmation?(input: unknown): string | undefined;
 }
 
 export interface ModuleContext {

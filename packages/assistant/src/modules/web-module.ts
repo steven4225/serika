@@ -108,7 +108,7 @@ export function createWebModule(options: WebModuleOptions = {}): AgentModule {
 
       ctx.registerTool({ metadata: webFetchMetadata, tool: webFetchTool }, {
         scope: { kind: "origin", argument: "url" },
-        defaults: { remember: "scope", runAuthorization: "origin" },
+        defaults: { remember: "scope", runAuthorization: "scope" },
       });
       ctx.addInstructions(WEB_FETCH_INSTRUCTIONS + (ctx.isAssembled("read-file")
         ? WEB_REPORT_WITH_FILES_INSTRUCTIONS : WEB_REPORT_WITHOUT_FILES_INSTRUCTIONS));

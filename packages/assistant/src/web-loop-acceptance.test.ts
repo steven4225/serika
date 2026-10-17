@@ -17,6 +17,7 @@ import { Writable } from "node:stream";
 import { createModuleHost } from "./module-host.js";
 import { createWebModule } from "./modules/web-module.js";
 import { createToolConfirmation } from "./tool-confirmation.js";
+import { builtinToolPermissions } from "./testing.js";
 
 const usage = {
   inputTokens: { total: 3, noCache: 3, cacheRead: undefined, cacheWrite: undefined },
@@ -183,7 +184,7 @@ it("does not fetch a page after web_search is denied in the same step", async ()
     },
   });
   // The web_search denial latch is a fact the web module declares.
-  const confirmation = createToolConfirmation(output, { toolPermissions: name => moduleHost.toolPermissions.get(name) });
+  const confirmation = createToolConfirmation(output, { toolPermissions: builtinToolPermissions() });
   confirmation.beginRun();
   const model = new MockLanguageModelV3({
     doStream: async (options) => {

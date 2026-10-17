@@ -112,6 +112,7 @@ apps/telegram ┘        (领域：记忆/任务/上下文/沉淀，扩展 API)
   - 已完成（A2 第 2 步）：`ModuleContext` 增加 `registerTool(tool, permission?)`（权限事实：授权范围取自哪个参数的网页来源、可按范围记住、可被 `/authorize-web` 按来源授权、拒绝后本 Run 连带拒绝哪些工具）、`addInstructions`、`isAssembled`；`ModuleHost` 汇总出 `toolPermissions`、`toolModules`（工具归属）、`instructions(moduleId)`。web 模块先迁：指令片段从 `app.ts` 原样搬入模块（8 种配置组合下与迁移前逐字一致），`web_fetch`/`web_search` 的来源授权、记住、拒绝连锁改由模块声明，`tool-confirmation.ts` 不再出现 `web_*`/`feed_*` 名字，`/authorize-web` 按是否有工具声明来源授权来注册；`capability-status.ts` 改为按工具的注册归属分组，不再按名字前缀。权限快照不变。
   - A2 第 3 步（逐个模块迁移，每个模块单独验证、单独提交；权限快照保持不变，指令文本与迁移前逐字一致）：
     - 番茄钟：权限事实新增 `defaults.approval: "auto"`（任何 agent 都不需 y/n），`tool-confirmation.ts` 的番茄钟名单删除；指令片段移入模块。
+    - 文件：工具声明 `scope: workspacePath/path`、`runAuthorization: "scope"`（`/authorize` 与配置 `fileAuthorizations` 只认声明了路径授权的工具）、`autonomy: "allow"`（自主执行时放行）、写/改按目录记住（`remember: "scope"`），以及 read/write/edit 的确认卡内容；`RUN_AUTHORIZED_FILE_TOOLS` 移到文件模块（配置格式仍用它校验），`createPermissionExtension` 去掉 `fileToolsEnabled`，`/authorize` 按声明注册；web 的 `runAuthorization` 统一为 `"scope"`；指令片段移入模块。唯一可见差异：`/authorize` 填错工具名时提示里的工具顺序改为注册顺序（read_file, list_directory, search_files, write_file, edit_file），已加测试锁定。
   - 调整：群聊 bot 开线时间从「第 3 步完成后」推迟到「个人 agent 重构完成、日常稳定后（至少 4.5 之后）」，见 §4.2。A1–A3 仍按原步骤验收。
 
 ## 4.2 未来：群聊 bot（独立线）

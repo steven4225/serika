@@ -296,7 +296,7 @@ describe("createWebModule", () => {
   it("declares web_fetch origin scope and the web_search denial latch as facts", () => {
     const host = createModuleHost([createWebModule({ searchEnabled: true, feedEnabled: true })], { notify() {} });
     assert.deepEqual(Object.fromEntries(host.toolPermissions), {
-      web_fetch: { scope: { kind: "origin", argument: "url" }, defaults: { remember: "scope", runAuthorization: "origin" } },
+      web_fetch: { scope: { kind: "origin", argument: "url" }, defaults: { remember: "scope", runAuthorization: "scope" } },
       web_search: { denialBlocksForRun: ["web_fetch", "feed_read"] },
     });
     assert.deepEqual([...host.toolModules.values()], ["web", "web", "web"]);

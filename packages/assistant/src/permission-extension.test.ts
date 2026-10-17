@@ -4,12 +4,12 @@ import { describe, it } from "node:test";
 import type { BeforeToolExecuteInput } from "@serika/core";
 import { createPermissionExtension } from "./permission-extension.js";
 import { createModuleHost } from "./module-host.js";
-import { createWebModule } from "./modules/web-module.js";
+import { createReadFileModule } from "./modules/read-file-module.js";
+import { builtinToolPermissions } from "./testing.js";
 
 type PermissionOptions = Parameters<typeof createPermissionExtension>[1];
 
-/** The web module's declared permission facts, as the host collects them. */
-const webPermissions = createModuleHost([createWebModule({ searchEnabled: true, feedEnabled: true })], { notify() {} }).toolPermissions;
+const fileFacts = createModuleHost([createReadFileModule("/tmp/ws")], { notify() {} }).toolPermissions;
 
 function sink(): Writable & { text: string } {
   const stream = new Writable({ write(chunk, _encoding, done) { stream.text += String(chunk); done(); } }) as Writable & { text: string };
@@ -25,7 +25,6 @@ const base: PermissionOptions = {
   prompt: () => undefined,
   workspaceRoot: undefined,
   fileAuthorizations: [],
-  fileToolsEnabled: false,
   shell: { enabled: false, sandbox: undefined },
   web: { enabled: false, searchEnabled: false },
   report: undefined,
@@ -60,9 +59,16 @@ describe("permission extension", () => {
     const names = (options: Partial<PermissionOptions>) =>
       (createPermissionExtension(sink(), { ...base, ...options }).commands ?? []).map(command => command.name);
     assert.deepEqual(names({}), []);
-    assert.deepEqual(names({ fileToolsEnabled: true }), [], "file grants need a workspace");
-    assert.deepEqual(names({ fileToolsEnabled: true, workspaceRoot: "/tmp/ws", shell: { enabled: true, sandbox: undefined },
-      web: { enabled: true, searchEnabled: false }, toolPermissions: webPermissions, report: { configPath: null, workspaceRoot: "/tmp/ws" } }),
+    assert.deepEqual(names({ toolPermissions: fileFacts }), [], "file grants need a workspace");
+    assert.deepEqual(names({ workspaceRoot: "/tmp/ws", shell: { enabled: true, sandbox: undefined },
+      web: { enabled: true, searchEnabled: false }, toolPermissions: builtinToolPermissions(), report: { configPath: null, workspaceRoot: "/tmp/ws" } }),
     ["authorize", "authorize-shell", "authorize-web", "permissions"]);
+  });
+  it("lists the tools that declared path authorization when /authorize names another tool", async () => {
+    const output = sink();
+    const permission = createPermissionExtension(output, { ...base, workspaceRoot: "/tmp/ws", toolPermissions: fileFacts });
+    await permission.commands!.find(command => command.name === "authorize")!.execute("shell_exec src");
+    assert.equal(output.text,
+      "\n[authorize] Only these tools can be authorized for one Run: read_file, list_directory, search_files, write_file, edit_file\n");
   });
 });

@@ -65,7 +65,7 @@ test("pomodoro_start is auto-allowed: no 'has not run yet' banner and no confirm
   const { output, text } = capture();
   // Auto approval is a fact the pomodoro module declares.
   const facts = createModuleHost([createPomodoroModule()], { notify() {} }).toolPermissions;
-  const confirmation = createToolConfirmation(output, { toolPermissions: name => facts.get(name) });
+  const confirmation = createToolConfirmation(output, { toolPermissions: facts });
 
   const decision = await (confirmation.beforeToolExecute(
     toolInput("pomodoro_start", { durationMinutes: 25 }),

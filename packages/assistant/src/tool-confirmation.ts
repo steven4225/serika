@@ -48,7 +48,6 @@ export interface RememberedGrant {
 
 export type ToolRiskLookup = (toolName: string) => string | undefined;
 /** Permission facts the registering module declared for a tool. */
-export type ToolPermissionLookup = (toolName: string) => ToolPermissionFacts | undefined;
 
 /** One tool call awaiting a user decision. The preview may still be loading. */
 export interface PendingToolApproval {
@@ -65,21 +64,11 @@ export interface PendingToolApproval {
  * actual sandbox. Host execution must continue to ask for every call. */
 export type ShellSandboxMode = "none" | "host" | "docker";
 
-export const RUN_AUTHORIZED_FILE_TOOLS = [
-  "list_directory",
-  "search_files",
-  "read_file",
-  "write_file",
-  "edit_file",
-] as const;
-
-export type RunAuthorizedFileTool = (typeof RUN_AUTHORIZED_FILE_TOOLS)[number];
-
 /** A non-persistent file-tool rule that applies to one subsequent Run. */
 export interface RunAuthorization {
   workspaceRoot: string;
   allowedPaths: readonly string[];
-  tools: readonly RunAuthorizedFileTool[];
+  tools: readonly string[];
   lifetime: "run";
 }
 
@@ -107,25 +96,29 @@ function abortReason(signal: AbortSignal): unknown {
   return signal.reason ?? new DOMException("Agent operation aborted", "AbortError");
 }
 
-function readFilePath(input: unknown): string | undefined {
-  if (typeof input !== "object" || input === null || !("path" in input)) {
+function stringArgument(input: unknown, argument: string): string | undefined {
+  if (typeof input !== "object" || input === null || !(argument in input)) {
     return undefined;
   }
-  const path = (input as { path?: unknown }).path;
-  return typeof path === "string" ? path : undefined;
+  const value = (input as Record<string, unknown>)[argument];
+  return typeof value === "string" ? value : undefined;
 }
 
-function toolPath(input: unknown): string {
-  if (typeof input !== "object" || input === null || !("path" in input)) {
-    return ".";
-  }
-  const path = (input as { path?: unknown }).path;
-  return typeof path === "string" && path.length > 0 ? path : ".";
+/** A tool's declared workspace path argument, or `.` when it is missing or empty. */
+function scopedPath(facts: ToolPermissionFacts | undefined, input: unknown): string {
+  const path = facts?.scope?.kind === "workspacePath" ? stringArgument(input, facts.scope.argument) : undefined;
+  return path !== undefined && path.length > 0 ? path : ".";
+}
+
+/** Whether a tool's facts make it eligible for a one-Run workspace path rule. */
+function pathAuthorizable(facts: ToolPermissionFacts | undefined): boolean {
+  return facts?.defaults?.runAuthorization === "scope" && facts.scope?.kind === "workspacePath";
 }
 
 function normalizeAuthorization(
   rule: RunAuthorizationInput,
   defaultWorkspaceRoot: string | undefined,
+  facts: (toolName: string) => ToolPermissionFacts | undefined,
 ): RunAuthorization {
   if (rule.lifetime !== "run") {
     throw new Error('Only lifetime "run" is supported');
@@ -138,7 +131,7 @@ function normalizeAuthorization(
   const tools = [...new Set(rule.tools)];
   if (tools.length === 0) throw new Error("At least one file tool is required");
   for (const toolName of tools) {
-    if (!(RUN_AUTHORIZED_FILE_TOOLS as readonly string[]).includes(toolName)) {
+    if (!pathAuthorizable(facts(toolName))) {
       throw new Error(`Tool is not eligible for run authorization: ${toolName}`);
     }
   }
@@ -153,7 +146,7 @@ function normalizeAuthorization(
   return {
     workspaceRoot,
     allowedPaths: [...new Set(allowedPaths)],
-    tools: tools as RunAuthorizedFileTool[],
+    tools,
     lifetime: "run",
   };
 }
@@ -165,12 +158,13 @@ function pathWithin(candidate: string, allowed: string): boolean {
 function authorizationAllows(
   authorization: RunAuthorization | undefined,
   input: BeforeToolExecuteInput,
+  facts: ToolPermissionFacts | undefined,
 ): boolean {
   if (authorization === undefined) return false;
   if (!(authorization.tools as readonly string[]).includes(input.toolName)) return false;
   const requested = validateWorkspacePath(
     authorization.workspaceRoot,
-    toolPath(input.input),
+    scopedPath(facts, input.input),
   );
   if (!requested.ok) return false;
   return authorization.allowedPaths.some((allowed) =>
@@ -203,11 +197,8 @@ function normalizeWebOrigin(origin: string): string {
 }
 
 function inputOrigin(input: unknown, argument: string): string | undefined {
-  if (typeof input !== "object" || input === null || !(argument in input)) {
-    return undefined;
-  }
-  const value = (input as Record<string, unknown>)[argument];
-  if (typeof value !== "string") return undefined;
+  const value = stringArgument(input, argument);
+  if (value === undefined) return undefined;
   try {
     const parsed = new URL(value);
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return undefined;
@@ -227,7 +218,7 @@ function webAuthorizationAllows(
   input: BeforeToolExecuteInput,
   facts: ToolPermissionFacts | undefined,
 ): boolean {
-  if (authorization === undefined || facts?.defaults?.runAuthorization !== "origin") return false;
+  if (authorization === undefined || facts?.defaults?.runAuthorization !== "scope") return false;
   const origin = scopedOrigin(facts, input.input);
   return origin !== undefined && authorization.allowedOrigins.includes(origin);
 }
@@ -235,6 +226,7 @@ function webAuthorizationAllows(
 function confirmationPrompt(
   toolName: string,
   input: unknown,
+  facts: ToolPermissionFacts | undefined,
   shellSandboxMode: ShellSandboxMode = "none",
 ): string {
   if (toolName === "shell_exec" && typeof input === "object" && input !== null) {
@@ -256,39 +248,8 @@ function confirmationPrompt(
       "Allow this call? [y/n] "
     );
   }
-  const path = toolName === "read_file" ? readFilePath(input) : undefined;
-  if (path !== undefined) {
-    return (
-      `\nTool: ${toolName}\n` +
-      `Path: ${JSON.stringify(path)}\n` +
-      "Reading this file will place its contents in the model context and the " +
-      "completed run's committed transcript.\n" +
-      "Allow this call? [y/n] "
-    );
-  }
-  if (toolName === "write_file" && typeof input === "object" && input !== null) {
-    const writeInput = input as { path?: unknown; content?: unknown };
-    return (
-      `\nTool: ${toolName}\n` +
-      `Path: ${JSON.stringify(writeInput.path)}\n` +
-      `Content: ${JSON.stringify(writeInput.content)}\n` +
-      "Allow this call? [y/n] "
-    );
-  }
-  if (toolName === "edit_file" && typeof input === "object" && input !== null) {
-    const editInput = input as {
-      path?: unknown;
-      oldText?: unknown;
-      newText?: unknown;
-    };
-    return (
-      `\nTool: ${toolName}\n` +
-      `Path: ${JSON.stringify(editInput.path)}\n` +
-      `Old text: ${JSON.stringify(editInput.oldText)}\n` +
-      `New text: ${JSON.stringify(editInput.newText)}\n` +
-      "Allow this call? [y/n] "
-    );
-  }
+  const detail = facts?.confirmation?.(input);
+  if (detail !== undefined) return `\nTool: ${toolName}\n${detail}Allow this call? [y/n] `;
   return `\nTool: ${toolName}\nInput: ${JSON.stringify(input)}\nAllow this call? [y/n] `;
 }
 
@@ -299,8 +260,8 @@ const MAX_REMEMBERED_GRANTS = 64;
 
 type GrantCandidate = Omit<RememberedGrant, "id">;
 
-function fileDirectory(workspaceRoot: string, input: unknown): string | undefined {
-  const validated = validateWorkspacePath(workspaceRoot, readFilePath(input));
+function fileDirectory(workspaceRoot: string, path: string | undefined): string | undefined {
+  const validated = validateWorkspacePath(workspaceRoot, path);
   if (!validated.ok || validated.relativePath === "") return undefined;
   const directory = dirname(validated.relativePath);
   return directory === "." ? "" : directory;
@@ -316,9 +277,9 @@ function grantCandidate(
   const agentId = input.definition.id;
   if (NEVER_REMEMBERED_TOOLS.has(toolName) ||
     NEVER_REMEMBERED_PREFIXES.some((prefix) => toolName.startsWith(prefix))) return undefined;
-  if (toolName === "write_file" || toolName === "edit_file") {
+  if (facts?.defaults?.remember === "scope" && facts.scope?.kind === "workspacePath") {
     if (workspaceRoot === undefined) return undefined;
-    const scope = fileDirectory(workspaceRoot, input.input);
+    const scope = fileDirectory(workspaceRoot, stringArgument(input.input, facts.scope.argument));
     if (scope === undefined) return undefined;
     const place = scope === "" ? "工作区根目录" : `${scope}${sep}`;
     return { agentId, toolName, kind: "directory", scope,
@@ -361,14 +322,14 @@ export function createToolConfirmation(
     shellSandboxMode?: ShellSandboxMode;
     /** Declared tool risk; only read-risk tools can be remembered by name. */
     toolRisk?: ToolRiskLookup;
-    /** Permission facts declared by the registering modules. */
-    toolPermissions?: ToolPermissionLookup;
+    /** Permission facts the assembled modules declared, by tool name. */
+    toolPermissions?: ReadonlyMap<string, ToolPermissionFacts>;
   } = {},
 ): ToolConfirmation {
   let pending: PendingConfirmation | undefined;
   /** Tools denied for the rest of this Run because a declared denial blocks them, with the reason. */
   const blockedThisRun = new Map<string, string>();
-  const facts = (toolName: string) => options.toolPermissions?.(toolName);
+  const facts = (toolName: string) => options.toolPermissions?.get(toolName);
   let nextRunAuthorization: RunAuthorization | undefined;
   let activeRunAuthorization: RunAuthorization | undefined;
   let nextShellAuthorization = false;
@@ -381,7 +342,7 @@ export function createToolConfirmation(
   const remembered: RememberedGrant[] = [];
   const pendingListeners = new Set<(pending: PendingToolApproval | undefined) => void>();
   const persistentAuthorizations = (options.persistentAuthorizations ?? []).map(
-    (rule) => normalizeAuthorization(rule, options.workspaceRoot),
+    (rule) => normalizeAuthorization(rule, options.workspaceRoot, facts),
   );
 
   const getPending = (): PendingToolApproval | undefined =>
@@ -440,8 +401,7 @@ export function createToolConfirmation(
         reason: blockedReason,
       });
     }
-    if (activeAutonomy && (input.toolName === "shell_exec" ||
-      (RUN_AUTHORIZED_FILE_TOOLS as readonly string[]).includes(input.toolName))) {
+    if (activeAutonomy && (input.toolName === "shell_exec" || facts(input.toolName)?.defaults?.autonomy === "allow")) {
       return Promise.resolve({ allow: true });
     }
     if (activeShellAuthorization && input.toolName === "shell_exec") {
@@ -451,8 +411,8 @@ export function createToolConfirmation(
       return Promise.resolve({ allow: true });
     }
     if (
-      authorizationAllows(activeRunAuthorization, input) ||
-      persistentAuthorizations.some((rule) => authorizationAllows(rule, input))
+      authorizationAllows(activeRunAuthorization, input, facts(input.toolName)) ||
+      persistentAuthorizations.some((rule) => authorizationAllows(rule, input, facts(input.toolName)))
     ) {
       return Promise.resolve({ allow: true });
     }
@@ -538,14 +498,14 @@ export function createToolConfirmation(
     if (customPrompt instanceof Promise) {
       void customPrompt.then(
         (text) =>
-          writePrompt(text ?? confirmationPrompt(input.toolName, input.input, options.shellSandboxMode)),
+          writePrompt(text ?? confirmationPrompt(input.toolName, input.input, facts(input.toolName), options.shellSandboxMode)),
         (error: unknown) => {
           clearPending(entry);
           reject(error);
         },
       );
     } else {
-      writePrompt(customPrompt ?? confirmationPrompt(input.toolName, input.input, options.shellSandboxMode));
+      writePrompt(customPrompt ?? confirmationPrompt(input.toolName, input.input, facts(input.toolName), options.shellSandboxMode));
     }
     return decision;
   };
@@ -599,7 +559,7 @@ export function createToolConfirmation(
   };
 
   const setPendingAuthorization = (rule: RunAuthorizationInput): void => {
-    nextRunAuthorization = normalizeAuthorization(rule, options.workspaceRoot);
+    nextRunAuthorization = normalizeAuthorization(rule, options.workspaceRoot, facts);
   };
 
   const setPendingShellAuthorization = (): void => {

@@ -5,7 +5,6 @@ import type { DockerShellSandboxConfig } from "./modules/docker-shell-runner.js"
 import type { RuntimeExtension } from "./runtime-extension.js";
 import {
   createToolConfirmation,
-  RUN_AUTHORIZED_FILE_TOOLS,
   type ToolConfirmation,
   type ToolConfirmationPrompt,
   type ToolRiskLookup,
@@ -28,8 +27,6 @@ export function createPermissionExtension(output: Writable, options: {
   workspaceRoot: string | undefined;
   /** Explicit `fileAuthorizations` from the trusted config; they load once. */
   fileAuthorizations: readonly FileAuthorizationRule[];
-  /** File tools are registered, so `/authorize` can grant them for one Run. */
-  fileToolsEnabled: boolean;
   shell: { enabled: boolean; sandbox: DockerShellSandboxConfig | undefined };
   /** Only for the `/permissions` report. */
   web: { enabled: boolean; searchEnabled: boolean };
@@ -52,7 +49,7 @@ export function createPermissionExtension(output: Writable, options: {
     ...(workspaceRoot !== undefined ? { workspaceRoot } : {}),
     shellSandboxMode: shellSandbox === undefined ? "host" : "docker",
     ...(options.toolRisk ? { toolRisk: options.toolRisk } : {}),
-    ...(options.toolPermissions ? { toolPermissions: (name: string) => options.toolPermissions!.get(name) } : {}),
+    ...(options.toolPermissions ? { toolPermissions: options.toolPermissions } : {}),
     ...(fileAuthorizations.length > 0
       ? {
           persistentAuthorizations: fileAuthorizations.map(
@@ -72,7 +69,12 @@ export function createPermissionExtension(output: Writable, options: {
   };
 
   const commands: ModuleCommand[] = [];
-  if (options.fileToolsEnabled && workspaceRoot !== undefined) {
+  const declared = [...(options.toolPermissions ?? new Map<string, ToolPermissionFacts>())];
+  const scopeAuthorizable = (kind: "origin" | "workspacePath") => declared.flatMap(([name, facts]) =>
+    facts.defaults?.runAuthorization === "scope" && facts.scope?.kind === kind ? [name] : []);
+  // `/authorize` exists only when an assembled tool declares workspace path authorization.
+  const pathTools = scopeAuthorizable("workspacePath");
+  if (pathTools.length > 0 && workspaceRoot !== undefined) {
     commands.push({
       name: "authorize",
       execute(args) {
@@ -90,17 +92,17 @@ export function createPermissionExtension(output: Writable, options: {
           toolsToAuthorize.length === 0 ||
           toolsToAuthorize.some(
             (toolName) =>
-              !(RUN_AUTHORIZED_FILE_TOOLS as readonly string[]).includes(toolName),
+              !pathTools.includes(toolName),
           )
         ) {
           output.write(
-            `\n[authorize] Only these tools can be authorized for one Run: ${RUN_AUTHORIZED_FILE_TOOLS.join(", ")}\n`,
+            `\n[authorize] Only these tools can be authorized for one Run: ${pathTools.join(", ")}\n`,
           );
           return;
         }
         try {
           confirmation.setPendingAuthorization({
-            tools: toolsToAuthorize as (typeof RUN_AUTHORIZED_FILE_TOOLS)[number][],
+            tools: toolsToAuthorize,
             allowedPaths,
             lifetime: "run",
           });
@@ -135,8 +137,7 @@ export function createPermissionExtension(output: Writable, options: {
     });
   }
   // `/authorize-web` exists only when an assembled tool declares origin authorization.
-  const originTools = [...(options.toolPermissions ?? new Map<string, ToolPermissionFacts>())]
-    .flatMap(([name, facts]) => facts.defaults?.runAuthorization === "origin" ? [name] : []);
+  const originTools = scopeAuthorizable("origin");
   if (originTools.length > 0) {
     commands.push({
       name: "authorize-web",
