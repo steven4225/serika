@@ -16,12 +16,13 @@ const usage = {
   outputTokens: { total: 1, text: 1, reasoning: undefined },
 };
 
+// Review-mode contracts stay supported when configured explicitly (v2 default is automatic).
 async function fixture(autoConsolidate = false) {
   const root = await mkdtemp(join(tmpdir(), "runloom-memory-app-b-"));
   const workspace = join(root, "workspace");
   await mkdir(workspace);
   const configPath = join(root, "config.json");
-  await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: true, autoConsolidate } } }));
+  await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: true, autoConsolidate, ...(autoConsolidate ? { writePolicy: "review" } : {}) } } }));
   return { root, workspace, configPath, args: ["--tui", join(root, "transcripts"), "--thread", "memory-app-b", "--config", configPath] };
 }
 

@@ -501,7 +501,8 @@ async function resolveConfiguredMode(
     enabled.web && (config.modules.web?.feed?.enabled ?? false);
 
   const autoConsolidate = config.modules.memory?.autoConsolidate ?? false;
-  const memoryWritePolicy = config.modules.memory?.writePolicy ?? "review";
+  const explicitWritePolicy = config.modules.memory?.writePolicy;
+  let memoryWritePolicy: "review" | "automatic" = explicitWritePolicy ?? "review";
   if (memoryWritePolicy === "automatic" && (!enabled.memory || !autoConsolidate)) {
     throw new Error("memory.writePolicy automatic requires memory.enabled and autoConsolidate");
   }
@@ -574,6 +575,12 @@ async function resolveConfiguredMode(
         "TUI config with sandbox, fileAuthorizations, computer, automatic memory, automation or foreground autonomy must be outside the workspace",
       );
     }
+  }
+  // v2: automatic writes are the default when consolidation is on, but only for a
+  // config outside the workspace (same trust boundary as an explicit "automatic").
+  if (explicitWritePolicy === undefined && enabled.memory && autoConsolidate &&
+    (workspaceRoot === null || !isPathWithin(workspaceRoot, await realpath(absoluteConfigPath)))) {
+    memoryWritePolicy = "automatic";
   }
   const todoistTimeZone = enabled.todoist
     ? normalizeTodoistTimeZone(

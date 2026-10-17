@@ -36,15 +36,21 @@ async function writeConfig(
 }
 
 describe("resolveTuiModuleConfig", () => {
-  it("requires explicit trusted automatic-memory policy and preserves review defaults", async () => {
+  it("defaults trusted consolidating configs to automatic memory and keeps workspace-local configs in review", async () => {
     const { configDirectory, workspace } = await createConfigWorkspace();
     const config = { version: 1, workspace: "./workspace", modules: { memory: { enabled: true, autoConsolidate: true, writePolicy: "automatic" } } };
     const path = await writeConfig(configDirectory, config);
     assert.equal((await resolveTuiModuleConfig(configArgs(path), { cwd: configDirectory })).memoryWritePolicy, "automatic");
     const inside = await writeConfig(workspace, { ...config, workspace: "." });
     await assert.rejects(resolveTuiModuleConfig(configArgs(inside), { cwd: workspace }), /outside the workspace/);
-    const noAutomatic = await writeConfig(configDirectory, { ...config, modules: { memory: { enabled: true, autoConsolidate: true } } }, "review.json");
-    assert.equal((await resolveTuiModuleConfig(configArgs(noAutomatic), { cwd: configDirectory })).memoryWritePolicy, "review");
+    const implicit = await writeConfig(configDirectory, { ...config, modules: { memory: { enabled: true, autoConsolidate: true } } }, "implicit.json");
+    assert.equal((await resolveTuiModuleConfig(configArgs(implicit), { cwd: configDirectory })).memoryWritePolicy, "automatic");
+    const implicitInside = await writeConfig(workspace, { ...config, workspace: ".", modules: { memory: { enabled: true, autoConsolidate: true } } }, "implicit-inside.json");
+    assert.equal((await resolveTuiModuleConfig(configArgs(implicitInside), { cwd: workspace })).memoryWritePolicy, "review");
+    const explicitReview = await writeConfig(configDirectory, { ...config, modules: { memory: { enabled: true, autoConsolidate: true, writePolicy: "review" } } }, "review.json");
+    assert.equal((await resolveTuiModuleConfig(configArgs(explicitReview), { cwd: configDirectory })).memoryWritePolicy, "review");
+    const noConsolidation = await writeConfig(configDirectory, { ...config, modules: { memory: { enabled: true } } }, "manual.json");
+    assert.equal((await resolveTuiModuleConfig(configArgs(noConsolidation), { cwd: configDirectory })).memoryWritePolicy, "review");
     for (const memory of [
       { enabled: false, autoConsolidate: true, writePolicy: "automatic" },
       { enabled: true, autoConsolidate: false, writePolicy: "automatic" },
