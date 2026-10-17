@@ -10,6 +10,7 @@ import { createRuntimeApp } from "@serika/example-cli";
 import { createAssistantController } from "@serika/example-cli";
 import { RuntimeBridge, TeeOutput } from "./runtime-bridge.js";
 import { IPC, type MainToRenderer } from "../shared/ui-contract.js";
+import { IPC_FORWARDS, forwardChannel } from "../shared/ipc-forwards.js";
 
 const usage = { inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 1, text: 1, reasoning: undefined } };
 async function until(check: () => boolean) {
@@ -32,7 +33,8 @@ it("wires a distinct typed Steer IPC route and strips renderer authority", async
   const preload = await readFile(new URL("../preload/index.ts", import.meta.url), "utf8");
   assert.match(main, /ipcMain\.handle\(IPC\.steer,.*drafts\.steer\(input\)/);
   assert.match(preload, /steer: input => ipcRenderer\.invoke\(IPC\.steer, input\)/);
-  assert.notEqual(IPC.steer, IPC.run);
+  assert.equal(IPC_FORWARDS.current.run, 2);
+  assert.notEqual(IPC.steer, forwardChannel("current", "run"));
 });
 
 it("supersedes pending approval in the same Run, persists statuses, and never authorizes the replacement", async () => {

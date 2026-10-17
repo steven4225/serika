@@ -91,6 +91,7 @@ apps/telegram ┘        (领域：记忆/任务/上下文/沉淀，扩展 API)
   - 没做：`beforeToolExecute` 抛错仍让 Run 失败（fail closed）。工具执行失败、拒绝、参数无效本来就编码成工具结果消息；precheck 自身出错不是模型能修的问题，改成消息只会让模型重试。
 - 第 3 步（进行中）：
   - 已完成：桌面端对 `example-cli` 内部文件的引用 44 个模块 → 0。`example-cli` 只开放显式列出的公开入口：`.`（`src/api.ts`，宿主用）、`./browser`（`src/browser.ts`，不含 Node 依赖，渲染进程运行时只能从这里取值）、`./testing`（测试夹具）、`./task-worker-entry`（worker 进程入口）。`./internal/*.js` 只留给 `examples/eval` 这类内部评测。`apps/desktop/src/main/package-boundary.test.ts` 防止回退。
+  - 已完成：桌面端 IPC 纯转发方法（77 个：当前会话 56、宿主 21）改为一张表 `apps/desktop/src/shared/ipc-forwards.ts`，主进程 `registerForwardedIpc` 和 preload 都由表生成，`ui-contract.ts` 不再为它们各写一个通道常量。新增一个直通方法从改 6 处变成改 3 处（实现、`RendererApi` 声明、表里一行）。有参数校验、副作用或拼装逻辑的通道仍然手写。常驻进程的 `RESIDENT_*` 方法列表是安全白名单，没有并进这张表。
 
 ## 4.2 未来：群聊 bot（独立线）
 

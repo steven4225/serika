@@ -5,12 +5,12 @@ import { defaultUserDataPath, userDataPathFromEnv } from "./user-data-path.js";
 import { app, BrowserWindow, ipcMain, Notification, shell, dialog } from "electron";
 import { createDemoModel } from "@serika/example-cli";
 import { configureCliModel, inspectCliModelConfig } from "@serika/example-cli";
-import type { CandidateListInput, CandidateResolveInput } from "@serika/example-cli";
-import { IPC, type ConfirmInput, type MainToRenderer } from "../shared/ui-contract.js";
-import type { WorkTaskInputs, WorkTaskReadInput, WorkTaskArtifactInput } from "../shared/work-tasks.js";
+import type { CandidateListInput } from "@serika/example-cli";
+import { IPC, type MainToRenderer } from "../shared/ui-contract.js";
 import { parseModuleNotification } from "./runtime-bridge.js";
 import { moduleNotificationCopy } from "../shared/human-title.js";
 import { RuntimeOwnership } from "./runtime-ownership.js";
+import { registerForwardedIpc } from "./ipc-forwards.js";
 import { restoreBackup, previewBackup } from "./backup.js";
 import type { RestoreResult } from "../shared/backup.js";
 import { ConversationDraftStore } from "./conversation-draft-store.js";
@@ -23,7 +23,6 @@ import { configureBundledNotifications } from "./bundled-notifications.js";
 import { parseTaskResultLink } from "@serika/example-cli";
 import { openTaskNotificationResult } from "./task-notification-route.js";
 import { installDesktopFrontmostHint } from "./desktop-frontmost-hint.js";
-import type { RssAction } from "@serika/example-cli";
 // Native icons need true transparent corners and optical padding. The avatar
 // stays full-size in the renderer; do not use its opaque square in the Dock.
 import appIconPath from "../../resources/serika-dock.png?asset";
@@ -157,7 +156,6 @@ async function main(): Promise<void> {
   let rejectStartup!: (error: Error) => void;
   const startup = new Promise<void>((resolve, reject) => { resolveStartup = resolve; rejectStartup = reject; });
   void startup.catch(() => undefined);
-  ipcMain.handle(IPC.pomodoro, (_event, action, minutes) => host.pomodoro(action, minutes));
   ipcMain.handle(IPC.info, async () => { await startup; return host.info(); });
   ipcMain.handle(IPC.taskResultOpen, async () => {
     await startup;
@@ -191,8 +189,6 @@ async function main(): Promise<void> {
     ipcMain.handle(IPC.notificationStatus, () => notifications().status());
     ipcMain.handle(IPC.notificationTest, () => notifications().test());
     ipcMain.handle(IPC.notificationSettings, () => openSystemNotificationSettings(url => shell.openExternal(url)));
-    ipcMain.handle(IPC.residentStatus, () => host.residentStatus());
-    ipcMain.handle(IPC.residentEnabled, (_event, enabled: unknown) => host.setResidentEnabled(enabled));
   } catch (error) {
     const message = safeStartupError(error, process.env);
     rejectStartup(new Error(message));
@@ -204,64 +200,13 @@ async function main(): Promise<void> {
   }
 
   const drafts = new ConversationDraftSession(host, new ConversationDraftStore(app.getPath("userData")));
-  ipcMain.handle(IPC.telegramStatus, () => host.telegramStatus());
-  ipcMain.handle(IPC.telegramAutonomyEnabled, (_event, input) => host.setTelegramAutonomyEnabled(input));
-  ipcMain.handle(IPC.telegramEnabled, (_event, enabled: boolean) => host.setTelegramEnabled(enabled));
-  ipcMain.handle(IPC.telegramPairing, () => host.beginTelegramPairing());
-  ipcMain.handle(IPC.telegramBind, (_event, code: string) => host.confirmTelegramPairing(code));
-  ipcMain.handle(IPC.telegramReview, (_event, input) => host.reviewTelegramInput(input));
-  ipcMain.handle(IPC.telegramTaskRoute, (_event, input) => host.setTelegramTaskRoute(input));
-  ipcMain.handle(IPC.telegramRetryDelivery, (_event, key) => host.retryTelegramDelivery(key));
-  ipcMain.handle(IPC.telegramResolveDelivery, (_event, input) => host.resolveTelegramDelivery(input));
+  // Plain method forwards (see shared/ipc-forwards.ts); registered only after the runtime owner exists.
+  registerForwardedIpc(ipcMain, host);
   ipcMain.handle(IPC.draftLoad, (_event, scope) => drafts.load(scope));
   ipcMain.handle(IPC.draftSave, (_event, scope, draft) => drafts.save(scope, draft));
   ipcMain.handle(IPC.taskDraftSave, (_event, scope, update) => drafts.saveTask(scope, update));
   ipcMain.handle(IPC.steerAcknowledge, (_event, scope, id) => drafts.acknowledge(scope, id));
   ipcMain.handle(IPC.steerRelease, (_event, scope, id) => drafts.release(scope, id));
-  ipcMain.handle(IPC.retryConnection, () => host.retryConnection());
-  ipcMain.handle(IPC.threadsList, (_event, query) => host.listThreads(query));
-  ipcMain.handle(IPC.threadCreate, (_event, options) => host.createThread(options));
-  ipcMain.handle(IPC.threadSelect, (_event, threadId: string) => host.selectThread(threadId));
-  ipcMain.handle(IPC.memoryEnable, () => host.enableMemory());
-  ipcMain.handle(IPC.memoryConsolidate, (_event, input) => host.current.consolidateMemory(input));
-  ipcMain.handle(IPC.memoryConsolidationSources, (_event, offset) => host.current.listMemoryConsolidationSources(offset));
-  ipcMain.handle(IPC.snapshot, () => host.current.snapshot());
-  ipcMain.handle(IPC.rssGet, () => host.current.getRssSubscriptions());
-  ipcMain.handle(IPC.rssUpdate, (_event, input: RssAction) => host.current.updateRssSubscriptions(input));
-  ipcMain.handle(IPC.rssInbox, () => host.current.getRssInbox());
-  ipcMain.handle(IPC.rssAck, (_event, id: string) => host.current.acknowledgeRssResult(id));
-  ipcMain.handle(IPC.taskInbox, () => host.current.getTaskInbox());
-  ipcMain.handle(IPC.scheduledTask, (_event, id: string) => host.current.getScheduledTask(id));
-  ipcMain.handle(IPC.taskResultAck, (_event, id: string) => host.current.acknowledgeTaskResult(id));
-  ipcMain.handle(IPC.contextDiagnostics, () => host.current.getContextDiagnostics());
-  ipcMain.handle(IPC.contextMode, (_event, input) => host.setContextMode(input));
-  ipcMain.handle(IPC.moduleEnabled, (_event, input) => host.setModuleEnabled(input));
-  ipcMain.handle(IPC.automationDiagnostics, () => host.current.getAutomationDiagnostics());
-  ipcMain.handle(IPC.automationOverview, () => host.current.getAutomationOverview());
-  ipcMain.handle(IPC.scheduleSkill, (_event, input) => host.current.scheduleSkill(input));
-  ipcMain.handle(IPC.automationScheduleChange, (_event, input) => host.current.changeAutomationSchedule(input));
-  ipcMain.handle(IPC.dreamingOverview, () => host.current.getDreamingOverview());
-  ipcMain.handle(IPC.dream, () => host.current.dream());
-  ipcMain.handle(IPC.learnedSkillChange, (_event, input) => host.current.changeLearnedSkill(input));
-  ipcMain.handle(IPC.learnedSkillReferences, () => host.current.getLearnedSkillReferences());
-  ipcMain.handle(IPC.autonomyEnabled, (_event, input) => host.setAutonomyEnabled(input));
-  ipcMain.handle(IPC.dreamingEnabled, (_event, input) => host.setDreamingEnabled(input));
-  ipcMain.handle(IPC.runSkill, (_event, input) => host.current.runSkill(input));
-  ipcMain.handle(IPC.memoryLibraryGet, () => host.current.getMemoryLibrary());
-  ipcMain.handle(IPC.memoryDocumentRead, (_event, id) => host.current.readMemoryDocument(id));
-  ipcMain.handle(IPC.memoryLibraryChange, (_event, input) => host.current.changeMemoryLibrary(input));
-  ipcMain.handle(IPC.memoriesList, (_event, input) => host.current.listMemories(input));
-  ipcMain.handle(IPC.memoryGet, (_event, id) => host.current.getMemory(id));
-  ipcMain.handle(IPC.listRecipes, (_event, input) => host.current.listRecipes());
-  ipcMain.handle(IPC.changeRecipe, (_event, input) => host.current.changeRecipe(input));
-  ipcMain.handle(IPC.memoryUpdate, (_event, input) => host.current.updateMemory(input));
-  ipcMain.handle(IPC.memoryHistory, (_event, input) => host.current.getMemoryHistory(input));
-  ipcMain.handle(IPC.memoryPreview, (_event, input) => host.current.previewMemoryAction(input));
-  ipcMain.handle(IPC.memoryApply, (_event, input) => host.current.applyMemoryAction(input));
-  ipcMain.handle(IPC.memoryMaintenance, () => host.current.getMemoryMaintenance());
-  ipcMain.handle(IPC.memoryReferences, () => host.current.getMemoryReferences());
-  ipcMain.handle(IPC.history, () => host.current.history());
-  ipcMain.handle(IPC.historyPage, (_event, input) => host.current.historyPage(input));
   ipcMain.handle(IPC.backupData, async () => {
     if (host.current.snapshot().state.kind !== "idle") throw new Error("请等待当前执行或整理结束，再备份");
     const selected = await dialog.showSaveDialog(window, { title: "备份 Serika 数据", defaultPath: `Serika-${new Date().toISOString().replace(/[:.]/g, "-")}.serika-backup`, filters: [{ name: "Serika 数据备份", extensions: ["serika-backup"] }] });
@@ -317,29 +262,8 @@ async function main(): Promise<void> {
     restoreSelection = undefined;
     } finally { restoreWorking = false; }
   });
-  ipcMain.handle(IPC.home, () => host.current.home());
-  ipcMain.handle(IPC.run, (_event, text: string, options) => host.current.run(text, options));
   ipcMain.handle(IPC.steer, (_event, input) => drafts.steer(input));
-  ipcMain.handle(IPC.cancel, () => host.current.cancel());
-  ipcMain.handle(IPC.confirm, (_event, input: ConfirmInput) => host.current.confirm(input));
-  ipcMain.handle(IPC.command, (_event, line: string) => host.current.command(line));
-  ipcMain.handle(IPC.listRuns, () => host.current.listRuns());
-  ipcMain.handle(IPC.getRun, (_event, runId: string) => host.current.getRun(runId));
   ipcMain.handle(IPC.memoryCandidatesList, (_event, input?: CandidateListInput) => host.current.listMemoryCandidates(input));
-  ipcMain.handle(IPC.memoryCandidateGet, (_event, id: string) => host.current.getMemoryCandidate(id));
-  ipcMain.handle(IPC.memoryCandidateResolve, (_event, input: CandidateResolveInput) => host.current.resolveMemoryCandidate(input));
-  ipcMain.handle(IPC.createWorkTask, (_event, input: WorkTaskInputs["createWorkTask"]) => host.current.createWorkTask(input));
-  ipcMain.handle(IPC.listWorkTasks, () => host.current.listWorkTasks());
-  ipcMain.handle(IPC.getWorkTask, (_event, id: string) => host.current.getWorkTask(id));
-  ipcMain.handle(IPC.getWorkTaskDeliveryDraft, (_event, input: WorkTaskReadInput) => host.current.getWorkTaskDeliveryDraft(input));
-  ipcMain.handle(IPC.getWorkTaskContinuation, (_event, input: WorkTaskReadInput) => host.current.getWorkTaskContinuation(input));
-  ipcMain.handle(IPC.getWorkTaskArtifact, (_event, input: WorkTaskArtifactInput) => host.current.getWorkTaskArtifact(input));
-  ipcMain.handle(IPC.runWorkTask, (_event, input: WorkTaskInputs["runWorkTask"]) => host.current.runWorkTask(input));
-  ipcMain.handle(IPC.submitWorkTaskDelivery, (_event, input: WorkTaskInputs["submitWorkTaskDelivery"]) => host.current.submitWorkTaskDelivery(input));
-  ipcMain.handle(IPC.recordHumanAcceptance, (_event, input: WorkTaskInputs["recordHumanAcceptance"]) => host.current.recordHumanAcceptance(input));
-  ipcMain.handle(IPC.reconcileWorkTask, (_event, input: WorkTaskInputs["reconcileWorkTask"]) => host.current.reconcileWorkTask(input));
-  ipcMain.handle(IPC.cancelWorkTask, (_event, input: WorkTaskInputs["cancelWorkTask"]) => host.current.cancelWorkTask(input));
-  ipcMain.handle(IPC.requestWorkTaskChanges, (_event, input: WorkTaskInputs["requestWorkTaskChanges"]) => host.current.requestWorkTaskChanges(input));
   resolveStartup();
 
   app.on("before-quit", (event) => {

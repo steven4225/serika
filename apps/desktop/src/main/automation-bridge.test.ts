@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -10,7 +10,13 @@ import { createRuntimeApp } from "@serika/example-cli";
 import { createAssistantController } from "@serika/example-cli";
 import { RuntimeBridge, TeeOutput } from "./runtime-bridge.js";
 import { canSubmitComposer } from "../shared/composer.js";
-import { IPC, type MainToRenderer } from "../shared/ui-contract.js";
+import type { MainToRenderer } from "../shared/ui-contract.js";
+import { IPC_FORWARDS, forwardChannel } from "../shared/ipc-forwards.js";
+
+function pick(source: Record<string, number>, keys: string[]): Record<string, number | undefined> {
+  return Object.fromEntries(keys.map(key => [key, source[key]]));
+}
+
 
 const usage = {
   inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
@@ -72,20 +78,10 @@ async function fixture(model: MockLanguageModelV3, options: {
   return { root, bridge, messages };
 }
 
-it("wires automation metadata and pinned invocation through both IPC endpoints", async () => {
-  const preload = await readFile(new URL("../preload/index.ts", import.meta.url), "utf8");
-  const main = await readFile(new URL("./index.ts", import.meta.url), "utf8");
-  assert.match(preload, /getAutomationDiagnostics:.*ipcRenderer\.invoke\(IPC\.automationDiagnostics\)/);
-  assert.match(preload, /runSkill:.*ipcRenderer\.invoke\(IPC\.runSkill, input\)/);
-  assert.match(main, /ipcMain\.handle\(IPC\.automationDiagnostics,.*host\.current\.getAutomationDiagnostics\(\)/);
-  assert.match(main, /ipcMain\.handle\(IPC\.runSkill,.*host\.current\.runSkill\(input\)/);
-  assert.notEqual(IPC.automationDiagnostics, IPC.runSkill);
-  assert.match(preload, /getAutomationOverview:.*ipcRenderer\.invoke\(IPC\.automationOverview\)/);
-  assert.match(preload, /scheduleSkill:.*ipcRenderer\.invoke\(IPC\.scheduleSkill, input\)/);
-  assert.match(preload, /changeAutomationSchedule:.*ipcRenderer\.invoke\(IPC\.automationScheduleChange, input\)/);
-  assert.match(main, /ipcMain\.handle\(IPC\.automationOverview,.*host\.current\.getAutomationOverview\(\)/);
-  assert.match(main, /ipcMain\.handle\(IPC\.scheduleSkill,.*host\.current\.scheduleSkill\(input\)/);
-  assert.match(main, /ipcMain\.handle\(IPC\.automationScheduleChange,.*host\.current\.changeAutomationSchedule\(input\)/);
+it("wires automation metadata and pinned invocation through both IPC endpoints", () => {
+  assert.deepEqual(pick(IPC_FORWARDS.current, ["getAutomationDiagnostics", "runSkill", "getAutomationOverview", "scheduleSkill", "changeAutomationSchedule"]),
+    { getAutomationDiagnostics: 0, runSkill: 1, getAutomationOverview: 0, scheduleSkill: 1, changeAutomationSchedule: 1 });
+  assert.notEqual(forwardChannel("current", "getAutomationDiagnostics"), forwardChannel("current", "runSkill"));
 });
 
 it("saves and manages pinned Skill schedules through the real controller without running a model", async () => {

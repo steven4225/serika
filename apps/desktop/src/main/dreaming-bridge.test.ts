@@ -1,11 +1,16 @@
 import assert from "node:assert/strict";
-import { readFile, rm, mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { rm, mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { it } from "node:test";
 import { MockLanguageModelV3 } from "ai/test";
 import { DesktopRuntime } from "./desktop-runtime.js";
-import { IPC } from "../shared/ui-contract.js";
+import { IPC_FORWARDS, forwardChannel } from "../shared/ipc-forwards.js";
+
+function pick(source: Record<string, number>, keys: string[]): Record<string, number | undefined> {
+  return Object.fromEntries(keys.map(key => [key, source[key]]));
+}
+
 
 async function idle(host: DesktopRuntime) {
   const deadline = Date.now() + 5000;
@@ -15,16 +20,11 @@ async function idle(host: DesktopRuntime) {
   }
 }
 
-it("wires only named dreaming actions through IPC with no renderer source path", async () => {
-  const main = await readFile(new URL("./index.ts", import.meta.url), "utf8");
-  const preload = await readFile(new URL("../preload/index.ts", import.meta.url), "utf8");
-  for (const [method, endpoint] of [["getDreamingOverview", "dreamingOverview"], ["dream", "dream"], ["changeLearnedSkill", "learnedSkillChange"], ["getLearnedSkillReferences", "learnedSkillReferences"]]) {
-    assert.match(preload, new RegExp(`${method}:.*ipcRenderer\\.invoke\\(IPC\\.${endpoint}`));
-    assert.match(main, new RegExp(`ipcMain\\.handle\\(IPC\\.${endpoint},.*host\\.current\\.${method}\\(`));
-  }
-  assert.match(preload, /setDreamingEnabled:.*ipcRenderer\.invoke\(IPC\.dreamingEnabled, input\)/);
-  assert.match(main, /ipcMain\.handle\(IPC\.dreamingEnabled,.*host\.setDreamingEnabled\(input\)/);
-  assert.notEqual(IPC.dream, IPC.runSkill);
+it("wires only named dreaming actions through IPC with no renderer source path", () => {
+  assert.deepEqual(pick(IPC_FORWARDS.current, ["getDreamingOverview", "dream", "changeLearnedSkill", "getLearnedSkillReferences"]),
+    { getDreamingOverview: 0, dream: 0, changeLearnedSkill: 1, getLearnedSkillReferences: 0 });
+  assert.equal(IPC_FORWARDS.host.setDreamingEnabled, 1);
+  assert.notEqual(forwardChannel("current", "dream"), forwardChannel("current", "runSkill"));
 });
 
 it("keeps dreaming opt-in, persists user toggle across real runtime reload, and never calls a model for empty experience", async () => {
