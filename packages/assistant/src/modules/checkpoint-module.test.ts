@@ -12,6 +12,7 @@ import {
   type CheckpointDraft,
 } from "../checkpoint-store.js";
 import { createCheckpointModule } from "./checkpoint-module.js";
+import { createModuleHost, type ToolPermissionFacts } from "../module-host.js";
 import { memorySemanticTextHash, retrieveMemories } from "../memory-retrieval.js";
 
 function draft(overrides: Partial<CheckpointDraft> = {}): CheckpointDraft {
@@ -90,6 +91,25 @@ describe("createCheckpointModule", () => {
       { name: "checkpoint_get", version: "1", risk: "read", timeoutMs: 1_000, idempotent: true },
       { name: "checkpoint_save", version: "1", risk: "write", timeoutMs: 5_000, idempotent: false },
     ]);
+  });
+
+  it("declares the checkpoint cards and adds its instructions", async () => {
+    const root = await createWorkspace();
+    const host = createModuleHost([createCheckpointModule(createCheckpointStore(root), { threadId: "thread-a", workspaceRoot: "/ws" })], { notify() {} });
+    assert.deepEqual([...host.toolPermissions.keys()], ["checkpoint_prepare", "checkpoint_get", "checkpoint_save"]);
+    const card = (toolName: string, input: unknown) => host.toolPermissions.get(toolName)!.confirmation!(
+      { toolName, input } as Parameters<NonNullable<ToolPermissionFacts["confirmation"]>>[0]);
+    for (const declared of host.toolPermissions.values()) assert.equal(declared.defaults, undefined);
+    assert.equal(card("checkpoint_get", { version: 2 }),
+      '\nTool: checkpoint_get\nWorkspace: "/ws"\nThis reads the current checkpoint version 2 and does not verify referenced files on disk.\nAllow this call? [y/n] ');
+    assert.match(String(card("checkpoint_prepare", {})), /\nThis reads the current checkpoint and injectable Memory into model context/);
+    assert.equal(card("checkpoint_save", { expectedVersion: 1, draft: { goal: "g" } }),
+      '\nTool: checkpoint_save\nWorkspace: "/ws"\nExpected current version: 1\nComplete draft:\n{\n  "goal": "g"\n}\n' +
+      "After confirmation, the program will try to record current Git HEAD/branch/dirty; if Git inspection fails, it saves without a pin.\n" +
+      "This will save the next checkpoint version. Allow this call? [y/n] ");
+    assert.match(host.instructions("checkpoint"), /^ When project checkpoint tools are available, use checkpoint_get only/);
+    host.dispose();
+    await rm(root, { recursive: true, force: true });
   });
 
   it("prepares only current checkpoint and injectable memory without a model or transcript reader", async () => {

@@ -117,6 +117,7 @@ apps/telegram ┘        (领域：记忆/任务/上下文/沉淀，扩展 API)
     - 电脑操作：三个工具声明 `remember: "never"`（`tool-confirmation.ts` 删除 `computer_` 前缀），`computer_check` 确认卡与指令片段从 `app.ts` 移入模块。权限快照不变。
     - 补正：`app.ts` 的自定义确认卡还覆盖了 `shell_exec`、`web_fetch`、`feed_read`、`web_search`（以及后面要迁的 Todoist、记忆、任务、checkpoint）。这几张卡移入 Shell、web 模块；Shell 模块之前搬的是 `tool-confirmation.ts` 内部的备用卡（实际运行时被 app 卡覆盖、用户看不到），现在改为 app 卡，备用卡删除。权限快照只有 `plain-host`/`plain-docker | shell_exec` 两行的卡片文本变成了 app 实际显示的卡片，判定没有变化。
     - 记忆：全部 `memory_` 工具声明 `remember: "never"`（`tool-confirmation.ts` 删除 `memory_` 前缀）；权限事实新增 `defaults.approvalAgents`（列出的 agent 调用时不需 y/n），`memory_prepare_consolidation`、`memory_stage_candidates` 声明 `[AUTO_CONSOLIDATION_AGENT_ID]`，`tool-confirmation.ts` 的自动整理名单删除。记忆确认卡（候选预览、当前条目及线程作用域检查、通用卡）从 `app.ts` 移入模块，模块新增 `writePolicy`、`workspaceRoot` 选项；指令片段移入模块（`memory-instructions.ts`，整理提示词与主 agent 指令共用的提案规则也在这里），逐字比对一致。`app.ts` 两处按 `memory_` 前缀过滤工具名改为按注册归属判断。唯一可见差异：「In automatic memory mode, briefly acknowledge…」这句之前不论是否装配记忆都在指令里，现在只在装配记忆模块时出现，位置移到记忆段开头。权限快照不变。
+    - checkpoint：三个 `checkpoint_` 工具的确认卡从 `app.ts` 移入模块（模块新增 `workspaceRoot` 选项），指令片段移入模块，逐字比对一致。没有权限默认值（判定规则不变），权限快照不变。CLI 的 checkpoint 确认测试改为断言模块卡片（测试夹具之前只拿到通用卡）。
   - 调整：群聊 bot 开线时间从「第 3 步完成后」推迟到「个人 agent 重构完成、日常稳定后（至少 4.5 之后）」，见 §4.2。A1–A3 仍按原步骤验收。
 
 ## 4.2 未来：群聊 bot（独立线）

@@ -2,6 +2,7 @@ import { tool } from "ai";
 import { toolCommitResult } from "../commit-outcome.js";
 import { z } from "zod";
 import type { RegisteredTool } from "@serika/ai-sdk-adapter";
+import type { BeforeToolExecuteInput } from "@serika/core";
 import type { AgentModule } from "../module-host.js";
 import {
   CHECKPOINT_LIMITS,
@@ -25,7 +26,13 @@ export interface CheckpointModuleOptions {
   getInjectableMemories?: (signal: AbortSignal) => Promise<CheckpointMemoryView[]>;
   getMemorySelection?: (signal: AbortSignal) => Promise<MemorySelection>;
   captureGitPin?: (signal: AbortSignal) => Promise<CheckpointGitPin | undefined>;
+  /** Workspace shown on confirmation cards. */
+  workspaceRoot?: string;
 }
+
+const CHECKPOINT_INSTRUCTIONS =
+  " When project checkpoint tools are available, use checkpoint_get only when the user explicitly asks to inspect a checkpoint. The latest checkpoint is already supplied as a bounded reference in model context when available; it is a saved work-state snapshot, not current disk evidence and not permission. Its optional Git pin is from save time, not current Git state; do not infer a merged PR or passed tests from checkpoint prose. When a /resume Git observation is injected, use its program-determined reconciliation status and observedAt as the latest Git evidence, while keeping checkpoint as saved intent. Repeating /resume without a new checkpoint save does not move the saved pin or resolve stale status. /resume does not authorize tools; any nextActions still use the existing tools and y/n. If checkpoint conflicts with active injected Memory, follow Memory. Only call checkpoint_prepare when the user explicitly asks to save or update the checkpoint; it returns only the current checkpoint and injectable Memory, does not invoke a model or collect recent conversation messages. Use the current conversation already in context to draft concise fields, then call checkpoint_save with the observed expectedVersion; the complete draft and version will be shown for y/n confirmation. Do not submit realityPins yourself or claim it was saved unless the tool returns ok:true. A completed checkpoint remains current; updating it creates the next version. Do not automatically create or update checkpoints.";
+
 
 function utf8Text(maxBytes: number) {
   return z.string().min(1).superRefine((value, context) => {
@@ -166,6 +173,31 @@ function assertCurrentThread(threadId: string): void {
   }
 }
 
+function checkpointConfirmation(input: BeforeToolExecuteInput, workspaceRoot: string | undefined): string {
+  const checkpointInput =
+    typeof input.input === "object" && input.input !== null
+      ? (input.input as { expectedVersion?: unknown; draft?: unknown; version?: unknown })
+      : {};
+  if (input.toolName === "checkpoint_save") {
+    return (
+      `\nTool: ${input.toolName}\n` +
+      `Workspace: ${JSON.stringify(workspaceRoot)}\n` +
+      `Expected current version: ${JSON.stringify(checkpointInput.expectedVersion)}\n` +
+      `Complete draft:\n${JSON.stringify(checkpointInput.draft, null, 2)}\n` +
+      "After confirmation, the program will try to record current Git HEAD/branch/dirty; if Git inspection fails, it saves without a pin.\n" +
+      "This will save the next checkpoint version. Allow this call? [y/n] "
+    );
+  }
+  const operation = input.toolName === "checkpoint_prepare"
+    ? "This reads the current checkpoint and injectable Memory into model context and the successful Run transcript."
+    : `This reads the current checkpoint${checkpointInput.version === undefined ? "" : ` version ${JSON.stringify(checkpointInput.version)}`} and does not verify referenced files on disk.`;
+  return (
+    `\nTool: ${input.toolName}\n` +
+    `Workspace: ${JSON.stringify(workspaceRoot)}\n` +
+    `${operation}\nAllow this call? [y/n] `
+  );
+}
+
 export function createCheckpointModule(
   store: WorkspaceCheckpointStore,
   options: CheckpointModuleOptions,
@@ -257,9 +289,11 @@ export function createCheckpointModule(
         },
       });
 
-      context.registerTool({ metadata: checkpointPrepareMetadata, tool: prepareTool });
-      context.registerTool({ metadata: checkpointGetMetadata, tool: getTool });
-      context.registerTool({ metadata: checkpointSaveMetadata, tool: saveTool });
+      const permission = { confirmation: (input: BeforeToolExecuteInput) => checkpointConfirmation(input, options.workspaceRoot) };
+      context.registerTool({ metadata: checkpointPrepareMetadata, tool: prepareTool }, permission);
+      context.registerTool({ metadata: checkpointGetMetadata, tool: getTool }, permission);
+      context.registerTool({ metadata: checkpointSaveMetadata, tool: saveTool }, permission);
+      context.addInstructions(CHECKPOINT_INSTRUCTIONS);
     },
   };
 }

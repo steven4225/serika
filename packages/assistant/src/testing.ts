@@ -29,6 +29,8 @@ import { createComputerModule as computerForFacts } from "./modules/computer-mod
 import { createMemoryConsolidation as consolidationForFacts } from "./memory-consolidation.js";
 import { createMemoryStore as memoryStoreForFacts } from "./memory-store.js";
 import { createMemoryModule as memoryForFacts } from "./modules/memory-module.js";
+import { createCheckpointModule as checkpointForFacts } from "./modules/checkpoint-module.js";
+import { createCheckpointStore as checkpointStoreForFacts } from "./checkpoint-store.js";
 import { createPomodoroModule as pomodoroForFacts } from "./modules/pomodoro-module.js";
 import { createReadFileModule as readFileForFacts } from "./modules/read-file-module.js";
 import { createRecipeModule as recipesForFacts } from "./modules/recipe-module.js";
@@ -58,6 +60,7 @@ export function builtinToolPermissions(options: { shell?: "host" | "docker" } = 
     computerForFacts({ enabled: true, executable: "/facts/cua-driver", allowedBundleIds: ["com.example.App"] }),
     memoryForFacts(memoryStore, getMessages, { threadId: "facts", workspaceRoot: ".",
       consolidation: consolidationForFacts({ store: memoryStore, getMessages, threadId: "facts" }) }),
+    checkpointForFacts(checkpointStoreForFacts("."), { threadId: "facts", workspaceRoot: "." }),
   ], { notify() {} });
   host.dispose();
   return host.toolPermissions;

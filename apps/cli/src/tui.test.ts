@@ -3737,7 +3737,7 @@ describe("runTui checkpoint confirmation", () => {
       await nextTurn();
       input.write("Save the current project checkpoint.\n");
       await waitFor(() => fixture.output.text().includes("Allow this call? [y/n]"));
-      assert.match(fixture.output.text(), /expectedVersion\":null/);
+      assert.match(fixture.output.text(), /\nTool: checkpoint_save\n.*\nExpected current version: null\nComplete draft:\n/s);
       assert.match(fixture.output.text(), /The checkpoint has a concise verified progress snapshot/);
       assert.match(fixture.output.text(), /docs\/m5-plan\.md/);
       await assert.rejects(readFile(join(fixture.workspace, CHECKPOINT_FILE_NAME), "utf8"), {
