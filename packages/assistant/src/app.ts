@@ -91,6 +91,8 @@ import {
 } from "./task-instructions.js";
 import { isDemoModel } from "./demo-model.js";
 import { createNoProgressGuard } from "./no-progress-guard.js";
+import { createPermissionExtension } from "./permission-extension.js";
+import { composeExtensions } from "./runtime-extension.js";
 import { todoistPlanSaveInstructions } from "./todoist-plan-save-instructions.js";
 import {
   resolveTuiModuleConfig,
@@ -98,9 +100,6 @@ import {
   type ResolvedTuiModuleConfig,
 } from "./tui-module-config.js";
 import {
-  createToolConfirmation,
-  RUN_AUTHORIZED_FILE_TOOLS,
-  type ShellSandboxMode,
   type ToolConfirmation,
   type ToolConfirmationPrompt,
 } from "./tool-confirmation.js";
@@ -261,8 +260,6 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
   if (shellSandbox !== undefined) {
     await assertDockerShellSandboxAvailable(shellSandbox);
   }
-  const shellSandboxMode: ShellSandboxMode =
-    shellSandbox === undefined ? "host" : "docker";
   const todoistToken = env.TODOIST_API_TOKEN?.trim();
   const todoistTokenPresent = Boolean(todoistToken);
   let todoistConfig: { apiToken: string; timeZone: string } | undefined;
@@ -1261,163 +1258,37 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         throw new Error(`Invalid context compaction budget: ${startupBudget.errors.join("; ")}`);
       }
     }
-    const toolConfirmation = tuiMode
-      ? createToolConfirmation(output, {
+    const permission = tuiMode
+      ? createPermissionExtension(output, {
           prompt: toolConfirmationPrompt,
-          ...(workspaceRoot !== undefined ? { workspaceRoot } : {}),
-          shellSandboxMode,
-          ...(moduleConfig !== undefined && moduleConfig.fileAuthorizations.length > 0
-            ? {
-                persistentAuthorizations: moduleConfig.fileAuthorizations.map(
-                  (rule) => ({ ...rule, lifetime: "run" as const }),
-                ),
-              }
-            : {}),
+          workspaceRoot,
+          fileAuthorizations: moduleConfig?.fileAuthorizations ?? [],
+          fileToolsEnabled: moduleConfig?.enabled["read-file"] === true,
+          shell: { enabled: shellEnabled, sandbox: shellSandbox },
+          web: { enabled: webEnabled, searchEnabled: webSearchEnabled },
+          report: moduleConfig === undefined ? undefined
+            : { configPath: moduleConfig.configPath, workspaceRoot: moduleConfig.workspaceRoot },
+          autoApprove: [
+            // The host's own status tool, only when it is the registration this app made.
+            (input) => input.definition.id === PRIMARY_AGENT_ID && input.toolName === "capability_status" &&
+              registeredTools.find(item => item.metadata.name === input.toolName) === statusRegistration,
+            // A memory consolidator Skill's declared tools.
+            (input) => {
+              const skill = automation.skills.find(skill => skill.agentId === input.definition.id);
+              return skill?.kind === "memory-consolidate" && skill.tools.includes(input.toolName);
+            },
+            (input) => taskReadApproval?.allows({ agentId: input.definition.id, workspaceRoot,
+              toolName: input.toolName, registeredTool: registeredTools.find(tool => tool.metadata.name === input.toolName) }) === true,
+          ],
         })
       : undefined;
+    const toolConfirmation = permission?.confirmation;
+    const extensions = composeExtensions([
+      { name: "no-progress-guard", afterToolCall: createNoProgressGuard(name => tools.metadata(name)) },
+      ...(permission ? [permission] : []),
+    ]);
 
-    if (
-      commands !== undefined &&
-      toolConfirmation !== undefined &&
-      workspaceRoot !== undefined &&
-      moduleConfig?.enabled["read-file"]
-    ) {
-      commands.set("authorize", {
-        name: "authorize",
-        execute(args) {
-          const tokens = args.trim().split(/\s+/).filter(Boolean);
-          const toolToken = tokens.shift();
-          const allowedPaths = tokens;
-          if (toolToken === undefined || allowedPaths.length === 0) {
-            output.write(
-              "\n[authorize] Usage: /authorize <tool[,tool...]> <path> [path ...]\n",
-            );
-            return;
-          }
-          const toolsToAuthorize = toolToken.split(",").filter(Boolean);
-          if (
-            toolsToAuthorize.length === 0 ||
-            toolsToAuthorize.some(
-              (toolName) =>
-                !(RUN_AUTHORIZED_FILE_TOOLS as readonly string[]).includes(toolName),
-            )
-          ) {
-            output.write(
-              `\n[authorize] Only these tools can be authorized for one Run: ${RUN_AUTHORIZED_FILE_TOOLS.join(", ")}\n`,
-            );
-            return;
-          }
-          try {
-            toolConfirmation.setPendingAuthorization({
-              tools: toolsToAuthorize as (typeof RUN_AUTHORIZED_FILE_TOOLS)[number][],
-              allowedPaths,
-              lifetime: "run",
-            });
-            output.write(
-              `\n[authorize] 已为下一次 Run 授权 ${toolsToAuthorize.join(", ")}，路径范围：${allowedPaths.join(", ")}。Run 结束后失效；其它工具和路径仍需确认。\n`,
-            );
-          } catch (error) {
-            output.write(`\n[authorize] Invalid rule: ${String(error)}\n`);
-          }
-        },
-      });
-    }
-    if (
-      commands !== undefined &&
-      toolConfirmation !== undefined &&
-      shellEnabled
-    ) {
-      commands.set("authorize-shell", {
-        name: "authorize-shell",
-        execute(args) {
-          if (args.trim() !== "") {
-            output.write("\n[authorize-shell] Usage: /authorize-shell\n");
-            return;
-          }
-          if (shellSandbox === undefined) {
-            output.write(
-              "\n[authorize-shell] Docker sandbox is not configured; shell calls still require per-call y/n confirmation.\n",
-            );
-            return;
-          }
-          toolConfirmation.setPendingShellAuthorization();
-          output.write(
-            "\n[authorize-shell] 已为下一次 Run 授权 Docker sandbox 内的 shell 调用；Run 结束、失败或取消后失效。\n",
-          );
-        },
-      });
-    }
-    if (commands !== undefined && toolConfirmation !== undefined && webEnabled) {
-      commands.set("authorize-web", {
-        name: "authorize-web",
-        execute(args) {
-          const origins = args.trim().split(/\s+/).filter(Boolean);
-          if (origins.length === 0) {
-            output.write("\n[authorize-web] Usage: /authorize-web <origin> [origin ...]\n");
-            return;
-          }
-          try {
-            toolConfirmation.setPendingWebAuthorization(origins);
-            output.write(
-              `\n[authorize-web] 已为下一次 Run 授权 web_fetch 访问：${origins.join(", ")}。Run 结束、失败或取消后失效；其它 origin 仍需确认。\n`,
-            );
-          } catch (error) {
-            output.write(`\n[authorize-web] Invalid origin: ${String(error)}\n`);
-          }
-        },
-      });
-    }
-    if (commands !== undefined && moduleConfig !== undefined) {
-      commands.set("permissions", {
-        name: "permissions",
-        execute(args) {
-          if (args.trim() !== "") {
-            output.write("\n[permissions] Usage: /permissions\n");
-            return;
-          }
-          const source =
-            moduleConfig.configPath === null
-              ? "CLI 参数/默认值"
-              : JSON.stringify(moduleConfig.configPath);
-          const workspace =
-            moduleConfig.workspaceRoot === null
-              ? "未配置"
-              : JSON.stringify(moduleConfig.workspaceRoot);
-          output.write(
-            `\n[permissions]\n配置来源: ${source}\nWorkspace: ${workspace}\n`,
-          );
-          if (shellSandbox === undefined) {
-            output.write("Shell sandbox: host (逐次 y/n)\n");
-          } else {
-            output.write(
-              `Shell sandbox: docker (network none)\nShell image: ${shellSandbox.image}\n` +
-                `Shell readable: ${shellSandbox.readablePaths.join(",") || "none"}\n` +
-                `Shell writable: ${shellSandbox.writablePaths.join(",") || "none"}\n`,
-            );
-          }
-          output.write(
-            `Web module: ${webEnabled ? "enabled (web_fetch)" : "disabled"}; web authorization is one-Run and origin-specific.\n` +
-              `Web search: ${webEnabled && webSearchEnabled ? "enabled (Exa MCP, no key)" : "disabled"}\n`,
-          );
-          if (moduleConfig.fileAuthorizations.length === 0) {
-            output.write("持久文件授权: 未配置\n");
-          } else {
-            output.write(
-              `持久文件授权: ${moduleConfig.fileAuthorizations.length} 条\n`,
-            );
-            for (const [index, rule] of moduleConfig.fileAuthorizations.entries()) {
-              output.write(
-                `- ${index + 1}: tools=${rule.tools.join(",")} paths=${rule.allowedPaths.join(",")}\n`,
-              );
-            }
-            output.write("修改或删除配置后需重启 TUI 生效。\n");
-          }
-          output.write(
-            "Shell 的下一 Run 授权只在 Docker sandbox 模式可用；host 模式默认逐次确认，桌面可显式开启工作区自主执行。Shell、memory、checkpoint、Todoist、task 不受持久文件授权影响。\n",
-          );
-        },
-      });
-    }
+    for (const command of extensions.commands) commands?.set(command.name, command);
     const runtime = new DefaultAgentRuntime({
       catalog: { get: agentId => {
         const definition = catalog.get(agentId);
@@ -1433,7 +1304,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         ...(tuiMode ? { modelRetryDelaysMs: [250, 1_000] } : {}),
         modelRetryDisabledAgentIds: [AUTO_CONSOLIDATION_AGENT_ID],
       }),
-      afterToolCall: createNoProgressGuard(name => tools.metadata(name)),
+      ...(extensions.afterToolCall ? { afterToolCall: extensions.afterToolCall } : {}),
       ...(tuiMode
         ? {
             prepareModelContext: async ({ messages, signal, definition }) => {
@@ -1525,25 +1396,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
             },
           }
         : {}),
-      ...(toolConfirmation
-        ? { beforeToolExecute: (input) => {
-          if (input.definition.id === PRIMARY_AGENT_ID && input.toolName === "capability_status" &&
-            registeredTools.find(item => item.metadata.name === input.toolName) === statusRegistration) {
-            input.signal.throwIfAborted(); return { allow: true };
-          }
-          const skill = automation.skills.find(skill => skill.agentId === input.definition.id);
-          if (skill?.kind === "memory-consolidate" && skill.tools.includes(input.toolName)) {
-            input.signal.throwIfAborted();
-            return { allow: true };
-          }
-          if (taskReadApproval?.allows({ agentId: input.definition.id, workspaceRoot,
-            toolName: input.toolName, registeredTool: registeredTools.find(tool => tool.metadata.name === input.toolName) })) {
-            input.signal.throwIfAborted();
-            return { allow: true };
-          }
-          return toolConfirmation.beforeToolExecute(input);
-        } }
-        : {}),
+      ...(extensions.beforeToolExecute ? { beforeToolExecute: extensions.beforeToolExecute } : {}),
       ...(tuiMode ? { beforeRunFinish: createWorkTaskFinishCheck({ workspaceRoot, executionRecords, workTasks }) } : {}),
     });
 

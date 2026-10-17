@@ -1,0 +1,202 @@
+import type { Writable } from "node:stream";
+import type { BeforeToolExecute, BeforeToolExecuteInput } from "@serika/core";
+import type { ModuleCommand } from "./module-host.js";
+import type { DockerShellSandboxConfig } from "./modules/docker-shell-runner.js";
+import type { RuntimeExtension } from "./runtime-extension.js";
+import {
+  createToolConfirmation,
+  RUN_AUTHORIZED_FILE_TOOLS,
+  type ToolConfirmation,
+  type ToolConfirmationPrompt,
+} from "./tool-confirmation.js";
+import type { FileAuthorizationRule } from "./tui-module-config.js";
+
+/**
+ * Tool permission as one extension: the per-call confirmation hook, the
+ * host's fixed pre-approvals, the next-Run `/authorize*` grants and the
+ * `/permissions` report. The decision rules are those of `createToolConfirmation`.
+ */
+export interface PermissionExtension extends RuntimeExtension {
+  readonly beforeToolExecute: BeforeToolExecute;
+  /** The approval state the controller reads, resolves and scopes to Runs. */
+  readonly confirmation: ToolConfirmation;
+}
+
+export function createPermissionExtension(output: Writable, options: {
+  prompt: ToolConfirmationPrompt;
+  workspaceRoot: string | undefined;
+  /** Explicit `fileAuthorizations` from the trusted config; they load once. */
+  fileAuthorizations: readonly FileAuthorizationRule[];
+  /** File tools are registered, so `/authorize` can grant them for one Run. */
+  fileToolsEnabled: boolean;
+  shell: { enabled: boolean; sandbox: DockerShellSandboxConfig | undefined };
+  web: { enabled: boolean; searchEnabled: boolean };
+  /** Present when a module configuration was resolved; enables `/permissions`. */
+  report: { configPath: string | null; workspaceRoot: string | null } | undefined;
+  /**
+   * Host-owned calls that never ask, checked in order before confirmation
+   * (for example a skill's own declared read tools).
+   */
+  autoApprove: readonly ((input: BeforeToolExecuteInput) => boolean)[];
+}): PermissionExtension {
+  const { workspaceRoot, fileAuthorizations, report } = options;
+  const shellSandbox = options.shell.sandbox;
+  const confirmation = createToolConfirmation(output, {
+    prompt: options.prompt,
+    ...(workspaceRoot !== undefined ? { workspaceRoot } : {}),
+    shellSandboxMode: shellSandbox === undefined ? "host" : "docker",
+    ...(fileAuthorizations.length > 0
+      ? {
+          persistentAuthorizations: fileAuthorizations.map(
+            (rule) => ({ ...rule, lifetime: "run" as const }),
+          ),
+        }
+      : {}),
+  });
+  const beforeToolExecute: BeforeToolExecute = (input) => {
+    for (const approve of options.autoApprove) {
+      if (approve(input)) {
+        input.signal.throwIfAborted();
+        return { allow: true };
+      }
+    }
+    return confirmation.beforeToolExecute(input);
+  };
+
+  const commands: ModuleCommand[] = [];
+  if (options.fileToolsEnabled && workspaceRoot !== undefined) {
+    commands.push({
+      name: "authorize",
+      execute(args) {
+        const tokens = args.trim().split(/\s+/).filter(Boolean);
+        const toolToken = tokens.shift();
+        const allowedPaths = tokens;
+        if (toolToken === undefined || allowedPaths.length === 0) {
+          output.write(
+            "\n[authorize] Usage: /authorize <tool[,tool...]> <path> [path ...]\n",
+          );
+          return;
+        }
+        const toolsToAuthorize = toolToken.split(",").filter(Boolean);
+        if (
+          toolsToAuthorize.length === 0 ||
+          toolsToAuthorize.some(
+            (toolName) =>
+              !(RUN_AUTHORIZED_FILE_TOOLS as readonly string[]).includes(toolName),
+          )
+        ) {
+          output.write(
+            `\n[authorize] Only these tools can be authorized for one Run: ${RUN_AUTHORIZED_FILE_TOOLS.join(", ")}\n`,
+          );
+          return;
+        }
+        try {
+          confirmation.setPendingAuthorization({
+            tools: toolsToAuthorize as (typeof RUN_AUTHORIZED_FILE_TOOLS)[number][],
+            allowedPaths,
+            lifetime: "run",
+          });
+          output.write(
+            `\n[authorize] 已为下一次 Run 授权 ${toolsToAuthorize.join(", ")}，路径范围：${allowedPaths.join(", ")}。Run 结束后失效；其它工具和路径仍需确认。\n`,
+          );
+        } catch (error) {
+          output.write(`\n[authorize] Invalid rule: ${String(error)}\n`);
+        }
+      },
+    });
+  }
+  if (options.shell.enabled) {
+    commands.push({
+      name: "authorize-shell",
+      execute(args) {
+        if (args.trim() !== "") {
+          output.write("\n[authorize-shell] Usage: /authorize-shell\n");
+          return;
+        }
+        if (shellSandbox === undefined) {
+          output.write(
+            "\n[authorize-shell] Docker sandbox is not configured; shell calls still require per-call y/n confirmation.\n",
+          );
+          return;
+        }
+        confirmation.setPendingShellAuthorization();
+        output.write(
+          "\n[authorize-shell] 已为下一次 Run 授权 Docker sandbox 内的 shell 调用；Run 结束、失败或取消后失效。\n",
+        );
+      },
+    });
+  }
+  if (options.web.enabled) {
+    commands.push({
+      name: "authorize-web",
+      execute(args) {
+        const origins = args.trim().split(/\s+/).filter(Boolean);
+        if (origins.length === 0) {
+          output.write("\n[authorize-web] Usage: /authorize-web <origin> [origin ...]\n");
+          return;
+        }
+        try {
+          confirmation.setPendingWebAuthorization(origins);
+          output.write(
+            `\n[authorize-web] 已为下一次 Run 授权 web_fetch 访问：${origins.join(", ")}。Run 结束、失败或取消后失效；其它 origin 仍需确认。\n`,
+          );
+        } catch (error) {
+          output.write(`\n[authorize-web] Invalid origin: ${String(error)}\n`);
+        }
+      },
+    });
+  }
+  if (report !== undefined) {
+    commands.push({
+      name: "permissions",
+      execute(args) {
+        if (args.trim() !== "") {
+          output.write("\n[permissions] Usage: /permissions\n");
+          return;
+        }
+        const source =
+          report.configPath === null
+            ? "CLI 参数/默认值"
+            : JSON.stringify(report.configPath);
+        const workspace =
+          report.workspaceRoot === null
+            ? "未配置"
+            : JSON.stringify(report.workspaceRoot);
+        output.write(
+          `\n[permissions]\n配置来源: ${source}\nWorkspace: ${workspace}\n`,
+        );
+        if (shellSandbox === undefined) {
+          output.write("Shell sandbox: host (逐次 y/n)\n");
+        } else {
+          output.write(
+            `Shell sandbox: docker (network none)\nShell image: ${shellSandbox.image}\n` +
+              `Shell readable: ${shellSandbox.readablePaths.join(",") || "none"}\n` +
+              `Shell writable: ${shellSandbox.writablePaths.join(",") || "none"}\n`,
+          );
+        }
+        output.write(
+          `Web module: ${options.web.enabled ? "enabled (web_fetch)" : "disabled"}; web authorization is one-Run and origin-specific.\n` +
+            `Web search: ${options.web.enabled && options.web.searchEnabled ? "enabled (Exa MCP, no key)" : "disabled"}\n`,
+        );
+        if (fileAuthorizations.length === 0) {
+          output.write("持久文件授权: 未配置\n");
+        } else {
+          output.write(
+            `持久文件授权: ${fileAuthorizations.length} 条\n`,
+          );
+          for (const [index, rule] of fileAuthorizations.entries()) {
+            output.write(
+              `- ${index + 1}: tools=${rule.tools.join(",")} paths=${rule.allowedPaths.join(",")}\n`,
+            );
+          }
+          output.write("修改或删除配置后需重启 TUI 生效。\n");
+        }
+        output.write(
+          "Shell 的下一 Run 授权只在 Docker sandbox 模式可用；host 模式默认逐次确认，桌面可显式开启工作区自主执行。Shell、memory、checkpoint、Todoist、task 不受持久文件授权影响。\n",
+        );
+      },
+    });
+  }
+
+  return { name: "permissions", beforeToolExecute, confirmation, commands };
+}
