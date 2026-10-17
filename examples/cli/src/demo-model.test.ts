@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { createDemoModel } from "./demo-model.js";
+import { MockLanguageModelV3 } from "ai/test";
+import { createDemoModel, isDemoModel } from "./demo-model.js";
 
 type DemoPrompt = Parameters<ReturnType<typeof createDemoModel>["doStream"]>[0]["prompt"];
 
@@ -94,4 +95,10 @@ describe("createDemoModel", () => {
     assert.equal(hasToolCall(chunks), true);
     assert.equal(textDelta(chunks), "");
   });
+});
+
+it("only the offline demo model is marked for the demo add tool", () => {
+  assert.equal(isDemoModel(createDemoModel()), true);
+  assert.equal(isDemoModel(new MockLanguageModelV3()), false);
+  assert.equal(isDemoModel(undefined), false);
 });

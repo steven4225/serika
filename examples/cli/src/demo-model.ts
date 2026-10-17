@@ -110,12 +110,19 @@ function addResultResponse(value: number): string {
   return value === 42 ? "20 + 22 = 42" : `The add tool returned ${value}.`;
 }
 
+const demoModels = new WeakSet<object>();
+
+/** True only for models from createDemoModel(); the host then registers the offline `add` demo tool. */
+export function isDemoModel(model: unknown): boolean {
+  return typeof model === "object" && model !== null && demoModels.has(model);
+}
+
 /**
  * Deterministic CLI model: it decides from the current user turn's tool
  * result, so previous turns cannot make a new turn skip its tool call.
  */
 export function createDemoModel() {
-  return new MockLanguageModelV3({
+  const model = new MockLanguageModelV3({
     doStream: async ({ prompt }) => {
       const results = currentTurnToolResults(prompt);
       if (results.some(isDeniedResult)) {
@@ -128,4 +135,6 @@ export function createDemoModel() {
       return addCallResponse();
     },
   });
+  demoModels.add(model);
+  return model;
 }

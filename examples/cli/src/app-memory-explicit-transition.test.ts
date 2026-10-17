@@ -108,8 +108,7 @@ test("the supplied same-scope change example executes once through Controller/st
   const f = await fixture("documented_change");
   try {
     await run(f.controller);
-    assert.match(f.primaryInstructions(), /Use the add tool ONLY when the user actually requests arithmetic addition/);
-    assert.match(f.primaryInstructions(), /never call add or perform dummy 1\+1 for memory\/preference statements or ordinary chat/);
+    assert.doesNotMatch(f.primaryInstructions(), /add tool/, "real-model instructions never mention the offline demo tool");
     assert.match(f.primaryInstructions(), /In automatic memory mode, briefly acknowledge the statement and let the host consolidate/);
     assert.match(f.primaryInstructions(), /For a new self-statement or memory request, acknowledge only what the user just said; do not proactively compare it with retrieved or historical preferences/);
     assert.equal(f.contractFound(), true, "the model needs an executable same-scope change example, not only an add example");

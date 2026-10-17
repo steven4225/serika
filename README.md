@@ -203,7 +203,7 @@ Stage 7-2 支持用一份显式 JSON 配置选择 TUI 启用的内置模块。�
 RUNLOOM_MODEL=mock pnpm tui -- ./var/runloom --thread daily-plan --config ./runloom.json
 ```
 
-配置模式下未列出的模块默认关闭，模块配置必须使用 `{ "enabled": true|false }`。支持的模块是 `pomodoro`、`read-file`、`memory`、`checkpoint`、`task`、`todoist`、`shell` 和 `web`；`read-file` 仍包含 `/workspace`、文件读写和搜索能力，`shell` 提供显式启用的 `shell_exec`，`web` 提供公开 URL 的 `web_fetch`，并可在 `web.search.enabled` 下显式开启搜索，示例 `add` 工具不属于配置模块。
+配置模式下未列出的模块默认关闭，模块配置必须使用 `{ "enabled": true|false }`。支持的模块是 `pomodoro`、`read-file`、`memory`、`checkpoint`、`task`、`todoist`、`shell` 和 `web`；`read-file` 仍包含 `/workspace`、文件读写和搜索能力，`shell` 提供显式启用的 `shell_exec`，`web` 提供公开 URL 的 `web_fetch`，并可在 `web.search.enabled` 下显式开启搜索，示例 `add` 工具不属于配置模块，只在离线 mock 模型下注册，真实模型看不到它。
 
 ```json
 {

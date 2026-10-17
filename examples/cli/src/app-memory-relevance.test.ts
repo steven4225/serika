@@ -63,7 +63,7 @@ async function fixture(options: { enabled?: boolean; malformed?: boolean; empty?
   });
   const optionsFixture = options;
   const output = new PassThrough(); output.resume();
-  const app = await createRuntimeApp({ args: ["--tui", join(root, "transcripts"), "--thread", "current", "--config", configPath],
+  const app = await createRuntimeApp({ demoTools: true, args: ["--tui", join(root, "transcripts"), "--thread", "current", "--config", configPath],
     modelAlias: "fixture/original-primary", model, output, env: {}, cwd: root,
     // The target falls below the old hard threshold; relevance may inspect the
     // eligible diagnostic pool without silently lowering that threshold.

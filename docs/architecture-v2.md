@@ -81,8 +81,14 @@ apps/telegram ┘        (领域：记忆/任务/上下文/沉淀，扩展 API)
 - 第 1 步：完成。
   - 已完成：删除「内置功能开关」卡片；删除「找回旧目录里的对话」；记忆默认自动写入（仅限工作区外的配置）；删除记忆审核队列（今日卡片、简报项、提醒、角标）；删除双时间编辑界面（纠正时的适用时间段、「查询某个时点的认知」及桌面端 `queryMemory` 通道；「实际变化」留空表示现在）；删除导入拆分预览（界面、桌面 IPC 与 Controller 端口；存储层的导入与回执保留，第 5 步改造成备份导入）。
   - 保留：浏览器预览页（`*-preview.html`，含「模拟」按钮）只是开发用夹具，不进入产品；没有 Electron 图形环境时可以用它们验证界面，所以不删。
-  - 挪到后续步骤（和那一步的改动耦合，单独删会做两遍）：上下文模式选择和手动压缩 → 第 4 步；Telegram 投递核对 → 第 6 步（关系到未知效果的核对，不能先删界面）；`add` 演示工具 → 第 2 步（mock 模型和测试依赖它）。
+  - 挪到后续步骤（和那一步的改动耦合，单独删会做两遍）：上下文模式选择和手动压缩 → 第 4 步；Telegram 投递核对 → 第 6 步（关系到未知效果的核对，不能先删界面）。
   - 记忆文件夹（记忆页主视图、MemoryLibraryPanel）→ 第 5 步，和 SQLite 拆分一起重做。
+- 第 2 步：完成。
+  - `loop.ts` 963 → 343 行。中断、模型错误分类、工具错误这三组辅助函数原样拆到 `abort.ts`、`model-errors.ts`、`tool-errors.ts`，逻辑不变。
+  - core 新增 `afterToolCall` hook：返回 `feedback`（只追加到下一次模型请求，不进 transcript 和事件）或 `stop`（以 `RUN_LIMIT_EXCEEDED` 结束，已完成的调用保持真实）。hook 本身抛错或返回无效决定按 `INTERNAL` 失败，不重放工具。
+  - 防重复查询守卫（应用工具名、中文文案）从 adapter 移到 `examples/cli/src/no-progress-guard.ts`，作为 `afterToolCall` 挂上；状态从本次 Run 的消息推出，不再存在 loop 里。测试随之迁移。
+  - `add` 演示工具只在离线 mock 模型（`createDemoModel()`）下注册，真实模型的工具列表和指令里不再出现它；需要它的自定义 mock 测试显式传 `demoTools: true`。
+  - 没做：`beforeToolExecute` 抛错仍让 Run 失败（fail closed）。工具执行失败、拒绝、参数无效本来就编码成工具结果消息；precheck 自身出错不是模型能修的问题，改成消息只会让模型重试。
 
 ## 5. 度量基线（`c594574`，改名后、移除 durable/postgres 前）
 
