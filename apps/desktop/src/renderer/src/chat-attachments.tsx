@@ -1,5 +1,5 @@
 import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
-import type { ChatAttachment } from "@aisdk-agent/example-cli/dist/chat-attachments.js";
+import type { ChatAttachment } from "@serika/example-cli/dist/chat-attachments.js";
 export type { ChatAttachment };
 
 async function readAttachment(file: File): Promise<ChatAttachment> {

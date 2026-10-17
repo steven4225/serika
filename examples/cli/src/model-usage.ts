@@ -1,4 +1,4 @@
-import type { TokenUsage } from "@aisdk-agent/core";
+import type { TokenUsage } from "@serika/core";
 import { validTraceUsage } from "./execution-trace.js";
 
 export type ModelPurpose = "chat" | "memory_consolidation" | "query_rewrite" | "context_compaction" | "skill";

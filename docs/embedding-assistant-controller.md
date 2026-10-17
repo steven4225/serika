@@ -7,8 +7,8 @@
 包通过 `exports` 暴露 `./dist/*.js`（含 `types`）。前端只应使用这些深路径：
 
 ```ts
-import { createRuntimeApp } from "@aisdk-agent/example-cli/dist/app.js";
-import { createAssistantController } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
+import { createRuntimeApp } from "@serika/example-cli/dist/app.js";
+import { createAssistantController } from "@serika/example-cli/dist/assistant-controller.js";
 ```
 
 包根（`"."`）故意不导出：`dist/index.js` 是会立即执行的 CLI 入口，不是库。
@@ -92,7 +92,7 @@ RUNLOOM_CONTEXT_CONTINUITY=1 RUNLOOM_MODEL=deepseek node --env-file=.env \
 
 `verify.mjs` 原始无失败门槛未改；另存 `verify-recovery.mjs`、`recovery-before-evidence.json`、`recovery-after-evidence.json`，明确 `cleanFromStart:false`、`recoveryChecksPassed:true`、`fullCleanElectronAcceptance:not_passed`。这是实际桌面**正常退出后的恢复链**，不等于崩溃未知副作用重放、从头无失败链、多次成功率或通用任务质量。记忆面板 accept/reject 的真实点击也不由这份文件任务证据覆盖。
 
-`await controller.getContextDiagnostics()` 返回 `ContextResult<ContextDiagnostics>`（类型导入 `@aisdk-agent/example-cli/dist/context-diagnostics.js`）。该查询只读取当前 Thread 的已提交 transcript 和通过现有前缀校验的压缩记录，不创建 Run、不调用模型、不写 JSONL，也不把摘要正文送进 IPC。
+`await controller.getContextDiagnostics()` 返回 `ContextResult<ContextDiagnostics>`（类型导入 `@serika/example-cli/dist/context-diagnostics.js`）。该查询只读取当前 Thread 的已提交 transcript 和通过现有前缀校验的压缩记录，不创建 Run、不调用模型、不写 JSONL，也不把摘要正文送进 IPC。
 
 - `enabled`/`budget`/`estimatorVersion` 是实际加载配置；`char-half/v1` 是估算，不是 provider tokenizer 计数。
 - `latestValidCompaction` 是历史中仍与已提交 transcript 前缀匹配的最近记录，包含边界、模型、时间与 metrics。没有合法记录是 `null`；读取失败返回 `ok:false`，不能画成“未压缩”。

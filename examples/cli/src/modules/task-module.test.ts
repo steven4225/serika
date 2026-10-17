@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { RegisteredTool } from "@aisdk-agent/ai-sdk-adapter";
+import type { RegisteredTool } from "@serika/ai-sdk-adapter";
 import type {
   RecurringTaskDetail,
   RecurringTaskList,

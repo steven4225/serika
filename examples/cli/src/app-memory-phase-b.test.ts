@@ -6,7 +6,7 @@ import { PassThrough } from "node:stream";
 import { describe, it } from "node:test";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
-import { AgentError } from "@aisdk-agent/core";
+import { AgentError } from "@serika/core";
 import { createRuntimeApp } from "./app.js";
 import { createAssistantController } from "./assistant-controller.js";
 import { createMemoryStore } from "./memory-store.js";

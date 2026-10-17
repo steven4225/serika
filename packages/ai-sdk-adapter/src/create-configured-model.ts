@@ -1,6 +1,6 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { type LanguageModel } from "ai";
-import { AgentError } from "@aisdk-agent/core";
+import { AgentError } from "@serika/core";
 
 export interface ModelConnectionConfig {
   adapter: "openai-compatible";

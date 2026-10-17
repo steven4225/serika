@@ -1,4 +1,4 @@
-import type { AssistantSteerResponse } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
+import type { AssistantSteerResponse } from "@serika/example-cli/dist/assistant-controller.js";
 export const MAX_CONVERSATION_DRAFT_BYTES = 64 * 1024;
 export function conversationDraftError(text: string): string {
   return new TextEncoder().encode(text).length > MAX_CONVERSATION_DRAFT_BYTES

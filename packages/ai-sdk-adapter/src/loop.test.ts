@@ -11,7 +11,7 @@ import {
   type AgentEvent,
   type BeforeToolExecute,
   type RunSteering,
-} from "@aisdk-agent/core";
+} from "@serika/core";
 import { AiSdkAgentLoop } from "./loop.js";
 import { InMemoryModelRegistry, ToolRegistry } from "./registries.js";
 

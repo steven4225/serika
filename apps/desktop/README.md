@@ -178,7 +178,7 @@ pnpm desktop:daily
 
 默认配置、会话列表和 transcript 在 Electron userData 中持续保存。首次没有 `RUNLOOM_WORKSPACE` 时创建 `userData/workspaces/personal`；测试窗口应使用独立 userData 并设置 `RUNLOOM_DESKTOP_TEST=1`，页面会显示隔离验收标记。根目录的 `pnpm desktop:dev` 仍是开发入口。已有进程要从托盘完整退出后再启动，关闭窗口只是隐藏。
 
-macOS 的 `pnpm desktop:daily` 使用 `apps/desktop/dist/local-<Electron版本>/Serika.app`，而不是直接运行依赖里的 `Electron.app`。首次生成会复制 Electron 运行时、设置原生名称/图标并做本机 ad-hoc 签名；后续启动复用它，实际代码仍加载本仓库最新的 `apps/desktop/out/`。Finder 也可双击该应用启动（默认读取根目录 `.env`，特殊模型/配置覆盖仍用 `pnpm desktop:daily`）。这是依赖当前 checkout 的本机入口，不是独立安装包，不能复制给别人使用。`pnpm desktop:dev` / `pnpm --filter @aisdk-agent/desktop preview` 仍使用 Electron 开发宿主，系统名称可能显示 Electron。日用默认 profile 始终是 `~/Library/Application Support/@aisdk-agent/desktop`，改品牌不迁移或清空旧历史；显式 `RUNLOOM_USER_DATA` 仍优先。
+macOS 的 `pnpm desktop:daily` 使用 `apps/desktop/dist/local-<Electron版本>/Serika.app`，而不是直接运行依赖里的 `Electron.app`。首次生成会复制 Electron 运行时、设置原生名称/图标并做本机 ad-hoc 签名；后续启动复用它，实际代码仍加载本仓库最新的 `apps/desktop/out/`。Finder 也可双击该应用启动（默认读取根目录 `.env`，特殊模型/配置覆盖仍用 `pnpm desktop:daily`）。这是依赖当前 checkout 的本机入口，不是独立安装包，不能复制给别人使用。`pnpm desktop:dev` / `pnpm --filter @serika/desktop preview` 仍使用 Electron 开发宿主，系统名称可能显示 Electron。日用默认 profile 始终是 `~/Library/Application Support/@aisdk-agent/desktop`，改品牌不迁移或清空旧历史；显式 `RUNLOOM_USER_DATA` 仍优先。
 
 原生名称补正验证：`pnpm run check` 通过（187 项桌面测试 + 2 项启动环境测试）；生成的本机 bundle 通过 `codesign --verify --deep --strict`。隔离副本使用独立 userData/workspace，通过 Cua 的新鲜原生窗口状态核对 `app_name`、窗口标题、应用菜单均为 Serika，界面显示隔离标记。没有打开日用历史或发送模型请求；日用旧历史保留由固定路径和相关测试覆盖，不冒称已做日用数据验收。
 
@@ -211,7 +211,7 @@ macOS/Linux 正常保存使用同一 transcript 路径的跨进程 append 锁。
 五分钟核对（不用真实模型或删除日用数据）：
 
 1. 日用 Serika 完整退出重开，确认原对话仍在；搜索原对话中的词，打开原 Thread。
-2. 在已构建仓库运行 `pnpm --filter @aisdk-agent/desktop exec tsx --test src/main/thread-history.test.ts`，验证累计超过 16 MiB 的历史能发现与搜索，文件字节和修改时间不变。这是大文件夹具，不声称日用文件已经超过 16 MiB。
+2. 在已构建仓库运行 `pnpm --filter @serika/desktop exec tsx --test src/main/thread-history.test.ts`，验证累计超过 16 MiB 的历史能发现与搜索，文件字节和修改时间不变。这是大文件夹具，不声称日用文件已经超过 16 MiB。
 3. 运行 `node --test examples/cli/dist/receipt-durability.test.js examples/cli/dist/transcript-storage.test.js`，验证真实跨进程锁、同步失败不派发、结果未知不自动重做。注入 IO 失败不是机器断电证明。
 
 `RUNLOOM_THREAD` / `RUNLOOM_TRANSCRIPTS` 可显式覆盖，不改写默认身份；部分覆盖从匹配身份补齐，无匹配时用稳定隔离默认值。以相同覆盖重启才能回到同一对话。`RUNLOOM_WORKSPACE` 只在首次生成配置时生效，已有配置以文件实际 workspace 为准。
@@ -411,7 +411,7 @@ Demo 前提：在主仓根目录使用 `pnpm desktop:daily`（可显式指定自
 
 1. 在普通对话输入「我的长期写作偏好：我写复盘时先给一句结论，再列两条行动。这一轮只回复收到，不要调用工具。」不勾「本条不整理为记忆」。等主回复和整理都结束。
 2. 点击候选的「完整审核」，核对原话及拟保存内容，范围应为当前工作区；点击「保存这条记忆」。候选退出待审列表，保存回执出现；点击「查看已保存」核对正文。「审核记录」保存来源对话的接受/拒绝/失效记录，不是正式记忆的版本历史。
-3. 从应用退出菜单或托盘「退出 Runloom」彻底退出（关闭窗口只隐藏）。用同一入口重开。旧对话的消息应仍在，侧栏最近对话可打开它；「查看全部对话」保留显式登记旧目录的入口，不自动扫描别的工作区。
+3. 从应用退出菜单或托盘「退出 Serika」彻底退出（关闭窗口只隐藏）。用同一入口重开。旧对话的消息应仍在，侧栏最近对话可打开它；「查看全部对话」保留显式登记旧目录的入口，不自动扫描别的工作区。
 4. 点击「新对话」，输入「写复盘时，我习惯先写什么？之后列几项？请依据已保存的长期记忆回答，并给出记忆 ID。不要调用工具。」核对回答是一句结论、两条行动；展开「本轮参考记忆」，应选中同一条已保存的内容与 ID。
 5. 查阅后点「回到对话」，应回到原滚动位置；不会自动抢输入焦点。窄窗口保留「查看全部对话」图标，完整记录在同一窗口展开。
 

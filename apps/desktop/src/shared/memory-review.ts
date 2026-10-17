@@ -5,8 +5,8 @@ import type {
   CandidateResolveInput,
   MemoryCandidate,
   MemoryResult,
-} from "@aisdk-agent/example-cli/dist/memory-candidates.js";
-import type { MemoryKind, MemoryValidTime } from "@aisdk-agent/example-cli/dist/memory-temporal.js";
+} from "@serika/example-cli/dist/memory-candidates.js";
+import type { MemoryKind, MemoryValidTime } from "@serika/example-cli/dist/memory-temporal.js";
 
 export type CandidateFilter = "pending" | "accepted" | "rejected" | "stale";
 

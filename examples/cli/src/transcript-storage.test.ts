@@ -5,7 +5,7 @@ import { mkdtemp, readFile, rm, appendFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { it } from "node:test";
-import { JsonlAgentStore } from "@aisdk-agent/core";
+import { JsonlAgentStore } from "@serika/core";
 import { acquireFlock } from "./flock.js";
 
 it("an active Run blocks physical compaction in another process, without blocking its own save or restoring authority", { timeout: 10_000 }, async () => {
@@ -20,7 +20,7 @@ it("an active Run blocks physical compaction in another process, without blockin
     await store.create({ id: "run", threadId, agentId: "agent", agentVersion: "1", status: "created", version: 0, createdAt: at, updatedAt: at });
     const before = await readFile(path);
     child = spawn(process.execPath, ["--input-type=module", "-e", `
-      import { JsonlAgentStore } from '@aisdk-agent/core';
+      import { JsonlAgentStore } from '@serika/core';
       import { acquireFlock } from ${JSON.stringify(new URL("./flock.js", import.meta.url).href)};
       const store = new JsonlAgentStore({ directory: ${JSON.stringify(directory)}, snapshotCleanupThresholdBytes: 1,
         acquireTranscriptLock: path => acquireFlock(path + '.append.lock') });
@@ -70,7 +70,7 @@ it("cross-process append and snapshot cleanup share one lock without losing summ
     lease = await acquireFlock(`${path}.append.lock`);
     const start = (action: string) => {
       const child = spawn(process.execPath, ["--input-type=module", "-e", `
-        import { JsonlAgentStore } from '@aisdk-agent/core';
+        import { JsonlAgentStore } from '@serika/core';
         import { acquireFlock } from ${JSON.stringify(new URL("./flock.js", import.meta.url).href)};
         const store = new JsonlAgentStore({ directory: ${JSON.stringify(directory)}, snapshotCleanupThresholdBytes: 1,
           acquireTranscriptLock: path => acquireFlock(path + '.append.lock') });

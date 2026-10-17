@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { constants } from "node:fs";
 import { lstat, open, readFile, rename, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import type { AgentEvent, RunResult } from "@aisdk-agent/core";
+import type { AgentEvent, RunResult } from "@serika/core";
 import { acquireFlock, tryAcquireFlock, type FlockHandle } from "./flock.js";
 import { compactTraceEvent, validTrace, validTraceUsage, TRACE_MAX_EVENTS, TRACE_MAX_BYTES, type ExecutionTrace } from "./execution-trace.js";
 import { MODEL_CALL_LIMIT, validModelCall, type ModelCallRecord, type ModelUsagePage } from "./model-usage.js";

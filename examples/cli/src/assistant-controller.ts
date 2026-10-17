@@ -5,7 +5,7 @@ import { recipeChangeSchema, RecipeError, type RecipeEntry, type RecipeChange } 
 import { createHash, randomUUID } from "node:crypto";
 import { userMessageClock } from "./memory-observation-policy.js";
 import type { UIMessage } from "ai";
-import type { AgentEvent, RunHandle, RunResult } from "@aisdk-agent/core";
+import type { AgentEvent, RunHandle, RunResult } from "@serika/core";
 import { automaticConsolidationSkip, waitForConsolidationHandoff } from "./consolidation-lifecycle.js";
 import { createRuntimeAutomation, MEMORY_SKILL_ID, type AutomationDiagnostics, type AutomationExecution, type SkillRunInput, type SkillResult } from "./automation-execution.js";
 import { createBuiltinSkill } from "./skill-catalog.js";

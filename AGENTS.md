@@ -1,4 +1,4 @@
-# Runloom Development Constraints
+# Serika Development Constraints
 
 ## Project workflow
 
@@ -21,7 +21,7 @@
 
 ## Terminology and architecture
 
-- The project name is Runloom.
+- The project name is Serika.
 - Core domain language uses `Thread`; do not introduce `Session` as an alias.
 - Preserve this dependency direction:
 
@@ -119,7 +119,7 @@
 - Use `pg` for pooling, Kysely for typed queries and short transaction callbacks, and `node-pg-migrate` for immutable forward migration history. Never run migrations automatically during application startup.
 - Persist current relational state rather than event-sourcing `DurableEvent`. IDs are Runtime-generated non-empty text values; PostgreSQL does not generate domain identities.
 - Use strong columns for identity, status, time, versions, scheduling, constraints and frequently queried discriminators. Use versioned JSONB payloads only for JSON content, model/tool data, resolutions, errors and evidence.
-- Only Runloom `JsonValue` crosses a JSONB boundary. Do not persist SDK objects, `undefined`, `Date`, `BigInt`, class instances or non-finite numbers.
+- Only Serika `JsonValue` crosses a JSONB boundary. Do not persist SDK objects, `undefined`, `Date`, `BigInt`, class instances or non-finite numbers.
 - Stable request and tool-input hashes use the versioned `jcs-sha256:v1` protocol over RFC 8785 canonical JSON; never hash `jsonb::text`.
 - An external Effect and its `Attempt(not_dispatched)` are committed atomically. The Effect remains in `effect_outbox` until a separate transaction records the dispatch boundary and removes the row.
 - `EffectDispatcher` is a non-reentrant, single-worker batch service. Outbox scans are hints; the locked Run transaction must revalidate the candidate and commit `dispatched` before invoking an external port.

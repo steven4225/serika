@@ -25,7 +25,7 @@ describe("webSearch through keyless Exa MCP", () => {
   it("sends one tools/call without credentials and maps bounded discovery results", async () => {
     let requestedUrl = "";
     let requestedInit: RequestInit | undefined;
-    const result = await webSearch({ query: " Runloom agents ", limit: 2 }, {
+    const result = await webSearch({ query: " Serika agents ", limit: 2 }, {
       fetch: async (input, init) => {
         requestedUrl = String(input);
         requestedInit = init;
@@ -37,7 +37,7 @@ describe("webSearch through keyless Exa MCP", () => {
     });
     assert.equal(result.ok, true);
     if (!result.ok) return;
-    assert.equal(result.value.query, "Runloom agents");
+    assert.equal(result.value.query, "Serika agents");
     assert.deepEqual(result.value.results[1], {
       title: "second", url: "https://example.com/second", snippet: "A second result",
     });
@@ -49,7 +49,7 @@ describe("webSearch through keyless Exa MCP", () => {
     assert.equal(requestedInit?.redirect, "error");
     assert.deepEqual(JSON.parse(String(requestedInit?.body)), {
       jsonrpc: "2.0", id: 1, method: "tools/call",
-      params: { name: "web_search_exa", arguments: { query: "Runloom agents", numResults: 2 } },
+      params: { name: "web_search_exa", arguments: { query: "Serika agents", numResults: 2 } },
     });
     const headers = requestedInit?.headers as Record<string, string>;
     assert.equal(headers["Content-Type"], "application/json");

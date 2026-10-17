@@ -34,7 +34,7 @@
 
 ```sh
 pnpm build:runtime
-pnpm --filter @aisdk-agent/desktop exec tsx --test --test-name-pattern='full legacy journal resumes|expired confirmation can be renewed' src/main/telegram-gateway.test.ts
+pnpm --filter @serika/desktop exec tsx --test --test-name-pattern='full legacy journal resumes|expired confirmation can be renewed' src/main/telegram-gateway.test.ts
 ```
 
 应看到两个通过的测试，`fail: 0`、`cancelled: 0`，并输出两条 JSON 摘要：

@@ -7,7 +7,7 @@ import { join, resolve } from "node:path";
 import { PassThrough } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
-import type { RunResult } from "@aisdk-agent/core";
+import type { RunResult } from "@serika/core";
 import { createRuntimeApp } from "./app.js";
 import { createAssistantController, type AssistantController } from "./assistant-controller.js";
 import { configureCliModel } from "./model-config.js";

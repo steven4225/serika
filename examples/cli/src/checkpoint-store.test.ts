@@ -23,7 +23,7 @@ const gitPin: CheckpointGitPin = {
 function draft(overrides: Partial<CheckpointDraft> = {}): CheckpointDraft {
   return {
     status: "active",
-    goal: "Complete Runloom M5",
+    goal: "Complete Serika M5",
     currentPhase: "Store integration",
     summary: "The checkpoint store is being implemented.",
     completed: ["Freeze the contract"],

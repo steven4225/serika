@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { it } from "node:test";
 import { MockLanguageModelV3 } from "ai/test";
 import { simulateReadableStream } from "ai";
-import { contextBudgetForMode, DEFAULT_CONTEXT_BUDGET_CONFIG } from "@aisdk-agent/example-cli/dist/context-budget.js";
+import { contextBudgetForMode, DEFAULT_CONTEXT_BUDGET_CONFIG } from "@serika/example-cli/dist/context-budget.js";
 import { DesktopRuntime } from "./desktop-runtime.js";
 import { changeContextMode } from "./context-settings.js";
 import type { MainToRenderer } from "../shared/ui-contract.js";

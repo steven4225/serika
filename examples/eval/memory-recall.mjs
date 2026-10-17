@@ -3,13 +3,13 @@ import { execFileSync } from 'node:child_process';
 import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createMemoryStore } from '@aisdk-agent/example-cli/dist/memory-store.js';
-import { createMemoryEmbedder, normalizeEmbeddingConfig } from '@aisdk-agent/example-cli/dist/memory-embedding-client.js';
-import { LocalMemorySemanticIndex } from '@aisdk-agent/example-cli/dist/memory-semantic-index.js';
-import { retrieveMemories } from '@aisdk-agent/example-cli/dist/memory-retrieval.js';
-import { buildMemoryContextView } from '@aisdk-agent/example-cli/dist/memory-context-view.js';
-import { configureCliModel } from '@aisdk-agent/example-cli/dist/model-config.js';
-import { observeModelUsage } from '@aisdk-agent/example-cli/dist/model-usage-observer.js';
+import { createMemoryStore } from '@serika/example-cli/dist/memory-store.js';
+import { createMemoryEmbedder, normalizeEmbeddingConfig } from '@serika/example-cli/dist/memory-embedding-client.js';
+import { LocalMemorySemanticIndex } from '@serika/example-cli/dist/memory-semantic-index.js';
+import { retrieveMemories } from '@serika/example-cli/dist/memory-retrieval.js';
+import { buildMemoryContextView } from '@serika/example-cli/dist/memory-context-view.js';
+import { configureCliModel } from '@serika/example-cli/dist/model-config.js';
+import { observeModelUsage } from '@serika/example-cli/dist/model-usage-observer.js';
 
 const relevanceModel = { alias: 'command-code/default', provider: 'openai-compatible.chat',
   modelId: 'deepseek/deepseek-v4.1-flash-fast', baseURL: 'https://api.commandcode.ai/provider/v1' };
@@ -120,7 +120,7 @@ export async function runMemoryRecall({ live = false, probe = false, relevance =
   if (relevance && !env.COMMAND_CODE_API_KEY?.trim()) throw Error('Configure COMMAND_CODE_API_KEY in the host environment, never in chat or report files.');
   const config = normalizeEmbeddingConfig({ provider, baseURL, modelId });
   if (relevance && (config.provider !== 'dashscope' || config.modelId !== 'qwen3.7-text-embedding-flash')) throw Error('Relevance acceptance requires the fixed DashScope qwen3.7-text-embedding-flash configuration.');
-  const relevanceSelector = relevance ? (await import('@aisdk-agent/example-cli/dist/memory-relevance.js')).createMemoryRelevanceSelector : null;
+  const relevanceSelector = relevance ? (await import('@serika/example-cli/dist/memory-relevance.js')).createMemoryRelevanceSelector : null;
   const suiteCases = suite === 'validation' ? memoryRecallValidationCases : memoryRecallCases;
   const cases = probe ? suiteCases.slice(0, 1) : suiteCases;
   if (config.provider === 'dashscope' && !env.DASHSCOPE_API_KEY) throw Error('Configure DASHSCOPE_API_KEY in the host environment, never in chat or report files.');

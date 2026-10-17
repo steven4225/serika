@@ -15,7 +15,7 @@ it("daily Electron and preview share the reference layout without an opt-in or q
 
 it("renders registered history and preserves busy/error distinctions and all feature entries", () => {
   const props = { threads: [{ threadId: "a", title: "<script>history</script>", transcriptDirectory: "/isolated", messageCount: 2 }], currentId: "a",
-    drafts: new Map<string, string>(), workspaceRoot: "/isolated/Runloom", loading: false, error: null, busy: true, selected: null,
+    drafts: new Map<string, string>(), workspaceRoot: "/isolated/Serika", loading: false, error: null, busy: true, selected: null,
     pendingMemory: "2+", unknownRuns: 1, onNew: () => {}, onSelect: () => {}, onOpen: () => {}, onConversation: () => {} };
   const markup = renderToStaticMarkup(createElement(ZCodeSidebar, props));
   assert.match(markup, /<strong>Serika<\/strong>/);

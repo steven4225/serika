@@ -12,12 +12,12 @@ import {
   InMemoryAgentCatalog,
   JsonlAgentStore,
   type AgentStore,
-} from "@aisdk-agent/core";
+} from "@serika/core";
 import {
   AiSdkAgentLoop,
   InMemoryModelRegistry,
   ToolRegistry,
-} from "@aisdk-agent/ai-sdk-adapter";
+} from "@serika/ai-sdk-adapter";
 import { resolveWorkspace } from "./cli-options.js";
 import { configureCliModel } from "./model-config.js";
 import { createModuleHost } from "./module-host.js";

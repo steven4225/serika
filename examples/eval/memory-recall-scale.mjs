@@ -3,12 +3,12 @@ import { execFileSync } from 'node:child_process';
 import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createMemoryStore } from '@aisdk-agent/example-cli/dist/memory-store.js';
-import { createMemoryEmbedder, normalizeEmbeddingConfig } from '@aisdk-agent/example-cli/dist/memory-embedding-client.js';
-import { LocalMemorySemanticIndex, MEMORY_SEMANTIC_WARMUP_BATCH } from '@aisdk-agent/example-cli/dist/memory-semantic-index.js';
-import { retrieveMemories } from '@aisdk-agent/example-cli/dist/memory-retrieval.js';
-import { buildMemoryContextView } from '@aisdk-agent/example-cli/dist/memory-context-view.js';
-import { configureCliModel } from '@aisdk-agent/example-cli/dist/model-config.js';
+import { createMemoryStore } from '@serika/example-cli/dist/memory-store.js';
+import { createMemoryEmbedder, normalizeEmbeddingConfig } from '@serika/example-cli/dist/memory-embedding-client.js';
+import { LocalMemorySemanticIndex, MEMORY_SEMANTIC_WARMUP_BATCH } from '@serika/example-cli/dist/memory-semantic-index.js';
+import { retrieveMemories } from '@serika/example-cli/dist/memory-retrieval.js';
+import { buildMemoryContextView } from '@serika/example-cli/dist/memory-context-view.js';
+import { configureCliModel } from '@serika/example-cli/dist/model-config.js';
 import { scoreRecall, summarizeRecall } from './memory-recall.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
@@ -139,7 +139,7 @@ export async function runScaleRecall({ live = false, relevance = false, env = pr
   let environmentFailure = null;
   let selectRelevance;
   if (relevance) {
-    const { createMemoryRelevanceSelector } = await import('@aisdk-agent/example-cli/dist/memory-relevance.js');
+    const { createMemoryRelevanceSelector } = await import('@serika/example-cli/dist/memory-relevance.js');
     const configured = configureCliModel(() => { throw Error('No mock model'); }, { ...env, RUNLOOM_MODEL: 'command-code',
       COMMAND_CODE_MODEL_ID: relevanceModel.modelId, COMMAND_CODE_BASE_URL: relevanceModel.baseURL }, {
       fetch: async (url, options) => {

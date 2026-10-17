@@ -12,7 +12,7 @@ import type {
   RunRequest,
   RunResult,
   ToolExecutionDecision,
-} from "@aisdk-agent/core";
+} from "@serika/core";
 import { resolve, sep } from "node:path";
 import {
   AUTO_CONSOLIDATION_AGENT_ID,

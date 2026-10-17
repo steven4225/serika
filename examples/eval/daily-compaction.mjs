@@ -1,5 +1,5 @@
 import { contextBudgetForMode, estimateMessageTokens, partitionMessagesForCompaction,
-  keepRecentCompactionUnits } from '@aisdk-agent/example-cli/dist/context-budget.js';
+  keepRecentCompactionUnits } from '@serika/example-cli/dist/context-budget.js';
 import { reliabilityCases, reliabilitySpec, compactionSeed } from './reliability-cases.mjs';
 
 // Separate suite: the old 12K regression inputs and their scores stay unchanged.

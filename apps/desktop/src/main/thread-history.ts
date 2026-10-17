@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { lstat, readdir, realpath } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
-import { readCommittedTranscriptLines, createThreadTranscriptReader, MAX_TRANSCRIPT_RECORD_BYTES } from "@aisdk-agent/core";
+import { readCommittedTranscriptLines, createThreadTranscriptReader, MAX_TRANSCRIPT_RECORD_BYTES } from "@serika/core";
 import type { DesktopThread } from "./desktop-identity.js";
 import type { ThreadSummary } from "../shared/ui-contract.js";
 

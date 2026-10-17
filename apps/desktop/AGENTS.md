@@ -1,4 +1,4 @@
-# Runloom Desktop Development Constraints
+# Serika Desktop Development Constraints
 
 ## Maintenance-phase task admission
 

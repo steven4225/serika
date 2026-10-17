@@ -158,7 +158,7 @@ export async function inspectGitReality(
   const pin: GitRealityPin = {
     head: head.output.trim(),
     branch: branch.output.trim() || null,
-    // The checkpoint and its lock are Runloom bookkeeping. Exclude only their
+    // The checkpoint and its lock are Serika bookkeeping. Exclude only their
     // untracked forms; if the user tracks either file, Git changes still count.
     dirty: status.output.split("\n").some((line) => line !== "" && !OWN_UNTRACKED_FILES.has(line)),
     observedAt: new Date().toISOString(),

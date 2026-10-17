@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, it } from "node:test";
-import type { MemoryReferenceSnapshot } from "@aisdk-agent/example-cli/dist/memory-query-rewrite.js";
+import type { MemoryReferenceSnapshot } from "@serika/example-cli/dist/memory-query-rewrite.js";
 import { MemoryReferenceDetails } from "./memory-references.js";
 
 const baseline: MemoryReferenceSnapshot & { runId: string } = {

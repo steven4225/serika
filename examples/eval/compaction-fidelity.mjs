@@ -1,5 +1,5 @@
 import { dailyCompactionSpec, fixtureHistory } from './daily-compaction.mjs';
-import { effectiveContextBudget, estimateMessageTokens } from '@aisdk-agent/example-cli/dist/context-budget.js';
+import { effectiveContextBudget, estimateMessageTokens } from '@serika/example-cli/dist/context-budget.js';
 
 // Separate regression suite; RC/RD/RL inputs and old scores are unchanged.
 export const compactionFidelityCases = [

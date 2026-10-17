@@ -1,4 +1,4 @@
-import type { AgentEvent, AgentStore, RunRecord } from "@aisdk-agent/core";
+import type { AgentEvent, AgentStore, RunRecord } from "@serika/core";
 import { AUTO_CONSOLIDATION_AGENT_ID } from "./consolidation.js";
 import type { ExecutionRecordStore, ExecutionPhase } from "./execution-record-store.js";
 import type { WorkTaskStore } from "./work-task-store.js";

@@ -23,7 +23,7 @@ import {
   type RuntimeSnapshot,
   type ThreadState,
   type TriggerMessage,
-} from "@aisdk-agent/core/durable";
+} from "@serika/core/durable";
 import {
   type Kysely,
   sql,
@@ -31,7 +31,7 @@ import {
   type UpdateResult,
 } from "kysely";
 import { DatabaseError } from "pg";
-import type { RunloomDatabase } from "./database.js";
+import type { SerikaDatabase } from "./database.js";
 import {
   actionValues,
   approvalValues,
@@ -55,14 +55,14 @@ import {
   turnValues,
 } from "./mappers.js";
 
-type DatabaseExecutor = Kysely<RunloomDatabase> | Transaction<RunloomDatabase>;
+type DatabaseExecutor = Kysely<SerikaDatabase> | Transaction<SerikaDatabase>;
 
 export class PostgresDurableRepository
   implements DurableStore<JsonValue, TriggerMessage<JsonValue>>
 {
-  readonly #db: Kysely<RunloomDatabase>;
+  readonly #db: Kysely<SerikaDatabase>;
 
-  constructor(db: Kysely<RunloomDatabase>) {
+  constructor(db: Kysely<SerikaDatabase>) {
     this.#db = db;
   }
 
@@ -459,7 +459,7 @@ async function loadStopRequests(
 }
 
 async function persistDecision(
-  db: Transaction<RunloomDatabase>,
+  db: Transaction<SerikaDatabase>,
   previous: RuntimeSnapshot,
   next: RuntimeSnapshot,
   decision: DurableDecision,
@@ -559,7 +559,7 @@ function sameEffect(left: unknown, right: unknown): boolean {
 }
 
 async function persistAttempt(
-  db: Transaction<RunloomDatabase>,
+  db: Transaction<SerikaDatabase>,
   previous: AttemptState | null,
   next: AttemptState | null,
 ): Promise<void> {
@@ -583,7 +583,7 @@ async function persistAttempt(
 }
 
 async function persistApproval(
-  db: Transaction<RunloomDatabase>,
+  db: Transaction<SerikaDatabase>,
   previous: ApprovalState | null,
   next: ApprovalState | null,
 ): Promise<void> {
@@ -605,7 +605,7 @@ async function persistApproval(
 }
 
 async function persistReconciliation(
-  db: Transaction<RunloomDatabase>,
+  db: Transaction<SerikaDatabase>,
   previous: ReconciliationCaseState | null,
   next: ReconciliationCaseState | null,
 ): Promise<void> {

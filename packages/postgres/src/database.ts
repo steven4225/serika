@@ -146,7 +146,7 @@ export interface EffectOutboxTable {
   created_at: Timestamp;
 }
 
-export interface RunloomDatabase {
+export interface SerikaDatabase {
   threads: ThreadTable;
   runs: RunTable;
   messages: MessageTable;
@@ -161,9 +161,9 @@ export interface RunloomDatabase {
 
 export function createPostgresDatabase(
   config: PoolConfig | Pool,
-): Kysely<RunloomDatabase> {
+): Kysely<SerikaDatabase> {
   const pool = config instanceof Pool ? config : new Pool(config);
-  return new Kysely<RunloomDatabase>({
+  return new Kysely<SerikaDatabase>({
     dialect: new PostgresDialect({ pool }),
   });
 }

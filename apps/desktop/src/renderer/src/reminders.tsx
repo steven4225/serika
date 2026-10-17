@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import type { AutomationScheduleAction } from "@aisdk-agent/example-cli/dist/automation-scheduling.js";
+import type { AutomationScheduleAction } from "@serika/example-cli/dist/automation-scheduling.js";
 import { reminderClock, reminderRows, type ReminderDisplayRow } from "./reminder-copy.js";
 
 export function ReminderHome({ rows, other, truncated, loading, error, pendingCancel, working, onCancel, onConfirmCancel, onDismissCancel }: {

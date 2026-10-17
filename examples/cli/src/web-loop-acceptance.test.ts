@@ -7,12 +7,12 @@ import {
   InMemoryAgentCatalog,
   InMemoryAgentStore,
   type AgentEvent,
-} from "@aisdk-agent/core";
+} from "@serika/core";
 import {
   AiSdkAgentLoop,
   InMemoryModelRegistry,
   ToolRegistry,
-} from "@aisdk-agent/ai-sdk-adapter";
+} from "@serika/ai-sdk-adapter";
 import { Writable } from "node:stream";
 import { createModuleHost } from "./module-host.js";
 import { createWebModule } from "./modules/web-module.js";

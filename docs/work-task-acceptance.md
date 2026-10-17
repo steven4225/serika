@@ -32,7 +32,7 @@
 
 WT01–WT06 的固定输入与操作边界见
 [`examples/cli/fixtures/work-task-eval/README.md`](../examples/cli/fixtures/work-task-eval/README.md)。
-其中仓库变更是隔离代码样例，SampleDesk 是虚构项目，都不是 Runloom 生产代码或
+其中仓库变更是隔离代码样例，SampleDesk 是虚构项目，都不是 Serika 生产代码或
 当前项目状态。研究案例使用真实官方来源；WT06 具体覆盖版本差异与缺失证据，
 不人为编造同范围冲突，也不能从另外五个案例推断它通过。
 

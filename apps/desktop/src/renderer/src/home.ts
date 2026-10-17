@@ -26,7 +26,7 @@ export interface HomeView {
   unparsed: string[];
 }
 
-const IDENTITY_PREFIXES = ["Runloom Home", "模型：", "Workspace：", "Thread：", "Transcript 目录：", "注意："];
+const IDENTITY_PREFIXES = ["Serika Home", "模型：", "Workspace：", "Thread：", "Transcript 目录：", "注意："];
 const SECTION_HEADS = ["项目进度：", "本地任务：", "Git："];
 const ENTRY_HEAD = "可用入口：";
 

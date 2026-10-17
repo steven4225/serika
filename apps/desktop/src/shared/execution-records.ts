@@ -23,7 +23,7 @@ export async function wrapExecutionQuery<T>(
 
 export function toListRunsResponse(
   result: Awaited<ReturnType<typeof wrapExecutionQuery<ExecutionRunRecord[]>>>,
-  modelUsage?: import("@aisdk-agent/example-cli/dist/model-usage.js").ModelUsagePage,
+  modelUsage?: import("@serika/example-cli/dist/model-usage.js").ModelUsagePage,
 ): ListRunsResponse {
   if (!result.ok) return { ok: false, reason: "unavailable", message: result.message };
   return { ok: true, runs: result.value, ...(modelUsage ? { modelUsage } : {}) };

@@ -84,7 +84,7 @@ describe("tasks page", () => {
   it("shows the segmented control, human rows, and no engineering ids", () => {
     const html = page({ tasks: [
       task("task_hidden_wake", "起床提醒", 11),
-      task("task_hidden_research", "三线关联分析：agent-memory-map × Runloom PR #113 × pi-learn", 9),
+      task("task_hidden_research", "三线关联分析：agent-memory-map × Serika PR #113 × pi-learn", 9),
       task("task_hidden_blank", "task_hidden_blank", 12),
     ] });
     assert.match(html, /role="tablist"/);
@@ -94,7 +94,7 @@ describe("tasks page", () => {
     assert.match(html, /昨天/);
     assert.match(html, /近 7 天/);
     assert.match(html, /起床提醒/);
-    assert.match(html, /三线关联分析：agent-memory-map × Runloom PR #113 × pi-learn/);
+    assert.match(html, /三线关联分析：agent-memory-map × Serika PR #113 × pi-learn/);
     assert.match(html, /未命名任务/);
     assert.doesNotMatch(html, /task_|thread_/);
     assert.doesNotMatch(html, /任务目标|创建任务，不执行|<textarea/);

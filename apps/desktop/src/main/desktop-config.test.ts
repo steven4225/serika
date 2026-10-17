@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import { DEFAULT_CONTEXT_BUDGET_CONFIG, contextBudgetForMode } from "@aisdk-agent/example-cli/dist/context-budget.js";
+import { DEFAULT_CONTEXT_BUDGET_CONFIG, contextBudgetForMode } from "@serika/example-cli/dist/context-budget.js";
 import { changeModuleSetting } from "./module-settings.js";
 import {
   DESKTOP_DEFAULT_SHELL_TIMEOUT_MS,

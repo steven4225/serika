@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { tool } from "ai";
 import { z } from "zod";
-import type { RegisteredTool } from "@aisdk-agent/ai-sdk-adapter";
+import type { RegisteredTool } from "@serika/ai-sdk-adapter";
 import type { AgentModule } from "../module-host.js";
 
 const DEFAULT_MINUTES = 25;
@@ -178,7 +178,7 @@ function notifyMacDesktop(
     .replaceAll("\n", " ");
   runMacCommand(
     "osascript",
-    ["-e", `display notification "${escapedMessage}" with title "Runloom"`],
+    ["-e", `display notification "${escapedMessage}" with title "Serika"`],
     "notification",
     onFailure,
   );

@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import type { RegisteredTool } from "@aisdk-agent/ai-sdk-adapter";
+import type { RegisteredTool } from "@serika/ai-sdk-adapter";
 import { asSchema } from "ai";
 import {
   CHECKPOINT_FILE_NAME,
@@ -17,7 +17,7 @@ import { memorySemanticTextHash, retrieveMemories } from "../memory-retrieval.js
 function draft(overrides: Partial<CheckpointDraft> = {}): CheckpointDraft {
   return {
     status: "active",
-    goal: "Continue Runloom",
+    goal: "Continue Serika",
     summary: "The feature is in progress.",
     completed: ["Confirm the contract"],
     inProgress: ["Add the checkpoint module"],

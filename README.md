@@ -1,4 +1,4 @@
-# Runloom
+# Serika
 
 ## Serika Electron 桌面（单仓入口）
 
@@ -34,7 +34,7 @@ pnpm build
 
 ## 本机指定应用（Cua Driver，实验性）
 
-接入现有主 AgentLoop 的 `computer_observe` / `computer_action`，不新增循环、不改变桌面前端或 worker。默认关闭，只支持 macOS；用户须先安装并启动 [Cua Driver](https://cua.ai/docs/cua-driver/quickstart)，自行完成它的系统权限配置。Runloom 不安装驱动、不启动 daemon、不申请权限，也不连接 Cua Cloud。
+接入现有主 AgentLoop 的 `computer_observe` / `computer_action`，不新增循环、不改变桌面前端或 worker。默认关闭，只支持 macOS；用户须先安装并启动 [Cua Driver](https://cua.ai/docs/cua-driver/quickstart)，自行完成它的系统权限配置。Serika 不安装驱动、不启动 daemon、不申请权限，也不连接 Cua Cloud。
 
 在 **workspace 外**的配置里明确允许应用 bundle ID 和可信驱动绝对路径（驱动也必须在 workspace 外）：
 
@@ -68,7 +68,7 @@ RUNLOOM_MODEL=deepseek node --env-file=.env examples/cli/dist/index.js --tui /ab
 
 驱动返回 `confirmed` 也只表示它的操作观察，不是业务完成证明；`unverifiable` / `suspected_noop` 表示已派发但效果未验证，只允许继续观察，不自动重复。传输中断、超时、非法回执、`partial` / `indeterminate` 等走非幂等 `TOOL_OUTCOME_UNKNOWN`，停止 Run，需用户核对，不重放。Electron/浏览器控件树可能不可靠，画布/复杂窗口可能截断，本版不声称支持通用视觉 Computer Use；需要独立业务证据或人工验收。
 
-取消会终止 Runloom 的 CLI 客户端，不能证明 daemon 已撤回动作；派发后的取消必须核对实际应用，不能直接重新执行。离线测试不操作真实桌面。真机封板另做：隔离 TextEdit 文档，在批准应用里观察→确认输入→再观察并人工核对；拒绝时无动作、非白名单应用拒绝、取消/驱动断连不重试。未完成这些场景前只能称接入实现，不能称本机控制已封板。
+取消会终止 Serika 的 CLI 客户端，不能证明 daemon 已撤回动作；派发后的取消必须核对实际应用，不能直接重新执行。离线测试不操作真实桌面。真机封板另做：隔离 TextEdit 文档，在批准应用里观察→确认输入→再观察并人工核对；拒绝时无动作、非白名单应用拒绝、取消/驱动断连不重试。未完成这些场景前只能称接入实现，不能称本机控制已封板。
 
 可重复的真实模型验收入口为 `examples/cli/dist/computer-native-acceptance.js`，默认不会在 `pnpm test` 中运行。显式 opt-in 后可测隔离 TextEdit 的一次输入、拒绝或确认前取消；每次报告独立保留，`backendPassed` 不等于 Electron/完整封板。参数、严格授权范围及桌面接线说明见 [本机 Computer 接线与验收](docs/embedding-assistant-controller.md#本机-computer-接线与验收)。
 
@@ -142,7 +142,7 @@ RUNLOOM_MODEL=minimax-m3 pnpm tui -- ./var/runloom --thread demo --workspace ./s
 
 独立开启 `modules.checkpoint.enabled` 后，TUI 在 workspace 的 `.runloom/checkpoint.json` 保存一份项目工作进度；它与 Memory、transcript 分开，默认关闭且不依赖 `memory.enabled`。新 Thread 只注入当前版本，明确标为保存时的参考快照，不代表当前磁盘状态，也不恢复工具授权。用户明确要求时才调用 `checkpoint_prepare`、`checkpoint_get` 或 `checkpoint_save`，三者都走现有 `y/n`；prepare 只返回 current 和当前 Thread 可注入的 Memory，不调用模型、不重复复制近期对话。保存预览包含 `expectedVersion` 与完整草稿；版本冲突不覆盖，按 `n` 零写入。当前快照和注入消息各不超过 12 KiB，文件不超过 128 KiB，损坏或超限时 fail-closed。它不验证 artifacts 路径当前是否存在，也不是自动记忆整理的候选；`completed` 仍是 current，后续保存递增版本。
 
-启用 checkpoint 且有 workspace 时，可在 TUI 空闲输入 `/resume` 做一次只读 Git 核对：程序显示当前 HEAD、branch、工作区 dirty 与 checkpoint 保存时 pin 的对账状态（`consistent` / `stale` / `diverged` / `insufficient_evidence`）。未被 Git 跟踪的 Runloom checkpoint 和锁文件不计入 dirty；若用户将它们纳入 Git 跟踪，修改仍会计入。`checkpoint_save` 确认后会尝试记录 Git pin；非仓库或检查失败仍可保存，只是没有 pin，旧 checkpoint 也仍可读取。`/resume` 不创建 Run、不写 transcript、不联网、不运行测试，也不授权工具；观察只注入紧接着的下一次普通主 Run，结束、失败或取消后消失，重启不会恢复。重复 `/resume` 不会移动保存时的 pin；要更新 pin，必须由用户明确要求再次保存 checkpoint。Git 检查只是执行当时的局部证据，不能证明文件内容、PR 状态或测试结果；不输入 `/resume` 时仍只提供 M5 的 checkpoint 参考。
+启用 checkpoint 且有 workspace 时，可在 TUI 空闲输入 `/resume` 做一次只读 Git 核对：程序显示当前 HEAD、branch、工作区 dirty 与 checkpoint 保存时 pin 的对账状态（`consistent` / `stale` / `diverged` / `insufficient_evidence`）。未被 Git 跟踪的 Serika checkpoint 和锁文件不计入 dirty；若用户将它们纳入 Git 跟踪，修改仍会计入。`checkpoint_save` 确认后会尝试记录 Git pin；非仓库或检查失败仍可保存，只是没有 pin，旧 checkpoint 也仍可读取。`/resume` 不创建 Run、不写 transcript、不联网、不运行测试，也不授权工具；观察只注入紧接着的下一次普通主 Run，结束、失败或取消后消失，重启不会恢复。重复 `/resume` 不会移动保存时的 pin；要更新 pin，必须由用户明确要求再次保存 checkpoint。Git 检查只是执行当时的局部证据，不能证明文件内容、PR 状态或测试结果；不输入 `/resume` 时仍只提供 M5 的 checkpoint 参考。
 
 TUI 启动时会在历史记录之后显示一次只读 Home；空闲输入 `/home` 可重新读取当前状态。Home 显示模型配置、workspace、Thread 与 transcript 路径，并分别提醒临时目录和临时 Thread；项目区块读取 workspace 当前 checkpoint，并标出它由哪个 Thread 保存；本地任务区块显示未确认的 `completed` / `failed` / `interrupted` 结果以及最近创建的 `scheduled` / `running` 任务。列表截断时会明确提示还有更多，不声称展示全部待办。Home 不运行模型、Git 或 Todoist 查询，不写文件、不 ack、不推断桌面通知已送达；只有 checkpoint 启用时才提示 `/resume`，只有 task 启用时才提示 `/task inbox`。
 
@@ -187,7 +187,7 @@ export TODOIST_API_TOKEN="<your-personal-token>"
 RUNLOOM_MODEL=minimax-m3 pnpm tui -- ./var/runloom --thread daily-plan --todoist
 ```
 
-默认规划时区是 `Asia/Shanghai`，可用 `RUNLOOM_TODOIST_TIMEZONE` 设置为 Node `Intl` 支持的其它时区。全天日期保持原日期；没有 UTC 偏移的浮动时间按这个规划时区解释，不读取 Todoist 账户时区。因此当账户时区不同时，Runloom 的日期视图可能与 Todoist App 不一致。
+默认规划时区是 `Asia/Shanghai`，可用 `RUNLOOM_TODOIST_TIMEZONE` 设置为 Node `Intl` 支持的其它时区。全天日期保持原日期；没有 UTC 偏移的浮动时间按这个规划时区解释，不读取 Todoist 账户时区。因此当账户时区不同时，Serika 的日期视图可能与 Todoist App 不一致。
 
 模块提供 `todoist_list_tasks` 工具和 `/todoist list [planning|today|overdue|upcoming]` 命令。读取范围是令牌可见的活动任务中分配给当前用户或未分配的任务，明确包含共享项目中的未分配项。模块不提供完成、改期、改优先级、评论或其它写操作。
 
@@ -367,7 +367,7 @@ mkdir -p ./var/notes
 RUNLOOM_MODEL=deepseek node --env-file=.env examples/cli/dist/index.js --tui ./var/runloom --thread personal --workspace ./var/notes
 ```
 
-例如输入：`把“本周只推进 Runloom 的资料保存与找回”保存为 first-note.md。` 核对路径和正文后由操作人输入 `y/n`。使用相同目录和 thread 重启后，可请求查找并读取该笔记。`.env` 不会由普通 CLI/worker 自动加载，上述命令通过 Node 的 `--env-file` 加载。
+例如输入：`把“本周只推进 Serika 的资料保存与找回”保存为 first-note.md。` 核对路径和正文后由操作人输入 `y/n`。使用相同目录和 thread 重启后，可请求查找并读取该笔记。`.env` 不会由普通 CLI/worker 自动加载，上述命令通过 Node 的 `--env-file` 加载。
 
 上下文压缩默认关闭。需要在长任务中启用时，在 TUI 配置根部加入 `contextCompaction`，例如：
 

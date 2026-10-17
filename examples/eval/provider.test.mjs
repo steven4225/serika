@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
 import SerikaProvider, { requireLive, expectedDeferredCoverage } from './provider.mjs';
-import { consolidationPrefixHash } from '@aisdk-agent/example-cli/dist/memory-consolidation.js';
+import { consolidationPrefixHash } from '@serika/example-cli/dist/memory-consolidation.js';
 import check from './assertions.mjs';
 
 // Test commands are always offline even if the caller's shell opted into live.

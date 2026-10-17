@@ -1,30 +1,30 @@
-import type { MemoryLibraryAction } from "@aisdk-agent/example-cli/dist/memory-library.js";
-import { validateChatAttachments } from "@aisdk-agent/example-cli/dist/chat-attachments.js";
-import type { MemoryImportEntry, MemoryImportConfirm, MemoryImportPreview, MemoryImportReceipt } from "@aisdk-agent/example-cli/dist/memory-import.js";
-import type { RecipeChange } from "@aisdk-agent/example-cli/dist/recipe-store.js";
+import type { MemoryLibraryAction } from "@serika/example-cli/dist/memory-library.js";
+import { validateChatAttachments } from "@serika/example-cli/dist/chat-attachments.js";
+import type { MemoryImportEntry, MemoryImportConfirm, MemoryImportPreview, MemoryImportReceipt } from "@serika/example-cli/dist/memory-import.js";
+import type { RecipeChange } from "@serika/example-cli/dist/recipe-store.js";
 import { Writable } from "node:stream";
 import { lstat } from "node:fs/promises";
 import { readLoadedBuild } from "./build-identity.js";
 import { historyPage, type HistoryPageInput } from "../shared/history.js";
-import { ExecutionRecordStore } from "@aisdk-agent/example-cli/dist/execution-record-store.js";
+import { ExecutionRecordStore } from "@serika/example-cli/dist/execution-record-store.js";
 import type { DesktopThread } from "./desktop-identity.js";
-import type { MemoryEditInput, MemoryListInput } from "@aisdk-agent/example-cli/dist/memory-management.js";
-import type { MemoryAction, MemoryHistoryInput } from "@aisdk-agent/example-cli/dist/memory-controls.js";
-import type { AssistantRunOptions } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
-import type { AutomationDiagnostics, SkillRunInput, SkillResult } from "@aisdk-agent/example-cli/dist/automation-execution.js";
-import type { AutomationScheduleAction, ScheduleSkillInput } from "@aisdk-agent/example-cli/dist/automation-scheduling.js";
-import type { DreamingChangeInput } from "@aisdk-agent/example-cli/dist/dreaming.js";
-import type { MemoryConsolidationRequest } from "@aisdk-agent/example-cli/dist/memory-consolidation.js";
-import type { MemoryTemporalQuery } from "@aisdk-agent/example-cli/dist/memory-store.js";
+import type { MemoryEditInput, MemoryListInput } from "@serika/example-cli/dist/memory-management.js";
+import type { MemoryAction, MemoryHistoryInput } from "@serika/example-cli/dist/memory-controls.js";
+import type { AssistantRunOptions } from "@serika/example-cli/dist/assistant-controller.js";
+import type { AutomationDiagnostics, SkillRunInput, SkillResult } from "@serika/example-cli/dist/automation-execution.js";
+import type { AutomationScheduleAction, ScheduleSkillInput } from "@serika/example-cli/dist/automation-scheduling.js";
+import type { DreamingChangeInput } from "@serika/example-cli/dist/dreaming.js";
+import type { MemoryConsolidationRequest } from "@serika/example-cli/dist/memory-consolidation.js";
+import type { MemoryTemporalQuery } from "@serika/example-cli/dist/memory-store.js";
 import type {
   AssistantController,
   AssistantEvent,
   AssistantSnapshot,
   AssistantState,
-} from "@aisdk-agent/example-cli/dist/assistant-controller.js";
-import type { RuntimeApp } from "@aisdk-agent/example-cli/dist/app.js";
-import type { RssAction } from "@aisdk-agent/example-cli/dist/rss-subscriptions.js";
-import type { ExecutionRunRecord } from "@aisdk-agent/example-cli/dist/execution-record-store.js";
+} from "@serika/example-cli/dist/assistant-controller.js";
+import type { RuntimeApp } from "@serika/example-cli/dist/app.js";
+import type { RssAction } from "@serika/example-cli/dist/rss-subscriptions.js";
+import type { ExecutionRunRecord } from "@serika/example-cli/dist/execution-record-store.js";
 import { ShellProgressBuffer } from "../shared/shell-progress.js";
 import { sanitizeWorkTaskInput, type WorkTask, type WorkTaskInputs, type WorkTaskResult } from "../shared/work-tasks.js";
 import type { WorkTaskReadInput, WorkTaskArtifactInput, WorkTaskReadResult, WorkTaskDeliveryDraft, WorkTaskArtifactPreview } from "../shared/work-tasks.js";
@@ -41,7 +41,7 @@ import type {
   CandidateResolution,
   CandidateResolveInput,
   MemoryResult,
-} from "@aisdk-agent/example-cli/dist/memory-candidates.js";
+} from "@serika/example-cli/dist/memory-candidates.js";
 import type {
   AppInfo,
   CommandResponse,

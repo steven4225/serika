@@ -6,7 +6,7 @@ import { loadActionablePending } from "./pending-memory-query.js";
 import { memoryAutomationLabel, memoryCandidateEmptyCopy } from "./memory-copy.js";
 import { FailureAlert } from "./failure-notice.js";
 import { MemorySavedNotice } from "./memory-saved-notice.js";
-import type { CandidatePreview } from "@aisdk-agent/example-cli/dist/memory-candidates.js";
+import type { CandidatePreview } from "@serika/example-cli/dist/memory-candidates.js";
 import { formatRecordTime } from "../../shared/execution-records.js";
 import {
   canAccept,

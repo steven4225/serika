@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { describe, it } from "node:test";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
-import { InMemoryAgentStore } from "@aisdk-agent/core";
+import { InMemoryAgentStore } from "@serika/core";
 import { createTaskWorkerAgent, todoistTaskWorkerInstructions } from "./task-worker-entry.js";
 import { createTaskStore } from "./task-store.js";
 import { runTaskWorker } from "./task-worker.js";

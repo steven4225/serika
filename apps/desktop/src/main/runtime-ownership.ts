@@ -1,7 +1,7 @@
 import { join, resolve } from "node:path";
 import { DesktopRuntime } from "./desktop-runtime.js";
 import { resolveDesktopConfig } from "./desktop-config.js";
-import { resolveTuiModuleConfig } from "@aisdk-agent/example-cli/dist/tui-module-config.js";
+import { resolveTuiModuleConfig } from "@serika/example-cli/dist/tui-module-config.js";
 import { ResidentClient, type ResidentPaths } from "./resident-transport.js";
 import type { RemoteRuntimeMethods, ResidentScope } from "./resident-protocol.js";
 import { createResidentService, resolveResidentPaths } from "./resident-service.js";

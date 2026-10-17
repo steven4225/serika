@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, it } from "node:test";
-import type { RegisteredTool } from "@aisdk-agent/ai-sdk-adapter";
+import type { RegisteredTool } from "@serika/ai-sdk-adapter";
 import { DOCKER_CLEANUP_TIMEOUT_MS } from "./docker-shell-runner.js";
 import {
   SHELL_EXEC_DOCKER_TOOL_TIMEOUT_MS,

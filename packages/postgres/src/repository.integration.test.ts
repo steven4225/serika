@@ -5,24 +5,24 @@ import {
   ApprovalExpiryScheduler,
   EffectDispatcher,
   type RuntimeSnapshot,
-} from "@aisdk-agent/core/durable";
+} from "@serika/core/durable";
 import {
   createContractRunInput,
   runDurableRepositoryContract,
-} from "@aisdk-agent/core/durable/repository-contract";
+} from "@serika/core/durable/repository-contract";
 import {
   PostgreSqlContainer,
   type StartedPostgreSqlContainer,
 } from "@testcontainers/postgresql";
 import { sql, type Kysely } from "kysely";
 import { DatabaseError } from "pg";
-import { createPostgresDatabase, type RunloomDatabase } from "./database.js";
+import { createPostgresDatabase, type SerikaDatabase } from "./database.js";
 import { runMigrations } from "./migrations.js";
 import { actionValues, approvalValues, runValues } from "./mappers.js";
 import { PostgresDurableRepository } from "./repository.js";
 
 let container: StartedPostgreSqlContainer;
-let database: Kysely<RunloomDatabase>;
+let database: Kysely<SerikaDatabase>;
 let databaseUrl: string;
 
 before(async () => {

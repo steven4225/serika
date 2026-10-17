@@ -1,12 +1,12 @@
 import { EntryCardContent } from "./personal/entry-card.js";
 import React, { useEffect, useRef, useState } from "react";
 import type { AppInfo } from "../../shared/ui-contract.js";
-import type { MemoryMaintenance } from "@aisdk-agent/example-cli/dist/memory-controls.js";
-import type { MemoryActionPreview } from "@aisdk-agent/example-cli/dist/memory-controls.js";
-import type { FormalMemory } from "@aisdk-agent/example-cli/dist/memory-management.js";
-import type { MemoryResult } from "@aisdk-agent/example-cli/dist/memory-candidates.js";
-import type { MemoryConsolidationSource, MemoryConsolidationRequest } from "@aisdk-agent/example-cli/dist/memory-consolidation.js";
-import { memoryConsolidationFailureText } from "@aisdk-agent/example-cli/dist/memory-failure.js";
+import type { MemoryMaintenance } from "@serika/example-cli/dist/memory-controls.js";
+import type { MemoryActionPreview } from "@serika/example-cli/dist/memory-controls.js";
+import type { FormalMemory } from "@serika/example-cli/dist/memory-management.js";
+import type { MemoryResult } from "@serika/example-cli/dist/memory-candidates.js";
+import type { MemoryConsolidationSource, MemoryConsolidationRequest } from "@serika/example-cli/dist/memory-consolidation.js";
+import { memoryConsolidationFailureText } from "@serika/example-cli/dist/memory-failure.js";
 import { memoryAutomaticUpgradeNeeded } from "./daily-setup.js";
 import { MemoryActionPreviewDetails, MemorySources } from "./memory-temporal.js";
 import { memoryAutomationLabel, savedMemoryNoticeText } from "./memory-copy.js";

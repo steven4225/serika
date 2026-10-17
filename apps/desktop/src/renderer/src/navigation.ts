@@ -1,5 +1,5 @@
 import type { AppInfo } from "../../shared/ui-contract.js";
-import type { RunResult } from "@aisdk-agent/core";
+import type { RunResult } from "@serika/core";
 import type { WorkTask } from "../../shared/work-tasks.js";
 
 export type { ConversationDraft } from "../../shared/conversation-drafts.js";

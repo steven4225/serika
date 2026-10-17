@@ -3,11 +3,11 @@ import { it } from "node:test";
 import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { AgentEvent } from "@aisdk-agent/core";
+import type { AgentEvent } from "@serika/core";
 import { createExecutionRecordStore, EXECUTION_RECORD_FILE } from "./execution-record-store.js";
 import { compactTraceEvent, TRACE_MAX_EVENTS, validTrace } from "./execution-trace.js";
 import { createExecutionRecordAdapter } from "./execution-record-adapter.js";
-import { InMemoryAgentStore } from "@aisdk-agent/core";
+import { InMemoryAgentStore } from "@serika/core";
 
 const at = "2026-10-08T01:00:00.000Z";
 const event = (type: string, data: unknown, sequence = 1): AgentEvent => ({ id: `event-${sequence}`, type,

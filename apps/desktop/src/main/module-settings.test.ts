@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { it } from "node:test";
 import { changeModuleSetting, changeDreamingSetting } from "./module-settings.js";
-import { acquireFlock } from "@aisdk-agent/example-cli/dist/flock.js";
+import { acquireFlock } from "@serika/example-cli/dist/flock.js";
 
 it("serializes real competing processes so unrelated capability writes both survive", { timeout: 10_000 }, async () => {
   const root = await mkdtemp(join(tmpdir(), "serika-config-process-lock-"));

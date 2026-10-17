@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { setTimeout } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { it } from "node:test";
-import { JsonlAgentStore } from "@aisdk-agent/core";
+import { JsonlAgentStore } from "@serika/core";
 import { createCheckpointStore } from "./checkpoint-store.js";
 import { createMemoryStore } from "./memory-store.js";
 import { createTaskStore } from "./task-store.js";
@@ -41,7 +41,7 @@ it("live scheduled workspace brief: Memory + checkpoint → worker → inbox →
 
   try {
     const memory = await createMemoryStore(root).add({
-      text: "本项目当前优先事项是完成 Runloom 的任务级验收。",
+      text: "本项目当前优先事项是完成 Serika 的任务级验收。",
       scope: { kind: "workspace" },
     });
     assert.ok(memory.ok, JSON.stringify(memory));
@@ -50,7 +50,7 @@ it("live scheduled workspace brief: Memory + checkpoint → worker → inbox →
       sourceThreadId: "acceptance-setup",
       draft: {
         status: "active",
-        goal: "完成 Runloom 阶段一任务级验收",
+        goal: "完成 Serika 阶段一任务级验收",
         currentPhase: "worker 实际交付核对",
         summary: "这是保存时的工作意图，尚未核对当前磁盘状态。",
         completed: [],

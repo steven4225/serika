@@ -44,9 +44,9 @@ RUNLOOM_MODEL=deepseek node --env-file=.env \
 ## 桌面接入 API（不修改桌面仓）
 
 ```ts
-import { createTaskWorkerService } from "@aisdk-agent/example-cli/dist/task-worker-service.js";
-import { readTaskWorkerHealth } from "@aisdk-agent/example-cli/dist/task-worker-health.js";
-import { createTaskStore } from "@aisdk-agent/example-cli/dist/task-store.js";
+import { createTaskWorkerService } from "@serika/example-cli/dist/task-worker-service.js";
+import { readTaskWorkerHealth } from "@serika/example-cli/dist/task-worker-health.js";
+import { createTaskStore } from "@serika/example-cli/dist/task-store.js";
 
 const service = createTaskWorkerService({
   workspace, nodePath, workerEntryPath, workingDirectory,

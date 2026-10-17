@@ -1,5 +1,5 @@
 {
-  "name": "@aisdk-agent/ai-sdk-adapter",
+  "name": "@serika/ai-sdk-adapter",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "3.0.37",
-    "@aisdk-agent/core": "workspace:*",
+    "@serika/core": "workspace:*",
     "ai": "7.0.37",
     "zod": "4.4.3"
   }

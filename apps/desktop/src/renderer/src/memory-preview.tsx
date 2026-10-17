@@ -1,8 +1,8 @@
 // Isolated browser fixture; no Electron IPC, real model or user workspace.
 import React, { useState } from "react";
 import { createRoot } from "react-dom/client";
-import type { FormalMemory } from "@aisdk-agent/example-cli/dist/memory-management.js";
-import type { MemoryAssertion } from "@aisdk-agent/example-cli/dist/memory-store.js";
+import type { FormalMemory } from "@serika/example-cli/dist/memory-management.js";
+import type { MemoryAssertion } from "@serika/example-cli/dist/memory-store.js";
 import type { RendererApi } from "../../shared/ui-contract.js";
 import { MemoryPanel } from "./memory.js";
 import { MemoryReferences } from "./memory-references.js";
@@ -43,7 +43,7 @@ let memories: FormalMemory[] = [
     text: "## 教育背景\n- 宁波大学，计算机科学与技术\n\n## 编程语言\n- 主力：TypeScript（AI agent 运行时、Next.js 全栈）",
     sources: [quote("edu-source", "我是宁波大学计算机专业。"), { kind: "manual" }],
   }),
-  remembered({ id: "fixture-work", kind: "fact", updatedDays: 0, text: "当前在做 Runloom 桌面助手，主要写 TypeScript。", sources: [quote("work-source", "我现在主要在做桌面助手。")] }),
+  remembered({ id: "fixture-work", kind: "fact", updatedDays: 0, text: "当前在做 Serika 桌面助手，主要写 TypeScript。", sources: [quote("work-source", "我现在主要在做桌面助手。")] }),
 ];
 let changed = () => {};
 const byId = (id: string) => memories.find(item => item.id === id) ?? memories[0]!;

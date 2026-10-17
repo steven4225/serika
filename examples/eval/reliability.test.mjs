@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { reliabilityCases, reliabilitySpec, compactionSeed } from './reliability-cases.mjs';
 import { evaluateCase } from './oracle.mjs';
-import { splitMessageCompactionUnits } from '@aisdk-agent/example-cli/dist/context-budget.js';
-import { summarySourceChunks } from '@aisdk-agent/example-cli/dist/context-compactor.js';
+import { splitMessageCompactionUnits } from '@serika/example-cli/dist/context-budget.js';
+import { summarySourceChunks } from '@serika/example-cli/dist/context-compactor.js';
 
 test('reliability suite separates ordinary conflicts and explicit changes, with three explicit variants', () => {
   assert.equal(reliabilityCases.filter(c => c.category === 'memory').length, 11);

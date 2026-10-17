@@ -4,7 +4,7 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import type { UIMessage } from "ai";
-import type { AgentEvent, AgentEventDataMap, AgentEventType, RunResult } from "@aisdk-agent/core";
+import type { AgentEvent, AgentEventDataMap, AgentEventType, RunResult } from "@serika/core";
 import type { AppInfo, ExecutionRunRecord, MainToRenderer, RendererApi, ThreadSummary, UiSnapshot } from "../../shared/ui-contract.js";
 import { App } from "./App.js";
 import "./styles.css";
@@ -22,22 +22,22 @@ const threads: ThreadSummary[] = [
   { threadId: "preview-recap", title: "周复盘的写作格式", transcriptDirectory: "/preview/transcripts", messageCount: 2 },
   { threadId: "preview-rss", title: "整理今天的 RSS 资讯", transcriptDirectory: "/preview/transcripts", messageCount: 2 },
   { threadId: "preview-context", title: "长任务压缩后继续执行", transcriptDirectory: "/preview/transcripts", messageCount: 2 },
-  { threadId, title: "Runloom 的下一步计划", transcriptDirectory: "/preview/transcripts", messageCount: 2 },
+  { threadId, title: "Serika 的下一步计划", transcriptDirectory: "/preview/transcripts", messageCount: 2 },
 ];
 const histories = new Map<string, UIMessage[]>([[threadId, [
-  { id: "preview-user", role: "user", parts: [{ type: "text", text: "帮我整理一下 Runloom 接下来要做的事，别再拆成一堆零碎修补。" }] },
+  { id: "preview-user", role: "user", parts: [{ type: "text", text: "帮我整理一下 Serika 接下来要做的事，别再拆成一堆零碎修补。" }] },
   { id: "preview-assistant", role: "assistant", parts: [{ type: "text", text: "先把日用闭环跑顺，再决定是否增加新能力。\n\n### 接下来只做三件事\n\n1. **记忆真的用起来**：打开旧对话、审核新候选，再换一段对话验证召回。\n2. **长任务接得回来**：压缩后退出重开，先读取当前文件，再继续未完成的步骤。\n3. **结果说得清楚**：把已经完成的动作与仍需你确认的事项分开显示。\n\n先完成第一件，再推进第二件。记忆、任务和执行记录仍然可以从左侧打开。" }] },
 ]]]);
 for (const thread of threads) {
   if (!histories.has(thread.threadId)) histories.set(thread.threadId, [
     { id: `${thread.threadId}-user`, role: "user", parts: [{ type: "text", text: thread.title }] },
-    { id: `${thread.threadId}-assistant`, role: "assistant", parts: [{ type: "text", text: "这是一段用于比较历史切换布局的示例对话，不读取你的真实历史。切回 Runloom 的下一步计划可以继续查看主屏效果。" }] },
+    { id: `${thread.threadId}-assistant`, role: "assistant", parts: [{ type: "text", text: "这是一段用于比较历史切换布局的示例对话，不读取你的真实历史。切回 Serika 的下一步计划可以继续查看主屏效果。" }] },
   ]);
 }
 const snapshot: UiSnapshot = { state: { kind: "idle" }, canSubmit: true, canSteer: false, steers: [], pendingApproval: null, recentOutput: "", outputTruncated: false,
   toolActivity: [], lastPrimaryResult: null, lastConsolidationResult: null, resultTextTruncated: false, shellProgress: [] };
 const info = (): AppInfo => ({ entryMode: "test", configPath: "/preview/config.json", threadId,
-  directory: "/preview/transcripts", workspaceRoot: "/preview/Runloom", modelAlias: "mock", modelId: "界面示例（不调用模型）",
+  directory: "/preview/transcripts", workspaceRoot: "/preview/Serika", modelAlias: "mock", modelId: "界面示例（不调用模型）",
   temporaryThread: false, temporaryDirectory: false, identitySource: "saved", computer: { enabled: false, allowedBundleIds: [] },
   tuiMode: true, commands: [], hasCompaction: false, hasResume: false, totalTimeoutMs: 600000, shellTimeoutMs: 300000,
   memory: { enabled: true, autoConsolidate: true, queryRewriteEnabled: true }, workTasks: false,

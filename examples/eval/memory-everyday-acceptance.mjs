@@ -5,11 +5,11 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PassThrough } from 'node:stream';
 import { setTimeout as delay } from 'node:timers/promises';
-import { createRuntimeApp } from '@aisdk-agent/example-cli/dist/app.js';
-import { createAssistantController } from '@aisdk-agent/example-cli/dist/assistant-controller.js';
-import { configureCliModel } from '@aisdk-agent/example-cli/dist/model-config.js';
-import { createMemoryStore } from '@aisdk-agent/example-cli/dist/memory-store.js';
-import { retrieveMemories } from '@aisdk-agent/example-cli/dist/memory-retrieval.js';
+import { createRuntimeApp } from '@serika/example-cli/dist/app.js';
+import { createAssistantController } from '@serika/example-cli/dist/assistant-controller.js';
+import { configureCliModel } from '@serika/example-cli/dist/model-config.js';
+import { createMemoryStore } from '@serika/example-cli/dist/memory-store.js';
+import { retrieveMemories } from '@serika/example-cli/dist/memory-retrieval.js';
 import { createTransitionFetch, transitionModel, transitionSafeError } from './memory-transition-acceptance.mjs';
 
 export const everydayOracleVersion = 'memory-everyday-oracle-v1';

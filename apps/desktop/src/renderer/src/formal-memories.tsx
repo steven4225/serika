@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import type { FormalMemory, MemoryPage } from "@aisdk-agent/example-cli/dist/memory-management.js";
-import type { MemoryActionPreview, MemoryHistoryPage, MemoryMaintenance } from "@aisdk-agent/example-cli/dist/memory-controls.js";
-import type { MemoryAssertion, MemoryTemporalView } from "@aisdk-agent/example-cli/dist/memory-store.js";
+import type { FormalMemory, MemoryPage } from "@serika/example-cli/dist/memory-management.js";
+import type { MemoryActionPreview, MemoryHistoryPage, MemoryMaintenance } from "@serika/example-cli/dist/memory-controls.js";
+import type { MemoryAssertion, MemoryTemporalView } from "@serika/example-cli/dist/memory-store.js";
 import { createMemoryActionDraft, explicitTimestamp, memoryActionFromDraft, memoryActionLabel, memoryKindLabel, timestampLabel } from "./memory-temporal-data.js";
 import type { MemoryActionDraft, MemoryActionMode } from "./memory-temporal-data.js";
 import { CurrentMemoryDetails, MemoryActionPreviewDetails, MemoryHistory, MemoryTemporalQueryResult } from "./memory-temporal.js";

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { describe, it } from "node:test";
-import type { AgentDefinition, AgentEvent, RunHandle, RunResult } from "@aisdk-agent/core";
+import type { AgentDefinition, AgentEvent, RunHandle, RunResult } from "@serika/core";
 import { createAssistantController } from "./assistant-controller.js";
 import { createRuntimeApp, PRIMARY_AGENT_ID, type RuntimeApp } from "./app.js";
 import { DEFAULT_CONTEXT_BUDGET_CONFIG } from "./context-budget.js";

@@ -8,9 +8,9 @@ import { MockLanguageModelV3 } from "ai/test";
 import { DesktopRuntime } from "./desktop-runtime.js";
 import { ResidentClient, createResidentPaths, startResidentServer } from "./resident-transport.js";
 import { changeAutonomySetting } from "./module-settings.js";
-import { resolveTuiModuleConfig } from "@aisdk-agent/example-cli/dist/tui-module-config.js";
-import { createRuntimeApp } from "@aisdk-agent/example-cli/dist/app.js";
-import { createAssistantController } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
+import { resolveTuiModuleConfig } from "@serika/example-cli/dist/tui-module-config.js";
+import { createRuntimeApp } from "@serika/example-cli/dist/app.js";
+import { createAssistantController } from "@serika/example-cli/dist/assistant-controller.js";
 import { TeeOutput } from "./runtime-bridge.js";
 import type { MainToRenderer } from "../shared/ui-contract.js";
 

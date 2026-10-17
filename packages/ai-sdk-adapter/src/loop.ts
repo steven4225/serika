@@ -17,7 +17,7 @@ import {
   type AgentLoop,
   type AgentLoopInput,
   type TokenUsage,
-} from "@aisdk-agent/core";
+} from "@serika/core";
 import { createHash } from "node:crypto";
 import type { ModelRegistry } from "./registries.js";
 import { ToolRegistry, type ToolMetadata } from "./registries.js";

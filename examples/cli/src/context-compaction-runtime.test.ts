@@ -10,8 +10,8 @@ import {
   DefaultAgentRuntime,
   InMemoryAgentCatalog,
   JsonlAgentStore,
-} from "@aisdk-agent/core";
-import { AiSdkAgentLoop, InMemoryModelRegistry, ToolRegistry } from "@aisdk-agent/ai-sdk-adapter";
+} from "@serika/core";
+import { AiSdkAgentLoop, InMemoryModelRegistry, ToolRegistry } from "@serika/ai-sdk-adapter";
 import { ContextCompactor } from "./context-compactor.js";
 import { contextBudgetForMode, estimateContextBudget, type ContextBudgetConfig } from "./context-budget.js";
 import type { Summarizer } from "./context-compaction.js";

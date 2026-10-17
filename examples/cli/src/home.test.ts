@@ -41,7 +41,7 @@ function checkpoint(overrides: Partial<CheckpointSnapshot> = {}): CheckpointSnap
 describe("renderHome", () => {
   it("shows only enabled entrances and distinguishes temporary directory from Thread", async () => {
     const text = await renderHome({ ...base, temporaryThread: true });
-    assert.match(text, /Runloom Home/);
+    assert.match(text, /Serika Home/);
     assert.match(text, /deepseek-chat；配置值，不代表本次已联网验证/);
     assert.match(text, /Thread ID 为本次临时生成/);
     assert.doesNotMatch(text, /transcript 目录为本次临时生成/);

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
-import { AgentError } from "@aisdk-agent/core";
+import { AgentError } from "@serika/core";
 import { createHash } from "node:crypto";
 import {
   mkdtemp,

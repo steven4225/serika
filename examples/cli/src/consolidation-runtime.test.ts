@@ -9,12 +9,12 @@ import {
   DefaultAgentRuntime,
   InMemoryAgentCatalog,
   InMemoryAgentStore,
-} from "@aisdk-agent/core";
+} from "@serika/core";
 import {
   AiSdkAgentLoop,
   InMemoryModelRegistry,
   ToolRegistry,
-} from "@aisdk-agent/ai-sdk-adapter";
+} from "@serika/ai-sdk-adapter";
 import { selectModelContext } from "./context-window.js";
 import { AUTO_CONSOLIDATION_AGENT_ID } from "./consolidation.js";
 import { createMemoryConsolidation } from "./memory-consolidation.js";

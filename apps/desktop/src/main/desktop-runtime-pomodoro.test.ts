@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { MockLanguageModelV3 } from "ai/test";
-import { createPomodoroService } from "@aisdk-agent/example-cli/dist/modules/pomodoro-module.js";
+import { createPomodoroService } from "@serika/example-cli/dist/modules/pomodoro-module.js";
 import { DesktopRuntime } from "./desktop-runtime.js";
 import type { MainToRenderer } from "../shared/ui-contract.js";
 

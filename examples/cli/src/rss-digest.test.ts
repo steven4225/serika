@@ -3,7 +3,7 @@ import { mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/pro
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { it } from "node:test";
-import { JsonlAgentStore } from "@aisdk-agent/core";
+import { JsonlAgentStore } from "@serika/core";
 import { createRssSubscriptionStore, rssItemKey, RSS_TASK_PROMPT } from "./rss-subscriptions.js";
 import { createRssDigestWorker } from "./rss-digest.js";
 import { createTaskStore } from "./task-store.js";

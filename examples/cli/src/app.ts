@@ -11,12 +11,12 @@ import {
   DefaultAgentRuntime,
   InMemoryAgentCatalog,
   JsonlAgentStore,
-} from "@aisdk-agent/core";
+} from "@serika/core";
 import {
   AiSdkAgentLoop,
   InMemoryModelRegistry,
   ToolRegistry,
-} from "@aisdk-agent/ai-sdk-adapter";
+} from "@serika/ai-sdk-adapter";
 import { AUTO_CONSOLIDATION_AGENT_ID, isAutoConsolidationRequest, isMemoryConsolidationExcluded, withoutConsolidationTurns } from "./consolidation.js";
 import { createBuiltinSkill, loadSkillPackages, skillAgentDefinition } from "./skill-catalog.js";
 import { createRuntimeAutomation, MEMORY_SKILL_ID, type RuntimeAutomation } from "./automation-execution.js";
@@ -138,13 +138,13 @@ export interface RuntimeAppOptions {
   /** Host-owned timer state survives this app's disposal and Thread changes. */
   pomodoroService?: PomodoroService;
   /** Host-only source association persisted before a primary Run can dispatch. */
-  beforePrimaryRunCreate?: (record: import("@aisdk-agent/core").RunRecord) => Promise<void>;
+  beforePrimaryRunCreate?: (record: import("@serika/core").RunRecord) => Promise<void>;
   /** Trusted test/host port; never selected by the model or inherited from chat credentials. */
   memoryEmbedding?: MemoryEmbeddingPort;
 }
 
 /**
- * Everything a front end needs to drive one assembled Runloom process. The
+ * Everything a front end needs to drive one assembled Serika process. The
  * TUI consumes it through `runTui`; another front end may consume the same
  * fields without re-assembling modules, stores, or the AgentLoop.
  */

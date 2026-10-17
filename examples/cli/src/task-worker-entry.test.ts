@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { createTaskDesktopNotifier, createTaskWorkerAgent, parseTaskWorkerArgs } from "./task-worker-entry.js";
 import { writeDesktopFrontmost } from "./task-notification-presentation.js";
-import { InMemoryAgentStore } from "@aisdk-agent/core";
+import { InMemoryAgentStore } from "@serika/core";
 import { MockLanguageModelV3 } from "ai/test";
 import { simulateReadableStream } from "ai";
 import { tryAcquireFlock } from "./flock.js";
@@ -66,7 +66,7 @@ describe("durable desktop notification adapter", () => {
     assert.equal(settled, false);
     assert.match(script, /with title "定时结果已保存"/);
     assert.match(script, /display notification "详情在收件箱。"/);
-    assert.doesNotMatch(script, /task-notification|sensitive preference|private workspace memory|Runloom|已完成/);
+    assert.doesNotMatch(script, /task-notification|sensitive preference|private workspace memory|Serika|已完成/);
     release();
     await pending;
   });

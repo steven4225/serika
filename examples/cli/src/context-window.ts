@@ -1,5 +1,5 @@
 import type { UIMessage } from "ai";
-import { AgentError } from "@aisdk-agent/core";
+import { AgentError } from "@serika/core";
 import {
   CHECKPOINT_CONTEXT_MESSAGE_ID,
   CHECKPOINT_INJECTION_MAX_BYTES,

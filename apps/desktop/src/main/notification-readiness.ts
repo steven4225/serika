@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { constants } from "node:fs";
 import { access, lstat, realpath } from "node:fs/promises";
 import { isAbsolute, resolve, sep } from "node:path";
-import type { ServiceCommandRunner } from "@aisdk-agent/example-cli/dist/task-worker-service.js";
+import type { ServiceCommandRunner } from "@serika/example-cli/dist/task-worker-service.js";
 
 export interface NotificationReadinessStatus {
   helperConfigured: boolean;

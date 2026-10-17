@@ -12,7 +12,7 @@ import { configureCliModel } from "./model-config.js";
 import { createDemoModel } from "./demo-model.js";
 import { createMemoryStore } from "./memory-store.js";
 import { retrieveMemories } from "./memory-retrieval.js";
-import { JsonlAgentStore } from "@aisdk-agent/core";
+import { JsonlAgentStore } from "@serika/core";
 import { createTaskWorkerAgent } from "./task-worker-entry.js";
 import { createTaskStore } from "./task-store.js";
 import { runTaskWorker } from "./task-worker.js";

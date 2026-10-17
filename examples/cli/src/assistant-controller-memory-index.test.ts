@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { RunHandle } from "@aisdk-agent/core";
+import type { RunHandle } from "@serika/core";
 import { createAssistantController } from "./assistant-controller.js";
 import { PRIMARY_AGENT_ID, type RuntimeApp } from "./app.js";
 

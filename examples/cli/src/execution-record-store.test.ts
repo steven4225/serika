@@ -4,7 +4,7 @@ import { mkdtemp, open, readFile, rm, symlink, writeFile, stat } from "node:fs/p
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, it } from "node:test";
-import type { AgentEvent, RunResult } from "@aisdk-agent/core";
+import type { AgentEvent, RunResult } from "@serika/core";
 import {
   EXECUTION_RECORD_FILE,
   EXECUTION_RECORD_MAX_TOOLS,

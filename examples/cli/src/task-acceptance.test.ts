@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { setTimeout } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { it } from "node:test";
-import { JsonlAgentStore } from "@aisdk-agent/core";
+import { JsonlAgentStore } from "@serika/core";
 import { createModuleHost } from "./module-host.js";
 import { createTaskModule } from "./modules/task-module.js";
 import { createTaskStore, TASK_FILE_NAME } from "./task-store.js";

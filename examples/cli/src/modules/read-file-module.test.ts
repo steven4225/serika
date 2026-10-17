@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, it } from "node:test";
-import type { RegisteredTool } from "@aisdk-agent/ai-sdk-adapter";
+import type { RegisteredTool } from "@serika/ai-sdk-adapter";
 import { createReadFileModule } from "./read-file-module.js";
 
 const directories: string[] = [];

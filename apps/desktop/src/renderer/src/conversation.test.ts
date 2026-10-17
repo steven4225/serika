@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { AgentEvent } from "@aisdk-agent/core";
+import type { AgentEvent } from "@serika/core";
 import { ShellProgressBuffer } from "../../shared/shell-progress.js";
 import {
   applyEvent,

@@ -1,9 +1,9 @@
-import type { AssistantController } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
-import type { WorkTaskResult } from "@aisdk-agent/example-cli/dist/work-task-store.js";
-export type { WorkTaskContinuation } from "@aisdk-agent/example-cli/dist/work-task-continuation.js";
-export type { WorkTaskReadInput, WorkTaskArtifactInput, WorkTaskReadResult, WorkTaskDeliveryDraft, WorkTaskArtifactPreview } from "@aisdk-agent/example-cli/dist/work-task-artifacts.js";
+import type { AssistantController } from "@serika/example-cli/dist/assistant-controller.js";
+import type { WorkTaskResult } from "@serika/example-cli/dist/work-task-store.js";
+export type { WorkTaskContinuation } from "@serika/example-cli/dist/work-task-continuation.js";
+export type { WorkTaskReadInput, WorkTaskArtifactInput, WorkTaskReadResult, WorkTaskDeliveryDraft, WorkTaskArtifactPreview } from "@serika/example-cli/dist/work-task-artifacts.js";
 
-export type { WorkTask, WorkTaskResult, WorkTaskStatus, WorkTaskObservedOutcome } from "@aisdk-agent/example-cli/dist/work-task-store.js";
+export type { WorkTask, WorkTaskResult, WorkTaskStatus, WorkTaskObservedOutcome } from "@serika/example-cli/dist/work-task-store.js";
 
 export type WorkTaskInputs = {
   [K in "createWorkTask" | "runWorkTask" | "submitWorkTaskDelivery" | "recordHumanAcceptance" | "reconcileWorkTask" | "cancelWorkTask" | "requestWorkTaskChanges"]: Parameters<AssistantController[K]>[0];

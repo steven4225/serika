@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { StringDecoder } from "node:string_decoder";
 import { tool, type Tool } from "ai";
 import { z } from "zod";
-import type { RegisteredTool } from "@aisdk-agent/ai-sdk-adapter";
+import type { RegisteredTool } from "@serika/ai-sdk-adapter";
 import type { AgentModule } from "../module-host.js";
 import { validateWorkspacePath } from "../workspace-path.js";
 import {

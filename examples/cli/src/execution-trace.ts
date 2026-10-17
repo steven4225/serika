@@ -1,4 +1,4 @@
-import type { AgentEvent, TokenUsage } from "@aisdk-agent/core";
+import type { AgentEvent, TokenUsage } from "@serika/core";
 
 export const TRACE_MAX_EVENTS = 128;
 export const TRACE_MAX_BYTES = 24 * 1024;

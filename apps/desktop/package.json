@@ -1,9 +1,9 @@
 {
-  "name": "@aisdk-agent/desktop",
+  "name": "@serika/desktop",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Runloom desktop front end. Consumes createRuntimeApp from the CLI package; contains no runtime logic.",
+  "description": "Serika desktop front end. Consumes createRuntimeApp from the CLI package; contains no runtime logic.",
   "main": "./out/main/index.js",
   "engines": {
     "node": ">=22.12.0"
@@ -20,8 +20,8 @@
     "check": "pnpm typecheck && pnpm test && pnpm build"
   },
   "dependencies": {
-    "@aisdk-agent/core": "workspace:*",
-    "@aisdk-agent/example-cli": "workspace:*",
+    "@serika/core": "workspace:*",
+    "@serika/example-cli": "workspace:*",
     "@radix-ui/react-slot": "1.2.4",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
