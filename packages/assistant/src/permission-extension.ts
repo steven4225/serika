@@ -6,7 +6,6 @@ import type { RuntimeExtension } from "./runtime-extension.js";
 import {
   createToolConfirmation,
   type ToolConfirmation,
-  type ToolConfirmationPrompt,
   type ToolRiskLookup,
 } from "./tool-confirmation.js";
 import type { FileAuthorizationRule } from "./tui-module-config.js";
@@ -23,7 +22,6 @@ export interface PermissionExtension extends RuntimeExtension {
 }
 
 export function createPermissionExtension(output: Writable, options: {
-  prompt: ToolConfirmationPrompt;
   workspaceRoot: string | undefined;
   /** Explicit `fileAuthorizations` from the trusted config; they load once. */
   fileAuthorizations: readonly FileAuthorizationRule[];
@@ -45,7 +43,6 @@ export function createPermissionExtension(output: Writable, options: {
   const { workspaceRoot, fileAuthorizations, report } = options;
   const shellSandbox = options.shell.sandbox;
   const confirmation = createToolConfirmation(output, {
-    prompt: options.prompt,
     ...(workspaceRoot !== undefined ? { workspaceRoot } : {}),
     ...(options.toolRisk ? { toolRisk: options.toolRisk } : {}),
     ...(options.toolPermissions ? { toolPermissions: options.toolPermissions } : {}),

@@ -22,7 +22,6 @@ function call(toolName: string, signal = new AbortController().signal): BeforeTo
 }
 
 const base: PermissionOptions = {
-  prompt: () => undefined,
   workspaceRoot: undefined,
   fileAuthorizations: [],
   shell: { enabled: false, sandbox: undefined },

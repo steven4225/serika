@@ -87,7 +87,7 @@ type Shell = "host" | "docker";
 const APP_CARD_TOOLS = new Set(["recipe_list", "recipe_save", "recipe_manage", "recipe_run", "computer_check",
   "web_fetch", "feed_read", "web_search", "memory_list", "memory_get", "memory_add", "memory_update", "memory_delete",
   "memory_query", "memory_revise", "memory_candidates_list", "memory_apply_candidate", "memory_stage_candidates",
-  "memory_prepare_consolidation", "checkpoint_prepare", "checkpoint_get", "checkpoint_save"]);
+  "memory_prepare_consolidation", "checkpoint_prepare", "checkpoint_get", "checkpoint_save", "todoist_list_tasks"]);
 function moduleToolPermissions(shell: Shell) {
   return new Map([...builtinToolPermissions({ shell })].map(([name, facts]) => {
     if (!APP_CARD_TOOLS.has(name)) return [name, facts] as const;
@@ -98,7 +98,6 @@ function moduleToolPermissions(shell: Shell) {
 function extension(shell: Shell, fileAuthorizations: readonly FileAuthorizationRule[] = []) {
   const sink = new Writable({ write(_chunk, _encoding, done) { done(); } });
   return createPermissionExtension(sink, {
-    prompt: () => undefined,
     workspaceRoot: WORKSPACE,
     fileAuthorizations,
     shell: { enabled: true, sandbox: shell === "docker" ? { backend: "docker", image: "img", readablePaths: [], writablePaths: [] } : undefined },
@@ -221,7 +220,7 @@ async function buildTable(): Promise<Record<string, string>> {
   const sink = new Writable({ write(_chunk, _encoding, done) { done(); } });
   for (const files of [false, true]) for (const shell of [false, true]) for (const web of [false, true]) for (const report of [false, true]) {
     const ext = createPermissionExtension(sink, {
-      prompt: () => undefined, workspaceRoot: WORKSPACE, fileAuthorizations: [],
+      workspaceRoot: WORKSPACE, fileAuthorizations: [],
       shell: { enabled: shell, sandbox: undefined }, web: { enabled: web, searchEnabled: web },
       toolPermissions: createModuleHost([
         ...(files ? [createReadFileModule(WORKSPACE)] : []),

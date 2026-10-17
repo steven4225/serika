@@ -144,7 +144,7 @@ describe("remembered conversation grants", () => {
   it("lists and forgets single grants through /permissions", async () => {
     const output = sink();
     const permission = createPermissionExtension(output, {
-      prompt: () => "preview", workspaceRoot: "/tmp/ws", fileAuthorizations: [],
+      workspaceRoot: "/tmp/ws", fileAuthorizations: [],
       shell: { enabled: false, sandbox: undefined }, web: { enabled: true, searchEnabled: false }, toolPermissions: modulePermissions,
       report: { configPath: null, workspaceRoot: "/tmp/ws" }, autoApprove: [], toolRisk: risk,
     });

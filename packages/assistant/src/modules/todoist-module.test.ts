@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { ToolExecutionOptions } from "ai";
 import type { RegisteredTool } from "@serika/ai-sdk-adapter";
-import { createModuleHost } from "../module-host.js";
+import { createModuleHost, type ToolPermissionFacts } from "../module-host.js";
+import { todoistPlanSaveInstructions } from "../todoist-plan-save-instructions.js";
+import { createReadFileModule } from "./read-file-module.js";
 import type { TodoistListResult } from "../todoist.js";
 import { createTodoistModule } from "./todoist-module.js";
 
@@ -139,6 +141,21 @@ describe("createTodoistModule", () => {
       );
     }
     host.dispose();
+  });
+
+  it("declares the read card and adds the plan-save flow only beside the file tools", () => {
+    const { host } = makeTest(oneTaskFetch());
+    const declared = host.toolPermissions.get("todoist_list_tasks")!;
+    assert.equal(declared.defaults, undefined);
+    assert.equal(declared.confirmation!({ toolName: "todoist_list_tasks", input: { view: "planning" } } as Parameters<NonNullable<ToolPermissionFacts["confirmation"]>>[0]),
+      '\nTool: todoist_list_tasks\nInput: {"view":"planning"}\nReading Todoist tasks will place their contents in the model context ' +
+      "and the successful Run's committed transcript.\nAllow this call? [y/n] ");
+    assert.match(host.instructions("todoist"), /^ When Todoist is available/);
+    assert.doesNotMatch(host.instructions("todoist"), /Todoist-to-Markdown|explicit workspace-relative \.md path/);
+    host.dispose();
+    const withFiles = createModuleHost([createTodoistModule({ apiToken: "t", timeZone: "Asia/Shanghai" }), createReadFileModule("/tmp")], { notify() {} });
+    assert.ok(withFiles.instructions("todoist").endsWith(` ${todoistPlanSaveInstructions}`));
+    withFiles.dispose();
   });
 
   it("forwards the tool AbortSignal to the shared query", async () => {

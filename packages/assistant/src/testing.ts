@@ -30,6 +30,7 @@ import { createMemoryConsolidation as consolidationForFacts } from "./memory-con
 import { createMemoryStore as memoryStoreForFacts } from "./memory-store.js";
 import { createMemoryModule as memoryForFacts } from "./modules/memory-module.js";
 import { createCheckpointModule as checkpointForFacts } from "./modules/checkpoint-module.js";
+import { createTodoistModule as todoistForFacts } from "./modules/todoist-module.js";
 import { createCheckpointStore as checkpointStoreForFacts } from "./checkpoint-store.js";
 import { createPomodoroModule as pomodoroForFacts } from "./modules/pomodoro-module.js";
 import { createReadFileModule as readFileForFacts } from "./modules/read-file-module.js";
@@ -62,6 +63,7 @@ export function builtinToolPermissions(options: { shell?: "host" | "docker" } = 
     memoryForFacts(memoryStore, getMessages, { threadId: "facts", workspaceRoot: ".",
       consolidation: consolidationForFacts({ store: memoryStore, getMessages, threadId: "facts" }) }),
     checkpointForFacts(checkpointStoreForFacts("."), { threadId: "facts", workspaceRoot: "." }),
+    todoistForFacts({ apiToken: "facts", timeZone: "UTC" }),
   ], { notify() {} });
   host.dispose();
   return host.toolPermissions;
