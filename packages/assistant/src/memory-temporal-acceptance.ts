@@ -117,9 +117,9 @@ async function child(root: string, stage: Stage) {
       await open(SOURCE_THREAD);
       await run("ordinary-statement", `${DECLARATION}本轮只回复收到，不调用主任务工具。可以在对话结束后提出待审候选，但正式记忆必须等我另行审核。`, false);
       const formal = await disk.list(); assert.ok(formal.ok); assert.equal(formal.entries.length, 0);
-      const candidate = value(await controller!.memory.listCandidates({ status: "pending" })).candidates.find(item => item.change.text.includes("复盘"));
+      const candidate = value(await app!.memoryStore!.listCandidates({ status: "pending" }, undefined, { boundThreadId: app!.threadId })).candidates.find(item => item.change.text.includes("复盘"));
       assert.ok(candidate, "real automatic consolidation must produce the ordinary statement candidate; no synthetic fallback");
-      const preview = value(await controller!.memory.getCandidate(candidate.id));
+      const preview = value(await app!.memoryStore!.getCandidate(candidate.id, undefined, { boundThreadId: app!.threadId }));
       assert.ok(preview.applicable);
       assert.equal(preview.candidate.change.operation, "add");
       assert.equal(preview.proposed?.scope.kind, "workspace");
@@ -131,13 +131,13 @@ async function child(root: string, stage: Stage) {
         assert.ok(message && message.parts.some(part => part.type === "text" && part.text.includes(source.quote)));
       }
       check("ordinary-candidate", "real model staged exact committed user quotes; formal store unchanged before review");
-      const accepted = value(await controller!.memory.resolveCandidate({ candidateId: candidate.id, expectedCandidateRevision: preview.candidate.revision, decision: "accept" }));
+      const accepted = value(await app!.memoryStore!.resolveCandidate({ candidateId: candidate.id, expectedCandidateRevision: preview.candidate.revision, decision: "accept" }, undefined, { boundThreadId: app!.threadId }));
       assert.ok(accepted.memoryId);
       const memoryId = accepted.memoryId;
       const saved = await current(memoryId);
       assert.equal(saved.revision, 1);
       const acceptedBytes = await readFile(join(workspace, ".runloom/memory.json"), "utf8");
-      const replayed = value(await controller!.memory.resolveCandidate({ candidateId: candidate.id, expectedCandidateRevision: preview.candidate.revision, decision: "accept" }));
+      const replayed = value(await app!.memoryStore!.resolveCandidate({ candidateId: candidate.id, expectedCandidateRevision: preview.candidate.revision, decision: "accept" }, undefined, { boundThreadId: app!.threadId }));
       assert.ok(replayed.replayed);
       assert.equal(await readFile(join(workspace, ".runloom/memory.json"), "utf8"), acceptedBytes);
       await open(QUERY_THREAD);

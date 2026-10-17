@@ -25,7 +25,6 @@ const api: RendererApi = {
   previewRestoreData: () => ipcRenderer.invoke(IPC.previewRestoreData),
   activateRestoreData: id => ipcRenderer.invoke(IPC.activateRestoreData, id),
   steer: input => ipcRenderer.invoke(IPC.steer, input),
-  listMemoryCandidates: (input) => ipcRenderer.invoke(IPC.memoryCandidatesList, input),
   hide: () => ipcRenderer.invoke(IPC.hide),
   onMessage: (listener) => {
     const wrapped = (_event: IpcRendererEvent, message: MainToRenderer) => listener(message);

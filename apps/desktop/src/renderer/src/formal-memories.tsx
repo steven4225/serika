@@ -1,52 +1,29 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import type { FormalMemory, MemoryPage } from "@serika/assistant";
-import type { MemoryActionPreview, MemoryHistoryPage, MemoryMaintenance } from "@serika/assistant";
-import type { MemoryAssertion } from "@serika/assistant";
-import { createMemoryActionDraft, memoryActionFromDraft, memoryActionLabel, memoryKindLabel, timestampLabel } from "./memory-temporal-data.js";
-import type { MemoryActionDraft, MemoryActionMode } from "./memory-temporal-data.js";
-import { CurrentMemoryDetails, MemoryActionPreviewDetails, MemoryHistory } from "./memory-temporal.js";
-import { memoryDisabledEmptyCopy } from "./memory-copy.js";
+import type { FormalMemory, MemoryAction, MemoryPage } from "@serika/assistant";
+import type { MemoryMaintenance } from "@serika/assistant";
+import { CurrentMemoryDetails } from "./memory-temporal.js";
+import { memoryDisabledEmptyCopy, savedMemoryEmptyCopy } from "./memory-copy.js";
 import { FailureAlert } from "./failure-notice.js";
-import { MemoryBack, MemoryCardHome, MemoryCategoryFolder, MemoryUnderstanding } from "./personal/memory-home.js";
-import { isCurrentMemory, memoryCategory, memoryItemTitle, memoryUpdatedLabel, type MemoryCategoryId } from "./personal/memory-cards.js";
+import { MemoryBack } from "./personal/memory-home.js";
+import { isCurrentMemory, memoryItemTitle, memoryUpdatedLabel } from "./personal/memory-cards.js";
+import { memoryErrorText } from "../../shared/memory-labels.js";
 
-const timePlaceholder = "2026-10-04T09:00:00+08:00";
-const modeOptions: MemoryActionMode[] = ["correct", "change", "retract", "pin", "disable", "expiry", "delete"];
-
-export function FormalMemories({ enabled, controllerIdle, refreshToken, managementOnly = false }: { enabled: boolean; controllerIdle: boolean; refreshToken: number; queryRewriteEnabled: boolean; managementOnly?: boolean }) {
+/** Saved memories can only be edited or deleted. Deletion is permanent and needs one confirmation. */
+export function FormalMemories({ enabled, controllerIdle, refreshToken }: { enabled: boolean; controllerIdle: boolean; refreshToken: number; queryRewriteEnabled: boolean; managementOnly?: boolean }) {
   const [page, setPage] = useState<MemoryPage | null>(null);
-  const [browse, setBrowse] = useState<{ view: "home" } | { view: "summary" } | { view: "category"; category: MemoryCategoryId } | { view: "item"; category: MemoryCategoryId }>({ view: "home" });
-  const [summaryTexts, setSummaryTexts] = useState<Record<string, string>>({});
   const [current, setCurrent] = useState<FormalMemory | null>(null);
-  const [draft, setDraft] = useState<MemoryActionDraft | null>(null);
-  const [preview, setPreview] = useState<MemoryActionPreview | null>(null);
-  const [history, setHistory] = useState<MemoryHistoryPage | null>(null);
-  const [historyError, setHistoryError] = useState<string | null>(null);
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [actionOpen, setActionOpen] = useState(false);
-  const [currentAssertion, setCurrentAssertion] = useState<MemoryAssertion | undefined>(undefined);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [editText, setEditText] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [maintenance, setMaintenance] = useState<MemoryMaintenance | null>(null);
-  const [maintenanceError, setMaintenanceError] = useState<string | null>(null);
-  const [stale, setStale] = useState(false);
-  const [detailToken, setDetailToken] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [listError, setListError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const sequence = useRef(0);
   const detailSequence = useRef(0);
-  const selectedId = useRef<string | null>(null);
-  const historySequence = useRef(0);
-  const previewSequence = useRef(0);
-  const maintenanceSequence = useRef(0);
   const mutation = useRef(false);
-  const currentAssertionId = useRef<string | undefined>(undefined);
-  const currentRevision = useRef<number | undefined>(undefined);
-  const actionEditor = useRef<HTMLDetailsElement>(null);
-  const latestRefreshToken = useRef(refreshToken);
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => { const timer = window.setInterval(() => setNow(new Date()), 60_000); return () => window.clearInterval(timer); }, []);
-  latestRefreshToken.current = refreshToken;
+  const now = new Date();
 
   const load = useCallback(async () => {
     const request = ++sequence.current;
@@ -57,7 +34,7 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken, manageme
       for (let pageIndex = 0; pageIndex < 8; pageIndex += 1) {
         const result = await window.runloom.listMemories({ offset: start, limit: 50 });
         if (request !== sequence.current) return;
-        if (!result.ok) { setPage(null); setListError(`${result.error.code}: ${result.error.message}`); return; }
+        if (!result.ok) { setPage(null); setListError(memoryErrorText(result.error)); return; }
         entries.push(...result.value.entries);
         const next = result.value.nextOffset;
         if (next === null) { truncated = false; break; }
@@ -68,183 +45,87 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken, manageme
       setPage({ entries, nextOffset: truncated ? start : null });
       setListError(null);
     } catch { if (request === sequence.current) { setPage(null); setListError("记忆读取失败，请重新加载"); } }
-  }, []);
-  const loadMaintenance = useCallback(async () => {
-    const request = ++maintenanceSequence.current;
     try {
       const result = await window.runloom.getMemoryMaintenance();
-      if (request !== maintenanceSequence.current) return;
-      if (!result.ok) { setMaintenance(null); setMaintenanceError(`${result.error.code}: ${result.error.message}`); return; }
-      setMaintenance(result.value); setMaintenanceError(null);
-    } catch { if (request === maintenanceSequence.current) { setMaintenance(null); setMaintenanceError("维护状态读取失败，不是空记忆库。"); } }
-  }, []);
-  const loadHistory = useCallback(async (id: string, start: number, detailRequest: number) => {
-    const request = ++historySequence.current;
-    try {
-      const result = await window.runloom.getMemoryHistory({ id, offset: start, limit: 8 });
-      if (request !== historySequence.current || detailRequest !== detailSequence.current) return;
-      if (!result.ok) { setHistory(null); setHistoryError(`${result.error.code}: ${result.error.message}`); return; }
-      if (result.value.revision !== currentRevision.current) {
-        setHistory(null); setPreview(null); setStale(true); ++previewSequence.current;
-        setHistoryError("历史版本已变化，请重新加载详情，旧预览已失效。"); return;
-      }
-      setHistory(result.value); setHistoryError(null);
-      const selected = result.value.assertions.find(assertion => assertion.assertionId === currentAssertionId.current);
-      if (selected) setCurrentAssertion(selected);
-    } catch { if (request === historySequence.current && detailRequest === detailSequence.current) { setHistory(null); setHistoryError("历史读取失败，请重新加载详情。"); } }
+      if (request === sequence.current) setMaintenance(result.ok ? result.value : null);
+    } catch { if (request === sequence.current) setMaintenance(null); }
   }, []);
   const open = useCallback(async (id: string) => {
-    selectedId.current = id;
-    const token = latestRefreshToken.current;
     const request = ++detailSequence.current;
-    ++previewSequence.current;
-    setCurrent(null); setCurrentAssertion(undefined); currentAssertionId.current = undefined; currentRevision.current = undefined; setDraft(null); setPreview(null); setStale(true); setHistory(null); setHistoryError(null); setHistoryOpen(false); setActionOpen(false); setNotice(null);
+    setOpenId(id); setCurrent(null); setEditText(null); setConfirmDelete(false); setError(null);
     try {
       const result = await window.runloom.getMemory(id);
-      if (request !== detailSequence.current || latestRefreshToken.current !== token) return;
-      if (!result.ok) { setError(`${result.error.code}: ${result.error.message}`); return; }
-      setCurrent(result.value); setDraft(createMemoryActionDraft(result.value)); setStale(false); setDetailToken(token); setError(null);
-      currentAssertionId.current = result.value.assertion?.assertionId;
-      currentRevision.current = result.value.revision ?? 1;
-      void loadHistory(id, 0, request);
+      if (request !== detailSequence.current) return;
+      if (!result.ok) { setError(memoryErrorText(result.error)); return; }
+      setCurrent(result.value);
     } catch { if (request === detailSequence.current) setError("详情读取失败，请重新加载"); }
-  }, [loadHistory]);
+  }, []);
   useEffect(() => {
-    setPreview(null); setStale(true); ++detailSequence.current; ++previewSequence.current;
-    setHistory(null);
-    if (enabled) { void load(); void loadMaintenance(); if (selectedId.current) void open(selectedId.current); }
-    return () => { ++sequence.current; ++detailSequence.current; ++historySequence.current; ++previewSequence.current; ++maintenanceSequence.current; };
-  }, [enabled, refreshToken, load, loadMaintenance, open]);
+    if (!enabled) return;
+    void load();
+    return () => { ++sequence.current; };
+  }, [enabled, refreshToken, load]);
+  const seenRefresh = useRef(refreshToken);
   useEffect(() => {
-    if (!controllerIdle) { setPreview(null); setStale(true); ++previewSequence.current; }
-  }, [controllerIdle]);
-  useEffect(() => {
-    if (browse.view !== "summary" || page === null) return;
-    const ids = page.entries.filter(entry => isCurrentMemory(entry, new Date())).slice(0, 24).map(entry => entry.id);
-    let cancelled = false;
-    void Promise.all(ids.map(async id => {
-      try {
-        const result = await window.runloom.getMemory(id);
-        return [id, result.ok ? result.value.text : ""] as const;
-      } catch { return [id, ""] as const; }
-    })).then(pairs => { if (!cancelled) setSummaryTexts(Object.fromEntries(pairs)); });
-    return () => { cancelled = true; };
-  }, [browse.view, page]);
+    // Reload the open item only when the outside world changed.
+    if (seenRefresh.current === refreshToken) return;
+    seenRefresh.current = refreshToken;
+    if (openId !== null && enabled && !mutation.current) void open(openId);
+  }, [refreshToken, openId, enabled, open]);
 
-  const ready = current !== null && !stale && detailToken === refreshToken && controllerIdle && !busy;
-  function editDraft(changes: Partial<MemoryActionDraft>) {
-    ++previewSequence.current; setPreview(null); setDraft(value => value ? { ...value, ...changes } : null); setNotice(null);
-  }
-  async function stage() {
-    if (!ready || !current || !draft || mutation.current) return;
-    if (draft.mode === "correct" && history && history.assertions.filter(assertion => assertion.state === "asserted" && assertion.systemTime.to === null).length > 1) {
-      setError("这条记忆有多段仍然成立的历史。请直接在对话里说明要怎么改，助手会按时间处理。"); return;
-    }
-    const built = memoryActionFromDraft(current, draft);
-    if (!built.ok) { setError(built.message); return; }
-    const request = ++previewSequence.current;
-    const detailRequest = detailSequence.current;
-    setBusy(true); setPreview(null); setError(null); setNotice(null);
-    try {
-      const result = await window.runloom.previewMemoryAction(built.input);
-      if (request !== previewSequence.current || detailRequest !== detailSequence.current || latestRefreshToken.current !== detailToken) return;
-      if (!result.ok) { setError(`${result.error.code}: ${result.error.message}。请重新加载详情后核对。`); setStale(true); return; }
-      setPreview(result.value);
-    } catch { if (request === previewSequence.current) setError("预览读取失败，没有发送保存操作；请重新加载详情。"); }
-    finally { setBusy(false); }
-  }
-  async function save() {
-    if (!preview || !ready || mutation.current) return;
-    mutation.current = true; setBusy(true);
-    const action = preview.input;
-    setPreview(null); setStale(true); ++detailSequence.current; ++previewSequence.current;
+  const ready = current !== null && controllerIdle && !busy;
+  async function apply(action: MemoryAction, done: string) {
+    if (!ready || mutation.current) return;
+    mutation.current = true; setBusy(true); setError(null); setNotice(null);
     try {
       const result = await window.runloom.applyMemoryAction(action);
-      if (!result.ok) setError(`${result.error.code}: ${result.error.message}。请重新加载后核对，不会自动重试。`);
-      else {
-        setCurrent(result.value); setHistory(null); setError(null);
-        setNotice(action.operation === "delete" ? "已永久删除本条正式记忆与历史。旧对话未删除。" : "已保存。");
-        if (result.value) { setDraft(createMemoryActionDraft(result.value)); setStale(false); setDetailToken(latestRefreshToken.current); currentRevision.current = result.value.revision;
-          await open(result.value.id); setNotice("已保存。"); } else { selectedId.current = null; setDraft(null); }
-        await Promise.all([load(), loadMaintenance()]);
-      }
-    } catch { setError("保存结果未确认，请重新加载核对；不要直接重复保存。"); }
+      if (!result.ok) { setError(`${memoryErrorText(result.error)}不会自动重试。`); return; }
+      setNotice(done);
+      if (result.value) { setCurrent(result.value); setEditText(null); }
+      else { setCurrent(null); setOpenId(null); setConfirmDelete(false); }
+      await load();
+    } catch { setError("保存结果未确认，请重新加载核对；不要直接重复操作。"); }
     finally { mutation.current = false; setBusy(false); }
   }
-  function chooseRestore(assertion: MemoryAssertion) {
-    editDraft({ mode: "restore", targetAssertionId: assertion.assertionId, restoreStatus: "", expiryChoice: "" });
-    setActionOpen(true); setHistoryOpen(false);
-    requestAnimationFrame(() => actionEditor.current?.scrollIntoView({ block: "nearest" }));
-  }
+  function back() { ++detailSequence.current; setOpenId(null); setCurrent(null); setEditText(null); setConfirmDelete(false); setError(null); }
+
   if (!enabled) return <p className="hint">{memoryDisabledEmptyCopy()}</p>;
-  const restoreAssertion = history?.assertions.find(assertion => assertion.assertionId === draft?.targetAssertionId);
   const entries = page?.entries ?? [];
-  function showItem(id: string, category: MemoryCategoryId) {
-    setBrowse({ view: "item", category });
-    void open(id);
-  }
+  if (openId !== null) return <section className="formal-memories"><div className="memory-detail">
+    <MemoryBack label="记忆详情" onBack={back} />
+    {error ? <FailureAlert text={error} /> : null}
+    {notice ? <p className="hint" role="status">{notice}</p> : null}
+    {current === null ? error ? <button className="ghost" onClick={() => void open(openId)}>重新读取</button> : <p className="hint">读取中…</p> : <>
+      <p className="memory-updated">{memoryUpdatedLabel(current.updatedAt ?? current.createdAt, now)}</p>
+      {editText === null ? <CurrentMemoryDetails current={current} /> : <>
+        <label className="memory-label" htmlFor="formal-memory-text">记忆内容</label>
+        <textarea id="formal-memory-text" className="formal-memory-editor" value={editText} disabled={!ready} onChange={event => setEditText(event.target.value)} />
+      </>}
+      {confirmDelete ? <section className="memory-delete-confirm" role="alertdialog" aria-label="确认删除">
+        <p className="error">删除后不能撤销。旧对话不会因此删除。</p>
+        <div className="actions"><button className="ghost" disabled={busy} onClick={() => setConfirmDelete(false)}>取消</button>
+          <button className="deny" disabled={!ready} onClick={() => void apply({ id: current.id, expectedRevision: current.revision ?? 1, operation: "delete" }, "已删除这条记忆。")}>确认删除</button></div>
+      </section> : editText !== null ? <div className="actions">
+        <button className="ghost" disabled={busy} onClick={() => setEditText(null)}>取消</button>
+        <button className="allow" disabled={!ready || !editText.trim() || editText === current.text} onClick={() => void apply({ id: current.id, expectedRevision: current.revision ?? 1, operation: "correct", text: editText }, "已保存。")}>保存</button>
+      </div> : <div className="memory-quick-actions">
+        <button type="button" className="ghost" disabled={!ready || !current.text} onClick={() => { setNotice(null); setEditText(current.text); }}>编辑</button>
+        <button type="button" className="ghost" disabled={!ready} onClick={() => { setNotice(null); setConfirmDelete(true); }}>删除</button>
+      </div>}
+    </>}
+  </div></section>;
   return <section className="formal-memories">
     {listError ? <><FailureAlert text={listError} /><button className="ghost" onClick={() => void load()}>重新读取</button></> : null}
-    {error && browse.view === "item" ? <FailureAlert text={error} /> : null}
     {notice ? <p className="hint" role="status">{notice}</p> : null}
-    {browse.view === "home" ? <>
-      {!managementOnly ? <MemoryCardHome loaded={page !== null} entries={entries} now={now} onOpenSummary={() => setBrowse({ view: "summary" })} onOpenCategory={category => setBrowse({ view: "category", category })} /> : null}
-      {page?.nextOffset !== null && page?.nextOffset !== undefined ? <p className="hint">还有更多记忆没有载入，分类计数只覆盖已读取的部分。</p> : null}
-      {maintenanceError ? <FailureAlert text={maintenanceError} /> : null}
-      {maintenance && maintenance.stored >= maintenance.capacity.entries * 0.9 ? <p role="status">记忆空间即将用满（{maintenance.stored}/{maintenance.capacity.entries}）。请按需管理已有内容。</p> : null}
-      {managementOnly ? <details className="memory-secondary"><summary>停用与历史记忆</summary>
-        {entries.filter(entry => !isCurrentMemory(entry, now)).map(entry => <button className="ghost" key={entry.id} onClick={() => showItem(entry.id, memoryCategory(entry))}>{entry.preview.trim() ? memoryItemTitle(entry.preview) : "历史记忆"} · {entry.temporalState === "retracted" ? "已撤回" : "当前不生效"}</button>)}
-      </details> : null}
-    </> : null}
-    {browse.view === "summary" ? <MemoryUnderstanding entries={entries} texts={summaryTexts} now={now} onBack={() => setBrowse({ view: "home" })} /> : null}
-    {browse.view === "category" ? <MemoryCategoryFolder category={browse.category} entries={entries} now={now} onBack={() => setBrowse({ view: "home" })} onOpen={id => showItem(id, browse.category)} /> : null}
-    {browse.view === "item" && (!current || !draft) ? <div className="memory-folder">
-      <MemoryBack label="记忆" onBack={() => setBrowse(managementOnly ? { view: "home" } : { view: "category", category: browse.category })} />
-      {error ? null : <p className="hint">读取中…</p>}
-    </div> : null}
-    {browse.view === "item" && current && draft ? <div className="memory-detail">
-      <MemoryBack label="记忆详情" onBack={() => setBrowse(managementOnly ? { view: "home" } : { view: "category", category: browse.category })} />
-      <p className="memory-updated">{memoryUpdatedLabel(current.updatedAt ?? current.createdAt, now)}</p>
-      <CurrentMemoryDetails current={current} assertion={currentAssertion} />
-      {stale ? <p className="hint">详情已过期或正在运行。重新加载详情后才能操作。</p> : null}
-      {stale || error ? <button className="ghost" disabled={busy} onClick={() => void open(current.id)}>重新读取</button> : null}
-      <div className="memory-quick-actions">{(["correct", "pin", "disable"] as const).map(mode => <button type="button" className="ghost" disabled={!ready} key={mode} onClick={() => { editDraft({ mode }); setActionOpen(true); }}>{mode === "correct" ? "编辑" : mode === "pin" ? current.pinned ? "取消置顶" : "置顶" : "停用"}</button>)}</div>
-      <details className="memory-action-editor memory-temporal-form" ref={actionEditor} open={actionOpen} onToggle={event => setActionOpen(event.currentTarget.open)}>
-        <summary>编辑与管理</summary>
-        <label className="memory-label" htmlFor="memory-action-mode">你要做什么</label>
-        <select id="memory-action-mode" value={draft.mode} disabled={!ready} onChange={event => editDraft({ mode: event.target.value as MemoryActionMode })}>
-          {modeOptions.map(mode => <option key={mode} value={mode}>{mode === "pin" ? current.pinned ? "取消固定" : "固定" : memoryActionLabel[mode]}</option>)}
-          {draft.mode === "restore" ? <option value="restore">恢复历史内容</option> : null}
-        </select>
-        {draft.mode === "correct" || draft.mode === "change" ? <>
-          <p className="hint">{draft.mode === "correct" ? "原记录写错了：纠正系统认知，不声明现实发生变化。" : "现实确实变了：填写实际生效时间，保留此前适用的事实。"}</p>
-          <label className="memory-label" htmlFor="formal-memory-text">新正文</label>
-          <textarea id="formal-memory-text" className="formal-memory-editor" value={draft.text} disabled={!ready} onChange={event => editDraft({ text: event.target.value })} />
-          {draft.mode === "correct" ? <><label className="memory-label" htmlFor="memory-kind">记忆类型</label><select id="memory-kind" value={draft.kind} disabled={!ready} onChange={event => editDraft({ kind: event.target.value as MemoryActionDraft["kind"] })}>{Object.entries(memoryKindLabel).map(([kind, label]) => <option value={kind} key={kind}>{label}</option>)}</select></> : null}
-          <label className="memory-label" htmlFor="memory-recall-terms">检索词（最多三条，每行一条）</label>
-          <textarea id="memory-recall-terms" className="formal-memory-editor memory-terms-editor" value={draft.recallTerms} disabled={!ready} onChange={event => editDraft({ recallTerms: event.target.value })} />
-          {draft.mode === "change" ? <><label className="memory-label" htmlFor="memory-effective-at">实际生效时间（留空表示现在）</label><input id="memory-effective-at" type="text" placeholder="留空表示现在" value={draft.effectiveAt} disabled={!ready} onChange={event => editDraft({ effectiveAt: event.target.value })} /></> : null}
-        </> : null}
-        {draft.mode === "restore" ? <><p className="hint">恢复下面这份内容，保留此前的修改历史。</p>{restoreAssertion ? <pre className="memory-text">{restoreAssertion.text}</pre> : null}
-          <label className="memory-label" htmlFor="memory-restore-status">恢复后的状态（必须明确选择）</label><select id="memory-restore-status" value={draft.restoreStatus} disabled={!ready} onChange={event => editDraft({ restoreStatus: event.target.value as MemoryActionDraft["restoreStatus"] })}><option value="">请选择</option><option value="active">启用</option><option value="disabled">保持停用</option></select>
-        </> : null}
-        {draft.mode === "expiry" || draft.mode === "restore" ? <>
-          <label className="memory-label" htmlFor="memory-expiry-choice">有效期</label><select id="memory-expiry-choice" value={draft.expiryChoice} disabled={!ready} onChange={event => editDraft({ expiryChoice: event.target.value as MemoryActionDraft["expiryChoice"] })}><option value="">请选择</option>{draft.mode === "restore" ? <option value="keep">保留当前有效期：{timestampLabel(current.expiresAt, "无")}</option> : null}<option value="none">无有效期</option><option value="date">指定时间</option></select>
-          {draft.expiryChoice === "date" ? <><label className="memory-label" htmlFor="memory-expiry-at">有效期结束（含秒与时区）</label><input id="memory-expiry-at" type="text" placeholder={timePlaceholder} value={draft.expiresAt} disabled={!ready} onChange={event => editDraft({ expiresAt: event.target.value })} /></> : null}
-        </> : null}
-        {draft.mode === "delete" ? <p className="error">删除包含正式内容、历史与相关候选，不能撤销。只想暂时不用，请选择停用。</p> : null}
-        {draft.mode === "retract" ? <p className="hint">撤回表示不再主张这条事实。历史保留，不等于永久删除。</p> : null}
-        <div className="actions"><button className="ghost" disabled={!ready} onClick={() => void stage()}>预览{memoryActionLabel[draft.mode]}</button></div>
-      </details>
-      {preview ? <section className="memory-edit-preview"><h3>保存前核对</h3><p className="hint">若内容已被其他操作修改，这次会停止保存，不会覆盖。</p>
-        <MemoryActionPreviewDetails preview={preview} />
-        <div className="actions"><button className="ghost" onClick={() => { ++previewSequence.current; setPreview(null); }}>返回编辑</button><button className={preview.input.operation === "delete" ? "deny" : "allow"} disabled={!ready} onClick={() => void save()}>{preview.input.operation === "delete" ? "确认永久删除" : "确认保存"}</button></div>
-      </section> : null}
-      <details className="memory-history-drawer" open={historyOpen} onToggle={event => setHistoryOpen(event.currentTarget.open)}><summary>历史记录</summary>
-        {historyError ? <FailureAlert text={historyError} /> : history ? <><MemoryHistory page={history} onRestore={chooseRestore} ready={ready} />
-          <div className="actions">{history.nextOffset !== null ? <button className="ghost" onClick={() => void loadHistory(current.id, history.nextOffset!, detailSequence.current)}>下一页历史</button> : null}<button className="ghost" onClick={() => void loadHistory(current.id, 0, detailSequence.current)}>最新历史</button></div>
-        </> : <p className="hint">{stale ? "请重新加载详情。" : "读取历史中…"}</p>}
-      </details>
-    </div> : null}
+    {page === null && !listError ? <p className="hint">读取中…</p> : null}
+    {page !== null && entries.length === 0 ? <p className="hint">{savedMemoryEmptyCopy()}</p> : null}
+    {maintenance && maintenance.stored >= maintenance.capacity.entries * 0.9 ? <p role="status">记忆空间即将用满（{maintenance.stored}/{maintenance.capacity.entries}）。可以删除不再需要的记忆。</p> : null}
+    <div className="memory-list">
+      {entries.map(entry => <button type="button" className="ghost memory-row" key={entry.id} onClick={() => void open(entry.id)}>
+        <span className="memory-row-text">{entry.preview.trim() ? memoryItemTitle(entry.preview) : "记忆"}</span>
+        {!isCurrentMemory(entry, now) ? <span className="hint">当前不生效</span> : null}
+      </button>)}
+    </div>
+    {page?.nextOffset !== null && page?.nextOffset !== undefined ? <p className="hint">还有更多记忆没有载入。</p> : null}
   </section>;
 }

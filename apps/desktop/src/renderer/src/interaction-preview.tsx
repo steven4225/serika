@@ -172,7 +172,6 @@ const api = {
   createThread: async () => { const id = `preview-${++sequence}`; threads.push({ threadId: id, title: "新对话", transcriptDirectory: "/fixture/transcripts", messageCount: 0, preview: "" }); changeThread(id); },
   selectThread: async (id: string) => { changeThread(id); },
   enableMemory: async () => { memoryEnabled = true; changeThread(threadId); },
-  listMemoryCandidates: async () => ({ ok: true as const, value: { candidates: [], nextOffset: null, truncated: false } }),
   listMemories: async () => ({ ok: true as const, value: { entries: [], nextOffset: null } }),
   getMemoryReferences: async () => null,
   getMemoryMaintenance: async () => ({ ok: false as const, error: { code: "MEMORY_READ_FAILED" as const, message: "浏览器 fixture 不读取真实记忆" } }),

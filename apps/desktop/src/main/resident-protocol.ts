@@ -15,9 +15,8 @@ export const RESIDENT_BRIDGE_METHODS = [
   "listRecipes", "changeRecipe",
   "getMemoryLibrary", "readMemoryDocument", "changeMemoryLibrary",
   "listMemories", "getMemory", "updateMemory", "getMemoryHistory", "previewMemoryAction", "applyMemoryAction", "getMemoryMaintenance",
-  "consolidateMemory", "listMemoryConsolidationSources", "getMemoryReferences",
+  "getMemoryReferences",
   "getRssSubscriptions", "updateRssSubscriptions", "getRssInbox", "acknowledgeRssResult", "getTaskInbox", "getScheduledTask", "acknowledgeTaskResult",
-  "listMemoryCandidates", "getMemoryCandidate", "resolveMemoryCandidate",
   "createWorkTask", "listWorkTasks", "getWorkTask", "getWorkTaskDeliveryDraft", "getWorkTaskContinuation", "getWorkTaskArtifact", "runWorkTask",
   "submitWorkTaskDelivery", "recordHumanAcceptance", "reconcileWorkTask", "cancelWorkTask", "requestWorkTaskChanges",
 ] as const satisfies readonly (keyof RuntimeBridge)[];

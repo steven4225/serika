@@ -28,7 +28,7 @@ it("does not prompt to rewrite a ready configuration", () => {
 it("offers an explicit upgrade instead of describing review mode as automatic saving", () => {
   const current = info({ enabled: true, autoConsolidate: true, queryRewriteEnabled: true, writePolicy: "review" });
   assert.equal(memorySetupNeeded(current), true);
-  assert.match(dailySetupNotice(current)!, /人工审核模式/);
+  assert.match(dailySetupNotice(current)!, /旧的审核模式/);
   assert.equal(memorySetupChanges(current).length, 1);
   assert.match(memorySetupChanges(current)[0]!, /自动保存/);
 });
@@ -37,7 +37,7 @@ it("offers a policy-only upgrade without enabling unrelated recall settings or u
   for (const writePolicy of ["review", undefined] as const) {
     const current = info({ enabled: true, autoConsolidate: true, queryRewriteEnabled: false, ...(writePolicy ? { writePolicy } : {}) });
     assert.equal(memoryAutomaticUpgradeNeeded(current), true);
-    assert.deepEqual(memorySetupChanges(current), ["自动保存明确、可溯源的普通长期信息，歧义仍留待审核"]);
+    assert.deepEqual(memorySetupChanges(current), ["自动保存明确、可溯源的普通长期信息，不确定的内容不保存"]);
     const html = renderToStaticMarkup(createElement(MemorySetup, { info: current, busy: false }));
     assert.ok(html.includes("改为自动记住"));
     assert.equal(html.includes("确认修改当前配置"), false, "preview is not open and nothing is applied on mount");

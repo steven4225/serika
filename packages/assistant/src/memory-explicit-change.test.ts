@@ -25,9 +25,9 @@ async function setup(text = quote, policy: "automatic" | "review" = "automatic",
   const cleanup = () => rm(directory, { recursive: true, force: true });
   return { directory, store, service, proposal, target: seeded.entry, cleanup };
 }
-async function stage(f: Awaited<ReturnType<typeof setup>>, proposal: unknown = f.proposal, history = false) {
-  f.service.begin(AUTO_CONSOLIDATION_AGENT_ID, history ? { mode: "history", messageIds: ["u1"] } : undefined);
-  const prepared = await f.service.prepare(history ? {} : { mode: "incremental" }); assert.ok(prepared.ok);
+async function stage(f: Awaited<ReturnType<typeof setup>>, proposal: unknown = f.proposal) {
+  f.service.begin(AUTO_CONSOLIDATION_AGENT_ID);
+  const prepared = await f.service.prepare({ mode: "incremental" }); assert.ok(prepared.ok);
   return f.service.stage({ batchId: prepared.value.batchId, proposals: [proposal], outcomes: [{ messageId: "u1", status: "extracted" }] });
 }
 describe("source-bound from-now preference changes", () => {
@@ -118,12 +118,12 @@ describe("source-bound from-now preference changes", () => {
       assert.equal(afterReplay.entry.revision, current.entry.revision);
     } finally { await f.cleanup(); }
   });
-  it("keeps plain contradiction, missing intent, selected history and review policy pending", async () => {
-    for (const mode of ["plain", "legacy", "history", "review"] as const) {
+  it("keeps plain contradiction, missing intent and review policy pending", async () => {
+    for (const mode of ["plain", "legacy", "review"] as const) {
       const f = await setup(mode === "plain" ? "我喝咖啡加糖。" : quote, mode === "review" ? "review" : "automatic");
       try {
         const { changeIntent: _intent, ...legacy } = f.proposal;
-        const staged = await stage(f, mode === "legacy" ? legacy : f.proposal, mode === "history"); assert.ok(staged.ok);
+        const staged = await stage(f, mode === "legacy" ? legacy : f.proposal); assert.ok(staged.ok);
         const committed = await f.service.finalize({ status: "completed" }); assert.ok(committed.ok);
         assert.equal(committed.value.accepted?.length ?? 0, 0);
         const candidates = await f.store.listCandidates({ status: "pending" }, undefined, { boundThreadId: "thread", now }); assert.ok(candidates.ok);

@@ -47,7 +47,7 @@ test("Controller review rejects a preview whose formal target changed before con
     }, undefined, options);
     assert.ok(staged.ok);
     const candidateId = staged.value.candidateIds[0]!;
-    const preview = await controller.memory.getCandidate(candidateId);
+    const preview = await app.memoryStore!.getCandidate(candidateId, undefined, { boundThreadId: app.threadId });
     assert.ok(preview.ok); assert.equal(preview.value.applicable, true);
 
     const edited = await createMemoryStore(workspace).update(added.entry.id, {
@@ -55,8 +55,8 @@ test("Controller review rejects a preview whose formal target changed before con
     }, undefined, options);
     assert.ok(edited.ok);
     const beforeConfirmation = await readFile(join(workspace, MEMORY_FILE_NAME), "utf8");
-    const confirmed = await controller.memory.resolveCandidate({ candidateId,
-      expectedCandidateRevision: preview.value.candidate.revision, decision: "accept" });
+    const confirmed = await app.memoryStore!.resolveCandidate({ candidateId,
+      expectedCandidateRevision: preview.value.candidate.revision, decision: "accept" }, undefined, { boundThreadId: app.threadId });
     assert.equal(confirmed.ok, false);
     if (!confirmed.ok) assert.equal(confirmed.error.code, "MEMORY_CANDIDATE_STALE");
     assert.equal(await readFile(join(workspace, MEMORY_FILE_NAME), "utf8"), beforeConfirmation);
@@ -65,11 +65,11 @@ test("Controller review rejects a preview whose formal target changed before con
     assert.equal(current.entry.revision, edited.entry.revision);
     assert.equal(current.entry.pinned, true);
     assert.deepEqual(current.entry.scope, { kind: "thread", threadId: "review-thread" });
-    const stale = await controller.memory.getCandidate(candidateId); assert.ok(stale.ok);
+    const stale = await app.memoryStore!.getCandidate(candidateId, undefined, { boundThreadId: app.threadId }); assert.ok(stale.ok);
     assert.equal(stale.value.candidate.status, "stale");
     assert.equal(stale.value.candidate.staleReason, "target_changed");
     assert.equal(stale.value.applicable, false);
-    const pending = await controller.memory.listCandidates({ status: "pending" }); assert.ok(pending.ok);
+    const pending = await app.memoryStore!.listCandidates({ status: "pending" }, undefined, { boundThreadId: app.threadId }); assert.ok(pending.ok);
     assert.equal(pending.value.candidates.length, 0);
     assert.equal(controller.getSnapshot().state.kind, "idle");
     assert.deepEqual(await controller.getHistory(), []);

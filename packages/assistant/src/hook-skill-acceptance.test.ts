@@ -488,7 +488,7 @@ test("program opt-out survives JSONL and an invalid excluded source cannot advan
     assert.equal(maintenance.value.consolidation.lastAttempt?.status, "failed");
     const cursor = await createMemoryStore(f.workspace).getConsolidationCursor(app.threadId); assert.ok(cursor.ok);
     assert.equal(cursor.value, null);
-    const candidates = await controller.memory.listCandidates(); assert.ok(candidates.ok);
+    const candidates = await app.memoryStore!.listCandidates({}, undefined, { boundThreadId: app.threadId }); assert.ok(candidates.ok);
     assert.deepEqual(candidates.value.candidates, []);
     invalidSource = false;
     assert.ok((await controller.automation.runSkill({ id: "memory-consolidate", expectedHash: hash })).ok);
@@ -522,7 +522,7 @@ test("model failure after staging is not a successful memory Skill commit; retry
     const cursor = await reopened.getConsolidationCursor(app.threadId); assert.ok(cursor.ok);
     assert.equal(cursor.value, null);
     assert.deepEqual(await reopened.list(), { ok: true, entries: [] });
-    const candidates = await controller.memory.listCandidates(); assert.ok(candidates.ok);
+    const candidates = await app.memoryStore!.listCandidates({}, undefined, { boundThreadId: app.threadId }); assert.ok(candidates.ok);
     assert.deepEqual(candidates.value.candidates, []);
     const retry = await controller.automation.runSkill({ id: "memory-custom", expectedHash: hash }); assert.ok(retry.ok);
     await settle(controller);

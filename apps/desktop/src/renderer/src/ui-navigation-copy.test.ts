@@ -9,8 +9,7 @@ import type { MemoryMaintenance } from "@serika/assistant";
 import type { AppInfo } from "../../shared/ui-contract.js";
 import { contextOverview } from "../../shared/context-panel.js";
 import { ContextModeSelector, ContextPanel } from "./context.js";
-import { MemoryConsolidationPanel, consolidationStatusLabel } from "./memory-consolidation.js";
-import { MemoryMaintenanceSummary } from "./memory-temporal.js";
+import { consolidationStatusLabel } from "./memory-consolidation.js";
 import { MemoryPanel } from "./memory.js";
 import { memoryAutomationLabel } from "./memory-copy.js";
 import { dashboardTabForDetail } from "./personal/layout.js";
@@ -54,24 +53,16 @@ it("UI regression 2: context compression and memory consolidation have distinct 
 it("UI regression 3: the memory automation off state uses the same phrase across summaries and pending", async () => {
   const expected = "记忆自动整理：关";
   assert.equal(consolidationStatusLabel(true, maintenance, ""), expected);
-  assert.match(render(createElement(MemoryMaintenanceSummary, { value: maintenance })), new RegExp(expected));
-  assert.match(render(createElement(MemoryConsolidationPanel, { info, busy: false, refreshToken: 0 })), new RegExp(expected));
-  assert.doesNotMatch(render(createElement(MemoryPanel, { memory: info.memory, pendingCount: 0, temporaryThread: false, controllerIdle: true, refreshToken: 0 })), /引用说明与审核记录/);
+  assert.doesNotMatch(render(createElement(MemoryPanel, { memory: info.memory, temporaryThread: false, controllerIdle: true, refreshToken: 0 })), /引用说明与审核记录/);
   for (const file of ["./capabilities.tsx"]) assert.match(await source(file), /memoryAutomationLabel\(/);
 });
 
 it("memory automation label distinguishes enabled capability from write policy", () => {
   assert.equal(memoryAutomationLabel({ enabled: true, autoConsolidate: true }), "记忆自动整理：开");
   assert.equal(memoryAutomationLabel({ enabled: false, autoConsolidate: true }), "记忆自动整理：关");
-  const review = { ...info, memory: { ...info.memory, autoConsolidate: true } };
-  const html = render(createElement(MemoryConsolidationPanel, { info: review, busy: false, refreshToken: 0 }));
-  assert.match(html, /当前使用手动确认保存/);
 });
 
 it("UI regression 4: memory setup has one primary entry and workspace context is a navigation link", async () => {
-  const html = render(createElement(MemoryConsolidationPanel, { info, busy: false, refreshToken: 0 }));
-  assert.doesNotMatch(html, /设置日用记忆|改为自动记住/);
-  assert.match(html, /记忆设置/);
   const app = await source("./App.tsx");
   assert.match(app, /openSettings\("context"\)/);
 });

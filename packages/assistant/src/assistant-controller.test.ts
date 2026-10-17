@@ -112,135 +112,6 @@ describe("AssistantController memory candidates", () => {
     await controller.shutdown();
   });
 
-  it("returns MEMORY_DISABLED without invoking a Run or creating an implicit store", async () => {
-    const controller = createAssistantController(appWith());
-    try {
-      for (const response of [
-        await controller.memory.listCandidates(),
-        await controller.memory.getCandidate("candidate"),
-        await controller.memory.resolveCandidate({ candidateId: "candidate", expectedCandidateRevision: 1, decision: "accept" }),
-      ]) {
-        assert.equal(response.ok, false);
-        assert.equal(!response.ok && response.error.code, "MEMORY_DISABLED");
-      }
-      assert.equal(controller.getSnapshot().state.kind, "idle");
-      assert.deepEqual(await controller.getHistory(), []);
-    } finally { await controller.shutdown(); }
-  });
-
-  it("binds reads to the current Thread and reserves the idle mutex before awaiting review", async () => {
-    const gate = deferred<MemoryResult<CandidateResolution>>();
-    let boundThread: string | undefined;
-    const calls: string[] = [];
-    const memoryStore = {
-      listCandidates: async (_input: unknown, _signal: unknown, options: { boundThreadId?: string }) => {
-        calls.push("list"); boundThread = options.boundThreadId;
-        return { ok: true, value: { candidates: [], nextOffset: null, truncated: false } };
-      },
-      getCandidate: async (_id: string, _signal: unknown, options: { boundThreadId?: string }) => {
-        calls.push("get"); boundThread = options.boundThreadId;
-        return { ok: false, error: { code: "MEMORY_CANDIDATE_NOT_FOUND", message: "missing" } };
-      },
-      resolveCandidate: async (_input: unknown, _signal: unknown, options: { boundThreadId?: string }) => {
-        calls.push("resolve"); boundThread = options.boundThreadId;
-        return gate.promise;
-      },
-    } as unknown as WorkspaceMemoryStore;
-    const controller = createAssistantController(appWith({ workspaceRoot: "/private/tmp/memory-workspace", memoryStore }));
-    const events: string[] = [];
-    controller.subscribe((event) => { if (event.type === "memory-updated") events.push(event.reason); });
-    try {
-      await controller.memory.listCandidates();
-      await controller.memory.getCandidate("candidate");
-      const review = controller.memory.resolveCandidate({ candidateId: "candidate", expectedCandidateRevision: 1, decision: "accept" });
-      assert.deepEqual(controller.getSnapshot().state, { kind: "command", name: "memory-review" });
-      assert.deepEqual(await controller.run("Work"), { ok: false, reason: "busy" });
-      assert.deepEqual(await controller.command("/home"), { ok: false, reason: "busy" });
-      const competing = await controller.memory.resolveCandidate({ candidateId: "candidate", expectedCandidateRevision: 1, decision: "reject" });
-      assert.equal(!competing.ok && competing.error.code, "MEMORY_CANDIDATE_CONFLICT");
-      await waitFor(() => calls.includes("resolve"));
-      gate.resolve({ ok: true, value: { candidateId: "candidate", status: "accepted", memoryId: "memory", memoryRevision: 1, replayed: false } });
-      assert.equal((await review).ok, true);
-      assert.equal(boundThread, "controller-thread");
-      assert.deepEqual(events, ["review"]);
-      assert.equal(controller.getSnapshot().lastPrimaryResult, null);
-      assert.equal(controller.getSnapshot().state.kind, "idle");
-    } finally { await controller.shutdown(); }
-  });
-
-  it("cancels an in-progress review and awaits it during shutdown", async () => {
-    const entered = deferred<void>();
-    const memoryStore = {
-      resolveCandidate: async (_input: unknown, signal: AbortSignal) => {
-        entered.resolve();
-        await new Promise<void>((resolve) => {
-          if (signal.aborted) resolve();
-          else signal.addEventListener("abort", () => resolve(), { once: true });
-        });
-        return { ok: false, error: { code: "WRITE_FAILED", message: "Operation cancelled before commit" } };
-      },
-    } as unknown as WorkspaceMemoryStore;
-    const controller = createAssistantController(appWith({ workspaceRoot: "/private/tmp/memory-workspace", memoryStore }));
-    const events: string[] = [];
-    controller.subscribe((event) => { if (event.type === "memory-updated") events.push(event.reason); });
-    const review = controller.memory.resolveCandidate({ candidateId: "candidate", expectedCandidateRevision: 1, decision: "accept" });
-    await entered.promise;
-    await controller.shutdown();
-    assert.equal((await review).ok, false);
-    assert.deepEqual(events, []);
-    assert.equal(controller.getSnapshot().state.kind, "idle");
-    const afterClose = await controller.memory.resolveCandidate({ candidateId: "candidate", expectedCandidateRevision: 1, decision: "accept" });
-    assert.equal(!afterClose.ok && afterClose.error.code, "MEMORY_CANDIDATE_CONFLICT");
-  });
-
-  it("reopens persisted candidates, accepts or rejects without Runs, and returns idempotent receipts", async () => {
-    const workspace = await mkdtemp(join(tmpdir(), "runloom-controller-candidates-"));
-    const store = createMemoryStore(workspace);
-    const batch = await store.commitCandidateBatch({
-      batchId: "batch", originThreadId: "controller-thread", expectedCursor: null, nextCursor: null,
-      candidates: ["Write concise reports", "Prefer practical steps"].map((text, index) => ({
-        change: { operation: "add" as const, text, scope: { kind: "workspace" as const }, expiresAt: null },
-        source: { kind: "conversation" as const, threadId: "controller-thread", messageId: `source-${index}`, quote: text },
-        reason: "Explicit lasting preference",
-      })),
-    }, undefined, { boundThreadId: "controller-thread" });
-    if (!batch.ok) throw new Error(batch.error.message);
-    const first = createAssistantController(appWith({ workspaceRoot: workspace, memoryStore: store }));
-    assert.equal((await first.memory.listCandidates()).ok, true);
-    await first.shutdown();
-    const reopened = createAssistantController(appWith({ workspaceRoot: workspace, memoryStore: createMemoryStore(workspace) }));
-    try {
-      const page = await reopened.memory.listCandidates();
-      assert.equal(page.ok && page.value.candidates.length, 2);
-      const [acceptId, rejectId] = batch.value.candidateIds;
-      assert.ok(acceptId); assert.ok(rejectId);
-      const preview = await reopened.memory.getCandidate(acceptId);
-      assert.equal(preview.ok && preview.value.applicable, true);
-      const input = { candidateId: acceptId, expectedCandidateRevision: 1, decision: "accept" as const };
-      const accepted = await reopened.memory.resolveCandidate(input);
-      assert.equal(accepted.ok && accepted.value.status, "accepted");
-      const replay = await reopened.memory.resolveCandidate(input);
-      assert.equal(replay.ok && replay.value.replayed, true);
-      assert.equal(replay.ok && accepted.ok && replay.value.memoryId, accepted.ok && accepted.value.memoryId);
-      const rejected = await reopened.memory.resolveCandidate({ candidateId: rejectId, expectedCandidateRevision: 1, decision: "reject" });
-      assert.equal(rejected.ok && rejected.value.status, "rejected");
-      const conflict = await reopened.memory.resolveCandidate({ ...input, decision: "reject" });
-      assert.equal(!conflict.ok && conflict.error.code, "MEMORY_CANDIDATE_CONFLICT");
-      const memories = await store.list();
-      assert.equal(memories.ok && memories.entries.length, 1);
-      assert.deepEqual(await reopened.getHistory(), []);
-      assert.deepEqual(await reopened.runs.list(), []);
-      const foreign = createAssistantController(appWith({ workspaceRoot: workspace, memoryStore: store, threadId: "foreign-thread" }));
-      try {
-        const hidden = await foreign.memory.getCandidate(acceptId);
-        assert.equal(!hidden.ok && hidden.error.code, "MEMORY_CANDIDATE_NOT_FOUND");
-      } finally { await foreign.shutdown(); }
-    } finally {
-      await reopened.shutdown();
-      await rm(workspace, { recursive: true, force: true });
-    }
-  });
-
   it("keeps the Run busy until candidates commit and notifies before its result", async () => {
     const gate = deferred<MemoryResult<{ candidateIds: string[]; replayed: boolean }>>();
     const began: string[] = [];
@@ -310,7 +181,7 @@ describe("AssistantController memory candidates", () => {
     try {
       assert.equal((await controller.run("Prepare candidates")).ok, true);
       await waitFor(() => controller.getSnapshot().state.kind === "idle");
-      const after = await controller.memory.listCandidates();
+      const after = await memoryStore.listCandidates({}, undefined, { boundThreadId: "controller-thread" });
       assert.equal(after.ok && after.value.candidates.length, 1);
       assert.equal(after.ok && after.value.candidates[0]?.status, "pending");
       const entries = await memoryStore.list();

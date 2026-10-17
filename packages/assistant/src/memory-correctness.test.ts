@@ -1067,22 +1067,3 @@ test("legacy stages and failed/cancelled/aborted extraction never declare a sour
     assert.equal(mismatch.error.code, "MEMORY_CURSOR_MISMATCH");
   } finally { await f.cleanup(); }
 });
-
-test("selected history cannot overwrite pending incremental coverage and old reviews never become automatic", async () => {
-  const f = await fixture();
-  try {
-    const item = f.statement("u1", "我喜欢中文回答。", { attribute: "response_language", scenario: "general", value: "zh" });
-    const first = await f.extract([{ ...item, eligibility: "needs_review" }], [{ messageId: "u1", status: "deferred" }]);
-    const before = await f.store.getConsolidationReceipt!("thread"); assert.ok(before.ok && before.value);
-    const history = f.service(); history.begin(AUTO_CONSOLIDATION_AGENT_ID, { mode: "history", messageIds: ["u1"] });
-    const batch = await history.prepare({ mode: "incremental" }); assert.ok(batch.ok);
-    assert.ok((await history.stage({ batchId: batch.value.batchId, proposals: [], outcomes: [{ messageId: "u1", status: "no_memory" }] })).ok);
-    assert.ok((await history.finalize({ status: "completed" })).ok);
-    assert.deepEqual(await f.store.getConsolidationReceipt!("thread"), before);
-    const retry = await f.extract([f.statement("u2", "Please respond in Mandarin.", item.factIdentity!)],
-      [{ messageId: "u1", status: "deferred" }, { messageId: "u2", status: "extracted" }]);
-    assert.equal(retry.result.accepted?.length, 0);
-    assert.deepEqual(retry.result.pendingCandidateIds, first.result.pendingCandidateIds);
-    const entries = await f.store.list(); assert.ok(entries.ok); assert.equal(entries.entries.length, 0);
-  } finally { await f.cleanup(); }
-});

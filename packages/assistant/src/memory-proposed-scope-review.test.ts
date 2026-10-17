@@ -141,14 +141,14 @@ test("unsupported-scope review retains the exact source and can be inspected/rej
     const controller = createAssistantController(app);
     try {
       const candidateId = result.pendingCandidateIds![0]!;
-      const preview = await controller.memory.getCandidate(candidateId); assert.ok(preview.ok);
+      const preview = await app.memoryStore!.getCandidate(candidateId, undefined, { boundThreadId: app.threadId }); assert.ok(preview.ok);
       assert.equal(preview.value.applicable, true);
       assert.equal(preview.value.candidate.source.quote, text);
       assert.equal(preview.value.candidate.source.threadId, "origin");
-      const rejected = await controller.memory.resolveCandidate({ candidateId,
-        expectedCandidateRevision: preview.value.candidate.revision, decision: "reject" });
+      const rejected = await app.memoryStore!.resolveCandidate({ candidateId,
+        expectedCandidateRevision: preview.value.candidate.revision, decision: "reject" }, undefined, { boundThreadId: app.threadId });
       assert.ok(rejected.ok, JSON.stringify(rejected));
-      const after = await controller.memory.getCandidate(candidateId); assert.ok(after.ok);
+      const after = await app.memoryStore!.getCandidate(candidateId, undefined, { boundThreadId: app.threadId }); assert.ok(after.ok);
       assert.equal(after.value.candidate.status, "rejected");
       const old = await controller.memory.get(f.seed.id); assert.ok(old.ok);
       assert.equal(old.value.revision, 1);

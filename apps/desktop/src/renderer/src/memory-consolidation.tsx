@@ -1,18 +1,14 @@
-import { EntryCardContent } from "./personal/entry-card.js";
 import React, { useEffect, useRef, useState } from "react";
-import type { AppInfo } from "../../shared/ui-contract.js";
 import type { MemoryMaintenance } from "@serika/assistant";
 import type { MemoryActionPreview } from "@serika/assistant";
 import type { FormalMemory } from "@serika/assistant";
 import type { MemoryResult } from "@serika/assistant";
-import type { MemoryConsolidationSource, MemoryConsolidationRequest } from "@serika/assistant";
 import { memoryConsolidationFailureText } from "@serika/assistant/browser";
-import { memoryAutomaticUpgradeNeeded } from "./daily-setup.js";
 import { MemoryActionPreviewDetails, MemorySources } from "./memory-temporal.js";
 import { memoryAutomationLabel, savedMemoryNoticeText } from "./memory-copy.js";
 import { FailureAlert } from "./failure-notice.js";
 
-const labels = { off: memoryAutomationLabel({ enabled: true, autoConsolidate: false }), backlog: "等待记忆整理", running: "正在整理记忆", failed: "记忆整理失败", awaiting_review: "等待你审核候选", idle: "没有待整理的新增记忆材料" };
+const labels = { off: memoryAutomationLabel({ enabled: true, autoConsolidate: false }), backlog: "等待记忆整理", running: "正在整理记忆", failed: "记忆整理失败", awaiting_review: "有记忆待确认", idle: "没有待整理的新增记忆材料" };
 type SavedMemoryReceipt = NonNullable<NonNullable<MemoryMaintenance["consolidation"]["lastAttempt"]>["accepted"]>[number] & {
   operation?: "add" | "update" | "correct" | "change" | "retract" | "disable";
 };
@@ -162,9 +158,9 @@ export function consolidationStatusLabel(enabled: boolean, maintenance: MemoryMa
   const saved = accepted.length;
   if (consolidation.lastAttempt?.status === "completed" && saved > 0) {
     if (consolidation.state === "idle") return memoryReceiptSummary(accepted);
-    if (consolidation.state === "awaiting_review") return `${memoryReceiptSummary(accepted)}；另有候选需要审核`;
+    if (consolidation.state === "awaiting_review") return `${memoryReceiptSummary(accepted)}；另有记忆待确认`;
   }
-  if (consolidation.state === "idle" && consolidation.lastAttempt?.status === "completed" && consolidation.lastAttempt.candidateCount === 0 && saved === 0) return "记忆整理完成，没有新增候选";
+  if (consolidation.state === "idle" && consolidation.lastAttempt?.status === "completed" && consolidation.lastAttempt.candidateCount === 0 && saved === 0) return "记忆整理完成，没有新增记忆";
   return labels[consolidation.state];
 }
 
@@ -196,74 +192,4 @@ export function MemoryConsolidationNotice({ enabled, busy, running = false, quie
     {c?.error ? <p className="error" role="alert">{memoryConsolidationFailureText(c.error)}</p> : null}
     <AutomaticMemoryReceipts accepted={accepted} busy={busy} refreshToken={refreshToken} />
   </div>;
-}
-
-export function MemoryConsolidationPanel({ info, busy, refreshToken, onSettings }: { info: AppInfo; busy: boolean; refreshToken: number; onSettings?: () => void }) {
-  const [maintenance, setMaintenance] = useState<MemoryMaintenance | null>(null);
-  const [error, setError] = useState("");
-  const [statusError, setStatusError] = useState("");
-  const [notice, setNotice] = useState("");
-  const [working, setWorking] = useState(false);
-  const [sources, setSources] = useState<MemoryConsolidationSource[]>([]);
-  const [nextOffset, setNextOffset] = useState<number | null>(null);
-  const [selected, setSelected] = useState<string[]>([]);
-  const [sourcesLoaded, setSourcesLoaded] = useState(false);
-  const [statusRefresh, setStatusRefresh] = useState(0);
-  useEffect(() => {
-    if (!info.memory.enabled) return;
-    let cancelled = false;
-    setMaintenance(null);
-    void window.runloom.getMemoryMaintenance().then(result => {
-      if (cancelled) return;
-      if (result.ok) { setMaintenance(result.value); setStatusError(""); }
-      else { setMaintenance(null); setStatusError(`${result.error.code}: ${result.error.message}`); }
-    }).catch(cause => { if (!cancelled) { setMaintenance(null); setStatusError(String(cause)); } });
-    return () => { cancelled = true; };
-  }, [info.memory.enabled, refreshToken, busy, statusRefresh]);
-  const act = async (operation: () => Promise<void>) => {
-    if (busy || working) return;
-    setWorking(true); setError(""); setNotice("");
-    try { await operation(); } catch (cause) { setError(String(cause)); } finally { setWorking(false); }
-  };
-  const consolidate = (request: MemoryConsolidationRequest) => act(async () => {
-    const result = await window.runloom.consolidateMemory(request);
-    if (!result.ok) setError(`${result.error.code}: ${result.error.message}`);
-    else { setNotice(info.memory.writePolicy === "automatic" ? "记忆整理已开始。符合保存条件的内容会自动保存，不确定的内容暂不保存。" : "记忆整理已开始。当前为人工审核模式，接受候选前不会保存为正式记忆。"); setSelected([]); setStatusRefresh(value => value + 1); }
-  });
-  const loadSources = (offset = 0) => act(async () => {
-    const result = await window.runloom.listMemoryConsolidationSources(offset);
-    if (!result.ok) { setError(`${result.error.code}: ${result.error.message}`); return; }
-    setSources(previous => offset ? [...previous, ...result.value.sources] : result.value.sources);
-    setNextOffset(result.value.nextOffset);
-    setSourcesLoaded(true);
-    if (!offset) setSelected([]);
-  });
-  const c = maintenance?.consolidation;
-  const headline = consolidationStatusLabel(info.memory.enabled, maintenance, statusError);
-  const showHeadline = info.memory.writePolicy !== "automatic" && headline !== "正在读取记忆状态…" && headline !== "没有待整理的新增记忆材料" && headline !== "记忆整理完成，没有新增候选" && !headline.startsWith("已记住") && !headline.startsWith("已处理");
-  return <section className="card memory-consolidation" aria-label="记忆整理状态">
-    {showHeadline ? <div className="card-head"><span>{headline}</span>
-      {info.memory.enabled && info.memory.autoConsolidate && (c?.state === "failed" || c?.state === "backlog") ? <button className="ghost" disabled={busy || working || maintenance === null || maintenance.pending >= 64} onClick={() => void consolidate({ mode: "incremental" })}>{c?.state === "failed" ? "重试记忆整理" : "整理待处理记忆材料"}</button> : null}
-    </div> : null}
-    {memoryAutomaticUpgradeNeeded(info) ? <button className="ghost" disabled={!onSettings} onClick={onSettings}>打开记忆设置</button> : null}
-    {c?.error ? <><p className="error" role="alert">{memoryConsolidationFailureText(c.error)}</p><details><summary>技术详情</summary><pre>{c.error}</pre></details></> : null}
-    {maintenance && maintenance.pending >= 64 ? <p className="hint">未保存内容已达到容量上限，自动整理暂时无法继续。已有记忆保持不变，可在“未保存内容与处理记录”中按需管理。</p> : null}
-    {statusError ? <><FailureAlert text={statusError} suffix="不能据此判断没有待整理记忆材料或候选。" /><button className="ghost" disabled={working} onClick={() => setStatusRefresh(value => value + 1)}>重新读取记忆整理状态</button></> : null}
-    {error ? <FailureAlert text={error} /> : null}{notice ? <p role="status">{notice}</p> : null}
-
-    <details className="memory-maintenance-disclosure">
-      <summary className="personal-entry-card"><EntryCardContent title="历史对话补整理" description="按需选择以前的对话，不影响日常自动整理。" /></summary>
-    <p className="hint">{!info.memory.enabled || !info.memory.autoConsolidate ? memoryAutomationLabel(info.memory) : info.memory.writePolicy === "automatic" ? "新对话结束后在后台自动整理，不打断聊天。不确定的内容暂不保存。" : "当前使用手动确认保存。"}</p>
-    <button className="ghost" disabled={!onSettings} onClick={onSettings}>记忆设置</button>
-    {info.memory.enabled && info.memory.autoConsolidate ? <details className="history-consolidation">
-      <summary>选择历史消息补整理记忆</summary><p className="hint">只处理当前 Thread 中勾选的 1–8 条用户消息，不移动记忆整理游标。标记“不参与记忆”的内容不能选择。</p>
-      <button className="ghost" disabled={busy || working} onClick={() => void loadSources()}>读取可选历史</button>
-      {sourcesLoaded && sources.length === 0 ? <p className="hint">当前 Thread 没有可选的已提交用户消息。此处没有扫描其他会话。</p> : null}
-      {sources.map(source => <label className="consolidation-source" key={source.messageId}><input type="checkbox" disabled={source.excluded || busy || working || !selected.includes(source.messageId) && selected.length >= 8} checked={selected.includes(source.messageId)} onChange={event => setSelected(current => event.target.checked ? [...current, source.messageId] : current.filter(id => id !== source.messageId))} />
-        <span>{source.preview}{source.truncated ? "…（预览截断，整理读取原文）" : ""}{source.excluded ? " · 不参与整理" : ""}</span></label>)}
-      {nextOffset !== null ? <button className="ghost" disabled={busy || working} onClick={() => void loadSources(nextOffset)}>更早的消息</button> : null}
-      <button disabled={busy || working || !selected.length} onClick={() => void consolidate({ mode: "history", messageIds: selected })}>整理所选 {selected.length} 条记忆材料</button>
-    </details> : null}
-    </details>
-  </section>;
 }

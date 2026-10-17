@@ -127,7 +127,7 @@ test("the supplied same-scope change example executes once through Controller/st
     const history = await f.controller.memory.getHistory({ id: f.initial.id }); assert.ok(history.ok);
     assert.equal(history.value.assertions.some(assertion => assertion.text === f.initial.text), true);
     assert.equal(history.value.assertions.some(assertion => assertion.text === changed.entry.text), true);
-    const pending = await f.controller.memory.listCandidates({ status: "pending" }); assert.ok(pending.ok);
+    const pending = await f.memory.listCandidates({ status: "pending" }, undefined, { boundThreadId: "origin" }); assert.ok(pending.ok);
     assert.equal(pending.value.candidates.length, 0);
   } finally { await f.cleanup(); }
 });
@@ -142,9 +142,9 @@ test("recorded D05 add without changeIntent remains actionable review and cannot
     const unchanged = await f.memory.get(f.initial.id); assert.ok(unchanged.ok);
     assert.equal(unchanged.entry.revision, 1);
     assert.equal(unchanged.entry.text, f.initial.text);
-    const pending = await f.controller.memory.listCandidates({ status: "pending" }); assert.ok(pending.ok);
+    const pending = await f.memory.listCandidates({ status: "pending" }, undefined, { boundThreadId: "origin" }); assert.ok(pending.ok);
     assert.equal(pending.value.candidates.length, 1);
-    const candidate = await f.controller.memory.getCandidate(pending.value.candidates[0]!.id); assert.ok(candidate.ok);
+    const candidate = await f.memory.getCandidate(pending.value.candidates[0]!.id, undefined, { boundThreadId: "origin" }); assert.ok(candidate.ok);
     assert.equal(candidate.value.candidate.status, "pending");
     assert.equal(candidate.value.applicable, true, JSON.stringify(candidate.value));
   } finally { await f.cleanup(); }

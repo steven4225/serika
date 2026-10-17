@@ -5,7 +5,6 @@ import { defaultUserDataPath, userDataPathFromEnv } from "./user-data-path.js";
 import { app, BrowserWindow, ipcMain, Notification, shell, dialog } from "electron";
 import { createDemoModel } from "@serika/assistant";
 import { configureCliModel, inspectCliModelConfig } from "@serika/assistant";
-import type { CandidateListInput } from "@serika/assistant";
 import { IPC, type MainToRenderer } from "../shared/ui-contract.js";
 import { parseModuleNotification } from "./runtime-bridge.js";
 import { moduleNotificationCopy } from "../shared/human-title.js";
@@ -263,7 +262,6 @@ async function main(): Promise<void> {
     } finally { restoreWorking = false; }
   });
   ipcMain.handle(IPC.steer, (_event, input) => drafts.steer(input));
-  ipcMain.handle(IPC.memoryCandidatesList, (_event, input?: CandidateListInput) => host.current.listMemoryCandidates(input));
   resolveStartup();
 
   app.on("before-quit", (event) => {

@@ -23,7 +23,7 @@ export function MemorySetup({ info, busy }: { info: AppInfo; busy: boolean }) {
       <ul>{memorySetupChanges(info).map(change => <li key={change}>{change}</li>)}</ul>
       <p className="hint">{policyOnly ? "仅改为自动保存，其他设置保持不变。记忆整理仍使用当前模型，产生费用。" : "记忆整理和查询改写会使用当前模型，产生费用。查询改写最多等待 5 秒，失败时退回词法检索。"}</p>
       <p className="hint">只从已提交的用户原话沉淀，保留来源与版本。模型会筛选长期信息；有歧义或冲突时仍需要你判断。程序会拦截已识别的凭据与拒绝保存表达，但无法保证识别所有敏感信息；敏感消息请勾选“本条不整理为记忆”。写入后可以查看和撤回。</p>
-      <p className="hint">可选择本条消息“不参与记忆”；不会搬动旧对话、批量接受旧候选或修改其他模块。历史补整理仍由你选择；启用后重新加载当前会话。</p>
+      <p className="hint">可选择本条消息“不参与记忆”；不会搬动旧对话或修改其他模块；启用后重新加载当前会话。</p>
       <div className="memory-actions"><button disabled={busy || working} onClick={() => void confirm()}>{working ? "正在应用…" : upgrade ? "确认改为自动记住" : "确认启用"}</button><button className="ghost" disabled={working} onClick={() => { setPreview(false); setError(""); }}>暂不修改</button></div>
     </div>}
     {!info.workspaceRoot ? <p className="hint">请先在当前配置中设置 workspace，再重启。不会自动换到另一个工作区。</p> : null}

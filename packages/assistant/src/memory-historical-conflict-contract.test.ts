@@ -91,7 +91,7 @@ async function replay() {
     assert.equal(target.revision, 2);
     assert.equal(target.assertion?.factIdentity?.value, "sweetened");
     assert.ok(target.relatedAssertions?.some(item => item.text === statements[0]), "Historical unsweetened assertion must reach the actual extraction boundary");
-    const pending = await controller.memory.listCandidates({ status: "pending" }); assert.ok(pending.ok);
+    const pending = await app.memoryStore!.listCandidates({ status: "pending" }, undefined, { boundThreadId: app.threadId }); assert.ok(pending.ok);
     assert.equal(pending.value.candidates.length, 0, "Recorded empty proposals cannot fabricate review");
     assert.deepEqual(await app.memoryStore!.getConsolidationCursor("origin"), previousCursor, "False extracted coverage must not advance the cursor");
     const receipt = await app.memoryStore!.getConsolidationReceipt!("origin"); assert.ok(receipt.ok);

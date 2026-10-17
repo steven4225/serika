@@ -24,7 +24,7 @@ import { recoverRunningWorkTasks } from "./work-task-recovery.js";
 import type { ShellProgress } from "./modules/shell-module.js";
 import type { PendingToolApproval } from "./tool-confirmation.js";
 import { memoryControlFailure, type MemoryMaintenance } from "./memory-controls.js";
-import { memoryConsolidationBacklog, prepareConsolidationExtraction, stageConsolidationExtraction, type MemoryConsolidationRequest } from "./memory-consolidation.js";
+import { memoryConsolidationBacklog, prepareConsolidationExtraction, stageConsolidationExtraction } from "./memory-consolidation.js";
 import { memoryConsolidationFailureText } from "./memory-failure.js";
 import { AUTO_CONSOLIDATION_AGENT_ID } from "./consolidation.js";
 
@@ -242,7 +242,6 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
   // A completed model Run is not proof that its proposal/cursor write succeeded.
   let consolidationFailure: string | undefined;
   let consolidationRunning = false;
-  let consolidationRequest: MemoryConsolidationRequest | undefined;
   let lastConsolidationAttempt: MemoryMaintenance["consolidation"]["lastAttempt"];
   let lastConsolidationSkippedReason: string | undefined;
   let lastDreamingAttempt: DreamingControllerOverview["lastAttempt"];
@@ -317,7 +316,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     }
     if (phase === "consolidation") { consolidationFailure = undefined; consolidationRunning = true; }
     try {
-      app.memoryConsolidation?.begin(agentId, phase === "consolidation" ? consolidationRequest : undefined);
+      app.memoryConsolidation?.begin(agentId);
       const hostExtraction = app.hostConsolidationExtraction === true && phase === "consolidation" && agentId === AUTO_CONSOLIDATION_AGENT_ID && app.memoryConsolidation !== undefined;
       if (hostExtraction) message = await prepareConsolidationExtraction(app.memoryConsolidation!, message, signal);
       const handle = await app.runtime.run({
@@ -464,7 +463,9 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
           if (finalized.value.outcomes?.length && !finalized.value.candidateIds.length && !finalized.value.replayed) emit({ type: "memory-updated", reason: "proposals" });
           if (finalized.value.candidateIds.length > 0 && !finalized.value.replayed) {
             emit({ type: "memory-updated", reason: "proposals" });
-            if (pendingIds.length > 0) controller.recordOutput(`\n有 ${pendingIds.length} 项记忆需要你确认；原记忆没有被覆盖。请在记忆页查看。\n`);
+            if (pendingIds.length > 0) controller.recordOutput(app.memoryConsolidation?.reviewQueue === false
+              ? `\n有 ${pendingIds.length} 项内容不确定或与已有记忆冲突，没有自动保存；原记忆没有被覆盖。\n`
+              : `\n有 ${pendingIds.length} 项记忆待确认；原记忆没有被覆盖。可以让助手列出并逐项确认。\n`);
             for (const receipt of accepted) {
               const label = receipt.operation === "retract" ? "已撤回" : receipt.operation === "disable" ? "已停用" : receipt.operation === "add" ? "已保存" : "已更新";
               controller.recordOutput(`\n记忆${label}，可在记忆页查看或撤回。\n`);
@@ -484,7 +485,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
           lastConsolidationSkippedReason = "自动整理已让给新消息，未推进游标；待处理材料会在后续整理中重试";
           lastConsolidationAttempt = undefined;
         } else lastConsolidationAttempt = {
-          mode: consolidationRequest?.mode ?? "incremental", runId: handle.runId,
+          mode: "incremental", runId: handle.runId,
           status: result.status === "completed" && !consolidationFailure ? "completed" : "failed",
           processedCount: lastProcessedCount, candidateCount: lastCandidateCount,
           ...(accepted.length ? { accepted } : {}),
@@ -562,7 +563,6 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     signal: AbortSignal,
     background: boolean,
     started?: (runId: string) => void,
-    request?: MemoryConsolidationRequest,
   ): Promise<SkillResult<{ runId: string }>> => {
     const skill = automation.getSkill(input?.id);
     if (!skill) return { ok: false, error: { code: "SKILL_UNAVAILABLE", message: "Skill is not registered" } };
@@ -605,9 +605,6 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
             return { ok: false, error: { code: "SKILL_NO_MATERIAL", message } };
           }
         }
-        consolidationRequest = request;
-        if (request?.mode === "history") prepared.value.message.parts = [{ type: "text", text:
-          "调用 memory_prepare_consolidation，参数仍为 {\"mode\":\"incremental\"}，不要提供 turns。程序已经绑定用户选定的历史消息，模型不能另选范围；返回 selection.mode=history。本次不移动自动游标。再调用 memory_stage_candidates 一次，没有建议也提交空数组。只提出有来源的候选，不写正式记忆。" }];
       }
       controller.recordOutput(`\n[automation] ${origin.source === "hook" ? `规则 ${origin.ruleId}` : "手动调用"} → ${skill.id} · ${skill.hash.slice(0, 12)}${background ? "（新对话优先）" : ""}\n`);
       const execution = await executeRun(skill.agentId, prepared.value.message,
@@ -628,8 +625,6 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       automation.record({ ...base, id, ...(runId ? { runId } : {}), status: signal.aborted ? "cancelled" : "failed", message });
       if (skill.kind === "memory-consolidate" && !signal.aborted) consolidationFailure = message;
       return { ok: false, error: { code: signal.aborted ? "SKILL_CANCELLED" : "SKILL_EXECUTION_FAILED", message } };
-    } finally {
-      if (skill.kind === "memory-consolidate") consolidationRequest = undefined;
     }
   };
 
@@ -700,7 +695,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     return true;
   };
 
-  const startManualSkill = async (input: SkillRunInput, request?: MemoryConsolidationRequest): Promise<SkillResult<{ runId: string }>> => {
+  const startManualSkill = async (input: SkillRunInput): Promise<SkillResult<{ runId: string }>> => {
     if (closed || state.kind !== "idle") return memoryControlFailure("BUSY", "Wait for the current operation to finish");
     const skill = automation.getSkill(input?.id);
     if (!skill) return memoryControlFailure("SKILL_UNAVAILABLE", "Skill is not registered");
@@ -718,7 +713,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       try {
         await ensureRecovered();
         const result = await invokeSkill(input, { source: "manual" }, startup.signal, false,
-          runId => resolveStarted({ ok: true, value: { runId } }), request);
+          runId => resolveStarted({ ok: true, value: { runId } }));
         resolveStarted(result);
         if (!result.ok && !startup.signal.aborted) emit({ type: "error", message: `${result.error.code}: ${result.error.message}` });
       } catch (error) {
@@ -842,7 +837,6 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       lastAttempt: lastConsolidationAttempt,
       lastSkippedReason: lastConsolidationSkippedReason,
     }),
-    startSkill: (input, request) => startManualSkill(input, request),
   });
   const workTasks = createWorkTaskControls(kernel, {
     slot: {

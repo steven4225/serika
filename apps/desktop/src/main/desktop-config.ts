@@ -37,6 +37,13 @@ export function withDesktopTimeouts(
   const timeoutMs = typeof previousShell.timeoutMs === "number" ? previousShell.timeoutMs : DESKTOP_DEFAULT_SHELL_TIMEOUT_MS;
   if (typeof previousShell.timeoutMs !== "number" || typeof previousShell.enabled !== "boolean") patched = true;
   modules.shell = { ...previousShell, enabled, timeoutMs };
+  // Desktop has no memory review queue: legacy review configs that already
+  // consolidate automatically are moved to the automatic write policy.
+  const memory = isRecord(modules.memory) ? modules.memory : undefined;
+  if (memory?.enabled === true && memory.autoConsolidate === true && memory.writePolicy !== "automatic") {
+    modules.memory = { ...memory, writePolicy: "automatic" };
+    patched = true;
+  }
   return {
     config: {
       ...config,
@@ -113,7 +120,7 @@ export async function resolveDesktopConfig(options: {
   return { configPath, generated, patched };
 }
 
-/** Explicit setup opts into source-checked automatic writes; existing configs never opt in silently. */
+/** Explicit setup opts into source-checked automatic writes. Legacy review configs are upgraded by withDesktopTimeouts. */
 export async function enableDesktopMemory(configPath: string, cwd = process.cwd()): Promise<() => Promise<void>> {
   const result = await updateDesktopConfig(configPath, cwd, async before => {
     const config = JSON.parse(before!);

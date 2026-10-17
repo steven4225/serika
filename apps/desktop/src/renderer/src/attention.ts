@@ -21,7 +21,7 @@ export function headerStatus(state: UiState, attention: AttentionKind): { label:
     case "running": return { label: state.source === "telegram" ? "正在处理 Telegram 消息" : state.phase === "skill" && state.background === true ? "后台 Skill，可继续聊天" : state.phase === "consolidation" && state.background === true ? "后台整理记忆，可继续聊天" : state.runId === null ? "正在启动" : state.phase === "skill" ? "正在运行 Skill" : state.phase === "consolidation" ? "正在整理记忆" : "正在处理", tone: "active" };
     case "compacting": return { label: "正在压缩上下文", tone: "active" };
     case "resuming": return { label: "正在核对工作区", tone: "active" };
-    case "command": return { label: state.name === "memory-review" ? "审核记忆" : "正在执行命令", tone: "active" };
+    case "command": return { label: "正在执行命令", tone: "active" };
     case "idle":
       if (attention === "unknown") return { label: "有效果待核对", tone: "review" };
       if (attention === "memory") return { label: "有记忆待审", tone: "review" };

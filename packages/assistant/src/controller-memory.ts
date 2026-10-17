@@ -1,19 +1,15 @@
-import type { RuntimeAutomation, SkillResult, SkillRunInput } from "./automation-execution.js";
-import { MEMORY_SKILL_ID } from "./automation-execution.js";
+import type { RuntimeAutomation } from "./automation-execution.js";
 import type { ControllerKernel } from "./controller-kernel.js";
 import type { MemoryLibraryAction, MemoryLibraryDocument, MemoryLibraryView } from "./memory-library.js";
-import type {
-  CandidateListInput, CandidatePage, CandidatePreview, CandidateResolution,
-  CandidateResolveInput, MemoryResult,
-} from "./memory-candidates.js";
+import type { MemoryResult } from "./memory-candidates.js";
 import { formalMemory, memoryPage, validMemoryEdit, visibleMemory, type FormalMemory, type MemoryEditInput, type MemoryListInput, type MemoryPage } from "./memory-management.js";
 import type { MemoryReferenceSnapshot } from "./memory-query-rewrite.js";
 import { memoryActionPreview, memoryCapacity, memoryControlFailure, memoryHistoryPage, temporalMemoryStore, validateMemoryAction, validateMemoryHistoryInput, type MemoryAction, type MemoryActionPreview, type MemoryHistoryInput, type MemoryHistoryPage, type MemoryMaintenance, type MemoryTemporalInput } from "./memory-controls.js";
 import type { MemoryTemporalView } from "./memory-store.js";
-import { consolidationSourcePage, memoryConsolidationBacklog, validateConsolidationRequest, type MemoryConsolidationRequest, type MemoryConsolidationSourcePage } from "./memory-consolidation.js";
+import { memoryConsolidationBacklog } from "./memory-consolidation.js";
 import { readMemoryFactReceipts, type MemoryFactReceipt } from "./memory-factual-receipts.js";
 
-/** Formal memory, its documents, history, review candidates and consolidation. */
+/** Formal memory, its documents, history and consolidation status. */
 export interface AssistantMemoryControls {
   getReceipts(): Promise<MemoryResult<MemoryFactReceipt[]>>;
   getLibrary(): Promise<MemoryResult<MemoryLibraryView>>;
@@ -27,12 +23,7 @@ export interface AssistantMemoryControls {
   previewAction(input: MemoryAction): Promise<MemoryResult<MemoryActionPreview>>;
   applyAction(input: MemoryAction): Promise<MemoryResult<FormalMemory | null>>;
   getMaintenance(): Promise<MemoryResult<MemoryMaintenance>>;
-  listConsolidationSources(offset?: number): Promise<MemoryResult<MemoryConsolidationSourcePage>>;
-  consolidate(input: MemoryConsolidationRequest): Promise<MemoryResult<{ runId: string }>>;
   getReferences(): (MemoryReferenceSnapshot & { runId: string }) | null;
-  listCandidates(input?: CandidateListInput): Promise<MemoryResult<CandidatePage>>;
-  getCandidate(id: string): Promise<MemoryResult<CandidatePreview>>;
-  resolveCandidate(input: CandidateResolveInput): Promise<MemoryResult<CandidateResolution>>;
 }
 
 /** Consolidation state is written by the Run engine; memory controls only report it. */
@@ -46,7 +37,6 @@ export interface ConsolidationStatus {
 export function createMemoryControls(k: ControllerKernel, deps: {
   automation: RuntimeAutomation;
   consolidationStatus(): ConsolidationStatus;
-  startSkill(input: SkillRunInput, request: MemoryConsolidationRequest): Promise<SkillResult<{ runId: string }>>;
 }): AssistantMemoryControls {
   const { app } = k;
   const { automation } = deps;
@@ -184,60 +174,12 @@ export function createMemoryControls(k: ControllerKernel, deps: {
       const error = status.failure ?? backlogError;
       const consolidation: MemoryMaintenance["consolidation"] = {
         enabled,
-        state: running ? "running" : error ? "failed" : counts.value.pending > 0 ? "awaiting_review" : !enabled ? "off" : (backlogCount ?? 0) > 0 ? "backlog" : "idle",
+        state: running ? "running" : error ? "failed" : app.memoryConsolidation?.reviewQueue !== false && counts.value.pending > 0 ? "awaiting_review" : !enabled ? "off" : (backlogCount ?? 0) > 0 ? "backlog" : "idle",
         ...(error === undefined ? {} : { error }), ...(backlogCount === undefined ? {} : { backlogCount }),
         ...(status.lastAttempt === undefined ? {} : { lastAttempt: structuredClone(status.lastAttempt) }),
         ...(status.lastSkippedReason === undefined ? {} : { lastSkippedReason: status.lastSkippedReason }),
       };
       return { ok: true, value: { ...counts.value, capacity: { ...memoryCapacity }, consolidation } };
-    },
-    listConsolidationSources: async (offset) => {
-      if (!app.memoryStore || k.isClosed()) return memoryControlFailure("MEMORY_DISABLED", "Memory is unavailable");
-      try { return consolidationSourcePage(await app.store.getMessages(app.threadId), offset); }
-      catch (error) { return memoryControlFailure("READ_FAILED", String(error)); }
-    },
-    consolidate: async (input) => {
-      const validated = validateConsolidationRequest(input);
-      if (!validated.ok) return validated;
-      const skill = automation.getSkill(MEMORY_SKILL_ID);
-      if (!skill || !app.memoryConsolidation) return memoryControlFailure("MEMORY_DISABLED", "Enable memory and consolidation in the configuration first");
-      return deps.startSkill({ id: skill.id, expectedHash: skill.hash }, validated.value);
-    },
-    listCandidates: async (input) => {
-      if (app.memoryStore === undefined || app.workspaceRoot === undefined) {
-        return { ok: false, error: { code: "MEMORY_DISABLED", message: "Memory requires an enabled module and configured workspace" } };
-      }
-      if (k.isClosed()) return { ok: false, error: { code: "MEMORY_CANDIDATE_CONFLICT", message: "Controller is closed" } };
-      return app.memoryStore.listCandidates(input, undefined, { boundThreadId: app.threadId });
-    },
-    getCandidate: async (id) => {
-      if (app.memoryStore === undefined || app.workspaceRoot === undefined) {
-        return { ok: false, error: { code: "MEMORY_DISABLED", message: "Memory requires an enabled module and configured workspace" } };
-      }
-      if (k.isClosed()) return { ok: false, error: { code: "MEMORY_CANDIDATE_CONFLICT", message: "Controller is closed" } };
-      return app.memoryStore.getCandidate(id, undefined, { boundThreadId: app.threadId });
-    },
-    resolveCandidate: async (input) => {
-      if (app.memoryStore === undefined || app.workspaceRoot === undefined) {
-        return { ok: false, error: { code: "MEMORY_DISABLED", message: "Memory requires an enabled module and configured workspace" } };
-      }
-      if (k.isClosed() || !k.isIdle()) {
-        return { ok: false, error: { code: "MEMORY_CANDIDATE_CONFLICT", message: "Memory review requires an idle controller" } };
-      }
-      return k.exclusive("memory-review", async (signal): Promise<MemoryResult<CandidateResolution>> => {
-        try {
-          await k.ensureRecovered();
-          const resolution = await app.memoryStore!.resolveCandidate(input, signal, { boundThreadId: app.threadId });
-          if (resolution.ok || resolution.error.code === "MEMORY_CANDIDATE_STALE") {
-            k.emit({ type: "memory-updated", reason: "review" });
-          }
-          return resolution;
-        } catch (error) {
-          const message = String(error);
-          k.emit({ type: "error", message });
-          return { ok: false, error: { code: "WRITE_FAILED", message } };
-        }
-      });
     },
   };
 }

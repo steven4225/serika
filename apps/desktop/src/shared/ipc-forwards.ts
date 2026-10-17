@@ -8,8 +8,6 @@ import type { RendererApi } from "./ui-contract.js";
  */
 export const IPC_FORWARDS = {
   current: {
-    consolidateMemory: 1,
-    listMemoryConsolidationSources: 1,
     snapshot: 0,
     getRssSubscriptions: 0,
     updateRssSubscriptions: 1,
@@ -50,8 +48,6 @@ export const IPC_FORWARDS = {
     command: 1,
     listRuns: 0,
     getRun: 1,
-    getMemoryCandidate: 1,
-    resolveMemoryCandidate: 1,
     createWorkTask: 1,
     listWorkTasks: 0,
     getWorkTask: 1,

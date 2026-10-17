@@ -46,7 +46,7 @@ it("opt-in real-model consolidation distinguishes task format from lasting prefe
         await idle;
         assert.deepEqual(phases, ["primary", "consolidation"], "both phases must actually run");
         assert.deepEqual(statuses, ["completed", "completed"]);
-        const page = await controller.memory.listCandidates(); assert.ok(page.ok);
+        const page = await app.memoryStore!.listCandidates({}, undefined, { boundThreadId: app.threadId }); assert.ok(page.ok);
         const texts = page.value.candidates.map(candidate => candidate.change.text);
         console.log(JSON.stringify({ case: test.id, modelAlias: configured.modelAlias, candidates: texts, electronAcceptance: "not_run" }));
         if (test.expected) {

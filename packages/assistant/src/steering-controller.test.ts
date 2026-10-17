@@ -173,7 +173,8 @@ test("Steer rejects auxiliary consolidation instead of mutating its invocation",
     controller = (await f.open()).controller;
     assert.ok((await controller.run("我的长期偏好是两条行动")).ok);
     await waitFor(() => controller!.getSnapshot().state.kind === "idle");
-    const started = await controller.memory.consolidate({ mode: "incremental" }); assert.ok(started.ok, JSON.stringify(started));
+    const skill = controller.automation.getDiagnostics().skills.find(item => item.id === "memory-consolidate"); assert.ok(skill);
+    const started = await controller.automation.runSkill({ id: skill.id, expectedHash: skill.hash }); assert.ok(started.ok, JSON.stringify(started));
     await waitFor(() => calls === 2);
     assert.equal(controller.getSnapshot().canSteer, false);
     assert.deepEqual(await controller.steer({ expectedRunId: started.value.runId, id: "wrong-phase", text: "改变计划" }), { ok: false, reason: "busy" });

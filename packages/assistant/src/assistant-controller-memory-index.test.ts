@@ -53,23 +53,20 @@ test("startup maintenance follows recovery, uses background state without Run, a
   } finally { gate.resolve(); await controller.shutdown(); }
 });
 
-test("successful memory edit and candidate review request fresh maintenance", async () => {
+test("successful memory edit requests fresh maintenance", async () => {
   let calls = 0;
   const saved = { id: "m", text: "updated", revision: 2, enabled: true, scope: { kind: "workspace" as const } };
   const controller = createAssistantController(appWith({
     maintainMemoryIndex: async () => { calls++; },
     memoryStore: {
       update: async () => ({ ok: true, entry: saved }),
-      resolveCandidate: async () => ({ ok: true, value: { candidateId: "c", status: "accepted", memoryId: "m", memoryRevision: 2, replayed: false } }),
     } as unknown as NonNullable<RuntimeApp["memoryStore"]>,
   }));
   try {
     await waitFor(() => calls === 1 && controller.getSnapshot().state.kind === "idle");
     assert.equal((await controller.memory.update({ id: "m", expectedRevision: 1, text: "updated" })).ok, true);
     await waitFor(() => calls === 2 && controller.getSnapshot().state.kind === "idle");
-    assert.equal((await controller.memory.resolveCandidate({ candidateId: "c", expectedCandidateRevision: 1, decision: "accept" })).ok, true);
-    await waitFor(() => calls === 3 && controller.getSnapshot().state.kind === "idle");
-    await flush(); assert.equal(calls, 3);
+    await flush(); assert.equal(calls, 2);
   } finally { await controller.shutdown(); }
 });
 

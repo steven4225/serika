@@ -13,7 +13,6 @@ import type { AssistantRunOptions } from "@serika/assistant";
 import type { AutomationDiagnostics, SkillRunInput, SkillResult } from "@serika/assistant";
 import type { AutomationScheduleAction, ScheduleSkillInput } from "@serika/assistant";
 import type { DreamingChangeInput } from "@serika/assistant";
-import type { MemoryConsolidationRequest } from "@serika/assistant";
 import type { AssistantController, AssistantEvent, AssistantSnapshot, AssistantState } from "@serika/assistant";
 import type { RuntimeApp } from "@serika/assistant";
 import type { RssAction } from "@serika/assistant";
@@ -27,7 +26,7 @@ import {
   toListRunsResponse,
   wrapExecutionQuery,
 } from "../shared/execution-records.js";
-import type { CandidateListInput, CandidatePage, CandidatePreview, CandidateResolution, CandidateResolveInput, MemoryResult } from "@serika/assistant";
+import type { MemoryResult } from "@serika/assistant";
 import type {
   AppInfo,
   CommandResponse,
@@ -116,69 +115,8 @@ const WORK_TASK_METHODS: WorkTaskOperationMethods = {
   cancelWorkTask: "cancel",
   requestWorkTaskChanges: "requestChanges",
 };
-const CANDIDATE_STATUSES = ["pending", "accepted", "rejected", "stale"] as const;
-
-type CandidateStatus = (typeof CANDIDATE_STATUSES)[number];
-
 function invalidInput(message: string): MemoryResult<never> {
   return { ok: false, error: { code: "INVALID_INPUT", message } };
-}
-
-/** Keep only list fields the controller understands. Drop path, thread, and source. */
-export function sanitizeCandidateListInput(input: unknown): CandidateListInput | MemoryResult<never> {
-  if (input === undefined || input === null) return {};
-  if (typeof input !== "object" || Array.isArray(input)) return invalidInput("Candidate list input must be an object");
-  const record = input as Record<string, unknown>;
-  const result: CandidateListInput = {};
-  if ("status" in record && record.status !== undefined) {
-    if (!CANDIDATE_STATUSES.includes(record.status as CandidateStatus)) {
-      return invalidInput("Candidate status must be pending, accepted, rejected, or stale");
-    }
-    result.status = record.status as CandidateStatus;
-  }
-  if ("offset" in record && record.offset !== undefined) {
-    if (typeof record.offset !== "number" || !Number.isSafeInteger(record.offset) || record.offset < 0) {
-      return invalidInput("Candidate offset must be a non-negative integer");
-    }
-    result.offset = record.offset;
-  }
-  if ("limit" in record && record.limit !== undefined) {
-    if (typeof record.limit !== "number" || !Number.isSafeInteger(record.limit) || record.limit < 1) {
-      return invalidInput("Candidate limit must be a positive integer");
-    }
-    result.limit = record.limit;
-  }
-  return result;
-}
-
-/** Keep the review identity and explicit from-now choice; never accept rewritten fact/source/scope fields. */
-export function sanitizeCandidateResolveInput(input: unknown): CandidateResolveInput | MemoryResult<never> {
-  if (typeof input !== "object" || input === null || Array.isArray(input)) {
-    return invalidInput("Candidate review input must be an object");
-  }
-  const record = input as Record<string, unknown>;
-  if (typeof record.candidateId !== "string" || record.candidateId.length === 0) {
-    return invalidInput("Candidate id must be non-empty");
-  }
-  if (typeof record.expectedCandidateRevision !== "number" || !Number.isSafeInteger(record.expectedCandidateRevision) || record.expectedCandidateRevision < 1) {
-    return invalidInput("Candidate revision must be a positive integer");
-  }
-  if (record.decision !== "accept" && record.decision !== "reject") {
-    return invalidInput("Candidate decision must be accept or reject");
-  }
-  if (record.effectiveAt !== undefined && (record.effectiveAt !== "now" || record.decision !== "accept")) {
-    return invalidInput("Effective time must be an explicit from-now acceptance");
-  }
-  return {
-    candidateId: record.candidateId,
-    expectedCandidateRevision: record.expectedCandidateRevision,
-    decision: record.decision,
-    ...(record.effectiveAt === "now" ? { effectiveAt: "now" as const } : {}),
-  };
-}
-
-function isInputError<T>(value: CandidateListInput | CandidateResolveInput | MemoryResult<T>): value is MemoryResult<T> {
-  return "ok" in value && value.ok === false;
 }
 
 /**
@@ -386,8 +324,6 @@ export class RuntimeBridge {
   previewMemoryAction(input: MemoryAction) { return this.#controller.memory.previewAction(input); }
   applyMemoryAction(input: MemoryAction) { return this.#controller.memory.applyAction(input); }
   getMemoryMaintenance() { return this.#controller.memory.getMaintenance(); }
-  consolidateMemory(input: MemoryConsolidationRequest) { return this.#controller.memory.consolidate(input); }
-  listMemoryConsolidationSources(offset?: number) { return this.#controller.memory.listConsolidationSources(offset); }
   getMemoryReferences() { return this.#controller.memory.getReferences(); }
 
   getRssSubscriptions() { return this.#controller.rss.getSubscriptions(); }
@@ -468,23 +404,6 @@ export class RuntimeBridge {
     return toGetRunResponse(
       await wrapExecutionQuery((): Promise<ExecutionRunRecord | null> => this.#controller.runs.get(runId)),
     );
-  }
-
-  async listMemoryCandidates(input?: CandidateListInput): Promise<MemoryResult<CandidatePage>> {
-    const sanitized = sanitizeCandidateListInput(input);
-    if (isInputError(sanitized)) return sanitized;
-    return this.#controller.memory.listCandidates(sanitized);
-  }
-
-  async getMemoryCandidate(id: string): Promise<MemoryResult<CandidatePreview>> {
-    if (typeof id !== "string" || id.length === 0) return invalidInput("Candidate id must be non-empty");
-    return this.#controller.memory.getCandidate(id);
-  }
-
-  async resolveMemoryCandidate(input: CandidateResolveInput): Promise<MemoryResult<CandidateResolution>> {
-    const sanitized = sanitizeCandidateResolveInput(input);
-    if (isInputError(sanitized)) return sanitized;
-    return this.#controller.memory.resolveCandidate(sanitized);
   }
 
   listWorkTasks(): Promise<WorkTaskResult<WorkTask[]>> { return this.#controller.workTasks.list(); }

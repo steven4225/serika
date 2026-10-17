@@ -29,7 +29,6 @@ export type { AssistantSteerRecord, ExecutionRunRecord } from "./execution-recor
 export { acquireFlock, tryAcquireFlock } from "./flock.js";
 export type { FlockHandle } from "./flock.js";
 export type { CandidateListInput, CandidatePage, CandidatePreview, CandidateResolution, CandidateResolveInput, MemoryCandidate, MemoryResult } from "./memory-candidates.js";
-export type { MemoryConsolidationRequest, MemoryConsolidationSource, MemoryConsolidationSourcePage } from "./memory-consolidation.js";
 export type { MemoryAction, MemoryActionPreview, MemoryHistoryInput, MemoryHistoryPage, MemoryMaintenance } from "./memory-controls.js";
 export type { MemoryFactReceipt } from "./memory-factual-receipts.js";
 export { memoryConsolidationFailureText } from "./memory-failure.js";

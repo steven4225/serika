@@ -145,19 +145,19 @@ test("Controller chain: new preference persists, paraphrase references it, expli
     const history = await controller.memory.getHistory({ id: initial.id }); assert.ok(history.ok);
     assert.equal(history.value.assertions.some(assertion => assertion.text === initial.text), true);
     assert.equal(history.value.assertions.some(assertion => assertion.text === changed.entry.text), true);
-    const beforeConflict = await controller.memory.listCandidates({ status: "pending" }); assert.ok(beforeConflict.ok);
+    const beforeConflict = await app.memoryStore!.listCandidates({ status: "pending" }, undefined, { boundThreadId: app.threadId }); assert.ok(beforeConflict.ok);
     assert.equal(beforeConflict.value.candidates.length, 0, "explicit current change is not an unnecessary review");
 
     await run(controller, "我喝咖啡不加糖。");
-    const pending = await controller.memory.listCandidates({ status: "pending" }); assert.ok(pending.ok);
+    const pending = await app.memoryStore!.listCandidates({ status: "pending" }, undefined, { boundThreadId: app.threadId }); assert.ok(pending.ok);
     assert.equal(pending.value.candidates.length, 1);
-    const preview = await controller.memory.getCandidate(pending.value.candidates[0]!.id); assert.ok(preview.ok);
+    const preview = await app.memoryStore!.getCandidate(pending.value.candidates[0]!.id, undefined, { boundThreadId: app.threadId }); assert.ok(preview.ok);
     assert.equal(preview.value.candidate.status, "pending");
     assert.equal(preview.value.applicable, true, JSON.stringify(preview.value));
     const unchanged = await app.memoryStore!.get(initial.id); assert.ok(unchanged.ok);
     assert.equal(unchanged.entry.text, changed.entry.text);
     const conflictReceipts = await controller.memory.getReceipts(); assert.ok(conflictReceipts.ok);
-    assert.match(conflictReceipts.value.at(-1)!.text, /确认.*不加糖.*原记忆没有被覆盖/);
+    assert.match(conflictReceipts.value.at(-1)!.text, /没有自动保存.*不加糖.*原记忆没有被覆盖/);
     const maintenance = await controller.memory.getMaintenance(); assert.ok(maintenance.ok);
     assert.equal(maintenance.value.pending, 1);
 
@@ -167,14 +167,14 @@ test("Controller chain: new preference persists, paraphrase references it, expli
     const candidate = preview.value.candidate;
     assert.equal(candidate.change.operation, "change");
     assert.equal("effectiveAt" in candidate.change && candidate.change.effectiveAt, null);
-    const missingTime = await controller.memory.resolveCandidate({ candidateId: candidate.id, expectedCandidateRevision: candidate.revision, decision: "accept" });
+    const missingTime = await app.memoryStore!.resolveCandidate({ candidateId: candidate.id, expectedCandidateRevision: candidate.revision, decision: "accept" }, undefined, { boundThreadId: app.threadId });
     assert.ok(!missingTime.ok);
     assert.equal(missingTime.error.code, "MEMORY_EFFECTIVE_AT_REQUIRED");
-    const stillPending = await controller.memory.getCandidate(candidate.id); assert.ok(stillPending.ok);
+    const stillPending = await app.memoryStore!.getCandidate(candidate.id, undefined, { boundThreadId: app.threadId }); assert.ok(stillPending.ok);
     assert.equal(stillPending.value.candidate.status, "pending");
     assert.equal(stillPending.value.candidate.revision, candidate.revision);
-    const confirmed = await controller.memory.resolveCandidate({ candidateId: candidate.id, expectedCandidateRevision: candidate.revision,
-      decision: "accept", effectiveAt: "now" });
+    const confirmed = await app.memoryStore!.resolveCandidate({ candidateId: candidate.id, expectedCandidateRevision: candidate.revision,
+      decision: "accept", effectiveAt: "now" }, undefined, { boundThreadId: app.threadId });
     assert.ok(confirmed.ok, JSON.stringify(confirmed));
     const afterConfirmation = await createMemoryStore(f.workspace).list(); assert.ok(afterConfirmation.ok);
     assert.equal(afterConfirmation.entries.filter(entry => entry.enabled).length, 1);
@@ -186,7 +186,7 @@ test("Controller chain: new preference persists, paraphrase references it, expli
     const originalApplicability = await controller.memory.query({ id: initial.id, validAt: initial.createdAt! });
     assert.ok(originalApplicability.ok);
     assert.equal(originalApplicability.value.assertions[0]?.text, initial.text, "the first unsweetened interval also remains known after both transitions");
-    const reviewed = await controller.memory.listCandidates({ status: "pending" }); assert.ok(reviewed.ok);
+    const reviewed = await app.memoryStore!.listCandidates({ status: "pending" }, undefined, { boundThreadId: app.threadId }); assert.ok(reviewed.ok);
     assert.equal(reviewed.value.candidates.length, 0, "explicit review handles the conflict rather than leaving an unresolvable terminal record");
     const document = JSON.parse(await readFile(join(f.workspace, ".runloom", "memory.json"), "utf8"));
     assert.equal(document.version, 4, "all acceptance assertions refer to the persisted v4 truth, not model prose");

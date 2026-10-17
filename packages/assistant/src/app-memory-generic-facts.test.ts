@@ -66,6 +66,6 @@ for (const domain of [
     assert.equal(list.entries[0]!.assertion?.factIdentity?.value, domain.after);
     const history = await controller.memory.getHistory({ id: list.entries[0]!.id }); assert.ok(history.ok);
     assert.ok(history.value.assertions.some(assertion => assertion.text.includes(domain.before)));
-    const pending = await controller.memory.listCandidates({ status: "pending" }); assert.ok(pending.ok); assert.equal(pending.value.candidates.length, 0);
+    const pending = await app.memoryStore!.listCandidates({ status: "pending" }, undefined, { boundThreadId: app.threadId }); assert.ok(pending.ok); assert.equal(pending.value.candidates.length, 0);
   } finally { await controller.shutdown(); await rm(root, { recursive: true, force: true }); }
 });

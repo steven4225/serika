@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import type { AppInfo } from "../../shared/ui-contract.js";
 import type { MemoryMaintenance } from "@serika/assistant";
-import { MemoryConsolidationPanel, consolidationStatusLabel, loadSavedReceiptText, previewAutomaticMemoryUndo, memoryReceiptPresentation, memoryReceiptSummary, receiptSnapshotText } from "./memory-consolidation.js";
+import { consolidationStatusLabel, loadSavedReceiptText, previewAutomaticMemoryUndo, memoryReceiptPresentation, memoryReceiptSummary, receiptSnapshotText } from "./memory-consolidation.js";
 import { savedMemoryNoticeText } from "./memory-copy.js";
 import { memoryConsolidationFailureText } from "@serika/assistant";
 
@@ -26,19 +23,6 @@ describe("daily memory consolidation state", () => {
     assert.doesNotMatch(uncertain, /未写入|directory sync/);
   });
 
-  it("keeps automatic memory quiet and exposes history processing only on demand", () => {
-    const info = { workspaceRoot: "/workspace", configPath: "/config.json", memory: { enabled: true, autoConsolidate: true, writePolicy: "automatic", queryRewriteEnabled: true } } as AppInfo;
-    const html = renderToStaticMarkup(createElement(MemoryConsolidationPanel, { info, busy: false, refreshToken: 0 }));
-    assert.ok(html.includes("新对话结束后在后台自动整理，不打断聊天。不确定的内容暂不保存。"));
-    assert.match(html, /<details class="memory-maintenance-disclosure"><summary class="personal-entry-card">/);
-    assert.ok(html.includes("历史对话补整理"));
-    assert.doesNotMatch(html, /等待你审核|存在歧义的建议需要审核/);
-    assert.equal(html.includes("改为自动记住"), false);
-    const review = renderToStaticMarkup(createElement(MemoryConsolidationPanel, { info: { ...info, memory: { ...info.memory, writePolicy: "review" } }, busy: false, refreshToken: 0 }));
-    assert.ok(review.indexOf("打开记忆设置") < review.indexOf("memory-maintenance-disclosure"));
-    assert.equal(review.includes("改为自动记住"), false, "the actual configuration action lives only in workspace");
-    assert.equal(review.includes("明确偏好会自动记住；"), false);
-  });
   it("distinguishes disabled, loading, failed reads, processing and review", () => {
     assert.equal(consolidationStatusLabel(false, null, ""), "记忆未启用");
     assert.equal(consolidationStatusLabel(true, null, ""), "正在读取记忆状态…");
@@ -47,7 +31,7 @@ describe("daily memory consolidation state", () => {
     assert.equal(consolidationStatusLabel(true, maintenance("backlog"), ""), "等待记忆整理");
     assert.equal(consolidationStatusLabel(true, maintenance("running"), ""), "正在整理记忆");
     assert.equal(consolidationStatusLabel(true, maintenance("failed"), ""), "记忆整理失败");
-    assert.equal(consolidationStatusLabel(true, maintenance("awaiting_review"), ""), "等待你审核候选");
+    assert.equal(consolidationStatusLabel(true, maintenance("awaiting_review"), ""), "有记忆待确认");
   });
 
   it("keeps disk-write and uncertain-commit warnings in the daily summary", () => {
@@ -64,9 +48,9 @@ describe("daily memory consolidation state", () => {
     value.consolidation.lastAttempt = { mode: "incremental", runId: "run-a", status: "failed", processedCount: 0, candidateCount: 0 };
     assert.equal(consolidationStatusLabel(true, value, ""), "没有待整理的新增记忆材料");
     value.consolidation.lastAttempt.status = "completed";
-    assert.equal(consolidationStatusLabel(true, value, ""), "记忆整理完成，没有新增候选");
+    assert.equal(consolidationStatusLabel(true, value, ""), "记忆整理完成，没有新增记忆");
     value.consolidation.state = "awaiting_review";
-    assert.equal(consolidationStatusLabel(true, value, ""), "等待你审核候选");
+    assert.equal(consolidationStatusLabel(true, value, ""), "有记忆待确认");
     assert.equal(consolidationStatusLabel(true, value, "IO failure"), "记忆整理状态读取失败");
   });
 
@@ -77,7 +61,7 @@ describe("daily memory consolidation state", () => {
     assert.equal(consolidationStatusLabel(true, value, ""), "已处理 1 条记忆", "unknown legacy operations are not called new saves");
     value.consolidation.state = "awaiting_review";
     value.consolidation.lastAttempt.candidateCount = 1;
-    assert.equal(consolidationStatusLabel(true, value, ""), "已处理 1 条记忆；另有候选需要审核");
+    assert.equal(consolidationStatusLabel(true, value, ""), "已处理 1 条记忆；另有记忆待确认");
     value.consolidation.state = "failed";
     value.consolidation.lastAttempt.status = "failed";
     assert.equal(consolidationStatusLabel(true, value, ""), "记忆整理失败", "saved receipts never hide a failed batch");

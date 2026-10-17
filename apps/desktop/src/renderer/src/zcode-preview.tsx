@@ -26,7 +26,7 @@ const threads: ThreadSummary[] = [
 ];
 const histories = new Map<string, UIMessage[]>([[threadId, [
   { id: "preview-user", role: "user", parts: [{ type: "text", text: "帮我整理一下 Serika 接下来要做的事，别再拆成一堆零碎修补。" }] },
-  { id: "preview-assistant", role: "assistant", parts: [{ type: "text", text: "先把日用闭环跑顺，再决定是否增加新能力。\n\n### 接下来只做三件事\n\n1. **记忆真的用起来**：打开旧对话、审核新候选，再换一段对话验证召回。\n2. **长任务接得回来**：压缩后退出重开，先读取当前文件，再继续未完成的步骤。\n3. **结果说得清楚**：把已经完成的动作与仍需你确认的事项分开显示。\n\n先完成第一件，再推进第二件。记忆、任务和执行记录仍然可以从左侧打开。" }] },
+  { id: "preview-assistant", role: "assistant", parts: [{ type: "text", text: "先把日用闭环跑顺，再决定是否增加新能力。\n\n### 接下来只做三件事\n\n1. **记忆真的用起来**：打开旧对话、让助手自动记住，再换一段对话验证召回。\n2. **长任务接得回来**：压缩后退出重开，先读取当前文件，再继续未完成的步骤。\n3. **结果说得清楚**：把已经完成的动作与仍需你确认的事项分开显示。\n\n先完成第一件，再推进第二件。记忆、任务和执行记录仍然可以从左侧打开。" }] },
 ]]]);
 for (const thread of threads) {
   if (!histories.has(thread.threadId)) histories.set(thread.threadId, [
@@ -79,7 +79,6 @@ const api = {
   selectThread: async (id: string) => { threadId = id; snapshot.lastPrimaryResult = null; emit({ type: "identity-changed", info: info() }); },
   createThread: async () => { threadId = `preview-new-${++sequence}`; threads.push({ threadId, title: "新对话", transcriptDirectory: "/preview/transcripts", messageCount: 0, emptyVerified: true }); snapshot.lastPrimaryResult = null; emit({ type: "identity-changed", info: info() }); },
   listWorkTasks: async () => ({ ok: true as const, value: [] }),
-  listMemoryCandidates: async () => ({ ok: true as const, value: { candidates: [], nextOffset: null, truncated: false } }),
   listMemories: async () => ({ ok: true as const, value: { entries: [], nextOffset: null } }),
   getMemoryReferences: async () => null,
   getMemoryMaintenance: async () => ({ ok: true as const, value: { stored: 0, pending: 0, expired: 0, disabled: 0, duplicateSuggestions: 0,

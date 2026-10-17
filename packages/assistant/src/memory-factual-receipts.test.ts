@@ -42,7 +42,7 @@ test("real Controller projects persisted saved, pending, deferred and too-large 
     const response = await controller.memory.getReceipts(); assert.ok(response.ok);
     assert.equal(response.value.length, 4);
     assert.match(response.value.find(r => r.sourceMessageId === "u0")!.text, /当时已保存.*中文/);
-    assert.match(response.value.find(r => r.sourceMessageId === "u1")!.text, /需要.*确认.*喝茶.*原记忆没有被覆盖/);
+    assert.match(response.value.find(r => r.sourceMessageId === "u1")!.text, /没有自动保存.*喝茶.*原记忆没有被覆盖/);
     assert.match(response.value.find(r => r.sourceMessageId === "u2")!.text, /没保存.*内容太长.*分段/);
     assert.match(response.value.find(r => r.sourceMessageId === "u3")!.text, /尚未.*完成/);
     assert.equal(response.value.some(r => r.sourceMessageId === "u4"), false, "no_memory stays silent");

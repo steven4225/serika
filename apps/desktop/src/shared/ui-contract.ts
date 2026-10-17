@@ -13,7 +13,6 @@ import type { AutomationDiagnostics, SkillRunInput, SkillResult } from "@serika/
 import type { AutomationOverview, AutomationScheduleAction, ScheduleSkillInput, ScheduledSkillSaved } from "@serika/assistant";
 import type { AssistantController } from "@serika/assistant";
 import type { TaskListV3, TaskRecordV4 } from "@serika/assistant";
-import type { MemoryConsolidationRequest, MemoryConsolidationSourcePage } from "@serika/assistant";
 import type { MemoryReferenceSnapshot } from "@serika/assistant";
 import type { AgentEvent, RunResult } from "@serika/core";
 import type { ExecutionRunRecord } from "@serika/assistant";
@@ -24,7 +23,7 @@ import type { ContextBudgetConfig } from "@serika/assistant";
 import type { RssAction, RssInbox, RssResult, RssView } from "@serika/assistant";
 import type { WorkTask, WorkTaskInputs, WorkTaskResult, WorkTaskReadInput, WorkTaskArtifactInput, WorkTaskReadResult, WorkTaskDeliveryDraft, WorkTaskArtifactPreview } from "./work-tasks.js";
 import type { WorkTaskContinuation } from "./work-tasks.js";
-import type { CandidateListInput, CandidatePage, CandidatePreview, CandidateResolution, CandidateResolveInput, MemoryResult } from "@serika/assistant";
+import type { MemoryResult } from "@serika/assistant";
 
 /**
  * The only surface between the Electron main process and the renderer.
@@ -220,8 +219,6 @@ export interface RendererApi {
   selectThread(threadId: string): Promise<void>;
   enableMemory(): Promise<void>;
   setModuleEnabled?(input: { id: string; enabled: boolean; expectedEnabled: boolean }): Promise<void>;
-  consolidateMemory(input: MemoryConsolidationRequest): Promise<MemoryResult<{ runId: string }>>;
-  listMemoryConsolidationSources(offset?: number): Promise<MemoryResult<MemoryConsolidationSourcePage>>;
   getRssSubscriptions(): Promise<RssResult<RssView>>;
   updateRssSubscriptions(input: RssAction): Promise<RssResult<RssView>>;
   getRssInbox(): Promise<RssResult<RssInbox>>;
@@ -278,9 +275,6 @@ export interface RendererApi {
   applyMemoryAction(input: MemoryAction): Promise<MemoryResult<FormalMemory | null>>;
   getMemoryMaintenance(): Promise<MemoryResult<MemoryMaintenance>>;
   getMemoryReferences(): Promise<(MemoryReferenceSnapshot & { runId: string }) | null>;
-  listMemoryCandidates(input?: CandidateListInput): Promise<MemoryResult<CandidatePage>>;
-  getMemoryCandidate(id: string): Promise<MemoryResult<CandidatePreview>>;
-  resolveMemoryCandidate(input: CandidateResolveInput): Promise<MemoryResult<CandidateResolution>>;
   createWorkTask(input: WorkTaskInputs["createWorkTask"]): Promise<WorkTaskResult<WorkTask>>;
   listWorkTasks(): Promise<WorkTaskResult<WorkTask[]>>;
   getWorkTask(id: string): Promise<WorkTaskResult<WorkTask>>;
@@ -316,7 +310,6 @@ export const IPC = {
   previewRestoreData: "runloom:preview-restore-data",
   activateRestoreData: "runloom:activate-restore-data",
   steer: "runloom:steer",
-  memoryCandidatesList: "runloom:memoryCandidatesList",
   hide: "runloom:hide",
   message: "runloom:message",
 } as const;

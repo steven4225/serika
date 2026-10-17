@@ -36,7 +36,7 @@ import {
 } from "./conversation.js";
 import { baseName, parseHome, shortId, type HomeView } from "./home.js";
 import { MemoryPanel } from "./memory.js";
-import { MemoryConsolidationPanel, MemoryConsolidationNotice } from "./memory-consolidation.js";
+import { MemoryConsolidationNotice } from "./memory-consolidation.js";
 import { ThreadsPanel } from "./threads.js";
 import { MemoryReferences } from "./memory-references.js";
 import { ContextPanel } from "./context.js";
@@ -328,7 +328,6 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const [threadsLoading, setThreadsLoading] = useState(true);
   const [threadsError, setThreadsError] = useState<string | null>(null);
   const [threadsRefresh, setThreadsRefresh] = useState(0);
-  const [memoryFocus, setMemoryFocus] = useState<{ id: string | null; sequence: number }>({ id: null, sequence: 0 });
   const [taskResultFocus, setTaskResultFocus] = useState<{ taskId: string; workspaceRoot: string; sequence: number } | null>(null);
   const [state, setState] = useState<UiState>({ kind: "idle" });
   const [home, setHome] = useState("");
@@ -1056,7 +1055,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     } catch { setError("创建任务的对话未打开，请核对当前对话；草稿保留，不会自动重试。"); }
     finally { threadSwitchInFlight.current = false; setSwitchingThread(false); }
   };
-  const openMemory = (id: string | null = null) => { setMemoryFocus(current => ({ id, sequence: current.sequence + 1 })); openDetails("memory"); };
+  const openMemory = () => { openDetails("memory"); };
   const openTask = () => { setTaskFocused(true); openDetails("tasks"); };
   const composeTask = () => {
     if (!workTasks.task || !taskActions(workTasks.task).run || workTasks.locked) return;
@@ -1278,7 +1277,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
                   {settingsRoute === "devices" && info ? <CapabilitiesPanel info={{ ...info, modules: (info.modules ?? []).filter(module => module.id === "computer") }} busy={busy} intro="只控制允许列表中的应用。驱动连接、系统权限与工具注册是不同状态。可在对话中请求 computer_check，经你批准后检查。" /> : null}
                   {settingsRoute === "skills" && info ? <SkillsPanel busy={busy} identity={`${info.workspaceRoot}:${info.threadId}`} refreshSequence={automationRefresh} onUseRecipe={text => void newConversation(text)} /> : null}
                   {settingsRoute === "channels" ? <TelegramPanel busy={busy} /> : null}
-                  {settingsRoute === "memory" && info ? <><MemorySetup info={info} busy={busy} /><details className="card"><summary>管理记录</summary><MemoryPanel key={`management:${info.workspaceRoot}:${info.threadId}`} managementOnly memory={info.memory} temporaryThread={info.temporaryThread} threadId={info.threadId} controllerIdle={!busy} refreshToken={memoryRefresh} /><MemoryConsolidationPanel key={`management-consolidation:${info.workspaceRoot}:${info.threadId}`} info={info} busy={busy} refreshToken={memoryRefresh} /></details><details className="card"><summary>高级配置与诊断</summary><CapabilitiesPanel info={{ ...info, modules: (info.modules ?? []).filter(module => module.id === "memory") }} busy={busy} /></details></> : null}
+                  {settingsRoute === "memory" && info ? <><MemorySetup info={info} busy={busy} /><details className="card"><summary>管理记录</summary><MemoryPanel key={`management:${info.workspaceRoot}:${info.threadId}`} managementOnly memory={info.memory} temporaryThread={info.temporaryThread} threadId={info.threadId} controllerIdle={!busy} refreshToken={memoryRefresh} /></details><details className="card"><summary>高级配置与诊断</summary><CapabilitiesPanel info={{ ...info, modules: (info.modules ?? []).filter(module => module.id === "memory") }} busy={busy} /></details></> : null}
                   {settingsRoute === "advanced" && info ? <>
                     <div className="settings-group"><button className="settings-row" onClick={() => openSettings("context")}><span className="settings-row-copy"><strong>上下文与压缩</strong><small>查看长对话预算和压缩状态。</small></span></button><button className="settings-row" onClick={() => openSettings("records")}><span className="settings-row-copy"><strong>执行记录与用量</strong><small>核对工具回执、未知效果和模型调用。</small></span></button><button className="settings-row" onClick={() => openDetails("threads")}><span className="settings-row-copy"><strong>对话与历史</strong><small>查找、登记或恢复当前工作区的旧对话。</small></span></button></div>
                     <details className="card"><summary>命令与诊断</summary><div className="zcode-command-list">{info.commands.map(name => <button type="button" className="ghost" key={name} disabled={busy} onClick={() => prepareInput(`/${name} `)}>/{name}</button>)}</div><button type="button" className="ghost" onClick={() => setShowOutput(value => !value)}>{showOutput ? "隐藏系统输出" : "查看系统输出"}</button></details>
@@ -1301,7 +1300,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
                 onOpen={runId => void openRecord(runId).catch(() => setError("执行回执读取失败"))} /></div>
               <div hidden={detailTab !== "memory"}>
                 {info ? <MemoryPanel key={`${info.workspaceRoot}:${info.threadId}`} memory={info.memory} temporaryThread={info.temporaryThread}
-                  libraryAvailable={info.memoryLibrary === true} onManage={() => openSettings("memory")} threadId={info.threadId} controllerIdle={!busy} refreshToken={memoryRefresh} focusRequest={memoryFocus} /> : null}
+                  libraryAvailable={info.memoryLibrary === true} onManage={() => openSettings("memory")} threadId={info.threadId} controllerIdle={!busy} refreshToken={memoryRefresh} /> : null}
               </div>
               <div hidden={detailTab !== "pomodoro"}>{info ? info.pomodoroControls === true ? <PomodoroPanel enabled={info.commands.includes("pomodoro")} busy={busy} output={output} /> : <p role="status">当前助手宿主仍是旧版本，请加载新版本后使用番茄钟。</p> : null}</div>
             </div>

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { assistantEventToRenderer, sanitizeCandidateListInput, sanitizeCandidateResolveInput } from "./runtime-bridge.js";
+import { assistantEventToRenderer } from "./runtime-bridge.js";
 import type { AssistantEvent } from "@serika/assistant";
 import type { ExecutionRunRecord } from "@serika/assistant";
 import { toGetRunResponse, toListRunsResponse, wrapExecutionQuery } from "../shared/execution-records.js";
@@ -73,49 +73,6 @@ describe("assistantEventToRenderer", () => {
     if (mapped.type === "approval") {
       assert.equal(mapped.approval.approvalId, "apr-1");
       assert.equal(mapped.approval.preview, "");
-    }
-  });
-});
-
-describe("memory candidate IPC input", () => {
-  it("drops path, thread, and source fields and rejects an unknown status", () => {
-    assert.deepEqual(sanitizeCandidateListInput({
-      status: "pending",
-      offset: 20,
-      limit: 20,
-      threadId: "other",
-      workspace: "/tmp/workspace",
-      source: "forged",
-    }), { status: "pending", offset: 20, limit: 20 });
-    const invalid = sanitizeCandidateListInput({ status: "all" });
-    assert.equal("ok" in invalid && invalid.ok, false);
-  });
-
-  it("keeps the candidate revision and ignores approvalId or memory revision", () => {
-    assert.deepEqual(sanitizeCandidateResolveInput({
-      candidateId: "candidate-1",
-      expectedCandidateRevision: 2,
-      decision: "accept",
-      approvalId: "apr-1",
-      memoryRevision: 9,
-      text: "rewritten",
-    }), {
-      candidateId: "candidate-1",
-      expectedCandidateRevision: 2,
-      decision: "accept",
-    });
-    const missing = sanitizeCandidateResolveInput({ approvalId: "apr-1", decision: "allow" });
-    assert.equal("ok" in missing && missing.ok, false);
-  });
-
-  it("forwards only an explicit from-now acceptance and rejects supplied dates or rejection overrides", () => {
-    const review = { candidateId: "c1", expectedCandidateRevision: 1, decision: "accept" };
-    assert.deepEqual(sanitizeCandidateResolveInput({ ...review, effectiveAt: "now", text: "forged", threadId: "other" }),
-      { ...review, effectiveAt: "now" });
-    for (const input of [{ ...review, effectiveAt: "2026-01-01T00:00:00Z" }, { ...review, effectiveAt: null },
-      { ...review, decision: "reject", effectiveAt: "now" }]) {
-      const result = sanitizeCandidateResolveInput(input);
-      assert.ok("ok" in result && result.ok === false);
     }
   });
 });

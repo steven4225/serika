@@ -47,7 +47,7 @@ let memories: FormalMemory[] = [
 ];
 let changed = () => {};
 const byId = (id: string) => memories.find(item => item.id === id) ?? memories[0]!;
-const fixtureApi: Pick<RendererApi, "listMemories" | "getMemory" | "getMemoryHistory" | "getMemoryMaintenance" | "updateMemory" | "listMemoryCandidates" | "getMemoryReferences"> = {
+const fixtureApi: Pick<RendererApi, "listMemories" | "getMemory" | "getMemoryHistory" | "getMemoryMaintenance" | "updateMemory" | "getMemoryReferences"> = {
   listMemories: async () => ({ ok: true, value: { entries: memories.map(item => { const { text, source: _source, ...rest } = item; return { ...rest, preview: Array.from(text).slice(0, 120).join(""), truncated: Array.from(text).length > 120 }; }), nextOffset: null } }),
   getMemory: async id => ({ ok: true, value: structuredClone(byId(id)) }),
   getMemoryHistory: async ({ id }) => {
@@ -64,7 +64,6 @@ const fixtureApi: Pick<RendererApi, "listMemories" | "getMemory" | "getMemoryHis
     changed();
     return { ok: true, value: structuredClone(next) };
   },
-  listMemoryCandidates: async () => ({ ok: true, value: { candidates: [], nextOffset: null, truncated: false } }),
   getMemoryReferences: async () => ({ runId: "fixture-run", messageId: "fixture-user", preparedAt: daysAgo(0), temporalView: { validAt: daysAgo(0), knownAt: daysAgo(0) }, selected: [{ id: memories[0]!.id, revision: 1, text: memories[0]!.text, reason: "matched" }], rewrite: "off", truncated: false, queryTruncated: false }),
 };
 window.runloom = fixtureApi as RendererApi;

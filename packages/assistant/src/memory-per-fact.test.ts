@@ -180,7 +180,7 @@ for (const [label, invalid] of [
   } finally { await f.cleanup(); }
 });
 
-test("per-fact: pending capacity rejects atomically rather than swallowing the remaining fact", async () => {
+test("per-fact: a full internal pending store does not block automatic saving; the uncertain overflow is not saved", async () => {
   const f = await fixture();
   try {
     const store = f.reopen();
@@ -201,14 +201,14 @@ test("per-fact: pending capacity rejects atomically rather than swallowing the r
       f.proposal("u1", "我住在杭州。", { kind: "invalid" }),
     ], outcomes: [{ messageId: "u1", status: "extracted" }] });
     assert.ok(staged.ok);
-    assert.equal((await consolidation.finalize({ status: "completed" })).ok, false);
+    assert.equal((await consolidation.finalize({ status: "completed" })).ok, true);
     const reopened = f.reopen();
     const capacity = await reopened.checkCandidateCapacity(); assert.ok(capacity.ok);
-    assert.equal(capacity.value.pendingCount, 64);
+    assert.equal(capacity.value.pendingCount, 64, "the uncertain overflow is not queued");
     const listed = await reopened.list(); assert.ok(listed.ok);
-    assert.equal(listed.entries.length, 0);
+    assert.deepEqual(listed.entries.map(entry => entry.text), ["我喝咖啡不加糖"]);
     const cursor = await reopened.getConsolidationCursor("thread"); assert.ok(cursor.ok);
-    assert.equal(cursor.value, null);
+    assert.equal(cursor.value?.throughMessageId, "u1");
   } finally { await f.cleanup(); }
 });
 

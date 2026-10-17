@@ -71,6 +71,7 @@ apps/telegram ┘        (领域：记忆/任务/上下文/沉淀，扩展 API)
 候选补充（参考 OpenClaw / Hermes，待确认后并入对应步骤）：
 
 - 4.5：home 首次启动自动创建，不要求用户配置。
+- 4.5：彻底移除记忆审核模式（CLI/工作区配置的 review 写入策略、候选存储与候选工具），与工作区去除一起做。
 - 4：用户画像设硬预算，会话开始时冻结注入；事实库改为工具按需检索。
 - 7：压缩前先沉淀（pre-compaction flush）。
 - 可选：桌面端与 Telegram 共用单一主会话，需要时分出线程。
@@ -99,6 +100,12 @@ apps/telegram ┘        (领域：记忆/任务/上下文/沉淀，扩展 API)
   - 已完成：`AssistantController` 按领域拆分，方法数 62 → 顶层 11 个 + 7 个分组。顶层只留对话本身（`getSnapshot`、`getHistory`、`getContextDiagnostics`、`run`、`steer`、`cancel`、`confirm`、`command`、`recordOutput`、`subscribe`、`shutdown`）；其余进分组：`memory`（18）、`workTasks`（12）、`automation`（8）、`dreaming`（4）、`rss`（4）、`recipes`（2）、`runs`（3，`listModelUsage` 由可选改为必需）。各组在 `controller-*.ts`，只通过 `ControllerKernel`（`controller-kernel.ts`）用核心：读空闲/关闭状态、发事件、等 Thread 恢复、`exclusive()` 以 `command` 状态独占执行（`cancel()` 照样能中止）。状态机、Run 引擎、后台整理和学习都留在核心，分组不持有生命周期状态。原来不带中止信号的独占操作（任务结果确认、RSS 确认和订阅修改）改走 `exclusive()`，行为不变。桌面 `RuntimeBridge`、`RendererApi`、IPC 表和 `RESIDENT_*` 白名单仍是扁平方法名，只改了桥接内部对 controller 的调用；`shared/work-tasks.ts` 用 `WorkTaskOperationMethods` 把 IPC 名映射到 `workTasks` 组的方法。eval 脚本和接入文档同步改名。
   - 已完成（权限扩展第一部分，判定规则不变）：新增扩展接口 `RuntimeExtension`（`runtime-extension.ts`：`beforeToolExecute`、`afterToolCall`、命令）和 `composeExtensions`。组合规则：执行前钩子按顺序问，第一个拒绝即返回，全部允许才执行；执行后钩子第一个给出决定的生效；命令重名在装配时报错；只有一个扩展提供的钩子原样使用。权限收进 `permission-extension.ts`：逐次确认（`createToolConfirmation`）、宿主固定免确认的三类调用（自身的 `capability_status`、记忆整理 Skill 声明的工具、工作区任务只读）、`/authorize`、`/authorize-shell`、`/authorize-web` 和 `/permissions`，从 `app.ts` 原样搬出（`app.ts` 少约 150 行）。防重复查询守卫也作为扩展挂上。`RuntimeApp.toolConfirmation` 和 Controller 的用法不变。「记住选择」会改变 AGENTS.md 里「`y` 从不被记住」这条已确认规则，方案待确认后再做。
   - 已完成（权限扩展第二部分：记住选择）：确认卡多一个「允许并在本次对话内记住」（终端输入 `r`），只在后端给出可记住范围时出现。有效期是本次对话：只存在这个对话的助手进程内存里，不落盘、不碰 SQLite；重启、切换对话或改设置重建助手后清空；只对授权时的那个 agent 有效。范围：读取类工具（声明 risk 为 read）按工具名；`write_file`/`edit_file` 按所在目录（不含子目录，两个工具分开记）；`web_fetch` 按网站来源（origin）。一律不能记：Shell（含 Docker 沙箱）、电脑操作 `computer_*`、命令配方 `recipe_*`、记忆 `memory_*`；以后接 MCP 时其工具也必须默认不可记。拒绝不记；「拒绝 web_search 后本 Run 不再 web_fetch/feed_read」仍然优先。Telegram 发起的 Run 既不用也不提供记住的授权。`/permissions` 列出已记住项，`/permissions forget <编号>` 单条清除。接口：`PendingToolApproval.remember?: { label }`，`resolveApproval`/`controller.confirm` 加 `remember?: boolean`（桌面 `ConfirmInput.remember?: true`，桥接层校验后才转发；对不可记的调用带 `remember` 会被拒绝而不是降级成普通允许）；`beginRun(autonomous, source)`。AGENTS.md 第 73 行规则已同步。长期记住留到 4.5 与授权目录列表一起设计。
+  - 第 1 步返工（按问卷答复）：
+    - 取消审核概念：桌面端不再有候选/待审核界面与通道（删 `listMemoryCandidates`/`getMemoryCandidate`/`resolveMemoryCandidate`，Controller `memory` 组删 `listCandidates`/`getCandidate`/`resolveCandidate`）。自动模式下只保存宿主判定可自动接受的条目；不确定或有冲突的不保存为记忆，只作为内部待定记录留着（不展示、不注入上下文，免得用户明确说过的话直接丢掉；来源算已处理），对话里提示「没有自动保存，原记忆没有被覆盖」。内部待定记录满 64 条后，多出来的直接不存，不再拦住整理。桌面启动时把「已开自动整理、但写入策略不是 automatic」的旧配置改成 `automatic`（显式 `RUNLOOM_CONFIG` 不改写）。
+    - 双时间界面只留「编辑」和「删除」：编辑正文走 `correct`，删除确认一次后永久删除；去掉置顶、停用、有效期、撤回/恢复、实际变化、历史抽屉和适用/认知时间展示。聊天里自动记忆的「撤回」仍走 `retract`。
+    - 手动补整理直接删除（面板、`consolidateMemory`、`listMemoryConsolidationSources`、Controller 的 `consolidate`/`listConsolidationSources` 和 history 模式）。整理重试用尽时提示「原话仍保留，这段太长没记住，可以分段再说」。
+    - `RESIDENT_*` 白名单只删除了上述已删方法，没有新增。
+    - 遗留：CLI/工作区内配置仍可用旧的 review 模式，候选存储和 `memory_candidates_list`/`memory_apply_candidate` 工具还在（与工作区信任边界相关）→ 4.5 一并移除。不确定的冲突目前不保存，没有转折词的偏好更新（如先说不加糖、后来直接说加糖）不会生效；是否改成「新的覆盖旧的」、内部待定记录交给第 7 步的反思管线处理，待确认。
   - 调整：群聊 bot 开线时间从「第 3 步完成后」推迟到「个人 agent 重构完成、日常稳定后（至少 4.5 之后）」，见 §4.2。A1–A3 仍按原步骤验收。
 
 ## 4.2 未来：群聊 bot（独立线）

@@ -104,14 +104,10 @@ describe("native memory consolidation batch", () => {
     assert.equal(f.committed[0]!.candidates.length, 3);
   });
 
-  it("model eligibility cannot grant automatic writes to review mode, manual or selected history", async () => {
-    for (const mode of ["review", "manual", "history"] as const) {
+  it("model eligibility cannot grant automatic writes to review mode or manual runs", async () => {
+    for (const mode of ["review", "manual"] as const) {
       const f = fixture(undefined, mode === "review" ? "review" : "automatic");
-      let batch;
-      if (mode === "history") {
-        f.service.begin(AUTO_CONSOLIDATION_AGENT_ID, { mode: "history", messageIds: ["u1"] });
-        const result = await f.service.prepare({ mode: "incremental" }); assert.ok(result.ok); batch = result.value;
-      } else batch = await prepare(f, mode === "manual" ? "primary" : AUTO_CONSOLIDATION_AGENT_ID);
+      const batch = await prepare(f, mode === "manual" ? "primary" : AUTO_CONSOLIDATION_AGENT_ID);
       assert.ok((await f.service.stage({ batchId: batch.batchId, proposals: [proposal({ kind: "preference", eligibility: "durable_self_statement" })] })).ok);
       assert.ok((await f.service.finalize({ status: "completed" })).ok);
       assert.equal(f.committed[0]!.autoAcceptIndexes, undefined);
@@ -178,32 +174,6 @@ describe("native memory consolidation batch", () => {
     assert.deepEqual(f.committed[0]!.autoAcceptIndexes, [2]);
   });
 
-  it("explicit history reaches older selected messages without moving the incremental cursor", async () => {
-    const messages = Array.from({ length: 12 }, (_, index) => user(`u${index}`, `长期偏好 ${index}`));
-    const f = fixture(messages);
-    const cursor = { threadId: "thread", throughMessageId: "u11", prefixHash: consolidationPrefixHash(messages, "u11")!, lastBatchId: "older", updatedAt: "2026-10-01T00:00:00Z" };
-    f.setCursor(cursor);
-    f.service.begin(AUTO_CONSOLIDATION_AGENT_ID, { mode: "history", messageIds: ["u0", "u1"] });
-    const prepared = await f.service.prepare({ turns: 4 });
-    assert.ok(prepared.ok);
-    assert.deepEqual(prepared.value.selection, { mode: "history", messageIds: ["u0", "u1"] });
-    assert.deepEqual(prepared.value.turns.map(turn => "user" in turn ? turn.user.messageId : turn.messages[0]!.id), ["u0", "u1"]);
-    assert.ok((await f.service.stage({ batchId: prepared.value.batchId, proposals: [], outcomes: noMemoryOutcomes(prepared.value) })).ok);
-    const final = await f.service.finalize({ status: "completed" });
-    assert.ok(final.ok); assert.equal(final.value.processedCount, 2);
-    assert.deepEqual(f.getCursor(), cursor);
-    assert.equal(f.committed[0]!.nextCursor, null);
-  });
-
-  it("refuses excluded/foreign history selections and never silently clips selected history", async () => {
-    const f = fixture([user("u1"), { ...user("private"), metadata: { memoryConsolidation: "exclude" } }, user("huge", "x".repeat(70 * 1024))]);
-    for (const messageIds of [["private"], ["foreign"], ["u1", "u1"], ["u1", "huge"]]) {
-      f.service.begin(AUTO_CONSOLIDATION_AGENT_ID, { mode: "history", messageIds });
-      assert.equal((await f.service.prepare({ mode: "incremental" })).ok, false);
-      assert.equal(f.committed.length, 0);
-      assert.equal(f.getCursor(), null);
-    }
-  });
   it("retrieves visible disabled and expired current versions as conflict material, not active injection", async () => {
     const f = fixture([user("u1", "写作复盘偏好")]);
     f.setEntries([

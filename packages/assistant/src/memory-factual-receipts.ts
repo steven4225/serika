@@ -52,8 +52,7 @@ export async function readMemoryFactReceipts(
           const label = operation === "retract" ? "撤回" : operation === "disable" ? "停用" : operation === "add" ? "保存" : "更新";
           lines.push(`当时已${label}：${text}`);
         } else if (candidate.status === "pending") {
-          lines.push(preview.applicable ? `记忆需要你确认：${text}；原记忆没有被覆盖，请在记忆页查看。`
-            : `这项记忆暂时不能确认，尚未保存：${text}；请在记忆页核对。`);
+          lines.push(`这条没有自动保存：${text.replace(/[。.]$/u, "")}。原记忆没有被覆盖；需要的话可以说得更明确些再告诉我。`);
         }
       }
       if (outcome.status === "not_saved") lines.push(outcome.reason === "retry_exhausted"

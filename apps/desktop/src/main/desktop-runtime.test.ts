@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
 import { writeFileSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile, realpath, open } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -267,7 +266,7 @@ describe("normal desktop memory and history entry", () => {
       assert.ok((await host.current.history()).some(message => message.role === "user" && message.parts.some(part => part.type === "text" && part.text === "保留这条旧对话")));
     } finally { await host.shutdown(); await rm(root, { recursive: true, force: true }); }
   });
-  it("uses generated daily identity, reviews/rejects proposals, recalls in a new Thread, and reopens either history", async () => {
+  it("uses generated daily identity, saves eligible proposals automatically, recalls in a new Thread, and reopens either history", async () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-desktop-daily-test-"));
     let failStage = false;
     const events: MainToRenderer[] = [];
@@ -277,7 +276,7 @@ describe("normal desktop memory and history entry", () => {
       assert.equal(options.tools?.length ?? 0, 0);
       const user = material.turns[0]?.user;
       return response(undefined, undefined, JSON.stringify({ batchId: material.batchId, proposals: user ? [{ action: "add",
-          text: user.text, scope: { kind: "workspace" }, recallTerms: ["总结报告"], kind: "preference", reason: "明确偏好",
+          text: user.text, scope: { kind: "workspace" }, recallTerms: ["总结报告"], kind: "preference", reason: "明确偏好", eligibility: "durable_self_statement",
           sourceMessageId: user.messageId, sourceQuote: failStage ? "forged quote" : user.text }] : [],
         outcomes: material.turns.map(turn => ({ messageId: turn.user.messageId,
           status: turn.user.messageId === user?.messageId ? "extracted" : "no_memory" })),
@@ -292,9 +291,7 @@ describe("normal desktop memory and history entry", () => {
       assert.ok((await host.current.run("我的复盘长期偏好：先结论，再两条步骤。")).ok);
       await assert.rejects(host.createThread(), /等待/);
       await idle(host);
-      const candidates = await host.current.listMemoryCandidates({ status: "pending" }); assert.ok(candidates.ok); assert.equal(candidates.value.candidates.length, 1);
-      const candidate = candidates.value.candidates[0]!;
-      assert.ok((await host.current.resolveMemoryCandidate({ candidateId: candidate.id, expectedCandidateRevision: candidate.revision, decision: "accept" })).ok);
+      const saved = await host.current.listMemories(); assert.ok(saved.ok); assert.equal(saved.value.entries.length, 1);
       const files = await host.listThreads(); assert.equal(files[0]!.messageCount! > 0, true);
       await host.shutdown();
       host = await DesktopRuntime.create(options);
@@ -306,7 +303,6 @@ describe("normal desktop memory and history entry", () => {
       assert.ok((await host.current.run("总结报告怎么写？", { memoryConsolidation: "exclude" })).ok);
       await idle(host);
       const reference = await host.current.getMemoryReferences(); assert.equal(reference?.selected.length, 1); assert.equal(reference?.selected[0]?.reason, "recall_term");
-      assert.equal((await host.current.listMemoryCandidates()).ok, true);
       await host.selectThread(initial.threadId);
       assert.equal(host.info().threadId, initial.threadId);
       await host.selectThread(other);
@@ -319,17 +315,13 @@ describe("normal desktop memory and history entry", () => {
       assert.ok((await host.current.run("长期排版偏好：使用大标题。")).ok); await idle(host);
       const health = await host.current.getMemoryMaintenance(); assert.ok(health.ok); assert.equal(health.value.consolidation.state, "failed");
       failStage = false;
-      assert.ok((await host.current.consolidateMemory({ mode: "incremental" })).ok); await idle(host);
-      const retry = await host.current.listMemoryCandidates(); assert.ok(retry.ok); assert.equal(retry.value.candidates.length, 1);
-      const rejected = retry.value.candidates[0]!;
-      assert.ok((await host.current.resolveMemoryCandidate({ candidateId: rejected.id, expectedCandidateRevision: rejected.revision, decision: "reject" })).ok);
-      const memories = await host.current.listMemories(); assert.ok(memories.ok); assert.equal(memories.value.entries.length, 1);
-      const sources = await host.current.listMemoryConsolidationSources(); assert.ok(sources.ok);
-      const excluded = sources.value.sources.find(source => source.preview === "总结报告怎么写？"); assert.equal(excluded?.excluded, true);
+      const memorySkill = (await host.current.getAutomationDiagnostics()).skills.find(skill => skill.id === "memory-consolidate"); assert.ok(memorySkill);
+      assert.ok((await host.current.runSkill({ id: memorySkill.id, expectedHash: memorySkill.hash })).ok); await idle(host);
+      const memories = await host.current.listMemories(); assert.ok(memories.ok); assert.equal(memories.value.entries.length, 2);
     } finally { await host.shutdown(); await rm(root, { recursive: true, force: true }); }
   });
 
-  it("upgrades memory only on explicit request and preserves daily history across restart", async () => {
+  it("moves legacy review memory to automatic saving on startup and preserves daily history across restart", async () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-desktop-legacy-setup-"));
     const profile = join(root, "profile");
     const workspace = join(root, "workspace");
@@ -343,20 +335,14 @@ describe("normal desktop memory and history entry", () => {
     try {
       const initial = host.info();
       assert.equal(initial.configPath, configPath);
-      assert.equal(initial.memory.queryRewriteEnabled, false);
-      assert.equal(await readFile(configPath, "utf8"), JSON.stringify(legacy));
+      assert.equal(initial.memory.queryRewriteEnabled, false, "policy upgrade preserves disabled recall rewriting");
+      assert.equal(initial.memory.writePolicy, "automatic", "desktop has no review queue");
+      const saved = JSON.parse(await readFile(configPath, "utf8"));
+      assert.equal(saved.modules.memory.writePolicy, "automatic");
+      assert.deepEqual(saved.modules.shell, legacy.modules.shell);
+      assert.equal(saved.modules.memory.queryRewrite, undefined);
       assert.ok((await host.current.run("保留这条日用历史", { memoryConsolidation: "exclude" })).ok);
       await idle(host);
-      const file = join(initial.directory, `${createHash("sha256").update(initial.threadId).digest("hex")}.jsonl`);
-      const transcript = await readFile(file, "utf8");
-      await host.enableMemory();
-      assert.equal(host.info().threadId, initial.threadId);
-      assert.equal(host.info().directory, initial.directory);
-      assert.equal(host.info().memory.queryRewriteEnabled, false, "policy upgrade preserves disabled recall rewriting");
-      assert.equal(host.info().memory.writePolicy, "automatic");
-      assert.equal(await readFile(file, "utf8"), transcript);
-      const saved = JSON.parse(await readFile(configPath, "utf8"));
-      assert.deepEqual(saved.modules.shell, legacy.modules.shell);
       const memories = await host.current.listMemories();
       assert.ok(memories.ok); assert.equal(memories.value.entries.length, 0);
       await host.shutdown();
