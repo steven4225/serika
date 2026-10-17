@@ -17,10 +17,6 @@ export interface TodayPanelProps {
   tasks: readonly WorkTask[];
   tasksLoading: boolean;
   tasksError: string | null;
-  pendingMemory: number;
-  pendingMemoryError: string | null;
-  /** Always mounted by App: one source for the badge and explicit review. */
-  memoryReview?: React.ReactNode;
   feeds?: TodayBriefFeeds;
   now?: Date;
   continueDisabled?: boolean;
@@ -44,12 +40,9 @@ export function TodayPanel(props: TodayPanelProps) {
     tasks: props.tasks,
     tasksLoading: props.tasksLoading,
     tasksError: props.tasksError,
-    pendingMemory: props.memoryReview ? 0 : props.pendingMemory,
-    pendingMemoryError: props.memoryReview ? null : props.pendingMemoryError,
     feeds: props.feeds ?? { reminders: [], remindersState: "ready", inbox: [], inboxState: "ready", worker: { ok: true, registered: false, running: false, rssEnabled: false }, workerState: "ready" },
   });
   return <div className="personal-today">
-    {props.memoryReview}
     {brief.mode === "connecting" || brief.mode === "reading" ? <p className="today-task-message" role="status">{brief.message}</p> : null}
     {brief.mode === "empty" && brief.next ? <section className="today-card today-empty" aria-label="下一次简报">
       <p className="today-section-stamp">{brief.next.when}</p>

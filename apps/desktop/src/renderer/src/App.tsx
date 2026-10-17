@@ -51,9 +51,8 @@ import { MessageContent } from "./markdown.js";
 import { CapabilitiesPanel } from "./capabilities.js";
 import { TelegramPanel } from "./telegram-panel.js";
 import { PomodoroPanel } from "./pomodoro.js";
-import { PendingMemory, type PendingMemoryStatus } from "./pending-memory.js";
 import { AssistantReply } from "./delivery.js";
-import { attentionKind, headerStatus, loadedCountLabel, deliveredReplyKeys, isMockModel } from "./attention.js";
+import { attentionKind, headerStatus, deliveredReplyKeys, isMockModel } from "./attention.js";
 import { CurrentTask, useWorkTasks, WorkTasksPanel } from "./work-tasks.js";
 import { RssPanel } from "./rss.js";
 import { TaskInbox } from "./task-inbox.js";
@@ -366,7 +365,6 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const [showOutput, setShowOutput] = useState(false);
   const [records, setRecords] = useState<RecordsState>({ status: "loading" });
   const [memoryRefresh, setMemoryRefresh] = useState(0);
-  const [memoryDeferred, setMemoryDeferred] = useState(false);
   const [contextRefresh, setContextRefresh] = useState(0);
   const [taskRefresh, setTaskRefresh] = useState(0);
   const [automationRefresh, setAutomationRefresh] = useState(0);
@@ -376,7 +374,6 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const [taskFocused, setTaskFocused] = useState(false);
   const [switchingThread, setSwitchingThread] = useState(false);
   const threadSwitchInFlight = useRef(false);
-  const [pendingMemory, setPendingMemory] = useState<PendingMemoryStatus>({ count: 0, hasMore: false, loading: false, error: null, reviewing: false });
   const [recordDetail, setRecordDetail] = useState<RecordDetailState>({ status: "idle" });
   const [finalRecord, setFinalRecord] = useState<ExecutionRunRecord | null>(null);
   const [decidingId, setDecidingId] = useState<string | null>(null);
@@ -645,7 +642,6 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
           setLive((previous) => applyShellProgress(previous, message.progress.toolCallId, shellBuffer.current));
           return;
         case "memory-updated":
-          if (message.reason === "proposals") setMemoryDeferred(false);
           setMemoryRefresh((value) => value + 1);
           void reloadHistory().catch((cause: unknown) => setError(String(cause)));
           return;
@@ -1069,11 +1065,9 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     requestAnimationFrame(() => inputRef.current?.focus());
   };
 
-  const attention = attentionKind({ approval: approval !== null, unknownRuns: unknownRuns.length || (reviewTask ? 1 : 0), pendingMemory: info?.memory.writePolicy === "automatic" ? 0 : pendingMemory.count, idle: !busy, memoryDeferred: info?.memory.writePolicy === "automatic" ? false : memoryDeferred });
+  const attention = attentionKind({ approval: approval !== null, unknownRuns: unknownRuns.length || (reviewTask ? 1 : 0), pendingMemory: 0, idle: !busy });
   const status = headerStatus(state, attention);
   const stageLabel = info?.runtimeRecovery ? "连接已停止" : info ? status.label : error ? "连接失败" : "正在连接";
-  const quietMemory = info?.memory.writePolicy === "automatic";
-  const pendingLabel = quietMemory ? "" : loadedCountLabel(pendingMemory.count, pendingMemory.hasMore);
   const refreshMemory = useCallback(() => setMemoryRefresh(value => value + 1), []);
   const threadDrafts = new Map(threads.flatMap(thread => {
     const draft = drafts.get(draftKey({ workspaceRoot: info?.workspaceRoot ?? null, directory: thread.transcriptDirectory, threadId: thread.threadId }));
@@ -1146,12 +1140,9 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
           openDetails("reminders");
         }} /> : null}
         {info && attention === "none" ? <MemoryConsolidationNotice key={`${info.workspaceRoot}:${info.threadId}`} enabled={info.memory.enabled} busy={busy} quiet={true} running={state.kind === "running" && state.phase === "consolidation"} refreshToken={memoryRefresh} onOpen={() => openMemory()} /> : null}
-        <div className="attention-region" hidden={attention === "none" && (quietMemory || !pendingMemory.error)}>
+        <div className="attention-region" hidden={attention === "none"}>
           {attention === "unknown" ? <div className="review-notice execution-review" role="status"><Icon name="shield" size={16} /><span>执行效果待核对 · 不会自动重做</span><button className="ghost" onClick={() => { if (reviewTask) { workTasks.select(reviewTask.id); openTask(); } else { openDetails("records"); const run = unknownRuns[0]; if (run) void openRecord(run.runId); } }}>{reviewTask ? "核对工作任务" : "查看回执"}<Icon name="chevron" size={14} /></button></div> : null}
-          {attention === "memory" ? <div className="attention-summary"><span>有 {pendingLabel} 条记忆等你确认。</span><button className="ghost" onClick={() => { setDetailsOpen(false); setMobileDashboard(true); }}>在手札里处理</button><button className="ghost" onClick={() => openMemory()}>详细审核</button></div> : null}
-          {!quietMemory && pendingMemory.error && attention === "none" ? <div className="attention-summary"><span>记忆候选暂不可用，不能据此判断没有待审项。</span><button className="ghost" onClick={() => openDetails("memory")}>查看原因</button></div> : null}
-          {attention === "approval" && (unknownRuns.length > 0 || pendingLabel) ? <div className="attention-summary">{unknownRuns.length > 0 ? <button className="ghost" onClick={() => openDetails("records")}>另有执行效果待核对</button> : null}{pendingLabel ? <button className="ghost" onClick={() => openDetails("memory")}>待审记忆 {pendingLabel}</button> : null}</div> : null}
-          {attention === "unknown" && pendingLabel ? <div className="attention-summary"><button className="ghost" onClick={() => openDetails("memory")}>还有待审记忆 {pendingLabel}</button></div> : null}
+          {attention === "approval" && unknownRuns.length > 0 ? <div className="attention-summary"><button className="ghost" onClick={() => openDetails("records")}>另有执行效果待核对</button></div> : null}
         </div>
         <div className="workbench">
           <main className="workspace-pane">
@@ -1244,7 +1235,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
           <nav className="personal-segments" aria-label="个人助手页面">
             {(["手札", "任务", "记忆"] as const).map(tab => <button type="button" key={tab}
               aria-current={(detailsOpen ? dashboardTabForDetail(detailTab) : "手札") === tab ? "page" : undefined}
-              onClick={() => { if (tab === "手札") { setDetailsOpen(false); setMobileDashboard(true); } else if (tab === "任务") { setTaskFocused(false); openDetails("tasks"); } else openMemory(); }}>{tab}{tab === "记忆" && pendingLabel ? <span className="personal-segment-count">{pendingLabel}</span> : null}</button>)}
+              onClick={() => { if (tab === "手札") { setDetailsOpen(false); setMobileDashboard(true); } else if (tab === "任务") { setTaskFocused(false); openDetails("tasks"); } else openMemory(); }}>{tab}</button>)}
           </nav>
           <div className="personal-dashboard-actions">
             <button type="button" className="personal-circle" aria-label="搜索" title="搜索" aria-expanded={searchOpen} onClick={() => setSearchOpen(true)}><Search size={18} /></button>
@@ -1253,8 +1244,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
         </header>
         <div className="personal-today-scroll" hidden={detailsOpen}>
           <TodayPanel info={info} tasks={workTasks.tasks} tasksLoading={workTasks.loading} tasksError={workTasks.error}
-            pendingMemory={quietMemory ? 0 : pendingMemory.count} pendingMemoryError={quietMemory ? null : pendingMemory.error} feeds={briefFeeds}
-            memoryReview={info && !quietMemory ? <PendingMemory key={`${info.workspaceRoot}:${info.threadId}`} threadId={info.threadId} memory={info.memory} controllerIdle={!busy} refreshToken={memoryRefresh} visible={!detailsOpen && !quietMemory} onStatus={setPendingMemory} onReviewed={refreshMemory} onOpenCandidate={id => openMemory(id)} /> : null}
+            feeds={briefFeeds}
             continueDisabled={sending || switchingThread || info === null}
             onContinue={continueBrief}
             onBackgroundSettings={() => openSettings("notifications")}
@@ -1312,7 +1302,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
                 onOpen={runId => void openRecord(runId).catch(() => setError("执行回执读取失败"))} /></div>
               <div hidden={detailTab !== "memory"}>
                 {info ? <MemoryPanel key={`${info.workspaceRoot}:${info.threadId}`} memory={info.memory} temporaryThread={info.temporaryThread}
-                  libraryAvailable={info.memoryLibrary === true} onManage={() => openSettings("memory")} threadId={info.threadId} controllerIdle={!busy} refreshToken={memoryRefresh} focusRequest={memoryFocus} pendingCount={pendingMemory.count} pendingHasMore={pendingMemory.hasMore} /> : null}
+                  libraryAvailable={info.memoryLibrary === true} onManage={() => openSettings("memory")} threadId={info.threadId} controllerIdle={!busy} refreshToken={memoryRefresh} focusRequest={memoryFocus} /> : null}
               </div>
               <div hidden={detailTab !== "pomodoro"}>{info ? info.pomodoroControls === true ? <PomodoroPanel enabled={info.commands.includes("pomodoro")} busy={busy} output={output} /> : <p role="status">当前助手宿主仍是旧版本，请加载新版本后使用番茄钟。</p> : null}</div>
             </div>

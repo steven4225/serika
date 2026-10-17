@@ -110,8 +110,6 @@ export interface TodayBriefInput {
   tasks: readonly WorkTask[];
   tasksLoading: boolean;
   tasksError: string | null;
-  pendingMemory: number;
-  pendingMemoryError: string | null;
   feeds: TodayBriefFeeds;
 }
 
@@ -349,18 +347,6 @@ export function buildTodayBrief(input: TodayBriefInput): TodayBriefModel {
       risk: item.attention ? "这次没有完成，不会自动重做。" : null,
       actions: threadId ? [{ label: "聊聊这个", tone: "primary", target: threadTarget(threadId, `我想接着看「${name}」的结果。先别把它当成已经送达。`) }] : [],
     });
-  }
-
-  if (input.pendingMemoryError) {
-    push(input.now, 4, { eyebrow: "记忆", title: "记忆状态暂时看不清", body: { kind: "text", text: humanError(input.pendingMemoryError, "记忆状态读取失败。不能据此判断没有待确认的记忆。") }, risk: "不能据此判断没有待确认的记忆。", actions: [] }, true);
-  } else if (input.pendingMemory > 0) {
-    push(input.now, 4, {
-      eyebrow: "记忆",
-      title: "有记忆等你确认",
-      body: { kind: "quote", note: null, text: `当前会话有 ${input.pendingMemory} 条记忆等你确认。` },
-      risk: "确认之前不会写成正式记忆。",
-      actions: [], // Explicit review belongs to the host card, never a model chat.
-    }, true);
   }
 
   if (feedsPending && cards.length === 0 && summary.state !== "failed" && summary.state !== "disabled") {

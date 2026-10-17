@@ -163,7 +163,6 @@ export function MemoryPanel(props: { libraryAvailable?: boolean; onManage?: () =
   }, [count, props.focusRequest?.id, props.focusRequest?.sequence]);
   return <div className="personal-memory">
     {tab === "formal" ? <>
-      {count > 0 && props.memory.writePolicy !== "automatic" ? <button type="button" className="memory-review-banner" onClick={() => setTab("pending")}>待确认（{count}{props.pendingHasMore ? "+" : ""}）</button> : null}
       <>{props.managementOnly ? <FormalMemories enabled={props.memory.enabled} controllerIdle={props.controllerIdle} refreshToken={props.refreshToken} queryRewriteEnabled={props.memory.queryRewriteEnabled === true} managementOnly /> : props.libraryAvailable ? <MemoryLibraryPanel enabled={props.memory.enabled} controllerIdle={props.controllerIdle} refreshToken={props.refreshToken} onManage={props.onManage} /> : <p role="status">当前助手宿主需要更新后才能使用记忆文件夹。</p>}</>
       {props.managementOnly ? <details className="memory-secondary"><summary>未保存内容与处理记录</summary>
         <button type="button" className="ghost" onClick={() => setTab("pending")}>查看未保存内容</button>

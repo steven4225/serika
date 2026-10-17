@@ -11,7 +11,7 @@ const info = { threadId: "current", workTasks: true, memory: { enabled: true, au
 const task = (status: WorkTask["status"]): WorkTask => ({ id: status, revision: 1, threadId: "thread", goal: `任务 ${status}`, constraints: [], acceptance: [], status, runIds: [], delivery: null, reconciliations: [], createdAt: "2026-10-08T00:00:00.000Z", updatedAt: "2026-10-08T00:00:00.000Z" });
 const noop = () => undefined;
 function render(overrides: Partial<TodayPanelProps> = {}) {
-  return renderToStaticMarkup(createElement(TodayPanel, { info, tasks: [], tasksLoading: false, tasksError: null, pendingMemory: 0, pendingMemoryError: null,
+  return renderToStaticMarkup(createElement(TodayPanel, { info, tasks: [], tasksLoading: false, tasksError: null,
     now: new Date("2026-10-08T06:00:00Z"), onContinue: noop, onPomodoro: noop, onAutomation: noop, ...overrides }));
 }
 
@@ -50,15 +50,14 @@ describe("personal Today view", () => {
     assert.match(render(), /还没有工作任务/);
     assert.match(render({ tasks: [task("completed")] }), /当前没有待推进的任务/);
   });
-  it("keeps task continuation and real memory states, without fabricated weather or research", () => {
-    const html = render({ pendingMemory: 2, tasks: [task("paused")] });
+  it("keeps task continuation without a memory review queue, without fabricated weather or research", () => {
+    const html = render({ tasks: [task("paused")] });
     assert.match(html, /class="today-chat-button"/);
-    assert.match(html, /当前会话有 2 条记忆等你确认/);
+    assert.doesNotMatch(html, /记忆等你确认/);
     assert.match(html, /查看我的提醒|打开番茄钟/);
     assert.doesNotMatch(html, /天气|研究结果|ryan|自动开始/);
     assert.equal(todayMemorySummary(null, 0, null), "正在连接记忆…");
     assert.equal(todayMemorySummary({ ...info, memory: { enabled: false, autoConsolidate: false } }, 0, null), "记忆未启用。");
     assert.match(todayMemorySummary(info, 0, "坏文件"), /读取失败：坏文件/);
-    assert.doesNotMatch(render({ pendingMemoryError: "坏文件" }), /查看已保存的信息/);
   });
 });

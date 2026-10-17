@@ -104,7 +104,7 @@ it("reminders stay reachable from 手札 and are not a top pill or a settings in
 });
 
 it("UI regression 6: 手札 explicitly allows ordinary conversation without creating a task", () => {
-  const html = render(createElement(TodayPanel, { info, tasks: [], tasksLoading: false, tasksError: null, pendingMemory: 0, pendingMemoryError: null, onContinue: noop, onPomodoro: noop, onAutomation: noop, now: new Date("2026-10-16T09:00:00+08:00") }));
+  const html = render(createElement(TodayPanel, { info, tasks: [], tasksLoading: false, tasksError: null, onContinue: noop, onPomodoro: noop, onAutomation: noop, now: new Date("2026-10-16T09:00:00+08:00") }));
   assert.match(html, /普通对话照常使用/);
 });
 

@@ -29,7 +29,7 @@ it("viewed terminal reminders stay in history, not in the current brief or upcom
 });
 function render(overrides: Partial<TodayPanelProps> = {}) {
   return renderToStaticMarkup(createElement(TodayPanel, {
-    info, tasks: [], tasksLoading: false, tasksError: null, pendingMemory: 0, pendingMemoryError: null,
+    info, tasks: [], tasksLoading: false, tasksError: null,
     feeds: offFeeds, now, onContinue: noop, onPomodoro: noop, onAutomation: noop, ...overrides,
   }));
 }
@@ -45,7 +45,7 @@ describe("today brief stream", () => {
     }));
     const model = buildTodayBrief({
       now, info, tasks: [task("needs_review", "周末交付的成本说明"), task("paused", "长对话分页")], tasksLoading: false, tasksError: null,
-      pendingMemory: 0, pendingMemoryError: null,
+     
       feeds: { ...offFeeds, worker: { ok: true, registered: true, running: true, rssEnabled: true, notifyEnabled: true, notificationRoutingEnabled: true }, reminders: [{ eyebrow: "提醒", subject: "喝水", whenLabel: "今天 20:30", at: "2026-10-08T12:30:00.000Z", status: "已设好，到点提醒" }], inbox },
     });
     assert.equal(model.mode, "stream");
@@ -66,7 +66,7 @@ describe("today brief stream", () => {
 
   it("routes progress and direction choices back to the existing thread or task", () => {
     const tasks = [task("paused", "长对话分页"), task("needs_review", "周末交付的成本说明", "2026-10-08T00:10:00.000Z")];
-    const model = buildTodayBrief({ now, info, tasks, tasksLoading: false, tasksError: null, pendingMemory: 0, pendingMemoryError: null, feeds: { ...offFeeds, worker: { ok: true, registered: true, running: true, rssEnabled: true, notifyEnabled: true, notificationRoutingEnabled: true }, workerState: "ready" } });
+    const model = buildTodayBrief({ now, info, tasks, tasksLoading: false, tasksError: null, feeds: { ...offFeeds, worker: { ok: true, registered: true, running: true, rssEnabled: true, notifyEnabled: true, notificationRoutingEnabled: true }, workerState: "ready" } });
     const cards = model.sections.flatMap(section => section.cards);
     const progress = cards.flatMap(card => card.actions).find(action => action.label === "查看进度");
     const review = cards.find(card => card.eyebrow === "待确认");
