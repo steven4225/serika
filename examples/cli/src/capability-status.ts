@@ -21,7 +21,7 @@ export function capabilityStatus(config: ResolvedTuiModuleConfig | undefined, to
     tools: [...tools],
     shell: { mode: config?.shellSandbox ? "docker" : "host", authority: desktopAutonomy ? `explicit_workspace_${entry}_primary; no background inheritance` : "current_run_only; no permissions inherited from recipes",
       warning: desktopAutonomy ? `当前工作区${entry === "telegram" ? "绑定 Telegram 私聊" : "桌面"}前台文件与本机 Shell 已授权；其他入口不继承。Shell 使用进程的本机权限，工作区不是沙箱。` : config?.shellSandbox ? "沿用配置的挂载与网络限制。" : "工作目录不是操作系统隔离；主机命令仍需明确批准。" },
-    localCli: { available: tools.includes("shell_exec") && !config?.shellSandbox, note: "已启用的本机 Shell 可查询和操作已安装 CLI（例如 Pi）；没有专用 MCP 工具不代表不能执行。先实际查询版本和帮助。Herdr 外部控制需要宿主显式绑定目标，不能操作默认聚焦 pane。" },
+    localCli: { available: tools.includes("shell_exec") && !config?.shellSandbox, note: "已启用的本机 Shell 可查询和操作已安装 CLI（例如 Pi、ego-browser）；没有专用 MCP/CUA 工具不代表不能执行。浏览器可经 CLI 打开、观察、点击和填表，须实际检查安装与连接，不将 Shell 已注册当作浏览器已就绪。先查询版本和帮助。Herdr 外部控制需要宿主显式绑定目标，不能操作默认聚焦 pane。" },
     computer: { configured: !!config?.computer, allowedBundleIds: config?.computer?.allowedBundleIds ?? [],
       service: "not_checked" as const, permissions: "not_checked" as const,
       next: "配置与工具注册不证明服务或系统权限就绪。批准 computer_check 可单独检查连接（不读取窗口内容），批准 computer_observe 才观察指定的允许应用；不会启动驱动或授予系统权限。" },
