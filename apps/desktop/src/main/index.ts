@@ -250,6 +250,9 @@ async function main(): Promise<void> {
   ipcMain.handle(IPC.dream, () => host.current.dream());
   ipcMain.handle(IPC.learnedSkillChange, (_event, input) => host.current.changeLearnedSkill(input));
   ipcMain.handle(IPC.learnedSkillReferences, () => host.current.getLearnedSkillReferences());
+  ipcMain.handle(IPC.herdrSessions, () => host.listHerdrSessions());
+  ipcMain.handle(IPC.herdrPanes, (_event, session) => host.listHerdrPanes(session));
+  ipcMain.handle(IPC.herdrTarget, (_event, input) => host.setHerdrTarget(input));
   ipcMain.handle(IPC.autonomyEnabled, (_event, input) => host.setAutonomyEnabled(input));
   ipcMain.handle(IPC.dreamingEnabled, (_event, input) => host.setDreamingEnabled(input));
   ipcMain.handle(IPC.runSkill, (_event, input) => host.current.runSkill(input));

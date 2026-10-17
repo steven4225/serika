@@ -475,7 +475,9 @@ export class TelegramGateway {
       if (!proposal || proposal.code !== begin[1] || proposal.expires <= this.now()) return reject("任务预览已过期或已使用，请重新发送任务目标。");
       task = true; goal = proposal.goal;
     } else if (/^(?:开始\s|\/)/.test(text)) return reject("未识别的控制指令，未提交给模型。发送 /help 查看用法。");
-    if (this.#activeKey || this.host.channelSnapshot().snapshot.state.kind !== "idle") return reject("助手正在处理其他消息，请稍后再发；本条未排队、未调用模型。");
+    if (this.#activeKey || this.host.channelSnapshot().snapshot.state.kind !== "idle") return reject(this.#ownedRunning()
+      ? "当前任务仍在执行。本条未排队、未调用模型。要纠正当前任务，请发送“调整：直接说明已有结果并结束”；要停止，请发送“停止”。"
+      : "助手正在处理其他消息，请稍后再发；本条未排队、未调用模型。当前执行不属于此 TG 对话，未改动它。");
     if (this.store.snapshot().inputs.some(x => x.state === "unknown")) return reject("此前 Telegram 执行效果待核对。请先回桌面检查；不会自动重做旧操作。");
     await this.store.update(data => { data.inputs.find(x => x.key === input.key)!.state = "reserved"; });
     this.#activeKey = input.key;
@@ -530,7 +532,9 @@ export class TelegramGateway {
     const label = uncertain ? "执行中断或效果未知，请回桌面核对；不会自动重做。"
       : run.status === "completed" ? source.taskId ? "结果仍需你在桌面验收。" : ""
       : run.status === "cancelled" ? "本轮已停止；已执行的操作不会撤回，操作结果请查看桌面回执。"
-      : "这次执行失败了；操作结果请查看桌面回执。";
+      : run.errorPreview?.startsWith("重复命令三次返回完全相同的成功结果")
+        ? "重复命令三次返回完全相同的成功结果，已停止本轮。已完成的 Shell 回执保留，不会自动重跑；请依据已有结果调整任务。"
+        : "这次执行失败了；操作结果请查看桌面回执。";
     const reminders = this.store.snapshot().inputs.find(x => x.key === source.key)?.reminderReceipts;
     const reply = reminders?.length ? reminders.map(x => run.tools.some(tool => tool.toolCallId === x.toolCallId && tool.status === "not_started")
       ? "这条提醒未保存（操作尚未开始）。" : x.text).join("\n") : text ?? run.resultTextPreview ?? "";

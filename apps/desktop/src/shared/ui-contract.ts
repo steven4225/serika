@@ -1,3 +1,5 @@
+import type { HerdrBinding } from "@aisdk-agent/example-cli/dist/local-terminal.js";
+export interface HerdrTargetInput { target: { session: string; paneId: string; terminalId: string } | null; expected: HerdrBinding | null }
 import type { MemoryLibraryAction, MemoryLibraryView, MemoryLibraryDocument } from "@aisdk-agent/example-cli/dist/memory-library.js";
 import type { MemoryImportEntry, MemoryImportConfirm, MemoryImportPreview, MemoryImportReceipt } from "@aisdk-agent/example-cli/dist/memory-import.js";
 import type { RecipeEntry, RecipeChange } from "@aisdk-agent/example-cli/dist/recipe-store.js";
@@ -84,6 +86,7 @@ export interface AppInfo {
   memoryLibrary?: true;
   attachments?: true;
   pomodoroControls?: true;
+  herdrBinding?: HerdrBinding;
   autonomy?: { enabled: boolean; workspaceRoot: string | null };
   recoveryWorkspace?: { originalWorkspace: string };
   runtimeRecovery?: { state: "failed"; message: string };
@@ -144,7 +147,7 @@ export interface UiSnapshot {
 
 export type MainToRenderer =
   | { type: "task-result-available" }
-  | { type: "identity-changed"; info: AppInfo; reason?: "modules" | "context"; configurationError?: string }
+  | { type: "identity-changed"; info: AppInfo; reason?: "modules" | "context" | "terminal"; configurationError?: string }
   | { type: "state"; state: UiState }
   | { type: "output"; text: string }
   | { type: "home"; text: string; reset?: boolean }
@@ -275,6 +278,9 @@ export interface RendererApi {
   dream(): ReturnType<AssistantController["dream"]>;
   changeLearnedSkill(input: Parameters<AssistantController["changeLearnedSkill"]>[0]): ReturnType<AssistantController["changeLearnedSkill"]>;
   getLearnedSkillReferences(): Promise<ReturnType<AssistantController["getLearnedSkillReferences"]>>;
+  listHerdrSessions?(): Promise<{ name: string; running: boolean }[]>;
+  listHerdrPanes?(session: string): Promise<{ paneId: string; terminalId: string; title: string }[]>;
+  setHerdrTarget?(input: HerdrTargetInput): Promise<void>;
   setAutonomyEnabled?(input: { enabled: boolean; expectedEnabled: boolean }): Promise<void>;
   setDreamingEnabled(input: { enabled: boolean; expectedEnabled: boolean }): Promise<void>;
   /** Success means a Run started, not that the Skill completed or its output is correct. */
@@ -384,6 +390,9 @@ export const IPC = {
   dream: "runloom:dream",
   learnedSkillChange: "runloom:learnedSkillChange",
   learnedSkillReferences: "runloom:learnedSkillReferences",
+  herdrSessions: "runloom:herdrSessions",
+  herdrPanes: "runloom:herdrPanes",
+  herdrTarget: "runloom:herdrTarget",
   autonomyEnabled: "runloom:autonomyEnabled",
   dreamingEnabled: "runloom:dreamingEnabled",
   runSkill: "runloom:runSkill",

@@ -183,6 +183,7 @@ it("opening settings stays on the gear and does not select the persona pill", as
   assert.notEqual(dashboardTabForDetail("settings"), "serika");
   assert.equal(settingsRouteForInitial(false), "home");
   assert.equal(settingsRouteForInitial("modules"), "advanced");
+  assert.equal(settingsRouteForInitial("terminal"), "files");
   assert.equal(settingsRouteForInitial("context"), "context");
   const app = await readFile(new URL("../App.tsx", import.meta.url), "utf8");
   const settings = await readFile(new URL("./settings.tsx", import.meta.url), "utf8");

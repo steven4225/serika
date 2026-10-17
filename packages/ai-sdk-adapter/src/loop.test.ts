@@ -169,6 +169,7 @@ describe("no-progress tool guard", () => {
   function fixture(options: {
     name?: string;
     names?: string[];
+    guardShell?: boolean;
     risk?: "read" | "write";
     idempotent?: boolean;
     inputs?: Record<string, unknown>[];
@@ -201,7 +202,8 @@ describe("no-progress tool guard", () => {
         return options.output?.(executions, name) ?? { ok: true, value: { text: "same", fetchedAt: `time-${executions}` } };
       } }),
     })));
-    const loop = new AiSdkAgentLoop({ models: new InMemoryModelRegistry({ test: model }), tools });
+    const loop = new AiSdkAgentLoop({ models: new InMemoryModelRegistry({ test: model }), tools,
+      repeatedShellGuard: () => options.guardShell === true });
     const run = () => loop.execute({ definition: { ...definition, tools: names, limits: { ...definition.limits, maxSteps: 8 } },
       messages: [userMessage()], signal: options.signal ?? new AbortController().signal,
       generateId: () => `guard-message-${++ids}`,
@@ -211,6 +213,103 @@ describe("no-progress tool guard", () => {
     });
     return { run, loop, events, prompts, counts: () => ({ modelCalls, executions }), resetModel: () => { modelCalls = 0; } };
   }
+
+  const shellSuccess = (output = "0.87.0\n") => ({ ok: true, exitCode: 0, termination: "exited", signal: null,
+    cancelled: false, timedOut: false, output, truncated: false });
+
+  it("opted-in non-idempotent Shell warns on the second identical success and asks for a tool-free final answer on the third", async () => {
+    const f = fixture({ name: "shell_exec", guardShell: true, risk: "write", idempotent: false,
+      inputs: [{ command: "pi --version" }, { command: "pi --version", cwd: "." }, { command: "pi --version" }], output: () => shellSuccess() });
+    assert.equal((await f.run()).text, "done");
+    assert.deepEqual(f.counts(), { executions: 3, modelCalls: 4 });
+    assert.match(JSON.stringify(f.prompts[2]), /SHELL_REPETITION/);
+    assert.match(JSON.stringify(f.prompts[3]), /SHELL_REPETITION_FINAL/);
+    assert.equal(f.events.filter(e => e.type === "tool.call.completed").length, 3);
+    assert.equal(f.events.filter(e => e.type === "tool.call.failed").length, 0);
+  });
+
+  it("stops without dispatch when the model still requests a tool after the final-answer step", async () => {
+    const f = fixture({ name: "shell_exec", guardShell: true, risk: "write", idempotent: false,
+      inputs: Array.from({ length: 5 }, () => ({ command: "pi --version" })), output: () => shellSuccess() });
+    await assert.rejects(f.run(), error => error instanceof AgentError && error.data.code === "RUN_LIMIT_EXCEEDED" && /重复命令/.test(error.data.message));
+    assert.deepEqual(f.counts(), { executions: 3, modelCalls: 4 });
+  });
+
+  it("detects exact command repetition across interleaved successful commands", async () => {
+    const commands = ["pi --version", "pi --help", "pi --version", "command -v pi", "pi --version"];
+    const f = fixture({ name: "shell_exec", guardShell: true, risk: "write", idempotent: false,
+      inputs: commands.map(command => ({ command })), output: (n: number) => shellSuccess(n === 2 ? "Usage: pi\n" : n === 4 ? "/usr/local/bin/pi\n" : "0.87.0\n") });
+    assert.equal((await f.run()).text, "done");
+    assert.equal(f.counts().executions, 5);
+    assert.match(JSON.stringify(f.prompts[5]), /SHELL_REPETITION_FINAL/);
+  });
+
+  it("does not stop independent commands or working directories that return identical status output", async () => {
+    for (const inputs of [
+      ["a", "b", "c", "d"].map(file => ({ command: `printf payload > ${file}.txt && echo Done` })),
+      ["a", "b", "c", "d"].map(cwd => ({ command: "npm test", cwd })),
+    ]) {
+      const f = fixture({ name: "shell_exec", guardShell: true, risk: "write", idempotent: false,
+        inputs, output: () => shellSuccess("Done\n") });
+      assert.equal((await f.run()).text, "done");
+      assert.equal(f.counts().executions, 4);
+      assert.doesNotMatch(JSON.stringify(f.prompts), /SHELL_REPETITION/);
+    }
+  });
+
+  it("Shell guard preserves opt-out, changing output, failures and fact-free empty output", async () => {
+    const inputs = Array.from({ length: 4 }, () => ({ command: "check" }));
+    for (const options of [
+      { guardShell: false, output: () => shellSuccess() },
+      { guardShell: true, output: (n: number) => shellSuccess(String(n)) },
+      { guardShell: true, output: () => ({ ...shellSuccess(), exitCode: 1 }) },
+    ]) {
+      const f = fixture({ name: "shell_exec", risk: "write", idempotent: false, inputs, ...options });
+      assert.equal((await f.run()).text, "done");
+      assert.equal(f.counts().executions, 4);
+      assert.doesNotMatch(JSON.stringify(f.prompts), /SHELL_REPETITION/);
+    }
+    const empty = fixture({ name: "shell_exec", guardShell: true, risk: "write", idempotent: false,
+      inputs: Array.from({ length: 4 }, (_, n) => ({ command: `test -f file-${n}` })), output: () => shellSuccess("") });
+    assert.equal((await empty.run()).text, "done");
+    assert.equal(empty.counts().executions, 4);
+    assert.doesNotMatch(JSON.stringify(empty.prompts), /SHELL_REPETITION/);
+  });
+
+  it("clipped identical Shell output still counts as the same observed fact", async () => {
+    const f = fixture({ name: "shell_exec", guardShell: true, risk: "write", idempotent: false,
+      inputs: Array.from({ length: 3 }, () => ({ command: "pi --help" })), output: () => ({ ...shellSuccess("Usage: pi ..."), truncated: true }) });
+    assert.equal((await f.run()).text, "done");
+    assert.match(JSON.stringify(f.prompts[3]), /SHELL_REPETITION_FINAL/);
+  });
+
+  it("Shell denial and intervening tools break repetition without retaining a warning", async () => {
+    const inputs = Array.from({ length: 5 }, () => ({ command: "check" }));
+    let approvals = 0;
+    const denied = fixture({ name: "shell_exec", guardShell: true, risk: "write", idempotent: false, inputs,
+      output: () => shellSuccess(), beforeToolExecute: () => ++approvals === 3 ? { allow: false, reason: "user denied" } : { allow: true } });
+    assert.equal((await denied.run()).text, "done");
+    assert.equal(approvals, 5);
+    assert.equal(denied.counts().executions, 4);
+    assert.doesNotMatch(JSON.stringify(denied.prompts[3]), /SHELL_REPETITION/);
+    const intervened = fixture({ names: ["shell_exec", "shell_exec", "write_file", "shell_exec", "shell_exec"],
+      guardShell: true, risk: "write", idempotent: false, inputs, output: () => shellSuccess() });
+    assert.equal((await intervened.run()).text, "done");
+    assert.doesNotMatch(JSON.stringify(intervened.prompts[3]), /SHELL_REPETITION/);
+  });
+
+  it("Shell repetition state is isolated per Run and unknown effects stop without replay", async () => {
+    const f = fixture({ name: "shell_exec", guardShell: true, risk: "write", idempotent: false,
+      inputs: [{ command: "check" }, { command: "check" }], output: () => shellSuccess() });
+    assert.equal((await f.run()).text, "done");
+    f.resetModel();
+    assert.equal((await f.run()).text, "done");
+    assert.equal(f.counts().executions, 4);
+    const unknown = fixture({ name: "shell_exec", guardShell: true, risk: "write", idempotent: false,
+      inputs: [{ command: "check" }], output: () => { throw new Error("connection lost"); } });
+    await assert.rejects(unknown.run(), error => error instanceof AgentError && error.data.code === "TOOL_OUTCOME_UNKNOWN");
+    assert.equal(unknown.counts().executions, 1);
+  });
 
   it("ABAB timestamp-only reads warn on the second cycle and stop on the third cycle", async () => {
     const names = ["web_fetch", "read_file", "web_fetch", "read_file", "web_fetch", "read_file"];

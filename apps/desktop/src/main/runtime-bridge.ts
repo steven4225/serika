@@ -296,6 +296,7 @@ export class RuntimeBridge {
         id,
         enabled: this.#app.moduleConfig?.enabled[id] === true,
       })),
+      ...(this.#app.herdrBinding ? { herdrBinding: this.#app.herdrBinding } : {}),
       autonomy: { enabled: this.#app.desktopAutonomyEnabled === true, workspaceRoot: this.#app.workspaceRoot ?? null },
       configPath: this.#app.moduleConfig?.configPath ?? null,
       moduleOptions: {

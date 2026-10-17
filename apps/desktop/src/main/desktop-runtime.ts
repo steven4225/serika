@@ -1,3 +1,5 @@
+import { HerdrTargets } from "./herdr-target.js";
+import type { HerdrTargetInput } from "../shared/ui-contract.js";
 import type { LanguageModel } from "ai";
 import { createRuntimeApp, type TaskAutomationHost } from "@aisdk-agent/example-cli/dist/app.js";
 import { createAssistantController } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
@@ -153,6 +155,7 @@ export class DesktopRuntime {
       pomodoroService: this.#pomodoroService,
       allowWorkspaceTaskReads: true,
       allowDesktopAutonomy: true,
+      allowLocalTerminalControl: true,
       authorizeTelegramAutonomy: grant => this.#telegram?.matchesAutonomyGrant(grant) === true,
       beforePrimaryRunCreate: record => this.#sourceBarrier?.(record) ?? Promise.resolve(),
       afterTaskArrangementSaved: saved => this.#telegram?.arrangementSaved(saved) ?? Promise.resolve(),
@@ -230,7 +233,7 @@ export class DesktopRuntime {
     } finally { this.#changing = false; }
   }
 
-  async #replace(select: () => Promise<DesktopIdentityResolution>, reuseUnchanged = false, settings?: { rollback: () => Promise<void>; reason?: "modules" | "context" }, activate?: () => Promise<void>): Promise<void> {
+  async #replace(select: () => Promise<DesktopIdentityResolution>, reuseUnchanged = false, settings?: { rollback: () => Promise<void>; reason?: "modules" | "context" | "terminal" }, activate?: () => Promise<void>): Promise<void> {
     this.#assertIdle();
     this.#changing = true;
     this.#options.send({ type: "state", state: { kind: "command", name: "thread-switch" } });
@@ -322,6 +325,15 @@ export class DesktopRuntime {
     }, false, { rollback: async () => { await undo?.(); } });
     // Unrelated adapter disposal and failed/rolled-back changes never cancel.
     if (input.id === "pomodoro" && !input.enabled) this.#pomodoroService.cancel();
+  }
+  listHerdrSessions() { this.current; return new HerdrTargets(this.#options.env, this.#options.cwd, this.#identity.workspaceRoot).sessions(); }
+  listHerdrPanes(session: string) { this.current; return new HerdrTargets(this.#options.env, this.#options.cwd, this.#identity.workspaceRoot).panes(session); }
+  setHerdrTarget(input: HerdrTargetInput) {
+    let undo: (() => Promise<void>) | undefined;
+    return this.#replace(async () => {
+      undo = await new HerdrTargets(this.#options.env, this.#options.cwd, this.#identity.workspaceRoot).bind(this.#identity.configPath, this.#options.cwd, this.#identity.workspaceRoot, input);
+      return this.#identity;
+    }, false, { rollback: async () => { await undo?.(); }, reason: "terminal" });
   }
   setAutonomyEnabled(input: AutonomySettingInput) {
     let undo: (() => Promise<void>) | undefined;
