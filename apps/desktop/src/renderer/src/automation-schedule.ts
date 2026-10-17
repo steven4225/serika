@@ -1,6 +1,6 @@
-import type { SkillSummary } from "@aisdk-agent/example-cli/dist/automation-execution.js";
-import type { ScheduleSkillInput } from "@aisdk-agent/example-cli/dist/automation-scheduling.js";
-import type { TaskArrangement } from "@aisdk-agent/example-cli/dist/task-store.js";
+import type { SkillSummary } from "@serika/example-cli/dist/automation-execution.js";
+import type { ScheduleSkillInput } from "@serika/example-cli/dist/automation-scheduling.js";
+import type { TaskArrangement } from "@serika/example-cli/dist/task-store.js";
 import { humanFacingTitle } from "../../shared/human-title.js";
 
 export function automationArrangementLabel(arrangement?: TaskArrangement): string {

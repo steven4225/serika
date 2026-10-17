@@ -1,5 +1,5 @@
-import { formatOnceWhen, reminderWhen, type ReminderSpeechClock } from "@aisdk-agent/example-cli/dist/reminder-speech.js";
-import type { Recurrence } from "@aisdk-agent/example-cli/dist/recurrence.js";
+import { formatOnceWhen, reminderWhen, type ReminderSpeechClock } from "@serika/example-cli/dist/reminder-speech.js";
+import type { Recurrence } from "@serika/example-cli/dist/recurrence.js";
 import type { PendingApproval } from "../../shared/ui-contract.js";
 import type { ConversationRow, ToolRow } from "./conversation.js";
 

@@ -43,7 +43,7 @@
 
 ```sh
 pnpm build:runtime
-pnpm --filter @aisdk-agent/desktop exec tsx --test --test-name-pattern='opens restored history and memory|backup only registered assistant data|refuses a busy writer|rejects invalid' src/main/backup.test.ts src/main/runtime-ownership.test.ts
+pnpm --filter @serika/desktop exec tsx --test --test-name-pattern='opens restored history and memory|backup only registered assistant data|refuses a busy writer|rejects invalid' src/main/backup.test.ts src/main/runtime-ownership.test.ts
 ```
 
 检查内容：备份→预览→恢复副本→真实 Controller 打开旧对话和记忆→显式提问→关闭重开→返回原工作区；并检查旧排期无法 claim、模型／服务没有因恢复自动调用，以及坏内容在预览前拒绝。模型、服务状态边界使用替身，文件／flock／Controller 是真的；该验收不证明日用 Electron 点击或真实模型回答。

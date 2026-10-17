@@ -7,7 +7,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { test } from "node:test";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
-import { JsonlAgentStore } from "@aisdk-agent/core";
+import { JsonlAgentStore } from "@serika/core";
 import { createRuntimeApp } from "./app.js";
 import { createAssistantController, type AssistantController } from "./assistant-controller.js";
 import type { HookRule } from "./automation-hooks.js";

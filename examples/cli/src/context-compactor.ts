@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { sumTokenUsage } from "@aisdk-agent/ai-sdk-adapter";
+import { sumTokenUsage } from "@serika/ai-sdk-adapter";
 import type { UIMessage } from "ai";
 import {
   AgentError,
@@ -7,7 +7,7 @@ import {
   type MessageStore,
   type ThreadContextCompactionRecord,
   type TokenUsage,
-} from "@aisdk-agent/core";
+} from "@serika/core";
 import {
   compactPrefixHash,
   contextSummaryPrompt,

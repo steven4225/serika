@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { it } from "node:test";
-import { JsonlAgentStore } from "@aisdk-agent/core";
+import { JsonlAgentStore } from "@serika/core";
 import { MockLanguageModelV3 } from "ai/test";
 import { createMemoryStore } from "./memory-store.js";
 import { createTaskStore } from "./task-store.js";

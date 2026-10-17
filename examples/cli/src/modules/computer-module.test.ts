@@ -5,8 +5,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
-import { AgentError } from "@aisdk-agent/core";
-import { AiSdkAgentLoop, InMemoryModelRegistry, ToolRegistry } from "@aisdk-agent/ai-sdk-adapter";
+import { AgentError } from "@serika/core";
+import { AiSdkAgentLoop, InMemoryModelRegistry, ToolRegistry } from "@serika/ai-sdk-adapter";
 import { createModuleHost } from "../module-host.js";
 import { computerConfigSchema, createComputerModule, createDriverCall, type DriverCall } from "./computer-module.js";
 

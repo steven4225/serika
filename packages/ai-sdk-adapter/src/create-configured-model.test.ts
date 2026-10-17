@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { streamText } from "ai";
-import { AgentError } from "@aisdk-agent/core";
+import { AgentError } from "@serika/core";
 import {
   createConfiguredModel,
   type ModelConnectionConfig,

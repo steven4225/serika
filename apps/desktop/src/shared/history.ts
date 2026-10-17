@@ -1,5 +1,5 @@
 import type { UIMessage } from "ai";
-import type { MemoryFactReceipt } from "@aisdk-agent/example-cli/dist/memory-factual-receipts.js";
+import type { MemoryFactReceipt } from "@serika/example-cli/dist/memory-factual-receipts.js";
 export interface HistoryPageInput { beforeId?: string; limit?: number }
 export interface HistoryPage { threadId: string; messages: UIMessage[]; beforeId: string | null; memoryReceipts?: MemoryFactReceipt[]; memoryReceiptError?: string }
 

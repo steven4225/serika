@@ -2,7 +2,7 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App.js";
-import { contextBudgetForMode } from "@aisdk-agent/example-cli/dist/context-budget.js";
+import { contextBudgetForMode } from "@serika/example-cli/dist/context-budget.js";
 import type { AppInfo, MainToRenderer, RendererApi, RssWorkerResponse, UiSnapshot } from "../../shared/ui-contract.js";
 import type { WorkTask } from "../../shared/work-tasks.js";
 import "./styles.css";
@@ -63,7 +63,7 @@ function waveTask(id: string, status: WorkTask["status"], goal: string, days: nu
 function briefTasks(): WorkTask[] {
   if (taskFixture) return [
     waveTask("task_hidden_wake", "awaiting_acceptance", "起床提醒", 1, 10, 53),
-    waveTask("task_hidden_research", "paused", "三线关联分析：agent-memory-map × Runloom PR #113 × pi-learn", 3, 16, 5),
+    waveTask("task_hidden_research", "paused", "三线关联分析：agent-memory-map × Serika PR #113 × pi-learn", 3, 16, 5),
   ];
   if (briefMode === "empty" || briefMode === "degraded") return [];
   return [

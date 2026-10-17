@@ -1,6 +1,6 @@
 import { streamText, type LanguageModel, type UIMessage } from "ai";
-import { durable, type TokenUsage } from "@aisdk-agent/core";
-import { normalizeTokenUsage } from "@aisdk-agent/ai-sdk-adapter";
+import { durable, type TokenUsage } from "@serika/core";
+import { normalizeTokenUsage } from "@serika/ai-sdk-adapter";
 
 export const CONTEXT_SUMMARY_VERSION = 2 as const;
 export const CONTEXT_SUMMARY_STRATEGY_VERSION = "summary-json/v2" as const;

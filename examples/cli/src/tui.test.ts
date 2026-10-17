@@ -14,17 +14,17 @@ import type {
   RunHandle,
   RunRequest,
   RunResult,
-} from "@aisdk-agent/core";
+} from "@serika/core";
 import {
   DefaultAgentRuntime,
   InMemoryAgentCatalog,
   InMemoryAgentStore,
-} from "@aisdk-agent/core";
+} from "@serika/core";
 import {
   AiSdkAgentLoop,
   InMemoryModelRegistry,
   ToolRegistry,
-} from "@aisdk-agent/ai-sdk-adapter";
+} from "@serika/ai-sdk-adapter";
 import { createDemoModel } from "./demo-model.js";
 import {
   CHECKPOINT_FILE_NAME,
@@ -653,7 +653,7 @@ async function createWriteFileConfirmationRuntime(options: {
 
 const checkpointTestDraft: CheckpointDraft = {
   status: "active",
-  goal: "Continue Runloom",
+  goal: "Continue Serika",
   summary: "The checkpoint has a concise verified progress snapshot.",
   completed: ["Freeze M5 contract"],
   inProgress: ["Implement TUI integration"],

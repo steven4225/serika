@@ -5,8 +5,8 @@ import type {
   ContextCompactionStore,
   MessageStore,
   ThreadContextCompactionRecord,
-} from "@aisdk-agent/core";
-import { AgentError } from "@aisdk-agent/core";
+} from "@serika/core";
+import { AgentError } from "@serika/core";
 import { ContextCompactor, readContextDiagnostics, reconcilePublishedSummary, summarySourceChunks, type ContextCompactorOptions } from "./context-compactor.js";
 import { compactPrefixHash, contextSummaryPrompt, type ContextCompactionRecord, type ContextSummaryV2, type Summarizer } from "./context-compaction.js";
 import { contextBudgetForMode, contextBudgetThresholds, estimateContextBudget, estimateMessageTokens, type ContextBudgetConfig } from "./context-budget.js";
@@ -684,7 +684,7 @@ describe("ContextCompactor", () => {
       id: "checkpoint-1",
       version: 1,
       status: "active",
-      goal: "Continue Runloom",
+      goal: "Continue Serika",
       summary: "Compaction counts this prefix.",
       completed: [],
       inProgress: [],

@@ -6,10 +6,10 @@ import { setTimeout as delay } from "node:timers/promises";
 import { describe, it } from "node:test";
 import { simulateReadableStream, type LanguageModel } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
-import { createRuntimeApp } from "@aisdk-agent/example-cli/dist/app.js";
-import { createAssistantController } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
-import { createDemoModel } from "@aisdk-agent/example-cli/dist/demo-model.js";
-import type { CandidateDraft } from "@aisdk-agent/example-cli/dist/memory-candidates.js";
+import { createRuntimeApp } from "@serika/example-cli/dist/app.js";
+import { createAssistantController } from "@serika/example-cli/dist/assistant-controller.js";
+import { createDemoModel } from "@serika/example-cli/dist/demo-model.js";
+import type { CandidateDraft } from "@serika/example-cli/dist/memory-candidates.js";
 import type { MainToRenderer } from "../shared/ui-contract.js";
 import { RuntimeBridge, TeeOutput } from "./runtime-bridge.js";
 

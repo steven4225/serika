@@ -1,5 +1,5 @@
 import { defaultSettingsMiddleware, wrapLanguageModel, type LanguageModel } from "ai";
-import { createConfiguredModel } from "@aisdk-agent/ai-sdk-adapter";
+import { createConfiguredModel } from "@serika/ai-sdk-adapter";
 import { UNKNOWN_MODEL_CONTEXT_WINDOW_TOKENS, type ModelCapacityEvidence, type ModelContextWindow } from "./context-budget.js";
 
 /** Capacity is operator-declared and exact-model-bound; aliases never imply a window. */

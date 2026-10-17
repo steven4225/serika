@@ -8,7 +8,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { it } from "node:test";
 import { simulateReadableStream, type UIMessage } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
-import { JsonlAgentStore, type ThreadContextCompactionRecord } from "@aisdk-agent/core";
+import { JsonlAgentStore, type ThreadContextCompactionRecord } from "@serika/core";
 import { acquireFlock } from "./flock.js";
 import { createRuntimeApp } from "./app.js";
 import { AUTO_CONSOLIDATION_AGENT_ID } from "./consolidation.js";

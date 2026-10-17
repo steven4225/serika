@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import type { RunHandle, RunResult } from "@aisdk-agent/core";
+import type { RunHandle, RunResult } from "@serika/core";
 import type { UIMessage } from "ai";
 import { PRIMARY_AGENT_ID, type RuntimeApp } from "./app.js";
 import { createAssistantController } from "./assistant-controller.js";

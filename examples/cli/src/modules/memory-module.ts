@@ -1,7 +1,7 @@
 import { tool, type UIMessage } from "ai";
 import { z } from "zod";
-import { AgentError } from "@aisdk-agent/core";
-import type { RegisteredTool } from "@aisdk-agent/ai-sdk-adapter";
+import { AgentError } from "@serika/core";
+import type { RegisteredTool } from "@serika/ai-sdk-adapter";
 import type { AgentModule } from "../module-host.js";
 import type { MemoryConsolidation } from "../memory-consolidation.js";
 import { validateFactIdentity } from "../memory-fact-identity.js";

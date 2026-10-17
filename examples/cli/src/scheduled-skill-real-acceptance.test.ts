@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { setTimeout as delay } from "node:timers/promises";
 import { test } from "node:test";
-import { JsonlAgentStore } from "@aisdk-agent/core";
+import { JsonlAgentStore } from "@serika/core";
 import { createRuntimeApp } from "./app.js";
 import { createAssistantController } from "./assistant-controller.js";
 import { configureCliModel, inspectCliModelConfig } from "./model-config.js";

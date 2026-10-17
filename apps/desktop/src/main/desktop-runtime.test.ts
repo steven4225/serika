@@ -8,7 +8,7 @@ import { describe, it, mock } from "node:test";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { DesktopRuntime } from "./desktop-runtime.js";
-import { ExecutionRecordStore } from "@aisdk-agent/example-cli/dist/execution-record-store.js";
+import { ExecutionRecordStore } from "@serika/example-cli/dist/execution-record-store.js";
 import { discoverThreadDirectory } from "./thread-history.js";
 import type { MainToRenderer } from "../shared/ui-contract.js";
 

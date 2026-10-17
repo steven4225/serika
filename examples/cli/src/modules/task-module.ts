@@ -1,7 +1,7 @@
 import { tool } from "ai";
 import { toolCommitResult } from "../commit-outcome.js";
 import { z } from "zod";
-import type { RegisteredTool } from "@aisdk-agent/ai-sdk-adapter";
+import type { RegisteredTool } from "@serika/ai-sdk-adapter";
 import type { AgentModule } from "../module-host.js";
 import type {
   CreateTaskInput,

@@ -1,5 +1,5 @@
 import React from "react";
-import { estimatedModelCost, MODEL_PURPOSE_LABELS, type ModelCallRecord, type ModelUsagePage, type ModelPurpose } from "@aisdk-agent/example-cli/dist/model-usage.js";
+import { estimatedModelCost, MODEL_PURPOSE_LABELS, type ModelCallRecord, type ModelUsagePage, type ModelPurpose } from "@serika/example-cli/dist/model-usage.js";
 import { formatRecordTime } from "../../shared/execution-records.js";
 
 const token = (value: number | undefined) => value === undefined ? "未知" : value.toLocaleString("zh-CN");

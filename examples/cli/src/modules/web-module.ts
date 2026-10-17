@@ -1,5 +1,5 @@
 import { tool } from "ai";
-import type { RegisteredTool } from "@aisdk-agent/ai-sdk-adapter";
+import type { RegisteredTool } from "@serika/ai-sdk-adapter";
 import type { AgentModule } from "../module-host.js";
 import {
   WEB_FETCH_TIMEOUT_MS,

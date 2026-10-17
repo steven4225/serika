@@ -5,14 +5,14 @@ import { PassThrough } from 'node:stream';
 import { setTimeout as delay } from 'node:timers/promises';
 import { MockLanguageModelV3 } from 'ai/test';
 import { simulateReadableStream } from 'ai';
-import { JsonlAgentStore } from '@aisdk-agent/core';
-import { createRuntimeApp } from '@aisdk-agent/example-cli/dist/app.js';
-import { createAssistantController } from '@aisdk-agent/example-cli/dist/assistant-controller.js';
-import { createDemoModel } from '@aisdk-agent/example-cli/dist/demo-model.js';
-import { configureCliModel, inspectCliModelConfig } from '@aisdk-agent/example-cli/dist/model-config.js';
-import { ContextCompactor } from '@aisdk-agent/example-cli/dist/context-compactor.js';
+import { JsonlAgentStore } from '@serika/core';
+import { createRuntimeApp } from '@serika/example-cli/dist/app.js';
+import { createAssistantController } from '@serika/example-cli/dist/assistant-controller.js';
+import { createDemoModel } from '@serika/example-cli/dist/demo-model.js';
+import { configureCliModel, inspectCliModelConfig } from '@serika/example-cli/dist/model-config.js';
+import { ContextCompactor } from '@serika/example-cli/dist/context-compactor.js';
 import { runE2E } from './e2e.mjs';
-import { consolidationPrefixHash } from '@aisdk-agent/example-cli/dist/memory-consolidation.js';
+import { consolidationPrefixHash } from '@serika/example-cli/dist/memory-consolidation.js';
 
 /** Only an explicit offline deferred-fault case may inspect an unfinished receipt. */
 export function expectedDeferredCoverage(vars, mode, consolidation, receipt, cursor, messages) {

@@ -9,9 +9,9 @@ import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { createRuntimeApp } from "@aisdk-agent/example-cli/dist/app.js";
-import { createAssistantController } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
-import { createTaskStore, TASK_FILE_NAME } from "@aisdk-agent/example-cli/dist/task-store.js";
+import { createRuntimeApp } from "@serika/example-cli/dist/app.js";
+import { createAssistantController } from "@serika/example-cli/dist/assistant-controller.js";
+import { createTaskStore, TASK_FILE_NAME } from "@serika/example-cli/dist/task-store.js";
 import { ApprovalCard } from "./approval.js";
 
 const usage = {

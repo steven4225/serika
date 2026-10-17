@@ -5,12 +5,12 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { AppInfo } from "../../../shared/ui-contract.js";
 import type { WorkTask } from "../../../shared/work-tasks.js";
-import type { TaskListV3 } from "@aisdk-agent/example-cli/dist/task-store.js";
+import type { TaskListV3 } from "@serika/example-cli/dist/task-store.js";
 import { TodayPanel, type TodayPanelProps } from "./today.js";
 import { buildTodayBrief, inboxNotificationNote, nextBriefSlot, visibleBriefCards, type BriefContinueTarget, type TodayBriefFeeds, type TodayFeedInbox } from "./today-brief.js";
 import { briefContinueTarget, planBriefContinue, readBriefContinue, writeBriefContinue, clearBriefContinue } from "./today-continue.js";
 import { projectInboxFeeds, projectReminderFeeds } from "./today-feeds.js";
-import type { AutomationOverview } from "@aisdk-agent/example-cli/dist/automation-scheduling.js";
+import type { AutomationOverview } from "@serika/example-cli/dist/automation-scheduling.js";
 
 const info = { threadId: "thread_abc12345", workTasks: true, memory: { enabled: true, autoConsolidate: true }, workspaceRoot: "/workspace" } as AppInfo;
 const now = new Date("2026-10-08T01:00:00Z");

@@ -1,5 +1,5 @@
 import type { LanguageModel, ToolSet } from "ai";
-import { AgentError } from "@aisdk-agent/core";
+import { AgentError } from "@serika/core";
 
 export interface ModelRegistry {
   resolve(modelId: string): LanguageModel;

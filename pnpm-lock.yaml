@@ -13,10 +13,10 @@ importers:
         version: 7.0.2
   apps/desktop:
     dependencies:
-      "@aisdk-agent/core":
+      "@serika/core":
         specifier: workspace:*
         version: link:../../packages/core
-      "@aisdk-agent/example-cli":
+      "@serika/example-cli":
         specifier: workspace:*
         version: link:../../examples/cli
       "@radix-ui/react-slot":
@@ -94,10 +94,10 @@ importers:
         version: 7.3.6(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15)(yaml@2.9.0)
   examples/cli:
     dependencies:
-      "@aisdk-agent/ai-sdk-adapter":
+      "@serika/ai-sdk-adapter":
         specifier: workspace:*
         version: link:../../packages/ai-sdk-adapter
-      "@aisdk-agent/core":
+      "@serika/core":
         specifier: workspace:*
         version: link:../../packages/core
       ai:
@@ -111,10 +111,10 @@ importers:
         version: 4.4.3
   examples/eval:
     dependencies:
-      "@aisdk-agent/core":
+      "@serika/core":
         specifier: workspace:*
         version: link:../../packages/core
-      "@aisdk-agent/example-cli":
+      "@serika/example-cli":
         specifier: workspace:*
         version: link:../cli
       ai:
@@ -129,7 +129,7 @@ importers:
       "@ai-sdk/openai-compatible":
         specifier: 3.0.37
         version: 3.0.37(zod@4.4.3)
-      "@aisdk-agent/core":
+      "@serika/core":
         specifier: workspace:*
         version: link:../core
       ai:
@@ -151,7 +151,7 @@ importers:
         version: 4.4.3
   packages/postgres:
     dependencies:
-      "@aisdk-agent/core":
+      "@serika/core":
         specifier: workspace:*
         version: link:../core
       kysely:

@@ -1,5 +1,5 @@
-import { estimatedModelCost } from '@aisdk-agent/example-cli/dist/model-usage.js';
-import { availableInputTokens } from '@aisdk-agent/example-cli/dist/context-budget.js';
+import { estimatedModelCost } from '@serika/example-cli/dist/model-usage.js';
+import { availableInputTokens } from '@serika/example-cli/dist/context-budget.js';
 import { isCompactionFidelity } from './compaction-fidelity.mjs';
 
 /** Fixture authority is exact and never delegated to model text or a previous Run. */

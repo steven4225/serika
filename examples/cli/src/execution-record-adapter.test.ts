@@ -3,7 +3,7 @@ import { mkdtemp, open, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import { InMemoryAgentStore, type AgentEvent, type RunRecord } from "@aisdk-agent/core";
+import { InMemoryAgentStore, type AgentEvent, type RunRecord } from "@serika/core";
 import { createExecutionRecordAdapter } from "./execution-record-adapter.js";
 import { createExecutionRecordStore, EXECUTION_RECORD_FILE } from "./execution-record-store.js";
 import { createWorkTaskStore } from "./work-task-store.js";

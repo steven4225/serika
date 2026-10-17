@@ -1,4 +1,4 @@
-import type { BeforeRunFinish, BeforeRunFinishInput, RunFinishDecision } from "@aisdk-agent/core";
+import type { BeforeRunFinish, BeforeRunFinishInput, RunFinishDecision } from "@serika/core";
 import type { WorkTaskStore } from "./work-task-store.js";
 import { verifyAutomaticCriterion, type VerificationEnvironment } from "./work-task-verification.js";
 import { workTaskTestBatch } from "./work-task-shell-evidence.js";

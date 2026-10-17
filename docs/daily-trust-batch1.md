@@ -37,13 +37,13 @@ pnpm build:runtime
 node --test --test-name-pattern='undated conflict|approval preview guard|approval replacement race' \
   examples/cli/dist/memory-correctness.test.js examples/cli/dist/tui.test.js
 
-pnpm --filter @aisdk-agent/desktop exec tsx --test \
+pnpm --filter @serika/desktop exec tsx --test \
   src/renderer/src/approval.test.ts src/shared/memory-review.test.ts \
   src/main/runtime-bridge.test.ts src/renderer/src/memory-consolidation.test.ts
 
 pnpm typecheck
 pnpm test
-pnpm --filter @aisdk-agent/desktop build
+pnpm --filter @serika/desktop build
 git diff --check
 ```
 

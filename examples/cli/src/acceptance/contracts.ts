@@ -1,4 +1,4 @@
-import type { TokenUsage } from "@aisdk-agent/core";
+import type { TokenUsage } from "@serika/core";
 
 /** Acceptance-only records. They are never part of a Run or transcript. */
 export type CheckStatus = "passed" | "failed" | "blocked" | "not_run";

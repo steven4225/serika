@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import type { TaskRecordV4 } from "@aisdk-agent/example-cli/dist/task-store.js";
-import { taskNotificationCopy } from "@aisdk-agent/example-cli/dist/task-notification-copy.js";
+import type { TaskRecordV4 } from "@serika/example-cli/dist/task-store.js";
+import { taskNotificationCopy } from "@serika/example-cli/dist/task-notification-copy.js";
 import { createSavedTaskNoticeReader, createTaskNoticeDismissals } from "../../shared/saved-task-result.js";
 import { taskResultPresentation } from "./task-inbox.js";
 import { NotificationSettingsButton } from "./notification-settings-button.js";

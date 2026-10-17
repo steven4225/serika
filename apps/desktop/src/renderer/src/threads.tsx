@@ -59,7 +59,7 @@ export function ThreadsPanel({ info, busy, onSelect, onCreate, onChanged, drafts
         <button className="ghost" disabled={working || busy} onClick={() => void act(async () => { const path = await window.runloom.chooseHistoryDirectory(); if (path) { setDirectory(path); setDiscovered([]); setSearched(false); setConfirmed(false); } })}>选择目录</button>
         <button disabled={working || busy || !directory} onClick={() => void act(async () => { setSearched(false); setDiscovered([]); setConfirmed(false); setDiscovered(await window.runloom.discoverThreads(directory)); setSearched(true); })}>查看旧对话</button>
       </div>
-      {searched && discovered.length === 0 ? <p role="status" className="hint">这个目录没有可识别的 Runloom 对话，请核对是否选择了 transcript 目录。没有导入或移动任何文件。</p> : null}
+      {searched && discovered.length === 0 ? <p role="status" className="hint">这个目录没有可识别的 Serika 对话，请核对是否选择了 transcript 目录。没有导入或移动任何文件。</p> : null}
       {discovered.length ? <label className="history-confirm"><input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} />我确认所选旧对话属于当前工作区，允许在这里继续使用</label> : null}
       {discovered.map(thread => <div className="thread-item" key={thread.threadId}><div><strong>{humanFacingTitle(thread.title, "旧对话")}</strong><p className="hint">{thread.messageCount ?? "未知"} 条消息</p><details className="technical-id"><summary>编号</summary><code>{thread.threadId}</code></details>{thread.error ? <p className="error">{thread.error}</p> : null}</div>
         <button disabled={!confirmed || working || busy || !!thread.error} onClick={() => void act(() => window.runloom.registerThread({ threadId: thread.threadId, transcriptDirectory: thread.transcriptDirectory, confirmedWorkspace: true }))}>登记对话</button></div>)}

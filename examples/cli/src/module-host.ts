@@ -1,4 +1,4 @@
-import type { RegisteredTool } from "@aisdk-agent/ai-sdk-adapter";
+import type { RegisteredTool } from "@serika/ai-sdk-adapter";
 
 export type Dispose = () => void;
 

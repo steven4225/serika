@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { constants } from "node:fs";
 import { lstat, open, realpath } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
-import type { AgentDefinition, AgentLimits } from "@aisdk-agent/core";
+import type { AgentDefinition, AgentLimits } from "@serika/core";
 import { z } from "zod";
 
 export type SkillKind = "text" | "memory-consolidate";

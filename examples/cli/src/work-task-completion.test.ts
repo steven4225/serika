@@ -16,7 +16,7 @@ import { createWorkTaskFinishCheck } from "./work-task-completion.js";
 import { verifyAutomaticCriterion } from "./work-task-verification.js";
 import { workTaskTestBatch } from "./work-task-shell-evidence.js";
 import { createWorkTaskStore } from "./work-task-store.js";
-import type { BeforeRunFinishInput } from "@aisdk-agent/core";
+import type { BeforeRunFinishInput } from "@serika/core";
 
 it("corrects missing multiple tests in the same Run using one confirmed batch and persists both checks", { timeout: 20_000 }, async () => {
   const root = await mkdtemp(join(tmpdir(), "runloom-finish-batch-"));

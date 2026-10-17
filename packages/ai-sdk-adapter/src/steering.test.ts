@@ -3,7 +3,7 @@ import { it } from "node:test";
 import { simulateReadableStream, tool, convertToModelMessages } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { z } from "zod";
-import { DefaultAgentRuntime, InMemoryAgentCatalog, InMemoryAgentStore, type AgentEvent, type BeforeToolExecute, type BeforeRunFinish } from "@aisdk-agent/core";
+import { DefaultAgentRuntime, InMemoryAgentCatalog, InMemoryAgentStore, type AgentEvent, type BeforeToolExecute, type BeforeRunFinish } from "@serika/core";
 import { AiSdkAgentLoop } from "./loop.js";
 import { InMemoryModelRegistry, ToolRegistry } from "./registries.js";
 

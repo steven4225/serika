@@ -14,7 +14,7 @@ async function repository(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "runloom-git-reality-"));
   git(root, "init", "--quiet", "--initial-branch=main");
   git(root, "config", "user.email", "test@example.invalid");
-  git(root, "config", "user.name", "Runloom Test");
+  git(root, "config", "user.name", "Serika Test");
   await writeFile(join(root, "note.txt"), "initial\n");
   git(root, "add", "note.txt");
   git(root, "commit", "--quiet", "-m", "initial");
@@ -54,7 +54,7 @@ describe("Git reality inspection", () => {
     }
   });
 
-  it("ignores only untracked Runloom checkpoint bookkeeping, not tracked changes", async () => {
+  it("ignores only untracked Serika checkpoint bookkeeping, not tracked changes", async () => {
     const root = await repository();
     try {
       await mkdir(join(root, ".runloom"));

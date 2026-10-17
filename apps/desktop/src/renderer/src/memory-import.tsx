@@ -1,6 +1,6 @@
 import { EntryCardContent } from "./personal/entry-card.js";
 import { useRef, useState } from "react";
-import type { MemoryImportEntry, MemoryImportPreview, MemoryImportReceipt } from "@aisdk-agent/example-cli/dist/memory-import.js";
+import type { MemoryImportEntry, MemoryImportPreview, MemoryImportReceipt } from "@serika/example-cli/dist/memory-import.js";
 import { submitCreation } from "./creation-operation.js";
 
 const bytes = (text: string) => new TextEncoder().encode(text).length;

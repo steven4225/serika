@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { it } from "node:test";
 import { asSchema, tool } from "ai";
 import { z } from "zod";
-import { ToolRegistry } from "@aisdk-agent/ai-sdk-adapter";
+import { ToolRegistry } from "@serika/ai-sdk-adapter";
 import { estimateContextBudget, estimateSerializedTokens, DEFAULT_CONTEXT_BUDGET_CONFIG } from "./context-budget.js";
 import { modelToolContext } from "./model-tool-context.js";
 

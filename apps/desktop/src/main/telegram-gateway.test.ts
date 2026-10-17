@@ -10,8 +10,8 @@ import { ResidentClient, createResidentPaths, startResidentServer } from "./resi
 import { TelegramGateway } from "./telegram-gateway.js";
 import { TelegramStore } from "./telegram-store.js";
 import { TelegramApiError, createTelegramApi, type TelegramApi, type TelegramUpdate } from "./telegram-api.js";
-import { createTaskStore, TASK_FILE_NAME, RSS_DIGEST_TASK_PROMPT } from "@aisdk-agent/example-cli/dist/task-store.js";
-import { formatLocalTaskTime } from "@aisdk-agent/example-cli/dist/task-instructions.js";
+import { createTaskStore, TASK_FILE_NAME, RSS_DIGEST_TASK_PROMPT } from "@serika/example-cli/dist/task-store.js";
+import { formatLocalTaskTime } from "@serika/example-cli/dist/task-instructions.js";
 
 function response(tool?: { name: string; input: unknown }, text = "已完成请求。", callId = "call-1") {
   return { stream: simulateReadableStream({ chunks: [

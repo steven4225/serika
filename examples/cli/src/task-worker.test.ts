@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { RunHandle, RunRequest, RunResult } from "@aisdk-agent/core";
+import type { RunHandle, RunRequest, RunResult } from "@serika/core";
 import type {
   TaskFinish,
   TaskRecord,

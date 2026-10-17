@@ -1,29 +1,29 @@
-import type { MemoryLibraryAction, MemoryLibraryView, MemoryLibraryDocument } from "@aisdk-agent/example-cli/dist/memory-library.js";
-import type { MemoryImportEntry, MemoryImportConfirm, MemoryImportPreview, MemoryImportReceipt } from "@aisdk-agent/example-cli/dist/memory-import.js";
-import type { RecipeEntry, RecipeChange } from "@aisdk-agent/example-cli/dist/recipe-store.js";
+import type { MemoryLibraryAction, MemoryLibraryView, MemoryLibraryDocument } from "@serika/example-cli/dist/memory-library.js";
+import type { MemoryImportEntry, MemoryImportConfirm, MemoryImportPreview, MemoryImportReceipt } from "@serika/example-cli/dist/memory-import.js";
+import type { RecipeEntry, RecipeChange } from "@serika/example-cli/dist/recipe-store.js";
 import type { UIMessage } from "ai";
 import type { HistoryPage, HistoryPageInput } from "./history.js";
 import type { BackupResult, RestoreResult, RestorePreview } from "./backup.js";
 import type { ResidentServiceState } from "./resident-service.js";
 import type { ConversationDraftScope, ConversationDraft, ConversationDraftState, DesktopSteerInput, DesktopSteerResponse, TaskDraftUpdate } from "./conversation-drafts.js";
-import type { FormalMemory, MemoryPage, MemoryListInput, MemoryEditInput } from "@aisdk-agent/example-cli/dist/memory-management.js";
-import type { MemoryAction, MemoryActionPreview, MemoryHistoryInput, MemoryHistoryPage, MemoryMaintenance } from "@aisdk-agent/example-cli/dist/memory-controls.js";
-import type { AssistantRunOptions, AssistantSteerRecord, AutomationResult } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
-export type { AssistantSteerRecord } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
-import type { AutomationDiagnostics, SkillRunInput, SkillResult } from "@aisdk-agent/example-cli/dist/automation-execution.js";
-import type { AutomationOverview, AutomationScheduleAction, ScheduleSkillInput, ScheduledSkillSaved } from "@aisdk-agent/example-cli/dist/automation-scheduling.js";
-import type { AssistantController } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
-import type { TaskListV3, TaskRecordV4 } from "@aisdk-agent/example-cli/dist/task-store.js";
-import type { MemoryConsolidationRequest, MemoryConsolidationSourcePage } from "@aisdk-agent/example-cli/dist/memory-consolidation.js";
-import type { MemoryTemporalQuery, MemoryTemporalView } from "@aisdk-agent/example-cli/dist/memory-store.js";
-import type { MemoryReferenceSnapshot } from "@aisdk-agent/example-cli/dist/memory-query-rewrite.js";
-import type { AgentEvent, RunResult } from "@aisdk-agent/core";
-import type { ExecutionRunRecord } from "@aisdk-agent/example-cli/dist/execution-record-store.js";
-import type { ModelUsagePage } from "@aisdk-agent/example-cli/dist/model-usage.js";
-export type { ExecutionRunRecord, ExecutionToolRecord } from "@aisdk-agent/example-cli/dist/execution-record-store.js";
-import type { ContextDiagnostics, ContextResult } from "@aisdk-agent/example-cli/dist/context-diagnostics.js";
-import type { ContextBudgetConfig } from "@aisdk-agent/example-cli/dist/context-budget.js";
-import type { RssAction, RssInbox, RssResult, RssView } from "@aisdk-agent/example-cli/dist/rss-subscriptions.js";
+import type { FormalMemory, MemoryPage, MemoryListInput, MemoryEditInput } from "@serika/example-cli/dist/memory-management.js";
+import type { MemoryAction, MemoryActionPreview, MemoryHistoryInput, MemoryHistoryPage, MemoryMaintenance } from "@serika/example-cli/dist/memory-controls.js";
+import type { AssistantRunOptions, AssistantSteerRecord, AutomationResult } from "@serika/example-cli/dist/assistant-controller.js";
+export type { AssistantSteerRecord } from "@serika/example-cli/dist/assistant-controller.js";
+import type { AutomationDiagnostics, SkillRunInput, SkillResult } from "@serika/example-cli/dist/automation-execution.js";
+import type { AutomationOverview, AutomationScheduleAction, ScheduleSkillInput, ScheduledSkillSaved } from "@serika/example-cli/dist/automation-scheduling.js";
+import type { AssistantController } from "@serika/example-cli/dist/assistant-controller.js";
+import type { TaskListV3, TaskRecordV4 } from "@serika/example-cli/dist/task-store.js";
+import type { MemoryConsolidationRequest, MemoryConsolidationSourcePage } from "@serika/example-cli/dist/memory-consolidation.js";
+import type { MemoryTemporalQuery, MemoryTemporalView } from "@serika/example-cli/dist/memory-store.js";
+import type { MemoryReferenceSnapshot } from "@serika/example-cli/dist/memory-query-rewrite.js";
+import type { AgentEvent, RunResult } from "@serika/core";
+import type { ExecutionRunRecord } from "@serika/example-cli/dist/execution-record-store.js";
+import type { ModelUsagePage } from "@serika/example-cli/dist/model-usage.js";
+export type { ExecutionRunRecord, ExecutionToolRecord } from "@serika/example-cli/dist/execution-record-store.js";
+import type { ContextDiagnostics, ContextResult } from "@serika/example-cli/dist/context-diagnostics.js";
+import type { ContextBudgetConfig } from "@serika/example-cli/dist/context-budget.js";
+import type { RssAction, RssInbox, RssResult, RssView } from "@serika/example-cli/dist/rss-subscriptions.js";
 import type { WorkTask, WorkTaskInputs, WorkTaskResult, WorkTaskReadInput, WorkTaskArtifactInput, WorkTaskReadResult, WorkTaskDeliveryDraft, WorkTaskArtifactPreview } from "./work-tasks.js";
 import type { WorkTaskContinuation } from "./work-tasks.js";
 import type {
@@ -33,7 +33,7 @@ import type {
   CandidateResolution,
   CandidateResolveInput,
   MemoryResult,
-} from "@aisdk-agent/example-cli/dist/memory-candidates.js";
+} from "@serika/example-cli/dist/memory-candidates.js";
 
 /**
  * The only surface between the Electron main process and the renderer.
@@ -92,7 +92,7 @@ export interface AppInfo {
   entryMode?: "daily" | "test";
   /** Built-in support and current configuration only; not a permission grant. */
   modules?: { id: string; enabled: boolean }[];
-  capabilities?: import("@aisdk-agent/example-cli/dist/capability-status.js").CapabilityStatus;
+  capabilities?: import("@serika/example-cli/dist/capability-status.js").CapabilityStatus;
   moduleOptions?: { webSearch: boolean; webFeed: boolean; autoConsolidate: boolean };
   configPath?: string | null;
   modelAlias: string;
@@ -200,7 +200,7 @@ export type GetRunResponse =
 export interface ContextModeInput { mode: "daily" | "long-task"; expectedBudget: ContextBudgetConfig }
 
 export interface RendererApi {
-  pomodoro?(action: "status" | "start" | "cancel", minutes?: number): Promise<import("@aisdk-agent/example-cli/dist/modules/pomodoro-module.js").PomodoroResult>;
+  pomodoro?(action: "status" | "start" | "cancel", minutes?: number): Promise<import("@serika/example-cli/dist/modules/pomodoro-module.js").PomodoroResult>;
   previewMemoryImport(entries: MemoryImportEntry[]): Promise<MemoryResult<MemoryImportPreview>>;
   confirmMemoryImport(input: MemoryImportConfirm): Promise<MemoryResult<MemoryImportReceipt>>;
   getMemoryImportReceipt(operationId: string): Promise<MemoryResult<MemoryImportReceipt | null>>;

@@ -1,6 +1,6 @@
 # 内置模块接入约定
 
-本文是 Runloom 当前 CLI 模块的短指南，不是插件 SDK，也不是第二份数据契约。接口和行为以源码为准：
+本文是 Serika 当前 CLI 模块的短指南，不是插件 SDK，也不是第二份数据契约。接口和行为以源码为准：
 
 - [module-host.ts](../examples/cli/src/module-host.ts)：模块生命周期与注册上下文
 - [tui-module-config.ts](../examples/cli/src/tui-module-config.ts)：TUI 配置解析

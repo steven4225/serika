@@ -5,7 +5,7 @@ import {
   type ContextCompactionStore,
   type MessageStore,
   type ThreadContextCompactionRecord,
-} from "@aisdk-agent/core";
+} from "@serika/core";
 import { ContextCompactor } from "./context-compactor.js";
 import { createAiSdkSummarizer, parseContextSummary, type ContextSummaryV2 } from "./context-compaction.js";
 import { configureCliModel } from "./model-config.js";

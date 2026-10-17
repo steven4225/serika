@@ -1,5 +1,5 @@
 {
-  "name": "@aisdk-agent/example-cli",
+  "name": "@serika/example-cli",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,8 +10,8 @@
     }
   },
   "dependencies": {
-    "@aisdk-agent/ai-sdk-adapter": "workspace:*",
-    "@aisdk-agent/core": "workspace:*",
+    "@serika/ai-sdk-adapter": "workspace:*",
+    "@serika/core": "workspace:*",
     "ai": "7.0.37",
     "saxes": "6.0.0",
     "zod": "4.4.3"

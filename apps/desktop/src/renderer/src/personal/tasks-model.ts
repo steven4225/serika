@@ -1,4 +1,4 @@
-import { reminderWhen } from "@aisdk-agent/example-cli/dist/reminder-speech.js";
+import { reminderWhen } from "@serika/example-cli/dist/reminder-speech.js";
 import type { WorkTask } from "../../../shared/work-tasks.js";
 import { humanFacingTitle } from "../../../shared/human-title.js";
 import type { ReminderSpeechClock } from "../reminder-copy.js";

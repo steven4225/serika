@@ -1,4 +1,4 @@
-import type { RegisteredTool } from "@aisdk-agent/ai-sdk-adapter";
+import type { RegisteredTool } from "@serika/ai-sdk-adapter";
 import type { AgentModule } from "../module-host.js";
 import { createListDirectoryTool } from "../list-directory.js";
 import { createReadFileTool } from "../read-file.js";

@@ -5,11 +5,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { it } from "node:test";
 import { gzipSync, gunzipSync } from "node:zlib";
-import { createTaskStore, TASK_FILE_NAME } from "@aisdk-agent/example-cli/dist/task-store.js";
-import { createExecutionRecordStore } from "@aisdk-agent/example-cli/dist/execution-record-store.js";
+import { createTaskStore, TASK_FILE_NAME } from "@serika/example-cli/dist/task-store.js";
+import { createExecutionRecordStore } from "@serika/example-cli/dist/execution-record-store.js";
 import { exportBackup, restoreBackup, previewBackup } from "./backup.js";
-import { acquireFlock, tryAcquireFlock } from "@aisdk-agent/example-cli/dist/flock.js";
-import { JsonlAgentStore } from "@aisdk-agent/core";
+import { acquireFlock, tryAcquireFlock } from "@serika/example-cli/dist/flock.js";
+import { JsonlAgentStore } from "@serika/core";
 import { inspectThread } from "./thread-history.js";
 
 const digest = (text: string) => createHash("sha256").update(text).digest("hex");

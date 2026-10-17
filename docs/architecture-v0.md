@@ -1,4 +1,4 @@
-# AI SDK Agent Framework：v0 架构与实现约定
+# Serika：v0 架构与实现约定
 
 状态：提案基线  
 日期：2026-08-12
@@ -285,7 +285,7 @@ M1 完成标准：不使用真实 API key，也能稳定复现“用户消息 ->
 ## 13. 初始目录
 
 ```text
-aisdk-agent-framework/
+serika/
   package.json
   pnpm-workspace.yaml
   tsconfig.json

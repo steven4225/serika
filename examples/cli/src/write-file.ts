@@ -8,7 +8,7 @@ import {
 import { dirname, resolve } from "node:path";
 import { tool, type Tool } from "ai";
 import { z } from "zod";
-import { AgentError } from "@aisdk-agent/core";
+import { AgentError } from "@serika/core";
 import {
   abortReason,
   rejectSymlinkComponents,

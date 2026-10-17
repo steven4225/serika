@@ -1,6 +1,6 @@
-import { parseTaskResultLink, taskResultWorkspaceKey } from "@aisdk-agent/example-cli/dist/task-result-link.js";
-import type { AutomationResult } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
-import type { TaskRecordV4 } from "@aisdk-agent/example-cli/dist/task-store.js";
+import { parseTaskResultLink, taskResultWorkspaceKey } from "@serika/example-cli/dist/task-result-link.js";
+import type { AutomationResult } from "@serika/example-cli/dist/assistant-controller.js";
+import type { TaskRecordV4 } from "@serika/example-cli/dist/task-store.js";
 
 /** Notification payload can only select a record in the current workspace. */
 export async function openTaskNotificationResult(link: string, workspaceRoot: string | null,

@@ -4,8 +4,8 @@ import type {
   RunHandle,
   RunRequest,
   RunResult,
-} from "@aisdk-agent/core";
-import { AgentError } from "@aisdk-agent/core";
+} from "@serika/core";
+import { AgentError } from "@serika/core";
 import { FOREGROUND_NOTIFICATION_OMITTED, type DesktopNotificationDelivery } from "./task-notification-copy.js";
 import type { TaskError, TaskFinish, TaskRecord, TaskRecordV4, TaskStore } from "./task-store.js";
 import type { TaskWorkerSnapshotContext } from "./task-worker-context.js";
@@ -130,7 +130,7 @@ function waitForSignal(milliseconds: number, signal: AbortSignal): Promise<void>
   });
 }
 
-async function consumeEvents(events: RunHandle["events"], onEvent?: (event: import("@aisdk-agent/core").AgentEvent) => void): Promise<void> {
+async function consumeEvents(events: RunHandle["events"], onEvent?: (event: import("@serika/core").AgentEvent) => void): Promise<void> {
   for await (const event of events) {
     onEvent?.(event);
     // Runtime events are persisted by DefaultAgentRuntime. The worker only

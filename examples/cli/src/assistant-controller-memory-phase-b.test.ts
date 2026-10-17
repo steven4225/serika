@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { UIMessage } from "ai";
-import type { AgentEvent, RunHandle, RunResult } from "@aisdk-agent/core";
+import type { AgentEvent, RunHandle, RunResult } from "@serika/core";
 import { PRIMARY_AGENT_ID, type RuntimeApp } from "./app.js";
 import { createAssistantController } from "./assistant-controller.js";
 

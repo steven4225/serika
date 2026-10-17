@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { UIMessage } from "ai";
-import { AgentError } from "@aisdk-agent/core";
+import { AgentError } from "@serika/core";
 import {
   CHECKPOINT_INJECTION_MAX_BYTES,
   type CheckpointSnapshot,
@@ -65,7 +65,7 @@ describe("selectModelContext", () => {
   it("places a one-run resume observation before checkpoint and memory in both paths", () => {
     const resume = assistant("runloom-resume-observation", "Git observed at 2026-09-23T00:00:00Z");
     const checkpoint: CheckpointSnapshot = {
-      id: "checkpoint-1", version: 1, status: "active", goal: "Continue Runloom",
+      id: "checkpoint-1", version: 1, status: "active", goal: "Continue Serika",
       summary: "Saved intent", completed: [], inProgress: [], nextActions: [],
       blockers: [], artifacts: [], source: { threadId: "thread-a" },
       createdAt: "2026-09-01T00:00:00.000Z", updatedAt: "2026-09-01T00:00:00.000Z",
@@ -87,7 +87,7 @@ describe("selectModelContext", () => {
       id: "checkpoint-1",
       version: 4,
       status: "active",
-      goal: "Continue Runloom",
+      goal: "Continue Serika",
       summary: "Feature work is underway.",
       completed: ["M4 merged"],
       inProgress: ["M5 checkpoint"],
@@ -99,7 +99,7 @@ describe("selectModelContext", () => {
       updatedAt: "2026-09-03T00:00:00.000Z",
     };
     const selected = selectModelContext(
-      [user("thread-b-user", "Continue Runloom")],
+      [user("thread-b-user", "Continue Serika")],
       [{ id: "memory-current", text: "Keep M5 in one PR.", enabled: true }],
       { threadId: "thread-b" },
       checkpoint,
@@ -120,7 +120,7 @@ describe("selectModelContext", () => {
       id: "checkpoint-1",
       version: 1,
       status: "active",
-      goal: "Continue Runloom",
+      goal: "Continue Serika",
       summary: "x".repeat(CHECKPOINT_INJECTION_MAX_BYTES),
       completed: [],
       inProgress: [],
@@ -142,7 +142,7 @@ describe("selectModelContext", () => {
       id: "checkpoint-1",
       version: 2,
       status: "active",
-      goal: "Continue Runloom",
+      goal: "Continue Serika",
       summary: "Compaction path.",
       completed: [],
       inProgress: ["M5"],

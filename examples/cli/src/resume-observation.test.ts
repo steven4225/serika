@@ -11,7 +11,7 @@ import {
 } from "./resume-observation.js";
 
 const checkpoint: CheckpointSnapshot = {
-  id: "cp-1", version: 2, status: "active", goal: "Continue Runloom",
+  id: "cp-1", version: 2, status: "active", goal: "Continue Serika",
   summary: "Saved work", completed: [], inProgress: [], nextActions: [],
   blockers: [], artifacts: [], source: { threadId: "thread-a" },
   createdAt: "2026-09-01T00:00:00.000Z", updatedAt: "2026-09-02T00:00:00.000Z",

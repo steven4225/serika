@@ -41,11 +41,11 @@ export function fingerprintBackendDist(roots: readonly string[]): string | null 
 }
 
 function backendPaths(): { roots: string[]; directory: string } {
-  const cliDist = dirname(fileURLToPath(import.meta.resolve("@aisdk-agent/example-cli/dist/app.js")));
+  const cliDist = dirname(fileURLToPath(import.meta.resolve("@serika/example-cli/dist/app.js")));
   return {
     directory: dirname(cliDist),
-    roots: [cliDist, dirname(fileURLToPath(import.meta.resolve("@aisdk-agent/core"))),
-      join(dirname(cliDist), "node_modules", "@aisdk-agent", "ai-sdk-adapter", "dist")],
+    roots: [cliDist, dirname(fileURLToPath(import.meta.resolve("@serika/core"))),
+      join(dirname(cliDist), "node_modules", "@serika", "ai-sdk-adapter", "dist")],
   };
 }
 

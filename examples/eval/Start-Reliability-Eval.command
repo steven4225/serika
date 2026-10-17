@@ -17,4 +17,4 @@ trap 'unset COMMAND_CODE_API_KEY' EXIT
 export SERIKA_EVAL_LIVE=1 RUNLOOM_MODEL=command-code
 export COMMAND_CODE_MODEL_ID=deepseek/deepseek-v4.1-flash-fast
 unset SERIKA_EVAL_BASELINE
-pnpm --filter @aisdk-agent/eval e2e --suite reliability --repeat 3
+pnpm --filter @serika/eval e2e --suite reliability --repeat 3

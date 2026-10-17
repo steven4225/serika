@@ -1,4 +1,4 @@
-import { AgentError } from "@aisdk-agent/core";
+import { AgentError } from "@serika/core";
 
 /** Store APIs return errors to the UI; tool callers must not disguise an
  * acknowledged-uncertain replacement as a proven no-effect failure.

@@ -6,12 +6,12 @@ import {
   DefaultAgentRuntime,
   InMemoryAgentCatalog,
   InMemoryAgentStore,
-} from "@aisdk-agent/core";
+} from "@serika/core";
 import {
   AiSdkAgentLoop,
   InMemoryModelRegistry,
   ToolRegistry,
-} from "@aisdk-agent/ai-sdk-adapter";
+} from "@serika/ai-sdk-adapter";
 import {
   buildTaskContextMessage,
   buildTaskInstructions,

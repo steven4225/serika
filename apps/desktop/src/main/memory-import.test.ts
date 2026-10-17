@@ -3,11 +3,11 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { it } from "node:test";
-import { createRuntimeApp } from "@aisdk-agent/example-cli/dist/app.js";
-import { createAssistantController } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
-import { createDemoModel } from "@aisdk-agent/example-cli/dist/demo-model.js";
+import { createRuntimeApp } from "@serika/example-cli/dist/app.js";
+import { createAssistantController } from "@serika/example-cli/dist/assistant-controller.js";
+import { createDemoModel } from "@serika/example-cli/dist/demo-model.js";
 import { RuntimeBridge, TeeOutput } from "./runtime-bridge.js";
-import type { MemoryImportConfirm } from "@aisdk-agent/example-cli/dist/memory-import.js";
+import type { MemoryImportConfirm } from "@serika/example-cli/dist/memory-import.js";
 
 it("desktop imports and manages recipes through idle Controller ports, without Runs, tools or forged sources", async () => {
   const root = await mkdtemp(join(tmpdir(), "serika-import-bridge-")); await mkdir(join(root, "workspace"));

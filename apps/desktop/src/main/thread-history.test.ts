@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { it } from "node:test";
 import { discoverThreadDirectory, inspectThread } from "./thread-history.js";
-import { readCommittedTranscriptLines, JsonlAgentStore } from "@aisdk-agent/core";
+import { readCommittedTranscriptLines, JsonlAgentStore } from "@serika/core";
 
 it("refreshes a many-Thread history list without reparsing unchanged snapshots and invalidates only the changed entry", async (t) => {
   const directory = await mkdtemp(join(tmpdir(), "serika-history-projection-"));

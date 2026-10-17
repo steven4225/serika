@@ -19,7 +19,7 @@ it("groups saved memories into 偏好、项目 and 工作 without a health folde
     entry({ id: "pref", preview: "复盘先给结论", assertion: { kind: "preference", sourceIds: [{ kind: "conversation" }] } }),
     entry({ id: "coffee", preview: "咖啡不加糖", assertion: { kind: "fact", factIdentity: { attribute: "coffee", scenario: "personal" }, sourceIds: [{ kind: "manual" }] } }),
     entry({ id: "note", preview: "## 背景\n在做桌面助手", assertion: { kind: "note", sourceIds: [{ kind: "conversation" }, { kind: "legacy" }] } }),
-    entry({ id: "work", preview: "工作区在 Runloom", assertion: { kind: "fact", factIdentity: { scenario: "work" }, sourceIds: [{ kind: "conversation" }] } }),
+    entry({ id: "work", preview: "工作区在 Serika", assertion: { kind: "fact", factIdentity: { scenario: "work" }, sourceIds: [{ kind: "conversation" }] } }),
     entry({ id: "event", preview: "上周交付了一版", assertion: { kind: "event" } }),
   ];
   assert.equal(memoryCategory(entries[0]!), "preference");

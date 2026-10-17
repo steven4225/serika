@@ -1,6 +1,6 @@
-# Serika / Runloom 最优优化路线 — 给 Codex 的实现任务书
+# Serika 最优优化路线 — 给 Codex 的实现任务书
 
-仓库：`aisdk-agent-framework`（日用名 Serika／Runloom）  
+仓库：Serika  
 基准：以当前工作树为准；先前审计曾对照 `main@67e9534`／`44cd6c2`。  
 原则：**只改日用可靠性，不换架构、不换记忆框架、不上向量库、不做插件内核。**
 

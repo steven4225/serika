@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import type { AutomationOverview } from "@aisdk-agent/example-cli/dist/automation-scheduling.js";
-import type { RecipeChange, RecipeEntry } from "@aisdk-agent/example-cli/dist/recipe-store.js";
+import type { AutomationOverview } from "@serika/example-cli/dist/automation-scheduling.js";
+import type { RecipeChange, RecipeEntry } from "@serika/example-cli/dist/recipe-store.js";
 import { DreamingPanel } from "./dreaming-panel.js";
 
 export function SkillsPanel({ busy, identity, refreshSequence, onUseRecipe }: { busy: boolean; identity: string; refreshSequence: number; onUseRecipe: (text: string) => void }) {

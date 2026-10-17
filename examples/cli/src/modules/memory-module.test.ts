@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { AgentError } from "@aisdk-agent/core";
-import type { RegisteredTool } from "@aisdk-agent/ai-sdk-adapter";
+import { AgentError } from "@serika/core";
+import type { RegisteredTool } from "@serika/ai-sdk-adapter";
 import { asSchema, type UIMessage } from "ai";
 import { AUTO_CONSOLIDATION_AGENT_ID, MAX_CONSOLIDATION_TURNS } from "../consolidation.js";
 import { MAX_CONTEXT_BYTES } from "../context-window.js";

@@ -4,8 +4,8 @@ import { constants } from "node:fs";
 import { access, chmod, lstat, mkdir, readFile, realpath, rm } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { parseEnv } from "node:util";
-import { assertWorkerPathSafe, writeWorkerFileAtomic } from "@aisdk-agent/example-cli/dist/task-worker-service.js";
-import type { ServiceCommandRunner } from "@aisdk-agent/example-cli/dist/task-worker-service.js";
+import { assertWorkerPathSafe, writeWorkerFileAtomic } from "@serika/example-cli/dist/task-worker-service.js";
+import type { ServiceCommandRunner } from "@serika/example-cli/dist/task-worker-service.js";
 import type { ResidentServiceState } from "../shared/resident-service.js";
 export type { ResidentServiceState } from "../shared/resident-service.js";
 

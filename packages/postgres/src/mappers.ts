@@ -16,7 +16,7 @@ import {
   type ThreadState,
   type TriggerMessage,
   type TurnState,
-} from "@aisdk-agent/core/durable";
+} from "@serika/core/durable";
 import type { Selectable } from "kysely";
 import type {
   ActionTable,

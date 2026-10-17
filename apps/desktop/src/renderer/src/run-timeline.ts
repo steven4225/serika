@@ -1,4 +1,4 @@
-import type { TokenUsage } from "@aisdk-agent/core";
+import type { TokenUsage } from "@serika/core";
 import type { ExecutionRunRecord, ExecutionToolRecord } from "../../shared/ui-contract.js";
 import { runStatusLabel, toolNote, toolStatusLabel, toolTone } from "../../shared/execution-records.js";
 

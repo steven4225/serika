@@ -17,7 +17,7 @@ it("opt-in real-model consolidation distinguishes task format from lasting prefe
   const root = await mkdtemp(join(tmpdir(), "runloom-memory-instruction-"));
   try {
     const cases = [
-      { id: "one-off", text: "这次帮我拟一份简短的 Runloom 验证计划，分 Goal、Checks、Next 三段。允许自动提出候选，但不要写入正式记忆；本轮直接回复计划，不调用工具。", expected: false },
+      { id: "one-off", text: "这次帮我拟一份简短的 Serika 验证计划，分 Goal、Checks、Next 三段。允许自动提出候选，但不要写入正式记忆；本轮直接回复计划，不调用工具。", expected: false },
       { id: "durable", text: "我的长期复盘写作偏好是：先给一行结论，再列两条可执行步骤。可以自动提出待审候选，但不要写入正式记忆。本轮只回复收到，不调用工具。", expected: true },
     ];
     for (const test of cases) {

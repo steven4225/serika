@@ -1,5 +1,5 @@
 import type { LanguageModelUsage } from "ai";
-import type { TokenUsage } from "@aisdk-agent/core";
+import type { TokenUsage } from "@serika/core";
 
 export function normalizeTokenUsage(usage: LanguageModelUsage): TokenUsage {
   const result: TokenUsage = {};

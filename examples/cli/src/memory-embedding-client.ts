@@ -1,4 +1,4 @@
-import type { TokenUsage } from "@aisdk-agent/core";
+import type { TokenUsage } from "@serika/core";
 import { MemoryEmbeddingError, type MemoryEmbeddingPort } from "./memory-semantic-index.js";
 
 export interface LocalEmbeddingConfig { modelId: string; baseURL?: string }

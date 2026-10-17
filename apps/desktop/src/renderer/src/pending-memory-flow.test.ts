@@ -5,9 +5,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { createRuntimeApp } from "@aisdk-agent/example-cli/dist/app.js";
-import { createAssistantController } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
-import { createDemoModel } from "@aisdk-agent/example-cli/dist/demo-model.js";
+import { createRuntimeApp } from "@serika/example-cli/dist/app.js";
+import { createAssistantController } from "@serika/example-cli/dist/assistant-controller.js";
+import { createDemoModel } from "@serika/example-cli/dist/demo-model.js";
 import { RuntimeBridge, TeeOutput } from "../../main/runtime-bridge.js";
 import { MemoryTabs } from "./memory.js";
 import { TodayPanel } from "./personal/today.js";
@@ -125,8 +125,8 @@ test("real Controller/Bridge pagination counts four actionable adds in both Toda
 });
 
 test("pending read keeps capacity-limited reviews, filters foreign/stale detail, and fails closed on a broken page", async () => {
-  const candidate = { id: "limited", originThreadId: "thread", status: "pending" } as import("@aisdk-agent/example-cli/dist/memory-candidates.js").MemoryCandidate;
-  const preview = { candidate, current: null, proposed: null, applicable: false, unavailableReason: "MEMORY_LIMIT_EXCEEDED" } as import("@aisdk-agent/example-cli/dist/memory-candidates.js").CandidatePreview;
+  const candidate = { id: "limited", originThreadId: "thread", status: "pending" } as import("@serika/example-cli/dist/memory-candidates.js").MemoryCandidate;
+  const preview = { candidate, current: null, proposed: null, applicable: false, unavailableReason: "MEMORY_LIMIT_EXCEEDED" } as import("@serika/example-cli/dist/memory-candidates.js").CandidatePreview;
   const read = await loadActionablePending({ listMemoryCandidates: async () => ({ ok: true, value: { candidates: [candidate, { ...candidate, id: "foreign", originThreadId: "other" }, { ...candidate, id: "stale", status: "stale" }], nextOffset: null, truncated: false } }), getMemoryCandidate: async () => ({ ok: true, value: preview }) }, "thread");
   assert.ok(read.ok); assert.deepEqual(read.value.candidates.map(item => item.id), ["limited"]);
   for (const unavailableReason of ["expired", "target_changed", "target_missing", "MEMORY_REVISION_CONFLICT"]) {

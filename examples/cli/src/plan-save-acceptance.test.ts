@@ -11,12 +11,12 @@ import {
   InMemoryAgentCatalog,
   InMemoryAgentStore,
   type BeforeToolExecute,
-} from "@aisdk-agent/core";
+} from "@serika/core";
 import {
   AiSdkAgentLoop,
   InMemoryModelRegistry,
   ToolRegistry,
-} from "@aisdk-agent/ai-sdk-adapter";
+} from "@serika/ai-sdk-adapter";
 import { createModuleHost } from "./module-host.js";
 import { createReadFileModule } from "./modules/read-file-module.js";
 import { createTodoistModule } from "./modules/todoist-module.js";

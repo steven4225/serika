@@ -3,7 +3,7 @@ type: note
 status: seed
 created: 2026-08-13
 source:
-  - AI SDK Agent Framework 架构讨论
+  - Serika 架构讨论
   - Pi Agent 0.82.1 本地源码与 durable-harness 设计
   - Vercel AI SDK 7 Agent、Tool Calling 与 Approval 文档
 author:

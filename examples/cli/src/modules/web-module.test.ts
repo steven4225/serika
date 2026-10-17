@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { ToolExecutionOptions } from "ai";
-import type { RegisteredTool } from "@aisdk-agent/ai-sdk-adapter";
+import type { RegisteredTool } from "@serika/ai-sdk-adapter";
 import { createModuleHost } from "../module-host.js";
 import type { ResolveWebHost, WebFetchResult } from "../web-fetch.js";
 import { WEB_FETCH_TIMEOUT_MS } from "../web-fetch.js";

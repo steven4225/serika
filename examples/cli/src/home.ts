@@ -108,7 +108,7 @@ export async function renderHome(options: HomeOptions): Promise<string> {
     hour12: false,
   }).format(now);
   const lines = [
-    "Runloom Home",
+    "Serika Home",
     `时间：${date}（${timeZone}）`,
     `模型：${oneLine(options.modelAlias)}（${oneLine(options.modelId)}；配置值，不代表本次已联网验证）`,
     `Workspace：${options.workspaceRoot ? oneLine(options.workspaceRoot) : "未设置"}`,

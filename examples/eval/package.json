@@ -1,5 +1,5 @@
 {
-  "name": "@aisdk-agent/eval",
+  "name": "@serika/eval",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -14,8 +14,8 @@
     "view": "node run.mjs view"
   },
   "dependencies": {
-    "@aisdk-agent/example-cli": "workspace:*",
-    "@aisdk-agent/core": "workspace:*",
+    "@serika/example-cli": "workspace:*",
+    "@serika/core": "workspace:*",
     "ai": "7.0.37"
   },
   "devDependencies": { "promptfoo": "0.124.1" }
