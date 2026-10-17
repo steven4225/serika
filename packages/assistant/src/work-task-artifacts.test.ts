@@ -108,53 +108,53 @@ it("Controller display queries are read-only, version-bound, survive restart and
         current.confirm({ approvalId: event.approval.approvalId, decision: "allow" });
       }
     });
-    const created = await current.createWorkTask({ goal: "写文档", acceptance: [
+    const created = await current.workTasks.create({ goal: "写文档", acceptance: [
       { id: "file", description: "文件", required: true, method: "automatic", verification: { kind: "artifact_exists", path: "notes/plan.md" } },
       { id: "quality", description: "质量", required: true, method: "human", verification: { kind: "human" } },
     ] });
     assert.ok(created.ok);
     const idle = new Promise<void>(resolve => { const off = current.subscribe(event => { if (event.type === "state" && event.state.kind === "idle") { off(); resolve(); } }); });
-    assert.ok((await current.runWorkTask({ id: created.value.id, expectedRevision: created.value.revision })).ok);
+    assert.ok((await current.workTasks.run({ id: created.value.id, expectedRevision: created.value.revision })).ok);
     await idle;
-    const paused = await current.getWorkTask(created.value.id);
+    const paused = await current.workTasks.get(created.value.id);
     assert.ok(paused.ok);
     assert.equal(paused.value.status, "awaiting_acceptance");
     const input = { id: paused.value.id, expectedRevision: paused.value.revision };
     const beforeTasks = await readFile(join(workspace, ".runloom/work-tasks.json"));
     const beforeJournal = await readFile(join(root, "transcripts/execution-records.json"));
-    const draft = await current.getWorkTaskDeliveryDraft(input);
+    const draft = await current.workTasks.getDeliveryDraft(input);
     assert.ok(draft.ok);
     assert.equal(draft.value.artifacts[0]?.path, "notes/plan.md");
-    const continuation = await current.getWorkTaskContinuation(input);
+    const continuation = await current.workTasks.getContinuation(input);
     assert.ok(continuation.ok);
     assert.equal(continuation.value.latestRun?.runId, paused.value.runIds.at(-1));
     assert.equal(continuation.value.latestRun?.tools[0]?.path, "notes/plan.md");
-    assert.equal((await current.getWorkTaskContinuation({ ...input, expectedRevision: 1 })).ok, false);
+    assert.equal((await current.workTasks.getContinuation({ ...input, expectedRevision: 1 })).ok, false);
     const diagnostics = await current.getContextDiagnostics();
     assert.ok(diagnostics.ok);
     assert.equal(diagnostics.value.lastPreparationSource?.workTaskId, paused.value.id);
     assert.equal(diagnostics.value.lastPreparationSource?.runId, paused.value.runIds.at(-1));
-    const preview = await current.getWorkTaskArtifact({ ...input, path: "notes/plan.md" });
+    const preview = await current.workTasks.getArtifact({ ...input, path: "notes/plan.md" });
     assert.ok(preview.ok);
     assert.equal(preview.value.matchesReceipt, true);
-    const stale = await current.getWorkTaskArtifact({ ...input, expectedRevision: 1, path: "notes/plan.md" });
+    const stale = await current.workTasks.getArtifact({ ...input, expectedRevision: 1, path: "notes/plan.md" });
     assert.ok(!stale.ok);
     assert.equal(stale.error.code, "WORK_TASK_REVISION_CONFLICT");
     assert.deepEqual(await readFile(join(workspace, ".runloom/work-tasks.json")), beforeTasks);
     assert.deepEqual(await readFile(join(root, "transcripts/execution-records.json")), beforeJournal);
     assert.equal(calls, 2);
     await writeFile(join(root, "transcripts/execution-records.json"), "broken receipt file");
-    const brokenDraft = await current.getWorkTaskDeliveryDraft(input);
-    const brokenPreview = await current.getWorkTaskArtifact({ ...input, path: "notes/plan.md" });
+    const brokenDraft = await current.workTasks.getDeliveryDraft(input);
+    const brokenPreview = await current.workTasks.getArtifact({ ...input, path: "notes/plan.md" });
     assert.ok(!brokenDraft.ok && brokenDraft.error.code === "WORK_TASK_READ_FAILED");
     assert.ok(!brokenPreview.ok && brokenPreview.error.code === "WORK_TASK_READ_FAILED");
-    const brokenContinuation = await current.getWorkTaskContinuation(input);
+    const brokenContinuation = await current.workTasks.getContinuation(input);
     assert.ok(!brokenContinuation.ok && brokenContinuation.error.code === "WORK_TASK_READ_FAILED");
     await writeFile(join(root, "transcripts/execution-records.json"), beforeJournal);
     await current.shutdown();
     controller = createAssistantController(await createRuntimeApp({ ...options, output: new PassThrough() }));
-    assert.ok((await controller.getWorkTaskArtifact({ ...input, path: "notes/plan.md" })).ok);
-    assert.deepEqual(await controller.getWorkTaskContinuation(input), continuation);
+    assert.ok((await controller.workTasks.getArtifact({ ...input, path: "notes/plan.md" })).ok);
+    assert.deepEqual(await controller.workTasks.getContinuation(input), continuation);
     const restartedDiagnostics = await controller.getContextDiagnostics();
     assert.ok(restartedDiagnostics.ok);
     assert.equal(restartedDiagnostics.value.lastPreparationSource, null);
@@ -162,14 +162,14 @@ it("Controller display queries are read-only, version-bound, survive restart and
     await controller.shutdown();
     const foreignOptions = { ...options, assistant: { ...options.assistant, threadId: "other-thread" } };
     controller = createAssistantController(await createRuntimeApp({ ...foreignOptions, output: new PassThrough() }));
-    const foreign = await controller.getWorkTaskArtifact({ ...input, path: "notes/plan.md" });
+    const foreign = await controller.workTasks.getArtifact({ ...input, path: "notes/plan.md" });
     assert.ok(!foreign.ok); assert.equal(foreign.error.code, "WORK_TASK_NOT_FOUND");
-    assert.equal((await controller.getWorkTaskContinuation(input)).ok, false);
+    assert.equal((await controller.workTasks.getContinuation(input)).ok, false);
     assert.equal(calls, 2);
     await controller.shutdown();
     await writeFile(config, JSON.stringify({ version: 1, workspace, modules: {} }));
     controller = createAssistantController(await createRuntimeApp({ ...options, output: new PassThrough() }));
-    const disabled = await controller.getWorkTaskArtifact({ ...input, path: "notes/plan.md" });
+    const disabled = await controller.workTasks.getArtifact({ ...input, path: "notes/plan.md" });
     assert.ok(!disabled.ok); assert.equal(disabled.error.code, "WORK_TASK_INVALID_STATE");
   } finally { await controller?.shutdown(); await rm(root, { recursive: true, force: true }); }
 });

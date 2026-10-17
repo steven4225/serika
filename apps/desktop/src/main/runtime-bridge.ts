@@ -19,7 +19,7 @@ import type { RuntimeApp } from "@serika/assistant";
 import type { RssAction } from "@serika/assistant";
 import type { ExecutionRunRecord } from "@serika/assistant";
 import { ShellProgressBuffer } from "../shared/shell-progress.js";
-import { sanitizeWorkTaskInput, type WorkTask, type WorkTaskInputs, type WorkTaskResult } from "../shared/work-tasks.js";
+import { sanitizeWorkTaskInput, type WorkTask, type WorkTaskInputs, type WorkTaskOperationMethods, type WorkTaskResult } from "../shared/work-tasks.js";
 import type { WorkTaskReadInput, WorkTaskArtifactInput, WorkTaskReadResult, WorkTaskDeliveryDraft, WorkTaskArtifactPreview } from "../shared/work-tasks.js";
 import type { WorkTaskContinuation } from "../shared/work-tasks.js";
 import {
@@ -107,6 +107,15 @@ export function toUiState(state: AssistantState): UiState {
   return state;
 }
 
+const WORK_TASK_METHODS: WorkTaskOperationMethods = {
+  createWorkTask: "create",
+  runWorkTask: "run",
+  submitWorkTaskDelivery: "submitDelivery",
+  recordHumanAcceptance: "recordHumanAcceptance",
+  reconcileWorkTask: "reconcile",
+  cancelWorkTask: "cancel",
+  requestWorkTaskChanges: "requestChanges",
+};
 const CANDIDATE_STATUSES = ["pending", "accepted", "rejected", "stale"] as const;
 
 type CandidateStatus = (typeof CANDIDATE_STATUSES)[number];
@@ -272,7 +281,7 @@ export class RuntimeBridge {
   }
 
   info(): AppInfo {
-    const automation = this.#controller.getAutomationDiagnostics();
+    const automation = this.#controller.automation.getDiagnostics();
     const memorySkills = new Set(automation.skills.filter(skill => skill.kind === "memory-consolidate").map(skill => skill.id));
     const autoConsolidate = automation.hooks.some(rule => rule.enabled !== false && memorySkills.has(rule.handler.id));
     return {
@@ -333,7 +342,7 @@ export class RuntimeBridge {
 
   async historyPage(input?: HistoryPageInput) {
     const page = historyPage(await this.#controller.getHistory(), this.#app.threadId, input);
-    const receipts = await this.#controller.getMemoryReceipts();
+    const receipts = await this.#controller.memory.getReceipts();
     if (!receipts.ok) return { ...page, memoryReceipts: [], memoryReceiptError: receipts.error.message };
     // Latest batch is bounded. Return its full projection so loading an older
     // page cannot erase receipts already attached to newer loaded messages.
@@ -345,49 +354,49 @@ export class RuntimeBridge {
   }
 
   getAutomationDiagnostics(): AutomationDiagnostics {
-    return this.#controller.getAutomationDiagnostics();
+    return this.#controller.automation.getDiagnostics();
   }
-  getAutomationOverview() { return this.#controller.getAutomationOverview(); }
-  scheduleSkill(input: ScheduleSkillInput) { return this.#controller.scheduleSkill(input); }
-  changeAutomationSchedule(input: AutomationScheduleAction) { return this.#controller.changeAutomationSchedule(input); }
-  getDreamingOverview() { return this.#controller.getDreamingOverview(); }
-  dream() { return this.#controller.dream(); }
-  changeLearnedSkill(input: DreamingChangeInput) { return this.#controller.changeLearnedSkill(input); }
-  getLearnedSkillReferences() { return this.#controller.getLearnedSkillReferences(); }
+  getAutomationOverview() { return this.#controller.automation.getOverview(); }
+  scheduleSkill(input: ScheduleSkillInput) { return this.#controller.automation.scheduleSkill(input); }
+  changeAutomationSchedule(input: AutomationScheduleAction) { return this.#controller.automation.changeSchedule(input); }
+  getDreamingOverview() { return this.#controller.dreaming.getOverview(); }
+  dream() { return this.#controller.dreaming.dream(); }
+  changeLearnedSkill(input: DreamingChangeInput) { return this.#controller.dreaming.changeLearnedSkill(input); }
+  getLearnedSkillReferences() { return this.#controller.dreaming.getLearnedSkillReferences(); }
 
   /** Pass the complete invocation to strict host validation; never drop forged authority fields. */
   runSkill(input: SkillRunInput): Promise<SkillResult<{ runId: string }>> {
-    return this.#controller.runSkill(input);
+    return this.#controller.automation.runSkill(input);
   }
-  getMemoryLibrary() { return this.#controller.getMemoryLibrary(); }
-  readMemoryDocument(id: string) { return this.#controller.readMemoryDocument(id); }
-  changeMemoryLibrary(input: MemoryLibraryAction) { return this.#controller.changeMemoryLibrary(input); }
+  getMemoryLibrary() { return this.#controller.memory.getLibrary(); }
+  readMemoryDocument(id: string) { return this.#controller.memory.readDocument(id); }
+  changeMemoryLibrary(input: MemoryLibraryAction) { return this.#controller.memory.changeLibrary(input); }
   listMemories(input?: MemoryListInput) {
     if (input !== undefined && (typeof input !== "object" || input === null || Array.isArray(input))) return Promise.resolve(invalidInput("Invalid Memory page"));
-    return this.#controller.listMemories(input);
+    return this.#controller.memory.list(input);
   }
   getMemory(id: string) {
     if (typeof id !== "string" || !id || id.length > 256) return Promise.resolve(invalidInput("Invalid Memory id"));
-    return this.#controller.getMemory(id);
+    return this.#controller.memory.get(id);
   }
-  listRecipes() { return this.#controller.listRecipes(); }
-  changeRecipe(input: RecipeChange) { return this.#controller.changeRecipe(input); }
-  updateMemory(input: MemoryEditInput) { return this.#controller.updateMemory(input); }
-  getMemoryHistory(input: MemoryHistoryInput) { return this.#controller.getMemoryHistory(input); }
-  previewMemoryAction(input: MemoryAction) { return this.#controller.previewMemoryAction(input); }
-  applyMemoryAction(input: MemoryAction) { return this.#controller.applyMemoryAction(input); }
-  getMemoryMaintenance() { return this.#controller.getMemoryMaintenance(); }
-  consolidateMemory(input: MemoryConsolidationRequest) { return this.#controller.consolidateMemory(input); }
-  listMemoryConsolidationSources(offset?: number) { return this.#controller.listMemoryConsolidationSources(offset); }
-  getMemoryReferences() { return this.#controller.getMemoryReferences(); }
+  listRecipes() { return this.#controller.recipes.list(); }
+  changeRecipe(input: RecipeChange) { return this.#controller.recipes.change(input); }
+  updateMemory(input: MemoryEditInput) { return this.#controller.memory.update(input); }
+  getMemoryHistory(input: MemoryHistoryInput) { return this.#controller.memory.getHistory(input); }
+  previewMemoryAction(input: MemoryAction) { return this.#controller.memory.previewAction(input); }
+  applyMemoryAction(input: MemoryAction) { return this.#controller.memory.applyAction(input); }
+  getMemoryMaintenance() { return this.#controller.memory.getMaintenance(); }
+  consolidateMemory(input: MemoryConsolidationRequest) { return this.#controller.memory.consolidate(input); }
+  listMemoryConsolidationSources(offset?: number) { return this.#controller.memory.listConsolidationSources(offset); }
+  getMemoryReferences() { return this.#controller.memory.getReferences(); }
 
-  getRssSubscriptions() { return this.#controller.getRssSubscriptions(); }
-  updateRssSubscriptions(input: RssAction) { return this.#controller.updateRssSubscriptions(input); }
-  getRssInbox() { return this.#controller.getRssInbox(); }
-  acknowledgeRssResult(id: string) { return this.#controller.acknowledgeRssResult(id); }
-  getTaskInbox() { return this.#controller.getTaskInbox(); }
-  getScheduledTask(id: string) { return this.#controller.getScheduledTask(id); }
-  acknowledgeTaskResult(id: string) { return this.#controller.acknowledgeTaskResult(id); }
+  getRssSubscriptions() { return this.#controller.rss.getSubscriptions(); }
+  updateRssSubscriptions(input: RssAction) { return this.#controller.rss.updateSubscriptions(input); }
+  getRssInbox() { return this.#controller.rss.getInbox(); }
+  acknowledgeRssResult(id: string) { return this.#controller.rss.acknowledgeResult(id); }
+  getTaskInbox() { return this.#controller.automation.getTaskInbox(); }
+  getScheduledTask(id: string) { return this.#controller.automation.getScheduledTask(id); }
+  acknowledgeTaskResult(id: string) { return this.#controller.automation.acknowledgeTaskResult(id); }
 
   async home(): Promise<CommandResponse> {
     this.#output.beginHome();
@@ -443,38 +452,38 @@ export class RuntimeBridge {
   }
 
   async listRuns(): Promise<ListRunsResponse> {
-    const usage = await wrapExecutionQuery(async () => this.#controller.listModelUsage?.());
+    const usage = await wrapExecutionQuery(async () => this.#controller.runs.listModelUsage?.());
     if (!usage.ok) return usage;
     return toListRunsResponse(
-      await wrapExecutionQuery((): Promise<ExecutionRunRecord[]> => this.#controller.listRuns()),
+      await wrapExecutionQuery((): Promise<ExecutionRunRecord[]> => this.#controller.runs.list()),
       usage.value,
     );
   }
 
   async getRun(runId: string): Promise<GetRunResponse> {
     return toGetRunResponse(
-      await wrapExecutionQuery((): Promise<ExecutionRunRecord | null> => this.#controller.getRun(runId)),
+      await wrapExecutionQuery((): Promise<ExecutionRunRecord | null> => this.#controller.runs.get(runId)),
     );
   }
 
   async listMemoryCandidates(input?: CandidateListInput): Promise<MemoryResult<CandidatePage>> {
     const sanitized = sanitizeCandidateListInput(input);
     if (isInputError(sanitized)) return sanitized;
-    return this.#controller.listMemoryCandidates(sanitized);
+    return this.#controller.memory.listCandidates(sanitized);
   }
 
   async getMemoryCandidate(id: string): Promise<MemoryResult<CandidatePreview>> {
     if (typeof id !== "string" || id.length === 0) return invalidInput("Candidate id must be non-empty");
-    return this.#controller.getMemoryCandidate(id);
+    return this.#controller.memory.getCandidate(id);
   }
 
   async resolveMemoryCandidate(input: CandidateResolveInput): Promise<MemoryResult<CandidateResolution>> {
     const sanitized = sanitizeCandidateResolveInput(input);
     if (isInputError(sanitized)) return sanitized;
-    return this.#controller.resolveMemoryCandidate(sanitized);
+    return this.#controller.memory.resolveCandidate(sanitized);
   }
 
-  listWorkTasks(): Promise<WorkTaskResult<WorkTask[]>> { return this.#controller.listWorkTasks(); }
+  listWorkTasks(): Promise<WorkTaskResult<WorkTask[]>> { return this.#controller.workTasks.list(); }
 
   /** Registered identities only, read-only stores; never activate/recover another Controller. */
   async threadActivity(thread: DesktopThread) {
@@ -490,24 +499,24 @@ export class RuntimeBridge {
 
   async getWorkTask(id: string): Promise<WorkTaskResult<WorkTask>> {
     if (typeof id !== "string" || !id.trim()) return { ok: false, error: { code: "WORK_TASK_INVALID_INPUT", message: "Task id must be non-empty" } };
-    return this.#controller.getWorkTask(id);
+    return this.#controller.workTasks.get(id);
   }
 
   async getWorkTaskContinuation(input: WorkTaskReadInput): Promise<WorkTaskResult<WorkTaskContinuation>> {
     if (!validTaskRead(input)) return { ok: false, error: { code: "WORK_TASK_INVALID_INPUT", message: "Task id and current revision are required" } };
-    return this.#controller.getWorkTaskContinuation({ id: input.id, expectedRevision: input.expectedRevision });
+    return this.#controller.workTasks.getContinuation({ id: input.id, expectedRevision: input.expectedRevision });
   }
 
   async getWorkTaskDeliveryDraft(input: WorkTaskReadInput): Promise<WorkTaskReadResult<WorkTaskDeliveryDraft>> {
     if (!validTaskRead(input)) return { ok: false, error: { code: "WORK_TASK_INVALID_INPUT", message: "Task id and current revision are required" } };
-    return this.#controller.getWorkTaskDeliveryDraft({ id: input.id, expectedRevision: input.expectedRevision });
+    return this.#controller.workTasks.getDeliveryDraft({ id: input.id, expectedRevision: input.expectedRevision });
   }
 
   async getWorkTaskArtifact(input: WorkTaskArtifactInput): Promise<WorkTaskReadResult<WorkTaskArtifactPreview>> {
     if (!validTaskRead(input) || typeof input.path !== "string" || !input.path || input.path.length > 1024) {
       return { ok: false, error: { code: "WORK_TASK_INVALID_INPUT", message: "Task identity and artifact path are required" } };
     }
-    return this.#controller.getWorkTaskArtifact({ id: input.id, expectedRevision: input.expectedRevision, path: input.path });
+    return this.#controller.workTasks.getArtifact({ id: input.id, expectedRevision: input.expectedRevision, path: input.path });
   }
 
   async #writeTask<K extends Exclude<keyof WorkTaskInputs, "runWorkTask">>(operation: K, input: WorkTaskInputs[K]): Promise<WorkTaskResult<WorkTask>> {
@@ -515,7 +524,7 @@ export class RuntimeBridge {
     if (!sanitized.ok) return sanitized;
     if (this.#controller.getSnapshot().state.kind !== "idle") return { ok: false, error: { code: "WORK_TASK_INVALID_STATE", message: "Controller busy; task change was not queued" } };
     // Sanitization preserves each method's input; the controller enforces Thread and revision.
-    const method = this.#controller[operation] as (value: WorkTaskInputs[K]) => Promise<WorkTaskResult<WorkTask>>;
+    const method = this.#controller.workTasks[WORK_TASK_METHODS[operation]] as (value: WorkTaskInputs[K]) => Promise<WorkTaskResult<WorkTask>>;
     return method(sanitized.value);
   }
 
@@ -535,7 +544,7 @@ export class RuntimeBridge {
     const sanitized = sanitizeWorkTaskInput("runWorkTask", input);
     if (!sanitized.ok) return { ok: false, reason: "starting" };
     if (this.#controller.getSnapshot().state.kind !== "idle") return { ok: false, reason: "busy" };
-    return this.#controller.runWorkTask({ ...sanitized.value, ...(source ? { source } : {}) }, source === "telegram" ? undefined : { desktopEntry: true });
+    return this.#controller.workTasks.run({ ...sanitized.value, ...(source ? { source } : {}) }, source === "telegram" ? undefined : { desktopEntry: true });
   }
 
   async shutdown(): Promise<void> {

@@ -125,7 +125,7 @@ export async function runComputerNativeAcceptance(configPath: string, title: str
     const result: RunResult | null = controller.getSnapshot().lastPrimaryResult;
     report.runStatus = result?.status ?? null;
     report.runErrorCode = result?.error?.code ?? null;
-    const record = await controller.getRun(started.runId);
+    const record = await controller.runs.get(started.runId);
     report.actionReceiptStatus = record?.tools.find(t => t.toolName === "computer_action")?.status ?? null;
     const after = observationSchema.parse(await invoke("computer_observe", target));
     const afterText = textOf(after);

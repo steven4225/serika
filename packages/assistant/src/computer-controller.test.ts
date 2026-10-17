@@ -95,11 +95,11 @@ process.stdin.on('end', () => {
           decision: event.approval.toolName === "computer_action" && mode === "deny" ? "deny" : "allow" });
       });
       try {
-        const created = await controller.createWorkTask({ goal: "Controlled Computer effect",
+        const created = await controller.workTasks.create({ goal: "Controlled Computer effect",
           constraints: [], acceptance: [{ id: "review", description: "Human checks the document",
             method: "human", verification: { kind: "human" }, required: true }] });
         assert.ok(created.ok);
-        const started = await controller.runWorkTask({ id: created.value.id, expectedRevision: created.value.revision });
+        const started = await controller.workTasks.run({ id: created.value.id, expectedRevision: created.value.revision });
         assert.ok(started.ok);
         if (mode === "cancel-dispatched") {
           await waitFor(async () => readFile(effectPath, "utf8").then(() => true, () => false));
@@ -113,7 +113,7 @@ process.stdin.on('end', () => {
         assert.equal(calls.filter(call => call.name === "type_text").length, dispatched ? 1 : 0);
         if (dispatched) assert.equal(await readFile(effectPath, "utf8"), "controlled-effect");
         else await assert.rejects(readFile(effectPath), { code: "ENOENT" });
-        const run = await controller.getRun(started.runId);
+        const run = await controller.runs.get(started.runId);
         const action = run?.tools.find(tool => tool.toolName === "computer_action");
         const expected = dispatched ? "unknown" : mode === "deny" ? "failed" : "not_started";
         assert.equal(action?.status, expected);
@@ -123,11 +123,11 @@ process.stdin.on('end', () => {
           assert.equal(controller.getSnapshot().toolActivity.find(tool => tool.toolName === "computer_action")?.outcomeUnknown, true);
         }
         assert.equal(modelCalls, mode === "deny" ? 3 : 2);
-        const task = await controller.getWorkTask(created.value.id);
+        const task = await controller.workTasks.get(created.value.id);
         assert.equal(task.ok && task.value.status, dispatched ? "needs_review" : "paused");
         await controller.shutdown();
         controller = createAssistantController(await createRuntimeApp(options));
-        assert.equal((await controller.getRun(started.runId))?.tools.find(tool => tool.toolName === "computer_action")?.status, expected);
+        assert.equal((await controller.runs.get(started.runId))?.tools.find(tool => tool.toolName === "computer_action")?.status, expected);
         assert.equal(modelCalls, mode === "deny" ? 3 : 2);
       } finally {
         await controller.shutdown();

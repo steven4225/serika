@@ -85,20 +85,20 @@ async function child(root: string, stage: Stage) {
     } finally { unsubscribe(); }
     const result = controller!.getSnapshot().lastPrimaryResult;
     assert.ok(result);
-    const reference = controller!.getMemoryReferences();
+    const reference = controller!.memory.getReferences();
     runs.push({ label, result, reference });
     assert.equal(result.status, "completed", JSON.stringify(result.error));
     return { result, reference };
   }
-  async function current(id: string) { return value(await controller!.getMemory(id)); }
+  async function current(id: string) { return value(await controller!.memory.get(id)); }
   async function apply(action: MemoryAction) {
     phase = action.operation;
     const count = captures.length;
     const before = await readFile(join(workspace, ".runloom/memory.json"), "utf8");
-    const preview = value(await controller!.previewMemoryAction(action));
+    const preview = value(await controller!.memory.previewAction(action));
     assert.equal(await readFile(join(workspace, ".runloom/memory.json"), "utf8"), before, "preview must be write-free");
     assert.deepEqual(preview.input, action);
-    const result = value(await controller!.applyMemoryAction(preview.input));
+    const result = value(await controller!.memory.applyAction(preview.input));
     assert.equal(captures.length, count, "control actions must not call a model");
     controls.push({ action, preview, result });
     if (result !== null) {
@@ -117,9 +117,9 @@ async function child(root: string, stage: Stage) {
       await open(SOURCE_THREAD);
       await run("ordinary-statement", `${DECLARATION}本轮只回复收到，不调用主任务工具。可以在对话结束后提出待审候选，但正式记忆必须等我另行审核。`, false);
       const formal = await disk.list(); assert.ok(formal.ok); assert.equal(formal.entries.length, 0);
-      const candidate = value(await controller!.listMemoryCandidates({ status: "pending" })).candidates.find(item => item.change.text.includes("复盘"));
+      const candidate = value(await controller!.memory.listCandidates({ status: "pending" })).candidates.find(item => item.change.text.includes("复盘"));
       assert.ok(candidate, "real automatic consolidation must produce the ordinary statement candidate; no synthetic fallback");
-      const preview = value(await controller!.getMemoryCandidate(candidate.id));
+      const preview = value(await controller!.memory.getCandidate(candidate.id));
       assert.ok(preview.applicable);
       assert.equal(preview.candidate.change.operation, "add");
       assert.equal(preview.proposed?.scope.kind, "workspace");
@@ -131,13 +131,13 @@ async function child(root: string, stage: Stage) {
         assert.ok(message && message.parts.some(part => part.type === "text" && part.text.includes(source.quote)));
       }
       check("ordinary-candidate", "real model staged exact committed user quotes; formal store unchanged before review");
-      const accepted = value(await controller!.resolveMemoryCandidate({ candidateId: candidate.id, expectedCandidateRevision: preview.candidate.revision, decision: "accept" }));
+      const accepted = value(await controller!.memory.resolveCandidate({ candidateId: candidate.id, expectedCandidateRevision: preview.candidate.revision, decision: "accept" }));
       assert.ok(accepted.memoryId);
       const memoryId = accepted.memoryId;
       const saved = await current(memoryId);
       assert.equal(saved.revision, 1);
       const acceptedBytes = await readFile(join(workspace, ".runloom/memory.json"), "utf8");
-      const replayed = value(await controller!.resolveMemoryCandidate({ candidateId: candidate.id, expectedCandidateRevision: preview.candidate.revision, decision: "accept" }));
+      const replayed = value(await controller!.memory.resolveCandidate({ candidateId: candidate.id, expectedCandidateRevision: preview.candidate.revision, decision: "accept" }));
       assert.ok(replayed.replayed);
       assert.equal(await readFile(join(workspace, ".runloom/memory.json"), "utf8"), acceptedBytes);
       await open(QUERY_THREAD);
@@ -152,10 +152,10 @@ async function child(root: string, stage: Stage) {
       check("cross-thread", `${memoryId} revision 1 with actual assertion and source identifiers selected and answered`);
       const effectiveAt = new Date(Date.now() - 86_400_000).toISOString();
       const changed = await apply({ id: memoryId, expectedRevision: saved.revision!, operation: "change", text: THREE, effectiveAt }); assert.ok(changed);
-      const past = value(await controller!.queryMemory({ id: memoryId, validAt: new Date(Date.parse(effectiveAt) - 1000).toISOString() }));
+      const past = value(await controller!.memory.query({ id: memoryId, validAt: new Date(Date.parse(effectiveAt) - 1000).toISOString() }));
       assert.ok(past.assertions.some(item => /两|二|2/.test(item.text)));
       assert.ok(past.assertions.every(item => item.text !== THREE));
-      const now = value(await controller!.queryMemory({ id: memoryId }));
+      const now = value(await controller!.memory.query({ id: memoryId }));
       assert.deepEqual(now.assertions.map(item => item.text), [THREE]);
       const record = value(await disk.inspectMemory(memoryId));
       assert.equal(record.id, memoryId); assert.equal(record.historyCoverage, "complete");
@@ -166,7 +166,7 @@ async function child(root: string, stage: Stage) {
       const resume: { memoryId: string; candidateId: string; originalAssertionId: string; effectiveAt: string; changedRevision: number } = JSON.parse(await readFile(join(root, "resume.json"), "utf8"));
       const id = resume.memoryId;
       await open(QUERY_THREAD);
-      assert.equal(controller!.getMemoryReferences(), null, "process-local references do not survive restart");
+      assert.equal(controller!.memory.getReferences(), null, "process-local references do not survive restart");
       let memory = await current(id);
       assert.equal(memory.revision, resume.changedRevision); assert.equal(memory.text, THREE);
       const reopened = await run("reopened-current", "我的复盘写作偏好现在是什么？只依据本轮参考记忆回答，旧对话里的两条不代表当前版本。引用记忆 ID，不调用工具。");
@@ -176,29 +176,29 @@ async function child(root: string, stage: Stage) {
       const previousAssertion = memory.assertion!;
       assert.ok(previousAssertion.systemTime.from);
       const corrected = await apply({ id, expectedRevision: memory.revision!, operation: "correct", text: CORRECTED, validTime: previousAssertion.validTime }); assert.ok(corrected);
-      const oldKnowledge = value(await controller!.queryMemory({ id, knownAt: previousAssertion.systemTime.from, validAt: new Date().toISOString() }));
+      const oldKnowledge = value(await controller!.memory.query({ id, knownAt: previousAssertion.systemTime.from, validAt: new Date().toISOString() }));
       assert.deepEqual(oldKnowledge.assertions.map(item => item.text), [THREE]);
-      const newKnowledge = value(await controller!.queryMemory({ id }));
+      const newKnowledge = value(await controller!.memory.query({ id }));
       assert.deepEqual(newKnowledge.assertions.map(item => item.text), [CORRECTED]);
       assert.deepEqual(corrected.assertion!.validTime, previousAssertion.validTime, "correction preserves applicability instead of inventing a real transition");
       const correctionRecord = value(await disk.inspectMemory(id));
       assert.ok(correctionRecord.assertions.find(item => item.assertionId === corrected.assertion!.assertionId)?.sources.some(source => source.kind === "manual"));
       const historyBytes = await readFile(join(workspace, ".runloom/memory.json"), "utf8");
-      const firstHistory = value(await controller!.getMemoryHistory({ id, limit: 1 }));
+      const firstHistory = value(await controller!.memory.getHistory({ id, limit: 1 }));
       assert.equal(firstHistory.historyCoverage, "complete");
       assert.equal(firstHistory.assertions[0]?.assertionId, corrected.assertion!.assertionId);
       assert.equal(firstHistory.nextOffset, 1);
-      const secondHistory = value(await controller!.getMemoryHistory({ id, offset: firstHistory.nextOffset, limit: 1 }));
+      const secondHistory = value(await controller!.memory.getHistory({ id, offset: firstHistory.nextOffset, limit: 1 }));
       assert.equal(secondHistory.revision, firstHistory.revision);
       assert.notEqual(secondHistory.assertions[0]?.assertionId, firstHistory.assertions[0]?.assertionId);
       assert.equal(await readFile(join(workspace, ".runloom/memory.json"), "utf8"), historyBytes);
       check("correct-knownAt", "old system knowledge differs from corrected knowledge; valid time preserved; manual edit provenance");
       const stale = { id, expectedRevision: corrected.revision!, operation: "metadata" as const, pinned: true };
-      value(await controller!.previewMemoryAction(stale));
+      value(await controller!.memory.previewAction(stale));
       memory = (await apply({ id, expectedRevision: corrected.revision!, operation: "retract" }))!;
-      assert.equal((await controller!.applyMemoryAction(stale)).ok, false, "stale preview cannot overwrite newer revision");
+      assert.equal((await controller!.memory.applyAction(stale)).ok, false, "stale preview cannot overwrite newer revision");
       assert.equal(await eligible(id), false);
-      assert.equal(value(await controller!.queryMemory({ id })).assertions.length, 0);
+      assert.equal(value(await controller!.memory.query({ id })).assertions.length, 0);
       memory = (await apply({ id, expectedRevision: memory.revision!, operation: "restore", targetAssertionId: corrected.assertion!.assertionId }))!;
       assert.equal(memory.text, CORRECTED); assert.notEqual(memory.assertion!.assertionId, corrected.assertion!.assertionId);
       assert.ok(memory.assertion!.validTime.from);
@@ -206,23 +206,23 @@ async function child(root: string, stage: Stage) {
       check("retract-restore-CAS", "withdrawal suppresses recall; restore creates new revision/assertion; stale preview rejected");
       memory = (await apply({ id, expectedRevision: memory.revision!, operation: "metadata", status: "disabled" }))!;
       assert.equal(await eligible(id), false);
-      assert.equal((await controller!.previewMemoryAction({ id, expectedRevision: memory.revision!, operation: "restore", targetAssertionId: corrected.assertion!.assertionId })).ok, false, "disabled restoration requires explicit status choice");
+      assert.equal((await controller!.memory.previewAction({ id, expectedRevision: memory.revision!, operation: "restore", targetAssertionId: corrected.assertion!.assertionId })).ok, false, "disabled restoration requires explicit status choice");
       const disabled = await run("disabled-not-revived", "只检查本轮 Current Memory reference：如果没有选中复盘写作记忆，回复 NO_ACTIVE。不要用旧对话或历史摘要冒充本轮注入，不调用工具。");
       assert.equal(disabled.reference?.selected.some(item => item.id === id), false);
       assert.match(disabled.result.text, /NO_ACTIVE/);
       memory = (await apply({ id, expectedRevision: memory.revision!, operation: "restore", targetAssertionId: corrected.assertion!.assertionId, status: "active" }))!;
       memory = (await apply({ id, expectedRevision: memory.revision!, operation: "metadata", expiresAt: new Date(Date.now() - 1000).toISOString() }))!;
       assert.equal(await eligible(id), false);
-      assert.equal((await controller!.previewMemoryAction({ id, expectedRevision: memory.revision!, operation: "restore", targetAssertionId: corrected.assertion!.assertionId })).ok, false, "expired restoration requires explicit expiry choice");
+      assert.equal((await controller!.memory.previewAction({ id, expectedRevision: memory.revision!, operation: "restore", targetAssertionId: corrected.assertion!.assertionId })).ok, false, "expired restoration requires explicit expiry choice");
       memory = (await apply({ id, expectedRevision: memory.revision!, operation: "restore", targetAssertionId: corrected.assertion!.assertionId, status: "active", expiresAt: null }))!;
       assert.equal(await eligible(id), true);
-      assert.equal(value(await controller!.getMemoryMaintenance()).expired, 0);
+      assert.equal(value(await controller!.memory.getMaintenance()).expired, 0);
       check("disable-expiry", "disabled/expired memories excluded; explicit restore choices required; only content/status/expiry mutated");
       assert.equal(await apply({ id, expectedRevision: memory.revision!, operation: "delete" }), null);
       const finalDisk = JSON.parse(await readFile(join(workspace, ".runloom/memory.json"), "utf8"));
       assert.ok(!finalDisk.entries.some((entry: { id: string }) => entry.id === id));
       assert.ok(!finalDisk.candidates.some((entry: { id: string }) => entry.id === resume.candidateId));
-      assert.equal((await controller!.previewMemoryAction({ id, expectedRevision: memory.revision!, operation: "restore", targetAssertionId: resume.originalAssertionId, status: "active" })).ok, false);
+      assert.equal((await controller!.memory.previewAction({ id, expectedRevision: memory.revision!, operation: "restore", targetAssertionId: resume.originalAssertionId, status: "active" })).ok, false);
       const deleted = await run("deleted-not-revived", "只检查本轮 Current Memory reference：如果没有选中复盘写作记忆，回复 NO_ACTIVE。旧对话里可能有已删除的记忆 ID，不要当成本轮引用，不调用工具。");
       assert.equal(deleted.reference?.selected.some(item => item.id === id), false);
       assert.match(deleted.result.text, /NO_ACTIVE/);

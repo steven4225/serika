@@ -1,50 +1,32 @@
-import type { MemoryLibraryAction, MemoryLibraryView, MemoryLibraryDocument } from "./memory-library.js";
+import type { ControllerKernel } from "./controller-kernel.js";
+import { createMemoryControls, type AssistantMemoryControls } from "./controller-memory.js";
+import { createWorkTaskControls, type AssistantWorkTaskControls } from "./controller-work-tasks.js";
+import { createAutomationControls, type AssistantAutomationControls } from "./controller-automation.js";
+import { createDreamingControls, type AssistantDreamingControls } from "./controller-dreaming.js";
+import { createRssControls, type AssistantRssControls } from "./controller-rss.js";
+import { createRecipeControls, type AssistantRecipeControls } from "./controller-recipes.js";
 import { validateChatAttachments, chatAttachmentParts, type ChatAttachment } from "./chat-attachments.js";
-import { recipeChangeSchema, RecipeError, type RecipeEntry, type RecipeChange } from "./recipe-store.js";
 import { createHash, randomUUID } from "node:crypto";
 import { userMessageClock } from "./memory-observation-policy.js";
 import type { UIMessage } from "ai";
 import type { AgentEvent, RunHandle, RunResult } from "@serika/core";
 import { automaticConsolidationSkip, waitForConsolidationHandoff } from "./consolidation-lifecycle.js";
-import { createRuntimeAutomation, MEMORY_SKILL_ID, type AutomationDiagnostics, type AutomationExecution, type SkillRunInput, type SkillResult } from "./automation-execution.js";
+import { createRuntimeAutomation, MEMORY_SKILL_ID, type AutomationExecution, type SkillRunInput, type SkillResult } from "./automation-execution.js";
 import { createBuiltinSkill } from "./skill-catalog.js";
-import { DREAMING_AGENT_ID, type DreamingOverview, type DreamingResult, type DreamingChangeInput, type LearnedSkill, type LearnedSkillReferenceSnapshot } from "./dreaming.js";
+import { DREAMING_AGENT_ID, type DreamingOverview, type DreamingResult } from "./dreaming.js";
 import type { HookRequest } from "./automation-hooks.js";
 import type { RuntimeApp } from "./app.js";
-import { scheduleRegisteredSkill, automationScheduleActionSchema, type ScheduleSkillInput, type ScheduledSkillSaved, type AutomationOverview, type AutomationScheduleAction } from "./automation-scheduling.js";
 import type { ContextDiagnostics, ContextResult } from "./context-diagnostics.js";
 import type { AssistantSteerRecord, ExecutionRunRecord } from "./execution-record-store.js";
 export type { AssistantSteerRecord } from "./execution-record-store.js";
-import { verifyAutomaticCriterion } from "./work-task-verification.js";
-import {
-  type AcceptanceStatus,
-  type CreateWorkTaskInput,
-  type WorkTask,
-  type WorkTaskDelivery,
-  type WorkTaskEvidence,
-  type WorkTaskFailure,
-  type WorkTaskObservedOutcome,
-  type WorkTaskResult,
-} from "./work-task-store.js";
+import type { WorkTask } from "./work-task-store.js";
 import { recoverRunningWorkTasks } from "./work-task-recovery.js";
-import { workTaskContinuation, type WorkTaskContinuation } from "./work-task-continuation.js";
 import type { ShellProgress } from "./modules/shell-module.js";
 import type { PendingToolApproval } from "./tool-confirmation.js";
-import type {
-  CandidateListInput, CandidatePage, CandidatePreview, CandidateResolution,
-  CandidateResolveInput, MemoryResult,
-} from "./memory-candidates.js";
-import { createRssSubscriptionStore, rssFailure, type RssAction, type RssInbox, type RssResult, type RssView } from "./rss-subscriptions.js";
-import { createTaskStore, type TaskListV3, type TaskRecordV4, type TaskStoreResult } from "./task-store.js";
-import { formalMemory, memoryPage, validMemoryEdit, visibleMemory, type FormalMemory, type MemoryPage, type MemoryListInput, type MemoryEditInput } from "./memory-management.js";
-import type { MemoryReferenceSnapshot } from "./memory-query-rewrite.js";
-import { memoryActionPreview, memoryCapacity, memoryControlFailure, memoryHistoryPage, temporalMemoryStore, validateMemoryAction, validateMemoryHistoryInput, type MemoryAction, type MemoryActionPreview, type MemoryHistoryInput, type MemoryHistoryPage, type MemoryMaintenance, type MemoryTemporalInput } from "./memory-controls.js";
-import type { MemoryTemporalView } from "./memory-store.js";
-import { consolidationSourcePage, memoryConsolidationBacklog, prepareConsolidationExtraction, stageConsolidationExtraction, validateConsolidationRequest, type MemoryConsolidationRequest, type MemoryConsolidationSourcePage } from "./memory-consolidation.js";
+import { memoryControlFailure, type MemoryMaintenance } from "./memory-controls.js";
+import { memoryConsolidationBacklog, prepareConsolidationExtraction, stageConsolidationExtraction, type MemoryConsolidationRequest } from "./memory-consolidation.js";
 import { memoryConsolidationFailureText } from "./memory-failure.js";
-import { readMemoryFactReceipts, type MemoryFactReceipt } from "./memory-factual-receipts.js";
 import { AUTO_CONSOLIDATION_AGENT_ID } from "./consolidation.js";
-import { readWorkTaskArtifact, workTaskDeliveryDraft, type WorkTaskReadInput, type WorkTaskArtifactInput, type WorkTaskReadResult, type WorkTaskDeliveryDraft, type WorkTaskArtifactPreview } from "./work-task-artifacts.js";
 
 const MAX_RECENT_OUTPUT_CHARS = 16 * 1024;
 const MAX_TOOL_ACTIVITY = 30;
@@ -131,84 +113,24 @@ export type ControllerCommandResponse =
   | { ok: false; reason: "busy" | "unknown" | "empty" | "cancelled" }
   | { ok: false; reason: "failed"; message: string };
 
-export interface AssistantController {
-  listRecipes(): Promise<MemoryResult<RecipeEntry[]>>;
-  changeRecipe(input: RecipeChange): Promise<MemoryResult<RecipeEntry>>;
+/** Local execution receipts for this Thread. */
+export interface AssistantRunRecords {
+  /** Newest-first local receipts for this Thread. They never authorize replay. */
+  list(limit?: number): Promise<ExecutionRunRecord[]>;
+  get(runId: string): Promise<ExecutionRunRecord | null>;
+  listModelUsage(): Promise<import("./model-usage.js").ModelUsagePage>;
+}
 
-  getDreamingOverview(): Promise<DreamingResult<DreamingControllerOverview>>;
-  /** Success means reflection started, not that any method was learned. */
-  dream(): Promise<DreamingResult<{ runId: string }>>;
-  changeLearnedSkill(input: DreamingChangeInput): Promise<DreamingResult<LearnedSkill>>;
-  getLearnedSkillReferences(): (LearnedSkillReferenceSnapshot & { runId: string }) | null;
-  getAutomationDiagnostics(): AutomationDiagnostics;
-  getAutomationOverview(): Promise<AutomationResult<AutomationOverview>>;
-  /** Explicit confirmation by the embedding user; saves intent, not execution. */
-  scheduleSkill(input: ScheduleSkillInput): Promise<AutomationResult<ScheduledSkillSaved>>;
-  changeAutomationSchedule(input: AutomationScheduleAction): Promise<AutomationResult<null>>;
-  /** Starts a pinned Skill; completion is a run-result or its execution receipt, not this response. */
-  runSkill(input: SkillRunInput): Promise<SkillResult<{ runId: string }>>;
+/**
+ * One Thread's assistant. The top level is the conversation itself (state,
+ * history, Runs, steering, approvals, commands, events); everything else is
+ * grouped by domain. All groups share the core's single idle / running /
+ * command state machine, so a group operation is still refused while busy.
+ */
+export interface AssistantController {
   getSnapshot(): AssistantSnapshot;
   getHistory(): Promise<UIMessage[]>;
-  getMemoryReceipts(): Promise<MemoryResult<MemoryFactReceipt[]>>;
   getContextDiagnostics(): Promise<ContextResult<ContextDiagnostics>>;
-  getMemoryLibrary(): Promise<MemoryResult<MemoryLibraryView>>;
-  readMemoryDocument(id: string): Promise<MemoryResult<MemoryLibraryDocument>>;
-  changeMemoryLibrary(input: MemoryLibraryAction): Promise<MemoryResult<MemoryLibraryView>>;
-  listMemories(input?: MemoryListInput): Promise<MemoryResult<MemoryPage>>;
-  getMemory(id: string): Promise<MemoryResult<FormalMemory>>;
-  updateMemory(input: MemoryEditInput): Promise<MemoryResult<FormalMemory>>;
-  getMemoryHistory(input: MemoryHistoryInput): Promise<MemoryResult<MemoryHistoryPage>>;
-  queryMemory(input: MemoryTemporalInput): Promise<MemoryResult<MemoryTemporalView>>;
-  previewMemoryAction(input: MemoryAction): Promise<MemoryResult<MemoryActionPreview>>;
-  applyMemoryAction(input: MemoryAction): Promise<MemoryResult<FormalMemory | null>>;
-  getMemoryMaintenance(): Promise<MemoryResult<MemoryMaintenance>>;
-  listMemoryConsolidationSources(offset?: number): Promise<MemoryResult<MemoryConsolidationSourcePage>>;
-  consolidateMemory(input: MemoryConsolidationRequest): Promise<MemoryResult<{ runId: string }>>;
-  getMemoryReferences(): (MemoryReferenceSnapshot & { runId: string }) | null;
-  /** Newest-first local receipts for this Thread. They never authorize replay. */
-  listRuns(limit?: number): Promise<ExecutionRunRecord[]>;
-  listModelUsage?(): Promise<import("./model-usage.js").ModelUsagePage>;
-  getRun(runId: string): Promise<ExecutionRunRecord | null>;
-  listMemoryCandidates(input?: CandidateListInput): Promise<MemoryResult<CandidatePage>>;
-  getMemoryCandidate(id: string): Promise<MemoryResult<CandidatePreview>>;
-  resolveMemoryCandidate(input: CandidateResolveInput): Promise<MemoryResult<CandidateResolution>>;
-  getRssSubscriptions(): Promise<RssResult<RssView>>;
-  updateRssSubscriptions(input: RssAction): Promise<RssResult<RssView>>;
-  getRssInbox(): Promise<RssResult<RssInbox>>;
-  acknowledgeRssResult(id: string): Promise<RssResult<void>>;
-  getTaskInbox(): Promise<AutomationResult<TaskListV3>>;
-  getScheduledTask(id: string): Promise<AutomationResult<TaskRecordV4>>;
-  acknowledgeTaskResult(id: string): Promise<AutomationResult<TaskRecordV4>>;
-  createWorkTask(input: Omit<CreateWorkTaskInput, "threadId">): Promise<WorkTaskResult<WorkTask>>;
-  listWorkTasks(): Promise<WorkTaskResult<WorkTask[]>>;
-  getWorkTask(id: string): Promise<WorkTaskResult<WorkTask>>;
-  getWorkTaskDeliveryDraft(input: WorkTaskReadInput): Promise<WorkTaskReadResult<WorkTaskDeliveryDraft>>;
-  getWorkTaskContinuation(input: WorkTaskReadInput): Promise<WorkTaskResult<WorkTaskContinuation>>;
-  getWorkTaskArtifact(input: WorkTaskArtifactInput): Promise<WorkTaskReadResult<WorkTaskArtifactPreview>>;
-  runWorkTask(input: { id: string; expectedRevision: number; instruction?: string; completionCheck?: boolean; source?: "telegram" }, options?: { desktopEntry?: true }): Promise<StartRunResponse>;
-  submitWorkTaskDelivery(input: {
-    id: string;
-    expectedRevision: number;
-    summary: string;
-    artifactRefs?: string[];
-    unresolved?: string[];
-  }): Promise<WorkTaskResult<WorkTask>>;
-  recordHumanAcceptance(input: {
-    id: string;
-    expectedRevision: number;
-    criterionId: string;
-    decision: "passed" | "failed";
-    note?: string;
-  }): Promise<WorkTaskResult<WorkTask>>;
-  reconcileWorkTask(input: {
-    id: string;
-    expectedRevision: number;
-    observedOutcome: WorkTaskObservedOutcome;
-    decision: "continue" | "cancel";
-    note: string;
-  }): Promise<WorkTaskResult<WorkTask>>;
-  cancelWorkTask(input: { id: string; expectedRevision: number }): Promise<WorkTaskResult<WorkTask>>;
-  requestWorkTaskChanges(input: { id: string; expectedRevision: number }): Promise<WorkTaskResult<WorkTask>>;
   run(text: string, options?: AssistantRunOptions): Promise<StartRunResponse>;
   /** Supplement the active primary Run; this is not a queued or new Run. */
   steer(input: { expectedRunId: string; id: string; text: string }): Promise<AssistantSteerResponse>;
@@ -229,14 +151,13 @@ export interface AssistantController {
   recordOutput(text: string): void;
   subscribe(listener: (event: AssistantEvent) => void): () => void;
   shutdown(): Promise<void>;
-}
-
-function unavailableWorkTask(): WorkTaskResult<never> {
-  return { ok: false, error: { code: "WORK_TASK_INVALID_STATE", message: "WorkTask requires a configured workspace" } };
-}
-
-function missingWorkTask(): WorkTaskResult<never> {
-  return { ok: false, error: { code: "WORK_TASK_NOT_FOUND", message: "Work task not found" } };
+  readonly memory: AssistantMemoryControls;
+  readonly workTasks: AssistantWorkTaskControls;
+  readonly automation: AssistantAutomationControls;
+  readonly dreaming: AssistantDreamingControls;
+  readonly rss: AssistantRssControls;
+  readonly recipes: AssistantRecipeControls;
+  readonly runs: AssistantRunRecords;
 }
 
 function commandParts(line: string): { name: string; args: string } {
@@ -335,16 +256,6 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     if (event.type === "memory-updated") memoryIndexRequested = true;
     for (const listener of listeners) {
       try { listener(event); } catch { /* A disconnected view cannot fail a Run. */ }
-    }
-  };
-  const workTaskRecoveryFailure = async (): Promise<WorkTaskFailure | undefined> => {
-    try {
-      await ensureRecovered();
-      return undefined;
-    } catch (error) {
-      const message = `WorkTask recovery unavailable: ${String(error)}`;
-      emit({ type: "error", message });
-      return { ok: false, error: { code: "WORK_TASK_INVALID_STATE", message } };
     }
   };
   const setState = (next: AssistantState): void => {
@@ -613,7 +524,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
           activeWorkTask = settled.value;
           emit({ type: "work-task-updated", task: settled.value });
           if (!needsReview && result.status === "completed" && result.completion?.reason === "delivered") {
-            const submitted = await controller.submitWorkTaskDelivery({
+            const submitted = await controller.workTasks.submitDelivery({
               id: settled.value.id, expectedRevision: settled.value.revision,
               summary: result.text.trim().slice(0, 2000) || "Program conditions verified; human quality remains pending.",
               artifactRefs: settled.value.acceptance.flatMap(criterion => criterion.verification.kind === "artifact_exists" ? [criterion.verification.path] : []),
@@ -643,21 +554,6 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       app.endForegroundExecution?.();
     }
   };
-
-  async function readTaskForDisplay(input: WorkTaskReadInput): Promise<WorkTaskResult<WorkTask>> {
-    if (closed) return { ok: false, error: { code: "WORK_TASK_INVALID_STATE", message: "Controller is closed" } };
-    if (!input || typeof input.id !== "string" || !input.id.trim() || !Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 1) {
-      return { ok: false, error: { code: "WORK_TASK_INVALID_INPUT", message: "Task id and current revision are required" } };
-    }
-    const recoveryFailure = await workTaskRecoveryFailure();
-    if (recoveryFailure) return recoveryFailure;
-    if (!app.workTasks) return unavailableWorkTask();
-    const found = await app.workTasks.get(input.id);
-    if (!found.ok) return found;
-    if (found.value.threadId !== app.threadId) return missingWorkTask();
-    if (found.value.revision !== input.expectedRevision) return { ok: false, error: { code: "WORK_TASK_REVISION_CONFLICT", message: "Task changed; reload before reading its artifact or draft" } };
-    return found;
-  }
 
   const invokeSkill = async (
     input: SkillRunInput,
@@ -915,166 +811,70 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     }
   };
 
+  const kernel: ControllerKernel = {
+    app,
+    isClosed: () => closed,
+    isIdle: () => state.kind === "idle",
+    emit,
+    ensureRecovered,
+    recovered: () => recovery,
+    exclusive: <T>(name: string, body: (signal: AbortSignal) => Promise<T>): Promise<T> => {
+      const operation = new AbortController();
+      operationController = operation;
+      setState({ kind: "command", name });
+      let result!: T;
+      const task = (async () => {
+        try { result = await body(operation.signal); }
+        finally { operationController = undefined; setState({ kind: "idle" }); }
+      })();
+      activeTask = task;
+      return task.then(() => result);
+    },
+    primaryReference: reference => reference && primaryContextMessageIds.has(reference.messageId) && primaryRunId
+      ? { ...reference, runId: primaryRunId } : null,
+  };
+  const memory = createMemoryControls(kernel, {
+    automation,
+    consolidationStatus: () => ({
+      running: consolidationRunning,
+      failure: consolidationFailure,
+      lastAttempt: lastConsolidationAttempt,
+      lastSkippedReason: lastConsolidationSkippedReason,
+    }),
+    startSkill: (input, request) => startManualSkill(input, request),
+  });
+  const workTasks = createWorkTaskControls(kernel, {
+    slot: {
+      busy: () => nextWorkTask !== undefined || activeWorkTask !== undefined,
+      reserve: (task, completionCheck) => { workTaskCompletionCheck = completionCheck; nextWorkTask = task; },
+      release: () => { nextWorkTask = undefined; },
+    },
+    run: (text, options) => controller.run(text, options),
+    onCompleted: () => startIdleDreaming(),
+  });
+  const automationControls = createAutomationControls(kernel, { automation, startSkill: input => startManualSkill(input) });
+  const dreaming = createDreamingControls(kernel, { startDreaming: () => startDreaming(false), lastAttempt: () => lastDreamingAttempt });
+
   const controller: AssistantController = {
-    getDreamingOverview: async () => {
-      const enabled = app.moduleConfig?.automation?.dreaming?.enabled === true;
-      if (!app.dreaming) return { ok: true, value: { enabled: false, skills: [], pendingExperiences: 0, processedExperiences: 0 } };
-      const result = await app.dreaming.overview();
-      return result.ok ? { ok: true, value: { ...result.value, enabled, ...(lastDreamingAttempt ? { lastAttempt: structuredClone(lastDreamingAttempt) } : {}) } } : result;
-    },
-    dream: () => startDreaming(false),
-    getLearnedSkillReferences: () => {
-      const reference = app.getLearnedSkillReferences?.();
-      return reference && primaryContextMessageIds.has(reference.messageId) && primaryRunId ? { ...reference, runId: primaryRunId } : null;
-    },
-    changeLearnedSkill: async input => {
-      if (!app.dreaming) return dreamingFailure("DREAMING_UNAVAILABLE", "当前工作区不支持经验学习");
-      if (closed || state.kind !== "idle") return dreamingFailure("BUSY", "请等待当前操作结束");
-      const operation = new AbortController();
-      operationController = operation;
-      setState({ kind: "command", name: "learned-skill-change" });
-      let response!: DreamingResult<LearnedSkill>;
-      activeTask = (async () => {
-        try {
-          await ensureRecovered();
-          response = await app.dreaming!.change(input);
-        } catch (error) { response = dreamingFailure("DREAMING_WRITE_UNCONFIRMED", String(error)); }
-        finally { operationController = undefined; setState({ kind: "idle" }); }
-      })();
-      await activeTask;
-      return response;
-    },
-    getAutomationDiagnostics: () => automation.diagnostics(),
-    runSkill: input => startManualSkill(input),
-    getAutomationOverview: async () => {
-      const tasksEnabled = !!app.workspaceRoot && app.moduleConfig?.enabled.task === true;
-      const diagnostics = automation.diagnostics();
-      if (!tasksEnabled) return { ok: true, value: { tasksEnabled, diagnostics, scheduled: [], recurring: [], truncated: false } };
-      const tasks = createTaskStore(app.workspaceRoot!);
-      const [scheduled, recurring] = await Promise.all([tasks.list({ status: "pending", limit: 50 }), tasks.listRecurring({ limit: 50 })]);
-      if (!scheduled.ok) return scheduled;
-      if (!recurring.ok) return recurring;
-      return { ok: true, value: { tasksEnabled, diagnostics, scheduled: scheduled.value.tasks,
-        recurring: recurring.value.recurringTasks, truncated: scheduled.value.truncated || recurring.value.truncated } };
-    },
-    scheduleSkill: async input => {
-      if (!app.workspaceRoot || !app.moduleConfig?.enabled.task) return { ok: false, error: { code: "TASK_UNAVAILABLE", message: "排期需要启用工作区任务模块" } };
-      if (closed || state.kind !== "idle") return { ok: false, error: { code: "BUSY", message: "请等待当前操作结束，安排尚未保存" } };
-      const operation = new AbortController();
-      operationController = operation;
-      setState({ kind: "command", name: "schedule-skill" });
-      let response!: AutomationResult<ScheduledSkillSaved>;
-      activeTask = (async () => {
-        try {
-          await ensureRecovered();
-          response = await scheduleRegisteredSkill({ automation, store: createTaskStore(app.workspaceRoot!), input,
-            signal: operation.signal, ...(app.activateTaskAutomation ? { activate: app.activateTaskAutomation } : {}) });
-        } catch { response = { ok: false, error: { code: "SCHEDULE_SAVE_UNCONFIRMED", message: "排期保存结果未确认，请刷新当前安排；不会自动重试" } }; }
-        finally { operationController = undefined; setState({ kind: "idle" }); }
-      })();
-      await activeTask;
-      return response;
-    },
-    changeAutomationSchedule: async input => {
-      if (!app.workspaceRoot || !app.moduleConfig?.enabled.task) return { ok: false, error: { code: "TASK_UNAVAILABLE", message: "任务模块未启用" } };
-      const parsed = automationScheduleActionSchema.safeParse(input);
-      if (!parsed.success) return { ok: false, error: { code: "INVALID_INPUT", message: "选择已保存的安排和有效操作；单次安排只能取消" } };
-      if (closed || state.kind !== "idle") return { ok: false, error: { code: "BUSY", message: "请等待当前操作结束" } };
-      const operation = new AbortController(); operationController = operation;
-      setState({ kind: "command", name: "change-automation-schedule" });
-      let response!: AutomationResult<null>;
-      activeTask = (async () => {
-        try {
-          await ensureRecovered();
-          const value = parsed.data;
-          const tasks = createTaskStore(app.workspaceRoot!);
-          const changed = value.kind === "once" ? await tasks.cancel(value.id, operation.signal)
-            : value.action === "pause" ? await tasks.pauseRecurring(value.id, operation.signal)
-              : value.action === "resume" ? await tasks.resumeRecurring(value.id, operation.signal)
-                : await tasks.cancelRecurring(value.id, operation.signal);
-          response = changed.ok ? { ok: true, value: null } : changed;
-        } catch { response = { ok: false, error: { code: "SCHEDULE_CHANGE_UNCONFIRMED", message: "操作结果未确认，请刷新核对；不会重放执行" } }; }
-        finally { operationController = undefined; setState({ kind: "idle" }); }
-      })();
-      await activeTask;
-      return response;
-    },
-    getTaskInbox: async () => {
-      if (!app.workspaceRoot) return { ok: false, error: { code: "TASK_UNAVAILABLE", message: "定时结果读取需要确定的工作区" } };
-      return createTaskStore(app.workspaceRoot).list({ inbox: true, limit: 50 });
-    },
-    getScheduledTask: async id => {
-      if (!app.workspaceRoot) return { ok: false, error: { code: "TASK_UNAVAILABLE", message: "定时结果读取需要确定的工作区" } };
-      if (typeof id !== "string" || !id.trim() || id.length > 256) return { ok: false, error: { code: "INVALID_INPUT", message: "无效任务 ID" } };
-      return createTaskStore(app.workspaceRoot).get(id);
-    },
-    acknowledgeTaskResult: async id => {
-      if (!app.workspaceRoot || !app.moduleConfig?.enabled.task) return { ok: false, error: { code: "TASK_UNAVAILABLE", message: "任务确认需要启用工作区任务模块" } };
-      if (typeof id !== "string" || !id.trim() || id.length > 256) return { ok: false, error: { code: "INVALID_INPUT", message: "无效任务 ID" } };
-      if (closed || state.kind !== "idle") return { ok: false, error: { code: "BUSY", message: "请等待当前执行或整理结束" } };
-      setState({ kind: "command", name: "task-acknowledge" });
-      let response!: TaskStoreResult<TaskRecordV4>;
-      activeTask = (async () => {
-        try { response = await createTaskStore(app.workspaceRoot!).acknowledge(id); }
-        finally { setState({ kind: "idle" }); }
-      })();
-      await activeTask;
-      return response;
-    },
-    getRssInbox: async () => {
-      if (!app.workspaceRoot || !app.moduleConfig?.enabled.task) return { ok: false, error: { code: "RSS_UNAVAILABLE", message: "RSS requires workspace and task module" } };
-      try {
-        const view = await createRssSubscriptionStore(app.workspaceRoot).read();
-        if (view.scheduleId === null) return { ok: true, value: { tasks: [], truncated: false } };
-        const tasks = createTaskStore(app.workspaceRoot);
-        const list = await tasks.list({ recurringTaskId: view.scheduleId, inbox: true, limit: 5 });
-        if (!list.ok) return list;
-        const entries: RssInbox["tasks"] = [];
-        for (const s of list.value.tasks) {
-          const task = await tasks.get(s.id);
-          if (!task.ok) return task;
-          const t = task.value;
-          const text = t.resultText ?? `${t.error?.code ?? t.status}: ${t.error?.message ?? "无结果回执"}`;
-          entries.push({ id: t.id, status: t.status, finishedAt: t.finishedAt, text: text.slice(0, 24000), textTruncated: text.length > 24000 });
-        }
-        return { ok: true, value: { tasks: entries, truncated: list.value.truncated } };
-      } catch (e) { return rssFailure(e); }
-    },
-    acknowledgeRssResult: async id => {
-      if (!app.workspaceRoot || !app.moduleConfig?.enabled.task) return { ok: false, error: { code: "RSS_UNAVAILABLE", message: "Acknowledgement requires enabled task module" } };
-      if (closed || state.kind !== "idle") return { ok: false, error: { code: "BUSY", message: "Acknowledgement requires an idle controller" } };
-      setState({ kind: "command", name: "rss-acknowledge" });
-      let response!: RssResult<void>;
-      activeTask = (async (): Promise<RssResult<void>> => { try {
-        const view = await createRssSubscriptionStore(app.workspaceRoot!).read();
-        const tasks = createTaskStore(app.workspaceRoot!);
-        const task = await tasks.get(id);
-        if (!task.ok) return task;
-        if (!view.scheduleId || task.value.recurringTaskId !== view.scheduleId) return { ok: false, error: { code: "RSS_NOT_FOUND", message: "Result does not belong to this RSS schedule" } };
-        const ack = await tasks.acknowledge(id);
-        return ack.ok ? { ok: true, value: undefined } : ack;
-      } catch (e) { return rssFailure(e); }
-      finally { setState({ kind: "idle" }); }
-      })().then(result => { response = result; });
-      await activeTask;
-      return response;
-    },
-    getRssSubscriptions: async () => {
-      if (!app.workspaceRoot || !app.moduleConfig?.enabled.task) return { ok: false, error: { code: "RSS_UNAVAILABLE", message: "RSS subscriptions require workspace and task module" } };
-      return createRssSubscriptionStore(app.workspaceRoot).get();
-    },
-    updateRssSubscriptions: async input => {
-      if (!app.workspaceRoot || !app.moduleConfig?.enabled.task) return { ok: false, error: { code: "RSS_UNAVAILABLE", message: "RSS subscriptions require workspace and task module" } };
-      if (closed || state.kind !== "idle") return { ok: false, error: { code: "BUSY", message: "RSS changes require an idle controller" } };
-      setState({ kind: "command", name: "rss-subscriptions" });
-      let response!: RssResult<RssView>;
-      activeTask = (async () => {
-        try { response = await createRssSubscriptionStore(app.workspaceRoot!).update(input); }
-        catch (error) { response = rssFailure(error); }
-        finally { setState({ kind: "idle" }); }
-      })();
-      await activeTask;
-      return response;
+    memory,
+    workTasks,
+    automation: automationControls,
+    dreaming,
+    rss: createRssControls(kernel),
+    recipes: createRecipeControls(kernel),
+    runs: {
+      list: async (limit) => {
+        await ensureRecovered();
+        return app.executionRecords.listRuns(app.threadId, limit);
+      },
+      listModelUsage: async () => {
+        await ensureRecovered();
+        return app.executionRecords.listModelUsage(app.threadId);
+      },
+      get: async (runId) => {
+        await ensureRecovered();
+        return app.executionRecords.getRun(app.threadId, runId);
+      },
     },
     getSnapshot: () => ({
       state,
@@ -1090,10 +890,6 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       resultTextTruncated,
     }),
     getHistory: async () => { await recovery; return app.store.getMessages(app.threadId); },
-    getMemoryReceipts: async () => {
-      await recovery;
-      return readMemoryFactReceipts(app.memoryStore, app.threadId, await app.store.getMessages(app.threadId));
-    },
     getContextDiagnostics: async () => {
       const diagnostics = await app.getContextDiagnostics();
       const source = diagnostics.ok ? diagnostics.value.lastPreparationSource : null;
@@ -1101,454 +897,6 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
         source.runId = primaryRunId;
       }
       return diagnostics;
-    },
-    listRuns: async (limit) => {
-      await ensureRecovered();
-      return app.executionRecords.listRuns(app.threadId, limit);
-    },
-    listModelUsage: async () => {
-      await ensureRecovered();
-      return app.executionRecords.listModelUsage(app.threadId);
-    },
-    getRun: async (runId) => {
-      await ensureRecovered();
-      return app.executionRecords.getRun(app.threadId, runId);
-    },
-    getMemoryReferences: () => {
-      const reference = app.getMemoryReferences?.();
-      return reference && primaryContextMessageIds.has(reference.messageId) && primaryRunId ? { ...reference, runId: primaryRunId } : null;
-    },
-    listRecipes: async () => {
-      if (closed || !app.recipes) return memoryControlFailure("RECIPE_UNAVAILABLE", "Command recipes require configured Shell and workspace");
-      try { return { ok: true, value: await app.recipes.list(new AbortController().signal) }; }
-      catch (error) { return memoryControlFailure(error instanceof RecipeError ? error.code : "READ_FAILED", "Cannot read recipes; existing catalog is preserved"); }
-    },
-    changeRecipe: async input => {
-      const parsed = recipeChangeSchema.safeParse(input);
-      if (!parsed.success) return memoryControlFailure("INVALID_INPUT", "Invalid recipe change");
-      if (closed || !app.recipes) return memoryControlFailure("RECIPE_UNAVAILABLE", "Command recipes are unavailable");
-      if (state.kind !== "idle") return memoryControlFailure("BUSY", "Recipe changes require an idle controller");
-      const operation = new AbortController(); operationController = operation;
-      setState({ kind: "command", name: "recipe-change" });
-      let result!: MemoryResult<RecipeEntry>;
-      activeTask = (async () => {
-        try {
-          await ensureRecovered();
-          const value = parsed.data;
-          result = { ok: true, value: await app.recipes!.change(value.id, value.expectedRevision, value.action, value.hash, operation.signal) };
-        } catch (error) { result = memoryControlFailure(error instanceof RecipeError ? error.code : "WRITE_FAILED", "Recipe change is unconfirmed; reread before another action"); }
-        finally { operationController = undefined; setState({ kind: "idle" }); }
-      })();
-      await activeTask; return result;
-    },
-    getMemoryLibrary: async () => {
-      if (!app.memoryStore?.getLibrary || closed) return memoryControlFailure("MEMORY_DISABLED", "记忆文档未就绪");
-      return app.memoryStore.getLibrary(app.threadId);
-    },
-    readMemoryDocument: async (id) => {
-      if (!app.memoryStore?.readLibraryDocument || closed) return memoryControlFailure("MEMORY_DISABLED", "记忆文档未就绪");
-      if (typeof id !== "string" || !id || id.length > 256) return memoryControlFailure("INVALID_INPUT", "文档标识无效");
-      return app.memoryStore.readLibraryDocument(id, app.threadId);
-    },
-    changeMemoryLibrary: async (input) => {
-      if (!app.memoryStore?.changeLibrary) return memoryControlFailure("MEMORY_DISABLED", "记忆文档未就绪");
-      if (closed || state.kind !== "idle") return memoryControlFailure("BUSY", "请等当前处理结束后再保存记忆文档");
-      const operation = new AbortController(); operationController = operation;
-      setState({ kind: "command", name: "memory-document" });
-      let result!: MemoryResult<MemoryLibraryView>;
-      activeTask = (async () => {
-        try {
-          await ensureRecovered();
-          result = await app.memoryStore!.changeLibrary!(input, app.threadId, operation.signal);
-          if (result.ok) emit({ type: "memory-updated", reason: "write" });
-        } catch { result = memoryControlFailure("WRITE_FAILED", "保存结果未确认，请重新读取核对，不要直接重复保存"); }
-        finally { operationController = undefined; setState({ kind: "idle" }); }
-      })();
-      await activeTask; return result;
-    },
-    listMemories: async (input) => {
-      if (!app.memoryStore || closed) return { ok: false, error: { code: "MEMORY_DISABLED", message: "Memory is unavailable" } };
-      const result = await app.memoryStore.list();
-      return result.ok ? memoryPage(result.entries, app.threadId, input) : result;
-    },
-    getMemory: async (id) => {
-      if (!app.memoryStore || closed) return { ok: false, error: { code: "MEMORY_DISABLED", message: "Memory is unavailable" } };
-      const result = await app.memoryStore.get(id);
-      if (!result.ok) return result;
-      if (!visibleMemory(result.entry, app.threadId)) return { ok: false, error: { code: "MEMORY_ENTRY_NOT_FOUND", message: "Memory not found" } };
-      return { ok: true, value: formalMemory(result.entry) };
-    },
-    updateMemory: async (input) => {
-      if (!app.memoryStore) return { ok: false, error: { code: "MEMORY_DISABLED", message: "Memory is unavailable" } };
-      if (!validMemoryEdit(input)) return { ok: false, error: { code: "INVALID_INPUT", message: "Only explicit text, pin and disable edits with a current revision are allowed" } };
-      if (closed || state.kind !== "idle") return { ok: false, error: { code: "BUSY", message: "Memory editing requires an idle controller" } };
-      const operation = new AbortController();
-      operationController = operation;
-      setState({ kind: "command", name: "memory-edit" });
-      let result!: MemoryResult<FormalMemory>;
-      activeTask = (async () => {
-        try {
-          await ensureRecovered();
-          const { id, ...edit } = input;
-          const updated = await app.memoryStore!.update(id, edit, operation.signal, { boundThreadId: app.threadId });
-          result = updated.ok ? { ok: true, value: formalMemory(updated.entry) } : updated;
-          if (result.ok) emit({ type: "memory-updated", reason: "write" });
-        } catch (error) {
-          result = { ok: false, error: { code: "WRITE_FAILED", message: String(error) } };
-        } finally { operationController = undefined; setState({ kind: "idle" }); }
-      })();
-      await activeTask;
-      return result;
-    },
-    getMemoryHistory: async (input) => {
-      if (!validateMemoryHistoryInput(input)) return memoryControlFailure("INVALID_INPUT", "History requires id, offset >=0 and limit 1..10");
-      const store = app.memoryStore && !closed ? temporalMemoryStore(app.memoryStore) : undefined;
-      if (!store) return memoryControlFailure("MEMORY_DISABLED", "Temporal Memory is unavailable");
-      const record = await store.inspectMemory(input.id, undefined, { boundThreadId: app.threadId });
-      return record.ok ? memoryHistoryPage(record.value, input) : record;
-    },
-    queryMemory: async (input) => {
-      const store = app.memoryStore && !closed ? temporalMemoryStore(app.memoryStore) : undefined;
-      if (!store) return memoryControlFailure("MEMORY_DISABLED", "Temporal Memory is unavailable");
-      if (!input || typeof input !== "object" || Array.isArray(input) || typeof input.id !== "string" || !input.id || input.id.length > 256 || Object.keys(input).some(key => !["id", "validAt", "knownAt", "includeDisabled"].includes(key))) return memoryControlFailure("INVALID_INPUT", "Invalid temporal Memory query");
-      const { id, ...query } = input;
-      const result = await store.queryMemory(id, query, undefined, { boundThreadId: app.threadId });
-      return result.ok && Buffer.byteLength(JSON.stringify(result.value), "utf8") > 64 * 1024
-        ? memoryControlFailure("MEMORY_CONTEXT_TOO_LARGE", "Temporal Memory view exceeds 64 KiB") : result;
-    },
-    previewMemoryAction: async (input) => {
-      const validated = validateMemoryAction(input);
-      if (!validated.ok) return validated;
-      const store = app.memoryStore && !closed ? temporalMemoryStore(app.memoryStore) : undefined;
-      if (!store) return memoryControlFailure("MEMORY_DISABLED", "Temporal Memory is unavailable");
-      const preview = await store.previewMemoryMutation(validated.value, undefined, { boundThreadId: app.threadId });
-      return preview.ok ? memoryActionPreview(validated.value, preview.value) : preview;
-    },
-    applyMemoryAction: async (input) => {
-      const validated = validateMemoryAction(input);
-      if (!validated.ok) return validated;
-      const store = app.memoryStore ? temporalMemoryStore(app.memoryStore) : undefined;
-      if (!store) return memoryControlFailure("MEMORY_DISABLED", "Temporal Memory is unavailable");
-      if (closed || state.kind !== "idle") return memoryControlFailure("BUSY", "Memory editing requires an idle controller");
-      const operation = new AbortController();
-      operationController = operation;
-      setState({ kind: "command", name: "memory-action" });
-      let result!: MemoryResult<FormalMemory | null>;
-      activeTask = (async () => {
-        try {
-          await ensureRecovered();
-          const { operation: action, id, ...fields } = validated.value;
-          const options = { boundThreadId: app.threadId };
-          if (action === "delete") {
-            const deleted = await store.deleteMemory({ id, expectedRevision: fields.expectedRevision }, operation.signal, options);
-            result = deleted.ok ? { ok: true, value: null } : deleted;
-          } else {
-            const updated = action === "restore"
-              ? await store.restoreMemory({ id, ...fields } as Extract<MemoryAction, { operation: "restore" }>, operation.signal, options)
-              : action === "metadata"
-                ? await store.update(id, fields, operation.signal, options)
-                : await store.reviseMemory({ id, operation: action, ...fields }, operation.signal, options);
-            result = updated.ok ? { ok: true, value: formalMemory(updated.entry) } : updated;
-          }
-          if (result.ok) emit({ type: "memory-updated", reason: "write" });
-        } catch (error) {
-          result = memoryControlFailure("WRITE_FAILED", String(error));
-        } finally { operationController = undefined; setState({ kind: "idle" }); }
-      })();
-      await activeTask;
-      return result;
-    },
-    getMemoryMaintenance: async () => {
-      const store = app.memoryStore && !closed ? temporalMemoryStore(app.memoryStore) : undefined;
-      if (!store) return memoryControlFailure("MEMORY_DISABLED", "Temporal Memory is unavailable");
-      const counts = await store.inspectMemoryMaintenance(undefined, { boundThreadId: app.threadId });
-      if (!counts.ok) return counts;
-      const enabled = automation.diagnostics().hooks.some(rule => rule.enabled !== false &&
-        automation.getSkill(rule.handler.id)?.kind === "memory-consolidate");
-      let backlogCount: number | undefined, backlogError: string | undefined;
-      if (enabled) {
-        const cursor = await store.getConsolidationCursor(app.threadId);
-        if (!cursor.ok) backlogError = `${cursor.error.code}: ${cursor.error.message}`;
-        else {
-          try {
-            const backlog = memoryConsolidationBacklog(await app.store.getMessages(app.threadId), cursor.value);
-            if (backlog.ok) backlogCount = backlog.value;
-            else backlogError = `${backlog.error.code}: ${backlog.error.message}`;
-          } catch (error) { backlogError = `READ_FAILED: ${String(error)}`; }
-        }
-      }
-      const running = consolidationRunning;
-      const error = consolidationFailure ?? backlogError;
-      const consolidation: MemoryMaintenance["consolidation"] = {
-        enabled,
-        state: running ? "running" : error ? "failed" : counts.value.pending > 0 ? "awaiting_review" : !enabled ? "off" : (backlogCount ?? 0) > 0 ? "backlog" : "idle",
-        ...(error === undefined ? {} : { error }), ...(backlogCount === undefined ? {} : { backlogCount }),
-        ...(lastConsolidationAttempt === undefined ? {} : { lastAttempt: structuredClone(lastConsolidationAttempt) }),
-        ...(lastConsolidationSkippedReason === undefined ? {} : { lastSkippedReason: lastConsolidationSkippedReason }),
-      };
-      return { ok: true, value: { ...counts.value, capacity: { ...memoryCapacity }, consolidation } };
-    },
-    listMemoryConsolidationSources: async (offset) => {
-      if (!app.memoryStore || closed) return memoryControlFailure("MEMORY_DISABLED", "Memory is unavailable");
-      try { return consolidationSourcePage(await app.store.getMessages(app.threadId), offset); }
-      catch (error) { return memoryControlFailure("READ_FAILED", String(error)); }
-    },
-    consolidateMemory: async (input) => {
-      const validated = validateConsolidationRequest(input);
-      if (!validated.ok) return validated;
-      const skill = automation.getSkill(MEMORY_SKILL_ID);
-      if (!skill || !app.memoryConsolidation) return memoryControlFailure("MEMORY_DISABLED", "Enable memory and consolidation in the configuration first");
-      return startManualSkill({ id: skill.id, expectedHash: skill.hash }, validated.value);
-    },
-    listMemoryCandidates: async (input) => {
-      if (app.memoryStore === undefined || app.workspaceRoot === undefined) {
-        return { ok: false, error: { code: "MEMORY_DISABLED", message: "Memory requires an enabled module and configured workspace" } };
-      }
-      if (closed) return { ok: false, error: { code: "MEMORY_CANDIDATE_CONFLICT", message: "Controller is closed" } };
-      return app.memoryStore.listCandidates(input, undefined, { boundThreadId: app.threadId });
-    },
-    getMemoryCandidate: async (id) => {
-      if (app.memoryStore === undefined || app.workspaceRoot === undefined) {
-        return { ok: false, error: { code: "MEMORY_DISABLED", message: "Memory requires an enabled module and configured workspace" } };
-      }
-      if (closed) return { ok: false, error: { code: "MEMORY_CANDIDATE_CONFLICT", message: "Controller is closed" } };
-      return app.memoryStore.getCandidate(id, undefined, { boundThreadId: app.threadId });
-    },
-    resolveMemoryCandidate: async (input) => {
-      if (app.memoryStore === undefined || app.workspaceRoot === undefined) {
-        return { ok: false, error: { code: "MEMORY_DISABLED", message: "Memory requires an enabled module and configured workspace" } };
-      }
-      if (closed || state.kind !== "idle") {
-        return { ok: false, error: { code: "MEMORY_CANDIDATE_CONFLICT", message: "Memory review requires an idle controller" } };
-      }
-      const operation = new AbortController();
-      operationController = operation;
-      setState({ kind: "command", name: "memory-review" });
-      let resolution!: MemoryResult<CandidateResolution>;
-      activeTask = (async () => {
-        try {
-          await ensureRecovered();
-          resolution = await app.memoryStore!.resolveCandidate(input, operation.signal, { boundThreadId: app.threadId });
-          if (resolution.ok || resolution.error.code === "MEMORY_CANDIDATE_STALE") {
-            emit({ type: "memory-updated", reason: "review" });
-          }
-        } catch (error) {
-          const message = String(error);
-          resolution = { ok: false, error: { code: "WRITE_FAILED", message } };
-          emit({ type: "error", message });
-        } finally {
-          operationController = undefined;
-          setState({ kind: "idle" });
-        }
-      })();
-      await activeTask;
-      return resolution;
-    },
-    createWorkTask: async (input) => {
-      const recoveryFailure = await workTaskRecoveryFailure();
-      if (recoveryFailure !== undefined) return recoveryFailure;
-      if (app.workTasks === undefined) return unavailableWorkTask();
-      const created = await app.workTasks.create({ ...input, threadId: app.threadId });
-      if (created.ok) emit({ type: "work-task-updated", task: created.value });
-      return created;
-    },
-    listWorkTasks: async () => {
-      const recoveryFailure = await workTaskRecoveryFailure();
-      if (recoveryFailure !== undefined) return recoveryFailure;
-      return app.workTasks?.list({ threadId: app.threadId }) ?? unavailableWorkTask();
-    },
-    getWorkTask: async (id) => {
-      const recoveryFailure = await workTaskRecoveryFailure();
-      if (recoveryFailure !== undefined) return recoveryFailure;
-      if (app.workTasks === undefined) return unavailableWorkTask();
-      const task = await app.workTasks.get(id);
-      if (task.ok && task.value.threadId !== app.threadId) {
-        return { ok: false, error: { code: "WORK_TASK_NOT_FOUND", message: "Work task not found" } };
-      }
-      return task;
-    },
-    getWorkTaskContinuation: async (input) => {
-      const task = await readTaskForDisplay(input);
-      if (!task.ok) return task;
-      try {
-        const runId = task.value.runIds.at(-1);
-        const run = runId ? await app.executionRecords.getRun(app.threadId, runId) : null;
-        return { ok: true, value: workTaskContinuation(task.value, run) };
-      } catch {
-        return { ok: false, error: { code: "WORK_TASK_READ_FAILED", message: "Unable to read continuation receipts; no older Run was substituted" } };
-      }
-    },
-    getWorkTaskDeliveryDraft: async (input) => {
-      const task = await readTaskForDisplay(input);
-      if (!task.ok) return task;
-      const runId = task.value.runIds.at(-1);
-      try {
-        const run = runId ? await app.executionRecords.getRun(app.threadId, runId) : null;
-        return { ok: true, value: workTaskDeliveryDraft(task.value, run) };
-      } catch {
-        return { ok: false, error: { code: "WORK_TASK_READ_FAILED", message: "Unable to read the latest execution receipt; no older draft was used" } };
-      }
-    },
-    getWorkTaskArtifact: async (input) => {
-      const task = await readTaskForDisplay(input);
-      if (!task.ok) return task;
-      if (typeof input.path !== "string" || !input.path.trim() || input.path.length > 1024) {
-        return { ok: false, error: { code: "WORK_TASK_INVALID_INPUT", message: "A bounded artifact path is required" } };
-      }
-      if (!app.moduleConfig?.enabled["read-file"] || !app.workspaceRoot) {
-        return { ok: false, error: { code: "WORK_TASK_INVALID_STATE", message: "Artifact preview requires enabled file module and workspace" } };
-      }
-      const runId = task.value.runIds.at(-1);
-      try {
-        const run = runId ? await app.executionRecords.getRun(app.threadId, runId) : null;
-        return await readWorkTaskArtifact(app.workspaceRoot, task.value, run, input.path);
-      } catch {
-        return { ok: false, error: { code: "WORK_TASK_READ_FAILED", message: "Unable to read artifact preview or its execution receipt" } };
-      }
-    },
-    runWorkTask: async (input, options) => {
-      if (await workTaskRecoveryFailure() !== undefined) return { ok: false, reason: "starting" };
-      if (app.workTasks === undefined || app.workspaceRoot === undefined) return { ok: false, reason: "starting" };
-      if (closed || state.kind !== "idle" || nextWorkTask !== undefined || activeWorkTask !== undefined) {
-        return { ok: false, reason: "busy" };
-      }
-      const found = await app.workTasks.get(input.id);
-      if (!found.ok || found.value.threadId !== app.threadId || found.value.revision !== input.expectedRevision ||
-          !["ready", "paused"].includes(found.value.status)) {
-        return { ok: false, reason: "starting" };
-      }
-      if (closed || state.kind !== "idle" || nextWorkTask !== undefined || activeWorkTask !== undefined) {
-        return { ok: false, reason: "busy" };
-      }
-      let clearBinding: (() => void) | undefined;
-      try {
-        const runId = found.value.runIds.at(-1);
-        const run = runId ? await app.executionRecords.getRun(app.threadId, runId) : null;
-        // Receipt reads are asynchronous. Recheck the idle mutex before reserving the next Run.
-        if (closed || state.kind !== "idle" || nextWorkTask !== undefined || activeWorkTask !== undefined) return { ok: false, reason: "busy" };
-        app.workTaskContext.begin(found.value, workTaskContinuation(found.value, run));
-        workTaskCompletionCheck = input.completionCheck !== false;
-        nextWorkTask = found.value;
-        clearBinding = app.bindNextExecutionWorkTask({ id: found.value.id, expectedRevision: found.value.revision });
-        // A task execution instruction is not evidence of a lasting user preference.
-        // Persist the existing exclusion marker so later history consolidation also skips it.
-        const started = await controller.run(input.instruction?.trim() || found.value.goal, {
-          memoryConsolidation: "exclude",
-          ...(input.source ? { source: input.source } : {}),
-          ...(options?.desktopEntry ? { desktopEntry: true } : {}),
-        });
-        clearBinding();
-        clearBinding = undefined;
-        if (!started.ok) {
-          nextWorkTask = undefined;
-          app.workTaskContext.end();
-        }
-        return started;
-      } catch (error) {
-        clearBinding?.();
-        nextWorkTask = undefined;
-        app.workTaskContext.end();
-        emit({ type: "error", message: String(error) });
-        return { ok: false, reason: "starting" };
-      }
-    },
-    submitWorkTaskDelivery: async (input) => {
-      const recoveryFailure = await workTaskRecoveryFailure();
-      if (recoveryFailure !== undefined) return recoveryFailure;
-      if (app.workTasks === undefined) return unavailableWorkTask();
-      const found = await app.workTasks.get(input.id);
-      if (!found.ok) return found;
-      if (found.value.threadId !== app.threadId) return missingWorkTask();
-      let current = await app.workTasks.submitDelivery(input.id, {
-        expectedRevision: input.expectedRevision,
-        delivery: {
-          summary: input.summary,
-          artifactRefs: input.artifactRefs ?? [],
-          evidence: [],
-          unresolved: input.unresolved ?? [],
-        },
-      });
-      if (!current.ok) return current;
-      const automaticCriteria = current.value.acceptance
-        .filter((criterion) => criterion.method === "automatic")
-        .sort((left, right) => Number(left.required) - Number(right.required));
-      for (const criterion of automaticCriteria) {
-        const verified = await verifyAutomaticCriterion(app, current.value, criterion);
-        current = await app.workTasks.recordAcceptance(current.value.id, {
-          expectedRevision: current.value.revision,
-          criterionId: criterion.id,
-          actor: "automatic",
-          status: verified.status,
-          evidence: verified.evidence,
-          note: verified.note,
-        });
-        if (!current.ok) return current;
-      }
-      emit({ type: "work-task-updated", task: current.value });
-      return current;
-    },
-    recordHumanAcceptance: async (input) => {
-      const recoveryFailure = await workTaskRecoveryFailure();
-      if (recoveryFailure !== undefined) return recoveryFailure;
-      if (app.workTasks === undefined) return unavailableWorkTask();
-      const found = await app.workTasks.get(input.id);
-      if (!found.ok) return found;
-      if (found.value.threadId !== app.threadId) return missingWorkTask();
-      const evidence: WorkTaskEvidence[] = input.decision === "passed"
-        ? [{ id: randomUUID(), kind: "human", criterionId: input.criterionId, acceptedAt: new Date().toISOString() }]
-        : [];
-      const updated = await app.workTasks.recordAcceptance(input.id, {
-        expectedRevision: input.expectedRevision,
-        criterionId: input.criterionId,
-        actor: "human",
-        status: input.decision,
-        evidence,
-        ...(input.note === undefined ? {} : { note: input.note }),
-      });
-      if (updated.ok) {
-        emit({ type: "work-task-updated", task: updated.value });
-        if (updated.value.status === "completed") startIdleDreaming();
-      }
-      return updated;
-    },
-    reconcileWorkTask: async (input) => {
-      const recoveryFailure = await workTaskRecoveryFailure();
-      if (recoveryFailure !== undefined) return recoveryFailure;
-      if (app.workTasks === undefined) return unavailableWorkTask();
-      const found = await app.workTasks.get(input.id);
-      if (!found.ok) return found;
-      if (found.value.threadId !== app.threadId) return missingWorkTask();
-      const updated = await app.workTasks.reconcile(input.id, {
-        expectedRevision: input.expectedRevision,
-        observedOutcome: input.observedOutcome,
-        decision: input.decision,
-        note: input.note,
-      });
-      if (updated.ok) emit({ type: "work-task-updated", task: updated.value });
-      return updated;
-    },
-    requestWorkTaskChanges: async (input) => {
-      const recoveryFailure = await workTaskRecoveryFailure();
-      if (recoveryFailure !== undefined) return recoveryFailure;
-      if (app.workTasks === undefined) return unavailableWorkTask();
-      if (closed || state.kind !== "idle") return { ok: false, error: { code: "WORK_TASK_INVALID_STATE", message: "Controller must be idle to request changes" } };
-      const found = await app.workTasks.get(input.id);
-      if (!found.ok) return found;
-      if (found.value.threadId !== app.threadId) return missingWorkTask();
-      const updated = await app.workTasks.requestChanges(input.id, input.expectedRevision);
-      if (updated.ok) emit({ type: "work-task-updated", task: updated.value });
-      return updated;
-    },
-    cancelWorkTask: async (input) => {
-      const recoveryFailure = await workTaskRecoveryFailure();
-      if (recoveryFailure !== undefined) return recoveryFailure;
-      if (app.workTasks === undefined) return unavailableWorkTask();
-      const found = await app.workTasks.get(input.id);
-      if (!found.ok) return found;
-      if (found.value.threadId !== app.threadId) return missingWorkTask();
-      const cancelled = await app.workTasks.cancel(input.id, input.expectedRevision);
-      if (cancelled.ok) emit({ type: "work-task-updated", task: cancelled.value });
-      return cancelled;
     },
     run: async (text, options) => {
       const attachments = validateChatAttachments(options?.attachments);

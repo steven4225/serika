@@ -137,12 +137,12 @@ it("memory library operations bind the host Thread, serialize with foreground wo
   } as unknown as NonNullable<RuntimeApp["memoryStore"]> }));
   controller.subscribe(event => { if (event.type === "memory-updated") events.push(event.reason); });
   try {
-    assert.ok((await controller.getMemoryLibrary()).ok);
-    assert.equal((await controller.readMemoryDocument("doc")).ok, false);
+    assert.ok((await controller.memory.getLibrary()).ok);
+    assert.equal((await controller.memory.readDocument("doc")).ok, false);
     const input = { operation: "create-folder" as const, id: "12345678-1234-4123-8123-123456789abc", name: "角色", expectedRevision: 0 };
-    const saving = controller.changeMemoryLibrary(input);
+    const saving = controller.memory.changeLibrary(input);
     assert.equal(controller.getSnapshot().state.kind, "command");
-    const second = await controller.changeMemoryLibrary(input); assert.equal(second.ok ? null : second.error.code, "BUSY");
+    const second = await controller.memory.changeLibrary(input); assert.equal(second.ok ? null : second.error.code, "BUSY");
     const foreground = await controller.run("cannot race document save"); assert.equal(foreground.ok ? null : foreground.reason, "busy");
     release(); assert.ok((await saving).ok);
     assert.equal(controller.getSnapshot().state.kind, "idle");

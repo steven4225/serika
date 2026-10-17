@@ -35,7 +35,7 @@ it("formal Memory bridge edits actual current versions, validates IPC, preserves
     const reread = await bridge.getMemory(entry.entry.id); assert.ok(reread.ok && reread.value.text === "复盘先给结论");
     const disabled = await bridge.updateMemory({ id: entry.entry.id, expectedRevision: 2, status: "disabled" }); assert.ok(disabled.ok && disabled.value.status === "disabled");
     assert.ok(messages.some(message => message.type === "memory-updated" && message.reason === "write"));
-    assert.equal((await controller.listRuns()).length, 0);
+    assert.equal((await controller.runs.list()).length, 0);
     assert.equal(bridge.getMemoryReferences(), null);
     assert.deepEqual(assistantEventToRenderer({ type: "memory-references-changed" }), { type: "memory-references-changed" });
   } finally { await bridge.shutdown(); await rm(root, { recursive: true, force: true }); }

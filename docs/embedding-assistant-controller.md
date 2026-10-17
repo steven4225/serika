@@ -12,6 +12,22 @@ import { createAssistantController, createRuntimeApp } from "@serika/assistant";
 
 渲染进程这类浏览器代码只能从 `@serika/assistant/browser` 取运行时值；`./testing` 只给测试用。命令行入口不在本包，在 `apps/cli`（`apps/cli/dist/index.js` 会立即执行，不是库）。
 
+## 接口形状
+
+顶层只放对话本身：`getSnapshot`、`getHistory`、`getContextDiagnostics`、`run`、`steer`、`cancel`、`confirm`、`command`、`recordOutput`、`subscribe`、`shutdown`。其余按领域分组：
+
+| 分组 | 内容 |
+| --- | --- |
+| `controller.memory` | 正式记忆、记忆文档、历史与时间视图、待审候选、整理 |
+| `controller.workTasks` | 工作任务的记录、回执、执行与验收 |
+| `controller.automation` | 已登记 Skill、排期、定时任务结果 |
+| `controller.dreaming` | 经验学习和学到的文本方法 |
+| `controller.rss` | RSS 订阅和摘要结果 |
+| `controller.recipes` | Shell 命令配方 |
+| `controller.runs` | 本 Thread 的执行回执和模型用量 |
+
+所有分组共用顶层同一个 idle / running / command 状态机：需要独占的分组操作在忙时照样被拒绝，`cancel()` 也能中止它们。
+
 ## 必须遵守的接线规则
 
 - **输出必须 tee。** 传给 `createRuntimeApp` 的 `output` Writable 收到的每一段文本（命令输出、模块通知、Home 文本、确认提示），都必须同时转发给 `controller.recordOutput(text)`。不 tee 的话，视图重载后的快照会缺这些内容。
@@ -31,16 +47,16 @@ import { createAssistantController, createRuntimeApp } from "@serika/assistant";
 
 ### 工作任务续做
 
-`getWorkTaskContinuation({ id, expectedRevision })` 只读当前 Thread 的任务和最新归属正确的 primary Run。
+`workTasks.getContinuation({ id, expectedRevision })` 只读当前 Thread 的任务和最新归属正确的 primary Run。
 返回 `WorkTaskContinuation`（`dist/work-task-continuation.js`）：上次提交的交付、未解决项、最新助手结论与最近八个工具身份/状态。
 交付摘要最多 2 KiB，产物引用和未解决项各取前四条；`truncated` / `toolsTruncated` 明示省略。
 没有最新回执或归属不符时 `receiptUnavailable: true`，不会从旧 Run 凑回执；坏文件返回错误，不显示为空。
 工具 `completed` 只代表调用结束，可能包含业务 `ok:false`；实际输出仍须到完整回执核对。
 查询不读产物、不调用模型、不创建 Run、不写状态，也不是验收证据。版本过期须重新读任务。
 
-显式 `runWorkTask()` 在新 Run 开始前读取一次以上投影，放入既有 24 KiB 任务参考；目标/约束/验收标准不会被截断。
+显式 `workTasks.run()` 在新 Run 开始前读取一次以上投影，放入既有 24 KiB 任务参考；目标/约束/验收标准不会被截断。
 上次交付是参考，不是当前磁盘事实或新的工具权限。提示模型先读当前文件再修改、保留无关章节、修改后读回；这不是额外的文件工具强制门禁。
-核对后仍须启动新 Run，未知副作用不自动重放。质量不合格沿用 `requestWorkTaskChanges()` 回到同一任务，下一轮重新交付与验收。
+核对后仍须启动新 Run，未知副作用不自动重放。质量不合格沿用 `workTasks.requestChanges()` 回到同一任务，下一轮重新交付与验收。
 
 `ContextDiagnostics.lastPreparationSource` 是可选、进程内的 `{ messageId, workTaskId, runId? }`。
 Controller 只给本进程当前 primary 用户消息对得上的实际准备补 `runId`。
@@ -101,7 +117,7 @@ RUNLOOM_CONTEXT_CONTINUITY=1 RUNLOOM_MODEL=deepseek node --env-file=.env \
 
 ## 本地执行回执（阶段三）
 
-- 控制器启用独立于聊天 JSONL 的 `execution-records.json`，保存在传给 `createRuntimeApp` 的 transcript 目录中。重启后调用 `await controller.listRuns()`（当前 Thread、最新优先、默认 20 条）和 `await controller.getRun(runId)`；查不到或不属于当前 Thread 返回 `null`。主 Run 和自动整理分别以 `phase` 标识。桌面端不要从聊天 transcript 推断工具是否执行。
+- 控制器启用独立于聊天 JSONL 的 `execution-records.json`，保存在传给 `createRuntimeApp` 的 transcript 目录中。重启后调用 `await controller.runs.list()`（当前 Thread、最新优先、默认 20 条）和 `await controller.runs.get(runId)`；查不到或不属于当前 Thread 返回 `null`。主 Run 和自动整理分别以 `phase` 标识。桌面端不要从聊天 transcript 推断工具是否执行。
 - 同一 Thread 同时只能有一个控制器进程。创建控制器后，首次查询或运行会取得进程期占有锁并恢复上次未完成的记录；占有冲突或记录文件损坏会使查询/新 Run 失败，不能绕过后直接重试工具。退出时务必调用 `shutdown()` 释放锁。
 - `tool.call.started` 在调用工具前持久化；`completed` 表示工具函数返回，**不等于业务成功**。文件工具仍需看结构化 `ok`；Shell 另看 `exitCode`、`timedOut`、`cancelled`。重启后有 started、无最终回执的工具标 `unknown`，需要人工核对磁盘/外部系统，不能自动重放。只有 requested、没有 started 的工具标 `not_started`。Run 未正常结束标 `interrupted`；完成回执可与失败 Run 同时存在。
 
@@ -118,9 +134,9 @@ Shell 不走文件证据路径，命令与 cwd 的完整回执要求不变。
 
 ## WorkTask 接入（第一批）
 
-- 配置 workspace 后，前端可用 `createWorkTask()`、`listWorkTasks()`、`getWorkTask()`、`runWorkTask()`、`submitWorkTaskDelivery()`、`recordHumanAcceptance()`、`reconcileWorkTask()` 和 `cancelWorkTask()` 驱动任务级生命周期。每次更新都传刚读取的 `revision`；冲突后重新读取，不要盲重试旧请求。
-- `runWorkTask()` 会把随后启动的主 Run 绑定到该任务；核对时同时检查 `task.runIds` 与 `getRun(runId).workTaskId`。默认在模型准备结束时核对必需自动条件，缺证据最多在同一 Run 内纠正两次；条件满足后自动尝试现有交付提交。`runWorkTask({ completionCheck: false })` 用于显式分段/人工迭代，保持原有暂停/复核行为。Run 正常结束仍不等于业务验收完成。
-- `submitWorkTaskDelivery()` 仅自动核对当前支持的精确 `shell_exit_zero` 和 `artifact_exists`。Shell 标准同时固定 `command` 与 workspace 相对 `cwd`（workspace 根为 `"."`）；Store 会再次回查真实 `runId + toolCallId` 回执，文件还会重算当前 SHA-256，调用方不能自报 evidence。人工标准不会被模型回复或 Run 成功自动通过，必须由用户明确调用 `recordHumanAcceptance()`；出现 `unknown` 工具或缺失执行回执时进入复核，不能重放。
+- 配置 workspace 后，前端可用 `workTasks.create()`、`workTasks.list()`、`workTasks.get()`、`workTasks.run()`、`workTasks.submitDelivery()`、`workTasks.recordHumanAcceptance()`、`workTasks.reconcile()` 和 `workTasks.cancel()` 驱动任务级生命周期。每次更新都传刚读取的 `revision`；冲突后重新读取，不要盲重试旧请求。
+- `workTasks.run()` 会把随后启动的主 Run 绑定到该任务；核对时同时检查 `task.runIds` 与 `runs.get(runId).workTaskId`。默认在模型准备结束时核对必需自动条件，缺证据最多在同一 Run 内纠正两次；条件满足后自动尝试现有交付提交。`workTasks.run({ completionCheck: false })` 用于显式分段/人工迭代，保持原有暂停/复核行为。Run 正常结束仍不等于业务验收完成。
+- `workTasks.submitDelivery()` 仅自动核对当前支持的精确 `shell_exit_zero` 和 `artifact_exists`。Shell 标准同时固定 `command` 与 workspace 相对 `cwd`（workspace 根为 `"."`）；Store 会再次回查真实 `runId + toolCallId` 回执，文件还会重算当前 SHA-256，调用方不能自报 evidence。人工标准不会被模型回复或 Run 成功自动通过，必须由用户明确调用 `workTasks.recordHumanAcceptance()`；出现 `unknown` 工具或缺失执行回执时进入复核，不能重放。
 - 新任务可显式指定 `{ kind: "artifact_exists", path, requireReadback: true }`。省略该可选字段时保留旧任务规则，不迁移或强化历史合同。开启后，最新归属正确的 primary Run 必须在最后一次匹配写入/编辑后成功 `read_file`，其完整返回的 SHA-256 和字节数须与当前产物一致；完成检查及 Store 落验收都会核对，缺证据会在原 Run 预算内要求读回。旧截断 read 预览不补造证据，拒绝、错误、旧读回或读回后又改文件均不通过。超过 read_file 的 64 KiB 上限为 blocked，不能反复纠正或假装读完。
 - `ExecutionToolRecord.fileRead?: { path, bytes, sha256 }` 从派发后的完整成功 read 输出提取，仅保存有界元数据，不保存额外正文，不扩大 2 KiB 预览或更新 journal 版本。read_file 保留 UTF-8 BOM，正文可还原报告的原字节；这是读回证据，不是权限、质量或未来磁盘保证。新桌面表单产物默认要求读回，测试命令逐条生成精确 command/cwd 验收；创建任务不执行测试，不授予 Shell 权限。
 - `RunResult.completion` 与执行回执中的同名可选字段由程序提供，普通聊天和成功的手动分段 Run 不带此字段。原因是 `delivered | needs_confirmation | needs_information | budget_exhausted | needs_review`，`corrections` 是本轮补证提示次数，不是新 Run 次数或模型 API 重试次数。`delivered` 表示结束时的程序检查通过，之后仍要落终态回执并重新核验交付；最终以任务的 acceptance/status 为准，不等于人工质量通过。取消保留 `RunResult.status === "cancelled"`，未核对副作用优先显示 `needs_review`。
@@ -129,12 +145,12 @@ Shell 不走文件证据路径，命令与 cwd 的完整回执要求不变。
 
 ## WorkTask 启动恢复与人工核对（第二批）
 
-- `requestWorkTaskChanges({ id, expectedRevision })` 只将 `awaiting_acceptance` 退回 `paused`，清空所有 criterion 状态、证据引用与说明，保留上次交付及 Run 回执作为历史参考；不调用模型、不重放工具。下一轮仍须显式 `runWorkTask()`，重新提交替换交付快照并重新验收。`recordHumanAcceptance()` 和 Store 验收只接受 `awaiting_acceptance`，暂停/执行中的旧交付不能通过验收。终态不可重开，未知效果仍走 reconciliation；这不是多版本交付历史。
+- `workTasks.requestChanges({ id, expectedRevision })` 只将 `awaiting_acceptance` 退回 `paused`，清空所有 criterion 状态、证据引用与说明，保留上次交付及 Run 回执作为历史参考；不调用模型、不重放工具。下一轮仍须显式 `workTasks.run()`，重新提交替换交付快照并重新验收。`workTasks.recordHumanAcceptance()` 和 Store 验收只接受 `awaiting_acceptance`，暂停/执行中的旧交付不能通过验收。终态不可重开，未知效果仍走 reconciliation；这不是多版本交付历史。
 
 - 控制器首次使用前按固定顺序取得 workspace/Thread 的 WorkTask 进程期锁和 transcript/Thread 的 execution 进程期锁，再把该 Thread 遗留的 `running` Run 标为 `interrupted`：已 `started` 但没有终态回执的工具变成 `unknown`，只有 `requested` 的工具变成 `not_started`。随后才对账该 Thread 的 `running` WorkTask，并在完成前阻止 WorkTask API 和新 Run。锁冲突、坏文件或对账失败均 fail-closed；`shutdown()` 释放两把锁。
 - 对账检查任务最新的关联 Run，同时核对 Thread、`workTaskId` 和 `primary` phase。最新回执缺失、外来或含 `unknown` 会把任务置为 `needs_review`；最新回执可说明且没有未知副作用时置为 `paused`。前一个不确定 Run 必须先 reconciliation 才能回到 `paused` 并显式开始下一 Run，因此恢复不依赖可能已经被有界 execution store 淘汰的完整历史。这个过程只收敛本地状态，绝不重新调用模型、工具或重放副作用。
-- `needs_review` 只能由用户显式调用 `reconcileWorkTask({ id, expectedRevision, observedOutcome, decision, note })` 处理。`observedOutcome` 是 `applied | partially_applied | not_applied | still_unknown`，说明必须非空；`continue + still_unknown` 会被拒绝。成功的 `continue` 只保存 human report 并把任务改为 `paused`，不会自动调用 `runWorkTask()`；成功的 `cancel` 把任务改为 `cancelled`，但尤其在 `still_unknown` 时不表示旧副作用未发生。
-- `cancelWorkTask()` 对 `needs_review` 返回 `WORK_TASK_INVALID_STATE`；前端在这个状态只能展示带观察结果和说明的核对取消入口，不能沿用普通取消按钮跳过记录。
+- `needs_review` 只能由用户显式调用 `workTasks.reconcile({ id, expectedRevision, observedOutcome, decision, note })` 处理。`observedOutcome` 是 `applied | partially_applied | not_applied | still_unknown`，说明必须非空；`continue + still_unknown` 会被拒绝。成功的 `continue` 只保存 human report 并把任务改为 `paused`，不会自动调用 `workTasks.run()`；成功的 `cancel` 把任务改为 `cancelled`，但尤其在 `still_unknown` 时不表示旧副作用未发生。
+- `workTasks.cancel()` 对 `needs_review` 返回 `WORK_TASK_INVALID_STATE`；前端在这个状态只能展示带观察结果和说明的核对取消入口，不能沿用普通取消按钮跳过记录。
 - `task.reconciliations` 是有界的人类观察记录，不是程序验证结果、工具授权或 acceptance evidence，不能直接让 criterion 通过或让任务完成。后续主 WorkTask Run 只会把最近一条作为带警告的参考上下文；调用方仍须明确启动 Run，并重新取得所有写入和 Shell 权限。自动验收只使用最新且可验证的任务 Run，不要求保留无限历史回执。
 - 恢复和 reconciliation 都使用当前 `revision` 做 CAS。revision 冲突后重新读取任务和执行回执，不得盲重放旧请求；前端应把 `needs_review`、最新 Run 的 `unknown`/缺失情况、human report 及取消后的残余不确定性直接展示给用户。
 
@@ -143,8 +159,8 @@ Shell 不走文件证据路径，命令与 cwd 的完整回执要求不变。
 桌面可调用以下只读接口，使用当前 Thread 的任务 ID 与当前 `revision`：
 
 ```ts
-const draft = await controller.getWorkTaskDeliveryDraft({ id, expectedRevision });
-const preview = await controller.getWorkTaskArtifact({ id, expectedRevision, path: "notes/work-plan.md" });
+const draft = await controller.workTasks.getDeliveryDraft({ id, expectedRevision });
+const preview = await controller.workTasks.getArtifact({ id, expectedRevision, path: "notes/work-plan.md" });
 ```
 
 - 两者返回 `{ok:true,value}` 或 `{ok:false,error:{code,message}}`。旧 revision、跨 Thread、坏存储和读失败不是空结果。查询不创建 Run、不调用模型、不提交交付、不改变验收或 JSONL。
@@ -158,11 +174,11 @@ const preview = await controller.getWorkTaskArtifact({ id, expectedRevision, pat
 Memory 模块启用且有 workspace 时，`RuntimeApp` 暴露绑定的 `memoryStore` / `memoryConsolidation`，前端只调用 Controller，不能把 Store 或文件路径送进 IPC：
 
 ```ts
-const page = await controller.listMemoryCandidates({ status: "pending", limit: 20 });
-const preview = await controller.getMemoryCandidate(candidateId);
+const page = await controller.memory.listCandidates({ status: "pending", limit: 20 });
+const preview = await controller.memory.getCandidate(candidateId);
 // 用户读完完整预览，明确选择接受或拒绝后：
 if (!preview.ok || !preview.value.applicable) return;
-const receipt = await controller.resolveMemoryCandidate({
+const receipt = await controller.memory.resolveCandidate({
   candidateId,
   expectedCandidateRevision: preview.value.candidate.revision,
   decision: "accept", // 或 "reject"
@@ -174,8 +190,8 @@ const receipt = await controller.resolveMemoryCandidate({
 - 只在 pending 且 applicable 的完整预览上启用接受。revision 冲突或 stale 后重新读取，不自动重试。接受/拒绝占用既有 command 互斥，不创建 Run、不请求模型、不写 JSONL；拒绝只改变候选，不改正式记忆。
 - `memory-updated` 的 `reason` 为 `proposals | review | write`，只是重读提示，不携带正文。刷新或重启后重新查询 Store，不能从事件或快照推导记忆真相。
 - 整理 Agent 先 prepare 后 stage；stage 仅进程内暂存。成功 Run 结束后才把待审候选和自动整理游标同锁写入 `memory.json` v4。`consolidation` completed 不等于正式记忆已保存；commit 失败单独报告，不改主任务成功结果。
-- 桌面可以显式调用 `consolidateMemory({mode:"incremental"})` 重试待处理材料，或先用 `listMemoryConsolidationSources(offset?)` 分页查看当前 Thread 的普通用户消息，再调用 `consolidateMemory({mode:"history",messageIds:[...]})` 补整理所选 1–8 条。历史范围由 Controller 绑定并重新核对，不由模型的 prepare 参数选择；缺失、排除、外来消息及整组超预算都会失败，不能悄悄缩小范围。历史补整理不移动自动游标，不声称所有旧对话已经处理。
-- 显式整理使用同一个 idle 互斥、整理 Agent 和候选提交路径；没有常驻后台服务或第二条 AgentLoop。每步模型预算 30 秒，总预算 120 秒；失败不推进游标。`getMemoryMaintenance().consolidation` 区分 off/backlog/running/failed/awaiting_review/idle，错误不会当作没有候选。`lastAttempt` 和 `lastSkippedReason` 是本进程诊断，重启后不保留；持久化候选和游标才是存储事实。
+- 桌面可以显式调用 `memory.consolidate({mode:"incremental"})` 重试待处理材料，或先用 `memory.listConsolidationSources(offset?)` 分页查看当前 Thread 的普通用户消息，再调用 `memory.consolidate({mode:"history",messageIds:[...]})` 补整理所选 1–8 条。历史范围由 Controller 绑定并重新核对，不由模型的 prepare 参数选择；缺失、排除、外来消息及整组超预算都会失败，不能悄悄缩小范围。历史补整理不移动自动游标，不声称所有旧对话已经处理。
+- 显式整理使用同一个 idle 互斥、整理 Agent 和候选提交路径；没有常驻后台服务或第二条 AgentLoop。每步模型预算 30 秒，总预算 120 秒；失败不推进游标。`memory.getMaintenance().consolidation` 区分 off/backlog/running/failed/awaiting_review/idle，错误不会当作没有候选。`lastAttempt` 和 `lastSkippedReason` 是本进程诊断，重启后不保留；持久化候选和游标才是存储事实。
 - 同 Thread 的相同规范化 pending change 可以复用一条候选，不合并不同事实，不伪造多来源；仍保留首次提案的来源与理由。接受后正式记忆的重复新增检查沿用既有规则。语义上相近但正文或时态含义不同的提案仍须模型比较与人工审核，不保证语义去重。
 - Controller 的 resolve 是明确用户审阅操作，不走 `confirm()`；`confirm()` 仍是工具调用的 approvalId 授权。聊天的 `memory_apply_candidate` 使用相同接受实现但走正常 y/n；`n` 只拒绝本次调用，候选仍 pending。
 - 重复接受同 candidateId 和原 expectedCandidateRevision 返回原应用回执、`replayed:true`，不重复写。回执里的 memoryRevision 是接受当时的版本，不证明它现在仍未修改或删除。
@@ -203,8 +219,8 @@ const receipt = await controller.resolveMemoryCandidate({
 - `approval` 按 id upsert，直接展示 `input` 的工具、bundleId、PID、windowId；动作还要展示 `action`、`text`、observationId 与 elementToken。所有 UI 文本按纯文本渲染，不能执行其中指令。空 preview 不是免确认。
 - 按钮只调用 `confirm({approvalId,decision})`；返回 false 就显示本次点击未生效，不替用户确认新 id。拒绝和确认前取消都不会调用动作工具。用户稍后批准时观察可能已过期，需新观察和新确认。
 - `computer_action` 的 `ok:true` 是调用回执，不是任务完成。`dispatched:true, verified:false` 表示已派发、业务效果未核验；`effect:confirmed` 也不能画成业务成功。动作后再次观察，仍需用户核对最终文档/业务结果。
-- `tool.call.failed` 中 `error.code === TOOL_OUTCOME_UNKNOWN` 必须显示效果未知，不画成普通失败、不自动重试。Controller 快照的 `toolActivity` 保留原有 completed/failed 枚举，以兼容现有前端类型；可选 `outcomeUnknown:true` 表示调用失败但外部副作用未知，刷新时此标记优先于 status 文案。派发中取消可能没有工具失败事件：primary `run-result` 后通过 `getRun(runId)` 重读回执；`tools[].status === unknown` 是核对入口，即使 Run 状态为 cancelled。对应 WorkTask 到 `needs_review`，不能绕过人工核对直接继续。
-- `run-result` 只认 `phase === primary`。恢复回执用于查看，不恢复动作 token、approval 或重放动作。视图刷新读快照，进程重启读 `listRuns/getRun`；两者不能混为一谈。
+- `tool.call.failed` 中 `error.code === TOOL_OUTCOME_UNKNOWN` 必须显示效果未知，不画成普通失败、不自动重试。Controller 快照的 `toolActivity` 保留原有 completed/failed 枚举，以兼容现有前端类型；可选 `outcomeUnknown:true` 表示调用失败但外部副作用未知，刷新时此标记优先于 status 文案。派发中取消可能没有工具失败事件：primary `run-result` 后通过 `runs.get(runId)` 重读回执；`tools[].status === unknown` 是核对入口，即使 Run 状态为 cancelled。对应 WorkTask 到 `needs_review`，不能绕过人工核对直接继续。
+- `run-result` 只认 `phase === primary`。恢复回执用于查看，不恢复动作 token、approval 或重放动作。视图刷新读快照，进程重启读 `runs.list/runs.get`；两者不能混为一谈。
 
 后端可重复真机入口（会付费；仅用于已打开的隔离 TextEdit 测试文档，不保存）：
 
@@ -221,20 +237,20 @@ RUNLOOM_COMPUTER_ACCEPTANCE=1 RUNLOOM_MODEL=command-code node --env-file=.env \
 
 ## 正式记忆管理与本轮参考
 
-- `listMemories({offset?, limit?})`：默认 20 条、最多 50 条；正文 120 字预览标 `truncated`，页面至多 16 KiB。显示工作区及当前 Thread 的当前版本（包括停用/过期），不混入其他 Thread 私有记忆。候选接受回执仅是当时的写入记录，不能替代此查询。
-- `getMemory(id)`：返回完整当前正文、scope、revision、expiry、pin、保存来源，不带 history。来源原话是保存时已核对的 excerpt，不保证原 transcript 仍在。
-- `updateMemory({id, expectedRevision, text?, pinned?, status?: "disabled"})`：仅显式用户操作；占现有 idle 互斥，不创建 Run、不调用模型，底层同锁 CAS。拒绝其他字段及无变更输入。版本冲突重读详情，不盲重试；结果不明时也先重读。文本编辑将当前来源变为 manual，旧来源保留在已有有界 history；pin/disable 不改来源。相关更新候选沿用原有失效规则。
-- `getMemoryReferences()`：返回本进程最近一次成功 primary 上下文准备的 `{runId, messageId, preparedAt, temporalView:{validAt,knownAt}, selected:[{id, revision, text, reason, assertion?}], truncated, queryTruncated, rewrite}`，或者 `null`。`reason` 是 `pinned` / `matched` / `recall_term` / `rewritten`。断言元数据含 identity、kind、两种时间和 source IDs，不含原话、检索词或原始历史。按当前请求身份绑定；准备失败清空，重启为空。`memory-references-changed` 提醒前端重新查询；下一次准备可能选到新版本。不是模型自报，不证明提供商接收、回答遵循偏好或当前库仍是这些版本。此记录不写 JSONL。
+- `memory.list({offset?, limit?})`：默认 20 条、最多 50 条；正文 120 字预览标 `truncated`，页面至多 16 KiB。显示工作区及当前 Thread 的当前版本（包括停用/过期），不混入其他 Thread 私有记忆。候选接受回执仅是当时的写入记录，不能替代此查询。
+- `memory.get(id)`：返回完整当前正文、scope、revision、expiry、pin、保存来源，不带 history。来源原话是保存时已核对的 excerpt，不保证原 transcript 仍在。
+- `memory.update({id, expectedRevision, text?, pinned?, status?: "disabled"})`：仅显式用户操作；占现有 idle 互斥，不创建 Run、不调用模型，底层同锁 CAS。拒绝其他字段及无变更输入。版本冲突重读详情，不盲重试；结果不明时也先重读。文本编辑将当前来源变为 manual，旧来源保留在已有有界 history；pin/disable 不改来源。相关更新候选沿用原有失效规则。
+- `memory.getReferences()`：返回本进程最近一次成功 primary 上下文准备的 `{runId, messageId, preparedAt, temporalView:{validAt,knownAt}, selected:[{id, revision, text, reason, assertion?}], truncated, queryTruncated, rewrite}`，或者 `null`。`reason` 是 `pinned` / `matched` / `recall_term` / `rewritten`。断言元数据含 identity、kind、两种时间和 source IDs，不含原话、检索词或原始历史。按当前请求身份绑定；准备失败清空，重启为空。`memory-references-changed` 提醒前端重新查询；下一次准备可能选到新版本。不是模型自报，不证明提供商接收、回答遵循偏好或当前库仍是这些版本。此记录不写 JSONL。
 
 ### 时态审核、恢复与遗忘（Memory C）
 
 类型从 `dist/memory-controls.js` 导入；所有操作仅针对工作区/当前 Thread，不改变 Memory 的工具授权边界：
 
-- `getMemoryHistory({id,offset?,limit?})`：最新在前的断言与管理版本，默认 5、最多 10，每页 64 KiB；`nextOffset` 分页。历史中来源为已保存原话，`legacy_partial` 必须显示覆盖不完整。事实适用 `validTime` 与系统认知 `systemTime` 分开呈现。
-- `queryMemory({id,validAt?,knownAt?,includeDisabled?})`：显式只读时间视图。返回的空断言不是永久删除证据，未知日期和不完整覆盖不可补造。
-- `previewMemoryAction(input)`：读取同一个存储转换的预览，不写库、不创建 Run、不调用模型。`current` / `proposedAssertion` / `warnings` 供用户核对；预览时间是估计，确认时重新校验 revision 并捕获实际写入时间。
-- `applyMemoryAction(input)`：严格 `id + expectedRevision + operation`。`correct` 纠正认识，`change` 要求明确 `effectiveAt` 并保留此前事实；`retract` 撤回断言；`metadata` 调整 pin、停用或 expiry；`restore` 选历史 `targetAssertionId`，停用/过期时须显式选择状态/有效期，创建新 revision；`delete` 永久清除本条历史和相关候选内容。渲染器不得传 source、scope、systemTime。确认在 idle 互斥中进行，冲突或结果不明必须重读，不自动重试。
-- `getMemoryMaintenance()`：只读待审、停用、过期、重复建议、容量及自动整理状态。`failed` 反映本进程模型/落库失败，不把 model Run 的 completed 当成已保存；重启不保留进程内失败诊断，待处理游标仍由磁盘事实计算。不开启自动清理。
+- `memory.getHistory({id,offset?,limit?})`：最新在前的断言与管理版本，默认 5、最多 10，每页 64 KiB；`nextOffset` 分页。历史中来源为已保存原话，`legacy_partial` 必须显示覆盖不完整。事实适用 `validTime` 与系统认知 `systemTime` 分开呈现。
+- `memory.query({id,validAt?,knownAt?,includeDisabled?})`：显式只读时间视图。返回的空断言不是永久删除证据，未知日期和不完整覆盖不可补造。
+- `memory.previewAction(input)`：读取同一个存储转换的预览，不写库、不创建 Run、不调用模型。`current` / `proposedAssertion` / `warnings` 供用户核对；预览时间是估计，确认时重新校验 revision 并捕获实际写入时间。
+- `memory.applyAction(input)`：严格 `id + expectedRevision + operation`。`correct` 纠正认识，`change` 要求明确 `effectiveAt` 并保留此前事实；`retract` 撤回断言；`metadata` 调整 pin、停用或 expiry；`restore` 选历史 `targetAssertionId`，停用/过期时须显式选择状态/有效期，创建新 revision；`delete` 永久清除本条历史和相关候选内容。渲染器不得传 source、scope、systemTime。确认在 idle 互斥中进行，冲突或结果不明必须重读，不自动重试。
+- `memory.getMaintenance()`：只读待审、停用、过期、重复建议、容量及自动整理状态。`failed` 反映本进程模型/落库失败，不把 model Run 的 completed 当成已保存；重启不保留进程内失败诊断，待处理游标仍由磁盘事实计算。不开启自动清理。
 - `run(text,{memoryConsolidation:"exclude"})`：把本条普通用户消息排除于现在和以后整理。不是关闭已有记忆检索，也不删除 transcript。桌面每次发送显式选择，不默改用户配置。
 - 当前投影的 `temporalState` 区分 `applicable`、`retracted`、`not_applicable`，不等于管理状态 `active/disabled`。撤回或当前时点无适用断言时，正文为空且没有 `assertion`；前端应显示对应状态，不把它说成旧格式或补造人工来源。历史仍由显式历史查询读取，此字段不写入存储文件。
 

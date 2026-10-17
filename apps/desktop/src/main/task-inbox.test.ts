@@ -47,7 +47,7 @@ test("desktop unified inbox reads real task results, preserves notification dist
     const acknowledged = await bridge.acknowledgeTaskResult(created.value.id);
     assert.ok(acknowledged.ok && acknowledged.value.acknowledgedAt !== null);
     const after = await bridge.getTaskInbox(); assert.ok(after.ok && after.value.tasks.length === 0);
-    assert.equal((await controller.listRuns()).length, 0);
+    assert.equal((await controller.runs.list()).length, 0);
     await writeFile(join(workspace, TASK_FILE_NAME), "{bad");
     const corrupt = await bridge.getTaskInbox();
     assert.ok(!corrupt.ok && corrupt.error.code === "TASK_FILE_INVALID", "corrupt storage is not an empty inbox");
@@ -76,7 +76,7 @@ test("saved reminder banner stays readable with task tools disabled and grants n
     assert.equal(notice?.resultText, "喝水");
     assert.equal(notice?.acknowledgedAt, null);
     assert.deepEqual(await readFile(join(workspace, TASK_FILE_NAME)), before);
-    assert.equal((await controller.listRuns()).length, 0);
+    assert.equal((await controller.runs.list()).length, 0);
     assert.equal((await bridge.acknowledgeTaskResult(created.value.id)).ok, false);
   } finally { await bridge.shutdown(); await rm(root, { recursive: true, force: true }); }
 });

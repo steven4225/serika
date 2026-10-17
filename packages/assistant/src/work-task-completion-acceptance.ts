@@ -91,20 +91,20 @@ export async function runCompletionAcceptance(label: "baseline" | "improved") {
       controller.confirm({ approvalId: event.approval.approvalId, decision: allowed ? "allow" : "deny" });
     });
     let failure: string | null = null;
-    let task = value(await controller.createWorkTask({ goal: definition.goal, constraints: [...definition.constraints],
+    let task = value(await controller.workTasks.create({ goal: definition.goal, constraints: [...definition.constraints],
       acceptance: [...verification.map((item, i) => ({ id: `program-${i}`, description: JSON.stringify(item), method: "automatic" as const, required: true, verification: item })),
         { id: "quality", description: "Human reviews task content and scope", method: "human", required: true, verification: { kind: "human" } }] }));
     try {
       const done = new Promise<void>(resolve => { const unsubscribe = controller.subscribe(event => {
         if (event.type === "state" && event.state.kind === "idle") { unsubscribe(); resolve(); }
       }); });
-      const started = await controller.runWorkTask({ id: task.id, expectedRevision: task.revision, instruction: prompt, completionCheck: label === "improved" });
+      const started = await controller.workTasks.run({ id: task.id, expectedRevision: task.revision, instruction: prompt, completionCheck: label === "improved" });
       assert.ok(started.ok); await done;
-      task = value(await controller.getWorkTask(task.id));
+      task = value(await controller.workTasks.get(task.id));
       const primary = controller.getSnapshot().lastPrimaryResult; assert.ok(primary);
       assert.equal(task.runIds.length, 1, "no new Run may be created to correct the task");
       assert.equal(primary.status, "completed", JSON.stringify(primary));
-      if (task.status === "paused") task = value(await controller.submitWorkTaskDelivery({ id: task.id, expectedRevision: task.revision,
+      if (task.status === "paused") task = value(await controller.workTasks.submitDelivery({ id: task.id, expectedRevision: task.revision,
         summary: primary.text || "Evaluation delivery", artifactRefs: verification.filter(item => item.kind === "artifact_exists").map(item => item.path) }));
       assert.ok(task.acceptance.filter(item => item.method === "automatic").every(item => item.status === "passed"));
       assert.equal(task.acceptance.find(item => item.id === "quality")?.status, "not_run");
@@ -122,7 +122,7 @@ export async function runCompletionAcceptance(label: "baseline" | "improved") {
       }
       if (caseId === "WT04") {
         const brief = await readFile(join(workspace, "brief.md"), "utf8"), original = originals.get("brief.md")!;
-        const receipt = await controller.getRun(primary.runId); assert.ok(receipt);
+        const receipt = await controller.runs.get(primary.runId); assert.ok(receipt);
         assert.ok(receipt.tools.some(tool => tool.toolName === "edit_file" && tool.status === "completed"));
         assert.ok(receipt.tools.every(tool => tool.toolName !== "write_file"));
         assert.deepEqual(brief.match(/^## .*$/gm), original.match(/^## .*$/gm));
@@ -136,7 +136,7 @@ export async function runCompletionAcceptance(label: "baseline" | "improved") {
     } catch (error) { failure = error instanceof Error ? error.message : String(error); }
     finally {
       const primary = controller.getSnapshot().lastPrimaryResult;
-      const receipt = primary ? await controller.getRun(primary.runId) : null;
+      const receipt = primary ? await controller.runs.get(primary.runId) : null;
       const corrections = primary?.completion?.corrections ?? 0;
       const evalChecks = createPendingWorkTaskEvalChecks(definition).map(check => check.method === "human" ? check : {
         ...check, status: failure === null ? "passed" as const : "blocked" as const,

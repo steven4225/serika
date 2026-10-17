@@ -88,7 +88,7 @@ it("real Shell → receipt-checked registration → new Thread/process reconstru
     await wait(() => second.controller.getSnapshot().state.kind === "idle");
     assert.ok(second.approvals.includes("recipe_run"), "prior registration must not grant execute permission");
     assert.equal(await readFile(join(f.workspace, "summary.md"), "utf8"), "# Changes\nafter-reopen");
-    const receipt = await second.controller.getRun(reused.runId);
+    const receipt = await second.controller.runs.get(reused.runId);
     assert.equal(receipt?.tools.find(item => item.toolName === "recipe_run")?.shell?.exitCode, 0);
     await second.close();
 
@@ -123,7 +123,7 @@ it("registration refuses a guessed receipt, mismatched command and a real failed
       assert.ok((await controller.run("测试后登记复用")).ok);
       await wait(() => controller.getSnapshot().state.kind === "idle");
       assert.deepEqual(await new RecipeStore(f.workspace).list(signal()), [], mode);
-      const receipts = await controller.listRuns();
+      const receipts = await controller.runs.list();
       assert.match(receipts[0]?.tools.find(item => item.toolName === "recipe_save")?.resultPreview ?? "", /RECIPE_TEST_(REQUIRED|MISMATCH|STALE)/, mode);
     } finally { await controller.shutdown(); await app.dispose(); await rm(f.root, { recursive: true, force: true }); }
   }

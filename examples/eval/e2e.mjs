@@ -163,8 +163,8 @@ export async function collectEvidence(root, spec, app, controller, context) {
   const tasks = taskPage ? await Promise.all(taskPage.tasks.map(t => read(`task:${t.id}`, async () => checked(await taskStore.get(t.id), 'task')))) : undefined;
   return { ...context, pid: process.pid, historyIds: history?.map(m => m.id),
     userClocks: history?.filter(m => m.role === 'user').map(m => ({ messageId: m.id, metadata: m.metadata })), memories, candidates, sourcesValid, coverage, cursor, tasks,
-    runs: await read('runs', () => controller.listRuns(50)), usage: await read('usage', () => app.executionRecords.listModelUsage(context.threadId)),
-    references: controller.getMemoryReferences(), artifact: await read('artifact', () => artifact(join(root, 'workspace'))),
+    runs: await read('runs', () => controller.runs.list(50)), usage: await read('usage', () => app.executionRecords.listModelUsage(context.threadId)),
+    references: controller.memory.getReferences(), artifact: await read('artifact', () => artifact(join(root, 'workspace'))),
     extraFiles: await read('extraFiles', () => extraFiles(join(root, 'workspace'))),
     diagnostics: await read('diagnostics', () => controller.getContextDiagnostics()),
     compactions: await read('compactions', () => app.store.getContextCompactions(context.threadId)), readErrors,
@@ -189,7 +189,7 @@ async function stage(root, spec, restarted) {
   let withdrawnMemory;
   let error = null, historyAtOpen;
   try {
-    await controller.listRuns();
+    await controller.runs.list();
     await settled(controller);
     historyAtOpen = (await controller.getHistory()).map(m => m.id);
     const boundary = { taskIds: [] };
@@ -209,7 +209,7 @@ async function stage(root, spec, restarted) {
       const tasksAfter = spec.category === 'reminders' ? checked(await createTaskStore(join(root, 'workspace')).list({ limit: 50 }), 'tasksAfter').tasks : null;
       phases.push({ submittedAt, userMessageId, ...(receivedAt ? { receivedAt } : {}), ...(tasksBefore ? { tasksBefore, tasksAfter } : {}), input: text, runId: admission.runId, status: snapshot.lastPrimaryResult?.status,
         reply: snapshot.lastPrimaryResult?.text ?? '', error: snapshot.lastPrimaryResult?.error ? safeError(snapshot.lastPrimaryResult.error) : null });
-      const maintenance = app.memoryStore ? checked(await controller.getMemoryMaintenance(), 'maintenance') : null;
+      const maintenance = app.memoryStore ? checked(await controller.memory.getMaintenance(), 'maintenance') : null;
       if (app.memoryStore) memorySnapshots.push({ turn: phases.length, input: text, userMessageId, runId: admission.runId, before,
         after: await collectMemorySnapshot(join(root, 'workspace'), app, threadId), reply: snapshot.lastPrimaryResult?.text ?? '',
         hostOutput: snapshot.recentOutput,

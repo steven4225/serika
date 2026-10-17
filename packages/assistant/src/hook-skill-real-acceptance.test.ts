@@ -98,22 +98,22 @@ test("opt-in real model: external memory Skill hook saves exact user provenance 
     const configHash = createHash("sha256").update(await readFile(configPath)).digest("hex");
     const firstApp = await createRuntimeApp(appOptions("origin"));
     const first = createAssistantController(firstApp); controllers.push(first);
-    await first.listRuns();
+    await first.runs.list();
     const primary = await first.run(PREFERENCE); assert.ok(primary.ok);
     await settle(first, context.signal);
     assert.equal(first.getSnapshot().lastPrimaryResult?.status, "completed");
-    const hook = first.getAutomationDiagnostics().recent.find(item => item.ruleId === RULE_ID && item.event === "primary.completed");
+    const hook = first.automation.getDiagnostics().recent.find(item => item.ruleId === RULE_ID && item.event === "primary.completed");
     assert.ok(hook?.runId, "Configured external hook must start a real auxiliary Run");
     assert.equal(hook.skillId, SKILL_ID);
     assert.equal(hook.source, "hook");
     assert.equal(hook.status, "completed", "A completed model Run alone is not a memory commit");
-    const execution = await first.getRun(hook.runId);
+    const execution = await first.runs.get(hook.runId);
     assert.equal(execution?.phase, "consolidation");
     assert.equal(execution?.status, "completed");
     for (const name of ["memory_prepare_consolidation", "memory_stage_candidates"]) {
       assert.ok(execution?.tools.some(tool => tool.toolName === name && tool.status === "completed"), `${name} must have a real completed tool receipt`);
     }
-    const maintenance = await first.getMemoryMaintenance(); assert.ok(maintenance.ok);
+    const maintenance = await first.memory.getMaintenance(); assert.ok(maintenance.ok);
     const accepted = maintenance.value.consolidation.lastAttempt?.accepted?.[0];
     assert.ok(accepted, "Require an actual host automatic-write receipt, not model prose");
     const memories = await createMemoryStore(workspace).list(); assert.ok(memories.ok);
@@ -133,16 +133,16 @@ test("opt-in real model: external memory Skill hook saves exact user provenance 
     assert.equal(createHash("sha256").update(await readFile(configPath)).digest("hex"), configHash);
     const nextApp = await createRuntimeApp(appOptions("different-thread"));
     const next = createAssistantController(nextApp); controllers.push(next);
-    await next.listRuns();
+    await next.runs.list();
     assert.equal((await next.getHistory()).length, 0, "Recall Thread must not inherit the prior transcript");
     const recalled = await next.run("我写复盘通常先怎么开头，后面列几条具体行动？只回答我的偏好，不调用工具。", { memoryConsolidation: "exclude" });
     assert.ok(recalled.ok); await settle(next, context.signal);
-    const reference = next.getMemoryReferences();
+    const reference = next.memory.getReferences();
     assert.ok(reference?.selected.some(entry => entry.id === memory.id && entry.text === memory.text), "Program-owned current references must contain the persisted memory");
     const answer = next.getSnapshot().lastPrimaryResult;
     assert.equal(answer?.status, "completed");
     assert.ok(/结论/.test(answer.text) && /两条|2\s*条|两[个项]|二条/.test(answer.text), "Actual model answer must respond with the saved format");
-    assert.equal((await next.listRuns()).length, 1, "Excluded recall must not start another memory Run");
+    assert.equal((await next.runs.list()).length, 1, "Excluded recall must not start another memory Run");
     assert.ok(requests <= 5);
     Object.assign(report, { status: "passed", configHash, recallRunId: recalled.runId, recallStatus: answer.status,
       requests, controllerReopen: true, referenceMatched: true, sourceQuoteValidated: true });

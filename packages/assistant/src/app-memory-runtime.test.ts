@@ -71,7 +71,7 @@ describe("native Memory app wiring", () => {
       }
       try {
         await run("请整理已提交的偏好，暂存候选，不要正式保存。");
-        const listed = await controller.listMemoryCandidates(); assert.ok(listed.ok);
+        const listed = await controller.memory.listCandidates(); assert.ok(listed.ok);
         assert.equal(listed.value.candidates.length, 1);
         candidateId = listed.value.candidates[0]!.id;
         assert.deepEqual(await app.memoryStore!.list(), { ok: true, entries: [] });
@@ -91,10 +91,10 @@ describe("native Memory app wiring", () => {
         await run(`请接受候选 ${candidateId}。`);
         const entries = await reopened.list(); assert.ok(entries.ok);
         assert.equal(entries.entries.length, decision === "allow" ? 1 : 0);
-        const preview = await controller.getMemoryCandidate(candidateId); assert.ok(preview.ok);
+        const preview = await controller.memory.getCandidate(candidateId); assert.ok(preview.ok);
         assert.equal(preview.value.candidate.status, decision === "allow" ? "accepted" : "pending");
         if (decision === "allow") {
-          const receipt = await controller.resolveMemoryCandidate({ candidateId, expectedCandidateRevision: 1, decision: "accept" });
+          const receipt = await controller.memory.resolveCandidate({ candidateId, expectedCandidateRevision: 1, decision: "accept" });
           assert.ok(receipt.ok); assert.equal(receipt.value.replayed, true);
           assert.equal(entries.entries[0]!.source?.kind, "conversation");
         }

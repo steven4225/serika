@@ -5,8 +5,19 @@ export type { WorkTaskReadInput, WorkTaskArtifactInput, WorkTaskReadResult, Work
 
 export type { WorkTask, WorkTaskResult, WorkTaskStatus, WorkTaskObservedOutcome } from "@serika/assistant";
 
+/** Desktop IPC operation name → method of the controller's `workTasks` group. */
+export interface WorkTaskOperationMethods {
+  createWorkTask: "create";
+  runWorkTask: "run";
+  submitWorkTaskDelivery: "submitDelivery";
+  recordHumanAcceptance: "recordHumanAcceptance";
+  reconcileWorkTask: "reconcile";
+  cancelWorkTask: "cancel";
+  requestWorkTaskChanges: "requestChanges";
+}
+
 export type WorkTaskInputs = {
-  [K in "createWorkTask" | "runWorkTask" | "submitWorkTaskDelivery" | "recordHumanAcceptance" | "reconcileWorkTask" | "cancelWorkTask" | "requestWorkTaskChanges"]: Parameters<AssistantController[K]>[0];
+  [K in keyof WorkTaskOperationMethods]: Parameters<AssistantController["workTasks"][WorkTaskOperationMethods[K]]>[0];
 };
 
 function record(value: unknown): value is Record<string, unknown> {

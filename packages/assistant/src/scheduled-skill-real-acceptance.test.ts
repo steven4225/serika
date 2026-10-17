@@ -83,21 +83,21 @@ test("opt-in real model: manual and scheduled registered Skill use the productio
   const cancel = () => { stopped.abort(); void controller.cancel(); };
   context.signal.addEventListener("abort", cancel, { once: true });
   try {
-    await controller.listRuns();
-    const skill = controller.getAutomationDiagnostics().skills.find(item => item.id === "simple-plan"); assert.ok(skill);
-    const manual = await controller.runSkill({ id: skill.id, expectedHash: skill.hash, input: INPUT }); assert.ok(manual.ok);
+    await controller.runs.list();
+    const skill = controller.automation.getDiagnostics().skills.find(item => item.id === "simple-plan"); assert.ok(skill);
+    const manual = await controller.automation.runSkill({ id: skill.id, expectedHash: skill.hash, input: INPUT }); assert.ok(manual.ok);
     while (controller.getSnapshot().state.kind !== "idle") {
       context.signal.throwIfAborted();
       assert.equal(controller.getSnapshot().pendingApproval, null);
       await delay(10, undefined, { signal: context.signal });
     }
-    const manualReceipt = await controller.getRun(manual.value.runId);
+    const manualReceipt = await controller.runs.get(manual.value.runId);
     assert.equal(manualReceipt?.status, "completed"); assert.equal(manualReceipt?.phase, "skill");
     const manualText = (await controller.getHistory()).filter(message => message.role === "assistant")
       .flatMap(message => message.parts.filter(part => part.type === "text").map(part => part.text)).join("\n");
     assert.ok(manualText.includes("读书") && manualText.includes("散步") && manualText.includes("SERIKA-SKILL-OK"), "Actual manual paid answer must reflect the declared input");
     const due = Date.now() + 1_000;
-    const saved = await controller.scheduleSkill({ id: skill.id, expectedHash: skill.hash, input: INPUT, runAt: new Date(due).toISOString() });
+    const saved = await controller.automation.scheduleSkill({ id: skill.id, expectedHash: skill.hash, input: INPUT, runAt: new Date(due).toISOString() });
     assert.ok(saved.ok && saved.value.task);
     const id = saved.value.task.id;
     assert.equal(saved.value.service.enabled, false, "Acceptance must not install a daily background service");
@@ -118,7 +118,7 @@ test("opt-in real model: manual and scheduled registered Skill use the productio
     assert.ok(text.includes("读书") && text.includes("散步") && text.includes("SERIKA-SKILL-OK"), "Actual paid answer must reflect the declared input");
     const history = await transcripts.getMessages(task.value.threadId);
     assert.ok(history.some(message => message.role === "assistant"));
-    const inbox = await controller.getTaskInbox(); assert.ok(inbox.ok && inbox.value.tasks.some(item => item.id === id));
+    const inbox = await controller.automation.getTaskInbox(); assert.ok(inbox.ok && inbox.value.tasks.some(item => item.id === id));
     assert.ok((await taskStore.acknowledge(id)).ok);
     const reopened = await createTaskStore(workspace).get(id); assert.ok(reopened.ok && reopened.value.acknowledgedAt);
     const afterAck = await createTaskStore(workspace).list({ inbox: true }); assert.ok(afterAck.ok && !afterAck.value.tasks.some(item => item.id === id));

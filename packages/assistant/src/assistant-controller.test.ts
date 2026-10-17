@@ -116,9 +116,9 @@ describe("AssistantController memory candidates", () => {
     const controller = createAssistantController(appWith());
     try {
       for (const response of [
-        await controller.listMemoryCandidates(),
-        await controller.getMemoryCandidate("candidate"),
-        await controller.resolveMemoryCandidate({ candidateId: "candidate", expectedCandidateRevision: 1, decision: "accept" }),
+        await controller.memory.listCandidates(),
+        await controller.memory.getCandidate("candidate"),
+        await controller.memory.resolveCandidate({ candidateId: "candidate", expectedCandidateRevision: 1, decision: "accept" }),
       ]) {
         assert.equal(response.ok, false);
         assert.equal(!response.ok && response.error.code, "MEMORY_DISABLED");
@@ -150,13 +150,13 @@ describe("AssistantController memory candidates", () => {
     const events: string[] = [];
     controller.subscribe((event) => { if (event.type === "memory-updated") events.push(event.reason); });
     try {
-      await controller.listMemoryCandidates();
-      await controller.getMemoryCandidate("candidate");
-      const review = controller.resolveMemoryCandidate({ candidateId: "candidate", expectedCandidateRevision: 1, decision: "accept" });
+      await controller.memory.listCandidates();
+      await controller.memory.getCandidate("candidate");
+      const review = controller.memory.resolveCandidate({ candidateId: "candidate", expectedCandidateRevision: 1, decision: "accept" });
       assert.deepEqual(controller.getSnapshot().state, { kind: "command", name: "memory-review" });
       assert.deepEqual(await controller.run("Work"), { ok: false, reason: "busy" });
       assert.deepEqual(await controller.command("/home"), { ok: false, reason: "busy" });
-      const competing = await controller.resolveMemoryCandidate({ candidateId: "candidate", expectedCandidateRevision: 1, decision: "reject" });
+      const competing = await controller.memory.resolveCandidate({ candidateId: "candidate", expectedCandidateRevision: 1, decision: "reject" });
       assert.equal(!competing.ok && competing.error.code, "MEMORY_CANDIDATE_CONFLICT");
       await waitFor(() => calls.includes("resolve"));
       gate.resolve({ ok: true, value: { candidateId: "candidate", status: "accepted", memoryId: "memory", memoryRevision: 1, replayed: false } });
@@ -183,13 +183,13 @@ describe("AssistantController memory candidates", () => {
     const controller = createAssistantController(appWith({ workspaceRoot: "/private/tmp/memory-workspace", memoryStore }));
     const events: string[] = [];
     controller.subscribe((event) => { if (event.type === "memory-updated") events.push(event.reason); });
-    const review = controller.resolveMemoryCandidate({ candidateId: "candidate", expectedCandidateRevision: 1, decision: "accept" });
+    const review = controller.memory.resolveCandidate({ candidateId: "candidate", expectedCandidateRevision: 1, decision: "accept" });
     await entered.promise;
     await controller.shutdown();
     assert.equal((await review).ok, false);
     assert.deepEqual(events, []);
     assert.equal(controller.getSnapshot().state.kind, "idle");
-    const afterClose = await controller.resolveMemoryCandidate({ candidateId: "candidate", expectedCandidateRevision: 1, decision: "accept" });
+    const afterClose = await controller.memory.resolveCandidate({ candidateId: "candidate", expectedCandidateRevision: 1, decision: "accept" });
     assert.equal(!afterClose.ok && afterClose.error.code, "MEMORY_CANDIDATE_CONFLICT");
   });
 
@@ -206,33 +206,33 @@ describe("AssistantController memory candidates", () => {
     }, undefined, { boundThreadId: "controller-thread" });
     if (!batch.ok) throw new Error(batch.error.message);
     const first = createAssistantController(appWith({ workspaceRoot: workspace, memoryStore: store }));
-    assert.equal((await first.listMemoryCandidates()).ok, true);
+    assert.equal((await first.memory.listCandidates()).ok, true);
     await first.shutdown();
     const reopened = createAssistantController(appWith({ workspaceRoot: workspace, memoryStore: createMemoryStore(workspace) }));
     try {
-      const page = await reopened.listMemoryCandidates();
+      const page = await reopened.memory.listCandidates();
       assert.equal(page.ok && page.value.candidates.length, 2);
       const [acceptId, rejectId] = batch.value.candidateIds;
       assert.ok(acceptId); assert.ok(rejectId);
-      const preview = await reopened.getMemoryCandidate(acceptId);
+      const preview = await reopened.memory.getCandidate(acceptId);
       assert.equal(preview.ok && preview.value.applicable, true);
       const input = { candidateId: acceptId, expectedCandidateRevision: 1, decision: "accept" as const };
-      const accepted = await reopened.resolveMemoryCandidate(input);
+      const accepted = await reopened.memory.resolveCandidate(input);
       assert.equal(accepted.ok && accepted.value.status, "accepted");
-      const replay = await reopened.resolveMemoryCandidate(input);
+      const replay = await reopened.memory.resolveCandidate(input);
       assert.equal(replay.ok && replay.value.replayed, true);
       assert.equal(replay.ok && accepted.ok && replay.value.memoryId, accepted.ok && accepted.value.memoryId);
-      const rejected = await reopened.resolveMemoryCandidate({ candidateId: rejectId, expectedCandidateRevision: 1, decision: "reject" });
+      const rejected = await reopened.memory.resolveCandidate({ candidateId: rejectId, expectedCandidateRevision: 1, decision: "reject" });
       assert.equal(rejected.ok && rejected.value.status, "rejected");
-      const conflict = await reopened.resolveMemoryCandidate({ ...input, decision: "reject" });
+      const conflict = await reopened.memory.resolveCandidate({ ...input, decision: "reject" });
       assert.equal(!conflict.ok && conflict.error.code, "MEMORY_CANDIDATE_CONFLICT");
       const memories = await store.list();
       assert.equal(memories.ok && memories.entries.length, 1);
       assert.deepEqual(await reopened.getHistory(), []);
-      assert.deepEqual(await reopened.listRuns(), []);
+      assert.deepEqual(await reopened.runs.list(), []);
       const foreign = createAssistantController(appWith({ workspaceRoot: workspace, memoryStore: store, threadId: "foreign-thread" }));
       try {
-        const hidden = await foreign.getMemoryCandidate(acceptId);
+        const hidden = await foreign.memory.getCandidate(acceptId);
         assert.equal(!hidden.ok && hidden.error.code, "MEMORY_CANDIDATE_NOT_FOUND");
       } finally { await foreign.shutdown(); }
     } finally {
@@ -310,7 +310,7 @@ describe("AssistantController memory candidates", () => {
     try {
       assert.equal((await controller.run("Prepare candidates")).ok, true);
       await waitFor(() => controller.getSnapshot().state.kind === "idle");
-      const after = await controller.listMemoryCandidates();
+      const after = await controller.memory.listCandidates();
       assert.equal(after.ok && after.value.candidates.length, 1);
       assert.equal(after.ok && after.value.candidates[0]?.status, "pending");
       const entries = await memoryStore.list();
@@ -466,7 +466,7 @@ describe("AssistantController", () => {
         assert.equal(pending.toolName, "add");
         assert.equal(controller.confirm({ approvalId: pending.approvalId, decision: "allow" }), true);
         await waitFor(() => controller.getSnapshot().state.kind === "idle");
-        const record = (await controller.listRuns())[0]!;
+        const record = (await controller.runs.list())[0]!;
         assert.ok(record.tools[0]?.approvalRequestedAt);
         assert.equal(record.tools[0]?.status, "completed");
         const reopened = await createExecutionRecordStore(directory).getRun("trace-confirmation", record.runId);
@@ -491,11 +491,11 @@ describe("AssistantController", () => {
     };
     let controller = await open();
     try {
-      const task = await controller.createWorkTask({ goal: "This plan needs Goal, Checks, Next sections",
+      const task = await controller.workTasks.create({ goal: "This plan needs Goal, Checks, Next sections",
         constraints: [], acceptance: [{ id: "quality", description: "Review plan", method: "human",
           verification: { kind: "human" }, required: true }] });
       assert.ok(task.ok);
-      assert.ok((await controller.runWorkTask({ id: task.value.id, expectedRevision: task.value.revision, completionCheck: false })).ok);
+      assert.ok((await controller.workTasks.run({ id: task.value.id, expectedRevision: task.value.revision, completionCheck: false })).ok);
       await waitFor(() => controller.getSnapshot().state.kind === "idle");
       assert.equal(controller.getSnapshot().lastPrimaryResult?.status, "completed");
       await controller.shutdown();
@@ -504,7 +504,7 @@ describe("AssistantController", () => {
       const instruction = history.find(message => message.role === "user");
       assert.equal((instruction?.metadata as Record<string, unknown>).memoryConsolidation, "exclude");
       assert.equal(typeof (instruction?.metadata as Record<string, unknown>).sentAt, "string");
-      assert.equal((await controller.listRuns()).length, 1, "no automatic consolidation Run for task instruction");
+      assert.equal((await controller.runs.list()).length, 1, "no automatic consolidation Run for task instruction");
       assert.ok((await controller.run("我的长期写作偏好是先结论后步骤", { memoryConsolidation: "exclude" })).ok);
       await waitFor(() => controller.getSnapshot().state.kind === "idle");
       // No opt-out is inherited by subsequent ordinary user messages.
@@ -513,7 +513,7 @@ describe("AssistantController", () => {
       const latest = (await controller.getHistory()).find(message => message.role === "user"
         && message.parts.some(part => part.type === "text" && part.text === "Ordinary chat stays eligible"));
       assert.equal((latest?.metadata as Record<string, unknown>).memoryConsolidation, undefined);
-      assert.ok((await controller.listRuns()).some(run => run.phase === "consolidation"));
+      assert.ok((await controller.runs.list()).some(run => run.phase === "consolidation"));
     } finally { await controller.shutdown(); await rm(root, { recursive: true, force: true }); }
   });
 
@@ -532,7 +532,7 @@ describe("AssistantController", () => {
         await waitFor(() => controller.getSnapshot().state.kind === "idle", 5_000);
         assert.equal(controller.getSnapshot().lastPrimaryResult?.status, "completed");
         assert.equal((await controller.getHistory())[0]?.role, "user");
-        const recorded = await controller.listRuns();
+        const recorded = await controller.runs.list();
         assert.equal(recorded.length, 1);
         assert.equal(recorded[0]?.status, "completed");
         assert.equal(recorded[0]?.tools[0]?.status, "completed");
@@ -546,8 +546,8 @@ describe("AssistantController", () => {
         output: new PassThrough(), env: {}, cwd: directory,
       }));
       try {
-        assert.equal((await reopened.listRuns())[0]?.status, "completed");
-        assert.ok((await reopened.listRuns())[0]?.trace?.events.some(event => event.type === "step.completed"));
+        assert.equal((await reopened.runs.list())[0]?.status, "completed");
+        assert.ok((await reopened.runs.list())[0]?.trace?.events.some(event => event.type === "step.completed"));
       } finally {
         await reopened.shutdown();
       }
@@ -586,10 +586,10 @@ describe("AssistantController", () => {
       executionRecords: createExecutionRecordStore(directory),
     });
     const first = createAssistantController(app(firstTranscripts));
-    assert.deepEqual(await first.listWorkTasks(), { ok: true, value: [] });
+    assert.deepEqual(await first.workTasks.list(), { ok: true, value: [] });
     const second = createAssistantController(app(secondTranscripts));
     try {
-      const blocked = await second.listWorkTasks();
+      const blocked = await second.workTasks.list();
       assert.equal(blocked.ok, false);
       assert.equal(!blocked.ok && blocked.error.code, "WORK_TASK_INVALID_STATE");
       assert.match(!blocked.ok ? blocked.error.message : "", /already controlled/);
@@ -600,7 +600,7 @@ describe("AssistantController", () => {
 
     const reopened = createAssistantController(app(secondTranscripts));
     try {
-      assert.deepEqual(await reopened.listWorkTasks(), { ok: true, value: [] });
+      assert.deepEqual(await reopened.workTasks.list(), { ok: true, value: [] });
     } finally {
       await reopened.shutdown();
       await rm(workspace, { recursive: true, force: true });
@@ -649,28 +649,28 @@ describe("AssistantController", () => {
     });
     const controller = createAssistantController(app);
     try {
-      const created = await controller.createWorkTask({
+      const created = await controller.workTasks.create({
         goal: "Prepare a reviewed answer", constraints: ["Do not claim user acceptance"],
         acceptance: [{ id: "quality", description: "User accepts quality", method: "human",
           verification: { kind: "human" }, required: true }],
       });
       assert.equal(created.ok, true);
       if (!created.ok) return;
-      assert.deepEqual(await controller.runWorkTask({ id: created.value.id, expectedRevision: 1 }),
+      assert.deepEqual(await controller.workTasks.run({ id: created.value.id, expectedRevision: 1 }),
         { ok: true, runId: "work-run-1" });
       await waitFor(() => controller.getSnapshot().state.kind === "idle");
       assert.deepEqual(requestedAgents, [PRIMARY_AGENT_ID], "task instructions must not trigger automatic consolidation");
-      const paused = await controller.getWorkTask(created.value.id);
+      const paused = await controller.workTasks.get(created.value.id);
       assert.equal(paused.ok && paused.value.status, "paused");
       assert.equal(paused.ok && paused.value.runIds[0], "work-run-1");
-      assert.equal((await controller.getRun("work-run-1"))?.workTaskId, "task-1");
+      assert.equal((await controller.runs.get("work-run-1"))?.workTaskId, "task-1");
       if (!paused.ok) return;
-      const delivered = await controller.submitWorkTaskDelivery({
+      const delivered = await controller.workTasks.submitDelivery({
         id: paused.value.id, expectedRevision: paused.value.revision, summary: "Answer prepared",
       });
       assert.equal(delivered.ok && delivered.value.status, "awaiting_acceptance");
       if (!delivered.ok) return;
-      const accepted = await controller.recordHumanAcceptance({
+      const accepted = await controller.workTasks.recordHumanAcceptance({
         id: delivered.value.id, expectedRevision: delivered.value.revision,
         criterionId: "quality", decision: "passed",
       });
@@ -722,20 +722,20 @@ describe("AssistantController", () => {
         runtime: { run: async () => { modelRuns += 1; throw new Error("must not run"); } } as unknown as RuntimeApp["runtime"],
       }));
       try {
-        const recovered = await controller.getWorkTask(created.value.id);
+        const recovered = await controller.workTasks.get(created.value.id);
         assert.equal(recovered.ok && recovered.value.status, "needs_review");
         if (!recovered.ok) return;
-        const bypass = await controller.cancelWorkTask({
+        const bypass = await controller.workTasks.cancel({
           id: recovered.value.id, expectedRevision: recovered.value.revision,
         });
         assert.equal(bypass.ok, false);
         assert.equal(!bypass.ok && bypass.error.code, "WORK_TASK_INVALID_STATE");
-        const unresolved = await controller.reconcileWorkTask({
+        const unresolved = await controller.workTasks.reconcile({
           id: recovered.value.id, expectedRevision: recovered.value.revision,
           observedOutcome: "still_unknown", decision: "continue", note: "Outcome is still unclear.",
         });
         assert.equal(unresolved.ok, false);
-        const reconciled = await controller.reconcileWorkTask({
+        const reconciled = await controller.workTasks.reconcile({
           id: recovered.value.id, expectedRevision: recovered.value.revision,
           observedOutcome: "not_applied", decision: "continue", note: "The target file was checked and was not created.",
         });
@@ -812,7 +812,7 @@ describe("AssistantController", () => {
         directory: transcripts, workspaceRoot: workspace, workTasks, executionRecords,
       }));
       try {
-        const delivered = await controller.submitWorkTaskDelivery({
+        const delivered = await controller.workTasks.submitDelivery({
           id: created.value.id, expectedRevision: 6, summary: "Focused check completed",
         });
         assert.equal(delivered.ok && delivered.value.status, "completed");
@@ -852,7 +852,7 @@ describe("AssistantController", () => {
         directory: transcripts, workspaceRoot: workspace, workTasks, executionRecords,
       }));
       try {
-        const delivered = await controller.submitWorkTaskDelivery({
+        const delivered = await controller.workTasks.submitDelivery({
           id: created.value.id, expectedRevision: 3, summary: "Report ready", artifactRefs: ["report.md"],
         });
         assert.equal(delivered.ok && delivered.value.status, "awaiting_acceptance");
@@ -908,7 +908,7 @@ describe("AssistantController", () => {
         directory: transcripts, workspaceRoot: workspace, workTasks, executionRecords,
       }));
       try {
-        const delivered = await controller.submitWorkTaskDelivery({
+        const delivered = await controller.workTasks.submitDelivery({
           id: created.value.id, expectedRevision: 3, summary: "Report ready", artifactRefs: ["report.md"],
         });
         assert.equal(delivered.ok && delivered.value.status, "completed");
@@ -1288,7 +1288,7 @@ describe("AssistantController", () => {
         controller.subscribe(event => { if (event.type === "error") warnings.push(event.message); });
         try {
           await waitFor(() => controller.getSnapshot().lastConsolidationResult != null && controller.getSnapshot().state.kind === "idle");
-          const maintenance = await controller.getMemoryMaintenance(); assert.ok(maintenance.ok);
+          const maintenance = await controller.memory.getMaintenance(); assert.ok(maintenance.ok);
           const receipt = await memoryStore.getConsolidationReceipt!("controller-thread"); assert.ok(receipt.ok && receipt.value, JSON.stringify(maintenance.value.consolidation));
           assert.equal(receipt.value.outcomes[0]!.attempts, attempt);
           assert.equal(receipt.value.outcomes[0]!.status, attempt === 3 ? "not_saved" : "deferred");

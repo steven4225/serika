@@ -236,11 +236,11 @@ test("Demo: real Controller wiring records chat/consolidation/rewrite/compaction
     while (controller.getSnapshot().state.kind !== "idle" && Date.now() < deadline) await delay(10);
     assert.equal(controller.getSnapshot().state.kind, "idle");
     assert.equal(controller.getSnapshot().lastConsolidationResult?.status, "completed");
-    const memories = await controller.listMemories(); assert.ok(memories.ok);
+    const memories = await controller.memory.list(); assert.ok(memories.ok);
     assert.equal(memories.value.entries.length, 1);
     userId = (await app.store.getMessages("thread")).find(message => message.role === "user")!.id;
     const compact = await controller.command("/compact"); assert.ok(compact.ok, JSON.stringify(compact));
-    let page = await controller.listModelUsage!();
+    let page = await controller.runs.listModelUsage!();
     assert.deepEqual([...new Set(page.calls.map(c => c.purpose))].sort(), ["chat", "context_compaction", "memory_consolidation", "query_rewrite"]);
     assert.equal(page.calls.filter(c => c.purpose === "chat")[0]!.runId, started.runId);
     assert.equal(page.calls.filter(c => c.purpose === "query_rewrite")[0]!.runId, started.runId);
@@ -253,7 +253,7 @@ test("Demo: real Controller wiring records chat/consolidation/rewrite/compaction
       summarizer: createAiSdkSummarizer(observeModelUsage(model, { records: new ExecutionRecordStore(directory), threadId: "thread", enabled: () => true,
         scope: () => ({ purpose: "context_compaction" }) })) });
     await reopened.prepare(messages, new AbortController().signal);
-    page = await controller.listModelUsage!();
+    page = await controller.runs.listModelUsage!();
     assert.equal(page.calls.length, before, "reusing summary does not invoke another model");
     assert.deepEqual((await new ExecutionRecordStore(directory).listModelUsage("thread")).calls, page.calls, "reopen reads same ledger, never recomputes from trace totals");
     console.log("Usage Demo PASS: four purposes; formal memory saved; reuse +0 calls; reopen unchanged.");

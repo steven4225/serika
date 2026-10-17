@@ -148,12 +148,12 @@ async function child(root: string, stage: Stage, workflow: Workflow) {
     });
     try {
       const started = task === undefined ? await controller.run(prompt)
-        : await controller.runWorkTask({ id: task.id, expectedRevision: task.revision, instruction: prompt, completionCheck: false });
+        : await controller.workTasks.run({ id: task.id, expectedRevision: task.revision, instruction: prompt, completionCheck: false });
       assert.ok(started.ok, JSON.stringify(started));
       await done;
     } finally { unsubscribe(); }
     const result = controller.getSnapshot().lastPrimaryResult; assert.ok(result);
-    const receipt = await controller.getRun(result.runId); runs.push({ round, result, receipt });
+    const receipt = await controller.runs.get(result.runId); runs.push({ round, result, receipt });
     const diagnostic = await controller.getContextDiagnostics(); diagnostics.push({ round, diagnostic });
     assert.equal(result.status, "completed", JSON.stringify(result));
     assert.ok(receipt && hasSuccessfulReadBeforeEdit(receipt.tools),
@@ -161,10 +161,10 @@ async function child(root: string, stage: Stage, workflow: Workflow) {
     assert.ok(hasSuccessfulReadback(receipt.tools), "successful edit must be followed by a fresh successful readback");
     if (task !== undefined) {
       const previousRuns = task.runIds;
-      task = taskValue(await controller.getWorkTask(task.id));
+      task = taskValue(await controller.workTasks.get(task.id));
       assert.deepEqual(task.runIds, [...previousRuns, result.runId]);
       verifyContinuityTaskRun(task, receipt);
-      const continuation = taskValue(await controller.getWorkTaskContinuation({ id: task.id, expectedRevision: task.revision }));
+      const continuation = taskValue(await controller.workTasks.getContinuation({ id: task.id, expectedRevision: task.revision }));
       assert.equal(continuation.latestRun?.runId, result.runId);
       assert.equal(continuation.requiresReview, false);
       assert.ok(diagnostic.ok);
@@ -188,7 +188,7 @@ async function child(root: string, stage: Stage, workflow: Workflow) {
   try {
     if (workflow === "work-task") {
       if (stage === "before") {
-        task = taskValue(await controller.createWorkTask({
+        task = taskValue(await controller.workTasks.create({
           goal: "在同一任务中逐步交付个人助手日用流程，自动压缩并正常退出重开后，读取当前磁盘再继续编辑。",
           constraints: [
             `Only read/edit ${ARTIFACT}; preserve existing sections and the unique append marker.`,
@@ -204,9 +204,9 @@ async function child(root: string, stage: Stage, workflow: Workflow) {
         }));
       } else {
         const saved: WorkTask = JSON.parse(await readFile(join(root, "work-task-resume.json"), "utf8"));
-        task = taskValue(await controller.getWorkTask(saved.id));
+        task = taskValue(await controller.workTasks.get(saved.id));
         assert.deepEqual(task, saved, "reopen must preserve task contract/revision/Run associations without running it");
-        const latest = await controller.getRun(task.runIds.at(-1)!);
+        const latest = await controller.runs.get(task.runIds.at(-1)!);
         assert.ok(latest); verifyContinuityTaskRun(task, latest);
       }
       taskSnapshots.push({ round: "startup", task });
@@ -234,12 +234,12 @@ async function child(root: string, stage: Stage, workflow: Workflow) {
       await run("continued", `${instructions}增加“## continued”章节，说明前三项最重要的落地检查，各写一句，不重写全文。`);
       assert.ok(captures.some((capture) => capture.round === "continued" && hasInjectedSummary(capture.prompt)));
       if (task !== undefined) {
-        task = taskValue(await controller.submitWorkTaskDelivery({ id: task.id, expectedRevision: task.revision,
+        task = taskValue(await controller.workTasks.submitDelivery({ id: task.id, expectedRevision: task.revision,
           summary: "已形成日用流程草稿，下一轮需从当前磁盘核对并继续。",
           artifactRefs: [ARTIFACT], unresolved: ["核对重启后的外部标记并补充下一步"],
         }));
-        task = taskValue(await controller.requestWorkTaskChanges({ id: task.id, expectedRevision: task.revision }));
-        const continuation = taskValue(await controller.getWorkTaskContinuation({ id: task.id, expectedRevision: task.revision }));
+        task = taskValue(await controller.workTasks.requestChanges({ id: task.id, expectedRevision: task.revision }));
+        const continuation = taskValue(await controller.workTasks.getContinuation({ id: task.id, expectedRevision: task.revision }));
         assert.equal(continuation.previousDelivery?.unresolved[0], "核对重启后的外部标记并补充下一步");
         await writeFile(join(root, "work-task-resume.json"), JSON.stringify(task, null, 2), { flag: "wx" });
       }
@@ -256,8 +256,8 @@ async function child(root: string, stage: Stage, workflow: Workflow) {
       assert.ok(approvals.some((approval) => approval.round === "reopened" && approval.toolName === "edit_file" && approval.allowed));
       if (task !== undefined) {
         const latestRunId = task.runIds.at(-1)!;
-        const latest = await controller.getRun(latestRunId); assert.ok(latest);
-        task = taskValue(await controller.submitWorkTaskDelivery({ id: task.id, expectedRevision: task.revision,
+        const latest = await controller.runs.get(latestRunId); assert.ok(latest);
+        task = taskValue(await controller.workTasks.submitDelivery({ id: task.id, expectedRevision: task.revision,
           summary: "Fixed-budget backend chain finished; final file saved after fresh read. Human quality not accepted.",
           artifactRefs: [ARTIFACT], unresolved: ["Human quality review and Electron interaction not run"],
         }));

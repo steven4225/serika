@@ -174,7 +174,7 @@ test('failure evidence keeps available artifact and marks unreadable stores inst
       store: { getContextCompactions: failure }, executionRecords: { listModelUsage: failure },
       memoryStore: { list: failure, listConsolidationMaterial: failure, listCandidates: failure,
         getConsolidationReceipt: failure, getConsolidationCursor: failure },
-    }, { getHistory: failure, listRuns: failure, getMemoryReferences: () => null, getContextDiagnostics: failure },
+    }, { getHistory: failure, runs: { list: failure }, memory: { getReferences: () => null }, getContextDiagnostics: failure },
     { threadId: 'eval', phases: [], error: { code: 'RUN_FAILED', message: 'actual run failure' } });
     assert.equal(result.artifact, 'actual partial artifact');
     assert.equal(result.memories, undefined);

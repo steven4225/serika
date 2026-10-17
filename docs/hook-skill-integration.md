@@ -99,10 +99,10 @@
 这些命令属于 `AssistantController.command()`，不是普通模型对话，也不是 TUI 本次新增命令。`/hooks` 的最近记录最多 30 项，仅属于当前进程；重启后的 Run/tool 结果仍查既有执行回执。
 
 ```ts
-const diagnostics = controller.getAutomationDiagnostics();
+const diagnostics = controller.automation.getDiagnostics();
 const skill = diagnostics.skills.find(item => item.id === "brief");
 if (skill) {
-  const started = await controller.runSkill({
+  const started = await controller.automation.runSkill({
     id: skill.id,
     expectedHash: skill.hash,
     input: "今天的计划……"
@@ -120,7 +120,7 @@ if (skill) {
 只允许登记的无工具 `text` Skill 排期，输入必须非空且不超过 4 KiB。保存单次时间或固定 UTC 偏移的每日/每周规则，不能同时指定两者。`memory-consolidate` 依赖当前 Thread 的已提交来源与游标，不能定时调用；仍由 Hook 或显式维护入口处理。
 
 ```ts
-const saved = await controller.scheduleSkill({
+const saved = await controller.automation.scheduleSkill({
   id: skill.id,
   expectedHash: skill.hash,
   input: "今天先核对报表，再准备客户说明。",
@@ -128,9 +128,9 @@ const saved = await controller.scheduleSkill({
 });
 // saved.value.task 与 saved.value.service 分开：保存成功不代表服务启用成功。
 if (!saved.ok) throw new Error(saved.error.message);
-const overview = await controller.getAutomationOverview();
+const overview = await controller.automation.getOverview();
 if (saved.value.task) {
-  await controller.changeAutomationSchedule({
+  await controller.automation.changeSchedule({
     id: saved.value.task.id, kind: "once", action: "cancel"
   });
 }

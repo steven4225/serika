@@ -66,7 +66,7 @@ describe("formal Memory controller and actual reference preparation", () => {
       if (event.type === "approval" && !approved.has(event.approval.approvalId)) {
         approved.add(event.approval.approvalId);
         void (async () => {
-        const busy = await controller.updateMemory({ id: added.entry.id, expectedRevision: 1, text: "forbidden busy edit" });
+        const busy = await controller.memory.update({ id: added.entry.id, expectedRevision: 1, text: "forbidden busy edit" });
         assert.ok(!busy.ok && busy.error.code === "BUSY");
         const external = await app.memoryStore!.update(added.entry.id, { expectedRevision: 1, text: "复盘新格式" }); assert.ok(external.ok);
         controller.confirm({ approvalId: event.approval.approvalId, decision: "allow" });
@@ -76,20 +76,20 @@ describe("formal Memory controller and actual reference preparation", () => {
     try {
       await controller.run("复盘并计算1+2"); await idle(controller);
       assert.equal(next, 2); assert.equal(test.counts().rewrites, 1); assert.equal(sawNewVersion, true);
-      assert.equal(controller.getMemoryReferences()?.selected[0]?.revision, 2);
+      assert.equal(controller.memory.getReferences()?.selected[0]?.revision, 2);
     } finally { unsubscribe(); await controller.shutdown(); await rm(test.root, { recursive: true, force: true }); }
   });
   it("does not enable rewrite for WorkTask or read-only reference queries", async () => {
     const test = await setup(true); const { app, controller } = await test.open();
     try {
       await app.memoryStore!.add({ text: "复盘先给结论" });
-      const task = await controller.createWorkTask({ goal: "复盘计划", acceptance: [{ id: "quality", description: "内容质量", method: "human", verification: { kind: "human" }, required: true }] });
+      const task = await controller.workTasks.create({ goal: "复盘计划", acceptance: [{ id: "quality", description: "内容质量", method: "human", verification: { kind: "human" }, required: true }] });
       assert.ok(task.ok); if (!task.ok) return;
-      await controller.runWorkTask({ id: task.value.id, expectedRevision: task.value.revision }); await idle(controller);
+      await controller.workTasks.run({ id: task.value.id, expectedRevision: task.value.revision }); await idle(controller);
       assert.equal(test.counts().rewrites, 0);
-      assert.equal(controller.getMemoryReferences()?.rewrite, "not_applicable");
+      assert.equal(controller.memory.getReferences()?.rewrite, "not_applicable");
       const count = test.counts();
-      await controller.listMemories(); await controller.getContextDiagnostics(); controller.getMemoryReferences();
+      await controller.memory.list(); await controller.getContextDiagnostics(); controller.memory.getReferences();
       assert.deepEqual(test.counts(), count);
     } finally { await controller.shutdown(); await rm(test.root, { recursive: true, force: true }); }
   });
@@ -99,26 +99,26 @@ describe("formal Memory controller and actual reference preparation", () => {
       const added = await app.memoryStore!.add({ text: "复盘先给结论", source: { kind: "conversation", threadId: "thread-a", messageId: "user-source", quote: "复盘先给结论" } });
       assert.ok(added.ok); if (!added.ok) return;
       await app.memoryStore!.add({ text: "hidden", scope: { kind: "thread", threadId: "thread-b" } });
-      const listed = await controller.listMemories(); assert.ok(listed.ok); if (!listed.ok) return;
+      const listed = await controller.memory.list(); assert.ok(listed.ok); if (!listed.ok) return;
       assert.equal(listed.value.entries.length, 1); assert.ok(!("source" in listed.value.entries[0]!));
       const { history: _history, ...current } = added.entry;
-      assert.deepEqual((await controller.getMemory(added.entry.id)), { ok: true, value: current });
-      const edit = await controller.updateMemory({ id: added.entry.id, expectedRevision: 1, text: "复盘先给一句结论，再给行动" });
+      assert.deepEqual((await controller.memory.get(added.entry.id)), { ok: true, value: current });
+      const edit = await controller.memory.update({ id: added.entry.id, expectedRevision: 1, text: "复盘先给一句结论，再给行动" });
       assert.ok(edit.ok); if (!edit.ok) return;
       assert.deepEqual(edit.value.source, { kind: "manual" }); assert.equal(edit.value.revision, 2);
-      const conflict = await controller.updateMemory({ id: added.entry.id, expectedRevision: 1, pinned: true });
+      const conflict = await controller.memory.update({ id: added.entry.id, expectedRevision: 1, pinned: true });
       assert.ok(!conflict.ok && conflict.error.code === "MEMORY_REVISION_CONFLICT");
-      const pinned = await controller.updateMemory({ id: added.entry.id, expectedRevision: 2, pinned: true });
+      const pinned = await controller.memory.update({ id: added.entry.id, expectedRevision: 2, pinned: true });
       assert.ok(pinned.ok && pinned.value.pinned);
-      const disabled = await controller.updateMemory({ id: added.entry.id, expectedRevision: 3, status: "disabled" });
+      const disabled = await controller.memory.update({ id: added.entry.id, expectedRevision: 3, status: "disabled" });
       assert.ok(disabled.ok && disabled.value.status === "disabled");
       const hidden = (await app.memoryStore!.list()); assert.ok(hidden.ok); if (!hidden.ok) return;
       const privateId = hidden.entries.find(entry => entry.text === "hidden")!.id;
-      assert.ok(!(await controller.getMemory(privateId)).ok);
-      assert.ok(!(await controller.updateMemory({ id: privateId, expectedRevision: 1, pinned: true })).ok);
+      assert.ok(!(await controller.memory.get(privateId)).ok);
+      assert.ok(!(await controller.memory.update({ id: privateId, expectedRevision: 1, pinned: true })).ok);
       assert.deepEqual(test.counts(), { primary: 0, rewrites: 0 });
-      assert.equal((await controller.listRuns()).length, 0);
-      assert.equal(controller.getMemoryReferences(), null);
+      assert.equal((await controller.runs.list()).length, 0);
+      assert.equal(controller.memory.getReferences(), null);
     } finally { await controller.shutdown(); await rm(test.root, { recursive: true, force: true }); }
   });
   it("shows the selected version across Thread, updates next preparation, excludes disabled, and clears process snapshot on restart", async () => {
@@ -129,25 +129,25 @@ describe("formal Memory controller and actual reference preparation", () => {
     const second = await test.open("thread-b");
     try {
       await second.controller.run("回顾要怎样组织内容？"); await idle(second.controller);
-      let references = second.controller.getMemoryReferences();
+      let references = second.controller.memory.getReferences();
       assert.ok(references); assert.equal(references.rewrite, "succeeded");
       assert.equal(references.selected[0]?.id, added.entry.id); assert.equal(references.selected[0]?.reason, "rewritten");
       assert.equal(references.selected[0]?.revision, 1);
       assert.ok(test.prompts[0]?.includes(added.entry.id));
-      const edit = await second.controller.updateMemory({ id: added.entry.id, expectedRevision: 1, text: "复盘只给三条行动。" }); assert.ok(edit.ok);
+      const edit = await second.controller.memory.update({ id: added.entry.id, expectedRevision: 1, text: "复盘只给三条行动。" }); assert.ok(edit.ok);
       // The old reference remains an explicitly time-bound preparation snapshot, not current truth.
-      assert.equal(second.controller.getMemoryReferences()?.selected[0]?.revision, 1);
+      assert.equal(second.controller.memory.getReferences()?.selected[0]?.revision, 1);
       await second.controller.run("复盘格式？"); await idle(second.controller);
-      references = second.controller.getMemoryReferences();
+      references = second.controller.memory.getReferences();
       assert.equal(references?.selected[0]?.revision, 2); assert.equal(references?.selected[0]?.text, "复盘只给三条行动。");
-      const stopped = await second.controller.updateMemory({ id: added.entry.id, expectedRevision: 2, status: "disabled" }); assert.ok(stopped.ok);
+      const stopped = await second.controller.memory.update({ id: added.entry.id, expectedRevision: 2, status: "disabled" }); assert.ok(stopped.ok);
       await second.controller.run("复盘格式？"); await idle(second.controller);
-      assert.equal(second.controller.getMemoryReferences()?.selected.length, 0);
-      const primaryRuns = await second.controller.listRuns(); assert.equal(primaryRuns.length, 3);
+      assert.equal(second.controller.memory.getReferences()?.selected.length, 0);
+      const primaryRuns = await second.controller.runs.list(); assert.equal(primaryRuns.length, 3);
       assert.deepEqual(test.counts(), { primary: 3, rewrites: 3 });
     } finally { await second.controller.shutdown(); }
     const restart = await test.open("thread-b");
-    try { assert.equal(restart.controller.getMemoryReferences(), null); }
+    try { assert.equal(restart.controller.memory.getReferences(), null); }
     finally { await restart.controller.shutdown(); await rm(test.root, { recursive: true, force: true }); }
   });
   it("default lexical mode makes zero rewrite calls and a corrupt source fails instead of returning stale references", async () => {
@@ -155,11 +155,11 @@ describe("formal Memory controller and actual reference preparation", () => {
     try {
       await app.memoryStore!.add({ text: "复盘先给一行结论" });
       await controller.run("复盘"); await idle(controller);
-      assert.equal(controller.getMemoryReferences()?.rewrite, "off");
+      assert.equal(controller.memory.getReferences()?.rewrite, "off");
       await writeFile(join(test.root, "workspace", ".runloom", "memory.json"), "broken");
-      assert.ok(!(await controller.listMemories()).ok);
+      assert.ok(!(await controller.memory.list()).ok);
       await controller.run("复盘"); await idle(controller);
-      assert.equal(controller.getMemoryReferences(), null);
+      assert.equal(controller.memory.getReferences(), null);
       assert.equal(test.counts().rewrites, 0);
     } finally { await controller.shutdown(); await rm(test.root, { recursive: true, force: true }); }
   });

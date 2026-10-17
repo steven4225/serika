@@ -65,9 +65,9 @@ test("successful memory edit and candidate review request fresh maintenance", as
   }));
   try {
     await waitFor(() => calls === 1 && controller.getSnapshot().state.kind === "idle");
-    assert.equal((await controller.updateMemory({ id: "m", expectedRevision: 1, text: "updated" })).ok, true);
+    assert.equal((await controller.memory.update({ id: "m", expectedRevision: 1, text: "updated" })).ok, true);
     await waitFor(() => calls === 2 && controller.getSnapshot().state.kind === "idle");
-    assert.equal((await controller.resolveMemoryCandidate({ candidateId: "c", expectedCandidateRevision: 1, decision: "accept" })).ok, true);
+    assert.equal((await controller.memory.resolveCandidate({ candidateId: "c", expectedCandidateRevision: 1, decision: "accept" })).ok, true);
     await waitFor(() => calls === 3 && controller.getSnapshot().state.kind === "idle");
     await flush(); assert.equal(calls, 3);
   } finally { await controller.shutdown(); }

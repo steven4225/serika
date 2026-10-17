@@ -54,13 +54,13 @@ it("corrects missing multiple tests in the same Run using one confirmed batch an
         controller.confirm({ approvalId: event.approval.approvalId, decision: "allow" });
       }
     });
-    const created = await controller.createWorkTask({ goal: "check both conditions", acceptance }); assert.ok(created.ok);
+    const created = await controller.workTasks.create({ goal: "check both conditions", acceptance }); assert.ok(created.ok);
     const idle = new Promise<void>(resolve => { const off = controller.subscribe(event => {
       if (event.type === "state" && event.state.kind === "idle") { off(); resolve(); }
     }); });
-    assert.ok((await controller.runWorkTask({ id: created.value.id, expectedRevision: 1 })).ok);
+    assert.ok((await controller.workTasks.run({ id: created.value.id, expectedRevision: 1 })).ok);
     await idle;
-    const result = await controller.getWorkTask(created.value.id); assert.ok(result.ok);
+    const result = await controller.workTasks.get(created.value.id); assert.ok(result.ok);
     assert.equal(calls, 3); assert.equal(approvals.size, 1); assert.equal(result.value.runIds.length, 1);
     assert.equal(result.value.status, "completed");
     assert.deepEqual(result.value.acceptance.map(item => item.status), ["passed", "passed"]);
@@ -200,7 +200,7 @@ for (const scenario of ["correct", "readback", "deny", "exhaust", "manual", "cha
         }
         if (event.type === "run-event" && event.event.type === "run.completion.checked") checks.push(event.event.data.decision);
       });
-      const created = await controller.createWorkTask({ goal: "Write plan.md", acceptance: [
+      const created = await controller.workTasks.create({ goal: "Write plan.md", acceptance: [
         { id: "file", description: "file", required: true, method: "automatic", verification: { kind: "artifact_exists", path: "plan.md", ...(scenario === "readback" ? { requireReadback: true } : {}) } },
         { id: "quality", description: "quality", required: true, method: "human", verification: { kind: "human" } },
       ] });
@@ -208,13 +208,13 @@ for (const scenario of ["correct", "readback", "deny", "exhaust", "manual", "cha
       const idle = new Promise<void>(resolve => { const off = controller.subscribe(event => {
         if (event.type === "state" && event.state.kind === "idle") { off(); resolve(); }
       }); });
-      const started = scenario === "chat" ? await controller.run("Hello") : await controller.runWorkTask({
+      const started = scenario === "chat" ? await controller.run("Hello") : await controller.workTasks.run({
         id: created.value.id, expectedRevision: created.value.revision, completionCheck: scenario !== "manual",
       });
       assert.ok(started.ok); await idle;
       const result = controller.getSnapshot().lastPrimaryResult!;
       assert.equal(result.status, "completed");
-      const task = await controller.getWorkTask(created.value.id); assert.ok(task.ok);
+      const task = await controller.workTasks.get(created.value.id); assert.ok(task.ok);
       assert.equal(task.value.runIds.length, scenario === "chat" ? 0 : 1);
       assert.equal(task.value.acceptance[1]!.status, "not_run");
       if (scenario === "correct" || scenario === "readback") {

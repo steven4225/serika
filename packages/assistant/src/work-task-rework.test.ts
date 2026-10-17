@@ -81,7 +81,7 @@ it("explicit rework uses a fresh approved Run and never accepts a prior write as
       confirmations.push(currentController.confirm({ approvalId: pending.approvalId,
         decision: input.path === "comparison.md" ? "allow" : "deny" }));
     });
-    let task = value(await currentController.createWorkTask({
+    let task = value(await currentController.workTasks.create({
       goal: "Write a source comparison and fix factual issues only when asked.",
       constraints: ["Only comparison.md may be created or edited. Read back after editing."],
       acceptance: [
@@ -97,13 +97,13 @@ it("explicit rework uses a fresh approved Run and never accepts a prior write as
           if (event.type === "state" && event.state.kind === "idle") { unsubscribe(); resolve(); }
         });
       });
-      assert.ok((await currentController.runWorkTask({ id: task.id, expectedRevision: task.revision, instruction, completionCheck: false })).ok);
+      assert.ok((await currentController.workTasks.run({ id: task.id, expectedRevision: task.revision, instruction, completionCheck: false })).ok);
       await idle;
       assert.equal(currentController.getSnapshot().lastPrimaryResult?.status, "completed");
-      return value(await currentController.getWorkTask(task.id));
+      return value(await currentController.workTasks.get(task.id));
     }
     async function deliver(): Promise<WorkTask> {
-      return value(await currentController.submitWorkTaskDelivery({ id: task.id,
+      return value(await currentController.workTasks.submitDelivery({ id: task.id,
         expectedRevision: task.revision, summary: "Report saved, human review required.",
         artifactRefs: ["comparison.md"], unresolved: ["Facts await user review"],
       }));
@@ -114,18 +114,18 @@ it("explicit rework uses a fresh approved Run and never accepts a prior write as
     assert.equal(task.status, "awaiting_acceptance");
     assert.equal(task.acceptance[0]?.status, "passed");
     const firstDelivery = task.delivery;
-    task = value(await currentController.recordHumanAcceptance({ id: task.id, expectedRevision: task.revision,
+    task = value(await currentController.workTasks.recordHumanAcceptance({ id: task.id, expectedRevision: task.revision,
       criterionId: "quality", decision: "failed", note: "The report contradicts itself." }));
-    const stale = await currentController.requestWorkTaskChanges({ id: task.id, expectedRevision: task.revision - 1 });
+    const stale = await currentController.workTasks.requestChanges({ id: task.id, expectedRevision: task.revision - 1 });
     assert.equal(stale.ok, false);
-    task = value(await currentController.requestWorkTaskChanges({ id: task.id, expectedRevision: task.revision }));
+    task = value(await currentController.workTasks.requestChanges({ id: task.id, expectedRevision: task.revision }));
     assert.equal(task.status, "paused");
     assert.equal(modelCalls, 2);
     assert.deepEqual(task.delivery, firstDelivery);
     assert.ok(task.acceptance.every((criterion) => criterion.status === "not_run" &&
       criterion.evidenceRefs.length === 0 && criterion.note === null));
     assert.equal(await readFile(join(workspace, "comparison.md"), "utf8"), longBefore);
-    const premature = await currentController.recordHumanAcceptance({ id: task.id, expectedRevision: task.revision,
+    const premature = await currentController.workTasks.recordHumanAcceptance({ id: task.id, expectedRevision: task.revision,
       criterionId: "quality", decision: "passed" });
     assert.equal(premature.ok, false);
     assert.equal(modelCalls, 2);
@@ -135,7 +135,7 @@ it("explicit rework uses a fresh approved Run and never accepts a prior write as
     assert.equal(task.acceptance[0]?.status, "failed");
     assert.deepEqual(task.delivery?.evidence, []);
     assert.equal(task.status, "awaiting_acceptance");
-    task = value(await currentController.requestWorkTaskChanges({ id: task.id, expectedRevision: task.revision }));
+    task = value(await currentController.workTasks.requestChanges({ id: task.id, expectedRevision: task.revision }));
     assert.equal(modelCalls, 4);
 
     task = await run("Correct the contradictory claim, then read back the actual saved report. Do not accept on my behalf.");
@@ -145,7 +145,7 @@ it("explicit rework uses a fresh approved Run and never accepts a prior write as
     assert.equal(task.acceptance[1]?.status, "not_run");
     assert.equal(task.status, "awaiting_acceptance");
     assert.ok(task.delivery?.evidence.every((item) => item.kind === "artifact" && item.runId === latestRunId));
-    const receipt = await currentController.getRun(latestRunId);
+    const receipt = await currentController.runs.get(latestRunId);
     assert.equal(receipt?.workTaskId, task.id);
     assert.deepEqual(receipt?.tools.map((tool) => [tool.toolName, tool.status]), [
       ["read_file", "completed"], ["edit_file", "completed"], ["read_file", "completed"],
@@ -177,9 +177,9 @@ it("explicit rework uses a fresh approved Run and never accepts a prior write as
     assert.equal(await readFile(join(workspace, "unrelated.txt"), "utf8"), "User content stays unchanged.\n");
     await currentController.shutdown();
     controller = createAssistantController(await createRuntimeApp({ ...appOptions, output: new PassThrough() }));
-    assert.deepEqual(value(await controller.getWorkTask(task.id)), task);
-    assert.equal((await controller.getRun(firstRunId))?.status, "completed");
-    assert.equal((await controller.getRun(latestRunId))?.status, "completed");
+    assert.deepEqual(value(await controller.workTasks.get(task.id)), task);
+    assert.equal((await controller.runs.get(firstRunId))?.status, "completed");
+    assert.equal((await controller.runs.get(latestRunId))?.status, "completed");
     assert.equal(modelCalls, 8, "Reopening must not run the model or accept quality");
   } finally { await controller?.shutdown(); await rm(root, { recursive: true, force: true }); }
 });

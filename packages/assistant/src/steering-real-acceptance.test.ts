@@ -72,14 +72,14 @@ test("real configured model accepts Steer at file confirmation and preserves the
     assert.equal(result?.runId, start.runId);
     assert.equal(result?.status, "completed", JSON.stringify({ result, errors }));
     assert.equal(await readFile(join(workspace, path), "utf8"), original + addition, "real model must preserve the original and append the two exact actions");
-    const receipt = await controller.getRun(start.runId); assert.ok(receipt);
+    const receipt = await controller.runs.get(start.runId); assert.ok(receipt);
     const oldCall = receipt.tools.find(tool => tool.toolCallId === oldApproval.toolCallId); assert.ok(oldCall);
     assert.equal(oldCall.status, "not_started"); assert.equal(oldCall.startedAt, null);
     const edit = receipt.tools.filter(tool => tool.toolName === "edit_file" && tool.status === "completed" && tool.fileWrite?.path === path).at(-1);
     assert.ok(edit?.fileWrite, "new edit needs an actual successful file receipt");
     assert.ok(hasMatchingFileReadback(receipt.tools, edit, path, edit.fileWrite.sha256, edit.fileWrite.bytes), "successful readback must follow the new edit");
     assert.equal(receipt.steers?.[0]?.status, "applied");
-    assert.equal((await controller.listRuns()).length, 1, "Steer must not launch a second Run");
+    assert.equal((await controller.runs.list()).length, 1, "Steer must not launch a second Run");
     const history = await controller.getHistory();
     assert.deepEqual(history.find(message => message.id === receipt.steers?.[0]?.messageId)?.metadata,
       { source: "steer", memoryConsolidation: "exclude" });
@@ -90,6 +90,6 @@ test("real configured model accepts Steer at file confirmation and preserves the
     }));
     controller = reopened; await controller.getHistory();
     assert.equal(controller.getSnapshot().steers[0]?.status, "applied");
-    assert.equal((await controller.listRuns()).length, 1, "runtime reconstruction cannot replay steering");
+    assert.equal((await controller.runs.list()).length, 1, "runtime reconstruction cannot replay steering");
   } finally { await controller?.shutdown(); await rm(root, { recursive: true, force: true }); }
 });

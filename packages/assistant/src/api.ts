@@ -4,7 +4,13 @@
 export { createRuntimeApp } from "./app.js";
 export type { RuntimeApp, TaskAutomationHost } from "./app.js";
 export { createAssistantController } from "./assistant-controller.js";
-export type { AssistantController, AssistantEvent, AssistantRunOptions, AssistantSnapshot, AssistantState, AssistantSteerResponse, AutomationResult } from "./assistant-controller.js";
+export type { AssistantController, AssistantEvent, AssistantRunOptions, AssistantRunRecords, AssistantSnapshot, AssistantState, AssistantSteerResponse, AutomationResult } from "./assistant-controller.js";
+export type { AssistantMemoryControls } from "./controller-memory.js";
+export type { AssistantWorkTaskControls } from "./controller-work-tasks.js";
+export type { AssistantAutomationControls } from "./controller-automation.js";
+export type { AssistantDreamingControls } from "./controller-dreaming.js";
+export type { AssistantRssControls } from "./controller-rss.js";
+export type { AssistantRecipeControls } from "./controller-recipes.js";
 export type { AutomationDiagnostics, SkillResult, SkillRunInput, SkillSummary } from "./automation-execution.js";
 export type { AutomationOverview, AutomationScheduleAction, ScheduleSkillInput, ScheduledSkillSaved } from "./automation-scheduling.js";
 export { formatCapabilityStatus } from "./capability-status.js";

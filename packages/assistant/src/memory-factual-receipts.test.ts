@@ -39,36 +39,36 @@ test("real Controller projects persisted saved, pending, deferred and too-large 
     ], outcomes: [ { messageId: "u0", status: "extracted" }, { messageId: "u1", status: "extracted" },
       { messageId: "u2", status: "no_memory" }, { messageId: "u3", status: "deferred" }, { messageId: "u4", status: "no_memory" } ] }); assert.ok(staged.ok, JSON.stringify(staged));
     const finalized = await service.finalize({ status: "completed" }); assert.ok(finalized.ok);
-    const response = await controller.getMemoryReceipts(); assert.ok(response.ok);
+    const response = await controller.memory.getReceipts(); assert.ok(response.ok);
     assert.equal(response.value.length, 4);
     assert.match(response.value.find(r => r.sourceMessageId === "u0")!.text, /当时已保存.*中文/);
     assert.match(response.value.find(r => r.sourceMessageId === "u1")!.text, /需要.*确认.*喝茶.*原记忆没有被覆盖/);
     assert.match(response.value.find(r => r.sourceMessageId === "u2")!.text, /没保存.*内容太长.*分段/);
     assert.match(response.value.find(r => r.sourceMessageId === "u3")!.text, /尚未.*完成/);
     assert.equal(response.value.some(r => r.sourceMessageId === "u4"), false, "no_memory stays silent");
-    assert.deepEqual(await controller.getMemoryReceipts(), response, "repeated projection has stable keys");
+    assert.deepEqual(await controller.memory.getReceipts(), response, "repeated projection has stable keys");
     assert.deepEqual(await app.store.getMessages("receipts"), messages, "host receipts never become transcript/memory sources");
     await controller.shutdown();
     app = await open(); controller = createAssistantController(app);
     try {
-      assert.deepEqual(await controller.getMemoryReceipts(), response);
+      assert.deepEqual(await controller.memory.getReceipts(), response);
       const pending = await app.memoryStore!.listCandidates({}, undefined, { boundThreadId: "receipts" }); assert.ok(pending.ok);
       const rejected = await app.memoryStore!.resolveCandidate({ candidateId: pending.value.candidates[0]!.id,
         expectedCandidateRevision: pending.value.candidates[0]!.revision, decision: "reject" }, undefined, { boundThreadId: "receipts" }); assert.ok(rejected.ok);
-      const afterReject = await controller.getMemoryReceipts(); assert.ok(afterReject.ok);
+      const afterReject = await controller.memory.getReceipts(); assert.ok(afterReject.ok);
       assert.equal(afterReject.value.some(r => r.sourceMessageId === "u1"), false, "rejected candidates are not a live review");
       const formal = await app.memoryStore!.list(); assert.ok(formal.ok);
       const old = formal.entries[0]!;
       assert.equal(typeof old.revision, "number");
       const temporal = temporalMemoryStore(app.memoryStore!); assert.ok(temporal);
       const retract = await temporal.reviseMemory({ id: old.id, expectedRevision: old.revision!, operation: "retract" }, undefined, { boundThreadId: "receipts" }); assert.ok(retract.ok);
-      const afterRetract = await controller.getMemoryReceipts(); assert.ok(afterRetract.ok);
+      const afterRetract = await controller.memory.getReceipts(); assert.ok(afterRetract.ok);
       assert.match(afterRetract.value.find(r => r.sourceMessageId === "u0")!.text, /当时已保存/, "historical save is not current applicability");
       const foreign = await readMemoryFactReceipts(app.memoryStore, "foreign", messages); assert.ok(foreign.ok); assert.deepEqual(foreign.value, []);
       const changed = structuredClone(messages); changed[0]!.parts = [{ type: "text", text: "已替换来源" }];
       assert.equal((await readMemoryFactReceipts(app.memoryStore, "receipts", changed)).ok, false, "changed prefix cannot reuse old success");
       await writeFile(join(workspace, ".runloom", "memory.json"), "{invalid");
-      assert.equal((await controller.getMemoryReceipts()).ok, false, "unreadable storage is not a saved receipt");
+      assert.equal((await controller.memory.getReceipts()).ok, false, "unreadable storage is not a saved receipt");
     } finally { await controller.shutdown(); }
   } finally { await controller?.shutdown(); await rm(root, { recursive: true, force: true }); }
 });

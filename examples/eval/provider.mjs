@@ -120,7 +120,7 @@ export default class SerikaProvider {
       controller.subscribe(event => {
         if (event.type === 'approval') { approvals++; controller.confirm({ approvalId: event.approval.approvalId, decision: 'deny' }); }
       });
-      await controller.listRuns();
+      await controller.runs.list();
       for (const text of vars.turns ?? [vars.input]) {
         const started = await controller.run(text);
         if (!started.ok) throw new Error(started.error.message);
@@ -129,7 +129,7 @@ export default class SerikaProvider {
         if (snapshot.lastPrimaryResult?.status !== 'completed') throw new Error(snapshot.lastPrimaryResult?.error?.message ?? '主执行未完成');
         if (snapshot.lastConsolidationResult && snapshot.lastConsolidationResult.status !== 'completed') throw new Error('记忆整理执行未完成');
         if (memory) {
-          const maintenance = await controller.getMemoryMaintenance();
+          const maintenance = await controller.memory.getMaintenance();
           if (!maintenance.ok) throw new Error('读取记忆整理状态失败');
           const attempt = maintenance.value.consolidation.lastAttempt;
           if (attempt && ['failed', 'uncertain', 'cancelled'].includes(attempt.status)) {
@@ -158,7 +158,7 @@ export default class SerikaProvider {
       });
       const runs = await app.executionRecords.listRuns('eval');
       const snapshot = controller.getSnapshot();
-      const maintenance = memory ? await controller.getMemoryMaintenance() : null;
+      const maintenance = memory ? await controller.memory.getMaintenance() : null;
       return { output: { status: snapshot.lastPrimaryResult.status, reply: snapshot.lastPrimaryResult.text,
         saved: memories.entries.filter(entry => entry.enabled !== false && entry.status === 'active').length,
         pending: pending.value.candidates.length, approvals, sourceValid,

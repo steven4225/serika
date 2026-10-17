@@ -79,7 +79,7 @@ test("real configured model: ordinary preference auto-saves, restarts, recalls, 
     const next = createAssistantController(app);
     let approvals = 0;
     next.subscribe(event => { if (event.type === "approval") approvals += 1; });
-    await next.listRuns();
+    await next.runs.list();
     return { app, controller: next, approvalCount: () => approvals };
   };
   try {
@@ -87,7 +87,7 @@ test("real configured model: ordinary preference auto-saves, restarts, recalls, 
       const first = await open("origin"); controller = first.controller;
       assert.equal((await controller.run("我的长期写作偏好是：复盘先给一行结论，再列两条可执行步骤。此轮只回复收到。")).ok, true);
       await settle(controller);
-      const maintenance = await controller.getMemoryMaintenance();
+      const maintenance = await controller.memory.getMaintenance();
       if (!maintenance.ok) throw new Error(maintenance.error.message);
       assert.equal(maintenance.value.consolidation.lastAttempt?.status, "completed");
       const receipt = maintenance.value.consolidation.lastAttempt?.accepted?.[0];
@@ -105,7 +105,7 @@ test("real configured model: ordinary preference auto-saves, restarts, recalls, 
     const reopened = await open("different-thread"); controller = reopened.controller;
     assert.equal((await controller.run("我做事后总结通常喜欢什么样的开头和行动清单？请回答格式，不要查询工具。", { memoryConsolidation: "exclude" })).ok, true);
     await settle(controller);
-    const reference = controller.getMemoryReferences();
+    const reference = controller.memory.getReferences();
     assert.ok(JSON.stringify(reference).includes(receipt.memoryId), "recall must come from current prepared memory, not old transcript");
     const answer = controller.getSnapshot().lastPrimaryResult;
     assert.equal(answer?.status, "completed");
@@ -117,7 +117,7 @@ test("real configured model: ordinary preference auto-saves, restarts, recalls, 
     const corrected = await reopened.app.memoryStore!.get(receipt.memoryId);
     assert.ok(corrected.ok);
     if ((corrected.entry.revision ?? 0) <= receipt.revision) {
-      console.log(JSON.stringify({ correctionDiagnostic: await controller.getMemoryMaintenance(),
+      console.log(JSON.stringify({ correctionDiagnostic: await controller.memory.getMaintenance(),
         consolidation: controller.getSnapshot().lastConsolidationResult,
         staged: (await controller.getHistory()).flatMap(message => message.parts.filter(part => JSON.stringify(part).includes("memory_stage_candidates"))),
         output: controller.getSnapshot().recentOutput }));
@@ -131,7 +131,7 @@ test("real configured model: ordinary preference auto-saves, restarts, recalls, 
     const retired = await reopened.app.memoryStore!.get(receipt.memoryId);
     assert.ok(retired.ok);
     if ((retired.entry.revision ?? 0) <= (corrected.entry.revision ?? 0)) {
-      console.log(JSON.stringify({ withdrawalDiagnostic: await controller.getMemoryMaintenance(),
+      console.log(JSON.stringify({ withdrawalDiagnostic: await controller.memory.getMaintenance(),
         consolidation: controller.getSnapshot().lastConsolidationResult,
         staged: (await controller.getHistory()).flatMap(message => message.parts.filter(part => JSON.stringify(part).includes("memory_stage_candidates"))),
         output: controller.getSnapshot().recentOutput }));
@@ -141,7 +141,7 @@ test("real configured model: ordinary preference auto-saves, restarts, recalls, 
     const withdrawn = await open("after-withdrawal"); controller = withdrawn.controller;
     assert.equal((await controller.run("我做复盘时的长期格式偏好是什么？不要查询工具。", { memoryConsolidation: "exclude" })).ok, true);
     await settle(controller);
-    const currentReferences = controller.getMemoryReferences();
+    const currentReferences = controller.memory.getReferences();
     assert.ok(!JSON.stringify(currentReferences).includes(receipt.memoryId), "withdrawn fact must no longer enter current references");
     assert.equal(reopened.approvalCount(), 0);
     assert.equal(withdrawn.approvalCount(), 0);

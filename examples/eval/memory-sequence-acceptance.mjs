@@ -132,7 +132,7 @@ export async function runMemorySequence({ live = false, env = process.env, outpu
       if (event.type === 'run-result') phaseResults.push({ phase: event.phase, status: event.result.status, runId: event.result.runId,
         text: event.result.status === 'completed' ? event.result.text : null });
     });
-    await controller.listRuns();
+    await controller.runs.list();
     while (controller.getSnapshot().state.kind !== 'idle') await delay(20);
     for (const [index, test] of sequenceCases.entries()) {
       boundary = createTransitionFetch();
@@ -158,7 +158,7 @@ export async function runMemorySequence({ live = false, env = process.env, outpu
       try {
         const history = await controller.getHistory();
         evidence.userMessageId = history.findLast(message => message.role === 'user' && message.parts.some(part => part.type === 'text' && part.text === test.input))?.id ?? null;
-        evidence.receipts = checked(await controller.getMemoryReceipts());
+        evidence.receipts = checked(await controller.memory.getReceipts());
         evidence.persistedReceipt = checked(await store.getConsolidationReceipt(threadId));
         const usage = await app.executionRecords.listModelUsage(threadId);
         evidence.usage = { ...usage, calls: usage.calls.filter(call => !knownCalls.has(call.id)) };

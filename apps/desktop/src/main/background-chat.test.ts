@@ -79,10 +79,10 @@ test("desktop chat preempts real background consolidation without approving tool
     if (cursor.ok) assert.equal(cursor.value, null);
     const history = await bridge.history();
     assert.equal(history.filter(message => message.role === "user").length, 2);
-    const records = await controller.listRuns();
+    const records = await controller.runs.list();
     assert.equal(records.filter(run => run.phase === "primary" && run.status === "completed").length, 2);
     assert.equal(records.some(run => run.phase === "consolidation" && run.status === "cancelled"), true);
-    const maintenance = await controller.getMemoryMaintenance();
+    const maintenance = await controller.memory.getMaintenance();
     assert.ok(maintenance.ok);
     assert.notEqual(maintenance.value.consolidation.state, "failed", "ordinary foreground priority is not a consolidation error");
   } finally {

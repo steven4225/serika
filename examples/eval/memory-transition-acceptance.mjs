@@ -183,7 +183,7 @@ async function executeCase(test, root, env, deadlineMs) {
         runId: event.result.runId, text: event.result.status === 'completed' ? event.result.text : null });
     });
     const task = async () => {
-      await controller.listRuns();
+      await controller.runs.list();
       while (controller.getSnapshot().state.kind !== 'idle') await delay(20);
       const admission = await controller.run(test.input);
       if (!admission.ok) throw Object.assign(new Error('Admission failed'), { code: 'ADMISSION_FAILED' });
@@ -208,10 +208,10 @@ async function executeCase(test, root, env, deadlineMs) {
       evidence.phases = { primary: snapshot.lastPrimaryResult?.status ?? null, consolidation: snapshot.lastConsolidationResult?.status ?? null };
       evidence.consolidationRawText = phaseResults.findLast(result => result.phase === 'consolidation')?.text ?? null;
       await retain('userMessageId', async () => (await controller.getHistory()).findLast(message => message.role === 'user' && message.parts.some(part => part.type === 'text' && part.text === test.input))?.id ?? null);
-      await retain('receipts', async () => checked(await controller.getMemoryReceipts()));
+      await retain('receipts', async () => checked(await controller.memory.getReceipts()));
       await retain('usage', () => app.executionRecords.listModelUsage(threadId));
-      await retain('runs', async () => Promise.all((await controller.listRuns(50)).map(async row => {
-        const run = await controller.getRun(row.runId);
+      await retain('runs', async () => Promise.all((await controller.runs.list(50)).map(async row => {
+        const run = await controller.runs.get(row.runId);
         return { runId: run.runId, phase: run.phase, status: run.status, startedAt: run.startedAt, finishedAt: run.finishedAt,
           tools: run.tools.map(tool => ({ toolCallId: tool.toolCallId, toolName: tool.toolName, status: tool.status })) };
       })));

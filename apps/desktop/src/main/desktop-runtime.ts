@@ -169,7 +169,7 @@ export class DesktopRuntime {
     output.attach(controller);
     try {
       // Await lease acquisition/recovery before publishing the new identity.
-      await controller.listRuns();
+      await controller.runs.list();
       return new RuntimeBridge(app, controller, { modelAlias: this.#options.modelAlias,
         ...(this.#options.modelId === undefined ? {} : { modelId: this.#options.modelId }), temporaryThread: false, temporaryDirectory: false,
         identitySource: identity.identitySource, entryMode: this.#options.env.RUNLOOM_DESKTOP_TEST === "1" ? "test" : "daily" }, output, this.#send);

@@ -58,8 +58,8 @@ async function fixture(model: MockLanguageModelV3) {
   const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "origin", configPath },
     modelAlias: "scripted", model, output, env: {}, cwd: root });
   const controller = createAssistantController(app);
-  await controller.listRuns();
-  const skill = controller.getAutomationDiagnostics().skills.find(item => item.id === "brief"); assert.ok(skill);
+  await controller.runs.list();
+  const skill = controller.automation.getDiagnostics().skills.find(item => item.id === "brief"); assert.ok(skill);
   return { root, workspace, directory, configPath, app, controller, skill, cleanup: async () => {
     await controller.shutdown(); await rm(root, { recursive: true, force: true });
   } };
@@ -93,10 +93,10 @@ test("Controller saves a pinned Skill schedule; the existing worker delivers onc
       draft: { status: "active", goal: "GLOBAL_CHECKPOINT_PRIVATE", summary: "GLOBAL_CHECKPOINT_PRIVATE", completed: [], inProgress: [], nextActions: [], blockers: [], artifacts: [] } })).ok);
     await f.app.store.save("origin", [{ id: "old", role: "user", parts: [{ type: "text", text: "GLOBAL_HISTORY_PRIVATE" }] }]);
     const input = "今天只整理我提供的两件事：读书、散步。";
-    const manual = await f.controller.runSkill({ id: "brief", expectedHash: f.skill.hash, input }); assert.ok(manual.ok);
+    const manual = await f.controller.automation.runSkill({ id: "brief", expectedHash: f.skill.hash, input }); assert.ok(manual.ok);
     await settle(f.controller);
     const due = Date.now() + 10_000;
-    const saved = await f.controller.scheduleSkill({ id: "brief", expectedHash: f.skill.hash, input, runAt: new Date(due).toISOString() });
+    const saved = await f.controller.automation.scheduleSkill({ id: "brief", expectedHash: f.skill.hash, input, runAt: new Date(due).toISOString() });
     assert.ok(saved.ok && saved.value.task);
     const task = saved.value.task;
     assert.equal(task.arrangement?.kind, "skill");
@@ -112,7 +112,7 @@ test("Controller saves a pinned Skill schedule; the existing worker delivers onc
     assert.ok(complete.value.runId && complete.value.threadId);
     const transcript = await ran.transcripts.getMessages(complete.value.threadId);
     assert.ok(transcript.some(message => message.role === "assistant"));
-    const inbox = await f.controller.getTaskInbox(); assert.ok(inbox.ok);
+    const inbox = await f.controller.automation.getTaskInbox(); assert.ok(inbox.ok);
     assert.ok(inbox.value.tasks.some(item => item.id === task.id));
     assert.equal(observed.length, 2);
     for (const request of observed) {
@@ -136,7 +136,7 @@ test("A saved Skill rejects changed pinned source before model startup and prese
   const f = await fixture(model);
   try {
     const due = Date.now() + 10_000;
-    const saved = await f.controller.scheduleSkill({ id: "brief", expectedHash: f.skill.hash, input: "A bounded brief", runAt: new Date(due).toISOString() });
+    const saved = await f.controller.automation.scheduleSkill({ id: "brief", expectedHash: f.skill.hash, input: "A bounded brief", runAt: new Date(due).toISOString() });
     assert.ok(saved.ok && saved.value.task);
     await writeFile(join(f.directory, "SKILL.md"), INSTRUCTIONS + "\nChanged instructions.");
     const ran = await worker(f, model, due + 1);
@@ -156,14 +156,14 @@ test("Scheduling rejects unknown/hash-mismatched/memory Skills and oversized or 
   try {
     const runAt = new Date(Date.now() + 10_000).toISOString();
     const base = { id: "brief", expectedHash: f.skill.hash, input: "A brief", runAt };
-    const memory = f.controller.getAutomationDiagnostics().skills.find(item => item.id === "memory-consolidate"); assert.ok(memory);
+    const memory = f.controller.automation.getDiagnostics().skills.find(item => item.id === "memory-consolidate"); assert.ok(memory);
     for (const input of [
       { ...base, id: "not-registered" }, { ...base, expectedHash: "0".repeat(64) },
       { ...base, id: memory.id, expectedHash: memory.hash }, { ...base, input: "x".repeat(4097) },
       { ...base, authority: { shell: true } }, { ...base, recurrence: { kind: "daily" as const, time: "09:00", utcOffset: "+08:00" } },
-    ]) assert.equal((await f.controller.scheduleSkill(input)).ok, false);
+    ]) assert.equal((await f.controller.automation.scheduleSkill(input)).ok, false);
     assert.equal(calls, 0);
-    assert.deepEqual(await f.controller.listRuns(), []);
+    assert.deepEqual(await f.controller.runs.list(), []);
     const tasks = await createTaskStore(f.workspace).list(); assert.ok(tasks.ok); assert.deepEqual(tasks.value.tasks, []);
   } finally { await f.cleanup(); }
 });
@@ -172,11 +172,11 @@ test("Recurring Skill pause/resume/cancel only changes scheduling; a cancelled o
   let calls = 0;
   const f = await fixture(new MockLanguageModelV3({ doStream: async () => { calls += 1; return response(); } }));
   try {
-    const saved = await f.controller.scheduleSkill({ id: "brief", expectedHash: f.skill.hash, input: "Daily supplied-input brief",
+    const saved = await f.controller.automation.scheduleSkill({ id: "brief", expectedHash: f.skill.hash, input: "Daily supplied-input brief",
       recurrence: { kind: "daily", time: "09:00", utcOffset: "+08:00" } });
     assert.ok(saved.ok && saved.value.recurringTask);
     const id = saved.value.recurringTask.id;
-    const changes = (action: "pause" | "resume" | "cancel") => f.controller.changeAutomationSchedule({ id, kind: "recurring", action });
+    const changes = (action: "pause" | "resume" | "cancel") => f.controller.automation.changeSchedule({ id, kind: "recurring", action });
     assert.ok((await changes("pause")).ok);
     const paused = await createTaskStore(f.workspace).getRecurring(id); assert.ok(paused.ok); assert.equal(paused.value.recurringTask.status, "paused");
     assert.ok(saved.value.recurringTask.nextRunAt);
@@ -189,7 +189,7 @@ test("Recurring Skill pause/resume/cancel only changes scheduling; a cancelled o
     const cancelled = await createTaskStore(f.workspace).getRecurring(id); assert.ok(cancelled.ok); assert.equal(cancelled.value.recurringTask.status, "cancelled");
     const afterCancel = await dueStore.claimNextDue(); assert.ok(afterCancel.ok && afterCancel.value === null);
     assert.equal(calls, 0);
-    assert.deepEqual(await f.controller.listRuns(), []);
+    assert.deepEqual(await f.controller.runs.list(), []);
   } finally { await f.cleanup(); }
 });
 
@@ -198,7 +198,7 @@ test("Worker recovery installs a matching saved outcome but interrupts an unacco
   try {
     const due = Date.now() + 10_000;
     const create = async (input: string) => {
-      const value = await f.controller.scheduleSkill({ id: "brief", expectedHash: f.skill.hash, input, runAt: new Date(due).toISOString() });
+      const value = await f.controller.automation.scheduleSkill({ id: "brief", expectedHash: f.skill.hash, input, runAt: new Date(due).toISOString() });
       assert.ok(value.ok && value.value.task); return value.value.task;
     };
     const terminal = await create("Saved completed result");
@@ -241,7 +241,7 @@ test("Production worker process loads trusted config, owns the workspace lock, a
     }
   };
   try {
-    const saved = await f.controller.scheduleSkill({ id: "brief", expectedHash: f.skill.hash, input: "Process acceptance input", runAt: new Date(Date.now() + 500).toISOString() });
+    const saved = await f.controller.automation.scheduleSkill({ id: "brief", expectedHash: f.skill.hash, input: "Process acceptance input", runAt: new Date(Date.now() + 500).toISOString() });
     assert.ok(saved.ok && saved.value.task);
     const first = launch();
     let stderr = "";

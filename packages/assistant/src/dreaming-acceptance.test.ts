@@ -53,21 +53,21 @@ async function fixture(model: MockLanguageModelV3) {
     const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: thread, configPath: config },
       cwd: root, env: {}, ...selected, output });
     const controller = createAssistantController(app);
-    await controller.listRuns();
+    await controller.runs.list();
     if (settle) await idle(controller, selected.modelAlias === "scripted" ? 10_000 : 75_000);
     return { app, controller };
   };
   const seed = async (controller: AssistantController) => {
     for (const topic of ["项目甲", "项目乙"]) {
-      const created = await controller.createWorkTask({ goal: `${topic}复盘：先结论，再列两条行动`, acceptance: [{
+      const created = await controller.workTasks.create({ goal: `${topic}复盘：先结论，再列两条行动`, acceptance: [{
         id: "quality", description: "复盘格式符合要求", method: "human", required: true, verification: { kind: "human" },
       }] }); assert.ok(created.ok);
-      assert.ok((await controller.runWorkTask({ id: created.value.id, expectedRevision: created.value.revision, completionCheck: false })).ok);
+      assert.ok((await controller.workTasks.run({ id: created.value.id, expectedRevision: created.value.revision, completionCheck: false })).ok);
       await idle(controller);
-      const current = await controller.getWorkTask(created.value.id); assert.ok(current.ok);
-      const delivery = await controller.submitWorkTaskDelivery({ id: current.value.id, expectedRevision: current.value.revision,
+      const current = await controller.workTasks.get(created.value.id); assert.ok(current.ok);
+      const delivery = await controller.workTasks.submitDelivery({ id: current.value.id, expectedRevision: current.value.revision,
         summary: `${topic}结论与两条行动已交付` }); assert.ok(delivery.ok);
-      const accepted = await controller.recordHumanAcceptance({ id: current.value.id, expectedRevision: delivery.value.revision,
+      const accepted = await controller.workTasks.recordHumanAcceptance({ id: current.value.id, expectedRevision: delivery.value.revision,
         criterionId: "quality", decision: "passed", note: "测试操作员明确接受这份夹具的格式，不代表生产质量" }); assert.ok(accepted.ok);
       assert.equal(accepted.value.status, "completed");
     }
@@ -89,7 +89,7 @@ test("learned methods survive real journal retention and runtime reconstruction 
     await f.seed(controller); await controller.shutdown(); controller = undefined;
     await f.configure(true);
     const learning = await f.open("learning"); controller = learning.controller;
-    const overview = await controller.getDreamingOverview(); assert.ok(overview.ok);
+    const overview = await controller.dreaming.getOverview(); assert.ok(overview.ok);
     const learned = overview.value.skills[0]!; assert.ok(learned);
     for (let i = 0; i <= EXECUTION_RECORD_MAX_RUNS; i++) {
       const runId = `retention-${i}`, threadId = "retention";
@@ -100,12 +100,12 @@ test("learned methods survive real journal retention and runtime reconstruction 
     const before = requests;
     await controller.shutdown(); controller = undefined;
     const restored = await f.open("after-retention"); controller = restored.controller;
-    const after = await controller.getDreamingOverview(); assert.ok(after.ok);
+    const after = await controller.dreaming.getOverview(); assert.ok(after.ok);
     assert.equal(after.value.skills[0]?.needsReview, false);
     assert.equal(requests, before, "reading and reopening archived experience never replay model or tools");
     assert.ok((await controller.run("为项目丙整理复盘", { memoryConsolidation: "exclude" })).ok);
     await idle(controller);
-    assert.equal(controller.getLearnedSkillReferences()?.skills[0]?.id, learned.id);
+    assert.equal(controller.dreaming.getLearnedSkillReferences()?.skills[0]?.id, learned.id);
     assert.equal(requests, before + 1);
   } finally { await controller?.shutdown(); await f.cleanup(); }
 });
@@ -130,42 +130,42 @@ test("approved experiences reflect through the one AgentLoop, survive restart, g
     const initial = await f.open("origin"); controller = initial.controller;
     assert.ok((await controller.run("private-unrelated-chat", { memoryConsolidation: "exclude" })).ok); await idle(controller);
     await f.seed(controller);
-    assert.equal((await controller.dream()).ok, false, "learning is explicit opt-in");
+    assert.equal((await controller.dreaming.dream()).ok, false, "learning is explicit opt-in");
     assert.equal(reflections, 0);
     await controller.shutdown(); controller = undefined;
     await f.configure(true);
     const reopened = await f.open("new-thread"); controller = reopened.controller;
     const errors: string[] = [];
     controller.subscribe(event => { if (event.type === "error") errors.push(event.message); });
-    let overview = await controller.getDreamingOverview(); assert.ok(overview.ok);
+    let overview = await controller.dreaming.getOverview(); assert.ok(overview.ok);
     assert.equal(overview.value.lastAttempt?.status, "completed");
     assert.equal(overview.value.skills.length, 1); assert.equal(overview.value.pendingExperiences, 0);
     const learned = overview.value.skills[0]!;
     assert.equal(learned.sources.length, 2); assert.equal(learned.revision, 1);
-    assert.equal((await controller.dream()).ok, false, "processed batch does not open another model Run");
+    assert.equal((await controller.dreaming.dream()).ok, false, "processed batch does not open another model Run");
     assert.equal(reflections, 1);
     const launched = await controller.run("整理项目丙的复盘", { memoryConsolidation: "exclude" });
     assert.ok(launched.ok, JSON.stringify({ launched, errors })); await idle(controller);
-    assert.deepEqual(controller.getLearnedSkillReferences()?.skills, [{ id: learned.id, revision: 1, title: learned.title }]);
+    assert.deepEqual(controller.dreaming.getLearnedSkillReferences()?.skills, [{ id: learned.id, revision: 1, title: learned.title }]);
     assert.match(controller.getSnapshot().lastPrimaryResult?.text ?? "", /结论.*\n1.*\n2/s);
     const history = await controller.getHistory();
     assert.equal(history.some(message => JSON.stringify(message).includes("sourceTaskIds")), false, "maintenance batches are not chat history");
-    assert.equal((await controller.listRuns()).every(run => run.phase === "primary"), true);
-    const disabled = await controller.changeLearnedSkill({ id: learned.id, expectedRevision: 1, action: "disable" }); assert.ok(disabled.ok);
+    assert.equal((await controller.runs.list()).every(run => run.phase === "primary"), true);
+    const disabled = await controller.dreaming.changeLearnedSkill({ id: learned.id, expectedRevision: 1, action: "disable" }); assert.ok(disabled.ok);
     assert.equal(disabled.value.revision, 2);
-    assert.equal((await controller.changeLearnedSkill({ id: learned.id, expectedRevision: 1, action: "enable" })).ok, false, "stale review cannot override disable");
+    assert.equal((await controller.dreaming.changeLearnedSkill({ id: learned.id, expectedRevision: 1, action: "enable" })).ok, false, "stale review cannot override disable");
     assert.ok((await controller.run("项目丁复盘", { memoryConsolidation: "exclude" })).ok); await idle(controller);
-    assert.deepEqual(controller.getLearnedSkillReferences()?.skills, []);
+    assert.deepEqual(controller.dreaming.getLearnedSkillReferences()?.skills, []);
     await controller.shutdown(); controller = undefined;
     const restart = await f.open("third-thread"); controller = restart.controller;
-    overview = await controller.getDreamingOverview(); assert.ok(overview.ok);
+    overview = await controller.dreaming.getOverview(); assert.ok(overview.ok);
     assert.equal(overview.value.skills[0]?.enabled, false);
     assert.equal(reflections, 1);
-    const restored = await controller.changeLearnedSkill({ id: learned.id, expectedRevision: 2, action: "restore", restoreRevision: 1 }); assert.ok(restored.ok);
+    const restored = await controller.dreaming.changeLearnedSkill({ id: learned.id, expectedRevision: 2, action: "restore", restoreRevision: 1 }); assert.ok(restored.ok);
     assert.equal(restored.value.revision, 3); assert.equal(restored.value.enabled, false, "restore never revives authority or overrides disable");
-    const enabled = await controller.changeLearnedSkill({ id: learned.id, expectedRevision: 3, action: "enable" }); assert.ok(enabled.ok);
+    const enabled = await controller.dreaming.changeLearnedSkill({ id: learned.id, expectedRevision: 3, action: "enable" }); assert.ok(enabled.ok);
     assert.ok((await controller.run("项目戊复盘", { memoryConsolidation: "exclude" })).ok); await idle(controller);
-    assert.equal(controller.getLearnedSkillReferences()?.skills[0]?.revision, 4);
+    assert.equal(controller.dreaming.getLearnedSkillReferences()?.skills[0]?.revision, 4);
     assert.ok(requests.length > 0);
   } finally { await controller?.shutdown(); await f.cleanup(); }
 });
@@ -183,13 +183,13 @@ test("real configured model learns approved recap fixtures, reuses across Thread
     await f.seed(controller); await controller.shutdown(); controller = undefined;
     await f.configure(true);
     controller = (await f.open("real-learning", true, selected)).controller;
-    const overview = await controller.getDreamingOverview(); assert.ok(overview.ok);
+    const overview = await controller.dreaming.getOverview(); assert.ok(overview.ok);
     assert.equal(overview.value.lastAttempt?.status, "completed", JSON.stringify(overview.value.lastAttempt));
     assert.ok(overview.value.skills.length, "real reflection did not produce a supported method");
     assert.equal(overview.value.processedExperiences, 2);
     const query = "请用你当前选用的经验方法写项目丙的复盘：本周迁移按期完成，遗留文档缺少负责人与截止日期，下周需要核对交付并安排补文档。只输出复盘正文，不调用工具。";
     assert.ok((await controller.run(query, { memoryConsolidation: "exclude" })).ok); await idle(controller, 75_000);
-    const reference = controller.getLearnedSkillReferences(); assert.ok(reference?.skills.length, "host must select a persisted method, not rely on model self-report");
+    const reference = controller.dreaming.getLearnedSkillReferences(); assert.ok(reference?.skills.length, "host must select a persisted method, not rely on model self-report");
     assert.equal(controller.getSnapshot().lastPrimaryResult?.status, "completed");
     const recap = controller.getSnapshot().lastPrimaryResult?.text ?? "";
     assert.match(recap.split(/\r?\n/).find(line => line.trim()) ?? "", /结论|按期完成/, "real answer must start with the conclusion, not just claim Skill use");
@@ -197,14 +197,14 @@ test("real configured model learns approved recap fixtures, reuses across Thread
     assert.equal(actionLines.length, 2, `the actual real-model answer must contain two actionable steps; observed answer: ${JSON.stringify(recap)}; selected methods: ${JSON.stringify(overview.value.skills.filter(skill => reference.skills.some(selected => selected.id === skill.id)).map(skill => skill.instructions))}`);
     const ids = reference.skills.map(skill => skill.id);
     for (const item of overview.value.skills) {
-      const changed = await controller.changeLearnedSkill({ id: item.id, expectedRevision: item.revision, action: "disable" }); assert.ok(changed.ok);
+      const changed = await controller.dreaming.changeLearnedSkill({ id: item.id, expectedRevision: item.revision, action: "disable" }); assert.ok(changed.ok);
     }
     await controller.shutdown(); controller = undefined;
     controller = (await f.open("real-after-disable", true, selected)).controller;
     assert.ok((await controller.run(query, { memoryConsolidation: "exclude" })).ok); await idle(controller, 75_000);
     assert.equal(controller.getSnapshot().lastPrimaryResult?.status, "completed");
-    assert.deepEqual(controller.getLearnedSkillReferences()?.skills, []);
-    const current = await controller.getDreamingOverview(); assert.ok(current.ok);
+    assert.deepEqual(controller.dreaming.getLearnedSkillReferences()?.skills, []);
+    const current = await controller.dreaming.getOverview(); assert.ok(current.ok);
     assert.equal(current.value.skills.every(skill => !skill.enabled), true);
     console.log(JSON.stringify({ model: selected.modelAlias, reflection: "passed", selectedSkillIds: ids, newThreadReuse: "passed", runtimeReopenAndDisable: "passed", nativeElectron: "not_run", productionTaskQuality: "not_claimed" }));
   } finally { await controller?.shutdown(); await f.cleanup(); }
@@ -234,7 +234,7 @@ test("foreground chat preempts reflection, waits for settlement, and cancelled e
     await f.configure(true);
     controller = (await f.open("different", false)).controller;
     await began;
-    const before = await controller.getDreamingOverview(); assert.ok(before.ok);
+    const before = await controller.dreaming.getOverview(); assert.ok(before.ok);
     assert.equal(before.value.processedExperiences, 0);
     assert.equal(controller.getSnapshot().canSubmit, true);
     assert.ok((await controller.run("现在先回答我的新问题", { memoryConsolidation: "exclude" })).ok);
@@ -242,7 +242,7 @@ test("foreground chat preempts reflection, waits for settlement, and cancelled e
     assert.equal(controller.getSnapshot().lastPrimaryResult?.status, "completed");
     const history = await controller.getHistory();
     assert.equal(history.filter(message => message.role === "user").length, 1);
-    const after = await controller.getDreamingOverview(); assert.ok(after.ok);
+    const after = await controller.dreaming.getOverview(); assert.ok(after.ok);
     assert.equal(attempts, 2, "one cancelled attempt plus one later idle retry, not a hidden loop");
     assert.equal(after.value.processedExperiences, 2); assert.equal(after.value.skills.length, 1);
     assert.equal(after.value.lastAttempt?.status, "completed");
@@ -263,14 +263,14 @@ test("invalid reflection stays pending and explicit retry commits once without t
     controller = (await f.open("origin")).controller; await f.seed(controller); await controller.shutdown(); controller = undefined;
     await f.configure(true);
     const active = await f.open("different"); controller = active.controller;
-    let view = await controller.getDreamingOverview(); assert.ok(view.ok);
+    let view = await controller.dreaming.getOverview(); assert.ok(view.ok);
     assert.equal(view.value.lastAttempt?.status, "failed"); assert.equal(view.value.pendingExperiences, 2);
     assert.deepEqual(view.value.skills, []);
     invalid = false;
-    assert.ok((await controller.dream()).ok); await idle(controller);
-    view = await controller.getDreamingOverview(); assert.ok(view.ok);
+    assert.ok((await controller.dreaming.dream()).ok); await idle(controller);
+    view = await controller.dreaming.getOverview(); assert.ok(view.ok);
     assert.equal(view.value.lastAttempt?.status, "completed"); assert.equal(view.value.skills.length, 1); assert.equal(calls, 2);
-    const memories = await controller.listMemories(); assert.ok(memories.ok);
+    const memories = await controller.memory.list(); assert.ok(memories.ok);
     assert.equal(memories.value.entries.length, 0, "procedural inference must not enter factual Memory");
     const doc = JSON.parse(await readFile(join(f.workspace, ".runloom/dreaming.json"), "utf8"));
     assert.equal(doc.batches.length, 1); assert.equal(doc.processed.length, 2);

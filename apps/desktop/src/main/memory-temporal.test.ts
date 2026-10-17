@@ -34,7 +34,7 @@ it("temporal desktop IPC previews without writes, preserves history and requires
     const restored = await bridge.applyMemoryAction({ id, expectedRevision: 3, operation: "restore", targetAssertionId: assertion.assertionId, status: "active", expiresAt: null });
     assert.ok(restored.ok && restored.value?.revision === 4 && restored.value.text.includes("两条"));
     const maintained = await bridge.getMemoryMaintenance(); assert.ok(maintained.ok && maintained.value.stored === 1 && maintained.value.consolidation.state === "off");
-    assert.equal((await controller.listRuns()).length, 0);
+    assert.equal((await controller.runs.list()).length, 0);
     const deleted = await bridge.applyMemoryAction({ id, expectedRevision: 4, operation: "delete" }); assert.ok(deleted.ok && deleted.value === null);
     assert.ok(!(await bridge.getMemoryHistory({ id })).ok);
     assert.ok(!(await bridge.applyMemoryAction({ id, expectedRevision: 4, operation: "restore", targetAssertionId: assertion.assertionId, status: "active", expiresAt: null })).ok);

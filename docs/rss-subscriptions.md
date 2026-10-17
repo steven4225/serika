@@ -17,7 +17,7 @@ RUNLOOM_MODEL=command-code node --env-file=.env \
 
 关闭窗口/退出后继续需要独立 macOS LaunchAgent。在启动桌面前，通过主进程环境配置绝对路径 `RUNLOOM_WORKER_NODE`（独立 Node 可执行文件，不能是 Electron）和 `RUNLOOM_WORKER_ENV_FILE`（或 `RUNLOOM_ENV_FILE`）。环境文件必须有 `RUNLOOM_MODEL` 和对应模型凭据；launchd 不继承命令行临时环境。然后在面板明确启用后台服务；不会自动启用。凭据不写 plist、IPC 或摘要。既有注册服务不会自动改参数，缺 `--rss` 时明确停用再启用；停用会影响该 workspace 其他定时任务。
 
-如使用终端管理 Store，包导出 `createRssSubscriptionStore(workspace)` 的 `get()` / `update(action)`；`update` 返回 `ok/value` 或明确错误。Controller 为桌面提供 `getRssSubscriptions`、`updateRssSubscriptions`、`getRssInbox`、`acknowledgeRssResult`，不调用模型；写入要求 idle。
+如使用终端管理 Store，包导出 `createRssSubscriptionStore(workspace)` 的 `get()` / `update(action)`；`update` 返回 `ok/value` 或明确错误。Controller 的 `rss` 分组为桌面提供 `getSubscriptions`、`updateSubscriptions`、`getInbox`、`acknowledgeResult`，不调用模型；写入要求 idle。
 
 ## 数据与授权合同
 

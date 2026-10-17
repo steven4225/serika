@@ -39,11 +39,11 @@ WT01–WT06 的固定输入与操作边界见
 ## 一次尝试的最小流程
 
 1. 在隔离 workspace 创建案例指定的 fixture；evidence root 必须在 workspace 外。记录 commit、dirty 状态、模型 ID 与脱敏配置摘要。
-2. 前端从固定案例创建 WorkTask，把 `goal`、`constraints` 和本次可由产品验证的 acceptance 传给 `createWorkTask()`。产品 acceptance 只使用当前支持的 `artifact_exists`、精确 `shell_exit_zero` 或 `human`，不得假装能自动验证 diff 质量、来源真实性或“不存在额外修改”。
-3. 用返回的最新 `revision` 调用 `runWorkTask()`。只消费 `phase === "primary"` 的结果；确认、取消和 Shell 最终状态仍按嵌入控制器合同处理。
-4. Run 结束后读取 `getRun(runId)` 与实际 workspace。`workTaskId`、`task.runIds`、工具回执三者必须对应；`unknown` 工具或缺失回执进入人工复核，不能自动重放或判通过。进程异常重启时，控制器先关闭遗留 Run，再把回执完整的任务收敛为 `paused`、把未核对的不确定任务收敛为 `needs_review`；启动恢复本身不创建 Run。
-5. 若任务为 `needs_review`，操作人必须先核对磁盘或外部系统，再显式调用 `reconcileWorkTask()` 保存 `observedOutcome`、`decision` 和非空说明。`continue` 只回到 `paused`，之后仍需单独调用 `runWorkTask()`；`cancel` 只停止该 WorkTask，不能证明旧副作用没有发生。reconciliation 是 human report，不能拿来替代本案例要求的工具、artifact 或人工验收证据。
-6. 默认的 checked WorkTask 在结束检查通过后会自动尝试 `submitWorkTaskDelivery()`；显式手动分段模式仍由操作人提交。控制器只会自动核对产品当前支持的精确 Shell 成功回执或带成功写入回执的现存普通文件；人工标准继续保持 pending，直到明确调用 `recordHumanAcceptance()`。
+2. 前端从固定案例创建 WorkTask，把 `goal`、`constraints` 和本次可由产品验证的 acceptance 传给 `workTasks.create()`。产品 acceptance 只使用当前支持的 `artifact_exists`、精确 `shell_exit_zero` 或 `human`，不得假装能自动验证 diff 质量、来源真实性或“不存在额外修改”。
+3. 用返回的最新 `revision` 调用 `workTasks.run()`。只消费 `phase === "primary"` 的结果；确认、取消和 Shell 最终状态仍按嵌入控制器合同处理。
+4. Run 结束后读取 `runs.get(runId)` 与实际 workspace。`workTaskId`、`task.runIds`、工具回执三者必须对应；`unknown` 工具或缺失回执进入人工复核，不能自动重放或判通过。进程异常重启时，控制器先关闭遗留 Run，再把回执完整的任务收敛为 `paused`、把未核对的不确定任务收敛为 `needs_review`；启动恢复本身不创建 Run。
+5. 若任务为 `needs_review`，操作人必须先核对磁盘或外部系统，再显式调用 `workTasks.reconcile()` 保存 `observedOutcome`、`decision` 和非空说明。`continue` 只回到 `paused`，之后仍需单独调用 `workTasks.run()`；`cancel` 只停止该 WorkTask，不能证明旧副作用没有发生。reconciliation 是 human report，不能拿来替代本案例要求的工具、artifact 或人工验收证据。
+6. 默认的 checked WorkTask 在结束检查通过后会自动尝试 `workTasks.submitDelivery()`；显式手动分段模式仍由操作人提交。控制器只会自动核对产品当前支持的精确 Shell 成功回执或带成功写入回执的现存普通文件；人工标准继续保持 pending，直到明确调用 `workTasks.recordHumanAcceptance()`。
 7. Eval 操作人独立应用该 WT 案例的全部固定 checks 和 hard failures，将证据复制或索引到 attempt 目录，最后写 `result.json`。修复后必须新开 attempt；不得覆盖第一次失败。
 
 并发更新一律使用调用前刚读取的 `revision`。`WORK_TASK_REVISION_CONFLICT` 表示需要重新读取和重新判断，不能盲重试旧写入。

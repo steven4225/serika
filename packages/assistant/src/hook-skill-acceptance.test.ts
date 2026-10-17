@@ -101,7 +101,7 @@ async function fixture(hooks: HookRule[] | null = [], withExternalSkill = false,
     const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: thread, configPath },
       modelAlias: "scripted", model, output, env: {}, cwd: root });
     const controller = createAssistantController(app); controllers.push(controller);
-    await controller.listRuns(); // Wait for real Thread leases/recovery, not a startup timing guess.
+    await controller.runs.list(); // Wait for real Thread leases/recovery, not a startup timing guess.
     return { app, controller };
   };
   return { root, workspace, directory, configPath, open, cleanup: async () => {
@@ -111,7 +111,7 @@ async function fixture(hooks: HookRule[] | null = [], withExternalSkill = false,
 }
 
 async function skillHash(controller: AssistantController, id: string) {
-  const diagnostics = await controller.getAutomationDiagnostics();
+  const diagnostics = await controller.automation.getDiagnostics();
   const skill = diagnostics.skills.find(skill => skill.id === id);
   assert.ok(skill, `registered Skill ${id} must appear in diagnostics`);
   assert.match(skill.hash, /^[a-f0-9]{64}$/);
@@ -192,25 +192,25 @@ test("explicit hooks: [] disables followups but manual memory Skill saves, persi
   } });
   try {
     const { app, controller } = await f.open(model);
-    assert.deepEqual((await controller.getAutomationDiagnostics()).hooks, []);
+    assert.deepEqual((await controller.automation.getDiagnostics()).hooks, []);
     assert.ok((await controller.run(PREFERENCE)).ok);
     await settle(controller);
     assert.equal(calls, 1, "disabled hooks must not create a second Run");
-    assert.equal((await controller.listRuns()).length, 1);
+    assert.equal((await controller.runs.list()).length, 1);
     assert.equal(controller.getSnapshot().lastConsolidationResult, null);
-    const disabledMaintenance = await controller.getMemoryMaintenance(); assert.ok(disabledMaintenance.ok);
+    const disabledMaintenance = await controller.memory.getMaintenance(); assert.ok(disabledMaintenance.ok);
     assert.equal(disabledMaintenance.value.consolidation.enabled, false);
     const hash = await skillHash(controller, "memory-consolidate");
-    const started = await controller.runSkill({ id: "memory-consolidate", expectedHash: hash });
+    const started = await controller.automation.runSkill({ id: "memory-consolidate", expectedHash: hash });
     assert.ok(started.ok);
     await settle(controller);
-    assert.equal((await controller.getRun(started.value.runId))?.status, "completed", "Run admission is not completion evidence");
-    const execution = controller.getAutomationDiagnostics().recent.find(item => item.runId === started.value.runId);
+    assert.equal((await controller.runs.get(started.value.runId))?.status, "completed", "Run admission is not completion evidence");
+    const execution = controller.automation.getDiagnostics().recent.find(item => item.runId === started.value.runId);
     assert.equal(execution?.source, "manual");
     assert.equal(execution?.skillId, "memory-consolidate");
     assert.equal(execution?.hash, hash);
     assert.equal(execution?.status, "completed");
-    const manualMaintenance = await controller.getMemoryMaintenance(); assert.ok(manualMaintenance.ok);
+    const manualMaintenance = await controller.memory.getMaintenance(); assert.ok(manualMaintenance.ok);
     assert.equal(manualMaintenance.value.consolidation.enabled, false, "manual availability must not silently re-enable lifecycle hooks");
     const saved = await createMemoryStore(f.workspace).list();
     assert.ok(saved.ok);
@@ -227,8 +227,8 @@ test("explicit hooks: [] disables followups but manual memory Skill saves, persi
     assert.deepEqual(await next.controller.getHistory(), []);
     assert.ok((await next.controller.run("复盘时我喜欢什么格式？", { memoryConsolidation: "exclude" })).ok);
     await settle(next.controller);
-    assert.equal(next.controller.getMemoryReferences()?.selected[0]?.id, saved.entries[0]!.id);
-    assert.equal(next.controller.getMemoryReferences()?.selected[0]?.text, SAVED_PREFERENCE);
+    assert.equal(next.controller.memory.getReferences()?.selected[0]?.id, saved.entries[0]!.id);
+    assert.equal(next.controller.memory.getReferences()?.selected[0]?.text, SAVED_PREFERENCE);
     assert.equal((await next.controller.getHistory()).filter(message => message.role === "user").length, 1);
   } finally { await f.cleanup(); }
 });
@@ -261,16 +261,16 @@ test("empty startup backlog emits no running state or model request and admits i
     controller = createAssistantController(app);
     const states: string[] = [];
     controller.subscribe(event => { if (event.type === "state") states.push(event.state.kind); });
-    await controller.listRuns();
+    await controller.runs.list();
     await startupChecked; // Observe the actual readiness/backlog boundary, not a fixed delay.
     assert.equal(calls, 0);
     assert.equal(controller.getSnapshot().state.kind, "idle");
     assert.ok(!states.includes("running"), "empty ready hook must not flash a phantom running state");
-    assert.deepEqual(await controller.listRuns(), []);
-    const manual = await controller.runSkill({ id: "memory-consolidate", expectedHash: await skillHash(controller, "memory-consolidate") });
+    assert.deepEqual(await controller.runs.list(), []);
+    const manual = await controller.automation.runSkill({ id: "memory-consolidate", expectedHash: await skillHash(controller, "memory-consolidate") });
     assert.ok(manual.ok, "manual Skill must be admitted immediately after empty readiness");
     await settle(controller);
-    assert.equal((await controller.getRun(manual.value.runId))?.status, "completed");
+    assert.equal((await controller.runs.get(manual.value.runId))?.status, "completed");
     assert.ok((await controller.run("A new ordinary chat", { memoryConsolidation: "exclude" })).ok);
     await settle(controller);
     assert.equal(calls, 2);
@@ -298,10 +298,10 @@ test("config hook dispatches an external text Skill with its instructions and no
     assert.match(skillPrompt, /CUSTOM_TEXT_SKILL/);
     assert.doesNotMatch(skillPrompt, /HISTORY_PRIVATE_MARKER|MEMORY_PRIVATE_MARKER|CHECKPOINT_PRIVATE_MARKER/);
     assert.deepEqual(observations[1]!.tools ?? [], []);
-    const runs = await controller.listRuns();
+    const runs = await controller.runs.list();
     assert.equal(runs.length, 2);
     assert.ok(runs.every(run => run.status === "completed"));
-    const diagnostics = controller.getAutomationDiagnostics();
+    const diagnostics = controller.automation.getDiagnostics();
     assert.equal(diagnostics.recent.length, 1);
     assert.equal(diagnostics.recent[0]?.source, "hook");
     assert.equal(diagnostics.recent[0]?.ruleId, "brief-after-chat");
@@ -323,15 +323,15 @@ test("hash mismatch and changed external Skill bytes fail before a Run or transc
     const { controller } = await f.open(model);
     const hash = await skillHash(controller, "brief");
     const wrongHash = (hash[0] === "0" ? "1" : "0") + hash.slice(1);
-    const mismatch = await controller.runSkill({ id: "brief", expectedHash: wrongHash, input: "Summarize this" });
+    const mismatch = await controller.automation.runSkill({ id: "brief", expectedHash: wrongHash, input: "Summarize this" });
     assert.equal(mismatch.ok, false);
     if (!mismatch.ok) assert.equal(mismatch.error.code, "SKILL_CHANGED");
     await writeFile(join(f.directory, "SKILL.md"), TEXT_INSTRUCTIONS + "\nChanged after startup.");
-    const changed = await controller.runSkill({ id: "brief", expectedHash: hash, input: "Summarize this" });
+    const changed = await controller.automation.runSkill({ id: "brief", expectedHash: hash, input: "Summarize this" });
     assert.equal(changed.ok, false);
     if (!changed.ok) assert.equal(changed.error.code, "SKILL_CHANGED");
     assert.equal(calls, 0);
-    assert.deepEqual(await controller.listRuns(), []);
+    assert.deepEqual(await controller.runs.list(), []);
     assert.deepEqual(await controller.getHistory(), []);
     assert.equal(controller.getSnapshot().state.kind, "idle");
   } finally { await f.cleanup(); }
@@ -365,30 +365,30 @@ test("external memory Skill hook and manual execution share exact-source validat
     assert.deepEqual(first.entries[0]?.source, { kind: "conversation", threadId: app.threadId, messageId: user.id, quote: PREFERENCE });
     const originalCursor = await app.memoryStore!.getConsolidationCursor(app.threadId); assert.ok(originalCursor.ok && originalCursor.value);
     assert.equal(originalCursor.value.throughMessageId, user.id);
-    const hookRecord = controller.getAutomationDiagnostics().recent.find(item => item.ruleId === hooks[0]!.id);
+    const hookRecord = controller.automation.getDiagnostics().recent.find(item => item.ruleId === hooks[0]!.id);
     assert.equal(hookRecord?.status, "completed");
     assert.equal(hookRecord?.source, "hook");
     assert.ok(hookRecord?.runId);
-    assert.equal((await controller.getRun(hookRecord.runId))?.phase, "consolidation");
+    assert.equal((await controller.runs.get(hookRecord.runId))?.phase, "consolidation");
     // A real committed backlog lets manual admission exercise the same Skill without firing a second primary hook.
     await app.store.save(app.threadId, [...await app.store.getMessages(app.threadId), {
       id: "manual-current-source", role: "user", parts: [{ type: "text", text: manualPreference }],
     }]);
     const hash = await skillHash(controller, "memory-custom");
-    const invalid = await controller.runSkill({ id: "memory-custom", expectedHash: hash }); assert.ok(invalid.ok);
+    const invalid = await controller.automation.runSkill({ id: "memory-custom", expectedHash: hash }); assert.ok(invalid.ok);
     await settle(controller);
-    assert.equal(controller.getAutomationDiagnostics().recent.find(item => item.runId === invalid.value.runId)?.status, "failed");
+    assert.equal(controller.automation.getDiagnostics().recent.find(item => item.runId === invalid.value.runId)?.status, "failed");
     assert.deepEqual(await app.memoryStore!.getConsolidationCursor(app.threadId), originalCursor);
     const unchanged = await app.memoryStore!.list(); assert.ok(unchanged.ok); assert.equal(unchanged.entries.length, 1);
-    const valid = await controller.runSkill({ id: "memory-custom", expectedHash: hash }); assert.ok(valid.ok);
+    const valid = await controller.automation.runSkill({ id: "memory-custom", expectedHash: hash }); assert.ok(valid.ok);
     await settle(controller);
     const saved = await createMemoryStore(f.workspace).list(); assert.ok(saved.ok);
     assert.equal(saved.entries.length, 2);
     const manual = saved.entries.find(entry => entry.text === manualSaved); assert.ok(manual);
     assert.deepEqual(manual.source, { kind: "conversation", threadId: app.threadId, messageId: "manual-current-source", quote: manualPreference });
-    const record = await controller.getRun(valid.value.runId); assert.equal(record?.phase, "consolidation");
+    const record = await controller.runs.get(valid.value.runId); assert.equal(record?.phase, "consolidation");
     assert.equal(record?.status, "completed");
-    assert.equal(controller.getAutomationDiagnostics().recent.find(item => item.runId === valid.value.runId)?.source, "manual");
+    assert.equal(controller.automation.getDiagnostics().recent.find(item => item.runId === valid.value.runId)?.source, "manual");
     const cursor = await app.memoryStore!.getConsolidationCursor(app.threadId); assert.ok(cursor.ok && cursor.value);
     assert.equal(cursor.value.throughMessageId, "manual-current-source");
     assert.equal(calls, 10, "auxiliary memory completions do not recursively dispatch the primary hook");
@@ -444,13 +444,13 @@ test("ordinary chat preempts a real background text Skill without overlapping mo
     assert.equal(abortObserved, true);
     assert.equal(primaryCalls, 3, "two primary Runs plus the denied-tool followup remain in the existing AgentLoop");
     assert.equal(textCalls, 2, "each primary completion dispatches once, auxiliary completion never recurses");
-    const runs = await controller.listRuns();
+    const runs = await controller.runs.list();
     assert.equal(runs.filter(run => run.phase === "primary" && run.status === "completed").length, 2);
     assert.equal(runs.filter(run => run.phase === "skill" && run.status === "cancelled").length, 1,
       JSON.stringify({ runs: runs.map(run => ({ runId: run.runId, phase: run.phase, status: run.status })),
-        recent: controller.getAutomationDiagnostics().recent, abortObserved }));
+        recent: controller.automation.getDiagnostics().recent, abortObserved }));
     assert.equal(runs.filter(run => run.status === "running").length, 0);
-    const recent = controller.getAutomationDiagnostics().recent;
+    const recent = controller.automation.getDiagnostics().recent;
     assert.equal(recent.filter(item => item.skillId === "brief" && item.status === "cancelled").length, 1);
     assert.deepEqual(await app.memoryStore!.list(), { ok: true, entries: [] });
   } finally { await f.cleanup(); }
@@ -482,16 +482,16 @@ test("program opt-out survives JSONL and an invalid excluded source cannot advan
     assert.ok((await controller.run(PREFERENCE)).ok);
     await settle(controller);
     const hash = await skillHash(controller, "memory-consolidate");
-    assert.ok((await controller.runSkill({ id: "memory-consolidate", expectedHash: hash })).ok);
+    assert.ok((await controller.automation.runSkill({ id: "memory-consolidate", expectedHash: hash })).ok);
     await settle(controller);
-    const maintenance = await controller.getMemoryMaintenance(); assert.ok(maintenance.ok);
+    const maintenance = await controller.memory.getMaintenance(); assert.ok(maintenance.ok);
     assert.equal(maintenance.value.consolidation.lastAttempt?.status, "failed");
     const cursor = await createMemoryStore(f.workspace).getConsolidationCursor(app.threadId); assert.ok(cursor.ok);
     assert.equal(cursor.value, null);
-    const candidates = await controller.listMemoryCandidates(); assert.ok(candidates.ok);
+    const candidates = await controller.memory.listCandidates(); assert.ok(candidates.ok);
     assert.deepEqual(candidates.value.candidates, []);
     invalidSource = false;
-    assert.ok((await controller.runSkill({ id: "memory-consolidate", expectedHash: hash })).ok);
+    assert.ok((await controller.automation.runSkill({ id: "memory-consolidate", expectedHash: hash })).ok);
     await settle(controller);
     const retried = await createMemoryStore(f.workspace).list(); assert.ok(retried.ok);
     assert.equal(retried.entries.length, 1);
@@ -514,19 +514,19 @@ test("model failure after staging is not a successful memory Skill commit; retry
     const { app, controller } = await f.open(model);
     assert.ok((await controller.run(PREFERENCE)).ok); await settle(controller);
     const hash = await skillHash(controller, "memory-custom");
-    const failed = await controller.runSkill({ id: "memory-custom", expectedHash: hash }); assert.ok(failed.ok);
+    const failed = await controller.automation.runSkill({ id: "memory-custom", expectedHash: hash }); assert.ok(failed.ok);
     await settle(controller);
-    assert.equal((await controller.getRun(failed.value.runId))?.status, "failed");
-    assert.equal(controller.getAutomationDiagnostics().recent.find(item => item.runId === failed.value.runId)?.status, "failed");
+    assert.equal((await controller.runs.get(failed.value.runId))?.status, "failed");
+    assert.equal(controller.automation.getDiagnostics().recent.find(item => item.runId === failed.value.runId)?.status, "failed");
     const reopened = createMemoryStore(f.workspace);
     const cursor = await reopened.getConsolidationCursor(app.threadId); assert.ok(cursor.ok);
     assert.equal(cursor.value, null);
     assert.deepEqual(await reopened.list(), { ok: true, entries: [] });
-    const candidates = await controller.listMemoryCandidates(); assert.ok(candidates.ok);
+    const candidates = await controller.memory.listCandidates(); assert.ok(candidates.ok);
     assert.deepEqual(candidates.value.candidates, []);
-    const retry = await controller.runSkill({ id: "memory-custom", expectedHash: hash }); assert.ok(retry.ok);
+    const retry = await controller.automation.runSkill({ id: "memory-custom", expectedHash: hash }); assert.ok(retry.ok);
     await settle(controller);
-    assert.equal((await controller.getRun(retry.value.runId))?.status, "completed");
+    assert.equal((await controller.runs.get(retry.value.runId))?.status, "completed");
     const saved = await reopened.list(); assert.ok(saved.ok);
     assert.equal(saved.entries.length, 1);
     const advanced = await reopened.getConsolidationCursor(app.threadId); assert.ok(advanced.ok && advanced.value);

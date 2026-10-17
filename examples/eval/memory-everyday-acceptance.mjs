@@ -143,7 +143,7 @@ async function executeCase(test, root, env, deadlineMs) {
         runId: event.result.runId, text: event.result.status === 'completed' ? event.result.text : null });
     });
     const run = async () => {
-      await controller.listRuns();
+      await controller.runs.list();
       while (controller.getSnapshot().state.kind !== 'idle') await delay(20);
       const admission = await controller.run(test.input);
       if (!admission.ok) throw Object.assign(new Error('Admission failed'), { code: 'ADMISSION_FAILED' });
@@ -165,7 +165,7 @@ async function executeCase(test, root, env, deadlineMs) {
       evidence.phases = { primary: snapshot.lastPrimaryResult?.status ?? null, consolidation: snapshot.lastConsolidationResult?.status ?? null };
       await retain('userMessageId', async () => (await controller.getHistory()).findLast(message => message.role === 'user'
         && message.parts.some(part => part.type === 'text' && part.text === test.input))?.id ?? null);
-      await retain('receipts', async () => checked(await controller.getMemoryReceipts()));
+      await retain('receipts', async () => checked(await controller.memory.getReceipts()));
       await retain('usage', () => app.executionRecords.listModelUsage(threadId));
       evidence.modelVerified = (evidence.usage?.calls.length ?? 0) >= 1 && evidence.usage.droppedCount === 0
         && evidence.usage.calls.every(call => call.modelId === transitionModel.modelId);

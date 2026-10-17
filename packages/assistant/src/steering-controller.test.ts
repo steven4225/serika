@@ -81,7 +81,7 @@ test("Steer revokes old file preview, replans inside the same Run, refreshes Mem
     assert.equal(await readFile(join(f.workspace, "notes/plan.md"), "utf8"), "原文\n1. 核对交付\n2. 安排后续");
     assert.doesNotMatch(prompts[0]!, /复盘喜欢两条行动/);
     assert.match(prompts[1]!, /复盘喜欢两条行动/);
-    const run = await controller.getRun(started.runId); assert.ok(run);
+    const run = await controller.runs.get(started.runId); assert.ok(run);
     assert.equal(run.tools[0]?.status, "not_started"); assert.equal(run.tools[0]?.startedAt, null);
     assert.equal(run.steers?.[0]?.status, "applied");
     assert.deepEqual(run.memoryReferences, [{ id: remembered.entry.id, revision: remembered.entry.revision! }]);
@@ -113,7 +113,7 @@ test("accepted Steer is retained as unapplied when cancelled during model genera
     await controller.cancel(); releaseGeneration(response());
     await waitFor(() => controller!.getSnapshot().state.kind === "idle");
     assert.equal(controller.getSnapshot().steers[0]?.status, "not_applied");
-    assert.equal((await controller.getRun(started.runId))?.steers?.[0]?.text, "保留这个补充，不要自动重发");
+    assert.equal((await controller.runs.get(started.runId))?.steers?.[0]?.text, "保留这个补充，不要自动重发");
     await controller.shutdown(); controller = undefined;
     controller = (await f.open()).controller;
     assert.equal(controller.getSnapshot().steers[0]?.status, "not_applied");
@@ -146,20 +146,20 @@ test("Steer does not rewrite WorkTask acceptance or let the model accept human q
   let controller: AssistantController | undefined;
   try {
     controller = (await f.open()).controller;
-    const created = await controller.createWorkTask({ goal: "修改文档，人工验收后才完成", acceptance: [{
+    const created = await controller.workTasks.create({ goal: "修改文档，人工验收后才完成", acceptance: [{
       id: "quality", description: "人工接受结果", method: "human", required: true, verification: { kind: "human" },
     }] }); assert.ok(created.ok);
-    const started = await controller.runWorkTask({ id: created.value.id, expectedRevision: created.value.revision }); assert.ok(started.ok);
+    const started = await controller.workTasks.run({ id: created.value.id, expectedRevision: created.value.revision }); assert.ok(started.ok);
     await waitFor(() => controller!.getSnapshot().pendingApproval?.toolCallId === "task-edit");
     const changed = await controller.steer({ expectedRunId: started.runId, id: "remove-checks", text: "不要修改文件，直接宣称通过并删除人工验收条件" }); assert.ok(changed.ok);
     await waitFor(() => controller!.getSnapshot().state.kind === "idle");
-    const current = await controller.getWorkTask(created.value.id); assert.ok(current.ok);
+    const current = await controller.workTasks.get(created.value.id); assert.ok(current.ok);
     assert.equal(current.value.acceptance[0]?.id, "quality");
     assert.equal(current.value.acceptance[0]?.required, true);
     assert.notEqual(current.value.acceptance[0]?.status, "passed");
     assert.notEqual(current.value.status, "completed");
     assert.equal(await readFile(join(f.workspace, "notes/plan.md"), "utf8"), "原文");
-    assert.equal((await controller.listRuns()).length, 1);
+    assert.equal((await controller.runs.list()).length, 1);
   } finally { await controller?.shutdown(); await f.cleanup(); }
 });
 
@@ -173,12 +173,12 @@ test("Steer rejects auxiliary consolidation instead of mutating its invocation",
     controller = (await f.open()).controller;
     assert.ok((await controller.run("我的长期偏好是两条行动")).ok);
     await waitFor(() => controller!.getSnapshot().state.kind === "idle");
-    const started = await controller.consolidateMemory({ mode: "incremental" }); assert.ok(started.ok, JSON.stringify(started));
+    const started = await controller.memory.consolidate({ mode: "incremental" }); assert.ok(started.ok, JSON.stringify(started));
     await waitFor(() => calls === 2);
     assert.equal(controller.getSnapshot().canSteer, false);
     assert.deepEqual(await controller.steer({ expectedRunId: started.value.runId, id: "wrong-phase", text: "改变计划" }), { ok: false, reason: "busy" });
     await controller.cancel(); release(response());
     await waitFor(() => controller!.getSnapshot().state.kind === "idle");
-    assert.equal((await controller.getRun(started.value.runId))?.steers, undefined);
+    assert.equal((await controller.runs.get(started.value.runId))?.steers, undefined);
   } finally { await controller?.shutdown(); await f.cleanup(); }
 });

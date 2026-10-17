@@ -256,10 +256,10 @@ export interface RendererApi {
   getAutomationOverview(): Promise<AutomationResult<AutomationOverview>>;
   scheduleSkill(input: ScheduleSkillInput): Promise<AutomationResult<ScheduledSkillSaved>>;
   changeAutomationSchedule(input: AutomationScheduleAction): Promise<AutomationResult<null>>;
-  getDreamingOverview(): ReturnType<AssistantController["getDreamingOverview"]>;
-  dream(): ReturnType<AssistantController["dream"]>;
-  changeLearnedSkill(input: Parameters<AssistantController["changeLearnedSkill"]>[0]): ReturnType<AssistantController["changeLearnedSkill"]>;
-  getLearnedSkillReferences(): Promise<ReturnType<AssistantController["getLearnedSkillReferences"]>>;
+  getDreamingOverview(): ReturnType<AssistantController["dreaming"]["getOverview"]>;
+  dream(): ReturnType<AssistantController["dreaming"]["dream"]>;
+  changeLearnedSkill(input: Parameters<AssistantController["dreaming"]["changeLearnedSkill"]>[0]): ReturnType<AssistantController["dreaming"]["changeLearnedSkill"]>;
+  getLearnedSkillReferences(): Promise<ReturnType<AssistantController["dreaming"]["getLearnedSkillReferences"]>>;
   setAutonomyEnabled?(input: { enabled: boolean; expectedEnabled: boolean }): Promise<void>;
   setDreamingEnabled(input: { enabled: boolean; expectedEnabled: boolean }): Promise<void>;
   /** Success means a Run started, not that the Skill completed or its output is correct. */

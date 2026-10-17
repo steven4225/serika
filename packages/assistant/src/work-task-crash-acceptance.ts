@@ -96,8 +96,8 @@ async function child(root: string, scenario: Scenario, mode: ModelMode, recoveri
   let taskId = "", gateSent = false;
   async function gate(runId: string) {
     assert.ok(!gateSent); gateSent = true;
-    const task = value(await controller.getWorkTask(taskId));
-    const receipt = await controller.getRun(runId); assert.ok(receipt);
+    const task = value(await controller.workTasks.get(taskId));
+    const receipt = await controller.runs.get(runId); assert.ok(receipt);
     const disk = await readFile(join(config.workspace, ARTIFACT)).catch((error: NodeJS.ErrnoException) => {
       if (error.code === "ENOENT") return null; throw error;
     });
@@ -149,13 +149,13 @@ async function child(root: string, scenario: Scenario, mode: ModelMode, recoveri
   async function run(id: string, revision: number, instruction: string) {
     let off = () => {};
     const idle = new Promise<void>((resolve) => { off = controller.subscribe((e) => { if (e.type === "state" && e.state.kind === "idle") resolve(); }); });
-    try { assert.ok((await controller.runWorkTask({ id, expectedRevision: revision, instruction })).ok); await idle; }
+    try { assert.ok((await controller.workTasks.run({ id, expectedRevision: revision, instruction })).ok); await idle; }
     finally { off(); }
     assert.equal(controller.getSnapshot().lastPrimaryResult?.status, "completed");
   }
   try {
     if (!recovering) {
-      const task = value(await controller.createWorkTask({ goal: "Save the isolated crash note; continue only after explicit effect reconciliation.",
+      const task = value(await controller.workTasks.create({ goal: "Save the isolated crash note; continue only after explicit effect reconciliation.",
         constraints: [`Only ${ARTIFACT}; no Shell, network or other files; task quality stays pending.`],
         acceptance: [
           { id: "artifact", description: "Latest owned Run saved the current file", method: "automatic", required: true,
@@ -168,8 +168,8 @@ async function child(root: string, scenario: Scenario, mode: ModelMode, recoveri
     }
     const boundary = JSON.parse(await readFile(join(root, "crash-boundary.json"), "utf8"));
     taskId = boundary.task.id;
-    let task = value(await controller.getWorkTask(taskId));
-    const recovered = await controller.getRun(boundary.receipt.runId); assert.ok(recovered);
+    let task = value(await controller.workTasks.get(taskId));
+    const recovered = await controller.runs.get(boundary.receipt.runId); assert.ok(recovered);
     assert.equal(recovered.status, "interrupted");
     assert.equal(recovered.tools[0]!.status, scenario === "before-dispatch" ? "not_started" : scenario === "unrecorded-write" ? "unknown" : "completed");
     assert.equal(task.status, scenario === "unrecorded-write" ? "needs_review" : "paused");
@@ -181,29 +181,29 @@ async function child(root: string, scenario: Scenario, mode: ModelMode, recoveri
     await save(root, "recovered-state.json", { pid: process.pid, task, receipt: recovered, modelRequests, approvals,
       configHash: sha(configBytes), artifactAbsence: recoveredArtifactAbsence });
     if (scenario === "unrecorded-write") {
-      assert.equal((await controller.runWorkTask({ id: task.id, expectedRevision: task.revision })).ok, false);
-      assert.equal((await controller.cancelWorkTask({ id: task.id, expectedRevision: task.revision })).ok, false);
-      const refused = await controller.reconcileWorkTask({ id: task.id, expectedRevision: task.revision,
+      assert.equal((await controller.workTasks.run({ id: task.id, expectedRevision: task.revision })).ok, false);
+      assert.equal((await controller.workTasks.cancel({ id: task.id, expectedRevision: task.revision })).ok, false);
+      const refused = await controller.workTasks.reconcile({ id: task.id, expectedRevision: task.revision,
         observedOutcome: "still_unknown", decision: "continue", note: "Fixture negative control: effect remains unknown." });
-      assert.equal(refused.ok, false); assert.deepEqual(value(await controller.getWorkTask(taskId)), task);
+      assert.equal(refused.ok, false); assert.deepEqual(value(await controller.workTasks.get(taskId)), task);
       assert.equal(await readFile(join(config.workspace, ARTIFACT), "utf8"), CONTENT);
-      task = value(await controller.reconcileWorkTask({ id: task.id, expectedRevision: task.revision,
+      task = value(await controller.workTasks.reconcile({ id: task.id, expectedRevision: task.revision,
         observedOutcome: "applied", decision: "continue", note: "Fixture operator checked exact isolated disk bytes. Programmatic test of human-report API; not acceptance evidence or a real user GUI review." }));
       assert.equal(task.status, "paused"); assert.equal(modelRequests, 0);
-      assert.equal((await controller.getRun(recovered.runId))?.tools[0]?.status, "unknown", "human report must not repair the unknown receipt");
+      assert.equal((await controller.runs.get(recovered.runId))?.tools[0]?.status, "unknown", "human report must not repair the unknown receipt");
     }
-    task = value(await controller.submitWorkTaskDelivery({ id: task.id, expectedRevision: task.revision,
+    task = value(await controller.workTasks.submitDelivery({ id: task.id, expectedRevision: task.revision,
       summary: "Negative control: interrupted Run is not automatic acceptance evidence.", artifactRefs: [ARTIFACT] }));
     assert.equal(task.acceptance.find((c) => c.id === "artifact")!.status, "blocked");
     assert.equal(task.acceptance.find((c) => c.id === "quality")!.status, "not_run");
     assert.deepEqual(task.delivery!.evidence, []); assert.equal(modelRequests, 0);
     await save(root, "blocked-acceptance.json", task);
-    task = value(await controller.requestWorkTaskChanges({ id: task.id, expectedRevision: task.revision }));
+    task = value(await controller.workTasks.requestChanges({ id: task.id, expectedRevision: task.revision }));
     assert.equal(task.status, "paused"); assert.equal(modelRequests, 0);
     if (scenario === "unrecorded-write") {
       await run(task.id, task.revision, `这是人工核对报告之后显式开的新 Run。不要重放旧 write_file。先 read_file ${ARTIFACT} 核对当前磁盘，然后 edit_file 在唯一的 <!-- continue-here --> 标记前追加一行 RESUMED_AFTER_REVIEW，保留其余原文，最后 read_file 核对。只用 path/oldText/newText 参数。质量不得自己接受。`);
-      task = value(await controller.getWorkTask(taskId)); assert.equal(task.status, "awaiting_acceptance");
-      const latest = await controller.getRun(task.runIds.at(-1)!); assert.ok(latest);
+      task = value(await controller.workTasks.get(taskId)); assert.equal(task.status, "awaiting_acceptance");
+      const latest = await controller.runs.get(task.runIds.at(-1)!); assert.ok(latest);
       assert.notEqual(latest.runId, recovered.runId); assert.equal(latest.workTaskId, taskId);
       assert.ok(latest.tools.every((tool) => tool.status !== "unknown" && tool.toolName !== "write_file"));
       assert.deepEqual(latest.tools.map((tool) => tool.toolName), ["read_file", "edit_file", "read_file"]);
@@ -217,20 +217,20 @@ async function child(root: string, scenario: Scenario, mode: ModelMode, recoveri
       const disk = await readFile(join(config.workspace, ARTIFACT));
       assert.equal(disk.toString(), CONTENT.replace("<!-- continue-here -->\n", RESUMED + "<!-- continue-here -->\n"));
       assert.equal(JSON.parse(latest.tools[2]!.resultPreview!).content, disk.toString());
-      task = value(await controller.submitWorkTaskDelivery({ id: task.id, expectedRevision: task.revision,
+      task = value(await controller.workTasks.submitDelivery({ id: task.id, expectedRevision: task.revision,
         summary: "Explicit new Run read, edited and read back current disk; quality still not accepted.", artifactRefs: [ARTIFACT] }));
       assert.equal(task.status, "awaiting_acceptance"); assert.equal(task.acceptance.find((c) => c.id === "artifact")!.status, "passed");
       assert.equal(task.acceptance.find((c) => c.id === "quality")!.status, "not_run");
-      const delivered = value(await controller.getWorkTask(taskId));
+      const delivered = value(await controller.workTasks.get(taskId));
       assert.ok(delivered.delivery!.evidence.length === 1 && delivered.delivery!.evidence.every((e) => e.kind === "artifact" && e.runId === latest.runId));
       assert.equal(latest.tools[1]!.fileWrite!.sha256, sha(disk));
-      assert.equal((await controller.getRun(recovered.runId))?.tools[0]?.status, "unknown");
+      assert.equal((await controller.runs.get(recovered.runId))?.tools[0]?.status, "unknown");
     }
     assert.equal(await readFile(join(config.workspace, SENTINEL), "utf8"), "DO_NOT_MODIFY\n");
     assert.equal(sha(await readFile(configPath)), sha(configBytes));
     const finalArtifactAbsence = scenario === "before-dispatch" ? await verifyCrashArtifactAbsent(config.workspace) : null;
-    await save(root, "after-report.json", { passed: true, task, oldReceipt: await controller.getRun(recovered.runId),
-      latestReceipt: await controller.getRun(task.runIds.at(-1)!), modelRequests, approvals, prompts,
+    await save(root, "after-report.json", { passed: true, task, oldReceipt: await controller.runs.get(recovered.runId),
+      latestReceipt: await controller.runs.get(task.runIds.at(-1)!), modelRequests, approvals, prompts,
       artifactAbsence: finalArtifactAbsence,
       quality: "not_run", reconciliation: "Programmatic fixture operator report, not user acceptance or tool authorization" });
   } finally { await controller.shutdown(); }
@@ -288,7 +288,7 @@ async function scenario(root: string, fault: Scenario, mode: ModelMode) {
         try {
           const tasks = JSON.parse(await readFile(join(root, "workspace/.runloom/work-tasks.json"), "utf8"));
           const journal = await readFile(join(root, "transcripts/execution-records.json"));
-          const blocked = await contender.getWorkTask(tasks.tasks[0].id); assert.equal(blocked.ok, false);
+          const blocked = await contender.workTasks.get(tasks.tasks[0].id); assert.equal(blocked.ok, false);
           assert.ok(!blocked.ok && blocked.error.message.includes("already controlled"));
           const stillRunning = JSON.parse(await readFile(join(root, "workspace/.runloom/work-tasks.json"), "utf8"));
           assert.deepEqual(stillRunning, tasks);

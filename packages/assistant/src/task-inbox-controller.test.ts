@@ -28,15 +28,15 @@ test("unified controller inbox reads actual deterministic reminders and explicit
     const outcome = { status: "completed" as const, runId: null, execution: "deterministic" as const, resultText: "喝水", notification: true };
     assert.ok((await store.recordOutcome(created.value.id, outcome)).ok);
     assert.ok((await store.finish(created.value.id, outcome)).ok);
-    const inbox = await controller.getTaskInbox(); assert.ok(inbox.ok);
+    const inbox = await controller.automation.getTaskInbox(); assert.ok(inbox.ok);
     assert.equal(inbox.value.tasks[0]?.id, created.value.id);
-    const detail = await controller.getScheduledTask(created.value.id); assert.ok(detail.ok);
+    const detail = await controller.automation.getScheduledTask(created.value.id); assert.ok(detail.ok);
     assert.equal(detail.value.execution, "deterministic");
     assert.equal(detail.value.runId, null);
     assert.equal(detail.value.notification?.status, "pending");
     assert.equal(detail.value.resultText, "喝水");
-    assert.ok((await controller.acknowledgeTaskResult(created.value.id)).ok);
-    const empty = await controller.getTaskInbox(); assert.ok(empty.ok);
+    assert.ok((await controller.automation.acknowledgeTaskResult(created.value.id)).ok);
+    const empty = await controller.automation.getTaskInbox(); assert.ok(empty.ok);
     assert.equal(empty.value.tasks.length, 0);
     assert.equal(controller.getSnapshot().lastPrimaryResult, null, "reading/ack must not create a model Run");
   } finally { await controller.shutdown(); await rm(root, { recursive: true, force: true }); }

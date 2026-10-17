@@ -22,7 +22,7 @@ it("desktop manages recipes through idle Controller ports, without Runs, tools o
     const disabled = await bridge.changeRecipe({ id: recipe.id, expectedRevision: 1, action: "disable" }); assert.ok(disabled.ok); assert.equal(disabled.value.enabled, false);
     assert.equal((await bridge.changeRecipe({ id: recipe.id, expectedRevision: 1, action: "enable" })).ok, false, "stale CAS rejected");
     await assert.rejects(app.recipes!.get(recipe.id, recipe.activeHash, new AbortController().signal), /disabled/);
-    assert.equal((await controller.listRuns()).length, 0);
+    assert.equal((await controller.runs.list()).length, 0);
     assert.equal(controller.getSnapshot().state.kind, "idle");
   } finally { await bridge.shutdown(); await rm(root, { recursive: true, force: true }); }
 });
