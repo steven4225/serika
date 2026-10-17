@@ -287,6 +287,9 @@ export function createPomodoroService(
   };
 }
 
+const POMODORO_INSTRUCTIONS =
+  "When pomodoro tools are available and the user asks in natural language to start, check, or cancel a timer (for example, 开始番茄钟, 专注 25 分钟, 还剩多久, or 取消番茄钟), call the corresponding pomodoro tool immediately; do not only explain the /pomodoro command and do not claim a timer started unless the tool result says started. The default is 25 minutes when no duration is given. If a timer is already running, report its remaining time and do not reset it. These timer calls do not require y/n confirmation. ";
+
 export function createPomodoroModule(
   options: PomodoroModuleOptions = {},
 ): AgentModule {
@@ -332,9 +335,12 @@ export function createPomodoroModule(
         },
       });
 
-      ctx.registerTool({ metadata: startMetadata, tool: startTool });
-      ctx.registerTool({ metadata: statusMetadata, tool: statusTool });
-      ctx.registerTool({ metadata: cancelMetadata, tool: cancelTool });
+      // Timer calls run without y/n confirmation.
+      const permission = { defaults: { approval: "auto" } } as const;
+      ctx.registerTool({ metadata: startMetadata, tool: startTool }, permission);
+      ctx.registerTool({ metadata: statusMetadata, tool: statusTool }, permission);
+      ctx.registerTool({ metadata: cancelMetadata, tool: cancelTool }, permission);
+      ctx.addInstructions(POMODORO_INSTRUCTIONS);
       ctx.registerCommand({
         name: "pomodoro",
         execute(args) {

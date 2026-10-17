@@ -10,6 +10,7 @@ import { RUN_AUTHORIZED_FILE_TOOLS } from "./tool-confirmation.js";
 import type { FileAuthorizationRule } from "./tui-module-config.js";
 import { PERMISSION_DECISIONS } from "./permission-decisions.snapshot.js";
 import { createModuleHost } from "./module-host.js";
+import { createPomodoroModule } from "./modules/pomodoro-module.js";
 import { createWebModule } from "./modules/web-module.js";
 
 /**
@@ -77,7 +78,10 @@ const RISK = new Map(TOOLS.map(([name, risk]) => [name, risk]));
 type Shell = "host" | "docker";
 /** Permission facts come from the real modules, so a module's declarations are part of what is locked. */
 function moduleToolPermissions() {
-  return createModuleHost([createWebModule({ searchEnabled: true, feedEnabled: true })], { notify() {} }).toolPermissions;
+  return createModuleHost([
+    createPomodoroModule(),
+    createWebModule({ searchEnabled: true, feedEnabled: true }),
+  ], { notify() {} }).toolPermissions;
 }
 function extension(shell: Shell, fileAuthorizations: readonly FileAuthorizationRule[] = []) {
   const sink = new Writable({ write(_chunk, _encoding, done) { done(); } });

@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import type { Writable } from "node:stream";
 import type { BeforeToolExecuteInput, ToolExecutionDecision } from "@serika/core";
 import { createToolConfirmation } from "./tool-confirmation.js";
+import { createModuleHost } from "./module-host.js";
+import { createPomodoroModule } from "./modules/pomodoro-module.js";
 
 const BANNER = "[confirmation] Waiting for y/n; the tool has not run yet.";
 
@@ -61,7 +63,9 @@ test("real y/n wait: banner with 'has not run yet' is written before the preview
 
 test("pomodoro_start is auto-allowed: no 'has not run yet' banner and no confirmation output", async () => {
   const { output, text } = capture();
-  const confirmation = createToolConfirmation(output);
+  // Auto approval is a fact the pomodoro module declares.
+  const facts = createModuleHost([createPomodoroModule()], { notify() {} }).toolPermissions;
+  const confirmation = createToolConfirmation(output, { toolPermissions: name => facts.get(name) });
 
   const decision = await (confirmation.beforeToolExecute(
     toolInput("pomodoro_start", { durationMinutes: 25 }),

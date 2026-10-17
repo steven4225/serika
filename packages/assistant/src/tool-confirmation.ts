@@ -97,12 +97,6 @@ export type ToolConfirmationPrompt = (
   input: BeforeToolExecuteInput,
 ) => string | Promise<string | undefined> | undefined;
 
-const AUTO_APPROVED_TOOL_NAMES = new Set([
-  "pomodoro_start",
-  "pomodoro_status",
-  "pomodoro_cancel",
-]);
-
 const AUTO_CONSOLIDATION_READ_TOOLS = new Set(["memory_prepare_consolidation", "memory_stage_candidates"]);
 
 function write(output: Writable, text: string): void {
@@ -436,7 +430,7 @@ export function createToolConfirmation(
     ) {
       return Promise.resolve({ allow: true });
     }
-    if (AUTO_APPROVED_TOOL_NAMES.has(input.toolName)) {
+    if (facts(input.toolName)?.defaults?.approval === "auto") {
       return Promise.resolve({ allow: true });
     }
     const blockedReason = blockedThisRun.get(input.toolName);

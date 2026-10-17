@@ -16,6 +16,8 @@ export interface ToolPermissionFacts {
   /** Where a grant's scope comes from: the web origin of a URL argument. */
   readonly scope?: { readonly kind: "origin"; readonly argument: string };
   readonly defaults?: {
+    /** `auto`: calls run without y/n confirmation, for every agent. */
+    readonly approval?: "auto";
     /** `scope`: an approval may be remembered for this conversation, per scope. */
     readonly remember?: "scope";
     /** `origin`: `/authorize-web` may allow listed origins for one Run. */

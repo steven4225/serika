@@ -372,4 +372,15 @@ describe("createPomodoroModule", () => {
     assert.equal(clock.pending(), 0);
     host.dispose();
   });
+  it("declares its timer tools as auto-approved and adds its instructions", () => {
+    const host = createModuleHost([createPomodoroModule()], { notify() {} });
+    assert.deepEqual(Object.fromEntries(host.toolPermissions), {
+      pomodoro_start: { defaults: { approval: "auto" } },
+      pomodoro_status: { defaults: { approval: "auto" } },
+      pomodoro_cancel: { defaults: { approval: "auto" } },
+    });
+    assert.match(host.instructions("pomodoro"), /^When pomodoro tools are available/);
+    assert.match(host.instructions("pomodoro"), /These timer calls do not require y\/n confirmation\. $/);
+    host.dispose();
+  });
 });
