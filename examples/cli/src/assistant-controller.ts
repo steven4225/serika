@@ -1,6 +1,5 @@
 import type { MemoryLibraryAction, MemoryLibraryView, MemoryLibraryDocument } from "./memory-library.js";
 import { validateChatAttachments, chatAttachmentParts, type ChatAttachment } from "./chat-attachments.js";
-import type { MemoryImportEntry, MemoryImportConfirm, MemoryImportPreview, MemoryImportReceipt } from "./memory-import.js";
 import { recipeChangeSchema, RecipeError, type RecipeEntry, type RecipeChange } from "./recipe-store.js";
 import { createHash, randomUUID } from "node:crypto";
 import { userMessageClock } from "./memory-observation-policy.js";
@@ -133,9 +132,6 @@ export type ControllerCommandResponse =
   | { ok: false; reason: "failed"; message: string };
 
 export interface AssistantController {
-  previewMemoryImport(entries: MemoryImportEntry[]): Promise<MemoryResult<MemoryImportPreview>>;
-  confirmMemoryImport(input: MemoryImportConfirm): Promise<MemoryResult<MemoryImportReceipt>>;
-  getMemoryImportReceipt(operationId: string): Promise<MemoryResult<MemoryImportReceipt | null>>;
   listRecipes(): Promise<MemoryResult<RecipeEntry[]>>;
   changeRecipe(input: RecipeChange): Promise<MemoryResult<RecipeEntry>>;
 
@@ -1121,31 +1117,6 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     getMemoryReferences: () => {
       const reference = app.getMemoryReferences?.();
       return reference && primaryContextMessageIds.has(reference.messageId) && primaryRunId ? { ...reference, runId: primaryRunId } : null;
-    },
-    previewMemoryImport: async entries => {
-      if (closed || !app.memoryStore?.previewImport) return memoryControlFailure("MEMORY_DISABLED", "Memory import is unavailable");
-      return app.memoryStore.previewImport(entries);
-    },
-    getMemoryImportReceipt: async operationId => {
-      if (state.kind !== "idle") return memoryControlFailure("BUSY", "Wait for the current operation to settle before checking an import receipt");
-      if (closed || !app.memoryStore?.importReceipt) return memoryControlFailure("MEMORY_DISABLED", "Memory import is unavailable");
-      return app.memoryStore.importReceipt(operationId, app.threadId);
-    },
-    confirmMemoryImport: async input => {
-      if (!app.memoryStore?.confirmImport) return memoryControlFailure("MEMORY_DISABLED", "Memory import is unavailable");
-      if (closed || state.kind !== "idle") return memoryControlFailure("BUSY", "Import requires an idle controller");
-      const operation = new AbortController(); operationController = operation;
-      setState({ kind: "command", name: "memory-import" });
-      let result!: MemoryResult<MemoryImportReceipt>;
-      activeTask = (async () => {
-        try {
-          await ensureRecovered();
-          result = await app.memoryStore!.confirmImport!(input, app.threadId, operation.signal);
-          if (result.ok) emit({ type: "memory-updated", reason: "write" });
-        } catch { result = memoryControlFailure("WRITE_FAILED", "Import response is unknown; inspect its receipt before further action"); }
-        finally { operationController = undefined; setState({ kind: "idle" }); }
-      })();
-      await activeTask; return result;
     },
     listRecipes: async () => {
       if (closed || !app.recipes) return memoryControlFailure("RECIPE_UNAVAILABLE", "Command recipes require configured Shell and workspace");

@@ -252,14 +252,10 @@ async function main(): Promise<void> {
   ipcMain.handle(IPC.memoryLibraryChange, (_event, input) => host.current.changeMemoryLibrary(input));
   ipcMain.handle(IPC.memoriesList, (_event, input) => host.current.listMemories(input));
   ipcMain.handle(IPC.memoryGet, (_event, id) => host.current.getMemory(id));
-  ipcMain.handle(IPC.previewMemoryImport, (_event, input) => host.current.previewMemoryImport(input));
-  ipcMain.handle(IPC.confirmMemoryImport, (_event, input) => host.current.confirmMemoryImport(input));
-  ipcMain.handle(IPC.getMemoryImportReceipt, (_event, input) => host.current.getMemoryImportReceipt(input));
   ipcMain.handle(IPC.listRecipes, (_event, input) => host.current.listRecipes());
   ipcMain.handle(IPC.changeRecipe, (_event, input) => host.current.changeRecipe(input));
   ipcMain.handle(IPC.memoryUpdate, (_event, input) => host.current.updateMemory(input));
   ipcMain.handle(IPC.memoryHistory, (_event, input) => host.current.getMemoryHistory(input));
-  ipcMain.handle(IPC.memoryQuery, (_event, input) => host.current.queryMemory(input));
   ipcMain.handle(IPC.memoryPreview, (_event, input) => host.current.previewMemoryAction(input));
   ipcMain.handle(IPC.memoryApply, (_event, input) => host.current.applyMemoryAction(input));
   ipcMain.handle(IPC.memoryMaintenance, () => host.current.getMemoryMaintenance());

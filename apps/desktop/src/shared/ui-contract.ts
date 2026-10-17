@@ -1,5 +1,4 @@
 import type { MemoryLibraryAction, MemoryLibraryView, MemoryLibraryDocument } from "@serika/example-cli/dist/memory-library.js";
-import type { MemoryImportEntry, MemoryImportConfirm, MemoryImportPreview, MemoryImportReceipt } from "@serika/example-cli/dist/memory-import.js";
 import type { RecipeEntry, RecipeChange } from "@serika/example-cli/dist/recipe-store.js";
 import type { UIMessage } from "ai";
 import type { HistoryPage, HistoryPageInput } from "./history.js";
@@ -15,7 +14,6 @@ import type { AutomationOverview, AutomationScheduleAction, ScheduleSkillInput, 
 import type { AssistantController } from "@serika/example-cli/dist/assistant-controller.js";
 import type { TaskListV3, TaskRecordV4 } from "@serika/example-cli/dist/task-store.js";
 import type { MemoryConsolidationRequest, MemoryConsolidationSourcePage } from "@serika/example-cli/dist/memory-consolidation.js";
-import type { MemoryTemporalQuery, MemoryTemporalView } from "@serika/example-cli/dist/memory-store.js";
 import type { MemoryReferenceSnapshot } from "@serika/example-cli/dist/memory-query-rewrite.js";
 import type { AgentEvent, RunResult } from "@serika/core";
 import type { ExecutionRunRecord } from "@serika/example-cli/dist/execution-record-store.js";
@@ -201,9 +199,6 @@ export interface ContextModeInput { mode: "daily" | "long-task"; expectedBudget:
 
 export interface RendererApi {
   pomodoro?(action: "status" | "start" | "cancel", minutes?: number): Promise<import("@serika/example-cli/dist/modules/pomodoro-module.js").PomodoroResult>;
-  previewMemoryImport(entries: MemoryImportEntry[]): Promise<MemoryResult<MemoryImportPreview>>;
-  confirmMemoryImport(input: MemoryImportConfirm): Promise<MemoryResult<MemoryImportReceipt>>;
-  getMemoryImportReceipt(operationId: string): Promise<MemoryResult<MemoryImportReceipt | null>>;
   listRecipes(): Promise<MemoryResult<RecipeEntry[]>>;
   changeRecipe(input: RecipeChange): Promise<MemoryResult<RecipeEntry>>;
 
@@ -283,7 +278,6 @@ export interface RendererApi {
   getMemory(id: string): Promise<MemoryResult<FormalMemory>>;
   updateMemory(input: MemoryEditInput): Promise<MemoryResult<FormalMemory>>;
   getMemoryHistory(input: MemoryHistoryInput): Promise<MemoryResult<MemoryHistoryPage>>;
-  queryMemory(input: MemoryTemporalQuery & { id: string }): Promise<MemoryResult<MemoryTemporalView>>;
   previewMemoryAction(input: MemoryAction): Promise<MemoryResult<MemoryActionPreview>>;
   applyMemoryAction(input: MemoryAction): Promise<MemoryResult<FormalMemory | null>>;
   getMemoryMaintenance(): Promise<MemoryResult<MemoryMaintenance>>;
@@ -309,9 +303,6 @@ export interface RendererApi {
 
 export const IPC = {
   pomodoro: "runloom:pomodoro",
-  previewMemoryImport: "runloom:previewMemoryImport",
-  confirmMemoryImport: "runloom:confirmMemoryImport",
-  getMemoryImportReceipt: "runloom:getMemoryImportReceipt",
   listRecipes: "runloom:listRecipes",
   changeRecipe: "runloom:changeRecipe",
 
@@ -388,7 +379,6 @@ export const IPC = {
   memoryGet: "runloom:memoryGet",
   memoryUpdate: "runloom:memoryUpdate",
   memoryHistory: "runloom:memoryHistory",
-  memoryQuery: "runloom:memoryQuery",
   memoryPreview: "runloom:memoryPreview",
   memoryApply: "runloom:memoryApply",
   memoryMaintenance: "runloom:memoryMaintenance",

@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { FormalMemory, MemoryPage } from "@serika/example-cli/dist/memory-management.js";
 import type { MemoryActionPreview, MemoryHistoryPage, MemoryMaintenance } from "@serika/example-cli/dist/memory-controls.js";
-import type { MemoryAssertion, MemoryTemporalView } from "@serika/example-cli/dist/memory-store.js";
-import { createMemoryActionDraft, explicitTimestamp, memoryActionFromDraft, memoryActionLabel, memoryKindLabel, timestampLabel } from "./memory-temporal-data.js";
+import type { MemoryAssertion } from "@serika/example-cli/dist/memory-store.js";
+import { createMemoryActionDraft, memoryActionFromDraft, memoryActionLabel, memoryKindLabel, timestampLabel } from "./memory-temporal-data.js";
 import type { MemoryActionDraft, MemoryActionMode } from "./memory-temporal-data.js";
-import { CurrentMemoryDetails, MemoryActionPreviewDetails, MemoryHistory, MemoryTemporalQueryResult } from "./memory-temporal.js";
+import { CurrentMemoryDetails, MemoryActionPreviewDetails, MemoryHistory } from "./memory-temporal.js";
 import { memoryDisabledEmptyCopy } from "./memory-copy.js";
 import { FailureAlert } from "./failure-notice.js";
 import { MemoryBack, MemoryCardHome, MemoryCategoryFolder, MemoryUnderstanding } from "./personal/memory-home.js";
@@ -27,9 +27,6 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken, manageme
   const [currentAssertion, setCurrentAssertion] = useState<MemoryAssertion | undefined>(undefined);
   const [maintenance, setMaintenance] = useState<MemoryMaintenance | null>(null);
   const [maintenanceError, setMaintenanceError] = useState<string | null>(null);
-  const [query, setQuery] = useState({ validAt: "", knownAt: "", includeDisabled: false });
-  const [queryResult, setQueryResult] = useState<MemoryTemporalView | null>(null);
-  const [queryError, setQueryError] = useState<string | null>(null);
   const [stale, setStale] = useState(false);
   const [detailToken, setDetailToken] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
@@ -41,7 +38,6 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken, manageme
   const selectedId = useRef<string | null>(null);
   const historySequence = useRef(0);
   const previewSequence = useRef(0);
-  const querySequence = useRef(0);
   const maintenanceSequence = useRef(0);
   const mutation = useRef(false);
   const currentAssertionId = useRef<string | undefined>(undefined);
@@ -101,8 +97,8 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken, manageme
     selectedId.current = id;
     const token = latestRefreshToken.current;
     const request = ++detailSequence.current;
-    ++previewSequence.current; ++querySequence.current;
-    setCurrent(null); setCurrentAssertion(undefined); currentAssertionId.current = undefined; currentRevision.current = undefined; setDraft(null); setPreview(null); setStale(true); setHistory(null); setHistoryError(null); setHistoryOpen(false); setActionOpen(false); setQueryResult(null); setQueryError(null); setQuery({ validAt: "", knownAt: "", includeDisabled: false }); setNotice(null);
+    ++previewSequence.current;
+    setCurrent(null); setCurrentAssertion(undefined); currentAssertionId.current = undefined; currentRevision.current = undefined; setDraft(null); setPreview(null); setStale(true); setHistory(null); setHistoryError(null); setHistoryOpen(false); setActionOpen(false); setNotice(null);
     try {
       const result = await window.runloom.getMemory(id);
       if (request !== detailSequence.current || latestRefreshToken.current !== token) return;
@@ -114,10 +110,10 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken, manageme
     } catch { if (request === detailSequence.current) setError("详情读取失败，请重新加载"); }
   }, [loadHistory]);
   useEffect(() => {
-    setPreview(null); setStale(true); ++detailSequence.current; ++previewSequence.current; ++querySequence.current;
-    setHistory(null); setQueryResult(null);
+    setPreview(null); setStale(true); ++detailSequence.current; ++previewSequence.current;
+    setHistory(null);
     if (enabled) { void load(); void loadMaintenance(); if (selectedId.current) void open(selectedId.current); }
-    return () => { ++sequence.current; ++detailSequence.current; ++historySequence.current; ++previewSequence.current; ++querySequence.current; ++maintenanceSequence.current; };
+    return () => { ++sequence.current; ++detailSequence.current; ++historySequence.current; ++previewSequence.current; ++maintenanceSequence.current; };
   }, [enabled, refreshToken, load, loadMaintenance, open]);
   useEffect(() => {
     if (!controllerIdle) { setPreview(null); setStale(true); ++previewSequence.current; }
@@ -141,8 +137,8 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken, manageme
   }
   async function stage() {
     if (!ready || !current || !draft || mutation.current) return;
-    if (draft.mode === "correct" && !draft.changeValidTime && history && history.assertions.filter(assertion => assertion.state === "asserted" && assertion.systemTime.to === null).length > 1) {
-      setError("当前有多段仍被认可的事实。请勾选「同时纠正事实适用时间」，明确本次纠正要替代的适用范围，再预览。"); return;
+    if (draft.mode === "correct" && history && history.assertions.filter(assertion => assertion.state === "asserted" && assertion.systemTime.to === null).length > 1) {
+      setError("这条记忆有多段仍然成立的历史。请直接在对话里说明要怎么改，助手会按时间处理。"); return;
     }
     const built = memoryActionFromDraft(current, draft);
     if (!built.ok) { setError(built.message); return; }
@@ -161,12 +157,12 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken, manageme
     if (!preview || !ready || mutation.current) return;
     mutation.current = true; setBusy(true);
     const action = preview.input;
-    setPreview(null); setStale(true); ++detailSequence.current; ++previewSequence.current; ++querySequence.current;
+    setPreview(null); setStale(true); ++detailSequence.current; ++previewSequence.current;
     try {
       const result = await window.runloom.applyMemoryAction(action);
       if (!result.ok) setError(`${result.error.code}: ${result.error.message}。请重新加载后核对，不会自动重试。`);
       else {
-        setCurrent(result.value); setHistory(null); setQueryResult(null); setError(null);
+        setCurrent(result.value); setHistory(null); setError(null);
         setNotice(action.operation === "delete" ? "已永久删除本条正式记忆与历史。旧对话未删除。" : "已保存。");
         if (result.value) { setDraft(createMemoryActionDraft(result.value)); setStale(false); setDetailToken(latestRefreshToken.current); currentRevision.current = result.value.revision;
           await open(result.value.id); setNotice("已保存。"); } else { selectedId.current = null; setDraft(null); }
@@ -174,18 +170,6 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken, manageme
       }
     } catch { setError("保存结果未确认，请重新加载核对；不要直接重复保存。"); }
     finally { mutation.current = false; setBusy(false); }
-  }
-  async function queryAt() {
-    if (!current || stale || detailToken !== refreshToken || busy) return;
-    if ((query.validAt && !explicitTimestamp(query.validAt)) || (query.knownAt && !explicitTimestamp(query.knownAt))) { setQueryError("查询时间须含秒与时区；留空使用现在。"); return; }
-    const request = ++querySequence.current, detailRequest = detailSequence.current;
-    setQueryResult(null); setQueryError(null);
-    try {
-      const result = await window.runloom.queryMemory({ id: current.id, ...(query.validAt ? { validAt: query.validAt } : {}), ...(query.knownAt ? { knownAt: query.knownAt } : {}), includeDisabled: query.includeDisabled });
-      if (request !== querySequence.current || detailRequest !== detailSequence.current) return;
-      if (!result.ok) { setQueryError(`${result.error.code}: ${result.error.message}`); return; }
-      setQueryResult(result.value);
-    } catch { if (request === querySequence.current) setQueryError("时间查询失败，请重试查询；这不会保存记忆。"); }
   }
   function chooseRestore(assertion: MemoryAssertion) {
     editDraft({ mode: "restore", targetAssertionId: assertion.assertionId, restoreStatus: "", expiryChoice: "" });
@@ -239,11 +223,7 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken, manageme
           {draft.mode === "correct" ? <><label className="memory-label" htmlFor="memory-kind">记忆类型</label><select id="memory-kind" value={draft.kind} disabled={!ready} onChange={event => editDraft({ kind: event.target.value as MemoryActionDraft["kind"] })}>{Object.entries(memoryKindLabel).map(([kind, label]) => <option value={kind} key={kind}>{label}</option>)}</select></> : null}
           <label className="memory-label" htmlFor="memory-recall-terms">检索词（最多三条，每行一条）</label>
           <textarea id="memory-recall-terms" className="formal-memory-editor memory-terms-editor" value={draft.recallTerms} disabled={!ready} onChange={event => editDraft({ recallTerms: event.target.value })} />
-          {draft.mode === "change" ? <><label className="memory-label" htmlFor="memory-effective-at">实际生效时间（含秒与时区）</label><input id="memory-effective-at" type="text" placeholder={timePlaceholder} value={draft.effectiveAt} disabled={!ready} onChange={event => editDraft({ effectiveAt: event.target.value })} /></> : <>
-            <p className="hint">存在多段仍被认可的历史时，须明确指定这次纠正的适用范围。纠正会替代当前系统认可的各段，保留旧的系统认知；不是只改某一段历史正文。</p>
-            <label><input type="checkbox" checked={draft.changeValidTime} disabled={!ready} onChange={event => editDraft({ changeValidTime: event.target.checked })} />同时纠正事实适用时间</label>
-            {draft.changeValidTime ? <><label className="memory-label" htmlFor="memory-valid-from">适用开始（未知留空）</label><input id="memory-valid-from" type="text" placeholder={timePlaceholder} value={draft.validFrom} disabled={!ready} onChange={event => editDraft({ validFrom: event.target.value })} /><label className="memory-label" htmlFor="memory-valid-to">适用结束（未指定留空；该时刻起不再适用）</label><input id="memory-valid-to" type="text" placeholder={timePlaceholder} value={draft.validTo} disabled={!ready} onChange={event => editDraft({ validTo: event.target.value })} /></> : null}
-          </>}
+          {draft.mode === "change" ? <><label className="memory-label" htmlFor="memory-effective-at">实际生效时间（留空表示现在）</label><input id="memory-effective-at" type="text" placeholder="留空表示现在" value={draft.effectiveAt} disabled={!ready} onChange={event => editDraft({ effectiveAt: event.target.value })} /></> : null}
         </> : null}
         {draft.mode === "restore" ? <><p className="hint">恢复下面这份内容，保留此前的修改历史。</p>{restoreAssertion ? <pre className="memory-text">{restoreAssertion.text}</pre> : null}
           <label className="memory-label" htmlFor="memory-restore-status">恢复后的状态（必须明确选择）</label><select id="memory-restore-status" value={draft.restoreStatus} disabled={!ready} onChange={event => editDraft({ restoreStatus: event.target.value as MemoryActionDraft["restoreStatus"] })}><option value="">请选择</option><option value="active">启用</option><option value="disabled">保持停用</option></select>
@@ -264,13 +244,6 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken, manageme
         {historyError ? <FailureAlert text={historyError} /> : history ? <><MemoryHistory page={history} onRestore={chooseRestore} ready={ready} />
           <div className="actions">{history.nextOffset !== null ? <button className="ghost" onClick={() => void loadHistory(current.id, history.nextOffset!, detailSequence.current)}>下一页历史</button> : null}<button className="ghost" onClick={() => void loadHistory(current.id, 0, detailSequence.current)}>最新历史</button></div>
         </> : <p className="hint">{stale ? "请重新加载详情。" : "读取历史中…"}</p>}
-      </details>
-      <details className="memory-temporal-query memory-temporal-form"><summary>查询某个时点的认知</summary><p className="hint">只查询，不保存、不调用模型。适用时间问事实何时成立；认知时间问系统当时知道什么。留空使用现在。</p>
-        <label className="memory-label" htmlFor="memory-query-valid">事实适用时间</label><input id="memory-query-valid" type="text" placeholder={timePlaceholder} value={query.validAt} disabled={stale} onChange={event => { ++querySequence.current; setQueryResult(null); setQuery(value => ({ ...value, validAt: event.target.value })); }} />
-        <label className="memory-label" htmlFor="memory-query-known">系统认知时间</label><input id="memory-query-known" type="text" placeholder={timePlaceholder} value={query.knownAt} disabled={stale} onChange={event => { ++querySequence.current; setQueryResult(null); setQuery(value => ({ ...value, knownAt: event.target.value })); }} />
-        <label><input type="checkbox" checked={query.includeDisabled} disabled={stale} onChange={event => { ++querySequence.current; setQueryResult(null); setQuery(value => ({ ...value, includeDisabled: event.target.checked })); }} />查询时包含停用记录（不代表会注入）</label>
-        <div className="actions"><button className="ghost" disabled={stale || busy} onClick={() => void queryAt()}>查询此时间视图</button></div>
-        {queryError ? <FailureAlert text={queryError} /> : null}{queryResult ? <MemoryTemporalQueryResult view={queryResult} /> : null}
       </details>
     </div> : null}
   </section>;

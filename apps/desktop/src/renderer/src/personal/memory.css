@@ -42,7 +42,6 @@
 .personal-theme-dark .personal-memory button.memory-back,
 .personal-theme-dark .personal-memory .memory-review-banner { background: #ffffff14; color: var(--text); }
 .memory-page-tools { display: grid; gap: 12px; margin-bottom: 12px; }
-.memory-page-tools .memory-import { margin: 0; }
 .personal-layout .memory-page-tools .hint { font-size: 14px; line-height: 1.6; }
 .personal-layout :is(.memory-maintenance, .memory-advanced, .memory-maintenance-disclosure) { border: 0; }
 .personal-layout .formal-memories > .memory-maintenance { margin-top: 12px; }
@@ -51,9 +50,6 @@
 .composer-create-mode { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 12px 12px; font-size: 14px; line-height: 1.6; color: var(--text); }
 
 /* Issue 167: one continuous import surface and compact secondary controls. */
-.memory-import { background: var(--surface); border-radius: 24px; overflow: hidden; }
-.memory-import > .card { margin: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
-.memory-import > .personal-entry-card { border-radius: 0; box-shadow: none; background: transparent; }
 .memory-quick-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
 .memory-secondary { margin: 18px 0; padding: 0 4px; }
 .focus-clock { font-size: clamp(40px, 7vw, 72px); font-weight: 650; font-variant-numeric: tabular-nums; margin-top: 24px; }

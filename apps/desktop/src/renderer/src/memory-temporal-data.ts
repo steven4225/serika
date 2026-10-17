@@ -8,9 +8,6 @@ export interface MemoryActionDraft {
   text: string;
   kind: MemoryKind;
   recallTerms: string;
-  changeValidTime: boolean;
-  validFrom: string;
-  validTo: string;
   effectiveAt: string;
   expiresAt: string;
   expiryChoice: "" | "keep" | "none" | "date";
@@ -46,8 +43,7 @@ export function explicitTimestamp(value: string): boolean {
 export function createMemoryActionDraft(current: FormalMemory): MemoryActionDraft {
   return {
     mode: "correct", text: current.text, kind: current.assertion?.kind ?? "note",
-    recallTerms: current.assertion?.recallTerms.join("\n") ?? "", changeValidTime: false,
-    validFrom: current.assertion?.validTime.from ?? "", validTo: current.assertion?.validTime.to ?? "",
+    recallTerms: current.assertion?.recallTerms.join("\n") ?? "",
     effectiveAt: "", expiresAt: current.expiresAt ?? "", expiryChoice: "", targetAssertionId: "", restoreStatus: "",
   };
 }
@@ -56,7 +52,7 @@ type DraftResult = { ok: true; input: MemoryAction } | { ok: false; message: str
 function draftError(message: string): DraftResult { return { ok: false, message }; }
 
 /** The renderer cannot supply sources, scope, assertion IDs for new facts, or system timestamps. */
-export function memoryActionFromDraft(current: FormalMemory, draft: MemoryActionDraft): DraftResult {
+export function memoryActionFromDraft(current: FormalMemory, draft: MemoryActionDraft, options: { now?: Date } = {}): DraftResult {
   const base = { id: current.id, expectedRevision: current.revision ?? 1 };
   switch (draft.mode) {
     case "correct":
@@ -65,14 +61,11 @@ export function memoryActionFromDraft(current: FormalMemory, draft: MemoryAction
       const recallTerms = draft.recallTerms.split(/\r?\n/).map(term => term.trim()).filter(Boolean);
       if (recallTerms.length > 3 || recallTerms.some(term => new TextEncoder().encode(term).length > 96)) return draftError("检索词最多三条，每条最多 96 UTF-8 字节。");
       if (draft.mode === "change") {
-        if (!explicitTimestamp(draft.effectiveAt)) return draftError("实际变化时间须含秒与时区，例如 2026-10-04T09:00:00+08:00。");
-        return { ok: true, input: { ...base, operation: "change", text: draft.text, effectiveAt: draft.effectiveAt, recallTerms } };
+        const effectiveAt = draft.effectiveAt.trim() || (options.now ?? new Date()).toISOString();
+        if (!explicitTimestamp(effectiveAt)) return draftError("实际变化时间须含秒与时区，例如 2026-10-04T09:00:00+08:00；留空表示现在。");
+        return { ok: true, input: { ...base, operation: "change", text: draft.text, effectiveAt, recallTerms } };
       }
-      if (!draft.changeValidTime) return { ok: true, input: { ...base, operation: "correct", text: draft.text, kind: draft.kind, recallTerms } };
-      if ((draft.validFrom && !explicitTimestamp(draft.validFrom)) || (draft.validTo && !explicitTimestamp(draft.validTo))) return draftError("适用时间须含秒与时区；没有已知边界时可留空。");
-      if (draft.validFrom && draft.validTo && Date.parse(draft.validFrom) >= Date.parse(draft.validTo)) return draftError("适用结束时间必须晚于开始时间。");
-      return { ok: true, input: { ...base, operation: "correct", text: draft.text, kind: draft.kind, recallTerms,
-        validTime: { from: draft.validFrom || null, to: draft.validTo || null, basis: "explicit" } } };
+      return { ok: true, input: { ...base, operation: "correct", text: draft.text, kind: draft.kind, recallTerms } };
     }
     case "pin": return { ok: true, input: { ...base, operation: "metadata", pinned: !current.pinned } };
     case "disable": return { ok: true, input: { ...base, operation: "metadata", status: "disabled" } };

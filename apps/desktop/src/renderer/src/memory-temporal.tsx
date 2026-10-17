@@ -1,7 +1,7 @@
 import React from "react";
 import type { FormalMemory } from "@serika/example-cli/dist/memory-management.js";
 import type { MemoryActionPreview, MemoryHistoryPage, MemoryMaintenance } from "@serika/example-cli/dist/memory-controls.js";
-import type { MemoryAssertion, MemorySource, MemoryTemporalView } from "@serika/example-cli/dist/memory-store.js";
+import type { MemoryAssertion, MemorySource } from "@serika/example-cli/dist/memory-store.js";
 import { memoryKindLabel, timestampLabel } from "./memory-temporal-data.js";
 import { memoryAutomationLabel } from "./memory-copy.js";
 import { memorySourcePhrase } from "./personal/memory-cards.js";
@@ -57,15 +57,6 @@ export function MemoryHistory({ page, onRestore, ready }: { page: MemoryHistoryP
         <p className="hint">关联断言 {version.assertionId}</p>
       </div>)}
     </details>
-  </section>;
-}
-
-export function MemoryTemporalQueryResult({ view }: { view: MemoryTemporalView }) {
-  return <section className="memory-temporal-query-result">
-    {view.historyCoverage === "legacy_partial" ? <p className="hint">历史覆盖不完整，查询不能证明过去没有其他记录。</p> : null}
-    {view.validTimeUncertain ? <p className="hint">部分事实的适用时间未知。</p> : null}
-    {view.systemTimeUncertain ? <p className="hint">部分系统记录时间未知。</p> : null}
-    {view.assertions.length === 0 ? <p className="hint">这个时间点没有可显示的记忆，不代表记忆已被永久删除。</p> : view.assertions.map(assertion => <MemoryAssertionDetails assertion={assertion} key={assertion.assertionId} />)}
   </section>;
 }
 

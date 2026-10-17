@@ -1,6 +1,5 @@
 import type { MemoryLibraryAction } from "@serika/example-cli/dist/memory-library.js";
 import { validateChatAttachments } from "@serika/example-cli/dist/chat-attachments.js";
-import type { MemoryImportEntry, MemoryImportConfirm, MemoryImportPreview, MemoryImportReceipt } from "@serika/example-cli/dist/memory-import.js";
 import type { RecipeChange } from "@serika/example-cli/dist/recipe-store.js";
 import { Writable } from "node:stream";
 import { lstat } from "node:fs/promises";
@@ -15,7 +14,6 @@ import type { AutomationDiagnostics, SkillRunInput, SkillResult } from "@serika/
 import type { AutomationScheduleAction, ScheduleSkillInput } from "@serika/example-cli/dist/automation-scheduling.js";
 import type { DreamingChangeInput } from "@serika/example-cli/dist/dreaming.js";
 import type { MemoryConsolidationRequest } from "@serika/example-cli/dist/memory-consolidation.js";
-import type { MemoryTemporalQuery } from "@serika/example-cli/dist/memory-store.js";
 import type {
   AssistantController,
   AssistantEvent,
@@ -384,14 +382,10 @@ export class RuntimeBridge {
     if (typeof id !== "string" || !id || id.length > 256) return Promise.resolve(invalidInput("Invalid Memory id"));
     return this.#controller.getMemory(id);
   }
-  previewMemoryImport(entries: MemoryImportEntry[]) { return this.#controller.previewMemoryImport(entries); }
-  confirmMemoryImport(input: MemoryImportConfirm) { return this.#controller.confirmMemoryImport(input); }
-  getMemoryImportReceipt(operationId: string) { return this.#controller.getMemoryImportReceipt(operationId); }
   listRecipes() { return this.#controller.listRecipes(); }
   changeRecipe(input: RecipeChange) { return this.#controller.changeRecipe(input); }
   updateMemory(input: MemoryEditInput) { return this.#controller.updateMemory(input); }
   getMemoryHistory(input: MemoryHistoryInput) { return this.#controller.getMemoryHistory(input); }
-  queryMemory(input: MemoryTemporalQuery & { id: string }) { return this.#controller.queryMemory(input); }
   previewMemoryAction(input: MemoryAction) { return this.#controller.previewMemoryAction(input); }
   applyMemoryAction(input: MemoryAction) { return this.#controller.applyMemoryAction(input); }
   getMemoryMaintenance() { return this.#controller.getMemoryMaintenance(); }

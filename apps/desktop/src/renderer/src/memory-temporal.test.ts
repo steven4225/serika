@@ -6,7 +6,7 @@ import type { FormalMemory } from "@serika/example-cli/dist/memory-management.js
 import type { MemoryActionPreview, MemoryHistoryPage, MemoryMaintenance } from "@serika/example-cli/dist/memory-controls.js";
 import type { MemoryAssertion } from "@serika/example-cli/dist/memory-store.js";
 import { createMemoryActionDraft, explicitTimestamp, memoryActionFromDraft, memoryAvailabilityLabel } from "./memory-temporal-data.js";
-import { CurrentMemoryDetails, MemoryAssertionDetails, MemoryActionPreviewDetails, MemoryHistory, MemoryMaintenanceSummary, MemoryTemporalQueryResult } from "./memory-temporal.js";
+import { CurrentMemoryDetails, MemoryAssertionDetails, MemoryActionPreviewDetails, MemoryHistory, MemoryMaintenanceSummary } from "./memory-temporal.js";
 
 const assertion: MemoryAssertion = {
   assertionId: "assertion-old", text: "复盘先给结论，再列两步。", kind: "preference", recallTerms: ["回顾结构"],
@@ -40,19 +40,21 @@ it("correction and real change stay separate, preserve CAS, and never forge save
   const corrected = memoryActionFromDraft(current, { ...draft, text: "复盘先给结论，再列三步。" });
   assert.ok(corrected.ok);
   assert.deepEqual(corrected.input, { id: "memory", expectedRevision: 3, operation: "correct", text: "复盘先给结论，再列三步。", kind: "preference", recallTerms: ["回顾结构"] });
-  assert.equal(memoryActionFromDraft(current, { ...draft, mode: "change", text: "新格式" }).ok, false);
   const changed = memoryActionFromDraft(current, { ...draft, mode: "change", text: "新格式", effectiveAt: "2026-10-04T09:00:00+08:00" });
   assert.ok(changed.ok);
   assert.equal(changed.input.operation, "change");
   for (const key of ["source", "sources", "scope", "systemTime", "assertionId"]) assert.equal(Object.hasOwn(changed.input, key), false);
 });
 
-it("unknown correction bounds remain null and recall terms obey the three-term byte budget", () => {
+it("blank change time means now and recall terms obey the three-term byte budget", () => {
   const draft = createMemoryActionDraft(current);
-  const bounded = memoryActionFromDraft(current, { ...draft, changeValidTime: true, validFrom: "", validTo: "" });
-  assert.ok(bounded.ok && bounded.input.operation === "correct");
-  assert.deepEqual(bounded.input.validTime, { from: null, to: null, basis: "explicit" });
-  assert.equal(memoryActionFromDraft(current, { ...draft, changeValidTime: true, validFrom: "2026-10-04T09:00:00Z", validTo: "2026-10-04T08:00:00Z" }).ok, false);
+  const now = memoryActionFromDraft(current, { ...draft, mode: "change", text: "新格式" }, { now: new Date("2026-10-04T01:00:00.000Z") });
+  assert.ok(now.ok && now.input.operation === "change");
+  assert.equal(now.input.effectiveAt, "2026-10-04T01:00:00.000Z");
+  assert.equal(memoryActionFromDraft(current, { ...draft, mode: "change", text: "新格式", effectiveAt: "明天" }).ok, false);
+  const corrected = memoryActionFromDraft(current, draft);
+  assert.ok(corrected.ok && corrected.input.operation === "correct");
+  assert.equal(Object.hasOwn(corrected.input, "validTime"), false);
   assert.equal(memoryActionFromDraft(current, { ...draft, recallTerms: "一\n二\n三\n四" }).ok, false);
   assert.equal(memoryActionFromDraft(current, { ...draft, recallTerms: "中".repeat(33) }).ok, false);
 });
@@ -112,9 +114,7 @@ it("retraction and absent current applicability are not rendered as disabled or 
   assert.equal(memoryAvailabilityLabel({ ...future, status: "disabled" }), "已停用");
 });
 
-it("historical query uncertainty, failed consolidation and deletion consequences never look like an empty successful state", () => {
-  const query = renderToStaticMarkup(createElement(MemoryTemporalQueryResult, { view: { id: "memory", revision: 3, assertions: [], historyCoverage: "legacy_partial", validTimeUncertain: true, systemTimeUncertain: true } }));
-  for (const expected of ["覆盖不完整", "适用时间未知", "系统记录时间未知", "不代表记忆已被永久删除"]) assert.ok(query.includes(expected), expected);
+it("failed consolidation and deletion consequences never look like an empty successful state", () => {
   const maintenance: MemoryMaintenance = { stored: 1, pending: 0, expired: 1, disabled: 1, duplicateSuggestions: 0, capacity: { entries: 512, bytes: 16777216, assertionsPerEntry: 64 }, consolidation: { enabled: true, state: "failed", error: "写入失败", backlogCount: 2 } };
   const status = renderToStaticMarkup(createElement(MemoryMaintenanceSummary, { value: maintenance }));
   assert.match(status, /整理失败/); assert.match(status, /写入失败/); assert.match(status, /不会自动裁剪/);

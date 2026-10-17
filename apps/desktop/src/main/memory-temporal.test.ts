@@ -27,7 +27,6 @@ it("temporal desktop IPC previews without writes, preserves history and requires
     assert.ok(proposed.ok && proposed.value.proposedAssertion?.text.includes("三条"));
     assert.equal(await readFile(join(workspace, ".runloom/memory.json"), "utf8"), before);
     assert.ok(!(await bridge.previewMemoryAction({ id, expectedRevision: 1, operation: "correct", text: "伪造", sources: [{ kind: "manual" }] } as never)).ok);
-    assert.ok(!(await bridge.queryMemory({ id, threadId: "other" } as never)).ok);
     const applied = await bridge.applyMemoryAction({ id, expectedRevision: 1, operation: "correct", text: "复盘：先结论，再三条步骤" }); assert.ok(applied.ok && applied.value?.revision === 2);
     const stale = await bridge.applyMemoryAction({ id, expectedRevision: 1, operation: "delete" }); assert.ok(!stale.ok && stale.error.code === "MEMORY_REVISION_CONFLICT");
     const disabled = await bridge.applyMemoryAction({ id, expectedRevision: 2, operation: "metadata", status: "disabled" }); assert.ok(disabled.ok && disabled.value?.status === "disabled");
