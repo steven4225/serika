@@ -6,7 +6,6 @@ import type {
   ToolExecutionDecision,
 } from "@serika/core";
 import { dirname, resolve, sep } from "node:path";
-import { AUTO_CONSOLIDATION_AGENT_ID } from "./consolidation.js";
 import type { ToolPermissionFacts } from "./module-host.js";
 import { validateWorkspacePath } from "./workspace-path.js";
 
@@ -82,7 +81,6 @@ export type ToolConfirmationPrompt = (
   input: BeforeToolExecuteInput,
 ) => string | Promise<string | undefined> | undefined;
 
-const AUTO_CONSOLIDATION_READ_TOOLS = new Set(["memory_prepare_consolidation", "memory_stage_candidates"]);
 
 function write(output: Writable, text: string): void {
   output.write(text);
@@ -224,7 +222,6 @@ function confirmationPrompt(toolName: string, input: unknown): string {
 }
 
 /** Tools whose approval is never remembered, whatever their declared risk. */
-const NEVER_REMEMBERED_PREFIXES = ["memory_"] as const;
 const MAX_REMEMBERED_GRANTS = 64;
 
 type GrantCandidate = Omit<RememberedGrant, "id">;
@@ -244,8 +241,7 @@ function grantCandidate(
 ): GrantCandidate | undefined {
   const { toolName } = input;
   const agentId = input.definition.id;
-  if (facts?.defaults?.remember === "never" ||
-    NEVER_REMEMBERED_PREFIXES.some((prefix) => toolName.startsWith(prefix))) return undefined;
+  if (facts?.defaults?.remember === "never") return undefined;
   if (facts?.defaults?.remember === "scope" && facts.scope?.kind === "workspacePath") {
     if (workspaceRoot === undefined) return undefined;
     const scope = fileDirectory(workspaceRoot, stringArgument(input.input, facts.scope.argument));
@@ -356,13 +352,8 @@ export function createToolConfirmation(
   const beforeToolExecute: BeforeToolExecute = (input) => {
     if (input.signal.aborted) return Promise.reject(abortReason(input.signal));
     if (input.steerSignal?.aborted) return Promise.reject(abortReason(input.steerSignal));
-    if (
-      input.definition.id === AUTO_CONSOLIDATION_AGENT_ID &&
-      AUTO_CONSOLIDATION_READ_TOOLS.has(input.toolName)
-    ) {
-      return Promise.resolve({ allow: true });
-    }
-    if (facts(input.toolName)?.defaults?.approval === "auto") {
+    const declared = facts(input.toolName)?.defaults;
+    if (declared?.approval === "auto" || declared?.approvalAgents?.includes(input.definition.id) === true) {
       return Promise.resolve({ allow: true });
     }
     const blockedReason = blockedThisRun.get(input.toolName);

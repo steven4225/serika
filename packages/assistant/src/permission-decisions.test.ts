@@ -85,7 +85,9 @@ type Shell = "host" | "docker";
  * snapshot now records the card the app actually shows.
  */
 const APP_CARD_TOOLS = new Set(["recipe_list", "recipe_save", "recipe_manage", "recipe_run", "computer_check",
-  "web_fetch", "feed_read", "web_search"]);
+  "web_fetch", "feed_read", "web_search", "memory_list", "memory_get", "memory_add", "memory_update", "memory_delete",
+  "memory_query", "memory_revise", "memory_candidates_list", "memory_apply_candidate", "memory_stage_candidates",
+  "memory_prepare_consolidation"]);
 function moduleToolPermissions(shell: Shell) {
   return new Map([...builtinToolPermissions({ shell })].map(([name, facts]) => {
     if (!APP_CARD_TOOLS.has(name)) return [name, facts] as const;

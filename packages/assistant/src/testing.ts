@@ -26,6 +26,9 @@ export { createWriteFileTool } from "./write-file.js";
 
 import { createModuleHost as createHostForFacts, type ToolPermissionFacts } from "./module-host.js";
 import { createComputerModule as computerForFacts } from "./modules/computer-module.js";
+import { createMemoryConsolidation as consolidationForFacts } from "./memory-consolidation.js";
+import { createMemoryStore as memoryStoreForFacts } from "./memory-store.js";
+import { createMemoryModule as memoryForFacts } from "./modules/memory-module.js";
 import { createPomodoroModule as pomodoroForFacts } from "./modules/pomodoro-module.js";
 import { createReadFileModule as readFileForFacts } from "./modules/read-file-module.js";
 import { createRecipeModule as recipesForFacts } from "./modules/recipe-module.js";
@@ -43,6 +46,8 @@ export function builtinToolPermissions(options: { shell?: "host" | "docker" } = 
   const shell = options.shell === "docker"
     ? { sandbox: { backend: "docker" as const, image: "img", readablePaths: [], writablePaths: [] } }
     : {};
+  const memoryStore = memoryStoreForFacts(".");
+  const getMessages = async () => [];
   const host = createHostForFacts([
     pomodoroForFacts(),
     readFileForFacts("."),
@@ -51,6 +56,8 @@ export function builtinToolPermissions(options: { shell?: "host" | "docker" } = 
       currentRun: () => undefined, shell }),
     webForFacts({ searchEnabled: true, feedEnabled: true }),
     computerForFacts({ enabled: true, executable: "/facts/cua-driver", allowedBundleIds: ["com.example.App"] }),
+    memoryForFacts(memoryStore, getMessages, { threadId: "facts", workspaceRoot: ".",
+      consolidation: consolidationForFacts({ store: memoryStore, getMessages, threadId: "facts" }) }),
   ], { notify() {} });
   host.dispose();
   return host.toolPermissions;

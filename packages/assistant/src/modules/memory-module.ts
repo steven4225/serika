@@ -2,7 +2,9 @@ import { tool, type UIMessage } from "ai";
 import { z } from "zod";
 import { AgentError } from "@serika/core";
 import type { RegisteredTool } from "@serika/ai-sdk-adapter";
-import type { AgentModule } from "../module-host.js";
+import type { BeforeToolExecuteInput } from "@serika/core";
+import type { AgentModule, ToolPermissionFacts } from "../module-host.js";
+import { memoryPrimaryInstructions, type MemoryWritePolicy } from "../memory-instructions.js";
 import type { MemoryConsolidation } from "../memory-consolidation.js";
 import { validateFactIdentity } from "../memory-fact-identity.js";
 import { MAX_CONTEXT_BYTES } from "../context-window.js";
@@ -384,6 +386,10 @@ export interface MemoryModuleOptions {
   now?: () => Date;
   /** Application-owned run-local proposals; absent for standalone read-only material preparation. */
   consolidation?: MemoryConsolidation;
+  /** Configured write policy, as worded in the primary agent's instructions. Defaults to review. */
+  writePolicy?: MemoryWritePolicy;
+  /** Workspace shown on confirmation cards. */
+  workspaceRoot?: string;
 }
 
 function presentMemoryEntry(entry: MemoryEntry): MemoryEntry {
@@ -479,9 +485,51 @@ export function createMemoryModule(
     return { ok: true, source: { kind: "conversation", threadId: options.threadId, messageId: message.id, quote: excerpt } };
   };
 
+  const confirmation = (input: BeforeToolExecuteInput): string | Promise<string> => {
+    const workspace = `Workspace: ${JSON.stringify(options.workspaceRoot)}`;
+    if (input.toolName === "memory_apply_candidate") {
+      const id = (input.input as { candidateId?: unknown })?.candidateId;
+      return store.getCandidate(typeof id === "string" ? id : "", input.signal, options.threadId === undefined ? {} : { boundThreadId: options.threadId }).then((preview) =>
+        `\nTool: ${input.toolName}\n${workspace}\nCandidate preview: ${JSON.stringify(preview)}\nRequested: ${JSON.stringify(input.input)}\nAllow this call? [y/n] `,
+      );
+    }
+    if (["memory_update", "memory_revise", "memory_delete"].includes(input.toolName)) {
+      const id =
+        typeof input.input === "object" && input.input !== null && "id" in input.input
+          ? (input.input as { id?: unknown }).id
+          : undefined;
+      return store.get(typeof id === "string" ? id : "", input.signal).then((result) => {
+        const current = result.ok
+          ? result.entry.scope?.kind === "thread" && result.entry.scope.threadId !== options.threadId
+            ? { error: { code: "MEMORY_ENTRY_NOT_FOUND", message: "Memory is unavailable in this Thread" } }
+            : result.entry
+          : { error: result.error };
+        return (
+          `\nTool: ${input.toolName}\n` +
+          `${workspace}\n` +
+          `Current: ${JSON.stringify(current)}\n` +
+          `Requested: ${JSON.stringify(input.input)}\n` +
+          "Allow this call? [y/n] "
+        );
+      });
+    }
+    return (
+      `\nTool: ${input.toolName}\n` +
+      `${workspace}\n` +
+      `Input: ${JSON.stringify(input.input)}\n` +
+      "Allow this call? [y/n] "
+    );
+  };
+  /** Memory approvals are never remembered; only the automatic consolidator skips them for its read-only steps. */
+  const permission: ToolPermissionFacts = { defaults: { remember: "never" }, confirmation };
+  const consolidatorPermission: ToolPermissionFacts = {
+    defaults: { remember: "never", approvalAgents: [AUTO_CONSOLIDATION_AGENT_ID] }, confirmation,
+  };
+
   return {
     id: "memory",
     setup(ctx) {
+      ctx.addInstructions(memoryPrimaryInstructions(options.writePolicy ?? "review"));
       const memoryListTool = tool({
         description: "List the current version of explicitly saved workspace memories. Revision history is not included. Do not infer or extract memories automatically.",
         inputSchema: memoryListInputSchema,
@@ -656,11 +704,11 @@ export function createMemoryModule(
             },
           });
 
-      ctx.registerTool({ metadata: memoryListMetadata, tool: memoryListTool });
-      ctx.registerTool({ metadata: memoryGetMetadata, tool: memoryGetTool });
-      ctx.registerTool({ metadata: memoryAddMetadata, tool: memoryAddTool });
-      ctx.registerTool({ metadata: memoryUpdateMetadata, tool: memoryUpdateTool });
-      ctx.registerTool({ metadata: memoryDeleteMetadata, tool: memoryDeleteTool });
+      ctx.registerTool({ metadata: memoryListMetadata, tool: memoryListTool }, permission);
+      ctx.registerTool({ metadata: memoryGetMetadata, tool: memoryGetTool }, permission);
+      ctx.registerTool({ metadata: memoryAddMetadata, tool: memoryAddTool }, permission);
+      ctx.registerTool({ metadata: memoryUpdateMetadata, tool: memoryUpdateTool }, permission);
+      ctx.registerTool({ metadata: memoryDeleteMetadata, tool: memoryDeleteTool }, permission);
       const temporal = store as Partial<TemporalWorkspaceMemoryStore>;
       if (typeof temporal.queryMemory === "function") ctx.registerTool({
         metadata: { name: "memory_query", version: "1", risk: "read", timeoutMs: 1_000, idempotent: true },
@@ -678,7 +726,7 @@ export function createMemoryModule(
             return result;
           },
         }),
-      });
+      }, permission);
       if (typeof temporal.reviseMemory === "function") ctx.registerTool({
         metadata: { name: "memory_revise", version: "1", risk: "write", timeoutMs: 1_000, idempotent: false },
         tool: tool({
@@ -700,7 +748,7 @@ export function createMemoryModule(
             return saved.ok ? { ok: true as const, entry: presentMemoryEntry(saved.entry) } : saved;
           },
         }),
-      });
+      }, permission);
       ctx.registerTool({
         metadata: { name: "memory_candidates_list", version: "1", risk: "read", timeoutMs: 1_000, idempotent: true },
         tool: tool({
@@ -708,7 +756,7 @@ export function createMemoryModule(
           inputSchema: candidateListInputSchema, outputSchema: candidateListOutputSchema,
           execute: (input, { abortSignal }) => store.listCandidates(input, abortSignal, writeOptions()),
         }),
-      });
+      }, permission);
       ctx.registerTool({
         metadata: { name: "memory_apply_candidate", version: "1", risk: "write", timeoutMs: 1_000, idempotent: true },
         tool: tool({
@@ -716,7 +764,7 @@ export function createMemoryModule(
           inputSchema: candidateApplyInputSchema, outputSchema: candidateApplyOutputSchema,
           execute: (input, { abortSignal }) => store.resolveCandidate({ ...input, decision: "accept" }, abortSignal, writeOptions()),
         }),
-      });
+      }, permission);
       if (options.consolidation !== undefined) {
         ctx.registerTool({
           metadata: { name: "memory_stage_candidates", version: "1", risk: "read", timeoutMs: 1_000, idempotent: false },
@@ -725,13 +773,13 @@ export function createMemoryModule(
             inputSchema: candidateStageInputSchema, outputSchema: candidateStageOutputSchema,
             execute: (input, { abortSignal }) => options.consolidation!.stage(input, abortSignal),
           }),
-        });
+        }, consolidatorPermission);
       }
       if (memoryPrepareConsolidationTool !== undefined) {
         ctx.registerTool({
           metadata: memoryPrepareConsolidationMetadata,
           tool: memoryPrepareConsolidationTool,
-        });
+        }, consolidatorPermission);
       }
     },
   };

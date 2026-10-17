@@ -22,6 +22,8 @@ export interface ToolPermissionFacts {
   readonly defaults?: {
     /** `auto`: calls run without y/n confirmation, for every agent. */
     readonly approval?: "auto";
+    /** Calls made by these agents run without y/n confirmation. */
+    readonly approvalAgents?: readonly string[];
     /**
      * `scope`: an approval may be remembered for this conversation, per scope
      * (an origin, or the directory of a workspace path without subdirectories).

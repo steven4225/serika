@@ -5,6 +5,8 @@ import type { RegisteredTool } from "@serika/ai-sdk-adapter";
 import { asSchema, type UIMessage } from "ai";
 import { AUTO_CONSOLIDATION_AGENT_ID, MAX_CONSOLIDATION_TURNS } from "../consolidation.js";
 import { MAX_CONTEXT_BYTES } from "../context-window.js";
+import { memoryPrimaryInstructions } from "../memory-instructions.js";
+import { createModuleHost, type ToolPermissionFacts } from "../module-host.js";
 import type { MemoryConsolidation } from "../memory-consolidation.js";
 import {
   MEMORY_ENTRY_MAX_BYTES,
@@ -430,6 +432,42 @@ describe("createMemoryModule", () => {
     assert.equal(updateInput.safeParse({ id: "one", expectedRevision: 1, text: "new", sourceMessageId: "user-1" }).success, false);
     assert.equal(updateInput.safeParse({ id: "one", expectedRevision: 1, text: "new", sourceMessageId: "user-1", sourceQuote: "new" }).success, true);
     assert.equal(updateInput.safeParse({ id: "one", text: "   " }).success, false);
+  });
+
+  it("declares never-remembered calls, consolidator auto-approval, cards and policy-worded instructions", async () => {
+    const { store } = createStore();
+    const scoped = {
+      ...store,
+      get: async (id: string) => ({ ok: true as const, entry: { id, text: "私密", enabled: true, scope: { kind: "thread" as const, threadId: id === "mine" ? "thread-a" : "thread-b" } } }),
+      getCandidate: async (id: string, _signal?: AbortSignal, options?: MemoryWriteOptions) => ({ ok: true as const, value: { id, bound: options?.boundThreadId } }),
+    } as unknown as WorkspaceMemoryStore;
+    const consolidation = { stage: async () => { throw new Error("unexpected stage"); } } as unknown as MemoryConsolidation;
+    const host = createModuleHost([createMemoryModule(scoped, async () => [], {
+      threadId: "thread-a", workspaceRoot: "/ws", writePolicy: "automatic", consolidation,
+    })], { notify() {} });
+    const names = ["memory_list", "memory_get", "memory_add", "memory_update", "memory_delete", "memory_candidates_list",
+      "memory_apply_candidate", "memory_stage_candidates", "memory_prepare_consolidation"];
+    assert.deepEqual([...host.toolPermissions.keys()], names);
+    for (const [name, declared] of host.toolPermissions) {
+      assert.equal(declared.defaults?.remember, "never", name);
+      assert.deepEqual(declared.defaults?.approvalAgents,
+        name === "memory_stage_candidates" || name === "memory_prepare_consolidation" ? [AUTO_CONSOLIDATION_AGENT_ID] : undefined, name);
+      assert.equal(host.toolModules.get(name), "memory");
+    }
+    const card = (toolName: string, input: unknown) => host.toolPermissions.get(toolName)!.confirmation!(
+      { toolName, input, signal: new AbortController().signal } as Parameters<NonNullable<ToolPermissionFacts["confirmation"]>>[0]);
+    assert.equal(await card("memory_add", { text: "x" }),
+      '\nTool: memory_add\nWorkspace: "/ws"\nInput: {"text":"x"}\nAllow this call? [y/n] ');
+    assert.equal(await card("memory_update", { id: "mine", text: "y" }),
+      '\nTool: memory_update\nWorkspace: "/ws"\nCurrent: {"id":"mine","text":"私密","enabled":true,"scope":{"kind":"thread","threadId":"thread-a"}}\nRequested: {"id":"mine","text":"y"}\nAllow this call? [y/n] ');
+    assert.match(String(await card("memory_delete", { id: "other" })),
+      /Current: \{"error":\{"code":"MEMORY_ENTRY_NOT_FOUND","message":"Memory is unavailable in this Thread"\}\}\n/);
+    assert.match(String(await card("memory_apply_candidate", { candidateId: "c1" })),
+      /Candidate preview: \{"ok":true,"value":\{"id":"c1","bound":"thread-a"\}\}\nRequested: \{"candidateId":"c1"\}\n/);
+    assert.equal(host.instructions("memory"), memoryPrimaryInstructions("automatic"));
+    assert.match(host.instructions("memory"), /^In automatic memory mode, briefly acknowledge/);
+    assert.notEqual(memoryPrimaryInstructions("review"), memoryPrimaryInstructions("automatic"));
+    host.dispose();
   });
 
   it("registers consolidation only when a bound message reader is supplied", () => {
