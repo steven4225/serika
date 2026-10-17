@@ -72,6 +72,7 @@ export class DesktopRuntime {
   telegramStatus() { return this.#telegramFailure ? { ...telegramUnavailable(), available: true, connection: "failed" as const, lastError: this.#telegramFailure } : this.#telegram?.status() ?? telegramUnavailable(); }
   telegramFailed() { this.#telegramFailure = "Telegram 配置或记录无法读取，未接收消息。桌面助手仍可使用；请检查可信环境文件和通道状态文件后重启。不会重建绑定或重做执行。"; }
   channelTelegramAutonomyEnabled() { return this.#available && this.#bridge.telegramAutonomyEnabled(); }
+  channelTelegramToolApprovalSkipped() { return this.#available && this.#bridge.telegramToolApprovalSkipped(); }
   async setTelegramAutonomyEnabled(input: import("../shared/telegram.js").TelegramAutonomySettingInput) {
     let undo: (() => Promise<void>) | undefined;
     await this.#replace(async () => {

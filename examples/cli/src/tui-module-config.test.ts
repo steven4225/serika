@@ -36,6 +36,19 @@ async function writeConfig(
 }
 
 describe("resolveTuiModuleConfig", () => {
+  it("loads only explicit trusted TG policy without upgrading legacy or foreign workspace grants", async () => {
+    const { configDirectory, workspace } = await createConfigWorkspace();
+    const binding = { workspaceRoot: await realpath(workspace), botId: 100, userId: 42, chatId: 42, threadId: "bound-thread" };
+    const config = { version: 1, workspace: "./workspace", modules: {}, telegramAutonomy: binding };
+    const path = await writeConfig(configDirectory, config);
+    assert.equal((await resolveTuiModuleConfig(configArgs(path), { cwd: configDirectory })).telegramAutonomy?.toolApproval, undefined);
+    await writeFile(path, JSON.stringify({ ...config, telegramAutonomy: { ...binding, toolApproval: "skip" } }));
+    assert.equal((await resolveTuiModuleConfig(configArgs(path), { cwd: configDirectory })).telegramAutonomy?.toolApproval, "skip");
+    await writeFile(path, JSON.stringify({ ...config, telegramAutonomy: { ...binding, toolApproval: "always" } }));
+    await assert.rejects(resolveTuiModuleConfig(configArgs(path), { cwd: configDirectory }), /schema/);
+    await writeFile(path, JSON.stringify({ ...config, telegramAutonomy: { ...binding, workspaceRoot: "/foreign", toolApproval: "skip" } }));
+    assert.equal((await resolveTuiModuleConfig(configArgs(path), { cwd: configDirectory })).telegramAutonomy, undefined);
+  });
   it("requires explicit trusted automatic-memory policy and preserves review defaults", async () => {
     const { configDirectory, workspace } = await createConfigWorkspace();
     const config = { version: 1, workspace: "./workspace", modules: { memory: { enabled: true, autoConsolidate: true, writePolicy: "automatic" } } };

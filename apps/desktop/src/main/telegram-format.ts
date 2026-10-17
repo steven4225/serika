@@ -93,12 +93,19 @@ export function telegramParts(text: string, markdown = true): string[] {
   return pieces.length === 1 ? pieces : pieces.map((piece, i) => `${i + 1}/${pieces.length}\n${piece}`);
 }
 
-export function telegramApprovalText(tool: string, preview: string, code: string, input?: unknown, now = new Date()): string {
+export function telegramApprovalText(tool: string, input?: unknown, now = new Date()): string {
   const names: Record<string, string> = { task_create: "创建提醒", task_repeat_create: "创建周期安排", task_reschedule: "调整提醒时间",
     read_file: "读取文件", write_file: "写入文件", edit_file: "修改文件", shell_exec: "执行命令", web_search: "联网搜索", web_fetch: "读取网页",
-    recipe_list: "查看命令配方", recipe_save: "登记命令配方", recipe_run: "运行命令配方", recipe_manage: "管理命令配方", computer_check: "检查 CUA 连接" };
+    feed_read: "读取订阅源", recipe_list: "查看命令配方", recipe_save: "登记命令配方", recipe_run: "运行命令配方", recipe_manage: "管理命令配方", computer_check: "检查 CUA 连接" };
   const arrangement = ["task_create", "task_repeat_create"].includes(tool);
   const request = input && typeof input === "object" ? input as Record<string, unknown> : undefined;
+  const summary = (value: unknown, limit = 300) => {
+    if (typeof value !== "string" || !value.trim()) return "未提供，请查看详情";
+    const text = value.replace(/[\r\n\t\u0000-\u001f\u007f]/g, " ");
+    if (text.length <= limit) return text;
+    return text.slice(0, limit).replace(/[\uD800-\uDBFF]$/, "") + "…（已省略，请先查看详情）";
+  };
+  const footer = "仅限本次，5 分钟内确认。详情：/details";
   const declaration = request?.arrangement as { kind?: unknown } | undefined;
   if (arrangement && declaration?.kind === "reminder" && typeof request?.prompt === "string") {
     const recurrence = readRecurrence(request.recurrence);
@@ -108,9 +115,28 @@ export function telegramApprovalText(tool: string, preview: string, code: string
     const zone = recurrence && recurrence.utcOffset !== "+08:00" ? `固定 UTC${recurrence.utcOffset}；非北京时间` : "北京时间";
     return [`需要你确认 · ${names[tool]}`, `事项：${subject.length > 300 ? subject.slice(0, 300).replace(/[\uD800-\uDBFF]$/, "") + "…（/details 查看完整内容）" : subject}`,
       `时间：${spoken.time}（${zone}）`, `重复：${spoken.repeat}`, "结果将发送到当前 TG 私聊。",
-      "确认后保存，并按需启用后台提醒。", "", `备用：允许 ${code} / 拒绝 ${code}`, "5 分钟内有效，仅限这次操作。"].join("\n");
+      "确认后保存，并按需启用后台提醒。", "", footer].join("\n");
   }
-  return [`需要你确认 · ${names[tool] ?? `使用工具 ${tool}`}`, "", preview,
-    ...(arrangement ? ["", "结果将发送到当前 TG 私聊。保存、启用后台服务和投递是不同状态。"] : []),
-    "", `允许 ${code}`, `拒绝 ${code}`, "", "5 分钟内有效，仅批准这一次操作；普通回复不代表授权。"].join("\n");
+  // Channel copy comes from typed arguments; the shared terminal preview stays in /details.
+  let lines: string[];
+  switch (tool) {
+    case "web_fetch": case "feed_read":
+      lines = [summary(request?.url, 500), "读取公开内容并交给模型处理。"];
+      break;
+    case "web_search": lines = [`搜索：${summary(request?.query)}`]; break;
+    case "read_file": lines = [`文件：${summary(request?.path)}`, "读取内容并交给模型处理。"];
+      break;
+    case "write_file": case "edit_file":
+      lines = [`文件：${summary(request?.path)}`, "将修改文件内容；具体改动见 /details。"];
+      break;
+    case "shell_exec":
+      lines = [`命令摘要：${summary(request?.command, 400)}`,
+        `目录：${request?.cwd === undefined ? "当前工作区" : summary(request.cwd)}`, "命令可能修改文件或访问外部服务，请核对后允许。"];
+      break;
+    default:
+      lines = [`操作：${summary(tool, 80)}`, "请先发送 /details 查看完整操作内容。"];
+  }
+  return [`需要你确认 · ${names[tool] ?? "执行操作"}`, "", ...lines,
+    ...(arrangement ? ["结果将发送到当前 TG 私聊。确认后保存，并按需启用后台服务。"] : []),
+    "", footer].join("\n");
 }

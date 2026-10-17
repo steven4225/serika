@@ -426,6 +426,7 @@ export class RuntimeBridge {
 
   /** Trusted gateway clock, deliberately separate from renderer run options. */
   telegramAutonomyEnabled() { return this.#app.telegramAutonomyEnabled?.() === true; }
+  telegramToolApprovalSkipped() { return this.#app.telegramToolApprovalSkipped?.() === true; }
 
   async runFromChannel(text: string, receivedAt?: string): Promise<RunResponse> {
     if (receivedAt !== undefined && (!/\+08:00$/.test(receivedAt) || !Number.isFinite(Date.parse(receivedAt)))) throw new Error("消息接收时间无效，未启动执行");

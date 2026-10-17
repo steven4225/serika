@@ -1,11 +1,34 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, writeFile, rm, symlink, stat } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile, rm, symlink, stat, realpath } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { it } from "node:test";
-import { changeModuleSetting, changeDreamingSetting } from "./module-settings.js";
+import { changeModuleSetting, changeDreamingSetting, changeTelegramAutonomySetting } from "./module-settings.js";
 import { acquireFlock } from "@aisdk-agent/example-cli/dist/flock.js";
+
+it("TG trust requires explicit policy CAS, preserves legacy grants and supports safe revocation", async () => {
+  const root = await realpath(await mkdtemp(join(tmpdir(), "serika-tg-policy-")));
+  try {
+    const workspace = join(root, "workspace"); await mkdir(workspace);
+    const path = join(root, "config.json");
+    const binding = { workspaceRoot: workspace, botId: 100, userId: 42, chatId: 42, threadId: "bound-thread" };
+    const config = { version: 1, workspace, modules: { shell: { enabled: true } }, telegramAutonomy: binding };
+    await writeFile(path, JSON.stringify(config));
+    const expectedOwner = { userId: 42, chatId: 42, threadId: "bound-thread" };
+    const input = { enabled: true, expectedEnabled: true, expectedOwner, toolApproval: "skip" as const };
+    await assert.rejects(changeTelegramAutonomySetting(path, { ...input, toolApproval: "always" } as never, root, binding, true), /参数无效/);
+    await assert.rejects(changeTelegramAutonomySetting(path, { ...input, expectedToolApproval: "skip" }, root, binding, true), /工具确认配置已变化/);
+    const undo = await changeTelegramAutonomySetting(path, input, root, binding, true);
+    assert.equal(JSON.parse(await readFile(path, "utf8")).telegramAutonomy.toolApproval, "skip");
+    await assert.rejects(changeTelegramAutonomySetting(path, input, root, binding, true), /工具确认配置已变化/);
+    await undo();
+    assert.deepEqual(JSON.parse(await readFile(path, "utf8")).telegramAutonomy, binding);
+    await changeTelegramAutonomySetting(path, input, root, binding, true);
+    await changeTelegramAutonomySetting(path, { enabled: false, expectedEnabled: true, expectedOwner }, root, binding, true);
+    assert.equal(JSON.parse(await readFile(path, "utf8")).telegramAutonomy, undefined);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
 
 it("serializes real competing processes so unrelated capability writes both survive", { timeout: 10_000 }, async () => {
   const root = await mkdtemp(join(tmpdir(), "serika-config-process-lock-"));

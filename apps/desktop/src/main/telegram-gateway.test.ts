@@ -54,11 +54,11 @@ it("TG capability queries never present cached registration as current during ru
     assert.equal(f.calls(), 0);
   } finally { await f.cleanup(); }
 });
-async function fixture(stream: (call: number, prompt?: string) => Promise<ReturnType<typeof response>> = async () => response(), backgroundReady = true, shellEnabled = false) {
+async function fixture(stream: (call: number, prompt?: string) => Promise<ReturnType<typeof response>> = async () => response(), backgroundReady = true, shellEnabled = false, webEnabled = false) {
   const root = await realpath(await mkdtemp(join(tmpdir(), "serika-telegram-unit-")));
   const workspace = join(root, "workspace"), userData = join(root, "profile"), configPath = join(root, "config.json");
   await mkdir(workspace);
-  await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { "read-file": { enabled: true }, memory: { enabled: false }, shell: { enabled: shellEnabled }, task: { enabled: true } } }));
+  await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { "read-file": { enabled: true }, memory: { enabled: false }, shell: { enabled: shellEnabled }, task: { enabled: true }, web: { enabled: webEnabled } } }));
   let calls = 0;
   let time = Date.now(), activations = 0;
   const host = await DesktopRuntime.create({ userData, cwd: root, env: { RUNLOOM_CONFIG: configPath }, modelAlias: "mock",
@@ -113,6 +113,34 @@ const callback = (id: number, data: string, messageId: number, userId = 42): Tel
   callback_query: { id: `callback-${id}`, data, from: { id: userId, is_bot: false, first_name: "Owner" },
     message: { message_id: messageId, chat: { id: userId, type: "private" }, from: { id: 100, is_bot: true, first_name: "Serika" } } } });
 
+function approvalCode(f: { keyboards: { messageId: number; markup: unknown }[] }): string {
+  const markup = f.keyboards.at(-1)!.markup as { inline_keyboard: { callback_data: string }[][] };
+  return /^allow:([A-F0-9]{10})$/.exec(markup.inline_keyboard[0]![0]!.callback_data)![1]!;
+}
+
+it("TG confirmation keeps raw tool preview and fallback code behind explicit details", async () => {
+  const f = await fixture(async n => response(n === 1 ? { name: "write_file", input: { path: "phone.md", content: "exact approved body" } } : undefined));
+  try {
+    await f.bind(); await f.gateway.receive(update(2, "写 phone.md"));
+    await until(() => f.keyboards.length === 1);
+    const card = f.store.snapshot().deliveries.find(x => x.key.startsWith("approval:"))!;
+    assert.match(card.text, /文件：phone.md/);
+    assert.doesNotMatch(card.text, /Tool:|Allow this call|exact approved body|允许 [A-F0-9]{10}|拒绝 [A-F0-9]{10}/);
+    const code = approvalCode(f);
+    await f.gateway.receive(update(3, "/details"));
+    assert.ok(f.store.snapshot().deliveries.find(x => x.key === "input:42:3")!.text.includes(f.host.current.snapshot().pendingApproval!.preview!));
+    assert.match(f.sent.at(-1)!, new RegExp(`允许 ${code} / 拒绝 ${code}`));
+    await assert.rejects(readFile(join(f.workspace, "phone.md")), { code: "ENOENT" });
+    await f.gateway.receive(update(4, `允许 ${code}`));
+    assert.equal(f.sent.at(-1), "已允许。");
+    await until(() => f.store.snapshot().inputs.find(x => x.key === "42:2")?.state === "finished");
+    assert.equal(await readFile(join(f.workspace, "phone.md"), "utf8"), "exact approved body");
+    await f.gateway.receive(update(5, `允许 ${code}`));
+    assert.match(f.sent.at(-1)!, /没有批准任何操作/);
+    assert.equal(f.calls(), 2);
+  } finally { await f.cleanup(); }
+});
+
 it("package2: phone button saves one reminder, emits host readback, and delivers its due result once", async () => {
   const f = await fixture(async n => response(n === 1 ? { name: "task_create", input: { prompt: "手机按钮提醒", runAt: new Date(Date.now() + 120_000).toISOString(), arrangement: reminder } } : undefined, "模型乱说：保存失败，请去电脑批准。"));
   try {
@@ -151,7 +179,7 @@ for (const render of [ (code: string) => `允许${code.toLowerCase()}`, (code: s
     try {
       await f.bind(); await f.gateway.receive(update(2, "两分钟后提醒我"));
       await until(() => f.sent.some(x => x.includes("需要你确认 · 创建提醒")));
-      const code = /允许 ([A-F0-9]{10})/.exec(f.sent.find(x => x.includes("需要你确认 · 创建提醒"))!)![1]!;
+      const code = approvalCode(f);
       await f.gateway.receive(update(3, render(code)));
       assert.doesNotMatch(f.sent.at(-1)!, /正在处理其他消息/);
       assert.equal(f.host.current.snapshot().pendingApproval, null);
@@ -169,7 +197,7 @@ it("package2: incomplete phone control is not a new chat and a denied reminder c
     await f.gateway.receive(update(3, "允许id"));
     assert.doesNotMatch(f.sent.at(-1)!, /正在处理其他消息/);
     assert.ok(f.host.current.snapshot().pendingApproval);
-    const code = /允许 ([A-F0-9]{10})/.exec(f.sent.find(x => x.includes("需要你确认 · 创建提醒"))!)![1]!;
+    const code = approvalCode(f);
     await f.gateway.receive(update(4, `拒绝${code}`));
     await until(() => f.store.snapshot().inputs.find(x => x.key === "42:2")?.state === "finished");
     await until(() => f.store.snapshot().deliveries.find(x => x.key === "result:42:2")?.state === "submitted");
@@ -186,7 +214,7 @@ it("package2: saved reminder retains the background-unavailable warning and surv
     await f.bind(); await f.gateway.receive(update(2, "提醒我"));
     await until(() => f.store.snapshot().deliveries.some(x => x.key.startsWith("approval:") && x.state === "submitted"));
     const approval = f.store.snapshot().deliveries.find(x => x.key.startsWith("approval:"))!;
-    const code = /允许 ([A-F0-9]{10})/.exec(approval.text)![1]!;
+    const code = approvalCode(f);
     await f.gateway.receive(callback(3, `allow:${code}`, approval.messageId!));
     await until(() => f.store.snapshot().deliveries.find(x => x.key === "result:42:2")?.state === "submitted");
     const result = f.store.snapshot().deliveries.find(x => x.key === "result:42:2")!;
@@ -210,7 +238,7 @@ it("package2: copied or foreign callback cannot consume a valid confirmation; ca
     await f.bind(); await f.gateway.receive(update(2, "提醒我"));
     await until(() => f.store.snapshot().deliveries.some(x => x.key.startsWith("approval:") && x.state === "submitted"));
     const approval = f.store.snapshot().deliveries.find(x => x.key.startsWith("approval:"))!;
-    const code = /允许 ([A-F0-9]{10})/.exec(approval.text)![1]!;
+    const code = approvalCode(f);
     const foreign = callback(3, `allow:${code}`, approval.messageId!); foreign.callback_query!.from.id = 43;
     await f.gateway.receive(foreign);
     await f.gateway.receive(callback(4, `allow:${code}`, approval.messageId! + 1));
@@ -232,7 +260,7 @@ for (const invalidation of ["expired", "desktop"] as const) {
       await f.bind(); await f.gateway.receive(update(2, "提醒我"));
       await until(() => f.store.snapshot().deliveries.some(x => x.key.startsWith("approval:") && x.state === "submitted"));
       const approval = f.store.snapshot().deliveries.find(x => x.key.startsWith("approval:"))!;
-      const code = /允许 ([A-F0-9]{10})/.exec(approval.text)![1]!;
+      const code = approvalCode(f);
       if (invalidation === "expired") f.advanceTime(5 * 60_000 + 1);
       else f.host.current.confirm({ approvalId: f.host.current.snapshot().pendingApproval!.approvalId, decision: "deny" });
       await f.gateway.receive(callback(3, `allow:${code}`, approval.messageId!));
@@ -256,7 +284,7 @@ it("package2: invalid schedule returns a host failure instead of model success",
     await f.bind(); await f.gateway.receive(update(2, "提醒我"));
     await until(() => f.store.snapshot().deliveries.some(x => x.key.startsWith("approval:") && x.state === "submitted"));
     const approval = f.store.snapshot().deliveries.find(x => x.key.startsWith("approval:"))!;
-    const code = /允许 ([A-F0-9]{10})/.exec(approval.text)![1]!;
+    const code = approvalCode(f);
     await f.gateway.receive(callback(3, `allow:${code}`, approval.messageId!));
     await until(() => f.store.snapshot().deliveries.find(x => x.key === "result:42:2")?.state === "submitted");
     const result = f.store.snapshot().deliveries.find(x => x.key === "result:42:2")!;
@@ -271,7 +299,7 @@ it("package2: uncertain reminder commit is reported as unknown, not unsaved, and
     await f.bind(); await f.gateway.receive(update(2, "提醒我"));
     await until(() => f.store.snapshot().deliveries.some(x => x.key.startsWith("approval:") && x.state === "submitted"));
     const approval = f.store.snapshot().deliveries.find(x => x.key.startsWith("approval:"))!;
-    const code = /允许 ([A-F0-9]{10})/.exec(approval.text)![1]!;
+    const code = approvalCode(f);
     const directory = join(f.workspace, ".runloom"), target = await stat(directory);
     const probe = await open(directory, "r"), prototype = Object.getPrototypeOf(probe), originalSync = prototype.sync;
     await probe.close(); let injected = false;
@@ -305,7 +333,7 @@ for (const outcome of ["not_sent", "unknown"] as const) {
       await f.bind(); await f.gateway.receive(update(2, "提醒我"));
       await until(() => f.store.snapshot().deliveries.some(x => x.key.startsWith("approval:") && x.state === "submitted"));
       const approval = f.store.snapshot().deliveries.find(x => x.key.startsWith("approval:"))!;
-      const code = /允许 ([A-F0-9]{10})/.exec(approval.text)![1]!;
+      const code = approvalCode(f);
       f.failSend(new TelegramApiError(outcome === "not_sent" ? "400" : "NETWORK", outcome));
       await f.gateway.receive(callback(3, `allow:${code}`, approval.messageId!));
       const state = outcome === "not_sent" ? "failed" : "unknown";
@@ -485,7 +513,7 @@ it("approved Telegram arrangement saves the exact destination before worker acti
     assert.match(f.host.current.snapshot().pendingApproval!.preview!, /Telegram 已绑定私聊 42/, "desktop and Telegram share destination disclosure");
     assert.equal(f.store.snapshot().routes.length, 0);
     assert.equal(f.activations(), 0);
-    const code = /允许 ([A-F0-9]{10})/.exec(preview)![1]!;
+    const code = approvalCode(f);
     await f.gateway.receive(update(3, `允许 ${code}`));
     await until(() => f.store.snapshot().inputs.find(x => x.key === "42:2")?.state === "finished");
     const route = f.store.snapshot().routes[0]!;
@@ -682,15 +710,15 @@ it("shares the real file approval, shortcodes are single-use and plain yes is no
   try {
     await f.bind();
     await f.gateway.receive(update(2, "写 demo.md"));
-    await until(() => f.sent.some(x => x.includes("允许 ")));
+    await until(() => f.sent.some(x => x.includes("需要你确认 · 写入文件")));
     assert.equal(f.store.snapshot().inputs[0]!.state, "bound");
     assert.ok(f.store.snapshot().inputs[0]!.runId, "source must already be persisted before tool approval");
     await assert.rejects(readFile(join(f.workspace, "demo.md")), { code: "ENOENT" });
     await f.gateway.receive(update(3, "可以"));
     await assert.rejects(readFile(join(f.workspace, "demo.md")), { code: "ENOENT" });
-    const code = /允许 ([A-F0-9]{10})/.exec(f.sent.find(x => x.includes("需要你确认 · 写入文件"))!)![1]!;
+    const code = approvalCode(f);
     await f.gateway.receive(update(4, `允许 ${code}`));
-    assert.match(f.sent.at(-1)!, /已处理这一次确认/);
+    assert.match(f.sent.at(-1)!, /已允许/);
     await until(() => f.store.snapshot().inputs[0]!.state === "finished");
     assert.equal(await readFile(join(f.workspace, "demo.md"), "utf8"), "telegram one write");
     await f.gateway.receive(update(5, `允许 ${code}`));
@@ -706,13 +734,13 @@ it("expired confirmation can be renewed without a new Run; both old and repeated
   try {
     await f.bind(); await f.gateway.receive(update(2, "写 renewed.md"));
     await until(() => f.sent.some(x => x.includes("需要你确认 · 写入文件")));
-    const previous = /允许 ([A-F0-9]{10})/.exec(f.sent.find(x => x.includes("需要你确认 · 写入文件"))!)![1]!;
+    const previous = approvalCode(f);
     const run = f.store.snapshot().inputs.find(x => x.key === "42:2")!.runId;
     f.advanceTime(5 * 60_000 + 1);
     await f.gateway.receive(update(3, `允许 ${previous}`));
     await assert.rejects(readFile(join(f.workspace, "renewed.md")), { code: "ENOENT" });
     await f.gateway.receive(update(4, "/confirm"));
-    const refreshed = /允许 ([A-F0-9]{10})/.exec(f.sent.filter(x => x.includes("需要你确认 · 写入文件")).at(-1)!)![1]!;
+    const refreshed = approvalCode(f);
     assert.notEqual(refreshed, previous); assert.equal(f.calls(), 1);
     await f.gateway.receive(update(5, `允许 ${previous}`));
     await assert.rejects(readFile(join(f.workspace, "renewed.md")), { code: "ENOENT" });
@@ -733,7 +761,7 @@ for (const outcome of ["not_sent", "unknown"] as const) {
     try {
       await f.bind(); await f.gateway.receive(update(2, "写 renew-fault.md"));
       await until(() => f.sent.some(x => x.includes("需要你确认 · 写入文件")));
-      const old = /允许 ([A-F0-9]{10})/.exec(f.sent.find(x => x.includes("需要你确认 · 写入文件"))!)![1]!;
+      const old = approvalCode(f);
       const runId = f.store.snapshot().inputs.find(x => x.key === "42:2")!.runId;
       f.advanceTime(5 * 60_000 + 1);
       f.failSend(new TelegramApiError(outcome === "not_sent" ? "403" : "NETWORK", outcome));
@@ -749,7 +777,7 @@ for (const outcome of ["not_sent", "unknown"] as const) {
       await f.gateway.receive(update(4, `允许 ${old}`));
       await assert.rejects(readFile(join(f.workspace, "renew-fault.md")), { code: "ENOENT" });
       await f.gateway.receive(update(5, "当前确认"));
-      const renewed = /允许 ([A-F0-9]{10})/.exec(f.sent.filter(x => x.includes("需要你确认 · 写入文件")).at(-1)!)![1]!;
+      const renewed = approvalCode(f);
       assert.notEqual(renewed, old); assert.equal(f.calls(), 1);
       assert.equal(f.store.snapshot().deliveries.find(x => x.key === failedApproval.key)?.state, outcome === "not_sent" ? "cancelled" : "unknown");
       await f.gateway.receive(update(6, `允许 ${renewed}`));
@@ -888,7 +916,7 @@ for (const change of ["input", "owner"] as const) {
     try {
       await f.bind(); await f.gateway.receive(update(2, "写 bound-input.md"));
       await until(() => f.sent.some(x => x.includes("需要你确认 · 写入文件")));
-      const code = /允许 ([A-F0-9]{10})/.exec(f.sent.find(x => x.includes("需要你确认 · 写入文件"))!)![1]!;
+      const code = approvalCode(f);
       if (change === "input") {
         const original = f.host.channelSnapshot.bind(f.host);
         t.mock.method(f.host, "channelSnapshot", () => {
@@ -976,7 +1004,7 @@ it("Steer supersedes old approval without authorizing it; control messages stay 
   try {
     await f.bind(); await f.gateway.receive(update(2, "write first plan"));
     await until(() => f.sent.some(x => x.includes("需要你确认 · 写入文件")));
-    const code = /允许 ([A-F0-9]{10})/.exec(f.sent.find(x => x.includes("需要你确认 · 写入文件"))!)![1]!;
+    const code = approvalCode(f);
     await f.gateway.receive(update(3, "为什么还在运行，直接结束"));
     assert.match(f.sent.at(-1)!, /调整：/);
     assert.match(f.sent.at(-1)!, /停止/);
@@ -1003,7 +1031,7 @@ it("desktop handling invalidates the IM short code, and expired binding/approval
     await f.bind();
     await f.gateway.receive(update(2, "write request"));
     await until(() => f.sent.some(x => x.includes("需要你确认 · 写入文件")));
-    const code = /允许 ([A-F0-9]{10})/.exec(f.sent.find(x => x.includes("需要你确认 · 写入文件"))!)![1]!;
+    const code = approvalCode(f);
     f.advanceTime(5 * 60_000 + 1);
     await f.gateway.receive(update(3, `允许 ${code}`));
     assert.ok(f.host.current.snapshot().pendingApproval);
@@ -1230,13 +1258,83 @@ it("independent TG authorization runs chat and WorkTasks through real file/Shell
   } finally { await f.cleanup(); }
 });
 
-it("TG grant survives host restart but never authorizes a changed bot/user/chat/Thread or desktop entry, and cancelled effects are not replayed", async () => {
+it("explicit trusted TG upgrades legacy authorization, executes web/recipe/reminder tools without cards, and revokes cleanly without desktop inheritance", async t => {
+  type Call = { name: string; input: Record<string, unknown> };
+  let plan: Call[] = [], step = 0;
+  const prompts: string[] = [];
+  const f = await fixture(async (_n, prompt) => { prompts.push(prompt ?? ""); const index = step++; return response(plan[index], "已完成。", `trusted-${index}`); }, true, true, true);
+  let fetches = 0;
+  t.mock.method(globalThis, "fetch", async () => { fetches++; return new Response("<html><body>Verified public article.</body></html>", { headers: { "content-type": "text/html" } }); });
+  const reset = (calls: Call[]) => { plan = calls; step = 0; prompts.length = 0; };
+  const idle = () => f.host.current.snapshot().state.kind === "idle";
+  try {
+    await f.bind(); const owner = f.store.snapshot().owner!;
+    const setting = { enabled: true, expectedEnabled: false, expectedOwner: { userId: owner.userId, chatId: owner.chatId, threadId: owner.threadId } };
+    await f.host.setTelegramAutonomyEnabled(setting);
+    assert.equal(f.gateway.status().toolApprovalSkipped, false, "legacy grant is not silently upgraded");
+    await f.host.setTelegramAutonomyEnabled({ ...setting, expectedEnabled: true, toolApproval: "skip" });
+    assert.equal(f.gateway.status().toolApprovalSkipped, true);
+    const saved = JSON.parse(await readFile(join(f.root, "config.json"), "utf8"));
+    assert.equal(saved.telegramAutonomy.toolApproval, "skip");
+    await assert.rejects(f.host.setTelegramAutonomyEnabled({ ...setting, expectedEnabled: true, toolApproval: "skip" }), /工具确认配置已变化/);
+    await assert.rejects(f.host.setTelegramAutonomyEnabled({ ...setting, expectedEnabled: true, expectedToolApproval: "skip", toolApproval: "skip", expectedOwner: { ...setting.expectedOwner, chatId: 99 } }), /绑定已变化/);
+    const calls = f.calls();
+    await f.gateway.receive(update(2, "非法任务", 99)); await f.gateway.receive(update(3, "非法任务", 42, "group"));
+    assert.equal(f.calls(), calls);
+    reset([
+      { name: "recipe_list", input: {} },
+      { name: "web_fetch", input: { url: "https://93.184.216.34/article" } },
+      { name: "task_create", input: { prompt: "受信任私聊提醒", runAt: new Date(Date.now() + 120_000).toISOString(), arrangement: reminder } },
+    ]);
+    await f.gateway.receive(update(4, "阅读公开资料并保存提醒"));
+    await until(() => f.store.snapshot().inputs.find(x => x.key === "42:4")?.state === "finished");
+    const input = f.store.snapshot().inputs.find(x => x.key === "42:4")!;
+    const receipt = await f.host.channelReceipt(owner.threadId, input.runId!);
+    assert.ok(receipt); assert.equal(receipt.status, "completed"); assert.equal(receipt.tools.length, 3);
+    assert.ok(receipt.tools.every(tool => tool.status === "completed" && !tool.approvalRequestedAt));
+    assert.equal(fetches, 1); assert.equal(f.activations(), 1);
+    assert.equal(f.store.snapshot().routes.length, 1, "reminder was actually saved and routed");
+    assert.equal(f.keyboards.length, 0);
+    assert.equal(f.store.snapshot().deliveries.some(x => x.key.startsWith("approval:")), false);
+    assert.ok(prompts[0]?.includes("all registered primary tools"));
+    assert.ok(prompts[0]?.includes('trusted_telegram'));
+    assert.ok(!prompts[0]?.includes('批准 computer_check'));
+    await f.gateway.receive(update(5, "/capabilities"));
+    assert.match(f.sent.at(-1)!, /已注册工具无需逐次确认/);
+    assert.doesNotMatch(f.sent.at(-1)!, /仍需本次批准|批准 computer_check/);
+    reset([{ name: "recipe_list", input: {} }]);
+    await f.gateway.receive(update(6, "任务：查看已登记配方"));
+    const proposal = f.sent.at(-1)!;
+    assert.match(proposal, /已注册工具无需逐次确认/);
+    await f.gateway.receive(update(7, `开始 ${/开始 ([A-F0-9]{10})/.exec(proposal)![1]}`));
+    await until(() => f.store.snapshot().inputs.find(x => x.key === "42:7")?.state === "finished");
+    const taskInput = f.store.snapshot().inputs.find(x => x.key === "42:7")!;
+    assert.ok(taskInput.taskId);
+    assert.equal((await f.host.channelReceipt(owner.threadId, taskInput.runId!))?.tools[0]?.approvalRequestedAt, undefined);
+    // The same runtime must not retain TG trust for ordinary desktop calls.
+    reset([{ name: "recipe_list", input: {} }]);
+    await f.host.current.run("从桌面查看配方");
+    await until(() => !!f.host.current.snapshot().pendingApproval);
+    assert.equal(f.host.current.snapshot().pendingApproval?.toolName, "recipe_list");
+    await f.host.current.cancel(); await until(idle);
+    await f.host.setTelegramAutonomyEnabled({ ...setting, enabled: false, expectedEnabled: true });
+    assert.equal(f.gateway.status().toolApprovalSkipped, false);
+    reset([{ name: "recipe_list", input: {} }]);
+    await f.gateway.receive(update(8, "撤销信任后查看配方"));
+    await until(() => !!f.host.current.snapshot().pendingApproval);
+    assert.equal(f.host.current.snapshot().pendingApproval?.toolName, "recipe_list");
+    await f.gateway.receive(update(9, "停止")); await until(idle);
+  } finally { await f.cleanup(); }
+});
+
+for (const trusted of [false, true]) {
+it(`TG ${trusted ? "trusted" : "legacy"} grant survives host restart but never authorizes a changed bot/user/chat/Thread or desktop entry, and cancelled effects are not replayed`, async () => {
   let step = 0;
   const f = await fixture(async () => step++ === 0 ? response({ name: "shell_exec", input: { command: "printf started > marker; sleep 60; touch must-not-complete", cwd: "." } }) : response(), true, true);
   let restarted: DesktopRuntime | undefined;
   try {
     await f.bind(); const owner = f.store.snapshot().owner!;
-    await f.host.setTelegramAutonomyEnabled({ enabled: true, expectedEnabled: false, expectedOwner: { userId: owner.userId, chatId: owner.chatId, threadId: owner.threadId } });
+    await f.host.setTelegramAutonomyEnabled({ enabled: true, expectedEnabled: false, ...(trusted ? { toolApproval: "skip" as const } : {}), expectedOwner: { userId: owner.userId, chatId: owner.chatId, threadId: owner.threadId } });
     const binding = f.gateway.autonomyBinding()!;
     for (const key of ["botId", "userId", "chatId", "threadId", "workspaceRoot"] as const) {
       assert.equal(f.gateway.matchesAutonomyGrant({ ...binding, [key]: typeof binding[key] === "number" ? 99 : "foreign" }), false);
@@ -1254,7 +1352,7 @@ it("TG grant survives host restart but never authorizes a changed bot/user/chat/
     restarted = await DesktopRuntime.create({ userData: join(f.root, "profile"), cwd: f.root, env: { RUNLOOM_CONFIG: join(f.root, "config.json") }, modelAlias: "mock", model: new MockLanguageModelV3({ doStream: async () => { modelCalls++; return response({ name: "shell_exec", input: { command: "touch desktop-must-not-run", cwd: "." } }); } }), send: () => {} });
     const store = new TelegramStore(f.store.path, f.workspace); await store.load();
     const gateway = new TelegramGateway(restarted, store, f.api, f.now); restarted.attachTelegram(gateway); await gateway.initialize(); await gateway.start();
-    assert.equal(gateway.status().autonomyEnabled, true); assert.equal(modelCalls, 0);
+    assert.equal(gateway.status().autonomyEnabled, true); assert.equal(gateway.status().toolApprovalSkipped, trusted); assert.equal(modelCalls, 0);
     assert.equal((await restarted.channelReceipt(owner.threadId, input.runId!))?.tools[0]?.status, "unknown");
     await gateway.receive(update(4, "继续执行")); assert.equal(modelCalls, 0); // unknown channel input blocks admission
     await restarted.current.run("桌面没有独立授权", { source: "telegram", desktopEntry: true } as never);
@@ -1265,6 +1363,7 @@ it("TG grant survives host restart but never authorizes a changed bot/user/chat/
     await store.update(data => { data.botId = 200; }); assert.equal(gateway.status().autonomyEnabled, false);
   } finally { await restarted?.shutdown(); await f.cleanup(); }
 });
+}
 
 it("TG independent authority crosses the resident socket with identity CAS, without exposing host-only channel entry points", async () => {
   const f = await fixture(async () => response({ name: "shell_exec", input: { command: "touch forged-channel", cwd: "." } }), true, true);
@@ -1276,8 +1375,9 @@ it("TG independent authority crosses the resident socket with identity CAS, with
     const paths = createResidentPaths(scope.userData, join(f.root, "host.sock"));
     server = await startResidentServer({ paths, scope, createRuntime: async () => f.host });
     client = await ResidentClient.connect({ paths, scope, send: () => {} });
-    const input = { enabled: true, expectedEnabled: false, expectedOwner: { userId: owner.userId, chatId: owner.chatId, threadId: owner.threadId } };
+    const input = { enabled: true, expectedEnabled: false, toolApproval: "skip" as const, expectedOwner: { userId: owner.userId, chatId: owner.chatId, threadId: owner.threadId } };
     assert.equal((await client.setTelegramAutonomyEnabled(input)).autonomyEnabled, true);
+    assert.equal((await client.telegramStatus()).toolApprovalSkipped, true);
     const created = await client.current.createWorkTask({ goal: "unauthorized desktop task", acceptance: [{ id: "human", description: "user acceptance", required: true, method: "human", verification: { kind: "human" } }] });
     assert.ok(created.ok);
     // A second RPC argument must not spoof the trusted TG source.

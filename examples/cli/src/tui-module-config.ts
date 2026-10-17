@@ -60,7 +60,7 @@ export const TUI_MAX_CONFIGURABLE_STEPS = 32;
 export const TUI_DEFAULT_TOTAL_TIMEOUT_MS = 120_000;
 export const TUI_MAX_TOTAL_TIMEOUT_MS = 30 * 60_000;
 
-export interface TelegramAutonomyGrant { workspaceRoot: string; botId: number; userId: number; chatId: number; threadId: string }
+export interface TelegramAutonomyGrant { workspaceRoot: string; botId: number; userId: number; chatId: number; threadId: string; toolApproval?: "skip" | undefined }
 
 export interface ResolvedTuiModuleConfig {
   telegramAutonomy?: TelegramAutonomyGrant;
@@ -196,7 +196,7 @@ const tuiModuleConfigV1Schema = z
         computer: computerConfigSchema.optional(),
     })
     .strict(),
-    telegramAutonomy: z.object({ workspaceRoot: nonEmptyString, botId: z.number().int().positive().safe(), userId: z.number().int().positive().safe(), chatId: z.number().int().positive().safe(), threadId: nonEmptyString }).strict().optional(),
+    telegramAutonomy: z.object({ workspaceRoot: nonEmptyString, botId: z.number().int().positive().safe(), userId: z.number().int().positive().safe(), chatId: z.number().int().positive().safe(), threadId: nonEmptyString, toolApproval: z.literal("skip").optional() }).strict().optional(),
     herdrBinding: herdrBindingSchema.optional(),
     desktopAutonomy: z.object({ workspaceRoot: nonEmptyString }).strict().optional(),
     fileAuthorizations: z.array(fileAuthorizationSchema).optional(),
