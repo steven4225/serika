@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { it } from "node:test";
-import { discoverThreadDirectory, inspectThread } from "./thread-history.js";
+import { inspectThread } from "./thread-history.js";
 import { readCommittedTranscriptLines, JsonlAgentStore } from "@serika/core";
 
 it("refreshes a many-Thread history list without reparsing unchanged snapshots and invalidates only the changed entry", async (t) => {
@@ -46,8 +46,6 @@ it("opens and searches a single >16 MiB legacy snapshot, then continues using sm
     await store.save(thread.threadId, next);
     assert.ok((await stat(file)).size - before.size < 2048);
     assert.deepEqual(await new JsonlAgentStore({ directory }).getMessages(thread.threadId), next);
-    const found = await discoverThreadDirectory(directory);
-    assert.equal(found[0]?.messageCount, 2); assert.equal(found[0]?.error, undefined);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
@@ -110,7 +108,7 @@ it("searches complete ordinary conversation text with bounded snippets, excludin
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
-it("discovers and searches accumulated history over 16 MiB without altering bytes or accepting a pending tail", async () => {
+it("searches accumulated history over 16 MiB without altering bytes or accepting a pending tail", async () => {
   const directory = await mkdtemp(join(tmpdir(), "runloom-large-history-"));
   try {
     const thread = { threadId: "large-history", transcriptDirectory: directory };
@@ -124,7 +122,6 @@ it("discovers and searches accumulated history over 16 MiB without altering byte
     const result = await inspectThread(thread, "下周交付");
     assert.equal(result.matchesQuery, true); assert.equal(result.title, "长期项目：下周交付");
     assert.equal(result.messageCount, 1); assert.match(result.error!, /未完成/);
-    assert.equal((await discoverThreadDirectory(directory))[0]?.title, result.title);
     assert.equal(await readFile(file, "utf8"), content);
     assert.equal((await stat(file)).mtimeMs, before.mtimeMs);
   } finally { await rm(directory, { recursive: true, force: true }); }

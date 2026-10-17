@@ -60,25 +60,3 @@ export async function inspectThread(thread: DesktopThread, query = ""): Promise<
     return { ...thread, title: thread.threadId, messageCount: null, error: error instanceof Error ? error.message : "无法读取历史" };
   }
 }
-
-export async function discoverThreadDirectory(directory: unknown): Promise<ThreadSummary[]> {
-  if (typeof directory !== "string" || !isAbsolute(directory)) throw new Error("请选择或输入历史目录的绝对路径");
-  const resolved = await realpath(directory);
-  const entries = await readdir(resolved, { withFileTypes: true });
-  const files = entries.filter(entry => entry.isFile() && /^[a-f0-9]{64}\.jsonl$/.test(entry.name));
-  if (files.length > 100) throw new Error("历史目录超过 100 个会话，请先选择较小的目录");
-  const found: ThreadSummary[] = [];
-  for (const file of files) {
-    const path = join(resolved, file.name);
-    let first = "";
-    for await (const item of readCommittedTranscriptLines(path, { maxLineBytes: MAX_RECORD_BYTES })) {
-      if ("line" in item) first = item.line;
-      break;
-    }
-    if (!first) throw new Error(`没有完整历史记录：${file.name}`);
-    const record = JSON.parse(first);
-    if (typeof record.threadId !== "string" || !record.threadId || record.threadId.length > 256 || createHash("sha256").update(record.threadId).digest("hex") + ".jsonl" !== file.name) throw new Error(`无法核对会话身份：${file.name}`);
-    found.push(await inspectThread({ threadId: record.threadId, transcriptDirectory: resolved }));
-  }
-  return found;
-}

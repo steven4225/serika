@@ -227,9 +227,6 @@ export interface RendererApi {
   listThreads(query?: string): Promise<ThreadSummary[]>;
   createThread(options?: { preserveDraft: boolean; taskDraft?: string; chatDraft?: string }): Promise<void>;
   selectThread(threadId: string): Promise<void>;
-  chooseHistoryDirectory(): Promise<string | null>;
-  discoverThreads(directory: string): Promise<ThreadSummary[]>;
-  registerThread(input: { threadId: string; transcriptDirectory: string; confirmedWorkspace: true }): Promise<void>;
   enableMemory(): Promise<void>;
   setModuleEnabled?(input: { id: string; enabled: boolean; expectedEnabled: boolean }): Promise<void>;
   consolidateMemory(input: MemoryConsolidationRequest): Promise<MemoryResult<{ runId: string }>>;
@@ -339,9 +336,6 @@ export const IPC = {
   threadsList: "runloom:threadsList",
   threadCreate: "runloom:threadCreate",
   threadSelect: "runloom:threadSelect",
-  historyDirectory: "runloom:historyDirectory",
-  threadsDiscover: "runloom:threadsDiscover",
-  threadRegister: "runloom:threadRegister",
   memoryEnable: "runloom:memoryEnable",
   memoryConsolidate: "runloom:memoryConsolidate",
   memoryConsolidationSources: "runloom:memoryConsolidationSources",

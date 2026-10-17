@@ -9,7 +9,6 @@ import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { DesktopRuntime } from "./desktop-runtime.js";
 import { ExecutionRecordStore } from "@serika/example-cli/dist/execution-record-store.js";
-import { discoverThreadDirectory } from "./thread-history.js";
 import type { MainToRenderer } from "../shared/ui-contract.js";
 
 function findMaterial(value: unknown): { batchId: string; turns: Array<{ user: { messageId: string; text: string } }> } | undefined {
@@ -327,26 +326,6 @@ describe("normal desktop memory and history entry", () => {
       const memories = await host.current.listMemories(); assert.ok(memories.ok); assert.equal(memories.value.entries.length, 1);
       const sources = await host.current.listMemoryConsolidationSources(); assert.ok(sources.ok);
       const excluded = sources.value.sources.find(source => source.preview === "总结报告怎么写？"); assert.equal(excluded?.excluded, true);
-    } finally { await host.shutdown(); await rm(root, { recursive: true, force: true }); }
-  });
-
-  it("discovers legacy transcripts without tail repair and registers only after workspace confirmation", async () => {
-    const root = await mkdtemp(join(tmpdir(), "runloom-desktop-import-test-"));
-    const directory = join(root, "legacy"); await mkdir(directory);
-    const file = join(directory, `${createHash("sha256").update("personal").digest("hex")}.jsonl`);
-    const transcript = JSON.stringify({ v: 1, type: "thread.messages.committed", threadId: "personal", messages: [{ id: "u", role: "user", parts: [{ type: "text", text: "旧对话" }] }] }) + "\n";
-    await writeFile(file, transcript + "unfinished");
-    const found = await discoverThreadDirectory(directory); assert.equal(found[0]?.messageCount, 1); assert.ok(found[0]?.error);
-    assert.equal(await readFile(file, "utf8"), transcript + "unfinished");
-    await writeFile(file, transcript);
-    const host = await DesktopRuntime.create({ userData: join(root, "profile"), cwd: root, env: {}, modelAlias: "mock", model: new MockLanguageModelV3({ doStream: async () => response() }), send: () => {} });
-    try {
-      await assert.rejects(host.registerThread({ threadId: "personal", transcriptDirectory: directory, confirmedWorkspace: false } as never), /确认/);
-      assert.equal((await host.listThreads()).length, 1);
-      await host.registerThread({ threadId: "personal", transcriptDirectory: directory, confirmedWorkspace: true });
-      await host.selectThread("personal");
-      assert.equal((await host.current.history())[0]?.id, "u");
-      assert.equal(await readFile(file, "utf8"), transcript);
     } finally { await host.shutdown(); await rm(root, { recursive: true, force: true }); }
   });
 

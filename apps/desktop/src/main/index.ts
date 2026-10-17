@@ -222,12 +222,6 @@ async function main(): Promise<void> {
   ipcMain.handle(IPC.threadsList, (_event, query) => host.listThreads(query));
   ipcMain.handle(IPC.threadCreate, (_event, options) => host.createThread(options));
   ipcMain.handle(IPC.threadSelect, (_event, threadId: string) => host.selectThread(threadId));
-  ipcMain.handle(IPC.historyDirectory, async () => {
-    const selected = await dialog.showOpenDialog(window, { title: "选择旧对话的 transcript 目录", properties: ["openDirectory"] });
-    return selected.canceled ? null : selected.filePaths[0] ?? null;
-  });
-  ipcMain.handle(IPC.threadsDiscover, (_event, directory: string) => host.discoverThreads(directory));
-  ipcMain.handle(IPC.threadRegister, (_event, input) => host.registerThread(input));
   ipcMain.handle(IPC.memoryEnable, () => host.enableMemory());
   ipcMain.handle(IPC.memoryConsolidate, (_event, input) => host.current.consolidateMemory(input));
   ipcMain.handle(IPC.memoryConsolidationSources, (_event, offset) => host.current.listMemoryConsolidationSources(offset));

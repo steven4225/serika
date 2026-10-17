@@ -75,8 +75,6 @@ export class RuntimeOwnership {
   pomodoro(...args: Parameters<DesktopRuntime["pomodoro"]>) { return this.#active().pomodoro(...args); }
   listThreads(...args: Parameters<DesktopRuntime["listThreads"]>) { return this.#active().listThreads(...args); }
   exportBackup(destination: string) { return this.#active().exportBackup(destination); }
-  discoverThreads(...args: Parameters<DesktopRuntime["discoverThreads"]>) { return this.#active().discoverThreads(...args); }
-  registerThread(...args: Parameters<DesktopRuntime["registerThread"]>) { return this.#active().registerThread(...args); }
   createThread(...args: Parameters<DesktopRuntime["createThread"]>) { return this.#active().createThread(...args); }
   selectThread(...args: Parameters<DesktopRuntime["selectThread"]>) { return this.#active().selectThread(...args); }
   telegramStatus() { return this.#active().telegramStatus(); }

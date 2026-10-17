@@ -3,8 +3,8 @@ import { createRuntimeApp, type TaskAutomationHost } from "@serika/example-cli/d
 import { createAssistantController } from "@serika/example-cli/dist/assistant-controller.js";
 import { resolveTuiModuleConfig } from "@serika/example-cli/dist/tui-module-config.js";
 import { enableDesktopMemory, resolveDesktopConfig } from "./desktop-config.js";
-import { createDesktopThread, listDesktopThreads, registerDesktopThread, resolveDesktopIdentity, selectDesktopThread, type DesktopIdentityResolution } from "./desktop-identity.js";
-import { discoverThreadDirectory, inspectThread } from "./thread-history.js";
+import { createDesktopThread, listDesktopThreads, resolveDesktopIdentity, selectDesktopThread, type DesktopIdentityResolution } from "./desktop-identity.js";
+import { inspectThread } from "./thread-history.js";
 import { RuntimeBridge, TeeOutput, type Send } from "./runtime-bridge.js";
 import { changeModuleSetting, changeDreamingSetting, changeAutonomySetting, changeTelegramAutonomySetting, type AutonomySettingInput, ConfigCommitUncertainError, type ModuleSettingInput, type DreamingSettingInput } from "./module-settings.js";
 import type { AppInfo, ContextModeInput } from "../shared/ui-contract.js";
@@ -214,19 +214,6 @@ export class DesktopRuntime {
       if (!threads.some(thread => thread.threadId === this.#identity.threadId && thread.transcriptDirectory === this.#identity.transcriptDirectory)) threads.unshift(this.#identity);
       return await exportBackup({ workspace: this.#identity.workspaceRoot, threads, destination,
         knownSecrets: Object.entries(this.#options.env).filter(([key]) => /(?:API_KEY|TOKEN|SECRET|PASSWORD)/i.test(key)).flatMap(([, value]) => value ? [value] : []) });
-    } finally { this.#changing = false; }
-  }
-
-  discoverThreads(directory: string) { return discoverThreadDirectory(directory); }
-
-  async registerThread(input: { threadId: string; transcriptDirectory: string; confirmedWorkspace: true }) {
-    this.#assertIdle();
-    if (!input || input.confirmedWorkspace !== true || typeof input.threadId !== "string") throw new Error("请明确确认旧对话属于当前工作区");
-    this.#changing = true;
-    try {
-      const found = (await discoverThreadDirectory(input.transcriptDirectory)).find(thread => thread.threadId === input.threadId);
-      if (!found || found.error) throw new Error(found?.error ?? "这个目录没有所选对话");
-      await registerDesktopThread(this.#scope(), found);
     } finally { this.#changing = false; }
   }
 
