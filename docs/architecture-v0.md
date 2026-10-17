@@ -1,3 +1,5 @@
+> **已过时**：本文描述的是 v0 设计，当前架构见 [architecture-v2.md](architecture-v2.md)。
+
 # Serika：v0 架构与实现约定
 
 状态：提案基线  

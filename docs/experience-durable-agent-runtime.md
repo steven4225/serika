@@ -1,3 +1,5 @@
+> **已归档**：durable orchestrator 与 PostgreSQL 包已移除，见 [ADR 0001](adr/0001-remove-durable-orchestrator-and-postgres.md)。
+
 ---
 type: note
 status: seed
