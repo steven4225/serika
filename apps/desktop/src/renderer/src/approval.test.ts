@@ -44,3 +44,15 @@ test("structured computer preview also waits for backend publication before enab
   assert.match(exact, /已选定，编号在详情里/);
   assert.match(exact.slice(exact.indexOf("<summary>技术详情</summary>")), /windowId[^\d]+731/);
 });
+
+test("approval offers the conversation grant only when the backend offers one", () => {
+  const plain = { ...approval("读取文件 a.txt"), toolName: "read_file" };
+  const html = markup(plain);
+  assert.match(html, /仅本次 · 不记住选择/);
+  assert.doesNotMatch(html, /允许并在本次对话内记住/);
+  const offered = markup({ ...plain, remember: { label: "本次对话内不再询问 read_file" } });
+  assert.match(offered, /允许并在本次对话内记住/);
+  assert.match(offered, /本次对话内不再询问 read_file/);
+  assert.match(offered, /拒绝不会被记住/);
+  assert.match(markup({ ...plain, preview: "", remember: { label: "x" } }), /class="allow ghost" disabled=""/);
+});

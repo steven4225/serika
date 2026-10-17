@@ -444,7 +444,11 @@ export class RuntimeBridge {
   }
 
   confirm(input: ConfirmInput): ConfirmResponse {
-    return { accepted: this.#controller.confirm(input) };
+    if (typeof input !== "object" || input === null || typeof input.approvalId !== "string" ||
+      (input.decision !== "allow" && input.decision !== "deny") ||
+      (input.remember !== undefined && input.remember !== true)) return { accepted: false };
+    return { accepted: this.#controller.confirm({ approvalId: input.approvalId, decision: input.decision,
+      ...(input.remember === true ? { remember: true } : {}) }) };
   }
 
   command(line: string): Promise<CommandResponse> {

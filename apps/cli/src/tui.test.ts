@@ -2538,6 +2538,8 @@ describe("runTui", () => {
         setPendingWebAuthorization: () => undefined,
         beginRun: () => undefined,
         endRun: () => undefined,
+        listRemembered: () => [],
+        forgetRemembered: () => false,
       },
       commands: new Map([
         ["workspace", { execute: (args: string) => { commandCalls.push(args); } }],

@@ -837,14 +837,14 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     return () => window.removeEventListener("keydown", onKey);
   }, [detailsOpen, mobileDashboard, searchOpen, detailTab, settingsRoute]);
 
-  const decide = useCallback(async (decision: "allow" | "deny") => {
+  const decide = useCallback(async (decision: "allow" | "deny", remember = false) => {
     if (approval === null || decisionInFlight.current === approval.approvalId) return;
     const id = approval.approvalId;
     decisionInFlight.current = id;
     setDecidingId(id);
     setError(null);
     try {
-      const { accepted } = await window.runloom.confirm({ approvalId: id, decision });
+      const { accepted } = await window.runloom.confirm({ approvalId: id, decision, ...(remember && decision === "allow" ? { remember: true as const } : {}) });
       if (!accepted) setError("确认已失效，本次点击未执行。请重新核对当前调用，不会自动批准新调用。");
     } catch { setError("确认结果未收到。请查看当前状态，不会自动重试。"); }
     finally {
@@ -1187,7 +1187,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
           {error ? info ? <ErrorBanner message={error} onClose={() => setError(null)} /> : <ErrorBanner message={error} /> : null}
           {workTasks.draftError ? <div className="error error-banner" role="alert"><span>{workTasks.draftError}</span><button className="ghost" type="button" onClick={workTasks.retryDrafts}>重试任务草稿保存</button></div> : null}
           {uncertainSteer ? <div className="attention-summary" role="status"><span>补充要求的接收凭证待核对，草稿不会重发。{uncertainSteer.taskId ? "原补充属于工作任务；核对前不会作为普通对话发送。" : ""}</span><details><summary>查看这次补充</summary><pre>{uncertainSteer.text}</pre></details><button type="button" className="ghost" onClick={() => void recheckSteer()}>核对接收状态</button>{!busy ? <button type="button" className="ghost" onClick={() => void releaseSteer()}>保留草稿，结束本次核对</button> : null}</div> : null}
-          {approval ? <ApprovalCard approval={approval} deciding={decidingId === approval.approvalId} onDecision={decision => void decide(decision)} /> : null}
+          {approval ? <ApprovalCard approval={approval} deciding={decidingId === approval.approvalId} onDecision={(decision, remember) => void decide(decision, remember === true)} /> : null}
           <ZCodePromptEditor inputRef={inputRef} value={composerText} aria-label={composingTask ? "本轮任务指令" : "消息输入"}
               notice={composingTask ? !composerTask ? "任务已切换，原草稿仍保留。重新选择任务，或切回普通对话。" : !busy && !taskActions(composerTask).run ? "本轮已结束，请从任务卡查看结果，或切回普通对话。" : null : null}
               topContent={<>{recoverableAttachments ? <div className="zcode-draft-setting"><span>上次未完成消息的附件仍可恢复。</span><button type="button" className="ghost" disabled={busy || sending || !!attachments.length || !!input.trim()} onClick={() => { setAttachments(recoverableAttachments.files); setInput(recoverableAttachments.text); setRecoverableAttachments(null); }}>恢复到草稿</button></div> : null}<AttachmentPreview attachments={attachments} setAttachments={setAttachments} disabled={sending} />{creatingTask ? <div className="composer-create-mode"><strong>新任务</strong><button type="button" className="ghost" disabled={busy || sending} onClick={() => setCreatingTask(false)}>返回普通对话</button></div> : null}{workTasks.task || composingTask ? <div className="composer-target" role="group" aria-label="发送方式"><button className={!composingTask ? "selected" : ""} type="button" aria-pressed={!composingTask} onClick={() => setTaskComposerId(null)}>普通对话</button><button className={composingTask ? "selected" : ""} type="button" aria-pressed={composingTask} disabled={!workTasks.task || (!taskActions(workTasks.task).run && !composingTask)} onClick={composeTask}>补充当前任务</button>{composingTask ? <span>{composerTask ? humanFacingTitle(composerTask.goal, "当前任务") : "当前任务暂不可用"}</span> : null}</div> : null}{excludeFromMemory && !composingTask ? <div className="zcode-draft-setting"><Icon name="memory" size={13} /><span>本条不存入记忆</span><button type="button" className="icon-button" aria-label="恢复本条记忆整理" onClick={() => setExcludeFromMemory(false)}><Icon name="close" size={12} /></button></div> : null}</>}

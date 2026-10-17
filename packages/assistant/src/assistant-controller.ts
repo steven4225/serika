@@ -135,7 +135,8 @@ export interface AssistantController {
   /** Supplement the active primary Run; this is not a queued or new Run. */
   steer(input: { expectedRunId: string; id: string; text: string }): Promise<AssistantSteerResponse>;
   cancel(): Promise<void>;
-  confirm(input: { approvalId: string; decision: "allow" | "deny" }): boolean;
+  /** `remember: true` keeps the approval's offered conversation grant (see `PendingToolApproval.remember`). */
+  confirm(input: { approvalId: string; decision: "allow" | "deny"; remember?: boolean }): boolean;
   /**
    * Resolves after the command settles. A command that threw or was cancelled
    * returns `ok: false` here as well as emitting an `error` event; callers
@@ -307,7 +308,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     desktopEntry = false,
   ): Promise<{ result: RunResult; requestedMemoryTool: boolean; finalizationFailed: boolean }> => {
     const autonomous = phase === "primary" && app.beginForegroundExecution?.(source === "telegram" ? "telegram" : desktopEntry ? "desktop" : undefined, message) === true;
-    app.toolConfirmation?.beginRun(autonomous);
+    app.toolConfirmation?.beginRun(autonomous, source);
     if (phase === "primary") {
       primaryRunId = undefined;
       primaryContextMessageIds = new Set([message.id]);

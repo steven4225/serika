@@ -99,7 +99,7 @@ const api = {
     emit({ type: "approval", approval: snapshot.pendingApproval });
     return { ok: true as const, runId: currentRunId };
   },
-  confirm: async (input: { approvalId: string; decision: "allow" | "deny" }) => {
+  confirm: async (input: { approvalId: string; decision: "allow" | "deny"; remember?: true }) => {
     if (input.approvalId !== snapshot.pendingApproval?.approvalId) return { accepted: false };
     finish(input.decision === "allow"); return { accepted: true };
   },

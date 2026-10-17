@@ -15,17 +15,18 @@ const TOOL_LABELS: Record<string, string> = {
 export function ApprovalCard({ approval, deciding, onDecision }: {
   approval: PendingApproval;
   deciding: boolean;
-  onDecision: (decision: "allow" | "deny") => void;
+  onDecision: (decision: "allow" | "deny", remember?: boolean) => void;
 }) {
   const computer = describeComputerApproval(approval);
   const reminder = computer ? null : presentReminderConfirmation(approval);
   const invalidComputer = approval.toolName.startsWith("computer_") && computer === undefined;
   // Strip only the terminal control suffix, not user text containing [y/n].
   const preview = approval.preview.replace(/(?:Allow this call\?|允许这次[^\n]*？)\s*\[y\/n\]\s*$/i, "").trim();
+  const allowDisabled = deciding || invalidComputer || !approval.preview.trim() || (!computer && !reminder && !preview);
   const heading = reminder?.title ?? humanFacingTitle(TOOL_LABELS[approval.toolName], "确认这次操作");
   return (
     <section className="card approval" aria-label={reminder ? "提醒确认" : "工具调用确认"} aria-live="polite">
-      <div className="card-head"><strong>等待你确认</strong><span className="hint">仅本次 · 不记住选择</span></div>
+      <div className="card-head"><strong>等待你确认</strong><span className="hint">{approval.remember ? "可选：本次对话内记住" : "仅本次 · 不记住选择"}</span></div>
       <div className="approval-content">
         {computer ? <>
           <h3>{computer.title}</h3>
@@ -55,9 +56,13 @@ export function ApprovalCard({ approval, deciding, onDecision }: {
         </>}
       </div>
       <details className="technical-id"><summary>详情</summary><p>工具 {TOOL_LABELS[approval.toolName] ?? "这次操作"}</p><code>{approval.toolName}</code><code>{approval.approvalId}</code></details>
+      {approval.remember ? <p className="hint approval-remember">选“允许并记住”：{approval.remember.label}。只在本次对话内有效，切换对话或重启后失效，可用 /permissions 查看和清除；拒绝不会被记住。</p> : null}
       <div className="actions">
         <button className="deny" disabled={deciding} onClick={() => onDecision("deny")}>{reminder ? "先不要" : "拒绝本次调用"}</button>
-        <button className="allow" disabled={deciding || invalidComputer || !approval.preview.trim() || (!computer && !reminder && !preview)} onClick={() => onDecision("allow")}>
+        {approval.remember ? <button className="allow ghost" disabled={allowDisabled} onClick={() => onDecision("allow", true)}>
+          {deciding ? "正在提交确认…" : "允许并在本次对话内记住"}
+        </button> : null}
+        <button className="allow" disabled={allowDisabled} onClick={() => onDecision("allow")}>
           {deciding ? "正在提交确认…" : computer?.allowLabel ?? reminder?.allowLabel ?? "允许本次调用"}
         </button>
       </div>

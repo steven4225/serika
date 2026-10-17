@@ -5,7 +5,7 @@ import type {
   BeforeToolExecuteInput,
   ToolExecutionDecision,
 } from "@serika/core";
-import { resolve, sep } from "node:path";
+import { dirname, resolve, sep } from "node:path";
 import { AUTO_CONSOLIDATION_AGENT_ID } from "./consolidation.js";
 import { validateWorkspacePath } from "./workspace-path.js";
 
@@ -13,14 +13,39 @@ export interface ToolConfirmation {
   beforeToolExecute: BeforeToolExecute;
   handleLine(line: string): boolean;
   getPending(): PendingToolApproval | undefined;
-  resolveApproval(input: { approvalId: string; decision: "allow" | "deny" }): boolean;
+  /** `remember` also keeps the offered conversation grant; only valid with "allow" when one is offered. */
+  resolveApproval(input: { approvalId: string; decision: "allow" | "deny"; remember?: boolean }): boolean;
   subscribePending(listener: (pending: PendingToolApproval | undefined) => void): () => void;
   setPendingAuthorization(rule: RunAuthorizationInput): void;
   setPendingShellAuthorization(): void;
   setPendingWebAuthorization(origins: readonly string[]): void;
-  beginRun(autonomous?: boolean): void;
+  /** A Telegram Run neither uses nor offers remembered conversation grants. */
+  beginRun(autonomous?: boolean, source?: "telegram"): void;
   endRun(): void;
+  /** Grants remembered in this conversation (process memory only). */
+  listRemembered(): RememberedGrant[];
+  forgetRemembered(id: string): boolean;
 }
+
+/**
+ * An approval the user chose to remember for this conversation. It lives in
+ * this confirmation's memory only: never persisted, gone on restart or when
+ * the conversation's assistant is replaced, and bound to the granting agent.
+ * - `tool`: every call of one read-risk tool;
+ * - `directory`: one file tool writing files directly in one workspace
+ *   directory (`scope`, "" is the root), not its subdirectories;
+ * - `origin`: `web_fetch` of one exact web origin.
+ */
+export interface RememberedGrant {
+  id: string;
+  agentId: string;
+  toolName: string;
+  kind: "tool" | "directory" | "origin";
+  scope: string;
+  label: string;
+}
+
+export type ToolRiskLookup = (toolName: string) => string | undefined;
 
 /** One tool call awaiting a user decision. The preview may still be loading. */
 export interface PendingToolApproval {
@@ -29,6 +54,8 @@ export interface PendingToolApproval {
   toolName: string;
   input: unknown;
   preview: string;
+  /** Present when this call can be allowed and remembered for the conversation. */
+  remember?: { label: string };
 }
 
 /** Shell approval can be scoped to a single Run only when the executor is an
@@ -262,8 +289,55 @@ function confirmationPrompt(
   return `\nTool: ${toolName}\nInput: ${JSON.stringify(input)}\nAllow this call? [y/n] `;
 }
 
+/** Tools whose approval is never remembered, whatever their declared risk. */
+const NEVER_REMEMBERED_PREFIXES = ["computer_", "recipe_", "memory_"] as const;
+const NEVER_REMEMBERED_TOOLS = new Set(["shell_exec"]);
+const MAX_REMEMBERED_GRANTS = 64;
+
+type GrantCandidate = Omit<RememberedGrant, "id">;
+
+function fileDirectory(workspaceRoot: string, input: unknown): string | undefined {
+  const validated = validateWorkspacePath(workspaceRoot, readFilePath(input));
+  if (!validated.ok || validated.relativePath === "") return undefined;
+  const directory = dirname(validated.relativePath);
+  return directory === "." ? "" : directory;
+}
+
+function grantCandidate(
+  input: BeforeToolExecuteInput,
+  workspaceRoot: string | undefined,
+  toolRisk: ToolRiskLookup | undefined,
+): GrantCandidate | undefined {
+  const { toolName } = input;
+  const agentId = input.definition.id;
+  if (NEVER_REMEMBERED_TOOLS.has(toolName) ||
+    NEVER_REMEMBERED_PREFIXES.some((prefix) => toolName.startsWith(prefix))) return undefined;
+  if (toolName === "write_file" || toolName === "edit_file") {
+    if (workspaceRoot === undefined) return undefined;
+    const scope = fileDirectory(workspaceRoot, input.input);
+    if (scope === undefined) return undefined;
+    const place = scope === "" ? "工作区根目录" : `${scope}${sep}`;
+    return { agentId, toolName, kind: "directory", scope,
+      label: `本次对话内允许 ${toolName} 改动 ${place} 下的文件（不含子目录）` };
+  }
+  if (toolName === "web_fetch") {
+    const origin = webInputOrigin(input.input);
+    if (origin === undefined) return undefined;
+    return { agentId, toolName, kind: "origin", scope: origin, label: `本次对话内允许 web_fetch 读取 ${origin}` };
+  }
+  if (toolRisk?.(toolName) === "read") {
+    return { agentId, toolName, kind: "tool", scope: "", label: `本次对话内不再询问 ${toolName}` };
+  }
+  return undefined;
+}
+
+function sameGrant(a: GrantCandidate, b: GrantCandidate): boolean {
+  return a.agentId === b.agentId && a.toolName === b.toolName && a.kind === b.kind && a.scope === b.scope;
+}
+
 interface PendingConfirmation {
   approval: PendingToolApproval;
+  grant?: GrantCandidate;
   signal: AbortSignal;
   onAbort: () => void;
   resolve: (decision: ToolExecutionDecision) => void;
@@ -283,6 +357,8 @@ export function createToolConfirmation(
     workspaceRoot?: string;
     persistentAuthorizations?: readonly RunAuthorizationInput[];
     shellSandboxMode?: ShellSandboxMode;
+    /** Declared tool risk; only read-risk tools can be remembered by name. */
+    toolRisk?: ToolRiskLookup;
   } = {},
 ): ToolConfirmation {
   let pending: PendingConfirmation | undefined;
@@ -294,13 +370,19 @@ export function createToolConfirmation(
   let activeAutonomy = false;
   let nextWebAuthorization: WebAuthorization | undefined;
   let activeWebAuthorization: WebAuthorization | undefined;
+  let rememberedActive = true;
+  let nextGrantId = 1;
+  const remembered: RememberedGrant[] = [];
   const pendingListeners = new Set<(pending: PendingToolApproval | undefined) => void>();
   const persistentAuthorizations = (options.persistentAuthorizations ?? []).map(
     (rule) => normalizeAuthorization(rule, options.workspaceRoot),
   );
 
   const getPending = (): PendingToolApproval | undefined =>
-    pending === undefined ? undefined : { ...pending.approval };
+    pending === undefined ? undefined : {
+      ...pending.approval,
+      ...(pending.approval.remember ? { remember: { ...pending.approval.remember } } : {}),
+    };
 
   const notifyPending = (): void => {
     const current = getPending();
@@ -370,6 +452,12 @@ export function createToolConfirmation(
     ) {
       return Promise.resolve({ allow: true });
     }
+    const candidate = rememberedActive
+      ? grantCandidate(input, options.workspaceRoot, options.toolRisk)
+      : undefined;
+    if (candidate !== undefined && remembered.some((grant) => sameGrant(grant, candidate))) {
+      return Promise.resolve({ allow: true });
+    }
     if (pending !== undefined) {
       throw new Error("Tool confirmation is already pending");
     }
@@ -392,7 +480,10 @@ export function createToolConfirmation(
         toolName: input.toolName,
         input: input.input,
         preview: "",
+        ...(candidate !== undefined && remembered.length < MAX_REMEMBERED_GRANTS
+          ? { remember: { label: candidate.label } } : {}),
       },
+      ...(candidate !== undefined && remembered.length < MAX_REMEMBERED_GRANTS ? { grant: candidate } : {}),
       signal: input.signal,
       onAbort,
       resolve,
@@ -423,7 +514,10 @@ export function createToolConfirmation(
         entry.approval.preview = text;
         notifyPending();
         if (pending !== entry) return;
-        write(output, `\n[confirmation] Waiting for y/n; the tool has not run yet.\n${text}`);
+        const remember = entry.approval.remember;
+        write(output, remember === undefined
+          ? `\n[confirmation] Waiting for y/n; the tool has not run yet.\n${text}`
+          : `\n[confirmation] Waiting for y/n/r; the tool has not run yet. r = allow and ${remember.label}.\n${text}`);
       } catch (error) {
         clearPending(entry);
         reject(error);
@@ -455,14 +549,21 @@ export function createToolConfirmation(
   const resolveApproval = (input: {
     approvalId: string;
     decision: "allow" | "deny";
+    remember?: boolean;
   }): boolean => {
     const entry = pending;
     if (entry === undefined || entry.approval.approvalId !== input.approvalId) return false;
+    // Remembering is only the offered grant of an allow; never a silent plain allow.
+    if (input.remember === true && (input.decision !== "allow" || entry.grant === undefined)) return false;
     // The empty approval is published before asynchronous preview preparation.
     // All callers (desktop, IM and TUI), not just the renderer, must wait for it.
     if (input.decision === "allow" && entry.approval.preview.trim().length === 0) return false;
     clearPending(entry);
     if (input.decision === "allow") {
+      if (input.remember === true && entry.grant !== undefined &&
+        !remembered.some((grant) => sameGrant(grant, entry.grant!))) {
+        remembered.push({ id: String(nextGrantId++), ...entry.grant });
+      }
       entry.resolve({ allow: true });
     } else {
       if (entry.approval.toolName === "web_search") searchDeniedThisRun = true;
@@ -475,14 +576,18 @@ export function createToolConfirmation(
     const entry = pending;
     if (entry === undefined) return false;
     const answer = line.trim().toLowerCase();
-    if (answer !== "y" && answer !== "n") {
-      write(output, "\nPlease enter y or n.\nAllow this call? [y/n] ");
+    const canRemember = entry.grant !== undefined;
+    if (answer !== "y" && answer !== "n" && !(canRemember && answer === "r")) {
+      write(output, canRemember
+        ? "\nPlease enter y, n or r (allow and remember in this conversation).\nAllow this call? [y/n/r] "
+        : "\nPlease enter y or n.\nAllow this call? [y/n] ");
       return true;
     }
 
     return resolveApproval({
       approvalId: entry.approval.approvalId,
-      decision: answer === "y" ? "allow" : "deny",
+      decision: answer === "n" ? "deny" : "allow",
+      ...(answer === "r" ? { remember: true } : {}),
     });
   };
 
@@ -507,8 +612,9 @@ export function createToolConfirmation(
     nextWebAuthorization = { allowedOrigins: normalized, lifetime: "run" };
   };
 
-  const beginRun = (autonomous = false): void => {
+  const beginRun = (autonomous = false, source?: "telegram"): void => {
     activeAutonomy = autonomous;
+    rememberedActive = source !== "telegram";
     searchDeniedThisRun = false;
     activeRunAuthorization = nextRunAuthorization;
     nextRunAuthorization = undefined;
@@ -521,6 +627,7 @@ export function createToolConfirmation(
 
   const endRun = (): void => {
     activeAutonomy = false;
+    rememberedActive = true;
     searchDeniedThisRun = false;
     activeRunAuthorization = undefined;
     activeShellAuthorization = false;
@@ -546,5 +653,12 @@ export function createToolConfirmation(
     setPendingWebAuthorization,
     beginRun,
     endRun,
+    listRemembered: () => remembered.map((grant) => ({ ...grant })),
+    forgetRemembered: (id) => {
+      const index = remembered.findIndex((grant) => grant.id === id);
+      if (index < 0) return false;
+      remembered.splice(index, 1);
+      return true;
+    },
   };
 }

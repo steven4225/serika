@@ -8,6 +8,7 @@ import {
   RUN_AUTHORIZED_FILE_TOOLS,
   type ToolConfirmation,
   type ToolConfirmationPrompt,
+  type ToolRiskLookup,
 } from "./tool-confirmation.js";
 import type { FileAuthorizationRule } from "./tui-module-config.js";
 
@@ -38,6 +39,8 @@ export function createPermissionExtension(output: Writable, options: {
    * (for example a skill's own declared read tools).
    */
   autoApprove: readonly ((input: BeforeToolExecuteInput) => boolean)[];
+  /** Declared risk of registered tools; read-risk tools may be remembered by name. */
+  toolRisk?: ToolRiskLookup;
 }): PermissionExtension {
   const { workspaceRoot, fileAuthorizations, report } = options;
   const shellSandbox = options.shell.sandbox;
@@ -45,6 +48,7 @@ export function createPermissionExtension(output: Writable, options: {
     prompt: options.prompt,
     ...(workspaceRoot !== undefined ? { workspaceRoot } : {}),
     shellSandboxMode: shellSandbox === undefined ? "host" : "docker",
+    ...(options.toolRisk ? { toolRisk: options.toolRisk } : {}),
     ...(fileAuthorizations.length > 0
       ? {
           persistentAuthorizations: fileAuthorizations.map(
@@ -150,8 +154,15 @@ export function createPermissionExtension(output: Writable, options: {
     commands.push({
       name: "permissions",
       execute(args) {
-        if (args.trim() !== "") {
-          output.write("\n[permissions] Usage: /permissions\n");
+        const tokens = args.trim().split(/\s+/).filter(Boolean);
+        if (tokens[0] === "forget" && tokens.length === 2) {
+          output.write(confirmation.forgetRemembered(tokens[1]!)
+            ? `\n[permissions] 已清除第 ${tokens[1]} 条记住的授权；之后同类调用会重新询问。\n`
+            : `\n[permissions] 没有编号为 ${tokens[1]} 的记住授权。\n`);
+          return;
+        }
+        if (tokens.length !== 0) {
+          output.write("\n[permissions] Usage: /permissions | /permissions forget <编号>\n");
           return;
         }
         const source =
@@ -190,6 +201,14 @@ export function createPermissionExtension(output: Writable, options: {
             );
           }
           output.write("修改或删除配置后需重启 TUI 生效。\n");
+        }
+        const remembered = confirmation.listRemembered();
+        if (remembered.length === 0) {
+          output.write("本次对话记住的授权: 无\n");
+        } else {
+          output.write(`本次对话记住的授权: ${remembered.length} 条（只在本进程内存，重启或切换对话后失效；Telegram 不继承）\n`);
+          for (const grant of remembered) output.write(`- ${grant.id}: ${grant.label}\n`);
+          output.write("用 /permissions forget <编号> 清除单条。\n");
         }
         output.write(
           "Shell 的下一 Run 授权只在 Docker sandbox 模式可用；host 模式默认逐次确认，桌面可显式开启工作区自主执行。Shell、memory、checkpoint、Todoist、task 不受持久文件授权影响。\n",

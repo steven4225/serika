@@ -51,6 +51,8 @@ export interface PendingApproval {
   toolName: string;
   input: unknown;
   preview: string;
+  /** Present when this call may be allowed and remembered for the conversation. */
+  remember?: { label: string };
 }
 
 export interface ShellProgressChunk {
@@ -150,7 +152,8 @@ export type MainToRenderer =
   | { type: "work-task-updated"; task: WorkTask }
   | { type: "error"; message: string };
 
-export type ConfirmInput = { approvalId: string; decision: "allow" | "deny" };
+/** `remember: true` is valid only with "allow" on an approval that offers `remember`. */
+export type ConfirmInput = { approvalId: string; decision: "allow" | "deny"; remember?: true };
 
 export type RunResponse =
   | { ok: true; runId: string }

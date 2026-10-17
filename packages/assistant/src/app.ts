@@ -1280,6 +1280,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
             (input) => taskReadApproval?.allows({ agentId: input.definition.id, workspaceRoot,
               toolName: input.toolName, registeredTool: registeredTools.find(tool => tool.metadata.name === input.toolName) }) === true,
           ],
+          toolRisk: (name) => tools.metadata(name)?.risk,
         })
       : undefined;
     const toolConfirmation = permission?.confirmation;
