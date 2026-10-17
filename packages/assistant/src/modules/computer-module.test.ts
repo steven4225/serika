@@ -7,7 +7,7 @@ import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { AgentError } from "@serika/core";
 import { AiSdkAgentLoop, InMemoryModelRegistry, ToolRegistry } from "@serika/ai-sdk-adapter";
-import { createModuleHost } from "../module-host.js";
+import { createModuleHost, type ToolPermissionFacts } from "../module-host.js";
 import { computerConfigSchema, createComputerModule, createDriverCall, type DriverCall } from "./computer-module.js";
 
 const config = { enabled: true, executable: "/trusted/cua-driver", allowedBundleIds: ["com.apple.TextEdit"] };
@@ -185,6 +185,16 @@ describe("allowed local application computer tools", () => {
     assert.equal(result.effect, "unverifiable");
     assert.equal((await h.observe()).ok, true);
     assert.equal(h.calls.filter((c) => c.name === "click").length, 1);
+  });
+  it("declares never-remembered calls, the connectivity-check card and its instructions", () => {
+    const host = createModuleHost([createComputerModule(config, { call: async () => ({}) })], { notify() {} });
+    assert.deepEqual([...host.toolPermissions.keys()], ["computer_check", "computer_observe", "computer_action"]);
+    for (const declared of host.toolPermissions.values()) assert.equal(declared.defaults?.remember, "never");
+    const check = host.toolPermissions.get("computer_check")?.confirmation?.({ toolName: "computer_check" } as Parameters<NonNullable<ToolPermissionFacts["confirmation"]>>[0]);
+    assert.match(String(check), /^\n检查 CUA 连接\n.*Allow this call\? \[y\/n\] $/s);
+    assert.equal(host.toolPermissions.get("computer_action")?.confirmation, undefined);
+    assert.match(host.instructions("computer"), /^Computer tools control only explicitly allowed local apps/);
+    host.dispose();
   });
 });
 

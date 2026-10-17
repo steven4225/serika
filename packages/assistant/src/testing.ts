@@ -25,6 +25,7 @@ export type { RunAuthorization } from "./tool-confirmation.js";
 export { createWriteFileTool } from "./write-file.js";
 
 import { createModuleHost as createHostForFacts, type ToolPermissionFacts } from "./module-host.js";
+import { createComputerModule as computerForFacts } from "./modules/computer-module.js";
 import { createPomodoroModule as pomodoroForFacts } from "./modules/pomodoro-module.js";
 import { createReadFileModule as readFileForFacts } from "./modules/read-file-module.js";
 import { createRecipeModule as recipesForFacts } from "./modules/recipe-module.js";
@@ -49,6 +50,7 @@ export function builtinToolPermissions(options: { shell?: "host" | "docker" } = 
     recipesForFacts({ store: new RecipeStoreForFacts("."), records: recordsForFacts("."), threadId: "facts",
       currentRun: () => undefined, shell }),
     webForFacts({ searchEnabled: true, feedEnabled: true }),
+    computerForFacts({ enabled: true, executable: "/facts/cua-driver", allowedBundleIds: ["com.example.App"] }),
   ], { notify() {} });
   host.dispose();
   return host.toolPermissions;

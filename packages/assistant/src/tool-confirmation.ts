@@ -224,7 +224,7 @@ function confirmationPrompt(toolName: string, input: unknown): string {
 }
 
 /** Tools whose approval is never remembered, whatever their declared risk. */
-const NEVER_REMEMBERED_PREFIXES = ["computer_", "memory_"] as const;
+const NEVER_REMEMBERED_PREFIXES = ["memory_"] as const;
 const MAX_REMEMBERED_GRANTS = 64;
 
 type GrantCandidate = Omit<RememberedGrant, "id">;
