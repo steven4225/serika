@@ -1,5 +1,4 @@
 import { createInterface } from "node:readline/promises";
-import { userMessageClock } from "./memory-observation-policy.js";
 import type { Readable, Writable } from "node:stream";
 import type { UIMessage } from "ai";
 import type {
@@ -11,12 +10,20 @@ import type {
 } from "@serika/core";
 import {
   AUTO_CONSOLIDATION_AGENT_ID,
+  automaticConsolidationMessage,
+  automaticConsolidationSkip,
   isAutoConsolidationRequest,
-} from "./consolidation.js";
-import { prepareConsolidationExtraction, stageConsolidationExtraction, type MemoryConsolidation } from "./memory-consolidation.js";
-import type { MemoryResult } from "./memory-candidates.js";
-import { automaticConsolidationMessage, automaticConsolidationSkip, waitForConsolidationHandoff } from "./consolidation-lifecycle.js";
-import type { ToolConfirmation } from "./tool-confirmation.js";
+  prepareConsolidationExtraction,
+  stageConsolidationExtraction,
+  userMessageClock,
+  waitForConsolidationHandoff,
+  type MemoryConsolidation,
+  type MemoryResult,
+  type ToolConfirmation,
+  type TuiCommand,
+  type TuiCompaction,
+  type TuiResume,
+} from "@serika/assistant";
 
 type Runtime = {
   run<TContext>(request: RunRequest<TContext>): Promise<RunHandle>;
@@ -31,11 +38,6 @@ type TuiState =
 
 function write(output: Writable, text: string): void {
   output.write(text);
-}
-
-/** An idle command handled directly by the terminal adapter. */
-export interface TuiCommand {
-  execute(args: string): void | Promise<void>;
 }
 
 function isTTY(stream: Readable | Writable): boolean {
@@ -63,25 +65,6 @@ export interface RunTuiOptions {
   registerNotificationRedraw?: (redraw: () => void) => void;
 }
 
-/**
- * The TUI owns the lifecycle of a manual compaction, while the compactor owns
- * context selection, summary generation, and persistence. Keeping this
- * boundary callback-based means /compact never creates a user Run or a second
- * AgentLoop.
- */
-export interface TuiCompaction {
-  compact(
-    signal: AbortSignal,
-  ): Promise<{ message?: string } | void>;
-}
-
-/** /resume inspects without a Run; only the next primary Run can use its observation. */
-export interface TuiResume {
-  inspect(signal: AbortSignal): Promise<string>;
-  clear(): void;
-  beginRun(): void;
-  endRun(): void;
-}
 
 
 function toolPartText(part: Extract<UIMessage["parts"][number], { type: "dynamic-tool" }>): string {

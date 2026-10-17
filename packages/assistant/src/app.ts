@@ -104,7 +104,7 @@ import {
   type ToolConfirmation,
   type ToolConfirmationPrompt,
 } from "./tool-confirmation.js";
-import type { TuiCommand, TuiCompaction, TuiResume } from "./tui.js";
+import type { TuiCommand, TuiCompaction, TuiResume } from "./host-commands.js";
 
 /** The interactive agent that receives the full module tool set. */
 export const PRIMARY_AGENT_ID = "calculator";

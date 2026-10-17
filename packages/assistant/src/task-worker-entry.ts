@@ -18,7 +18,7 @@ import {
   InMemoryModelRegistry,
   ToolRegistry,
 } from "@serika/ai-sdk-adapter";
-import { resolveWorkspace } from "./cli-options.js";
+import { resolveWorkspace } from "./resolve-workspace.js";
 import { configureCliModel } from "./model-config.js";
 import { createModuleHost } from "./module-host.js";
 import {

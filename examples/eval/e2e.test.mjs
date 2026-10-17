@@ -3,7 +3,6 @@ import { test } from 'node:test';
 import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseTuiArgs } from '@serika/assistant/internal/cli-options.js';
 import { resolveTuiModuleConfig } from '@serika/assistant/internal/tui-module-config.js';
 import { fixtureConfig, fixtureRuntimeEnvironment, collectEvidence, collectMemorySnapshot, createFixtureApprover, safeError, currentRestoreFixtureFact } from './e2e.mjs';
 import { resolveModelContextWindow } from '@serika/assistant/internal/model-config.js';
@@ -145,7 +144,7 @@ test('all frozen fixture configs are accepted by the real runtime resolver witho
     for (const spec of cases) {
       const config = join(root, 'config.json');
       await writeFile(config, JSON.stringify(fixtureConfig(spec, workspace)));
-      const resolved = await resolveTuiModuleConfig(parseTuiArgs([join(root, 'transcripts'), '--config', config]), { cwd: root });
+      const resolved = await resolveTuiModuleConfig({ configPath: config }, { cwd: root });
       assert.equal(resolved.enabled.memory, spec.category === 'memory', spec.id);
       assert.equal(resolved.enabled.shell, false);
       assert.equal(resolved.enabled.web, false);

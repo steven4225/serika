@@ -12,3 +12,14 @@ export { RSS_DIGEST_TASK_PROMPT, TASK_FILE_NAME, TASK_WORKER_LOCK_FILE_NAME } fr
 export { createTaskDesktopNotifier } from "./task-worker-entry.js";
 export { createTaskWorkerHealthWriter } from "./task-worker-health.js";
 export { createWorkTaskStore } from "./work-task-store.js";
+export { AUTO_CONSOLIDATION_SOURCE } from "./consolidation.js";
+export { CHECKPOINT_FILE_NAME, createCheckpointStore } from "./checkpoint-store.js";
+export type { CheckpointDraft } from "./checkpoint-store.js";
+export { createModuleHost } from "./module-host.js";
+export { createCheckpointModule } from "./modules/checkpoint-module.js";
+export { createReadFileModule } from "./modules/read-file-module.js";
+export type { ReadFileResult } from "./read-file.js";
+export { createBuiltinSkill } from "./skill-catalog.js";
+export { createToolConfirmation } from "./tool-confirmation.js";
+export type { RunAuthorization } from "./tool-confirmation.js";
+export { createWriteFileTool } from "./write-file.js";

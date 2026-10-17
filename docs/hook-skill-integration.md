@@ -169,7 +169,7 @@ RUNLOOM_MODEL=command-code node --env-file=.env \
 
 ```sh
 pnpm build
-node --env-file=.env packages/assistant/dist/index.js --check --config /absolute/path/to/config.json
+node --env-file=.env apps/cli/dist/index.js --check --config /absolute/path/to/config.json
 ```
 
 默认测试使用脚本模型，真实模型验收显式开启，费用请求上限五次，不重跑整个案例、不允许 mock 回退：

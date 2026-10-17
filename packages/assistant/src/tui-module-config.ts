@@ -13,7 +13,7 @@ import { normalizeEmbeddingConfig, type ResolvedEmbeddingConfig } from "./memory
 import { computerConfigSchema, type ComputerConfig } from "./modules/computer-module.js";
 import { hooksConfigSchema, type HookRule } from "./automation-hooks.js";
 import { skillPackageRegistrationsSchema, type SkillPackageRegistration } from "./skill-catalog.js";
-import { resolveWorkspace } from "./cli-options.js";
+import { resolveWorkspace } from "./resolve-workspace.js";
 import type { AssistantAssembly } from "./assembly.js";
 import {
   RUN_AUTHORIZED_FILE_TOOLS,

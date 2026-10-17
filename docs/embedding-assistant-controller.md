@@ -4,14 +4,13 @@
 
 ## 稳定导入路径
 
-包通过 `exports` 暴露 `./dist/*.js`（含 `types`）。前端只应使用这些深路径：
+宿主只从包的公开入口导入（`packages/assistant/package.json` 的 `exports`）：
 
 ```ts
-import { createRuntimeApp } from "@serika/assistant/dist/app.js";
-import { createAssistantController } from "@serika/assistant/dist/assistant-controller.js";
+import { createAssistantController, createRuntimeApp } from "@serika/assistant";
 ```
 
-包根（`"."`）故意不导出：`dist/index.js` 是会立即执行的 CLI 入口，不是库。
+渲染进程这类浏览器代码只能从 `@serika/assistant/browser` 取运行时值；`./testing` 只给测试用。命令行入口不在本包，在 `apps/cli`（`apps/cli/dist/index.js` 会立即执行，不是库）。
 
 ## 必须遵守的接线规则
 

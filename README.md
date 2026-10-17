@@ -55,7 +55,7 @@ pnpm build
 
 ```bash
 pnpm build
-RUNLOOM_MODEL=deepseek node --env-file=.env packages/assistant/dist/index.js --tui /absolute/path/to/transcripts --thread computer-user --config /absolute/path/to/config.json
+RUNLOOM_MODEL=deepseek node --env-file=.env apps/cli/dist/index.js --tui /absolute/path/to/transcripts --thread computer-user --config /absolute/path/to/config.json
 ```
 
 测试指令：`只观察 TextEdit 的窗口，告诉我有哪些控件，不要修改内容。` 确认后再指定窗口和动作。桌面端通过原有 `createRuntimeApp` / Controller 配置和 approvalId 接线即可，本次未修改桌面仓。`--check` 只检查配置，不证明驱动运行或操作成功。
@@ -231,9 +231,9 @@ RUNLOOM_MODEL=mock pnpm tui -- ./var/runloom --thread daily-plan --config ./runl
 
 ```bash
 mkdir -p ./var/personal-workspace ./var/personal-transcripts
-RUNLOOM_MODEL=deepseek node --env-file=.env packages/assistant/dist/index.js \
+RUNLOOM_MODEL=deepseek node --env-file=.env apps/cli/dist/index.js \
   --tui ./var/personal-transcripts --thread personal --config ./docs/daily.example.json --check
-RUNLOOM_MODEL=deepseek node --env-file=.env packages/assistant/dist/index.js \
+RUNLOOM_MODEL=deepseek node --env-file=.env apps/cli/dist/index.js \
   --tui ./var/personal-transcripts --thread personal --config ./docs/daily.example.json
 ```
 
@@ -336,7 +336,7 @@ COMMAND_CODE_API_KEY=<your-command-code-api-key>
 
 ```sh
 pnpm build
-RUNLOOM_MODEL=command-code node --env-file=.env packages/assistant/dist/index.js \
+RUNLOOM_MODEL=command-code node --env-file=.env apps/cli/dist/index.js \
   --tui ./var/runloom --thread personal --workspace ./var/notes
 ```
 
@@ -364,7 +364,7 @@ DEEPSEEK_API_KEY=<your-deepseek-api-key>
 ```bash
 pnpm build
 mkdir -p ./var/notes
-RUNLOOM_MODEL=deepseek node --env-file=.env packages/assistant/dist/index.js --tui ./var/runloom --thread personal --workspace ./var/notes
+RUNLOOM_MODEL=deepseek node --env-file=.env apps/cli/dist/index.js --tui ./var/runloom --thread personal --workspace ./var/notes
 ```
 
 例如输入：`把“本周只推进 Serika 的资料保存与找回”保存为 first-note.md。` 核对路径和正文后由操作人输入 `y/n`。使用相同目录和 thread 重启后，可请求查找并读取该笔记。`.env` 不会由普通 CLI/worker 自动加载，上述命令通过 Node 的 `--env-file` 加载。

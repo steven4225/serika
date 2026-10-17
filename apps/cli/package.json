@@ -1,0 +1,15 @@
+{
+  "name": "@serika/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@serika/assistant": "workspace:*",
+    "@serika/core": "workspace:*",
+    "ai": "7.0.37"
+  },
+  "devDependencies": {
+    "@serika/ai-sdk-adapter": "workspace:*",
+    "zod": "4.4.3"
+  }
+}

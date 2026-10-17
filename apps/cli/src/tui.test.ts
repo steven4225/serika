@@ -25,20 +25,20 @@ import {
   InMemoryModelRegistry,
   ToolRegistry,
 } from "@serika/ai-sdk-adapter";
-import { createDemoModel } from "./demo-model.js";
+import { createDemoModel, type MemoryConsolidation } from "@serika/assistant";
 import {
+  AUTO_CONSOLIDATION_SOURCE,
   CHECKPOINT_FILE_NAME,
+  createCheckpointModule,
   createCheckpointStore,
+  createModuleHost,
+  createReadFileModule,
+  createToolConfirmation,
+  createWriteFileTool,
   type CheckpointDraft,
-} from "./checkpoint-store.js";
-import { AUTO_CONSOLIDATION_SOURCE } from "./consolidation.js";
-import type { MemoryConsolidation } from "./memory-consolidation.js";
-import { createModuleHost } from "./module-host.js";
-import { createCheckpointModule } from "./modules/checkpoint-module.js";
-import { createReadFileModule } from "./modules/read-file-module.js";
-import type { ReadFileResult } from "./read-file.js";
-import { createWriteFileTool } from "./write-file.js";
-import { createToolConfirmation, type RunAuthorization } from "./tool-confirmation.js";
+  type ReadFileResult,
+  type RunAuthorization,
+} from "@serika/assistant/testing";
 import { runTui } from "./tui.js";
 
 type TestRuntime = {

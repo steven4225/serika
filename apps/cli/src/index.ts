@@ -1,7 +1,5 @@
-import { createDemoModel } from "./demo-model.js";
-import { configureCliModel } from "./model-config.js";
-import { checkTuiStartup, readinessExitCode } from "./startup-check.js";
-import { createRuntimeApp, type RuntimeApp } from "./app.js";
+import { configureCliModel, createDemoModel, createRuntimeApp, readinessExitCode, type RuntimeApp } from "@serika/assistant";
+import { checkTuiStartup } from "./startup-check.js";
 import { runTui } from "./tui.js";
 import { parseTuiArgs } from "./cli-options.js";
 

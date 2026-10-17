@@ -3,7 +3,7 @@ import { dirname, isAbsolute, relative, sep } from "node:path";
 import { createRuntimeAutomation, type RuntimeAutomation } from "./automation-execution.js";
 import { loadSkillPackages } from "./skill-catalog.js";
 import { readTuiModuleConfig } from "./tui-module-config.js";
-import { resolveWorkspace } from "./cli-options.js";
+import { resolveWorkspace } from "./resolve-workspace.js";
 import type { TaskRecord } from "./task-store.js";
 import type { PreparedWorkerTask } from "./task-worker.js";
 

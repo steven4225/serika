@@ -72,7 +72,7 @@ pnpm acceptance finish "$RUNLOOM_EVIDENCE_ROOT/A07/feed-live-1"
 在一次性 workspace 之外放置 TUI 配置文件，`version: 1`，`workspace` 指向该 workspace 的绝对路径；只开启本案例需要的模块。固定 transcript 目录与 thread。以下命令使用已在本地 `.env` 中配置的 DeepSeek，不读取或打印 key：
 
 ```bash
-RUNLOOM_MODEL=deepseek node --env-file=.env packages/assistant/dist/index.js \
+RUNLOOM_MODEL=deepseek node --env-file=.env apps/cli/dist/index.js \
   --tui "$RUNLOOM_TEST_TRANSCRIPTS" \
   --thread "$RUNLOOM_TEST_THREAD" \
   --config "$RUNLOOM_TEST_CONFIG"

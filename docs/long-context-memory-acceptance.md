@@ -55,7 +55,7 @@ JSON
 在当前终端启动可见 TUI。操作人亲自看预览并输入 `y/n`；不要用脚本代答。
 
 ```bash
-RUNLOOM_MODEL=deepseek node --env-file=.env packages/assistant/dist/index.js \
+RUNLOOM_MODEL=deepseek node --env-file=.env apps/cli/dist/index.js \
   --tui "$RUNLOOM_CONTEXT_TRANSCRIPTS" --thread phase2-context-1 \
   --config "$RUNLOOM_CONTEXT_CONFIG"
 ```
@@ -81,7 +81,7 @@ shasum -a 256 "$RUNLOOM_CONTEXT_WORKSPACE/notes/plan.md"
 用独立 workspace 和 Thread 启动真实模型 TUI：
 
 ```bash
-RUNLOOM_MODEL=deepseek node --env-file=.env packages/assistant/dist/index.js \
+RUNLOOM_MODEL=deepseek node --env-file=.env apps/cli/dist/index.js \
   --tui "$RUNLOOM_MEMORY_TRANSCRIPTS" --thread phase2-memory-source \
   --config "$RUNLOOM_MEMORY_CONFIG"
 ```
@@ -93,7 +93,7 @@ RUNLOOM_MODEL=deepseek node --env-file=.env packages/assistant/dist/index.js \
 退出后用**同一 workspace 与 transcript 目录、不同 Thread** 启动：
 
 ```bash
-RUNLOOM_MODEL=deepseek node --env-file=.env packages/assistant/dist/index.js \
+RUNLOOM_MODEL=deepseek node --env-file=.env apps/cli/dist/index.js \
   --tui "$RUNLOOM_MEMORY_TRANSCRIPTS" --thread phase2-memory-consumer \
   --config "$RUNLOOM_MEMORY_CONFIG"
 ```

@@ -1,6 +1,6 @@
 import { lstat } from "node:fs/promises";
 import { resolve } from "node:path";
-import { parseTuiArgs } from "./cli-options.js";
+import type { AssistantAssembly } from "./assembly.js";
 import { CHECKPOINT_FILE_NAME } from "./checkpoint-store.js";
 import { MEMORY_FILE_NAME } from "./memory-store.js";
 import { inspectCliModelConfig } from "./model-config.js";
@@ -36,9 +36,16 @@ export interface ReadinessSnapshot {
   worker: { state: "unknown" };
 }
 
-/** Static preflight only: no model, network, Runtime, Store, or temporary directory. */
-export async function checkTuiStartup(
-  rawArgs: readonly string[],
+/** An assembly plus the transcript directory a launch would use. */
+export type StartupAssembly = AssistantAssembly & { directory?: string };
+
+/**
+ * Static preflight only: no model, network, Runtime, Store, or temporary directory.
+ * A host whose own argument parsing failed passes that Error; it is reported
+ * as the blocking config check, exactly like an invalid assembly.
+ */
+export async function checkAssistantStartup(
+  assembly: StartupAssembly | Error,
   options: { cwd?: string; env?: NodeJS.ProcessEnv; now?: Date } = {},
 ): Promise<ReadinessSnapshot> {
   const cwd = options.cwd ?? process.cwd();
@@ -60,7 +67,8 @@ export async function checkTuiStartup(
   checks.push({ id: "model-connectivity", level: "unchecked", message: "Model connectivity not checked (no network request)", blocking: false });
 
   try {
-    const args = parseTuiArgs(rawArgs);
+    if (assembly instanceof Error) throw assembly;
+    const args = assembly;
     identity.transcriptDirectory = args.directory === undefined ? null : resolve(cwd, args.directory);
     identity.threadId = args.threadId ?? null;
     identity.temporaryDirectoryOnLaunch = args.directory === undefined;

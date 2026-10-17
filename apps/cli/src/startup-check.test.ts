@@ -3,8 +3,9 @@ import { mkdtemp, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import { checkTuiStartup, readinessExitCode } from "./startup-check.js";
-import { createBuiltinSkill } from "./skill-catalog.js";
+import { readinessExitCode } from "@serika/assistant";
+import { createBuiltinSkill } from "@serika/assistant/testing";
+import { checkTuiStartup } from "./startup-check.js";
 
 async function automationFixture() {
   const cwd = await mkdtemp(join(tmpdir(), "runloom-automation-check-"));
