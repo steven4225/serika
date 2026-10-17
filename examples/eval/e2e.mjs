@@ -11,13 +11,13 @@ import { evaluateCase, fixtureApproval, summarizeUsage } from './oracle.mjs';
 import { reliabilitySpec } from './reliability-cases.mjs';
 import { dailyCompactionSpec, fixtureHistory } from './daily-compaction.mjs';
 import { compactionFidelitySpec, effectiveCompactionFidelitySpec, compactionFidelityHistory, isCompactionFidelity } from './compaction-fidelity.mjs';
-import { contextBudgetForMode } from '@serika/example-cli/dist/context-budget.js';
+import { contextBudgetForMode } from '@serika/example-cli/internal/context-budget.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 // Before and After use the SAME cases/oracle, but independently frozen runtime code.
 const runtime = name => process.env.SERIKA_EVAL_BASELINE === '1'
   ? pathToFileURL(join(here, 'results/baseline-b15a2fd-runtime/cli', `${name}.js`)).href
-  : `@serika/example-cli/dist/${name}.js`;
+  : `@serika/example-cli/internal/${name}.js`;
 const { createRuntimeApp } = await import(runtime('app'));
 const { createAssistantController } = await import(runtime('assistant-controller'));
 const { createDemoModel } = await import(runtime('demo-model'));

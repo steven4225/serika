@@ -89,6 +89,8 @@ apps/telegram ┘        (领域：记忆/任务/上下文/沉淀，扩展 API)
   - 防重复查询守卫（应用工具名、中文文案）从 adapter 移到 `examples/cli/src/no-progress-guard.ts`，作为 `afterToolCall` 挂上；状态从本次 Run 的消息推出，不再存在 loop 里。测试随之迁移。
   - `add` 演示工具只在离线 mock 模型（`createDemoModel()`）下注册，真实模型的工具列表和指令里不再出现它；需要它的自定义 mock 测试显式传 `demoTools: true`。
   - 没做：`beforeToolExecute` 抛错仍让 Run 失败（fail closed）。工具执行失败、拒绝、参数无效本来就编码成工具结果消息；precheck 自身出错不是模型能修的问题，改成消息只会让模型重试。
+- 第 3 步（进行中）：
+  - 已完成：桌面端对 `example-cli` 内部文件的引用 44 个模块 → 0。`example-cli` 只开放显式列出的公开入口：`.`（`src/api.ts`，宿主用）、`./browser`（`src/browser.ts`，不含 Node 依赖，渲染进程运行时只能从这里取值）、`./testing`（测试夹具）、`./task-worker-entry`（worker 进程入口）。`./internal/*.js` 只留给 `examples/eval` 这类内部评测。`apps/desktop/src/main/package-boundary.test.ts` 防止回退。
 
 ## 4.2 未来：群聊 bot（独立线）
 

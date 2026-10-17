@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ModelUsagePanel, costLabel } from "./model-usage.js";
-import type { ModelCallRecord, ModelPurpose } from "@serika/example-cli/dist/model-usage.js";
+import type { ModelCallRecord, ModelPurpose } from "@serika/example-cli";
 import { toListRunsResponse } from "../../shared/execution-records.js";
 import { RecordsPanel } from "./records.js";
 

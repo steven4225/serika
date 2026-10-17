@@ -1,37 +1,30 @@
-import type { MemoryLibraryAction, MemoryLibraryView, MemoryLibraryDocument } from "@serika/example-cli/dist/memory-library.js";
-import type { RecipeEntry, RecipeChange } from "@serika/example-cli/dist/recipe-store.js";
+import type { MemoryLibraryAction, MemoryLibraryView, MemoryLibraryDocument } from "@serika/example-cli";
+import type { RecipeEntry, RecipeChange } from "@serika/example-cli";
 import type { UIMessage } from "ai";
 import type { HistoryPage, HistoryPageInput } from "./history.js";
 import type { BackupResult, RestoreResult, RestorePreview } from "./backup.js";
 import type { ResidentServiceState } from "./resident-service.js";
 import type { ConversationDraftScope, ConversationDraft, ConversationDraftState, DesktopSteerInput, DesktopSteerResponse, TaskDraftUpdate } from "./conversation-drafts.js";
-import type { FormalMemory, MemoryPage, MemoryListInput, MemoryEditInput } from "@serika/example-cli/dist/memory-management.js";
-import type { MemoryAction, MemoryActionPreview, MemoryHistoryInput, MemoryHistoryPage, MemoryMaintenance } from "@serika/example-cli/dist/memory-controls.js";
-import type { AssistantRunOptions, AssistantSteerRecord, AutomationResult } from "@serika/example-cli/dist/assistant-controller.js";
-export type { AssistantSteerRecord } from "@serika/example-cli/dist/assistant-controller.js";
-import type { AutomationDiagnostics, SkillRunInput, SkillResult } from "@serika/example-cli/dist/automation-execution.js";
-import type { AutomationOverview, AutomationScheduleAction, ScheduleSkillInput, ScheduledSkillSaved } from "@serika/example-cli/dist/automation-scheduling.js";
-import type { AssistantController } from "@serika/example-cli/dist/assistant-controller.js";
-import type { TaskListV3, TaskRecordV4 } from "@serika/example-cli/dist/task-store.js";
-import type { MemoryConsolidationRequest, MemoryConsolidationSourcePage } from "@serika/example-cli/dist/memory-consolidation.js";
-import type { MemoryReferenceSnapshot } from "@serika/example-cli/dist/memory-query-rewrite.js";
+import type { FormalMemory, MemoryPage, MemoryListInput, MemoryEditInput } from "@serika/example-cli";
+import type { MemoryAction, MemoryActionPreview, MemoryHistoryInput, MemoryHistoryPage, MemoryMaintenance } from "@serika/example-cli";
+import type { AssistantRunOptions, AssistantSteerRecord, AutomationResult } from "@serika/example-cli";
+export type { AssistantSteerRecord } from "@serika/example-cli";
+import type { AutomationDiagnostics, SkillRunInput, SkillResult } from "@serika/example-cli";
+import type { AutomationOverview, AutomationScheduleAction, ScheduleSkillInput, ScheduledSkillSaved } from "@serika/example-cli";
+import type { AssistantController } from "@serika/example-cli";
+import type { TaskListV3, TaskRecordV4 } from "@serika/example-cli";
+import type { MemoryConsolidationRequest, MemoryConsolidationSourcePage } from "@serika/example-cli";
+import type { MemoryReferenceSnapshot } from "@serika/example-cli";
 import type { AgentEvent, RunResult } from "@serika/core";
-import type { ExecutionRunRecord } from "@serika/example-cli/dist/execution-record-store.js";
-import type { ModelUsagePage } from "@serika/example-cli/dist/model-usage.js";
-export type { ExecutionRunRecord, ExecutionToolRecord } from "@serika/example-cli/dist/execution-record-store.js";
-import type { ContextDiagnostics, ContextResult } from "@serika/example-cli/dist/context-diagnostics.js";
-import type { ContextBudgetConfig } from "@serika/example-cli/dist/context-budget.js";
-import type { RssAction, RssInbox, RssResult, RssView } from "@serika/example-cli/dist/rss-subscriptions.js";
+import type { ExecutionRunRecord } from "@serika/example-cli";
+import type { ModelUsagePage } from "@serika/example-cli";
+export type { ExecutionRunRecord, ExecutionToolRecord } from "@serika/example-cli";
+import type { ContextDiagnostics, ContextResult } from "@serika/example-cli";
+import type { ContextBudgetConfig } from "@serika/example-cli";
+import type { RssAction, RssInbox, RssResult, RssView } from "@serika/example-cli";
 import type { WorkTask, WorkTaskInputs, WorkTaskResult, WorkTaskReadInput, WorkTaskArtifactInput, WorkTaskReadResult, WorkTaskDeliveryDraft, WorkTaskArtifactPreview } from "./work-tasks.js";
 import type { WorkTaskContinuation } from "./work-tasks.js";
-import type {
-  CandidateListInput,
-  CandidatePage,
-  CandidatePreview,
-  CandidateResolution,
-  CandidateResolveInput,
-  MemoryResult,
-} from "@serika/example-cli/dist/memory-candidates.js";
+import type { CandidateListInput, CandidatePage, CandidatePreview, CandidateResolution, CandidateResolveInput, MemoryResult } from "@serika/example-cli";
 
 /**
  * The only surface between the Electron main process and the renderer.
@@ -90,7 +83,7 @@ export interface AppInfo {
   entryMode?: "daily" | "test";
   /** Built-in support and current configuration only; not a permission grant. */
   modules?: { id: string; enabled: boolean }[];
-  capabilities?: import("@serika/example-cli/dist/capability-status.js").CapabilityStatus;
+  capabilities?: import("@serika/example-cli").CapabilityStatus;
   moduleOptions?: { webSearch: boolean; webFeed: boolean; autoConsolidate: boolean };
   configPath?: string | null;
   modelAlias: string;
@@ -198,7 +191,7 @@ export type GetRunResponse =
 export interface ContextModeInput { mode: "daily" | "long-task"; expectedBudget: ContextBudgetConfig }
 
 export interface RendererApi {
-  pomodoro?(action: "status" | "start" | "cancel", minutes?: number): Promise<import("@serika/example-cli/dist/modules/pomodoro-module.js").PomodoroResult>;
+  pomodoro?(action: "status" | "start" | "cancel", minutes?: number): Promise<import("@serika/example-cli").PomodoroResult>;
   listRecipes(): Promise<MemoryResult<RecipeEntry[]>>;
   changeRecipe(input: RecipeChange): Promise<MemoryResult<RecipeEntry>>;
 

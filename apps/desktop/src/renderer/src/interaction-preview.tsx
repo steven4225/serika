@@ -2,7 +2,7 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App.js";
-import { contextBudgetForMode } from "@serika/example-cli/dist/context-budget.js";
+import { contextBudgetForMode } from "@serika/example-cli/browser";
 import type { AppInfo, MainToRenderer, RendererApi, RssWorkerResponse, UiSnapshot } from "../../shared/ui-contract.js";
 import type { WorkTask } from "../../shared/work-tasks.js";
 import "./styles.css";

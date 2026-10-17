@@ -4,14 +4,14 @@ import { link, lstat, mkdir, open, realpath, rm, unlink } from "node:fs/promises
 import { dirname, isAbsolute, join, relative, sep } from "node:path";
 import { gzipSync, gunzipSync } from "node:zlib";
 import { readThreadTranscript } from "@serika/core";
-import { restoreTaskDocument, validateTaskDocument } from "@serika/example-cli/dist/task-store.js";
-import { MEMORY_FILE_MAX_BYTES, validateMemoryDocument } from "@serika/example-cli/dist/memory-store.js";
-import { CHECKPOINT_FILE_MAX_BYTES, validateCheckpointDocument } from "@serika/example-cli/dist/checkpoint-store.js";
-import { WORK_TASK_FILE_MAX_BYTES, validateWorkTaskDocument } from "@serika/example-cli/dist/work-task-store.js";
-import { validateDreamingDocument } from "@serika/example-cli/dist/dreaming.js";
-import { validateRssDocument } from "@serika/example-cli/dist/rss-subscriptions.js";
-import { validateExecutionRunRecord } from "@serika/example-cli/dist/execution-record-store.js";
-import { tryAcquireFlock, type FlockHandle } from "@serika/example-cli/dist/flock.js";
+import { restoreTaskDocument, validateTaskDocument } from "@serika/example-cli";
+import { MEMORY_FILE_MAX_BYTES, validateMemoryDocument } from "@serika/example-cli";
+import { CHECKPOINT_FILE_MAX_BYTES, validateCheckpointDocument } from "@serika/example-cli";
+import { WORK_TASK_FILE_MAX_BYTES, validateWorkTaskDocument } from "@serika/example-cli";
+import { validateDreamingDocument } from "@serika/example-cli";
+import { validateRssDocument } from "@serika/example-cli";
+import { validateExecutionRunRecord } from "@serika/example-cli";
+import { tryAcquireFlock, type FlockHandle } from "@serika/example-cli";
 import type { DesktopThread } from "./desktop-identity.js";
 import type { BackupResult, RestoreResult } from "../shared/backup.js";
 

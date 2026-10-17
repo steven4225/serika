@@ -3,9 +3,9 @@ import { mkdtemp, mkdir, writeFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { createRuntimeApp } from "@serika/example-cli/dist/app.js";
-import { createAssistantController } from "@serika/example-cli/dist/assistant-controller.js";
-import { createDemoModel } from "@serika/example-cli/dist/demo-model.js";
+import { createRuntimeApp } from "@serika/example-cli";
+import { createAssistantController } from "@serika/example-cli";
+import { createDemoModel } from "@serika/example-cli";
 import { RuntimeBridge, TeeOutput } from "./runtime-bridge.js";
 
 test("capability configuration and pomodoro commands share the real timer without model Runs", async () => {

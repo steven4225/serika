@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft, FileText, Folder, FolderOpen, MoreHorizontal, Plus, RotateCw, Upload } from "lucide-react";
-import type { MemoryLibraryAction, MemoryLibraryDocument, MemoryLibraryView } from "@serika/example-cli/dist/memory-library.js";
+import type { MemoryLibraryAction, MemoryLibraryDocument, MemoryLibraryView } from "@serika/example-cli";
 import { MessageContent } from "./markdown.js";
 
 type Draft = { id: string; title: string; folderId: string | null; text: string; entries: { id: string; revision: number }[]; expectedRevision: number };

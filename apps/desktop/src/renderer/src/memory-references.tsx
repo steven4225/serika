@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import type { MemoryReferenceSnapshot } from "@serika/example-cli/dist/memory-query-rewrite.js";
+import type { MemoryReferenceSnapshot } from "@serika/example-cli";
 import { memoryKindLabel, systemTimeLabel, validTimeLabel } from "../../shared/memory-review.js";
 
 type RunMemoryReference = MemoryReferenceSnapshot & { runId: string };

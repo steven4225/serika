@@ -4,12 +4,12 @@ import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { MockLanguageModelV3 } from 'ai/test';
-import { LocalMemorySemanticIndex, MEMORY_SEMANTIC_WARMUP_BATCH } from '@serika/example-cli/dist/memory-semantic-index.js';
-import { createMemoryEmbedder, normalizeEmbeddingConfig } from '@serika/example-cli/dist/memory-embedding-client.js';
-import { createMemoryRelevanceSelector } from '@serika/example-cli/dist/memory-relevance.js';
-import { memorySemanticTextHash, retrieveMemories, selectEligibleMemoryEntries } from '@serika/example-cli/dist/memory-retrieval.js';
-import { createMemoryStore } from '@serika/example-cli/dist/memory-store.js';
-import { configureCliModel } from '@serika/example-cli/dist/model-config.js';
+import { LocalMemorySemanticIndex, MEMORY_SEMANTIC_WARMUP_BATCH } from '@serika/example-cli/internal/memory-semantic-index.js';
+import { createMemoryEmbedder, normalizeEmbeddingConfig } from '@serika/example-cli/internal/memory-embedding-client.js';
+import { createMemoryRelevanceSelector } from '@serika/example-cli/internal/memory-relevance.js';
+import { memorySemanticTextHash, retrieveMemories, selectEligibleMemoryEntries } from '@serika/example-cli/internal/memory-retrieval.js';
+import { createMemoryStore } from '@serika/example-cli/internal/memory-store.js';
+import { configureCliModel } from '@serika/example-cli/internal/model-config.js';
 import { makeScaleFixture, scaleNow } from './memory-recall-scale.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex');

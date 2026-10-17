@@ -7,7 +7,7 @@ import type { ShellProgressBuffer } from "../../shared/shell-progress.js";
 import { presentComputerResult } from "../../shared/computer.js";
 import type { AssistantSteerRecord, ExecutionToolRecord, ExecutionRunRecord } from "../../shared/ui-contract.js";
 import { fileToolReceipt, type FileToolReceipt } from "./delivery-data.js";
-import type { MemoryFactReceipt } from "@serika/example-cli/dist/memory-factual-receipts.js";
+import type { MemoryFactReceipt } from "@serika/example-cli";
 
 export type { ToolRowStatus };
 

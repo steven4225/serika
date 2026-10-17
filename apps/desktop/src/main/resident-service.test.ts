@@ -4,7 +4,7 @@ import { chmod, lstat, mkdir, mkdtemp, readFile, realpath, rm, writeFile, symlin
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createResidentService, ensureResidentSocketDirectory, resolveResidentPaths } from "./resident-service.js";
-import type { ServiceCommandRunner } from "@serika/example-cli/dist/task-worker-service.js";
+import type { ServiceCommandRunner } from "@serika/example-cli";
 
 async function fixture() {
   const root = await realpath(await mkdtemp(join(tmpdir(), "serika-resident-service-")));

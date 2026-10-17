@@ -1,11 +1,11 @@
 import { readFile, realpath } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { parseEnv } from "node:util";
-import { assertWorkerPathSafe, createTaskWorkerService } from "@serika/example-cli/dist/task-worker-service.js";
-import type { ServiceCommandRunner } from "@serika/example-cli/dist/task-worker-service.js";
-import { readTaskWorkerHealth } from "@serika/example-cli/dist/task-worker-health.js";
-import { createTaskStore } from "@serika/example-cli/dist/task-store.js";
-import type { TaskAutomationHost } from "@serika/example-cli/dist/app.js";
+import { assertWorkerPathSafe, createTaskWorkerService } from "@serika/example-cli";
+import type { ServiceCommandRunner } from "@serika/example-cli";
+import { readTaskWorkerHealth } from "@serika/example-cli";
+import { createTaskStore } from "@serika/example-cli";
+import type { TaskAutomationHost } from "@serika/example-cli";
 import type { RssWorkerResponse } from "../shared/ui-contract.js";
 
 /** Inspect only launchctl's loaded argument block, never similarly named environment values. */

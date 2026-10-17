@@ -2,8 +2,8 @@ import { constants } from "node:fs";
 import { lstat, open, realpath, rename, unlink } from "node:fs/promises";
 import { dirname, basename, join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { acquireFlock } from "@serika/example-cli/dist/flock.js";
-import { BUILTIN_MODULE_IDS, resolveTuiModuleConfig, type BuiltinModuleId } from "@serika/example-cli/dist/tui-module-config.js";
+import { acquireFlock } from "@serika/example-cli";
+import { BUILTIN_MODULE_IDS, resolveTuiModuleConfig, type BuiltinModuleId } from "@serika/example-cli";
 
 export interface ModuleSettingInput { id: BuiltinModuleId; enabled: boolean; expectedEnabled: boolean }
 export interface AutonomySettingInput { enabled: boolean; expectedEnabled: boolean }
@@ -131,7 +131,7 @@ export async function changeAutonomySetting(configPath: string, input: AutonomyS
 }
 
 /** Identity comes from the resident gateway, never from renderer-supplied destinations. */
-export async function changeTelegramAutonomySetting(configPath: string, input: import("../shared/telegram.js").TelegramAutonomySettingInput, cwd: string, binding: import("@serika/example-cli/dist/tui-module-config.js").TelegramAutonomyGrant, expectedEnabled: boolean): Promise<() => Promise<void>> {
+export async function changeTelegramAutonomySetting(configPath: string, input: import("../shared/telegram.js").TelegramAutonomySettingInput, cwd: string, binding: import("@serika/example-cli").TelegramAutonomyGrant, expectedEnabled: boolean): Promise<() => Promise<void>> {
   if (!input || typeof input !== "object" || Array.isArray(input) || Object.keys(input).some(key => !["enabled", "expectedEnabled", "expectedOwner"].includes(key)) || typeof input.enabled !== "boolean" || typeof input.expectedEnabled !== "boolean" || !input.expectedOwner ||
       Object.keys(input.expectedOwner).some(key => !["userId", "chatId", "threadId"].includes(key)) ||
       input.expectedOwner.userId !== binding.userId || input.expectedOwner.chatId !== binding.chatId || input.expectedOwner.threadId !== binding.threadId) throw new Error("Telegram 绑定已变化或授权参数无效，请刷新后核对");

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, type ReactNode } from "react";
-import type { ContextBudgetConfig } from "@serika/example-cli/dist/context-budget.js";
+import type { ContextBudgetConfig } from "@serika/example-cli";
 import type { AppInfo } from "../../../shared/ui-contract.js";
 import type { ResidentServiceState } from "../../../shared/resident-service.js";
 import { Icon } from "../icons.js";

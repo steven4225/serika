@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { TelegramStatus } from "../../shared/telegram.js";
-import type { AutomationOverview } from "@serika/example-cli/dist/automation-scheduling.js";
+import type { AutomationOverview } from "@serika/example-cli";
 
 export function telegramConnectionLabel(status: TelegramStatus | null) {
   return !status ? "正在读取连接状态…" : !status.available ? "请先启用常驻助手" : status.lastError && !status.enabled ? "Telegram 状态需核对" :

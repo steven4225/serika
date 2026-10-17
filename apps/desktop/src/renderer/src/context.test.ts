@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { it } from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { contextBudgetForMode, DEFAULT_CONTEXT_BUDGET_CONFIG } from "@serika/example-cli/dist/context-budget.js";
+import { contextBudgetForMode } from "@serika/example-cli";
+import { DEFAULT_CONTEXT_BUDGET_CONFIG } from "@serika/example-cli/testing";
 import { ContextModeSelector, ContextPanel } from "./context.js";
 
 it("shows only two profile choices, no implicit legacy upgrade, and disables mode changes while busy", () => {

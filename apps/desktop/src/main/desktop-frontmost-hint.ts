@@ -1,4 +1,4 @@
-import { writeDesktopFrontmost } from "@serika/example-cli/dist/task-notification-presentation.js";
+import { writeDesktopFrontmost } from "@serika/example-cli";
 
 export interface FrontmostWindow {
   isDestroyed(): boolean;

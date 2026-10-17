@@ -1,7 +1,7 @@
 import React from "react";
-import type { FormalMemory } from "@serika/example-cli/dist/memory-management.js";
-import type { MemoryActionPreview, MemoryHistoryPage, MemoryMaintenance } from "@serika/example-cli/dist/memory-controls.js";
-import type { MemoryAssertion, MemorySource } from "@serika/example-cli/dist/memory-store.js";
+import type { FormalMemory } from "@serika/example-cli";
+import type { MemoryActionPreview, MemoryHistoryPage, MemoryMaintenance } from "@serika/example-cli";
+import type { MemoryAssertion, MemorySource } from "@serika/example-cli";
 import { memoryKindLabel, timestampLabel } from "./memory-temporal-data.js";
 import { memoryAutomationLabel } from "./memory-copy.js";
 import { memorySourcePhrase } from "./personal/memory-cards.js";

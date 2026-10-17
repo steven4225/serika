@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFile } from "node:fs/promises";
-import type { TaskRecordV4 } from "@serika/example-cli/dist/task-store.js";
+import type { TaskRecordV4 } from "@serika/example-cli";
 import { taskResultPresentation } from "./task-inbox.js";
 
 const task = (overrides: Partial<TaskRecordV4> = {}) => ({ status: "completed", notification: null, ...overrides }) as TaskRecordV4;

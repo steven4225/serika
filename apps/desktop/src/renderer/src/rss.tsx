@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import type { RssAction, RssInbox, RssView } from "@serika/example-cli/dist/rss-subscriptions.js";
+import type { RssAction, RssInbox, RssView } from "@serika/example-cli";
 import type { RssWorkerResponse } from "../../shared/ui-contract.js";
 import { MessageContent } from "./markdown.js";
 

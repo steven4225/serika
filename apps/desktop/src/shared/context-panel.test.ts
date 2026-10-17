@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { ContextDiagnostics } from "@serika/example-cli/dist/context-diagnostics.js";
+import type { ContextDiagnostics } from "@serika/example-cli";
 import { contextInputBudget, contextModeLabel, contextOverview, contextPanelReducer, contextUsageLabel, initialContextPanel, preparationLabel } from "./context-panel.js";
-import { contextBudgetForMode } from "@serika/example-cli/dist/context-budget.js";
+import { contextBudgetForMode } from "@serika/example-cli";
 
 const value: ContextDiagnostics = {
   threadId: "thread",

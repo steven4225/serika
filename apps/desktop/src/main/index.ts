@@ -3,9 +3,9 @@ import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { defaultUserDataPath, userDataPathFromEnv } from "./user-data-path.js";
 import { app, BrowserWindow, ipcMain, Notification, shell, dialog } from "electron";
-import { createDemoModel } from "@serika/example-cli/dist/demo-model.js";
-import { configureCliModel, inspectCliModelConfig } from "@serika/example-cli/dist/model-config.js";
-import type { CandidateListInput, CandidateResolveInput } from "@serika/example-cli/dist/memory-candidates.js";
+import { createDemoModel } from "@serika/example-cli";
+import { configureCliModel, inspectCliModelConfig } from "@serika/example-cli";
+import type { CandidateListInput, CandidateResolveInput } from "@serika/example-cli";
 import { IPC, type ConfirmInput, type MainToRenderer } from "../shared/ui-contract.js";
 import type { WorkTaskInputs, WorkTaskReadInput, WorkTaskArtifactInput } from "../shared/work-tasks.js";
 import { parseModuleNotification } from "./runtime-bridge.js";
@@ -20,10 +20,10 @@ import { loadDesktopEnvironment, safeStartupError } from "./desktop-env.js";
 import { createDesktopRssWorker } from "./rss-worker-service.js";
 import { createNotificationReadiness, openSystemNotificationSettings } from "./notification-readiness.js";
 import { configureBundledNotifications } from "./bundled-notifications.js";
-import { parseTaskResultLink } from "@serika/example-cli/dist/task-result-link.js";
+import { parseTaskResultLink } from "@serika/example-cli";
 import { openTaskNotificationResult } from "./task-notification-route.js";
 import { installDesktopFrontmostHint } from "./desktop-frontmost-hint.js";
-import type { RssAction } from "@serika/example-cli/dist/rss-subscriptions.js";
+import type { RssAction } from "@serika/example-cli";
 // Native icons need true transparent corners and optical padding. The avatar
 // stays full-size in the renderer; do not use its opaque square in the Dock.
 import appIconPath from "../../resources/serika-dock.png?asset";
@@ -171,7 +171,7 @@ async function main(): Promise<void> {
     await configureBundledNotifications({ resourcesPath: process.resourcesPath, desktopRoot: join(here, "../.."), packaged: app.isPackaged, env: process.env });
     const { modelAlias, model } = configureCliModel(createDemoModel, process.env);
     const taskWorkerFor = (workspace: string, configPath?: string) => createDesktopRssWorker({ workspace, ...(configPath ? { configPath } : {}), home: app.getPath("home"), env: process.env,
-      workerEntry: fileURLToPath(import.meta.resolve("@serika/example-cli/dist/task-worker-entry.js")),
+      workerEntry: fileURLToPath(import.meta.resolve("@serika/example-cli/task-worker-entry")),
       todoist: !!process.env.TODOIST_API_TOKEN?.trim() });
     host = await RuntimeOwnership.create({
       env: process.env, userData: app.getPath("userData"), cwd: process.cwd(),
@@ -181,7 +181,7 @@ async function main(): Promise<void> {
     });
     frontmostHint = installDesktopFrontmostHint(window, () => host.info().workspaceRoot ?? null);
     const rssWorker = () => createDesktopRssWorker({ workspace: host.info().workspaceRoot ?? undefined, ...(host.info().configPath ? { configPath: host.info().configPath! } : {}), home: app.getPath("home"), env: process.env,
-      workerEntry: fileURLToPath(import.meta.resolve("@serika/example-cli/dist/task-worker-entry.js")), todoist: !!process.env.TODOIST_API_TOKEN?.trim() });
+      workerEntry: fileURLToPath(import.meta.resolve("@serika/example-cli/task-worker-entry")), todoist: !!process.env.TODOIST_API_TOKEN?.trim() });
     ipcMain.handle(IPC.rssWorkerStatus, () => rssWorker().status());
     ipcMain.handle(IPC.rssWorkerEnabled, (_event, enabled: unknown) => rssWorker().setEnabled(enabled));
     const notificationScopes = new Map<string, ReturnType<typeof createNotificationReadiness>>();

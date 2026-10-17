@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
-import { contextBudgetForMode, validateRequestedContextBudgetConfig } from "@serika/example-cli/dist/context-budget.js";
-import { resolveTuiModuleConfig } from "@serika/example-cli/dist/tui-module-config.js";
+import { contextBudgetForMode, validateRequestedContextBudgetConfig } from "@serika/example-cli";
+import { resolveTuiModuleConfig } from "@serika/example-cli";
 import type { ContextModeInput } from "../shared/ui-contract.js";
 import { updateDesktopConfig } from "./module-settings.js";
 
