@@ -106,6 +106,7 @@ apps/telegram ┘        (领域：记忆/任务/上下文/沉淀，扩展 API)
     - 手动补整理直接删除（面板、`consolidateMemory`、`listMemoryConsolidationSources`、Controller 的 `consolidate`/`listConsolidationSources` 和 history 模式）。整理重试用尽时提示「原话仍保留，这段太长没记住，可以分段再说」。
     - `RESIDENT_*` 白名单只删除了上述已删方法，没有新增。
     - 遗留：CLI/工作区内配置仍可用旧的 review 模式，候选存储和 `memory_candidates_list`/`memory_apply_candidate` 工具还在（与工作区信任边界相关）→ 4.5 一并移除。不确定的冲突目前不保存，没有转折词的偏好更新（如先说不加糖、后来直接说加糖）不会生效；是否改成「新的覆盖旧的」、内部待定记录交给第 7 步的反思管线处理，待确认。
+  - 已完成（上下文组装器，行为不变）：`prepareModelContext` 从 `app.ts` 的内联闭包拆到 `context-assembler.ts`。按 agent 分流（dreaming 只看最近一批、文本 Skill 只看本次调用、自动整理只看当前用户消息、其他 agent 走八回合选择、主 agent 走主流程）由 `routeModelContext` 负责；主流程 `preparePrimaryContext` 是「引用前缀 → 八回合选择或压缩 → 两条放置规则（当前记忆引用放在当前用户消息前、前台任务引用只在原请求被裁掉时追加）」。引用前缀由 `createReferenceAssembler` 从来源列表组装：来源按给定顺序依次收集（读取与模型调用顺序不变），输出按固定槽位顺序（时间与任务、恢复观察、checkpoint、检索记忆、记忆画像、学到的技能、当前 WorkTask、前台任务），与原来一致；每个槽位只属于一个来源，重复认领在装配时报错；任一来源出错整次准备失败，不跳过。来源：`context-sources.ts`（时间、checkpoint/恢复观察、学到的技能、WorkTask、前台任务）和 `memory-reference-source.ts`（检索记忆与画像共用预算，合成一个来源，semantic 缓存在来源内）。记忆引用快照、学到的技能快照和准备诊断仍由 app 持有，组装器通过回调发布。`RuntimeExtension` 没有新增上下文字段（第 4 步需要组合时再加）；task worker 进程自己的分流未动。`app.ts` 1521 → 1390 行。
   - 调整：群聊 bot 开线时间从「第 3 步完成后」推迟到「个人 agent 重构完成、日常稳定后（至少 4.5 之后）」，见 §4.2。A1–A3 仍按原步骤验收。
 
 ## 4.2 未来：群聊 bot（独立线）
