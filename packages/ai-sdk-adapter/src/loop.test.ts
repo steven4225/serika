@@ -235,13 +235,26 @@ describe("no-progress tool guard", () => {
     assert.deepEqual(f.counts(), { executions: 3, modelCalls: 4 });
   });
 
-  it("detects the same Shell fact across command/cwd variants and interleaved commands", async () => {
-    const commands = ["pi --version", "pi --help", "command pi --version", "cd . && pi --version"];
+  it("detects exact command repetition across interleaved successful commands", async () => {
+    const commands = ["pi --version", "pi --help", "pi --version", "command -v pi", "pi --version"];
     const f = fixture({ name: "shell_exec", guardShell: true, risk: "write", idempotent: false,
-      inputs: commands.map(command => ({ command })), output: (n: number) => shellSuccess(n === 2 ? "Usage: pi\n" : "0.87.0\n") });
+      inputs: commands.map(command => ({ command })), output: (n: number) => shellSuccess(n === 2 ? "Usage: pi\n" : n === 4 ? "/usr/local/bin/pi\n" : "0.87.0\n") });
     assert.equal((await f.run()).text, "done");
-    assert.equal(f.counts().executions, 4);
-    assert.match(JSON.stringify(f.prompts[4]), /SHELL_REPETITION_FINAL/);
+    assert.equal(f.counts().executions, 5);
+    assert.match(JSON.stringify(f.prompts[5]), /SHELL_REPETITION_FINAL/);
+  });
+
+  it("does not stop independent commands or working directories that return identical status output", async () => {
+    for (const inputs of [
+      ["a", "b", "c", "d"].map(file => ({ command: `printf payload > ${file}.txt && echo Done` })),
+      ["a", "b", "c", "d"].map(cwd => ({ command: "npm test", cwd })),
+    ]) {
+      const f = fixture({ name: "shell_exec", guardShell: true, risk: "write", idempotent: false,
+        inputs, output: () => shellSuccess("Done\n") });
+      assert.equal((await f.run()).text, "done");
+      assert.equal(f.counts().executions, 4);
+      assert.doesNotMatch(JSON.stringify(f.prompts), /SHELL_REPETITION/);
+    }
   });
 
   it("Shell guard preserves opt-out, changing output, failures and fact-free empty output", async () => {

@@ -468,7 +468,7 @@ function noProgressFingerprint(call: PendingToolCall, output: unknown, metadata:
   }
 }
 
-function shellObservation(call: PendingToolCall, output: unknown): { key: string; result: string; meaningful: boolean } | undefined {
+function shellObservation(call: PendingToolCall, output: unknown): { key: string; result: string } | undefined {
   if (call.toolName !== "shell_exec" || !call.input || typeof call.input !== "object" ||
       !("command" in call.input) || typeof call.input.command !== "string" ||
       !output || typeof output !== "object") return undefined;
@@ -479,10 +479,8 @@ function shellObservation(call: PendingToolCall, output: unknown): { key: string
   if (typeof cwd !== "string") return undefined;
   return {
     key: createHash("sha256").update(JSON.stringify([call.input.command, cwd])).digest("hex"),
-    // Clipped output is still a deterministic observation of the same facts.
+    // Compare observed bytes and clipping state, never infer unchanged effects.
     result: createHash("sha256").update(JSON.stringify([value.output, value.truncated === true])).digest("hex"),
-    // Empty output (test/mkdir/touch) carries no fact; only identical commands count then.
-    meaningful: value.output.trim().length > 0,
   };
 }
 
@@ -514,7 +512,7 @@ export class AiSdkAgentLoop implements AgentLoop {
     const model = this.#models.resolve(input.definition.model);
     const messages = structuredClone(input.messages);
     const guardShell = this.#repeatedShellGuard?.(input.definition.id) === true;
-    let recentShell: { key: string; result: string; meaningful: boolean }[] = [];
+    let recentShell: { key: string; result: string }[] = [];
     let shellFeedback: string | undefined;
     // After repeated identical Shell observations, ask once for a final answer
     // from existing results with tools disabled instead of failing the Run.
@@ -927,12 +925,11 @@ export class AiSdkAgentLoop implements AgentLoop {
             // A bounded segment of successful Shell calls. Changed output for
             // this exact command is progress; other tools/denials/errors reset it.
             recentShell = [...previousShell.filter(item => item.key !== observation.key || item.result === observation.result), observation].slice(-16);
-            const sameCommand = recentShell.filter(item => item.key === observation.key && item.result === observation.result).length;
-            const sameOutput = observation.meaningful ? recentShell.filter(item => item.meaningful && item.result === observation.result).length : 0;
-            const count = Math.max(sameCommand, sameOutput);
+            // Different commands/cwds may make progress while printing the same status.
+            const count = recentShell.filter(item => item.key === observation.key && item.result === observation.result).length;
             if (count >= 3) {
               finalizeWithoutTools = true;
-              finalizeFeedback = "Program guard SHELL_REPETITION_FINAL (not permission or proof of unchanged state): the same Shell fact was observed three times. Tools are disabled for this step. Deliver the final answer now from the existing tool results in this Run; state anything still unverified. Do not propose rerunning the probe.";
+              finalizeFeedback = "Program guard SHELL_REPETITION_FINAL (not permission or proof of unchanged state): the same Shell command/cwd returned identical successful output three times. Tools are disabled for this step. Deliver the final answer now from the existing tool results in this Run; state anything still unverified. Do not propose rerunning the probe.";
             }
             else if (count === 2) shellFeedback = "Program guard SHELL_REPETITION (not permission or proof of unchanged state): 相同命令/cwd 第二次返回完全相同的成功结果。使用已有结果回答并交付；不要再次探测同一事实或仅修改命令包装来重查。第三次重复将禁用工具并要求你直接交付。Shell 仍是可能有副作用的本机操作，不能自动重试未知结果。";
           }

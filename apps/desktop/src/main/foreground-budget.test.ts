@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { chmod, mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { it } from "node:test";
@@ -48,10 +48,37 @@ it("an autonomous Pi probe keeps its results without mid-Run compaction and omit
     const read = await host.current.getRun(started.runId); assert.ok(read.ok && read.run);
     assert.equal(read.run.status, "completed");
     assert.equal(read.run.tools.length, 3);
+    assert.ok(read.run.tools.every(call => call.shell?.exitCode === 0));
     assert.equal(compactions, 0, "fixed prompt must leave room for the observed help result");
     assert.ok(toolNames.every(names => !names.includes("memory_stage_candidates") && !names.includes("memory_prepare_consolidation")));
     assert.ok(toolNames[0]?.includes("shell_exec"));
     assert.match(prompts.at(-1)!, /0\.87\.0/);
     assert.match(prompts.at(-1)!, /--option-119/);
   } finally { await host.shutdown(); process.env.PATH = previousPath; await rm(root, { recursive: true, force: true }); }
+});
+
+it("autonomous independent Shell writes with identical status output all execute and persist", async () => {
+  const root = await realpath(await mkdtemp(join(tmpdir(), "serika-shell-progress-")));
+  const workspace = join(root, "ws"), configPath = join(root, "config.json"); await mkdir(workspace);
+  await writeFile(configPath, JSON.stringify({ version: 1, workspace, desktopAutonomy: { workspaceRoot: workspace },
+    modules: { shell: { enabled: true, timeoutMs: 5000 } }, automation: { hooks: [] } }));
+  const files = ["a", "b", "c", "d"];
+  let step = 0;
+  const model = new MockLanguageModelV3({ doStream: async () => {
+    const file = files[step++];
+    return file ? shell(`write-${file}`, `printf payload > ${file}.txt && echo Done`) : text("四个文件已写入。");
+  } });
+  const host = await DesktopRuntime.create({ userData: join(root, "profile"), cwd: root,
+    env: { RUNLOOM_CONFIG: configPath }, modelAlias: "mock", model, send: () => {} });
+  try {
+    const started = await host.current.run("分别创建 a.txt、b.txt、c.txt、d.txt，每个文件写入 payload。");
+    assert.ok(started.ok);
+    const deadline = Date.now() + 60_000;
+    while (host.current.snapshot().state.kind !== "idle") { if (Date.now() > deadline) throw new Error("timeout"); await new Promise(r => setTimeout(r, 20)); }
+    const read = await host.current.getRun(started.runId); assert.ok(read.ok && read.run);
+    assert.equal(read.run.status, "completed");
+    assert.equal(read.run.tools.length, 4);
+    assert.ok(read.run.tools.every(call => call.status === "completed" && call.shell?.exitCode === 0));
+    for (const file of files) assert.equal(await readFile(join(workspace, `${file}.txt`), "utf8"), "payload");
+  } finally { await host.shutdown(); await rm(root, { recursive: true, force: true }); }
 });
