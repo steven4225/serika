@@ -1,9 +1,8 @@
-# tools (45)
+# tools (44)
 
 pomodoro_start
 pomodoro_status
 pomodoro_cancel
-todoist_demo_echo
 todoist_list_tasks
 read_file
 list_directory
@@ -82,24 +81,6 @@ Cancel the current pomodoro timer so it will not notify when it would have ended
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "properties": {},
-  "additionalProperties": false
-}
-
-## tool todoist_demo_echo
-
-Demo only: echo the given text. Never calls Todoist.
-
-{
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "type": "object",
-  "properties": {
-    "text": {
-      "type": "string"
-    }
-  },
-  "required": [
-    "text"
-  ],
   "additionalProperties": false
 }
 
@@ -2880,7 +2861,7 @@ read-file：已注册 read_file, list_directory, search_files, write_file, edit_
 memory：已注册 memory_list, memory_get, memory_add, memory_update, memory_delete, memory_query, memory_revise, memory_candidates_list, memory_apply_candidate, memory_stage_candidates, memory_prepare_consolidation
 checkpoint：已注册 checkpoint_prepare, checkpoint_get, checkpoint_save
 task：已注册 task_create, task_list, task_get, task_cancel, task_reschedule, task_ack, task_repeat_create, task_repeat_list, task_repeat_get, task_repeat_pause, task_repeat_resume, task_repeat_cancel
-todoist：已注册 todoist_demo_echo, todoist_list_tasks
+todoist：已注册 todoist_list_tasks
 shell：已注册 shell_exec
 web：已注册 web_fetch, feed_read, web_search
 computer：未启用
@@ -2967,7 +2948,6 @@ CUA：未配置；服务和系统权限尚未检查。
       "id": "todoist",
       "enabled": true,
       "registeredTools": [
-        "todoist_demo_echo",
         "todoist_list_tasks"
       ],
       "state": "registered"
@@ -3001,7 +2981,6 @@ CUA：未配置；服务和系统权限尚未检查。
     "pomodoro_start",
     "pomodoro_status",
     "pomodoro_cancel",
-    "todoist_demo_echo",
     "todoist_list_tasks",
     "read_file",
     "list_directory",
