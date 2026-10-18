@@ -252,7 +252,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
   }
   // Todoist owns its config, token check, status lines and capability entry;
   // the host passes the env and keeps the established check order.
-  const todoist = assembleTodoist({ enabled: moduleConfig?.enabled.todoist ?? false, timeZone: moduleConfig?.todoistTimeZone ?? null, env });
+  const todoist = assembleTodoist({ enabled: moduleConfig?.enabled.todoist ?? false, timeZone: moduleConfig?.todoistTimeZone ?? null, env, demoTool: true });
   const memoryStore =
     memoryEnabled ? createMemoryStore(workspaceRoot!) : undefined;
   const checkpointStore = checkpointEnabled
