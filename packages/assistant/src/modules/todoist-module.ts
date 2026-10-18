@@ -3,6 +3,7 @@ import { z } from "zod";
 import { todoistPlanSaveInstructions } from "../todoist-plan-save-instructions.js";
 import type { RegisteredTool } from "@serika/ai-sdk-adapter";
 import type { AgentModule } from "../module-host.js";
+import type { TodoistPlanningFact } from "../module-facts.js";
 import {
   queryTodoistTasks,
   todoistListInputSchema,
@@ -149,6 +150,7 @@ const TODOIST_INSTRUCTIONS =
 export function createTodoistModule(options: TodoistModuleOptions): AgentModule {
   return {
     id: "todoist",
+    instructionPlacement: { section: "body", rank: 800 },
     setup(ctx) {
       const lifecycle = new AbortController();
       const commandTimeouts = new Set<ReturnType<typeof setTimeout>>();
@@ -326,10 +328,11 @@ export interface TodoistAssembly {
   /** The module to hand to the module host; undefined when not assembled. */
   readonly module: AgentModule | undefined;
   /**
-   * Typed fact for the task module: whether this process has a Todoist
-   * planning source. Passed explicitly at the assembly entry, not looked up.
+   * Typed fact for the task module (module-facts.ts). `check` is the host's
+   * trusted background re-check, when the host has one. Passed explicitly at
+   * the assembly entry, not looked up.
    */
-  readonly planningAvailable: boolean;
+  planning(check?: () => Promise<boolean>): TodoistPlanningFact;
   /** `/modules` lines; the host keeps their established positions. */
   readonly statusLines: {
     readonly module: string;
@@ -368,7 +371,7 @@ export function assembleTodoist(input: TodoistAssemblyInput): TodoistAssembly {
   }
   return {
     module,
-    planningAvailable: input.enabled,
+    planning: (check) => ({ available: input.enabled, ...(check ? { check } : {}) }),
     statusLines: {
       module: `todoist: ${input.enabled ? "enabled" : "disabled"}`,
       timeZone: `Todoist 规划时区: ${input.timeZone ?? "未启用"}`,

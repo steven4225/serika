@@ -295,6 +295,7 @@ export function createPomodoroModule(
 ): AgentModule {
   return {
     id: "pomodoro",
+    instructionPlacement: { section: "body", rank: 200 },
     setup(ctx) {
       const service = options.service ?? createPomodoroService(options);
       const unsubscribe = service.subscribe((message) => ctx.notify(message));

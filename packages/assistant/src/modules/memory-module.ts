@@ -528,6 +528,7 @@ export function createMemoryModule(
 
   return {
     id: "memory",
+    instructionPlacement: { section: "body", rank: 600 },
     setup(ctx) {
       ctx.addInstructions(memoryPrimaryInstructions(options.writePolicy ?? "review"));
       const memoryListTool = tool({

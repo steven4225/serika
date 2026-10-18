@@ -47,7 +47,7 @@ export function createRecipeModule(options: {
     }
     return `\n登记命令配方：${value.id}\n命令：${value.command}\n目录：${value.cwd}\n程序会核对本轮真实测试回执。不会执行配方、安装工具或授予后续权限。Allow this call? [y/n] `;
   } };
-  return { id: "recipes", setup(ctx) {
+  return { id: "recipes", instructionPlacement: { section: "lead", rank: 100 }, setup(ctx) {
     const register = (name: string, risk: "read" | "write" | "external_side_effect", implementation: RegisteredTool["tool"], timeoutMs = 5000) => ctx.registerTool({
       metadata: { name, version: "1", risk, idempotent: risk === "read", timeoutMs }, tool: implementation,
     }, permission);

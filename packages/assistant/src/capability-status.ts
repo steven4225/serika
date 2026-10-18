@@ -4,13 +4,22 @@ import { BUILTIN_MODULE_IDS } from "./tui-module-config.js";
 /** A module-owned capability entry, same shape as the generic one. */
 export type ModuleCapabilityEntry = (registeredTools: readonly string[]) => { id: string; enabled: boolean; registeredTools: string[]; state: "disabled" | "registered" | "not_registered"; note?: string };
 
-/**
- * Registration evidence only. Never probes apps, services, credentials or package directories.
- * `moduleEntries` lets a module own its entry (Todoist, architecture-v2 §4.4 step 2); the
- * list order stays BUILTIN_MODULE_IDS.
- */
-export function capabilityStatus(config: ResolvedTuiModuleConfig | undefined, tools: readonly string[], toolModules: ReadonlyMap<string, string>, desktopAutonomy = false, entry: "desktop" | "telegram" = "desktop",
-  moduleEntries: ReadonlyMap<string, ModuleCapabilityEntry> = new Map()) {
+export interface CapabilityStatusInput {
+  config: ResolvedTuiModuleConfig | undefined;
+  /** Names of the tools actually registered for the primary agent. */
+  tools: readonly string[];
+  /** The module that registered each tool (module-host evidence, not a name prefix). */
+  toolModules: ReadonlyMap<string, string>;
+  /** Host-authorized foreground autonomy is active for this entry. */
+  autonomy?: boolean;
+  entry?: "desktop" | "telegram";
+  /** Module-owned entries (Todoist, architecture-v2 §4.4 step 2); order stays BUILTIN_MODULE_IDS. */
+  moduleEntries?: ReadonlyMap<string, ModuleCapabilityEntry>;
+}
+
+/** Registration evidence only. Never probes apps, services, credentials or package directories. */
+export function capabilityStatus(input: CapabilityStatusInput) {
+  const { config, tools, toolModules, autonomy: desktopAutonomy = false, entry = "desktop", moduleEntries = new Map<string, ModuleCapabilityEntry>() } = input;
   return {
     modules: BUILTIN_MODULE_IDS.map(id => {
       // Ownership is what the module host recorded at registration, not a name prefix.

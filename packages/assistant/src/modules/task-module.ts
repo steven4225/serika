@@ -1,4 +1,5 @@
 import { tool } from "ai";
+import type { TodoistPlanningFact } from "../module-facts.js";
 import { toolCommitResult } from "../commit-outcome.js";
 import { z } from "zod";
 import type { RegisteredTool } from "@serika/ai-sdk-adapter";
@@ -81,9 +82,8 @@ const serviceSchema = z.object({ enabled: z.boolean(), ready: z.boolean().option
 export interface TaskModuleOptions {
   /** Registry/source validation is supplied by the trusted host, not the model. */
   checkSkillArrangement?: (arrangement: Extract<TaskArrangement, { kind: "skill" }>, prompt: string) => Promise<SkillResult<null>>;
-  /** Trusted availability for this process's configured background Todoist source. */
-  todoistPlanningAvailable?: boolean;
-  checkTodoistPlanningAvailable?: () => Promise<boolean>;
+  /** Trusted availability for this process's configured background Todoist source (from the Todoist module). */
+  todoistPlanning?: TodoistPlanningFact;
   /** Host-owned service setup, included in the existing arrangement confirmation. */
   afterArrangementSaved?: (saved: SavedTaskArrangement) => Promise<{ enabled: boolean; ready?: boolean; message?: string }>;
   /** Read-only readiness check for rescheduling/resuming; never enables a service. */
@@ -744,8 +744,8 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
       return options.checkSkillArrangement(arrangement, prompt);
     }
     if (arrangement.kind === "todoist-brief") {
-      let available = options.todoistPlanningAvailable === true;
-      try { if (options.checkTodoistPlanningAvailable !== undefined) available = await options.checkTodoistPlanningAvailable(); }
+      let available = options.todoistPlanning?.available === true;
+      try { if (options.todoistPlanning?.check !== undefined) available = await options.todoistPlanning.check(); }
       catch { available = false; }
       if (!available) return { ok: false, error: { code: "INVALID_INPUT", message: "The background Todoist planning source is unavailable; no arrangement was saved" } };
     }
@@ -772,6 +772,7 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
   }
   return {
     id: "task",
+    instructionPlacement: { section: "body", rank: 900 },
     setup(ctx) {
       const taskCreateTool = tool({
         description:

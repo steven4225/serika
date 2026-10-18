@@ -129,6 +129,7 @@ const webSearchCard: NonNullable<ToolPermissionFacts["confirmation"]> = ({ toolN
 export function createWebModule(options: WebModuleOptions = {}): AgentModule {
   return {
     id: "web",
+    instructionPlacement: { section: "body", rank: 500 },
     setup(ctx) {
       const webFetchTool = tool({
         description:

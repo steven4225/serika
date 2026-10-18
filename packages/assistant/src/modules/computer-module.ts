@@ -136,7 +136,7 @@ export function createComputerModule(config: ComputerConfig, options: { call?: D
     const windows = windowsSchema.parse(await call("list_windows", { pid: target.pid }, signal)).windows;
     if (!windows.some((w) => w.pid === target.pid && w.window_id === target.windowId)) throw new Error("Window no longer belongs to this application process");
   };
-  return { id: "computer", setup(ctx) {
+  return { id: "computer", instructionPlacement: { section: "body", rank: 300 }, setup(ctx) {
     ctx.registerTool({
       metadata: { name: "computer_check", version: "1", risk: "read", idempotent: true, timeoutMs: 12_000 },
       tool: tool({ description: "Explicit approved CUA connectivity check only. Checks the configured driver executable and calls list_apps, returns ONLY running bundle IDs from the allowlist, no windows, titles, screenshots or app content. Never starts a daemon or grants OS permission. Connectivity does not prove Accessibility permission; no hidden fallback.",

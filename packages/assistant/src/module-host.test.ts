@@ -224,3 +224,26 @@ describe("createModuleHost", () => {
     assert.equal(host.instructions("one", { autonomous: true }), "fixed. host-authorized. ");
   });
 });
+
+describe("instruction placement (architecture-v2 §4.4 cross-module interfaces)", () => {
+  const module = (id: string, text: string, placement?: AgentModule["instructionPlacement"]): AgentModule => ({
+    id, ...(placement ? { instructionPlacement: placement } : {}),
+    setup(ctx) { ctx.addInstructions(run => `${text}${run.autonomous ? "!" : ""}`); },
+  });
+
+  it("orders each section by rank, keeps assembly order on ties, and puts unplaced modules last in body", () => {
+    const host = createModuleHost([
+      module("unplaced", "U"),
+      module("b2", "B2", { section: "body", rank: 2 }),
+      module("lead", "L", { section: "lead", rank: 5 }),
+      module("b1", "B1", { section: "body", rank: 1 }),
+      module("b2-tie", "T", { section: "body", rank: 2 }),
+    ], { notify() {} });
+    try {
+      assert.equal(host.sectionInstructions("lead"), "L");
+      assert.equal(host.sectionInstructions("body"), "B1B2TU");
+      assert.equal(host.sectionInstructions("body", { autonomous: true }), "B1!B2!T!U!");
+      assert.equal(host.instructions("b2"), "B2");
+    } finally { host.dispose(); }
+  });
+});

@@ -364,11 +364,13 @@ describe("assembleTodoist (architecture-v2 §4.4 step 2)", () => {
   it("owns the /modules lines, the planning fact and the capability entry", () => {
     const disabled = assembleTodoist({ enabled: false, timeZone: null, env: { TODOIST_API_TOKEN: "t" } });
     assert.deepEqual(disabled.statusLines, { module: "todoist: disabled", timeZone: "Todoist 规划时区: 未启用", token: "Todoist token: present" });
-    assert.equal(disabled.planningAvailable, false);
+    assert.deepEqual(disabled.planning(), { available: false });
     assert.deepEqual(disabled.capability([]), { id: "todoist", enabled: false, registeredTools: [], state: "disabled" });
     const enabled = assembleTodoist({ enabled: true, timeZone: "Asia/Tokyo", env: { TODOIST_API_TOKEN: " t " } });
     assert.equal(enabled.module?.id, "todoist");
-    assert.equal(enabled.planningAvailable, true);
+    assert.equal(enabled.planning().available, true);
+    const check = async () => false;
+    assert.deepEqual(enabled.planning(check), { available: true, check });
     assert.deepEqual(enabled.statusLines, { module: "todoist: enabled", timeZone: "Todoist 规划时区: Asia/Tokyo", token: "Todoist token: present" });
     assert.deepEqual(enabled.capability(["todoist_list_tasks"]), { id: "todoist", enabled: true, registeredTools: ["todoist_list_tasks"], state: "registered" });
     assert.equal(enabled.capability([]).state, "not_registered");

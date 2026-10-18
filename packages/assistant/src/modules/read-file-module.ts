@@ -130,6 +130,7 @@ const editFileMetadata: RegisteredTool["metadata"] = {
 export function createReadFileModule(workspaceRoot: string): AgentModule {
   return {
     id: "read-file",
+    instructionPlacement: { section: "body", rank: 100 },
     setup(ctx) {
       ctx.registerTool({
         metadata: readFileMetadata,

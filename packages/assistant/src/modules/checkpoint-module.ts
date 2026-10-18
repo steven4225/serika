@@ -205,6 +205,7 @@ export function createCheckpointModule(
   assertCurrentThread(options.threadId);
   return {
     id: "checkpoint",
+    instructionPlacement: { section: "body", rank: 700 },
     setup(context) {
       const prepareTool = tool({
         description:

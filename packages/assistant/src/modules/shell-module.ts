@@ -476,6 +476,7 @@ export function createShellModule(
 ): AgentModule {
   return {
     id: "shell",
+    instructionPlacement: { section: "body", rank: 400 },
     setup(context) {
       context.registerTool({
         metadata: shellExecMetadata(

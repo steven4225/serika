@@ -1,6 +1,6 @@
 import type { HomeSnapshot } from "@serika/assistant";
 import type { MemoryLibraryAction } from "@serika/assistant";
-import { validateChatAttachments } from "@serika/assistant";
+import { BUILTIN_MODULE_IDS, validateChatAttachments } from "@serika/assistant";
 import type { RecipeChange } from "@serika/assistant";
 import { Writable } from "node:stream";
 import { lstat } from "node:fs/promises";
@@ -230,7 +230,7 @@ export class RuntimeBridge {
     return {
       build: readLoadedBuild(),
       ...(this.#app.getCapabilities ? { capabilities: this.#app.getCapabilities() } : {}),
-      modules: (["pomodoro", "read-file", "memory", "checkpoint", "task", "todoist", "shell", "web", "computer"] as const).map(id => ({
+      modules: BUILTIN_MODULE_IDS.map(id => ({
         id,
         enabled: this.#app.moduleConfig?.enabled[id] === true,
       })),

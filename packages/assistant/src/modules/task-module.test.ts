@@ -328,7 +328,7 @@ describe("createTaskModule", () => {
   });
 
   it("rejects unavailable Todoist and rechecks host availability before saving", async () => {
-    for (const options of [{}, { todoistPlanningAvailable: true, checkTodoistPlanningAvailable: async () => false }, { checkTodoistPlanningAvailable: async () => { throw new Error("status read failed"); } }]) {
+    for (const options of [{}, { todoistPlanning: { available: true, check: async () => false } }, { todoistPlanning: { available: false, check: async () => { throw new Error("status read failed"); } } }]) {
       const { tools, calls } = setup({}, options);
       for (const name of ["task_create", "task_repeat_create"]) {
         const result = await toolByName(tools, name).tool.execute!({ prompt: "每日安排", runAt: "2026-09-12T01:00:00Z", recurrence: { kind: "daily", time: "09:00", utcOffset: "+08:00" }, arrangement: todoist }, toolContext());
@@ -336,14 +336,14 @@ describe("createTaskModule", () => {
       }
       assert.equal(calls.length, 0);
     }
-    const { tools, calls } = setup({}, { todoistPlanningAvailable: false, checkTodoistPlanningAvailable: async () => true });
+    const { tools, calls } = setup({}, { todoistPlanning: { available: false, check: async () => true } });
     const input = { prompt: "每日安排", runAt: "2026-09-12T01:00:00Z", arrangement: todoist };
     assert.deepEqual(await toolByName(tools, "task_create").tool.execute!(input, toolContext()), { ok: true, value: record(), taskSaved: true, backgroundReady: false });
     assert.deepEqual(calls[0]?.args[0], input);
   });
 
   it("rejects RSS declarations and mismatched/extra source fields before any store write", async () => {
-    const { tools, calls } = setup({}, { todoistPlanningAvailable: true });
+    const { tools, calls } = setup({}, { todoistPlanning: { available: true } });
     for (const arrangement of [{ kind: "rss-digest", source: "existing-rss-binding", notification: "new-items", declarationVersion: 1 }, { ...reminder, source: "todoist-planning" }, { ...reminder, allowShell: true }, { ...todoist, declarationVersion: 2 }]) {
       const tool = toolByName(tools, "task_create").tool;
       const schema = tool.inputSchema as unknown as { safeParse(value: unknown): { success: boolean } };
@@ -414,7 +414,7 @@ describe("createTaskModule", () => {
 
   it("cancels before a save but settles service setup after an already committed arrangement", async () => {
     const before = new AbortController();
-    const canceled = setup({}, { checkTodoistPlanningAvailable: async () => { before.abort(new Error("cancel before save")); return true; } });
+    const canceled = setup({}, { todoistPlanning: { available: false, check: async () => { before.abort(new Error("cancel before save")); return true; } } });
     await assert.rejects(toolByName(canceled.tools, "task_create").tool.execute!({ prompt: "日报", runAt: "2026-09-12T01:00:00Z", arrangement: todoist }, toolContext(before.signal)) as Promise<unknown>, /cancel before save/);
     assert.equal(canceled.calls.length, 0);
     const after = new AbortController(); let serviceCalls = 0;

@@ -67,9 +67,21 @@ export interface ModuleContext {
   notify(message: string): void;
 }
 
+/**
+ * Where a module's instructions sit in the primary prompt (architecture-v2
+ * §4.4 cross-module interfaces). `lead` parts come before the host's shared
+ * tool rules, `body` parts after them. Lower ranks first; equal ranks keep
+ * assembly order. A module without a placement goes last in `body`.
+ */
+export interface InstructionPlacement {
+  readonly section: "lead" | "body";
+  readonly rank: number;
+}
+
 export interface AgentModule {
   id: string;
   setup(context: ModuleContext): void | Dispose;
+  instructionPlacement?: InstructionPlacement;
 }
 
 export interface ModuleHost {
@@ -81,6 +93,8 @@ export interface ModuleHost {
   readonly toolModules: ReadonlyMap<string, string>;
   /** One assembled module's instructions, or "" when it is not assembled or added none. */
   instructions(moduleId: string, run?: InstructionRun): string;
+  /** Every assembled module's instructions for one section, in placement order. */
+  sectionInstructions(section: InstructionPlacement["section"], run?: InstructionRun): string;
   dispose(): void;
 }
 
@@ -204,6 +218,13 @@ export function createModuleHost(
     setupRecords.push({ dispose });
   }
 
+  const DEFAULT_PLACEMENT: InstructionPlacement = { section: "body", rank: Number.MAX_SAFE_INTEGER };
+  const placed = modules
+    .map((module, index) => ({ id: module.id, index, placement: module.instructionPlacement ?? DEFAULT_PLACEMENT }))
+    .sort((a, b) => a.placement.rank - b.placement.rank || a.index - b.index);
+  const render = (moduleId: string, run: InstructionRun) =>
+    (instructions.get(moduleId) ?? []).map(part => part(run)).join("");
+
   const exposedTools = Object.freeze([...tools]);
   const exposedCommands = new Map(commands);
   let disposed = false;
@@ -213,8 +234,9 @@ export function createModuleHost(
     commands: exposedCommands,
     toolPermissions: new Map(toolPermissions),
     toolModules: new Map(toolModules),
-    instructions: (moduleId, run = { autonomous: false }) =>
-      (instructions.get(moduleId) ?? []).map(part => part(run)).join(""),
+    instructions: (moduleId, run = { autonomous: false }) => render(moduleId, run),
+    sectionInstructions: (section, run = { autonomous: false }) =>
+      placed.filter(entry => entry.placement.section === section).map(entry => render(entry.id, run)).join(""),
     dispose() {
       if (disposed) return;
       disposed = true;
