@@ -14,26 +14,16 @@ import type {
   MainToRenderer,
   UiSnapshot,
   UiState,
-  ExecutionRunRecord,
 } from "../../shared/ui-contract.js";
-import { ShellProgressBuffer } from "../../shared/shell-progress.js";
 import {
-  applyEvent,
-  applySteerRecord,
   withSteerRecords,
-  applyShellProgress,
-  emptyLiveRun,
-  finishRun,
   overlayShellProgress,
   overlayExecutionReceipts,
   canReuseReceiptHistory,
-  resultRow,
   rowsFromHistory,
   annotateHistoryTools,
   annotateMemoryReceipts,
-  rowsFromToolActivity,
   type ConversationRow,
-  type LiveRun,
 } from "./conversation.js";
 import { homeView as toHomeView } from "./home-view.js";
 import type { HomeSnapshot } from "@serika/assistant/browser";
@@ -44,7 +34,8 @@ import { MemoryReferences } from "./memory-references.js";
 import { ContextPanel } from "./context.js";
 import { RecordsPanel } from "./records.js";
 import { useRunRecords } from "./app/use-run-records.js";
-import { steerReview, UncertainSteerNotice, useSteerReceipts } from "./app/steers.js";
+import { steerReview, UncertainSteerNotice } from "./app/steers.js";
+import { usePrimaryRun } from "./app/primary-run.js";
 import { useChatAttachments } from "./app/use-chat-attachments.js";
 import { useConversationDraftPersistence, useConversationDraftState } from "./app/use-conversation-draft.js";
 import { useBriefContinue } from "./app/use-brief-continue.js";
@@ -129,16 +120,15 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const historyMessages = useRef<UIMessage[]>([]);
   const [historyBefore, setHistoryBefore] = useState<string | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [live, setLive] = useState<LiveRun>(emptyLiveRun);
-  const [lastResult, setLastResult] = useState<ConversationRow | null>(null);
-  const [canSteer, setCanSteer] = useState(false);
   const conversationDraft = useConversationDraftState();
   const { draftReady, setDraftReady, draftError, setDraftError, draftSaving, draftSave, input, setInput, excludeFromMemory, setExcludeFromMemory } = conversationDraft;
   const [reconnecting, setReconnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { approval, setApproval, decidingId, decide } = useApproval(setMobileDashboard, setError);
+  const { live, lastResult, canSteer, setCanSteer, finalRecord, latestPrimaryId, latestCompletedPrimaryId, shellBuffer, steers, replaceSteers, mergeSteer, uncertainSteer, setUncertainSteer,
+    applyRunSnapshot, loadFinalRun, onRunState, onRunSteer, onRunEvent, isCurrentPrimaryResult, finishPrimaryRun, onRunShellProgress } = usePrimaryRun(setError);
   const [submittedInput, setSubmittedInput] = useState<string | null>(null);
-  const { attachments, setAttachments, sentAttachments, recoverableAttachments, setRecoverableAttachments } = useChatAttachments(info);
+  const { attachments, setAttachments, sentAttachments, recoverableAttachments, setRecoverableAttachments, settleSentAttachments } = useChatAttachments(info, setError);
   const [showOutput, setShowOutput] = useState(false);
   const [memoryRefresh, setMemoryRefresh] = useState(0);
   const [contextRefresh, setContextRefresh] = useState(0);
@@ -150,10 +140,6 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const [taskFocused, setTaskFocused] = useState(false);
   const [switchingThread, setSwitchingThread] = useState(false);
   const threadSwitchInFlight = useRef(false);
-  const [finalRecord, setFinalRecord] = useState<ExecutionRunRecord | null>(null);
-  const latestPrimaryId = useRef<string | null>(null);
-  const latestCompletedPrimaryId = useRef<string | null>(null);
-  const { steers, replaceSteers, mergeSteer, uncertainSteer, setUncertainSteer } = useSteerReceipts(latestPrimaryId);
   const historyRequest = useRef(0);
   const [detailsOpen, setDetailsOpen] = useState(!!initialSettings);
   const [detailTab, setDetailTab] = useState<"threads" | "tasks" | "reminders" | "home" | "records" | "memory" | "context" | "pomodoro" | "modules" | "settings">(initialSettings ? "settings" : "home");
@@ -162,7 +148,6 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const briefFeeds = useTodayBriefFeeds(info?.workspaceRoot != null, automationRefresh, info?.workspaceRoot);
   const [sending, setSending] = useState(false);
   const sendInFlight = useRef(false);
-  const shellBuffer = useRef(new ShellProgressBuffer());
   const conversationEnd = useRef<HTMLDivElement | null>(null);
   const conversationScroll = useRef<HTMLDivElement | null>(null);
   const inspectorScroll = useRef<HTMLDivElement | null>(null);
@@ -192,27 +177,10 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
 
   const applySnapshot = useCallback((snapshot: UiSnapshot) => {
     setState(snapshot.state);
-    setCanSteer(snapshot.canSteer);
-    replaceSteers(snapshot.steers);
     setApproval(snapshot.pendingApproval);
     setOutput(snapshot.recentOutput);
-    shellBuffer.current.clear();
-    for (const chunk of snapshot.shellProgress) shellBuffer.current.apply(chunk);
-    const activePrimary = snapshot.state.kind === "running" && snapshot.state.phase === "primary";
-    latestPrimaryId.current = snapshot.state.kind === "running" && snapshot.state.phase === "primary"
-      ? snapshot.state.runId : snapshot.lastPrimaryResult?.runId ?? null;
-    latestCompletedPrimaryId.current = !activePrimary && snapshot.lastPrimaryResult?.status === "completed"
-      ? snapshot.lastPrimaryResult.runId : null;
-    setLastResult(!activePrimary && snapshot.lastPrimaryResult ? resultRow(snapshot.lastPrimaryResult) : null);
-    if (!activePrimary) {
-      setLive(emptyLiveRun);
-    } else {
-      setLive({
-        rows: overlayShellProgress(rowsFromToolActivity(snapshot.toolActivity, latestPrimaryId.current ?? undefined), shellBuffer.current),
-        streaming: "",
-      });
-    }
-  }, [replaceSteers]);
+    applyRunSnapshot(snapshot);
+  }, [applyRunSnapshot]);
 
   const reloadHistory = useCallback(async () => {
     const request = ++historyRequest.current;
@@ -251,15 +219,6 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     finally { setHistoryLoading(false); }
   };
 
-  const loadFinalRun = useCallback(async (runId: string) => {
-    const response = await window.runloom.getRun(runId);
-    if (latestPrimaryId.current !== runId) return;
-    if (!response.ok) { setError(`最终执行回执不可用：${response.message}`); return; }
-    if (response.run === null) { setError("最终执行回执缺失，不能据此确认动作结果"); return; }
-    setFinalRecord(response.run);
-    replaceSteers(response.run.steers ?? []);
-  }, [replaceSteers]);
-
   useEffect(() => {
     let cancelled = false;
     let stop = (): void => undefined;
@@ -279,25 +238,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
           return; // The outer App remounts this view for the new controller.
         case "state":
           setState(message.state);
-          setCanSteer(false);
-          if (message.state.kind === "running" && message.state.runId === null && message.state.phase === "primary") {
-            shellBuffer.current.clear();
-            setLive(emptyLiveRun);
-            setLastResult(null);
-            setFinalRecord(null);
-            replaceSteers([]);
-            latestPrimaryId.current = null;
-            latestCompletedPrimaryId.current = null;
-            historyRequest.current += 1;
-          }
-          if (message.state.kind === "running" && message.state.phase === "primary" && message.state.runId !== null) {
-            latestPrimaryId.current = message.state.runId;
-            const expectedRunId = message.state.runId;
-            void window.runloom.snapshot().then(snapshot => {
-              if (cancelled || latestPrimaryId.current !== expectedRunId || snapshot.state.kind !== "running" || snapshot.state.runId !== expectedRunId) return;
-              setCanSteer(snapshot.canSteer);
-            }).catch(() => {});
-          }
+          if (onRunState(message.state, () => cancelled)) historyRequest.current += 1;
           if (message.state.kind === "idle") {
             setMemoryRefresh(value => value + 1);
             setContextRefresh((value) => value + 1);
@@ -322,47 +263,25 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
         case "approval-cleared":
           setApproval((current) => (current?.approvalId === message.approvalId ? null : current));
           return;
-        case "steer": {
-          if (!mergeSteer(message.steer)) return;
-          setLive(previous => applySteerRecord(previous, message.steer));
+        case "steer":
+          onRunSteer(message.steer);
           return;
-        }
         case "event":
           if (message.event.type !== "message.delta" && message.event.type !== "usage.updated") refreshOpenTrace();
-          if (message.phase !== "primary") return;
-          if (latestPrimaryId.current !== null && message.event.runId !== latestPrimaryId.current) return;
-          setLive((previous) => applyEvent(previous, message.event));
+          onRunEvent(message);
           return;
-        case "result": {
+        case "result":
           setContextRefresh((value) => value + 1);
-          if (message.phase !== "primary") return;
-          if (latestPrimaryId.current !== null && message.result.runId !== latestPrimaryId.current) return;
+          if (!isCurrentPrimaryResult(message)) return;
           setCanSteer(false);
-          const sent = sentAttachments.current;
-          if (sent && (sent.runId === null || sent.runId === message.result.runId)) {
-            if (message.result.status !== "completed") {
-              setRecoverableAttachments({ files: sent.files, text: sent.text });
-              const imageRejected = sent.files.some(file => file.mediaType.startsWith("image/")) && /(?:does not support|not supported|unsupported|不支持).*(?:image|vision|图片|视觉)|(?:image|vision|图片|视觉).*(?:not support|unsupported|不支持)/i.test(message.result.error?.message ?? "");
-              setError(imageRejected ? "当前模型不支持图片。附件可恢复到草稿，换用支持图片的模型后再发送。" : "本轮未完成。文字和附件可恢复到草稿；请先核对执行结果，再决定是否重新发送。");
-            }
-            sentAttachments.current = null;
-          }
-          latestPrimaryId.current = message.result.runId;
-          latestCompletedPrimaryId.current = message.result.status === "completed" ? message.result.runId : null;
-          void loadFinalRun(message.result.runId).catch((cause: unknown) => setError(String(cause)));
-          const rows = finishRun(emptyLiveRun, message.result);
-          setLastResult(rows.find((row) => row.kind === "result") ?? null);
-          setLive((previous) => ({ rows: finishRun(previous, message.result), streaming: "" }));
+          settleSentAttachments(message.result);
+          finishPrimaryRun(message.result);
           return;
-        }
         case "memory-references-changed":
           setContextRefresh(value => value + 1);
           return;
         case "shell-progress":
-          if (message.phase !== "primary") return;
-          if (message.runId !== latestPrimaryId.current) return;
-          shellBuffer.current.apply(message.progress);
-          setLive((previous) => applyShellProgress(previous, message.progress.toolCallId, shellBuffer.current));
+          onRunShellProgress(message);
           return;
         case "memory-updated":
           setMemoryRefresh((value) => value + 1);
@@ -434,7 +353,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
       invalidateRecords();
       stop();
     };
-  }, [applySnapshot, reloadHistory, loadRecords, loadFinalRun, drafts, refreshOpenTrace, invalidateRecords, replaceSteers, mergeSteer]);
+  }, [applySnapshot, reloadHistory, loadRecords, loadFinalRun, drafts, refreshOpenTrace, invalidateRecords, replaceSteers, onRunState, onRunSteer, onRunEvent, isCurrentPrimaryResult, finishPrimaryRun, onRunShellProgress, settleSentAttachments]);
 
   useEffect(() => {
     if (detailsOpen && detailTab === "records") void reloadOpenRecords().catch(() => setError("执行追踪读取失败"));
