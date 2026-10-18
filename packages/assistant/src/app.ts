@@ -373,6 +373,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
               ? [createPomodoroModule(options.pomodoroService ? { service: options.pomodoroService } : {})]
               : []),
             ...(todoist.module ? [todoist.module] : []),
+            ...(moduleConfig!.enabled.pomodoro ? [(await import("./modules/demo-echo-module.js")).createDemoEchoModule()] : []),
             ...(moduleConfig!.enabled["read-file"]
               ? [
                   createReadFileModule(workspaceRoot!),
