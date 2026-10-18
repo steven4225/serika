@@ -1,4 +1,4 @@
-import { AttachmentChooser, AttachmentPreview, type ChatAttachment } from "./chat-attachments.js";
+import { AttachmentChooser, AttachmentPreview } from "./chat-attachments.js";
 import { SkillsPanel } from "./skills-panel.js";
 import { AutomationPanel } from "./automation-panel.js";
 import { commandError } from "./app/command-error.js";
@@ -45,6 +45,9 @@ import { ContextPanel } from "./context.js";
 import { RecordsPanel } from "./records.js";
 import { useRunRecords } from "./app/use-run-records.js";
 import { steerReview, UncertainSteerNotice, useSteerReceipts } from "./app/steers.js";
+import { useChatAttachments } from "./app/use-chat-attachments.js";
+import { useConversationDraftPersistence, useConversationDraftState } from "./app/use-conversation-draft.js";
+import { useBriefContinue } from "./app/use-brief-continue.js";
 import { ApprovalCard } from "./approval.js";
 import { useApproval } from "./app/use-approval.js";
 import { shouldSubmitComposer, canSubmitComposer, canSteerComposer } from "../../shared/composer.js";
@@ -62,7 +65,6 @@ import { SavedTaskNotice } from "./saved-task-notice.js";
 import { createTaskNoticeDismissals } from "../../shared/saved-task-result.js";
 import { unreconciledRuns, taskSelectionKey, taskActions } from "./work-task-data.js";
 import { bindTaskComposer, draftKey, type ConversationDraft } from "./navigation.js";
-import { conversationDraftError } from "../../shared/conversation-drafts.js";
 import { MemorySetup } from "./daily-setup-panel.js";
 import { desktopLayout, type DesktopLayout } from "./zcode/layout.js";
 import { PersonalConversation as ZCodeConversation, PersonalBackToBottom as ZCodeBackToBottom } from "./personal/conversation.js";
@@ -71,7 +73,7 @@ import { TodayPanel } from "./personal/today.js";
 import { TasksHome } from "./personal/tasks-page.js";
 import { nextComposerText, nextTaskInstruction, type TaskComposerHandoff } from "./personal/tasks-model.js";
 import { useTodayBriefFeeds } from "./personal/today-feeds.js";
-import { clearBriefContinue, planBriefContinue, readBriefContinue, writeBriefContinue, type BriefContinueTarget } from "./personal/today-continue.js";
+import { writeBriefContinue, type BriefContinueTarget } from "./personal/today-continue.js";
 import { createAndStartTask } from "./create-task.js";
 import { SearchOverlay } from "./personal/search-overlay.js";
 import { SettingsAbout, SettingsFrame, SettingsGeneral, SettingsHome, SettingsNotifications, SettingsShortcuts } from "./personal/settings.js";
@@ -130,22 +132,13 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const [live, setLive] = useState<LiveRun>(emptyLiveRun);
   const [lastResult, setLastResult] = useState<ConversationRow | null>(null);
   const [canSteer, setCanSteer] = useState(false);
-  const [draftReady, setDraftReady] = useState(false);
-  const [draftError, setDraftError] = useState<string | null>(null);
-  const [draftSaving, setDraftSaving] = useState(false);
-  const draftSave = useRef<Promise<void>>(Promise.resolve());
-  const draftSaveSequence = useRef(0);
+  const conversationDraft = useConversationDraftState();
+  const { draftReady, setDraftReady, draftError, setDraftError, draftSaving, draftSave, input, setInput, excludeFromMemory, setExcludeFromMemory } = conversationDraft;
   const [reconnecting, setReconnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { approval, setApproval, decidingId, decide } = useApproval(setMobileDashboard, setError);
-  const [input, setInput] = useState("");
-  const [excludeFromMemory, setExcludeFromMemory] = useState(false);
   const [submittedInput, setSubmittedInput] = useState<string | null>(null);
-  const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
-  const attachmentIdentity = useRef("");
-  const sentAttachments = useRef<{ runId: string | null; files: ChatAttachment[]; text: string } | null>(null);
-  const [recoverableAttachments, setRecoverableAttachments] = useState<{ files: ChatAttachment[]; text: string } | null>(null);
-  useEffect(() => { const identity = `${info?.workspaceRoot}:${info?.threadId}`; if (attachmentIdentity.current !== identity) { attachmentIdentity.current = identity; setAttachments([]); sentAttachments.current = null; setRecoverableAttachments(null); } }, [info?.workspaceRoot, info?.threadId]);
+  const { attachments, setAttachments, sentAttachments, recoverableAttachments, setRecoverableAttachments } = useChatAttachments(info);
   const [showOutput, setShowOutput] = useState(false);
   const [memoryRefresh, setMemoryRefresh] = useState(0);
   const [contextRefresh, setContextRefresh] = useState(0);
@@ -166,9 +159,6 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const [detailTab, setDetailTab] = useState<"threads" | "tasks" | "reminders" | "home" | "records" | "memory" | "context" | "pomodoro" | "modules" | "settings">(initialSettings ? "settings" : "home");
   const [settingsRoute, setSettingsRoute] = useState<SettingsRoute>(settingsRouteForInitial(initialSettings));
   const [searchOpen, setSearchOpen] = useState(false);
-  const [briefNonce, setBriefNonce] = useState(0);
-  const briefHold = useRef<BriefContinueTarget | null>(null);
-  const briefAttempt = useRef<string | null>(null);
   const briefFeeds = useTodayBriefFeeds(info?.workspaceRoot != null, automationRefresh, info?.workspaceRoot);
   const [sending, setSending] = useState(false);
   const sendInFlight = useRef(false);
@@ -450,55 +440,9 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     if (detailsOpen && detailTab === "records") void reloadOpenRecords().catch(() => setError("执行追踪读取失败"));
   }, [detailsOpen, detailTab, reloadOpenRecords]);
 
-  useEffect(() => {
-    if (!info || !draftReady) return;
-    const key = draftKey(info);
-    if (input.length) drafts.set(key, { text: input, excludeFromMemory, ...(creatingTask ? { createTask: true as const } : {}) });
-    else drafts.delete(key);
-    const sequence = ++draftSaveSequence.current;
-    setDraftSaving(true);
-    const save = window.runloom.saveConversationDraft(draftScope(info), { text: input, excludeFromMemory, ...(creatingTask ? { createTask: true as const } : {}) });
-    draftSave.current = save;
-    void save.then(() => {
-      if (draftSaveSequence.current === sequence) { setDraftError(null); setDraftSaving(false); }
-    }).catch(() => {
-      if (draftSaveSequence.current === sequence) { setDraftError(conversationDraftError(input)); setDraftSaving(false); }
-    });
-  }, [info, input, excludeFromMemory, creatingTask, drafts, draftReady]);
+  useConversationDraftPersistence(conversationDraft, info, drafts, creatingTask);
 
-  useEffect(() => {
-    if (!info || !draftReady || !workTasks.draftReady) return;
-    const pending = readBriefContinue(sessionStorage) ?? briefHold.current;
-    if (!pending || pending.threadId !== info.threadId) return;
-    if (uncertainSteer) {
-      briefHold.current = null;
-      clearBriefContinue(sessionStorage);
-      setError("还有一条补充没核对完，草稿先不动。核对之后再从今天继续。");
-      setDetailsOpen(false);
-      setMobileDashboard(false);
-      return;
-    }
-    const plan = planBriefContinue(pending);
-    if (plan.selectTaskId && workTasks.task?.id !== plan.selectTaskId) {
-      const known = workTasks.tasks.some(task => task.id === plan.selectTaskId);
-      if (workTasks.loading || (known && briefAttempt.current !== plan.selectTaskId)) {
-        if (briefAttempt.current !== plan.selectTaskId) {
-          briefAttempt.current = plan.selectTaskId;
-          workTasks.select(plan.selectTaskId);
-        }
-        return;
-      }
-    }
-    if (plan.composerTaskId !== undefined) setTaskComposerId(plan.composerTaskId);
-    if (plan.taskDraft && workTasks.task && (!plan.selectTaskId || workTasks.task.id === plan.selectTaskId)) workTasks.setInstruction(plan.taskDraft);
-    if (plan.ordinaryDraft) setInput(plan.ordinaryDraft);
-    briefHold.current = null;
-    briefAttempt.current = null;
-    clearBriefContinue(sessionStorage);
-    setDetailsOpen(false);
-    setMobileDashboard(false);
-    requestAnimationFrame(() => inputRef.current?.focus());
-  }, [info, draftReady, workTasks.draftReady, workTasks.task, workTasks.loading, workTasks.tasks, briefNonce, uncertainSteer]);
+  const { briefHold, setBriefNonce } = useBriefContinue({ info, draftReady, workTasks, uncertainSteer, setError, setDetailsOpen, setMobileDashboard, setTaskComposerId, setInput, inputRef });
 
   useEffect(() => {
     if (!detailsOpen && !mobileDashboard) return;

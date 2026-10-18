@@ -163,6 +163,41 @@ await scenario("steer-recheck", async ({ p, shot, send }) => {
   await shot("finished");
 });
 
+await scenario("brief-continue", async ({ p, shot }) => {
+  await p.getByRole("button", { name: "手札", exact: true }).last().click({ timeout: 2000 });
+  await p.waitForTimeout(500);
+  await p.locator(".today-chat-button").first().click({ timeout: 2000 });
+  await p.waitForTimeout(1000);
+  await shot("continued");
+});
+
+await scenario("attachments", async ({ p, shot, send }) => {
+  await p.evaluate(() => window.previewFixture.patchInfo({ attachments: true }));
+  await p.waitForTimeout(1200);
+  await p.locator('input[type="file"]').first().setInputFiles({ name: "note.txt", mimeType: "text/plain", buffer: Buffer.from("附件正文\n") });
+  await p.waitForTimeout(800);
+  await shot("attached");
+  await p.evaluate(() => {
+    const f = window.previewFixture;
+    f.wrap("run", async () => {
+      f.snapshot.state = { kind: "running", runId: "att-run", phase: "primary" };
+      f.emit({ type: "state", state: f.snapshot.state });
+      setTimeout(() => {
+        const result = { runId: "att-run", threadId: f.threadId(), status: "failed", text: "", steps: 0, usage: {}, error: { code: "MODEL_ERROR", message: "image input not supported", retryable: false, phase: "model" } };
+        f.snapshot.state = { kind: "idle" }; f.snapshot.lastPrimaryResult = result;
+        f.emit({ type: "result", phase: "primary", result });
+        f.emit({ type: "state", state: f.snapshot.state });
+      }, 300);
+      return { ok: true, runId: "att-run" };
+    });
+  });
+  await send("看看这个附件");
+  await shot("recoverable");
+  await p.getByRole("button", { name: "恢复到草稿" }).first().click({ timeout: 2000 });
+  await p.waitForTimeout(800);
+  await shot("restored");
+});
+
 await scenario("threads", async ({ p, shot }) => {
   await p.evaluate(() => window.previewFixture.api.selectThread("preview-rss"));
   await p.waitForTimeout(1200);
