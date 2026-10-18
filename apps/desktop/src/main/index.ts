@@ -6,7 +6,6 @@ import { app, BrowserWindow, ipcMain, Notification, shell, dialog } from "electr
 import { createDemoModel } from "@serika/assistant";
 import { configureCliModel, inspectCliModelConfig } from "@serika/assistant";
 import { IPC, type MainToRenderer } from "../shared/ui-contract.js";
-import { parseModuleNotification } from "./runtime-bridge.js";
 import { moduleNotificationCopy } from "../shared/human-title.js";
 import { RuntimeOwnership } from "./runtime-ownership.js";
 import { registerForwardedIpc } from "./ipc-forwards.js";
@@ -96,9 +95,9 @@ function createWindow(): BrowserWindow {
 }
 
 function notifyIfHidden(window: BrowserWindow, message: MainToRenderer): void {
-  if (message.type !== "output") return;
-  const notification = parseModuleNotification(message.text);
-  if (notification === undefined) return;
+  if (message.type !== "module-notification") return;
+  // Same text the old `[module:id] message` parser produced: the message without surrounding whitespace.
+  const notification = { moduleId: message.moduleId, message: message.message.trim() };
   if (window.isVisible() && window.isFocused()) return;
   if (!Notification.isSupported()) return;
   const copy = moduleNotificationCopy(notification.moduleId, notification.message);

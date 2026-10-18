@@ -2,7 +2,7 @@
 // Keep this list explicit: every addition is a new public contract.
 
 export { createRuntimeApp } from "./app.js";
-export type { RuntimeApp, TaskAutomationHost } from "./app.js";
+export type { ModuleNotification, RuntimeApp, TaskAutomationHost } from "./app.js";
 export { formatHome, readHomeSnapshot } from "./home.js";
 export type { HomeItem, HomeSection, HomeSnapshot, HomeTask } from "./home.js";
 export { createAssistantController } from "./assistant-controller.js";

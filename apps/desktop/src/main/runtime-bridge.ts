@@ -1,4 +1,4 @@
-import type { HomeSnapshot } from "@serika/assistant";
+import type { HomeSnapshot, ModuleNotification } from "@serika/assistant";
 import type { MemoryLibraryAction } from "@serika/assistant";
 import { BUILTIN_MODULE_IDS, validateChatAttachments } from "@serika/assistant";
 import type { RecipeChange } from "@serika/assistant";
@@ -49,15 +49,6 @@ function validTaskRead(input: unknown): input is WorkTaskReadInput {
     input.id.trim().length > 0 && "expectedRevision" in input && Number.isSafeInteger(input.expectedRevision) && (input.expectedRevision as number) > 0;
 }
 
-const MODULE_NOTIFICATION = /^\s*\[module:([^\]]+)\]\s*([\s\S]*?)\s*$/;
-
-/** Parsed `[module:id] message` line written by the module host's notify hook. */
-export function parseModuleNotification(text: string): { moduleId: string; message: string } | undefined {
-  const match = MODULE_NOTIFICATION.exec(text);
-  if (match === null) return undefined;
-  return { moduleId: match[1]!, message: match[2]! };
-}
-
 export type Send = (message: MainToRenderer) => void;
 
 /**
@@ -93,6 +84,11 @@ export class TeeOutput extends Writable {
   /** The structured Home for the panel; its CLI text still goes through _write to the output log. */
   homeSnapshot(snapshot: HomeSnapshot): void {
     if (this.#home) this.#send({ type: "home", snapshot });
+  }
+
+  /** A module notification; its `[module:id]` text still goes through _write to the output log. */
+  moduleNotification(notification: ModuleNotification): void {
+    this.#send({ type: "module-notification", moduleId: notification.moduleId, message: notification.message });
   }
 
   override _write(

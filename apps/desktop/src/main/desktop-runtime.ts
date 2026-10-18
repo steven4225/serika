@@ -154,6 +154,7 @@ export class DesktopRuntime {
       allowWorkspaceTaskReads: true,
       allowDesktopAutonomy: true,
       onHomeSnapshot: snapshot => output.homeSnapshot(snapshot),
+      onModuleNotification: notification => output.moduleNotification(notification),
       authorizeTelegramAutonomy: grant => this.#telegram?.matchesAutonomyGrant(grant) === true,
       beforePrimaryRunCreate: record => this.#sourceBarrier?.(record) ?? Promise.resolve(),
       afterTaskArrangementSaved: saved => this.#telegram?.arrangementSaved(saved) ?? Promise.resolve(),

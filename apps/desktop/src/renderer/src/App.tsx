@@ -585,6 +585,9 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
         case "home":
           setHomeSnapshot(message.snapshot);
           return;
+        case "module-notification":
+          // Shown by the main process; its text is also in the output log.
+          return;
         case "approval":
           setApproval(message.approval);
           refreshOpenTrace();

@@ -17,3 +17,14 @@
 - 桌面端 `presentHomeTaskItem(item)` 直接读字段，正则删除。
 - 金样例：改动前用旧解析器对所有 Home 分支记录 `apps/desktop/src/renderer/src/__baseline__/home-task-rows.json`，另记录 5 条其他状态/读取失败的行；新路径逐项一致。
 - 差异只在病态输入：提示词本身含「 · runAt 」或「最近创建的 scheduled/running」时，旧正则会切错或误替换，现在按字段显示。
+
+## 2. 模块通知
+
+- `createRuntimeApp` 新增 `onModuleNotification({ moduleId, message })`，在写出 `[module:id] message` 文本之后调用；CLI 文本不变。
+- 桌面端 `TeeOutput.moduleNotification` 发出 `{ type: "module-notification", moduleId, message }`；主进程据此发系统通知（正文为 `message.trim()`，与旧正则取出的一致），渲染进程忽略（文本仍在诊断输出里）。`parseModuleNotification` 删除。
+- 顺带删除没有调用方的 `pomodoroReplies`（按行解析 `[module:pomodoro]`，只有测试在用）。番茄钟面板仍只把输出变化当作刷新信号，不解析文本。
+- 差异：助手连接完成前（Controller 尚未 attach）发出的通知，原来要等 attach 后随输出补发，现在立即发出。实际只可能出现在装配期间。
+
+## 结果
+
+桌面端不再从状态文本里解析数据。剩下的文本只进「系统输出 · 仅供诊断」面板。

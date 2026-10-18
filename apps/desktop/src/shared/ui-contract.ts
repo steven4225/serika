@@ -142,6 +142,8 @@ export type MainToRenderer =
   | { type: "output"; text: string }
   /** Structured Home; `null` clears the panel while a fresh snapshot is read. */
   | { type: "home"; snapshot: HomeSnapshot | null }
+  /** A module notification (`ModuleContext.notify`); main shows it as a system notification. */
+  | { type: "module-notification"; moduleId: string; message: string }
   | { type: "approval"; approval: PendingApproval }
   | { type: "approval-cleared"; approvalId: string }
   | { type: "steer"; steer: AssistantSteerRecord }

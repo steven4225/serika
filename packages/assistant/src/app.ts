@@ -106,12 +106,24 @@ export interface TaskAutomationHost {
   enable(workspace: string, configPath?: string): Promise<{ enabled: boolean; message?: string }>;
 }
 
+/** One `ModuleContext.notify` call, as structured data. */
+export interface ModuleNotification {
+  moduleId: string;
+  message: string;
+}
+
 export interface RuntimeAppOptions {
   /**
    * Receives each structured Home snapshot before its CLI text is written
    * (architecture-v2 §4.4 step 3). The desktop panel renders from this.
    */
   onHomeSnapshot?: (snapshot: HomeSnapshot) => void;
+  /**
+   * Receives each module notification after its `[module:id] message` text is
+   * written. The desktop shows system notifications from this instead of
+   * parsing the output text.
+   */
+  onModuleNotification?: (notification: ModuleNotification) => void;
   /** Transcript directory for this instance. Omitted: a new temporary directory. */
   directory?: string;
   /**
@@ -464,6 +476,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
           {
             notify: (moduleId, message) => {
               output.write(`\n[module:${moduleId}] ${message}\n`);
+              options.onModuleNotification?.({ moduleId, message });
               redrawAfterModuleNotification?.();
             },
           },
