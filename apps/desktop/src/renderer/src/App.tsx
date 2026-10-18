@@ -44,7 +44,8 @@ import { MemoryConsolidationNotice } from "./memory-consolidation.js";
 import { ThreadsPanel } from "./threads.js";
 import { MemoryReferences } from "./memory-references.js";
 import { ContextPanel } from "./context.js";
-import { RecordsPanel, type RecordDetailState, type RecordsState } from "./records.js";
+import { RecordsPanel } from "./records.js";
+import { useRunRecords } from "./app/use-run-records.js";
 import { ApprovalCard } from "./approval.js";
 import { shouldSubmitComposer, canSubmitComposer, canSteerComposer } from "../../shared/composer.js";
 import { mergeSteerRecords, steerFailureLabel } from "../../shared/steer.js";
@@ -150,7 +151,6 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const [recoverableAttachments, setRecoverableAttachments] = useState<{ files: ChatAttachment[]; text: string } | null>(null);
   useEffect(() => { const identity = `${info?.workspaceRoot}:${info?.threadId}`; if (attachmentIdentity.current !== identity) { attachmentIdentity.current = identity; setAttachments([]); sentAttachments.current = null; setRecoverableAttachments(null); } }, [info?.workspaceRoot, info?.threadId]);
   const [showOutput, setShowOutput] = useState(false);
-  const [records, setRecords] = useState<RecordsState>({ status: "loading" });
   const [memoryRefresh, setMemoryRefresh] = useState(0);
   const [contextRefresh, setContextRefresh] = useState(0);
   const [taskRefresh, setTaskRefresh] = useState(0);
@@ -161,7 +161,6 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const [taskFocused, setTaskFocused] = useState(false);
   const [switchingThread, setSwitchingThread] = useState(false);
   const threadSwitchInFlight = useRef(false);
-  const [recordDetail, setRecordDetail] = useState<RecordDetailState>({ status: "idle" });
   const [finalRecord, setFinalRecord] = useState<ExecutionRunRecord | null>(null);
   const [decidingId, setDecidingId] = useState<string | null>(null);
   const decisionInFlight = useRef<string | null>(null);
@@ -187,13 +186,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const [unreadOutput, setUnreadOutput] = useState(false);
   const [awayFromLatest, setAwayFromLatest] = useState(false);
-  const selectedRecordId = useRef<string | null>(null);
-  const recordListRequest = useRef(0);
-  const recordDetailRequest = useRef(0);
-  const recordRefreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const traceVisible = useRef(false);
-  const [traceFocusTool, setTraceFocusTool] = useState<string | null>(null);
-  traceVisible.current = detailsOpen && detailTab === "records";
+  const { records, recordDetail, traceFocusTool, loadRecords, reloadOpen: reloadOpenRecords, openRecord, closeRecord, refreshOpenTrace, invalidate: invalidateRecords } = useRunRecords(detailsOpen && detailTab === "records", setError);
   const taskRunStarted = useCallback((text: string) => { setSubmittedInput(text); followConversation.current = true; setDetailsOpen(false); setMobileDashboard(false); }, []);
   const workTasks = useWorkTasks(info?.workTasks === true, state.kind !== "idle", taskRefresh, taskRunStarted, taskSelectionKey(info), info ? draftScope(info) : null);
   const { composerTaskId: taskComposerId, setComposerTaskId: setTaskComposerId } = workTasks;
@@ -284,42 +277,6 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     setSteers(steerReceipts.current);
   }, []);
 
-  const readRecord = useCallback(async (runId: string) => {
-    const request = ++recordDetailRequest.current;
-    const opened = await window.runloom.getRun(runId);
-    if (request !== recordDetailRequest.current || selectedRecordId.current !== runId) return;
-    if (!opened.ok) setRecordDetail({ status: "unavailable", runId, message: opened.message });
-    else if (opened.run === null) setRecordDetail({ status: "missing", runId });
-    else setRecordDetail({ status: "ready", run: opened.run });
-  }, []);
-
-  const loadRecords = useCallback(async (selectedRunId?: string) => {
-    const request = ++recordListRequest.current;
-    const listed = await window.runloom.listRuns();
-    if (request !== recordListRequest.current) return;
-    if (!listed.ok) {
-      setRecords({ status: "unavailable", message: listed.message });
-      return;
-    }
-    setRecords({ status: "ready", runs: listed.runs, ...(listed.modelUsage ? { modelUsage: listed.modelUsage } : {}) });
-    if (selectedRunId !== undefined && selectedRecordId.current === selectedRunId) await readRecord(selectedRunId);
-  }, [readRecord]);
-
-  const openRecord = useCallback(async (runId: string, toolCallId?: string) => {
-    selectedRecordId.current = runId;
-    setTraceFocusTool(toolCallId ?? null);
-    setRecordDetail({ status: "loading", runId });
-    await readRecord(runId);
-  }, [readRecord]);
-
-  const refreshOpenTrace = useCallback(() => {
-    if (!traceVisible.current || recordRefreshTimer.current !== null) return;
-    recordRefreshTimer.current = setTimeout(() => {
-      recordRefreshTimer.current = null;
-      if (traceVisible.current) void loadRecords(selectedRecordId.current ?? undefined).catch(() => setError("执行追踪读取失败"));
-    }, 250);
-  }, [loadRecords]);
-
   useEffect(() => {
     let cancelled = false;
     let stop = (): void => undefined;
@@ -364,7 +321,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
             setContextRefresh((value) => value + 1);
             setTaskRefresh((value) => value + 1);
             void reloadHistory().catch((cause: unknown) => setError(String(cause)));
-            void loadRecords(selectedRecordId.current ?? undefined).catch((cause: unknown) => setError(String(cause)));
+            void reloadOpenRecords().catch((cause: unknown) => setError(String(cause)));
           }
           return;
         case "output":
@@ -496,17 +453,14 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     return () => {
       cancelled = true;
       historyRequest.current += 1;
-      recordListRequest.current += 1;
-      recordDetailRequest.current += 1;
-      if (recordRefreshTimer.current !== null) clearTimeout(recordRefreshTimer.current);
-      recordRefreshTimer.current = null;
+      invalidateRecords();
       stop();
     };
-  }, [applySnapshot, reloadHistory, loadRecords, loadFinalRun, drafts, refreshOpenTrace]);
+  }, [applySnapshot, reloadHistory, loadRecords, loadFinalRun, drafts, refreshOpenTrace, invalidateRecords]);
 
   useEffect(() => {
-    if (detailsOpen && detailTab === "records") void loadRecords(selectedRecordId.current ?? undefined).catch(() => setError("执行追踪读取失败"));
-  }, [detailsOpen, detailTab, loadRecords]);
+    if (detailsOpen && detailTab === "records") void reloadOpenRecords().catch(() => setError("执行追踪读取失败"));
+  }, [detailsOpen, detailTab, reloadOpenRecords]);
 
   useEffect(() => {
     if (!info || !draftReady) return;
@@ -1067,8 +1021,8 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
               <div hidden={detailTab !== "records"}>
                 {recordDetail.status === "ready" && recordDetail.run.workTaskId && workTasks.tasks.some(task => task.id === recordDetail.run.workTaskId) ? <button className="ghost" onClick={() => { if (recordDetail.run.workTaskId) workTasks.select(recordDetail.run.workTaskId); openTask(); }}>回到工作任务</button> : null}
                 <RecordsPanel records={records} detail={recordDetail} focusTool={traceFocusTool}
-                onBack={() => { selectedRecordId.current = null; recordDetailRequest.current += 1; setTraceFocusTool(null); setRecordDetail({ status: "idle" }); }}
-                onRefresh={() => void loadRecords(selectedRecordId.current ?? undefined).catch(() => setError("执行记录读取失败"))}
+                onBack={closeRecord}
+                onRefresh={() => void reloadOpenRecords().catch(() => setError("执行记录读取失败"))}
                 onOpen={runId => void openRecord(runId).catch(() => setError("执行回执读取失败"))} /></div>
               <div hidden={detailTab !== "memory"}>
                 {info ? <MemoryPanel key={`${info.workspaceRoot}:${info.threadId}`} memory={info.memory} temporaryThread={info.temporaryThread}
