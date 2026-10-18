@@ -12,7 +12,6 @@ import type { UIMessage } from "ai";
 import type {
   AppInfo,
   MainToRenderer,
-  PendingApproval,
   UiSnapshot,
   UiState,
   ExecutionRunRecord,
@@ -47,6 +46,7 @@ import { RecordsPanel } from "./records.js";
 import { useRunRecords } from "./app/use-run-records.js";
 import { steerReview, UncertainSteerNotice, useSteerReceipts } from "./app/steers.js";
 import { ApprovalCard } from "./approval.js";
+import { useApproval } from "./app/use-approval.js";
 import { shouldSubmitComposer, canSubmitComposer, canSteerComposer } from "../../shared/composer.js";
 import { steerFailureLabel } from "../../shared/steer.js";
 import { Icon, SerikaMark, SerikaPersona, type IconName } from "./icons.js";
@@ -129,9 +129,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const [historyLoading, setHistoryLoading] = useState(false);
   const [live, setLive] = useState<LiveRun>(emptyLiveRun);
   const [lastResult, setLastResult] = useState<ConversationRow | null>(null);
-  const [approval, setApproval] = useState<PendingApproval | null>(null);
   const [canSteer, setCanSteer] = useState(false);
-  useEffect(() => { if (approval) setMobileDashboard(false); }, [approval?.approvalId]);
   const [draftReady, setDraftReady] = useState(false);
   const [draftError, setDraftError] = useState<string | null>(null);
   const [draftSaving, setDraftSaving] = useState(false);
@@ -139,6 +137,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const draftSaveSequence = useRef(0);
   const [reconnecting, setReconnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { approval, setApproval, decidingId, decide } = useApproval(setMobileDashboard, setError);
   const [input, setInput] = useState("");
   const [excludeFromMemory, setExcludeFromMemory] = useState(false);
   const [submittedInput, setSubmittedInput] = useState<string | null>(null);
@@ -159,8 +158,6 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const [switchingThread, setSwitchingThread] = useState(false);
   const threadSwitchInFlight = useRef(false);
   const [finalRecord, setFinalRecord] = useState<ExecutionRunRecord | null>(null);
-  const [decidingId, setDecidingId] = useState<string | null>(null);
-  const decisionInFlight = useRef<string | null>(null);
   const latestPrimaryId = useRef<string | null>(null);
   const latestCompletedPrimaryId = useRef<string | null>(null);
   const { steers, replaceSteers, mergeSteer, uncertainSteer, setUncertainSteer } = useSteerReceipts(latestPrimaryId);
@@ -556,22 +553,6 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [detailsOpen, mobileDashboard, searchOpen, detailTab, settingsRoute]);
-
-  const decide = useCallback(async (decision: "allow" | "deny", remember = false) => {
-    if (approval === null || decisionInFlight.current === approval.approvalId) return;
-    const id = approval.approvalId;
-    decisionInFlight.current = id;
-    setDecidingId(id);
-    setError(null);
-    try {
-      const { accepted } = await window.runloom.confirm({ approvalId: id, decision, ...(remember && decision === "allow" ? { remember: true as const } : {}) });
-      if (!accepted) setError("确认已失效，本次点击未执行。请重新核对当前调用，不会自动批准新调用。");
-    } catch { setError("确认结果未收到。请查看当前状态，不会自动重试。"); }
-    finally {
-      if (decisionInFlight.current === id) decisionInFlight.current = null;
-      setDecidingId(current => current === id ? null : current);
-    }
-  }, [approval]);
 
   const submit = useCallback(async () => {
     const line = composerText.trim();

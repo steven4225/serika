@@ -10,6 +10,7 @@
 | `f17dd39` | `useSplitLayout`、`useThreadList` | 1121 → 1084 |
 | `d7f0ec6` | 补流程验证：`flows.mjs`（拒绝、停止、推送事件与 Shell 输出、失败结果、补充要求、切换对话、连接失败与恢复、执行记录），`zcode-preview.tsx` 的 `?lifecycle` 入口 | 不变 |
 | `a88a945` | 执行记录：`useRunRecords`（列表、打开的记录、追踪刷新、请求计数和定时器）。hook 本身不声明副作用；记录页加载副作用和订阅清理仍在 App.tsx 原位置，改调 `reloadOpen` / `invalidate` | 1084 → 1038 |
-| 本提交 | 补充要求：`useSteerReceipts`（回执列表与 ref 同步、待核对补充），`steerReview`（核对接收状态、保留草稿结束核对）、`UncertainSteerNotice`。`flows.mjs` 补两个流程：核对查不到回执 → 本轮结束 → 保留草稿结束核对；核对查到回执 | 1038 → 992 |
+| `fa6c297` | 补充要求：`useSteerReceipts`（回执列表与 ref 同步、待核对补充），`steerReview`（核对接收状态、保留草稿结束核对）、`UncertainSteerNotice`。`flows.mjs` 补两个流程：核对查不到回执 → 本轮结束 → 保留草稿结束核对；核对查到回执 | 1038 → 992 |
+| 本提交 | 审批：`useApproval`（待确认调用、移动端收起看板的副作用、允许/拒绝）。在 `error` 声明后调用，原位置到这里之间没有副作用 | 992 → 973 |
 
-接下来按领域拆：审批、输入框与发送；消息订阅只负责分发。hook 在原来声明副作用的位置调用，保持副作用顺序。
+接下来按领域拆：输入框与发送；消息订阅只负责分发。hook 在原来声明副作用的位置调用，保持副作用顺序。
