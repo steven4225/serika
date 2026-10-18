@@ -30,9 +30,13 @@
 
 ```text
 apps/desktop ─┐
-apps/cli ─────┼─> packages/assistant ─> packages/agent-loop ─> packages/core
-apps/telegram ┘        (领域：记忆/任务/上下文/沉淀，扩展 API)
+apps/cli ─────┼─> packages/assistant ─> packages/ai-sdk-adapter ─> packages/agent-loop ─> packages/core
+apps/telegram ┘        (领域：记忆/任务/        (AI SDK 边界：模型/工具       (最小循环)
+                        上下文/沉淀，扩展 API)    格式转换，不含应用逻辑)
 ```
+
+- 现状（`9fa8678`）：循环仍在 `packages/ai-sdk-adapter` 里，`packages/agent-loop` 尚未建立。§4.4 这一轮不建新包（不建 `runtime`、`agent-loop`），只用目录划分加边界检查；是否拆包在 §4.4 第 4 步复盘后再定。
+- `packages/ai-sdk-adapter` 是不动的边界（§3）：拆包与否，AI SDK 的类型和调用都只出现在这一层。
 
 - `packages/core`：只有类型、事件、transcript 存储、hash，不依赖 AI SDK、Electron 或存储引擎。
 - `packages/agent-loop`：参考 pi 的最小循环（目标 ≤ 500 行）。通过 hook 扩展：`transformContext`、`convertToLlm`、`beforeToolCall`/`afterToolCall`、steering、follow-up。hook 不得抛错，错误编码为消息。
@@ -144,6 +148,57 @@ apps/telegram ┘        (领域：记忆/任务/上下文/沉淀，扩展 API)
 - 规则反转：自主执行必须在沙箱里运行。逐条确认的 host 模式保留。
 - 沙箱只管 Shell。Todoist、Telegram、记忆写入、`web_fetch` 外带数据仍靠审批和域名白名单；Computer 工具继续逐次审批。
 - 在此之前：开自主执行时避免读取不熟悉的网页/RSS。
+
+## 4.4 本轮：装配集中化试点（基线 `9fa8678`）
+
+本节记录一轮小范围的端到端改动：验证「改动更集中、更好读、结果不变」是否成立。成立后是否扩大范围由维护者决定。本轮是 §4.1 第 3 步的延续，不改变 §4 路线表的顺序。
+
+### 范围
+
+- 先服务本机个人助手（开发、研究、日常），入口为桌面、CLI、Telegram。
+- 群聊 bot 另开一条线（§4.2），本轮只保留多实例装配、模块可选、数据目录独立这些边界。
+- 只在 `experiment/architecture-v2` 上工作；`main` 不修改、不合并、不同步，也不拿来对比或移植。直接提交到实验分支，不走 PR、不依赖 CI；每个提交在本地跑 `pnpm typecheck`、`pnpm test:runtime`、桌面端测试（`pnpm --filter @serika/desktop test`），结果写在提交说明里。提交前缀 `refactor(v2-pilot-stepN):`，一步一组提交；不强推，回退用 `git revert`。
+
+### 诊断（已确认）
+
+- Run 生命周期已经在 core 的 `DefaultAgentRuntime` 里，「缺编排层」的说法不准确。
+- 真正的问题：`createRuntimeApp`（`packages/assistant/src/app.ts`，约 840 行的闭包）集中了配置选择、模块连线、上下文来源、agent 注册和领域文案。
+- 桌面端 `apps/desktop/src/renderer/src/home.ts` 按「项目进度：」「Git：」等前缀解析 Home 文本。
+- 本轮不新建包，用目录划分加边界检查。
+
+### 底线（任何一步都不能碰）
+
+- AI SDK adapter 边界、常驻进程架构。
+- 工具副作用语义：结果未知不能当成失败，非幂等工具不能自动重试。
+- 回执格式和 verifier 判定完全不动（A2 已确认，见 §4.1 第 3 步）。
+- 双时态记忆的内部语义、用户原话的来源校验（`isExactUserQuote`）。
+- 权限判定规则不变，`permission-decisions.snapshot.ts` 必须完全一致（D2 除外，见下）。
+- 已落盘的 hash 格式、数据路径、配置文件格式。
+- 用户可见的功能、文案、顺序不变。
+
+遇到以下情况立刻停下并询问：需要改权限、回执、verifier、数据路径或格式、hash、用户可见行为；某一步超出估算 50%；发现方案前提和代码对不上。
+
+### 本轮不做
+
+- facets 和通用证据接口；一次性补齐扩展框架（服务注册、controls、通用展示描述）。
+- 全部模块迁移；`RunContext` 的实现（只写设计说明）；dataDir 映射调整（只列路径清单）；记忆生命周期调整。
+- 第 4.5 步、第 5 步及之后的步骤（顺序保持 §4 路线表）。
+- 任何与 `main` 有关的事。
+
+### 步骤
+
+| 步 | 内容 | 估算 | 验收 |
+|---|---|---|---|
+| 0 | 只改文档：本节、终态图补 adapter、写明本轮不建新包 | — | 文档 |
+| 1 | 固定基线：只加测试和文档，不改产品代码。路径清单与快照；落盘 hash 盘点与黄金样例；回执/verifier 不变量对应到测试并补锁定测试；装配快照（最小、完整、去掉 Todoist：工具表、指令全文、能力报告）；CLI Home 文本快照；待实现清单单独成报告（不进测试套件、不计入通过数） | 2～3 天 | 测试全绿，产品代码零改动 |
+| D2 | 没有沙箱时，自主执行 Run 里本机 Shell 改为逐条确认，Telegram 复用手机确认。第 1 步之后单独提交 | — | 权限快照只在 `shell_exec` 的自主执行情形出现差异；系统沙箱另设完成条件（§4.3） |
+| 2 | Todoist 试点：配置解析（格式不变）、从装配方传入的 env 读 token、能力报告和状态行归 Todoist 模块；跨模块依赖用带类型的参数在装配入口传入，不引入服务注册。只改 assistant 包，桌面端 Todoist 相关位置只列出 | 3～5 天 | 去掉 Todoist 后工具表、指令、能力报告里都没有它并与第 1 步快照一致；新加演示工具再移除只改该模块文件和装配处一行；权限快照不变；回执和 verifier 测试原样通过 |
+| 3 | Home 结构化：结构化快照作为唯一数据来源；CLI 用它渲染文本，与第 1 步快照逐字一致；桌面端接收结构化消息，删掉解析器。可选：「任务停止原因」改成结构化事件（先报工作量，由维护者决定） | 3～5 天 | CLI 快照逐字一致；桌面端测试通过 |
+| 4 | 复盘报告：每次改动涉及哪些文件及原因；试点暴露的接口问题；下一批候选项及代价（记忆生命周期、跨模块接口、`RunContext`、dataDir、状态事件） | — | 下一批做不做由维护者决定 |
+
+### 进度
+
+- 第 0 步：完成（本节）。
 
 ## 5. 度量基线（`c594574`，改名后、移除 durable/postgres 前）
 
