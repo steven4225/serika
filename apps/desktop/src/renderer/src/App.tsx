@@ -16,7 +16,6 @@ import type {
   UiSnapshot,
   UiState,
   ExecutionRunRecord,
-  AssistantSteerRecord,
 } from "../../shared/ui-contract.js";
 import { ShellProgressBuffer } from "../../shared/shell-progress.js";
 import {
@@ -46,9 +45,10 @@ import { MemoryReferences } from "./memory-references.js";
 import { ContextPanel } from "./context.js";
 import { RecordsPanel } from "./records.js";
 import { useRunRecords } from "./app/use-run-records.js";
+import { steerReview, UncertainSteerNotice, useSteerReceipts } from "./app/steers.js";
 import { ApprovalCard } from "./approval.js";
 import { shouldSubmitComposer, canSubmitComposer, canSteerComposer } from "../../shared/composer.js";
-import { mergeSteerRecords, steerFailureLabel } from "../../shared/steer.js";
+import { steerFailureLabel } from "../../shared/steer.js";
 import { Icon, SerikaMark, SerikaPersona, type IconName } from "./icons.js";
 import { MessageContent } from "./markdown.js";
 import { CapabilitiesPanel } from "./capabilities.js";
@@ -82,7 +82,7 @@ import { RemindersPanel } from "./reminders.js";
 import { DesktopWindowFrame } from "./zcode/upstream/desktop-window-frame.js";
 import { Button } from "./zcode/upstream/button.js";
 import { ArrowUp, Square, Search, Settings2 } from "lucide-react";
-import { draftScope, type UncertainSteer } from "../../shared/conversation-drafts.js";
+import { draftScope } from "../../shared/conversation-drafts.js";
 import { ErrorBanner } from "./failure-notice.js";
 import "./zcode/theme.css";
 import "./personal/shell.css";
@@ -132,15 +132,12 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const [approval, setApproval] = useState<PendingApproval | null>(null);
   const [canSteer, setCanSteer] = useState(false);
   useEffect(() => { if (approval) setMobileDashboard(false); }, [approval?.approvalId]);
-  const [steers, setSteers] = useState<readonly AssistantSteerRecord[]>([]);
-  const [uncertainSteer, setUncertainSteer] = useState<UncertainSteer | null>(null);
   const [draftReady, setDraftReady] = useState(false);
   const [draftError, setDraftError] = useState<string | null>(null);
   const [draftSaving, setDraftSaving] = useState(false);
   const draftSave = useRef<Promise<void>>(Promise.resolve());
   const draftSaveSequence = useRef(0);
   const [reconnecting, setReconnecting] = useState(false);
-  const steerReceipts = useRef<readonly AssistantSteerRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [excludeFromMemory, setExcludeFromMemory] = useState(false);
@@ -166,6 +163,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const decisionInFlight = useRef<string | null>(null);
   const latestPrimaryId = useRef<string | null>(null);
   const latestCompletedPrimaryId = useRef<string | null>(null);
+  const { steers, replaceSteers, mergeSteer, uncertainSteer, setUncertainSteer } = useSteerReceipts(latestPrimaryId);
   const historyRequest = useRef(0);
   const [detailsOpen, setDetailsOpen] = useState(!!initialSettings);
   const [detailTab, setDetailTab] = useState<"threads" | "tasks" | "reminders" | "home" | "records" | "memory" | "context" | "pomodoro" | "modules" | "settings">(initialSettings ? "settings" : "home");
@@ -208,8 +206,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const applySnapshot = useCallback((snapshot: UiSnapshot) => {
     setState(snapshot.state);
     setCanSteer(snapshot.canSteer);
-    steerReceipts.current = snapshot.steers;
-    setSteers(snapshot.steers);
+    replaceSteers(snapshot.steers);
     setApproval(snapshot.pendingApproval);
     setOutput(snapshot.recentOutput);
     shellBuffer.current.clear();
@@ -228,7 +225,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
         streaming: "",
       });
     }
-  }, []);
+  }, [replaceSteers]);
 
   const reloadHistory = useCallback(async () => {
     const request = ++historyRequest.current;
@@ -273,9 +270,8 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     if (!response.ok) { setError(`最终执行回执不可用：${response.message}`); return; }
     if (response.run === null) { setError("最终执行回执缺失，不能据此确认动作结果"); return; }
     setFinalRecord(response.run);
-    steerReceipts.current = response.run.steers ?? [];
-    setSteers(steerReceipts.current);
-  }, []);
+    replaceSteers(response.run.steers ?? []);
+  }, [replaceSteers]);
 
   useEffect(() => {
     let cancelled = false;
@@ -302,8 +298,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
             setLive(emptyLiveRun);
             setLastResult(null);
             setFinalRecord(null);
-            setSteers([]);
-            steerReceipts.current = [];
+            replaceSteers([]);
             latestPrimaryId.current = null;
             latestCompletedPrimaryId.current = null;
             historyRequest.current += 1;
@@ -341,10 +336,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
           setApproval((current) => (current?.approvalId === message.approvalId ? null : current));
           return;
         case "steer": {
-          const records = mergeSteerRecords(steerReceipts.current, message.steer, latestPrimaryId.current);
-          if (records === steerReceipts.current) return;
-          steerReceipts.current = records;
-          setSteers(records);
+          if (!mergeSteer(message.steer)) return;
           setLive(previous => applySteerRecord(previous, message.steer));
           return;
         }
@@ -439,8 +431,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
         // History waits for receipt recovery; only now is the restart Steer state authoritative.
         const recovered = await window.runloom.snapshot();
         if (cancelled) return;
-        steerReceipts.current = recovered.steers;
-        setSteers(recovered.steers);
+        replaceSteers(recovered.steers);
         setCanSteer(recovered.canSteer);
         await loadRecords();
         const homeResult = await window.runloom.home();
@@ -456,7 +447,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
       invalidateRecords();
       stop();
     };
-  }, [applySnapshot, reloadHistory, loadRecords, loadFinalRun, drafts, refreshOpenTrace, invalidateRecords]);
+  }, [applySnapshot, reloadHistory, loadRecords, loadFinalRun, drafts, refreshOpenTrace, invalidateRecords, replaceSteers, mergeSteer]);
 
   useEffect(() => {
     if (detailsOpen && detailTab === "records") void reloadOpenRecords().catch(() => setError("执行追踪读取失败"));
@@ -614,9 +605,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
           } else setError(steerFailureLabel(response.reason));
           return;
         }
-        const records = mergeSteerRecords(steerReceipts.current, response.steer, latestPrimaryId.current);
-        steerReceipts.current = records;
-        setSteers(records);
+        mergeSteer(response.steer);
         const receipt = await window.runloom.acknowledgeSteer(draftScope(info), request.id);
         if (!receipt) throw new Error("接收凭证尚未确认");
         if (receipt.status !== "not_applied") {
@@ -684,42 +673,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const composerReady = draftReady && draftError === null && (!composingTask || (workTasks.draftReady && !workTasks.draftError)) && !info?.runtimeRecovery && uncertainSteer === null && (steering || canSubmitComposer(state, composingTask ? "task" : composerText.trim().startsWith("/") ? "command" : "chat"));
   const running = state.kind === "running";
   const activePrimary = running && state.phase === "primary";
-  const recheckSteer = async () => {
-    if (!uncertainSteer || !info) return;
-    try {
-      const receipt = await window.runloom.acknowledgeSteer(draftScope(info), uncertainSteer.id);
-      if (!receipt) { setError("尚未查到这次补充的接收凭证，不能据此断言未发送；不会自动重发。"); return; }
-      const records = mergeSteerRecords(steerReceipts.current, receipt, latestPrimaryId.current);
-      steerReceipts.current = records;
-      setSteers(records);
-      setUncertainSteer(null);
-      if (receipt.status !== "not_applied") {
-        if (uncertainSteer.taskId) {
-          workTasks.clearInstruction(uncertainSteer.taskId, uncertainSteer.text);
-        } else setInput(current => current.trim() === uncertainSteer.text ? "" : current);
-      }
-      setError(receipt.status === "not_applied" && uncertainSteer.taskId
-        ? "这次工作任务补充未应用，原文与任务目标已保留；核对任务后可显式继续，不会自动续做。"
-        : null);
-    } catch { setError("核对失败，草稿保持锁定，不会重发。"); }
-  };
-  const releaseSteer = async () => {
-    if (!info || !uncertainSteer || busy) return;
-    try {
-      await draftSave.current;
-      if (uncertainSteer.taskId) await workTasks.flushDrafts();
-      if (!await window.runloom.releaseSteer(draftScope(info), uncertainSteer.id)) { setError("待核对记录已变化，请重新加载。"); return; }
-      if (uncertainSteer.taskId) {
-        setTaskComposerId(uncertainSteer.taskId);
-        workTasks.select(uncertainSteer.taskId);
-        if (workTasks.task?.id === uncertainSteer.taskId && !workTasks.instruction) workTasks.setInstruction(uncertainSteer.text);
-      } else { setTaskComposerId(null); setInput(current => current || uncertainSteer.text); }
-      setUncertainSteer(null);
-      setError(uncertainSteer.taskId
-        ? "原任务补充的接收结果仍未确认，原文保留在该任务；不会转成普通对话或自动重发。"
-        : "原补充的接收结果仍未确认。草稿不会自动发送；如再次发送，将开启新一轮。");
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "未解除待核对状态，草稿仍锁定；不会重发。"); }
-  };
+  const { recheckSteer, releaseSteer } = steerReview({ info, busy, uncertainSteer, setUncertainSteer, mergeSteer, workTasks, setInput, setTaskComposerId, setError, draftSave });
   const retryConnection = async () => {
     if (reconnecting) return;
     setReconnecting(true);
@@ -911,7 +865,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
           }}>重试保存</button></div> : null}
           {error ? info ? <ErrorBanner message={error} onClose={() => setError(null)} /> : <ErrorBanner message={error} /> : null}
           {workTasks.draftError ? <div className="error error-banner" role="alert"><span>{workTasks.draftError}</span><button className="ghost" type="button" onClick={workTasks.retryDrafts}>重试任务草稿保存</button></div> : null}
-          {uncertainSteer ? <div className="attention-summary" role="status"><span>补充要求的接收凭证待核对，草稿不会重发。{uncertainSteer.taskId ? "原补充属于工作任务；核对前不会作为普通对话发送。" : ""}</span><details><summary>查看这次补充</summary><pre>{uncertainSteer.text}</pre></details><button type="button" className="ghost" onClick={() => void recheckSteer()}>核对接收状态</button>{!busy ? <button type="button" className="ghost" onClick={() => void releaseSteer()}>保留草稿，结束本次核对</button> : null}</div> : null}
+          {uncertainSteer ? <UncertainSteerNotice steer={uncertainSteer} busy={busy} onRecheck={() => void recheckSteer()} onRelease={() => void releaseSteer()} /> : null}
           {approval ? <ApprovalCard approval={approval} deciding={decidingId === approval.approvalId} onDecision={(decision, remember) => void decide(decision, remember === true)} /> : null}
           <ZCodePromptEditor inputRef={inputRef} value={composerText} aria-label={composingTask ? "本轮任务指令" : "消息输入"}
               notice={composingTask ? !composerTask ? "任务已切换，原草稿仍保留。重新选择任务，或切回普通对话。" : !busy && !taskActions(composerTask).run ? "本轮已结束，请从任务卡查看结果，或切回普通对话。" : null : null}

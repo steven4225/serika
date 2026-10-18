@@ -132,6 +132,35 @@ await scenario("steer-failed", async ({ p, shot, send }) => {
   await p.waitForTimeout(800);
   await send("只看第一节");
   await shot("steer-uncertain");
+  await p.evaluate(() => { window.previewFixture.wrap("acknowledgeSteer", async () => null); });
+  await p.getByRole("button", { name: "核对接收状态" }).first().click({ timeout: 2000 });
+  await p.waitForTimeout(500);
+  await shot("recheck-missing");
+  await p.getByRole("button", { name: /^允许/ }).first().click({ timeout: 2000 });
+  await p.waitForTimeout(1500);
+  await shot("uncertain-idle");
+  await p.evaluate(() => { window.previewFixture.wrap("releaseSteer", async () => true); });
+  await p.getByRole("button", { name: "保留草稿，结束本次核对" }).first().click({ timeout: 2000 });
+  await p.waitForTimeout(800);
+  await shot("released");
+});
+
+await scenario("steer-recheck", async ({ p, shot, send }) => {
+  await p.evaluate(() => { window.previewFixture.wrap("steer", async () => ({ ok: false, reason: "failed" })); });
+  await send("读一下计划");
+  await p.evaluate(() => { const f = window.previewFixture; f.snapshot.canSteer = true; f.emit({ type: "state", state: f.snapshot.state }); });
+  await p.waitForTimeout(800);
+  await send("只看第一节");
+  await p.evaluate(() => {
+    const f = window.previewFixture;
+    f.wrap("acknowledgeSteer", async (_scope, id) => ({ id, runId: f.runId(), text: "只看第一节", status: "accepted", receivedAt: "2026-01-01T00:00:00.000Z" }));
+  });
+  await p.getByRole("button", { name: "核对接收状态" }).first().click({ timeout: 2000 });
+  await p.waitForTimeout(800);
+  await shot("rechecked");
+  await p.getByRole("button", { name: /^允许/ }).first().click({ timeout: 2000 });
+  await p.waitForTimeout(1500);
+  await shot("finished");
 });
 
 await scenario("threads", async ({ p, shot }) => {
