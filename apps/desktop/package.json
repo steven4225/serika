@@ -9,6 +9,7 @@
     "node": ">=22.12.0"
   },
   "scripts": {
+    "qq": "tsx src/main/qq-entry.ts",
     "install:local": "node scripts/install-local.mjs",
     "daily": "node scripts/start-daily.mjs",
     "dev": "node scripts/build-notification-helper.mjs && electron-vite dev",

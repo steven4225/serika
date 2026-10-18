@@ -73,7 +73,7 @@ export interface ToolActivity {
 
 export type AssistantState =
   | { kind: "idle" }
-  | { kind: "running"; runId: string | null; phase: "primary" | "consolidation" | "skill"; background?: true; source?: "telegram" }
+  | { kind: "running"; runId: string | null; phase: "primary" | "consolidation" | "skill"; background?: true; source?: "telegram" | "qq" }
   | { kind: "compacting" }
   | { kind: "resuming" }
   | { kind: "command"; name: string };
@@ -120,7 +120,7 @@ export interface AssistantRunOptions {
   /** Trusted channel receipt clock; never accepted from renderer run options. */
   receivedAt?: string;
   /** Trusted embedding channel; renderer options cannot set it. */
-  source?: "telegram";
+  source?: "telegram" | "qq";
 }
 
 export type AssistantSteerResponse =
@@ -396,7 +396,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     started?: (handle: RunHandle) => void,
     background = false,
     executionThreadId = app.threadId,
-    source?: "telegram",
+    source?: "telegram" | "qq",
     desktopEntry = false,
   ): Promise<{ result: RunResult; requestedMemoryTool: boolean; finalizationFailed: boolean }> => {
     const autonomous = phase === "primary" && app.beginForegroundExecution?.(source === "telegram" ? "telegram" : desktopEntry ? "desktop" : undefined, message) === true;
