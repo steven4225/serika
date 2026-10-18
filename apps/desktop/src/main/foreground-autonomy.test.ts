@@ -49,6 +49,16 @@ it("persists workspace authority, runs a multi-step repair, preserves attachment
   const shell = (command: string): Call => ({ name: "shell_exec", input: { command, cwd: "." } });
   const waitIdle = () => until(() => host.current.snapshot().state.kind === "idle");
   const reset = (calls: Call[]) => { plan = calls; index = 0; events.length = 0; instructions.length = 0; };
+  // D2: without a sandbox, autonomy still asks for every host shell_exec call; approve only those.
+  const approveShellUntilIdle = async () => {
+    let approved = 0;
+    while (host.current.snapshot().state.kind !== "idle") {
+      const pending = host.current.snapshot().pendingApproval;
+      if (pending) { assert.equal(pending.toolName, "shell_exec"); assert.equal(host.current.confirm({ approvalId: pending.approvalId, decision: "allow" }).accepted, true); approved++; }
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    return approved;
+  };
   const cancelPending = async () => { await until(() => !!host.current.snapshot().pendingApproval); await host.current.cancel(); await waitIdle(); };
   try {
     assert.equal(host.info().autonomy?.enabled, false);
@@ -69,8 +79,8 @@ it("persists workspace authority, runs a multi-step repair, preserves attachment
       shell("test \"$(cat answer.txt)\" = right"),
     ]);
     const started = await host.current.run("修复并检查", { attachments: [{ name: "note.txt", mediaType: "text/plain", data: Buffer.from("保留附件").toString("base64") }] } as never);
-    assert.equal(started.ok, true); await waitIdle();
-    assert.equal(events.some(event => event.type === "approval"), false);
+    assert.equal(started.ok, true); assert.equal(await approveShellUntilIdle(), 9);
+    assert.ok(events.every(event => event.type !== "approval" || event.approval.toolName === "shell_exec"));
     assert.equal(await readFile(join(f.workspace, "answer.txt"), "utf8"), "right");
     assert.ok(instructions[0]?.includes("host has explicitly authorized"));
     assert.ok(instructions[0]?.includes("保留附件"));
@@ -79,14 +89,14 @@ it("persists workspace authority, runs a multi-step repair, preserves attachment
     assert.ok(read.ok && read.run); const run = read.run;
     assert.equal(run.status, "completed"); assert.equal(run.tools.length, 12);
     assert.equal(run.tools[1]?.shell?.exitCode, 1); assert.equal(run.tools.at(-1)?.shell?.exitCode, 0);
-    assert.equal(run.tools.some(tool => tool.approvalRequestedAt), false);
+    assert.ok(run.tools.every(tool => !!tool.approvalRequestedAt === (tool.toolName === "shell_exec")));
     const task = await host.current.createWorkTask({ goal: "检查文件", acceptance: [
       { id: "check", description: "文件存在", required: true, method: "automatic", verification: { kind: "shell_exit_zero", command: "test -f answer.txt", cwd: "." } },
       { id: "quality", description: "用户接受质量", required: true, method: "human", verification: { kind: "human" } },
     ] });
     assert.ok(task.ok); reset([shell("test -f answer.txt")]);
     assert.equal((await host.current.runWorkTask({ id: task.value.id, expectedRevision: task.value.revision })).ok, true);
-    await waitIdle(); assert.equal(events.some(event => event.type === "approval"), false);
+    assert.equal(await approveShellUntilIdle(), 1);
     const delivered = await host.current.getWorkTask(task.value.id); assert.ok(delivered.ok); assert.equal(delivered.value.status, "awaiting_acceptance");
     for (const asTask of [false, true]) {
       reset([shell("touch telegram-must-not-run")]);
@@ -127,6 +137,9 @@ it("uses the resident socket for authority changes, retains other approvals and 
     await client.current.cancel(); await until(() => server.runtime.current.snapshot().state.kind === "idle");
     otherTool = false;
     const started = await client.current.run("执行并停止"); assert.ok(started.ok);
+    // D2: the host shell call itself is confirmed once, then runs and is cancelled.
+    await until(() => server.runtime.current.snapshot().pendingApproval?.toolName === "shell_exec");
+    assert.equal(server.runtime.current.confirm({ approvalId: server.runtime.current.snapshot().pendingApproval!.approvalId, decision: "allow" }).accepted, true);
     // Wait for the real process to run, rather than only a dispatched event.
     const deadline = Date.now() + 20_000;
     while (true) {

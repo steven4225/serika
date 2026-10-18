@@ -362,8 +362,8 @@ describe("executeShellCommand", () => {
     const sandbox = { backend: "docker" as const, image: "img", readablePaths: [], writablePaths: [] };
     const host = createModuleHost([createShellModule("/tmp", {})], { notify() {} });
     const docker = createModuleHost([createShellModule("/tmp", { sandbox })], { notify() {} });
-    assert.deepEqual(host.toolPermissions.get("shell_exec")?.defaults, { remember: "never", autonomy: "allow" });
-    assert.deepEqual(docker.toolPermissions.get("shell_exec")?.defaults, { remember: "never", autonomy: "allow", runAuthorization: "tool" });
+    assert.deepEqual(host.toolPermissions.get("shell_exec")?.defaults, { remember: "never" });
+    assert.deepEqual(docker.toolPermissions.get("shell_exec")?.defaults, { remember: "never", runAuthorization: "tool" });
     const card = (module: typeof host) => module.toolPermissions.get("shell_exec")?.confirmation?.(
       { toolName: "shell_exec", input: { command: "ls" } } as Parameters<NonNullable<ToolPermissionFacts["confirmation"]>>[0]);
     assert.match(String(card(host)), /^\nTool: shell_exec\nCommand: "ls"\nCwd: "\." \(relative to workspace\)\n/);

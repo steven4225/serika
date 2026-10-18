@@ -96,7 +96,7 @@ export const PERMISSION_DECISIONS: Readonly<Record<string, string>> = {
   "consolidation-agent | edit_file": "ask; remember: 本次对话内允许 edit_file 改动 src/ 下的文件（不含子目录）",
   "plain-host | shell_exec": "ask; preview: \nTool: shell_exec\nCommand: \"ls\"\nCwd: \".\" (relative to workspace)\nThe command will run with the configured workspace as its root context; this is not an operating-system sandbox. Output may be truncated.\nAllow this call? [y/n] ",
   "plain-docker | shell_exec": "ask; preview: \nTool: shell_exec\nCommand: \"ls\"\nCwd: \".\" (relative to sandbox mounts)\nDocker sandbox image: img; network none; root filesystem read-only.\nReadable: none; writable: none.\nUnmounted host files are not visible. Output may be truncated.\nAllow this call? [y/n] ",
-  "autonomous | shell_exec": "allow",
+  "autonomous | shell_exec": "ask",
   "telegram | shell_exec": "ask",
   "run-file-authorization(src) | shell_exec": "ask",
   "run-file-authorization(src) next-run | shell_exec": "ask",

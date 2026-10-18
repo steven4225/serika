@@ -456,7 +456,7 @@ export class TelegramGateway {
       const status = info.capabilities;
       const enabled = this.host.channelTelegramAutonomyEnabled();
       const channelStatus = status ? { ...status, shell: { ...status.shell, authority: enabled ? "explicit_workspace_telegram_primary; no background inheritance" : "current_run_only",
-        warning: enabled ? "当前绑定私聊已授权文件和本机命令连续执行；其他工具仍需确认。Shell 使用进程本机权限，工作区不是系统沙箱。" : status.shell.mode === "docker" ? "沿用配置的挂载与网络限制；工具仍需确认。" : "当前私聊未授权自主执行，文件和本机命令仍需确认。" } } : undefined;
+        warning: enabled ? "当前绑定私聊已授权文件操作连续执行；本机命令和其他工具仍需确认。Shell 使用进程本机权限，工作区不是系统沙箱。" : status.shell.mode === "docker" ? "沿用配置的挂载与网络限制；工具仍需确认。" : "当前私聊未授权自主执行，文件和本机命令仍需确认。" } } : undefined;
       return reject(channelStatus ? formatCapabilityStatus(channelStatus) : "当前连接未提供能力状态；无法据此判断已注册或可用。");
     }
     if (text === "/start" || text === "/help") return reject("直接提问或说“几分钟后提醒我…”；点确认卡下的按钮即可批准或取消。备用：允许 短码 / 拒绝 短码。/confirm 刷新当前确认，/details 查看详情，/capabilities 查看真实能力状态。调整：新方向；停止。工作任务用“任务：目标 → 开始 短码”。");
@@ -465,7 +465,7 @@ export class TelegramGateway {
       if (!goal || goal.length > 8000) return reject("请用 1–8000 字说明任务目标。");
       if (this.#activeKey || this.host.channelSnapshot().snapshot.state.kind !== "idle") return reject("助手正在处理，请结束后再交办；没有排队或启动任务。");
       this.#taskProposal = { goal, code: code(), expires: this.now() + 5 * 60_000 };
-      return reject(`任务目标：${goal}\n验收由你确认，不会让模型给自己通过。\n发送“开始 ${this.#taskProposal.code}”创建并执行；${this.host.channelTelegramAutonomyEnabled() ? "文件和本机命令已授权连续执行，随时发送“停止”。其他工具仍需批准。" : "工具操作需另行批准，可在桌面 Telegram 设置中开启独立自主执行授权。"}`);
+      return reject(`任务目标：${goal}\n验收由你确认，不会让模型给自己通过。\n发送“开始 ${this.#taskProposal.code}”创建并执行；${this.host.channelTelegramAutonomyEnabled() ? "文件操作已授权连续执行，随时发送“停止”。本机命令和其他工具仍需批准。" : "工具操作需另行批准，可在桌面 Telegram 设置中开启独立自主执行授权。"}`);
     }
     let task = false, goal = text;
     const begin = /^开始 ([A-F0-9]{10})$/.exec(text);

@@ -207,6 +207,11 @@ apps/telegram ┘        (领域：记忆/任务/        (AI SDK 边界：模型
   - CLI Home 文本快照 `__baseline__/home.txt`（各分支）与 `home-app.txt`（装配后实际输出）。
   - 待实现清单 `docs/v2-pilot/pending.md`（报告，不进测试套件）。其中 B 节：第 2 步的验收条件「去掉 Todoist 后都没有它」与快照、文案不变冲突，开始第 2 步前要先确认。
   - 快照更新只用 `SERIKA_UPDATE_BASELINE_SNAPSHOT=1`，而且只能在明确确认的变更里用。
+- D2：完成（单独提交，用户已确认）。没有沙箱时本机 `shell_exec` 不再声明 `autonomy: "allow"`，桌面和 Telegram 的自主执行 Run 里每条命令都要确认；Telegram 走已有的手机确认（`/confirm`、确认码），没有新增确认通道。
+  - 权限快照只变一行：`autonomous | shell_exec` 从 `allow` 变为 `ask`。
+  - 自主执行指令（`AUTONOMOUS_INSTRUCTIONS`）和桌面、Telegram 的授权说明文案同步改为「文件连续执行，本机命令逐条确认」。
+  - 单条命令 10 分钟超时、每轮 128 步 / 30 分钟上限不变。Docker sandbox 本来就不能开自主执行，行为不变。
+  - 系统沙箱（§4.3）另设完成条件，这一轮不做。
 
 ## 5. 度量基线（`c594574`，改名后、移除 durable/postgres 前）
 

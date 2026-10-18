@@ -56,7 +56,7 @@ export function TelegramPanel({ busy }: { busy: boolean }) {
         ? void act(() => window.runloom.setTelegramAutonomyEnabled!({ enabled: false, expectedEnabled: true, expectedOwner: { userId: status.owner!.userId, chatId: status.owner!.chatId, threadId: status.owner!.threadId } }))
         : setAutonomyPreview(true)}>{status.autonomyEnabled ? "关闭私聊自主执行" : "开启私聊自主执行…"}</button>
       {autonomyPreview ? <div className="memory-setup-preview"><strong>允许 {status.owner.name} 从当前绑定私聊自主执行？</strong>
-        <p>该私聊可连续读取、修改文件并执行本机命令。本机 Shell 使用 Serika 进程的权限，可以访问工作区外；工作区不是系统沙箱。后台和定时任务不继承此授权。</p>
+        <p>该私聊可连续读取和修改文件；本机命令仍需在手机上逐条确认。本机 Shell 使用 Serika 进程的权限，可以访问工作区外；工作区不是系统沙箱。后台和定时任务不继承此授权。</p>
         <button disabled={busy || working} onClick={() => void act(async () => { const next = await window.runloom.setTelegramAutonomyEnabled!({ enabled: true, expectedEnabled: false, expectedOwner: { userId: status.owner!.userId, chatId: status.owner!.chatId, threadId: status.owner!.threadId } }); setAutonomyPreview(false); return next; })}>确认授权当前私聊</button>
         <button className="ghost" onClick={() => setAutonomyPreview(false)}>取消</button>
       </div> : null}

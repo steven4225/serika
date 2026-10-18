@@ -33,7 +33,7 @@ function AutonomySetting({ info, busy }: { info: AppInfo; busy: boolean }) {
   const locked = busy || saving || !!info.runtimeRecovery || !info.autonomy.workspaceRoot;
   return <section className="capability-row" aria-label="本机自主执行">
     <div><strong>本机自主执行 · {enabled ? "已开启" : "已关闭"}</strong>
-      <p>交办后连续读取、修改文件和执行命令，无需逐条确认。仅对当前工作区的桌面聊天与任务执行生效。</p>
+      <p>交办后连续读取和修改文件，无需逐条确认；本机命令仍逐条确认。仅对当前工作区的桌面聊天与任务执行生效。</p>
       <small>当前工作区：{info.autonomy.workspaceRoot ?? "未选择"}</small>
       {confirming ? <div className="capability-confirm" role="group" aria-label="确认自主执行变更">
         <strong>{enabled ? "关闭本机自主执行？" : "信任此工作区并开启本机自主执行？"}</strong>
