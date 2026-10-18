@@ -212,6 +212,7 @@ apps/telegram ┘        (领域：记忆/任务/        (AI SDK 边界：模型
   - 自主执行指令（`AUTONOMOUS_INSTRUCTIONS`）和桌面、Telegram 的授权说明文案同步改为「文件连续执行，本机命令逐条确认」。
   - 单条命令 10 分钟超时、每轮 128 步 / 30 分钟上限不变。Docker sandbox 本来就不能开自主执行，行为不变。
   - 系统沙箱（§4.3）另设完成条件，这一轮不做。
+- 第 2 步：Todoist 试点完成（只改 `packages/assistant`）。配置片段、时区、token（从装配方传入的 env 读）、`/modules` 状态行、能力报告条目和给任务模块的规划事实都归 `modules/todoist-module.ts`；`app.ts` 只做一次 `assembleTodoist` 调用并按原位置摆放。验收按用户选择 (a)：与第 1 步快照逐字一致。详见 `docs/v2-pilot/todoist.md`。
 
 ## 5. 度量基线（`c594574`，改名后、移除 durable/postgres 前）
 

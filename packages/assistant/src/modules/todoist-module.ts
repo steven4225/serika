@@ -1,4 +1,5 @@
 import { tool } from "ai";
+import { z } from "zod";
 import { todoistPlanSaveInstructions } from "../todoist-plan-save-instructions.js";
 import type { RegisteredTool } from "@serika/ai-sdk-adapter";
 import type { AgentModule } from "../module-host.js";
@@ -250,6 +251,135 @@ export function createTodoistModule(options: TodoistModuleOptions): AgentModule 
         lifecycle.abort(new DOMException("Todoist module disposed", "AbortError"));
         for (const timeout of commandTimeouts) clearTimeout(timeout);
         commandTimeouts.clear();
+      };
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Assembly (architecture-v2 §4.4 step 2). Everything the host needs to know
+// about Todoist lives here: the config fragment, time-zone defaulting, the
+// token read from the env the assembler passes in, the /modules status lines,
+// the capability entry and the typed planning fact other modules may receive.
+// The config format, error texts and output bytes are unchanged.
+// ---------------------------------------------------------------------------
+
+/** Used when neither the config file nor RUNLOOM_TODOIST_TIMEZONE names a zone. */
+export const DEFAULT_TODOIST_TIME_ZONE = "Asia/Shanghai";
+
+/** `modules.todoist` in the version-1 module config (format unchanged). */
+export const todoistModuleConfigSchema = z
+  .object({
+    enabled: z.boolean(),
+    timeZone: z.string().refine((value) => value.trim().length > 0).optional(),
+  })
+  .strict();
+export type TodoistModuleConfig = z.infer<typeof todoistModuleConfigSchema>;
+
+/** Minimal env view; the assembler decides which env this is. */
+export type TodoistEnv = Readonly<Record<string, string | undefined>>;
+
+function normalizeTodoistTimeZone(value: string): string {
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      timeZone: value,
+    }).resolvedOptions().timeZone;
+  } catch {
+    throw new Error("Invalid Todoist time zone");
+  }
+}
+
+/** Config-file mode: `modules.todoist.timeZone`, else the default. */
+export function resolveConfiguredTodoistTimeZone(
+  enabled: boolean,
+  config: TodoistModuleConfig | undefined,
+): string | null {
+  return enabled
+    ? normalizeTodoistTimeZone(config?.timeZone ?? DEFAULT_TODOIST_TIME_ZONE)
+    : null;
+}
+
+/** Shorthand (`--todoist`) mode: the env-provided zone, else the default. */
+export function resolveShorthandTodoistTimeZone(
+  enabled: boolean,
+  requested: string | undefined,
+): string | null {
+  return enabled
+    ? normalizeTodoistTimeZone(requested?.trim() || DEFAULT_TODOIST_TIME_ZONE)
+    : null;
+}
+
+/** The shorthand-mode zone request carried by the assembler's env. */
+export function todoistTimeZoneFromEnv(env: TodoistEnv): string | undefined {
+  return env.RUNLOOM_TODOIST_TIMEZONE?.trim() || undefined;
+}
+
+/** One capability-report entry, same shape as the other built-in modules. */
+export interface TodoistCapabilityEntry {
+  id: "todoist";
+  enabled: boolean;
+  registeredTools: string[];
+  state: "disabled" | "registered" | "not_registered";
+}
+
+export interface TodoistAssembly {
+  /** The module to hand to the module host; undefined when not assembled. */
+  readonly module: AgentModule | undefined;
+  /**
+   * Typed fact for the task module: whether this process has a Todoist
+   * planning source. Passed explicitly at the assembly entry, not looked up.
+   */
+  readonly planningAvailable: boolean;
+  /** `/modules` lines; the host keeps their established positions. */
+  readonly statusLines: {
+    readonly module: string;
+    readonly timeZone: string;
+    readonly token: string;
+  };
+  /** Capability entry built from what the host actually registered. */
+  capability(registeredTools: readonly string[]): TodoistCapabilityEntry;
+}
+
+export interface TodoistAssemblyInput {
+  /** `enabled.todoist` from the resolved module config. */
+  enabled: boolean;
+  /** The resolved zone; null when disabled. */
+  timeZone: string | null;
+  /** The env the assembler passed in (never read from process.env here). */
+  env: TodoistEnv;
+  /** Test seams forwarded to the module. */
+  now?: () => Date;
+  fetch?: typeof globalThis.fetch;
+}
+
+export function assembleTodoist(input: TodoistAssemblyInput): TodoistAssembly {
+  const token = input.env.TODOIST_API_TOKEN?.trim();
+  let module: AgentModule | undefined;
+  if (input.enabled) {
+    if (!token) {
+      throw new Error("TODOIST_API_TOKEN is required when Todoist is enabled");
+    }
+    module = createTodoistModule({
+      apiToken: token,
+      timeZone: input.timeZone!,
+      ...(input.now === undefined ? {} : { now: input.now }),
+      ...(input.fetch === undefined ? {} : { fetch: input.fetch }),
+    });
+  }
+  return {
+    module,
+    planningAvailable: input.enabled,
+    statusLines: {
+      module: `todoist: ${input.enabled ? "enabled" : "disabled"}`,
+      timeZone: `Todoist 规划时区: ${input.timeZone ?? "未启用"}`,
+      token: `Todoist token: ${token ? "present" : "missing"}`,
+    },
+    capability(registeredTools) {
+      return {
+        id: "todoist",
+        enabled: input.enabled,
+        registeredTools: [...registeredTools],
+        state: !input.enabled ? "disabled" : registeredTools.length ? "registered" : "not_registered",
       };
     },
   };

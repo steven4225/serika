@@ -8,6 +8,7 @@ import {
   win32,
 } from "node:path";
 import { z } from "zod";
+import { resolveConfiguredTodoistTimeZone, resolveShorthandTodoistTimeZone, todoistModuleConfigSchema } from "./modules/todoist-module.js";
 import { validModelPrice, type ModelPrice } from "./model-usage.js";
 import { normalizeEmbeddingConfig, type ResolvedEmbeddingConfig } from "./memory-embedding-client.js";
 import { computerConfigSchema, type ComputerConfig } from "./modules/computer-module.js";
@@ -103,7 +104,6 @@ const automationConfigSchema = z.object({
   hooks: hooksConfigSchema.optional(),
 }).strict();
 
-const DEFAULT_TODOIST_TIME_ZONE = "Asia/Shanghai";
 const nonEmptyString = z.string().refine((value) => value.trim().length > 0);
 
 const moduleToggleSchema = z
@@ -120,13 +120,6 @@ const memoryModuleSchema = z
     queryRewrite: z.object({ enabled: z.boolean() }).strict().optional(),
     semantic: z.object({ enabled: z.boolean(), provider: z.enum(["local", "dashscope"]).optional(), baseURL: nonEmptyString.optional(), modelId: nonEmptyString.optional(), relevance: z.object({ enabled: z.boolean() }).strict().optional() }).strict().optional(),
     contextView: z.object({ enabled: z.boolean() }).strict().optional(),
-  })
-  .strict();
-
-const todoistModuleSchema = z
-  .object({
-    enabled: z.boolean(),
-    timeZone: nonEmptyString.optional(),
   })
   .strict();
 
@@ -189,7 +182,7 @@ const tuiModuleConfigV1Schema = z
         memory: memoryModuleSchema.optional(),
         checkpoint: moduleToggleSchema.optional(),
         task: moduleToggleSchema.optional(),
-        todoist: todoistModuleSchema.optional(),
+        todoist: todoistModuleConfigSchema.optional(),
         shell: shellModuleSchema.optional(),
         web: webModuleSchema.optional(),
         computer: computerConfigSchema.optional(),
@@ -266,16 +259,6 @@ function configPathFromArgs(args: AssistantAssembly): string | undefined {
     throw new Error("TUI config path must be a file path");
   }
   return configPath;
-}
-
-function normalizeTodoistTimeZone(value: string): string {
-  try {
-    return new Intl.DateTimeFormat("en-US", {
-      timeZone: value,
-    }).resolvedOptions().timeZone;
-  } catch {
-    throw new Error("Invalid Todoist time zone");
-  }
 }
 
 function emptyEnabled(): Record<BuiltinModuleId, boolean> {
@@ -583,11 +566,7 @@ async function resolveConfiguredMode(
     (workspaceRoot === null || !isPathWithin(workspaceRoot, await realpath(absoluteConfigPath)))) {
     memoryWritePolicy = "automatic";
   }
-  const todoistTimeZone = enabled.todoist
-    ? normalizeTodoistTimeZone(
-        config.modules.todoist?.timeZone ?? DEFAULT_TODOIST_TIME_ZONE,
-      )
-    : null;
+  const todoistTimeZone = resolveConfiguredTodoistTimeZone(enabled.todoist, config.modules.todoist);
 
   return {
     ...(config.telegramAutonomy?.workspaceRoot === workspaceRoot ? { telegramAutonomy: config.telegramAutonomy } : {}),
@@ -644,11 +623,7 @@ async function resolveLegacyMode(
     args.workspace === undefined
       ? null
       : await resolveWorkspace(args.workspace, cwd);
-  const resolvedTodoistTimeZone = enabled.todoist
-    ? normalizeTodoistTimeZone(
-        todoistTimeZone?.trim() || DEFAULT_TODOIST_TIME_ZONE,
-      )
-    : null;
+  const resolvedTodoistTimeZone = resolveShorthandTodoistTimeZone(enabled.todoist, todoistTimeZone);
 
   return {
     configPath: null,

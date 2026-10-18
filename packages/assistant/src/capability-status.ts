@@ -1,12 +1,22 @@
 import type { ResolvedTuiModuleConfig } from "./tui-module-config.js";
 import { BUILTIN_MODULE_IDS } from "./tui-module-config.js";
 
-/** Registration evidence only. Never probes apps, services, credentials or package directories. */
-export function capabilityStatus(config: ResolvedTuiModuleConfig | undefined, tools: readonly string[], toolModules: ReadonlyMap<string, string>, desktopAutonomy = false, entry: "desktop" | "telegram" = "desktop") {
+/** A module-owned capability entry, same shape as the generic one. */
+export type ModuleCapabilityEntry = (registeredTools: readonly string[]) => { id: string; enabled: boolean; registeredTools: string[]; state: "disabled" | "registered" | "not_registered"; note?: string };
+
+/**
+ * Registration evidence only. Never probes apps, services, credentials or package directories.
+ * `moduleEntries` lets a module own its entry (Todoist, architecture-v2 §4.4 step 2); the
+ * list order stays BUILTIN_MODULE_IDS.
+ */
+export function capabilityStatus(config: ResolvedTuiModuleConfig | undefined, tools: readonly string[], toolModules: ReadonlyMap<string, string>, desktopAutonomy = false, entry: "desktop" | "telegram" = "desktop",
+  moduleEntries: ReadonlyMap<string, ModuleCapabilityEntry> = new Map()) {
   return {
     modules: BUILTIN_MODULE_IDS.map(id => {
       // Ownership is what the module host recorded at registration, not a name prefix.
       const registeredTools = tools.filter(name => toolModules.get(name) === id);
+      const owned = moduleEntries.get(id);
+      if (owned) return owned(registeredTools);
       const enabled = config?.enabled[id] === true;
       return { id, enabled, registeredTools,
         state: !enabled ? "disabled" as const : registeredTools.length ? "registered" as const : "not_registered" as const,

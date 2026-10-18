@@ -64,7 +64,7 @@ import { createShellModule } from "./modules/shell-module.js";
 import type { ShellProgress } from "./modules/shell-module.js";
 import { assertDockerShellSandboxAvailable } from "./modules/docker-shell-runner.js";
 import { createTaskModule } from "./modules/task-module.js";
-import { createTodoistModule } from "./modules/todoist-module.js";
+import { assembleTodoist, todoistTimeZoneFromEnv } from "./modules/todoist-module.js";
 import { createMemoryQueryRewriter, type MemoryReferenceSnapshot } from "./memory-query-rewrite.js";
 import { createMemoryRelevanceSelector } from "./memory-relevance.js";
 import { observeModelUsage } from "./model-usage-observer.js";
@@ -207,7 +207,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
   const moduleConfig: ResolvedTuiModuleConfig | undefined = assembly
     ? await resolveTuiModuleConfig(assembly, {
         cwd,
-        todoistTimeZone: env.RUNLOOM_TODOIST_TIMEZONE?.trim() || undefined,
+        todoistTimeZone: todoistTimeZoneFromEnv(env),
       })
     : undefined;
   const requestedContextBudget = moduleConfig?.contextCompaction;
@@ -224,7 +224,6 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
   const memoryEnabled = moduleConfig?.enabled.memory ?? false;
   const checkpointEnabled = moduleConfig?.enabled.checkpoint ?? false;
   const taskEnabled = moduleConfig?.enabled.task ?? false;
-  const todoistEnabled = moduleConfig?.enabled.todoist ?? false;
   const shellEnabled = moduleConfig?.enabled.shell ?? false;
   const webEnabled = moduleConfig?.enabled.web ?? false;
   const webSearchEnabled = moduleConfig?.webSearchEnabled ?? false;
@@ -251,16 +250,9 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
   if (shellSandbox !== undefined) {
     await assertDockerShellSandboxAvailable(shellSandbox);
   }
-  const todoistToken = env.TODOIST_API_TOKEN?.trim();
-  const todoistTokenPresent = Boolean(todoistToken);
-  let todoistConfig: { apiToken: string; timeZone: string } | undefined;
-  if (tuiMode && todoistEnabled) {
-    const apiToken = todoistToken;
-    if (!apiToken) {
-      throw new Error("TODOIST_API_TOKEN is required when Todoist is enabled");
-    }
-    todoistConfig = { apiToken, timeZone: moduleConfig!.todoistTimeZone! };
-  }
+  // Todoist owns its config, token check, status lines and capability entry;
+  // the host passes the env and keeps the established check order.
+  const todoist = assembleTodoist({ enabled: moduleConfig?.enabled.todoist ?? false, timeZone: moduleConfig?.todoistTimeZone ?? null, env });
   const memoryStore =
     memoryEnabled ? createMemoryStore(workspaceRoot!) : undefined;
   const checkpointStore = checkpointEnabled
@@ -375,9 +367,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
             ...(moduleConfig!.enabled.pomodoro
               ? [createPomodoroModule(options.pomodoroService ? { service: options.pomodoroService } : {})]
               : []),
-            ...(todoistConfig !== undefined
-              ? [createTodoistModule(todoistConfig)]
-              : []),
+            ...(todoist.module ? [todoist.module] : []),
             ...(moduleConfig!.enabled["read-file"]
               ? [
                   createReadFileModule(workspaceRoot!),
@@ -443,7 +433,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
                 const status = await options.taskAutomation!.status(workspaceRoot!, moduleConfig?.configPath ?? undefined);
                 return { ready: status.available && status.registered && status.running && status.ready === true, ...(status.message ? { message: status.message } : {}) };
               } } : {}),
-              todoistPlanningAvailable: todoistEnabled,
+              todoistPlanningAvailable: todoist.planningAvailable,
               ...(options.taskAutomation ? {
                 automationStatus: () => options.taskAutomation!.status(workspaceRoot!, moduleConfig?.configPath ?? undefined),
               } : {}),
@@ -570,12 +560,12 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
           `memory: ${moduleConfig.enabled.memory ? "enabled" : "disabled"}`,
           `checkpoint: ${moduleConfig.enabled.checkpoint ? "enabled" : "disabled"}`,
           `task: ${moduleConfig.enabled.task ? "enabled" : "disabled"}`,
-          `todoist: ${moduleConfig.enabled.todoist ? "enabled" : "disabled"}`,
+          todoist.statusLines.module,
           `shell: ${moduleConfig.enabled.shell ? "enabled" : "disabled"}`,
           `web: ${moduleConfig.enabled.web ? "enabled (web_fetch)" : "disabled"}`,
           `computer: ${moduleConfig.computer ? `enabled; allowed apps: ${moduleConfig.computer.allowedBundleIds!.join(", ")}; AX-addressed, per-call confirmation` : "disabled"}`,
           `web_search: ${moduleConfig.enabled.web && webSearchEnabled ? "enabled (Exa MCP, no key)" : "disabled"}`,
-          `Todoist 规划时区: ${moduleConfig.todoistTimeZone ?? "未启用"}`,
+          todoist.statusLines.timeZone,
           `自动记忆整理: ${moduleConfig.autoConsolidate ? "on" : "off"}`,
           `主 Run 步数上限: ${moduleConfig.maxSteps}`,
           `主 Run 总时限: ${moduleConfig.totalTimeoutMs} ms（确认等待不计时）`,
@@ -584,7 +574,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
           ...(moduleConfig.contextCompaction.enabled
             ? [`上下文输入预算: ${availableInputTokens(moduleConfig.contextCompaction)} tokens`]
             : []),
-          `Todoist token: ${todoistTokenPresent ? "present" : "missing"}`,
+          todoist.statusLines.token,
           `持久文件授权: ${moduleConfig.fileAuthorizations.length} 条`,
         ];
         status.push(formatMemoryHealth(await readMemoryHealth(memoryStore, threadId)));
@@ -673,7 +663,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       : baseInstructions;
     const registeredTools = [...(demoTools ? [addRegistration] : []), ...(moduleHost?.tools ?? [])];
     const getCapabilities = () => capabilityStatus(moduleConfig, registeredTools.map(item => item.metadata.name).filter(name =>
-      moduleConfig?.memoryWritePolicy !== "automatic" || moduleHost?.toolModules.get(name) !== "memory"), moduleHost?.toolModules ?? new Map(), foregroundEntry ? autonomousRun : desktopAutonomyEnabled, foregroundEntry);
+      moduleConfig?.memoryWritePolicy !== "automatic" || moduleHost?.toolModules.get(name) !== "memory"), moduleHost?.toolModules ?? new Map(), foregroundEntry ? autonomousRun : desktopAutonomyEnabled, foregroundEntry,
+      new Map([["todoist", todoist.capability]]));
     const statusRegistration = { metadata: { name: "capability_status", version: "1", risk: "read" as const, timeoutMs: 1000, idempotent: true },
       tool: tool({ description: "Read current host-registered tools and static capability/permission mode. No service probes, process/app inspection, credentials, installation or writes. Service/OS permission health remains not_checked.",
         inputSchema: z.object({}).strict(), execute: async () => getCapabilities() }) };

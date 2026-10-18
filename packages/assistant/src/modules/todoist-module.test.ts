@@ -6,7 +6,7 @@ import { createModuleHost, type ToolPermissionFacts } from "../module-host.js";
 import { todoistPlanSaveInstructions } from "../todoist-plan-save-instructions.js";
 import { createReadFileModule } from "./read-file-module.js";
 import type { TodoistListResult } from "../todoist.js";
-import { createTodoistModule } from "./todoist-module.js";
+import { assembleTodoist, createTodoistModule, resolveConfiguredTodoistTimeZone, resolveShorthandTodoistTimeZone, todoistModuleConfigSchema, todoistTimeZoneFromEnv } from "./todoist-module.js";
 
 const fixedNow = () => new Date("2026-09-11T01:00:00.000Z");
 
@@ -341,5 +341,50 @@ describe("createTodoistModule", () => {
     await Promise.resolve();
     host.dispose();
     context.mock.timers.reset();
+  });
+});
+
+describe("assembleTodoist (architecture-v2 §4.4 step 2)", () => {
+  it("reads the token only from the env the assembler passes", () => {
+    const saved = process.env.TODOIST_API_TOKEN;
+    process.env.TODOIST_API_TOKEN = "process-token";
+    try {
+      assert.throws(() => assembleTodoist({ enabled: true, timeZone: "Asia/Shanghai", env: {} }),
+        /^Error: TODOIST_API_TOKEN is required when Todoist is enabled$/);
+      assert.throws(() => assembleTodoist({ enabled: true, timeZone: "Asia/Shanghai", env: { TODOIST_API_TOKEN: "  " } }),
+        /TODOIST_API_TOKEN is required/);
+      const disabled = assembleTodoist({ enabled: false, timeZone: null, env: {} });
+      assert.equal(disabled.module, undefined);
+      assert.equal(disabled.statusLines.token, "Todoist token: missing");
+    } finally {
+      if (saved === undefined) delete process.env.TODOIST_API_TOKEN; else process.env.TODOIST_API_TOKEN = saved;
+    }
+  });
+
+  it("owns the /modules lines, the planning fact and the capability entry", () => {
+    const disabled = assembleTodoist({ enabled: false, timeZone: null, env: { TODOIST_API_TOKEN: "t" } });
+    assert.deepEqual(disabled.statusLines, { module: "todoist: disabled", timeZone: "Todoist 规划时区: 未启用", token: "Todoist token: present" });
+    assert.equal(disabled.planningAvailable, false);
+    assert.deepEqual(disabled.capability([]), { id: "todoist", enabled: false, registeredTools: [], state: "disabled" });
+    const enabled = assembleTodoist({ enabled: true, timeZone: "Asia/Tokyo", env: { TODOIST_API_TOKEN: " t " } });
+    assert.equal(enabled.module?.id, "todoist");
+    assert.equal(enabled.planningAvailable, true);
+    assert.deepEqual(enabled.statusLines, { module: "todoist: enabled", timeZone: "Todoist 规划时区: Asia/Tokyo", token: "Todoist token: present" });
+    assert.deepEqual(enabled.capability(["todoist_list_tasks"]), { id: "todoist", enabled: true, registeredTools: ["todoist_list_tasks"], state: "registered" });
+    assert.equal(enabled.capability([]).state, "not_registered");
+  });
+
+  it("resolves the time zone exactly as the config format always did", () => {
+    assert.equal(resolveConfiguredTodoistTimeZone(false, { enabled: false, timeZone: "Asia/Tokyo" }), null);
+    assert.equal(resolveConfiguredTodoistTimeZone(true, { enabled: true }), "Asia/Shanghai");
+    assert.equal(resolveConfiguredTodoistTimeZone(true, { enabled: true, timeZone: "UTC" }), "UTC");
+    assert.throws(() => resolveConfiguredTodoistTimeZone(true, { enabled: true, timeZone: "No/Such_Zone" }), /^Error: Invalid Todoist time zone$/);
+    assert.equal(resolveShorthandTodoistTimeZone(true, undefined), "Asia/Shanghai");
+    assert.equal(resolveShorthandTodoistTimeZone(true, "  "), "Asia/Shanghai");
+    assert.equal(resolveShorthandTodoistTimeZone(true, " Asia/Tokyo "), "Asia/Tokyo");
+    assert.equal(todoistTimeZoneFromEnv({ RUNLOOM_TODOIST_TIMEZONE: "  " }), undefined);
+    assert.equal(todoistTimeZoneFromEnv({ RUNLOOM_TODOIST_TIMEZONE: " UTC " }), "UTC");
+    assert.equal(todoistModuleConfigSchema.safeParse({ enabled: true, timeZone: " " }).success, false);
+    assert.equal(todoistModuleConfigSchema.safeParse({ enabled: true, extra: 1 }).success, false);
   });
 });
