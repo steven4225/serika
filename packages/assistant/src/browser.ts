@@ -5,3 +5,4 @@ export { memoryConsolidationFailureText } from "./memory-failure.js";
 export { MODEL_PURPOSE_LABELS, estimatedModelCost } from "./model-usage.js";
 export { formatOnceWhen, reminderWhen } from "./reminder-speech.js";
 export { taskNotificationCopy } from "./task-notification-copy.js";
+export type { HomeItem, HomeSection, HomeSnapshot } from "./home.js";

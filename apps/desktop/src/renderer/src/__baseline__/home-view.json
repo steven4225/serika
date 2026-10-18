@@ -1,0 +1,287 @@
+{
+  "nothing enabled, temporary Thread": {
+    "time": "2026/09/24 08:00（Asia/Shanghai）",
+    "sections": [
+      {
+        "title": "项目进度",
+        "summary": "checkpoint 未启用。",
+        "items": []
+      },
+      {
+        "title": "本地任务",
+        "summary": "task 未启用。",
+        "items": []
+      }
+    ],
+    "unparsed": []
+  },
+  "temporary directory, no workspace, control characters": {
+    "time": "2026/09/24 08:00（Asia/Shanghai）",
+    "sections": [
+      {
+        "title": "项目进度",
+        "summary": "checkpoint 未启用。",
+        "items": []
+      },
+      {
+        "title": "本地任务",
+        "summary": "task 未启用。",
+        "items": []
+      }
+    ],
+    "unparsed": []
+  },
+  "enabled without stores": {
+    "time": "2026/09/24 08:00（Asia/Shanghai）",
+    "sections": [
+      {
+        "title": "项目进度",
+        "summary": "checkpoint store 不可用。",
+        "items": []
+      },
+      {
+        "title": "本地任务",
+        "summary": "task store 不可用。",
+        "items": []
+      }
+    ],
+    "unparsed": []
+  },
+  "no checkpoint saved, empty task lists": {
+    "time": "2026/09/24 08:00（Asia/Shanghai）",
+    "sections": [
+      {
+        "title": "项目进度",
+        "summary": "尚无保存的 checkpoint。",
+        "items": []
+      },
+      {
+        "title": "Git",
+        "summary": "本页未重新核对 Git；输入 /resume 查看当前变化。checkpoint 的 pin 不是当前 HEAD。",
+        "items": []
+      },
+      {
+        "title": "本地任务",
+        "summary": "",
+        "items": [
+          {
+            "kind": "note",
+            "text": "未确认终态记录："
+          },
+          {
+            "kind": "item",
+            "text": "无"
+          },
+          {
+            "kind": "note",
+            "text": "最近创建的 scheduled/running："
+          },
+          {
+            "kind": "item",
+            "text": "无"
+          },
+          {
+            "kind": "note",
+            "text": "completed 只表示 worker Run 正常结束，不代表业务成功或桌面通知已送达。"
+          }
+        ]
+      }
+    ],
+    "unparsed": []
+  },
+  "active checkpoint from another Thread with more than three next actions": {
+    "time": "2026/09/24 08:00（Asia/Shanghai）",
+    "sections": [
+      {
+        "title": "项目进度",
+        "summary": "checkpoint active · v1",
+        "items": [
+          {
+            "kind": "item",
+            "text": "目标：完成 M7"
+          },
+          {
+            "kind": "item",
+            "text": "阶段：验证 Home"
+          },
+          {
+            "kind": "item",
+            "text": "保存时间：2026-09-24T00:00:00.000Z"
+          },
+          {
+            "kind": "item",
+            "text": "来源 Thread：other thread（与当前 Thread 不同；不是这段对话的续接）"
+          },
+          {
+            "kind": "item",
+            "text": "下一步：一"
+          },
+          {
+            "kind": "item",
+            "text": "下一步：二"
+          },
+          {
+            "kind": "item",
+            "text": "下一步：三"
+          },
+          {
+            "kind": "note",
+            "text": "另有 2 条下一步未展示。"
+          }
+        ]
+      },
+      {
+        "title": "Git",
+        "summary": "本页未重新核对 Git；输入 /resume 查看当前变化。checkpoint 的 pin 不是当前 HEAD。",
+        "items": []
+      },
+      {
+        "title": "本地任务",
+        "summary": "task 未启用。",
+        "items": []
+      }
+    ],
+    "unparsed": []
+  },
+  "completed checkpoint from this Thread without a phase": {
+    "time": "2026/09/24 08:00（Asia/Shanghai）",
+    "sections": [
+      {
+        "title": "项目进度",
+        "summary": "上次完成的 checkpoint · v2",
+        "items": [
+          {
+            "kind": "item",
+            "text": "目标：完成 M7 验收"
+          },
+          {
+            "kind": "item",
+            "text": "保存时间：2026-09-24T00:00:00.000Z"
+          },
+          {
+            "kind": "item",
+            "text": "来源 Thread：thread-new（当前 Thread）"
+          },
+          {
+            "kind": "item",
+            "text": "下一步：核对真实任务"
+          }
+        ]
+      },
+      {
+        "title": "Git",
+        "summary": "本页未重新核对 Git；输入 /resume 查看当前变化。checkpoint 的 pin 不是当前 HEAD。",
+        "items": []
+      },
+      {
+        "title": "本地任务",
+        "summary": "task 未启用。",
+        "items": []
+      }
+    ],
+    "unparsed": []
+  },
+  "checkpoint read error and task results": {
+    "time": "2026/09/24 08:00（Asia/Shanghai）",
+    "sections": [
+      {
+        "title": "项目进度",
+        "summary": "读取失败（CHECKPOINT_FILE_INVALID: broken file）。",
+        "items": []
+      },
+      {
+        "title": "本地任务",
+        "summary": "",
+        "items": [
+          {
+            "kind": "note",
+            "text": "未确认终态记录（仅展示前 5 条，另有未展示）："
+          },
+          {
+            "kind": "item",
+            "text": "completed · done · 喝水 · runAt 2026-09-24T01:00:00Z · Run 结束"
+          },
+          {
+            "kind": "item",
+            "text": "failed · bad · 整理 · runAt 2026-09-24T01:00:00Z · MODEL_TIMEOUT: 超时"
+          },
+          {
+            "kind": "item",
+            "text": "interrupted · stop · 计划 · runAt 2026-09-24T01:00:00Z · INTERRUPTED: 中断"
+          },
+          {
+            "kind": "note",
+            "text": "最近创建的 scheduled/running："
+          },
+          {
+            "kind": "item",
+            "text": "scheduled · next · 开会 · runAt 2026-09-24T01:00:00Z"
+          },
+          {
+            "kind": "note",
+            "text": "completed 只表示 worker Run 正常结束，不代表业务成功或桌面通知已送达。"
+          }
+        ]
+      }
+    ],
+    "unparsed": []
+  },
+  "thrown checkpoint error and task store errors": {
+    "time": "2026/09/24 08:00（Asia/Shanghai）",
+    "sections": [
+      {
+        "title": "项目进度",
+        "summary": "读取失败（invalid checkpoint）。",
+        "items": []
+      },
+      {
+        "title": "本地任务",
+        "summary": "",
+        "items": [
+          {
+            "kind": "note",
+            "text": "未确认终态记录：读取失败（TASK_FILE_INVALID: broken tasks）。"
+          },
+          {
+            "kind": "note",
+            "text": "最近创建的 scheduled/running：读取失败（TASK_FILE_INVALID: broken tasks）。"
+          },
+          {
+            "kind": "note",
+            "text": "completed 只表示 worker Run 正常结束，不代表业务成功或桌面通知已送达。"
+          }
+        ]
+      }
+    ],
+    "unparsed": []
+  },
+  "non-Error throws from both stores": {
+    "time": "2026/09/24 08:00（Asia/Shanghai）",
+    "sections": [
+      {
+        "title": "项目进度",
+        "summary": "读取失败（读取失败）。",
+        "items": []
+      },
+      {
+        "title": "本地任务",
+        "summary": "",
+        "items": [
+          {
+            "kind": "note",
+            "text": "未确认终态记录：读取失败（读取失败）。"
+          },
+          {
+            "kind": "note",
+            "text": "最近创建的 scheduled/running：读取失败（读取失败）。"
+          },
+          {
+            "kind": "note",
+            "text": "completed 只表示 worker Run 正常结束，不代表业务成功或桌面通知已送达。"
+          }
+        ]
+      }
+    ],
+    "unparsed": []
+  }
+}

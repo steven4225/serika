@@ -8,7 +8,7 @@ import { describe, it } from "node:test";
 import { MockLanguageModelV3 } from "ai/test";
 import { createRuntimeApp } from "./app.js";
 import type { CheckpointSnapshot } from "./checkpoint-store.js";
-import { renderHome, type HomeOptions } from "./home.js";
+import { formatHome, readHomeSnapshot, renderHome, type HomeOptions } from "./home.js";
 import type { TaskListInput, TaskListV3, TaskStoreResult, TaskSummaryV3 } from "./task-store.js";
 
 /**
@@ -95,6 +95,19 @@ describe("v2 pilot baseline: CLI Home text", () => {
     const actual = pages.join("\n");
     if (process.env.SERIKA_UPDATE_BASELINE_SNAPSHOT === "1") await writeFile(homeFile(), actual);
     assert.equal(actual, await readFile(homeFile(), "utf8"));
+  });
+
+  it("step 3: the structured snapshot is the single source of that text (fixture for the desktop panel)", async () => {
+    const snapshots: Record<string, unknown> = {};
+    for (const [name, options] of SCENARIOS) {
+      const snapshot = await readHomeSnapshot(options);
+      assert.equal(formatHome(snapshot), await renderHome(options), name);
+      snapshots[name] = snapshot;
+    }
+    const file = fileURLToPath(new URL("../src/__baseline__/home-snapshots.json", import.meta.url));
+    const actual = JSON.stringify(snapshots, null, 2) + "\n";
+    if (process.env.SERIKA_UPDATE_BASELINE_SNAPSHOT === "1") await writeFile(file, actual);
+    assert.equal(actual, await readFile(file, "utf8"));
   });
 
   it("an assembled app writes the same Home text it renders, with live stores", async () => {
