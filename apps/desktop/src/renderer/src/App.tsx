@@ -5,6 +5,8 @@ import { commandError } from "./app/command-error.js";
 import { Row } from "./app/conversation-row.js";
 import { Identity } from "./app/identity.js";
 import { HomeBody } from "./app/home-body.js";
+import { useSplitLayout } from "./app/use-split-layout.js";
+import { useThreadList } from "./app/use-thread-list.js";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import type { UIMessage } from "ai";
 import type {
@@ -14,7 +16,6 @@ import type {
   UiSnapshot,
   UiState,
   ExecutionRunRecord,
-  ThreadSummary,
   AssistantSteerRecord,
 } from "../../shared/ui-contract.js";
 import { ShellProgressBuffer } from "../../shared/shell-progress.js";
@@ -74,7 +75,7 @@ import { createAndStartTask } from "./create-task.js";
 import { SearchOverlay } from "./personal/search-overlay.js";
 import { SettingsAbout, SettingsFrame, SettingsGeneral, SettingsHome, SettingsNotifications, SettingsShortcuts } from "./personal/settings.js";
 import { isConnectorModule, settingsRouteForInitial, type SettingsListTarget, type SettingsRoute } from "./personal/settings-model.js";
-import { clampChatFraction, loadChatFraction, loadSidebarOpen, dashboardTabForDetail, PERSONAL_SPLIT_KEY, PERSONAL_SIDEBAR_KEY, PERSONAL_COMPACT_BREAKPOINT } from "./personal/layout.js";
+import { clampChatFraction, dashboardTabForDetail } from "./personal/layout.js";
 import { humanFacingTitle } from "../../shared/human-title.js";
 import { RemindersPanel } from "./reminders.js";
 import { DesktopWindowFrame } from "./zcode/upstream/desktop-window-frame.js";
@@ -115,28 +116,7 @@ export function App({ initialLayout }: { initialLayout?: DesktopLayout } = {}) {
 function AssistantPage({ drafts, layout, initialSettings = false, initialSettingsError = null, appearance, onAppearance }: { drafts: Map<string, ConversationDraft>; layout: DesktopLayout; initialSettings?: false | "modules" | "context"; initialSettingsError?: string | null; appearance: "dark" | "light"; onAppearance: () => void }) {
   const [info, setInfo] = useState<AppInfo | null>(null);
   const [mobileDashboard, setMobileDashboard] = useState(!!initialSettings);
-  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
-  const [chatFraction, setChatFraction] = useState(() => loadChatFraction(localStorage.getItem(PERSONAL_SPLIT_KEY)));
-  const [sidebarOpen, setSidebarOpen] = useState(() => loadSidebarOpen(localStorage.getItem(PERSONAL_SIDEBAR_KEY)));
-  const splitRoot = useRef<HTMLDivElement | null>(null);
-  const compact = windowWidth < PERSONAL_COMPACT_BREAKPOINT;
-  const dashboardOpen = compact ? mobileDashboard : sidebarOpen;
-  const actualFraction = clampChatFraction(windowWidth, chatFraction);
-  useEffect(() => {
-    const resize = () => setWindowWidth(window.innerWidth);
-    window.addEventListener("resize", resize);
-    return () => window.removeEventListener("resize", resize);
-  }, []);
-  const saveSplit = (value: number) => {
-    const next = clampChatFraction(windowWidth, value);
-    setChatFraction(next);
-    try { localStorage.setItem(PERSONAL_SPLIT_KEY, String(next)); } catch { /* Layout remains usable without preference storage. */ }
-  };
-  const [conversationTitle, setConversationTitle] = useState("当前对话");
-  const [threads, setThreads] = useState<ThreadSummary[]>([]);
-  const [threadsLoading, setThreadsLoading] = useState(true);
-  const [threadsError, setThreadsError] = useState<string | null>(null);
-  const [threadsRefresh, setThreadsRefresh] = useState(0);
+  const { windowWidth, sidebarOpen, splitRoot, compact, dashboardOpen, actualFraction, saveSplit, rememberSidebar } = useSplitLayout(mobileDashboard);
   const [taskResultFocus, setTaskResultFocus] = useState<{ taskId: string; workspaceRoot: string; sequence: number } | null>(null);
   const [state, setState] = useState<UiState>({ kind: "idle" });
   const [homeSnapshot, setHomeSnapshot] = useState<HomeSnapshot | null>(null);
@@ -592,20 +572,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     return () => window.removeEventListener("keydown", close);
   }, [detailsOpen, mobileDashboard, searchOpen, detailTab, settingsRoute]);
 
-  useEffect(() => {
-    if (!info) return;
-    let active = true;
-    const idle = state.kind === "idle";
-    if (idle) setThreadsLoading(true);
-    void window.runloom.listThreads().then(threads => {
-      if (!active) return;
-      // The header title stays human while a confirmation is open; the list itself refreshes only when idle.
-      setConversationTitle(humanFacingTitle(threads.find(thread => thread.threadId === info.threadId)?.title, "当前对话"));
-      if (idle) { setThreads(threads); setThreadsError(null); }
-    }).catch(() => { if (active && idle) setThreadsError("对话列表读取失败"); })
-      .finally(() => { if (active && idle) setThreadsLoading(false); });
-    return () => { active = false; };
-  }, [info, state.kind, threadsRefresh]);
+  const { conversationTitle, threads, refreshThreads } = useThreadList(info, state.kind);
 
   useLayoutEffect(() => {
     const area = conversationScroll.current;
@@ -816,10 +783,6 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const homeView = toHomeView(homeSnapshot);
   const unknownRuns = records.status === "ready" ? unreconciledRuns(records.runs, workTasks.tasks) : [];
   const reviewTask = workTasks.tasks.find(task => task.status === "needs_review");
-  const rememberSidebar = (open: boolean) => {
-    setSidebarOpen(open);
-    try { localStorage.setItem(PERSONAL_SIDEBAR_KEY, open ? "open" : "collapsed"); } catch { /* The in-memory choice still applies for this window. */ }
-  };
   const openDetails = (tab: typeof detailTab) => {
     setDetailTab(tab); setDetailsOpen(true); setMobileDashboard(true);
     if (!compact) rememberSidebar(true);
@@ -1060,7 +1023,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
           <section className="inspector" hidden={!detailsOpen} aria-label={pageTitle}>
             {detailTab === "tasks" || detailTab === "settings" || detailTab === "memory" ? null : <div className="inspector-header"><div><h1>{pageTitle}</h1><p>{pageDescription}</p></div><button className="ghost" title="回到手札 · Escape" onClick={() => { setDetailsOpen(false); setMobileDashboard(false); }}><Icon name="close" size={16} />回到手札</button></div>}
             <div className="inspector-pane" ref={inspectorScroll} onScroll={() => { if (inspectorScroll.current) inspectorPositions.current.set(inspectorKey, inspectorScroll.current.scrollTop); }}>
-              {detailTab === "threads" && info ? <ThreadsPanel info={info} drafts={threadDrafts} busy={busy || switchingThread} onSelect={selectConversation} onCreate={() => newConversation()} onChanged={() => setThreadsRefresh(value => value + 1)} /> : null}
+              {detailTab === "threads" && info ? <ThreadsPanel info={info} drafts={threadDrafts} busy={busy || switchingThread} onSelect={selectConversation} onCreate={() => newConversation()} onChanged={refreshThreads} /> : null}
               <div hidden={detailTab !== "tasks"}>
                 <TasksHome
                   tasksEnabled={info?.workTasks === true} tasks={workTasks.tasks} selected={workTasks.task} loading={workTasks.loading} error={workTasks.error}
