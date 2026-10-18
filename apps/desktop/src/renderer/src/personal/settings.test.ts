@@ -19,6 +19,7 @@ import {
   thinkingChoiceForBudget,
 } from "./settings-model.js";
 import { SettingsFrame, SettingsHome, ThinkingModeCards } from "./settings.js";
+import { readAppSource } from "../../test-support/app-source.js";
 
 const render = (element: Parameters<typeof renderToStaticMarkup>[0]) => renderToStaticMarkup(element);
 const info = {
@@ -184,7 +185,7 @@ it("opening settings stays on the gear and does not select the persona pill", as
   assert.equal(settingsRouteForInitial(false), "home");
   assert.equal(settingsRouteForInitial("modules"), "advanced");
   assert.equal(settingsRouteForInitial("context"), "context");
-  const app = await readFile(new URL("../App.tsx", import.meta.url), "utf8");
+  const app = await readAppSource();
   const settings = await readFile(new URL("./settings.tsx", import.meta.url), "utf8");
   assert.match(app, /\["手札", "任务", "记忆"\]/);
   assert.match(app, /onClick=\{\(\) => openSettings\("home"\)\}/);

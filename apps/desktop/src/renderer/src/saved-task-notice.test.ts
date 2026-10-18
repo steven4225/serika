@@ -8,6 +8,7 @@ import { createTaskDesktopNotifier } from "@serika/assistant/testing";
 import type { RendererApi } from "../../shared/ui-contract.js";
 import { createSavedTaskNoticeReader, createTaskNoticeDismissals, readSavedTaskNotice } from "../../shared/saved-task-result.js";
 import { SavedTaskNoticeView } from "./saved-task-notice.js";
+import { readAppSource } from "../test-support/app-source.js";
 
 const saved = (override: Partial<TaskRecordV4> = {}): TaskRecordV4 => ({
   id: "task-water", prompt: "不是正文来源", status: "completed", acknowledgedAt: null, notification: null,
@@ -158,7 +159,7 @@ test("saved task banner keeps failure and interrupted titles and leaves long res
 
 test("saved task banner mounts once per workspace with one cleaned up read timer and leaves OS privacy intact", async () => {
   const component = await readFile(new URL("./saved-task-notice.tsx", import.meta.url), "utf8");
-  const app = await readFile(new URL("./App.tsx", import.meta.url), "utf8");
+  const app = await readAppSource();
   assert.match(app, /<SavedTaskNotice key=\{`\$\{info.configPath\}:\$\{info.workspaceRoot\}`\}/);
   assert.match(app, /<SavedTaskNotice[^\n]*enabled=\{!!info.workspaceRoot\}/);
   assert.match(app, /<TaskInbox[^\n]*enabled=\{!!info\?\.workspaceRoot\} canAcknowledge=/);

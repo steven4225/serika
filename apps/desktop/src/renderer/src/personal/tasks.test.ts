@@ -1,3 +1,4 @@
+import { readAppSource } from "../../test-support/app-source.js";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { describe, it } from "node:test";
@@ -323,7 +324,7 @@ describe("conversational create and return chip", () => {
 });
 
 it("the tasks shell hands create and returned results to the main composer", async () => {
-  const app = await readFile(new URL("../App.tsx", import.meta.url), "utf8");
+  const app = await readAppSource();
   assert.match(app, /<TasksHome/);
   assert.doesNotMatch(app, /<TaskReturnChip/);
   assert.match(app, /createAndStartTask\(window.runloom/);

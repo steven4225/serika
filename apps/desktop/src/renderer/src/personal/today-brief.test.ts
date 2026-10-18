@@ -11,6 +11,7 @@ import { buildTodayBrief, inboxNotificationNote, nextBriefSlot, visibleBriefCard
 import { briefContinueTarget, planBriefContinue, readBriefContinue, writeBriefContinue, clearBriefContinue } from "./today-continue.js";
 import { projectInboxFeeds, projectReminderFeeds } from "./today-feeds.js";
 import type { AutomationOverview } from "@serika/assistant";
+import { readAppSource } from "../../test-support/app-source.js";
 
 const info = { threadId: "thread_abc12345", workTasks: true, memory: { enabled: true, autoConsolidate: true }, workspaceRoot: "/workspace" } as AppInfo;
 const now = new Date("2026-10-08T01:00:00Z");
@@ -165,7 +166,7 @@ describe("today brief stream", () => {
 });
 
 it("brief continuation focuses chat and does not start a run", async () => {
-  const app = await readFile(new URL("../App.tsx", import.meta.url), "utf8");
+  const app = await readAppSource();
   const body = app.slice(app.indexOf("const continueBrief"), app.indexOf("const scrollToLatest"));
   assert.match(body, /writeBriefContinue/);
   assert.doesNotMatch(body, /runWorkTask|window\.runloom\.run\(/);

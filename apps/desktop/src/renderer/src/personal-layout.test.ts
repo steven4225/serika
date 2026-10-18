@@ -1,3 +1,4 @@
+import { readAppSource } from "../test-support/app-source.js";
 import assert from "node:assert/strict";
 import { it } from "node:test";
 import { readFile } from "node:fs/promises";
@@ -55,7 +56,7 @@ it("the dashboard can collapse without forgetting an explicit open preference", 
 });
 
 it("collapsed chat keeps the create-task control in the shell", async () => {
-  const app = await readFile(new URL("./App.tsx", import.meta.url), "utf8");
+  const app = await readAppSource();
   const css = await readFile(new URL("./personal/shell.css", import.meta.url), "utf8");
   assert.match(app, /sidebar-collapsed/);
   assert.match(app, /创建任务/);

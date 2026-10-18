@@ -1,11 +1,14 @@
 import { AttachmentChooser, AttachmentPreview, type ChatAttachment } from "./chat-attachments.js";
 import { SkillsPanel } from "./skills-panel.js";
 import { AutomationPanel } from "./automation-panel.js";
+import { commandError } from "./app/command-error.js";
+import { Row } from "./app/conversation-row.js";
+import { Identity } from "./app/identity.js";
+import { HomeBody } from "./app/home-body.js";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import type { UIMessage } from "ai";
 import type {
   AppInfo,
-  CommandResponse,
   MainToRenderer,
   PendingApproval,
   UiSnapshot,
@@ -32,10 +35,8 @@ import {
   rowsFromToolActivity,
   type ConversationRow,
   type LiveRun,
-  type ToolRowStatus,
 } from "./conversation.js";
-import { baseName, shortId } from "./names.js";
-import { homeView as toHomeView, type HomeView } from "./home-view.js";
+import { homeView as toHomeView } from "./home-view.js";
 import type { HomeSnapshot } from "@serika/assistant/browser";
 import { MemoryPanel } from "./memory.js";
 import { MemoryConsolidationNotice } from "./memory-consolidation.js";
@@ -46,13 +47,11 @@ import { RecordsPanel, type RecordDetailState, type RecordsState } from "./recor
 import { ApprovalCard } from "./approval.js";
 import { shouldSubmitComposer, canSubmitComposer, canSteerComposer } from "../../shared/composer.js";
 import { mergeSteerRecords, steerFailureLabel } from "../../shared/steer.js";
-import { SteerStatus } from "./steer-status.js";
 import { Icon, SerikaMark, SerikaPersona, type IconName } from "./icons.js";
 import { MessageContent } from "./markdown.js";
 import { CapabilitiesPanel } from "./capabilities.js";
 import { TelegramPanel } from "./telegram-panel.js";
 import { PomodoroPanel } from "./pomodoro.js";
-import { AssistantReply } from "./delivery.js";
 import { attentionKind, headerStatus, deliveredReplyKeys, isMockModel } from "./attention.js";
 import { CurrentTask, useWorkTasks, WorkTasksPanel } from "./work-tasks.js";
 import { RssPanel } from "./rss.js";
@@ -60,11 +59,10 @@ import { TaskInbox } from "./task-inbox.js";
 import { SavedTaskNotice } from "./saved-task-notice.js";
 import { createTaskNoticeDismissals } from "../../shared/saved-task-result.js";
 import { unreconciledRuns, taskSelectionKey, taskActions } from "./work-task-data.js";
-import { bindTaskComposer, completionLabel, draftKey, type ConversationDraft } from "./navigation.js";
+import { bindTaskComposer, draftKey, type ConversationDraft } from "./navigation.js";
 import { conversationDraftError } from "../../shared/conversation-drafts.js";
 import { MemorySetup } from "./daily-setup-panel.js";
 import { desktopLayout, type DesktopLayout } from "./zcode/layout.js";
-import { ZCodeMessage, ZCodeMessageContent } from "./zcode/message.js";
 import { PersonalConversation as ZCodeConversation, PersonalBackToBottom as ZCodeBackToBottom } from "./personal/conversation.js";
 import { PersonalPromptEditor as ZCodePromptEditor, PersonalPromptOptions as ZCodePromptOptions } from "./personal/composer.js";
 import { TodayPanel } from "./personal/today.js";
@@ -79,12 +77,11 @@ import { isConnectorModule, settingsRouteForInitial, type SettingsListTarget, ty
 import { clampChatFraction, loadChatFraction, loadSidebarOpen, dashboardTabForDetail, PERSONAL_SPLIT_KEY, PERSONAL_SIDEBAR_KEY, PERSONAL_COMPACT_BREAKPOINT } from "./personal/layout.js";
 import { humanFacingTitle } from "../../shared/human-title.js";
 import { RemindersPanel } from "./reminders.js";
-import { presentHomeTaskItem, reminderClock } from "./reminder-copy.js";
 import { DesktopWindowFrame } from "./zcode/upstream/desktop-window-frame.js";
 import { Button } from "./zcode/upstream/button.js";
 import { ArrowUp, Square, Search, Settings2 } from "lucide-react";
 import { draftScope, type UncertainSteer } from "../../shared/conversation-drafts.js";
-import { ErrorBanner, FailureInline } from "./failure-notice.js";
+import { ErrorBanner } from "./failure-notice.js";
 import "./zcode/theme.css";
 import "./personal/shell.css";
 import "./personal/today.css";
@@ -94,195 +91,6 @@ import "./personal/settings.css";
 import "./personal/conversation.css";
 
 const OUTPUT_MAX_CHARS = 64 * 1024;
-
-function commandError(response: CommandResponse): string {
-  if (response.ok) return "";
-  switch (response.reason) {
-    case "failed":
-      return response.message;
-    case "cancelled":
-      return "命令已取消";
-    case "busy":
-      return "当前忙，未排队";
-    case "unknown":
-      return "未知命令";
-    case "empty":
-      return "命令为空";
-    default: {
-      const exhaustive: never = response;
-      return exhaustive;
-    }
-  }
-}
-
-function Row({ row, delivered = false, layout = "classic", onRestoreSteer }: { row: ConversationRow; delivered?: boolean; layout?: DesktopLayout; onRestoreSteer?: (text: string) => void }) {
-  switch (row.kind) {
-    case "text":
-      if (layout === "zcode") return <ZCodeMessage from={row.role} className={`row row-text role-${row.role}${row.committed ? "" : " live"}`}>
-        <ZCodeMessageContent>
-          {row.role !== "user" ? <span className="role">{row.role === "assistant" ? <><SerikaMark size={18} /> Serika</> : "系统"}</span> : null}
-          {row.role === "assistant" ? <AssistantReply text={row.text} delivered={delivered} /> : <pre>{row.text}</pre>}
-          {row.attachments?.length ? <div className="chat-attachments">{row.attachments.map((file, index) => <div className="chat-attachment" key={index}>{file.url ? <img src={file.url} alt={file.name} /> : null}<span>{file.name}</span></div>)}</div> : null}
-          {row.steerRecord ? <SteerStatus records={[row.steerRecord]} onRestore={onRestoreSteer} /> : null}
-        </ZCodeMessageContent>
-      </ZCodeMessage>;
-      return (
-        <div className={`row row-text role-${row.role}${row.committed ? "" : " live"}`}>
-          {row.role !== "user" ? <span className="role">{row.role === "assistant" ? <><SerikaMark size={20} /> Serika</> : "系统"}</span> : null}
-          {row.role === "assistant" ? <AssistantReply text={row.text} delivered={delivered} /> : <pre>{row.text}</pre>}
-          {row.attachments?.length ? <div className="chat-attachments">{row.attachments.map((file, index) => <div className="chat-attachment" key={index}>{file.url ? <img src={file.url} alt={file.name} /> : null}<span>{file.name}</span></div>)}</div> : null}
-          {row.steerRecord ? <SteerStatus records={[row.steerRecord]} onRestore={onRestoreSteer} /> : null}
-        </div>
-      );
-    case "tool":
-      return (
-        <details className={`row row-tool status-${row.status}`} open={["failed", "unknown", "timed_out", "dispatched"].includes(row.status) || (row.status === "requested" && !!(row.stdout || row.stderr))}>
-          <summary><span className="dot" /><span className="tool-name">{toolDisplayName(row.toolName)}</span>
-            {row.receipt ? <span className="tool-receipt"><code title={row.receipt.path}>{row.receipt.path}</code><span>{row.receipt.bytes} 字节</span></span> : null}
-            <span className="tool-status">{toolStatusLabel(row.status)}</span><Icon name="chevron" size={14} /></summary>
-          <div className="tool-body"><code>{row.toolName}</code>
-          {row.detail ? <div className="tool-detail"><FailureInline text={row.detail} /></div> : null}
-          {row.stdout ? <pre className="shell-stream stdout">{row.stdout}</pre> : null}
-          {row.stderr ? <pre className="shell-stream stderr">{row.stderr}</pre> : null}
-          {row.progressTruncated ? <span className="truncated">输出已截断</span> : null}
-          </div>
-        </details>
-      );
-    case "step":
-      return <div className="row row-step">第 {row.step} 步</div>;
-    case "result":
-      return (
-        <div className={`row row-result status-${row.status}`}>
-          {completionLabel(row)}
-          {row.status === "completed" && !row.completion ? <span className="result-boundary" title="对话结束不等于任务已验收，工具效果以执行记录为准。">执行结果见回执</span> : null}
-          {row.detail ? <span className="tool-detail"> · <FailureInline text={row.detail} /></span> : null}
-        </div>
-      );
-    default: {
-      const exhaustive: never = row;
-      return exhaustive;
-    }
-  }
-}
-
-function toolDisplayName(name: string): string {
-  const labels: Record<string, string> = { computer_observe: "观察应用", computer_action: "操作应用", read_file: "读取文件", write_file: "写入文件", edit_file: "编辑文件", shell_exec: "运行命令", web_fetch: "读取网页", web_search: "搜索网页", feed_read: "读取订阅", memory_add: "保存记忆", memory_update: "更新记忆", task_create: "创建提醒", task_reschedule: "调整提醒", task_cancel: "取消提醒", task_repeat_create: "重复提醒", task_repeat_cancel: "取消重复提醒", task_repeat_pause: "暂停重复提醒", task_repeat_resume: "恢复重复提醒", checkpoint_save: "保存进度" };
-  return labels[name] ?? name;
-}
-
-function toolStatusLabel(status: ToolRowStatus): string {
-  switch (status) {
-    case "requested":
-      return "调用中";
-    case "ok":
-      return "返回成功";
-    case "incomplete":
-      return "回执不完整";
-    case "observed":
-      return "观察已返回";
-    case "dispatched":
-      return "已派发 · 待核对";
-    case "not_started":
-      return "未执行";
-    case "failed":
-      return "失败";
-    case "denied":
-      return "已拒绝";
-    case "unknown":
-      return "结果未知 · 需人工核实";
-    case "timed_out":
-      return "Shell 超时";
-    case "cancelled":
-      return "已取消";
-    default: {
-      const exhaustive: never = status;
-      return exhaustive;
-    }
-  }
-}
-
-function Identity({ info }: { info: AppInfo }) {
-  const [copied, setCopied] = useState(false);
-  const copyThread = (): void => {
-    void navigator.clipboard.writeText(info.threadId).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1200);
-    });
-  };
-  const workspace = info.workspaceRoot ? baseName(info.workspaceRoot) : "无 workspace";
-  return (
-    <div className="identity" aria-label="当前会话配置">
-      <span className="pill" title={`模型：${info.modelAlias}\n${info.modelId ?? ""}（配置值，不代表已联网验证）`}>
-        {info.modelAlias}
-      </span>
-      <span className="pill" title={info.workspaceRoot ?? "未设置 workspace；文件、记忆、checkpoint、任务模块都不可用"}>
-        {workspace}
-      </span>
-      <span
-        className="pill"
-        title={`处理时限 ${info.totalTimeoutMs / 1000} 秒（确认等待不计时）\n命令时限 ${info.shellTimeoutMs / 1000} 秒\n长任务需要两项时限都足够`}
-      >
-        {Math.round(info.totalTimeoutMs / 1000)}s / {Math.round(info.shellTimeoutMs / 1000)}s
-      </span>
-      <button
-        className="pill mono"
-        title={`Thread ${info.threadId}\nTranscript ${info.directory}\n点击复制 thread id`}
-        onClick={copyThread}
-      >
-        {copied ? "已复制" : shortId(info.threadId)}
-      </button>
-      {info.temporaryThread || info.temporaryDirectory ? (
-        <span
-          className="pill warn"
-          title={[
-            info.temporaryThread ? "Thread ID 为本次临时生成；重启不会自动回到这段对话。" : null,
-            info.temporaryDirectory ? "transcript 目录为本次临时生成；重启不会自动回到这里。" : null,
-          ]
-            .filter(Boolean)
-            .join("\n")}
-        >
-          临时
-        </span>
-      ) : info.identitySource ? (
-        <span className="pill" title={info.identitySource === "saved" ? "已保存启动身份；重启会回到同一 Thread 和 transcript 目录。" : "本次使用环境变量显式覆盖；以相同覆盖配置重启可回到同一对话，不会改写默认身份。"}>
-          {info.identitySource === "saved" ? "固定身份" : "显式身份"}
-        </span>
-      ) : null}
-    </div>
-  );
-}
-
-function HomeBody({ view }: { view: HomeView }) {
-  if (view.sections.length === 0) {
-    return <div className="muted">正在读取…</div>;
-  }
-  const clock = reminderClock();
-  return (
-    <div className="home-body">
-      {view.sections.map((section) => (
-        <div className="home-section" key={section.title}>
-          <div className="home-title">
-            <span>{section.title === "本地任务" ? "提醒与定时结果" : section.title}</span>
-            {section.summary ? <span className="home-summary">{section.summary}</span> : null}
-          </div>
-          {section.items.length > 0 ? (
-            <ul className="home-items">
-              {section.items.map((item, index) => {
-                const shown = section.title === "本地任务" ? presentHomeTaskItem(item, clock) : { primary: item.text, detail: null };
-                return (
-                  <li key={index} className={item.kind}>
-                    {shown.primary}
-                    {shown.detail ? <small>{shown.detail}</small> : null}
-                  </li>
-                );
-              })}
-            </ul>
-          ) : null}
-        </div>
-      ))}
-    </div>
-  );
-}
 
 export function App({ initialLayout }: { initialLayout?: DesktopLayout } = {}) {
   const layout = initialLayout ?? desktopLayout(window.location.search);

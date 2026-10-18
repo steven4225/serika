@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { readFile } from "node:fs/promises";
 import type { TaskRecordV4 } from "@serika/assistant";
 import { taskResultPresentation } from "./task-inbox.js";
+import { readAppSource } from "../test-support/app-source.js";
 
 const task = (overrides: Partial<TaskRecordV4> = {}) => ({ status: "completed", notification: null, ...overrides }) as TaskRecordV4;
 test("saved reminder banner presentation contains the persisted result instead of only task id and completion", () => {
@@ -33,7 +34,7 @@ test("task inbox labels kinds without treating model completion or system submis
 
 test("successful inbox/detail reads refresh the same workspace arrangements without polling or execution", async () => {
   const inbox = await readFile(new URL("./task-inbox.tsx", import.meta.url), "utf8");
-  const app = await readFile(new URL("./App.tsx", import.meta.url), "utf8");
+  const app = await readAppSource();
   const arrangements = await readFile(new URL("./automation-panel.tsx", import.meta.url), "utf8");
   assert.match(inbox, /if \(request !== generation\.current\) return;\s+if \(result\.ok\) \{ setPage\(result\.value\); onResultsRead\?\.\(\); \}/);
   assert.match(inbox, /if \(request !== generation\.current\) return;\s+if \(result\.ok\) \{ setDetail\(result\.value\); onResultOpened\?\.\(result\.value\); onResultsRead\?\.\(\); \}/);

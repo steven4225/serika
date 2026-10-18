@@ -14,6 +14,7 @@ import { MemoryPanel } from "./memory.js";
 import { memoryAutomationLabel } from "./memory-copy.js";
 import { dashboardTabForDetail } from "./personal/layout.js";
 import { TodayPanel } from "./personal/today.js";
+import { readAppSource } from "../test-support/app-source.js";
 
 const source = (path: string) => readFile(new URL(path, import.meta.url), "utf8");
 const render = (element: Parameters<typeof renderToStaticMarkup>[0]) => renderToStaticMarkup(element);
@@ -22,7 +23,7 @@ const info = { workspaceRoot: "/workspace", configPath: "/config.json", memory: 
 const maintenance: MemoryMaintenance = { stored: 0, pending: 0, expired: 0, disabled: 0, duplicateSuggestions: 0, capacity: { entries: 200, bytes: 1024, assertionsPerEntry: 10 }, consolidation: { enabled: false, state: "off" } };
 
 it("message exclusion explains the actual cloud inference boundary without claiming it disables saved keyword references", async () => {
-  const app = await source("./App.tsx");
+  const app = await readAppSource();
   const hint = app.match(/className="memory-exclusion" title="([^"]+)"/)?.[1];
   assert.ok(hint);
   assert.match(hint, /已有记忆仍可通过关键词引用/);
@@ -32,7 +33,7 @@ it("message exclusion explains the actual cloud inference boundary without claim
 it("UI regression 1: workspace belongs to settings and never selects 手札", async () => {
   assert.equal(dashboardTabForDetail("home"), "设置");
   assert.equal(dashboardTabForDetail("settings"), "设置");
-  const app = await source("./App.tsx");
+  const app = await readAppSource();
   assert.match(app, /openSettings\("advanced"\)/);
   assert.doesNotMatch(app, /personal-settings-nav|aria-label="助手设置"/);
   assert.doesNotMatch(app, /\["modules", "模块"\]/);
@@ -45,7 +46,7 @@ it("UI regression 2: context compression and memory consolidation have distinct 
   assert.doesNotMatch(panel + mode + JSON.stringify(overview), /整理/);
   assert.match(mode, /自动压缩/);
   assert.match(consolidationStatusLabel(true, { ...maintenance, consolidation: { enabled: true, state: "running" } }, ""), /记忆/);
-  const app = await source("./App.tsx");
+  const app = await readAppSource();
   assert.doesNotMatch(app, /"停止整理"/);
   assert.match(app, /"停止记忆整理"/);
 });
@@ -63,12 +64,12 @@ it("memory automation label distinguishes enabled capability from write policy",
 });
 
 it("UI regression 4: memory setup has one primary entry and workspace context is a navigation link", async () => {
-  const app = await source("./App.tsx");
+  const app = await readAppSource();
   assert.match(app, /openSettings\("context"\)/);
 });
 
 it("UI regression 5: settings has one explicit entrance and the persona pill is not that entrance", async () => {
-  const app = await source("./App.tsx");
+  const app = await readAppSource();
   assert.match(app, /\["手札", "任务", "记忆"\]/);
   assert.doesNotMatch(app, /\["Today",/);
   assert.doesNotMatch(app, /openDetails\("persona"\)/);
@@ -84,7 +85,7 @@ it("reminders stay reachable from 手札 and are not a top pill or a settings in
   assert.equal(dashboardTabForDetail("reminders"), null);
   assert.equal(dashboardTabForDetail("persona"), null);
   assert.equal(dashboardTabForDetail("home"), "设置");
-  const app = await source("./App.tsx");
+  const app = await readAppSource();
   assert.match(app, /\["手札", "任务", "记忆"\]/);
   assert.match(app, /aria-label="手札与个人助手"/);
   assert.match(app, />手札</);
@@ -115,7 +116,7 @@ it("optional memory tab selection shares the settings pill instead of an underli
 });
 
 it("schedule management belongs to reminders instead of task templates", async () => {
-  const app = await source("./App.tsx");
+  const app = await readAppSource();
   assert.doesNotMatch(app, /detailTab === "tasks" && info \? <details className="task-arrangements"/);
   const reminders = app.slice(app.indexOf('<div hidden={detailTab !== "reminders"}>'), app.indexOf('<div hidden={detailTab !== "settings"}>'));
   assert.match(reminders, /管理定时安排与订阅/);

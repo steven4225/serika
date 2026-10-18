@@ -5,6 +5,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { SteerStatus } from "./steer-status.js";
 import type { AssistantSteerRecord } from "../../shared/ui-contract.js";
+import { readAppSource } from "../test-support/app-source.js";
 
 const base = { id: "s1", runId: "r1", text: "保留原文", receivedAt: "2026-10-08T00:00:00Z" };
 
@@ -20,7 +21,7 @@ it("renders accepted/applied/not-applied distinctly and restores only by explici
 });
 
 it("composer sends current Run steer before approval/new-task admission and retains Stop", async () => {
-  const app = await readFile(new URL("./App.tsx", import.meta.url), "utf8");
+  const app = await readAppSource();
   const submit = app.slice(app.indexOf("const submit = useCallback"), app.indexOf("const busy = state.kind"));
   assert.ok(submit.indexOf("window.runloom.steer(request)") < submit.indexOf("if (approval !== null)"));
   assert.ok(submit.indexOf("window.runloom.steer(request)") < submit.indexOf("await workTasks.run(line)"));
