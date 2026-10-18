@@ -36,12 +36,13 @@ for (const thread of threads) {
 }
 const snapshot: UiSnapshot = { state: { kind: "idle" }, canSubmit: true, canSteer: false, steers: [], pendingApproval: null, recentOutput: "", outputTruncated: false,
   toolActivity: [], lastPrimaryResult: null, lastConsolidationResult: null, resultTextTruncated: false, shellProgress: [] };
+let infoPatch: Partial<AppInfo> = {};
 const info = (): AppInfo => ({ entryMode: "test", configPath: "/preview/config.json", threadId,
   directory: "/preview/transcripts", workspaceRoot: "/preview/Serika", modelAlias: "mock", modelId: "界面示例（不调用模型）",
   temporaryThread: false, temporaryDirectory: false, identitySource: "saved", computer: { enabled: false, allowedBundleIds: [] },
   tuiMode: true, commands: [], hasCompaction: false, hasResume: false, totalTimeoutMs: 600000, shellTimeoutMs: 300000,
   memory: { enabled: true, autoConsolidate: true, queryRewriteEnabled: true }, workTasks: false,
-  modules: [{ id: "memory", enabled: true }, { id: "read-file", enabled: true }, { id: "shell", enabled: false }, { id: "task", enabled: false }, { id: "pomodoro", enabled: false }] });
+  modules: [{ id: "memory", enabled: true }, { id: "read-file", enabled: true }, { id: "shell", enabled: false }, { id: "task", enabled: false }, { id: "pomodoro", enabled: false }], ...infoPatch });
 const emit = (message: MainToRenderer) => { for (const listener of [...listeners]) listener(message); };
 const event = <T extends AgentEventType>(type: T, data: AgentEventDataMap[T]) => emit({ type: "event", phase: "primary",
   event: { id: `preview-event-${++sequence}`, runId: currentRunId, threadId, sequence, occurredAt: new Date().toISOString(), type, data } as AgentEvent });
@@ -108,4 +109,10 @@ window.runloom = new Proxy(api as unknown as RendererApi, { get(target, property
   if (property in target) return Reflect.get(target, property);
   return async () => { throw new Error(`浏览器界面预览不执行 ${String(property)}；请在 Electron 中使用真实功能。`); };
 } });
+// Browser regression control (?lifecycle): scripted run/approval/steer/thread flows for the
+// App.tsx split checks. Never loaded by Electron.
+if (new URLSearchParams(location.search).has("lifecycle")) Object.assign(window, {
+  previewFixture: { api, snapshot, emit, event, receipts, runId: () => currentRunId, threadId: () => threadId,
+    patchInfo: (patch: Partial<AppInfo>) => { infoPatch = patch; emit({ type: "identity-changed", info: info() }); } },
+});
 createRoot(document.getElementById("root")!).render(<App initialLayout="zcode" />);
