@@ -5,7 +5,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Search, Clock3, Blocks, Settings2, Sun, Moon, ChevronDown, ListTodo, BookOpen, PanelLeft } from "lucide-react";
 import type { ThreadSummary } from "../../../shared/ui-contract.js";
 import { Icon, SerikaMark, type IconName } from "../icons.js";
-import { baseName } from "../home.js";
+import { baseName } from "../names.js";
 import { threadTitle, visibleThreads } from "../thread-list-data.js";
 import { Button } from "./upstream/button.js";
 import { NewTaskButton } from "./upstream/new-task-button.js";

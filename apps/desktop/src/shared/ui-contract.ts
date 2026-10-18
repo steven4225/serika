@@ -15,6 +15,7 @@ import type { AssistantController } from "@serika/assistant";
 import type { TaskListV3, TaskRecordV4 } from "@serika/assistant";
 import type { MemoryReferenceSnapshot } from "@serika/assistant";
 import type { AgentEvent, RunResult } from "@serika/core";
+import type { HomeSnapshot } from "@serika/assistant";
 import type { ExecutionRunRecord } from "@serika/assistant";
 import type { ModelUsagePage } from "@serika/assistant";
 export type { ExecutionRunRecord, ExecutionToolRecord } from "@serika/assistant";
@@ -139,7 +140,8 @@ export type MainToRenderer =
   | { type: "identity-changed"; info: AppInfo; reason?: "modules" | "context"; configurationError?: string }
   | { type: "state"; state: UiState }
   | { type: "output"; text: string }
-  | { type: "home"; text: string; reset?: boolean }
+  /** Structured Home; `null` clears the panel while a fresh snapshot is read. */
+  | { type: "home"; snapshot: HomeSnapshot | null }
   | { type: "approval"; approval: PendingApproval }
   | { type: "approval-cleared"; approvalId: string }
   | { type: "steer"; steer: AssistantSteerRecord }

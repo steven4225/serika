@@ -213,6 +213,7 @@ apps/telegram ┘        (领域：记忆/任务/        (AI SDK 边界：模型
   - 单条命令 10 分钟超时、每轮 128 步 / 30 分钟上限不变。Docker sandbox 本来就不能开自主执行，行为不变。
   - 系统沙箱（§4.3）另设完成条件，这一轮不做。
 - 第 2 步：Todoist 试点完成（只改 `packages/assistant`）。配置片段、时区、token（从装配方传入的 env 读）、`/modules` 状态行、能力报告条目和给任务模块的规划事实都归 `modules/todoist-module.ts`；`app.ts` 只做一次 `assembleTodoist` 调用并按原位置摆放。验收按用户选择 (a)：与第 1 步快照逐字一致。详见 `docs/v2-pilot/todoist.md`。
+- 第 3 步：Home 结构化完成。`packages/assistant/src/home.ts` 的 `readHomeSnapshot` 产出 `HomeSnapshot`（时间、身份、分节、入口），是唯一数据来源；CLI 用 `formatHome` 渲染，与第 1 步快照逐字一致。桌面端通过 `onHomeSnapshot` 收到结构化消息 `{ type: "home", snapshot }`，面板直接由快照生成；文本解析器 `apps/desktop/src/renderer/src/home.ts` 已删除（`shortId`、`baseName` 移到 `names.ts`）。删除前用旧解析器记录了 9 个分支的面板金样例 `__baseline__/home-view.json`，新路径逐项一致。可选的「任务停止原因」结构化事件未做，工作量评估见第 4 步报告，由用户决定。
 
 ## 5. 度量基线（`c594574`，改名后、移除 durable/postgres 前）
 

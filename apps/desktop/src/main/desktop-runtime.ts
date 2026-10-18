@@ -153,6 +153,7 @@ export class DesktopRuntime {
       pomodoroService: this.#pomodoroService,
       allowWorkspaceTaskReads: true,
       allowDesktopAutonomy: true,
+      onHomeSnapshot: snapshot => output.homeSnapshot(snapshot),
       authorizeTelegramAutonomy: grant => this.#telegram?.matchesAutonomyGrant(grant) === true,
       beforePrimaryRunCreate: record => this.#sourceBarrier?.(record) ?? Promise.resolve(),
       afterTaskArrangementSaved: saved => this.#telegram?.arrangementSaved(saved) ?? Promise.resolve(),

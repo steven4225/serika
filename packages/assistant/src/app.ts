@@ -44,7 +44,7 @@ import type { AssistantAssembly } from "./assembly.js";
 import { createMemoryStore, type WorkspaceMemoryStore } from "./memory-store.js";
 import { formatMemoryHealth, readMemoryHealth } from "./memory-health.js";
 import { createCheckpointStore, type WorkspaceCheckpointStore } from "./checkpoint-store.js";
-import { renderHome } from "./home.js";
+import { formatHome, readHomeSnapshot, type HomeSnapshot } from "./home.js";
 import { inspectGitReality, reconcileGitReality } from "./git-reality.js";
 import {
   captureResumeObservation,
@@ -107,6 +107,11 @@ export interface TaskAutomationHost {
 }
 
 export interface RuntimeAppOptions {
+  /**
+   * Receives each structured Home snapshot before its CLI text is written
+   * (architecture-v2 §4.4 step 3). The desktop panel renders from this.
+   */
+  onHomeSnapshot?: (snapshot: HomeSnapshot) => void;
   /** Transcript directory for this instance. Omitted: a new temporary directory. */
   directory?: string;
   /**
@@ -470,7 +475,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     ? new Map(moduleHost?.commands ?? [])
     : undefined;
   const renderFreshHome = async (): Promise<void> => {
-    const page = await renderHome({
+    const snapshot = await readHomeSnapshot({
       modelAlias,
       modelId: typeof model !== "string" && "modelId" in model && typeof model.modelId === "string"
         ? model.modelId
@@ -487,6 +492,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       now: new Date(),
       timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     });
+    options.onHomeSnapshot?.(snapshot);
+    const page = formatHome(snapshot);
     await new Promise<void>((resolve, reject) => {
       output.write(`\n${page}\n`, (error) => error === null || error === undefined ? resolve() : reject(error));
     });

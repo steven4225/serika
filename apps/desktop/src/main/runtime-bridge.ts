@@ -1,3 +1,4 @@
+import type { HomeSnapshot } from "@serika/assistant";
 import type { MemoryLibraryAction } from "@serika/assistant";
 import { validateChatAttachments } from "@serika/assistant";
 import type { RecipeChange } from "@serika/assistant";
@@ -82,11 +83,16 @@ export class TeeOutput extends Writable {
 
   beginHome(): void {
     this.#home = true;
-    this.#send({ type: "home", text: "", reset: true });
+    this.#send({ type: "home", snapshot: null });
   }
 
   endHome(): void {
     this.#home = false;
+  }
+
+  /** The structured Home for the panel; its CLI text still goes through _write to the output log. */
+  homeSnapshot(snapshot: HomeSnapshot): void {
+    if (this.#home) this.#send({ type: "home", snapshot });
   }
 
   override _write(
@@ -97,7 +103,6 @@ export class TeeOutput extends Writable {
     const text = typeof chunk === "string" ? chunk : chunk.toString("utf8");
     if (this.#controller !== undefined) this.#controller.recordOutput(text);
     else this.#pending.push(text);
-    if (this.#home) this.#send({ type: "home", text });
     callback();
   }
 }

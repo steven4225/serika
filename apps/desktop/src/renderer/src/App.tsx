@@ -34,7 +34,9 @@ import {
   type LiveRun,
   type ToolRowStatus,
 } from "./conversation.js";
-import { baseName, parseHome, shortId, type HomeView } from "./home.js";
+import { baseName, shortId } from "./names.js";
+import { homeView as toHomeView, type HomeView } from "./home-view.js";
+import type { HomeSnapshot } from "@serika/assistant/browser";
 import { MemoryPanel } from "./memory.js";
 import { MemoryConsolidationNotice } from "./memory-consolidation.js";
 import { ThreadsPanel } from "./threads.js";
@@ -251,7 +253,7 @@ function Identity({ info }: { info: AppInfo }) {
 }
 
 function HomeBody({ view }: { view: HomeView }) {
-  if (view.sections.length === 0 && view.unparsed.length === 0) {
+  if (view.sections.length === 0) {
     return <div className="muted">正在读取…</div>;
   }
   const clock = reminderClock();
@@ -278,7 +280,6 @@ function HomeBody({ view }: { view: HomeView }) {
           ) : null}
         </div>
       ))}
-      {view.unparsed.length > 0 ? <pre className="home-text">{view.unparsed.join("\n")}</pre> : null}
     </div>
   );
 }
@@ -330,7 +331,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const [threadsRefresh, setThreadsRefresh] = useState(0);
   const [taskResultFocus, setTaskResultFocus] = useState<{ taskId: string; workspaceRoot: string; sequence: number } | null>(null);
   const [state, setState] = useState<UiState>({ kind: "idle" });
-  const [home, setHome] = useState("");
+  const [homeSnapshot, setHomeSnapshot] = useState<HomeSnapshot | null>(null);
   const [output, setOutput] = useState("");
   const [storedHistory, setStoredHistory] = useState<{ rows: ConversationRow[]; runId: string | null }>({ rows: [], runId: null });
   const history = storedHistory.rows;
@@ -389,7 +390,6 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const briefFeeds = useTodayBriefFeeds(info?.workspaceRoot != null, automationRefresh, info?.workspaceRoot);
   const [sending, setSending] = useState(false);
   const sendInFlight = useRef(false);
-  const homeBuffer = useRef("");
   const shellBuffer = useRef(new ShellProgressBuffer());
   const conversationEnd = useRef<HTMLDivElement | null>(null);
   const conversationScroll = useRef<HTMLDivElement | null>(null);
@@ -583,9 +583,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
           setOutput((previous) => (previous + message.text).slice(-OUTPUT_MAX_CHARS));
           return;
         case "home":
-          if (message.reset) homeBuffer.current = "";
-          homeBuffer.current += message.text;
-          setHome(homeBuffer.current.trim());
+          setHomeSnapshot(message.snapshot);
           return;
         case "approval":
           setApproval(message.approval);
@@ -1004,7 +1002,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const rows = [...(!activePrimary && finalRecord ? overlayExecutionReceipts(visibleRows, finalRecord.tools, { reuseHistory: canReuseReceiptHistory(finalRecord, storedHistory.runId), runId: finalRecord.runId }) : visibleRows),
     ...(!activePrimary && lastResult ? [lastResult] : [])];
   const delivered = deliveredReplyKeys(rows);
-  const homeView = parseHome(home);
+  const homeView = toHomeView(homeSnapshot);
   const unknownRuns = records.status === "ready" ? unreconciledRuns(records.runs, workTasks.tasks) : [];
   const reviewTask = workTasks.tasks.find(task => task.status === "needs_review");
   const rememberSidebar = (open: boolean) => {
