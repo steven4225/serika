@@ -1,4 +1,4 @@
-import type { HomeSnapshot } from "@serika/assistant/browser";
+import type { HomeSnapshot, HomeTask } from "@serika/assistant/browser";
 
 /**
  * The Home panel view, built directly from the runtime's structured Home
@@ -9,6 +9,9 @@ import type { HomeSnapshot } from "@serika/assistant/browser";
 export interface HomeItem {
   kind: "item" | "note";
   text: string;
+  /** Structured task line (本地任务 section); the panel shows it as a reminder. */
+  task?: HomeTask;
+  taskList?: "inbox" | "pending";
 }
 
 export interface HomeSection {
@@ -31,7 +34,12 @@ export function homeView(snapshot: HomeSnapshot | null): HomeView {
     sections: snapshot.sections.map((section) => ({
       title: section.title,
       summary: section.summary,
-      items: section.items.map((item) => ({ kind: item.kind, text: item.text })),
+      items: section.items.map((item) => ({
+        kind: item.kind,
+        text: item.text,
+        ...(item.task ? { task: item.task } : {}),
+        ...(item.taskList ? { taskList: item.taskList } : {}),
+      })),
     })),
   };
 }

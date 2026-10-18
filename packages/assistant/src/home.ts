@@ -40,6 +40,20 @@ export interface HomeItem {
   kind: "item" | "note";
   text: string;
   bullet: boolean;
+  /** A task line: the same values `text` prints, already on one line. */
+  task?: HomeTask;
+  /** Heading or read error of a task list in the 本地任务 section. */
+  taskList?: "inbox" | "pending";
+}
+
+/** One task line of the 本地任务 section, as structured fields. */
+export interface HomeTask {
+  status: TaskSummaryV3["status"];
+  id: string;
+  prompt: string;
+  runAt: string;
+  /** Result preview or error; null when the line prints none. */
+  detail: string | null;
 }
 
 export interface HomeSection {
@@ -80,12 +94,26 @@ const section = (kind: HomeSection["kind"], title: string, summary: string, item
   ({ kind, title, summary, items });
 const gitSection = (): HomeSection => section("git", "Git", GIT_HINT_SUMMARY);
 
-function taskText(task: TaskSummaryV3): string {
+function homeTask(task: TaskSummaryV3): HomeTask {
   const detail = task.status === "completed"
     ? task.resultPreview
     : task.error === null ? null : `${task.error.code}: ${task.error.messagePreview}`;
-  return `${task.status} · ${oneLine(task.id)} · ${oneLine(task.promptPreview)} · runAt ${oneLine(task.runAt)}${detail ? ` · ${oneLine(detail)}` : ""}`;
+  return {
+    status: task.status,
+    id: oneLine(task.id),
+    prompt: oneLine(task.promptPreview),
+    runAt: oneLine(task.runAt),
+    detail: detail ? oneLine(detail) : null,
+  };
 }
+
+function taskItem(task: TaskSummaryV3): HomeItem {
+  const fields = homeTask(task);
+  const text = `${fields.status} · ${fields.id} · ${fields.prompt} · runAt ${fields.runAt}${fields.detail !== null ? ` · ${fields.detail}` : ""}`;
+  return { ...bullet(text), task: fields };
+}
+
+const listNote = (taskList: "inbox" | "pending", text: string): HomeItem => ({ ...note(text), taskList });
 
 async function checkpointSections(options: HomeOptions): Promise<HomeSection[]> {
   const progress = (summary: string, items: HomeItem[] = []) => section("checkpoint", "项目进度", summary, items);
@@ -121,24 +149,24 @@ async function taskSection(options: HomeOptions): Promise<HomeSection> {
   try {
     const inbox = await options.taskStore.list({ inbox: true, limit: 5 });
     if (!inbox.ok) {
-      items.push(note(`未确认终态记录：读取失败（${inbox.error.code}: ${oneLine(inbox.error.message)}）。`));
+      items.push(listNote("inbox", `未确认终态记录：读取失败（${inbox.error.code}: ${oneLine(inbox.error.message)}）。`));
     } else {
-      items.push(note(`未确认终态记录${inbox.value.truncated ? "（仅展示前 5 条，另有未展示）" : ""}：`));
-      items.push(...(inbox.value.tasks.length ? inbox.value.tasks.map((task) => bullet(taskText(task))) : [bullet("无")]));
+      items.push(listNote("inbox", `未确认终态记录${inbox.value.truncated ? "（仅展示前 5 条，另有未展示）" : ""}：`));
+      items.push(...(inbox.value.tasks.length ? inbox.value.tasks.map(taskItem) : [bullet("无")]));
     }
   } catch (error) {
-    items.push(note(`未确认终态记录：读取失败（${errorText(error)}）。`));
+    items.push(listNote("inbox", `未确认终态记录：读取失败（${errorText(error)}）。`));
   }
   try {
     const recent = await options.taskStore.list({ status: "pending", limit: 5 });
     if (!recent.ok) {
-      items.push(note(`最近创建的 scheduled/running：读取失败（${recent.error.code}: ${oneLine(recent.error.message)}）。`));
+      items.push(listNote("pending", `最近创建的 scheduled/running：读取失败（${recent.error.code}: ${oneLine(recent.error.message)}）。`));
     } else {
-      items.push(note(`最近创建的 scheduled/running${recent.value.truncated ? "（仅展示前 5 条，另有未展示）" : ""}：`));
-      items.push(...(recent.value.tasks.length ? recent.value.tasks.map((task) => bullet(taskText(task))) : [bullet("无")]));
+      items.push(listNote("pending", `最近创建的 scheduled/running${recent.value.truncated ? "（仅展示前 5 条，另有未展示）" : ""}：`));
+      items.push(...(recent.value.tasks.length ? recent.value.tasks.map(taskItem) : [bullet("无")]));
     }
   } catch (error) {
-    items.push(note(`最近创建的 scheduled/running：读取失败（${errorText(error)}）。`));
+    items.push(listNote("pending", `最近创建的 scheduled/running：读取失败（${errorText(error)}）。`));
   }
   items.push(note("completed 只表示 worker Run 正常结束，不代表业务成功或桌面通知已送达。"));
   return section("tasks", "本地任务", "", items);

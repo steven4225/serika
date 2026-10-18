@@ -1,0 +1,87 @@
+{
+  "nothing enabled, temporary Thread": [],
+  "temporary directory, no workspace, control characters": [],
+  "enabled without stores": [],
+  "no checkpoint saved, empty task lists": [
+    {
+      "primary": "未确认终态记录：",
+      "detail": null
+    },
+    {
+      "primary": "无",
+      "detail": null
+    },
+    {
+      "primary": "即将到来的提醒：",
+      "detail": null
+    },
+    {
+      "primary": "无",
+      "detail": null
+    },
+    {
+      "primary": "completed 只表示 worker Run 正常结束，不代表业务成功或桌面通知已送达。",
+      "detail": null
+    }
+  ],
+  "active checkpoint from another Thread with more than three next actions": [],
+  "completed checkpoint from this Thread without a phase": [],
+  "checkpoint read error and task results": [
+    {
+      "primary": "未确认终态记录（仅展示前 5 条，另有未展示）：",
+      "detail": null
+    },
+    {
+      "primary": "喝水 · 明天 9:00 · 执行结束",
+      "detail": "编号 done · Run 结束"
+    },
+    {
+      "primary": "整理 · 明天 9:00 · 执行失败",
+      "detail": "编号 bad · MODEL_TIMEOUT: 超时"
+    },
+    {
+      "primary": "计划 · 明天 9:00 · 执行中断，结果未确定",
+      "detail": "编号 stop · INTERRUPTED: 中断"
+    },
+    {
+      "primary": "即将到来的提醒：",
+      "detail": null
+    },
+    {
+      "primary": "开会 · 明天 9:00 · 已设好，到点提醒",
+      "detail": "编号 next"
+    },
+    {
+      "primary": "completed 只表示 worker Run 正常结束，不代表业务成功或桌面通知已送达。",
+      "detail": null
+    }
+  ],
+  "thrown checkpoint error and task store errors": [
+    {
+      "primary": "未确认终态记录：读取失败（TASK_FILE_INVALID: broken tasks）。",
+      "detail": null
+    },
+    {
+      "primary": "即将到来的提醒：读取失败（TASK_FILE_INVALID: broken tasks）。",
+      "detail": null
+    },
+    {
+      "primary": "completed 只表示 worker Run 正常结束，不代表业务成功或桌面通知已送达。",
+      "detail": null
+    }
+  ],
+  "non-Error throws from both stores": [
+    {
+      "primary": "未确认终态记录：读取失败（读取失败）。",
+      "detail": null
+    },
+    {
+      "primary": "即将到来的提醒：读取失败（读取失败）。",
+      "detail": null
+    },
+    {
+      "primary": "completed 只表示 worker Run 正常结束，不代表业务成功或桌面通知已送达。",
+      "detail": null
+    }
+  ]
+}

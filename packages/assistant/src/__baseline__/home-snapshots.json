@@ -124,7 +124,8 @@
           {
             "kind": "note",
             "text": "未确认终态记录：",
-            "bullet": false
+            "bullet": false,
+            "taskList": "inbox"
           },
           {
             "kind": "item",
@@ -134,7 +135,8 @@
           {
             "kind": "note",
             "text": "最近创建的 scheduled/running：",
-            "bullet": false
+            "bullet": false,
+            "taskList": "pending"
           },
           {
             "kind": "item",
@@ -318,32 +320,62 @@
           {
             "kind": "note",
             "text": "未确认终态记录（仅展示前 5 条，另有未展示）：",
-            "bullet": false
+            "bullet": false,
+            "taskList": "inbox"
           },
           {
             "kind": "item",
             "text": "completed · done · 喝水 · runAt 2026-09-24T01:00:00Z · Run 结束",
-            "bullet": true
+            "bullet": true,
+            "task": {
+              "status": "completed",
+              "id": "done",
+              "prompt": "喝水",
+              "runAt": "2026-09-24T01:00:00Z",
+              "detail": "Run 结束"
+            }
           },
           {
             "kind": "item",
             "text": "failed · bad · 整理 · runAt 2026-09-24T01:00:00Z · MODEL_TIMEOUT: 超时",
-            "bullet": true
+            "bullet": true,
+            "task": {
+              "status": "failed",
+              "id": "bad",
+              "prompt": "整理",
+              "runAt": "2026-09-24T01:00:00Z",
+              "detail": "MODEL_TIMEOUT: 超时"
+            }
           },
           {
             "kind": "item",
             "text": "interrupted · stop · 计划 · runAt 2026-09-24T01:00:00Z · INTERRUPTED: 中断",
-            "bullet": true
+            "bullet": true,
+            "task": {
+              "status": "interrupted",
+              "id": "stop",
+              "prompt": "计划",
+              "runAt": "2026-09-24T01:00:00Z",
+              "detail": "INTERRUPTED: 中断"
+            }
           },
           {
             "kind": "note",
             "text": "最近创建的 scheduled/running：",
-            "bullet": false
+            "bullet": false,
+            "taskList": "pending"
           },
           {
             "kind": "item",
             "text": "scheduled · next · 开会 · runAt 2026-09-24T01:00:00Z",
-            "bullet": true
+            "bullet": true,
+            "task": {
+              "status": "scheduled",
+              "id": "next",
+              "prompt": "开会",
+              "runAt": "2026-09-24T01:00:00Z",
+              "detail": null
+            }
           },
           {
             "kind": "note",
@@ -386,12 +418,14 @@
           {
             "kind": "note",
             "text": "未确认终态记录：读取失败（TASK_FILE_INVALID: broken tasks）。",
-            "bullet": false
+            "bullet": false,
+            "taskList": "inbox"
           },
           {
             "kind": "note",
             "text": "最近创建的 scheduled/running：读取失败（TASK_FILE_INVALID: broken tasks）。",
-            "bullet": false
+            "bullet": false,
+            "taskList": "pending"
           },
           {
             "kind": "note",
@@ -434,12 +468,14 @@
           {
             "kind": "note",
             "text": "未确认终态记录：读取失败（读取失败）。",
-            "bullet": false
+            "bullet": false,
+            "taskList": "inbox"
           },
           {
             "kind": "note",
             "text": "最近创建的 scheduled/running：读取失败（读取失败）。",
-            "bullet": false
+            "bullet": false,
+            "taskList": "pending"
           },
           {
             "kind": "note",

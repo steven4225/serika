@@ -268,7 +268,7 @@ function HomeBody({ view }: { view: HomeView }) {
           {section.items.length > 0 ? (
             <ul className="home-items">
               {section.items.map((item, index) => {
-                const shown = section.title === "本地任务" ? presentHomeTaskItem(item.text, clock) : { primary: item.text, detail: null };
+                const shown = section.title === "本地任务" ? presentHomeTaskItem(item, clock) : { primary: item.text, detail: null };
                 return (
                   <li key={index} className={item.kind}>
                     {shown.primary}

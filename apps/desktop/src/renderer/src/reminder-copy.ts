@@ -1,5 +1,5 @@
 import { formatOnceWhen, reminderWhen } from "@serika/assistant/browser";
-import type { ReminderSpeechClock } from "@serika/assistant";
+import type { HomeItem, ReminderSpeechClock } from "@serika/assistant";
 import type { Recurrence } from "@serika/assistant";
 import type { PendingApproval } from "../../shared/ui-contract.js";
 import type { ConversationRow, ToolRow } from "./conversation.js";
@@ -257,22 +257,18 @@ export function inboxPrimaryLine(task: {
   };
 }
 
-const homeTaskLine = /^(scheduled|running|completed|failed|cancelled|interrupted)\s·\s(\S+)\s·\s(.*?)\s·\srunAt\s(\S+)(?:\s·\s([\s\S]+))?$/;
-
-/** The workspace home snapshot prints English status, ids and UTC. Show the reminder instead. */
-export function presentHomeTaskItem(text: string, clock: ReminderSpeechClock): { primary: string; detail: string | null } {
-  const trimmed = text.trim();
-  if (trimmed.includes("最近创建的 scheduled/running")) {
-    return { primary: trimmed.replaceAll("最近创建的 scheduled/running", "即将到来的提醒"), detail: null };
+/**
+ * One item of the Home 本地任务 section. The workspace home snapshot prints
+ * English status, ids and UTC; show the reminder instead, from the snapshot's
+ * structured task fields (no text parsing).
+ */
+export function presentHomeTaskItem(item: Pick<HomeItem, "text" | "task" | "taskList">, clock: ReminderSpeechClock): { primary: string; detail: string | null } {
+  if (item.taskList === "pending") {
+    return { primary: item.text.trim().replaceAll("最近创建的 scheduled/running", "即将到来的提醒"), detail: null };
   }
-  const match = homeTaskLine.exec(trimmed);
-  if (match === null) return { primary: text, detail: null };
-  const status = match[1] ?? "";
-  const id = match[2] ?? "";
-  const prompt = match[3] ?? "";
-  const runAt = match[4] ?? "";
-  const extra = match[5];
-  const primary = `${prompt} · ${formatOnceWhen(runAt, clock)} · ${scheduleStatusLabel(status, runAt, clock.now, "reminder")}`;
-  const detail = [`编号 ${id}`, extra?.trim() ?? ""].filter(part => part.length > 0).join(" · ");
+  const task = item.task;
+  if (task === undefined) return { primary: item.text, detail: null };
+  const primary = `${task.prompt} · ${formatOnceWhen(task.runAt, clock)} · ${scheduleStatusLabel(task.status, task.runAt, clock.now, "reminder")}`;
+  const detail = [`编号 ${task.id}`, task.detail ?? ""].filter(part => part.length > 0).join(" · ");
   return { primary, detail };
 }

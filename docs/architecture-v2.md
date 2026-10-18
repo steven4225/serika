@@ -216,6 +216,7 @@ apps/telegram ┘        (领域：记忆/任务/        (AI SDK 边界：模型
 - 第 3 步：Home 结构化完成。`packages/assistant/src/home.ts` 的 `readHomeSnapshot` 产出 `HomeSnapshot`（时间、身份、分节、入口），是唯一数据来源；CLI 用 `formatHome` 渲染，与第 1 步快照逐字一致。桌面端通过 `onHomeSnapshot` 收到结构化消息 `{ type: "home", snapshot }`，面板直接由快照生成；文本解析器 `apps/desktop/src/renderer/src/home.ts` 已删除（`shortId`、`baseName` 移到 `names.ts`）。删除前用旧解析器记录了 9 个分支的面板金样例 `__baseline__/home-view.json`，新路径逐项一致。可选的「任务停止原因」结构化事件未做，工作量评估见第 4 步报告，由用户决定。
 - 第 4 步：复盘报告 `docs/v2-pilot/review.md`（每个改动的文件和原因、接口问题、下一步候选和成本）。下一步由用户决定。
 - 跨模块接口（用户确认开始）：模块自己声明指令位置；跨模块事实集中在 `module-facts.ts`；桌面端改用 `BUILTIN_MODULE_IDS`；`capabilityStatus` 改为参数对象。输出逐字不变。详见 `docs/v2-pilot/cross-module.md`。
+- 第 3 步收尾（状态事件）：盘点见 `docs/v2-pilot/state-events.md`。Shell 进度已是结构化事件；Controller 状态行桌面端只作诊断原样显示，不改。Home「本地任务」条目改为结构化字段，桌面端删除正则解析。
 
 ## 5. 度量基线（`c594574`，改名后、移除 durable/postgres 前）
 
