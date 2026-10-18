@@ -1,0 +1,143 @@
+# tools (1)
+
+capability_status
+
+## tool capability_status
+
+Read current host-registered tools and static capability/permission mode. No service probes, process/app inspection, credentials, installation or writes. Service/OS permission health remains not_checked.
+
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {},
+  "additionalProperties": false
+}
+
+# instructions (1 messages before the user's text)
+
+## message 0 system
+
+When asked what you can do or why CUA/MCP is unavailable, call capability_status for actual registered tools. Report static configuration separately from untested service connectivity/OS permissions; never infer access from another application's installed packages. A tool's y/n confirmation happens before that tool executes. After receiving ok:true, report the completed result; do not say you are still waiting for confirmation. If the call was denied, failed, or has an unknown outcome, do not report success. 
+
+# /modules
+
+
+[modules]
+配置来源: "<ROOT>/config.json"
+Workspace: "<ROOT>/workspace"
+pomodoro: disabled
+read-file: disabled
+memory: disabled
+checkpoint: disabled
+task: disabled
+todoist: disabled
+shell: disabled
+web: disabled
+computer: disabled
+web_search: disabled
+Todoist 规划时区: 未启用
+自动记忆整理: off
+主 Run 步数上限: 8
+主 Run 总时限: 120000 ms（确认等待不计时）
+上下文压缩: off
+Todoist token: present
+持久文件授权: 0 条
+记忆诊断: disabled（未读取文件）
+
+# /capabilities
+
+当前助手能力（配置／实际注册，不是健康检查）：
+pomodoro：未启用
+read-file：未启用
+memory：未启用
+checkpoint：未启用
+task：未启用
+todoist：未启用
+shell：未启用
+web：未启用
+computer：未启用
+CUA：未配置；服务和系统权限尚未检查。
+配置与工具注册不证明服务或系统权限就绪。批准 computer_check 可单独检查连接（不读取窗口内容），批准 computer_observe 才观察指定的允许应用；不会启动驱动或授予系统权限。
+当前宿主只注册内置集成；其他应用安装的 MCP/CUA 不会自动继承。新增集成须由宿主明确配置，不会自行修改安全配置。
+工作目录不是操作系统隔离；主机命令仍需明确批准。
+命令配方未启用：需要明确启用当前主助手的 Shell；不会自行修改配置、安装或重启宿主。
+
+# capability_status
+
+{
+  "modules": [
+    {
+      "id": "pomodoro",
+      "enabled": false,
+      "registeredTools": [],
+      "state": "disabled"
+    },
+    {
+      "id": "read-file",
+      "enabled": false,
+      "registeredTools": [],
+      "state": "disabled"
+    },
+    {
+      "id": "memory",
+      "enabled": false,
+      "registeredTools": [],
+      "state": "disabled"
+    },
+    {
+      "id": "checkpoint",
+      "enabled": false,
+      "registeredTools": [],
+      "state": "disabled"
+    },
+    {
+      "id": "task",
+      "enabled": false,
+      "registeredTools": [],
+      "state": "disabled"
+    },
+    {
+      "id": "todoist",
+      "enabled": false,
+      "registeredTools": [],
+      "state": "disabled"
+    },
+    {
+      "id": "shell",
+      "enabled": false,
+      "registeredTools": [],
+      "state": "disabled"
+    },
+    {
+      "id": "web",
+      "enabled": false,
+      "registeredTools": [],
+      "state": "disabled"
+    },
+    {
+      "id": "computer",
+      "enabled": false,
+      "registeredTools": [],
+      "state": "disabled"
+    }
+  ],
+  "tools": [
+    "capability_status"
+  ],
+  "shell": {
+    "mode": "host",
+    "authority": "current_run_only; no permissions inherited from recipes",
+    "warning": "工作目录不是操作系统隔离；主机命令仍需明确批准。"
+  },
+  "computer": {
+    "configured": false,
+    "allowedBundleIds": [],
+    "service": "not_checked",
+    "permissions": "not_checked",
+    "next": "配置与工具注册不证明服务或系统权限就绪。批准 computer_check 可单独检查连接（不读取窗口内容），批准 computer_observe 才观察指定的允许应用；不会启动驱动或授予系统权限。"
+  },
+  "mcp": {
+    "state": "unsupported_dynamic_registration",
+    "note": "当前宿主只注册内置集成；其他应用安装的 MCP/CUA 不会自动继承。新增集成须由宿主明确配置，不会自行修改安全配置。"
+  }
+}

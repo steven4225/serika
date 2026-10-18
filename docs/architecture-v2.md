@@ -199,6 +199,14 @@ apps/telegram ┘        (领域：记忆/任务/        (AI SDK 边界：模型
 ### 进度
 
 - 第 0 步：完成（本节）。
+- 第 1 步：完成（只加测试和文档，产品代码零改动）。
+  - 路径清单 `docs/v2-pilot/paths.md`；实际路径快照 `packages/assistant/src/__baseline__/paths.txt`、`apps/desktop/src/main/__baseline__/desktop-paths.txt`。
+  - 落盘 hash 盘点 `docs/v2-pilot/hashes.md`；黄金样例 `__baseline__/hashes.json`（20 个）与桌面端路径快照。几个模块内部 hash 不改代码无法单独取样，列在待实现清单里。
+  - 回执与 verifier 不变量对照 `docs/v2-pilot/receipt-invariants.md`；锁定测试 `baseline-verifier.test.ts`。
+  - 装配快照 `__baseline__/assembly-{minimal,full,full-without-todoist}.txt`：模型实际拿到的工具表（含描述和参数 schema）、用户消息之前的全部指令、`/modules`、`/capabilities`、`capability_status`。
+  - CLI Home 文本快照 `__baseline__/home.txt`（各分支）与 `home-app.txt`（装配后实际输出）。
+  - 待实现清单 `docs/v2-pilot/pending.md`（报告，不进测试套件）。其中 B 节：第 2 步的验收条件「去掉 Todoist 后都没有它」与快照、文案不变冲突，开始第 2 步前要先确认。
+  - 快照更新只用 `SERIKA_UPDATE_BASELINE_SNAPSHOT=1`，而且只能在明确确认的变更里用。
 
 ## 5. 度量基线（`c594574`，改名后、移除 durable/postgres 前）
 

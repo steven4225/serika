@@ -1,0 +1,22 @@
+
+Serika Home
+时间：<NOW>
+模型：mock（mock-model；配置值，不代表本次已联网验证）
+Workspace：<ROOT>/workspace
+Thread：home
+Transcript 目录：<ROOT>/transcripts
+
+项目进度：尚无保存的 checkpoint。
+Git：本页未重新核对 Git；输入 /resume 查看当前变化。checkpoint 的 pin 不是当前 HEAD。
+
+本地任务：
+  未确认终态记录：
+  - 无
+  最近创建的 scheduled/running：
+  - 无
+  completed 只表示 worker Run 正常结束，不代表业务成功或桌面通知已送达。
+
+可用入口：
+  /modules
+  /resume
+  /task inbox
