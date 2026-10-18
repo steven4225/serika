@@ -1,0 +1,22 @@
+{
+  "core hashCanonicalJson": "jcs-sha256:v1:3b0bb619aa6c21f96d92030910b4e9915061ce2cdac45d5e5fbb9959c954ba10",
+  "core transcript file name": "8b983fb92d2eb12751695722fdb4e498211e50d79e72d25f44764b6a77f6348d.jsonl",
+  "context compaction prefix": "compact-prefix/jcs-sha256:v1:dad5de4955980c0bf4449948b1d244a5048ce0786f8b34babc21b1ff2c9ee499",
+  "creation receipt requestHash": "02f9582573456393de799ed1c55216f41633076999839e6a3e6f18fd626a19fd",
+  "memory candidate fingerprint v1": "e1df7cd6b3b21c3299fbfaf41e5d615aa1185ff1e857c1a5a123ab214b2789f9",
+  "memory candidate fingerprint v2": "1d5d4592b0cf2a9cad57f95e14c9fe4ccf0ad6fb029054b3a4b9bc41d236dd15",
+  "memory candidate fingerprint v3": "fa27a63346aa9cc8e9a759d5b3423d277aab0e1e797c2efdec43780c2a7a5d66",
+  "memory consolidation prefix": "5df471b72bfaaeb649e703416d7ebe9923d9e5c5f1d12e232e5966394a1fbcf4",
+  "memory semantic text hash": "dbfbd2dce984e81c3e1a23607650194f8c2a4c8d7a9f6b4a9e307f211a5637b3",
+  "recipe hash": "79075af5cb148d9c3dd845a8e331d3639bc1601196c08f1807ae17b6870c661e",
+  "rss item key (id)": "039ceea431195467908e42c6db7a1e6d0d5061a6bd44615788baf0d81d9483b7",
+  "rss item key (url)": "04eb124138012504ac9b90b7b3d7a6f87b05316bcdf951dada78199878214305",
+  "rss item key (fallback)": "1cf6c39d130a5fda24d182abb64dd281cd458c274643dc79ed7a66b8145b1b20",
+  "skill hash": "f00e9f663d4205431054af32008109e3c71d55722411bf7b230085ce56b0fd70",
+  "task result workspace key": "f9be197a95b070f4bcfd5146a95439552fca4a863581c3f410f8fdfdc4bb5188",
+  "task result link": "serika://task-result/task-1?workspace=f9be197a95b070f4bcfd5146a95439552fca4a863581c3f410f8fdfdc4bb5188",
+  "task worker launchd label": "dev.runloom.task-worker.f9be197a95b070f4bcfd.plist",
+  "write_file receipt sha256": "4e0826721642ed8e3a27e7147538ac7b7013a08fe5ae343a8ef09749b7e5790f",
+  "execution owner lock name": ".execution-owner-8b983fb92d2eb12751695722fdb4e498211e50d79e72d25f44764b6a77f6348d.lock",
+  "work task owner lock name": ".work-task-owner-8b983fb92d2eb12751695722fdb4e498211e50d79e72d25f44764b6a77f6348d.lock"
+}

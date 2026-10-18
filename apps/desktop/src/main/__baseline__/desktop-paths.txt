@@ -1,0 +1,22 @@
+defaultUserDataPath(<appData>) = appData/@aisdk-agent/desktop
+userDataPathFromEnv({}) = undefined
+userDataPathFromEnv(RUNLOOM_USER_DATA=/abs) = /abs
+resolveDesktopConfig(no env) = userData/runloom.json generated=true
+resolveDesktopConfig(RUNLOOM_CONFIG) = /elsewhere/runloom.json generated=false
+generated config workspace = userData/workspaces/personal
+explicit identity (RUNLOOM_TRANSCRIPTS) thread = desktop-explicit-c0a8f664c4731639d90c9924
+explicit identity (RUNLOOM_TRANSCRIPTS) transcripts = /fixed/transcripts
+explicit identity (RUNLOOM_THREAD) thread = my-thread
+explicit identity (RUNLOOM_THREAD) transcripts = userData/transcripts/explicit-00a59de3862c3dcd79609c3e
+resident(/Users/me, /Users/me/work, 501).label = dev.serika.assistant-host.b6542e257ca225deadd6
+resident(/Users/me, /Users/me/work, 501).socketRoot = <socket tmp>/serika-host-501
+resident(/Users/me, /Users/me/work, 501).socketDirectory = <socket tmp>/serika-host-501/b6542e257ca225deadd6
+resident(/Users/me, /Users/me/work, 501).socketPath = <socket tmp>/serika-host-501/b6542e257ca225deadd6/host.sock
+resident(/Users/me, /Users/me/work, 501).stateDirectory = /Users/me/Library/Application Support/Serika/resident/b6542e257ca225deadd6
+resident(/Users/me, /Users/me/work, 501).identityPath = /Users/me/Library/Application Support/Serika/resident/b6542e257ca225deadd6/identity.json
+
+# userData after config resolution
+userData/runloom.json
+userData/runloom.json.lock
+userData/workspaces/
+userData/workspaces/personal/
