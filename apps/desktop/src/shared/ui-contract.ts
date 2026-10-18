@@ -51,7 +51,7 @@ export type RunPhase = "primary" | "consolidation" | "skill";
 
 export type UiState =
   | { kind: "idle" }
-  | { kind: "running"; runId: string | null; phase: RunPhase; background?: true; source?: "telegram" }
+  | { kind: "running"; runId: string | null; phase: RunPhase; background?: true; source?: "telegram" | "qq" }
   | { kind: "compacting" }
   | { kind: "resuming" }
   | { kind: "command"; name: string };

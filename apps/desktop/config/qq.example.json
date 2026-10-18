@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "endpoint": "ws://127.0.0.1:3001/",
+  "botId": 100001,
+  "groupId": 100002,
+  "ownerId": 100003,
+  "workspace": "/absolute/path/to/qq-group-workspace",
+  "modules": {
+    "read-file": { "enabled": true },
+    "shell": { "enabled": false },
+    "web": { "enabled": false }
+  },
+  "run": { "maxSteps": 8, "totalTimeoutMs": 120000 }
+}

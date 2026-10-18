@@ -32,6 +32,10 @@ pnpm build
 
 完整设计见 [docs/architecture-v0.md](docs/architecture-v0.md)。
 
+## QQ 群模式（NapCat / OneBot）
+
+支持普通 QQ 号通过 NapCat 正向 WebSocket 接入一个指定群：所有成员可 `@机器人` 提问，只有配置的主人能逐次批准工具。一个群使用一条共享 Thread 和独立群工作区，不接入个人记忆或继承桌面/Telegram 授权。独立进程启动、外部配置、群内指令和五分钟验收见 [QQ 群模式](docs/qq-group-mode.md)。
+
 ## 浏览器操作（现有本机 Shell）
 
 桌面普通聊天及已独立授权的 Telegram 前台可复用 `shell_exec` 调用已安装的 `ego-browser`，完成打开网页、读取渲染内容、点击和填表。无需开启 `computer` 模块；Shell 注册与浏览器安装、连接就绪分别核对。当前不自动安装浏览器、导入登录数据、接管用户标签页或升级软件。

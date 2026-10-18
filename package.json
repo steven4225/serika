@@ -8,6 +8,7 @@
     "node": ">=22.12.0"
   },
   "scripts": {
+    "qq": "pnpm build:runtime && pnpm --filter @aisdk-agent/desktop qq",
     "build": "pnpm build:runtime && pnpm --filter @aisdk-agent/desktop build",
     "build:runtime": "tsc -b",
     "clean": "tsc -b --clean",
