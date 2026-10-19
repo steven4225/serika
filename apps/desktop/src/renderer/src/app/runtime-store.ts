@@ -98,6 +98,8 @@ export interface RuntimeState {
   readonly conversationTitle: string;
   readonly threads: ThreadSummary[];
   readonly threadsRefresh: number;
+  /** The error banner (was App's `error`): failures from messages, startup and reads, and from App's own actions via `setError`. */
+  readonly error: string | null;
 }
 
 export interface RuntimeStore {
@@ -167,12 +169,13 @@ export interface RuntimeStore {
   readThreads(info: AppInfo, idle: boolean): () => void;
   /** Ask for a reread (ThreadsPanel `onChanged`). */
   refreshThreads(): void;
+
+  /** Show (or with null, clear) the error banner; App's actions and its hooks call this (was App's `setError`). */
+  setError(message: string | null): void;
 }
 
 export interface RuntimeStoreOptions {
   readonly bridge: () => RuntimeBridge;
-  /** App's `setError`; `error` is not in the store (written by messages and by UI actions). */
-  readonly onError: (message: string) => void;
 }
 
 export const initialRuntimeState: RuntimeState = {
@@ -199,6 +202,7 @@ export const initialRuntimeState: RuntimeState = {
   conversationTitle: "当前对话",
   threads: [],
   threadsRefresh: 0,
+  error: null,
 };
 
 /** Pure: the next state for one message, or the same object when the message does not touch these fields. */
@@ -238,7 +242,7 @@ export function receiveMessage(current: RuntimeState, message: MainToRenderer): 
   }
 }
 
-export function createRuntimeStore({ bridge, onError }: RuntimeStoreOptions, initial: RuntimeState = initialRuntimeState): RuntimeStore {
+export function createRuntimeStore({ bridge }: RuntimeStoreOptions, initial: RuntimeState = initialRuntimeState): RuntimeStore {
   let current = initial;
   let latestPrimaryId: string | null = null;
   let latestCompletedPrimaryId: string | null = null;
@@ -262,6 +266,8 @@ export function createRuntimeStore({ bridge, onError }: RuntimeStoreOptions, ini
     for (const listener of [...listeners]) listener();
   };
   const patch = (fields: Partial<RuntimeState>): void => update({ ...current, ...fields });
+  /** The store's own failures go to the same banner App writes through `setError`. */
+  const onError = (message: string): void => patch({ error: message });
 
   const loadFinalRun = async (runId: string): Promise<void> => {
     const response = await bridge().getRun(runId);
@@ -466,6 +472,7 @@ export function createRuntimeStore({ bridge, onError }: RuntimeStoreOptions, ini
       return () => { active = false; };
     },
     refreshThreads: () => patch({ threadsRefresh: current.threadsRefresh + 1 }),
+    setError: error => patch({ error }),
 
     start(host) {
       const mine = ++session;

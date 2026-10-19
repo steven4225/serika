@@ -190,7 +190,7 @@ const event = (sequence: number, type: string, data: unknown): MainToRenderer =>
 
 /** Run-event path, through the runtime store as App uses it. */
 function eventRow(sample: Case): ToolRow {
-  const store = createRuntimeStore({ bridge: () => ({ snapshot: () => new Promise(() => {}), getRun: async () => ({ ok: true, run: null }) }), onError: () => {} });
+  const store = createRuntimeStore({ bridge: () => ({ snapshot: () => new Promise(() => {}), getRun: async () => ({ ok: true, run: null }) }) });
   store.onRunState({ kind: "running", runId: RUN, phase: "primary" } as UiState, () => true);
   const call = { toolCallId: "call-1", toolName: sample.toolName };
   for (const message of [

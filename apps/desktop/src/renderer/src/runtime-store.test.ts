@@ -12,6 +12,17 @@ const counters = (store: RuntimeStore) => {
   const { memoryRefresh, contextRefresh, taskRefresh } = store.getState();
   return { memoryRefresh, contextRefresh, taskRefresh };
 };
+/** Each message the store's error banner changes to, in order (the banner is the store's `error` field). */
+const recordErrors = (store: RuntimeStore, errors: string[]): void => {
+  let shown = store.getState().error;
+  store.subscribe(() => {
+    const next = store.getState().error;
+    if (next === shown) return;
+    shown = next;
+    if (next !== null) errors.push(next);
+  });
+};
+
 /** A store over a fake bridge: `snapshot()` waits for the test to answer it; `getRun` answers from `runs`. */
 const harness = () => {
   const calls: string[] = [];
@@ -27,7 +38,8 @@ const harness = () => {
       return response ?? { ok: true, run: null };
     },
   };
-  const store = createRuntimeStore({ bridge: () => bridge, onError: message => { errors.push(message); } });
+  const store = createRuntimeStore({ bridge: () => bridge });
+  recordErrors(store, errors);
   let notified = 0;
   store.subscribe(() => { notified += 1; });
   return { store, calls, pendingSnapshots, runs, errors, notifications: () => notified };
@@ -61,7 +73,7 @@ test("runtime store starts from the values AssistantPage used to start with", ()
     live: emptyLiveRun, lastResult: null, canSteer: false, finalRecord: null, steers: [], uncertainSteer: null,
     history: { rows: [], runId: null }, historyBefore: null, historyLoading: false,
     records: { status: "loading" }, recordDetail: { status: "idle" }, traceFocusTool: null,
-    conversationTitle: "当前对话", threads: [], threadsRefresh: 0,
+    conversationTitle: "当前对话", threads: [], threadsRefresh: 0, error: null,
   });
   assert.equal(store.getState(), initialRuntimeState);
   assert.equal(store.getState().live, emptyLiveRun);
@@ -416,7 +428,8 @@ const historyHarness = () => {
     listRuns: () => wait("listRuns"),
     info: () => wait("info"),
   };
-  const store = createRuntimeStore({ bridge: () => bridge, onError: message => { errors.push(message); } });
+  const store = createRuntimeStore({ bridge: () => bridge });
+  recordErrors(store, errors);
   const answer = (name: string, value: unknown) => {
     const index = pending.findIndex(item => item.name === name);
     assert.notEqual(index, -1, `no pending ${name}`);
@@ -601,7 +614,8 @@ test("threads: the title follows every read, the list only a read started while 
   const reads: Array<{ resolve: (threads: unknown) => void; reject: (cause: unknown) => void }> = [];
   const bridge = { snapshot: () => new Promise(() => {}), getRun: async () => ({ ok: true, run: null }),
     listThreads: () => new Promise((resolve, reject) => { reads.push({ resolve, reject }); }) } as unknown as RuntimeBridge;
-  const store = createRuntimeStore({ bridge: () => bridge, onError: () => assert.fail("no error for a thread list read") });
+  const store = createRuntimeStore({ bridge: () => bridge });
+  store.subscribe(() => assert.equal(store.getState().error, null, "no error for a thread list read"));
   const info = { threadId: "thread-1" } as AppInfo;
   const thread = (threadId: string, title: string) => ({ threadId, title });
   const listed = [thread("thread-0", "旧对话"), thread("thread-1", "周末计划")];
@@ -661,7 +675,8 @@ const startupHarness = (overrides: Partial<Record<string, unknown>> = {}) => {
     snapshot: answer("snapshot"), historyPage: answer("historyPage"), listRuns: answer("listRuns"), home: answer("home"),
     getRun: async (runId: string) => { calls.push(`getRun:${runId}`); return { ok: true, run: null }; },
   } as unknown as RuntimeBridge;
-  const store = createRuntimeStore({ bridge: () => bridge, onError: message => { errors.push(message); } });
+  const store = createRuntimeStore({ bridge: () => bridge });
+  recordErrors(store, errors);
   const host: string[] = [];
   const hostApi = {
     applyDraft: (_info: AppInfo, saved: { draft: { text: string } }) => { host.push(`applyDraft:${saved.draft.text}`); },
@@ -745,4 +760,17 @@ test("messages after start: result settles attachments before finishing the run;
   store.dispose();
   send({ type: "error", message: "卸载后" } as MainToRenderer);
   assert.equal(errors.includes("卸载后"), false);
+});
+
+test("error: the banner is a store field; setError shows and clears it, and the store's own failures land there too", async () => {
+  const { store, runs } = harness();
+  assert.equal(store.getState().error, null);
+  store.setError("请先处理上方确认");
+  assert.equal(store.getState().error, "请先处理上方确认");
+  store.setError(null);
+  assert.equal(store.getState().error, null);
+  runs.set("run-1", { ok: true, run: null });
+  store.finishPrimaryRun(result("run-1"));
+  await flush();
+  assert.equal(store.getState().error, "最终执行回执缺失，不能据此确认动作结果");
 });
