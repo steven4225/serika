@@ -2,7 +2,7 @@
 
 范围：`apps/desktop/src/renderer/src/App.tsx` 的 `AssistantPage`，以及从它拆出去的 `app/` 下的 hook。
 目标：把「主进程推来的运行时状态」放进组件之外、由消息订阅驱动的 store，`App.tsx` 只读取；组件里只留界面状态。
-例外（第 4 步之后）：只由界面动作写的 `automationRefresh`、`reconnecting` 也在 store 里，是这条目标的先例，规则见第 2 节。
+例外（第 4 步之后）：只由界面动作写的 `automationRefresh`、`reconnecting` 也在 store 里；仅此两项，扩大须单独确认，见第 2 节。
 行号以 `b84e3e2` 为准（`App.tsx` 在 `c204d60` 之后没有改动）。
 
 ## 1. 现状
@@ -20,7 +20,7 @@
 
 切分规则：第一批只搬「只被消息、快照或启动读取写入，界面动作不写」的状态，一次搬完；消息和界面混写的状态不进第一批。
 
-第 4 步之后补充：只由界面动作写的状态，如果它触发的是运行时数据的重新读取（`automationRefresh` 让自动化面板重读），或者包着一次桥接调用（`reconnecting` 包着 `retryConnection`），也可以放进 store，形式是「store 字段 + store 动作」：界面只调用动作，不持有 setter。**`automationRefresh`、`reconnecting` 是这条的先例**（2026-10 决定不回退，见第 6 节第 3 条）。其余纯界面状态（下表最右一列）仍留在组件；以后再有同类状态要进 store，按这两项的做法，并在提交说明里写明依据。
+第 4 步之后补充（例外，不是通用规则）：只由界面动作写的状态原则上留在组件。**仅 `automationRefresh`、`reconnecting` 两项例外**，已放进 store（「store 字段 + store 动作」，界面只调动作、不持有 setter；2026-10 决定不回退，见第 6 节第 3 条）。例外范围不扩大：其他界面状态要进 store，必须先单独确认，不能援引这两项。
 
 | 第一批（第 1 步） | 后续步骤 | 不进第一批，归属另定 | 留在组件（界面） |
 | --- | --- | --- | --- |
