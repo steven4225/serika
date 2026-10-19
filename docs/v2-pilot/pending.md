@@ -42,3 +42,7 @@
 
 - 仓库声明 `packageManager: pnpm@11.9.0`，这台机器用的是 pnpm 10.34.5；`pnpm install --frozen-lockfile` 和全部测试都正常。
 - 快照把进程时区固定为 UTC，并把临时目录替换为 `<ROOT>`、时间戳替换为 `<NOW>`，这样在 macOS 上也能对上。没有在 macOS 上实际跑过（只有这台 Linux 机器），第一次在你的机器上跑如果有差异，需要先看是不是平台差异。
+
+## E. 桌面端 store 测试的已知限制
+
+- `runtime-store.test.ts` 的 `recordErrors` 记录的是错误横幅（store 的 `error` 字段）每次「变成」的消息，不是每次「写入」：连续两次写入同一条错误只记一次。`error` 进 store（`ab23fc7`）之前，测试是直接收集 `onError` 的每次调用，能数出重复。目前没有用例依赖连续相同的错误；以后需要数重复的用例，要在每一步之后直接检查 `getState().error`，或者另行给 store 加写入计数（会改 store 接口，先确认）。

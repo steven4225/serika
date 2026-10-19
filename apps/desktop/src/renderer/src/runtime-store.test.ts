@@ -12,7 +12,13 @@ const counters = (store: RuntimeStore) => {
   const { memoryRefresh, contextRefresh, taskRefresh } = store.getState();
   return { memoryRefresh, contextRefresh, taskRefresh };
 };
-/** Each message the store's error banner changes to, in order (the banner is the store's `error` field). */
+/**
+ * Each message the store's error banner changes to, in order (the banner is the store's `error` field).
+ * Known limit: it records changes, not writes, so the same message written twice in a row is recorded
+ * once. The store cannot tell the two apart either (the banner shows the same text); a test that needs
+ * to count repeated identical errors must check `getState().error` after each step instead
+ * (docs/v2-pilot/pending.md E).
+ */
 const recordErrors = (store: RuntimeStore, errors: string[]): void => {
   let shown = store.getState().error;
   store.subscribe(() => {
