@@ -16,4 +16,6 @@ node scripts/ui-snapshots/states.mjs /tmp/after && node scripts/ui-snapshots/flo
 scripts/ui-snapshots/compare.sh /tmp/before /tmp/after
 ```
 
+`compare.sh` 比对 HTML 时忽略预览页自己的入口标签 `<script type="module" src="./src/<名字>-preview.tsx">`（白名单，只记录页面由哪个入口文件提供），其余必须逐字一致；`calls-*.txt` 原样比对。入口改名那次的验收用 `check-entry-rename.sh`。
+
 需要能 import 的 `playwright`；`CHROMIUM_PATH` 指定浏览器，`PREVIEW_URL` 改预览地址。
