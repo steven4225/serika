@@ -633,3 +633,116 @@ test("threads: the title follows every read, the list only a read started while 
   store.refreshThreads();
   assert.equal(store.getState().threadsRefresh, 2);
 });
+
+/** A bridge that answers every startup read at once and records the calls in order. */
+const startupHarness = (overrides: Partial<Record<string, unknown>> = {}) => {
+  const calls: string[] = [];
+  const errors: string[] = [];
+  const listeners = new Set<(message: MainToRenderer) => void>();
+  const answers: Record<string, unknown> = {
+    info: { threadId: "thread-1", workspaceRoot: "/w", configPath: "/c" },
+    loadConversationDraft: { draft: { text: "草稿", excludeFromMemory: false }, uncertainSteer: null },
+    takeTaskResultOpen: null,
+    snapshot: snapshotOf({}),
+    historyPage: page([], null),
+    listRuns: { ok: true, runs: [] },
+    home: { ok: true },
+    ...overrides,
+  };
+  const answer = (name: string) => async () => {
+    calls.push(name);
+    const value = answers[name];
+    if (value instanceof Error) throw value;
+    return value;
+  };
+  const bridge = {
+    onMessage: (listener: (message: MainToRenderer) => void) => { calls.push("onMessage"); listeners.add(listener); return () => { calls.push("unsubscribe"); listeners.delete(listener); }; },
+    info: answer("info"), loadConversationDraft: answer("loadConversationDraft"), takeTaskResultOpen: answer("takeTaskResultOpen"),
+    snapshot: answer("snapshot"), historyPage: answer("historyPage"), listRuns: answer("listRuns"), home: answer("home"),
+    getRun: async (runId: string) => { calls.push(`getRun:${runId}`); return { ok: true, run: null }; },
+  } as unknown as RuntimeBridge;
+  const store = createRuntimeStore({ bridge: () => bridge, onError: message => { errors.push(message); } });
+  const host: string[] = [];
+  const hostApi = {
+    applyDraft: (_info: AppInfo, saved: { draft: { text: string } }) => { host.push(`applyDraft:${saved.draft.text}`); },
+    draftUnreadable: () => { host.push("draftUnreadable"); },
+    openTaskResult: (route: { taskId: string }) => { host.push(`openTaskResult:${route.taskId}`); },
+    settleSentAttachments: (result: RunResult) => { host.push(`settle:${result.runId}`); },
+  };
+  const send = (message: MainToRenderer) => { for (const listener of [...listeners]) listener(message); };
+  return { store, calls, errors, host, hostApi, send, listeners };
+};
+const settle = async () => { for (let index = 0; index < 20; index += 1) await flush(); };
+
+test("start: subscribes, then info → draft → task route → snapshot ×2 → history → snapshot → records → Home, each after the previous", async () => {
+  const { store, calls, host, hostApi, errors } = startupHarness();
+  store.start(hostApi as never);
+  assert.deepEqual(calls, ["onMessage", "info"]);
+  await settle();
+  assert.deepEqual(calls, ["onMessage", "info", "loadConversationDraft", "takeTaskResultOpen", "snapshot", "snapshot", "historyPage", "listRuns", "info", "snapshot", "listRuns", "home"]);
+  assert.deepEqual(host, ["applyDraft:草稿"]);
+  assert.deepEqual(errors, []);
+  assert.equal(store.getState().info?.threadId, "thread-1");
+  assert.equal(store.getState().records.status, "ready");
+});
+
+test("start: a finished primary result loads its final receipt before history; a task route opens; Home failure copy", async () => {
+  const { store, calls, host, hostApi, errors } = startupHarness({
+    snapshot: snapshotOf({ lastPrimaryResult: result("run-9") }), takeTaskResultOpen: { taskId: "task-1", workspaceRoot: "/w" }, home: { ok: false, reason: "failed", message: "Home 读取失败" },
+  });
+  store.start(hostApi as never);
+  await settle();
+  assert.deepEqual(calls.slice(3, 8), ["takeTaskResultOpen", "snapshot", "snapshot", "getRun:run-9", "historyPage"]);
+  assert.deepEqual(host, ["applyDraft:草稿", "openTaskResult:task-1"]);
+  assert.deepEqual(errors, ["最终执行回执缺失，不能据此确认动作结果", "Home 读取失败"]);
+});
+
+test("start: an unreadable draft goes to the host and startup continues; runtime recovery stops after its notice; a busy Home is silent", async () => {
+  const unreadable = startupHarness({ loadConversationDraft: new Error("bad"), home: { ok: false, reason: "busy" } });
+  unreadable.store.start(unreadable.hostApi as never);
+  await settle();
+  assert.deepEqual(unreadable.host, ["draftUnreadable"]);
+  assert.equal(unreadable.calls.at(-1), "home");
+  assert.deepEqual(unreadable.errors, []);
+
+  const recovering = startupHarness({ info: { threadId: "thread-1", runtimeRecovery: { message: "运行时正在恢复" } } });
+  recovering.store.start(recovering.hostApi as never);
+  await settle();
+  assert.deepEqual(recovering.calls, ["onMessage", "info", "loadConversationDraft"]);
+  assert.deepEqual(recovering.errors, ["运行时正在恢复"]);
+});
+
+test("dispose: stops the startup at its next check, unsubscribes; a second start (StrictMode) runs on its own", async () => {
+  const { store, calls, hostApi, host, errors } = startupHarness();
+  store.start(hostApi as never);
+  store.dispose();
+  await settle();
+  assert.deepEqual(calls, ["onMessage", "info", "unsubscribe"]);
+  assert.equal(store.getState().info, null);
+  store.start(hostApi as never);
+  await settle();
+  assert.equal(calls.at(-1), "home");
+  assert.deepEqual(host, ["applyDraft:草稿"]);
+  assert.deepEqual(errors, []);
+});
+
+test("messages after start: result settles attachments before finishing the run; error and failed rereads go to onError", async () => {
+  const { store, calls, host, hostApi, errors, send } = startupHarness({ getRun: undefined });
+  store.start(hostApi as never);
+  await settle();
+  calls.length = 0;
+  send({ type: "state", state: { kind: "running", runId: null, phase: "primary" } } as MainToRenderer);
+  send({ type: "result", phase: "primary", result: result("run-2") } as MainToRenderer);
+  assert.deepEqual(host.slice(1), ["settle:run-2"]);
+  assert.equal(store.latestCompletedPrimaryId(), "run-2");
+  send({ type: "result", phase: "background", result: result("run-3") } as MainToRenderer);
+  assert.deepEqual(host.slice(1), ["settle:run-2"]);
+  send({ type: "error", message: "主进程出错" } as MainToRenderer);
+  send({ type: "state", state: { kind: "idle" } } as MainToRenderer);
+  await settle();
+  assert.deepEqual(calls, ["getRun:run-2", "historyPage", "listRuns", "info", "listRuns"]);
+  assert.deepEqual(errors, ["主进程出错", "最终执行回执缺失，不能据此确认动作结果"]);
+  store.dispose();
+  send({ type: "error", message: "卸载后" } as MainToRenderer);
+  assert.equal(errors.includes("卸载后"), false);
+});

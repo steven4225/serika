@@ -7,9 +7,6 @@ import { Identity } from "./app/identity.js";
 import { HomeBody } from "./app/home-body.js";
 import { useSplitLayout } from "./app/use-split-layout.js";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import type {
-  MainToRenderer,
-} from "../../shared/ui-contract.js";
 import {
   withSteerRecords,
   overlayExecutionReceipts,
@@ -121,7 +118,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const finalRecord = useRuntime(runtime, runtimeState => runtimeState.finalRecord);
   const steers = useRuntime(runtime, runtimeState => runtimeState.steers);
   const uncertainSteer = useRuntime(runtime, runtimeState => runtimeState.uncertainSteer);
-  const { setCanSteer, replaceSteers, mergeSteer, setUncertainSteer, applySnapshot, loadFinalRun, onRunState, onRunSteer, onRunEvent, isCurrentPrimaryResult, finishPrimaryRun, onRunShellProgress } = runtime;
+  const { mergeSteer, setUncertainSteer } = runtime;
   const [submittedInput, setSubmittedInput] = useState<string | null>(null);
   const { attachments, setAttachments, sentAttachments, recoverableAttachments, setRecoverableAttachments, settleSentAttachments } = useChatAttachments(info, setError);
   const [showOutput, setShowOutput] = useState(false);
@@ -154,7 +151,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const recordDetail = useRuntime(runtime, runtimeState => runtimeState.recordDetail);
   const traceFocusTool = useRuntime(runtime, runtimeState => runtimeState.traceFocusTool);
   runtime.setTraceVisible(detailsOpen && detailTab === "records");
-  const { loadRecords, reloadOpenRecords, openRecord, closeRecord, refreshOpenTrace, invalidateRecords } = runtime;
+  const { reloadOpenRecords, openRecord, closeRecord } = runtime;
   const taskRunStarted = useCallback((text: string) => { setSubmittedInput(text); followConversation.current = true; setDetailsOpen(false); setMobileDashboard(false); }, []);
   const workTasks = useWorkTasks(info?.workTasks === true, state.kind !== "idle", taskRefresh, taskRunStarted, taskSelectionKey(info), info ? draftScope(info) : null);
   const { composerTaskId: taskComposerId, setComposerTaskId: setTaskComposerId } = workTasks;
@@ -173,7 +170,6 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     if (detailsOpen && inspectorScroll.current) inspectorScroll.current.scrollTop = inspectorPositions.current.get(inspectorKey) ?? 0;
   }, [detailsOpen, inspectorKey]);
 
-  const { reloadHistory } = runtime;
   const loadOlderHistory = () => runtime.loadOlderHistory(() => {
     const area = conversationScroll.current, height = area?.scrollHeight ?? 0, top = area?.scrollTop ?? 0;
     return {
@@ -183,129 +179,30 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   });
 
   useEffect(() => {
-    let cancelled = false;
-    let stop = (): void => undefined;
-    const openNotificationResult = async () => {
-      const route = await window.runloom.takeTaskResultOpen?.();
-      if (!route || cancelled) return;
-      setTaskResultFocus(previous => ({ ...route, sequence: (previous?.sequence ?? 0) + 1 }));
-      setDetailTab("reminders"); setDetailsOpen(true); setMobileDashboard(true);
-    };
-
-    const onMessage = (message: MainToRenderer): void => {
-      runtime.receive(message);
-      switch (message.type) {
-        case "task-result-available":
-          void openNotificationResult().catch(cause => { if (!cancelled) setError(String(cause)); });
-          return;
-        case "identity-changed":
-          return; // The outer App remounts this view for the new controller.
-        case "state":
-          onRunState(message.state, () => cancelled);
-          if (message.state.kind === "idle") {
-            void reloadHistory().catch((cause: unknown) => setError(String(cause)));
-            void reloadOpenRecords().catch((cause: unknown) => setError(String(cause)));
-          }
-          return;
-        case "output":
-          return;
-        case "home":
-          return;
-        case "module-notification":
-          // Shown by the main process; its text is also in the output log.
-          return;
-        case "approval":
-          refreshOpenTrace();
-          return;
-        case "approval-cleared":
-          return;
-        case "steer":
-          onRunSteer(message.steer);
-          return;
-        case "event":
-          if (message.event.type !== "message.delta" && message.event.type !== "usage.updated") refreshOpenTrace();
-          onRunEvent(message);
-          return;
-        case "result":
-          if (!isCurrentPrimaryResult(message)) return;
-          setCanSteer(false);
-          settleSentAttachments(message.result);
-          finishPrimaryRun(message.result);
-          return;
-        case "memory-references-changed":
-          return;
-        case "shell-progress":
-          onRunShellProgress(message);
-          return;
-        case "memory-updated":
-          void reloadHistory().catch((cause: unknown) => setError(String(cause)));
-          return;
-        case "work-task-updated":
-          return;
-        case "error":
-          setError(message.message);
-          return;
-        default: {
-          const exhaustive: never = message;
-          return exhaustive;
-        }
-      }
-    };
-
-    void (async () => {
-      try {
-        stop = window.runloom.onMessage(onMessage);
-        const nextInfo = await window.runloom.info();
-        if (cancelled) return;
-        runtime.setInfo(nextInfo);
-        try {
-          const saved = await window.runloom.loadConversationDraft(draftScope(nextInfo));
-          if (cancelled) return;
-          drafts.set(draftKey(nextInfo), saved.draft);
-          setInput(saved.draft.text || (!saved.uncertainSteer?.taskId ? saved.uncertainSteer?.text : "") || "");
-          setExcludeFromMemory(saved.draft.excludeFromMemory);
-          setCreatingTask(saved.draft.createTask === true);
-          setUncertainSteer(saved.uncertainSteer);
-          setDraftReady(true);
-          if (saved.draft.createTask) requestAnimationFrame(() => inputRef.current?.focus());
-        } catch {
-          if (cancelled) return;
-          const cached = drafts.get(draftKey(nextInfo));
-          setInput(cached?.text ?? "");
-          setDraftError("保存的草稿无法读取，未覆盖原文件。修复保存位置后重新加载；当前不会发送。");
-        }
-        if (nextInfo.runtimeRecovery) { setError(nextInfo.runtimeRecovery.message); return; }
-        await openNotificationResult();
-        const first = await window.runloom.snapshot();
-        if (cancelled) return;
-        applySnapshot(first);
-        const second = await window.runloom.snapshot();
-        if (cancelled) return;
-        applySnapshot(second);
-        if (second.lastPrimaryResult && !(second.state.kind === "running" && second.state.phase === "primary")) {
-          await loadFinalRun(second.lastPrimaryResult.runId);
-        }
-        await reloadHistory();
-        // History waits for receipt recovery; only now is the restart Steer state authoritative.
-        const recovered = await window.runloom.snapshot();
-        if (cancelled) return;
-        replaceSteers(recovered.steers);
-        setCanSteer(recovered.canSteer);
-        await loadRecords();
-        const homeResult = await window.runloom.home();
-        if (!homeResult.ok && homeResult.reason !== "busy" && !cancelled) setError(commandError(homeResult));
-      } catch (cause: unknown) {
-        if (!cancelled) setError(String(cause));
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-      runtime.invalidateHistory();
-      invalidateRecords();
-      stop();
-    };
-  }, [runtime, applySnapshot, reloadHistory, loadRecords, loadFinalRun, drafts, refreshOpenTrace, invalidateRecords, replaceSteers, onRunState, onRunSteer, onRunEvent, isCurrentPrimaryResult, finishPrimaryRun, onRunShellProgress, settleSentAttachments]);
+    // Messages and the startup reads live in the store; App only does its own interface part.
+    runtime.start({
+      applyDraft: (nextInfo, saved) => {
+        drafts.set(draftKey(nextInfo), saved.draft);
+        setInput(saved.draft.text || (!saved.uncertainSteer?.taskId ? saved.uncertainSteer?.text : "") || "");
+        setExcludeFromMemory(saved.draft.excludeFromMemory);
+        setCreatingTask(saved.draft.createTask === true);
+        setUncertainSteer(saved.uncertainSteer);
+        setDraftReady(true);
+        if (saved.draft.createTask) requestAnimationFrame(() => inputRef.current?.focus());
+      },
+      draftUnreadable: nextInfo => {
+        const cached = drafts.get(draftKey(nextInfo));
+        setInput(cached?.text ?? "");
+        setDraftError("保存的草稿无法读取，未覆盖原文件。修复保存位置后重新加载；当前不会发送。");
+      },
+      openTaskResult: route => {
+        setTaskResultFocus(previous => ({ ...route, sequence: (previous?.sequence ?? 0) + 1 }));
+        setDetailTab("reminders"); setDetailsOpen(true); setMobileDashboard(true);
+      },
+      settleSentAttachments,
+    });
+    return () => runtime.dispose();
+  }, [runtime, drafts, settleSentAttachments]);
 
   useEffect(() => {
     if (detailsOpen && detailTab === "records") void reloadOpenRecords().catch(() => setError("执行追踪读取失败"));

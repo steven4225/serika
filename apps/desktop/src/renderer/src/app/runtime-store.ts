@@ -2,10 +2,11 @@ import { useSyncExternalStore } from "react";
 import type { UIMessage } from "ai";
 import type { HomeSnapshot } from "@serika/assistant/browser";
 import type { AppInfo, AssistantSteerRecord, ExecutionRunRecord, MainToRenderer, PendingApproval, RendererApi, ThreadSummary, UiSnapshot, UiState } from "../../../shared/ui-contract.js";
-import type { UncertainSteer } from "../../../shared/conversation-drafts.js";
+import { draftScope, type ConversationDraftState, type UncertainSteer } from "../../../shared/conversation-drafts.js";
 import type { RecordDetailState, RecordsState } from "../records.js";
 import { mergeSteerRecords } from "../../../shared/steer.js";
 import { humanFacingTitle } from "../../../shared/human-title.js";
+import { commandError } from "./command-error.js";
 import { ShellProgressBuffer } from "../../../shared/shell-progress.js";
 import {
   annotateHistoryTools,
@@ -31,12 +32,27 @@ type RunResult = ResultMessage["result"];
 type ShellProgressMessage = Extract<MainToRenderer, { type: "shell-progress" }>;
 
 /** The bridge calls the store makes itself; read from `window.runloom` at call time, as the inline code did. */
-export type RuntimeBridge = Pick<RendererApi, "snapshot" | "getRun" | "historyPage" | "listRuns" | "info" | "listThreads">;
+export type RuntimeBridge = Pick<RendererApi, "snapshot" | "getRun" | "historyPage" | "listRuns" | "info" | "listThreads" | "onMessage" | "loadConversationDraft" | "takeTaskResultOpen" | "home">;
 
 /** The conversation read back from the Thread, and the completed primary run that read already includes. */
 export interface StoredHistory {
   readonly rows: ConversationRow[];
   readonly runId: string | null;
+}
+
+/**
+ * What startup and messages do to App's own interface state (composer, navigation, attachments).
+ * App passes these to `start()`; each runs at the point where App's code used to run inline.
+ */
+export interface RuntimeHost {
+  /** Startup: the saved draft was read; put it in the composer. */
+  readonly applyDraft: (info: AppInfo, saved: ConversationDraftState) => void;
+  /** Startup: the saved draft could not be read (or applying it threw). */
+  readonly draftUnreadable: (info: AppInfo) => void;
+  /** A task result to open (notification click): focus it under 提醒. */
+  readonly openTaskResult: (route: { taskId: string; workspaceRoot: string }) => void;
+  /** The attachment part of a primary result. */
+  readonly settleSentAttachments: (result: RunResult) => void;
 }
 
 /** What "查看更早的对话" does to the page around the store's update; captured at click time. */
@@ -89,6 +105,14 @@ export interface RuntimeStore {
   subscribe(listener: () => void): () => void;
   /** The store's part of one message; other message types leave it unchanged. */
   receive(message: MainToRenderer): void;
+  /**
+   * Subscribe to main-process messages and run the startup reads (was AssistantPage's
+   * subscription effect): info → draft → runtime recovery notice → task result route →
+   * snapshot twice → final receipt → history → Steer snapshot → records → Home.
+   */
+  start(host: RuntimeHost): void;
+  /** The effect cleanup: stop this startup, make history and records reads stale, unsubscribe. */
+  dispose(): void;
   /** A controller snapshot (startup and reconnect): state, approval, output and the current run. */
   applySnapshot(snapshot: UiSnapshot): void;
   setInfo(info: AppInfo): void;
@@ -228,6 +252,9 @@ export function createRuntimeStore({ bridge, onError }: RuntimeStoreOptions, ini
   let recordDetailRequest = 0;
   let recordRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   let traceVisible = false;
+  /** One `start()` per mount; `dispose()` ends it (were the effect's `cancelled` and `stop`). */
+  let session = 0;
+  let stopMessages = (): void => undefined;
   const listeners = new Set<() => void>();
   const update = (next: RuntimeState): void => {
     if (next === current) return;
@@ -310,7 +337,7 @@ export function createRuntimeStore({ bridge, onError }: RuntimeStoreOptions, ini
     if (selectedRunId !== undefined && selectedRecordId === selectedRunId) await readRecord(selectedRunId);
   };
 
-  return {
+  const store: RuntimeStore = {
     getState: () => current,
     subscribe(listener) {
       listeners.add(listener);
@@ -439,7 +466,124 @@ export function createRuntimeStore({ bridge, onError }: RuntimeStoreOptions, ini
       return () => { active = false; };
     },
     refreshThreads: () => patch({ threadsRefresh: current.threadsRefresh + 1 }),
+
+    start(host) {
+      const mine = ++session;
+      const cancelled = () => mine !== session;
+      stopMessages = () => undefined;
+      const openNotificationResult = async () => {
+        const route = await bridge().takeTaskResultOpen?.();
+        if (!route || cancelled()) return;
+        host.openTaskResult(route);
+      };
+
+      const onMessage = (message: MainToRenderer): void => {
+        store.receive(message);
+        switch (message.type) {
+          case "task-result-available":
+            void openNotificationResult().catch(cause => { if (!cancelled()) onError(String(cause)); });
+            return;
+          case "identity-changed":
+            return; // The outer App remounts this view for the new controller.
+          case "state":
+            store.onRunState(message.state, cancelled);
+            if (message.state.kind === "idle") {
+              void store.reloadHistory().catch((cause: unknown) => onError(String(cause)));
+              void store.reloadOpenRecords().catch((cause: unknown) => onError(String(cause)));
+            }
+            return;
+          case "output":
+            return;
+          case "home":
+            return;
+          case "module-notification":
+            // Shown by the main process; its text is also in the output log.
+            return;
+          case "approval":
+            store.refreshOpenTrace();
+            return;
+          case "approval-cleared":
+            return;
+          case "steer":
+            store.onRunSteer(message.steer);
+            return;
+          case "event":
+            if (message.event.type !== "message.delta" && message.event.type !== "usage.updated") store.refreshOpenTrace();
+            store.onRunEvent(message);
+            return;
+          case "result":
+            if (!store.isCurrentPrimaryResult(message)) return;
+            store.setCanSteer(false);
+            host.settleSentAttachments(message.result);
+            store.finishPrimaryRun(message.result);
+            return;
+          case "memory-references-changed":
+            return;
+          case "shell-progress":
+            store.onRunShellProgress(message);
+            return;
+          case "memory-updated":
+            void store.reloadHistory().catch((cause: unknown) => onError(String(cause)));
+            return;
+          case "work-task-updated":
+            return;
+          case "error":
+            onError(message.message);
+            return;
+          default: {
+            const exhaustive: never = message;
+            return exhaustive;
+          }
+        }
+      };
+
+      void (async () => {
+        try {
+          stopMessages = bridge().onMessage(onMessage);
+          const nextInfo = await bridge().info();
+          if (cancelled()) return;
+          store.setInfo(nextInfo);
+          try {
+            const saved = await bridge().loadConversationDraft(draftScope(nextInfo));
+            if (cancelled()) return;
+            host.applyDraft(nextInfo, saved);
+          } catch {
+            if (cancelled()) return;
+            host.draftUnreadable(nextInfo);
+          }
+          if (nextInfo.runtimeRecovery) { onError(nextInfo.runtimeRecovery.message); return; }
+          await openNotificationResult();
+          const first = await bridge().snapshot();
+          if (cancelled()) return;
+          store.applySnapshot(first);
+          const second = await bridge().snapshot();
+          if (cancelled()) return;
+          store.applySnapshot(second);
+          if (second.lastPrimaryResult && !(second.state.kind === "running" && second.state.phase === "primary")) {
+            await store.loadFinalRun(second.lastPrimaryResult.runId);
+          }
+          await store.reloadHistory();
+          // History waits for receipt recovery; only now is the restart Steer state authoritative.
+          const recovered = await bridge().snapshot();
+          if (cancelled()) return;
+          store.replaceSteers(recovered.steers);
+          store.setCanSteer(recovered.canSteer);
+          await store.loadRecords();
+          const homeResult = await bridge().home();
+          if (!homeResult.ok && homeResult.reason !== "busy" && !cancelled()) onError(commandError(homeResult));
+        } catch (cause: unknown) {
+          if (!cancelled()) onError(String(cause));
+        }
+      })();
+    },
+    dispose() {
+      session += 1;
+      store.invalidateHistory();
+      store.invalidateRecords();
+      stopMessages();
+    },
   };
+  return store;
 }
 
 /** Read one selected value; the component re-renders only when that value changes. */
