@@ -53,7 +53,7 @@ export async function runComputerNativeAcceptance(configPath: string, title: str
     backendPassed: false, sealed: false, failure: null as string | null,
     approvals: [] as Array<{ toolName: string; decision: "allow" | "deny" | "cancel" }>,
     actions: 0, observedMarker: false, unchanged: false, runStatus: null as string | null,
-    runErrorCode: null as string | null, actionReceiptStatus: null as string | null,
+    runErrorCode: null as string | null, actionReceiptStatus: null as string | null, actionReceiptErrorCode: null as string | null,
     orderedObserveActionObserve: false, whitelistRefused: false, staleTokenRefused: false,
     beforeTextHash: null as string | null, afterTextHash: null as string | null,
     electronHumanApproval: "not_run", independentVisualAcceptance: "not_run",
@@ -127,6 +127,7 @@ export async function runComputerNativeAcceptance(configPath: string, title: str
     report.runErrorCode = result?.error?.code ?? null;
     const record = await controller.runs.get(started.runId);
     report.actionReceiptStatus = record?.tools.find(t => t.toolName === "computer_action")?.status ?? null;
+    report.actionReceiptErrorCode = record?.tools.find(t => t.toolName === "computer_action")?.errorCode ?? null;
     const after = observationSchema.parse(await invoke("computer_observe", target));
     const afterText = textOf(after);
     report.observedMarker = afterText.split(marker).length - 1 === 1;
@@ -155,6 +156,7 @@ export async function runComputerNativeAcceptance(configPath: string, title: str
       assert.ok(report.approvals.some(a => a.toolName === "computer_action" && a.decision === (scenario === "deny" ? "deny" : "cancel")));
       assert.equal(report.runStatus, scenario === "deny" ? "completed" : "cancelled");
       assert.equal(report.actionReceiptStatus, scenario === "deny" ? "failed" : "not_started");
+      assert.equal(report.actionReceiptErrorCode, scenario === "deny" ? "TOOL_DENIED" : null);
     }
     report.backendPassed = true;
   } catch { report.failure = "Native fixture check failed; inspect Run receipts. The acceptance program did not rerun the scenario or replay an action."; }

@@ -46,6 +46,8 @@ export interface ExecutionToolRecord {
   resultPreview: string | null;
   resultTruncated: boolean;
   errorPreview: string | null;
+  /** Host error code. Written only for TOOL_DENIED; status stays "failed". Read as any string. */
+  errorCode?: string;
   shell: { exitCode: number | null; timedOut: boolean; cancelled: boolean } | null;
   /** Captured from the full request before dispatch; never reconstructed from a preview. */
   fileInput?: { path: string; sha256?: string };
@@ -202,7 +204,8 @@ function validateTool(value: unknown): ExecutionToolRecord {
       !validPreview(value.inputPreview) || typeof value.inputTruncated !== "boolean" ||
       (value.resultPreview !== null && !validPreview(value.resultPreview)) ||
       typeof value.resultTruncated !== "boolean" ||
-      (value.errorPreview !== null && !validPreview(value.errorPreview))) {
+      (value.errorPreview !== null && !validPreview(value.errorPreview)) ||
+      (value.errorCode !== undefined && typeof value.errorCode !== "string")) {
     fail("FILE_INVALID", "Tool record contains invalid fields");
   }
   if (value.shell !== null && (!isObject(value.shell) ||
@@ -461,6 +464,7 @@ export class ExecutionRecordStore {
         if (read !== undefined) tool.fileRead = read;
       } else {
         tool.errorPreview = preview(event.data.error.message).text;
+        if (event.data.error.code === "TOOL_DENIED") tool.errorCode = event.data.error.code;
       }
     }, runId);
   }

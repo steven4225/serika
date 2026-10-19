@@ -100,6 +100,15 @@ const cases: readonly Case[] = [
     facts: "",
   },
   {
+    name: "edit_file, denied with the host's default message",
+    toolName: "edit_file",
+    input: { path: "src/sum.js", oldText: "a - b", newText: "a + b" },
+    error: { code: "TOOL_DENIED", message: "Tool execution denied: edit_file" },
+    golden: { inputPath: "src/sum.js", fileChange: { before: "a - b", after: "a + b", truncated: false }, status: "denied", outcomeSource: "full", receipt: undefined, detail: "TOOL_DENIED: Tool execution denied: edit_file", errorCode: "TOOL_DENIED" },
+    presentation: { name: "编辑文件", status: "已拒绝", classic: "编辑文件" },
+    facts: "",
+  },
+  {
     name: "edit_file without newText: invalid input, no file-change preview",
     toolName: "edit_file",
     input: { path: "src/sum.js", oldText: "a - b" },
@@ -193,11 +202,12 @@ function eventRow(sample: Case): ToolRow {
   return onlyTool(store.getState().live.rows);
 }
 
-/** The execution receipt for the call: a failed call keeps the message only (execution-record-store). */
+/** The execution receipt for the call: a failed call keeps the message only, plus errorCode for TOOL_DENIED (execution-record-store). */
 function receiptRun(sample: Case): ExecutionRunRecord {
   const path = (sample.input as { path?: unknown }).path;
   const tool = { toolCallId: "call-1", toolName: sample.toolName, status: sample.error ? "failed" : "completed", requestedAt: REQUESTED_AT, startedAt: null, finishedAt: null,
     inputPreview: JSON.stringify(sample.input), inputTruncated: false, resultPreview: null, resultTruncated: false, errorPreview: sample.error?.message ?? null, shell: null,
+    ...(sample.error?.code === "TOOL_DENIED" ? { errorCode: "TOOL_DENIED" } : {}),
     ...(typeof path === "string" && sample.toolName !== "shell_exec" ? { fileInput: { path } } : {}) } as ExecutionToolRecord;
   return { runId: RUN, threadId: THREAD, phase: "primary", status: "completed", startedAt: REQUESTED_AT, finishedAt: REQUESTED_AT,
     resultTextPreview: null, resultTextTruncated: false, errorPreview: null, tools: [tool] } as ExecutionRunRecord;
@@ -262,8 +272,12 @@ describe("tool preview golden samples: run events and history give the same row"
 
       // Parity: every other field is equal.
       assert.deepEqual(comparable(saved), comparable(live));
-      // After the run, the receipts overlay keeps the same detail and error code.
-      assert.deepEqual(pick(afterRunRow(sample), ["detail", "errorCode"]), pick(saved, ["detail", "errorCode"]), "after-run receipts overlay");
+      // After the run, the receipts overlay keeps the same status, detail and error code.
+      assert.deepEqual(pick(afterRunRow(sample), ["status", "detail", "errorCode"]), pick(saved, ["status", "detail", "errorCode"]), "after-run receipts overlay");
+      // A denied call is still denied when only its receipt is left (no history row to keep).
+      if (sample.error?.code === "TOOL_DENIED") {
+        assert.equal(onlyTool(overlayExecutionReceipts([], receiptRun(sample).tools, { reuseHistory: false, runId: RUN })).status, "denied", "receipt only");
+      }
 
       // Tool-name tables, on both paths.
       for (const row of [live, saved]) {

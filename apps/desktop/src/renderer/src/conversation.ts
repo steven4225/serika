@@ -366,7 +366,7 @@ export function overlayExecutionReceipts(
       : shellFacts
         ?? { status: "incomplete" as const, detail: "回执不完整，不能据此判断工具返回结果" };
     const status: ToolRowStatus = tool.status === "unknown" ? "unknown" : tool.status === "not_started" ? "not_started"
-      : tool.status === "failed" ? (tool.errorPreview?.includes("User denied") || tool.errorPreview?.startsWith("TOOL_DENIED") ? "denied" : "failed")
+      : tool.status === "failed" ? (tool.errorCode === "TOOL_DENIED" ? "denied" : "failed")
       : tool.status === "requested" || tool.status === "started" ? "requested"
       : returned.status;
     // A host failure already shown from the full transcript (run event or history) keeps its

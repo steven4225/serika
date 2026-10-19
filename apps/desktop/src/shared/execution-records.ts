@@ -165,6 +165,7 @@ export function toolNote(tool: ExecutionToolRecord): string {
     case "unknown":
       return "调用已进入执行，但效果未知。请核对磁盘或外部应用；不会自动重试。";
     case "failed":
+      if (tool.errorCode === "TOOL_DENIED") return tool.errorPreview ? `已拒绝：${tool.errorPreview}` : "已拒绝。";
       return tool.errorPreview ?? "明确失败（含用户拒绝）。";
     case "completed":
       return completedOutcome(tool);

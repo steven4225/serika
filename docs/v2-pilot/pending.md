@@ -37,9 +37,3 @@
 
 - 仓库声明 `packageManager: pnpm@11.9.0`，这台机器用的是 pnpm 10.34.5；`pnpm install --frozen-lockfile` 和全部测试都正常。
 - 快照把进程时区固定为 UTC，并把临时目录替换为 `<ROOT>`、时间戳替换为 `<NOW>`，这样在 macOS 上也能对上。没有在 macOS 上实际跑过（只有这台 Linux 机器），第一次在你的机器上跑如果有差异，需要先看是不是平台差异。
-
-## E. 回执覆盖后，被拒绝的调用显示成「失败」（未修，单独记录）
-
-- 运行结束后，App 用执行回执覆盖最近一次运行的行（`conversation.ts` `overlayExecutionReceipts`）。回执状态是 failed 时，只有 `errorPreview` 含 `User denied` 或以 `TOOL_DENIED` 开头才判为「已拒绝」；而回执里存的 `errorPreview` 只有消息（`execution-record-store.ts` 记录 `error.message`），宿主默认的拒绝消息是 `Tool execution denied: …`。所以被拒绝的调用，运行中和更早的历史里是「已拒绝」，最近一次运行结束后变成「失败」。
-- 金样例的「运行结束后」检查只比 `detail` 和 `errorCode`，没有比状态，就是因为这一处。
-- 修它会改用户可见的状态文字，要不要修、怎么修待定。

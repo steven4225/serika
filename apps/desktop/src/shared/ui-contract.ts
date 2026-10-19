@@ -180,6 +180,7 @@ export type ExecutionRunStatus =
   | "cancelled"
   | "timed_out";
 
+/** Receipt status. A denied call stays "failed"; the receipt's errorCode "TOOL_DENIED" marks it as denied. */
 export type ExecutionToolStatus =
   | "requested"
   | "not_started"
