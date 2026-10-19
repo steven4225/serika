@@ -10,7 +10,9 @@
    - `assistant-controller.ts`：dreaming Thread ID（第 248 行）。
    - 桌面端：`conversation-draft-store.ts` 的 `scopeKey`、`telegram-store.ts` 的归档文件名、`backup.ts` 的条目 hash。
    - 做法建议：以后真要改动这些文件时，先导出函数（或者走一遍完整的存储读写），再补样例。
+   - 第 3 步之后：`memory-store.ts` 三项和 `dreaming.ts` 批次指纹已补进 `__baseline__/hashes.json`，走公开接口和落盘文件取值，产品代码没改。
 2. `transcript-codec.ts` 的分块/前缀完整性 hash 没有字面值样例，只有读写往返测试。
+   - 第 3 步之后：已补（`encodeTranscriptUpdate` 本来就从 core 导出），见 `hashes.json` 的 `core transcript committed baseHash/payloadHash`。
 3. 装配快照不包括 computer 模块：它只能在 macOS 上装配，这台机器上的快照对不上 macOS。
 4. 装配快照只覆盖默认入口（不是桌面/Telegram 前台自主执行）。自主执行时的指令（`AUTONOMOUS_INSTRUCTIONS`）和能力报告里的 Shell 授权说明不在快照里；D2 会涉及这里，建议 D2 提交时为自主执行情形补一份快照。
 

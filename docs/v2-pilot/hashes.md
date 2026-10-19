@@ -11,17 +11,17 @@
 |---|---|---|---|---|
 | canonical JSON | core `canonical-hash.ts` `hashCanonicalJson` | JCS 规范化 JSON → `jcs-sha256:v1:<hex>` | 经 compaction 前缀 hash 落盘 | hashes.json；另有 `canonical-hash.test.ts` |
 | transcript 文件名 | core `jsonl-store.ts` | `sha256(threadId)` + `.jsonl` | transcript 目录；桌面端 `thread-history.ts`、`backup.ts` 用同一规则 | hashes.json |
-| transcript 记录完整性 | core `transcript-codec.ts` | 每个分块和前缀的 `sha256` | transcript 文件内 | 未单独加样例：内部函数；由现有 core transcript 读写测试间接覆盖 |
+| transcript 记录完整性 | core `transcript-codec.ts` `encodeTranscriptUpdate` | 提交记录的 `baseHash`（保留前缀 JSON）、`payloadHash`（新增部分字节）各为 `sha256` hex | transcript 文件内 | hashes.json（`baseHash`、`payloadHash`；`encodeTranscriptUpdate` 本来就从 core 导出，原先写成「内部函数」不对） |
 | compaction 前缀 | `context-compaction.ts` `compactPrefixHash` | `compact-prefix/jcs-sha256:v1:<hex>` | transcript 的 compaction 记录 | hashes.json |
 | 创建幂等 | `creation-idempotency.ts` `creationReceipt` | 键排序、去掉 undefined 后的 JSON → `sha256` hex | `tasks.json`、`work-tasks.json` 的 `creation.requestHash` | hashes.json |
 | 记忆候选指纹 v1/v2/v3 | `memory-candidates.ts` `candidateFingerprint` | 带版本标签的固定数组 JSON → `sha256` | `memory.json` 候选 | hashes.json（三个版本） |
 | 记忆整理前缀 | `memory-consolidation.ts` `consolidationPrefixHash` | `["runloom-consolidation-prefix/v1", [[id,text]...]]` → `sha256` | `memory.json` 整理游标 | hashes.json |
 | 语义索引文本 | `memory-retrieval.ts` `memorySemanticTextHash` | UTF-8 文本 `sha256` | `memory-semantic-index.json` | hashes.json |
-| 批次回执 / 导入回执 / 导入快照 | `memory-store.ts` 第 977、1263、1580 行 | `JSON.stringify(...)` → `sha256` | `memory.json` | **未加样例**：模块内部函数，不改产品代码就无法单独调用；见 `pending.md` |
+| 批次回执 / 导入回执 / 导入快照 | `memory-store.ts` 第 977、1263、1580 行 | `JSON.stringify(...)` → `sha256` | `memory.json` | hashes.json：走公开接口和落盘文件取值——`commitCandidateBatch` 写出的 `consolidationReceipts[].payloadHash`、`confirmImport` 回执的 `requestHash`、`previewImport` 的 `snapshot`（空记忆） |
 | 命令配方 | `recipe-store.ts` `recipeHash` | `{version:1,id,description,command,cwd}` → `sha256` | `recipes.json`，`recipe_run` 需要当前 hash | hashes.json |
 | RSS 条目键 | `rss-subscriptions.ts` `rssItemKey` | `id:` / `url:` / `fallback:` 前缀 → `sha256` | `rss.json` 已读集合 | hashes.json（三种） |
 | Skill 内容 | `skill-catalog.ts` `createBuiltinSkill`/外部包 | `{version:1,id,description,kind,tools,limits,instructions}` → `sha256` | 保存的 Skill 固定来源 | hashes.json（内置 Skill） |
-| dreaming 批次指纹 | `dreaming.ts` `hash` | `JSON.stringify(value)` → `sha256` | `dreaming.json` | **未加样例**：内部函数；见 `pending.md` |
+| dreaming 批次指纹 | `dreaming.ts` `hash` | `JSON.stringify(value)` → `sha256` | `dreaming.json` | hashes.json：`createDreamingService(...).prepare()` 返回的 `fingerprint`（两条固定的已验收任务） |
 | dreaming Thread | `assistant-controller.ts` 第 248 行 | `dreaming-` + `sha256(workspaceRoot ?? threadId)[:24]` | Thread ID → transcript 文件名 | **未加样例**：需要完整装配 Controller；见 `pending.md` |
 | 写文件回执 | `write-file.ts`、`edit-file.ts`、`execution-record-store.ts` | 内容 UTF-8 `sha256` hex | 工具结果（transcript）与 `execution-records.json` 的 `fileWrite`/`fileRead`/`fileInput` | hashes.json（`write_file`） |
 | WorkTask 证据 | `work-task-verification.ts`、`work-task-artifacts.ts`、`work-task-store.ts` 第 456、735 行 | 磁盘字节 `sha256` | `work-tasks.json` 证据 | 与写文件回执同一格式；verifier 行为由 `baseline-verifier.test.ts` 锁定 |

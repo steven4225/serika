@@ -18,5 +18,11 @@
   "task worker launchd label": "dev.runloom.task-worker.f9be197a95b070f4bcfd.plist",
   "write_file receipt sha256": "4e0826721642ed8e3a27e7147538ac7b7013a08fe5ae343a8ef09749b7e5790f",
   "execution owner lock name": ".execution-owner-8b983fb92d2eb12751695722fdb4e498211e50d79e72d25f44764b6a77f6348d.lock",
-  "work task owner lock name": ".work-task-owner-8b983fb92d2eb12751695722fdb4e498211e50d79e72d25f44764b6a77f6348d.lock"
+  "work task owner lock name": ".work-task-owner-8b983fb92d2eb12751695722fdb4e498211e50d79e72d25f44764b6a77f6348d.lock",
+  "core transcript committed baseHash": "2da91bba78a875fc8ea09a96278e3e06276e4632947c2e9090d97e16723edd4b",
+  "core transcript committed payloadHash": "f97b8a5252d3729e23d441d281b11f91a4025d0d5e88c236062bd176ca56071a",
+  "memory import snapshot (empty memory)": "17363ae80c255e951457f64543f0c09a3486271036be468a8f5ea4a8bc1e51cd",
+  "memory import receipt requestHash": "89414d4888032b4efdc1ba1c276cccbc730877fd42a531daf6c8448bd50bf39f",
+  "memory consolidation receipt payloadHash": "cf3cac828000ff95706f22e6a93fd551b21e3aec18a3ad502da529251cebe6ba",
+  "dreaming batch fingerprint": "c997a347ec649bc1795e6958e6af8d8202dee10ab1d24d37f088cdcbd573633d"
 }

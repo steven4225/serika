@@ -5,7 +5,7 @@ import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import type { UIMessage } from "ai";
-import { hashCanonicalJson, JsonlAgentStore } from "@serika/core";
+import { encodeTranscriptUpdate, hashCanonicalJson, JsonlAgentStore } from "@serika/core";
 import { compactPrefixHash } from "./context-compaction.js";
 import { creationReceipt } from "./creation-idempotency.js";
 import { candidateFingerprint, type CandidateDraft } from "./memory-candidates.js";
@@ -14,6 +14,11 @@ import { memorySemanticTextHash } from "./memory-retrieval.js";
 import { recipeHash } from "./recipe-store.js";
 import { rssItemKey } from "./rss-subscriptions.js";
 import { createBuiltinSkill } from "./skill-catalog.js";
+import { createDreamingService } from "./dreaming.js";
+import type { CandidateBatchInput } from "./memory-candidates.js";
+import { createMemoryStore, WorkspaceMemoryStoreImpl } from "./memory-store.js";
+import type { WorkTask, WorkTaskStore } from "./work-task-store.js";
+import type { ExecutionRecordStore, ExecutionRunRecord } from "./execution-record-store.js";
 import { taskResultLink, taskResultWorkspaceKey } from "./task-result-link.js";
 import { createTaskWorkerService } from "./task-worker-service.js";
 import { createExecutionRecordStore, createWorkTaskStore, createWriteFileTool } from "./testing.js";
@@ -46,6 +51,35 @@ async function withRoot<T>(run: (root: string) => Promise<T>): Promise<T> {
   const root = await mkdtemp(join(tmpdir(), "serika-baseline-hash-"));
   try { return await run(root); } finally { await rm(root, { recursive: true, force: true }); }
 }
+
+/** Two human-accepted, completed tasks with fixed fields: what `dreaming.prepare()` selects into one batch. */
+function dreamingSources(root: string) {
+  const stamp = "2026-10-01T00:00:00.000Z", tasks: WorkTask[] = [], runs = new Map<string, ExecutionRunRecord>();
+  for (const id of ["task-a", "task-b"]) {
+    const runId = `run-${id}`;
+    tasks.push({ id, revision: 5, threadId: `thread-${id}`, goal: "整理项目复盘，先结论再列可执行步骤", constraints: [], status: "completed", runIds: [runId], reconciliations: [], createdAt: stamp, updatedAt: stamp,
+      acceptance: [{ id: "quality", description: "复盘简明且步骤能执行", method: "human", verification: { kind: "human" }, required: true, status: "passed", evidenceRefs: [`human-${id}`], note: "已核对结论与两条步骤，符合要求" }],
+      delivery: { summary: "先写一行结论，再写两条可执行步骤", artifactRefs: [], unresolved: [], evidence: [{ id: `human-${id}`, kind: "human", criterionId: "quality", acceptedAt: stamp }] } } as WorkTask);
+    runs.set(runId, { runId, threadId: `thread-${id}`, workTaskId: id, phase: "primary", status: "completed", startedAt: stamp, finishedAt: stamp,
+      resultTextPreview: "done", resultTextTruncated: false, errorPreview: null, tools: [] } as ExecutionRunRecord);
+  }
+  const workTasks = { list: async () => ({ ok: true, value: structuredClone(tasks) }) } as unknown as WorkTaskStore;
+  const executionRecords: Pick<ExecutionRecordStore, "getRun"> = { getRun: async (_threadId, id) => structuredClone(runs.get(id) ?? null) };
+  return createDreamingService({ workspaceRoot: root, workTasks, executionRecords });
+}
+
+/** One incremental, automatically accepted batch with coverage: the store writes a consolidation receipt for it. */
+const batchThread = "baseline-thread", batchNow = new Date("2026-10-04T00:00:00Z");
+const coverageBatch: CandidateBatchInput = {
+  incremental: true,
+  outcomes: [{ messageId: "u1", status: "extracted" }],
+  sourcePrefix: { throughMessageId: "u1", prefixHash: "a".repeat(64) },
+  batchId: "batch-1", originThreadId: batchThread, expectedCursor: null,
+  nextCursor: { threadId: batchThread, throughMessageId: "u1", prefixHash: "a".repeat(64), lastBatchId: "batch-1", updatedAt: batchNow.toISOString() },
+  candidates: [{ change: { operation: "add", text: "用户喝咖啡不加糖。", kind: "preference", scope: { kind: "workspace" }, expiresAt: null },
+    source: { kind: "conversation", threadId: batchThread, messageId: "u1", quote: "我喝咖啡不加糖。" }, reason: "explicit lasting self statement" }],
+  autoAcceptIndexes: [0],
+} as CandidateBatchInput;
 
 async function samples(): Promise<Record<string, string>> {
   const out: Record<string, string> = {};
@@ -85,6 +119,33 @@ async function samples(): Promise<Record<string, string>> {
   out["work task owner lock name"] = await withRoot(async root => {
     const lease = await createWorkTaskStore(root).claimThread("thread-a");
     try { return (await readdir(join(root, ".runloom"))).filter(name => name.startsWith(".work-task-owner-")).join(","); } finally { await lease.release(); }
+  });
+  // Added in step 3 (docs/v2-pilot/pending.md A.1–A.2): reached through the stores' public API and the
+  // files they write, so the product code is unchanged.
+  const committed = JSON.parse(encodeTranscriptUpdate("thread-a", [messages[0]!], [messages[0]!, messages[1]!]).at(-1)!) as { baseHash: string; payloadHash: string };
+  out["core transcript committed baseHash"] = committed.baseHash;
+  out["core transcript committed payloadHash"] = committed.payloadHash;
+  await withRoot(async root => {
+    const store = new WorkspaceMemoryStoreImpl(root);
+    const entries = [{ text: "Use Chinese for replies", kind: "preference" as const }];
+    const preview = await store.previewImport(entries);
+    assert.ok(preview.ok);
+    out["memory import snapshot (empty memory)"] = preview.value.snapshot;
+    const receipt = await store.confirmImport({ entries, snapshot: preview.value.snapshot, operationId: "import-1" }, "thread-a");
+    assert.ok(receipt.ok);
+    out["memory import receipt requestHash"] = receipt.value.requestHash;
+  });
+  out["memory consolidation receipt payloadHash"] = await withRoot(async root => {
+    const result = await createMemoryStore(root).commitCandidateBatch(coverageBatch, undefined, { boundThreadId: batchThread, now: batchNow });
+    assert.ok(result.ok, result.ok ? "" : result.error.message);
+    const document = JSON.parse(await readFile(join(root, ".runloom/memory.json"), "utf8")) as { consolidationReceipts: Array<{ payloadHash: string }> };
+    assert.equal(document.consolidationReceipts.length, 1);
+    return document.consolidationReceipts[0]!.payloadHash;
+  });
+  out["dreaming batch fingerprint"] = await withRoot(async root => {
+    const prepared = await dreamingSources(root).prepare();
+    assert.ok(prepared.ok && prepared.value, "two accepted tasks make one batch");
+    return prepared.value.fingerprint;
   });
   return out;
 }
