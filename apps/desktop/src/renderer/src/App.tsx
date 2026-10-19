@@ -102,6 +102,9 @@ export function App({ initialLayout }: { initialLayout?: DesktopLayout } = {}) {
 }
 
 function AssistantPage({ drafts, layout, initialSettings = false, initialSettingsError = null, appearance, onAppearance }: { drafts: Map<string, ConversationDraft>; layout: DesktopLayout; initialSettings?: false | "modules" | "context"; initialSettingsError?: string | null; appearance: "dark" | "light"; onAppearance: () => void }) {
+  // `error` must be declared before the store: the store's initializer captures `setError` as
+  // `onError`. Moving a `useState` only moves its hook slot; it does not change when any effect
+  // runs (effects run in the order of their own `useEffect` calls). Keep this pair together.
   const [error, setError] = useState<string | null>(null);
   const [runtime] = useState(() => createRuntimeStore({ bridge: () => window.runloom, onError: setError }));
   const info = useRuntime(runtime, runtimeState => runtimeState.info);
