@@ -1,3 +1,4 @@
+import { createSnapshotSync } from "./snapshot-sync.js";
 import { MemoryImport } from "./memory-import.js";
 import { AttachmentChooser, AttachmentPreview, type ChatAttachment } from "./chat-attachments.js";
 import { SkillsPanel } from "./skills-panel.js";
@@ -430,6 +431,8 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   }, [detailsOpen, inspectorKey]);
 
   const applySnapshot = useCallback((snapshot: UiSnapshot) => {
+    const sameActiveRun = snapshot.state.kind === "running" && snapshot.state.phase === "primary" &&
+      snapshot.state.runId !== null && snapshot.state.runId === latestPrimaryId.current;
     setState(snapshot.state);
     setCanSteer(snapshot.canSteer);
     steerReceipts.current = snapshot.steers;
@@ -446,7 +449,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     setLastResult(!activePrimary && snapshot.lastPrimaryResult ? resultRow(snapshot.lastPrimaryResult) : null);
     if (!activePrimary) {
       setLive(emptyLiveRun);
-    } else {
+    } else if (!sameActiveRun) {
       setLive({
         rows: overlayShellProgress(rowsFromToolActivity(snapshot.toolActivity, latestPrimaryId.current ?? undefined), shellBuffer.current),
         streaming: "",
@@ -540,6 +543,29 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   useEffect(() => {
     let cancelled = false;
     let stop = (): void => undefined;
+    let observedState: UiState | null = null;
+    let readyToRefresh = false;
+    const sync = createSnapshotSync(() => window.runloom.snapshot(), snapshot => {
+      const recoveredIdle = snapshot.state.kind === "idle" && ((observedState !== null && observedState.kind !== "idle") ||
+        snapshot.lastPrimaryResult?.runId !== (latestPrimaryId.current ?? undefined));
+      observedState = snapshot.state;
+      applySnapshot(snapshot);
+      if (recoveredIdle) {
+        setMemoryRefresh(value => value + 1);
+        setContextRefresh(value => value + 1);
+        setTaskRefresh(value => value + 1);
+        void reloadHistory().catch(cause => { if (!cancelled) setError(String(cause)); });
+        void loadRecords(selectedRecordId.current ?? undefined).catch(cause => { if (!cancelled) setError(String(cause)); });
+        if (snapshot.lastPrimaryResult) void loadFinalRun(snapshot.lastPrimaryResult.runId).catch(cause => { if (!cancelled) setError(String(cause)); });
+      }
+    });
+    const refreshSnapshot = () => {
+      if (readyToRefresh && document.visibilityState === "visible") void sync.refresh().catch(cause => { if (!cancelled) setError(`助手状态同步失败：${String(cause)}`); });
+    };
+    window.addEventListener("focus", refreshSnapshot);
+    document.addEventListener("visibilitychange", refreshSnapshot);
+    // Recover a missing terminal event while visible, without polling models or replaying input.
+    const snapshotTimer = setInterval(() => { if (observedState && observedState.kind !== "idle") refreshSnapshot(); }, 1000);
     const openNotificationResult = async () => {
       const route = await window.runloom.takeTaskResultOpen?.();
       if (!route || cancelled) return;
@@ -548,6 +574,8 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     };
 
     const onMessage = (message: MainToRenderer): void => {
+      sync.invalidate();
+      if (message.type === "state") observedState = message.state;
       switch (message.type) {
         case "task-result-available":
           void openNotificationResult().catch(cause => { if (!cancelled) setError(String(cause)); });
@@ -686,22 +714,18 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
         }
         if (nextInfo.runtimeRecovery) { setError(nextInfo.runtimeRecovery.message); return; }
         await openNotificationResult();
-        const first = await window.runloom.snapshot();
+        readyToRefresh = true;
+        await sync.refresh();
         if (cancelled) return;
-        applySnapshot(first);
-        const second = await window.runloom.snapshot();
+        const second = await sync.refresh();
         if (cancelled) return;
-        applySnapshot(second);
-        if (second.lastPrimaryResult && !(second.state.kind === "running" && second.state.phase === "primary")) {
+        if (second?.lastPrimaryResult && !(second.state.kind === "running" && second.state.phase === "primary")) {
           await loadFinalRun(second.lastPrimaryResult.runId);
         }
         await reloadHistory();
         // History waits for receipt recovery; only now is the restart Steer state authoritative.
-        const recovered = await window.runloom.snapshot();
+        await sync.refresh();
         if (cancelled) return;
-        steerReceipts.current = recovered.steers;
-        setSteers(recovered.steers);
-        setCanSteer(recovered.canSteer);
         await loadRecords();
         const homeResult = await window.runloom.home();
         if (!homeResult.ok && homeResult.reason !== "busy" && !cancelled) setError(commandError(homeResult));
@@ -712,6 +736,10 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
 
     return () => {
       cancelled = true;
+      sync.close();
+      clearInterval(snapshotTimer);
+      window.removeEventListener("focus", refreshSnapshot);
+      document.removeEventListener("visibilitychange", refreshSnapshot);
       historyRequest.current += 1;
       recordListRequest.current += 1;
       recordDetailRequest.current += 1;

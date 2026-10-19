@@ -999,17 +999,14 @@ it("a source-barrier failure dispatches zero model calls", async () => {
   } finally { await f.cleanup(); }
 });
 
-it("Steer supersedes old approval without authorizing it; control messages stay excluded", async () => {
+for (const prefix of ["", "调整："]) it(`TG ${prefix ? "explicit" : "ordinary"} followup supersedes old approval without authorizing it`, async () => {
   const f = await fixture(async n => response(n === 1 ? { name: "write_file", input: { path: "steer.md", content: "must not write" } } : undefined));
   try {
     await f.bind(); await f.gateway.receive(update(2, "write first plan"));
     await until(() => f.sent.some(x => x.includes("需要你确认 · 写入文件")));
     const code = approvalCode(f);
-    await f.gateway.receive(update(3, "为什么还在运行，直接结束"));
-    assert.match(f.sent.at(-1)!, /调整：/);
-    assert.match(f.sent.at(-1)!, /停止/);
-    assert.equal(f.calls(), 1, "plain busy messages are not silently promoted into Steer or another model call");
-    await f.gateway.receive(update(4, "调整：不要写文件，只解释下一步"));
+    await f.gateway.receive(update(3, `${prefix}不要写文件，只解释下一步`));
+    assert.ok(f.sent.some(text => /补充已收到|调整已收到/.test(text)));
     await until(() => f.store.snapshot().inputs.find(x => x.key === "42:2")?.state === "finished");
     await f.gateway.receive(update(5, `允许 ${code}`));
     assert.match(f.sent.at(-1)!, /没有批准任何操作/);
@@ -1018,6 +1015,96 @@ it("Steer supersedes old approval without authorizing it; control messages stay 
     const steer = history.find(x => x.role === "user" && JSON.stringify(x.parts).includes("不要写文件"));
     assert.deepEqual(steer?.metadata, { source: "steer", memoryConsolidation: "exclude" });
   } finally { await f.cleanup(); }
+});
+
+it("consecutive ordinary TG followups share one Run, preserve both corrections and dedupe by message ID", async () => {
+  let release!: () => void;
+  const gate = new Promise<void>(done => { release = done; });
+  const f = await fixture(async n => { if (n === 1) await gate; return response(); });
+  try {
+    await f.bind(); await f.gateway.receive(update(2, "分析原因"));
+    await until(() => f.calls() === 1);
+    const runId = f.store.snapshot().inputs.find(x => x.key === "42:2")!.runId!;
+    await f.gateway.receive(update(3, "先别修改文件"));
+    await f.gateway.receive(update(4, "用中文说明"));
+    await f.gateway.receive(update(5, "先别修改文件", 42, "private", 3));
+    assert.equal(f.calls(), 1, "followups cannot create a concurrent model request");
+    release();
+    await until(() => f.host.current.snapshot().state.kind === "idle");
+    const receipt = await f.host.channelReceipt(f.store.snapshot().owner!.threadId, runId);
+    assert.deepEqual(receipt!.steers!.map(x => [x.id, x.text, x.status]), [
+      ["tg:42:3", "先别修改文件", "applied"], ["tg:42:4", "用中文说明", "applied"],
+    ]);
+    for (const key of ["42:3", "42:4"]) {
+      const saved = f.store.snapshot().inputs.find(x => x.key === key)!;
+      assert.equal(saved.runId, runId); assert.equal(saved.state, "finished");
+    }
+    const runs = await f.host.current.listRuns(); assert.ok(runs.ok); assert.equal(runs.runs.length, 1);
+  } finally { release(); await f.cleanup(); }
+});
+
+for (const accepted of [false, true]) it(`a lost TG correction acknowledgement with ${accepted ? "a receipt" : "no receipt"} never replays after reopen`, async t => {
+  let release!: () => void;
+  const gate = new Promise<void>(done => { release = done; });
+  const f = await fixture(async n => { if (n === 1) await gate; return response(); });
+  let reopened: TelegramGateway | undefined;
+  try {
+    await f.bind(); await f.gateway.receive(update(2, "分析")); await until(() => f.calls() === 1);
+    const original = f.host.current.steer.bind(f.host.current);
+    const patched = t.mock.method(f.host.current, "steer", async (input: Parameters<typeof original>[0]) => { if (accepted) await original(input); throw new Error("lost ack"); });
+    await f.gateway.receive(update(3, "只分析不要修改"));
+    assert.equal(f.store.snapshot().inputs.find(x => x.key === "42:3")!.state, "unknown");
+    assert.match(f.sent.at(-1)!, /接收结果未知/);
+    patched.mock.restore(); release();
+    await until(() => f.host.current.snapshot().state.kind === "idle");
+    await f.gateway.close(); const calls = f.calls();
+    const store = new TelegramStore(f.store.path, f.workspace); await store.load();
+    reopened = new TelegramGateway(f.host, store, f.api); await reopened.initialize(); await reopened.start();
+    if (accepted) await until(() => store.snapshot().inputs.find(x => x.key === "42:3")?.state === "finished");
+    else assert.equal(store.snapshot().inputs.find(x => x.key === "42:3")!.state, "unknown");
+    await reopened.receive(update(4, "只分析不要修改", 42, "private", 3));
+    assert.equal(f.calls(), calls);
+    assert.equal(store.snapshot().deliveries.some(x => x.key === "result:42:3"), false);
+    const run = await f.host.channelReceipt(store.snapshot().owner!.threadId, store.snapshot().inputs.find(x => x.key === "42:2")!.runId!);
+    assert.equal(run!.steers?.length ?? 0, accepted ? 1 : 0);
+  } finally { release(); await reopened?.close(); await f.cleanup(); }
+});
+
+for (const reason of ["limit", "invalid", "closed", "failed"] as const) it(`TG followup reports ${reason} without falling through into a new Run`, async t => {
+  const f = await fixture(async n => response(n === 1 ? { name: "write_file", input: { path: "not-approved.md", content: "no" } } : undefined));
+  try {
+    await f.bind(); await f.gateway.receive(update(2, "写文件"));
+    await until(() => f.host.current.snapshot().pendingApproval !== null);
+    const patched = t.mock.method(f.host.current, "steer", async () => ({ ok: false as const, reason }));
+    await f.gateway.receive(update(3, "补充要求"));
+    assert.equal(f.calls(), 1);
+    const saved = f.store.snapshot().inputs.find(x => x.key === "42:3")!;
+    assert.equal(saved.state, reason === "failed" ? "unknown" : "rejected");
+    assert.match(f.sent.at(-1)!, reason === "failed" ? /结果未知/ : reason === "limit" ? /上限/ : reason === "invalid" ? /长度限制/ : /收尾/);
+    patched.mock.restore();
+    await assert.rejects(readFile(join(f.workspace, "not-approved.md")), { code: "ENOENT" });
+  } finally { await f.cleanup(); }
+});
+
+it("TG startup and task control messages never become implicit corrections", async t => {
+  let release!: () => void;
+  const gate = new Promise<void>(done => { release = done; });
+  const f = await fixture(async () => { await gate; return response(); });
+  try {
+    await f.bind(); await f.gateway.receive(update(2, "任务：独立任务"));
+    const code = /开始 ([A-F0-9]{10})/.exec(f.sent.at(-1)!)![1]!;
+    await f.gateway.receive(update(3, "先分析")); await until(() => f.calls() === 1);
+    await f.gateway.receive(update(4, `开始 ${code}`));
+    assert.equal(f.host.current.snapshot().steers.length, 0);
+    assert.match(f.sent.at(-1)!, /本条未排队/);
+    const before = f.host.channelSnapshot(); assert.equal(before.snapshot.state.kind, "running");
+    const patched = t.mock.method(f.host, "channelSnapshot", () => ({ ...before, snapshot: { ...before.snapshot,
+      state: { kind: "running" as const, phase: "primary" as const, runId: null, source: "telegram" as const } } }));
+    await f.gateway.receive(update(5, "启动时补充"));
+    assert.match(f.sent.at(-1)!, /启动或收尾/);
+    assert.equal(f.host.current.snapshot().steers.length, 0);
+    patched.mock.restore();
+  } finally { release(); await f.cleanup(); }
 });
 
 it("desktop handling invalidates the IM short code, and expired binding/approval grant nothing", async () => {

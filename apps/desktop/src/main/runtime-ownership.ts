@@ -63,6 +63,12 @@ export class RuntimeOwnership {
     if (this.#switching || !this.#host || this.#error) throw new Error(this.#error ?? "正在切换助手宿主，请稍候");
     return this.#host.current;
   }
+  async snapshot() {
+    const host = this.#active();
+    if (host instanceof ResidentClient) await host.refresh();
+    if (host !== this.#active()) throw new Error("助手宿主已切换，请重新读取状态");
+    return host.current.snapshot();
+  }
   info(): AppInfo {
     const info = this.#host?.info() ?? this.#lastInfo;
     if (!info) throw new Error("助手尚未启动");

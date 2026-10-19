@@ -122,16 +122,18 @@ export async function startResidentServer(options: {
   let stopping = false, requestsInFlight = 0;
   let runtime: DesktopRuntime | undefined;
   let cached: ResidentState | undefined;
+  let revision = 0;
   const state = (): ResidentState => {
     if (!runtime) throw new Error("助手正在启动");
     if (stopping && cached) return cached;
     const info = runtime.info();
-    try { cached = { info, snapshot: runtime.current.snapshot() }; }
-    catch { if (cached) cached = { ...cached, info }; else throw new Error("助手尚未连接"); }
+    try { cached = { info, snapshot: runtime.current.snapshot(), revision }; }
+    catch { if (cached) cached = { ...cached, info, revision }; else throw new Error("助手尚未连接"); }
     return cached!;
   };
   const send: Send = message => {
     if (!runtime) return; // Initial assembly is recovered through the handshake snapshot.
+    revision++;
     const current = state();
     if (message.type === "state") current.snapshot = { ...current.snapshot, state: message.state };
     const safeMessage = message.type === "error" ? { ...message, message: safeError(new Error(message.message)) } : message;
@@ -309,15 +311,22 @@ export class ResidentClient {
           }
           return;
         }
-        if (frame.type === "event") { this.#state = frame.state; this.#options.send(frame.message); }
+        if (frame.type === "event") {
+          if (this.#acceptState(frame.state)) this.#options.send(frame.message);
+        }
         else if (frame.type === "response") {
-          this.#state = frame.state;
+          this.#acceptState(frame.state);
           const request = this.#pending.get(frame.id); this.#pending.delete(frame.id);
           if (frame.ok) request?.resolve(frame.value); else request?.reject(new Error(frame.error));
         }
       };
       readFrames(socket, acceptFrame);
     });
+  }
+  #acceptState(next: ResidentState): boolean {
+    if (next.revision !== undefined && this.#state.revision !== undefined && next.revision < this.#state.revision) return false;
+    this.#state = next;
+    return true;
   }
   #request(target: "host" | "current" | "state", method: string, args: unknown[]): Promise<unknown> {
     if (!this.#connected || this.#socket.destroyed) return Promise.reject(new Error("助手连接已断开，请先重新连接"));

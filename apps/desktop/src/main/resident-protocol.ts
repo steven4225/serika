@@ -26,7 +26,7 @@ type AsyncMethod<T> = T extends (...args: infer A) => infer R ? (...args: A) => 
 export type RemoteRuntimeBridge = { [K in typeof RESIDENT_BRIDGE_METHODS[number]]: AsyncMethod<RuntimeBridge[K]> } & { snapshot(): UiSnapshot };
 export type RemoteRuntimeMethods = { [K in typeof RESIDENT_HOST_METHODS[number]]: AsyncMethod<DesktopRuntime[K]> };
 export interface ResidentScope { userData: string; configPath: string; workspaceRoot: string }
-export interface ResidentState { info: AppInfo; snapshot: UiSnapshot }
+export interface ResidentState { info: AppInfo; snapshot: UiSnapshot; /** Process-local event order; older hosts may omit it. */ revision?: number }
 export type ResidentClientFrame =
   | { type: "hello"; version: number; token: string; scope: ResidentScope }
   | { type: "request"; id: string; target: "host" | "current" | "state"; method: string; args: unknown[] };

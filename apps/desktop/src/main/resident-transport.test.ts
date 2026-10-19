@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { chmod, lstat, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { createConnection } from "node:net";
+import { createConnection, createServer } from "node:net";
 import { join } from "node:path";
 import { it, mock } from "node:test";
 import { simulateReadableStream } from "ai";
@@ -221,4 +221,42 @@ it("memory folder and document operations cross the real resident socket and sur
     const forged = await client.current.changeMemoryLibrary({ operation: "save-document", id: randomUUID(), title: "forged", folderId: null, text: "no scope authority", entries: [], expectedRevision: view.value.revision, scope: { kind: "workspace" } } as Parameters<typeof client.current.changeMemoryLibrary>[0]);
     assert.equal(forged.ok ? null : forged.error.code, "INVALID_INPUT");
   } finally { client.detach(); await f.cleanup(); }
+});
+
+
+it("late resident responses and events cannot restore a finished TG Run's busy snapshot", async () => {
+  const f = await fixture();
+  const paths = { ...f.paths, socket: join(f.root, "late.sock") };
+  const base = { info: f.server.runtime.info(), snapshot: f.server.runtime.current.snapshot() };
+  const running = { ...base, revision: 1, snapshot: { ...base.snapshot, state: { kind: "running", phase: "primary", source: "telegram", runId: "tg-run" }, canSubmit: false } };
+  const idle = { ...base, revision: 2 };
+  const wire = createServer(socket => {
+    socket.on("error", () => undefined);
+    let pending = "";
+    socket.on("data", data => {
+      pending += data.toString();
+      let end: number;
+      while ((end = pending.indexOf("\n")) >= 0) {
+        const frame = JSON.parse(pending.slice(0, end)); pending = pending.slice(end + 1);
+        const send = (value: unknown) => socket.write(JSON.stringify(value) + "\n");
+        if (frame.type === "hello") send({ type: "ready", state: running });
+        else {
+          // A chunked old RPC can finish after the newer idle event.
+          send({ type: "event", message: { type: "state", state: { kind: "idle" } }, state: idle });
+          send({ type: "response", id: frame.id, ok: true, value: null, state: running });
+          send({ type: "event", message: { type: "state", state: running.snapshot.state }, state: running });
+        }
+      }
+    });
+  });
+  await new Promise<void>(done => wire.listen(paths.socket, done));
+  const visible: string[] = [];
+  const client = await ResidentClient.connect({ paths, scope: f.scope, send: message => { if (message.type === "state") visible.push(message.state.kind); } });
+  try {
+    assert.equal(client.current.snapshot().state.kind, "running");
+    await client.refresh();
+    assert.equal(client.current.snapshot().state.kind, "idle");
+    assert.equal(client.current.snapshot().canSubmit, true);
+    assert.deepEqual(visible, ["idle"]);
+  } finally { client.detach(); await new Promise<void>(done => wire.close(() => done())); await f.cleanup(); }
 });
