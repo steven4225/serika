@@ -44,6 +44,36 @@ async function idle(host: DesktopRuntime) {
 }
 
 describe("normal desktop memory and history entry", () => {
+  it("can disable computer control after its driver disappears and reopen the same Thread", { skip: process.platform !== "darwin" }, async () => {
+    const root = await mkdtemp(join(tmpdir(), "serika-runtime-computer-disable-"));
+    const workspace = join(root, "workspace"), configPath = join(root, "config.json"), executable = join(root, "driver");
+    await mkdir(workspace); await writeFile(executable, "fixture; never executed");
+    await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: {
+      computer: { enabled: true, executable, allowedBundleIds: ["com.apple.TextEdit"] }, "read-file": { enabled: true },
+    } }));
+    let calls = 0;
+    const options = { userData: join(root, "profile"), cwd: root, env: { RUNLOOM_CONFIG: configPath }, modelAlias: "mock",
+      model: new MockLanguageModelV3({ doStream: async () => { calls++; return response(); } }), send: () => {} };
+    let host = await DesktopRuntime.create(options);
+    try {
+      const threadId = host.info().threadId;
+      assert.ok(host.info().capabilities?.tools.includes("computer_check"));
+      await rm(executable);
+      await host.setModuleEnabled({ id: "computer", enabled: false, expectedEnabled: true });
+      assert.equal(host.info().threadId, threadId);
+      assert.equal(host.info().computer.enabled, false);
+      assert.equal(host.info().capabilities?.tools.some(name => name.startsWith("computer_")), false);
+      assert.ok(host.info().capabilities?.tools.includes("read_file"));
+      assert.equal(host.current.snapshot().state.kind, "idle");
+      await host.shutdown();
+      host = await DesktopRuntime.create(options);
+      assert.equal(host.info().threadId, threadId);
+      assert.equal(host.info().computer.enabled, false);
+      assert.equal(host.current.snapshot().state.kind, "idle");
+      assert.equal(calls, 0);
+    } finally { await host.shutdown(); await rm(root, { recursive: true, force: true }); }
+  });
+
   it("blocks new execution after a post-rename config acknowledgement fault until an explicit reread", async t => {
     const root = await mkdtemp(join(tmpdir(), "serika-config-uncertain-"));
     const workspace = join(root, "workspace"), configPath = join(root, "config.json"); await mkdir(workspace);

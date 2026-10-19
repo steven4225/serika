@@ -5,7 +5,7 @@ import { humanFacingTitle } from "../../shared/human-title.js";
 import { presentReminderConfirmation } from "./reminder-copy.js";
 
 const TOOL_LABELS: Record<string, string> = {
-  computer_observe: "观察应用", computer_action: "操作应用", read_file: "读取文件", write_file: "写入文件",
+  computer_check: "检查电脑控制连接", computer_observe: "观察应用", computer_action: "操作应用", read_file: "读取文件", write_file: "写入文件",
   edit_file: "编辑文件", shell_exec: "运行命令", web_fetch: "读取网页", web_search: "搜索网页", feed_read: "读取订阅",
   memory_add: "保存记忆", memory_update: "更新记忆", task_create: "创建提醒", task_reschedule: "调整提醒",
   task_cancel: "取消提醒", task_repeat_create: "重复提醒", task_repeat_cancel: "取消重复提醒",
@@ -19,7 +19,7 @@ export function ApprovalCard({ approval, deciding, onDecision }: {
 }) {
   const computer = describeComputerApproval(approval);
   const reminder = computer ? null : presentReminderConfirmation(approval);
-  const invalidComputer = approval.toolName.startsWith("computer_") && computer === undefined;
+  const invalidComputer = approval.toolName.startsWith("computer_") && approval.toolName !== "computer_check" && computer === undefined;
   // Strip only the terminal control suffix, not user text containing [y/n].
   const preview = approval.preview.replace(/(?:Allow this call\?|允许这次[^\n]*？)\s*\[y\/n\]\s*$/i, "").trim();
   const heading = reminder?.title ?? humanFacingTitle(TOOL_LABELS[approval.toolName], "确认这次操作");

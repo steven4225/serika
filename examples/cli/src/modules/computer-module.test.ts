@@ -36,6 +36,25 @@ function harness(overrides: { action?: unknown; state?: unknown; changed?: () =>
 }
 
 describe("allowed local application computer tools", () => {
+  it("returns clipped AX text as read-only evidence without granting action tokens", async () => {
+    const h = harness({ state: { ...state, elements: [state.elements[0], { ...state.elements[1], value: "长".repeat(5000) }] } });
+    const observed = await h.observe();
+    assert.equal(observed.ok, true);
+    assert.equal(observed.truncated, true);
+    assert.equal(observed.observationId, undefined);
+    const elements = observed.elements as { value?: string; valueTruncated?: boolean; element_token?: string }[];
+    assert.equal(elements[1]!.value!.length, 4000);
+    assert.equal(elements[1]!.valueTruncated, true);
+    assert.equal(elements.some(e => e.element_token), false);
+    assert.equal((await h.action("invented")).ok, false);
+    assert.equal(h.calls.some(c => c.name === "click"), false);
+  });
+  it("distinguishes malformed observation responses without leaking their contents", async () => {
+    const h = harness({ state: { ...state, elements: "SECRET malformed response" } });
+    const observed = await h.observe();
+    assert.equal((observed.error as { code: string }).code, "DRIVER_RESPONSE_INVALID");
+    assert.doesNotMatch(JSON.stringify(observed), /SECRET/);
+  });
   it("explicit health check probes only connection and filters unrelated app metadata; never reads UI or claims OS permission", async () => {
     const h = harness();
     const result = await h.invoke("computer_check", {});
@@ -189,6 +208,24 @@ describe("allowed local application computer tools", () => {
 });
 
 describe("bounded Cua CLI transport", () => {
+  it("distinguishes missing executables, execution denial, malformed JSON, excessive output and driver failure", async () => {
+    const root = await mkdtemp(join(tmpdir(), "runloom-computer-driver-errors-"));
+    for (const [mode, program, expected] of [
+      ["missing", null, "DRIVER_EXECUTABLE_UNAVAILABLE"],
+      ["denied", "console.log('{}')", "DRIVER_EXECUTABLE_DENIED"],
+      ["invalid", "console.log('SECRET invalid response')", "DRIVER_RESPONSE_INVALID"],
+      ["huge", "console.log('x'.repeat(300000))", "DRIVER_RESPONSE_TOO_LARGE"],
+      ["failed", "process.stderr.write('SECRET');process.exit(1)", "DRIVER_REQUEST_FAILED"],
+    ] as const) {
+      const executable = join(root, mode);
+      if (program !== null) { await writeFile(executable, `#!${process.execPath}\n${program}`); await chmod(executable, mode === "denied" ? 0o600 : 0o700); }
+      await assert.rejects(createDriverCall(executable, process.env)("list_apps", {}, new AbortController().signal), (e: unknown) => {
+        assert.equal((e as { code: string }).code, expected);
+        assert.doesNotMatch((e as Error).message, /SECRET/);
+        return true;
+      });
+    }
+  });
   it("uses stdin JSON, not shell/argv text, and strips secrets and bypass flags", async () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-computer-driver-"));
     const executable = join(root, "driver");

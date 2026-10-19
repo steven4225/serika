@@ -1,3 +1,5 @@
+import { ComputerConnection } from "./computer-connection.js";
+import type { ComputerConnectionInput } from "../shared/ui-contract.js";
 import { HerdrTargets } from "./herdr-target.js";
 import type { HerdrTargetInput } from "../shared/ui-contract.js";
 import type { LanguageModel } from "ai";
@@ -29,6 +31,7 @@ export class DesktopRuntime {
   #options: Options;
   #identity!: DesktopIdentityResolution;
   #bridge!: RuntimeBridge;
+  #computer?: ComputerConnection;
   #changing = false;
   #transition: Promise<void> | undefined;
   #available = true;
@@ -234,7 +237,7 @@ export class DesktopRuntime {
     } finally { this.#changing = false; }
   }
 
-  async #replace(select: () => Promise<DesktopIdentityResolution>, reuseUnchanged = false, settings?: { rollback: () => Promise<void>; reason?: "modules" | "context" | "terminal" }, activate?: () => Promise<void>): Promise<void> {
+  async #replace(select: () => Promise<DesktopIdentityResolution>, reuseUnchanged = false, settings?: { rollback: () => Promise<void>; reason?: "modules" | "context" | "terminal" | "computer" }, activate?: () => Promise<void>): Promise<void> {
     this.#assertIdle();
     this.#changing = true;
     this.#options.send({ type: "state", state: { kind: "command", name: "thread-switch" } });
@@ -326,6 +329,28 @@ export class DesktopRuntime {
     }, false, { rollback: async () => { await undo?.(); } });
     // Unrelated adapter disposal and failed/rolled-back changes never cancel.
     if (input.id === "pomodoro" && !input.enabled) this.#pomodoroService.cancel();
+  }
+  #computerConnection() {
+    return this.#computer ??= new ComputerConnection({ ...this.#options, configPath: this.#identity.configPath, workspaceRoot: this.#identity.workspaceRoot });
+  }
+  async #computerOperation<T>(operation: () => Promise<T>): Promise<T> {
+    this.#assertIdle(); this.#changing = true;
+    this.#send({ type: "state", state: { kind: "command", name: "computer-connection" } });
+    const transition = operation();
+    this.#transition = transition.then(() => {}, () => {});
+    try { return await transition; }
+    finally { this.#changing = false; this.#transition = undefined; this.#send({ type: "state", state: { kind: "idle" } }); }
+  }
+  getComputerConnection() { this.current; return this.#computerConnection().view(); }
+  selectComputerDriver(path: string) { return this.#computerOperation(() => this.#computerConnection().select(path)); }
+  discoverComputerApps(token: string) { return this.#computerOperation(() => this.#computerConnection().discover(token)); }
+  checkComputerConnection() { return this.#computerOperation(() => this.#computerConnection().check()); }
+  async saveComputerConnection(input: ComputerConnectionInput) {
+    let undo: (() => Promise<void>) | undefined;
+    return this.#replace(async () => {
+      undo = await this.#computerConnection().save(input);
+      return this.#identity;
+    }, false, { rollback: async () => { await undo?.(); }, reason: "computer" });
   }
   listHerdrSessions() { this.current; return new HerdrTargets(this.#options.env, this.#options.cwd, this.#identity.workspaceRoot).sessions(); }
   listHerdrPanes(session: string) { this.current; return new HerdrTargets(this.#options.env, this.#options.cwd, this.#identity.workspaceRoot).panes(session); }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { spawn } from "node:child_process";
-import { mkdtemp, mkdir, realpath, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, realpath, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -36,6 +36,19 @@ async function writeConfig(
 }
 
 describe("resolveTuiModuleConfig", () => {
+  it("identifies a missing trusted computer driver for explicit desktop startup recovery", { skip: process.platform !== "darwin" }, async () => {
+    const { configDirectory, workspace } = await createConfigWorkspace();
+    const path = await writeConfig(configDirectory, { version: 1, workspace, modules: { computer: {
+      enabled: true, executable: join(configDirectory, "missing-driver"), allowedBundleIds: ["com.apple.TextEdit"],
+    } } });
+    await assert.rejects(resolveTuiModuleConfig(configArgs(path), { cwd: configDirectory }), (error: unknown) => {
+      assert.equal((error as Error).name, "ComputerDriverUnavailableError");
+      assert.equal((error as { configPath: string }).configPath, path);
+      return true;
+    });
+    const inside = await writeConfig(workspace, JSON.parse(await readFile(path, "utf8")));
+    await assert.rejects(resolveTuiModuleConfig(configArgs(inside), { cwd: configDirectory }), /outside the workspace/);
+  });
   it("loads only explicit trusted TG policy without upgrading legacy or foreign workspace grants", async () => {
     const { configDirectory, workspace } = await createConfigWorkspace();
     const binding = { workspaceRoot: await realpath(workspace), botId: 100, userId: 42, chatId: 42, threadId: "bound-thread" };

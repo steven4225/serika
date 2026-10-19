@@ -31,6 +31,14 @@ import {
   type ContextBudgetConfig,
 } from "./context-budget.js";
 
+/** The external config has passed its trust checks; no driver or runtime was started. */
+export class ComputerDriverUnavailableError extends Error {
+  constructor(readonly configPath: string, readonly code: string) {
+    super("电脑控制驱动不可用。请恢复配置的驱动，或明确关闭电脑控制后重新启动。");
+    this.name = "ComputerDriverUnavailableError";
+  }
+}
+
 export const BUILTIN_MODULE_IDS = [
   "pomodoro",
   "read-file",
@@ -558,14 +566,6 @@ async function resolveConfiguredMode(
       ? null
       : await resolveWorkspace(config.workspace, dirname(absoluteConfigPath)));
   const shellSandbox = sandboxResolution?.shellSandbox ?? null;
-  let computer: ComputerConfig | undefined;
-  if (enabled.computer) {
-    const executable = await realpath(config.modules.computer!.executable!);
-    if (workspaceRoot !== null && isPathWithin(workspaceRoot, executable)) {
-      throw new Error("Computer driver executable must be outside the workspace");
-    }
-    computer = { ...config.modules.computer!, executable };
-  }
   const fileAuthorizations = normalizeFileAuthorizations(
     config.fileAuthorizations,
     workspaceRoot,
@@ -578,6 +578,21 @@ async function resolveConfiguredMode(
         "TUI config with sandbox, fileAuthorizations, computer, automatic memory, automation or foreground autonomy must be outside the workspace",
       );
     }
+  }
+  let computer: ComputerConfig | undefined;
+  if (enabled.computer) {
+    let executable: string;
+    try { executable = await realpath(config.modules.computer!.executable!); }
+    catch (error) {
+      if (["ENOENT", "ENOTDIR", "EACCES", "EPERM"].includes((error as NodeJS.ErrnoException).code ?? "")) {
+        throw new ComputerDriverUnavailableError(absoluteConfigPath, (error as NodeJS.ErrnoException).code!);
+      }
+      throw error;
+    }
+    if (workspaceRoot !== null && isPathWithin(workspaceRoot, executable)) {
+      throw new Error("Computer driver executable must be outside the workspace");
+    }
+    computer = { ...config.modules.computer!, executable };
   }
   const todoistTimeZone = enabled.todoist
     ? normalizeTodoistTimeZone(

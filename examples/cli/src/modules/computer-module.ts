@@ -20,6 +20,17 @@ export type DriverCall = (name: string, args: Record<string, unknown>, signal: A
 const TIMEOUT_MS = 10_000;
 const MAX_OUTPUT_BYTES = 256 * 1024;
 
+type DriverErrorCode = "DRIVER_EXECUTABLE_UNAVAILABLE" | "DRIVER_EXECUTABLE_DENIED" | "DRIVER_TIMEOUT" | "DRIVER_TRANSPORT_FAILED" | "DRIVER_RESPONSE_TOO_LARGE" | "DRIVER_RESPONSE_INVALID" | "DRIVER_REQUEST_FAILED";
+class DriverError extends Error {
+  constructor(readonly code: DriverErrorCode, message: string) { super(message); }
+}
+
+function driverFailure(error: unknown, fallback: string, fallbackCode = "COMPUTER_PRECHECK_FAILED") {
+  if (error instanceof DriverError) return { code: error.code, message: error.message };
+  if (error instanceof z.ZodError) return { code: "DRIVER_RESPONSE_INVALID", message: "Driver response has an invalid structure; application state and permissions are unverified" };
+  return { code: fallbackCode, message: fallback };
+}
+
 /** CLI `call` prints structuredContent directly, not the MCP envelope. Never starts a daemon. */
 export function createDriverCall(executable: string, env: NodeJS.ProcessEnv): DriverCall {
   // Allowlist process essentials, not provider keys or driver permission-bypass flags.
@@ -41,27 +52,30 @@ export function createDriverCall(executable: string, env: NodeJS.ProcessEnv): Dr
       killTimer = setTimeout(() => child.kill("SIGKILL"), 250);
     };
     const abort = () => stop(new Error("Computer call cancelled; action outcome may be unknown"));
-    const timer = setTimeout(() => stop(new Error("Computer call timed out; action outcome may be unknown")), TIMEOUT_MS);
+    const timer = setTimeout(() => stop(new DriverError("DRIVER_TIMEOUT", "Computer call timed out; action outcome may be unknown")), TIMEOUT_MS);
     signal.addEventListener("abort", abort, { once: true });
     if (signal.aborted) abort();
     const cleanup = () => { clearTimeout(timer); if (killTimer) clearTimeout(killTimer); signal.removeEventListener("abort", abort); };
     child.stdout.on("data", (chunk: Buffer) => {
       bytes += chunk.length;
-      if (bytes > MAX_OUTPUT_BYTES) stop(new Error("Computer response exceeds byte limit"));
+      if (bytes > MAX_OUTPUT_BYTES) stop(new DriverError("DRIVER_RESPONSE_TOO_LARGE", "Computer response exceeds byte limit"));
       else chunks.push(chunk);
     });
     // Bound stderr too; never forward driver text, which can contain unrelated app data.
     child.stderr.on("data", (chunk: Buffer) => {
       bytes += chunk.length;
-      if (bytes > MAX_OUTPUT_BYTES) stop(new Error("Computer response exceeds byte limit"));
+      if (bytes > MAX_OUTPUT_BYTES) stop(new DriverError("DRIVER_RESPONSE_TOO_LARGE", "Computer response exceeds byte limit"));
     });
-    child.on("error", () => { cleanup(); reject(new Error("Unable to launch configured Cua Driver")); });
-    child.stdin.on("error", () => stop(new Error("Computer request transport failed")));
+    child.on("error", (error: NodeJS.ErrnoException) => {
+      cleanup();
+      reject(new DriverError(error.code === "EACCES" || error.code === "EPERM" ? "DRIVER_EXECUTABLE_DENIED" : error.code === "ENOENT" || error.code === "ENOTDIR" ? "DRIVER_EXECUTABLE_UNAVAILABLE" : "DRIVER_TRANSPORT_FAILED", "Unable to launch configured Cua Driver; check executable and connection"));
+    });
+    child.stdin.on("error", () => stop(new DriverError("DRIVER_TRANSPORT_FAILED", "Computer request transport failed")));
     child.on("close", (code) => {
       cleanup();
-      if (failure || code !== 0) { reject(failure ?? new Error("Cua Driver refused or failed; check daemon and permissions")); return; }
+      if (failure || code !== 0) { reject(failure ?? new DriverError("DRIVER_REQUEST_FAILED", "Cua Driver refused or failed; connection and OS permission cause is unverified")); return; }
       try { resolve(JSON.parse(Buffer.concat(chunks).toString("utf8")) as unknown); }
-      catch { reject(new Error("Invalid Cua Driver JSON response")); }
+      catch { reject(new DriverError("DRIVER_RESPONSE_INVALID", "Invalid Cua Driver JSON response")); }
     });
     child.stdin.end(JSON.stringify(args));
   });
@@ -77,13 +91,31 @@ const actionSchema = targetSchema.extend({
   action: z.enum(["click", "type_text"]), text: z.string().min(1).max(4096).optional(),
 }).strict().refine((v) => v.action === "type_text" ? v.text !== undefined : v.text === undefined, "text is required only for type_text");
 const appsSchema = z.object({ apps: z.array(z.object({ pid: z.number().int(), bundle_id: z.string(), running: z.boolean() })) });
+/** Explicit process-list discovery only; never reads windows or starts a daemon. */
+export async function discoverComputerApps(executable: string, env: NodeJS.ProcessEnv, signal = new AbortController().signal, call?: DriverCall) {
+  try {
+    if (!call) await access(executable, constants.X_OK);
+    const apps = appsSchema.parse(await (call ?? createDriverCall(executable, env))("list_apps", {}, signal)).apps;
+    return { ok: true as const, apps: [...new Set(apps.filter(app => app.running && /^[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/.test(app.bundle_id) && app.bundle_id.length <= 200).map(app => app.bundle_id))].sort() };
+  } catch (error) {
+    if (signal.aborted) throw signal.reason;
+    const code = (error as NodeJS.ErrnoException).code;
+    return { ok: false as const, error: code === "ENOENT" || code === "ENOTDIR" || code === "EACCES" || code === "EPERM"
+      ? { code: code === "EACCES" || code === "EPERM" ? "DRIVER_EXECUTABLE_DENIED" : "DRIVER_EXECUTABLE_UNAVAILABLE", message: "Configured driver is missing or cannot be executed" }
+      : driverFailure(error, "Driver connectivity or permission cause is unverified", "COMPUTER_HEALTH_UNVERIFIED") };
+  }
+}
+
 const windowsSchema = z.object({ windows: z.array(z.object({ pid: id, window_id: id, title: z.string().max(2000) })) });
 const elementSchema = z.object({
   element_index: z.number().int().nonnegative(), element_token: z.string().max(200).optional(),
   parent_index: z.number().int().nonnegative().nullable().optional(),
-  role: z.string().max(200), label: z.string().max(2000).nullable().optional(),
-  value: z.string().max(4000).nullable().optional(), actions: z.array(z.string().max(100)).max(32).optional(),
-});
+  role: z.string().max(200), label: z.string().nullable().optional(),
+  value: z.string().nullable().optional(), actions: z.array(z.string().max(100)).max(32).optional(),
+}).transform(element => ({ ...element,
+  ...(element.label && [...element.label].length > 2000 ? { label: [...element.label].slice(0, 2000).join(""), labelTruncated: true as const } : {}),
+  ...(element.value && [...element.value].length > 4000 ? { value: [...element.value].slice(0, 4000).join(""), valueTruncated: true as const } : {}),
+}));
 const stateSchema = z.object({
   pid: id, window_id: id,
   elements: z.array(elementSchema).max(2000), truncated: z.boolean().optional(),
@@ -118,7 +150,7 @@ export function createComputerModule(config: ComputerConfig, options: { call?: D
   const session = `runloom-${randomUUID()}`;
   let disposed = false;
   let observation: { id: string; bundleId: string; pid: number; windowId: number; at: number; tokens: Set<string> } | undefined;
-  const failure = (message: string) => ({ ok: false as const, error: { code: "COMPUTER_PRECHECK_FAILED", message } });
+  const failure = (message: string, code = "COMPUTER_PRECHECK_FAILED") => ({ ok: false as const, error: { code, message } });
   const checkTarget = async (target: z.infer<typeof targetSchema>, signal: AbortSignal) => {
     const apps = appsSchema.parse(await call("list_apps", {}, signal)).apps;
     if (!apps.some((app) => app.running && app.pid === target.pid && app.bundle_id === target.bundleId)) throw new Error("Application process no longer matches the allowed bundle");
@@ -134,22 +166,12 @@ export function createComputerModule(config: ComputerConfig, options: { call?: D
           const signal = abortSignal ?? new AbortController().signal;
           if (disposed) return failure("Computer module is closed");
           signal.throwIfAborted();
-          if (!options.call) {
-            try { await access(parsed.executable!, constants.X_OK); }
-            catch (error) { return { ok: false, service: "not_checked", permissions: "not_checked",
-              error: { code: (error as NodeJS.ErrnoException).code === "EACCES" ? "DRIVER_EXECUTABLE_DENIED" : "DRIVER_EXECUTABLE_UNAVAILABLE",
-                message: "Configured driver is missing or cannot be executed; no daemon was started" } }; }
-          }
-          try {
-            const apps = appsSchema.parse(await call("list_apps", {}, signal)).apps;
-            return { ok: true, service: "reachable", permissions: "not_checked",
-              runningAllowedApps: [...new Set(apps.filter(app => app.running && parsed.allowedBundleIds!.includes(app.bundle_id)).map(app => app.bundle_id))],
-              note: "仅证实驱动返回了进程列表，不证明辅助功能权限或业务操作成功；如需观察某个允许的应用，另行批准 computer_observe。" };
-          } catch {
-            if (signal.aborted) throw signal.reason;
-            return { ok: false, service: "check_failed", permissions: "not_checked",
-              error: { code: "COMPUTER_HEALTH_UNVERIFIED", message: "Driver request failed; service connectivity or permission cause is not established. No retry or daemon start." } };
-          }
+          const result = await discoverComputerApps(parsed.executable!, options.env ?? process.env, signal, options.call);
+          if (!result.ok) return { ok: false, service: "check_failed", permissions: "not_checked", error: result.error };
+          return { ok: true, service: "reachable", permissions: "not_checked",
+            runningAllowedApps: result.apps.filter(bundleId => parsed.allowedBundleIds!.includes(bundleId)),
+            note: "仅证实驱动返回了进程列表，不证明辅助功能权限或业务操作成功；如需观察某个允许的应用，另行批准 computer_observe。" };
+
         },
       }),
     });
@@ -167,7 +189,7 @@ export function createComputerModule(config: ComputerConfig, options: { call?: D
               const result = windowsSchema.parse(await call("list_windows", {}, signal));
               const windows = result.windows.filter((w) => apps.some((a) => a.pid === w.pid)).map((w) => ({ pid: w.pid, windowId: w.window_id, title: w.title }));
               const resultForModel = { ok: true, bundleId: input.bundleId, windows: windows.slice(0, 20), truncated: windows.length > 20, reference: untrusted };
-              if (Buffer.byteLength(JSON.stringify(resultForModel)) > 24 * 1024) return failure("Window listing exceeds context byte limit");
+              if (Buffer.byteLength(JSON.stringify(resultForModel)) > 24 * 1024) return failure("Window listing exceeds context byte limit", "COMPUTER_OBSERVATION_TOO_LARGE");
               return resultForModel;
             }
             const target = { bundleId: input.bundleId, pid: input.pid, windowId: input.windowId };
@@ -176,12 +198,22 @@ export function createComputerModule(config: ComputerConfig, options: { call?: D
             if (state.pid !== target.pid || state.window_id !== target.windowId || state.truncated || state.degraded_reason) return failure("Mismatched/incomplete/degraded accessibility observation; no action tokens granted");
             const observationId = randomUUID();
             const elements = windowElements(state.elements);
-            if (elements.length > 200) return failure("Window exceeds element limit; no action tokens granted");
+            if (elements.length > 200) return failure("Window exceeds element limit; no action tokens granted", "COMPUTER_OBSERVATION_TOO_LARGE");
+            if (elements.some(element => element.valueTruncated || element.labelTruncated)) {
+              const result = { ok: true, ...target, truncated: true,
+                elements: elements.map(({ element_token: _token, ...element }) => element),
+                reference: untrusted + " Text was clipped; read-only preview, no observation ID or action tokens granted." };
+              if (Buffer.byteLength(JSON.stringify(result)) > 24 * 1024) return failure("Accessibility observation exceeds context byte limit", "COMPUTER_OBSERVATION_TOO_LARGE");
+              return result;
+            }
             const resultForModel = { ok: true, ...target, observationId, elements, reference: untrusted };
-            if (Buffer.byteLength(JSON.stringify(resultForModel)) > 24 * 1024) return failure("Accessibility observation exceeds context byte limit");
+            if (Buffer.byteLength(JSON.stringify(resultForModel)) > 24 * 1024) return failure("Accessibility observation exceeds context byte limit", "COMPUTER_OBSERVATION_TOO_LARGE");
             observation = { ...target, id: observationId, at: now(), tokens: new Set(elements.flatMap((e) => e.element_token ? [e.element_token] : [])) };
             return resultForModel;
-          } catch { return failure("Unable to observe allowed application; check driver, permissions and window state"); }
+          } catch (error) {
+            if (signal.aborted) throw signal.reason;
+            return { ok: false, error: driverFailure(error, "Unable to observe allowed application; check driver, permissions and window state") };
+          }
         },
       }),
     });
@@ -195,7 +227,7 @@ export function createComputerModule(config: ComputerConfig, options: { call?: D
           if (disposed || !parsed.allowedBundleIds!.includes(input.bundleId) || !current || current.id !== input.observationId || current.pid !== input.pid || current.windowId !== input.windowId || current.bundleId !== input.bundleId || now() - current.at > 60_000 || !current.tokens.has(input.elementToken)) return failure("Missing, stale or mismatched observation; observe again");
           const signal = abortSignal ?? new AbortController().signal;
           try { await checkTarget(input, signal); }
-          catch { return failure("Target changed or cannot be verified; no action dispatched"); }
+          catch (error) { return { ok: false, error: driverFailure(error, "Target changed or cannot be verified; no action dispatched") }; }
           if (disposed || signal.aborted || now() - current.at > 60_000) return failure("Disposed, expired or cancelled before action dispatch");
           // Exceptions after this boundary intentionally escape: non-idempotent tools
           // become TOOL_OUTCOME_UNKNOWN in AgentLoop, never ordinary ok:false/retry.

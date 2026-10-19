@@ -288,7 +288,7 @@ function HomeBody({ view }: { view: HomeView }) {
 export function App({ initialLayout }: { initialLayout?: DesktopLayout } = {}) {
   const layout = initialLayout ?? desktopLayout(window.location.search);
   const [identityGeneration, setIdentityGeneration] = useState(0);
-  const [initialSettings, setInitialSettings] = useState<false | "modules" | "context" | "terminal">(false);
+  const [initialSettings, setInitialSettings] = useState<false | "modules" | "context" | "terminal" | "computer">(false);
   const [initialSettingsError, setInitialSettingsError] = useState<string | null>(null);
   const drafts = useRef(new Map<string, ConversationDraft>());
   const [appearance, setAppearance] = useState<"dark" | "light">(() => localStorage.getItem("serika:personal-appearance") === "dark" ? "dark" : "light");
@@ -305,7 +305,7 @@ export function App({ initialLayout }: { initialLayout?: DesktopLayout } = {}) {
   return <div className={`serika-personal-shell personal-theme-${appearance}`}><DesktopWindowFrame title="Serika" isDesktop={true} isMacDesktop={document.documentElement.dataset.nativeWindowControls === "macos"}>{page}</DesktopWindowFrame></div>;
 }
 
-function AssistantPage({ drafts, layout, initialSettings = false, initialSettingsError = null, appearance, onAppearance }: { drafts: Map<string, ConversationDraft>; layout: DesktopLayout; initialSettings?: false | "modules" | "context" | "terminal"; initialSettingsError?: string | null; appearance: "dark" | "light"; onAppearance: () => void }) {
+function AssistantPage({ drafts, layout, initialSettings = false, initialSettingsError = null, appearance, onAppearance }: { drafts: Map<string, ConversationDraft>; layout: DesktopLayout; initialSettings?: false | "modules" | "context" | "terminal" | "computer"; initialSettingsError?: string | null; appearance: "dark" | "light"; onAppearance: () => void }) {
   const [info, setInfo] = useState<AppInfo | null>(null);
   const [mobileDashboard, setMobileDashboard] = useState(!!initialSettings);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
@@ -1286,7 +1286,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
                   {settingsRoute === "home" ? <SettingsHome info={info} busy={busy} onOpen={openSettings} /> : null}
                   {settingsRoute === "connectors" && info ? <CapabilitiesPanel info={{ ...info, modules: (info.modules ?? []).filter(module => isConnectorModule(module.id)) }} busy={busy} intro="连接外部服务，操作仍按原权限确认。" /> : null}
                   {settingsRoute === "files" && info ? <CapabilitiesPanel info={{ ...info, modules: (info.modules ?? []).filter(module => ["read-file", "web"].includes(module.id)) }} busy={busy} initialError={initialSettings === "terminal" ? initialSettingsError : null} intro="访问工作区文件和公开网页；搜索、RSS 的配置状态单独显示。" /> : null}
-                  {settingsRoute === "devices" && info ? <CapabilitiesPanel info={{ ...info, modules: (info.modules ?? []).filter(module => module.id === "computer") }} busy={busy} intro="只控制允许列表中的应用。驱动连接、系统权限与工具注册是不同状态。可在对话中请求 computer_check，经你批准后检查。" /> : null}
+                  {settingsRoute === "devices" && info ? <CapabilitiesPanel info={{ ...info, modules: (info.modules ?? []).filter(module => module.id === "computer") }} busy={busy} initialError={initialSettings === "computer" ? initialSettingsError : null} intro="选择驱动和允许控制的应用后，手动检查连接。" /> : null}
                   {settingsRoute === "skills" && info ? <SkillsPanel busy={busy} identity={`${info.workspaceRoot}:${info.threadId}`} refreshSequence={automationRefresh} onUseRecipe={text => void newConversation(text)} /> : null}
                   {settingsRoute === "channels" ? <TelegramPanel busy={busy} /> : null}
                   {settingsRoute === "memory" && info ? <><MemorySetup info={info} busy={busy} /><details className="card"><summary>管理记录</summary><MemoryPanel key={`management:${info.workspaceRoot}:${info.threadId}`} managementOnly memory={info.memory} temporaryThread={info.temporaryThread} threadId={info.threadId} controllerIdle={!busy} refreshToken={memoryRefresh} /><MemoryConsolidationPanel key={`management-consolidation:${info.workspaceRoot}:${info.threadId}`} info={info} busy={busy} refreshToken={memoryRefresh} /><MemoryImport key={`legacy-import:${info.workspaceRoot}:${info.threadId}`} recoveryOnly enabled={info.memory.enabled} busy={busy} identity={`${info.workspaceRoot}:${info.threadId}`} onSaved={refreshMemory} /></details><details className="card"><summary>高级配置与诊断</summary><CapabilitiesPanel info={{ ...info, modules: (info.modules ?? []).filter(module => module.id === "memory") }} busy={busy} /></details></> : null}

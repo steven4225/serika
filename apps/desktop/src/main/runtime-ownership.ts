@@ -91,6 +91,11 @@ export class RuntimeOwnership {
   enableMemory() { return this.#active().enableMemory(); }
   setModuleEnabled(...args: Parameters<DesktopRuntime["setModuleEnabled"]>) { return this.#active().setModuleEnabled(...args); }
   setContextMode(...args: Parameters<DesktopRuntime["setContextMode"]>) { return this.#active().setContextMode(...args); }
+  getComputerConnection(...args: Parameters<DesktopRuntime["getComputerConnection"]>) { return this.#active().getComputerConnection(...args); }
+  selectComputerDriver(...args: Parameters<DesktopRuntime["selectComputerDriver"]>) { return this.#active().selectComputerDriver(...args); }
+  discoverComputerApps(...args: Parameters<DesktopRuntime["discoverComputerApps"]>) { return this.#active().discoverComputerApps(...args); }
+  saveComputerConnection(...args: Parameters<DesktopRuntime["saveComputerConnection"]>) { return this.#active().saveComputerConnection(...args); }
+  checkComputerConnection(...args: Parameters<DesktopRuntime["checkComputerConnection"]>) { return this.#active().checkComputerConnection(...args); }
   listHerdrSessions() { return this.#active().listHerdrSessions(); }
   listHerdrPanes(session: string) { return this.#active().listHerdrPanes(session); }
   setHerdrTarget(...args: Parameters<DesktopRuntime["setHerdrTarget"]>) { return this.#active().setHerdrTarget(...args); }

@@ -44,3 +44,22 @@ test("structured computer preview also waits for backend publication before enab
   assert.match(exact, /已选定，编号在详情里/);
   assert.match(exact.slice(exact.indexOf("<summary>技术详情</summary>")), /windowId[^\d]+731/);
 });
+
+test("computer connection checks can be approved without an application target after the preview is published", () => {
+  const value = { ...approval(""), toolName: "computer_check", input: {} };
+  assert.match(markup(value), /class="allow" disabled=""/);
+  const html = markup({ ...value, preview: "检查 CUA 连接：不读取窗口或应用内容。Allow this call? [y/n] " });
+  assert.doesNotMatch(html, /class="allow" disabled=""|目标信息不完整/);
+  assert.match(html, /<h3>检查电脑控制连接<\/h3>/);
+  assert.match(html, /不读取窗口或应用内容/);
+  assert.doesNotMatch(html, /\[y\/n\]/);
+});
+
+test("computer observation and action approvals still reject missing targets and unknown computer tools", () => {
+  for (const toolName of ["computer_observe", "computer_action", "computer_unknown"]) {
+    const html = markup({ ...approval("电脑操作预览"), toolName, input: {} });
+    assert.match(html, /class="allow" disabled=""/);
+    assert.match(html, /目标信息不完整/);
+    assert.doesNotMatch(html, /class="deny" disabled=""/);
+  }
+});
