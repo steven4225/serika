@@ -37,3 +37,18 @@
 
 - 仓库声明 `packageManager: pnpm@11.9.0`，这台机器用的是 pnpm 10.34.5；`pnpm install --frozen-lockfile` 和全部测试都正常。
 - 快照把进程时区固定为 UTC，并把临时目录替换为 `<ROOT>`、时间戳替换为 `<NOW>`，这样在 macOS 上也能对上。没有在 macOS 上实际跑过（只有这台 Linux 机器），第一次在你的机器上跑如果有差异，需要先看是不是平台差异。
+
+## E. 工具失败行：运行中和历史不一致
+
+**表态：已知缺陷，不是有意设计。** 第 3 步不修（修了会改用户可见文案，需要你先定），金样例 `apps/desktop/src/renderer/src/tool-preview-golden.test.ts` 按现状断言，用例里的 `divergence` 都标 `stance: "defect"` 并指向这一节。
+
+- 现象：宿主让一次工具调用失败时（被拒绝 `TOOL_DENIED`、输入无效 `TOOL_INVALID_INPUT`、结果未知 `TOOL_OUTCOME_UNKNOWN` 等），同一次调用：
+  - 运行中（事件 `tool.call.failed`）：`detail` 只有消息，带 `errorCode`；
+  - 重新读历史后（`output-error`）：`detail` 是 `CODE: message`，没有 `errorCode`。
+- 金样例覆盖了 4 个：edit_file 被拒绝、edit_file 缺 newText、write_file content 不是字符串、write_file 带 edit_file 字段。`STEER_SUPERSEDED` 两边一样，不受影响。
+- 根因：渲染层其他地方的惯例都是 `detail` = `CODE: message` 且带 `errorCode`（toolOutcome、rowsFromToolActivity、回执；历史的 `errorText` 来自 `packages/ai-sdk-adapter/src/tool-errors.ts` 的 `${code}: ${message}`）。只有两处偏离：
+  - `conversation.ts` `applyEvent` 的 `tool.call.failed`：`detail` 只取 `error.message`；
+  - `conversation.ts` `committedToolStatus`（历史 `output-error`）：不设 `errorCode`。
+- 用户能看到的差别：经典布局的失败提示走 `failure-copy.ts` `presentFailure`。消息是中文且带前缀码时，摘要相同，历史那边多一个可展开的「详情」；消息是英文时，两边整句不同。
+- 建议修法：两边统一成 `detail` = `CODE: message` 并带 `errorCode`——历史从 `errorText` 解析前缀码填 `errorCode`，事件那边 `detail` 加上码前缀。不动 adapter 和回执格式。
+- 需要你定：统一后的文案（运行中的失败提示会多出「详情」或换成历史那边的样子），定了以后单独一个提交修，同时把金样例里的 `divergence` 删掉。

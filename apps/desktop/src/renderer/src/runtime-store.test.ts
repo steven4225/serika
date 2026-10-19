@@ -59,6 +59,7 @@ test("runtime store starts from the values AssistantPage used to start with", ()
   assert.deepEqual(store.getState(), {
     info: null, state: { kind: "idle" }, output: "", approval: null, homeSnapshot: null, memoryRefresh: 0, contextRefresh: 0, taskRefresh: 0,
     live: emptyLiveRun, lastResult: null, canSteer: false, finalRecord: null, steers: [], uncertainSteer: null,
+    history: { rows: [], runId: null }, historyBefore: null, historyLoading: false,
   });
   assert.equal(store.getState(), initialRuntimeState);
   assert.equal(store.getState().live, emptyLiveRun);
@@ -399,3 +400,126 @@ test("setUncertainSteer stores and clears the Steer awaiting a receipt", () => {
   store.setUncertainSteer(null);
   assert.equal(store.getState().uncertainSteer, null);
 });
+
+/** A store whose history reads wait for the test: each historyPage/listRuns/info call is queued in call order. */
+const historyHarness = () => {
+  const calls: string[] = [];
+  const pending: Array<{ name: string; resolve: (value: unknown) => void; reject: (cause: unknown) => void }> = [];
+  const wait = <T,>(name: string) => new Promise<T>((resolve, reject) => { calls.push(name); pending.push({ name, resolve: resolve as (value: unknown) => void, reject }); });
+  const errors: string[] = [];
+  const bridge: RuntimeBridge = {
+    snapshot: () => new Promise(() => {}),
+    getRun: async () => ({ ok: true, run: null }),
+    historyPage: input => wait(input?.beforeId ? `historyPage:${input.beforeId}` : "historyPage"),
+    listRuns: () => wait("listRuns"),
+    info: () => wait("info"),
+  };
+  const store = createRuntimeStore({ bridge: () => bridge, onError: message => { errors.push(message); } });
+  const answer = (name: string, value: unknown) => {
+    const index = pending.findIndex(item => item.name === name);
+    assert.notEqual(index, -1, `no pending ${name}`);
+    pending.splice(index, 1)[0]!.resolve(value);
+  };
+  const fail = (name: string, cause: unknown) => {
+    const index = pending.findIndex(item => item.name === name);
+    pending.splice(index, 1)[0]!.reject(cause);
+  };
+  return { store, calls, errors, answer, fail };
+};
+const userMessage = (id: string, text: string) => ({ id, role: "user", parts: [{ type: "text", text }] });
+const page = (messages: unknown[], beforeId: string | null, extra: Record<string, unknown> = {}) => ({ threadId: "thread-1", messages, beforeId, ...extra });
+const threadInfo = { threadId: "thread-1" };
+const historyTexts = (store: RuntimeStore) => store.getState().history.rows.map(row => (row as { text?: string }).text);
+
+test("reloadHistory: reads page, receipts and info together (in that order) and stores rows, cursor and the completed run", async () => {
+  const { store, calls, answer } = historyHarness();
+  store.finishPrimaryRun(result("run-1"));
+  const loading = store.reloadHistory();
+  assert.deepEqual(calls, ["historyPage", "listRuns", "info"]);
+  answer("historyPage", page([userMessage("m1", "你好")], "m1"));
+  answer("listRuns", { ok: true, runs: [] });
+  answer("info", threadInfo);
+  await loading;
+  assert.deepEqual(historyTexts(store), ["你好"]);
+  assert.equal(store.getState().history.runId, "run-1");
+  assert.equal(store.getState().historyBefore, "m1");
+});
+
+test("reloadHistory: stale when a newer read, a newly admitted run or invalidateHistory came first; a foreign thread is ignored", async () => {
+  for (const interrupt of ["newer read", "admitted", "invalidate", "other thread"] as const) {
+    const { store, answer } = historyHarness();
+    const first = store.reloadHistory();
+    if (interrupt === "newer read") void store.reloadHistory();
+    if (interrupt === "admitted") assert.equal(store.onRunState({ kind: "running", runId: null, phase: "primary" }, () => false), true);
+    if (interrupt === "invalidate") store.invalidateHistory();
+    answer("historyPage", page([userMessage("m1", "旧")], "m1", interrupt === "other thread" ? { threadId: "thread-2" } : {}));
+    answer("listRuns", { ok: true, runs: [] });
+    answer("info", threadInfo);
+    await first;
+    assert.deepEqual(store.getState().history, { rows: [], runId: null }, interrupt);
+    assert.equal(store.getState().historyBefore, null, interrupt);
+  }
+});
+
+test("reloadHistory: a receipts failure still shows rows; a memory receipt error goes to onError; a page failure rejects", async () => {
+  const { store, answer, fail, errors } = historyHarness();
+  const loading = store.reloadHistory();
+  answer("historyPage", page([userMessage("m1", "你好")], null, { memoryReceiptError: "记忆回执读取失败" }));
+  fail("listRuns", new Error("closed"));
+  answer("info", threadInfo);
+  await loading;
+  assert.deepEqual(historyTexts(store), ["你好"]);
+  assert.deepEqual(errors, ["记忆回执读取失败"]);
+  const failing = store.reloadHistory();
+  fail("historyPage", new Error("bridge closed"));
+  answer("listRuns", { ok: true, runs: [] });
+  answer("info", threadInfo);
+  await assert.rejects(failing, /bridge closed/);
+});
+
+test("loadOlderHistory: page, info, receipts in that order; loading flag; older rows first; view hooks around the rows; failure copy", async () => {
+  const { store, calls, answer, fail, errors } = historyHarness();
+  const steps: string[] = [];
+  const view = () => { steps.push("capture"); return { beforeShow: () => steps.push(`before:${historyTexts(store).length}`), afterShow: () => steps.push(`after:${historyTexts(store).length}`) }; };
+  await store.loadOlderHistory(view); // No cursor yet: nothing happens.
+  assert.deepEqual([calls, steps], [[], []]);
+  const reload = store.reloadHistory();
+  answer("historyPage", page([userMessage("m2", "新")], "m2"));
+  answer("listRuns", { ok: true, runs: [] });
+  answer("info", threadInfo);
+  await reload;
+  calls.length = 0;
+
+  const older = store.loadOlderHistory(view);
+  assert.equal(store.getState().historyLoading, true);
+  await store.loadOlderHistory(view); // Already loading: nothing happens.
+  assert.deepEqual(calls, ["historyPage:m2", "info", "listRuns"]);
+  answer("historyPage:m2", page([userMessage("m1", "旧")], null));
+  answer("info", threadInfo);
+  answer("listRuns", { ok: true, runs: [] });
+  await older;
+  assert.deepEqual(historyTexts(store), ["旧", "新"]);
+  assert.deepEqual(steps, ["capture", "before:1", "after:2"]);
+  assert.equal(store.getState().historyBefore, null);
+  assert.equal(store.getState().historyLoading, false);
+
+  const again = harnessWithCursor();
+  await again.ready;
+  const failing = again.store.loadOlderHistory(view);
+  again.fail("historyPage:m9", new Error("closed"));
+  again.answer("info", threadInfo);
+  again.answer("listRuns", { ok: true, runs: [] });
+  await failing;
+  assert.deepEqual(again.errors, ["更早的对话读取失败；当前内容仍保留，可以重试"]);
+  assert.equal(again.store.getState().historyLoading, false);
+  assert.deepEqual(errors, []);
+});
+
+function harnessWithCursor() {
+  const harness = historyHarness();
+  const reload = harness.store.reloadHistory();
+  harness.answer("historyPage", page([userMessage("m9", "x")], "m9"));
+  harness.answer("listRuns", { ok: true, runs: [] });
+  harness.answer("info", threadInfo);
+  return { ...harness, ready: reload };
+}

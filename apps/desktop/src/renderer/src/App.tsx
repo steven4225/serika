@@ -8,18 +8,13 @@ import { HomeBody } from "./app/home-body.js";
 import { useSplitLayout } from "./app/use-split-layout.js";
 import { useThreadList } from "./app/use-thread-list.js";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import type { UIMessage } from "ai";
 import type {
   MainToRenderer,
 } from "../../shared/ui-contract.js";
 import {
   withSteerRecords,
-  overlayShellProgress,
   overlayExecutionReceipts,
   canReuseReceiptHistory,
-  rowsFromHistory,
-  annotateHistoryTools,
-  annotateMemoryReceipts,
   type ConversationRow,
 } from "./conversation.js";
 import { homeView as toHomeView } from "./home-view.js";
@@ -114,11 +109,10 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const state = useRuntime(runtime, runtimeState => runtimeState.state);
   const homeSnapshot = useRuntime(runtime, runtimeState => runtimeState.homeSnapshot);
   const output = useRuntime(runtime, runtimeState => runtimeState.output);
-  const [storedHistory, setStoredHistory] = useState<{ rows: ConversationRow[]; runId: string | null }>({ rows: [], runId: null });
+  const storedHistory = useRuntime(runtime, runtimeState => runtimeState.history);
   const history = storedHistory.rows;
-  const historyMessages = useRef<UIMessage[]>([]);
-  const [historyBefore, setHistoryBefore] = useState<string | null>(null);
-  const [historyLoading, setHistoryLoading] = useState(false);
+  const historyBefore = useRuntime(runtime, runtimeState => runtimeState.historyBefore);
+  const historyLoading = useRuntime(runtime, runtimeState => runtimeState.historyLoading);
   const conversationDraft = useConversationDraftState();
   const { draftReady, setDraftReady, draftError, setDraftError, draftSaving, draftSave, input, setInput, excludeFromMemory, setExcludeFromMemory } = conversationDraft;
   const [reconnecting, setReconnecting] = useState(false);
@@ -143,7 +137,6 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const [taskFocused, setTaskFocused] = useState(false);
   const [switchingThread, setSwitchingThread] = useState(false);
   const threadSwitchInFlight = useRef(false);
-  const historyRequest = useRef(0);
   const [detailsOpen, setDetailsOpen] = useState(!!initialSettings);
   const [detailTab, setDetailTab] = useState<"threads" | "tasks" | "reminders" | "home" | "records" | "memory" | "context" | "pomodoro" | "modules" | "settings">(initialSettings ? "settings" : "home");
   const [settingsRoute, setSettingsRoute] = useState<SettingsRoute>(settingsRouteForInitial(initialSettings));
@@ -178,42 +171,14 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     if (detailsOpen && inspectorScroll.current) inspectorScroll.current.scrollTop = inspectorPositions.current.get(inspectorKey) ?? 0;
   }, [detailsOpen, inspectorKey]);
 
-  const reloadHistory = useCallback(async () => {
-    const request = ++historyRequest.current;
-    const primaryId = runtime.latestPrimaryId();
-    const completedId = runtime.latestCompletedPrimaryId();
-    const [page, receipts, identity] = await Promise.all([window.runloom.historyPage(), window.runloom.listRuns().catch(() => null), window.runloom.info()]);
-    if (request !== historyRequest.current || primaryId !== runtime.latestPrimaryId() || completedId !== runtime.latestCompletedPrimaryId()) return;
-    if (page.threadId !== identity.threadId) return;
-    if (page.memoryReceiptError) setError(page.memoryReceiptError);
-    const messages = page.messages;
-    historyMessages.current = messages;
-    setHistoryBefore(page.beforeId);
-    // Only a reread made after this primary Run completed can supply its full
-    // outcomes. Provider tool IDs are not unique across the whole Thread.
-    const rows = receipts?.ok ? annotateHistoryTools(rowsFromHistory(messages), receipts.runs, identity.threadId) : rowsFromHistory(messages);
-    const withMemory = annotateMemoryReceipts(rows, page.memoryReceipts ?? [], identity.threadId);
-    setStoredHistory({ rows: completedId === null ? withMemory : overlayShellProgress(withMemory, runtime.shellBuffer()), runId: completedId });
-  }, [runtime]);
-
-  const loadOlderHistory = async () => {
-    if (!historyBefore || historyLoading) return;
-    const request = ++historyRequest.current;
-    setHistoryLoading(true);
+  const { reloadHistory } = runtime;
+  const loadOlderHistory = () => runtime.loadOlderHistory(() => {
     const area = conversationScroll.current, height = area?.scrollHeight ?? 0, top = area?.scrollTop ?? 0;
-    try {
-      const [page, identity, receipts] = await Promise.all([window.runloom.historyPage({ beforeId: historyBefore }), window.runloom.info(), window.runloom.listRuns().catch(() => null)]);
-      if (request !== historyRequest.current || page.threadId !== identity.threadId) return;
-      if (page.memoryReceiptError) setError(page.memoryReceiptError);
-      const messages = [...page.messages, ...historyMessages.current];
-      historyMessages.current = messages; setHistoryBefore(page.beforeId);
-      const rows = receipts?.ok ? annotateHistoryTools(rowsFromHistory(messages), receipts.runs, identity.threadId) : rowsFromHistory(messages);
-      followConversation.current = false;
-      setStoredHistory(current => ({ ...current, rows: annotateMemoryReceipts(rows, page.memoryReceipts ?? [], identity.threadId) }));
-      requestAnimationFrame(() => { if (area) area.scrollTop = top + area.scrollHeight - height; });
-    } catch { setError("更早的对话读取失败；当前内容仍保留，可以重试"); }
-    finally { setHistoryLoading(false); }
-  };
+    return {
+      beforeShow: () => { followConversation.current = false; },
+      afterShow: () => { requestAnimationFrame(() => { if (area) area.scrollTop = top + area.scrollHeight - height; }); },
+    };
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -234,7 +199,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
         case "identity-changed":
           return; // The outer App remounts this view for the new controller.
         case "state":
-          if (onRunState(message.state, () => cancelled)) historyRequest.current += 1;
+          onRunState(message.state, () => cancelled);
           if (message.state.kind === "idle") {
             void reloadHistory().catch((cause: unknown) => setError(String(cause)));
             void reloadOpenRecords().catch((cause: unknown) => setError(String(cause)));
@@ -334,7 +299,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
 
     return () => {
       cancelled = true;
-      historyRequest.current += 1;
+      runtime.invalidateHistory();
       invalidateRecords();
       stop();
     };

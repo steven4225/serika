@@ -1,10 +1,13 @@
 import { useSyncExternalStore } from "react";
+import type { UIMessage } from "ai";
 import type { HomeSnapshot } from "@serika/assistant/browser";
 import type { AppInfo, AssistantSteerRecord, ExecutionRunRecord, MainToRenderer, PendingApproval, RendererApi, UiSnapshot, UiState } from "../../../shared/ui-contract.js";
 import type { UncertainSteer } from "../../../shared/conversation-drafts.js";
 import { mergeSteerRecords } from "../../../shared/steer.js";
 import { ShellProgressBuffer } from "../../../shared/shell-progress.js";
 import {
+  annotateHistoryTools,
+  annotateMemoryReceipts,
   applyEvent,
   applySteerRecord,
   applyShellProgress,
@@ -12,6 +15,7 @@ import {
   finishRun,
   overlayShellProgress,
   resultRow,
+  rowsFromHistory,
   rowsFromToolActivity,
   type ConversationRow,
   type LiveRun,
@@ -25,7 +29,21 @@ type RunResult = ResultMessage["result"];
 type ShellProgressMessage = Extract<MainToRenderer, { type: "shell-progress" }>;
 
 /** The bridge calls the store makes itself; read from `window.runloom` at call time, as the inline code did. */
-export type RuntimeBridge = Pick<RendererApi, "snapshot" | "getRun">;
+export type RuntimeBridge = Pick<RendererApi, "snapshot" | "getRun" | "historyPage" | "listRuns" | "info">;
+
+/** The conversation read back from the Thread, and the completed primary run that read already includes. */
+export interface StoredHistory {
+  readonly rows: ConversationRow[];
+  readonly runId: string | null;
+}
+
+/** What "查看更早的对话" does to the page around the store's update; captured at click time. */
+export interface OlderHistoryView {
+  /** Right before the older rows are shown. */
+  readonly beforeShow: () => void;
+  /** Right after. */
+  readonly afterShow: () => void;
+}
 
 /**
  * Runtime state from main-process messages, snapshots and startup reads
@@ -49,6 +67,11 @@ export interface RuntimeState {
   /** Steer receipts and the one Steer whose receipt is still uncertain (was `useSteerReceipts` in app/steers.tsx). */
   readonly steers: readonly AssistantSteerRecord[];
   readonly uncertainSteer: UncertainSteer | null;
+  /** History (was `storedHistory`, `historyBefore` and `historyLoading` in App). */
+  readonly history: StoredHistory;
+  /** Cursor for the previous page; null when the oldest message is shown. */
+  readonly historyBefore: string | null;
+  readonly historyLoading: boolean;
 }
 
 export interface RuntimeStore {
@@ -81,6 +104,13 @@ export interface RuntimeStore {
   /** Merge one receipt for the latest primary run; false when nothing changed. */
   mergeSteer(steer: AssistantSteerRecord): boolean;
   setUncertainSteer(steer: UncertainSteer | null): void;
+
+  /** Reread the newest history page; a newer read, a newly admitted run or `invalidateHistory` makes it stale. Rejects as the bridge does. */
+  reloadHistory(): Promise<void>;
+  /** Prepend the previous page; does nothing while one is loading or when there is none. Failures go to `onError`. */
+  loadOlderHistory(view: () => OlderHistoryView): Promise<void>;
+  /** Make any history read in flight stale (App unmount). */
+  invalidateHistory(): void;
 }
 
 export interface RuntimeStoreOptions {
@@ -104,6 +134,9 @@ export const initialRuntimeState: RuntimeState = {
   finalRecord: null,
   steers: [],
   uncertainSteer: null,
+  history: { rows: [], runId: null },
+  historyBefore: null,
+  historyLoading: false,
 };
 
 /** Pure: the next state for one message, or the same object when the message does not touch these fields. */
@@ -148,6 +181,9 @@ export function createRuntimeStore({ bridge, onError }: RuntimeStoreOptions, ini
   let latestPrimaryId: string | null = null;
   let latestCompletedPrimaryId: string | null = null;
   const shellBuffer = new ShellProgressBuffer();
+  /** The messages behind `history.rows`, and the read counter (were refs in App). */
+  let historyMessages: UIMessage[] = [];
+  let historyRequest = 0;
   const listeners = new Set<() => void>();
   const update = (next: RuntimeState): void => {
     if (next === current) return;
@@ -169,6 +205,44 @@ export function createRuntimeStore({ bridge, onError }: RuntimeStoreOptions, ini
     if (records === current.steers) return false;
     patch({ steers: records });
     return true;
+  };
+
+  const reloadHistory = async (): Promise<void> => {
+    const request = ++historyRequest;
+    const primaryId = latestPrimaryId;
+    const completedId = latestCompletedPrimaryId;
+    const [page, receipts, identity] = await Promise.all([bridge().historyPage(), bridge().listRuns().catch(() => null), bridge().info()]);
+    if (request !== historyRequest || primaryId !== latestPrimaryId || completedId !== latestCompletedPrimaryId) return;
+    if (page.threadId !== identity.threadId) return;
+    if (page.memoryReceiptError) onError(page.memoryReceiptError);
+    const messages = page.messages;
+    historyMessages = messages;
+    // Only a reread made after this primary Run completed can supply its full
+    // outcomes. Provider tool IDs are not unique across the whole Thread.
+    const rows = receipts?.ok ? annotateHistoryTools(rowsFromHistory(messages), receipts.runs, identity.threadId) : rowsFromHistory(messages);
+    const withMemory = annotateMemoryReceipts(rows, page.memoryReceipts ?? [], identity.threadId);
+    patch({ historyBefore: page.beforeId, history: { rows: completedId === null ? withMemory : overlayShellProgress(withMemory, shellBuffer), runId: completedId } });
+  };
+
+  const loadOlderHistory = async (capture: () => OlderHistoryView): Promise<void> => {
+    const before = current.historyBefore;
+    if (!before || current.historyLoading) return;
+    const request = ++historyRequest;
+    // Read the page before the store update, as App read it before its `setHistoryLoading` rendered.
+    const view = capture();
+    patch({ historyLoading: true });
+    try {
+      const [page, identity, receipts] = await Promise.all([bridge().historyPage({ beforeId: before }), bridge().info(), bridge().listRuns().catch(() => null)]);
+      if (request !== historyRequest || page.threadId !== identity.threadId) return;
+      if (page.memoryReceiptError) onError(page.memoryReceiptError);
+      const messages = [...page.messages, ...historyMessages];
+      historyMessages = messages; patch({ historyBefore: page.beforeId });
+      const rows = receipts?.ok ? annotateHistoryTools(rowsFromHistory(messages), receipts.runs, identity.threadId) : rowsFromHistory(messages);
+      view.beforeShow();
+      patch({ history: { ...current.history, rows: annotateMemoryReceipts(rows, page.memoryReceipts ?? [], identity.threadId) } });
+      view.afterShow();
+    } catch { onError("更早的对话读取失败；当前内容仍保留，可以重试"); }
+    finally { patch({ historyLoading: false }); }
   };
 
   return {
@@ -210,6 +284,7 @@ export function createRuntimeStore({ bridge, onError }: RuntimeStoreOptions, ini
         shellBuffer.clear();
         latestPrimaryId = null;
         latestCompletedPrimaryId = null;
+        historyRequest += 1; // A history read started before this run would show the previous run as current.
         patch({ canSteer: false, live: emptyLiveRun, lastResult: null, finalRecord: null, steers: [] });
       } else patch({ canSteer: false });
       if (state.kind === "running" && state.phase === "primary" && state.runId !== null) {
@@ -257,6 +332,10 @@ export function createRuntimeStore({ bridge, onError }: RuntimeStoreOptions, ini
     replaceSteers: records => patch({ steers: records }),
     mergeSteer,
     setUncertainSteer: uncertainSteer => patch({ uncertainSteer }),
+
+    reloadHistory,
+    loadOlderHistory,
+    invalidateHistory: () => { historyRequest += 1; },
   };
 }
 
