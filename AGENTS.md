@@ -8,6 +8,31 @@
 - Keep changes focused on the current module. Do not perform unrelated refactors or dependency upgrades.
 - Do not commit or push unless the user explicitly asks for a version-control checkpoint.
 
+## 重构效率规则
+
+### 判断权下放
+
+以下情况不用回来问，直接做，并在提交说明里写清依据：
+
+- 正式界面不用、没有入口引用、也没有测试引用的代码 → 删
+- 文档与代码实际行为不符 → 按代码改文档
+- 命名容易混淆的别名 → 改名
+- 发现既有缺口 → 记进待办文档，不在本轮修
+
+仍然只在三件事上停下等确认：**回执格式、数据路径、记忆语义**。
+
+### 验证分级
+
+- **中间提交**：只跑 typecheck + 受影响的测试
+- **每个步骤的最后一个提交**：跑全套（test:runtime、desktop test、138 项快照、像素对比）
+- 提交说明里写明这次跑的是哪一档，不要用"全过"含糊带过
+
+**验收标准不放宽**：行为变化仍必须是"无"，快照仍必须 0 差异。放宽的是跑的频率，不是标准本身。
+
+### 结算方式
+
+一次做完一整件事再回报，不要拆成"发现 → 问 → 再做"三段。回报时给结果和实际命令/退出码，不给"正常""通过"这类无证据的结论。
+
 ## Maintenance-phase task admission
 
 - Apply this gate once the project is explicitly in its maintenance phase. Adding this rule does not declare that the current project is already in maintenance.
