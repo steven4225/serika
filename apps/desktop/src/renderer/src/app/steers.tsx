@@ -1,32 +1,7 @@
-import { useCallback, useRef, useState, type MutableRefObject } from "react";
+import type { MutableRefObject } from "react";
 import type { AppInfo, AssistantSteerRecord } from "../../../shared/ui-contract.js";
-import { mergeSteerRecords } from "../../../shared/steer.js";
 import { draftScope, type UncertainSteer } from "../../../shared/conversation-drafts.js";
 import type { WorkTaskView } from "../work-tasks.js";
-
-/**
- * Steer receipts shown in the conversation and the one Steer whose receipt is
- * still uncertain (split out of App.tsx; same state). `replaceSteers` and
- * `mergeSteer` keep the ref and the state in step, as the inline code did.
- */
-export function useSteerReceipts(latestPrimaryId: MutableRefObject<string | null>) {
-  const [steers, setSteers] = useState<readonly AssistantSteerRecord[]>([]);
-  const [uncertainSteer, setUncertainSteer] = useState<UncertainSteer | null>(null);
-  const steerReceipts = useRef<readonly AssistantSteerRecord[]>([]);
-  const replaceSteers = useCallback((records: readonly AssistantSteerRecord[]) => {
-    steerReceipts.current = records;
-    setSteers(records);
-  }, []);
-  /** Merge one receipt for the latest primary run; false when nothing changed. */
-  const mergeSteer = useCallback((steer: AssistantSteerRecord): boolean => {
-    const records = mergeSteerRecords(steerReceipts.current, steer, latestPrimaryId.current);
-    if (records === steerReceipts.current) return false;
-    steerReceipts.current = records;
-    setSteers(records);
-    return true;
-  }, [latestPrimaryId]);
-  return { steers, replaceSteers, mergeSteer, uncertainSteer, setUncertainSteer };
-}
 
 export interface SteerReviewContext {
   readonly info: AppInfo | null;

@@ -29,8 +29,9 @@
 | | 进行中的动作：`sending`、`submittedInput`、`switchingThread` | | 滚动位置相关的 ref |
 
 - `canSteer` 不进第一批：结果消息（276 行）和启动时的快照（341 行）都写它，它属于当前这轮，跟 `usePrimaryRun` 一起在第 2 步搬。
+- 第 2 步：`createRuntimeStore({ bridge: () => window.runloom, onError: setError })`。bridge 在调用时才读 `window.runloom`（和原来内联代码一样）；`error` 仍不在 store 里，最终回执读取失败的提示经 `onError` 交给 `App` 的 `setError`，文案不变。`latestPrimaryId`、`latestCompletedPrimaryId`、Shell 缓冲是 store 内部的普通字段，`App` 用访问器读（`runtime.latestPrimaryId()` 等）。
 - `approval` 进 store；`decidingId` 和防重复点击的 ref 留在 `useApproval`，`decide` 改为从 store 读 `approval`。
-- 已知接缝：`applySnapshot`（178–183 行）同时写 `state` / `approval` / `output` 和当前这轮的快照（`applyRunSnapshot`）。当前这轮归第 2 步，所以第 1 步里 `applySnapshot` 仍是一个函数：内部写 store，再调 `applyRunSnapshot`。
+- 已知接缝：`applySnapshot`（178–183 行）同时写 `state` / `approval` / `output` 和当前这轮的快照（`applyRunSnapshot`）。当前这轮归第 2 步，所以第 1 步里 `applySnapshot` 仍是一个函数：内部写 store，再调 `applyRunSnapshot`。第 2 步起 `applySnapshot` 只是 store 的一个方法，一次写完这些字段、只通知一次。
 - 第 1 步做完，`AssistantPage` 里的运行时 `useState` 从 29 个降到 22 个（另加 1 个只持有 store 实例），`useApproval` 从 2 个降到 1 个。
 
 ## 3. 方案
@@ -78,7 +79,7 @@ function useRuntime<T>(select: (state: RuntimeState) => T): T; // useSyncExterna
 | 1c | `homeSnapshot`、`info` | |
 | 1d | `memoryRefresh`、`contextRefresh`、`taskRefresh` | |
 | 2 | 当前这轮 + 补充要求（`usePrimaryRun`、`useSteerReceipts` 变成 store 的一部分） | 1.5 天 |
-| 3 前 | 补 `edit_file` / `write_file` 预览的金样例，覆盖两条路径：历史（`rowsFromHistory` + `annotateHistoryTools`）和运行事件（`primary-run.ts` 的 `applyEvent`）。现在 `fileChange` 只在 `conversation.test.ts`、`personal-conversation.test.ts` 里各出现 1 次 | 含在第 3 步内 |
+| 3 前 | 补 `edit_file` / `write_file` 预览的金样例，覆盖两条路径：历史（`rowsFromHistory` + `annotateHistoryTools`）和运行事件（`applyEvent`，第 2 步起由 `app/runtime-store.ts` 的 `onRunEvent` 调用，原来在 `primary-run.ts`）。现在 `fileChange` 只在 `conversation.test.ts`、`personal-conversation.test.ts` 里各出现 1 次 | 含在第 3 步内 |
 | 3 | 历史读取、执行记录、对话列表（带各自的请求计数） | 2～2.5 天 |
 | 4 | 启动顺序搬进 `start()`，`AssistantPage` 的订阅 effect 只剩 `store.start()` / `store.dispose()` | 1.5～2 天 |
 

@@ -11,7 +11,6 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProp
 import type { UIMessage } from "ai";
 import type {
   MainToRenderer,
-  UiSnapshot,
 } from "../../shared/ui-contract.js";
 import {
   withSteerRecords,
@@ -32,7 +31,6 @@ import { ContextPanel } from "./context.js";
 import { RecordsPanel } from "./records.js";
 import { useRunRecords } from "./app/use-run-records.js";
 import { steerReview, UncertainSteerNotice } from "./app/steers.js";
-import { usePrimaryRun } from "./app/primary-run.js";
 import { useChatAttachments } from "./app/use-chat-attachments.js";
 import { useConversationDraftPersistence, useConversationDraftState } from "./app/use-conversation-draft.js";
 import { useBriefContinue } from "./app/use-brief-continue.js";
@@ -104,7 +102,8 @@ export function App({ initialLayout }: { initialLayout?: DesktopLayout } = {}) {
 }
 
 function AssistantPage({ drafts, layout, initialSettings = false, initialSettingsError = null, appearance, onAppearance }: { drafts: Map<string, ConversationDraft>; layout: DesktopLayout; initialSettings?: false | "modules" | "context"; initialSettingsError?: string | null; appearance: "dark" | "light"; onAppearance: () => void }) {
-  const [runtime] = useState(() => createRuntimeStore());
+  const [error, setError] = useState<string | null>(null);
+  const [runtime] = useState(() => createRuntimeStore({ bridge: () => window.runloom, onError: setError }));
   const info = useRuntime(runtime, runtimeState => runtimeState.info);
   const [mobileDashboard, setMobileDashboard] = useState(!!initialSettings);
   const { windowWidth, sidebarOpen, splitRoot, compact, dashboardOpen, actualFraction, saveSplit, rememberSidebar } = useSplitLayout(mobileDashboard);
@@ -120,10 +119,14 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const conversationDraft = useConversationDraftState();
   const { draftReady, setDraftReady, draftError, setDraftError, draftSaving, draftSave, input, setInput, excludeFromMemory, setExcludeFromMemory } = conversationDraft;
   const [reconnecting, setReconnecting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const { approval, decidingId, decide } = useApproval(runtime, setMobileDashboard, setError);
-  const { live, lastResult, canSteer, setCanSteer, finalRecord, latestPrimaryId, latestCompletedPrimaryId, shellBuffer, steers, replaceSteers, mergeSteer, uncertainSteer, setUncertainSteer,
-    applyRunSnapshot, loadFinalRun, onRunState, onRunSteer, onRunEvent, isCurrentPrimaryResult, finishPrimaryRun, onRunShellProgress } = usePrimaryRun(setError);
+  const live = useRuntime(runtime, runtimeState => runtimeState.live);
+  const lastResult = useRuntime(runtime, runtimeState => runtimeState.lastResult);
+  const canSteer = useRuntime(runtime, runtimeState => runtimeState.canSteer);
+  const finalRecord = useRuntime(runtime, runtimeState => runtimeState.finalRecord);
+  const steers = useRuntime(runtime, runtimeState => runtimeState.steers);
+  const uncertainSteer = useRuntime(runtime, runtimeState => runtimeState.uncertainSteer);
+  const { setCanSteer, replaceSteers, mergeSteer, setUncertainSteer, applySnapshot, loadFinalRun, onRunState, onRunSteer, onRunEvent, isCurrentPrimaryResult, finishPrimaryRun, onRunShellProgress } = runtime;
   const [submittedInput, setSubmittedInput] = useState<string | null>(null);
   const { attachments, setAttachments, sentAttachments, recoverableAttachments, setRecoverableAttachments, settleSentAttachments } = useChatAttachments(info, setError);
   const [showOutput, setShowOutput] = useState(false);
@@ -172,17 +175,12 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     if (detailsOpen && inspectorScroll.current) inspectorScroll.current.scrollTop = inspectorPositions.current.get(inspectorKey) ?? 0;
   }, [detailsOpen, inspectorKey]);
 
-  const applySnapshot = useCallback((snapshot: UiSnapshot) => {
-    runtime.applySnapshot(snapshot);
-    applyRunSnapshot(snapshot);
-  }, [runtime, applyRunSnapshot]);
-
   const reloadHistory = useCallback(async () => {
     const request = ++historyRequest.current;
-    const primaryId = latestPrimaryId.current;
-    const completedId = latestCompletedPrimaryId.current;
+    const primaryId = runtime.latestPrimaryId();
+    const completedId = runtime.latestCompletedPrimaryId();
     const [page, receipts, identity] = await Promise.all([window.runloom.historyPage(), window.runloom.listRuns().catch(() => null), window.runloom.info()]);
-    if (request !== historyRequest.current || primaryId !== latestPrimaryId.current || completedId !== latestCompletedPrimaryId.current) return;
+    if (request !== historyRequest.current || primaryId !== runtime.latestPrimaryId() || completedId !== runtime.latestCompletedPrimaryId()) return;
     if (page.threadId !== identity.threadId) return;
     if (page.memoryReceiptError) setError(page.memoryReceiptError);
     const messages = page.messages;
@@ -192,8 +190,8 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     // outcomes. Provider tool IDs are not unique across the whole Thread.
     const rows = receipts?.ok ? annotateHistoryTools(rowsFromHistory(messages), receipts.runs, identity.threadId) : rowsFromHistory(messages);
     const withMemory = annotateMemoryReceipts(rows, page.memoryReceipts ?? [], identity.threadId);
-    setStoredHistory({ rows: completedId === null ? withMemory : overlayShellProgress(withMemory, shellBuffer.current), runId: completedId });
-  }, []);
+    setStoredHistory({ rows: completedId === null ? withMemory : overlayShellProgress(withMemory, runtime.shellBuffer()), runId: completedId });
+  }, [runtime]);
 
   const loadOlderHistory = async () => {
     if (!historyBefore || historyLoading) return;
@@ -667,7 +665,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
                 <div className="conversation-thread">
                   {historyBefore ? <button className="secondary" disabled={historyLoading} onClick={() => void loadOlderHistory()}>{historyLoading ? "正在读取…" : "查看更早的对话"}</button> : null}
                   {layout === "zcode" ? <ZCodeConversation rows={rows} onRestoreSteer={restoreSteer} workspaceRoot={info?.workspaceRoot ?? undefined} running={activePrimary} streaming={live.streaming} waitingForApproval={approval !== null} onTrace={(runId, toolCallId) => { openDetails("records"); void openRecord(runId, toolCallId).catch(() => setError("执行追踪读取失败")); }} /> : rows.map(row => <Row key={row.key} row={row} onRestoreSteer={restoreSteer} delivered={delivered.has(row.key)} />)}
-                  {info?.memory.enabled ? <MemoryReferences hideEmpty={layout === "zcode"} refreshToken={contextRefresh} runId={state.kind === "running" && state.phase === "primary" ? state.runId : latestPrimaryId.current} starting={state.kind === "running" && state.phase === "primary" && state.runId === null} /> : null}
+                  {info?.memory.enabled ? <MemoryReferences hideEmpty={layout === "zcode"} refreshToken={contextRefresh} runId={state.kind === "running" && state.phase === "primary" ? state.runId : runtime.latestPrimaryId()} starting={state.kind === "running" && state.phase === "primary" && state.runId === null} /> : null}
                   {layout !== "zcode" && activePrimary && live.streaming ? <div className="row row-text role-assistant live">
                     <span className="role"><SerikaMark size={20} /> Serika <span className="streaming-label">正在回复</span></span>
                     <MessageContent text={live.streaming} />

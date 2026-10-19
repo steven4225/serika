@@ -33,5 +33,5 @@ it("composer sends current Run steer before approval/new-task admission and reta
   assert.match(app, /"停止记忆整理"/);
   assert.match(app, /核对接收状态/);
   assert.match(app, /if \(uncertainSteer !== null\)/);
-  assert.match(app, /message\.runId !== latestPrimaryId\.current/);
+  assert.match(app, /message\.runId !== latestPrimaryId\)/);
 });
