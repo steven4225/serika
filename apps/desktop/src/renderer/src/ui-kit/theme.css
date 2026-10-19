@@ -59,14 +59,10 @@
 .serika-layout .code-block-head, .serika-layout .code-block-head button { color: var(--muted); }
 .serika-layout .row-result { font-size: 12px; color: var(--muted); }
 .serika-layout .action-dock { padding: 12px 32px 16px; background: var(--surface); width: 100%; max-width: 960px; }
-.serika-layout .serika-prompt-editor { width: 100%; min-width: 0; }
-.serika-layout .serika-chat-input { border: 0; outline: none; color: var(--text); background: transparent; width: 100%; font-size: 14px; }
-.serika-layout .serika-chat-input::placeholder { color: var(--muted); }
 .serika-layout .send-button { background: var(--color-primary); color: var(--color-primary-foreground); border-color: transparent; padding: 0; border-radius: 6px; }
 .serika-layout .send-button.task-send { padding-inline: 8px; }
 .serika-layout .send-button:disabled { background: var(--color-secondary); color: var(--muted); }
 .serika-layout .send-button:hover:not(:disabled) { background: var(--color-primary); opacity: .85; border-color: transparent; }
-.serika-composer-notice { margin: 0; font-size: 12px; color: var(--orange); }
 .serika-layout .model-mode-notice { background: var(--sunken); color: var(--muted); font-size: 12px; }
 .serika-layout .attention-region { max-height: 45%; overflow-y: auto; }
 .serika-layout .attention-region .approval { max-width: 896px; margin: 12px auto; }
@@ -96,7 +92,6 @@
 @keyframes serika-spin { to { transform: rotate(360deg); } }
 
 
-.serika-layout .serika-chat-input { height: 56px; min-height: 56px; max-height: 200px; padding: 0; line-height: 1.65; border-radius: 0; overflow-y: auto; resize: none; }
 .serika-prompt-toolbar { display: flex; align-items: flex-end; gap: 12px; min-width: 0; }
 .serika-prompt-leading { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
 .serika-prompt-trailing { display: flex; align-items: center; gap: 10px; min-width: 0; max-width: 55%; }
@@ -119,7 +114,7 @@
 .serika-layout .action-dock .approval .approval-content { max-height: 19vh; }
 @media (hover: none) { .serika-message-actions { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .serika-spinner { animation: none; } .serika-message-actions { transition: none; } }
-@media (max-width: 550px) { .serika-layout .serika-prompt-editor { padding: 10px; } .serika-prompt-trailing { max-width: 75%; } }
+@media (max-width: 550px) { .serika-prompt-trailing { max-width: 75%; } }
 
 @media (min-width: 1128px) {
   .serika-layout .conversation-thread { width: calc(100% - 32px); }

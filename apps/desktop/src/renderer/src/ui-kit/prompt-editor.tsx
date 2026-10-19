@@ -1,27 +1,11 @@
 /*
- * Presentation shell adapted from zai-org/ZCode, 29628c9acdb81b703bbd4080c207a0e7ce5e276e,
+ * Options menu adapted from zai-org/ZCode, 29628c9acdb81b703bbd4080c207a0e7ce5e276e, toolbar structure of
  * packages/ui/src/prompt-editor/ChatPromptEditor.tsx and v4/ConversationComposer.tsx.
  * Copyright 2026 Z.AI Co., Ltd. Apache-2.0; third-party/zcode/NOTICE.md.
- * Modified by Serika: existing textarea/IME/draft and controller callbacks,
- * no Lexical, mentions, queue, account or upstream services. Attachments belong to the host.
+ * The adapted input shell (SerikaPromptEditor, upstream/chat-prompt-shell.tsx) was removed as unused.
  */
-import React, { useEffect, useLayoutEffect, useRef, type ReactNode, type RefObject, type TextareaHTMLAttributes } from "react";
+import React, { useEffect, useRef, type ReactNode } from "react";
 import { Icon } from "../icons.js";
-import { ChatPromptShell } from "./upstream/chat-prompt-shell.js";
-
-export function SerikaPromptEditor({ inputRef, value, topContent, notice, leadingActions, submitControl, hidden, ...inputProps }: Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "value" | "hidden"> & {
-  inputRef: RefObject<HTMLTextAreaElement | null>; value: string; topContent?: ReactNode;
-  notice?: string | null; leadingActions: ReactNode; submitControl: ReactNode; hidden?: boolean;
-}) {
-  useLayoutEffect(() => {
-    const input = inputRef.current;
-    if (!input || hidden) return;
-    input.style.height = "0px";
-    input.style.height = `${Math.min(200, Math.max(56, input.scrollHeight))}px`;
-  }, [value, hidden, inputRef]);
-  return <ChatPromptShell hidden={hidden ?? false} topContent={<>{topContent}{notice ? <p className="serika-composer-notice" role="status">{notice}</p> : null}</>} leadingActions={leadingActions} submitControl={submitControl}
-    input={<textarea {...inputProps} className="serika-chat-input" ref={inputRef} value={value} rows={2} />} />;
-}
 
 export function SerikaPromptOptions({ children }: { children: ReactNode }) {
   const menu = useRef<HTMLDetailsElement | null>(null);

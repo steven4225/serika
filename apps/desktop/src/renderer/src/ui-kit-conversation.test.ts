@@ -5,7 +5,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { annotateMemoryReceipts, rowsFromHistory, type ConversationRow, type ToolRow } from "./conversation.js";
 import { conversationTurns, workSummary } from "./ui-kit/conversation-data.js";
 import { PersonalConversation } from "./personal/conversation.js";
-import { SerikaPromptEditor, SerikaPromptOptions } from "./ui-kit/prompt-editor.js";
 
 const user: ConversationRow = { kind: "text", role: "user", key: "u1", text: "改一下计划", committed: true };
 const tool: ToolRow = { kind: "tool", key: "t1", toolCallId: "t1", toolName: "edit_file", status: "ok", receipt: { kind: "file", path: "notes/plan.md", bytes: 18 } };
@@ -81,30 +80,4 @@ it("preserves completion reasons, system messages and multiple user turns", () =
   assert.match(markup, /第二轮/);
 });
 
-it("ported composer retains real controls and escaped drafts without inert attachments", () => {
-  const markup = renderToStaticMarkup(createElement(SerikaPromptEditor, {
-    inputRef: { current: null }, value: "<script>draft</script>", "aria-label": "消息输入", onChange: () => {},
-    leadingActions: createElement(SerikaPromptOptions, {}, createElement("button", { type: "button" }, "创建工作任务")),
-    submitControl: createElement("button", { type: "button", "aria-label": "停止本轮" }, "停止"),
-  }));
-  assert.match(markup, /&lt;script&gt;draft&lt;\/script&gt;/);
-  assert.match(markup, /aria-label="更多操作"/);
-  assert.match(markup, /创建工作任务/);
-  assert.match(markup, /aria-label="停止本轮"/);
-  assert.doesNotMatch(markup, /添加附件|上传文件|<script>/);
-  assert.doesNotMatch(markup, /composer-notice|composer-hint|操作前确认|Enter 发送/);
-});
-
-it("shows actionable task feedback inside the composer instead of an always-present instruction footer", () => {
-  const markup = renderToStaticMarkup(createElement(SerikaPromptEditor, {
-    inputRef: { current: null }, value: "保留的草稿", "aria-label": "本轮任务指令", disabled: true,
-    notice: "任务已切换，原草稿仍保留。重新选择任务，或切回普通对话。",
-    leadingActions: null, submitControl: createElement("button", { disabled: true }, "继续此任务"),
-  }));
-  assert.match(markup, /class="serika-composer-notice" role="status"/);
-  assert.match(markup, /重新选择任务/);
-  assert.match(markup, /保留的草稿/);
-  assert.match(markup, /disabled=""/);
-  assert.doesNotMatch(markup, /composer-hint|操作前确认|Enter 发送/);
-});
 
