@@ -6,6 +6,7 @@
 
 - `packages/assistant/src/__baseline__/hashes.json`（`baseline-hashes.test.ts`）：「样例」列为「hashes.json」的条目。
 - `apps/desktop/src/main/__baseline__/desktop-paths.txt`（`baseline-paths.test.ts`）：「样例」列为「desktop-paths.txt」的条目。
+- `apps/desktop/src/main/__baseline__/desktop-hashes.json`（`baseline-hashes.test.ts`，第 3 步之后补）：「样例」列为「desktop-hashes.json」的条目。
 
 | hash | 位置 | 输入与格式 | 落在哪里 | 样例 |
 |---|---|---|---|---|
@@ -31,7 +32,7 @@
 | task worker label | `task-worker-service.ts` | `dev.runloom.task-worker.<sha256(workspace)[:20]>` | launchd plist 文件名 | hashes.json |
 | 常驻服务 | 桌面 `resident-service.ts` | `sha256(workspace)[:20]` | label、socket 目录、状态目录 | desktop-paths.txt |
 | 显式启动身份 | 桌面 `desktop-identity.ts` | `sha256(JSON[configPath, workspaceRoot, explicitDirectory])[:24]` | Thread `desktop-explicit-<key>`、`transcripts/explicit-<key>` | desktop-paths.txt |
-| 草稿作用域 | 桌面 `conversation-draft-store.ts` | `sha256(JSON[workspaceRoot, directory, threadId])` | `conversation-drafts.json` 的键 | **未加样例**：内部函数；见 `pending.md` |
-| Telegram 归档 | 桌面 `telegram-store.ts` | `sha256(key)` + `.json` | `telegram-archive/` 文件名 | **未加样例**：内部函数；见 `pending.md` |
-| 备份条目 | 桌面 `backup.ts` | 条目文本 `sha256`，以及源文件指纹 | 备份归档 | **未加样例**：现有 `backup.test.ts` 覆盖往返，未锁定字面值；见 `pending.md` |
+| 草稿作用域 | 桌面 `conversation-draft-store.ts` | `sha256(JSON[workspaceRoot, directory, threadId])` | `conversation-drafts.json` 的键 | desktop-hashes.json：`saveDraft` 后读文件里的键 |
+| Telegram 归档 | 桌面 `telegram-store.ts` | `sha256(key)` + `.json` | `telegram-archive/` 文件名 | desktop-hashes.json：写满的旧日志再写一次触发归档，读 `telegram-archive/inputs/` 里 key 为 `42:0` 的文件名 |
+| 备份条目 | 桌面 `backup.ts` | 条目文本 `sha256`，以及源文件指纹 | 备份归档 | desktop-hashes.json：`exportBackup` 写出的归档里 `entries[].sha256`。源文件指纹是读备份时对整个文件字节算的 `sha256`，只在预览和恢复之间核对、不写进任何文件，不加样例 |
 | 构建身份 | 桌面 `build-identity.ts` | `sha256` 截前 16 位 | 构建信息（不跨版本比较） | 不需要：不是持久数据 |
