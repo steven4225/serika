@@ -79,7 +79,7 @@ function useRuntime<T>(select: (state: RuntimeState) => T): T; // useSyncExterna
 | 1c | `homeSnapshot`、`info` | |
 | 1d | `memoryRefresh`、`contextRefresh`、`taskRefresh` | |
 | 2 | 当前这轮 + 补充要求（`usePrimaryRun`、`useSteerReceipts` 变成 store 的一部分） | 1.5 天 |
-| 3 前 | 补 `edit_file` / `write_file` 预览的金样例，覆盖两条路径：历史（`rowsFromHistory` + `annotateHistoryTools`）和运行事件（`applyEvent`，第 2 步起由 `app/runtime-store.ts` 的 `onRunEvent` 调用，原来在 `primary-run.ts`）。现在 `fileChange` 只在 `conversation.test.ts`、`personal-conversation.test.ts` 里各出现 1 次 | 含在第 3 步内 |
+| 3 前 | 补 `edit_file` / `write_file` 预览的金样例，覆盖两条路径：历史（`rowsFromHistory` + `annotateHistoryTools`）和运行事件（`applyEvent`，第 2 步起由 `app/runtime-store.ts` 的 `onRunEvent` 调用，原来在 `primary-run.ts`）。原来 `fileChange` 只在 `conversation.test.ts`、`personal-conversation.test.ts` 里各出现 1 次。已补 `tool-preview-golden.test.ts`：同一次调用分别走运行事件（经 store）和历史两条路径，除 `key`、`historical` 外逐字段相等、三种布局的 HTML 只差「本次调用 / 历史记录」；已知差异（宿主拒绝或输入无效时，运行中 `detail` 只有 message 且带 `errorCode`，历史里 `detail` 是 `CODE: message`、没有 `errorCode`）按现状写进用例，未改。第 3 步开工前请审查者确认覆盖范围 | 含在第 3 步内 |
 | 3 | 历史读取、执行记录、对话列表（带各自的请求计数） | 2～2.5 天 |
 | 4 | 启动顺序搬进 `start()`，`AssistantPage` 的订阅 effect 只剩 `store.start()` / `store.dispose()` | 1.5～2 天 |
 
