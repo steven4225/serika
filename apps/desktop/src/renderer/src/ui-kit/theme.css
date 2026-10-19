@@ -27,36 +27,7 @@
 .serika-layout [data-slot="button"][data-variant="ghost"] { background: transparent; border-color: transparent; }
 .serika-layout [data-slot="button"][data-variant="ghost"]:hover:not(:disabled) { background: var(--color-hover); border-color: transparent; }
 .serika-layout [data-slot="button"]:focus-visible { outline: 2px solid var(--color-brand); outline-offset: 2px; }
-.serika-sidebar { width: 264px; flex: none; padding: 0 0 8px; background: var(--color-background-win-alt); }
-:root[data-native-window-controls="macos"] .app.serika-layout .serika-sidebar { padding-top: 0; }
-.serika-window-spacer { -webkit-app-region: drag; }
-.serika-navigation { margin: 0; padding-top: 12px; }
-.serika-nav-item { width: 100%; justify-content: flex-start; gap: 8px; font-size: 14px; text-align: left; }
-.serika-nav-item > span { flex: 1; text-align: left; }
 .serika-layout button.selected { background: var(--color-selected); }
-.serika-nav-count { margin-left: auto; font-size: 11px; color: var(--orange); }
-.serika-history { flex: 1; min-height: 0; display: flex; flex-direction: column; margin: 20px 10px 0; }
-.serika-history-heading { display: flex; align-items: center; justify-content: space-between; padding: 0 10px 6px; font-size: 12px; color: var(--muted); }
-.serika-history-search { padding: 0 0 8px; }
-.serika-history-search input { width: 100%; min-width: 0; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; color: var(--text); background: var(--panel); font-size: 13px; }
-.serika-history-search input:focus-visible { outline: 2px solid var(--color-brand); }
-.serika-thread-list { flex: 1; min-height: 0; overflow: auto; scrollbar-width: thin; }
-.serika-thread-list p, .serika-busy-note { padding: 6px 10px; margin: 0; font-size: 12px; color: var(--muted); }
-.serika-thread { width: 100%; justify-content: flex-start; gap: 6px; text-align: left; font-size: 14px; }
-.serika-thread > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.serika-thread small { color: var(--muted); font-size: 11px; flex: none; }
-.serika-utilities { padding: 8px 10px; display: grid; gap: 2px; }
-.serika-sidebar-footer { position: relative; display: flex; align-items: center; gap: 3px; padding: 8px 12px 0; }
-.serika-profile { min-width: 0; flex: 1; height: 38px; justify-content: flex-start; gap: 8px; padding-inline: 0; }
-.serika-profile > span { min-width: 0; text-align: left; }
-.serika-profile strong { display: block; font-size: 13px; font-weight: 500; line-height: 1.35; }
-.serika-profile small { display: block; font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; max-width: 105px; }
-.serika-return { display: none; }
-.serika-settings > summary { display: flex; justify-content: center; align-items: center; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; list-style: none; }
-.serika-settings > summary::-webkit-details-marker { display: none; }
-.serika-settings > summary:hover { background: var(--color-hover); }
-.serika-settings-menu { position: absolute; left: 10px; bottom: 52px; width: 230px; padding: 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); z-index: 20; box-shadow: 0 8px 24px #0003; }
-.serika-settings-menu button { width: 100%; justify-content: flex-start; height: 32px; }
 .serika-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 /* The native window owns its outer corners. Do not inset a second rounded
  * panel: that exposes the gray root surface along the top/right/bottom. */
@@ -116,48 +87,13 @@
 .serika-layout .memory-filters .chip.active { border-color: var(--line-strong); }
 /* ZCode ConversationTurnGroup / ToolSummaryRow / ChatPromptEditor presentation. */
 .serika-layout .conversation-thread { gap: 20px; }
-.serika-turn { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-.serika-turn + .serika-turn { margin-top: 8px; }
-.serika-text { min-width: 0; }
-.serika-text.is-user { padding-top: 8px; }
-.serika-text.is-user .serika-message-content { max-width: 90%; }
-.serika-text.is-user pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
-.serika-text.role-system { color: var(--muted); font-size: 12px; }
-.serika-layout .serika-text .message-content { line-height: 1.75; }
 .serika-message-actions { display: flex; align-items: center; gap: 4px; min-height: 26px; color: var(--muted); opacity: 0; transition: opacity .15s; margin-top: -10px; }
-.serika-turn:hover .serika-message-actions, .serika-turn:focus-within .serika-message-actions { opacity: 1; }
 .serika-message-actions .icon-button { width: 26px; height: 26px; border-radius: 5px; color: var(--muted); }
 .serika-message-actions > span { font-size: 11px; }
-.serika-work { min-width: 0; color: var(--muted); }
-.serika-work > summary { display: flex; align-items: center; gap: 7px; min-height: 28px; padding-bottom: 7px; border-bottom: 1px solid var(--line); cursor: pointer; list-style: none; font-size: 12px; }
-.serika-work > summary::-webkit-details-marker, .serika-tool > summary::-webkit-details-marker, .serika-prompt-options > summary::-webkit-details-marker { display: none; }
-.serika-work > summary > svg { transition: transform .15s; flex: none; }
-.serika-work[open] > summary > svg { transform: rotate(90deg); }
-.serika-work.needs-attention > summary { color: var(--orange); }
-.serika-work-content { display: flex; flex-direction: column; gap: 16px; padding-top: 16px; }
-.serika-tool { min-width: 0; font-size: 12px; }
-.serika-tool > summary { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; width: fit-content; max-width: 100%; min-height: 26px; list-style: none; cursor: pointer; border-radius: 5px; padding: 3px 4px; margin-left: -4px; }
-.serika-tool > summary:hover { background: var(--accent-soft); }
-.serika-tool > summary > svg { flex: none; color: var(--muted); }
-.serika-tool > summary > svg:last-child { opacity: .4; transition: transform .15s, opacity .15s; }
-.serika-tool[open] > summary > svg:last-child { transform: rotate(90deg); opacity: 1; }
-.serika-tool-name { color: var(--muted); white-space: nowrap; }
-.serika-tool-path { color: var(--text); min-width: 0; font-size: 12px; overflow-wrap: anywhere; }
-.serika-tool-status { color: var(--muted); font-size: 11px; }
-.serika-tool:is(.status-unknown,.status-incomplete,.status-dispatched,.status-timed_out,.status-denied) .serika-tool-status { color: var(--orange); }
-.serika-tool.status-failed .serika-tool-status { color: var(--red); }
-.serika-tool-body { margin: 8px 0 0 22px; padding-left: 12px; border-left: 1px solid var(--line); overflow-wrap: anywhere; }
-.serika-tool-body > code { color: var(--muted); font-size: 11px; }
-.serika-tool-body > p { margin: 5px 0; line-height: 1.65; }
-.serika-tool-body .shell-stream { background: var(--sunken); color: var(--text); }
-.serika-completion { display: flex; gap: 8px; align-items: baseline; color: var(--muted); font-size: 12px; line-height: 1.6; }
-.serika-completion svg { flex: none; }
-.serika-completion:is(.status-failed,.status-timed_out) { color: var(--red); }
+.serika-prompt-options > summary::-webkit-details-marker { display: none; }
 .serika-loading { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
 .serika-spinner { display: block; width: 14px; height: 14px; border: 1.5px solid #d5d5d5; border-top-color: var(--muted); border-radius: 50%; animation: serika-spin 1s linear infinite; }
 @keyframes serika-spin { to { transform: rotate(360deg); } }
-.serika-back-to-bottom { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); width: 33px; height: 33px; padding: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 50%; box-shadow: 0 2px 8px #0000000d; z-index: 2; }
-.serika-new-output { position: absolute; top: -1px; right: -1px; width: 7px; height: 7px; border-radius: 50%; background: var(--text); border: 1px solid var(--panel); }
 
 
 .serika-layout .serika-chat-input { height: 56px; min-height: 56px; max-height: 200px; padding: 0; line-height: 1.65; border-radius: 0; overflow-y: auto; resize: none; }
@@ -182,24 +118,13 @@
 .serika-layout .action-dock .approval { width: 100%; margin: 0 auto; max-height: min(320px,38vh); }
 .serika-layout .action-dock .approval .approval-content { max-height: 19vh; }
 @media (hover: none) { .serika-message-actions { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .serika-spinner { animation: none; } .serika-message-actions, .serika-work > summary > svg, .serika-tool > summary > svg:last-child { transition: none; } }
-@media (max-width: 550px) { .serika-layout .serika-prompt-editor { padding: 10px; } .serika-prompt-trailing { max-width: 75%; } .serika-tool > summary { gap: 5px; } }
+@media (prefers-reduced-motion: reduce) { .serika-spinner { animation: none; } .serika-message-actions { transition: none; } }
+@media (max-width: 550px) { .serika-layout .serika-prompt-editor { padding: 10px; } .serika-prompt-trailing { max-width: 75%; } }
 
 @media (min-width: 1128px) {
   .serika-layout .conversation-thread { width: calc(100% - 32px); }
 }
 @media (max-width: 800px) {
-  .serika-sidebar { width: 64px; }
-  .serika-navigation { padding-inline: 8px; }
-  .serika-nav-item { justify-content: center; padding-inline: 0; position: relative; }
-  .serika-navigation > button:first-child { padding-inline: 0; justify-content: center; }
-  .serika-navigation > button:first-child > div { justify-content: center; }
-  .serika-nav-item > span, .serika-navigation > button:first-child span, .serika-history, .serika-profile { display: none; }
-  .serika-nav-count { position: absolute; right: 0; top: 0; }
-  .serika-utilities { margin-top: auto; padding-inline: 8px; }
-  .serika-sidebar-footer { flex-direction: column; padding-inline: 8px; }
-  .serika-return { display: inline-flex; }
-  .serika-settings-menu { left: 52px; bottom: 0; }
   .serika-layout .header { padding-inline: 16px; }
   .serika-layout .action-dock, .serika-layout .rows { padding-inline: 16px; }
 }

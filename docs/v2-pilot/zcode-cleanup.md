@@ -7,6 +7,7 @@
 - 之后 `scripts/ui-snapshots/compare.sh` 加了白名单：HTML 里的入口标签 `<script type="module" src="./src/<名字>-preview.tsx">` 不参与比对。用它对比 37d7707 快照（只把文件名 `zcode_preview_html` 换成 `shell_preview_html`，内容不动）和改名后的快照：compared=138 diffs=0。
 - 已做：删死代码（`ui-kit/conversation.tsx`、`sidebar.tsx`、`appearance.ts`、`upstream/chat-loading.tsx`、`upstream/new-task-button.tsx`）；只测死组件渲染的用例删除，数据层断言保留，渲染断言能换到 `PersonalConversation` / `PersonalTool` 的换过去（逐条见该提交说明）。`personal/conversation.tsx` 里沿用旧 `ui-kit/conversation.tsx` 的展示，署名移到它的文件头和 NOTICE。
 - 已做：改类名和布局值：`zcode-*` 类名 → `serika-*`（`serika-zcode-shell` → `serika-shell`），布局值 `"zcode"` → `"serika"`，组件名 `ZCode*` → `Serika*`。`.theme-zai-*`、`upstream/` 不动；预览示例的 threadId `zcode-preview-plan` 不动（在调用记录里）。验收：`scripts/ui-snapshots/check-class-rename.sh 改名前目录 改名后目录 改名前提交`。
+- 已做：删 `ui-kit/theme.css` 里只属于已删组件的样式：选择器里含有只在已删组件里出现、别处都不再引用的类（29 个，如 `serika-sidebar`、`serika-turn`、`serika-tool`）的，删掉该选择器；整条规则或整个 `@media` 块的选择器都删光了就整条删。别处还在用的类、动态拼接的类（`status-*`、`tone-*`、`serika-layout`）不动。验收：138 项快照 0 差异。
 - 已定：保留改编实现，不重写。
 
 ## 1. 来历
