@@ -29,7 +29,7 @@
 | | 进行中的动作：`sending`、`submittedInput`、`switchingThread` | | 滚动位置相关的 ref |
 
 - `canSteer` 不进第一批：结果消息（276 行）和启动时的快照（341 行）都写它，它属于当前这轮，跟 `usePrimaryRun` 一起在第 2 步搬。
-- 第 2 步：`createRuntimeStore({ bridge: () => window.runloom, onError: setError })`。bridge 在调用时才读 `window.runloom`（和原来内联代码一样）；`error` 仍不在 store 里，最终回执读取失败的提示经 `onError` 交给 `App` 的 `setError`，文案不变。`latestPrimaryId`、`latestCompletedPrimaryId`、Shell 缓冲是 store 内部的普通字段，`App` 用访问器读（`runtime.latestPrimaryId()` 等）。
+- 第 2 步：`createRuntimeStore({ bridge: () => window.runloom, onError: setError })`。bridge 在调用时才读 `window.runloom`（和原来内联代码一样）；`error` 当时仍不在 store 里，最终回执读取失败的提示经 `onError` 交给 `App` 的 `setError`，文案不变。（第 4 步之后 `error` 已进 store、`onError` 选项已删，见第 6 节第 3 条。）`latestPrimaryId`、`latestCompletedPrimaryId`、Shell 缓冲是 store 内部的普通字段，`App` 用访问器读（`runtime.latestPrimaryId()` 等）。
 - `approval` 进 store；`decidingId` 和防重复点击的 ref 留在 `useApproval`，`decide` 改为从 store 读 `approval`。
 - 已知接缝：`applySnapshot`（178–183 行）同时写 `state` / `approval` / `output` 和当前这轮的快照（`applyRunSnapshot`）。当前这轮归第 2 步，所以第 1 步里 `applySnapshot` 仍是一个函数：内部写 store，再调 `applyRunSnapshot`。第 2 步起 `applySnapshot` 只是 store 的一个方法，一次写完这些字段、只通知一次。
 - 第 1 步做完，`AssistantPage` 里的运行时 `useState` 从 29 个降到 22 个（另加 1 个只持有 store 实例），`useApproval` 从 2 个降到 1 个。
@@ -91,5 +91,10 @@ function useRuntime<T>(select: (state: RuntimeState) => T): T; // useSyncExterna
 1. 按这个计划做 store；第一批按第 2 节的切分规则一次搬完，拆成 1a–1d 四个提交。
 2. 手写 store + `useSyncExternalStore`，不引入库。
 3. `error` 不进第一批（消息和界面动作混写）；`automationRefresh`、`reconnecting` 同样不进第一批。它们放到哪一步、界面写入怎么接，到时再定。
+   第 4 步之后已搬（3 个提交）：
+   - `error`：store 字段 + `setError(message | null)`。store 自己的失败直接写这个字段，`RuntimeStoreOptions.onError` 删掉；`App` 的几十处 `setError` 调用和传给各 hook 的参数原样不动，`setError` 取自 `runtime.setError`。
+   - `reconnecting`：store 字段 + 动作 `retryConnection()`（原来 App 里的防重入、调用 `retryConnection`、失败文案、finally 清标志原样搬进去）。防重入改为读 store 当前值，不再读渲染时的闭包。
+   - `automationRefresh`：store 字段 + `refreshAutomation()`；界面上的两处写入（`TaskInbox` 的 `onResultsRead`、`SavedTaskNotice` 的 `onDismiss`）改为调它，消息不写它（实际代码里本来就没有消息写它）。
+   搬完后 `AssistantPage` 里第 2 节「不进第一批，归属另定」这一列已全部在 store 里。
 4. D 的「拆启动顺序和历史读取」并入第 3、4 步，预算上调到合计 6～7.5 天。
 5. 工具标签和图标（`approval.tsx` 的 `TOOL_LABELS` 等）这次不动。

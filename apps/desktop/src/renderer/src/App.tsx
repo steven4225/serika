@@ -123,7 +123,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const memoryRefresh = useRuntime(runtime, runtimeState => runtimeState.memoryRefresh);
   const contextRefresh = useRuntime(runtime, runtimeState => runtimeState.contextRefresh);
   const taskRefresh = useRuntime(runtime, runtimeState => runtimeState.taskRefresh);
-  const [automationRefresh, setAutomationRefresh] = useState(0);
+  const automationRefresh = useRuntime(runtime, runtimeState => runtimeState.automationRefresh);
   const [creatingTask, setCreatingTask] = useState(false);
   const [createTaskRequest, setCreateTaskRequest] = useState(0);
   const [taskDraft, setTaskDraft] = useState("");
@@ -503,7 +503,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
           <button className="icon-button personal-new-chat" type="button" aria-label="新对话" title="新对话；保留当前草稿" disabled={busy || sending || switchingThread || !info} onClick={() => void newConversation()}><Icon name="new-chat" /></button>
         </header>
         {isMockModel(info?.modelAlias) || info?.entryMode === "test" ? <div className="model-mode-notice" role="status">{info?.entryMode === "test" ? "隔离测试 · 会话和记忆不属于日用工作区。" : ""}{isMockModel(info?.modelAlias) ? "模拟模型，不会调用真实模型。" : ""}</div> : null}
-        {info ? <SavedTaskNotice key={`${info.configPath}:${info.workspaceRoot}`} enabled={!!info.workspaceRoot} workspaceRoot={info.workspaceRoot ?? ""} refreshSequence={automationRefresh} onDismiss={() => setAutomationRefresh(value => value + 1)} onOpen={taskId => {
+        {info ? <SavedTaskNotice key={`${info.configPath}:${info.workspaceRoot}`} enabled={!!info.workspaceRoot} workspaceRoot={info.workspaceRoot ?? ""} refreshSequence={automationRefresh} onDismiss={() => runtime.refreshAutomation()} onOpen={taskId => {
           const workspaceRoot = info.workspaceRoot;
           if (!workspaceRoot) return;
           setTaskResultFocus(previous => ({ taskId, workspaceRoot, sequence: (previous?.sequence ?? 0) + 1 }));
@@ -637,7 +637,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
               <div hidden={detailTab !== "reminders"}>
                 <RemindersPanel enabled={!!info?.workspaceRoot} busy={busy} identity={`${info?.configPath ?? ""}:${info?.workspaceRoot ?? ""}`} refreshSequence={automationRefresh} />
                 {detailTab === "reminders" && info ? <details className="task-arrangements"><summary>管理定时安排与订阅</summary><div className="task-arrangements-body"><AutomationPanel busy={busy} identity={`${info.workspaceRoot}:${info.threadId}`} refreshSequence={automationRefresh} onRun={runId => { openDetails("records"); void openRecord(runId); }} /><RssPanel key={info.workspaceRoot ?? "no-workspace"} showInbox={false} enabled={!!info.workspaceRoot && info.modules?.some(module => module.id === "task" && module.enabled) === true} busy={busy} /></div></details> : null}
-                <TaskInbox key={`${info?.configPath}:${info?.workspaceRoot}`} enabled={!!info?.workspaceRoot} canAcknowledge={info?.modules?.some(m => m.id === "task" && m.enabled) === true} busy={busy} onResultsRead={() => setAutomationRefresh(value => value + 1)} onResultOpened={task => {
+                <TaskInbox key={`${info?.configPath}:${info?.workspaceRoot}`} enabled={!!info?.workspaceRoot} canAcknowledge={info?.modules?.some(m => m.id === "task" && m.enabled) === true} busy={busy} onResultsRead={() => runtime.refreshAutomation()} onResultOpened={task => {
                   if (info?.workspaceRoot) createTaskNoticeDismissals(window.localStorage, info.workspaceRoot).dismiss(task);
                 }} focus={taskResultFocus?.workspaceRoot === info?.workspaceRoot ? taskResultFocus : null} />
               </div>

@@ -73,7 +73,7 @@ test("runtime store starts from the values AssistantPage used to start with", ()
     live: emptyLiveRun, lastResult: null, canSteer: false, finalRecord: null, steers: [], uncertainSteer: null,
     history: { rows: [], runId: null }, historyBefore: null, historyLoading: false,
     records: { status: "loading" }, recordDetail: { status: "idle" }, traceFocusTool: null,
-    conversationTitle: "当前对话", threads: [], threadsRefresh: 0, error: null, reconnecting: false,
+    conversationTitle: "当前对话", threads: [], threadsRefresh: 0, error: null, reconnecting: false, automationRefresh: 0,
   });
   assert.equal(store.getState(), initialRuntimeState);
   assert.equal(store.getState().live, emptyLiveRun);
@@ -792,4 +792,14 @@ test("retryConnection: one retry at a time, the flag clears when it settles, and
   retries.shift()!.reject(new Error("closed"));
   await failing;
   assert.deepEqual([calls, store.getState().reconnecting, store.getState().error], [2, false, "连接恢复失败。请修正配置后重试；不会重放之前的任务。"]);
+});
+
+test("refreshAutomation: each call bumps automationRefresh once and notifies once; messages leave it alone", () => {
+  const { store, notifications } = watched();
+  store.refreshAutomation();
+  store.refreshAutomation();
+  assert.deepEqual([store.getState().automationRefresh, notifications()], [2, 2]);
+  store.receive({ type: "state", state: { kind: "idle" } });
+  store.receive({ type: "work-task-updated" } as MainToRenderer);
+  assert.equal(store.getState().automationRefresh, 2);
 });

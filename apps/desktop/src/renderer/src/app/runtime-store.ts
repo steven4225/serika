@@ -102,6 +102,11 @@ export interface RuntimeState {
   readonly error: string | null;
   /** The runtime-recovery banner's "重新连接" is in flight (was App's `reconnecting`). */
   readonly reconnecting: boolean;
+  /**
+   * Asks the automation panels (saved-task notice, today's brief feeds, reminders, schedules, skills) to reread
+   * after the task inbox's results are read or a saved-task notice is dismissed (was App's `automationRefresh`).
+   */
+  readonly automationRefresh: number;
 }
 
 export interface RuntimeStore {
@@ -176,6 +181,8 @@ export interface RuntimeStore {
   setError(message: string | null): void;
   /** The "重新连接" button: one retry at a time; a failure shows the banner. Resolves when the retry settles. */
   retryConnection(): Promise<void>;
+  /** Bump `automationRefresh` (TaskInbox `onResultsRead`, SavedTaskNotice `onDismiss`). */
+  refreshAutomation(): void;
 }
 
 export interface RuntimeStoreOptions {
@@ -208,6 +215,7 @@ export const initialRuntimeState: RuntimeState = {
   threadsRefresh: 0,
   error: null,
   reconnecting: false,
+  automationRefresh: 0,
 };
 
 /** Pure: the next state for one message, or the same object when the message does not touch these fields. */
@@ -485,6 +493,7 @@ export function createRuntimeStore({ bridge }: RuntimeStoreOptions, initial: Run
       catch { onError("连接恢复失败。请修正配置后重试；不会重放之前的任务。"); }
       finally { patch({ reconnecting: false }); }
     },
+    refreshAutomation: () => patch({ automationRefresh: current.automationRefresh + 1 }),
 
     start(host) {
       const mine = ++session;
