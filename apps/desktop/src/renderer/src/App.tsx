@@ -43,7 +43,7 @@ import { ApprovalCard } from "./approval.js";
 import { useApproval } from "./app/use-approval.js";
 import { shouldSubmitComposer, canSubmitComposer, canSteerComposer } from "../../shared/composer.js";
 import { steerFailureLabel } from "../../shared/steer.js";
-import { Icon, SerikaMark, SerikaPersona, type IconName } from "./icons.js";
+import { Icon, SerikaMark, SerikaPersona } from "./icons.js";
 import { MessageContent } from "./markdown.js";
 import { CapabilitiesPanel } from "./capabilities.js";
 import { TelegramPanel } from "./telegram-panel.js";
@@ -590,7 +590,6 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const attention = attentionKind({ approval: approval !== null, unknownRuns: unknownRuns.length || (reviewTask ? 1 : 0), pendingMemory: 0, idle: !busy });
   const status = headerStatus(state, attention);
   const stageLabel = info?.runtimeRecovery ? "连接已停止" : info ? status.label : error ? "连接失败" : "正在连接";
-  const refreshMemory = useCallback(() => setMemoryRefresh(value => value + 1), []);
   const threadDrafts = new Map(threads.flatMap(thread => {
     const draft = drafts.get(draftKey({ workspaceRoot: info?.workspaceRoot ?? null, directory: thread.transcriptDirectory, threadId: thread.threadId }));
     return draft?.text ? [[thread.threadId, draft.text] as const] : [];
