@@ -44,8 +44,8 @@ import { unreconciledRuns, taskSelectionKey, taskActions } from "./work-task-dat
 import { bindTaskComposer, draftKey, type ConversationDraft } from "./navigation.js";
 import { MemorySetup } from "./daily-setup-panel.js";
 import { desktopLayout, type DesktopLayout } from "./ui-kit/layout.js";
-import { PersonalConversation as SerikaConversation, PersonalBackToBottom as SerikaBackToBottom } from "./personal/conversation.js";
-import { PersonalPromptEditor as SerikaPromptEditor, PersonalPromptOptions as SerikaPromptOptions } from "./personal/composer.js";
+import { PersonalConversation, PersonalBackToBottom } from "./personal/conversation.js";
+import { PersonalPromptEditor, PersonalPromptOptions } from "./personal/composer.js";
 import { TodayPanel } from "./personal/today.js";
 import { TasksHome } from "./personal/tasks-page.js";
 import { nextComposerText, nextTaskInstruction, type TaskComposerHandoff } from "./personal/tasks-model.js";
@@ -539,7 +539,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
                 </div> : null}
                 <div className="conversation-thread">
                   {historyBefore ? <button className="secondary" disabled={historyLoading} onClick={() => void loadOlderHistory()}>{historyLoading ? "正在读取…" : "查看更早的对话"}</button> : null}
-                  {layout === "serika" ? <SerikaConversation rows={rows} onRestoreSteer={restoreSteer} workspaceRoot={info?.workspaceRoot ?? undefined} running={activePrimary} streaming={live.streaming} waitingForApproval={approval !== null} onTrace={(runId, toolCallId) => { openDetails("records"); void openRecord(runId, toolCallId).catch(() => setError("执行追踪读取失败")); }} /> : rows.map(row => <Row key={row.key} row={row} onRestoreSteer={restoreSteer} delivered={delivered.has(row.key)} />)}
+                  {layout === "serika" ? <PersonalConversation rows={rows} onRestoreSteer={restoreSteer} workspaceRoot={info?.workspaceRoot ?? undefined} running={activePrimary} streaming={live.streaming} waitingForApproval={approval !== null} onTrace={(runId, toolCallId) => { openDetails("records"); void openRecord(runId, toolCallId).catch(() => setError("执行追踪读取失败")); }} /> : rows.map(row => <Row key={row.key} row={row} onRestoreSteer={restoreSteer} delivered={delivered.has(row.key)} />)}
                   {info?.memory.enabled ? <MemoryReferences hideEmpty={layout === "serika"} refreshToken={contextRefresh} runId={state.kind === "running" && state.phase === "primary" ? state.runId : runtime.latestPrimaryId()} starting={state.kind === "running" && state.phase === "primary" && state.runId === null} /> : null}
                   {layout !== "serika" && activePrimary && live.streaming ? <div className="row row-text role-assistant live">
                     <span className="role"><SerikaMark size={20} /> Serika <span className="streaming-label">正在回复</span></span>
@@ -549,7 +549,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
                   <div ref={conversationEnd} />
                 </div>
               </div>
-              {layout === "serika" && awayFromLatest ? <SerikaBackToBottom unread={unreadOutput} onClick={() => { scrollToLatest(); setAwayFromLatest(false); }} /> : layout !== "serika" && unreadOutput ? <button className="latest-button" onClick={scrollToLatest}><Icon name="arrow" size={14} style={{ transform: "rotate(180deg)" }} />最新消息</button> : null}
+              {layout === "serika" && awayFromLatest ? <PersonalBackToBottom unread={unreadOutput} onClick={() => { scrollToLatest(); setAwayFromLatest(false); }} /> : layout !== "serika" && unreadOutput ? <button className="latest-button" onClick={scrollToLatest}><Icon name="arrow" size={14} style={{ transform: "rotate(180deg)" }} />最新消息</button> : null}
               {showOutput ? <div className="system-output"><div><Icon name="terminal" size={16} /><span>系统输出 · 仅供诊断</span><button className="icon-button" aria-label="关闭系统输出" onClick={() => setShowOutput(false)}><Icon name="close" size={16} /></button></div><pre className="output">{output || "暂无输出"}</pre></div> : null}
             </section>
           </main>
@@ -567,7 +567,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
           {workTasks.draftError ? <div className="error error-banner" role="alert"><span>{workTasks.draftError}</span><button className="ghost" type="button" onClick={workTasks.retryDrafts}>重试任务草稿保存</button></div> : null}
           {uncertainSteer ? <UncertainSteerNotice steer={uncertainSteer} busy={busy} onRecheck={() => void recheckSteer()} onRelease={() => void releaseSteer()} /> : null}
           {approval ? <ApprovalCard approval={approval} deciding={decidingId === approval.approvalId} onDecision={(decision, remember) => void decide(decision, remember === true)} /> : null}
-          <SerikaPromptEditor inputRef={inputRef} value={composerText} aria-label={composingTask ? "本轮任务指令" : "消息输入"}
+          <PersonalPromptEditor inputRef={inputRef} value={composerText} aria-label={composingTask ? "本轮任务指令" : "消息输入"}
               notice={composingTask ? !composerTask ? "任务已切换，原草稿仍保留。重新选择任务，或切回普通对话。" : !busy && !taskActions(composerTask).run ? "本轮已结束，请从任务卡查看结果，或切回普通对话。" : null : null}
               topContent={<>{recoverableAttachments ? <div className="serika-draft-setting"><span>上次未完成消息的附件仍可恢复。</span><button type="button" className="ghost" disabled={busy || sending || !!attachments.length || !!input.trim()} onClick={() => { setAttachments(recoverableAttachments.files); setInput(recoverableAttachments.text); setRecoverableAttachments(null); }}>恢复到草稿</button></div> : null}<AttachmentPreview attachments={attachments} setAttachments={setAttachments} disabled={sending} />{creatingTask ? <div className="composer-create-mode"><strong>新任务</strong><button type="button" className="ghost" disabled={busy || sending} onClick={() => setCreatingTask(false)}>返回普通对话</button></div> : null}{workTasks.task || composingTask ? <div className="composer-target" role="group" aria-label="发送方式"><button className={!composingTask ? "selected" : ""} type="button" aria-pressed={!composingTask} onClick={() => setTaskComposerId(null)}>普通对话</button><button className={composingTask ? "selected" : ""} type="button" aria-pressed={composingTask} disabled={!workTasks.task || (!taskActions(workTasks.task).run && !composingTask)} onClick={composeTask}>补充当前任务</button>{composingTask ? <span>{composerTask ? humanFacingTitle(composerTask.goal, "当前任务") : "当前任务暂不可用"}</span> : null}</div> : null}{excludeFromMemory && !composingTask ? <div className="serika-draft-setting"><Icon name="memory" size={13} /><span>本条不存入记忆</span><button type="button" className="icon-button" aria-label="恢复本条记忆整理" onClick={() => setExcludeFromMemory(false)}><Icon name="close" size={12} /></button></div> : null}</>}
               disabled={sending || switchingThread || info === null || !draftReady || !!info.runtimeRecovery || (composingTask && !composerTask)}
@@ -578,12 +578,12 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
                   event.preventDefault(); followConversation.current = true; void submit();
                 }
               }}
-              leadingActions={<SerikaPromptOptions>
+              leadingActions={<PersonalPromptOptions>
                 <AttachmentChooser key={`${info?.workspaceRoot}:${info?.threadId}`} disabled={busy || sending || composingTask || creatingTask || info?.attachments !== true} onError={setError} onPicked={files => { if (files.length + attachments.length > 4 || [...attachments, ...files].reduce((sum, file) => sum + file.data.length * 3 / 4 - (file.data.endsWith("==") ? 2 : file.data.endsWith("=") ? 1 : 0), 0) > 10 * 1024 * 1024) { setError("每条最多 4 个附件，总大小不超过 10 MiB"); return; } setAttachments(items => [...items, ...files]); }} />
                 {info?.memory.enabled && !composingTask && !creatingTask ? <label className="memory-exclusion" title="这条消息不进入现在或以后的记忆候选整理；不会删除对话记录。已有记忆仍可通过关键词引用；本条不触发语义检索或画像引用。"><input type="checkbox" checked={excludeFromMemory} disabled={sending} onChange={event => setExcludeFromMemory(event.target.checked)} />本条不存入记忆</label> : null}
                 {info?.workTasks && !composingTask && !creatingTask ? <button type="button" className="ghost" disabled={busy || workTasks.acting || sending} onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); setTaskDraft(input.trim()); setTaskFocused(true); openDetails("tasks"); setCreateTaskRequest(value => value + 1); }}><Icon name="activity" size={15} />{input.trim() ? "作为工作任务…" : "创建工作任务"}</button> : null}
 
-              </SerikaPromptOptions>}
+              </PersonalPromptOptions>}
               submitControl={<>
                 {!composingTask && input ? <span className="hint" role="status">{draftError ? "草稿未保存" : draftSaving ? "保存草稿…" : "草稿已保存"}</span> : null}
                 {composingTask ? <span className="hint" role="status">{workTasks.draftError ? "任务草稿未保存" : workTasks.draftSaving ? "保存任务草稿…" : workTasks.draftReady ? "任务草稿已保存" : "正在恢复任务草稿…"}</span> : null}
