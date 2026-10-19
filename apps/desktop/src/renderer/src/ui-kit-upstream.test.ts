@@ -5,8 +5,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { Button } from "./ui-kit/upstream/button.js";
 import { cn } from "./ui-kit/upstream/utils.js";
 import { DesktopWindowFrame } from "./ui-kit/upstream/desktop-window-frame.js";
-import { ZCodeSidebar } from "./ui-kit/sidebar.js";
-import { APPEARANCE_KEY, zcodeAppearance } from "./ui-kit/appearance.js";
 
 it("source button retains native disabled semantics and font/color utility groups", () => {
   const classes = cn("text-ui-base text-foreground px-2", "text-ui-caption px-3");
@@ -27,19 +25,3 @@ it("source frame uses the native macOS surface without mounting an upstream serv
   assert.match(markup, /host page/);
 });
 
-it("appearance is a presentation-only preference and the sidebar exposes its switch", () => {
-  assert.equal(zcodeAppearance(null), "dark");
-  assert.equal(zcodeAppearance("light"), "light");
-  assert.equal(zcodeAppearance("invalid"), "dark");
-  assert.equal(APPEARANCE_KEY, "serika:appearance");
-  const markup = renderToStaticMarkup(createElement(ZCodeSidebar, {
-    threads: [], currentId: "a", drafts: new Map(), workspaceRoot: "/isolated", loading: false,
-    error: null, busy: false, selected: null, pendingMemory: null, unknownRuns: 0,
-    onNew: () => {}, onSelect: () => {}, onOpen: () => {}, onConversation: () => {},
-    appearance: "dark", onAppearance: () => {},
-  }));
-  assert.match(markup, /aria-label="切换浅色外观"/);
-  assert.match(markup, /data-zcode-source="WorkspaceSidebar"/);
-  assert.match(markup, /data-zcode-source="WorkspaceSidebarFooter"/);
-  assert.doesNotMatch(markup, /账号|订阅权益|插件市场/);
-});

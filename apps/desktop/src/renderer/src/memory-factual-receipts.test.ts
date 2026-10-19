@@ -9,10 +9,7 @@ import { createDemoModel } from "@serika/assistant";
 import { createMemoryConsolidation } from "@serika/assistant/testing";
 import { AUTO_CONSOLIDATION_AGENT_ID } from "@serika/assistant/testing";
 import { RuntimeBridge, TeeOutput } from "../../main/runtime-bridge.js";
-import { annotateMemoryReceipts, rowsFromHistory } from "./conversation.js";
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import { ZCodeConversation } from "./ui-kit/conversation.js";
+import { annotateMemoryReceipts, rowsFromHistory, type ConversationRow } from "./conversation.js";
 
 test("real bridge history page renders committed host memory receipt; unreadable store clears it but preserves chat", async () => {
   const root = await mkdtemp(join(tmpdir(), "desktop-factual-receipts-"));
@@ -45,15 +42,13 @@ test("real bridge history page renders committed host memory receipt; unreadable
     assert.ok((await service.finalize({ status: "completed" })).ok);
     const page = await bridge.historyPage();
     assert.equal(page.memoryReceipts?.length, 1);
-    const rendered = renderToStaticMarkup(createElement(ZCodeConversation, { rows: annotateMemoryReceipts(rowsFromHistory(page.messages), page.memoryReceipts ?? [], page.threadId), running: false, streaming: "" }));
-    assert.match(rendered, /当时已保存：我喝咖啡不加糖/);
-    assert.match(rendered, /记忆回执（最近一批）/);
+    const receiptTexts = (rows: readonly ConversationRow[]) => rows.flatMap(row => row.kind === "text" ? (row.memoryReceipts ?? []).map(receipt => receipt.text) : []);
+    assert.match(receiptTexts(annotateMemoryReceipts(rowsFromHistory(page.messages), page.memoryReceipts ?? [], page.threadId)).join("\n"), /当时已保存：我喝咖啡不加糖/);
     const recent = await bridge.historyPage({ limit: 1 });
     const older = await bridge.historyPage({ beforeId: recent.beforeId!, limit: 1 });
     const recentRows = annotateMemoryReceipts(rowsFromHistory(recent.messages), recent.memoryReceipts ?? [], recent.threadId);
     const paginatedRows = annotateMemoryReceipts([...rowsFromHistory(older.messages), ...recentRows], older.memoryReceipts ?? [], older.threadId);
-    const paginated = renderToStaticMarkup(createElement(ZCodeConversation, { rows: paginatedRows, running: false, streaming: "" }));
-    assert.equal((paginated.match(/当时已保存/g) ?? []).length, 1, "loading older chat preserves the latest source-bound receipt exactly once");
+    assert.equal(receiptTexts(paginatedRows).filter(text => /当时已保存/.test(text)).length, 1, "loading older chat preserves the latest source-bound receipt exactly once");
     await writeFile(join(workspace, ".runloom/memory.json"), "{invalid");
     const failed = await bridge.historyPage();
     assert.deepEqual(failed.messages, messages, "receipt failure must not break history replay");

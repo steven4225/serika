@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import type { ExecutionRunRecord, ExecutionToolRecord } from "../../shared/ui-contract.js";
 import { runTimeline, durationLabel, usageLabel } from "./run-timeline.js";
 import { RunTimeline, RecordsPanel } from "./records.js";
-import { ZCodeTool } from "./ui-kit/conversation.js";
+import { PersonalTool } from "./personal/conversation.js";
 import { applyEvent, emptyLiveRun, overlayExecutionReceipts, type ToolRow } from "./conversation.js";
 
 const at = (seconds: number) => `2026-10-08T01:00:${String(seconds).padStart(2, "0")}.000Z`;
@@ -51,9 +51,9 @@ it("only Run-bound tool rows expose a trace link; repeated historical IDs are no
   const live = applyEvent(emptyLiveRun, { type: "tool.call.requested", id: "e", sequence: 1, occurredAt: at(1), runId: "run", threadId: "thread", data: { toolCallId: "call", toolName: "write_file", input: {} } });
   const row = live.rows.find(row => row.kind === "tool")! as ToolRow;
   assert.equal(row.runId, "run");
-  assert.match(renderToStaticMarkup(createElement(ZCodeTool, { row, onTrace: () => {} })), /查看本次执行追踪/);
+  assert.match(renderToStaticMarkup(createElement(PersonalTool, { row, onTrace: () => {} })), /查看本次执行追踪/);
   const { runId, ...historical } = row;
-  assert.doesNotMatch(renderToStaticMarkup(createElement(ZCodeTool, { row: historical, onTrace: () => {} })), /查看本次执行追踪/);
+  assert.doesNotMatch(renderToStaticMarkup(createElement(PersonalTool, { row: historical, onTrace: () => {} })), /查看本次执行追踪/);
   const rows = overlayExecutionReceipts([{ kind: "text", role: "user", key: "old", text: "old", committed: true }, historical,
     { kind: "text", role: "user", key: "new", text: "new", committed: true }, { ...historical, key: "new-tool" }], [tool], { reuseHistory: true, runId: "new-run" });
   assert.equal((rows[1] as ToolRow).runId, undefined);

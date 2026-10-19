@@ -9,7 +9,6 @@ import { annotateHistoryTools, overlayExecutionReceipts, rowsFromHistory, type C
 import { createRuntimeStore } from "./app/runtime-store.js";
 import { Row } from "./app/conversation-row.js";
 import { PersonalTool } from "./personal/conversation.js";
-import { ZCodeTool } from "./ui-kit/conversation.js";
 import { compactWorkSummary, toolPresentation } from "./ui-kit/conversation-data.js";
 
 /**
@@ -244,7 +243,6 @@ const pick = (row: ToolRow, keys: readonly string[]) => Object.fromEntries(keys.
 const html = (row: ToolRow) => [
   renderToStaticMarkup(createElement(Row, { row })),
   renderToStaticMarkup(createElement(PersonalTool, { row })),
-  renderToStaticMarkup(createElement(ZCodeTool, { row })),
 ].join("\n");
 
 describe("tool preview golden samples: run events and history give the same row", () => {
@@ -287,7 +285,7 @@ describe("tool preview golden samples: run events and history give the same row"
         assert.equal(compactWorkSummary([row], false, false).facts, sample.facts);
       }
 
-      // Rendered HTML (classic, personal, zcode): equal apart from the history marker.
+      // Rendered HTML (classic, personal): equal apart from the history marker.
       assert.equal(html(saved), html(live).replaceAll("本次调用", "历史记录"));
     });
   }

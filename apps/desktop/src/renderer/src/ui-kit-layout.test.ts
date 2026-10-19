@@ -3,7 +3,6 @@ import { it } from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { desktopLayout } from "./ui-kit/layout.js";
-import { ZCodeSidebar } from "./ui-kit/sidebar.js";
 import { ZCodeMessage, ZCodeMessageContent } from "./ui-kit/message.js";
 
 it("daily Electron and preview share the reference layout without an opt-in or query-string fallback", () => {
@@ -11,23 +10,6 @@ it("daily Electron and preview share the reference layout without an opt-in or q
   assert.equal(desktopLayout("?ui=zcode"), "zcode");
   assert.equal(desktopLayout("?ui=other&workspace=zcode"), "zcode");
   assert.equal(desktopLayout("?ui=classic"), "zcode");
-});
-
-it("renders registered history and preserves busy/error distinctions and all feature entries", () => {
-  const props = { threads: [{ threadId: "a", title: "<script>history</script>", transcriptDirectory: "/isolated", messageCount: 2 }], currentId: "a",
-    drafts: new Map<string, string>(), workspaceRoot: "/isolated/Serika", loading: false, error: null, busy: true, selected: null,
-    pendingMemory: "2+", unknownRuns: 1, onNew: () => {}, onSelect: () => {}, onOpen: () => {}, onConversation: () => {} };
-  const markup = renderToStaticMarkup(createElement(ZCodeSidebar, props));
-  assert.match(markup, /<strong>Serika<\/strong>/);
-  assert.match(markup, /class="serika-mark"/);
-  assert.match(markup, /serika-icon\.png/);
-  assert.match(markup, /&lt;script&gt;history&lt;\/script&gt;/);
-  assert.match(markup, /aria-current="true" disabled=""/);
-  for (const entry of ["记忆", "执行记录", "工作任务", "番茄钟", "模块能力", "上下文与压缩", "自动化与工作区"]) assert.ok(markup.includes(entry));
-  assert.match(markup, /处理结束后可切换对话/);
-  const failed = renderToStaticMarkup(createElement(ZCodeSidebar, { ...props, busy: false, error: "bad history" }));
-  assert.match(failed, /读取失败，旧记录未删除/);
-  assert.doesNotMatch(failed, /还没有已登记的对话/);
 });
 
 it("ported message containers preserve children as text rather than unsafe HTML", () => {

@@ -1,3 +1,8 @@
+/*
+ * Work-history disclosure, loading and back-to-bottom presentation derived from the former
+ * ui-kit/conversation.tsx (adapted from zai-org/ZCode 29628c9acdb81b703bbd4080c207a0e7ce5e276e).
+ * Copyright 2026 Z.AI Co., Ltd. Apache-2.0; see third-party/zcode/NOTICE.md.
+ */
 import React, { useState } from "react";
 import type { ConversationRow, TextRow, ToolRow } from "../conversation.js";
 import { Icon, SerikaMark } from "../icons.js";
