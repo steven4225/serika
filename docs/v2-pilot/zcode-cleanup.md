@@ -8,6 +8,8 @@
 - 已做：删死代码（`ui-kit/conversation.tsx`、`sidebar.tsx`、`appearance.ts`、`upstream/chat-loading.tsx`、`upstream/new-task-button.tsx`）；只测死组件渲染的用例删除，数据层断言保留，渲染断言能换到 `PersonalConversation` / `PersonalTool` 的换过去（逐条见该提交说明）。`personal/conversation.tsx` 里沿用旧 `ui-kit/conversation.tsx` 的展示，署名移到它的文件头和 NOTICE。
 - 已做：改类名和布局值：`zcode-*` 类名 → `serika-*`（`serika-zcode-shell` → `serika-shell`），布局值 `"zcode"` → `"serika"`，组件名 `ZCode*` → `Serika*`。`.theme-zai-*`、`upstream/` 不动；预览示例的 threadId `zcode-preview-plan` 不动（在调用记录里）。验收：`scripts/ui-snapshots/check-class-rename.sh 改名前目录 改名后目录 改名前提交`。
 - 已做：删 `ui-kit/theme.css` 里只属于已删组件的样式：选择器里含有只在已删组件里出现、别处都不再引用的类（29 个，如 `serika-sidebar`、`serika-turn`、`serika-tool`）的，删掉该选择器；整条规则或整个 `@media` 块的选择器都删光了就整条删。别处还在用的类、动态拼接的类（`status-*`、`tone-*`、`serika-layout`）不动。验收：138 项快照 0 差异。
+- 已做：删 `SerikaPromptEditor`（`ui-kit/prompt-editor.tsx`）和 `ui-kit/upstream/chat-prompt-shell.tsx`：正式界面输入框是 `personal/composer.tsx` 自己的实现，两者只剩两个测试用例在用；用例、相关 CSS、NOTICE 条目一并处理。`SerikaPromptOptions`（“更多操作”菜单）仍在用，保留。
+- 已做：按“正式界面不用且没有入口引用就删”的原则清 CSS：类名在源码里没有字面引用（也没有动态拼接）、在 138 项快照的 DOM 里也不出现的，删掉含它的选择器。最大的一块是 `.serika-layout`：App 根节点只有 `personal-layout`，`serika-layout` 从未被加到页面上，`theme.css` 里以它开头的布局规则全部不生效。`.theme-zai-*` 按决定保留，`tone-*` 是动态拼接的，保留。验收：138 项快照 0 差异。
 - 已定：保留改编实现，不重写（见第 7 节）。
 
 ## 1. 来历
@@ -93,7 +95,7 @@ Apache-2.0 要求衍生作品保留署名，**删文件不等于能删署名**�
 
 1. **自己重写窗口外框**（`ui-kit/upstream/desktop-window-frame.tsx`）：不做。它按平台（macOS / Windows / Linux）切换根背景，Linux 下还有圆角、`clip-path` 和最大化时归零的处理；重写后必须保证 DOM 和类名与原来一致（第 5 节），而平台差异、最大化、拖拽缩放正是 138 项截图覆盖不到的地方（第 3 节第 3 条），收益只是少一条署名，风险大于收益。
 2. **自己重写按钮**（`ui-kit/upstream/button.tsx`、`utils.ts`）：不做。`theme.css` 的按钮样式直接按它输出的 `data-slot` / `data-variant` 选中，重写要逐条核对这些样式；hover、focus 状态截图也覆盖不到。
-3. **自己重写输入框外壳**（`ui-kit/upstream/chat-prompt-shell.tsx`）：不做。核对发现正式界面已经不用它：`personal/composer.tsx` 的 `PersonalPromptEditor` 是自己的实现，只从 `ui-kit/prompt-editor.tsx` 转引 `SerikaPromptOptions`；`ChatPromptShell` 只被 `SerikaPromptEditor` 用，而后者只剩 `ui-kit-conversation.test.ts` 两个用例在用。所以没有可重写的对象，它的去留跟删 `SerikaPromptEditor` 一起定（第 4 节表里“`personal/composer.tsx` 转引（输入框外壳）”已过时）。
+3. **自己重写输入框外壳**（`ui-kit/upstream/chat-prompt-shell.tsx`）：不做，且已删除。核对发现正式界面不用它：`personal/composer.tsx` 的 `PersonalPromptEditor` 是自己的实现；`ChatPromptShell` 只被 `SerikaPromptEditor` 用，后者只剩两个测试用例在用，两者已一起删掉（第 4 节表里“`personal/composer.tsx` 转引（输入框外壳）”已过时）。
 4. **主题改名**（`.theme-zai-*`、`upstream/styles.css` 的主题变量）：不做。`.theme-zai-*` 和 `upstream/` 保留原名，作为对照上游代码的锚点；改名不改颜色本身没有用户可见收益，换配色是另一回事（第 3 节第 1 条，方向未定）。
 
 ## 8. 独立待办（清理阶段不处理、属于设计问题）

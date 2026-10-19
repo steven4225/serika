@@ -90,7 +90,6 @@
 .personal-layout .serika-prompt-menu { position: absolute; left: 0; bottom: calc(100% + 16px); z-index: 20; display: flex; flex-direction: column; gap: 3px; width: 270px; max-width: calc(100vw - 60px); max-height: min(360px,50vh); overflow-y: auto; padding: 9px; border: 1px solid #0000000d; border-radius: 18px; background: var(--surface); box-shadow: -4px 8px 28px #6868680a, 0 2px 8px #6464640f; backdrop-filter: blur(24px); }
 .personal-layout .serika-prompt-menu :is(.ghost, .memory-exclusion) { display: flex; align-items: center; justify-content: flex-start; gap: 8px; margin: 0; width: 100%; padding: 8px; border: 0; border-radius: 10px; color: var(--text); font-size: 12px; text-align: left; white-space: normal; background: transparent; }
 .personal-layout .serika-prompt-menu :is(.ghost, .memory-exclusion):hover { background: var(--sunken); }
-.personal-layout .serika-prompt-menu .command-caption { font-size: 11px; color: var(--muted); padding: 8px; border-top: 1px solid #0000000d; }
 .personal-layout .serika-command-list { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 2px; }
 .personal-layout .serika-command-list button { text-align: left; justify-content: flex-start; font-size: 12px; border: 0; border-radius: 8px; background: transparent; padding: 6px 8px; }
 .personal-layout .serika-command-list button:hover:not(:disabled) { background: var(--sunken); }

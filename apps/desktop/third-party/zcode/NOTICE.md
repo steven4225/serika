@@ -14,7 +14,7 @@ Included adaptations:
 - `src/renderer/src/ui-kit/message.tsx` additionally includes the upstream MessageActions container, with a local copy-reply action.
 
 - `src/renderer/src/ui-kit/message.tsx`: Message / MessageContent / MessageActions render markup and utility classes from `packages/ui/src/components/ai-elements/message.tsx`. Original provenance: vercel/ai-elements, Copyright 2023 Vercel, Inc., Apache-2.0. Local export names and safe host Markdown rendering remain; no upstream Markdown plugins or model SDK.
-- `src/renderer/src/ui-kit/theme.css`: imports the source theme and bridges semantic tokens to existing Serika panels. Contains local layout/responsive integration and receipt/disclosure styles, not a new theme palette. The opaque sidebar is an intentional host adaptation: this Electron window does not use ZCode's native vibrancy.
+- `src/renderer/src/ui-kit/theme.css`: imports the source theme and keeps the `.theme-zai-*` color-scheme hooks plus small local styles for the message actions, the composer options menu, model name, stop button, command list and draft setting. Not a new theme palette. The former layout/sidebar integration (`.serika-layout`, `.serika-shell`, sidebar rules) was never applied by the app and has been removed.
 
 No ZCode logo, account service, model gateway, telemetry, updater, remote browser, runtime bundle, font or asset is imported. This is not an official ZCode distribution.
 
