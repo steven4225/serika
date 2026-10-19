@@ -214,6 +214,23 @@ export interface RuntimeApp {
   dispose(): void;
 }
 
+/**
+ * State that belongs to the current foreground Run, grouped in one place.
+ * The parts start and end at different points (see docs/v2-pilot/run-context.md):
+ * `workTaskMessage` before the Run is submitted, `resume` around it,
+ * `foreground` inside it, `memorySource` on every model step.
+ */
+interface RunState {
+  /** Set by beginForegroundExecution, cleared by endForegroundExecution. */
+  foreground: { entry: "desktop" | "telegram" | undefined; autonomous: boolean; request?: UIMessage } | undefined;
+  /** The WorkTask contract while a WorkTask Run is active. */
+  workTaskMessage: UIMessage | undefined;
+  /** The user message memory writes may quote; replaced on every model step. */
+  memorySource: { message: UIMessage; signal: AbortSignal } | undefined;
+  /** The /resume observation this Run injects. */
+  resume: { observation: ResumeObservation; mismatchReported: boolean } | undefined;
+}
+
 export async function createRuntimeApp(options: RuntimeAppOptions): Promise<RuntimeApp> {
   const { modelAlias, model, output } = options;
   const env = options.env ?? process.env;
@@ -235,9 +252,10 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     moduleConfig?.desktopAutonomy?.workspaceRoot === workspaceRoot && workspaceRoot !== undefined && !moduleConfig?.shellSandbox;
   const telegramAutonomyEnabled = () => !!moduleConfig?.telegramAutonomy && !moduleConfig.shellSandbox &&
     options.authorizeTelegramAutonomy?.(moduleConfig.telegramAutonomy) === true;
-  let autonomousRun = false;
-  let foregroundTaskRequest: UIMessage | undefined;
-  let foregroundEntry: "desktop" | "telegram" | undefined;
+  // Per-Run state (docs/v2-pilot/run-context.md). Each begin/end pair below
+  // sets and clears only its own part, at the same points as before.
+  const currentRun: RunState = { foreground: undefined, workTaskMessage: undefined, memorySource: undefined, resume: undefined };
+  const autonomousRun = () => currentRun.foreground?.autonomous === true;
   const memoryEnabled = moduleConfig?.enabled.memory ?? false;
   const checkpointEnabled = moduleConfig?.enabled.checkpoint ?? false;
   const taskEnabled = moduleConfig?.enabled.task ?? false;
@@ -310,8 +328,6 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     const skill = externalSkills.find(skill => skill.agentId === agentId);
     return agentId === AUTO_CONSOLIDATION_AGENT_ID || skill?.kind === "memory-consolidate" ? "consolidation" : skill || agentId === DREAMING_AGENT_ID ? "skill" : "primary";
   }, options.beforePrimaryRunCreate);
-  let activeWorkTaskMessage: UIMessage | undefined;
-  let currentMemorySource: { message: UIMessage; signal: AbortSignal } | undefined;
   let redrawAfterModuleNotification: (() => void) | undefined;
   const addRegistration = {
     metadata: {
@@ -395,7 +411,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
                   createShellModule(workspaceRoot!, {
                     ...(shellSandbox === undefined ? {} : { sandbox: shellSandbox }),
                     timeoutMs: !moduleConfig!.shellSandbox && (desktopAutonomyEnabled || moduleConfig!.telegramAutonomy && options.authorizeTelegramAutonomy) ? AUTONOMOUS_SHELL_TIMEOUT_MS : moduleConfig!.shellTimeoutMs,
-                    commandTimeoutMs: () => autonomousRun ? AUTONOMOUS_SHELL_TIMEOUT_MS : moduleConfig!.shellTimeoutMs,
+                    commandTimeoutMs: () => autonomousRun() ? AUTONOMOUS_SHELL_TIMEOUT_MS : moduleConfig!.shellTimeoutMs,
                     onProgress: notifyShellProgress,
                   }),
                 ]
@@ -422,7 +438,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
                     memoryStore!,
                     () => store.getMessages(threadId),
                     { threadId, ...(workspaceRoot === undefined ? {} : { workspaceRoot }), writePolicy: moduleConfig?.memoryWritePolicy ?? "review", consolidationAgentIds: externalSkills.filter(skill => skill.kind === "memory-consolidate").map(skill => skill.agentId),
-                      getCurrentUserMessage: () => currentMemorySource?.signal.aborted ? undefined : currentMemorySource?.message,
+                      getCurrentUserMessage: () => currentRun.memorySource?.signal.aborted ? undefined : currentRun.memorySource?.message,
                       ...(memoryConsolidation ? { consolidation: memoryConsolidation } : {}) },
                   ),
                 ]
@@ -656,21 +672,21 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     const dreaming = tuiMode && workspaceRoot && workTasks
       ? createDreamingService({ workspaceRoot, workTasks, executionRecords, ...(memoryStore ? { memoryStore } : {}) }) : undefined;
     const dreamingEnabled = moduleConfig?.automation?.dreaming?.enabled === true;
+    // Inspected between Runs; the next Run takes it over as currentRun.resume.
     let pendingResumeObservation: ResumeObservation | undefined;
-    let activeResumeObservation: ResumeObservation | undefined;
-    let resumeMismatchReported = false;
     const activeResumeMessage = (checkpoint: Awaited<ReturnType<typeof readCurrentCheckpoint>>) => {
-      if (activeResumeObservation === undefined) return undefined;
-      if (!resumeMatchesCheckpoint(activeResumeObservation, checkpoint)) {
-        if (!resumeMismatchReported) {
+      const active = currentRun.resume;
+      if (active === undefined) return undefined;
+      if (!resumeMatchesCheckpoint(active.observation, checkpoint)) {
+        if (!active.mismatchReported) {
           output.write("\n[resume] Checkpoint changed after inspection; old observation was not injected. Run /resume again.\n");
-          resumeMismatchReported = true;
+          active.mismatchReported = true;
         }
         return undefined;
       }
-      return createResumeContextMessage(activeResumeObservation);
+      return createResumeContextMessage(active.observation);
     };
-    const primaryInstructions = () => autonomousRun
+    const primaryInstructions = () => autonomousRun()
       ? autonomousBaseInstructions + "\n" + AUTONOMOUS_INSTRUCTIONS
       : baseInstructions;
     const registeredTools = [...(demoTools ? [addRegistration] : []), ...(moduleHost?.tools ?? [])];
@@ -679,8 +695,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       tools: registeredTools.map(item => item.metadata.name).filter(name =>
         moduleConfig?.memoryWritePolicy !== "automatic" || moduleHost?.toolModules.get(name) !== "memory"),
       toolModules: moduleHost?.toolModules ?? new Map(),
-      autonomy: foregroundEntry ? autonomousRun : desktopAutonomyEnabled,
-      ...(foregroundEntry ? { entry: foregroundEntry } : {}),
+      autonomy: currentRun.foreground?.entry ? currentRun.foreground.autonomous : desktopAutonomyEnabled,
+      ...(currentRun.foreground?.entry ? { entry: currentRun.foreground.entry } : {}),
       moduleEntries: new Map([["todoist", todoist.capability]]),
     });
     const statusRegistration = { metadata: { name: "capability_status", version: "1", risk: "read" as const, timeoutMs: 1000, idempotent: true },
@@ -767,11 +783,11 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         contextViewEnabled: moduleConfig?.memoryContextViewEnabled === true,
         semanticModelId: moduleConfig?.memorySemantic?.modelId,
         rewriteQuery, selectRelevance, semanticIndex, embedding, workTasks,
-        workTaskActive: () => activeWorkTaskMessage !== undefined,
+        workTaskActive: () => currentRun.workTaskMessage !== undefined,
       }),
       ...(taskEnabled ? [createTaskTimeSource()] : []),
-      createWorkTaskSource(() => activeWorkTaskMessage),
-      createForegroundTaskSource(() => autonomousRun ? foregroundTaskRequest : undefined),
+      createWorkTaskSource(() => currentRun.workTaskMessage),
+      createForegroundTaskSource(() => autonomousRun() ? currentRun.foreground?.request : undefined),
     ]);
     const referencePrefix = async (messages: readonly UIMessage[], signal: AbortSignal) => (await buildReferencePrefix(messages, signal)).prefix;
     let lastUncompactedPreparation: ContextDiagnostics["lastPreparation"] = null;
@@ -827,15 +843,15 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         const currentUser = [...messages].reverse().find(message => message.role === "user");
         // Runtime requires one new user message per Run. Capture it before
         // reference injection/compaction; WorkTask contracts are not user facts.
-        if (memoryEnabled && moduleConfig?.memoryWritePolicy !== "automatic" && currentUser && !activeWorkTaskMessage) {
+        if (memoryEnabled && moduleConfig?.memoryWritePolicy !== "automatic" && currentUser && !currentRun.workTaskMessage) {
           signal.throwIfAborted();
-          currentMemorySource = { message: currentUser, signal };
+          currentRun.memorySource = { message: currentUser, signal };
         }
         const preparationSource = currentUser ? {
           messageId: currentUser.id,
-          workTaskId: typeof activeWorkTaskMessage?.metadata === "object" && activeWorkTaskMessage.metadata !== null &&
-            "workTaskId" in activeWorkTaskMessage.metadata && typeof activeWorkTaskMessage.metadata.workTaskId === "string"
-            ? activeWorkTaskMessage.metadata.workTaskId : null,
+          workTaskId: typeof currentRun.workTaskMessage?.metadata === "object" && currentRun.workTaskMessage.metadata !== null &&
+            "workTaskId" in currentRun.workTaskMessage.metadata && typeof currentRun.workTaskMessage.metadata.workTaskId === "string"
+            ? currentRun.workTaskMessage.metadata.workTaskId : null,
         } : null;
         lastPreparationSource = null;
         try {
@@ -907,7 +923,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     const runtime = new DefaultAgentRuntime({
       catalog: { get: agentId => {
         const definition = catalog.get(agentId);
-        return definition && agentId === PRIMARY_AGENT_ID && autonomousRun ? { ...definition,
+        return definition && agentId === PRIMARY_AGENT_ID && autonomousRun() ? { ...definition,
           instructions: primaryInstructions(),
           limits: { ...definition.limits, maxSteps: AUTONOMOUS_MAX_STEPS, totalTimeoutMs: AUTONOMOUS_TOTAL_TIMEOUT_MS },
         } : definition;
@@ -923,7 +939,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       ...(tuiMode
         ? {
             prepareModelContext: ({ messages, signal, definition }) => {
-              currentMemorySource = undefined;
+              // Every step of every agent clears it; only the primary route sets it again.
+              currentRun.memorySource = undefined;
               return routeModelContext(contextRoutes, { messages, signal, agentId: definition.id });
             },
           }
@@ -948,15 +965,14 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
             },
             clear: () => {
               pendingResumeObservation = undefined;
-              activeResumeObservation = undefined;
+              currentRun.resume = undefined;
             },
             beginRun: () => {
-              activeResumeObservation = pendingResumeObservation;
+              currentRun.resume = pendingResumeObservation === undefined ? undefined : { observation: pendingResumeObservation, mismatchReported: false };
               pendingResumeObservation = undefined;
-              resumeMismatchReported = false;
             },
             endRun: () => {
-              activeResumeObservation = undefined;
+              currentRun.resume = undefined;
             },
           }
         : undefined;
@@ -974,9 +990,9 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         begin: (task, continuation) => {
           const message = createWorkTaskContextMessage(task, continuation);
           if (message === undefined) throw new Error("WorkTask context exceeds the 24 KiB limit");
-          activeWorkTaskMessage = message;
+          currentRun.workTaskMessage = message;
         },
-        end: () => { activeWorkTaskMessage = undefined; },
+        end: () => { currentRun.workTaskMessage = undefined; },
       },
       threadId,
       directory,
@@ -1014,12 +1030,11 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       desktopAutonomyEnabled,
       telegramAutonomyEnabled,
       beginForegroundExecution: (entry, request) => {
-        foregroundEntry = entry;
-        autonomousRun = entry === "desktop" ? desktopAutonomyEnabled : entry === "telegram" && moduleConfig?.telegramAutonomy?.threadId === threadId && telegramAutonomyEnabled();
-        foregroundTaskRequest = autonomousRun && request ? structuredClone(request) : undefined;
-        return autonomousRun;
+        const autonomous = entry === "desktop" ? desktopAutonomyEnabled : entry === "telegram" && moduleConfig?.telegramAutonomy?.threadId === threadId && telegramAutonomyEnabled();
+        currentRun.foreground = { entry, autonomous, ...(autonomous && request ? { request: structuredClone(request) } : {}) };
+        return autonomous;
       },
-      endForegroundExecution: () => { autonomousRun = false; foregroundEntry = undefined; foregroundTaskRequest = undefined; },
+      endForegroundExecution: () => { currentRun.foreground = undefined; },
       ...(recipes ? { recipes } : {}),
       ...(memoryConsolidation ? { memoryConsolidation } : {}),
       ...(maintainMemoryIndex ? { maintainMemoryIndex } : {}),

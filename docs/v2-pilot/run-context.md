@@ -1,7 +1,7 @@
-# RunContext 设计说明（只写设计，不改代码）
+# RunContext 设计说明
 
-范围：`packages/assistant/src/app.ts` 的 `createRuntimeApp`（从第 217 行开始）里那 15 个 `let`。本文只给盘点和方案，
-实现要等维护者决定。行号以 `21c3789` 之后的 `experiment/architecture-v2` 为准。
+范围：`packages/assistant/src/app.ts` 的 `createRuntimeApp`（从第 217 行开始）里那 15 个 `let`。第 1～3 节是盘点和方案，
+行号是改动前（`8ec46fe`）的。进度见第 5 节：第一阶段已完成，第二阶段不做。
 
 ## 1. 盘点：15 个 `let` 是谁写、谁读、在哪清空
 
@@ -62,23 +62,23 @@
 - **续做观测**：`pending` 跨 Run，留在 app 层；只有 `active` + `mismatchReported` 属于 Run。
 - **上下文诊断**：语义是「最近一次」，Run 结束后界面还要读，收进 app 层一个 `ContextObservations` 对象（四个字段 + 现有的复制/发布逻辑），不跟 Run 一起清空。
 
-### 3.2 第一阶段：收拢成一个对象，生命周期一点不变（建议先做）
+### 3.2 第一阶段：收拢成一个对象，生命周期一点不变（已完成）
 
 ```ts
 interface RunState {
-  foreground?: { entry: "desktop" | "telegram" | undefined; autonomous: boolean; request?: UIMessage };
-  workTaskMessage?: UIMessage;
-  memorySource?: { message: UIMessage; signal: AbortSignal };
-  resume?: { observation: ResumeObservation; mismatchReported: boolean };
+  foreground: { entry: "desktop" | "telegram" | undefined; autonomous: boolean; request?: UIMessage } | undefined;
+  workTaskMessage: UIMessage | undefined;
+  memorySource: { message: UIMessage; signal: AbortSignal } | undefined;
+  resume: { observation: ResumeObservation; mismatchReported: boolean } | undefined;
 }
 ```
 
-- app 里只有一个 `const run: RunState = {}`，读的地方全部改成 `run.foreground?.autonomous === true` 这类读取；现有的 begin/end 方法（`beginForegroundExecution`、`workTaskContext.begin/end`、`resume.beginRun/endRun`）**各自只清自己那一段**，调用方和调用时机都不动。
+- app 里只有一个 `const currentRun: RunState`，读的地方全部改成 `currentRun.foreground?.autonomous === true` 这类读取；现有的 begin/end 方法（`beginForegroundExecution`、`workTaskContext.begin/end`、`resume.beginRun/endRun`）**各自只清自己那一段**，调用方和调用时机都不动。
 - 这样第 2 节的顺序、提前开始的 WorkTask、跨 Run 的 `pending` 观测都不受影响，对外接口不变。
 - 行为变化：应为无。验收：权限快照 `permission-decisions.snapshot.ts`、`apps/desktop/src/main/foreground-autonomy.test.ts`、`modules/memory-module.test.ts`（`isExactUserQuote` 来源）、`steering-controller.test.ts` / `steering-real-acceptance.test.ts`、装配快照全部不改。
 - 估算：1～1.5 天。
 
-### 3.3 第二阶段：真正「每次 Run 一份」（要先确认）
+### 3.3 第二阶段：真正「每次 Run 一份」（用户决定：不做）
 
 由 controller 在 Run 开始时创建 `RunContext`，显式传给 app（`app.beginRun(ctx)` / `app.endRun(ctx)`），结束时整体丢弃。这会改变第 2 节的顺序（WorkTask 要在 Run 创建之前就挂上，resume 的 begin 要并进来），所以要重排 controller，测试要补。估算 3～4 天（与复盘报告的 4～6 天合计一致）。
 
@@ -89,7 +89,13 @@ interface RunState {
 - **补充要求（steer）**：RunContext 不碰 steer 本身。补充要求进来后，下一步的记忆来源就是补充要求那条消息（现状如此，不改）；`foreground.request` 仍是原始请求的副本，不随补充要求更新。
 - 回执格式、权限快照、记忆存储格式、已落盘路径都不涉及。
 
-## 4. 需要维护者决定的
+## 4. 维护者的决定
 
-1. 只做第一阶段，还是两个阶段都做。
-2. 后台 Run 的上下文准备也会清空 `currentMemorySource`：现在因为前台和后台不会同时跑，所以没有影响。第二阶段把它改成「只清本 Run 的」是更清楚的写法，但算行为变化，要单独确认。
+1. 只做第一阶段。
+2. 后台 Run 的上下文准备也会清空记忆来源：现在前台和后台不会同时跑，所以没有影响。保持现状，用测试 `packages/assistant/src/app-run-state.test.ts` 锁定；要改就是行为变化，另行确认。
+
+## 5. 进度
+
+- 第一阶段完成：`autonomousRun`、`foregroundEntry`、`foregroundTaskRequest`、`activeWorkTaskMessage`、`currentMemorySource`、`activeResumeObservation`、`resumeMismatchReported` 收进 `currentRun`（`RunState`），各自的写入、读取、清空位置不变；`autonomousRun()` 只是读 `currentRun.foreground?.autonomous`。
+- 留在原处：`pendingResumeObservation`（跨 Run）、四个上下文诊断变量（「最近一次」）、三个装配期变量。§3.1 里对它们的整理（延迟引用、改读 adapter 开关、`ContextObservations`）没有做，收益小，以后需要时再说。
+- 新增测试 `app-run-state.test.ts`：前台记忆写入等确认时，另一个 agent 走一步模型调用，确认后这次写入找不到来源（「没有可绑定的当前用户消息」），什么都不保存。改动前后都通过；去掉 `prepareModelContext` 里的清空后会失败（已验证）。
