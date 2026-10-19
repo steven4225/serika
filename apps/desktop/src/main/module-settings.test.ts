@@ -6,6 +6,50 @@ import { join } from "node:path";
 import { it } from "node:test";
 import { changeModuleSetting, changeDreamingSetting, changeTelegramAutonomySetting } from "./module-settings.js";
 import { acquireFlock } from "@aisdk-agent/example-cli/dist/flock.js";
+import { resolveTuiModuleConfig } from "@aisdk-agent/example-cli/dist/tui-module-config.js";
+
+it("disables computer control after the driver disappears while preserving CAS, configuration and rollback", { skip: process.platform !== "darwin" }, async () => {
+  const root = await mkdtemp(join(tmpdir(), "serika-computer-disable-"));
+  try {
+    const workspace = join(root, "workspace"); await mkdir(workspace);
+    const executable = join(root, "driver"); await writeFile(executable, "fixture");
+    const path = join(root, "config.json");
+    const config = { version: 1, workspace, modules: {
+      computer: { enabled: true, executable, allowedBundleIds: ["com.apple.TextEdit"] },
+      pomodoro: { enabled: true }, shell: { enabled: true, timeoutMs: 45000 },
+    } };
+    const before = JSON.stringify(config); await writeFile(path, before, { mode: 0o600 });
+    await rm(executable);
+    await assert.rejects(changeModuleSetting(path, { id: "computer", enabled: false, expectedEnabled: false }, root), /配置已变化/);
+    await assert.rejects(changeModuleSetting(path, { id: "pomodoro", enabled: false, expectedEnabled: true }, root), { code: "ENOENT" });
+    assert.equal(await readFile(path, "utf8"), before);
+
+    const undo = await changeModuleSetting(path, { id: "computer", enabled: false, expectedEnabled: true }, root);
+    const disabled = { ...config, modules: { ...config.modules, computer: { ...config.modules.computer, enabled: false } } };
+    assert.deepEqual(JSON.parse(await readFile(path, "utf8")), disabled);
+    assert.equal((await stat(path)).mode & 0o777, 0o600);
+    assert.equal((await resolveTuiModuleConfig({ configPath: path }, { cwd: root })).enabled.computer, false);
+    await assert.rejects(changeModuleSetting(path, { id: "computer", enabled: false, expectedEnabled: true }, root), /配置已变化/);
+    await assert.rejects(changeModuleSetting(path, { id: "computer", enabled: true, expectedEnabled: false }, root), { code: "ENOENT" });
+    assert.deepEqual(JSON.parse(await readFile(path, "utf8")), disabled);
+    await undo(); assert.equal(await readFile(path, "utf8"), before);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+it("still validates the proposed config when disabling computer control with a missing driver", async () => {
+  const root = await mkdtemp(join(tmpdir(), "serika-computer-disable-invalid-"));
+  try {
+    const path = join(root, "config.json");
+    for (const workspace of [join(root, "missing-workspace"), 42]) {
+      const before = JSON.stringify({ version: 1, workspace, modules: {
+        computer: { enabled: true, executable: join(root, "missing-driver"), allowedBundleIds: ["com.apple.TextEdit"] },
+      } });
+      await writeFile(path, before);
+      await assert.rejects(changeModuleSetting(path, { id: "computer", enabled: false, expectedEnabled: true }, root));
+      assert.equal(await readFile(path, "utf8"), before);
+    }
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
 
 it("TG trust requires explicit policy CAS, preserves legacy grants and supports safe revocation", async () => {
   const root = await realpath(await mkdtemp(join(tmpdir(), "serika-tg-policy-")));

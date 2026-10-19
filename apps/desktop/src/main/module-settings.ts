@@ -3,7 +3,7 @@ import { lstat, open, realpath, rename, unlink } from "node:fs/promises";
 import { dirname, basename, join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { acquireFlock } from "@aisdk-agent/example-cli/dist/flock.js";
-import { BUILTIN_MODULE_IDS, resolveTuiModuleConfig, type BuiltinModuleId } from "@aisdk-agent/example-cli/dist/tui-module-config.js";
+import { BUILTIN_MODULE_IDS, readTuiModuleConfig, resolveTuiModuleConfig, type BuiltinModuleId } from "@aisdk-agent/example-cli/dist/tui-module-config.js";
 
 export interface ModuleSettingInput { id: BuiltinModuleId; enabled: boolean; expectedEnabled: boolean }
 export interface AutonomySettingInput { enabled: boolean; expectedEnabled: boolean }
@@ -100,11 +100,15 @@ export async function changeDreamingSetting(configPath: string, input: DreamingS
 }
 
 /** Enables built-ins using their defaults; never invents credentials or app-control permissions. */
-export async function changeModuleSetting(configPath: string, input: ModuleSettingInput, cwd: string): Promise<() => Promise<void>> {
+export async function changeModuleSetting(configPath: string, input: ModuleSettingInput, cwd: string, expectedConfig?: string): Promise<() => Promise<void>> {
   if (!input || !BUILTIN_MODULE_IDS.includes(input.id) || typeof input.enabled !== "boolean" || typeof input.expectedEnabled !== "boolean") throw new Error("模块开关参数无效");
   return changeConfig(configPath, cwd, async (before, path) => {
-    const current = await resolveTuiModuleConfig({ configPath: path }, { cwd });
-    if (current.enabled[input.id] !== input.expectedEnabled) throw new Error("模块配置已变化，请重新加载后再操作");
+    if (expectedConfig !== undefined && before !== expectedConfig) throw new Error("配置已变化，未覆盖，请重新启动后核对");
+    // Revocation must survive a missing old driver. replace() still resolves the full proposed config before publishing it.
+    const currentEnabled = input.id === "computer" && !input.enabled
+      ? (await readTuiModuleConfig(path)).modules.computer?.enabled ?? false
+      : (await resolveTuiModuleConfig({ configPath: path }, { cwd })).enabled[input.id];
+    if (currentEnabled !== input.expectedEnabled) throw new Error("模块配置已变化，请重新加载后再操作");
     const config = JSON.parse(before);
     const saved = config.modules?.[input.id];
     if (saved === undefined && input.id === "computer") throw new Error("本机应用控制需要先配置驱动路径和允许控制的应用");

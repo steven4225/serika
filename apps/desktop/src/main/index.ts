@@ -11,6 +11,7 @@ import type { WorkTaskInputs, WorkTaskReadInput, WorkTaskArtifactInput } from ".
 import { parseModuleNotification } from "./runtime-bridge.js";
 import { moduleNotificationCopy } from "../shared/human-title.js";
 import { RuntimeOwnership } from "./runtime-ownership.js";
+import { recoverComputerStartup } from "./computer-startup-recovery.js";
 import { restoreBackup, previewBackup } from "./backup.js";
 import type { RestoreResult } from "../shared/backup.js";
 import { ConversationDraftStore } from "./conversation-draft-store.js";
@@ -200,6 +201,17 @@ async function main(): Promise<void> {
     if (window.webContents.isLoading()) window.webContents.once("did-finish-load", report);
     else report();
     app.on("before-quit", () => { quitting = true; tray.dispose(); });
+    try {
+      await recoverComputerStartup(error, {
+        cwd: process.cwd(),
+        confirm: async configPath => (await dialog.showMessageBox(window, {
+          type: "warning", title: "电脑控制驱动不可用", message: "关闭电脑控制后重新启动 Serika？",
+          detail: `当前驱动不存在或无法访问。关闭后可继续使用其他已配置功能；对话和历史保留。不会安装驱动或修改系统权限。\n配置：${configPath}`,
+          buttons: ["保持配置", "关闭电脑控制并重启"], defaultId: 0, cancelId: 0,
+        })).response === 1,
+        restart: () => { app.relaunch(); app.quit(); },
+      });
+    } catch (recoveryError) { send({ type: "error", message: safeStartupError(recoveryError, process.env) }); }
     return;
   }
 
@@ -241,6 +253,19 @@ async function main(): Promise<void> {
   ipcMain.handle(IPC.taskResultAck, (_event, id: string) => host.current.acknowledgeTaskResult(id));
   ipcMain.handle(IPC.contextDiagnostics, () => host.current.getContextDiagnostics());
   ipcMain.handle(IPC.contextMode, (_event, input) => host.setContextMode(input));
+  ipcMain.handle(IPC.computerView, () => host.getComputerConnection());
+  ipcMain.handle(IPC.computerApps, (_event, token) => host.discoverComputerApps(token));
+  ipcMain.handle(IPC.computerSave, (_event, input) => host.saveComputerConnection(input));
+  ipcMain.handle(IPC.computerCheck, () => host.checkComputerConnection());
+  ipcMain.handle(IPC.computerDriver, async () => {
+    if (host.current.snapshot().state.kind !== "idle") throw new Error("请等待当前执行结束，再选择驱动");
+    const scope = host.info().configPath;
+    const previous = await host.getComputerConnection();
+    const selected = await dialog.showOpenDialog(window, { title: "选择已安装的 Cua Driver 可执行文件", defaultPath: previous.executable ?? join(app.getPath("home"), ".local", "bin"), properties: ["openFile", "showHiddenFiles"] });
+    if (selected.canceled || !selected.filePaths[0]) return null;
+    if (host.info().configPath !== scope) throw new Error("配置已切换，请重新选择驱动");
+    return host.selectComputerDriver(selected.filePaths[0]);
+  });
   ipcMain.handle(IPC.moduleEnabled, (_event, input) => host.setModuleEnabled(input));
   ipcMain.handle(IPC.automationDiagnostics, () => host.current.getAutomationDiagnostics());
   ipcMain.handle(IPC.automationOverview, () => host.current.getAutomationOverview());

@@ -1,3 +1,17 @@
+export interface ComputerConnectionCheck {
+  checkedAt: string;
+  ok: boolean;
+  errorCode?: string;
+}
+export interface ComputerConnectionView {
+  executable: string | null;
+  allowedBundleIds: string[];
+  enabled: boolean;
+  lastCheck: ComputerConnectionCheck | null;
+}
+export interface ComputerDriverSelection { token: string; executable: string }
+export interface ComputerConnectionInput { token: string; allowedBundleIds: string[] }
+
 import type { HerdrBinding } from "@aisdk-agent/example-cli/dist/local-terminal.js";
 export interface HerdrTargetInput { target: { session: string; paneId: string; terminalId: string } | null; expected: HerdrBinding | null }
 import type { MemoryLibraryAction, MemoryLibraryView, MemoryLibraryDocument } from "@aisdk-agent/example-cli/dist/memory-library.js";
@@ -147,7 +161,7 @@ export interface UiSnapshot {
 
 export type MainToRenderer =
   | { type: "task-result-available" }
-  | { type: "identity-changed"; info: AppInfo; reason?: "modules" | "context" | "terminal"; configurationError?: string }
+  | { type: "identity-changed"; info: AppInfo; reason?: "modules" | "context" | "terminal" | "computer"; configurationError?: string }
   | { type: "state"; state: UiState }
   | { type: "output"; text: string }
   | { type: "home"; text: string; reset?: boolean }
@@ -234,6 +248,11 @@ export interface RendererApi {
   discoverThreads(directory: string): Promise<ThreadSummary[]>;
   registerThread(input: { threadId: string; transcriptDirectory: string; confirmedWorkspace: true }): Promise<void>;
   enableMemory(): Promise<void>;
+  getComputerConnection?(): Promise<ComputerConnectionView>;
+  chooseComputerDriver?(): Promise<ComputerDriverSelection | null>;
+  discoverComputerApps?(token: string): Promise<string[]>;
+  saveComputerConnection?(input: ComputerConnectionInput): Promise<void>;
+  checkComputerConnection?(): Promise<ComputerConnectionView>;
   setModuleEnabled?(input: { id: string; enabled: boolean; expectedEnabled: boolean }): Promise<void>;
   consolidateMemory(input: MemoryConsolidationRequest): Promise<MemoryResult<{ runId: string }>>;
   listMemoryConsolidationSources(offset?: number): Promise<MemoryResult<MemoryConsolidationSourcePage>>;
@@ -364,6 +383,11 @@ export const IPC = {
   notificationTest: "runloom:notificationTest",
   notificationSettings: "runloom:notificationSettings",
   info: "runloom:info",
+  computerView: "runloom:computerView",
+  computerDriver: "runloom:computerDriver",
+  computerApps: "runloom:computerApps",
+  computerSave: "runloom:computerSave",
+  computerCheck: "runloom:computerCheck",
   moduleEnabled: "runloom:moduleEnabled",
   snapshot: "runloom:snapshot",
   history: "runloom:history",

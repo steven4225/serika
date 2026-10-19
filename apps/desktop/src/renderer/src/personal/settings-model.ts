@@ -31,7 +31,8 @@ export function isConnectorModule(id: string): boolean {
   return (CONNECTOR_MODULE_IDS as readonly string[]).includes(id);
 }
 
-export function settingsRouteForInitial(initial: false | "modules" | "context" | "terminal"): SettingsRoute {
+export function settingsRouteForInitial(initial: false | "modules" | "context" | "terminal" | "computer"): SettingsRoute {
+  if (initial === "computer") return "devices";
   if (initial === "terminal") return "files";
   if (initial === "context") return "context";
   if (initial === "modules") return "advanced";

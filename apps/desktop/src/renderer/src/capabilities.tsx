@@ -1,3 +1,4 @@
+import { ComputerConnectionSetting } from "./computer-connection.js";
 import type { AppInfo } from "../../shared/ui-contract.js";
 import { useState } from "react";
 import { memoryAutomationLabel } from "./memory-copy.js";
@@ -97,7 +98,9 @@ export function CapabilitiesPanel({ info, busy = false, initialError = null, int
     finally { setSaving(false); }
   };
     return <section className="capability-page">
-    <AutonomySetting info={info} busy={busy} />
+    {info.modules?.length === 1 && info.modules[0]?.id === "computer"
+      ? <ComputerConnectionSetting busy={busy} unavailable={unavailable} enabled={info.computer.enabled} />
+      : <AutonomySetting info={info} busy={busy} />}
     {info.modules?.some(module => module.id === "read-file" || module.id === "shell") ? <HerdrTargetSetting info={info} busy={busy} /> : null}
     <p className="hint">{intro ?? "选择助手可以使用的内置功能。保存后重新加载当前对话，操作按当前授权执行。"}</p>
     {busy ? <p className="hint" role="status">当前正在处理，结束后才能更改能力。</p> : null}
@@ -120,7 +123,7 @@ export function CapabilitiesPanel({ info, busy = false, initialError = null, int
           {module.id === "computer" ? <small>{!module.enabled ? "当前不会控制本机应用。" : "驱动和 macOS 权限仍需就绪。"}允许的应用：{info.computer.allowedBundleIds.length} 个；能力开关不会自动增添应用或申请系统权限。</small> : null}
           {info.capabilities ? <details className="capability-technical"><summary>实际工具与就绪情况</summary>
             <p>当前注册：{info.capabilities.modules.find(item => item.id === module.id)?.registeredTools.join("、") || "未注册对话工具"}</p>
-            {module.id === "computer" ? <p>驱动连接和系统权限尚未实际检查；不会自动启动驱动、申请权限或读取其他应用。</p> : null}
+            {module.id === "computer" ? <p>工具注册不代表连接或系统权限就绪；连接检查记录见上方，系统权限需另行验证。</p> : null}
             {module.id === "shell" ? <p>{info.capabilities.shell.warning} 命令配方可通过 /recipes 查看，执行仍需本次批准。</p> : null}
           </details> : null}
         </div><div className="capability-control"><span className={`capability-status ${module.enabled ? "enabled" : ""}`}>{module.enabled ? "已开启" : "已关闭"}</span>
