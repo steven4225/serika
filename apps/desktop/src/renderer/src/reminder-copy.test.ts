@@ -27,6 +27,13 @@ it("preserves ordinary technical explanations and successful reminder subjects c
   assert.equal(presentReminderReply(readback).primary, readback);
 });
 
+it("confirmation card keeps the business token in the text being approved", () => {
+  const subject = "检查订单 task_12345678";
+  const card = presentReminderConfirmation({ reminder: { action: "save", time: "9:00", repeat: "不重复", subject } });
+  assert.match(card?.title ?? "", /task_12345678/);
+  assert.equal(card?.subject, subject);
+});
+
 it("confirmation card leads with the Chinese reminder, not the tool name", () => {
   const card = presentReminderConfirmation({
     reminder: {

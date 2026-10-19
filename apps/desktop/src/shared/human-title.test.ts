@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { it } from "node:test";
-import { humanFacingTitle, isRawIdentifier, localScheduleLabel, moduleNotificationCopy, reminderConfirmationView, taskNoticeTitle } from "./human-title.js";
+import { humanFacingTitle, isRawIdentifier, localScheduleLabel, moduleNotificationCopy, taskNoticeTitle } from "./human-title.js";
 
 it("hides raw ids from conversation titles and keeps human text", () => {
   const id = "6f1c2a90-7b34-41d2-9abc-0d11e22f3344";
@@ -14,32 +14,9 @@ it("hides raw ids from conversation titles and keeps human text", () => {
   assert.equal(humanFacingTitle("周复盘的写作格式", "当前对话"), "周复盘的写作格式");
 });
 
-it("turns a reminder confirmation into a human heading and parks the long note", () => {
-  const view = reminderConfirmationView("task_repeat_create", [
-    "提醒确认",
-    "时间：9:00",
-    "重复：每天",
-    "内容：喝水",
-    "后台已注册，当前未运行。确认后保存这条提醒，并按需启用该工作区后台服务。",
-    "允许这次保存？ [y/n]",
-  ].join("\n"));
-  assert.equal(view?.title, "设置提醒：每天 9:00 喝水");
-  assert.deepEqual(view?.fields.map(field => field.label), ["时间", "重复", "内容"]);
-  assert.match(view?.more ?? "", /后台已注册/);
-  assert.equal(reminderConfirmationView("read_file", "读取 notes/plan.md"), null);
-});
-
-it("reminder confirmation keeps the business token in the text being approved", () => {
-  const subject = "检查订单 task_12345678";
-  const view = reminderConfirmationView("task_create", [
-    "提醒确认",
-    "时间：9:00",
-    "内容：" + subject,
-    "允许这次保存？ [y/n]",
-  ].join("\n"));
-  assert.match(view?.title ?? "", /task_12345678/);
-  assert.equal(view?.fields.find(field => field.label === "内容")?.value, subject);
-  assert.equal(humanFacingTitle(subject, "当前对话"), "检查订单");
+it("chrome titles drop business tokens that the reminder card keeps", () => {
+  // The reminder card itself keeps the token (reminder-copy.test.ts); only chrome titles drop it.
+  assert.equal(humanFacingTitle("检查订单 task_12345678", "当前对话"), "检查订单");
 });
 
 it("names a saved reminder from its result and formats schedule times without the raw timestamp", () => {

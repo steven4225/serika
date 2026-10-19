@@ -36,7 +36,7 @@
   - 时间值带首尾空白时，旧解析器会 trim，空白时间会退回通用卡；现在按字段原样显示（模块生成的时间不带空白）。
   - 补充说明里如果有一行和字段行完全相同（例如另起一行「时间：…」），旧解析器会把它过滤掉；现在照常显示。
   - 不是任务模块发出、但文本以「提醒确认」开头的审批，旧代码会显示提醒卡（标题「提醒」）；现在显示通用确认卡。
-- 未动：`apps/desktop/src/shared/human-title.ts` 的 `reminderConfirmationView` 也是这张卡的文本解析器，产品代码没有调用，只有 `human-title.test.ts` 在用；是否删除待用户决定。
+- `apps/desktop/src/shared/human-title.ts` 的 `reminderConfirmationView` 也是这张卡的文本解析器，产品代码没有调用，只有 `human-title.test.ts` 在用；用户确认后已删除（「审批里保留业务编号」的测试改到 `reminder-copy.test.ts`，对真正显示的卡片做断言）。
 
 ## 结果
 

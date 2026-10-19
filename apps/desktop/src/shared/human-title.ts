@@ -55,49 +55,6 @@ export function recurrencePhrase(recurrence: { kind: string; time?: string; week
   return null;
 }
 
-const REMINDER_VERBS: Record<string, string> = {
-  task_create: "设置提醒",
-  task_repeat_create: "设置提醒",
-  task_reschedule: "改期提醒",
-  task_cancel: "取消提醒",
-  task_repeat_cancel: "取消重复提醒",
-  task_repeat_pause: "暂停提醒",
-  task_repeat_resume: "恢复提醒",
-};
-
-export interface ReminderConfirmationView {
-  title: string;
-  fields: Array<{ label: string; value: string }>;
-  more: string | null;
-}
-
-/** Parses the existing 提醒确认 preview. Returns null when the preview is not that card. */
-export function reminderConfirmationView(toolName: string, preview: string): ReminderConfirmationView | null {
-  const cleaned = preview.replace(/(?:Allow this call\?|允许这次[^\n]*？)\s*\[y\/n\]\s*$/i, "").trim();
-  const lines = cleaned.split("\n").map(line => line.trim()).filter(Boolean);
-  if (lines[0] !== "提醒确认") return null;
-  const known = new Map<string, string>();
-  const extra: string[] = [];
-  for (const line of lines.slice(1)) {
-    const match = /^(时间|重复|内容|原时间)：(.+)$/.exec(line);
-    if (match?.[1] && match[2]) known.set(match[1], match[2]);
-    else extra.push(line);
-  }
-  if (!known.has("时间") && !known.has("内容")) return null;
-  const repeat = known.get("重复");
-  const when = [repeat && repeat !== "不重复" && repeat !== "一次" ? repeat : null, known.get("时间")].filter(Boolean).join(" ");
-  const subject = known.get("内容");
-  const verb = REMINDER_VERBS[toolName] ?? "确认提醒";
-  // The heading and fields are what the user approves. Keep order/task tokens;
-  // chrome titles still use humanFacingTitle, and the tool id stays under 详情.
-  const title = `${verb}：${[when, subject].filter(Boolean).join(" ")}`.replace(/\s+/g, " ").trim() || "确认这次提醒";
-  const fields = ["时间", "重复", "内容", "原时间"].flatMap(label => {
-    const value = known.get(label);
-    return value ? [{ label, value }] : [];
-  });
-  return { title, fields, more: extra.length ? extra.join("\n") : null };
-}
-
 export function taskNoticeTitle(task: {
   prompt: string;
   resultText: string | null;
