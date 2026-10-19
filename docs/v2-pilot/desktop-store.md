@@ -31,7 +31,7 @@
 - `canSteer` 不进第一批：结果消息（276 行）和启动时的快照（341 行）都写它，它属于当前这轮，跟 `usePrimaryRun` 一起在第 2 步搬。
 - `approval` 进 store；`decidingId` 和防重复点击的 ref 留在 `useApproval`，`decide` 改为从 store 读 `approval`。
 - 已知接缝：`applySnapshot`（178–183 行）同时写 `state` / `approval` / `output` 和当前这轮的快照（`applyRunSnapshot`）。当前这轮归第 2 步，所以第 1 步里 `applySnapshot` 仍是一个函数：内部写 store，再调 `applyRunSnapshot`。
-- 第 1 步做完，`AssistantPage` 自己的 `useState` 从 29 个降到 22 个，`useApproval` 从 2 个降到 1 个。
+- 第 1 步做完，`AssistantPage` 里的运行时 `useState` 从 29 个降到 22 个（另加 1 个只持有 store 实例），`useApproval` 从 2 个降到 1 个。
 
 ## 3. 方案
 
@@ -61,7 +61,7 @@ function useRuntime<T>(select: (state: RuntimeState) => T): T; // useSyncExterna
 - **防过期**：`historyRequest` 计数（新的一轮被接收时 +1、卸载时 +1）、`latestPrimaryId` / `latestCompletedPrimaryId` 的比较、执行记录的请求计数，全部原样搬进 store，用普通字段代替 ref，语义相同（ref 本来就是同步读写的）。
 - **补充要求**：回执列表和 ref 同步、草稿里带出的待核对补充要求、`canSteer` 只在快照确认后为 true，都不变。
 - **读源码的测试**（9 个，用 `readAppSource()`）：`steer-status.test.ts` 按 `const submit = useCallback` … `const busy = state.kind` 截取源码，所以 `submit` 和 `const busy = state.kind !== "idle"` 要留在 `App.tsx` 里相邻，`state` 这个名字也要保留（从 store 读出来叫 `state`）；其余测试匹配的是 JSX 文案和属性（`openSettings("advanced")`、「停止记忆整理」、`<SavedTaskNotice key=…>` 等），JSX 不动就不受影响。
-- **过渡态**：1b–1d 之间允许同一条消息的处理既写 store、又调原来的 hook，提交说明写清楚哪些 case 是这样。store 的更新经 `useSyncExternalStore` 走同步优先级，hook 的 `setState` 在 IPC 回调里走默认优先级，同一条消息可能分两次渲染（最终状态相同）。1b 开工时先确认这一点，再决定是否需要处理。
+- **过渡态**：1b–1d 之间允许同一条消息的处理既写 store、又调原来的 hook，提交说明写清楚哪些 case 是这样。1b 开工前用 React 19.3 实测过（生产和开发构建、store 先写或 hook 先写、在 setTimeout / message 事件 / await 之后触发）：同一个回调里的 `useSyncExternalStore` 更新和 `setState` 合并成一次提交，不会多出中间渲染，所以过渡态不需要额外处理。
 - 用户可见文案、顺序、截图都不变：每一步跑 UI 截图对比（138 项）。
 
 ## 5. 分步（每个提交都跑 typecheck / test:runtime / desktop test、截图对比和流程调用顺序，单独推送）

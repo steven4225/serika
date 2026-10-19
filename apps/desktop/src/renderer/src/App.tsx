@@ -13,7 +13,6 @@ import type {
   AppInfo,
   MainToRenderer,
   UiSnapshot,
-  UiState,
 } from "../../shared/ui-contract.js";
 import {
   withSteerRecords,
@@ -41,6 +40,7 @@ import { useConversationDraftPersistence, useConversationDraftState } from "./ap
 import { useBriefContinue } from "./app/use-brief-continue.js";
 import { ApprovalCard } from "./approval.js";
 import { useApproval } from "./app/use-approval.js";
+import { createRuntimeStore, useRuntime } from "./app/runtime-store.js";
 import { shouldSubmitComposer, canSubmitComposer, canSteerComposer } from "../../shared/composer.js";
 import { steerFailureLabel } from "../../shared/steer.js";
 import { Icon, SerikaMark, SerikaPersona } from "./icons.js";
@@ -85,8 +85,6 @@ import "./personal/memory.css";
 import "./personal/settings.css";
 import "./personal/conversation.css";
 
-const OUTPUT_MAX_CHARS = 64 * 1024;
-
 export function App({ initialLayout }: { initialLayout?: DesktopLayout } = {}) {
   const layout = initialLayout ?? desktopLayout(window.location.search);
   const [identityGeneration, setIdentityGeneration] = useState(0);
@@ -108,13 +106,14 @@ export function App({ initialLayout }: { initialLayout?: DesktopLayout } = {}) {
 }
 
 function AssistantPage({ drafts, layout, initialSettings = false, initialSettingsError = null, appearance, onAppearance }: { drafts: Map<string, ConversationDraft>; layout: DesktopLayout; initialSettings?: false | "modules" | "context"; initialSettingsError?: string | null; appearance: "dark" | "light"; onAppearance: () => void }) {
+  const [runtime] = useState(() => createRuntimeStore());
   const [info, setInfo] = useState<AppInfo | null>(null);
   const [mobileDashboard, setMobileDashboard] = useState(!!initialSettings);
   const { windowWidth, sidebarOpen, splitRoot, compact, dashboardOpen, actualFraction, saveSplit, rememberSidebar } = useSplitLayout(mobileDashboard);
   const [taskResultFocus, setTaskResultFocus] = useState<{ taskId: string; workspaceRoot: string; sequence: number } | null>(null);
-  const [state, setState] = useState<UiState>({ kind: "idle" });
+  const state = useRuntime(runtime, runtimeState => runtimeState.state);
   const [homeSnapshot, setHomeSnapshot] = useState<HomeSnapshot | null>(null);
-  const [output, setOutput] = useState("");
+  const output = useRuntime(runtime, runtimeState => runtimeState.output);
   const [storedHistory, setStoredHistory] = useState<{ rows: ConversationRow[]; runId: string | null }>({ rows: [], runId: null });
   const history = storedHistory.rows;
   const historyMessages = useRef<UIMessage[]>([]);
@@ -124,7 +123,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const { draftReady, setDraftReady, draftError, setDraftError, draftSaving, draftSave, input, setInput, excludeFromMemory, setExcludeFromMemory } = conversationDraft;
   const [reconnecting, setReconnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { approval, setApproval, decidingId, decide } = useApproval(setMobileDashboard, setError);
+  const { approval, decidingId, decide } = useApproval(runtime, setMobileDashboard, setError);
   const { live, lastResult, canSteer, setCanSteer, finalRecord, latestPrimaryId, latestCompletedPrimaryId, shellBuffer, steers, replaceSteers, mergeSteer, uncertainSteer, setUncertainSteer,
     applyRunSnapshot, loadFinalRun, onRunState, onRunSteer, onRunEvent, isCurrentPrimaryResult, finishPrimaryRun, onRunShellProgress } = usePrimaryRun(setError);
   const [submittedInput, setSubmittedInput] = useState<string | null>(null);
@@ -176,11 +175,9 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   }, [detailsOpen, inspectorKey]);
 
   const applySnapshot = useCallback((snapshot: UiSnapshot) => {
-    setState(snapshot.state);
-    setApproval(snapshot.pendingApproval);
-    setOutput(snapshot.recentOutput);
+    runtime.applySnapshot(snapshot);
     applyRunSnapshot(snapshot);
-  }, [applyRunSnapshot]);
+  }, [runtime, applyRunSnapshot]);
 
   const reloadHistory = useCallback(async () => {
     const request = ++historyRequest.current;
@@ -230,6 +227,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     };
 
     const onMessage = (message: MainToRenderer): void => {
+      runtime.receive(message);
       switch (message.type) {
         case "task-result-available":
           void openNotificationResult().catch(cause => { if (!cancelled) setError(String(cause)); });
@@ -237,7 +235,6 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
         case "identity-changed":
           return; // The outer App remounts this view for the new controller.
         case "state":
-          setState(message.state);
           if (onRunState(message.state, () => cancelled)) historyRequest.current += 1;
           if (message.state.kind === "idle") {
             setMemoryRefresh(value => value + 1);
@@ -248,7 +245,6 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
           }
           return;
         case "output":
-          setOutput((previous) => (previous + message.text).slice(-OUTPUT_MAX_CHARS));
           return;
         case "home":
           setHomeSnapshot(message.snapshot);
@@ -257,11 +253,9 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
           // Shown by the main process; its text is also in the output log.
           return;
         case "approval":
-          setApproval(message.approval);
           refreshOpenTrace();
           return;
         case "approval-cleared":
-          setApproval((current) => (current?.approvalId === message.approvalId ? null : current));
           return;
         case "steer":
           onRunSteer(message.steer);
@@ -353,7 +347,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
       invalidateRecords();
       stop();
     };
-  }, [applySnapshot, reloadHistory, loadRecords, loadFinalRun, drafts, refreshOpenTrace, invalidateRecords, replaceSteers, onRunState, onRunSteer, onRunEvent, isCurrentPrimaryResult, finishPrimaryRun, onRunShellProgress, settleSentAttachments]);
+  }, [runtime, applySnapshot, reloadHistory, loadRecords, loadFinalRun, drafts, refreshOpenTrace, invalidateRecords, replaceSteers, onRunState, onRunSteer, onRunEvent, isCurrentPrimaryResult, finishPrimaryRun, onRunShellProgress, settleSentAttachments]);
 
   useEffect(() => {
     if (detailsOpen && detailTab === "records") void reloadOpenRecords().catch(() => setError("执行追踪读取失败"));

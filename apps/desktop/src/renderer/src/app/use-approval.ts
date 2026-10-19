@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { PendingApproval } from "../../../shared/ui-contract.js";
+import { useRuntime, type RuntimeStore } from "./runtime-store.js";
 
 /**
- * The pending tool confirmation and the allow/deny decision (split out of
- * App.tsx; same state, effect and callback). Called right after `error` is
- * declared: no effect sat between the old position and there, so effect order
- * is unchanged.
+ * The allow/deny decision for the pending tool confirmation (split out of
+ * App.tsx). The pending approval itself lives in the runtime store (written by
+ * messages and snapshots); `decidingId` is UI state and stays here. Called
+ * right after `error` is declared: no effect sat between the old position and
+ * there, so effect order is unchanged.
  */
-export function useApproval(setMobileDashboard: (open: boolean) => void, setError: (message: string | null) => void) {
-  const [approval, setApproval] = useState<PendingApproval | null>(null);
+export function useApproval(runtime: RuntimeStore, setMobileDashboard: (open: boolean) => void, setError: (message: string | null) => void) {
+  const approval = useRuntime(runtime, runtimeState => runtimeState.approval);
   useEffect(() => { if (approval) setMobileDashboard(false); }, [approval?.approvalId]);
   const [decidingId, setDecidingId] = useState<string | null>(null);
   const decisionInFlight = useRef<string | null>(null);
@@ -29,5 +30,5 @@ export function useApproval(setMobileDashboard: (open: boolean) => void, setErro
     }
   }, [approval]);
 
-  return { approval, setApproval, decidingId, decide };
+  return { approval, decidingId, decide };
 }
