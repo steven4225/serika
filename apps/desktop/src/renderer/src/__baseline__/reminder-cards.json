@@ -1,0 +1,362 @@
+{
+  "save once, no background wiring": {
+    "toolName": "task_create",
+    "text": "\n提醒确认\n时间：今天 14:00\n重复：不重复\n内容：喝水\n本入口只保存提醒；需要自行运行 worker，到期才会提交通知。通知提交不等于已经送达。\n允许这次保存？ [y/n] \n",
+    "card": {
+      "title": "设置提醒：今天 14:00 喝水",
+      "time": "今天 14:00",
+      "repeat": "不重复",
+      "subject": "喝水",
+      "previous": null,
+      "safety": "确认后才会保存。保存不等于已经提醒到你。",
+      "details": "本入口只保存提醒；需要自行运行 worker，到期才会提交通知。通知提交不等于已经送达。",
+      "allowLabel": "确认保存"
+    },
+    "html": "<section class=\"card approval\" aria-label=\"提醒确认\" aria-live=\"polite\"><div class=\"card-head\"><strong>等待你确认</strong><span class=\"hint\">仅本次 · 不记住选择</span></div><div class=\"approval-content\"><h3>设置提醒：今天 14:00 喝水</h3><dl class=\"approval-target\"><dt>时间</dt><dd>今天 14:00</dd><dt>重复</dt><dd>不重复</dd><dt>内容</dt><dd>喝水</dd></dl><p class=\"approval-warning\">确认后才会保存。保存不等于已经提醒到你。</p><details><summary>更多说明</summary><p>本入口只保存提醒；需要自行运行 worker，到期才会提交通知。通知提交不等于已经送达。</p></details></div><details class=\"technical-id\"><summary>详情</summary><p>工具 创建提醒</p><code>task_create</code><code>approval-golden</code></details><div class=\"actions\"><button class=\"deny\">先不要</button><button class=\"allow\">确认保存</button></div></section>"
+  },
+  "save once tomorrow, background running, delivery destination": {
+    "toolName": "task_create",
+    "text": "\n提醒确认\n时间：明天 9:00\n重复：不重复\n内容：开会\n后台已注册且正在运行。确认后保存这条提醒，并按需启用该工作区后台服务；启用失败时提醒仍保存。到期通知只提交一次，这次确认不代表已经送达。 结果投递目的地：飞书群。任务保存与投递登记并非原子；失败时不要重复创建，回桌面核对。\n允许这次保存？ [y/n] \n",
+    "card": {
+      "title": "设置提醒：明天 9:00 开会",
+      "time": "明天 9:00",
+      "repeat": "不重复",
+      "subject": "开会",
+      "previous": null,
+      "safety": "确认后才会保存。保存不等于已经提醒到你。",
+      "details": "后台已注册且正在运行。确认后保存这条提醒，并按需启用该工作区后台服务；启用失败时提醒仍保存。到期通知只提交一次，这次确认不代表已经送达。 结果投递目的地：飞书群。任务保存与投递登记并非原子；失败时不要重复创建，回桌面核对。",
+      "allowLabel": "确认保存"
+    },
+    "html": "<section class=\"card approval\" aria-label=\"提醒确认\" aria-live=\"polite\"><div class=\"card-head\"><strong>等待你确认</strong><span class=\"hint\">仅本次 · 不记住选择</span></div><div class=\"approval-content\"><h3>设置提醒：明天 9:00 开会</h3><dl class=\"approval-target\"><dt>时间</dt><dd>明天 9:00</dd><dt>重复</dt><dd>不重复</dd><dt>内容</dt><dd>开会</dd></dl><p class=\"approval-warning\">确认后才会保存。保存不等于已经提醒到你。</p><details><summary>更多说明</summary><p>后台已注册且正在运行。确认后保存这条提醒，并按需启用该工作区后台服务；启用失败时提醒仍保存。到期通知只提交一次，这次确认不代表已经送达。 结果投递目的地：飞书群。任务保存与投递登记并非原子；失败时不要重复创建，回桌面核对。</p></details></div><details class=\"technical-id\"><summary>详情</summary><p>工具 创建提醒</p><code>task_create</code><code>approval-golden</code></details><div class=\"actions\"><button class=\"deny\">先不要</button><button class=\"allow\">确认保存</button></div></section>"
+  },
+  "save once this week, registered not running, two-line message": {
+    "toolName": "task_create",
+    "text": "\n提醒确认\n时间：周二 18:05\n重复：不重复\n内容：取快递\n后台已注册，当前未运行。确认后保存这条提醒，并按需启用该工作区后台服务；启用失败时提醒仍保存。到期通知只提交一次，这次确认不代表已经送达。 上次启动失败\n请检查权限\n允许这次保存？ [y/n] \n",
+    "card": {
+      "title": "设置提醒：周二 18:05 取快递",
+      "time": "周二 18:05",
+      "repeat": "不重复",
+      "subject": "取快递",
+      "previous": null,
+      "safety": "确认后才会保存。保存不等于已经提醒到你。",
+      "details": "后台已注册，当前未运行。确认后保存这条提醒，并按需启用该工作区后台服务；启用失败时提醒仍保存。到期通知只提交一次，这次确认不代表已经送达。 上次启动失败\n请检查权限",
+      "allowLabel": "确认保存"
+    },
+    "html": "<section class=\"card approval\" aria-label=\"提醒确认\" aria-live=\"polite\"><div class=\"card-head\"><strong>等待你确认</strong><span class=\"hint\">仅本次 · 不记住选择</span></div><div class=\"approval-content\"><h3>设置提醒：周二 18:05 取快递</h3><dl class=\"approval-target\"><dt>时间</dt><dd>周二 18:05</dd><dt>重复</dt><dd>不重复</dd><dt>内容</dt><dd>取快递</dd></dl><p class=\"approval-warning\">确认后才会保存。保存不等于已经提醒到你。</p><details><summary>更多说明</summary><p>后台已注册，当前未运行。确认后保存这条提醒，并按需启用该工作区后台服务；启用失败时提醒仍保存。到期通知只提交一次，这次确认不代表已经送达。 上次启动失败\n请检查权限</p></details></div><details class=\"technical-id\"><summary>详情</summary><p>工具 创建提醒</p><code>task_create</code><code>approval-golden</code></details><div class=\"actions\"><button class=\"deny\">先不要</button><button class=\"allow\">确认保存</button></div></section>"
+  },
+  "save once far date, status read throws": {
+    "toolName": "task_create",
+    "text": "\n提醒确认\n时间：2026年12月1日 9:00\n重复：不重复\n内容：交房租\n后台尚未注册。确认后保存这条提醒，并按需启用该工作区后台服务；启用失败时提醒仍保存。到期通知只提交一次，这次确认不代表已经送达。 Error: down\n允许这次保存？ [y/n] \n",
+    "card": {
+      "title": "设置提醒：2026年12月1日 9:00 交房租",
+      "time": "2026年12月1日 9:00",
+      "repeat": "不重复",
+      "subject": "交房租",
+      "previous": null,
+      "safety": "确认后才会保存。保存不等于已经提醒到你。",
+      "details": "后台尚未注册。确认后保存这条提醒，并按需启用该工作区后台服务；启用失败时提醒仍保存。到期通知只提交一次，这次确认不代表已经送达。 Error: down",
+      "allowLabel": "确认保存"
+    },
+    "html": "<section class=\"card approval\" aria-label=\"提醒确认\" aria-live=\"polite\"><div class=\"card-head\"><strong>等待你确认</strong><span class=\"hint\">仅本次 · 不记住选择</span></div><div class=\"approval-content\"><h3>设置提醒：2026年12月1日 9:00 交房租</h3><dl class=\"approval-target\"><dt>时间</dt><dd>2026年12月1日 9:00</dd><dt>重复</dt><dd>不重复</dd><dt>内容</dt><dd>交房租</dd></dl><p class=\"approval-warning\">确认后才会保存。保存不等于已经提醒到你。</p><details><summary>更多说明</summary><p>后台尚未注册。确认后保存这条提醒，并按需启用该工作区后台服务；启用失败时提醒仍保存。到期通知只提交一次，这次确认不代表已经送达。 Error: down</p></details></div><details class=\"technical-id\"><summary>详情</summary><p>工具 创建提醒</p><code>task_create</code><code>approval-golden</code></details><div class=\"actions\"><button class=\"deny\">先不要</button><button class=\"allow\">确认保存</button></div></section>"
+  },
+  "save once without runAt": {
+    "toolName": "task_create",
+    "text": "\n提醒确认\n时间：时间未定\n重复：不重复\n内容：这件事\n后台已注册且正在运行。确认后保存这条提醒，并按需启用该工作区后台服务；启用失败时提醒仍保存。到期通知只提交一次，这次确认不代表已经送达。\n允许这次保存？ [y/n] \n",
+    "card": {
+      "title": "设置提醒：时间未定 这件事",
+      "time": "时间未定",
+      "repeat": "不重复",
+      "subject": "这件事",
+      "previous": null,
+      "safety": "确认后才会保存。保存不等于已经提醒到你。",
+      "details": "后台已注册且正在运行。确认后保存这条提醒，并按需启用该工作区后台服务；启用失败时提醒仍保存。到期通知只提交一次，这次确认不代表已经送达。",
+      "allowLabel": "确认保存"
+    },
+    "html": "<section class=\"card approval\" aria-label=\"提醒确认\" aria-live=\"polite\"><div class=\"card-head\"><strong>等待你确认</strong><span class=\"hint\">仅本次 · 不记住选择</span></div><div class=\"approval-content\"><h3>设置提醒：时间未定 这件事</h3><dl class=\"approval-target\"><dt>时间</dt><dd>时间未定</dd><dt>重复</dt><dd>不重复</dd><dt>内容</dt><dd>这件事</dd></dl><p class=\"approval-warning\">确认后才会保存。保存不等于已经提醒到你。</p><details><summary>更多说明</summary><p>后台已注册且正在运行。确认后保存这条提醒，并按需启用该工作区后台服务；启用失败时提醒仍保存。到期通知只提交一次，这次确认不代表已经送达。</p></details></div><details class=\"technical-id\"><summary>详情</summary><p>工具 创建提醒</p><code>task_create</code><code>approval-golden</code></details><div class=\"actions\"><button class=\"deny\">先不要</button><button class=\"allow\">确认保存</button></div></section>"
+  },
+  "save once, unparsable runAt": {
+    "toolName": "task_create",
+    "text": "\n提醒确认\n时间：下周某天\n重复：不重复\n内容：交周报\n本入口只保存提醒；需要自行运行 worker，到期才会提交通知。通知提交不等于已经送达。\n允许这次保存？ [y/n] \n",
+    "card": {
+      "title": "设置提醒：下周某天 交周报",
+      "time": "下周某天",
+      "repeat": "不重复",
+      "subject": "交周报",
+      "previous": null,
+      "safety": "确认后才会保存。保存不等于已经提醒到你。",
+      "details": "本入口只保存提醒；需要自行运行 worker，到期才会提交通知。通知提交不等于已经送达。",
+      "allowLabel": "确认保存"
+    },
+    "html": "<section class=\"card approval\" aria-label=\"提醒确认\" aria-live=\"polite\"><div class=\"card-head\"><strong>等待你确认</strong><span class=\"hint\">仅本次 · 不记住选择</span></div><div class=\"approval-content\"><h3>设置提醒：下周某天 交周报</h3><dl class=\"approval-target\"><dt>时间</dt><dd>下周某天</dd><dt>重复</dt><dd>不重复</dd><dt>内容</dt><dd>交周报</dd></dl><p class=\"approval-warning\">确认后才会保存。保存不等于已经提醒到你。</p><details><summary>更多说明</summary><p>本入口只保存提醒；需要自行运行 worker，到期才会提交通知。通知提交不等于已经送达。</p></details></div><details class=\"technical-id\"><summary>详情</summary><p>工具 创建提醒</p><code>task_create</code><code>approval-golden</code></details><div class=\"actions\"><button class=\"deny\">先不要</button><button class=\"allow\">确认保存</button></div></section>"
+  },
+  "save daily, not registered": {
+    "toolName": "task_repeat_create",
+    "text": "\n提醒确认\n时间：9:00\n重复：每天\n内容：看 日程\n后台尚未注册。确认后保存这条提醒，并按需启用该工作区后台服务；启用失败时提醒仍保存。到期通知只提交一次，这次确认不代表已经送达。\n允许这次保存？ [y/n] \n",
+    "card": {
+      "title": "设置提醒：每天 9:00 看 日程",
+      "time": "9:00",
+      "repeat": "每天",
+      "subject": "看 日程",
+      "previous": null,
+      "safety": "确认后才会保存。保存不等于已经提醒到你。",
+      "details": "后台尚未注册。确认后保存这条提醒，并按需启用该工作区后台服务；启用失败时提醒仍保存。到期通知只提交一次，这次确认不代表已经送达。",
+      "allowLabel": "确认保存"
+    },
+    "html": "<section class=\"card approval\" aria-label=\"提醒确认\" aria-live=\"polite\"><div class=\"card-head\"><strong>等待你确认</strong><span class=\"hint\">仅本次 · 不记住选择</span></div><div class=\"approval-content\"><h3>设置提醒：每天 9:00 看 日程</h3><dl class=\"approval-target\"><dt>时间</dt><dd>9:00</dd><dt>重复</dt><dd>每天</dd><dt>内容</dt><dd>看 日程</dd></dl><p class=\"approval-warning\">确认后才会保存。保存不等于已经提醒到你。</p><details><summary>更多说明</summary><p>后台尚未注册。确认后保存这条提醒，并按需启用该工作区后台服务；启用失败时提醒仍保存。到期通知只提交一次，这次确认不代表已经送达。</p></details></div><details class=\"technical-id\"><summary>详情</summary><p>工具 重复提醒</p><code>task_repeat_create</code><code>approval-golden</code></details><div class=\"actions\"><button class=\"deny\">先不要</button><button class=\"allow\">确认保存</button></div></section>"
+  },
+  "save weekly, background running, delivery destination": {
+    "toolName": "task_repeat_create",
+    "text": "\n提醒确认\n时间：21:30\n重复：每周日\n内容：周复盘\n后台已注册且正在运行。确认后保存这条提醒，并按需启用该工作区后台服务；启用失败时提醒仍保存。到期通知只提交一次，这次确认不代表已经送达。 结果投递目的地：家庭群。任务保存与投递登记并非原子；失败时不要重复创建，回桌面核对。\n允许这次保存？ [y/n] \n",
+    "card": {
+      "title": "设置提醒：每周日 21:30 周复盘",
+      "time": "21:30",
+      "repeat": "每周日",
+      "subject": "周复盘",
+      "previous": null,
+      "safety": "确认后才会保存。保存不等于已经提醒到你。",
+      "details": "后台已注册且正在运行。确认后保存这条提醒，并按需启用该工作区后台服务；启用失败时提醒仍保存。到期通知只提交一次，这次确认不代表已经送达。 结果投递目的地：家庭群。任务保存与投递登记并非原子；失败时不要重复创建，回桌面核对。",
+      "allowLabel": "确认保存"
+    },
+    "html": "<section class=\"card approval\" aria-label=\"提醒确认\" aria-live=\"polite\"><div class=\"card-head\"><strong>等待你确认</strong><span class=\"hint\">仅本次 · 不记住选择</span></div><div class=\"approval-content\"><h3>设置提醒：每周日 21:30 周复盘</h3><dl class=\"approval-target\"><dt>时间</dt><dd>21:30</dd><dt>重复</dt><dd>每周日</dd><dt>内容</dt><dd>周复盘</dd></dl><p class=\"approval-warning\">确认后才会保存。保存不等于已经提醒到你。</p><details><summary>更多说明</summary><p>后台已注册且正在运行。确认后保存这条提醒，并按需启用该工作区后台服务；启用失败时提醒仍保存。到期通知只提交一次，这次确认不代表已经送达。 结果投递目的地：家庭群。任务保存与投递登记并非原子；失败时不要重复创建，回桌面核对。</p></details></div><details class=\"technical-id\"><summary>详情</summary><p>工具 重复提醒</p><code>task_repeat_create</code><code>approval-golden</code></details><div class=\"actions\"><button class=\"deny\">先不要</button><button class=\"allow\">确认保存</button></div></section>"
+  },
+  "save repeat, invalid recurrence": {
+    "toolName": "task_repeat_create",
+    "text": "\n提醒确认\n时间：时间未定\n重复：不重复\n内容：浇花\n本入口只保存提醒；需要自行运行 worker，到期才会提交通知。通知提交不等于已经送达。\n允许这次保存？ [y/n] \n",
+    "card": {
+      "title": "设置提醒：时间未定 浇花",
+      "time": "时间未定",
+      "repeat": "不重复",
+      "subject": "浇花",
+      "previous": null,
+      "safety": "确认后才会保存。保存不等于已经提醒到你。",
+      "details": "本入口只保存提醒；需要自行运行 worker，到期才会提交通知。通知提交不等于已经送达。",
+      "allowLabel": "确认保存"
+    },
+    "html": "<section class=\"card approval\" aria-label=\"提醒确认\" aria-live=\"polite\"><div class=\"card-head\"><strong>等待你确认</strong><span class=\"hint\">仅本次 · 不记住选择</span></div><div class=\"approval-content\"><h3>设置提醒：时间未定 浇花</h3><dl class=\"approval-target\"><dt>时间</dt><dd>时间未定</dd><dt>重复</dt><dd>不重复</dd><dt>内容</dt><dd>浇花</dd></dl><p class=\"approval-warning\">确认后才会保存。保存不等于已经提醒到你。</p><details><summary>更多说明</summary><p>本入口只保存提醒；需要自行运行 worker，到期才会提交通知。通知提交不等于已经送达。</p></details></div><details class=\"technical-id\"><summary>详情</summary><p>工具 重复提醒</p><code>task_repeat_create</code><code>approval-golden</code></details><div class=\"actions\"><button class=\"deny\">先不要</button><button class=\"allow\">确认保存</button></div></section>"
+  },
+  "reschedule today to tomorrow, with previous time": {
+    "toolName": "task_reschedule",
+    "text": "\n提醒确认\n时间：明天 8:30\n重复：不重复\n内容：喝水\n原时间：今天 14:00（预览，不锁定这条提醒）\n保存时会再次核对状态。改期不代表通知已经送达。\n允许这次改期？ [y/n] \n",
+    "card": {
+      "title": "调整提醒：明天 8:30 喝水",
+      "time": "明天 8:30",
+      "repeat": "不重复",
+      "subject": "喝水",
+      "previous": "今天 14:00（预览，不锁定这条提醒）",
+      "safety": "确认后才会改时间。改期不等于已经送达。",
+      "details": "保存时会再次核对状态。改期不代表通知已经送达。",
+      "allowLabel": "确认改期"
+    },
+    "html": "<section class=\"card approval\" aria-label=\"提醒确认\" aria-live=\"polite\"><div class=\"card-head\"><strong>等待你确认</strong><span class=\"hint\">仅本次 · 不记住选择</span></div><div class=\"approval-content\"><h3>调整提醒：明天 8:30 喝水</h3><dl class=\"approval-target\"><dt>时间</dt><dd>明天 8:30</dd><dt>重复</dt><dd>不重复</dd><dt>内容</dt><dd>喝水</dd><dt>原来</dt><dd>今天 14:00（预览，不锁定这条提醒）</dd></dl><p class=\"approval-warning\">确认后才会改时间。改期不等于已经送达。</p><details><summary>更多说明</summary><p>保存时会再次核对状态。改期不代表通知已经送达。</p></details></div><details class=\"technical-id\"><summary>详情</summary><p>工具 调整提醒</p><code>task_reschedule</code><code>approval-golden</code></details><div class=\"actions\"><button class=\"deny\">先不要</button><button class=\"allow\">确认改期</button></div></section>"
+  },
+  "reschedule far date to this week, with previous time": {
+    "toolName": "task_reschedule",
+    "text": "\n提醒确认\n时间：周四 20:00\n重复：不重复\n内容：交房租\n原时间：2026年12月1日 9:00（预览，不锁定这条提醒）\n保存时会再次核对状态。改期不代表通知已经送达。\n允许这次改期？ [y/n] \n",
+    "card": {
+      "title": "调整提醒：周四 20:00 交房租",
+      "time": "周四 20:00",
+      "repeat": "不重复",
+      "subject": "交房租",
+      "previous": "2026年12月1日 9:00（预览，不锁定这条提醒）",
+      "safety": "确认后才会改时间。改期不等于已经送达。",
+      "details": "保存时会再次核对状态。改期不代表通知已经送达。",
+      "allowLabel": "确认改期"
+    },
+    "html": "<section class=\"card approval\" aria-label=\"提醒确认\" aria-live=\"polite\"><div class=\"card-head\"><strong>等待你确认</strong><span class=\"hint\">仅本次 · 不记住选择</span></div><div class=\"approval-content\"><h3>调整提醒：周四 20:00 交房租</h3><dl class=\"approval-target\"><dt>时间</dt><dd>周四 20:00</dd><dt>重复</dt><dd>不重复</dd><dt>内容</dt><dd>交房租</dd><dt>原来</dt><dd>2026年12月1日 9:00（预览，不锁定这条提醒）</dd></dl><p class=\"approval-warning\">确认后才会改时间。改期不等于已经送达。</p><details><summary>更多说明</summary><p>保存时会再次核对状态。改期不代表通知已经送达。</p></details></div><details class=\"technical-id\"><summary>详情</summary><p>工具 调整提醒</p><code>task_reschedule</code><code>approval-golden</code></details><div class=\"actions\"><button class=\"deny\">先不要</button><button class=\"allow\">确认改期</button></div></section>"
+  },
+  "cancel once": {
+    "toolName": "task_cancel",
+    "text": "\n提醒确认\n时间：今天 14:00\n重复：不重复\n内容：喝水\n取消后不会再为这条提醒提交通知。已经提交的通知不会撤回。\n允许这次取消？ [y/n] \n",
+    "card": {
+      "title": "取消提醒：今天 14:00 喝水",
+      "time": "今天 14:00",
+      "repeat": "不重复",
+      "subject": "喝水",
+      "previous": null,
+      "safety": "确认后才会取消。已经弹出的通知不会撤回。",
+      "details": "取消后不会再为这条提醒提交通知。已经提交的通知不会撤回。",
+      "allowLabel": "确认取消"
+    },
+    "html": "<section class=\"card approval\" aria-label=\"提醒确认\" aria-live=\"polite\"><div class=\"card-head\"><strong>等待你确认</strong><span class=\"hint\">仅本次 · 不记住选择</span></div><div class=\"approval-content\"><h3>取消提醒：今天 14:00 喝水</h3><dl class=\"approval-target\"><dt>时间</dt><dd>今天 14:00</dd><dt>重复</dt><dd>不重复</dd><dt>内容</dt><dd>喝水</dd></dl><p class=\"approval-warning\">确认后才会取消。已经弹出的通知不会撤回。</p><details><summary>更多说明</summary><p>取消后不会再为这条提醒提交通知。已经提交的通知不会撤回。</p></details></div><details class=\"technical-id\"><summary>详情</summary><p>工具 取消提醒</p><code>task_cancel</code><code>approval-golden</code></details><div class=\"actions\"><button class=\"deny\">先不要</button><button class=\"allow\">确认取消</button></div></section>"
+  },
+  "cancel daily": {
+    "toolName": "task_repeat_cancel",
+    "text": "\n提醒确认\n时间：9:00\n重复：每天\n内容：看 日程\n只变更后续安排，不重放已经执行的结果，也不撤回已经提交的通知。\n允许这次取消？ [y/n] \n",
+    "card": {
+      "title": "取消提醒：每天 9:00 看 日程",
+      "time": "9:00",
+      "repeat": "每天",
+      "subject": "看 日程",
+      "previous": null,
+      "safety": "确认后才会取消。已经弹出的通知不会撤回。",
+      "details": "只变更后续安排，不重放已经执行的结果，也不撤回已经提交的通知。",
+      "allowLabel": "确认取消"
+    },
+    "html": "<section class=\"card approval\" aria-label=\"提醒确认\" aria-live=\"polite\"><div class=\"card-head\"><strong>等待你确认</strong><span class=\"hint\">仅本次 · 不记住选择</span></div><div class=\"approval-content\"><h3>取消提醒：每天 9:00 看 日程</h3><dl class=\"approval-target\"><dt>时间</dt><dd>9:00</dd><dt>重复</dt><dd>每天</dd><dt>内容</dt><dd>看 日程</dd></dl><p class=\"approval-warning\">确认后才会取消。已经弹出的通知不会撤回。</p><details><summary>更多说明</summary><p>只变更后续安排，不重放已经执行的结果，也不撤回已经提交的通知。</p></details></div><details class=\"technical-id\"><summary>详情</summary><p>工具 取消重复提醒</p><code>task_repeat_cancel</code><code>approval-golden</code></details><div class=\"actions\"><button class=\"deny\">先不要</button><button class=\"allow\">确认取消</button></div></section>"
+  },
+  "pause daily": {
+    "toolName": "task_repeat_pause",
+    "text": "\n提醒确认\n时间：9:00\n重复：每天\n内容：看 日程\n只变更后续安排，不重放已经执行的结果，也不撤回已经提交的通知。\n允许这次暂停？ [y/n] \n",
+    "card": {
+      "title": "暂停提醒：每天 9:00 看 日程",
+      "time": "9:00",
+      "repeat": "每天",
+      "subject": "看 日程",
+      "previous": null,
+      "safety": "确认后暂停以后的提醒，不会重做已经发生的。",
+      "details": "只变更后续安排，不重放已经执行的结果，也不撤回已经提交的通知。",
+      "allowLabel": "确认暂停"
+    },
+    "html": "<section class=\"card approval\" aria-label=\"提醒确认\" aria-live=\"polite\"><div class=\"card-head\"><strong>等待你确认</strong><span class=\"hint\">仅本次 · 不记住选择</span></div><div class=\"approval-content\"><h3>暂停提醒：每天 9:00 看 日程</h3><dl class=\"approval-target\"><dt>时间</dt><dd>9:00</dd><dt>重复</dt><dd>每天</dd><dt>内容</dt><dd>看 日程</dd></dl><p class=\"approval-warning\">确认后暂停以后的提醒，不会重做已经发生的。</p><details><summary>更多说明</summary><p>只变更后续安排，不重放已经执行的结果，也不撤回已经提交的通知。</p></details></div><details class=\"technical-id\"><summary>详情</summary><p>工具 暂停重复提醒</p><code>task_repeat_pause</code><code>approval-golden</code></details><div class=\"actions\"><button class=\"deny\">先不要</button><button class=\"allow\">确认暂停</button></div></section>"
+  },
+  "pause weekly": {
+    "toolName": "task_repeat_pause",
+    "text": "\n提醒确认\n时间：21:30\n重复：每周日\n内容：周复盘\n只变更后续安排，不重放已经执行的结果，也不撤回已经提交的通知。\n允许这次暂停？ [y/n] \n",
+    "card": {
+      "title": "暂停提醒：每周日 21:30 周复盘",
+      "time": "21:30",
+      "repeat": "每周日",
+      "subject": "周复盘",
+      "previous": null,
+      "safety": "确认后暂停以后的提醒，不会重做已经发生的。",
+      "details": "只变更后续安排，不重放已经执行的结果，也不撤回已经提交的通知。",
+      "allowLabel": "确认暂停"
+    },
+    "html": "<section class=\"card approval\" aria-label=\"提醒确认\" aria-live=\"polite\"><div class=\"card-head\"><strong>等待你确认</strong><span class=\"hint\">仅本次 · 不记住选择</span></div><div class=\"approval-content\"><h3>暂停提醒：每周日 21:30 周复盘</h3><dl class=\"approval-target\"><dt>时间</dt><dd>21:30</dd><dt>重复</dt><dd>每周日</dd><dt>内容</dt><dd>周复盘</dd></dl><p class=\"approval-warning\">确认后暂停以后的提醒，不会重做已经发生的。</p><details><summary>更多说明</summary><p>只变更后续安排，不重放已经执行的结果，也不撤回已经提交的通知。</p></details></div><details class=\"technical-id\"><summary>详情</summary><p>工具 暂停重复提醒</p><code>task_repeat_pause</code><code>approval-golden</code></details><div class=\"actions\"><button class=\"deny\">先不要</button><button class=\"allow\">确认暂停</button></div></section>"
+  },
+  "resume weekly": {
+    "toolName": "task_repeat_resume",
+    "text": "\n提醒确认\n时间：21:30\n重复：每周日\n内容：周复盘\n只变更后续安排，不重放已经执行的结果，也不撤回已经提交的通知。\n允许这次恢复？ [y/n] \n",
+    "card": {
+      "title": "恢复提醒：每周日 21:30 周复盘",
+      "time": "21:30",
+      "repeat": "每周日",
+      "subject": "周复盘",
+      "previous": null,
+      "safety": "确认后恢复以后的提醒。恢复不等于已经送达。",
+      "details": "只变更后续安排，不重放已经执行的结果，也不撤回已经提交的通知。",
+      "allowLabel": "确认恢复"
+    },
+    "html": "<section class=\"card approval\" aria-label=\"提醒确认\" aria-live=\"polite\"><div class=\"card-head\"><strong>等待你确认</strong><span class=\"hint\">仅本次 · 不记住选择</span></div><div class=\"approval-content\"><h3>恢复提醒：每周日 21:30 周复盘</h3><dl class=\"approval-target\"><dt>时间</dt><dd>21:30</dd><dt>重复</dt><dd>每周日</dd><dt>内容</dt><dd>周复盘</dd></dl><p class=\"approval-warning\">确认后恢复以后的提醒。恢复不等于已经送达。</p><details><summary>更多说明</summary><p>只变更后续安排，不重放已经执行的结果，也不撤回已经提交的通知。</p></details></div><details class=\"technical-id\"><summary>详情</summary><p>工具 恢复重复提醒</p><code>task_repeat_resume</code><code>approval-golden</code></details><div class=\"actions\"><button class=\"deny\">先不要</button><button class=\"allow\">确认恢复</button></div></section>"
+  },
+  "no footnote: save once": {
+    "toolName": "task_create",
+    "text": "\n提醒确认\n时间：今天 14:00\n重复：不重复\n内容：喝水\n允许这次保存？ [y/n] \n",
+    "card": {
+      "title": "设置提醒：今天 14:00 喝水",
+      "time": "今天 14:00",
+      "repeat": "不重复",
+      "subject": "喝水",
+      "previous": null,
+      "safety": "确认后才会保存。保存不等于已经提醒到你。",
+      "details": "",
+      "allowLabel": "确认保存"
+    },
+    "html": "<section class=\"card approval\" aria-label=\"提醒确认\" aria-live=\"polite\"><div class=\"card-head\"><strong>等待你确认</strong><span class=\"hint\">仅本次 · 不记住选择</span></div><div class=\"approval-content\"><h3>设置提醒：今天 14:00 喝水</h3><dl class=\"approval-target\"><dt>时间</dt><dd>今天 14:00</dd><dt>重复</dt><dd>不重复</dd><dt>内容</dt><dd>喝水</dd></dl><p class=\"approval-warning\">确认后才会保存。保存不等于已经提醒到你。</p></div><details class=\"technical-id\"><summary>详情</summary><p>工具 创建提醒</p><code>task_create</code><code>approval-golden</code></details><div class=\"actions\"><button class=\"deny\">先不要</button><button class=\"allow\">确认保存</button></div></section>"
+  },
+  "no footnote: save daily": {
+    "toolName": "task_repeat_create",
+    "text": "\n提醒确认\n时间：9:00\n重复：每天\n内容：喝水\n允许这次保存？ [y/n] \n",
+    "card": {
+      "title": "设置提醒：每天 9:00 喝水",
+      "time": "9:00",
+      "repeat": "每天",
+      "subject": "喝水",
+      "previous": null,
+      "safety": "确认后才会保存。保存不等于已经提醒到你。",
+      "details": "",
+      "allowLabel": "确认保存"
+    },
+    "html": "<section class=\"card approval\" aria-label=\"提醒确认\" aria-live=\"polite\"><div class=\"card-head\"><strong>等待你确认</strong><span class=\"hint\">仅本次 · 不记住选择</span></div><div class=\"approval-content\"><h3>设置提醒：每天 9:00 喝水</h3><dl class=\"approval-target\"><dt>时间</dt><dd>9:00</dd><dt>重复</dt><dd>每天</dd><dt>内容</dt><dd>喝水</dd></dl><p class=\"approval-warning\">确认后才会保存。保存不等于已经提醒到你。</p></div><details class=\"technical-id\"><summary>详情</summary><p>工具 重复提醒</p><code>task_repeat_create</code><code>approval-golden</code></details><div class=\"actions\"><button class=\"deny\">先不要</button><button class=\"allow\">确认保存</button></div></section>"
+  },
+  "no footnote: reschedule with previous time": {
+    "toolName": "task_reschedule",
+    "text": "\n提醒确认\n时间：明天 9:00\n重复：不重复\n内容：开会\n原时间：今天 14:00（预览，不锁定这条提醒）\n允许这次改期？ [y/n] \n",
+    "card": {
+      "title": "调整提醒：明天 9:00 开会",
+      "time": "明天 9:00",
+      "repeat": "不重复",
+      "subject": "开会",
+      "previous": "今天 14:00（预览，不锁定这条提醒）",
+      "safety": "确认后才会改时间。改期不等于已经送达。",
+      "details": "",
+      "allowLabel": "确认改期"
+    },
+    "html": "<section class=\"card approval\" aria-label=\"提醒确认\" aria-live=\"polite\"><div class=\"card-head\"><strong>等待你确认</strong><span class=\"hint\">仅本次 · 不记住选择</span></div><div class=\"approval-content\"><h3>调整提醒：明天 9:00 开会</h3><dl class=\"approval-target\"><dt>时间</dt><dd>明天 9:00</dd><dt>重复</dt><dd>不重复</dd><dt>内容</dt><dd>开会</dd><dt>原来</dt><dd>今天 14:00（预览，不锁定这条提醒）</dd></dl><p class=\"approval-warning\">确认后才会改时间。改期不等于已经送达。</p></div><details class=\"technical-id\"><summary>详情</summary><p>工具 调整提醒</p><code>task_reschedule</code><code>approval-golden</code></details><div class=\"actions\"><button class=\"deny\">先不要</button><button class=\"allow\">确认改期</button></div></section>"
+  },
+  "no footnote: cancel once": {
+    "toolName": "task_cancel",
+    "text": "\n提醒确认\n时间：今天 14:00\n重复：不重复\n内容：喝水\n允许这次取消？ [y/n] \n",
+    "card": {
+      "title": "取消提醒：今天 14:00 喝水",
+      "time": "今天 14:00",
+      "repeat": "不重复",
+      "subject": "喝水",
+      "previous": null,
+      "safety": "确认后才会取消。已经弹出的通知不会撤回。",
+      "details": "",
+      "allowLabel": "确认取消"
+    },
+    "html": "<section class=\"card approval\" aria-label=\"提醒确认\" aria-live=\"polite\"><div class=\"card-head\"><strong>等待你确认</strong><span class=\"hint\">仅本次 · 不记住选择</span></div><div class=\"approval-content\"><h3>取消提醒：今天 14:00 喝水</h3><dl class=\"approval-target\"><dt>时间</dt><dd>今天 14:00</dd><dt>重复</dt><dd>不重复</dd><dt>内容</dt><dd>喝水</dd></dl><p class=\"approval-warning\">确认后才会取消。已经弹出的通知不会撤回。</p></div><details class=\"technical-id\"><summary>详情</summary><p>工具 取消提醒</p><code>task_cancel</code><code>approval-golden</code></details><div class=\"actions\"><button class=\"deny\">先不要</button><button class=\"allow\">确认取消</button></div></section>"
+  },
+  "no footnote: cancel weekly": {
+    "toolName": "task_repeat_cancel",
+    "text": "\n提醒确认\n时间：21:30\n重复：每周日\n内容：周复盘\n允许这次取消？ [y/n] \n",
+    "card": {
+      "title": "取消提醒：每周日 21:30 周复盘",
+      "time": "21:30",
+      "repeat": "每周日",
+      "subject": "周复盘",
+      "previous": null,
+      "safety": "确认后才会取消。已经弹出的通知不会撤回。",
+      "details": "",
+      "allowLabel": "确认取消"
+    },
+    "html": "<section class=\"card approval\" aria-label=\"提醒确认\" aria-live=\"polite\"><div class=\"card-head\"><strong>等待你确认</strong><span class=\"hint\">仅本次 · 不记住选择</span></div><div class=\"approval-content\"><h3>取消提醒：每周日 21:30 周复盘</h3><dl class=\"approval-target\"><dt>时间</dt><dd>21:30</dd><dt>重复</dt><dd>每周日</dd><dt>内容</dt><dd>周复盘</dd></dl><p class=\"approval-warning\">确认后才会取消。已经弹出的通知不会撤回。</p></div><details class=\"technical-id\"><summary>详情</summary><p>工具 取消重复提醒</p><code>task_repeat_cancel</code><code>approval-golden</code></details><div class=\"actions\"><button class=\"deny\">先不要</button><button class=\"allow\">确认取消</button></div></section>"
+  },
+  "no footnote: pause daily": {
+    "toolName": "task_repeat_pause",
+    "text": "\n提醒确认\n时间：9:00\n重复：每天\n内容：看日程\n允许这次暂停？ [y/n] \n",
+    "card": {
+      "title": "暂停提醒：每天 9:00 看日程",
+      "time": "9:00",
+      "repeat": "每天",
+      "subject": "看日程",
+      "previous": null,
+      "safety": "确认后暂停以后的提醒，不会重做已经发生的。",
+      "details": "",
+      "allowLabel": "确认暂停"
+    },
+    "html": "<section class=\"card approval\" aria-label=\"提醒确认\" aria-live=\"polite\"><div class=\"card-head\"><strong>等待你确认</strong><span class=\"hint\">仅本次 · 不记住选择</span></div><div class=\"approval-content\"><h3>暂停提醒：每天 9:00 看日程</h3><dl class=\"approval-target\"><dt>时间</dt><dd>9:00</dd><dt>重复</dt><dd>每天</dd><dt>内容</dt><dd>看日程</dd></dl><p class=\"approval-warning\">确认后暂停以后的提醒，不会重做已经发生的。</p></div><details class=\"technical-id\"><summary>详情</summary><p>工具 暂停重复提醒</p><code>task_repeat_pause</code><code>approval-golden</code></details><div class=\"actions\"><button class=\"deny\">先不要</button><button class=\"allow\">确认暂停</button></div></section>"
+  },
+  "no footnote: resume daily": {
+    "toolName": "task_repeat_resume",
+    "text": "\n提醒确认\n时间：9:00\n重复：每天\n内容：看日程\n允许这次恢复？ [y/n] \n",
+    "card": {
+      "title": "恢复提醒：每天 9:00 看日程",
+      "time": "9:00",
+      "repeat": "每天",
+      "subject": "看日程",
+      "previous": null,
+      "safety": "确认后恢复以后的提醒。恢复不等于已经送达。",
+      "details": "",
+      "allowLabel": "确认恢复"
+    },
+    "html": "<section class=\"card approval\" aria-label=\"提醒确认\" aria-live=\"polite\"><div class=\"card-head\"><strong>等待你确认</strong><span class=\"hint\">仅本次 · 不记住选择</span></div><div class=\"approval-content\"><h3>恢复提醒：每天 9:00 看日程</h3><dl class=\"approval-target\"><dt>时间</dt><dd>9:00</dd><dt>重复</dt><dd>每天</dd><dt>内容</dt><dd>看日程</dd></dl><p class=\"approval-warning\">确认后恢复以后的提醒。恢复不等于已经送达。</p></div><details class=\"technical-id\"><summary>详情</summary><p>工具 恢复重复提醒</p><code>task_repeat_resume</code><code>approval-golden</code></details><div class=\"actions\"><button class=\"deny\">先不要</button><button class=\"allow\">确认恢复</button></div></section>"
+  },
+  "empty footnote: save once": {
+    "toolName": "task_create",
+    "text": "\n提醒确认\n时间：今天 14:00\n重复：不重复\n内容：喝水\n允许这次保存？ [y/n] \n",
+    "card": {
+      "title": "设置提醒：今天 14:00 喝水",
+      "time": "今天 14:00",
+      "repeat": "不重复",
+      "subject": "喝水",
+      "previous": null,
+      "safety": "确认后才会保存。保存不等于已经提醒到你。",
+      "details": "",
+      "allowLabel": "确认保存"
+    },
+    "html": "<section class=\"card approval\" aria-label=\"提醒确认\" aria-live=\"polite\"><div class=\"card-head\"><strong>等待你确认</strong><span class=\"hint\">仅本次 · 不记住选择</span></div><div class=\"approval-content\"><h3>设置提醒：今天 14:00 喝水</h3><dl class=\"approval-target\"><dt>时间</dt><dd>今天 14:00</dd><dt>重复</dt><dd>不重复</dd><dt>内容</dt><dd>喝水</dd></dl><p class=\"approval-warning\">确认后才会保存。保存不等于已经提醒到你。</p></div><details class=\"technical-id\"><summary>详情</summary><p>工具 创建提醒</p><code>task_create</code><code>approval-golden</code></details><div class=\"actions\"><button class=\"deny\">先不要</button><button class=\"allow\">确认保存</button></div></section>"
+  }
+}
