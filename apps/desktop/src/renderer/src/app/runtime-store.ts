@@ -32,7 +32,7 @@ type RunResult = ResultMessage["result"];
 type ShellProgressMessage = Extract<MainToRenderer, { type: "shell-progress" }>;
 
 /** The bridge calls the store makes itself; read from `window.runloom` at call time, as the inline code did. */
-export type RuntimeBridge = Pick<RendererApi, "snapshot" | "getRun" | "historyPage" | "listRuns" | "info" | "listThreads" | "onMessage" | "loadConversationDraft" | "takeTaskResultOpen" | "home">;
+export type RuntimeBridge = Pick<RendererApi, "snapshot" | "getRun" | "historyPage" | "listRuns" | "info" | "listThreads" | "onMessage" | "loadConversationDraft" | "takeTaskResultOpen" | "home" | "retryConnection">;
 
 /** The conversation read back from the Thread, and the completed primary run that read already includes. */
 export interface StoredHistory {
@@ -100,6 +100,8 @@ export interface RuntimeState {
   readonly threadsRefresh: number;
   /** The error banner (was App's `error`): failures from messages, startup and reads, and from App's own actions via `setError`. */
   readonly error: string | null;
+  /** The runtime-recovery banner's "重新连接" is in flight (was App's `reconnecting`). */
+  readonly reconnecting: boolean;
 }
 
 export interface RuntimeStore {
@@ -172,6 +174,8 @@ export interface RuntimeStore {
 
   /** Show (or with null, clear) the error banner; App's actions and its hooks call this (was App's `setError`). */
   setError(message: string | null): void;
+  /** The "重新连接" button: one retry at a time; a failure shows the banner. Resolves when the retry settles. */
+  retryConnection(): Promise<void>;
 }
 
 export interface RuntimeStoreOptions {
@@ -203,6 +207,7 @@ export const initialRuntimeState: RuntimeState = {
   threads: [],
   threadsRefresh: 0,
   error: null,
+  reconnecting: false,
 };
 
 /** Pure: the next state for one message, or the same object when the message does not touch these fields. */
@@ -473,6 +478,13 @@ export function createRuntimeStore({ bridge }: RuntimeStoreOptions, initial: Run
     },
     refreshThreads: () => patch({ threadsRefresh: current.threadsRefresh + 1 }),
     setError: error => patch({ error }),
+    async retryConnection() {
+      if (current.reconnecting) return;
+      patch({ reconnecting: true });
+      try { await bridge().retryConnection(); }
+      catch { onError("连接恢复失败。请修正配置后重试；不会重放之前的任务。"); }
+      finally { patch({ reconnecting: false }); }
+    },
 
     start(host) {
       const mine = ++session;

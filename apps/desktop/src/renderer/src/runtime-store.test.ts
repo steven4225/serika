@@ -73,7 +73,7 @@ test("runtime store starts from the values AssistantPage used to start with", ()
     live: emptyLiveRun, lastResult: null, canSteer: false, finalRecord: null, steers: [], uncertainSteer: null,
     history: { rows: [], runId: null }, historyBefore: null, historyLoading: false,
     records: { status: "loading" }, recordDetail: { status: "idle" }, traceFocusTool: null,
-    conversationTitle: "当前对话", threads: [], threadsRefresh: 0, error: null,
+    conversationTitle: "当前对话", threads: [], threadsRefresh: 0, error: null, reconnecting: false,
   });
   assert.equal(store.getState(), initialRuntimeState);
   assert.equal(store.getState().live, emptyLiveRun);
@@ -773,4 +773,23 @@ test("error: the banner is a store field; setError shows and clears it, and the 
   store.finishPrimaryRun(result("run-1"));
   await flush();
   assert.equal(store.getState().error, "最终执行回执缺失，不能据此确认动作结果");
+});
+
+test("retryConnection: one retry at a time, the flag clears when it settles, and a failure shows the banner", async () => {
+  let calls = 0;
+  const retries: Array<{ resolve: () => void; reject: (cause: unknown) => void }> = [];
+  const bridge = { snapshot: () => new Promise(() => {}), getRun: async () => ({ ok: true, run: null }),
+    retryConnection: () => { calls += 1; return new Promise<void>((resolve, reject) => { retries.push({ resolve, reject }); }); } } as unknown as RuntimeBridge;
+  const store = createRuntimeStore({ bridge: () => bridge });
+  const first = store.retryConnection();
+  assert.equal(store.getState().reconnecting, true);
+  await store.retryConnection(); // Already reconnecting: nothing happens.
+  assert.equal(calls, 1);
+  retries.shift()!.resolve();
+  await first;
+  assert.deepEqual([store.getState().reconnecting, store.getState().error], [false, null]);
+  const failing = store.retryConnection();
+  retries.shift()!.reject(new Error("closed"));
+  await failing;
+  assert.deepEqual([calls, store.getState().reconnecting, store.getState().error], [2, false, "连接恢复失败。请修正配置后重试；不会重放之前的任务。"]);
 });

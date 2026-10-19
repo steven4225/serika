@@ -108,7 +108,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const historyLoading = useRuntime(runtime, runtimeState => runtimeState.historyLoading);
   const conversationDraft = useConversationDraftState();
   const { draftReady, setDraftReady, draftError, setDraftError, draftSaving, draftSave, input, setInput, excludeFromMemory, setExcludeFromMemory } = conversationDraft;
-  const [reconnecting, setReconnecting] = useState(false);
+  const reconnecting = useRuntime(runtime, runtimeState => runtimeState.reconnecting);
   const { approval, decidingId, decide } = useApproval(runtime, setMobileDashboard, setError);
   const live = useRuntime(runtime, runtimeState => runtimeState.live);
   const lastResult = useRuntime(runtime, runtimeState => runtimeState.lastResult);
@@ -373,13 +373,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const running = state.kind === "running";
   const activePrimary = running && state.phase === "primary";
   const { recheckSteer, releaseSteer } = steerReview({ info, busy, uncertainSteer, setUncertainSteer, mergeSteer, workTasks, setInput, setTaskComposerId, setError, draftSave });
-  const retryConnection = async () => {
-    if (reconnecting) return;
-    setReconnecting(true);
-    try { await window.runloom.retryConnection(); }
-    catch { setError("连接恢复失败。请修正配置后重试；不会重放之前的任务。"); }
-    finally { setReconnecting(false); }
-  };
+  const { retryConnection } = runtime;
   const visibleRows: ConversationRow[] = withSteerRecords([...history, ...(activePrimary ? [
     ...(submittedInput ? [{ kind: "text" as const, key: "submitted-input", role: "user" as const, text: submittedInput, committed: false }] : []),
     ...live.rows,
