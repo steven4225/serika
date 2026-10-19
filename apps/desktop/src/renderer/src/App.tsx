@@ -10,7 +10,6 @@ import { useThreadList } from "./app/use-thread-list.js";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import type { UIMessage } from "ai";
 import type {
-  AppInfo,
   MainToRenderer,
   UiSnapshot,
 } from "../../shared/ui-contract.js";
@@ -25,7 +24,6 @@ import {
   type ConversationRow,
 } from "./conversation.js";
 import { homeView as toHomeView } from "./home-view.js";
-import type { HomeSnapshot } from "@serika/assistant/browser";
 import { MemoryPanel } from "./memory.js";
 import { MemoryConsolidationNotice } from "./memory-consolidation.js";
 import { ThreadsPanel } from "./threads.js";
@@ -41,6 +39,7 @@ import { useBriefContinue } from "./app/use-brief-continue.js";
 import { ApprovalCard } from "./approval.js";
 import { useApproval } from "./app/use-approval.js";
 import { createRuntimeStore, useRuntime } from "./app/runtime-store.js";
+import { useDualWriteCheck } from "./app/dual-write-check.js";
 import { shouldSubmitComposer, canSubmitComposer, canSteerComposer } from "../../shared/composer.js";
 import { steerFailureLabel } from "../../shared/steer.js";
 import { Icon, SerikaMark, SerikaPersona } from "./icons.js";
@@ -107,12 +106,12 @@ export function App({ initialLayout }: { initialLayout?: DesktopLayout } = {}) {
 
 function AssistantPage({ drafts, layout, initialSettings = false, initialSettingsError = null, appearance, onAppearance }: { drafts: Map<string, ConversationDraft>; layout: DesktopLayout; initialSettings?: false | "modules" | "context"; initialSettingsError?: string | null; appearance: "dark" | "light"; onAppearance: () => void }) {
   const [runtime] = useState(() => createRuntimeStore());
-  const [info, setInfo] = useState<AppInfo | null>(null);
+  const info = useRuntime(runtime, runtimeState => runtimeState.info);
   const [mobileDashboard, setMobileDashboard] = useState(!!initialSettings);
   const { windowWidth, sidebarOpen, splitRoot, compact, dashboardOpen, actualFraction, saveSplit, rememberSidebar } = useSplitLayout(mobileDashboard);
   const [taskResultFocus, setTaskResultFocus] = useState<{ taskId: string; workspaceRoot: string; sequence: number } | null>(null);
   const state = useRuntime(runtime, runtimeState => runtimeState.state);
-  const [homeSnapshot, setHomeSnapshot] = useState<HomeSnapshot | null>(null);
+  const homeSnapshot = useRuntime(runtime, runtimeState => runtimeState.homeSnapshot);
   const output = useRuntime(runtime, runtimeState => runtimeState.output);
   const [storedHistory, setStoredHistory] = useState<{ rows: ConversationRow[]; runId: string | null }>({ rows: [], runId: null });
   const history = storedHistory.rows;
@@ -132,6 +131,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const [memoryRefresh, setMemoryRefresh] = useState(0);
   const [contextRefresh, setContextRefresh] = useState(0);
   const [taskRefresh, setTaskRefresh] = useState(0);
+  useDualWriteCheck(runtime, { memoryRefresh, contextRefresh, taskRefresh });
   const [automationRefresh, setAutomationRefresh] = useState(0);
   const [creatingTask, setCreatingTask] = useState(false);
   const [createTaskRequest, setCreateTaskRequest] = useState(0);
@@ -247,7 +247,6 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
         case "output":
           return;
         case "home":
-          setHomeSnapshot(message.snapshot);
           return;
         case "module-notification":
           // Shown by the main process; its text is also in the output log.
@@ -299,7 +298,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
         stop = window.runloom.onMessage(onMessage);
         const nextInfo = await window.runloom.info();
         if (cancelled) return;
-        setInfo(nextInfo);
+        runtime.setInfo(nextInfo);
         try {
           const saved = await window.runloom.loadConversationDraft(draftScope(nextInfo));
           if (cancelled) return;
