@@ -1,6 +1,6 @@
 import type { ConversationRow, ToolRowStatus } from "../conversation.js";
 import type { DesktopLayout } from "../ui-kit/layout.js";
-import { ZCodeMessage, ZCodeMessageContent } from "../ui-kit/message.js";
+import { SerikaMessage, SerikaMessageContent } from "../ui-kit/message.js";
 import { SerikaMark, Icon } from "../icons.js";
 import { AssistantReply } from "../delivery.js";
 import { SteerStatus } from "../steer-status.js";
@@ -10,14 +10,14 @@ import { completionLabel } from "../navigation.js";
 export function Row({ row, delivered = false, layout = "classic", onRestoreSteer }: { row: ConversationRow; delivered?: boolean; layout?: DesktopLayout; onRestoreSteer?: (text: string) => void }) {
   switch (row.kind) {
     case "text":
-      if (layout === "zcode") return <ZCodeMessage from={row.role} className={`row row-text role-${row.role}${row.committed ? "" : " live"}`}>
-        <ZCodeMessageContent>
+      if (layout === "serika") return <SerikaMessage from={row.role} className={`row row-text role-${row.role}${row.committed ? "" : " live"}`}>
+        <SerikaMessageContent>
           {row.role !== "user" ? <span className="role">{row.role === "assistant" ? <><SerikaMark size={18} /> Serika</> : "系统"}</span> : null}
           {row.role === "assistant" ? <AssistantReply text={row.text} delivered={delivered} /> : <pre>{row.text}</pre>}
           {row.attachments?.length ? <div className="chat-attachments">{row.attachments.map((file, index) => <div className="chat-attachment" key={index}>{file.url ? <img src={file.url} alt={file.name} /> : null}<span>{file.name}</span></div>)}</div> : null}
           {row.steerRecord ? <SteerStatus records={[row.steerRecord]} onRestore={onRestoreSteer} /> : null}
-        </ZCodeMessageContent>
-      </ZCodeMessage>;
+        </SerikaMessageContent>
+      </SerikaMessage>;
       return (
         <div className={`row row-text role-${row.role}${row.committed ? "" : " live"}`}>
           {row.role !== "user" ? <span className="role">{row.role === "assistant" ? <><SerikaMark size={20} /> Serika</> : "系统"}</span> : null}

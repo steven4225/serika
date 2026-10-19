@@ -6,6 +6,7 @@
 - 改名验收（`scripts/ui-snapshots/check-entry-rename.sh 改名前目录 改名后目录`，三条同时成立才通过）：A. HTML 按标签拆行后，所有差异行都匹配 `^[<>] <script type="module" src="\./src/(zcode|shell)-preview\.tsx">`，且差异文件恰好 51 个；B. 把这一行换回旧名后，138 个文件（127 个 HTML + 11 个 `calls-*.txt`）逐字一致；C. 11 个调用顺序记录零差异。
 - 之后 `scripts/ui-snapshots/compare.sh` 加了白名单：HTML 里的入口标签 `<script type="module" src="./src/<名字>-preview.tsx">` 不参与比对。用它对比 37d7707 快照（只把文件名 `zcode_preview_html` 换成 `shell_preview_html`，内容不动）和改名后的快照：compared=138 diffs=0。
 - 已做：删死代码（`ui-kit/conversation.tsx`、`sidebar.tsx`、`appearance.ts`、`upstream/chat-loading.tsx`、`upstream/new-task-button.tsx`）；只测死组件渲染的用例删除，数据层断言保留，渲染断言能换到 `PersonalConversation` / `PersonalTool` 的换过去（逐条见该提交说明）。`personal/conversation.tsx` 里沿用旧 `ui-kit/conversation.tsx` 的展示，署名移到它的文件头和 NOTICE。
+- 已做：改类名和布局值：`zcode-*` 类名 → `serika-*`（`serika-zcode-shell` → `serika-shell`），布局值 `"zcode"` → `"serika"`，组件名 `ZCode*` → `Serika*`。`.theme-zai-*`、`upstream/` 不动；预览示例的 threadId `zcode-preview-plan` 不动（在调用记录里）。验收：`scripts/ui-snapshots/check-class-rename.sh 改名前目录 改名后目录 改名前提交`。
 - 已定：保留改编实现，不重写。
 
 ## 1. 来历
@@ -83,4 +84,4 @@ Apache-2.0 要求衍生作品保留署名，**删文件不等于能删署名**�
 
 ## 6. 待定
 
-- 布局值 `"zcode"`、`zcode-` 类名前缀、`third-party/zcode/` 目录名要不要改、改成什么。
+- `third-party/zcode/` 目录名：用户定为不动。

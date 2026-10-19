@@ -78,7 +78,7 @@
 .personal-layout .conversation-empty h1 { margin: 0; font-size: 21px; font-weight: 500; color: var(--text); }
 .personal-layout .conversation-empty .ghost { font-size: 13px; }
 .personal-layout .action-dock { flex: none; padding: 12px 18px 18px; background: transparent; border: 0; width: 100%; margin: 0; max-height: 65%; overflow-y: auto; }
-.personal-layout .action-dock:has(.zcode-prompt-options[open]) { overflow: visible; }
+.personal-layout .action-dock:has(.serika-prompt-options[open]) { overflow: visible; }
 .personal-layout .action-dock:has(.approval) { overflow-y: auto; }
 .personal-layout .attention-region { flex: none; padding: 0 18px; max-height: 28%; overflow: auto; background: transparent; border: 0; }
 .personal-layout .attention-region:empty { display: none; }
@@ -185,7 +185,7 @@
   --personal-today-background: linear-gradient(180deg, #1A1A2E 0%, #24233B 61.54%, #3B2A35 100%);
   color-scheme: dark;
 }
-.personal-theme-dark .personal-layout :is(.today-card, .personal-message.role-assistant, .personal-composer-pill, .inspector-pane .card, .personal-tool > summary, .zcode-prompt-menu) { background: #24233be6; color: var(--text); }
+.personal-theme-dark .personal-layout :is(.today-card, .personal-message.role-assistant, .personal-composer-pill, .inspector-pane .card, .personal-tool > summary, .serika-prompt-menu) { background: #24233be6; color: var(--text); }
 .personal-theme-dark .personal-layout :is(.today-stat, .personal-message.role-user, .personal-work, .personal-circle, .personal-completion, .personal-composer-leading summary) { background: #ffffff0d; color: var(--text); }
 .personal-theme-dark .personal-layout .personal-segments { background: transparent; }
 .personal-theme-dark .personal-layout .personal-segments button[aria-current="page"] { background: #3a3850; color: var(--text); font-weight: 700; }
@@ -193,7 +193,7 @@
 .personal-theme-dark .personal-layout :is(.personal-message, .personal-chat-input, .personal-tool-name, .personal-message .message-content, .today-content h1, .today-content h2, .today-stat strong, .today-text-link, .today-routines button strong) { color: var(--text); }
 .personal-theme-dark .personal-layout :is(.today-content p, .today-content small, .personal-work > summary, .personal-completion, .personal-loading, .personal-tool-status) { color: var(--muted); }
 .personal-theme-dark .personal-today { --today-ink: #e7e5ec; --today-muted: #bbb8d1; }
-.personal-theme-dark .personal-layout :is(.today-greeting > p:last-child, .today-current-task small, .today-task-empty, .today-task-message, .today-memory p, .today-routines small, .today-text-link, .personal-trace-link, .personal-supplement, .personal-reply-actions button, .zcode-prompt-menu .ghost, .zcode-command-list button) { color: var(--muted); }
+.personal-theme-dark .personal-layout :is(.today-greeting > p:last-child, .today-current-task small, .today-task-empty, .today-task-message, .today-memory p, .today-routines small, .today-text-link, .personal-trace-link, .personal-supplement, .personal-reply-actions button, .serika-prompt-menu .ghost, .serika-command-list button) { color: var(--muted); }
 .personal-theme-dark .personal-layout :is(.personal-message .message-content pre, .personal-message .message-content code, .personal-message .code-block-head, .personal-tool-output, .today-task-counts > div, .today-quote, .today-group li, .today-direction-chip, .today-secondary-button, .conversation-list-open) { background: #ffffff0d; color: var(--text); }
 .personal-theme-dark .today-risk { background: #c47b3a24; color: #e3c2a4; }
 

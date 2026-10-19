@@ -9,7 +9,7 @@ import React, { useEffect, useLayoutEffect, useRef, type ReactNode, type RefObje
 import { Icon } from "../icons.js";
 import { ChatPromptShell } from "./upstream/chat-prompt-shell.js";
 
-export function ZCodePromptEditor({ inputRef, value, topContent, notice, leadingActions, submitControl, hidden, ...inputProps }: Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "value" | "hidden"> & {
+export function SerikaPromptEditor({ inputRef, value, topContent, notice, leadingActions, submitControl, hidden, ...inputProps }: Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "value" | "hidden"> & {
   inputRef: RefObject<HTMLTextAreaElement | null>; value: string; topContent?: ReactNode;
   notice?: string | null; leadingActions: ReactNode; submitControl: ReactNode; hidden?: boolean;
 }) {
@@ -19,11 +19,11 @@ export function ZCodePromptEditor({ inputRef, value, topContent, notice, leading
     input.style.height = "0px";
     input.style.height = `${Math.min(200, Math.max(56, input.scrollHeight))}px`;
   }, [value, hidden, inputRef]);
-  return <ChatPromptShell hidden={hidden ?? false} topContent={<>{topContent}{notice ? <p className="zcode-composer-notice" role="status">{notice}</p> : null}</>} leadingActions={leadingActions} submitControl={submitControl}
-    input={<textarea {...inputProps} className="zcode-chat-input" ref={inputRef} value={value} rows={2} />} />;
+  return <ChatPromptShell hidden={hidden ?? false} topContent={<>{topContent}{notice ? <p className="serika-composer-notice" role="status">{notice}</p> : null}</>} leadingActions={leadingActions} submitControl={submitControl}
+    input={<textarea {...inputProps} className="serika-chat-input" ref={inputRef} value={value} rows={2} />} />;
 }
 
-export function ZCodePromptOptions({ children }: { children: ReactNode }) {
+export function SerikaPromptOptions({ children }: { children: ReactNode }) {
   const menu = useRef<HTMLDetailsElement | null>(null);
   useEffect(() => {
     const outside = (event: PointerEvent) => {
@@ -39,6 +39,6 @@ export function ZCodePromptOptions({ children }: { children: ReactNode }) {
     document.addEventListener("keydown", escape);
     return () => { document.removeEventListener("pointerdown", outside); document.removeEventListener("keydown", escape); };
   }, []);
-  return <details ref={menu} className="zcode-prompt-options"><summary title="更多操作" aria-label="更多操作"><Icon name="new-chat" size={18} /></summary>
-    <div className="zcode-prompt-menu">{children}</div></details>;
+  return <details ref={menu} className="serika-prompt-options"><summary title="更多操作" aria-label="更多操作"><Icon name="new-chat" size={18} /></summary>
+    <div className="serika-prompt-menu">{children}</div></details>;
 }

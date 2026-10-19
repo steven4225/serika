@@ -150,7 +150,7 @@ button.chip { font-size: 12px; padding: 5px 9px; border-color: var(--line); }
   content: ""; position: absolute; top: 0; left: 0; width: 80px; height: 44px;
   -webkit-app-region: drag;
 }
-:root[data-native-window-controls="macos"] .app :is(.sidebar, .zcode-sidebar) { padding-top: 54px; }
+:root[data-native-window-controls="macos"] .app :is(.sidebar, .serika-sidebar) { padding-top: 54px; }
 @media (max-width: 800px) {
   :root[data-native-window-controls="macos"] .app .header { padding-left: 30px; }
 }

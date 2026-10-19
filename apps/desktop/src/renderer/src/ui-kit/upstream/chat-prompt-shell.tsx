@@ -11,7 +11,7 @@ export function ChatPromptShell({ input, topContent, leadingActions, submitContr
   input: ReactNode; topContent?: ReactNode; leadingActions: ReactNode;
   submitControl: ReactNode; hidden?: boolean;
 }) {
-  return <div className="relative zcode-prompt-editor" hidden={hidden} data-zcode-source="ChatPromptEditor">
+  return <div className="relative serika-prompt-editor" hidden={hidden} data-serika-source="ChatPromptEditor">
     <div className={cn("relative flex flex-col gap-3 rounded-2xl border border-input-border bg-input p-3 transition-colors hover:border-input-border-hover focus-within:!border-input-border-focused focus-within:bg-input-focused")}>
       {topContent}
       {input}

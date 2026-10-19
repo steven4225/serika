@@ -115,4 +115,4 @@ if (new URLSearchParams(location.search).has("lifecycle")) Object.assign(window,
   previewFixture: { api, snapshot, emit, event, receipts, runId: () => currentRunId, threadId: () => threadId,
     patchInfo: (patch: Partial<AppInfo>) => { infoPatch = patch; emit({ type: "identity-changed", info: info() }); } },
 });
-createRoot(document.getElementById("root")!).render(<App initialLayout="zcode" />);
+createRoot(document.getElementById("root")!).render(<App initialLayout="serika" />);

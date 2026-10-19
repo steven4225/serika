@@ -1,5 +1,5 @@
 import React, { useLayoutEffect, type ReactNode, type RefObject, type TextareaHTMLAttributes } from "react";
-export { ZCodePromptOptions as PersonalPromptOptions } from "../ui-kit/prompt-editor.js";
+export { SerikaPromptOptions as PersonalPromptOptions } from "../ui-kit/prompt-editor.js";
 
 /** Presentation only: draft, IME, approval and submit decisions remain owned by App. */
 export function PersonalPromptEditor({ inputRef, value, topContent, notice, leadingActions, submitControl, hidden, className, ...inputProps }: Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "value" | "hidden"> & {

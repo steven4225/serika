@@ -59,7 +59,7 @@
 .chat-attachment { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 12px; max-width: 100%; }
 .chat-attachment span { overflow-wrap: anywhere; }
 .chat-attachment img { width: 64px; height: 64px; object-fit: contain; border-radius: 6px; }
-.personal-layout .zcode-prompt-options > summary::after { display: none; }
+.personal-layout .serika-prompt-options > summary::after { display: none; }
 .personal-layout .task-arrangements > summary { padding: 10px 4px; font-size: 14px; color: var(--muted); }
 .memory-page-tools { grid-template-columns: minmax(0, 1fr); margin-top: 16px; }
 .memory-page-tools .personal-entry-card { padding: 12px 16px; min-height: 48px; }

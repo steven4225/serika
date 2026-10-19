@@ -53,7 +53,7 @@ export function PersonalTool({ row, onTrace, workspaceRoot }: { row: ToolRow; on
       <span className="personal-tool-name">{spoken ?? (shell ? "命令" : view.name)}</span>
       {shell && row.inputCommand ? <code className="personal-tool-command" title={row.inputCommand}>{row.inputCommand}</code> : null}
       {path ? <span className="personal-tool-path" title={path}>{path}</span> : null}
-      <span className={`personal-tool-status${row.status === "ok" && !shell ? " zcode-sr-only" : ""}`}>{status}</span></summary>
+      <span className={`personal-tool-status${row.status === "ok" && !shell ? " serika-sr-only" : ""}`}>{status}</span></summary>
     <div className="personal-tool-body">
       {row.fileContent ? <><pre className="personal-tool-output">{row.fileContent.text || "（空文件）"}</pre>{row.fileContent.truncated ? <p className="personal-tool-warning">内容预览已截断</p> : null}</> : null}
       {row.fileChange ? <div className="personal-file-change">
