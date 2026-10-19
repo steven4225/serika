@@ -219,6 +219,7 @@ apps/telegram ┘        (领域：记忆/任务/        (AI SDK 边界：模型
 - 第 3 步收尾（状态事件）：盘点见 `docs/v2-pilot/state-events.md`。Shell 进度已是结构化事件；Controller 状态行桌面端只作诊断原样显示，不改。Home「本地任务」条目改为结构化字段，模块通知改为结构化消息 `module-notification`；桌面端删除这两处正则解析，不再从状态文本里取数据。
 - 第 3 步收尾（拆 `App.tsx`）：按领域拆分完成（1310 → 836 行），见 `docs/v2-pilot/app-split.md`。
 - 第 3 步收尾（提醒确认卡）：任务模块的确认卡带结构化字段 `ReminderConfirmationFields`，桌面端直接读字段，删除确认卡文本解析；改动前记录的 24 个金样例逐项一致。见 `docs/v2-pilot/state-events.md` §3。
+- RunContext：只出设计说明 `docs/v2-pilot/run-context.md`（15 个闭包变量按装配期 / 每次 Run / 续做观测 / 上下文诊断分类，两阶段方案和必须保持的不变量），没有改代码。做不做、做到哪一阶段由维护者决定。
 
 ## 5. 度量基线（`c594574`，改名后、移除 durable/postgres 前）
 
