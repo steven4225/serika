@@ -1,6 +1,10 @@
 # 桌面端：清理 ZCode 改编代码（计划，排在 D1 第 3 步之后）
 
-状态：**只写计划，还没动代码**。D1 第 3 步做完、审查过之后才开工；跟第 4 步谁先谁后，到时再定。
+状态：D1 第 3、4 步已做完，清理已开工。
+
+- 已做：改名（目录 `src/renderer/src/zcode/` → `src/renderer/src/ui-kit/`；测试 `zcode-*.test.ts` → `ui-kit-*.test.ts`；预览入口 `zcode-preview.html` / `zcode-preview.tsx` → `shell-preview.html` / `shell-preview.tsx`，`vite.preview.config.ts` 同步）。`upstream/` 子目录名和 `.theme-zai-*` 类名保留，作为核对上游的锚点；`zcode-` 类名、布局值 `"zcode"`、`third-party/zcode/` 目录这次没动。下文第 4 节的路径是改名前的写法，`zcode/` 现在对应 `ui-kit/`。
+- 改名验收（`scripts/ui-snapshots/check-entry-rename.sh 改名前目录 改名后目录`，三条同时成立才通过）：A. HTML 按标签拆行后，所有差异行都匹配 `^[<>] <script type="module" src="\./src/(zcode|shell)-preview\.tsx">`，且差异文件恰好 51 个；B. 把这一行换回旧名后，138 个文件（127 个 HTML + 11 个 `calls-*.txt`）逐字一致；C. 11 个调用顺序记录零差异。
+- 已定：保留改编实现，不重写。
 
 ## 1. 来历
 
@@ -77,7 +81,4 @@ Apache-2.0 要求衍生作品保留署名，**删文件不等于能删署名**�
 
 ## 6. 待定
 
-- 读、改 `zcode/conversation-data.ts` 时，是自己重写轮次分组和摘要，还是保留改编实现、只改名（保留就要留署名）。
-- 新名字：目录、布局值、类名前缀统一叫什么（personal 还是 serika，或者别的）。
-- `third-party/zcode/` 的目录名。
-- 跟 D1 第 4 步的先后。
+- 布局值 `"zcode"`、`zcode-` 类名前缀、`third-party/zcode/` 目录名要不要改、改成什么。

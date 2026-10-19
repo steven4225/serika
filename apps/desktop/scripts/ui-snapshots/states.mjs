@@ -1,7 +1,7 @@
 import { chromium } from "playwright";
 import { mkdirSync, writeFileSync } from "node:fs";
 const out = process.argv[2]; mkdirSync(out, { recursive: true });
-const pages = ["zcode-preview.html", "interaction-preview.html", "interaction-preview.html?tasks=1", "interaction-preview.html?brief=empty",
+const pages = ["shell-preview.html", "interaction-preview.html", "interaction-preview.html?tasks=1", "interaction-preview.html?brief=empty",
   "interaction-preview.html?brief=degraded", "interaction-preview.html?work-task-flow", "memory-preview.html"];
 const nav = ["对话", "手札", "任务", "记忆", "搜索", "设置"];
 const settings = ["连接应用", "文件与网页", "电脑控制", "技能", "Telegram", "通用", "记忆设置", "通知与后台", "快捷键", "高级", "关于"];
@@ -38,7 +38,7 @@ for (const url of pages) {
     await p.waitForTimeout(700);
     await shot(label);
   }
-  if (url === "zcode-preview.html" || url === "interaction-preview.html") {
+  if (url === "shell-preview.html" || url === "interaction-preview.html") {
     await p.goto((process.env.PREVIEW_URL ?? "http://127.0.0.1:5187") + "/" + url, { waitUntil: "networkidle" });
     await p.waitForTimeout(1200);
     const box = p.locator("textarea").first();

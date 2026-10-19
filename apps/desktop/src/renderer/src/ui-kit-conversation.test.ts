@@ -3,9 +3,9 @@ import { it } from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { annotateMemoryReceipts, rowsFromHistory, type ConversationRow, type ToolRow } from "./conversation.js";
-import { conversationTurns, workSummary } from "./zcode/conversation-data.js";
-import { ZCodeConversation, ZCodeTool } from "./zcode/conversation.js";
-import { ZCodePromptEditor, ZCodePromptOptions } from "./zcode/prompt-editor.js";
+import { conversationTurns, workSummary } from "./ui-kit/conversation-data.js";
+import { ZCodeConversation, ZCodeTool } from "./ui-kit/conversation.js";
+import { ZCodePromptEditor, ZCodePromptOptions } from "./ui-kit/prompt-editor.js";
 
 const user: ConversationRow = { kind: "text", role: "user", key: "u1", text: "改一下计划", committed: true };
 const tool: ToolRow = { kind: "tool", key: "t1", toolCallId: "t1", toolName: "edit_file", status: "ok", receipt: { kind: "file", path: "notes/plan.md", bytes: 18 } };

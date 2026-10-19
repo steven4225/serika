@@ -3,7 +3,7 @@ import type { ConversationRow, TextRow, ToolRow } from "../conversation.js";
 import { Icon, SerikaMark } from "../icons.js";
 import { MessageContent } from "../markdown.js";
 import { completionLabel } from "../navigation.js";
-import { compactWorkSummary, conversationTurns, isMissingFile, toolPresentation, type ConversationFlowItem } from "../zcode/conversation-data.js";
+import { compactWorkSummary, conversationTurns, isMissingFile, toolPresentation, type ConversationFlowItem } from "../ui-kit/conversation-data.js";
 import { formatRecordTime } from "../../../shared/execution-records.js";
 import { presentReminderReply, reminderSpeechLine, reminderReplyContexts, type ReminderReplyResult } from "../reminder-copy.js";
 import { FailureInline } from "../failure-notice.js";

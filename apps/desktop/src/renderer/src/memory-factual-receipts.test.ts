@@ -12,7 +12,7 @@ import { RuntimeBridge, TeeOutput } from "../../main/runtime-bridge.js";
 import { annotateMemoryReceipts, rowsFromHistory } from "./conversation.js";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { ZCodeConversation } from "./zcode/conversation.js";
+import { ZCodeConversation } from "./ui-kit/conversation.js";
 
 test("real bridge history page renders committed host memory receipt; unreadable store clears it but preserves chat", async () => {
   const root = await mkdtemp(join(tmpdir(), "desktop-factual-receipts-"));

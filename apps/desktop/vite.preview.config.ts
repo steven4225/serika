@@ -7,5 +7,5 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   root: fileURLToPath(new URL("./src/renderer", import.meta.url)),
   plugins: [react(), tailwindcss()],
-  server: { host: "127.0.0.1", port: 5187, strictPort: true, open: "/zcode-preview.html" },
+  server: { host: "127.0.0.1", port: 5187, strictPort: true, open: "/shell-preview.html" },
 });

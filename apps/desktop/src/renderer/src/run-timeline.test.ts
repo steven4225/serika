@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import type { ExecutionRunRecord, ExecutionToolRecord } from "../../shared/ui-contract.js";
 import { runTimeline, durationLabel, usageLabel } from "./run-timeline.js";
 import { RunTimeline, RecordsPanel } from "./records.js";
-import { ZCodeTool } from "./zcode/conversation.js";
+import { ZCodeTool } from "./ui-kit/conversation.js";
 import { applyEvent, emptyLiveRun, overlayExecutionReceipts, type ToolRow } from "./conversation.js";
 
 const at = (seconds: number) => `2026-10-08T01:00:${String(seconds).padStart(2, "0")}.000Z`;

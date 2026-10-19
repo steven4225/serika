@@ -9,8 +9,8 @@ import { annotateHistoryTools, overlayExecutionReceipts, rowsFromHistory, type C
 import { createRuntimeStore } from "./app/runtime-store.js";
 import { Row } from "./app/conversation-row.js";
 import { PersonalTool } from "./personal/conversation.js";
-import { ZCodeTool } from "./zcode/conversation.js";
-import { compactWorkSummary, toolPresentation } from "./zcode/conversation-data.js";
+import { ZCodeTool } from "./ui-kit/conversation.js";
+import { compactWorkSummary, toolPresentation } from "./ui-kit/conversation-data.js";
 
 /**
  * Golden samples for tool previews (toolInputFields and the tool-name tables),

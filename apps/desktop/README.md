@@ -271,11 +271,11 @@ Computer 确认卡显示精确 bundle/PID/window、动作和完整输入，技�
 
 macOS 构建会编译本仓库 `native/notifications/` 的原生组件，并随本机 Serika.app 打包。日用入口固定使用内置组件，不再读取旧配置中的外部 terminal-notifier 路径。首次在工作区设置中点击「发送测试通知」，由用户允许「Serika 通知」；查询状态及后台 worker 不申请权限。后台通知仍沿用现有任务结果链接，点击只导航、不执行或确认任务。已有后台服务不会被自动替换，若仍绑定旧工具，需要在界面中显式停用并重新启用。当前安装是本机签名、依赖源码仓库的入口，不是已公证的可分发安装包。
 
-只看效果、不访问日用数据：`pnpm ui:zcode`，打开 http://127.0.0.1:5187/zcode-preview.html 。这是浏览器隔离 fixture，示例对话和工具确认不调用模型、不读写文件，不代表真实 Agent 验收。可输入一条消息演示允许／拒绝，以及打开历史与记忆面板。正式 Electron 与预览使用同一参考布局，无需 `?ui=zcode`。
+只看效果、不访问日用数据：`pnpm ui:zcode`，打开 http://127.0.0.1:5187/shell-preview.html 。这是浏览器隔离 fixture，示例对话和工具确认不调用模型、不读写文件，不代表真实 Agent 验收。可输入一条消息演示允许／拒绝，以及打开历史与记忆面板。正式 Electron 与预览使用同一参考布局，无需 `?ui=zcode`。
 
 对话区适配 ZCode 的 Message / MessageContent / MessageActions、轮次与工作过程分组、工具摘要行、输入外壳、发送/停止及回到底部形式，不再只替换消息外壳与颜色。普通回复直接显示完整 Markdown，不再按标题猜测并裁成结论；工具过程按原顺序折叠，失败、未知、派发待核对及不完整回执默认展开并明确标记。普通 Run 正常结束不额外显示占位条，WorkTask 完成原因和执行失败仍显示。复制回复包含该轮完整助手文本；输入框自动增高，低频选项收进「＋」，停用本条整理时仍有可撤回标识。确认卡靠近输入区，运行期间按钮变为停止；草稿、逐次确认、Shell 进度、记忆引用和查阅入口仍使用现有契约。
 
-直接纳入源码的组件位于 `src/renderer/src/zcode/upstream/`：DesktopWindowFrame、Button/工具类、ChatPromptEditor 的渲染外壳、NewTaskButtonGroup 的按钮结构、ChatLoading，以及 Zai Dark/Light 原始主题变量。消息容器使用上游原始 Tailwind 类，renderer 接入 Tailwind 4；不是仅用手写 CSS 模仿外观。默认深色，侧栏底部可切换浅色，偏好只保存在 renderer localStorage，不改变配置、workspace 或 Thread。侧栏按 WorkspaceSidebar/WorkspaceSidebarFooter 的结构接入现有历史和功能入口；空会话使用同一个输入框居中，有消息后回到底部。
+直接纳入源码的组件位于 `src/renderer/src/ui-kit/upstream/`：DesktopWindowFrame、Button/工具类、ChatPromptEditor 的渲染外壳、NewTaskButtonGroup 的按钮结构、ChatLoading，以及 Zai Dark/Light 原始主题变量。消息容器使用上游原始 Tailwind 类，renderer 接入 Tailwind 4；不是仅用手写 CSS 模仿外观。默认深色，侧栏底部可切换浅色，偏好只保存在 renderer localStorage，不改变配置、workspace 或 Thread。侧栏按 WorkspaceSidebar/WorkspaceSidebarFooter 的结构接入现有历史和功能入口；空会话使用同一个输入框居中，有消息后回到底部。
 
 本轮源码接线检查：类型检查、233 项桌面测试、9 项脚本测试及构建通过；后续菜单关闭调整通过 12 项界面定向回归。真实 Electron 已加载源码版框架；最终深浅色、空会话、窄窗口和确认链尚待完成，当前系统锁屏导致截图不刷新，不能使用旧帧声称最终界面验收通过。后面的早期原生记录不替代本轮验收。
 

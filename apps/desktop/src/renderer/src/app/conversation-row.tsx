@@ -1,6 +1,6 @@
 import type { ConversationRow, ToolRowStatus } from "../conversation.js";
-import type { DesktopLayout } from "../zcode/layout.js";
-import { ZCodeMessage, ZCodeMessageContent } from "../zcode/message.js";
+import type { DesktopLayout } from "../ui-kit/layout.js";
+import { ZCodeMessage, ZCodeMessageContent } from "../ui-kit/message.js";
 import { SerikaMark, Icon } from "../icons.js";
 import { AssistantReply } from "../delivery.js";
 import { SteerStatus } from "../steer-status.js";

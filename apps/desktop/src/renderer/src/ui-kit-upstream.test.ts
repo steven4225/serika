@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import { it } from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { Button } from "./zcode/upstream/button.js";
-import { cn } from "./zcode/upstream/utils.js";
-import { DesktopWindowFrame } from "./zcode/upstream/desktop-window-frame.js";
-import { ZCodeSidebar } from "./zcode/sidebar.js";
-import { APPEARANCE_KEY, zcodeAppearance } from "./zcode/appearance.js";
+import { Button } from "./ui-kit/upstream/button.js";
+import { cn } from "./ui-kit/upstream/utils.js";
+import { DesktopWindowFrame } from "./ui-kit/upstream/desktop-window-frame.js";
+import { ZCodeSidebar } from "./ui-kit/sidebar.js";
+import { APPEARANCE_KEY, zcodeAppearance } from "./ui-kit/appearance.js";
 
 it("source button retains native disabled semantics and font/color utility groups", () => {
   const classes = cn("text-ui-base text-foreground px-2", "text-ui-caption px-3");

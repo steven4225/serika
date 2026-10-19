@@ -1,7 +1,7 @@
 import { chromium } from "playwright";
 import { mkdirSync, writeFileSync } from "node:fs";
 const out = process.argv[2]; mkdirSync(out, { recursive: true });
-const URL0 = (process.env.PREVIEW_URL ?? "http://127.0.0.1:5187") + "/zcode-preview.html?lifecycle";
+const URL0 = (process.env.PREVIEW_URL ?? "http://127.0.0.1:5187") + "/shell-preview.html?lifecycle";
 const norm = html => html.replace(/\d{4}-\d{2}-\d{2}T[\d:.]+Z?/g, "ISO").replace(/\d{1,2}:\d{2}(:\d{2})?(\.\d+)?/g, "HH:MM").replace(/\?t=\d+/g, "")
   .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, "UUID").replace(/\d+ 毫秒|\d+(\.\d+)? 秒/g, "N 秒");
 const b = await chromium.launch({ ...(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}), args: ["--no-sandbox"] });

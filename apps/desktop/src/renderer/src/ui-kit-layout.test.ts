@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { it } from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { desktopLayout } from "./zcode/layout.js";
-import { ZCodeSidebar } from "./zcode/sidebar.js";
-import { ZCodeMessage, ZCodeMessageContent } from "./zcode/message.js";
+import { desktopLayout } from "./ui-kit/layout.js";
+import { ZCodeSidebar } from "./ui-kit/sidebar.js";
+import { ZCodeMessage, ZCodeMessageContent } from "./ui-kit/message.js";
 
 it("daily Electron and preview share the reference layout without an opt-in or query-string fallback", () => {
   assert.equal(desktopLayout(""), "zcode");
