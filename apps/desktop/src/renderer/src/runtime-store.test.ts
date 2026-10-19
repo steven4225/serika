@@ -61,6 +61,7 @@ test("runtime store starts from the values AssistantPage used to start with", ()
     live: emptyLiveRun, lastResult: null, canSteer: false, finalRecord: null, steers: [], uncertainSteer: null,
     history: { rows: [], runId: null }, historyBefore: null, historyLoading: false,
     records: { status: "loading" }, recordDetail: { status: "idle" }, traceFocusTool: null,
+    conversationTitle: "当前对话", threads: [], threadsRefresh: 0,
   });
   assert.equal(store.getState(), initialRuntimeState);
   assert.equal(store.getState().live, emptyLiveRun);
@@ -594,4 +595,41 @@ test("records: refreshOpenTrace reloads once, 250 ms after the first call, only 
     mock.timers.tick(250);
     assert.deepEqual(calls, ["listRuns", "listRuns"]);
   } finally { mock.timers.reset(); }
+});
+
+test("threads: the title follows every read, the list only a read started while idle; a cleaned-up or failed read changes nothing", async () => {
+  const reads: Array<{ resolve: (threads: unknown) => void; reject: (cause: unknown) => void }> = [];
+  const bridge = { snapshot: () => new Promise(() => {}), getRun: async () => ({ ok: true, run: null }),
+    listThreads: () => new Promise((resolve, reject) => { reads.push({ resolve, reject }); }) } as unknown as RuntimeBridge;
+  const store = createRuntimeStore({ bridge: () => bridge, onError: () => assert.fail("no error for a thread list read") });
+  const info = { threadId: "thread-1" } as AppInfo;
+  const thread = (threadId: string, title: string) => ({ threadId, title });
+  const listed = [thread("thread-0", "旧对话"), thread("thread-1", "周末计划")];
+
+  store.readThreads(info, false);
+  reads.shift()!.resolve(listed);
+  await flush();
+  assert.deepEqual([store.getState().conversationTitle, store.getState().threads], ["周末计划", []]);
+
+  store.readThreads(info, true);
+  reads.shift()!.resolve(listed);
+  await flush();
+  assert.deepEqual([store.getState().conversationTitle, store.getState().threads], ["周末计划", listed]);
+
+  const cleanup = store.readThreads(info, true);
+  cleanup();
+  reads.shift()!.resolve([thread("thread-1", "改过的标题")]);
+  store.readThreads(info, true);
+  reads.shift()!.reject(new Error("closed"));
+  await flush();
+  assert.deepEqual([store.getState().conversationTitle, store.getState().threads], ["周末计划", listed]);
+
+  store.readThreads(info, true);
+  reads.shift()!.resolve([thread("thread-0", "旧对话")]); // The current thread is not listed: the default title.
+  await flush();
+  assert.equal(store.getState().conversationTitle, "当前对话");
+
+  store.refreshThreads();
+  store.refreshThreads();
+  assert.equal(store.getState().threadsRefresh, 2);
 });

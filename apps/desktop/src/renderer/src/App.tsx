@@ -6,7 +6,6 @@ import { Row } from "./app/conversation-row.js";
 import { Identity } from "./app/identity.js";
 import { HomeBody } from "./app/home-body.js";
 import { useSplitLayout } from "./app/use-split-layout.js";
-import { useThreadList } from "./app/use-thread-list.js";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import type {
   MainToRenderer,
@@ -330,7 +329,15 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     return () => window.removeEventListener("keydown", close);
   }, [detailsOpen, mobileDashboard, searchOpen, detailTab, settingsRoute]);
 
-  const { conversationTitle, threads, refreshThreads } = useThreadList(info, state.kind);
+  const conversationTitle = useRuntime(runtime, runtimeState => runtimeState.conversationTitle);
+  const threads = useRuntime(runtime, runtimeState => runtimeState.threads);
+  const threadsRefresh = useRuntime(runtime, runtimeState => runtimeState.threadsRefresh);
+  const { refreshThreads } = runtime;
+  // The thread-list read keeps its place among App's effects (it was useThreadList's only effect).
+  useEffect(() => {
+    if (!info) return;
+    return runtime.readThreads(info, state.kind === "idle");
+  }, [runtime, info, state.kind, threadsRefresh]);
 
   useLayoutEffect(() => {
     const area = conversationScroll.current;

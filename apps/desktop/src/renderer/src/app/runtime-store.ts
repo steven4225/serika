@@ -1,10 +1,11 @@
 import { useSyncExternalStore } from "react";
 import type { UIMessage } from "ai";
 import type { HomeSnapshot } from "@serika/assistant/browser";
-import type { AppInfo, AssistantSteerRecord, ExecutionRunRecord, MainToRenderer, PendingApproval, RendererApi, UiSnapshot, UiState } from "../../../shared/ui-contract.js";
+import type { AppInfo, AssistantSteerRecord, ExecutionRunRecord, MainToRenderer, PendingApproval, RendererApi, ThreadSummary, UiSnapshot, UiState } from "../../../shared/ui-contract.js";
 import type { UncertainSteer } from "../../../shared/conversation-drafts.js";
 import type { RecordDetailState, RecordsState } from "../records.js";
 import { mergeSteerRecords } from "../../../shared/steer.js";
+import { humanFacingTitle } from "../../../shared/human-title.js";
 import { ShellProgressBuffer } from "../../../shared/shell-progress.js";
 import {
   annotateHistoryTools,
@@ -30,7 +31,7 @@ type RunResult = ResultMessage["result"];
 type ShellProgressMessage = Extract<MainToRenderer, { type: "shell-progress" }>;
 
 /** The bridge calls the store makes itself; read from `window.runloom` at call time, as the inline code did. */
-export type RuntimeBridge = Pick<RendererApi, "snapshot" | "getRun" | "historyPage" | "listRuns" | "info">;
+export type RuntimeBridge = Pick<RendererApi, "snapshot" | "getRun" | "historyPage" | "listRuns" | "info" | "listThreads">;
 
 /** The conversation read back from the Thread, and the completed primary run that read already includes. */
 export interface StoredHistory {
@@ -77,6 +78,10 @@ export interface RuntimeState {
   readonly records: RecordsState;
   readonly recordDetail: RecordDetailState;
   readonly traceFocusTool: string | null;
+  /** The thread list and the header's conversation title (was `useThreadList`); `threadsRefresh` asks App's effect to reread. */
+  readonly conversationTitle: string;
+  readonly threads: ThreadSummary[];
+  readonly threadsRefresh: number;
 }
 
 export interface RuntimeStore {
@@ -129,6 +134,15 @@ export interface RuntimeStore {
   refreshOpenTrace(): void;
   /** Drop in-flight list/detail reads and the pending trace refresh (subscription teardown). */
   invalidateRecords(): void;
+
+  /**
+   * Read the thread list for `info` (App's effect, on info, state kind and `threadsRefresh`).
+   * The title always follows the read; the list only when the read started while idle.
+   * Returns the effect cleanup: a read answered after it is ignored.
+   */
+  readThreads(info: AppInfo, idle: boolean): () => void;
+  /** Ask for a reread (ThreadsPanel `onChanged`). */
+  refreshThreads(): void;
 }
 
 export interface RuntimeStoreOptions {
@@ -158,6 +172,9 @@ export const initialRuntimeState: RuntimeState = {
   records: { status: "loading" },
   recordDetail: { status: "idle" },
   traceFocusTool: null,
+  conversationTitle: "当前对话",
+  threads: [],
+  threadsRefresh: 0,
 };
 
 /** Pure: the next state for one message, or the same object when the message does not touch these fields. */
@@ -411,6 +428,17 @@ export function createRuntimeStore({ bridge, onError }: RuntimeStoreOptions, ini
       if (recordRefreshTimer !== null) clearTimeout(recordRefreshTimer);
       recordRefreshTimer = null;
     },
+
+    readThreads(info, idle) {
+      let active = true;
+      void bridge().listThreads().then(threads => {
+        if (!active) return;
+        // The header title stays human while a confirmation is open; the list itself refreshes only when idle.
+        patch({ conversationTitle: humanFacingTitle(threads.find(thread => thread.threadId === info.threadId)?.title, "当前对话"), ...(idle ? { threads } : {}) });
+      }).catch(() => { /* A failed read keeps the previous list; nothing shows an error for it. */ });
+      return () => { active = false; };
+    },
+    refreshThreads: () => patch({ threadsRefresh: current.threadsRefresh + 1 }),
   };
 }
 
