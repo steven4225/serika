@@ -12,6 +12,8 @@ export interface TelegramInbound {
   key: string; updateId: number; text: string;
   /** Host receipt clock. Legacy records may omit it; never invent it on read. */
   receivedAt?: string;
+  /** Same-Run correction receipt identity; never replayed as a new chat after restart. */
+  steerId?: string;
   /** Button identity, persisted before control dispatch. Never restored as authorization. */
   callback?: { id: string; messageId: number };
   /** Program-generated reminder receipts, not model success claims. */
@@ -58,6 +60,7 @@ function valid(data: TelegramData, workspace: string) {
     (data.owner === null || (positive(data.owner.userId) && positive(data.owner.chatId) && typeof data.owner.name === "string" && typeof data.owner.threadId === "string" && !!data.owner.threadId)) &&
     Array.isArray(data.inputs) && data.inputs.length <= TELEGRAM_INPUT_LIMIT && new Set(data.inputs.map(x => x.key)).size === data.inputs.length && data.inputs.every(x =>
       typeof x.key === "string" && typeof x.text === "string" && x.text.length <= 16_384 && positive(x.updateId + 1) &&
+      (x.steerId === undefined || x.steerId === `tg:${x.key}`) &&
       (x.receivedAt === undefined || typeof x.receivedAt === "string" && /\+08:00$/.test(x.receivedAt) && Number.isFinite(Date.parse(x.receivedAt))) &&
       (x.callback === undefined || typeof x.callback.id === "string" && x.callback.id.length > 0 && x.callback.id.length <= 256 && positive(x.callback.messageId)) &&
       (x.reminderReceipts === undefined || Array.isArray(x.reminderReceipts) && x.reminderReceipts.length <= EXECUTION_RECORD_MAX_TOOLS &&

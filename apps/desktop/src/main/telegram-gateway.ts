@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import type { DesktopRuntime } from "./desktop-runtime.js";
 import { TelegramApiError, type TelegramApi, type TelegramUpdate, type TelegramKeyboard } from "./telegram-api.js";
@@ -441,6 +441,9 @@ export class TelegramGateway {
       return reject(accepted ? approval[1] === "允许" ? "已允许。" : "已取消这次操作。" : "确认已失效，没有批准任何操作。发送 /confirm 获取当前确认。");
     }
     if (/^(允许|拒绝)(?:[\s:：A-Za-z0-9]|$)/.test(text)) return reject("请点当前确认下的按钮，或完整发送“允许 短码 / 拒绝 短码”；发送 /confirm 可刷新确认。");
+    if (this.#ownedRunning()?.current.snapshot.pendingApproval && /^(?:可以|好|好的|行|同意|确认|yes|y|ok)[。.!！]?$/i.test(text)) {
+      return reject("请点当前确认卡的按钮，或完整发送“允许 短码 / 拒绝 短码”；这条回复没有批准或调整任何操作。");
+    }
     if (text === "停止") {
       if (!this.#ownedRunning()) return reject("没有属于 Telegram 的当前执行；未停止其他对话。");
       await this.host.current.cancel();
@@ -449,8 +452,7 @@ export class TelegramGateway {
     if (/^调整[:：]/.test(text)) {
       const running = this.#ownedRunning();
       if (!running) return reject("没有可调整的 Telegram 执行；未改动其他对话。");
-      const result = await this.host.current.steer({ id: randomUUID(), expectedRunId: running.source.runId!, text: text.replace(/^调整[:：]/, "").trim() });
-      return reject(result.ok ? "调整已收到，会在安全边界应用；不是新增授权。" : "当前调整未接收，请在桌面查看执行状态。");
+      return this.#steer(input, running, text.replace(/^调整[:：]/, "").trim());
     }
     if (text === "/capabilities") {
       const info = this.host.channelSnapshot().info;
@@ -480,9 +482,14 @@ export class TelegramGateway {
       if (!proposal || proposal.code !== begin[1] || proposal.expires <= this.now()) return reject("任务预览已过期或已使用，请重新发送任务目标。");
       task = true; goal = proposal.goal;
     } else if (/^(?:开始\s|\/)/.test(text)) return reject("未识别的控制指令，未提交给模型。发送 /help 查看用法。");
-    if (this.#activeKey || this.host.channelSnapshot().snapshot.state.kind !== "idle") return reject(this.#ownedRunning()
-      ? "当前任务仍在执行。本条未排队、未调用模型。要纠正当前任务，请发送“调整：直接说明已有结果并结束”；要停止，请发送“停止”。"
-      : "助手正在处理其他消息，请稍后再发；本条未排队、未调用模型。当前执行不属于此 TG 对话，未改动它。");
+    if (this.#activeKey || this.host.channelSnapshot().snapshot.state.kind !== "idle") {
+      const running = this.#ownedRunning();
+      if (running && !task) return this.#steer(input, running, text);
+      const current = this.host.channelSnapshot();
+      return reject(current.info.threadId === owner.threadId && (this.#activeKey || current.snapshot.state.kind === "running" && current.snapshot.state.source === "telegram")
+        ? "当前对话正在启动或收尾，补充尚未接收；请稍后重发。本条未排队、未启动新一轮。"
+        : "助手正在处理其他消息，请稍后再发；本条未排队、未调用模型。当前执行不属于此 TG 对话，未改动它。");
+    }
     if (this.store.snapshot().inputs.some(x => x.state === "unknown")) return reject("此前 Telegram 执行效果待核对。请先回桌面检查；不会自动重做旧操作。");
     await this.store.update(data => { data.inputs.find(x => x.key === input.key)!.state = "reserved"; });
     this.#activeKey = input.key;
@@ -508,6 +515,33 @@ export class TelegramGateway {
       this.#activeKey = undefined;
     }
   }
+  async #steer(input: TelegramInbound, running: { source: TelegramInbound }, text: string) {
+    const owner = this.store.snapshot().owner!;
+    // Consume the input before dispatch. Restart must never replay a correction
+    // whose acknowledgement was lost; the same Run's receipt owns its outcome.
+    await this.store.update(data => {
+      const saved = data.inputs.find(x => x.key === input.key)!;
+      saved.state = "reserved";
+      saved.steerId = `tg:${input.key}`;
+      saved.runId = running.source.runId;
+      saved.taskId = running.source.taskId;
+    });
+    let reply: string;
+    let state: TelegramInbound["state"] = "unknown";
+    try {
+      const result = await this.host.current.steer({ id: `tg:${input.key}`, expectedRunId: running.source.runId!, text });
+      state = result.ok ? "finished" : result.reason === "failed" ? "unknown" : "rejected";
+      reply = result.ok ? result.steer.status === "not_applied"
+        ? "本轮已结束，补充未应用；请查看桌面执行记录。"
+        : "补充已收到，会在安全边界应用；不是新增授权。"
+        : result.reason === "failed" ? "补充接收结果未知；请查看桌面执行记录，不会自动重发。"
+        : result.reason === "limit" ? "本轮补充次数已到上限，本条未接收。请等本轮结束后再发。"
+        : result.reason === "invalid" ? "补充为空或超过长度限制（最多 4096 字节），本条未接收。"
+        : "本轮正在收尾或暂不支持补充，本条未接收；请稍后重发。";
+    } catch { reply = "补充接收结果未知；请查看桌面执行记录，不会自动重发。"; }
+    await this.store.update(data => { data.inputs.find(x => x.key === input.key)!.state = state; });
+    await this.#reply(`input:${input.key}`, owner.chatId, reply);
+  }
   async #publishApproval(source: TelegramInbound, approval: PendingApproval) {
     const running = this.#ownedRunning(), owner = this.store.snapshot().owner;
     if (!owner || running?.source.runId !== source.runId || running.current.snapshot.pendingApproval?.approvalId !== approval.approvalId) return;
@@ -528,6 +562,17 @@ export class TelegramGateway {
     if (!source.runId || !owner) return;
     await this.#discardStaleApprovals();
     const run = await this.host.channelReceipt(owner.threadId, source.runId);
+    if (source.steerId) {
+      // Reconcile only from the original correction receipt. Never dispatch it
+      // again or manufacture a second copy of the parent Run's final response.
+      const steer = run?.threadId === owner.threadId && run.runId === source.runId && run.phase === "primary" && (!source.taskId || run.workTaskId === source.taskId)
+        ? run.steers?.find(item => item.id === source.steerId) : undefined;
+      if (!steer) return;
+      await this.store.update(data => { data.inputs.find(x => x.key === source.key)!.state = "finished"; });
+      await this.#reply(`input:${source.key}`, owner.chatId, steer.status === "applied" ? "补充已应用。"
+        : steer.status === "not_applied" ? "本轮未应用这条补充；请查看桌面执行记录。" : "补充已收到，应用状态请查看桌面执行记录。");
+      return;
+    }
     if (!run || run.threadId !== owner.threadId || run.phase !== "primary" || run.runId !== source.runId || (source.taskId && run.workTaskId !== source.taskId) || run.status === "running") {
       await this.store.update(data => { data.inputs.find(x => x.key === source.key)!.state = "unknown"; });
       if (this.#activeKey === source.key) this.#activeKey = undefined;

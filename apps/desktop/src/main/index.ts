@@ -243,7 +243,7 @@ async function main(): Promise<void> {
   ipcMain.handle(IPC.memoryEnable, () => host.enableMemory());
   ipcMain.handle(IPC.memoryConsolidate, (_event, input) => host.current.consolidateMemory(input));
   ipcMain.handle(IPC.memoryConsolidationSources, (_event, offset) => host.current.listMemoryConsolidationSources(offset));
-  ipcMain.handle(IPC.snapshot, () => host.current.snapshot());
+  ipcMain.handle(IPC.snapshot, () => host.snapshot());
   ipcMain.handle(IPC.rssGet, () => host.current.getRssSubscriptions());
   ipcMain.handle(IPC.rssUpdate, (_event, input: RssAction) => host.current.updateRssSubscriptions(input));
   ipcMain.handle(IPC.rssInbox, () => host.current.getRssInbox());
