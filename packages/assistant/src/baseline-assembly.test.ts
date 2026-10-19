@@ -56,12 +56,18 @@ function contentText(content: unknown): string {
     .map(part => part.type === "text" ? part.text ?? "" : `[${part.type}] ${JSON.stringify(part)}`).join("\n");
 }
 
-async function capture(modules: Record<string, unknown>): Promise<string> {
+/**
+ * `desktopAutonomy`: the trusted desktop foreground (docs/v2-pilot/pending.md A.4). The config names this
+ * workspace in `desktopAutonomy`, the app is created with `allowDesktopAutonomy` (as desktop-runtime.ts does),
+ * and the Run is wrapped in begin/endForegroundExecution("desktop") (as the controller does for a desktop
+ * primary Run), so the model receives the autonomous instructions.
+ */
+async function capture(modules: Record<string, unknown>, { desktopAutonomy = false }: { desktopAutonomy?: boolean } = {}): Promise<string> {
   const root = await realpath(await mkdtemp(join(tmpdir(), "serika-baseline-")));
   const workspace = join(root, "workspace");
   await mkdir(workspace);
   const configPath = join(root, "config.json");
-  await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules }));
+  await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules, ...(desktopAutonomy ? { desktopAutonomy: { workspaceRoot: workspace } } : {}) }));
   let request: Parameters<MockLanguageModelV3["doStream"]>[0] | undefined;
   const model = new MockLanguageModelV3({ doStream: async options => {
     request ??= options;
@@ -79,11 +85,15 @@ async function capture(modules: Record<string, unknown>): Promise<string> {
   const app = await createRuntimeApp({
     directory: join(root, "transcripts"), assistant: { threadId: "baseline", configPath },
     modelAlias: "mock", model, output, env: { TODOIST_API_TOKEN: "baseline-token" }, cwd: root,
+    ...(desktopAutonomy ? { allowDesktopAutonomy: true as const } : {}),
   });
   try {
-    const handle = await app.runtime.run({ agentId: app.agentId, threadId: app.threadId,
-      messages: [{ id: "baseline-user", role: "user", parts: [{ type: "text", text: "baseline" }] }] });
-    assert.equal((await handle.result).status, "completed");
+    const user = { id: "baseline-user", role: "user" as const, parts: [{ type: "text" as const, text: "baseline" }] };
+    if (desktopAutonomy) assert.equal(app.beginForegroundExecution?.("desktop", user), true, "the desktop foreground must be autonomous");
+    try {
+      const handle = await app.runtime.run({ agentId: app.agentId, threadId: app.threadId, messages: [user] });
+      assert.equal((await handle.result).status, "completed");
+    } finally { if (desktopAutonomy) app.endForegroundExecution?.(); }
     assert.ok(request, "the primary model must be called once");
     written = "";
     await app.commands?.get("modules")?.execute("");
@@ -123,6 +133,14 @@ describe("v2 pilot baseline: assembled tools, instructions and capability report
       assert.equal(actual, await readFile(file, "utf8"));
     });
   }
+
+  // Added in step 3 (pending.md A.4): the full assembly in the trusted desktop foreground.
+  it("full assembly in the autonomous desktop foreground matches __baseline__/assembly-full-desktop-autonomous.txt", async () => {
+    const actual = await capture(FULL, { desktopAutonomy: true });
+    const file = fileURLToPath(new URL("../src/__baseline__/assembly-full-desktop-autonomous.txt", import.meta.url));
+    if (process.env.SERIKA_UPDATE_BASELINE_SNAPSHOT === "1") await writeFile(file, actual);
+    assert.equal(actual, await readFile(file, "utf8"));
+  });
 
   it("the two full assemblies differ only by Todoist-owned content", async () => {
     const read = (name: string) => readFile(fileURLToPath(new URL(`../src/__baseline__/assembly-${name}.txt`, import.meta.url)), "utf8");

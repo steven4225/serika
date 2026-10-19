@@ -17,6 +17,7 @@
    - 第 3 步之后：已补（`encodeTranscriptUpdate` 本来就从 core 导出），见 `hashes.json` 的 `core transcript committed baseHash/payloadHash`。
 3. 装配快照不包括 computer 模块：它只能在 macOS 上装配，这台机器上的快照对不上 macOS。
 4. 装配快照只覆盖默认入口（不是桌面/Telegram 前台自主执行）。自主执行时的指令（`AUTONOMOUS_INSTRUCTIONS`）和能力报告里的 Shell 授权说明不在快照里；D2 会涉及这里，建议 D2 提交时为自主执行情形补一份快照。
+   - 第 3 步之后：已补桌面前台自主执行的一份：`__baseline__/assembly-full-desktop-autonomous.txt`（全模块；配置写 `desktopAutonomy`、`allowDesktopAutonomy`，Run 包在 `beginForegroundExecution("desktop")` / `endForegroundExecution()` 里，和桌面端、Controller 的做法相同）。和 `assembly-full.txt` 相比只差 4 处：指令多一段自主执行说明（`AUTONOMOUS_INSTRUCTIONS`）、`capability_status` 指令行措辞、`/capabilities` 和 `capability_status` 的 Shell 授权说明。Telegram 前台自主执行还没有快照（要绑定 Telegram 私聊和授权回调，另做）。
 
 ## B. 第 2 步（Todoist 试点）开始前需要确认：验收条件和现状对不上
 
