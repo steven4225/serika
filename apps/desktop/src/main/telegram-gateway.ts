@@ -526,21 +526,21 @@ export class TelegramGateway {
       saved.runId = running.source.runId;
       saved.taskId = running.source.taskId;
     });
-    let reply: string;
+    let reply: string | undefined;
     let state: TelegramInbound["state"] = "unknown";
     try {
       const result = await this.host.current.steer({ id: `tg:${input.key}`, expectedRunId: running.source.runId!, text });
       state = result.ok ? "finished" : result.reason === "failed" ? "unknown" : "rejected";
       reply = result.ok ? result.steer.status === "not_applied"
         ? "本轮已结束，补充未应用；请查看桌面执行记录。"
-        : "补充已收到，会在安全边界应用；不是新增授权。"
+        : undefined
         : result.reason === "failed" ? "补充接收结果未知；请查看桌面执行记录，不会自动重发。"
         : result.reason === "limit" ? "本轮补充次数已到上限，本条未接收。请等本轮结束后再发。"
         : result.reason === "invalid" ? "补充为空或超过长度限制（最多 4096 字节），本条未接收。"
         : "本轮正在收尾或暂不支持补充，本条未接收；请稍后重发。";
     } catch { reply = "补充接收结果未知；请查看桌面执行记录，不会自动重发。"; }
     await this.store.update(data => { data.inputs.find(x => x.key === input.key)!.state = state; });
-    await this.#reply(`input:${input.key}`, owner.chatId, reply);
+    if (reply) await this.#reply(`input:${input.key}`, owner.chatId, reply);
   }
   async #publishApproval(source: TelegramInbound, approval: PendingApproval) {
     const running = this.#ownedRunning(), owner = this.store.snapshot().owner;
@@ -569,8 +569,7 @@ export class TelegramGateway {
         ? run.steers?.find(item => item.id === source.steerId) : undefined;
       if (!steer) return;
       await this.store.update(data => { data.inputs.find(x => x.key === source.key)!.state = "finished"; });
-      await this.#reply(`input:${source.key}`, owner.chatId, steer.status === "applied" ? "补充已应用。"
-        : steer.status === "not_applied" ? "本轮未应用这条补充；请查看桌面执行记录。" : "补充已收到，应用状态请查看桌面执行记录。");
+      if (steer.status === "not_applied") await this.#reply(`input:${source.key}`, owner.chatId, "本轮未应用这条补充；请查看桌面执行记录。");
       return;
     }
     if (!run || run.threadId !== owner.threadId || run.phase !== "primary" || run.runId !== source.runId || (source.taskId && run.workTaskId !== source.taskId) || run.status === "running") {

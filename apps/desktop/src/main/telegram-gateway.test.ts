@@ -1006,7 +1006,7 @@ for (const prefix of ["", "调整："]) it(`TG ${prefix ? "explicit" : "ordinary
     await until(() => f.sent.some(x => x.includes("需要你确认 · 写入文件")));
     const code = approvalCode(f);
     await f.gateway.receive(update(3, `${prefix}不要写文件，只解释下一步`));
-    assert.ok(f.sent.some(text => /补充已收到|调整已收到/.test(text)));
+    assert.equal(f.store.snapshot().deliveries.some(x => x.key === "input:42:3"), false, "accepted corrections stay silent in Telegram");
     await until(() => f.store.snapshot().inputs.find(x => x.key === "42:2")?.state === "finished");
     await f.gateway.receive(update(5, `允许 ${code}`));
     assert.match(f.sent.at(-1)!, /没有批准任何操作/);
@@ -1038,6 +1038,7 @@ it("consecutive ordinary TG followups share one Run, preserve both corrections a
     for (const key of ["42:3", "42:4"]) {
       const saved = f.store.snapshot().inputs.find(x => x.key === key)!;
       assert.equal(saved.runId, runId); assert.equal(saved.state, "finished");
+      assert.equal(f.store.snapshot().deliveries.some(x => x.key === `input:${key}`), false);
     }
     const runs = await f.host.current.listRuns(); assert.ok(runs.ok); assert.equal(runs.runs.length, 1);
   } finally { release(); await f.cleanup(); }
@@ -1057,13 +1058,18 @@ for (const accepted of [false, true]) it(`a lost TG correction acknowledgement w
     assert.match(f.sent.at(-1)!, /接收结果未知/);
     patched.mock.restore(); release();
     await until(() => f.host.current.snapshot().state.kind === "idle");
+    await until(() => f.store.snapshot().deliveries.find(x => x.key === "result:42:2")?.state === "submitted");
     await f.gateway.close(); const calls = f.calls();
+    // Model a crash after correction dispatch but before its feedback was saved.
+    await f.store.update(data => { data.deliveries = data.deliveries.filter(x => x.key !== "input:42:3"); });
+    const sentBeforeReopen = f.sent.length;
     const store = new TelegramStore(f.store.path, f.workspace); await store.load();
     reopened = new TelegramGateway(f.host, store, f.api); await reopened.initialize(); await reopened.start();
     if (accepted) await until(() => store.snapshot().inputs.find(x => x.key === "42:3")?.state === "finished");
     else assert.equal(store.snapshot().inputs.find(x => x.key === "42:3")!.state, "unknown");
     await reopened.receive(update(4, "只分析不要修改", 42, "private", 3));
     assert.equal(f.calls(), calls);
+    assert.equal(f.sent.length, sentBeforeReopen, "receipt recovery must not send a success acknowledgement");
     assert.equal(store.snapshot().deliveries.some(x => x.key === "result:42:3"), false);
     const run = await f.host.channelReceipt(store.snapshot().owner!.threadId, store.snapshot().inputs.find(x => x.key === "42:2")!.runId!);
     assert.equal(run!.steers?.length ?? 0, accepted ? 1 : 0);
