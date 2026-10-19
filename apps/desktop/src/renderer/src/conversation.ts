@@ -99,13 +99,20 @@ function messageRole(message: UIMessage): TextRow["role"] {
   return message.role === "user" || message.role === "assistant" ? message.role : "system";
 }
 
-function committedToolStatus(part: Extract<UIMessage["parts"][number], { type: "dynamic-tool" }>): Pick<ToolRow, "status" | "detail" | "reminder"> {
+/** The host error code at the front of a stored `CODE: message` error text (as the AI SDK adapter writes it). */
+const HOST_ERROR_CODE = /^([A-Z][A-Z0-9_]{2,}):\s/;
+
+function committedToolStatus(part: Extract<UIMessage["parts"][number], { type: "dynamic-tool" }>): Pick<ToolRow, "status" | "detail" | "reminder" | "errorCode"> {
   switch (part.state) {
-    case "output-error":
-      return part.errorText?.startsWith("STEER_SUPERSEDED") ? { status: "not_started", detail: "因补充要求停止，调用未派发" }
-        : part.errorText?.startsWith("TOOL_OUTCOME_UNKNOWN") ? { status: "unknown", detail: part.errorText } : part.errorText?.startsWith("TOOL_DENIED")
-        ? { status: "denied", detail: part.errorText }
-        : { status: "failed", detail: part.errorText };
+    case "output-error": {
+      if (part.errorText?.startsWith("STEER_SUPERSEDED")) return { status: "not_started", detail: "因补充要求停止，调用未派发" };
+      // Same shape as a tool.call.failed event: detail `CODE: message`, with the code.
+      const code = part.errorText === undefined ? undefined : HOST_ERROR_CODE.exec(part.errorText)?.[1];
+      const errorCode = code ? { errorCode: code } : {};
+      return part.errorText?.startsWith("TOOL_OUTCOME_UNKNOWN") ? { status: "unknown", detail: part.errorText, ...errorCode } : part.errorText?.startsWith("TOOL_DENIED")
+        ? { status: "denied", detail: part.errorText, ...errorCode }
+        : { status: "failed", detail: part.errorText, ...errorCode };
+    }
     case "output-denied":
       return { status: "denied" };
     case "output-available": {
@@ -251,6 +258,7 @@ export function rowsFromHistory(messages: readonly UIMessage[]): ConversationRow
           status: outcome.status,
           ...(["output-available", "output-error", "output-denied"].includes(part.state) ? { outcomeSource: "full" as const } : {}),
           ...(outcome.detail ? { detail: outcome.detail } : {}),
+          ...(outcome.errorCode ? { errorCode: outcome.errorCode } : {}),
           ...(outcome.reminder ? { reminder: outcome.reminder } : {}),
         };
         rows.push(part.state === "output-available" ? withFileReceipt(withShellFields(row, part.output), part.output) : row);
@@ -361,11 +369,15 @@ export function overlayExecutionReceipts(
       : tool.status === "failed" ? (tool.errorPreview?.includes("User denied") || tool.errorPreview?.startsWith("TOOL_DENIED") ? "denied" : "failed")
       : tool.status === "requested" || tool.status === "started" ? "requested"
       : returned.status;
+    // A host failure already shown from the full transcript (run event or history) keeps its
+    // `CODE: message` and code; the receipt's bounded error preview has the message only.
+    const fullFailure = tool.status === "failed" && existing?.outcomeSource === "full" && existing.errorCode !== undefined ? existing : undefined;
     const detail = tool.status === "unknown" ? "已进入执行，但效果未知；请核对应用，不自动重试"
       : tool.status === "not_started" ? "调用未开始，未派发动作"
-      : tool.status === "failed" ? tool.errorPreview ?? "调用失败"
+      : tool.status === "failed" ? fullFailure?.detail ?? tool.errorPreview ?? "调用失败"
       : returned.detail ?? (tool.resultTruncated ? "回执已截断，不能据此推断成功" : undefined);
-    const errorCode = tool.status === "completed" ? (existing?.outcomeSource === "full" ? existing.errorCode : complete ? outputErrorCode(parsed) : undefined) : undefined;
+    const errorCode = fullFailure ? fullFailure.errorCode
+      : tool.status === "completed" ? (existing?.outcomeSource === "full" ? existing.errorCode : complete ? outputErrorCode(parsed) : undefined) : undefined;
     const metadata = { ...receiptInputFields(tool), ...(complete && tool.toolName === "shell_exec" ? shellOutputFields(parsed) : {}),
       recordedAt: tool.requestedAt, ...(tool.fileInput?.path ? { inputPath: tool.fileInput.path } : {}) };
     const next: ToolRow = { kind: "tool", key: `receipt:${tool.toolName}:${tool.toolCallId}:${result.length}`, toolCallId: tool.toolCallId,
@@ -495,7 +507,7 @@ export function applyEvent(live: LiveRun, event: AgentEvent): LiveRun {
         rows: live.rows.map((row) => {
           if (row.kind !== "tool" || row.toolCallId !== event.data.toolCallId) return row;
           const { receipt, fileContent, errorCode, ...withoutReceipt } = row;
-          return { ...withoutReceipt, errorCode: event.data.error.code, outcomeSource: "full", status: unknown ? "unknown" : event.data.error.code === "TOOL_DENIED" ? "denied" : "failed", detail: event.data.error.message };
+          return { ...withoutReceipt, errorCode: event.data.error.code, outcomeSource: "full", status: unknown ? "unknown" : event.data.error.code === "TOOL_DENIED" ? "denied" : "failed", detail: `${event.data.error.code}: ${event.data.error.message}` };
         }),
         streaming: live.streaming,
       };

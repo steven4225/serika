@@ -470,3 +470,19 @@ it("projects bounded file contents only from successful full outcomes, never sav
   const preview = rowsFromToolActivity([{ toolCallId: "read", toolName: "read_file", status: "completed", summary: '{"ok":true,"content":"preview"}', truncated: false }])[0];
   assert.ok(preview?.kind === "tool"); assert.equal(preview.fileContent, undefined);
 });
+
+describe("host tool failures: detail `CODE: message` with the code", () => {
+  const historyTool = (errorText: string) => {
+    const rows = rowsFromHistory([{ id: "a1", role: "assistant", parts: [{ type: "dynamic-tool", toolName: "write_file", toolCallId: "c1", state: "output-error", input: {}, errorText }] }] as never);
+    return rows[0]?.kind === "tool" ? rows[0] : undefined;
+  };
+  it("history reads the code from the front of the stored error text, and only from there", () => {
+    assert.deepEqual([historyTool("TOOL_OUTCOME_UNKNOWN: Connection lost")?.status, historyTool("TOOL_OUTCOME_UNKNOWN: Connection lost")?.errorCode], ["unknown", "TOOL_OUTCOME_UNKNOWN"]);
+    assert.equal(historyTool("TOOL_EXECUTION_FAILED: disk full")?.errorCode, "TOOL_EXECUTION_FAILED");
+    assert.equal(historyTool("disk full: TOOL_EXECUTION_FAILED")?.errorCode, undefined);
+    assert.equal(historyTool("boom")?.errorCode, undefined);
+    assert.equal(historyTool("boom")?.detail, "boom");
+    const superseded = historyTool("STEER_SUPERSEDED: no dispatch");
+    assert.deepEqual([superseded?.status, superseded?.detail, superseded?.errorCode], ["not_started", "因补充要求停止，调用未派发", undefined]);
+  });
+});
