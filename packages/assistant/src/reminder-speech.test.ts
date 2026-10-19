@@ -3,6 +3,8 @@ import { describe, it } from "node:test";
 import {
   formatOnceWhen,
   formatReminderConfirmation,
+  reminderConfirmation,
+  reminderConfirmationText,
   reminderReadback,
   reminderSubject,
 } from "./reminder-speech.js";
@@ -102,5 +104,29 @@ describe("reminder speech", () => {
     assert.match(moved, /时间：明天 10:00/);
     assert.match(moved, /原时间：明天 9:00（预览，不锁定这条提醒）/);
     assert.match(moved, /允许这次改期？/);
+  });
+
+  it("builds the confirmation card from its fields, and the text only from those fields", () => {
+    const moved = reminderConfirmation({
+      action: "reschedule",
+      prompt: "请提醒我 开会",
+      runAt: "2026-10-11T02:00:00.000Z",
+      previousRunAt: tomorrowNine,
+      clock,
+      footnote: "保存时会再次核对状态。",
+    });
+    assert.deepEqual(moved.reminder, {
+      action: "reschedule",
+      time: "明天 10:00",
+      repeat: "不重复",
+      subject: "开会",
+      previous: "明天 9:00（预览，不锁定这条提醒）",
+      footnote: "保存时会再次核对状态。",
+    });
+    assert.equal(moved.text, reminderConfirmationText(moved.reminder));
+    assert.equal(moved.text, "\n提醒确认\n时间：明天 10:00\n重复：不重复\n内容：开会\n原时间：明天 9:00（预览，不锁定这条提醒）\n保存时会再次核对状态。\n允许这次改期？ [y/n] \n");
+    const paused = reminderConfirmation({ action: "pause", prompt: "喝水", recurrence: { kind: "weekly", weekday: 1, time: "09:00", utcOffset: "+08:00" }, clock, footnote: "" });
+    assert.deepEqual(paused.reminder, { action: "pause", time: "9:00", repeat: "每周一", subject: "喝水" }, "no previous time, an empty footnote is left out");
+    assert.equal(formatReminderConfirmation({ action: "pause", prompt: "喝水", recurrence: { kind: "weekly", weekday: 1, time: "09:00", utcOffset: "+08:00" }, clock }), paused.text);
   });
 });

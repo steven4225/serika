@@ -49,7 +49,7 @@ export type { SavedTaskArrangement } from "./modules/task-module.js";
 export type { RecipeChange, RecipeEntry } from "./recipe-store.js";
 export type { Recurrence } from "./recurrence.js";
 export { formatOnceWhen, readRecurrence, reminderSubject, reminderWhen } from "./reminder-speech.js";
-export type { ReminderSpeechClock } from "./reminder-speech.js";
+export type { ReminderConfirmationFields, ReminderSpeechClock } from "./reminder-speech.js";
 export { validateRssDocument } from "./rss-subscriptions.js";
 export type { RssAction, RssInbox, RssResult, RssView } from "./rss-subscriptions.js";
 export { formatLocalTaskTime } from "./task-instructions.js";

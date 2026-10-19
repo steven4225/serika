@@ -4,7 +4,7 @@ import { toolCommitResult } from "../commit-outcome.js";
 import { z } from "zod";
 import type { RegisteredTool } from "@serika/ai-sdk-adapter";
 import type { BeforeToolExecuteInput } from "@serika/core";
-import type { AgentModule } from "../module-host.js";
+import type { AgentModule, ToolConfirmationCard } from "../module-host.js";
 import type {
   CreateTaskInput,
   CreateRecurringTaskInput,
@@ -22,7 +22,7 @@ import type {
   TaskArrangement,
 } from "../task-store.js";
 import type { Recurrence } from "../recurrence.js";
-import { formatReminderConfirmation, readRecurrence, reminderReadback, type ReminderSpeechAction } from "../reminder-speech.js";
+import { readRecurrence, reminderConfirmation, reminderReadback, type ReminderSpeechAction } from "../reminder-speech.js";
 import type { SkillResult } from "../automation-execution.js";
 
 export type { TaskStore } from "../task-store.js";
@@ -630,8 +630,8 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
       timeZone: options.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
     };
   }
-  /** The y/n cards for arrangements and reminders; `undefined` keeps the generic card. */
-  function confirmation(input: BeforeToolExecuteInput): string | Promise<string | undefined> | undefined {
+  /** The y/n cards for arrangements and reminders; `undefined` keeps the generic card. Reminder cards carry their fields. */
+  function confirmation(input: BeforeToolExecuteInput): ToolConfirmationCard | Promise<ToolConfirmationCard | undefined> | undefined {
     if (input.toolName === "task_create" || input.toolName === "task_repeat_create") {
       const request = typeof input.input === "object" && input.input !== null ? input.input as { arrangement?: { kind?: unknown; source?: unknown; skillId?: unknown; skillHash?: unknown }; runAt?: unknown; recurrence?: unknown; prompt?: unknown } : {};
       if (request.arrangement !== undefined) {
@@ -645,7 +645,7 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
             const service = status === undefined
               ? "本入口只保存提醒；需要自行运行 worker，到期才会提交通知。通知提交不等于已经送达。"
               : `${status.registered ? status.running ? "后台已注册且正在运行" : "后台已注册，当前未运行" : "后台尚未注册"}。确认后保存这条提醒，并按需启用该工作区后台服务；启用失败时提醒仍保存。到期通知只提交一次，这次确认不代表已经送达。${status.message ? ` ${status.message}` : ""}`;
-            return formatReminderConfirmation({
+            return reminderConfirmation({
               action: "save",
               prompt: typeof request.prompt === "string" ? request.prompt : "",
               ...(typeof request.runAt === "string" ? { runAt: request.runAt } : {}),
@@ -674,7 +674,7 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
       if (input.toolName === "task_cancel") {
         return store.get(id).then((current) => {
           if (!current.ok || current.value.arrangement?.kind !== "reminder") return undefined;
-          return formatReminderConfirmation({
+          return reminderConfirmation({
             action: "cancel",
             prompt: current.value.prompt,
             runAt: current.value.runAt,
@@ -687,7 +687,7 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
       return store.getRecurring(id).then((current) => {
         const series = current.ok ? current.value.recurringTask : undefined;
         if (series?.arrangement?.kind !== "reminder") return undefined;
-        return formatReminderConfirmation({
+        return reminderConfirmation({
           action,
           prompt: series.prompt,
           recurrence: series.recurrence,
@@ -703,7 +703,7 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
       return store.get(typeof request.id === "string" ? request.id : "")
         .then((current) => {
           if (current.ok && current.value.arrangement?.kind === "reminder" && typeof request.runAt === "string") {
-            return formatReminderConfirmation({
+            return reminderConfirmation({
               action: "reschedule",
               prompt: current.value.prompt,
               runAt: request.runAt,

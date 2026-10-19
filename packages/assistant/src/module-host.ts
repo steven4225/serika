@@ -1,5 +1,6 @@
 import type { RegisteredTool } from "@serika/ai-sdk-adapter";
 import type { BeforeToolExecuteInput } from "@serika/core";
+import type { ReminderConfirmationFields } from "./reminder-speech.js";
 
 export type Dispose = () => void;
 
@@ -45,8 +46,15 @@ export interface ToolPermissionFacts {
    * The whole y/n card for this call, which may load asynchronously;
    * `undefined` falls back to the generic card.
    */
-  confirmation?(input: BeforeToolExecuteInput): string | Promise<string | undefined> | undefined;
+  confirmation?(input: BeforeToolExecuteInput): ToolConfirmationCard | Promise<ToolConfirmationCard | undefined> | undefined;
 }
+
+/**
+ * A y/n card: its text, or for a reminder card the text plus the fields it was
+ * built from (reminder-specific, like the Home item's `task`; not a generic
+ * presentation description). The text alone is what terminals show.
+ */
+export type ToolConfirmationCard = string | { text: string; reminder: ReminderConfirmationFields };
 
 /** What module instructions may depend on for one Run. */
 export interface InstructionRun {

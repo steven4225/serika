@@ -177,7 +177,26 @@ function confirmQuestion(action: ReminderConfirmAction): string {
   }
 }
 
-export function formatReminderConfirmation(input: {
+/**
+ * What a reminder y/n card shows, field by field. The card text is built from
+ * these fields; hosts that draw their own card read them instead of the text.
+ * Display values only: it neither locks the reminder nor proves delivery.
+ */
+export interface ReminderConfirmationFields {
+  action: ReminderConfirmAction;
+  /** 时间 as printed (a clock time for a repeat, else a local date and time, or 「时间未定」). */
+  time: string;
+  /** 重复 as printed (「每天」, 「每周一」…, or 「不重复」). */
+  repeat: string;
+  /** 内容 as printed. */
+  subject: string;
+  /** 原时间 as printed, including its preview note; present only when rescheduling. */
+  previous?: string;
+  /** The extra note printed under the fields, when there is one. */
+  footnote?: string;
+}
+
+export interface ReminderConfirmationInput {
   action: ReminderConfirmAction;
   prompt: string;
   runAt?: string | undefined;
@@ -185,22 +204,46 @@ export function formatReminderConfirmation(input: {
   previousRunAt?: string | undefined;
   clock: ReminderSpeechClock;
   footnote?: string | undefined;
-}): string {
+}
+
+export function reminderConfirmationFields(input: ReminderConfirmationInput): ReminderConfirmationFields {
   const spoken = reminderWhen({
     ...(input.runAt === undefined ? {} : { runAt: input.runAt }),
     ...(input.recurrence === undefined ? {} : { recurrence: input.recurrence }),
     clock: input.clock,
   });
+  return {
+    action: input.action,
+    time: spoken.time,
+    repeat: spoken.repeat,
+    subject: reminderSubject(input.prompt),
+    ...(input.previousRunAt === undefined
+      ? {}
+      : { previous: `${formatOnceWhen(input.previousRunAt, input.clock)}（预览，不锁定这条提醒）` }),
+    ...(input.footnote !== undefined && input.footnote.length > 0 ? { footnote: input.footnote } : {}),
+  };
+}
+
+/** The terminal card text (CLI, Telegram, the approval preview), built only from the fields. */
+export function reminderConfirmationText(fields: ReminderConfirmationFields): string {
   const lines = [
     "提醒确认",
-    `时间：${spoken.time}`,
-    `重复：${spoken.repeat}`,
-    `内容：${reminderSubject(input.prompt)}`,
+    `时间：${fields.time}`,
+    `重复：${fields.repeat}`,
+    `内容：${fields.subject}`,
   ];
-  if (input.previousRunAt !== undefined) {
-    lines.push(`原时间：${formatOnceWhen(input.previousRunAt, input.clock)}（预览，不锁定这条提醒）`);
-  }
-  if (input.footnote !== undefined && input.footnote.length > 0) lines.push(input.footnote);
-  lines.push(confirmQuestion(input.action));
+  if (fields.previous !== undefined) lines.push(`原时间：${fields.previous}`);
+  if (fields.footnote !== undefined) lines.push(fields.footnote);
+  lines.push(confirmQuestion(fields.action));
   return `\n${lines.join("\n")}\n`;
+}
+
+/** The card as a module's `confirmation` returns it: the text plus the fields it was built from. */
+export function reminderConfirmation(input: ReminderConfirmationInput): { text: string; reminder: ReminderConfirmationFields } {
+  const reminder = reminderConfirmationFields(input);
+  return { text: reminderConfirmationText(reminder), reminder };
+}
+
+export function formatReminderConfirmation(input: ReminderConfirmationInput): string {
+  return reminderConfirmation(input).text;
 }

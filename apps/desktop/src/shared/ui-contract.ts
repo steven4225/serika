@@ -15,7 +15,7 @@ import type { AssistantController } from "@serika/assistant";
 import type { TaskListV3, TaskRecordV4 } from "@serika/assistant";
 import type { MemoryReferenceSnapshot } from "@serika/assistant";
 import type { AgentEvent, RunResult } from "@serika/core";
-import type { HomeSnapshot } from "@serika/assistant";
+import type { HomeSnapshot, ReminderConfirmationFields } from "@serika/assistant";
 import type { ExecutionRunRecord } from "@serika/assistant";
 import type { ModelUsagePage } from "@serika/assistant";
 export type { ExecutionRunRecord, ExecutionToolRecord } from "@serika/assistant";
@@ -53,6 +53,8 @@ export interface PendingApproval {
   preview: string;
   /** Present when this call may be allowed and remembered for the conversation. */
   remember?: { label: string };
+  /** Present for a reminder card: the fields its preview text was built from. */
+  reminder?: ReminderConfirmationFields;
 }
 
 export interface ShellProgressChunk {

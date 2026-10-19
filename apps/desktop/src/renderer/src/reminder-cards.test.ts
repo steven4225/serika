@@ -4,7 +4,7 @@ import { it } from "node:test";
 import { fileURLToPath } from "node:url";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { createModuleHost, createTaskModule, formatReminderConfirmation } from "@serika/assistant/testing";
+import { createModuleHost, createTaskModule, reminderConfirmation } from "@serika/assistant/testing";
 import type { PendingApproval } from "../../shared/ui-contract.js";
 import { ApprovalCard } from "./approval.js";
 import { presentReminderConfirmation } from "./reminder-copy.js";
@@ -81,7 +81,7 @@ const moduleCases: Record<string, ModuleCase> = {
 };
 
 /** Cards without a footnote: the module always adds one today, so these call the formatter directly. */
-const bareCases: Record<string, { toolName: string; fields: Parameters<typeof formatReminderConfirmation>[0] }> = {
+const bareCases: Record<string, { toolName: string; fields: Parameters<typeof reminderConfirmation>[0] }> = {
   "no footnote: save once": { toolName: "task_create", fields: { action: "save", prompt: "喝水", runAt: "2026-10-10T06:00:00.000Z", clock } },
   "no footnote: save daily": { toolName: "task_repeat_create", fields: { action: "save", prompt: "喝水", recurrence: daily, clock } },
   "no footnote: reschedule with previous time": { toolName: "task_reschedule", fields: { action: "reschedule", prompt: "开会", runAt: "2026-10-11T01:00:00.000Z", previousRunAt: "2026-10-10T06:00:00.000Z", clock } },
@@ -106,13 +106,13 @@ async function recordAll(): Promise<Record<string, Recorded>> {
     const host = moduleFor(entry);
     const confirmation = host.toolPermissions.get(entry.toolName)?.confirmation;
     assert.ok(confirmation, `${name}: the task module declares a card for ${entry.toolName}`);
-    const text = await confirmation({ toolName: entry.toolName, input: entry.input } as never);
+    const card = await confirmation({ toolName: entry.toolName, input: entry.input } as never);
     host.dispose();
-    assert.equal(typeof text, "string", `${name}: a reminder card, not the generic one`);
-    actual[name] = shown(entry.toolName, entry.input, text!);
+    assert.ok(typeof card === "object" && card !== undefined, `${name}: a reminder card with its fields, not the generic one`);
+    actual[name] = shown(entry.toolName, entry.input, card.text);
   }
   for (const [name, entry] of Object.entries(bareCases)) {
-    actual[name] = shown(entry.toolName, {}, formatReminderConfirmation(entry.fields));
+    actual[name] = shown(entry.toolName, {}, reminderConfirmation(entry.fields).text);
   }
   return actual;
 }

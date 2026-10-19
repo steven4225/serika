@@ -8,6 +8,7 @@ import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { createRuntimeApp } from "./app.js";
 import { reminderWhen } from "./reminder-speech.js";
+import type { PendingToolApproval } from "./tool-confirmation.js";
 import { createTaskStore } from "./task-store.js";
 
 const reminder = {
@@ -71,7 +72,7 @@ function findReadback(value: unknown, seen = new Set<unknown>()): string | undef
 }
 
 async function waitForCard(
-  getPending: () => { approvalId: string; preview: string } | undefined,
+  getPending: () => PendingToolApproval | undefined,
   signal?: AbortSignal,
 ) {
   const start = Date.now();
@@ -88,7 +89,7 @@ async function waitForCard(
 async function cardOrResult<T extends { status: string; text: string }>(
   label: string,
   handle: { result: Promise<T> },
-  getPending: () => { approvalId: string; preview: string } | undefined,
+  getPending: () => PendingToolApproval | undefined,
   calls: number,
 ) {
   const stop = new AbortController();
@@ -170,6 +171,8 @@ describe("natural-language reminder path", () => {
       assert.match(card.preview, /重复：不重复/);
       assert.match(card.preview, /内容：开会/);
       assert.doesNotMatch(card.preview, /"kind"/);
+      // The fields the preview text was built from travel with it (display only).
+      assert.deepEqual({ ...card.reminder, footnote: undefined }, { action: "save", time: spoken.time, repeat: "不重复", subject: "开会", footnote: undefined });
       assert.equal(confirmation.resolveApproval({ approvalId: card.approvalId, decision: "allow" }), true);
       const created = await handle.result;
       assert.equal(created.status, "completed");
@@ -196,6 +199,8 @@ describe("natural-language reminder path", () => {
       assert.match(moved.preview, /内容：开会/);
       assert.match(moved.preview, /原时间：/);
       assert.match(moved.preview, /允许这次改期？/);
+      assert.equal(moved.reminder?.action, "reschedule");
+      assert.match(moved.reminder?.previous ?? "", /（预览，不锁定这条提醒）$/);
       assert.equal(confirmation.resolveApproval({ approvalId: moved.approvalId, decision: "allow" }), true);
       const rescheduled = await reschedule.result;
       assert.equal(rescheduled.status, "completed");
@@ -215,6 +220,7 @@ describe("natural-language reminder path", () => {
       assert.match(dropped.preview, /重复：不重复/);
       assert.match(dropped.preview, /内容：开会/);
       assert.match(dropped.preview, /允许这次取消？/);
+      assert.equal(dropped.reminder?.action, "cancel");
       assert.equal(confirmation.resolveApproval({ approvalId: dropped.approvalId, decision: "allow" }), true);
       const cancelled = await cancel.result;
       assert.equal(cancelled.status, "completed");

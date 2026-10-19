@@ -264,7 +264,11 @@ describe("createTaskModule", () => {
     status = async () => { throw new Error("down"); };
     assert.match(String(await card("task_create", { prompt: "x", runAt: "2026-09-12T01:00:00.000Z", arrangement: skill })), /后台：尚未注册。Error: down\n/);
     assert.equal(await card("task_cancel", { id: "plain" }), undefined, "only reminders get the reminder card");
-    assert.match(String(await card("task_cancel", { id: "reminder" })), /取消后不会再为这条提醒提交通知/);
+    const cancelled = await card("task_cancel", { id: "reminder" });
+    assert.ok(typeof cancelled === "object" && cancelled !== undefined, "a reminder card carries its fields");
+    assert.match(cancelled.text, /取消后不会再为这条提醒提交通知/);
+    assert.equal(cancelled.reminder.action, "cancel");
+    assert.equal(cancelled.reminder.footnote, "取消后不会再为这条提醒提交通知。已经提交的通知不会撤回。");
     const instructions = host.instructions("task");
     assert.match(instructions, /^ For a user-requested reminder, call task_create once/);
     assert.ok(instructions.endsWith(`Available schedule Skills: ${JSON.stringify([{ id: "brief", hash: "h1", description: "d".repeat(80) }])}`));

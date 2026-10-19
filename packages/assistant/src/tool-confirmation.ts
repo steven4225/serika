@@ -6,7 +6,8 @@ import type {
   ToolExecutionDecision,
 } from "@serika/core";
 import { dirname, resolve, sep } from "node:path";
-import type { ToolPermissionFacts } from "./module-host.js";
+import type { ToolConfirmationCard, ToolPermissionFacts } from "./module-host.js";
+import type { ReminderConfirmationFields } from "./reminder-speech.js";
 import { validateWorkspacePath } from "./workspace-path.js";
 
 export interface ToolConfirmation {
@@ -57,6 +58,11 @@ export interface PendingToolApproval {
   preview: string;
   /** Present when this call can be allowed and remembered for the conversation. */
   remember?: { label: string };
+  /**
+   * Present when the card is a reminder card: the fields the preview text was
+   * built from, set together with the preview. Display only, never authority.
+   */
+  reminder?: ReminderConfirmationFields;
 }
 
 /** A non-persistent file-tool rule that applies to one subsequent Run. */
@@ -316,6 +322,7 @@ export function createToolConfirmation(
     pending === undefined ? undefined : {
       ...pending.approval,
       ...(pending.approval.remember ? { remember: { ...pending.approval.remember } } : {}),
+      ...(pending.approval.reminder ? { reminder: { ...pending.approval.reminder } } : {}),
     };
 
   const notifyPending = (): void => {
@@ -434,10 +441,12 @@ export function createToolConfirmation(
     // the preview text is written.
     notifyPending();
 
-    const writePrompt = (text: string): void => {
+    const writePrompt = (card: ToolConfirmationCard): void => {
       if (pending !== entry) return;
       try {
+        const text = typeof card === "string" ? card : card.text;
         entry.approval.preview = text;
+        if (typeof card !== "string") entry.approval.reminder = { ...card.reminder };
         notifyPending();
         if (pending !== entry) return;
         const remember = entry.approval.remember;
@@ -449,7 +458,7 @@ export function createToolConfirmation(
         reject(error);
       }
     };
-    let customPrompt: string | Promise<string | undefined> | undefined;
+    let customPrompt: ToolConfirmationCard | Promise<ToolConfirmationCard | undefined> | undefined;
     try {
       customPrompt = options.prompt?.(input) ?? facts(input.toolName)?.confirmation?.(input);
     } catch (error) {
@@ -459,8 +468,8 @@ export function createToolConfirmation(
     }
     if (customPrompt instanceof Promise) {
       void customPrompt.then(
-        (text) =>
-          writePrompt(text ?? confirmationPrompt(input.toolName, input.input)),
+        (card) =>
+          writePrompt(card ?? confirmationPrompt(input.toolName, input.input)),
         (error: unknown) => {
           clearPending(entry);
           reject(error);
