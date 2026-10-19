@@ -307,13 +307,11 @@ describe("conversational create and return chip", () => {
 
   it("keeps reminder confirmation and failure copy on the existing cards", () => {
     const card = presentReminderConfirmation({
-      toolName: "task_reschedule",
-      preview: ["提醒确认", "时间：10:00", "重复：不重复", "内容：喝水", "原时间：9:00"].join("\n"),
+      reminder: { action: "reschedule", time: "10:00", repeat: "不重复", subject: "喝水", previous: "9:00" },
     });
     assert.equal(card?.title.startsWith("调整提醒"), true);
     const created = presentReminderConfirmation({
-      toolName: "task_create",
-      preview: ["提醒确认", "时间：9:00", "内容：喝水"].join("\n"),
+      reminder: { action: "save", time: "9:00", repeat: "不重复", subject: "喝水" },
     });
     assert.match(created?.title ?? "", /^设置提醒/);
     const failed = presentReminderReply("已定：明天 9:00 提醒喝水", { toolName: "task_create", status: "failed" });

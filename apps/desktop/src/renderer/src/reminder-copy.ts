@@ -1,5 +1,5 @@
 import { formatOnceWhen, reminderWhen } from "@serika/assistant/browser";
-import type { HomeItem, ReminderSpeechClock } from "@serika/assistant";
+import type { HomeItem, ReminderConfirmationFields, ReminderSpeechClock } from "@serika/assistant";
 import type { Recurrence } from "@serika/assistant";
 import type { PendingApproval } from "../../shared/ui-contract.js";
 import type { ConversationRow, ToolRow } from "./conversation.js";
@@ -87,62 +87,31 @@ export interface ReminderConfirmationCard {
   allowLabel: string;
 }
 
-function labeledLine(lines: readonly string[], label: string): string | null {
-  const prefix = `${label}：`;
-  const line = lines.find(item => item.startsWith(prefix));
-  if (line === undefined) return null;
-  const value = line.slice(prefix.length).trim();
-  return value.length > 0 ? value : null;
-}
+/** Card copy for each reminder confirmation action. */
+const CONFIRMATION_COPY: Record<ReminderConfirmationFields["action"], { title: string; allowLabel: string; safety: string }> = {
+  save: { title: "设置提醒", allowLabel: "确认保存", safety: "确认后才会保存。保存不等于已经提醒到你。" },
+  reschedule: { title: "调整提醒", allowLabel: "确认改期", safety: "确认后才会改时间。改期不等于已经送达。" },
+  cancel: { title: "取消提醒", allowLabel: "确认取消", safety: "确认后才会取消。已经弹出的通知不会撤回。" },
+  pause: { title: "暂停提醒", allowLabel: "确认暂停", safety: "确认后暂停以后的提醒，不会重做已经发生的。" },
+  resume: { title: "恢复提醒", allowLabel: "确认恢复", safety: "确认后恢复以后的提醒。恢复不等于已经送达。" },
+};
 
-function confirmationVerb(toolName: string): { title: string; allowLabel: string; safety: string } {
-  switch (toolName) {
-    case "task_create":
-    case "task_repeat_create":
-      return { title: "设置提醒", allowLabel: "确认保存", safety: "确认后才会保存。保存不等于已经提醒到你。" };
-    case "task_reschedule":
-      return { title: "调整提醒", allowLabel: "确认改期", safety: "确认后才会改时间。改期不等于已经送达。" };
-    case "task_cancel":
-    case "task_repeat_cancel":
-      return { title: "取消提醒", allowLabel: "确认取消", safety: "确认后才会取消。已经弹出的通知不会撤回。" };
-    case "task_repeat_pause":
-      return { title: "暂停提醒", allowLabel: "确认暂停", safety: "确认后暂停以后的提醒，不会重做已经发生的。" };
-    case "task_repeat_resume":
-      return { title: "恢复提醒", allowLabel: "确认恢复", safety: "确认后恢复以后的提醒。恢复不等于已经送达。" };
-    default:
-      return { title: "提醒", allowLabel: "确认", safety: "确认后才会保存。保存不等于已经提醒到你。" };
-  }
-}
-
-/** Turn the existing reminder confirmation text into a short Chinese card. */
-export function presentReminderConfirmation(approval: Pick<PendingApproval, "toolName" | "preview">): ReminderConfirmationCard | null {
-  const preview = approval.preview.replace(/(?:Allow this call\?|允许这次[^\n]*？)\s*\[y\/n\]\s*$/i, "").trim();
-  const lines = preview.split("\n").map(line => line.trim()).filter(line => line.length > 0);
-  if (lines[0] !== "提醒确认") return null;
-  const time = labeledLine(lines, "时间");
-  const subject = labeledLine(lines, "内容");
-  if (time === null || subject === null) return null;
-  const repeat = labeledLine(lines, "重复") ?? "不重复";
-  const previous = labeledLine(lines, "原时间");
-  const structured = new Set([
-    "提醒确认",
-    `时间：${time}`,
-    `重复：${repeat}`,
-    `内容：${subject}`,
-    ...(previous === null ? [] : [`原时间：${previous}`]),
-  ]);
-  const details = lines.filter(line => !structured.has(line)).join("\n");
-  const verb = confirmationVerb(approval.toolName);
-  const when = repeat === "不重复" ? time : `${repeat} ${time}`;
+/** The short Chinese card for a reminder confirmation, from the fields the task module sent with it. */
+export function presentReminderConfirmation(approval: Pick<PendingApproval, "reminder">): ReminderConfirmationCard | null {
+  const fields = approval.reminder;
+  if (fields === undefined) return null;
+  const copy = CONFIRMATION_COPY[fields.action];
+  const when = fields.repeat === "不重复" ? fields.time : `${fields.repeat} ${fields.time}`;
   return {
-    title: `${verb.title}：${when} ${subject}`,
-    time,
-    repeat,
-    subject,
-    previous,
-    safety: verb.safety,
-    details,
-    allowLabel: verb.allowLabel,
+    title: `${copy.title}：${when} ${fields.subject}`,
+    time: fields.time,
+    repeat: fields.repeat,
+    subject: fields.subject,
+    previous: fields.previous ?? null,
+    safety: copy.safety,
+    // The note under the fields, one trimmed line per printed line, as the card text shows it.
+    details: (fields.footnote ?? "").split("\n").map(line => line.trim()).filter(line => line.length > 0).join("\n"),
+    allowLabel: copy.allowLabel,
   };
 }
 

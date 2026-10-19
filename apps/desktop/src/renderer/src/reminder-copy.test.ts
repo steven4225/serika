@@ -29,15 +29,13 @@ it("preserves ordinary technical explanations and successful reminder subjects c
 
 it("confirmation card leads with the Chinese reminder, not the tool name", () => {
   const card = presentReminderConfirmation({
-    toolName: "task_repeat_create",
-    preview: [
-      "提醒确认",
-      "时间：9:00",
-      "重复：每天",
-      "内容：喝水",
-      "后台已注册且正在运行。确认后保存这条提醒，并按需启用该工作区后台服务；启用失败时提醒仍保存。到期通知只提交一次，这次确认不代表已经送达。结果投递目的地很长，任务保存与投递登记并非原子。",
-      "允许这次保存？ [y/n] ",
-    ].join("\n"),
+    reminder: {
+      action: "save",
+      time: "9:00",
+      repeat: "每天",
+      subject: "喝水",
+      footnote: "后台已注册且正在运行。确认后保存这条提醒，并按需启用该工作区后台服务；启用失败时提醒仍保存。到期通知只提交一次，这次确认不代表已经送达。结果投递目的地很长，任务保存与投递登记并非原子。",
+    },
   });
   assert.ok(card);
   assert.equal(card.title, "设置提醒：每天 9:00 喝水");
@@ -114,7 +112,7 @@ it("keeps a background-unavailable warning on the primary line instead of collap
     assert.match(primary, /不要重复创建/);
     assert.doesNotMatch(primary, /已定|已记下/);
   }
-  assert.equal(presentReminderConfirmation({ toolName: "task_reschedule", preview: "提醒确认\n时间：明天 9:00\n内容：开会\n允许这次改期？ [y/n]" })?.title, "调整提醒：明天 9:00 开会");
+  assert.equal(presentReminderConfirmation({ reminder: { action: "reschedule", time: "明天 9:00", repeat: "不重复", subject: "开会" } })?.title, "调整提醒：明天 9:00 开会");
 });
 
 it("save failure after a scheduled line does not keep 已定 as the primary", () => {

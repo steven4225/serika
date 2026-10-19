@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createModuleHost, createTaskModule, reminderConfirmation } from "@serika/assistant/testing";
+import type { ReminderConfirmationFields } from "@serika/assistant";
 import type { PendingApproval } from "../../shared/ui-contract.js";
 import { ApprovalCard } from "./approval.js";
 import { presentReminderConfirmation } from "./reminder-copy.js";
@@ -12,10 +13,10 @@ import { presentReminderConfirmation } from "./reminder-copy.js";
 /**
  * v2 pilot step 3 (reminder confirmation cards): every reminder y/n card the
  * task module can produce, with the card and markup the desktop shows for it.
- * `__baseline__/reminder-cards.json` was recorded with the text parser
- * (`presentReminderConfirmation` reading the preview). The module's card text
- * and the desktop card must stay exactly as recorded when the card moves to
- * structured fields. Record again with `RECORD_REMINDER_CARDS=1` only when
+ * `__baseline__/reminder-cards.json` was recorded with the removed text parser
+ * (`presentReminderConfirmation` reading the preview). The desktop card now
+ * comes from the fields the module sends with the text; the text, the card and
+ * the markup must stay exactly as recorded. Record again with `RECORD_REMINDER_CARDS=1` only when
  * that is the intended change.
  */
 const golden = fileURLToPath(new URL("./__baseline__/reminder-cards.json", import.meta.url));
@@ -94,8 +95,9 @@ const bareCases: Record<string, { toolName: string; fields: Parameters<typeof re
 
 type Recorded = { toolName: string; text: string; card: unknown; html: string };
 
-function shown(toolName: string, input: unknown, text: string): Recorded {
-  const approval: PendingApproval = { approvalId: "approval-golden", toolCallId: "call-golden", toolName, input, preview: text };
+function shown(toolName: string, input: unknown, card: { text: string; reminder: ReminderConfirmationFields }): Recorded {
+  const text = card.text;
+  const approval: PendingApproval = { approvalId: "approval-golden", toolCallId: "call-golden", toolName, input, preview: text, reminder: card.reminder };
   const html = renderToStaticMarkup(createElement(ApprovalCard, { approval, deciding: false, onDecision: () => { throw new Error("render cannot authorize"); } }));
   return { toolName, text, card: presentReminderConfirmation(approval), html };
 }
@@ -109,13 +111,24 @@ async function recordAll(): Promise<Record<string, Recorded>> {
     const card = await confirmation({ toolName: entry.toolName, input: entry.input } as never);
     host.dispose();
     assert.ok(typeof card === "object" && card !== undefined, `${name}: a reminder card with its fields, not the generic one`);
-    actual[name] = shown(entry.toolName, entry.input, card.text);
+    actual[name] = shown(entry.toolName, entry.input, card);
   }
   for (const [name, entry] of Object.entries(bareCases)) {
-    actual[name] = shown(entry.toolName, {}, reminderConfirmation(entry.fields).text);
+    actual[name] = shown(entry.toolName, {}, reminderConfirmation(entry.fields));
   }
   return actual;
 }
+
+it("an approval without reminder fields gets the generic card, even if its text looks like a reminder card", () => {
+  const preview = "\n提醒确认\n时间：今天 14:00\n重复：不重复\n内容：喝水\n允许这次保存？ [y/n] \n";
+  assert.equal(presentReminderConfirmation({}), null);
+  const html = renderToStaticMarkup(createElement(ApprovalCard, {
+    approval: { approvalId: "a", toolCallId: "c", toolName: "read_file", input: {}, preview },
+    deciding: false, onDecision: () => { throw new Error("render cannot authorize"); },
+  }));
+  assert.match(html, /aria-label="工具调用确认"/);
+  assert.match(html, /<pre class="prompt">提醒确认/);
+});
 
 it("v2 pilot baseline: every reminder confirmation card matches the parser-era golden", async () => {
   const actual = await recordAll();

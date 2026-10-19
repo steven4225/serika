@@ -21,7 +21,8 @@ for (const preview of ["", " \n\t "]) test(`approval preview guard rejects ${JSO
 
 test("approval delayed preview becomes enabled only with visible content and hides terminal y/n", () => {
   assert.match(markup(approval("")), /class="allow" disabled=""/);
-  const html = markup(approval("提醒确认\n时间：明天 上午10点\n内容：喝水\n允许这次改期？ [y/n] "));
+  const html = markup({ ...approval("提醒确认\n时间：明天 上午10点\n内容：喝水\n允许这次改期？ [y/n] "),
+    reminder: { action: "reschedule", time: "明天 上午10点", repeat: "不重复", subject: "喝水" } });
   assert.doesNotMatch(html, /class="allow" disabled=""/);
   assert.match(html, /喝水/);
   assert.match(html, /<h3>调整提醒：明天 上午10点 喝水<\/h3>/);
@@ -30,7 +31,8 @@ test("approval delayed preview becomes enabled only with visible content and hid
   assert.doesNotMatch(html.slice(0, html.indexOf("<summary>详情</summary>")), /task_reschedule|<pre class="prompt"/);
   assert.ok(html.indexOf("调整提醒：明天 上午10点 喝水") < html.indexOf("<summary>详情</summary>"));
   assert.ok(html.indexOf("<summary>详情</summary>") < html.indexOf("task_reschedule"));
-  const order = markup(approval("提醒确认\n时间：9:00\n内容：检查订单 task_12345678\n允许这次保存？ [y/n]"));
+  const order = markup({ ...approval("提醒确认\n时间：9:00\n内容：检查订单 task_12345678\n允许这次保存？ [y/n]"),
+    reminder: { action: "save", time: "9:00", repeat: "不重复", subject: "检查订单 task_12345678" } });
   const primary = order.slice(0, order.indexOf("<summary>详情</summary>"));
   assert.match(primary, /检查订单 task_12345678/);
 });
