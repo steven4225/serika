@@ -220,6 +220,7 @@ apps/telegram ┘        (领域：记忆/任务/        (AI SDK 边界：模型
 - 第 3 步收尾（拆 `App.tsx`）：按领域拆分完成（1310 → 836 行），见 `docs/v2-pilot/app-split.md`。
 - 第 3 步收尾（提醒确认卡）：任务模块的确认卡带结构化字段 `ReminderConfirmationFields`，桌面端直接读字段，删除确认卡文本解析；改动前记录的 24 个金样例逐项一致。见 `docs/v2-pilot/state-events.md` §3。
 - RunContext：设计说明 `docs/v2-pilot/run-context.md`（15 个闭包变量按装配期 / 每次 Run / 续做观测 / 上下文诊断分类，两阶段方案和必须保持的不变量）。用户决定只做第一阶段：每次 Run 的 7 个变量收进 `currentRun`，生命周期不变；后台 agent 也会清空记忆来源这一现状由 `app-run-state.test.ts` 锁定。
+- D1 收敛状态：只出设计说明 `docs/v2-pilot/desktop-store.md`（运行时状态与界面状态的划分、手写 store + `useSyncExternalStore`、必须保持的启动顺序和防过期判断、四步计划），没有改代码。做不做由维护者决定。
 
 ## 5. 度量基线（`c594574`，改名后、移除 durable/postgres 前）
 
