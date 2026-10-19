@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { mock, test } from "node:test";
 import type { AgentEvent, RunResult } from "@serika/core";
 import type { AppInfo, AssistantSteerRecord, ExecutionRunRecord, GetRunResponse, MainToRenderer, PendingApproval, UiSnapshot } from "../../shared/ui-contract.js";
 import { createRuntimeStore, initialRuntimeState, OUTPUT_MAX_CHARS, type RuntimeBridge, type RuntimeStore } from "./app/runtime-store.js";
@@ -60,6 +60,7 @@ test("runtime store starts from the values AssistantPage used to start with", ()
     info: null, state: { kind: "idle" }, output: "", approval: null, homeSnapshot: null, memoryRefresh: 0, contextRefresh: 0, taskRefresh: 0,
     live: emptyLiveRun, lastResult: null, canSteer: false, finalRecord: null, steers: [], uncertainSteer: null,
     history: { rows: [], runId: null }, historyBefore: null, historyLoading: false,
+    records: { status: "loading" }, recordDetail: { status: "idle" }, traceFocusTool: null,
   });
   assert.equal(store.getState(), initialRuntimeState);
   assert.equal(store.getState().live, emptyLiveRun);
@@ -523,3 +524,74 @@ function harnessWithCursor() {
   harness.answer("info", threadInfo);
   return { ...harness, ready: reload };
 }
+
+test("records: list ready (with model usage) or unavailable; a newer list read or invalidateRecords makes a read stale", async () => {
+  const { store, calls, answer } = historyHarness();
+  const first = store.loadRecords();
+  const second = store.loadRecords();
+  answer("listRuns", { ok: true, runs: [record("run-old")] });
+  await first;
+  assert.deepEqual(store.getState().records, { status: "loading" });
+  answer("listRuns", { ok: true, runs: [record("run-1")], modelUsage: { calls: 1 } });
+  await second;
+  assert.deepEqual(store.getState().records, { status: "ready", runs: [record("run-1")], modelUsage: { calls: 1 } });
+  const third = store.loadRecords();
+  store.invalidateRecords();
+  answer("listRuns", { ok: false, reason: "unavailable", message: "回执库不可用" });
+  await third;
+  assert.equal(store.getState().records.status, "ready");
+  const fourth = store.loadRecords();
+  answer("listRuns", { ok: false, reason: "unavailable", message: "回执库不可用" });
+  await fourth;
+  assert.deepEqual(store.getState().records, { status: "unavailable", message: "回执库不可用" });
+  assert.deepEqual(calls, ["listRuns", "listRuns", "listRuns", "listRuns"]);
+});
+
+test("records: open shows loading then the run, missing or unavailable; close drops a read in flight; reloadOpenRecords rereads the opened one", async () => {
+  const { store, calls, runs } = harness();
+  runs.set("run-1", { ok: true, run: record("run-1") });
+  runs.set("run-2", { ok: true, run: null });
+  runs.set("run-3", { ok: false, reason: "unavailable", message: "读不到" } as GetRunResponse);
+  const opening = store.openRecord("run-1", "call-7");
+  assert.deepEqual([store.getState().recordDetail, store.getState().traceFocusTool], [{ status: "loading", runId: "run-1" }, "call-7"]);
+  await opening;
+  assert.deepEqual(store.getState().recordDetail, { status: "ready", run: record("run-1") });
+  await store.openRecord("run-2");
+  assert.deepEqual([store.getState().recordDetail, store.getState().traceFocusTool], [{ status: "missing", runId: "run-2" }, null]);
+  await store.openRecord("run-3");
+  assert.deepEqual(store.getState().recordDetail, { status: "unavailable", runId: "run-3", message: "读不到" });
+  const closing = store.openRecord("run-1", "call-7");
+  store.closeRecord();
+  await closing;
+  assert.deepEqual([store.getState().recordDetail, store.getState().traceFocusTool], [{ status: "idle" }, null]);
+  assert.deepEqual(calls, ["getRun:run-1", "getRun:run-2", "getRun:run-3", "getRun:run-1"]);
+});
+
+test("records: refreshOpenTrace reloads once, 250 ms after the first call, only while the tab is visible; invalidateRecords cancels it", () => {
+  mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    const { store, calls } = historyHarness();
+    store.refreshOpenTrace(); // Not visible: nothing.
+    mock.timers.tick(300);
+    assert.deepEqual(calls, []);
+    store.setTraceVisible(true);
+    store.refreshOpenTrace();
+    store.refreshOpenTrace();
+    mock.timers.tick(249);
+    assert.deepEqual(calls, []);
+    mock.timers.tick(1);
+    assert.deepEqual(calls, ["listRuns"]);
+    store.refreshOpenTrace();
+    store.setTraceVisible(false); // Hidden before the timer fires: no read.
+    mock.timers.tick(250);
+    assert.deepEqual(calls, ["listRuns"]);
+    store.setTraceVisible(true);
+    store.refreshOpenTrace();
+    store.invalidateRecords();
+    mock.timers.tick(250);
+    assert.deepEqual(calls, ["listRuns"]);
+    store.refreshOpenTrace(); // The cancelled timer no longer blocks a new one.
+    mock.timers.tick(250);
+    assert.deepEqual(calls, ["listRuns", "listRuns"]);
+  } finally { mock.timers.reset(); }
+});

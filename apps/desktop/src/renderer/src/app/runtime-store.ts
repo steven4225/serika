@@ -3,6 +3,7 @@ import type { UIMessage } from "ai";
 import type { HomeSnapshot } from "@serika/assistant/browser";
 import type { AppInfo, AssistantSteerRecord, ExecutionRunRecord, MainToRenderer, PendingApproval, RendererApi, UiSnapshot, UiState } from "../../../shared/ui-contract.js";
 import type { UncertainSteer } from "../../../shared/conversation-drafts.js";
+import type { RecordDetailState, RecordsState } from "../records.js";
 import { mergeSteerRecords } from "../../../shared/steer.js";
 import { ShellProgressBuffer } from "../../../shared/shell-progress.js";
 import {
@@ -72,6 +73,10 @@ export interface RuntimeState {
   /** Cursor for the previous page; null when the oldest message is shown. */
   readonly historyBefore: string | null;
   readonly historyLoading: boolean;
+  /** Execution records ("执行记录"): the list, the opened record and the tool it focuses (was `useRunRecords`). */
+  readonly records: RecordsState;
+  readonly recordDetail: RecordDetailState;
+  readonly traceFocusTool: string | null;
 }
 
 export interface RuntimeStore {
@@ -111,6 +116,19 @@ export interface RuntimeStore {
   loadOlderHistory(view: () => OlderHistoryView): Promise<void>;
   /** Make any history read in flight stale (App unmount). */
   invalidateHistory(): void;
+
+  /** Reload the records list; when `selectedRunId` is still the opened record, reread it too. */
+  loadRecords(selectedRunId?: string): Promise<void>;
+  /** Reload the list and, if one is open, the opened record. */
+  reloadOpenRecords(): Promise<void>;
+  openRecord(runId: string, toolCallId?: string): Promise<void>;
+  closeRecord(): void;
+  /** Whether the records tab is on screen; set by App on every render (was a ref written in render). */
+  setTraceVisible(visible: boolean): void;
+  /** While the records tab is visible, reload it 250 ms after the first of a burst of run changes. */
+  refreshOpenTrace(): void;
+  /** Drop in-flight list/detail reads and the pending trace refresh (subscription teardown). */
+  invalidateRecords(): void;
 }
 
 export interface RuntimeStoreOptions {
@@ -137,6 +155,9 @@ export const initialRuntimeState: RuntimeState = {
   history: { rows: [], runId: null },
   historyBefore: null,
   historyLoading: false,
+  records: { status: "loading" },
+  recordDetail: { status: "idle" },
+  traceFocusTool: null,
 };
 
 /** Pure: the next state for one message, or the same object when the message does not touch these fields. */
@@ -184,6 +205,12 @@ export function createRuntimeStore({ bridge, onError }: RuntimeStoreOptions, ini
   /** The messages behind `history.rows`, and the read counter (were refs in App). */
   let historyMessages: UIMessage[] = [];
   let historyRequest = 0;
+  /** Records bookkeeping (were refs in useRunRecords). */
+  let selectedRecordId: string | null = null;
+  let recordListRequest = 0;
+  let recordDetailRequest = 0;
+  let recordRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+  let traceVisible = false;
   const listeners = new Set<() => void>();
   const update = (next: RuntimeState): void => {
     if (next === current) return;
@@ -243,6 +270,27 @@ export function createRuntimeStore({ bridge, onError }: RuntimeStoreOptions, ini
       view.afterShow();
     } catch { onError("更早的对话读取失败；当前内容仍保留，可以重试"); }
     finally { patch({ historyLoading: false }); }
+  };
+
+  const readRecord = async (runId: string): Promise<void> => {
+    const request = ++recordDetailRequest;
+    const opened = await bridge().getRun(runId);
+    if (request !== recordDetailRequest || selectedRecordId !== runId) return;
+    if (!opened.ok) patch({ recordDetail: { status: "unavailable", runId, message: opened.message } });
+    else if (opened.run === null) patch({ recordDetail: { status: "missing", runId } });
+    else patch({ recordDetail: { status: "ready", run: opened.run } });
+  };
+
+  const loadRecords = async (selectedRunId?: string): Promise<void> => {
+    const request = ++recordListRequest;
+    const listed = await bridge().listRuns();
+    if (request !== recordListRequest) return;
+    if (!listed.ok) {
+      patch({ records: { status: "unavailable", message: listed.message } });
+      return;
+    }
+    patch({ records: { status: "ready", runs: listed.runs, ...(listed.modelUsage ? { modelUsage: listed.modelUsage } : {}) } });
+    if (selectedRunId !== undefined && selectedRecordId === selectedRunId) await readRecord(selectedRunId);
   };
 
   return {
@@ -336,6 +384,33 @@ export function createRuntimeStore({ bridge, onError }: RuntimeStoreOptions, ini
     reloadHistory,
     loadOlderHistory,
     invalidateHistory: () => { historyRequest += 1; },
+
+    loadRecords,
+    reloadOpenRecords: () => loadRecords(selectedRecordId ?? undefined),
+    async openRecord(runId, toolCallId) {
+      selectedRecordId = runId;
+      patch({ traceFocusTool: toolCallId ?? null, recordDetail: { status: "loading", runId } });
+      await readRecord(runId);
+    },
+    closeRecord() {
+      selectedRecordId = null;
+      recordDetailRequest += 1;
+      patch({ traceFocusTool: null, recordDetail: { status: "idle" } });
+    },
+    setTraceVisible: visible => { traceVisible = visible; },
+    refreshOpenTrace() {
+      if (!traceVisible || recordRefreshTimer !== null) return;
+      recordRefreshTimer = setTimeout(() => {
+        recordRefreshTimer = null;
+        if (traceVisible) void loadRecords(selectedRecordId ?? undefined).catch(() => onError("执行追踪读取失败"));
+      }, 250);
+    },
+    invalidateRecords() {
+      recordListRequest += 1;
+      recordDetailRequest += 1;
+      if (recordRefreshTimer !== null) clearTimeout(recordRefreshTimer);
+      recordRefreshTimer = null;
+    },
   };
 }
 
