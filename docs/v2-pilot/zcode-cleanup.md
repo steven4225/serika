@@ -2,7 +2,7 @@
 
 状态：D1 第 3、4 步已做完，清理已开工。
 
-- 已做：改名（目录 `src/renderer/src/zcode/` → `src/renderer/src/ui-kit/`；测试 `zcode-*.test.ts` → `ui-kit-*.test.ts`；预览入口 `zcode-preview.html` / `zcode-preview.tsx` → `shell-preview.html` / `shell-preview.tsx`，`vite.preview.config.ts` 同步）。`upstream/` 子目录名和 `.theme-zai-*` 类名保留，作为核对上游的锚点；`zcode-` 类名、布局值 `"zcode"`、`third-party/zcode/` 目录这次没动。下文第 4 节的路径是改名前的写法，`zcode/` 现在对应 `ui-kit/`。
+- 已做：改名（目录 `src/renderer/src/zcode/` → `src/renderer/src/ui-kit/`；测试 `zcode-*.test.ts` → `ui-kit-*.test.ts`；预览入口 `zcode-preview.html` / `zcode-preview.tsx` → `shell-preview.html` / `shell-preview.tsx`，`vite.preview.config.ts` 同步）；`package.json` 的 `ui:zcode` → `ui:preview`（单独一个提交）。`upstream/` 子目录名和 `.theme-zai-*` 类名保留，作为核对上游的锚点；`zcode-` 类名、布局值 `"zcode"`、`third-party/zcode/` 目录这次没动。下文第 4 节的路径是改名前的写法，`zcode/` 现在对应 `ui-kit/`。
 - 改名验收（`scripts/ui-snapshots/check-entry-rename.sh 改名前目录 改名后目录`，三条同时成立才通过）：A. HTML 按标签拆行后，所有差异行都匹配 `^[<>] <script type="module" src="\./src/(zcode|shell)-preview\.tsx">`，且差异文件恰好 51 个；B. 把这一行换回旧名后，138 个文件（127 个 HTML + 11 个 `calls-*.txt`）逐字一致；C. 11 个调用顺序记录零差异。
 - 已定：保留改编实现，不重写。
 
