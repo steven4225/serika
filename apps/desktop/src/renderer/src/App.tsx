@@ -39,7 +39,6 @@ import { useBriefContinue } from "./app/use-brief-continue.js";
 import { ApprovalCard } from "./approval.js";
 import { useApproval } from "./app/use-approval.js";
 import { createRuntimeStore, useRuntime } from "./app/runtime-store.js";
-import { useDualWriteCheck } from "./app/dual-write-check.js";
 import { shouldSubmitComposer, canSubmitComposer, canSteerComposer } from "../../shared/composer.js";
 import { steerFailureLabel } from "../../shared/steer.js";
 import { Icon, SerikaMark, SerikaPersona } from "./icons.js";
@@ -128,10 +127,9 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const [submittedInput, setSubmittedInput] = useState<string | null>(null);
   const { attachments, setAttachments, sentAttachments, recoverableAttachments, setRecoverableAttachments, settleSentAttachments } = useChatAttachments(info, setError);
   const [showOutput, setShowOutput] = useState(false);
-  const [memoryRefresh, setMemoryRefresh] = useState(0);
-  const [contextRefresh, setContextRefresh] = useState(0);
-  const [taskRefresh, setTaskRefresh] = useState(0);
-  useDualWriteCheck(runtime, { memoryRefresh, contextRefresh, taskRefresh });
+  const memoryRefresh = useRuntime(runtime, runtimeState => runtimeState.memoryRefresh);
+  const contextRefresh = useRuntime(runtime, runtimeState => runtimeState.contextRefresh);
+  const taskRefresh = useRuntime(runtime, runtimeState => runtimeState.taskRefresh);
   const [automationRefresh, setAutomationRefresh] = useState(0);
   const [creatingTask, setCreatingTask] = useState(false);
   const [createTaskRequest, setCreateTaskRequest] = useState(0);
@@ -237,9 +235,6 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
         case "state":
           if (onRunState(message.state, () => cancelled)) historyRequest.current += 1;
           if (message.state.kind === "idle") {
-            setMemoryRefresh(value => value + 1);
-            setContextRefresh((value) => value + 1);
-            setTaskRefresh((value) => value + 1);
             void reloadHistory().catch((cause: unknown) => setError(String(cause)));
             void reloadOpenRecords().catch((cause: unknown) => setError(String(cause)));
           }
@@ -264,24 +259,20 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
           onRunEvent(message);
           return;
         case "result":
-          setContextRefresh((value) => value + 1);
           if (!isCurrentPrimaryResult(message)) return;
           setCanSteer(false);
           settleSentAttachments(message.result);
           finishPrimaryRun(message.result);
           return;
         case "memory-references-changed":
-          setContextRefresh(value => value + 1);
           return;
         case "shell-progress":
           onRunShellProgress(message);
           return;
         case "memory-updated":
-          setMemoryRefresh((value) => value + 1);
           void reloadHistory().catch((cause: unknown) => setError(String(cause)));
           return;
         case "work-task-updated":
-          setTaskRefresh((value) => value + 1);
           return;
         case "error":
           setError(message.message);

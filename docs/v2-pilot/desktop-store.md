@@ -66,7 +66,7 @@ function useRuntime<T>(select: (state: RuntimeState) => T): T; // useSyncExterna
 - **补充要求**：回执列表和 ref 同步、草稿里带出的待核对补充要求、`canSteer` 只在快照确认后为 true，都不变。
 - **读源码的测试**（9 个，用 `readAppSource()`）：`steer-status.test.ts` 按 `const submit = useCallback` … `const busy = state.kind` 截取源码，所以 `submit` 和 `const busy = state.kind !== "idle"` 要留在 `App.tsx` 里相邻，`state` 这个名字也要保留（从 store 读出来叫 `state`）；其余测试匹配的是 JSX 文案和属性（`openSettings("advanced")`、「停止记忆整理」、`<SavedTaskNotice key=…>` 等），JSX 不动就不受影响。
 - **过渡态**：1b–1d 之间允许同一条消息的处理既写 store、又调原来的 hook，提交说明写清楚哪些 case 是这样。1b 开工前用 React 19.3 实测过（生产和开发构建、store 先写或 hook 先写、在 setTimeout / message 事件 / await 之后触发）：同一个回调里的 `useSyncExternalStore` 更新和 `setState` 合并成一次提交，不会多出中间渲染，所以过渡态不需要额外处理。
-- **双写期一致性断言**：同一字段既由 store 写、又由 App 自己的 `useState` 写的期间（1c 起是三个刷新计数，到 1d 删掉双写为止），`app/dual-write-check.ts` 在开发构建里每次提交后比较两边的值，不一致就 `console.error("[runtime-store] dual-write mismatch …")`，不抛错、不影响界面。每次截图验收同时收集浏览器 console 错误，这一类必须为 0。1d 删双写时一起删掉。
+- **双写期一致性断言**：同一字段既由 store 写、又由 App 自己的 `useState` 写的期间（1c 起是三个刷新计数，到 1d 删掉双写为止），`app/dual-write-check.ts` 在开发构建里每次提交后比较两边的值，不一致就 `console.error("[runtime-store] dual-write mismatch …")`，不抛错、不影响界面。每次截图验收同时收集浏览器 console 错误，这一类必须为 0。1d 删双写时一起删掉（已删，第 1 步之后没有双写字段）。
 - 用户可见文案、顺序、截图都不变：每一步跑 UI 截图对比（138 项）。
 
 ## 5. 分步（每个提交都跑 typecheck / test:runtime / desktop test、截图对比和流程调用顺序，单独推送）
