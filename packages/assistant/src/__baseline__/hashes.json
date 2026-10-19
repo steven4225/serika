@@ -24,5 +24,7 @@
   "memory import snapshot (empty memory)": "17363ae80c255e951457f64543f0c09a3486271036be468a8f5ea4a8bc1e51cd",
   "memory import receipt requestHash": "89414d4888032b4efdc1ba1c276cccbc730877fd42a531daf6c8448bd50bf39f",
   "memory consolidation receipt payloadHash": "cf3cac828000ff95706f22e6a93fd551b21e3aec18a3ad502da529251cebe6ba",
-  "dreaming batch fingerprint": "c997a347ec649bc1795e6958e6af8d8202dee10ab1d24d37f088cdcbd573633d"
+  "dreaming batch fingerprint": "c997a347ec649bc1795e6958e6af8d8202dee10ab1d24d37f088cdcbd573633d",
+  "dreaming thread id (workspace)": "dreaming-f9be197a95b070f4bcfd5146",
+  "dreaming thread id (no workspace)": "dreaming-8b983fb92d2eb12751695722"
 }

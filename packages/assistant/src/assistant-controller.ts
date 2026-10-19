@@ -169,6 +169,13 @@ function commandParts(line: string): { name: string; args: string } {
     : { name: trimmed.slice(0, space), args: trimmed.slice(space + 1) };
 }
 
+/**
+ * The dreaming Run's Thread: `dreaming-` + the first 24 hex of sha256(workspace root, else the app's Thread).
+ * It is persisted (Thread ID → transcript file name, owner locks); exported only for its golden sample.
+ */
+export function dreamingThreadIdFor(workspaceRoot: string | undefined, threadId: string): string {
+  return `dreaming-${createHash("sha256").update(workspaceRoot ?? threadId).digest("hex").slice(0, 24)}`;
+}
 
 export function createAssistantController(app: RuntimeApp): AssistantController {
   // Compatibility for embedders supplying the pre-registry RuntimeApp shape.
@@ -245,7 +252,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
   let lastConsolidationAttempt: MemoryMaintenance["consolidation"]["lastAttempt"];
   let lastConsolidationSkippedReason: string | undefined;
   let lastDreamingAttempt: DreamingControllerOverview["lastAttempt"];
-  const dreamingThreadId = `dreaming-${createHash("sha256").update(app.workspaceRoot ?? app.threadId).digest("hex").slice(0, 24)}`;
+  const dreamingThreadId = dreamingThreadIdFor(app.workspaceRoot, app.threadId);
   let resultTextTruncated = false;
   const toolActivity: ToolActivity[] = [];
   const toolNames = new Map<string, string>();

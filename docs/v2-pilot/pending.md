@@ -11,6 +11,7 @@
    - 桌面端：`conversation-draft-store.ts` 的 `scopeKey`、`telegram-store.ts` 的归档文件名、`backup.ts` 的条目 hash。
    - 做法建议：以后真要改动这些文件时，先导出函数（或者走一遍完整的存储读写），再补样例。
    - 第 3 步之后：`memory-store.ts` 三项和 `dreaming.ts` 批次指纹已补进 `__baseline__/hashes.json`，走公开接口和落盘文件取值，产品代码没改。
+   - 第 3 步之后：dreaming Thread ID 已补：`assistant-controller.ts` 里的内联表达式原样提成导出的 `dreamingThreadIdFor`，Controller 改为调用它。
 2. `transcript-codec.ts` 的分块/前缀完整性 hash 没有字面值样例，只有读写往返测试。
    - 第 3 步之后：已补（`encodeTranscriptUpdate` 本来就从 core 导出），见 `hashes.json` 的 `core transcript committed baseHash/payloadHash`。
 3. 装配快照不包括 computer 模块：它只能在 macOS 上装配，这台机器上的快照对不上 macOS。

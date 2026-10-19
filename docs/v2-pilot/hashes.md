@@ -22,7 +22,7 @@
 | RSS 条目键 | `rss-subscriptions.ts` `rssItemKey` | `id:` / `url:` / `fallback:` 前缀 → `sha256` | `rss.json` 已读集合 | hashes.json（三种） |
 | Skill 内容 | `skill-catalog.ts` `createBuiltinSkill`/外部包 | `{version:1,id,description,kind,tools,limits,instructions}` → `sha256` | 保存的 Skill 固定来源 | hashes.json（内置 Skill） |
 | dreaming 批次指纹 | `dreaming.ts` `hash` | `JSON.stringify(value)` → `sha256` | `dreaming.json` | hashes.json：`createDreamingService(...).prepare()` 返回的 `fingerprint`（两条固定的已验收任务） |
-| dreaming Thread | `assistant-controller.ts` 第 248 行 | `dreaming-` + `sha256(workspaceRoot ?? threadId)[:24]` | Thread ID → transcript 文件名 | **未加样例**：需要完整装配 Controller；见 `pending.md` |
+| dreaming Thread | `assistant-controller.ts` `dreamingThreadIdFor` | `dreaming-` + `sha256(workspaceRoot ?? threadId)[:24]` | Thread ID → transcript 文件名 | hashes.json（有、无工作区两种）。原来是 Controller 里的内联表达式，第 3 步之后原样提成导出函数 |
 | 写文件回执 | `write-file.ts`、`edit-file.ts`、`execution-record-store.ts` | 内容 UTF-8 `sha256` hex | 工具结果（transcript）与 `execution-records.json` 的 `fileWrite`/`fileRead`/`fileInput` | hashes.json（`write_file`） |
 | WorkTask 证据 | `work-task-verification.ts`、`work-task-artifacts.ts`、`work-task-store.ts` 第 456、735 行 | 磁盘字节 `sha256` | `work-tasks.json` 证据 | 与写文件回执同一格式；verifier 行为由 `baseline-verifier.test.ts` 锁定 |
 | 执行 owner 锁 | `execution-record-store.ts` | `.execution-owner-<sha256(threadId)>.lock` | transcript 目录 | hashes.json |

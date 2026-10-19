@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import type { UIMessage } from "ai";
 import { encodeTranscriptUpdate, hashCanonicalJson, JsonlAgentStore } from "@serika/core";
+import { dreamingThreadIdFor } from "./assistant-controller.js";
 import { compactPrefixHash } from "./context-compaction.js";
 import { creationReceipt } from "./creation-idempotency.js";
 import { candidateFingerprint, type CandidateDraft } from "./memory-candidates.js";
@@ -147,6 +148,8 @@ async function samples(): Promise<Record<string, string>> {
     assert.ok(prepared.ok && prepared.value, "two accepted tasks make one batch");
     return prepared.value.fingerprint;
   });
+  out["dreaming thread id (workspace)"] = dreamingThreadIdFor("/tmp/work", "thread-a");
+  out["dreaming thread id (no workspace)"] = dreamingThreadIdFor(undefined, "thread-a");
   return out;
 }
 
