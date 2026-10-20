@@ -205,6 +205,8 @@ test("actual AgentLoop streaming retry preserves two call attempts without chang
       .flatMap(text => text.trim().split("\n").map(line => JSON.parse(line)));
     assert.equal(rows.filter(row => row.event === "started").length, 2);
     assert.deepEqual(rows.filter(row => row.event === "finished").map(row => row.status), ["failed", "returned"]);
+    assert.equal(rows.find(row => row.status === "failed").firstOutput, null);
+    assert.equal(rows.find(row => row.status === "returned").firstOutput.kind, "text");
     assert.ok(rows.filter(row => row.event === "started").every(row => row.runId === handle.runId && row.segments.length > 1));
     assert.deepEqual((await app.executionRecords.getRun("thread", handle.runId))?.tools, []);
   } finally { app?.dispose(); await f.cleanup(); }
@@ -237,7 +239,7 @@ test("Demo: real Controller wiring records chat/consolidation/rewrite/compaction
   const app = await createRuntimeApp({ directory, assistant: { threadId: "thread", configPath: config }, modelAlias: "fixture", model, output, env: {}, cwd: f.directory });
   const controller = createAssistantController(app);
   try {
-    const started = await controller.run("我喝咖啡不加糖。"); assert.ok(started.ok);
+    const started = await controller.run("我喝咖啡不加糖。", { receivedAt: new Date(Date.now() - 1000).toISOString() }); assert.ok(started.ok);
     const deadline = Date.now() + 5000;
     while (controller.getSnapshot().state.kind !== "idle" && Date.now() < deadline) await delay(10);
     assert.equal(controller.getSnapshot().state.kind, "idle");
@@ -253,8 +255,14 @@ test("Demo: real Controller wiring records chat/consolidation/rewrite/compaction
     assert.equal(page.calls.filter(c => c.purpose === "context_compaction")[0]!.runId, undefined, "manual compact is not a Run");
     assert.ok(page.calls.every(c => c.status === "returned"));
     const names = (await readdir(directory)).filter(name => /^model-calls-.*\.jsonl$/.test(name));
-    const logged = (await Promise.all(names.map(name => readFile(join(directory, name), "utf8"))))
-      .flatMap(text => text.trim().split("\n").map(line => JSON.parse(line))).filter(row => row.event === "started");
+    const rows = (await Promise.all(names.map(name => readFile(join(directory, name), "utf8"))))
+      .flatMap(text => text.trim().split("\n").map(line => JSON.parse(line)));
+    const round = rows.filter(row => row.event === "round");
+    assert.equal(round.length, 1); assert.equal(round[0].runId, started.runId);
+    assert.equal(round[0].outcome, "text"); assert.ok(round[0].firstVisibleTextMs >= 1000);
+    const diagnostics = await controller.getContextDiagnostics();
+    assert.ok(diagnostics.ok); assert.equal(diagnostics.value.modelCallLogWriteFailures, 0);
+    const logged = rows.filter(row => row.event === "started");
     assert.deepEqual([...new Set(logged.map(row => row.purpose))].sort(), ["chat", "context_compaction", "memory_consolidation", "query_rewrite"]);
     const before = page.calls.length;
     const messages = await app.store.getMessages("thread");

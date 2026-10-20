@@ -313,6 +313,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     source?: "telegram",
     desktopEntry = false,
   ): Promise<{ result: RunResult; requestedMemoryTool: boolean; finalizationFailed: boolean }> => {
+    const outputTiming = phase === "primary" ? app.beginOutputTiming?.(message) : undefined;
     const autonomous = phase === "primary" && app.beginForegroundExecution?.(source === "telegram" ? "telegram" : desktopEntry ? "desktop" : undefined, message) === true;
     app.toolConfirmation?.beginRun(autonomous, source);
     if (phase === "primary") {
@@ -413,6 +414,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
               emit({ type: "memory-updated", reason: "write" });
             }
           }
+          outputTiming?.observe(event);
           emit({ type: "run-event", phase, event });
         }
       })();
@@ -552,6 +554,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       if (phase === "consolidation") consolidationFailure = String(error);
       throw error;
     } finally {
+      await outputTiming?.finish();
       consolidationRunning = false;
       app.memoryConsolidation?.discard();
       if (phase === "primary" && activeWorkTask !== undefined) {
@@ -901,6 +904,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       return diagnostics;
     },
     run: async (text, options) => {
+      const receivedAt = options?.receivedAt ?? new Date().toISOString();
       const attachments = validateChatAttachments(options?.attachments);
       if (text.trim().length === 0 && attachments.length === 0) return { ok: false, reason: "empty" };
       const previousBackground = state.kind === "running" && state.background === true ? backgroundTask : undefined;
@@ -926,7 +930,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       const started = new Promise<StartRunResponse>((resolve) => { resolveStarted = resolve; });
       const userMessage: UIMessage = {
         id: randomUUID(), role: "user", parts: [{ type: "text", text: text.trim() || "请查看附件。" }, ...chatAttachmentParts(attachments)],
-        metadata: { ...userMessageClock(), ...(options?.receivedAt ? { receivedAt: options.receivedAt, sentAt: options.receivedAt, timeZone: "Asia/Shanghai" } : {}),
+        metadata: { ...userMessageClock(), receivedAt, ...(options?.receivedAt ? { sentAt: options.receivedAt, timeZone: "Asia/Shanghai" } : {}),
           ...(excludeFromConsolidation ? { memoryConsolidation: "exclude" } : {}),
           ...(attachments.length ? { attachments: attachments.map(({ name, mediaType }) => ({ name, mediaType })) } : {}) },
       };

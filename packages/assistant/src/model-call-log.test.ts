@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { generateText } from "ai";
+import { generateText, streamText, simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { hashCanonicalJson } from "@serika/core";
 import { ModelCallLog, modelInputSegments } from "./model-call-log.js";
@@ -79,21 +79,46 @@ test("locked concurrent append and reopen preserve complete events after an inte
   } finally { await f.cleanup(); }
 });
 
-test("log barrier failure stops dispatch, preserves a symlink target and latches subsequent calls", async () => {
+test("log write failure counts skipped events, preserves symlink target and retries next call without blocking dispatch", async () => {
   const f = await fixture();
   try {
     const target = join(f.directory, "sentinel");
     await writeFile(target, "untouched");
     await symlink(target, join(f.directory, "model-calls-2026-10-21.jsonl"));
     let dispatches = 0;
+    const log = new ModelCallLog(f.directory, () => at);
     const model = observeModelUsage(new MockLanguageModelV3({ doGenerate: async () => { dispatches++; return response; } }), {
       records: new ExecutionRecordStore(f.directory), threadId: "thread", enabled: () => true,
-      scope: () => ({ purpose: "chat", runId: "run" }), callLog: new ModelCallLog(f.directory, () => at),
+      scope: () => ({ purpose: "chat", runId: "run" }), callLog: log,
     });
-    await assert.rejects(generateText({ model, prompt: "secret", maxRetries: 0 }));
-    await assert.rejects(generateText({ model, prompt: "secret", maxRetries: 0 }), /restart/);
-    assert.equal(dispatches, 0);
+    await generateText({ model, prompt: "secret", maxRetries: 0 });
+    assert.equal(log.writeFailures, 2);
+    await rm(join(f.directory, "model-calls-2026-10-21.jsonl"));
+    await generateText({ model, prompt: "secret", maxRetries: 0 });
+    assert.equal(dispatches, 2);
+    assert.equal(log.writeFailures, 2);
+    assert.equal((await events(f.directory)).length, 2);
     assert.equal(await readFile(target, "utf8"), "untouched");
+  } finally { await f.cleanup(); }
+});
+
+test("stream first output measures text or tool input, ignoring empty text and reasoning", async () => {
+  const f = await fixture();
+  try {
+    for (const kind of ["text", "tool_call"] as const) {
+      const model = observeModelUsage(new MockLanguageModelV3({ doStream: async () => ({ stream: simulateReadableStream({ chunks: [
+        { type: "reasoning-start", id: "reason" }, { type: "reasoning-delta", id: "reason", delta: "hidden" }, { type: "reasoning-end", id: "reason" },
+        { type: "text-start", id: "body" }, { type: "text-delta", id: "body", delta: "" },
+        ...(kind === "text" ? [{ type: "text-delta" as const, id: "body", delta: "answer" }] :
+          [{ type: "tool-input-start" as const, id: "tool", toolName: "fixture" }]),
+        { type: "text-end", id: "body" }, { type: "finish", finishReason: response.finishReason, usage: response.usage },
+      ] }) }) }), { records: new ExecutionRecordStore(f.directory), threadId: "thread", enabled: () => true,
+        scope: () => ({ purpose: "chat" }), callLog: new ModelCallLog(f.directory, () => at) });
+      await streamText({ model, prompt: "hello", maxRetries: 0 }).consumeStream();
+      const row = (await events(f.directory)).at(-1);
+      assert.equal(row.firstOutput.kind, kind);
+      assert.ok(row.firstOutput.ms >= 0);
+    }
   } finally { await f.cleanup(); }
 });
 

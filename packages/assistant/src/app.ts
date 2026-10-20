@@ -69,6 +69,7 @@ import { createMemoryQueryRewriter, type MemoryReferenceSnapshot } from "./memor
 import { createMemoryRelevanceSelector } from "./memory-relevance.js";
 import { observeModelUsage } from "./model-usage-observer.js";
 import { ModelCallLog } from "./model-call-log.js";
+import { beginRoundOutputTiming } from "./round-output-timing.js";
 import type { ModelPurpose } from "./model-usage.js";
 import { createWebModule } from "./modules/web-module.js";
 import { createComputerModule } from "./modules/computer-module.js";
@@ -173,6 +174,7 @@ export interface RuntimeApp {
   /** Local receipts for the embedded assistant; not a replay log. */
   executionRecords: ExecutionRecordStore;
   enableExecutionRecords: () => void;
+  beginOutputTiming?: (message: UIMessage) => ReturnType<typeof beginRoundOutputTiming> | undefined;
   beginForegroundExecution?: (entry: "desktop" | "telegram" | undefined, request?: UIMessage) => boolean;
   endForegroundExecution?: () => void;
   desktopAutonomyEnabled?: boolean;
@@ -986,6 +988,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       runtime,
       store,
       executionRecords,
+      beginOutputTiming: message => usageEnabled ? beginRoundOutputTiming({ message, threadId, log: modelCallLog }) : undefined,
       enableExecutionRecords: () => { executionRecordAdapter.enable(); usageEnabled = true; },
       bindNextExecutionWorkTask: executionRecordAdapter.bindNextWorkTask,
       workTasks,
@@ -1014,6 +1017,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
           lastUncompactedPreparation,
         ));
         if (result.ok) {
+          result.value.modelCallLogWriteFailures = modelCallLog.writeFailures;
           result.value.lastPreparationSource = result.value.lastPreparation ? source : null;
           if (requestedContextBudget) result.value.requestedBudget = structuredClone(requestedContextBudget);
           if (modelCapacity) result.value.modelCapacity = structuredClone(modelCapacity);

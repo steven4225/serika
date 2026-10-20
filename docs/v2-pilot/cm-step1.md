@@ -4,6 +4,8 @@
 
 已把第 0 步裁决写入计划 §6，并同步 §2–4（文档先提交 `aa173c7`）。`model-call-log.ts` 负责独立日文件；`model-usage-observer.ts` 在既有 SDK 边界接入，`app.ts` 只做装配；`scripts/cm-baseline.mjs` 只读统计日用数据。依据：计划 §2.9、步骤 1；Karpathy 指南用于限定改动为调用观测。
 
+审后修正（前态 `955365d`）：新日志改为按条 fail-open，诊断暴露进程内累计失败次数；新增 `round-output-timing.ts` 观测前端正文事件，Controller 只接线并在消息入口保存接收时间。调用级首输出另在 SDK 流边界记录。
+
 ## 2. 逐条对照验收项
 
 | 验收项 | 状态与证据 |
@@ -13,18 +15,26 @@
 | 旧回执格式、128 次摘要及 8 MiB 上限不动 | 已做：T2、既有 model-usage / 回执 / I1–I5 套件；核心文件 diff 为 0 |
 | 改动前基线、消息间隔分布 | 已做：只读脚本退出 0；附表 A/B，原始内容不进报告 |
 | 32K 与日用大窗口 | 已做：T6 在 SDK 边界完整验证 26,624 / 256,000-token 输入；真实模型容量验收未做，本步无计费调用 |
+| 新日志失败跳过、下次重试；旧账本不动 | 已做：更新 T4，失败 2 条后下一次调用正常写入；既有 usage file sync failure 测试仍阻止派发 |
+| 调用首输出 / 轮次首正文分开计时 | 已做：stream first output、round timing、Controller Demo；区分 text/tool_call，工具无正文 / 无输出单列，正文计时含接收后的前置等待 |
 
 ## 3. 前后数字
 
 以 `f260ba1` 为前态：产品/工具代码 **+147/−4**（TS +89/−4、只读脚本 +58），测试 **+157/−1**；测试多出的 10 行用于隔离持久化、轮转、取消和两档输入。新日志单文件保留 **129 次开始 + 1 次结束**，旧回执哨兵字节不变。主对话基线：缓存读取率 **8.39%**；消息间隔中位 **188.020 秒**、P90 **4,365.080 秒**。本步增加观测，不宣称缓存或延迟改善。
 
+审后修正相对 `955365d`：产品 **+80/−32**，测试 **+64/−9**；受影响测试 **18/18**。注入日志故障期间模型成功调用，诊断失败次数为 **2**，移除故障后成功写入 **2** 条；正文延迟 fixture 覆盖 ≥1,000 ms 的接收前置差。
+
 ## 4. 实际命令和退出码
 
 `git fetch origin` / `git merge --ff-only origin/experiment/architecture-v2`、只读基线脚本、`pnpm typecheck`、定向测试（**16/16**）、`git diff --check` 均为 **0**。最终全量 `pnpm test` 退出 **0**：**2,422 通过、0 失败、13 跳过**（共 2,435）。完整命令见附表 C。
 
+审后修正：首次 `pnpm typecheck` **2**（新模块类型导入和测试参数类型，已修复）；重跑 `pnpm typecheck` **0**；`node --test packages/assistant/dist/model-call-log.test.js packages/assistant/dist/model-usage.test.js packages/assistant/dist/round-output-timing.test.js` **0**（18 通过）；`git diff --check` **0**。
+
 ## 5. 与计划不符的地方及理由
 
 无实施范围偏离。旧账本只剩 128 次、已裁掉 872 次，历史分段 hash/字节、固定前缀真实 token、首字等待均无法补造。已查旧约束 **143–148、192–195**（观测、hash、自主授权、回执）；权限及重试行为保持现状。测试为 macOS / Node v26.4.0 隔离验证；本轮未改日用 main、未重启进程，新日志尚未在日用进程启用。第 2 步未开始。
+
+审后按用户裁决替换 T4 的“0 次派发 + 后续必须重启”断言：该旧行为把辅助日志当作执行屏障，与新要求相反。新断言为“两次成功派发 + 失败计数 + 下一次正常写入”；旧账本测试原样保留。没有删除测试。轮次事件只记元数据，仍使用已批准的日文件；历史首正文指标保持未知。
 
 <details>
 <summary>附表 A：只读基线口径与调用用量</summary>
@@ -61,7 +71,8 @@
 - `version:1 / event:started`：调用 ID、Thread、可选 Run、用途、provider/model、开始时间、估算器和 segments。segments 为 tools + 原顺序 provider 消息（system/user/assistant/tool），含 part/index/hash/bytes/estimatedTokens。
 - `event:finished`：调用 ID、状态、结束时间、durationMs、provider 报告的 input/output/cache token；缺值省略。开始/结束按 ID 关联，跨日也可关联；没有结束记录的调用保持未知。
 - hash 对边界输入的 JSON 表示使用现有 `jcs-sha256:v1`；字节计 UTF-8 JSON，token 用现有 `char-half/v1` 估算，不是 provider tokenizer。没有记录请求或回复内容，也没有网络传输层的编码/缓存命中保证。
-- 文件追加使用 flock、文件/目录 fsync 和 0600 新文件权限。保留崩溃残行并隔开下一条；失败后停止该进程后续派发，已产生的模型结果不重试。原回执继续保留原格式和限制。
+- 文件追加使用 flock、文件/目录 fsync 和 0600 新文件权限。保留崩溃残行并隔开下一条；审后改为失败跳过该条、诊断累计、下次重试。原回执继续保留原格式和限制。
+- 流式 `finished.firstOutput` 为 `{kind: text|tool_call, ms}`，从 provider 派发计时，推理/空文字不算；无首输出为 null。`round` 以消息/Run 关联，含 `receivedAt`、`firstVisibleTextMs` 和 `outcome: text|tool_only|no_output`；后两种的正文延迟为 null，计算正文中位数时排除、分别计数。
 
 </details>
 

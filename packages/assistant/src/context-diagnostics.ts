@@ -7,6 +7,7 @@ export type ContextResult<T> =
 
 /** Read-only display evidence, not a tokenizer result or recovery authority. */
 export interface ContextDiagnostics {
+  modelCallLogWriteFailures?: number;
   threadId: string;
   enabled: boolean;
   budget: ContextBudgetConfig;
