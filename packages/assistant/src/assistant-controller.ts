@@ -313,7 +313,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     source?: "telegram",
     desktopEntry = false,
   ): Promise<{ result: RunResult; requestedMemoryTool: boolean; finalizationFailed: boolean }> => {
-    const outputTiming = phase === "primary" ? app.beginOutputTiming?.(message) : undefined;
+    let outputTiming = phase === "primary" ? app.beginOutputTiming?.(message) : undefined;
     const autonomous = phase === "primary" && app.beginForegroundExecution?.(source === "telegram" ? "telegram" : desktopEntry ? "desktop" : undefined, message) === true;
     app.toolConfirmation?.beginRun(autonomous, source);
     if (phase === "primary") {
@@ -548,6 +548,8 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       }
       // A primary result is published after its task settlement/delivery attempt;
       // consumers must still use the WorkTask criteria for business acceptance.
+      await outputTiming?.finish();
+      outputTiming = undefined;
       emit({ type: "run-result", phase, result });
       return { result, requestedMemoryTool, finalizationFailed };
     } catch (error) {

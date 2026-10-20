@@ -237,12 +237,20 @@ test("Demo: real Controller wiring records chat/consolidation/rewrite/compaction
   } });
   const output = new PassThrough(); output.resume();
   const app = await createRuntimeApp({ directory, assistant: { threadId: "thread", configPath: config }, modelAlias: "fixture", model, output, env: {}, cwd: f.directory });
+  let roundFinished = false, resultAfterRound = false;
+  const beginTiming = app.beginOutputTiming!;
+  app.beginOutputTiming = message => {
+    const timing = beginTiming(message)!;
+    return { ...timing, finish: async () => { await timing.finish(); roundFinished = true; } };
+  };
   const controller = createAssistantController(app);
+  controller.subscribe(event => { if (event.type === "run-result" && event.phase === "primary") resultAfterRound = roundFinished; });
   try {
     const started = await controller.run("我喝咖啡不加糖。", { receivedAt: new Date(Date.now() - 1000).toISOString() }); assert.ok(started.ok);
     const deadline = Date.now() + 5000;
     while (controller.getSnapshot().state.kind !== "idle" && Date.now() < deadline) await delay(10);
     assert.equal(controller.getSnapshot().state.kind, "idle");
+    assert.equal(resultAfterRound, true, "result delivery must not race a newly awaited timing write before idle");
     assert.equal(controller.getSnapshot().lastConsolidationResult?.status, "completed");
     const memories = await controller.memory.list(); assert.ok(memories.ok);
     assert.equal(memories.value.entries.length, 1);

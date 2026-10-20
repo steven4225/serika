@@ -24,17 +24,23 @@
 
 审后修正相对 `955365d`：产品 **+80/−32**，测试 **+64/−9**；受影响测试 **18/18**。注入日志故障期间模型成功调用，诊断失败次数为 **2**，移除故障后成功写入 **2** 条；正文延迟 fixture 覆盖 ≥1,000 ms 的接收前置差。
 
+第 2 步全量检查发现计时接线回归，追加独立修正：产品 **+3/−1**、测试 **+8/−0**；测试多 5 行用于在真实 Controller 中观察结果事件与落盘顺序，复现先红后绿。两条受影响 TG 用例复测 **2/2**。
+
 ## 4. 实际命令和退出码
 
 `git fetch origin` / `git merge --ff-only origin/experiment/architecture-v2`、只读基线脚本、`pnpm typecheck`、定向测试（**16/16**）、`git diff --check` 均为 **0**。最终全量 `pnpm test` 退出 **0**：**2,422 通过、0 失败、13 跳过**（共 2,435）。完整命令见附表 C。
 
 审后修正：首次 `pnpm typecheck` **2**（新模块类型导入和测试参数类型，已修复）；重跑 `pnpm typecheck` **0**；`node --test packages/assistant/dist/model-call-log.test.js packages/assistant/dist/model-usage.test.js packages/assistant/dist/round-output-timing.test.js` **0**（18 通过）；`git diff --check` **0**。
 
+追加修正：`pnpm build:runtime && node --test --test-name-pattern='Demo: real Controller' packages/assistant/dist/model-usage.test.js` **1**（已复现）；修正后 `pnpm typecheck`、上述三文件测试 **0**（18/18）；桌面 `pnpm exec tsx --test --test-name-pattern='package2: desktop phone buttons grant nothing|independent TG authorization runs chat' src/main/telegram-gateway.test.ts` 修正前 **1**、修正后 **0**（2/2）。
+
 ## 5. 与计划不符的地方及理由
 
 无实施范围偏离。旧账本只剩 128 次、已裁掉 872 次，历史分段 hash/字节、固定前缀真实 token、首字等待均无法补造。已查旧约束 **143–148、192–195**（观测、hash、自主授权、回执）；权限及重试行为保持现状。测试为 macOS / Node v26.4.0 隔离验证；本轮未改日用 main、未重启进程，新日志尚未在日用进程启用。第 2 步未开始。
 
 审后按用户裁决替换 T4 的“0 次派发 + 后续必须重启”断言：该旧行为把辅助日志当作执行屏障，与新要求相反。新断言为“两次成功派发 + 失败计数 + 下一次正常写入”；旧账本测试原样保留。没有删除测试。轮次事件只记元数据，仍使用已批准的日文件；历史首正文指标保持未知。
+
+追加修正触发路径：`executeRun` 原在发布 `run-result` 后的 finally 等待轮次日志，扩大了 TG 已收终态但 Controller 尚未 idle 的窗口；`telegram-gateway.test.ts:1220` 收不到下一条任务提议，定向复现。正常路径移到结果事件前收尾，finally 仅处理异常路径，日志仍只写一次；原 TG 断言和权限不变。全量另见一条临时目录 ENOTEMPTY，单独及修正后复测未复现，不宣称已确定其根因。
 
 <details>
 <summary>附表 A：只读基线口径与调用用量</summary>
