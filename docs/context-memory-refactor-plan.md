@@ -145,42 +145,80 @@
 
 ## 3. 功能清单：main → v2
 
-“实验分支现状”一栏基于检索结果，需 Codex 复核。
+第 0 步复核基线：`main=cfb46dd`，实验分支=`438f5ff`（2026-10-20）。下表导出 main 中上下文、记忆的全部功能面，并列出会消费这些信息的相邻入口；“延后”表示本计划不实现该相邻模块，不表示删除现有能力。新增需求、逐 PR 证据、字段缺口和未裁决冲突见 [第 0 步报告](v2-pilot/cm-step0.md)。本节只补齐盘点，没有改变第 2、4、6 节的决定。
 
-| 功能 | main 出处 | 实验分支现状 | v2 处理 |
+证据记法：`M:文件:行` 固定指 `cfb46dd:examples/cli/src/文件:行`；`A:文件:行` 指 `438f5ff:packages/assistant/src/文件:行`；`D:文件:行` 指相应分支的 `apps/desktop/src/文件:行`。提交号证据可用 `git show` 复查。步骤号均指本计划第 4 节。
+
+| ID / 功能 | main 出处（提交或文件:行） | 实验分支现状 / 证据 | v2 处理（依据 / 步骤） |
 |---|---|---|---|
-| 待审核队列 / 候选 | #82、#158 | 桌面端已删，CLI 还有 | 删除；候选和审核写入口在 M2 彻底停掉，只留一条写入路径 |
-| 写入策略 review 模式 | 配置 | 还在 | 删除 |
-| 双时态、未定生效日、“从现在开始”按钮 | #102、#133 | 编辑界面已删 | 简化为“从哪条消息开始生效 / 被哪条取代” |
-| 覆盖回执、有限重试、retry_exhausted 提示 | #122、#155、#160 | 在 | 换成进度标记加“待重抽” |
-| 场景标签、矛盾组 | #152 | 在 | 条件写进正文；矛盾存为“不确定”记忆 |
-| 按话题的补丁规则 | #152、#154、#162 | 在 | 删除 |
-| 查询改写、相关性判断、向量召回、索引补齐 | #161、#162 | 在 | 默认删除；超过上限后用关键词按需查 |
-| 派生视图（画像、未完成任务引用） | #161 | 在 | 由不可模糊清单和 WorkTask 引用替代 |
-| 置顶 | — | 在 | 保留 |
-| 对话级作用域 | #154、#162 | 在 | 改为留在该对话的摘要里 |
-| 记忆导入（粘贴 / txt / md） | #166 | 拆分预览已删 | 保留，导入后成为记忆文档 |
-| 记忆文档（文件夹、标题、v5） | #169、#174 | 在（#174 不在） | 保留为“记忆文档”层，用索引加按需读取；不再依赖第 5 步 SQLite |
-| 原话旁的事实回执 | #158 | 在 | 保留，先从记忆记录生成，以后改为从操作日志生成 |
-| 一整套 memory_ 工具 | 多个 | 在 | 合并成一个工具 |
-| 记忆不授予权限 | #162 | 在 | 保留 |
-| 日常 / 长任务档位、手动压缩 | #131 | 还在（第 1 步已延后到第 4 步） | 删除，改按比例自动计算；不保留“长任务”开关 |
-| 70% 预警、“8 回合 + 128 KiB”截断 | #131、早期 | 在 | 删除 |
-| 预算绑定模型容量、小窗口适配 | #156 | 在 | 保留，各层上限按比例 |
-| 超预算工具结果摘要 | #72 | 在 | 改为保留头尾加全文存文件 |
-| 历史回执投影 | #171 / #172 | 不在 | 作为需求：保存时就精简 |
-| 压缩后恢复原请求和同轮修正 | #170、#171、#172 | 部分在 | 作为需求：放进不可模糊清单 |
-| 自主运行瘦身固定上下文 | #172 | 不在 | 作为需求：按运行模式固定工具集 |
-| 精确重复 Shell 收尾 | #171、#172 | 不在 | 属于循环模块，另列需求 |
-| 聊天附件 | #169 | 在 | 保留；旧附件压缩时换成占位 |
-| Steer | #164 | 在 | 修正作为普通用户消息追加，参与抽取 |
-| TG 连续消息进入 Steer、跨端续聊 | #184、#185 | 不在 | 作为需求：同一对话多端追加，消息带渠道 |
-| 学到的方法（dreaming） | #113 | 在 | 已有方法保留索引加按需读，不再自动提炼；等三类记忆跑稳后在第 7 步重做 |
-| 检查点、恢复信息、WorkTask 引用、任务时间 | 多个 | 在 | 移到第 ⑤ 层，时间精确到分钟 |
-| 用量账本（用途、缓存） | #135 | 在 | 4a 在它基础上扩展：不裁剪、加各段哈希、记录向量调用 |
-| 压缩保真测试 CF / CE | #159 | 在 | 保留，作为 4d 的验收 |
-| QQ 群模式 | #180 | 不在 | 按 §4.2 另开一条线；只约束本模块：群里不抽个人记忆、消息带发言人 |
-| 浏览器 CLI、Herdr、CUA | #175、#177、#182 | 不在 | 不属于本模块；只约束：后台任务不继承这些工具 |
+| CM01 候选、审核、接受/拒绝、过期候选失效 | M:modules/memory-module.ts:705；#82/#158 | 桌面审核入口已删；候选 Store、CLI 工具仍在，A:modules/memory-module.ts:754 | 删：§2.7；步骤 7 彻底停写 |
+| CM02 review 配置与旧配置兼容升级 | M:memory-consolidation.ts:401；#162 | review/automatic 双路径仍在，A:modules/memory-module.ts:533 | 删：review 模式，§3 原决定；步骤 7 |
+| CM03 自动写入策略、前台抢占、启动补沉淀 | #162；M:assistant-controller.ts:412、781 | 仍通过 consolidation Run/Hook、idle mutex，A:assistant-controller.ts:957 | 改：§2.5–2.6 阈值/空闲队列、一次无工具调用；步骤 4 |
+| CM04 显式记住、改正、撤回与当前用户来源绑定 | M:modules/memory-module.ts:464、666、683 | automatic 聊天不提供直接 Memory 工具，review 有；A:modules/memory-module.ts:523 | 改：§2.5 一个增/取代/撤回工具；步骤 4，审批边界见报告 C04 |
+| CM05 原话校验、仅用户消息可作事实来源 | M:modules/memory-module.ts:438；M:consolidation.ts:109 | isExactUserQuote 和宿主消息绑定在，A:consolidation.ts:109 | 保留：§2.5；步骤 4 增加相邻确认式来源 |
+| CM06 程序级“不沉淀这条消息”标记 | M:assistant-controller.ts:116；#154 | memoryConsolidation=exclude 在，A:consolidation.ts:9 | 改：§2.8 增加排除记录及所有读取方过滤；步骤 6；原标记迁移见 C08 |
+| CM07 观察时间、显式从现在变更、来源复用 | #151/#152/#162；M:memory-observation-policy.ts:6 | 消息时间和 commitClock/替换校验仍在，A:memory-store.ts:205 | 改：§2.5 原话时间生效；§2.7 取代链；步骤 4/7 |
+| CM08 已知属性/通用 literal identity、场景词法补丁 | M:memory-fact-identity.ts:2；M:memory-observation-policy.ts:19、73 | 三代 identity 与话题词法判断在，A:memory-fact-identity.ts:2 | 删：按话题/句式补丁；条件入正文，§2.4–2.5；步骤 4/7 |
+| CM09 同句相反表述的拒绝/不保存 | #152；M:memory-observation-policy.ts:54 | opposing-self 检查仍在 | 改：§2.5 一条“不确定”记忆；步骤 4 |
+| CM10 同槽异值冲突、场景组、相同值追加来源 | #152/#162；M:memory-consolidation.ts:703 | 分组、自动资格判断及内部 pending 在 | 改：§2.4–2.5 不同属性分开；双有效值只进诊断；步骤 4/7 |
+| CM11 workspace / Thread 记忆作用域 | M:memory-store.ts:33；#154/#162 | 两种 scope 在，A:memory-store.ts:33 | 改：§2.4 对话信息进入摘要；项目层后续 4.5；迁移见 C07 |
+| CM12 fact/preference/event/note、停用/到期 | M:memory-temporal.ts:6；M:memory-store.ts:90 | Store 仍有 kind/status/expiresAt，A:memory-store.ts:90 | 改：§2.4 三类长期知识；历史 disabled/expiry 处置见 C07，步骤 7 |
+| CM13 双时态、历史、更正/变更/恢复、未定日期 | M:memory-store.ts:252；#102/#133 | 底层完整保留，A:memory-controls.ts:13；桌面按钮已删 | 改：§6.1 简化为来源生效/取代链；步骤 7 |
+| CM14 桌面时态预览、历史查询、维护操作 | M:memory-controls.ts:13；D:renderer/src/formal-memories.tsx:14 | UI 仅编辑/删除，Controller 仍提供全套，A:controller-memory.ts:13 | 改：§2.5 编辑/导入及撤销；不恢复已删时态 UI；步骤 4/7 |
+| CM15 置顶及优先注入 | M:memory-store.ts:94 | 数据和 Controller 支持；桌面无置顶按钮，A:controller-memory.ts:82 | 保留：§2.4、2.7；步骤 3/7，自动合并置顶见 C09 |
+| CM16 默认词法检索、范围/到期过滤、注入上限 | #161；M:memory-retrieval.ts:196、205 | 词法选择和 12 条/8 KiB 预算在，A:memory-reference-source.ts:98 | 改：§2.4 全量快照，超额才关键词按需查；步骤 3 |
+| CM17 recallTerms 与 kind 排序 | #161/#162；M:memory-retrieval.ts:84、154 | 仍参与词法/融合排序 | 改：§2.4 超额关键词检索；不另立召回策略，步骤 3/7 |
+| CM18 查询改写、前两条用户消息指代提示、缓存 | M:memory-query-rewrite.ts:34；#161/#162 | 普通主聊天可调用，A:memory-reference-source.ts:44 | 删：§3 原决定；步骤 3 |
+| CM19 本地/云向量召回、DashScope 授权/降级 | #161/#162；M:memory-embedding-client.ts:63 | 客户端、语义索引与融合都在，A:memory-reference-source.ts:51 | 删：§3 原决定；步骤 3；步骤 1 先记录旧向量调用 |
+| CM20 模型相关性筛选、空选择抑制画像 | #162；M:memory-relevance.ts:66 | 相关性路径在，A:memory-reference-source.ts:43 | 删：§4 步骤 3 |
+| CM21 向量缓存、冷启动补齐、后台维护 | #161/#162；M:memory-semantic-index.ts:136 | semanticCache 与索引维护在，A:memory-reference-source.ts:35 | 删：随向量召回一起删除，步骤 3 |
+| CM22 派生用户画像和未完成 WorkTask 视图 | #161；M:memory-context-view.ts:75 | 与检索共享预算，A:memory-reference-source.ts:117 | 改：§2.1–2.2 固定偏好/不可模糊清单/⑤任务引用；步骤 3/5 |
+| CM23 当前引用快照、读取/存储/注入计数诊断 | M:context-diagnostics.ts:9；#153/#162 | Controller 的 getReferences/getMaintenance 在，A:controller-memory.ts:48、153 | 改：按新五层和未整理段诊断；步骤 1/3/4 |
+| CM24 粘贴/TXT/MD 导入、拆分预览、精确去重/回执 | e1e625e（#166）；M:memory-import.ts:3 | 拆分预览入口已删，Store confirmImport/receipt 在，A:memory-store.ts:216 | 改：§2.5 手动来源、精确重复跳过、导入成文档；步骤 7 |
+| CM25 文件夹/标题/有序正文、未归档、编辑 CAS | eb7b669（#169）；M:memory-library.ts:7 | v5/library 在，A:memory-library.ts:7；D:renderer/src/memory-library.tsx:24 | 保留：§2.4、2.7；②只放索引、正文按需读，步骤 3/7 |
+| CM26 旧条目通用标题、详情仅错误时重读 | 197ea64（#174） | 未实现：A:memory-library.ts:53 仍取正文作标题；D:renderer/src/memory-library.tsx:167 常驻刷新按钮 | 改：保留 #174 用户需求，依 §0 按 v2 实现；步骤 7 |
+| CM27 原话旁的事实回执、保存/未保存/延后说明 | #158/#160；M:memory-factual-receipts.ts:16 | 在，但依赖最新 coverage/candidateIds，A:memory-factual-receipts.ts:24 | 保留：§2.5 展示；改由来源/取代链生成，步骤 4/7 |
+| CM28 聊天撤回、显式恢复/永久删除 | #102/#133/#158；M:memory-controls.ts:13 | Store 全套、桌面一次确认永久删除在 | 改：§2.5 一句话撤销、§2.8 隐私排除；步骤 4/6/7；操作含义见 C10 |
+| CM29 coverage、逐 Thread 游标、3 次重试终止 | #122/#160；M:memory-candidates.ts:29 | cursor/receipt/attempts 在，A:memory-candidates.ts:29 | 改：§2.7 两次失败→待重抽→空闲一次；步骤 4/7 |
+| CM30 过大来源 not_saved、要求用户拆分 | #155/#160；M:memory-candidates.ts:35 | too_large/retry_exhausted 分支在，A:memory-store.ts:509 | 改：§2.3、2.5 全文外存/按块抽取；步骤 4/6 |
+| CM31 容量满拒写、提示用户删记忆 | M:memory-store.ts:23；D:renderer/src/formal-memories.tsx:1 | 512 条/16 MiB；桌面容量提示仍在 | 改：§2.4 后台合并/超额按需查，不丢记录；步骤 4/7，硬存储上限见 C09 |
+| CM32 文件锁、revision CAS、原子替换、未知提交 | M:memory-store.ts:1931；#102 | flock/fsync/rename 和 MEMORY_COMMIT_UNCERTAIN 在，A:memory-store.ts:1931 | 保留：§2.7、§5 未知效果约束；步骤 7 |
+| CM33 v1–v5 读取、v5 元数据保留、未知版本拒绝 | M:memory-store.ts:986；#169 | 与 main 的 memory-store.ts 字节相同 | 改：§2.7/§6 一次迁移、保留旧文件；高版本行为见 C06，步骤 7 |
+| CM34 memory_ CRUD/时态/候选/prepare/stage 工具族 | M:modules/memory-module.ts:150、666、705 | 仍注册多工具，A:modules/memory-module.ts:152、715、754 | 改：§2.5 一个写工具；步骤 4 接入，步骤 7 停旧写入口；读取面见 C05 |
+| CM35 自动/手动 dreaming、经验验收、生成试用方法 | #113；M:assistant-controller.ts:842 | dreaming 服务、Hook 和控制面在，A:controller-dreaming.ts:16 | 延后：§2.4 暂停新提炼；后续架构第 7 步 |
+| CM36 已有方法按问题选中并注入正文 | M:dreaming.ts:281 | 仍按 query select 注入 instructions，A:context-sources.ts:37 | 改：§2.4 已有方法②仅索引、正文按需读；步骤 3 |
+| CM37 记忆/摘要/方法不授予工具权限 | #162；M:memory-store.ts:1034 | 模块与权限扩展仍分开 | 保留：§2.4、§2.6；所有步骤 |
+| CM38 固定指令/工具与动态引用组装 | M:app.ts:1043、1226 | 已拆组装器；引用仍排历史前，A:context-assembler.ts:12 | 改：§2.1 五层/运行模式固定工具集；步骤 2/3 |
+| CM39 模型容量绑定、32K、小窗口预留缩放 | #156；M:context-budget.ts:43 | 同逻辑在，A:context-budget.ts:43 | 保留：§2.1 按有效窗口等比例；步骤 2/3/5/6 |
+| CM40 日常/长任务档位及 70% 预警 | #131；M:context-budget.ts:88、196 | 配置/界面仍在 | 删：§3 原决定、§6.5；步骤 3 |
+| CM41 8 回合/128 KiB 裁剪与工作摘要 | M:context-window.ts:51、179 | 无 compactor 和辅助分流仍用，A:context-assembler.ts:144、191 | 删：§2.1–2.3 块屏蔽；步骤 3/6 |
+| CM42 char-half/v1 估算、工具定义/引用预算计数 | M:context-budget.ts:7、259；M:model-tool-context.ts:4 | 已在组装时计算 | 保留：§2.1 容量绑定基础；实际超限重估见步骤 6 |
+| CM43 ContextSummaryV2、多轮合并、前缀 hash 复用 | M:context-compaction.ts:41；M:context-compactor.ts:532 | 当前一份递归摘要及前缀校验在 | 改：§2.2 分段/远期索引/不可模糊清单；步骤 5/6；既有 hash 协议保留 |
+| CM44 历史行动回执的上下文投影 | d370fd3/#171；M:context-compactor.ts:182 | projectHistoricalReceipts 不在；只合并部分 completed actions，A:context-compactor.ts:408 | 改：§2.2 保存时精简，失败/未知全留，完成/未执行各 8；步骤 5 |
+| CM45 原请求/同 Run Steer 修正恢复及近期真回执 | a31eea0/#170、d370fd3/#171；M:foreground-autonomy.ts:9 | 原请求/修正在；无回执预览且末尾追加，A:foreground-autonomy.ts:9、25 | 改：§2.2 程序不可模糊清单（最多 6 回执）；步骤 5 |
+| CM46 超预算工具结果同步压缩 | f92106b/#72；M:context-compactor.ts:724 | 同 Run 完整工具交互可被压缩 | 改：§2.3 头尾+全文存文件/区间读取；步骤 6 |
+| CM47 图片/TXT/MD 聊天附件、粘贴长文 | eb7b669/#169；M:chat-attachments.ts:4 | base64/file/text parts 在，A:chat-attachments.ts:40 | 保留：§2.3；旧附件压缩时占位、超长外存，步骤 5/6 |
+| CM48 手动 /compact、桌面手动压缩 | #131；M:context-compactor.ts:848 | TUI/Controller/桌面入口仍在 | 删：§3 原决定；步骤 3/6 |
+| CM49 前台同步压缩、整理占用 background Run | M:context-compactor.ts:532；M:assistant-controller.ts:781 | prepare 等压缩；整理仍创建 Run | 改：§2.6 每 Thread 队列/无工具调用/两轮间安装；步骤 4/6 |
+| CM50 模型请求有限重试与超长失败边界 | M:context-compactor.ts:901；main packages/ai-sdk-adapter/src/loop.ts:30 | 摘要/空步骤有限重试在；尚无计划指定的超长块屏蔽一次重试 | 改：§2.3 真实用量重算/再屏蔽一次；不重放工具，步骤 6 |
+| CM51 /history、桌面历史浏览/搜索 | M:assistant-controller.ts:1096；#141 | getHistory 返回提交原文，A:assistant-controller.ts:894；未注册按消息编号读工具 | 改：§2.2 扫原文的搜索/按编号读；步骤 6 |
+| CM52 隐私撤回后所有读者过滤、摘要即时重建 | main 只有 exclude 沉淀标记，M:assistant-controller.ts:116 | 没有排除记录及统一读取过滤 | 改：新增 §2.8；步骤 6，原文保留/界面可见 |
+| CM53 用户消息时间/任务当前时间、渠道接收信息 | M:memory-observation-policy.ts:6；M:task-instructions.ts:15 | 当前时间仍含毫秒且放前缀，A:context-sources.ts:11 | 改：§2.1 ⑤、本地时间到分钟/随消息保存；步骤 3 |
+| CM54 检查点读写与 checkpoint_prepare | M:modules/checkpoint-module.ts:133 | 模块、Store、引用在，A:context-sources.ts:22 | 改：只移动上下文至⑤；写入授权不变，§2.1；步骤 3 |
+| CM55 /resume 的只读 Git 对照和恢复引用 | M:app.ts:975 | resume 引用仍在前缀，A:context-sources.ts:28 | 改：移至⑤，保留观察/权限边界；步骤 3 |
+| CM56 WorkTask 合同/续办/完成验收及未知效果 | #164；M:work-task-context.ts:9 | 合同引用和 verifier 在，A:context-sources.ts:61 | 改：引用移⑤、结构信息入清单；验收语义保留，步骤 3/5；任务重做延后 |
+| CM57 用量账本、用途/Run/缓存/耗时/估价 | #135；M:model-usage.ts:4、11、20 | 仍限 128 调用且会裁剪，A:execution-record-store.ts:658 | 改：步骤 1 不裁剪、输入/段 hash/向量；与回执日志边界见 C03 |
+| CM58 CF / CE 压缩保真与真实模型 eval | 6f1fd2b/#159；66eb2f3 | eval 包和连续压缩套件在 | 保留：步骤 6 验收；计费调用须另获授权 |
+| CM59 只读工具一/两步重复查询守卫 | #157；aa08784 | 已移到 afterToolCall 扩展，A:no-progress-guard.ts:62 | 保留：本计划不改现有循环守卫 |
+| CM60 精确命令/cwd/output 的 Shell 无工具收尾 | d370fd3/#171/#172；packages/ai-sdk-adapter/src/loop.ts:471 | 不在；CM59 不包含 shell_exec | 延后：§3 已定为循环模块需求，另定实施步 |
+| CM61 Steer / TG 连续补充 / 跨端续聊 / 静默成功 | 18e1e1d/#164；4809b03/#184；cfb46dd/#185 | 显式“调整”Steer 在；普通补充/跨端订阅/静默改动不在 | 改：§2.4、§3 同 Thread 追加，修正可抽取；完整接入排期见 C11 |
+| CM62 desktop/TG 自主授权、TG 全工具 skip | a31eea0/#170；724436d/#177 | 有独立授权；D2 主机 Shell 逐条问；TG skip 未实现 | 延后：本轮不改权限，冲突 C01/C02 待裁决 |
+| CM63 QQ 群与群主审批、群消息身份 | f0a9114/#180 | 无 qq/onebot 接入文件 | 延后：§2.4/架构 §4.2 独立线；群不抽个人记忆、消息带发言人 |
+| CM64 前台浏览器 ego-browser CLI | 2f1589d/#175；M:local-terminal.ts:11 | 无 local-terminal.ts 与浏览器指令；A:browser.ts:1 仅导出浏览器安全的纯函数 | 延后：§3 外部能力；后台不继承，§2.6 |
+| CM65 Herdr 目标绑定、现有 Pi get/read/prompt | d370fd3/#171；724436d/#177；M:local-terminal.ts:16 | 无 herdr-target.ts/local-terminal.ts/对应配置 | 延后：§3 外部能力；后台不继承，§2.6 |
+| CM66 CUA 工具、接入引导/驱动恢复 | 62bcdc0/#182 | computer_check/observe/action 已在，A:modules/computer-module.ts:141；#182 的连接引导/恢复不在 | 延后：§3 外部能力；后台不继承，§2.6 |
+| CM67 worker/提醒/RSS/Todoist/Skill 的独立上下文 | M:task-worker-context.ts:25；#113/#128/#164 | 独立 worker snapshot、模块化入口仍在 | 保留：本计划不扩工具/授权；worker 记忆消费边界见 C12 |
+| CM68 文件/网页/Shell 授权、当前对话记住选择 | #170；M:tui.ts:353 | v2 新增 remember 扩展，A:permission-extension.ts:1 | 保留：I1–I5/权限事实不因记忆变化而改；与旧 y/n 冲突见 C01/C04 |
 
 ## 4. 步骤（每步单独提交、单独报告）
 
