@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { mkdtemp, mkdir, open, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, open, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
@@ -200,6 +200,12 @@ test("actual AgentLoop streaming retry preserves two call attempts without chang
     assert.equal(dispatched, 2); assert.equal(page.calls.length, 2);
     assert.deepEqual(page.calls.map(c => c.status), ["returned", "failed"]);
     assert.ok(page.calls.every(c => c.runId === handle.runId && c.purpose === "chat"));
+    const names = (await readdir(app.directory)).filter(name => /^model-calls-.*\.jsonl$/.test(name));
+    const rows = (await Promise.all(names.map(name => readFile(join(app!.directory, name), "utf8"))))
+      .flatMap(text => text.trim().split("\n").map(line => JSON.parse(line)));
+    assert.equal(rows.filter(row => row.event === "started").length, 2);
+    assert.deepEqual(rows.filter(row => row.event === "finished").map(row => row.status), ["failed", "returned"]);
+    assert.ok(rows.filter(row => row.event === "started").every(row => row.runId === handle.runId && row.segments.length > 1));
     assert.deepEqual((await app.executionRecords.getRun("thread", handle.runId))?.tools, []);
   } finally { app?.dispose(); await f.cleanup(); }
 });
@@ -246,6 +252,10 @@ test("Demo: real Controller wiring records chat/consolidation/rewrite/compaction
     assert.equal(page.calls.filter(c => c.purpose === "query_rewrite")[0]!.runId, started.runId);
     assert.equal(page.calls.filter(c => c.purpose === "context_compaction")[0]!.runId, undefined, "manual compact is not a Run");
     assert.ok(page.calls.every(c => c.status === "returned"));
+    const names = (await readdir(directory)).filter(name => /^model-calls-.*\.jsonl$/.test(name));
+    const logged = (await Promise.all(names.map(name => readFile(join(directory, name), "utf8"))))
+      .flatMap(text => text.trim().split("\n").map(line => JSON.parse(line))).filter(row => row.event === "started");
+    assert.deepEqual([...new Set(logged.map(row => row.purpose))].sort(), ["chat", "context_compaction", "memory_consolidation", "query_rewrite"]);
     const before = page.calls.length;
     const messages = await app.store.getMessages("thread");
     const reopened = new ContextCompactor({ store: app.store, threadId: "thread", modelId: "fixture",

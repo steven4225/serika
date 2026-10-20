@@ -68,6 +68,7 @@ import { assembleTodoist, todoistTimeZoneFromEnv } from "./modules/todoist-modul
 import { createMemoryQueryRewriter, type MemoryReferenceSnapshot } from "./memory-query-rewrite.js";
 import { createMemoryRelevanceSelector } from "./memory-relevance.js";
 import { observeModelUsage } from "./model-usage-observer.js";
+import { ModelCallLog } from "./model-call-log.js";
 import type { ModelPurpose } from "./model-usage.js";
 import { createWebModule } from "./modules/web-module.js";
 import { createComputerModule } from "./modules/computer-module.js";
@@ -730,8 +731,10 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         instructions: DREAMING_INSTRUCTIONS, tools: [],
         limits: { maxSteps: 1, totalTimeoutMs: 60_000, stepTimeoutMs: 60_000, maxOutputTokens: 4096 } }] : []),
     ]);
+    const modelCallLog = new ModelCallLog(directory);
     const observedModel = (purpose?: ModelPurpose) => observeModelUsage(model, {
       records: executionRecords, threadId, enabled: () => usageEnabled,
+      callLog: modelCallLog,
       scope: () => {
         const current = executionRecordAdapter.currentRun();
         return { ...(current ? { runId: current.runId } : {}),

@@ -161,7 +161,7 @@
 
 ## 3. 功能清单：main → v2
 
-第 0 步复核基线：`main=cfb46dd`，实验分支=`438f5ff`（2026-10-20）。下表导出 main 中上下文、记忆的全部功能面，并列出会消费这些信息的相邻入口；“延后”表示本计划不实现该相邻模块，不表示删除现有能力。新增需求、逐 PR 证据、字段缺口和未裁决冲突见 [第 0 步报告](v2-pilot/cm-step0.md)。本节只补齐盘点，没有改变第 2、4、6 节的决定。
+第 0 步复核基线：`main=cfb46dd`，实验分支=`438f5ff`（2026-10-20）。下表导出 main 中上下文、记忆的全部功能面，并列出会消费这些信息的相邻入口；“延后”表示本计划不实现该相邻模块，不表示删除现有能力。逐 PR 证据和字段缺口见 [第 0 步报告](v2-pilot/cm-step0.md)；当时列出的冲突已按 2026-10-21 用户裁决同步到本表，以第 6 节为准。
 
 证据记法：`M:文件:行` 固定指 `cfb46dd:examples/cli/src/文件:行`；`A:文件:行` 指 `438f5ff:packages/assistant/src/文件:行`；`D:文件:行` 指相应分支的 `apps/desktop/src/文件:行`。提交号证据可用 `git show` 复查。步骤号均指本计划第 4 节。
 
@@ -234,7 +234,7 @@
 | CM65 Herdr 目标绑定、现有 Pi get/read/prompt | d370fd3/#171；724436d/#177；M:local-terminal.ts:16 | 无 herdr-target.ts/local-terminal.ts/对应配置 | 延后：§3 外部能力；后台不继承，§2.6 |
 | CM66 CUA 工具、接入引导/驱动恢复 | 62bcdc0/#182 | computer_check/observe/action 已在，A:modules/computer-module.ts:141；#182 的连接引导/恢复不在 | 延后：§3 外部能力；后台不继承，§2.6 |
 | CM67 worker/提醒/RSS/Todoist/Skill 的独立上下文 | M:task-worker-context.ts:25；#113/#128/#164 | 独立 worker snapshot、模块化入口仍在 | 改：每次只读一次用户偏好 + 当前项目笔记，不带摘要/历史、不跨项目，§6 C12 |
-| CM68 文件/网页/Shell 授权、当前对话记住选择 | #170；M:tui.ts:353 | v2 新增 remember 扩展，A:permission-extension.ts:1 | 保留：I1–I5/权限事实不因记忆变化而改；与旧 y/n 冲突见 C01/C04 |
+| CM68 文件/网页/Shell 授权、当前对话记住选择 | #170；M:tui.ts:353 | v2 新增 remember 扩展，A:permission-extension.ts:1 | 保留：I1–I5；Shell 逐条确认；记忆写工具普通聊天免确认，§6 C01/C04 |
 
 ## 4. 步骤（每步单独提交、单独报告）
 

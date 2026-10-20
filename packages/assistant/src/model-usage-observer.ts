@@ -2,28 +2,35 @@ import { randomUUID } from "node:crypto";
 import { wrapLanguageModel, type LanguageModel, type LanguageModelMiddleware } from "ai";
 import type { ExecutionRecordStore } from "./execution-record-store.js";
 import type { ModelCallRecord, ModelPrice, ModelPurpose } from "./model-usage.js";
+import { modelInputSegments, type ModelCallLog } from "./model-call-log.js";
 
 /** Observe the actual SDK provider boundary; retries enter again, local caches do not. No prompts/raw usage retained. */
 export function observeModelUsage(model: LanguageModel, options: {
   records: ExecutionRecordStore; threadId: string; enabled: () => boolean;
   scope: () => { runId?: string; purpose: ModelPurpose };
   prices?: readonly ModelPrice[];
+  callLog?: ModelCallLog;
 }): LanguageModel {
   if (typeof model === "string") return model;
-  const begin = async (provider: string, modelId: string, signal?: AbortSignal) => {
+  const begin = async (input: { provider: string; modelId: string; signal?: AbortSignal; params: Parameters<typeof modelInputSegments>[0] }) => {
+    const { provider, modelId, signal } = input;
     signal?.throwIfAborted();
     if (!options.enabled()) return null;
+    const started = performance.now();
     const call: ModelCallRecord = { id: randomUUID(), threadId: options.threadId, ...options.scope(),
       provider, modelId, startedAt: new Date().toISOString(), finishedAt: null, status: "pending", usage: {} };
     const price = options.prices?.find(item => item.provider === provider && item.modelId === modelId);
     if (price) call.price = structuredClone(price);
     await options.records.startModelCall(call);
+    await options.callLog?.start(call, modelInputSegments(input.params));
     let resolution: Promise<void> | undefined;
     let dispatched = false;
     const finish = async (status: ModelCallRecord["status"], usage: ModelCallRecord["usage"] = {}) => {
       if (resolution) return resolution;
       signal?.removeEventListener("abort", abort);
-      resolution = options.records.finishModelCall(call.id, status, usage);
+      resolution = options.records.finishModelCall(call.id, status, usage).then(() => options.callLog?.finish({
+        id: call.id, status, usage, durationMs: performance.now() - started,
+      }));
       return resolution;
     };
     const abort = () => { void finish(dispatched ? "cancelled" : "not_dispatched").catch(() => {
@@ -35,7 +42,7 @@ export function observeModelUsage(model: LanguageModel, options: {
   };
   const middleware: LanguageModelMiddleware = {
     wrapGenerate: async ({ doGenerate, params, model: provider }) => {
-      const call = await begin(provider.provider, provider.modelId, params.abortSignal);
+      const call = await begin({ provider: provider.provider, modelId: provider.modelId, ...(params.abortSignal ? { signal: params.abortSignal } : {}), params });
       try {
         params.abortSignal?.throwIfAborted();
         call?.dispatch();
@@ -46,7 +53,7 @@ export function observeModelUsage(model: LanguageModel, options: {
       } catch (error) { await call?.finish(params.abortSignal?.aborted ? "cancelled" : "failed"); throw error; }
     },
     wrapStream: async ({ doStream, params, model: provider }) => {
-      const call = await begin(provider.provider, provider.modelId, params.abortSignal);
+      const call = await begin({ provider: provider.provider, modelId: provider.modelId, ...(params.abortSignal ? { signal: params.abortSignal } : {}), params });
       try {
         params.abortSignal?.throwIfAborted();
         call?.dispatch();
