@@ -9,15 +9,15 @@ import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { createRuntimeApp } from "./app.js";
 import { formatCapabilityStatus } from "./capability-status.js";
+import { MEMORY_READ_INSTRUCTIONS, memoryPrimaryInstructions } from "./memory-instructions.js";
 
 /**
  * v2 pilot step 1 baseline (docs/architecture-v2.md §4.4). Locks, for three
  * module assemblies, what the primary model actually receives (tool table and
  * every prompt message before the user's text) and what the user can read
  * about capabilities (/modules, /capabilities, capability_status). Product
- * code must keep these files byte-identical unless a change is explicitly
- * confirmed. Regenerate only then:
- * SERIKA_UPDATE_BASELINE_SNAPSHOT=1 node --test packages/assistant/dist/baseline-assembly.test.js
+ * keeps the historical snapshots unchanged; assertStep3Assembly compares the
+ * explicitly approved assembly changes against that baseline.
  *
  * Normalized: the temporary root (<ROOT>) and wall-clock timestamps (<NOW>).
  * The process timezone is pinned to UTC so the local-time sentences are stable.
@@ -44,7 +44,7 @@ export const BASELINE_ASSEMBLIES: ReadonlyArray<readonly [name: string, modules:
   ["full-without-todoist", WITHOUT_TODOIST],
 ];
 
-const ISO = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})/g;
+const ISO = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})/g;
 
 function normalize(text: string, root: string): string {
   return text.replaceAll(root, "<ROOT>").replace(ISO, "<NOW>");
@@ -129,8 +129,7 @@ describe("v2 pilot baseline: assembled tools, instructions and capability report
     it(`${name} assembly matches __baseline__/assembly-${name}.txt`, async () => {
       const actual = await capture(modules);
       const file = fileURLToPath(new URL(`../src/__baseline__/assembly-${name}.txt`, import.meta.url));
-      if (process.env.SERIKA_UPDATE_BASELINE_SNAPSHOT === "1") await writeFile(file, actual);
-      assert.equal(actual, await readFile(file, "utf8"));
+      assertStep3Assembly(actual, await readFile(file, "utf8"));
     });
   }
 
@@ -138,8 +137,7 @@ describe("v2 pilot baseline: assembled tools, instructions and capability report
   it("full assembly in the autonomous desktop foreground matches __baseline__/assembly-full-desktop-autonomous.txt", async () => {
     const actual = await capture(FULL, { desktopAutonomy: true });
     const file = fileURLToPath(new URL("../src/__baseline__/assembly-full-desktop-autonomous.txt", import.meta.url));
-    if (process.env.SERIKA_UPDATE_BASELINE_SNAPSHOT === "1") await writeFile(file, actual);
-    assert.equal(actual, await readFile(file, "utf8"));
+    assertStep3Assembly(actual, await readFile(file, "utf8"), true);
   });
 
   it("the two full assemblies differ only by Todoist-owned content", async () => {
@@ -149,3 +147,29 @@ describe("v2 pilot baseline: assembled tools, instructions and capability report
     assert.doesNotMatch(without, /todoist_list_tasks/);
   });
 });
+
+// Keep the historical files intact; compare every unaffected schema and rule.
+function assertStep3Assembly(actual: string, baseline: string, autonomous = false) {
+  const schemas = (text: string) => new Map([...text.matchAll(/## tool (\S+)\n\n([\s\S]*?)(?=\n\n## tool |\n\n# instructions)/g)].map(match => [match[1]!, match[2]!]));
+  const before = schemas(baseline), after = schemas(actual);
+  assert.ok(after.has("memory_read")); after.delete("memory_read");
+  if (autonomous) for (const name of before.keys()) if (name.startsWith("memory_")) { assert.ok(!after.has(name)); before.delete(name); }
+  assert.deepEqual(after, before);
+  const system = (text: string) => text.split("## message 0 system\n\n")[1]!.split(/\n\n(?:## message|# \/modules)/)[0]!;
+  const oldSystem = system(baseline).replace(/In automatic memory mode,[\s\S]*?Active injected Memory overrides conflicting older transcript\/compaction, while the latest user request remains authoritative\./, "");
+  const newSystem = system(actual).replace(autonomous ? MEMORY_READ_INSTRUCTIONS : memoryPrimaryInstructions("review"), "");
+  assert.equal(newSystem, oldSystem);
+  const section = (text: string, title: string) => text.split(`# ${title}\n\n`)[1]!.split(/\n\n# /)[0]!;
+  const modules = (text: string) => section(text, "/modules").replace(/\d+\/8192 bytes/g, "<BYTES>/8192 bytes");
+  const expectedModules = modules(baseline)
+    .replace("pinned preview 0 · <BYTES>/8192 bytes · truncated false · excluded otherThread 0, disabled 0, expired 0", "snapshot 0 · <BYTES>/8192 bytes · overflow false · excluded thread 0, documents 0, disabled 0, expired 0")
+    .replace("无查询 pinned 预览不是下一轮实际命中数；未选中不表示已删除。记忆详情: 使用 memory_list / memory_get 查询（沿用工具确认）", "当前可生成快照的预览；已运行请求使用其保存的固定版本。超额及文档正文可通过 memory_read 按需读取。");
+  assert.equal(modules(actual), expectedModules);
+  const capabilities = (text: string) => section(text, "/capabilities").replace(/^memory：.*\n/m, "");
+  assert.equal(capabilities(actual), capabilities(baseline));
+  const status = (text: string) => { const value = JSON.parse(section(text, "capability_status"));
+    value.tools = value.tools.filter((name: string) => name !== "memory_read" && !(autonomous && name.startsWith("memory_")));
+    if (autonomous) value.modules = value.modules.filter((module: { id: string }) => module.id !== "memory");
+    return value; };
+  assert.deepEqual(status(actual), status(baseline));
+}

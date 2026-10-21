@@ -8,7 +8,6 @@ import {
 } from "./consolidation.js";
 import { candidateFingerprint, MEMORY_PENDING_CANDIDATES_MAX, type CandidateBatchResult, type CandidateDraft, type ConsolidationCursor, type ConsolidationOutcome, type ConsolidationReceipt, type MemoryResult } from "./memory-candidates.js";
 import type { MemoryConsolidationEntry, MemoryEntry, WorkspaceMemoryStore } from "./memory-store.js";
-import { rankMemoryEntriesForQuery } from "./memory-retrieval.js";
 import { overlaps, validateRecallTerms, validateTemporalTimestamp, validateValidTime, type MemoryKind, type MemoryValidTime } from "./memory-temporal.js";
 import { sameFact, sameFactSlot, validateFactIdentity, type MemoryFactIdentity } from "./memory-fact-identity.js";
 import { hasOpposingSelfStatements, hasRelativeTime, isReminderInstruction, messageClock, reviewablePreference, statedEverydayPreference, statedLanguagePreference, statedPreference, statedScenario, statedThreadScope } from "./memory-observation-policy.js";
@@ -129,49 +128,21 @@ function visible(entry: MemoryEntry, threadId: string): boolean {
   return entry.scope?.kind !== "thread" || entry.scope.threadId === threadId;
 }
 function current(entry: ConsolidationMemory): ConsolidationMemory { const { history: _history, ...value } = entry; return value; }
-function rankForTurns(entries: MemoryEntry[], turns: OrdinaryTurn[]): MemoryEntry[] {
-  const selected = new Map<string, MemoryEntry>();
-  // Each message gets its own bounded query. Joining the window first lets one
-  // long earlier message consume the query budget and hide a later correction.
-  // Recent material wins when the shared conflict-reference budget fills up.
-  for (const turn of [...turns].reverse()) {
-    for (const entry of rankMemoryEntriesForQuery(entries, turn.user.text)) {
-      if (!selected.has(entry.id)) selected.set(entry.id, entry);
-    }
-  }
-  return [...selected.values()];
-}
-function relatedMemories(entries: ConsolidationMemory[], turns: OrdinaryTurn[], threadId: string): { entries: ConsolidationMemory[]; truncated: boolean } {
-  // Old assertions are conflict material only, never asserted as current primary context.
-  const material = entries.filter((entry) => visible(entry, threadId)).map((entry) => {
-    const value = current(entry);
-    if (value.relatedAssertions === undefined) return value;
-    const byAssertion = new Map(value.relatedAssertions.map((assertion) => [assertion.assertionId, assertion]));
-    const relatedAssertions = rankForTurns(value.relatedAssertions.map((assertion) => ({ id: assertion.assertionId,
-      text: [assertion.text, ...assertion.recallTerms].join("\n"), enabled: false,
-    })), turns).map((assertion) => byAssertion.get(assertion.id)!);
-    return { ...value, relatedAssertions };
-  });
-  const byId = new Map(material.map((entry) => [entry.id, entry]));
-  const lexical = rankForTurns(material.map((entry) => ({ ...entry,
-    text: [entry.text, ...(entry.assertion?.recallTerms ?? []), ...(entry.relatedAssertions ?? []).flatMap((assertion) => [assertion.text, ...assertion.recallTerms])].join("\n"),
-  })), turns).map((entry) => byId.get(entry.id)!);
-  // Small identity-bearing facts must be discoverable even when paraphrases share no lexical tokens.
-  const ranked = [...new Map([...lexical, ...material.filter(entry => entry.assertion?.factIdentity)].map(entry => [entry.id, entry])).values()];
+function consolidationReference(entries: ConsolidationMemory[], threadId: string) {
+  const material = entries.filter(entry => visible(entry, threadId)).map(current);
   const selected: ConsolidationMemory[] = [];
   let trimmed = false;
-  for (const entry of ranked) {
+  for (const entry of material) {
     if (selected.length >= CONSOLIDATION_MEMORIES_MAX) break;
     let candidate = entry;
     while (Buffer.byteLength(JSON.stringify([...selected, candidate])) > CONSOLIDATION_MEMORIES_MAX_BYTES && (candidate.relatedAssertions?.length ?? 0) > 0) {
-      candidate = { ...candidate, relatedAssertions: candidate.relatedAssertions!.slice(0, -1) };
-      trimmed = true;
+      candidate = { ...candidate, relatedAssertions: candidate.relatedAssertions!.slice(0, -1) }; trimmed = true;
     }
-    if (candidate.relatedAssertions?.length === 0 && !candidate.assertion?.factIdentity && rankForTurns([candidate], turns).length === 0) continue;
     if (Buffer.byteLength(JSON.stringify([...selected, candidate])) <= CONSOLIDATION_MEMORIES_MAX_BYTES) selected.push(candidate);
   }
-  return { entries: selected, truncated: trimmed || selected.length < ranked.length };
+  return { entries: selected, truncated: trimmed || selected.length < material.length };
 }
+
 function activeTarget(entry: MemoryEntry, now: Date): boolean {
   return entry.temporalState !== "retracted" && (entry.status === "active" || entry.status === undefined && entry.enabled) &&
     (entry.expiresAt == null || Date.parse(entry.expiresAt) > now.getTime());
@@ -430,7 +401,7 @@ export function createMemoryConsolidation(options: {
       }
       const bootstrap = automatic && cursor.value === null;
       const batchId = (options.generateId ?? randomUUID)();
-      const related = relatedMemories(listed.value, selected, options.threadId);
+      const related = consolidationReference(listed.value, options.threadId);
       let memories = related.entries;
       let truncated = related.truncated || eligible.length > selected.length;
       const material = (): PreparedBatch => automatic

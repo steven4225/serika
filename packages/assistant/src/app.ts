@@ -20,10 +20,9 @@ import {
 import { AUTO_CONSOLIDATION_AGENT_ID } from "./consolidation.js";
 import { createBuiltinSkill, loadSkillPackages, skillAgentDefinition } from "./skill-catalog.js";
 import { createRuntimeAutomation, MEMORY_SKILL_ID, type RuntimeAutomation } from "./automation-execution.js";
-import { createDreamingService, DREAMING_AGENT_ID, DREAMING_INSTRUCTIONS, type DreamingService, type LearnedSkillReferenceSnapshot } from "./dreaming.js";
-import { retrieveMemories } from "./memory-retrieval.js";
-import { LocalMemorySemanticIndex, MEMORY_SEMANTIC_WARMUP_BATCH, type MemoryEmbeddingPort } from "./memory-semantic-index.js";
-import { createMemoryEmbedder } from "./memory-embedding-client.js";
+import { createDreamingService, DREAMING_AGENT_ID, type DreamingService, type LearnedSkillReferenceSnapshot } from "./dreaming.js";
+import { readMemorySnapshot, type MemoryReferenceSnapshot } from "./memory-snapshot.js";
+import { memoryReadTools } from "./memory-read-tools.js";
 import { createMemoryConsolidation, memoryConsolidationBacklog, type MemoryConsolidation } from "./memory-consolidation.js";
 import type { MemoryResult } from "./memory-candidates.js";
 import { createExecutionRecordAdapter } from "./execution-record-adapter.js";
@@ -65,8 +64,6 @@ import type { ShellProgress } from "./modules/shell-module.js";
 import { assertDockerShellSandboxAvailable } from "./modules/docker-shell-runner.js";
 import { createTaskModule } from "./modules/task-module.js";
 import { assembleTodoist, todoistTimeZoneFromEnv } from "./modules/todoist-module.js";
-import { createMemoryQueryRewriter, type MemoryReferenceSnapshot } from "./memory-query-rewrite.js";
-import { createMemoryRelevanceSelector } from "./memory-relevance.js";
 import { observeModelUsage } from "./model-usage-observer.js";
 import { ModelCallLog } from "./model-call-log.js";
 import { beginRoundOutputTiming } from "./round-output-timing.js";
@@ -97,7 +94,7 @@ import {
 import {
   type ToolConfirmation,
 } from "./tool-confirmation.js";
-import type { TuiCommand, TuiCompaction, TuiResume } from "./host-commands.js";
+import type { TuiCommand, TuiResume } from "./host-commands.js";
 
 /** The interactive agent that receives the full module tool set. */
 export const PRIMARY_AGENT_ID = "calculator";
@@ -155,8 +152,6 @@ export interface RuntimeAppOptions {
   pomodoroService?: PomodoroService;
   /** Host-only source association persisted before a primary Run can dispatch. */
   beforePrimaryRunCreate?: (record: import("@serika/core").RunRecord) => Promise<void>;
-  /** Trusted test/host port; never selected by the model or inherited from chat credentials. */
-  memoryEmbedding?: MemoryEmbeddingPort;
   /** Registers the offline `add` demo tool. Defaults to true only for createDemoModel(); real models never see it. */
   demoTools?: boolean;
 }
@@ -192,7 +187,6 @@ export interface RuntimeApp {
   getCapabilities?(): CapabilityStatus;
   toolConfirmation: ToolConfirmation | undefined;
   commands: ReadonlyMap<string, TuiCommand> | undefined;
-  compaction: TuiCompaction | undefined;
   getContextDiagnostics(): Promise<ContextResult<ContextDiagnostics>>;
   resume: TuiResume | undefined;
   autoConsolidationAgentId: string | undefined;
@@ -205,8 +199,6 @@ export interface RuntimeApp {
   memoryStore?: WorkspaceMemoryStore;
   recipes?: RecipeStore;
   memoryConsolidation?: MemoryConsolidation;
-  /** Host-owned, cancellable idle work. No Run, query, tool, or background service. */
-  maintainMemoryIndex?: (signal: AbortSignal) => Promise<void>;
   getMemoryConsolidationBacklog?: () => Promise<MemoryResult<number>>;
   getMemoryReferences?: () => MemoryReferenceSnapshot | null;
   subscribeMemoryReferences?: (listener: () => void) => () => void;
@@ -362,9 +354,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
 
   async function getCheckpointMemorySelection(signal: AbortSignal) {
     const now = new Date();
-    return retrieveMemories(memoryStore === undefined ? [] : await readMemoryEntries(memoryStore, signal, now), {
-      query: "", threadId, now,
-    });
+    return readMemorySnapshot(memoryStore, signal, now);
   }
 
   async function readCurrentCheckpoint(
@@ -674,7 +664,6 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     // Storage can be inspected/disabled without enabling reflection or selection.
     const dreaming = tuiMode && workspaceRoot && workTasks
       ? createDreamingService({ workspaceRoot, workTasks, executionRecords, ...(memoryStore ? { memoryStore } : {}) }) : undefined;
-    const dreamingEnabled = moduleConfig?.automation?.dreaming?.enabled === true;
     // Inspected between Runs; the next Run takes it over as currentRun.resume.
     let pendingResumeObservation: ResumeObservation | undefined;
     const activeResumeMessage = (checkpoint: Awaited<ReturnType<typeof readCurrentCheckpoint>>) => {
@@ -692,11 +681,12 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     const primaryInstructions = () => autonomousRun()
       ? autonomousBaseInstructions + "\n" + AUTONOMOUS_INSTRUCTIONS
       : baseInstructions;
-    const registeredTools = [...(demoTools ? [addRegistration] : []), ...(moduleHost?.tools ?? [])];
+    const memoryReaders = memoryStore || dreaming ? memoryReadTools({ store: memoryStore, dreaming, threadId }) : [];
+    const registeredTools = [...(demoTools ? [addRegistration] : []), ...(moduleHost?.tools ?? []), ...(tuiMode ? memoryReaders : [])];
     const getCapabilities = () => capabilityStatus({
       config: moduleConfig,
       tools: registeredTools.map(item => item.metadata.name).filter(name =>
-        moduleConfig?.memoryWritePolicy !== "automatic" || moduleHost?.toolModules.get(name) !== "memory"),
+        !(moduleConfig?.memoryWritePolicy === "automatic" || autonomousRun()) || moduleHost?.toolModules.get(name) !== "memory"),
       toolModules: moduleHost?.toolModules ?? new Map(),
       autonomy: currentRun.foreground?.entry ? currentRun.foreground.autonomous : desktopAutonomyEnabled,
       ...(currentRun.foreground?.entry ? { entry: currentRun.foreground.entry } : {}),
@@ -712,6 +702,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       moduleConfig?.memoryWritePolicy !== "automatic" || moduleHost?.toolModules.get(name) !== "memory");
     const primaryToolContext = tuiMode && moduleConfig?.contextCompaction.enabled
       ? await modelToolContext(tools.definitions(primaryToolNames)) : [];
+    const autonomousToolNames = primaryToolNames.filter(name => moduleHost?.toolModules.get(name) !== "memory");
+    const autonomousToolContext = tuiMode && moduleConfig?.contextCompaction.enabled ? await modelToolContext(tools.definitions(autonomousToolNames)) : [];
     const catalog = new InMemoryAgentCatalog([
       {
         id: PRIMARY_AGENT_ID,
@@ -729,9 +721,6 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         },
       },
       ...automation.skills.map(skill => skillAgentDefinition(skill, modelAlias)),
-      ...(dreaming && dreamingEnabled ? [{ id: DREAMING_AGENT_ID, version: "1", model: modelAlias,
-        instructions: DREAMING_INSTRUCTIONS, tools: [],
-        limits: { maxSteps: 1, totalTimeoutMs: 60_000, stepTimeoutMs: 60_000, maxOutputTokens: 4096 } }] : []),
     ]);
     const modelCallLog = new ModelCallLog(directory);
     const observedModel = (purpose?: ModelPurpose) => observeModelUsage(model, {
@@ -745,30 +734,6 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       ...(moduleConfig?.modelPricing ? { prices: moduleConfig.modelPricing } : {}),
     });
     const models = new InMemoryModelRegistry({ [modelAlias]: observedModel() });
-    const rewriteQuery = createMemoryQueryRewriter(observedModel("query_rewrite"));
-    // Relevance replaces the configured rewrite call, never adds a second one.
-    // Its actual usage shares the existing auxiliary retrieval-purpose ledger.
-    const selectRelevance = createMemoryRelevanceSelector(observedModel("query_rewrite"));
-    const embedding = memoryEnabled && moduleConfig?.memorySemantic
-      ? options.memoryEmbedding ?? createMemoryEmbedder(moduleConfig.memorySemantic, env) : undefined;
-    const semanticIndex = embedding && workspaceRoot
-      ? new LocalMemorySemanticIndex({ file: join(workspaceRoot, ".runloom", "memory-semantic-index.json"), embedding }) : undefined;
-    const maintenanceLifetime = new AbortController();
-    const maintainMemoryIndex = semanticIndex && memoryStore ? async (callerSignal: AbortSignal): Promise<void> => {
-      const signal = AbortSignal.any([callerSignal, maintenanceLifetime.signal]);
-      // Store capacity is 512. Each bounded slice rereads truth and filters this
-      // Thread before dispatch. A changing store never creates an unbounded job.
-      for (let slice = 0; slice < Math.ceil(512 / MEMORY_SEMANTIC_WARMUP_BATCH); slice++) {
-        signal.throwIfAborted();
-        const now = new Date();
-        const entries = await readMemoryEntries(memoryStore, signal, now);
-        const coverage = await semanticIndex.maintain(entries, { now, threadId, signal });
-        signal.throwIfAborted();
-        if (coverage.state === "degraded") throw new Error("记忆索引补齐未完成，稍后操作时可重新检查；本次没有自动重试。");
-        if (coverage.state === "ready" || coverage.embeddedCount === 0) return;
-      }
-      throw new Error("记忆索引补齐达到本次上限，当前仍是部分覆盖；本次没有自动重试。");
-    } : undefined;
     let memoryReference: MemoryReferenceSnapshot | null = null;
     let learnedSkillReference: LearnedSkillReferenceSnapshot | null = null;
     const memoryReferenceListeners = new Set<() => void>();
@@ -778,25 +743,16 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     };
     const buildReferencePrefix = createReferenceAssembler([
       createCheckpointSource({ read: signal => readCurrentCheckpoint(checkpointStore, signal), resume: activeResumeMessage }),
-      createLearnedSkillSource({ dreaming: dreaming && dreamingEnabled ? dreaming : undefined, threadId,
-        onReference: value => { learnedSkillReference = value; } }),
-      createMemoryReferenceSource({
-        threadId,
-        readEntries: memoryStore === undefined ? undefined : (signal, now) => readMemoryEntries(memoryStore, signal, now),
-        relevanceEnabled: moduleConfig?.memorySemanticRelevanceEnabled === true,
-        queryRewriteEnabled: moduleConfig?.memoryQueryRewriteEnabled === true,
-        contextViewEnabled: moduleConfig?.memoryContextViewEnabled === true,
-        semanticModelId: moduleConfig?.memorySemantic?.modelId,
-        rewriteQuery, selectRelevance, semanticIndex, embedding, workTasks,
-        workTaskActive: () => currentRun.workTaskMessage !== undefined,
-      }),
-      ...(taskEnabled ? [createTaskTimeSource()] : []),
+      createLearnedSkillSource({ dreaming, threadId }),
+      createMemoryReferenceSource({ store: memoryStore, threadId }),
+      createTaskTimeSource(),
       createWorkTaskSource(() => currentRun.workTaskMessage),
       createForegroundTaskSource(() => autonomousRun() ? currentRun.foreground?.request : undefined),
     ]);
     const referencePrefix = async (messages: readonly UIMessage[], signal: AbortSignal) => (await buildReferencePrefix(messages, signal)).prefix;
     let lastUncompactedPreparation: ContextDiagnostics["lastPreparation"] = null;
     let lastPreparationSource: NonNullable<ContextDiagnostics["lastPreparationSource"]> | null = null;
+    let rollbackReferences: (() => void) | undefined;
     const contextCompactor =
       tuiMode && moduleConfig?.contextCompaction.enabled === true
         ? new ContextCompactor({
@@ -806,29 +762,26 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
             summarizer: createAiSdkSummarizer(observedModel("context_compaction")),
             budget: moduleConfig.contextCompaction,
             modelContextWindowTokens: moduleConfig.contextCompaction.contextWindowTokens,
-            fixedContext: () => {
-              const now = new Date();
-              const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-              return {
+            fixedContext: () => ({
                 instructions: primaryInstructions(),
-                tools: primaryToolContext,
-                dynamicContext: {
-                  now: now.toISOString(),
-                  timeZone,
-                },
-              };
-            },
+                tools: autonomousRun() ? autonomousToolContext : primaryToolContext,
+            }),
             promptPrefix: (signal, messages) => referencePrefix(messages, signal),
+            refreshReference: async (messages, signal) => {
+              rollbackReferences = buildReferencePrefix.refresh();
+              const refreshed = await buildReferencePrefix(messages, signal, true);
+              messages.splice(0, messages.length, ...buildReferencePrefix.annotate(messages));
+              return refreshed.prefix;
+            },
           })
         : undefined;
+    const savedMessages = await store.getMessages(threadId);
+    buildReferencePrefix.restore(savedMessages, await contextCompactor?.referenceSnapshot(savedMessages));
     if (contextCompactor !== undefined && moduleConfig?.contextCompaction.enabled === true) {
-      const now = new Date();
-      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const startupPrefix = await referencePrefix([], AbortSignal.timeout(5_000));
       const fixedEstimate = estimateContextInput({
         instructions: primaryInstructions(),
         tools: primaryToolContext,
-        dynamicContext: { now: now.toISOString(), timeZone },
         messages: startupPrefix,
       });
       const startupBudget = validateContextBudgetConfig(
@@ -860,7 +813,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         } : null;
         lastPreparationSource = null;
         try {
-          return await preparePrimaryContext({
+          const prepared = await preparePrimaryContext({
             messages, signal, currentUserId: currentUser?.id, references: buildReferencePrefix, compactor: contextCompactor,
             observer: {
               passthrough: () => {
@@ -883,12 +836,17 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
                 };
               },
               compactionFailed: () => {
+                rollbackReferences?.(); rollbackReferences = undefined;
                 learnedSkillReference = null;
                 publishMemoryReference(null);
               },
               published: publishMemoryReference,
             },
           });
+          rollbackReferences = undefined;
+          const learned = prepared.find(message => message.id === "learned-skills")?.metadata as { skills: LearnedSkillReferenceSnapshot["skills"] } | undefined;
+          learnedSkillReference = learned && currentUser ? { messageId: currentUser.id, skills: learned.skills } : null;
+          return prepared;
         } finally {
           lastPreparationSource = preparationSource;
         }
@@ -903,6 +861,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
           report: moduleConfig === undefined ? undefined
             : { configPath: moduleConfig.configPath, workspaceRoot: moduleConfig.workspaceRoot },
           autoApprove: [
+            input => input.definition.id === PRIMARY_AGENT_ID && memoryReaders.some(item => item.metadata.name === input.toolName &&
+              registeredTools.find(tool => tool.metadata.name === input.toolName) === item),
             // The host's own status tool, only when it is the registration this app made.
             (input) => input.definition.id === PRIMARY_AGENT_ID && input.toolName === "capability_status" &&
               registeredTools.find(item => item.metadata.name === input.toolName) === statusRegistration,
@@ -930,10 +890,11 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         const definition = catalog.get(agentId);
         return definition && agentId === PRIMARY_AGENT_ID && autonomousRun() ? { ...definition,
           instructions: primaryInstructions(),
+          tools: autonomousToolNames,
           limits: { ...definition.limits, maxSteps: AUTONOMOUS_MAX_STEPS, totalTimeoutMs: AUTONOMOUS_TOTAL_TIMEOUT_MS },
         } : definition;
       } },
-      store: executionRecordAdapter.store,
+      store: { ...executionRecordAdapter.store, save: (thread, messages) => executionRecordAdapter.store.save(thread, buildReferencePrefix.annotate(messages)) },
       loop: new AiSdkAgentLoop({
         models,
         tools,
@@ -1007,9 +968,6 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       getCapabilities,
       toolConfirmation,
       commands,
-      compaction: contextCompactor
-        ? { compact: (signal: AbortSignal) => { lastPreparationSource = null; return contextCompactor.compact(signal); } }
-        : undefined,
       getContextDiagnostics: async () => {
         const source = structuredClone(lastPreparationSource);
         const result = await (contextCompactor?.getDiagnostics() ?? readContextDiagnostics(
@@ -1044,7 +1002,6 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       endForegroundExecution: () => { currentRun.foreground = undefined; },
       ...(recipes ? { recipes } : {}),
       ...(memoryConsolidation ? { memoryConsolidation } : {}),
-      ...(maintainMemoryIndex ? { maintainMemoryIndex } : {}),
       ...(memoryStore ? { getMemoryConsolidationBacklog: async () => {
         const cursor = await memoryStore.getConsolidationCursor(threadId);
         if (!cursor.ok) return cursor;
@@ -1059,7 +1016,6 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         return () => { shellProgressListeners.delete(listener); };
       },
       dispose: () => {
-        maintenanceLifetime.abort(new DOMException("Application disposed", "AbortError"));
         memoryConsolidation?.discard();
         redrawAfterModuleNotification = undefined;
         shellProgressListeners.clear();

@@ -161,7 +161,7 @@ async function executeCase(test, root, env, deadlineMs) {
   if (!seeded.ok) throw Object.assign(new Error('Seed failed'), { code: 'EVIDENCE_READ_FAILED' });
   const config = join(directory, 'config.json');
   await writeFile(config, JSON.stringify({ version: 1, workspace, run: { maxSteps: 2, totalTimeoutMs: 120_000 }, modules: {
-    memory: { enabled: true, autoConsolidate: true, writePolicy: 'automatic', queryRewrite: { enabled: false }, semantic: { enabled: false } },
+    memory: { enabled: true, autoConsolidate: true, writePolicy: 'automatic' },
     task: { enabled: false }, web: { enabled: false }, shell: { enabled: false }, 'read-file': { enabled: false },
   } }), { mode: 0o600 });
   const transport = createTransitionFetch();

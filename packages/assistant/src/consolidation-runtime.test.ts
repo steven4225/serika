@@ -15,7 +15,6 @@ import {
   InMemoryModelRegistry,
   ToolRegistry,
 } from "@serika/ai-sdk-adapter";
-import { selectModelContext } from "./context-window.js";
 import { AUTO_CONSOLIDATION_AGENT_ID } from "./consolidation.js";
 import { createMemoryConsolidation } from "./memory-consolidation.js";
 import { createModuleHost } from "./module-host.js";
@@ -222,7 +221,7 @@ describe("memory consolidation Runtime integration", () => {
         models: new InMemoryModelRegistry({ [definition.model]: model }),
         tools: new ToolRegistry(moduleHost.tools),
       }),
-      prepareModelContext: ({ messages }) => selectModelContext(messages),
+      prepareModelContext: ({ messages }) => messages,
       beforeToolExecute: async () => ({ allow: true }),
       store,
     });
@@ -276,7 +275,7 @@ describe("memory consolidation Runtime integration", () => {
         models: new InMemoryModelRegistry({ [definition.model]: model }),
         tools: new ToolRegistry(moduleHost.tools),
       }),
-      prepareModelContext: ({ messages }) => selectModelContext(messages),
+      prepareModelContext: ({ messages }) => messages,
       beforeToolExecute: async () => ({ allow: true }),
       store,
     });

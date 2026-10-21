@@ -81,7 +81,6 @@ function appWith(overrides: Partial<RuntimeApp> = {}): RuntimeApp {
     moduleConfig: undefined,
     toolConfirmation: undefined,
     commands: undefined,
-    compaction: undefined,
     getContextDiagnostics: async () => ({ ok: false, error: { code: "TEST", message: "not configured" } }),
     resume: undefined,
     autoConsolidationAgentId: undefined,
@@ -935,27 +934,6 @@ describe("AssistantController", () => {
     });
     assert.deepEqual(errors, ["Error: exploded"]);
     assert.equal(controller.getSnapshot().state.kind, "idle");
-    await controller.shutdown();
-  });
-
-  it("reports a cancelled compaction instead of ok", async () => {
-    const gate = deferred<void>();
-    const controller = createAssistantController(appWith({
-      compaction: {
-        compact: async () => {
-          await gate.promise;
-          return { message: "unused" };
-        },
-      },
-    }));
-
-    const command = controller.command("/compact");
-    await waitFor(() => controller.getSnapshot().state.kind === "compacting");
-    await controller.cancel();
-    gate.resolve();
-    assert.deepEqual(await command, { ok: false, reason: "cancelled" });
-    assert.equal(controller.getSnapshot().state.kind, "idle");
-    assert.equal(controller.getSnapshot().recentOutput.includes("[compact]"), false);
     await controller.shutdown();
   });
 

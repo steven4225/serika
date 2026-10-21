@@ -79,10 +79,8 @@ export const IPC_FORWARDS = {
     createThread: 1,
     selectThread: 1,
     enableMemory: 0,
-    setContextMode: 1,
     setModuleEnabled: 1,
     setAutonomyEnabled: 1,
-    setDreamingEnabled: 1,
   },
 } as const satisfies Record<"current" | "host", Partial<Record<keyof RendererApi, 0 | 1 | 2>>>;
 

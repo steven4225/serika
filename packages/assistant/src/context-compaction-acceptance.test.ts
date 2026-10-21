@@ -10,7 +10,7 @@ import { ContextCompactor } from "./context-compactor.js";
 import { createAiSdkSummarizer, parseContextSummary, type ContextSummaryV2 } from "./context-compaction.js";
 import { configureCliModel } from "./model-config.js";
 import { createDemoModel } from "./demo-model.js";
-import { contextBudgetForMode, estimateContextBudget, type ContextBudgetConfig } from "./context-budget.js";
+import { defaultContextBudget, estimateContextBudget, type ContextBudgetConfig } from "./context-budget.js";
 
 const modelName = process.env.RUNLOOM_ACCEPTANCE_MODEL;
 
@@ -100,7 +100,7 @@ for (const mode of ["daily", "long-task"] as const) {
   }, async () => {
     assert.notEqual(process.env.RUNLOOM_MODEL, "mock", "live acceptance requires an explicitly configured real provider");
     const { model, modelAlias } = configureCliModel(createDemoModel);
-    const modeBudget = contextBudgetForMode(mode);
+    const modeBudget = ({ ...defaultContextBudget(), ...(mode === "long-task" ? { inputBudgetTokens: 400_000, keepRecentTokens: 64_000, summaryMaxOutputTokens: 8_000 } : {}) });
     const store = new MemoryStore();
     const constraints = "这是合成验收材料。目标：整理一份项目计划；不得修改 protected/；未执行的步骤不能宣称完成。";
     store.messages = Array.from({ length: mode === "daily" ? 20 : 32 }, (_, index): UIMessage[] => [

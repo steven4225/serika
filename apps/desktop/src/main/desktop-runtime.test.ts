@@ -302,7 +302,7 @@ describe("normal desktop memory and history entry", () => {
       assert.notEqual(other, initial.threadId);
       assert.ok((await host.current.run("总结报告怎么写？", { memoryConsolidation: "exclude" })).ok);
       await idle(host);
-      const reference = await host.current.getMemoryReferences(); assert.equal(reference?.selected.length, 1); assert.equal(reference?.selected[0]?.reason, "recall_term");
+      const reference = await host.current.getMemoryReferences(); assert.equal(reference?.selected.length, 1); assert.equal(reference?.selected[0]?.reason, "snapshot");
       await host.selectThread(initial.threadId);
       assert.equal(host.info().threadId, initial.threadId);
       await host.selectThread(other);
@@ -335,7 +335,6 @@ describe("normal desktop memory and history entry", () => {
     try {
       const initial = host.info();
       assert.equal(initial.configPath, configPath);
-      assert.equal(initial.memory.queryRewriteEnabled, false, "policy upgrade preserves disabled recall rewriting");
       assert.equal(initial.memory.writePolicy, "automatic", "desktop has no review queue");
       const saved = JSON.parse(await readFile(configPath, "utf8"));
       assert.equal(saved.modules.memory.writePolicy, "automatic");
@@ -347,7 +346,6 @@ describe("normal desktop memory and history entry", () => {
       assert.ok(memories.ok); assert.equal(memories.value.entries.length, 0);
       await host.shutdown();
       host = await DesktopRuntime.create(options);
-      assert.equal(host.info().memory.queryRewriteEnabled, false);
       assert.equal(host.info().memory.writePolicy, "automatic");
       assert.equal(host.info().threadId, initial.threadId);
       assert.ok((await host.current.history()).some(message => message.role === "user" && message.parts.some(part => part.type === "text" && part.text === "保留这条日用历史")));

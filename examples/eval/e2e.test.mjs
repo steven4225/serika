@@ -7,7 +7,7 @@ import { resolveTuiModuleConfig } from '@serika/assistant/internal/tui-module-co
 import { fixtureConfig, fixtureRuntimeEnvironment, collectEvidence, collectMemorySnapshot, createFixtureApprover, safeError, currentRestoreFixtureFact } from './e2e.mjs';
 import { resolveModelContextWindow } from '@serika/assistant/internal/model-config.js';
 import { reliabilityCases, reliabilitySpec } from './reliability-cases.mjs';
-import { contextBudgetForMode, estimateMessageTokens, partitionMessagesForCompaction, keepRecentCompactionUnits } from '@serika/assistant/internal/context-budget.js';
+import { estimateMessageTokens, partitionMessagesForCompaction, keepRecentCompactionUnits } from '@serika/assistant/internal/context-budget.js';
 import { summarySourceChunks } from '@serika/assistant/internal/context-compactor.js';
 import { dailyCompactionCases, dailyCompactionSpec, fixtureHistory } from './daily-compaction.mjs';
 import { compactionFidelityCases, compactionFidelitySpec, effectiveCompactionFidelityCases, effectiveCompactionFidelitySpec } from './compaction-fidelity.mjs';
@@ -40,10 +40,12 @@ test('restore fixture explicitly approves only the matching real pending coffee 
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-test('daily-level fixture uses production mode budgets and enough history to trigger actual compression', () => {
+test('daily-level fixture preserves frozen numeric budgets and enough history to trigger actual compression', () => {
   for (const mode of ['daily', 'long-task']) {
     const spec = dailyCompactionSpec(mode === 'daily' ? 'RD04' : 'RL04');
-    const expected = contextBudgetForMode(mode);
+    const expected = spec.contextBudget;
+    assert.equal(expected.inputBudgetTokens, mode === 'daily' ? 256000 : 400000);
+    assert.equal('mode' in expected, false);
     assert.deepEqual(fixtureConfig(spec, '/isolated/workspace').contextCompaction, expected);
     const seed = fixtureHistory(spec);
     assert.ok(estimateMessageTokens(seed.messages) >= expected.inputBudgetTokens * .85,

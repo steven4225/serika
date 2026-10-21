@@ -52,7 +52,7 @@ test("real configured model: ordinary preference auto-saves, restarts, recalls, 
     try {
       await mkdir(join(root, "workspace"));
       await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, workspace: join(root, "workspace"), modules: {
-        memory: { enabled: true, autoConsolidate: true, writePolicy: "automatic", queryRewrite: { enabled: true } },
+        memory: { enabled: true, autoConsolidate: true, writePolicy: "automatic" },
       } }));
       await runPhase(root, "save", context.signal);
       await runPhase(root, "reopen", context.signal);

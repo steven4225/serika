@@ -40,8 +40,8 @@ let infoPatch: Partial<AppInfo> = {};
 const info = (): AppInfo => ({ entryMode: "test", configPath: "/preview/config.json", threadId,
   directory: "/preview/transcripts", workspaceRoot: "/preview/Serika", modelAlias: "mock", modelId: "界面示例（不调用模型）",
   temporaryThread: false, temporaryDirectory: false, identitySource: "saved", computer: { enabled: false, allowedBundleIds: [] },
-  tuiMode: true, commands: [], hasCompaction: false, hasResume: false, totalTimeoutMs: 600000, shellTimeoutMs: 300000,
-  memory: { enabled: true, autoConsolidate: true, queryRewriteEnabled: true }, workTasks: false,
+  tuiMode: true, commands: [], hasResume: false, totalTimeoutMs: 600000, shellTimeoutMs: 300000,
+  memory: { enabled: true, autoConsolidate: true }, workTasks: false,
   modules: [{ id: "memory", enabled: true }, { id: "read-file", enabled: true }, { id: "shell", enabled: false }, { id: "task", enabled: false }, { id: "pomodoro", enabled: false }], ...infoPatch });
 const emit = (message: MainToRenderer) => { for (const listener of [...listeners]) listener(message); };
 const event = <T extends AgentEventType>(type: T, data: AgentEventDataMap[T]) => emit({ type: "event", phase: "primary",

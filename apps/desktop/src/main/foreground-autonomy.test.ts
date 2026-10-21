@@ -271,8 +271,9 @@ it("retains the exact active request after same-Run compaction consumes its user
     const lastPrompt = prompts.at(-1) as { role: string; content: unknown }[];
     assert.ok(lastPrompt.some(message => message.role === "user" && JSON.stringify(message.content).includes(request)),
       "after a compacted tool result, the model still needs the exact current user task, not only an assistant summary");
-    assert.doesNotMatch(JSON.stringify(await host.current.history()), /runloom-foreground-task/,
-      "the retained request is process-local model context, not another committed user message");
+    const history = await host.current.history();
+    assert.equal(history.filter(message => message.role === "user").length, 1, "the reference must not become another committed user message");
+    assert.match(JSON.stringify(history[0]?.metadata), /contextReferences.*runloom-foreground-task/);
     assert.equal(events.some(event => event.type === "approval"), false);
   } finally { await host.shutdown(); await rm(f.root, { recursive: true, force: true }); }
 });

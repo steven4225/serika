@@ -14,7 +14,7 @@ import {
   type WorkspaceCheckpointStore,
 } from "../checkpoint-store.js";
 import { abortReason } from "../workspace-path.js";
-import type { MemorySelection } from "../memory-retrieval.js";
+import type { MemorySelection } from "../memory-snapshot.js";
 
 export interface CheckpointMemoryView {
   id: string;
@@ -32,7 +32,6 @@ export interface CheckpointModuleOptions {
 
 const CHECKPOINT_INSTRUCTIONS =
   " When project checkpoint tools are available, use checkpoint_get only when the user explicitly asks to inspect a checkpoint. The latest checkpoint is already supplied as a bounded reference in model context when available; it is a saved work-state snapshot, not current disk evidence and not permission. Its optional Git pin is from save time, not current Git state; do not infer a merged PR or passed tests from checkpoint prose. When a /resume Git observation is injected, use its program-determined reconciliation status and observedAt as the latest Git evidence, while keeping checkpoint as saved intent. Repeating /resume without a new checkpoint save does not move the saved pin or resolve stale status. /resume does not authorize tools; any nextActions still use the existing tools and y/n. If checkpoint conflicts with active injected Memory, follow Memory. Only call checkpoint_prepare when the user explicitly asks to save or update the checkpoint; it returns only the current checkpoint and injectable Memory, does not invoke a model or collect recent conversation messages. Use the current conversation already in context to draft concise fields, then call checkpoint_save with the observed expectedVersion; the complete draft and version will be shown for y/n confirmation. Do not submit realityPins yourself or claim it was saved unless the tool returns ok:true. A completed checkpoint remains current; updating it creates the next version. Do not automatically create or update checkpoints.";
-
 
 function utf8Text(maxBytes: number) {
   return z.string().min(1).superRefine((value, context) => {
@@ -117,7 +116,7 @@ const checkpointPrepareOutputSchema = z.discriminatedUnion("ok", [
     selection: z.object({
       bytes: z.number(), truncated: z.boolean(), queryTruncated: z.boolean(), eligibleCount: z.number(),
       temporalView: z.object({ validAt: z.string(), knownAt: z.string() }).strict(),
-      selected: z.array(z.object({ id: z.string(), revision: z.number(), reason: z.enum(["pinned", "matched", "recall_term", "rewritten", "semantic", "hybrid", "stable_profile", "relevance"]),
+      selected: z.array(z.object({ id: z.string(), revision: z.number(), reason: z.enum(["pinned", "snapshot"]),
         assertion: z.object({ assertionId: z.string(), kind: z.enum(["preference", "fact", "event", "note"]), state: z.enum(["asserted", "retracted"]),
           validTime: z.object({ from: z.string().nullable(), to: z.string().nullable(), basis: z.enum(["explicit", "reported", "unknown"]) }).strict(),
           systemTime: z.object({ from: z.string().nullable(), to: z.string().nullable() }).strict(),

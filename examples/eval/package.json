@@ -10,7 +10,6 @@
     "e2e": "node run.mjs e2e",
     "guards": "node guards.mjs",
     "test": "node --test *.test.mjs",
-    "recall": "node memory-recall.mjs",
     "view": "node run.mjs view"
   },
   "dependencies": {

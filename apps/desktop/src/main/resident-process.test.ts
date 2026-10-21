@@ -65,15 +65,8 @@ it("the actual headless entry retains Thread, Run receipts and a timer when clie
     await client.setModuleEnabled({ id: "shell", enabled: true, expectedEnabled: false });
     assert.equal(client.info().modules?.find(module => module.id === "shell")?.enabled, true);
     assert.equal((await client.getLifecycleStatus()).pomodoroRunning, true);
-    const beforeMode = await client.current.getContextDiagnostics(); assert(beforeMode.ok);
-    await client.setContextMode({ mode: "long-task", expectedBudget: beforeMode.value.budget });
-    const afterMode = await client.current.getContextDiagnostics(); assert(afterMode.ok);
-    assert.equal(afterMode.value.budget.mode, "long-task"); assert.equal(afterMode.value.budget.inputBudgetTokens, 400_000);
-    assert.equal(afterMode.value.budget.contextWindowTokens, 512_000, "resident mode selection must preserve configured capacity");
-    assert.equal((await client.getLifecycleStatus()).pomodoroRunning, true, "mode selection must not end the independent timer");
     client.detach(); client = await connect();
     const reconnectedMode = await client.current.getContextDiagnostics(); assert(reconnectedMode.ok);
-    assert.equal(reconnectedMode.value.budget.mode, "long-task");
     await client.createThread({ preserveDraft: true });
     assert.notEqual(client.info().threadId, thread);
     await client.current.command("/pomodoro status");

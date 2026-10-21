@@ -13,21 +13,16 @@ export interface AssistantDreamingControls {
 
 const dreamingFailure = (code: string, message: string): DreamingResult<never> => ({ ok: false, error: { code, message } });
 
-export function createDreamingControls(k: ControllerKernel, deps: {
-  /** Starts a foreground learning Run; the Run engine owns its lifecycle. */
-  startDreaming(): Promise<DreamingResult<{ runId: string }>>;
-  lastAttempt(): DreamingControllerOverview["lastAttempt"];
-}): AssistantDreamingControls {
+export function createDreamingControls(k: ControllerKernel): AssistantDreamingControls {
   const { app } = k;
   return {
     getOverview: async () => {
-      const enabled = app.moduleConfig?.automation?.dreaming?.enabled === true;
+      const enabled = false;
       if (!app.dreaming) return { ok: true, value: { enabled: false, skills: [], pendingExperiences: 0, processedExperiences: 0 } };
       const result = await app.dreaming.overview();
-      const lastAttempt = deps.lastAttempt();
-      return result.ok ? { ok: true, value: { ...result.value, enabled, ...(lastAttempt ? { lastAttempt: structuredClone(lastAttempt) } : {}) } } : result;
+      return result.ok ? { ok: true, value: { ...result.value, enabled } } : result;
     },
-    dream: () => deps.startDreaming(),
+    dream: async () => dreamingFailure("DREAMING_DISABLED", "新方法提炼已暂停；已有方法仍可按索引读取"),
     getLearnedSkillReferences: () => k.primaryReference(app.getLearnedSkillReferences?.()),
     changeLearnedSkill: async input => {
       if (!app.dreaming) return dreamingFailure("DREAMING_UNAVAILABLE", "当前工作区不支持经验学习");

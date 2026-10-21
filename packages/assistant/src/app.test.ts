@@ -113,7 +113,8 @@ describe("createRuntimeApp", () => {
         const handle = await app.runtime.run({ agentId: app.agentId, threadId: app.threadId,
           messages: [{ id: "correction", role: "user", parts: [{ type: "text", text: "更正我的长期偏好，请记住。" }] }] });
         assert.equal((await handle.result).status, "completed");
-        assert.equal(names.some(name => name.startsWith("memory_")), writePolicy === "review");
+        assert.equal(names.includes("memory_read"), true);
+        assert.equal(names.some(name => name.startsWith("memory_") && name !== "memory_read"), writePolicy === "review");
         assert.equal(names.includes("memory_revise"), writePolicy === "review");
         assert.ok(app.memoryConsolidation, "automatic lifecycle must remain registered");
         assert.ok(app.memoryStore, "desktop administrative operations retain their original store");
@@ -256,12 +257,14 @@ describe("createRuntimeApp", () => {
         await run("next", "reports after saving");
         const prompt = prompts[1]!;
         const old = prompt.findIndex(message => message.includes("Earlier selected entries: []"));
-        const fresh = prompt.findIndex(message => message.includes("Fresh program-selected snapshot:") && message.includes("selectedCount=1"));
+        const fresh = prompt.findIndex(message => message.includes("Memory updates supersede") && message.includes("reports use three steps"));
         const question = prompt.findIndex(message => message.includes("reports after saving"));
-        assert.ok(old >= 0 && old < fresh && fresh < question);
-        assert.equal(prompt.filter(message => message.includes("Fresh program-selected snapshot:")).length, 1);
+        assert.ok(old >= 0 && old < fresh && fresh === question);
+        assert.equal(prompt.filter(message => message.includes("Memory updates supersede")).length, 1);
         assert.ok(prompt[fresh]!.includes("reports use three steps"));
-        assert.ok(!JSON.stringify(await app.store.getMessages(app.threadId)).includes("Fresh program-selected snapshot:"));
+        const saved = await app.store.getMessages(app.threadId);
+        assert.ok(JSON.stringify(saved.find(message => message.id === "next")?.metadata).includes("Memory updates supersede"));
+        assert.deepEqual(saved.find(message => message.id === "next")?.parts, [{ type: "text", text: "reports after saving" }]);
       } finally { app.dispose(); await rm(root, { recursive: true, force: true }); }
     });
 
@@ -307,11 +310,6 @@ describe("createRuntimeApp", () => {
           assert.ok(failed.value.lastPreparation?.error);
           assert.equal(failed.value.lastPreparationSource?.messageId, "diagnostic-user-2");
         }
-        if (app.compaction) {
-          await assert.rejects(app.compaction.compact(AbortSignal.timeout(1000)));
-          const manual = await app.getContextDiagnostics();
-          assert.ok(manual.ok && manual.value.lastPreparationSource === null, "manual compact cannot inherit primary Run identity");
-        }
       } finally {
         app.dispose();
         await rm(root, { recursive: true, force: true });
@@ -337,7 +335,6 @@ describe("createRuntimeApp", () => {
       assert.equal(app.directory, directory);
       assert.equal(app.toolConfirmation, undefined);
       assert.equal(app.commands, undefined);
-      assert.equal(app.compaction, undefined);
       assert.equal(app.resume, undefined);
       assert.equal(app.autoConsolidationAgentId, undefined);
 
@@ -388,7 +385,6 @@ describe("createRuntimeApp", () => {
         [...app.commands.keys()].sort(),
         ["capabilities", "history", "home", "modules", "permissions"],
       );
-      assert.equal(app.compaction, undefined);
       assert.equal(app.resume, undefined);
 
       await app.commands.get("modules")!.execute("");

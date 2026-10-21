@@ -4,7 +4,6 @@ import { lstat, mkdir, open, rename, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import type { UIMessage } from "ai";
 import { acquireFlock } from "./flock.js";
-import { tokenizeMemoryQuery } from "./memory-retrieval.js";
 import { selectInjectableMemoryEntries, type WorkspaceMemoryStore } from "./memory-store.js";
 import { validateExecutionRunRecord, type ExecutionRecordStore, type ExecutionRunRecord } from "./execution-record-store.js";
 import { validateArchivedWorkTask, type WorkTask, type WorkTaskStore } from "./work-task-store.js";
@@ -46,7 +45,8 @@ export interface DreamingService {
   prepare(signal?: AbortSignal): Promise<DreamingResult<DreamingBatch | null>>;
   commit(batch: DreamingBatch, modelText: string, signal?: AbortSignal): Promise<DreamingResult<{ skillIds: string[]; replayed: boolean }>>;
   change(input: DreamingChangeInput): Promise<DreamingResult<LearnedSkill>>;
-  select(query: string, threadId: string, signal?: AbortSignal): Promise<DreamingResult<LearnedSkill[]>>;
+  index(threadId: string, signal?: AbortSignal): Promise<DreamingResult<Array<Pick<LearnedSkill, "id" | "revision" | "title" | "description">>>>;
+  read(id: string, threadId: string, signal?: AbortSignal): Promise<DreamingResult<LearnedSkill>>;
 }
 interface ArchivedExperience { source: LearnedSkillSource; task: WorkTask; run: ExecutionRunRecord }
 interface Document { version: 2; skills: LearnedSkill[]; processed: string[]; batches: { fingerprint: string; skillIds: string[] }[]; archive: ArchivedExperience[] }
@@ -278,11 +278,17 @@ export function createDreamingService(options: { workspaceRoot: string; workTask
       else { if (input.action === "enable") { if (!await validSources(s.sources, neverAborted, doc) || !await validDependencies(s, "", neverAborted)) fail("DREAMING_SOURCE_INVALID", "Recheck task/Memory evidence before enabling"); await archiveSources(doc, s.sources, neverAborted); } bump(s, true); s.enabled = input.action === "enable"; }
       return { value: structuredClone(s) };
     }, neverAborted)),
-    select: (query, threadId, signal = neverAborted) => result(async () => {
-      const doc = await load(signal), q = new Set(tokenizeMemoryQuery(query).terms); if (!q.size) return [];
-      const ranked = doc.skills.filter(s => s.enabled).map(s => ({ s, score: tokenizeMemoryQuery([s.title, s.description, ...s.recallTerms].join(" ")).terms.filter(t => q.has(t)).length })).filter(x => x.score > 0).sort((a, b) => b.score - a.score || a.s.id.localeCompare(b.s.id));
-      const selected: LearnedSkill[] = []; let bytes = 0;
-      for (const { s } of ranked) { throwIfAborted(signal); if (selected.length >= 2) break; if (!await validSources(s.sources, signal, doc) || !await validDependencies(s, threadId, signal)) continue; const size = Buffer.byteLength(s.instructions); if (bytes + size > 4096) continue; selected.push(s); bytes += size; } return selected;
+    index: (threadId, signal = neverAborted) => result(async () => {
+      const doc = await load(signal), selected: Array<Pick<LearnedSkill, "id" | "revision" | "title" | "description">> = [];
+      for (const s of doc.skills) if (s.enabled && await validSources(s.sources, signal, doc) && await validDependencies(s, threadId, signal)) {
+        selected.push({ id: `method:${s.id}`, revision: s.revision, title: s.title, description: s.description });
+      }
+      return selected;
+    }, signal),
+    read: (id, threadId, signal = neverAborted) => result(async () => {
+      const doc = await load(signal), s = doc.skills.find(s => s.id === id && s.enabled);
+      if (!s || !await validSources(s.sources, signal, doc) || !await validDependencies(s, threadId, signal)) fail("DREAMING_NOT_FOUND", "Method unavailable");
+      return s;
     }, signal),
   };
 }

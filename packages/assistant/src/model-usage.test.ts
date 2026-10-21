@@ -10,13 +10,13 @@ import { MockLanguageModelV3 } from "ai/test";
 import { ExecutionRecordStore, EXECUTION_RECORD_FILE } from "./execution-record-store.js";
 import { observeModelUsage } from "./model-usage-observer.js";
 import { estimatedModelCost, validModelCall, validModelPrice, type ModelCallRecord, type ModelPurpose } from "./model-usage.js";
-import { createMemoryQueryRewriter } from "./memory-query-rewrite.js";
 import { createRuntimeApp } from "./app.js";
 import { createAssistantController } from "./assistant-controller.js";
 import { DEFAULT_CONTEXT_BUDGET_CONFIG } from "./context-budget.js";
 import { readTuiModuleConfig } from "./tui-module-config.js";
 import { ContextCompactor } from "./context-compactor.js";
 import { createAiSdkSummarizer } from "./context-compaction.js";
+import { ModelCallLog } from "./model-call-log.js";
 
 const reported = { inputTokens: { total: 100, noCache: 60, cacheRead: 30, cacheWrite: 10 }, outputTokens: { total: 20, text: 20, reasoning: undefined } };
 const price = { provider: "mock", modelId: "mock-model-id", currency: "CNY", inputPerMillion: 2, outputPerMillion: 4, cacheReadPerMillion: 0.2, cacheWritePerMillion: 3 };
@@ -100,7 +100,7 @@ test("retention prunes terminal calls, protects pending calls and explicitly rep
   } finally { await f.cleanup(); }
 });
 
-test("SDK retry is two actual provider calls; query-rewrite local reuse is one, missing caches remain unknown", async () => {
+test("SDK retry is two actual provider calls; missing caches remain unknown", async () => {
   const f = await fixture();
   try {
     let dispatched = 0;
@@ -113,11 +113,6 @@ test("SDK retry is two actual provider calls; query-rewrite local reuse is one, 
     assert.equal(dispatched, 2); assert.equal(page.calls.length, 2);
     assert.deepEqual(page.calls.map(c => c.status), ["returned", "failed"]);
     assert.deepEqual(page.calls[0]!.usage, { inputTokens: 100, outputTokens: 20, totalTokens: 120, cacheReadTokens: 30, cacheWriteTokens: 10 });
-    const rewrite = createMemoryQueryRewriter(model);
-    await rewrite("user", "怎样复盘", new AbortController().signal);
-    await rewrite("user", "怎样复盘", new AbortController().signal);
-    page = await f.records.listModelUsage("thread");
-    assert.equal(page.calls.length, 3); assert.equal(dispatched, 3);
     const missing = observeModelUsage(new MockLanguageModelV3({ doGenerate: async () => ({ ...response("ok"), usage: { ...reported, inputTokens: { ...reported.inputTokens, cacheRead: undefined, cacheWrite: undefined } } }) }), {
       records: f.records, threadId: "thread", enabled: () => true, scope: () => ({ purpose: "chat" }),
     });
@@ -137,14 +132,15 @@ test("cancellation of non-cooperative provider keeps one unknown-use attempt; la
       records: f.records, threadId: "thread", enabled: () => true, scope: () => ({ purpose: "query_rewrite" }),
     });
     const controller = new AbortController();
-    const pending = createMemoryQueryRewriter(model)("user", "reports", controller.signal);
+    const pending = generateText({ model, prompt: "reports", abortSignal: controller.signal, maxRetries: 0 });
     await dispatched; controller.abort(new Error("stop"));
-    await assert.rejects(pending, /stop/); resolve(response('{"queries":[]}'));
+    const rejection = assert.rejects(pending, /stop/);
     const deadline = Date.now() + 2000;
     while ((await f.records.listModelUsage("thread")).calls[0]?.status === "pending" && Date.now() < deadline) await delay(10);
     const page = await f.records.listModelUsage("thread");
     assert.equal(page.calls.length, 1); assert.equal(page.calls[0]!.status, "cancelled");
     assert.deepEqual(page.calls[0]!.usage, {});
+    resolve(response("late result")); await rejection;
   } finally { await f.cleanup(); }
 });
 
@@ -212,11 +208,11 @@ test("actual AgentLoop streaming retry preserves two call attempts without chang
   } finally { app?.dispose(); await f.cleanup(); }
 });
 
-test("Demo: real Controller wiring records chat/consolidation/rewrite/compaction and old summary reuse adds no call", async () => {
+test("Demo: real Controller records chat/consolidation, compactor usage and summary reuse without auxiliary retrieval", async () => {
   const f = await fixture();
   const workspace = join(f.directory, "workspace"), directory = join(f.directory, "transcripts"), config = join(f.directory, "config.json");
   await mkdir(workspace);
-  await writeFile(config, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: true, autoConsolidate: true, writePolicy: "automatic", queryRewrite: { enabled: true } } },
+  await writeFile(config, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: true, autoConsolidate: true, writePolicy: "automatic" } },
     contextCompaction: { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled: true, keepRecentTokens: 20 }, modelPricing: [price] }));
   let userId = "";
   const model = new MockLanguageModelV3({ doGenerate: async () => response('{"queries":["咖啡"]}'), doStream: async options => {
@@ -255,11 +251,13 @@ test("Demo: real Controller wiring records chat/consolidation/rewrite/compaction
     const memories = await controller.memory.list(); assert.ok(memories.ok);
     assert.equal(memories.value.entries.length, 1);
     userId = (await app.store.getMessages("thread")).find(message => message.role === "user")!.id;
-    const compact = await controller.command("/compact"); assert.ok(compact.ok, JSON.stringify(compact));
+    const compactor = new ContextCompactor({ store: app.store, threadId: "thread", modelId: "fixture", budget: app.moduleConfig!.contextCompaction,
+      fixedContext: () => ({ instructions: "", tools: [] }), summarizer: createAiSdkSummarizer(observeModelUsage(model, {
+        records: app.executionRecords, callLog: new ModelCallLog(directory), threadId: "thread", enabled: () => true, scope: () => ({ purpose: "context_compaction" }) })) });
+    await compactor.prepare(await app.store.getMessages("thread"), new AbortController().signal, true);
     let page = await controller.runs.listModelUsage!();
-    assert.deepEqual([...new Set(page.calls.map(c => c.purpose))].sort(), ["chat", "context_compaction", "memory_consolidation", "query_rewrite"]);
+    assert.deepEqual([...new Set(page.calls.map(c => c.purpose))].sort(), ["chat", "context_compaction", "memory_consolidation"]);
     assert.equal(page.calls.filter(c => c.purpose === "chat")[0]!.runId, started.runId);
-    assert.equal(page.calls.filter(c => c.purpose === "query_rewrite")[0]!.runId, started.runId);
     assert.equal(page.calls.filter(c => c.purpose === "context_compaction")[0]!.runId, undefined, "manual compact is not a Run");
     assert.ok(page.calls.every(c => c.status === "returned"));
     const names = (await readdir(directory)).filter(name => /^model-calls-.*\.jsonl$/.test(name));
@@ -271,7 +269,7 @@ test("Demo: real Controller wiring records chat/consolidation/rewrite/compaction
     const diagnostics = await controller.getContextDiagnostics();
     assert.ok(diagnostics.ok); assert.equal(diagnostics.value.modelCallLogWriteFailures, 0);
     const logged = rows.filter(row => row.event === "started");
-    assert.deepEqual([...new Set(logged.map(row => row.purpose))].sort(), ["chat", "context_compaction", "memory_consolidation", "query_rewrite"]);
+    assert.deepEqual([...new Set(logged.map(row => row.purpose))].sort(), ["chat", "context_compaction", "memory_consolidation"]);
     const before = page.calls.length;
     const messages = await app.store.getMessages("thread");
     const reopened = new ContextCompactor({ store: app.store, threadId: "thread", modelId: "fixture",

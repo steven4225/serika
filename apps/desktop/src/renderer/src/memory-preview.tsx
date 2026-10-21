@@ -64,7 +64,7 @@ const fixtureApi: Pick<RendererApi, "listMemories" | "getMemory" | "getMemoryHis
     changed();
     return { ok: true, value: structuredClone(next) };
   },
-  getMemoryReferences: async () => ({ runId: "fixture-run", messageId: "fixture-user", preparedAt: daysAgo(0), temporalView: { validAt: daysAgo(0), knownAt: daysAgo(0) }, selected: [{ id: memories[0]!.id, revision: 1, text: memories[0]!.text, reason: "matched" }], rewrite: "off", truncated: false, queryTruncated: false }),
+  getMemoryReferences: async () => ({ runId: "fixture-run", messageId: "fixture-user", preparedAt: daysAgo(0), temporalView: { validAt: daysAgo(0), knownAt: daysAgo(0) }, selected: [{ id: memories[0]!.id, revision: 1, text: memories[0]!.text, reason: "snapshot" }], referenceBytes: 128, eligibleCount: 1, truncated: false, queryTruncated: false }),
 };
 window.runloom = fixtureApi as RendererApi;
 function Preview() {

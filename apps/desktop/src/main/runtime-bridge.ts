@@ -253,11 +253,10 @@ export class RuntimeBridge {
       tuiMode: this.#app.tuiMode,
       commands: [...new Set([
         ...(this.#app.commands ? [...this.#app.commands.keys()] : []),
-        ...(this.#app.compaction ? ["compact"] : []),
         ...(this.#app.resume ? ["resume"] : []),
         "skills", "hooks", "skill",
       ])].sort(),
-      hasCompaction: this.#app.compaction !== undefined,
+
       hasResume: this.#app.resume !== undefined,
       totalTimeoutMs: this.#app.moduleConfig?.totalTimeoutMs ?? TUI_DEFAULT_TOTAL_TIMEOUT_MS,
       shellTimeoutMs: this.#app.moduleConfig?.shellTimeoutMs ?? TUI_DEFAULT_SHELL_TIMEOUT_MS,
@@ -265,7 +264,6 @@ export class RuntimeBridge {
         enabled: this.#app.moduleConfig?.enabled.memory === true && this.#app.memoryStore !== undefined,
         autoConsolidate,
         writePolicy: this.#app.moduleConfig?.memoryWritePolicy ?? "review",
-        queryRewriteEnabled: this.#app.moduleConfig?.memoryQueryRewriteEnabled === true,
       },
       workTasks: this.#app.workTasks !== undefined,
     };

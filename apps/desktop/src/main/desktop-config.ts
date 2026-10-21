@@ -1,6 +1,6 @@
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { contextBudgetForMode } from "@serika/assistant";
+import { defaultContextBudget } from "@serika/assistant";
 import { updateDesktopConfig } from "./module-settings.js";
 
 /** Desktop defaults sit above the 30s Shell / 120s Run floors so a >30s task can finish. */
@@ -66,7 +66,7 @@ export function defaultDesktopConfig(workspace?: string): Record<string, unknown
   };
   if (workspace !== undefined) {
     modules["read-file"] = { enabled: true };
-    modules.memory = { enabled: true, autoConsolidate: true, writePolicy: "automatic", queryRewrite: { enabled: true }, contextView: { enabled: true } };
+    modules.memory = { enabled: true, autoConsolidate: true, writePolicy: "automatic" };
     modules.checkpoint = { enabled: true };
     modules.task = { enabled: true };
   }
@@ -75,7 +75,7 @@ export function defaultDesktopConfig(workspace?: string): Record<string, unknown
     ...(workspace === undefined ? {} : { workspace }),
     modules,
     run: { totalTimeoutMs: DESKTOP_DEFAULT_TOTAL_TIMEOUT_MS },
-    contextCompaction: contextBudgetForMode("daily"),
+    contextCompaction: defaultContextBudget(),
   };
 }
 
@@ -128,7 +128,7 @@ export async function enableDesktopMemory(configPath: string, cwd = process.cwd(
     const modules = isRecord(config.modules) ? config.modules : {};
     const memory = isRecord(modules.memory) ? modules.memory : {};
     const policyOnly = memory.enabled === true && memory.autoConsolidate === true && memory.writePolicy !== "automatic";
-    const next = { ...config, modules: { ...modules, memory: { ...memory, enabled: true, autoConsolidate: true, writePolicy: "automatic", ...(!policyOnly ? { queryRewrite: { enabled: true } } : {}) } } };
+    const next = { ...config, modules: { ...modules, memory: { ...memory, enabled: true, autoConsolidate: true, writePolicy: "automatic" } } };
     return `${JSON.stringify(next, null, 2)}\n`;
   });
   return result.rollback ?? (async () => {});

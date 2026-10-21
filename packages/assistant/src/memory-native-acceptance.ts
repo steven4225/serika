@@ -11,7 +11,8 @@ import { createAssistantController, type AssistantController } from "./assistant
 import { configureCliModel } from "./model-config.js";
 import { createDemoModel } from "./demo-model.js";
 import { createMemoryStore } from "./memory-store.js";
-import { retrieveMemories } from "./memory-retrieval.js";
+import { selectInjectableMemoryEntries } from "./memory-store.js";
+import { memorySnapshot } from "./memory-snapshot.js";
 import { JsonlAgentStore } from "@serika/core";
 import { createTaskWorkerAgent } from "./task-worker-entry.js";
 import { createTaskStore } from "./task-store.js";
@@ -72,9 +73,14 @@ export async function runNativeMemoryAcceptance(): Promise<{ root: string; passe
     const found: Array<{ id: string; revision: number; text: string }> = [];
     const visit = (value: unknown): void => {
       if (typeof value !== "object" || value === null) return;
-      if ("text" in value && typeof value.text === "string" && value.text.startsWith("Current Memory reference:")) {
+      if ("text" in value && typeof value.text === "string" && value.text.startsWith("Fixed Memory snapshot:")) {
         const start = value.text.indexOf("\n[");
         if (start >= 0) found.push(...JSON.parse(value.text.slice(start + 1)));
+      }
+      if ("text" in value && typeof value.text === "string" && value.text.includes("Memory updates supersede the fixed snapshot:\n")) {
+        const updates = JSON.parse(value.text.split("Memory updates supersede the fixed snapshot:\n")[1]!);
+        for (let index = found.length - 1; index >= 0; index--) if (updates.invalidated.includes(found[index]!.id)) found.splice(index, 1);
+        found.push(...updates.current);
       }
       for (const child of Object.values(value)) visit(child);
     };
@@ -116,16 +122,13 @@ export async function runNativeMemoryAcceptance(): Promise<{ root: string; passe
     check("update", `${memoryId} revision 2 actually injected`);
     // Real ordinary turns supply meaningful compaction material, not a fabricated summary record.
     for (let index = 0; index < 3; index++) await run(`context-${index}`, `复盘写作验收约束 ${index + 1}：每个可执行步骤必须包括行动、检查方式和结束条件。参考用户偏好，解释如何写一个清晰的复盘步骤，约200字，不保存记忆、不调用工具。`);
-    phase = "compact";
-    const compacted = await controller!.command("/compact"); assert.ok(compacted.ok, JSON.stringify(compacted));
-    const records = await app!.store.getContextCompactions(app!.threadId); assert.ok(records.length > 0);
     await open("question-b", false);
     const restored = await run("restored", "我的复盘写作偏好是什么？只按当前记忆回答，不要调用工具。旧对话可能还写着两条。");
     assert.ok(actualMemory("restored").some((entry) => entry.id === memoryId && entry.revision === 2));
     assert.match(restored.text, /三条|三步|3/);
-    check("compact-restart", `compaction records ${records.length}; restored current revision 2, answered three steps`);
+    check("restart", "restored current revision 2, answered three steps");
     const disabled = await app!.memoryStore!.update(memoryId, { expectedRevision: 2, enabled: false }); assert.ok(disabled.ok);
-    const noMatch = await run("disabled", "本轮实际注入的复盘写作记忆有哪些？只看本轮的Current Memory reference，若selected entries为空只回复NO_MATCH。不要查询工具，不把旧对话里的ID或active当作本轮注入。");
+    const noMatch = await run("disabled", "本轮实际注入的复盘写作记忆有哪些？只看本轮的Fixed Memory snapshot and message-bound updates，若selected entries为空只回复NO_MATCH。不要查询工具，不把旧对话里的ID或active当作本轮注入。");
     assert.equal(actualMemory("disabled").some((entry) => entry.id === memoryId), false);
     assert.match(noMatch.text, /NO_MATCH/);
     assert.doesNotMatch(noMatch.text, new RegExp(memoryId));
@@ -133,7 +136,7 @@ export async function runNativeMemoryAcceptance(): Promise<{ root: string; passe
     const storage = createMemoryStore(workspace);
     for (let index = 0; index < 10; index++) assert.ok((await storage.add({ text: `worker验收 ${index}：${"约束".repeat(250)}` })).ok);
     const listed = await storage.list(); assert.ok(listed.ok);
-    const selected = retrieveMemories(listed.entries, { query: "worker验收", now: new Date() });
+    const selected = memorySnapshot(listed.entries, { now: new Date() });
     assert.ok(selected.truncated); assert.ok(selected.bytes <= 8192);
     check("storage-budget", `eligible ${selected.eligibleCount}, selected ${selected.entries.length}, bytes ${selected.bytes}; actual worker execution still separate evidence`);
     assert.ok((await storage.add({ text: "worker验收私有标记NEVER_INJECT", scope: { kind: "thread", threadId: "source-a" } })).ok);

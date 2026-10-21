@@ -78,7 +78,7 @@ describe("native Memory app wiring", () => {
         const currentReferences: string[] = [];
         const visit = (value: unknown): void => {
           if (typeof value !== "object" || value === null) return;
-          if ("text" in value && typeof value.text === "string" && value.text.startsWith("Current Memory reference:")) currentReferences.push(value.text);
+          if ("text" in value && typeof value.text === "string" && value.text.startsWith("Fixed Memory snapshot:")) currentReferences.push(value.text);
           for (const child of Object.values(value)) visit(child);
         };
         visit(JSON.parse(prompts[2]!));

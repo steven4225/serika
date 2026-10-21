@@ -62,7 +62,6 @@ export function createWorkTaskControls(k: ControllerKernel, deps: {
   slot: WorkTaskSlot;
   run(text: string, options?: AssistantRunOptions): Promise<StartRunResponse>;
   /** A human acceptance completed a task. */
-  onCompleted(): void;
 }): AssistantWorkTaskControls {
   const { app } = k;
   const { slot } = deps;
@@ -250,7 +249,6 @@ export function createWorkTaskControls(k: ControllerKernel, deps: {
       });
       if (updated.ok) {
         k.emit({ type: "work-task-updated", task: updated.value });
-        if (updated.value.status === "completed") deps.onCompleted();
       }
       return updated;
     },

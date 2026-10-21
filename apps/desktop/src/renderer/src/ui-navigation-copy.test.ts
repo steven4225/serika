@@ -3,12 +3,12 @@ import { readFile } from "node:fs/promises";
 import { it } from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { contextBudgetForMode } from "@serika/assistant";
+import { defaultContextBudget } from "@serika/assistant";
 import { DEFAULT_CONTEXT_BUDGET_CONFIG } from "@serika/assistant/testing";
 import type { MemoryMaintenance } from "@serika/assistant";
 import type { AppInfo } from "../../shared/ui-contract.js";
 import { contextOverview } from "../../shared/context-panel.js";
-import { ContextModeSelector, ContextPanel } from "./context.js";
+import { ContextPanel } from "./context.js";
 import { consolidationStatusLabel } from "./memory-consolidation.js";
 import { MemoryPanel } from "./memory.js";
 import { memoryAutomationLabel } from "./memory-copy.js";
@@ -19,15 +19,14 @@ import { readAppSource } from "../test-support/app-source.js";
 const source = (path: string) => readFile(new URL(path, import.meta.url), "utf8");
 const render = (element: Parameters<typeof renderToStaticMarkup>[0]) => renderToStaticMarkup(element);
 const noop = () => {};
-const info = { workspaceRoot: "/workspace", configPath: "/config.json", memory: { enabled: true, autoConsolidate: false, writePolicy: "review", queryRewriteEnabled: false }, workTasks: true } as AppInfo;
+const info = { workspaceRoot: "/workspace", configPath: "/config.json", memory: { enabled: true, autoConsolidate: false, writePolicy: "review" }, workTasks: true } as AppInfo;
 const maintenance: MemoryMaintenance = { stored: 0, pending: 0, expired: 0, disabled: 0, duplicateSuggestions: 0, capacity: { entries: 200, bytes: 1024, assertionsPerEntry: 10 }, consolidation: { enabled: false, state: "off" } };
 
 it("message exclusion explains the actual cloud inference boundary without claiming it disables saved keyword references", async () => {
   const app = await readAppSource();
   const hint = app.match(/className="memory-exclusion" title="([^"]+)"/)?.[1];
   assert.ok(hint);
-  assert.match(hint, /已有记忆仍可通过关键词引用/);
-  assert.match(hint, /本条不触发语义检索或画像引用/);
+  assert.match(hint, /已有记忆仍通过固定快照和按需读取提供/);
 });
 
 it("UI regression 1: workspace belongs to settings and never selects 手札", async () => {
@@ -40,11 +39,9 @@ it("UI regression 1: workspace belongs to settings and never selects 手札", as
 });
 
 it("UI regression 2: context compression and memory consolidation have distinct status and stop wording", async () => {
-  const panel = render(createElement(ContextPanel, { controllerIdle: true, refreshToken: 0, hasCompaction: true }));
-  const mode = render(createElement(ContextModeSelector, { budget: DEFAULT_CONTEXT_BUDGET_CONFIG, disabled: false, onSelect: noop }));
+  const panel = render(createElement(ContextPanel, { controllerIdle: true, refreshToken: 0, }));
   const overview = contextOverview({ enabled: false } as Parameters<typeof contextOverview>[0]);
-  assert.doesNotMatch(panel + mode + JSON.stringify(overview), /整理/);
-  assert.match(mode, /自动压缩/);
+  assert.doesNotMatch(panel + JSON.stringify(overview), /整理/);
   assert.match(consolidationStatusLabel(true, { ...maintenance, consolidation: { enabled: true, state: "running" } }, ""), /记忆/);
   const app = await readAppSource();
   assert.doesNotMatch(app, /"停止整理"/);
@@ -99,14 +96,6 @@ it("reminders stay reachable from 手札 and are not a top pill or a settings in
 it("UI regression 6: 手札 explicitly allows ordinary conversation without creating a task", () => {
   const html = render(createElement(TodayPanel, { info, tasks: [], tasksLoading: false, tasksError: null, onContinue: noop, onPomodoro: noop, onAutomation: noop, now: new Date("2026-10-16T09:00:00+08:00") }));
   assert.match(html, /普通对话照常使用/);
-});
-
-it("UI regression 7: selected context mode remains enabled while actual busy controls are disabled", () => {
-  const props = { budget: contextBudgetForMode("daily"), disabled: false, onSelect: noop };
-  const html = render(createElement(ContextModeSelector, props));
-  assert.match(html, /aria-pressed="true">日常/);
-  assert.doesNotMatch(html, /disabled/);
-  assert.match(render(createElement(ContextModeSelector, { ...props, disabled: true })), /aria-pressed="true" disabled="">日常/);
 });
 
 it("optional memory tab selection shares the settings pill instead of an underline", async () => {

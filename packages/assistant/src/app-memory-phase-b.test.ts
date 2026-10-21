@@ -221,7 +221,7 @@ describe("Memory Phase B application integration", () => {
       assert.ok(reference);
       assert.equal(reference.messageId, "lookup-message");
       assert.equal(reference.temporalView.validAt, reference.temporalView.knownAt);
-      assert.equal(reference.selected[0]?.reason, "recall_term");
+      assert.equal(reference.selected[0]?.reason, "snapshot");
       assert.equal(reference.selected[0]?.id, added.entry.id);
       assert.equal(reference.selected[0]?.text, added.entry.text);
       assert.equal(reference.selected[0]?.assertion?.kind, "preference");

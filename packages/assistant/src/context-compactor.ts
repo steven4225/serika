@@ -34,6 +34,7 @@ import { collectTranscriptToolFacts } from "./work-summary.js";
 import type { ContextDiagnostics, ContextResult } from "./context-diagnostics.js";
 import { CONTEXT_ESTIMATOR_VERSION } from "./context-budget.js";
 import { isAutoConsolidationRequest, withoutConsolidationTurns } from "./consolidation.js";
+import { expandMessageReferences } from "./context-assembler.js";
 
 const SUMMARY_TIMEOUT_MS = 30_000;
 const MANUAL_COMPACTION_TIMEOUT_MS = 120_000;
@@ -53,12 +54,9 @@ export interface ContextCompactorOptions {
     | Omit<ContextInputParts, "messages">
     | Promise<Omit<ContextInputParts, "messages">>;
   promptPrefix?: (signal: AbortSignal, messages: readonly UIMessage[]) => UIMessage[] | Promise<UIMessage[]>;
+  refreshReference?: (messages: UIMessage[], signal: AbortSignal) => Promise<UIMessage[]>;
   now?: () => Date;
   generateId?: () => string;
-}
-
-export interface CompactCommandResult {
-  message: string;
 }
 
 function abortError(signal: AbortSignal): Error {
@@ -430,16 +428,6 @@ function compactCompletedActions(actions: ContextSummaryV2["actions"], facts: Re
   return result;
 }
 
-function formatUsage(usage: TokenUsage | undefined): string {
-  if (
-    usage === undefined ||
-    (usage.inputTokens === undefined && usage.outputTokens === undefined)
-  ) {
-    return "usage unknown";
-  }
-  return `usage in=${usage.inputTokens ?? "unknown"} out=${usage.outputTokens ?? "unknown"}`;
-}
-
 function addObservedUsage(previous: TokenUsage | undefined, next: TokenUsage): TokenUsage {
   return sumTokenUsage(previous, next);
 }
@@ -469,6 +457,9 @@ export class ContextCompactor {
   /** The exact references counted by the latest preparation, for final injection. */
   get effectiveReferencePrefix(): readonly UIMessage[] {
     return this.#effectiveReferencePrefix;
+  }
+  async referenceSnapshot(messages: UIMessage[]): Promise<UIMessage[] | undefined> {
+    return (await this.#findLatestValid(messages))?.referencePrefix;
   }
   #lastPrepare:
     | { kind: "written"; record: ContextCompactionRecord }
@@ -546,7 +537,7 @@ export class ContextCompactor {
           tools: fixed.tools ?? [],
           memories: [],
           dynamicContext: fixed.dynamicContext ?? "",
-          messages: [...prefixInject, ...visible(conversation)],
+          messages: [...prefixInject, ...expandMessageReferences(visible(conversation))],
         },
         this.#options.budget,
       );
@@ -602,6 +593,10 @@ export class ContextCompactor {
       return finish(messages);
     }
 
+    if (this.#options.refreshReference) {
+      prefixInject = await this.#options.refreshReference(messages, signal);
+      this.#effectiveReferencePrefix = prefixInject;
+    }
     const partition = partitionMessagesForCompaction(messages);
     const units = [...partition.history, ...partition.current];
     let { kept, omitted } = keepRecentCompactionUnits(
@@ -636,7 +631,7 @@ export class ContextCompactor {
         ...transcriptPrefix(messages),
         ...messages.slice(firstKept),
       ]);
-      const target = this.#options.budget.inputBudgetTokens === undefined ? estimate.availableInputTokens : limits.warningTokens;
+      const target = this.#options.budget.inputBudgetTokens === undefined ? estimate.availableInputTokens : limits.triggerTokens - limits.predictedGrowthTokens;
       return estimate.inputTokens + summaryReserve <= target;
     };
 
@@ -746,6 +741,7 @@ export class ContextCompactor {
       firstKeptMessageId: keptMessages[0]?.id ?? null,
       sourcePrefixHash: compactPrefixHash(messages, firstKept),
       consolidationExcluded: true,
+      referencePrefix: [...prefixInject],
       summary,
       strategyVersion: CONTEXT_SUMMARY_STRATEGY_VERSION,
       modelId: this.#options.modelId,
@@ -762,44 +758,6 @@ export class ContextCompactor {
     this.#latest = record;
     this.#lastPrepare = { kind: "written", record };
     return finish(compactedMessages, record.id);
-  }
-
-  async compact(signal: AbortSignal): Promise<CompactCommandResult> {
-    const messages = await this.#options.store.getMessages(this.#options.threadId);
-    if (messages.length === 0) return { message: "没有可压缩的已提交历史。" };
-    const controller = new AbortController();
-    const onAbort = (): void => controller.abort(abortError(signal));
-    if (signal.aborted) controller.abort(abortError(signal));
-    signal.addEventListener("abort", onAbort, { once: true });
-    const manualTimeoutMs = this.#options.budget.inputBudgetTokens === undefined ? MANUAL_COMPACTION_TIMEOUT_MS : 600_000;
-    const timer = setTimeout(() => controller.abort(new AgentError({
-      code: "MODEL_TIMEOUT",
-      message: `Context compaction exceeded the ${manualTimeoutMs / 1000} second manual budget`,
-      retryable: true,
-      phase: "runtime",
-    })), manualTimeoutMs);
-    try {
-      const prepared = await this.prepare(messages, controller.signal, true);
-      if (this.#lastPrepare?.kind === "written") {
-        const metrics = this.#lastPrepare.record.metrics;
-        return {
-          message:
-            `上下文摘要已保存。估算 ${metrics.estimatedInputBefore} → ${metrics.estimatedInputAfter} tokens；` +
-            `耗时 ${metrics.durationMs} ms；尝试 ${metrics.attempts} 次；${formatUsage(metrics.usage)}。原始历史仍可用 /history 回查。`,
-        };
-      }
-      if (!prepared.some((message) =>
-        typeof message.metadata === "object" &&
-        message.metadata !== null &&
-        (message.metadata as { source?: unknown }).source === "context-compaction"
-      )) {
-        return { message: "没有可压缩内容。" };
-      }
-      return { message: "没有可压缩内容。" };
-    } finally {
-      clearTimeout(timer);
-      signal.removeEventListener("abort", onAbort);
-    }
   }
 
   async #findLatestValid(messages: readonly UIMessage[]): Promise<ContextCompactionRecord | undefined> {

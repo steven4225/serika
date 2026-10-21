@@ -23,7 +23,7 @@ function appWith(store: TemporalWorkspaceMemoryStore, root: string, overrides: P
     enableExecutionRecords: () => undefined, bindNextExecutionWorkTask: () => () => undefined,
     workTasks: undefined, workTaskContext: { begin: () => undefined, end: () => undefined },
     threadId: "thread-a", directory: join(root, "transcripts"), workspaceRoot: root,
-    memoryStore: store, moduleConfig: undefined, toolConfirmation: undefined, commands: undefined, compaction: undefined,
+    memoryStore: store, moduleConfig: undefined, toolConfirmation: undefined, commands: undefined,
     getContextDiagnostics: async () => ({ ok: false, error: { code: "TEST", message: "unused" } }),
     resume: undefined, autoConsolidationAgentId: undefined,
     renderHome: async () => undefined, registerNotificationRedraw: () => undefined, dispose: () => undefined,

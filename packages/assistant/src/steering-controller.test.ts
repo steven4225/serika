@@ -79,14 +79,16 @@ test("Steer revokes old file preview, replans inside the same Run, refreshes Mem
     await waitFor(() => controller!.getSnapshot().state.kind === "idle");
     assert.equal(controller.getSnapshot().lastPrimaryResult?.runId, started.runId);
     assert.equal(await readFile(join(f.workspace, "notes/plan.md"), "utf8"), "原文\n1. 核对交付\n2. 安排后续");
-    assert.doesNotMatch(prompts[0]!, /复盘喜欢两条行动/);
+    assert.match(prompts[0]!, /复盘喜欢两条行动/);
     assert.match(prompts[1]!, /复盘喜欢两条行动/);
     const run = await controller.runs.get(started.runId); assert.ok(run);
     assert.equal(run.tools[0]?.status, "not_started"); assert.equal(run.tools[0]?.startedAt, null);
     assert.equal(run.steers?.[0]?.status, "applied");
     assert.deepEqual(run.memoryReferences, [{ id: remembered.entry.id, revision: remembered.entry.revision! }]);
     const history = await controller.getHistory();
-    assert.deepEqual(history.find(message => message.id === run.steers![0]!.messageId)?.metadata, { source: "steer", memoryConsolidation: "exclude" });
+    const steerMetadata = history.find(message => message.id === run.steers![0]!.messageId)?.metadata as Record<string, unknown>;
+    assert.equal(steerMetadata.source, "steer"); assert.equal(steerMetadata.memoryConsolidation, "exclude");
+    assert.ok(Array.isArray(steerMetadata.contextReferences));
     assert.deepEqual(memoryConsolidationBacklog(history, null), { ok: true, value: 0 });
     await controller.shutdown(); controller = undefined;
     controller = (await f.open()).controller;

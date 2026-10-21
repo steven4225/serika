@@ -10,7 +10,6 @@ import {
 import { z } from "zod";
 import { resolveConfiguredTodoistTimeZone, resolveShorthandTodoistTimeZone, todoistModuleConfigSchema } from "./modules/todoist-module.js";
 import { validModelPrice, type ModelPrice } from "./model-usage.js";
-import { normalizeEmbeddingConfig, type ResolvedEmbeddingConfig } from "./memory-embedding-client.js";
 import { computerConfigSchema, type ComputerConfig } from "./modules/computer-module.js";
 import { hooksConfigSchema, type HookRule } from "./automation-hooks.js";
 import { skillPackageRegistrationsSchema, type SkillPackageRegistration } from "./skill-catalog.js";
@@ -73,10 +72,6 @@ export interface ResolvedTuiModuleConfig {
   webFeedEnabled: boolean;
   autoConsolidate: boolean;
   memoryWritePolicy?: "review" | "automatic";
-  memoryQueryRewriteEnabled?: boolean;
-  memorySemantic?: ResolvedEmbeddingConfig;
-  memorySemanticRelevanceEnabled?: boolean;
-  memoryContextViewEnabled?: boolean;
   todoistTimeZone: string | null;
   fileAuthorizations: readonly FileAuthorizationRule[];
   shellSandbox: DockerShellSandboxConfig | null;
@@ -117,9 +112,6 @@ const memoryModuleSchema = z
     enabled: z.boolean(),
     autoConsolidate: z.boolean().optional(),
     writePolicy: z.enum(["review", "automatic"]).optional(),
-    queryRewrite: z.object({ enabled: z.boolean() }).strict().optional(),
-    semantic: z.object({ enabled: z.boolean(), provider: z.enum(["local", "dashscope"]).optional(), baseURL: nonEmptyString.optional(), modelId: nonEmptyString.optional(), relevance: z.object({ enabled: z.boolean() }).strict().optional() }).strict().optional(),
-    contextView: z.object({ enabled: z.boolean() }).strict().optional(),
   })
   .strict();
 
@@ -156,10 +148,8 @@ const contextCompactionSchema = z
     safetyMarginTokens: z.number().int().nonnegative(),
     keepRecentTokens: z.number().int().nonnegative(),
     summaryMaxOutputTokens: z.number().int().nonnegative(),
-    mode: z.enum(["daily", "long-task"]).optional(),
     inputBudgetTokens: z.number().int().positive().optional(),
     triggerRatio: z.number().gt(0).lt(1).optional(),
-    warningRatio: z.number().gt(0).lt(1).optional(),
     summaryInputChunkTokens: z.number().int().positive().optional(),
   })
   .strict();
@@ -218,9 +208,8 @@ export interface TuiModuleConfigV1 {
     pomodoro?: { enabled: boolean } | undefined;
     "read-file"?: { enabled: boolean } | undefined;
     memory?:
-      | { enabled: boolean; autoConsolidate?: boolean | undefined; writePolicy?: "review" | "automatic" | undefined; queryRewrite?: { enabled: boolean } | undefined;
-          semantic?: { enabled: boolean; provider?: "local" | "dashscope" | undefined; baseURL?: string | undefined; modelId?: string | undefined; relevance?: { enabled: boolean } | undefined } | undefined;
-          contextView?: { enabled: boolean } | undefined }
+      | { enabled: boolean; autoConsolidate?: boolean | undefined; writePolicy?: "review" | "automatic" | undefined;
+        }
       | undefined;
     checkpoint?: { enabled: boolean } | undefined;
     task?: { enabled: boolean } | undefined;
@@ -490,20 +479,6 @@ async function resolveConfiguredMode(
   if (memoryWritePolicy === "automatic" && (!enabled.memory || !autoConsolidate)) {
     throw new Error("memory.writePolicy automatic requires memory.enabled and autoConsolidate");
   }
-  const memoryQueryRewriteEnabled = config.modules.memory?.queryRewrite?.enabled ?? false;
-  const memoryContextViewEnabled = config.modules.memory?.contextView?.enabled ?? false;
-  const semanticConfig = config.modules.memory?.semantic;
-  const memorySemanticRelevanceEnabled = semanticConfig?.relevance?.enabled ?? false;
-  if (memorySemanticRelevanceEnabled && !semanticConfig?.enabled) throw new Error("memory.semantic.relevance requires memory.semantic.enabled");
-  const memorySemantic = semanticConfig?.enabled ? normalizeEmbeddingConfig({
-    ...(semanticConfig.provider ? { provider: semanticConfig.provider } : {}),
-    ...(semanticConfig.modelId ? { modelId: semanticConfig.modelId } : {}),
-    ...(semanticConfig.baseURL ? { baseURL: semanticConfig.baseURL } : {}),
-  }) : undefined;
-  if ((memorySemantic || memoryContextViewEnabled) && !enabled.memory) throw new Error("memory.semantic and memory.contextView require memory.enabled");
-  if (memoryQueryRewriteEnabled && !enabled.memory) {
-    throw new Error("memory.queryRewrite requires memory.enabled to be true");
-  }
   if (autoConsolidate && !enabled.memory) {
     throw new Error(
       "memory.autoConsolidate requires memory.enabled to be true",
@@ -552,7 +527,7 @@ async function resolveConfiguredMode(
     workspaceRoot,
     enabled,
   );
-  if (config.telegramAutonomy || config.desktopAutonomy || fileAuthorizations.length > 0 || shellSandbox !== null || enabled.computer || memoryWritePolicy === "automatic" || config.automation !== undefined || memorySemantic) {
+  if (config.telegramAutonomy || config.desktopAutonomy || fileAuthorizations.length > 0 || shellSandbox !== null || enabled.computer || memoryWritePolicy === "automatic" || config.automation !== undefined) {
     const configRealPath = await realpath(absoluteConfigPath);
     if (workspaceRoot !== null && isPathWithin(workspaceRoot, configRealPath)) {
       throw new Error(
@@ -579,10 +554,6 @@ async function resolveConfiguredMode(
     webFeedEnabled,
     autoConsolidate,
     memoryWritePolicy,
-    memoryQueryRewriteEnabled,
-    memorySemanticRelevanceEnabled,
-    memoryContextViewEnabled,
-    ...(memorySemantic ? { memorySemantic } : {}),
     todoistTimeZone,
     fileAuthorizations,
     shellSandbox,

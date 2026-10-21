@@ -59,7 +59,6 @@ try {
       renderHome: app.renderHome,
       ...(app.toolConfirmation ? { toolConfirmation: app.toolConfirmation } : {}),
       ...(app.commands ? { commands: app.commands } : {}),
-      ...(app.compaction ? { compaction: app.compaction } : {}),
       ...(app.resume ? { resume: app.resume } : {}),
       ...(app.memoryConsolidation ? { memoryConsolidation: app.memoryConsolidation } : {}),
       ...(app.getMemoryConsolidationBacklog ? { getMemoryConsolidationBacklog: app.getMemoryConsolidationBacklog } : {}),

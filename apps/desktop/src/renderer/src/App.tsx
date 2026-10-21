@@ -572,7 +572,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
               }}
               leadingActions={<PersonalPromptOptions>
                 <AttachmentChooser key={`${info?.workspaceRoot}:${info?.threadId}`} disabled={busy || sending || composingTask || creatingTask || info?.attachments !== true} onError={setError} onPicked={files => { if (files.length + attachments.length > 4 || [...attachments, ...files].reduce((sum, file) => sum + file.data.length * 3 / 4 - (file.data.endsWith("==") ? 2 : file.data.endsWith("=") ? 1 : 0), 0) > 10 * 1024 * 1024) { setError("每条最多 4 个附件，总大小不超过 10 MiB"); return; } setAttachments(items => [...items, ...files]); }} />
-                {info?.memory.enabled && !composingTask && !creatingTask ? <label className="memory-exclusion" title="这条消息不进入现在或以后的记忆候选整理；不会删除对话记录。已有记忆仍可通过关键词引用；本条不触发语义检索或画像引用。"><input type="checkbox" checked={excludeFromMemory} disabled={sending} onChange={event => setExcludeFromMemory(event.target.checked)} />本条不存入记忆</label> : null}
+                {info?.memory.enabled && !composingTask && !creatingTask ? <label className="memory-exclusion" title="这条消息不进入现在或以后的记忆整理；不会删除对话记录。已有记忆仍通过固定快照和按需读取提供。"><input type="checkbox" checked={excludeFromMemory} disabled={sending} onChange={event => setExcludeFromMemory(event.target.checked)} />本条不存入记忆</label> : null}
                 {info?.workTasks && !composingTask && !creatingTask ? <button type="button" className="ghost" disabled={busy || workTasks.acting || sending} onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); setTaskDraft(input.trim()); setTaskFocused(true); openDetails("tasks"); setCreateTaskRequest(value => value + 1); }}><Icon name="activity" size={15} />{input.trim() ? "作为工作任务…" : "创建工作任务"}</button> : null}
 
               </PersonalPromptOptions>}
@@ -661,7 +661,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
                   {settingsRoute === "notifications" ? <SettingsNotifications enabled={info?.modules?.some(module => module.id === "task" && module.enabled) === true} busy={busy} /> : null}
                   {settingsRoute === "shortcuts" ? <SettingsShortcuts /> : null}
                   {settingsRoute === "about" && info ? <SettingsAbout info={info} busy={busy} /> : null}
-                  {settingsRoute === "context" && info ? <ContextPanel controllerIdle={!busy} refreshToken={contextRefresh} initialError={initialSettings === "context" ? initialSettingsError : null} hasCompaction={info.hasCompaction} /> : null}
+                  {settingsRoute === "context" && info ? <ContextPanel controllerIdle={!busy} refreshToken={contextRefresh} initialError={initialSettings === "context" ? initialSettingsError : null} /> : null}
                 </SettingsFrame>
               </div>
               <div hidden={detailTab !== "records"}>

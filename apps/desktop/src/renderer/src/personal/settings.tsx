@@ -7,28 +7,7 @@ import { BuildIdentityPanel } from "../build-identity-panel.js";
 import { BackupPanel } from "../backup-panel.js";
 import { ResidentServicePanel } from "../resident-service-panel.js";
 import { DailyAutomation } from "../daily-automation-panel.js";
-import {
-  applyThinkingChoice,
-  readWhenHostReady,
-  settingsBackTarget,
-  settingsCopy,
-  SETTINGS_CONNECTION_ROWS,
-  SETTINGS_OTHER_ROWS,
-  takeHostRead,
-  thinkingChoiceForBudget,
-  type HostReadResult,
-  type SettingsListTarget,
-  type SettingsRoute,
-  type ThinkingChoice,
-} from "./settings-model.js";
-
-async function readContextBudget(): Promise<HostReadResult<ContextBudgetConfig>> {
-  const readDiagnostics = window.runloom.getContextDiagnostics;
-  if (!readDiagnostics) return { ok: false, retry: false };
-  const result = await readDiagnostics();
-  if (!result.ok) return { ok: false, retry: true };
-  return { ok: true, value: result.value.budget };
-}
+import { readWhenHostReady, settingsBackTarget, settingsCopy, SETTINGS_CONNECTION_ROWS, SETTINGS_OTHER_ROWS, takeHostRead, type HostReadResult, type SettingsListTarget, type SettingsRoute } from "./settings-model.js";
 
 export function SettingsFrame({ route, onBack, children }: { route: SettingsRoute; onBack: () => void; children: ReactNode }) {
   const copy = settingsCopy(route);
@@ -48,9 +27,6 @@ export function SettingsHome({ info, busy, onOpen }: {
   onOpen: (route: SettingsListTarget) => void;
 }) {
   return <>
-    <h2 className="settings-section">模式</h2>
-    <ThinkingModes busy={busy} hostReady={info !== null} />
-    <p className="settings-note">选择 Serika 的思考方式。</p>
     <h2 className="settings-section">能力与连接</h2>
     <SettingsRows rows={SETTINGS_CONNECTION_ROWS} onOpen={onOpen} />
     <h2 className="settings-section">其他</h2>
@@ -70,64 +46,6 @@ function SettingsRows<Route extends SettingsRoute>({ rows, onOpen }: {
       </button>;
     })}
   </div>;
-}
-
-export function ThinkingModeCards({ current, disabled, onChoose }: { current: ThinkingChoice | "unconfigured"; disabled: boolean; onChoose: (choice: ThinkingChoice) => void }) {
-  return <div className="settings-modes" role="radiogroup" aria-label="思考方式">
-    {([
-      ["balanced", "平衡", "自动按日常场景管理上下文，使用当前配置的模型。"],
-      ["performance", "性能", "固定使用长任务窗口，沿用当前配置的模型。"],
-    ] as const).map(([id, title, description]) => <button type="button" className="settings-mode" role="radio" key={id} aria-checked={current === id} disabled={disabled} onClick={() => { if (applyThinkingChoice(current, id)) onChoose(id); }}>
-      <strong>{title}</strong><span>{description}</span><i className="settings-mode-mark" aria-hidden="true" />
-    </button>)}
-  </div>;
-}
-
-function ThinkingModes({ busy, hostReady }: { busy: boolean; hostReady: boolean }) {
-  const [budget, setBudget] = useState<ContextBudgetConfig | null>(null);
-  const [phase, setPhase] = useState<"loading" | "ready" | "missing">("loading");
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const request = useRef(0);
-  const hostReadyRef = useRef(hostReady);
-  hostReadyRef.current = hostReady;
-  const load = () => {
-    const id = ++request.current;
-    return readWhenHostReady({
-      hostReady: () => hostReadyRef.current && request.current === id,
-      isCurrent: () => request.current === id,
-      read: readContextBudget,
-    }).then(outcome => {
-      const accepted = takeHostRead(id, request.current, outcome);
-      if (!accepted) return;
-      if (accepted.status === "unavailable") { setBudget(null); setPhase("missing"); return; }
-      setBudget(accepted.value);
-      setPhase("ready");
-    });
-  };
-  useEffect(() => {
-    if (!hostReady) setPhase("loading");
-    void load();
-    return () => { request.current += 1; };
-  }, [hostReady]);
-  const current = phase === "ready" ? thinkingChoiceForBudget(budget?.mode) : "unconfigured";
-  const selectable = phase === "ready" && !!budget && !busy && !pending && typeof window !== "undefined" && !!window.runloom.setContextMode;
-  const choose = async (choice: ThinkingChoice) => {
-    const mode = applyThinkingChoice(current, choice);
-    if (!mode || !budget || !window.runloom.setContextMode) return;
-    setPending(true); setError(null);
-    try {
-      await window.runloom.setContextMode({ mode, expectedBudget: budget });
-      await load();
-    } catch (cause) { setError(`模式未确认生效：${cause instanceof Error ? cause.message : String(cause)}`); }
-    finally { setPending(false); }
-  };
-  return <>
-    <ThinkingModeCards current={current} disabled={!selectable} onChoose={choice => void choose(choice)} />
-    {phase === "missing" ? <p className="settings-note" role="status">思考方式未报告／未配置。</p> : null}
-    {pending ? <p className="settings-note" role="status">正在保存思考方式…</p> : null}
-    {error ? <p className="error" role="alert">{error}</p> : null}
-  </>;
 }
 
 export function SettingsGeneral({ appearance, busy, onAppearance }: { appearance: "dark" | "light"; busy: boolean; onAppearance: () => void }) {

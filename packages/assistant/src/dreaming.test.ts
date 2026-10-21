@@ -42,9 +42,10 @@ describe("host-managed dreaming experience skills", () => {
     assert.deepEqual(value(await f.service.commit(batch, response(batch))), { ...committed, replayed: true });
     assert.equal(await readFile(join(f.root, ".runloom/dreaming.json"), "utf8"), before);
     const reopened = f.reopen(); assert.equal(value(await reopened.prepare()), null);
-    const selected = value(await reopened.select("为新项目写复盘", "new-thread"));
-    assert.equal(selected.length, 1); assert.equal(selected[0]!.id, committed.skillIds[0]); assert.equal(selected[0]!.sources.length, 2);
-    assert.deepEqual(value(await reopened.select("天气怎么样", "new-thread")), []);
+    const selected = value(await reopened.index("new-thread"));
+    assert.equal(selected.length, 1); assert.equal(selected[0]!.id, `method:${committed.skillIds[0]}`);
+    assert.equal(value(await reopened.read(committed.skillIds[0]!, "new-thread")).sources.length, 2);
+    assert.equal("instructions" in selected[0]!, false);
   });
 
   it("invalid, cancelled, changed or fabricated batches never consume experience", async () => {
@@ -116,14 +117,14 @@ describe("host-managed dreaming experience skills", () => {
     const f = await fixture(), batch = value(await f.service.prepare()); assert.ok(batch);
     const { skillIds } = value(await f.service.commit(batch, response(batch))), id = skillIds[0]!;
     const disabled = value(await f.service.change({ id, expectedRevision: 1, action: "disable" })); assert.equal(disabled.revision, 2);
-    assert.deepEqual(value(await f.service.select("复盘", "new")), []);
+    assert.deepEqual(value(await f.service.index("new")), []);
     assert.equal((await f.service.change({ id, expectedRevision: 1, action: "enable" })).ok, false);
     f.add("task-c"); f.add("task-d"); const second = value(await f.service.prepare()); assert.ok(second);
     value(await f.service.commit(second, response(second, { instructions: "先结论，再给两条含验收方法的步骤。" })));
     const current = value(await f.service.overview()).skills[0]!; assert.equal(current.revision, 3); assert.equal(current.enabled, false);
     const restored = value(await f.service.change({ id, expectedRevision: 3, action: "restore", restoreRevision: 1 }));
     assert.equal(restored.revision, 4); assert.equal(restored.enabled, false); assert.match(restored.instructions, /可观察结果/);
-    value(await f.service.change({ id, expectedRevision: 4, action: "enable" })); assert.equal(value(await f.service.select("复盘", "new")).length, 1);
+    value(await f.service.change({ id, expectedRevision: 4, action: "enable" })); assert.equal(value(await f.service.index("new")).length, 1);
   });
 
   it("still lets the user disable a selected method when content history is full", async () => {
@@ -136,11 +137,11 @@ describe("host-managed dreaming experience skills", () => {
     }
     const current = value(await f.service.overview()).skills[0]!;
     assert.equal(current.revision, 9); assert.equal(current.versions.length, 8);
-    assert.equal(value(await f.service.select("复盘", "new-thread")).length, 1);
+    assert.equal(value(await f.service.index("new-thread")).length, 1);
     const disabled = value(await f.service.change({ id, expectedRevision: 9, action: "disable" }));
     assert.equal(disabled.enabled, false); assert.equal(disabled.revision, 10);
     assert.deepEqual(disabled.versions, current.versions, "disable preserves bounded history without pruning");
-    assert.deepEqual(value(await f.service.select("复盘", "new-thread")), []);
+    assert.deepEqual(value(await f.service.index("new-thread")), []);
     const enabled = value(await f.service.change({ id, expectedRevision: 10, action: "enable" }));
     assert.equal(enabled.enabled, true); assert.equal(enabled.revision, 11);
     assert.deepEqual(enabled.versions, current.versions);
@@ -151,11 +152,11 @@ describe("host-managed dreaming experience skills", () => {
   it("rechecks source receipts on each selection and never silently treats a corrupt file as empty", async () => {
     const f = await fixture(), batch = value(await f.service.prepare()); assert.ok(batch);
     value(await f.service.commit(batch, response(batch))); f.runs.get("run-task-a")!.status = "interrupted";
-    assert.deepEqual(value(await f.service.select("复盘", "new")), []);
+    assert.deepEqual(value(await f.service.index("new")), []);
     assert.equal(value(await f.service.overview()).skills[0]!.needsReview, true);
     assert.equal((await f.service.change({ id: value(await f.service.overview()).skills[0]!.id, expectedRevision: 1, action: "enable" })).ok, false);
     await writeFile(join(f.root, ".runloom/dreaming.json"), "{bad");
-    assert.equal((await f.reopen().overview()).ok, false); assert.equal((await f.reopen().select("复盘", "new")).ok, false);
+    assert.equal((await f.reopen().overview()).ok, false); assert.equal((await f.reopen().index("new")).ok, false);
   });
 
   it("archives accepted evidence atomically and survives receipt retention plus service restart", async () => {
@@ -166,15 +167,15 @@ describe("host-managed dreaming experience skills", () => {
     assert.equal(stored.processed.length, 2);
     f.runs.clear();
     const reopened = f.reopen();
-    assert.equal(value(await reopened.select("复盘", "another-thread"))[0]?.id, id);
+    assert.equal(value(await reopened.index("another-thread"))[0]?.id, `method:${id}`);
     assert.equal(value(await reopened.overview()).skills[0]!.needsReview, false);
     const disabled = value(await reopened.change({ id, expectedRevision: 1, action: "disable" }));
-    assert.deepEqual(value(await reopened.select("复盘", "another-thread")), []);
+    assert.deepEqual(value(await reopened.index("another-thread")), []);
     value(await reopened.change({ id, expectedRevision: disabled.revision, action: "enable" }));
-    assert.equal(value(await reopened.select("复盘", "another-thread")).length, 1);
+    assert.equal(value(await reopened.index("another-thread")).length, 1);
     f.tasks[0]!.revision++;
     f.tasks[0]!.acceptance[0]!.status = "not_run";
-    assert.deepEqual(value(await reopened.select("复盘", "another-thread")), [], "archive never revives withdrawn live acceptance");
+    assert.deepEqual(value(await reopened.index("another-thread")), [], "archive never revives withdrawn live acceptance");
     assert.equal(value(await reopened.overview()).skills[0]!.needsReview, true);
   });
 
@@ -184,15 +185,15 @@ describe("host-managed dreaming experience skills", () => {
     const bytes = await readFile(join(f.root, ".runloom/dreaming.json"), "utf8");
     const doc = JSON.parse(bytes); doc.archive[0].run.status = "interrupted";
     await writeFile(join(f.root, ".runloom/dreaming.json"), JSON.stringify(doc));
-    assert.equal((await f.reopen().select("复盘", "new")).ok, false);
+    assert.equal((await f.reopen().index("new")).ok, false);
     await writeFile(join(f.root, ".runloom/dreaming.json"), bytes);
     f.tasks.shift();
-    assert.deepEqual(value(await f.reopen().select("复盘", "new")), []);
+    assert.deepEqual(value(await f.reopen().index("new")), []);
     const broken = createDreamingService({ workspaceRoot: f.root, workTasks: f.workTasks,
       executionRecords: { getRun: async () => { throw new Error("corrupt journal"); } } });
     // Restore the removed task so the live receipt read is actually reached.
     f.add("task-a");
-    assert.equal((await broken.select("复盘", "new")).ok, false);
+    assert.equal((await broken.index("new")).ok, false);
     assert.equal(await readFile(join(f.root, ".runloom/dreaming.json"), "utf8"), bytes);
   });
 
@@ -202,15 +203,15 @@ describe("host-managed dreaming experience skills", () => {
     const path = join(f.root, ".runloom/dreaming.json"), old = JSON.parse(await readFile(path, "utf8"));
     delete old.archive; old.version = 1;
     await writeFile(path, JSON.stringify(old)); const before = await readFile(path, "utf8");
-    assert.equal(value(await f.reopen().select("复盘", "new")).length, 1);
+    assert.equal(value(await f.reopen().index("new")).length, 1);
     assert.equal(await readFile(path, "utf8"), before, "read does not migrate");
     const run = f.runs.get("run-task-a")!; f.runs.delete(run.runId);
-    assert.deepEqual(value(await f.reopen().select("复盘", "new")), [], "legacy absent receipts cannot be invented");
+    assert.deepEqual(value(await f.reopen().index("new")), [], "legacy absent receipts cannot be invented");
     f.runs.set(run.runId, run);
     value(await f.reopen().change({ id, expectedRevision: 1, action: "enable" }));
     const current = JSON.parse(await readFile(path, "utf8"));
     assert.equal(current.version, 2); assert.equal(current.archive.length, 2);
-    f.runs.clear(); assert.equal(value(await f.reopen().select("复盘", "new")).length, 1);
+    f.runs.clear(); assert.equal(value(await f.reopen().index("new")).length, 1);
   });
 
   it("bounds experience input, skill instructions and strict fields without exposing full tool inputs", async () => {
@@ -232,9 +233,9 @@ describe("host-managed dreaming experience skills", () => {
     const batch = value(await service.prepare()); assert.ok(batch);
     const committed = value(await service.commit(batch, response(batch)));
     assert.deepEqual(value(await service.overview()).skills[0]!.memoryDependencies, [{ id: memory.id, revision: 1 }]);
-    assert.equal(value(await service.select("复盘", "new-thread")).length, 1);
+    assert.equal(value(await service.index("new-thread")).length, 1);
     memory = { ...memory, revision: 2, enabled: false };
-    assert.deepEqual(value(await service.select("复盘", "new-thread")), []);
+    assert.deepEqual(value(await service.index("new-thread")), []);
     assert.equal(value(await service.overview()).skills[0]!.needsReview, true);
     assert.equal((await service.change({ id: committed.skillIds[0]!, expectedRevision: 1, action: "enable" })).ok, false);
   });
@@ -268,8 +269,8 @@ describe("host-managed dreaming experience skills", () => {
     // New prepare() must reject such source material, and old data cannot bypass it.
     memory = { ...memory, scope: { kind: "thread", threadId: "thread-task-a" } };
     assert.equal(value(await service.overview()).skills[0]!.needsReview, true);
-    assert.deepEqual(value(await service.select("复盘", "thread-task-a")), []);
-    assert.deepEqual(value(await service.select("复盘", "other-thread")), []);
+    assert.deepEqual(value(await service.index("thread-task-a")), []);
+    assert.deepEqual(value(await service.index("other-thread")), []);
     value(await service.change({ id, expectedRevision: 1, action: "disable" }));
     const enabled = await service.change({ id, expectedRevision: 2, action: "enable" });
     assert.ok(!enabled.ok); assert.equal(enabled.error.code, "DREAMING_SOURCE_INVALID");

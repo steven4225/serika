@@ -8,7 +8,7 @@ import { AUTO_CONSOLIDATION_AGENT_ID } from "./consolidation.js";
 import { createMemoryConsolidation, prepareConsolidationExtraction, stageConsolidationExtraction, type MemoryProposal } from "./memory-consolidation.js";
 import { createMemoryStore, type WorkspaceMemoryStore } from "./memory-store.js";
 import type { MemoryFactIdentity } from "./memory-fact-identity.js";
-import { retrieveMemories } from "./memory-retrieval.js";
+import { selectInjectableMemoryEntries } from "./memory-store.js";
 
 const user = (id: string, text: string): UIMessage => ({ id, role: "user", parts: [{ type: "text", text }] });
 const coffee = (value = "unsweetened", scenario: MemoryFactIdentity["scenario"] = "general"): MemoryFactIdentity => ({ attribute: "coffee", scenario, value });
@@ -50,9 +50,9 @@ for (const proposedScope of [undefined, { kind: "workspace" as const }]) test(`c
     assert.equal(result.result.accepted?.length, 1, "an explicit current-thread request can be saved without a scope review");
     const listed = await f.store.list(); assert.ok(listed.ok);
     assert.deepEqual(listed.entries[0]?.scope, { kind: "thread", threadId: "thread" });
-    assert.equal(retrieveMemories(listed.entries, { query: "咖啡", threadId: "thread", now: f.now() }).entries.length, 1);
+    assert.equal(selectInjectableMemoryEntries(listed.entries, { threadId: "thread", now: f.now() }).length, 1);
     for (const threadId of ["another-thread", "telegram-thread", undefined]) {
-      assert.equal(retrieveMemories(listed.entries, { query: "咖啡", ...(threadId ? { threadId } : {}), now: f.now() }).entries.length, 0);
+      assert.equal(selectInjectableMemoryEntries(listed.entries, { ...(threadId ? { threadId } : {}), now: f.now() }).length, 0);
     }
   } finally { await f.cleanup(); }
 });
@@ -252,8 +252,8 @@ test("eval repair boundary: fallback keeps current-thread scope and uncertain sc
     const resolved = await f.store.resolveCandidate({ candidateId: candidate.id, expectedCandidateRevision: candidate.revision, decision: "accept" },
       undefined, { boundThreadId: "thread", now: new Date(f.now().getTime() + 100) }); assert.ok(resolved.ok);
     const listed = await f.store.list(); assert.ok(listed.ok);
-    assert.equal(retrieveMemories(listed.entries, { query: "咖啡", threadId: "another-thread", now: f.now() }).entries.length, 0);
-    assert.equal(retrieveMemories(listed.entries, { query: "咖啡", threadId: "telegram-thread", now: f.now() }).entries.length, 0);
+    assert.equal(selectInjectableMemoryEntries(listed.entries, { threadId: "another-thread", now: f.now() }).length, 0);
+    assert.equal(selectInjectableMemoryEntries(listed.entries, { threadId: "telegram-thread", now: f.now() }).length, 0);
     f.addMessage("u2", "我的咖啡偏好只有旅行的时候才加糖。");
     await f.extract([], [{ messageId: "u2", status: "no_memory" }]);
     const next = await f.store.listCandidates({ status: "pending" }, undefined, { boundThreadId: "thread" }); assert.ok(next.ok);

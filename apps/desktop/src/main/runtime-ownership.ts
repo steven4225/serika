@@ -88,9 +88,9 @@ export class RuntimeOwnership {
   resolveTelegramDelivery(input: { key: string; action: "cancel" | "review"; note?: string }) { return this.#active().resolveTelegramDelivery(input); }
   enableMemory() { return this.#active().enableMemory(); }
   setModuleEnabled(...args: Parameters<DesktopRuntime["setModuleEnabled"]>) { return this.#active().setModuleEnabled(...args); }
-  setContextMode(...args: Parameters<DesktopRuntime["setContextMode"]>) { return this.#active().setContextMode(...args); }
+
   setAutonomyEnabled(...args: Parameters<DesktopRuntime["setAutonomyEnabled"]>) { return this.#active().setAutonomyEnabled(...args); }
-  setDreamingEnabled(...args: Parameters<DesktopRuntime["setDreamingEnabled"]>) { return this.#active().setDreamingEnabled(...args); }
+
   async activateRecovery(root: string | null) {
     const host = this.#active();
     if ([this.#sourceOptions.env.RUNLOOM_WORKSPACE, this.#sourceOptions.env.RUNLOOM_THREAD, this.#sourceOptions.env.RUNLOOM_TRANSCRIPTS].some(value => value?.trim())) throw new Error("当前入口显式指定了工作区或对话；请从正常日用入口打开后再接回恢复副本，不会覆盖显式身份");

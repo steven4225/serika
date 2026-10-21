@@ -15,7 +15,7 @@ import { createDemoModel } from "./demo-model.js";
 import type { MemoryAction } from "./memory-controls.js";
 import type { MemoryResult } from "./memory-candidates.js";
 import { createMemoryStore } from "./memory-store.js";
-import { retrieveMemories } from "./memory-retrieval.js";
+import { selectInjectableMemoryEntries } from "./memory-store.js";
 
 type Stage = "before" | "after";
 const hash = (text: string) => createHash("sha256").update(text).digest("hex");
@@ -110,7 +110,7 @@ async function child(root: string, stage: Stage) {
   }
   async function eligible(id: string) {
     const listed = await disk.list(); assert.ok(listed.ok);
-    return retrieveMemories(listed.entries, { query: "复盘写作偏好", threadId: QUERY_THREAD, now: new Date() }).selected.some(entry => entry.id === id);
+    return selectInjectableMemoryEntries(listed.entries, { threadId: QUERY_THREAD, now: new Date() }).some(entry => entry.id === id);
   }
   try {
     if (stage === "before") {
@@ -207,7 +207,7 @@ async function child(root: string, stage: Stage) {
       memory = (await apply({ id, expectedRevision: memory.revision!, operation: "metadata", status: "disabled" }))!;
       assert.equal(await eligible(id), false);
       assert.equal((await controller!.memory.previewAction({ id, expectedRevision: memory.revision!, operation: "restore", targetAssertionId: corrected.assertion!.assertionId })).ok, false, "disabled restoration requires explicit status choice");
-      const disabled = await run("disabled-not-revived", "只检查本轮 Current Memory reference：如果没有选中复盘写作记忆，回复 NO_ACTIVE。不要用旧对话或历史摘要冒充本轮注入，不调用工具。");
+      const disabled = await run("disabled-not-revived", "只检查本轮 Fixed Memory snapshot 和随消息保存的 Memory updates：如果没有选中复盘写作记忆，回复 NO_ACTIVE。不要用旧对话或历史摘要冒充本轮注入，不调用工具。");
       assert.equal(disabled.reference?.selected.some(item => item.id === id), false);
       assert.match(disabled.result.text, /NO_ACTIVE/);
       memory = (await apply({ id, expectedRevision: memory.revision!, operation: "restore", targetAssertionId: corrected.assertion!.assertionId, status: "active" }))!;
@@ -223,7 +223,7 @@ async function child(root: string, stage: Stage) {
       assert.ok(!finalDisk.entries.some((entry: { id: string }) => entry.id === id));
       assert.ok(!finalDisk.candidates.some((entry: { id: string }) => entry.id === resume.candidateId));
       assert.equal((await controller!.memory.previewAction({ id, expectedRevision: memory.revision!, operation: "restore", targetAssertionId: resume.originalAssertionId, status: "active" })).ok, false);
-      const deleted = await run("deleted-not-revived", "只检查本轮 Current Memory reference：如果没有选中复盘写作记忆，回复 NO_ACTIVE。旧对话里可能有已删除的记忆 ID，不要当成本轮引用，不调用工具。");
+      const deleted = await run("deleted-not-revived", "只检查本轮 Fixed Memory snapshot 和随消息保存的 Memory updates：如果没有选中复盘写作记忆，回复 NO_ACTIVE。旧对话里可能有已删除的记忆 ID，不要当成本轮引用，不调用工具。");
       assert.equal(deleted.reference?.selected.some(item => item.id === id), false);
       assert.match(deleted.result.text, /NO_ACTIVE/);
       assert.ok(approvals.every(item => item.decision === "deny"));

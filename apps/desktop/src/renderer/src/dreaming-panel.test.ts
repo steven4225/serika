@@ -12,11 +12,6 @@ it("uses the existing workspace and host receipts, distinguishes errors from no 
   assert.match(panel, /getLearnedSkillReferences\(\)/);
   assert.match(panel, /不是模型自报/);
   assert.match(panel, /不代表没有经验/);
-  assert.match(panel, /failed: "失败，未算作已处理"/);
-  assert.match(panel, /cancelled: "已打断，未算作已处理"/);
-  assert.match(panel, /uncertain: "保存结果未确认，请刷新核对"/);
   assert.match(panel, /className="memory-detail memory-technical"/);
-  assert.match(panel, /expectedEnabled: view\.enabled/);
-  assert.match(panel, /至少两条独立/);
   assert.doesNotMatch(panel, /dangerouslySetInnerHTML/);
 });

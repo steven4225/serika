@@ -4,10 +4,9 @@ import { AgentError } from "@serika/core";
 import type { RegisteredTool } from "@serika/ai-sdk-adapter";
 import type { BeforeToolExecuteInput } from "@serika/core";
 import type { AgentModule, ToolPermissionFacts } from "../module-host.js";
-import { memoryPrimaryInstructions, type MemoryWritePolicy } from "../memory-instructions.js";
+import { MEMORY_READ_INSTRUCTIONS, memoryPrimaryInstructions, type MemoryWritePolicy } from "../memory-instructions.js";
 import type { MemoryConsolidation } from "../memory-consolidation.js";
 import { validateFactIdentity } from "../memory-fact-identity.js";
-import { MAX_CONTEXT_BYTES } from "../context-window.js";
 import {
   AUTO_CONSOLIDATION_AGENT_ID,
   consolidateMessages,
@@ -248,7 +247,7 @@ const memoryPrepareConsolidationInputSchema = z.object({
 });
 
 /** Consolidation uses the same serialized context budget as model preparation. */
-export const CONSOLIDATION_RESULT_MAX_BYTES = MAX_CONTEXT_BYTES;
+export const CONSOLIDATION_RESULT_MAX_BYTES = 131_072;
 export type ConsolidationGetMessages = (signal?: AbortSignal) => Promise<UIMessage[]>;
 
 export type ConsolidationResult =
@@ -530,7 +529,7 @@ export function createMemoryModule(
     id: "memory",
     instructionPlacement: { section: "body", rank: 600 },
     setup(ctx) {
-      ctx.addInstructions(memoryPrimaryInstructions(options.writePolicy ?? "review"));
+      ctx.addInstructions(run => run.autonomous ? MEMORY_READ_INSTRUCTIONS : memoryPrimaryInstructions(options.writePolicy ?? "review"));
       const memoryListTool = tool({
         description: "List the current version of explicitly saved workspace memories. Revision history is not included. Do not infer or extract memories automatically.",
         inputSchema: memoryListInputSchema,

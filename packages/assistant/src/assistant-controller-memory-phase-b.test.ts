@@ -30,7 +30,7 @@ function appWith(overrides: Partial<RuntimeApp>): RuntimeApp {
     enableExecutionRecords: () => undefined, bindNextExecutionWorkTask: () => () => undefined,
     workTasks: undefined, workTaskContext: { begin: () => undefined, end: () => undefined },
     threadId: "memory-controls", directory: "/private/tmp/memory-controls-unused", workspaceRoot: undefined,
-    moduleConfig: undefined, toolConfirmation: undefined, commands: undefined, compaction: undefined,
+    moduleConfig: undefined, toolConfirmation: undefined, commands: undefined,
     getContextDiagnostics: async () => ({ ok: false, error: { code: "TEST", message: "unused" } }),
     resume: undefined, autoConsolidationAgentId: undefined,
     renderHome: async () => undefined, registerNotificationRedraw: () => undefined, dispose: () => undefined,

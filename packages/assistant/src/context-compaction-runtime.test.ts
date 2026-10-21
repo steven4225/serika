@@ -13,7 +13,7 @@ import {
 } from "@serika/core";
 import { AiSdkAgentLoop, InMemoryModelRegistry, ToolRegistry } from "@serika/ai-sdk-adapter";
 import { ContextCompactor } from "./context-compactor.js";
-import { contextBudgetForMode, estimateContextBudget, type ContextBudgetConfig } from "./context-budget.js";
+import { defaultContextBudget, estimateContextBudget, type ContextBudgetConfig } from "./context-budget.js";
 import type { Summarizer } from "./context-compaction.js";
 
 const threadId = "auto-compaction-runtime";
@@ -173,7 +173,7 @@ for (const mode of ["daily", "long-task"] as const) {
     const directory = await mkdtemp(join(tmpdir(), `serika-${mode}-context-`));
     try {
       const store = new JsonlAgentStore({ directory });
-      const modeBudget = contextBudgetForMode(mode);
+      const modeBudget = ({ ...defaultContextBudget(), ...(mode === "long-task" ? { inputBudgetTokens: 400_000, keepRecentTokens: 64_000, summaryMaxOutputTokens: 8_000 } : {}) });
       const oldMessages = Array.from({ length: mode === "daily" ? 20 : 32 }, (_, index) => [
         message(`old-user-${index}`, "user", `Constraint ${index}: do not modify protected/. ${"u".repeat(8_000)}`),
         message(`old-answer-${index}`, "assistant", "a".repeat(13_000)),

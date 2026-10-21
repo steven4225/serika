@@ -3,7 +3,7 @@ import type { ControllerKernel } from "./controller-kernel.js";
 import type { MemoryLibraryAction, MemoryLibraryDocument, MemoryLibraryView } from "./memory-library.js";
 import type { MemoryResult } from "./memory-candidates.js";
 import { formalMemory, memoryPage, validMemoryEdit, visibleMemory, type FormalMemory, type MemoryEditInput, type MemoryListInput, type MemoryPage } from "./memory-management.js";
-import type { MemoryReferenceSnapshot } from "./memory-query-rewrite.js";
+import type { MemoryReferenceSnapshot } from "./memory-snapshot.js";
 import { memoryActionPreview, memoryCapacity, memoryControlFailure, memoryHistoryPage, temporalMemoryStore, validateMemoryAction, validateMemoryHistoryInput, type MemoryAction, type MemoryActionPreview, type MemoryHistoryInput, type MemoryHistoryPage, type MemoryMaintenance, type MemoryTemporalInput } from "./memory-controls.js";
 import type { MemoryTemporalView } from "./memory-store.js";
 import { memoryConsolidationBacklog } from "./memory-consolidation.js";

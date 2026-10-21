@@ -11,7 +11,7 @@ import {
   splitMessageCompactionUnits,
   validateContextBudgetConfig,
   availableInputTokens,
-  contextBudgetForMode,
+  defaultContextBudget,
   contextBudgetThresholds,
   contextBudgetStatus,
 } from "./context-budget.js";
@@ -50,25 +50,23 @@ function toolMessage(
 describe("context budget", () => {
   it("uses decimal daily/long-task input ceilings independent of physical window reserves", () => {
     for (const mode of ["daily", "long-task"] as const) {
-      const config = contextBudgetForMode(mode);
+      const config = ({ ...defaultContextBudget(), ...(mode === "long-task" ? { inputBudgetTokens: 400_000, keepRecentTokens: 64_000, summaryMaxOutputTokens: 8_000 } : {}) });
       const ceiling = mode === "daily" ? 256_000 : 400_000;
       assert.equal(availableInputTokens(config), ceiling);
       assert.equal(validateContextBudgetConfig(config).ok, true);
       const limits = contextBudgetThresholds(config);
-      assert.equal(limits.warningTokens, ceiling * 0.70);
       assert.equal(limits.triggerTokens, ceiling * 0.85);
       assert.equal(limits.predictedGrowthTokens, 12_288);
-      assert.equal(contextBudgetStatus(limits.warningTokens, config), "warning");
+      assert.equal(contextBudgetStatus(limits.triggerTokens, config), "compacting");
       assert.equal(contextBudgetStatus(limits.triggerTokens - limits.predictedGrowthTokens, config), "compacting");
       assert.equal(contextBudgetStatus(ceiling + 1, config), "exceeded");
     }
   });
 
   it("validates new ratios, chunk size and physical-model ceiling without changing legacy input math", () => {
-    const daily = contextBudgetForMode("daily");
+    const daily = defaultContextBudget();
     for (const invalid of [
       { ...daily, inputBudgetTokens: 1_000_000 },
-      { ...daily, warningRatio: 0.85 },
       { ...daily, triggerRatio: 1.1 },
       { ...daily, summaryInputChunkTokens: 23_999 },
       { ...daily, summaryInputChunkTokens: 32_001 },

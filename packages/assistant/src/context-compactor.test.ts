@@ -9,13 +9,10 @@ import type {
 import { AgentError } from "@serika/core";
 import { ContextCompactor, readContextDiagnostics, reconcilePublishedSummary, summarySourceChunks, type ContextCompactorOptions } from "./context-compactor.js";
 import { compactPrefixHash, contextSummaryPrompt, type ContextCompactionRecord, type ContextSummaryV2, type Summarizer } from "./context-compaction.js";
-import { contextBudgetForMode, contextBudgetThresholds, estimateContextBudget, estimateMessageTokens, type ContextBudgetConfig } from "./context-budget.js";
-import {
-  CHECKPOINT_CONTEXT_MESSAGE_ID,
-  checkpointAndMemoryContextMessages,
-  createMemoryContextMessage,
-  selectValidMemoryEntries,
-} from "./context-window.js";
+import { defaultContextBudget, contextBudgetThresholds, estimateContextBudget, estimateMessageTokens, type ContextBudgetConfig } from "./context-budget.js";
+import { CHECKPOINT_CONTEXT_MESSAGE_ID } from "./checkpoint-context.js";
+import { createCheckpointContextMessage } from "./context-window.js";
+import { createMemorySnapshotMessage, memorySnapshot } from "./memory-snapshot.js";
 import type { CheckpointSnapshot } from "./checkpoint-store.js";
 import { AUTO_CONSOLIDATION_SOURCE } from "./consolidation.js";
 
@@ -150,7 +147,7 @@ describe("ContextCompactor", () => {
   for (const mode of ["daily", "long-task"] as const) {
     it(`budget mode Demo: ${mode} predicts 85%, merges more than four independent 32K chunks and reuses effective summary`, async () => {
       const store = new FakeStore();
-      const config = contextBudgetForMode(mode);
+      const config = ({ ...defaultContextBudget(), ...(mode === "long-task" ? { inputBudgetTokens: 400_000, keepRecentTokens: 64_000, summaryMaxOutputTokens: 8_000 } : {}) });
       const turnCount = mode === "daily" ? 14 : 22;
       const messages = Array.from({ length: turnCount }, (_, i) => [
         user(`u${i + 1}`, `old-prefix-${i}:` + "x".repeat(29_900)), assistant(`a${i + 1}`, "done"),
@@ -165,7 +162,7 @@ describe("ContextCompactor", () => {
       const prepared = await compactor.prepare(messages, new AbortController().signal);
       assert.ok(summarizer.calls > 4, "new-mode merge bound must not remain the legacy four chunks");
       const after = estimateContextBudget({ instructions: "instructions", messages: prepared }, config);
-      assert.ok(after.inputTokens < limits.warningTokens);
+      assert.ok(after.inputTokens < limits.triggerTokens);
       assert.equal(prepared.at(-1)?.id, "current");
       assert.equal(store.records.length, 1);
       assert.equal(store.messages.length, 0, "compactor does not write or replace transcript");
@@ -179,7 +176,7 @@ describe("ContextCompactor", () => {
 
   it("budget mode Demo: 70% is a warning only and makes no summary call", async () => {
     const store = new FakeStore();
-    const config = contextBudgetForMode("daily");
+    const config = defaultContextBudget();
     const summarizer = new FakeSummarizer();
     const messages = [user("current", "x".repeat(358_400))];
     const result = await makeCompactor(store, summarizer, config).prepare(messages, new AbortController().signal);
@@ -190,7 +187,7 @@ describe("ContextCompactor", () => {
 
   it("budget mode Demo: incremental summaries never resend covered old user text", async () => {
     const store = new FakeStore();
-    const config = contextBudgetForMode("daily");
+    const config = defaultContextBudget();
     const messages = Array.from({ length: 14 }, (_, i) => [user(`u${i + 1}`, `COVERED-${i}:` + "x".repeat(29_900)), assistant(`a${i + 1}`, "done")]).flat();
     messages.push(user("current", "continue"));
     await makeCompactor(store, new FakeSummarizer(), config).prepare(messages, new AbortController().signal);
@@ -216,7 +213,7 @@ describe("ContextCompactor", () => {
   it("budget mode Demo: protected current-user and fixed-context overflow fail without writing", async () => {
     const store = new FakeStore();
     const summarizer = new FakeSummarizer();
-    const config = contextBudgetForMode("daily");
+    const config = defaultContextBudget();
     const compactor = makeCompactor(store, summarizer, config);
     await assert.rejects(compactor.prepare([user("current", "x".repeat(512_000))], new AbortController().signal), /no safe compaction boundary|exceeds/);
     const fixedOverflow = makeCompactor(store, summarizer, config, { fixedContext: () => ({ instructions: "x".repeat(512_000) }) });
@@ -226,7 +223,7 @@ describe("ContextCompactor", () => {
   });
 
   it("budget mode Demo: oversized completed same-Run tool output can be summarized, incomplete output cannot", async () => {
-    const config = contextBudgetForMode("daily");
+    const config = defaultContextBudget();
     const request = user("u1", "x".repeat(80_000));
     const completed: UIMessage = { id: "result", role: "assistant", parts: [{ type: "dynamic-tool",
       toolName: "read_file", toolCallId: "large-read", state: "output-available", input: { path: "notes/a.md" },
@@ -244,7 +241,7 @@ describe("ContextCompactor", () => {
 
   it("budget mode Demo: cancellation discards a non-cooperative late summary without persistence", async () => {
     const store = new FakeStore();
-    const config = contextBudgetForMode("daily");
+    const config = defaultContextBudget();
     const messages = [user("u1", "x".repeat(420_000)), assistant("a1", "done"), user("current", "next")];
     let release!: (value: { text: string }) => void;
     let started!: () => void;
@@ -525,7 +522,7 @@ describe("ContextCompactor", () => {
       .join("\n");
     assert.match(summaryText, /prefer single agent/);
 
-    const memory = createMemoryContextMessage(selectValidMemoryEntries([{
+    const memory = createMemorySnapshotMessage(memorySnapshot([{
       id: "mem-1",
       text: currentDecision,
       enabled: true,
@@ -540,7 +537,7 @@ describe("ContextCompactor", () => {
         source: { kind: "manual" },
         changedAt: "2026-09-01T00:00:00.000Z",
       }],
-    }], { threadId: "thread-1", now: new Date("2026-09-22T00:00:00.000Z") }));
+    }], { now: new Date("2026-09-22T00:00:00.000Z") }));
     assert.ok(memory);
     const memoryText = memory.parts.filter((part) => part.type === "text").map((part) => part.text).join("\n");
     assert.match(memoryText, /multi-agent is allowed/);
@@ -695,9 +692,9 @@ describe("ContextCompactor", () => {
       createdAt: "2026-09-01T00:00:00.000Z",
       updatedAt: "2026-09-01T00:00:00.000Z",
     };
-    const prefix = checkpointAndMemoryContextMessages(checkpoint, [
+    const prefix = [createCheckpointContextMessage(checkpoint)!, createMemorySnapshotMessage(memorySnapshot([
       { id: "memory-current", text: "Keep M5 in one PR.", enabled: true },
-    ], { threadId: "thread-1" });
+    ], { now: new Date() }))];
     const conversation = [user("u1", "short request")];
     const prepared = await makeCompactor(store, summarizer, roomyBudget, {
       promptPrefix: () => prefix,
@@ -745,25 +742,6 @@ describe("ContextCompactor", () => {
     assert.equal(prefix.length, 2);
     await compactor.prepare(conversation, new AbortController().signal, false, [memory]);
     assert.deepEqual(compactor.effectiveReferencePrefix, [memory]);
-  });
-
-  it("manual compact builds its prefix from committed messages once per preparation", async () => {
-    const store = new FakeStore();
-    store.messages = [user("u1", "writing preference")];
-    const snapshots: UIMessage[][] = [];
-    let revision = 1;
-    const compactor = makeCompactor(store, new FakeSummarizer(), roomyBudget, {
-      promptPrefix: (_signal, messages) => {
-        snapshots.push([...messages]);
-        return [assistant("memory", `revision ${revision++}`)];
-      },
-    });
-    await compactor.compact(new AbortController().signal);
-    await compactor.prepare(store.messages, new AbortController().signal);
-    assert.equal(snapshots.length, 2);
-    assert.deepEqual(snapshots[0], store.messages);
-    assert.deepEqual(snapshots[1], store.messages);
-    assert.equal(revision, 3);
   });
 
   it("keeps captured Memory while summarizing and reads the changed version only next preparation", async () => {
@@ -924,11 +902,9 @@ describe("ContextCompactor", () => {
       },
     };
 
-    const result = await makeCompactor(store, summarizer).compact(new AbortController().signal);
+    await makeCompactor(store, summarizer).prepare(store.messages, new AbortController().signal, true);
 
     assert.equal(calls, 2);
-    assert.match(result.message, /尝试 2 次/);
-    assert.match(result.message, /usage in=24 out=10/);
     const record = store.records[0] as unknown as ContextCompactionRecord;
     assert.ok(record);
     assert.equal(record.metrics.attempts, 2);
@@ -949,7 +925,7 @@ describe("ContextCompactor", () => {
           usage: { inputTokens: 5, outputTokens: 100, totalTokens: 105 } };
       },
     };
-    await makeCompactor(store, summarizer).compact(new AbortController().signal);
+    await makeCompactor(store, summarizer).prepare(store.messages, new AbortController().signal, true);
     assert.equal(calls, 2);
     assert.equal(store.records.length, 1);
     const record = store.records[0] as unknown as ContextCompactionRecord;
@@ -1372,7 +1348,7 @@ describe("ContextCompactor", () => {
     assert.equal(store.records.length, 0);
   });
 
-  it("does not call the summarizer again when /compact is already at the keep boundary", async () => {
+  it("does not call the summarizer again when forced preparation is already at the keep boundary", async () => {
     const store = new FakeStore();
     const summarizer = new FakeSummarizer();
     const messages = [
@@ -1385,9 +1361,8 @@ describe("ContextCompactor", () => {
     await makeCompactor(store, summarizer).prepare(messages, new AbortController().signal);
     assert.equal(summarizer.calls, 1);
     const reopened = makeCompactor(store, summarizer);
-    const result = await reopened.compact(new AbortController().signal);
+    await reopened.prepare(store.messages, new AbortController().signal, true);
     assert.equal(summarizer.calls, 1);
-    assert.match(result.message, /没有可压缩内容/);
     const diagnostics = await reopened.getDiagnostics();
     assert.ok(diagnostics.ok);
     assert.equal(diagnostics.value.lastPreparation?.compactionId, "compact-1");

@@ -214,6 +214,7 @@ export interface MemoryWriteOptions {
 }
 
 export interface WorkspaceMemoryStore {
+  readReferenceMaterial?(signal: AbortSignal, now: Date): Promise<MemoryResult<{ entries: MemoryEntry[]; library: MemoryLibrary }>>;
   getLibrary?(threadId: string, signal?: AbortSignal): Promise<MemoryResult<MemoryLibraryView>>;
   readLibraryDocument?(id: string, threadId: string, signal?: AbortSignal): Promise<MemoryResult<MemoryLibraryDocument>>;
   changeLibrary?(input: MemoryLibraryAction, threadId: string, signal?: AbortSignal): Promise<MemoryResult<MemoryLibraryView>>;
@@ -1439,6 +1440,12 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
     } catch (error) { return errorResult(error, signal, true); }
   }
 
+  async readReferenceMaterial(signal: AbortSignal, now: Date): Promise<MemoryResult<{ entries: MemoryEntry[]; library: MemoryLibrary }>> {
+    try {
+      const doc = await this.#load(signal);
+      return { ok: true, value: { entries: doc.entries.map(record => projectRecord(record, now)), library: doc.library ?? emptyMemoryLibrary() } };
+    } catch (error) { return errorResult(error, signal, false); }
+  }
   async getLibrary(threadId: string, signal: AbortSignal = neverAborted): Promise<MemoryResult<MemoryLibraryView>> {
     try {
       const doc = await this.#load(signal), now = new Date();

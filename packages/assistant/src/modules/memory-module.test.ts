@@ -4,7 +4,6 @@ import { AgentError } from "@serika/core";
 import type { RegisteredTool } from "@serika/ai-sdk-adapter";
 import { asSchema, type UIMessage } from "ai";
 import { AUTO_CONSOLIDATION_AGENT_ID, MAX_CONSOLIDATION_TURNS } from "../consolidation.js";
-import { MAX_CONTEXT_BYTES } from "../context-window.js";
 import { memoryPrimaryInstructions } from "../memory-instructions.js";
 import { createModuleHost, type ToolPermissionFacts } from "../module-host.js";
 import type { MemoryConsolidation } from "../memory-consolidation.js";
@@ -465,7 +464,7 @@ describe("createMemoryModule", () => {
     assert.match(String(await card("memory_apply_candidate", { candidateId: "c1" })),
       /Candidate preview: \{"ok":true,"value":\{"id":"c1","bound":"thread-a"\}\}\nRequested: \{"candidateId":"c1"\}\n/);
     assert.equal(host.instructions("memory"), memoryPrimaryInstructions("automatic"));
-    assert.match(host.instructions("memory"), /^In automatic memory mode, briefly acknowledge/);
+    assert.match(host.instructions("memory"), /In automatic memory mode, briefly acknowledge/);
     assert.notEqual(memoryPrimaryInstructions("review"), memoryPrimaryInstructions("automatic"));
     host.dispose();
   });
@@ -874,7 +873,7 @@ describe("createMemoryModule", () => {
     );
 
     assert.equal(result.ok, true);
-    assert.ok(Buffer.byteLength(JSON.stringify(result), "utf8") <= MAX_CONTEXT_BYTES);
+    assert.ok(Buffer.byteLength(JSON.stringify(result), "utf8") <= CONSOLIDATION_RESULT_MAX_BYTES);
   });
 
   it("passes message-reader failures and cancellation through", async () => {

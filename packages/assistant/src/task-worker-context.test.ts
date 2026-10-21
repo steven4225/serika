@@ -91,8 +91,8 @@ describe("task-worker workspace snapshot", () => {
     revision = 2;
     const fixed = JSON.stringify(context);
     assert.equal(reads, 1);
-    assert.match(fixed, /M10 plan revision 1/);
-    assert.doesNotMatch(fixed, /M10 plan revision 2|M10 plan private|vegetable garden/);
+    assert.match(fixed, /M10 plan revision 1/); assert.match(fixed, /vegetable garden/);
+    assert.doesNotMatch(fixed, /M10 plan revision 2|M10 plan private/);
     assert.match(fixed, /eligibleCount/);
   });
   it("selects a bounded snapshot from larger storage without reading pending candidates or private Memory", async () => {

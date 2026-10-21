@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { readMemoryHealth } from "./memory-health.js";
 import { type MemoryEntry, type WorkspaceMemoryStore } from "./memory-store.js";
-import { retrieveMemories } from "./memory-retrieval.js";
+import { memorySnapshot } from "./memory-snapshot.js";
 
 const now = new Date("2026-09-27T00:00:00.000Z");
 const active = (id: string, extras: Partial<MemoryEntry> = {}): MemoryEntry => ({
@@ -29,11 +29,11 @@ describe("memory health", () => {
     assert.equal(health.status, "ready");
     if (health.status !== "ready") return;
     assert.equal(health.totalEntries, 5);
-    assert.deepEqual(health.excluded, { otherThread: 1, disabled: 1, expired: 1 });
-    const selected = retrieveMemories(entries, { query: "", threadId: "current", now });
-    assert.equal(health.eligibleEntries, 2);
-    assert.equal(health.pinnedPreviewEntries, 1);
-    assert.equal(health.pinnedPreviewBytes, selected.bytes);
+    assert.deepEqual(health.excluded, { thread: 2, document: 0, disabled: 1, expired: 1 });
+    const selected = memorySnapshot(entries, { now });
+    assert.equal(health.eligibleEntries, 1);
+    assert.equal(health.snapshotEntries, 1);
+    assert.equal(health.snapshotBytes, selected.bytes);
     assert.equal(health.checkedAt, now.toISOString());
   });
 

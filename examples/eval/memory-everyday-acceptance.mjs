@@ -9,7 +9,7 @@ import { createRuntimeApp } from '@serika/assistant/internal/app.js';
 import { createAssistantController } from '@serika/assistant/internal/assistant-controller.js';
 import { configureCliModel } from '@serika/assistant/internal/model-config.js';
 import { createMemoryStore } from '@serika/assistant/internal/memory-store.js';
-import { retrieveMemories } from '@serika/assistant/internal/memory-retrieval.js';
+import { memorySnapshot } from '@serika/assistant/internal/memory-snapshot.js';
 import { createTransitionFetch, transitionModel, transitionSafeError } from './memory-transition-acceptance.mjs';
 
 export const everydayOracleVersion = 'memory-everyday-oracle-v1';
@@ -105,7 +105,7 @@ async function capture(workspace, store, threadId, test, seedId) {
   try { raw = JSON.parse(await readFile(join(workspace, '.runloom/memory.json'), 'utf8')); }
   catch (error) { if (error.code !== 'ENOENT') throw error; }
   const formal = checked(await store.list());
-  const reference = id => retrieveMemories(formal, { query: test.label, now: new Date(), threadId: id }).entries.map(item => item.id);
+  const reference = _id => memorySnapshot(formal, { now: new Date() }).entries.map(item => item.id);
   return { raw, formal, readErrors: [], capturedAt: new Date().toISOString(),
     pending: checked(await store.listCandidates({ status: 'pending' }, undefined, { boundThreadId: threadId })).candidates,
     seedHistory: seedId ? checked(await store.inspectMemory(seedId)) : null,
@@ -125,7 +125,7 @@ async function executeCase(test, root, env, deadlineMs) {
   }
   const config = join(directory, 'config.json');
   await writeFile(config, JSON.stringify({ version: 1, workspace, run: { maxSteps: 2, totalTimeoutMs: 120_000 }, modules: {
-    memory: { enabled: true, autoConsolidate: true, writePolicy: 'automatic', queryRewrite: { enabled: false }, semantic: { enabled: false } },
+    memory: { enabled: true, autoConsolidate: true, writePolicy: 'automatic' },
     task: { enabled: false }, web: { enabled: false }, shell: { enabled: false }, 'read-file': { enabled: false },
   } }), { mode: 0o600 });
   const transport = createTransitionFetch(), selected = configureCliModel(() => { throw Error('Mocks not allowed'); }, env, { fetch: transport.fetch });
@@ -203,7 +203,7 @@ export async function runMemoryEveryday({ live = false, env = process.env, outpu
   const dependencySource = await readFile(new URL('./memory-transition-acceptance.mjs', import.meta.url));
   let gitCommit = null;
   try { gitCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dirname(fileURLToPath(import.meta.url)), encoding: 'utf8' }).trim(); } catch { /* exported source */ }
-  const runtimeHashes = Object.fromEntries(await Promise.all(['app', 'assistant-controller', 'memory-consolidation', 'memory-observation-policy', 'memory-fact-identity', 'memory-store', 'memory-retrieval', 'model-config'].map(async name =>
+  const runtimeHashes = Object.fromEntries(await Promise.all(['app', 'assistant-controller', 'memory-consolidation', 'memory-observation-policy', 'memory-fact-identity', 'memory-store', 'memory-snapshot', 'model-config'].map(async name =>
     [name, hash(await readFile(new URL(`../../packages/assistant/dist/${name}.js`, import.meta.url)))])));
   await writeFile(join(root, 'manifest.json'), JSON.stringify({ suite: 'memory-everyday-v1', source: '我的 eval',
     kind: 'real-model-controller-consolidation-isolated', datasetRole: 'developer-authored canonical vocabulary; not blind held-out',
@@ -211,7 +211,7 @@ export async function runMemoryEveryday({ live = false, env = process.env, outpu
     planned: 12, repeat: 1, caseIds: everydayCases.map(test => test.id), maxHttpRequests: 24, maxDispatchPerPhase: 1, retry: false,
     gitCommit, runtimeHashes, runtimeFingerprint: hash(JSON.stringify(runtimeHashes)), evalFingerprint: hash(Buffer.concat([source, dependencySource])),
     deadlineMs, corpus: 'isolated synthetic diet/channel preferences; no daily data',
-    scopeEvidence: 'production retrieval selector owner/foreign views after persistence; not a second chat Run or real TG',
+    scopeEvidence: 'fixed workspace snapshot owner/foreign views after persistence; not a second chat Run or real TG',
     modelVerification: 'SDK modelId usage boundary, not independent provider attestation' }, null, 2), { mode: 0o600 });
   await writeFile(join(root, 'frozen-eval.mjs'), source, { mode: 0o600 });
   await writeFile(join(root, 'frozen-transition-dependency.mjs'), dependencySource, { mode: 0o600 });

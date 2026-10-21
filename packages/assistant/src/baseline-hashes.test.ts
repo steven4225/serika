@@ -11,7 +11,7 @@ import { compactPrefixHash } from "./context-compaction.js";
 import { creationReceipt } from "./creation-idempotency.js";
 import { candidateFingerprint, type CandidateDraft } from "./memory-candidates.js";
 import { consolidationPrefixHash } from "./memory-consolidation.js";
-import { memorySemanticTextHash } from "./memory-retrieval.js";
+import { createHash } from "node:crypto";
 import { recipeHash } from "./recipe-store.js";
 import { rssItemKey } from "./rss-subscriptions.js";
 import { createBuiltinSkill } from "./skill-catalog.js";
@@ -96,7 +96,7 @@ async function samples(): Promise<Record<string, string>> {
   out["memory candidate fingerprint v2"] = candidateFingerprint("thread-a", v2Draft);
   out["memory candidate fingerprint v3"] = candidateFingerprint("thread-a", v3Draft);
   out["memory consolidation prefix"] = consolidationPrefixHash(messages, "u2") ?? "undefined";
-  out["memory semantic text hash"] = memorySemanticTextHash("咖啡偏好");
+  out["memory semantic text hash"] = createHash("sha256").update("咖啡偏好", "utf8").digest("hex");
   out["recipe hash"] = recipeHash({ id: "test", description: "Run tests", command: "pnpm test", cwd: "." } as Parameters<typeof recipeHash>[0]);
   out["rss item key (id)"] = rssItemKey({ id: "guid-1", url: "https://example.com/a", title: "T" } as Parameters<typeof rssItemKey>[0]);
   out["rss item key (url)"] = rssItemKey({ url: "https://example.com/a", title: "T" } as Parameters<typeof rssItemKey>[0]);

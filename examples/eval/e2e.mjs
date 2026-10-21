@@ -11,7 +11,6 @@ import { evaluateCase, fixtureApproval, summarizeUsage } from './oracle.mjs';
 import { reliabilitySpec } from './reliability-cases.mjs';
 import { dailyCompactionSpec, fixtureHistory } from './daily-compaction.mjs';
 import { compactionFidelitySpec, effectiveCompactionFidelitySpec, compactionFidelityHistory, isCompactionFidelity } from './compaction-fidelity.mjs';
-import { contextBudgetForMode } from '@serika/assistant/internal/context-budget.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 // Before and After use the SAME cases/oracle, but independently frozen runtime code.
@@ -33,10 +32,10 @@ const compactionHistory = (spec, generation = 0) => isCompactionFidelity(spec)
 export function fixtureConfig(spec, workspace) {
   const memory = spec.category === 'memory';
   return { version: 1, workspace,
-    modules: { 'read-file': { enabled: true }, memory: { enabled: memory, autoConsolidate: memory, writePolicy: memory ? 'automatic' : 'review', queryRewrite: { enabled: !!spec.rewrite } },
+    modules: { 'read-file': { enabled: true }, memory: { enabled: memory, autoConsolidate: memory, writePolicy: memory ? 'automatic' : 'review' },
       task: { enabled: spec.category === 'reminders' } },
     ...(spec.modelContextWindows ? { modelContextWindows: spec.modelContextWindows } : {}),
-    ...(spec.category === 'compaction' ? { contextCompaction: spec.requestedContextBudget ?? spec.contextBudget ?? (spec.contextMode ? contextBudgetForMode(spec.contextMode) : compactBudget) } : {}), run: { maxSteps: 8, totalTimeoutMs: 120000 } };
+    ...(spec.category === 'compaction' ? { contextCompaction: spec.requestedContextBudget ?? spec.contextBudget ?? compactBudget } : {}), run: { maxSteps: 8, totalTimeoutMs: 120000 } };
 }
 
 export function fixtureRuntimeEnvironment(spec, env) {

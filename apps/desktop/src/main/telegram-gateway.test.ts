@@ -984,7 +984,9 @@ it("Steer supersedes old approval without authorizing it; control messages stay 
     await assert.rejects(readFile(join(f.workspace, "steer.md")), { code: "ENOENT" });
     const history = await f.host.current.history();
     const steer = history.find(x => x.role === "user" && JSON.stringify(x.parts).includes("不要写文件"));
-    assert.deepEqual(steer?.metadata, { source: "steer", memoryConsolidation: "exclude" });
+    const metadata = steer?.metadata as Record<string, unknown>;
+    assert.equal(metadata.source, "steer"); assert.equal(metadata.memoryConsolidation, "exclude");
+    assert.ok(Array.isArray(metadata.contextReferences));
   } finally { await f.cleanup(); }
 });
 

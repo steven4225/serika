@@ -1,4 +1,4 @@
-import { contextBudgetForMode, estimateMessageTokens, partitionMessagesForCompaction,
+import { estimateMessageTokens, partitionMessagesForCompaction,
   keepRecentCompactionUnits } from '@serika/assistant/internal/context-budget.js';
 import { reliabilityCases, reliabilitySpec, compactionSeed } from './reliability-cases.mjs';
 
@@ -11,9 +11,14 @@ export const dailyCompactionCases = ['daily', 'long-task'].flatMap(mode =>
 export function dailyCompactionSpec(id) {
   const definition = dailyCompactionCases.find(c => c.id === id);
   if (!definition) throw new Error('Unknown daily compaction case');
+  // Frozen historical workloads remain numeric fixtures after product mode removal.
   const spec = { ...reliabilitySpec(definition.baseCaseId), ...definition,
     suite: 'daily-compaction', source: '我的 eval：日用体量压缩', historyProfile: 'daily-history/v1',
-    contextBudget: contextBudgetForMode(definition.contextMode), variant: null };
+    contextBudget: { enabled: true, contextWindowTokens: 1_000_000, maxOutputTokens: 4096, safetyMarginTokens: 32768,
+      inputBudgetTokens: definition.contextMode === 'daily' ? 256000 : 400000,
+      keepRecentTokens: definition.contextMode === 'daily' ? 48000 : 64000,
+      summaryMaxOutputTokens: definition.contextMode === 'daily' ? 6000 : 8000,
+      triggerRatio: .85, summaryInputChunkTokens: 32000 }, variant: null };
   const question = spec.turns[0].replace(/项目/g, '验收主项目');
   spec.turns = spec.kind === 'compact_incremental' ? [question, question] : [question];
   if (spec.afterRestart) spec.afterRestart = question;

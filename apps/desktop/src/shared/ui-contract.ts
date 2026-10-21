@@ -104,7 +104,6 @@ export interface AppInfo {
   tuiMode: boolean;
   /** Registered idle commands, without the leading slash. */
   commands: string[];
-  hasCompaction: boolean;
   hasResume: boolean;
   /** Primary Run wall-clock budget from the TUI config (confirmation pauses excluded). */
   totalTimeoutMs: number;
@@ -115,7 +114,6 @@ export interface AppInfo {
     enabled: boolean;
     autoConsolidate: boolean;
     writePolicy?: "review" | "automatic";
-    queryRewriteEnabled?: boolean;
   };
   workTasks: boolean;
 }
@@ -197,8 +195,6 @@ export type GetRunResponse =
   | { ok: true; run: ExecutionRunRecord | null }
   | { ok: false; reason: "unavailable"; message: string };
 
-export interface ContextModeInput { mode: "daily" | "long-task"; expectedBudget: ContextBudgetConfig }
-
 export interface RendererApi {
   pomodoro?(action: "status" | "start" | "cancel", minutes?: number): Promise<import("@serika/assistant").PomodoroResult>;
   listRecipes(): Promise<MemoryResult<RecipeEntry[]>>;
@@ -257,7 +253,6 @@ export interface RendererApi {
   listRuns(): Promise<ListRunsResponse>;
   getRun(runId: string): Promise<GetRunResponse>;
   getContextDiagnostics(): Promise<ContextResult<ContextDiagnostics>>;
-  setContextMode?(input: ContextModeInput): Promise<void>;
   /** Bounded metadata only; no Skill instructions, source paths or tool authority. */
   getAutomationDiagnostics(): Promise<AutomationDiagnostics>;
   getAutomationOverview(): Promise<AutomationResult<AutomationOverview>>;
@@ -268,7 +263,6 @@ export interface RendererApi {
   changeLearnedSkill(input: Parameters<AssistantController["dreaming"]["changeLearnedSkill"]>[0]): ReturnType<AssistantController["dreaming"]["changeLearnedSkill"]>;
   getLearnedSkillReferences(): Promise<ReturnType<AssistantController["dreaming"]["getLearnedSkillReferences"]>>;
   setAutonomyEnabled?(input: { enabled: boolean; expectedEnabled: boolean }): Promise<void>;
-  setDreamingEnabled(input: { enabled: boolean; expectedEnabled: boolean }): Promise<void>;
   /** Success means a Run started, not that the Skill completed or its output is correct. */
   runSkill(input: SkillRunInput): Promise<SkillResult<{ runId: string }>>;
   getMemoryLibrary(): Promise<MemoryResult<MemoryLibraryView>>;

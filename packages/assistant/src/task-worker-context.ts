@@ -12,7 +12,7 @@ import {
   createMemoryStore,
   type WorkspaceMemoryStore,
 } from "./memory-store.js";
-import { retrieveMemories, createRetrievedMemoryContextMessage } from "./memory-retrieval.js";
+import { readMemorySnapshot, createMemorySnapshotMessage } from "./memory-snapshot.js";
 import {
   TASK_LIST_MAX_LIMIT,
   type TaskRecord,
@@ -61,12 +61,7 @@ export async function loadTaskWorkerContext(
   signal: AbortSignal,
 ): Promise<TaskWorkerSnapshotContext> {
   const observedAt = (sources.now?.() ?? new Date()).toISOString();
-  const memoryResult = await sources.memoryStore.list(signal, { now: new Date(observedAt) });
-  if (!memoryResult.ok) throw readFailure(memoryResult.error);
-  const memorySelection = retrieveMemories(memoryResult.entries, {
-    query: task.prompt,
-    now: new Date(observedAt),
-  });
+  const memorySelection = await readMemorySnapshot(sources.memoryStore, signal, new Date(observedAt));
   const memories = memorySelection.entries;
 
   const checkpointResult = await sources.checkpointStore.getCurrent(signal);
@@ -109,7 +104,7 @@ export async function loadTaskWorkerContext(
     }],
   }];
   if (checkpoint !== null) referenceMessages.push(createCheckpointContextMessage(checkpoint));
-  referenceMessages.push(createRetrievedMemoryContextMessage(memorySelection));
+  referenceMessages.push(createMemorySnapshotMessage(memorySelection));
   return { referenceMessages };
 }
 

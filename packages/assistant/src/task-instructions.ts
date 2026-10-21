@@ -6,22 +6,17 @@ export type TaskInstructionsContext = {
   receivedAt?: string;
 };
 
-export type TaskContextInjectionOptions = TaskInstructionsContext & {
-  taskEnabled: boolean;
-  definitionId: string;
-};
-
 /** Give the model one unambiguous local calendar date, including its UTC offset. */
 export function formatLocalTaskTime(now: Date, timeZone: string): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone, year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", minute: "2-digit", second: "2-digit", fractionalSecondDigits: 3,
+    hour: "2-digit", minute: "2-digit",
     hourCycle: "h23", timeZoneName: "longOffset",
   }).formatToParts(now);
   const value = (type: Intl.DateTimeFormatPartTypes) => parts.find(part => part.type === type)!.value;
   const zone = value("timeZoneName");
   const offset = zone === "GMT" ? "+00:00" : zone.replace("GMT", "");
-  return `${value("year")}-${value("month")}-${value("day")}T${value("hour")}:${value("minute")}:${value("second")}.${value("fractionalSecond")}${offset}`;
+  return `${value("year")}-${value("month")}-${value("day")}T${value("hour")}:${value("minute")}${offset}`;
 }
 
 /**
@@ -41,7 +36,7 @@ export function buildTaskInstructions({
     "For example, '明早九点提醒我开会' and '一分钟后提醒我喝水' must call task_create; '每天九点提醒我喝水' must call task_repeat_create. Do not only explain the /task command and do not claim that a reminder was saved without a successful tool result. " +
     "task_create requires prompt and runAt. runAt must be an ISO 8601 timestamp with an explicit timezone (use Z or a numeric offset), never a date-only or timezone-less local time. Put only the reminder subject in prompt, such as 开会, not the whole user sentence. " +
     `The current local time is ${formatLocalTaskTime(now, timeZone)} and the local timezone is ${timeZone}. ` +
-    (receivedAt ? `The current user message was received at ${receivedAt} (Asia/Shanghai). Resolve relative delays and today/tomorrow from THIS message receipt time, not Run start, approval time or earlier conversation clocks. If the resulting time has already passed, report that rather than silently moving it later. ` : "") +
+    (receivedAt ? `The current user message was received at ${formatLocalTaskTime(new Date(receivedAt), timeZone)}. Resolve relative delays and today/tomorrow from this receipt time. ` : "") +
     "Resolve today/tomorrow (今天/明天) from this LOCAL calendar date, not the UTC date. Convert relative times from that context using the target date's offset in this timezone. " +
     "If the clock is incomplete, choose a default and call the tool anyway so the confirmation card shows it. A missing clock time defaults to 09:00 local. '过会儿' means 30 minutes after the current time above. '周末' means the next Saturday at 10:00 local, or Sunday at 10:00 if that Saturday has already passed, or today at 10:00 when it is Sunday before 10:00. Do not ask「你想几点」 before the tool call. " +
     "task_repeat_create recurrence is daily { kind: 'daily', time: 'HH:mm', utcOffset: '+08:00' } or weekly { kind: 'weekly', weekday: 1..7 (Monday..Sunday), time: 'HH:mm', utcOffset: '+08:00' }; the numeric UTC offset must be the local offset above. A fixed UTC offset does not follow daylight saving time; do not promise the same local clock time across DST changes. " +
@@ -65,25 +60,4 @@ export function buildTaskContextMessage(
     role: "assistant",
     parts: [{ type: "text", text: buildTaskInstructions(context) }],
   };
-}
-
-/**
- * Add the task instructions to a TUI model prompt without changing the
- * persisted conversation. The caller supplies the current time so this stays
- * a per-Run decision rather than a process-start snapshot.
- */
-export function injectTaskContext(
-  messages: UIMessage[],
-  options: TaskContextInjectionOptions,
-): UIMessage[] {
-  if (!options.taskEnabled || options.definitionId !== "calculator") {
-    return messages;
-  }
-  return [
-    buildTaskContextMessage({
-      now: options.now,
-      timeZone: options.timeZone,
-    }),
-    ...messages,
-  ];
 }

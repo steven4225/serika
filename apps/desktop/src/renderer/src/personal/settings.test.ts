@@ -5,20 +5,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { AppInfo } from "../../../shared/ui-contract.js";
 import { dashboardTabForDetail } from "./layout.js";
-import {
-  applyThinkingChoice,
-  readRecordedCallsWhenActive,
-  readWhenHostReady,
-  recordedCallLabel,
-  recordedCallView,
-  SETTINGS_HOST_RETRY_MS,
-  settingsBackTarget,
-  settingsCopy,
-  settingsRouteForInitial,
-  takeHostRead,
-  thinkingChoiceForBudget,
-} from "./settings-model.js";
-import { SettingsFrame, SettingsHome, ThinkingModeCards } from "./settings.js";
+import { readRecordedCallsWhenActive, readWhenHostReady, recordedCallLabel, recordedCallView, SETTINGS_HOST_RETRY_MS, settingsBackTarget, settingsCopy, settingsRouteForInitial, takeHostRead } from "./settings-model.js";
+import { SettingsFrame, SettingsHome } from "./settings.js";
 import { readAppSource } from "../../test-support/app-source.js";
 
 const render = (element: Parameters<typeof renderToStaticMarkup>[0]) => renderToStaticMarkup(element);
@@ -37,7 +25,7 @@ it("settings home is a grouped push list and keeps engineering ids off the chrom
   assert.match(html, /aria-label="回到手札"/);
   assert.match(html, /<h1>设置<\/h1>/);
   assert.match(html, /外观、偏好和应用信息/);
-  for (const title of ["连接应用", "文件与网页", "电脑控制", "技能", "Telegram", "通用", "记忆设置", "通知与后台", "高级", "快捷键", "关于", "平衡", "性能"]) assert.match(html, new RegExp(title));
+  for (const title of ["连接应用", "文件与网页", "电脑控制", "技能", "Telegram", "通用", "记忆设置", "通知与后台", "高级", "快捷键", "关于"]) assert.match(html, new RegExp(title));
   assert.doesNotMatch(html, /执行记录与用量|本地使用，无需订阅|云电脑|入会提醒|退出登录未配置|已开启 \d+ 项/);
   assert.doesNotMatch(html, /月度用量|立即重置|剩余 未报告|重置日 未配置|订阅未配置|近期保留记录|已记录 \d+ 次/);
   assert.doesNotMatch(html, /aria-label="助手设置"|personal-settings-nav|>模块<|>执行记录<|>上下文</);
@@ -52,22 +40,6 @@ it("a settings row pushes a detail whose back control returns to settings home",
   assert.match(html, /aria-label="返回设置"/);
   assert.match(html, /<h1>连接应用<\/h1>/);
   assert.doesNotMatch(html, /回到手札/);
-});
-
-it("thinking mode is a single select over the existing context presets", () => {
-  assert.equal(thinkingChoiceForBudget("daily"), "balanced");
-  assert.equal(thinkingChoiceForBudget("long-task"), "performance");
-  assert.equal(thinkingChoiceForBudget(undefined), "unconfigured");
-  assert.equal(applyThinkingChoice("balanced", "balanced"), null);
-  assert.equal(applyThinkingChoice("balanced", "performance"), "long-task");
-  assert.equal(applyThinkingChoice("performance", "balanced"), "daily");
-  assert.equal(applyThinkingChoice("unconfigured", "performance"), "long-task");
-  const html = render(createElement(ThinkingModeCards, { current: "performance", disabled: false, onChoose() {} }));
-  assert.match(html, /aria-label="思考方式"/);
-  assert.equal(html.match(/aria-checked="true"/g)?.length, 1);
-  assert.match(html, /aria-checked="true"[^>]*>[\s\S]*性能/);
-  assert.match(html, /aria-checked="false"[^>]*>[\s\S]*平衡/);
-  assert.doesNotMatch(html, /disabled/);
 });
 
 it("call counts exclude pre-dispatch cancellation and mark a dropped journal as retained", () => {
@@ -112,7 +84,6 @@ it("a host that becomes ready 300ms late still yields a selectable preset, and a
   assert.deepEqual(readyResult, { status: "ready", value: { mode: "long-task" } });
   const applied = takeHostRead(1, 1, readyResult);
   assert.equal(applied?.status, "ready");
-  assert.equal(applied?.status === "ready" ? thinkingChoiceForBudget(applied.value.mode) : null, "performance");
   assert.equal(takeHostRead(1, 2, { status: "unavailable" }), null);
 
   let attempt = 0;
@@ -133,7 +104,6 @@ it("a host that becomes ready 300ms late still yields a selectable preset, and a
   releaseRetry!();
   const afterRetry = await retried;
   assert.deepEqual(afterRetry, { status: "ready", value: { mode: "daily" } });
-  assert.equal(thinkingChoiceForBudget(afterRetry.status === "ready" ? afterRetry.value.mode : undefined), "balanced");
 
   let current = true;
   let releaseStale: ((value: { ok: true; value: { mode: "daily" } }) => void) | null = null;
@@ -192,8 +162,6 @@ it("opening settings stays on the gear and does not select the persona pill", as
   assert.doesNotMatch(app, /openDetails\("persona"\)/);
   assert.match(app, /if \(route === "records"\) \{ openDetails\("records"\); return; \}/);
   assert.doesNotMatch(settings, /window\.runloom\.listRuns\(/);
-  assert.match(settings, /readWhenHostReady\(/);
-  assert.match(settings, /hostReady=\{info !== null\}/);
   assert.doesNotMatch(settings, /useEffect\(\(\) => \{ void load\(\); \}, \[\]\)/);
   assert.doesNotMatch(settings, /月度用量|订阅未配置/);
   assert.doesNotMatch(app, /openDetails\("modules"\)|personal-settings-nav/);

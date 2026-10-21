@@ -58,13 +58,14 @@ async function fixture(allowWorkspaceTaskReads: boolean) {
   let sequence = 0;
   return {
     app, workspace, foreignWorkspace, taskStore, own: own.value, foreign: foreign.value, prompted,
-    async run(name: string, input: unknown) {
+    async run(name: string, input: unknown, expectedStatus = "completed") {
       currentCall = { name, input }; calls = 0; response = ""; app.toolConfirmation!.beginRun();
       try {
         const handle = await app.runtime.run({ agentId: app.agentId, threadId: app.threadId,
           messages: [{ id: `u${++sequence}`, role: "user", parts: [{ type: "text", text: "查询当前工作区提醒" }] }] });
-        assert.equal((await handle.result).status, "completed");
-        return response;
+        const result = await handle.result;
+        assert.equal(result.status, expectedStatus);
+        return expectedStatus === "completed" ? response : JSON.stringify({ error: result.error, diagnostics: await app.getContextDiagnostics() });
       } finally { app.toolConfirmation!.endRun(); }
     },
     async dispose() { unsubscribe(); app.dispose(); await rm(root, { recursive: true, force: true }); },
@@ -97,9 +98,9 @@ it("workspace task read Demo: symlinked task directory cannot expose another wor
   try {
     await rename(join(f.workspace, ".runloom"), join(f.workspace, ".runloom-original"));
     await symlink(join(f.foreignWorkspace, ".runloom"), join(f.workspace, ".runloom"), "dir");
-    const listed = await f.run("task_list", {});
+    const listed = await f.run("task_list", {}, "failed");
     assert.doesNotMatch(listed, /外部工作区私密提醒/);
-    assert.match(listed, /TASK_FILE_INVALID/);
+    assert.match(listed, /DREAMING_SYMLINK_NOT_ALLOWED/);
     assert.deepEqual(f.prompted, []);
   } finally { await f.dispose(); }
 });

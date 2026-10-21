@@ -2,7 +2,7 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App.js";
-import { contextBudgetForMode } from "@serika/assistant/browser";
+import { defaultContextBudget } from "@serika/assistant/browser";
 import type { AppInfo, MainToRenderer, RendererApi, RssWorkerResponse, UiSnapshot } from "../../shared/ui-contract.js";
 import type { WorkTask } from "../../shared/work-tasks.js";
 import "./styles.css";
@@ -13,7 +13,6 @@ const previewDrafts = new Map<string, ConversationDraft>();
 let threadId = "preview-a";
 let sequence = 0;
 let memoryEnabled = false;
-let contextMode: "daily" | "long-task" = "daily";
 const listeners = new Set<(message: MainToRenderer) => void>();
 const threads = [
   { threadId, title: "周末想把搜索做成聚光灯", transcriptDirectory: "/fixture/transcripts", messageCount: 2, preview: "周末想把搜索做成聚光灯，按消息找回以前聊过的话。" },
@@ -21,8 +20,8 @@ const threads = [
 ];
 const info = (): AppInfo => ({ entryMode: "test", configPath: "/fixture/config.json", threadId, directory: "/fixture/transcripts", workspaceRoot: "/fixture/workspace",
   modelAlias: "mock", modelId: "UI fixture", temporaryThread: false, temporaryDirectory: false, identitySource: "saved",
-  computer: { enabled: false, allowedBundleIds: [] }, tuiMode: true, commands: [], hasCompaction: false, hasResume: false,
-  totalTimeoutMs: 600000, shellTimeoutMs: 300000, memory: { enabled: memoryEnabled, autoConsolidate: memoryEnabled, queryRewriteEnabled: memoryEnabled }, workTasks: true,
+  computer: { enabled: false, allowedBundleIds: [] }, tuiMode: true, commands: [], hasResume: false,
+  totalTimeoutMs: 600000, shellTimeoutMs: 300000, memory: { enabled: memoryEnabled, autoConsolidate: memoryEnabled }, workTasks: true,
   modules: [
     { id: "read-file", enabled: true }, { id: "web", enabled: true }, { id: "computer", enabled: false },
     { id: "memory", enabled: memoryEnabled }, { id: "task", enabled: true }, { id: "pomodoro", enabled: true }, { id: "shell", enabled: true },
@@ -139,7 +138,6 @@ const api = {
   info: async () => info(), snapshot: async () => structuredClone(snapshot), history: async () => [],
   historyPage: async () => ({ threadId: info().threadId, messages: [], beforeId: null }),
   listRuns: async () => ({ ok: true as const, runs: [] }), home: async () => ({ ok: true as const }),
-  setContextMode: async (input: { mode: "daily" | "long-task" }) => { contextMode = input.mode; },
   onMessage: (listener: (message: MainToRenderer) => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
   listWorkTasks: async () => ({ ok: true as const, value: briefTasks().map(task => structuredClone(task)) }),
   getWorkTask: async (id: string) => {
@@ -175,7 +173,7 @@ const api = {
   listMemories: async () => ({ ok: true as const, value: { entries: [], nextOffset: null } }),
   getMemoryReferences: async () => null,
   getMemoryMaintenance: async () => ({ ok: false as const, error: { code: "MEMORY_READ_FAILED" as const, message: "浏览器 fixture 不读取真实记忆" } }),
-  getContextDiagnostics: async () => ({ ok: true as const, value: { threadId, enabled: true, budget: contextBudgetForMode(contextMode), estimatorVersion: "char-half/v1" as const, latestValidCompaction: null, lastPreparation: null } }),
+  getContextDiagnostics: async () => ({ ok: true as const, value: { threadId, enabled: true, budget: defaultContextBudget(), estimatorVersion: "char-half/v1" as const, latestValidCompaction: null, lastPreparation: null } }),
   notificationStatus: async () => ({ helperConfigured: false, authorization: "unknown" as const, message: "通知未配置。" }),
 } satisfies Partial<RendererApi>;
 window.runloom = new Proxy(api as unknown as RendererApi, { get(target, property) {

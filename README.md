@@ -109,36 +109,9 @@ RUNLOOM_MODEL=minimax-m3 pnpm tui -- ./var/runloom --thread demo --workspace ./s
 
 配置 workspace 后提供受控文件工具与 Memory 工具。`write_file` 只新建，`edit_file` 只替换恰好一个匹配。正式记忆与当前 Thread 的待审候选保存在 `.runloom/memory.json` v3；v1/v2 只读兼容，首次实际成功变更才升级。正式条目保留 scope、source、status、revision、expiresAt、pinned 与有限历史；thread scope 由程序绑定当前 Thread。conversation 来源必须是当前 Thread 唯一已提交用户消息中的精确引句，对不上就拒绝；当前 Run 的直接记住请求仍是 manual。`memory_list` 不返回历史正文；`memory_get` 显示保存时核验的引句，不保证原话还在当前 transcript。
 
-存储容量与注入预算分开：最多 512 条正式记忆、文件 16 MiB；pending 候选最多 64 条、终态候选保留最近 256 条。主 Agent 用当前用户原文做确定性词法检索，最多先选两条 pin（4 KiB），随后只选匹配项，最终完整参考消息最多 12 条/8 KiB，不截半条、不用零匹配条目填充。禁用、过期、其它 Thread 私有项、候选、history 和 sourceQuote 不注入。普通准备和压缩预算共享本次所选引用，下一次准备再读取；不承诺强同义改写召回。检索子集为空不代表记忆库为空或条目已删除。只有本轮注入的当前版本是偏好依据，旧 transcript 和摘要不是。每次 Memory 工具仍按原有确认规则；显式接受候选或工具确认后的写入立即生效，之后 Run 失败不回滚。详见[原生 Memory A+B 验收](docs/memory-native-acceptance.md)。
+存储容量与注入预算分开：模型输入改为固定工作区快照，偏好和笔记各 4 KiB，置顶优先；超额完整条目保留在库中按需查。记忆文档与已有方法只注入索引，正文通过免确认的 `memory_read` 读取，查询只做最小关键词匹配。查询改写、相关性、contextView、向量服务及配置已删除。旧 Thread 记忆留待第 7 步裁决，不注入主聊天或 worker。
 
-可在 **workspace 外的可信配置** 中显式开启云端语义检索和派生参考，合并到现有 `modules.memory`，不要替换其他配置：
-
-```json
-{
-  "enabled": true,
-  "semantic": {
-    "enabled": true,
-    "provider": "dashscope",
-    "modelId": "qwen3.7-text-embedding-flash",
-    "baseURL": "https://dashscope.aliyuncs.com/compatible-mode/v1"
-  },
-  "contextView": { "enabled": true }
-}
-```
-
-该示例使用阿里云百炼／DashScope；宿主进程需要单独配置 `DASHSCOPE_API_KEY`，JSON 中不接受 `apiKey`，不会继承 Command Code 或聊天模型 Key。默认北京旧域名仍受官方支持；也支持控制台提供的真实工作空间域名（北京／新加坡／香港），地域必须与 Key 匹配，不要照抄占位符。接口以[百炼官方兼容 Embedding 文档](https://help.aliyun.com/en/model-studio/embedding-interfaces-compatible-with-openai)为准。**云端会收到本轮范围内的当前有效记忆正文及有界查询**；其它 Thread 私有项、停用、过期、撤回、历史和待审候选在请求前已过滤，但这不是“数据完全不出本机”的模式。
-
-接法参考 Shiori-Agent 的兼容接口：Bearer 认证、严格校验返回向量，再以 RRF 融合词法和向量排名；不是另写 embedding 模型。其他模型／本机服务每批最多十条并按返回 `index` 对齐；`qwen3.7-text-embedding-flash` 已实测批量响应索引全部为 0，因此固定每次请求一条字符串、最多十个并发，用请求绑定向量，不按数组位置猜配，也不先批量失败再重发。云端仅允许官方 HTTPS endpoint，不跟随重定向、不重试；缺 Key／认证失败／超时会显示不可用并退回关键词检索，不阻塞聊天。凭据、HTTP 错误正文和传输异常原文不入索引或报告。索引保存在 `.runloom/memory-semantic-index.json`，仅保存可重建的向量与 ID/revision/text hash；`memory.json` 仍是唯一正式事实源。每次冷准备最多补二十条事实，整次索引／查询截止五秒；未覆盖完会显示正在建立。当前消息后续工具步骤复用相同查询结果，重启复用事实向量但重新计算查询。修改、禁用、过期、撤回或跨 Thread 不能借旧索引进入参考；worker、手动压缩和整理不增加 embedding 请求。fixture 测试验证协议和安全边界，不等于真实语义模型准确率；真实召回题须单独运行，未全部通过会保留失败题和非零退出码。embedding HTTP 请求尚未接入逐调用用量账本。
-
-旧配置不写 `provider` 时仍按本机 loopback 服务处理，不能静默转云端。已有本机服务可显式选 `provider: "local"`、`modelId: "qwen3-embedding:0.6b"`、`baseURL: "http://127.0.0.1:11434/v1"`；Serika 不安装 Ollama、不下载模型、不启动本机服务，新旧桌面配置也不会静默开启语义服务。
-
-`contextView` 从正式库派生至多三条当前有效、已知身份、无场景限定的稳定偏好，以及当前 Thread 至多三条未完成任务，最多两 KiB，并与检索共享十二条事实／八 KiB 总预算。不新增画像数据库、不恢复权限或自动继续任务。新桌面配置默认开启派生参考；已有配置不自动修改，语义服务始终显式开启。
-
-自动写入配置下，明确自述“从现在起咖啡改成加糖。”、“以后，我喝咖啡改成加糖。”或“请把我的咖啡偏好改为加糖。”可用来源绑定的 `changeIntent` 自动更新同一已知偏好槽，实际时间由宿主提交时决定，旧版本和来源可查看／撤销。也覆盖已知的复盘顺序和回复语言，不承诺识别任意新偏好槽或所有自然语言变更。普通矛盾、条件／转述、不同场景或范围不明确仍待审；相似度不授予修改权限。
-
-分类仅用于检索相关度相同时的轻量排序：当前 `preference/fact` 先于 `event/note`，更精确的事件匹配仍在前，固定／范围／时效过滤和总预算不变；没有热度、类型阈值或分类配额。派生画像同时检查正文的场景限定，旧记录即使误标 `general` 也不能把“工作时”变成无条件偏好。真实召回对照另运行 `pnpm eval:recall --live`，详见 eval README；测试通过不是语义准确率。
-
-五分钟隔离 Demo（需另行配置云端专用 Key）：在隔离 workspace 的自动模式保存一条偏好 → 用不同措辞提问 → 查看本轮参考的“语义／混合”来源和实际服务状态 → 明确说从现在起修改该偏好 → 核对正式库新版本、旧来源及无多余待审 → 在另一 Thread 检查私有事实未被引用。不以模型口头“已记住”作为保存证据。
+固定参考在压缩边界刷新，中间变更在新消息的可选 metadata 附注。时间、任务、检查点和 WorkTask 引用随新消息保存；旧消息不回写。记忆写工具与后台沉淀在第 4 步重做，现阶段保留来源与写入校验。
 
 独立开启 `modules.checkpoint.enabled` 后，TUI 在 workspace 的 `.runloom/checkpoint.json` 保存一份项目工作进度；它与 Memory、transcript 分开，默认关闭且不依赖 `memory.enabled`。新 Thread 只注入当前版本，明确标为保存时的参考快照，不代表当前磁盘状态，也不恢复工具授权。用户明确要求时才调用 `checkpoint_prepare`、`checkpoint_get` 或 `checkpoint_save`，三者都走现有 `y/n`；prepare 只返回 current 和当前 Thread 可注入的 Memory，不调用模型、不重复复制近期对话。保存预览包含 `expectedVersion` 与完整草稿；版本冲突不覆盖，按 `n` 零写入。当前快照和注入消息各不超过 12 KiB，文件不超过 128 KiB，损坏或超限时 fail-closed。它不验证 artifacts 路径当前是否存在，也不是自动记忆整理的候选；`completed` 仍是 current，后续保存递增版本。
 
@@ -146,7 +119,7 @@ RUNLOOM_MODEL=minimax-m3 pnpm tui -- ./var/runloom --thread demo --workspace ./s
 
 TUI 启动时会在历史记录之后显示一次只读 Home；空闲输入 `/home` 可重新读取当前状态。Home 显示模型配置、workspace、Thread 与 transcript 路径，并分别提醒临时目录和临时 Thread；项目区块读取 workspace 当前 checkpoint，并标出它由哪个 Thread 保存；本地任务区块显示未确认的 `completed` / `failed` / `interrupted` 结果以及最近创建的 `scheduled` / `running` 任务。列表截断时会明确提示还有更多，不声称展示全部待办。Home 不运行模型、Git 或 Todoist 查询，不写文件、不 ack、不推断桌面通知已送达；只有 checkpoint 启用时才提示 `/resume`，只有 task 启用时才提示 `/task inbox`。
 
-当较早的完整回合因 8 回合或 128 KiB 上限被移出模型上下文时，TUI 会注入一个不超过 16 KiB 的进程内工作摘要。摘要不写入 transcript，也没有独立的持久化文件；使用同一 transcript 目录和同一 thread 重启时，会从该 thread 的已提交 transcript 确定性重建，其他 thread 的内容不会混入。这只恢复对话上下文，不是 Durable recovery：失败或取消 Run 的未提交动作不会恢复，摘要也不授予或恢复工具权限。Goal 是原始请求而不是当前磁盘状态；Completed 只保留显式 `ok:true` 的短工具回执。可用 `/history <message-id>` 或 `/history turn:<number>`（回合编号从 0 开始）只读回查摘要所引用的当前 thread 原文。
+旧的 8 回合 / 128 KiB 滑动裁剪和进程内工作摘要已删除。已提交原文保持完整，可用 `/history <message-id>` 或 `/history turn:<number>`（回合编号从 0 开始）回查当前 Thread。分层摘要、块屏蔽和超长内容处理留到第 5、6 步；第 3 步不靠截断绕过窗口限制。
 
 如果一次任务需要连续处理一组文件，可在提交任务前使用 `/authorize <tool[,tool...]> <path> [path ...]`，例如 `/authorize read_file,search_files,write_file docs/ reports/`；列出的每个工具都适用于列出的每个路径前缀。这只把列出的文件工具和 workspace 相对路径前缀授权给下一次 Run；Run 结束、失败或取消后立即失效。未列出的工具或路径仍逐次询问，`shell_exec` 不受这条授权影响；授权规则不写入 transcript、memory 或 `tasks.json`。
 
@@ -386,7 +359,7 @@ RUNLOOM_MODEL=deepseek node --env-file=.env apps/cli/dist/index.js --tui ./var/r
 }
 ```
 
-启用后，TUI 在模型请求前按预算压缩较早的对话和已完成的工具交互，保留原始 JSONL 和 `/history` 回查；`/compact` 可在空闲时手动触发。摘要不是长期记忆，也不会恢复授权或未提交的工具副作用。预算采用 `char-half/v1` 估算，属于保守估算而非服务端 tokenizer 的精确计数。
+启用后，TUI 在模型请求前按预算压缩较早的对话和已完成的工具交互，保留原始 JSONL 和 `/history` 回查。手动压缩入口已删除。摘要不是长期记忆，也不会恢复授权或未提交的工具副作用。预算采用 `char-half/v1` 估算，属于保守估算而非服务端 tokenizer 的精确计数。
 
 worker 使用同一模型配置，但不读取 TUI `--config`；加 `--todoist` 仍需单独配置 `TODOIST_API_TOKEN`：
 

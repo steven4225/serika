@@ -2,51 +2,9 @@
 
 不需要 PostgreSQL，不启动桌面、常驻服务或 worker。每条案例独立创建临时 workspace/config/transcript，结束后清理；不读取日用配置、历史或记忆。结果留在此目录的 `results/`，不提交 Git。
 
-## 云端真实召回对照（独立 MR01–MR12）
+## 第 3 步后的记忆验收
 
-默认采用 DashScope `qwen3.7-text-embedding-flash`，需要你自己的百炼 Key。只发送隔离合成记忆／查询，不读取日用数据；不安装 Ollama、不下载模型、不读聊天 Key、不启动服务。zsh 可用隐藏输入（不要把 Key 发到聊天或写入配置）：
-
-```sh
-read -rs 'DASHSCOPE_API_KEY?请输入百炼 Key（隐藏输入）：'
-export DASHSCOPE_API_KEY
-pnpm eval:recall --live --provider=dashscope --model=qwen3.7-text-embedding-flash
-unset DASHSCOPE_API_KEY
-```
-
-默认 `https://dashscope.aliyuncs.com/compatible-mode/v1`；也接受控制台给出的真实北京／新加坡／香港工作空间 URL，可用 `--base-url=实际URL`，Key 的地域要一致。不支持任意代理域名、URL 内凭据或重定向。已有本机服务才用 `--provider=local --base-url=http://127.0.0.1:11434/v1 --model=qwen3-embedding:0.6b`；该路径不读取专用云端 Key。缺 Key 会直接报环境未配置，不生成成功分数。
-
-首次接线或环境失败可显式运行 `pnpm eval:recall --live --probe --provider=dashscope --model=qwen3.7-text-embedding-flash`，只对 MR01 的两条合成事实和查询执行一次准备，不自动重试。该模型已实测批量响应索引全部为 0，因此固定用单条字符串请求绑定输入与向量（probe 共 3 次 HTTP 请求，最多 10 个并发，仍受整体准备截止时间约束）；不先试批量再补发，也不按数组位置猜配向量。报告记录 `requestMode`、各请求的数量／输入哈希与真实完整 usage；其他模型和本机服务仍按索引校验批量响应。该报告单独标为 `memory-embedding-probe-v1`，不是十二题召回成绩，不计算百分点变化。完整评测和 probe 都保留安全错误分类：HTTP 状态、JSON／响应结构、向量数量／格式、截止时间或索引读写，绝不保留供应商错误正文、凭据或原始异常文本；HTTP 200 不等于有效向量已写入索引。
-
-十二项固定题标注“我的 eval”，每题独立生成正式 `memory.json`；同一题分别跑关键词基线与生产混合检索，Top-3、0.5 阈值、RRF k=60 固定，不自动调参。覆盖直接／同义询问、事件挤占偏好、更精确事件、无关问题、Thread 隔离、禁用／过期／撤回、旧文本、场景不进入无条件画像。正式库是合成测试数据，embedding 是实际所选 HTTP 服务；**这是召回模块评测，不是完整聊天、语义提取或日用 Electron 验收**。兼容服务的响应模型身份未独立验证，manifest 会明确记下这个边界。
-
-报告在新的 `results/memory-recall-*/`，保留 manifest、实际构建文件哈希、冻结的 Eval 程序、每题 `evidence.json`、正式库／索引、返回分数、HTTP 请求数量／时间／输入哈希、选中正文与版本。`summary.json` 分开列计划／执行／未执行、任务命中通过率、平均 Recall@3／Precision@3、无关题误召回和禁止引用命中。任务通过指必需答案进入 Top-3 且安全／第一位条件满足；它**不等于 Top-3 每条都相关**，额外命中仍作为 unexpected 和较低 precision 留下。未知 usage 不算零。
-
-没有符合范围的事实时，该题是 `not_applicable`、只验程序过滤，不算 embedding 调用；报告单列 `embeddingCasesExecuted` 和 `policyOnlyCases`。服务失败／超时不把关键词降级算语义通过，不重试；保存失败证据，剩余题保留未执行，两边未全部执行时不计算百分点提升。旧 RM／RD／RL 报告和评分不动。完整运行后先看误召回和漏召回原文，再决定是否调阈值；当前不声称任何真实准确率提升。
-
-终端与新报告明确区分 `environment_failed`（接线／解析／超时导致未测完）和 `completed_with_failures`（完整测完，但有真实漏召回或排序不达标）；后者列出 `failedCases` 的问题、预期／实际标签和证据路径。两者都保留退出码 1，以便自动化拦下未达标结果；`ELIFECYCLE` 本身不表示接口还没接通，也不应靠改退出码或历史分数掩盖漏召回。
-
-`pnpm eval:test` 只测试 Oracle 和 fixture HTTP 报告链路，临时 fixture 结果会清理，**不是实际 embedding 模型成绩**。
-
-记忆 v1 接入复验可在自己的终端执行 `zsh examples/eval/Start-Memory-Acceptance.command`，只在隐藏提示中输入百炼 Key。原 MR01–MR12 与开发者编写的独立 MH01–MH04 各跑一次、分母分别报告；环境失败立即停止，不自动重试。也可单独执行 `pnpm eval:recall --live --suite=validation --provider=dashscope --model=qwen3.7-text-embedding-flash`。MH 不是盲测保留集，用显式禁止标签约束无关事件／偏好和跨 Thread 命中，原 MR 的评分、0.5 阈值、Top-3、RRF 60 都不变。
-
-新报告的 `embedding.diagnostics` 列出合格范围内候选分数与 `below_threshold / candidate_limit / not_indexed / invalid_score` 原因，不保留向量或供应商响应正文。`precisionWarnings` 单列“题目通过但夹带额外记忆”，不能把任务命中率宣传成精确率。旧报告不补写分数、重新评分或宣称已查明低于阈值的具体数值。
-
-### 显式相关性判定复验（仍是原 12＋4 题）
-
-`zsh examples/eval/Start-Memory-Acceptance.command --relevance` 会依次隐藏输入百炼与 Command Code 的两个专用 Key，仅放宿主环境、不写文件。原 Qwen embedding 与原题／Oracle 不变，额外固定 `command-code/default` 的 `deepseek/deepseek-v4.1-flash-fast`、`https://api.commandcode.ai/provider/v1`，每题最多一次五秒相关性判定。该次同时返回候选选择与同义检索词，不再调用另一条查询改写；脚本不读取日用 Key／配置、启动日用进程或修改旧报告。**无 `--relevance` 时保持原行为，只需要百炼 Key。** 两条 suite 可单独跑：
-
-```sh
-read -r -s 'DASHSCOPE_API_KEY?百炼 API Key（隐藏输入）：'
-read -r -s 'COMMAND_CODE_API_KEY?Command Code API Key（隐藏输入）：'
-export DASHSCOPE_API_KEY COMMAND_CODE_API_KEY
-pnpm eval:recall --live --relevance --provider=dashscope --model=qwen3.7-text-embedding-flash
-pnpm eval:recall --live --relevance --suite=validation --provider=dashscope --model=qwen3.7-text-embedding-flash
-unset DASHSCOPE_API_KEY COMMAND_CODE_API_KEY
-```
-
-新报告目录带 `relevance-`，manifest 标记 `pipeline: hybrid+relevance`、固定主模型配置与相关运行组件哈希。每题保留 `hybridBeforeRelevance`，最后的 `hybrid` 仍由原 Oracle 独立评分；`relevance` 证据列出 state、选中 ID、检索词、合格候选数量、耗时、实际 SDK 模型调用／usage 和安全 HTTP 状态，不保存请求正文、Key 或上游错误正文。没有合格候选可为 `not_applicable`，无需主模型调用；服务故障／超时／非法判定的 `degraded` 则是环境失败，不能把普通 hybrid 降级记成 relevance 通过，立即停批且不重试。两份报告的分母仍分别为 12 和 4，质量失败保持红项并继续另一套，不能将不同题集直接合算百分点或当成完整聊天验收。
-
-完整 Controller 自动保存→明确更新→普通冲突审核→参考注入的回归在 `packages/assistant/src/app-memory-chain-acceptance.test.ts`，桌面主进程/renderer 接线在 `apps/desktop/src/renderer/src/desktop-memory-semantic.test.ts`。它们使用真实存储与 Runtime，但模型提取、embedding/HTTP 响应是 fixture；模拟 TG Thread 只验共用运行时的范围隔离，不证明真实 Telegram 收发或原生 Electron 点击，也不计入真实模型成功率。
+查询改写、相关性与向量召回 eval 已随对应产品实现删除；旧报告与分数保留。固定快照与读工具离线结果见 `docs/v2-pilot/cm-step3.md`；真实模型缓存与首正文 A/B 需另行批准次数和费用。
 
 ## 连续压缩保真回归（独立新套件）
 

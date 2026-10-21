@@ -9,7 +9,7 @@ import { isCurrentMemory, memoryItemTitle, memoryUpdatedLabel } from "./personal
 import { memoryErrorText } from "../../shared/memory-labels.js";
 
 /** Saved memories can only be edited or deleted. Deletion is permanent and needs one confirmation. */
-export function FormalMemories({ enabled, controllerIdle, refreshToken }: { enabled: boolean; controllerIdle: boolean; refreshToken: number; queryRewriteEnabled: boolean; managementOnly?: boolean }) {
+export function FormalMemories({ enabled, controllerIdle, refreshToken }: { enabled: boolean; controllerIdle: boolean; refreshToken: number; managementOnly?: boolean }) {
   const [page, setPage] = useState<MemoryPage | null>(null);
   const [current, setCurrent] = useState<FormalMemory | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);

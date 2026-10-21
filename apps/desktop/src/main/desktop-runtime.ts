@@ -6,8 +6,8 @@ import { enableDesktopMemory, resolveDesktopConfig } from "./desktop-config.js";
 import { createDesktopThread, listDesktopThreads, resolveDesktopIdentity, selectDesktopThread, type DesktopIdentityResolution } from "./desktop-identity.js";
 import { inspectThread } from "./thread-history.js";
 import { RuntimeBridge, TeeOutput, type Send } from "./runtime-bridge.js";
-import { changeModuleSetting, changeDreamingSetting, changeAutonomySetting, changeTelegramAutonomySetting, type AutonomySettingInput, ConfigCommitUncertainError, type ModuleSettingInput, type DreamingSettingInput } from "./module-settings.js";
-import type { AppInfo, ContextModeInput } from "../shared/ui-contract.js";
+import { changeModuleSetting, changeAutonomySetting, changeTelegramAutonomySetting, type AutonomySettingInput, ConfigCommitUncertainError, type ModuleSettingInput } from "./module-settings.js";
+import { AppInfo } from "../shared/ui-contract.js";
 import { readLoadedBuild } from "./build-identity.js";
 import { createPomodoroService, type PomodoroService } from "@serika/assistant";
 import { ExecutionRecordStore } from "@serika/assistant";
@@ -18,7 +18,6 @@ import { createTaskStore, type TaskListInput } from "@serika/assistant";
 import { exportBackup } from "./backup.js";
 import { ConversationDraftStore } from "./conversation-draft-store.js";
 import { MAX_CONVERSATION_DRAFT_BYTES } from "../shared/conversation-drafts.js";
-import { changeContextMode } from "./context-settings.js";
 
 interface Options { userData: string; cwd: string; env: NodeJS.ProcessEnv; modelAlias: string; modelId?: string; model: LanguageModel; send: Send; taskAutomation?: TaskAutomationHost; /** Ownership transfers to this host, including final disposal. */ pomodoroService?: PomodoroService }
 
@@ -319,20 +318,7 @@ export class DesktopRuntime {
       return this.#identity;
     }, false, { rollback: async () => { await undo?.(); } });
   }
-  setDreamingEnabled(input: DreamingSettingInput) {
-    let undo: (() => Promise<void>) | undefined;
-    return this.#replace(async () => {
-      undo = await changeDreamingSetting(this.#identity.configPath, input, this.#options.cwd);
-      return this.#identity;
-    }, false, { rollback: async () => { await undo?.(); } });
-  }
-  setContextMode(input: ContextModeInput) {
-    let undo: (() => Promise<void>) | undefined;
-    return this.#replace(async () => {
-      undo = await changeContextMode(this.#identity.configPath, input, this.#options.cwd);
-      return this.#identity;
-    }, false, { rollback: async () => { await undo?.(); }, reason: "context" });
-  }
+
   /** Reconnect only the trusted selected identity; never resend a Run or tool. */
   async retryConnection(): Promise<void> {
     if (this.#changing) throw new Error("正在重新连接，请稍候");

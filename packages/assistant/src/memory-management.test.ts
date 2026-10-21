@@ -13,11 +13,11 @@ import { resolveTuiModuleConfig } from "./tui-module-config.js";
 import { memoryPage, validMemoryEdit } from "./memory-management.js";
 
 const usage = { inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 1, text: 1, reasoning: undefined } };
-async function setup(rewrite = false) {
+async function setup() {
   const root = await mkdtemp(join(tmpdir(), "runloom-formal-memory-"));
   await mkdir(join(root, "workspace"));
   const config = join(root, "config.json");
-  await writeFile(config, JSON.stringify({ version: 1, workspace: "./workspace", modules: { memory: { enabled: true, queryRewrite: { enabled: rewrite } } } }));
+  await writeFile(config, JSON.stringify({ version: 1, workspace: "./workspace", modules: { memory: { enabled: true } } }));
   let rewrites = 0; let primary = 0;
   const prompts: string[] = [];
   const model = new MockLanguageModelV3({
@@ -44,55 +44,7 @@ async function idle(controller: ReturnType<typeof createAssistantController>) {
 }
 
 describe("formal Memory controller and actual reference preparation", () => {
-  it("rewrites once across tool steps but rereads current Memory, and refuses busy editing", async () => {
-    const test = await setup(true); const { app, controller } = await test.open();
-    let next = 0; let sawNewVersion = false;
-    const added = await app.memoryStore!.add({ text: "复盘原格式" }); assert.ok(added.ok); if (!added.ok) return;
-    const original = test.model.doStream.bind(test.model);
-    test.model.doStream = async options => {
-      if (next++ === 0) {
-        assert.ok(JSON.stringify(options.prompt).includes("复盘原格式"));
-        return { stream: simulateReadableStream({ chunks: [
-          { type: "stream-start" as const, warnings: [] },
-          { type: "tool-call" as const, toolCallId: "calc", toolName: "add", input: '{"left":1,"right":2}' },
-          { type: "finish" as const, finishReason: { unified: "tool-calls" as const, raw: undefined }, usage },
-        ] }) };
-      }
-      sawNewVersion = JSON.stringify(options.prompt).includes("复盘新格式");
-      return original(options);
-    };
-    const approved = new Set<string>();
-    const unsubscribe = controller.subscribe(event => {
-      if (event.type === "approval" && !approved.has(event.approval.approvalId)) {
-        approved.add(event.approval.approvalId);
-        void (async () => {
-        const busy = await controller.memory.update({ id: added.entry.id, expectedRevision: 1, text: "forbidden busy edit" });
-        assert.ok(!busy.ok && busy.error.code === "BUSY");
-        const external = await app.memoryStore!.update(added.entry.id, { expectedRevision: 1, text: "复盘新格式" }); assert.ok(external.ok);
-        controller.confirm({ approvalId: event.approval.approvalId, decision: "allow" });
-        })();
-      }
-    });
-    try {
-      await controller.run("复盘并计算1+2"); await idle(controller);
-      assert.equal(next, 2); assert.equal(test.counts().rewrites, 1); assert.equal(sawNewVersion, true);
-      assert.equal(controller.memory.getReferences()?.selected[0]?.revision, 2);
-    } finally { unsubscribe(); await controller.shutdown(); await rm(test.root, { recursive: true, force: true }); }
-  });
-  it("does not enable rewrite for WorkTask or read-only reference queries", async () => {
-    const test = await setup(true); const { app, controller } = await test.open();
-    try {
-      await app.memoryStore!.add({ text: "复盘先给结论" });
-      const task = await controller.workTasks.create({ goal: "复盘计划", acceptance: [{ id: "quality", description: "内容质量", method: "human", verification: { kind: "human" }, required: true }] });
-      assert.ok(task.ok); if (!task.ok) return;
-      await controller.workTasks.run({ id: task.value.id, expectedRevision: task.value.revision }); await idle(controller);
-      assert.equal(test.counts().rewrites, 0);
-      assert.equal(controller.memory.getReferences()?.rewrite, "not_applicable");
-      const count = test.counts();
-      await controller.memory.list(); await controller.getContextDiagnostics(); controller.memory.getReferences();
-      assert.deepEqual(test.counts(), count);
-    } finally { await controller.shutdown(); await rm(test.root, { recursive: true, force: true }); }
-  });
+
   it("exposes current entries, CAS edits, explicit pin/disable, source semantics and Thread isolation without a Run", async () => {
     const test = await setup(); const { app, controller } = await test.open();
     try {
@@ -122,7 +74,7 @@ describe("formal Memory controller and actual reference preparation", () => {
     } finally { await controller.shutdown(); await rm(test.root, { recursive: true, force: true }); }
   });
   it("shows the selected version across Thread, updates next preparation, excludes disabled, and clears process snapshot on restart", async () => {
-    const test = await setup(true); const first = await test.open();
+    const test = await setup(); const first = await test.open();
     const added = await first.app.memoryStore!.add({ text: "复盘先给一行结论，再列两条可执行步骤。" });
     assert.ok(added.ok); if (!added.ok) return;
     await first.controller.shutdown();
@@ -130,8 +82,8 @@ describe("formal Memory controller and actual reference preparation", () => {
     try {
       await second.controller.run("回顾要怎样组织内容？"); await idle(second.controller);
       let references = second.controller.memory.getReferences();
-      assert.ok(references); assert.equal(references.rewrite, "succeeded");
-      assert.equal(references.selected[0]?.id, added.entry.id); assert.equal(references.selected[0]?.reason, "rewritten");
+      assert.ok(references);
+      assert.equal(references.selected[0]?.id, added.entry.id); assert.equal(references.selected[0]?.reason, "snapshot");
       assert.equal(references.selected[0]?.revision, 1);
       assert.ok(test.prompts[0]?.includes(added.entry.id));
       const edit = await second.controller.memory.update({ id: added.entry.id, expectedRevision: 1, text: "复盘只给三条行动。" }); assert.ok(edit.ok);
@@ -144,7 +96,7 @@ describe("formal Memory controller and actual reference preparation", () => {
       await second.controller.run("复盘格式？"); await idle(second.controller);
       assert.equal(second.controller.memory.getReferences()?.selected.length, 0);
       const primaryRuns = await second.controller.runs.list(); assert.equal(primaryRuns.length, 3);
-      assert.deepEqual(test.counts(), { primary: 3, rewrites: 3 });
+      assert.deepEqual(test.counts(), { primary: 3, rewrites: 0 });
     } finally { await second.controller.shutdown(); }
     const restart = await test.open("thread-b");
     try { assert.equal(restart.controller.memory.getReferences(), null); }
@@ -155,7 +107,6 @@ describe("formal Memory controller and actual reference preparation", () => {
     try {
       await app.memoryStore!.add({ text: "复盘先给一行结论" });
       await controller.run("复盘"); await idle(controller);
-      assert.equal(controller.memory.getReferences()?.rewrite, "off");
       await writeFile(join(test.root, "workspace", ".runloom", "memory.json"), "broken");
       assert.ok(!(await controller.memory.list()).ok);
       await controller.run("复盘"); await idle(controller);
@@ -163,15 +114,7 @@ describe("formal Memory controller and actual reference preparation", () => {
       assert.equal(test.counts().rewrites, 0);
     } finally { await controller.shutdown(); await rm(test.root, { recursive: true, force: true }); }
   });
-  it("rewrite config remains default off and requires enabled Memory", async () => {
-    const test = await setup();
-    try {
-      const resolved = await resolveTuiModuleConfig({ configPath: test.config }, { cwd: test.root });
-      assert.equal(resolved.memoryQueryRewriteEnabled, false);
-      await writeFile(test.config, JSON.stringify({ version: 1, workspace: "./workspace", modules: { memory: { enabled: false, queryRewrite: { enabled: true } } } }));
-      await assert.rejects(resolveTuiModuleConfig({ configPath: test.config }, { cwd: test.root }), /requires memory.enabled/);
-    } finally { await rm(test.root, { recursive: true, force: true }); }
-  });
+
   it("bounds management pages and rejects forged fields", () => {
     const entries = Array.from({ length: 70 }, (_, i) => ({ id: String(i), text: "x".repeat(200), enabled: true, revision: 1 }));
     const page = memoryPage(entries, "current"); assert.ok(page.ok); if (!page.ok) return;

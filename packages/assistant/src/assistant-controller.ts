@@ -227,10 +227,8 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
   let activeTask: Promise<void> | undefined;
   let backgroundTask: Promise<void> | undefined;
   let backgroundController: AbortController | undefined;
-  let memoryIndexRequested = true;
-  let memoryIndexRunning = false;
   let lifecycleReady = false;
-  let idleDreamingRequested = false;
+
   let nextWorkTask: WorkTask | undefined;
   let activeWorkTask: WorkTask | undefined;
   let workTaskCompletionCheck = true;
@@ -251,7 +249,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
   let consolidationRunning = false;
   let lastConsolidationAttempt: MemoryMaintenance["consolidation"]["lastAttempt"];
   let lastConsolidationSkippedReason: string | undefined;
-  let lastDreamingAttempt: DreamingControllerOverview["lastAttempt"];
+
   const dreamingThreadId = dreamingThreadIdFor(app.workspaceRoot, app.threadId);
   let resultTextTruncated = false;
   const toolActivity: ToolActivity[] = [];
@@ -260,7 +258,6 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
   const listeners = new Set<(event: AssistantEvent) => void>();
 
   const emit = (event: AssistantEvent): void => {
-    if (event.type === "memory-updated") memoryIndexRequested = true;
     for (const listener of listeners) {
       try { listener(event); } catch { /* A disconnected view cannot fail a Run. */ }
     }
@@ -268,7 +265,6 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
   const setState = (next: AssistantState): void => {
     state = next;
     emit({ type: "state", state: next });
-    if (next.kind === "idle") queueMicrotask(() => { startMemoryIndexMaintenance(); });
   };
   let approvalTracePending: Promise<void> = Promise.resolve();
   const unsubscribeApproval = app.toolConfirmation?.subscribePending((next) => {
@@ -675,36 +671,9 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     backgroundTask = task;
     void task.finally(() => {
       if (backgroundTask === task) backgroundTask = undefined;
-      startIdleDreaming();
     });
     const first = automation.getSkill(requests[0]!.skillId)!;
     setState({ kind: "running", runId: null, phase: first.kind === "memory-consolidate" ? "consolidation" : "skill", background: true });
-  };
-
-  const startMemoryIndexMaintenance = (): boolean => {
-    if (!lifecycleReady || closed || state.kind !== "idle" || backgroundTask || !memoryIndexRequested || !app.maintainMemoryIndex) return false;
-    memoryIndexRequested = false;
-    memoryIndexRunning = true;
-    const operation = new AbortController();
-    backgroundController = operation;
-    const task = Promise.resolve().then(async () => {
-      try {
-        operation.signal.throwIfAborted();
-        await app.maintainMemoryIndex!(operation.signal);
-      } catch {
-        if (!operation.signal.aborted) emit({ type: "error", message: "记忆索引补齐失败；当前仍可使用关键词检索，本次不会自动重试。" });
-      } finally {
-        memoryIndexRunning = false;
-        if (backgroundController === operation) backgroundController = undefined;
-        if (backgroundTask === task) backgroundTask = undefined;
-        const current = controller.getSnapshot().state;
-        if (current.kind === "running" && current.background) setState({ kind: "idle" });
-        if (idleDreamingRequested) startIdleDreaming();
-      }
-    });
-    backgroundTask = task;
-    setState({ kind: "running", runId: null, phase: "skill", background: true });
-    return true;
   };
 
   const startManualSkill = async (input: SkillRunInput): Promise<SkillResult<{ runId: string }>> => {
@@ -737,86 +706,6 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       }
     })();
     return started;
-  };
-
-  const dreamingFailure = (code: string, message: string): DreamingResult<never> => ({ ok: false, error: { code, message } });
-  const startDreaming = (background: boolean): Promise<DreamingResult<{ runId: string }>> => {
-    if (!app.dreaming || app.moduleConfig?.automation?.dreaming?.enabled !== true) {
-      return Promise.resolve(dreamingFailure("DREAMING_DISABLED", "请先显式启用经验学习；不会默认读取任务或调用模型"));
-    }
-    if (closed || state.kind !== "idle" || backgroundTask) return Promise.resolve(dreamingFailure("BUSY", "请等待当前操作结束"));
-    const operation = new AbortController();
-    if (background) backgroundController = operation;
-    else startupController = operation;
-    cancelRequested = false;
-    setState({ kind: "running", phase: "skill", runId: null, ...(background ? { background: true as const } : {}) });
-    let resolveStarted!: (response: DreamingResult<{ runId: string }>) => void;
-    const started = new Promise<DreamingResult<{ runId: string }>>(resolve => { resolveStarted = resolve; });
-    let notStarted: DreamingResult<{ runId: string }> | undefined;
-    const task = (async () => {
-      let lease: Awaited<ReturnType<RuntimeApp["executionRecords"]["claimThread"]>> | undefined;
-      let workspaceLease: Awaited<ReturnType<NonNullable<RuntimeApp["workTasks"]>["claimThread"]>> | undefined;
-      let commitUncertain = false;
-      try {
-        await ensureRecovered();
-        operation.signal.throwIfAborted();
-        // One reflection owner per workspace, even across foreground Threads.
-        workspaceLease = await app.workTasks?.claimThread(dreamingThreadId);
-        operation.signal.throwIfAborted();
-        lease = await app.executionRecords.claimThread(dreamingThreadId);
-        await app.executionRecords.recoverInterrupted(dreamingThreadId);
-        operation.signal.throwIfAborted();
-        const prepared = await app.dreaming!.prepare(operation.signal);
-        if (!prepared.ok) throw new Error(`${prepared.error.code}: ${prepared.error.message}`);
-        if (!prepared.value) {
-          notStarted = dreamingFailure("DREAMING_NO_MATERIAL", "至少需要两条来源完整且有人工验收的独立任务经验");
-          return;
-        }
-        const batch = prepared.value;
-        lastDreamingAttempt = { status: "running" };
-        const execution = await executeRun(DREAMING_AGENT_ID, batch.message, "skill", operation.signal, handle => {
-          lastDreamingAttempt = { status: "running", runId: handle.runId };
-          resolveStarted({ ok: true, value: { runId: handle.runId } });
-        }, background, dreamingThreadId);
-        operation.signal.throwIfAborted();
-        if (execution.result.status !== "completed") throw new Error(execution.result.error?.message ?? `Run ${execution.result.status}`);
-        const committed = await app.dreaming!.commit(batch, execution.result.text, operation.signal);
-        if (!committed.ok) {
-          commitUncertain = committed.error.code === "DREAMING_COMMIT_UNCERTAIN";
-          throw new Error(`${committed.error.code}: ${committed.error.message}`);
-        }
-        lastDreamingAttempt = { status: "completed", runId: execution.result.runId,
-          message: committed.value.skillIds.length ? `已沉淀 ${committed.value.skillIds.length} 条可试用方法` : "已处理这批经验，没有可泛化的方法" };
-        controller.recordOutput(`\n[经验学习] ${lastDreamingAttempt.message}。文本方法不授予工具权限。\n`);
-      } catch (error) {
-        const cancelled = operation.signal.aborted && !commitUncertain;
-        const message = commitUncertain ? "经验写入回执未确认，可能已经保存；请刷新核对，不会自动重试这次提交" : cancelled ? "经验学习已停止，未完成的批次不会标记为已处理" : String(error);
-        lastDreamingAttempt = { ...lastDreamingAttempt, status: commitUncertain ? "uncertain" : cancelled ? "cancelled" : "failed", message };
-        notStarted = dreamingFailure(commitUncertain ? "DREAMING_COMMIT_UNCERTAIN" : cancelled ? "DREAMING_CANCELLED" : "DREAMING_FAILED", message);
-        if (!cancelled) emit({ type: "error", message: `经验学习失败：${message}` });
-      } finally {
-        await lease?.release().catch(error => emit({ type: "error", message: `经验学习租约释放失败：${String(error)}` }));
-        await workspaceLease?.release().catch(error => emit({ type: "error", message: `经验学习工作区租约释放失败：${String(error)}` }));
-        if (backgroundController === operation) backgroundController = undefined;
-        if (startupController === operation) startupController = undefined;
-        const current = controller.getSnapshot().state;
-        if (!background || (current.kind === "running" && current.background)) setState({ kind: "idle" });
-        if (notStarted) resolveStarted(notStarted);
-      }
-    })();
-    if (background) {
-      backgroundTask = task;
-      void task.finally(() => { if (backgroundTask === task) backgroundTask = undefined; });
-    } else activeTask = task;
-    return started;
-  };
-  const startIdleDreaming = (): void => {
-    idleDreamingRequested = true;
-    if (startMemoryIndexMaintenance()) return;
-    if (!closed && state.kind === "idle" && !backgroundTask && app.dreaming && app.moduleConfig?.automation?.dreaming?.enabled === true) {
-      idleDreamingRequested = false;
-      void startDreaming(true);
-    }
   };
 
   const kernel: ControllerKernel = {
@@ -857,10 +746,9 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       release: () => { nextWorkTask = undefined; },
     },
     run: (text, options) => controller.run(text, options),
-    onCompleted: () => startIdleDreaming(),
   });
   const automationControls = createAutomationControls(kernel, { automation, startSkill: input => startManualSkill(input) });
-  const dreaming = createDreamingControls(kernel, { startDreaming: () => startDreaming(false), lastAttempt: () => lastDreamingAttempt });
+  const dreaming = createDreamingControls(kernel);
 
   const controller: AssistantController = {
     memory,
@@ -924,7 +812,6 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       startupController = startup;
       setState({ kind: "running", runId: null, phase: "primary", ...(options?.source ? { source: options.source } : {}) });
       if (previousBackground) {
-        if (memoryIndexRunning) memoryIndexRequested = true;
         backgroundController?.abort(new DOMException("Foreground chat has priority", "AbortError"));
         void activeHandle?.cancel("Foreground chat has priority").catch(error => emit({ type: "error", message: String(error) }));
       }
@@ -992,7 +879,6 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
           } else {
             setState({ kind: "idle" });
             startAutomaticSkills(pendingHooks);
-            if (!pendingHooks.length && lastDreamingAttempt?.status === "cancelled") startIdleDreaming();
           }
         }
       })();
@@ -1068,22 +954,17 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
         return execution?.status === "completed" ? { ok: true } : execution?.status === "cancelled"
           ? { ok: false, reason: "cancelled" } : { ok: false, reason: "failed", message: execution?.message ?? "Skill did not complete" };
       }
-      const special = name === "compact" ? app.compaction : name === "resume" ? app.resume : undefined;
+      const special = name === "resume" ? app.resume : undefined;
       const registered = app.commands?.get(name);
       if (special === undefined && registered === undefined) return { ok: false, reason: "unknown" };
       const operation = new AbortController();
       operationController = operation;
-      setState(name === "compact" ? { kind: "compacting" } : name === "resume"
+      setState(name === "resume"
         ? { kind: "resuming" } : { kind: "command", name });
       let failure: Extract<ControllerCommandResponse, { ok: false }> | undefined;
       activeTask = (async () => {
         try {
-          if (name === "compact" && app.compaction !== undefined) {
-            if (args.trim() !== "") throw new Error("Usage: /compact");
-            const result = await app.compaction.compact(operation.signal);
-            if (operation.signal.aborted) failure = { ok: false, reason: "cancelled" };
-            else controller.recordOutput(`\n[compact] ${result?.message ?? "Context compacted."}\n`);
-          } else if (name === "resume" && app.resume !== undefined) {
+          if (name === "resume" && app.resume !== undefined) {
             if (args.trim() !== "") throw new Error("Usage: /resume");
             app.resume.clear();
             const result = await app.resume.inspect(operation.signal);
@@ -1169,7 +1050,6 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       }
       startAutomaticSkills(requests);
       lifecycleReady = true;
-      if (!requests.length) startIdleDreaming();
     } catch (error) { consolidationFailure = String(error); emit({ type: "error", message: String(error) }); }
   });
   return controller;

@@ -11,7 +11,6 @@ function pick(source: Record<string, number>, keys: string[]): Record<string, nu
   return Object.fromEntries(keys.map(key => [key, source[key]]));
 }
 
-
 async function idle(host: DesktopRuntime) {
   const deadline = Date.now() + 5000;
   while (host.current.snapshot().state.kind !== "idle") {
@@ -23,11 +22,10 @@ async function idle(host: DesktopRuntime) {
 it("wires only named dreaming actions through IPC with no renderer source path", () => {
   assert.deepEqual(pick(IPC_FORWARDS.current, ["getDreamingOverview", "dream", "changeLearnedSkill", "getLearnedSkillReferences"]),
     { getDreamingOverview: 0, dream: 0, changeLearnedSkill: 1, getLearnedSkillReferences: 0 });
-  assert.equal(IPC_FORWARDS.host.setDreamingEnabled, 1);
   assert.notEqual(forwardChannel("current", "dream"), forwardChannel("current", "runSkill"));
 });
 
-it("keeps dreaming opt-in, persists user toggle across real runtime reload, and never calls a model for empty experience", async () => {
+it("keeps method extraction paused across reload and preserves corrupt-store diagnostics without a model call", async () => {
   const root = await mkdtemp(join(tmpdir(), "desktop-dreaming-bridge-"));
   let calls = 0;
   const options = { cwd: root, userData: join(root, "profile"), env: {}, modelAlias: "mock", model: new MockLanguageModelV3({ doStream: async () => { calls++; throw new Error("No model call expected"); } }), send: () => {} };
@@ -37,18 +35,16 @@ it("keeps dreaming opt-in, persists user toggle across real runtime reload, and 
     const disabled = await host.current.getDreamingOverview();
     assert.equal(disabled.ok && disabled.value.enabled, false);
     assert.equal((await host.current.dream()).ok, false);
-    await host.setDreamingEnabled({ enabled: true, expectedEnabled: false });
     assert.equal(host.info().threadId, initial.threadId); assert.equal(host.info().directory, initial.directory);
     const enabled = await host.current.getDreamingOverview();
-    assert.equal(enabled.ok && enabled.value.enabled, true);
+    assert.equal(enabled.ok && enabled.value.enabled, false);
     assert.equal(enabled.ok && enabled.value.pendingExperiences, 0);
     assert.equal((await host.current.dream()).ok, false);
     assert.equal(host.current.getLearnedSkillReferences(), null);
     await host.shutdown(); host = await DesktopRuntime.create(options);
     const reopened = await host.current.getDreamingOverview();
-    assert.equal(reopened.ok && reopened.value.enabled, true);
+    assert.equal(reopened.ok && reopened.value.enabled, false);
     await idle(host);
-    await host.setDreamingEnabled({ enabled: false, expectedEnabled: true });
     assert.equal((await host.current.getDreamingOverview()).ok, true);
     const metadata = join(host.info().workspaceRoot!, ".runloom");
     await mkdir(metadata, { recursive: true });

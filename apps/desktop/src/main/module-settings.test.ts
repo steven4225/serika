@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { it } from "node:test";
-import { changeModuleSetting, changeDreamingSetting } from "./module-settings.js";
+import { changeModuleSetting } from "./module-settings.js";
 import { acquireFlock } from "@serika/assistant";
 
 it("serializes real competing processes so unrelated capability writes both survive", { timeout: 10_000 }, async () => {
@@ -68,26 +68,6 @@ it("rechecks state after taking the configuration lock, preserves mode, and reje
     await assert.rejects(changeModuleSetting(path, { id: "shell", enabled: true, expectedEnabled: false }, root));
     assert.equal(await readFile(sentinel, "utf8"), "unchanged");
     assert.equal(await readFile(path, "utf8"), changed);
-  } finally { await rm(root, { recursive: true, force: true }); }
-});
-
-it("opts into dreaming only on explicit CAS setting, preserves trusted rules, and refuses forged authority", async () => {
-  const root = await mkdtemp(join(tmpdir(), "serika-dreaming-setting-"));
-  try {
-    const workspace = join(root, "workspace"); await mkdir(workspace);
-    const path = join(root, "config.json");
-    const config = { version: 1, workspace, modules: { memory: { enabled: true, writePolicy: "review" } }, automation: { hooks: [] } };
-    const before = JSON.stringify(config); await writeFile(path, before);
-    await assert.rejects(changeDreamingSetting(path, { enabled: true, expectedEnabled: false, workspace: "/other" } as never, root), /参数无效/);
-    assert.equal(await readFile(path, "utf8"), before);
-    const undo = await changeDreamingSetting(path, { enabled: true, expectedEnabled: false }, root);
-    assert.deepEqual(JSON.parse(await readFile(path, "utf8")), { ...config, automation: { ...config.automation, dreaming: { enabled: true } } });
-    await assert.rejects(changeDreamingSetting(path, { enabled: false, expectedEnabled: false }, root), /配置已变化/);
-    await undo(); assert.equal(await readFile(path, "utf8"), before);
-    const undoAgain = await changeDreamingSetting(path, { enabled: true, expectedEnabled: false }, root);
-    const external = await readFile(path, "utf8") + " "; await writeFile(path, external);
-    await assert.rejects(undoAgain(), /其他程序修改/);
-    assert.equal(await readFile(path, "utf8"), external);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 

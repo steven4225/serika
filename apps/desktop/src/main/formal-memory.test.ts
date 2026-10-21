@@ -21,7 +21,6 @@ it("formal Memory bridge edits actual current versions, validates IPC, preserves
   try {
     const entry = await app.memoryStore!.add({ text: "复盘先给结论" }); assert.ok(entry.ok); if (!entry.ok) return;
     const privateEntry = await app.memoryStore!.add({ text: "私有", scope: { kind: "thread", threadId: "other" } }); assert.ok(privateEntry.ok); if (!privateEntry.ok) return;
-    assert.equal(bridge.info().memory.queryRewriteEnabled, false);
     const list = await bridge.listMemories(); assert.ok(list.ok); if (!list.ok) return;
     assert.equal(list.value.entries.length, 1);
     assert.ok(!(await bridge.getMemory(privateEntry.entry.id)).ok);

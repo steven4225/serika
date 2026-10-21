@@ -23,7 +23,6 @@
     "eval:e2e": "pnpm build:runtime && pnpm --filter @serika/eval e2e",
     "eval:guards": "pnpm build:runtime && pnpm --filter @serika/eval guards",
     "eval:test": "pnpm build:runtime && pnpm --filter @serika/eval test",
-    "eval:recall": "pnpm build:runtime && pnpm --filter @serika/eval recall",
     "eval:view": "pnpm --filter @serika/eval run view",
     "task-worker": "pnpm build:runtime && node packages/assistant/dist/task-worker-entry.js",
     "desktop:test": "pnpm build:runtime && pnpm --filter @serika/desktop test",

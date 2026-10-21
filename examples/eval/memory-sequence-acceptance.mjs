@@ -104,7 +104,7 @@ export async function runMemorySequence({ live = false, env = process.env, outpu
   const workspace = join(root, 'workspace'), threadId = `sequence-${randomUUID()}`, config = join(root, 'config.json');
   await mkdir(workspace, { recursive: true, mode: 0o700 });
   await writeFile(config, JSON.stringify({ version: 1, workspace, run: { maxSteps: 2, totalTimeoutMs: 120_000 }, modules: {
-    memory: { enabled: true, autoConsolidate: true, writePolicy: 'automatic', queryRewrite: { enabled: false }, semantic: { enabled: false } },
+    memory: { enabled: true, autoConsolidate: true, writePolicy: 'automatic' },
     task: { enabled: false }, web: { enabled: false }, shell: { enabled: false }, 'read-file': { enabled: false },
   } }), { mode: 0o600 });
   const source = await readFile(fileURLToPath(import.meta.url));

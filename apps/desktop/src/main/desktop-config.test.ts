@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 import { DEFAULT_CONTEXT_BUDGET_CONFIG } from "@serika/assistant/testing";
-import { contextBudgetForMode } from "@serika/assistant";
+import { defaultContextBudget } from "@serika/assistant";
 import { changeModuleSetting } from "./module-settings.js";
 import {
   DESKTOP_DEFAULT_SHELL_TIMEOUT_MS,
@@ -16,20 +16,18 @@ import {
 } from "./desktop-config.js";
 
 describe("desktop TUI config", () => {
-  it("explicit review upgrade only changes policy, preserves query settings and supports rollback", async () => {
+  it("explicit review upgrade only changes policy and supports rollback", async () => {
     const root = await mkdtemp(join(tmpdir(), "serika-memory-policy-upgrade-"));
     try {
       const workspace = join(root, "workspace"); await mkdir(workspace);
       const configPath = join(root, "runloom.json");
-      for (const queryRewrite of [undefined, { enabled: false }, { enabled: true }] as const) {
-        const config = { version: 1, workspace, modules: { memory: { enabled: true, autoConsolidate: true, writePolicy: "review", ...(queryRewrite ? { queryRewrite } : {}) }, shell: { enabled: false } } };
+        const config = { version: 1, workspace, modules: { memory: { enabled: true, autoConsolidate: true, writePolicy: "review" }, shell: { enabled: false } } };
         const original = JSON.stringify(config);
         await writeFile(configPath, original);
         const undo = await enableDesktopMemory(configPath);
         assert.deepEqual(JSON.parse(await readFile(configPath, "utf8")), { ...config, modules: { ...config.modules, memory: { ...config.modules.memory, writePolicy: "automatic" } } });
         await undo();
         assert.equal(await readFile(configPath, "utf8"), original);
-      }
     } finally { await rm(root, { recursive: true, force: true }); }
   });
   it("explicitly enables automatic source-checked memory without replacing existing module settings", async () => {
@@ -45,7 +43,7 @@ describe("desktop TUI config", () => {
       await enableDesktopMemory(configPath);
       const enabled = JSON.parse(await readFile(configPath, "utf8"));
       assert.deepEqual(enabled, { ...config, modules: { ...config.modules,
-        memory: { enabled: true, autoConsolidate: true, writePolicy: "automatic", queryRewrite: { enabled: true } },
+        memory: { enabled: true, autoConsolidate: true, writePolicy: "automatic" },
       } });
       // Missing modules is a valid legacy config, not a reason to report an empty/disabled module forever.
       await writeFile(configPath, JSON.stringify({ version: 1, workspace }));
@@ -76,10 +74,10 @@ describe("desktop TUI config", () => {
     assert.equal((config.modules as { shell: { enabled: boolean } }).shell.enabled, true);
     assert.ok(DESKTOP_DEFAULT_TOTAL_TIMEOUT_MS > 30_000);
     assert.ok(DESKTOP_DEFAULT_SHELL_TIMEOUT_MS > 30_000);
-    assert.deepEqual(config.contextCompaction, contextBudgetForMode("daily"));
+    assert.deepEqual(config.contextCompaction, defaultContextBudget());
     assert.equal((config.modules as { memory: { writePolicy: string } }).memory.writePolicy, "automatic");
     const memory = (config.modules as { memory: { contextView?: { enabled: boolean }; semantic?: unknown } }).memory;
-    assert.deepEqual(memory.contextView, { enabled: true });
+    assert.equal(memory.contextView, undefined);
     assert.equal(memory.semantic, undefined, "new defaults cannot install or silently enable an embedding service");
   });
 
@@ -155,7 +153,7 @@ describe("desktop TUI config", () => {
       const configPath = join(root, "runloom.json");
       for (const contextCompaction of [
         { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled: true, summaryMaxOutputTokens: 4096 },
-        contextBudgetForMode("long-task"),
+        ({ ...defaultContextBudget(), inputBudgetTokens: 400_000, keepRecentTokens: 64_000, summaryMaxOutputTokens: 8_000 }),
       ]) {
         await writeFile(configPath, JSON.stringify({ version: 1, modules: {}, contextCompaction }));
         await resolveDesktopConfig({ env: {}, userData: root });

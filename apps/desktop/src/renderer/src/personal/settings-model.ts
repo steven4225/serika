@@ -19,8 +19,6 @@ export type SettingsRoute = (typeof SETTINGS_ROUTES)[number];
 /** Records stay on the existing panel. They are a settings handoff, not a pushed settings page. */
 export type SettingsListTarget = SettingsRoute | "records";
 
-export type ThinkingChoice = "balanced" | "performance";
-
 /** Poll interval while app info / host IPC is not ready yet. */
 export const SETTINGS_HOST_RETRY_MS = 300;
 export const SETTINGS_HOST_READ_ATTEMPTS = 4;
@@ -81,17 +79,7 @@ export const SETTINGS_OTHER_ROWS = [
   { route: "about", title: "关于", description: "查看实际加载版本，导出或恢复本机数据。" },
 ] as const satisfies readonly { route: SettingsRoute; title: string; description: string }[];
 
-export function thinkingChoiceForBudget(mode: "daily" | "long-task" | undefined): ThinkingChoice | "unconfigured" {
-  if (mode === "daily") return "balanced";
-  if (mode === "long-task") return "performance";
-  return "unconfigured";
-}
-
 /** Same choice is a no-op. A new choice maps onto the existing context-budget preset. */
-export function applyThinkingChoice(current: ThinkingChoice | "unconfigured", choice: ThinkingChoice): "daily" | "long-task" | null {
-  if (current === choice) return null;
-  return choice === "balanced" ? "daily" : "long-task";
-}
 
 export interface RecordedCallPage {
   calls: readonly { status?: string }[];

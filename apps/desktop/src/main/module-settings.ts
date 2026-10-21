@@ -7,7 +7,6 @@ import { BUILTIN_MODULE_IDS, resolveTuiModuleConfig, type BuiltinModuleId } from
 
 export interface ModuleSettingInput { id: BuiltinModuleId; enabled: boolean; expectedEnabled: boolean }
 export interface AutonomySettingInput { enabled: boolean; expectedEnabled: boolean }
-export interface DreamingSettingInput { enabled: boolean; expectedEnabled: boolean }
 
 async function readConfig(path: string) {
   const file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
@@ -88,16 +87,6 @@ async function changeConfig(configPath: string, cwd: string, mutate: (text: stri
 }
 
 /** Only the host-resolved external config is writable; renderer paths/authority are rejected. */
-export async function changeDreamingSetting(configPath: string, input: DreamingSettingInput, cwd: string): Promise<() => Promise<void>> {
-  if (!input || typeof input !== "object" || Array.isArray(input) || Object.keys(input).some(key => !["enabled", "expectedEnabled"].includes(key)) || typeof input.enabled !== "boolean" || typeof input.expectedEnabled !== "boolean") throw new Error("经验学习开关参数无效");
-  return changeConfig(configPath, cwd, async (before, path) => {
-    const config = JSON.parse(before);
-    await resolveTuiModuleConfig({ configPath: path }, { cwd });
-    const enabled = config.automation?.dreaming?.enabled === true;
-    if (enabled !== input.expectedEnabled) throw new Error("经验学习配置已变化，请重新加载后再操作");
-    return JSON.stringify({ ...config, automation: { ...config.automation, dreaming: { ...config.automation?.dreaming, enabled: input.enabled } } }, null, 2) + "\n";
-  });
-}
 
 /** Enables built-ins using their defaults; never invents credentials or app-control permissions. */
 export async function changeModuleSetting(configPath: string, input: ModuleSettingInput, cwd: string): Promise<() => Promise<void>> {

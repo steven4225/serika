@@ -183,7 +183,7 @@ describe("native memory consolidation batch", () => {
       { id: "unrelated", text: "database indexes", enabled: true },
     ]);
     const material = await prepare(f);
-    assert.deepEqual(material.memories.map((entry) => entry.id).sort(), ["disabled", "expired"]);
+    assert.deepEqual(material.memories.map((entry) => entry.id).sort(), ["disabled", "expired", "unrelated"]);
     assert.equal(JSON.stringify(material.memories).includes("history secret"), false);
     assert.equal((await f.service.stage({ batchId: material.batchId, proposals: [{ action: "update", memoryId: "disabled", expectedRevision: 2, text: "写作复盘偏好新版本", sourceMessageId: "u1", sourceQuote: "写作复盘偏好", reason: "更新偏好" }] })).ok, false);
   });
@@ -425,7 +425,7 @@ describe("native memory consolidation batch", () => {
     const future = fixture(); future.setEntries([{ ...target, enabled: false }]); const batch = await prepare(future);
     assert.equal((await future.service.stage({ batchId: batch.batchId, proposals: [proposal({ action: "correct", memoryId: "m1", expectedRevision: 1 })] })).ok, true);
   });
-  it("ranks relevant historical assertions and keeps their temporal status without injecting unrelated history", async () => {
+  it("keeps fixed bounded conflict material and its temporal status without query ranking", async () => {
     const old = { ...createAssertion({ text: "复盘先结论，再给步骤", kind: "preference", sources: [{ kind: "manual" }] }, "a1", "2026-09-01T00:00:00Z"),
       systemTime: { from: "2026-09-01T00:00:00Z", to: "2026-09-20T00:00:00Z" } };
     const unrelated = createAssertion({ text: "数据库备份在周二", sources: [{ kind: "manual" }] }, "a2", "2026-09-20T00:00:00Z");
@@ -433,10 +433,10 @@ describe("native memory consolidation batch", () => {
       relatedAssertions: [old, unrelated], historyCoverage: "legacy_partial" }]);
     const batch = await prepare(f);
     assert.equal(batch.memories[0]?.text, "格式已经改变");
-    assert.deepEqual(batch.memories[0]?.relatedAssertions?.map((assertion) => assertion.assertionId), ["a1"]);
+    assert.deepEqual(batch.memories[0]?.relatedAssertions?.map((assertion) => assertion.assertionId), ["a1", "a2"]);
     assert.equal(batch.memories[0]?.relatedAssertions?.[0]?.systemTime.to, "2026-09-20T00:00:00Z");
     assert.equal(batch.memories[0]?.historyCoverage, "legacy_partial");
-    assert.equal(JSON.stringify(batch.memories).includes("数据库备份"), false);
+    assert.equal(JSON.stringify(batch.memories).includes("数据库备份"), true);
   });
   it("finds later-turn conflict targets even after an earlier message exhausts one query budget", async () => {
     const old = createAssertion({ text: "复盘先给结论", kind: "preference", sources: [{ kind: "manual" }] }, "old-format", "2026-09-01T00:00:00Z");
