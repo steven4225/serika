@@ -33,7 +33,7 @@
 
 ## 3. 前后数字
 
-相对基线，产品 **+884 / −1034，净 -150 行**；测试 **+499 / −8756，净 -8257 行**。整文件退役 24 个；85 个旧测试块更名／退役的原名在附表 C。最终完整测试为 **1,801 pass / 0 fail / 11 skipped**（运行时 1,158、桌面 631、脚本 12）；离线 eval 77/77，guards 5/5 组。
+相对基线，产品 **+1128 / −1042，净 +86 行**；测试 **+511 / −8755，净 -8244 行**。整文件退役 24 个；85 个旧测试块更名／退役的原名在附表 C。最终完整测试为 **1,802 pass / 0 fail / 11 skipped**（运行时 1,159、桌面 631、脚本 12）；离线 eval 77/77，guards 5/5 组。
 产品及测试行数统计含 eval 脚本、不含文档／证据／历史 baseline。新增产品未超过批准的 1,200 行，新增测试少于新增产品。冻结历史快照、Oracle 和历史分数不重录；退役测试名单及断言改变见附表 B/C。
 
 阈值：32,768 窗口、有效输入 26,624 → 3,328 estimated tokens；日用有效输入 256,000 → 31,999，小于 32,000 的压缩块。token 估计沿用 char-half，不当作供应商实测 token。前台 fixture 3/2=1.5；后台 fixture 1 次独立计量。真实模型请求 **0**、费用 **$0**；18 次两档预演都是 scripted responses，不计真实通过率。
@@ -45,7 +45,7 @@
 | 命令 | 最终结果 |
 |---|---|
 | `pnpm typecheck` | 0 |
-| `pnpm test` | 0；1,801 pass / 0 fail / 11 skip |
+| `pnpm test` | 0；1,802 pass / 0 fail / 11 skip |
 | `pnpm eval:test` | 0；77/77（含两档 16 场景的 M1 接线及 unknown 停批） |
 | `pnpm eval:guards` | 0；5/5 组 |
 | 6 个 Memory 定向文件，`node --test --test-timeout=15000` | 0；19/19 |
@@ -371,3 +371,16 @@
 **命令与退出码**：`pnpm test`、`pnpm --filter @serika/desktop typecheck`、两组文档测试、`pnpm --filter @serika/desktop smoke` 均退出 0；计数和日志 hash 随仓库证据保存。复现入口：macOS 用最后一条命令；Linux 用 `xvfb-run -a pnpm --filter @serika/desktop smoke`。Linux 若无本机日用配置，必须用 `RUNLOOM_SMOKE_DAILY_CONFIG=/绝对路径/配置副本.json` 指定受信任副本；缺少任何必需证据即失败，无自动重试／sleep。
 
 **差异与失败处理**：所有 RUNLOOM 路径、HOME/XDG 目录均在新临时根下；macOS Electron 的 native home 不随 HOME 自动改变，`RUNLOOM_DESKTOP_TEST=1` 下显式采用隔离 HOME。前期仅隔离 profile 时遗留的 12 个测试 resident identity 目录经身份及仅有 identity 文件核对后已清理，证据只留目录摘要／文件 hash。日用路径拒写用隔离 HOME 中的标准日用目录和哨兵验证：拒绝错误可见，目录仍只有原哨兵，hash 不变；不遍历真实日用数据树。日用进程未重启，日用 env/TG 数据未读。仅按用户要求读取日用配置 JSON，副本路径全部改成临时目录、信任绑定脱敏、其他模块关闭，未提交副本。实际启动只显示 `Invalid TUI config schema`；同一生产 `readTuiModuleConfig` 逐项拒绝六个字段，全部移除后通过：`modules.memory.queryRewrite`、`modules.memory.semantic`、`contextCompaction.mode`、`contextCompaction.warningRatio`、`herdrBinding`、`telegramAutonomy.toolApproval`。未修改日用配置或其权限；未为显示错误改产品校验语义。
+
+
+#### 第三件交付：长期规则与账本
+
+**改了什么**：AGENTS 新增验证分类、每步原生冒烟及必需证据、测试专用密钥与费用上限、保密扫描、审核 issue 处理；纠正旧条目中“Codex 环境固定 Linux”的假设，要求报告实际平台。全文 12 KiB 以内。
+
+**逐项对照**：费用账本 `evidence/cost-ledger.json` 从用户指定已用 $0.36 起算，第 4 步真实模型请求 0、费用 $0，累计 $0.36；$1/步、$5/计划上限已写入规则。尚未启用真实请求，不读取或复制测试密钥。证据提交前完成密钥前缀扫描，无命中；截图未包含配置／设置页，日用配置副本已随临时根删除。
+
+**数字**：本件产品／测试代码均 +0/−0；完整 Step4 产品 +1128/−1042，测试 +511/−8755（相对 8c572bb，统计口径同上）。文档检查点再次运行真实 Electron＋假模型冒烟 7／7，当前被测产品提交 e37a542，具体 pid／hash 见更新后的 result.json。
+
+**命令**：`pnpm --filter @serika/desktop smoke`、证据 hash／账本复算／前缀扫描、`git diff --check` 退出 0。产品全套测试沿用第二件 1,802 pass／0 fail／11 既有 skip；本件仅文档和证据更新，未重复全套。
+
+**限制与审核**：`gh issue list --repo steven4225/serika --state all --search 'experiment/architecture-v2 审核记录 in:title'` 未找到匹配 issue；未编造审核结论，也未创建 issue／发表评论。按用户要求，本件提交推送后停止；第 5 步、付费模型验收均未开始。冒烟的外部独立复现仍未取得，不能用本次重复执行替代。

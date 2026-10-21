@@ -93,6 +93,14 @@
         "fail": [],
         "skipped": []
       }
+    },
+    {
+      "command": "pnpm --filter @serika/desktop smoke (documentation checkpoint)",
+      "verification": "real-electron-with-fake-model",
+      "exitCode": 0,
+      "logSha256": "16be817447353021cdd095cbdadd497832c9defe53983ed97bab625bdb244e06",
+      "checks": 7,
+      "sourceCommit": "e37a54237a8882d6f9e66f1dac95494cc564707d"
     }
   ],
   "priorAttempts": [
@@ -113,7 +121,7 @@
       "diagnosis": "Protected path fixture did not exist; production workspace resolver rejected it first"
     }
   ],
-  "resultSha256": "658ea1a6ff634cf2be1c050af495547f86236f8758f46062ba43911d5a3f066e",
+  "resultSha256": "5b150df85c853c428077d8417efd1fef3d793f365aa6832aab4e421b6685661f",
   "cleanupSha256": "c62da29d9d3f7b865db18d50028c9750559bc2f569a6e8d730086ec1a6cfaf04",
   "linesFrom8c572bb": {
     "product": {
@@ -124,5 +132,11 @@
       "added": 511,
       "removed": 8755
     }
+  },
+  "reviewIssueLookup": {
+    "repository": "steven4225/serika",
+    "title": "experiment/architecture-v2 审核记录",
+    "matches": 0,
+    "responseSha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
   }
 }

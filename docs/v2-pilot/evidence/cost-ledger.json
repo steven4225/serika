@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "currency": "USD",
+  "limits": {
+    "perStep": 1,
+    "entirePlan": 5
+  },
+  "openingBalance": {
+    "amount": 0.36,
+    "basis": "用户本轮给定：整个计划已用 $0.36；作为保守累计起点，不虚构原始账单精度"
+  },
+  "entries": [
+    {
+      "step": 4,
+      "realModelRequests": 0,
+      "amount": 0,
+      "evidence": "electron-smoke/result.json",
+      "evidenceSha256": "5b150df85c853c428077d8417efd1fef3d793f365aa6832aab4e421b6685661f"
+    }
+  ],
+  "total": 0.36
+}

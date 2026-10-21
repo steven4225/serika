@@ -1,7 +1,7 @@
 {
   "verification": "real-electron-with-fake-model",
   "platform": "darwin",
-  "sourceCommit": "75f25e47675539596e8ee2c70aff8208104e9b5e",
+  "sourceCommit": "e37a54237a8882d6f9e66f1dac95494cc564707d",
   "scriptSha256": "b960c10c319684fccecb3611470535b3df95874ba848f08cad0fcf1661b901a5",
   "sourceWorktreeDirty": true,
   "realModelCalls": 0,
@@ -12,7 +12,7 @@
       "result": "passed",
       "screenshot": {
         "file": "startup.png",
-        "sha256": "b18746573928ea3ae7f832c82a6106228115c789bf99de41589ceaea59506927"
+        "sha256": "1610ab8d4f138ab90f131783c6986b2ccb7c4759aa8ee58639d40070d6fc577f"
       }
     },
     {
@@ -28,7 +28,7 @@
       "result": "passed",
       "screenshot": {
         "file": "remember-on-memory-page.png",
-        "sha256": "4edc11ddfd02ed07a7751d35be83609d22fc445cac599751849d9884b0ba080b"
+        "sha256": "6b2849257232d71aaef9d1ca144ad6d589efccdc7c78d0f902238786a4668d05"
       }
     },
     {
@@ -36,7 +36,7 @@
       "result": "passed",
       "screenshot": {
         "file": "restart-persistence.png",
-        "sha256": "f394f7296877d0025e661495645f17ceb4ace27aa392c51724309bad4e01e4fa"
+        "sha256": "674437965f6152551e2e81916b6ea9112b517e25ce9bfdaf06a758f8046af18f"
       }
     },
     {
@@ -77,9 +77,9 @@
       "name": "before-restart",
       "main": {
         "electron": "44.4.5",
-        "pid": 8570,
-        "userData": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-7f79wz/primary/profile",
-        "home": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-7f79wz/home"
+        "pid": 9842,
+        "userData": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-MaviQh/primary/profile",
+        "home": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-MaviQh/home"
       },
       "renderer": {
         "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
@@ -90,9 +90,9 @@
       "name": "after-restart",
       "main": {
         "electron": "44.4.5",
-        "pid": 8697,
-        "userData": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-7f79wz/primary/profile",
-        "home": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-7f79wz/home"
+        "pid": 9937,
+        "userData": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-MaviQh/primary/profile",
+        "home": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-MaviQh/home"
       },
       "renderer": {
         "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
@@ -103,9 +103,9 @@
       "name": "daily-path-guard",
       "main": {
         "electron": "44.4.5",
-        "pid": 8770,
-        "userData": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-7f79wz/guard/profile",
-        "home": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-7f79wz/home"
+        "pid": 9998,
+        "userData": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-MaviQh/guard/profile",
+        "home": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-MaviQh/home"
       },
       "renderer": {
         "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
@@ -116,9 +116,9 @@
       "name": "daily-config-copy",
       "main": {
         "electron": "44.4.5",
-        "pid": 8777,
-        "userData": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-7f79wz/daily-config-copy/profile",
-        "home": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-7f79wz/home"
+        "pid": 10006,
+        "userData": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-MaviQh/daily-config-copy/profile",
+        "home": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-MaviQh/home"
       },
       "renderer": {
         "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
@@ -129,7 +129,7 @@
   "screenshots": [
     {
       "file": "startup.png",
-      "sha256": "b18746573928ea3ae7f832c82a6106228115c789bf99de41589ceaea59506927"
+      "sha256": "1610ab8d4f138ab90f131783c6986b2ccb7c4759aa8ee58639d40070d6fc577f"
     },
     {
       "file": "chat-reply.png",
@@ -137,11 +137,11 @@
     },
     {
       "file": "remember-on-memory-page.png",
-      "sha256": "4edc11ddfd02ed07a7751d35be83609d22fc445cac599751849d9884b0ba080b"
+      "sha256": "6b2849257232d71aaef9d1ca144ad6d589efccdc7c78d0f902238786a4668d05"
     },
     {
       "file": "restart-persistence.png",
-      "sha256": "f394f7296877d0025e661495645f17ceb4ace27aa392c51724309bad4e01e4fa"
+      "sha256": "674437965f6152551e2e81916b6ea9112b517e25ce9bfdaf06a758f8046af18f"
     },
     {
       "file": "undo-disappears.png",
@@ -158,19 +158,12 @@
   ],
   "status": "passed",
   "sourceHashes": {
-    "apps/desktop/package.json": "6784973b1bb2ba51fa71ec24f23e2fb0c29ac89469e238674886b503ff25bc88",
-    "apps/desktop/src/main/index.ts": "6c73d315f9b8bb9a788f281bca10fa4c2e9e5159676495de139e608bdbf01b44",
-    "apps/desktop/src/renderer/src/memory-library.tsx": "e76b83783816fe8c011e8a8f7c403d437c8f3ef69c7123c785c3ce16bb337cff",
-    "packages/assistant/src/memory-library.test.ts": "2bcae5b8e1587bd638ad6c7c677ae5268536a55b3b6e89a4efb8c662e13d8470",
-    "packages/assistant/src/memory-library.ts": "15c71c09489139e8c23ef5baa26c5daef97a3e882fc63490dde5256984a312fe",
-    "apps/desktop/scripts/electron-smoke.mjs": "b960c10c319684fccecb3611470535b3df95874ba848f08cad0fcf1661b901a5",
-    "apps/desktop/src/main/smoke-model.ts": "40dfe3cf96e26230536d6aa787de4821a4882efbec1f483307df7496fac8332a",
     "pnpm-lock.yaml": "1cc34e21d41247254a23b1f298486a30e993694eef39fd2de217194081059605"
   },
   "artifactHashes": {
-    "out/main/index.js": "0ba78f6f44e787dfd26e64e2143cab15fb975116120f2dff34b67d796c2f940b",
+    "out/main/index.js": "498ce4fb6b1b208e147a5b9627b705fb85b4396bc830330cd6c7e92cd3012d91",
     "out/preload/index.cjs": "d41f056c33a49be2403c7b346d3349064644edde59c496b39e30c52bbce43fd3",
-    "out/renderer/index.html": "fe3d47270e6e5b6ff1db3f9bee9982254ec0f0e4353bf3dd725ed90bdb1df854"
+    "out/renderer/index.html": "b8c44ae0e0e75345df686a220200ef2969d3b4ac225c78b1da0fff290911cae5"
   },
   "rememberDiagnostic": {
     "libraryCount": 1,
@@ -183,16 +176,16 @@
     ]
   },
   "restart": {
-    "beforePid": 8570,
-    "afterPid": 8697,
-    "beforeMemorySha256": "a06a39334529fd30a0d2b9d9a5ea31f208e388510fe9853dbac883ddb673b9a4",
-    "afterMemorySha256": "a06a39334529fd30a0d2b9d9a5ea31f208e388510fe9853dbac883ddb673b9a4"
+    "beforePid": 9842,
+    "afterPid": 9937,
+    "beforeMemorySha256": "65d2a9c8949b9aef40fe8f56a3558b56f9573847ff2987f43dc6e6380e975623",
+    "afterMemorySha256": "65d2a9c8949b9aef40fe8f56a3558b56f9573847ff2987f43dc6e6380e975623"
   },
   "dailyGuard": {
     "beforeSentinelSha256": "fa5af83df857842e69dfba19dac89ba69c5dc68b1fdd6fc13e4bc777c0669461",
     "afterSentinelSha256": "fa5af83df857842e69dfba19dac89ba69c5dc68b1fdd6fc13e4bc777c0669461",
     "onlySentinelRemains": true,
-    "configuredWorkspace": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-7f79wz/home/Library/Application Support/@aisdk-agent/desktop",
+    "configuredWorkspace": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-MaviQh/home/Library/Application Support/@aisdk-agent/desktop",
     "error": "实验版本拒绝写入日用数据目录",
     "assertionBeforeRuntimeCreation": "apps/desktop/src/main/desktop-runtime.ts",
     "dailyTreeTraversed": false,
