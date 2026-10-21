@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { createModuleHost } from "../module-host.js";
 import { createMemoryStore } from "../memory-store.js";
 import { createMemoryModule } from "./memory-module.js";
-import { bindMemoryWrite, memoryWriteSchema } from "../memory-write.js";
+import { bindMemoryWrite, memoryWriteSchema, MemoryWriteValidationError } from "../memory-write.js";
 import type { UIMessage } from "ai";
 
 const message = (id: string, role: "user" | "assistant", text: string): UIMessage => ({ id, role, parts: [{ type: "text", text }] });
@@ -43,7 +43,8 @@ test("C04 binds the specific confirmation; short acknowledgement and external ev
   assert.throws(() => bindMemoryWrite({ ...uncertainWrite, text: `[不确定] ${contradiction}` }, { messages: [contradictoryUser], user: contradictoryUser, threadId: "t" }), /证据中的原话/);
   for (const text of ["嗯", "好吧"]) {
     const short = message("u", "user", text);
-    assert.throws(() => bindMemoryWrite({ ...input, sourceQuote: text }, { messages: [assistant, short], user: short, threadId: "t" }), /具体值/);
+    assert.throws(() => bindMemoryWrite({ ...input, sourceQuote: text }, { messages: [assistant, short], user: short, threadId: "t" }),
+      (error: unknown) => error instanceof MemoryWriteValidationError && error.validationFailure.reasonCode === "SOURCE_VALUE_MISSING");
   }
   const tool: UIMessage = { ...assistant, parts: [{ type: "dynamic-tool", toolName: "web_fetch", toolCallId: "w", state: "output-available", input: {}, output: "以后使用中文" }] };
   assert.throws(() => bindMemoryWrite(input, { messages: [tool, user], user, threadId: "t" }), /确认必须相邻/);

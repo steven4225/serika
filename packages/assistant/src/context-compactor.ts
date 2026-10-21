@@ -307,6 +307,7 @@ export class ContextCompactor {
       this.#effectiveReferencePrefix = prefix; this.#installedId = record.id;
     }
     let boundary = Math.max(record?.firstKeptMessageIndex ?? 0, this.#maskedThrough);
+    const initialBoundary = boundary;
     const sources = await this.#options.checklist?.();
     const requestLimit = Math.max(1, limits.section);
     const fixedTokens = estimateContextBudget({ ...fixed, messages: prefix }, this.#options.budget).inputTokens;
@@ -318,7 +319,7 @@ export class ContextCompactor {
     const bounded = visible.map(message => fitMessage(message, Math.min(this.#options.budget.contextWindowTokens,
       message.role === "user" ? singleLimit : 16_000)));
     const checklistMessages = () => messages.map(message => message.role === "user" ? fitMessage({ ...message, metadata: undefined }, requestLimit) : message);
-    let checklistTokens = 0, checklistOverflowTokens = 0;
+    let checklistTokens = 0, checklistOverflowTokens = 0, borrowedTokens = 0;
     let reduction: NonNullable<ContextDiagnostics["lastPreparation"]>["summaryLayer"];
     const compose = () => {
       const keptIds = new Set(messages.slice(boundary).map(message => message.id));
@@ -327,14 +328,10 @@ export class ContextCompactor {
       checklistOverflowTokens = (required?.metadata as { overflowTokens?: number } | undefined)?.overflowTokens ?? 0;
       const fitted = record ? fitSummaryLayer(record, limits.totalSummary - checklistTokens) : undefined;
       const historical = fitted?.message;
-      reduction = { tokens: checklistTokens + (historical ? estimateMessageTokens([historical]) : 0), checklistTokens,
-        budget: limits.totalSummary, summaryOmitted: false, ...(fitted ? { reduction: fitted.diagnostics } : {}) };
-      if (fitted && !fitted.fits) {
-        const error = contextError("Required historical continuation exceeds proportional summary budget; original journal retained");
-        this.#lastPreparation = { at: this.#now().toISOString(), outcome: "failed", compactionId: record!.id,
-          estimatedInputTokens: null, summaryLayer: reduction, error: diagnosticError(error) };
-        throw error;
-      }
+      const tokens = checklistTokens + (historical ? estimateMessageTokens([historical]) : 0);
+      borrowedTokens = Math.max(0, tokens - limits.totalSummary);
+      reduction = { tokens, checklistTokens, budget: limits.totalSummary, borrowedTokens,
+        ...(fitted ? { reduction: fitted.diagnostics } : {}) };
       const missing = boundary > (record?.firstKeptMessageIndex ?? 0) ? [{ id: "runloom-masked-history", role: "assistant" as const,
         parts: [{ type: "text" as const, text: `Original messages ${messages[record?.firstKeptMessageIndex ?? 0]?.id ?? ""}–${messages[boundary - 1]?.id ?? ""} are masked pending background summary/extraction; use history_search/history_read.` }] }] : [];
       return placeForegroundTaskReference([...(historical ? [historical] : []), ...(required ? [required] : []), ...missing, ...bounded.filter(message => keptIds.has(message.id)), ...(boundedForeground ? [boundedForeground] : [])]);
@@ -352,11 +349,12 @@ export class ContextCompactor {
     }
     let view = compose(), measured = estimate(view);
     const recentTokens = () => estimateMessageTokens(bounded.filter(message => messages.slice(boundary).some(item => item.id === message.id)));
-    let checklistOverflow = checklistOverflowTokens > limits.section;
-    while (measured.exceeds || recentTokens() > limits.recent + limits.block || checklistOverflow) {
+    // C5 may exchange recent-original capacity for essential continuation, preserving total input capacity.
+    let requireMask = checklistOverflowTokens > limits.section || borrowedTokens > 0;
+    while (measured.exceeds || recentTokens() > Math.max(0, limits.recent + limits.block - borrowedTokens) || requireMask) {
       const next = maskOldestBlock(messages, boundary, limits.block);
       if (next <= boundary) break;
-      boundary = next; view = compose(); measured = estimate(view); checklistOverflow = false;
+      boundary = next; view = compose(); measured = estimate(view); requireMask = false;
     }
     if (measured.exceeds) {
       const current = bounded.reduce((last, message, index) => message.role === "user" ? index : last, -1);
@@ -368,7 +366,7 @@ export class ContextCompactor {
       }
     }
     const summaryTokens = estimateMessageTokens(view.filter(message => message.id === "runloom-context-summary" || message.id === "runloom-compaction-checklist"));
-    if (summaryTokens > limits.totalSummary) throw contextError("Summary and checklist metadata exceed proportional total budget; original journal retained");
+    if (summaryTokens > limits.totalSummary + borrowedTokens) throw contextError("Summary and checklist metadata exceed the C5 allocation; original journal retained");
     if (measured.exceeds) throw contextError(`Prepared context exceeds budget (${measured.inputTokens} > ${measured.availableInputTokens}); required metadata retained`);
     this.#maskedThrough = boundary;
     if (boundary > (record?.firstKeptMessageIndex ?? 0)) this.#options.onMask?.(messages[boundary - 1]!.id);
@@ -380,7 +378,11 @@ export class ContextCompactor {
     this.#lastPreparation = { at: this.#now().toISOString(), outcome: record ? "reused" : "passthrough", compactionId: record?.id ?? null,
       estimatedInputTokens: measured.inputTokens, error: null,
       summaryLayer: { ...reduction!, tokens: summaryTokens },
-      ...(checklistOverflowTokens > limits.section ? { degradation: { reason: "checklist_overflow" as const, checklistTokens: checklistOverflowTokens, sectionBudget: limits.section,
+      ...(borrowedTokens > 0 || checklistOverflowTokens > limits.section ? { degradation: {
+        reason: borrowedTokens > 0 ? "summary_overflow" as const : "checklist_overflow" as const,
+        borrowedTokens, maskedOriginalTokens: estimateMessageTokens(bounded.filter(message => messages.slice(initialBoundary, boundary).some(item => item.id === message.id))),
+        maskedFromMessageId: boundary > initialBoundary ? messages[initialBoundary]?.id ?? null : null,
+        checklistTokens: checklistOverflowTokens, sectionBudget: limits.section,
         maskedThroughMessageId: messages[boundary - 1]?.id ?? null } } : {}) };
     return view;
   }

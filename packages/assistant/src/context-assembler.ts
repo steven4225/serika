@@ -2,6 +2,7 @@ import type { UIMessage } from "ai";
 import { isAutoConsolidationRequest, withoutConsolidationTurns } from "./consolidation.js";
 import { placeForegroundTaskReference } from "./foreground-autonomy.js";
 import type { MemoryReferenceSnapshot, MemorySelection } from "./memory-snapshot.js";
+import { MODEL_TIME_ZONE } from "./task-instructions.js";
 
 /** Fixed slots precede conversation; all other slots travel with their user message. */
 export const REFERENCE_SLOTS = [
@@ -99,7 +100,7 @@ export function createReferenceAssembler(sources: readonly ReferenceSource[]): R
     ? { ...message, metadata: { ...message.metadata as object, ...captured.get(message.id) } } : message);
   const assemble = async (messages: readonly UIMessage[], signal: AbortSignal, primary = false): Promise<ReferencePrefix> => {
     const now = new Date();
-    const timeZone = "Asia/Shanghai";
+    const timeZone = MODEL_TIME_ZONE;
     const user = [...messages].reverse().find(message => message.role === "user" && !isAutoConsolidationRequest(message));
     const query = user?.parts.flatMap(part => part.type === "text" ? [part.text] : []).join("\n") ?? "";
     const request: ReferenceRequest = { messages, signal, primary, now, timeZone, user, query };

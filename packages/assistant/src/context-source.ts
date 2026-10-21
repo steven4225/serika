@@ -1,5 +1,5 @@
 import type { UIMessage } from "ai";
-import { formatLocalTaskTime } from "./task-instructions.js";
+import { formatLocalTaskTime, MODEL_TIME_ZONE } from "./task-instructions.js";
 import { collectTranscriptToolFacts } from "./work-summary.js";
 
 /** The same original-block prefix feeds compaction and extraction. */
@@ -8,7 +8,7 @@ export function originalBlock(messages: readonly UIMessage[], location: { thread
     const metadata = (message.metadata ?? {}) as Record<string, unknown>;
     const facts = collectTranscriptToolFacts([message]);
     const stamp = metadata.receivedAt ?? metadata.sentAt;
-    const localTime = typeof stamp === "string" && Number.isFinite(Date.parse(stamp)) ? formatLocalTaskTime(new Date(stamp), "Asia/Shanghai") : null;
+    const localTime = typeof stamp === "string" && Number.isFinite(Date.parse(stamp)) ? formatLocalTaskTime(new Date(stamp), MODEL_TIME_ZONE) : null;
     return { id: message.id, role: message.role, ...location,
       metadata: { time: localTime, channel: metadata.channel ?? "desktop", ...(metadata.transcriptExcluded ? { transcriptExcluded: true } : {}) },
       text: message.parts.flatMap(part => part.type === "text" ? [part.text] : []).join("\n"),

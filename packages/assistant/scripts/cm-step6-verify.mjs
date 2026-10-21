@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtemp, readFile, writeFile, mkdir, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, mkdir, rm, cp, symlink, readdir, access } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -24,13 +24,15 @@ const report = { runId: randomUUID(), startedAt: new Date().toISOString(), platf
 const root = await mkdtemp(join(tmpdir(), 'cm-step6-verification-'));
 const evidence = 'docs/v2-pilot/evidence/cm-step6';
 const smokeEvidence = 'docs/v2-pilot/evidence/electron-smoke';
-const env = { ...process.env, TZ: "UTC", RUNLOOM_SMOKE_DAILY_CONFIG: join(root, `${report.runId}-absent-config.json`) };
-function run(command, args) {
+const auditDirectory = join(root, 'audit'), smokeCheckout = join(root, 'smoke-source');
+const env = { ...process.env, TZ: process.env.TZ ?? "UTC", RUNLOOM_SMOKE_DAILY_CONFIG: join(root, `${report.runId}-absent-config.json`), SERIKA_CM6_EVIDENCE_DIR: auditDirectory };
+report.timeZone = env.TZ;
+function run(command, args, cwd = repo) {
   const startedAt = new Date().toISOString();
-  const result = spawnSync(command, args, { cwd: repo, env, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+  const result = spawnSync(command, args, { cwd, env, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
   const output = (result.stdout ?? '') + (result.stderr ?? '');
   const counts = [...output.matchAll(/[ℹ#] (tests|pass|fail|cancelled|skipped) (\d+)/g)].map(match => [match[1], Number(match[2])]);
-  report.commands.push({ command: [command, ...args], startedAt, finishedAt: new Date().toISOString(), exitCode: result.status,
+  report.commands.push({ command: [command, ...args], cwd, startedAt, finishedAt: new Date().toISOString(), exitCode: result.status,
     signal: result.signal, outputSha256: sha(output), outputBytes: Buffer.byteLength(output), counts });
   for (const match of output.matchAll(/CM_STEP6_METRICS (\{[^\n]+\})/g)) report.metrics.push(JSON.parse(match[1]));
   process.stdout.write(JSON.stringify(report.commands.at(-1)) + '\n');
@@ -42,29 +44,46 @@ try {
   });
   report.sourceHashes = Object.fromEntries(await Promise.all(report.lineChanges.map(async ({ path }) => [path, await hash(path)])));
   run('pnpm', ['typecheck']);
-  run('pnpm', ['test']);
+  for (const timeZone of ['UTC', 'Asia/Shanghai']) run('env', [`TZ=${timeZone}`, 'pnpm', 'test']);
   run('pnpm', ['eval:test']);
-  if (process.platform === 'linux') run('xvfb-run', ['-a', '-s', '-screen 0 1440x900x24', 'pnpm', '--filter', '@serika/desktop', 'smoke']);
-  else run('pnpm', ['--filter', '@serika/desktop', 'smoke']);
+  // Keep the independently reproduced smoke script unchanged in a clean temporary checkout.
+  run('git', ['clone', '--shared', '--no-checkout', repo, smokeCheckout]);
+  run('git', ['checkout', '--detach', report.sourceCommit], smokeCheckout);
+  const linkDependencies = async relative => {
+    const source = join(repo, relative, 'node_modules');
+    try { await access(source); } catch { return; }
+    await symlink(source, join(smokeCheckout, relative, 'node_modules'), 'dir');
+  };
+  await linkDependencies('');
+  for (const group of ['apps', 'packages']) for (const entry of await readdir(join(repo, group), { withFileTypes: true })) {
+    if (entry.isDirectory()) await linkDependencies(join(group, entry.name));
+  }
+  if (process.platform === 'linux') run('xvfb-run', ['-a', '-s', '-screen 0 1440x900x24', 'pnpm', '--filter', '@serika/desktop', 'smoke'], smokeCheckout);
+  else run('pnpm', ['--filter', '@serika/desktop', 'smoke'], smokeCheckout);
   const smokePath = `${smokeEvidence}/result.json`;
-  const smoke = JSON.parse(await readFile(join(repo, smokePath), 'utf8'));
+  const smokeBytes = await readFile(join(smokeCheckout, smokePath));
+  const smoke = JSON.parse(smokeBytes);
   assert.equal(smoke.status, 'passed'); assert.equal(smoke.checks.length, 8); assert.equal(smoke.sourceWorktreeDirty, false);
   assert.equal(smoke.sourceCommit, report.sourceCommit); assert.equal(smoke.scriptSha256, await hash(smokeScript));
-  for (const screenshot of smoke.screenshots) assert.equal(screenshot.sha256, await hash(`${smokeEvidence}/${screenshot.file}`));
-  report.smoke = { file: smokePath, sha256: await hash(smokePath), scriptSha256: smoke.scriptSha256,
+  for (const screenshot of smoke.screenshots) assert.equal(screenshot.sha256, sha(await readFile(join(smokeCheckout, smokeEvidence, screenshot.file))));
+  report.smoke = { file: smokePath, sha256: sha(smokeBytes), scriptSha256: smoke.scriptSha256,
     checks: smoke.checks.map(({ name, result, unexpectedErrors }) => ({ name, result, unexpectedErrors })), screenshots: smoke.screenshots };
 
   run('node', ['examples/eval/cm-step6-offline-audit.mjs']);
-  report.offlineAudit = { file: `${evidence}/offline-audit.json`, sha256: await hash(`${evidence}/offline-audit.json`) };
+  report.offlineAudit = { file: `${evidence}/offline-audit.json`, sha256: sha(await readFile(join(auditDirectory, 'offline-audit.json'))) };
+  assert.equal(git('status', '--porcelain'), '', 'Verification must leave the source checkout clean until all checks finish');
+  report.sourceStayedCleanDuringVerification = true;
   report.status = 'passed';
 } catch (error) {
   report.failure = { name: error.name, message: error.message.slice(-12000) };
   process.exitCode = 1;
 } finally {
-  await rm(root, { recursive: true, force: true });
-  report.temporaryDirectoryRemoved = true;
   report.finishedAt = new Date().toISOString();
   await mkdir(join(repo, evidence), { recursive: true });
+  if (report.smoke) await cp(join(smokeCheckout, smokeEvidence), join(repo, smokeEvidence), { recursive: true });
+  try { await access(auditDirectory); await cp(auditDirectory, join(repo, evidence), { recursive: true }); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  await rm(root, { recursive: true, force: true });
+  report.temporaryDirectoryRemoved = true;
   await writeFile(join(repo, evidence, 'verification.json'), JSON.stringify(report, null, 2) + '\n');
   if (report.smoke) await writeFile(join(repo, smokeEvidence, 'cm-step6-run.json'), JSON.stringify({ runId: report.runId,
     sourceCommit: report.sourceCommit, startedAt: report.startedAt, finishedAt: report.finishedAt, ...report.smoke }, null, 2) + '\n');

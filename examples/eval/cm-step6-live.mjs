@@ -28,8 +28,8 @@ const limit = 2, opening = 0.36;
 const script = fileURLToPath(import.meta.url);
 
 export const goalMentioned = response => response.replaceAll("\\n", "\n").split(/[。！？?；;\n]/u).some(clause =>
-  /完成(?:验收主项目的?|本次|本轮)?验收报告/u.test(clause) &&
-  !/(?:未知|不明|无法确认|不能确认|不再|取消|放弃|是否完成|不是完成|未完成|不完成|无需完成)/u.test(clause));
+  /完成(?:[^，,。！？?；;\n]*的|验收主项目|本次|本轮)?验收报告/u.test(clause) &&
+  !/(?:未知|不明|无法确认|不能确认|不再|取消|放弃|是否完成|不是完成|未完成|不完成|无需完成|另一|其他|别的)/u.test(clause));
 
 export const chargedUsd = entry => entry.amount + (entry.unresolvedReservedUsd ?? 0);
 export const pastReadSucceeded = response => response.split(/[。！？?；;，,\n]/u).some(clause => {

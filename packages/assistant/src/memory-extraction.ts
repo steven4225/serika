@@ -4,7 +4,7 @@ import { originalBlock } from "./context-source.js";
 import { hashCanonicalJson } from "@serika/core";
 import { availableInputTokens, defaultContextBudget, type ContextBudgetConfig } from "./context-budget.js";
 import { findCommittedUserMessage, withoutConsolidationTurns } from "./consolidation.js";
-import { bindMemoryWrite, memoryText, memoryWriteSchema, MEMORY_WRITE_RULES } from "./memory-write.js";
+import { bindMemoryWrite, memoryText, memoryWriteSchema, MEMORY_WRITE_RULES, MemoryWriteValidationError, type MemoryWriteValidationFailure } from "./memory-write.js";
 import type { WorkspaceMemoryStore } from "./memory-store.js";
 import type { V6Change, V6Document } from "./memory-v6-store.js";
 
@@ -29,7 +29,8 @@ export function extractionMessages(messages: readonly UIMessage[]) {
     attachments: message.parts.filter(part => part.type === "file").map(part => ({ mediaType: part.mediaType, name: part.filename ?? "attachment" })),
   }));
 }
-export interface ExtractionDiagnostics { running: boolean; calls: number; completed: number; failed: number; cancelled: number; durationMs: number; pendingSegments: number; error?: string }
+export interface ExtractionDiagnostics { running: boolean; calls: number; completed: number; failed: number; cancelled: number; durationMs: number; pendingSegments: number; error?: string;
+  validationFailure?: MemoryWriteValidationFailure & { proposalIndex: number } }
 
 /** One preemptible, tool-free call per block; the Controller owns foreground admission. */
 export function createMemoryExtraction(options: { store: WorkspaceMemoryStore; threadId: string; getMessages(): Promise<UIMessage[]>;
@@ -89,6 +90,8 @@ export function createMemoryExtraction(options: { store: WorkspaceMemoryStore; t
     const progress = (failures: number): V6Document["progress"][number] => ({ threadId: options.threadId,
       throughMessageId: saved?.throughMessageId ?? null, prefixHash: saved?.prefixHash ?? null,
       pending, retry: { throughMessageId: last, prefixHash: selectedHash, failures } });
+    let proposalIndex = 0;
+    delete diagnostics.validationFailure;
     try {
       const facts = document.entries.filter(entry => entry.state === "active" && entry.category !== "document" && entry.scope.kind === "workspace");
       const eligibleIds = new Set(extractionMessages(selected).map(message => message.id));
@@ -108,7 +111,8 @@ export function createMemoryExtraction(options: { store: WorkspaceMemoryStore; t
       const parsed = responseSchema.safeParse(decoded);
       if (!parsed.success) throw new Error("抽取输出格式无效，未保存：" + parsed.error.issues.map(issue => `${issue.path.join(".")}:${issue.code}`).join(","));
       if (JSON.stringify(parsed.data.outcomes.map(outcome => outcome.messageId)) !== JSON.stringify(users.map(user => user.id))) throw new Error("抽取覆盖顺序无效");
-      const changes: V6Change[] = parsed.data.proposals.map(proposal => {
+      const changes: V6Change[] = parsed.data.proposals.map((proposal, index) => {
+        proposalIndex = index;
         const user = users.find(user => user.id === proposal.sourceMessageId); if (!user || !memoryText(user).includes(proposal.sourceQuote)) throw new Error("抽取来源越界");
         const { sourceMessageId: _id, ...write } = proposal;
         return bindMemoryWrite(write, { messages, user, threadId: options.threadId });
@@ -137,6 +141,7 @@ export function createMemoryExtraction(options: { store: WorkspaceMemoryStore; t
     } catch (error) {
       if (signal.signal.aborted) { if (dispatched) diagnostics.cancelled++; return; }
       diagnostics.failed++; diagnostics.error = error instanceof Error ? error.message : "抽取失败";
+      if (error instanceof MemoryWriteValidationError) diagnostics.validationFailure = { ...error.validationFailure, proposalIndex };
       if (!uncertain && !diagnostics.error.includes("MEMORY_LIMIT_EXCEEDED") && !diagnostics.error.includes("MEMORY_CURSOR_MISMATCH")) {
         const failure = await options.store.writeV6!([], signal.signal, { expectedProgress: saved, progress: progress(Math.min(3, (saved?.retry?.failures ?? 0) + 1)) });
         if (!failure.ok) { diagnostics.error = `${failure.error.code}: ${failure.error.message}`; uncertain = failure.error.code === "MEMORY_COMMIT_UNCERTAIN"; }

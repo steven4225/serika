@@ -1,5 +1,7 @@
 import type { UIMessage } from "ai";
 
+export const MODEL_TIME_ZONE = "Asia/Shanghai";
+
 export type TaskInstructionsContext = {
   now: Date;
   timeZone: string;

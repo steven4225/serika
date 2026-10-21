@@ -1,5 +1,5 @@
 import type { UIMessage } from "ai";
-import { formatLocalTaskTime } from "./task-instructions.js";
+import { formatLocalTaskTime, MODEL_TIME_ZONE } from "./task-instructions.js";
 import { availableInputTokens, defaultContextBudget, estimateMessageTokens, estimateSerializedTokens, partitionMessagesForCompaction, type ContextBudgetConfig } from "./context-budget.js";
 import { validateContextSummary, type ContextCompactionRecord, type ContextSummaryV2 } from "./context-compaction.js";
 
@@ -27,7 +27,7 @@ export function summaryText(summary: ContextSummaryV2): string {
 export function layerMessage(record: ContextCompactionRecord): UIMessage {
   const layers = record.layers;
   const range = (segment: Omit<SummarySegment, "summary">) => ({ messages: [segment.firstMessageId, segment.lastMessageId],
-    time: segment.timeRange.map(stamp => stamp ? formatLocalTaskTime(new Date(stamp), "Asia/Shanghai") : null) });
+    time: segment.timeRange.map(stamp => stamp ? formatLocalTaskTime(new Date(stamp), MODEL_TIME_ZONE) : null) });
   const view = layers ? { index: layers.index.map(segment => ({ ...range(segment), text: segment.text })),
     recent: layers.recent.map(segment => ({ ...range(segment), text: summaryText(segment.summary) })) } : summaryText(record.summary);
   return { id: "runloom-context-summary", role: "assistant", metadata: { source: "context-compaction" },
@@ -53,7 +53,7 @@ export function fitSummaryLayer(record: ContextCompactionRecord, maxTokens: numb
   const indexLines = (record.layers?.index ?? []).flatMap(segment => segment.text.split("\n"));
   const index = [...new Set(indexLines)].filter(line => !requiredLines.includes(line));
   const ranges = record.layers ? [...record.layers.index, ...segments].map(segment =>
-    [segment.firstMessageId, segment.lastMessageId, segment.timeRange.map(stamp => stamp ? formatLocalTaskTime(new Date(stamp), "Asia/Shanghai") : null)]) : [["1", record.firstKeptMessageIndex]];
+    [segment.firstMessageId, segment.lastMessageId, segment.timeRange.map(stamp => stamp ? formatLocalTaskTime(new Date(stamp), MODEL_TIME_ZONE) : null)]) : [["1", record.firstKeptMessageIndex]];
   const minimum: UIMessage = { ...original, parts: [{ type: "text", text:
     "Historical continuation (exact duplicate clauses shown once); history_read/search gives originals.\n" +
     `Ranges [first,last,time]: ${JSON.stringify(ranges)}\n` + requiredLines.join("\n") +

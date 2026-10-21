@@ -80,6 +80,37 @@ test('extraction JSON Schema stays in prompt text; the configured provider sends
 });
 
 test('new-batch goal check accepts qualifiers while rejecting unknown, denied and different goals', () => {
-  for (const text of ['目标：完成验收报告。', '目标：完成验收主项目的验收报告。', '完成验收主项目验收报告。', '目标是完成本轮验收报告。']) assert.equal(goalMentioned(text), true, text);
+  for (const text of ['目标：完成验收报告。', '目标：完成验收主项目的验收报告。', '完成验收主项目验收报告。', '目标是完成本轮验收报告。',
+    '目标：完成本地文件方案的验收报告（暗号 FIDELITY-42），并补充失败样本整理入报告。',
+    '目标：完成本项目第一阶段的验收报告。']) assert.equal(goalMentioned(text), true, text);
   for (const text of ['目标：未知。', '目标：完成另一项目的验收报告。', '目标不是完成验收报告。', '不再完成验收报告。', '完成调研后审阅验收报告。', '是否完成验收报告？无法确认。']) assert.equal(goalMentioned(text), false, text);
+});
+
+test('M1 live evidence separates literal-value rejection reasons and retains only field positions and lengths', async () => {
+  const quote = '我家地址是甲路', conditional = '我喝咖啡不加糖，低血糖时除外';
+  const cases = [
+    { id: 'quote', quote, text: quote, sourceQuote: quote, value: '乙路', reasonCode: 'QUOTE_VALUE_MISSING', field: 'user.text' },
+    { id: 'source', quote, text: quote, sourceQuote: '我家地址是', value: '甲路', reasonCode: 'SOURCE_VALUE_MISSING', field: 'sourceQuote' },
+    { id: 'body', quote, text: '我家地址已记录', sourceQuote: quote, value: '甲路', reasonCode: 'BODY_VALUE_MISSING', field: 'text' },
+    { id: 'number', quote: '我每周跑5公里', text: '我每周跑6公里', sourceQuote: '我每周跑5公里', value: '跑', reasonCode: 'NUMBER_UNIT_MISMATCH', field: 'text' },
+    { id: 'condition', quote: conditional, text: '我喝咖啡不加糖', sourceQuote: conditional, value: '不加糖', reasonCode: 'CONDITION_CLAUSE_MISSING', field: 'text' },
+    { id: 'proposal', quote: '是的，以后使用中文', text: '以后使用中文', sourceQuote: '是的，以后使用中文', value: '中文', reasonCode: 'QUOTE_VALUE_MISSING', field: 'proposal.quote',
+      proposal: { messageId: 'a', quote: '以后使用', valueQuote: '中文' } },
+  ];
+  const result = await evaluateM1({ cases: cases.map(item => ({ id: item.id, saved: 1,
+    messages: [...(item.proposal ? [{ id: 'a', role: 'assistant', parts: [{ type: 'text', text: '以后使用中文' }] }] : []),
+      { id: 'u', role: 'user', parts: [{ type: 'text', text: item.quote }] }],
+    proposals: [{ operation: 'add', category: 'preference', sourceMessageId: 'u', sourceQuote: item.sourceQuote, text: item.text,
+      identity: { subject: 'user', attribute: 'fixture', value: item.value }, ...(item.proposal ? { proposal: item.proposal } : {}) }],
+  })) });
+  assert.equal(result.calls, 0); assert.equal(result.fixtureCalls, 12);
+  for (const row of result.results) {
+    const item = cases.find(item => item.id === row.case), failure = row.diagnostics.validationFailure;
+    assert.equal(row.checks.completed, false); assert.equal(row.checks.saved, false);
+    assert.equal(failure?.reasonCode, item.reasonCode, `${row.case}/${row.window}`);
+    assert.equal(failure.field, item.field); assert.equal(failure.valueLength, Array.from(item.value).length);
+    assert.equal(failure.proposalIndex, 0); assert.ok(Number.isInteger(failure.fieldLength));
+    assert.doesNotMatch(JSON.stringify(failure), /甲路|乙路|咖啡|公里|中文|sourceQuote"\s*:/);
+    console.info("CM_STEP6_METRICS " + JSON.stringify({ case: row.case, window: row.window, validationFailure: failure, realModelCalls: result.calls }));
+  }
 });

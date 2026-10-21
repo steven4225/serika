@@ -1,13 +1,16 @@
 import assert from 'node:assert/strict';
 import { randomUUID, createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fitSummaryLayer, layerMessage, blockLimits, summaryText } from '@serika/assistant/internal/context-blocks.js';
 import { estimateMessageTokens, estimateSerializedTokens } from '@serika/assistant/internal/context-budget.js';
 import { effectiveCompactionFidelitySpec } from './compaction-fidelity.mjs';
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+const evidenceDirectory = process.env.SERIKA_CM6_EVIDENCE_DIR ? resolve(process.env.SERIKA_CM6_EVIDENCE_DIR) : await mkdtemp(join(tmpdir(), 'cm6-offline-audit-'));
+await mkdir(evidenceDirectory, { recursive: true });
 const git = (...args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8' }).trimEnd();
 const dirtyPaths = git('status', '--porcelain').split('\n').filter(Boolean);
 assert.ok(dirtyPaths.every(line => line.slice(3).startsWith('docs/v2-pilot/evidence/')), 'Commit source before offline audit');
@@ -67,9 +70,9 @@ const report = { runId: randomUUID(), generatedAt: new Date().toISOString(), sou
     previousCalls: [122, 145], previousUsd: [0.68218348, 0.59343940], expectedUsd: [0.60, 0.85], conservativePlanningUsd: 1.0,
     currentCombinedChargedUsd: 1.29894714, proposedCombinedCapUsd: 2.5, availableAfterApprovalUsd: 2.5 - 1.29894714,
     authorizedNow: false } };
-await writeFile(join(repo, 'docs/v2-pilot/evidence/cm-step6/offline-audit.json'), JSON.stringify(report, null, 2) + '\n');
+await writeFile(join(evidenceDirectory, 'offline-audit.json'), JSON.stringify(report, null, 2) + '\n');
 const projection = { ...previous, ledgerPath: report.ledgerPath,
   projection: { source, sourceSha256: report.sourceSha256, generatedAt: report.generatedAt, sourceCommit: report.sourceCommit,
     change: 'Repository-relative ledgerPath only; original run metadata, calls, usage and scores unchanged.' } };
-await writeFile(join(repo, 'docs/v2-pilot/evidence/cm-step6/live.json'), JSON.stringify(projection, null, 2) + '\n');
-console.log(JSON.stringify({ runId: report.runId, capacity, m1FailureRows: failures.length, realModelCalls: 0, costUsd: 0 }));
+await writeFile(join(evidenceDirectory, 'live.json'), JSON.stringify(projection, null, 2) + '\n');
+console.log(JSON.stringify({ runId: report.runId, evidenceDirectory, capacity, m1FailureRows: failures.length, realModelCalls: 0, costUsd: 0 }));

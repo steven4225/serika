@@ -5,7 +5,7 @@ import type { ContextCompactionStore, MessageStore, ThreadContextCompactionRecor
 import { ContextCompactor, readContextDiagnostics, reconcilePublishedSummary } from "./context-compactor.js";
 import { compactPrefixHash, contextSummaryPrompt, contextSummaryFailurePaths, type ContextCompactionRecord, type ContextSummaryV2, type Summarizer } from "./context-compaction.js";
 import { defaultContextBudget, effectiveContextBudget, estimateContextBudget, estimateMessageTokens, estimateSerializedTokens } from "./context-budget.js";
-import { blockLimits, fitSummaryLayer } from "./context-blocks.js";
+import { blockLimits, fitSummaryLayer, summaryText } from "./context-blocks.js";
 import { createCompactionChecklist, compactedRecentMessages } from "./compaction-records.js";
 import { createExecutionRecordStore } from "./execution-record-store.js";
 import { createToolConfirmation } from "./tool-confirmation.js";
@@ -314,7 +314,7 @@ it("reported provider overflow recalibrates a single oversized current message w
 });
 
 
-it("oversized essential legacy goals fail visibly instead of silently omitting continuation", async () => {
+it("C5 preserves oversized essential legacy continuation using unused recent capacity without a model call", async () => {
   for (const sizedBudget of [budget, defaultContextBudget()]) {
     const store = new FakeStore(); store.messages = [user("u1", "old request"), assistant("a", "done"), user("now", "continue")];
     const record: ContextCompactionRecord = { v: 2, type: "thread.context.compacted", threadId: "thread-1", id: "legacy-large", previousCompactionId: null,
@@ -324,10 +324,11 @@ it("oversized essential legacy goals fail visibly instead of silently omitting c
     store.records.push(record as unknown as ThreadContextCompactionRecord);
     const before = structuredClone(store.records);
     const compactor = make(store, { complete: async () => { throw new Error("must not dispatch"); } }, { budget: sizedBudget });
-    await assert.rejects(compactor.prepare(store.messages, signal()), /Required historical continuation/);
+    const prepared = await compactor.prepare(store.messages, signal());
     const diagnostic = await compactor.getDiagnostics(); assert.ok(diagnostic.ok);
-    assert.equal(diagnostic.value.lastPreparation?.outcome, "failed");
-    assert.equal(diagnostic.value.lastPreparation?.summaryLayer?.summaryOmitted, false);
+    assert.equal(diagnostic.value.lastPreparation?.outcome, "reused");
+    assert.ok(JSON.stringify(prepared).includes(record.summary.goal.text));
+    assert.equal(diagnostic.value.lastPreparation?.degradation?.reason, "summary_overflow");
     assert.ok(diagnostic.value.lastPreparation!.summaryLayer!.reduction!.requiredTokens > blockLimits(sizedBudget).totalSummary);
     assert.deepEqual(store.records, before);
   }
@@ -361,8 +362,51 @@ it("CE05 1248 total minus 193 checklist retains goals, confirmed decisions, pend
   const prepared = await compactor.prepare(store.messages, signal());
   const diagnostic = await compactor.getDiagnostics(); assert.ok(diagnostic.ok);
   assert.equal(diagnostic.value.lastPreparation?.summaryLayer?.checklistTokens, 193);
-  assert.equal(diagnostic.value.lastPreparation?.summaryLayer?.summaryOmitted, false);
+  assert.ok(prepared.some(message => message.id === "runloom-context-summary"));
   for (const text of ["完成验收报告", "采用本地文件方案", "补充失败样本", "部署尚未获批准"]) assert.ok(JSON.stringify(prepared).includes(text), text);
+});
+
+it("C5 masks the oldest complete block for excess essential summary tokens while keeping goals, decisions, pending and permissions", async () => {
+  const store = new FakeStore(); store.messages = seed();
+  store.messages[2] = { id: "fidelity-write-result", role: "assistant", parts: [{ type: "dynamic-tool", toolName: "write_file",
+    toolCallId: "fidelity-write", state: "output-error", input: { path: "notes/uncertain.txt" },
+    errorText: "TOOL_OUTCOME_UNKNOWN: dispatched write lost its receipt; effect unknown, must not retry automatically." }] };
+  store.messages.at(-1)!.id = "00000000-0000-0000-0000-00000000000";
+  const item = (text: string) => ({ text, evidenceMessageIds: ["u1"] });
+  const core: ContextSummaryV2 = { ...summary, goal: item("完成验收报告"), constraints: [item("部署未获批准")],
+    decisions: [{ ...item("采用本地文件方案"), source: "user", status: "confirmed" }], pending: [item("补充失败样本")], files: [] };
+  const limits = blockLimits(budget);
+  const recent = Array.from({ length: 4 }, (_, i) => {
+    const required: ContextSummaryV2 = { ...core, goal: item(`目标${i}：`), constraints: [item(`部署未获批准（阶段${i}）`)],
+      decisions: [{ ...item(`采用本地文件方案（阶段${i}）`), source: "user", status: "confirmed" }], pending: [item(`补充失败样本（阶段${i}）`)] };
+    required.goal.text += String(i).repeat((limits.section - estimateSerializedTokens(summaryText(required))) * 2);
+    assert.ok(estimateSerializedTokens(summaryText(required)) <= limits.section);
+    return { firstMessageId: `${i}0000000-0000-0000-0000-000000000000`, lastMessageId: `${i}0000000-0000-0000-0000-000000000001`,
+      timeRange: ["2026-10-20T12:00:00.000Z", "2026-10-21T12:00:00.000Z"] as [string, string], summary: required };
+  });
+  const index = [{ firstMessageId: "00000000-0000-0000-0000-000000000000", lastMessageId: "10000000-0000-0000-0000-000000000000",
+    timeRange: ["2026-10-20T00:00:00.000Z", "2026-10-20T12:00:00.000Z"] as [string, string], text: "" }];
+  index[0]!.text = "索".repeat((limits.section - estimateSerializedTokens(index)) * 2);
+  const record: ContextCompactionRecord = { v: 2, type: "thread.context.compacted", threadId: "thread-1", id: "saturated", previousCompactionId: null,
+    firstKeptMessageIndex: 1, firstKeptMessageId: store.messages[1]!.id, sourcePrefixHash: compactPrefixHash(store.messages, 1), summary: core,
+    layers: { index, recent },
+    consolidationExcluded: true, strategyVersion: "summary-json/v2", modelId: "mock", createdAt: new Date(0).toISOString(),
+    metrics: { estimatedInputBefore: 100, estimatedInputAfter: 50, durationMs: 1, attempts: 1 } };
+  store.records.push(record as unknown as ThreadContextCompactionRecord);
+  const before = structuredClone({ messages: store.messages, records: store.records }); let calls = 0;
+  const compactor = make(store, { complete: async () => { calls++; throw new Error("no foreground model"); } },
+    { checklist: () => ({ permissions: createToolConfirmation(new PassThrough()).snapshot() }) });
+  const prepared = await compactor.prepare(store.messages, signal());
+  const diagnostic = await compactor.getDiagnostics(); assert.ok(diagnostic.ok);
+  const layer = diagnostic.value.lastPreparation!.summaryLayer!, degradation = diagnostic.value.lastPreparation!.degradation!;
+  assert.equal(layer.checklistTokens, 193); assert.equal(degradation.reason, "summary_overflow"); assert.ok(layer.borrowedTokens > 0);
+  assert.ok(degradation.maskedOriginalTokens! >= layer.borrowedTokens);
+  assert.ok(degradation.maskedThroughMessageId); assert.equal(calls, 0); assert.equal(compactor.pending, true);
+  assert.ok(diagnostic.value.lastPreparation!.estimatedInputTokens! <= 26624);
+  console.info("CM_STEP6_METRICS " + JSON.stringify({ case: "C5 essential summary overflow", ...diagnostic.value.lastPreparation, modelCalls: calls }));
+  for (const segment of record.layers!.recent) assert.ok(JSON.stringify(prepared).includes(segment.summary.goal.text));
+  for (const text of ["采用本地文件方案", "补充失败样本", "部署未获批准"]) assert.ok(JSON.stringify(prepared).includes(text));
+  assert.deepEqual({ messages: store.messages, records: store.records }, before);
 });
 
 it("recorded single-object constraints normalize with diagnostics before unchanged semantic and budget checks", async () => {

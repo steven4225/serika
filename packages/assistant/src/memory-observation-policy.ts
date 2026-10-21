@@ -1,10 +1,10 @@
 import type { UIMessage } from "ai";
 import type { EverydayMemoryFactIdentity, LegacyMemoryFactIdentity } from "./memory-fact-identity.js";
-import { formatLocalTaskTime } from "./task-instructions.js";
+import { formatLocalTaskTime, MODEL_TIME_ZONE } from "./task-instructions.js";
 
 /** Capture at admission, not when a delayed consolidation happens to run. */
 export function userMessageClock(now = new Date()): { sentAt: string; timeZone: string } {
-  const timeZone = "Asia/Shanghai";
+  const timeZone = MODEL_TIME_ZONE;
   return { sentAt: formatLocalTaskTime(now, timeZone), timeZone };
 }
 export function messageClock(message: UIMessage): { sentAt: string | null; timeZone: string | null } {
