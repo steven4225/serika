@@ -1,0 +1,255 @@
+{
+  "fixture": true,
+  "messages": 2,
+  "calls": 3,
+  "average": 1.5,
+  "rows": [
+    {
+      "version": 1,
+      "event": "started",
+      "id": "1cd30a32-8a07-4b6e-a056-67a5aa1c7009",
+      "threadId": "t",
+      "runId": "4a2b7a62-e76d-41a1-8c9d-e8d29c6918b4",
+      "purpose": "chat",
+      "provider": "mock-provider",
+      "modelId": "mock-model-id",
+      "startedAt": "2026-10-21T03:41:19.235Z",
+      "estimator": "char-half/v1",
+      "segments": [
+        {
+          "part": "tools",
+          "index": 0,
+          "hash": "jcs-sha256:v1:4ebcd83057a3cc5bb22914284300e2e3bf2c96c9b41e63aeae9f9bfabf52f029",
+          "bytes": 2009,
+          "estimatedTokens": 1005
+        },
+        {
+          "part": "system",
+          "index": 1,
+          "hash": "jcs-sha256:v1:6da84aa1e957c8322b53b6a2e0bbbb69c692dd7e1c29fb3973928f9298013a15",
+          "bytes": 2616,
+          "estimatedTokens": 1302
+        },
+        {
+          "part": "assistant",
+          "index": 2,
+          "hash": "jcs-sha256:v1:67b8c62146a7f77280d3ff96c1f7af810c738f43fa7c9f3f82c9f169091a32da",
+          "bytes": 356,
+          "estimatedTokens": 178
+        },
+        {
+          "part": "user",
+          "index": 3,
+          "hash": "jcs-sha256:v1:ecfd7168930630485c7dd8f3607848c6bf15337e43cc9b3048f4039a0d46b7d2",
+          "bytes": 5241,
+          "estimatedTokens": 2544
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "event": "finished",
+      "id": "1cd30a32-8a07-4b6e-a056-67a5aa1c7009",
+      "status": "returned",
+      "usage": {
+        "inputTokens": 100,
+        "outputTokens": 10,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "totalTokens": 110
+      },
+      "durationMs": 141.37958299999997,
+      "firstOutput": {
+        "kind": "text",
+        "ms": 4.024292000000003
+      },
+      "finishedAt": "2026-10-21T03:41:19.376Z"
+    },
+    {
+      "version": 1,
+      "event": "round",
+      "threadId": "t",
+      "messageId": "9ece51b5-926f-4f65-98ff-eb0635715555",
+      "runId": "4a2b7a62-e76d-41a1-8c9d-e8d29c6918b4",
+      "receivedAt": "2026-10-21T03:41:18.973Z",
+      "firstVisibleTextMs": 352.62520800000004,
+      "outcome": "text",
+      "finishedAt": "2026-10-21T03:41:19.515Z"
+    },
+    {
+      "version": 1,
+      "event": "started",
+      "id": "e6105b7a-4fc5-4d86-8750-048fc014a710",
+      "threadId": "t",
+      "runId": "d0f441c7-07a1-456c-8b9d-aabc94744ae9",
+      "purpose": "chat",
+      "provider": "mock-provider",
+      "modelId": "mock-model-id",
+      "startedAt": "2026-10-21T03:41:19.677Z",
+      "estimator": "char-half/v1",
+      "segments": [
+        {
+          "part": "tools",
+          "index": 0,
+          "hash": "jcs-sha256:v1:4ebcd83057a3cc5bb22914284300e2e3bf2c96c9b41e63aeae9f9bfabf52f029",
+          "bytes": 2009,
+          "estimatedTokens": 1005
+        },
+        {
+          "part": "system",
+          "index": 1,
+          "hash": "jcs-sha256:v1:6da84aa1e957c8322b53b6a2e0bbbb69c692dd7e1c29fb3973928f9298013a15",
+          "bytes": 2616,
+          "estimatedTokens": 1302
+        },
+        {
+          "part": "assistant",
+          "index": 2,
+          "hash": "jcs-sha256:v1:67b8c62146a7f77280d3ff96c1f7af810c738f43fa7c9f3f82c9f169091a32da",
+          "bytes": 356,
+          "estimatedTokens": 178
+        },
+        {
+          "part": "user",
+          "index": 3,
+          "hash": "jcs-sha256:v1:ecfd7168930630485c7dd8f3607848c6bf15337e43cc9b3048f4039a0d46b7d2",
+          "bytes": 5241,
+          "estimatedTokens": 2544
+        },
+        {
+          "part": "assistant",
+          "index": 4,
+          "hash": "jcs-sha256:v1:5fd00d3cde34cc01c4bff8538b2785e473ba342a0a9c39a67dd09ef557933004",
+          "bytes": 64,
+          "estimatedTokens": 30
+        },
+        {
+          "part": "user",
+          "index": 5,
+          "hash": "jcs-sha256:v1:912b1015fbc9c5258ae77445ed1d151ecbb9fa779dbb9af3b9b45a4677008a5f",
+          "bytes": 5265,
+          "estimatedTokens": 2548
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "event": "finished",
+      "id": "e6105b7a-4fc5-4d86-8750-048fc014a710",
+      "status": "returned",
+      "usage": {
+        "inputTokens": 100,
+        "outputTokens": 10,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "totalTokens": 110
+      },
+      "durationMs": 126.62987499999997,
+      "firstOutput": {
+        "kind": "tool_call",
+        "ms": 2.978917000000024
+      },
+      "finishedAt": "2026-10-21T03:41:19.803Z"
+    },
+    {
+      "version": 1,
+      "event": "started",
+      "id": "aa40ea58-a510-4a7c-8bbc-7f8a3924e43b",
+      "threadId": "t",
+      "runId": "d0f441c7-07a1-456c-8b9d-aabc94744ae9",
+      "purpose": "chat",
+      "provider": "mock-provider",
+      "modelId": "mock-model-id",
+      "startedAt": "2026-10-21T03:41:20.064Z",
+      "estimator": "char-half/v1",
+      "segments": [
+        {
+          "part": "tools",
+          "index": 0,
+          "hash": "jcs-sha256:v1:4ebcd83057a3cc5bb22914284300e2e3bf2c96c9b41e63aeae9f9bfabf52f029",
+          "bytes": 2009,
+          "estimatedTokens": 1005
+        },
+        {
+          "part": "system",
+          "index": 1,
+          "hash": "jcs-sha256:v1:6da84aa1e957c8322b53b6a2e0bbbb69c692dd7e1c29fb3973928f9298013a15",
+          "bytes": 2616,
+          "estimatedTokens": 1302
+        },
+        {
+          "part": "assistant",
+          "index": 2,
+          "hash": "jcs-sha256:v1:67b8c62146a7f77280d3ff96c1f7af810c738f43fa7c9f3f82c9f169091a32da",
+          "bytes": 356,
+          "estimatedTokens": 178
+        },
+        {
+          "part": "user",
+          "index": 3,
+          "hash": "jcs-sha256:v1:ecfd7168930630485c7dd8f3607848c6bf15337e43cc9b3048f4039a0d46b7d2",
+          "bytes": 5241,
+          "estimatedTokens": 2544
+        },
+        {
+          "part": "assistant",
+          "index": 4,
+          "hash": "jcs-sha256:v1:5fd00d3cde34cc01c4bff8538b2785e473ba342a0a9c39a67dd09ef557933004",
+          "bytes": 64,
+          "estimatedTokens": 30
+        },
+        {
+          "part": "user",
+          "index": 5,
+          "hash": "jcs-sha256:v1:912b1015fbc9c5258ae77445ed1d151ecbb9fa779dbb9af3b9b45a4677008a5f",
+          "bytes": 5265,
+          "estimatedTokens": 2548
+        },
+        {
+          "part": "assistant",
+          "index": 6,
+          "hash": "jcs-sha256:v1:c0411a39d4ae12ead89a52e8c048fb202ff842795614330b6194090af91ef342",
+          "bytes": 224,
+          "estimatedTokens": 98
+        },
+        {
+          "part": "tool",
+          "index": 7,
+          "hash": "jcs-sha256:v1:e048d375174c20f6cbe4d8f0eb085b926acda398f129de2e97b45c4f9e911945",
+          "bytes": 1084,
+          "estimatedTokens": 514
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "event": "finished",
+      "id": "aa40ea58-a510-4a7c-8bbc-7f8a3924e43b",
+      "status": "returned",
+      "usage": {
+        "inputTokens": 100,
+        "outputTokens": 10,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "totalTokens": 110
+      },
+      "durationMs": 131.45533299999988,
+      "firstOutput": {
+        "kind": "text",
+        "ms": 4.572875000000067
+      },
+      "finishedAt": "2026-10-21T03:41:20.196Z"
+    },
+    {
+      "version": 1,
+      "event": "round",
+      "threadId": "t",
+      "messageId": "16a854e3-cb41-4971-9e3f-efbfc60bf36c",
+      "runId": "d0f441c7-07a1-456c-8b9d-aabc94744ae9",
+      "receivedAt": "2026-10-21T03:41:19.554Z",
+      "firstVisibleTextMs": 596.0182090000001,
+      "outcome": "text",
+      "finishedAt": "2026-10-21T03:41:20.332Z"
+    }
+  ]
+}

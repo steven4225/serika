@@ -42,7 +42,7 @@ it("imports atomically with manual workspace sources, skips exact active duplica
   assert.deepEqual(await new WorkspaceMemoryStoreImpl(root).importReceipt(input.operationId, "thread"), result);
   assert.deepEqual(await store.importReceipt(input.operationId, "other"), { ok: true, value: null });
 }));
-it("changed preview or capacity rejects the entire batch; disabled and expired entries are never revived", () => fixture(async root => {
+it("changed preview or capacity rejects the entire batch; disabled entries are never revived", () => fixture(async root => {
   const store = new WorkspaceMemoryStoreImpl(root), file = join(root, ".runloom/memory.json");
   const input = await preview(store);
   const old = await store.add({ ...entries[0]!, status: "disabled" }); assert.ok(old.ok);
@@ -50,13 +50,6 @@ it("changed preview or capacity rejects the entire batch; disabled and expired e
   const fresh = await preview(store); const imported = await store.confirmImport(fresh, "thread"); assert.ok(imported.ok);
   assert.notEqual(imported.value.items[0]!.id, old.entry.id);
   const disabled = await store.get(old.entry.id); assert.ok(disabled.ok); assert.equal(disabled.entry.status, "disabled");
-  const expired = await store.add({ text: "Expired imported note", kind: "note", expiresAt: "2000-01-01T00:00:00.000Z" }); assert.ok(expired.ok);
-  const expiredInput = await preview(store, [{ text: "Expired imported note", kind: "note" }]); expiredInput.operationId = "expired";
-  const freshExpired = await store.confirmImport(expiredInput, "thread"); assert.ok(freshExpired.ok);
-  assert.equal(freshExpired.value.items[0]!.status, "saved");
-  assert.notEqual(freshExpired.value.items[0]!.id, expired.entry.id);
-  const retainedExpired = await store.get(expired.entry.id); assert.ok(retainedExpired.ok);
-  assert.equal(retainedExpired.entry.expiresAt, "2000-01-01T00:00:00.000Z");
   const doc = JSON.parse(await readFile(file, "utf8"));
   const template = doc.entries[0];
   doc.entries = Array.from({ length: 511 }, (_, i) => ({ ...template, id: `entry-${i}` }));

@@ -30,6 +30,7 @@ export interface MemoryActionPreview {
 export interface MemoryTemporalInput { id: string; validAt?: string; knownAt?: string; includeDisabled?: boolean }
 export interface MemoryMaintenance {
   /** Visible workspace/current Thread records. Limits are shared workspace limits. */
+  conflicts?: string[][]; extraction?: import("./memory-extraction.js").ExtractionDiagnostics;
   stored: number; capacity: { entries: number; bytes: number; assertionsPerEntry: number };
   pending: number; expired: number; disabled: number; duplicateSuggestions: number;
   consolidation: {

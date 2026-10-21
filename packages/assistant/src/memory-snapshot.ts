@@ -26,7 +26,7 @@ export function memorySnapshot(material: readonly MemoryEntry[], options: { now:
   const selected: MemoryEntry[] = [];
   for (const preference of [true, false]) {
     let bytes = 2, count = 0;
-    for (const entry of eligible.filter(entry => (entry.assertion?.kind === "preference") === preference)
+    for (const entry of eligible.filter(entry => ((entry.kind ?? entry.assertion?.kind) === "preference") === preference)
       .sort((a, b) => Number(b.pinned) - Number(a.pinned) || a.id.localeCompare(b.id))) {
       const size = Buffer.byteLength(JSON.stringify({ id: entry.id, revision: entry.revision ?? 1, text: entry.text, assertion: referenceAssertion(entry) })) + (count ? 1 : 0);
       if (bytes + size > GROUP_BYTES) continue;

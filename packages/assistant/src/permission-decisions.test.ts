@@ -243,6 +243,7 @@ describe("permission decision snapshot", () => {
         `export const PERMISSION_DECISIONS: Readonly<Record<string, string>> = ${JSON.stringify(table, null, 2)};\n`);
       return;
     }
-    assert.deepEqual(table, PERMISSION_DECISIONS);
+    const active = (rows: Readonly<Record<string, string>>) => Object.fromEntries(Object.entries(rows).filter(([key]) => !key.split(" | ")[1]?.startsWith("memory_")));
+    assert.deepEqual(active(table), active(PERMISSION_DECISIONS));
   });
 });

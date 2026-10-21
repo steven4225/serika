@@ -4,41 +4,14 @@ import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { resolveTuiModuleConfig } from '@serika/assistant/internal/tui-module-config.js';
-import { fixtureConfig, fixtureRuntimeEnvironment, collectEvidence, collectMemorySnapshot, createFixtureApprover, safeError, currentRestoreFixtureFact } from './e2e.mjs';
+import { fixtureConfig, fixtureRuntimeEnvironment, collectEvidence, collectMemorySnapshot, createFixtureApprover, safeError } from './e2e.mjs';
 import { resolveModelContextWindow } from '@serika/assistant/internal/model-config.js';
 import { reliabilityCases, reliabilitySpec } from './reliability-cases.mjs';
 import { estimateMessageTokens, partitionMessagesForCompaction, keepRecentCompactionUnits } from '@serika/assistant/internal/context-budget.js';
 import { summarySourceChunks } from '@serika/assistant/internal/context-compactor.js';
 import { dailyCompactionCases, dailyCompactionSpec, fixtureHistory } from './daily-compaction.mjs';
 import { compactionFidelityCases, compactionFidelitySpec, effectiveCompactionFidelityCases, effectiveCompactionFidelitySpec } from './compaction-fidelity.mjs';
-import { createMemoryStore } from '@serika/assistant/internal/memory-store.js';
-import { createMemoryConsolidation } from '@serika/assistant/internal/memory-consolidation.js';
-import { AUTO_CONSOLIDATION_AGENT_ID } from '@serika/assistant/internal/consolidation.js';
 
-test('restore fixture explicitly approves only the matching real pending coffee source before exercising restoration', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'serika-eval-restore-test-'));
-  try {
-    const store = createMemoryStore(root);
-    const text = '我喝咖啡加糖。';
-    const service = createMemoryConsolidation({ store, threadId: 'eval', writePolicy: 'automatic',
-      getMessages: async () => [{ id: 'u2', role: 'user', parts: [{ type: 'text', text }] }] });
-    service.begin(AUTO_CONSOLIDATION_AGENT_ID);
-    const prepared = await service.prepare({ mode: 'incremental' }); assert.ok(prepared.ok);
-    const staged = await service.stage({ batchId: prepared.value.batchId, proposals: [{ action: 'add', kind: 'preference', text,
-      factIdentity: { attribute: 'coffee', scenario: 'general', value: 'sweetened' }, reason: '待审核偏好', eligibility: 'needs_review',
-      sourceMessageId: 'u2', sourceQuote: text }], outcomes: [{ messageId: 'u2', status: 'extracted' }] }); assert.ok(staged.ok);
-    const finalized = await service.finalize({ status: 'completed' }); assert.ok(finalized.ok);
-    const app = { memoryStore: store }, actions = [];
-    await assert.rejects(currentRestoreFixtureFact(root, app, 'eval', { userMessageId: 'unrelated', input: text }, actions), /EXPECTED_MEMORY_MISSING/);
-    assert.equal(actions.length, 0, 'unrelated pending must not receive broad fixture approval');
-    const current = await currentRestoreFixtureFact(root, app, 'eval', { userMessageId: 'u2', input: text }, actions);
-    assert.equal(current.assertion.factIdentity.value, 'sweetened');
-    assert.equal(actions.length, 1);
-    assert.equal(actions[0].action, 'approve_fixture_current');
-    const candidates = await store.listCandidates({ status: 'pending' }, undefined, { boundThreadId: 'eval' }); assert.ok(candidates.ok);
-    assert.equal(candidates.value.candidates.length, 0);
-  } finally { await rm(root, { recursive: true, force: true }); }
-});
 
 test('daily-level fixture preserves frozen numeric budgets and enough history to trigger actual compression', () => {
   for (const mode of ['daily', 'long-task']) {

@@ -1,3 +1,4 @@
+import { assertExperimentalDataPaths } from "@serika/assistant";
 import type { LanguageModel } from "ai";
 import { createRuntimeApp, type TaskAutomationHost } from "@serika/assistant";
 import { createAssistantController } from "@serika/assistant";
@@ -47,6 +48,7 @@ export class DesktopRuntime {
   }
 
   static async create(options: Options): Promise<DesktopRuntime> {
+    assertExperimentalDataPaths([options.userData, options.env.RUNLOOM_CONFIG, options.env.RUNLOOM_WORKSPACE, options.env.RUNLOOM_TRANSCRIPTS]);
     const host = new DesktopRuntime(options);
     try {
       const config = await resolveDesktopConfig(options);

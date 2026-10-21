@@ -1,7 +1,7 @@
 import type { MemoryEntry } from "./memory-store.js";
 import type { MemoryResult } from "./memory-candidates.js";
 
-export type FormalMemory = Omit<MemoryEntry, "history">;
+export type FormalMemory = Omit<MemoryEntry, "history" | "v6">;
 export interface MemoryListInput { offset?: number; limit?: number }
 export interface MemoryPage { entries: Array<Omit<FormalMemory, "text" | "source"> & { preview: string; truncated: boolean }>; nextOffset: number | null }
 export interface MemoryEditInput { id: string; expectedRevision: number; text?: string; pinned?: boolean; status?: "disabled" }
@@ -10,7 +10,7 @@ export function visibleMemory(entry: MemoryEntry, threadId: string): boolean {
   return entry.scope?.kind !== "thread" || entry.scope.threadId === threadId;
 }
 export function formalMemory(entry: MemoryEntry): FormalMemory {
-  const { history: _history, ...current } = entry;
+  const { history: _history, v6: _v6, ...current } = entry;
   return current;
 }
 export function memoryPage(entries: MemoryEntry[], threadId: string, input: MemoryListInput = {}): MemoryResult<MemoryPage> {

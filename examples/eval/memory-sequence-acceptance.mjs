@@ -118,6 +118,7 @@ export async function runMemorySequence({ live = false, env = process.env, outpu
     corpus: 'isolated synthetic Thread; no daily data', retry: 'none; each phase refuses second dispatch', deadlineMs,
     datasetRole: 'developer-authored regression, not held-out', modelVerification: 'request and SDK usage, not provider attestation' }, null, 2), { mode: 0o600 });
   await writeFile(join(root, 'frozen-eval.mjs'), source, { mode: 0o600 });
+  throw new Error("此 v5 候选评测入口已停用；v6 使用 cm-step4.mjs，历史 Oracle 和分数保持原样");
   const fixedEnv = { ...env, RUNLOOM_MODEL: 'command-code', COMMAND_CODE_MODEL_ID: transitionModel.modelId, COMMAND_CODE_BASE_URL: transitionModel.baseURL };
   let boundary = createTransitionFetch();
   const selected = configureCliModel(() => { throw Error('Mock forbidden'); }, fixedEnv, { fetch: (...args) => boundary.fetch(...args) });

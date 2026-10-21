@@ -6,8 +6,6 @@ import {
   lstat,
   mkdir,
   open,
-  rename,
-  rm,
 } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import type { UIMessage } from "ai";
@@ -51,6 +49,8 @@ export interface MemoryRevision {
 }
 
 export interface MemoryEntry {
+  kind?: MemoryKind;
+  v6?: import("./memory-v6-store.js").V6Entry;
   /** Bounded current assertion metadata only; timelines never ride the flat API. */
   assertion?: Omit<MemoryAssertion, "text" | "sources"> & { sourceIds: MemorySourceIdentifier[] };
   /** Read-only temporal projection, separate from administrative status and legacy enabled. */
@@ -147,6 +147,8 @@ export const memoryStoreErrorCodes = [
   "INVALID_INPUT",
   "MEMORY_FILE_INVALID",
   "MEMORY_VERSION_UNSUPPORTED",
+  "MEMORY_MIGRATION_REQUIRED",
+  "MEMORY_OPERATION_REMOVED",
   "MEMORY_ENTRY_INVALID",
   "MEMORY_ENTRY_NOT_FOUND",
   "MEMORY_LIMIT_EXCEEDED",
@@ -214,6 +216,8 @@ export interface MemoryWriteOptions {
 }
 
 export interface WorkspaceMemoryStore {
+  readV6?(signal?: AbortSignal): Promise<MemoryResult<import("./memory-v6-store.js").V6Document>>;
+  writeV6?(changes: import("./memory-v6-store.js").V6Change[], signal?: AbortSignal, options?: import("./memory-v6-store.js").V6Commit): Promise<MemoryResult<MemoryEntry[]>>;
   readReferenceMaterial?(signal: AbortSignal, now: Date): Promise<MemoryResult<{ entries: MemoryEntry[]; library: MemoryLibrary }>>;
   getLibrary?(threadId: string, signal?: AbortSignal): Promise<MemoryResult<MemoryLibraryView>>;
   readLibraryDocument?(id: string, threadId: string, signal?: AbortSignal): Promise<MemoryResult<MemoryLibraryDocument>>;
@@ -1133,7 +1137,7 @@ function filesystemCode(error: unknown): string | undefined {
   return typeof error === "object" && error !== null && "code" in error ? String(error.code) : undefined;
 }
 
-export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
+export class LegacyMemoryReader implements TemporalWorkspaceMemoryStore {
   readonly #root: string;
   readonly #file: string;
   readonly #lockFile: string;
@@ -1899,46 +1903,8 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
     }, now);
   }
 
-  async #mutateDocument<T>(signal: AbortSignal, operation: (document: MemoryDocument, now: Date) => { document: MemoryDocument; value: T; unchanged?: boolean }, now: Date | (() => Date) | undefined): Promise<T> {
-    await this.#inspectRoot(signal);
-    const directory = dirname(this.#file);
-    try {
-      const details = await lstat(directory);
-      if (details.isSymbolicLink()) raise("SYMLINK_NOT_ALLOWED", "Symbolic links are not allowed");
-      if (!details.isDirectory()) raise("MEMORY_FILE_INVALID", "Memory path is not a directory");
-    } catch (error) {
-      if (signal.aborted) throw abortReason(signal);
-      if (filesystemCode(error) !== "ENOENT") throw error;
-      await mkdir(directory, { recursive: true });
-    }
-    const lock = await acquireFlock(this.#lockFile, signal);
-    let committed = false;
-    try {
-      throwIfAborted(signal);
-      const current = await this.#load(signal);
-      // Capture once, after ownership and reload. Waiting for flock is not a clock rollback.
-      const commitNow = typeof now === "function" ? now() : now ?? new Date();
-      const { document, value, unchanged } = operation(current, commitNow);
-      if (!unchanged) {
-        const stamp = validateTemporalTimestamp(commitNow.toISOString(), "Memory commit timestamp");
-        if (document.lastWrittenAt !== null && Date.parse(stamp) < Date.parse(document.lastWrittenAt)) raise("MEMORY_CLOCK_ROLLBACK", "System clock moved backwards; no Memory write was made");
-        document.lastWrittenAt = stamp;
-        // Validate the complete prospective file before touching the old one.
-        validateMemoryDocument(document);
-        await this.#write(document, signal);
-        committed = true;
-      }
-      return value;
-    } catch (error) {
-      if (error instanceof MemoryStoreError && error.code === "MEMORY_COMMIT_UNCERTAIN") committed = true;
-      throw error;
-    } finally {
-      try { await lock.release(); }
-      catch (error) {
-        if (committed) raise("MEMORY_COMMIT_UNCERTAIN", "Memory was renamed, but lock cleanup failed. Read current state before retrying");
-        throw error;
-      }
-    }
+  async #mutateDocument<T>(_signal: AbortSignal, _operation: (document: MemoryDocument, now: Date) => { document: MemoryDocument; value: T; unchanged?: boolean }, _now: Date | (() => Date) | undefined): Promise<T> {
+    raise("MEMORY_MIGRATION_REQUIRED", "需要迁移（第 7 步）");
   }
 
   async #inspectRoot(signal: AbortSignal): Promise<void> {
@@ -1954,57 +1920,6 @@ export class WorkspaceMemoryStoreImpl implements TemporalWorkspaceMemoryStore {
     if (!details.isDirectory()) raise("READ_FAILED", "Workspace is not a directory");
   }
 
-  async #write(document: MemoryDocument, signal: AbortSignal): Promise<void> {
-    const serialized = `${JSON.stringify(document)}\n`;
-    if (Buffer.byteLength(serialized, "utf8") > MEMORY_FILE_MAX_BYTES) raise("MEMORY_LIMIT_EXCEEDED", "Memory file exceeds the 16 MiB limit");
-    await this.#inspectRoot(signal);
-    const directory = dirname(this.#file);
-    try {
-      await mkdir(directory, { recursive: true });
-    } catch (error) {
-      if (signal.aborted) throw abortReason(signal);
-      throw error;
-    }
-    throwIfAborted(signal);
-    const directoryDetails = await lstat(directory);
-    if (directoryDetails.isSymbolicLink()) raise("SYMLINK_NOT_ALLOWED", "Symbolic links are not allowed");
-    if (!directoryDetails.isDirectory()) raise("WRITE_FAILED", "Memory path is not a directory");
+ }
 
-    const temporary = join(directory, `.memory.json.runloom-${randomUUID()}.tmp`);
-    let handle;
-    let created = false;
-    let renamed = false;
-    try {
-      handle = await open(temporary, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
-      created = true;
-      throwIfAborted(signal);
-      await handle.writeFile(serialized, "utf8");
-      throwIfAborted(signal);
-      await handle.sync();
-      await handle.close();
-      handle = undefined;
-      await this.#writeBoundary?.("before-rename");
-      throwIfAborted(signal);
-      await rename(temporary, this.#file);
-      created = false;
-      renamed = true;
-      await this.#writeBoundary?.("after-rename");
-      // Finish durability after the commit barrier even if the caller cancelled.
-      const directoryHandle = await open(directory, constants.O_RDONLY | constants.O_NOFOLLOW);
-      try { await directoryHandle.sync(); }
-      finally { await directoryHandle.close(); }
-    } catch (error) {
-      if (handle) await handle.close().catch(() => undefined);
-      if (created) await rm(temporary, { force: true }).catch(() => undefined);
-      if (renamed) raise("MEMORY_COMMIT_UNCERTAIN", "Memory was renamed, but durability acknowledgement failed. Read current state before retrying; the old file is not guaranteed unchanged");
-      if (signal.aborted) throw abortReason(signal);
-      throw error;
-    }
-  }
-}
-
-export const MemoryStore = WorkspaceMemoryStoreImpl;
-
-export function createMemoryStore(workspace: string): TemporalWorkspaceMemoryStore {
-  return new WorkspaceMemoryStoreImpl(workspace);
-}
+export { V6MemoryStore as WorkspaceMemoryStoreImpl, V6MemoryStore as MemoryStore, createMemoryStore } from "./memory-v6-store.js";

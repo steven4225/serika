@@ -1,0 +1,48 @@
+{
+  "fixture": true,
+  "calls": 1,
+  "rows": [
+    {
+      "version": 1,
+      "event": "started",
+      "id": "0c8a098c-b50a-4081-b477-320f40317f23",
+      "threadId": "t",
+      "purpose": "memory_consolidation",
+      "provider": "mock-provider",
+      "modelId": "mock-model-id",
+      "startedAt": "2026-10-21T03:41:18.939Z",
+      "estimator": "char-half/v1",
+      "segments": [
+        {
+          "part": "tools",
+          "index": 0,
+          "hash": "jcs-sha256:v1:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "bytes": 2,
+          "estimatedTokens": 1
+        },
+        {
+          "part": "user",
+          "index": 1,
+          "hash": "jcs-sha256:v1:47682cb116c3d228a7f55511aafc9c326868562e791ae66488be8f36ec8b6cd3",
+          "bytes": 6232,
+          "estimatedTokens": 3102
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "event": "finished",
+      "id": "0c8a098c-b50a-4081-b477-320f40317f23",
+      "status": "returned",
+      "usage": {
+        "inputTokens": 100,
+        "outputTokens": 10,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "totalTokens": 110
+      },
+      "durationMs": 140.45654100000002,
+      "finishedAt": "2026-10-21T03:41:19.079Z"
+    }
+  ]
+}

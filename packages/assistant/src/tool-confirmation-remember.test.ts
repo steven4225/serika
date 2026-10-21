@@ -79,7 +79,7 @@ describe("remembered conversation grants", () => {
 
   it("never offers to remember shell, computer, recipe, memory or non-read tools", async () => {
     const confirmation = setup();
-    for (const toolName of ["shell_exec", "computer_observe", "recipe_list", "memory_list", "task_create", "unknown_tool"]) {
+    for (const toolName of ["shell_exec", "computer_observe", "recipe_list", "memory_write", "task_create", "unknown_tool"]) {
       const { pending } = await decide(confirmation, call(toolName, { command: "ls" }), { decision: "allow" });
       assert.equal(pending?.remember, undefined, toolName);
     }

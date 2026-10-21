@@ -196,6 +196,7 @@ export function summarizeEveryday(rows) {
 export async function runMemoryEveryday({ live = false, env = process.env, outputRoot = join(dirname(fileURLToPath(import.meta.url)), 'results'), deadlineMs = 180_000 } = {}) {
   if (!live) throw Error('Explicit --live is required; fixture tests are not model quality data.');
   if (!env.COMMAND_CODE_API_KEY?.trim()) throw Object.assign(new Error('Protected COMMAND_CODE_API_KEY required'), { code: 'CONFIGURATION_FAILED' });
+  throw new Error("此 v5 候选评测入口已停用；v6 使用 cm-step4.mjs，历史 Oracle 和分数保持原样");
   const fixedEnv = { ...env, RUNLOOM_MODEL: 'command-code', COMMAND_CODE_MODEL_ID: transitionModel.modelId, COMMAND_CODE_BASE_URL: transitionModel.baseURL };
   const requested = join(resolve(outputRoot), `memory-everyday-${new Date().toISOString().replaceAll(':', '-')}-${randomUUID().slice(0, 8)}`);
   await mkdir(requested, { recursive: true, mode: 0o700 });

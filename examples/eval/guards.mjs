@@ -9,7 +9,7 @@ await mkdir(join(here, 'results'), { recursive: true });
 const groups = [
   ['eval_oracle', ['examples/eval/oracle.test.mjs', 'examples/eval/provider.test.mjs', 'examples/eval/e2e.test.mjs', 'examples/eval/report.test.mjs', 'examples/eval/reliability.test.mjs', 'examples/eval/regrade.test.mjs']],
   ['loop_deadline_cancel', ['packages/ai-sdk-adapter/dist/loop.test.js']],
-  ['memory_correctness', ['packages/assistant/dist/memory-correctness.test.js', 'packages/assistant/dist/memory-write-truth.test.js', 'packages/assistant/dist/memory-store.test.js', 'packages/assistant/dist/memory-candidate-store.test.js']],
+  ['memory_correctness', ['packages/assistant/dist/memory-m1-acceptance.test.js', 'packages/assistant/dist/modules/memory-module.test.js', 'packages/assistant/dist/memory-v6-store.test.js', 'packages/assistant/dist/consolidation-runtime.test.js', 'packages/assistant/dist/memory-store.test.js']],
   ['context_budget_cancel', ['packages/assistant/dist/context-compactor.test.js']],
   ['storage_receipts', ['packages/core/dist/jsonl-store.test.js', 'packages/assistant/dist/execution-record-store.test.js']],
 ];

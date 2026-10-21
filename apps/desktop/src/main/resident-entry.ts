@@ -1,3 +1,4 @@
+import { assertExperimentalDataPaths } from "@serika/assistant";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -17,6 +18,7 @@ async function main() {
   const arg = (name: string) => { const index = process.argv.indexOf(name); const value = process.argv[index + 1]; if (index < 0 || !value) throw new Error(`Missing ${name}`); return value; };
   const identityPath = arg("--identity"), socket = arg("--socket");
   const startup = await readResidentStartup(identityPath);
+  assertExperimentalDataPaths([startup.userData, identityPath, startup.env.RUNLOOM_CONFIG, startup.env.RUNLOOM_WORKSPACE, startup.env.RUNLOOM_TRANSCRIPTS]);
   // Node loads --env-file but does not expose its path as RUNLOOM_ENV_FILE.
   // Preserve that trusted source for the existing restricted worker adapter;
   // otherwise reminders appear unavailable only in resident mode.

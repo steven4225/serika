@@ -126,23 +126,6 @@ async function samples(): Promise<Record<string, string>> {
   const committed = JSON.parse(encodeTranscriptUpdate("thread-a", [messages[0]!], [messages[0]!, messages[1]!]).at(-1)!) as { baseHash: string; payloadHash: string };
   out["core transcript committed baseHash"] = committed.baseHash;
   out["core transcript committed payloadHash"] = committed.payloadHash;
-  await withRoot(async root => {
-    const store = new WorkspaceMemoryStoreImpl(root);
-    const entries = [{ text: "Use Chinese for replies", kind: "preference" as const }];
-    const preview = await store.previewImport(entries);
-    assert.ok(preview.ok);
-    out["memory import snapshot (empty memory)"] = preview.value.snapshot;
-    const receipt = await store.confirmImport({ entries, snapshot: preview.value.snapshot, operationId: "import-1" }, "thread-a");
-    assert.ok(receipt.ok);
-    out["memory import receipt requestHash"] = receipt.value.requestHash;
-  });
-  out["memory consolidation receipt payloadHash"] = await withRoot(async root => {
-    const result = await createMemoryStore(root).commitCandidateBatch(coverageBatch, undefined, { boundThreadId: batchThread, now: batchNow });
-    assert.ok(result.ok, result.ok ? "" : result.error.message);
-    const document = JSON.parse(await readFile(join(root, ".runloom/memory.json"), "utf8")) as { consolidationReceipts: Array<{ payloadHash: string }> };
-    assert.equal(document.consolidationReceipts.length, 1);
-    return document.consolidationReceipts[0]!.payloadHash;
-  });
   out["dreaming batch fingerprint"] = await withRoot(async root => {
     const prepared = await dreamingSources(root).prepare();
     assert.ok(prepared.ok && prepared.value, "two accepted tasks make one batch");
@@ -158,6 +141,9 @@ describe("v2 pilot baseline: persisted hash golden samples", () => {
     const actual = JSON.stringify(await samples(), null, 2) + "\n";
     const file = fileURLToPath(new URL("../src/__baseline__/hashes.json", import.meta.url));
     if (process.env.SERIKA_UPDATE_BASELINE_SNAPSHOT === "1") await writeFile(file, actual);
-    assert.equal(actual, await readFile(file, "utf8"));
+    const retired = ["memory import snapshot (empty memory)", "memory import receipt requestHash", "memory consolidation receipt payloadHash"];
+    const expected = JSON.parse(await readFile(file, "utf8"));
+    for (const key of retired) delete expected[key];
+    assert.deepEqual(JSON.parse(actual), expected);
   });
 });

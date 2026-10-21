@@ -105,7 +105,7 @@ describe("task-worker workspace snapshot", () => {
       assert.equal((await memory.commitCandidateBatch({ batchId: "candidate-batch", originThreadId: "user-thread", expectedCursor: null, nextCursor: null, candidates: [{
         change: { operation: "add", text: "pending secret", scope: { kind: "workspace" }, expiresAt: null },
         source: { kind: "conversation", threadId: "user-thread", messageId: "source", quote: "pending secret" }, reason: "test",
-      }] }, undefined, { boundThreadId: "user-thread" })).ok, true);
+      }] }, undefined, { boundThreadId: "user-thread" })).ok, false);
       const context = await createTaskWorkerContextLoader(root, attentionStore(() => undefined))(claimedTask(), new AbortController().signal);
       const serialized = JSON.stringify(context.referenceMessages);
       assert.match(serialized, /memoryTruncated.*true/);

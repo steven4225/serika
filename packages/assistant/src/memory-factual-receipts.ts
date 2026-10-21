@@ -19,6 +19,21 @@ export async function readMemoryFactReceipts(
   const unavailable = (): MemoryResult<MemoryFactReceipt[]> => ({ ok: false, error: {
     code: "MEMORY_RECEIPT_UNAVAILABLE", message: "记忆回执暂时无法核实，请在记忆页查看；不能当作已经记住。",
   } });
+  if (store?.readV6) {
+    const saved = await store.readV6();
+    if (saved.ok) {
+      const rows: MemoryFactReceipt[] = [];
+      for (const entry of saved.value.entries) for (const source of [...entry.sources, ...(entry.withdrawal ? [entry.withdrawal] : [])]) {
+        if (source.kind !== "conversation" || source.threadId !== threadId) continue;
+        const user = findCommittedUserMessage(messages, source.messageId);
+        if (!user || !isExactUserQuote(user.text, source.quote)) return unavailable();
+        const label = entry.state === "retracted" ? "已撤回，可撤销" : entry.state === "superseded" ? "已被取代" : entry.replaces.length ? "已取代旧记忆，可撤销" : entry.sources.length > 1 && source === entry.sources.at(-1) ? "已恢复" : "已保存";
+        rows.push({ id: `${entry.id}:${entry.revision}:${source.messageId}`, threadId, sourceMessageId: source.messageId, text: label });
+      }
+      return { ok: true, value: rows };
+    }
+    if (saved.error.code !== "MEMORY_MIGRATION_REQUIRED") return unavailable();
+  }
   if (!store?.getConsolidationReceipt) return { ok: true, value: [] };
   try {
     const read = await store.getConsolidationReceipt(threadId);

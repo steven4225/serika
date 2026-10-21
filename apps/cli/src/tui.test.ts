@@ -2726,23 +2726,6 @@ describe("createToolConfirmation", () => {
     assert.deepEqual(changes, [approvalId, approvalId, undefined]);
   });
 
-  it("allows only the consolidator's prepare and stage without prompting", async () => {
-    const output = outputBuffer();
-    const confirmation = moduleConfirmation(output);
-
-    const decision = confirmation.beforeToolExecute(
-      toolInput(
-        "memory_prepare_consolidation",
-        new AbortController().signal,
-        {},
-        "memory-consolidator",
-      ),
-    );
-
-    assert.deepEqual(await Promise.resolve(decision), { allow: true });
-    assert.deepEqual(await confirmation.beforeToolExecute(toolInput("memory_stage_candidates", new AbortController().signal, {}, "memory-consolidator")), { allow: true });
-    assert.equal(output.text(), "");
-  });
 
   it("keeps memory tools on normal confirmation paths outside the consolidator read", async () => {
     const output = outputBuffer();

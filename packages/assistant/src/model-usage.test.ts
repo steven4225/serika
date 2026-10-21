@@ -229,7 +229,7 @@ test("Demo: real Controller records chat/consolidation, compactor usage and summ
         sourceMessageId: sourceUser.messageId, sourceQuote: sourceUser.text, reason: "明确偏好", eligibility: "durable_self_statement",
         factIdentity: { attribute: "coffee", scenario: "general", value: "unsweetened" } }], outcomes: [{ messageId: sourceUser.messageId, status: "extracted" }] }));
     }
-    return streamResponse("已收到。");
+    return streamResponse("已收到。" + "说明".repeat(256));
   } });
   const output = new PassThrough(); output.resume();
   const app = await createRuntimeApp({ directory, assistant: { threadId: "thread", configPath: config }, modelAlias: "fixture", model, output, env: {}, cwd: f.directory });
@@ -247,16 +247,18 @@ test("Demo: real Controller records chat/consolidation, compactor usage and summ
     while (controller.getSnapshot().state.kind !== "idle" && Date.now() < deadline) await delay(10);
     assert.equal(controller.getSnapshot().state.kind, "idle");
     assert.equal(resultAfterRound, true, "result delivery must not race a newly awaited timing write before idle");
-    assert.equal(controller.getSnapshot().lastConsolidationResult?.status, "completed");
+    assert.equal(controller.getSnapshot().lastConsolidationResult, null);
+    assert.equal(app.memoryExtraction!.diagnostics().calls, 0);
     const memories = await controller.memory.list(); assert.ok(memories.ok);
-    assert.equal(memories.value.entries.length, 1);
+    assert.equal(memories.value.entries.length, 0);
     userId = (await app.store.getMessages("thread")).find(message => message.role === "user")!.id;
+    await app.store.save("thread", [...await app.store.getMessages("thread"), { id: "next-user", role: "user", parts: [{ type: "text", text: "继续" }] }]);
     const compactor = new ContextCompactor({ store: app.store, threadId: "thread", modelId: "fixture", budget: app.moduleConfig!.contextCompaction,
       fixedContext: () => ({ instructions: "", tools: [] }), summarizer: createAiSdkSummarizer(observeModelUsage(model, {
         records: app.executionRecords, callLog: new ModelCallLog(directory), threadId: "thread", enabled: () => true, scope: () => ({ purpose: "context_compaction" }) })) });
     await compactor.prepare(await app.store.getMessages("thread"), new AbortController().signal, true);
     let page = await controller.runs.listModelUsage!();
-    assert.deepEqual([...new Set(page.calls.map(c => c.purpose))].sort(), ["chat", "context_compaction", "memory_consolidation"]);
+    assert.deepEqual([...new Set(page.calls.map(c => c.purpose))].sort(), ["chat", "context_compaction"]);
     assert.equal(page.calls.filter(c => c.purpose === "chat")[0]!.runId, started.runId);
     assert.equal(page.calls.filter(c => c.purpose === "context_compaction")[0]!.runId, undefined, "manual compact is not a Run");
     assert.ok(page.calls.every(c => c.status === "returned"));
@@ -269,7 +271,7 @@ test("Demo: real Controller records chat/consolidation, compactor usage and summ
     const diagnostics = await controller.getContextDiagnostics();
     assert.ok(diagnostics.ok); assert.equal(diagnostics.value.modelCallLogWriteFailures, 0);
     const logged = rows.filter(row => row.event === "started");
-    assert.deepEqual([...new Set(logged.map(row => row.purpose))].sort(), ["chat", "context_compaction", "memory_consolidation"]);
+    assert.deepEqual([...new Set(logged.map(row => row.purpose))].sort(), ["chat", "context_compaction"]);
     const before = page.calls.length;
     const messages = await app.store.getMessages("thread");
     const reopened = new ContextCompactor({ store: app.store, threadId: "thread", modelId: "fixture",
@@ -280,6 +282,6 @@ test("Demo: real Controller records chat/consolidation, compactor usage and summ
     page = await controller.runs.listModelUsage!();
     assert.equal(page.calls.length, before, "reusing summary does not invoke another model");
     assert.deepEqual((await new ExecutionRecordStore(directory).listModelUsage("thread")).calls, page.calls, "reopen reads same ledger, never recomputes from trace totals");
-    console.log("Usage Demo PASS: four purposes; formal memory saved; reuse +0 calls; reopen unchanged.");
+    console.log("Usage Demo PASS: chat/compactor separated; short chat has no extraction; reuse +0 calls; reopen unchanged.");
   } finally { await controller.shutdown(); app.dispose(); await f.cleanup(); }
 });

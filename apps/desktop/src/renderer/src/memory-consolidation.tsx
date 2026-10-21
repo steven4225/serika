@@ -152,6 +152,7 @@ export function consolidationStatusLabel(enabled: boolean, maintenance: MemoryMa
   if (!enabled) return "记忆未启用";
   if (error) return "记忆整理状态读取失败";
   if (!maintenance) return "正在读取记忆状态…";
+  if (maintenance.extraction?.pendingSegments) return `有 ${maintenance.extraction.pendingSegments} 段没整理`;
   const consolidation = maintenance.consolidation;
   if (consolidation.state === "failed" && consolidation.error) return memoryConsolidationFailureText(consolidation.error);
   const accepted = consolidation.lastAttempt?.accepted ?? [];

@@ -9,7 +9,7 @@ import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { createRuntimeApp } from "./app.js";
 import { formatCapabilityStatus } from "./capability-status.js";
-import { MEMORY_READ_INSTRUCTIONS, memoryPrimaryInstructions } from "./memory-instructions.js";
+import { MEMORY_READ_INSTRUCTIONS } from "./memory-instructions.js";
 
 /**
  * v2 pilot step 1 baseline (docs/architecture-v2.md §4.4). Locks, for three
@@ -25,6 +25,8 @@ import { MEMORY_READ_INSTRUCTIONS, memoryPrimaryInstructions } from "./memory-in
  */
 
 process.env.TZ = "UTC";
+
+import { MEMORY_PRIMARY_WRITE_INSTRUCTIONS } from "./memory-write.js";
 
 const FULL = {
   pomodoro: { enabled: true },
@@ -151,13 +153,14 @@ describe("v2 pilot baseline: assembled tools, instructions and capability report
 // Keep the historical files intact; compare every unaffected schema and rule.
 function assertStep3Assembly(actual: string, baseline: string, autonomous = false) {
   const schemas = (text: string) => new Map([...text.matchAll(/## tool (\S+)\n\n([\s\S]*?)(?=\n\n## tool |\n\n# instructions)/g)].map(match => [match[1]!, match[2]!]));
-  const before = schemas(baseline), after = schemas(actual);
+  const before = schemas(baseline), after = schemas(actual), hadMemory = before.has("memory_add");
   assert.ok(after.has("memory_read")); after.delete("memory_read");
-  if (autonomous) for (const name of before.keys()) if (name.startsWith("memory_")) { assert.ok(!after.has(name)); before.delete(name); }
+  for (const name of before.keys()) if (name.startsWith("memory_")) { assert.ok(!after.has(name)); before.delete(name); }
+  if (!autonomous && hadMemory) { assert.ok(after.get("memory_write")?.includes("replace")); after.delete("memory_write"); } else assert.ok(!after.has("memory_write"));
   assert.deepEqual(after, before);
   const system = (text: string) => text.split("## message 0 system\n\n")[1]!.split(/\n\n(?:## message|# \/modules)/)[0]!;
   const oldSystem = system(baseline).replace(/In automatic memory mode,[\s\S]*?Active injected Memory overrides conflicting older transcript\/compaction, while the latest user request remains authoritative\./, "");
-  const newSystem = system(actual).replace(autonomous ? MEMORY_READ_INSTRUCTIONS : memoryPrimaryInstructions("review"), "");
+  const newSystem = system(actual).replace(autonomous ? MEMORY_READ_INSTRUCTIONS : MEMORY_READ_INSTRUCTIONS + MEMORY_PRIMARY_WRITE_INSTRUCTIONS, "");
   assert.equal(newSystem, oldSystem);
   const section = (text: string, title: string) => text.split(`# ${title}\n\n`)[1]!.split(/\n\n# /)[0]!;
   const modules = (text: string) => section(text, "/modules").replace(/\d+\/8192 bytes/g, "<BYTES>/8192 bytes");
@@ -168,7 +171,8 @@ function assertStep3Assembly(actual: string, baseline: string, autonomous = fals
   const capabilities = (text: string) => section(text, "/capabilities").replace(/^memory：.*\n/m, "");
   assert.equal(capabilities(actual), capabilities(baseline));
   const status = (text: string) => { const value = JSON.parse(section(text, "capability_status"));
-    value.tools = value.tools.filter((name: string) => name !== "memory_read" && !(autonomous && name.startsWith("memory_")));
+    value.tools = value.tools.filter((name: string) => !name.startsWith("memory_"));
+    value.modules = value.modules.map((module: { id: string; registeredTools: string[] }) => module.id === "memory" ? { ...module, registeredTools: [] } : module);
     if (autonomous) value.modules = value.modules.filter((module: { id: string }) => module.id !== "memory");
     return value; };
   assert.deepEqual(status(actual), status(baseline));

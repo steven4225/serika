@@ -80,3 +80,7 @@ export { automaticConsolidationMessage, automaticConsolidationSkip, waitForConso
 export { prepareConsolidationExtraction, stageConsolidationExtraction } from "./memory-consolidation.js";
 export type { MemoryConsolidation } from "./memory-consolidation.js";
 export { userMessageClock } from "./memory-observation-policy.js";
+
+export { assertExperimentalDataPaths } from "./experimental-data.js";
+
+export { validateV6MemoryDocument } from "./memory-v6-store.js";

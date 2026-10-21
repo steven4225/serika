@@ -44,7 +44,6 @@ async function until(check: () => boolean): Promise<void> {
 async function fixture(model: MockLanguageModelV3, options: {
   automatic?: boolean;
   memory?: boolean;
-  memoryHookEnabled?: boolean;
   task?: boolean;
 } = {}) {
   const root = await mkdtemp(join(tmpdir(), "desktop-skill-bridge-"));
@@ -59,9 +58,7 @@ async function fixture(model: MockLanguageModelV3, options: {
   await writeFile(join(root, "config.json"), JSON.stringify({
     version: 1, workspace, modules: { ...(options.memory ? { memory: { enabled: true, autoConsolidate: true } } : {}), ...(options.task ? { task: { enabled: true } } : {}) }, automation: {
       skills: [{ id: "brief", directory: skillDirectory }],
-      hooks: options.memoryHookEnabled !== undefined ? [{ id: "startup-memory", event: "thread.ready",
-        enabled: options.memoryHookEnabled, handler: { type: "skill", id: "memory-consolidate" } }]
-        : options.automatic ? [{ id: "startup-brief", event: "thread.ready", handler: { type: "skill", id: "brief" } }] : [],
+      hooks: options.automatic ? [{ id: "startup-brief", event: "thread.ready", handler: { type: "skill", id: "brief" } }] : [],
     },
   }));
   const messages: MainToRenderer[] = [];
@@ -224,21 +221,20 @@ it("keeps background Skill phase distinct and settles cancellation before foregr
   }
 });
 
-it("reports automatic memory from enabled Hooks, not merely the available manual Skill", async () => {
-  for (const enabled of [undefined, false, true]) {
+it("reports automatic memory from the extraction lifecycle independently of retired Memory Hooks", async () => {
+  {
     let calls = 0;
     const model = new MockLanguageModelV3({ doStream: async () => { calls += 1; return response(); } });
     const { root, bridge } = await fixture(model, {
       memory: true,
-      ...(enabled === undefined ? {} : { memoryHookEnabled: enabled }),
     });
     try {
       const info = bridge.info();
       assert.equal(info.memory.enabled, true);
-      assert.equal(info.memory.autoConsolidate, enabled === true);
-      assert.equal(info.moduleOptions?.autoConsolidate, enabled === true);
-      assert.equal(bridge.getAutomationDiagnostics().skills.some(skill => skill.kind === "memory-consolidate"), true,
-        "manual Memory Skill remains registered even if automatic Hooks are off");
+      assert.equal(info.memory.autoConsolidate, true);
+      assert.equal(info.moduleOptions?.autoConsolidate, true);
+      assert.equal(bridge.getAutomationDiagnostics().skills.some(skill => skill.kind === "memory-consolidate"), false,
+        "extraction has no Memory Skill");
       assert.equal(info.commands.includes("skill"), true);
       assert.equal(calls, 0, "empty Memory backlog must not call a model");
     } finally {

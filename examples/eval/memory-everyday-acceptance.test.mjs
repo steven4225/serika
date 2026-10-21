@@ -125,39 +125,3 @@ test('live entry requires explicit invocation and protected host key', async () 
   await assert.rejects(runMemoryEveryday(), /--live/);
   await assert.rejects(runMemoryEveryday({ live: true, env: {} }), /COMMAND_CODE_API_KEY/);
 });
-
-test('production Controller and Store with no-memory transport fixture expose positive misses without network', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'everyday-runner-test-')), originalFetch = globalThis.fetch;
-  let calls = 0;
-  globalThis.fetch = async (_url, options) => {
-    calls += 1;
-    const body = JSON.parse(options.body);
-    const texts = body.messages.flatMap(message => typeof message.content === 'string' ? [message.content]
-      : message.content.map(part => part.text).filter(Boolean));
-    const prepared = texts.find(text => text.startsWith('Extract only from this host-prepared material.'));
-    let text = '保存结果以程序回执为准。';
-    if (prepared) {
-      const material = JSON.parse(prepared.slice(prepared.indexOf('\n') + 1));
-      const source = 'bootstrap' in material ? material.turns[0].user : material.turns[0].messages.find(message => message.role === 'user');
-      text = JSON.stringify({ batchId: material.batchId, proposals: [], outcomes: [{ messageId: source.id ?? source.messageId, status: 'no_memory' }] });
-    }
-    const chunk = { id: 'fixture-not-model-quality', object: 'chat.completion.chunk', created: 1, model: transitionModel.modelId,
-      choices: [{ index: 0, delta: { content: text }, finish_reason: null }] };
-    return new Response(`data: ${JSON.stringify(chunk)}\n\ndata: ${JSON.stringify({ ...chunk,
-      choices: [{ index: 0, delta: {}, finish_reason: 'stop' }], usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 } })}\n\ndata: [DONE]\n\n`,
-    { headers: { 'content-type': 'text/event-stream' } });
-  };
-  try {
-    const result = await runMemoryEveryday({ live: true, env: { COMMAND_CODE_API_KEY: 'fixture-only-no-network' }, outputRoot: directory, deadlineMs: 10_000 });
-    assert.equal(result.executed, 12, JSON.stringify(result)); assert.equal(calls, 24);
-    assert.equal(result.status, 'completed_with_failures'); assert.equal(result.passed, 2);
-    const evidence = JSON.parse(await readFile(join(result.report, 'ED02/evidence.json'), 'utf8'));
-    assert.ok(evidence.oracle.failures.includes('explicit_not_updated'));
-    assert.equal(evidence.before.formal.length, 1); assert.equal(evidence.after.formal.length, 1);
-    assert.equal(evidence.modelVerified, true); assert.equal(evidence.userMessageId.length > 0, true);
-    const manifest = JSON.parse(await readFile(join(result.report, 'manifest.json'), 'utf8'));
-    assert.equal(manifest.oracleVersion, everydayOracleVersion); assert.equal(manifest.maxHttpRequests, 24);
-    assert.equal(manifest.requestedModelId, transitionModel.modelId);
-    assert.equal(manifest.corpus.includes('no daily data'), true);
-  } finally { globalThis.fetch = originalFetch; await rm(directory, { recursive: true, force: true }); }
-});

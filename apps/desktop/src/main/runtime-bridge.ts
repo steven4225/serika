@@ -220,9 +220,7 @@ export class RuntimeBridge {
   }
 
   info(): AppInfo {
-    const automation = this.#controller.automation.getDiagnostics();
-    const memorySkills = new Set(automation.skills.filter(skill => skill.kind === "memory-consolidate").map(skill => skill.id));
-    const autoConsolidate = automation.hooks.some(rule => rule.enabled !== false && memorySkills.has(rule.handler.id));
+    const autoConsolidate = this.#app.memoryExtraction !== undefined;
     return {
       build: readLoadedBuild(),
       ...(this.#app.getCapabilities ? { capabilities: this.#app.getCapabilities() } : {}),

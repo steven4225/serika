@@ -6,8 +6,6 @@ import { join } from "node:path";
 import { createRuntimeApp } from "@serika/assistant";
 import { createAssistantController } from "@serika/assistant";
 import { createDemoModel } from "@serika/assistant";
-import { createMemoryConsolidation } from "@serika/assistant/testing";
-import { AUTO_CONSOLIDATION_AGENT_ID } from "@serika/assistant/testing";
 import { RuntimeBridge, TeeOutput } from "../../main/runtime-bridge.js";
 import { annotateMemoryReceipts, rowsFromHistory, type ConversationRow } from "./conversation.js";
 
@@ -30,25 +28,17 @@ test("real bridge history page renders committed host memory receipt; unreadable
       { id: "user-source", role: "user" as const, parts: [{ type: "text" as const, text }] },
     ];
     await app.store.save("receipts", messages);
-    const service = createMemoryConsolidation({ store: app.memoryStore!, threadId: "receipts", writePolicy: "automatic", getMessages: async () => messages });
-    service.begin(AUTO_CONSOLIDATION_AGENT_ID);
-    const prepared = await service.prepare({ mode: "incremental" }); assert.ok(prepared.ok);
-    const staged = await service.stage({ batchId: prepared.value.batchId, proposals: [{ action: "add", kind: "preference", text,
-      sourceMessageId: "user-source", sourceQuote: text, reason: "明确偏好", eligibility: "durable_self_statement",
-      factIdentity: { attribute: "coffee", scenario: "general", value: "unsweetened" } }], outcomes: [
-        { messageId: "older", status: "no_memory" },
-        { messageId: "user-source", status: "extracted" },
-      ] }); assert.ok(staged.ok);
-    assert.ok((await service.finalize({ status: "completed" })).ok);
+    assert.ok((await app.memoryStore!.writeV6!([{ operation: "add", text, category: "preference", scope: { kind: "workspace" },
+      source: { kind: "conversation", threadId: "receipts", messageId: "user-source", quote: text, sentAt: null } }])).ok);
     const page = await bridge.historyPage();
     assert.equal(page.memoryReceipts?.length, 1);
     const receiptTexts = (rows: readonly ConversationRow[]) => rows.flatMap(row => row.kind === "text" ? (row.memoryReceipts ?? []).map(receipt => receipt.text) : []);
-    assert.match(receiptTexts(annotateMemoryReceipts(rowsFromHistory(page.messages), page.memoryReceipts ?? [], page.threadId)).join("\n"), /当时已保存：我喝咖啡不加糖/);
+    assert.match(receiptTexts(annotateMemoryReceipts(rowsFromHistory(page.messages), page.memoryReceipts ?? [], page.threadId)).join("\n"), /^已保存$/);
     const recent = await bridge.historyPage({ limit: 1 });
     const older = await bridge.historyPage({ beforeId: recent.beforeId!, limit: 1 });
     const recentRows = annotateMemoryReceipts(rowsFromHistory(recent.messages), recent.memoryReceipts ?? [], recent.threadId);
     const paginatedRows = annotateMemoryReceipts([...rowsFromHistory(older.messages), ...recentRows], older.memoryReceipts ?? [], older.threadId);
-    assert.equal(receiptTexts(paginatedRows).filter(text => /当时已保存/.test(text)).length, 1, "loading older chat preserves the latest source-bound receipt exactly once");
+    assert.equal(receiptTexts(paginatedRows).filter(text => /^已保存$/.test(text)).length, 1, "loading older chat preserves the latest source-bound receipt exactly once");
     await writeFile(join(workspace, ".runloom/memory.json"), "{invalid");
     const failed = await bridge.historyPage();
     assert.deepEqual(failed.messages, messages, "receipt failure must not break history replay");

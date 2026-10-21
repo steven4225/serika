@@ -1,4 +1,5 @@
 import { AUTONOMOUS_MAX_STEPS, AUTONOMOUS_TOTAL_TIMEOUT_MS, AUTONOMOUS_SHELL_TIMEOUT_MS, AUTONOMOUS_INSTRUCTIONS } from "./foreground-autonomy.js";
+import { assertExperimentalDataPaths } from "./experimental-data.js";
 import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -18,12 +19,12 @@ import {
   ToolRegistry,
 } from "@serika/ai-sdk-adapter";
 import { AUTO_CONSOLIDATION_AGENT_ID } from "./consolidation.js";
-import { createBuiltinSkill, loadSkillPackages, skillAgentDefinition } from "./skill-catalog.js";
-import { createRuntimeAutomation, MEMORY_SKILL_ID, type RuntimeAutomation } from "./automation-execution.js";
+import { loadSkillPackages, skillAgentDefinition } from "./skill-catalog.js";
+import { createRuntimeAutomation, type RuntimeAutomation } from "./automation-execution.js";
 import { createDreamingService, DREAMING_AGENT_ID, type DreamingService, type LearnedSkillReferenceSnapshot } from "./dreaming.js";
 import { readMemorySnapshot, type MemoryReferenceSnapshot } from "./memory-snapshot.js";
 import { memoryReadTools } from "./memory-read-tools.js";
-import { createMemoryConsolidation, memoryConsolidationBacklog, type MemoryConsolidation } from "./memory-consolidation.js";
+import { memoryConsolidationBacklog, type MemoryConsolidation } from "./memory-consolidation.js";
 import type { MemoryResult } from "./memory-candidates.js";
 import { createExecutionRecordAdapter } from "./execution-record-adapter.js";
 import { createExecutionRecordStore, type ExecutionRecordStore } from "./execution-record-store.js";
@@ -54,8 +55,8 @@ import {
 } from "./resume-observation.js";
 import { createModuleHost, type AgentModule, type InstructionRun } from "./module-host.js";
 import { createWorkspaceTaskReadApproval } from "./workspace-task-read-policy.js";
+import { createMemoryExtraction, type MemoryExtraction } from "./memory-extraction.js";
 import { createMemoryModule } from "./modules/memory-module.js";
-import { memoryProposalInstructions as memoryProposalInstructionsFor } from "./memory-instructions.js";
 import { createCheckpointModule } from "./modules/checkpoint-module.js";
 import { createPomodoroModule, type PomodoroService } from "./modules/pomodoro-module.js";
 import { createReadFileModule } from "./modules/read-file-module.js";
@@ -199,6 +200,7 @@ export interface RuntimeApp {
   memoryStore?: WorkspaceMemoryStore;
   recipes?: RecipeStore;
   memoryConsolidation?: MemoryConsolidation;
+  memoryExtraction?: MemoryExtraction;
   getMemoryConsolidationBacklog?: () => Promise<MemoryResult<number>>;
   getMemoryReferences?: () => MemoryReferenceSnapshot | null;
   subscribeMemoryReferences?: (listener: () => void) => () => void;
@@ -239,6 +241,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         todoistTimeZone: todoistTimeZoneFromEnv(env),
       })
     : undefined;
+  assertExperimentalDataPaths([options.directory, moduleConfig?.workspaceRoot ?? undefined, moduleConfig?.configPath ?? undefined]);
   const requestedContextBudget = moduleConfig?.contextCompaction;
   const modelCapacity = typeof model === "string" ? undefined : resolveModelContextWindow(model, env, moduleConfig?.modelContextWindows);
   if (moduleConfig && modelCapacity) moduleConfig.contextCompaction = effectiveContextBudget(moduleConfig.contextCompaction, modelCapacity);
@@ -270,8 +273,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
           return { ...service, ready: service.enabled && status.available && status.registered && status.running && status.ready === true };
         } catch { return { ...service, ready: false, message: "安排已保存，但后台状态未能确认；请核对后台提醒，不要重复创建。" }; }
       } : undefined;
-  if (externalSkills.some(skill => skill.kind === "memory-consolidate") && !moduleConfig?.autoConsolidate) {
-    throw new Error("Memory Skills require memory.enabled and autoConsolidate");
+  if (externalSkills.some(skill => skill.kind === "memory-consolidate")) {
+    throw new Error("旧记忆 Skill 写入口已停用，沉淀由后台一次无工具调用执行");
   }
   const shellSandbox =
     tuiMode && moduleConfig !== undefined
@@ -309,11 +312,6 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     ...(process.platform === "win32" ? {} : {
       acquireTranscriptLock: (path: string) => acquireFlock(`${path}.append.lock`),
     }),
-  });
-  const memoryConsolidation = memoryStore === undefined ? undefined : createMemoryConsolidation({
-    store: memoryStore, threadId, getMessages: () => store.getMessages(threadId),
-    writePolicy: moduleConfig?.memoryWritePolicy ?? "review",
-    consolidationAgentIds: externalSkills.filter(skill => skill.kind === "memory-consolidate").map(skill => skill.agentId),
   });
   const executionRecords = createExecutionRecordStore(directory);
   const recipes = tuiMode && shellEnabled && workspaceRoot ? new RecipeStore(workspaceRoot) : undefined;
@@ -432,7 +430,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
                     () => store.getMessages(threadId),
                     { threadId, ...(workspaceRoot === undefined ? {} : { workspaceRoot }), writePolicy: moduleConfig?.memoryWritePolicy ?? "review", consolidationAgentIds: externalSkills.filter(skill => skill.kind === "memory-consolidate").map(skill => skill.agentId),
                       getCurrentUserMessage: () => currentRun.memorySource?.signal.aborted ? undefined : currentRun.memorySource?.message,
-                      ...(memoryConsolidation ? { consolidation: memoryConsolidation } : {}) },
+                     },
                   ),
                 ]
               : []),
@@ -611,26 +609,6 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     });
   }
 
-  const memoryProposalInstructions = memoryProposalInstructionsFor(moduleConfig?.memoryWritePolicy ?? "review");
-
-  const consolidationAgent = {
-    id: AUTO_CONSOLIDATION_AGENT_ID,
-    version: "5",
-    instructions:
-      "The host has prepared the committed sources and bounded related memories. Perform ONE extraction, return ONLY a JSON object {batchId, proposals, outcomes}, no prose or markdown fences. Copy the supplied batchId. Do not call tools, select another window, commit, retry, or claim memory was saved. The host validates and atomically commits after this Run completes. " +
-      "Propose only durable information explicitly stated by the user: facts/preferences, or explicitly requested events/notes. Assistant replies, tool results, webpages, and inferences are context, not user facts. " +
-      "Distinguish permission to propose without saving active Memory (pending candidates are allowed) from an explicit request not to remember or consolidate the information (submit no proposals for it). Exact quote validation is provenance, not proof that your paraphrase is correct. " +
-      memoryProposalInstructions,
-    model: modelAlias,
-    tools: [],
-    limits: {
-      maxSteps: 1,
-      totalTimeoutMs: 120_000,
-      stepTimeoutMs: 30_000,
-      maxOutputTokens: 8192,
-    },
-  } as const;
-
   const demoTools = options.demoTools ?? isDemoModel(model);
   /** Primary instructions; module parts may word themselves for an autonomous Run. */
   const instructionsFor = (run: InstructionRun) =>
@@ -649,14 +627,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
   // Everything below may throw after modules were created. Release the module
   // host on failure, matching the previous single try/finally in the entry.
   try {
-    const memorySkill = moduleConfig?.autoConsolidate ? createBuiltinSkill({
-      id: MEMORY_SKILL_ID, description: "整理当前 Thread 的已提交增量；来源验证与写入策略由程序负责",
-      kind: "memory-consolidate", agentId: consolidationAgent.id,
-      hostExtraction: true,
-      instructions: consolidationAgent.instructions, limits: consolidationAgent.limits,
-    }) : undefined;
     const automation = createRuntimeAutomation({
-      skills: [...(memorySkill ? [memorySkill] : []), ...externalSkills],
+      skills: externalSkills,
       registrations: skillRegistrations, workspaceRoot,
       ...(moduleConfig?.automation?.hooks === undefined ? {} : { hooks: moduleConfig.automation.hooks }),
     });
@@ -686,7 +658,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     const getCapabilities = () => capabilityStatus({
       config: moduleConfig,
       tools: registeredTools.map(item => item.metadata.name).filter(name =>
-        !(moduleConfig?.memoryWritePolicy === "automatic" || autonomousRun()) || moduleHost?.toolModules.get(name) !== "memory"),
+        !autonomousRun() || moduleHost?.toolModules.get(name) !== "memory"),
       toolModules: moduleHost?.toolModules ?? new Map(),
       autonomy: currentRun.foreground?.entry ? currentRun.foreground.autonomous : desktopAutonomyEnabled,
       ...(currentRun.foreground?.entry ? { entry: currentRun.foreground.entry } : {}),
@@ -698,8 +670,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     if (tuiMode) registeredTools.push(statusRegistration);
     commands?.set("capabilities", { name: "capabilities", execute: () => { output.write(`${formatCapabilityStatus(getCapabilities())}\n`); } });
     const tools = new ToolRegistry(registeredTools);
-    const primaryToolNames = registeredTools.map(({ metadata }) => metadata.name).filter(name =>
-      moduleConfig?.memoryWritePolicy !== "automatic" || moduleHost?.toolModules.get(name) !== "memory");
+    const primaryToolNames = registeredTools.map(({ metadata }) => metadata.name);
     const primaryToolContext = tuiMode && moduleConfig?.contextCompaction.enabled
       ? await modelToolContext(tools.definitions(primaryToolNames)) : [];
     const autonomousToolNames = primaryToolNames.filter(name => moduleHost?.toolModules.get(name) !== "memory");
@@ -733,6 +704,10 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       },
       ...(moduleConfig?.modelPricing ? { prices: moduleConfig.modelPricing } : {}),
     });
+    const memoryExtraction = memoryStore && moduleConfig?.autoConsolidate ? createMemoryExtraction({
+      store: memoryStore, threadId, ...(workspaceRoot ? { workspaceRoot } : {}), getMessages: () => store.getMessages(threadId), model: observedModel("memory_consolidation"),
+      budget: moduleConfig.contextCompaction, updated: () => { redrawAfterModuleNotification?.(); },
+    }) : undefined;
     const models = new InMemoryModelRegistry({ [modelAlias]: observedModel() });
     let memoryReference: MemoryReferenceSnapshot | null = null;
     let learnedSkillReference: LearnedSkillReferenceSnapshot | null = null;
@@ -801,7 +776,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         const currentUser = [...messages].reverse().find(message => message.role === "user");
         // Runtime requires one new user message per Run. Capture it before
         // reference injection/compaction; WorkTask contracts are not user facts.
-        if (memoryEnabled && moduleConfig?.memoryWritePolicy !== "automatic" && currentUser && !currentRun.workTaskMessage) {
+        if (memoryEnabled && currentUser && !currentRun.workTaskMessage) {
           signal.throwIfAborted();
           currentRun.memorySource = { message: currentUser, signal };
         }
@@ -985,13 +960,14 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       getMemoryReferences: () => memoryReference === null ? null : structuredClone(memoryReference),
       subscribeMemoryReferences: (listener) => { memoryReferenceListeners.add(listener); return () => { memoryReferenceListeners.delete(listener); }; },
       resume,
-      autoConsolidationAgentId: moduleConfig?.autoConsolidate ? consolidationAgent.id : undefined,
+      autoConsolidationAgentId: undefined,
       ...(moduleConfig?.autoConsolidate ? { hostConsolidationExtraction: true as const } : {}),
       automation,
       ...(dreaming ? { dreaming } : {}),
       getLearnedSkillReferences: () => learnedSkillReference === null ? null : structuredClone(learnedSkillReference),
       ...(activateTaskAutomation ? { activateTaskAutomation } : {}),
       ...(memoryStore ? { memoryStore } : {}),
+      ...(memoryExtraction ? { memoryExtraction } : {}),
       desktopAutonomyEnabled,
       telegramAutonomyEnabled,
       beginForegroundExecution: (entry, request) => {
@@ -1001,7 +977,6 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       },
       endForegroundExecution: () => { currentRun.foreground = undefined; },
       ...(recipes ? { recipes } : {}),
-      ...(memoryConsolidation ? { memoryConsolidation } : {}),
       ...(memoryStore ? { getMemoryConsolidationBacklog: async () => {
         const cursor = await memoryStore.getConsolidationCursor(threadId);
         if (!cursor.ok) return cursor;
@@ -1016,7 +991,6 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         return () => { shellProgressListeners.delete(listener); };
       },
       dispose: () => {
-        memoryConsolidation?.discard();
         redrawAfterModuleNotification = undefined;
         shellProgressListeners.clear();
         moduleHost?.dispose();

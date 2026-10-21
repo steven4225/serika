@@ -12,16 +12,6 @@ import { createDemoModel } from '@serika/assistant/internal/demo-model.js';
 import { configureCliModel, inspectCliModelConfig } from '@serika/assistant/internal/model-config.js';
 import { ContextCompactor } from '@serika/assistant/internal/context-compactor.js';
 import { runE2E } from './e2e.mjs';
-import { consolidationPrefixHash } from '@serika/assistant/internal/memory-consolidation.js';
-
-/** Only an explicit offline deferred-fault case may inspect an unfinished receipt. */
-export function expectedDeferredCoverage(vars, mode, consolidation, receipt, cursor, messages) {
-  return Boolean(mode === 'offline' && vars.offlineOnly === true && vars.expected?.coverage === 'deferred' && vars.expected?.cursorAdvanced === false &&
-    consolidation.error === 'MEMORY_EXTRACTION_DEFERRED' && receipt?.threadId === 'eval' && receipt.processedCount === 0 &&
-    receipt.outcomes?.some(outcome => outcome.status === 'deferred' && outcome.attempts >= 1 && outcome.attempts < 3) &&
-    cursor === null && receipt.sourcePrefix && consolidationPrefixHash(messages, receipt.sourcePrefix.throughMessageId) === receipt.sourcePrefix.prefixHash);
-}
-
 export function requireLive(env) {
   if (env.SERIKA_EVAL_LIVE !== '1') throw new Error('真实模型评测需显式设置 SERIKA_EVAL_LIVE=1，可能产生费用');
   const config = inspectCliModelConfig(env);
@@ -41,19 +31,7 @@ function textStream(text) {
 
 function scriptedModel(vars) {
   if (vars.scenario === 'deny') return createDemoModel();
-  let extraction = 0;
-  return new MockLanguageModelV3({ doStream: async ({ prompt }) => {
-    const latest = [...prompt].reverse().find(message => message.role === 'user');
-    const text = latest?.content.filter(part => part.type === 'text').map(part => part.text).join('\n') ?? '';
-    if (!text.startsWith('Extract only from this host-prepared material.')) return textStream('收到。');
-    const material = JSON.parse(text.slice(text.indexOf('\n') + 1));
-    const source = material.turns.at(-1).user;
-    const proposals = (vars.extractions[extraction++] ?? []).map(proposal => ({
-      action: 'add', ...proposal, sourceMessageId: source.messageId, sourceQuote: proposal.sourceQuote ?? source.text, reason: '离线脚本化提案，不是模型效果证明',
-    }));
-    return textStream(JSON.stringify({ batchId: material.batchId, proposals,
-      outcomes: material.turns.map(turn => ({ messageId: turn.user.messageId, status: proposals.length ? 'extracted' : 'no_memory' })) }));
-  } });
+  return new MockLanguageModelV3({ doStream: async () => textStream('收到。') });
 }
 
 async function settle(controller) {
@@ -99,7 +77,7 @@ export default class SerikaProvider {
       return runE2E(vars.caseId, vars.variant ?? 0);
     }
     if (vars.turns !== undefined && !Array.isArray(vars.turns)) throw new Error('turns 必须是完整消息数组；请禁用 promptfoo 变量展开');
-    if (!['chat', 'deny', 'memory', 'budget'].includes(vars.scenario)) throw new Error('未知评测场景');
+    if (!['chat', 'deny', 'budget'].includes(vars.scenario)) throw new Error('未知评测场景');
     if (mode === 'live' && vars.offlineOnly) throw new Error('故障注入案例只能离线运行');
     // No user-controlled workspace/config path; every case owns its temporary data.
     const root = await mkdtemp(join(tmpdir(), 'serika-promptfoo-'));
@@ -108,9 +86,8 @@ export default class SerikaProvider {
       if (vars.scenario === 'budget') return { output: await budgetCase(root), metadata: { mode, layer: 'context-budget', modelCalled: false } };
       const workspace = join(root, 'workspace'); await mkdir(workspace);
       const config = join(root, 'config.json');
-      const memory = vars.scenario === 'memory';
       await writeFile(config, JSON.stringify({ version: 1, workspace,
-        modules: { memory: { enabled: memory, autoConsolidate: memory, writePolicy: memory ? 'automatic' : 'review' } } }));
+        modules: { memory: { enabled: false } } }));
       const selected = mode === 'live' ? configureCliModel(createDemoModel) : { modelAlias: 'eval/scripted', model: scriptedModel(vars) };
       const output = new PassThrough(); output.resume();
       const app = await createRuntimeApp({ directory: join(root, 'transcripts'), assistant: { threadId: 'eval', configPath: config },
@@ -128,44 +105,13 @@ export default class SerikaProvider {
         const snapshot = controller.getSnapshot();
         if (snapshot.lastPrimaryResult?.status !== 'completed') throw new Error(snapshot.lastPrimaryResult?.error?.message ?? '主执行未完成');
         if (snapshot.lastConsolidationResult && snapshot.lastConsolidationResult.status !== 'completed') throw new Error('记忆整理执行未完成');
-        if (memory) {
-          const maintenance = await controller.memory.getMaintenance();
-          if (!maintenance.ok) throw new Error('读取记忆整理状态失败');
-          const attempt = maintenance.value.consolidation.lastAttempt;
-          if (attempt && ['failed', 'uncertain', 'cancelled'].includes(attempt.status)) {
-            const receipt = await app.memoryStore.getConsolidationReceipt('eval');
-            const cursor = await app.memoryStore.getConsolidationCursor('eval');
-            if (!receipt.ok || !cursor.ok || !expectedDeferredCoverage(vars, mode, maintenance.value.consolidation,
-              receipt.value, cursor.value, await app.store.getMessages('eval'))) {
-              throw new Error(`记忆整理未完成落盘：${maintenance.value.consolidation.error ?? attempt.message ?? attempt.status}`);
-            }
-          }
-        }
       }
-      const memories = memory ? await app.memoryStore.list() : { ok: true, entries: [] };
-      const pending = memory ? await app.memoryStore.listCandidates({ status: 'pending' }, undefined, { boundThreadId: 'eval' }) : { ok: true, value: { candidates: [] } };
-      const receipt = memory ? await app.memoryStore.getConsolidationReceipt('eval') : { ok: true, value: null };
-      const cursor = memory ? await app.memoryStore.getConsolidationCursor('eval') : { ok: true, value: null };
-      const material = memory ? await app.memoryStore.listConsolidationMaterial(undefined, { boundThreadId: 'eval' }) : { ok: true, value: [] };
-      if (![memories, pending, receipt, cursor, material].every(result => result.ok)) throw new Error('读取保存状态失败');
-      const history = await controller.getHistory();
-      const users = new Map(history.filter(message => message.role === 'user').map(message => [message.id,
-        message.parts.filter(part => part.type === 'text').map(part => part.text).join('\n')]));
-      const sourceValid = memories.entries.every(entry => {
-        const assertion = material.value.find(item => item.id === entry.id)?.relatedAssertions.find(item => item.assertionId === entry.assertion?.assertionId);
-        return assertion?.sources.length > 0 && assertion.sources.every(source =>
-          source.kind === 'conversation' && source.threadId === 'eval' && source.quote.length > 0 && users.get(source.messageId)?.includes(source.quote));
-      });
       const runs = await app.executionRecords.listRuns('eval');
       const snapshot = controller.getSnapshot();
-      const maintenance = memory ? await controller.memory.getMaintenance() : null;
       return { output: { status: snapshot.lastPrimaryResult.status, reply: snapshot.lastPrimaryResult.text,
-        saved: memories.entries.filter(entry => entry.enabled !== false && entry.status === 'active').length,
-        pending: pending.value.candidates.length, approvals, sourceValid,
+        saved: 0, pending: 0, approvals,
         toolStarts: runs.flatMap(run => run.tools).filter(tool => tool.startedAt != null).length,
-        coverage: receipt.value?.outcomes.at(-1)?.status ?? null, cursorAdvanced: cursor.value !== null,
-        memories: memories.entries.map(entry => ({ text: entry.text, identity: entry.assertion?.factIdentity })),
-      }, metadata: { mode, model: selected.modelAlias, layer: 'controller-runtime', nativeElectron: 'not_run', usageAccounting: 'not_reported', maintenance } };
+      }, metadata: { mode, model: selected.modelAlias, layer: 'controller-runtime', nativeElectron: 'not_run', usageAccounting: 'not_reported' } };
     } finally {
       try { await controller?.shutdown(); } finally { await rm(root, { recursive: true, force: true }); }
     }

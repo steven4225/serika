@@ -164,24 +164,3 @@ test("Steer does not rewrite WorkTask acceptance or let the model accept human q
     assert.equal((await controller.runs.list()).length, 1);
   } finally { await controller?.shutdown(); await f.cleanup(); }
 });
-
-test("Steer rejects auxiliary consolidation instead of mutating its invocation", { timeout: 20_000 }, async () => {
-  let calls = 0;
-  let release!: (value: ReturnType<typeof response>) => void;
-  const f = await fixture(new MockLanguageModelV3({ doStream: async () => ++calls === 1 ? response()
-    : await new Promise<ReturnType<typeof response>>(resolve => { release = resolve; }) }), true);
-  let controller: AssistantController | undefined;
-  try {
-    controller = (await f.open()).controller;
-    assert.ok((await controller.run("我的长期偏好是两条行动")).ok);
-    await waitFor(() => controller!.getSnapshot().state.kind === "idle");
-    const skill = controller.automation.getDiagnostics().skills.find(item => item.id === "memory-consolidate"); assert.ok(skill);
-    const started = await controller.automation.runSkill({ id: skill.id, expectedHash: skill.hash }); assert.ok(started.ok, JSON.stringify(started));
-    await waitFor(() => calls === 2);
-    assert.equal(controller.getSnapshot().canSteer, false);
-    assert.deepEqual(await controller.steer({ expectedRunId: started.value.runId, id: "wrong-phase", text: "改变计划" }), { ok: false, reason: "busy" });
-    await controller.cancel(); release(response());
-    await waitFor(() => controller!.getSnapshot().state.kind === "idle");
-    assert.equal((await controller.runs.get(started.value.runId))?.steers, undefined);
-  } finally { await controller?.shutdown(); await f.cleanup(); }
-});

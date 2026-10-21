@@ -1,3 +1,4 @@
+import { v6Conflicts } from "./memory-v6-store.js";
 import type { RuntimeAutomation } from "./automation-execution.js";
 import type { ControllerKernel } from "./controller-kernel.js";
 import type { MemoryLibraryAction, MemoryLibraryDocument, MemoryLibraryView } from "./memory-library.js";
@@ -155,23 +156,18 @@ export function createMemoryControls(k: ControllerKernel, deps: {
       if (!store) return memoryControlFailure("MEMORY_DISABLED", "Temporal Memory is unavailable");
       const counts = await store.inspectMemoryMaintenance(undefined, { boundThreadId: app.threadId });
       if (!counts.ok) return counts;
-      const enabled = automation.diagnostics().hooks.some(rule => rule.enabled !== false &&
-        automation.getSkill(rule.handler.id)?.kind === "memory-consolidate");
+      const enabled = app.memoryExtraction !== undefined;
       let backlogCount: number | undefined, backlogError: string | undefined;
       if (enabled) {
-        const cursor = await store.getConsolidationCursor(app.threadId);
-        if (!cursor.ok) backlogError = `${cursor.error.code}: ${cursor.error.message}`;
-        else {
-          try {
-            const backlog = memoryConsolidationBacklog(await app.store.getMessages(app.threadId), cursor.value);
-            if (backlog.ok) backlogCount = backlog.value;
-            else backlogError = `${backlog.error.code}: ${backlog.error.message}`;
-          } catch (error) { backlogError = `READ_FAILED: ${String(error)}`; }
-        }
+        try { backlogCount = await app.memoryExtraction!.backlog(); }
+        catch (error) { backlogError = String(error); }
       }
+      const material = await store.readV6?.();
+      const conflicts = material?.ok ? v6Conflicts(material.value.entries.filter(entry => entry.scope.kind === "workspace" || entry.scope.threadId === app.threadId)) : [];
+      const extraction = app.memoryExtraction?.diagnostics();
       const status = deps.consolidationStatus();
-      const running = status.running;
-      const error = status.failure ?? backlogError;
+      const running = extraction?.running ?? status.running;
+      const error = extraction?.error ?? status.failure ?? backlogError;
       const consolidation: MemoryMaintenance["consolidation"] = {
         enabled,
         state: running ? "running" : error ? "failed" : app.memoryConsolidation?.reviewQueue !== false && counts.value.pending > 0 ? "awaiting_review" : !enabled ? "off" : (backlogCount ?? 0) > 0 ? "backlog" : "idle",
@@ -179,7 +175,7 @@ export function createMemoryControls(k: ControllerKernel, deps: {
         ...(status.lastAttempt === undefined ? {} : { lastAttempt: structuredClone(status.lastAttempt) }),
         ...(status.lastSkippedReason === undefined ? {} : { lastSkippedReason: status.lastSkippedReason }),
       };
-      return { ok: true, value: { ...counts.value, capacity: { ...memoryCapacity }, consolidation } };
+      return { ok: true, value: { ...counts.value, capacity: { ...memoryCapacity }, consolidation, conflicts, ...(extraction ? { extraction } : {}) } };
     },
   };
 }

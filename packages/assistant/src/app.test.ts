@@ -114,19 +114,12 @@ describe("createRuntimeApp", () => {
           messages: [{ id: "correction", role: "user", parts: [{ type: "text", text: "更正我的长期偏好，请记住。" }] }] });
         assert.equal((await handle.result).status, "completed");
         assert.equal(names.includes("memory_read"), true);
-        assert.equal(names.some(name => name.startsWith("memory_") && name !== "memory_read"), writePolicy === "review");
-        assert.equal(names.includes("memory_revise"), writePolicy === "review");
-        assert.ok(app.memoryConsolidation, "automatic lifecycle must remain registered");
+        assert.deepEqual(names.filter(name => name.startsWith("memory_")).sort(), ["memory_read", "memory_write"]);
+        assert.equal(names.includes("memory_revise"), false);
+        assert.ok(app.memoryExtraction, "tool-free background lifecycle must be registered");
+        assert.equal(app.memoryConsolidation, undefined);
         assert.ok(app.memoryStore, "desktop administrative operations retain their original store");
-        if (writePolicy === "automatic") {
-          const consolidation = await app.runtime.run({ agentId: app.autoConsolidationAgentId!, threadId: app.threadId,
-            messages: [{ id: "consolidation", role: "user", metadata: { source: "auto-consolidation" },
-              parts: [{ type: "text", text: "整理已提交的用户信息" }] }] });
-          assert.equal((await consolidation.result).status, "completed");
-          assert.match(system, /explicitly corrects the uniquely matched prior preference: use correct, not change/);
-          assert.match(system, /No effective date is needed for a correction/);
-          assert.match(system, /actually ambiguous, retain needs_review/);
-        }
+
       } finally { await app.dispose(); await rm(root, { recursive: true, force: true }); }
     });
   }

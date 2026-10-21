@@ -49,7 +49,7 @@ export function memoryLibraryDocuments(library: MemoryLibrary, entries: MemoryEn
       entries: parts.map(part => ({ id: part.id, revision: part.revision ?? 1 })) };
   });
   for (const entry of visible) {
-    if (owned.has(entry.id)) continue;
+    if (owned.has(entry.id) || entry.v6 && (entry.v6.state === "superseded" || entry.v6.state === "retracted")) continue;
     const title = entry.text.split(/\r?\n/).find(line => line.trim())?.replace(/^#{1,6}\s+/, "").trim() ?? "未命名记忆";
     documents.push({ id: legacyDocumentId(entry.id), libraryRevision: library.revision, title: Array.from(title).slice(0, 60).join(""), folderId: null,
       scope: entry.scope ?? { kind: "workspace" }, text: entry.text, preview: Array.from(entry.text).slice(0, 120).join(""),

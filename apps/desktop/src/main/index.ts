@@ -1,3 +1,4 @@
+import { assertExperimentalDataPaths } from "@serika/assistant";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
@@ -53,6 +54,7 @@ app.on("open-url", (event, url) => {
 // Pin the existing profile before renaming the visible application. Otherwise
 // Electron's name-derived default path could strand the user's old history.
 const userDataPath = userDataPathFromEnv(process.env) ?? defaultUserDataPath(app.getPath("appData"));
+assertExperimentalDataPaths([userDataPath]);
 app.setPath("userData", userDataPath);
 app.setName("Serika");
 

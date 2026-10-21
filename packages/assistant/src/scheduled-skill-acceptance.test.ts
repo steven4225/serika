@@ -156,10 +156,10 @@ test("Scheduling rejects unknown/hash-mismatched/memory Skills and oversized or 
   try {
     const runAt = new Date(Date.now() + 10_000).toISOString();
     const base = { id: "brief", expectedHash: f.skill.hash, input: "A brief", runAt };
-    const memory = f.controller.automation.getDiagnostics().skills.find(item => item.id === "memory-consolidate"); assert.ok(memory);
+    const memory = f.controller.automation.getDiagnostics().skills.find(item => item.id === "memory-consolidate"); assert.equal(memory, undefined);
     for (const input of [
       { ...base, id: "not-registered" }, { ...base, expectedHash: "0".repeat(64) },
-      { ...base, id: memory.id, expectedHash: memory.hash }, { ...base, input: "x".repeat(4097) },
+      { ...base, id: "memory-consolidate", expectedHash: "0".repeat(64) }, { ...base, input: "x".repeat(4097) },
       { ...base, authority: { shell: true } }, { ...base, recurrence: { kind: "daily" as const, time: "09:00", utcOffset: "+08:00" } },
     ]) assert.equal((await f.controller.automation.scheduleSkill(input)).ok, false);
     assert.equal(calls, 0);

@@ -10,18 +10,6 @@ import { DesktopRuntime } from "./desktop-runtime.js";
 import { ExecutionRecordStore } from "@serika/assistant";
 import type { MainToRenderer } from "../shared/ui-contract.js";
 
-function findMaterial(value: unknown): { batchId: string; turns: Array<{ user: { messageId: string; text: string } }> } | undefined {
-  if (typeof value === "string" && value.includes('"turns":')) {
-    const start = value.indexOf("\n{");
-    if (start >= 0) {
-      try { return findMaterial(JSON.parse(value.slice(start + 1))); } catch { return; }
-    }
-  }
-  if (typeof value !== "object" || value === null) return;
-  const object = value as Record<string, unknown>;
-  if (typeof object.batchId === "string" && Array.isArray(object.turns)) return object as ReturnType<typeof findMaterial>;
-  for (const child of Object.values(object).reverse()) { const result = findMaterial(child); if (result) return result; }
-}
 function response(toolName?: string, input?: unknown, text = "收到。") {
   return { stream: simulateReadableStream({ chunks: [
     { type: "stream-start" as const, warnings: [] },
@@ -266,21 +254,14 @@ describe("normal desktop memory and history entry", () => {
       assert.ok((await host.current.history()).some(message => message.role === "user" && message.parts.some(part => part.type === "text" && part.text === "保留这条旧对话")));
     } finally { await host.shutdown(); await rm(root, { recursive: true, force: true }); }
   });
-  it("uses generated daily identity, saves eligible proposals automatically, recalls in a new Thread, and reopens either history", async () => {
+  it("uses generated identity, explicitly remembers through the single writer, recalls in a new Thread and reopens history", async () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-desktop-daily-test-"));
-    let failStage = false;
     const events: MainToRenderer[] = [];
-    const model = new MockLanguageModelV3({ doStream: async options => {
-      const material = findMaterial(options.prompt);
-      if (!material) return response();
-      assert.equal(options.tools?.length ?? 0, 0);
-      const user = material.turns[0]?.user;
-      return response(undefined, undefined, JSON.stringify({ batchId: material.batchId, proposals: user ? [{ action: "add",
-          text: user.text, scope: { kind: "workspace" }, recallTerms: ["总结报告"], kind: "preference", reason: "明确偏好", eligibility: "durable_self_statement",
-          sourceMessageId: user.messageId, sourceQuote: failStage ? "forged quote" : user.text }] : [],
-        outcomes: material.turns.map(turn => ({ messageId: turn.user.messageId,
-          status: turn.user.messageId === user?.messageId ? "extracted" : "no_memory" })),
-      }));
+    let written = false;
+    const model = new MockLanguageModelV3({ doStream: async () => {
+      if (written) return response();
+      written = true;
+      return response("memory_write", { operation: "add", text: "我的复盘长期偏好：先结论，再两条步骤。", category: "preference", sourceQuote: "我的复盘长期偏好：先结论，再两条步骤。" });
     } });
     const options = { userData: join(root, "profile"), cwd: root, env: {}, modelAlias: "mock", model, send: (event: MainToRenderer) => events.push(event) };
     let host = await DesktopRuntime.create(options);
@@ -288,7 +269,7 @@ describe("normal desktop memory and history entry", () => {
       const initial = host.info();
       assert.equal(initial.memory.enabled, true); assert.equal(initial.memory.autoConsolidate, true);
       assert.equal(initial.workspaceRoot, await realpath(join(root, "profile", "workspaces", "personal")));
-      assert.ok((await host.current.run("我的复盘长期偏好：先结论，再两条步骤。")).ok);
+      assert.ok((await host.current.run("记住：我的复盘长期偏好：先结论，再两条步骤。")).ok);
       await assert.rejects(host.createThread(), /等待/);
       await idle(host);
       const saved = await host.current.listMemories(); assert.ok(saved.ok); assert.equal(saved.value.entries.length, 1);
@@ -311,13 +292,6 @@ describe("normal desktop memory and history entry", () => {
       assert.equal(host.info().threadId, other);
       assert.equal((await host.listThreads()).length, 2);
       assert.ok(events.some(event => event.type === "identity-changed"));
-      failStage = true;
-      assert.ok((await host.current.run("长期排版偏好：使用大标题。")).ok); await idle(host);
-      const health = await host.current.getMemoryMaintenance(); assert.ok(health.ok); assert.equal(health.value.consolidation.state, "failed");
-      failStage = false;
-      const memorySkill = (await host.current.getAutomationDiagnostics()).skills.find(skill => skill.id === "memory-consolidate"); assert.ok(memorySkill);
-      assert.ok((await host.current.runSkill({ id: memorySkill.id, expectedHash: memorySkill.hash })).ok); await idle(host);
-      const memories = await host.current.listMemories(); assert.ok(memories.ok); assert.equal(memories.value.entries.length, 2);
     } finally { await host.shutdown(); await rm(root, { recursive: true, force: true }); }
   });
 

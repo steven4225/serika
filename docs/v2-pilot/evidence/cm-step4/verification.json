@@ -1,0 +1,208 @@
+{
+  "baseCommit": "8c572bb85d9716254325a1aac490b3980eb438c1",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "lines": {
+    "product": {
+      "added": 830,
+      "removed": 1023
+    },
+    "test": {
+      "added": 452,
+      "removed": 8756
+    }
+  },
+  "commands": [
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0,
+      "logSha256": "9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609",
+      "counts": {
+        "tests": [],
+        "pass": [],
+        "fail": [],
+        "skipped": []
+      }
+    },
+    {
+      "command": "pnpm test",
+      "exitCode": 0,
+      "logSha256": "9196e3d3d61c4a1c7f197f369b1ad929e2e2847ee4a42bd5070d9103b34afa44",
+      "counts": {
+        "tests": [
+          1167,
+          631,
+          12
+        ],
+        "pass": [
+          1156,
+          631,
+          12
+        ],
+        "fail": [
+          0,
+          0,
+          0
+        ],
+        "skipped": [
+          11,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "command": "pnpm eval:test",
+      "exitCode": 0,
+      "logSha256": "d4251ee2283ea5cbdc582850b547a979e366c5fec87d1f83015729241d6f916b",
+      "counts": {
+        "tests": [
+          77
+        ],
+        "pass": [
+          77
+        ],
+        "fail": [
+          0
+        ],
+        "skipped": [
+          0
+        ]
+      }
+    },
+    {
+      "command": "pnpm eval:guards",
+      "exitCode": 0,
+      "logSha256": "4d8589ec3dbe02d23679e2e9d643cdafc326e27d167818138854cd40199376a6",
+      "counts": {
+        "tests": [],
+        "pass": [],
+        "fail": [],
+        "skipped": []
+      }
+    },
+    {
+      "command": "SERIKA_CM4_EVIDENCE_DIR=<repository evidence> node --test --test-timeout=15000 packages/assistant/dist/memory-m1-acceptance.test.js packages/assistant/dist/consolidation-runtime.test.js packages/assistant/dist/memory-v6-store.test.js packages/assistant/dist/modules/memory-module.test.js",
+      "exitCode": 0,
+      "logSha256": "232feb458dcd1e38aa58b9377801edd2301d9d38b1a575f852cacbe5e75a9e42",
+      "counts": {
+        "tests": [
+          13
+        ],
+        "pass": [
+          13
+        ],
+        "fail": [
+          0
+        ],
+        "skipped": [
+          0
+        ]
+      }
+    },
+    {
+      "command": "SERIKA_CM4_REPLAY=<private 0600 fixture> SERIKA_CM4_EVIDENCE_DIR=<repository evidence> node examples/eval/cm-step4.mjs",
+      "exitCode": 0,
+      "logSha256": "902f62000e4b030469056445bb16eac9fb63dd5079fb06256b7e275c687fd324",
+      "counts": {
+        "tests": [],
+        "pass": [],
+        "fail": [],
+        "skipped": []
+      }
+    }
+  ],
+  "unchangedInvariantHashes": {
+    "docs/v2-pilot/receipt-invariants.md": "bf39871fa8273b161355fc5b24b612140f4ee490adc9c8fca24767f657633b83",
+    "packages/assistant/src/baseline-verifier.test.ts": "710ec65eb50b2bd6094ab600d42fffda015c2fb881a9623a4fc0028de032a520",
+    "packages/assistant/src/work-task-verification.ts": "f5f778f8725a01029ae0becf1c767e459f0af12a309ae27bdc01a9f0bb396a8a",
+    "packages/assistant/src/execution-record-store.ts": "0c8f011c465ea67efb9000fb87c7495862db4397315a0b47e89bbe7875fb110f",
+    "packages/assistant/src/work-task-shell-evidence.ts": "2e20aa1657dd5b0fe50ce5607580d5ff3ea38d90e5fb39203e66d58c8b5b74a1",
+    "packages/assistant/src/work-task-completion.test.ts": "cae6822d375f5f766d45196b5452b271a761a1e7c7096d24d85ab8fd4928478b",
+    "packages/assistant/src/receipt-durability.test.ts": "08c252f64e1bc723135b01a6366bcb20508e92aff51ad643d94c4f110dd904a7"
+  },
+  "sourceHashes": {
+    "apps/cli/src/tui.test.ts": "3a7c4240858d316686c674d1c61421726af5f21148aae65a97362d32fa80fc9e",
+    "apps/desktop/src/main/automation-bridge.test.ts": "958e849654731ec353dd8b7874d9f3515a39850dfbac18fa5d0387f65b9a7fa2",
+    "apps/desktop/src/main/background-chat.test.ts": "6293cb027da2c5e1274d3c21f9f4eee036bc78d00b89b7e2470844bd03f8ee76",
+    "apps/desktop/src/main/backup.ts": "8d9f559f893bc6b8d2dbe079ded1c2fa6f4f1cf7771d436d6873c208617813c2",
+    "apps/desktop/src/main/desktop-runtime.test.ts": "0ad7a1b58508a9fa711a53e0bef8f4c6df928bea9a0234904b945b7502323394",
+    "apps/desktop/src/main/desktop-runtime.ts": "d6bc594ef0eb09f471f5f7561b0be2d9ed095522fafb226a193e0bb7ea122a04",
+    "apps/desktop/src/main/index.ts": "074648d3f3f6791e0dc58163e1dbdecd1af5b7a6631035b89c2af42b04087b06",
+    "apps/desktop/src/main/memory-temporal.test.ts": "7de9a00439f139852172d6c7f7515ad2cf044436889d4115668582d5d579984e",
+    "apps/desktop/src/main/resident-entry.ts": "01bbb6cfeccc435cf0796c3e105b94fc415488357eeaf2c6196eb7d954ece786",
+    "apps/desktop/src/main/runtime-bridge.ts": "39d4eb765b684afb51606b023aff6954e66aa26f559c26d628d8553bcdbc25ee",
+    "apps/desktop/src/renderer/src/memory-consolidation.tsx": "5b90ba4eda6c2ab4cf30bda3235b13f8df6a4d53b74426853b5e1252f1cd4581",
+    "apps/desktop/src/renderer/src/memory-factual-receipts.test.ts": "c008b4af55e464c33994beb6f8edb43f84c0401f9c1f9bb19f375070a49f9929",
+    "examples/eval/cases.json": "b8ee17ddf19799b28c7f387f3ff9b0165704e9dbd74331fa3c61396c2ee85a38",
+    "examples/eval/cm-step4.mjs": "511e12cb4d0f587f9099937255048c493c9bb12cefd8b244df6e9fad448121cc",
+    "examples/eval/cm-step4.test.mjs": "f7814c9521ba28f5c4d35865872ca3262360f18e108de2fb904d364f8fa68b1b",
+    "examples/eval/e2e.test.mjs": "7c16d2e0153b70d687665dcc737d293e128e1348102859900ce824e7102afee7",
+    "examples/eval/guards.mjs": "cd1795a6a5bb0a603f27cad44b228ce9c8a40c08702d8074131661836a9e47f7",
+    "examples/eval/memory-everyday-acceptance.mjs": "bbb6d9b5095da47c7ae2a0f97f08c75eee5682d7bb5f437b24241b7ba1f153ac",
+    "examples/eval/memory-everyday-acceptance.test.mjs": "0c608039e90aa6c924d89a108b49ef3059884559e77783f9f4b23e6099637399",
+    "examples/eval/memory-sequence-acceptance.mjs": "38fece23e4b9c9873c10bc609e56901340fad98f12fd06f06cb0149767628839",
+    "examples/eval/memory-transition-acceptance.mjs": "9723df2f18738c76e239968e259d7369fed30a219e8bb95a48d7b83e75082a0c",
+    "examples/eval/memory-transition-acceptance.test.mjs": "ef362045b52f79dc257e793047e8199a1b0a1b8c15e8ec7b00e313158da313c5",
+    "examples/eval/provider.mjs": "06cee817cc556ae6b0072d3cfacd8a68857f0cacc65046351adc29e8dccb906b",
+    "examples/eval/provider.test.mjs": "70e2fc4205457e0f33846f45d3569808a24f11f5a5df9dfeff1fc389e35c7b63",
+    "packages/assistant/src/api.ts": "6355f8f883ba8b0f89475c8a2f553fe264254c39b949102bb7a9cc39ff5ff749",
+    "packages/assistant/src/app-memory-instruction-budget.test.ts": "fb8612693fe0478011f98cd48a66273d3ea7deede5bfb82449c82a965450da5f",
+    "packages/assistant/src/app.test.ts": "d0740e1f523deafce1a2ab0aae3350f202e0378eb41512d8078323c803da0cd9",
+    "packages/assistant/src/app.ts": "d19979105f7179b68efbf06d21d5600353c0d721bd6de08aee0f65fcd7dd9277",
+    "packages/assistant/src/assistant-controller.test.ts": "819d363d73f7a8f5c50cead1ff4ef29aba87a510288834ead1d10a85a0f2b416",
+    "packages/assistant/src/assistant-controller.ts": "b5eb73f1d831f9735b8ae6976df2db17f8cff9afad9cb400ee52a04cf443fb36",
+    "packages/assistant/src/baseline-assembly.test.ts": "7c8c7e4a07f0f3c1bff4c705bccd3371e794271e912813d0800e453d38c81a51",
+    "packages/assistant/src/baseline-hashes.test.ts": "5a262732662db0ce87cb0b4fedba369870bdb13166dca0a2ddcb44e5f4b6f84f",
+    "packages/assistant/src/consolidation-runtime.test.ts": "734a6eb16f2bf2c4a6c9bb266ba5a63327ef3244e8bc557ef27deb84641a04b4",
+    "packages/assistant/src/controller-memory.ts": "bf46f1c76a21048c05baac90d757755fbffb8a0ed6eb89d7263a71f05c4d8a43",
+    "packages/assistant/src/experimental-data.ts": "2e97a71bcd9e70d30b0da564283878e0f851a812e502b0ef3f4ed51b8dce09fb",
+    "packages/assistant/src/hook-skill-acceptance.test.ts": "f89561ac2c14e096096899533fb6d68120c480c48fc6b5c23e35c644dc774d85",
+    "packages/assistant/src/memory-controls.test.ts": "60f656dbb3bb13edc0f52673fa533ba96805f3f41fcee1d03af584f28886d98f",
+    "packages/assistant/src/memory-controls.ts": "0b0126bb05289983b4b4f8443ab2631f30e44c27b5783c21edaf775fdf9751d7",
+    "packages/assistant/src/memory-extraction.ts": "f405ad9865cb1ffe9ddc290983b3202791c1653c964e00647f57c68740fb683f",
+    "packages/assistant/src/memory-factual-receipts.test.ts": "1891c380a62516d88999a223e2311dfc48fe0e27d00c07cbc4f96fc1f024f101",
+    "packages/assistant/src/memory-factual-receipts.ts": "e0385b2f70f7af5a4e6f07cf607143a884da6129ef0c032fe43a6e81cf546266",
+    "packages/assistant/src/memory-import.test.ts": "51eb37ee6395c1b99fce74cf071604a9428f8acb8cdba9c1cf2a33fdaad093cb",
+    "packages/assistant/src/memory-library.test.ts": "453dd919127631c59c68fb359118476f829a2793dd01add190d42603f676f51c",
+    "packages/assistant/src/memory-library.ts": "0b6a2307eb173b3a6cfc35d02cbc1b6a3b65dca53860c9505e93e9ef45e27e9f",
+    "packages/assistant/src/memory-m1-acceptance.test.ts": "ee47a67919b27329a9b422468198b3b4d8bf4cf650490f77bbc37d097ac9d0d7",
+    "packages/assistant/src/memory-management.test.ts": "9b00a041afffb288e3733369bab0da494f30ee4573ede0af37687dbbfd59cdd5",
+    "packages/assistant/src/memory-management.ts": "b63ddcdc66aac670388f6cd7466a45d7305186aade2d4b5c3725af83c79ce9ba",
+    "packages/assistant/src/memory-snapshot.ts": "baf23057c68322191d8236220e2d10dc05ef5010755a491dddce3b6d7a95a5eb",
+    "packages/assistant/src/memory-store.test.ts": "6ddc3cfb3a66de8a2423ba506f03d33e85a07f7491d560d5df79aefa1132a918",
+    "packages/assistant/src/memory-store.ts": "510b01310dac0a493fda35263641691ab8ec452599ef098a038047488217bcc9",
+    "packages/assistant/src/memory-v6-store.test.ts": "1556bb94187ee42c6ede11b57cc7db5af6d633ba4c81f8075f42bd9fb6d77664",
+    "packages/assistant/src/memory-v6-store.ts": "91aaecc19ee6065a249879f935ffe82a2ebcf07fc03c3c75662fec7cf7372acb",
+    "packages/assistant/src/memory-write.ts": "8684ff29b9b95aa1857c77155eece586ca87a8e8a20862150eae6e116ff578aa",
+    "packages/assistant/src/model-usage.test.ts": "d9889a294c302c096a2fc93d936e171648d37f673678fdae3dded7db0d57f55a",
+    "packages/assistant/src/modules/memory-module.test.ts": "cb539c995c4d0d91d0601c0ea130a6074273f1c5f597fc9c08b0825c944cd076",
+    "packages/assistant/src/modules/memory-module.ts": "2c2b16599e220799fd888d3128568daef21c6dc54b4c6c9958a40588f0a8e8b8",
+    "packages/assistant/src/permission-decisions.test.ts": "2c9bfd174dabbbf196c7fc8ecde44364ae22e8c08fcb62cec9efd66a1598e447",
+    "packages/assistant/src/scheduled-skill-acceptance.test.ts": "a96b966db1c9c2dd28e968913738efbba5015ff6c833f5cffbf909ff8d39e761",
+    "packages/assistant/src/steering-controller.test.ts": "1c62feb4de62b6d1751836c1e23e2d743f02c31f30425d752c873999e5215fc0",
+    "packages/assistant/src/task-worker-context.test.ts": "058bf89eae5871fdb1e198f6324ef5801a416c9a28faca72d3c4890cd9707e66",
+    "packages/assistant/src/tool-confirmation-remember.test.ts": "6c1f5ca0198e66045fe165295d4258c5f603553cc1b56768bf5f7022720e4624",
+    "packages/assistant/src/transcript-maintenance.test.ts": "46962680aa4f2fc1fb22dc542f4ad3a9556cc6c8f155aca815142ffd86068e4a"
+  },
+  "evidenceHashes": {
+    "plan.json": "893de28748b1abf285b5c7f44342ee376c3040a6e3655aff5bac557531360145",
+    "background.json": "f33a658f3558976a96b371b094517c1d121acb7212020fd214f9be121174915d",
+    "foreground.json": "231bc2aaf7192adf275f8819cca0013b5a10d144819d491764a152307897a1b3"
+  },
+  "ui": {
+    "viewport": [
+      1440,
+      900
+    ],
+    "changedPixels": 1391,
+    "bbox": [
+      320,
+      94,
+      499,
+      106
+    ],
+    "beforeSha256": "f1eae5bb5482eb1d68c14b4985b40773eb1aa92d4467e1fa2c942753703cca7b",
+    "afterSha256": "5730d639b747c47e226471a4ee07272130933e2f642173ce220437487436b6b3"
+  }
+}

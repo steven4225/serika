@@ -1,369 +1,41 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { test } from "node:test";
+import { mkdtemp, rm, mkdir, writeFile, readFile, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, it } from "node:test";
-import { simulateReadableStream, type UIMessage } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
-import {
-  DefaultAgentRuntime,
-  InMemoryAgentCatalog,
-  InMemoryAgentStore,
-} from "@serika/core";
-import {
-  AiSdkAgentLoop,
-  InMemoryModelRegistry,
-  ToolRegistry,
-} from "@serika/ai-sdk-adapter";
-import { AUTO_CONSOLIDATION_AGENT_ID } from "./consolidation.js";
-import { createMemoryConsolidation } from "./memory-consolidation.js";
-import { createModuleHost } from "./module-host.js";
-import { createMemoryStore, type MemoryEntry, type WorkspaceMemoryStore } from "./memory-store.js";
-import {
-  CONSOLIDATION_RESULT_MAX_BYTES,
-  createMemoryModule,
-} from "./modules/memory-module.js";
+import { createMemoryStore } from "./memory-store.js";
+import { createMemoryExtraction, extractionThreshold } from "./memory-extraction.js";
+import { DEFAULT_CONTEXT_BUDGET_CONFIG, defaultContextBudget } from "./context-budget.js";
+import { observeModelUsage } from "./model-usage-observer.js";
+import { createExecutionRecordStore } from "./execution-record-store.js";
+import { ModelCallLog } from "./model-call-log.js";
+import type { UIMessage } from "ai";
 
-const unusedCandidateMethods = {
-  checkCandidateCapacity: async (): Promise<never> => { throw new Error("candidate protocol is unused in legacy read-only tests"); },
-  listCandidates: async (): Promise<never> => { throw new Error("candidate protocol is unused in legacy read-only tests"); },
-  getCandidate: async (): Promise<never> => { throw new Error("candidate protocol is unused in legacy read-only tests"); },
-  resolveCandidate: async (): Promise<never> => { throw new Error("candidate protocol is unused in legacy read-only tests"); },
-  getConsolidationCursor: async (): Promise<never> => { throw new Error("candidate protocol is unused in legacy read-only tests"); },
-  commitCandidateBatch: async (): Promise<never> => { throw new Error("candidate protocol is unused in legacy read-only tests"); },
-};
-
-const definition = {
-  id: "consolidation-runtime-test",
-  version: "1",
-  instructions: "Prepare and explain memory suggestions.",
-  model: "consolidation-test-model",
-  tools: ["memory_prepare_consolidation"],
-  limits: { maxSteps: 2, totalTimeoutMs: 1_000, stepTimeoutMs: 500 },
-};
-
-function message(id: string, role: "user" | "assistant", text: string): UIMessage {
-  return { id, role, parts: [{ type: "text", text }] };
-}
-
-function prepareResponse() {
-  return {
-    stream: simulateReadableStream({
-      chunks: [
-        { type: "stream-start" as const, warnings: [] },
-        {
-          type: "tool-call" as const,
-          toolCallId: "consolidation-call",
-          toolName: "memory_prepare_consolidation",
-          input: JSON.stringify({ mode: "incremental" }),
-        },
-        {
-          type: "finish" as const,
-          finishReason: { unified: "tool-calls" as const, raw: undefined },
-          usage: {
-            inputTokens: { total: 3, noCache: 3, cacheRead: undefined, cacheWrite: undefined },
-            outputTokens: { total: 1, text: 1, reasoning: undefined },
-          },
-        },
-      ],
-    }),
-  };
-}
-
-function suggestionResponse() {
-  return {
-    stream: simulateReadableStream({
-      chunks: [
-        { type: "stream-start" as const, warnings: [] },
-        { type: "text-start" as const, id: "answer" },
-        { type: "text-delta" as const, id: "answer", delta: "建议保存项目约定。" },
-        { type: "text-end" as const, id: "answer" },
-        {
-          type: "finish" as const,
-          finishReason: { unified: "stop" as const, raw: undefined },
-          usage: {
-            inputTokens: { total: 3, noCache: 3, cacheRead: undefined, cacheWrite: undefined },
-            outputTokens: { total: 1, text: 1, reasoning: undefined },
-          },
-        },
-      ],
-    }),
-  };
-}
-
-function addResponse() {
-  return {
-    stream: simulateReadableStream({
-      chunks: [
-        { type: "stream-start" as const, warnings: [] },
-        {
-          type: "tool-call" as const,
-          toolCallId: "memory-add-call",
-          toolName: "memory_add",
-          input: JSON.stringify({ text: "项目约定是先 review 再提交。", sourceMessageId: "previous-user", sourceQuote: "先 review 再提交" }),
-        },
-        {
-          type: "finish" as const,
-          finishReason: { unified: "tool-calls" as const, raw: undefined },
-          usage: {
-            inputTokens: { total: 3, noCache: 3, cacheRead: undefined, cacheWrite: undefined },
-            outputTokens: { total: 1, text: 1, reasoning: undefined },
-          },
-        },
-      ],
-    }),
-  };
-}
-
-describe("memory consolidation Runtime integration", () => {
-  it("completes the native prepare-stage-commit-review path through the existing AgentLoop", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "runloom-native-consolidation-"));
-    const threadId = "native-consolidation";
-    const store = new InMemoryAgentStore();
-    await store.save(threadId, [message("source-user", "user", "我的长期约定是先 review 再提交。")]);
-    const memory = createMemoryStore(directory);
-    const consolidation = createMemoryConsolidation({ store: memory, getMessages: () => store.getMessages(threadId), threadId, generateId: () => "native-batch" });
-    const moduleHost = createModuleHost([createMemoryModule(memory, () => store.getMessages(threadId), { threadId, consolidation })], { notify: () => undefined });
-    let step = 0;
-    const model = new MockLanguageModelV3({ doStream: async ({ prompt }) => {
-      step += 1;
-      if (step === 1) return prepareResponse();
-      if (step === 2) {
-        assert.match(JSON.stringify(prompt), /native-batch/);
-        const response = prepareResponse();
-        response.stream = simulateReadableStream({ chunks: [
-          { type: "stream-start" as const, warnings: [] },
-          { type: "tool-call" as const, toolCallId: "stage-call", toolName: "memory_stage_candidates", input: JSON.stringify({ batchId: "native-batch", proposals: [{ action: "add", text: "用户长期约定：先 review 再提交。", sourceMessageId: "source-user", sourceQuote: "先 review 再提交", reason: "用户明确长期约定", scope: { kind: "workspace" } }] }) },
-          { type: "finish" as const, finishReason: { unified: "tool-calls" as const, raw: undefined }, usage: { inputTokens: { total: 3, noCache: 3, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 1, text: 1, reasoning: undefined } } },
-        ] });
-        return response;
-      }
-      return suggestionResponse();
-    } });
-    const nativeDefinition = { ...definition, id: AUTO_CONSOLIDATION_AGENT_ID, tools: ["memory_prepare_consolidation", "memory_stage_candidates"], limits: { ...definition.limits, maxSteps: 3 } };
-    const runtime = new DefaultAgentRuntime({ catalog: new InMemoryAgentCatalog([nativeDefinition]), store,
-      loop: new AiSdkAgentLoop({ models: new InMemoryModelRegistry({ [definition.model]: model }), tools: new ToolRegistry(moduleHost.tools) }),
-      beforeToolExecute: async () => ({ allow: true }),
-    });
-    try {
-      consolidation.begin(AUTO_CONSOLIDATION_AGENT_ID);
-      const handle = await runtime.run({ agentId: AUTO_CONSOLIDATION_AGENT_ID, threadId, messages: [{ ...message("auto-request", "user", "仅提出候选，不正式保存"), metadata: { source: "auto-consolidation" } }], context: { agentId: AUTO_CONSOLIDATION_AGENT_ID } });
-      const result = await handle.result;
-      assert.equal(result.status, "completed");
-      assert.deepEqual(await memory.list(), { ok: true, entries: [] });
-      const saved = await consolidation.finalize(result, undefined);
-      assert.equal(saved.ok, true);
-      if (!saved.ok) return;
-      assert.equal(saved.value.candidateIds.length, 1);
-      const candidateId = saved.value.candidateIds[0]!;
-      const reopened = createMemoryStore(directory);
-      const pending = await reopened.getCandidate(candidateId, undefined, { boundThreadId: threadId });
-      assert.equal(pending.ok, true);
-      if (!pending.ok) return;
-      assert.equal(pending.value.candidate.status, "pending");
-      const accepted = await reopened.resolveCandidate({ candidateId, expectedCandidateRevision: 1, decision: "accept" }, undefined, { boundThreadId: threadId });
-      assert.equal(accepted.ok, true);
-      const list = await reopened.list();
-      assert.equal(list.ok, true);
-      if (list.ok) {
-        assert.equal(list.entries.length, 1);
-        assert.equal(list.entries[0]?.source?.kind, "conversation");
-        assert.equal(list.entries[0]?.text, "用户长期约定：先 review 再提交。");
-      }
-    } finally {
-      await moduleHost.dispose(); await rm(directory, { recursive: true, force: true });
-    }
-  });
-  it("feeds committed material to the next model step without writing memory", async () => {
-    const threadId = "consolidation-runtime";
-    const store = new InMemoryAgentStore();
-    await store.save(threadId, [
-      message("previous-user", "user", "项目约定是先 review 再提交。"),
-      message("previous-assistant", "assistant", "我会遵守这个约定。"),
-    ]);
-
-    const entries: MemoryEntry[] = [
-      { id: "existing", text: "已有项目约定", enabled: false },
-    ];
-    let addCalls = 0;
-    let updateCalls = 0;
-    const memoryStore: WorkspaceMemoryStore = {
-      ...unusedCandidateMethods,
-      list: async () => ({ ok: true as const, entries: entries.map((entry) => ({ ...entry })) }),
-      get: async () => ({ ok: false as const, error: { code: "MEMORY_ENTRY_NOT_FOUND" as const, message: "not found" } }),
-      add: async () => {
-        addCalls += 1;
-        throw new Error("memory_add must wait for the user's save request");
-      },
-      update: async () => {
-        updateCalls += 1;
-        throw new Error("memory_update must wait for the user's save request");
-      },
-      delete: async () => ({ ok: false as const, error: { code: "MEMORY_ENTRY_NOT_FOUND" as const, message: "not found" } }),
-    };
-
-    const moduleHost = createModuleHost(
-      [createMemoryModule(memoryStore, () => store.getMessages(threadId))],
-      { notify: () => undefined },
-    );
-    const prompts: string[] = [];
-    let modelCalls = 0;
-    const model = new MockLanguageModelV3({
-      doStream: async ({ prompt }) => {
-        modelCalls += 1;
-        prompts.push(JSON.stringify(prompt));
-        return modelCalls === 1 ? prepareResponse() : suggestionResponse();
-      },
-    });
-    const runtime = new DefaultAgentRuntime({
-      catalog: new InMemoryAgentCatalog([definition]),
-      loop: new AiSdkAgentLoop({
-        models: new InMemoryModelRegistry({ [definition.model]: model }),
-        tools: new ToolRegistry(moduleHost.tools),
-      }),
-      prepareModelContext: ({ messages }) => messages,
-      beforeToolExecute: async () => ({ allow: true }),
-      store,
-    });
-
-    try {
-      const handle = await runtime.run({
-        agentId: definition.id,
-        threadId,
-        messages: [message("consolidate-user", "user", "请整理最近对话并给出记忆建议。")],
-        context: { agentId: AUTO_CONSOLIDATION_AGENT_ID },
-      });
-      const result = await handle.result;
-
-      assert.equal(result.status, "completed");
-      assert.equal(modelCalls, 2);
-      assert.match(prompts[1]!, /项目约定是先 review 再提交/);
-      assert.match(prompts[1]!, /我会遵守这个约定/);
-      assert.match(prompts[1]!, /已有项目约定/);
-      assert.equal(addCalls, 0);
-      assert.equal(updateCalls, 0);
-    } finally {
-      moduleHost.dispose();
-    }
-  });
-
-  it("saves a confirmed candidate with committed-user provenance in the next Run", async () => {
-    const workspace = await mkdtemp(join(tmpdir(), "runloom-memory-candidate-"));
-    const threadId = "candidate-runtime";
-    const store = new InMemoryAgentStore();
-    await store.save(threadId, [message("previous-user", "user", "项目约定是先 review 再提交。")]);
-    const memoryStore = createMemoryStore(workspace);
-    const moduleHost = createModuleHost(
-      [createMemoryModule(memoryStore, () => store.getMessages(threadId), { threadId })],
-      { notify: () => undefined },
-    );
-    let modelCalls = 0;
-    const model = new MockLanguageModelV3({
-      doStream: async () => {
-        modelCalls += 1;
-        return [prepareResponse, suggestionResponse, addResponse, suggestionResponse][modelCalls - 1]!();
-      },
-    });
-    const candidateDefinition = {
-      ...definition,
-      tools: ["memory_prepare_consolidation", "memory_add"],
-      limits: { maxSteps: 2, totalTimeoutMs: 5_000, stepTimeoutMs: 2_000 },
-    };
-    const runtime = new DefaultAgentRuntime({
-      catalog: new InMemoryAgentCatalog([candidateDefinition]),
-      loop: new AiSdkAgentLoop({
-        models: new InMemoryModelRegistry({ [definition.model]: model }),
-        tools: new ToolRegistry(moduleHost.tools),
-      }),
-      prepareModelContext: ({ messages }) => messages,
-      beforeToolExecute: async () => ({ allow: true }),
-      store,
-    });
-
-    try {
-      const proposal = await runtime.run({
-        agentId: definition.id,
-        threadId,
-        messages: [message("proposal-request", "user", "请整理并提出记忆候选。")],
-        context: { agentId: AUTO_CONSOLIDATION_AGENT_ID },
-      });
-      assert.equal((await proposal.result).status, "completed");
-      assert.deepEqual(await memoryStore.list(), { ok: true, entries: [] });
-
-      const confirmed = await runtime.run({
-        agentId: definition.id,
-        threadId,
-        messages: [message("confirm-request", "user", "保存刚才那条项目约定。")],
-      });
-      assert.equal((await confirmed.result).status, "completed");
-      assert.equal(modelCalls, 4);
-      const reopened = await createMemoryStore(workspace).list();
-      assert.equal(reopened.ok, true);
-      if (reopened.ok) {
-        assert.equal(reopened.entries.length, 1);
-        assert.deepEqual(reopened.entries[0]?.source, {
-          kind: "conversation",
-          threadId,
-          messageId: "previous-user",
-          quote: "先 review 再提交",
-        });
-      }
-    } finally {
-      moduleHost.dispose();
-      await rm(workspace, { recursive: true, force: true });
-    }
-  });
-
-  it("does not commit a marker when consolidation input is too large", async () => {
-    const threadId = "consolidation-too-large";
-    const store = new InMemoryAgentStore();
-    await store.save(threadId, [
-      message("previous-user", "user", "x".repeat(CONSOLIDATION_RESULT_MAX_BYTES)),
-    ]);
-    const memoryStore: WorkspaceMemoryStore = {
-      ...unusedCandidateMethods,
-      list: async () => ({ ok: true as const, entries: [] }),
-      get: async () => ({ ok: false as const, error: { code: "MEMORY_ENTRY_NOT_FOUND" as const, message: "not found" } }),
-      add: async () => {
-        throw new Error("memory_add must not run");
-      },
-      update: async () => {
-        throw new Error("memory_update must not run");
-      },
-      delete: async () => ({ ok: false as const, error: { code: "MEMORY_ENTRY_NOT_FOUND" as const, message: "not found" } }),
-    };
-    const moduleHost = createModuleHost(
-      [createMemoryModule(memoryStore, () => store.getMessages(threadId))],
-      { notify: () => undefined },
-    );
-    const model = new MockLanguageModelV3({
-      doStream: async () => prepareResponse(),
-    });
-    const runtime = new DefaultAgentRuntime({
-      catalog: new InMemoryAgentCatalog([definition]),
-      loop: new AiSdkAgentLoop({
-        models: new InMemoryModelRegistry({ [definition.model]: model }),
-        tools: new ToolRegistry(moduleHost.tools),
-      }),
-      beforeToolExecute: async () => ({ allow: true }),
-      store,
-    });
-
-    try {
-      const handle = await runtime.run({
-        agentId: definition.id,
-        threadId,
-        messages: [message("consolidate-user", "user", "请整理最近对话并给出记忆建议。")],
-        context: { agentId: AUTO_CONSOLIDATION_AGENT_ID },
-      });
-      const result = await handle.result;
-      const committed = await store.getMessages(threadId);
-
-      assert.equal(result.status, "failed");
-      assert.equal(result.error?.code, "CONTEXT_PREPARE_FAILED");
-      assert.deepEqual(committed.map((entry) => entry.id), ["previous-user"]);
-    } finally {
-      moduleHost.dispose();
-    }
-  });
+const usage = { inputTokens: { total: 100, noCache: 100, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 10, text: 10, reasoning: 0 } };
+test("extraction thresholds share the effective-window baseline and stay below the block", () => {
+  assert.equal(extractionThreshold({ ...DEFAULT_CONTEXT_BUDGET_CONFIG, safetyMarginTokens: 2048 }), 3328);
+  assert.equal(extractionThreshold(defaultContextBudget()), 31999);
+});
+test("background extraction commits memory with progress and never appends a synthetic Run", async () => {
+  const root = await mkdtemp(join(tmpdir(), "cm4-extract-"));
+  const messages: UIMessage[] = [{ id: "u", role: "user", parts: [{ type: "text", text: "我喝咖啡不加糖。" + "x".repeat(4000) }] }, { id: "a", role: "assistant", parts: [{ type: "text", text: "y".repeat(4000) }] }];
+  let updated!: () => void; const update = new Promise<void>(resolve => { updated = resolve; });
+  const model = new MockLanguageModelV3({ doGenerate: async options => {
+    assert.equal(options.tools?.length ?? 0, 0);
+    return { content: [{ type: "text", text: JSON.stringify({ proposals: [{ operation: "add", category: "preference", text: "我喝咖啡不加糖", sourceMessageId: "u", sourceQuote: "我喝咖啡不加糖" }], outcomes: [{ messageId: "u", status: "extracted" }] }) }], finishReason: { unified: "stop", raw: undefined }, usage, warnings: [] };
+  } });
+  const store = createMemoryStore(root), extraction = createMemoryExtraction({ store, threadId: "t", getMessages: async () => messages, model: observeModelUsage(model, { records: createExecutionRecordStore(root), threadId: "t", enabled: () => true, callLog: new ModelCallLog(root), scope: () => ({ purpose: "memory_consolidation" }) }), budget: { ...DEFAULT_CONTEXT_BUDGET_CONFIG, summaryMaxOutputTokens: 1024 }, updated });
+  try {
+    extraction.idle();
+    await update;
+    await extraction.pause();
+    const document = await store.readV6!(); assert.ok(document.ok);
+    assert.equal(document.value.entries.length, 1); assert.equal(document.value.progress[0]!.throughMessageId, "u");
+    assert.equal(messages.length, 2); assert.equal(extraction.diagnostics().calls, 1);
+    assert.equal(extraction.diagnostics().completed, 1);
+    const rows = (await Promise.all((await readdir(root)).filter(name => name.startsWith("model-calls-")).map(name => readFile(join(root, name), "utf8")))).flatMap(text => text.trim().split("\n").map(line => JSON.parse(line)));
+    assert.equal(rows.filter(row => row.event === "started").length, 1); assert.equal(rows[0].purpose, "memory_consolidation"); assert.equal(rows[0].runId, undefined);
+    if (process.env.SERIKA_CM4_EVIDENCE_DIR) { await mkdir(process.env.SERIKA_CM4_EVIDENCE_DIR, { recursive: true }); await writeFile(join(process.env.SERIKA_CM4_EVIDENCE_DIR, "background.json"), JSON.stringify({ fixture: true, calls: 1, rows }, null, 2) + "\n"); }
+  } finally { await extraction.close(); await rm(root, { recursive: true, force: true }); }
 });
