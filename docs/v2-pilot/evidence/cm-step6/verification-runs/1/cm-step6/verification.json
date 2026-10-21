@@ -1,0 +1,1494 @@
+{
+  "runId": "3f9e612b-4415-4d99-8a26-5d8499d1f1c2",
+  "startedAt": "2026-10-21T16:52:42.264Z",
+  "platform": "darwin",
+  "process": {
+    "node": "v26.4.0",
+    "pid": 40503
+  },
+  "sourceCommit": "c6e1d7a69ee6c2f8c309607352c22cdce8cd5ab8",
+  "sourceWorktreeDirty": false,
+  "baseCommit": "a183ddf01c15b51da84b1cd861b9e66686e634fe",
+  "scriptSha256": "b3179337e6fe1ebd376ff14f56eda28635a69040b18fe0f538f62ce0b5d64b59",
+  "commands": [
+    {
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "cwd": ".",
+      "startedAt": "2026-10-21T16:52:42.322Z",
+      "finishedAt": "2026-10-21T16:52:43.150Z",
+      "exitCode": 0,
+      "signal": null,
+      "outputSha256": "9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609",
+      "outputBytes": 141,
+      "counts": []
+    },
+    {
+      "command": [
+        "env",
+        "TZ=UTC",
+        "pnpm",
+        "test"
+      ],
+      "cwd": ".",
+      "startedAt": "2026-10-21T16:52:43.150Z",
+      "finishedAt": "2026-10-21T16:56:23.615Z",
+      "exitCode": 0,
+      "signal": null,
+      "outputSha256": "810f263cd2df5f602e9a69d6c971b198d2946932734a255ccf3daeae8e35a700",
+      "outputBytes": 238560,
+      "counts": [
+        [
+          "tests",
+          1153
+        ],
+        [
+          "pass",
+          1142
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "cancelled",
+          0
+        ],
+        [
+          "skipped",
+          11
+        ],
+        [
+          "tests",
+          632
+        ],
+        [
+          "pass",
+          632
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "cancelled",
+          0
+        ],
+        [
+          "skipped",
+          0
+        ],
+        [
+          "tests",
+          12
+        ],
+        [
+          "pass",
+          12
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "cancelled",
+          0
+        ],
+        [
+          "skipped",
+          0
+        ]
+      ]
+    },
+    {
+      "command": [
+        "env",
+        "TZ=Asia/Shanghai",
+        "pnpm",
+        "test"
+      ],
+      "cwd": ".",
+      "startedAt": "2026-10-21T16:56:23.616Z",
+      "finishedAt": "2026-10-21T16:59:45.714Z",
+      "exitCode": 0,
+      "signal": null,
+      "outputSha256": "d779bcc3b09778b0b04c20fa1fcc0595a031c0dda11f984624f4de128eb0cdee",
+      "outputBytes": 238570,
+      "counts": [
+        [
+          "tests",
+          1153
+        ],
+        [
+          "pass",
+          1142
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "cancelled",
+          0
+        ],
+        [
+          "skipped",
+          11
+        ],
+        [
+          "tests",
+          632
+        ],
+        [
+          "pass",
+          632
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "cancelled",
+          0
+        ],
+        [
+          "skipped",
+          0
+        ],
+        [
+          "tests",
+          12
+        ],
+        [
+          "pass",
+          12
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "cancelled",
+          0
+        ],
+        [
+          "skipped",
+          0
+        ]
+      ]
+    },
+    {
+      "command": [
+        "pnpm",
+        "eval:test"
+      ],
+      "cwd": ".",
+      "startedAt": "2026-10-21T16:59:45.715Z",
+      "finishedAt": "2026-10-21T16:59:54.229Z",
+      "exitCode": 0,
+      "signal": null,
+      "outputSha256": "fdedf4a44cb8f8b459b83d2e464ece3b7f6e62f70b582f69356a05a508e25ebc",
+      "outputBytes": 11726,
+      "counts": [
+        [
+          "tests",
+          85
+        ],
+        [
+          "pass",
+          85
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "cancelled",
+          0
+        ],
+        [
+          "skipped",
+          0
+        ]
+      ]
+    },
+    {
+      "command": [
+        "git",
+        "clone",
+        "--shared",
+        "--no-checkout",
+        ".",
+        "<temporary>/smoke-source"
+      ],
+      "cwd": ".",
+      "startedAt": "2026-10-21T16:59:54.229Z",
+      "finishedAt": "2026-10-21T16:59:54.268Z",
+      "exitCode": 0,
+      "signal": null,
+      "outputSha256": "36f3a8f1234367590a1a2641af17008559b7e94f1fe6a91fac644208e3360d0a",
+      "outputBytes": 115,
+      "counts": []
+    },
+    {
+      "command": [
+        "git",
+        "checkout",
+        "--detach",
+        "c6e1d7a69ee6c2f8c309607352c22cdce8cd5ab8"
+      ],
+      "cwd": "<temporary>/smoke-source",
+      "startedAt": "2026-10-21T16:59:54.268Z",
+      "finishedAt": "2026-10-21T16:59:54.402Z",
+      "exitCode": 0,
+      "signal": null,
+      "outputSha256": "84c8fff2c261fd46028d956e1f908f0a4730eb92d144f7c38b9dd92cd7fa2f6e",
+      "outputBytes": 88,
+      "counts": []
+    },
+    {
+      "command": [
+        "pnpm",
+        "--filter",
+        "@serika/desktop",
+        "smoke"
+      ],
+      "cwd": "<temporary>/smoke-source",
+      "startedAt": "2026-10-21T16:59:54.404Z",
+      "finishedAt": "2026-10-21T17:00:06.895Z",
+      "exitCode": 0,
+      "signal": null,
+      "outputSha256": "9372aaa6b2275f58c2a470cae03c4aa765a5f06c00ca2b00868cbd78b6ef4fbe",
+      "outputBytes": 3348,
+      "counts": []
+    },
+    {
+      "command": [
+        "node",
+        "examples/eval/cm-step6-offline-audit.mjs"
+      ],
+      "cwd": ".",
+      "startedAt": "2026-10-21T17:00:06.901Z",
+      "finishedAt": "2026-10-21T17:00:07.096Z",
+      "exitCode": 0,
+      "signal": null,
+      "outputSha256": "f4db485099687ae0d0a18c7c8cea30d43a42a2465f9f83794815c5d89e194285",
+      "outputBytes": 1638,
+      "counts": []
+    }
+  ],
+  "metrics": [
+    {
+      "case": "C5 essential summary overflow",
+      "at": "2026-10-21T16:52:50.645Z",
+      "outcome": "reused",
+      "compactionId": "saturated",
+      "estimatedInputTokens": 8607,
+      "error": null,
+      "summaryLayer": {
+        "tokens": 1637,
+        "checklistTokens": 193,
+        "budget": 1248,
+        "borrowedTokens": 390,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 390,
+        "reduction": {
+          "originalTokens": 1519,
+          "requiredTokens": 1445,
+          "budget": 1055,
+          "reducedSegments": 4,
+          "compacted": true,
+          "indexReferenced": false,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "summary_overflow"
+        ],
+        "borrowedTokens": 390,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 390,
+        "maskedOriginalTokens": 17138,
+        "maskedFromMessageId": "u2",
+        "checklistTokens": 0,
+        "sectionBudget": 208,
+        "maskedThroughMessageId": "a4"
+      },
+      "modelCalls": 0
+    },
+    {
+      "case": "C5 capped borrow",
+      "window": 32768,
+      "exceeds": true,
+      "at": "2026-10-21T16:52:50.647Z",
+      "outcome": "failed",
+      "compactionId": "cap",
+      "estimatedInputTokens": 4191,
+      "error": {
+        "code": "CONTEXT_PREPARE_FAILED",
+        "message": "Essential continuation exceeds the capped C5 allocation after masking; original journal retained"
+      },
+      "summaryLayer": {
+        "tokens": 4032,
+        "checklistTokens": 149,
+        "budget": 1248,
+        "borrowedTokens": 2496,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 2785,
+        "reduction": {
+          "originalTokens": 3851,
+          "requiredTokens": 3884,
+          "budget": 1099,
+          "reducedSegments": 1,
+          "compacted": true,
+          "indexReferenced": false,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "summary_overflow",
+          "checklist_overflow"
+        ],
+        "borrowedTokens": 2496,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 2785,
+        "maskedOriginalTokens": 50136,
+        "maskedFromMessageId": "failure-request",
+        "checklistTokens": 10169,
+        "sectionBudget": 208,
+        "maskedThroughMessageId": "failure-199"
+      }
+    },
+    {
+      "case": "C5 capped borrow",
+      "window": 32768,
+      "exceeds": false,
+      "at": "2026-10-21T16:52:50.650Z",
+      "outcome": "reused",
+      "compactionId": "cap",
+      "estimatedInputTokens": 3191,
+      "error": null,
+      "summaryLayer": {
+        "tokens": 3032,
+        "checklistTokens": 149,
+        "budget": 1248,
+        "borrowedTokens": 1785,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 1785,
+        "reduction": {
+          "originalTokens": 2851,
+          "requiredTokens": 2884,
+          "budget": 1099,
+          "reducedSegments": 1,
+          "compacted": true,
+          "indexReferenced": false,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "summary_overflow",
+          "checklist_overflow"
+        ],
+        "borrowedTokens": 1785,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 1785,
+        "maskedOriginalTokens": 50136,
+        "maskedFromMessageId": "failure-request",
+        "checklistTokens": 10169,
+        "sectionBudget": 208,
+        "maskedThroughMessageId": "failure-199"
+      }
+    },
+    {
+      "case": "C5 capped borrow",
+      "window": 1000000,
+      "exceeds": true,
+      "at": "2026-10-21T16:52:50.655Z",
+      "outcome": "failed",
+      "compactionId": "cap",
+      "estimatedInputTokens": 36447,
+      "error": {
+        "code": "CONTEXT_PREPARE_FAILED",
+        "message": "Essential continuation exceeds the capped C5 allocation after masking; original journal retained"
+      },
+      "summaryLayer": {
+        "tokens": 36288,
+        "checklistTokens": 149,
+        "budget": 12000,
+        "borrowedTokens": 24000,
+        "borrowLimitTokens": 24000,
+        "requiredBorrowTokens": 24289,
+        "reduction": {
+          "originalTokens": 36107,
+          "requiredTokens": 36140,
+          "budget": 11851,
+          "reducedSegments": 1,
+          "compacted": true,
+          "indexReferenced": false,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "summary_overflow",
+          "checklist_overflow"
+        ],
+        "borrowedTokens": 24000,
+        "borrowLimitTokens": 24000,
+        "requiredBorrowTokens": 24289,
+        "maskedOriginalTokens": 50136,
+        "maskedFromMessageId": "failure-request",
+        "checklistTokens": 10169,
+        "sectionBudget": 2000,
+        "maskedThroughMessageId": "failure-199"
+      }
+    },
+    {
+      "case": "C5 capped borrow",
+      "window": 1000000,
+      "exceeds": false,
+      "at": "2026-10-21T16:52:50.657Z",
+      "outcome": "reused",
+      "compactionId": "cap",
+      "estimatedInputTokens": 35447,
+      "error": null,
+      "summaryLayer": {
+        "tokens": 35288,
+        "checklistTokens": 149,
+        "budget": 12000,
+        "borrowedTokens": 23289,
+        "borrowLimitTokens": 24000,
+        "requiredBorrowTokens": 23289,
+        "reduction": {
+          "originalTokens": 35107,
+          "requiredTokens": 35140,
+          "budget": 11851,
+          "reducedSegments": 1,
+          "compacted": true,
+          "indexReferenced": false,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "summary_overflow",
+          "checklist_overflow"
+        ],
+        "borrowedTokens": 23289,
+        "borrowLimitTokens": 24000,
+        "requiredBorrowTokens": 23289,
+        "maskedOriginalTokens": 50136,
+        "maskedFromMessageId": "failure-request",
+        "checklistTokens": 10169,
+        "sectionBudget": 2000,
+        "maskedThroughMessageId": "failure-199"
+      }
+    },
+    {
+      "case": "C5 essential summary overflow",
+      "at": "2026-10-21T16:56:30.342Z",
+      "outcome": "reused",
+      "compactionId": "saturated",
+      "estimatedInputTokens": 8607,
+      "error": null,
+      "summaryLayer": {
+        "tokens": 1637,
+        "checklistTokens": 193,
+        "budget": 1248,
+        "borrowedTokens": 390,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 390,
+        "reduction": {
+          "originalTokens": 1519,
+          "requiredTokens": 1445,
+          "budget": 1055,
+          "reducedSegments": 4,
+          "compacted": true,
+          "indexReferenced": false,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "summary_overflow"
+        ],
+        "borrowedTokens": 390,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 390,
+        "maskedOriginalTokens": 17138,
+        "maskedFromMessageId": "u2",
+        "checklistTokens": 0,
+        "sectionBudget": 208,
+        "maskedThroughMessageId": "a4"
+      },
+      "modelCalls": 0
+    },
+    {
+      "case": "C5 capped borrow",
+      "window": 32768,
+      "exceeds": true,
+      "at": "2026-10-21T16:56:30.345Z",
+      "outcome": "failed",
+      "compactionId": "cap",
+      "estimatedInputTokens": 4191,
+      "error": {
+        "code": "CONTEXT_PREPARE_FAILED",
+        "message": "Essential continuation exceeds the capped C5 allocation after masking; original journal retained"
+      },
+      "summaryLayer": {
+        "tokens": 4032,
+        "checklistTokens": 149,
+        "budget": 1248,
+        "borrowedTokens": 2496,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 2785,
+        "reduction": {
+          "originalTokens": 3851,
+          "requiredTokens": 3884,
+          "budget": 1099,
+          "reducedSegments": 1,
+          "compacted": true,
+          "indexReferenced": false,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "summary_overflow",
+          "checklist_overflow"
+        ],
+        "borrowedTokens": 2496,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 2785,
+        "maskedOriginalTokens": 50136,
+        "maskedFromMessageId": "failure-request",
+        "checklistTokens": 10169,
+        "sectionBudget": 208,
+        "maskedThroughMessageId": "failure-199"
+      }
+    },
+    {
+      "case": "C5 capped borrow",
+      "window": 32768,
+      "exceeds": false,
+      "at": "2026-10-21T16:56:30.347Z",
+      "outcome": "reused",
+      "compactionId": "cap",
+      "estimatedInputTokens": 3191,
+      "error": null,
+      "summaryLayer": {
+        "tokens": 3032,
+        "checklistTokens": 149,
+        "budget": 1248,
+        "borrowedTokens": 1785,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 1785,
+        "reduction": {
+          "originalTokens": 2851,
+          "requiredTokens": 2884,
+          "budget": 1099,
+          "reducedSegments": 1,
+          "compacted": true,
+          "indexReferenced": false,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "summary_overflow",
+          "checklist_overflow"
+        ],
+        "borrowedTokens": 1785,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 1785,
+        "maskedOriginalTokens": 50136,
+        "maskedFromMessageId": "failure-request",
+        "checklistTokens": 10169,
+        "sectionBudget": 208,
+        "maskedThroughMessageId": "failure-199"
+      }
+    },
+    {
+      "case": "C5 capped borrow",
+      "window": 1000000,
+      "exceeds": true,
+      "at": "2026-10-21T16:56:30.351Z",
+      "outcome": "failed",
+      "compactionId": "cap",
+      "estimatedInputTokens": 36447,
+      "error": {
+        "code": "CONTEXT_PREPARE_FAILED",
+        "message": "Essential continuation exceeds the capped C5 allocation after masking; original journal retained"
+      },
+      "summaryLayer": {
+        "tokens": 36288,
+        "checklistTokens": 149,
+        "budget": 12000,
+        "borrowedTokens": 24000,
+        "borrowLimitTokens": 24000,
+        "requiredBorrowTokens": 24289,
+        "reduction": {
+          "originalTokens": 36107,
+          "requiredTokens": 36140,
+          "budget": 11851,
+          "reducedSegments": 1,
+          "compacted": true,
+          "indexReferenced": false,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "summary_overflow",
+          "checklist_overflow"
+        ],
+        "borrowedTokens": 24000,
+        "borrowLimitTokens": 24000,
+        "requiredBorrowTokens": 24289,
+        "maskedOriginalTokens": 50136,
+        "maskedFromMessageId": "failure-request",
+        "checklistTokens": 10169,
+        "sectionBudget": 2000,
+        "maskedThroughMessageId": "failure-199"
+      }
+    },
+    {
+      "case": "C5 capped borrow",
+      "window": 1000000,
+      "exceeds": false,
+      "at": "2026-10-21T16:56:30.354Z",
+      "outcome": "reused",
+      "compactionId": "cap",
+      "estimatedInputTokens": 35447,
+      "error": null,
+      "summaryLayer": {
+        "tokens": 35288,
+        "checklistTokens": 149,
+        "budget": 12000,
+        "borrowedTokens": 23289,
+        "borrowLimitTokens": 24000,
+        "requiredBorrowTokens": 23289,
+        "reduction": {
+          "originalTokens": 35107,
+          "requiredTokens": 35140,
+          "budget": 11851,
+          "reducedSegments": 1,
+          "compacted": true,
+          "indexReferenced": false,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "summary_overflow",
+          "checklist_overflow"
+        ],
+        "borrowedTokens": 23289,
+        "borrowLimitTokens": 24000,
+        "requiredBorrowTokens": 23289,
+        "maskedOriginalTokens": 50136,
+        "maskedFromMessageId": "failure-request",
+        "checklistTokens": 10169,
+        "sectionBudget": 2000,
+        "maskedThroughMessageId": "failure-199"
+      }
+    },
+    {
+      "case": "quote",
+      "window": "32k",
+      "validationFailure": {
+        "reasonCode": "QUOTE_VALUE_MISSING",
+        "field": "user.text",
+        "fieldLength": 7,
+        "valueLength": 2,
+        "proposalIndex": 0
+      },
+      "realModelCalls": 0
+    },
+    {
+      "case": "source",
+      "window": "32k",
+      "validationFailure": {
+        "reasonCode": "SOURCE_VALUE_MISSING",
+        "field": "sourceQuote",
+        "fieldLength": 5,
+        "valueLength": 2,
+        "proposalIndex": 0
+      },
+      "realModelCalls": 0
+    },
+    {
+      "case": "body",
+      "window": "32k",
+      "validationFailure": {
+        "reasonCode": "BODY_VALUE_MISSING",
+        "field": "text",
+        "fieldLength": 7,
+        "valueLength": 2,
+        "proposalIndex": 0
+      },
+      "realModelCalls": 0
+    },
+    {
+      "case": "number",
+      "window": "32k",
+      "validationFailure": {
+        "reasonCode": "NUMBER_UNIT_MISMATCH",
+        "field": "text",
+        "fieldLength": 7,
+        "valueLength": 1,
+        "proposalIndex": 0
+      },
+      "realModelCalls": 0
+    },
+    {
+      "case": "condition",
+      "window": "32k",
+      "validationFailure": {
+        "reasonCode": "CONDITION_CLAUSE_MISSING",
+        "field": "text",
+        "fieldLength": 7,
+        "valueLength": 3,
+        "proposalIndex": 0
+      },
+      "realModelCalls": 0
+    },
+    {
+      "case": "proposal",
+      "window": "32k",
+      "validationFailure": {
+        "reasonCode": "QUOTE_VALUE_MISSING",
+        "field": "proposal.quote",
+        "fieldLength": 4,
+        "valueLength": 2,
+        "proposalIndex": 0
+      },
+      "realModelCalls": 0
+    },
+    {
+      "case": "quote",
+      "window": "daily",
+      "validationFailure": {
+        "reasonCode": "QUOTE_VALUE_MISSING",
+        "field": "user.text",
+        "fieldLength": 7,
+        "valueLength": 2,
+        "proposalIndex": 0
+      },
+      "realModelCalls": 0
+    },
+    {
+      "case": "source",
+      "window": "daily",
+      "validationFailure": {
+        "reasonCode": "SOURCE_VALUE_MISSING",
+        "field": "sourceQuote",
+        "fieldLength": 5,
+        "valueLength": 2,
+        "proposalIndex": 0
+      },
+      "realModelCalls": 0
+    },
+    {
+      "case": "body",
+      "window": "daily",
+      "validationFailure": {
+        "reasonCode": "BODY_VALUE_MISSING",
+        "field": "text",
+        "fieldLength": 7,
+        "valueLength": 2,
+        "proposalIndex": 0
+      },
+      "realModelCalls": 0
+    },
+    {
+      "case": "number",
+      "window": "daily",
+      "validationFailure": {
+        "reasonCode": "NUMBER_UNIT_MISMATCH",
+        "field": "text",
+        "fieldLength": 7,
+        "valueLength": 1,
+        "proposalIndex": 0
+      },
+      "realModelCalls": 0
+    },
+    {
+      "case": "condition",
+      "window": "daily",
+      "validationFailure": {
+        "reasonCode": "CONDITION_CLAUSE_MISSING",
+        "field": "text",
+        "fieldLength": 7,
+        "valueLength": 3,
+        "proposalIndex": 0
+      },
+      "realModelCalls": 0
+    },
+    {
+      "case": "proposal",
+      "window": "daily",
+      "validationFailure": {
+        "reasonCode": "QUOTE_VALUE_MISSING",
+        "field": "proposal.quote",
+        "fieldLength": 4,
+        "valueLength": 2,
+        "proposalIndex": 0
+      },
+      "realModelCalls": 0
+    }
+  ],
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "status": "passed",
+  "timeZone": "UTC",
+  "lineChanges": [
+    {
+      "path": "apps/desktop/src/main/backup.test.ts",
+      "added": 27,
+      "removed": 0
+    },
+    {
+      "path": "apps/desktop/src/main/backup.ts",
+      "added": 21,
+      "removed": 5
+    },
+    {
+      "path": "apps/desktop/src/main/desktop-runtime.test.ts",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "apps/desktop/src/main/foreground-autonomy.test.ts",
+      "added": 5,
+      "removed": 5
+    },
+    {
+      "path": "apps/desktop/src/main/smoke-model.ts",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "apps/desktop/src/main/telegram-gateway.ts",
+      "added": 2,
+      "removed": 2
+    },
+    {
+      "path": "apps/desktop/src/main/thread-history.ts",
+      "added": 3,
+      "removed": 3
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/memory-consolidation.tsx",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "docs/context-memory-refactor-plan.md",
+      "added": 3,
+      "removed": 1
+    },
+    {
+      "path": "docs/v2-pilot/cm-step6.md",
+      "added": 207,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/cf05-reference.json",
+      "added": 54,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/live-1834686a-b68d-49fb-9f39-d04f1f99bac9.json",
+      "added": 21016,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/live-7c5b4116-0378-4286-afc2-ac9b00eafe0b.json",
+      "added": 20705,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/live-legacy-mixed.json",
+      "added": 1530,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/live.json",
+      "added": 20712,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/m1-offline-diagnosis.json",
+      "added": 489,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-audit.json",
+      "added": 412,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/regression-red.json",
+      "added": 23,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/submission-audit.json",
+      "added": 23,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/submission-followup-audit.json",
+      "added": 44,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-21385ba-dirty-failed.json",
+      "added": 663,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-affbc10-failed.json",
+      "added": 739,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-bd6325f-failed.json",
+      "added": 1020,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-clean-smoke.json",
+      "added": 175,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification.json",
+      "added": 1116,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cost-ledger.json",
+      "added": 35,
+      "removed": 3
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/chat-reply.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/cm-step4-original-result.json",
+      "added": 267,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/cm-step6-run.json",
+      "added": 85,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/daily-config-retired-fields.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/daily-path-refuses-writes.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/remember-success-receipt.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/restart-persistence.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/result.json",
+      "added": 40,
+      "removed": 40
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/startup.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/undo-disappears.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/pending.md",
+      "added": 14,
+      "removed": 1
+    },
+    {
+      "path": "examples/eval/cm-step4.mjs",
+      "added": 3,
+      "removed": 3
+    },
+    {
+      "path": "examples/eval/cm-step6-live.mjs",
+      "added": 413,
+      "removed": 0
+    },
+    {
+      "path": "examples/eval/cm-step6-live.test.mjs",
+      "added": 130,
+      "removed": 0
+    },
+    {
+      "path": "examples/eval/cm-step6-offline-audit.mjs",
+      "added": 78,
+      "removed": 0
+    },
+    {
+      "path": "examples/eval/compaction-fidelity.test.mjs",
+      "added": 17,
+      "removed": 10
+    },
+    {
+      "path": "examples/eval/context-blocks.mjs",
+      "added": 13,
+      "removed": 0
+    },
+    {
+      "path": "examples/eval/e2e.test.mjs",
+      "added": 2,
+      "removed": 2
+    },
+    {
+      "path": "examples/eval/reliability.test.mjs",
+      "added": 2,
+      "removed": 2
+    },
+    {
+      "path": "packages/ai-sdk-adapter/src/loop.test.ts",
+      "added": 42,
+      "removed": 0
+    },
+    {
+      "path": "packages/ai-sdk-adapter/src/loop.ts",
+      "added": 12,
+      "removed": 3
+    },
+    {
+      "path": "packages/ai-sdk-adapter/src/model-errors.ts",
+      "added": 14,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/scripts/cm-baseline.mjs",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/scripts/cm-replay.mjs",
+      "added": 3,
+      "removed": 3
+    },
+    {
+      "path": "packages/assistant/scripts/cm-step5-verify.mjs",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/scripts/cm-step6-verify.mjs",
+      "added": 96,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/api.ts",
+      "added": 3,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/app.ts",
+      "added": 31,
+      "removed": 13
+    },
+    {
+      "path": "packages/assistant/src/assistant-controller.test.ts",
+      "added": 1,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/assistant-controller.ts",
+      "added": 12,
+      "removed": 9
+    },
+    {
+      "path": "packages/assistant/src/baseline-assembly.test.ts",
+      "added": 2,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/compaction-records.ts",
+      "added": 47,
+      "removed": 14
+    },
+    {
+      "path": "packages/assistant/src/consolidation-runtime.test.ts",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/consolidation.ts",
+      "added": 1,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/context-assembler.ts",
+      "added": 5,
+      "removed": 2
+    },
+    {
+      "path": "packages/assistant/src/context-background.test.ts",
+      "added": 244,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/context-blocks.ts",
+      "added": 145,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/context-compaction-acceptance.test.ts",
+      "added": 13,
+      "removed": 14
+    },
+    {
+      "path": "packages/assistant/src/context-compaction-runtime.test.ts",
+      "added": 27,
+      "removed": 33
+    },
+    {
+      "path": "packages/assistant/src/context-compaction.ts",
+      "added": 59,
+      "removed": 2
+    },
+    {
+      "path": "packages/assistant/src/context-compactor.test.ts",
+      "added": 343,
+      "removed": 1367
+    },
+    {
+      "path": "packages/assistant/src/context-compactor.ts",
+      "added": 224,
+      "removed": 547
+    },
+    {
+      "path": "packages/assistant/src/context-diagnostics.ts",
+      "added": 4,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/context-source.ts",
+      "added": 19,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/foreground-autonomy.ts",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/history-tools.ts",
+      "added": 45,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/memory-controls.test.ts",
+      "added": 1,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/memory-extraction.ts",
+      "added": 49,
+      "removed": 27
+    },
+    {
+      "path": "packages/assistant/src/memory-factual-receipts.ts",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/memory-m1-acceptance.test.ts",
+      "added": 41,
+      "removed": 33
+    },
+    {
+      "path": "packages/assistant/src/memory-observation-policy.ts",
+      "added": 2,
+      "removed": 2
+    },
+    {
+      "path": "packages/assistant/src/memory-store.ts",
+      "added": 1,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/memory-v6-store.test.ts",
+      "added": 21,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/memory-v6-store.ts",
+      "added": 37,
+      "removed": 9
+    },
+    {
+      "path": "packages/assistant/src/memory-write.ts",
+      "added": 39,
+      "removed": 11
+    },
+    {
+      "path": "packages/assistant/src/model-context-budget.test.ts",
+      "added": 4,
+      "removed": 4
+    },
+    {
+      "path": "packages/assistant/src/model-usage.test.ts",
+      "added": 5,
+      "removed": 3
+    },
+    {
+      "path": "packages/assistant/src/modules/memory-module.test.ts",
+      "added": 25,
+      "removed": 7
+    },
+    {
+      "path": "packages/assistant/src/modules/memory-module.ts",
+      "added": 10,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/task-instructions.ts",
+      "added": 2,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/thread-background.ts",
+      "added": 21,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/transcript-access.ts",
+      "added": 63,
+      "removed": 0
+    },
+    {
+      "path": "packages/core/src/jsonl-store.test.ts",
+      "added": 17,
+      "removed": 0
+    },
+    {
+      "path": "packages/core/src/jsonl-store.ts",
+      "added": 52,
+      "removed": 0
+    },
+    {
+      "path": "packages/core/src/types.ts",
+      "added": 1,
+      "removed": 0
+    }
+  ],
+  "sourceHashes": {
+    "apps/desktop/src/main/backup.test.ts": "48cd2d5446123735eb84765b94cb7447f821d49c2e188845ae5bdc38ec559c7b",
+    "apps/desktop/src/main/backup.ts": "d4222e137bda66671c7a1329a06f62121c1eda0a1300f35be63bc8a996cd5839",
+    "apps/desktop/src/main/desktop-runtime.test.ts": "9b88777663a60bdc8a992bafb27656a93bb103fba1ef607a3cd8b82adbebac35",
+    "apps/desktop/src/main/foreground-autonomy.test.ts": "6afdff1d390ce91b55920298af44df6512d57d5de3dca45f5c58f1607396c246",
+    "apps/desktop/src/main/smoke-model.ts": "f7186ba3dd68300ff48cf6e34889dc469c791e05a3ed5401369f46a15d1f819e",
+    "apps/desktop/src/main/telegram-gateway.ts": "4f31d6f9274aa38a8206d961429a5cae9fff0c42dde9943f4e255f02cb6852cd",
+    "apps/desktop/src/main/thread-history.ts": "69306209c1de3f27775f9123647559ba7c9b62d34d1f03e796ad36aa282c9206",
+    "apps/desktop/src/renderer/src/memory-consolidation.tsx": "7d4a7b7955541fd6938ba143d4acb5adef65d9b2d74bf96f78ef9d3090cf202f",
+    "docs/context-memory-refactor-plan.md": "df5986b274f93a54603d7fe7eac80dffed24a21cd495f6804c54ae2755553e3c",
+    "docs/v2-pilot/cm-step6.md": "982ac043e27d3fa01452c78270c51e1942f3fa93adb87069c52a13666e4b4376",
+    "docs/v2-pilot/evidence/cm-step6/cf05-reference.json": "0aa141ddf902b9c7960dd756ed72c88ace8150918499402008770707a1268409",
+    "docs/v2-pilot/evidence/cm-step6/live-1834686a-b68d-49fb-9f39-d04f1f99bac9.json": "6e7eab280c2b4ba47dffea75b6066ec36d10c1179356958687242e89517db6b5",
+    "docs/v2-pilot/evidence/cm-step6/live-7c5b4116-0378-4286-afc2-ac9b00eafe0b.json": "8e99d42859cbd53121953305815e51756e02cd39f83ebf052514ef53cb5fee3d",
+    "docs/v2-pilot/evidence/cm-step6/live-legacy-mixed.json": "8d76edf3837151731c2270d7265c31aa7c91f99fc930cd6b037ba74de97135f2",
+    "docs/v2-pilot/evidence/cm-step6/live.json": "ff6a07581ff56d068f1f2c2d798d706b4332941ff7b1f203c2d70bd33c35c3b6",
+    "docs/v2-pilot/evidence/cm-step6/m1-offline-diagnosis.json": "d061516225f97a2aa4b4013392c174fc0f73d292f95f7f7ee08de2ce1a427c35",
+    "docs/v2-pilot/evidence/cm-step6/offline-audit.json": "584ab6c17d3257b27e413f1567d717854658350544cbab8744149ac7e5f01ff8",
+    "docs/v2-pilot/evidence/cm-step6/regression-red.json": "19a31a93ca699306a45bf98e9913156194b2673465c035765346e7662025fb4c",
+    "docs/v2-pilot/evidence/cm-step6/submission-audit.json": "8c3d2e4b167d80ead15f93c4f2a5a3ec76efee68730ee7f5383d6d4ecbb297e6",
+    "docs/v2-pilot/evidence/cm-step6/submission-followup-audit.json": "100bcc943a80254a5be7ae14b4af7771e22294043584d5763abfc422b141e3b6",
+    "docs/v2-pilot/evidence/cm-step6/verification-21385ba-dirty-failed.json": "c7c373d57daa1f00bcbdb4fe4b0587a51822a4e2b0b573fb87fead2cac1292aa",
+    "docs/v2-pilot/evidence/cm-step6/verification-affbc10-failed.json": "8ca8e25017c1fbbf920610d92c29a8355e9a3eb4d1cfacc4a42a78054ec14f77",
+    "docs/v2-pilot/evidence/cm-step6/verification-bd6325f-failed.json": "448ee47189c5d022acbc8307b08c5c2838ce1691e0a350a558a419fa4d0b2a9e",
+    "docs/v2-pilot/evidence/cm-step6/verification-clean-smoke.json": "352098093a528439b63f65fc4d0a9d8280f539cf3ce9b1997a3ab6bf5c0af3bf",
+    "docs/v2-pilot/evidence/cm-step6/verification.json": "f9f9496b464d04131bdac2a4b793110094b66198a7d96ef805a3bc7b1a46f1e7",
+    "docs/v2-pilot/evidence/cost-ledger.json": "5349cfdc74ac4eeeb3a63f3ad7fb90c1a7ae01872a24af19b9c961cbc177433d",
+    "docs/v2-pilot/evidence/electron-smoke/chat-reply.png": "80fba1d0b797e5404cc2ac2f389e58fc63973aeb1192a6f32be360fe8735f21b",
+    "docs/v2-pilot/evidence/electron-smoke/cm-step4-original-result.json": "f4ca3de799438b69c423f04f38a5f2ed0b02632c57785a3e8f1842adf5dabfe9",
+    "docs/v2-pilot/evidence/electron-smoke/cm-step6-run.json": "41a1361a1ba01723fd06fbb241939b5495edfe7bb3eb297b4ff076cd444a9726",
+    "docs/v2-pilot/evidence/electron-smoke/daily-config-retired-fields.png": "063735dc17bb6ebd6a592ab3530e01da9fcf67275961057e2fabade5b8308f34",
+    "docs/v2-pilot/evidence/electron-smoke/daily-path-refuses-writes.png": "f590116876d49dfd573158ba8b81befbe8bfe6631ea7178417c908606fe45ad7",
+    "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png": "b0121bab4a38b12bc074f1d0b530957e91c842759fbd83cc76c568d47e55f21c",
+    "docs/v2-pilot/evidence/electron-smoke/remember-success-receipt.png": "357e93141a00fe012fb4928b48c75405e18c99653221491a108e796889b6b1af",
+    "docs/v2-pilot/evidence/electron-smoke/restart-persistence.png": "aca02ff7fce8d33fc93d158d8c78db9d697e17b5eef960b6e1c26aa63d986d0a",
+    "docs/v2-pilot/evidence/electron-smoke/result.json": "32719eccd94e8ef8153e58bd6a40b63427b43ef8447660348fb4552ebfce6964",
+    "docs/v2-pilot/evidence/electron-smoke/startup.png": "2a6d3b54ad3b036fb1442e588f66b4cc3f32b78f7e1faedd0fef6b5f3218a0e2",
+    "docs/v2-pilot/evidence/electron-smoke/undo-disappears.png": "6039f8ada3afd56efc271e1c6c4ecc9176b6f7e906bf063f91f6cb3889eba4b2",
+    "docs/v2-pilot/pending.md": "1569db6e78728fffa0832303679202376dc100e2abea2a178530823e9a1ee3f2",
+    "examples/eval/cm-step4.mjs": "8b7359e1ed49b0e1f7714ffa829a55ddebbb5a01405c1db2261d793eed40b56f",
+    "examples/eval/cm-step6-live.mjs": "414c66c1935cf4d30b50debe5f03cff6201e4689d1df0230bd123ab6e143c525",
+    "examples/eval/cm-step6-live.test.mjs": "02784f9ec0ecdfb1e32f180e2f7d88b002d89b23fa58ef5e3b74bbd99ba83750",
+    "examples/eval/cm-step6-offline-audit.mjs": "9dd3e268ad706b61ebc777504b24003de978eda4a5a6917ad95885066fdc0ae0",
+    "examples/eval/compaction-fidelity.test.mjs": "00889a2ab366ff608d1fe090bded1e4af9928c8651507629bb1904e2bdc9e8f3",
+    "examples/eval/context-blocks.mjs": "0b0dc939371c867cdc0b70ecd5cd115620ee4ab523bbfc3d089420703298efcc",
+    "examples/eval/e2e.test.mjs": "da68557a97d5ff79f212166cfa1e075871067cde139c99b995fac39e79cf2e89",
+    "examples/eval/reliability.test.mjs": "4607dbc6db11fae576ee6f5ca13fedd58496490d88e09aa031d07e188c638028",
+    "packages/ai-sdk-adapter/src/loop.test.ts": "5a1a4b146ab47890d513e358f274da6675bdb603dc9f752851df827d536aec16",
+    "packages/ai-sdk-adapter/src/loop.ts": "2526388c7235a87662d588cec2da979549c63181894dbfe84c9fb33f8148d418",
+    "packages/ai-sdk-adapter/src/model-errors.ts": "216b4abdba6c709c9573b74c6ad18fccad7e894c13d8064a0a3371def154b77c",
+    "packages/assistant/scripts/cm-baseline.mjs": "0554e750fb20639a165350f63bb7b65483b798f37374b8065187b6a4f0910af3",
+    "packages/assistant/scripts/cm-replay.mjs": "612350de0a3fe211f280e52c23521dbadc5a69e7e5daff761ede303996b40094",
+    "packages/assistant/scripts/cm-step5-verify.mjs": "a0e276923badf232ad738fbd76526628a18b95bbfbefe1d0a3e3d781e4adac1a",
+    "packages/assistant/scripts/cm-step6-verify.mjs": "b3179337e6fe1ebd376ff14f56eda28635a69040b18fe0f538f62ce0b5d64b59",
+    "packages/assistant/src/api.ts": "116048839cd4aa72c76b8e7ec009bfee3b62443b9609f15dd96e749c77ab7491",
+    "packages/assistant/src/app.ts": "ae222d563f211a7c213775ace0f09b7e5ade08369ecc408ec31b9cb3eef3b5dc",
+    "packages/assistant/src/assistant-controller.test.ts": "3d3b3e1139ca3cb44c32a6545a7c897b4b7c0958a4998b16a655fdc0462c68e3",
+    "packages/assistant/src/assistant-controller.ts": "6526a23f617c236f6e9b860ecc453adb8213ac22c790e6fc6770789f54bcbdc9",
+    "packages/assistant/src/baseline-assembly.test.ts": "5c8b4ae6f4ddee0eb35b74f8e70892b8b9c97e388e7fdca45b1797bf95920ec6",
+    "packages/assistant/src/compaction-records.ts": "adf16731400006de5a4a451062e20251a45a3df2be798731784c90813ca22657",
+    "packages/assistant/src/consolidation-runtime.test.ts": "e8ff4e7bebf4aa404edc0361ea26dc01ecc6caf239d5317cc38243c4546317c0",
+    "packages/assistant/src/consolidation.ts": "482c4d869ffc2402d6dc9b34dbdeb6af2819f2320ed8bd4671bb6246713b099e",
+    "packages/assistant/src/context-assembler.ts": "a46cd4273c3c6a70f0d6d541dc6f79c8da0a7f09fda9af608b8b85d8ddde48d8",
+    "packages/assistant/src/context-background.test.ts": "73cf5dfb462312fa81dd5bd4636e2abd80b8dc13c5d7eb46ff0dd302c8e21f49",
+    "packages/assistant/src/context-blocks.ts": "d88a7ac4229c19e783ef9946b5e4e2f3dd26af37b50628a08ae2f95aff54b3e5",
+    "packages/assistant/src/context-compaction-acceptance.test.ts": "956a97b320394575597275cd2f153466c9938f2a59c85f01ab688f340294cacd",
+    "packages/assistant/src/context-compaction-runtime.test.ts": "99d6f95bf81d2301a0c65e3d515611ae5bcc8abcc652c8540c9fa295fe34e48e",
+    "packages/assistant/src/context-compaction.ts": "d156a8292b478a0cb82289bfabaf9275a4e1a8bd73149671085eb689096fb2bf",
+    "packages/assistant/src/context-compactor.test.ts": "5535cd28c6e47d6a753d6961eab1f1b90bbdd3b3387ef9515148901a9b8f8afe",
+    "packages/assistant/src/context-compactor.ts": "0ab8dc8d1a07d0360fba6793246ffd9d3f515a0961fb51cf10f431fc70b1e69d",
+    "packages/assistant/src/context-diagnostics.ts": "8a0da5e964d67a7cdd84bac9a21779afc568e70a399bec02f0d38bfb0eb86aa7",
+    "packages/assistant/src/context-source.ts": "489f7f38acea8b79194692729fa16cd2e6d120cc0b28f53b1467dee8a86edd39",
+    "packages/assistant/src/foreground-autonomy.ts": "359de414f1f184e3213ee69b0b8cde6a82a05cbdc2ded4d38836ab75e45a3705",
+    "packages/assistant/src/history-tools.ts": "a38063bb13bcb14398a131889e85771c2428b320204b91f78e280a2580300db9",
+    "packages/assistant/src/memory-controls.test.ts": "b6cc58b13d26f526ce5b4f7abf16fa0758c712ffab6c55c3f08dff1bbdb99698",
+    "packages/assistant/src/memory-extraction.ts": "47e0399d089ae86e85281d00aa8755ec932dd1f1f66086d9980391d1843f7539",
+    "packages/assistant/src/memory-factual-receipts.ts": "02e89478b6fcf0380adb0f215caab9a70d84e9bc5a02b673f7efb36319986eff",
+    "packages/assistant/src/memory-m1-acceptance.test.ts": "8bf1ab1455b359547cb2d9ed6595f24531f437f7e71b4820c1f1e9a45627a670",
+    "packages/assistant/src/memory-observation-policy.ts": "f68069b5c852ae309a0703c08298ab2bbb3c3709cc2accb2a9ef464d9ab577b6",
+    "packages/assistant/src/memory-store.ts": "dd2dc0360d24eb0844d8ee3e90e37a0aec9a4b7b18fd98707024e03297a3c340",
+    "packages/assistant/src/memory-v6-store.test.ts": "d1d677a81176e937c53e83ddc95b099efb44bca0e0fe5b5ab54c3192e01d2894",
+    "packages/assistant/src/memory-v6-store.ts": "bf5a73feca2534a2112087b98556eea77253736f01d9e1a8c8b29bb0545c5800",
+    "packages/assistant/src/memory-write.ts": "db80ec3d4f287652cbfa157cc8f430b8e316827caccfe918c1dea7be95deb57f",
+    "packages/assistant/src/model-context-budget.test.ts": "f0a67767fbc82e57b619fc64b96775dc79c6f2e817d6ed155bab96b98c7e2a6d",
+    "packages/assistant/src/model-usage.test.ts": "b9b353923588a4864d64446325a2fedf8a4bd902824a7bb6ffcce7c879f32f33",
+    "packages/assistant/src/modules/memory-module.test.ts": "3d06a52a3c73d25645c8873cfebec4f69b7e8b5a921252594b8c760024cc3f53",
+    "packages/assistant/src/modules/memory-module.ts": "557bfe12e3ef9eb14d87a9186f9affeabaf90a10efdad06bd3270d9a9c0e9d65",
+    "packages/assistant/src/task-instructions.ts": "fb2a9cf0fb9366ac96def04f6cc98a0d140e884a6ea88cd1b10ec60c5d6ba571",
+    "packages/assistant/src/thread-background.ts": "cf70d65950b2683201aef2b14a317e3ce877a7a8e1c6d71f1608265bf89bb7bb",
+    "packages/assistant/src/transcript-access.ts": "b349330cef3ef3492b10711d1faaa132f68bdf0ea73c25e5b96eb79599faf40b",
+    "packages/core/src/jsonl-store.test.ts": "90a2fab7c30494a2c8f8d4b44a5e8e1c417240ee8cf69d96c2a9b014f65241e9",
+    "packages/core/src/jsonl-store.ts": "da31d1ef19e18fa4163076e45e1ce608c2b843226bea12b767327368cfdae8a9",
+    "packages/core/src/types.ts": "d35ad2719f7a58be6182ce7620ab23b1f08ecd3bb6a40fc17d0a31502b86cef8"
+  },
+  "smoke": {
+    "file": "docs/v2-pilot/evidence/electron-smoke/result.json",
+    "sha256": "ecdddfb875ce10cdf8d60c63bc118f3bbdfbacc3bebd703a4ac5dd9462cd0bcb",
+    "scriptSha256": "9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f",
+    "checks": [
+      {
+        "name": "startup",
+        "result": "passed",
+        "unexpectedErrors": 0
+      },
+      {
+        "name": "chat-reply",
+        "result": "passed",
+        "unexpectedErrors": 0
+      },
+      {
+        "name": "remember-success-receipt",
+        "result": "passed",
+        "unexpectedErrors": 0
+      },
+      {
+        "name": "remember-on-memory-page",
+        "result": "passed",
+        "unexpectedErrors": 0
+      },
+      {
+        "name": "restart-persistence",
+        "result": "passed",
+        "unexpectedErrors": 0
+      },
+      {
+        "name": "undo-disappears",
+        "result": "passed",
+        "unexpectedErrors": 0
+      },
+      {
+        "name": "daily-path-refuses-writes",
+        "result": "passed",
+        "unexpectedErrors": 0
+      },
+      {
+        "name": "daily-config-retired-fields",
+        "result": "passed",
+        "unexpectedErrors": 0
+      }
+    ],
+    "screenshots": [
+      {
+        "file": "startup.png",
+        "sha256": "708d3d1d1e40c14fadad40f8f69918864811f1fed6de485af7678423379dc0c5"
+      },
+      {
+        "file": "chat-reply.png",
+        "sha256": "7914d7e23517928c82c11dbbd47e23a35f6c5ecb6f15ad2559a8a88567385460"
+      },
+      {
+        "file": "remember-success-receipt.png",
+        "sha256": "6e2d77914843de67d1624c4ef226050e2da8600ca857709021b641a50295bbbe"
+      },
+      {
+        "file": "remember-on-memory-page.png",
+        "sha256": "66db8520ea32eba0fc7a068835f16298cb154d71a0adc66f341e82eda6ff09fc"
+      },
+      {
+        "file": "restart-persistence.png",
+        "sha256": "f5e3d3c1e4f7b4bca4afdfa9be7885734a96be7d9401353e69a8b3abc83b014e"
+      },
+      {
+        "file": "undo-disappears.png",
+        "sha256": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0"
+      },
+      {
+        "file": "daily-path-refuses-writes.png",
+        "sha256": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e"
+      },
+      {
+        "file": "daily-config-retired-fields.png",
+        "sha256": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9"
+      }
+    ]
+  },
+  "offlineAudit": {
+    "file": "docs/v2-pilot/evidence/cm-step6/offline-audit.json",
+    "sha256": "af74e46659ef168f1c6168205afdd0823d7d9dd8cb13f74e60fd2ce7dc35aba4"
+  },
+  "sourceStayedCleanDuringVerification": true,
+  "finishedAt": "2026-10-21T17:00:07.108Z",
+  "temporaryDirectoryRemoved": true
+}

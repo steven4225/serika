@@ -1,24 +1,24 @@
 {
-  "runId": "780a16db-42f6-4732-ba81-fae4a6bc0730",
-  "startedAt": "2026-10-21T15:37:45.848Z",
+  "runId": "dca0b02c-01f2-4d30-bf80-695797ec5401",
+  "startedAt": "2026-10-21T17:07:46.486Z",
   "platform": "darwin",
   "process": {
     "node": "v26.4.0",
-    "pid": 91099
+    "pid": 3368
   },
-  "sourceCommit": "6a7b7389f8340900a6956e313d58ef94513fa6b9",
+  "sourceCommit": "c6e1d7a69ee6c2f8c309607352c22cdce8cd5ab8",
   "sourceWorktreeDirty": false,
   "baseCommit": "a183ddf01c15b51da84b1cd861b9e66686e634fe",
-  "scriptSha256": "3130ffdc60c24902e1c0d2da75b7d2a5991bd944613bd6be16e3462825211916",
+  "scriptSha256": "b3179337e6fe1ebd376ff14f56eda28635a69040b18fe0f538f62ce0b5d64b59",
   "commands": [
     {
       "command": [
         "pnpm",
         "typecheck"
       ],
-      "cwd": "/Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework",
-      "startedAt": "2026-10-21T15:37:45.887Z",
-      "finishedAt": "2026-10-21T15:37:46.630Z",
+      "cwd": ".",
+      "startedAt": "2026-10-21T17:07:46.525Z",
+      "finishedAt": "2026-10-21T17:07:47.286Z",
       "exitCode": 0,
       "signal": null,
       "outputSha256": "9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609",
@@ -32,21 +32,21 @@
         "pnpm",
         "test"
       ],
-      "cwd": "/Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework",
-      "startedAt": "2026-10-21T15:37:46.631Z",
-      "finishedAt": "2026-10-21T15:41:19.691Z",
+      "cwd": ".",
+      "startedAt": "2026-10-21T17:07:47.287Z",
+      "finishedAt": "2026-10-21T17:11:38.856Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "a71a885eb4d4148883fcad0b8ad0e88f9d1a903378f7904a564463f7bce038fb",
-      "outputBytes": 234837,
+      "outputSha256": "e3f369c66d63e9e96b626693e89969fb721f2c4f4b0603fc435499d625bb06f3",
+      "outputBytes": 238647,
       "counts": [
         [
           "tests",
-          1151
+          1153
         ],
         [
           "pass",
-          1140
+          1142
         ],
         [
           "fail",
@@ -109,21 +109,21 @@
         "pnpm",
         "test"
       ],
-      "cwd": "/Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework",
-      "startedAt": "2026-10-21T15:41:19.691Z",
-      "finishedAt": "2026-10-21T15:44:40.336Z",
+      "cwd": ".",
+      "startedAt": "2026-10-21T17:11:38.857Z",
+      "finishedAt": "2026-10-21T17:15:18.131Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "05ca99c1038ecf38aa629310eb4bf8f1a1e6846fb68b9a29f107e55eff270449",
-      "outputBytes": 234790,
+      "outputSha256": "ceac476a174fa8f17e0167fea4c986bbfe50bbd4512fa20d4fcb1a579650c578",
+      "outputBytes": 238594,
       "counts": [
         [
           "tests",
-          1151
+          1153
         ],
         [
           "pass",
-          1140
+          1142
         ],
         [
           "fail",
@@ -184,21 +184,21 @@
         "pnpm",
         "eval:test"
       ],
-      "cwd": "/Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework",
-      "startedAt": "2026-10-21T15:44:40.336Z",
-      "finishedAt": "2026-10-21T15:44:48.189Z",
+      "cwd": ".",
+      "startedAt": "2026-10-21T17:15:18.132Z",
+      "finishedAt": "2026-10-21T17:15:26.747Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "8d74ca75a867adce0e854c7b0d64b0bfae4bfe1cc2bf27e17919d222888fd42d",
-      "outputBytes": 11630,
+      "outputSha256": "4bd9732a4e7d538068cd4086f7f7fd29a4203e7ccd6a5c80c8ed5ba182712563",
+      "outputBytes": 11734,
       "counts": [
         [
           "tests",
-          84
+          85
         ],
         [
           "pass",
-          84
+          85
         ],
         [
           "fail",
@@ -220,15 +220,15 @@
         "clone",
         "--shared",
         "--no-checkout",
-        "/Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework",
-        "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/cm-step6-verification-0mlgLs/smoke-source"
+        ".",
+        "<temporary>/smoke-source"
       ],
-      "cwd": "/Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework",
-      "startedAt": "2026-10-21T15:44:48.189Z",
-      "finishedAt": "2026-10-21T15:44:48.217Z",
+      "cwd": ".",
+      "startedAt": "2026-10-21T17:15:26.747Z",
+      "finishedAt": "2026-10-21T17:15:26.777Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "c98425f64ffca459af5a1748b3c26bcd5a3ef23943c4a06ed7e9fd886bc1e3e0",
+      "outputSha256": "5c369455fb9d2b96bdee75a86052e94c3e5ff713471803d74add179d45f3f5a5",
       "outputBytes": 115,
       "counts": []
     },
@@ -237,15 +237,15 @@
         "git",
         "checkout",
         "--detach",
-        "6a7b7389f8340900a6956e313d58ef94513fa6b9"
+        "c6e1d7a69ee6c2f8c309607352c22cdce8cd5ab8"
       ],
-      "cwd": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/cm-step6-verification-0mlgLs/smoke-source",
-      "startedAt": "2026-10-21T15:44:48.217Z",
-      "finishedAt": "2026-10-21T15:44:48.335Z",
+      "cwd": "<temporary>/smoke-source",
+      "startedAt": "2026-10-21T17:15:26.777Z",
+      "finishedAt": "2026-10-21T17:15:26.931Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "f4eb9eb9a71afa7bc8975293cb8b531a45f34182e82dbbf405972cc2e86b3b33",
-      "outputBytes": 94,
+      "outputSha256": "84c8fff2c261fd46028d956e1f908f0a4730eb92d144f7c38b9dd92cd7fa2f6e",
+      "outputBytes": 88,
       "counts": []
     },
     {
@@ -255,12 +255,12 @@
         "@serika/desktop",
         "smoke"
       ],
-      "cwd": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/cm-step6-verification-0mlgLs/smoke-source",
-      "startedAt": "2026-10-21T15:44:48.336Z",
-      "finishedAt": "2026-10-21T15:44:59.305Z",
+      "cwd": "<temporary>/smoke-source",
+      "startedAt": "2026-10-21T17:15:26.932Z",
+      "finishedAt": "2026-10-21T17:15:38.878Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "ae1ca9a79afe12302e455cd485ca5f3454ac9d19d5cc060f3036a3e4900a4c55",
+      "outputSha256": "a0290fd8ffaaa9530b44de37f1ed2de66d4be2e56dee13d083ab724944db56cb",
       "outputBytes": 3348,
       "counts": []
     },
@@ -269,20 +269,20 @@
         "node",
         "examples/eval/cm-step6-offline-audit.mjs"
       ],
-      "cwd": "/Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework",
-      "startedAt": "2026-10-21T15:44:59.307Z",
-      "finishedAt": "2026-10-21T15:44:59.416Z",
+      "cwd": ".",
+      "startedAt": "2026-10-21T17:15:38.882Z",
+      "finishedAt": "2026-10-21T17:15:39.069Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "57a545f6618fb3dc5d99ad2b2e87167e897517da0798357930377fea20470cd0",
-      "outputBytes": 1542,
+      "outputSha256": "91f1f515ba4afc38aa5146b0a04020bc8f7a88ee3055b5c079b5967209292c51",
+      "outputBytes": 1638,
       "counts": []
     }
   ],
   "metrics": [
     {
       "case": "C5 essential summary overflow",
-      "at": "2026-10-21T15:37:54.026Z",
+      "at": "2026-10-21T17:07:54.908Z",
       "outcome": "reused",
       "compactionId": "saturated",
       "estimatedInputTokens": 8607,
@@ -292,18 +292,25 @@
         "checklistTokens": 193,
         "budget": 1248,
         "borrowedTokens": 390,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 390,
         "reduction": {
           "originalTokens": 1519,
           "requiredTokens": 1445,
           "budget": 1055,
           "reducedSegments": 4,
           "compacted": true,
+          "indexReferenced": false,
           "indexDuplicateLines": 0
         }
       },
       "degradation": {
-        "reason": "summary_overflow",
+        "reasons": [
+          "summary_overflow"
+        ],
         "borrowedTokens": 390,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 390,
         "maskedOriginalTokens": 17138,
         "maskedFromMessageId": "u2",
         "checklistTokens": 0,
@@ -313,8 +320,178 @@
       "modelCalls": 0
     },
     {
+      "case": "C5 capped borrow",
+      "window": 32768,
+      "exceeds": true,
+      "at": "2026-10-21T17:07:54.910Z",
+      "outcome": "failed",
+      "compactionId": "cap",
+      "estimatedInputTokens": 4191,
+      "error": {
+        "code": "CONTEXT_PREPARE_FAILED",
+        "message": "Essential continuation exceeds the capped C5 allocation after masking; original journal retained"
+      },
+      "summaryLayer": {
+        "tokens": 4032,
+        "checklistTokens": 149,
+        "budget": 1248,
+        "borrowedTokens": 2496,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 2785,
+        "reduction": {
+          "originalTokens": 3851,
+          "requiredTokens": 3884,
+          "budget": 1099,
+          "reducedSegments": 1,
+          "compacted": true,
+          "indexReferenced": false,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "summary_overflow",
+          "checklist_overflow"
+        ],
+        "borrowedTokens": 2496,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 2785,
+        "maskedOriginalTokens": 50136,
+        "maskedFromMessageId": "failure-request",
+        "checklistTokens": 10169,
+        "sectionBudget": 208,
+        "maskedThroughMessageId": "failure-199"
+      }
+    },
+    {
+      "case": "C5 capped borrow",
+      "window": 32768,
+      "exceeds": false,
+      "at": "2026-10-21T17:07:54.914Z",
+      "outcome": "reused",
+      "compactionId": "cap",
+      "estimatedInputTokens": 3191,
+      "error": null,
+      "summaryLayer": {
+        "tokens": 3032,
+        "checklistTokens": 149,
+        "budget": 1248,
+        "borrowedTokens": 1785,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 1785,
+        "reduction": {
+          "originalTokens": 2851,
+          "requiredTokens": 2884,
+          "budget": 1099,
+          "reducedSegments": 1,
+          "compacted": true,
+          "indexReferenced": false,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "summary_overflow",
+          "checklist_overflow"
+        ],
+        "borrowedTokens": 1785,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 1785,
+        "maskedOriginalTokens": 50136,
+        "maskedFromMessageId": "failure-request",
+        "checklistTokens": 10169,
+        "sectionBudget": 208,
+        "maskedThroughMessageId": "failure-199"
+      }
+    },
+    {
+      "case": "C5 capped borrow",
+      "window": 1000000,
+      "exceeds": true,
+      "at": "2026-10-21T17:07:54.919Z",
+      "outcome": "failed",
+      "compactionId": "cap",
+      "estimatedInputTokens": 36447,
+      "error": {
+        "code": "CONTEXT_PREPARE_FAILED",
+        "message": "Essential continuation exceeds the capped C5 allocation after masking; original journal retained"
+      },
+      "summaryLayer": {
+        "tokens": 36288,
+        "checklistTokens": 149,
+        "budget": 12000,
+        "borrowedTokens": 24000,
+        "borrowLimitTokens": 24000,
+        "requiredBorrowTokens": 24289,
+        "reduction": {
+          "originalTokens": 36107,
+          "requiredTokens": 36140,
+          "budget": 11851,
+          "reducedSegments": 1,
+          "compacted": true,
+          "indexReferenced": false,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "summary_overflow",
+          "checklist_overflow"
+        ],
+        "borrowedTokens": 24000,
+        "borrowLimitTokens": 24000,
+        "requiredBorrowTokens": 24289,
+        "maskedOriginalTokens": 50136,
+        "maskedFromMessageId": "failure-request",
+        "checklistTokens": 10169,
+        "sectionBudget": 2000,
+        "maskedThroughMessageId": "failure-199"
+      }
+    },
+    {
+      "case": "C5 capped borrow",
+      "window": 1000000,
+      "exceeds": false,
+      "at": "2026-10-21T17:07:54.922Z",
+      "outcome": "reused",
+      "compactionId": "cap",
+      "estimatedInputTokens": 35447,
+      "error": null,
+      "summaryLayer": {
+        "tokens": 35288,
+        "checklistTokens": 149,
+        "budget": 12000,
+        "borrowedTokens": 23289,
+        "borrowLimitTokens": 24000,
+        "requiredBorrowTokens": 23289,
+        "reduction": {
+          "originalTokens": 35107,
+          "requiredTokens": 35140,
+          "budget": 11851,
+          "reducedSegments": 1,
+          "compacted": true,
+          "indexReferenced": false,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "summary_overflow",
+          "checklist_overflow"
+        ],
+        "borrowedTokens": 23289,
+        "borrowLimitTokens": 24000,
+        "requiredBorrowTokens": 23289,
+        "maskedOriginalTokens": 50136,
+        "maskedFromMessageId": "failure-request",
+        "checklistTokens": 10169,
+        "sectionBudget": 2000,
+        "maskedThroughMessageId": "failure-199"
+      }
+    },
+    {
       "case": "C5 essential summary overflow",
-      "at": "2026-10-21T15:41:26.670Z",
+      "at": "2026-10-21T17:11:45.914Z",
       "outcome": "reused",
       "compactionId": "saturated",
       "estimatedInputTokens": 8607,
@@ -324,18 +501,25 @@
         "checklistTokens": 193,
         "budget": 1248,
         "borrowedTokens": 390,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 390,
         "reduction": {
           "originalTokens": 1519,
           "requiredTokens": 1445,
           "budget": 1055,
           "reducedSegments": 4,
           "compacted": true,
+          "indexReferenced": false,
           "indexDuplicateLines": 0
         }
       },
       "degradation": {
-        "reason": "summary_overflow",
+        "reasons": [
+          "summary_overflow"
+        ],
         "borrowedTokens": 390,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 390,
         "maskedOriginalTokens": 17138,
         "maskedFromMessageId": "u2",
         "checklistTokens": 0,
@@ -343,6 +527,176 @@
         "maskedThroughMessageId": "a4"
       },
       "modelCalls": 0
+    },
+    {
+      "case": "C5 capped borrow",
+      "window": 32768,
+      "exceeds": true,
+      "at": "2026-10-21T17:11:45.918Z",
+      "outcome": "failed",
+      "compactionId": "cap",
+      "estimatedInputTokens": 4191,
+      "error": {
+        "code": "CONTEXT_PREPARE_FAILED",
+        "message": "Essential continuation exceeds the capped C5 allocation after masking; original journal retained"
+      },
+      "summaryLayer": {
+        "tokens": 4032,
+        "checklistTokens": 149,
+        "budget": 1248,
+        "borrowedTokens": 2496,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 2785,
+        "reduction": {
+          "originalTokens": 3851,
+          "requiredTokens": 3884,
+          "budget": 1099,
+          "reducedSegments": 1,
+          "compacted": true,
+          "indexReferenced": false,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "summary_overflow",
+          "checklist_overflow"
+        ],
+        "borrowedTokens": 2496,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 2785,
+        "maskedOriginalTokens": 50136,
+        "maskedFromMessageId": "failure-request",
+        "checklistTokens": 10169,
+        "sectionBudget": 208,
+        "maskedThroughMessageId": "failure-199"
+      }
+    },
+    {
+      "case": "C5 capped borrow",
+      "window": 32768,
+      "exceeds": false,
+      "at": "2026-10-21T17:11:45.920Z",
+      "outcome": "reused",
+      "compactionId": "cap",
+      "estimatedInputTokens": 3191,
+      "error": null,
+      "summaryLayer": {
+        "tokens": 3032,
+        "checklistTokens": 149,
+        "budget": 1248,
+        "borrowedTokens": 1785,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 1785,
+        "reduction": {
+          "originalTokens": 2851,
+          "requiredTokens": 2884,
+          "budget": 1099,
+          "reducedSegments": 1,
+          "compacted": true,
+          "indexReferenced": false,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "summary_overflow",
+          "checklist_overflow"
+        ],
+        "borrowedTokens": 1785,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 1785,
+        "maskedOriginalTokens": 50136,
+        "maskedFromMessageId": "failure-request",
+        "checklistTokens": 10169,
+        "sectionBudget": 208,
+        "maskedThroughMessageId": "failure-199"
+      }
+    },
+    {
+      "case": "C5 capped borrow",
+      "window": 1000000,
+      "exceeds": true,
+      "at": "2026-10-21T17:11:45.925Z",
+      "outcome": "failed",
+      "compactionId": "cap",
+      "estimatedInputTokens": 36447,
+      "error": {
+        "code": "CONTEXT_PREPARE_FAILED",
+        "message": "Essential continuation exceeds the capped C5 allocation after masking; original journal retained"
+      },
+      "summaryLayer": {
+        "tokens": 36288,
+        "checklistTokens": 149,
+        "budget": 12000,
+        "borrowedTokens": 24000,
+        "borrowLimitTokens": 24000,
+        "requiredBorrowTokens": 24289,
+        "reduction": {
+          "originalTokens": 36107,
+          "requiredTokens": 36140,
+          "budget": 11851,
+          "reducedSegments": 1,
+          "compacted": true,
+          "indexReferenced": false,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "summary_overflow",
+          "checklist_overflow"
+        ],
+        "borrowedTokens": 24000,
+        "borrowLimitTokens": 24000,
+        "requiredBorrowTokens": 24289,
+        "maskedOriginalTokens": 50136,
+        "maskedFromMessageId": "failure-request",
+        "checklistTokens": 10169,
+        "sectionBudget": 2000,
+        "maskedThroughMessageId": "failure-199"
+      }
+    },
+    {
+      "case": "C5 capped borrow",
+      "window": 1000000,
+      "exceeds": false,
+      "at": "2026-10-21T17:11:45.928Z",
+      "outcome": "reused",
+      "compactionId": "cap",
+      "estimatedInputTokens": 35447,
+      "error": null,
+      "summaryLayer": {
+        "tokens": 35288,
+        "checklistTokens": 149,
+        "budget": 12000,
+        "borrowedTokens": 23289,
+        "borrowLimitTokens": 24000,
+        "requiredBorrowTokens": 23289,
+        "reduction": {
+          "originalTokens": 35107,
+          "requiredTokens": 35140,
+          "budget": 11851,
+          "reducedSegments": 1,
+          "compacted": true,
+          "indexReferenced": false,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "summary_overflow",
+          "checklist_overflow"
+        ],
+        "borrowedTokens": 23289,
+        "borrowLimitTokens": 24000,
+        "requiredBorrowTokens": 23289,
+        "maskedOriginalTokens": 50136,
+        "maskedFromMessageId": "failure-request",
+        "checklistTokens": 10169,
+        "sectionBudget": 2000,
+        "maskedThroughMessageId": "failure-199"
+      }
     },
     {
       "case": "quote",
@@ -520,6 +874,11 @@
       "removed": 1
     },
     {
+      "path": "apps/desktop/src/main/telegram-gateway.ts",
+      "added": 2,
+      "removed": 2
+    },
+    {
       "path": "apps/desktop/src/main/thread-history.ts",
       "added": 3,
       "removed": 3
@@ -536,7 +895,7 @@
     },
     {
       "path": "docs/v2-pilot/cm-step6.md",
-      "added": 215,
+      "added": 207,
       "removed": 0
     },
     {
@@ -581,7 +940,7 @@
     },
     {
       "path": "docs/v2-pilot/evidence/cm-step6/submission-audit.json",
-      "added": 20,
+      "added": 23,
       "removed": 0
     },
     {
@@ -600,13 +959,18 @@
       "removed": 0
     },
     {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-bd6325f-failed.json",
+      "added": 1020,
+      "removed": 0
+    },
+    {
       "path": "docs/v2-pilot/evidence/cm-step6/verification-clean-smoke.json",
       "added": 175,
       "removed": 0
     },
     {
       "path": "docs/v2-pilot/evidence/cm-step6/verification.json",
-      "added": 745,
+      "added": 1116,
       "removed": 0
     },
     {
@@ -626,8 +990,18 @@
     },
     {
       "path": "docs/v2-pilot/evidence/electron-smoke/cm-step6-run.json",
-      "added": 149,
+      "added": 85,
       "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/daily-config-retired-fields.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/daily-path-refuses-writes.png",
+      "added": null,
+      "removed": null
     },
     {
       "path": "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png",
@@ -646,8 +1020,8 @@
     },
     {
       "path": "docs/v2-pilot/evidence/electron-smoke/result.json",
-      "added": 32,
-      "removed": 32
+      "added": 40,
+      "removed": 40
     },
     {
       "path": "docs/v2-pilot/evidence/electron-smoke/startup.png",
@@ -671,12 +1045,12 @@
     },
     {
       "path": "examples/eval/cm-step6-live.mjs",
-      "added": 358,
+      "added": 413,
       "removed": 0
     },
     {
       "path": "examples/eval/cm-step6-live.test.mjs",
-      "added": 116,
+      "added": 130,
       "removed": 0
     },
     {
@@ -736,13 +1110,13 @@
     },
     {
       "path": "packages/assistant/scripts/cm-step6-verify.mjs",
-      "added": 92,
+      "added": 96,
       "removed": 0
     },
     {
       "path": "packages/assistant/src/api.ts",
-      "added": 2,
-      "removed": 0
+      "added": 3,
+      "removed": 1
     },
     {
       "path": "packages/assistant/src/app.ts",
@@ -756,8 +1130,8 @@
     },
     {
       "path": "packages/assistant/src/assistant-controller.ts",
-      "added": 10,
-      "removed": 8
+      "added": 12,
+      "removed": 9
     },
     {
       "path": "packages/assistant/src/baseline-assembly.test.ts",
@@ -791,7 +1165,7 @@
     },
     {
       "path": "packages/assistant/src/context-blocks.ts",
-      "added": 137,
+      "added": 145,
       "removed": 0
     },
     {
@@ -811,13 +1185,13 @@
     },
     {
       "path": "packages/assistant/src/context-compactor.test.ts",
-      "added": 308,
-      "removed": 1369
+      "added": 343,
+      "removed": 1367
     },
     {
       "path": "packages/assistant/src/context-compactor.ts",
-      "added": 216,
-      "removed": 549
+      "added": 224,
+      "removed": 547
     },
     {
       "path": "packages/assistant/src/context-diagnostics.ts",
@@ -856,8 +1230,8 @@
     },
     {
       "path": "packages/assistant/src/memory-m1-acceptance.test.ts",
-      "added": 27,
-      "removed": 29
+      "added": 41,
+      "removed": 33
     },
     {
       "path": "packages/assistant/src/memory-observation-policy.ts",
@@ -941,38 +1315,42 @@
     "apps/desktop/src/main/desktop-runtime.test.ts": "9b88777663a60bdc8a992bafb27656a93bb103fba1ef607a3cd8b82adbebac35",
     "apps/desktop/src/main/foreground-autonomy.test.ts": "6afdff1d390ce91b55920298af44df6512d57d5de3dca45f5c58f1607396c246",
     "apps/desktop/src/main/smoke-model.ts": "f7186ba3dd68300ff48cf6e34889dc469c791e05a3ed5401369f46a15d1f819e",
+    "apps/desktop/src/main/telegram-gateway.ts": "4f31d6f9274aa38a8206d961429a5cae9fff0c42dde9943f4e255f02cb6852cd",
     "apps/desktop/src/main/thread-history.ts": "69306209c1de3f27775f9123647559ba7c9b62d34d1f03e796ad36aa282c9206",
     "apps/desktop/src/renderer/src/memory-consolidation.tsx": "7d4a7b7955541fd6938ba143d4acb5adef65d9b2d74bf96f78ef9d3090cf202f",
     "docs/context-memory-refactor-plan.md": "df5986b274f93a54603d7fe7eac80dffed24a21cd495f6804c54ae2755553e3c",
-    "docs/v2-pilot/cm-step6.md": "43e2b2517e1d1dc5f914a04ac685a57b9387a16ca52d35c11e805a165dbfb16d",
+    "docs/v2-pilot/cm-step6.md": "982ac043e27d3fa01452c78270c51e1942f3fa93adb87069c52a13666e4b4376",
     "docs/v2-pilot/evidence/cm-step6/cf05-reference.json": "0aa141ddf902b9c7960dd756ed72c88ace8150918499402008770707a1268409",
     "docs/v2-pilot/evidence/cm-step6/live-1834686a-b68d-49fb-9f39-d04f1f99bac9.json": "6e7eab280c2b4ba47dffea75b6066ec36d10c1179356958687242e89517db6b5",
     "docs/v2-pilot/evidence/cm-step6/live-7c5b4116-0378-4286-afc2-ac9b00eafe0b.json": "8e99d42859cbd53121953305815e51756e02cd39f83ebf052514ef53cb5fee3d",
     "docs/v2-pilot/evidence/cm-step6/live-legacy-mixed.json": "8d76edf3837151731c2270d7265c31aa7c91f99fc930cd6b037ba74de97135f2",
-    "docs/v2-pilot/evidence/cm-step6/live.json": "72041bc2e8a95b4b96487dcfb3c6c6fbd4ba98046eb32cc0910774f031be84af",
+    "docs/v2-pilot/evidence/cm-step6/live.json": "ff6a07581ff56d068f1f2c2d798d706b4332941ff7b1f203c2d70bd33c35c3b6",
     "docs/v2-pilot/evidence/cm-step6/m1-offline-diagnosis.json": "d061516225f97a2aa4b4013392c174fc0f73d292f95f7f7ee08de2ce1a427c35",
-    "docs/v2-pilot/evidence/cm-step6/offline-audit.json": "deb5801d1acfc7bdd53a50f0f6085c63571801e9751352b85a3ca0350f95f57a",
+    "docs/v2-pilot/evidence/cm-step6/offline-audit.json": "584ab6c17d3257b27e413f1567d717854658350544cbab8744149ac7e5f01ff8",
     "docs/v2-pilot/evidence/cm-step6/regression-red.json": "19a31a93ca699306a45bf98e9913156194b2673465c035765346e7662025fb4c",
-    "docs/v2-pilot/evidence/cm-step6/submission-audit.json": "786cb4c6d2e6a55a71cc8151bdcb3d5834be80748910bebca1fc834f5dd20c23",
+    "docs/v2-pilot/evidence/cm-step6/submission-audit.json": "8c3d2e4b167d80ead15f93c4f2a5a3ec76efee68730ee7f5383d6d4ecbb297e6",
     "docs/v2-pilot/evidence/cm-step6/submission-followup-audit.json": "100bcc943a80254a5be7ae14b4af7771e22294043584d5763abfc422b141e3b6",
     "docs/v2-pilot/evidence/cm-step6/verification-21385ba-dirty-failed.json": "c7c373d57daa1f00bcbdb4fe4b0587a51822a4e2b0b573fb87fead2cac1292aa",
     "docs/v2-pilot/evidence/cm-step6/verification-affbc10-failed.json": "8ca8e25017c1fbbf920610d92c29a8355e9a3eb4d1cfacc4a42a78054ec14f77",
+    "docs/v2-pilot/evidence/cm-step6/verification-bd6325f-failed.json": "448ee47189c5d022acbc8307b08c5c2838ce1691e0a350a558a419fa4d0b2a9e",
     "docs/v2-pilot/evidence/cm-step6/verification-clean-smoke.json": "352098093a528439b63f65fc4d0a9d8280f539cf3ce9b1997a3ab6bf5c0af3bf",
-    "docs/v2-pilot/evidence/cm-step6/verification.json": "2c2efc246ff426cf8eb0216be229bd8b1123d4ce7dd353fee4638cd3de1bac0a",
+    "docs/v2-pilot/evidence/cm-step6/verification.json": "f9f9496b464d04131bdac2a4b793110094b66198a7d96ef805a3bc7b1a46f1e7",
     "docs/v2-pilot/evidence/cost-ledger.json": "5349cfdc74ac4eeeb3a63f3ad7fb90c1a7ae01872a24af19b9c961cbc177433d",
-    "docs/v2-pilot/evidence/electron-smoke/chat-reply.png": "1a8ea49b0e7918c60d15405f1c8ce104f5b0037a0c505d53b05f565f6f5139c3",
+    "docs/v2-pilot/evidence/electron-smoke/chat-reply.png": "80fba1d0b797e5404cc2ac2f389e58fc63973aeb1192a6f32be360fe8735f21b",
     "docs/v2-pilot/evidence/electron-smoke/cm-step4-original-result.json": "f4ca3de799438b69c423f04f38a5f2ed0b02632c57785a3e8f1842adf5dabfe9",
-    "docs/v2-pilot/evidence/electron-smoke/cm-step6-run.json": "598f15de3c4de45176801a1a2cb83f52e46a16ad38ef770f60cd593a2adf035c",
-    "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png": "05bd1478438739e0d745b03cf4555114969a818319a36bcecaee8d6444a4ce59",
-    "docs/v2-pilot/evidence/electron-smoke/remember-success-receipt.png": "515b601d876e9e22d24a63590a54922dfc57c309c4210136b2d099887678baf6",
-    "docs/v2-pilot/evidence/electron-smoke/restart-persistence.png": "e93e5cf3e0ec6f81f05e6a13cf858b8dabc4d6d03eb046310ecdf11913432347",
-    "docs/v2-pilot/evidence/electron-smoke/result.json": "19987b34edd2608b42504a0a001a84b0f26237653816c621e7d93f57c5fc47ff",
-    "docs/v2-pilot/evidence/electron-smoke/startup.png": "434b09b0417fa8622c75340d9d6c42843901bb9ed8fd30df2ced1ec5073a34f8",
-    "docs/v2-pilot/evidence/electron-smoke/undo-disappears.png": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0",
+    "docs/v2-pilot/evidence/electron-smoke/cm-step6-run.json": "41a1361a1ba01723fd06fbb241939b5495edfe7bb3eb297b4ff076cd444a9726",
+    "docs/v2-pilot/evidence/electron-smoke/daily-config-retired-fields.png": "063735dc17bb6ebd6a592ab3530e01da9fcf67275961057e2fabade5b8308f34",
+    "docs/v2-pilot/evidence/electron-smoke/daily-path-refuses-writes.png": "f590116876d49dfd573158ba8b81befbe8bfe6631ea7178417c908606fe45ad7",
+    "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png": "b0121bab4a38b12bc074f1d0b530957e91c842759fbd83cc76c568d47e55f21c",
+    "docs/v2-pilot/evidence/electron-smoke/remember-success-receipt.png": "357e93141a00fe012fb4928b48c75405e18c99653221491a108e796889b6b1af",
+    "docs/v2-pilot/evidence/electron-smoke/restart-persistence.png": "aca02ff7fce8d33fc93d158d8c78db9d697e17b5eef960b6e1c26aa63d986d0a",
+    "docs/v2-pilot/evidence/electron-smoke/result.json": "32719eccd94e8ef8153e58bd6a40b63427b43ef8447660348fb4552ebfce6964",
+    "docs/v2-pilot/evidence/electron-smoke/startup.png": "2a6d3b54ad3b036fb1442e588f66b4cc3f32b78f7e1faedd0fef6b5f3218a0e2",
+    "docs/v2-pilot/evidence/electron-smoke/undo-disappears.png": "6039f8ada3afd56efc271e1c6c4ecc9176b6f7e906bf063f91f6cb3889eba4b2",
     "docs/v2-pilot/pending.md": "1569db6e78728fffa0832303679202376dc100e2abea2a178530823e9a1ee3f2",
     "examples/eval/cm-step4.mjs": "8b7359e1ed49b0e1f7714ffa829a55ddebbb5a01405c1db2261d793eed40b56f",
-    "examples/eval/cm-step6-live.mjs": "672624a3fade176bb61249b98186dfa71b8c74e72bb6af0156b9a72da566860e",
-    "examples/eval/cm-step6-live.test.mjs": "6794c9fcb89ec4779972141722398d77af9d62a810775018f9da00b322384be4",
+    "examples/eval/cm-step6-live.mjs": "414c66c1935cf4d30b50debe5f03cff6201e4689d1df0230bd123ab6e143c525",
+    "examples/eval/cm-step6-live.test.mjs": "02784f9ec0ecdfb1e32f180e2f7d88b002d89b23fa58ef5e3b74bbd99ba83750",
     "examples/eval/cm-step6-offline-audit.mjs": "9dd3e268ad706b61ebc777504b24003de978eda4a5a6917ad95885066fdc0ae0",
     "examples/eval/compaction-fidelity.test.mjs": "00889a2ab366ff608d1fe090bded1e4af9928c8651507629bb1904e2bdc9e8f3",
     "examples/eval/context-blocks.mjs": "0b0dc939371c867cdc0b70ecd5cd115620ee4ab523bbfc3d089420703298efcc",
@@ -984,31 +1362,31 @@
     "packages/assistant/scripts/cm-baseline.mjs": "0554e750fb20639a165350f63bb7b65483b798f37374b8065187b6a4f0910af3",
     "packages/assistant/scripts/cm-replay.mjs": "612350de0a3fe211f280e52c23521dbadc5a69e7e5daff761ede303996b40094",
     "packages/assistant/scripts/cm-step5-verify.mjs": "a0e276923badf232ad738fbd76526628a18b95bbfbefe1d0a3e3d781e4adac1a",
-    "packages/assistant/scripts/cm-step6-verify.mjs": "3130ffdc60c24902e1c0d2da75b7d2a5991bd944613bd6be16e3462825211916",
-    "packages/assistant/src/api.ts": "07a13fbacd8b64f36c6689787695e45e41d8a5b0578e950b891c5ea23cde8648",
+    "packages/assistant/scripts/cm-step6-verify.mjs": "b3179337e6fe1ebd376ff14f56eda28635a69040b18fe0f538f62ce0b5d64b59",
+    "packages/assistant/src/api.ts": "116048839cd4aa72c76b8e7ec009bfee3b62443b9609f15dd96e749c77ab7491",
     "packages/assistant/src/app.ts": "ae222d563f211a7c213775ace0f09b7e5ade08369ecc408ec31b9cb3eef3b5dc",
     "packages/assistant/src/assistant-controller.test.ts": "3d3b3e1139ca3cb44c32a6545a7c897b4b7c0958a4998b16a655fdc0462c68e3",
-    "packages/assistant/src/assistant-controller.ts": "f8689d13f64843e85557141ff4d0bff49d31c8f58d6e3a7c87ebc58144c49e76",
+    "packages/assistant/src/assistant-controller.ts": "6526a23f617c236f6e9b860ecc453adb8213ac22c790e6fc6770789f54bcbdc9",
     "packages/assistant/src/baseline-assembly.test.ts": "5c8b4ae6f4ddee0eb35b74f8e70892b8b9c97e388e7fdca45b1797bf95920ec6",
     "packages/assistant/src/compaction-records.ts": "adf16731400006de5a4a451062e20251a45a3df2be798731784c90813ca22657",
     "packages/assistant/src/consolidation-runtime.test.ts": "e8ff4e7bebf4aa404edc0361ea26dc01ecc6caf239d5317cc38243c4546317c0",
     "packages/assistant/src/consolidation.ts": "482c4d869ffc2402d6dc9b34dbdeb6af2819f2320ed8bd4671bb6246713b099e",
     "packages/assistant/src/context-assembler.ts": "a46cd4273c3c6a70f0d6d541dc6f79c8da0a7f09fda9af608b8b85d8ddde48d8",
     "packages/assistant/src/context-background.test.ts": "73cf5dfb462312fa81dd5bd4636e2abd80b8dc13c5d7eb46ff0dd302c8e21f49",
-    "packages/assistant/src/context-blocks.ts": "d50b4c902b60d54797a363bc3f0bc402a2f4f9cb93dbf2e23ef3e3f71fb79957",
+    "packages/assistant/src/context-blocks.ts": "d88a7ac4229c19e783ef9946b5e4e2f3dd26af37b50628a08ae2f95aff54b3e5",
     "packages/assistant/src/context-compaction-acceptance.test.ts": "956a97b320394575597275cd2f153466c9938f2a59c85f01ab688f340294cacd",
     "packages/assistant/src/context-compaction-runtime.test.ts": "99d6f95bf81d2301a0c65e3d515611ae5bcc8abcc652c8540c9fa295fe34e48e",
     "packages/assistant/src/context-compaction.ts": "d156a8292b478a0cb82289bfabaf9275a4e1a8bd73149671085eb689096fb2bf",
-    "packages/assistant/src/context-compactor.test.ts": "b9ad081f5761e9c6a2e88c750e81a19076e13e4862e6d9cd95c531020632fd3a",
-    "packages/assistant/src/context-compactor.ts": "ec9416126a96264a01742866707e34ab4717fb7ca9b2acb7817b1a2089867df1",
-    "packages/assistant/src/context-diagnostics.ts": "46492248e0f8bea483049cd1213503213c735935f86275a65e1cc1eb1a33d5fd",
+    "packages/assistant/src/context-compactor.test.ts": "5535cd28c6e47d6a753d6961eab1f1b90bbdd3b3387ef9515148901a9b8f8afe",
+    "packages/assistant/src/context-compactor.ts": "0ab8dc8d1a07d0360fba6793246ffd9d3f515a0961fb51cf10f431fc70b1e69d",
+    "packages/assistant/src/context-diagnostics.ts": "8a0da5e964d67a7cdd84bac9a21779afc568e70a399bec02f0d38bfb0eb86aa7",
     "packages/assistant/src/context-source.ts": "489f7f38acea8b79194692729fa16cd2e6d120cc0b28f53b1467dee8a86edd39",
     "packages/assistant/src/foreground-autonomy.ts": "359de414f1f184e3213ee69b0b8cde6a82a05cbdc2ded4d38836ab75e45a3705",
     "packages/assistant/src/history-tools.ts": "a38063bb13bcb14398a131889e85771c2428b320204b91f78e280a2580300db9",
     "packages/assistant/src/memory-controls.test.ts": "b6cc58b13d26f526ce5b4f7abf16fa0758c712ffab6c55c3f08dff1bbdb99698",
     "packages/assistant/src/memory-extraction.ts": "47e0399d089ae86e85281d00aa8755ec932dd1f1f66086d9980391d1843f7539",
     "packages/assistant/src/memory-factual-receipts.ts": "02e89478b6fcf0380adb0f215caab9a70d84e9bc5a02b673f7efb36319986eff",
-    "packages/assistant/src/memory-m1-acceptance.test.ts": "6218f40453a1f777a398f6f9b4defbf8cd3669beef21b6f3c273a1b1ee2d9105",
+    "packages/assistant/src/memory-m1-acceptance.test.ts": "8bf1ab1455b359547cb2d9ed6595f24531f437f7e71b4820c1f1e9a45627a670",
     "packages/assistant/src/memory-observation-policy.ts": "f68069b5c852ae309a0703c08298ab2bbb3c3709cc2accb2a9ef464d9ab577b6",
     "packages/assistant/src/memory-store.ts": "dd2dc0360d24eb0844d8ee3e90e37a0aec9a4b7b18fd98707024e03297a3c340",
     "packages/assistant/src/memory-v6-store.test.ts": "d1d677a81176e937c53e83ddc95b099efb44bca0e0fe5b5ab54c3192e01d2894",
@@ -1027,7 +1405,7 @@
   },
   "smoke": {
     "file": "docs/v2-pilot/evidence/electron-smoke/result.json",
-    "sha256": "32719eccd94e8ef8153e58bd6a40b63427b43ef8447660348fb4552ebfce6964",
+    "sha256": "057f4559803a4d1e5e205d9d027d5958fad457a730f08e11f18d9c385aec8023",
     "scriptSha256": "9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f",
     "checks": [
       {
@@ -1074,43 +1452,43 @@
     "screenshots": [
       {
         "file": "startup.png",
-        "sha256": "2a6d3b54ad3b036fb1442e588f66b4cc3f32b78f7e1faedd0fef6b5f3218a0e2"
+        "sha256": "708d3d1d1e40c14fadad40f8f69918864811f1fed6de485af7678423379dc0c5"
       },
       {
         "file": "chat-reply.png",
-        "sha256": "80fba1d0b797e5404cc2ac2f389e58fc63973aeb1192a6f32be360fe8735f21b"
+        "sha256": "350c6a5340eb1f50e56bc489adb281e7469e8d5924a49ba3665e0bd641d464cb"
       },
       {
         "file": "remember-success-receipt.png",
-        "sha256": "357e93141a00fe012fb4928b48c75405e18c99653221491a108e796889b6b1af"
+        "sha256": "6e2d77914843de67d1624c4ef226050e2da8600ca857709021b641a50295bbbe"
       },
       {
         "file": "remember-on-memory-page.png",
-        "sha256": "b0121bab4a38b12bc074f1d0b530957e91c842759fbd83cc76c568d47e55f21c"
+        "sha256": "c1bfd6ae7f69c5958d025c28135d855a15d37ff66185f7d407f01e82b3993bc9"
       },
       {
         "file": "restart-persistence.png",
-        "sha256": "aca02ff7fce8d33fc93d158d8c78db9d697e17b5eef960b6e1c26aa63d986d0a"
+        "sha256": "445c33323adeb0f6d529bb65282a0dddec1d9ac4b02924b34bf0dbf6ee8bfc48"
       },
       {
         "file": "undo-disappears.png",
-        "sha256": "6039f8ada3afd56efc271e1c6c4ecc9176b6f7e906bf063f91f6cb3889eba4b2"
+        "sha256": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0"
       },
       {
         "file": "daily-path-refuses-writes.png",
-        "sha256": "f590116876d49dfd573158ba8b81befbe8bfe6631ea7178417c908606fe45ad7"
+        "sha256": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e"
       },
       {
         "file": "daily-config-retired-fields.png",
-        "sha256": "063735dc17bb6ebd6a592ab3530e01da9fcf67275961057e2fabade5b8308f34"
+        "sha256": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9"
       }
     ]
   },
   "offlineAudit": {
     "file": "docs/v2-pilot/evidence/cm-step6/offline-audit.json",
-    "sha256": "584ab6c17d3257b27e413f1567d717854658350544cbab8744149ac7e5f01ff8"
+    "sha256": "28447743dc8b7d6ee0fba2376cb9305c2d05a419171ed3a9c8d3380b56b28077"
   },
   "sourceStayedCleanDuringVerification": true,
-  "finishedAt": "2026-10-21T15:44:59.425Z",
+  "finishedAt": "2026-10-21T17:15:39.079Z",
   "temporaryDirectoryRemoved": true
 }

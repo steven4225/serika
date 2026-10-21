@@ -1,7 +1,7 @@
 {
-  "runId": "37c62b43-00af-46b2-9b7b-33affdf3388a",
-  "generatedAt": "2026-10-21T15:44:59.406Z",
-  "sourceCommit": "6a7b7389f8340900a6956e313d58ef94513fa6b9",
+  "runId": "bd63e362-ca95-46d7-b293-81ed8e1376b8",
+  "generatedAt": "2026-10-21T17:15:39.057Z",
+  "sourceCommit": "c6e1d7a69ee6c2f8c309607352c22cdce8cd5ab8",
   "scriptSha256": "9dd3e268ad706b61ebc777504b24003de978eda4a5a6917ad95885066fdc0ae0",
   "sourceWorktreeDirty": false,
   "evidenceWorktreeDirty": false,
@@ -30,6 +30,7 @@
       "budget": 1055,
       "reducedSegments": 0,
       "compacted": false,
+      "indexReferenced": false,
       "indexDuplicateLines": 0
     },
     {
@@ -51,6 +52,7 @@
       "budget": 1055,
       "reducedSegments": 1,
       "compacted": false,
+      "indexReferenced": false,
       "indexDuplicateLines": 0
     },
     {
@@ -72,6 +74,7 @@
       "budget": 1055,
       "reducedSegments": 4,
       "compacted": true,
+      "indexReferenced": false,
       "indexDuplicateLines": 0
     },
     {
@@ -92,6 +95,7 @@
       "budget": 1055,
       "reducedSegments": 4,
       "compacted": true,
+      "indexReferenced": false,
       "indexDuplicateLines": 0
     }
   ],

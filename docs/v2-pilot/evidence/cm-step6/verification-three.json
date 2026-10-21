@@ -1,0 +1,23 @@
+{
+  "runId": "b67ccfbb-fd28-40b7-afc9-6a4748ed04be",
+  "startedAt": "2026-10-21T16:52:42.217Z",
+  "sourceCommit": "c6e1d7a69ee6c2f8c309607352c22cdce8cd5ab8",
+  "runs": [
+    {
+      "runId": "3f9e612b-4415-4d99-8a26-5d8499d1f1c2",
+      "file": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/cm-step6/verification.json",
+      "sha256": "ddc3ad3f5b1275163daa0a1d45c7a2c70cdbf6d4bea21ca7ca8e004956b61fd6"
+    },
+    {
+      "runId": "3d8d3484-ff49-4fbc-8775-0a0d5e9a3adc",
+      "file": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/cm-step6/verification.json",
+      "sha256": "f0f8a25f09f2b02a5cbe839b9f042d864837b8d768c604ee71ba1dc26075f3ff"
+    },
+    {
+      "runId": "dca0b02c-01f2-4d30-bf80-695797ec5401",
+      "file": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/cm-step6/verification.json",
+      "sha256": "896d14b41af21cd3a09964c76191b447bb74e3f789f9bae4a534266aacdf5a1a"
+    }
+  ],
+  "finishedAt": "2026-10-21T17:15:39.194Z"
+}
