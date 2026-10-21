@@ -4,6 +4,8 @@
 
 **已完成可验证的离线修复，停在真实模型审核关口；本轮付费调用 0、费用 $0。** 产品修复 `affbc10`，离线审计脚本修正 `cbe97ae`。旧 M1 输出只留哈希／形状，原回答片段无法补交；该项明确未满足，见附表 F。32K 满载必需内容超过现有比例，调整方案见附表 G，尚未实施。不开第 7 步、不迁日用。
 
+**本次续办范围**：人类用户在本聊天 `call_d63c40a1d4694272ae409dcd50c9aab9` 的第0项回复“按最新 @8dd7bae 前三项继续”。对干净的 `21385ba` 复核前两项，并补交 M1 受控离线诊断；新增产品／测试源码均为0行，来源及关键值校验不变。第三项要求的历史原回答仍缺失，不能标为全部完成。
+
 `context-blocks.ts`／`context-compactor.ts` 以确定性投影替代整层省略：先减最旧段成功行动／文件用途等细节，仍超额则压缩封装、合并逐字相同的条款；保留全部目标、约束、决定（含状态）、待办、未执行行动／下一步及不透明索引原文。索引只删除与保留条款逐字相同的行，宿主不猜语义。权限与 unknown 仍来自宿主清单。源记录不改，超额必需内容不截断、不借近期额度，明确报容量失败。
 
 模型输出边界只对集合字段做“单对象包数组”或“仅含 items 的数组外壳移除”；每次操作记录字段和操作名，成功、语义拒绝、预算拒绝均可诊断。存档记录仍按其严格结构读取。`cm-step6-live.mjs` 更新下一批目标匹配、每后台项归一化证据及相对 ledgerPath；预算仍为 $2，未启动新轮。
@@ -14,11 +16,11 @@
 |---|---|
 | 1 32K 摘要不整块省略 | 已做：`CE05 1248 total minus 193 checklist…` 用总1248／清单193复现原分支，保留目标、确认决定、待办及权限；两条基线回归0过/2失败，修复后定向34/34。旧段缩减后1154≤1248；无模型请求 |
 | 2 两种确定性归一化 | 已做：`recorded single-object constraints normalize…` 和 `recorded array shape failures…` 覆盖 CF03 `f8a6e024`、CF05 `f39f467e`、CE03 `f803f9e8` 所记录的单对象形状，以及 `b8b55e6e` 的 items 外壳。goal数组、混合外壳、非法decision状态、超段预算仍拒绝；内容不改 |
-| 3 M1 逐例诊断＋原回答片段 | **部分完成**：逐行列出全部7失败（replay-9两档＋其余5行），保留原错误、输出哈希和结构；原文未保存，片段无法恢复，不能完成证据级归因。来源／关键值校验、M1 Oracle、旧分数均未改；见附表 F |
+| 3 M1 逐例诊断＋原回答片段 | **部分完成**：全部7失败（replay-9两档＋其余5行）逐行列出；新增受控诊断在两档复现漏proposal及矛盾正文拒绝，另核对两种关键值拒绝、三种身份分组。原文未保存，片段无法恢复，仍不能完成全部证据级归因。来源／关键值校验、M1 Oracle、旧分数均未改；见附表 F |
 | 4 32K 必须内容容量 | 已做评估：真实 fixture 的目标等必须信息可装下；合法满段边界1408，带UUID/时间范围1632>1248。已交1664方案及前后额度，待批准，见附表 G |
 | 用户决定：限定词目标匹配 | 已做：只用于新批次；“完成验收主项目的验收报告”等正例，以及未知、否定、不同项目、只审阅报告等反例。旧成绩不重算 |
 | ledgerPath／D/E出处 | 已做：新证据保存 `docs/v2-pilot/evidence/cost-ledger.json`；latest 为只改路径的派生视图，有原始文件及SHA，原始attempt和账本SHA不动。D/E写明人类用户及本聊天具体reply ID |
-| 本轮验证及停审 | macOS／UTC：全套1783通过／0失败／11跳过，eval83/83，真实Electron冒烟8/8（假模型、原preload/IPC），8张截图一致，脚本SHA未变；审核通过前不付费。拟议下一整批预算及成本见附表 H |
+| 本轮验证及停审 | 干净的21385ba，macOS／UTC：全套1783通过／0失败／11跳过，eval83/83；首次runner的冒烟被新诊断证据造成的脏目录阻止，保留失败记录，移出产物后独立重跑真实Electron8/8（假模型、原preload/IPC），8图逐张核对、脚本SHA未变。审核通过前不付费；预估见附表 H |
 
 ## 3. 前后数字
 
@@ -28,6 +30,8 @@
 
 历史实模成绩保持：M1 **11/18**、CF03 **0/3**、CF05 **2/5**、CE03 **0/3**、CE05 **0/5**；145调用均HTTP200、有用量且无response_format。历史合批占用 **$1.29894714**（含未知预留$0.0013248），计划累计含预留 **$1.65894714/$5**；本轮未改账本金额。
 
+本次相对21385ba只改报告和运行证据，产品源码0行、测试源码0行；M1受控抽取4次均为假模型，两种关键值拒绝及三种分组为直接离线调用。它们证明触发路径，不是新真实模型成绩。
+
 ## 4. 实际命令和退出码
 
 - 基线压缩器／解析器＋当前回归：`node --test --test-name-pattern="CE05 1248|recorded single-object" packages/assistant/dist/context-compactor.test.js` → **1（预期，两条复现失败）**；只加诊断类型和空getter以编译当前测试，产品行为来自8dd7bae，见[基线证据](evidence/cm-step6/regression-red.json)。
@@ -36,7 +40,15 @@
 - `gh issue list --state all --search 'experiment/architecture-v2 审核记录 in:title' --json number,title,url,author` → **0，[]**。授权出处为本聊天用户原回复。
 - 未运行付费命令。原始失败批次为[固定原始attempt](evidence/cm-step6/live-7c5b4116-0378-4286-afc2-ac9b00eafe0b.json)；[latest派生视图](evidence/cm-step6/live.json)只改ledgerPath并标来源SHA，成绩／调用／原时间／源码均保持；[费用账本](evidence/cost-ledger.json)保持原值。旧CF05正则参考重算[reference](evidence/cm-step6/cf05-reference.json)仍不算通过。
 
-首次统一runner在 `affbc10` 上的全套1783/0/11、eval83/83及真实Electron8/8均过，但最后离线审计退出1：git status被`trim()`移除了首行状态空格，误把仅证据变化当作源码脏。已保存[首次失败报告](evidence/cm-step6/verification-affbc10-failed.json)，`cbe97ae`改为`trimEnd()`，重新跑统一runner；不把首次runner说成全通过。
+本次续办的实际命令：
+
+- `node --test --test-name-pattern='CE05 1248|recorded single-object|recorded array shape|new-batch goal|pastRead' packages/assistant/dist/context-compactor.test.js packages/assistant/dist/context-compaction.test.js examples/eval/cm-step6-live.test.mjs` → **0（6/6）**；只复核既有回归，未改断言。
+- `node --input-type=module` 的受控M1诊断 → **0**；4次假模型抽取、2种关键值错误、3种身份分组的输入与断言结果见[M1诊断](evidence/cm-step6/m1-offline-diagnosis.json)。所有历史片段字段明确为null。
+- `node packages/assistant/scripts/cm-step6-verify.mjs` → **1**；其中typecheck、全套1783/0/11、eval83/83均退出0，但运行期间生成了未提交的诊断证据，冒烟在启动前被干净目录门禁拒绝。保留[失败runner](evidence/cm-step6/verification-21385ba-dirty-failed.json)，不改成通过。
+- 将本次诊断及失败runner移到临时目录、恢复原验证文件，确认`git status --porcelain`为空后，`TZ=UTC pnpm --filter @serika/desktop smoke` → **0，8/8**；[独立干净冒烟](evidence/cm-step6/verification-clean-smoke.json)另有runId，源码仍为21385ba。8图逐张核对，临时目录已清理；没有重复已通过的全套测试，也未合并两轮运行字段。
+- `node examples/eval/cm-step6-offline-audit.mjs` → **0**；重新核对1248/193容量及7行旧M1失败，结论未变。
+
+此前统一runner在 `affbc10` 上的全套1783/0/11、eval83/83及真实Electron8/8均过，但最后离线审计退出1：git status被`trim()`移除了首行状态空格，误把仅证据变化当作源码脏。已保存[此前失败报告](evidence/cm-step6/verification-affbc10-failed.json)，`cbe97ae`改为`trimEnd()`，重新跑统一runner；不把此前runner说成全通过。
 
 ## 5. 与计划不符的地方及理由
 
@@ -151,6 +163,15 @@ D/E既有授权、14行旧记忆裁决及第7步清单保留在下方；未执�
 `memory-write.ts`、`memory-extraction.ts`和M1断言本轮未改。离线源码另发现replay检查是`entries.every(text.includes(question))`，空集合也true；因此这两行`checks.saved=true`不能解释为已保存，`completed=false`仍使原总分失败。后续若调整Oracle，应另列新批次版本，保留旧分，且先把重放期望绑定到冻结来源中的具体长期信息。
 
 **未满足项与后续条件**：旧回答原文没有保存在仓库，临时目录已清理；从哈希不可逆恢复。本轮不能交付要求的“原回答片段”，逐例根因也仅到上述证据支持的范围。未来整批前应先确定可持久化的脱敏原回答片段格式（特别是个人对话replay-9），再运行；本轮没有借诊断名义新增模型调用。
+
+**本次补交的受控诊断**（[完整输入与结果](evidence/cm-step6/m1-offline-diagnosis.json)）：
+
+- 从现有confirmation fixture只去掉`proposal`，两档均复现completed=true、saved=true、confirmation=false。宿主仅在字段存在时检查相邻提议；提示／schema／宿主之间的缺口可复现。它不能证明历史回答正文的其他值正确，也不将这个缺口改成新的确认式识别规则。
+- 在现有uncertain fixture正文前加前缀，保留来源与关键值，两档均报“同句矛盾必须完整保留证据中的原话”。这是历史32K错误的一种可复现原因，不声称历史输出就加了这个前缀。
+- 构造“value不在来源中”和“value不在正文中”，两者都报同一关键值错误。因此原诊断文字不足以分辨replay-9或日用uncertain是哪一侧不匹配；不能据此放宽校验。
+- 同scope/subject/attribute、异value产生冲突；不同attribute或相同value均不产生冲突。历史记录只保留字段类型，无法重建这几个实际值。冲突用例的时间／双有效性期望仍需对照原回答，不能把合成分组当作历史输出。
+
+以上均为受控离线输出，证据中明确标注，不是缺失的真实原回答片段。**第三项仍部分未满足，停在此关口交审**；不借本次续办修改来源校验、M1用例期望或历史成绩。
 
 ### 附表 G：32K 容量测量与待批准方案
 

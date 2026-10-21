@@ -1,0 +1,44 @@
+{
+  "runId": "5b274ef3-a73c-4e09-89d7-38868d1986b6",
+  "generatedAt": "2026-10-21T14:40:19.703Z",
+  "sourceCommit": "21385ba4868363594048a0cb700246dc242236ef",
+  "sourceWorktreeDirty": true,
+  "productSourceChanged": false,
+  "testSourceChanged": false,
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "auditedPaths": [
+    "docs/v2-pilot/cm-step6.md",
+    "docs/v2-pilot/evidence/cm-step6/live.json",
+    "docs/v2-pilot/evidence/cm-step6/offline-audit.json",
+    "docs/v2-pilot/evidence/electron-smoke/cm-step6-run.json",
+    "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png",
+    "docs/v2-pilot/evidence/electron-smoke/restart-persistence.png",
+    "docs/v2-pilot/evidence/electron-smoke/result.json",
+    "docs/v2-pilot/evidence/cm-step6/m1-offline-diagnosis.json",
+    "docs/v2-pilot/evidence/cm-step6/verification-21385ba-dirty-failed.json",
+    "docs/v2-pilot/evidence/cm-step6/verification-clean-smoke.json"
+  ],
+  "hashes": {
+    "docs/v2-pilot/cm-step6.md": "43e2b2517e1d1dc5f914a04ac685a57b9387a16ca52d35c11e805a165dbfb16d",
+    "docs/v2-pilot/evidence/cm-step6/live.json": "72041bc2e8a95b4b96487dcfb3c6c6fbd4ba98046eb32cc0910774f031be84af",
+    "docs/v2-pilot/evidence/cm-step6/offline-audit.json": "deb5801d1acfc7bdd53a50f0f6085c63571801e9751352b85a3ca0350f95f57a",
+    "docs/v2-pilot/evidence/electron-smoke/cm-step6-run.json": "598f15de3c4de45176801a1a2cb83f52e46a16ad38ef770f60cd593a2adf035c",
+    "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png": "05bd1478438739e0d745b03cf4555114969a818319a36bcecaee8d6444a4ce59",
+    "docs/v2-pilot/evidence/electron-smoke/restart-persistence.png": "e93e5cf3e0ec6f81f05e6a13cf858b8dabc4d6d03eb046310ecdf11913432347",
+    "docs/v2-pilot/evidence/electron-smoke/result.json": "19987b34edd2608b42504a0a001a84b0f26237653816c621e7d93f57c5fc47ff",
+    "docs/v2-pilot/evidence/cm-step6/m1-offline-diagnosis.json": "d061516225f97a2aa4b4013392c174fc0f73d292f95f7f7ee08de2ce1a427c35",
+    "docs/v2-pilot/evidence/cm-step6/verification-21385ba-dirty-failed.json": "c7c373d57daa1f00bcbdb4fe4b0587a51822a4e2b0b573fb87fead2cac1292aa",
+    "docs/v2-pilot/evidence/cm-step6/verification-clean-smoke.json": "352098093a528439b63f65fc4d0a9d8280f539cf3ce9b1997a3ab6bf5c0af3bf"
+  },
+  "immutableHashes": {
+    "docs/v2-pilot/evidence/cost-ledger.json": "5349cfdc74ac4eeeb3a63f3ad7fb90c1a7ae01872a24af19b9c961cbc177433d",
+    "docs/v2-pilot/evidence/cm-step6/live-7c5b4116-0378-4286-afc2-ac9b00eafe0b.json": "8e99d42859cbd53121953305815e51756e02cd39f83ebf052514ef53cb5fee3d",
+    "apps/desktop/scripts/electron-smoke.mjs": "9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f"
+  },
+  "credentialPrefixScan": {
+    "textFiles": 8,
+    "findings": 0
+  },
+  "status": "passed"
+}

@@ -1,0 +1,489 @@
+{
+  "runId": "929da218-3f4a-4eaf-b782-559649bf47be",
+  "generatedAt": "2026-10-21T14:32:26.958Z",
+  "sourceCommit": "21385ba4868363594048a0cb700246dc242236ef",
+  "platform": "darwin",
+  "artifactKind": "controlled offline diagnosis; synthetic responses are not historical model excerpts",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "source": "docs/v2-pilot/evidence/cm-step6/live-7c5b4116-0378-4286-afc2-ac9b00eafe0b.json",
+  "sourceSha256": "8e99d42859cbd53121953305815e51756e02cd39f83ebf052514ef53cb5fee3d",
+  "historicalScoresChanged": false,
+  "validatorChanged": false,
+  "controlledExtraction": {
+    "fixtures": [
+      {
+        "id": "confirmation",
+        "messages": [
+          {
+            "id": "a",
+            "role": "assistant",
+            "parts": [
+              {
+                "type": "text",
+                "text": "以后使用中文"
+              }
+            ]
+          },
+          {
+            "id": "u",
+            "role": "user",
+            "parts": [
+              {
+                "type": "text",
+                "text": "是的，以后使用中文"
+              }
+            ]
+          }
+        ],
+        "proposals": [
+          {
+            "operation": "add",
+            "category": "preference",
+            "text": "以后使用中文",
+            "sourceMessageId": "u",
+            "sourceQuote": "是的，以后使用中文",
+            "identity": {
+              "subject": "user",
+              "attribute": "language",
+              "value": "中文"
+            }
+          }
+        ],
+        "saved": 1,
+        "confirmed": true
+      },
+      {
+        "id": "uncertain",
+        "messages": [
+          {
+            "id": "u",
+            "role": "user",
+            "parts": [
+              {
+                "type": "text",
+                "text": "我喜欢甜咖啡，但我又不喜欢甜咖啡"
+              }
+            ]
+          }
+        ],
+        "proposals": [
+          {
+            "operation": "add",
+            "category": "preference",
+            "text": "[不确定] 我喜欢甜咖啡，但我又不喜欢甜咖啡",
+            "sourceMessageId": "u",
+            "sourceQuote": "我喜欢甜咖啡，但我又不喜欢甜咖啡",
+            "uncertain": true,
+            "identity": {
+              "subject": "user",
+              "attribute": "coffee",
+              "value": "我喜欢甜咖啡，但我又不喜欢甜咖啡"
+            }
+          }
+        ],
+        "saved": 1,
+        "uncertain": true
+      }
+    ],
+    "fixture": true,
+    "planned": 4,
+    "stopped": false,
+    "passed": false,
+    "calls": 0,
+    "fixtureCalls": 4,
+    "costUsd": 0,
+    "results": [
+      {
+        "case": "confirmation",
+        "window": "32k",
+        "fixture": true,
+        "sourceHash": "jcs-sha256:v1:e248e60b4bf3f98f35d938f5a6e2485f28955b9ef236bff30e3f177ebbe0bb4a",
+        "rows": [
+          {
+            "inputHash": "jcs-sha256:v1:ef10d73258533c1ac0522704141abdf0da0505ece695e3672219ac81ad7280ae",
+            "inputBound": 2595,
+            "status": "returned",
+            "usage": {
+              "inputTokens": {
+                "total": 0
+              },
+              "outputTokens": {
+                "total": 0
+              }
+            },
+            "outputHash": "jcs-sha256:v1:06f7500c1500f3196eeb9c5d96401f1264e7e586810e8da50005118472267af0",
+            "durationMs": 0.35512500000001523
+          }
+        ],
+        "diagnostics": {
+          "running": false,
+          "calls": 1,
+          "completed": 1,
+          "failed": 0,
+          "cancelled": 0,
+          "durationMs": 99,
+          "pendingSegments": 0
+        },
+        "checks": {
+          "completed": true,
+          "singleCall": true,
+          "saved": true,
+          "conflicts": true,
+          "confirmation": false,
+          "uncertain": true
+        },
+        "passed": false
+      },
+      {
+        "case": "uncertain",
+        "window": "32k",
+        "fixture": true,
+        "sourceHash": "jcs-sha256:v1:222bd528446ea431540490391b56cea0c5ee3d1024fa95f09e50a699e37b0128",
+        "rows": [
+          {
+            "inputHash": "jcs-sha256:v1:1c4d9167fca0429f8c728d8627126c204499fa2d7a667f67a6d4696385699ca3",
+            "inputBound": 2496,
+            "status": "returned",
+            "usage": {
+              "inputTokens": {
+                "total": 0
+              },
+              "outputTokens": {
+                "total": 0
+              }
+            },
+            "outputHash": "jcs-sha256:v1:aca05618f3569d6ba20c80e16d6f68407adaeeafcf15abaaa54a3bd5c13b234c",
+            "durationMs": 0.11283399999999233
+          }
+        ],
+        "diagnostics": {
+          "running": false,
+          "calls": 1,
+          "completed": 0,
+          "failed": 1,
+          "cancelled": 0,
+          "durationMs": 72,
+          "pendingSegments": 0,
+          "error": "同句矛盾必须完整保留证据中的原话"
+        },
+        "checks": {
+          "completed": false,
+          "singleCall": true,
+          "saved": false,
+          "conflicts": true,
+          "confirmation": true,
+          "uncertain": false
+        },
+        "passed": false
+      },
+      {
+        "case": "confirmation",
+        "window": "daily",
+        "fixture": true,
+        "sourceHash": "jcs-sha256:v1:e248e60b4bf3f98f35d938f5a6e2485f28955b9ef236bff30e3f177ebbe0bb4a",
+        "rows": [
+          {
+            "inputHash": "jcs-sha256:v1:ef10d73258533c1ac0522704141abdf0da0505ece695e3672219ac81ad7280ae",
+            "inputBound": 2595,
+            "status": "returned",
+            "usage": {
+              "inputTokens": {
+                "total": 0
+              },
+              "outputTokens": {
+                "total": 0
+              }
+            },
+            "outputHash": "jcs-sha256:v1:06f7500c1500f3196eeb9c5d96401f1264e7e586810e8da50005118472267af0",
+            "durationMs": 0.09100000000000819
+          }
+        ],
+        "diagnostics": {
+          "running": false,
+          "calls": 1,
+          "completed": 1,
+          "failed": 0,
+          "cancelled": 0,
+          "durationMs": 66,
+          "pendingSegments": 0
+        },
+        "checks": {
+          "completed": true,
+          "singleCall": true,
+          "saved": true,
+          "conflicts": true,
+          "confirmation": false,
+          "uncertain": true
+        },
+        "passed": false
+      },
+      {
+        "case": "uncertain",
+        "window": "daily",
+        "fixture": true,
+        "sourceHash": "jcs-sha256:v1:222bd528446ea431540490391b56cea0c5ee3d1024fa95f09e50a699e37b0128",
+        "rows": [
+          {
+            "inputHash": "jcs-sha256:v1:1c4d9167fca0429f8c728d8627126c204499fa2d7a667f67a6d4696385699ca3",
+            "inputBound": 2496,
+            "status": "returned",
+            "usage": {
+              "inputTokens": {
+                "total": 0
+              },
+              "outputTokens": {
+                "total": 0
+              }
+            },
+            "outputHash": "jcs-sha256:v1:aca05618f3569d6ba20c80e16d6f68407adaeeafcf15abaaa54a3bd5c13b234c",
+            "durationMs": 0.11258299999997234
+          }
+        ],
+        "diagnostics": {
+          "running": false,
+          "calls": 1,
+          "completed": 0,
+          "failed": 1,
+          "cancelled": 0,
+          "durationMs": 66,
+          "pendingSegments": 0,
+          "error": "同句矛盾必须完整保留证据中的原话"
+        },
+        "checks": {
+          "completed": false,
+          "singleCall": true,
+          "saved": false,
+          "conflicts": true,
+          "confirmation": true,
+          "uncertain": false
+        },
+        "passed": false
+      }
+    ]
+  },
+  "keyValueProbes": [
+    {
+      "name": "value_not_in_source",
+      "syntheticInput": {
+        "operation": "add",
+        "category": "note",
+        "text": "我家地址是上海市甲路18号",
+        "sourceQuote": "我家地址是上海市甲路18号",
+        "identity": {
+          "subject": "user",
+          "attribute": "home_address",
+          "value": "上海市乙路18号"
+        }
+      },
+      "error": "记忆关键值必须逐字出现在绑定原话与正文中"
+    },
+    {
+      "name": "value_not_in_body",
+      "syntheticInput": {
+        "operation": "add",
+        "category": "note",
+        "text": "用户家庭地址：上海市乙路18号",
+        "sourceQuote": "我家地址是上海市甲路18号",
+        "identity": {
+          "subject": "user",
+          "attribute": "home_address",
+          "value": "上海市甲路18号"
+        }
+      },
+      "error": "记忆关键值必须逐字出现在绑定原话与正文中"
+    }
+  ],
+  "conclusions": [
+    {
+      "case": "confirmation",
+      "window": "32k",
+      "outputHash": "jcs-sha256:v1:93b001eed6f3632fe55612c82cba4ebfb83690c963359795aff7d31bb72d9248",
+      "diagnostic": null,
+      "failedChecks": [
+        "confirmation"
+      ],
+      "originalResponseAvailable": false,
+      "originalExcerpt": null,
+      "classification": "prompt/schema/host contract gap confirmed; raw historical values unavailable"
+    },
+    {
+      "case": "uncertain",
+      "window": "32k",
+      "outputHash": "jcs-sha256:v1:448903d8a0a5244bf12631ead727b0217644d148220f3d9ef3451951d968c666",
+      "diagnostic": "同句矛盾必须完整保留证据中的原话",
+      "failedChecks": [
+        "completed",
+        "saved",
+        "uncertain"
+      ],
+      "originalResponseAvailable": false,
+      "originalExcerpt": null,
+      "classification": "output violated the approved exact contradictory statement contract; exact edit unavailable"
+    },
+    {
+      "case": "replay-9",
+      "window": "32k",
+      "outputHash": "jcs-sha256:v1:bdaf965e649d34ca55ded33bcb1fffc5679ce376ebc48ce7d3ca7b3d17765eff",
+      "diagnostic": "记忆关键值必须逐字出现在绑定原话与正文中",
+      "failedChecks": [
+        "completed"
+      ],
+      "originalResponseAvailable": false,
+      "originalExcerpt": null,
+      "classification": "literal-value validation rejected; sourceQuote/value/text mismatch location unresolved without historical values"
+    },
+    {
+      "case": "confirmation",
+      "window": "daily",
+      "outputHash": "jcs-sha256:v1:3588201d10166f2331b53d756e405d4fbd4294189b964246140a8aba7899775e",
+      "diagnostic": null,
+      "failedChecks": [
+        "confirmation"
+      ],
+      "originalResponseAvailable": false,
+      "originalExcerpt": null,
+      "classification": "prompt/schema/host contract gap confirmed; raw historical values unavailable"
+    },
+    {
+      "case": "conflict",
+      "window": "daily",
+      "outputHash": "jcs-sha256:v1:e28a848593cc73f3ec2812f68765d69c87d67c3d3c5dd01ecfb9ad6c6a92c8bf",
+      "diagnostic": null,
+      "failedChecks": [
+        "conflicts"
+      ],
+      "originalResponseAvailable": false,
+      "originalExcerpt": null,
+      "classification": "identity grouping / chronological expectation unresolved without historical values"
+    },
+    {
+      "case": "uncertain",
+      "window": "daily",
+      "outputHash": "jcs-sha256:v1:cd104d33065d352ebf52f5452eef6e5c80703a03dc915abc3f2ddb21db53576b",
+      "diagnostic": "记忆关键值必须逐字出现在绑定原话与正文中",
+      "failedChecks": [
+        "completed",
+        "saved",
+        "uncertain"
+      ],
+      "originalResponseAvailable": false,
+      "originalExcerpt": null,
+      "classification": "literal-value validation rejected; sourceQuote/value/text mismatch location unresolved without historical values"
+    },
+    {
+      "case": "replay-9",
+      "window": "daily",
+      "outputHash": "jcs-sha256:v1:a07a509c40927fce77714103b205c363799306f8127b2bee0fd82523d47449e2",
+      "diagnostic": "记忆关键值必须逐字出现在绑定原话与正文中",
+      "failedChecks": [
+        "completed"
+      ],
+      "originalResponseAvailable": false,
+      "originalExcerpt": null,
+      "classification": "literal-value validation rejected; sourceQuote/value/text mismatch location unresolved without historical values"
+    }
+  ],
+  "unmetRequirement": "Original M1 model response excerpts were never retained in the attempt. Hashes and shapes cannot recover the missing field values; no paid calls were made to replace this evidence.",
+  "identityGroupingProbes": [
+    {
+      "name": "same_attribute_distinct_values",
+      "entries": [
+        {
+          "id": "a",
+          "state": "active",
+          "scope": {
+            "kind": "workspace"
+          },
+          "identity": {
+            "subject": "user",
+            "attribute": "coffee",
+            "value": "不加糖"
+          }
+        },
+        {
+          "id": "b",
+          "state": "active",
+          "scope": {
+            "kind": "workspace"
+          },
+          "identity": {
+            "subject": "user",
+            "attribute": "coffee",
+            "value": "加糖"
+          }
+        }
+      ],
+      "expected": 1,
+      "actual": [
+        [
+          "a",
+          "b"
+        ]
+      ]
+    },
+    {
+      "name": "distinct_attributes",
+      "entries": [
+        {
+          "id": "a",
+          "state": "active",
+          "scope": {
+            "kind": "workspace"
+          },
+          "identity": {
+            "subject": "user",
+            "attribute": "coffee_style",
+            "value": "不加糖"
+          }
+        },
+        {
+          "id": "b",
+          "state": "active",
+          "scope": {
+            "kind": "workspace"
+          },
+          "identity": {
+            "subject": "user",
+            "attribute": "coffee_taste",
+            "value": "加糖"
+          }
+        }
+      ],
+      "expected": 0,
+      "actual": []
+    },
+    {
+      "name": "same_literal_value",
+      "entries": [
+        {
+          "id": "a",
+          "state": "active",
+          "scope": {
+            "kind": "workspace"
+          },
+          "identity": {
+            "subject": "user",
+            "attribute": "coffee",
+            "value": "咖啡"
+          }
+        },
+        {
+          "id": "b",
+          "state": "active",
+          "scope": {
+            "kind": "workspace"
+          },
+          "identity": {
+            "subject": "user",
+            "attribute": "coffee",
+            "value": "咖啡"
+          }
+        }
+      ],
+      "expected": 0,
+      "actual": []
+    }
+  ],
+  "identityGroupingConclusion": "The conflict check depends on exact scope/subject/attribute/value. Historical output shapes do not retain those values, so different valid shapes can give the same missing-conflict result. These are synthetic probes, not the lost historical outputs."
+}

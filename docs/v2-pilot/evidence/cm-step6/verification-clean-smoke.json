@@ -1,0 +1,175 @@
+{
+  "runId": "84d00214-35b3-4375-8610-6bb097b584aa",
+  "startedAt": "2026-10-21T14:36:11.055Z",
+  "platform": "darwin",
+  "timeZone": "UTC",
+  "sourceCommit": "21385ba4868363594048a0cb700246dc242236ef",
+  "sourceWorktreeDirty": false,
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "status": "passed",
+  "command": {
+    "command": [
+      "pnpm",
+      "--filter",
+      "@serika/desktop",
+      "smoke"
+    ],
+    "exitCode": 0,
+    "signal": null,
+    "outputSha256": "f6d64666a70d3ac3a1779e0b916b55bd80519d1e85bdc8597d26e0b67712f2de",
+    "outputBytes": 3016
+  },
+  "smoke": {
+    "file": "docs/v2-pilot/evidence/electron-smoke/result.json",
+    "sha256": "19987b34edd2608b42504a0a001a84b0f26237653816c621e7d93f57c5fc47ff",
+    "checks": [
+      {
+        "name": "startup",
+        "result": "passed",
+        "unexpectedErrors": 0,
+        "expectedErrors": [],
+        "observedErrorCount": 0,
+        "screenshot": {
+          "file": "startup.png",
+          "sha256": "434b09b0417fa8622c75340d9d6c42843901bb9ed8fd30df2ced1ec5073a34f8"
+        }
+      },
+      {
+        "name": "chat-reply",
+        "result": "passed",
+        "unexpectedErrors": 0,
+        "expectedErrors": [],
+        "observedErrorCount": 0,
+        "screenshot": {
+          "file": "chat-reply.png",
+          "sha256": "1a8ea49b0e7918c60d15405f1c8ce104f5b0037a0c505d53b05f565f6f5139c3"
+        }
+      },
+      {
+        "name": "remember-success-receipt",
+        "result": "passed",
+        "source": "v6-record",
+        "undoAvailable": true,
+        "unexpectedErrors": 0,
+        "expectedErrors": [],
+        "observedErrorCount": 0,
+        "screenshot": {
+          "file": "remember-success-receipt.png",
+          "sha256": "515b601d876e9e22d24a63590a54922dfc57c309c4210136b2d099887678baf6"
+        }
+      },
+      {
+        "name": "remember-on-memory-page",
+        "result": "passed",
+        "unexpectedErrors": 0,
+        "expectedErrors": [],
+        "observedErrorCount": 0,
+        "screenshot": {
+          "file": "remember-on-memory-page.png",
+          "sha256": "05bd1478438739e0d745b03cf4555114969a818319a36bcecaee8d6444a4ce59"
+        }
+      },
+      {
+        "name": "restart-persistence",
+        "result": "passed",
+        "unexpectedErrors": 0,
+        "expectedErrors": [],
+        "observedErrorCount": 0,
+        "screenshot": {
+          "file": "restart-persistence.png",
+          "sha256": "e93e5cf3e0ec6f81f05e6a13cf858b8dabc4d6d03eb046310ecdf11913432347"
+        }
+      },
+      {
+        "name": "undo-disappears",
+        "result": "passed",
+        "unexpectedErrors": 0,
+        "expectedErrors": [],
+        "observedErrorCount": 0,
+        "screenshot": {
+          "file": "undo-disappears.png",
+          "sha256": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0"
+        }
+      },
+      {
+        "name": "daily-path-refuses-writes",
+        "result": "passed",
+        "unexpectedErrors": 0,
+        "expectedErrors": [
+          "实验版本拒绝写入日用数据目录"
+        ],
+        "observedErrorCount": 1,
+        "screenshot": {
+          "file": "daily-path-refuses-writes.png",
+          "sha256": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e"
+        }
+      },
+      {
+        "name": "daily-config-retired-fields",
+        "result": "passed",
+        "configSource": "样例",
+        "retiredFields": [
+          "modules.memory.queryRewrite",
+          "modules.memory.semantic",
+          "modules.memory.contextView",
+          "contextCompaction.mode",
+          "contextCompaction.warningRatio",
+          "herdrBinding",
+          "telegramAutonomy.toolApproval"
+        ],
+        "unexpectedErrors": 0,
+        "expectedErrors": [
+          "Invalid TUI config schema"
+        ],
+        "observedErrorCount": 1,
+        "screenshot": {
+          "file": "daily-config-retired-fields.png",
+          "sha256": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9"
+        }
+      }
+    ],
+    "screenshots": [
+      {
+        "file": "startup.png",
+        "sha256": "434b09b0417fa8622c75340d9d6c42843901bb9ed8fd30df2ced1ec5073a34f8"
+      },
+      {
+        "file": "chat-reply.png",
+        "sha256": "1a8ea49b0e7918c60d15405f1c8ce104f5b0037a0c505d53b05f565f6f5139c3"
+      },
+      {
+        "file": "remember-success-receipt.png",
+        "sha256": "515b601d876e9e22d24a63590a54922dfc57c309c4210136b2d099887678baf6"
+      },
+      {
+        "file": "remember-on-memory-page.png",
+        "sha256": "05bd1478438739e0d745b03cf4555114969a818319a36bcecaee8d6444a4ce59"
+      },
+      {
+        "file": "restart-persistence.png",
+        "sha256": "e93e5cf3e0ec6f81f05e6a13cf858b8dabc4d6d03eb046310ecdf11913432347"
+      },
+      {
+        "file": "undo-disappears.png",
+        "sha256": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0"
+      },
+      {
+        "file": "daily-path-refuses-writes.png",
+        "sha256": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e"
+      },
+      {
+        "file": "daily-config-retired-fields.png",
+        "sha256": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9"
+      }
+    ],
+    "scriptSha256": "9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f"
+  },
+  "previousAttempt": {
+    "file": "docs/v2-pilot/evidence/cm-step6/verification-21385ba-dirty-failed.json",
+    "sha256": "c7c373d57daa1f00bcbdb4fe4b0587a51822a4e2b0b573fb87fead2cac1292aa",
+    "note": "Previous full test and eval commands passed at the same source commit; its smoke stopped before Electron launch because an untracked diagnostic evidence file had been created. This is a separate clean smoke run, not a revised score for that failed attempt."
+  },
+  "temporaryDirectoryRemoved": true,
+  "finishedAt": "2026-10-21T14:36:21.319Z"
+}

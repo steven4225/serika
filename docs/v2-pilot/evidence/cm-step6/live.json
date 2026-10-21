@@ -20705,8 +20705,8 @@
   "projection": {
     "source": "docs/v2-pilot/evidence/cm-step6/live-7c5b4116-0378-4286-afc2-ac9b00eafe0b.json",
     "sourceSha256": "8e99d42859cbd53121953305815e51756e02cd39f83ebf052514ef53cb5fee3d",
-    "generatedAt": "2026-10-21T14:13:56.843Z",
-    "sourceCommit": "cbe97ae18f82075d1fb3694b527964c51768f642",
+    "generatedAt": "2026-10-21T14:37:09.896Z",
+    "sourceCommit": "21385ba4868363594048a0cb700246dc242236ef",
     "change": "Repository-relative ledgerPath only; original run metadata, calls, usage and scores unchanged."
   }
 }
