@@ -51,3 +51,7 @@
 
 - 当前 Command Code `deepseek/deepseek-v4.1-flash-fast` 路由没有查到明确缓存 TTL；不要拿直连 DeepSeek 的“数小时至数天”代替路由保证。第 3 步以真实 cacheRead/input 验收；补查 TTL 需要服务方证据，本轮未发计费探测。
 - 旧摘要最大 33,493 估算 tokens；沿用旧边界时 32K 档 176/211 次超过有效输入 26,624。按计划第 5/6 步完成摘要精简与按比例块屏蔽后重放，不能把本次 94.79% 理论前缀比例当作小窗口通过。
+
+## G. 上下文/记忆第 3 步切换日用前
+
+- 日用配置若含已退役的 `modules.memory.queryRewrite`、`semantic`（含 relevance）、`contextView` 或 `contextCompaction.mode/warningRatio` 字段，实验版本的严格配置校验会启动报错。切换日用前须在配置副本中处理这些字段并验证启动；本步不修改日用配置，不加旧字段兼容开关。
