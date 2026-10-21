@@ -78,7 +78,7 @@
 | 13 / 8291bb0f | 工作区 | automationRefresh/reconnecting 不回退及文档先例任务 | 移到项目决策记录，不进个人记忆 |
 | 14 / ba71d2c9 | 工作区 | 把连续相同错误只显示一次写入测试注释／pending | 丢弃不迁；未完成则记入待办 |
 
-### 本轮审核修复（56ad8d7 后，结果由新 runner 生成）
+### 本轮审核修复（56ad8d7 后）
 
 - 必改 1：无原文失败诊断记录 HTTP 状态、错误名称／码、结束原因、schema 路径；每个后台项在调用后即写证据，CF03 的失败不再依赖空 rounds。`safeFailure` 测试使用敏感哨兵验证日志无原文。
 - 参数核查：[服务商文档](https://commandcode.ai/docs/provider) 确认 Chat Completions 兼容，但未承诺该模型严格 schema 输出。本产品使用普通文本请求，JSON Schema 仅在提示词中；真实适配器的边界测试确认无 `response_format` 和工具。新实模证据另记实际 HTTP 请求字段，不能把约 2.8→4.6KB 的提示词增长说成新增结构化参数。
@@ -100,3 +100,5 @@
 | `bindMemoryWrite`、自动抽取、导入、新建文档 | 已固定 workspace；第 7 步去掉旧 scope 类型和调用参数，不新增第二条写路径 |
 
 未执行迁移：长期保留 1、9、12；10、11、13 移项目文档；2–8、14 丢弃，原聊天保持。第 7 步须在真实模型验收通过并获准后，交迁移前后对照证据。
+
+本轮离线最终验证：干净 `6f2193e`，macOS 构建 Electron，UTC 全套 1776 通过／0 失败／11 跳过，eval81/81，真实 Electron8/8；smoke脚本SHA不变。统一 runner退出0。真实模型整批重跑尚待本轮独立证据。

@@ -1,12 +1,12 @@
 {
-  "runId": "2a9820b2-9a9b-485d-8c11-c101f1211f0c",
-  "startedAt": "2026-10-21T11:31:49.197Z",
+  "runId": "5683b3ae-5e35-4266-920c-e5ebbe6b03c7",
+  "startedAt": "2026-10-21T11:36:53.057Z",
   "platform": "darwin",
   "process": {
     "node": "v26.4.0",
-    "pid": 62937
+    "pid": 79037
   },
-  "sourceCommit": "1db5a5cab6b71ba9c5dceabccdb226137f8aac54",
+  "sourceCommit": "6f2193ef391496096d53cb771739984ebbbd522e",
   "sourceWorktreeDirty": false,
   "baseCommit": "a183ddf01c15b51da84b1cd861b9e66686e634fe",
   "scriptSha256": "3d89e1b316e8029ae89e3a652ff3cf9c5184cd44ed0ba837fc9382b072eacffd",
@@ -16,8 +16,8 @@
         "pnpm",
         "typecheck"
       ],
-      "startedAt": "2026-10-21T11:31:49.244Z",
-      "finishedAt": "2026-10-21T11:31:50.171Z",
+      "startedAt": "2026-10-21T11:36:53.108Z",
+      "finishedAt": "2026-10-21T11:36:53.917Z",
       "exitCode": 0,
       "signal": null,
       "outputSha256": "9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609",
@@ -29,12 +29,12 @@
         "pnpm",
         "test"
       ],
-      "startedAt": "2026-10-21T11:31:50.172Z",
-      "finishedAt": "2026-10-21T11:35:17.210Z",
+      "startedAt": "2026-10-21T11:36:53.917Z",
+      "finishedAt": "2026-10-21T11:40:24.534Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "3227118eee217f521ddec9fb8aecf59a78c7daa3e023ccb4b015cfaa4428a234",
-      "outputBytes": 233175,
+      "outputSha256": "9d38450f47ed2a7ab8fbd6c41d340d03bbda11b9e722b051a6afa62ef2417efc",
+      "outputBytes": 233189,
       "counts": [
         [
           "tests",
@@ -103,12 +103,12 @@
         "pnpm",
         "eval:test"
       ],
-      "startedAt": "2026-10-21T11:35:17.211Z",
-      "finishedAt": "2026-10-21T11:35:25.901Z",
+      "startedAt": "2026-10-21T11:40:24.534Z",
+      "finishedAt": "2026-10-21T11:40:32.552Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "8fc9a62106bb762927edcb6a88553f03f75f14a688e854da1bd94a379a8a75ea",
-      "outputBytes": 8897,
+      "outputSha256": "6c8becf31813550f425e038fb707725ddc6097d0a59b144d8ce3d53abcd23b36",
+      "outputBytes": 8911,
       "counts": [
         [
           "tests",
@@ -139,11 +139,11 @@
         "@serika/desktop",
         "smoke"
       ],
-      "startedAt": "2026-10-21T11:35:25.902Z",
-      "finishedAt": "2026-10-21T11:35:37.244Z",
+      "startedAt": "2026-10-21T11:40:32.552Z",
+      "finishedAt": "2026-10-21T11:40:42.670Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "da01e4a65bdfbbbc507d12ac0a1944dbbc5f9432ee1e1bce33269d3c75b03675",
+      "outputSha256": "cf183a9485d186af03d062e6a4c0e135f2b6a14c52045769f6198f7c1cdafd6b",
       "outputBytes": 3016,
       "counts": []
     }
@@ -190,7 +190,7 @@
     },
     {
       "path": "docs/v2-pilot/evidence/cm-step6/verification.json",
-      "added": 632,
+      "added": 644,
       "removed": 0
     },
     {
@@ -209,6 +209,16 @@
       "removed": 0
     },
     {
+      "path": "docs/v2-pilot/evidence/electron-smoke/daily-config-retired-fields.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/daily-path-refuses-writes.png",
+      "added": null,
+      "removed": null
+    },
+    {
       "path": "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png",
       "added": null,
       "removed": null
@@ -225,8 +235,13 @@
     },
     {
       "path": "docs/v2-pilot/evidence/electron-smoke/result.json",
-      "added": 30,
-      "removed": 30
+      "added": 36,
+      "removed": 36
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/startup.png",
+      "added": null,
+      "removed": null
     },
     {
       "path": "docs/v2-pilot/evidence/electron-smoke/undo-disappears.png",
@@ -245,7 +260,7 @@
     },
     {
       "path": "examples/eval/cm-step6-live.mjs",
-      "added": 312,
+      "added": 324,
       "removed": 0
     },
     {
@@ -497,18 +512,21 @@
     "apps/desktop/src/renderer/src/memory-consolidation.tsx": "7d4a7b7955541fd6938ba143d4acb5adef65d9b2d74bf96f78ef9d3090cf202f",
     "docs/v2-pilot/cm-step6.md": "755801706e260ff928a7217c59993986752be19cd95f5c5e6b88779e1b1d4e52",
     "docs/v2-pilot/evidence/cm-step6/live.json": "8d76edf3837151731c2270d7265c31aa7c91f99fc930cd6b037ba74de97135f2",
-    "docs/v2-pilot/evidence/cm-step6/verification.json": "dc38da2c9ae549455721acebdf24a0889842ab243e8ca1939b82fe4acff884be",
+    "docs/v2-pilot/evidence/cm-step6/verification.json": "9c0f0085255e93961c92a604d35c59dcc9e075fe6ca8985224987f10d4c7bce3",
     "docs/v2-pilot/evidence/cost-ledger.json": "b5486cc9a308928fecd9918005884b52ff32c775eb71a1610a83672d15ac33e2",
-    "docs/v2-pilot/evidence/electron-smoke/chat-reply.png": "6344a6992c4d5d15769494f02968b119d9d26afcb37c3cc37c3b525896651497",
-    "docs/v2-pilot/evidence/electron-smoke/cm-step6-run.json": "0527d0d58cd71fe9e0f011ee976945ff63ee1cbe7108534eb8e130c4de3abce4",
-    "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png": "05bd1478438739e0d745b03cf4555114969a818319a36bcecaee8d6444a4ce59",
-    "docs/v2-pilot/evidence/electron-smoke/remember-success-receipt.png": "836c1b7c44d4b5a2d0678ddce75563e0630c617da602a8e70f2b9bf840e0db25",
-    "docs/v2-pilot/evidence/electron-smoke/restart-persistence.png": "6ca85064ac15ddc1dc2caac6aeebb31e7be409b3e7e49327665225bfda033d2d",
-    "docs/v2-pilot/evidence/electron-smoke/result.json": "e92507554820cd3cb39967f49c8053e381c426388fdd4e967ea18b8412fe17e6",
-    "docs/v2-pilot/evidence/electron-smoke/undo-disappears.png": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0",
+    "docs/v2-pilot/evidence/electron-smoke/chat-reply.png": "e337fddc2e70515843cf3eaf5623c5b6b35db0008cf213d712dfdfbdbfce35b5",
+    "docs/v2-pilot/evidence/electron-smoke/cm-step6-run.json": "decfe37f3776d4ce474c27e3995cd49c941fdc525a88c3945cce3984fa5a852e",
+    "docs/v2-pilot/evidence/electron-smoke/daily-config-retired-fields.png": "063735dc17bb6ebd6a592ab3530e01da9fcf67275961057e2fabade5b8308f34",
+    "docs/v2-pilot/evidence/electron-smoke/daily-path-refuses-writes.png": "f590116876d49dfd573158ba8b81befbe8bfe6631ea7178417c908606fe45ad7",
+    "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png": "90820fd2a77711a80f20eb32c253cbc32e046eb0f15b0e1f941adf8e191e9469",
+    "docs/v2-pilot/evidence/electron-smoke/remember-success-receipt.png": "1fb853fbc522316e4c1d18f9fdb8ea1185ff8af5d299adaed00d1d49c1c61e23",
+    "docs/v2-pilot/evidence/electron-smoke/restart-persistence.png": "90c86ea7e452d6ffc0bf566d54d5efbc89488b45358e460183ecde4f0c196b72",
+    "docs/v2-pilot/evidence/electron-smoke/result.json": "6b98a69f7943d44ce3dc457fddbc7507187498fc92de62a903d698bdcdb959f0",
+    "docs/v2-pilot/evidence/electron-smoke/startup.png": "4cfa429b22d752e8e0ddc941d1fbce7f0c539a3d420fd7314a88fe0527951438",
+    "docs/v2-pilot/evidence/electron-smoke/undo-disappears.png": "6039f8ada3afd56efc271e1c6c4ecc9176b6f7e906bf063f91f6cb3889eba4b2",
     "docs/v2-pilot/pending.md": "b17034b58538f0ce9f9bd067f835e865ea088f63e890295a8090b467225ee008",
     "examples/eval/cm-step4.mjs": "ed027251f72f79c843fb5b65006403471a94c250667d6427a363fcf5377c7900",
-    "examples/eval/cm-step6-live.mjs": "fcf7eac7de943bb64a4518e3727afe85bc899741f2291192883c8880c6146cf1",
+    "examples/eval/cm-step6-live.mjs": "4fe8d586986d88bbfc8e1b5f50bfcd640a6a57b917b5ae7a75d80ec3fd47114a",
     "examples/eval/cm-step6-live.test.mjs": "a1bccc24937c793bce484bdf41f75968439f77be0ff747b35009f4f118283587",
     "examples/eval/compaction-fidelity.test.mjs": "00889a2ab366ff608d1fe090bded1e4af9928c8651507629bb1904e2bdc9e8f3",
     "examples/eval/context-blocks.mjs": "0b0dc939371c867cdc0b70ecd5cd115620ee4ab523bbfc3d089420703298efcc",
@@ -560,7 +578,7 @@
   },
   "smoke": {
     "file": "docs/v2-pilot/evidence/electron-smoke/result.json",
-    "sha256": "6b98a69f7943d44ce3dc457fddbc7507187498fc92de62a903d698bdcdb959f0",
+    "sha256": "bbd73bc64f3b98910e6a283d9d6e14c2d5435c712dc95909271a0c48aa12a1e1",
     "scriptSha256": "9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f",
     "checks": [
       {
@@ -619,11 +637,11 @@
       },
       {
         "file": "remember-on-memory-page.png",
-        "sha256": "90820fd2a77711a80f20eb32c253cbc32e046eb0f15b0e1f941adf8e191e9469"
+        "sha256": "ad9bde1df4b0e8932db33c20b477f9c9293016bda4a7fe14ec0bba56ffef0c5b"
       },
       {
         "file": "restart-persistence.png",
-        "sha256": "90c86ea7e452d6ffc0bf566d54d5efbc89488b45358e460183ecde4f0c196b72"
+        "sha256": "1b314b0680f9cee87b6cceaa42235be6b90c6f0bca418770431114ee222b1c3b"
       },
       {
         "file": "undo-disappears.png",
@@ -640,5 +658,5 @@
     ]
   },
   "temporaryDirectoryRemoved": true,
-  "finishedAt": "2026-10-21T11:35:37.250Z"
+  "finishedAt": "2026-10-21T11:40:42.675Z"
 }
