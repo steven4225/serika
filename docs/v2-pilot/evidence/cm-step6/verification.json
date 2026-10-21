@@ -1,12 +1,12 @@
 {
-  "runId": "dca0b02c-01f2-4d30-bf80-695797ec5401",
-  "startedAt": "2026-10-21T17:07:46.486Z",
+  "runId": "09a85d94-4ea4-472e-a099-c3285fc49b25",
+  "startedAt": "2026-10-21T17:28:34.273Z",
   "platform": "darwin",
   "process": {
     "node": "v26.4.0",
-    "pid": 3368
+    "pid": 42257
   },
-  "sourceCommit": "c6e1d7a69ee6c2f8c309607352c22cdce8cd5ab8",
+  "sourceCommit": "7cf63a0c61cbacd9a0e713f3d8d69d2e766f07d3",
   "sourceWorktreeDirty": false,
   "baseCommit": "a183ddf01c15b51da84b1cd861b9e66686e634fe",
   "scriptSha256": "b3179337e6fe1ebd376ff14f56eda28635a69040b18fe0f538f62ce0b5d64b59",
@@ -17,8 +17,8 @@
         "typecheck"
       ],
       "cwd": ".",
-      "startedAt": "2026-10-21T17:07:46.525Z",
-      "finishedAt": "2026-10-21T17:07:47.286Z",
+      "startedAt": "2026-10-21T17:28:34.359Z",
+      "finishedAt": "2026-10-21T17:28:35.140Z",
       "exitCode": 0,
       "signal": null,
       "outputSha256": "9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609",
@@ -33,12 +33,12 @@
         "test"
       ],
       "cwd": ".",
-      "startedAt": "2026-10-21T17:07:47.287Z",
-      "finishedAt": "2026-10-21T17:11:38.856Z",
+      "startedAt": "2026-10-21T17:28:35.140Z",
+      "finishedAt": "2026-10-21T17:32:03.195Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "e3f369c66d63e9e96b626693e89969fb721f2c4f4b0603fc435499d625bb06f3",
-      "outputBytes": 238647,
+      "outputSha256": "df85e1e16b4d9bc1291244dd7ea62feac92868894386420aabc5fd9d74fd192b",
+      "outputBytes": 238574,
       "counts": [
         [
           "tests",
@@ -110,12 +110,12 @@
         "test"
       ],
       "cwd": ".",
-      "startedAt": "2026-10-21T17:11:38.857Z",
-      "finishedAt": "2026-10-21T17:15:18.131Z",
+      "startedAt": "2026-10-21T17:32:03.196Z",
+      "finishedAt": "2026-10-21T17:35:28.270Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "ceac476a174fa8f17e0167fea4c986bbfe50bbd4512fa20d4fcb1a579650c578",
-      "outputBytes": 238594,
+      "outputSha256": "b4a31312c53f862605a135df7f6dad2b7d3732a56de87e20be1e67edd657f45c",
+      "outputBytes": 238566,
       "counts": [
         [
           "tests",
@@ -185,12 +185,12 @@
         "eval:test"
       ],
       "cwd": ".",
-      "startedAt": "2026-10-21T17:15:18.132Z",
-      "finishedAt": "2026-10-21T17:15:26.747Z",
+      "startedAt": "2026-10-21T17:35:28.270Z",
+      "finishedAt": "2026-10-21T17:35:36.109Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "4bd9732a4e7d538068cd4086f7f7fd29a4203e7ccd6a5c80c8ed5ba182712563",
-      "outputBytes": 11734,
+      "outputSha256": "b9f8ae971e959cd1620ed57b3d9913306b5c382d38c7bd279e8601316d93f9c4",
+      "outputBytes": 11726,
       "counts": [
         [
           "tests",
@@ -224,11 +224,11 @@
         "<temporary>/smoke-source"
       ],
       "cwd": ".",
-      "startedAt": "2026-10-21T17:15:26.747Z",
-      "finishedAt": "2026-10-21T17:15:26.777Z",
+      "startedAt": "2026-10-21T17:35:36.110Z",
+      "finishedAt": "2026-10-21T17:35:36.138Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "5c369455fb9d2b96bdee75a86052e94c3e5ff713471803d74add179d45f3f5a5",
+      "outputSha256": "16e1c1e2f3b5893ecac7c3b5e15ea7db9e25c6a6d885145075252ae16a36342e",
       "outputBytes": 115,
       "counts": []
     },
@@ -237,15 +237,15 @@
         "git",
         "checkout",
         "--detach",
-        "c6e1d7a69ee6c2f8c309607352c22cdce8cd5ab8"
+        "7cf63a0c61cbacd9a0e713f3d8d69d2e766f07d3"
       ],
       "cwd": "<temporary>/smoke-source",
-      "startedAt": "2026-10-21T17:15:26.777Z",
-      "finishedAt": "2026-10-21T17:15:26.931Z",
+      "startedAt": "2026-10-21T17:35:36.138Z",
+      "finishedAt": "2026-10-21T17:35:36.287Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "84c8fff2c261fd46028d956e1f908f0a4730eb92d144f7c38b9dd92cd7fa2f6e",
-      "outputBytes": 88,
+      "outputSha256": "8421625096f8be6484c6f44bff1073af9323aa7aa7086ee8480dffaff00f47e8",
+      "outputBytes": 103,
       "counts": []
     },
     {
@@ -256,11 +256,11 @@
         "smoke"
       ],
       "cwd": "<temporary>/smoke-source",
-      "startedAt": "2026-10-21T17:15:26.932Z",
-      "finishedAt": "2026-10-21T17:15:38.878Z",
+      "startedAt": "2026-10-21T17:35:36.288Z",
+      "finishedAt": "2026-10-21T17:35:46.154Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "a0290fd8ffaaa9530b44de37f1ed2de66d4be2e56dee13d083ab724944db56cb",
+      "outputSha256": "042e6c3afa9108f230db394573d487b153d891d13d267a16c87f6bc011324d98",
       "outputBytes": 3348,
       "counts": []
     },
@@ -270,11 +270,11 @@
         "examples/eval/cm-step6-offline-audit.mjs"
       ],
       "cwd": ".",
-      "startedAt": "2026-10-21T17:15:38.882Z",
-      "finishedAt": "2026-10-21T17:15:39.069Z",
+      "startedAt": "2026-10-21T17:35:46.156Z",
+      "finishedAt": "2026-10-21T17:35:46.267Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "91f1f515ba4afc38aa5146b0a04020bc8f7a88ee3055b5c079b5967209292c51",
+      "outputSha256": "11be8305b0862f20dc9ae17579f7d5837e59975972bec488a92e244f5e915fa2",
       "outputBytes": 1638,
       "counts": []
     }
@@ -282,7 +282,7 @@
   "metrics": [
     {
       "case": "C5 essential summary overflow",
-      "at": "2026-10-21T17:07:54.908Z",
+      "at": "2026-10-21T17:28:42.428Z",
       "outcome": "reused",
       "compactionId": "saturated",
       "estimatedInputTokens": 8607,
@@ -323,7 +323,7 @@
       "case": "C5 capped borrow",
       "window": 32768,
       "exceeds": true,
-      "at": "2026-10-21T17:07:54.910Z",
+      "at": "2026-10-21T17:28:42.430Z",
       "outcome": "failed",
       "compactionId": "cap",
       "estimatedInputTokens": 4191,
@@ -367,7 +367,7 @@
       "case": "C5 capped borrow",
       "window": 32768,
       "exceeds": false,
-      "at": "2026-10-21T17:07:54.914Z",
+      "at": "2026-10-21T17:28:42.432Z",
       "outcome": "reused",
       "compactionId": "cap",
       "estimatedInputTokens": 3191,
@@ -408,7 +408,7 @@
       "case": "C5 capped borrow",
       "window": 1000000,
       "exceeds": true,
-      "at": "2026-10-21T17:07:54.919Z",
+      "at": "2026-10-21T17:28:42.436Z",
       "outcome": "failed",
       "compactionId": "cap",
       "estimatedInputTokens": 36447,
@@ -452,7 +452,7 @@
       "case": "C5 capped borrow",
       "window": 1000000,
       "exceeds": false,
-      "at": "2026-10-21T17:07:54.922Z",
+      "at": "2026-10-21T17:28:42.439Z",
       "outcome": "reused",
       "compactionId": "cap",
       "estimatedInputTokens": 35447,
@@ -491,7 +491,7 @@
     },
     {
       "case": "C5 essential summary overflow",
-      "at": "2026-10-21T17:11:45.914Z",
+      "at": "2026-10-21T17:32:10.064Z",
       "outcome": "reused",
       "compactionId": "saturated",
       "estimatedInputTokens": 8607,
@@ -532,7 +532,7 @@
       "case": "C5 capped borrow",
       "window": 32768,
       "exceeds": true,
-      "at": "2026-10-21T17:11:45.918Z",
+      "at": "2026-10-21T17:32:10.067Z",
       "outcome": "failed",
       "compactionId": "cap",
       "estimatedInputTokens": 4191,
@@ -576,7 +576,7 @@
       "case": "C5 capped borrow",
       "window": 32768,
       "exceeds": false,
-      "at": "2026-10-21T17:11:45.920Z",
+      "at": "2026-10-21T17:32:10.069Z",
       "outcome": "reused",
       "compactionId": "cap",
       "estimatedInputTokens": 3191,
@@ -617,7 +617,7 @@
       "case": "C5 capped borrow",
       "window": 1000000,
       "exceeds": true,
-      "at": "2026-10-21T17:11:45.925Z",
+      "at": "2026-10-21T17:32:10.074Z",
       "outcome": "failed",
       "compactionId": "cap",
       "estimatedInputTokens": 36447,
@@ -661,7 +661,7 @@
       "case": "C5 capped borrow",
       "window": 1000000,
       "exceeds": false,
-      "at": "2026-10-21T17:11:45.928Z",
+      "at": "2026-10-21T17:32:10.077Z",
       "outcome": "reused",
       "compactionId": "cap",
       "estimatedInputTokens": 35447,
@@ -895,7 +895,7 @@
     },
     {
       "path": "docs/v2-pilot/cm-step6.md",
-      "added": 207,
+      "added": 214,
       "removed": 0
     },
     {
@@ -911,6 +911,11 @@
     {
       "path": "docs/v2-pilot/evidence/cm-step6/live-7c5b4116-0378-4286-afc2-ac9b00eafe0b.json",
       "added": 20705,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/live-d67682ad-0722-43d9-af5c-8c7aef1308fa.json",
+      "added": 19902,
       "removed": 0
     },
     {
@@ -930,7 +935,7 @@
     },
     {
       "path": "docs/v2-pilot/evidence/cm-step6/offline-audit.json",
-      "added": 412,
+      "added": 416,
       "removed": 0
     },
     {
@@ -969,13 +974,288 @@
       "removed": 0
     },
     {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/cm-step6/live.json",
+      "added": 20712,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/cm-step6/offline-audit.json",
+      "added": 416,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/cm-step6/verification.json",
+      "added": 1494,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/README.md",
+      "added": 20,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/chat-reply.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/cleanup.json",
+      "added": 53,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/cm-step4-original-result.json",
+      "added": 267,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/cm-step5-run.json",
+      "added": 85,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/cm-step6-run.json",
+      "added": 85,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/daily-config-retired-fields.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/daily-path-refuses-writes.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/remember-on-memory-page.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/remember-success-receipt.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/restart-persistence.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/result.json",
+      "added": 267,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/startup.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/undo-disappears.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/verification.json",
+      "added": 178,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/cm-step6/live.json",
+      "added": 20712,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/cm-step6/offline-audit.json",
+      "added": 416,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/cm-step6/verification.json",
+      "added": 1494,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/README.md",
+      "added": 20,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/chat-reply.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/cleanup.json",
+      "added": 53,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/cm-step4-original-result.json",
+      "added": 267,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/cm-step5-run.json",
+      "added": 85,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/cm-step6-run.json",
+      "added": 85,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/daily-config-retired-fields.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/daily-path-refuses-writes.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/remember-on-memory-page.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/remember-success-receipt.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/restart-persistence.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/result.json",
+      "added": 267,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/startup.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/undo-disappears.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/verification.json",
+      "added": 178,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/cm-step6/live.json",
+      "added": 20712,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/cm-step6/offline-audit.json",
+      "added": 416,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/cm-step6/verification.json",
+      "added": 1494,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/README.md",
+      "added": 20,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/chat-reply.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/cleanup.json",
+      "added": 53,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/cm-step4-original-result.json",
+      "added": 267,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/cm-step5-run.json",
+      "added": 85,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/cm-step6-run.json",
+      "added": 85,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/daily-config-retired-fields.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/daily-path-refuses-writes.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/remember-on-memory-page.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/remember-success-receipt.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/restart-persistence.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/result.json",
+      "added": 267,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/startup.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/undo-disappears.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/verification.json",
+      "added": 178,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-three.json",
+      "added": 23,
+      "removed": 0
+    },
+    {
       "path": "docs/v2-pilot/evidence/cm-step6/verification.json",
-      "added": 1116,
+      "added": 1494,
       "removed": 0
     },
     {
       "path": "docs/v2-pilot/evidence/cost-ledger.json",
-      "added": 35,
+      "added": 45,
       "removed": 3
     },
     {
@@ -994,16 +1274,6 @@
       "removed": 0
     },
     {
-      "path": "docs/v2-pilot/evidence/electron-smoke/daily-config-retired-fields.png",
-      "added": null,
-      "removed": null
-    },
-    {
-      "path": "docs/v2-pilot/evidence/electron-smoke/daily-path-refuses-writes.png",
-      "added": null,
-      "removed": null
-    },
-    {
       "path": "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png",
       "added": null,
       "removed": null
@@ -1020,8 +1290,8 @@
     },
     {
       "path": "docs/v2-pilot/evidence/electron-smoke/result.json",
-      "added": 40,
-      "removed": 40
+      "added": 36,
+      "removed": 36
     },
     {
       "path": "docs/v2-pilot/evidence/electron-smoke/startup.png",
@@ -1045,12 +1315,12 @@
     },
     {
       "path": "examples/eval/cm-step6-live.mjs",
-      "added": 413,
+      "added": 415,
       "removed": 0
     },
     {
       "path": "examples/eval/cm-step6-live.test.mjs",
-      "added": 130,
+      "added": 132,
       "removed": 0
     },
     {
@@ -1319,14 +1589,15 @@
     "apps/desktop/src/main/thread-history.ts": "69306209c1de3f27775f9123647559ba7c9b62d34d1f03e796ad36aa282c9206",
     "apps/desktop/src/renderer/src/memory-consolidation.tsx": "7d4a7b7955541fd6938ba143d4acb5adef65d9b2d74bf96f78ef9d3090cf202f",
     "docs/context-memory-refactor-plan.md": "df5986b274f93a54603d7fe7eac80dffed24a21cd495f6804c54ae2755553e3c",
-    "docs/v2-pilot/cm-step6.md": "982ac043e27d3fa01452c78270c51e1942f3fa93adb87069c52a13666e4b4376",
+    "docs/v2-pilot/cm-step6.md": "4567c8960aebb0316ab41af58eb33b78e71058f74dae7dde769fd9a3711da1ae",
     "docs/v2-pilot/evidence/cm-step6/cf05-reference.json": "0aa141ddf902b9c7960dd756ed72c88ace8150918499402008770707a1268409",
     "docs/v2-pilot/evidence/cm-step6/live-1834686a-b68d-49fb-9f39-d04f1f99bac9.json": "6e7eab280c2b4ba47dffea75b6066ec36d10c1179356958687242e89517db6b5",
     "docs/v2-pilot/evidence/cm-step6/live-7c5b4116-0378-4286-afc2-ac9b00eafe0b.json": "8e99d42859cbd53121953305815e51756e02cd39f83ebf052514ef53cb5fee3d",
+    "docs/v2-pilot/evidence/cm-step6/live-d67682ad-0722-43d9-af5c-8c7aef1308fa.json": "b7264a5a558f9d08ff8aec2f7e55c8e640cf9d88f912a7d0557f6a64372a5226",
     "docs/v2-pilot/evidence/cm-step6/live-legacy-mixed.json": "8d76edf3837151731c2270d7265c31aa7c91f99fc930cd6b037ba74de97135f2",
-    "docs/v2-pilot/evidence/cm-step6/live.json": "ff6a07581ff56d068f1f2c2d798d706b4332941ff7b1f203c2d70bd33c35c3b6",
+    "docs/v2-pilot/evidence/cm-step6/live.json": "53fbd8c6871632ee4b59059cb726344e3615d6b0191df1fdf80783406a83e429",
     "docs/v2-pilot/evidence/cm-step6/m1-offline-diagnosis.json": "d061516225f97a2aa4b4013392c174fc0f73d292f95f7f7ee08de2ce1a427c35",
-    "docs/v2-pilot/evidence/cm-step6/offline-audit.json": "584ab6c17d3257b27e413f1567d717854658350544cbab8744149ac7e5f01ff8",
+    "docs/v2-pilot/evidence/cm-step6/offline-audit.json": "28447743dc8b7d6ee0fba2376cb9305c2d05a419171ed3a9c8d3380b56b28077",
     "docs/v2-pilot/evidence/cm-step6/regression-red.json": "19a31a93ca699306a45bf98e9913156194b2673465c035765346e7662025fb4c",
     "docs/v2-pilot/evidence/cm-step6/submission-audit.json": "8c3d2e4b167d80ead15f93c4f2a5a3ec76efee68730ee7f5383d6d4ecbb297e6",
     "docs/v2-pilot/evidence/cm-step6/submission-followup-audit.json": "100bcc943a80254a5be7ae14b4af7771e22294043584d5763abfc422b141e3b6",
@@ -1334,23 +1605,76 @@
     "docs/v2-pilot/evidence/cm-step6/verification-affbc10-failed.json": "8ca8e25017c1fbbf920610d92c29a8355e9a3eb4d1cfacc4a42a78054ec14f77",
     "docs/v2-pilot/evidence/cm-step6/verification-bd6325f-failed.json": "448ee47189c5d022acbc8307b08c5c2838ce1691e0a350a558a419fa4d0b2a9e",
     "docs/v2-pilot/evidence/cm-step6/verification-clean-smoke.json": "352098093a528439b63f65fc4d0a9d8280f539cf3ce9b1997a3ab6bf5c0af3bf",
-    "docs/v2-pilot/evidence/cm-step6/verification.json": "f9f9496b464d04131bdac2a4b793110094b66198a7d96ef805a3bc7b1a46f1e7",
-    "docs/v2-pilot/evidence/cost-ledger.json": "5349cfdc74ac4eeeb3a63f3ad7fb90c1a7ae01872a24af19b9c961cbc177433d",
-    "docs/v2-pilot/evidence/electron-smoke/chat-reply.png": "80fba1d0b797e5404cc2ac2f389e58fc63973aeb1192a6f32be360fe8735f21b",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/cm-step6/live.json": "840a461291c6de88d9190433923731e731b45bb25069a4046a080b72aba65f88",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/cm-step6/offline-audit.json": "af74e46659ef168f1c6168205afdd0823d7d9dd8cb13f74e60fd2ce7dc35aba4",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/cm-step6/verification.json": "ddc3ad3f5b1275163daa0a1d45c7a2c70cdbf6d4bea21ca7ca8e004956b61fd6",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/README.md": "1ec7dad9eb4e8e9edf8c5b1452c28544550fca2e24e861c28e26ae92d1b8e14e",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/chat-reply.png": "7914d7e23517928c82c11dbbd47e23a35f6c5ecb6f15ad2559a8a88567385460",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/cleanup.json": "c62da29d9d3f7b865db18d50028c9750559bc2f569a6e8d730086ec1a6cfaf04",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/cm-step4-original-result.json": "f4ca3de799438b69c423f04f38a5f2ed0b02632c57785a3e8f1842adf5dabfe9",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/cm-step5-run.json": "b56c7d1cfcdfc0126d3ffb7ab90956296c6f941a699eb0352c3374b578c2760c",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/cm-step6-run.json": "30d2068cd68499ccaab2863ddf99de40531af92773f5a64de68e225bb28e183f",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/daily-config-retired-fields.png": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/daily-path-refuses-writes.png": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/remember-on-memory-page.png": "66db8520ea32eba0fc7a068835f16298cb154d71a0adc66f341e82eda6ff09fc",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/remember-success-receipt.png": "6e2d77914843de67d1624c4ef226050e2da8600ca857709021b641a50295bbbe",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/restart-persistence.png": "f5e3d3c1e4f7b4bca4afdfa9be7885734a96be7d9401353e69a8b3abc83b014e",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/result.json": "ecdddfb875ce10cdf8d60c63bc118f3bbdfbacc3bebd703a4ac5dd9462cd0bcb",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/startup.png": "708d3d1d1e40c14fadad40f8f69918864811f1fed6de485af7678423379dc0c5",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/undo-disappears.png": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/verification.json": "830bdc6e00782763fcca10f68f0cb7fc43da28d74725109bbdb894de72b233c2",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/cm-step6/live.json": "e406a4739f535644e83e22f8b90b4f709e885efb6656c77e0b422c60ddd79656",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/cm-step6/offline-audit.json": "5a6f3638bae53e8c885004fdffc9550e97c9dd04ec00825c73d8738f03b5795e",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/cm-step6/verification.json": "f0f8a25f09f2b02a5cbe839b9f042d864837b8d768c604ee71ba1dc26075f3ff",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/README.md": "1ec7dad9eb4e8e9edf8c5b1452c28544550fca2e24e861c28e26ae92d1b8e14e",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/chat-reply.png": "350c6a5340eb1f50e56bc489adb281e7469e8d5924a49ba3665e0bd641d464cb",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/cleanup.json": "c62da29d9d3f7b865db18d50028c9750559bc2f569a6e8d730086ec1a6cfaf04",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/cm-step4-original-result.json": "f4ca3de799438b69c423f04f38a5f2ed0b02632c57785a3e8f1842adf5dabfe9",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/cm-step5-run.json": "b56c7d1cfcdfc0126d3ffb7ab90956296c6f941a699eb0352c3374b578c2760c",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/cm-step6-run.json": "3916de9e5cb016970f69e1a97935486b15a87a36354d4c0647d4c436a15539f6",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/daily-config-retired-fields.png": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/daily-path-refuses-writes.png": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/remember-on-memory-page.png": "cab8e267bec89e9d5155ec12978ebbea235266bd0bdc2763b44c976a78fb162e",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/remember-success-receipt.png": "6e2d77914843de67d1624c4ef226050e2da8600ca857709021b641a50295bbbe",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/restart-persistence.png": "fb1a7321fb1d7c6c52fb1047c138244e20dec2eabd8d889158727a9f437072c1",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/result.json": "2881253d9cb646fd1f26801dab342d1b504e4c403f26b177f23c627b20a87077",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/startup.png": "3058b293a635dfb678b6a4a557c24dba432a28ef59e47b0947cd5a20ef78fc8a",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/undo-disappears.png": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/verification.json": "830bdc6e00782763fcca10f68f0cb7fc43da28d74725109bbdb894de72b233c2",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/cm-step6/live.json": "53fbd8c6871632ee4b59059cb726344e3615d6b0191df1fdf80783406a83e429",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/cm-step6/offline-audit.json": "28447743dc8b7d6ee0fba2376cb9305c2d05a419171ed3a9c8d3380b56b28077",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/cm-step6/verification.json": "896d14b41af21cd3a09964c76191b447bb74e3f789f9bae4a534266aacdf5a1a",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/README.md": "1ec7dad9eb4e8e9edf8c5b1452c28544550fca2e24e861c28e26ae92d1b8e14e",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/chat-reply.png": "350c6a5340eb1f50e56bc489adb281e7469e8d5924a49ba3665e0bd641d464cb",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/cleanup.json": "c62da29d9d3f7b865db18d50028c9750559bc2f569a6e8d730086ec1a6cfaf04",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/cm-step4-original-result.json": "f4ca3de799438b69c423f04f38a5f2ed0b02632c57785a3e8f1842adf5dabfe9",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/cm-step5-run.json": "b56c7d1cfcdfc0126d3ffb7ab90956296c6f941a699eb0352c3374b578c2760c",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/cm-step6-run.json": "a7b2e7368b7e71fa17f6e76fb82634ab03103a464b57e66304df587745fe9580",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/daily-config-retired-fields.png": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/daily-path-refuses-writes.png": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/remember-on-memory-page.png": "c1bfd6ae7f69c5958d025c28135d855a15d37ff66185f7d407f01e82b3993bc9",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/remember-success-receipt.png": "6e2d77914843de67d1624c4ef226050e2da8600ca857709021b641a50295bbbe",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/restart-persistence.png": "445c33323adeb0f6d529bb65282a0dddec1d9ac4b02924b34bf0dbf6ee8bfc48",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/result.json": "057f4559803a4d1e5e205d9d027d5958fad457a730f08e11f18d9c385aec8023",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/startup.png": "708d3d1d1e40c14fadad40f8f69918864811f1fed6de485af7678423379dc0c5",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/undo-disappears.png": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/verification.json": "830bdc6e00782763fcca10f68f0cb7fc43da28d74725109bbdb894de72b233c2",
+    "docs/v2-pilot/evidence/cm-step6/verification-three.json": "a8b78d849470e8f8cb293e26bb3bdcd6cb103d28d8f9dbd5ddd500655b1662f7",
+    "docs/v2-pilot/evidence/cm-step6/verification.json": "896d14b41af21cd3a09964c76191b447bb74e3f789f9bae4a534266aacdf5a1a",
+    "docs/v2-pilot/evidence/cost-ledger.json": "7fe0d5af7095a39dc47486243f56a345729aee4d23fd48065d81b0efa4497fff",
+    "docs/v2-pilot/evidence/electron-smoke/chat-reply.png": "350c6a5340eb1f50e56bc489adb281e7469e8d5924a49ba3665e0bd641d464cb",
     "docs/v2-pilot/evidence/electron-smoke/cm-step4-original-result.json": "f4ca3de799438b69c423f04f38a5f2ed0b02632c57785a3e8f1842adf5dabfe9",
-    "docs/v2-pilot/evidence/electron-smoke/cm-step6-run.json": "41a1361a1ba01723fd06fbb241939b5495edfe7bb3eb297b4ff076cd444a9726",
-    "docs/v2-pilot/evidence/electron-smoke/daily-config-retired-fields.png": "063735dc17bb6ebd6a592ab3530e01da9fcf67275961057e2fabade5b8308f34",
-    "docs/v2-pilot/evidence/electron-smoke/daily-path-refuses-writes.png": "f590116876d49dfd573158ba8b81befbe8bfe6631ea7178417c908606fe45ad7",
-    "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png": "b0121bab4a38b12bc074f1d0b530957e91c842759fbd83cc76c568d47e55f21c",
-    "docs/v2-pilot/evidence/electron-smoke/remember-success-receipt.png": "357e93141a00fe012fb4928b48c75405e18c99653221491a108e796889b6b1af",
-    "docs/v2-pilot/evidence/electron-smoke/restart-persistence.png": "aca02ff7fce8d33fc93d158d8c78db9d697e17b5eef960b6e1c26aa63d986d0a",
-    "docs/v2-pilot/evidence/electron-smoke/result.json": "32719eccd94e8ef8153e58bd6a40b63427b43ef8447660348fb4552ebfce6964",
-    "docs/v2-pilot/evidence/electron-smoke/startup.png": "2a6d3b54ad3b036fb1442e588f66b4cc3f32b78f7e1faedd0fef6b5f3218a0e2",
-    "docs/v2-pilot/evidence/electron-smoke/undo-disappears.png": "6039f8ada3afd56efc271e1c6c4ecc9176b6f7e906bf063f91f6cb3889eba4b2",
+    "docs/v2-pilot/evidence/electron-smoke/cm-step6-run.json": "a7b2e7368b7e71fa17f6e76fb82634ab03103a464b57e66304df587745fe9580",
+    "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png": "c1bfd6ae7f69c5958d025c28135d855a15d37ff66185f7d407f01e82b3993bc9",
+    "docs/v2-pilot/evidence/electron-smoke/remember-success-receipt.png": "6e2d77914843de67d1624c4ef226050e2da8600ca857709021b641a50295bbbe",
+    "docs/v2-pilot/evidence/electron-smoke/restart-persistence.png": "445c33323adeb0f6d529bb65282a0dddec1d9ac4b02924b34bf0dbf6ee8bfc48",
+    "docs/v2-pilot/evidence/electron-smoke/result.json": "057f4559803a4d1e5e205d9d027d5958fad457a730f08e11f18d9c385aec8023",
+    "docs/v2-pilot/evidence/electron-smoke/startup.png": "708d3d1d1e40c14fadad40f8f69918864811f1fed6de485af7678423379dc0c5",
+    "docs/v2-pilot/evidence/electron-smoke/undo-disappears.png": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0",
     "docs/v2-pilot/pending.md": "1569db6e78728fffa0832303679202376dc100e2abea2a178530823e9a1ee3f2",
     "examples/eval/cm-step4.mjs": "8b7359e1ed49b0e1f7714ffa829a55ddebbb5a01405c1db2261d793eed40b56f",
-    "examples/eval/cm-step6-live.mjs": "414c66c1935cf4d30b50debe5f03cff6201e4689d1df0230bd123ab6e143c525",
-    "examples/eval/cm-step6-live.test.mjs": "02784f9ec0ecdfb1e32f180e2f7d88b002d89b23fa58ef5e3b74bbd99ba83750",
+    "examples/eval/cm-step6-live.mjs": "12c360a41df5ddfdae522a7fad4837a6f8a5d296d04d9f499a40a2860119712a",
+    "examples/eval/cm-step6-live.test.mjs": "573aa4e335658b3c7151499aaa727a81e11b4f50162a50ae2f2066970cadf7a2",
     "examples/eval/cm-step6-offline-audit.mjs": "9dd3e268ad706b61ebc777504b24003de978eda4a5a6917ad95885066fdc0ae0",
     "examples/eval/compaction-fidelity.test.mjs": "00889a2ab366ff608d1fe090bded1e4af9928c8651507629bb1904e2bdc9e8f3",
     "examples/eval/context-blocks.mjs": "0b0dc939371c867cdc0b70ecd5cd115620ee4ab523bbfc3d089420703298efcc",
@@ -1405,7 +1729,7 @@
   },
   "smoke": {
     "file": "docs/v2-pilot/evidence/electron-smoke/result.json",
-    "sha256": "057f4559803a4d1e5e205d9d027d5958fad457a730f08e11f18d9c385aec8023",
+    "sha256": "bae27ecc7892c74cd171cc04ce960adfe5f6b1b16dbb89ab2bd57cd23a042b3d",
     "scriptSha256": "9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f",
     "checks": [
       {
@@ -1452,7 +1776,7 @@
     "screenshots": [
       {
         "file": "startup.png",
-        "sha256": "708d3d1d1e40c14fadad40f8f69918864811f1fed6de485af7678423379dc0c5"
+        "sha256": "3058b293a635dfb678b6a4a557c24dba432a28ef59e47b0947cd5a20ef78fc8a"
       },
       {
         "file": "chat-reply.png",
@@ -1464,11 +1788,11 @@
       },
       {
         "file": "remember-on-memory-page.png",
-        "sha256": "c1bfd6ae7f69c5958d025c28135d855a15d37ff66185f7d407f01e82b3993bc9"
+        "sha256": "70a0f60b5708b231b91d73e1f285e9f0d599d64f736ceee7b3b73d3113ad3123"
       },
       {
         "file": "restart-persistence.png",
-        "sha256": "445c33323adeb0f6d529bb65282a0dddec1d9ac4b02924b34bf0dbf6ee8bfc48"
+        "sha256": "84d67e697ae7e15d7af2a77bbf1d7c93448cb499d9c3afd994b9dbd9fcdddb82"
       },
       {
         "file": "undo-disappears.png",
@@ -1486,9 +1810,9 @@
   },
   "offlineAudit": {
     "file": "docs/v2-pilot/evidence/cm-step6/offline-audit.json",
-    "sha256": "28447743dc8b7d6ee0fba2376cb9305c2d05a419171ed3a9c8d3380b56b28077"
+    "sha256": "6c7f5e377cb8a699c036b596eb69ba917ec69e560084f729e434ff689cf4c59d"
   },
   "sourceStayedCleanDuringVerification": true,
-  "finishedAt": "2026-10-21T17:15:39.079Z",
+  "finishedAt": "2026-10-21T17:35:46.276Z",
   "temporaryDirectoryRemoved": true
 }

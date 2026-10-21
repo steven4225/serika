@@ -1,23 +1,162 @@
 {
-  "runId": "bef2b29e-ac35-4c7d-9e82-138a0bb4c686",
-  "generatedAt": "2026-10-21T15:46:16.926Z",
-  "sourceCommit": "6a7b7389f8340900a6956e313d58ef94513fa6b9",
-  "verificationRunId": "780a16db-42f6-4732-ba81-fae4a6bc0730",
-  "rawAttempt": {
-    "path": "docs/v2-pilot/evidence/cm-step6/live-7c5b4116-0378-4286-afc2-ac9b00eafe0b.json",
+  "auditId": "af86626d-eb48-49ba-a80c-99dbe6bea791",
+  "generatedAt": "2026-10-21T17:37:35.093Z",
+  "kind": "evidence-integrity-audit",
+  "evidenceIntegrityPassed": true,
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "sourceRunId": "d67682ad-0722-43d9-af5c-8c7aef1308fa",
+  "sourceFile": "docs/v2-pilot/evidence/cm-step6/live-d67682ad-0722-43d9-af5c-8c7aef1308fa.json",
+  "sourceSha256": "b7264a5a558f9d08ff8aec2f7e55c8e640cf9d88f912a7d0557f6a64372a5226",
+  "projection": {
+    "file": "docs/v2-pilot/evidence/cm-step6/live-summary-d67682ad-0722-43d9-af5c-8c7aef1308fa.json",
+    "sha256": "19727d97a023736e7924251684900004d92b5a43cdca9830909a50a97de4279e",
+    "projectionId": "ca862c20-a4ec-4851-b6a6-3200582fc220",
+    "generatedAt": "2026-10-21T17:29:00.661Z",
+    "source": "docs/v2-pilot/evidence/cm-step6/live-d67682ad-0722-43d9-af5c-8c7aef1308fa.json",
+    "sourceSha256": "b7264a5a558f9d08ff8aec2f7e55c8e640cf9d88f912a7d0557f6a64372a5226",
+    "sourceCommit": "7cf63a0c61cbacd9a0e713f3d8d69d2e766f07d3",
+    "realModelCalls": 0,
+    "costUsd": 0,
+    "change": "Offline summary of the frozen recorded attempt after CE/CF specification routing fix. Original runId, sourceCommit, startedAt, calls, usage and per-round checks unchanged."
+  },
+  "coldEvidence": {
+    "recorded": 3,
+    "missing": [
+      "CE05"
+    ]
+  },
+  "offline": [
+    {
+      "runId": "3f9e612b-4415-4d99-8a26-5d8499d1f1c2",
+      "file": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/cm-step6/verification.json",
+      "sha256": "ddc3ad3f5b1275163daa0a1d45c7a2c70cdbf6d4bea21ca7ca8e004956b61fd6",
+      "platform": "darwin",
+      "allCommandsExitZero": true,
+      "smokeChecks": 8,
+      "screenshots": 8
+    },
+    {
+      "runId": "3d8d3484-ff49-4fbc-8775-0a0d5e9a3adc",
+      "file": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/cm-step6/verification.json",
+      "sha256": "f0f8a25f09f2b02a5cbe839b9f042d864837b8d768c604ee71ba1dc26075f3ff",
+      "platform": "darwin",
+      "allCommandsExitZero": true,
+      "smokeChecks": 8,
+      "screenshots": 8
+    },
+    {
+      "runId": "dca0b02c-01f2-4d30-bf80-695797ec5401",
+      "file": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/cm-step6/verification.json",
+      "sha256": "896d14b41af21cd3a09964c76191b447bb74e3f789f9bae4a534266aacdf5a1a",
+      "platform": "darwin",
+      "allCommandsExitZero": true,
+      "smokeChecks": 8,
+      "screenshots": 8
+    }
+  ],
+  "oldAttempt": {
+    "file": "docs/v2-pilot/evidence/cm-step6/live-7c5b4116-0378-4286-afc2-ac9b00eafe0b.json",
     "sha256": "8e99d42859cbd53121953305815e51756e02cd39f83ebf052514ef53cb5fee3d",
     "unchanged": true
   },
-  "ledger": {
-    "path": "docs/v2-pilot/evidence/cost-ledger.json",
-    "sha256": "5349cfdc74ac4eeeb3a63f3ad7fb90c1a7ae01872a24af19b9c961cbc177433d",
-    "unchanged": true
+  "actualCalls": 125,
+  "returnedCalls": 125,
+  "httpStatuses": {
+    "200": 125
   },
-  "credentialPrefixScan": {
-    "files": 31,
-    "matches": 0,
-    "localCredentialValuesChecked": 5
+  "structuredOutputRequests": 0,
+  "batchCostUsd": 0.3840494399999999,
+  "cumulativeCombinedUsd": 1.6829965799999995,
+  "ledgerPath": "docs/v2-pilot/evidence/cost-ledger.json",
+  "scores": [
+    {
+      "suite": "M1",
+      "passed": 12,
+      "total": 18,
+      "suitePassed": false
+    },
+    {
+      "suite": "CF03",
+      "newRule": {
+        "passed": 1,
+        "total": 3,
+        "cold": false,
+        "suitePassed": false
+      },
+      "oldRule": {
+        "passed": 1,
+        "total": 3,
+        "cold": false,
+        "suitePassed": false
+      }
+    },
+    {
+      "suite": "CF05",
+      "newRule": {
+        "passed": 1,
+        "total": 5,
+        "cold": false,
+        "suitePassed": false
+      },
+      "oldRule": {
+        "passed": 0,
+        "total": 5,
+        "cold": false,
+        "suitePassed": false
+      }
+    },
+    {
+      "suite": "CE03",
+      "newRule": {
+        "passed": 0,
+        "total": 3,
+        "cold": false,
+        "suitePassed": false
+      },
+      "oldRule": {
+        "passed": 0,
+        "total": 3,
+        "cold": false,
+        "suitePassed": false
+      }
+    },
+    {
+      "suite": "CE05",
+      "newRule": {
+        "passed": 1,
+        "total": 5,
+        "cold": false,
+        "suitePassed": false
+      },
+      "oldRule": {
+        "passed": 1,
+        "total": 5,
+        "cold": false,
+        "suitePassed": false
+      }
+    }
+  ],
+  "keyValueFailures": {
+    "QUOTE_VALUE_MISSING": 1,
+    "SOURCE_VALUE_MISSING": 0,
+    "BODY_VALUE_MISSING": 1,
+    "NUMBER_UNIT_MISMATCH": 0,
+    "CONDITION_CLAUSE_MISSING": 0
   },
-  "realModelCalls": 0,
-  "costUsd": 0
+  "c5": {
+    "count": 0,
+    "providerPreparationCount": 0,
+    "totalBorrowedTokensAcrossPreparations": 0,
+    "preparations": []
+  },
+  "liveBatchPassed": false,
+  "finalizerOfflineVerification": {
+    "runId": "09a85d94-4ea4-472e-a099-c3285fc49b25",
+    "file": "docs/v2-pilot/evidence/cm-step6/verification.json",
+    "sha256": "35a13b5ad779866bf8b66639e49bc7873fa266448a41baa889711850af58cb24",
+    "sourceCommit": "7cf63a0c61cbacd9a0e713f3d8d69d2e766f07d3",
+    "allCommandsExitZero": true,
+    "smokeChecks": 8
+  }
 }
