@@ -288,7 +288,7 @@
 - **单元测试／假模型脚本**：`M1 oversized source is persisted pending while the following ordinary source extracts` 证明超长来源落盘挂起、主游标到后续消息、后续记忆保存，重开仍统计 1 段。
 - **单元测试／假模型脚本**：`M1 oversized old source replay is superseded by the newer value without a conflict` 在扩大窗口后重抽完整旧来源；旧值 `state=superseded`、`supersededBy` 指向较新值，较新值仍是唯一当前快照，冲突数为 0。宿主按原消息序号判断，来源先后不明的同属性异值只作诊断，不能借重抽覆盖现值；不依据抽取完成时间判断新旧。
 - **单元测试**：`C04 binds the specific confirmation; short acknowledgement and external evidence fail` 同时验证独立 `uncertain:true` 保留原文、添加旧前缀反而被拒。`v6 replacement/undo, withdrawal/undo, conflict diagnostics and source-specific deletion survive reopen` 验证字段实际落盘和投影。
-- **真实 Electron／真实模型**：本次第一件未运行正式验收；真实模型请求 0、费用 $0。后续第二件使用独立 Electron 脚本；此前浏览器预览仅是组件渲染证据，不作为桌面验收。
+- **真实 Electron／真实模型**：本次第一件未运行正式验收；真实模型请求 0、费用 $0。后续第二件使用独立 Electron 脚本；此前浏览器预览标为“未在 Electron 验证”，仅是组件渲染证据。
 
 #### 离线 eval 84 → 77 的完整核对
 
@@ -397,3 +397,16 @@
 **命令与退出码**：旧构建 `node apps/desktop/scripts/electron-smoke.mjs` 加无告警断言后退出 1（真实 Electron＋假模型）；v6 回执回归旧代码退出 1。修复后受影响 renderer／bridge 测试退出 0；`pnpm typecheck`、`pnpm test` 均退出 0，计数／日志 hash 见 `verification.json`。正式 `RUNLOOM_SMOKE_DAILY_CONFIG=/tmp/runloom-smoke-config-missing-70b58bf.json pnpm --filter @serika/desktop smoke` 退出 0，真实 Electron 44.4.5＋假模型，macOS 实测。脏工作区运行脚本退出 1，拒绝在创建临时目录、启动 Electron 或写证据前继续。
 
 **差异与限制**：修改旧测试断言：原“缺少 transcript 就不可核实”为错，v6 记录在写入时已校验来源，应直接投影；坏文件仍报错，当前 Thread 限制仍保留，未删保护测试。第 4 到第 6 步只在新建的 v6 测试数据上验证过，日用数据还没验证。配置分支主动指向不存在的路径，实际使用仓库“样例”，7 个退役字段逐一由生产解析器拒绝，全部移除后通过；不是本轮日用配置的实测结论。新版 Linux/Xvfb 尚未在本机运行，不能把用户上一版的独立 6/7 视为本版通过。查询审核 issue 仍无匹配。付费验收继续暂停，提交推送后等审核。
+
+
+#### 审核后流程调整（2026-10-21）
+
+**改了什么**：仅同步 AGENTS、计划关口及 pending；旧浏览器预览明确标“未在 Electron 验证”。新证据须由验证脚本运行时生成且带随机编号，不向已有证据补造编号；假模型须走真实记忆工具与来源校验，审核评论核对用户指定账号的真实 login。
+
+**逐项对照**：用户已确认第 4 步代码审核通过；bot1 云电脑独立复现尚待完成，之前不进第 5 步。后续每步全套＋Electron 冒烟、提交推送后继续；第 5 步结束等审核再做第 6 步；第 7 步开工前先交 14 行旧记忆对照表并停下。顶部整理提示常驻的问题记入 pending，第 6 步评估。
+
+**数字**：本次产品／测试代码 +0/−0，smoke 脚本 SHA-256 保持 `9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f`。第 4–6 步真实模型验收移至第 6 步完成、第 7 步开工前的单批，已批准预算 $2，替代附表 D 的旧独立批次排期；累计费用仍 $0.36，本次请求 0、费用 $0。
+
+**命令**：本轮只改文档，按计划 §5 不重跑测试／冒烟；执行文档差异、12 KiB 上限、smoke hash 不变和 `git diff --check` 检查，不生成新的运行证据或改写已有证据。
+
+**差异与待办**：现有 smoke 证据未补造随机编号；后续验证脚本若为落实新规则而修改，须按新 hash 重新独立复现。当前不改脚本、不启动第 5 步、不运行付费验收。
