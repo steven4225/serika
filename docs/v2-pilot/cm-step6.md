@@ -2,9 +2,11 @@
 
 ## 1. 改了什么
 
-**四条必改已修；整批真实模型仍未通过，停下等审核，不进入第 7 步、不迁日用。** `1db5a5c` 修诊断／删除抑制／清单降级／必接过滤；`6f2193e` 完成逐轮证据与完整重跑脚本。原第 6 步代码范围沿用已接受的 56ad8d7。首个时间修复是产品行为变更：给模型的时间按约定固定为 +08:00 分钟，不再跟随宿主 TZ；共用时区常量仍在待办。
+**已按批准的附表 D／E 完成离线修复；唯一一次整批真实模型重跑仍未通过，现停下等审核。不开第 7 步、不迁日用。** `88a70a0` 修摘要类型／预算提示及检查回归，`7a80a2a` 实施规范正文与关键值校验、清单硬额度及超额引用；实模绑定干净提交 `3ec3f6a`，没有分批补跑。
 
-**56fe5cf 复核后本轮**：用户已批准附表 D（规范正文＋保留关键值校验）及 E（恢复计划硬额度＋超额引用）。已落实正文／数值／否定条件校验，清单≤2K与③层≤12K（32K按比例）；超额回执通过既有 history_read 分页读取，仍经过排除投影。摘要格式／预算提示和 CF05 检查已修。全部离线验证通过后，只整批实模重跑一次；当前新增付费调用 0。源码 `7a80a2a` 已完成干净验证：**macOS／UTC 1781通过／0失败／11跳过、eval82/82、真实Electron8/8**；8张截图已逐张核对、脚本SHA未变。
+来源引用仍精确绑定用户消息；identity.value 在引用和正文逐字出现，数字／单位一致，否定／条件无法对应就拒写。清单及③层恢复日用基准≤2K／≤12K，其他窗口按计划比例缩放；溢出保留数量、消息范围和分页入口，原回执及未知状态不变。摘要提示词明确精确字段类型与各段预算，校验没有放宽。首个时间修复为既定产品行为变更：给模型固定 +08:00 分钟，不再随宿主 TZ；时区常量合并仍在待办。
+
+本轮本机验证：**macOS／UTC 全套1781通过／0失败／11跳过、eval82/82、真实Electron8/8**（源码7a80a2a）。8张截图已逐张核对，冒烟脚本SHA未变。本轮未在Linux重跑，不把用户对56fe5cf的独立Linux复现当成本轮新代码结果。
 
 ## 2. 逐条对照验收项
 
@@ -15,21 +17,37 @@
 | 3 CF05 pastRead | 已先红后绿：长文件名回执正例，以及失败／未知／未来／疑问／无关写入反例。旧成绩 2/5 保留；旧回答重新检查只写独立 reference，不算本轮实模通过 |
 | M1 passed 布尔值 | `evaluateM1` 从已有 checks 汇总明确布尔值；历史原始 attempt 不改，live 最新视图只补派生 false 并标来源 SHA／变换说明 |
 | 恢复计划清单额度 | 已按批准的附表 E 实施：清单及③层共同硬计数；超额引用包含失败／unknown 数量、消息范围和读取入口。`overflow checklist reads page…` 在两档验证分页读取未提交 unknown 回执、排除不泄漏；`legacy history plus checklist…` 验证旧摘要超预算只改变请求投影 |
-| 一次整批重跑 | 待全部离线验证后执行一次。预算仍 $0.70550774／$2，余 $1.29449226；不分批补跑 |
+| 一次整批重跑 | 已做且仅一次：M1 18项两档（含固定哈希replay-9）、CF03/05、CE03/05全部16轮及4个独立冷进程；145次调用，全部HTTP200且有用量，无 response_format。整批未过，已停；费用见下 |
 
-下表仅保留 56fe5cf 已审核批次的历史结果；其中清单借用额度已由本轮附表 E 的获批实现替换：
+### 本轮真实模型结果（唯一重跑，原 Oracle 不变）
+
+| 项目 | 结果 | 可核失败／冷进程 |
+|---|---|---|
+| M1（32K＋日用，18项） | **11/18，passed=false** | 确认式2项缺助手提议来源附记；同句矛盾2项未完整保留或关键值不匹配；replay-9两档关键值拒绝；日用同槽冲突1项分组检查未过。18项来源哈希与上批一致 |
+| CF03 | **0/3** | 前两轮constraints从数组错成单对象；三轮goal既定字面检查未命中；独立冷进程无摘要重建，但回答检查未过 |
+| CF05 | **2/5** | 前两轮constraints错形／后台失败；generation=3的unknown表述检查未过；generation=2、4通过。冷进程答案过，但发生摘要重建，整项未过 |
+| CE03（32K） | **0/3** | constraints/pending结构错误、一次根结构拒绝（路径$）；goal等检查未过；冷进程发生重建且答案未过 |
+| CE05（32K） | **0/5** | generation=0、3、4段或索引比例预算拒绝；goal等检查未过；冷进程发生重建且答案未过 |
+
+CE05后3轮的实际③层投影为305／1248 estimated tokens（清单193≤208），历史层被替换为原文编号入口，所有16轮主请求的inputFits均true。generation=4的既定`layerChecks.total`检查存档完整层，仍为false；保留原检查和该轮失败，不用投影合规替它加分。CF05原fixture有效输入400K，其等比例③层预算18,750；CF03日用基准256K为12,000，CE两档26,624为1,248，未改fixture容量或Oracle。
+
+新一轮不是服务商HTTP错误：145/145 HTTP200且用量完整，请求均没有response_format；失败发生在模型输出格式、比例额度及既定行为检查。主后台逐项callIds、输出形状、路径和失败原因均在独立attempt中，未保留原始摘要内容。
+
+### 56fe5cf 已审核历史批次（保留原分）
+
+下表为历史结果；清单借用额度已由该历史批次附表 E 的获批实现替换：
 
 | 审核项 | 结果与证据 |
 |---|---|
 | 1 无原文失败诊断 | 已做：保留 HTTP 状态、错误名／码、结束原因、schema 路径；`failure diagnostics retain status…` 用敏感哨兵验证不保留正文／上游消息；每个后台项在返回时写 live，CF03 有实际 callIds、路径和拒绝原因 |
-| 1 参数支持先核查 | 已做：真实适配器边界测试及本轮 122 个 HTTP 请求均无 `response_format`，Schema 仅是提示词正文；服务商目录确认该模型支持 chat/completions，但没公布严格 Schema 参数支持，未把兼容接口说成严格支持 |
-| 2 轮次分开、整批重跑、同一预算 | 已做：新轮独立 runId／时间／源码／脚本哈希／文件；旧混合文件逐字归档，缺失的旧诊断不追补；旧未知调用以 $0.0013248 计入预算，每次派发先记预留。本轮 M1 18 项、CF/CE 共 16 轮及 4 个独立冷进程均实际运行 |
+| 1 参数支持先核查 | 已做：真实适配器边界测试及该历史批次 122 个 HTTP 请求均无 `response_format`，Schema 仅是提示词正文；服务商目录确认该模型支持 chat/completions，但没公布严格 Schema 参数支持，未把兼容接口说成严格支持 |
+| 2 轮次分开、整批重跑、同一预算 | 已做：新轮独立 runId／时间／源码／脚本哈希／文件；旧混合文件逐字归档，缺失的旧诊断不追补；旧未知调用以 $0.0013248 计入预算，每次派发先记预留。该历史批次 M1 18 项、CF/CE 共 16 轮及 4 个独立冷进程均实际运行 |
 | 3 过滤必须提供 | 已做：`RuntimeApp.projectExecutionRuns` 为必需，Controller list/get 均无未过滤回退，测试嵌入器显式提供投影；strict typecheck 通过 |
 | 4 删除后重抽 | 已做：来源 Thread／消息 + subject／attribute；没有身份时退正文哈希。`v6 replacement/undo…source-specific deletion survive reopen` 先复现换措辞被抽回，再修复；同消息其他属性仍能写 |
 | 4 清单超预算不中断 | 已做：超比例清单借用近期原文额度，屏蔽最旧完整块，保留全部失败／unknown，诊断记 `checklist_overflow`、预算和边界；`an oversized checklist masks old blocks…` 先红后绿 |
 | 4 旧摘要权限 | 已做：`reusing an old summary rebuilds…current permission snapshot` 验证旧摘要复用时仍有权限字段，当前快照 true→false，不继承旧授权 |
 | 全套与真实 Electron | 已做：干净 6f2193e，**macOS** UTC 全套 1776 通过／0 失败／11 跳过，eval81/81，构建 Electron 原 preload/IPC、隔离目录，smoke8/8，脚本 SHA 未变；统一 runner 退出0 |
-| 合批真实模型关口 | **未通过**：本轮 a1189c9、run `1834686a-b68d-49fb-9f39-d04f1f99bac9`，122 次调用均 HTTP200、均返回用量，完整结果见下表；runner 退出1 |
+| 合批真实模型关口 | **未通过**：该历史批次 a1189c9、run `1834686a-b68d-49fb-9f39-d04f1f99bac9`，122 次调用均 HTTP200、均返回用量，完整结果见下表；runner 退出1 |
 | 旧记忆裁决／第7步条件 | 已记录附表B/C和唯一计划第7步；未执行迁移；记忆页段数无截图，撤回该已验证声明 |
 
 | 实模项目 | 既定检查结果 | 可核原因／冷进程 |
@@ -46,19 +64,19 @@
 
 上一轮对 56ad8d7：产品 +63/−17、测试 +66/−4、脚本 +134/−54；测试新增多3行，是三项指定行为回归及脱敏／真实适配器边界证据所需，无删除测试文件、跳过新增测试或改历史 Oracle／快照。原 UTC 1775/11 仅为 **macOS**；用户独立复现的 **Linux＋Xvfb 1440x900x24、Electron44.4.5、干净56ad8d7** 在 UTC／+08:00 各 1767/19，eval79/79、smoke8/8，8个额外跳过为既有 macOS 专属测试；该独立结果未冒称为本机新代码实测。后续用户在干净56fe5cf复核：Linux＋Xvfb1440x900x24、UTC／+08:00 全套1768通过／19跳过、eval81/81、真实Electron8/8，8张图与不变脚本SHA均已核对。
 
-按批准报价，本轮 $0.68218348；历史已知 $0.02199946＋旧未知预留 $0.0013248，**合批预算占用 $0.70550774 / $2**。计划累计已知 $1.06418294，含预留 $1.06550774 / $5。旧未知调用仍未知，不按0，不将预留冒称账单；本轮无新增未知用量。
+按批准报价，本轮 **$0.59343940**；前两批已知 $0.70418294＋旧未知预留 $0.0013248，**合批预算占用 $1.29894714 / $2**，余 $0.70105286。计划累计已知 $1.65762234，含预留 $1.65894714 / $5。145次用量逐项重算与账本一致；旧未知调用仍按预留计费，不按0；本轮无新增未知用量。剩余额度不构成再次重跑授权。
 
 ## 4. 实际命令和退出码
 
 `node packages/assistant/scripts/cm-step6-verify.mjs` → 0（本轮88a70a0与7a80a2a各跑完整套和真实Electron；7a80a2a为最新，macOS／UTC 1781／0／11，eval82，smoke8）；最终运行证据：[docs/v2-pilot/evidence/cm-step6/verification.json](evidence/cm-step6/verification.json)、[docs/v2-pilot/evidence/electron-smoke/result.json](evidence/electron-smoke/result.json)。
 
-`SERIKA_CM4_REPLAY=/tmp/cm-step4-replay9.json node examples/eval/cm-step6-live.mjs --approved-live --rerun-approved-batch` → 1；独立原始证据：[docs/v2-pilot/evidence/cm-step6/live-1834686a-b68d-49fb-9f39-d04f1f99bac9.json](evidence/cm-step6/live-1834686a-b68d-49fb-9f39-d04f1f99bac9.json)，[docs/v2-pilot/evidence/cm-step6/live.json](evidence/cm-step6/live.json) 是该轮派生视图：仅将M1.passed汇总为明确false，包含来源SHA及变换说明；原始attempt字节不动；旧证据 [docs/v2-pilot/evidence/cm-step6/live-legacy-mixed.json](evidence/cm-step6/live-legacy-mixed.json) 原字节归档；[docs/v2-pilot/evidence/cost-ledger.json](evidence/cost-ledger.json) 可复算预留和累计。模型仅使用授权本地 env 的必要变量，mode0600 临时文件与工作目录已清理，日用文件未改。参数核查依据：[服务商官方文档](https://commandcode.ai/docs/provider)及本轮请求字段／公开目录记录。
+`SERIKA_CM4_REPLAY=/tmp/cm-step4-replay9.json node examples/eval/cm-step6-live.mjs --approved-live --rerun-approved-batch` → **1（验收未过）**；本轮唯一attempt：[docs/v2-pilot/evidence/cm-step6/live-7c5b4116-0378-4286-afc2-ac9b00eafe0b.json](evidence/cm-step6/live-7c5b4116-0378-4286-afc2-ac9b00eafe0b.json)，runId `7c5b4116-0378-4286-afc2-ac9b00eafe0b`、源码3ec3f6a；[docs/v2-pilot/evidence/cm-step6/live.json](evidence/cm-step6/live.json) 是本轮逐字副本。上轮独立原始证据：[docs/v2-pilot/evidence/cm-step6/live-1834686a-b68d-49fb-9f39-d04f1f99bac9.json](evidence/cm-step6/live-1834686a-b68d-49fb-9f39-d04f1f99bac9.json)；上轮参考重算时曾生成M1.passed=false的派生视图，现latest已由新轮替换；上轮原始attempt字节及账本SHA不动；旧证据 [docs/v2-pilot/evidence/cm-step6/live-legacy-mixed.json](evidence/cm-step6/live-legacy-mixed.json) 原字节归档；[docs/v2-pilot/evidence/cost-ledger.json](evidence/cost-ledger.json) 可复算预留和累计。模型仅使用授权本地 env 的必要变量，mode0600 临时文件与工作目录已清理，日用文件未改。参数核查依据：[服务商官方文档](https://commandcode.ai/docs/provider)及本轮请求字段／公开目录记录。
 
 `node examples/eval/cm-step6-live.mjs --recheck-recorded` → 0：独立[docs/v2-pilot/evidence/cm-step6/cf05-reference.json](evidence/cm-step6/cf05-reference.json)，原2/5、新检查参考5/5，新增模型调用0；参考结果不算通过。
 
 ## 5. 与计划不符的地方及理由
 
-**实模仍未通过，按本次要求交材料并停下等审核。** 下一关口需处理记忆正文逐字输出、摘要 schema／比例预算合规及 CF05 检查漏判；本轮不改来源校验和历史分数来凑通过。旧“第三个后台项拒绝摘要”的历史细节已丢失，不能追补为证据；新失败逐项有可核记录。此前事后包装的 first-fixes.json 仍撤回，以运行时统一 runner 为准。读过旧约束94、98/99、139、193、195：前后台互斥、唯一行为循环、完整工具交互、未知效果及权限边界保持。第7步和日用迁移均未开始。
+**唯一整批实模仍未通过，按本次要求交材料并停下等审核；不再付费补跑、不继续改产品。** 附表D/E已获准并实施；剩余关口是本轮M1的确认来源／矛盾保留／关键值拒绝／冲突分组，以及摘要错形、比例预算和目标／unknown检查。这里只列失败，不擅自指定下一轮改法或放宽校验。旧“第三个后台项拒绝摘要”的历史细节已丢失，不能追补为证据；新失败逐项有可核记录。此前事后包装的 first-fixes.json 仍撤回，以运行时统一 runner 为准。读过旧约束94、98/99、139、193、195：前后台互斥、唯一行为循环、完整工具交互、未知效果及权限边界保持。第7步和日用迁移均未开始。
 
 ### 附表 A：旧断言调整依据
 
@@ -135,10 +153,12 @@
 | 计划单段／清单上限 | 208（按比例） | 2,000 |
 | 计划③层总上限 | 1,248 | 12,000 |
 
-当前检查只有 `F + H + C + R + U ≤ A`：固定层 F、历史摘要 H、清单 C、保留原文 R、当前消息及封装 U 都计入实际请求；H 单独受③层总上限约束，C 没有单独硬上限。所以最坏③层 H+C 可逼近 `A−F−U`，近期原文可被挤到接近0；不能宣称③层≤12K。失败／unknown 再增长，连最小当前消息都放不下时，现代码仍可能抛错；总窗口检查只约束估算，不是服务商真实 token 的数学保证。
+修复前的检查只有 `F + H + C + R + U ≤ A`：固定层 F、历史摘要 H、清单 C、保留原文 R、当前消息及封装 U 都计入实际请求；H 单独受③层总上限约束，C 没有单独硬上限。所以最坏③层 H+C 可逼近 `A−F−U`，近期原文可被挤到接近0；不能宣称③层≤12K。失败／unknown 再增长，连最小当前消息都放不下时，当时的代码仍可能抛错；总窗口检查只约束估算，不是服务商真实 token 的数学保证。
 
 **用户已批准恢复额度与超额引用，现已实施**：清单及③层总预算都硬计数；超出的失败／unknown 全量留在既有原文／执行回执，清单用明确数量、消息范围和按编号读取入口表示“有未展开的失败／未知效果”，仍保留未知语义，不改成成功、不自动重试。当前目标／条件／权限同样不能被无提示删除，过大时给编号引用。用户明确批准“恢复计划额度，批准超额引用方案”。按此将“所有必留项逐项注入”改为“有限清单＋可读原件”；不再借用近期原文额度，不修改 §2.1 追认历史偏差。清单读取复用原工具的 start/end 分页，未提交到原文的执行回执也有可用入口，仍不执行或重试任何效果。
 
 删除抑制无身份时的正文哈希分支保持现状；第7步迁移补身份后删除，当前不执行。
 
 本轮测试调整依据：200条失败清单从“全量注入”改为“原件全部保留＋有数量和编号的有限引用”，依据本轮附表 E 明确批准；C04／后台抽取／自动写入及 Electron 的离线 fake proposal 仅补必填 identity（`smoke-model.ts`，冒烟脚本和8项检查未变），矛盾正文与来源／truth 不变；错误断言从“正文必须原话”改“关键值不匹配”，对应附表 D。没有删除测试文件或改历史 Oracle。
+
+提交前核对：145条调用费用重算、4条账本证据SHA、最新副本字节一致、18项M1来源哈希、8张截图与SHA均通过；证据目录按授权env中5个长度≥12的密钥值及sk-前缀扫描，0命中。按AGENTS检索“experiment/architecture-v2 审核记录”未找到对应issue，本轮审核授权依据用户本聊天明确回复。
