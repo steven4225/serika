@@ -9,6 +9,6 @@ test('M1 extraction and persisted source/conflict evidence at 32K and daily wind
 
 test('M1 usage-unknown provider failure stops the quoted batch after one dispatch', async () => {
   const result = await evaluateM1({ model: { doGenerate: async () => { throw new Error('transport fixture'); } } });
-  assert.equal(result.stopped, true); assert.equal(result.calls, 1); assert.equal(result.results.length, 1);
+  assert.equal(result.stopped, true); assert.equal(result.calls, 1); assert.equal(result.results.length, 16); assert.equal(result.results.filter(item => item.status === "未跑").length, 15);
   assert.equal(result.results[0].rows[0].status, 'failed'); assert.equal(result.results[0].rows[0].usage, null);
 });

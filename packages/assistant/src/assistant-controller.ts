@@ -1015,6 +1015,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       await controller.cancel();
       await activeTask;
       await backgroundTask;
+      await app.settleModelUsage?.();
       await approvalTracePending;
       await recovery;
       const leaseReleases = await Promise.allSettled([

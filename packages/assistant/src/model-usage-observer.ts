@@ -10,8 +10,14 @@ export function observeModelUsage(model: LanguageModel, options: {
   scope: () => { runId?: string; purpose: ModelPurpose };
   prices?: readonly ModelPrice[];
   callLog?: ModelCallLog;
+  pendingWrites?: Set<Promise<void>>;
 }): LanguageModel {
   if (typeof model === "string") return model;
+  const track = (pending: Promise<void>) => {
+    options.pendingWrites?.add(pending);
+    void pending.then(() => options.pendingWrites?.delete(pending), () => options.pendingWrites?.delete(pending));
+    return pending;
+  };
   const begin = async (input: { provider: string; modelId: string; signal?: AbortSignal; streaming?: boolean; params: Parameters<typeof modelInputSegments>[0] }) => {
     const { provider, modelId, signal } = input;
     signal?.throwIfAborted();
@@ -21,18 +27,20 @@ export function observeModelUsage(model: LanguageModel, options: {
       provider, modelId, startedAt: new Date().toISOString(), finishedAt: null, status: "pending", usage: {} };
     const price = options.prices?.find(item => item.provider === provider && item.modelId === modelId);
     if (price) call.price = structuredClone(price);
-    await options.records.startModelCall(call);
-    await options.callLog?.start(call, modelInputSegments(input.params));
+    await track((async () => {
+      await options.records.startModelCall(call);
+      await options.callLog?.start(call, modelInputSegments(input.params));
+    })());
     let resolution: Promise<void> | undefined;
     let dispatched = false;
     let dispatchedAt = started, firstOutput: FirstOutputTiming | null = null;
     const finish = async (status: ModelCallRecord["status"], usage: ModelCallRecord["usage"] = {}) => {
       if (resolution) return resolution;
       signal?.removeEventListener("abort", abort);
-      resolution = options.records.finishModelCall(call.id, status, usage).then(() => options.callLog?.finish({
+      resolution = track(options.records.finishModelCall(call.id, status, usage).then(() => options.callLog?.finish({
         id: call.id, status, usage, durationMs: performance.now() - started,
         ...(input.streaming ? { firstOutput } : {}),
-      }));
+      })));
       return resolution;
     };
     const abort = () => { void finish(dispatched ? "cancelled" : "not_dispatched").catch(() => {

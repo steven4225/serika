@@ -29,6 +29,7 @@ export function MemoryActionPreviewDetails({ preview }: { preview: MemoryActionP
 /** Saved content only: body, where it applies, and the user's own words it came from. */
 export function CurrentMemoryDetails({ current }: { current: FormalMemory }) {
   return <section className="memory-current-content">
+    {current.uncertain ? <p className="hint">不确定：原话包含互相矛盾的表述，可以编辑纠正。</p> : null}
     {current.text ? <MessageContent text={current.text} /> : <p className="hint">这条记忆当前不生效，可以删除。</p>}
     <p className="hint">{current.scope?.kind === "thread" ? "仅当前对话" : "工作区记忆"}</p>
     {current.source ? <details><summary>来源</summary><MemorySources sources={[current.source]} /></details> : null}

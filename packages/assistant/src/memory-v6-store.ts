@@ -21,12 +21,13 @@ export const v6SourceSchema = z.union([
 const scope = z.union([z.object({ kind: z.literal("workspace") }).strict(), z.object({ kind: z.literal("thread"), threadId: string }).strict()]);
 const identity = z.object({ subject: string, attribute: string, value: string }).strict();
 const body = string.refine(text => text.trim().length > 0 && Buffer.byteLength(text) <= 2048, "Memory text exceeds 2048 bytes or is blank");
-const entrySchema = z.object({ id: string, revision: z.number().int().positive(), text: body, category: z.enum(["preference", "note", "document"]),
+const entrySchema = z.object({ id: string, revision: z.number().int().positive(), text: body, uncertain: z.boolean().default(false), category: z.enum(["preference", "note", "document"]),
   identity: identity.optional(), scope, pinned: z.boolean(), state: z.enum(["active", "disabled", "superseded", "retracted"]),
   createdAt: time, updatedAt: time, sources: z.array(v6SourceSchema).min(1),
   replaces: z.array(string), supersededBy: string.nullable(), withdrawal: v6SourceSchema.nullable() }).strict();
 const segment = z.object({ throughMessageId: string, prefixHash: string }).strict();
 const progress = z.object({ threadId: string, throughMessageId: string.nullable(), prefixHash: string.nullable(),
+  pending: z.array(z.object({ messageId: string, prefixHash: string }).strict()).default([]),
   retry: z.object({ ...segment.shape, failures: z.number().int().min(1).max(3) }).strict().nullable() }).strict();
 const documentSchema = z.object({ version: z.literal(6), lastWrittenAt: time.nullable(), entries: z.array(entrySchema).max(512),
   progress: z.array(progress), suppressed: z.array(z.object({ threadId: string, messageId: string, memoryHash: string }).strict()),
@@ -35,9 +36,9 @@ export const validateV6MemoryDocument = (value: unknown): V6Document => document
 export type V6Source = z.infer<typeof v6SourceSchema>;
 export type V6Entry = z.infer<typeof entrySchema>;
 export type V6Document = z.infer<typeof documentSchema>;
-export type V6Change = { operation: "add" | "replace"; text: string; category: V6Entry["category"]; identity?: V6Entry["identity"]; source: V6Source; scope: V6Entry["scope"]; id?: string; expectedRevision?: number }
+export type V6Change = { operation: "add" | "replace"; text: string; uncertain?: boolean; category: V6Entry["category"]; identity?: V6Entry["identity"]; source: V6Source; scope: V6Entry["scope"]; id?: string; expectedRevision?: number }
   | { operation: "retract" | "undo"; id: string; expectedRevision: number; source: V6Source };
-export interface V6Commit { expectedProgress?: V6Document["progress"][number] | null; progress?: V6Document["progress"][number]; now?: Date; automatic?: boolean; initial?: { pinned: boolean; disabled: boolean } }
+export interface V6Commit { expectedProgress?: V6Document["progress"][number] | null; progress?: V6Document["progress"][number]; now?: Date; automatic?: boolean; reextract?: boolean; sourceOrder?: readonly string[]; initial?: { pinned: boolean; disabled: boolean } }
 const empty = (): V6Document => ({ version: 6, lastWrittenAt: null, entries: [], progress: [], suppressed: [], library: emptyMemoryLibrary(), importReceipts: [] });
 function fail(code: ConstructorParameters<typeof MemoryStoreError>[0], message: string): never { throw new MemoryStoreError(code, message); }
 const migration = (): never => fail("MEMORY_MIGRATION_REQUIRED", "需要迁移（第 7 步）");
@@ -45,7 +46,7 @@ const removed = (): never => fail("MEMORY_OPERATION_REMOVED", "旧候选、审�
 const importSnapshot = (document: V6Document) => createHash("sha256").update(JSON.stringify(document)).digest("hex");
 const memoryHash = (entry: Pick<V6Entry, "text" | "identity">) => hashCanonicalJson({ text: entry.text });
 export function v6Projection(entry: V6Entry): MemoryEntry {
-  return { id: entry.id, revision: entry.revision, text: entry.text, kind: entry.category === "preference" ? "preference" : "note",
+  return { id: entry.id, revision: entry.revision, text: entry.text, uncertain: entry.uncertain, kind: entry.category === "preference" ? "preference" : "note",
     enabled: entry.state === "active", status: entry.state === "active" ? "active" : "disabled", scope: entry.scope, pinned: entry.pinned,
     source: entry.sources[0]!, createdAt: entry.createdAt, updatedAt: entry.updatedAt, expiresAt: null, v6: structuredClone(entry) };
 }
@@ -149,18 +150,26 @@ export class V6MemoryStore {
       for (const raw of changes) {
         const source = v6SourceSchema.parse(raw.source);
         if ((raw.operation === "add" || raw.operation === "replace") && document.suppressed.some(item => source.kind === "conversation" && item.threadId === source.threadId && item.messageId === source.messageId && item.memoryHash === memoryHash(raw))) continue;
-        const target = raw.operation === "add" ? undefined : document.entries.find(entry => entry.id === raw.id);
+        let target = raw.operation === "add" ? undefined : document.entries.find(entry => entry.id === raw.id);
         if (raw.operation !== "add" && (!target || target.revision !== raw.expectedRevision)) fail("MEMORY_REVISION_CONFLICT", "Memory target changed or is missing");
         if (target?.scope.kind === "thread" && source.kind === "conversation" && target.scope.threadId !== source.threadId) fail("MEMORY_SOURCE_INVALID", "Foreign Thread");
+        const order = options.sourceOrder;
+        const position = source.kind === "conversation" ? order?.indexOf(source.messageId) ?? -1 : -1;
+        const newer = (entry: V6Entry) => source.kind === "conversation" && position >= 0 && entry.sources.some(item => item.kind === "conversation" && item.threadId === source.threadId && (order?.indexOf(item.messageId) ?? -1) > position);
+        if (options.automatic && target && (newer(target) || options.reextract) && raw.operation !== "replace") continue;
         if (raw.operation === "add" || raw.operation === "replace") {
           if (target && target.state !== "active") fail("MEMORY_DISABLED", "Replace requires an active target");
           if (target && JSON.stringify(target.scope) !== JSON.stringify(raw.scope)) fail("MEMORY_SOURCE_INVALID", "Replacement cannot change scope");
-          const entry: V6Entry = entrySchema.parse({ id: randomUUID(), revision: 1, text: raw.text, category: raw.category, ...(raw.identity ? { identity: raw.identity } : {}),
-            scope: raw.scope, pinned: options.initial?.pinned ?? target?.pinned ?? false, state: options.initial?.disabled ? "disabled" : "active", createdAt: stamp, updatedAt: stamp, sources: [source], replaces: target ? [target.id] : [], supersededBy: null, withdrawal: null });
+          const later = options.automatic ? document.entries.find(entry => entry.state === "active" && newer(entry) && (entry.id === target?.id || raw.identity && entry.identity && JSON.stringify(entry.scope) === JSON.stringify(raw.scope) && entry.identity.subject === raw.identity.subject && entry.identity.attribute === raw.identity.attribute)) : undefined;
+          if (later || options.reextract) target = undefined;
+
+          const entry: V6Entry = entrySchema.parse({ id: randomUUID(), revision: 1, text: raw.text, uncertain: raw.uncertain ?? false, category: raw.category, ...(raw.identity ? { identity: raw.identity } : {}),
+            scope: raw.scope, pinned: options.initial?.pinned ?? target?.pinned ?? false, state: options.initial?.disabled ? "disabled" : "active", createdAt: stamp, updatedAt: stamp, sources: [source], replaces: target ? [target.id] : [], supersededBy: later?.id ?? null, withdrawal: null });
+          if (later) entry.state = "superseded";
           if (document.entries.length >= MEMORY_MAX_ENTRIES) fail("MEMORY_LIMIT_EXCEEDED", "Memory 已满，未保存；请勿声称已记住");
           if (target) { target.state = "superseded"; target.supersededBy = entry.id; target.revision++; target.updatedAt = stamp; }
           if (target?.category === "document") {
-            for (const documentRef of document.library.documents) documentRef.entryIds = documentRef.entryIds.map(id => id === target.id ? entry.id : id);
+            for (const documentRef of document.library.documents) documentRef.entryIds = documentRef.entryIds.map(id => id === target!.id ? entry.id : id);
             document.library.revision++;
           }
           document.entries.push(entry); written.push(v6Projection(entry));
@@ -260,7 +269,7 @@ export class V6MemoryStore {
           if (!item && (action.entries.length || !z.uuid().safeParse(action.id).success)) fail("INVALID_INPUT", "New document cannot claim existing entries");
           if (item && JSON.stringify(item.entryIds) !== JSON.stringify(action.entries.map(entry => entry.id))) fail("MEMORY_REVISION_CONFLICT", "Document references changed");
           let chunks: string[]; try { chunks = memoryDocumentChunks(action.text); } catch { fail("INVALID_INPUT", "文档包含过长的连续空白，请整理后再保存"); }
-          const ids = chunks.map(text => { const entry: V6Entry = { id: randomUUID(), revision: 1, text, category: "document", scope: item?.scope ?? { kind: "workspace" }, pinned: false, state: "active", createdAt: stamp, updatedAt: stamp, sources: [{ kind: "manual" }], replaces: [], supersededBy: null, withdrawal: null }; document.entries.push(entry); return entry.id; });
+          const ids = chunks.map(text => { const entry: V6Entry = { id: randomUUID(), revision: 1, text, uncertain: false, category: "document", scope: item?.scope ?? { kind: "workspace" }, pinned: false, state: "active", createdAt: stamp, updatedAt: stamp, sources: [{ kind: "manual" }], replaces: [], supersededBy: null, withdrawal: null }; document.entries.push(entry); return entry.id; });
           for (const ref of action.entries) { const old = document.entries.find(entry => entry.id === ref.id)!; old.state = "superseded"; old.supersededBy = ids[0]!; old.revision++; old.updatedAt = stamp; }
           if (!item) { item = { id: action.id, title: action.title, folderId: action.folderId, entryIds: ids, scope: { kind: "workspace" } }; library.documents.push(item); } else item.entryIds = ids;
         }
@@ -335,7 +344,7 @@ export class V6MemoryStore {
         if (existing) { items.push({ id: existing.id, status: "existing" }); continue; }
         if (document.entries.length >= MEMORY_MAX_ENTRIES) fail("MEMORY_LIMIT_EXCEEDED", "Memory capacity reached; no import saved");
         const id = randomUUID();
-        document.entries.push({ id, revision: 1, text: entry.text, category, scope: { kind: "workspace" }, pinned: false, state: "active", createdAt: stamp, updatedAt: stamp, sources: [{ kind: "manual" }], replaces: [], supersededBy: null, withdrawal: null });
+        document.entries.push({ id, revision: 1, text: entry.text, uncertain: false, category, scope: { kind: "workspace" }, pinned: false, state: "active", createdAt: stamp, updatedAt: stamp, sources: [{ kind: "manual" }], replaces: [], supersededBy: null, withdrawal: null });
         items.push({ id, status: "saved" });
       }
       const receipt = { operationId: parsed.operationId, requestHash, threadId, items, committedAt: stamp };

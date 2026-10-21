@@ -1,0 +1,155 @@
+{
+  "testedParentCommit": "b13b38d8916f419611c38e46464dcb57b025f3ee",
+  "status": "passed",
+  "verificationKind": [
+    "unit-test",
+    "fake-model-script"
+  ],
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "linesFrom8c572bb": {
+    "product": {
+      "added": 884,
+      "removed": 1034
+    },
+    "test": {
+      "added": 499,
+      "removed": 8756
+    }
+  },
+  "commands": [
+    {
+      "command": "node --test (six affected Memory files; evidence enabled)",
+      "exitCode": 0,
+      "logSha256": "799d40b06d0d81ea46831e4511cf99b36bbb815da39fee93b0e5af053e15ad7e",
+      "counts": {
+        "tests": [
+          19
+        ],
+        "pass": [
+          19
+        ],
+        "fail": [
+          0
+        ],
+        "skipped": [
+          0
+        ]
+      }
+    },
+    {
+      "command": "pnpm eval:test",
+      "exitCode": 0,
+      "logSha256": "9c1896cbd664d2ef5fed7600a0a388703b29b7f251c49e90fb8fe09553d12132",
+      "counts": {
+        "tests": [
+          77
+        ],
+        "pass": [
+          77
+        ],
+        "fail": [
+          0
+        ],
+        "skipped": [
+          0
+        ]
+      }
+    },
+    {
+      "command": "pnpm eval:guards",
+      "exitCode": 0,
+      "logSha256": "4d8589ec3dbe02d23679e2e9d643cdafc326e27d167818138854cd40199376a6",
+      "counts": {
+        "tests": [],
+        "pass": [],
+        "fail": [],
+        "skipped": []
+      }
+    },
+    {
+      "command": "node examples/eval/cm-step4.mjs (offline, frozen replay)",
+      "exitCode": 0,
+      "logSha256": "902f62000e4b030469056445bb16eac9fb63dd5079fb06256b7e275c687fd324",
+      "counts": {
+        "tests": [],
+        "pass": [],
+        "fail": [],
+        "skipped": []
+      }
+    },
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0,
+      "logSha256": "9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609",
+      "counts": {
+        "tests": [],
+        "pass": [],
+        "fail": [],
+        "skipped": []
+      }
+    },
+    {
+      "command": "pnpm test",
+      "exitCode": 0,
+      "logSha256": "1ba78a92e46cd8c89840e03aea01a14c672e90b222863adab6a59b2963e4c27f",
+      "counts": {
+        "tests": [
+          1169,
+          631,
+          12
+        ],
+        "pass": [
+          1158,
+          631,
+          12
+        ],
+        "fail": [
+          0,
+          0,
+          0
+        ],
+        "skipped": [
+          11,
+          0,
+          0
+        ]
+      }
+    }
+  ],
+  "priorFailure": "review-fixes.json",
+  "shutdownReproduction": "shutdown-reproduction.json",
+  "sourceHashes": {
+    "apps/desktop/src/renderer/src/formal-memories.tsx": "aba9d241f206c548c66a45304c357af83e4e4e3bb087b8fd33cb6a04565da7ec",
+    "apps/desktop/src/renderer/src/memory-temporal.tsx": "1513a969f224e05197c671de4a6e79377d9883e30792306e868b581923e42f85",
+    "examples/eval/cm-step4.mjs": "b627482b9ee2db4c327d23eaa5ed4d56ef1d695f9665cef258a4be664cbf91d0",
+    "examples/eval/cm-step4.test.mjs": "f58fdda96da000ac28c40f3c702caf9ad8d50e74668f1c724ed27133fd654bff",
+    "packages/assistant/src/app.ts": "6afd0b21fe030a1703f809ace6ce62bc1d7fe4b42a397cae0fb4ca6e6301ce4e",
+    "packages/assistant/src/assistant-controller.ts": "96d0002ced9a5a96d740f1f4889a79ec75d60d4c1cfc76f66eae9a612051664d",
+    "packages/assistant/src/memory-extraction.ts": "d7d1a24f61cca2c19c2f16cc3d728ecbf0a6e9fb85bfa295d94cfe6bf7b34636",
+    "packages/assistant/src/memory-m1-acceptance.test.ts": "89d3bd70ddd4239cfe893ce8e3328a8ba49094769e1b8c8eeaf8df8110d2f509",
+    "packages/assistant/src/memory-read-tools.ts": "6ce2ca66a3f8756188859cecf0b9613545f916cab57dab139d0b609e31ed0097",
+    "packages/assistant/src/memory-snapshot.ts": "7fdd76232b43dd2324d2c0a934ce1a069125d87d04c384051a0646f864c7f806",
+    "packages/assistant/src/memory-store.ts": "9b7dbe55ee3f7b84278e25286ed1ee5182a25c3f02073287866138094ab5be01",
+    "packages/assistant/src/memory-v6-store.test.ts": "41848709e9b43d76e9627a883d41380c088accafca1bfe896c4101050d7a2fad",
+    "packages/assistant/src/memory-v6-store.ts": "3f08a32ccf91314adb2a544e6f03588ff5d66afd95288bb5c035cceffe2776fc",
+    "packages/assistant/src/memory-write.ts": "6bd973ca6f9777173d3e62e96baada2885aee5c78ff671bb77d7ad5dcc6fcadd",
+    "packages/assistant/src/model-usage-observer.ts": "25147a055fe9f015b8b1507274a4578909a6993f37661b65dffb0ae7c2df0364",
+    "packages/assistant/src/modules/memory-module.test.ts": "7c3d562baae1c3ed977a80be0d5bd40791af341b18d14ccee7fbf53bbdddb05a",
+    "packages/assistant/src/transcript-maintenance.test.ts": "f0cf78e5c860f4dc87135ddb8098567c8242eaabbbc8d85b89cf46f6a2034133"
+  },
+  "evalCounts": {
+    "baseline": 84,
+    "retired": 9,
+    "added": 2,
+    "current": 77
+  },
+  "evidenceHashes": {
+    "plan.json": "764d394919c15791e06c5cb99d9512a107c734146997be9479d76443ff66be85",
+    "background.json": "34611fa5590bfc255e3bc4813aba872d01b151fd360512d012576f9b467b97cf",
+    "shutdown-reproduction.json": "13af655c5102de52d95fbfc4f80c0545c6dbd60d0180a6e1394b87d9834c5483",
+    "foreground.json": "c4df97c2ae980398c77e2c07f35f7751fe5e0753ad9d9283af4dfc59b6ea4235",
+    "review-fixes.json": "adaf62be15de13a3f535e5a5a93000a66f387a8e0ed98d6650a7e091da950e67",
+    "verification.json": "9e2ed635fdc0bbd6cdfbb04c8adb6157f6cdaf3edda6261984ecdd888dff4b28"
+  }
+}

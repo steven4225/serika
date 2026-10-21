@@ -5,7 +5,7 @@ import { tmpdir, homedir } from "node:os";
 import { join } from "node:path";
 import { V6MemoryStore, v6Conflicts, type V6Change, type V6Document } from "./memory-v6-store.js";
 import { assertExperimentalDataPaths } from "./experimental-data.js";
-const change = (value = "北京", attribute = "住址"): V6Change => ({ operation: "add", text: `我住在${value}`, category: "note", scope: { kind: "workspace" },
+const change = (value = "北京", attribute = "住址"): Extract<V6Change, { text: string }> => ({ operation: "add", text: `我住在${value}`, category: "note", scope: { kind: "workspace" },
   identity: { subject: "user", attribute, value }, source: { kind: "conversation", threadId: "t", messageId: value, quote: `我住在${value}`, sentAt: "2026-10-21T01:00:00Z" } });
 
 test("v5 remains readable; every write refuses migration without creating locks, siblings or backups", async () => {
@@ -27,12 +27,12 @@ test("v6 replacement/undo, withdrawal/undo, conflict diagnostics and source-spec
   const root = await mkdtemp(join(tmpdir(), "cm4-chain-"));
   try {
     let store = new V6MemoryStore(root);
-    const added = await store.writeV6([change()]); assert.ok(added.ok); const old = added.value[0]!;
+    const added = await store.writeV6([{ ...change(), uncertain: true }]); assert.ok(added.ok); assert.equal(added.value[0]!.uncertain, true); const old = added.value[0]!;
     const replacement = change("上海"); assert.ok("text" in replacement);
     const replaced = await store.writeV6([{ ...replacement, operation: "replace", id: old.id, expectedRevision: old.revision! }]); assert.ok(replaced.ok);
     store = new V6MemoryStore(root);
     const next = replaced.value[0]!; assert.ok((await store.writeV6([{ operation: "undo", id: next.id, expectedRevision: next.revision!, source: { kind: "manual" } }])).ok);
-    const current = await store.get(old.id); assert.ok(current.ok); assert.equal(current.entry.enabled, true);
+    const current = await store.get(old.id); assert.ok(current.ok); assert.equal(current.entry.enabled, true); assert.equal(current.entry.uncertain, true);
     const withdrawn = await store.writeV6([{ operation: "retract", id: old.id, expectedRevision: current.entry.revision!, source: { kind: "manual" } }]); assert.ok(withdrawn.ok);
     assert.ok((await store.writeV6([{ operation: "undo", id: old.id, expectedRevision: withdrawn.value[0]!.revision!, source: { kind: "manual" } }])).ok);
     assert.ok((await store.writeV6([change("杭州"), change("深圳", "公司地址")])).ok);
@@ -45,6 +45,12 @@ test("v6 replacement/undo, withdrawal/undo, conflict diagnostics and source-spec
     const after = await store.readV6(); assert.ok(after.ok);
     assert.equal(after.value.entries.some(entry => entry.id === old.id || entry.text === "我住在北京"), false);
     assert.equal(after.value.suppressed.length, 1);
+    const independent = change("北京", "办公习惯"); independent.text = "我工作时先列结论"; independent.source = { kind: "conversation", threadId: "t", messageId: "北京", quote: independent.text, sentAt: null };
+    assert.ok((await store.writeV6([independent])).ok);
+    const sameSource = await store.readV6(); assert.ok(sameSource.ok); assert.ok(sameSource.value.entries.some(entry => entry.text === independent.text));
+    const privateEntry = await store.writeV6([{ ...change("其他对话"), scope: { kind: "thread", threadId: "private" }, source: { kind: "manual" } }]); assert.ok(privateEntry.ok);
+    const crossScope = await store.writeV6([{ ...change("越界"), operation: "replace", id: privateEntry.value[0]!.id, expectedRevision: 1 }]); assert.equal(crossScope.ok, false);
+    if (!crossScope.ok) assert.equal(crossScope.error.code, "MEMORY_SOURCE_INVALID");
     const persisted = JSON.parse(await readFile(join(root, ".runloom/memory.json"), "utf8"));
     assert.equal(persisted.version, 6); assert.equal("candidates" in persisted, false);
     assert.doesNotMatch(JSON.stringify(persisted), /systemTime|validTime|assertions|versions|operationLog/);
@@ -54,7 +60,7 @@ test("v6 replacement/undo, withdrawal/undo, conflict diagnostics and source-spec
 test("memory and progress share the commit barrier; pre-rename and post-rename failures stay distinct", async () => {
   const root = await mkdtemp(join(tmpdir(), "cm4-barrier-"));
   try {
-    const progress: V6Document["progress"][number] = { threadId: "t", throughMessageId: "北京", prefixHash: "test-hash", retry: null };
+    const progress: V6Document["progress"][number] = { threadId: "t", throughMessageId: "北京", prefixHash: "test-hash", pending: [], retry: null };
     for (const phase of ["before-rename", "after-rename"] as const) {
       const workspace = join(root, phase); await mkdir(workspace);
       const writer = new V6MemoryStore(workspace, observed => { if (observed === phase) throw new Error(phase); });

@@ -201,6 +201,7 @@ export interface RuntimeApp {
   recipes?: RecipeStore;
   memoryConsolidation?: MemoryConsolidation;
   memoryExtraction?: MemoryExtraction;
+  settleModelUsage?: () => Promise<void>;
   getMemoryConsolidationBacklog?: () => Promise<MemoryResult<number>>;
   getMemoryReferences?: () => MemoryReferenceSnapshot | null;
   subscribeMemoryReferences?: (listener: () => void) => () => void;
@@ -694,9 +695,10 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       ...automation.skills.map(skill => skillAgentDefinition(skill, modelAlias)),
     ]);
     const modelCallLog = new ModelCallLog(directory);
+    const pendingModelWrites = new Set<Promise<void>>();
     const observedModel = (purpose?: ModelPurpose) => observeModelUsage(model, {
       records: executionRecords, threadId, enabled: () => usageEnabled,
-      callLog: modelCallLog,
+      callLog: modelCallLog, pendingWrites: pendingModelWrites,
       scope: () => {
         const current = executionRecordAdapter.currentRun();
         return { ...(current ? { runId: current.runId } : {}),
@@ -924,6 +926,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       runtime,
       store,
       executionRecords,
+      settleModelUsage: async () => { while (pendingModelWrites.size) await Promise.allSettled([...pendingModelWrites]); },
       beginOutputTiming: message => usageEnabled ? beginRoundOutputTiming({ message, threadId, log: modelCallLog }) : undefined,
       enableExecutionRecords: () => { executionRecordAdapter.enable(); usageEnabled = true; },
       bindNextExecutionWorkTask: executionRecordAdapter.bindNextWorkTask,

@@ -19,6 +19,11 @@ test("C04 binds the specific confirmation; short acknowledgement and external ev
   const result = bindMemoryWrite(input, { messages: [assistant, user], user, threadId: "t" });
   assert.equal(result.source.kind, "conversation");
   if (result.source.kind === "conversation") { assert.equal(result.source.messageId, "u"); assert.equal(result.source.proposal?.quote, "以后使用中文"); }
+  const contradiction = "我喜欢甜咖啡，但我又不喜欢甜咖啡", contradictoryUser = message("c", "user", contradiction);
+  const uncertainWrite = memoryWriteSchema.parse({ operation: "add", text: contradiction, category: "preference", uncertain: true, sourceQuote: contradiction });
+  const uncertainResult = bindMemoryWrite(uncertainWrite, { messages: [contradictoryUser], user: contradictoryUser, threadId: "t" });
+  assert.ok("text" in uncertainResult); assert.equal(uncertainResult.text, contradiction); assert.equal(uncertainResult.uncertain, true);
+  assert.throws(() => bindMemoryWrite({ ...uncertainWrite, text: `[不确定] ${contradiction}` }, { messages: [contradictoryUser], user: contradictoryUser, threadId: "t" }), /证据中的原话/);
   for (const text of ["嗯", "好吧"]) {
     const short = message("u", "user", text);
     assert.throws(() => bindMemoryWrite({ ...input, sourceQuote: text }, { messages: [assistant, short], user: short, threadId: "t" }), /具体值/);

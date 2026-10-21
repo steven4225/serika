@@ -50,6 +50,7 @@ export interface MemoryRevision {
 
 export interface MemoryEntry {
   kind?: MemoryKind;
+  uncertain?: boolean;
   v6?: import("./memory-v6-store.js").V6Entry;
   /** Bounded current assertion metadata only; timelines never ride the flat API. */
   assertion?: Omit<MemoryAssertion, "text" | "sources"> & { sourceIds: MemorySourceIdentifier[] };

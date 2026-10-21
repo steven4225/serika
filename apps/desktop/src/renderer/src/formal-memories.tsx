@@ -123,6 +123,7 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken }: { enab
     <div className="memory-list">
       {entries.map(entry => <button type="button" className="ghost memory-row" key={entry.id} onClick={() => void open(entry.id)}>
         <span className="memory-row-text">{entry.preview.trim() ? memoryItemTitle(entry.preview) : "记忆"}</span>
+        {entry.uncertain ? <span className="hint">不确定</span> : null}
         {!isCurrentMemory(entry, now) ? <span className="hint">当前不生效</span> : null}
       </button>)}
     </div>

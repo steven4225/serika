@@ -27,6 +27,6 @@ export function memoryReadTools(options: { store: WorkspaceMemoryStore | undefin
         const keywords = query!.normalize("NFKC").toLowerCase().trim().split(/\s+/u).filter(Boolean);
         return { ok: true, entries: entries.filter(entry =>
           keywords.some(word => entry.text.normalize("NFKC").toLowerCase().includes(word)))
-          .map(({ id, revision, text }) => ({ id, revision, text })) };
+          .map(({ id, revision, text, uncertain }) => ({ id, revision, text, uncertain: uncertain ?? false })) };
       } }) }];
 }

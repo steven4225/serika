@@ -1,0 +1,472 @@
+{
+  "verificationKind": "unit-test/fake-model-script",
+  "networkCalls": 0,
+  "existingTestModified": false,
+  "probeSha256": "6fc5b5775f41a411675868c0d3b34d0941c7416d70d409be61898abdeec23684",
+  "loadHarnessSha256": "8f85c41a4c18d6a94f0d8e67dba3388428eb0733f2a9122ab0f55a432f6369a4",
+  "phases": {
+    "before": {
+      "processes": 12,
+      "testCases": 24,
+      "failedProcesses": 1,
+      "lateFileOperations": 60,
+      "logs": [
+        {
+          "sha256": "a03acfb155efc3ee17938cb312d504d655fa4dd40d9b82a5df608baaa1bdac71"
+        },
+        {
+          "sha256": "7c0ef129f890879b43cb7feae0b66e8652fe31768bb7207f3c3d0a11ad528f7c"
+        },
+        {
+          "sha256": "79dd096247c3d48a9175abc3ee4548f5d9153ab4345d7cc91381dcfa79aea504"
+        },
+        {
+          "sha256": "756b6ca96d502d056d1336ac1c49727341245c1cd4b7c6608b4a5cb6b37f813b"
+        },
+        {
+          "sha256": "d4fcdbcce0f73ad9e4b049b00e84c448fe91be60f5ece2d40832a728299a4e9a"
+        },
+        {
+          "sha256": "21b5a53dbf4efa5d9b2d72b4a7d00c3f1c7dcdf33908b997951a967331fa3080"
+        },
+        {
+          "sha256": "1340e11bad3636554fcdec8c478fe1d0eb2207aa53fdc08434a405de04a191c2"
+        },
+        {
+          "sha256": "26fe516059fb60488f3daa43463cb4221e2fcd47266fb9418b92e0e634dd86a1"
+        },
+        {
+          "sha256": "9b38c0b1c22e2148a066065902ec5d9d1f57ecef2b66ecb1f9e9d52f8ba0145a"
+        },
+        {
+          "sha256": "01ceaa16add2c9ffd5594590fe89d8b003d0e4e7762983ab75f8b1ddb09e444f"
+        },
+        {
+          "sha256": "d9f7d387e7979b498b155da73f51522260fbedd7e48ba9b7413908571b7ce930"
+        },
+        {
+          "sha256": "8f7a2050d750c977a34dc0028f47cc3c70cc4a81c64c3a457249fd1bb9c09983"
+        }
+      ],
+      "runSummarySha256": "934ac18bff761543b9b9f878502dd2859f72d39fb7910b1cb749f46d4f69c42a",
+      "observedLateWrites": [
+        {
+          "event": "open:end",
+          "file": "profile/transcripts/<Thread>/.model-calls.lock",
+          "afterShutdownMs": 7.630374999999731,
+          "stack": ""
+        },
+        {
+          "event": "open:end",
+          "file": "profile/transcripts/<Thread>/.model-calls.lock",
+          "afterShutdownMs": 3.9389170000004015,
+          "stack": ""
+        },
+        {
+          "event": "mkdir:begin",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 1.1034589999999298,
+          "stack": "Error\n    at fsp.<computed> (<external-probe>:4:249)\n    at ModelCallLog.#append (packages/assistant/src/model-call-log.ts:57:13)\n    at ModelCallLog.finish (packages/assistant/src/model-call-log.ts:46:23)\n    at <anonymous> (packages/assistant/src/model-usage-observer.ts:32:104)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)"
+        },
+        {
+          "event": "mkdir:end",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 1.2257919999992737,
+          "stack": ""
+        },
+        {
+          "event": "mkdir:begin",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 1.2912089999999807,
+          "stack": "Error\n    at fsp.<computed> (<external-probe>:4:249)\n    at ensureLockFile (packages/assistant/src/flock.ts:57:9)\n    at acquire (packages/assistant/src/flock.ts:117:9)\n    at acquireFlock (packages/assistant/src/flock.ts:95:10)\n    at ModelCallLog.#append (packages/assistant/src/model-call-log.ts:58:26)\n    at async ModelCallLog.finish (packages/assistant/src/model-call-log.ts:46:5)"
+        },
+        {
+          "event": "mkdir:end",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 1.4071249999997235,
+          "stack": ""
+        },
+        {
+          "event": "open:begin",
+          "file": "profile/transcripts/<Thread>/.model-calls.lock",
+          "afterShutdownMs": 1.5776669999995647,
+          "stack": "Error\n    at fsp.<computed> (<external-probe>:4:249)\n    at ensureLockFile (packages/assistant/src/flock.ts:58:24)\n    at async acquire (packages/assistant/src/flock.ts:117:3)\n    at async ModelCallLog.#append (packages/assistant/src/model-call-log.ts:58:20)\n    at async ModelCallLog.finish (packages/assistant/src/model-call-log.ts:46:5)"
+        },
+        {
+          "event": "open:end",
+          "file": "profile/transcripts/<Thread>/.model-calls.lock",
+          "afterShutdownMs": 1.7444589999995515,
+          "stack": ""
+        },
+        {
+          "event": "mkdir:begin",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 1.312832999999955,
+          "stack": "Error\n    at fsp.<computed> (<external-probe>:4:249)\n    at ModelCallLog.#append (packages/assistant/src/model-call-log.ts:57:13)\n    at ModelCallLog.finish (packages/assistant/src/model-call-log.ts:46:23)\n    at <anonymous> (packages/assistant/src/model-usage-observer.ts:32:104)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)"
+        },
+        {
+          "event": "mkdir:end",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 1.4909580000003189,
+          "stack": ""
+        },
+        {
+          "event": "mkdir:begin",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 1.7472500000003492,
+          "stack": "Error\n    at fsp.<computed> (<external-probe>:4:249)\n    at ensureLockFile (packages/assistant/src/flock.ts:57:9)\n    at acquire (packages/assistant/src/flock.ts:117:9)\n    at acquireFlock (packages/assistant/src/flock.ts:95:10)\n    at ModelCallLog.#append (packages/assistant/src/model-call-log.ts:58:26)\n    at async ModelCallLog.finish (packages/assistant/src/model-call-log.ts:46:5)"
+        },
+        {
+          "event": "mkdir:end",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 4.3759170000003,
+          "stack": ""
+        },
+        {
+          "event": "open:begin",
+          "file": "profile/transcripts/<Thread>/.model-calls.lock",
+          "afterShutdownMs": 8.444707999999991,
+          "stack": "Error\n    at fsp.<computed> (<external-probe>:4:249)\n    at ensureLockFile (packages/assistant/src/flock.ts:58:24)\n    at async acquire (packages/assistant/src/flock.ts:117:3)\n    at async ModelCallLog.#append (packages/assistant/src/model-call-log.ts:58:20)\n    at async ModelCallLog.finish (packages/assistant/src/model-call-log.ts:46:5)"
+        },
+        {
+          "event": "open:end",
+          "file": "profile/transcripts/<Thread>/.model-calls.lock",
+          "afterShutdownMs": 11.648750000000291,
+          "stack": ""
+        },
+        {
+          "event": "mkdir:begin",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 4.0454579999995985,
+          "stack": "Error\n    at fsp.<computed> (<external-probe>:4:249)\n    at ModelCallLog.#append (packages/assistant/src/model-call-log.ts:57:13)\n    at ModelCallLog.finish (packages/assistant/src/model-call-log.ts:46:23)\n    at <anonymous> (packages/assistant/src/model-usage-observer.ts:32:104)"
+        },
+        {
+          "event": "mkdir:end",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 4.682332999999744,
+          "stack": ""
+        },
+        {
+          "event": "mkdir:begin",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 4.886375000000044,
+          "stack": "Error\n    at fsp.<computed> (<external-probe>:4:249)\n    at ensureLockFile (packages/assistant/src/flock.ts:57:9)\n    at acquire (packages/assistant/src/flock.ts:117:9)\n    at acquireFlock (packages/assistant/src/flock.ts:95:10)\n    at ModelCallLog.#append (packages/assistant/src/model-call-log.ts:58:26)\n    at async ModelCallLog.finish (packages/assistant/src/model-call-log.ts:46:5)"
+        },
+        {
+          "event": "mkdir:end",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 4.980749999999716,
+          "stack": ""
+        },
+        {
+          "event": "open:begin",
+          "file": "profile/transcripts/<Thread>/.model-calls.lock",
+          "afterShutdownMs": 5.064000000000306,
+          "stack": "Error\n    at fsp.<computed> (<external-probe>:4:249)\n    at ensureLockFile (packages/assistant/src/flock.ts:58:24)\n    at async acquire (packages/assistant/src/flock.ts:117:3)\n    at async ModelCallLog.#append (packages/assistant/src/model-call-log.ts:58:20)\n    at async ModelCallLog.finish (packages/assistant/src/model-call-log.ts:46:5)"
+        },
+        {
+          "event": "open:end",
+          "file": "profile/transcripts/<Thread>/.model-calls.lock",
+          "afterShutdownMs": 5.273000000000138,
+          "stack": ""
+        },
+        {
+          "event": "open:begin",
+          "file": "profile/transcripts/<Thread>/model-calls-2026-10-21.jsonl",
+          "afterShutdownMs": 43.92687500000011,
+          "stack": "Error\n    at fsp.<computed> (<external-probe>:4:249)\n    at ModelCallLog.#append (packages/assistant/src/model-call-log.ts:65:30)\n    at async ModelCallLog.finish (packages/assistant/src/model-call-log.ts:46:5)"
+        },
+        {
+          "event": "open:end",
+          "file": "profile/transcripts/<Thread>/model-calls-2026-10-21.jsonl",
+          "afterShutdownMs": 46.462540999999874,
+          "stack": ""
+        },
+        {
+          "event": "open:begin",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 53.62700000000041,
+          "stack": "Error\n    at fsp.<computed> (<external-probe>:4:249)\n    at ModelCallLog.#append (packages/assistant/src/model-call-log.ts:78:33)\n    at async ModelCallLog.finish (packages/assistant/src/model-call-log.ts:46:5)"
+        },
+        {
+          "event": "open:end",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 53.81754100000035,
+          "stack": ""
+        },
+        {
+          "event": "rename:begin",
+          "file": "profile/transcripts/<Thread>/.execution-records.<id>.tmp",
+          "afterShutdownMs": 7.48016699999971,
+          "stack": "Error\n    at fsp.<computed> (<external-probe>:4:249)\n    at ExecutionRecordStore.#mutate (packages/assistant/src/execution-record-store.ts:705:15)\n    at async ExecutionRecordStore.finishModelCall (packages/assistant/src/execution-record-store.ts:587:5)"
+        },
+        {
+          "event": "rename:end",
+          "file": "profile/transcripts/<Thread>/.execution-records.<id>.tmp",
+          "afterShutdownMs": 11.482833000000028,
+          "stack": ""
+        },
+        {
+          "event": "open:begin",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 15.645375000000058,
+          "stack": "Error\n    at fsp.<computed> (<external-probe>:4:249)\n    at ExecutionRecordStore.#mutate (packages/assistant/src/execution-record-store.ts:709:35)\n    at async ExecutionRecordStore.finishModelCall (packages/assistant/src/execution-record-store.ts:587:5)"
+        },
+        {
+          "event": "open:end",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 19.517957999999453,
+          "stack": ""
+        },
+        {
+          "event": "mkdir:begin",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 25.991124999999556,
+          "stack": "Error\n    at fsp.<computed> (<external-probe>:4:249)\n    at ModelCallLog.#append (packages/assistant/src/model-call-log.ts:57:13)\n    at ModelCallLog.finish (packages/assistant/src/model-call-log.ts:46:23)\n    at <anonymous> (packages/assistant/src/model-usage-observer.ts:32:104)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)"
+        },
+        {
+          "event": "mkdir:end",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 26.613875000000007,
+          "stack": ""
+        },
+        {
+          "event": "mkdir:begin",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 26.837666999999783,
+          "stack": "Error\n    at fsp.<computed> (<external-probe>:4:249)\n    at ensureLockFile (packages/assistant/src/flock.ts:57:9)\n    at acquire (packages/assistant/src/flock.ts:117:9)\n    at acquireFlock (packages/assistant/src/flock.ts:95:10)\n    at ModelCallLog.#append (packages/assistant/src/model-call-log.ts:58:26)\n    at async ModelCallLog.finish (packages/assistant/src/model-call-log.ts:46:5)"
+        },
+        {
+          "event": "mkdir:end",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 26.990082999999686,
+          "stack": ""
+        },
+        {
+          "event": "open:begin",
+          "file": "profile/transcripts/<Thread>/.model-calls.lock",
+          "afterShutdownMs": 27.076457999999548,
+          "stack": "Error\n    at fsp.<computed> (<external-probe>:4:249)\n    at ensureLockFile (packages/assistant/src/flock.ts:58:24)\n    at async acquire (packages/assistant/src/flock.ts:117:3)\n    at async ModelCallLog.#append (packages/assistant/src/model-call-log.ts:58:20)\n    at async ModelCallLog.finish (packages/assistant/src/model-call-log.ts:46:5)"
+        },
+        {
+          "event": "open:end",
+          "file": "profile/transcripts/<Thread>/.model-calls.lock",
+          "afterShutdownMs": 27.249249999999847,
+          "stack": ""
+        },
+        {
+          "event": "open:begin",
+          "file": "profile/transcripts/<Thread>/model-calls-2026-10-21.jsonl",
+          "afterShutdownMs": 61.65699999999924,
+          "stack": "Error\n    at fsp.<computed> (<external-probe>:4:249)\n    at ModelCallLog.#append (packages/assistant/src/model-call-log.ts:65:30)\n    at async ModelCallLog.finish (packages/assistant/src/model-call-log.ts:46:5)"
+        },
+        {
+          "event": "open:end",
+          "file": "profile/transcripts/<Thread>/model-calls-2026-10-21.jsonl",
+          "afterShutdownMs": 61.83158299999923,
+          "stack": ""
+        },
+        {
+          "event": "open:begin",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 70.39645799999926,
+          "stack": "Error\n    at fsp.<computed> (<external-probe>:4:249)\n    at ModelCallLog.#append (packages/assistant/src/model-call-log.ts:78:33)\n    at async ModelCallLog.finish (packages/assistant/src/model-call-log.ts:46:5)"
+        },
+        {
+          "event": "open:end",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 70.51679199999944,
+          "stack": ""
+        },
+        {
+          "event": "open:end",
+          "file": "profile/transcripts/<Thread>/.model-calls.lock",
+          "afterShutdownMs": 0.44095800000013696,
+          "stack": ""
+        },
+        {
+          "event": "open:begin",
+          "file": "profile/transcripts/<Thread>/model-calls-2026-10-21.jsonl",
+          "afterShutdownMs": 38.718416000000616,
+          "stack": "Error\n    at fsp.<computed> (<external-probe>:4:249)\n    at ModelCallLog.#append (packages/assistant/src/model-call-log.ts:65:30)\n    at async ModelCallLog.finish (packages/assistant/src/model-call-log.ts:46:5)"
+        },
+        {
+          "event": "open:end",
+          "file": "profile/transcripts/<Thread>/model-calls-2026-10-21.jsonl",
+          "afterShutdownMs": 39.06012499999997,
+          "stack": ""
+        },
+        {
+          "event": "open:begin",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 43.655541000000085,
+          "stack": "Error\n    at fsp.<computed> (<external-probe>:4:249)\n    at ModelCallLog.#append (packages/assistant/src/model-call-log.ts:78:33)\n    at async ModelCallLog.finish (packages/assistant/src/model-call-log.ts:46:5)"
+        },
+        {
+          "event": "open:end",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 43.83195800000067,
+          "stack": ""
+        },
+        {
+          "event": "rename:end",
+          "file": "profile/transcripts/<Thread>/.execution-records.<id>.tmp",
+          "afterShutdownMs": 6.851458000000093,
+          "stack": ""
+        },
+        {
+          "event": "open:begin",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 7.075333000000683,
+          "stack": "Error\n    at fsp.<computed> (<external-probe>:4:249)\n    at ExecutionRecordStore.#mutate (packages/assistant/src/execution-record-store.ts:709:35)\n    at async ExecutionRecordStore.finishModelCall (packages/assistant/src/execution-record-store.ts:587:5)"
+        },
+        {
+          "event": "open:end",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 7.244666999999936,
+          "stack": ""
+        },
+        {
+          "event": "mkdir:begin",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 21.558500000000095,
+          "stack": "Error\n    at fsp.<computed> (<external-probe>:4:249)\n    at ModelCallLog.#append (packages/assistant/src/model-call-log.ts:57:13)\n    at ModelCallLog.finish (packages/assistant/src/model-call-log.ts:46:23)\n    at <anonymous> (packages/assistant/src/model-usage-observer.ts:32:104)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)"
+        },
+        {
+          "event": "mkdir:end",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 22.38837500000045,
+          "stack": ""
+        },
+        {
+          "event": "mkdir:begin",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 22.5092080000004,
+          "stack": "Error\n    at fsp.<computed> (<external-probe>:4:249)\n    at ensureLockFile (packages/assistant/src/flock.ts:57:9)\n    at acquire (packages/assistant/src/flock.ts:117:9)\n    at acquireFlock (packages/assistant/src/flock.ts:95:10)\n    at ModelCallLog.#append (packages/assistant/src/model-call-log.ts:58:26)\n    at async ModelCallLog.finish (packages/assistant/src/model-call-log.ts:46:5)"
+        },
+        {
+          "event": "mkdir:error",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 22.746875000000728,
+          "stack": ""
+        },
+        {
+          "event": "mkdir:begin",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 5.589125000000422,
+          "stack": "Error\n    at fsp.<computed> (<external-probe>:4:249)\n    at ModelCallLog.#append (packages/assistant/src/model-call-log.ts:57:13)\n    at ModelCallLog.finish (packages/assistant/src/model-call-log.ts:46:23)\n    at <anonymous> (packages/assistant/src/model-usage-observer.ts:32:104)"
+        },
+        {
+          "event": "mkdir:end",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 6.324999999999818,
+          "stack": ""
+        },
+        {
+          "event": "mkdir:begin",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 6.602832999999919,
+          "stack": "Error\n    at fsp.<computed> (<external-probe>:4:249)\n    at ensureLockFile (packages/assistant/src/flock.ts:57:9)\n    at acquire (packages/assistant/src/flock.ts:117:9)\n    at acquireFlock (packages/assistant/src/flock.ts:95:10)\n    at ModelCallLog.#append (packages/assistant/src/model-call-log.ts:58:26)\n    at async ModelCallLog.finish (packages/assistant/src/model-call-log.ts:46:5)"
+        },
+        {
+          "event": "mkdir:end",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 6.769542000000001,
+          "stack": ""
+        },
+        {
+          "event": "open:begin",
+          "file": "profile/transcripts/<Thread>/.model-calls.lock",
+          "afterShutdownMs": 6.855792000000292,
+          "stack": "Error\n    at fsp.<computed> (<external-probe>:4:249)\n    at ensureLockFile (packages/assistant/src/flock.ts:58:24)\n    at async acquire (packages/assistant/src/flock.ts:117:3)\n    at async ModelCallLog.#append (packages/assistant/src/model-call-log.ts:58:20)\n    at async ModelCallLog.finish (packages/assistant/src/model-call-log.ts:46:5)"
+        },
+        {
+          "event": "open:end",
+          "file": "profile/transcripts/<Thread>/.model-calls.lock",
+          "afterShutdownMs": 7.053208000000268,
+          "stack": ""
+        },
+        {
+          "event": "open:begin",
+          "file": "profile/transcripts/<Thread>/model-calls-2026-10-21.jsonl",
+          "afterShutdownMs": 42.50166700000045,
+          "stack": "Error\n    at fsp.<computed> (<external-probe>:4:249)\n    at ModelCallLog.#append (packages/assistant/src/model-call-log.ts:65:30)\n    at async ModelCallLog.finish (packages/assistant/src/model-call-log.ts:46:5)"
+        },
+        {
+          "event": "open:end",
+          "file": "profile/transcripts/<Thread>/model-calls-2026-10-21.jsonl",
+          "afterShutdownMs": 42.72808299999997,
+          "stack": ""
+        },
+        {
+          "event": "open:begin",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 45.86800000000039,
+          "stack": "Error\n    at fsp.<computed> (<external-probe>:4:249)\n    at ModelCallLog.#append (packages/assistant/src/model-call-log.ts:78:33)\n    at async ModelCallLog.finish (packages/assistant/src/model-call-log.ts:46:5)"
+        },
+        {
+          "event": "open:end",
+          "file": "profile/transcripts/<Thread>",
+          "afterShutdownMs": 46.095792000000074,
+          "stack": ""
+        }
+      ]
+    },
+    "after": {
+      "processes": 12,
+      "testCases": 24,
+      "failedProcesses": 0,
+      "lateFileOperations": 0,
+      "logs": [
+        {
+          "sha256": "dc81510fdeef63a12100606cf331d10ac5f4f876f1801ec8ae6222ddeda7a693"
+        },
+        {
+          "sha256": "d9b23540be02f65552a5d1af866abd6d3724fa029e4f0d070c81a01bbdaa7419"
+        },
+        {
+          "sha256": "61e289d137c88bbf2603b65519a7a5b1e6e0e6fef73a4297229e8912f188fb59"
+        },
+        {
+          "sha256": "86d07b7c69a55e69c107143485b5f130338f4197eea7aada8e1bfaeffe494f9a"
+        },
+        {
+          "sha256": "ac834cae896d7a71a0b015ac90078de92492ad3abe3b6c626ed7e1d412003b86"
+        },
+        {
+          "sha256": "9928368d687f29c781a61c842d6b2706877293ea29e0c7ada31736629397e693"
+        },
+        {
+          "sha256": "c3b761b6e55e732a39ecad0c9afcf0ae6c36ce3628eafceb303079a4d21c4419"
+        },
+        {
+          "sha256": "7ba293341b8950b4b71b838ff3099bbf6b66b132f494b70670b3775138398da6"
+        },
+        {
+          "sha256": "7941c23861b26b68259f341082519e087f4c3e840d4f5d1184df2ec9a4053d84"
+        },
+        {
+          "sha256": "3126853860d7428d63d6d3b9bd26a080372f76a13135201a2badeef4894942a3"
+        },
+        {
+          "sha256": "1efb21abb8fd633431dbe9238b5163c73abc0c944deb0403f5df7eea3e5d5ded"
+        },
+        {
+          "sha256": "554bb760594c12e297fd1d54974b043e127c679f0de8a96593d7e5b7e1f2d0f9"
+        }
+      ],
+      "runSummarySha256": "abea38ded3d2bd3dcdbb13d6b0c68653908e18bd0511090abe2818e4cc80eef0",
+      "observedLateWrites": []
+    }
+  },
+  "cause": {
+    "memoryEnabled": false,
+    "detachedAbortFinalization": "packages/assistant/src/model-usage-observer.ts:32 (before fix)",
+    "files": [
+      "model-calls-2026-10-21.jsonl",
+      ".model-calls.lock",
+      "execution-records.json"
+    ],
+    "fix": "Controller shutdown waits for pending model usage start/finalization promises after cancellation and foreground/background settlement"
+  }
+}

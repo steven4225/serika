@@ -49,7 +49,7 @@ it("physical compact preserves memory cursor, exact quotes and valid summary; re
     const before = (await stat(file)).size; assert.ok(before > 16 * 1024 * 1024);
     const memory = createMemoryStore(workspace);
     const prefixHash = consolidationPrefixHash(messages, "u2")!;
-    assert.ok((await memory.writeV6!([{ operation: "add", text: preference, category: "preference", scope: { kind: "workspace" }, source: { kind: "conversation", threadId, messageId: "u1", quote: preference, sentAt: null } }], undefined, { expectedProgress: null, progress: { threadId, throughMessageId: "u2", prefixHash, retry: null } })).ok);
+    assert.ok((await memory.writeV6!([{ operation: "add", text: preference, category: "preference", scope: { kind: "workspace" }, source: { kind: "conversation", threadId, messageId: "u1", quote: preference, sentAt: null } }], undefined, { expectedProgress: null, progress: { threadId, throughMessageId: "u2", prefixHash, pending: [], retry: null } })).ok);
     const memoryFile = join(workspace, ".runloom/memory.json"), originalMemory = await readFile(memoryFile);
     const read = await memory.readV6!(); assert.ok(read.ok); const cursor = read.value.progress[0]!;
     const budget = { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled: true };

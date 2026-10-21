@@ -27,7 +27,7 @@ export function m1Cases() {
     { id: 'confirmation', messages: [proposal, source('是的，以后使用中文')], proposals: [add('以后使用中文', { sourceQuote: '是的，以后使用中文', identity: { subject: 'user', attribute: 'language', value: '中文' }, proposal: { messageId: 'a', quote: '以后使用中文', valueQuote: '中文' } })], saved: 1, confirmed: true },
     { id: 'conflict', messages: coffee.map((text, i) => msg(`u${i}`, 'user', text)), proposals: pair(coffee, ['coffee', 'coffee']), saved: 2, conflicts: 1 },
     { id: 'independent', messages: addresses.map((text, i) => msg(`u${i}`, 'user', text)), proposals: pair(addresses, ['home_address', 'company_address']), saved: 2, conflicts: 0 },
-    { id: 'uncertain', messages: [source(contradiction)], proposals: [add(`[不确定] ${contradiction}`, { sourceQuote: contradiction })], saved: 1, uncertain: true },
+    { id: 'uncertain', messages: [source(contradiction)], proposals: [add(contradiction, { sourceQuote: contradiction, uncertain: true })], saved: 1, uncertain: true },
   ];
 }
 const settle = async extraction => {
@@ -61,10 +61,10 @@ export async function evaluateM1({ cases = m1Cases(), model, outputDirectory }) 
           if (model && (input === undefined || output === undefined)) { fatal = true; throw new Error('Usage missing; stop before another call'); }
           cost += ((input ?? 0) - cached) * 0.16 / 1e6 + cached * 0.02 / 1e6 + (output ?? 0) * 0.58 / 1e6;
           Object.assign(row, { status: "returned", outputHash: hashCanonicalJson(response.content), usage: response.usage, durationMs: performance.now() - started });
-          if (cost > 0.15 || (input ?? 0) > 32768) { fatal = true; throw new Error('Actual usage exceeds quoted bound; stopped'); }
+          if (cost >= 0.15 || (input ?? 0) > 32768) { fatal = true; throw new Error('Actual usage exceeds quoted bound; stopped'); }
           return response;
         } });
-        const extraction = createMemoryExtraction({ store, threadId: 'eval', getMessages: async () => fixture.messages, model: observer, budget, updated() {} });
+        const extraction = createMemoryExtraction({ store, threadId: 'eval', getMessages: async () => fixture.messages, model: observer, budget: { ...budget, summaryMaxOutputTokens: 1024 }, updated() {} });
         try {
           mock.timers.enable({ apis: ['setTimeout'] });
           extraction.idle(); await settle(extraction);
@@ -76,12 +76,13 @@ export async function evaluateM1({ cases = m1Cases(), model, outputDirectory }) 
             saved: fixture.replay ? entries.every(entry => entry.text.includes(fixture.question)) : entries.length === fixture.saved,
             conflicts: v6Conflicts(entries).length === (fixture.conflicts ?? 0),
             confirmation: !fixture.confirmed || entries.some(entry => entry.sources.some(item => item.proposal)),
-            uncertain: !fixture.uncertain || entries.some(entry => entry.text.includes('[不确定]')) };
+            uncertain: !fixture.uncertain || entries.some(entry => entry.uncertain && entry.text === fixture.messages[0].parts[0].text) };
           results.push({ case: fixture.id, window, fixture: !model, sourceHash: hashCanonicalJson(fixture.messages), rows, checks, passed: Object.values(checks).every(Boolean) });
         } finally { mock.timers.reset(); await extraction.close(); }
         if (fatal) break windows;
       }
     }
+    for (const window of ['32k', 'daily']) for (const fixture of cases) if (!results.some(item => item.window === window && item.case === fixture.id)) results.push({ case: fixture.id, window, status: '未跑', passed: false, rows: [] });
     const report = { fixture: !model, planned: cases.length * 2, stopped: fatal, calls: model ? dispatched : 0, fixtureCalls: model ? 0 : dispatched, costUsd: cost, results };
     if (outputDirectory) { await mkdir(outputDirectory, { recursive: true }); await writeFile(join(outputDirectory, model ? 'live.json' : 'plan.json'), JSON.stringify(report, null, 2) + '\n'); }
     return report;

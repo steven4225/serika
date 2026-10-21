@@ -6,7 +6,7 @@ import type { V6Change, V6Source } from "./memory-v6-store.js";
 
 export const memoryWriteSchema = z.object({
   operation: z.enum(["add", "replace", "retract", "undo"]), text: z.string().min(1).optional(),
-  category: z.enum(["preference", "note"]).optional(), id: z.string().min(1).optional(), expectedRevision: z.number().int().positive().optional(),
+  uncertain: z.boolean().optional(), category: z.enum(["preference", "note"]).optional(), id: z.string().min(1).optional(), expectedRevision: z.number().int().positive().optional(),
   identity: z.object({ subject: z.string().min(1), attribute: z.string().min(1), value: z.string().min(1) }).strict().optional(),
   sourceQuote: z.string().min(1),
   proposal: z.object({ messageId: z.string().min(1), quote: z.string().min(1), valueQuote: z.string().min(1) }).strict().optional(),
@@ -34,11 +34,11 @@ export function bindMemoryWrite(input: MemoryWrite, options: { messages: readonl
     source.proposal = { messageId: previous.id, quote: proposal.quote };
   }
   if (input.operation === "add" || input.operation === "replace") {
-    const literal = input.text!.replace(/^\[不确定\] /u, "");
+    const literal = input.text!;
     if (!isExactUserQuote(input.proposal?.quote ?? input.sourceQuote, literal)) return invalid("记忆正文必须是已绑定证据中的原话，保留否定与条件");
     return {
 
-    operation: input.operation, text: input.text!, category: input.category!, source, scope: { kind: "workspace" },
+    operation: input.operation, text: input.text!, uncertain: input.uncertain ?? false, category: input.category!, source, scope: { kind: "workspace" },
     ...(input.identity ? { identity: input.identity } : {}), ...(input.id ? { id: input.id } : {}), ...(input.expectedRevision ? { expectedRevision: input.expectedRevision } : {}),
   };
   }
@@ -50,7 +50,7 @@ export const MEMORY_WRITE_RULES =
   "Use add, replace, retract; undo restores a withdrawn entry or the entries replaced by the named current entry. Wrong memory with a new value means replace; without one means retract. " +
   "Supply an exact user sourceQuote. Assistant text, tools, webpages, files and summaries cannot supply a user fact. A user's explicit affirmation of an adjacent assistant proposal may qualify ONLY when the user's quote explicitly names its specific value; provide proposal messageId/quote/valueQuote and the same identity.value. 嗯 and 好吧 alone are not confirmation. Never repeatedly ask the user to confirm merely to create a source. " +
   "Use literal subject/attribute/value identities, with distinct attributes for independently valid things such as home address and company address; include any conditions in text. Two values for the same attribute may coexist; conflicts appear only in diagnostics, do not ask the user to resolve them. " +
-  "For mutually contradictory statements within ONE user message, preserve BOTH verbatim in one text prefixed exactly [不确定] ; do not pick one side. This annotation derives from that exact user source, not a new status field. " +
+  "For mutually contradictory statements within ONE user message, preserve BOTH verbatim in one text and set uncertain:true; do not pick one side or add a text prefix. Otherwise set uncertain:false. The flag derives only from contradiction within that exact user source. " +
   "Do not invent sources, targets, permission or lasting preferences from task instructions. A missing/failed write is not saved. Never retry an unknown write; report that its result requires rereading.";
 
 export const MEMORY_PRIMARY_WRITE_INSTRUCTIONS = "Use memory_write only for an explicit remember, correction, withdrawal or undo request. Wait for its actual result before claiming saved. Report failed explicit remember requests immediately. " + MEMORY_WRITE_RULES;

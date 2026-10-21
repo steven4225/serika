@@ -1,4 +1,4 @@
-# 上下文与记忆：第 4 步（代码检查点；真实模型验收待批准）
+# 上下文与记忆：第 4 步（复审修正及关闭竞态修复）
 
 ## 1. 改了什么
 
@@ -17,7 +17,7 @@
 | 项目 | 结果与证据 |
 |---|---|
 | 单一写工具、普通聊天限定、免逐次确认 | 已做：`memory-m1-acceptance.test.ts` 实际 Controller 工具轮；`modules/memory-module.test.ts` 工具表和宿主来源；自主请求无 writer；后台 tools 为空 |
-| 确认式来源、短应声、外部资料边界 | 已做：`C04 binds the specific confirmation; short acknowledgement and external evidence fail`；“嗯”“好吧”、工具提议、网页原文不能通过宿主来源检查；真实抽取质量尚未验证 |
+| 确认式来源、短应声、外部资料边界 | 已做：`C04 binds the specific confirmation; short acknowledgement and external evidence fail`；“嗯”“好吧”、工具提议、网页原文不能通过宿主来源检查；真实抽取质量未验证（本轮暂停） |
 | 比例阈值、空闲 30 分钟、原子进度 | 已做：`consolidation-runtime.test.ts` 两档阈值和原子提交；`M1 idle trigger waits exactly 30 minutes`；第三次仍失败保留待整理；取消不推进。屏蔽后的补抽按用户要求留第 6 步 |
 | C09 注入／磁盘上限 | 已做：磁盘 512 条／16 MiB；自动写预留至少一个完整条目及同等序列化字节（最低沿用单条 2 KiB 限制）；明确记住仍试实际上限，失败结果立即回到同轮模型并要求当场告知。`automatic extraction reserves space; explicit remember still tries the actual hard limit`；4 KiB 快照预算不拒绝磁盘写入 |
 | C10 取代、撤回、撤销、界面删除 | 已做：新 ID 取代链、可撤销撤回、CAS；删除只保留来源消息＋该正文 hash 的抑制记录，其他记忆仍可从该消息提取；跨重开测试见 `memory-v6-store.test.ts`。桌面 IPC 预览不写盘／不启动 Run。隐私排除整段仍第 6 步 |
@@ -25,7 +25,7 @@
 | 前台平均 ≤1.5，后台单列 | 已做 fixture：两条普通消息、3 次实际 mock-provider 请求，平均 1.5；后台该组 0。另一组后台 1 次请求，有独立 purpose、duration、usage 和 hash；并非真实模型质量或所有任务的平均值承诺 |
 | v5 只读，无升级／旁路文件 | 已做：v1–v5 读后字节不变；每类写拒绝并提示“需要迁移（第 7 步）”；不创建锁、备份、v6 旁路。`memory-store.test.ts`／`memory-v6-store.test.ts` |
 | 隔离目录、日用根目录启动拒写 | 已做：新 v6 临时工作区及路径／符号链接保护测试；不启动或重启日用进程，不迁移日用文件。见下方验证边界 |
-| 第 9 条离线真实重放 | **未做：等费用批准。** 原来源及相邻普通助手消息冻结为本地 0600 文件；原用户要求移除一条限制，旧条目却强化了该限制。预演只验证接线；真实是否仍记反没有结论 |
+| 第 9 条离线真实重放 | **未跑：用户要求先独立复现 Electron 冒烟。** 原来源及相邻普通助手消息冻结为本地 0600 文件；原用户要求移除一条限制，旧条目却强化了该限制。预演只验证接线；真实是否仍记反没有结论 |
 | 证据随仓库提交 | 已做：`evidence/cm-step4/{foreground,background,plan,verification}.json`，仅用量、调用元数据、判定与哈希，无聊天／记忆正文、提示词、响应文本、凭证。含私人原文的 replay 文件不入库 |
 | 快照／像素／不变量 | 已做：历史 baseline 未重录，非 Memory 指令、工具 schema、权限决定逐项比对；I1–I5 原测试运行。ego-browser 隔离渲染真实组件的前后快照；1440×900，变化 1,391 像素，bbox `(320,94)–(499,106)`，只在待整理文字；不是原生 Electron 验收 |
 
@@ -33,7 +33,7 @@
 
 ## 3. 前后数字
 
-相对基线，产品 **+830 / −1023，净 -193 行**；测试 **+452 / −8756，净 -8304 行**。整文件退役 24 个；85 个旧测试块更名／退役的原名在附表 C。最终完整测试为 **1,799 pass / 0 fail / 11 skipped**（运行时 1,156、桌面 631、脚本 12）；离线 eval 77/77，guards 5/5 组。
+相对基线，产品 **+884 / −1034，净 -150 行**；测试 **+499 / −8756，净 -8257 行**。整文件退役 24 个；85 个旧测试块更名／退役的原名在附表 C。最终完整测试为 **1,801 pass / 0 fail / 11 skipped**（运行时 1,158、桌面 631、脚本 12）；离线 eval 77/77，guards 5/5 组。
 产品及测试行数统计含 eval 脚本、不含文档／证据／历史 baseline。新增产品未超过批准的 1,200 行，新增测试少于新增产品。冻结历史快照、Oracle 和历史分数不重录；退役测试名单及断言改变见附表 B/C。
 
 阈值：32,768 窗口、有效输入 26,624 → 3,328 estimated tokens；日用有效输入 256,000 → 31,999，小于 32,000 的压缩块。token 估计沿用 char-half，不当作供应商实测 token。前台 fixture 3/2=1.5；后台 fixture 1 次独立计量。真实模型请求 **0**、费用 **$0**；18 次两档预演都是 scripted responses，不计真实通过率。
@@ -45,13 +45,13 @@
 | 命令 | 最终结果 |
 |---|---|
 | `pnpm typecheck` | 0 |
-| `pnpm test` | 0；1,799 pass / 0 fail / 11 skip |
+| `pnpm test` | 0；1,801 pass / 0 fail / 11 skip |
 | `pnpm eval:test` | 0；77/77（含两档 16 场景的 M1 接线及 unknown 停批） |
 | `pnpm eval:guards` | 0；5/5 组 |
-| 4 个 M1 定向文件，`node --test --test-timeout=15000` | 0；13/13 |
+| 6 个 Memory 定向文件，`node --test --test-timeout=15000` | 0；19/19 |
 | `node examples/eval/cm-step4.mjs`，指定隔离 replay fixture 与仓库 evidence 目录 | 0；18/18 预演，真实 0 次 |
 | `git diff --check`；不变量／历史 baseline 的 `git diff --exit-code` | 0 |
-完整命令、退出码、用例数量及本地日志 SHA-256 存于 `evidence/cm-step4/verification.json`，不依赖 `/tmp` 中的内容存续。中间失败没有当成通过：
+本轮命令、退出码、用例数量及本地日志 SHA-256 存于 `evidence/cm-step4/review-final.json`；`verification.json` 为前一检查点历史，不依赖 `/tmp` 中的内容存续。中间失败没有当成通过：
 
 - 旧写路径回归最初 301 fail／2 cancelled；停旧功能后清理专属测试，没有重录基线。
 - full4 运行时 1,154 pass／2 fail：Memory registeredTools 的旧断言，按批准的单 writer 更新；定向 baseline 5/5。
@@ -66,7 +66,7 @@
 
 最小 v6 提前由用户明确批准；只保留计划已确定字段及 #166 已有导入回执，不加入操作日志／双时态。旧类型、只读解析和历史纯 Oracle 留待第 7 步清理；所有正式写入仅 v6。旧 live 记忆验收入口明确拒绝执行，避免对 v6 跑旧候选 Oracle 后产出误导分数；历史 Oracle／分数不改。
 
-**尚存限制**：单条原文自身大于抽取阈值时不裁剪、不越过进度，显示待整理；现行消息级进度不能表达消息内部断点，分块与屏蔽衔接留第 6 步，当前不宣称长单消息已覆盖。计划的后台合并仍第 7 步；完整隐私排除／重建仍第 6 步。无原生 Electron／常驻进程验收；fixture 证明路径与存储边界，真实抽取和第 9 条效果待批准。
+**尚存限制**：超长单条原文持久化到 `progress[].pending` 后跳过，后续消息继续抽取，记忆页计入待整理总数。空闲时只重抽当前窗口能容纳的完整原文；消息内部切块与屏蔽衔接仍留第 6 步。计划的后台合并仍第 7 步；完整隐私排除／重建仍第 6 步。无原生 Electron／常驻进程验收；fixture 证明路径与存储边界，真实抽取和第 9 条效果暂停，等待冒烟独立复现。
 
 ### 附表 A：v6 实际落盘字段清单（迁移前可按批准范围补字段，迁移后冻结）
 
@@ -77,6 +77,7 @@
 | `entries` | 保存记忆及仍需撤销引用的取代／撤回条目 |
 | `entries[].id` | 稳定引用条目、文档正文和轻回执 |
 | `entries[].revision` | CAS，拒绝覆盖已经变化的目标 |
+| `entries[].uncertain` | 布尔值，模型判断同条用户原话自相矛盾时为 true；手动编辑后为 false，界面和提示词分别显示 |
 | `entries[].text` | 保存偏好、笔记或文档正文，条件和否定留在原文 |
 | `entries[].category` | 区分 preference／note／document 三类 |
 | `entries[].identity.subject` | 原话的明确主体，供诊断分组 |
@@ -100,8 +101,10 @@
 | `entries[].supersededBy` | 旧条目被哪条取代，供当前态和回执生成 |
 | `entries[].withdrawal` | 撤回的用户／手动来源，字段结构同 sources；没有独立操作日志 |
 | `progress[].threadId` | 每 Thread 独立抽取进度 |
-| `progress[].throughMessageId` | 已连续处理到的消息边界，未知为 null |
+| `progress[].throughMessageId` | 主整理消息边界，已明确挂入 pending 的超长来源允许越过；未知为 null |
 | `progress[].prefixHash` | 边界前原文的既有 JCS hash，防止换原文后继续推进 |
+| `progress[].pending[].messageId` | 未抽取的超长原始消息，供后续完整重抽并统计待整理段数 |
+| `progress[].pending[].prefixHash` | 挂起消息及其之前原文的 JCS hash，防止原文变动后误重抽 |
 | `progress[].retry.throughMessageId` | 待重抽段的终点，不代表已处理 |
 | `progress[].retry.prefixHash` | 待重抽段的原文绑定，变动时拒绝写入 |
 | `progress[].retry.failures` | 已提交失败次数 1–3；两次后等空闲一次，三次仍保留待整理 |
@@ -125,7 +128,7 @@
 
 `progress`、`suppressed`、`library`、`importReceipts` 是上述记录的容器；`identity`／`proposal` 可省略，`withdrawal`／`retry` 可为 null。手动来源只有 kind，没有原话。v6 不落盘 assertion、versions、有效时间／系统时间区间、候选或审核队列；旧 Controller 读取类型仅返回派生视图。
 
-**“不确定”标注来源**：计划 §2.5 明确要求“同一句话里互相矛盾，存成一条带不确定标注的记忆”。实现没有新增 `uncertain` 字段；输出格式为正文前缀 `[不确定] `，其余正文仍须是同条用户证据中包含矛盾双方的原文。模型判断矛盾，宿主只检查出处；不会把来源不足／目标不明都归入该例外。本表及表示方法提交给用户检查；没有借此提前冻结新状态字段。
+**“不确定”字段来源**：计划 §2.5 的同条用户原话矛盾标注，由用户在本轮明确批准改为 `uncertain:boolean`。正文不加任何前缀、仍逐字绑定用户原话；该字段只表达原话内部矛盾，不表示来源缺失或目标不明。界面显示独立提示，固定参考快照、按需读取和抽取提示词传递独立字段。迁移前允许补字段，日用迁移后冻结。
 
 ### 附表 B：退役测试文件（逐个）
 
@@ -269,7 +272,7 @@
 
 </details>
 
-### 附表 D：待批准的真实抽取与第 9 条重放
+### 附表 D：已暂停的真实抽取与第 9 条重放
 
 脚本 `examples/eval/cm-step4.mjs` 已零网络预演，18/18 仅表示 scripted 接线通过。8 场景：“嗯”“好吧”、网页结果、工具结果、明确确认、同属性真冲突、家／公司独立属性、同句矛盾；另加第 9 条原文和相邻普通助手回复。两档窗口各一遍，**最多 18 次请求**，输出各最多 1,024 tokens，30 秒／次，无重试、不补样，不调用 embedding、主聊天或工具。
 
@@ -277,4 +280,72 @@
 
 每请求输入预演上界不得超过 26,624 estimated tokens；按每次实际输入保守预留 32,768 tokens、全额 1,024 输出且完全无缓存算，18 次 **$0.1050624**，本批申请预算 **$0.15**。这是 token 假设下的估算，非供应商账单封顶；输入／usage／费用超界或传输失败立刻停，不再派发后续请求；缺失 usage 保持 unknown 并保留 planned 分母。用量 × 单价核算，不按免费额度抵扣。
 
-只将 usage、耗时、输入／输出 hash、宿主写入检查结果提交仓库；第 9 条私人原文保留本地 0600 文件。第 9 条任何留存必须保留完整问句中的撤销意图，不能再次强化原有限制；不以模型成功措辞判分。**未得到本批费用批准前，不执行 `--approved-live`。**
+只将 usage、耗时、输入／输出 hash、宿主写入检查结果提交仓库；第 9 条私人原文保留本地 0600 文件。第 9 条任何留存必须保留完整问句中的撤销意图，不能再次强化原有限制；不以模型成功措辞判分。**用户最新指令暂停真实验收；本轮不执行 `--approved-live`。此前的 18 次／$0.15 批次不作为当前执行授权。**
+
+
+### 本轮复审修正（第一件）
+
+- **单元测试／假模型脚本**：`M1 oversized source is persisted pending while the following ordinary source extracts` 证明超长来源落盘挂起、主游标到后续消息、后续记忆保存，重开仍统计 1 段。
+- **单元测试／假模型脚本**：`M1 oversized old source replay is superseded by the newer value without a conflict` 在扩大窗口后重抽完整旧来源；旧值 `state=superseded`、`supersededBy` 指向较新值，较新值仍是唯一当前快照，冲突数为 0。宿主按原消息序号判断，来源先后不明的同属性异值只作诊断，不能借重抽覆盖现值；不依据抽取完成时间判断新旧。
+- **单元测试**：`C04 binds the specific confirmation; short acknowledgement and external evidence fail` 同时验证独立 `uncertain:true` 保留原文、添加旧前缀反而被拒。`v6 replacement/undo, withdrawal/undo, conflict diagnostics and source-specific deletion survive reopen` 验证字段实际落盘和投影。
+- **真实 Electron／真实模型**：本次第一件未运行正式验收；真实模型请求 0、费用 $0。后续第二件使用独立 Electron 脚本；此前浏览器预览仅是组件渲染证据，不作为桌面验收。
+
+#### 离线 eval 84 → 77 的完整核对
+
+计数口径都是 `node --test *.test.mjs` 顶层测试数：**84 − 9 + 2 = 77**；不是把一个场景拆成不同计数，也不是模型质量通过率变化。历史纯 Oracle／既有分数未改。新测试内部的两档 16 场景只计为一个顶层测试。
+
+| 退役的顶层测试（9 项） | 原因／现行覆盖 |
+|---|---|
+| `offline provider: 明确咖啡偏好自动保存且来源正确` | 旧候选批次协议停用；M1 实际 extraction＋v6 store 场景代替 |
+| `offline provider: 相反新偏好待审核，不能自动双活` | 审核队列已退役；现在同属性双有效值只进诊断 |
+| `offline provider: 纯提醒不入记忆，有意 no_memory 可推进游标（不测试调度）` | 旧 candidate/coverage 协议停用；M1 接线检查无记忆结果推进进度；真实语义仍未跑 |
+| `offline provider: 故障注入：只提取提醒片段，剩余偏好不能被游标消费（offline only）` | 旧 staged receipt 故障注入停用；现行 deferred 不推进来源，失败次数／取消和原子进度有运行时测试 |
+| `expected deferred fault inspection still rejects unknown writes, missing receipts, changed sources and live mode` | 只检查旧候选 fault-inspection 回执；现行 unknown 停批及 hash/CAS 检查代替 |
+| `provider rejects consolidation commit failure rather than reporting chat success` | 旧整理 Run finalize 入口停用；现行后台与前台不共用 Run，提交屏障测试代替 |
+| `restore fixture explicitly approves only the matching real pending coffee source before exercising restoration` | pending 审核入口停用；v6 store／桌面 IPC 覆盖撤销 |
+| `runner integrates real Controller, committed sources, MemoryStore and report collection without network` | 旧时态变更 runner 不能写 v6，已显式拒绝；保留其纯 Oracle |
+| `production Controller and Store with no-memory transport fixture expose positive misses without network` | 旧候选 everyday runner 停用；保留纯 Oracle，M1 两档接线代替 |
+
+新增两项：`M1 extraction and persisted source/conflict evidence at 32K and daily windows (scripted, no semantic score)`；`M1 usage-unknown provider failure stops the quoted batch after one dispatch`。证据附计数及名称 hash，可按 84−9+2 复算。
+
+#### 保留规则与现行测试
+
+| 规则 | 测试名（测试类型均为单元测试／假模型脚本） |
+|---|---|
+| 用户精确原话、相邻确认、短应声／外部内容不得充当来源 | `C04 binds the specific confirmation; short acknowledgement and external evidence fail`；M1 两档 web-only／tool-only／ack 场景 |
+| 当前 Thread 范围、页面字段不可伪造范围／来源 | `exposes current entries, CAS edits, explicit pin/disable, source semantics and Thread isolation without a Run`；`rejects renderer-owned sources, scope, system time and unrecognized fields` |
+| 取代链、当前目标 CAS、过早来源不得覆盖较新值 | `v6 replacement/undo, withdrawal/undo, conflict diagnostics and source-specific deletion survive reopen`；`M1 oversized old source replay is superseded by the newer value without a conflict`；`malformed, unsupported, duplicate and symlinked files fail closed; stale concurrent CAS has one winner` |
+| 撤回／撤销恢复及陈旧 revision 拒绝 | `v6 replacement/undo, withdrawal/undo, conflict diagnostics and source-specific deletion survive reopen`；`v6 desktop IPC previews without writes, replaces, retracts, undoes and permanently deletes with CAS` |
+| 永久删除抑制原来源再次生成同条记忆，保留其他来源资格 | `v6 replacement/undo, withdrawal/undo, conflict diagnostics and source-specific deletion survive reopen`（删除后对同源正文重写仍为空，抑制记录持久化） |
+
+现行保护在新写路径上有对应测试；上述表不把退役的候选／双时态专属行为称作仍然存在。字段格式变动仅在已批准的迁移前 v6 范围内。
+
+
+#### 首轮失败记录（保留历史，不作为修复后结论）
+
+首轮第一件全套验证失败时按要求停止；用户随后明确授权诊断并修复关闭竞态。第二件、第三件在第一件提交推送前未开始。第 3／4 节现已更新为修复后结果；本表保留首轮失败历史。
+
+| 验证方式 | 命令／结果 |
+|---|---|
+| 单元测试 | `pnpm typecheck` 退出 0；6 个 Memory 定向文件 19 pass／0 fail |
+| 假模型脚本 | `pnpm eval:test` 退出 0，77／77；`pnpm eval:guards` 退出 0，5 组；两档抽取／第 9 条 scripted 重放 18／18，真实请求 0 |
+| 单元测试 | `pnpm test` **退出 1**：运行时 1,158 pass／0 fail／11 skip；桌面 630 pass／1 fail；后续 scripts 未跑 |
+| 单元测试失败 | `src/main/telegram-gateway.test.ts:230` 的 `package2: desktop phone buttons grant nothing and stop remains a control`；清理临时 transcript 目录时报 `ENOTEMPTY`。当时未独立复现，后续诊断和修复见下节；未改该测试 |
+| 真实 Electron | 正式冒烟脚本未开始；早先临时窗口探测不计为冒烟结果，已退出并删除其隔离目录 |
+| 真实模型 | 未跑，费用 $0；遵从用户暂停指令 |
+
+本轮源文件哈希、日志哈希、每组计数、eval 分母算式及相对 8c572bb 的行数存于 `evidence/cm-step4/review-fixes.json`。`verification.json` 保留上一检查点历史，首轮以 `review-fixes.json` 为准，最终以 `review-final.json` 为准；证据未包含聊天、记忆、提示词、响应或凭证内容。
+
+
+#### 关闭竞态：先复现，再修复
+
+**单元测试／假模型脚本**：原 `telegram-gateway.test.ts` 不改，外置 fs 探针包裹 `DesktopRuntime.shutdown()` 和 mkdir/open/rename，重复原 `package2: (desktop|expired) phone buttons` 两项，4 个并行进程、12 次独立运行。修复前 1 个进程复现同一 desktop 测试的 `ENOTEMPTY`，总计 60 次文件操作晚于 shutdown 返回；修复后同样 12 次独立运行（24 项测试）无失败、返回后文件操作 0。诊断重复仅用于复现竞态，不是失败重试策略。
+
+- 实际残留为 `profile/transcripts/<Thread>/model-calls-2026-10-21.jsonl`、`.model-calls.lock`；另有尚未完成的 execution record 原子替换。
+- 调用链：原 `model-usage-observer.ts:32–39` 的 abort listener 启动未被 shutdown 等待的 `finish` Promise → `ExecutionRecordStore.finishModelCall()` → `ModelCallLog.finish()`（`model-call-log.ts:46`）→ `#append()`（同文件 `57–65`）重新 mkdir／打开锁及日志；原 Controller shutdown 只等 Run task，没有覆盖这条取消收尾链。
+- 测试 fixture `telegram-gateway.test.ts:63` 明确 `memory.enabled=false`，因此本次不是 pending 清单或后台抽取写入。外置探针只记录文件操作／调用栈，不读取正文、密钥。
+- 修复：用同一个 pending Promise 集合追踪 observer 的开始及收尾写入；Controller 取消并等待 foreground/background 后，再等待这些实际 Promise 结束才释放 lease／返回。未改回执格式、状态判定或工具权限；没有重试、sleep，也没有改现有测试。
+
+可复算证据见 `evidence/cm-step4/shutdown-reproduction.json`（各进程退出结果、晚于 shutdown 的操作和堆栈、探针／日志 hash），全套修复后结果另列。
+
+**修复后最终结果（单元测试／假模型脚本）**：`pnpm typecheck`、`pnpm test` 均退出 0；运行时 1,158 pass／0 fail／11 skip，桌面 631 pass／0 fail，scripts 12 pass／0 fail，合计 1,801 pass／0 fail／11 skip。11 项是既有可选测试，未新增 skip。离线 eval 77／77、guards 5 组及定向 19／19；真实模型请求 0、费用 $0。正式 Electron 冒烟作为第二件在本提交推送后实施。
