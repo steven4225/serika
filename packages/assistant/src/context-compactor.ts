@@ -414,11 +414,14 @@ export class ContextCompactor {
     const limits = blockLimits(this.#options.budget);
     const original = withoutConsolidationTurns(messages.slice(start, end));
     if (!original.length) return;
-    const archive = persisted?.layers?.recent.length === 4 ? { index: persisted.layers.index, oldest: persisted.layers.recent[0] } : undefined;
+    const archive = persisted?.layers?.recent.length === 4 ? { index: persisted.layers.index, oldest: persisted.layers.recent[0]! } : undefined;
     const reference = await this.#options.backgroundReference?.(signal);
     const referenceText = reference?.parts.flatMap(part => part.type === "text" ? [part.text] : []).join("\n") ?? "";
-    const task = `\nCurrent fixed reference: ${referenceText}\nKeep continuation text (excluding JSON framing and evidence IDs) within ${limits.section} estimated tokens. Preserve explicit constraints, decisions and unfinished work; use short clauses. Host checklist separately retains all unknown/failed effects.` +
-      (archive ? `\nAlso return a farIndex string in the SAME JSON object: consolidate this previous index and oldest summary into a short searchable topic index, preserving confirmed goals, constraints, decisions, unfinished work, dates and message ranges. Do not repeat background filler. Index budget ${limits.section} tokens. Index material: ${JSON.stringify(archive)}` : "");
+    const firstIndex = archive?.index[0] ?? archive?.oldest;
+    const indexFraming = archive && firstIndex ? estimateSerializedTokens([{ firstMessageId: firstIndex.firstMessageId, lastMessageId: archive.oldest.lastMessageId,
+      timeRange: [firstIndex.timeRange[0], archive.oldest.timeRange[1]], text: "" }]) : 0;
+    const task = `\nCurrent fixed reference: ${referenceText}\nRecent segment budget: ${limits.section} estimated tokens TOTAL across goal, constraints, decisions, pending, successful/unexecuted actions, file path/purpose and nextStep, including displayed status/tool IDs. This is one shared cap, not a cap per field. The segment estimator is ceil(displayed continuation text.length / 2), using UTF-16 code units; JSON framing and evidence IDs count against the separate output limit. Use concise clauses; remove repeated background and redundant successful reads, never explicit constraints or unfinished work. Host checklist separately retains all unknown/failed effects. The entire JSON response, including evidence IDs and syntax, must also fit ${this.#options.budget.summaryMaxOutputTokens} output tokens.` +
+      (archive ? `\nAlso return a farIndex string in the SAME JSON object, never an array/object: consolidate this previous index and oldest summary into a short searchable topic index, preserving confirmed goals, constraints, decisions, unfinished work, dates and message ranges. Far index budget: ${limits.section} estimated tokens INCLUDING ${indexFraming} tokens of host range/framing; its JSON-escaped text must fit the remaining ${Math.max(0, limits.section - indexFraming)} tokens. Do not copy the old summary or repeat background filler. Index material: ${JSON.stringify(archive)}` : "");
     const promptFor = (block: UIMessage[]) => contextSummaryPrompt({ messages: block, location: { threadId: this.#options.threadId, project: this.#options.project ?? "current-workspace" } }) + task;
     const inputLimit = Math.min(contextBudgetThresholds(this.#options.budget).availableInputTokens,
       this.#options.budget.contextWindowTokens - this.#options.budget.summaryMaxOutputTokens - this.#options.budget.safetyMarginTokens);

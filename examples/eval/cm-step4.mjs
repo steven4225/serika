@@ -83,7 +83,7 @@ export async function evaluateM1({ cases = m1Cases(), model, outputDirectory }) 
       }
     }
     for (const window of ['32k', 'daily']) for (const fixture of cases) if (!results.some(item => item.window === window && item.case === fixture.id)) results.push({ case: fixture.id, window, status: '未跑', passed: false, rows: [] });
-    const report = { fixture: !model, planned: cases.length * 2, stopped: fatal, calls: model ? dispatched : 0, fixtureCalls: model ? 0 : dispatched, costUsd: cost, results };
+    const report = { fixture: !model, planned: cases.length * 2, stopped: fatal, passed: !fatal && results.length === cases.length * 2 && results.every(item => item.passed), calls: model ? dispatched : 0, fixtureCalls: model ? 0 : dispatched, costUsd: cost, results };
     if (outputDirectory) { await mkdir(outputDirectory, { recursive: true }); await writeFile(join(outputDirectory, model ? 'live.json' : 'plan.json'), JSON.stringify(report, null, 2) + '\n'); }
     return report;
   } finally { mock.timers.reset(); await rm(root, { recursive: true, force: true }); }

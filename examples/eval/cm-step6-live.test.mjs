@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { generateText } from 'ai';
 import { MockLanguageModelV3 } from 'ai/test';
-import { meteredModel, safeFailure, chargedUsd } from './cm-step6-live.mjs';
+import { meteredModel, safeFailure, chargedUsd, pastReadSucceeded } from './cm-step6-live.mjs';
 import { configureCliModel } from '@serika/assistant/internal/model-config.js';
 import { evaluateM1, m1Cases } from './cm-step4.mjs';
 
@@ -43,6 +43,20 @@ test('failure diagnostics retain status, code, finish and schema paths without m
   assert.doesNotMatch(JSON.stringify(diagnostic), /private|sentinel|message|responseBody/);
 });
 
+test('pastRead recognizes long receipt clauses without accepting failed, unknown, future or unrelated writes', () => {
+  for (const reply of [
+    '之前读取 notes/fixture.txt：成功，状态 completed（回执 fidelity-read）。',
+    '读取 notes/fixture.txt 的回执为 completed（成功）。',
+    '此前读取 notes/fixture.txt 的回执为 completed（成功）。',
+    '已成功读取 notes/fixture.txt。',
+  ]) assert.equal(pastReadSucceeded(reply), true, reply);
+  for (const reply of [
+    '读取 notes/fixture.txt 未成功。', '尚未完成读取 notes/fixture.txt。',
+    '读取失败，写入成功。', '读取结果未知；写入完成。',
+    '如获批准，将读取 notes/fixture.txt，预计成功。', '能否读取成功？',
+  ]) assert.equal(pastReadSucceeded(reply), false, reply);
+});
+
 test('extraction JSON Schema stays in prompt text; the configured provider sends no structured-output parameter', async () => {
   const requests = [];
   const { model } = configureCliModel(() => { throw new Error('unexpected fallback'); }, {
@@ -54,9 +68,11 @@ test('extraction JSON Schema stays in prompt text; the configured provider sends
       usage: { prompt_tokens: 100, completion_tokens: 10, total_tokens: 110 } }), { headers: { 'Content-Type': 'application/json' } });
   } });
   const result = await evaluateM1({ cases: [m1Cases()[0]], model });
-  assert.equal(result.results.every(item => item.passed), true); assert.equal(requests.length, 2);
+  assert.equal(result.passed, true); assert.equal(result.results.every(item => item.passed), true); assert.equal(requests.length, 2);
   for (const request of requests) {
     assert.equal(request.response_format, undefined); assert.equal(request.tools, undefined);
     assert.match(JSON.stringify(request.messages), /Exact response JSON Schema/);
   }
+  const rejected = await evaluateM1({ cases: [m1Cases()[4]], model });
+  assert.equal(rejected.passed, false);
 });

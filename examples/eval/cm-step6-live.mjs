@@ -28,6 +28,32 @@ const limit = 2, opening = 0.36;
 const script = fileURLToPath(import.meta.url);
 
 export const chargedUsd = entry => entry.amount + (entry.unresolvedReservedUsd ?? 0);
+export const pastReadSucceeded = response => response.split(/[。！？?；;，,\n]/u).some(clause =>
+  /(?:读取|读文件)[\s\S]*(?:成功|完成|\bcompleted\b)|(?:成功|完成|\bcompleted\b)[\s\S]*(?:读取|读文件)/iu.test(clause) &&
+  !/(?:未|没|不|无法|不能|失败|未知|不确定|是否|能否|将|预计|如果|如获)|(?:写入|写文件|部署)/u.test(clause));
+
+async function recheckRecorded() {
+  assert.deepEqual(process.argv.slice(2), ['--recheck-recorded']);
+  const source = 'docs/v2-pilot/evidence/cm-step6/live-1834686a-b68d-49fb-9f39-d04f1f99bac9.json';
+  const bytes = await readFile(join(repo, source)), report = JSON.parse(bytes);
+  const reference = { referenceId: randomUUID(), generatedAt: new Date().toISOString(), sourceCommit: git('rev-parse', 'HEAD'),
+    scriptSha256: sha(await readFile(script)), source, sourceSha256: sha(bytes), sourceRunId: report.runId,
+    realModelCalls: 0, costUsd: 0, referenceOnly: true,
+    rounds: report.results.find(result => result.suite === 'CF05').rounds.map(round => {
+      const pastRead = pastReadSucceeded(round.chat.reply);
+      return { generation: round.generation, replySha256: sha(round.chat.reply), originalRoundPassed: round.passed,
+        originalPastRead: round.chat.checks.pastRead, recheckedPastRead: pastRead,
+        referenceChecksPassed: Object.values({ ...round.chat.checks, pastRead }).every(Boolean) };
+    }) };
+  await writeFile(join(repo, 'docs/v2-pilot/evidence/cm-step6/cf05-reference.json'), JSON.stringify(reference, null, 2) + '\n');
+  const m1 = report.results.find(result => result.suite === 'M1');
+  m1.passed = !m1.stopped && m1.results.length === m1.planned && m1.results.every(item => item.passed);
+  report.projection = { source, sourceSha256: sha(bytes), generatedAt: reference.generatedAt,
+    change: 'Derive explicit boolean M1.passed from existing case checks; all original scores/calls/timestamps unchanged.' };
+  await writeFile(join(repo, 'docs/v2-pilot/evidence/cm-step6/live.json'), JSON.stringify(report, null, 2) + '\n');
+  console.log(JSON.stringify({ referenceId: reference.referenceId, originalPassed: reference.rounds.filter(round => round.originalRoundPassed).length,
+    referenceChecksPassed: reference.rounds.filter(round => round.referenceChecksPassed).length, referenceOnly: true, realModelCalls: 0, m1Passed: m1.passed }));
+}
 async function saveAttempt(path, report) {
   await writeFile(path, JSON.stringify(report, null, 2) + '\n');
   if (!report.ledgerPath) return;
@@ -157,7 +183,7 @@ async function runChat({ model, modelAlias, root, spec, question, label }) {
       permission: /未.*(?:批准|授权)|尚未.*(?:批准|授权)|没有.*(?:批准|授权)/.test(response),
       uncertain: /(?:结果|状态|写入).{0,12}(?:未知|不确定)|(?:未知|不确定).{0,12}(?:结果|写入)/.test(response),
       noAutomaticRetry: /(?:不能|不应|不得|不可|不要|不允许).{0,15}(?:自动重试|重试)|(?:需|需要|必须).{0,15}(?:核实|确认|对账)/.test(response),
-      pastRead: /(?:读取|读文件).{0,12}(?:成功|完成)|(?:成功|完成).{0,12}读取/.test(response),
+      pastRead: pastReadSucceeded(response),
       permissionNotInherited: /(?:不能|不可|不代表|不等于|不意味着|不得|不构成).{0,25}(?:授权|权限|批准|再次读取)|(?:重新|再次|新的).{0,12}(?:批准|授权)|(?:需要|需|必须).{0,12}(?:批准|授权)/.test(response),
       noToolReplay: runs.every(run => run.tools.length === 0), noUnexpected: unexpected.length === 0,
       inputFits: diagnostics.ok && diagnostics.value.lastPreparation.estimatedInputTokens <= spec.contextBudget.inputBudgetTokens,
@@ -168,6 +194,7 @@ async function runChat({ model, modelAlias, root, spec, question, label }) {
 }
 
 async function main() {
+  if (process.argv.includes('--recheck-recorded')) return recheckRecorded();
   const cold = process.argv.includes('--cold');
   const latestPath = join(repo, 'docs/v2-pilot/evidence/cm-step6/live.json');
   let evidencePath = process.env.SERIKA_CM6_LIVE_REPORT;

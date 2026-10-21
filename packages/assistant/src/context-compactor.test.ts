@@ -3,7 +3,7 @@ import { it } from "node:test";
 import type { UIMessage } from "ai";
 import type { ContextCompactionStore, MessageStore, ThreadContextCompactionRecord } from "@serika/core";
 import { ContextCompactor, readContextDiagnostics, reconcilePublishedSummary } from "./context-compactor.js";
-import { compactPrefixHash, contextSummaryPrompt, type ContextCompactionRecord, type ContextSummaryV2, type Summarizer } from "./context-compaction.js";
+import { compactPrefixHash, contextSummaryPrompt, contextSummaryFailurePaths, type ContextCompactionRecord, type ContextSummaryV2, type Summarizer } from "./context-compaction.js";
 import { defaultContextBudget, effectiveContextBudget, estimateContextBudget, estimateMessageTokens, estimateSerializedTokens } from "./context-budget.js";
 import { blockLimits } from "./context-blocks.js";
 import { createCompactionChecklist, compactedRecentMessages } from "./compaction-records.js";
@@ -111,6 +111,7 @@ it("step5: restart checklist reads an uncommitted unknown write from real receip
     assert.match(prompt, /actual message id/);
     assert.match(prompt, /use \[\] when there is no evidence/);
     assert.match(prompt, /same item fields/);
+    assert.match(prompt, /goal MUST be a JSON object, NEVER an array/);
     assert.doesNotMatch(prompt, /"text":""|"message-id"|"tool-call-id"/);
     assert.match(prompt, /Continue the report/);
   });
@@ -148,13 +149,59 @@ it("background excludes synthetic extraction turns while hashes remain bound to 
 });
 
 it("invalid, empty, length-truncated and oversized background summaries never advance and never retry the item", async () => {
-  for (const result of [{ text: "" }, { text: "{}", finishReason: "stop" }, { text: JSON.stringify(summary), finishReason: "length" },
+  for (const result of [{ text: "" }, { text: "not-json", finishReason: "stop" }, { text: "{}", finishReason: "stop" }, { text: JSON.stringify(summary), finishReason: "length" },
     { text: JSON.stringify({ ...summary, goal: { ...summary.goal, text: "overflow".repeat(1000) } }) }]) {
     const store = new FakeStore(); store.messages = seed(); let calls = 0;
     const compactor = make(store, { complete: async () => { calls++; return result; } });
     await compactor.prepare(store.messages, signal()); await compactor.runPending(signal());
     assert.equal(calls, 1); assert.equal(store.records.length, 0); assert.ok(compactor.backgroundError);
     if (result.text === "{}") { assert.ok(compactor.backgroundFailure?.schemaPaths.includes("version")); assert.equal(compactor.backgroundFailure?.finishReason, "stop"); }
+  }
+});
+
+it("recorded CF03/CE03/CE05 array and items-wrapper failures stay rejected without publishing or retry", async () => {
+  // Structural reproductions of ffd528fb, de15f87c, 838b2c66 and 3dd1bb9d/ac8df6e5/0f5b23c5; no original text was retained.
+  const cases = [
+    { value: { ...summary, goal: [summary.goal] }, paths: ["goal"] },
+    { value: { ...summary, ...Object.fromEntries(["constraints", "pending", "decisions", "actions", "files"].map(key => [key, { items: [] }])) }, paths: ["constraints", "pending", "decisions", "actions", "files"] },
+    { value: { ...summary, constraints: { items: [] }, pending: { items: [] } }, paths: ["constraints", "pending"] },
+    { value: { ...summary, constraints: { items: [] } }, paths: ["constraints"] },
+  ];
+  for (const { value, paths } of cases) {
+    const store = new FakeStore(); store.messages = seed(); let calls = 0;
+    const compactor = make(store, { complete: async () => { calls++; return { text: JSON.stringify(value), finishReason: "stop" }; } });
+    await compactor.prepare(store.messages, signal()); await compactor.runPending(signal()); await compactor.runPending(signal());
+    assert.deepEqual(contextSummaryFailurePaths(JSON.stringify(value)), paths);
+    assert.deepEqual(compactor.backgroundFailure?.schemaPaths, paths);
+    assert.equal(calls, 1); assert.equal(store.records.length, 0);
+  }
+});
+
+it("recorded CE03/CE05 proportional overflows retain four old segments; bounded summary and index can publish", async () => {
+  for (const config of [budget, defaultContextBudget()]) for (const overflow of ["segment", "index"] as const) {
+    const limits = blockLimits(config), store = new FakeStore();
+    store.messages = [user("u1", "continue"), ...Array.from({ length: 7 }, (_, i) => user(`u${i + 2}`, "x".repeat(limits.block * 2))), user("current", "continue")];
+    let reject = false, calls = 0;
+    const compactor = make(store, { complete: async ({ prompt }) => {
+      calls++;
+      assert.match(prompt, new RegExp(`Recent segment budget: ${limits.section} estimated tokens`));
+      const archive = prompt.includes("farIndex string");
+      return { text: JSON.stringify({ ...summary, ...(reject && overflow === "segment" ? { goal: { ...summary.goal, text: "x".repeat(limits.section * 2 + 1) } } : {}),
+        ...(archive ? { farIndex: reject && overflow === "index" ? "x".repeat(limits.section * 2) : "earlier task" } : {}) }) };
+    } }, { budget: config });
+    await compactor.prepare(store.messages, signal());
+    for (let i = 0; i < 4; i++) await compactor.runPending(signal());
+    assert.equal(store.records.length, 4); const before = structuredClone(store.records);
+    store.messages.splice(store.messages.length - 1, 0, ...Array.from({ length: 3 }, (_, i) => user(`later-${i}`, "x".repeat(limits.block * 2))));
+    reject = true; await compactor.prepare(store.messages, signal());
+    assert.equal(compactor.pending, true, JSON.stringify({ limits, overflow, boundary: store.records.at(-1)?.firstKeptMessageIndex, messages: store.messages.length }));
+    await compactor.runPending(signal());
+    assert.ok(compactor.backgroundError, JSON.stringify({ limits, overflow, calls, records: store.records.length, pending: compactor.pending }));
+    assert.match(compactor.backgroundError!, /proportional budget/); assert.deepEqual(store.records, before);
+    const count = calls; await compactor.runPending(signal()); assert.equal(calls, count);
+    reject = false; await compactor.prepare(store.messages, signal()); await compactor.runPending(signal());
+    assert.equal(compactor.backgroundError, undefined); assert.equal(store.records.length, 5);
+    assert.equal((store.records.at(-1) as unknown as ContextCompactionRecord).layers?.recent.length, 4);
   }
 });
 
