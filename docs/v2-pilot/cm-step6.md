@@ -1,48 +1,42 @@
-# 上下文与记忆：第 6 步（2f7ea05 审后离线修复）
+# 上下文与记忆：第 6 步（0483aa1 审后修复）
 
 ## 1. 改了什么
 
-**两条必改已完成，停在第6步真实模型审核关口。本轮付费调用0、费用$0。** 产品源码提交 `bd6325f`；验证临时检出修正为 `6a7b738`；此前 `affbc10` 也改了产品源码，`2f7ea05` 只交报告／证据。沿用已批准附表D/E；不开第7步、不迁日用。
+两条必改已实施，正在执行三次连续离线验证；尚未启动本轮付费请求。不开第7步、不迁日用。
 
-- `memory-write.ts`／`memory-extraction.ts`：将关键值拒绝拆成 `QUOTE_VALUE_MISSING`（原话）、`SOURCE_VALUE_MISSING`（来源摘录）、`BODY_VALUE_MISSING`（正文）、`NUMBER_UNIT_MISMATCH`、`CONDITION_CLAUSE_MISSING`。M1证据通过原有diagnostics保存原因码、字段、字段长度、值长度及proposal序号，不留原文。来源绑定、数字／单位及条件校验的接受范围不变。
-- `context-compactor.ts`／诊断类型：最小必需摘要超额时走C5，从近期原文额度等额让出容量，屏蔽最旧完整块；保留目标、决定、待办、权限，记借用量／回收量／消息范围，原文和存档不改。已无恒false的`summaryOmitted`。
-- 上下文的时间格式统一引用`MODEL_TIME_ZONE`；限定词目标检查补正反例，仅用于新批次。验证runner在临时目录保存审计、在同提交的临时干净检出运行原版Electron冒烟，全部检查结束才归档证据。
+- `memory-m1-acceptance.test.ts`：只改测试，等待已有抽取通知／持久化回调，再等待终结promise清理；删除10000次空转上限，产品抽取代码未改。受控加入10001次setImmediate延迟：旧测试报running仍为true，新测试通过。
+- `context-compactor.ts`／`context-blocks.ts`／诊断类型：C5借用上限为近期原文额度的一半，32K为2496、日用默认为24000 tokens。先缩减旧段及远期索引封装，再屏蔽最旧完整块；不能超额多借。目标／决定／待办／权限保持，最小正文仍超上限时保留原件、记录失败，不派发模型。摘要及清单同时超额时记录两种reasons。
+- Controller与Telegram模型消息时间统一用既有`MODEL_TIME_ZONE`；行为不变。验证脚本支持仓库外归档，三次验证之间保持源代码干净。live脚本记录新旧目标规则、五种关键值原因、每次C5借用及范围，并要求三次绿证据才允许一次整批。
 
 ## 2. 逐条对照验收项
 
-| 审核项 | 本轮结果／可复查依据 |
+| 审核项 | 结果／证据 |
 |---|---|
-| 必改1：五种原因码＋安全位置 | 已做：`M1 live evidence separates literal-value rejection reasons…`，6种受控失败×32K/日用两档；原相邻提议检查仍在；[统一证据](evidence/cm-step6/verification.json)的metrics保留12条安全诊断 |
-| 必改2：最小摘要超额仍可继续 | 已做：`C5 preserves oversized essential legacy…`两档；`C5 masks the oldest complete block…`保留目标／决定／待办／权限，0前台模型请求、后台待办可继续、原记录不变；[运行诊断](evidence/cm-step6/verification.json)记录实际借用和屏蔽范围 |
-| 用户裁决：C5额度例外 | 已实施：正常③层额度仍1248；仅C5按必需超额量等额压缩原文额度。批准人是本聊天人类用户，`call_50c613d853814e69a5ad5002e320930b`第0项回复“允许 C5 降级时等额让出原文空间”。见附表G |
-| 用户裁决：限定词目标匹配 | 已做：`new-batch goal check accepts qualifiers…`，允许“完成本地文件方案的验收报告”等，拒未知、否定、另一项目、仅审阅；旧成绩不改 |
-| 待办：省略字段／时区／临时目录／账本路径 | 已做：删除字段；模型上下文共用时区常量（Todoist独立配置不改）；运行期间源码目录保持干净，证据结束后归档；ledgerPath为仓库路径，旧原始attempt和账本保持原SHA |
-| 离线完成后停审 | 已做：UTC与+08:00全套各1784通过／0失败／11跳过，eval84/84，真实Electron44.4.5冒烟8/8；真实Electron原preload/IPC，8张截图逐张核对且与检查一致，脚本SHA未变；本轮未付费，后续只交整批预估，不启动 |
+| 必改1：等待抽取结束 | 已做：原idle测试保留30分钟／3次持久化失败断言；受控慢任务旧红新绿，TZ=Asia/Shanghai单独25/25；抽取产品源码零改动 |
+| 必改2：借用上限与双原因 | 已做：`C5 caps borrowing at half…`覆盖两档、上限内／超限和摘要清单同时超额；`C5 replaces an oversized far index…`覆盖编号引用。原记录／原消息保持不变 |
+| 极端容量失败边界 | 用户本聊天`call_9fc6222f50b74637833cd77d592daf83`第0项明确回复“允许明确容量失败边界”；超过正常③层＋半数近期额度且已无旧块可屏蔽时，诊断failed并保留原件 |
+| 三次统一验证 | 待运行：每次包含UTC／+08全套、eval、干净检出的真实Electron冒烟、离线审计，任一次非0即停止 |
+| 唯一一次付费整批 | 已由本聊天人类用户`@0483aa1`审核明确条件授权；三次绿后运行一次，累计上限$2.50，不中途重试；旧成绩原件不动 |
+| 待办 | 剩余两处模型时区常量已统一；空身份值单列原因码未做（不挡批次）；新验证命令路径使用仓库相对／临时标识 |
 
 ## 3. 前后数字
 
-相对`2f7ea05`：产品 **+65/−33**，测试 **+85/−9**，验证脚本 **+44/−20**。测试新增行多于产品新增行，是审核明确要求覆盖5种拒绝原因与C5两档／额度边界；复用既有fixture，无删除测试文件、新跳过或快照。调整既有断言逐项列于附表I。
+相对`0483aa1`：产品+44/−25，测试+71/−10，验证／live脚本+76/−17。测试新增行多于产品，是本次审核明确要求的完成信号、两档借用边界及新旧目标统计回归；无删测试文件、无新增跳过。
 
-本机实测 **macOS（darwin）**：UTC与+08:00全套各1784通过／0失败／11跳过，eval84/84，真实Electron44.4.5冒烟8/8。Linux＋Xvfb未在本轮运行，不能把用户对旧`2f7ea05`的Linux 1775/0/19结果作为新代码证据。Electron冒烟是假模型驱动的真实进程验证，不能替代实模验收。8图逐张核对：启动、普通回复、保存回执、记忆页、重启保留、撤回消失均一致；两张负例分别是日用路径拒写与退役配置拒启。
-
-32K保留正常总输入26624／③层1248／清单208；容量测量仍是1632>1248，详见[离线审计](evidence/cm-step6/offline-audit.json)。新的带权限／unknown与四段独立必需内容回归：清单193、历史最小1445，逐项向上取整合计1638，需要借390；最终组合估算1637（聚合取整差1），屏蔽原文17138，最终输入8607≤26624；无模型请求、无源记录改动。借用量按保守的逐项估算计算。
-
-历史实模分数保持 **M1 11/18、CF03 0/3、CF05 2/5、CE03 0/3、CE05 0/5**；145次HTTP200及全部用量保持原件。合批占用 **$1.29894714**（含未知预留$0.0013248），计划累计含开头$0.36为 **$1.65894714/$5**，本轮账本不变。旧M1原回答缺失已获用户`@2f7ea05`审核接受其无法定位；本轮为未来请求增加诊断，不伪造历史归因。
+本机为macOS。受影响35/35、idle单独25/25；全套与真实Electron三连结果待运行，不能引用旧轮绿数代替。本轮尚无真实模型调用，原合批占用$1.29894714（含未知预留），剩$1.20105286。
 
 ## 4. 实际命令和退出码
 
-- 修复前：`node --test --test-name-pattern='C5 preserves|C5 masks' packages/assistant/dist/context-compactor.test.js` → **1**；旧最小摘要路径明确抛`CONTEXT_PREPARE_FAILED`。第二条初始fixture未真正超额，已改用合法满段／UUID／时间范围复现，不把原fixture的断言失败冒充产品抛错。
-- `pnpm typecheck` → **0**；受影响压缩器、Memory模块、live检查测试 → **0（30/30）**；最终追加满段／unknown测试后由全套再覆盖。
-- 首次统一运行在`bd6325f`退出**1**：两时区全套和eval已通过，临时依赖软链接触发原冒烟的干净目录门禁，Electron尚未启动；[失败记录](evidence/cm-step6/verification-bd6325f-failed.json)保留。`6a7b738`只修临时检出的Git排除规则。
-- `TZ=UTC node packages/assistant/scripts/cm-step6-verify.mjs` → **0（源码6a7b738，sourceWorktreeDirty=false，运行期间也保持干净）**；内含typecheck、`TZ=UTC pnpm test`、`TZ=Asia/Shanghai pnpm test`、eval、真实Electron冒烟、离线审计；[统一运行记录](evidence/cm-step6/verification.json)、[Electron证据](evidence/electron-smoke/result.json)、[截图](evidence/electron-smoke/)。
-- `gh issue list --state all --search 'experiment/architecture-v2 审核记录 in:title' --json number,title,url,author` → **0，[]**；授权依据本聊天的人类用户原回复。
-- 未运行付费命令；[原始attempt](evidence/cm-step6/live-7c5b4116-0378-4286-afc2-ac9b00eafe0b.json)、[账本](evidence/cost-ledger.json)SHA不变；[latest](evidence/cm-step6/live.json)只更新仓库路径的派生来源说明，不改原轮字段和分数。
+- `pnpm typecheck` → 0；`node --test packages/assistant/dist/context-compactor.test.js packages/assistant/dist/memory-m1-acceptance.test.js examples/eval/cm-step6-live.test.mjs` → 0（35/35）。
+- `TZ=Asia/Shanghai node --test --test-name-pattern='M1 idle trigger waits exactly' packages/assistant/dist/memory-m1-acceptance.test.js`连续25次 → 全部0。
+- C5旧源码对新回归测试受控运行 → 1；当前源码同测试 → 0。旧版无借用上限／远期索引引用诊断，源文件已恢复。所有受控临时文件位于临时目录。
+- 三次`TZ=UTC node packages/assistant/scripts/cm-step6-verify.mjs`：待运行；每轮归档输出位于仓库外，三次结束后统一保留。
 
 ## 5. 与计划不符的地方及理由
 
-唯一新增额度例外是用户明确批准的 **C5按需借近期原文空间**，正常额度不变；此前“全局改为1664”的提案未实施，已被此裁决替代。诊断记录例外，未改计划文件追认。固定上下文和整体输入仍照常计数；单条超长消息仍保留编号原件、只截模型投影。
+正常额度不变；C5等额借用来自本聊天人类用户`call_50c613d853814e69a5ad5002e320930b`第0项批准。本轮按`@0483aa1`审查增加半数上限；原附表G中“只受整体输入限制”的叙述已由此替代。数学上无法容纳的必需正文按新增明确授权失败，不无限借用，也不静默省略。
 
-下一次整批预估 **$0.60–$0.85，按$1.00准备保守余量**；审核后合批上限$2.50，按现有占用剩 **$1.20105286**。内容为M1 18例两档、CF03/CF05/CE03/CE05、4个冷进程；先计每请求预留，未知旧调用继续计入。**现在不运行。审核通过后只允许整批一次，还不过就停，不分批补跑。** 预估依据两次旧实测用量与原批准报价，详见附表H。
+整批预估$0.60–$0.85、保守准备$1.00，剩余额度$1.20105286；包括M1 18例两档、CF03/CF05/CE03/CE05及冷进程。三连通过后才启动已授权唯一一次批次，未知用量按预留计入；不通过就交材料停在第6步。
 
 以下保留历史裁决与材料；与本轮冲突的旧状态已标明替代关系。
 

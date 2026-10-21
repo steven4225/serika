@@ -52,7 +52,7 @@ export { formatOnceWhen, readRecurrence, reminderSubject, reminderWhen } from ".
 export type { ReminderConfirmationFields, ReminderSpeechClock } from "./reminder-speech.js";
 export { validateRssDocument } from "./rss-subscriptions.js";
 export type { RssAction, RssInbox, RssResult, RssView } from "./rss-subscriptions.js";
-export { formatLocalTaskTime } from "./task-instructions.js";
+export { formatLocalTaskTime, MODEL_TIME_ZONE } from "./task-instructions.js";
 export { taskNotificationCopy } from "./task-notification-copy.js";
 export { writeDesktopFrontmost } from "./task-notification-presentation.js";
 export { parseTaskResultLink, taskResultWorkspaceKey } from "./task-result-link.js";

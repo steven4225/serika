@@ -282,7 +282,7 @@ it("an oversized checklist stays within its section and total summary budget wit
   assert.ok(estimateMessageTokens(summaryView) <= blockLimits(budget).totalSummary);
   assert.ok(estimateContextBudget({ instructions: "instructions", messages: projected }, budget).inputTokens <= budget.inputBudgetTokens!);
   const diagnostics = await compactor.getDiagnostics(); assert.ok(diagnostics.ok);
-  assert.equal(diagnostics.value.lastPreparation?.degradation?.reason, "checklist_overflow");
+  assert.deepEqual(diagnostics.value.lastPreparation?.degradation?.reasons, ["checklist_overflow"]);
   assert.ok(diagnostics.value.lastPreparation!.degradation!.maskedThroughMessageId);
   assert.equal(calls, 0); assert.equal(store.records.length, 0); assert.deepEqual(store.messages, before);
 });
@@ -328,7 +328,7 @@ it("C5 preserves oversized essential legacy continuation using unused recent cap
     const diagnostic = await compactor.getDiagnostics(); assert.ok(diagnostic.ok);
     assert.equal(diagnostic.value.lastPreparation?.outcome, "reused");
     assert.ok(JSON.stringify(prepared).includes(record.summary.goal.text));
-    assert.equal(diagnostic.value.lastPreparation?.degradation?.reason, "summary_overflow");
+    assert.deepEqual(diagnostic.value.lastPreparation?.degradation?.reasons, ["summary_overflow"]);
     assert.ok(diagnostic.value.lastPreparation!.summaryLayer!.reduction!.requiredTokens > blockLimits(sizedBudget).totalSummary);
     assert.deepEqual(store.records, before);
   }
@@ -399,7 +399,7 @@ it("C5 masks the oldest complete block for excess essential summary tokens while
   const prepared = await compactor.prepare(store.messages, signal());
   const diagnostic = await compactor.getDiagnostics(); assert.ok(diagnostic.ok);
   const layer = diagnostic.value.lastPreparation!.summaryLayer!, degradation = diagnostic.value.lastPreparation!.degradation!;
-  assert.equal(layer.checklistTokens, 193); assert.equal(degradation.reason, "summary_overflow"); assert.ok(layer.borrowedTokens > 0);
+  assert.equal(layer.checklistTokens, 193); assert.deepEqual(degradation.reasons, ["summary_overflow"]); assert.ok(layer.borrowedTokens > 0);
   assert.ok(degradation.maskedOriginalTokens! >= layer.borrowedTokens);
   assert.ok(degradation.maskedThroughMessageId); assert.equal(calls, 0); assert.equal(compactor.pending, true);
   assert.ok(diagnostic.value.lastPreparation!.estimatedInputTokens! <= 26624);
@@ -407,6 +407,43 @@ it("C5 masks the oldest complete block for excess essential summary tokens while
   for (const segment of record.layers!.recent) assert.ok(JSON.stringify(prepared).includes(segment.summary.goal.text));
   for (const text of ["采用本地文件方案", "补充失败样本", "部署未获批准"]) assert.ok(JSON.stringify(prepared).includes(text));
   assert.deepEqual({ messages: store.messages, records: store.records }, before);
+});
+
+it("C5 caps borrowing at half of recent capacity, masks through the oldest blocks, and records both overflow causes", async () => {
+  for (const sizedBudget of [budget, defaultContextBudget()]) for (const exceeds of [true, false]) {
+    const limits = blockLimits(sizedBudget), borrowLimit = Math.floor(limits.recent / 2);
+    const store = new FakeStore(); store.messages = [user("old", "request"), assistant("old-reply", "done"), user("failure-request", "continue"), ...Array.from({ length: 200 }, (_, i): UIMessage => ({ id: `failure-${i}`, role: "assistant", parts: [{
+      type: "dynamic-tool", toolName: "shell_exec", toolCallId: `failure-${i}`, state: "output-error", input: {}, errorText: "failure details ".repeat(20),
+    }] })), user("current", "next")];
+    const record: ContextCompactionRecord = { v: 2, type: "thread.context.compacted", threadId: "thread-1", id: "cap", previousCompactionId: null,
+      firstKeptMessageIndex: 2, firstKeptMessageId: "failure-request", sourcePrefixHash: compactPrefixHash(store.messages, 2),
+      summary: { ...summary, goal: { text: "x".repeat((limits.totalSummary + borrowLimit - (exceeds ? 0 : 1000)) * 2), evidenceMessageIds: ["old"] } },
+      consolidationExcluded: true, strategyVersion: "summary-json/v2", modelId: "mock", createdAt: new Date(0).toISOString(),
+      metrics: { estimatedInputBefore: 100, estimatedInputAfter: 50, durationMs: 1, attempts: 1 } };
+    store.records.push(record as unknown as ThreadContextCompactionRecord);
+    const before = structuredClone({ messages: store.messages, records: store.records });
+    const compactor = make(store, { complete: async () => { throw new Error("no foreground model"); } }, { budget: sizedBudget });
+    if (exceeds) await assert.rejects(compactor.prepare(store.messages, signal()), /capped C5/);
+    else assert.ok(JSON.stringify(await compactor.prepare(store.messages, signal())).includes(record.summary.goal.text));
+    const result = await compactor.getDiagnostics(); assert.ok(result.ok);
+    const prepared = result.value.lastPreparation!, layer = prepared.summaryLayer!, degraded = prepared.degradation!;
+    assert.equal(layer.borrowLimitTokens, borrowLimit); assert.ok(layer.borrowedTokens <= borrowLimit);
+    assert.deepEqual(degraded.reasons, ["summary_overflow", "checklist_overflow"]);
+    assert.equal(prepared.outcome, exceeds ? "failed" : "reused");
+    if (exceeds) { assert.equal(layer.borrowedTokens, borrowLimit); assert.ok(layer.requiredBorrowTokens > borrowLimit); assert.equal(degraded.maskedThroughMessageId, "failure-199"); }
+    else assert.ok(layer.tokens <= limits.totalSummary + borrowLimit);
+    assert.deepEqual({ messages: store.messages, records: store.records }, before);
+    console.info("CM_STEP6_METRICS " + JSON.stringify({ case: "C5 capped borrow", window: sizedBudget.contextWindowTokens, exceeds, ...prepared }));
+  }
+});
+
+it("C5 replaces an oversized far index with numbered references before reaching the borrowing cap", () => {
+  const record = { firstKeptMessageIndex: 2, summary, layers: { recent: [{ firstMessageId: "u1", lastMessageId: "a1", timeRange: [null, null], summary }],
+    index: [{ firstMessageId: "old-1", lastMessageId: "old-99", timeRange: [null, null], text: "index".repeat(2000) }] } } as ContextCompactionRecord;
+  const before = structuredClone(record), fitted = fitSummaryLayer(record, 1055, 3744 - 193);
+  assert.equal(fitted.fits, true); assert.equal(fitted.diagnostics.indexReferenced, true);
+  for (const text of [summary.goal.text, "old-1", "old-99", "history_read/search"]) assert.ok(JSON.stringify(fitted.message).includes(text));
+  assert.deepEqual(record, before);
 });
 
 it("recorded single-object constraints normalize with diagnostics before unchanged semantic and budget checks", async () => {

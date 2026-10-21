@@ -35,7 +35,7 @@ export function layerMessage(record: ContextCompactionRecord): UIMessage {
 }
 
 /** Opaque index text is retained: the host cannot identify its important clauses. */
-export function fitSummaryLayer(record: ContextCompactionRecord, maxTokens: number) {
+export function fitSummaryLayer(record: ContextCompactionRecord, maxTokens: number, hardMaxTokens = Infinity) {
   const original = layerMessage(record), originalTokens = estimateMessageTokens([original]);
   const segments = record.layers?.recent ?? [{ firstMessageId: "1", lastMessageId: String(record.firstKeptMessageIndex), timeRange: [null, null], summary: record.summary }];
   const essential = (summary: ContextSummaryV2) => summaryText({ ...summary, files: [],
@@ -58,11 +58,19 @@ export function fitSummaryLayer(record: ContextCompactionRecord, maxTokens: numb
     "Historical continuation (exact duplicate clauses shown once); history_read/search gives originals.\n" +
     `Ranges [first,last,time]: ${JSON.stringify(ranges)}\n` + requiredLines.join("\n") +
     (index.length ? "\nFar index:\n" + index.join("\n") : "") }] };
+  let indexReferenced = false;
+  if (estimateMessageTokens([minimum]) > hardMaxTokens && index.length) {
+    minimum.parts = [{ type: "text", text:
+      "Historical continuation; history_read/search gives originals.\n" +
+      `Ranges [first,last,time]: ${JSON.stringify(ranges)}\n` + requiredLines.join("\n") +
+      `\nFar index: ${index.length} clauses retained in the numbered original ranges above; use history_read/search.` }];
+    indexReferenced = true;
+  }
   const requiredTokens = estimateMessageTokens([minimum]);
   const compacted = estimateMessageTokens([message]) > maxTokens;
   if (compacted) message = minimum;
   return { message, fits: estimateMessageTokens([message]) <= maxTokens,
-    diagnostics: { originalTokens, requiredTokens, budget: maxTokens, reducedSegments, compacted,
+    diagnostics: { originalTokens, requiredTokens, budget: maxTokens, reducedSegments, compacted, indexReferenced,
       indexDuplicateLines: compacted ? indexLines.length - index.length : 0 } };
 }
 

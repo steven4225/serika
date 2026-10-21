@@ -7,7 +7,7 @@ import type { PendingApproval } from "../shared/ui-contract.js";
 import type { TelegramStatus } from "../shared/telegram.js";
 import type { SavedTaskArrangement } from "@serika/assistant";
 import type { TaskListInput } from "@serika/assistant";
-import { formatLocalTaskTime } from "@serika/assistant";
+import { formatLocalTaskTime, MODEL_TIME_ZONE } from "@serika/assistant";
 import { telegramParts, telegramApprovalText, telegramBoundedText } from "./telegram-format.js";
 import { formatCapabilityStatus } from "@serika/assistant";
 
@@ -338,7 +338,7 @@ export class TelegramGateway {
     }
   }
   async receive(update: TelegramUpdate) {
-    const receivedAt = formatLocalTaskTime(new Date(this.now()), "Asia/Shanghai");
+    const receivedAt = formatLocalTaskTime(new Date(this.now()), MODEL_TIME_ZONE);
     if (!Number.isSafeInteger(update?.update_id) || update.update_id < 0 || !this.store.snapshot().enabled) return;
     if (update.update_id < this.store.snapshot().offset) return;
     const message = update.message;

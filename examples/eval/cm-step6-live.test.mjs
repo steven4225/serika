@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { generateText } from 'ai';
 import { MockLanguageModelV3 } from 'ai/test';
-import { meteredModel, safeFailure, chargedUsd, pastReadSucceeded, goalMentioned } from './cm-step6-live.mjs';
+import { meteredModel, safeFailure, chargedUsd, pastReadSucceeded, goalMentioned, oldGoalMentioned, summarizeBatch } from './cm-step6-live.mjs';
 import { configureCliModel } from '@serika/assistant/internal/model-config.js';
 import { evaluateM1, m1Cases } from './cm-step4.mjs';
 
@@ -16,7 +16,7 @@ test('combined batch reserves before dispatch, meters each actual request, and f
     const request = { prompt: [{ role: 'user', content: [{ type: 'text', text: 'test' }] }], maxOutputTokens: 1024 };
     const underlying = new MockLanguageModelV3({ doGenerate: async () => { calls++; return { content: [], finishReason: { unified: 'stop', raw: undefined },
       usage: { inputTokens: { total: calls === 1 ? 100 : undefined, cacheRead: undefined, cacheWrite: undefined, noCache: undefined }, outputTokens: { total: 10, text: 10, reasoning: undefined } }, warnings: [] }; } });
-    await writeFile(path, JSON.stringify({ costUsd: 1.9999, calls: [], stopped: false }));
+    await writeFile(path, JSON.stringify({ costUsd: 2.4999, calls: [], stopped: false }));
     let model = await meteredModel(underlying, path, () => 'test');
     await assert.rejects(model.doGenerate(request), /reserve exceeded/); assert.equal(calls, 0);
     await writeFile(path, JSON.stringify({ costUsd: 0, calls: [], stopped: false }));
@@ -26,7 +26,7 @@ test('combined batch reserves before dispatch, meters each actual request, and f
     await assert.rejects(model.doGenerate(request), /batch stopped/); assert.equal(calls, 2);
     await assert.rejects(model.doGenerate(request), /frozen/); assert.equal(calls, 2);
     assert.equal(JSON.parse(await readFile(path)).stopped, true);
-    await writeFile(path, JSON.stringify({ costUsd: 0, priorChargedUsd: chargedUsd({ amount: 1.999, unresolvedReservedUsd: 0.0009 }), calls: [], stopped: false }));
+    await writeFile(path, JSON.stringify({ costUsd: 0, priorChargedUsd: chargedUsd({ amount: 2.499, unresolvedReservedUsd: 0.0009 }), calls: [], stopped: false }));
     model = await meteredModel(underlying, path, () => 'test');
     await assert.rejects(model.doGenerate(request), /reserve exceeded/); assert.equal(calls, 2);
   } finally { await rm(root, { recursive: true, force: true }); }
@@ -113,4 +113,18 @@ test('M1 live evidence separates literal-value rejection reasons and retains onl
     assert.doesNotMatch(JSON.stringify(failure), /甲路|乙路|咖啡|公里|中文|sourceQuote"\s*:/);
     console.info("CM_STEP6_METRICS " + JSON.stringify({ case: row.case, window: row.window, validationFailure: failure, realModelCalls: result.calls }));
   }
+});
+
+test('new live evidence reports both goal rules, safe key-value counts and every C5 preparation', () => {
+  const reply = '完成验收主项目的验收报告';
+  assert.equal(oldGoalMentioned(reply), false); assert.equal(goalMentioned(reply), true);
+  const diagnostic = { lastPreparation: { outcome: 'reused', summaryLayer: { borrowedTokens: 384, borrowLimitTokens: 2496 },
+    degradation: { reasons: ['summary_overflow', 'checklist_overflow'], maskedFromMessageId: '1', maskedThroughMessageId: '9' } } };
+  const summary = summarizeBatch([{ suite: 'M1', planned: 18, passed: false, results: [{ passed: false, diagnostics: { validationFailure: { reasonCode: 'SOURCE_VALUE_MISSING' } } }] },
+    { suite: 'CF03', passed: false, rounds: [{ generation: 0, passed: true, passedOldRule: false, preparations: [{ stage: 'mask', diagnostics: diagnostic.lastPreparation }],
+      chat: { reply, passedByRule: { old: false, new: true }, diagnostics: diagnostic } }] }]);
+  assert.equal(summary.keyValueFailures.SOURCE_VALUE_MISSING, 1); assert.equal(summary.keyValueFailures.QUOTE_VALUE_MISSING, 0);
+  assert.equal(summary.scores[1].newRule.passed, 1); assert.equal(summary.scores[1].oldRule.passed, 0);
+  assert.equal(summary.qualifiedAnswers[0].reply, reply); assert.equal(summary.c5.count, 2);
+  assert.equal(summary.c5.providerPreparationCount, 1); assert.equal(summary.c5.totalBorrowedTokensAcrossPreparations, 768);
 });

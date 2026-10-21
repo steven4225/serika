@@ -7,6 +7,7 @@ import { createRssControls, type AssistantRssControls } from "./controller-rss.j
 import { createRecipeControls, type AssistantRecipeControls } from "./controller-recipes.js";
 import { validateChatAttachments, chatAttachmentParts, type ChatAttachment } from "./chat-attachments.js";
 import { createHash, randomUUID } from "node:crypto";
+import { MODEL_TIME_ZONE } from "./task-instructions.js";
 import { userMessageClock } from "./memory-observation-policy.js";
 import type { UIMessage } from "ai";
 import type { AgentEvent, RunHandle, RunResult } from "@serika/core";
@@ -823,7 +824,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       const started = new Promise<StartRunResponse>((resolve) => { resolveStarted = resolve; });
       const userMessage: UIMessage = {
         id: randomUUID(), role: "user", parts: [{ type: "text", text: text.trim() || "请查看附件。" }, ...chatAttachmentParts(attachments)],
-        metadata: { ...userMessageClock(), receivedAt, ...(options?.receivedAt ? { sentAt: options.receivedAt, timeZone: "Asia/Shanghai" } : {}),
+        metadata: { ...userMessageClock(), receivedAt, ...(options?.receivedAt ? { sentAt: options.receivedAt, timeZone: MODEL_TIME_ZONE } : {}),
           ...(excludeFromConsolidation ? { memoryConsolidation: "exclude" } : {}),
           ...(attachments.length ? { attachments: attachments.map(({ name, mediaType }) => ({ name, mediaType })) } : {}) },
       };

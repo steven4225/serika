@@ -319,18 +319,20 @@ export class ContextCompactor {
     const bounded = visible.map(message => fitMessage(message, Math.min(this.#options.budget.contextWindowTokens,
       message.role === "user" ? singleLimit : 16_000)));
     const checklistMessages = () => messages.map(message => message.role === "user" ? fitMessage({ ...message, metadata: undefined }, requestLimit) : message);
-    let checklistTokens = 0, checklistOverflowTokens = 0, borrowedTokens = 0;
+    const borrowLimitTokens = Math.floor(limits.recent / 2);
+    let checklistTokens = 0, checklistOverflowTokens = 0, borrowedTokens = 0, requiredBorrowTokens = 0;
     let reduction: NonNullable<ContextDiagnostics["lastPreparation"]>["summaryLayer"];
     const compose = () => {
       const keptIds = new Set(messages.slice(boundary).map(message => message.id));
       const required = boundary ? createCompactionChecklist({ ...sources, permissions: sources?.permissions, messages: checklistMessages(), maxTokens: limits.section, requestReferenceOnly: !!boundedForeground || boundary <= messages.reduce((last, message, index) => message.role === "user" ? index : last, -1) }) : undefined;
       checklistTokens = required ? estimateMessageTokens([required]) : 0;
       checklistOverflowTokens = (required?.metadata as { overflowTokens?: number } | undefined)?.overflowTokens ?? 0;
-      const fitted = record ? fitSummaryLayer(record, limits.totalSummary - checklistTokens) : undefined;
+      const fitted = record ? fitSummaryLayer(record, limits.totalSummary - checklistTokens, limits.totalSummary + borrowLimitTokens - checklistTokens) : undefined;
       const historical = fitted?.message;
       const tokens = checklistTokens + (historical ? estimateMessageTokens([historical]) : 0);
-      borrowedTokens = Math.max(0, tokens - limits.totalSummary);
-      reduction = { tokens, checklistTokens, budget: limits.totalSummary, borrowedTokens,
+      requiredBorrowTokens = Math.max(0, tokens - limits.totalSummary);
+      borrowedTokens = Math.min(requiredBorrowTokens, borrowLimitTokens);
+      reduction = { tokens, checklistTokens, budget: limits.totalSummary, borrowedTokens, borrowLimitTokens, requiredBorrowTokens,
         ...(fitted ? { reduction: fitted.diagnostics } : {}) };
       const missing = boundary > (record?.firstKeptMessageIndex ?? 0) ? [{ id: "runloom-masked-history", role: "assistant" as const,
         parts: [{ type: "text" as const, text: `Original messages ${messages[record?.firstKeptMessageIndex ?? 0]?.id ?? ""}–${messages[boundary - 1]?.id ?? ""} are masked pending background summary/extraction; use history_search/history_read.` }] }] : [];
@@ -351,12 +353,12 @@ export class ContextCompactor {
     const recentTokens = () => estimateMessageTokens(bounded.filter(message => messages.slice(boundary).some(item => item.id === message.id)));
     // C5 may exchange recent-original capacity for essential continuation, preserving total input capacity.
     let requireMask = checklistOverflowTokens > limits.section || borrowedTokens > 0;
-    while (measured.exceeds || recentTokens() > Math.max(0, limits.recent + limits.block - borrowedTokens) || requireMask) {
+    while (measured.exceeds || recentTokens() > Math.max(0, limits.recent + limits.block - borrowedTokens) || requiredBorrowTokens > borrowLimitTokens || requireMask) {
       const next = maskOldestBlock(messages, boundary, limits.block);
       if (next <= boundary) break;
       boundary = next; view = compose(); measured = estimate(view); requireMask = false;
     }
-    if (measured.exceeds) {
+    if (measured.exceeds && requiredBorrowTokens <= borrowLimitTokens) {
       const current = bounded.reduce((last, message, index) => message.role === "user" ? index : last, -1);
       if (current >= 0) {
         const { contextReferences: _refs, contextSnapshot: _snapshot, ...metadata } = (bounded[current]!.metadata ?? {}) as Record<string, unknown>;
@@ -366,8 +368,25 @@ export class ContextCompactor {
       }
     }
     const summaryTokens = estimateMessageTokens(view.filter(message => message.id === "runloom-context-summary" || message.id === "runloom-compaction-checklist"));
-    if (summaryTokens > limits.totalSummary + borrowedTokens) throw contextError("Summary and checklist metadata exceed the C5 allocation; original journal retained");
-    if (measured.exceeds) throw contextError(`Prepared context exceeds budget (${measured.inputTokens} > ${measured.availableInputTokens}); required metadata retained`);
+
+    this.#lastPreparation = { at: this.#now().toISOString(), outcome: record ? "reused" : "passthrough", compactionId: record?.id ?? null,
+      estimatedInputTokens: measured.inputTokens, error: null,
+      summaryLayer: { ...reduction!, tokens: summaryTokens },
+      ...(borrowedTokens > 0 || checklistOverflowTokens > limits.section ? { degradation: {
+        reasons: [...(requiredBorrowTokens > 0 ? ["summary_overflow" as const] : []), ...(checklistOverflowTokens > limits.section ? ["checklist_overflow" as const] : [])],
+        borrowedTokens, borrowLimitTokens, requiredBorrowTokens, maskedOriginalTokens: estimateMessageTokens(bounded.filter(message => messages.slice(initialBoundary, boundary).some(item => item.id === message.id))),
+        maskedFromMessageId: boundary > initialBoundary ? messages[initialBoundary]?.id ?? null : null,
+        checklistTokens: checklistOverflowTokens, sectionBudget: limits.section,
+        maskedThroughMessageId: messages[boundary - 1]?.id ?? null } } : {}) };
+    if (summaryTokens > limits.totalSummary + borrowLimitTokens) {
+      const error = contextError("Essential continuation exceeds the capped C5 allocation after masking; original journal retained");
+      this.#lastPreparation.outcome = "failed"; this.#lastPreparation.error = diagnosticError(error);
+      throw error;
+    }
+    if (measured.exceeds) {
+      const error = contextError(`Prepared context exceeds budget (${measured.inputTokens} > ${measured.availableInputTokens}); required metadata retained`);
+      this.#lastPreparation.outcome = "failed"; this.#lastPreparation.error = diagnosticError(error); throw error;
+    }
     this.#maskedThrough = boundary;
     if (boundary > (record?.firstKeptMessageIndex ?? 0)) this.#options.onMask?.(messages[boundary - 1]!.id);
     const covered = record?.firstKeptMessageIndex ?? 0;
@@ -375,15 +394,6 @@ export class ContextCompactor {
     if (nextBlock > covered && (boundary > covered || recentTokens() >= limits.recent)) {
       this.#pending = { messages: structuredClone(messages), end: nextBlock, prefix: structuredClone(prefix), ...(sources ? { sources: structuredClone(sources) } : {}) };
     }
-    this.#lastPreparation = { at: this.#now().toISOString(), outcome: record ? "reused" : "passthrough", compactionId: record?.id ?? null,
-      estimatedInputTokens: measured.inputTokens, error: null,
-      summaryLayer: { ...reduction!, tokens: summaryTokens },
-      ...(borrowedTokens > 0 || checklistOverflowTokens > limits.section ? { degradation: {
-        reason: borrowedTokens > 0 ? "summary_overflow" as const : "checklist_overflow" as const,
-        borrowedTokens, maskedOriginalTokens: estimateMessageTokens(bounded.filter(message => messages.slice(initialBoundary, boundary).some(item => item.id === message.id))),
-        maskedFromMessageId: boundary > initialBoundary ? messages[initialBoundary]?.id ?? null : null,
-        checklistTokens: checklistOverflowTokens, sectionBudget: limits.section,
-        maskedThroughMessageId: messages[boundary - 1]?.id ?? null } } : {}) };
     return view;
   }
 

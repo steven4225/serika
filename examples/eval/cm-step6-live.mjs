@@ -24,9 +24,10 @@ const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const git = (...args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8' }).trim();
 const sha = value => createHash('sha256').update(value).digest('hex');
 const price = { input: 0.16, cachedInput: 0.02, output: 0.58 };
-const limit = 2, opening = 0.36;
+const limit = 2.5, opening = 0.36;
 const script = fileURLToPath(import.meta.url);
 
+export const oldGoalMentioned = response => response.includes('完成验收报告');
 export const goalMentioned = response => response.replaceAll("\\n", "\n").split(/[。！？?；;\n]/u).some(clause =>
   /完成(?:[^，,。！？?；;\n]*的|验收主项目|本次|本轮)?验收报告/u.test(clause) &&
   !/(?:未知|不明|无法确认|不能确认|不再|取消|放弃|是否完成|不是完成|未完成|不完成|无需完成|另一|其他|别的)/u.test(clause));
@@ -159,6 +160,43 @@ export async function meteredModel(model, path, scope) {
   } });
 }
 
+export function summarizeBatch(results) {
+  const reasonCounts = Object.fromEntries(['QUOTE_VALUE_MISSING', 'SOURCE_VALUE_MISSING', 'BODY_VALUE_MISSING', 'NUMBER_UNIT_MISMATCH', 'CONDITION_CLAUSE_MISSING'].map(code => [code, 0]));
+  const scores = [], qualifiedAnswers = [], c5 = [];
+  const preparation = (suite, stage, diagnostic) => {
+    const item = diagnostic?.lastPreparation ?? diagnostic;
+    if (item?.summaryLayer?.borrowedTokens > 0) c5.push({ suite, stage, ...item.summaryLayer, ...item.degradation, outcome: item.outcome });
+  };
+  const answer = (suite, stage, chat) => {
+    if (!chat) return;
+    preparation(suite, stage, chat.diagnostics);
+    if (!oldGoalMentioned(chat.reply ?? '') && goalMentioned(chat.reply ?? '')) qualifiedAnswers.push({ suite, stage, reply: chat.reply,
+      oldGoal: false, newGoal: true, answerPassedOnlyNew: chat.passedByRule?.old === false && chat.passedByRule?.new === true });
+  };
+  for (const result of results) {
+    if (result.suite === 'M1') {
+      for (const row of result.results) {
+        const code = row.diagnostics?.validationFailure?.reasonCode;
+        if (code in reasonCounts) reasonCounts[code]++;
+      }
+      scores.push({ suite: 'M1', passed: result.results.filter(row => row.passed).length, total: result.planned, suitePassed: result.passed });
+      continue;
+    }
+    for (const round of result.rounds) {
+      for (const item of round.preparations ?? []) preparation(result.suite, `${round.generation}/${item.stage}`, item.diagnostics);
+      answer(result.suite, `${round.generation}/chat`, round.chat);
+    }
+    answer(result.suite, 'cold', result.cold);
+    scores.push({ suite: result.suite, newRule: { passed: result.rounds.filter(round => round.passed).length, total: compactionFidelitySpec(result.suite).rounds,
+      cold: result.cold?.passed ?? false, suitePassed: result.passed },
+      oldRule: { passed: result.rounds.filter(round => round.passedOldRule).length, total: compactionFidelitySpec(result.suite).rounds,
+        cold: result.cold?.passedByRule?.old ?? false, suitePassed: result.rounds.length === compactionFidelitySpec(result.suite).rounds && result.rounds.every(round => round.passedOldRule) && result.cold?.passedByRule?.old === true } });
+  }
+  return { scores, keyValueFailures: reasonCounts, qualifiedAnswers,
+    c5: { count: c5.length, providerPreparationCount: c5.filter(item => item.stage.endsWith('/chat') || item.stage === 'cold').length,
+      totalBorrowedTokensAcrossPreparations: c5.reduce((sum, item) => sum + item.borrowedTokens, 0), preparations: c5 } };
+}
+
 async function runChat({ model, modelAlias, root, spec, question, label }) {
   const output = new PassThrough(); output.resume();
   const configPath = join(root, 'config.json'), workspace = join(root, 'workspace');
@@ -194,7 +232,9 @@ async function runChat({ model, modelAlias, root, spec, question, label }) {
       noToolReplay: runs.every(run => run.tools.length === 0), noUnexpected: unexpected.length === 0,
       inputFits: diagnostics.ok && diagnostics.value.lastPreparation.estimatedInputTokens <= spec.contextBudget.inputBudgetTokens,
     };
-    return { label, pid: process.pid, checks, passed: Object.values(checks).every(Boolean), reply: response, runStatus: result?.status,
+    return { label, pid: process.pid, checks, goalChecks: { old: oldGoalMentioned(response), new: checks.goal },
+      passedByRule: { old: Object.entries(checks).every(([key, passed]) => key === 'goal' ? oldGoalMentioned(response) : passed), new: Object.values(checks).every(Boolean) },
+      passed: Object.values(checks).every(Boolean), reply: response, runStatus: result?.status,
       backgroundFailure, usageCalls: (await controller.runs.listModelUsage()).calls.length - before, diagnostics: diagnostics.ok ? diagnostics.value : null };
   } finally { await controller.shutdown(); app.dispose(); }
 }
@@ -207,12 +247,23 @@ async function main() {
   if (!cold) {
     assert.ok(process.argv.includes('--approved-live'), 'Approved live opt-in required');
     assert.equal(git('status', '--porcelain'), '', 'Commit and verify source before paid acceptance');
+    const gate = JSON.parse(await readFile(join(repo, 'docs/v2-pilot/evidence/cm-step6/verification-three.json'), 'utf8'));
+    assert.equal(gate.runs.length, 3, 'Three consecutive offline runs required');
+    assert.equal(new Set(gate.runs.map(run => run.runId)).size, 3);
+    assert.equal(git('diff', '--name-only', gate.sourceCommit, 'HEAD', '--', 'apps', 'packages', 'examples'), '', 'Offline runs must cover the current source');
+    for (const run of gate.runs) {
+      const bytes = await readFile(join(repo, run.file)), proof = JSON.parse(bytes);
+      assert.equal(sha(bytes), run.sha256); assert.equal(proof.status, 'passed');
+      assert.equal(proof.sourceCommit, gate.sourceCommit); assert.equal(proof.sourceStayedCleanDuringVerification, true);
+      assert.equal(proof.scriptSha256, sha(await readFile(join(repo, 'packages/assistant/scripts/cm-step6-verify.mjs'))));
+    }
     const ledgerPath = 'docs/v2-pilot/evidence/cost-ledger.json';
     const ledger = JSON.parse(await readFile(resolve(repo, ledgerPath), 'utf8'));
     if (ledger.entries.some(entry => entry.step === '4-6')) assert.ok(process.argv.includes('--rerun-approved-batch'), 'Existing spend requires approved full rerun');
     // Preserve the old mixed report byte-for-byte; its missing metadata cannot be reconstructed.
     let previous;
     try { previous = JSON.parse(await readFile(latestPath, 'utf8')); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    assert.notEqual(previous?.verificationGateRunId, gate.runId, 'This offline gate already dispatched its one approved batch');
     if (previous && !previous.attemptVersion) {
       const archived = join(dirname(latestPath), 'live-legacy-mixed.json');
       await copyFile(latestPath, archived);
@@ -234,8 +285,8 @@ async function main() {
     const isolated = Object.fromEntries(names.filter(name => sourceEnv[name] !== undefined).map(name => [name, sourceEnv[name]]));
     await writeFile(process.env.SERIKA_CM6_ENV, Object.entries(isolated).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join('\n'), { mode: 0o600 });
     await mkdir(dirname(evidencePath), { recursive: true });
-    await saveAttempt(evidencePath, { attemptVersion: 2, runId, startedAt: new Date().toISOString(), sourceCommit: git('rev-parse', 'HEAD'), sourceWorktreeDirty: false,
-      scriptSha256: sha(await readFile(script)), platform: process.platform, parentPid: process.pid, approval: '56fe5cf review: approved D/E and one full rerun after offline verification; local env authorized; old unknown call charged at reserve',
+    await saveAttempt(evidencePath, { attemptVersion: 2, verificationGateRunId: gate.runId, runId, startedAt: new Date().toISOString(), sourceCommit: git('rev-parse', 'HEAD'), sourceWorktreeDirty: false,
+      scriptSha256: sha(await readFile(script)), platform: process.platform, parentPid: process.pid, approval: 'Human review at 0483aa1: after both offline fixes and three consecutive cm-step6-verify exits 0, one full batch under cumulative $2.50; no retries; local env authorized; old unknown reserve remains charged',
       quotedUsdPerMillion: price, budgetUsd: limit, openingPlanCostUsd: opening, priorChargedUsd, ledgerPath, costUsd: 0, calls: [], stopped: false, results: [],
       providerContract: { docs: 'https://commandcode.ai/docs/provider', structuredOutputParameter: 'not used; JSON Schema is prompt text', strictSchemaSupport: 'not claimed' } });
   }
@@ -288,7 +339,7 @@ async function main() {
       let compactor = new ContextCompactor({ store, threadId: 'eval', modelId: selected.modelAlias, budget: spec.contextBudget,
         modelContextWindowTokens: spec.contextBudget.contextWindowTokens, fixedContext: () => ({ instructions: 'Maintain original constraints.', tools: [] }), summarizer: createAiSdkSummarizer(model) });
       for (let generation = 0; generation < spec.rounds; generation++) {
-        const round = { generation, startedAt: new Date().toISOString(), backgroundItems: [], passed: false }; rounds.push(round);
+        const round = { generation, startedAt: new Date().toISOString(), backgroundItems: [], preparations: [], passed: false }; rounds.push(round);
         try {
         current = `${id}/background/${generation}`;
         messages = [...await store.getModelMessages('eval'), ...compactionFidelityHistory(spec, generation).messages,
@@ -296,6 +347,7 @@ async function main() {
         await store.save('eval', messages);
         const before = JSON.parse(await readFile(evidencePath, 'utf8')).calls.length;
         const projection = await compactor.prepare(messages, AbortSignal.timeout(30000));
+        round.preparations.push({ stage: 'mask', diagnostics: (await compactor.getDiagnostics()).value.lastPreparation });
         const foregroundAuxiliaryCalls = JSON.parse(await readFile(evidencePath, 'utf8')).calls.length - before;
         round.foregroundAuxiliaryCalls = foregroundAuxiliaryCalls;
         assert.equal(foregroundAuxiliaryCalls, 0);
@@ -313,16 +365,19 @@ async function main() {
         }
         const records = await store.getContextCompactions('eval'), record = records.at(-1);
         const prepared = await compactor.prepare(messages, AbortSignal.timeout(30000));
+        round.preparations.push({ stage: 'summary', diagnostics: (await compactor.getDiagnostics()).value.lastPreparation });
         const view = prepared.find(message => message.id === "runloom-context-summary"), viewText = view?.parts.filter(part => part.type === "text").map(part => part.text).join("\n") ?? "";
-        const bounds = blockLimits(spec.contextBudget);
+        const bounds = blockLimits(spec.contextBudget), preparation = (await compactor.getDiagnostics()).value.lastPreparation;
         const layerChecks = { goal: goalMentioned(viewText), decision: viewText.includes('本地文件'), pending: viewText.includes('失败样本'),
           permission: viewText.includes('批准'), unknown: !!record?.summary.actions.some(action => action.toolCallIds.includes('fidelity-write') && action.status === 'unknown'),
           recent: !!record && record.layers.recent.length <= 4, index: !!record && record.layers.index.length <= 1,
-          total: !!view && estimateMessageTokens(prepared.filter(message => ["runloom-context-summary", "runloom-compaction-checklist"].includes(message.id))) <= bounds.totalSummary };
+          total: !!view && estimateMessageTokens(prepared.filter(message => ["runloom-context-summary", "runloom-compaction-checklist"].includes(message.id))) <= bounds.totalSummary + (preparation?.summaryLayer?.borrowedTokens ?? 0) && (preparation?.summaryLayer?.borrowedTokens ?? 0) <= Math.floor(bounds.recent / 2) };
         current = `${id}/chat/${generation}`;
         const chat = await runChat({ ...selected, model, root: caseRoot, spec, question: spec.turns[generation], label: `round-${generation}` });
-        Object.assign(round, { storedLayerTokens: record ? estimateMessageTokens([layerMessage(record), record.checklist]) : null, finishedAt: new Date().toISOString(), records: records.length, layerChecks, chat, passed: !compactor.backgroundError && Object.values(layerChecks).every(Boolean) && chat.passed });
-        } catch (error) { round.error = safeFailure(error); }
+        Object.assign(round, { storedLayerTokens: record ? estimateMessageTokens([layerMessage(record), record.checklist]) : null, finishedAt: new Date().toISOString(), records: records.length, layerChecks, chat, goalChecks: { old: viewText.includes(spec.truth.goal), new: layerChecks.goal },
+          passedOldRule: !compactor.backgroundError && Object.entries(layerChecks).every(([key, passed]) => key === "goal" ? viewText.includes(spec.truth.goal) : passed) && chat.passedByRule.old,
+          passed: !compactor.backgroundError && Object.values(layerChecks).every(Boolean) && chat.passed });
+        } catch (error) { round.error = safeFailure(error); round.preparations.push({ stage: 'failed', diagnostics: (await compactor.getDiagnostics()).value.lastPreparation }); }
         const roundReport = JSON.parse(await readFile(evidencePath, 'utf8')); roundReport.results = results; await saveAttempt(evidencePath, roundReport);
         if (roundReport.stopped) throw new Error('Batch stopped after provider failure');
         console.log(JSON.stringify({ case: id, generation, passed: round.passed, backgroundFailure: round.backgroundItems.find(item => item.failure)?.failure ?? null }));
@@ -344,7 +399,7 @@ async function main() {
     }
   } catch (cause) { error = safeFailure(cause); }
   const report = JSON.parse(await readFile(evidencePath, 'utf8'));
-  Object.assign(report, { results, error, finishedAt: new Date().toISOString(), passed: !error && results.length === 5 && results.every(result => result.suite === 'M1' ? result.results.every(item => item.passed) : result.passed) });
+  Object.assign(report, { results, summary: summarizeBatch(results), error, finishedAt: new Date().toISOString(), passed: !error && results.length === 5 && results.every(result => result.suite === 'M1' ? result.results.every(item => item.passed) : result.passed) });
   await rm(root, { recursive: true, force: true }); report.temporaryDirectoryRemoved = true;
   await saveAttempt(evidencePath, report);
   await copyFile(evidencePath, latestPath);

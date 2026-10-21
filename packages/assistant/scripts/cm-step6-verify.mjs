@@ -21,18 +21,22 @@ const report = { runId: randomUUID(), startedAt: new Date().toISOString(), platf
   process: { node: process.version, pid: process.pid }, sourceCommit: git('rev-parse', 'HEAD'), sourceWorktreeDirty: false,
   baseCommit: git('rev-parse', 'a183ddf'), scriptSha256: await hash('packages/assistant/scripts/cm-step6-verify.mjs'),
   commands: [], metrics: [], realModelCalls: 0, costUsd: 0, status: 'failed' };
+const outputRoot = process.env.SERIKA_CM6_VERIFY_OUTPUT ? resolve(process.env.SERIKA_CM6_VERIFY_OUTPUT) : repo;
+assert.ok(outputRoot === repo || !outputRoot.startsWith(repo + '/'), 'External verification output must be outside the checkout');
 const root = await mkdtemp(join(tmpdir(), 'cm-step6-verification-'));
 const evidence = 'docs/v2-pilot/evidence/cm-step6';
 const smokeEvidence = 'docs/v2-pilot/evidence/electron-smoke';
 const auditDirectory = join(root, 'audit'), smokeCheckout = join(root, 'smoke-source');
 const env = { ...process.env, TZ: process.env.TZ ?? "UTC", RUNLOOM_SMOKE_DAILY_CONFIG: join(root, `${report.runId}-absent-config.json`), SERIKA_CM6_EVIDENCE_DIR: auditDirectory };
 report.timeZone = env.TZ;
+const portable = value => typeof value === 'string' ? value.replaceAll(repo, '.').replaceAll(root, '<temporary>')
+  : Array.isArray(value) ? value.map(portable) : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, portable(item)])) : value;
 function run(command, args, cwd = repo) {
   const startedAt = new Date().toISOString();
   const result = spawnSync(command, args, { cwd, env, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
   const output = (result.stdout ?? '') + (result.stderr ?? '');
   const counts = [...output.matchAll(/[ℹ#] (tests|pass|fail|cancelled|skipped) (\d+)/g)].map(match => [match[1], Number(match[2])]);
-  report.commands.push({ command: [command, ...args], cwd, startedAt, finishedAt: new Date().toISOString(), exitCode: result.status,
+  report.commands.push({ command: portable([command, ...args]), cwd: portable(cwd), startedAt, finishedAt: new Date().toISOString(), exitCode: result.status,
     signal: result.signal, outputSha256: sha(output), outputBytes: Buffer.byteLength(output), counts });
   for (const match of output.matchAll(/CM_STEP6_METRICS (\{[^\n]+\})/g)) report.metrics.push(JSON.parse(match[1]));
   process.stdout.write(JSON.stringify(report.commands.at(-1)) + '\n');
@@ -77,16 +81,16 @@ try {
   report.sourceStayedCleanDuringVerification = true;
   report.status = 'passed';
 } catch (error) {
-  report.failure = { name: error.name, message: error.message.slice(-12000) };
+  report.failure = { name: error.name, message: portable(error.message.slice(-12000)) };
   process.exitCode = 1;
 } finally {
   report.finishedAt = new Date().toISOString();
-  await mkdir(join(repo, evidence), { recursive: true });
-  if (report.smoke) await cp(join(smokeCheckout, smokeEvidence), join(repo, smokeEvidence), { recursive: true });
-  try { await access(auditDirectory); await cp(auditDirectory, join(repo, evidence), { recursive: true }); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  await mkdir(join(outputRoot, evidence), { recursive: true });
+  if (report.smoke) await cp(join(smokeCheckout, smokeEvidence), join(outputRoot, smokeEvidence), { recursive: true });
+  try { await access(auditDirectory); await cp(auditDirectory, join(outputRoot, evidence), { recursive: true }); } catch (error) { if (error.code !== 'ENOENT') throw error; }
   await rm(root, { recursive: true, force: true });
   report.temporaryDirectoryRemoved = true;
-  await writeFile(join(repo, evidence, 'verification.json'), JSON.stringify(report, null, 2) + '\n');
-  if (report.smoke) await writeFile(join(repo, smokeEvidence, 'cm-step6-run.json'), JSON.stringify({ runId: report.runId,
+  await writeFile(join(outputRoot, evidence, 'verification.json'), JSON.stringify(report, null, 2) + '\n');
+  if (report.smoke) await writeFile(join(outputRoot, smokeEvidence, 'cm-step6-run.json'), JSON.stringify({ runId: report.runId,
     sourceCommit: report.sourceCommit, startedAt: report.startedAt, finishedAt: report.finishedAt, ...report.smoke }, null, 2) + '\n');
 }

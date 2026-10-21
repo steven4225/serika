@@ -85,20 +85,30 @@ test("M1 foreground cancellation waits for the background provider to settle and
   } finally { await extraction.close(); await rm(root, { recursive: true, force: true }); }
 });
 
-test("M1 idle trigger waits exactly 30 minutes; an idle retry stops after the third persisted failure", async t => {
+test("M1 idle trigger waits exactly 30 minutes; an idle retry stops after the third persisted failure", { timeout: 30_000 }, async t => {
   const root = await mkdtemp(join(tmpdir(), "cm4-idle-")), store = createMemoryStore(root);
   t.mock.timers.enable({ apis: ["setTimeout", "Date"] });
-  let calls = 0;
+  let calls = 0, expectsWrite = false;
+  let finish!: () => void;
+  let finished = new Promise<void>(resolve => { finish = resolve; });
   const model = new MockLanguageModelV3({ doGenerate: async () => { calls++; throw new Error("fixture failure"); } });
-  const extraction = createMemoryExtraction({ store, threadId: "t", getMessages: async () => [user("u", "short")], model, budget: DEFAULT_CONTEXT_BUDGET_CONFIG, updated() {} });
-  const settle = async () => { for (let i = 0; i < 10000 && extraction.diagnostics().running; i++) await new Promise<void>(resolve => setImmediate(resolve)); assert.equal(extraction.diagnostics().running, false); };
+  const extraction = createMemoryExtraction({ store, threadId: "t", getMessages: async () => { if (!expectsWrite) finish(); return [user("u", "short")]; }, model, budget: DEFAULT_CONTEXT_BUDGET_CONFIG, updated() { finish(); } });
+  const settle = async () => {
+    await finished;
+    // The terminal extraction notification precedes the task's final promise cleanup.
+    await new Promise<void>(resolve => setImmediate(resolve));
+    assert.equal(extraction.diagnostics().running, false);
+    finished = new Promise<void>(resolve => { finish = resolve; });
+  };
   try {
     extraction.idle(); await settle(); assert.equal(calls, 0);
     t.mock.timers.tick(29 * 60_000); assert.equal(calls, 0);
     for (let attempt = 1; attempt <= 3; attempt++) {
+      expectsWrite = true;
       t.mock.timers.tick(attempt === 1 ? 60_000 : 30 * 60_000); await settle(); assert.equal(calls, attempt);
       const saved = await store.readV6!(); assert.ok(saved.ok); assert.equal(saved.value.progress[0]!.retry!.failures, attempt);
     }
+    expectsWrite = false;
     t.mock.timers.tick(30 * 60_000); await settle(); assert.equal(calls, 3);
     assert.equal(extraction.diagnostics().pendingSegments, 1);
   } finally { await extraction.close(); t.mock.timers.reset(); await rm(root, { recursive: true, force: true }); }

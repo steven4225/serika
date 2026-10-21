@@ -32,8 +32,8 @@ export interface ContextDiagnostics {
     outcome: "passthrough" | "reused" | "written" | "noop" | "failed";
     compactionId: string | null;
     estimatedInputTokens: number | null;
-    summaryLayer?: { tokens: number; checklistTokens: number; budget: number; borrowedTokens: number; reduction?: { originalTokens: number; requiredTokens: number; budget: number; reducedSegments: number; compacted: boolean; indexDuplicateLines: number } };
-    degradation?: { reason: "checklist_overflow" | "summary_overflow"; borrowedTokens: number; maskedOriginalTokens: number; maskedFromMessageId: string | null; checklistTokens: number; sectionBudget: number; maskedThroughMessageId: string | null };
+    summaryLayer?: { tokens: number; checklistTokens: number; budget: number; borrowedTokens: number; borrowLimitTokens: number; requiredBorrowTokens: number; reduction?: { originalTokens: number; requiredTokens: number; budget: number; reducedSegments: number; compacted: boolean; indexReferenced: boolean; indexDuplicateLines: number } };
+    degradation?: { reasons: Array<"checklist_overflow" | "summary_overflow">; borrowedTokens: number; borrowLimitTokens: number; requiredBorrowTokens: number; maskedOriginalTokens: number; maskedFromMessageId: string | null; checklistTokens: number; sectionBudget: number; maskedThroughMessageId: string | null };
     error: { code: string; message: string } | null;
   } | null;
 }
