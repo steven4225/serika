@@ -1,5 +1,5 @@
 import type { ContextBudgetConfig } from "./context-budget.js";
-import type { CompactionMetrics } from "./context-compaction.js";
+import type { CompactionMetrics, SummaryNormalization } from "./context-compaction.js";
 
 export type ContextResult<T> =
   | { ok: true; value: T }
@@ -8,7 +8,7 @@ export type ContextResult<T> =
 /** Read-only display evidence, not a tokenizer result or recovery authority. */
 export interface ContextDiagnostics {
   modelCallLogWriteFailures?: number;
-  background?: { queued: boolean; running: boolean; error: string | null; failure?: { name: string; code: string; finishReason?: string; schemaPaths: string[] } };
+  background?: { queued: boolean; running: boolean; error: string | null; normalizations?: SummaryNormalization[]; failure?: { name: string; code: string; finishReason?: string; schemaPaths: string[] } };
   threadId: string;
   enabled: boolean;
   budget: ContextBudgetConfig;
@@ -32,7 +32,7 @@ export interface ContextDiagnostics {
     outcome: "passthrough" | "reused" | "written" | "noop" | "failed";
     compactionId: string | null;
     estimatedInputTokens: number | null;
-    summaryLayer?: { tokens: number; checklistTokens: number; budget: number; summaryOmitted: boolean };
+    summaryLayer?: { tokens: number; checklistTokens: number; budget: number; summaryOmitted: boolean; reduction?: { originalTokens: number; requiredTokens: number; budget: number; reducedSegments: number; compacted: boolean; indexDuplicateLines: number } };
     degradation?: { reason: "checklist_overflow"; checklistTokens: number; sectionBudget: number; maskedThroughMessageId: string | null };
     error: { code: string; message: string } | null;
   } | null;

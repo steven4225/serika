@@ -12,12 +12,14 @@ import {
   contextSummaryPrompt,
   CONTEXT_SUMMARY_STRATEGY_VERSION,
   parseContextSummary,
+  validateContextSummary,
   contextSummaryFailurePaths,
   type ContextCompactionRecord,
   type ContextSummaryFile,
   type ContextSummaryItem,
   type ContextSummaryV2,
   type Summarizer,
+  type SummaryNormalization,
 } from "./context-compaction.js";
 import {
   estimateContextBudget,
@@ -34,7 +36,7 @@ import { CONTEXT_ESTIMATOR_VERSION } from "./context-budget.js";
 import { isAutoConsolidationRequest, withoutConsolidationTurns } from "./consolidation.js";
 import { expandMessageReferences } from "./context-assembler.js";
 import { placeForegroundTaskReference } from "./foreground-autonomy.js";
-import { blockLimits, maskOldestBlock, fitMessage, layerMessage, appendSummaryLayer, validLayers, summaryText } from "./context-blocks.js";
+import { blockLimits, maskOldestBlock, fitMessage, layerMessage, appendSummaryLayer, validLayers, summaryText, fitSummaryLayer } from "./context-blocks.js";
 import { compactSummaryActions, createCompactionChecklist, type CompactionChecklistSources } from "./compaction-records.js";
 
 const SUMMARY_TIMEOUT_MS = 30_000;
@@ -104,7 +106,7 @@ function validRecord(record: ContextCompactionRecord, messages: readonly UIMessa
   // Legacy summaries may have learned raw extraction JSON. Keep them on disk,
   // but do not reinstall/merge one that covered auxiliary turns without exclusion.
   if (record.consolidationExcluded !== true && messages.slice(0, index).some(isAutoConsolidationRequest)) return false;
-  return (record.layers === undefined || validLayers(record.layers)) && parseContextSummary(JSON.stringify(record.summary)) !== undefined;
+  return (record.layers === undefined || validLayers(record.layers)) && validateContextSummary(record.summary);
 }
 
 /** Uses precisely the same transcript-prefix validation as preparation. */
@@ -254,7 +256,7 @@ export class ContextCompactor {
 
   async getDiagnostics(): Promise<ContextResult<ContextDiagnostics>> {
     const result = await readContextDiagnostics(this.#options.store, this.#options.threadId, this.#options.budget, this.#lastPreparation);
-    if (result.ok) result.value.background = { queued: this.pending, running: !!this.#task, error: this.#backgroundError ?? null,
+    if (result.ok) result.value.background = { queued: this.pending, running: !!this.#task, error: this.#backgroundError ?? null, normalizations: this.backgroundNormalizations,
       ...(this.#backgroundFailure ? { failure: structuredClone(this.#backgroundFailure) } : {}) };
     return result;
   }
@@ -286,6 +288,7 @@ export class ContextCompactor {
   #abort: AbortController | undefined;
   #backgroundError: string | undefined;
   #backgroundFailure: { name: string; code: string; finishReason?: string; schemaPaths: string[] } | undefined;
+  #normalizations: SummaryNormalization[] = [];
   #installedId: string | undefined;
   #reportedScale = 1;
   #extraBlock = false;
@@ -315,15 +318,23 @@ export class ContextCompactor {
     const bounded = visible.map(message => fitMessage(message, Math.min(this.#options.budget.contextWindowTokens,
       message.role === "user" ? singleLimit : 16_000)));
     const checklistMessages = () => messages.map(message => message.role === "user" ? fitMessage({ ...message, metadata: undefined }, requestLimit) : message);
-    let checklistTokens = 0, checklistOverflowTokens = 0, summaryOmitted = false;
+    let checklistTokens = 0, checklistOverflowTokens = 0;
+    let reduction: NonNullable<ContextDiagnostics["lastPreparation"]>["summaryLayer"];
     const compose = () => {
       const keptIds = new Set(messages.slice(boundary).map(message => message.id));
       const required = boundary ? createCompactionChecklist({ ...sources, permissions: sources?.permissions, messages: checklistMessages(), maxTokens: limits.section, requestReferenceOnly: !!boundedForeground || boundary <= messages.reduce((last, message, index) => message.role === "user" ? index : last, -1) }) : undefined;
       checklistTokens = required ? estimateMessageTokens([required]) : 0;
       checklistOverflowTokens = (required?.metadata as { overflowTokens?: number } | undefined)?.overflowTokens ?? 0;
-      let historical = record ? layerMessage(record) : undefined;
-      summaryOmitted = !!historical && estimateMessageTokens([historical, ...(required ? [required] : [])]) > limits.totalSummary;
-      if (summaryOmitted) historical = { ...historical!, parts: [{ type: "text", text: `Historical summaries omitted for budget; history_read original message numbers 1–${record!.firstKeptMessageIndex}.` }] };
+      const fitted = record ? fitSummaryLayer(record, limits.totalSummary - checklistTokens) : undefined;
+      const historical = fitted?.message;
+      reduction = { tokens: checklistTokens + (historical ? estimateMessageTokens([historical]) : 0), checklistTokens,
+        budget: limits.totalSummary, summaryOmitted: false, ...(fitted ? { reduction: fitted.diagnostics } : {}) };
+      if (fitted && !fitted.fits) {
+        const error = contextError("Required historical continuation exceeds proportional summary budget; original journal retained");
+        this.#lastPreparation = { at: this.#now().toISOString(), outcome: "failed", compactionId: record!.id,
+          estimatedInputTokens: null, summaryLayer: reduction, error: diagnosticError(error) };
+        throw error;
+      }
       const missing = boundary > (record?.firstKeptMessageIndex ?? 0) ? [{ id: "runloom-masked-history", role: "assistant" as const,
         parts: [{ type: "text" as const, text: `Original messages ${messages[record?.firstKeptMessageIndex ?? 0]?.id ?? ""}–${messages[boundary - 1]?.id ?? ""} are masked pending background summary/extraction; use history_search/history_read.` }] }] : [];
       return placeForegroundTaskReference([...(historical ? [historical] : []), ...(required ? [required] : []), ...missing, ...bounded.filter(message => keptIds.has(message.id)), ...(boundedForeground ? [boundedForeground] : [])]);
@@ -368,7 +379,7 @@ export class ContextCompactor {
     }
     this.#lastPreparation = { at: this.#now().toISOString(), outcome: record ? "reused" : "passthrough", compactionId: record?.id ?? null,
       estimatedInputTokens: measured.inputTokens, error: null,
-      summaryLayer: { tokens: summaryTokens, checklistTokens, budget: limits.totalSummary, summaryOmitted },
+      summaryLayer: { ...reduction!, tokens: summaryTokens },
       ...(checklistOverflowTokens > limits.section ? { degradation: { reason: "checklist_overflow" as const, checklistTokens: checklistOverflowTokens, sectionBudget: limits.section,
         maskedThroughMessageId: messages[boundary - 1]?.id ?? null } } : {}) };
     return view;
@@ -382,6 +393,7 @@ export class ContextCompactor {
   get pending(): boolean { return this.#pending !== undefined; }
   get backgroundError(): string | undefined { return this.#backgroundError; }
   get backgroundFailure() { return this.#backgroundFailure ? structuredClone(this.#backgroundFailure) : undefined; }
+  get backgroundNormalizations(): SummaryNormalization[] { return structuredClone(this.#normalizations); }
   async runPending(signal: AbortSignal): Promise<void> {
     const job = this.#pending;
     if (!job || this.#task) return;
@@ -412,6 +424,7 @@ export class ContextCompactor {
 
   async #summarize(job: NonNullable<{ messages: UIMessage[]; end: number; prefix: readonly UIMessage[]; sources?: CompactionChecklistSources }>, signal: AbortSignal): Promise<void> {
     abortIfNeeded(signal);
+    this.#normalizations = [];
     const { messages, end, prefix, sources } = job;
     const persisted = await this.#findLatestValid(messages);
     const start = persisted?.firstKeptMessageIndex ?? 0;
@@ -450,7 +463,7 @@ export class ContextCompactor {
     const result = await this.#completeOne(prompt, this.#options.budget.summaryMaxOutputTokens, signal);
     abortIfNeeded(signal);
     if (result.finishReason === "length") throw contextError("Summary output was truncated; original block retained");
-    const parsed = parseContextSummary(result.text, original.map(message => message.id));
+    const parsed = parseContextSummary(result.text, original.map(message => message.id), this.#normalizations);
     if (!parsed) throw new AgentError({ code: "CONTEXT_PREPARE_FAILED", message: "Summary output is invalid; original block retained", retryable: false, phase: "runtime" },
       { cause: { finishReason: result.finishReason, schemaPaths: contextSummaryFailurePaths(result.text) } });
     const json = /```(?:json)?\s*([\s\S]*?)\s*```/i.exec(result.text)?.[1] ?? result.text;

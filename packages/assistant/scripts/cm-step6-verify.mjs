@@ -54,6 +54,8 @@ try {
   report.smoke = { file: smokePath, sha256: await hash(smokePath), scriptSha256: smoke.scriptSha256,
     checks: smoke.checks.map(({ name, result, unexpectedErrors }) => ({ name, result, unexpectedErrors })), screenshots: smoke.screenshots };
 
+  run('node', ['examples/eval/cm-step6-offline-audit.mjs']);
+  report.offlineAudit = { file: `${evidence}/offline-audit.json`, sha256: await hash(`${evidence}/offline-audit.json`) };
   report.status = 'passed';
 } catch (error) {
   report.failure = { name: error.name, message: error.message.slice(-12000) };

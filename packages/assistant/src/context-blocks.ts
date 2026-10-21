@@ -1,7 +1,7 @@
 import type { UIMessage } from "ai";
 import { formatLocalTaskTime } from "./task-instructions.js";
 import { availableInputTokens, defaultContextBudget, estimateMessageTokens, estimateSerializedTokens, partitionMessagesForCompaction, type ContextBudgetConfig } from "./context-budget.js";
-import { parseContextSummary, type ContextCompactionRecord, type ContextSummaryV2 } from "./context-compaction.js";
+import { validateContextSummary, type ContextCompactionRecord, type ContextSummaryV2 } from "./context-compaction.js";
 
 export interface SummarySegment {
   firstMessageId: string;
@@ -32,6 +32,38 @@ export function layerMessage(record: ContextCompactionRecord): UIMessage {
     recent: layers.recent.map(segment => ({ ...range(segment), text: summaryText(segment.summary) })) } : summaryText(record.summary);
   return { id: "runloom-context-summary", role: "assistant", metadata: { source: "context-compaction" },
     parts: [{ type: "text", text: "Historical index and summaries; history_read/search gives originals:\n" + JSON.stringify(view) }] };
+}
+
+/** Opaque index text is retained: the host cannot identify its important clauses. */
+export function fitSummaryLayer(record: ContextCompactionRecord, maxTokens: number) {
+  const original = layerMessage(record), originalTokens = estimateMessageTokens([original]);
+  const segments = record.layers?.recent ?? [{ firstMessageId: "1", lastMessageId: String(record.firstKeptMessageIndex), timeRange: [null, null], summary: record.summary }];
+  const essential = (summary: ContextSummaryV2) => summaryText({ ...summary, files: [],
+    actions: summary.actions.filter(action => action.status === "not_executed") });
+  const reduced = segments.map(segment => ({ ...segment, summary: { ...segment.summary } }));
+  let message = original, reducedSegments = 0;
+  for (const segment of reduced) {
+    if (estimateMessageTokens([message]) <= maxTokens) break;
+    segment.summary = { ...segment.summary, files: [], actions: segment.summary.actions.filter(action => action.status === "not_executed") };
+    reducedSegments++;
+    message = layerMessage({ ...record, layers: { index: record.layers?.index ?? [], recent: reduced } });
+  }
+  // Exact duplicates can share one display copy; different wording/statuses stay distinct.
+  const requiredLines = [...new Set(segments.flatMap(segment => essential(segment.summary).split("\n")))];
+  const indexLines = (record.layers?.index ?? []).flatMap(segment => segment.text.split("\n"));
+  const index = [...new Set(indexLines)].filter(line => !requiredLines.includes(line));
+  const ranges = record.layers ? [...record.layers.index, ...segments].map(segment =>
+    [segment.firstMessageId, segment.lastMessageId, segment.timeRange.map(stamp => stamp ? formatLocalTaskTime(new Date(stamp), "Asia/Shanghai") : null)]) : [["1", record.firstKeptMessageIndex]];
+  const minimum: UIMessage = { ...original, parts: [{ type: "text", text:
+    "Historical continuation (exact duplicate clauses shown once); history_read/search gives originals.\n" +
+    `Ranges [first,last,time]: ${JSON.stringify(ranges)}\n` + requiredLines.join("\n") +
+    (index.length ? "\nFar index:\n" + index.join("\n") : "") }] };
+  const requiredTokens = estimateMessageTokens([minimum]);
+  const compacted = estimateMessageTokens([message]) > maxTokens;
+  if (compacted) message = minimum;
+  return { message, fits: estimateMessageTokens([message]) <= maxTokens,
+    diagnostics: { originalTokens, requiredTokens, budget: maxTokens, reducedSegments, compacted,
+      indexDuplicateLines: compacted ? indexLines.length - index.length : 0 } };
 }
 
 /** Preserve call/result units; one masking event removes a whole proportional block. */
@@ -101,5 +133,5 @@ export function validLayers(value: unknown): value is LayeredSummary {
   const range = (entry: SummarySegment | LayeredSummary["index"][number]) => entry && typeof entry.firstMessageId === "string" && entry.firstMessageId.length > 0 &&
     typeof entry.lastMessageId === "string" && entry.lastMessageId.length > 0 && Array.isArray(entry.timeRange) && entry.timeRange.length === 2 && entry.timeRange.every(time => time === null || typeof time === "string" && Number.isFinite(Date.parse(time)));
   return Array.isArray(layers.index) && layers.index.length <= 1 && layers.index.every(entry => range(entry) && typeof entry.text === "string" && entry.text.trim()) &&
-    Array.isArray(layers.recent) && layers.recent.length <= 4 && layers.recent.every(entry => range(entry) && parseContextSummary(JSON.stringify(entry.summary)) !== undefined);
+    Array.isArray(layers.recent) && layers.recent.length <= 4 && layers.recent.every(entry => range(entry) && validateContextSummary(entry.summary));
 }

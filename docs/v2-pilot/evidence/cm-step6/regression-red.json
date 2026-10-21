@@ -1,0 +1,23 @@
+{
+  "runId": "1fbe0b29-be2c-47b7-a609-d4f6fb8e236c",
+  "generatedAt": "2026-10-21T14:04:30.183513+00:00",
+  "baselineCommit": "8dd7bae",
+  "baselineHashes": {
+    "packages/assistant/src/context-compactor.ts": "5ea907b5ab6eb9fb7c686d57155c6eeefd9d957f2857a06fefcc76cb390d8196",
+    "packages/assistant/src/context-compaction.ts": "189f60a4e5b6580b918620a9a28c7e69d61c589aed5c7ead757e05cbecc682b6"
+  },
+  "sourceWorktreeDirty": true,
+  "instrumentation": "Both compactor and parser from baseline. Added only a TypeScript diagnostic interface and an empty diagnostics getter for current-test compilation; baseline preparation and parsing behavior unchanged. Other files contain current offline fixes.",
+  "testSha256": "101f3f8fa33eb3ecbced145e0db522fde1263c43ee0809777b5c4d91c40fcbb6",
+  "command": [
+    "node",
+    "--test",
+    "--test-name-pattern=CE05 1248|recorded single-object",
+    "packages/assistant/dist/context-compactor.test.js"
+  ],
+  "exitCode": 1,
+  "outputSha256": "cf87bbc0028360a30d6284cf70708e4d816901d92b4f931c4ea6bfa09ecd08d1",
+  "output": "✖ CE05 1248 total minus 193 checklist retains goals, confirmed decisions, pending and permissions (5.3485ms)\n✖ recorded single-object constraints normalize with diagnostics before unchanged semantic and budget checks (9.939875ms)\nℹ tests 2\nℹ suites 0\nℹ pass 0\nℹ fail 2\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 113.40725\n\n✖ failing tests:\n\ntest at packages/assistant/dist/context-compactor.test.js:403:1\n✖ CE05 1248 total minus 193 checklist retains goals, confirmed decisions, pending and permissions (5.3485ms)\n  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n  \n  true !== false\n  \n      at TestContext.<anonymous> (file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/packages/assistant/dist/context-compactor.test.js:435:12)\n      at async Test.run (node:internal/test_runner/test:1389:7)\n      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {\n    generatedMessage: true,\n    code: 'ERR_ASSERTION',\n    actual: true,\n    expected: false,\n    operator: 'strictEqual',\n    diff: 'simple'\n  }\n\ntest at packages/assistant/dist/context-compactor.test.js:439:1\n✖ recorded single-object constraints normalize with diagnostics before unchanged semantic and budget checks (9.939875ms)\n  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n  \n  0 !== 1\n  \n      at TestContext.<anonymous> (file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/packages/assistant/dist/context-compactor.test.js:449:16)\n      at async Test.run (node:internal/test_runner/test:1389:7)\n      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {\n    generatedMessage: true,\n    code: 'ERR_ASSERTION',\n    actual: 0,\n    expected: 1,\n    operator: 'strictEqual',\n    diff: 'simple'\n  }\n",
+  "realModelCalls": 0,
+  "costUsd": 0
+}

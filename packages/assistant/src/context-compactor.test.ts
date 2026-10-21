@@ -5,7 +5,7 @@ import type { ContextCompactionStore, MessageStore, ThreadContextCompactionRecor
 import { ContextCompactor, readContextDiagnostics, reconcilePublishedSummary } from "./context-compactor.js";
 import { compactPrefixHash, contextSummaryPrompt, contextSummaryFailurePaths, type ContextCompactionRecord, type ContextSummaryV2, type Summarizer } from "./context-compaction.js";
 import { defaultContextBudget, effectiveContextBudget, estimateContextBudget, estimateMessageTokens, estimateSerializedTokens } from "./context-budget.js";
-import { blockLimits } from "./context-blocks.js";
+import { blockLimits, fitSummaryLayer } from "./context-blocks.js";
 import { createCompactionChecklist, compactedRecentMessages } from "./compaction-records.js";
 import { createExecutionRecordStore } from "./execution-record-store.js";
 import { createToolConfirmation } from "./tool-confirmation.js";
@@ -159,21 +159,27 @@ it("invalid, empty, length-truncated and oversized background summaries never ad
   }
 });
 
-it("recorded CF03/CE03/CE05 array and items-wrapper failures stay rejected without publishing or retry", async () => {
+it("recorded array shape failures normalize only collection containers and retain remaining semantic failures", async () => {
   // Structural reproductions of ffd528fb, de15f87c, 838b2c66 and 3dd1bb9d/ac8df6e5/0f5b23c5; no original text was retained.
   const cases = [
     { value: { ...summary, goal: [summary.goal] }, paths: ["goal"] },
-    { value: { ...summary, ...Object.fromEntries(["constraints", "pending", "decisions", "actions", "files"].map(key => [key, { items: [] }])) }, paths: ["constraints", "pending", "decisions", "actions", "files"] },
-    { value: { ...summary, constraints: { items: [] }, pending: { items: [] } }, paths: ["constraints", "pending"] },
-    { value: { ...summary, constraints: { items: [] } }, paths: ["constraints"] },
+    { value: { ...summary, ...Object.fromEntries(["constraints", "pending", "decisions", "actions", "files"].map(key => [key, { items: [] }])) }, paths: [] },
+    { value: { ...summary, constraints: { items: [] }, pending: { items: [] } }, paths: [] },
+    { value: { ...summary, constraints: { items: [] } }, paths: [] },
   ];
   for (const { value, paths } of cases) {
     const store = new FakeStore(); store.messages = seed(); let calls = 0;
     const compactor = make(store, { complete: async () => { calls++; return { text: JSON.stringify(value), finishReason: "stop" }; } });
-    await compactor.prepare(store.messages, signal()); await compactor.runPending(signal()); await compactor.runPending(signal());
-    assert.deepEqual(contextSummaryFailurePaths(JSON.stringify(value)), paths);
-    assert.deepEqual(compactor.backgroundFailure?.schemaPaths, paths);
-    assert.equal(calls, 1); assert.equal(store.records.length, 0);
+    await compactor.prepare(store.messages, signal()); await compactor.runPending(signal());
+    if (paths.length) await compactor.runPending(signal());
+    if (paths.length) {
+      assert.deepEqual(contextSummaryFailurePaths(JSON.stringify(value)), paths);
+      assert.deepEqual(compactor.backgroundFailure?.schemaPaths, paths);
+    } else {
+      assert.equal(compactor.backgroundError, undefined);
+      assert.ok(compactor.backgroundNormalizations.length);
+    }
+    assert.equal(calls, 1); assert.equal(store.records.length, paths.length ? 0 : 1);
   }
 });
 
@@ -308,7 +314,7 @@ it("reported provider overflow recalibrates a single oversized current message w
 });
 
 
-it("legacy history plus checklist obeys the proportional summary cap without rewriting stored summaries", async () => {
+it("oversized essential legacy goals fail visibly instead of silently omitting continuation", async () => {
   for (const sizedBudget of [budget, defaultContextBudget()]) {
     const store = new FakeStore(); store.messages = [user("u1", "old request"), assistant("a", "done"), user("now", "continue")];
     const record: ContextCompactionRecord = { v: 2, type: "thread.context.compacted", threadId: "thread-1", id: "legacy-large", previousCompactionId: null,
@@ -318,11 +324,60 @@ it("legacy history plus checklist obeys the proportional summary cap without rew
     store.records.push(record as unknown as ThreadContextCompactionRecord);
     const before = structuredClone(store.records);
     const compactor = make(store, { complete: async () => { throw new Error("must not dispatch"); } }, { budget: sizedBudget });
-    const view = await compactor.prepare(store.messages, signal());
+    await assert.rejects(compactor.prepare(store.messages, signal()), /Required historical continuation/);
     const diagnostic = await compactor.getDiagnostics(); assert.ok(diagnostic.ok);
-    assert.equal(diagnostic.value.lastPreparation?.summaryLayer?.summaryOmitted, true);
-    assert.ok(diagnostic.value.lastPreparation!.summaryLayer!.tokens <= blockLimits(sizedBudget).totalSummary);
-    assert.match(JSON.stringify(view), /history_read original message numbers 1–2/);
+    assert.equal(diagnostic.value.lastPreparation?.outcome, "failed");
+    assert.equal(diagnostic.value.lastPreparation?.summaryLayer?.summaryOmitted, false);
+    assert.ok(diagnostic.value.lastPreparation!.summaryLayer!.reduction!.requiredTokens > blockLimits(sizedBudget).totalSummary);
     assert.deepEqual(store.records, before);
+  }
+});
+
+
+it("CE05 1248 total minus 193 checklist retains goals, confirmed decisions, pending and permissions", async () => {
+  const item = (text: string) => ({ text, evidenceMessageIds: ["fidelity-contract"] });
+  const core: ContextSummaryV2 = { ...summary, goal: item("完成验收报告"), constraints: [item("部署尚未获批准，不能把旧回执当新的读取授权")],
+    decisions: [{ ...item("采用本地文件方案"), source: "user", status: "confirmed" }], pending: [item("补充失败样本")],
+    files: [{ ...item("old detail"), path: "notes/fixture.txt", purpose: "x".repeat(300) }] };
+  const record = { summary: core, firstKeptMessageIndex: 73, layers: {
+    index: [{ firstMessageId: "fidelity-contract", lastMessageId: "old", timeRange: [null, null], text: "早期验收讨论；读取成功，不是新的读取授权" }],
+    recent: Array.from({ length: 4 }, (_, i) => ({ firstMessageId: `daily-u-${i}`, lastMessageId: `daily-a-${i}`, timeRange: [null, null], summary: core })) } } as ContextCompactionRecord;
+  const before = structuredClone(record), fitted = fitSummaryLayer(record, 1248 - 193);
+  assert.equal(blockLimits(budget).totalSummary, 1248);
+  assert.equal(fitted.fits, true); assert.ok(fitted.diagnostics.reducedSegments > 0);
+  assert.ok(estimateMessageTokens([fitted.message]) + 193 <= 1248);
+  for (const text of ["完成验收报告", "user/confirmed: 采用本地文件方案", "补充失败样本", "部署尚未获批准", "读取成功"]) assert.ok(JSON.stringify(fitted.message).includes(text), text);
+  assert.deepEqual(record, before);
+  const currentId = "00000000-0000-0000-0000-00000000000";
+  const store = new FakeStore(); store.messages = [user("fidelity-contract", "old"), { id: "fidelity-write-result", role: "assistant", parts: [{
+    type: "dynamic-tool", toolName: "write_file", toolCallId: "fidelity-write", state: "output-error", input: { path: "notes/uncertain.txt" },
+    errorText: "TOOL_OUTCOME_UNKNOWN: dispatched write lost its receipt; effect unknown, must not retry automatically.",
+  }] }, user(currentId, "continue")];
+  Object.assign(record, { v: 2, type: "thread.context.compacted", threadId: "thread-1", id: "overflow", previousCompactionId: null,
+    firstKeptMessageIndex: 2, firstKeptMessageId: currentId, sourcePrefixHash: compactPrefixHash(store.messages, 2), consolidationExcluded: true,
+    strategyVersion: "summary-json/v2", modelId: "mock", createdAt: new Date(0).toISOString(), metrics: { attempts: 1 } });
+  store.records.push(record as unknown as ThreadContextCompactionRecord);
+  const compactor = make(store, { complete: async () => { throw new Error("must not dispatch"); } }, { checklist: () => ({ permissions: createToolConfirmation(new PassThrough()).snapshot() }) });
+  const prepared = await compactor.prepare(store.messages, signal());
+  const diagnostic = await compactor.getDiagnostics(); assert.ok(diagnostic.ok);
+  assert.equal(diagnostic.value.lastPreparation?.summaryLayer?.checklistTokens, 193);
+  assert.equal(diagnostic.value.lastPreparation?.summaryLayer?.summaryOmitted, false);
+  for (const text of ["完成验收报告", "采用本地文件方案", "补充失败样本", "部署尚未获批准"]) assert.ok(JSON.stringify(prepared).includes(text), text);
+});
+
+it("recorded single-object constraints normalize with diagnostics before unchanged semantic and budget checks", async () => {
+  for (const fault of ["none", "semantic", "budget", "extra-wrapper-field"] as const) {
+    const store = new FakeStore(); store.messages = seed();
+    const value = { ...summary, constraints: { text: fault === "budget" ? "x".repeat(1000) : "不得部署", evidenceMessageIds: ["u1"] },
+      ...(fault === "semantic" ? { decisions: [{ text: "decision", evidenceMessageIds: ["u1"], source: "user", status: "invented" }] } : {}),
+      ...(fault === "extra-wrapper-field" ? { constraints: { items: [], text: "do not drop me" } } : {}) };
+    const compactor = make(store, { complete: async () => ({ text: JSON.stringify(value) }) });
+    await compactor.prepare(store.messages, signal()); await compactor.runPending(signal());
+    assert.equal(store.records.length, fault === "none" ? 1 : 0);
+    assert.deepEqual(compactor.backgroundNormalizations, fault === "extra-wrapper-field" ? [] : [{ field: "constraints", operation: "single_object_to_array" }]);
+    const diagnostic = await compactor.getDiagnostics(); assert.ok(diagnostic.ok);
+    assert.deepEqual(diagnostic.value.background?.normalizations, compactor.backgroundNormalizations);
+    if (fault === "semantic") assert.deepEqual(compactor.backgroundFailure?.schemaPaths, ["decisions.0.status"]);
+    if (fault === "budget") assert.match(compactor.backgroundError!, /proportional budget/);
   }
 });

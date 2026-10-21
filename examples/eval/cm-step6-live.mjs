@@ -13,7 +13,7 @@ import { JsonlAgentStore, hashCanonicalJson } from '@serika/core';
 import { configureCliModel } from '@serika/assistant/internal/model-config.js';
 import { ContextCompactor } from '@serika/assistant/internal/context-compactor.js';
 import { createAiSdkSummarizer } from '@serika/assistant/internal/context-compaction.js';
-import { layerMessage, blockLimits } from '@serika/assistant/internal/context-blocks.js';
+import { blockLimits, layerMessage } from '@serika/assistant/internal/context-blocks.js';
 import { estimateMessageTokens } from '@serika/assistant/internal/context-budget.js';
 import { createRuntimeApp } from '@serika/assistant/internal/app.js';
 import { createAssistantController } from '@serika/assistant/internal/assistant-controller.js';
@@ -26,6 +26,10 @@ const sha = value => createHash('sha256').update(value).digest('hex');
 const price = { input: 0.16, cachedInput: 0.02, output: 0.58 };
 const limit = 2, opening = 0.36;
 const script = fileURLToPath(import.meta.url);
+
+export const goalMentioned = response => response.replaceAll("\\n", "\n").split(/[。！？?；;\n]/u).some(clause =>
+  /完成(?:验收主项目的?|本次|本轮)?验收报告/u.test(clause) &&
+  !/(?:未知|不明|无法确认|不能确认|不再|取消|放弃|是否完成|不是完成|未完成|不完成|无需完成)/u.test(clause));
 
 export const chargedUsd = entry => entry.amount + (entry.unresolvedReservedUsd ?? 0);
 export const pastReadSucceeded = response => response.split(/[。！？?；;，,\n]/u).some(clause => {
@@ -59,7 +63,7 @@ async function recheckRecorded() {
 async function saveAttempt(path, report) {
   await writeFile(path, JSON.stringify(report, null, 2) + '\n');
   if (!report.ledgerPath) return;
-  const ledger = JSON.parse(await readFile(report.ledgerPath, 'utf8'));
+  const ledger = JSON.parse(await readFile(resolve(repo, report.ledgerPath), 'utf8'));
   const unresolved = report.calls.filter(call => call.status !== 'returned');
   ledger.entries = ledger.entries.filter(entry => entry.runId !== report.runId);
   ledger.entries.push({ step: '4-6', runId: report.runId, realModelRequests: report.calls.length, amount: report.costUsd,
@@ -67,7 +71,7 @@ async function saveAttempt(path, report) {
     evidence: path.slice(join(repo, 'docs/v2-pilot/evidence/').length), evidenceSha256: sha(await readFile(path)) });
   ledger.knownTotal = ledger.openingBalance.amount + ledger.entries.reduce((sum, entry) => sum + entry.amount, 0);
   ledger.total = ledger.openingBalance.amount + ledger.entries.reduce((sum, entry) => sum + chargedUsd(entry), 0);
-  await writeFile(report.ledgerPath, JSON.stringify(ledger, null, 2) + '\n');
+  await writeFile(resolve(repo, report.ledgerPath), JSON.stringify(ledger, null, 2) + '\n');
 }
 
 // Error messages and response bodies can echo prompts or credentials.
@@ -181,7 +185,7 @@ async function runChat({ model, modelAlias, root, spec, question, label }) {
     const diagnostics = await controller.getContextDiagnostics();
     const response = result?.text ?? '';
     const checks = {
-      completed: result?.status === 'completed', backgroundSettled: !backgroundFailure, goal: response.includes('完成验收报告'), decision: response.includes('本地文件'), pending: response.includes('失败样本'),
+      completed: result?.status === 'completed', backgroundSettled: !backgroundFailure, goal: goalMentioned(response), decision: response.includes('本地文件'), pending: response.includes('失败样本'),
       permission: /未.*(?:批准|授权)|尚未.*(?:批准|授权)|没有.*(?:批准|授权)/.test(response),
       uncertain: /(?:结果|状态|写入).{0,12}(?:未知|不确定)|(?:未知|不确定).{0,12}(?:结果|写入)/.test(response),
       noAutomaticRetry: /(?:不能|不应|不得|不可|不要|不允许).{0,15}(?:自动重试|重试)|(?:需|需要|必须).{0,15}(?:核实|确认|对账)/.test(response),
@@ -203,8 +207,8 @@ async function main() {
   if (!cold) {
     assert.ok(process.argv.includes('--approved-live'), 'Approved live opt-in required');
     assert.equal(git('status', '--porcelain'), '', 'Commit and verify source before paid acceptance');
-    const ledgerPath = join(repo, 'docs/v2-pilot/evidence/cost-ledger.json');
-    const ledger = JSON.parse(await readFile(ledgerPath, 'utf8'));
+    const ledgerPath = 'docs/v2-pilot/evidence/cost-ledger.json';
+    const ledger = JSON.parse(await readFile(resolve(repo, ledgerPath), 'utf8'));
     if (ledger.entries.some(entry => entry.step === '4-6')) assert.ok(process.argv.includes('--rerun-approved-batch'), 'Existing spend requires approved full rerun');
     // Preserve the old mixed report byte-for-byte; its missing metadata cannot be reconstructed.
     let previous;
@@ -215,7 +219,7 @@ async function main() {
       for (const entry of ledger.entries.filter(entry => entry.evidence === 'cm-step6/live.json')) {
         entry.evidence = 'cm-step6/live-legacy-mixed.json'; entry.evidenceSha256 = sha(await readFile(archived));
       }
-      await writeFile(ledgerPath, JSON.stringify(ledger, null, 2) + '\n');
+      await writeFile(resolve(repo, ledgerPath), JSON.stringify(ledger, null, 2) + '\n');
     }
     const priorChargedUsd = ledger.entries.filter(entry => entry.step === '4-6').reduce((sum, entry) => sum + chargedUsd(entry), 0);
     assert.ok(priorChargedUsd < limit, 'Approved combined budget exhausted');
@@ -301,22 +305,23 @@ async function main() {
           await compactor.runPending(AbortSignal.timeout(120000));
           const report = JSON.parse(await readFile(evidencePath, 'utf8'));
           const item = { index: round.backgroundItems.length, callIds: report.calls.slice(callsBefore).map(call => call.id),
-            failure: compactor.backgroundFailure ?? null, reason: compactor.backgroundFailure?.code === 'CONTEXT_PREPARE_FAILED' ? compactor.backgroundError : null };
+            normalizations: compactor.backgroundNormalizations, failure: compactor.backgroundFailure ?? null, reason: compactor.backgroundFailure?.code === 'CONTEXT_PREPARE_FAILED' ? compactor.backgroundError : null };
           round.backgroundItems.push(item);
           if (compactor.backgroundError) caseResult.backgroundFailure = { generation, item: item.index, ...item.failure, reason: item.reason };
           report.results = results; await saveAttempt(evidencePath, report);
           if (compactor.backgroundError) break;
         }
         const records = await store.getContextCompactions('eval'), record = records.at(-1);
-        const view = record ? layerMessage(record) : null, viewText = JSON.stringify(view);
+        const prepared = await compactor.prepare(messages, AbortSignal.timeout(30000));
+        const view = prepared.find(message => message.id === "runloom-context-summary"), viewText = view?.parts.filter(part => part.type === "text").map(part => part.text).join("\n") ?? "";
         const bounds = blockLimits(spec.contextBudget);
-        const layerChecks = { goal: viewText.includes(spec.truth.goal), decision: viewText.includes('本地文件'), pending: viewText.includes('失败样本'),
+        const layerChecks = { goal: goalMentioned(viewText), decision: viewText.includes('本地文件'), pending: viewText.includes('失败样本'),
           permission: viewText.includes('批准'), unknown: !!record?.summary.actions.some(action => action.toolCallIds.includes('fidelity-write') && action.status === 'unknown'),
           recent: !!record && record.layers.recent.length <= 4, index: !!record && record.layers.index.length <= 1,
-          total: !!view && estimateMessageTokens([view, record.checklist]) <= bounds.totalSummary };
+          total: !!view && estimateMessageTokens(prepared.filter(message => ["runloom-context-summary", "runloom-compaction-checklist"].includes(message.id))) <= bounds.totalSummary };
         current = `${id}/chat/${generation}`;
         const chat = await runChat({ ...selected, model, root: caseRoot, spec, question: spec.turns[generation], label: `round-${generation}` });
-        Object.assign(round, { finishedAt: new Date().toISOString(), records: records.length, layerChecks, chat, passed: !compactor.backgroundError && Object.values(layerChecks).every(Boolean) && chat.passed });
+        Object.assign(round, { storedLayerTokens: record ? estimateMessageTokens([layerMessage(record), record.checklist]) : null, finishedAt: new Date().toISOString(), records: records.length, layerChecks, chat, passed: !compactor.backgroundError && Object.values(layerChecks).every(Boolean) && chat.passed });
         } catch (error) { round.error = safeFailure(error); }
         const roundReport = JSON.parse(await readFile(evidencePath, 'utf8')); roundReport.results = results; await saveAttempt(evidencePath, roundReport);
         if (roundReport.stopped) throw new Error('Batch stopped after provider failure');

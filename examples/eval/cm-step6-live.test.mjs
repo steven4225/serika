@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { generateText } from 'ai';
 import { MockLanguageModelV3 } from 'ai/test';
-import { meteredModel, safeFailure, chargedUsd, pastReadSucceeded } from './cm-step6-live.mjs';
+import { meteredModel, safeFailure, chargedUsd, pastReadSucceeded, goalMentioned } from './cm-step6-live.mjs';
 import { configureCliModel } from '@serika/assistant/internal/model-config.js';
 import { evaluateM1, m1Cases } from './cm-step4.mjs';
 
@@ -77,4 +77,9 @@ test('extraction JSON Schema stays in prompt text; the configured provider sends
   }
   const rejected = await evaluateM1({ cases: [m1Cases()[4]], model });
   assert.equal(rejected.passed, false);
+});
+
+test('new-batch goal check accepts qualifiers while rejecting unknown, denied and different goals', () => {
+  for (const text of ['目标：完成验收报告。', '目标：完成验收主项目的验收报告。', '完成验收主项目验收报告。', '目标是完成本轮验收报告。']) assert.equal(goalMentioned(text), true, text);
+  for (const text of ['目标：未知。', '目标：完成另一项目的验收报告。', '目标不是完成验收报告。', '不再完成验收报告。', '完成调研后审阅验收报告。', '是否完成验收报告？无法确认。']) assert.equal(goalMentioned(text), false, text);
 });

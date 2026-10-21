@@ -268,14 +268,37 @@ export function validateContextSummary(value: unknown): value is ContextSummaryV
   return true;
 }
 
+export interface SummaryNormalization {
+  field: string;
+  operation: "single_object_to_array" | "unwrap_items";
+}
+
+function normalizeSummaryCollections(value: unknown, diagnostics: SummaryNormalization[]): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const raw = { ...value } as Record<string, unknown>;
+  for (const field of ["constraints", "pending", "decisions", "actions", "files"]) {
+    const entry = raw[field];
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+    if (Object.keys(entry).length === 1 && "items" in entry && Array.isArray(entry.items)) {
+      raw[field] = entry.items;
+      diagnostics.push({ field, operation: "unwrap_items" });
+    } else if (!("items" in entry)) {
+      raw[field] = [entry];
+      diagnostics.push({ field, operation: "single_object_to_array" });
+    }
+  }
+  return raw;
+}
+
 export function parseContextSummary(
   text: string,
   fallbackEvidenceIds: readonly string[] = [],
+  normalizations: SummaryNormalization[] = [],
 ): ContextSummaryV2 | undefined {
   const extracted = extractJsonObject(text);
   if (extracted === undefined) return undefined;
   try {
-    const parsed: unknown = JSON.parse(extracted);
+    const parsed = normalizeSummaryCollections(JSON.parse(extracted), normalizations);
     const coerced = coerceContextSummary(parsed, fallbackEvidenceIds);
     return coerced !== undefined && validateContextSummary(coerced) ? coerced : undefined;
   } catch {
@@ -286,7 +309,7 @@ export function parseContextSummary(
 /** Field paths only: malformed output must be diagnosable without retaining its text. */
 export function contextSummaryFailurePaths(text: string): string[] {
   try {
-    const raw = JSON.parse(extractJsonObject(text) ?? "") as Record<string, unknown>;
+    const raw = normalizeSummaryCollections(JSON.parse(extractJsonObject(text) ?? ""), []) as Record<string, unknown>;
     const paths = ["version", "goal", "constraints", "decisions", "actions", "pending", "files", "nextStep"].filter(key => !(key in raw));
     if (raw.version !== 2 && raw.version !== "2") paths.push("version");
     if (!coerceItem(raw.goal, ["source"])) paths.push("goal");
