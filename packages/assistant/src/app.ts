@@ -1,5 +1,6 @@
 import { createTranscriptAccess } from "./transcript-access.js";
 import { historyTools } from "./history-tools.js";
+import { createCompactionChecklist, type CompactionChecklistSources } from "./compaction-records.js";
 import { createThreadBackground, type ThreadBackground } from "./thread-background.js";
 import { AUTONOMOUS_MAX_STEPS, AUTONOMOUS_TOTAL_TIMEOUT_MS, AUTONOMOUS_SHELL_TIMEOUT_MS, AUTONOMOUS_INSTRUCTIONS } from "./foreground-autonomy.js";
 import { assertExperimentalDataPaths } from "./experimental-data.js";
@@ -662,7 +663,10 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     const primaryInstructions = () => autonomousRun()
       ? autonomousBaseInstructions + "\n" + AUTONOMOUS_INSTRUCTIONS
       : baseInstructions;
-    const memoryReaders = [...(memoryStore || dreaming ? memoryReadTools({ store: memoryStore, dreaming, threadId }) : []), ...historyTools(transcript, moduleConfig?.contextCompaction ?? DEFAULT_CONTEXT_BUDGET_CONFIG)];
+    const checklistSources = async (): Promise<CompactionChecklistSources> => ({ workTask: currentRun.workTask, permissions: toolConfirmation?.snapshot(),
+      runs: await transcript.filterRuns(await executionRecords.listRuns(threadId, EXECUTION_RECORD_MAX_RUNS)) });
+    const memoryReaders = [...(memoryStore || dreaming ? memoryReadTools({ store: memoryStore, dreaming, threadId }) : []), ...historyTools(transcript, moduleConfig?.contextCompaction ?? DEFAULT_CONTEXT_BUDGET_CONFIG,
+      async () => createCompactionChecklist({ ...await checklistSources(), messages: await transcript.read() }))];
     const registeredTools = [...(demoTools ? [addRegistration] : []), ...(moduleHost?.tools ?? []), ...(tuiMode ? memoryReaders : [])];
     const getCapabilities = () => capabilityStatus({
       config: moduleConfig,
@@ -751,8 +755,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
             ...(workspaceRoot ? { project: workspaceRoot } : {}),
             onMask: id => memoryExtraction?.afterMask(id),
             backgroundReference: async signal => createMemorySnapshotMessage(await readMemorySnapshot(memoryStore, signal)),
-            checklist: async () => ({ workTask: currentRun.workTask, permissions: toolConfirmation?.snapshot(),
-              runs: await transcript.filterRuns(await executionRecords.listRuns(threadId, EXECUTION_RECORD_MAX_RUNS)) }),
+            checklist: checklistSources,
             fixedContext: () => ({
                 instructions: primaryInstructions(),
                 tools: autonomousRun() ? autonomousToolContext : primaryToolContext,

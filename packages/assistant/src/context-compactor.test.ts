@@ -262,7 +262,7 @@ it("host reconciliation rejects invented success/files/evidence and retains deni
   assert.doesNotMatch(JSON.stringify(result), /pretend|fake.md|invented/);
 });
 
-it("an oversized checklist masks old blocks without waiting, retains failures and diagnoses the borrowed budget", async () => {
+it("an oversized checklist stays within its section and total summary budget with an explicit numbered overflow reference", async () => {
   const store = new FakeStore(); store.messages = [user("old", "request"), ...Array.from({ length: 200 }, (_, i): UIMessage => ({ id: `failure-${i}`, role: "assistant", parts: [{
     type: "dynamic-tool", toolName: "shell_exec", toolCallId: `failure-${i}`, state: "output-error", input: {}, errorText: "failure details ".repeat(20),
   }] })), user("current", "next")];
@@ -270,8 +270,10 @@ it("an oversized checklist masks old blocks without waiting, retains failures an
   const compactor = make(store, { complete: async () => { calls++; return { text: JSON.stringify(summary) }; } });
   const projected = await compactor.prepare(store.messages, signal());
   const checklist = projected.find(message => message.id === "runloom-compaction-checklist")!;
-  assert.ok(estimateMessageTokens([checklist]) > blockLimits(budget).section);
-  for (let i = 0; i < 200; i++) assert.match(JSON.stringify(checklist), new RegExp(`failure-${i}\\b`));
+  assert.ok(estimateMessageTokens([checklist]) <= blockLimits(budget).section);
+  assert.match(JSON.stringify(checklist), /failed.*200/); assert.match(JSON.stringify(checklist), /history_read.*runloom-compaction-checklist/);
+  const summaryView = projected.filter(message => ["runloom-compaction-checklist", "runloom-context-summary"].includes(message.id));
+  assert.ok(estimateMessageTokens(summaryView) <= blockLimits(budget).totalSummary);
   assert.ok(estimateContextBudget({ instructions: "instructions", messages: projected }, budget).inputTokens <= budget.inputBudgetTokens!);
   const diagnostics = await compactor.getDiagnostics(); assert.ok(diagnostics.ok);
   assert.equal(diagnostics.value.lastPreparation?.degradation?.reason, "checklist_overflow");
@@ -303,4 +305,24 @@ it("reported provider overflow recalibrates a single oversized current message w
   const diagnostics = await compactor.getDiagnostics(); assert.ok(diagnostics.ok);
   assert.ok(diagnostics.value.lastPreparation!.estimatedInputTokens! <= budget.inputBudgetTokens!);
   assert.equal(calls, 0); assert.deepEqual(store.messages, before);
+});
+
+
+it("legacy history plus checklist obeys the proportional summary cap without rewriting stored summaries", async () => {
+  for (const sizedBudget of [budget, defaultContextBudget()]) {
+    const store = new FakeStore(); store.messages = [user("u1", "old request"), assistant("a", "done"), user("now", "continue")];
+    const record: ContextCompactionRecord = { v: 2, type: "thread.context.compacted", threadId: "thread-1", id: "legacy-large", previousCompactionId: null,
+      firstKeptMessageIndex: 2, firstKeptMessageId: "now", sourcePrefixHash: compactPrefixHash(store.messages, 2),
+      summary: { ...summary, goal: { ...summary.goal, text: "x".repeat(blockLimits(sizedBudget).totalSummary * 2) } }, consolidationExcluded: true,
+      strategyVersion: "summary-json/v2", modelId: "mock", createdAt: new Date(0).toISOString(), metrics: { estimatedInputBefore: 100, estimatedInputAfter: 50, durationMs: 1, attempts: 1 } };
+    store.records.push(record as unknown as ThreadContextCompactionRecord);
+    const before = structuredClone(store.records);
+    const compactor = make(store, { complete: async () => { throw new Error("must not dispatch"); } }, { budget: sizedBudget });
+    const view = await compactor.prepare(store.messages, signal());
+    const diagnostic = await compactor.getDiagnostics(); assert.ok(diagnostic.ok);
+    assert.equal(diagnostic.value.lastPreparation?.summaryLayer?.summaryOmitted, true);
+    assert.ok(diagnostic.value.lastPreparation!.summaryLayer!.tokens <= blockLimits(sizedBudget).totalSummary);
+    assert.match(JSON.stringify(view), /history_read original message numbers 1–2/);
+    assert.deepEqual(store.records, before);
+  }
 });

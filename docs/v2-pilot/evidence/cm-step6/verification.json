@@ -1,12 +1,12 @@
 {
-  "runId": "5683b3ae-5e35-4266-920c-e5ebbe6b03c7",
-  "startedAt": "2026-10-21T11:36:53.057Z",
+  "runId": "c5848738-945a-4e35-96e2-239d411fd38a",
+  "startedAt": "2026-10-21T12:38:19.957Z",
   "platform": "darwin",
   "process": {
     "node": "v26.4.0",
-    "pid": 79037
+    "pid": 11412
   },
-  "sourceCommit": "6f2193ef391496096d53cb771739984ebbbd522e",
+  "sourceCommit": "88a70a0e0230f88730d1b52cfb655a9f8d433b0a",
   "sourceWorktreeDirty": false,
   "baseCommit": "a183ddf01c15b51da84b1cd861b9e66686e634fe",
   "scriptSha256": "3d89e1b316e8029ae89e3a652ff3cf9c5184cd44ed0ba837fc9382b072eacffd",
@@ -16,8 +16,8 @@
         "pnpm",
         "typecheck"
       ],
-      "startedAt": "2026-10-21T11:36:53.108Z",
-      "finishedAt": "2026-10-21T11:36:53.917Z",
+      "startedAt": "2026-10-21T12:38:20.000Z",
+      "finishedAt": "2026-10-21T12:38:20.758Z",
       "exitCode": 0,
       "signal": null,
       "outputSha256": "9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609",
@@ -29,20 +29,20 @@
         "pnpm",
         "test"
       ],
-      "startedAt": "2026-10-21T11:36:53.917Z",
-      "finishedAt": "2026-10-21T11:40:24.534Z",
+      "startedAt": "2026-10-21T12:38:20.759Z",
+      "finishedAt": "2026-10-21T12:41:51.492Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "9d38450f47ed2a7ab8fbd6c41d340d03bbda11b9e722b051a6afa62ef2417efc",
-      "outputBytes": 233189,
+      "outputSha256": "545a24298883f68875eab54f55ccece731ba4983afb61b595e80b96a4653e046",
+      "outputBytes": 233412,
       "counts": [
         [
           "tests",
-          1143
+          1145
         ],
         [
           "pass",
-          1132
+          1134
         ],
         [
           "fail",
@@ -103,20 +103,20 @@
         "pnpm",
         "eval:test"
       ],
-      "startedAt": "2026-10-21T11:40:24.534Z",
-      "finishedAt": "2026-10-21T11:40:32.552Z",
+      "startedAt": "2026-10-21T12:41:51.492Z",
+      "finishedAt": "2026-10-21T12:42:00.085Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "6c8becf31813550f425e038fb707725ddc6097d0a59b144d8ce3d53abcd23b36",
-      "outputBytes": 8911,
+      "outputSha256": "ebb7f51f38be30378df8c4c3fd031dcbcecc02c2ca93fe15724ad967e3e8a08a",
+      "outputBytes": 9033,
       "counts": [
         [
           "tests",
-          81
+          82
         ],
         [
           "pass",
-          81
+          82
         ],
         [
           "fail",
@@ -139,12 +139,12 @@
         "@serika/desktop",
         "smoke"
       ],
-      "startedAt": "2026-10-21T11:40:32.552Z",
-      "finishedAt": "2026-10-21T11:40:42.670Z",
+      "startedAt": "2026-10-21T12:42:00.086Z",
+      "finishedAt": "2026-10-21T12:42:10.494Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "cf183a9485d186af03d062e6a4c0e135f2b6a14c52045769f6198f7c1cdafd6b",
-      "outputBytes": 3016,
+      "outputSha256": "f8f1fd32dbe8f6cd3654e6bd3a6672bef6fbd59ca52835211b37c26c11f239ea",
+      "outputBytes": 3017,
       "counts": []
     }
   ],
@@ -179,29 +179,49 @@
       "removed": 1
     },
     {
+      "path": "docs/context-memory-refactor-plan.md",
+      "added": 3,
+      "removed": 1
+    },
+    {
       "path": "docs/v2-pilot/cm-step6.md",
-      "added": 102,
+      "added": 137,
       "removed": 0
     },
     {
-      "path": "docs/v2-pilot/evidence/cm-step6/live.json",
+      "path": "docs/v2-pilot/evidence/cm-step6/live-1834686a-b68d-49fb-9f39-d04f1f99bac9.json",
+      "added": 21016,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/live-legacy-mixed.json",
       "added": 1530,
       "removed": 0
     },
     {
+      "path": "docs/v2-pilot/evidence/cm-step6/live.json",
+      "added": 21016,
+      "removed": 0
+    },
+    {
       "path": "docs/v2-pilot/evidence/cm-step6/verification.json",
-      "added": 644,
+      "added": 662,
       "removed": 0
     },
     {
       "path": "docs/v2-pilot/evidence/cost-ledger.json",
-      "added": 13,
-      "removed": 2
+      "added": 25,
+      "removed": 3
     },
     {
       "path": "docs/v2-pilot/evidence/electron-smoke/chat-reply.png",
       "added": null,
       "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/cm-step4-original-result.json",
+      "added": 267,
+      "removed": 0
     },
     {
       "path": "docs/v2-pilot/evidence/electron-smoke/cm-step6-run.json",
@@ -250,22 +270,22 @@
     },
     {
       "path": "docs/v2-pilot/pending.md",
-      "added": 8,
+      "added": 10,
       "removed": 1
     },
     {
       "path": "examples/eval/cm-step4.mjs",
-      "added": 1,
-      "removed": 1
+      "added": 2,
+      "removed": 2
     },
     {
       "path": "examples/eval/cm-step6-live.mjs",
-      "added": 324,
+      "added": 351,
       "removed": 0
     },
     {
       "path": "examples/eval/cm-step6-live.test.mjs",
-      "added": 62,
+      "added": 78,
       "removed": 0
     },
     {
@@ -385,17 +405,17 @@
     },
     {
       "path": "packages/assistant/src/context-compaction.ts",
-      "added": 33,
+      "added": 35,
       "removed": 1
     },
     {
       "path": "packages/assistant/src/context-compactor.test.ts",
-      "added": 149,
-      "removed": 1378
+      "added": 194,
+      "removed": 1376
     },
     {
       "path": "packages/assistant/src/context-compactor.ts",
-      "added": 193,
+      "added": 196,
       "removed": 549
     },
     {
@@ -510,24 +530,28 @@
     "apps/desktop/src/main/foreground-autonomy.test.ts": "6afdff1d390ce91b55920298af44df6512d57d5de3dca45f5c58f1607396c246",
     "apps/desktop/src/main/thread-history.ts": "69306209c1de3f27775f9123647559ba7c9b62d34d1f03e796ad36aa282c9206",
     "apps/desktop/src/renderer/src/memory-consolidation.tsx": "7d4a7b7955541fd6938ba143d4acb5adef65d9b2d74bf96f78ef9d3090cf202f",
-    "docs/v2-pilot/cm-step6.md": "755801706e260ff928a7217c59993986752be19cd95f5c5e6b88779e1b1d4e52",
-    "docs/v2-pilot/evidence/cm-step6/live.json": "8d76edf3837151731c2270d7265c31aa7c91f99fc930cd6b037ba74de97135f2",
-    "docs/v2-pilot/evidence/cm-step6/verification.json": "9c0f0085255e93961c92a604d35c59dcc9e075fe6ca8985224987f10d4c7bce3",
-    "docs/v2-pilot/evidence/cost-ledger.json": "b5486cc9a308928fecd9918005884b52ff32c775eb71a1610a83672d15ac33e2",
+    "docs/context-memory-refactor-plan.md": "df5986b274f93a54603d7fe7eac80dffed24a21cd495f6804c54ae2755553e3c",
+    "docs/v2-pilot/cm-step6.md": "0b00143dbad0ccffc3bef36608af6e504f14e4db0c6ce879f34d6ae78ef6e7f9",
+    "docs/v2-pilot/evidence/cm-step6/live-1834686a-b68d-49fb-9f39-d04f1f99bac9.json": "6e7eab280c2b4ba47dffea75b6066ec36d10c1179356958687242e89517db6b5",
+    "docs/v2-pilot/evidence/cm-step6/live-legacy-mixed.json": "8d76edf3837151731c2270d7265c31aa7c91f99fc930cd6b037ba74de97135f2",
+    "docs/v2-pilot/evidence/cm-step6/live.json": "6e7eab280c2b4ba47dffea75b6066ec36d10c1179356958687242e89517db6b5",
+    "docs/v2-pilot/evidence/cm-step6/verification.json": "b8499d5bca4d3646f70d0aa4f015973e86f84f0840d1be551042c899d01bf9e1",
+    "docs/v2-pilot/evidence/cost-ledger.json": "0bf3ed19a2b46064b7bdcd11044e007e62e2fa91cb471813e0e3974f1c8a37ee",
     "docs/v2-pilot/evidence/electron-smoke/chat-reply.png": "e337fddc2e70515843cf3eaf5623c5b6b35db0008cf213d712dfdfbdbfce35b5",
-    "docs/v2-pilot/evidence/electron-smoke/cm-step6-run.json": "decfe37f3776d4ce474c27e3995cd49c941fdc525a88c3945cce3984fa5a852e",
+    "docs/v2-pilot/evidence/electron-smoke/cm-step4-original-result.json": "f4ca3de799438b69c423f04f38a5f2ed0b02632c57785a3e8f1842adf5dabfe9",
+    "docs/v2-pilot/evidence/electron-smoke/cm-step6-run.json": "8744b9e6476a7598e71d0d29ad3a37eab5c0ef9142c8e4a02f8c60e98ac815c9",
     "docs/v2-pilot/evidence/electron-smoke/daily-config-retired-fields.png": "063735dc17bb6ebd6a592ab3530e01da9fcf67275961057e2fabade5b8308f34",
     "docs/v2-pilot/evidence/electron-smoke/daily-path-refuses-writes.png": "f590116876d49dfd573158ba8b81befbe8bfe6631ea7178417c908606fe45ad7",
-    "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png": "90820fd2a77711a80f20eb32c253cbc32e046eb0f15b0e1f941adf8e191e9469",
+    "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png": "ad9bde1df4b0e8932db33c20b477f9c9293016bda4a7fe14ec0bba56ffef0c5b",
     "docs/v2-pilot/evidence/electron-smoke/remember-success-receipt.png": "1fb853fbc522316e4c1d18f9fdb8ea1185ff8af5d299adaed00d1d49c1c61e23",
-    "docs/v2-pilot/evidence/electron-smoke/restart-persistence.png": "90c86ea7e452d6ffc0bf566d54d5efbc89488b45358e460183ecde4f0c196b72",
-    "docs/v2-pilot/evidence/electron-smoke/result.json": "6b98a69f7943d44ce3dc457fddbc7507187498fc92de62a903d698bdcdb959f0",
+    "docs/v2-pilot/evidence/electron-smoke/restart-persistence.png": "1b314b0680f9cee87b6cceaa42235be6b90c6f0bca418770431114ee222b1c3b",
+    "docs/v2-pilot/evidence/electron-smoke/result.json": "bbd73bc64f3b98910e6a283d9d6e14c2d5435c712dc95909271a0c48aa12a1e1",
     "docs/v2-pilot/evidence/electron-smoke/startup.png": "4cfa429b22d752e8e0ddc941d1fbce7f0c539a3d420fd7314a88fe0527951438",
     "docs/v2-pilot/evidence/electron-smoke/undo-disappears.png": "6039f8ada3afd56efc271e1c6c4ecc9176b6f7e906bf063f91f6cb3889eba4b2",
-    "docs/v2-pilot/pending.md": "b17034b58538f0ce9f9bd067f835e865ea088f63e890295a8090b467225ee008",
-    "examples/eval/cm-step4.mjs": "ed027251f72f79c843fb5b65006403471a94c250667d6427a363fcf5377c7900",
-    "examples/eval/cm-step6-live.mjs": "4fe8d586986d88bbfc8e1b5f50bfcd640a6a57b917b5ae7a75d80ec3fd47114a",
-    "examples/eval/cm-step6-live.test.mjs": "a1bccc24937c793bce484bdf41f75968439f77be0ff747b35009f4f118283587",
+    "docs/v2-pilot/pending.md": "a1901938705630e8cec3e04c995069e05650b73e5b15fc361e01908107eaf742",
+    "examples/eval/cm-step4.mjs": "8ac23ee96564c9a80e21f5495a8de1934ab86204878b2e27d9fa54beae978f29",
+    "examples/eval/cm-step6-live.mjs": "2fba97c2ff4b90756cdb0df488d1af5a0395da3fb01d6dc227e5540956349a90",
+    "examples/eval/cm-step6-live.test.mjs": "2a306e1cdff4023b26ac967da038aa9c3638c50558235c7a19698032cac1047e",
     "examples/eval/compaction-fidelity.test.mjs": "00889a2ab366ff608d1fe090bded1e4af9928c8651507629bb1904e2bdc9e8f3",
     "examples/eval/context-blocks.mjs": "0b0dc939371c867cdc0b70ecd5cd115620ee4ab523bbfc3d089420703298efcc",
     "examples/eval/e2e.test.mjs": "da68557a97d5ff79f212166cfa1e075871067cde139c99b995fac39e79cf2e89",
@@ -551,9 +575,9 @@
     "packages/assistant/src/context-blocks.ts": "fc410c29da14a69aca1a9dd98b4b6a826b6cf7fa544e0abb77e7bc0a9600fd0a",
     "packages/assistant/src/context-compaction-acceptance.test.ts": "956a97b320394575597275cd2f153466c9938f2a59c85f01ab688f340294cacd",
     "packages/assistant/src/context-compaction-runtime.test.ts": "99d6f95bf81d2301a0c65e3d515611ae5bcc8abcc652c8540c9fa295fe34e48e",
-    "packages/assistant/src/context-compaction.ts": "0be07a95b86135c2fd1a7490b00047c0d41ccd5e5611877373aaa965866772b0",
-    "packages/assistant/src/context-compactor.test.ts": "c0cd9f1871ab77dc2871671f56c9096f7375194b7ff077ff3d1a41674038b26f",
-    "packages/assistant/src/context-compactor.ts": "e95facdf6e74efeff8cfcf4de8b74bd063b5dba629c22bd3793e04db78f29b82",
+    "packages/assistant/src/context-compaction.ts": "189f60a4e5b6580b918620a9a28c7e69d61c589aed5c7ead757e05cbecc682b6",
+    "packages/assistant/src/context-compactor.test.ts": "2b4ee2d360ed64d41ec755f3848675c9831ffde80cad976113cbad0fba743558",
+    "packages/assistant/src/context-compactor.ts": "9df668ae9eed4ba21b9f2e62be0ae169b84a43f666a73a8a05bc7ee63efa5921",
     "packages/assistant/src/context-diagnostics.ts": "185a156842d8453a51e2c35b0940277eeb7d6237f9d9eb2a852b0b3878c27342",
     "packages/assistant/src/context-source.ts": "7e36e16625ef541c3bacdfd8d6e5b5f72b8bb1c820d50697f9f8faee74c6fc64",
     "packages/assistant/src/foreground-autonomy.ts": "359de414f1f184e3213ee69b0b8cde6a82a05cbdc2ded4d38836ab75e45a3705",
@@ -578,7 +602,7 @@
   },
   "smoke": {
     "file": "docs/v2-pilot/evidence/electron-smoke/result.json",
-    "sha256": "bbd73bc64f3b98910e6a283d9d6e14c2d5435c712dc95909271a0c48aa12a1e1",
+    "sha256": "380e41d1d5c37fff8cfcc91c7bb3617982cf22aaedb01d426cc0d93cfecae2ef",
     "scriptSha256": "9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f",
     "checks": [
       {
@@ -625,38 +649,38 @@
     "screenshots": [
       {
         "file": "startup.png",
-        "sha256": "4cfa429b22d752e8e0ddc941d1fbce7f0c539a3d420fd7314a88fe0527951438"
+        "sha256": "434b09b0417fa8622c75340d9d6c42843901bb9ed8fd30df2ced1ec5073a34f8"
       },
       {
         "file": "chat-reply.png",
-        "sha256": "e337fddc2e70515843cf3eaf5623c5b6b35db0008cf213d712dfdfbdbfce35b5"
+        "sha256": "1a8ea49b0e7918c60d15405f1c8ce104f5b0037a0c505d53b05f565f6f5139c3"
       },
       {
         "file": "remember-success-receipt.png",
-        "sha256": "1fb853fbc522316e4c1d18f9fdb8ea1185ff8af5d299adaed00d1d49c1c61e23"
+        "sha256": "515b601d876e9e22d24a63590a54922dfc57c309c4210136b2d099887678baf6"
       },
       {
         "file": "remember-on-memory-page.png",
-        "sha256": "ad9bde1df4b0e8932db33c20b477f9c9293016bda4a7fe14ec0bba56ffef0c5b"
+        "sha256": "45e9736da0e1a3b9ae2a769a3642090e2e1aef7fa4a0b7efbc1feb917e6ba4ea"
       },
       {
         "file": "restart-persistence.png",
-        "sha256": "1b314b0680f9cee87b6cceaa42235be6b90c6f0bca418770431114ee222b1c3b"
+        "sha256": "7c578f80f49a7ed60d79fdc6b36c4bdfa9913589401db0a938fb14d48c8a895f"
       },
       {
         "file": "undo-disappears.png",
-        "sha256": "6039f8ada3afd56efc271e1c6c4ecc9176b6f7e906bf063f91f6cb3889eba4b2"
+        "sha256": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0"
       },
       {
         "file": "daily-path-refuses-writes.png",
-        "sha256": "f590116876d49dfd573158ba8b81befbe8bfe6631ea7178417c908606fe45ad7"
+        "sha256": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e"
       },
       {
         "file": "daily-config-retired-fields.png",
-        "sha256": "063735dc17bb6ebd6a592ab3530e01da9fcf67275961057e2fabade5b8308f34"
+        "sha256": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9"
       }
     ]
   },
   "temporaryDirectoryRemoved": true,
-  "finishedAt": "2026-10-21T11:40:42.675Z"
+  "finishedAt": "2026-10-21T12:42:10.501Z"
 }

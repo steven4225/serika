@@ -32,6 +32,7 @@ export interface ContextDiagnostics {
     outcome: "passthrough" | "reused" | "written" | "noop" | "failed";
     compactionId: string | null;
     estimatedInputTokens: number | null;
+    summaryLayer?: { tokens: number; checklistTokens: number; budget: number; summaryOmitted: boolean };
     degradation?: { reason: "checklist_overflow"; checklistTokens: number; sectionBudget: number; maskedThroughMessageId: string | null };
     error: { code: string; message: string } | null;
   } | null;

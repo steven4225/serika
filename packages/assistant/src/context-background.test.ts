@@ -11,6 +11,10 @@ import { blockLimits, fitMessage } from "./context-blocks.js";
 import { availableInputTokens, defaultContextBudget, effectiveContextBudget, estimateContextBudget } from "./context-budget.js";
 import { createMemoryStore } from "./memory-store.js";
 import { createTranscriptAccess } from "./transcript-access.js";
+import { createCompactionChecklist } from "./compaction-records.js";
+import { createExecutionRecordStore } from "./execution-record-store.js";
+import { createToolConfirmation } from "./tool-confirmation.js";
+import { PassThrough } from "node:stream";
 import { historyTools } from "./history-tools.js";
 import { createMemoryExtraction } from "./memory-extraction.js";
 import { compactPrefixHash } from "./context-compaction.js";
@@ -194,5 +198,47 @@ test("extraction gives the model its exact schema and accepts one complete fence
     extraction.afterMask("u"); extraction.idle(); await settle(() => !extraction.diagnostics().running); await extraction.pause();
     assert.equal(calls, 1); assert.equal(extraction.diagnostics().completed, 1); assert.equal(extraction.diagnostics().failed, 0);
     await extraction.close();
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+
+test("overflow checklist reads page through filtered receipts, including uncommitted unknown effects", async () => {
+  const root = await mkdtemp(join(tmpdir(), "cm6-checklist-read-"));
+  try {
+    const store = new JsonlAgentStore({ directory: join(root, "transcripts") });
+    const records = createExecutionRecordStore(root);
+    await records.startRun({ runId: "interrupted", threadId: "t", phase: "primary" });
+    for (const type of ["tool.call.requested", "tool.call.started"] as const) await records.recordToolEvent("interrupted", {
+      id: type, type, runId: "interrupted", threadId: "t", sequence: 1, occurredAt: new Date(0).toISOString(),
+      data: { toolCallId: "uncommitted", toolName: "write_file", input: { path: "pending.md", content: "new" } },
+    } as Parameters<typeof records.recordToolEvent>[1]);
+    await records.recoverInterrupted("t");
+    const messages: UIMessage[] = [msg("u", "user", "Continue"), ...Array.from({ length: 200 }, (_, i): UIMessage => ({ id: `failed-${i}`, role: "assistant", parts: [{
+      type: "dynamic-tool", toolName: "shell_exec", toolCallId: `failed-${i}`, state: "output-error", input: {}, errorText: "failed",
+    }] })), { id: "private", role: "assistant", parts: [{ type: "dynamic-tool", toolName: "read_file", toolCallId: "private-call", state: "output-available", input: { path: "SECRET_PATH" }, output: { ok: true, content: "SECRET_CONTENT" } }] }];
+    await store.save("t", messages);
+    const access = createTranscriptAccess({ store, threadId: "t", memory: undefined, invalidated() {} });
+    await access.exclude({ messageId: "private", reason: "privacy" });
+    const permission = createToolConfirmation(new PassThrough()); permission.beginRun(false);
+    const full = async () => createCompactionChecklist({ messages: await access.read(), permissions: permission.snapshot(), runs: await access.filterRuns(await records.listRuns("t")) });
+    for (const budget of budgets) {
+      const bounded = createCompactionChecklist({ messages: await access.read(), permissions: permission.snapshot(), runs: await access.filterRuns(await records.listRuns("t")), maxTokens: blockLimits(budget).section });
+      assert.match(JSON.stringify(bounded), /unknown.*1.*failed.*200/);
+      assert.ok(estimateContextBudget({ messages: [bounded] }, budget).inputTokens <= blockLimits(budget).section);
+      const reader = historyTools(access, budget, full)[1]!.tool;
+      let start = 0, text = "", pages = 0;
+      for (;;) {
+        const result = await reader.execute!({ id: "runloom-compaction-checklist", start } as never, { toolCallId: "read", messages: [], context: undefined, abortSignal: new AbortController().signal }) as { ok: boolean; text: string; start: number; end: number; total: number; truncated: boolean };
+        assert.equal(result.ok, true); assert.equal(result.start, start); assert.ok(result.end > start);
+        assert.ok(Array.from(result.text).length <= blockLimits(budget).section * 2);
+        text += result.text; pages++; start = result.end;
+        if (!result.truncated) { assert.equal(start, result.total); break; }
+      }
+      assert.ok(pages > 1); assert.equal(text, JSON.stringify((await full()).parts));
+      assert.match(text, /uncommitted.*write_file.*unknown.*pending.md/);
+      assert.match(text, /failed-199/); assert.doesNotMatch(text, /SECRET_PATH|SECRET_CONTENT/);
+    }
+    assert.equal((await records.listRuns("t"))[0]!.tools[0]!.status, "unknown");
+    assert.deepEqual(await store.getMessages("t"), messages);
   } finally { await rm(root, { recursive: true, force: true }); }
 });

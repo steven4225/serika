@@ -49,11 +49,13 @@ test('pastRead recognizes long receipt clauses without accepting failed, unknown
     '读取 notes/fixture.txt 的回执为 completed（成功）。',
     '此前读取 notes/fixture.txt 的回执为 completed（成功）。',
     '已成功读取 notes/fixture.txt。',
+    '**之前的文件读取是否成功、能否因此再次读取**：此前对 notes/fixture.txt 的读取回执状态为 completed（成功）。',
+    '**之前的文件读取是否成功，能否因此再次读取**：notes/fixture.txt 的读取曾返回 completed 回执。',
   ]) assert.equal(pastReadSucceeded(reply), true, reply);
   for (const reply of [
     '读取 notes/fixture.txt 未成功。', '尚未完成读取 notes/fixture.txt。',
     '读取失败，写入成功。', '读取结果未知；写入完成。',
-    '如获批准，将读取 notes/fixture.txt，预计成功。', '能否读取成功？',
+    '如获批准，将读取 notes/fixture.txt，预计成功。', '能否读取成功？', '是否读取成功：结果未知。',
   ]) assert.equal(pastReadSucceeded(reply), false, reply);
 });
 

@@ -26,7 +26,7 @@ test("M1 ordinary automatic chat uses one writer without approval: 3 foreground 
   const model = new MockLanguageModelV3({ doGenerate: async () => assert.fail("No auxiliary call below threshold"), doStream: async request => {
     calls++; requests.push(request); const write = calls === 2;
     return { stream: simulateReadableStream({ chunks: [
-      { type: "stream-start", warnings: [] }, ...(write ? [{ type: "tool-call" as const, toolCallId: "remember", toolName: "memory_write", input: JSON.stringify({ operation: "add", text: "我喝咖啡不加糖", category: "preference", sourceQuote: "我喝咖啡不加糖" }) }] : [{ type: "text-start" as const, id: "a" }, { type: "text-delta" as const, id: "a", delta: "收到" }, { type: "text-end" as const, id: "a" }]),
+      { type: "stream-start", warnings: [] }, ...(write ? [{ type: "tool-call" as const, toolCallId: "remember", toolName: "memory_write", input: JSON.stringify({ operation: "add", text: "我喝咖啡不加糖", category: "preference", sourceQuote: "我喝咖啡不加糖", identity: { subject: "user", attribute: "coffee", value: "不加糖" } }) }] : [{ type: "text-start" as const, id: "a" }, { type: "text-delta" as const, id: "a", delta: "收到" }, { type: "text-end" as const, id: "a" }]),
       { type: "finish", finishReason: { unified: write ? "tool-calls" : "stop", raw: undefined }, usage },
     ] }) };
   } });

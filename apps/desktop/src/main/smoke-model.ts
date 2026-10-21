@@ -10,7 +10,7 @@ export function createDesktopSmokeModel() {
     const text = user?.role === "user" ? user.content.find(part => part.type === "text")?.text ?? "" : "";
     let input: Record<string, unknown> | undefined;
     if (!prompt.slice(lastUser + 1).some(message => message.role === "tool")) {
-      if (text.startsWith("记住 ")) input = { operation: "add", text: text.slice(3), category: "preference", sourceQuote: text };
+      if (text.startsWith("记住 ")) input = { operation: "add", text: text.slice(3), category: "preference", sourceQuote: text, identity: { subject: "user", attribute: "smoke_preference", value: text.slice(3) } };
       if (text === "撤销刚才记住的内容") {
         const results = prompt.flatMap(message => message.role === "tool" ? message.content : []);
         for (const result of [...results].reverse()) {

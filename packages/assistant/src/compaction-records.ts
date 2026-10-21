@@ -3,7 +3,6 @@ import type { ContextSummaryAction } from "./context-compaction.js";
 import type { ToolConfirmation } from "./tool-confirmation.js";
 import type { WorkTask } from "./work-task-store.js";
 import { estimateMessageTokens } from "./context-budget.js";
-import { fitMessage } from "./context-blocks.js";
 import { collectTranscriptToolFacts } from "./work-summary.js";
 import { isAutoConsolidationRequest } from "./consolidation.js";
 import type { ExecutionRunRecord } from "./execution-record-store.js";
@@ -91,7 +90,7 @@ export function createCompactionChecklist(input: CompactionChecklistSources & {
   };
   const task = input.workTask;
   const recent = [...receipts.values()].filter(receipt => { const status = (receipt as {status: string}).status; return status !== "unknown" && status !== "failed"; }).slice(-SUMMARY_RECENT_RECEIPTS);
-  let requestView = request;
+  const requestView = request;
   const permissions = input.permissions;
   const permissionView = !permissions || input.maxTokens === undefined ? permissions : {
     files: permissions.autonomousFiles, shell: permissions.shell,
@@ -116,9 +115,16 @@ export function createCompactionChecklist(input: CompactionChecklistSources & {
     }) }] });
   if (input.maxTokens !== undefined) {
     while (recent.length && estimateMessageTokens([compose()]) > input.maxTokens) recent.shift();
-    if (requestView && !input.requestReferenceOnly && estimateMessageTokens([compose()]) > input.maxTokens) {
-      const overflow = estimateMessageTokens([compose()]) - input.maxTokens;
-      requestView = fitMessage({ ...requestView, metadata: undefined }, estimateMessageTokens([{ ...requestView, metadata: undefined }]) - overflow);
+    const originalTokens = estimateMessageTokens([compose()]);
+    if (originalTokens > input.maxTokens) {
+      const overflow: UIMessage = { id: "runloom-compaction-checklist", role: "assistant", metadata: { overflowTokens: originalTokens },
+        parts: [{ type: "text", text: "Checklist overflow; never retry unknown effects.\n" + JSON.stringify({
+          unknown: unknown.size, failed: failed.size, messages: [1, input.messages.length],
+          read: "history_read id=runloom-compaction-checklist", ...(task ? { task: task.id } : {}),
+          ...(permissions ? { permissions: { files: permissions.autonomousFiles, shell: permissions.shell } } : {}),
+        }) }] };
+      if (estimateMessageTokens([overflow]) > input.maxTokens) throw new Error("Checklist reference metadata exceeds section budget; original records retained");
+      return overflow;
     }
   }
   return compose();

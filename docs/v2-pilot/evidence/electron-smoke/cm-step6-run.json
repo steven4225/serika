@@ -1,10 +1,10 @@
 {
-  "runId": "5683b3ae-5e35-4266-920c-e5ebbe6b03c7",
-  "sourceCommit": "6f2193ef391496096d53cb771739984ebbbd522e",
-  "startedAt": "2026-10-21T11:36:53.057Z",
-  "finishedAt": "2026-10-21T11:40:42.675Z",
+  "runId": "c5848738-945a-4e35-96e2-239d411fd38a",
+  "sourceCommit": "88a70a0e0230f88730d1b52cfb655a9f8d433b0a",
+  "startedAt": "2026-10-21T12:38:19.957Z",
+  "finishedAt": "2026-10-21T12:42:10.501Z",
   "file": "docs/v2-pilot/evidence/electron-smoke/result.json",
-  "sha256": "bbd73bc64f3b98910e6a283d9d6e14c2d5435c712dc95909271a0c48aa12a1e1",
+  "sha256": "380e41d1d5c37fff8cfcc91c7bb3617982cf22aaedb01d426cc0d93cfecae2ef",
   "scriptSha256": "9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f",
   "checks": [
     {
@@ -51,35 +51,35 @@
   "screenshots": [
     {
       "file": "startup.png",
-      "sha256": "4cfa429b22d752e8e0ddc941d1fbce7f0c539a3d420fd7314a88fe0527951438"
+      "sha256": "434b09b0417fa8622c75340d9d6c42843901bb9ed8fd30df2ced1ec5073a34f8"
     },
     {
       "file": "chat-reply.png",
-      "sha256": "e337fddc2e70515843cf3eaf5623c5b6b35db0008cf213d712dfdfbdbfce35b5"
+      "sha256": "1a8ea49b0e7918c60d15405f1c8ce104f5b0037a0c505d53b05f565f6f5139c3"
     },
     {
       "file": "remember-success-receipt.png",
-      "sha256": "1fb853fbc522316e4c1d18f9fdb8ea1185ff8af5d299adaed00d1d49c1c61e23"
+      "sha256": "515b601d876e9e22d24a63590a54922dfc57c309c4210136b2d099887678baf6"
     },
     {
       "file": "remember-on-memory-page.png",
-      "sha256": "ad9bde1df4b0e8932db33c20b477f9c9293016bda4a7fe14ec0bba56ffef0c5b"
+      "sha256": "45e9736da0e1a3b9ae2a769a3642090e2e1aef7fa4a0b7efbc1feb917e6ba4ea"
     },
     {
       "file": "restart-persistence.png",
-      "sha256": "1b314b0680f9cee87b6cceaa42235be6b90c6f0bca418770431114ee222b1c3b"
+      "sha256": "7c578f80f49a7ed60d79fdc6b36c4bdfa9913589401db0a938fb14d48c8a895f"
     },
     {
       "file": "undo-disappears.png",
-      "sha256": "6039f8ada3afd56efc271e1c6c4ecc9176b6f7e906bf063f91f6cb3889eba4b2"
+      "sha256": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0"
     },
     {
       "file": "daily-path-refuses-writes.png",
-      "sha256": "f590116876d49dfd573158ba8b81befbe8bfe6631ea7178417c908606fe45ad7"
+      "sha256": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e"
     },
     {
       "file": "daily-config-retired-fields.png",
-      "sha256": "063735dc17bb6ebd6a592ab3530e01da9fcf67275961057e2fabade5b8308f34"
+      "sha256": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9"
     }
   ]
 }

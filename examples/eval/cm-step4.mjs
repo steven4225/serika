@@ -27,7 +27,7 @@ export function m1Cases() {
     { id: 'confirmation', messages: [proposal, source('是的，以后使用中文')], proposals: [add('以后使用中文', { sourceQuote: '是的，以后使用中文', identity: { subject: 'user', attribute: 'language', value: '中文' }, proposal: { messageId: 'a', quote: '以后使用中文', valueQuote: '中文' } })], saved: 1, confirmed: true },
     { id: 'conflict', messages: coffee.map((text, i) => msg(`u${i}`, 'user', text)), proposals: pair(coffee, ['coffee', 'coffee']), saved: 2, conflicts: 1 },
     { id: 'independent', messages: addresses.map((text, i) => msg(`u${i}`, 'user', text)), proposals: pair(addresses, ['home_address', 'company_address']), saved: 2, conflicts: 0 },
-    { id: 'uncertain', messages: [source(contradiction)], proposals: [add(contradiction, { sourceQuote: contradiction, uncertain: true })], saved: 1, uncertain: true },
+    { id: 'uncertain', messages: [source(contradiction)], proposals: [add(contradiction, { sourceQuote: contradiction, uncertain: true, identity: { subject: "user", attribute: "coffee", value: contradiction } })], saved: 1, uncertain: true },
   ];
 }
 const settle = async extraction => {

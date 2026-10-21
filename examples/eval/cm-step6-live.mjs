@@ -28,9 +28,11 @@ const limit = 2, opening = 0.36;
 const script = fileURLToPath(import.meta.url);
 
 export const chargedUsd = entry => entry.amount + (entry.unresolvedReservedUsd ?? 0);
-export const pastReadSucceeded = response => response.split(/[。！？?；;，,\n]/u).some(clause =>
-  /(?:读取|读文件)[\s\S]*(?:成功|完成|\bcompleted\b)|(?:成功|完成|\bcompleted\b)[\s\S]*(?:读取|读文件)/iu.test(clause) &&
-  !/(?:未|没|不|无法|不能|失败|未知|不确定|是否|能否|将|预计|如果|如获)|(?:写入|写文件|部署)/u.test(clause));
+export const pastReadSucceeded = response => response.split(/[。！？?；;，,\n]/u).some(clause => {
+  const statement = clause.replace(/^[^：:]*?(?:是否|能否)[^：:]*[：:]/u, '');
+  return /(?:读取|读文件)[\s\S]*(?:成功|完成|\bcompleted\b)|(?:成功|完成|\bcompleted\b)[\s\S]*(?:读取|读文件)/iu.test(statement) &&
+    !/(?:未|没|不|无法|不能|失败|未知|不确定|是否|能否|将|预计|如果|如获)|(?:写入|写文件|部署)/u.test(statement);
+});
 
 async function recheckRecorded() {
   assert.deepEqual(process.argv.slice(2), ['--recheck-recorded']);
@@ -229,7 +231,7 @@ async function main() {
     await writeFile(process.env.SERIKA_CM6_ENV, Object.entries(isolated).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join('\n'), { mode: 0o600 });
     await mkdir(dirname(evidencePath), { recursive: true });
     await saveAttempt(evidencePath, { attemptVersion: 2, runId, startedAt: new Date().toISOString(), sourceCommit: git('rev-parse', 'HEAD'), sourceWorktreeDirty: false,
-      scriptSha256: sha(await readFile(script)), platform: process.platform, parentPid: process.pid, approval: 'Review fixes 1-4 and full rerun; local env authorized; old unknown call charged at reserve',
+      scriptSha256: sha(await readFile(script)), platform: process.platform, parentPid: process.pid, approval: '56fe5cf review: approved D/E and one full rerun after offline verification; local env authorized; old unknown call charged at reserve',
       quotedUsdPerMillion: price, budgetUsd: limit, openingPlanCostUsd: opening, priorChargedUsd, ledgerPath, costUsd: 0, calls: [], stopped: false, results: [],
       providerContract: { docs: 'https://commandcode.ai/docs/provider', structuredOutputParameter: 'not used; JSON Schema is prompt text', strictSchemaSupport: 'not claimed' } });
   }

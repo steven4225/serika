@@ -5,7 +5,7 @@ import type { TranscriptAccess } from "./transcript-access.js";
 import { blockLimits } from "./context-blocks.js";
 import type { ContextBudgetConfig } from "./context-budget.js";
 
-export function historyTools(access: TranscriptAccess, budget: ContextBudgetConfig): RegisteredTool[] {
+export function historyTools(access: TranscriptAccess, budget: ContextBudgetConfig, checklist?: () => Promise<UIMessage>): RegisteredTool[] {
   const maxChars = blockLimits(budget).section * 2;
   const searchable = (message: UIMessage) => JSON.stringify(message.parts);
   const excluded = (message: UIMessage) => !!(message.metadata as { transcriptExcluded?: boolean } | undefined)?.transcriptExcluded;
@@ -27,11 +27,11 @@ export function historyTools(access: TranscriptAccess, budget: ContextBudgetConf
           return { ok: true, hits: selected, next };
         } }) },
     { metadata: { name: "history_read", version: "1", risk: "read", timeoutMs: 5000, idempotent: true },
-      tool: tool({ description: "Read one journal message by ID or one-based number, optionally one toolCallId. start/end are Unicode character offsets; full tool output and attachments stay in the original journal. Exclusions never expose content.",
+      tool: tool({ description: "Read one journal message by ID or one-based number, optionally one toolCallId. id=runloom-compaction-checklist reads the current host checklist, including overflow receipts, task and permissions. start/end are Unicode character offsets; full tool output and attachments stay in the original journal. Exclusions never expose content.",
         inputSchema: z.object({ id: z.string().min(1).optional(), number: z.number().int().positive().optional(), toolCallId: z.string().min(1).optional(),
           start: z.number().int().nonnegative().default(0), end: z.number().int().positive().optional() }).strict().refine(value => !!value.id !== !!value.number, "Supply id or number").refine(value => value.end === undefined || value.end > value.start, "end must follow start"),
         execute: async ({ id, number, toolCallId, start, end }) => {
-          const messages = await access.read(), message = id ? messages.find(message => message.id === id) : messages[number! - 1];
+          const messages = await access.read(), message = id === "runloom-compaction-checklist" && checklist ? await checklist() : id ? messages.find(message => message.id === id) : messages[number! - 1];
           if (!message) return { ok: false, error: { code: "NOT_FOUND", message: "Message unavailable" } };
           if (excluded(message)) return { ok: true, id: message.id, excluded: true, text: `[Message ${message.id} excluded.]` };
           const part = toolCallId ? message.parts.find(part => "toolCallId" in part && part.toolCallId === toolCallId) : undefined;
