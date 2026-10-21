@@ -1,12 +1,12 @@
 {
-  "runId": "15f39dc0-8db6-4eae-8b3d-91243125fede",
-  "startedAt": "2026-10-21T10:21:18.800Z",
+  "runId": "5451daf9-b6a8-4c22-a30d-f5a55893cb5e",
+  "startedAt": "2026-10-21T10:28:40.070Z",
   "platform": "darwin",
   "process": {
     "node": "v26.4.0",
-    "pid": 84483
+    "pid": 1701
   },
-  "sourceCommit": "93f341f84653338de6a6701f7acca22931a2cca0",
+  "sourceCommit": "6605ee0d2da140259a1195f11eca453e6db79e99",
   "sourceWorktreeDirty": false,
   "baseCommit": "a183ddf01c15b51da84b1cd861b9e66686e634fe",
   "scriptSha256": "3d89e1b316e8029ae89e3a652ff3cf9c5184cd44ed0ba837fc9382b072eacffd",
@@ -16,8 +16,8 @@
         "pnpm",
         "typecheck"
       ],
-      "startedAt": "2026-10-21T10:21:18.829Z",
-      "finishedAt": "2026-10-21T10:21:19.560Z",
+      "startedAt": "2026-10-21T10:28:40.124Z",
+      "finishedAt": "2026-10-21T10:28:40.923Z",
       "exitCode": 0,
       "signal": null,
       "outputSha256": "9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609",
@@ -29,20 +29,20 @@
         "pnpm",
         "test"
       ],
-      "startedAt": "2026-10-21T10:21:19.560Z",
-      "finishedAt": "2026-10-21T10:24:43.784Z",
+      "startedAt": "2026-10-21T10:28:40.924Z",
+      "finishedAt": "2026-10-21T10:32:14.919Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "8cc0cdbe8ed2ae37827d5dc34900b6b83a881e356153e6b7303f2423403bf2be",
-      "outputBytes": 232693,
+      "outputSha256": "1e28a18fa2d1edaf00f4a7f2830a79154cc7cb351570e95f13006ef1869fd8a4",
+      "outputBytes": 232847,
       "counts": [
         [
           "tests",
-          1139
+          1140
         ],
         [
           "pass",
-          1128
+          1129
         ],
         [
           "fail",
@@ -103,11 +103,11 @@
         "pnpm",
         "eval:test"
       ],
-      "startedAt": "2026-10-21T10:24:43.785Z",
-      "finishedAt": "2026-10-21T10:24:56.899Z",
+      "startedAt": "2026-10-21T10:32:14.920Z",
+      "finishedAt": "2026-10-21T10:32:23.121Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "6c42ae5bf00e743611741ac6223cf53c4be930510b9e93e89eec37c2f94fdc84",
+      "outputSha256": "1a88f6d6a6abd722a036ca488e9a17ba494d119e3a9cdcb3bf17e92f78ce286b",
       "outputBytes": 8666,
       "counts": [
         [
@@ -139,12 +139,12 @@
         "@serika/desktop",
         "smoke"
       ],
-      "startedAt": "2026-10-21T10:24:56.899Z",
-      "finishedAt": "2026-10-21T10:25:05.563Z",
+      "startedAt": "2026-10-21T10:32:23.122Z",
+      "finishedAt": "2026-10-21T10:32:33.396Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "472849c07a2526eadf7a74ef905da14740b894fe5259d378bb133a84ef286c57",
-      "outputBytes": 3014,
+      "outputSha256": "4cf175ebd782b25d441a9a629f600c7eb174e9eb7f0f734727325ac2d2a30b1c",
+      "outputBytes": 3016,
       "counts": []
     }
   ],
@@ -180,12 +180,12 @@
     },
     {
       "path": "docs/v2-pilot/cm-step6.md",
-      "added": 50,
+      "added": 54,
       "removed": 0
     },
     {
       "path": "docs/v2-pilot/evidence/cm-step6/verification.json",
-      "added": 584,
+      "added": 614,
       "removed": 0
     },
     {
@@ -215,8 +215,13 @@
     },
     {
       "path": "docs/v2-pilot/evidence/electron-smoke/result.json",
-      "added": 30,
-      "removed": 30
+      "added": 32,
+      "removed": 32
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/startup.png",
+      "added": null,
+      "removed": null
     },
     {
       "path": "docs/v2-pilot/evidence/electron-smoke/undo-disappears.png",
@@ -330,7 +335,7 @@
     },
     {
       "path": "packages/assistant/src/context-background.test.ts",
-      "added": 156,
+      "added": 181,
       "removed": 0
     },
     {
@@ -470,14 +475,15 @@
     "apps/desktop/src/main/foreground-autonomy.test.ts": "6afdff1d390ce91b55920298af44df6512d57d5de3dca45f5c58f1607396c246",
     "apps/desktop/src/main/thread-history.ts": "69306209c1de3f27775f9123647559ba7c9b62d34d1f03e796ad36aa282c9206",
     "apps/desktop/src/renderer/src/memory-consolidation.tsx": "7d4a7b7955541fd6938ba143d4acb5adef65d9b2d74bf96f78ef9d3090cf202f",
-    "docs/v2-pilot/cm-step6.md": "7d87396879ec3488992b2acfecfb5f7d13413a5586eaf92dad5ed4b4007969fb",
-    "docs/v2-pilot/evidence/cm-step6/verification.json": "166355683d42bfe0e574a057bb412d04875a1664f572c1a1d6aa75b9b4ea0e3c",
+    "docs/v2-pilot/cm-step6.md": "3cd9790cfc916af2e49720268433dcb1c8a372a0413351c86bfbc00af86bc681",
+    "docs/v2-pilot/evidence/cm-step6/verification.json": "2597004a84702137b7a768ea214e090da7426206990430b0bbc3d8d48690c496",
     "docs/v2-pilot/evidence/electron-smoke/chat-reply.png": "6344a6992c4d5d15769494f02968b119d9d26afcb37c3cc37c3b525896651497",
-    "docs/v2-pilot/evidence/electron-smoke/cm-step6-run.json": "24d45cc25155b5171999efd66cc20b599455b13ee3c497e728225df0a1a997ff",
-    "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png": "5b177224b2ef72121c9fb37f3fa07158ac47818e200f942504a1bb52f6dd4727",
+    "docs/v2-pilot/evidence/electron-smoke/cm-step6-run.json": "d1d2124fd86014cfe35a10c0ab71d4a297d3ad17950017805eece1dfc2f46d96",
+    "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png": "585323898ae4d011b107059d484f2e46277f523d5f7d61890902c04f18beb57f",
     "docs/v2-pilot/evidence/electron-smoke/remember-success-receipt.png": "836c1b7c44d4b5a2d0678ddce75563e0630c617da602a8e70f2b9bf840e0db25",
-    "docs/v2-pilot/evidence/electron-smoke/restart-persistence.png": "403564f3ed41aa6c4bced28cb8bf04b8057ec112336a6140ee2dec8cb1b247b1",
-    "docs/v2-pilot/evidence/electron-smoke/result.json": "e7ed62e15db0bc70fa28041c13e4ffbaf1f291ab043e7d16d4f835143275a4f8",
+    "docs/v2-pilot/evidence/electron-smoke/restart-persistence.png": "086daba3f82919ce2451391ec464bd5571934338c7469d735342cacb50cb0e19",
+    "docs/v2-pilot/evidence/electron-smoke/result.json": "26aa83716105bd8c40ee5257e5eab856ea3680901d0c3551a230ae4b4c8eaf0d",
+    "docs/v2-pilot/evidence/electron-smoke/startup.png": "e21edb0fbee9c24febeb456c50d7b33ff826bd623092d5a463c5c6b89cb23dc9",
     "docs/v2-pilot/evidence/electron-smoke/undo-disappears.png": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0",
     "docs/v2-pilot/pending.md": "6f7c6187d6fc6b104f0de224fe7997247196cdfe6aaf0f394397541093fa12ed",
     "examples/eval/cm-step6-live.mjs": "efe7593a2641cd8b15ccca18ad8780e780f8e44199f0f4383fb3c397f781c0cc",
@@ -500,13 +506,13 @@
     "packages/assistant/src/compaction-records.ts": "a77a4bd41f14e532a9db449b55708f4f949bbf410f50e330516e87a93dd9db92",
     "packages/assistant/src/consolidation.ts": "482c4d869ffc2402d6dc9b34dbdeb6af2819f2320ed8bd4671bb6246713b099e",
     "packages/assistant/src/context-assembler.ts": "6c3f6d25d0e1206eee79536c7c93076d07389c508f1bf31a5ac0d461b3055c4f",
-    "packages/assistant/src/context-background.test.ts": "323186a2f661f77071fa40a3cdb77b6eea56c6f8726c5b2a7f6466bc622e450e",
+    "packages/assistant/src/context-background.test.ts": "474fc30f9826c2c808dbad779d71562f8268e8d8326650f079a57a1b18ee7166",
     "packages/assistant/src/context-blocks.ts": "fc410c29da14a69aca1a9dd98b4b6a826b6cf7fa544e0abb77e7bc0a9600fd0a",
     "packages/assistant/src/context-compaction-acceptance.test.ts": "956a97b320394575597275cd2f153466c9938f2a59c85f01ab688f340294cacd",
     "packages/assistant/src/context-compaction-runtime.test.ts": "99d6f95bf81d2301a0c65e3d515611ae5bcc8abcc652c8540c9fa295fe34e48e",
     "packages/assistant/src/context-compaction.ts": "55b91f3e63b39878ae5143ae7a40e61d9020c282d7ea9cb67e91dd28beb5d4ae",
     "packages/assistant/src/context-compactor.test.ts": "3d2ddfe769f06928a0e0ee6de24113633f77d9568f8f0a4bcedd0362a0febb0f",
-    "packages/assistant/src/context-compactor.ts": "ce03d5ec42c21bf28935cbbcd61fa435f5cd5e5f1b730c699c7d52f4d5516a12",
+    "packages/assistant/src/context-compactor.ts": "923547f0b187344870e3f2803bb83399b10d4a8f0ed0399eedc855137dacaaf0",
     "packages/assistant/src/context-diagnostics.ts": "a629db88a5abb6cdb1ea897eeaab1436fa149055c822807eb4373d9fece0fe19",
     "packages/assistant/src/context-source.ts": "7e36e16625ef541c3bacdfd8d6e5b5f72b8bb1c820d50697f9f8faee74c6fc64",
     "packages/assistant/src/foreground-autonomy.ts": "359de414f1f184e3213ee69b0b8cde6a82a05cbdc2ded4d38836ab75e45a3705",
@@ -530,7 +536,7 @@
   },
   "smoke": {
     "file": "docs/v2-pilot/evidence/electron-smoke/result.json",
-    "sha256": "26aa83716105bd8c40ee5257e5eab856ea3680901d0c3551a230ae4b4c8eaf0d",
+    "sha256": "d88302cd2ef3d1fc998df58576b0e755696ad537c585ba077f30e458d39ba1ea",
     "scriptSha256": "9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f",
     "checks": [
       {
@@ -577,7 +583,7 @@
     "screenshots": [
       {
         "file": "startup.png",
-        "sha256": "e21edb0fbee9c24febeb456c50d7b33ff826bd623092d5a463c5c6b89cb23dc9"
+        "sha256": "1e0cff90ece0b97cee7eb357c597e0b0c15a6ff909360531e5ca8d1d964af62c"
       },
       {
         "file": "chat-reply.png",
@@ -589,11 +595,11 @@
       },
       {
         "file": "remember-on-memory-page.png",
-        "sha256": "585323898ae4d011b107059d484f2e46277f523d5f7d61890902c04f18beb57f"
+        "sha256": "05bd1478438739e0d745b03cf4555114969a818319a36bcecaee8d6444a4ce59"
       },
       {
         "file": "restart-persistence.png",
-        "sha256": "086daba3f82919ce2451391ec464bd5571934338c7469d735342cacb50cb0e19"
+        "sha256": "3dcc6566d9c530c0b2b83bd3028a088e986e9bc5cbba1aa073218aaa187dd76e"
       },
       {
         "file": "undo-disappears.png",
@@ -610,5 +616,5 @@
     ]
   },
   "temporaryDirectoryRemoved": true,
-  "finishedAt": "2026-10-21T10:25:05.566Z"
+  "finishedAt": "2026-10-21T10:32:33.402Z"
 }
