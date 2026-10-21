@@ -553,7 +553,10 @@ export class ContextCompactor {
     }
     this.#effectiveReferencePrefix = prefixInject;
 
-    const persisted = await this.#findLatestValid(messages);
+    let persisted = await this.#findLatestValid(messages);
+    if (persisted && !persisted.checklist && this.#options.checklist) persisted = { ...persisted,
+      summary: reconcilePublishedSummary(persisted.summary, visible(messages.slice(0, persisted.firstKeptMessageIndex)), persisted.summary),
+    };
     abortIfNeeded(signal);
     const compose = (summary: ContextSummaryV2, firstKept: number, checklist?: UIMessage): UIMessage[] => [
       ...transcriptPrefix(messages),

@@ -1,0 +1,273 @@
+{
+  "runId": "a0ce7664-13a8-4487-bcb2-4c9a4628306e",
+  "startedAt": "2026-10-21T08:20:05.753Z",
+  "platform": "darwin",
+  "process": {
+    "node": "v26.4.0",
+    "pid": 45148
+  },
+  "sourceCommit": "379b1334f6aa9c52ab0720e42f4b5eca280aeedc",
+  "sourceWorktreeDirty": false,
+  "baseCommit": "e16a36f7e9e18442a9672866f6502ab3ee60c878",
+  "scriptSha256": "10b9bee02754e75013019cbcb59fd725b41dbd43e265fac4848a91a0feb9f690",
+  "commands": [
+    {
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "startedAt": "2026-10-21T08:20:05.775Z",
+      "finishedAt": "2026-10-21T08:20:06.695Z",
+      "exitCode": 0,
+      "signal": null,
+      "outputSha256": "9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609",
+      "outputBytes": 141,
+      "counts": []
+    },
+    {
+      "command": [
+        "pnpm",
+        "test"
+      ],
+      "startedAt": "2026-10-21T08:20:06.696Z",
+      "finishedAt": "2026-10-21T08:23:38.956Z",
+      "exitCode": 0,
+      "signal": null,
+      "outputSha256": "4949a3e8bac4da63c6b425798f4277812f44a74acbabc53d556a9610228a7e9b",
+      "outputBytes": 232170,
+      "counts": [
+        [
+          "tests",
+          1174
+        ],
+        [
+          "pass",
+          1163
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "cancelled",
+          0
+        ],
+        [
+          "skipped",
+          11
+        ],
+        [
+          "tests",
+          631
+        ],
+        [
+          "pass",
+          631
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "cancelled",
+          0
+        ],
+        [
+          "skipped",
+          0
+        ],
+        [
+          "tests",
+          12
+        ],
+        [
+          "pass",
+          12
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "cancelled",
+          0
+        ],
+        [
+          "skipped",
+          0
+        ]
+      ]
+    },
+    {
+      "command": [
+        "pnpm",
+        "--filter",
+        "@serika/desktop",
+        "smoke"
+      ],
+      "startedAt": "2026-10-21T08:23:38.956Z",
+      "finishedAt": "2026-10-21T08:23:49.883Z",
+      "exitCode": 0,
+      "signal": null,
+      "outputSha256": "4cf9794375cc3f5891994c3b9e1264f7ed5bcb2994a90199479f08f3fbf66c99",
+      "outputBytes": 3016,
+      "counts": []
+    }
+  ],
+  "metrics": [
+    {
+      "window": 32768,
+      "effectiveInputTokens": 26624,
+      "summaryTokens": 3558,
+      "sourceToolBodyTokens": 26323,
+      "savedActions": 22,
+      "recentReceipts": 6
+    },
+    {
+      "window": 1000000,
+      "effectiveInputTokens": 256000,
+      "summaryTokens": 3558,
+      "sourceToolBodyTokens": 800107,
+      "savedActions": 22,
+      "recentReceipts": 6
+    }
+  ],
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "status": "passed",
+  "lineChanges": [
+    {
+      "path": "apps/cli/src/tui.test.ts",
+      "added": 1,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/scripts/cm-step5-verify.mjs",
+      "added": 68,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/app.ts",
+      "added": 7,
+      "removed": 3
+    },
+    {
+      "path": "packages/assistant/src/compaction-records.ts",
+      "added": 106,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/context-compaction.ts",
+      "added": 1,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/context-compactor.test.ts",
+      "added": 116,
+      "removed": 8
+    },
+    {
+      "path": "packages/assistant/src/context-compactor.ts",
+      "added": 41,
+      "removed": 50
+    },
+    {
+      "path": "packages/assistant/src/tool-confirmation.ts",
+      "added": 9,
+      "removed": 0
+    }
+  ],
+  "sourceHashes": {
+    "apps/cli/src/tui.test.ts": "ba71f41b13a0a72615b8115c38c0193df1730e01dc36f965cd0fda3033de45ce",
+    "packages/assistant/scripts/cm-step5-verify.mjs": "10b9bee02754e75013019cbcb59fd725b41dbd43e265fac4848a91a0feb9f690",
+    "packages/assistant/src/app.ts": "f28f0d40d7f2fc6b66fb98f9f0d69b46c9942a2f9947e88bcffea5a2e1d8c8b0",
+    "packages/assistant/src/compaction-records.ts": "87a64a5bbc2011f7b99b3e156af3f528055817043e84fb1434a523dde6cb95ee",
+    "packages/assistant/src/context-compaction.ts": "ed2894fb61b478575f173fb5601ecbaa128ece6fc380114a59b4e8663424acd9",
+    "packages/assistant/src/context-compactor.test.ts": "8bdf8db9ae45280d243aafc6696bb4d0b795baa8445e662979b1d1b20e0772d2",
+    "packages/assistant/src/context-compactor.ts": "2b2b22ce9e285bb0a91320ff8c9fbd24739a743a445f80a959551ed34546f8d8",
+    "packages/assistant/src/tool-confirmation.ts": "a368ad4b071f336a2006db8c2942a97503097d7899fe79cc127598466b97a7c5"
+  },
+  "smoke": {
+    "file": "docs/v2-pilot/evidence/electron-smoke/result.json",
+    "sha256": "3de27b00c816e1a7bfdc7352b8dfbb43c0c3f3707dc39f6314272ae51cab8c9b",
+    "scriptSha256": "9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f",
+    "checks": [
+      {
+        "name": "startup",
+        "result": "passed",
+        "unexpectedErrors": 0
+      },
+      {
+        "name": "chat-reply",
+        "result": "passed",
+        "unexpectedErrors": 0
+      },
+      {
+        "name": "remember-success-receipt",
+        "result": "passed",
+        "unexpectedErrors": 0
+      },
+      {
+        "name": "remember-on-memory-page",
+        "result": "passed",
+        "unexpectedErrors": 0
+      },
+      {
+        "name": "restart-persistence",
+        "result": "passed",
+        "unexpectedErrors": 0
+      },
+      {
+        "name": "undo-disappears",
+        "result": "passed",
+        "unexpectedErrors": 0
+      },
+      {
+        "name": "daily-path-refuses-writes",
+        "result": "passed",
+        "unexpectedErrors": 0
+      },
+      {
+        "name": "daily-config-retired-fields",
+        "result": "passed",
+        "unexpectedErrors": 0
+      }
+    ],
+    "screenshots": [
+      {
+        "file": "startup.png",
+        "sha256": "82a9f29c5fb034605fd867c20510e886a4893263d3f48714cdae74d11707b53e"
+      },
+      {
+        "file": "chat-reply.png",
+        "sha256": "d2b5c6e5b9307926f9e9629f248ab0ac4e3178ff88862b02dc1034035194cb67"
+      },
+      {
+        "file": "remember-success-receipt.png",
+        "sha256": "8b04d6170812aaad67f657fa9f14081207dadaf9998be09ee8564ed64d0f4ab2"
+      },
+      {
+        "file": "remember-on-memory-page.png",
+        "sha256": "644db5c6d1772e534c16d5366a3ffc933c277ab0b500cad2f6cfed092a8e2ca1"
+      },
+      {
+        "file": "restart-persistence.png",
+        "sha256": "1985260f5c1ea7984b5dccb4dc4193dca1e1ba360a4b2feef8318994ea0b0ec0"
+      },
+      {
+        "file": "undo-disappears.png",
+        "sha256": "5487823025448e8b9f43db900c0adbb131c0986f976afd1c4843fbebc70552f7"
+      },
+      {
+        "file": "daily-path-refuses-writes.png",
+        "sha256": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e"
+      },
+      {
+        "file": "daily-config-retired-fields.png",
+        "sha256": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9"
+      }
+    ]
+  },
+  "temporaryDirectoryRemoved": true,
+  "finishedAt": "2026-10-21T08:23:49.886Z"
+}

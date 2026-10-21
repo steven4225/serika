@@ -166,6 +166,14 @@ for (const window of [32_768, 1_000_000]) {
       assert.deepEqual(restored, result, "reused summary and checklist retain identical prefix bytes");
       assert.equal(checklistReads, 1, "reuse must not refresh the frozen host snapshot");
       assert.equal(permission.snapshot().autonomousFiles, false, "historical checklist cannot restore live permission");
+      const { checklist: _savedChecklist, ...older } = record;
+      older.summary = { ...record.summary, actions: record.summary.actions.map(action => action.toolCallIds.length
+        ? { ...action, text: "old repeated tool output ".repeat(2000) } : action) };
+      assert.ok(estimateSerializedTokens(older.summary) > 12_000);
+      store.records = [structuredClone(older) as unknown as ThreadContextCompactionRecord];
+      const olderView = await makeCompactor(store, summarizer, config, options).prepare(messages, new AbortController().signal);
+      assert.ok(estimateMessageTokens(olderView.filter(message => ["runloom-context-summary", "runloom-compaction-checklist"].includes(message.id))) <= 12_000);
+      assert.deepEqual(store.records[0], older, "old records are projected without rewriting the journal");
       console.log("CM_STEP5_METRICS " + JSON.stringify({ window, effectiveInputTokens: config.inputBudgetTokens, summaryTokens,
         sourceToolBodyTokens: estimateSerializedTokens(messages.at(-1)), savedActions: record.summary.actions.length, recentReceipts: checklist.recentReceipts.length }));
     } finally { await rm(root, { recursive: true, force: true }); }
