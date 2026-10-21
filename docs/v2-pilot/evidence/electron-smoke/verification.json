@@ -1,12 +1,67 @@
 {
+  "verification": "real-electron-with-fake-model + unit-test",
+  "sourceCommit": "70b58bf1cd23836e30a7de1608b1affa1695eb92",
+  "sourceWorktreeDirty": false,
   "realModelCalls": 0,
   "costUsd": 0,
   "commands": [
     {
+      "command": "pnpm typecheck",
+      "verification": "typecheck",
+      "exitCode": 0,
+      "logSha256": "9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609",
+      "counts": {
+        "tests": [],
+        "pass": [],
+        "fail": [],
+        "skipped": []
+      }
+    },
+    {
+      "command": "node --test packages/assistant/dist/memory-factual-receipts.test.js",
+      "verification": "unit-test",
+      "exitCode": 0,
+      "logSha256": "b9db91022a027104c63613e1d0b7451f971be07fb872bd0067b4426a8e016a9d",
+      "counts": {
+        "tests": [
+          1
+        ],
+        "pass": [
+          1
+        ],
+        "fail": [
+          0
+        ],
+        "skipped": [
+          0
+        ]
+      }
+    },
+    {
+      "command": "pnpm --filter @serika/desktop exec tsx --test src/renderer/src/memory-factual-receipts.test.ts src/renderer/src/ui-kit-conversation.test.ts",
+      "verification": "unit-test",
+      "exitCode": 0,
+      "logSha256": "a4e516fbb27e982f1047bcde47aad22354e8b6e92d1bbc18feb58f346e0f6703",
+      "counts": {
+        "tests": [
+          8
+        ],
+        "pass": [
+          8
+        ],
+        "fail": [
+          0
+        ],
+        "skipped": [
+          0
+        ]
+      }
+    },
+    {
       "command": "pnpm test",
       "verification": "unit-test",
       "exitCode": 0,
-      "logSha256": "c6c883be63445bfab9aa53f7ebd9d56de77affb6b6790001ec5c7573ca927097",
+      "logSha256": "2f64d0c3a41ba106718eaa1665d7bf3ccdc918bef2ebd97c10add649a97c3100",
       "counts": {
         "tests": [
           1170,
@@ -31,112 +86,93 @@
       }
     },
     {
-      "command": "pnpm --filter @serika/desktop typecheck",
-      "verification": "typecheck",
+      "command": "RUNLOOM_SMOKE_DAILY_CONFIG=/tmp/runloom-smoke-config-missing-70b58bf.json pnpm --filter @serika/desktop smoke",
+      "verification": "real-electron-with-fake-model",
       "exitCode": 0,
-      "logSha256": "24c8439e57d20c41adb8b3d4bf70cfe013d260a11f24ded9a1c6b3d2784772c7",
+      "logSha256": "420162fc262d7a765f210fec9af57f1c60d364fc5da5a20ec6f3fbc55fd5af9d",
       "counts": {
         "tests": [],
         "pass": [],
         "fail": [],
         "skipped": []
-      }
-    },
-    {
-      "command": "node --test packages/assistant/dist/memory-library.test.js",
-      "verification": "unit-test",
-      "exitCode": 0,
-      "logSha256": "8645e143648b0467fe22c0b2c12074ad1b13d6eebdab0006cc6609ffffa48935",
-      "counts": {
-        "tests": [
-          9
-        ],
-        "pass": [
-          9
-        ],
-        "fail": [
-          0
-        ],
-        "skipped": [
-          0
-        ]
-      }
-    },
-    {
-      "command": "pnpm --filter @serika/desktop exec tsx --test src/renderer/src/memory-library.test.ts",
-      "verification": "unit-test",
-      "exitCode": 0,
-      "logSha256": "183e4875bd54d5306a7dc11b591e8aeb03da485930b8d73dca676959c3cbe681",
-      "counts": {
-        "tests": [
-          3
-        ],
-        "pass": [
-          3
-        ],
-        "fail": [
-          0
-        ],
-        "skipped": [
-          0
-        ]
-      }
-    },
-    {
-      "command": "pnpm --filter @serika/desktop smoke",
-      "verification": "real-electron-with-fake-model",
-      "exitCode": 0,
-      "logSha256": "7a1bc06a0142648524608b5221f3f937f3b97927e5735cf3ad53aed29360a051",
-      "counts": {
-        "tests": [],
-        "pass": [],
-        "fail": [],
-        "skipped": []
-      }
-    },
-    {
-      "command": "pnpm --filter @serika/desktop smoke (documentation checkpoint)",
-      "verification": "real-electron-with-fake-model",
-      "exitCode": 0,
-      "logSha256": "16be817447353021cdd095cbdadd497832c9defe53983ed97bab625bdb244e06",
-      "checks": 7,
-      "sourceCommit": "e37a54237a8882d6f9e66f1dac95494cc564707d"
+      },
+      "checks": 8,
+      "resultSha256": "f4ca3de799438b69c423f04f38a5f2ed0b02632c57785a3e8f1842adf5dabfe9"
     }
   ],
-  "priorAttempts": [
-    {
-      "logSha256": "a5ba994dd40d0d7c3328fd068c38179fc2f91ba053496011686eac732abd8f36",
-      "diagnosis": "Native unfiled/restart/undo/guard passed; generic config error required production parser diagnosis"
-    },
-    {
-      "logSha256": "db0317b88d5e703951f1eb858e05ee3963041bfd13877f569d5e598b4e60a94e",
-      "diagnosis": "Whole daily tree comparison was invalid evidence while the daily process was active; probe also followed dangling symlinks"
-    },
-    {
-      "logSha256": "0da9aeb64ae0cee2fe78e07aed5eab6d1b3881b21b178c378db640196b99623f",
-      "diagnosis": "Electron on macOS ignored HOME for app.getPath(home); isolated test now sets the native home path too"
-    },
-    {
-      "logSha256": "b22bd190f48c5ac59d1798f52ec3853baf6fc04f4f32a061f90348cc8dcca989",
-      "diagnosis": "Protected path fixture did not exist; production workspace resolver rejected it first"
-    }
-  ],
-  "resultSha256": "5b150df85c853c428077d8417efd1fef3d793f365aa6832aab4e421b6685661f",
-  "cleanupSha256": "c62da29d9d3f7b865db18d50028c9750559bc2f569a6e8d730086ec1a6cfaf04",
+  "fullSuiteTotals": {
+    "tests": 1813,
+    "pass": 1802,
+    "fail": 0,
+    "skipped": 11
+  },
+  "smokeTotals": {
+    "passed": 8,
+    "unexpectedVisibleErrors": 0,
+    "expectedFailureChecks": 2
+  },
+  "resultSha256": "f4ca3de799438b69c423f04f38a5f2ed0b02632c57785a3e8f1842adf5dabfe9",
   "linesFrom8c572bb": {
     "product": {
-      "added": 1128,
-      "removed": 1042
+      "added": 1198,
+      "removed": 1097
     },
     "test": {
-      "added": 511,
-      "removed": 8755
+      "added": 528,
+      "removed": 8757
     }
+  },
+  "linesThisCorrection": {
+    "product": {
+      "added": 98,
+      "removed": 83
+    },
+    "test": {
+      "added": 23,
+      "removed": 8
+    }
+  },
+  "lineCounting": {
+    "sourceExtensions": [
+      "ts",
+      "tsx",
+      "mjs",
+      "css",
+      "json"
+    ],
+    "roots": [
+      "apps/",
+      "packages/",
+      "examples/eval/"
+    ],
+    "testFiles": "contains .test.",
+    "excluded": "docs, evidence, historical baseline"
   },
   "reviewIssueLookup": {
     "repository": "steven4225/serika",
     "title": "experiment/architecture-v2 审核记录",
     "matches": 0,
-    "responseSha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    "responseSha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+    "allIssuesExactTitleMatches": 0,
+    "allIssuesResponseSha256": "b144072d9e5b74aee7546c6ae771e91e1d056d17adb15737812c5c208d8dcc10"
+  },
+  "visualInspection": {
+    "verified": [
+      "remember-success-receipt.png",
+      "undo-disappears.png"
+    ],
+    "successReceipt": "one small line with undo; no red banner"
+  },
+  "secretPrefixScan": {
+    "scope": "docs/v2-pilot/evidence/",
+    "files": 20,
+    "prefixFamilies": [
+      "openai",
+      "google",
+      "github",
+      "slack",
+      "private-key"
+    ],
+    "matches": 0
   }
 }
