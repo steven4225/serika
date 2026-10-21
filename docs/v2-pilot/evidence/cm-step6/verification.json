@@ -1,0 +1,584 @@
+{
+  "runId": "86416edf-3cfa-44b6-9fd9-2db89c6d9c58",
+  "startedAt": "2026-10-21T10:16:06.790Z",
+  "platform": "darwin",
+  "process": {
+    "node": "v26.4.0",
+    "pid": 68437
+  },
+  "sourceCommit": "5e6d01e7b6818f52ff57078649f49c3181031083",
+  "sourceWorktreeDirty": false,
+  "baseCommit": "a183ddf01c15b51da84b1cd861b9e66686e634fe",
+  "scriptSha256": "3d89e1b316e8029ae89e3a652ff3cf9c5184cd44ed0ba837fc9382b072eacffd",
+  "commands": [
+    {
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "startedAt": "2026-10-21T10:16:06.825Z",
+      "finishedAt": "2026-10-21T10:16:07.584Z",
+      "exitCode": 0,
+      "signal": null,
+      "outputSha256": "9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609",
+      "outputBytes": 141,
+      "counts": []
+    },
+    {
+      "command": [
+        "pnpm",
+        "test"
+      ],
+      "startedAt": "2026-10-21T10:16:07.584Z",
+      "finishedAt": "2026-10-21T10:19:46.202Z",
+      "exitCode": 0,
+      "signal": null,
+      "outputSha256": "195219b8b528d6b5fe09c94b6ce70680f69a54d84b9b45d943c7e2086d9d67df",
+      "outputBytes": 232756,
+      "counts": [
+        [
+          "tests",
+          1139
+        ],
+        [
+          "pass",
+          1128
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "cancelled",
+          0
+        ],
+        [
+          "skipped",
+          11
+        ],
+        [
+          "tests",
+          632
+        ],
+        [
+          "pass",
+          632
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "cancelled",
+          0
+        ],
+        [
+          "skipped",
+          0
+        ],
+        [
+          "tests",
+          12
+        ],
+        [
+          "pass",
+          12
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "cancelled",
+          0
+        ],
+        [
+          "skipped",
+          0
+        ]
+      ]
+    },
+    {
+      "command": [
+        "pnpm",
+        "eval:test"
+      ],
+      "startedAt": "2026-10-21T10:19:46.202Z",
+      "finishedAt": "2026-10-21T10:19:59.540Z",
+      "exitCode": 0,
+      "signal": null,
+      "outputSha256": "8a3f6dc6ad4129e393fa63677ac39d154b8bf07f16cfe66e2e9028975b5a4eca",
+      "outputBytes": 8668,
+      "counts": [
+        [
+          "tests",
+          79
+        ],
+        [
+          "pass",
+          79
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "cancelled",
+          0
+        ],
+        [
+          "skipped",
+          0
+        ]
+      ]
+    },
+    {
+      "command": [
+        "pnpm",
+        "--filter",
+        "@serika/desktop",
+        "smoke"
+      ],
+      "startedAt": "2026-10-21T10:19:59.540Z",
+      "finishedAt": "2026-10-21T10:20:08.528Z",
+      "exitCode": 0,
+      "signal": null,
+      "outputSha256": "7ed571058ef8fd7d09f185fa24feb582f37acf09af3745fc9f97335acb59640d",
+      "outputBytes": 3016,
+      "counts": []
+    }
+  ],
+  "metrics": [],
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "status": "passed",
+  "lineChanges": [
+    {
+      "path": "apps/desktop/src/main/backup.test.ts",
+      "added": 27,
+      "removed": 0
+    },
+    {
+      "path": "apps/desktop/src/main/backup.ts",
+      "added": 21,
+      "removed": 5
+    },
+    {
+      "path": "apps/desktop/src/main/foreground-autonomy.test.ts",
+      "added": 5,
+      "removed": 5
+    },
+    {
+      "path": "apps/desktop/src/main/thread-history.ts",
+      "added": 3,
+      "removed": 3
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/memory-consolidation.tsx",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "docs/v2-pilot/cm-step6.md",
+      "added": 44,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/restart-persistence.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/result.json",
+      "added": 24,
+      "removed": 24
+    },
+    {
+      "path": "docs/v2-pilot/pending.md",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "examples/eval/cm-step6-live.mjs",
+      "added": 224,
+      "removed": 0
+    },
+    {
+      "path": "examples/eval/cm-step6-live.test.mjs",
+      "added": 27,
+      "removed": 0
+    },
+    {
+      "path": "examples/eval/compaction-fidelity.test.mjs",
+      "added": 17,
+      "removed": 10
+    },
+    {
+      "path": "examples/eval/context-blocks.mjs",
+      "added": 13,
+      "removed": 0
+    },
+    {
+      "path": "examples/eval/e2e.test.mjs",
+      "added": 2,
+      "removed": 2
+    },
+    {
+      "path": "examples/eval/reliability.test.mjs",
+      "added": 2,
+      "removed": 2
+    },
+    {
+      "path": "packages/ai-sdk-adapter/src/loop.test.ts",
+      "added": 42,
+      "removed": 0
+    },
+    {
+      "path": "packages/ai-sdk-adapter/src/loop.ts",
+      "added": 12,
+      "removed": 3
+    },
+    {
+      "path": "packages/ai-sdk-adapter/src/model-errors.ts",
+      "added": 14,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/scripts/cm-baseline.mjs",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/scripts/cm-replay.mjs",
+      "added": 3,
+      "removed": 3
+    },
+    {
+      "path": "packages/assistant/scripts/cm-step5-verify.mjs",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/scripts/cm-step6-verify.mjs",
+      "added": 69,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/api.ts",
+      "added": 2,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/app.ts",
+      "added": 27,
+      "removed": 12
+    },
+    {
+      "path": "packages/assistant/src/assistant-controller.ts",
+      "added": 10,
+      "removed": 8
+    },
+    {
+      "path": "packages/assistant/src/baseline-assembly.test.ts",
+      "added": 2,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/compaction-records.ts",
+      "added": 41,
+      "removed": 14
+    },
+    {
+      "path": "packages/assistant/src/consolidation.ts",
+      "added": 1,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/context-assembler.ts",
+      "added": 4,
+      "removed": 2
+    },
+    {
+      "path": "packages/assistant/src/context-background.test.ts",
+      "added": 156,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/context-blocks.ts",
+      "added": 105,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/context-compaction-acceptance.test.ts",
+      "added": 13,
+      "removed": 14
+    },
+    {
+      "path": "packages/assistant/src/context-compaction-runtime.test.ts",
+      "added": 27,
+      "removed": 33
+    },
+    {
+      "path": "packages/assistant/src/context-compaction.ts",
+      "added": 6,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/context-compactor.test.ts",
+      "added": 117,
+      "removed": 1380
+    },
+    {
+      "path": "packages/assistant/src/context-compactor.ts",
+      "added": 178,
+      "removed": 549
+    },
+    {
+      "path": "packages/assistant/src/context-diagnostics.ts",
+      "added": 1,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/context-source.ts",
+      "added": 19,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/foreground-autonomy.ts",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/history-tools.ts",
+      "added": 45,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/memory-extraction.ts",
+      "added": 34,
+      "removed": 22
+    },
+    {
+      "path": "packages/assistant/src/memory-factual-receipts.ts",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/memory-m1-acceptance.test.ts",
+      "added": 26,
+      "removed": 28
+    },
+    {
+      "path": "packages/assistant/src/memory-observation-policy.ts",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/memory-store.ts",
+      "added": 1,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/memory-v6-store.test.ts",
+      "added": 17,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/memory-v6-store.ts",
+      "added": 30,
+      "removed": 5
+    },
+    {
+      "path": "packages/assistant/src/memory-write.ts",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/model-context-budget.test.ts",
+      "added": 4,
+      "removed": 4
+    },
+    {
+      "path": "packages/assistant/src/model-usage.test.ts",
+      "added": 5,
+      "removed": 3
+    },
+    {
+      "path": "packages/assistant/src/modules/memory-module.ts",
+      "added": 10,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/thread-background.ts",
+      "added": 21,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/transcript-access.ts",
+      "added": 63,
+      "removed": 0
+    },
+    {
+      "path": "packages/core/src/jsonl-store.test.ts",
+      "added": 17,
+      "removed": 0
+    },
+    {
+      "path": "packages/core/src/jsonl-store.ts",
+      "added": 52,
+      "removed": 0
+    },
+    {
+      "path": "packages/core/src/types.ts",
+      "added": 1,
+      "removed": 0
+    }
+  ],
+  "sourceHashes": {
+    "apps/desktop/src/main/backup.test.ts": "48cd2d5446123735eb84765b94cb7447f821d49c2e188845ae5bdc38ec559c7b",
+    "apps/desktop/src/main/backup.ts": "d4222e137bda66671c7a1329a06f62121c1eda0a1300f35be63bc8a996cd5839",
+    "apps/desktop/src/main/foreground-autonomy.test.ts": "6afdff1d390ce91b55920298af44df6512d57d5de3dca45f5c58f1607396c246",
+    "apps/desktop/src/main/thread-history.ts": "69306209c1de3f27775f9123647559ba7c9b62d34d1f03e796ad36aa282c9206",
+    "apps/desktop/src/renderer/src/memory-consolidation.tsx": "7d4a7b7955541fd6938ba143d4acb5adef65d9b2d74bf96f78ef9d3090cf202f",
+    "docs/v2-pilot/cm-step6.md": "e5845d9551f7dbdb6c658b299f2c58238f4d00708f7958423855d25550ce3415",
+    "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png": "644db5c6d1772e534c16d5366a3ffc933c277ab0b500cad2f6cfed092a8e2ca1",
+    "docs/v2-pilot/evidence/electron-smoke/restart-persistence.png": "70f7b8ca8efa24f19c2b24acc63420aee7d61776513ba01da1d46ea657e487de",
+    "docs/v2-pilot/evidence/electron-smoke/result.json": "0a3524096c5b365133603d8828805fe7eb34db22f39421ab2f953903f931aa63",
+    "docs/v2-pilot/pending.md": "6f7c6187d6fc6b104f0de224fe7997247196cdfe6aaf0f394397541093fa12ed",
+    "examples/eval/cm-step6-live.mjs": "1dde357cddde9c4ff47a83f3ca1d362a108c44ad118ecf39a02a541ff45044e2",
+    "examples/eval/cm-step6-live.test.mjs": "35f0696d802dd4e9309b75819959dc713afa6f18b089f474d0fccc5abacba165",
+    "examples/eval/compaction-fidelity.test.mjs": "00889a2ab366ff608d1fe090bded1e4af9928c8651507629bb1904e2bdc9e8f3",
+    "examples/eval/context-blocks.mjs": "0b0dc939371c867cdc0b70ecd5cd115620ee4ab523bbfc3d089420703298efcc",
+    "examples/eval/e2e.test.mjs": "da68557a97d5ff79f212166cfa1e075871067cde139c99b995fac39e79cf2e89",
+    "examples/eval/reliability.test.mjs": "4607dbc6db11fae576ee6f5ca13fedd58496490d88e09aa031d07e188c638028",
+    "packages/ai-sdk-adapter/src/loop.test.ts": "5a1a4b146ab47890d513e358f274da6675bdb603dc9f752851df827d536aec16",
+    "packages/ai-sdk-adapter/src/loop.ts": "2526388c7235a87662d588cec2da979549c63181894dbfe84c9fb33f8148d418",
+    "packages/ai-sdk-adapter/src/model-errors.ts": "216b4abdba6c709c9573b74c6ad18fccad7e894c13d8064a0a3371def154b77c",
+    "packages/assistant/scripts/cm-baseline.mjs": "0554e750fb20639a165350f63bb7b65483b798f37374b8065187b6a4f0910af3",
+    "packages/assistant/scripts/cm-replay.mjs": "612350de0a3fe211f280e52c23521dbadc5a69e7e5daff761ede303996b40094",
+    "packages/assistant/scripts/cm-step5-verify.mjs": "a0e276923badf232ad738fbd76526628a18b95bbfbefe1d0a3e3d781e4adac1a",
+    "packages/assistant/scripts/cm-step6-verify.mjs": "3d89e1b316e8029ae89e3a652ff3cf9c5184cd44ed0ba837fc9382b072eacffd",
+    "packages/assistant/src/api.ts": "07a13fbacd8b64f36c6689787695e45e41d8a5b0578e950b891c5ea23cde8648",
+    "packages/assistant/src/app.ts": "1ab7bdc6e88c375cf147709850788382b552e7d44489c9de67566cb65b6db61d",
+    "packages/assistant/src/assistant-controller.ts": "b94007eff3c6104ed8a5c897ca891c5c964e524b4ec446701ab37f853f43b330",
+    "packages/assistant/src/baseline-assembly.test.ts": "5c8b4ae6f4ddee0eb35b74f8e70892b8b9c97e388e7fdca45b1797bf95920ec6",
+    "packages/assistant/src/compaction-records.ts": "a77a4bd41f14e532a9db449b55708f4f949bbf410f50e330516e87a93dd9db92",
+    "packages/assistant/src/consolidation.ts": "482c4d869ffc2402d6dc9b34dbdeb6af2819f2320ed8bd4671bb6246713b099e",
+    "packages/assistant/src/context-assembler.ts": "6c3f6d25d0e1206eee79536c7c93076d07389c508f1bf31a5ac0d461b3055c4f",
+    "packages/assistant/src/context-background.test.ts": "323186a2f661f77071fa40a3cdb77b6eea56c6f8726c5b2a7f6466bc622e450e",
+    "packages/assistant/src/context-blocks.ts": "fc410c29da14a69aca1a9dd98b4b6a826b6cf7fa544e0abb77e7bc0a9600fd0a",
+    "packages/assistant/src/context-compaction-acceptance.test.ts": "956a97b320394575597275cd2f153466c9938f2a59c85f01ab688f340294cacd",
+    "packages/assistant/src/context-compaction-runtime.test.ts": "99d6f95bf81d2301a0c65e3d515611ae5bcc8abcc652c8540c9fa295fe34e48e",
+    "packages/assistant/src/context-compaction.ts": "55b91f3e63b39878ae5143ae7a40e61d9020c282d7ea9cb67e91dd28beb5d4ae",
+    "packages/assistant/src/context-compactor.test.ts": "3d2ddfe769f06928a0e0ee6de24113633f77d9568f8f0a4bcedd0362a0febb0f",
+    "packages/assistant/src/context-compactor.ts": "ce03d5ec42c21bf28935cbbcd61fa435f5cd5e5f1b730c699c7d52f4d5516a12",
+    "packages/assistant/src/context-diagnostics.ts": "a629db88a5abb6cdb1ea897eeaab1436fa149055c822807eb4373d9fece0fe19",
+    "packages/assistant/src/context-source.ts": "7e36e16625ef541c3bacdfd8d6e5b5f72b8bb1c820d50697f9f8faee74c6fc64",
+    "packages/assistant/src/foreground-autonomy.ts": "359de414f1f184e3213ee69b0b8cde6a82a05cbdc2ded4d38836ab75e45a3705",
+    "packages/assistant/src/history-tools.ts": "af5483b511e916d1402c8f442bfccb6011d8d6300f08341d412662675d49e2d0",
+    "packages/assistant/src/memory-extraction.ts": "1530489347533feb45bacfe757892fbe846bed227efd0737e629768154c3cfb4",
+    "packages/assistant/src/memory-factual-receipts.ts": "02e89478b6fcf0380adb0f215caab9a70d84e9bc5a02b673f7efb36319986eff",
+    "packages/assistant/src/memory-m1-acceptance.test.ts": "3936ec30116d0563d1f3a403999306aaff33c9f061cfd3bbf8458487d14242f2",
+    "packages/assistant/src/memory-observation-policy.ts": "1797ce4df53fb2563989f504c32355c9f6ac254ea06e2967f401b3e11a3217df",
+    "packages/assistant/src/memory-store.ts": "dd2dc0360d24eb0844d8ee3e90e37a0aec9a4b7b18fd98707024e03297a3c340",
+    "packages/assistant/src/memory-v6-store.test.ts": "d83062f285e8efd200800adab3b56070b9ff2b7119bd41d24eae86fd78a0d744",
+    "packages/assistant/src/memory-v6-store.ts": "4aeacb61001511591e05afe89bb8a221f2a3ddd9e6a960b7bb708787b0c19a1e",
+    "packages/assistant/src/memory-write.ts": "dac7a4affda83600359e5036c16e365864d9fb1f5b1d39911ec0bb6add8cfb2f",
+    "packages/assistant/src/model-context-budget.test.ts": "f0a67767fbc82e57b619fc64b96775dc79c6f2e817d6ed155bab96b98c7e2a6d",
+    "packages/assistant/src/model-usage.test.ts": "b9b353923588a4864d64446325a2fedf8a4bd902824a7bb6ffcce7c879f32f33",
+    "packages/assistant/src/modules/memory-module.ts": "557bfe12e3ef9eb14d87a9186f9affeabaf90a10efdad06bd3270d9a9c0e9d65",
+    "packages/assistant/src/thread-background.ts": "cf70d65950b2683201aef2b14a317e3ce877a7a8e1c6d71f1608265bf89bb7bb",
+    "packages/assistant/src/transcript-access.ts": "b349330cef3ef3492b10711d1faaa132f68bdf0ea73c25e5b96eb79599faf40b",
+    "packages/core/src/jsonl-store.test.ts": "90a2fab7c30494a2c8f8d4b44a5e8e1c417240ee8cf69d96c2a9b014f65241e9",
+    "packages/core/src/jsonl-store.ts": "da31d1ef19e18fa4163076e45e1ce608c2b843226bea12b767327368cfdae8a9",
+    "packages/core/src/types.ts": "d35ad2719f7a58be6182ce7620ab23b1f08ecd3bb6a40fc17d0a31502b86cef8"
+  },
+  "smoke": {
+    "file": "docs/v2-pilot/evidence/electron-smoke/result.json",
+    "sha256": "e7ed62e15db0bc70fa28041c13e4ffbaf1f291ab043e7d16d4f835143275a4f8",
+    "scriptSha256": "9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f",
+    "checks": [
+      {
+        "name": "startup",
+        "result": "passed",
+        "unexpectedErrors": 0
+      },
+      {
+        "name": "chat-reply",
+        "result": "passed",
+        "unexpectedErrors": 0
+      },
+      {
+        "name": "remember-success-receipt",
+        "result": "passed",
+        "unexpectedErrors": 0
+      },
+      {
+        "name": "remember-on-memory-page",
+        "result": "passed",
+        "unexpectedErrors": 0
+      },
+      {
+        "name": "restart-persistence",
+        "result": "passed",
+        "unexpectedErrors": 0
+      },
+      {
+        "name": "undo-disappears",
+        "result": "passed",
+        "unexpectedErrors": 0
+      },
+      {
+        "name": "daily-path-refuses-writes",
+        "result": "passed",
+        "unexpectedErrors": 0
+      },
+      {
+        "name": "daily-config-retired-fields",
+        "result": "passed",
+        "unexpectedErrors": 0
+      }
+    ],
+    "screenshots": [
+      {
+        "file": "startup.png",
+        "sha256": "1610ab8d4f138ab90f131783c6986b2ccb7c4759aa8ee58639d40070d6fc577f"
+      },
+      {
+        "file": "chat-reply.png",
+        "sha256": "6344a6992c4d5d15769494f02968b119d9d26afcb37c3cc37c3b525896651497"
+      },
+      {
+        "file": "remember-success-receipt.png",
+        "sha256": "836c1b7c44d4b5a2d0678ddce75563e0630c617da602a8e70f2b9bf840e0db25"
+      },
+      {
+        "file": "remember-on-memory-page.png",
+        "sha256": "5b177224b2ef72121c9fb37f3fa07158ac47818e200f942504a1bb52f6dd4727"
+      },
+      {
+        "file": "restart-persistence.png",
+        "sha256": "403564f3ed41aa6c4bced28cb8bf04b8057ec112336a6140ee2dec8cb1b247b1"
+      },
+      {
+        "file": "undo-disappears.png",
+        "sha256": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0"
+      },
+      {
+        "file": "daily-path-refuses-writes.png",
+        "sha256": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e"
+      },
+      {
+        "file": "daily-config-retired-fields.png",
+        "sha256": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9"
+      }
+    ]
+  },
+  "temporaryDirectoryRemoved": true,
+  "finishedAt": "2026-10-21T10:20:08.530Z"
+}

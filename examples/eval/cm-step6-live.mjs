@@ -39,7 +39,7 @@ export async function meteredModel(model, path, scope) {
     if (!Number.isFinite(reserve) || report.costUsd + reserve > limit || opening + report.costUsd + reserve > 5) {
       report.stopped = true; report.stopReason = 'pre-dispatch-budget'; await save(); throw new Error('Approved budget reserve exceeded');
     }
-    const row = { id: randomUUID(), scope: scope(), status: 'dispatched', startedAt: new Date().toISOString(), inputHash: hashCanonicalJson(params.prompt), inputBytes: bytes,
+    const row = { id: randomUUID(), scope: scope(), status: 'dispatched', startedAt: new Date().toISOString(), inputHash: hashCanonicalJson(JSON.parse(JSON.stringify(params.prompt))), inputBytes: bytes,
       maxOutputTokens: params.maxOutputTokens, reservedUsd: reserve, usage: null };
     report.calls.push(row); await save(); return row;
   };
@@ -172,7 +172,8 @@ async function main() {
         await store.save('eval', messages);
         const before = JSON.parse(await readFile(evidencePath, 'utf8')).calls.length;
         const projection = await compactor.prepare(messages, AbortSignal.timeout(30000));
-        assert.equal(JSON.parse(await readFile(evidencePath, 'utf8')).calls.length, before);
+        const foregroundAuxiliaryCalls = JSON.parse(await readFile(evidencePath, 'utf8')).calls.length - before;
+        assert.equal(foregroundAuxiliaryCalls, 0);
         assert.match(JSON.stringify(projection), /masked pending/);
         while (compactor.pending) { await compactor.runPending(AbortSignal.timeout(120000)); if (compactor.backgroundError) throw new Error(`Summary rejected in ${id}`); }
         const records = await store.getContextCompactions('eval'), record = records.at(-1);
@@ -184,7 +185,7 @@ async function main() {
           total: estimateMessageTokens([view, record.checklist]) <= bounds.totalSummary };
         current = `${id}/chat/${generation}`;
         const chat = await runChat({ ...selected, model, root: caseRoot, spec, question: spec.turns[generation], label: `round-${generation}` });
-        rounds.push({ generation, foregroundAuxiliaryCalls: 0, records: records.length, layerChecks, chat, passed: Object.values(layerChecks).every(Boolean) && chat.passed });
+        rounds.push({ generation, foregroundAuxiliaryCalls, records: records.length, layerChecks, chat, passed: Object.values(layerChecks).every(Boolean) && chat.passed });
         console.log(JSON.stringify({ case: id, generation, passed: rounds.at(-1).passed }));
         // Each fresh object reopens committed layers; the final check uses a separate OS process.
         compactor = new ContextCompactor({ store, threadId: 'eval', modelId: selected.modelAlias, budget: spec.contextBudget,

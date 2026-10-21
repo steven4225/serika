@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { generateText } from 'ai';
 import { MockLanguageModelV3 } from 'ai/test';
 import { meteredModel } from './cm-step6-live.mjs';
 
@@ -18,7 +19,7 @@ test('combined batch reserves before dispatch, meters each actual request, and f
     await assert.rejects(model.doGenerate(request), /reserve exceeded/); assert.equal(calls, 0);
     await writeFile(path, JSON.stringify({ costUsd: 0, calls: [], stopped: false }));
     model = await meteredModel(underlying, path, () => 'test');
-    await model.doGenerate(request); const first = JSON.parse(await readFile(path));
+    await generateText({ model, prompt: 'SDK boundary fixture', maxOutputTokens: 1024, maxRetries: 0 }); const first = JSON.parse(await readFile(path));
     assert.equal(first.calls[0].status, 'returned'); assert.equal(first.calls[0].usage.cacheRead, null); assert.ok(first.costUsd > 0);
     await assert.rejects(model.doGenerate(request), /batch stopped/); assert.equal(calls, 2);
     await assert.rejects(model.doGenerate(request), /frozen/); assert.equal(calls, 2);
