@@ -1,12 +1,12 @@
 {
-  "runId": "7f717240-e78c-484a-b1a0-d0e39a5efd85",
-  "startedAt": "2026-10-21T10:41:58.540Z",
+  "runId": "2a9820b2-9a9b-485d-8c11-c101f1211f0c",
+  "startedAt": "2026-10-21T11:31:49.197Z",
   "platform": "darwin",
   "process": {
     "node": "v26.4.0",
-    "pid": 35374
+    "pid": 62937
   },
-  "sourceCommit": "cad042e9f0b648e7ecd4a9e05c770358c7aa8228",
+  "sourceCommit": "1db5a5cab6b71ba9c5dceabccdb226137f8aac54",
   "sourceWorktreeDirty": false,
   "baseCommit": "a183ddf01c15b51da84b1cd861b9e66686e634fe",
   "scriptSha256": "3d89e1b316e8029ae89e3a652ff3cf9c5184cd44ed0ba837fc9382b072eacffd",
@@ -16,8 +16,8 @@
         "pnpm",
         "typecheck"
       ],
-      "startedAt": "2026-10-21T10:41:58.585Z",
-      "finishedAt": "2026-10-21T10:41:59.322Z",
+      "startedAt": "2026-10-21T11:31:49.244Z",
+      "finishedAt": "2026-10-21T11:31:50.171Z",
       "exitCode": 0,
       "signal": null,
       "outputSha256": "9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609",
@@ -29,20 +29,20 @@
         "pnpm",
         "test"
       ],
-      "startedAt": "2026-10-21T10:41:59.322Z",
-      "finishedAt": "2026-10-21T10:45:40.957Z",
+      "startedAt": "2026-10-21T11:31:50.172Z",
+      "finishedAt": "2026-10-21T11:35:17.210Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "87e2cce5cbe36196fcd1772afd8098c9b875fe8eaca5f7886dfa994adf5e0d58",
-      "outputBytes": 233143,
+      "outputSha256": "3227118eee217f521ddec9fb8aecf59a78c7daa3e023ccb4b015cfaa4428a234",
+      "outputBytes": 233175,
       "counts": [
         [
           "tests",
-          1142
+          1143
         ],
         [
           "pass",
-          1131
+          1132
         ],
         [
           "fail",
@@ -103,20 +103,20 @@
         "pnpm",
         "eval:test"
       ],
-      "startedAt": "2026-10-21T10:45:40.958Z",
-      "finishedAt": "2026-10-21T10:45:49.232Z",
+      "startedAt": "2026-10-21T11:35:17.211Z",
+      "finishedAt": "2026-10-21T11:35:25.901Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "9022eb3f6052178562d6f538b26756208ebeda0fb9a53c5e10eb87036a428c75",
-      "outputBytes": 8654,
+      "outputSha256": "8fc9a62106bb762927edcb6a88553f03f75f14a688e854da1bd94a379a8a75ea",
+      "outputBytes": 8897,
       "counts": [
         [
           "tests",
-          79
+          81
         ],
         [
           "pass",
-          79
+          81
         ],
         [
           "fail",
@@ -139,11 +139,11 @@
         "@serika/desktop",
         "smoke"
       ],
-      "startedAt": "2026-10-21T10:45:49.232Z",
-      "finishedAt": "2026-10-21T10:45:59.551Z",
+      "startedAt": "2026-10-21T11:35:25.902Z",
+      "finishedAt": "2026-10-21T11:35:37.244Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "03608d3d50b9fd71aadfa2394488d8ac2dfaecfec381f2c74df19f6896582f92",
+      "outputSha256": "da01e4a65bdfbbbc507d12ac0a1944dbbc5f9432ee1e1bce33269d3c75b03675",
       "outputBytes": 3016,
       "counts": []
     }
@@ -180,7 +180,7 @@
     },
     {
       "path": "docs/v2-pilot/cm-step6.md",
-      "added": 60,
+      "added": 102,
       "removed": 0
     },
     {
@@ -190,7 +190,7 @@
     },
     {
       "path": "docs/v2-pilot/evidence/cm-step6/verification.json",
-      "added": 638,
+      "added": 632,
       "removed": 0
     },
     {
@@ -235,7 +235,7 @@
     },
     {
       "path": "docs/v2-pilot/pending.md",
-      "added": 1,
+      "added": 8,
       "removed": 1
     },
     {
@@ -245,12 +245,12 @@
     },
     {
       "path": "examples/eval/cm-step6-live.mjs",
-      "added": 244,
+      "added": 312,
       "removed": 0
     },
     {
       "path": "examples/eval/cm-step6-live.test.mjs",
-      "added": 28,
+      "added": 62,
       "removed": 0
     },
     {
@@ -319,6 +319,11 @@
       "removed": 12
     },
     {
+      "path": "packages/assistant/src/assistant-controller.test.ts",
+      "added": 1,
+      "removed": 0
+    },
+    {
       "path": "packages/assistant/src/assistant-controller.ts",
       "added": 10,
       "removed": 8
@@ -365,22 +370,22 @@
     },
     {
       "path": "packages/assistant/src/context-compaction.ts",
-      "added": 6,
+      "added": 33,
       "removed": 1
     },
     {
       "path": "packages/assistant/src/context-compactor.test.ts",
-      "added": 128,
-      "removed": 1379
+      "added": 149,
+      "removed": 1378
     },
     {
       "path": "packages/assistant/src/context-compactor.ts",
-      "added": 178,
+      "added": 193,
       "removed": 549
     },
     {
       "path": "packages/assistant/src/context-diagnostics.ts",
-      "added": 1,
+      "added": 2,
       "removed": 0
     },
     {
@@ -396,6 +401,11 @@
     {
       "path": "packages/assistant/src/history-tools.ts",
       "added": 45,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/memory-controls.test.ts",
+      "added": 1,
       "removed": 0
     },
     {
@@ -425,13 +435,13 @@
     },
     {
       "path": "packages/assistant/src/memory-v6-store.test.ts",
-      "added": 17,
+      "added": 21,
       "removed": 0
     },
     {
       "path": "packages/assistant/src/memory-v6-store.ts",
-      "added": 30,
-      "removed": 5
+      "added": 37,
+      "removed": 9
     },
     {
       "path": "packages/assistant/src/memory-write.ts",
@@ -485,21 +495,21 @@
     "apps/desktop/src/main/foreground-autonomy.test.ts": "6afdff1d390ce91b55920298af44df6512d57d5de3dca45f5c58f1607396c246",
     "apps/desktop/src/main/thread-history.ts": "69306209c1de3f27775f9123647559ba7c9b62d34d1f03e796ad36aa282c9206",
     "apps/desktop/src/renderer/src/memory-consolidation.tsx": "7d4a7b7955541fd6938ba143d4acb5adef65d9b2d74bf96f78ef9d3090cf202f",
-    "docs/v2-pilot/cm-step6.md": "01791d9a10a4680fffc5eeaf99c4501ea61e6f45b29c344622ffb38202288ab5",
+    "docs/v2-pilot/cm-step6.md": "755801706e260ff928a7217c59993986752be19cd95f5c5e6b88779e1b1d4e52",
     "docs/v2-pilot/evidence/cm-step6/live.json": "8d76edf3837151731c2270d7265c31aa7c91f99fc930cd6b037ba74de97135f2",
-    "docs/v2-pilot/evidence/cm-step6/verification.json": "e054406697007194e376e60028acf96178c06e84fa306b5e6a7ebb271d7af464",
+    "docs/v2-pilot/evidence/cm-step6/verification.json": "dc38da2c9ae549455721acebdf24a0889842ab243e8ca1939b82fe4acff884be",
     "docs/v2-pilot/evidence/cost-ledger.json": "b5486cc9a308928fecd9918005884b52ff32c775eb71a1610a83672d15ac33e2",
     "docs/v2-pilot/evidence/electron-smoke/chat-reply.png": "6344a6992c4d5d15769494f02968b119d9d26afcb37c3cc37c3b525896651497",
-    "docs/v2-pilot/evidence/electron-smoke/cm-step6-run.json": "975ff56ce7201e6c20e7bfb710fba26b68d3cf3ded6ffcef4166f98a4ea583fe",
-    "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png": "535989055bea54d1785ae193a330dddbb6b1d3e1b93e141901b4ad40a13225ba",
+    "docs/v2-pilot/evidence/electron-smoke/cm-step6-run.json": "0527d0d58cd71fe9e0f011ee976945ff63ee1cbe7108534eb8e130c4de3abce4",
+    "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png": "05bd1478438739e0d745b03cf4555114969a818319a36bcecaee8d6444a4ce59",
     "docs/v2-pilot/evidence/electron-smoke/remember-success-receipt.png": "836c1b7c44d4b5a2d0678ddce75563e0630c617da602a8e70f2b9bf840e0db25",
-    "docs/v2-pilot/evidence/electron-smoke/restart-persistence.png": "f3fe2e2cf68935cea95202f94f78a0e8468bc37912d8b04cd30ae8930f6b83fe",
-    "docs/v2-pilot/evidence/electron-smoke/result.json": "f4e42fabccce57982a5198963fbe1c79e50df99c4095e96440b41a29efb0c9ea",
+    "docs/v2-pilot/evidence/electron-smoke/restart-persistence.png": "6ca85064ac15ddc1dc2caac6aeebb31e7be409b3e7e49327665225bfda033d2d",
+    "docs/v2-pilot/evidence/electron-smoke/result.json": "e92507554820cd3cb39967f49c8053e381c426388fdd4e967ea18b8412fe17e6",
     "docs/v2-pilot/evidence/electron-smoke/undo-disappears.png": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0",
-    "docs/v2-pilot/pending.md": "6f7c6187d6fc6b104f0de224fe7997247196cdfe6aaf0f394397541093fa12ed",
+    "docs/v2-pilot/pending.md": "b17034b58538f0ce9f9bd067f835e865ea088f63e890295a8090b467225ee008",
     "examples/eval/cm-step4.mjs": "ed027251f72f79c843fb5b65006403471a94c250667d6427a363fcf5377c7900",
-    "examples/eval/cm-step6-live.mjs": "646b52e85905eeb49f14986975dfd038af65fb9a46b7cea292de3efa865e8de3",
-    "examples/eval/cm-step6-live.test.mjs": "55f787db4e9bd0a706d3fd5628dcbf918cd89d38fbf0e6d7f281a56dca75f450",
+    "examples/eval/cm-step6-live.mjs": "fcf7eac7de943bb64a4518e3727afe85bc899741f2291192883c8880c6146cf1",
+    "examples/eval/cm-step6-live.test.mjs": "a1bccc24937c793bce484bdf41f75968439f77be0ff747b35009f4f118283587",
     "examples/eval/compaction-fidelity.test.mjs": "00889a2ab366ff608d1fe090bded1e4af9928c8651507629bb1904e2bdc9e8f3",
     "examples/eval/context-blocks.mjs": "0b0dc939371c867cdc0b70ecd5cd115620ee4ab523bbfc3d089420703298efcc",
     "examples/eval/e2e.test.mjs": "da68557a97d5ff79f212166cfa1e075871067cde139c99b995fac39e79cf2e89",
@@ -512,8 +522,9 @@
     "packages/assistant/scripts/cm-step5-verify.mjs": "a0e276923badf232ad738fbd76526628a18b95bbfbefe1d0a3e3d781e4adac1a",
     "packages/assistant/scripts/cm-step6-verify.mjs": "3d89e1b316e8029ae89e3a652ff3cf9c5184cd44ed0ba837fc9382b072eacffd",
     "packages/assistant/src/api.ts": "07a13fbacd8b64f36c6689787695e45e41d8a5b0578e950b891c5ea23cde8648",
-    "packages/assistant/src/app.ts": "1ab7bdc6e88c375cf147709850788382b552e7d44489c9de67566cb65b6db61d",
-    "packages/assistant/src/assistant-controller.ts": "b94007eff3c6104ed8a5c897ca891c5c964e524b4ec446701ab37f853f43b330",
+    "packages/assistant/src/app.ts": "1308493be4ce72d68f208934b6890b9679af7c1b1bde1f5038604f4a9eb40b2b",
+    "packages/assistant/src/assistant-controller.test.ts": "3d3b3e1139ca3cb44c32a6545a7c897b4b7c0958a4998b16a655fdc0462c68e3",
+    "packages/assistant/src/assistant-controller.ts": "f8689d13f64843e85557141ff4d0bff49d31c8f58d6e3a7c87ebc58144c49e76",
     "packages/assistant/src/baseline-assembly.test.ts": "5c8b4ae6f4ddee0eb35b74f8e70892b8b9c97e388e7fdca45b1797bf95920ec6",
     "packages/assistant/src/compaction-records.ts": "a77a4bd41f14e532a9db449b55708f4f949bbf410f50e330516e87a93dd9db92",
     "packages/assistant/src/consolidation.ts": "482c4d869ffc2402d6dc9b34dbdeb6af2819f2320ed8bd4671bb6246713b099e",
@@ -522,20 +533,21 @@
     "packages/assistant/src/context-blocks.ts": "fc410c29da14a69aca1a9dd98b4b6a826b6cf7fa544e0abb77e7bc0a9600fd0a",
     "packages/assistant/src/context-compaction-acceptance.test.ts": "956a97b320394575597275cd2f153466c9938f2a59c85f01ab688f340294cacd",
     "packages/assistant/src/context-compaction-runtime.test.ts": "99d6f95bf81d2301a0c65e3d515611ae5bcc8abcc652c8540c9fa295fe34e48e",
-    "packages/assistant/src/context-compaction.ts": "55b91f3e63b39878ae5143ae7a40e61d9020c282d7ea9cb67e91dd28beb5d4ae",
-    "packages/assistant/src/context-compactor.test.ts": "20069bc193558c3ad5b3a19c8eb3d95b0c26557280a3117c9ad8c47be43aeace",
-    "packages/assistant/src/context-compactor.ts": "9b3eb7a27c0a87bb2e9024eb7c4eb65cc3f87dfd0a4078c99f9c779a1dcc07ed",
-    "packages/assistant/src/context-diagnostics.ts": "a629db88a5abb6cdb1ea897eeaab1436fa149055c822807eb4373d9fece0fe19",
+    "packages/assistant/src/context-compaction.ts": "0be07a95b86135c2fd1a7490b00047c0d41ccd5e5611877373aaa965866772b0",
+    "packages/assistant/src/context-compactor.test.ts": "c0cd9f1871ab77dc2871671f56c9096f7375194b7ff077ff3d1a41674038b26f",
+    "packages/assistant/src/context-compactor.ts": "e95facdf6e74efeff8cfcf4de8b74bd063b5dba629c22bd3793e04db78f29b82",
+    "packages/assistant/src/context-diagnostics.ts": "185a156842d8453a51e2c35b0940277eeb7d6237f9d9eb2a852b0b3878c27342",
     "packages/assistant/src/context-source.ts": "7e36e16625ef541c3bacdfd8d6e5b5f72b8bb1c820d50697f9f8faee74c6fc64",
     "packages/assistant/src/foreground-autonomy.ts": "359de414f1f184e3213ee69b0b8cde6a82a05cbdc2ded4d38836ab75e45a3705",
     "packages/assistant/src/history-tools.ts": "af5483b511e916d1402c8f442bfccb6011d8d6300f08341d412662675d49e2d0",
+    "packages/assistant/src/memory-controls.test.ts": "b6cc58b13d26f526ce5b4f7abf16fa0758c712ffab6c55c3f08dff1bbdb99698",
     "packages/assistant/src/memory-extraction.ts": "9e510a931a6f4ed1d1bc70cad3761821694484c1183d67a2fc0e8c8466638966",
     "packages/assistant/src/memory-factual-receipts.ts": "02e89478b6fcf0380adb0f215caab9a70d84e9bc5a02b673f7efb36319986eff",
     "packages/assistant/src/memory-m1-acceptance.test.ts": "3936ec30116d0563d1f3a403999306aaff33c9f061cfd3bbf8458487d14242f2",
     "packages/assistant/src/memory-observation-policy.ts": "1797ce4df53fb2563989f504c32355c9f6ac254ea06e2967f401b3e11a3217df",
     "packages/assistant/src/memory-store.ts": "dd2dc0360d24eb0844d8ee3e90e37a0aec9a4b7b18fd98707024e03297a3c340",
-    "packages/assistant/src/memory-v6-store.test.ts": "d83062f285e8efd200800adab3b56070b9ff2b7119bd41d24eae86fd78a0d744",
-    "packages/assistant/src/memory-v6-store.ts": "4aeacb61001511591e05afe89bb8a221f2a3ddd9e6a960b7bb708787b0c19a1e",
+    "packages/assistant/src/memory-v6-store.test.ts": "d1d677a81176e937c53e83ddc95b099efb44bca0e0fe5b5ab54c3192e01d2894",
+    "packages/assistant/src/memory-v6-store.ts": "bf5a73feca2534a2112087b98556eea77253736f01d9e1a8c8b29bb0545c5800",
     "packages/assistant/src/memory-write.ts": "dac7a4affda83600359e5036c16e365864d9fb1f5b1d39911ec0bb6add8cfb2f",
     "packages/assistant/src/model-context-budget.test.ts": "f0a67767fbc82e57b619fc64b96775dc79c6f2e817d6ed155bab96b98c7e2a6d",
     "packages/assistant/src/model-usage.test.ts": "b9b353923588a4864d64446325a2fedf8a4bd902824a7bb6ffcce7c879f32f33",
@@ -548,7 +560,7 @@
   },
   "smoke": {
     "file": "docs/v2-pilot/evidence/electron-smoke/result.json",
-    "sha256": "e92507554820cd3cb39967f49c8053e381c426388fdd4e967ea18b8412fe17e6",
+    "sha256": "6b98a69f7943d44ce3dc457fddbc7507187498fc92de62a903d698bdcdb959f0",
     "scriptSha256": "9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f",
     "checks": [
       {
@@ -595,38 +607,38 @@
     "screenshots": [
       {
         "file": "startup.png",
-        "sha256": "1610ab8d4f138ab90f131783c6986b2ccb7c4759aa8ee58639d40070d6fc577f"
+        "sha256": "4cfa429b22d752e8e0ddc941d1fbce7f0c539a3d420fd7314a88fe0527951438"
       },
       {
         "file": "chat-reply.png",
-        "sha256": "6344a6992c4d5d15769494f02968b119d9d26afcb37c3cc37c3b525896651497"
+        "sha256": "e337fddc2e70515843cf3eaf5623c5b6b35db0008cf213d712dfdfbdbfce35b5"
       },
       {
         "file": "remember-success-receipt.png",
-        "sha256": "836c1b7c44d4b5a2d0678ddce75563e0630c617da602a8e70f2b9bf840e0db25"
+        "sha256": "1fb853fbc522316e4c1d18f9fdb8ea1185ff8af5d299adaed00d1d49c1c61e23"
       },
       {
         "file": "remember-on-memory-page.png",
-        "sha256": "05bd1478438739e0d745b03cf4555114969a818319a36bcecaee8d6444a4ce59"
+        "sha256": "90820fd2a77711a80f20eb32c253cbc32e046eb0f15b0e1f941adf8e191e9469"
       },
       {
         "file": "restart-persistence.png",
-        "sha256": "6ca85064ac15ddc1dc2caac6aeebb31e7be409b3e7e49327665225bfda033d2d"
+        "sha256": "90c86ea7e452d6ffc0bf566d54d5efbc89488b45358e460183ecde4f0c196b72"
       },
       {
         "file": "undo-disappears.png",
-        "sha256": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0"
+        "sha256": "6039f8ada3afd56efc271e1c6c4ecc9176b6f7e906bf063f91f6cb3889eba4b2"
       },
       {
         "file": "daily-path-refuses-writes.png",
-        "sha256": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e"
+        "sha256": "f590116876d49dfd573158ba8b81befbe8bfe6631ea7178417c908606fe45ad7"
       },
       {
         "file": "daily-config-retired-fields.png",
-        "sha256": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9"
+        "sha256": "063735dc17bb6ebd6a592ab3530e01da9fcf67275961057e2fabade5b8308f34"
       }
     ]
   },
   "temporaryDirectoryRemoved": true,
-  "finishedAt": "2026-10-21T10:45:59.559Z"
+  "finishedAt": "2026-10-21T11:35:37.250Z"
 }

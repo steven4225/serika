@@ -54,7 +54,7 @@ export function safeFailure(error) {
     chain.push({ name: token(current.name), code: token(current.code ?? current.data?.code ?? envelope?.code ?? envelope?.type),
       httpStatus: Number.isInteger(current.statusCode) ? current.statusCode : null,
       finishReason: token(current.finishReason),
-      schemaPaths: [...(current.schemaPaths ?? []), ...issues.map(issue => issue.path)].map(path => Array.isArray(path) ? path.map(part => typeof part === 'number' ? part : token(part) ?? '[field]').join('.') : token(path) ?? '[field]'),
+      schemaPaths: [...(current.schemaPaths ?? []), ...issues.map(issue => issue.path)].map(path => Array.isArray(path) ? path.map(part => typeof part === 'number' ? part : token(part) ?? '[field]').join('.') : path === '$' ? '$' : token(path) ?? '[field]'),
       parameter: token(envelope?.param) });
   }
   return { chain };
@@ -134,7 +134,7 @@ async function runChat({ model, modelAlias, root, spec, question, label }) {
   await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: false }, 'read-file': { enabled: false } }, contextCompaction: spec.contextBudget,
     modelContextWindows: [{ provider: 'openai-compatible.chat', modelId: model.modelId, contextWindowTokens: spec.contextBudget.contextWindowTokens }], run: { maxSteps: 1, totalTimeoutMs: 120000 } }));
   const app = await createRuntimeApp({ directory: join(root, 'transcripts'), assistant: { threadId: 'eval', configPath }, model, modelAlias, output, env: {}, cwd: root });
-  const controller = createAssistantController(app); const unexpected = [];
+  const controller = createAssistantController(app); const unexpected = []; let backgroundFailure = null;
   controller.subscribe(event => { if (event.type === 'error' || event.type === 'approval') unexpected.push(event.type); });
   try {
     await controller.runs.list(); await app.background.pause();
@@ -145,7 +145,7 @@ async function runChat({ model, modelAlias, root, spec, question, label }) {
     // Let the queue finish its item before closing, so usage never becomes an assumed zero.
     while (true) {
       const d = await controller.getContextDiagnostics(); assert.ok(d.ok);
-      if (d.value.background?.error) throw Object.assign(new Error('Background rejected summary'), { cause: d.value.background.failure });
+      if (d.value.background?.error) { backgroundFailure = d.value.background.failure ?? { code: 'CONTEXT_SUMMARY_FAILED' }; break; }
       if (!d.value.background?.queued && !d.value.background?.running) break;
       if (Date.now() > end) throw new Error('Background did not settle'); await delay(25);
     }
@@ -153,7 +153,7 @@ async function runChat({ model, modelAlias, root, spec, question, label }) {
     const diagnostics = await controller.getContextDiagnostics();
     const response = result?.text ?? '';
     const checks = {
-      completed: result?.status === 'completed', goal: response.includes('完成验收报告'), decision: response.includes('本地文件'), pending: response.includes('失败样本'),
+      completed: result?.status === 'completed', backgroundSettled: !backgroundFailure, goal: response.includes('完成验收报告'), decision: response.includes('本地文件'), pending: response.includes('失败样本'),
       permission: /未.*(?:批准|授权)|尚未.*(?:批准|授权)|没有.*(?:批准|授权)/.test(response),
       uncertain: /(?:结果|状态|写入).{0,12}(?:未知|不确定)|(?:未知|不确定).{0,12}(?:结果|写入)/.test(response),
       noAutomaticRetry: /(?:不能|不应|不得|不可|不要|不允许).{0,15}(?:自动重试|重试)|(?:需|需要|必须).{0,15}(?:核实|确认|对账)/.test(response),
@@ -163,7 +163,7 @@ async function runChat({ model, modelAlias, root, spec, question, label }) {
       inputFits: diagnostics.ok && diagnostics.value.lastPreparation.estimatedInputTokens <= spec.contextBudget.inputBudgetTokens,
     };
     return { label, pid: process.pid, checks, passed: Object.values(checks).every(Boolean), reply: response, runStatus: result?.status,
-      usageCalls: (await controller.runs.listModelUsage()).calls.length - before, diagnostics: diagnostics.ok ? diagnostics.value : null };
+      backgroundFailure, usageCalls: (await controller.runs.listModelUsage()).calls.length - before, diagnostics: diagnostics.ok ? diagnostics.value : null };
   } finally { await controller.shutdown(); app.dispose(); }
 }
 
@@ -218,6 +218,15 @@ async function main() {
     fresh.calls.at(-1).transport.httpStatus = response.status; await saveAttempt(evidencePath, fresh);
     return response;
   } });
+  if (!cold) {
+    const response = await fetch('https://api.commandcode.ai/provider/v1/models', { redirect: 'error' });
+    const catalog = await response.json();
+    const item = catalog.data?.find(item => item.id === env.COMMAND_CODE_MODEL_ID);
+    const report = JSON.parse(await readFile(evidencePath, 'utf8'));
+    report.providerContract.catalog = { httpStatus: response.status, modelFound: !!item, supportedEndpoints: item?.supported_endpoints ?? [], strictSchemaSupportAdvertised: Object.hasOwn(item ?? {}, 'supported_parameters') };
+    await saveAttempt(evidencePath, report);
+    assert.ok(item?.supported_endpoints.includes('/chat/completions'));
+  }
   let current = cold ? 'cold' : 'm1';
   const model = await meteredModel(selected.model, evidencePath, () => current);
   if (cold) {
@@ -247,6 +256,7 @@ async function main() {
         modelContextWindowTokens: spec.contextBudget.contextWindowTokens, fixedContext: () => ({ instructions: 'Maintain original constraints.', tools: [] }), summarizer: createAiSdkSummarizer(model) });
       for (let generation = 0; generation < spec.rounds; generation++) {
         const round = { generation, startedAt: new Date().toISOString(), backgroundItems: [], passed: false }; rounds.push(round);
+        try {
         current = `${id}/background/${generation}`;
         messages = [...await store.getModelMessages('eval'), ...compactionFidelityHistory(spec, generation).messages,
           { id: `${id}-probe-${generation}`, role: 'user', parts: [{ type: 'text', text: spec.turns[generation] }] }];
@@ -268,18 +278,20 @@ async function main() {
           report.results = results; await saveAttempt(evidencePath, report);
           if (compactor.backgroundError) break;
         }
-        if (compactor.backgroundError) break;
         const records = await store.getContextCompactions('eval'), record = records.at(-1);
-        assert.ok(record); const view = layerMessage(record), viewText = JSON.stringify(view);
+        const view = record ? layerMessage(record) : null, viewText = JSON.stringify(view);
         const bounds = blockLimits(spec.contextBudget);
         const layerChecks = { goal: viewText.includes(spec.truth.goal), decision: viewText.includes('本地文件'), pending: viewText.includes('失败样本'),
-          permission: viewText.includes('批准'), unknown: record.summary.actions.some(action => action.toolCallIds.includes('fidelity-write') && action.status === 'unknown'),
-          recent: record.layers.recent.length <= 4, index: record.layers.index.length <= 1,
-          total: estimateMessageTokens([view, record.checklist]) <= bounds.totalSummary };
+          permission: viewText.includes('批准'), unknown: !!record?.summary.actions.some(action => action.toolCallIds.includes('fidelity-write') && action.status === 'unknown'),
+          recent: !!record && record.layers.recent.length <= 4, index: !!record && record.layers.index.length <= 1,
+          total: !!view && estimateMessageTokens([view, record.checklist]) <= bounds.totalSummary };
         current = `${id}/chat/${generation}`;
         const chat = await runChat({ ...selected, model, root: caseRoot, spec, question: spec.turns[generation], label: `round-${generation}` });
-        Object.assign(round, { finishedAt: new Date().toISOString(), records: records.length, layerChecks, chat, passed: Object.values(layerChecks).every(Boolean) && chat.passed });
-        console.log(JSON.stringify({ case: id, generation, passed: rounds.at(-1).passed }));
+        Object.assign(round, { finishedAt: new Date().toISOString(), records: records.length, layerChecks, chat, passed: !compactor.backgroundError && Object.values(layerChecks).every(Boolean) && chat.passed });
+        } catch (error) { round.error = safeFailure(error); }
+        const roundReport = JSON.parse(await readFile(evidencePath, 'utf8')); roundReport.results = results; await saveAttempt(evidencePath, roundReport);
+        if (roundReport.stopped) throw new Error('Batch stopped after provider failure');
+        console.log(JSON.stringify({ case: id, generation, passed: round.passed, backgroundFailure: round.backgroundItems.find(item => item.failure)?.failure ?? null }));
         // Each fresh object reopens committed layers; the final check uses a separate OS process.
         compactor = new ContextCompactor({ store, threadId: 'eval', modelId: selected.modelAlias, budget: spec.contextBudget,
           modelContextWindowTokens: spec.contextBudget.contextWindowTokens, fixedContext: () => ({}), summarizer: createAiSdkSummarizer(model) });
