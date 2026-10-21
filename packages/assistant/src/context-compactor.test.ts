@@ -223,3 +223,15 @@ it("an irreducible failure ledger fails before dispatch without dropping failure
   await assert.rejects(compactor.prepare(store.messages, signal()), /checklist exceeds/);
   assert.equal(calls, 0); assert.equal(store.records.length, 0); assert.deepEqual(store.messages, before);
 });
+
+it("reported provider overflow recalibrates a single oversized current message when there is no additional safe block", async () => {
+  const store = new FakeStore(); store.messages = [user("current", "HEAD" + "x".repeat(60000) + "TAIL")];
+  const before = structuredClone(store.messages); let calls = 0;
+  const compactor = make(store, { complete: async () => { calls++; return { text: JSON.stringify(summary) }; } });
+  await compactor.prepare(store.messages, signal()); compactor.reportedOverflow(40000);
+  const projected = await compactor.prepare(store.messages, signal());
+  assert.match(JSON.stringify(projected), /HEAD/); assert.match(JSON.stringify(projected), /TAIL/); assert.match(JSON.stringify(projected), /history_read/);
+  const diagnostics = await compactor.getDiagnostics(); assert.ok(diagnostics.ok);
+  assert.ok(diagnostics.value.lastPreparation!.estimatedInputTokens! <= budget.inputBudgetTokens!);
+  assert.equal(calls, 0); assert.deepEqual(store.messages, before);
+});

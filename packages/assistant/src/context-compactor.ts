@@ -304,8 +304,9 @@ export class ContextCompactor {
     const sources = await this.#options.checklist?.();
     const requestLimit = Math.max(1, limits.section);
     const fixedTokens = estimateContextBudget({ ...fixed, messages: prefix }, this.#options.budget).inputTokens;
-    if (fixedTokens >= contextBudgetThresholds(this.#options.budget).availableInputTokens) throw contextError("Fixed context exceeds the available input budget; no model request dispatched");
-    const singleLimit = Math.max(1, contextBudgetThresholds(this.#options.budget).availableInputTokens - fixedTokens);
+    const recalibratedInput = Math.floor(contextBudgetThresholds(this.#options.budget).availableInputTokens / this.#reportedScale);
+    if (fixedTokens >= recalibratedInput) throw contextError("Fixed context exceeds the available input budget; no model request dispatched");
+    const singleLimit = Math.max(1, recalibratedInput - fixedTokens);
     const foreground = messages.flatMap(message => ((message.metadata ?? {}) as { contextReferences?: UIMessage[] }).contextReferences ?? []).filter(message => message.id === "runloom-foreground-task").at(-1);
     const boundedForeground = foreground ? fitMessage(foreground, singleLimit) : undefined;
     const bounded = visible.map(message => fitMessage(message, Math.min(this.#options.budget.contextWindowTokens,
@@ -328,8 +329,7 @@ export class ContextCompactor {
     if (this.#extraBlock) {
       const next = maskOldestBlock(messages, boundary, limits.block);
       this.#extraBlock = false;
-      if (next <= boundary) throw contextError("Provider context overflow has no further safe block boundary");
-      boundary = next;
+      if (next > boundary) boundary = next;
     }
     let view = compose(), measured = estimate(view);
     const recentTokens = () => estimateMessageTokens(bounded.filter(message => messages.slice(boundary).some(item => item.id === message.id)));

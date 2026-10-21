@@ -21,12 +21,12 @@
     {
       "step": "4-6",
       "runId": "046c057c-16de-46aa-8059-3c8cb0a7bc30",
-      "realModelRequests": 21,
+      "realModelRequests": 22,
       "amount": 0.02199946,
-      "unresolvedCalls": 0,
-      "unresolvedReservedUsd": 0,
+      "unresolvedCalls": 1,
+      "unresolvedReservedUsd": 0.0013248000000000001,
       "evidence": "cm-step6/live.json",
-      "evidenceSha256": "c20e6855c12826227953cebba918b5fea3c17b38d0f083ba4d19c7df7ad98278"
+      "evidenceSha256": "8d76edf3837151731c2270d7265c31aa7c91f99fc930cd6b037ba74de97135f2"
     }
   ],
   "total": 0.38199945999999996
