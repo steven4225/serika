@@ -122,8 +122,10 @@ test('new live evidence reports both goal rules, safe key-value counts and every
     degradation: { reasons: ['summary_overflow', 'checklist_overflow'], maskedFromMessageId: '1', maskedThroughMessageId: '9' } } };
   const summary = summarizeBatch([{ suite: 'M1', planned: 18, passed: false, results: [{ passed: false, diagnostics: { validationFailure: { reasonCode: 'SOURCE_VALUE_MISSING' } } }] },
     { suite: 'CF03', passed: false, rounds: [{ generation: 0, passed: true, passedOldRule: false, preparations: [{ stage: 'mask', diagnostics: diagnostic.lastPreparation }],
-      chat: { reply, passedByRule: { old: false, new: true }, diagnostics: diagnostic } }] }]);
+      chat: { reply, passedByRule: { old: false, new: true }, diagnostics: diagnostic } }] },
+    { suite: 'CE03', passed: false, rounds: [] }, { suite: 'CE05', passed: false, rounds: [] }]);
   assert.equal(summary.keyValueFailures.SOURCE_VALUE_MISSING, 1); assert.equal(summary.keyValueFailures.QUOTE_VALUE_MISSING, 0);
+  assert.equal(summary.scores[2].newRule.total, 3); assert.equal(summary.scores[3].newRule.total, 5);
   assert.equal(summary.scores[1].newRule.passed, 1); assert.equal(summary.scores[1].oldRule.passed, 0);
   assert.equal(summary.qualifiedAnswers[0].reply, reply); assert.equal(summary.c5.count, 2);
   assert.equal(summary.c5.providerPreparationCount, 1); assert.equal(summary.c5.totalBorrowedTokensAcrossPreparations, 768);

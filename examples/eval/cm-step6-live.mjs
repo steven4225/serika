@@ -187,10 +187,11 @@ export function summarizeBatch(results) {
       answer(result.suite, `${round.generation}/chat`, round.chat);
     }
     answer(result.suite, 'cold', result.cold);
-    scores.push({ suite: result.suite, newRule: { passed: result.rounds.filter(round => round.passed).length, total: compactionFidelitySpec(result.suite).rounds,
+    const spec = result.suite.startsWith('CE') ? effectiveCompactionFidelitySpec(result.suite) : compactionFidelitySpec(result.suite);
+    scores.push({ suite: result.suite, newRule: { passed: result.rounds.filter(round => round.passed).length, total: spec.rounds,
       cold: result.cold?.passed ?? false, suitePassed: result.passed },
-      oldRule: { passed: result.rounds.filter(round => round.passedOldRule).length, total: compactionFidelitySpec(result.suite).rounds,
-        cold: result.cold?.passedByRule?.old ?? false, suitePassed: result.rounds.length === compactionFidelitySpec(result.suite).rounds && result.rounds.every(round => round.passedOldRule) && result.cold?.passedByRule?.old === true } });
+      oldRule: { passed: result.rounds.filter(round => round.passedOldRule).length, total: spec.rounds,
+        cold: result.cold?.passedByRule?.old ?? false, suitePassed: result.rounds.length === spec.rounds && result.rounds.every(round => round.passedOldRule) && result.cold?.passedByRule?.old === true } });
   }
   return { scores, keyValueFailures: reasonCounts, qualifiedAnswers,
     c5: { count: c5.length, providerPreparationCount: c5.filter(item => item.stage.endsWith('/chat') || item.stage === 'cold').length,
@@ -399,6 +400,7 @@ async function main() {
     }
   } catch (cause) { error = safeFailure(cause); }
   const report = JSON.parse(await readFile(evidencePath, 'utf8'));
+  report.results = results; await saveAttempt(evidencePath, report);
   Object.assign(report, { results, summary: summarizeBatch(results), error, finishedAt: new Date().toISOString(), passed: !error && results.length === 5 && results.every(result => result.suite === 'M1' ? result.results.every(item => item.passed) : result.passed) });
   await rm(root, { recursive: true, force: true }); report.temporaryDirectoryRemoved = true;
   await saveAttempt(evidencePath, report);
