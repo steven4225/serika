@@ -15,7 +15,7 @@
       "step": 4,
       "realModelRequests": 0,
       "amount": 0,
-      "evidence": "electron-smoke/result.json",
+      "evidence": "electron-smoke/cm-step4-original-result.json",
       "evidenceSha256": "f4ca3de799438b69c423f04f38a5f2ed0b02632c57785a3e8f1842adf5dabfe9"
     },
     {
@@ -25,9 +25,20 @@
       "amount": 0.02199946,
       "unresolvedCalls": 1,
       "unresolvedReservedUsd": 0.0013248000000000001,
-      "evidence": "cm-step6/live.json",
+      "evidence": "cm-step6/live-legacy-mixed.json",
       "evidenceSha256": "8d76edf3837151731c2270d7265c31aa7c91f99fc930cd6b037ba74de97135f2"
+    },
+    {
+      "step": "4-6",
+      "runId": "1834686a-b68d-49fb-9f39-d04f1f99bac9",
+      "realModelRequests": 122,
+      "amount": 0.68218348,
+      "unresolvedCalls": 0,
+      "unresolvedReservedUsd": 0,
+      "evidence": "cm-step6/live-1834686a-b68d-49fb-9f39-d04f1f99bac9.json",
+      "evidenceSha256": "6e7eab280c2b4ba47dffea75b6066ec36d10c1179356958687242e89517db6b5"
     }
   ],
-  "total": 0.38199945999999996
+  "total": 1.06550774,
+  "knownTotal": 1.0641829399999998
 }

@@ -1,45 +1,47 @@
-# 上下文与记忆：第 6 步
+# 上下文与记忆：第 6 步（56ad8d7 审核修复）
 
 ## 1. 改了什么
 
-代码检查已完成；**第 4–6 步真实模型验收未通过，停在审核关口，不进入第 7 步。** 首个提交 `866ba7e` 修 Linux Xvfb 1440×900×24 与产品 +08:00 分钟时间，TG 测试未改。主体由 `context-blocks`、`context-source`、`thread-background`、`transcript-access`、`history-tools` 分担比例边界／分层、原文前缀、队列、排除投影和编号读取；删除同步压缩／即时重试旧路径。新增产品代码超过 400 行，按已批准本步拆分，app/Controller 只接线。日用 env 仅复制模型变量到 mode0600 临时文件，原文件未改，临时目录已删除。
+**四条必改已修；整批真实模型仍未通过，停下等审核，不进入第 7 步、不迁日用。** `1db5a5c` 修诊断／删除抑制／清单降级／必接过滤；`6f2193e` 完成逐轮证据与完整重跑脚本。原第 6 步代码范围沿用已接受的 56ad8d7。首个时间修复是产品行为变更：给模型的时间按约定固定为 +08:00 分钟，不再跟随宿主 TZ；共用时区常量仍在待办。
 
 ## 2. 逐条对照验收项
 
-| 项目 | 结果与证据 |
+| 审核项 | 结果与证据 |
 |---|---|
-| UTC 时间与 Linux 启动 | 已做：`Telegram receive clock…` 在 `TZ=UTC` 先红后绿；后续 runner 同样带 Xvfb screen 参数 |
-| 前台立即屏蔽、不等模型 | 已做：`foreground masks complete blocks…`、`context-compaction-runtime`；prepare 辅助模型派发为 0，完整工具单元不拆分 |
-| 后台单队列、一次无工具调用、两轮间换摘要 | 已做：`thread-background`；取消／来源变化不保存；每项一次调用，失败保留原文，诊断保留后台错误 |
-| 分层／远期索引及比例预算 | 已做：`background installs one bounded segment…`，32K 和日用；最近最多 4 段，第 5 段并入索引，段／索引／总预算按有效窗口缩放 |
-| 不可模糊清单、未知效果 | 已做：宿主直接取请求、同 Run 修正、WorkTask、权限和回执；失败／unknown 全保留；`irreducible failure ledger…`、adapter 不重放工具用例 |
-| 屏蔽后补抽、不能跳 cursor | 已做：`oversized leading assistant and user material…`、`memory-m1-acceptance`；按顺序分片，最后一片前不越过来源；旧 pending 重抽不覆盖新值 |
-| 排除记录与所有内容读取 | 已做：`privacy exclusions survive restart…`、core `exclusion companions…`、backup `export filters excluded…`；原聊天不改，派生记忆与原话清理、撤销不能复活，旧摘要／索引／快照失效；诊断列出相关消息／文档 |
-| 搜历史／编号读／工具区间读 | 已做：`history_search`、`history_read`；普通聊天及自主只读，排除消息仅占位；工具正文可按 Unicode 区间读 |
-| 单条超窗与服务端超限 | 已做：head/tail+原文占位；`reported provider overflow…` 验证实报比例重算；adapter 最多重试一次、不重放工具 |
-| pending I | 已做：`a null tip boundary remains valid after append…`；覆盖前缀 hash 不变时追加仍复用；cm-replay 同步 |
-| 顶部等待整理提示 | 已做：quiet 模式隐藏例行 backlog/running，失败／实际回执仍展示；真实 Electron chat 截图已核对无常驻等待条，记忆页待整理段数尚无截图证据，本次不作已验证声明 |
-| 全套／真实 Electron | 已做：最终 `cad042e` 干净源码、macOS 构建 Electron、原 preload/IPC、隔离路径；全套 1775 pass / 0 fail / 11 skip；eval 79/79；smoke 8/8 |
-| 合批真实模型／原对话重放／32K | **未通过**：首轮 M1 2/18（含固定哈希 replay-9，两档）；CF03 第 3 个后台项拒绝摘要。修抽取 schema 后续跑首调用失败且缺用量，批次冻结；CF05、CE03、CE05、独立冷进程实模验收未跑 |
-| 14 行旧记忆表、停止关口 | 已交：附表 B；仅只读，无日用迁移；4 条对话级条目等用户裁决 |
+| 1 无原文失败诊断 | 已做：保留 HTTP 状态、错误名／码、结束原因、schema 路径；`failure diagnostics retain status…` 用敏感哨兵验证不保留正文／上游消息；每个后台项在返回时写 live，CF03 有实际 callIds、路径和拒绝原因 |
+| 1 参数支持先核查 | 已做：真实适配器边界测试及本轮 122 个 HTTP 请求均无 `response_format`，Schema 仅是提示词正文；服务商目录确认该模型支持 chat/completions，但没公布严格 Schema 参数支持，未把兼容接口说成严格支持 |
+| 2 轮次分开、整批重跑、同一预算 | 已做：新轮独立 runId／时间／源码／脚本哈希／文件；旧混合文件逐字归档，缺失的旧诊断不追补；旧未知调用以 $0.0013248 计入预算，每次派发先记预留。本轮 M1 18 项、CF/CE 共 16 轮及 4 个独立冷进程均实际运行 |
+| 3 过滤必须提供 | 已做：`RuntimeApp.projectExecutionRuns` 为必需，Controller list/get 均无未过滤回退，测试嵌入器显式提供投影；strict typecheck 通过 |
+| 4 删除后重抽 | 已做：来源 Thread／消息 + subject／attribute；没有身份时退正文哈希。`v6 replacement/undo…source-specific deletion survive reopen` 先复现换措辞被抽回，再修复；同消息其他属性仍能写 |
+| 4 清单超预算不中断 | 已做：超比例清单借用近期原文额度，屏蔽最旧完整块，保留全部失败／unknown，诊断记 `checklist_overflow`、预算和边界；`an oversized checklist masks old blocks…` 先红后绿 |
+| 4 旧摘要权限 | 已做：`reusing an old summary rebuilds…current permission snapshot` 验证旧摘要复用时仍有权限字段，当前快照 true→false，不继承旧授权 |
+| 全套与真实 Electron | 已做：干净 6f2193e，**macOS** UTC 全套 1776 通过／0 失败／11 跳过，eval81/81，构建 Electron 原 preload/IPC、隔离目录，smoke8/8，脚本 SHA 未变；统一 runner 退出0 |
+| 合批真实模型关口 | **未通过**：本轮 a1189c9、run `1834686a-b68d-49fb-9f39-d04f1f99bac9`，122 次调用均 HTTP200、均返回用量，完整结果见下表；runner 退出1 |
+| 旧记忆裁决／第7步条件 | 已记录附表B/C和唯一计划第7步；未执行迁移；记忆页段数无截图，撤回该已验证声明 |
+
+| 实模项目 | 既定检查结果 | 可核原因／冷进程 |
+|---|---|---|
+| M1（32K＋日用，含固定哈希原对话 replay-9） | 8/18 | 10 项均被“正文必须逐字来自绑定证据”的宿主校验拒绝；不是服务商参数错误，两档原对话重放均未过 |
+| CF03 | 2/3 轮；整项未过 | 第0轮 goal 是数组，schema 路径 `goal`、finish `stop`；冷进程回答和无重建通过 |
+| CF05 | 2/5 轮；整项按原检查未过 | 3 个负项均为 `pastRead` 正则漏判：实际回答明确读取成功，但文件名等使“读取→成功”间隔超过12字符；原分和 Oracle 不改。冷进程回答和无重建通过 |
+| CE03（32K） | 0/3 轮 | constraints/pending 等字段结构错误，另有摘要／索引比例预算拒绝；冷进程有重建且回答检查未过 |
+| CE05（32K） | 0/5 轮 | 同类 schema 与比例预算拒绝，部分目标／待办检查未满足；冷进程有重建且回答检查未过 |
 
 ## 3. 前后数字
 
-相对 `a183ddf`，产品 +713/−632，测试 +560/−1481，脚本 +332/−6；新增测试行少于新增产品行。旧同步用例退休的依据见附表 A，历史快照／Oracle 未改分。实测 OS 是 macOS、构建后的 Electron；本机未跑 Linux，沿用用户批准的 bot1 Linux+Xvfb 独立复现，smoke SHA 始终 `9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f`。
+本轮对 56ad8d7：产品 +63/−17、测试 +66/−4、脚本 +134/−54；测试新增多3行，是三项指定行为回归及脱敏／真实适配器边界证据所需，无删除测试文件、跳过新增测试或改历史 Oracle／快照。原 UTC 1775/11 仅为 **macOS**；用户独立复现的 **Linux＋Xvfb 1440x900x24、Electron44.4.5、干净56ad8d7** 在 UTC／+08:00 各 1767/19，eval79/79、smoke8/8，8个额外跳过为既有 macOS 专属测试；该独立结果未冒称为本机新代码实测。
 
-同一付费批次共 22 次派发：21 次返回用量计 **$0.02199946**，1 次费用未知（派发前预留 $0.0013248，非实际账单）；计划已知累计 $0.38199946。没有触达 $2 门槛；因未知用量先冻结。`live.json` 保留首轮失败与续跑，不把失败／未跑当成功，不把未知当零。
+按批准报价，本轮 $0.68218348；历史已知 $0.02199946＋旧未知预留 $0.0013248，**合批预算占用 $0.70550774 / $2**。计划累计已知 $1.06418294，含预留 $1.06550774 / $5。旧未知调用仍未知，不按0，不将预留冒称账单；本轮无新增未知用量。
 
 ## 4. 实际命令和退出码
 
-最终运行：`node packages/assistant/scripts/cm-step6-verify.mjs` → 0；脚本实际设置 TZ=UTC 并依次执行 `pnpm typecheck` → 0、`pnpm test` → 0、`pnpm eval:test` → 0、`pnpm --filter @serika/desktop smoke` → 0。运行时随机编号、PID、版本、源码／脚本／截图 hash 和实际退出码见 [verification.json](evidence/cm-step6/verification.json)、[smoke result](evidence/electron-smoke/result.json)。真实模型首轮与续跑命令为 `SERIKA_CM4_REPLAY=/tmp/cm-step4-replay9.json node examples/eval/cm-step6-live.mjs --approved-live [--continue-approved-batch]` → 均 1；调用与累计费用见 [live.json](evidence/cm-step6/live.json)、[cost-ledger.json](evidence/cost-ledger.json)。
+`node packages/assistant/scripts/cm-step6-verify.mjs` → 0（1db5a5c、6f2193e 各跑完整套和真实 Electron）；最终运行证据：[docs/v2-pilot/evidence/cm-step6/verification.json](evidence/cm-step6/verification.json)、[docs/v2-pilot/evidence/electron-smoke/result.json](evidence/electron-smoke/result.json)。
+
+`SERIKA_CM4_REPLAY=/tmp/cm-step4-replay9.json node examples/eval/cm-step6-live.mjs --approved-live --rerun-approved-batch` → 1；独立原始证据：[docs/v2-pilot/evidence/cm-step6/live-1834686a-b68d-49fb-9f39-d04f1f99bac9.json](evidence/cm-step6/live-1834686a-b68d-49fb-9f39-d04f1f99bac9.json)，[docs/v2-pilot/evidence/cm-step6/live.json](evidence/cm-step6/live.json) 是该轮逐字副本；旧证据 [docs/v2-pilot/evidence/cm-step6/live-legacy-mixed.json](evidence/cm-step6/live-legacy-mixed.json) 原字节归档；[docs/v2-pilot/evidence/cost-ledger.json](evidence/cost-ledger.json) 可复算预留和累计。模型仅使用授权本地 env 的必要变量，mode0600 临时文件与工作目录已清理，日用文件未改。参数核查依据：[服务商官方文档](https://commandcode.ai/docs/provider)及本轮请求字段／公开目录记录。
 
 ## 5. 与计划不符的地方及理由
 
-真实模型关口未过：本轮停止付费请求，须先核实未知调用与 CF03 拒绝原因，再继续当前验收；第 7 步不开工。抽取格式修复已做离线／Electron 重验，未获得真实模型重验。所有失败保留。
-
-撤回早先 `first-fixes.json`：它曾事后包装真实日志并补编号，违反运行时证据规则，已删除；首个修复由后续统一 runner 重新实际验证。另复现并修复：合法大窗口原文被旧 32K 合并限额裁剪、完成文件递归进入后续段、单条消息无第二块时重算失败、无排除记录的损坏备份被提前读取；正文未靠改历史分数变绿。只做第 6 步及其验证修复。
-
-已查 legacy 94（互斥／取消）、98/99（唯一行为循环／回执）、108/193（TG 信任）、113/123（来源／CAS）、139（完整工具交互／未知效果）、195（原请求／Steer）；本步按已批准计划变更上下文，权限、审批、回执格式、verifier 不变量保持。实验工作树单独操作，未改 main、未开 PR。
+**实模仍未通过，按本次要求交材料并停下等审核。** 下一关口需处理记忆正文逐字输出、摘要 schema／比例预算合规及 CF05 检查漏判；本轮不改来源校验和历史分数来凑通过。旧“第三个后台项拒绝摘要”的历史细节已丢失，不能追补为证据；新失败逐项有可核记录。此前事后包装的 first-fixes.json 仍撤回，以运行时统一 runner 为准。读过旧约束94、98/99、139、193、195：前后台互斥、唯一行为循环、完整工具交互、未知效果及权限边界保持。第7步和日用迁移均未开始。
 
 ### 附表 A：旧断言调整依据
 
@@ -54,6 +56,8 @@
 | `model-usage` | 人工强制同步 compact → 实际 prepare / runPending；短聊天零抽取和用量账本断言保留 |
 | `baseline-assembly` | 固定工具集合 → 单独断言新增 `history_read/search` 后，与旧固定集合比较；未改历史快照 |
 | `examples/eval/*` 块形状检查 | 旧多块合并器 → 产品同一完整工具边界；冻结 fixture、truth、旧 Oracle 的正负断言不变；新分层路径另记 |
+
+本轮新增调整：`an irreducible failure ledger fails before dispatch…` 原断言要求抛错，按此次审核改为 `an oversized checklist masks old blocks…`：200 条失败均保留、前台零调用、输入不超窗口、旧日志不变且记录降级。新增旧摘要复用权限 true→false、同来源同身份换措辞重抽、诊断脱敏及真实适配器请求字段检查。
 
 未删除测试文件；旧同步实现对应用例被合并成新生命周期用例，不以历史测试数量充当本步质量指标。首个包装证据已撤回，最终结果见统一 runner 证据。
 
@@ -78,16 +82,6 @@
 | 13 / 8291bb0f | 工作区 | automationRefresh/reconnecting 不回退及文档先例任务 | 移到项目决策记录，不进个人记忆 |
 | 14 / ba71d2c9 | 工作区 | 把连续相同错误只显示一次写入测试注释／pending | 丢弃不迁；未完成则记入待办 |
 
-### 本轮审核修复（56ad8d7 后）
-
-- 必改 1：无原文失败诊断记录 HTTP 状态、错误名称／码、结束原因、schema 路径；每个后台项在调用后即写证据，CF03 的失败不再依赖空 rounds。`safeFailure` 测试使用敏感哨兵验证日志无原文。
-- 参数核查：[服务商文档](https://commandcode.ai/docs/provider) 确认 Chat Completions 兼容，但未承诺该模型严格 schema 输出。本产品使用普通文本请求，JSON Schema 仅在提示词中；真实适配器的边界测试确认无 `response_format` 和工具。新实模证据另记实际 HTTP 请求字段，不能把约 2.8→4.6KB 的提示词增长说成新增结构化参数。
-- 必改 2：每次调用 runner 新建 runId、开始时间、源码提交、独立文件；旧混合证据逐字归档，无法补回的旧轮次字段不伪造。旧未知调用按 $0.0013248 预留计入同一 $2 总预算；每次派发即更新账本。
-- 必改 3：`RuntimeApp.projectExecutionRuns` 必须装配，Controller 无未过滤回退；测试嵌入器显式提供投影。
-- 必改 4：删除抑制按来源 Thread／消息 + subject／attribute，无身份才比正文；换措辞重抽已先红后绿。清单超比例预算借用近期原文额度，先屏蔽完整旧块，仍保留失败／unknown，写入降级诊断。旧摘要复用从当前快照重建权限，已测 true→false。
-- 断言调整：`an irreducible failure ledger fails before dispatch…` 原先要求抛错，按本次明确审核改为 `an oversized checklist masks old blocks…`，逐项保留 200 条失败、输入不超窗口、前台零调用、原日志不变。没有改历史 Oracle／快照。
-- 旧验证平台：1775 通过／11 跳过仅指 macOS。用户独立复现干净 56ad8d7：Linux＋Xvfb 1440x900x24、Electron 44.4.5，UTC／+08:00 各 1767 通过／19 跳过，eval79/79、smoke8/8；多 8 个 macOS 专属跳过，8 张图由用户逐张核对。本机未冒充重新运行 Linux。
-
 ### 附表 C：第 7 步删除 thread 范围的既定清单（本轮只列方案）
 
 | 现有写入口／格式 | 第 7 步动作 |
@@ -100,5 +94,3 @@
 | `bindMemoryWrite`、自动抽取、导入、新建文档 | 已固定 workspace；第 7 步去掉旧 scope 类型和调用参数，不新增第二条写路径 |
 
 未执行迁移：长期保留 1、9、12；10、11、13 移项目文档；2–8、14 丢弃，原聊天保持。第 7 步须在真实模型验收通过并获准后，交迁移前后对照证据。
-
-本轮离线最终验证：干净 `6f2193e`，macOS 构建 Electron，UTC 全套 1776 通过／0 失败／11 跳过，eval81/81，真实 Electron8/8；smoke脚本SHA不变。统一 runner退出0。真实模型整批重跑尚待本轮独立证据。

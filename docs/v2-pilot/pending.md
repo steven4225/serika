@@ -75,3 +75,5 @@
 - 第 7 步验收固定：迁移后 memory-v6-store.ts 不引用 memory-store.ts，删除旧候选审核／双时态空接口并改完调用方；memory／文档库范围最终仅 workspace，来源与执行 Thread ID 保留。
 - 非阻塞：将 context-assembler／memory-observation-policy 的 Asia/Shanghai 合为常量，并明确固定 +08:00 是产品行为变更；清掉 Controller 待整理积压读取原始 store 的旧回退。
 - 记忆页待整理段数尚无截图，本轮删去已验证声明；连续同错去重任务（旧记忆14）若继续做，应单独排期。
+
+- 本轮真实模型全批已跑，仍未通过：M1 8/18，CF03 2/3、CF05既定检查2/5（3处pastRead正则漏判，原分保留），CE03 0/3、CE05 0/5。后续只在审核后的同一第6步关口处理正文逐字输出、摘要schema／比例预算与检查漏判；不扩第7步。本轮费用及旧未知预留共$0.70550774／$2。
