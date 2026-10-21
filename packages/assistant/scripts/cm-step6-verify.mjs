@@ -49,6 +49,8 @@ try {
   // Keep the independently reproduced smoke script unchanged in a clean temporary checkout.
   run('git', ['clone', '--shared', '--no-checkout', repo, smokeCheckout]);
   run('git', ['checkout', '--detach', report.sourceCommit], smokeCheckout);
+  // Git's node_modules/ rule does not cover directory symlinks.
+  await writeFile(join(smokeCheckout, '.git/info/exclude'), '**/node_modules\n');
   const linkDependencies = async relative => {
     const source = join(repo, relative, 'node_modules');
     try { await access(source); } catch { return; }
