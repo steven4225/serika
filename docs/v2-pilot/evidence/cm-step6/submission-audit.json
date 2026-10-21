@@ -1,0 +1,20 @@
+{
+  "runId": "dbfc7195-5c16-4bf1-a6e4-cf49bd6c598b",
+  "generatedAt": "2026-10-21T14:15:14.093Z",
+  "sourceCommit": "cbe97ae18f82075d1fb3694b527964c51768f642",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "ledgerPath": "docs/v2-pilot/evidence/cost-ledger.json",
+  "ledgerSha256": "5349cfdc74ac4eeeb3a63f3ad7fb90c1a7ae01872a24af19b9c961cbc177433d",
+  "checks": {
+    "ledgerEvidenceHashes": 4,
+    "originalCallsCostRecomputed": 145,
+    "latestOnlyChangesLedgerPath": true,
+    "screenshotHashes": 8,
+    "screenshotsVisuallyReviewed": 8,
+    "credentialValuesChecked": 5,
+    "evidenceFilesScanned": 33,
+    "credentialHits": 0
+  },
+  "ledgerTotalIncludingReserve": 1.6589471399999995
+}

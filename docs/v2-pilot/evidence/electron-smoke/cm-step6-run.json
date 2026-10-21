@@ -1,10 +1,10 @@
 {
-  "runId": "d037b523-e687-4763-983d-a0f9db548f34",
-  "sourceCommit": "affbc1015e114ddaf0e6a5f8910026c7d374268e",
-  "startedAt": "2026-10-21T14:05:00.328Z",
-  "finishedAt": "2026-10-21T14:08:32.318Z",
+  "runId": "a67f1d77-592a-468b-83aa-605c2b66faa3",
+  "sourceCommit": "cbe97ae18f82075d1fb3694b527964c51768f642",
+  "startedAt": "2026-10-21T14:09:44.877Z",
+  "finishedAt": "2026-10-21T14:13:56.860Z",
   "file": "docs/v2-pilot/evidence/electron-smoke/result.json",
-  "sha256": "9d27a6a17e066e1f403c1293480455b0ddb89e85f805d308654aa5ecef5b9ac1",
+  "sha256": "05f668f3ec66c6178c1697bb9a11216a30d9f10a48f7cab25f9d46ac7e366432",
   "scriptSha256": "9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f",
   "checks": [
     {
@@ -63,11 +63,11 @@
     },
     {
       "file": "remember-on-memory-page.png",
-      "sha256": "2679d5faea6074973934ef246ea944867bd0085dbc117229130046fee7752c2c"
+      "sha256": "ab7591cd74c3bc406e6165951de0cfbdaf43730969b148dd5bd4ab2e969769af"
     },
     {
       "file": "restart-persistence.png",
-      "sha256": "e600d83b3ce0ae2665953aab0652cb24463b418ce45aca86fc5580269bdf5b71"
+      "sha256": "e913360abab44075f17543ab8d43fd5e91f801e10098507b1a6e1aa5694a3b4b"
     },
     {
       "file": "undo-disappears.png",

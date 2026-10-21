@@ -1,12 +1,12 @@
 {
-  "runId": "d037b523-e687-4763-983d-a0f9db548f34",
-  "startedAt": "2026-10-21T14:05:00.328Z",
+  "runId": "a67f1d77-592a-468b-83aa-605c2b66faa3",
+  "startedAt": "2026-10-21T14:09:44.877Z",
   "platform": "darwin",
   "process": {
     "node": "v26.4.0",
-    "pid": 91841
+    "pid": 8270
   },
-  "sourceCommit": "affbc1015e114ddaf0e6a5f8910026c7d374268e",
+  "sourceCommit": "cbe97ae18f82075d1fb3694b527964c51768f642",
   "sourceWorktreeDirty": false,
   "baseCommit": "a183ddf01c15b51da84b1cd861b9e66686e634fe",
   "scriptSha256": "4a08b394ff18f2d856b571fd435bdc552c2896b3907fd211bd8fa7739f452776",
@@ -16,8 +16,8 @@
         "pnpm",
         "typecheck"
       ],
-      "startedAt": "2026-10-21T14:05:00.361Z",
-      "finishedAt": "2026-10-21T14:05:01.030Z",
+      "startedAt": "2026-10-21T14:09:44.938Z",
+      "finishedAt": "2026-10-21T14:09:46.518Z",
       "exitCode": 0,
       "signal": null,
       "outputSha256": "9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609",
@@ -29,12 +29,12 @@
         "pnpm",
         "test"
       ],
-      "startedAt": "2026-10-21T14:05:01.030Z",
-      "finishedAt": "2026-10-21T14:08:15.852Z",
+      "startedAt": "2026-10-21T14:09:46.519Z",
+      "finishedAt": "2026-10-21T14:13:31.487Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "65a04e8495183ee3207413ce6f8c9fa6067475eb1f9ed2756a02c758397486ee",
-      "outputBytes": 233982,
+      "outputSha256": "ebac33a0f88828b770b90905af0fed9179aff3e76b5a71feb63f6cda0a61a2f5",
+      "outputBytes": 234025,
       "counts": [
         [
           "tests",
@@ -103,12 +103,12 @@
         "pnpm",
         "eval:test"
       ],
-      "startedAt": "2026-10-21T14:08:15.852Z",
-      "finishedAt": "2026-10-21T14:08:23.565Z",
+      "startedAt": "2026-10-21T14:13:31.488Z",
+      "finishedAt": "2026-10-21T14:13:42.089Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "cf17ba7516081c72e87e3420e2879c54d822da72ec241215527d48b31be995d1",
-      "outputBytes": 9140,
+      "outputSha256": "dbb75ee9a1ff811b90bf8dc827f83be35daa595768f7c1092399350d04ef2839",
+      "outputBytes": 9145,
       "counts": [
         [
           "tests",
@@ -139,12 +139,12 @@
         "@serika/desktop",
         "smoke"
       ],
-      "startedAt": "2026-10-21T14:08:23.566Z",
-      "finishedAt": "2026-10-21T14:08:32.226Z",
+      "startedAt": "2026-10-21T14:13:42.089Z",
+      "finishedAt": "2026-10-21T14:13:56.621Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "a196f9fb79042585f0d9ce31a36c51c0d70bc8135cb59a1db1f52db117d75572",
-      "outputBytes": 3015,
+      "outputSha256": "469542b3dd2a6b2e66104e9b26354d762c16b702b447fc297f123b3952daaf1b",
+      "outputBytes": 3017,
       "counts": []
     },
     {
@@ -152,19 +152,19 @@
         "node",
         "examples/eval/cm-step6-offline-audit.mjs"
       ],
-      "startedAt": "2026-10-21T14:08:32.228Z",
-      "finishedAt": "2026-10-21T14:08:32.317Z",
-      "exitCode": 1,
+      "startedAt": "2026-10-21T14:13:56.629Z",
+      "finishedAt": "2026-10-21T14:13:56.859Z",
+      "exitCode": 0,
       "signal": null,
-      "outputSha256": "289f41095be79f718555ffe4651a3cbd146a3bce3b9e3f069736e2c7dc4137d7",
-      "outputBytes": 606,
+      "outputSha256": "7cfa8eb8294c541334e4b57a1f51da99d2e6682062f5b8ba2121a55bf773cab3",
+      "outputBytes": 1436,
       "counts": []
     }
   ],
   "metrics": [],
   "realModelCalls": 0,
   "costUsd": 0,
-  "status": "failed",
+  "status": "passed",
   "lineChanges": [
     {
       "path": "apps/desktop/src/main/backup.test.ts",
@@ -242,8 +242,13 @@
       "removed": 0
     },
     {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-affbc10-failed.json",
+      "added": 739,
+      "removed": 0
+    },
+    {
       "path": "docs/v2-pilot/evidence/cm-step6/verification.json",
-      "added": 698,
+      "added": 739,
       "removed": 0
     },
     {
@@ -583,22 +588,23 @@
     "docs/v2-pilot/evidence/cm-step6/live-legacy-mixed.json": "8d76edf3837151731c2270d7265c31aa7c91f99fc930cd6b037ba74de97135f2",
     "docs/v2-pilot/evidence/cm-step6/live.json": "8e99d42859cbd53121953305815e51756e02cd39f83ebf052514ef53cb5fee3d",
     "docs/v2-pilot/evidence/cm-step6/regression-red.json": "19a31a93ca699306a45bf98e9913156194b2673465c035765346e7662025fb4c",
-    "docs/v2-pilot/evidence/cm-step6/verification.json": "122b4ae0a9ac85763658f9d800964fc77f6269de1fb900c99bd769099bb33065",
+    "docs/v2-pilot/evidence/cm-step6/verification-affbc10-failed.json": "8ca8e25017c1fbbf920610d92c29a8355e9a3eb4d1cfacc4a42a78054ec14f77",
+    "docs/v2-pilot/evidence/cm-step6/verification.json": "8ca8e25017c1fbbf920610d92c29a8355e9a3eb4d1cfacc4a42a78054ec14f77",
     "docs/v2-pilot/evidence/cost-ledger.json": "5349cfdc74ac4eeeb3a63f3ad7fb90c1a7ae01872a24af19b9c961cbc177433d",
     "docs/v2-pilot/evidence/electron-smoke/chat-reply.png": "1a8ea49b0e7918c60d15405f1c8ce104f5b0037a0c505d53b05f565f6f5139c3",
     "docs/v2-pilot/evidence/electron-smoke/cm-step4-original-result.json": "f4ca3de799438b69c423f04f38a5f2ed0b02632c57785a3e8f1842adf5dabfe9",
-    "docs/v2-pilot/evidence/electron-smoke/cm-step6-run.json": "a0f2a000f71e197a16edb9b248b4d0ef4c0dddce20555a9bc6d62d1df01c9128",
-    "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png": "09c7d1b011140f2c6c04efcde13a2e64ae495f2903716307c74cacbeb069adfa",
+    "docs/v2-pilot/evidence/electron-smoke/cm-step6-run.json": "f46c390d3e816e83997fcb298034e1c17f64cb0d2ddde5d0b0befa1a51ce2183",
+    "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png": "2679d5faea6074973934ef246ea944867bd0085dbc117229130046fee7752c2c",
     "docs/v2-pilot/evidence/electron-smoke/remember-success-receipt.png": "515b601d876e9e22d24a63590a54922dfc57c309c4210136b2d099887678baf6",
-    "docs/v2-pilot/evidence/electron-smoke/restart-persistence.png": "9b828a4090bc8b1bca136eb5e2a1cab2e32098365517e5bcf7855df7ed771b0c",
-    "docs/v2-pilot/evidence/electron-smoke/result.json": "7f82ddd3046a749a9f3aade9e8d7e7cfecbfa2c4631cd7822add071ebef4ad1f",
+    "docs/v2-pilot/evidence/electron-smoke/restart-persistence.png": "e600d83b3ce0ae2665953aab0652cb24463b418ce45aca86fc5580269bdf5b71",
+    "docs/v2-pilot/evidence/electron-smoke/result.json": "9d27a6a17e066e1f403c1293480455b0ddb89e85f805d308654aa5ecef5b9ac1",
     "docs/v2-pilot/evidence/electron-smoke/startup.png": "434b09b0417fa8622c75340d9d6c42843901bb9ed8fd30df2ced1ec5073a34f8",
     "docs/v2-pilot/evidence/electron-smoke/undo-disappears.png": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0",
     "docs/v2-pilot/pending.md": "1569db6e78728fffa0832303679202376dc100e2abea2a178530823e9a1ee3f2",
     "examples/eval/cm-step4.mjs": "8b7359e1ed49b0e1f7714ffa829a55ddebbb5a01405c1db2261d793eed40b56f",
     "examples/eval/cm-step6-live.mjs": "f8559679f44fbd51dc824cc1d5421190b16ccaf03b0aa10a4b520b1fffc4a820",
     "examples/eval/cm-step6-live.test.mjs": "55a039eda47a126600d3f1304da232a5cea99da4b8005780d3ef68f447e96054",
-    "examples/eval/cm-step6-offline-audit.mjs": "d533cbba3edeaad592c09b1ed2bc1e74672eca79902e93ec7f712cfdadf206f1",
+    "examples/eval/cm-step6-offline-audit.mjs": "62feaad00f9437b486e3f1ef2131f97235786a597622798094818dc7786fd13f",
     "examples/eval/compaction-fidelity.test.mjs": "00889a2ab366ff608d1fe090bded1e4af9928c8651507629bb1904e2bdc9e8f3",
     "examples/eval/context-blocks.mjs": "0b0dc939371c867cdc0b70ecd5cd115620ee4ab523bbfc3d089420703298efcc",
     "examples/eval/e2e.test.mjs": "da68557a97d5ff79f212166cfa1e075871067cde139c99b995fac39e79cf2e89",
@@ -651,7 +657,7 @@
   },
   "smoke": {
     "file": "docs/v2-pilot/evidence/electron-smoke/result.json",
-    "sha256": "9d27a6a17e066e1f403c1293480455b0ddb89e85f805d308654aa5ecef5b9ac1",
+    "sha256": "05f668f3ec66c6178c1697bb9a11216a30d9f10a48f7cab25f9d46ac7e366432",
     "scriptSha256": "9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f",
     "checks": [
       {
@@ -710,11 +716,11 @@
       },
       {
         "file": "remember-on-memory-page.png",
-        "sha256": "2679d5faea6074973934ef246ea944867bd0085dbc117229130046fee7752c2c"
+        "sha256": "ab7591cd74c3bc406e6165951de0cfbdaf43730969b148dd5bd4ab2e969769af"
       },
       {
         "file": "restart-persistence.png",
-        "sha256": "e600d83b3ce0ae2665953aab0652cb24463b418ce45aca86fc5580269bdf5b71"
+        "sha256": "e913360abab44075f17543ab8d43fd5e91f801e10098507b1a6e1aa5694a3b4b"
       },
       {
         "file": "undo-disappears.png",
@@ -730,10 +736,10 @@
       }
     ]
   },
-  "failure": {
-    "name": "AssertionError",
-    "message": "node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: Commit source before offline audit\n    at file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/examples/eval/cm-step6-offline-audit.mjs:13:8\n    at ModuleJob.run (node:internal/modules/esm/module_job:447:25)\n    at async node:internal/modules/esm/loader:646:26\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {\n  generatedMessage: false,\n  code: 'ERR_ASSERTION',\n  actual: false,\n  expected: true,\n  operator: '==',\n  diff: 'simple'\n}\n\nNode.js v26.4.0\n\n\n1 !== 0\n"
+  "offlineAudit": {
+    "file": "docs/v2-pilot/evidence/cm-step6/offline-audit.json",
+    "sha256": "e72e1bd2020516e4ea125f2286f9bb081ebc369cb4b4b10b0f5cc2b17c5ec218"
   },
   "temporaryDirectoryRemoved": true,
-  "finishedAt": "2026-10-21T14:08:32.318Z"
+  "finishedAt": "2026-10-21T14:13:56.860Z"
 }
