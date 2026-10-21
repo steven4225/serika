@@ -1,149 +1,85 @@
 {
-  "runId": "84d00214-35b3-4375-8610-6bb097b584aa",
-  "sourceCommit": "21385ba4868363594048a0cb700246dc242236ef",
-  "startedAt": "2026-10-21T14:36:11.055Z",
-  "finishedAt": "2026-10-21T14:36:21.319Z",
+  "runId": "780a16db-42f6-4732-ba81-fae4a6bc0730",
+  "sourceCommit": "6a7b7389f8340900a6956e313d58ef94513fa6b9",
+  "startedAt": "2026-10-21T15:37:45.848Z",
+  "finishedAt": "2026-10-21T15:44:59.425Z",
   "file": "docs/v2-pilot/evidence/electron-smoke/result.json",
-  "sha256": "19987b34edd2608b42504a0a001a84b0f26237653816c621e7d93f57c5fc47ff",
+  "sha256": "32719eccd94e8ef8153e58bd6a40b63427b43ef8447660348fb4552ebfce6964",
+  "scriptSha256": "9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f",
   "checks": [
     {
       "name": "startup",
       "result": "passed",
-      "unexpectedErrors": 0,
-      "expectedErrors": [],
-      "observedErrorCount": 0,
-      "screenshot": {
-        "file": "startup.png",
-        "sha256": "434b09b0417fa8622c75340d9d6c42843901bb9ed8fd30df2ced1ec5073a34f8"
-      }
+      "unexpectedErrors": 0
     },
     {
       "name": "chat-reply",
       "result": "passed",
-      "unexpectedErrors": 0,
-      "expectedErrors": [],
-      "observedErrorCount": 0,
-      "screenshot": {
-        "file": "chat-reply.png",
-        "sha256": "1a8ea49b0e7918c60d15405f1c8ce104f5b0037a0c505d53b05f565f6f5139c3"
-      }
+      "unexpectedErrors": 0
     },
     {
       "name": "remember-success-receipt",
       "result": "passed",
-      "source": "v6-record",
-      "undoAvailable": true,
-      "unexpectedErrors": 0,
-      "expectedErrors": [],
-      "observedErrorCount": 0,
-      "screenshot": {
-        "file": "remember-success-receipt.png",
-        "sha256": "515b601d876e9e22d24a63590a54922dfc57c309c4210136b2d099887678baf6"
-      }
+      "unexpectedErrors": 0
     },
     {
       "name": "remember-on-memory-page",
       "result": "passed",
-      "unexpectedErrors": 0,
-      "expectedErrors": [],
-      "observedErrorCount": 0,
-      "screenshot": {
-        "file": "remember-on-memory-page.png",
-        "sha256": "05bd1478438739e0d745b03cf4555114969a818319a36bcecaee8d6444a4ce59"
-      }
+      "unexpectedErrors": 0
     },
     {
       "name": "restart-persistence",
       "result": "passed",
-      "unexpectedErrors": 0,
-      "expectedErrors": [],
-      "observedErrorCount": 0,
-      "screenshot": {
-        "file": "restart-persistence.png",
-        "sha256": "e93e5cf3e0ec6f81f05e6a13cf858b8dabc4d6d03eb046310ecdf11913432347"
-      }
+      "unexpectedErrors": 0
     },
     {
       "name": "undo-disappears",
       "result": "passed",
-      "unexpectedErrors": 0,
-      "expectedErrors": [],
-      "observedErrorCount": 0,
-      "screenshot": {
-        "file": "undo-disappears.png",
-        "sha256": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0"
-      }
+      "unexpectedErrors": 0
     },
     {
       "name": "daily-path-refuses-writes",
       "result": "passed",
-      "unexpectedErrors": 0,
-      "expectedErrors": [
-        "实验版本拒绝写入日用数据目录"
-      ],
-      "observedErrorCount": 1,
-      "screenshot": {
-        "file": "daily-path-refuses-writes.png",
-        "sha256": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e"
-      }
+      "unexpectedErrors": 0
     },
     {
       "name": "daily-config-retired-fields",
       "result": "passed",
-      "configSource": "样例",
-      "retiredFields": [
-        "modules.memory.queryRewrite",
-        "modules.memory.semantic",
-        "modules.memory.contextView",
-        "contextCompaction.mode",
-        "contextCompaction.warningRatio",
-        "herdrBinding",
-        "telegramAutonomy.toolApproval"
-      ],
-      "unexpectedErrors": 0,
-      "expectedErrors": [
-        "Invalid TUI config schema"
-      ],
-      "observedErrorCount": 1,
-      "screenshot": {
-        "file": "daily-config-retired-fields.png",
-        "sha256": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9"
-      }
+      "unexpectedErrors": 0
     }
   ],
   "screenshots": [
     {
       "file": "startup.png",
-      "sha256": "434b09b0417fa8622c75340d9d6c42843901bb9ed8fd30df2ced1ec5073a34f8"
+      "sha256": "2a6d3b54ad3b036fb1442e588f66b4cc3f32b78f7e1faedd0fef6b5f3218a0e2"
     },
     {
       "file": "chat-reply.png",
-      "sha256": "1a8ea49b0e7918c60d15405f1c8ce104f5b0037a0c505d53b05f565f6f5139c3"
+      "sha256": "80fba1d0b797e5404cc2ac2f389e58fc63973aeb1192a6f32be360fe8735f21b"
     },
     {
       "file": "remember-success-receipt.png",
-      "sha256": "515b601d876e9e22d24a63590a54922dfc57c309c4210136b2d099887678baf6"
+      "sha256": "357e93141a00fe012fb4928b48c75405e18c99653221491a108e796889b6b1af"
     },
     {
       "file": "remember-on-memory-page.png",
-      "sha256": "05bd1478438739e0d745b03cf4555114969a818319a36bcecaee8d6444a4ce59"
+      "sha256": "b0121bab4a38b12bc074f1d0b530957e91c842759fbd83cc76c568d47e55f21c"
     },
     {
       "file": "restart-persistence.png",
-      "sha256": "e93e5cf3e0ec6f81f05e6a13cf858b8dabc4d6d03eb046310ecdf11913432347"
+      "sha256": "aca02ff7fce8d33fc93d158d8c78db9d697e17b5eef960b6e1c26aa63d986d0a"
     },
     {
       "file": "undo-disappears.png",
-      "sha256": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0"
+      "sha256": "6039f8ada3afd56efc271e1c6c4ecc9176b6f7e906bf063f91f6cb3889eba4b2"
     },
     {
       "file": "daily-path-refuses-writes.png",
-      "sha256": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e"
+      "sha256": "f590116876d49dfd573158ba8b81befbe8bfe6631ea7178417c908606fe45ad7"
     },
     {
       "file": "daily-config-retired-fields.png",
-      "sha256": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9"
+      "sha256": "063735dc17bb6ebd6a592ab3530e01da9fcf67275961057e2fabade5b8308f34"
     }
-  ],
-  "scriptSha256": "9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f"
+  ]
 }
