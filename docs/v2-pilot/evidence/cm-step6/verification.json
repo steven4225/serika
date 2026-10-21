@@ -1,12 +1,12 @@
 {
-  "runId": "86416edf-3cfa-44b6-9fd9-2db89c6d9c58",
-  "startedAt": "2026-10-21T10:16:06.790Z",
+  "runId": "15f39dc0-8db6-4eae-8b3d-91243125fede",
+  "startedAt": "2026-10-21T10:21:18.800Z",
   "platform": "darwin",
   "process": {
     "node": "v26.4.0",
-    "pid": 68437
+    "pid": 84483
   },
-  "sourceCommit": "5e6d01e7b6818f52ff57078649f49c3181031083",
+  "sourceCommit": "93f341f84653338de6a6701f7acca22931a2cca0",
   "sourceWorktreeDirty": false,
   "baseCommit": "a183ddf01c15b51da84b1cd861b9e66686e634fe",
   "scriptSha256": "3d89e1b316e8029ae89e3a652ff3cf9c5184cd44ed0ba837fc9382b072eacffd",
@@ -16,8 +16,8 @@
         "pnpm",
         "typecheck"
       ],
-      "startedAt": "2026-10-21T10:16:06.825Z",
-      "finishedAt": "2026-10-21T10:16:07.584Z",
+      "startedAt": "2026-10-21T10:21:18.829Z",
+      "finishedAt": "2026-10-21T10:21:19.560Z",
       "exitCode": 0,
       "signal": null,
       "outputSha256": "9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609",
@@ -29,12 +29,12 @@
         "pnpm",
         "test"
       ],
-      "startedAt": "2026-10-21T10:16:07.584Z",
-      "finishedAt": "2026-10-21T10:19:46.202Z",
+      "startedAt": "2026-10-21T10:21:19.560Z",
+      "finishedAt": "2026-10-21T10:24:43.784Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "195219b8b528d6b5fe09c94b6ce70680f69a54d84b9b45d943c7e2086d9d67df",
-      "outputBytes": 232756,
+      "outputSha256": "8cc0cdbe8ed2ae37827d5dc34900b6b83a881e356153e6b7303f2423403bf2be",
+      "outputBytes": 232693,
       "counts": [
         [
           "tests",
@@ -103,12 +103,12 @@
         "pnpm",
         "eval:test"
       ],
-      "startedAt": "2026-10-21T10:19:46.202Z",
-      "finishedAt": "2026-10-21T10:19:59.540Z",
+      "startedAt": "2026-10-21T10:24:43.785Z",
+      "finishedAt": "2026-10-21T10:24:56.899Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "8a3f6dc6ad4129e393fa63677ac39d154b8bf07f16cfe66e2e9028975b5a4eca",
-      "outputBytes": 8668,
+      "outputSha256": "6c42ae5bf00e743611741ac6223cf53c4be930510b9e93e89eec37c2f94fdc84",
+      "outputBytes": 8666,
       "counts": [
         [
           "tests",
@@ -139,12 +139,12 @@
         "@serika/desktop",
         "smoke"
       ],
-      "startedAt": "2026-10-21T10:19:59.540Z",
-      "finishedAt": "2026-10-21T10:20:08.528Z",
+      "startedAt": "2026-10-21T10:24:56.899Z",
+      "finishedAt": "2026-10-21T10:25:05.563Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "7ed571058ef8fd7d09f185fa24feb582f37acf09af3745fc9f97335acb59640d",
-      "outputBytes": 3016,
+      "outputSha256": "472849c07a2526eadf7a74ef905da14740b894fe5259d378bb133a84ef286c57",
+      "outputBytes": 3014,
       "counts": []
     }
   ],
@@ -180,11 +180,31 @@
     },
     {
       "path": "docs/v2-pilot/cm-step6.md",
-      "added": 44,
+      "added": 50,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification.json",
+      "added": 584,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/chat-reply.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/cm-step6-run.json",
+      "added": 85,
       "removed": 0
     },
     {
       "path": "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/remember-success-receipt.png",
       "added": null,
       "removed": null
     },
@@ -195,8 +215,13 @@
     },
     {
       "path": "docs/v2-pilot/evidence/electron-smoke/result.json",
-      "added": 24,
-      "removed": 24
+      "added": 30,
+      "removed": 30
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/undo-disappears.png",
+      "added": null,
+      "removed": null
     },
     {
       "path": "docs/v2-pilot/pending.md",
@@ -205,12 +230,12 @@
     },
     {
       "path": "examples/eval/cm-step6-live.mjs",
-      "added": 224,
+      "added": 225,
       "removed": 0
     },
     {
       "path": "examples/eval/cm-step6-live.test.mjs",
-      "added": 27,
+      "added": 28,
       "removed": 0
     },
     {
@@ -445,13 +470,18 @@
     "apps/desktop/src/main/foreground-autonomy.test.ts": "6afdff1d390ce91b55920298af44df6512d57d5de3dca45f5c58f1607396c246",
     "apps/desktop/src/main/thread-history.ts": "69306209c1de3f27775f9123647559ba7c9b62d34d1f03e796ad36aa282c9206",
     "apps/desktop/src/renderer/src/memory-consolidation.tsx": "7d4a7b7955541fd6938ba143d4acb5adef65d9b2d74bf96f78ef9d3090cf202f",
-    "docs/v2-pilot/cm-step6.md": "e5845d9551f7dbdb6c658b299f2c58238f4d00708f7958423855d25550ce3415",
-    "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png": "644db5c6d1772e534c16d5366a3ffc933c277ab0b500cad2f6cfed092a8e2ca1",
-    "docs/v2-pilot/evidence/electron-smoke/restart-persistence.png": "70f7b8ca8efa24f19c2b24acc63420aee7d61776513ba01da1d46ea657e487de",
-    "docs/v2-pilot/evidence/electron-smoke/result.json": "0a3524096c5b365133603d8828805fe7eb34db22f39421ab2f953903f931aa63",
+    "docs/v2-pilot/cm-step6.md": "7d87396879ec3488992b2acfecfb5f7d13413a5586eaf92dad5ed4b4007969fb",
+    "docs/v2-pilot/evidence/cm-step6/verification.json": "166355683d42bfe0e574a057bb412d04875a1664f572c1a1d6aa75b9b4ea0e3c",
+    "docs/v2-pilot/evidence/electron-smoke/chat-reply.png": "6344a6992c4d5d15769494f02968b119d9d26afcb37c3cc37c3b525896651497",
+    "docs/v2-pilot/evidence/electron-smoke/cm-step6-run.json": "24d45cc25155b5171999efd66cc20b599455b13ee3c497e728225df0a1a997ff",
+    "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png": "5b177224b2ef72121c9fb37f3fa07158ac47818e200f942504a1bb52f6dd4727",
+    "docs/v2-pilot/evidence/electron-smoke/remember-success-receipt.png": "836c1b7c44d4b5a2d0678ddce75563e0630c617da602a8e70f2b9bf840e0db25",
+    "docs/v2-pilot/evidence/electron-smoke/restart-persistence.png": "403564f3ed41aa6c4bced28cb8bf04b8057ec112336a6140ee2dec8cb1b247b1",
+    "docs/v2-pilot/evidence/electron-smoke/result.json": "e7ed62e15db0bc70fa28041c13e4ffbaf1f291ab043e7d16d4f835143275a4f8",
+    "docs/v2-pilot/evidence/electron-smoke/undo-disappears.png": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0",
     "docs/v2-pilot/pending.md": "6f7c6187d6fc6b104f0de224fe7997247196cdfe6aaf0f394397541093fa12ed",
-    "examples/eval/cm-step6-live.mjs": "1dde357cddde9c4ff47a83f3ca1d362a108c44ad118ecf39a02a541ff45044e2",
-    "examples/eval/cm-step6-live.test.mjs": "35f0696d802dd4e9309b75819959dc713afa6f18b089f474d0fccc5abacba165",
+    "examples/eval/cm-step6-live.mjs": "efe7593a2641cd8b15ccca18ad8780e780f8e44199f0f4383fb3c397f781c0cc",
+    "examples/eval/cm-step6-live.test.mjs": "55f787db4e9bd0a706d3fd5628dcbf918cd89d38fbf0e6d7f281a56dca75f450",
     "examples/eval/compaction-fidelity.test.mjs": "00889a2ab366ff608d1fe090bded1e4af9928c8651507629bb1904e2bdc9e8f3",
     "examples/eval/context-blocks.mjs": "0b0dc939371c867cdc0b70ecd5cd115620ee4ab523bbfc3d089420703298efcc",
     "examples/eval/e2e.test.mjs": "da68557a97d5ff79f212166cfa1e075871067cde139c99b995fac39e79cf2e89",
@@ -500,7 +530,7 @@
   },
   "smoke": {
     "file": "docs/v2-pilot/evidence/electron-smoke/result.json",
-    "sha256": "e7ed62e15db0bc70fa28041c13e4ffbaf1f291ab043e7d16d4f835143275a4f8",
+    "sha256": "26aa83716105bd8c40ee5257e5eab856ea3680901d0c3551a230ae4b4c8eaf0d",
     "scriptSha256": "9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f",
     "checks": [
       {
@@ -547,7 +577,7 @@
     "screenshots": [
       {
         "file": "startup.png",
-        "sha256": "1610ab8d4f138ab90f131783c6986b2ccb7c4759aa8ee58639d40070d6fc577f"
+        "sha256": "e21edb0fbee9c24febeb456c50d7b33ff826bd623092d5a463c5c6b89cb23dc9"
       },
       {
         "file": "chat-reply.png",
@@ -559,11 +589,11 @@
       },
       {
         "file": "remember-on-memory-page.png",
-        "sha256": "5b177224b2ef72121c9fb37f3fa07158ac47818e200f942504a1bb52f6dd4727"
+        "sha256": "585323898ae4d011b107059d484f2e46277f523d5f7d61890902c04f18beb57f"
       },
       {
         "file": "restart-persistence.png",
-        "sha256": "403564f3ed41aa6c4bced28cb8bf04b8057ec112336a6140ee2dec8cb1b247b1"
+        "sha256": "086daba3f82919ce2451391ec464bd5571934338c7469d735342cacb50cb0e19"
       },
       {
         "file": "undo-disappears.png",
@@ -580,5 +610,5 @@
     ]
   },
   "temporaryDirectoryRemoved": true,
-  "finishedAt": "2026-10-21T10:20:08.530Z"
+  "finishedAt": "2026-10-21T10:25:05.566Z"
 }

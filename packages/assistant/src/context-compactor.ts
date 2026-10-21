@@ -405,7 +405,7 @@ export class ContextCompactor {
     const task = `\nCurrent fixed reference: ${referenceText}\nKeep continuation text (excluding JSON framing and evidence IDs) within ${limits.section} estimated tokens. Preserve explicit constraints, decisions and unfinished work; use short clauses. Host checklist separately retains all unknown/failed effects.` +
       (archive ? `\nAlso return a farIndex string in the SAME JSON object: consolidate this previous index and oldest summary into a short searchable topic index, preserving confirmed goals, constraints, decisions, unfinished work, dates and message ranges. Do not repeat background filler. Index budget ${limits.section} tokens. Index material: ${JSON.stringify(archive)}` : "");
     const promptFor = (block: UIMessage[]) => contextSummaryPrompt({ messages: block, location: { threadId: this.#options.threadId, project: this.#options.project ?? "current-workspace" } }) + task;
-    const inputLimit = Math.min(this.#options.budget.summaryInputChunkTokens ?? limits.block,
+    const inputLimit = Math.min(contextBudgetThresholds(this.#options.budget).availableInputTokens,
       this.#options.budget.contextWindowTokens - this.#options.budget.summaryMaxOutputTokens - this.#options.budget.safetyMarginTokens);
     let block = original;
     if (estimateSerializedTokens(promptFor(block)) > inputLimit) {
@@ -431,7 +431,7 @@ export class ContextCompactor {
     if (!parsed) throw contextError("Summary output is invalid; original block retained");
     const json = /```(?:json)?\s*([\s\S]*?)\s*```/i.exec(result.text)?.[1] ?? result.text;
     const raw = JSON.parse(json.slice(json.indexOf("{"), json.lastIndexOf("}") + 1)) as { farIndex?: unknown };
-    const summary = reconcilePublishedSummary(parsed, original, persisted?.summary);
+    const summary = reconcilePublishedSummary(parsed, original, persisted ? { ...persisted.summary, files: [] } : undefined);
     const layers = appendSummaryLayer({ ...(persisted ? { previous: persisted } : {}), messages, start, end, summary,
       ...(typeof raw.farIndex === "string" ? { farIndex: raw.farIndex } : {}) });
     if (estimateSerializedTokens(summaryText(summary)) > limits.section || estimateSerializedTokens(layers.index) > limits.section) {

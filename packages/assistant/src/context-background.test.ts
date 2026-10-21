@@ -134,13 +134,20 @@ test("background installs one bounded segment per item and folds the fifth into 
         complete: async ({ prompt }) => { calls++; return { text: JSON.stringify({ ...summary, ...(prompt.includes("farIndex string") ? { farIndex: "Earlier requests, read original message range." } : {}) }) }; },
       } });
       for (let round = 0; round < 7; round++) {
-        messages.push(msg(`u${round}`, "user", "x".repeat(limits.block * 2)), msg(`a${round}`, "assistant", "done"));
+        messages.push(msg(`u${round}`, "user", "x".repeat(limits.block * 2)), { id: `a${round}`, role: "assistant", parts: [{
+          type: "dynamic-tool", toolName: "write_file", toolCallId: `w${round}`, state: "output-available", input: { path: `file${round}.md` }, output: { ok: true, path: `file${round}.md` },
+        }] });
         const input = [...messages, msg(`current${round}`, "user", "continue")];
         await store.save("t", input);
         await compactor.prepare(input, new AbortController().signal);
         if (compactor.pending) {
           const before = calls; await compactor.runPending(new AbortController().signal);
           assert.equal(compactor.backgroundError, undefined); assert.equal(calls, before + 1);
+          const records = await store.getContextCompactions("t");
+          const record = records.at(-1)! as unknown as import("./context-compaction.js").ContextCompactionRecord;
+          const start = (records.at(-2)?.firstKeptMessageIndex ?? 0) as number;
+          const covered = new Set(input.slice(start, record.firstKeptMessageIndex).map(message => message.id));
+          assert.ok(record.summary.files.every(file => file.evidenceMessageIds.every(id => covered.has(id))), "completed files must stay in their own segment instead of growing every later segment");
         }
       }
       const records = await store.getContextCompactions("t"); assert.ok(records.length >= 5);
@@ -153,4 +160,22 @@ test("background installs one bounded segment per item and folds the fifth into 
       await compactor.close();
     } finally { await rm(root, { recursive: true, force: true }); }
   }
+});
+
+test("a complete proportional block below the physical window retains every ordinary source byte", async () => {
+  const root = await mkdtemp(join(tmpdir(), "cm6-whole-block-"));
+  try {
+    const budget = { ...defaultContextBudget(), inputBudgetTokens: 400000, keepRecentTokens: 64000, summaryMaxOutputTokens: 8000 };
+    const store = new JsonlAgentStore({ directory: root });
+    const originals = Array.from({ length: 6 }, (_, i) => `HEAD${i}` + "x".repeat(20000) + `MIDDLE${i}` + "x".repeat(20000) + `TAIL${i}`);
+    const messages = originals.flatMap((text, i) => [msg(`u${i}`, "user", text), msg(`a${i}`, "assistant", "done")]);
+    messages.push(msg("current", "user", "continue")); await store.save("t", messages);
+    let seen = false;
+    const compactor = new ContextCompactor({ store, threadId: "t", modelId: "fake", budget, fixedContext: () => ({}), summarizer: { complete: async ({ prompt }) => {
+      for (const text of originals.slice(0, 3)) assert.ok(prompt.includes(text), "ordinary complete block was clipped by an obsolete merge limit");
+      seen = true; return { text: JSON.stringify(summary) };
+    } } });
+    await compactor.prepare(messages, new AbortController().signal); await compactor.runPending(new AbortController().signal);
+    assert.equal(compactor.backgroundError, undefined); assert.ok(seen); assert.equal((await store.getContextCompactions("t")).length, 1);
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
