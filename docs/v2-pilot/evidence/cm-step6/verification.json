@@ -1,23 +1,23 @@
 {
-  "runId": "547b8f90-2b3e-4e74-b9af-f92903d058c4",
-  "startedAt": "2026-10-21T12:59:46.840Z",
+  "runId": "d037b523-e687-4763-983d-a0f9db548f34",
+  "startedAt": "2026-10-21T14:05:00.328Z",
   "platform": "darwin",
   "process": {
     "node": "v26.4.0",
-    "pid": 53841
+    "pid": 91841
   },
-  "sourceCommit": "7a80a2a50bb77bae5be653a7bbbb70af279d308d",
+  "sourceCommit": "affbc1015e114ddaf0e6a5f8910026c7d374268e",
   "sourceWorktreeDirty": false,
   "baseCommit": "a183ddf01c15b51da84b1cd861b9e66686e634fe",
-  "scriptSha256": "3d89e1b316e8029ae89e3a652ff3cf9c5184cd44ed0ba837fc9382b072eacffd",
+  "scriptSha256": "4a08b394ff18f2d856b571fd435bdc552c2896b3907fd211bd8fa7739f452776",
   "commands": [
     {
       "command": [
         "pnpm",
         "typecheck"
       ],
-      "startedAt": "2026-10-21T12:59:46.875Z",
-      "finishedAt": "2026-10-21T12:59:47.671Z",
+      "startedAt": "2026-10-21T14:05:00.361Z",
+      "finishedAt": "2026-10-21T14:05:01.030Z",
       "exitCode": 0,
       "signal": null,
       "outputSha256": "9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609",
@@ -29,20 +29,20 @@
         "pnpm",
         "test"
       ],
-      "startedAt": "2026-10-21T12:59:47.672Z",
-      "finishedAt": "2026-10-21T13:03:53.368Z",
+      "startedAt": "2026-10-21T14:05:01.030Z",
+      "finishedAt": "2026-10-21T14:08:15.852Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "67cc16922f753c25dca7ceda545d5156f1c9a02437b91cb765d7c30dc20473f0",
-      "outputBytes": 233881,
+      "outputSha256": "65a04e8495183ee3207413ce6f8c9fa6067475eb1f9ed2756a02c758397486ee",
+      "outputBytes": 233982,
       "counts": [
         [
           "tests",
-          1148
+          1150
         ],
         [
           "pass",
-          1137
+          1139
         ],
         [
           "fail",
@@ -103,20 +103,20 @@
         "pnpm",
         "eval:test"
       ],
-      "startedAt": "2026-10-21T13:03:53.368Z",
-      "finishedAt": "2026-10-21T13:04:03.123Z",
+      "startedAt": "2026-10-21T14:08:15.852Z",
+      "finishedAt": "2026-10-21T14:08:23.565Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "359bc54cfcb3d36db9841fe8b843e0d678c97f9685f6591bffb3373701890875",
-      "outputBytes": 9033,
+      "outputSha256": "cf17ba7516081c72e87e3420e2879c54d822da72ec241215527d48b31be995d1",
+      "outputBytes": 9140,
       "counts": [
         [
           "tests",
-          82
+          83
         ],
         [
           "pass",
-          82
+          83
         ],
         [
           "fail",
@@ -139,19 +139,32 @@
         "@serika/desktop",
         "smoke"
       ],
-      "startedAt": "2026-10-21T13:04:03.124Z",
-      "finishedAt": "2026-10-21T13:04:13.441Z",
+      "startedAt": "2026-10-21T14:08:23.566Z",
+      "finishedAt": "2026-10-21T14:08:32.226Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "10c4b01bb8772fca0026e04f2c30e3f11a496dd389ca200332d98f65e7e4a734",
-      "outputBytes": 3016,
+      "outputSha256": "a196f9fb79042585f0d9ce31a36c51c0d70bc8135cb59a1db1f52db117d75572",
+      "outputBytes": 3015,
+      "counts": []
+    },
+    {
+      "command": [
+        "node",
+        "examples/eval/cm-step6-offline-audit.mjs"
+      ],
+      "startedAt": "2026-10-21T14:08:32.228Z",
+      "finishedAt": "2026-10-21T14:08:32.317Z",
+      "exitCode": 1,
+      "signal": null,
+      "outputSha256": "289f41095be79f718555ffe4651a3cbd146a3bce3b9e3f069736e2c7dc4137d7",
+      "outputBytes": 606,
       "counts": []
     }
   ],
   "metrics": [],
   "realModelCalls": 0,
   "costUsd": 0,
-  "status": "passed",
+  "status": "failed",
   "lineChanges": [
     {
       "path": "apps/desktop/src/main/backup.test.ts",
@@ -195,12 +208,22 @@
     },
     {
       "path": "docs/v2-pilot/cm-step6.md",
-      "added": 140,
+      "added": 164,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/cf05-reference.json",
+      "added": 54,
       "removed": 0
     },
     {
       "path": "docs/v2-pilot/evidence/cm-step6/live-1834686a-b68d-49fb-9f39-d04f1f99bac9.json",
       "added": 21016,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/live-7c5b4116-0378-4286-afc2-ac9b00eafe0b.json",
+      "added": 20705,
       "removed": 0
     },
     {
@@ -210,17 +233,22 @@
     },
     {
       "path": "docs/v2-pilot/evidence/cm-step6/live.json",
-      "added": 21016,
+      "added": 20705,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/regression-red.json",
+      "added": 23,
       "removed": 0
     },
     {
       "path": "docs/v2-pilot/evidence/cm-step6/verification.json",
-      "added": 686,
+      "added": 698,
       "removed": 0
     },
     {
       "path": "docs/v2-pilot/evidence/cost-ledger.json",
-      "added": 25,
+      "added": 35,
       "removed": 3
     },
     {
@@ -270,7 +298,7 @@
     },
     {
       "path": "docs/v2-pilot/pending.md",
-      "added": 12,
+      "added": 14,
       "removed": 1
     },
     {
@@ -280,12 +308,17 @@
     },
     {
       "path": "examples/eval/cm-step6-live.mjs",
-      "added": 353,
+      "added": 358,
       "removed": 0
     },
     {
       "path": "examples/eval/cm-step6-live.test.mjs",
-      "added": 80,
+      "added": 85,
+      "removed": 0
+    },
+    {
+      "path": "examples/eval/cm-step6-offline-audit.mjs",
+      "added": 75,
       "removed": 0
     },
     {
@@ -340,7 +373,7 @@
     },
     {
       "path": "packages/assistant/scripts/cm-step6-verify.mjs",
-      "added": 69,
+      "added": 71,
       "removed": 0
     },
     {
@@ -395,7 +428,7 @@
     },
     {
       "path": "packages/assistant/src/context-blocks.ts",
-      "added": 105,
+      "added": 137,
       "removed": 0
     },
     {
@@ -410,23 +443,23 @@
     },
     {
       "path": "packages/assistant/src/context-compaction.ts",
-      "added": 35,
-      "removed": 1
+      "added": 59,
+      "removed": 2
     },
     {
       "path": "packages/assistant/src/context-compactor.test.ts",
-      "added": 214,
-      "removed": 1374
+      "added": 265,
+      "removed": 1370
     },
     {
       "path": "packages/assistant/src/context-compactor.ts",
-      "added": 201,
-      "removed": 549
+      "added": 213,
+      "removed": 548
     },
     {
       "path": "packages/assistant/src/context-diagnostics.ts",
-      "added": 3,
-      "removed": 0
+      "added": 4,
+      "removed": 1
     },
     {
       "path": "packages/assistant/src/context-source.ts",
@@ -543,25 +576,29 @@
     "apps/desktop/src/main/thread-history.ts": "69306209c1de3f27775f9123647559ba7c9b62d34d1f03e796ad36aa282c9206",
     "apps/desktop/src/renderer/src/memory-consolidation.tsx": "7d4a7b7955541fd6938ba143d4acb5adef65d9b2d74bf96f78ef9d3090cf202f",
     "docs/context-memory-refactor-plan.md": "df5986b274f93a54603d7fe7eac80dffed24a21cd495f6804c54ae2755553e3c",
-    "docs/v2-pilot/cm-step6.md": "3d42a96460c1f68bd401b25d5b6e2f41c73e178e57fe6be3cf99e1814d31be62",
+    "docs/v2-pilot/cm-step6.md": "8f48d4cc97f2cd4f04e8ba7f57976b91ba8cce781e3879b1a0b9e0e343e9668d",
+    "docs/v2-pilot/evidence/cm-step6/cf05-reference.json": "0aa141ddf902b9c7960dd756ed72c88ace8150918499402008770707a1268409",
     "docs/v2-pilot/evidence/cm-step6/live-1834686a-b68d-49fb-9f39-d04f1f99bac9.json": "6e7eab280c2b4ba47dffea75b6066ec36d10c1179356958687242e89517db6b5",
+    "docs/v2-pilot/evidence/cm-step6/live-7c5b4116-0378-4286-afc2-ac9b00eafe0b.json": "8e99d42859cbd53121953305815e51756e02cd39f83ebf052514ef53cb5fee3d",
     "docs/v2-pilot/evidence/cm-step6/live-legacy-mixed.json": "8d76edf3837151731c2270d7265c31aa7c91f99fc930cd6b037ba74de97135f2",
-    "docs/v2-pilot/evidence/cm-step6/live.json": "6e7eab280c2b4ba47dffea75b6066ec36d10c1179356958687242e89517db6b5",
-    "docs/v2-pilot/evidence/cm-step6/verification.json": "5aa24a4fe2326b3420951de7c0a0c0f829a6e91e2575ad56ff1c908d8312fe16",
-    "docs/v2-pilot/evidence/cost-ledger.json": "0bf3ed19a2b46064b7bdcd11044e007e62e2fa91cb471813e0e3974f1c8a37ee",
+    "docs/v2-pilot/evidence/cm-step6/live.json": "8e99d42859cbd53121953305815e51756e02cd39f83ebf052514ef53cb5fee3d",
+    "docs/v2-pilot/evidence/cm-step6/regression-red.json": "19a31a93ca699306a45bf98e9913156194b2673465c035765346e7662025fb4c",
+    "docs/v2-pilot/evidence/cm-step6/verification.json": "122b4ae0a9ac85763658f9d800964fc77f6269de1fb900c99bd769099bb33065",
+    "docs/v2-pilot/evidence/cost-ledger.json": "5349cfdc74ac4eeeb3a63f3ad7fb90c1a7ae01872a24af19b9c961cbc177433d",
     "docs/v2-pilot/evidence/electron-smoke/chat-reply.png": "1a8ea49b0e7918c60d15405f1c8ce104f5b0037a0c505d53b05f565f6f5139c3",
     "docs/v2-pilot/evidence/electron-smoke/cm-step4-original-result.json": "f4ca3de799438b69c423f04f38a5f2ed0b02632c57785a3e8f1842adf5dabfe9",
-    "docs/v2-pilot/evidence/electron-smoke/cm-step6-run.json": "da357db4de458fd52880fa84b626efea2af78fd62899b213d3c071f731349b2b",
-    "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png": "45e9736da0e1a3b9ae2a769a3642090e2e1aef7fa4a0b7efbc1feb917e6ba4ea",
+    "docs/v2-pilot/evidence/electron-smoke/cm-step6-run.json": "a0f2a000f71e197a16edb9b248b4d0ef4c0dddce20555a9bc6d62d1df01c9128",
+    "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png": "09c7d1b011140f2c6c04efcde13a2e64ae495f2903716307c74cacbeb069adfa",
     "docs/v2-pilot/evidence/electron-smoke/remember-success-receipt.png": "515b601d876e9e22d24a63590a54922dfc57c309c4210136b2d099887678baf6",
-    "docs/v2-pilot/evidence/electron-smoke/restart-persistence.png": "7c578f80f49a7ed60d79fdc6b36c4bdfa9913589401db0a938fb14d48c8a895f",
-    "docs/v2-pilot/evidence/electron-smoke/result.json": "380e41d1d5c37fff8cfcc91c7bb3617982cf22aaedb01d426cc0d93cfecae2ef",
+    "docs/v2-pilot/evidence/electron-smoke/restart-persistence.png": "9b828a4090bc8b1bca136eb5e2a1cab2e32098365517e5bcf7855df7ed771b0c",
+    "docs/v2-pilot/evidence/electron-smoke/result.json": "7f82ddd3046a749a9f3aade9e8d7e7cfecbfa2c4631cd7822add071ebef4ad1f",
     "docs/v2-pilot/evidence/electron-smoke/startup.png": "434b09b0417fa8622c75340d9d6c42843901bb9ed8fd30df2ced1ec5073a34f8",
     "docs/v2-pilot/evidence/electron-smoke/undo-disappears.png": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0",
-    "docs/v2-pilot/pending.md": "6fc7055174ee588e06d5fb83223533fac0433e2a5dae48b280e38edfabbe71f4",
+    "docs/v2-pilot/pending.md": "1569db6e78728fffa0832303679202376dc100e2abea2a178530823e9a1ee3f2",
     "examples/eval/cm-step4.mjs": "8b7359e1ed49b0e1f7714ffa829a55ddebbb5a01405c1db2261d793eed40b56f",
-    "examples/eval/cm-step6-live.mjs": "67c4a71eb273a313b04327d8370d5420ed482ed950ab99997ae694057afade76",
-    "examples/eval/cm-step6-live.test.mjs": "613d3b4ed476a798aacff4323ab07374bc07489a796fef478b801b965471d9e3",
+    "examples/eval/cm-step6-live.mjs": "f8559679f44fbd51dc824cc1d5421190b16ccaf03b0aa10a4b520b1fffc4a820",
+    "examples/eval/cm-step6-live.test.mjs": "55a039eda47a126600d3f1304da232a5cea99da4b8005780d3ef68f447e96054",
+    "examples/eval/cm-step6-offline-audit.mjs": "d533cbba3edeaad592c09b1ed2bc1e74672eca79902e93ec7f712cfdadf206f1",
     "examples/eval/compaction-fidelity.test.mjs": "00889a2ab366ff608d1fe090bded1e4af9928c8651507629bb1904e2bdc9e8f3",
     "examples/eval/context-blocks.mjs": "0b0dc939371c867cdc0b70ecd5cd115620ee4ab523bbfc3d089420703298efcc",
     "examples/eval/e2e.test.mjs": "da68557a97d5ff79f212166cfa1e075871067cde139c99b995fac39e79cf2e89",
@@ -572,7 +609,7 @@
     "packages/assistant/scripts/cm-baseline.mjs": "0554e750fb20639a165350f63bb7b65483b798f37374b8065187b6a4f0910af3",
     "packages/assistant/scripts/cm-replay.mjs": "612350de0a3fe211f280e52c23521dbadc5a69e7e5daff761ede303996b40094",
     "packages/assistant/scripts/cm-step5-verify.mjs": "a0e276923badf232ad738fbd76526628a18b95bbfbefe1d0a3e3d781e4adac1a",
-    "packages/assistant/scripts/cm-step6-verify.mjs": "3d89e1b316e8029ae89e3a652ff3cf9c5184cd44ed0ba837fc9382b072eacffd",
+    "packages/assistant/scripts/cm-step6-verify.mjs": "4a08b394ff18f2d856b571fd435bdc552c2896b3907fd211bd8fa7739f452776",
     "packages/assistant/src/api.ts": "07a13fbacd8b64f36c6689787695e45e41d8a5b0578e950b891c5ea23cde8648",
     "packages/assistant/src/app.ts": "ae222d563f211a7c213775ace0f09b7e5ade08369ecc408ec31b9cb3eef3b5dc",
     "packages/assistant/src/assistant-controller.test.ts": "3d3b3e1139ca3cb44c32a6545a7c897b4b7c0958a4998b16a655fdc0462c68e3",
@@ -583,13 +620,13 @@
     "packages/assistant/src/consolidation.ts": "482c4d869ffc2402d6dc9b34dbdeb6af2819f2320ed8bd4671bb6246713b099e",
     "packages/assistant/src/context-assembler.ts": "6c3f6d25d0e1206eee79536c7c93076d07389c508f1bf31a5ac0d461b3055c4f",
     "packages/assistant/src/context-background.test.ts": "73cf5dfb462312fa81dd5bd4636e2abd80b8dc13c5d7eb46ff0dd302c8e21f49",
-    "packages/assistant/src/context-blocks.ts": "fc410c29da14a69aca1a9dd98b4b6a826b6cf7fa544e0abb77e7bc0a9600fd0a",
+    "packages/assistant/src/context-blocks.ts": "fc94cc207351fe5fc156dcec61f22638ad20c72b2a7cfc801444ffc2a825f4d2",
     "packages/assistant/src/context-compaction-acceptance.test.ts": "956a97b320394575597275cd2f153466c9938f2a59c85f01ab688f340294cacd",
     "packages/assistant/src/context-compaction-runtime.test.ts": "99d6f95bf81d2301a0c65e3d515611ae5bcc8abcc652c8540c9fa295fe34e48e",
-    "packages/assistant/src/context-compaction.ts": "189f60a4e5b6580b918620a9a28c7e69d61c589aed5c7ead757e05cbecc682b6",
-    "packages/assistant/src/context-compactor.test.ts": "cae01de7230a090e1dfdc6fa966f27945aea58992f91ce6c05035eeab7939ac3",
-    "packages/assistant/src/context-compactor.ts": "5ea907b5ab6eb9fb7c686d57155c6eeefd9d957f2857a06fefcc76cb390d8196",
-    "packages/assistant/src/context-diagnostics.ts": "d70e2b1afc1f851302da253510c9d33a0960874fd46e677b07ab8f5521f107b4",
+    "packages/assistant/src/context-compaction.ts": "d156a8292b478a0cb82289bfabaf9275a4e1a8bd73149671085eb689096fb2bf",
+    "packages/assistant/src/context-compactor.test.ts": "101f3f8fa33eb3ecbced145e0db522fde1263c43ee0809777b5c4d91c40fcbb6",
+    "packages/assistant/src/context-compactor.ts": "3e46946a128c1c1c9b04d95796175dbbadb0a6c53a28eab67165b7ecef19d3cb",
+    "packages/assistant/src/context-diagnostics.ts": "7729f9712f7b07636c19ce725c732551f9703cc1c4279d7d253eeb8641158285",
     "packages/assistant/src/context-source.ts": "7e36e16625ef541c3bacdfd8d6e5b5f72b8bb1c820d50697f9f8faee74c6fc64",
     "packages/assistant/src/foreground-autonomy.ts": "359de414f1f184e3213ee69b0b8cde6a82a05cbdc2ded4d38836ab75e45a3705",
     "packages/assistant/src/history-tools.ts": "a38063bb13bcb14398a131889e85771c2428b320204b91f78e280a2580300db9",
@@ -614,7 +651,7 @@
   },
   "smoke": {
     "file": "docs/v2-pilot/evidence/electron-smoke/result.json",
-    "sha256": "7f82ddd3046a749a9f3aade9e8d7e7cfecbfa2c4631cd7822add071ebef4ad1f",
+    "sha256": "9d27a6a17e066e1f403c1293480455b0ddb89e85f805d308654aa5ecef5b9ac1",
     "scriptSha256": "9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f",
     "checks": [
       {
@@ -673,11 +710,11 @@
       },
       {
         "file": "remember-on-memory-page.png",
-        "sha256": "09c7d1b011140f2c6c04efcde13a2e64ae495f2903716307c74cacbeb069adfa"
+        "sha256": "2679d5faea6074973934ef246ea944867bd0085dbc117229130046fee7752c2c"
       },
       {
         "file": "restart-persistence.png",
-        "sha256": "9b828a4090bc8b1bca136eb5e2a1cab2e32098365517e5bcf7855df7ed771b0c"
+        "sha256": "e600d83b3ce0ae2665953aab0652cb24463b418ce45aca86fc5580269bdf5b71"
       },
       {
         "file": "undo-disappears.png",
@@ -693,6 +730,10 @@
       }
     ]
   },
+  "failure": {
+    "name": "AssertionError",
+    "message": "node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: Commit source before offline audit\n    at file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/examples/eval/cm-step6-offline-audit.mjs:13:8\n    at ModuleJob.run (node:internal/modules/esm/module_job:447:25)\n    at async node:internal/modules/esm/loader:646:26\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {\n  generatedMessage: false,\n  code: 'ERR_ASSERTION',\n  actual: false,\n  expected: true,\n  operator: '==',\n  diff: 'simple'\n}\n\nNode.js v26.4.0\n\n\n1 !== 0\n"
+  },
   "temporaryDirectoryRemoved": true,
-  "finishedAt": "2026-10-21T13:04:13.451Z"
+  "finishedAt": "2026-10-21T14:08:32.318Z"
 }

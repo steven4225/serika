@@ -8,7 +8,7 @@ import { fitSummaryLayer, layerMessage, blockLimits, summaryText } from '@serika
 import { estimateMessageTokens, estimateSerializedTokens } from '@serika/assistant/internal/context-budget.js';
 import { effectiveCompactionFidelitySpec } from './compaction-fidelity.mjs';
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const git = (...args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8' }).trim();
+const git = (...args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8' }).trimEnd();
 const dirtyPaths = git('status', '--porcelain').split('\n').filter(Boolean);
 assert.ok(dirtyPaths.every(line => line.slice(3).startsWith('docs/v2-pilot/evidence/')), 'Commit source before offline audit');
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
