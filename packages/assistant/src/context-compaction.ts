@@ -283,6 +283,33 @@ export function parseContextSummary(
   }
 }
 
+/** Field paths only: malformed output must be diagnosable without retaining its text. */
+export function contextSummaryFailurePaths(text: string): string[] {
+  try {
+    const raw = JSON.parse(extractJsonObject(text) ?? "") as Record<string, unknown>;
+    const paths = ["version", "goal", "constraints", "decisions", "actions", "pending", "files", "nextStep"].filter(key => !(key in raw));
+    if (raw.version !== 2 && raw.version !== "2") paths.push("version");
+    if (!coerceItem(raw.goal, ["source"])) paths.push("goal");
+    for (const key of ["constraints", "pending", "decisions", "actions", "files"] as const) {
+      if (!Array.isArray(raw[key])) paths.push(key);
+      else raw[key].forEach((value: unknown, index: number) => {
+        const path = `${key}.${index}`;
+        if (!coerceItem(value, ["source"], key === "files" ? "file" : undefined)) paths.push(path);
+        if (!value || typeof value !== "object") return;
+        const fields = value as Record<string, unknown>;
+        if (key === "actions" && !actionStatuses.has(fields.status as SummaryActionStatus)) paths.push(`${path}.status`);
+        if (key === "decisions") {
+          if (fields.source !== "user" && fields.source !== "assistant") paths.push(`${path}.source`);
+          if (!decisionStatuses.has(fields.status as SummaryDecisionStatus)) paths.push(`${path}.status`);
+        }
+        if (key === "files") for (const field of ["path", "purpose"]) if (!nonEmpty(fields[field])) paths.push(`${path}.${field}`);
+      });
+    }
+    if (raw.nextStep !== null && !coerceItem(raw.nextStep, ["source"])) paths.push("nextStep");
+    return [...new Set(paths.length ? paths : ["$"])];
+  } catch { return ["$"]; }
+}
+
 export function contextSummaryPrompt(input: {
   previousSummary?: ContextSummaryV2;
   messages: readonly UIMessage[];

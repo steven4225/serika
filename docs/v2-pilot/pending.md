@@ -68,3 +68,10 @@
 ## I. 上下文/记忆第 5 步留下的边界
 
 - 第 6 步已修复：`firstKeptMessageId=null` 的 tip 边界在追加消息后仍按原覆盖前缀 hash 复用。`a null tip boundary remains valid after append while a changed covered prefix fails closed` 覆盖合法追加和原前缀篡改；`cm-replay.mjs` 同步使用该规则。
+
+## J. 第 6 步审核裁决（56ad8d7 后）
+
+- 第 6 步代码／离线接受，真实模型关口仍未通过；不开第 7 步、不做日用迁移。14 条记忆的已批准处置及 thread 写入清单见 cm-step6.md 附表 B/C，仅记录。
+- 第 7 步验收固定：迁移后 memory-v6-store.ts 不引用 memory-store.ts，删除旧候选审核／双时态空接口并改完调用方；memory／文档库范围最终仅 workspace，来源与执行 Thread ID 保留。
+- 非阻塞：将 context-assembler／memory-observation-policy 的 Asia/Shanghai 合为常量，并明确固定 +08:00 是产品行为变更；清掉 Controller 待整理积压读取原始 store 的旧回退。
+- 记忆页待整理段数尚无截图，本轮删去已验证声明；连续同错去重任务（旧记忆14）若继续做，应单独排期。

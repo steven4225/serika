@@ -45,6 +45,10 @@ test("v6 replacement/undo, withdrawal/undo, conflict diagnostics and source-spec
     const after = await store.readV6(); assert.ok(after.ok);
     assert.equal(after.value.entries.some(entry => entry.id === old.id || entry.text === "我住在北京"), false);
     assert.equal(after.value.suppressed.length, 1);
+    const rephrased = change(); rephrased.text = "北京是我的住址";
+    assert.ok((await store.writeV6([rephrased])).ok);
+    const reextracted = await new V6MemoryStore(root).readV6(); assert.ok(reextracted.ok);
+    assert.equal(reextracted.value.entries.some(entry => entry.text === rephrased.text), false);
     const independent = change("北京", "办公习惯"); independent.text = "我工作时先列结论"; independent.source = { kind: "conversation", threadId: "t", messageId: "北京", quote: independent.text, sentAt: null };
     assert.ok((await store.writeV6([independent])).ok);
     const sameSource = await store.readV6(); assert.ok(sameSource.ok); assert.ok(sameSource.value.entries.some(entry => entry.text === independent.text));

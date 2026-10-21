@@ -12,6 +12,7 @@ import {
   contextSummaryPrompt,
   CONTEXT_SUMMARY_STRATEGY_VERSION,
   parseContextSummary,
+  contextSummaryFailurePaths,
   type ContextCompactionRecord,
   type ContextSummaryFile,
   type ContextSummaryItem,
@@ -253,7 +254,8 @@ export class ContextCompactor {
 
   async getDiagnostics(): Promise<ContextResult<ContextDiagnostics>> {
     const result = await readContextDiagnostics(this.#options.store, this.#options.threadId, this.#options.budget, this.#lastPreparation);
-    if (result.ok) result.value.background = { queued: this.pending, running: !!this.#task, error: this.#backgroundError ?? null };
+    if (result.ok) result.value.background = { queued: this.pending, running: !!this.#task, error: this.#backgroundError ?? null,
+      ...(this.#backgroundFailure ? { failure: structuredClone(this.#backgroundFailure) } : {}) };
     return result;
   }
 
@@ -283,6 +285,7 @@ export class ContextCompactor {
   #task: Promise<void> | undefined;
   #abort: AbortController | undefined;
   #backgroundError: string | undefined;
+  #backgroundFailure: { name: string; code: string; finishReason?: string; schemaPaths: string[] } | undefined;
   #installedId: string | undefined;
   #reportedScale = 1;
   #extraBlock = false;
@@ -312,10 +315,11 @@ export class ContextCompactor {
     const bounded = visible.map(message => fitMessage(message, Math.min(this.#options.budget.contextWindowTokens,
       message.role === "user" ? singleLimit : 16_000)));
     const checklistMessages = () => messages.map(message => message.role === "user" ? fitMessage({ ...message, metadata: undefined }, requestLimit) : message);
+    let checklistTokens = 0;
     const compose = () => {
       const keptIds = new Set(messages.slice(boundary).map(message => message.id));
       const required = boundary ? createCompactionChecklist({ ...sources, permissions: sources?.permissions, messages: checklistMessages(), maxTokens: limits.section, requestReferenceOnly: !!boundedForeground || boundary <= messages.reduce((last, message, index) => message.role === "user" ? index : last, -1) }) : undefined;
-      if (required && estimateMessageTokens([required]) > limits.section) throw contextError("Required checklist exceeds proportional summary budget; original failures and unknown effects retained");
+      checklistTokens = required ? estimateMessageTokens([required]) : 0;
       const missing = boundary > (record?.firstKeptMessageIndex ?? 0) ? [{ id: "runloom-masked-history", role: "assistant" as const,
         parts: [{ type: "text" as const, text: `Original messages ${messages[record?.firstKeptMessageIndex ?? 0]?.id ?? ""}–${messages[boundary - 1]?.id ?? ""} are masked pending background summary/extraction; use history_search/history_read.` }] }] : [];
       return placeForegroundTaskReference([...(record ? [layerMessage(record)] : []), ...(required ? [required] : []), ...missing, ...bounded.filter(message => keptIds.has(message.id)), ...(boundedForeground ? [boundedForeground] : [])]);
@@ -333,10 +337,12 @@ export class ContextCompactor {
     }
     let view = compose(), measured = estimate(view);
     const recentTokens = () => estimateMessageTokens(bounded.filter(message => messages.slice(boundary).some(item => item.id === message.id)));
-    while (measured.exceeds || recentTokens() > limits.recent + limits.block) {
+    // The host ledger borrows from recent originals before any foreground call.
+    let checklistOverflow = checklistTokens > limits.section;
+    while (measured.exceeds || recentTokens() > limits.recent + limits.block || checklistOverflow) {
       const next = maskOldestBlock(messages, boundary, limits.block);
       if (next <= boundary) break;
-      boundary = next; view = compose(); measured = estimate(view);
+      boundary = next; view = compose(); measured = estimate(view); checklistOverflow = false;
     }
     if (measured.exceeds) {
       const current = bounded.reduce((last, message, index) => message.role === "user" ? index : last, -1);
@@ -347,7 +353,7 @@ export class ContextCompactor {
         view = compose(); measured = estimate(view);
       }
     }
-    if (record && estimateMessageTokens([layerMessage(record), ...(view.filter(message => message.id === "runloom-compaction-checklist"))]) > limits.totalSummary) throw contextError("Historical summary exceeds proportional total budget; original journal retained");
+    if (record && estimateMessageTokens([layerMessage(record)]) > limits.totalSummary) throw contextError("Historical summary exceeds proportional total budget; original journal retained");
     if (measured.exceeds) throw contextError(`Prepared context exceeds budget (${measured.inputTokens} > ${measured.availableInputTokens}); required metadata retained`);
     this.#maskedThrough = boundary;
     if (boundary > (record?.firstKeptMessageIndex ?? 0)) this.#options.onMask?.(messages[boundary - 1]!.id);
@@ -357,7 +363,9 @@ export class ContextCompactor {
       this.#pending = { messages: structuredClone(messages), end: nextBlock, prefix: structuredClone(prefix), ...(sources ? { sources: structuredClone(sources) } : {}) };
     }
     this.#lastPreparation = { at: this.#now().toISOString(), outcome: record ? "reused" : "passthrough", compactionId: record?.id ?? null,
-      estimatedInputTokens: measured.inputTokens, error: null };
+      estimatedInputTokens: measured.inputTokens, error: null,
+      ...(checklistTokens > limits.section ? { degradation: { reason: "checklist_overflow" as const, checklistTokens, sectionBudget: limits.section,
+        maskedThroughMessageId: messages[boundary - 1]?.id ?? null } } : {}) };
     return view;
   }
 
@@ -368,6 +376,7 @@ export class ContextCompactor {
   }
   get pending(): boolean { return this.#pending !== undefined; }
   get backgroundError(): string | undefined { return this.#backgroundError; }
+  get backgroundFailure() { return this.#backgroundFailure ? structuredClone(this.#backgroundFailure) : undefined; }
   async runPending(signal: AbortSignal): Promise<void> {
     const job = this.#pending;
     if (!job || this.#task) return;
@@ -376,13 +385,19 @@ export class ContextCompactor {
     const linked = AbortSignal.any([signal, abort.signal]);
     this.#task = this.#summarize(job, linked).then(() => {
       this.#backgroundError = undefined;
+      this.#backgroundFailure = undefined;
       const covered = this.#latest?.firstKeptMessageIndex ?? 0;
       if (covered < this.#maskedThrough) {
         const next = maskOldestBlock(job.messages, covered, blockLimits(this.#options.budget).block);
         if (next > covered) this.#pending = { ...job, end: next };
       }
     }, error => {
-      if (!linked.aborted) this.#backgroundError = error instanceof Error ? error.message : String(error);
+      if (!linked.aborted) {
+        this.#backgroundError = error instanceof Error ? error.message : String(error);
+        const detail = error instanceof Error ? error.cause as { finishReason?: string; schemaPaths?: string[] } | undefined : undefined;
+        this.#backgroundFailure = { name: error instanceof Error ? error.name : "Error", code: error instanceof AgentError ? error.data.code : "CONTEXT_SUMMARY_FAILED",
+          ...(detail?.finishReason ? { finishReason: detail.finishReason } : {}), schemaPaths: detail?.schemaPaths ?? [] };
+      }
     }).finally(() => { this.#task = undefined; this.#abort = undefined; });
     await this.#task;
   }
@@ -428,7 +443,8 @@ export class ContextCompactor {
     abortIfNeeded(signal);
     if (result.finishReason === "length") throw contextError("Summary output was truncated; original block retained");
     const parsed = parseContextSummary(result.text, original.map(message => message.id));
-    if (!parsed) throw contextError("Summary output is invalid; original block retained");
+    if (!parsed) throw new AgentError({ code: "CONTEXT_PREPARE_FAILED", message: "Summary output is invalid; original block retained", retryable: false, phase: "runtime" },
+      { cause: { finishReason: result.finishReason, schemaPaths: contextSummaryFailurePaths(result.text) } });
     const json = /```(?:json)?\s*([\s\S]*?)\s*```/i.exec(result.text)?.[1] ?? result.text;
     const raw = JSON.parse(json.slice(json.indexOf("{"), json.lastIndexOf("}") + 1)) as { farIndex?: unknown };
     const summary = reconcilePublishedSummary(parsed, original, persisted ? { ...persisted.summary, files: [] } : undefined);
@@ -438,7 +454,6 @@ export class ContextCompactor {
       throw contextError("Summary segment or far index exceeds its proportional budget; original block retained");
     }
     const checklist = createCompactionChecklist({ ...sources, permissions: sources?.permissions, messages: withoutConsolidationTurns(messages.slice(0, end)), maxTokens: limits.section, requestReferenceOnly: true });
-    if (estimateMessageTokens([checklist]) > limits.section) throw contextError("Required checklist exceeds its proportional budget; original block retained");
     const fresh = await this.#options.store.getMessages(this.#options.threadId);
     if (compactPrefixHash(fresh, end) !== compactPrefixHash(messages, end) ||
         JSON.stringify(this.#exclusions(fresh)) !== JSON.stringify(this.#exclusions(messages))) throw contextError("Summary sources changed; result discarded");

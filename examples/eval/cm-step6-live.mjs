@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID, createHash } from 'node:crypto';
 import { execFileSync, spawn } from 'node:child_process';
-import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile, copyFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -27,20 +27,54 @@ const price = { input: 0.16, cachedInput: 0.02, output: 0.58 };
 const limit = 2, opening = 0.36;
 const script = fileURLToPath(import.meta.url);
 
+export const chargedUsd = entry => entry.amount + (entry.unresolvedReservedUsd ?? 0);
+async function saveAttempt(path, report) {
+  await writeFile(path, JSON.stringify(report, null, 2) + '\n');
+  if (!report.ledgerPath) return;
+  const ledger = JSON.parse(await readFile(report.ledgerPath, 'utf8'));
+  const unresolved = report.calls.filter(call => call.status !== 'returned');
+  ledger.entries = ledger.entries.filter(entry => entry.runId !== report.runId);
+  ledger.entries.push({ step: '4-6', runId: report.runId, realModelRequests: report.calls.length, amount: report.costUsd,
+    unresolvedCalls: unresolved.length, unresolvedReservedUsd: unresolved.reduce((sum, call) => sum + call.reservedUsd, 0),
+    evidence: path.slice(join(repo, 'docs/v2-pilot/evidence/').length), evidenceSha256: sha(await readFile(path)) });
+  ledger.knownTotal = ledger.openingBalance.amount + ledger.entries.reduce((sum, entry) => sum + entry.amount, 0);
+  ledger.total = ledger.openingBalance.amount + ledger.entries.reduce((sum, entry) => sum + chargedUsd(entry), 0);
+  await writeFile(report.ledgerPath, JSON.stringify(ledger, null, 2) + '\n');
+}
+
+// Error messages and response bodies can echo prompts or credentials.
+export function safeFailure(error) {
+  const token = value => typeof value === 'string' && /^[A-Za-z_][A-Za-z0-9_.:[\]-]*$/.test(value) && value.length <= 128 ? value : null;
+  const seen = new Set(), chain = [];
+  for (let current = error; current && !seen.has(current); current = current.cause ?? current.lastError) {
+    seen.add(current);
+    let envelope;
+    try { envelope = JSON.parse(current.responseBody).error; } catch { /* no raw body */ }
+    const issues = current.issues ?? current.value?.issues ?? [];
+    chain.push({ name: token(current.name), code: token(current.code ?? current.data?.code ?? envelope?.code ?? envelope?.type),
+      httpStatus: Number.isInteger(current.statusCode) ? current.statusCode : null,
+      finishReason: token(current.finishReason),
+      schemaPaths: [...(current.schemaPaths ?? []), ...issues.map(issue => issue.path)].map(path => Array.isArray(path) ? path.map(part => typeof part === 'number' ? part : token(part) ?? '[field]').join('.') : token(path) ?? '[field]'),
+      parameter: token(envelope?.param) });
+  }
+  return { chain };
+}
+
 // Before dispatch reserve one token per encoded byte plus the entire output cap.
 // Missing returned usage freezes the batch, including across the cold process.
 export async function meteredModel(model, path, scope) {
   let report = JSON.parse(await readFile(path, 'utf8'));
-  const save = () => writeFile(path, JSON.stringify(report, null, 2) + '\n');
+  const save = () => saveAttempt(path, report);
   const begin = async params => {
     report = JSON.parse(await readFile(path, 'utf8'));
     if (report.stopped || report.calls.some(call => call.status !== 'returned')) throw new Error('Batch frozen by unresolved usage');
     const bytes = Buffer.byteLength(JSON.stringify(params.prompt)), reserve = bytes * price.input / 1e6 + params.maxOutputTokens * price.output / 1e6;
-    if (!Number.isFinite(reserve) || report.costUsd + reserve > limit || opening + report.costUsd + reserve > 5) {
+    if (!Number.isFinite(reserve) || (report.priorChargedUsd ?? 0) + report.costUsd + reserve > limit || opening + (report.priorChargedUsd ?? 0) + report.costUsd + reserve > 5) {
       report.stopped = true; report.stopReason = 'pre-dispatch-budget'; await save(); throw new Error('Approved budget reserve exceeded');
     }
     const row = { id: randomUUID(), scope: scope(), status: 'dispatched', startedAt: new Date().toISOString(), inputHash: hashCanonicalJson(JSON.parse(JSON.stringify(params.prompt))), inputBytes: bytes,
-      maxOutputTokens: params.maxOutputTokens, reservedUsd: reserve, usage: null };
+      maxOutputTokens: params.maxOutputTokens, reservedUsd: reserve, usage: null,
+      responseFormat: params.responseFormat?.type ?? 'text', finishReason: null };
     report.calls.push(row); await save(); return row;
   };
   const outputShape = text => {
@@ -49,7 +83,14 @@ export async function meteredModel(model, path, scope) {
     try { return { encoding: encoded === text ? 'json' : 'fenced-json', shape: shape(JSON.parse(encoded)) }; }
     catch { return { encoding: 'non-json', chars: text.length }; }
   };
+  const reload = async row => {
+    report = JSON.parse(await readFile(path, 'utf8'));
+    const index = report.calls.findIndex(call => call.id === row.id);
+    if (report.calls[index].transport) row.transport = report.calls[index].transport;
+    report.calls[index] = row;
+  };
   const finish = async (row, usage) => {
+    await reload(row);
     const input = usage?.inputTokens?.total, output = usage?.outputTokens?.total, cached = usage?.inputTokens?.cacheRead;
     if (![input, output].every(value => Number.isSafeInteger(value) && value >= 0) || cached !== undefined && (!Number.isSafeInteger(cached) || cached < 0 || cached > input)) {
       row.status = 'usage_unknown'; report.stopped = true; report.stopReason = 'usage_unknown'; await save(); throw new Error('Provider usage unavailable; batch stopped');
@@ -58,15 +99,15 @@ export async function meteredModel(model, path, scope) {
     Object.assign(row, { status: 'returned', finishedAt: new Date().toISOString(), usage: { input, output, cacheRead: cached ?? null }, costUsd,
       costBasis: cached === undefined ? 'uncached upper bound; cache usage absent' : 'returned usage at approved quote' });
     report.costUsd += costUsd;
-    if (report.costUsd >= limit || opening + report.costUsd >= 5) { report.stopped = true; report.stopReason = 'actual-budget'; }
+    if ((report.priorChargedUsd ?? 0) + report.costUsd >= limit || opening + (report.priorChargedUsd ?? 0) + report.costUsd >= 5) { report.stopped = true; report.stopReason = 'actual-budget'; }
     await save();
   };
-  const failed = async row => { if (row.status === 'returned') return; row.status = 'failed_usage_unknown'; report.stopped = true; report.stopReason = 'provider_failure'; await save(); };
+  const failed = async (row, error) => { if (row.status === 'returned') return; await reload(row); row.status = 'failed_usage_unknown'; row.failure = safeFailure(error); row.finishedAt = new Date().toISOString(); report.stopped = true; report.stopReason = 'provider_failure'; await save(); };
   return wrapLanguageModel({ model, middleware: {
     wrapGenerate: async ({ doGenerate, params }) => {
       const row = await begin(params);
-      try { const result = await doGenerate(); row.output = outputShape(result.content.filter(part => part.type === 'text').map(part => part.text).join("\n")); await finish(row, result.usage); return result; }
-      catch { await failed(row); throw new Error('Provider invocation failed; batch stopped (details redacted)'); }
+      try { const result = await doGenerate(); row.finishReason = result.finishReason; row.output = outputShape(result.content.filter(part => part.type === 'text').map(part => part.text).join("\n")); await finish(row, result.usage); return result; }
+      catch (error) { await failed(row, error); throw new Error('Provider invocation failed; batch stopped'); }
     },
     wrapStream: async ({ doStream, params }) => {
       const row = await begin(params);
@@ -75,13 +116,13 @@ export async function meteredModel(model, path, scope) {
         return { ...result, stream: result.stream.pipeThrough(new TransformStream({
           async transform(chunk, controller) {
             if (chunk.type === 'text-delta') text += chunk.delta;
-            if (chunk.type === 'error') { await failed(row); throw new Error('Provider stream failed; batch stopped'); }
-            if (chunk.type === 'finish') { row.output = outputShape(text); await finish(row, chunk.usage); finished = true; }
+            if (chunk.type === 'error') { await failed(row, chunk.error); throw new Error('Provider stream failed; batch stopped'); }
+            if (chunk.type === 'finish') { row.finishReason = chunk.finishReason; row.output = outputShape(text); await finish(row, chunk.usage); finished = true; }
             controller.enqueue(chunk);
           },
-          async flush() { if (!finished) { await failed(row); throw new Error('Provider stream ended without usage'); } },
+          async flush() { if (!finished) { const error = new Error('Provider stream ended without usage'); await failed(row, error); throw error; } },
         })) };
-      } catch { await failed(row); throw new Error('Provider invocation failed; batch stopped (details redacted)'); }
+      } catch (error) { await failed(row, error); throw new Error('Provider invocation failed; batch stopped'); }
     },
   } });
 }
@@ -104,7 +145,7 @@ async function runChat({ model, modelAlias, root, spec, question, label }) {
     // Let the queue finish its item before closing, so usage never becomes an assumed zero.
     while (true) {
       const d = await controller.getContextDiagnostics(); assert.ok(d.ok);
-      if (d.value.background?.error) throw new Error('Background rejected summary');
+      if (d.value.background?.error) throw Object.assign(new Error('Background rejected summary'), { cause: d.value.background.failure });
       if (!d.value.background?.queued && !d.value.background?.running) break;
       if (Date.now() > end) throw new Error('Background did not settle'); await delay(25);
     }
@@ -128,23 +169,30 @@ async function runChat({ model, modelAlias, root, spec, question, label }) {
 
 async function main() {
   const cold = process.argv.includes('--cold');
-  const evidencePath = process.env.SERIKA_CM6_LIVE_REPORT ?? join(repo, 'docs/v2-pilot/evidence/cm-step6/live.json');
-  process.env.SERIKA_CM6_LIVE_REPORT = evidencePath;
+  const latestPath = join(repo, 'docs/v2-pilot/evidence/cm-step6/live.json');
+  let evidencePath = process.env.SERIKA_CM6_LIVE_REPORT;
   if (!cold) {
     assert.ok(process.argv.includes('--approved-live'), 'Approved live opt-in required');
     assert.equal(git('status', '--porcelain'), '', 'Commit and verify source before paid acceptance');
+    const ledgerPath = join(repo, 'docs/v2-pilot/evidence/cost-ledger.json');
+    const ledger = JSON.parse(await readFile(ledgerPath, 'utf8'));
+    if (ledger.entries.some(entry => entry.step === '4-6')) assert.ok(process.argv.includes('--rerun-approved-batch'), 'Existing spend requires approved full rerun');
+    // Preserve the old mixed report byte-for-byte; its missing metadata cannot be reconstructed.
     let previous;
-    try { previous = JSON.parse(await readFile(evidencePath, 'utf8')); } catch (error) { if (error.code !== 'ENOENT') throw error; }
-    if (previous) {
-      assert.ok(process.argv.includes('--continue-approved-batch'), 'Existing batch requires explicit continuation flag');
-      assert.equal(previous.stopped, false); assert.ok(previous.costUsd < limit);
-      assert.ok(previous.calls.every(call => call.status === 'returned'), 'Unknown-use batch cannot continue');
-      previous.previousOutcomes ??= [];
-      previous.previousOutcomes.push({ sourceCommit: previous.sourceCommit, finishedAt: previous.finishedAt, results: previous.results, error: previous.error, passed: previous.passed });
-      previous.sourceCommit = git('rev-parse', 'HEAD'); previous.scriptSha256 = sha(await readFile(script));
-      previous.results = []; delete previous.error; delete previous.finishedAt;
-      await writeFile(evidencePath, JSON.stringify(previous, null, 2));
+    try { previous = JSON.parse(await readFile(latestPath, 'utf8')); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    if (previous && !previous.attemptVersion) {
+      const archived = join(dirname(latestPath), 'live-legacy-mixed.json');
+      await copyFile(latestPath, archived);
+      for (const entry of ledger.entries.filter(entry => entry.evidence === 'cm-step6/live.json')) {
+        entry.evidence = 'cm-step6/live-legacy-mixed.json'; entry.evidenceSha256 = sha(await readFile(archived));
+      }
+      await writeFile(ledgerPath, JSON.stringify(ledger, null, 2) + '\n');
     }
+    const priorChargedUsd = ledger.entries.filter(entry => entry.step === '4-6').reduce((sum, entry) => sum + chargedUsd(entry), 0);
+    assert.ok(priorChargedUsd < limit, 'Approved combined budget exhausted');
+    const runId = randomUUID();
+    evidencePath = join(dirname(latestPath), `live-${runId}.json`);
+    process.env.SERIKA_CM6_LIVE_REPORT = evidencePath;
     const root = await mkdtemp(join(tmpdir(), 'cm6-live-'));
     process.env.SERIKA_CM6_ROOT = root;
     process.env.SERIKA_CM6_ENV = join(root, 'model.env');
@@ -153,18 +201,30 @@ async function main() {
     const isolated = Object.fromEntries(names.filter(name => sourceEnv[name] !== undefined).map(name => [name, sourceEnv[name]]));
     await writeFile(process.env.SERIKA_CM6_ENV, Object.entries(isolated).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join('\n'), { mode: 0o600 });
     await mkdir(dirname(evidencePath), { recursive: true });
-    if (!previous) await writeFile(evidencePath, JSON.stringify({ runId: randomUUID(), startedAt: new Date().toISOString(), sourceCommit: git('rev-parse', 'HEAD'), sourceWorktreeDirty: false,
-      scriptSha256: sha(await readFile(script)), platform: process.platform, parentPid: process.pid, approval: 'Combined steps 4-6; current local env authorized by user',
-      quotedUsdPerMillion: price, budgetUsd: limit, openingPlanCostUsd: opening, costUsd: 0, calls: [], stopped: false, results: [] }, null, 2));
+    await saveAttempt(evidencePath, { attemptVersion: 2, runId, startedAt: new Date().toISOString(), sourceCommit: git('rev-parse', 'HEAD'), sourceWorktreeDirty: false,
+      scriptSha256: sha(await readFile(script)), platform: process.platform, parentPid: process.pid, approval: 'Review fixes 1-4 and full rerun; local env authorized; old unknown call charged at reserve',
+      quotedUsdPerMillion: price, budgetUsd: limit, openingPlanCostUsd: opening, priorChargedUsd, ledgerPath, costUsd: 0, calls: [], stopped: false, results: [],
+      providerContract: { docs: 'https://commandcode.ai/docs/provider', structuredOutputParameter: 'not used; JSON Schema is prompt text', strictSchemaSupport: 'not claimed' } });
   }
   const env = parseEnv(await readFile(process.env.SERIKA_CM6_ENV, 'utf8'));
   assert.equal(env.RUNLOOM_MODEL, 'command-code'); assert.equal(env.COMMAND_CODE_MODEL_ID, 'deepseek/deepseek-v4.1-flash-fast');
-  const selected = configureCliModel(() => { throw new Error('No mock fallback'); }, env, { fetch: (url, init) => fetch(url, { ...init, redirect: 'error' }) });
+  const selected = configureCliModel(() => { throw new Error('No mock fallback'); }, env, { fetch: async (url, init) => {
+    const body = JSON.parse(init.body), report = JSON.parse(await readFile(evidencePath, 'utf8'));
+    const row = report.calls.at(-1);
+    row.transport = { requestFields: Object.keys(body), responseFormatType: body.response_format?.type ?? null, requestBytes: Buffer.byteLength(init.body), requestHash: sha(init.body), httpStatus: null };
+    await saveAttempt(evidencePath, report);
+    const response = await fetch(url, { ...init, redirect: 'error' });
+    const fresh = JSON.parse(await readFile(evidencePath, 'utf8'));
+    fresh.calls.at(-1).transport.httpStatus = response.status; await saveAttempt(evidencePath, fresh);
+    return response;
+  } });
   let current = cold ? 'cold' : 'm1';
   const model = await meteredModel(selected.model, evidencePath, () => current);
   if (cold) {
     const job = JSON.parse(await readFile(process.env.SERIKA_CM6_COLD_JOB, 'utf8'));
-    const result = await runChat({ ...selected, model, ...job, label: 'cold-process' });
+    let result;
+    try { result = await runChat({ ...selected, model, ...job, label: 'cold-process' }); }
+    catch (error) { result = { pid: process.pid, passed: false, error: safeFailure(error) }; }
     await writeFile(process.env.SERIKA_CM6_COLD_RESULT, JSON.stringify(result, null, 2)); return;
   }
   assert.equal(git('branch', '--show-current'), 'experiment/architecture-v2');
@@ -175,15 +235,18 @@ async function main() {
     assert.equal(hashCanonicalJson(replay.messages), plan.results.find(item => item.case === 'replay-9').sourceHash);
     cases.push({ id: 'replay-9', messages: replay.messages, proposals: [], replay: true, question: replay.question });
     const m1 = await evaluateM1({ cases, model }); results.push({ suite: 'M1', ...m1 });
+    console.log(JSON.stringify({ suite: 'M1', passed: m1.results.filter(item => item.passed).length, total: m1.results.length }));
     if (m1.stopped) throw new Error('M1 dispatch stopped');
     for (const id of ['CF03', 'CF05', 'CE03', 'CE05']) {
       const spec = id.startsWith('CE') ? effectiveCompactionFidelitySpec(id) : compactionFidelitySpec(id);
       const caseRoot = join(root, id), directory = join(caseRoot, 'transcripts'); await mkdir(directory, { recursive: true });
       const store = new JsonlAgentStore({ directory }); let messages = []; const rounds = [];
       const caseResult = { suite: id, rounds, passed: false }; results.push(caseResult);
+      try {
       let compactor = new ContextCompactor({ store, threadId: 'eval', modelId: selected.modelAlias, budget: spec.contextBudget,
         modelContextWindowTokens: spec.contextBudget.contextWindowTokens, fixedContext: () => ({ instructions: 'Maintain original constraints.', tools: [] }), summarizer: createAiSdkSummarizer(model) });
       for (let generation = 0; generation < spec.rounds; generation++) {
+        const round = { generation, startedAt: new Date().toISOString(), backgroundItems: [], passed: false }; rounds.push(round);
         current = `${id}/background/${generation}`;
         messages = [...await store.getModelMessages('eval'), ...compactionFidelityHistory(spec, generation).messages,
           { id: `${id}-probe-${generation}`, role: 'user', parts: [{ type: 'text', text: spec.turns[generation] }] }];
@@ -191,9 +254,21 @@ async function main() {
         const before = JSON.parse(await readFile(evidencePath, 'utf8')).calls.length;
         const projection = await compactor.prepare(messages, AbortSignal.timeout(30000));
         const foregroundAuxiliaryCalls = JSON.parse(await readFile(evidencePath, 'utf8')).calls.length - before;
+        round.foregroundAuxiliaryCalls = foregroundAuxiliaryCalls;
         assert.equal(foregroundAuxiliaryCalls, 0);
         assert.match(JSON.stringify(projection), /masked pending/);
-        while (compactor.pending) { await compactor.runPending(AbortSignal.timeout(120000)); if (compactor.backgroundError) { caseResult.backgroundFailure = compactor.backgroundError; throw new Error(`Summary rejected in ${id}`); } }
+        while (compactor.pending) {
+          const callsBefore = JSON.parse(await readFile(evidencePath, 'utf8')).calls.length;
+          await compactor.runPending(AbortSignal.timeout(120000));
+          const report = JSON.parse(await readFile(evidencePath, 'utf8'));
+          const item = { index: round.backgroundItems.length, callIds: report.calls.slice(callsBefore).map(call => call.id),
+            failure: compactor.backgroundFailure ?? null, reason: compactor.backgroundFailure?.code === 'CONTEXT_PREPARE_FAILED' ? compactor.backgroundError : null };
+          round.backgroundItems.push(item);
+          if (compactor.backgroundError) caseResult.backgroundFailure = { generation, item: item.index, ...item.failure, reason: item.reason };
+          report.results = results; await saveAttempt(evidencePath, report);
+          if (compactor.backgroundError) break;
+        }
+        if (compactor.backgroundError) break;
         const records = await store.getContextCompactions('eval'), record = records.at(-1);
         assert.ok(record); const view = layerMessage(record), viewText = JSON.stringify(view);
         const bounds = blockLimits(spec.contextBudget);
@@ -203,12 +278,13 @@ async function main() {
           total: estimateMessageTokens([view, record.checklist]) <= bounds.totalSummary };
         current = `${id}/chat/${generation}`;
         const chat = await runChat({ ...selected, model, root: caseRoot, spec, question: spec.turns[generation], label: `round-${generation}` });
-        rounds.push({ generation, foregroundAuxiliaryCalls, records: records.length, layerChecks, chat, passed: Object.values(layerChecks).every(Boolean) && chat.passed });
+        Object.assign(round, { finishedAt: new Date().toISOString(), records: records.length, layerChecks, chat, passed: Object.values(layerChecks).every(Boolean) && chat.passed });
         console.log(JSON.stringify({ case: id, generation, passed: rounds.at(-1).passed }));
         // Each fresh object reopens committed layers; the final check uses a separate OS process.
         compactor = new ContextCompactor({ store, threadId: 'eval', modelId: selected.modelAlias, budget: spec.contextBudget,
           modelContextWindowTokens: spec.contextBudget.contextWindowTokens, fixedContext: () => ({}), summarizer: createAiSdkSummarizer(model) });
       }
+      const state = JSON.parse(await readFile(evidencePath, 'utf8')); if (state.stopped) throw new Error('Batch stopped after provider failure');
       const childJob = join(root, `${id}-cold-job.json`), childResult = join(root, `${id}-cold-result.json`);
       await writeFile(childJob, JSON.stringify({ root: caseRoot, spec, question: spec.afterRestart }));
       const callsBefore = JSON.parse(await readFile(evidencePath, 'utf8')).calls.length;
@@ -217,28 +293,20 @@ async function main() {
       const coldResult = JSON.parse(await readFile(childResult, 'utf8')); assert.notEqual(coldResult.pid, process.pid);
       const childCalls = JSON.parse(await readFile(evidencePath, 'utf8')).calls.slice(callsBefore);
       const coldChecks = { actualNewProcess: coldResult.pid !== process.pid, noSummaryRegeneration: childCalls.length === 1, answer: coldResult.passed };
-      Object.assign(caseResult, { cold: coldResult, coldChecks, passed: rounds.every(round => round.passed) && Object.values(coldChecks).every(Boolean) });
+      Object.assign(caseResult, { cold: coldResult, coldChecks, passed: rounds.length === spec.rounds && rounds.every(round => round.passed) && Object.values(coldChecks).every(Boolean) });
+      } catch (error) { caseResult.error = safeFailure(error); if (JSON.parse(await readFile(evidencePath, 'utf8')).stopped) throw error; }
     }
-  } catch (cause) { error = { name: cause.name, message: /Summary rejected in|M1 dispatch stopped|Cold process failed/.test(cause.message) ? cause.message : 'Batch stopped; see request status and checks. Provider detail omitted.' }; }
+  } catch (cause) { error = safeFailure(cause); }
   const report = JSON.parse(await readFile(evidencePath, 'utf8'));
   Object.assign(report, { results, error, finishedAt: new Date().toISOString(), passed: !error && results.length === 5 && results.every(result => result.suite === 'M1' ? result.results.every(item => item.passed) : result.passed) });
   await rm(root, { recursive: true, force: true }); report.temporaryDirectoryRemoved = true;
-  await writeFile(evidencePath, JSON.stringify(report, null, 2) + '\n');
-  const ledgerPath = join(repo, 'docs/v2-pilot/evidence/cost-ledger.json');
-  const ledger = JSON.parse(await readFile(ledgerPath, 'utf8'));
-  ledger.limits.combinedSteps4To6 = 2;
-  ledger.entries = ledger.entries.filter(entry => entry.runId !== report.runId);
-  ledger.entries.push({ step: '4-6', runId: report.runId, realModelRequests: report.calls.length, amount: report.costUsd,
-    unresolvedCalls: report.calls.filter(call => call.status !== 'returned').length,
-    unresolvedReservedUsd: report.calls.filter(call => call.status !== 'returned').reduce((sum, call) => sum + call.reservedUsd, 0),
-    evidence: 'cm-step6/live.json', evidenceSha256: sha(await readFile(evidencePath)) });
-  ledger.total = ledger.openingBalance.amount + ledger.entries.reduce((sum, entry) => sum + entry.amount, 0);
-  await writeFile(ledgerPath, JSON.stringify(ledger, null, 2) + '\n');
+  await saveAttempt(evidencePath, report);
+  await copyFile(evidencePath, latestPath);
   process.exitCode = report.passed ? 0 : 1;
   console.log(JSON.stringify({ runId: report.runId, calls: report.calls.length, costUsd: report.costUsd, stopped: report.stopped, passed: report.passed }));
 }
 if (import.meta.url === pathToFileURL(resolve(process.argv[1] ?? '')).href) {
   try { await main(); }
-  catch { console.error('Acceptance runner stopped; provider details omitted.'); process.exitCode = 1; }
+  catch (error) { console.error(JSON.stringify(safeFailure(error))); process.exitCode = 1; }
   finally { if (!process.argv.includes('--cold') && process.env.SERIKA_CM6_ROOT) await rm(process.env.SERIKA_CM6_ROOT, { recursive: true, force: true }); }
 }

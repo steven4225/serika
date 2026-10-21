@@ -148,12 +148,13 @@ it("background excludes synthetic extraction turns while hashes remain bound to 
 });
 
 it("invalid, empty, length-truncated and oversized background summaries never advance and never retry the item", async () => {
-  for (const result of [{ text: "" }, { text: "{}" }, { text: JSON.stringify(summary), finishReason: "length" },
+  for (const result of [{ text: "" }, { text: "{}", finishReason: "stop" }, { text: JSON.stringify(summary), finishReason: "length" },
     { text: JSON.stringify({ ...summary, goal: { ...summary.goal, text: "overflow".repeat(1000) } }) }]) {
     const store = new FakeStore(); store.messages = seed(); let calls = 0;
     const compactor = make(store, { complete: async () => { calls++; return result; } });
     await compactor.prepare(store.messages, signal()); await compactor.runPending(signal());
     assert.equal(calls, 1); assert.equal(store.records.length, 0); assert.ok(compactor.backgroundError);
+    if (result.text === "{}") { assert.ok(compactor.backgroundFailure?.schemaPaths.includes("version")); assert.equal(compactor.backgroundFailure?.finishReason, "stop"); }
   }
 });
 
@@ -214,14 +215,35 @@ it("host reconciliation rejects invented success/files/evidence and retains deni
   assert.doesNotMatch(JSON.stringify(result), /pretend|fake.md|invented/);
 });
 
-it("an irreducible failure ledger fails before dispatch without dropping failures or changing the journal", async () => {
+it("an oversized checklist masks old blocks without waiting, retains failures and diagnoses the borrowed budget", async () => {
   const store = new FakeStore(); store.messages = [user("old", "request"), ...Array.from({ length: 200 }, (_, i): UIMessage => ({ id: `failure-${i}`, role: "assistant", parts: [{
     type: "dynamic-tool", toolName: "shell_exec", toolCallId: `failure-${i}`, state: "output-error", input: {}, errorText: "failure details ".repeat(20),
   }] })), user("current", "next")];
   const before = structuredClone(store.messages); let calls = 0;
   const compactor = make(store, { complete: async () => { calls++; return { text: JSON.stringify(summary) }; } });
-  await assert.rejects(compactor.prepare(store.messages, signal()), /checklist exceeds/);
+  const projected = await compactor.prepare(store.messages, signal());
+  const checklist = projected.find(message => message.id === "runloom-compaction-checklist")!;
+  assert.ok(estimateMessageTokens([checklist]) > blockLimits(budget).section);
+  for (let i = 0; i < 200; i++) assert.match(JSON.stringify(checklist), new RegExp(`failure-${i}\\b`));
+  assert.ok(estimateContextBudget({ instructions: "instructions", messages: projected }, budget).inputTokens <= budget.inputBudgetTokens!);
+  const diagnostics = await compactor.getDiagnostics(); assert.ok(diagnostics.ok);
+  assert.equal(diagnostics.value.lastPreparation?.degradation?.reason, "checklist_overflow");
+  assert.ok(diagnostics.value.lastPreparation!.degradation!.maskedThroughMessageId);
   assert.equal(calls, 0); assert.equal(store.records.length, 0); assert.deepEqual(store.messages, before);
+});
+
+it("reusing an old summary rebuilds a checklist with the current permission snapshot", async () => {
+  const store = new FakeStore(); store.messages = seed();
+  const initial = make(store, { complete: async () => ({ text: JSON.stringify(summary) }) });
+  await initial.prepare(store.messages, signal()); await initial.runPending(signal());
+  const permission = createToolConfirmation(new PassThrough()); permission.beginRun(true);
+  const reopened = make(store, { complete: async () => { throw new Error("must not dispatch"); } }, { checklist: () => ({ permissions: permission.snapshot() }) });
+  const view = await reopened.prepare(store.messages, signal());
+  const checklist = JSON.stringify(view.find(message => message.id === "runloom-compaction-checklist"));
+  assert.match(checklist, /permissions/); assert.match(checklist, /files\\\":true/);
+  permission.endRun();
+  const next = await reopened.prepare(store.messages, signal());
+  assert.match(JSON.stringify(next.find(message => message.id === "runloom-compaction-checklist")), /files\\\":false/);
 });
 
 it("reported provider overflow recalibrates a single oversized current message when there is no additional safe block", async () => {

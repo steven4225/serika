@@ -8,7 +8,7 @@ export type ContextResult<T> =
 /** Read-only display evidence, not a tokenizer result or recovery authority. */
 export interface ContextDiagnostics {
   modelCallLogWriteFailures?: number;
-  background?: { queued: boolean; running: boolean; error: string | null };
+  background?: { queued: boolean; running: boolean; error: string | null; failure?: { name: string; code: string; finishReason?: string; schemaPaths: string[] } };
   threadId: string;
   enabled: boolean;
   budget: ContextBudgetConfig;
@@ -32,6 +32,7 @@ export interface ContextDiagnostics {
     outcome: "passthrough" | "reused" | "written" | "noop" | "failed";
     compactionId: string | null;
     estimatedInputTokens: number | null;
+    degradation?: { reason: "checklist_overflow"; checklistTokens: number; sectionBudget: number; maskedThroughMessageId: string | null };
     error: { code: string; message: string } | null;
   } | null;
 }

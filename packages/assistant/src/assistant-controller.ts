@@ -763,7 +763,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       list: async (limit) => {
         await ensureRecovered();
         const runs = await app.executionRecords.listRuns(app.threadId, limit);
-        return app.projectExecutionRuns ? app.projectExecutionRuns(runs) : runs;
+        return app.projectExecutionRuns(runs);
       },
       listModelUsage: async () => {
         await ensureRecovered();
@@ -772,7 +772,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       get: async (runId) => {
         await ensureRecovered();
         const run = await app.executionRecords.getRun(app.threadId, runId);
-        return run && app.projectExecutionRuns ? (await app.projectExecutionRuns([run]))[0] ?? null : run;
+        return run ? (await app.projectExecutionRuns([run]))[0] ?? null : null;
       },
     },
     getSnapshot: () => ({

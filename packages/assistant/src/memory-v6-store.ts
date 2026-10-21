@@ -31,7 +31,8 @@ const progress = z.object({ threadId: string, throughMessageId: string.nullable(
   retry: z.object({ ...segment.shape, failures: z.number().int().min(1).max(3) }).strict().nullable() }).strict();
 const documentSchema = z.object({ version: z.literal(6), lastWrittenAt: time.nullable(), entries: z.array(entrySchema).max(512),
   excludedSources: z.array(z.object({ threadId: string, messageId: string }).strict()).default([]),
-  progress: z.array(progress), suppressed: z.array(z.object({ threadId: string, messageId: string, memoryHash: string }).strict()),
+  progress: z.array(progress), suppressed: z.array(z.object({ threadId: string, messageId: string, memoryHash: string,
+    identity: identity.pick({ subject: true, attribute: true }).optional() }).strict()),
   library: memoryLibrarySchema, importReceipts: z.array(memoryImportReceiptSchema).max(MEMORY_IMPORT_MAX_RECEIPTS) }).strict();
 export const validateV6MemoryDocument = (value: unknown): V6Document => documentSchema.parse(value);
 export type V6Source = z.infer<typeof v6SourceSchema>;
@@ -45,7 +46,7 @@ function fail(code: ConstructorParameters<typeof MemoryStoreError>[0], message: 
 const migration = (): never => fail("MEMORY_MIGRATION_REQUIRED", "需要迁移（第 7 步）");
 const removed = (): never => fail("MEMORY_OPERATION_REMOVED", "旧候选、审核与双时态写入口已停用");
 const importSnapshot = (document: V6Document) => createHash("sha256").update(JSON.stringify(document)).digest("hex");
-const memoryHash = (entry: Pick<V6Entry, "text" | "identity">) => hashCanonicalJson({ text: entry.text });
+const memoryHash = (entry: Pick<V6Entry, "text">) => hashCanonicalJson({ text: entry.text });
 export function v6Projection(entry: V6Entry): MemoryEntry {
   return { id: entry.id, revision: entry.revision, text: entry.text, uncertain: entry.uncertain, kind: entry.category === "preference" ? "preference" : "note",
     enabled: entry.state === "active", status: entry.state === "active" ? "active" : "disabled", scope: entry.scope, pinned: entry.pinned,
@@ -152,7 +153,8 @@ export class V6MemoryStore {
         const source = v6SourceSchema.parse(raw.source);
         if (source.kind === "conversation" && !source.quote.trim()) fail("MEMORY_SOURCE_INVALID", "Conversation source quote is empty");
         if (source.kind === "conversation" && document.excludedSources.some(item => item.threadId === source.threadId && (item.messageId === source.messageId || item.messageId === source.proposal?.messageId))) fail("MEMORY_SOURCE_INVALID", "Excluded source");
-        if ((raw.operation === "add" || raw.operation === "replace") && document.suppressed.some(item => source.kind === "conversation" && item.threadId === source.threadId && item.messageId === source.messageId && item.memoryHash === memoryHash(raw))) continue;
+        if ((raw.operation === "add" || raw.operation === "replace") && document.suppressed.some(item => source.kind === "conversation" && item.threadId === source.threadId && item.messageId === source.messageId &&
+          (item.identity && raw.identity ? item.identity.subject === raw.identity.subject && item.identity.attribute === raw.identity.attribute : item.memoryHash === memoryHash(raw)))) continue;
         let target = raw.operation === "add" ? undefined : document.entries.find(entry => entry.id === raw.id);
         if (raw.operation !== "add" && (!target || target.revision !== raw.expectedRevision)) fail("MEMORY_REVISION_CONFLICT", "Memory target changed or is missing");
         if (target?.privacyExcluded) fail("MEMORY_SOURCE_INVALID", "Excluded source cannot be restored or rewritten");
@@ -249,7 +251,8 @@ export class V6MemoryStore {
       const entry = document.entries.find(entry => entry.id === input.id);
       if (!entry || entry.revision !== input.expectedRevision) fail("MEMORY_REVISION_CONFLICT", "Memory changed");
       if (entry.scope.kind === "thread" && entry.scope.threadId !== options?.boundThreadId) fail("MEMORY_SOURCE_INVALID", "Foreign Thread");
-      for (const source of entry.sources) if (source.kind === "conversation") document.suppressed.push({ threadId: source.threadId, messageId: source.messageId, memoryHash: memoryHash(entry) });
+      for (const source of entry.sources) if (source.kind === "conversation") document.suppressed.push({ threadId: source.threadId, messageId: source.messageId, memoryHash: memoryHash(entry),
+        ...(entry.identity ? { identity: { subject: entry.identity.subject, attribute: entry.identity.attribute } } : {}) });
       document.entries = document.entries.filter(item => item.id !== entry.id); return input.id;
     }, options?.now));
     return result.ok ? { ok: true as const, id: result.value } : result;

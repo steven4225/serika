@@ -206,7 +206,7 @@ export interface RuntimeApp {
   memoryExtraction?: MemoryExtraction;
   background?: ThreadBackground;
   settleModelUsage?: () => Promise<void>;
-  projectExecutionRuns?: (runs: import("./execution-record-store.js").ExecutionRunRecord[]) => Promise<import("./execution-record-store.js").ExecutionRunRecord[]>;
+  projectExecutionRuns: (runs: import("./execution-record-store.js").ExecutionRunRecord[]) => Promise<import("./execution-record-store.js").ExecutionRunRecord[]>;
   getMemoryConsolidationBacklog?: () => Promise<MemoryResult<number>>;
   getMemoryReferences?: () => MemoryReferenceSnapshot | null;
   subscribeMemoryReferences?: (listener: () => void) => () => void;

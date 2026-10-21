@@ -21,6 +21,7 @@ function appWith(store: TemporalWorkspaceMemoryStore, root: string, overrides: P
       finishRun: async () => undefined, listRuns: async () => [], getRun: async () => null,
     } as unknown as RuntimeApp["executionRecords"],
     enableExecutionRecords: () => undefined, bindNextExecutionWorkTask: () => () => undefined,
+    projectExecutionRuns: async runs => runs,
     workTasks: undefined, workTaskContext: { begin: () => undefined, end: () => undefined },
     threadId: "thread-a", directory: join(root, "transcripts"), workspaceRoot: root,
     memoryStore: store, moduleConfig: undefined, toolConfirmation: undefined, commands: undefined,

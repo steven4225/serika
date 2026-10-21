@@ -72,6 +72,7 @@ function appWith(overrides: Partial<RuntimeApp> = {}): RuntimeApp {
       getRun: async () => null,
     } as unknown as RuntimeApp["executionRecords"],
     enableExecutionRecords: () => undefined,
+    projectExecutionRuns: async runs => runs,
     bindNextExecutionWorkTask: () => () => undefined,
     workTasks: undefined,
     workTaskContext: { begin: () => undefined, end: () => undefined },
