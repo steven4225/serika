@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { reliabilityCases, reliabilitySpec, compactionSeed } from './reliability-cases.mjs';
 import { evaluateCase } from './oracle.mjs';
 import { splitMessageCompactionUnits } from '@serika/assistant/internal/context-budget.js';
-import { summarySourceChunks } from '@serika/assistant/internal/context-compactor.js';
+import { sourceBlocks } from './context-blocks.mjs';
 
 test('reliability suite separates ordinary conflicts and explicit changes, with three explicit variants', () => {
   assert.equal(reliabilityCases.filter(c => c.category === 'memory').length, 11);
@@ -37,7 +37,7 @@ test('ordinary conflict variants do not explicitly request a change, while ident
 test('multi-chunk fixture really spans multiple 24K blocks, with independent facts on both sides', () => {
   for (const variant of [0, 1, 2]) {
     const spec = reliabilitySpec('RC08', variant);
-    const chunks = summarySourceChunks(splitMessageCompactionUnits(compactionSeed(spec).slice(0, -2)), 24000);
+    const chunks = sourceBlocks(splitMessageCompactionUnits(compactionSeed(spec).slice(0, -2)), 24000);
     assert.ok(chunks.length >= 2);
     assert.ok(chunks[0].some(m => JSON.stringify(m).includes(spec.truth.code)));
     assert.ok(chunks.slice(1).some(chunk => chunk.some(m => JSON.stringify(m).includes(spec.truth.amount))));

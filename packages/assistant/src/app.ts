@@ -1,3 +1,6 @@
+import { createTranscriptAccess } from "./transcript-access.js";
+import { historyTools } from "./history-tools.js";
+import { createThreadBackground, type ThreadBackground } from "./thread-background.js";
 import { AUTONOMOUS_MAX_STEPS, AUTONOMOUS_TOTAL_TIMEOUT_MS, AUTONOMOUS_SHELL_TIMEOUT_MS, AUTONOMOUS_INSTRUCTIONS } from "./foreground-autonomy.js";
 import { assertExperimentalDataPaths } from "./experimental-data.js";
 import { randomUUID } from "node:crypto";
@@ -22,7 +25,7 @@ import { AUTO_CONSOLIDATION_AGENT_ID } from "./consolidation.js";
 import { loadSkillPackages, skillAgentDefinition } from "./skill-catalog.js";
 import { createRuntimeAutomation, type RuntimeAutomation } from "./automation-execution.js";
 import { createDreamingService, DREAMING_AGENT_ID, type DreamingService, type LearnedSkillReferenceSnapshot } from "./dreaming.js";
-import { readMemorySnapshot, type MemoryReferenceSnapshot } from "./memory-snapshot.js";
+import { readMemorySnapshot, createMemorySnapshotMessage, type MemoryReferenceSnapshot } from "./memory-snapshot.js";
 import { memoryReadTools } from "./memory-read-tools.js";
 import { memoryConsolidationBacklog, type MemoryConsolidation } from "./memory-consolidation.js";
 import type { MemoryResult } from "./memory-candidates.js";
@@ -201,7 +204,9 @@ export interface RuntimeApp {
   recipes?: RecipeStore;
   memoryConsolidation?: MemoryConsolidation;
   memoryExtraction?: MemoryExtraction;
+  background?: ThreadBackground;
   settleModelUsage?: () => Promise<void>;
+  projectExecutionRuns?: (runs: import("./execution-record-store.js").ExecutionRunRecord[]) => Promise<import("./execution-record-store.js").ExecutionRunRecord[]>;
   getMemoryConsolidationBacklog?: () => Promise<MemoryResult<number>>;
   getMemoryReferences?: () => MemoryReferenceSnapshot | null;
   subscribeMemoryReferences?: (listener: () => void) => () => void;
@@ -315,6 +320,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       acquireTranscriptLock: (path: string) => acquireFlock(`${path}.append.lock`),
     }),
   });
+  let invalidateTranscriptView = () => {};
+  const transcript = createTranscriptAccess({ store, threadId, memory: memoryStore, invalidated: () => invalidateTranscriptView() });
   const executionRecords = createExecutionRecordStore(directory);
   const recipes = tuiMode && shellEnabled && workspaceRoot ? new RecipeStore(workspaceRoot) : undefined;
   let usageEnabled = false;
@@ -429,8 +436,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
               ? [
                   createMemoryModule(
                     memoryStore!,
-                    () => store.getMessages(threadId),
-                    { threadId, ...(workspaceRoot === undefined ? {} : { workspaceRoot }), writePolicy: moduleConfig?.memoryWritePolicy ?? "review", consolidationAgentIds: externalSkills.filter(skill => skill.kind === "memory-consolidate").map(skill => skill.agentId),
+                    () => transcript.read(),
+                    { threadId, transcript, ...(workspaceRoot === undefined ? {} : { workspaceRoot }), writePolicy: moduleConfig?.memoryWritePolicy ?? "review", consolidationAgentIds: externalSkills.filter(skill => skill.kind === "memory-consolidate").map(skill => skill.agentId),
                       getCurrentUserMessage: () => currentRun.memorySource?.signal.aborted ? undefined : currentRun.memorySource?.message,
                      },
                   ),
@@ -539,7 +546,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
           return;
         }
         try {
-          const messages = await store.getMessages(threadId);
+          const messages = await transcript.read();
           const result = lookupTranscript(messages, selector);
           if (!result.ok) {
             output.write(`\n[history] ${result.error}\n`);
@@ -655,7 +662,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     const primaryInstructions = () => autonomousRun()
       ? autonomousBaseInstructions + "\n" + AUTONOMOUS_INSTRUCTIONS
       : baseInstructions;
-    const memoryReaders = memoryStore || dreaming ? memoryReadTools({ store: memoryStore, dreaming, threadId }) : [];
+    const memoryReaders = [...(memoryStore || dreaming ? memoryReadTools({ store: memoryStore, dreaming, threadId }) : []), ...historyTools(transcript, moduleConfig?.contextCompaction ?? DEFAULT_CONTEXT_BUDGET_CONFIG)];
     const registeredTools = [...(demoTools ? [addRegistration] : []), ...(moduleHost?.tools ?? []), ...(tuiMode ? memoryReaders : [])];
     const getCapabilities = () => capabilityStatus({
       config: moduleConfig,
@@ -708,7 +715,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       ...(moduleConfig?.modelPricing ? { prices: moduleConfig.modelPricing } : {}),
     });
     const memoryExtraction = memoryStore && moduleConfig?.autoConsolidate ? createMemoryExtraction({
-      store: memoryStore, threadId, ...(workspaceRoot ? { workspaceRoot } : {}), getMessages: () => store.getMessages(threadId), model: observedModel("memory_consolidation"),
+      store: memoryStore, threadId, ...(workspaceRoot ? { workspaceRoot } : {}), getMessages: () => transcript.read(), model: observedModel("memory_consolidation"),
       budget: moduleConfig.contextCompaction, updated: () => { redrawAfterModuleNotification?.(); },
     }) : undefined;
     const models = new InMemoryModelRegistry({ [modelAlias]: observedModel() });
@@ -734,14 +741,18 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     const contextCompactor =
       tuiMode && moduleConfig?.contextCompaction.enabled === true
         ? new ContextCompactor({
-            store,
+            store: { getMessages: () => transcript.read(), save: (...args) => store.save(...args),
+              appendContextCompaction: record => store.appendContextCompaction(record), getContextCompactions: thread => store.getContextCompactions(thread) },
             threadId,
             modelId: modelAlias,
             summarizer: createAiSdkSummarizer(observedModel("context_compaction")),
             budget: moduleConfig.contextCompaction,
             modelContextWindowTokens: moduleConfig.contextCompaction.contextWindowTokens,
+            ...(workspaceRoot ? { project: workspaceRoot } : {}),
+            onMask: id => memoryExtraction?.afterMask(id),
+            backgroundReference: async signal => createMemorySnapshotMessage(await readMemorySnapshot(memoryStore, signal)),
             checklist: async () => ({ workTask: currentRun.workTask, permissions: toolConfirmation?.snapshot(),
-              runs: await executionRecords.listRuns(threadId, EXECUTION_RECORD_MAX_RUNS) }),
+              runs: await transcript.filterRuns(await executionRecords.listRuns(threadId, EXECUTION_RECORD_MAX_RUNS)) }),
             fixedContext: () => ({
                 instructions: primaryInstructions(),
                 tools: autonomousRun() ? autonomousToolContext : primaryToolContext,
@@ -755,7 +766,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
             },
           })
         : undefined;
-    const savedMessages = await store.getMessages(threadId);
+    invalidateTranscriptView = () => { buildReferencePrefix.invalidate(); contextCompactor?.invalidate(); };
+    const savedMessages = await transcript.read();
     buildReferencePrefix.restore(savedMessages, await contextCompactor?.referenceSnapshot(savedMessages));
     if (contextCompactor !== undefined && moduleConfig?.contextCompaction.enabled === true) {
       const startupPrefix = await referencePrefix([], AbortSignal.timeout(5_000));
@@ -884,10 +896,11 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       ...(extensions.afterToolCall ? { afterToolCall: extensions.afterToolCall } : {}),
       ...(tuiMode
         ? {
-            prepareModelContext: ({ messages, signal, definition }) => {
+            prepareModelContext: async ({ messages, signal, definition, contextOverflow }) => {
               // Every step of every agent clears it; only the primary route sets it again.
               currentRun.memorySource = undefined;
-              return routeModelContext(contextRoutes, { messages, signal, agentId: definition.id });
+              if (definition.id === PRIMARY_AGENT_ID && contextOverflow) contextCompactor?.reportedOverflow(contextOverflow.inputTokens);
+              return routeModelContext(contextRoutes, { messages: await transcript.project(messages), signal, agentId: definition.id });
             },
           }
         : {}),
@@ -975,6 +988,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       ...(activateTaskAutomation ? { activateTaskAutomation } : {}),
       ...(memoryStore ? { memoryStore } : {}),
       ...(memoryExtraction ? { memoryExtraction } : {}),
+      background: createThreadBackground(contextCompactor, memoryExtraction),
+      projectExecutionRuns: runs => transcript.filterRuns(runs),
       desktopAutonomyEnabled,
       telegramAutonomyEnabled,
       beginForegroundExecution: (entry, request) => {
@@ -987,7 +1002,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       ...(memoryStore ? { getMemoryConsolidationBacklog: async () => {
         const cursor = await memoryStore.getConsolidationCursor(threadId);
         if (!cursor.ok) return cursor;
-        return memoryConsolidationBacklog(await store.getMessages(threadId), cursor.value);
+        return memoryConsolidationBacklog(await transcript.read(), cursor.value);
       } } : {}),
       renderHome: renderFreshHome,
       registerNotificationRedraw: (redraw) => {

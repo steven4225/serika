@@ -217,6 +217,7 @@ export interface MemoryWriteOptions {
 }
 
 export interface WorkspaceMemoryStore {
+  excludeSources?(threadId: string, messageIds: string[], signal?: AbortSignal): Promise<MemoryResult<null>>;
   readV6?(signal?: AbortSignal): Promise<MemoryResult<import("./memory-v6-store.js").V6Document>>;
   writeV6?(changes: import("./memory-v6-store.js").V6Change[], signal?: AbortSignal, options?: import("./memory-v6-store.js").V6Commit): Promise<MemoryResult<MemoryEntry[]>>;
   readReferenceMaterial?(signal: AbortSignal, now: Date): Promise<MemoryResult<{ entries: MemoryEntry[]; library: MemoryLibrary }>>;

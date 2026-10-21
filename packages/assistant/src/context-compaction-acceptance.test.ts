@@ -10,7 +10,7 @@ import { ContextCompactor } from "./context-compactor.js";
 import { createAiSdkSummarizer, parseContextSummary, type ContextSummaryV2 } from "./context-compaction.js";
 import { configureCliModel } from "./model-config.js";
 import { createDemoModel } from "./demo-model.js";
-import { defaultContextBudget, estimateContextBudget, type ContextBudgetConfig } from "./context-budget.js";
+import { defaultContextBudget, effectiveContextBudget, estimateContextBudget, type ContextBudgetConfig } from "./context-budget.js";
 
 const modelName = process.env.RUNLOOM_ACCEPTANCE_MODEL;
 
@@ -31,14 +31,7 @@ class MemoryStore implements MessageStore, ContextCompactionStore {
   }
 }
 
-const budget: ContextBudgetConfig = {
-  enabled: true,
-  contextWindowTokens: 1_200,
-  maxOutputTokens: 256,
-  safetyMarginTokens: 64,
-  keepRecentTokens: 80,
-  summaryMaxOutputTokens: 1_024,
-};
+const budget = effectiveContextBudget(defaultContextBudget(), { provider: "acceptance", modelId: "32k", contextWindowTokens: 32768, source: "configuration" });
 
 it("live DeepSeek summary JSON installs a compaction record", {
   skip: modelName !== "deepseek" && modelName !== "minimax-m3",
@@ -55,7 +48,7 @@ it("live DeepSeek summary JSON installs a compaction record", {
         text: "在 notes/plan.md 新建一份三段计划；目标是整理 ALPHA-2026，只可修改 notes/，不得写 protected/。",
       }],
     },
-    { id: "old-reference", role: "assistant", parts: [{ type: "text", text: "历史工作材料。".repeat(400) }] },
+    { id: "old-reference", role: "assistant", parts: [{ type: "text", text: "历史工作材料。".repeat(3000) }] },
     {
       id: "write-1",
       role: "assistant",
@@ -84,7 +77,10 @@ it("live DeepSeek summary JSON installs a compaction record", {
     fixedContext: () => ({ instructions: "instructions", tools: [], memories: [], dynamicContext: "" }),
     generateId: () => "compact-live-1",
   });
-  const prepared = await compactor.prepare(messages, AbortSignal.timeout(45_000), true);
+  await compactor.prepare(messages, AbortSignal.timeout(45_000));
+  await compactor.runPending(AbortSignal.timeout(45_000));
+  assert.equal(compactor.backgroundError, undefined);
+  const prepared = await compactor.prepare(messages, AbortSignal.timeout(45_000));
   assert.equal(store.records.length, 1);
   const persisted = store.records[0]?.summary as unknown as ContextSummaryV2;
   assert.ok(parseContextSummary(JSON.stringify(persisted)));
@@ -114,10 +110,13 @@ for (const mode of ["daily", "long-task"] as const) {
       fixedContext: () => ({ instructions: "Maintain the original constraints.", tools: [], dynamicContext: "" }),
     });
     // Force exercises actual full-size source chunking even when tokenizer estimates differ.
-    const prepared = await compactor.prepare(store.messages, new AbortController().signal, true);
-    assert.equal(store.records.length, 1);
+    await compactor.prepare(store.messages, new AbortController().signal);
+    while (compactor.pending) await compactor.runPending(new AbortController().signal);
+    assert.equal(compactor.backgroundError, undefined);
+    const prepared = await compactor.prepare(store.messages, new AbortController().signal);
+    assert.ok(store.records.length > 1);
     const record = store.records[0] as unknown as { summary: ContextSummaryV2; metrics: { attempts: number; durationMs: number; estimatedInputBefore: number; estimatedInputAfter: number } };
-    assert.ok(record.metrics.attempts > 4);
+    assert.equal(record.metrics.attempts, 1);
     assert.ok(parseContextSummary(JSON.stringify(record.summary)));
     assert.match(JSON.stringify(record.summary.constraints), /protected/);
     assert.ok(estimateContextBudget({ instructions: "Maintain the original constraints.", messages: prepared }, modeBudget).inputTokens <= modeBudget.inputBudgetTokens!);

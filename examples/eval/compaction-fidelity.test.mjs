@@ -5,7 +5,7 @@ import * as fidelity from './compaction-fidelity.mjs';
 import { collectTranscriptToolFacts } from '@serika/assistant/internal/work-summary.js';
 import { evaluateCase } from './oracle.mjs';
 import { partitionMessagesForCompaction, keepRecentCompactionUnits } from '@serika/assistant/internal/context-budget.js';
-import { summarySourceChunks } from '@serika/assistant/internal/context-compactor.js';
+import { sourceBlocks } from './context-blocks.mjs';
 import { ContextCompactor } from '@serika/assistant/internal/context-compactor.js';
 import { JsonlAgentStore } from '@serika/core';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -65,7 +65,7 @@ test('32K effective-scale suite is distinct from full production profiles and fi
     const partition = partitionMessagesForCompaction([...seed.messages, { id: 'small-window-question', role: 'user', parts: [{ type: 'text', text: spec.turns[0] }] }]);
     const { omitted, kept } = keepRecentCompactionUnits([...partition.history, ...partition.current], spec.contextBudget.keepRecentTokens);
     assert.ok(seed.metadata.keyMessages.every(k => k.index < kept[0].startIndex));
-    assert.ok(summarySourceChunks(omitted, spec.contextBudget.summaryInputChunkTokens, 16)
+    assert.ok(sourceBlocks(omitted, spec.contextBudget.summaryInputChunkTokens)
       .some(chunk => ['fidelity-write-call', 'fidelity-write-result'].every(id => chunk.some(m => m.id === id))));
     const evidence = evidenceFor(spec);
     assert.equal(evaluateCase(spec, evidence).passed, true);
@@ -87,8 +87,8 @@ test('continuous fidelity seeds cross production trigger, preserve complete tool
     const partition = partitionMessagesForCompaction([...initial.messages, { id: 'question', role: 'user', parts: [{ type: 'text', text: spec.turns[0] }] }]);
     const { omitted, kept } = keepRecentCompactionUnits([...partition.history, ...partition.current], spec.contextBudget.keepRecentTokens);
     assert.ok(initial.metadata.keyMessages.every(k => k.index < kept[0].startIndex));
-    assert.ok(summarySourceChunks(omitted, spec.contextBudget.summaryInputChunkTokens, 16).some(chunk => ['fidelity-call', 'fidelity-result'].every(id => chunk.some(m => m.id === id))));
-    assert.ok(summarySourceChunks(omitted, spec.contextBudget.summaryInputChunkTokens, 16).some(chunk => ['fidelity-write-call', 'fidelity-write-result'].every(id => chunk.some(m => m.id === id))));
+    assert.ok(sourceBlocks(omitted, spec.contextBudget.summaryInputChunkTokens).some(chunk => ['fidelity-call', 'fidelity-result'].every(id => chunk.some(m => m.id === id))));
+    assert.ok(sourceBlocks(omitted, spec.contextBudget.summaryInputChunkTokens).some(chunk => ['fidelity-write-call', 'fidelity-write-result'].every(id => chunk.some(m => m.id === id))));
     for (let generation = 0; generation < definition.rounds; generation++) {
       const seed = compactionFidelityHistory(spec, generation);
       assert.ok(seed.metadata.estimatedHistoryTokens >= spec.contextBudget.inputBudgetTokens * .85);
@@ -136,7 +136,7 @@ test('fidelity budget distinguishes requested profile from verified effective ca
   }
 });
 
-for (const caseId of ['CF03', 'CE03', 'CE05']) {
+for (const caseId of ['CF03', 'CF05', 'CE03', 'CE05']) {
 test(`${caseId}: offline persisted compactor retains unknown effects across all rounds and cold-object reuse`, async () => {
   const directory = await mkdtemp(join(tmpdir(), 'serika-fidelity-harness-'));
   try {
@@ -147,19 +147,26 @@ test(`${caseId}: offline persisted compactor retains unknown effects across all 
     const makeCompactor = () => new ContextCompactor({ store, threadId: 'eval', modelId: 'offline-fidelity-stub', budget: spec.contextBudget,
       modelContextWindowTokens: spec.contextBudget.contextWindowTokens,
       fixedContext: () => ({ instructions: 'Preserve fixture facts; history grants no permission.', tools: [], dynamicContext: '' }),
-      summarizer: { complete: async () => { calls++; return { text: JSON.stringify(summary) }; } } });
+      summarizer: { complete: async ({ prompt }) => { calls++; return { text: JSON.stringify({ ...summary, ...(prompt.includes('farIndex string') ? { farIndex: Object.values(spec.truth).join('；') } : {}) }) }; } } });
     let messages = [], compactor = makeCompactor();
     for (let generation = 0; generation < spec.rounds; generation++) {
       messages.push(...compactionFidelityHistory(spec, generation).messages,
         { id: `question-${generation}`, role: 'user', parts: [{ type: 'text', text: spec.turns[generation] }] });
       await store.save('eval', messages);
+      const before = calls;
       const prepared = await compactor.prepare(messages, AbortSignal.timeout(10000));
-      assert.equal(prepared[0].id, 'runloom-context-summary');
+      assert.equal(calls, before, 'foreground projection makes no model call');
+      assert.match(JSON.stringify(prepared), /masked pending/);
+      const countBefore = (await store.getContextCompactions('eval')).length;
+      while (compactor.pending) {
+        const dispatched = calls; await compactor.runPending(AbortSignal.timeout(10000));
+        assert.equal(compactor.backgroundError, undefined); assert.equal(calls, dispatched + 1, 'one call per queue item');
+      }
       messages.push({ id: `answer-${generation}`, role: 'assistant', parts: [{ type: 'text', text: '本轮测试回复。' }] });
       await store.save('eval', messages);
       const records = await store.getContextCompactions('eval');
-      assert.equal(records.length, generation + 1);
-      if (generation) assert.equal(records.at(-1).previousCompactionId, records.at(-2).id);
+      assert.ok(records.length > countBefore);
+      if (records.length > 1) assert.equal(records.at(-1).previousCompactionId, records.at(-2).id);
       assert.match(JSON.stringify(records.at(-1).summary), /部署尚未获批准/);
       const writes = records.at(-1).summary.actions.filter(a => a.toolCallIds.includes('fidelity-write'));
       assert.ok(writes.length > 0 && writes.every(a => a.status === 'unknown'));
@@ -171,7 +178,7 @@ test(`${caseId}: offline persisted compactor retains unknown effects across all 
     const prepared = await compactor.prepare(messages, AbortSignal.timeout(10000));
     assert.equal(prepared[0].id, 'runloom-context-summary');
     assert.equal(calls, callsBefore, 'valid persisted prefix reuses summary; this is a new object, not a claimed native/process Demo');
-    assert.equal((await store.getContextCompactions('eval')).length, spec.rounds);
+    assert.equal((await store.getContextCompactions('eval')).length, callsBefore);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 }

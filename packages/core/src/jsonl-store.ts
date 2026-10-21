@@ -120,6 +120,34 @@ function isCommittedMessagesRecord(
   );
 }
 
+export interface TranscriptExclusion {
+  v: 2;
+  type: "thread.message.excluded";
+  threadId: string;
+  messageId: string;
+  at: string;
+  reason: "privacy" | "user_requested";
+}
+
+export function transcriptExclusions(lines: readonly string[], threadId: string): TranscriptExclusion[] {
+  return lines.flatMap(line => {
+    const value = parseLine(line, threadId) as Record<string, unknown>;
+    if (value.type !== "thread.message.excluded") return [];
+    if (value.v !== 2 || value.threadId !== threadId || typeof value.messageId !== "string" || !value.messageId ||
+        typeof value.at !== "string" || !Number.isFinite(Date.parse(value.at)) ||
+        value.reason !== "privacy" && value.reason !== "user_requested" ||
+        Object.keys(value).some(key => !["v", "type", "threadId", "messageId", "at", "reason"].includes(key))) throw storageCorrupt(threadId);
+    return [value as unknown as TranscriptExclusion];
+  });
+}
+
+export function excludedTranscriptView(messages: readonly UIMessage[], exclusions: readonly Pick<TranscriptExclusion, "messageId">[]): UIMessage[] {
+  if (!exclusions.length) return [...messages];
+  const ids = new Set(exclusions.map(item => item.messageId));
+  return messages.map(message => ids.has(message.id) ? { id: message.id, role: message.role,
+    metadata: { transcriptExcluded: true }, parts: [{ type: "text", text: `[Message ${message.id} excluded.]` }] } : { ...message, metadata: Object.fromEntries(Object.entries(message.metadata ?? {}).filter(([key]) => key !== "contextReferences" && key !== "contextSnapshot")) });
+}
+
 export class JsonlAgentStore implements AgentStore, ContextCompactionStore {
   readonly #directory: string;
   readonly #memory = new InMemoryAgentStore();
@@ -200,8 +228,11 @@ export class JsonlAgentStore implements AgentStore, ContextCompactionStore {
 
     await serializeTranscriptOperation(path, async () => {
       const transcript = await this.#readMessages(path, threadId, true);
+      transcriptExclusions(transcript.companions, threadId);
       for (const line of transcript.companions) {
         const value = parseLine(line, threadId);
+
+        if ((value as { type?: unknown })?.type === "thread.message.excluded") continue;
 
         // Invalid compaction records are ignored. The compaction schema is
         // owned by the caller and is intentionally opaque to core.
@@ -233,6 +264,27 @@ export class JsonlAgentStore implements AgentStore, ContextCompactionStore {
     });
 
     return structuredClone(records);
+  }
+
+  async getTranscriptExclusions(threadId: string): Promise<TranscriptExclusion[]> {
+    const path = this.#pathFor(threadId);
+    return serializeTranscriptOperation(path, async () => transcriptExclusions((await this.#readMessages(path, threadId, true)).companions, threadId));
+  }
+
+  async excludeMessage(input: { threadId: string; messageId: string; reason: TranscriptExclusion["reason"]; at: string }): Promise<void> {
+    if (!input.messageId || !["privacy", "user_requested"].includes(input.reason) || !Number.isFinite(Date.parse(input.at))) throw new Error("Invalid transcript exclusion");
+    await this.#appendRecord(input.threadId, messages => {
+      if (!messages.some(message => message.id === input.messageId)) throw new Error("Exclusion target must be a committed message in this Thread");
+      return JSON.stringify({ v: 2, type: "thread.message.excluded", ...input }) + "\n";
+    });
+  }
+
+  async getModelMessages(threadId: string): Promise<UIMessage[]> {
+    const path = this.#pathFor(threadId);
+    return serializeTranscriptOperation(path, async () => {
+      const read = await this.#readMessages(path, threadId, true);
+      return excludedTranscriptView(read.messages, transcriptExclusions(read.companions, threadId));
+    });
   }
 
   async getMessages(threadId: string): Promise<UIMessage[]> {

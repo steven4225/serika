@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { lstat, readdir, realpath } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
-import { readCommittedTranscriptLines, createThreadTranscriptReader, MAX_TRANSCRIPT_RECORD_BYTES } from "@serika/core";
+import { readCommittedTranscriptLines, excludedTranscriptView, transcriptExclusions, createThreadTranscriptReader, MAX_TRANSCRIPT_RECORD_BYTES } from "@serika/core";
 import type { DesktopThread } from "./desktop-identity.js";
 import type { ThreadSummary } from "../shared/ui-contract.js";
 
@@ -28,8 +28,8 @@ export async function inspectThread(thread: DesktopThread, query = ""): Promise<
       summaries.set(key, cached);
       return { ...thread, ...cached.value };
     }
-    const transcript = await readHistory(path, thread.threadId);
-    const messages = transcript.messages as Array<{ role: string; parts: Array<{ type: string; text?: string }>; metadata?: { source?: string } }>;
+    const transcript = await readHistory(path, thread.threadId, { companions: true });
+    const messages = excludedTranscriptView(transcript.messages, transcriptExclusions(transcript.companions, thread.threadId)) as Array<{ role: string; parts: Array<{ type: string; text?: string }>; metadata?: { source?: string } }>;
     const incompleteTail = transcript.incompleteTail;
     if (messages.some(message => !["user", "assistant", "system"].includes(message.role) || !Array.isArray(message.parts))) throw new Error("Invalid committed messages");
     let background = false;

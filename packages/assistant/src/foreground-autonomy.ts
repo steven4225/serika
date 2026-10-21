@@ -26,7 +26,7 @@ export function placeForegroundTaskReference(messages: UIMessage[]): UIMessage[]
   const reference = messages.find(message => message.id === "runloom-foreground-task" &&
     (message.metadata as { source?: string } | undefined)?.source === "foreground-task");
   if (!reference) return messages;
-  const conversation = messages.filter(message => message !== reference);
+  const conversation = messages.filter(message => message.id !== "runloom-foreground-task");
   const originalId = (reference.metadata as { originalMessageId: string }).originalMessageId;
   return conversation.some(message => message.id === originalId && message.role === "user")
     ? conversation : [...conversation, reference];

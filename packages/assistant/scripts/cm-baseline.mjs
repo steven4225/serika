@@ -9,7 +9,7 @@ const results = [];
 const percentile = (values, p) => values.length ? values[Math.ceil(values.length * p) - 1] : null;
 for (const thread of threads) {
   const store = new JsonlAgentStore({ directory: thread.transcriptDirectory });
-  const messages = await store.getMessages(thread.threadId);
+  const messages = await store.getModelMessages(thread.threadId);
   const users = messages.filter(message => message.role === "user" &&
     !["auto-consolidation", "dreaming", "automation-skill"].includes(message.metadata?.source));
   let journal;

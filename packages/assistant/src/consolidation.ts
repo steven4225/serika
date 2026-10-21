@@ -116,6 +116,7 @@ export function findCommittedUserMessage(
   messageId: string,
 ): ConsolidationMessage | undefined {
   if (messageId.length === 0) return undefined;
+  if (committedMessages.some(message => message.id === messageId && (message.metadata as { transcriptExcluded?: boolean } | undefined)?.transcriptExcluded)) return undefined;
   let found: ConsolidationMessage | undefined;
   for (const message of committedMessages) {
     if (message.id !== messageId) continue;

@@ -56,6 +56,7 @@ export type ReferenceAssembler = ((
   annotate(messages: readonly UIMessage[]): UIMessage[];
   restore(messages: readonly UIMessage[], snapshot?: readonly UIMessage[]): void;
   refresh(): () => void;
+  invalidate(): void;
 };
 
 type MessageReferences = { contextReferences?: UIMessage[]; contextSnapshot?: UIMessage[] };
@@ -147,7 +148,7 @@ export function createReferenceAssembler(sources: readonly ReferenceSource[]): R
       referenceBytes: Buffer.byteLength(JSON.stringify(memory)), selected: currentSelection.selected.map(item => ({ ...item, text: currentSelection.entries.find(entry => entry.id === item.id)!.text })) };
     return { prefix: fixed, memoryReference };
   };
-  return Object.assign(assemble, { annotate, refresh: () => {
+  return Object.assign(assemble, { annotate, invalidate: () => { fixed = undefined; changed = true; observedSelection = undefined; captured.clear(); }, refresh: () => {
     const before = { fixed, changed, observedSelection, captured: structuredClone(captured) };
     fixed = undefined; changed = true; observedSelection = undefined;
     return () => { ({ fixed, changed, observedSelection } = before); captured.clear(); for (const [id, value] of before.captured) captured.set(id, value); };
@@ -222,6 +223,7 @@ export async function preparePrimaryContext(input: {
     observer.published((await input.references(messages, signal, true)).memoryReference);
     return placeForeground([...compactor.effectiveReferencePrefix, ...expandMessageReferences(conversation)]);
   } catch (error) {
+    observer.referencesFailed(error);
     observer.compactionFailed(error);
     throw error;
   }

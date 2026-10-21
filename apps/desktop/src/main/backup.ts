@@ -3,7 +3,11 @@ import { constants } from "node:fs";
 import { link, lstat, mkdir, open, realpath, rm, unlink } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, sep } from "node:path";
 import { gzipSync, gunzipSync } from "node:zlib";
-import { readThreadTranscript } from "@serika/core";
+import { readThreadTranscript, excludedTranscriptView, transcriptExclusions } from "@serika/core";
+import { excludedRunView } from "@serika/assistant";
+import type { ExecutionRunRecord } from "@serika/assistant";
+import type { UIMessage } from "ai";
+import type { TranscriptExclusion } from "@serika/core";
 import { restoreTaskDocument, validateTaskDocument } from "@serika/assistant";
 import { MEMORY_FILE_MAX_BYTES, validateMemoryDocument, validateV6MemoryDocument } from "@serika/assistant";
 import { CHECKPOINT_FILE_MAX_BYTES, validateCheckpointDocument } from "@serika/assistant";
@@ -92,6 +96,7 @@ async function exportLockedBackup(options: ExportOptions): Promise<BackupResult>
     bytes += Buffer.byteLength(text); if (bytes > MAX_BACKUP_BYTES) throw new Error("备份数据超过 128 MiB；未截断或删除来源");
     archive.entries.push({ path, text, sha256: hash(text) });
   };
+  const threadViews: Array<{ threadId: string; messages: UIMessage[]; exclusions: TranscriptExclusion[] }> = [];
   for (const name of STORE_NAMES) {
     const text = await readSafe(join(workspace, ".runloom", name), STORES[name].max);
     if (text !== null) { validateStore(name, text); add(`workspace/.runloom/${name}`, text); }
@@ -104,18 +109,21 @@ async function exportLockedBackup(options: ExportOptions): Promise<BackupResult>
     let latest: string | null = null; const compactions: string[] = [];
     try {
       const transcript = await readThreadTranscript(path, thread.threadId, { companions: true });
+      const exclusions = transcriptExclusions(transcript.companions, thread.threadId);
+      threadViews.push({ threadId: thread.threadId, messages: transcript.messages, exclusions });
+      compactions.push(...exclusions.map(record => JSON.stringify(record)));
       for (const line of transcript.companions) {
         const record = JSON.parse(line);
         if (record.v === 2 && record.type === "thread.context.compacted") {
           if (record.threadId !== thread.threadId) throw new Error("备份摘要归属不符");
-          compactions.push(line); continue;
+          if (!exclusions.length) compactions.push(line); continue;
         }
         if (record.v !== 1) continue;
         if (record.threadId !== thread.threadId) throw new Error("备份对话归属不符");
         throw new Error("备份对话记录无效");
       }
       // Portable standalone snapshot; does not require the original delta chain.
-      latest = JSON.stringify({ v: 1, type: "thread.messages.committed", threadId: thread.threadId, messages: transcript.messages });
+      latest = JSON.stringify({ v: 1, type: "thread.messages.committed", threadId: thread.threadId, messages: excludedTranscriptView(transcript.messages, exclusions) });
     } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
     if (latest) add(`transcripts/${filename}`, [...compactions, latest].join("\n") + "\n");
     archive.threads.push(thread.threadId);
@@ -127,13 +135,20 @@ async function exportLockedBackup(options: ExportOptions): Promise<BackupResult>
     const document = JSON.parse(text);
     if (document.version !== 1 || !Array.isArray(document.runs)) throw new Error("备份执行记录无效");
     const matching = document.runs.filter((run: { threadId: string }) => threadIds.includes(run.threadId));
-    for (const run of matching) validateExecutionRunRecord(run);
-    journals.set(directory, matching);
+    let projected: ExecutionRunRecord[] = matching.map(validateExecutionRunRecord);
+    for (const view of threadViews) projected = projected.map(run => run.threadId === view.threadId ? excludedRunView([run], view.messages, view.exclusions)[0]! : run);
+    journals.set(directory, projected);
   }
   // Different registered transcript directories may retain more than 50 Runs.
   // Preserve those journals separately instead of inventing a merged journal.
   for (const [directory, matching] of journals) {
     if (matching.length) add(`receipts/${hash(directory)}.json`, JSON.stringify({ version: 1, runs: matching }));
+  }
+  const memory = archive.entries.find(entry => entry.path === "workspace/.runloom/memory.json");
+  if (memory && threadViews.some(view => view.exclusions.length)) {
+    const document = JSON.parse(memory.text) as { version: number; excludedSources?: Array<{threadId: string; messageId: string}> };
+    if (document.version !== 6 || threadViews.some(view => view.exclusions.some(record => !document.excludedSources?.some(source => source.threadId === view.threadId && source.messageId === record.messageId))))
+      throw new Error("排除记录对应的记忆清理尚未完成；请先打开该对话完成清理，再导出");
   }
   validateArchive(archive);
   const encoded = Buffer.from(JSON.stringify(archive));
@@ -176,6 +191,7 @@ function validateArchive(archive: Archive) {
       if (!entry.text.endsWith("\n")) throw new Error("备份对话不是完整记录");
       for (const line of entry.text.split("\n").filter(line => line.trim())) {
         const record = JSON.parse(line);
+        if (record.type === "thread.message.excluded") { transcriptExclusions([line], threadId); continue; }
         if (record.threadId !== threadId ||
           !(record.v === 2 && record.type === "thread.context.compacted" || record.v === 1 && record.type === "thread.messages.committed" && Array.isArray(record.messages) &&
             record.messages.every((message: { id?: unknown; role?: unknown; parts?: unknown } | null) => message && typeof message.id === "string" &&

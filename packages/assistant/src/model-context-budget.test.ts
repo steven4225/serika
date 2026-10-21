@@ -34,7 +34,7 @@ async function diagnostics(env: NodeJS.ProcessEnv, window = 1_000_000, windows: 
     if (run) {
       const handle = await app.runtime.run({ agentId: app.agentId, threadId: app.threadId,
         messages: [{ id: "capacity-user", role: "user", parts: [{ type: "text", text: run.text }] }] });
-      assert.equal((await handle.result).status, run.status);
+      const result = await handle.result; assert.equal(result.status, run.status, JSON.stringify({result,diagnostics: await app.getContextDiagnostics()}));
       assert.equal(calls, run.status === "completed" ? 1 : 0);
     }
     const result = await app.getContextDiagnostics();
@@ -51,12 +51,12 @@ it("runtime clamps a daily preset to the configured actual model capacity withou
   assert.equal(value.modelCapacity?.source, "environment");
 });
 
-it("32K preset sends a fitting user turn but rejects a truly oversized current request before dispatch", async () => {
+it("32K preset sends a fitting user turn and truncates an oversized current request with a readable original", async () => {
   const env = { COMMAND_CODE_CONTEXT_WINDOW_TOKENS: "32768" };
   const fitting = await diagnostics(env, 1_000_000, [], undefined, { text: "简短说声收到", status: "completed" });
   assert(fitting.lastPreparation?.estimatedInputTokens! <= fitting.budget.inputBudgetTokens!);
-  const oversized = await diagnostics(env, 1_000_000, [], undefined, { text: "字".repeat(70_000), status: "failed" });
-  assert.equal(oversized.lastPreparation?.outcome, "failed");
+  const oversized = await diagnostics(env, 1_000_000, [], undefined, { text: "字".repeat(70_000), status: "completed" });
+  assert.ok(oversized.lastPreparation?.estimatedInputTokens! <= oversized.budget.inputBudgetTokens!);
 });
 
 it("32K model starts with a daily preset and proportionally bounded reserves instead of inheriting a 32K margin", async () => {

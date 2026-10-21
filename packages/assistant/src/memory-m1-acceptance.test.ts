@@ -104,38 +104,36 @@ test("M1 idle trigger waits exactly 30 minutes; an idle retry stops after the th
   } finally { await extraction.close(); t.mock.timers.reset(); await rm(root, { recursive: true, force: true }); }
 });
 
-for (const replay of [false, true]) test(replay ? "M1 oversized old source replay is superseded by the newer value without a conflict" : "M1 oversized source is persisted pending while the following ordinary source extracts", async t => {
-  const root = await mkdtemp(join(tmpdir(), "cm4-oversized-")), store = createMemoryStore(root);
+test("M1 saved older pending replay cannot supersede a newer-source value after restart", async t => {
+  const root = await mkdtemp(join(tmpdir(), "cm6-old-replay-")), store = createMemoryStore(root);
   const old = "我住在北京", latest = "我现在住在上海";
-  const messages = [user("old", old + "。".repeat(9000)), user("new", latest)];
-  const identity = { subject: "user", attribute: "residence", value: "上海" };
-  let calls = 0, extraction: ReturnType<typeof createMemoryExtraction>;
+  const messages = [user("old", old), user("new", latest)];
+  const { hashCanonicalJson } = await import("@serika/core");
+  const hash = (count: number) => hashCanonicalJson(JSON.parse(JSON.stringify(messages.slice(0, count))));
+  const seed = await store.writeV6!([{ operation: "add", text: latest, category: "note", scope: { kind: "workspace" }, identity: { subject: "user", attribute: "residence", value: "上海" },
+    source: { kind: "conversation", threadId: "t", messageId: "new", quote: latest, sentAt: null } }], new AbortController().signal,
+    { expectedProgress: null, progress: { threadId: "t", throughMessageId: "new", prefixHash: hash(2), retry: null, pending: [{ messageId: "old", prefixHash: hash(1) }] } });
+  assert.ok(seed.ok);
+  let calls = 0;
   const model = new MockLanguageModelV3({ doGenerate: async () => {
     calls++;
-    const read = await store.readV6!(); assert.ok(read.ok);
-    const target = read.value.entries.find(entry => entry.state === "active");
-    const proposal = calls === 1 ? { operation: "add", text: latest, sourceMessageId: "new", sourceQuote: latest, identity } : { operation: "replace", id: target!.id, expectedRevision: target!.revision, text: old, sourceMessageId: "old", sourceQuote: old, identity: { ...identity, value: "北京" } };
-    return { content: [{ type: "text", text: JSON.stringify({ proposals: [{ ...proposal, category: "note" }], outcomes: [{ messageId: calls === 1 ? "new" : "old", status: "extracted" }] }) }], finishReason: { unified: "stop", raw: undefined }, usage, warnings: [] };
+    const read = await store.readV6!(); assert.ok(read.ok); const target = read.value.entries.find(entry => entry.state === "active")!;
+    return { content: [{ type: "text", text: JSON.stringify({ proposals: [{ operation: "replace", id: target.id, expectedRevision: target.revision, category: "note",
+      text: old, sourceMessageId: "old", sourceQuote: old, identity: { subject: "user", attribute: "residence", value: "北京" } }], outcomes: [{ messageId: "old", status: "extracted" }] }) }],
+      finishReason: { unified: "stop", raw: undefined }, usage, warnings: [] };
   } });
-  const options = { store, threadId: "t", getMessages: async () => messages, model, budget: DEFAULT_CONTEXT_BUDGET_CONFIG, updated() {} };
-  const settle = async () => { for (let i = 0; i < 20000 && extraction.diagnostics().running; i++) await new Promise<void>(resolve => setImmediate(resolve)); assert.equal(extraction.diagnostics().running, false); };
-  const idle = async () => { t.mock.timers.enable({ apis: ["setTimeout"] }); extraction.idle(); await settle(); t.mock.timers.tick(30 * 60_000); t.mock.timers.reset(); await settle(); };
-  extraction = createMemoryExtraction(options);
+  const extraction = createMemoryExtraction({ store: createMemoryStore(root), threadId: "t", getMessages: async () => messages, model, budget: DEFAULT_CONTEXT_BUDGET_CONFIG, updated() {} });
   try {
-    await idle();
-    let read = await store.readV6!(); assert.ok(read.ok); assert.equal(calls, 1);
-    assert.equal(read.value.progress[0]!.throughMessageId, "new"); assert.equal(read.value.progress[0]!.pending[0]!.messageId, "old");
-    assert.equal(read.value.entries[0]!.text, latest); assert.equal(extraction.diagnostics().pendingSegments, 1);
-    await extraction.close();
-    extraction = createMemoryExtraction({ ...options, ...(replay ? { budget: { ...DEFAULT_CONTEXT_BUDGET_CONFIG, contextWindowTokens: 128000, summaryInputChunkTokens: 32000 } } : {}) });
-    await idle(); read = await store.readV6!(); assert.ok(read.ok);
-    if (replay) {
-      assert.equal(calls, 2); assert.equal(read.value.progress[0]!.pending.length, 0);
-      assert.deepEqual(read.value.entries.filter(entry => entry.state === "active").map(entry => entry.text), [latest]);
-      const { v6Conflicts } = await import("./memory-v6-store.js"); assert.equal(v6Conflicts(read.value.entries).length, 0);
-      const historical = read.value.entries.find(entry => entry.text === old)!; assert.equal(historical.state, "superseded"); assert.equal(historical.supersededBy, read.value.entries.find(entry => entry.text === latest)!.id);
-      const { memorySnapshot } = await import("./memory-snapshot.js"); const { v6Projection } = await import("./memory-v6-store.js");
-      assert.deepEqual(memorySnapshot(read.value.entries.map(v6Projection), { now: new Date() }).entries.map(entry => entry.text), [latest]);
-    } else { assert.equal(calls, 1); assert.equal(extraction.diagnostics().pendingSegments, 1); }
+    t.mock.timers.enable({ apis: ["setTimeout"] }); extraction.idle();
+    for (let i = 0; i < 20000 && extraction.diagnostics().running; i++) await new Promise<void>(resolve => setImmediate(resolve));
+    t.mock.timers.tick(30 * 60_000); t.mock.timers.reset();
+    for (let i = 0; i < 20000 && extraction.diagnostics().running; i++) await new Promise<void>(resolve => setImmediate(resolve));
+    await extraction.pause(); assert.equal(calls, 1);
+    const read = await store.readV6!(); assert.ok(read.ok);
+    assert.equal(read.value.progress[0]!.pending.length, 0);
+    assert.deepEqual(read.value.entries.filter(entry => entry.state === "active").map(entry => entry.text), [latest]);
+    const historical = read.value.entries.find(entry => entry.text === old)!; assert.equal(historical.state, "superseded");
+    assert.equal(historical.supersededBy, read.value.entries.find(entry => entry.text === latest)!.id);
+    const { v6Conflicts } = await import("./memory-v6-store.js"); assert.equal(v6Conflicts(read.value.entries).length, 0);
   } finally { await extraction.close(); t.mock.timers.reset(); await rm(root, { recursive: true, force: true }); }
 });

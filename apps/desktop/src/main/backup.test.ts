@@ -253,3 +253,30 @@ it("exports a v3 delta chain as a self-contained backup and continues it after r
     assert.equal((await inspectThread({ threadId: "daily", transcriptDirectory: restored.transcriptDirectory })).messageCount, 3);
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });
+
+it("export filters excluded message, snapshot and receipt payloads while preserving unknown effect status", async () => {
+  const f = await fixture();
+  try {
+    const { createMemoryStore } = await import("@serika/assistant/testing");
+    await rm(join(f.workspace, ".runloom/memory.json"));
+    const memory = createMemoryStore(f.workspace);
+    const secret = "PRIVATE-EXCLUDED-PAYLOAD";
+    const saved = await memory.writeV6!([{ operation: "add", text: secret, category: "note", scope: { kind: "workspace" }, source: { kind: "conversation", threadId: "daily", messageId: "user", quote: secret, sentAt: null } }]); assert.ok(saved.ok);
+    const store = new JsonlAgentStore({ directory: f.transcripts });
+    await store.save("daily", [{ id: "user", role: "user", parts: [{ type: "text", text: secret }] },
+      { id: "tool", role: "assistant", parts: [{ type: "dynamic-tool", toolName: "write_file", toolCallId: "private-call", state: "output-error", input: { path: "private.txt", content: secret }, errorText: "TOOL_OUTCOME_UNKNOWN" }] }]);
+    const records = createExecutionRecordStore(f.transcripts);
+    await records.startRun({ runId: "excluded-run", threadId: "daily", phase: "primary" });
+    await records.recordToolEvent("excluded-run", { id: "request", sequence: 1, type: "tool.call.requested", runId: "excluded-run", threadId: "daily", occurredAt: new Date().toISOString(), data: { toolCallId: "private-call", toolName: "write_file", input: { path: "private.txt", content: secret } } });
+    await records.recordToolEvent("excluded-run", { id: "started", sequence: 2, type: "tool.call.started", runId: "excluded-run", threadId: "daily", occurredAt: new Date().toISOString(), data: { toolCallId: "private-call", toolName: "write_file" } });
+    await records.recoverInterrupted("daily");
+    for (const messageId of ["user", "tool"]) await store.excludeMessage({ threadId: "daily", messageId, at: new Date().toISOString(), reason: "privacy" });
+    await assert.rejects(exportBackup(f), /清理尚未完成/);
+    assert.ok((await memory.excludeSources!("daily", ["user", "tool"])).ok);
+    await exportBackup(f);
+    const archive = JSON.parse(gunzipSync(await readFile(f.destination)).toString());
+    assert.doesNotMatch(JSON.stringify(archive), /PRIVATE-EXCLUDED-PAYLOAD|saved compact summary|private\.txt/);
+    assert.match(JSON.stringify(archive), /unknown/);
+    assert.match(JSON.stringify(await store.getMessages("daily")), /PRIVATE-EXCLUDED-PAYLOAD/);
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});

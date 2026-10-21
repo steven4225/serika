@@ -1,3 +1,4 @@
+import { reportedContextOverflow } from "./model-errors.js";
 import { asSchema, convertToModelMessages, stepCountIs, streamText, type LanguageModelUsage, type UIMessage } from "ai";
 import { AgentError, type AfterToolCallInput, type AgentLoop, type AgentLoopInput, type TokenUsage } from "@serika/core";
 import { abortReason, awaitWithSignal, invocationDeadline, modelStreamWithSignal, sleepWithSignal, throwIfAborted } from "./abort.js";
@@ -78,7 +79,7 @@ export class AiSdkAgentLoop implements AgentLoop {
       throwIfAborted(signal);
 
       const modelInput = await this.#prepareContext(input, messages);
-      const modelMessages = await convertToModelMessages(modelInput, { tools: modelTools });
+      let modelMessages = await convertToModelMessages(modelInput, { tools: modelTools });
       // Internal feedback belongs only to this model request, never the
       // assistant transcript, emitted chat text or persisted user-fact sources.
       const instructions = toolFeedback === undefined ? definition.instructions : `${definition.instructions}\n\n${toolFeedback}`;
@@ -89,6 +90,7 @@ export class AiSdkAgentLoop implements AgentLoop {
       let stepUsage!: TokenUsage;
       let finishReason!: string;
 
+      let contextRetried = false;
       for (let attempt = 0; ; attempt += 1) {
         throwIfAborted(signal);
         const deadline = invocationDeadline(definition.limits.stepTimeoutMs);
@@ -129,6 +131,13 @@ export class AiSdkAgentLoop implements AgentLoop {
           break;
         } catch (error) {
           if (signal.aborted) throw abortReason(signal);
+          const overflow = !attemptHasOutput && !contextRetried && input.prepareModelContext ? reportedContextOverflow(error) : undefined;
+          if (overflow) {
+            contextRetried = true;
+            const smaller = await this.#prepareContext(input, messages, overflow);
+            modelMessages = await convertToModelMessages(smaller, { tools: modelTools });
+            continue;
+          }
           const failure = modelFailureError(error, deadline.signal, definition.limits.stepTimeoutMs);
           const canRetry = !this.#modelRetryDisabledAgentIds.has(definition.id) && !attemptHasOutput &&
             failure.data.retryable && attempt < this.#modelRetryDelaysMs.length;
@@ -304,13 +313,13 @@ export class AiSdkAgentLoop implements AgentLoop {
     throw new AgentError({ code: "RUN_LIMIT_EXCEEDED", message: `Run exceeded ${definition.limits.maxSteps} model steps`, retryable: false, phase: "runtime" });
   }
 
-  async #prepareContext<TContext>(input: AgentLoopInput<TContext>, messages: UIMessage[]): Promise<UIMessage[]> {
+  async #prepareContext<TContext>(input: AgentLoopInput<TContext>, messages: UIMessage[], contextOverflow?: { inputTokens: number }): Promise<UIMessage[]> {
     if (!input.prepareModelContext) return messages;
     const hookMessages = structuredClone(messages);
     let prepared: unknown;
     try {
       prepared = await awaitWithSignal(() => input.prepareModelContext!({
-        messages: hookMessages, definition: input.definition,
+        messages: hookMessages, definition: input.definition, ...(contextOverflow ? { contextOverflow } : {}),
         ...(input.context !== undefined ? { context: input.context } : {}), signal: input.signal,
       }), input.signal);
     } catch (error) {

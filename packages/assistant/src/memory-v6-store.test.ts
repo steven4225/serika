@@ -98,3 +98,20 @@ test("daily data path and a symlink alias fail before any store write", async ()
     const result = await new V6MemoryStore(join(root, "alias")).writeV6([change()]); assert.equal(result.ok, false);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+test("privacy redaction survives an uncertain acknowledgement, blocks replacement-chain undo and is read-before-write idempotent", async () => {
+  const root = await mkdtemp(join(tmpdir(), "cm6-private-barrier-"));
+  try {
+    const store = new V6MemoryStore(root), seed = await store.writeV6([change()]); assert.ok(seed.ok);
+    const newer = await store.writeV6([{ ...change("上海"), operation: "replace", id: seed.value[0]!.id, expectedRevision: seed.value[0]!.revision! }]); assert.ok(newer.ok);
+    const faulty = new V6MemoryStore(root, phase => { if (phase === "after-rename") throw new Error("ack lost"); });
+    const result = await faulty.excludeSources("t", ["北京"]); assert.equal(result.ok, false);
+    if (!result.ok) assert.equal(result.error.code, "MEMORY_COMMIT_UNCERTAIN");
+    const read = await store.readV6(); assert.ok(read.ok); assert.equal(read.value.entries.find(entry => entry.id === seed.value[0]!.id)?.privacyExcluded, true);
+    assert.doesNotMatch(JSON.stringify(read.value), /我住在北京/);
+    const undo = await store.writeV6([{ operation: "undo", id: newer.value[0]!.id, expectedRevision: newer.value[0]!.revision!, source: { kind: "manual" } }]); assert.equal(undo.ok, false);
+    const before = await readFile(join(root, ".runloom/memory.json"));
+    assert.ok((await new V6MemoryStore(root).excludeSources("t", ["北京"])).ok);
+    assert.deepEqual(await readFile(join(root, ".runloom/memory.json")), before);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

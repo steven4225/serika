@@ -1,5 +1,6 @@
 import { streamText, type LanguageModel, type UIMessage } from "ai";
 import { hashCanonicalJson, type CanonicalJsonValue, type TokenUsage } from "@serika/core";
+import { originalBlock } from "./context-source.js";
 import { normalizeTokenUsage } from "@serika/ai-sdk-adapter";
 
 export const CONTEXT_SUMMARY_VERSION = 2 as const;
@@ -71,6 +72,8 @@ export interface ContextCompactionRecord {
   referencePrefix?: UIMessage[];
   checklist?: UIMessage;
   summary: ContextSummaryV2;
+  excludedMessageIds?: string[];
+  layers?: import("./context-blocks.js").LayeredSummary;
   strategyVersion: typeof CONTEXT_SUMMARY_STRATEGY_VERSION;
   modelId: string;
   createdAt: string;
@@ -100,6 +103,7 @@ export function createAiSdkSummarizer(model: LanguageModel): Summarizer {
         maxOutputTokens,
         abortSignal: signal,
         maxRetries: 0,
+        providerOptions: { openaiCompatible: { thinking: { type: "disabled" }, reasoningEffort: "off" } },
         telemetry: { isEnabled: false },
       });
       const text = await result.text;
@@ -282,14 +286,15 @@ export function parseContextSummary(
 export function contextSummaryPrompt(input: {
   previousSummary?: ContextSummaryV2;
   messages: readonly UIMessage[];
+  location?: { threadId?: string; project?: string };
 }): string {
   return [
+    originalBlock(input.messages, input.location),
     "Return one JSON object with version: 2 and keys goal, constraints, decisions, actions, pending, files, nextStep. Do not return a schema or placeholder values.",
     'Start the object with "version": 2. This mandatory top-level field must not be omitted or placed inside goal; an object without it is invalid even when all other fields are correct.',
     "goal is an item {text, evidenceMessageIds}. Each item needs non-empty text and at least one actual message id from the supplied transcript or previous summary. constraints and pending are arrays of items; use [] when there is no evidence. nextStep is an item or null.",
     "decisions, actions, and files use the same item fields (non-empty text and evidenceMessageIds). decisions also need source (user or assistant) and status (confirmed, proposed, superseded, or withdrawn). actions also need status (completed, failed, not_executed, or unknown) and toolCallIds (actual ids, or [] when none). files also need non-empty path and purpose. Use [] for decisions, actions, or files when there is no evidence.",
     "Preserve the newest user goal, constraints, withdrawals, and decisions. Distinguish confirmed user decisions from assistant proposals. Tool statuses must reflect evidence in the transcript; unknown side effects remain unknown. Do not claim current disk state without a tool result.",
     input.previousSummary === undefined ? "Previous summary: none" : `Previous summary:\n${JSON.stringify(input.previousSummary)}`,
-    `Transcript to merge:\n${JSON.stringify(input.messages.map(message => ({ ...message, parts: message.parts.map(part => part.type === "file" ? { type: "text", text: `[Attached file: ${part.filename ?? "unnamed"} (${part.mediaType}); bytes omitted. Do not infer its contents.]` } : part) })))}`,
   ].join("\n\n");
 }

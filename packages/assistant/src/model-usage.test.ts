@@ -252,15 +252,17 @@ test("Demo: real Controller records chat/consolidation, compactor usage and summ
     const memories = await controller.memory.list(); assert.ok(memories.ok);
     assert.equal(memories.value.entries.length, 0);
     userId = (await app.store.getMessages("thread")).find(message => message.role === "user")!.id;
-    await app.store.save("thread", [...await app.store.getMessages("thread"), { id: "next-user", role: "user", parts: [{ type: "text", text: "继续" }] }]);
+    await app.store.save("thread", [...await app.store.getMessages("thread"), { id: "filler", role: "assistant", parts: [{ type: "text", text: "older reference ".repeat(1600) }] }, { id: "next-user", role: "user", parts: [{ type: "text", text: "继续" }] }]);
     const compactor = new ContextCompactor({ store: app.store, threadId: "thread", modelId: "fixture", budget: app.moduleConfig!.contextCompaction,
       fixedContext: () => ({ instructions: "", tools: [] }), summarizer: createAiSdkSummarizer(observeModelUsage(model, {
         records: app.executionRecords, callLog: new ModelCallLog(directory), threadId: "thread", enabled: () => true, scope: () => ({ purpose: "context_compaction" }) })) });
-    await compactor.prepare(await app.store.getMessages("thread"), new AbortController().signal, true);
+    await compactor.prepare(await app.store.getMessages("thread"), new AbortController().signal);
+    await compactor.runPending(new AbortController().signal);
+    assert.equal(compactor.backgroundError, undefined);
     let page = await controller.runs.listModelUsage!();
     assert.deepEqual([...new Set(page.calls.map(c => c.purpose))].sort(), ["chat", "context_compaction"]);
     assert.equal(page.calls.filter(c => c.purpose === "chat")[0]!.runId, started.runId);
-    assert.equal(page.calls.filter(c => c.purpose === "context_compaction")[0]!.runId, undefined, "manual compact is not a Run");
+    assert.equal(page.calls.filter(c => c.purpose === "context_compaction")[0]!.runId, undefined, "background summary work is not a Run");
     assert.ok(page.calls.every(c => c.status === "returned"));
     const names = (await readdir(directory)).filter(name => /^model-calls-.*\.jsonl$/.test(name));
     const rows = (await Promise.all(names.map(name => readFile(join(directory, name), "utf8"))))

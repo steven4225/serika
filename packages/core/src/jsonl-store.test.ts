@@ -576,3 +576,20 @@ describe("JsonlAgentStore", () => {
     await assert.rejects(store.save("thread-1", transcript("no overwrite")), /corrupt/);
   });
 });
+
+it("exclusion companions survive append, locked cleanup and reopen; corrupt exclusions fail model reads closed", async () => {
+  const directory = await temporaryDirectory();
+  const options = { directory, snapshotCleanupThresholdBytes: 1, acquireTranscriptLock: async () => ({ release: async () => undefined }) };
+  const store = new JsonlAgentStore(options), messages = transcript("secret reply");
+  await store.save("t", messages);
+  await store.excludeMessage({ threadId: "t", messageId: "assistant-1", at: "2026-10-21T00:00:00Z", reason: "privacy" });
+  const rawBefore = await store.getMessages("t");
+  await store.save("t", [...messages, { id: "next", role: "user", parts: [{ type: "text", text: "next" }] }]);
+  const reopened = new JsonlAgentStore(options);
+  assert.deepEqual((await reopened.getMessages("t")).slice(0, 2), rawBefore);
+  assert.equal((await reopened.getTranscriptExclusions("t")).length, 1);
+  assert.doesNotMatch(JSON.stringify(await reopened.getModelMessages("t")), /secret reply/);
+  const filename = (await readdir(directory)).find(name => name.endsWith(".jsonl"))!;
+  await appendFile(join(directory, filename), JSON.stringify({ v: 2, type: "thread.message.excluded", threadId: "t", messageId: "user-1", at: "bad", reason: "privacy" }) + "\n");
+  await assert.rejects(reopened.getModelMessages("t"), /corrupt/);
+});

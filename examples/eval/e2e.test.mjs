@@ -8,7 +8,7 @@ import { fixtureConfig, fixtureRuntimeEnvironment, collectEvidence, collectMemor
 import { resolveModelContextWindow } from '@serika/assistant/internal/model-config.js';
 import { reliabilityCases, reliabilitySpec } from './reliability-cases.mjs';
 import { estimateMessageTokens, partitionMessagesForCompaction, keepRecentCompactionUnits } from '@serika/assistant/internal/context-budget.js';
-import { summarySourceChunks } from '@serika/assistant/internal/context-compactor.js';
+import { sourceBlocks } from './context-blocks.mjs';
 import { dailyCompactionCases, dailyCompactionSpec, fixtureHistory } from './daily-compaction.mjs';
 import { compactionFidelityCases, compactionFidelitySpec, effectiveCompactionFidelityCases, effectiveCompactionFidelitySpec } from './compaction-fidelity.mjs';
 
@@ -40,7 +40,7 @@ test('daily-scale keys enter safe compressed prefixes, separate facts span 32K b
     assert.ok(seed.metadata.keyMessages.every(k => k.index < kept[0].startIndex), `${spec.id}: answering from raw key text is not a compression pass`);
     assert.equal(new Set(seed.messages.map(m => m.id)).size, seed.messages.length);
     assert.ok(seed.metadata.estimatedHistoryTokens >= budget.inputBudgetTokens * budget.triggerRatio);
-    const chunks = summarySourceChunks(omitted, budget.summaryInputChunkTokens, 16);
+    const chunks = sourceBlocks(omitted, budget.summaryInputChunkTokens);
     assert.ok(chunks.length > 1);
     if (spec.kind === 'compact_chunks') {
       const blocks = seed.metadata.keyMessages.map(k => chunks.findIndex(chunk => chunk.some(m => m.id === k.id)));

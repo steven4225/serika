@@ -580,7 +580,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     let runId: string | undefined;
     try {
       signal.throwIfAborted();
-      await app.memoryExtraction?.pause();
+      await app.background?.pause();
       const prepared = await automation.prepare(input);
       if (!prepared.ok) {
         automation.record({ ...base, id, status: "failed", message: prepared.error.message });
@@ -723,7 +723,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       setState({ kind: "command", name });
       let result!: T;
       const task = (async () => {
-        try { await app.memoryExtraction?.pause(); result = await body(operation.signal); }
+        try { await app.background?.pause(); result = await body(operation.signal); }
         finally { operationController = undefined; setState({ kind: "idle" }); }
       })();
       activeTask = task;
@@ -762,7 +762,8 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     runs: {
       list: async (limit) => {
         await ensureRecovered();
-        return app.executionRecords.listRuns(app.threadId, limit);
+        const runs = await app.executionRecords.listRuns(app.threadId, limit);
+        return app.projectExecutionRuns ? app.projectExecutionRuns(runs) : runs;
       },
       listModelUsage: async () => {
         await ensureRecovered();
@@ -770,7 +771,8 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       },
       get: async (runId) => {
         await ensureRecovered();
-        return app.executionRecords.getRun(app.threadId, runId);
+        const run = await app.executionRecords.getRun(app.threadId, runId);
+        return run && app.projectExecutionRuns ? (await app.projectExecutionRuns([run]))[0] ?? null : run;
       },
     },
     getSnapshot: () => ({
@@ -839,7 +841,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
             settleStart({ ok: false, reason: "busy" });
             return;
           }
-          await app.memoryExtraction?.pause();
+          await app.background?.pause();
           await ensureRecovered();
           app.resume?.beginRun();
           let primary: { result: RunResult; requestedMemoryTool: boolean };
@@ -882,7 +884,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
           } else {
             setState({ kind: "idle" });
             startAutomaticSkills(pendingHooks);
-            if (state.kind === "idle") app.memoryExtraction?.idle();
+            if (state.kind === "idle") app.background?.idle();
           }
         }
       })();
@@ -1011,7 +1013,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     shutdown: async () => {
       if (disposed) return;
       closed = true;
-      await app.memoryExtraction?.close();
+      await app.background?.close();
       await controller.cancel();
       await activeTask;
       await backgroundTask;
@@ -1057,7 +1059,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       }
       startAutomaticSkills(requests);
       lifecycleReady = true;
-      if (state.kind === "idle") app.memoryExtraction?.idle();
+      if (state.kind === "idle") app.background?.idle();
     } catch (error) { consolidationFailure = String(error); emit({ type: "error", message: String(error) }); }
   });
   return controller;

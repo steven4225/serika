@@ -67,4 +67,4 @@
 
 ## I. 上下文/记忆第 5 步留下的边界
 
-- 旧压缩记录覆盖当时全部消息时，`firstKeptMessageId=null`。追加新消息后，`packages/assistant/src/context-compactor.ts:113–115` 将该 ID 与追加后的消息 ID 比较而拒绝复用，即使覆盖前缀 hash 未变。只读隔离复现：两条消息、边界 index=2／ID=null 的合法记录，追加一条用户消息，诊断输出 `{"before":"tip","after":null,"prefixUnchanged":true}`。属于现有边界行为；第 6 步后台压缩需处理，本步未改。
+- 第 6 步已修复：`firstKeptMessageId=null` 的 tip 边界在追加消息后仍按原覆盖前缀 hash 复用。`a null tip boundary remains valid after append while a changed covered prefix fails closed` 覆盖合法追加和原前缀篡改；`cm-replay.mjs` 同步使用该规则。

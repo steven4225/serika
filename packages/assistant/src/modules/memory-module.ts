@@ -1,3 +1,6 @@
+import { z } from "zod";
+import type { TranscriptAccess } from "../transcript-access.js";
+import { memoryText } from "../memory-write.js";
 import { AgentError } from "@serika/core";
 import { tool, type UIMessage } from "ai";
 import type { AgentModule } from "../module-host.js";
@@ -8,6 +11,7 @@ import { bindMemoryWrite, memoryWriteSchema, MEMORY_PRIMARY_WRITE_INSTRUCTIONS }
 export type { MemoryEntry, WorkspaceMemoryStore } from "../memory-store.js";
 export type ConsolidationGetMessages = (signal: AbortSignal) => Promise<UIMessage[]>;
 export interface MemoryModuleOptions {
+  transcript?: TranscriptAccess;
   threadId?: string; getCurrentUserMessage?: () => UIMessage | undefined; now?: () => Date;
   workspaceRoot?: string; writePolicy?: MemoryWritePolicy; consolidation?: MemoryConsolidation; consolidationAgentIds?: readonly string[];
 }
@@ -18,11 +22,16 @@ export function createMemoryModule(store: WorkspaceMemoryStore, getMessages?: Co
     ctx.addInstructions(run => MEMORY_READ_INSTRUCTIONS + (run.autonomous ? "" :
       MEMORY_PRIMARY_WRITE_INSTRUCTIONS));
     ctx.registerTool({ metadata: { name: "memory_write", version: "1", risk: "write", timeoutMs: 1000, idempotent: false },
-      tool: tool({ description: "Save, replace or withdraw a user-sourced memory; undo a withdrawal or replacement. No per-call confirmation. Ordinary chat only.", inputSchema: memoryWriteSchema,
+      tool: tool({ description: "Save, replace or withdraw a user-sourced memory; undo a withdrawal or replacement. No per-call confirmation. Ordinary chat only.", inputSchema: z.union([memoryWriteSchema, z.object({ operation: z.literal("exclude"), messageId: z.string().min(1),
+        reason: z.enum(["privacy", "user_requested"]), sourceQuote: z.string().min(1) }).strict()]),
         execute: async (input, { abortSignal }) => {
           const signal = abortSignal ?? new AbortController().signal, user = options.getCurrentUserMessage?.();
           if (!user || !options.threadId || !store.writeV6) return { ok: false, error: { code: "MEMORY_SOURCE_INVALID", message: "当前普通用户来源不可用，未保存" } };
           try {
+            if (input.operation === "exclude") {
+              if (!options.transcript || !memoryText(user).includes(input.sourceQuote)) throw new Error("排除要求必须来自当前用户原话");
+              return await options.transcript.exclude(input);
+            }
             const change = bindMemoryWrite(input, { messages: await getMessages?.(signal) ?? [], user, threadId: options.threadId });
             const result = await store.writeV6([change], signal, options.now ? { now: options.now() } : {});
             if (!result.ok) try { ctx.notify(result.error.code === "MEMORY_COMMIT_UNCERTAIN" ? "记忆写入结果未确认，请先核对，勿重复写入" : `记忆未保存：${result.error.message}`); } catch { /* display only */ }

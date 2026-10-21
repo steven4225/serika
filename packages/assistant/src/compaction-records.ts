@@ -2,6 +2,8 @@ import type { UIMessage } from "ai";
 import type { ContextSummaryAction } from "./context-compaction.js";
 import type { ToolConfirmation } from "./tool-confirmation.js";
 import type { WorkTask } from "./work-task-store.js";
+import { estimateMessageTokens } from "./context-budget.js";
+import { fitMessage } from "./context-blocks.js";
 import { collectTranscriptToolFacts } from "./work-summary.js";
 import { isAutoConsolidationRequest } from "./consolidation.js";
 import type { ExecutionRunRecord } from "./execution-record-store.js";
@@ -55,13 +57,15 @@ export interface CompactionChecklistSources {
 /** Read host records directly; modeled summaries never supply checklist facts. */
 export function createCompactionChecklist(input: CompactionChecklistSources & {
   messages: readonly UIMessage[];
+  maxTokens?: number;
+  requestReferenceOnly?: boolean;
 }): UIMessage {
   const request = [...input.messages].reverse().find(message => message.role === "user" &&
     !isAutoConsolidationRequest(message) && (message.metadata as { source?: string } | undefined)?.source !== "steer");
   const start = request ? input.messages.findIndex(message => message.id === request.id) : input.messages.length;
   const corrections = input.messages.slice(start + 1).filter(message => message.role === "user" &&
     (message.metadata as { source?: string } | undefined)?.source === "steer");
-  const literal = (message: UIMessage) => ({ messageId: message.id,
+  const literal = (message: UIMessage) => input.requestReferenceOnly ? message.id : ({ messageId: message.id,
     parts: maskCompactionSources([message])[0]!.parts });
   const facts = collectTranscriptToolFacts(input.messages);
   const receipts = new Map<string, unknown>(facts.map(fact => [fact.toolCallId, fact]));
@@ -79,22 +83,45 @@ export function createCompactionChecklist(input: CompactionChecklistSources & {
       if (tool.status === "failed" && tool.errorCode !== "TOOL_DENIED") failed.set(tool.toolCallId, receipt);
     }
   }
+  const compactReceipt = (value: unknown) => {
+    if (input.maxTokens === undefined) return value;
+    const receipt = value as { toolCallId: string; toolName: string; status: string; path?: string; evidenceMessageIds?: string[]; fileInput?: {path: string}; errorCode?: string };
+    return { id: receipt.toolCallId, tool: receipt.toolName, status: receipt.status, ...(receipt.path || receipt.fileInput ? { path: receipt.path ?? receipt.fileInput!.path } : {}),
+      ...(receipt.evidenceMessageIds ? { messages: receipt.evidenceMessageIds } : {}), ...(receipt.errorCode ? { error: receipt.errorCode } : {}) };
+  };
   const task = input.workTask;
-  return { id: "runloom-compaction-checklist", role: "assistant", metadata: { source: "compaction-checklist" },
-    parts: [{ type: "text", text: "Host checklist captured at compaction. Later user messages supersede this snapshot; live permission hooks decide execution:\n" + JSON.stringify({
-      goal: task?.goal ?? (request ? { requestMessageId: request.id } : null),
-      constraints: task?.constraints ?? [],
-      request: request ? literal(request) : null,
-      corrections: corrections.map(literal),
-      unfinished: task ? { taskId: task.id, status: task.status,
+  const recent = [...receipts.values()].filter(receipt => { const status = (receipt as {status: string}).status; return status !== "unknown" && status !== "failed"; }).slice(-SUMMARY_RECENT_RECEIPTS);
+  let requestView = request;
+  const permissions = input.permissions;
+  const permissionView = !permissions || input.maxTokens === undefined ? permissions : {
+    files: permissions.autonomousFiles, shell: permissions.shell,
+    ...(permissions.web ? { web: permissions.web } : {}),
+    ...(permissions.fileAuthorizations.length ? { fileAuthorizations: permissions.fileAuthorizations } : {}),
+    ...(permissions.blocked.length ? { blocked: permissions.blocked } : {}),
+    ...(permissions.remembered.length ? { remembered: permissions.remembered } : {}),
+  };
+  const compose = (): UIMessage => ({ id: "runloom-compaction-checklist", role: "assistant", ...(input.maxTokens === undefined ? { metadata: { source: "compaction-checklist" } } : {}),
+    parts: [{ type: "text", text: "Host checklist:\n" + JSON.stringify({
+      ...(task ? { goal: task.goal, constraints: task.constraints } : {}),
+      request: requestView ? literal(requestView) : null,
+      ...(corrections.length ? { corrections: corrections.map(literal) } : {}),
+      ...(task ? { unfinished: { taskId: task.id, status: task.status,
         criteria: task.acceptance.filter(criterion => criterion.status !== "passed").map(criterion => ({ id: criterion.id, description: criterion.description, status: criterion.status })),
         unresolved: task.delivery?.unresolved ?? [],
-      } : null,
-      unknown: [...unknown.values()],
-      failed: [...failed.values()],
-      permissions: input.permissions ?? null,
-      recentReceipts: [...receipts.values()].slice(-SUMMARY_RECENT_RECEIPTS),
-    }) }] };
+      } } : {}),
+      ...(unknown.size ? { unknown: [...unknown.values()].map(compactReceipt) } : {}),
+      ...(failed.size ? { failed: [...failed.values()].map(compactReceipt) } : {}),
+      ...(input.permissions ? { permissions: permissionView } : {}),
+      ...(recent.length ? { recentReceipts: recent.map(compactReceipt) } : {}),
+    }) }] });
+  if (input.maxTokens !== undefined) {
+    while (recent.length && estimateMessageTokens([compose()]) > input.maxTokens) recent.shift();
+    if (requestView && !input.requestReferenceOnly && estimateMessageTokens([compose()]) > input.maxTokens) {
+      const overflow = estimateMessageTokens([compose()]) - input.maxTokens;
+      requestView = fitMessage({ ...requestView, metadata: undefined }, estimateMessageTokens([{ ...requestView, metadata: undefined }]) - overflow);
+    }
+  }
+  return compose();
 }
 
 export function compactedRecentMessages(messages: readonly UIMessage[], firstKept: number): UIMessage[] {

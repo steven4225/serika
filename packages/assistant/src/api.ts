@@ -84,3 +84,5 @@ export { userMessageClock } from "./memory-observation-policy.js";
 export { assertExperimentalDataPaths } from "./experimental-data.js";
 
 export { validateV6MemoryDocument } from "./memory-v6-store.js";
+
+export { excludedRunView } from "./transcript-access.js";

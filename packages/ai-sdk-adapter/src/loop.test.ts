@@ -2941,3 +2941,45 @@ describe("beforeToolExecute Runtime integration", () => {
     assert.equal(events.some((event) => event.type === "run.completed"), false);
   });
 });
+
+it("provider overflow recalibrates once and never replays a tool already completed in the Run", async () => {
+  let calls = 0, tools = 0, recovered = 0, ids = 0;
+  const overflow = new APICallError({ message: "context length exceeded: input 42000 tokens", statusCode: 400,
+    url: "https://fixture.invalid", requestBodyValues: {}, isRetryable: false,
+    responseBody: JSON.stringify({ error: { code: "context_length_exceeded", input_tokens: 42000 } }) });
+  const model = new MockLanguageModelV3({ doStream: async request => {
+    calls++;
+    if (calls === 1) return toolCallResponse("tool-calls");
+    if (calls === 2) throw overflow;
+    assert.match(JSON.stringify(request.prompt), /bounded/);
+    return textResponse("done");
+  } });
+  const loop = new AiSdkAgentLoop({ models: new InMemoryModelRegistry({ test: model }), tools: doubleTool(() => { tools++; return { value: 4 }; }) });
+  const result = await loop.execute({ definition: { ...definition, tools: ["double"] }, messages: [userMessage()], signal: new AbortController().signal,
+    generateId: () => `overflow-${++ids}`, emit: createEmit([]), prepareModelContext: ({ messages, contextOverflow }) => {
+      if (!contextOverflow) return messages;
+      recovered++; assert.equal(contextOverflow.inputTokens, 42000);
+      return [...messages, { id: "bounded", role: "assistant", parts: [{ type: "text", text: "bounded" }] }];
+    } });
+  assert.equal(result.text, "done"); assert.equal(calls, 3); assert.equal(tools, 1); assert.equal(recovered, 1);
+});
+
+it("a second overflow or an overflow after visible output fails without another dispatch", async () => {
+  for (const started of [false, true]) {
+    let calls = 0, recovered = 0;
+    const error = new APICallError({ message: "input too long: input 42000 tokens", statusCode: 400, isRetryable: false,
+      url: "https://fixture.invalid", requestBodyValues: {}, responseBody: JSON.stringify({ error: { code: "context_length_exceeded", input_tokens: 42000 } }) });
+    const model = new MockLanguageModelV3({ doStream: async () => {
+      calls++;
+      if (!started) throw error;
+      return { stream: simulateReadableStream({ chunks: [
+        { type: "stream-start" as const, warnings: [] }, { type: "text-start" as const, id: "t" },
+        { type: "text-delta" as const, id: "t", delta: "started" }, { type: "error" as const, error },
+      ] }) };
+    } });
+    const loop = new AiSdkAgentLoop({ models: new InMemoryModelRegistry({ test: model }), tools: doubleTool(() => { throw new Error("must not execute"); }) });
+    await assert.rejects(loop.execute({ definition: { ...definition, tools: ["double"] }, messages: [userMessage()], signal: new AbortController().signal,
+      generateId: () => "overflow", emit: createEmit([]), prepareModelContext: ({ messages, contextOverflow }) => { if (contextOverflow) recovered++; return messages; } }), /Model stream returned an error/);
+    assert.equal(calls, started ? 1 : 2); assert.equal(recovered, started ? 0 : 1);
+  }
+});

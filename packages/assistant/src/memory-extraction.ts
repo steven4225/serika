@@ -1,5 +1,6 @@
 import { generateText, type LanguageModel, type UIMessage } from "ai";
 import { z } from "zod";
+import { originalBlock } from "./context-source.js";
 import { hashCanonicalJson } from "@serika/core";
 import { availableInputTokens, defaultContextBudget, type ContextBudgetConfig } from "./context-budget.js";
 import { findCommittedUserMessage, withoutConsolidationTurns } from "./consolidation.js";
@@ -36,6 +37,7 @@ export function createMemoryExtraction(options: { store: WorkspaceMemoryStore; t
   const diagnostics: ExtractionDiagnostics = { running: false, calls: 0, completed: 0, failed: 0, cancelled: 0, durationMs: 0, pendingSegments: 0 };
   const listeners = new Set<() => void>();
   let timer: ReturnType<typeof setTimeout> | undefined, task: Promise<void> | undefined, abort: AbortController | undefined;
+  let urgentThrough: string | undefined;
   let generation = 0, closed = false, uncertain = false, lastActivity = now();
   const load = async () => {
     const read = await options.store.readV6!(); if (!read.ok) throw new Error(`${read.error.code}: ${read.error.message}`);
@@ -52,15 +54,12 @@ export function createMemoryExtraction(options: { store: WorkspaceMemoryStore; t
     let backlog = initial.backlog;
     const pending = saved?.pending ?? [];
     for (const item of pending) if (prefixHash(messages, item.messageId) !== item.prefixHash) throw new Error("MEMORY_CURSOR_MISMATCH");
-    const replay = idle ? pending.find(item => {
-      const index = messages.findIndex(message => message.id === item.messageId);
-      return Math.ceil(JSON.stringify(extractionMessages(messages.slice(Math.max(0, index - 1), index + 1))).length / 2) <= threshold;
-    }) : undefined;
-    if (replay) { const index = messages.findIndex(message => message.id === replay.messageId); backlog = messages.slice(Math.max(0, index - 1), index + 1); }
+    const replay = pending.find(item => item.offset !== undefined) ?? (idle ? pending[0] : undefined);
+    if (replay) { const index = messages.findIndex(message => message.id === replay.messageId); backlog = messages.slice(index, index + 1); }
     diagnostics.pendingSegments = pending.length + ((saved?.retry?.failures ?? 0) >= 2 ? 1 : 0);
-    if (!backlog.some(message => findCommittedUserMessage(messages, message.id))) return;
-    if (!replay && saved?.retry && (saved.retry.failures >= 3 || saved.retry.failures >= 2 && !idle)) return;
-    if (!idle && initial.tokens < threshold) return;
+    if (!backlog.length) return;
+    if (saved?.retry && (saved.retry.failures >= 3 || saved.retry.failures >= 2 && !idle)) return;
+    if (!idle && !urgentThrough && !replay && initial.tokens < threshold) return;
     if (saved?.retry && prefixHash(messages, saved.retry.throughMessageId) !== saved.retry.prefixHash) throw new Error("MEMORY_CURSOR_MISMATCH");
     const selected: UIMessage[] = [];
     for (const message of backlog) {
@@ -68,17 +67,21 @@ export function createMemoryExtraction(options: { store: WorkspaceMemoryStore; t
       selected.push(message);
       if (!replay && saved?.retry?.throughMessageId === message.id) break;
     }
-    const users = selected.filter(message => findCommittedUserMessage(messages, message.id));
-    if (!users.length) {
-      const oversized = backlog.find(message => findCommittedUserMessage(messages, message.id));
+    let fragment: { messageId: string; end: number; complete: boolean } | undefined;
+    if (!selected.length) {
+      const oversized = backlog[0];
       if (!oversized) return;
-      const next = { threadId: options.threadId, throughMessageId: oversized.id, prefixHash: prefixHash(messages, oversized.id), retry: null,
-        pending: [...pending, { messageId: oversized.id, prefixHash: prefixHash(messages, oversized.id) }] };
-      const committed = await options.store.writeV6!([], undefined, { expectedProgress: saved, progress: next });
-      if (!committed.ok) { uncertain = committed.error.code === "MEMORY_COMMIT_UNCERTAIN"; throw new Error(committed.error.code); }
-      diagnostics.pendingSegments = next.pending.length; options.updated();
-      return true;
+      const characters = Array.from(memoryText(oversized)), offset = replay?.offset ?? 0;
+      let low = 1, high = characters.length - offset, count = 0;
+      while (low <= high) {
+        const mid = Math.floor((low + high) / 2), part = { ...oversized, parts: [{ type: "text" as const, text: characters.slice(offset, offset + mid).join("") }] };
+        if (Math.ceil(JSON.stringify(extractionMessages([part])).length / 2) <= threshold) { count = mid; low = mid + 1; } else high = mid - 1;
+      }
+      if (!count) throw new Error("抽取元数据超过块窗口，原文保留");
+      selected.splice(0, selected.length, { ...oversized, parts: [{ type: "text", text: characters.slice(offset, offset + count).join("") }] });
+      fragment = { messageId: oversized.id, end: offset + count, complete: offset + count === characters.length };
     }
+    const users = selected.filter(message => findCommittedUserMessage(messages, message.id));
     const last = selected.at(-1)!.id, selectedHash = prefixHash(messages, last);
     const signal = new AbortController(); abort = signal;
     const started = now(); let dispatched = false;
@@ -87,7 +90,8 @@ export function createMemoryExtraction(options: { store: WorkspaceMemoryStore; t
       pending, retry: { throughMessageId: last, prefixHash: selectedHash, failures } });
     try {
       const facts = document.entries.filter(entry => entry.state === "active" && entry.category !== "document" && entry.scope.kind === "workspace");
-      const prompt = JSON.stringify(extractionMessages(selected).map(message => ({ ...message, threadId: options.threadId, project: options.workspaceRoot ?? "current-workspace" }))) + "\nTask: extract memory from the preceding original block.\n" + MEMORY_WRITE_RULES +
+      const eligibleIds = new Set(extractionMessages(selected).map(message => message.id));
+      const prompt = originalBlock(selected.filter(message => eligibleIds.has(message.id)), { threadId: options.threadId, project: options.workspaceRoot ?? "current-workspace" }) + "\nTask: extract memory from the preceding original block.\n" + MEMORY_WRITE_RULES +
         "\nCurrent preferences and project notes: " + JSON.stringify(facts.map(({ id, revision, text, uncertain, category, identity, scope, sources }) => ({ id, revision, text, uncertain, category, identity, scope, sourceMessageIds: sources.flatMap(source => source.kind === "conversation" ? [source.messageId] : []) }))) +
         "\nOriginal message order: " + JSON.stringify(messages.map(message => message.id)) + ". Older replay sources must never replace or withdraw newer-source memories. Mark older same-attribute values as superseded by the newer memory. Only chronologically ambiguous values remain diagnostic conflicts.\nReturn ONLY {proposals,outcomes}; each proposal has sourceMessageId and memory_write fields. Return one outcome for EACH ordinary eligible user source in order: extracted, no_memory or deferred. extracted requires ALL durable information accounted for; partial coverage is deferred. No tools, retries or prose. Already attached exact sources need no duplicate proposal. Eligible user IDs: " + JSON.stringify(users.map(user => user.id));
       if (Math.ceil(prompt.length / 2) + options.budget.summaryMaxOutputTokens > availableInputTokens(options.budget)) throw new Error("抽取请求超过有效输入窗口，未调用模型");
@@ -100,7 +104,7 @@ export function createMemoryExtraction(options: { store: WorkspaceMemoryStore; t
       if (!parsed.success) throw new Error("抽取输出无效，未保存");
       if (JSON.stringify(parsed.data.outcomes.map(outcome => outcome.messageId)) !== JSON.stringify(users.map(user => user.id))) throw new Error("抽取覆盖顺序无效");
       const changes: V6Change[] = parsed.data.proposals.map(proposal => {
-        const user = users.find(user => user.id === proposal.sourceMessageId); if (!user) throw new Error("抽取来源越界");
+        const user = users.find(user => user.id === proposal.sourceMessageId); if (!user || !memoryText(user).includes(proposal.sourceQuote)) throw new Error("抽取来源越界");
         const { sourceMessageId: _id, ...write } = proposal;
         return bindMemoryWrite(write, { messages, user, threadId: options.threadId });
       }).filter(change => !("text" in change && document.entries.some(entry => entry.text === change.text && entry.sources.some(source => source.kind === "conversation" && change.source.kind === "conversation" && source.messageId === change.source.messageId && source.quote === change.source.quote))));
@@ -109,7 +113,14 @@ export function createMemoryExtraction(options: { store: WorkspaceMemoryStore; t
       const boundary = firstDeferred < 0 ? last : selected[selected.findIndex(message => message.id === users[firstDeferred]!.id) - 1]?.id ?? saved?.throughMessageId ?? null;
       let next: V6Document["progress"][number] = { pending, threadId: options.threadId, throughMessageId: boundary,
         prefixHash: boundary ? prefixHash(messages, boundary) : null, retry: firstDeferred < 0 ? null : progress(Math.min(3, (saved?.retry?.failures ?? 0) + 1)).retry };
-      if (replay) next = { ...saved!, pending: firstDeferred < 0 ? pending.filter(item => item.messageId !== replay.messageId) : pending };
+      if (fragment && firstDeferred < 0 && !fragment.complete) next = {
+        threadId: options.threadId, throughMessageId: saved?.throughMessageId ?? null, prefixHash: saved?.prefixHash ?? null, retry: null,
+        pending: [...pending.filter(item => item.messageId !== fragment!.messageId), { messageId: fragment.messageId, prefixHash: selectedHash, offset: fragment.end }],
+      };
+      else if (replay) next = { ...next, throughMessageId: saved?.throughMessageId ?? null, prefixHash: saved?.prefixHash ?? null, retry: firstDeferred < 0 ? null : next.retry, pending: firstDeferred < 0 ? pending.filter(item => item.messageId !== replay.messageId) : pending,
+        ...((saved?.throughMessageId === null || messages.findIndex(message => message.id === saved?.throughMessageId) < messages.findIndex(message => message.id === replay.messageId)) && firstDeferred < 0
+          ? { throughMessageId: last, prefixHash: selectedHash } : {}) };
+      if (urgentThrough && next.throughMessageId && messages.findIndex(message => message.id === next.throughMessageId) >= messages.findIndex(message => message.id === urgentThrough)) urgentThrough = undefined;
       const fresh = await options.getMessages(); if (prefixHash(fresh, last) !== selectedHash) throw new Error("抽取原文已变化");
       const committed = await options.store.writeV6!(changes, signal.signal, { expectedProgress: saved, progress: next, automatic: true, reextract: !!replay, sourceOrder: messages.map(message => message.id) });
       if (!committed.ok) {
@@ -117,11 +128,11 @@ export function createMemoryExtraction(options: { store: WorkspaceMemoryStore; t
         throw new Error(`${committed.error.code}: ${committed.error.message}`);
       }
       diagnostics.completed++; diagnostics.pendingSegments = next.pending.length + ((next.retry?.failures ?? 0) >= 2 ? 1 : 0); delete diagnostics.error;
-      return !replay && boundary !== (saved?.throughMessageId ?? null) && next.retry === null;
+      return next.retry === null && (fragment?.complete === false || next.throughMessageId !== (saved?.throughMessageId ?? null));
     } catch (error) {
       if (signal.signal.aborted) { if (dispatched) diagnostics.cancelled++; return; }
       diagnostics.failed++; diagnostics.error = error instanceof Error ? error.message : "抽取失败";
-      if (!replay && !uncertain && !diagnostics.error.includes("MEMORY_LIMIT_EXCEEDED") && !diagnostics.error.includes("MEMORY_CURSOR_MISMATCH")) {
+      if (!uncertain && !diagnostics.error.includes("MEMORY_LIMIT_EXCEEDED") && !diagnostics.error.includes("MEMORY_CURSOR_MISMATCH")) {
         const failure = await options.store.writeV6!([], signal.signal, { expectedProgress: saved, progress: progress(Math.min(3, (saved?.retry?.failures ?? 0) + 1)) });
         if (!failure.ok) { diagnostics.error = `${failure.error.code}: ${failure.error.message}`; uncertain = failure.error.code === "MEMORY_COMMIT_UNCERTAIN"; }
         else diagnostics.pendingSegments = pending.length + ((saved?.retry?.failures ?? 0) + 1 >= 2 ? 1 : 0);
@@ -140,6 +151,7 @@ export function createMemoryExtraction(options: { store: WorkspaceMemoryStore; t
     });
   };
   return {
+    afterMask(messageId: string) { urgentThrough = messageId; },
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     diagnostics: () => structuredClone(diagnostics),
     async backlog() { const loaded = await load(); return loaded.backlog.filter(message => findCommittedUserMessage(loaded.messages, message.id)).length; },

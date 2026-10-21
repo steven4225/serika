@@ -171,3 +171,17 @@ export function validateStepOutcome(finishReason: string, toolCallCount: number)
     phase: "model",
   });
 }
+
+/** Recover only a provider context rejection carrying a concrete reported input size. */
+export function reportedContextOverflow(error: unknown): { inputTokens: number } | undefined {
+  const api = findApiCallError(error);
+  if (!api || api.statusCode !== 400 && api.statusCode !== 413) return undefined;
+  let body: Record<string, unknown> = {};
+  try { const raw = JSON.parse(api.responseBody ?? "{}"); body = raw.error ?? raw; } catch { /* provider text is inspected only at this boundary */ }
+  const message = typeof body.message === "string" ? body.message : api.message;
+  const code = typeof body.code === "string" ? body.code : "";
+  if (!/context_length_exceeded|context_window_exceeded|prompt_too_long/.test(code) && !/context.{0,30}(?:exceed|maximum|long)|(?:input|prompt).{0,30}too long/i.test(message)) return undefined;
+  const value = body.input_tokens ?? body.prompt_tokens ?? body.requested_tokens ?? /(?:requested|input|prompt)[^\d]{0,30}([\d,]+)/i.exec(message)?.[1]?.replaceAll(",", "");
+  const inputTokens = Number(value);
+  return Number.isSafeInteger(inputTokens) && inputTokens > 0 ? { inputTokens } : undefined;
+}

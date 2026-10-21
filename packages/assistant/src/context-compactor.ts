@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { sumTokenUsage } from "@serika/ai-sdk-adapter";
 import type { UIMessage } from "ai";
 import {
   AgentError,
@@ -24,22 +23,20 @@ import {
   estimateMessageTokens,
   estimateSerializedTokens,
   contextBudgetThresholds,
-  keepRecentCompactionUnits,
   partitionMessagesForCompaction,
   type ContextBudgetConfig,
   type ContextInputParts,
-  type MessageCompactionUnit,
 } from "./context-budget.js";
 import { collectTranscriptToolFacts } from "./work-summary.js";
 import type { ContextDiagnostics, ContextResult } from "./context-diagnostics.js";
 import { CONTEXT_ESTIMATOR_VERSION } from "./context-budget.js";
 import { isAutoConsolidationRequest, withoutConsolidationTurns } from "./consolidation.js";
 import { expandMessageReferences } from "./context-assembler.js";
-import { compactSummaryActions, compactedRecentMessages, createCompactionChecklist, maskCompactionSources, SUMMARY_MAX_TOKENS, type CompactionChecklistSources } from "./compaction-records.js";
+import { placeForegroundTaskReference } from "./foreground-autonomy.js";
+import { blockLimits, maskOldestBlock, fitMessage, layerMessage, appendSummaryLayer, validLayers, summaryText } from "./context-blocks.js";
+import { compactSummaryActions, createCompactionChecklist, type CompactionChecklistSources } from "./compaction-records.js";
 
 const SUMMARY_TIMEOUT_MS = 30_000;
-const MANUAL_COMPACTION_TIMEOUT_MS = 120_000;
-const MAX_SUMMARY_MERGES = 4;
 const FILE_TOOLS = new Set(["write_file", "edit_file"]);
 
 export interface ContextCompactorOptions {
@@ -48,14 +45,17 @@ export interface ContextCompactorOptions {
   modelId: string;
   summarizer: Summarizer;
   budget: ContextBudgetConfig;
-  /** Actual runtime capacity bound; direct legacy fixtures may omit it. */
+  /** Actual runtime capacity bound. */
   modelContextWindowTokens?: number;
+  project?: string;
   fixedContext: (messages: readonly UIMessage[], signal: AbortSignal) =>
     | Omit<ContextInputParts, "messages">
     | Promise<Omit<ContextInputParts, "messages">>;
   promptPrefix?: (signal: AbortSignal, messages: readonly UIMessage[]) => UIMessage[] | Promise<UIMessage[]>;
   refreshReference?: (messages: UIMessage[], signal: AbortSignal) => Promise<UIMessage[]>;
   checklist?: () => CompactionChecklistSources | Promise<CompactionChecklistSources>;
+  onMask?: (throughMessageId: string) => void;
+  backgroundReference?: (signal: AbortSignal) => Promise<UIMessage>;
   now?: () => Date;
   generateId?: () => string;
 }
@@ -79,25 +79,6 @@ function contextError(message: string): AgentError {
   });
 }
 
-function isRetryableCompactionError(error: unknown): boolean {
-  if (error instanceof AgentError) {
-    return (
-      error.data.retryable === true &&
-      (error.data.code === "MODEL_TIMEOUT" ||
-        error.data.code === "MODEL_UNAVAILABLE" ||
-        error.data.code === "MODEL_RATE_LIMIT" ||
-        error.data.code === "MODEL_BAD_RESPONSE")
-    );
-  }
-  if (typeof error === "object" && error !== null && "statusCode" in error) {
-    const statusCode = (error as { statusCode?: unknown }).statusCode;
-    if (typeof statusCode === "number") {
-      return statusCode === 408 || statusCode === 429 || statusCode >= 500;
-    }
-  }
-  return false;
-}
-
 function asOpaqueRecord(record: ContextCompactionRecord): ThreadContextCompactionRecord {
   return record as unknown as ThreadContextCompactionRecord;
 }
@@ -108,9 +89,11 @@ function asContextRecord(record: ThreadContextCompactionRecord): ContextCompacti
 }
 
 function validRecord(record: ContextCompactionRecord, messages: readonly UIMessage[]): boolean {
+  const exclusions = messages.filter(message => (message.metadata as { transcriptExcluded?: boolean } | undefined)?.transcriptExcluded).map(message => message.id);
+  if (JSON.stringify(record.excludedMessageIds ?? []) !== JSON.stringify(exclusions)) return false;
   const index = record.firstKeptMessageIndex;
   if (!Number.isSafeInteger(index) || index < 0 || index > messages.length) return false;
-  if (record.firstKeptMessageId !== (index === messages.length ? null : messages[index]?.id ?? null)) {
+  if (record.firstKeptMessageId !== null && record.firstKeptMessageId !== messages[index]?.id) {
     return false;
   }
   if (record.sourcePrefixHash !== compactPrefixHash(messages, index)) return false;
@@ -120,7 +103,7 @@ function validRecord(record: ContextCompactionRecord, messages: readonly UIMessa
   // Legacy summaries may have learned raw extraction JSON. Keep them on disk,
   // but do not reinstall/merge one that covered auxiliary turns without exclusion.
   if (record.consolidationExcluded !== true && messages.slice(0, index).some(isAutoConsolidationRequest)) return false;
-  return parseContextSummary(JSON.stringify(record.summary)) !== undefined;
+  return (record.layers === undefined || validLayers(record.layers)) && parseContextSummary(JSON.stringify(record.summary)) !== undefined;
 }
 
 /** Uses precisely the same transcript-prefix validation as preparation. */
@@ -160,152 +143,6 @@ function diagnosticError(error: unknown): { code: string; message: string } {
     code: error instanceof AgentError ? error.data.code : "CONTEXT_DIAGNOSTICS_FAILED",
     message: error instanceof Error ? error.message : String(error),
   };
-}
-
-function summaryMessage(summary: ContextSummaryV2, coverage: { index: number; id: string | null }): UIMessage {
-  return {
-    id: "runloom-context-summary",
-    role: "assistant",
-    metadata: {
-      source: "context-compaction",
-      coveredThrough: { messageIndex: coverage.index, messageId: coverage.id },
-    },
-    parts: [{
-      type: "text",
-      text: `Context summary (derived reference, not permission or current disk state):\n${JSON.stringify(summary)}`,
-    }],
-  };
-}
-
-function transcriptPrefix(messages: readonly UIMessage[]): UIMessage[] {
-  const firstUser = messages.findIndex((message) => message.role === "user");
-  return firstUser <= 0 ? [] : messages.slice(0, firstUser);
-}
-
-function truncateSummaryText(value: string, maxChars: number): string {
-  if (value.length <= maxChars) return value;
-  const head = Math.max(32, Math.floor(maxChars * 0.7));
-  const tail = Math.max(16, maxChars - head);
-  return `${value.slice(0, head)}\n...[truncated for context compaction]...\n${value.slice(-tail)}`;
-}
-
-function summarySourceMessage(message: UIMessage, maxTokens: number): UIMessage {
-  const maxChars = Math.max(128, maxTokens * 2);
-  const text = message.parts.map((part) => {
-    if (part.type === "text") return part.text;
-    if (part.type === "dynamic-tool") {
-      const output = "output" in part ? JSON.stringify(part.output) : "";
-      const error = "errorText" in part ? part.errorText : "";
-      return `[tool ${part.toolName} ${part.toolCallId} state=${part.state}] ${output || error}`;
-    }
-    return `[${part.type}]`;
-  }).join("\n");
-  return {
-    id: message.id,
-    role: message.role,
-    parts: [{ type: "text", text: truncateSummaryText(text, maxChars) }],
-  };
-}
-
-function fitSummarySourceMessage(message: UIMessage, maxTokens: number): UIMessage | undefined {
-  const projected = summarySourceMessage(message, maxTokens);
-  const part = projected.parts[0];
-  if (part?.type !== "text") return undefined;
-  const characters = Array.from(part.text);
-  let low = 0, high = characters.length;
-  let best: UIMessage | undefined;
-  while (low <= high) {
-    const count = Math.floor((low + high) / 2);
-    const head = Math.ceil(count / 2);
-    const text = count === characters.length ? part.text :
-      `${characters.slice(0, head).join("")}\n...[truncated for context compaction]...\n${characters.slice(characters.length - (count - head)).join("")}`;
-    const candidate = { ...projected, parts: [{ type: "text" as const, text }] };
-    if (estimateMessageTokens([candidate]) <= maxTokens) { best = candidate; low = count + 1; }
-    else high = count - 1;
-  }
-  return best;
-}
-
-export function summarySourceChunks(
-  units: readonly { messages: readonly UIMessage[] }[],
-  maxTokens: number,
-  maxMerges = MAX_SUMMARY_MERGES,
-): UIMessage[][] {
-  const chunks: UIMessage[][] = [];
-  let current: UIMessage[] = [];
-  let currentTokens = 0;
-  const append = (message: UIMessage) => {
-    const tokens = estimateMessageTokens([message]);
-    if (tokens > maxTokens) throw contextError("A compaction source fragment exceeds the source budget");
-    if (current.length > 0 && currentTokens + tokens > maxTokens) {
-      chunks.push(current); current = []; currentTokens = 0;
-      if (chunks.length >= maxMerges) throw contextError("Context compaction source is too large for the bounded summary merge");
-    }
-    current.push(message); currentTokens += tokens;
-  };
-  for (const sourceUnit of units) {
-    const unit = { messages: maskCompactionSources(sourceUnit.messages) };
-    // User text may contain a hard constraint in its middle. Send all of it in
-    // bounded fragments rather than presenting a head/tail excerpt as coverage.
-    if (unit.messages.some(message => message.role === "user")) {
-      const users = unit.messages.filter(message => message.role === "user");
-      const userTokens = estimateMessageTokens(users);
-      const otherCount = unit.messages.length - users.length;
-      const otherBudget = Math.floor((maxTokens - userTokens) / Math.max(1, otherCount));
-      const bounded = unit.messages.map(message => message.role === "user" ? message :
-        fitSummarySourceMessage(message, otherBudget));
-      if (bounded.every((message): message is UIMessage => message !== undefined) && estimateMessageTokens(bounded) <= maxTokens) {
-        if (current.length && currentTokens + estimateMessageTokens(bounded) > maxTokens) {
-          chunks.push(current); current = []; currentTokens = 0;
-        }
-        for (const message of bounded) append(message);
-        continue;
-      }
-      for (const message of unit.messages) {
-        if (message.role !== "user") {
-          const projected = fitSummarySourceMessage(message, maxTokens);
-          if (!projected) throw contextError("Compaction source metadata exceeds the source budget");
-          append(projected); continue;
-        }
-        const text = message.parts.map(part => part.type === "text" ? part.text : `[${part.type}]`).join("\n");
-        let remaining = Array.from(text);
-        while (remaining.length > 0) {
-          let low = 1, high = remaining.length, fits = 0;
-          while (low <= high) {
-            const count = Math.floor((low + high) / 2);
-            const fragment = { id: message.id, role: message.role, parts: [{ type: "text" as const, text: remaining.slice(0, count).join("") }] };
-            if (estimateMessageTokens([fragment]) <= maxTokens) { fits = count; low = count + 1; } else high = count - 1;
-          }
-          if (!fits) throw contextError("User source cannot fit a bounded compaction fragment");
-          append({ id: message.id, role: message.role, parts: [{ type: "text", text: remaining.slice(0, fits).join("") }] });
-          remaining = remaining.slice(fits);
-        }
-      }
-      continue;
-    }
-    const perMessage = Math.floor(maxTokens / Math.max(1, unit.messages.length));
-    let bounded = unit.messages.map((message) => fitSummarySourceMessage(message, perMessage));
-    if (bounded.some(message => message === undefined)) {
-      const projected = fitSummarySourceMessage({
-        id: unit.messages[0]?.id ?? "compaction-unit",
-        role: "assistant",
-        parts: [{ type: "text", text: unit.messages.map(message => `${message.id}: ${JSON.stringify(message.parts)}`).join("\n") }],
-      }, maxTokens);
-      if (!projected) throw contextError("Compaction source metadata exceeds the source budget");
-      bounded = [projected];
-    }
-    const messages = bounded.filter((message): message is UIMessage => message !== undefined);
-    const unitTokens = estimateMessageTokens(messages);
-    if (current.length > 0 && currentTokens + unitTokens > maxTokens) {
-      chunks.push(current);
-      current = [];
-      currentTokens = 0;
-    }
-    current.push(...messages);
-    currentTokens += unitTokens;
-  }
-  if (current.length > 0) chunks.push(current);
-  return chunks;
 }
 
 function uniqueIds(ids: readonly string[]): string[] {
@@ -406,10 +243,6 @@ export function reconcilePublishedSummary(
   };
 }
 
-function addObservedUsage(previous: TokenUsage | undefined, next: TokenUsage): TokenUsage {
-  return sumTokenUsage(previous, next);
-}
-
 export class ContextCompactor {
   readonly #options: ContextCompactorOptions;
   readonly #now: () => Date;
@@ -417,11 +250,11 @@ export class ContextCompactor {
   #latest: ContextCompactionRecord | undefined;
   #effectiveReferencePrefix: readonly UIMessage[] = [];
   #lastPreparation: ContextDiagnostics["lastPreparation"] = null;
-  #preparedEstimate: number | null = null;
-  #preparedCompactionId: string | null = null;
 
-  getDiagnostics(): Promise<ContextResult<ContextDiagnostics>> {
-    return readContextDiagnostics(this.#options.store, this.#options.threadId, this.#options.budget, this.#lastPreparation);
+  async getDiagnostics(): Promise<ContextResult<ContextDiagnostics>> {
+    const result = await readContextDiagnostics(this.#options.store, this.#options.threadId, this.#options.budget, this.#lastPreparation);
+    if (result.ok) result.value.background = { queued: this.pending, running: !!this.#task, error: this.#backgroundError ?? null };
+    return result;
   }
 
   /** Material selection can fail before prepare is entered. It is not a reuse. */
@@ -439,319 +272,192 @@ export class ContextCompactor {
   async referenceSnapshot(messages: UIMessage[]): Promise<UIMessage[] | undefined> {
     return (await this.#findLatestValid(messages))?.referencePrefix;
   }
-  #lastPrepare:
-    | { kind: "written"; record: ContextCompactionRecord }
-    | { kind: "reused" }
-    | { kind: "noop" }
-    | { kind: "passthrough" }
-    | undefined;
-
   constructor(options: ContextCompactorOptions) {
     this.#options = options;
     this.#now = options.now ?? (() => new Date());
     this.#generateId = options.generateId ?? randomUUID;
   }
 
-  async prepare(
-    messages: UIMessage[],
-    signal: AbortSignal,
-    force = false,
-    referencePrefix?: readonly UIMessage[],
-  ): Promise<UIMessage[]> {
-    this.#preparedEstimate = null;
-    this.#preparedCompactionId = null;
-    const controller = new AbortController();
-    const onAbort = (): void => controller.abort(abortError(signal));
-    signal.addEventListener("abort", onAbort, { once: true });
-    if (signal.aborted) onAbort();
-    const jobTimeoutMs = this.#options.budget.inputBudgetTokens === undefined ? MANUAL_COMPACTION_TIMEOUT_MS : 600_000;
-    const timer = setTimeout(() => controller.abort(contextError(`Context preparation exceeded its ${jobTimeoutMs / 1000} second total budget`)), jobTimeoutMs);
-    try {
-      const prepared = await this.#prepare(messages, controller.signal, force, referencePrefix);
-      this.#lastPreparation = {
-        at: this.#now().toISOString(),
-        outcome: this.#lastPrepare?.kind ?? "passthrough",
-        compactionId: this.#preparedCompactionId,
-        estimatedInputTokens: this.#preparedEstimate,
-        error: null,
-      };
-      return prepared;
-    } catch (error) {
-      this.#lastPreparation = {
-        at: this.#now().toISOString(), outcome: "failed", compactionId: null,
-        estimatedInputTokens: this.#preparedEstimate, error: diagnosticError(error),
-      };
-      throw error;
-    } finally {
-      clearTimeout(timer);
-      signal.removeEventListener("abort", onAbort);
+  #maskedThrough = 0;
+  #pending: { messages: UIMessage[]; end: number; prefix: readonly UIMessage[]; sources?: CompactionChecklistSources } | undefined;
+  #task: Promise<void> | undefined;
+  #abort: AbortController | undefined;
+  #backgroundError: string | undefined;
+  #installedId: string | undefined;
+  #reportedScale = 1;
+  #extraBlock = false;
+
+  /** Foreground projection never dispatches or waits for a model. */
+  async prepare(messages: UIMessage[], signal: AbortSignal, _force = false, referencePrefix?: readonly UIMessage[]): Promise<UIMessage[]> {
+    abortIfNeeded(signal);
+    const visible = withoutConsolidationTurns(messages);
+    let prefix = referencePrefix ?? await this.#options.promptPrefix?.(signal, messages) ?? [];
+    this.#effectiveReferencePrefix = prefix;
+    if (!this.#options.budget.enabled) return visible;
+    const fixed = await this.#options.fixedContext(messages, signal), limits = blockLimits(this.#options.budget);
+    const record = await this.#findLatestValid(messages);
+    if (record && this.#installedId !== record.id && this.#options.refreshReference) {
+      prefix = await this.#options.refreshReference(messages, signal);
+      this.#effectiveReferencePrefix = prefix; this.#installedId = record.id;
     }
+    let boundary = Math.max(record?.firstKeptMessageIndex ?? 0, this.#maskedThrough);
+    const sources = await this.#options.checklist?.();
+    const requestLimit = Math.max(1, limits.section);
+    const fixedTokens = estimateContextBudget({ ...fixed, messages: prefix }, this.#options.budget).inputTokens;
+    if (fixedTokens >= contextBudgetThresholds(this.#options.budget).availableInputTokens) throw contextError("Fixed context exceeds the available input budget; no model request dispatched");
+    const singleLimit = Math.max(1, contextBudgetThresholds(this.#options.budget).availableInputTokens - fixedTokens);
+    const foreground = messages.flatMap(message => ((message.metadata ?? {}) as { contextReferences?: UIMessage[] }).contextReferences ?? []).filter(message => message.id === "runloom-foreground-task").at(-1);
+    const boundedForeground = foreground ? fitMessage(foreground, singleLimit) : undefined;
+    const bounded = visible.map(message => fitMessage(message, Math.min(this.#options.budget.contextWindowTokens,
+      message.role === "user" ? singleLimit : 16_000)));
+    const checklistMessages = () => messages.map(message => message.role === "user" ? fitMessage({ ...message, metadata: undefined }, requestLimit) : message);
+    const compose = () => {
+      const keptIds = new Set(messages.slice(boundary).map(message => message.id));
+      const required = boundary ? createCompactionChecklist({ ...sources, permissions: sources?.permissions, messages: checklistMessages(), maxTokens: limits.section, requestReferenceOnly: !!boundedForeground || boundary <= messages.reduce((last, message, index) => message.role === "user" ? index : last, -1) }) : undefined;
+      if (required && estimateMessageTokens([required]) > limits.section) throw contextError("Required checklist exceeds proportional summary budget; original failures and unknown effects retained");
+      const missing = boundary > (record?.firstKeptMessageIndex ?? 0) ? [{ id: "runloom-masked-history", role: "assistant" as const,
+        parts: [{ type: "text" as const, text: `Original messages ${messages[record?.firstKeptMessageIndex ?? 0]?.id ?? ""}–${messages[boundary - 1]?.id ?? ""} are masked pending background summary/extraction; use history_search/history_read.` }] }] : [];
+      return placeForegroundTaskReference([...(record ? [layerMessage(record)] : []), ...(required ? [required] : []), ...missing, ...bounded.filter(message => keptIds.has(message.id)), ...(boundedForeground ? [boundedForeground] : [])]);
+    };
+    const estimate = (view: UIMessage[]) => {
+      const measured = estimateContextBudget({ ...fixed, messages: [...prefix, ...expandMessageReferences(view)] }, this.#options.budget);
+      measured.inputTokens = Math.ceil(measured.inputTokens * this.#reportedScale);
+      measured.exceeds = measured.inputTokens > measured.availableInputTokens;
+      return measured;
+    };
+    if (this.#extraBlock) {
+      const next = maskOldestBlock(messages, boundary, limits.block);
+      this.#extraBlock = false;
+      if (next <= boundary) throw contextError("Provider context overflow has no further safe block boundary");
+      boundary = next;
+    }
+    let view = compose(), measured = estimate(view);
+    const recentTokens = () => estimateMessageTokens(bounded.filter(message => messages.slice(boundary).some(item => item.id === message.id)));
+    while (measured.exceeds || recentTokens() > limits.recent + limits.block) {
+      const next = maskOldestBlock(messages, boundary, limits.block);
+      if (next <= boundary) break;
+      boundary = next; view = compose(); measured = estimate(view);
+    }
+    if (measured.exceeds) {
+      const current = bounded.reduce((last, message, index) => message.role === "user" ? index : last, -1);
+      if (current >= 0) {
+        const { contextReferences: _refs, contextSnapshot: _snapshot, ...metadata } = (bounded[current]!.metadata ?? {}) as Record<string, unknown>;
+        const target = estimateMessageTokens([{ ...bounded[current]!, metadata }]) - Math.ceil((measured.inputTokens - measured.availableInputTokens) / this.#reportedScale);
+        bounded[current] = fitMessage(bounded[current]!, target);
+        view = compose(); measured = estimate(view);
+      }
+    }
+    if (record && estimateMessageTokens([layerMessage(record), ...(view.filter(message => message.id === "runloom-compaction-checklist"))]) > limits.totalSummary) throw contextError("Historical summary exceeds proportional total budget; original journal retained");
+    if (measured.exceeds) throw contextError(`Prepared context exceeds budget (${measured.inputTokens} > ${measured.availableInputTokens}); required metadata retained`);
+    this.#maskedThrough = boundary;
+    if (boundary > (record?.firstKeptMessageIndex ?? 0)) this.#options.onMask?.(messages[boundary - 1]!.id);
+    const covered = record?.firstKeptMessageIndex ?? 0;
+    const nextBlock = maskOldestBlock(messages, covered, limits.block);
+    if (nextBlock > covered && (boundary > covered || recentTokens() >= limits.recent)) {
+      this.#pending = { messages: structuredClone(messages), end: nextBlock, prefix: structuredClone(prefix), ...(sources ? { sources: structuredClone(sources) } : {}) };
+    }
+    this.#lastPreparation = { at: this.#now().toISOString(), outcome: record ? "reused" : "passthrough", compactionId: record?.id ?? null,
+      estimatedInputTokens: measured.inputTokens, error: null };
+    return view;
   }
 
-  async #prepare(
-    messages: UIMessage[], signal: AbortSignal, force: boolean,
-    referencePrefix?: readonly UIMessage[],
-  ): Promise<UIMessage[]> {
-    this.#lastPrepare = { kind: "passthrough" };
-    this.#effectiveReferencePrefix = referencePrefix ?? [];
-    const visibleIds = new Set(withoutConsolidationTurns(messages).map(message => message.id));
-    const journalIds = new Set(messages.map(message => message.id));
-    const visible = (conversation: readonly UIMessage[]) => conversation.filter(message =>
-      // Injected summary messages are not journal entries.
-      !journalIds.has(message.id) || visibleIds.has(message.id));
-    if (!this.#options.budget.enabled) return visible(messages);
+  reportedOverflow(inputTokens: number): void {
+    const estimated = this.#lastPreparation?.estimatedInputTokens;
+    if (estimated) this.#reportedScale *= Math.max(1, inputTokens / estimated);
+    this.#extraBlock = true;
+  }
+  get pending(): boolean { return this.#pending !== undefined; }
+  get backgroundError(): string | undefined { return this.#backgroundError; }
+  async runPending(signal: AbortSignal): Promise<void> {
+    const job = this.#pending;
+    if (!job || this.#task) return;
+    this.#pending = undefined;
+    const abort = new AbortController(); this.#abort = abort;
+    const linked = AbortSignal.any([signal, abort.signal]);
+    this.#task = this.#summarize(job, linked).then(() => {
+      this.#backgroundError = undefined;
+      const covered = this.#latest?.firstKeptMessageIndex ?? 0;
+      if (covered < this.#maskedThrough) {
+        const next = maskOldestBlock(job.messages, covered, blockLimits(this.#options.budget).block);
+        if (next > covered) this.#pending = { ...job, end: next };
+      }
+    }, error => {
+      if (!linked.aborted) this.#backgroundError = error instanceof Error ? error.message : String(error);
+    }).finally(() => { this.#task = undefined; this.#abort = undefined; });
+    await this.#task;
+  }
+  async pause(): Promise<void> { this.#abort?.abort(new DOMException("Foreground has priority", "AbortError")); await this.#task; }
+  invalidate(): void { this.#latest = undefined; this.#maskedThrough = 0; this.#pending = undefined; this.#installedId = undefined; }
+  async close(): Promise<void> { this.#pending = undefined; await this.pause(); }
+
+  async #summarize(job: NonNullable<{ messages: UIMessage[]; end: number; prefix: readonly UIMessage[]; sources?: CompactionChecklistSources }>, signal: AbortSignal): Promise<void> {
     abortIfNeeded(signal);
-
-    const fixed = await this.#options.fixedContext(messages, signal);
-    // The caller may capture retrieval once and use the same prefix for both
-    // this budget and final injection. Even [] overrides the fallback reader.
-    let prefixInject = referencePrefix ?? (this.#options.promptPrefix === undefined
-      ? []
-      : await this.#options.promptPrefix(signal, messages));
-    const estimatePrepared = (conversation: readonly UIMessage[]) =>
-      estimateContextBudget(
-        {
-          instructions: fixed.instructions ?? "",
-          tools: fixed.tools ?? [],
-          memories: [],
-          dynamicContext: fixed.dynamicContext ?? "",
-          messages: [...prefixInject, ...expandMessageReferences(visible(conversation))],
-        },
-        this.#options.budget,
-      );
-    const checkPreparedBudget = (conversation: readonly UIMessage[]) => {
-      const estimate = estimatePrepared(conversation);
-      this.#preparedEstimate = estimate.inputTokens;
-      if (estimate.exceeds) {
-        throw contextError(`Prepared context exceeds the configured input budget (${estimate.inputTokens} > ${estimate.availableInputTokens} tokens)`);
+    const { messages, end, prefix, sources } = job;
+    const persisted = await this.#findLatestValid(messages);
+    const start = persisted?.firstKeptMessageIndex ?? 0;
+    if (end <= start) return;
+    const limits = blockLimits(this.#options.budget);
+    const original = withoutConsolidationTurns(messages.slice(start, end));
+    if (!original.length) return;
+    const archive = persisted?.layers?.recent.length === 4 ? { index: persisted.layers.index, oldest: persisted.layers.recent[0] } : undefined;
+    const reference = await this.#options.backgroundReference?.(signal);
+    const referenceText = reference?.parts.flatMap(part => part.type === "text" ? [part.text] : []).join("\n") ?? "";
+    const task = `\nCurrent fixed reference: ${referenceText}\nKeep continuation text (excluding JSON framing and evidence IDs) within ${limits.section} estimated tokens. Preserve explicit constraints, decisions and unfinished work; use short clauses. Host checklist separately retains all unknown/failed effects.` +
+      (archive ? `\nAlso return a farIndex string in the SAME JSON object: consolidate this previous index and oldest summary into a short searchable topic index, preserving confirmed goals, constraints, decisions, unfinished work, dates and message ranges. Do not repeat background filler. Index budget ${limits.section} tokens. Index material: ${JSON.stringify(archive)}` : "");
+    const promptFor = (block: UIMessage[]) => contextSummaryPrompt({ messages: block, location: { threadId: this.#options.threadId, project: this.#options.project ?? "current-workspace" } }) + task;
+    const inputLimit = Math.min(this.#options.budget.summaryInputChunkTokens ?? limits.block,
+      this.#options.budget.contextWindowTokens - this.#options.budget.summaryMaxOutputTokens - this.#options.budget.safetyMarginTokens);
+    let block = original;
+    if (estimateSerializedTokens(promptFor(block)) > inputLimit) {
+      let low = 1, high = inputLimit, best: UIMessage[] | undefined;
+      while (low <= high) {
+        const allowance = Math.floor((low + high) / 2);
+        let candidate: UIMessage[];
+        try { candidate = original.map(message => fitMessage(message, allowance)); }
+        catch { low = allowance + 1; continue; }
+        if (estimateSerializedTokens(promptFor(candidate)) <= inputLimit) { best = candidate; low = allowance + 1; }
+        else high = allowance - 1;
       }
-      return estimate;
-    };
-    const limits = contextBudgetThresholds(this.#options.budget);
-    const protectedMessages: UIMessage[] = [];
-    const summaryLimit = SUMMARY_MAX_TOKENS;
-    const summaryTokens = (conversation: readonly UIMessage[]) => estimateMessageTokens(conversation.filter(message =>
-      message.id === "runloom-context-summary" || message.id === "runloom-compaction-checklist"));
-    const checkSummary = (conversation: readonly UIMessage[]) => {
-      const tokens = summaryTokens(conversation);
-      if (tokens > summaryLimit) throw contextError(`Context summary and host checklist exceed the ${summaryLimit} token summary budget (${tokens}); original records are retained`);
-    };
-    const finish = (conversation: UIMessage[], compactionId: string | null = null): UIMessage[] => {
-      abortIfNeeded(signal);
-      checkSummary(conversation);
-      // Reuse, noop and forced preparation must obey the same final budget.
-      checkPreparedBudget(conversation);
-      this.#preparedCompactionId = compactionId;
-      return visible(conversation);
-    };
-
-    // Resume is optional evidence, unlike Memory/checkpoint. Do not let it
-    // force compaction or block an otherwise valid input; publish the same
-    // effective snapshot that callers must use for final injection.
-    if (estimatePrepared(messages).exceeds && prefixInject.some((message) => message.id === "runloom-resume-observation")) {
-      prefixInject = prefixInject.filter((message) => message.id !== "runloom-resume-observation");
+      if (!best) throw contextError("Summary metadata exceeds its input budget; original block retained");
+      block = best;
     }
-    this.#effectiveReferencePrefix = prefixInject;
-
-    let persisted = await this.#findLatestValid(messages);
-    if (persisted && !persisted.checklist && this.#options.checklist) persisted = { ...persisted,
-      summary: reconcilePublishedSummary(persisted.summary, visible(messages.slice(0, persisted.firstKeptMessageIndex)), persisted.summary),
-    };
-    abortIfNeeded(signal);
-    const compose = (summary: ContextSummaryV2, firstKept: number, checklist?: UIMessage): UIMessage[] => [
-      ...transcriptPrefix(messages),
-      summaryMessage(summary, {
-        index: firstKept,
-        id: firstKept === messages.length ? null : messages[firstKept]?.id ?? null,
-      }),
-      ...(checklist ? [checklist] : this.#options.checklist ? [createCompactionChecklist({
-        messages: visible(messages.slice(0, firstKept)), permissions: undefined,
-      })] : []),
-      ...compactedRecentMessages(messages, firstKept),
-    ];
-    const shouldCompact = (inputTokens: number): boolean => this.#options.budget.inputBudgetTokens === undefined
-      ? inputTokens > limits.availableInputTokens
-      : inputTokens + limits.predictedGrowthTokens >= limits.triggerTokens;
-    if (!force && persisted !== undefined) {
-      const installed = compose(persisted.summary, persisted.firstKeptMessageIndex, persisted.checklist);
-      if (!shouldCompact(estimatePrepared(installed).inputTokens) &&
-          summaryTokens(installed) <= summaryLimit) {
-        this.#lastPrepare = { kind: "reused" };
-        return finish(installed, persisted.id);
-      }
-    }
-    const rawBudget = estimatePrepared(persisted === undefined ? messages : compose(persisted.summary, persisted.firstKeptMessageIndex, persisted.checklist));
-    this.#preparedEstimate = rawBudget.inputTokens;
-    if (!force && !shouldCompact(rawBudget.inputTokens) && persisted === undefined) {
-      this.#lastPrepare = { kind: "passthrough" };
-      return finish(messages);
-    }
-    const checklistSources = await this.#options.checklist?.();
-    if (checklistSources) protectedMessages.push(createCompactionChecklist({ ...checklistSources, messages: visible(messages) }));
-
-    if (this.#options.refreshReference) {
-      prefixInject = await this.#options.refreshReference(messages, signal);
-      this.#effectiveReferencePrefix = prefixInject;
-    }
-    const partition = partitionMessagesForCompaction(messages);
-    const units = [...partition.history, ...partition.current];
-    let { kept, omitted } = keepRecentCompactionUnits(
-      units,
-      Math.max(1, this.#options.budget.keepRecentTokens),
-    );
-    const firstIncomplete = units.find((unit) => !unit.completeToolCalls);
-    if (firstIncomplete !== undefined) {
-      kept = units.filter((unit) => unit.startIndex >= firstIncomplete.startIndex);
-      omitted = units.filter(
-        (unit) => unit.endIndex < firstIncomplete.startIndex && unit.completeToolCalls,
-      );
-    }
-    const currentUserIndex = partition.currentUserIndex;
-    const currentUserUnit = currentUserIndex === null
-      ? undefined
-      : units.find((unit) => unit.startIndex <= currentUserIndex && unit.endIndex >= currentUserIndex);
-    if (currentUserUnit !== undefined && !kept.some((unit) => unit.startIndex === currentUserUnit.startIndex)) {
-      kept = [currentUserUnit, ...kept].sort((left, right) => left.startIndex - right.startIndex);
-      const retained = new Set(kept.map((unit) => unit.startIndex));
-      omitted = units.filter((unit) => !retained.has(unit.startIndex));
-    }
-
-    const summaryReserve = Math.max(
-      persisted === undefined ? 0 : estimateSerializedTokens(persisted.summary),
-      this.#options.budget.summaryMaxOutputTokens,
-    ) + estimateMessageTokens(protectedMessages);
-    const keptFits = (nextKept: readonly MessageCompactionUnit[]): boolean => {
-      if (nextKept.length === 0) return false;
-      const firstKept = nextKept[0]!.startIndex;
-      const estimate = estimatePrepared([
-        ...transcriptPrefix(messages),
-        ...messages.slice(firstKept),
-      ]);
-      const target = this.#options.budget.inputBudgetTokens === undefined ? estimate.availableInputTokens : limits.triggerTokens - limits.predictedGrowthTokens;
-      return estimate.inputTokens + summaryReserve <= target;
-    };
-
-    // The stored summary replaces a prefix. A completed tool result that sits
-    // after the current user message cannot be removed by itself, so once the
-    // suffix no longer fits, summarize that prefix through the result too.
-    while (!keptFits(kept)) {
-      const head = kept[0];
-      if (head === undefined || !head.completeToolCalls) break;
-      const laterCompleteTool = kept.slice(1).some((unit) => unit.completeToolCalls && unit.hasToolCall);
-      // Keep the live request for proactive compression. Preserve the existing
-      // hard-overflow escape: request + completed tool result may be summarized
-      // together, but never remove the request alone or an incomplete call.
-      if (this.#options.budget.inputBudgetTokens !== undefined && head === currentUserUnit &&
-          (!laterCompleteTool || estimatePrepared([
-            ...transcriptPrefix(messages), ...messages.slice(head.startIndex),
-          ]).inputTokens + summaryReserve <= limits.availableInputTokens)) break;
-      if (this.#options.budget.inputBudgetTokens === undefined && !head.hasToolCall && !laterCompleteTool) break;
-      omitted = [...omitted, head];
-      kept = kept.slice(1);
-    }
-
-    if (omitted.length === 0) {
-      this.#lastPrepare = { kind: "noop" };
-      if (force) return persisted === undefined ? finish(messages) : finish(compose(persisted.summary, persisted.firstKeptMessageIndex, persisted.checklist), persisted.id);
-      if (persisted !== undefined) return finish(compose(persisted.summary, persisted.firstKeptMessageIndex, persisted.checklist), persisted.id);
-      if (!rawBudget.exceeds) return finish(messages);
-      throw contextError("Context exceeds the configured input budget and has no safe compaction boundary");
-    }
-    if (kept.length === 0 && omitted.length === 0) {
-      throw contextError("Context exceeds the configured input budget and has no safe compaction boundary");
-    }
-
-    const firstKept = kept[0]?.startIndex ?? messages.length;
-    if (persisted !== undefined && persisted.firstKeptMessageIndex >= firstKept) {
-      const installed = compose(persisted.summary, persisted.firstKeptMessageIndex, persisted.checklist);
-      if (force || !estimatePrepared(installed).exceeds) {
-        this.#lastPrepare = { kind: "noop" };
-        return finish(installed, persisted.id);
-      }
-    }
-
-    const keptMessages = messages.slice(firstKept);
-    const coveredMessages = visible(messages.slice(0, firstKept));
-    const previous = persisted?.summary;
+    const prompt = promptFor(block);
+    if (estimateSerializedTokens(prompt) > inputLimit) throw contextError("Summary request exceeds its input budget; original block retained");
     const started = Date.now();
-    const summaryInputBudget = Math.max(
-      256,
-      this.#options.budget.summaryInputChunkTokens ?? this.#options.budget.keepRecentTokens,
-    );
-    // A validated persisted summary already covers this exact prefix. Merge only
-    // new material, even when the old boundary now falls inside a complete turn.
-    // Re-reading the full prefix would eventually exhaust the fixed merge limit.
-    const sourceStart = persisted?.firstKeptMessageIndex ?? 0;
-    const incrementalUnits = omitted.filter(unit => unit.endIndex >= sourceStart).map(unit => ({
-      messages: visible(unit.messages.slice(Math.max(0, sourceStart - unit.startIndex))),
-    })).filter(unit => unit.messages.length > 0);
-    const maxMerges = this.#options.budget.inputBudgetTokens === undefined ? MAX_SUMMARY_MERGES :
-      Math.min(16, Math.ceil(limits.availableInputTokens / summaryInputBudget) + 2);
-    const chunks = summarySourceChunks(incrementalUnits, summaryInputBudget, maxMerges);
-    if (chunks.length === 0) {
-      this.#lastPrepare = { kind: "noop" };
-      return persisted ? finish(compose(persisted.summary, persisted.firstKeptMessageIndex, persisted.checklist), persisted.id) : finish(messages);
-    }
-    if (chunks.length > maxMerges) {
-      throw contextError("Context compaction source is too large for the bounded summary merge");
-    }
-    let summary = previous;
-    let attempts = 0;
-    let usage: TokenUsage | undefined;
-    for (const chunk of chunks) {
-      const result = await this.#completeWithRetry(
-        contextSummaryPrompt({
-          ...(summary === undefined ? {} : { previousSummary: { ...summary, actions: [] } }),
-          messages: chunk,
-        }),
-        this.#options.budget.summaryMaxOutputTokens,
-        signal,
-        uniqueIds([...chunk.map((message) => message.id), ...previousEvidenceIds(summary)]),
-      );
-      abortIfNeeded(signal);
-      summary = result.summary;
-      attempts += result.attempts;
-      if (result.usage !== undefined) {
-        usage = addObservedUsage(usage, result.usage);
-      }
-    }
-    if (summary === undefined) throw contextError("Context compaction returned no summary");
-    summary = reconcilePublishedSummary(summary, coveredMessages, previous);
-    const checklist = checklistSources ? createCompactionChecklist({ ...checklistSources, messages: coveredMessages }) : undefined;
-    const compactedMessages = compose(summary, firstKept, checklist);
-    checkSummary(compactedMessages);
-    // Validate before persisting too: an unusable summary is not a new boundary.
-    const afterBudget = checkPreparedBudget(compactedMessages);
+    const result = await this.#completeOne(prompt, this.#options.budget.summaryMaxOutputTokens, signal);
     abortIfNeeded(signal);
-
+    if (result.finishReason === "length") throw contextError("Summary output was truncated; original block retained");
+    const parsed = parseContextSummary(result.text, original.map(message => message.id));
+    if (!parsed) throw contextError("Summary output is invalid; original block retained");
+    const json = /```(?:json)?\s*([\s\S]*?)\s*```/i.exec(result.text)?.[1] ?? result.text;
+    const raw = JSON.parse(json.slice(json.indexOf("{"), json.lastIndexOf("}") + 1)) as { farIndex?: unknown };
+    const summary = reconcilePublishedSummary(parsed, original, persisted?.summary);
+    const layers = appendSummaryLayer({ ...(persisted ? { previous: persisted } : {}), messages, start, end, summary,
+      ...(typeof raw.farIndex === "string" ? { farIndex: raw.farIndex } : {}) });
+    if (estimateSerializedTokens(summaryText(summary)) > limits.section || estimateSerializedTokens(layers.index) > limits.section) {
+      throw contextError("Summary segment or far index exceeds its proportional budget; original block retained");
+    }
+    const checklist = createCompactionChecklist({ ...sources, permissions: sources?.permissions, messages: withoutConsolidationTurns(messages.slice(0, end)), maxTokens: limits.section, requestReferenceOnly: true });
+    if (estimateMessageTokens([checklist]) > limits.section) throw contextError("Required checklist exceeds its proportional budget; original block retained");
+    const fresh = await this.#options.store.getMessages(this.#options.threadId);
+    if (compactPrefixHash(fresh, end) !== compactPrefixHash(messages, end) ||
+        JSON.stringify(this.#exclusions(fresh)) !== JSON.stringify(this.#exclusions(messages))) throw contextError("Summary sources changed; result discarded");
+    abortIfNeeded(signal);
     const record: ContextCompactionRecord = {
-      v: 2,
-      type: "thread.context.compacted",
-      threadId: this.#options.threadId,
-      id: this.#generateId(),
-      previousCompactionId: persisted?.id ?? null,
-      firstKeptMessageIndex: firstKept,
-      firstKeptMessageId: keptMessages[0]?.id ?? null,
-      sourcePrefixHash: compactPrefixHash(messages, firstKept),
-      consolidationExcluded: true,
-      referencePrefix: [...prefixInject],
-      ...(checklist ? { checklist } : {}),
-      summary,
-      strategyVersion: CONTEXT_SUMMARY_STRATEGY_VERSION,
-      modelId: this.#options.modelId,
-      createdAt: this.#now().toISOString(),
-      metrics: {
-        estimatedInputBefore: rawBudget.inputTokens,
-        estimatedInputAfter: afterBudget.inputTokens,
-        durationMs: Date.now() - started,
-        attempts,
-        ...(usage === undefined ? {} : { usage }),
-      },
+      v: 2, type: "thread.context.compacted", threadId: this.#options.threadId, id: this.#generateId(),
+      previousCompactionId: persisted?.id ?? null, firstKeptMessageIndex: end, firstKeptMessageId: messages[end]?.id ?? null,
+      sourcePrefixHash: compactPrefixHash(messages, end), consolidationExcluded: true,
+      excludedMessageIds: this.#exclusions(messages), referencePrefix: [...prefix], checklist, summary, layers,
+      strategyVersion: CONTEXT_SUMMARY_STRATEGY_VERSION, modelId: this.#options.modelId, createdAt: this.#now().toISOString(),
+      metrics: { estimatedInputBefore: estimateMessageTokens(messages), estimatedInputAfter: estimateMessageTokens([layerMessage({ layers, summary } as ContextCompactionRecord), checklist, ...messages.slice(end)]),
+        durationMs: Date.now() - started, attempts: 1, ...(result.usage ? { usage: result.usage } : {}) },
     };
     await this.#options.store.appendContextCompaction(asOpaqueRecord(record));
     this.#latest = record;
-    this.#lastPrepare = { kind: "written", record };
-    return finish(compactedMessages, record.id);
+  }
+
+  #exclusions(messages: readonly UIMessage[]): string[] {
+    return messages.filter(message => (message.metadata as { transcriptExcluded?: boolean } | undefined)?.transcriptExcluded).map(message => message.id);
   }
 
   async #findLatestValid(messages: readonly UIMessage[]): Promise<ContextCompactionRecord | undefined> {
@@ -765,83 +471,6 @@ export class ContextCompactor {
       }
     }
     return undefined;
-  }
-
-  async #completeWithRetry(
-    prompt: string,
-    maxOutputTokens: number,
-    signal: AbortSignal,
-    fallbackEvidenceIds: readonly string[],
-  ): Promise<{ summary: ContextSummaryV2; usage?: TokenUsage; attempts: number }> {
-    const delays = [0, 250, 1_000];
-    let last: unknown;
-    let lastText = "";
-    let usage: TokenUsage | undefined;
-    for (let attempt = 0; attempt < delays.length; attempt += 1) {
-      abortIfNeeded(signal);
-      if (delays[attempt]! > 0) {
-        await new Promise<void>((resolve, reject) => {
-          const timer = setTimeout(() => {
-            signal.removeEventListener("abort", onAbort);
-            resolve();
-          }, delays[attempt]!);
-          const onAbort = (): void => {
-            clearTimeout(timer);
-            signal.removeEventListener("abort", onAbort);
-            reject(abortError(signal));
-          };
-          signal.addEventListener("abort", onAbort, { once: true });
-        });
-      }
-      const requestPrompt = lastText.trim() === ""
-        ? prompt
-        : `${prompt}\n\nThe previous response was not valid complete ContextSummaryV2 JSON. Reply with a shorter complete JSON object; do not repeat file contents or enumerate every intermediate action. Preserve constraints and uncertain effects.\nPrevious response excerpt (not a template to copy):\n${truncateSummaryText(lastText, 2_000)}`;
-      try {
-        const result = await this.#completeOne(requestPrompt, maxOutputTokens, signal);
-        if (result.usage !== undefined) {
-          usage = addObservedUsage(usage, result.usage);
-        }
-        lastText = result.text;
-        if (result.finishReason === "length") {
-          throw new AgentError({
-            code: "MODEL_BAD_RESPONSE",
-            message: `Context compaction output was truncated at the ${maxOutputTokens} token limit`,
-            retryable: true,
-            phase: "model",
-          });
-        }
-        if (result.text.trim() === "") {
-          throw new AgentError({
-            code: "MODEL_TIMEOUT",
-            message: "Context compaction returned empty output",
-            retryable: true,
-            phase: "model",
-          });
-        }
-        const summary = parseContextSummary(result.text, fallbackEvidenceIds);
-        if (summary === undefined) {
-          throw new AgentError({
-            code: "MODEL_BAD_RESPONSE",
-            message: "Context compaction returned invalid summary JSON",
-            retryable: true,
-            phase: "model",
-          });
-        }
-        return {
-          summary,
-          attempts: attempt + 1,
-          ...(usage === undefined ? {} : { usage }),
-        };
-      } catch (error) {
-        last = error;
-        if (signal.aborted) throw abortError(signal);
-        if (!isRetryableCompactionError(error)) throw error;
-      }
-    }
-    const observedUsage = usage === undefined
-      ? "usage unavailable (a failed call may still incur cost)"
-      : `returned-response usage ${JSON.stringify(usage)} (failed calls without usage may still incur cost)`;
-    throw contextError(`Context compaction failed after ${delays.length} attempts; ${observedUsage}: ${String(last)}`);
   }
 
   async #completeOne(
@@ -866,7 +495,7 @@ export class ContextCompactor {
     if (signal.aborted) onAbort();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<never>((_, reject) => {
-      const timeoutMs = this.#options.budget.inputBudgetTokens === undefined ? SUMMARY_TIMEOUT_MS : 90_000;
+      const timeoutMs = SUMMARY_TIMEOUT_MS;
       timer = setTimeout(() => {
         const error = new AgentError({
           code: "MODEL_TIMEOUT",

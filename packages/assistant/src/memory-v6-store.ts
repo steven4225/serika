@@ -15,7 +15,7 @@ const string = z.string().min(1);
 const time = z.iso.datetime({ offset: true });
 export const v6SourceSchema = z.union([
   z.object({ kind: z.literal("manual") }).strict(),
-  z.object({ kind: z.literal("conversation"), threadId: string, messageId: string, quote: string.refine(value => Buffer.byteLength(value) <= 2048), sentAt: time.nullable(),
+  z.object({ kind: z.literal("conversation"), threadId: string, messageId: string, quote: z.string().refine(value => Buffer.byteLength(value) <= 2048), sentAt: time.nullable(),
     proposal: z.object({ messageId: string, quote: string.refine(value => Buffer.byteLength(value) <= 2048) }).strict().optional() }).strict(),
 ]);
 const scope = z.union([z.object({ kind: z.literal("workspace") }).strict(), z.object({ kind: z.literal("thread"), threadId: string }).strict()]);
@@ -24,12 +24,13 @@ const body = string.refine(text => text.trim().length > 0 && Buffer.byteLength(t
 const entrySchema = z.object({ id: string, revision: z.number().int().positive(), text: body, uncertain: z.boolean().default(false), category: z.enum(["preference", "note", "document"]),
   identity: identity.optional(), scope, pinned: z.boolean(), state: z.enum(["active", "disabled", "superseded", "retracted"]),
   createdAt: time, updatedAt: time, sources: z.array(v6SourceSchema).min(1),
-  replaces: z.array(string), supersededBy: string.nullable(), withdrawal: v6SourceSchema.nullable() }).strict();
+  privacyExcluded: z.boolean().optional(), replaces: z.array(string), supersededBy: string.nullable(), withdrawal: v6SourceSchema.nullable() }).strict();
 const segment = z.object({ throughMessageId: string, prefixHash: string }).strict();
 const progress = z.object({ threadId: string, throughMessageId: string.nullable(), prefixHash: string.nullable(),
-  pending: z.array(z.object({ messageId: string, prefixHash: string }).strict()).default([]),
+  pending: z.array(z.object({ messageId: string, prefixHash: string, offset: z.number().int().nonnegative().optional() }).strict()).default([]),
   retry: z.object({ ...segment.shape, failures: z.number().int().min(1).max(3) }).strict().nullable() }).strict();
 const documentSchema = z.object({ version: z.literal(6), lastWrittenAt: time.nullable(), entries: z.array(entrySchema).max(512),
+  excludedSources: z.array(z.object({ threadId: string, messageId: string }).strict()).default([]),
   progress: z.array(progress), suppressed: z.array(z.object({ threadId: string, messageId: string, memoryHash: string }).strict()),
   library: memoryLibrarySchema, importReceipts: z.array(memoryImportReceiptSchema).max(MEMORY_IMPORT_MAX_RECEIPTS) }).strict();
 export const validateV6MemoryDocument = (value: unknown): V6Document => documentSchema.parse(value);
@@ -39,7 +40,7 @@ export type V6Document = z.infer<typeof documentSchema>;
 export type V6Change = { operation: "add" | "replace"; text: string; uncertain?: boolean; category: V6Entry["category"]; identity?: V6Entry["identity"]; source: V6Source; scope: V6Entry["scope"]; id?: string; expectedRevision?: number }
   | { operation: "retract" | "undo"; id: string; expectedRevision: number; source: V6Source };
 export interface V6Commit { expectedProgress?: V6Document["progress"][number] | null; progress?: V6Document["progress"][number]; now?: Date; automatic?: boolean; reextract?: boolean; sourceOrder?: readonly string[]; initial?: { pinned: boolean; disabled: boolean } }
-const empty = (): V6Document => ({ version: 6, lastWrittenAt: null, entries: [], progress: [], suppressed: [], library: emptyMemoryLibrary(), importReceipts: [] });
+const empty = (): V6Document => ({ version: 6, lastWrittenAt: null, entries: [], excludedSources: [], progress: [], suppressed: [], library: emptyMemoryLibrary(), importReceipts: [] });
 function fail(code: ConstructorParameters<typeof MemoryStoreError>[0], message: string): never { throw new MemoryStoreError(code, message); }
 const migration = (): never => fail("MEMORY_MIGRATION_REQUIRED", "需要迁移（第 7 步）");
 const removed = (): never => fail("MEMORY_OPERATION_REMOVED", "旧候选、审核与双时态写入口已停用");
@@ -149,9 +150,12 @@ export class V6MemoryStore {
       const written: MemoryEntry[] = [];
       for (const raw of changes) {
         const source = v6SourceSchema.parse(raw.source);
+        if (source.kind === "conversation" && !source.quote.trim()) fail("MEMORY_SOURCE_INVALID", "Conversation source quote is empty");
+        if (source.kind === "conversation" && document.excludedSources.some(item => item.threadId === source.threadId && (item.messageId === source.messageId || item.messageId === source.proposal?.messageId))) fail("MEMORY_SOURCE_INVALID", "Excluded source");
         if ((raw.operation === "add" || raw.operation === "replace") && document.suppressed.some(item => source.kind === "conversation" && item.threadId === source.threadId && item.messageId === source.messageId && item.memoryHash === memoryHash(raw))) continue;
         let target = raw.operation === "add" ? undefined : document.entries.find(entry => entry.id === raw.id);
         if (raw.operation !== "add" && (!target || target.revision !== raw.expectedRevision)) fail("MEMORY_REVISION_CONFLICT", "Memory target changed or is missing");
+        if (target?.privacyExcluded) fail("MEMORY_SOURCE_INVALID", "Excluded source cannot be restored or rewritten");
         if (target?.scope.kind === "thread" && source.kind === "conversation" && target.scope.threadId !== source.threadId) fail("MEMORY_SOURCE_INVALID", "Foreign Thread");
         const order = options.sourceOrder;
         const position = source.kind === "conversation" ? order?.indexOf(source.messageId) ?? -1 : -1;
@@ -180,7 +184,7 @@ export class V6MemoryStore {
           if (target!.state === "active" && target!.replaces.length) {
             for (const id of target!.replaces) {
               const old = document.entries.find(entry => entry.id === id);
-              if (!old || old.supersededBy !== target!.id || old.state !== "superseded") fail("MEMORY_REVISION_CONFLICT", "Undo target changed");
+              if (!old || old.privacyExcluded || old.supersededBy !== target!.id || old.state !== "superseded") fail("MEMORY_REVISION_CONFLICT", "Undo target changed");
               old.state = "active"; old.supersededBy = null; old.sources.push(source); old.revision++; old.updatedAt = stamp; written.push(v6Projection(old));
             }
             target!.state = "retracted"; target!.withdrawal = source;
@@ -194,6 +198,27 @@ export class V6MemoryStore {
       if (options.progress) document.progress = [...document.progress.filter(item => item.threadId !== options.progress!.threadId), options.progress];
       return written;
     }, options.now));
+  }
+  excludeSources(threadId: string, messageIds: string[], signal = new AbortController().signal) {
+    return this.#result(signal, () => this.#mutate(signal, (document, stamp) => {
+      const additions = messageIds.filter(messageId => !document.excludedSources.some(item => item.threadId === threadId && item.messageId === messageId));
+      if (!additions.length) return null;
+      document.excludedSources.push(...additions.map(messageId => ({ threadId, messageId })));
+      const excluded = new Set(messageIds);
+      const matches = (source: V6Source) => source.kind === "conversation" && source.threadId === threadId &&
+        (excluded.has(source.messageId) || !!source.proposal && excluded.has(source.proposal.messageId));
+      for (const entry of document.entries) {
+        if (!entry.sources.some(matches) && !(entry.withdrawal && matches(entry.withdrawal))) continue;
+        if (entry.privacyExcluded) continue;
+        entry.state = "retracted"; entry.privacyExcluded = true; entry.text = "[Excluded source]";
+        delete entry.identity; entry.uncertain = false;
+        entry.sources = entry.sources.map(source => source.kind === "conversation" ? { ...source, quote: "", proposal: undefined } : source);
+        entry.withdrawal = null; entry.revision++; entry.updatedAt = stamp;
+      }
+      // Projected exclusions change extraction input, so old prefix-CAS progress must be rebuilt.
+      document.progress = document.progress.filter(item => item.threadId !== threadId);
+      return null;
+    }));
   }
   async add(input: MemoryAddInput, signal = new AbortController().signal, options?: MemoryWriteOptions) {
     if (input.expiresAt || input.validTime || input.recallTerms?.length || input.factIdentity) return { ok: false as const, error: { code: "MEMORY_OPERATION_REMOVED" as const, message: "v6 不再写入旧时态与 identity 格式；请使用新记忆写入口" } };

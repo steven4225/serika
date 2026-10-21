@@ -19,7 +19,7 @@ const identity = await readJson(identityPath), config = await readJson(configPat
 const threads = [];
 for (const thread of identity.profiles.flatMap(profile => profile.threads)) {
   const store = new JsonlAgentStore({ directory: thread.transcriptDirectory });
-  threads.push({ ...thread, store, messages: await store.getMessages(thread.threadId) });
+  threads.push({ ...thread, store, messages: await store.getModelMessages(thread.threadId) });
 }
 threads.sort((a, b) => b.messages.length - a.messages.length);
 const main = threads[0], messages = main.messages;
@@ -31,7 +31,7 @@ catch (error) { if (error.code !== "ENOENT") throw error; }
 const compactions = await main.store.getContextCompactions(main.threadId);
 const validCompactions = compactions.filter(record => record.v === 2 &&
   record.firstKeptMessageIndex <= messages.length &&
-  record.firstKeptMessageId === (messages[record.firstKeptMessageIndex]?.id ?? null) &&
+  (record.firstKeptMessageId === null || record.firstKeptMessageId === messages[record.firstKeptMessageIndex]?.id) &&
   record.sourcePrefixHash === compactPrefixHash(messages, record.firstKeptMessageIndex) &&
   (record.consolidationExcluded === true || !messages.slice(0, record.firstKeptMessageIndex).some(isAutoConsolidationRequest)) &&
   parseContextSummary(JSON.stringify(record.summary))).sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
@@ -114,7 +114,7 @@ const input = rows.reduce((n, row) => n + row.input, 0), shared = rows.reduce((n
 const ttlScenarios = [1, 2, 4, 24, 72].map(hours => ({ hours,
   gapCount: gaps.filter(gap => gap < hours * 3600_000).length, gapFraction: gaps.filter(gap => gap < hours * 3600_000).length / gaps.length,
   conditionalPrefixRatio: rows.reduce((n, row) => n + (row.gap !== null && row.gap >= 0 && row.gap < hours * 3600_000 ? row.shared : 0), 0) / input }));
-const unchanged = sourceFingerprint === contextFingerprint(await main.store.getMessages(main.threadId)).hash &&
+const unchanged = sourceFingerprint === contextFingerprint(await main.store.getModelMessages(main.threadId)).hash &&
   memoryText === await readFile(memoryPath, "utf8");
 if (!unchanged) throw new Error("Source changed while replaying; rerun against a stable source");
 console.log(JSON.stringify({ capturedAt: new Date().toISOString(), permissions: { network: false, writes: false, childProcesses: false },

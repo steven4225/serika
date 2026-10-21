@@ -237,7 +237,7 @@ it("halts after an uncertain autonomy config commit, then rereads it without lau
   } finally { await host.shutdown(); await rm(f.root, { recursive: true, force: true }); }
 });
 
-it("retains the exact active request after same-Run compaction consumes its user message and tool result", async () => {
+it("retains the exact active request after immediate masking of a completed oversized tool result, without a foreground summary wait", async () => {
   const f = await fixture(); const events: MainToRenderer[] = [];
   const config = JSON.parse(await readFile(f.configPath, "utf8"));
   config.desktopAutonomy = { workspaceRoot: f.workspace };
@@ -246,18 +246,18 @@ it("retains the exact active request after same-Run compaction consumes its user
   await writeFile(f.configPath, JSON.stringify(config));
   await writeFile(join(f.workspace, "large.txt"), "bounded tool content\n".repeat(3000));
   const request = "Read large.txt, then run the remaining checks without asking me to continue. CURRENT_TASK_168";
-  let primaryCalls = 0, summaries = 0; const prompts: unknown[] = [];
+  let primaryCalls = 0, summaries = 0; const prompts: unknown[] = [], summaryCounts: number[] = [];
   const model = new MockLanguageModelV3({ doStream: async ({ prompt }) => {
     const serialized = JSON.stringify(prompt);
     if (serialized.includes("You are a context compactor")) {
       summaries++;
       const sourceText = prompt.flatMap(message => typeof message.content === "string" ? [message.content]
         : message.content.flatMap(part => part.type === "text" ? [part.text] : [])).join("\n");
-      const source = JSON.parse(sourceText.split("Transcript to merge:\n")[1]!) as { id: string }[];
+      const source = JSON.parse(sourceText.split("Original block:\n")[1]!.split("\n\nReturn one JSON")[0]!) as { id: string }[];
       return response(undefined, 0, JSON.stringify({ version: 2, goal: { text: request, evidenceMessageIds: [source[0]!.id] },
         constraints: [], decisions: [], actions: [], pending: [], files: [], nextStep: null }));
     }
-    prompts.push(prompt);
+    prompts.push(prompt); summaryCounts.push(summaries);
     return response(primaryCalls++ === 0 ? { name: "read_file", input: { path: "large.txt" } } : undefined);
   } });
   const host = await DesktopRuntime.create({ userData: join(f.root, "profile"), cwd: f.root, env: { RUNLOOM_CONFIG: f.configPath },
@@ -267,7 +267,7 @@ it("retains the exact active request after same-Run compaction consumes its user
     await until(() => host.current.snapshot().state.kind === "idle");
     const run = await host.current.getRun(started.runId); assert.ok(run.ok && run.run);
     assert.equal(run.run.status, "completed", run.run.errorPreview ?? "");
-    assert.equal(primaryCalls, 2); assert.ok(summaries > 0, "must exercise real automatic compaction");
+    assert.equal(primaryCalls, 2); assert.deepEqual(summaryCounts, [0, 0], "foreground tool loop never waits for a summarizer");
     const lastPrompt = prompts.at(-1) as { role: string; content: unknown }[];
     assert.ok(lastPrompt.some(message => message.role === "user" && JSON.stringify(message.content).includes(request)),
       "after a compacted tool result, the model still needs the exact current user task, not only an assistant summary");

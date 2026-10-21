@@ -186,7 +186,7 @@ export function MemoryConsolidationNotice({ enabled, busy, running = false, quie
   const c = maintenance?.consolidation;
   const accepted = c?.lastAttempt?.accepted ?? [];
   const emptyAttempt = c?.state === "idle" && c.lastAttempt?.status === "completed" && c.lastAttempt.candidateCount === 0;
-  if (quiet && !running && !error && accepted.length === 0 && emptyAttempt) return null;
+  if (quiet && !running && !error && accepted.length === 0 && c?.state !== "failed") return null;
   if (!running && !error && !emptyAttempt && accepted.length === 0 && c?.state !== "failed" && c?.state !== "backlog" && c?.state !== "running") return null;
   const title = running ? labels.running : consolidationStatusLabel(enabled, maintenance, error);
   return <div className="memory-consolidation"><div className="attention-summary" role="status"><span>{title}{c?.state === "backlog" && c.backlogCount !== undefined ? `（${c.backlogCount} 条取材范围内消息）` : ""}</span><button className="ghost" onClick={onOpen}>查看记忆</button></div>

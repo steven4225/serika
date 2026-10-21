@@ -1,0 +1,156 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { JsonlAgentStore } from "@serika/core";
+import type { UIMessage } from "ai";
+import { MockLanguageModelV3 } from "ai/test";
+import { ContextCompactor } from "./context-compactor.js";
+import { blockLimits, fitMessage } from "./context-blocks.js";
+import { availableInputTokens, defaultContextBudget, effectiveContextBudget, estimateContextBudget } from "./context-budget.js";
+import { createMemoryStore } from "./memory-store.js";
+import { createTranscriptAccess } from "./transcript-access.js";
+import { historyTools } from "./history-tools.js";
+import { createMemoryExtraction } from "./memory-extraction.js";
+import { compactPrefixHash } from "./context-compaction.js";
+
+const msg = (id: string, role: "user" | "assistant", text: string): UIMessage => ({ id, role, parts: [{ type: "text", text }] });
+const summary = { version: 2, goal: { text: "Continue task", evidenceMessageIds: ["u0"] }, constraints: [], decisions: [], actions: [], pending: [], files: [], nextStep: null };
+const budgets = [effectiveContextBudget(defaultContextBudget(), { provider: "test", modelId: "32k", source: "configuration", contextWindowTokens: 32768 }), defaultContextBudget()];
+const settle = async (condition: () => boolean) => { const end = Date.now() + 5000; while (!condition()) { if (Date.now() > end) throw new Error("Background did not settle"); await new Promise(resolve => setImmediate(resolve)); } };
+
+test("foreground masks complete blocks without any model wait at 32K and daily windows; queued cancellation never publishes", async () => {
+  for (const budget of budgets) {
+    const root = await mkdtemp(join(tmpdir(), "cm6-context-"));
+    try {
+      const store = new JsonlAgentStore({ directory: root }), limits = blockLimits(budget);
+      const messages: UIMessage[] = [];
+      for (let i = 0; i < 7; i++) {
+        messages.push(msg(`u${i}`, "user", `request ${i}: ` + "x".repeat(limits.block)));
+        messages.push({ id: `a${i}`, role: "assistant", parts: [{ type: "dynamic-tool", toolCallId: `c${i}`, toolName: "read_file", state: "output-available", input: { path: "a" }, output: { ok: true, content: "done" } }] });
+      }
+      messages.push(msg("current", "user", "Continue the task."));
+      await store.save("t", messages);
+      let calls = 0, release!: () => void;
+      const compactor = new ContextCompactor({ store, threadId: "t", modelId: "fake", budget, fixedContext: () => ({ instructions: "system", tools: [] }),
+        summarizer: { complete: async ({ signal }) => { calls++; await new Promise<void>(resolve => { release = resolve; signal.addEventListener("abort", () => resolve(), { once: true }); }); return { text: JSON.stringify(summary) }; } } });
+      const prepared = await compactor.prepare(messages, new AbortController().signal);
+      assert.equal(calls, 0); assert.equal(compactor.pending, true);
+      assert.ok(estimateContextBudget({ instructions: "system", tools: [], messages: prepared }, budget).inputTokens <= availableInputTokens(budget));
+      assert.equal(prepared.at(-1)?.id, "current"); assert.match(JSON.stringify(prepared), /masked pending/);
+      const job = compactor.runPending(new AbortController().signal); await settle(() => calls > 0);
+      await compactor.prepare(messages, new AbortController().signal); assert.equal(calls, 1);
+      await compactor.pause(); release(); await job;
+      assert.equal((await store.getContextCompactions("t")).length, 0);
+      await compactor.close();
+    } finally { await rm(root, { recursive: true, force: true }); }
+  }
+});
+
+test("a null tip boundary remains valid after append while a changed covered prefix fails closed", async () => {
+  const root = await mkdtemp(join(tmpdir(), "cm6-tip-"));
+  try {
+    const store = new JsonlAgentStore({ directory: root }), messages = [msg("u0", "user", "old"), msg("a", "assistant", "done")];
+    await store.save("t", messages);
+    await store.appendContextCompaction({ v: 2, type: "thread.context.compacted", threadId: "t", id: "tip", previousCompactionId: null,
+      firstKeptMessageIndex: 2, firstKeptMessageId: null, sourcePrefixHash: compactPrefixHash(messages, 2), summary,
+      strategyVersion: "summary-json/v2", modelId: "fake", createdAt: new Date().toISOString(), metrics: { estimatedInputBefore: 10, estimatedInputAfter: 5, durationMs: 1, attempts: 1 } });
+    const current = [...messages, msg("new", "user", "continue")];
+    const compactor = new ContextCompactor({ store, threadId: "t", modelId: "fake", budget: defaultContextBudget(), fixedContext: () => ({}), summarizer: { complete: async () => { throw new Error("must not call"); } } });
+    assert.match(JSON.stringify(await compactor.prepare(current, new AbortController().signal)), /Continue task/);
+    assert.doesNotMatch(JSON.stringify(await compactor.prepare([msg("u0", "user", "changed"), ...current.slice(1)], new AbortController().signal)), /Continue task/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("privacy exclusions survive restart, preserve original chat and redact memory, snapshots, search and numbered reads", async () => {
+  const root = await mkdtemp(join(tmpdir(), "cm6-exclude-"));
+  try {
+    const store = new JsonlAgentStore({ directory: join(root, "transcripts") }), memory = createMemoryStore(root);
+    const text = "Secret preference alpha", source = msg("source", "user", text);
+    const saved = await memory.writeV6!([{ operation: "add", text, category: "preference", scope: { kind: "workspace" }, source: { kind: "conversation", threadId: "t", messageId: "source", quote: text, sentAt: null } }]); assert.ok(saved.ok);
+    await store.save("t", [source, { ...msg("later", "user", "Continue"), metadata: { contextSnapshot: [msg("stale", "assistant", text)] } }]);
+    let invalidated = 0;
+    const access = createTranscriptAccess({ store, threadId: "t", memory, invalidated: () => { invalidated++; } });
+    await access.exclude({ messageId: "source", reason: "privacy" }); assert.equal(invalidated, 1);
+    assert.match(JSON.stringify(await store.getMessages("t")), /Secret preference alpha/);
+    assert.doesNotMatch(JSON.stringify(await access.read()), /Secret preference alpha/);
+    const read = await memory.readV6!(); assert.ok(read.ok); assert.doesNotMatch(JSON.stringify(read.value), /Secret preference alpha/);
+    assert.equal(read.value.entries[0]?.state, "retracted");
+    const undo = await memory.writeV6!([{ operation: "undo", id: read.value.entries[0]!.id, expectedRevision: read.value.entries[0]!.revision, source: { kind: "manual" } }]); assert.equal(undo.ok, false);
+    const reopened = createTranscriptAccess({ store: new JsonlAgentStore({ directory: join(root, "transcripts") }), threadId: "t", memory: createMemoryStore(root), invalidated() {} });
+    const tools = historyTools(reopened, budgets[0]!);
+    for (const [index, input] of [[0, { query: text, start: 0 }], [1, { id: "source", start: 0 }]] as const) {
+      const result = await tools[index]!.tool.execute!(input as never, { toolCallId: "read", messages: [], context: undefined, abortSignal: new AbortController().signal });
+      assert.doesNotMatch(JSON.stringify(result), /Secret preference alpha/); assert.match(JSON.stringify(result), /excluded/);
+    }
+    assert.equal((await store.getTranscriptExclusions("t")).length, 1);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("oversized messages and tool outputs keep head/tail plus a numbered range placeholder without changing originals", () => {
+  const raw = msg("long", "user", "HEAD" + "x".repeat(100000) + "TAIL"), before = JSON.stringify(raw);
+  const projected = fitMessage(raw, 1024);
+  assert.match(JSON.stringify(projected), /HEAD/); assert.match(JSON.stringify(projected), /TAIL/); assert.match(JSON.stringify(projected), /history_read/);
+  assert.equal(JSON.stringify(raw), before);
+  const tool: UIMessage = { id: "tool", role: "assistant", parts: [{ type: "dynamic-tool", toolName: "read_file", toolCallId: "c", state: "output-available", input: {}, output: "HEAD" + "x".repeat(100000) + "TAIL" }] };
+  const bounded = JSON.stringify(fitMessage(tool, 1024)); assert.match(bounded, /HEAD/); assert.match(bounded, /TAIL/); assert.match(bounded, /history_read/);
+});
+
+test("oversized leading assistant and user material is extracted chronologically in exact fragments; cursor waits for the final fragment", async () => {
+  const root = await mkdtemp(join(tmpdir(), "cm6-fragments-"));
+  try {
+    const assistantText = "assistant-material ".repeat(1600);
+    const store = createMemoryStore(root), messages = [msg("leading", "assistant", assistantText), msg("long", "user", "x".repeat(24000))];
+    let assistantSeen = "";
+    let calls = 0;
+    const model = new MockLanguageModelV3({ doGenerate: async ({ prompt }) => {
+      calls++;
+      const current = await store.readV6!(); assert.ok(current.ok); assert.notEqual(current.value.progress[0]?.throughMessageId, "long");
+      assert.ok(JSON.stringify(prompt).length < 26624 * 2);
+      const text = prompt.flatMap(message => message.role === "user" ? message.content.flatMap(part => part.type === "text" ? [part.text] : []) : []).join("\n");
+      const block = JSON.parse(text.slice("Original block:\n".length).split("\nTask:")[0]!) as Array<{ id: string; text: string }>;
+      assistantSeen += block.filter(message => message.id === "leading").map(message => message.text).join("");
+      return { content: [{ type: "text", text: JSON.stringify({ proposals: [], outcomes: block.filter(message => message.id === "long").map(message => ({ messageId: message.id, status: "no_memory" })) }) }], finishReason: { unified: "stop", raw: undefined },
+        usage: { inputTokens: { total: 100, noCache: 100, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 20, text: 20, reasoning: undefined } }, warnings: [] };
+    } });
+    const extraction = createMemoryExtraction({ store, threadId: "t", getMessages: async () => messages, model, budget: budgets[0]!, updated() {} });
+    extraction.afterMask("long"); extraction.idle();
+    await settle(() => !extraction.diagnostics().running); await extraction.pause();
+    const result = await store.readV6!(); assert.ok(result.ok);
+    assert.ok(calls > 1); assert.equal(assistantSeen, assistantText); assert.equal(result.value.progress[0]?.throughMessageId, "long"); assert.equal(result.value.progress[0]?.pending.length, 0);
+    await extraction.close();
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("background installs one bounded segment per item and folds the fifth into a bounded dated index at both windows", async () => {
+  for (const budget of budgets) {
+    const root = await mkdtemp(join(tmpdir(), "cm6-layers-"));
+    try {
+      const store = new JsonlAgentStore({ directory: root }), limits = blockLimits(budget);
+      let calls = 0;
+      const messages: UIMessage[] = [];
+      const compactor = new ContextCompactor({ store, threadId: "t", modelId: "fake", budget, fixedContext: () => ({}), summarizer: {
+        complete: async ({ prompt }) => { calls++; return { text: JSON.stringify({ ...summary, ...(prompt.includes("farIndex string") ? { farIndex: "Earlier requests, read original message range." } : {}) }) }; },
+      } });
+      for (let round = 0; round < 7; round++) {
+        messages.push(msg(`u${round}`, "user", "x".repeat(limits.block * 2)), msg(`a${round}`, "assistant", "done"));
+        const input = [...messages, msg(`current${round}`, "user", "continue")];
+        await store.save("t", input);
+        await compactor.prepare(input, new AbortController().signal);
+        if (compactor.pending) {
+          const before = calls; await compactor.runPending(new AbortController().signal);
+          assert.equal(compactor.backgroundError, undefined); assert.equal(calls, before + 1);
+        }
+      }
+      const records = await store.getContextCompactions("t"); assert.ok(records.length >= 5);
+      const last = records.at(-1)! as unknown as import("./context-compaction.js").ContextCompactionRecord;
+      assert.equal(last.layers?.recent.length, 4); assert.equal(last.layers?.index.length, 1);
+      assert.equal(last.layers!.index[0]!.firstMessageId, "u0");
+      const prepared = await compactor.prepare([...messages, msg("current6", "user", "continue")], new AbortController().signal);
+      assert.match(JSON.stringify(prepared), /Earlier requests/);
+      assert.ok(estimateContextBudget({ messages: prepared }, budget).inputTokens <= availableInputTokens(budget));
+      await compactor.close();
+    } finally { await rm(root, { recursive: true, force: true }); }
+  }
+});

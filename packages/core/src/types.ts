@@ -102,6 +102,7 @@ export interface RunHandle {
 }
 
 export interface PrepareModelContextInput {
+  contextOverflow?: { inputTokens: number };
   messages: UIMessage[];
   definition: AgentDefinition;
   context?: unknown;

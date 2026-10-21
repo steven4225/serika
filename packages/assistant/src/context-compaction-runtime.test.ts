@@ -13,7 +13,7 @@ import {
 } from "@serika/core";
 import { AiSdkAgentLoop, InMemoryModelRegistry, ToolRegistry } from "@serika/ai-sdk-adapter";
 import { ContextCompactor } from "./context-compactor.js";
-import { defaultContextBudget, estimateContextBudget, type ContextBudgetConfig } from "./context-budget.js";
+import { defaultContextBudget, effectiveContextBudget, estimateContextBudget, type ContextBudgetConfig } from "./context-budget.js";
 import type { Summarizer } from "./context-compaction.js";
 
 const threadId = "auto-compaction-runtime";
@@ -25,14 +25,7 @@ const definition = {
   tools: ["read_source"],
   limits: { maxSteps: 2, totalTimeoutMs: 5_000, stepTimeoutMs: 2_000 },
 };
-const budget: ContextBudgetConfig = {
-  enabled: true,
-  contextWindowTokens: 1_600,
-  maxOutputTokens: 100,
-  safetyMarginTokens: 50,
-  keepRecentTokens: 40,
-  summaryMaxOutputTokens: 100,
-};
+const budget = effectiveContextBudget(defaultContextBudget(), { provider: "mock", modelId: "mock", contextWindowTokens: 32768, source: "configuration" });
 const usage = {
   inputTokens: { total: 3, noCache: 3, cacheRead: undefined, cacheWrite: undefined },
   outputTokens: { total: 2, text: 2, reasoning: undefined },
@@ -69,13 +62,13 @@ function response(kind: "tool" | "text") {
   };
 }
 
-it("automatically compacts a same-Run tool result, continues, and restores JSONL summary", async () => {
+it("masks a same-Run tool result immediately, summarizes after Run completion and restores JSONL layers", async () => {
   const directory = await mkdtemp(join(tmpdir(), "runloom-auto-compact-"));
   try {
     const store = new JsonlAgentStore({ directory });
     await store.save(threadId, [
-      message("old-user", "user", "Earlier decision: use the source. ".repeat(22)),
-      message("old-assistant", "assistant", "Earlier answer. ".repeat(22)),
+      message("old-user", "user", "Earlier decision: use the source. ".repeat(500)),
+      message("old-assistant", "assistant", "Earlier answer. ".repeat(500)),
     ]);
     let summaryCalls = 0;
     const summarizer: Summarizer = {
@@ -104,8 +97,8 @@ it("automatically compacts a same-Run tool result, continues, and restores JSONL
         tools: new ToolRegistry([{
           metadata: { name: "read_source", version: "1", risk: "read", timeoutMs: 1_000, idempotent: true },
           tool: tool({
-            inputSchema: z.object({}), outputSchema: z.object({ body: z.string() }),
-            execute: async () => ({ body: "Source paragraph. ".repeat(75) }),
+            inputSchema: z.object({}), outputSchema: z.object({ ok: z.literal(true), body: z.string() }),
+            execute: async () => ({ ok: true as const, body: "Source paragraph. ".repeat(1000) }),
           }),
         }]),
       }),
@@ -120,13 +113,15 @@ it("automatically compacts a same-Run tool result, continues, and restores JSONL
     const result = await handle.result;
     assert.equal(result.status, "completed", JSON.stringify(result));
     assert.equal(modelCalls, 2);
-    assert.equal(summaryCalls, 3, "lossless old user text requires bounded merges, not head/tail clipping");
-    assert.doesNotMatch(prompts[0]!, /runloom-context-summary/);
-    assert.match(prompts[1]!, /Context summary/);
-    assert.match(prompts[1]!, /Source paragraph/);
+    assert.equal(summaryCalls, 0, "the primary Run never waits for summaries");
+    assert.doesNotMatch(prompts[0]!, /Historical index/);
+    assert.match(prompts[1]!, /masked pending/);
+    assert.match(JSON.stringify(await store.getMessages(threadId)), /Source paragraph/);
+    while (compactor.pending) await compactor.runPending(new AbortController().signal);
+    assert.equal(compactor.backgroundError, undefined); assert.ok(summaryCalls > 0);
 
     const reopened = new JsonlAgentStore({ directory });
-    assert.equal((await reopened.getContextCompactions(threadId)).length, 1);
+    assert.ok((await reopened.getContextCompactions(threadId)).length > 0);
     const restarted = new ContextCompactor({
       store: reopened, threadId, modelId: "mock", budget,
       summarizer: { async complete() { throw new Error("persisted summary should be reused"); } },
@@ -154,14 +149,11 @@ it("cancelled automatic summary does not persist a partial record", async () => 
       },
       fixedContext: () => ({ instructions: "short", tools: [], dynamicContext: "" }),
     });
-    await assert.rejects(
-      compactor.prepare([
-        message("old-user", "user", "Earlier work. ".repeat(65)),
-        message("old-assistant", "assistant", "Earlier result. ".repeat(65)),
-        message("current-user", "user", "Continue."),
-      ], controller.signal, true),
-      /cancel summary/,
-    );
+    const messages = [message("old-user", "user", "Earlier work. ".repeat(1000)),
+      message("old-assistant", "assistant", "Earlier result. ".repeat(1000)), message("current-user", "user", "Continue.")];
+    await store.save(threadId, messages);
+    await compactor.prepare(messages, controller.signal);
+    await compactor.runPending(controller.signal);
     assert.deepEqual(await new JsonlAgentStore({ directory }).getContextCompactions(threadId), []);
   } finally {
     await rm(directory, { recursive: true, force: true });
@@ -169,7 +161,7 @@ it("cancelled automatic summary does not persist a partial record", async () => 
 });
 
 for (const mode of ["daily", "long-task"] as const) {
-  it(`Demo: ${mode} forecast compacts full-size JSONL history, continues the same Run, and reopens without replay`, async () => {
+  it(`Demo: ${mode} masks full-size JSONL history, drains one background call per block, and reopens without replay`, async () => {
     const directory = await mkdtemp(join(tmpdir(), `serika-${mode}-context-`));
     try {
       const store = new JsonlAgentStore({ directory });
@@ -188,7 +180,7 @@ for (const mode of ["daily", "long-task"] as const) {
       });
       const compactor = new ContextCompactor({
         store, threadId, modelId: "mock", budget: modeBudget,
-        summarizer: { async complete() { summaryCalls += 1; return { text: modeSummary }; } },
+        summarizer: { async complete() { summaryCalls += 1; return { text: modeSummary.slice(0, -1) + ',"farIndex":"Earlier task; do not modify protected/"}' }; } },
         fixedContext: () => ({ instructions: definition.instructions, tools: [], dynamicContext: "" }),
       });
       const raw = estimateContextBudget({ instructions: definition.instructions, messages: oldMessages }, modeBudget);
@@ -196,8 +188,8 @@ for (const mode of ["daily", "long-task"] as const) {
       let modelCalls = 0;
       const model = new MockLanguageModelV3({ doStream: async ({ prompt }) => {
         modelCalls += 1;
-        assert.match(JSON.stringify(prompt), /Context summary/);
-        assert.match(JSON.stringify(prompt), /Do not modify protected/);
+        assert.match(JSON.stringify(prompt), /masked pending/);
+        assert.match(JSON.stringify(prompt), /Continue without any tool/);
         return response("text");
       } });
       const runtime = new DefaultAgentRuntime({
@@ -213,10 +205,12 @@ for (const mode of ["daily", "long-task"] as const) {
       assert.equal(result.status, "completed", JSON.stringify(result));
       await events;
       assert.equal(modelCalls, 1, "compaction must not create a second primary Run or replay tools");
-      assert.ok(summaryCalls > 4, "first large-window compaction must cross the old four-merge bound");
+      assert.equal(summaryCalls, 0);
+      while (compactor.pending) await compactor.runPending(new AbortController().signal);
+      assert.equal(compactor.backgroundError, undefined); assert.ok(summaryCalls > 1);
       const reopened = new JsonlAgentStore({ directory });
       const records = await reopened.getContextCompactions(threadId);
-      assert.equal(records.length, 1);
+      assert.equal(records.length, summaryCalls);
       assert.ok((await reopened.getMessages(threadId)).length > oldMessages.length, "physical history remains intact");
       const restored = new ContextCompactor({
         store: reopened, threadId, modelId: "mock", budget: modeBudget,

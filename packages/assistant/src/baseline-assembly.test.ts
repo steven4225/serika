@@ -154,6 +154,7 @@ describe("v2 pilot baseline: assembled tools, instructions and capability report
 function assertStep3Assembly(actual: string, baseline: string, autonomous = false) {
   const schemas = (text: string) => new Map([...text.matchAll(/## tool (\S+)\n\n([\s\S]*?)(?=\n\n## tool |\n\n# instructions)/g)].map(match => [match[1]!, match[2]!]));
   const before = schemas(baseline), after = schemas(actual), hadMemory = before.has("memory_add");
+  for (const name of ["history_search", "history_read"]) { assert.ok(after.has(name)); after.delete(name); }
   assert.ok(after.has("memory_read")); after.delete("memory_read");
   for (const name of before.keys()) if (name.startsWith("memory_")) { assert.ok(!after.has(name)); before.delete(name); }
   if (!autonomous && hadMemory) { assert.ok(after.get("memory_write")?.includes("replace")); after.delete("memory_write"); } else assert.ok(!after.has("memory_write"));
@@ -171,7 +172,7 @@ function assertStep3Assembly(actual: string, baseline: string, autonomous = fals
   const capabilities = (text: string) => section(text, "/capabilities").replace(/^memory：.*\n/m, "");
   assert.equal(capabilities(actual), capabilities(baseline));
   const status = (text: string) => { const value = JSON.parse(section(text, "capability_status"));
-    value.tools = value.tools.filter((name: string) => !name.startsWith("memory_"));
+    value.tools = value.tools.filter((name: string) => !name.startsWith("memory_") && !name.startsWith("history_"));
     value.modules = value.modules.map((module: { id: string; registeredTools: string[] }) => module.id === "memory" ? { ...module, registeredTools: [] } : module);
     if (autonomous) value.modules = value.modules.filter((module: { id: string }) => module.id !== "memory");
     return value; };
