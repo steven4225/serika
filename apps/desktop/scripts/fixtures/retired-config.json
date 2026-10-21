@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "workspace": "/synthetic-smoke-workspace",
+  "modules": { "memory": {
+    "enabled": true, "autoConsolidate": true, "writePolicy": "automatic",
+    "queryRewrite": { "enabled": false },
+    "semantic": { "enabled": false },
+    "contextView": { "enabled": false }
+  } },
+  "contextCompaction": {
+    "enabled": false, "contextWindowTokens": 32768, "maxOutputTokens": 4096,
+    "safetyMarginTokens": 2048, "keepRecentTokens": 8192, "summaryMaxOutputTokens": 2048,
+    "mode": "automatic", "warningRatio": 0.8
+  },
+  "herdrBinding": {},
+  "telegramAutonomy": {
+    "workspaceRoot": "/synthetic-smoke-workspace", "botId": 1, "userId": 1,
+    "chatId": 1, "threadId": "synthetic-only", "toolApproval": "synthetic-retired"
+  }
+}

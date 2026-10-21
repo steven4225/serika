@@ -1,7 +1,7 @@
 import { _electron as electron, expect } from 'playwright/test';
 import { mkdtemp, mkdir, writeFile, readFile, rm, readdir, access } from 'node:fs/promises';
 import { tmpdir, homedir } from 'node:os';
-import { join, resolve, dirname } from 'node:path';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
@@ -12,16 +12,14 @@ const desktop = fileURLToPath(new URL('..', import.meta.url));
 const repo = resolve(desktop, '../..');
 const script = fileURLToPath(import.meta.url);
 const evidence = join(repo, 'docs/v2-pilot/evidence/electron-smoke');
-const root = await mkdtemp(join(tmpdir(), 'serika-electron-smoke-'));
 const digest = data => createHash('sha256').update(data).digest('hex');
 const hash = async path => digest(await readFile(path));
 const report = { verification: 'real-electron-with-fake-model', platform: process.platform,
   sourceCommit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim(),
   scriptSha256: await hash(script), sourceWorktreeDirty: !!execFileSync('git', ['status', '--porcelain'], { cwd: repo, encoding: 'utf8' }).trim(), realModelCalls: 0, costUsd: 0, checks: [], launches: [], screenshots: [], status: 'failed' };
-const changed = [...new Set([...execFileSync('git', ['diff', '--name-only', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim().split('\n'),
-  ...execFileSync('git', ['ls-files', '--others', '--exclude-standard'], { cwd: repo, encoding: 'utf8' }).trim().split('\n')])];
-report.sourceHashes = Object.fromEntries(await Promise.all(changed.filter(path => /^(apps|packages)\//.test(path) && /\.(tsx?|mjs|json)$/.test(path)).map(async path => [path, await hash(join(repo, path))])));
-report.sourceHashes['pnpm-lock.yaml'] = await hash(join(repo, 'pnpm-lock.yaml'));
+assert.equal(report.sourceWorktreeDirty, false, 'Smoke evidence requires a clean source checkout; commit source changes first');
+const root = await mkdtemp(join(tmpdir(), 'serika-electron-smoke-'));
+report.sourceHashes = { 'pnpm-lock.yaml': await hash(join(repo, 'pnpm-lock.yaml')) };
 report.artifactHashes = Object.fromEntries(await Promise.all(['out/main/index.js', 'out/preload/index.cjs', 'out/renderer/index.html'].map(async path => [path, await hash(join(desktop, path))])));
 let running;
 await mkdir(evidence, { recursive: true });
@@ -64,12 +62,22 @@ async function screenshot(page, name) {
   report.screenshots.push(item);
   return item;
 }
-async function check(name, page, details = {}) {
-  report.checks.push({ name, result: 'passed', ...details, screenshot: await screenshot(page, name) });
+const unexpectedSelector = '[role="alert"]:visible, [class*="error"]:visible, [class*="warning"]:visible, .status-failed:visible, .status-unknown:visible, .status-timed_out:visible';
+async function assertNoUnexpectedErrors(page, expectedError) {
+  const visible = (await page.locator(unexpectedSelector).allTextContents()).map(text => text.trim());
+  if (expectedError) {
+    assert.equal(visible.length, 1, 'Only the explicitly expected failure may be visible');
+    assert.ok(visible[0].includes(expectedError), 'Unexpected error/warning instead of the expected failure');
+  } else assert.deepEqual(visible, [], 'No unexpected visible error or warning');
+  return { unexpectedErrors: 0, expectedErrors: expectedError ? [expectedError] : [], observedErrorCount: visible.length };
+}
+async function check(name, page, details = {}, expectedError) {
+  const errors = await assertNoUnexpectedErrors(page, expectedError);
+  report.checks.push({ name, result: 'passed', ...details, ...errors, screenshot: await screenshot(page, name) });
 }
 async function ready(page) {
   await expect(page.getByPlaceholder('和 Serika 聊天')).toBeEnabled();
-  assert.equal(await page.locator('[role="alert"]').count(), 0, 'No configuration/startup errors');
+  await assertNoUnexpectedErrors(page);
 }
 async function send(page, text) {
   const before = await page.getByText('离线冒烟回复完成。', { exact: true }).count();
@@ -77,6 +85,7 @@ async function send(page, text) {
   await page.getByRole('button', { name: '发送消息', exact: true }).click();
   await expect(page.getByText('离线冒烟回复完成。', { exact: true })).toHaveCount(before + 1);
   await expect(page.getByRole('button', { name: '停止本轮', exact: true })).toHaveCount(0);
+  await assertNoUnexpectedErrors(page);
 }
 const memoryFile = launchEnv => join(launchEnv.RUNLOOM_WORKSPACE, '.runloom/memory.json');
 
@@ -89,6 +98,10 @@ try {
   await check('chat-reply', page);
   const text = '冒烟测试偏好：报告先写结论。';
   await send(page, `记住 ${text}`);
+  const receipt = page.locator('.memory-fact-receipt').filter({ hasText: '已保存' });
+  await expect(receipt).toHaveCount(1);
+  await expect(receipt.getByRole('button', { name: '撤销', exact: true })).toBeEnabled();
+  await check('remember-success-receipt', page, { source: 'v6-record', undoAvailable: true });
   const hostMemory = await page.evaluate(() => window.runloom.listMemories({}));
   const hostSnapshot = await page.evaluate(() => window.runloom.snapshot());
   const hostLibrary = await page.evaluate(() => window.runloom.getMemoryLibrary());
@@ -113,7 +126,9 @@ try {
   report.restart = { beforePid: report.launches[0].main.pid, afterPid: report.launches[1].main.pid,
     beforeMemorySha256: beforeHash, afterMemorySha256: afterHash };
   await check('restart-persistence', page);
-  await send(page, '撤销刚才记住的内容');
+  await page.locator('.memory-fact-receipt').filter({ hasText: '已保存' }).getByRole('button', { name: '撤销', exact: true }).click();
+  await expect(page.locator('.memory-fact-receipt').filter({ hasText: '已撤回' })).toBeVisible();
+  await assertNoUnexpectedErrors(page);
   await page.getByRole('button', { name: '记忆', exact: true }).click();
   await expect(page.locator('.memory-document-tile').filter({ hasText: text })).toHaveCount(0);
   saved = JSON.parse(await readFile(memoryFile(primary), 'utf8'));
@@ -133,7 +148,7 @@ try {
   guarded.RUNLOOM_WORKSPACE = daily;
   page = await launch(guarded, 'daily-path-guard');
   await expect(page.getByRole('alert').filter({ hasText: '实验版本拒绝写入日用数据目录' })).toBeVisible();
-  await check('daily-path-refuses-writes', page);
+  await check('daily-path-refuses-writes', page, {}, '实验版本拒绝写入日用数据目录');
   await stop();
   assert.deepEqual(await readdir(daily), ['smoke-sentinel']);
   assert.equal(await hash(sentinel), sentinelHash);
@@ -142,7 +157,16 @@ try {
 
   const dailyConfig = process.env.RUNLOOM_SMOKE_DAILY_CONFIG ?? join(homedir(), process.platform === 'darwin' ? 'Library/Application Support/@aisdk-agent/desktop/runloom.json' : '.config/@aisdk-agent/desktop/runloom.json');
   const copyEnv = await setup('daily-config-copy');
-  const copy = JSON.parse(await readFile(dailyConfig, 'utf8'));
+  const sample = join(desktop, 'scripts/fixtures/retired-config.json');
+  let sourceKind = '日用配置副本';
+  let configBytes;
+  try { configBytes = await readFile(dailyConfig); }
+  catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    sourceKind = '样例'; configBytes = await readFile(sample);
+  }
+  report.configSource = { kind: sourceKind, sha256: digest(configBytes), ...(sourceKind === '样例' ? { file: 'apps/desktop/scripts/fixtures/retired-config.json' } : {}) };
+  const copy = JSON.parse(configBytes.toString('utf8'));
   copy.workspace = copyEnv.RUNLOOM_WORKSPACE;
   // Exclude daily trust/channel bindings and credentials; preserve memory options for strict validation.
   if (copy.telegramAutonomy) copy.telegramAutonomy = { workspaceRoot: copyEnv.RUNLOOM_WORKSPACE, botId: 1, userId: 1, chatId: 1, threadId: 'smoke-only', ...('toolApproval' in copy.telegramAutonomy ? { toolApproval: 'smoke-only' } : {}) };
@@ -176,9 +200,9 @@ try {
   report.retiredFields = removed.map(({ path }) => path);
   report.configDiagnostics = { actualElectronError: 'Invalid TUI config schema',
     parser: 'readTuiModuleConfig', cleanedCopyAccepted: true, individuallyRejectedFields: report.retiredFields };
-  await check('daily-config-retired-fields', page, { retiredFields: report.retiredFields });
+  await check('daily-config-retired-fields', page, { configSource: sourceKind, retiredFields: report.retiredFields }, 'Invalid TUI config schema');
   await stop();
-  assert.equal(report.checks.length, 7);
+  assert.equal(report.checks.length, 8);
   report.status = 'passed';
 } catch (error) {
   console.error('Smoke failure:', error.message);

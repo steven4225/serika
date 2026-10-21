@@ -44,7 +44,7 @@ export function createMemoryControls(k: ControllerKernel, deps: {
   return {
     getReceipts: async () => {
       await k.recovered();
-      return readMemoryFactReceipts(app.memoryStore, app.threadId, await app.store.getMessages(app.threadId));
+      return readMemoryFactReceipts(app.memoryStore, app.threadId);
     },
     getReferences: () => k.primaryReference(app.getMemoryReferences?.()),
     getLibrary: async () => {

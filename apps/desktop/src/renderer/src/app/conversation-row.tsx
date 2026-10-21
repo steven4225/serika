@@ -1,3 +1,5 @@
+import React from "react";
+import { MemoryFactReceipts } from "../memory-saved-notice.js";
 import type { ConversationRow, ToolRowStatus } from "../conversation.js";
 import type { DesktopLayout } from "../ui-kit/layout.js";
 import { SerikaMessage, SerikaMessageContent } from "../ui-kit/message.js";
@@ -15,6 +17,7 @@ export function Row({ row, delivered = false, layout = "classic", onRestoreSteer
           {row.role !== "user" ? <span className="role">{row.role === "assistant" ? <><SerikaMark size={18} /> Serika</> : "系统"}</span> : null}
           {row.role === "assistant" ? <AssistantReply text={row.text} delivered={delivered} /> : <pre>{row.text}</pre>}
           {row.attachments?.length ? <div className="chat-attachments">{row.attachments.map((file, index) => <div className="chat-attachment" key={index}>{file.url ? <img src={file.url} alt={file.name} /> : null}<span>{file.name}</span></div>)}</div> : null}
+          <MemoryFactReceipts receipts={row.memoryReceipts} />
           {row.steerRecord ? <SteerStatus records={[row.steerRecord]} onRestore={onRestoreSteer} /> : null}
         </SerikaMessageContent>
       </SerikaMessage>;
@@ -23,6 +26,7 @@ export function Row({ row, delivered = false, layout = "classic", onRestoreSteer
           {row.role !== "user" ? <span className="role">{row.role === "assistant" ? <><SerikaMark size={20} /> Serika</> : "系统"}</span> : null}
           {row.role === "assistant" ? <AssistantReply text={row.text} delivered={delivered} /> : <pre>{row.text}</pre>}
           {row.attachments?.length ? <div className="chat-attachments">{row.attachments.map((file, index) => <div className="chat-attachment" key={index}>{file.url ? <img src={file.url} alt={file.name} /> : null}<span>{file.name}</span></div>)}</div> : null}
+          <MemoryFactReceipts receipts={row.memoryReceipts} />
           {row.steerRecord ? <SteerStatus records={[row.steerRecord]} onRestore={onRestoreSteer} /> : null}
         </div>
       );

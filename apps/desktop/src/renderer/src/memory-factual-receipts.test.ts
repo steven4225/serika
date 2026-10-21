@@ -27,9 +27,12 @@ test("real bridge history page renders committed host memory receipt; unreadable
       { id: "older", role: "user" as const, parts: [{ type: "text" as const, text: "你好" }] },
       { id: "user-source", role: "user" as const, parts: [{ type: "text" as const, text }] },
     ];
-    await app.store.save("receipts", messages);
     assert.ok((await app.memoryStore!.writeV6!([{ operation: "add", text, category: "preference", scope: { kind: "workspace" },
       source: { kind: "conversation", threadId: "receipts", messageId: "user-source", quote: text, sentAt: null } }])).ok);
+    const duringRun = await bridge.historyPage();
+    assert.equal(duringRun.memoryReceiptError, undefined, "the source can still be uncommitted while v6 is already saved");
+    assert.equal(duringRun.memoryReceipts?.[0]?.text, "已保存");
+    await app.store.save("receipts", messages);
     const page = await bridge.historyPage();
     assert.equal(page.memoryReceipts?.length, 1);
     const receiptTexts = (rows: readonly ConversationRow[]) => rows.flatMap(row => row.kind === "text" ? (row.memoryReceipts ?? []).map(receipt => receipt.text) : []);

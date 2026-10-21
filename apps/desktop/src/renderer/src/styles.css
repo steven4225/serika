@@ -645,3 +645,5 @@ button.chip { font-size: 12px; padding: 5px 9px; border-color: var(--line); }
 .trace-body .record-preview { background: var(--panel); color: var(--text); }
 .trace-body time { display: block; margin-bottom: 8px; }
 .trace-references { font-size: 12px; padding: 10px 0; }
+
+.memory-fact-receipt { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; line-height: 1.5; }

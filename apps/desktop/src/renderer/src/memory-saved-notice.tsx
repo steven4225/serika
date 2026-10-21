@@ -8,3 +8,15 @@ export function MemorySavedNotice({ primary, detail, onSaved }: { primary: strin
     {detail ? <details><summary>详情</summary><p>{detail}</p></details> : null}
   </div>;
 }
+
+export function MemoryFactReceipts({ receipts = [] }: { receipts?: readonly import("@serika/assistant").MemoryFactReceipt[] | undefined }) {
+  const [working, setWorking] = React.useState(false), [error, setError] = React.useState("");
+  return <>{receipts.map(receipt => <small className="memory-fact-receipt" role="status" key={receipt.id}>
+    {receipt.text}{receipt.undo ? <button type="button" className="ghost" disabled={working} onClick={() => {
+      setWorking(true); setError("");
+      void window.runloom.applyMemoryAction(receipt.undo!).then(result => {
+        if (!result.ok) setError(result.error.message);
+      }).catch(cause => setError(String(cause))).finally(() => setWorking(false));
+    }}>撤销</button> : null}
+  </small>)}{error ? <p className="error" role="alert">{error}</p> : null}</>;
+}

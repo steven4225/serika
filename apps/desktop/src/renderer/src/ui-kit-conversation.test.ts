@@ -4,6 +4,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { annotateMemoryReceipts, rowsFromHistory, type ConversationRow, type ToolRow } from "./conversation.js";
 import { conversationTurns, workSummary } from "./ui-kit/conversation-data.js";
+import { Row } from "./app/conversation-row.js";
 import { PersonalConversation } from "./personal/conversation.js";
 
 const user: ConversationRow = { kind: "text", role: "user", key: "u1", text: "改一下计划", committed: true };
@@ -14,8 +15,15 @@ const answer: ConversationRow = { kind: "text", role: "assistant", key: "a2", te
 const receiptTexts = (rows: readonly ConversationRow[]) => rows.flatMap(row => row.kind === "text" ? (row.memoryReceipts ?? []).map(receipt => receipt.text) : []);
 
 it("keeps source-bound host memory receipts out of the reply copy text", () => {
-  const source = { ...user, memoryReceipts: [{ id: "batch:u1", threadId: "thread", sourceMessageId: "u1", text: "当时已保存：咖啡不加糖。" }] };
+  const source = { ...user, memoryReceipts: [{ id: "batch:u1", threadId: "thread", sourceMessageId: "u1", text: "已保存", undo: { operation: "retract" as const, id: "memory", expectedRevision: 1 } }] };
   assert.equal(conversationTurns([source, answer], false)[0]!.copyText, answer.text);
+  for (const component of [createElement(PersonalConversation, { rows: [source, answer], running: false, streaming: "" }),
+    createElement(Row, { row: source }), createElement(Row, { row: source, layout: "serika" })]) {
+    const html = renderToStaticMarkup(component);
+    assert.match(html, /memory-fact-receipt.*role="status"/);
+    assert.match(html, /已保存/); assert.match(html, /撤销<\/button>/);
+    assert.doesNotMatch(html, /role="alert"/);
+  }
 });
 
 it("attaches only the current Thread's host receipt to the matching committed user and deduplicates replay", () => {

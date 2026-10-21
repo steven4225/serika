@@ -1,3 +1,4 @@
+import { MemoryFactReceipts } from "../memory-saved-notice.js";
 /*
  * Work-history disclosure, loading and back-to-bottom presentation derived from the former
  * ui-kit/conversation.tsx (adapted from zai-org/ZCode 29628c9acdb81b703bbd4080c207a0e7ce5e276e).
@@ -28,6 +29,7 @@ function AssistantText({ text, result }: { text: string; result?: ReminderReplyR
 function PersonalText({ row, result, onRestoreSteer }: { row: TextRow; result?: ReminderReplyResult | undefined; onRestoreSteer?: RestoreSteer }) {
   const article = <article className={`personal-message role-${row.role}`}>
     {row.role === "user" ? <pre className="personal-user-text">{row.text}</pre> : <AssistantText text={row.text} result={result} />}
+    <MemoryFactReceipts receipts={row.memoryReceipts} />
     {row.steerRecord ? <SteerStatus records={[row.steerRecord]} onRestore={onRestoreSteer} /> : null}
   </article>;
   if (row.role !== "assistant") return article;
