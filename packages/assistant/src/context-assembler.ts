@@ -98,7 +98,7 @@ export function createReferenceAssembler(sources: readonly ReferenceSource[]): R
     ? { ...message, metadata: { ...message.metadata as object, ...captured.get(message.id) } } : message);
   const assemble = async (messages: readonly UIMessage[], signal: AbortSignal, primary = false): Promise<ReferencePrefix> => {
     const now = new Date();
-    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const timeZone = "Asia/Shanghai";
     const user = [...messages].reverse().find(message => message.role === "user" && !isAutoConsolidationRequest(message));
     const query = user?.parts.flatMap(part => part.type === "text" ? [part.text] : []).join("\n") ?? "";
     const request: ReferenceRequest = { messages, signal, primary, now, timeZone, user, query };

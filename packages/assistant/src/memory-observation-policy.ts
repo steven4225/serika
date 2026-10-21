@@ -4,7 +4,7 @@ import { formatLocalTaskTime } from "./task-instructions.js";
 
 /** Capture at admission, not when a delayed consolidation happens to run. */
 export function userMessageClock(now = new Date()): { sentAt: string; timeZone: string } {
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const timeZone = "Asia/Shanghai";
   return { sentAt: formatLocalTaskTime(now, timeZone), timeZone };
 }
 export function messageClock(message: UIMessage): { sentAt: string | null; timeZone: string | null } {

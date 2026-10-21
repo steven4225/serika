@@ -43,7 +43,7 @@ try {
   report.sourceHashes = Object.fromEntries(await Promise.all(report.lineChanges.map(async ({ path }) => [path, await hash(path)])));
   run('pnpm', ['typecheck']);
   run('pnpm', ['test']);
-  if (process.platform === 'linux') run('xvfb-run', ['-a', 'pnpm', '--filter', '@serika/desktop', 'smoke']);
+  if (process.platform === 'linux') run('xvfb-run', ['-a', '-s', '-screen 0 1440x900x24', 'pnpm', '--filter', '@serika/desktop', 'smoke']);
   else run('pnpm', ['--filter', '@serika/desktop', 'smoke']);
   const smokePath = `${smokeEvidence}/result.json`;
   const smoke = JSON.parse(await readFile(join(repo, smokePath), 'utf8'));
