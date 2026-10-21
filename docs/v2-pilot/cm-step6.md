@@ -1,33 +1,47 @@
-# 上下文与记忆：第 6 步（代码验证完成，合批真实模型待跑）
+# 上下文与记忆：第 6 步
 
 ## 1. 改了什么
 
-首个产品提交 `866ba7e`：`cm-step5-verify.mjs` 的 Linux Xvfb 参数补为 `-a -s "-screen 0 1440x900x24"`；`context-assembler.ts`、`memory-observation-policy.ts` 按既定 Asia/Shanghai / +08:00 / 分钟写入和组装时间。`telegram-gateway.test.ts` 未改。
+代码检查已完成；**第 4–6 步真实模型验收未通过，停在审核关口，不进入第 7 步。** 首个提交 `866ba7e` 修 Linux Xvfb 1440×900×24 与产品 +08:00 分钟时间，TG 测试未改。主体由 `context-blocks`、`context-source`、`thread-background`、`transcript-access`、`history-tools` 分担比例边界／分层、原文前缀、队列、排除投影和编号读取；删除同步压缩／即时重试旧路径。新增产品代码超过 400 行，按已批准本步拆分，app/Controller 只接线。日用 env 仅复制模型变量到 mode0600 临时文件，原文件未改，临时目录已删除。
 
 ## 2. 逐条对照验收项
 
-| 项目 | 结果 |
+| 项目 | 结果与证据 |
 |---|---|
-| UTC 复现与产品修复 | 先红：`Telegram receive clock…` 在 gateway 测试 105 行缺少原始 +08:00 时间；`createReferenceAssembler` 使用宿主 UTC 重格式化造成。修后原测试在 `TZ=UTC` 下通过 |
-| Linux Xvfb | 已补启动参数；本次实测 macOS，未声称本机执行 Linux |
-| 全套 / 真实 Electron | 1806 通过、0 失败、11 跳过；8/8，干净源码；原始终端日志及 `evidence/electron-smoke/result.json`；本步最终 runner 会重新验证首个修复 |
-| 第 6 步主体 / 合批真实模型 / 14 行表 | 仍待本步后续实现和验证；尚未执行付费请求 |
+| UTC 时间与 Linux 启动 | 已做：`Telegram receive clock…` 在 `TZ=UTC` 先红后绿；后续 runner 同样带 Xvfb screen 参数 |
+| 前台立即屏蔽、不等模型 | 已做：`foreground masks complete blocks…`、`context-compaction-runtime`；prepare 辅助模型派发为 0，完整工具单元不拆分 |
+| 后台单队列、一次无工具调用、两轮间换摘要 | 已做：`thread-background`；取消／来源变化不保存；每项一次调用，失败保留原文，诊断保留后台错误 |
+| 分层／远期索引及比例预算 | 已做：`background installs one bounded segment…`，32K 和日用；最近最多 4 段，第 5 段并入索引，段／索引／总预算按有效窗口缩放 |
+| 不可模糊清单、未知效果 | 已做：宿主直接取请求、同 Run 修正、WorkTask、权限和回执；失败／unknown 全保留；`irreducible failure ledger…`、adapter 不重放工具用例 |
+| 屏蔽后补抽、不能跳 cursor | 已做：`oversized leading assistant and user material…`、`memory-m1-acceptance`；按顺序分片，最后一片前不越过来源；旧 pending 重抽不覆盖新值 |
+| 排除记录与所有内容读取 | 已做：`privacy exclusions survive restart…`、core `exclusion companions…`、backup `export filters excluded…`；原聊天不改，派生记忆与原话清理、撤销不能复活，旧摘要／索引／快照失效；诊断列出相关消息／文档 |
+| 搜历史／编号读／工具区间读 | 已做：`history_search`、`history_read`；普通聊天及自主只读，排除消息仅占位；工具正文可按 Unicode 区间读 |
+| 单条超窗与服务端超限 | 已做：head/tail+原文占位；`reported provider overflow…` 验证实报比例重算；adapter 最多重试一次、不重放工具 |
+| pending I | 已做：`a null tip boundary remains valid after append…`；覆盖前缀 hash 不变时追加仍复用；cm-replay 同步 |
+| 顶部等待整理提示 | 已做：quiet 模式隐藏例行 backlog/running，失败／实际回执仍展示；真实 Electron chat 截图已核对无常驻等待条，记忆页保留待整理段数 |
+| 全套／真实 Electron | 已做：最终 `cad042e` 干净源码、macOS 构建 Electron、原 preload/IPC、隔离路径；全套 1775 pass / 0 fail / 11 skip；eval 79/79；smoke 8/8 |
+| 合批真实模型／原对话重放／32K | **未通过**：首轮 M1 2/18（含固定哈希 replay-9，两档）；CF03 第 3 个后台项拒绝摘要。修抽取 schema 后续跑首调用失败且缺用量，批次冻结；CF05、CE03、CE05、独立冷进程实模验收未跑 |
+| 14 行旧记忆表、停止关口 | 已交：附表 B；仅只读，无日用迁移；4 条对话级条目等用户裁决 |
 
 ## 3. 前后数字
 
-首个产品提交相对 `a183ddf`：产品 +2/−2、测试 +0/−0、验证脚本 +1/−1。smoke 脚本 SHA-256 保持 `9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f`。
+相对 `a183ddf`，产品 +713/−632，测试 +560/−1481，脚本 +332/−6；新增测试行少于新增产品行。旧同步用例退休的依据见附表 A，历史快照／Oracle 未改分。实测 OS 是 macOS、构建后的 Electron；本机未跑 Linux，沿用用户批准的 bot1 Linux+Xvfb 独立复现，smoke SHA 始终 `9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f`。
+
+同一付费批次共 22 次派发：21 次返回用量计 **$0.02199946**，1 次费用未知（派发前预留 $0.0013248，非实际账单）；计划已知累计 $0.38199946。没有触达 $2 门槛；因未知用量先冻结。`live.json` 保留首轮失败与续跑，不把失败／未跑当成功，不把未知当零。
 
 ## 4. 实际命令和退出码
 
-`TZ=UTC pnpm --filter @serika/desktop exec tsx --test --test-name-pattern='Telegram receive clock' src/main/telegram-gateway.test.ts`：修前 1、修后 0；`TZ=UTC pnpm typecheck`：0；`TZ=UTC pnpm test`：0；`TZ=UTC pnpm --filter @serika/desktop smoke`：0。实测 macOS、真实构建 Electron、假模型；非真实模型验收。
+最终运行：`node packages/assistant/scripts/cm-step6-verify.mjs` → 0；脚本实际设置 TZ=UTC 并依次执行 `pnpm typecheck` → 0、`pnpm test` → 0、`pnpm eval:test` → 0、`pnpm --filter @serika/desktop smoke` → 0。运行时随机编号、PID、版本、源码／脚本／截图 hash 和实际退出码见 [verification.json](evidence/cm-step6/verification.json)、[smoke result](evidence/electron-smoke/result.json)。真实模型首轮与续跑命令为 `SERIKA_CM4_REPLAY=/tmp/cm-step4-replay9.json node examples/eval/cm-step6-live.mjs --approved-live [--continue-approved-batch]` → 均 1；调用与累计费用见 [live.json](evidence/cm-step6/live.json)、[cost-ledger.json](evidence/cost-ledger.json)。
 
 ## 5. 与计划不符的地方及理由
 
-没有扩范围。查过 legacy 108（TG 不继承对话内记住审批）、193（TG 信任绑定及权限）；仅修时间，不改这些授权。使用现有实验工作树，主目录 dirty main 未动；应用拒绝附加已归属另一聊天的工作树，终端在其绝对路径执行。后续仍须完成本步并停在第 7 步前。
+真实模型关口未过：本轮停止付费请求，须先核实未知调用与 CF03 拒绝原因，再继续当前验收；第 7 步不开工。抽取格式修复已做离线／Electron 重验，未获得真实模型重验。所有失败保留。
 
-证据更正：删除 `first-fixes.json`。它曾在真实命令结束后包装结果并补编号，不符合运行时生成证据的规则，不能作为验证凭据。后续结论以 `cm-step6-verify.mjs` 当场执行并生成的记录为准。
+撤回早先 `first-fixes.json`：它曾事后包装真实日志并补编号，违反运行时证据规则，已删除；首个修复由后续统一 runner 重新实际验证。另复现并修复：合法大窗口原文被旧 32K 合并限额裁剪、完成文件递归进入后续段、单条消息无第二块时重算失败、无排除记录的损坏备份被提前读取；正文未靠改历史分数变绿。只做第 6 步及其验证修复。
 
-第 6 步主体按职责拆为 `context-blocks`（比例边界与分层）、`context-source`（共用原文前缀）、`thread-background`（单队列优先级）、`transcript-access`（排除投影）和 `history-tools`（按需原文读取）。新增超过 400 行，沿用本步批准；旧同步压缩及其即时重试实现已删除。
+已查 legacy 94（互斥／取消）、98/99（唯一行为循环／回执）、108/193（TG 信任）、113/123（来源／CAS）、139（完整工具交互／未知效果）、195（原请求／Steer）；本步按已批准计划变更上下文，权限、审批、回执格式、verifier 不变量保持。实验工作树单独操作，未改 main、未开 PR。
+
+### 附表 A：旧断言调整依据
 
 断言变更依据（第 6 步替换旧行为）：
 
@@ -43,18 +57,23 @@
 
 未删除测试文件；旧同步实现对应用例被合并成新生命周期用例，不以历史测试数量充当本步质量指标。首个包装证据已撤回，最终结果待运行时 runner 生成。
 
-当前统一验证：源码 `5e6d01e`，`cm-step6-verify.mjs` 运行时证据 `evidence/cm-step6/verification.json`：`TZ=UTC` typecheck 0、全套 1772 pass / 0 fail / 11 skip、eval 79/79、真实 macOS 构建 Electron 8/8。首个 UTC/TG 修复已在此次全套重验。真实模型仍 0 调用。
+### 附表 B：14 行旧记忆对照表（只读，待审核）
 
-付费前 SDK 边界预检复现验证脚本的哈希输入含 undefined：改为对 JSON 线格式做同版本 canonical hash（与现有边界日志一致），不改 hash 协议及产品请求。新增 `generateText` 实际 SDK 边界路径复现，避免只手构造 request 的计费测试漏掉此错误。
+2026-10-21 通过 LegacyMemoryReader 读取日用 v4 当前投影：14 条均 active/applicable/enabled、均未置顶；源文件 SHA-256 `11b6fa95ce45a73a4d22187f35daa1aa91656825027bf60a2f3a929255078354`。没有迁移或修改源文件。ID 仅供此次审核定位。
 
-已复核 legacy 94（前后台互斥及取消）、98/99（AgentLoop 单一执行／本地回执）、113/123（来源和 CAS）、139（完整工具交互及未知副作用）、195（原请求／Steer 引用）。新增历史读工具按已批准 C05 无需确认，自主运行仍只有读工具，模型拒绝重试不重放工具。
-
-大窗口原文复现：`a complete proportional block below the physical window retains every ordinary source byte` 在 400K 档构造 3 条约 20K token 的普通来源，合法完整块超过旧 `summaryInputChunkTokens=32K` 时，中段被裁掉，断言失败。后台一次调用改按实际可用输入与模型物理窗口的较小值校验；保持块、摘要输出及主请求预算不变。该用例逐字验证前三条全文，不靠调大测试窗口或删除约束通过。
-
-同一分层用例还复现了文件条目在后续段递归携带的问题：为每轮加入不同成功写文件回执，检查该段文件 evidence 必须属于该段。原实现失败；新段只携带本块已完成文件，旧文件留在旧段和编号原文中，未知／失败副作用仍跨段保留。此修复不改回执格式与旧日志。
-
-合批首轮真实模型失败已保留：21 次真实请求、返回用量计 $0.02199946、未知用量 0。M1 2/18，CF03 后台第 3 项被拒绝，后续 CF/CE 未跑。抽取只给了 prose“memory_write fields”，没有给无工具调用可见的实际 schema，且 JSON.parse 不接纳完整 fenced JSON；补精确 schema 与单次边界解析，原来源／CAS 校验不变。进一步运行保留首轮全部判定，不覆盖旧分数；诊断记录只留字段形状和错误路径，不保存重放原话。
-
-末次离线复现：单条 60K 字符用户消息先投影，再报告实际输入 40000 tokens；原实现因没有第二块而报 `Provider context overflow has no further safe block boundary`。现在用实报比例缩小整轮可用输入，继续截断单条原文并保留编号读取占位；adapter 的一次重试和工具不重放断言不变。
-
-付费批次已冻结：续跑第一个调用未返回用量，累计 22 次／21 次有用量／1 次未知；已知 $0.02199946，另有派发前预留 $0.0013248（不是实际账单）。`live.json` 保留首轮失败与续跑结果，`cost-ledger.json` 单一 runId 累计，未把未知金额记成零。该批次不能自动继续；M1 格式修复尚未获得真实模型重验，CF03 未通过，CF05/CE03/CE05/冷进程验收未跑，不宣称第 4–6 步真实模型验收完成。
+| # / ID | 旧范围 | 当前内容概要 | 迁移建议（待用户裁决） |
+|---|---|---|---|
+| 1 / 978a1257 | 工作区 | 复盘先一行结论，再两条可执行步骤 | 保留为用户偏好 |
+| 2 / 0113bb19 | 工作区 | Serika验收1013：咖啡不加糖，验收专用 | 建议丢弃测试项；若留必须保留场景条件 |
+| 3 / ac6798c5 | 工作区 | Serika验收1013：回复中文，验收专用 | 建议丢弃测试项，不推定为日常偏好 |
+| 4 / 7436ddc8 | 工作区 | Serika-Eval-1013-2208：当前验收对话咖啡不加糖 | 建议丢弃测试项 |
+| 5 / 9f80adf7 | **对话 03e407b8** | 咖啡不加糖，仅当前对话 | **用户决定留／丢；不自动转摘要或全局偏好** |
+| 6 / 04df6c43 | **对话 b6074d8b** | 最新咖啡不加糖；旧段曾加糖 | **用户决定留／丢；旧值只留历史，不提升为全局** |
+| 7 / e8087dd4 | **对话 8bb44ece** | 最新辣度中辣；旧段微辣 | **用户决定留／丢；不提升为全局** |
+| 8 / c3b19d9b | **对话 8bb44ece** | 通知渠道应用内，仅当前对话 | **用户决定留／丢；不提升为全局** |
+| 9 / 41f1d455 | 工作区 | 只读代码时不要运行测试，限制不能去掉 | 保留为带条件的用户偏好，不覆盖显式实施授权 |
+| 10 / 671b1ca0 | 工作区 | Serika 实验分支工作规则，含旧 HEAD／补丁号／提交前缀 | 项目笔记逐项审定；旧 HEAD、编号、一次性前缀不当当前事实或授权 |
+| 11 / 0a0f2df1 | 工作区 | 旧底线／停问／双时态及验收规则 | 归项目历史，按现计划逐项裁决；不覆盖已批准重构 |
+| 12 / f6e52e58 | 工作区 | 产品少操作、少配置、懒人化 | 保留为用户／产品偏好 |
+| 13 / 8291bb0f | 工作区 | automationRefresh/reconnecting 不回退及文档先例任务 | 归项目决策记录，不作为长期个人偏好 |
+| 14 / ba71d2c9 | 工作区 | 把连续相同错误只显示一次写入测试注释／pending | 一次性项目任务，建议不迁长期记忆 |
