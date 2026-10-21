@@ -17,7 +17,8 @@
     "ui:preview": "vite --config vite.preview.config.ts",
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
     "test": "tsx --test --test-concurrency=4 src/shared/*.test.ts src/main/*.test.ts src/renderer/src/*.test.ts src/renderer/src/personal/*.test.ts && node --test scripts/*.test.mjs",
-    "check": "pnpm typecheck && pnpm test && pnpm build"
+    "check": "pnpm typecheck && pnpm test && pnpm build",
+    "smoke": "pnpm --workspace-root build:runtime && pnpm build && node scripts/electron-smoke.mjs"
   },
   "dependencies": {
     "@serika/core": "workspace:*",
@@ -47,6 +48,7 @@
     "tailwindcss": "4.2.2",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
-    "vite": "7.3.6"
+    "vite": "7.3.6",
+    "playwright": "1.64.1"
   }
 }

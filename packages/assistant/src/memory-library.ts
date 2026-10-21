@@ -23,7 +23,7 @@ export const memoryLibraryActionSchema = z.discriminatedUnion("operation", [
 export type MemoryLibraryAction = z.infer<typeof memoryLibraryActionSchema>;
 export interface MemoryLibrarySummary {
   id: string; title: string; folderId: string | null; preview: string; updatedAt: string | null;
-  active: boolean; missing: boolean; scope: MemoryLibrary["documents"][number]["scope"];
+  active: boolean; missing: boolean; uncertain?: boolean; scope: MemoryLibrary["documents"][number]["scope"];
 }
 export interface MemoryLibraryView {
   revision: number; folders: MemoryLibrary["folders"]; documents: MemoryLibrarySummary[];
@@ -44,7 +44,7 @@ export function memoryLibraryDocuments(library: MemoryLibrary, entries: MemoryEn
     const parts = document.entryIds.flatMap(id => byId.has(id) ? [byId.get(id)!] : []);
     const text = parts.map(part => part.text).join("");
     return { id: document.id, libraryRevision: library.revision, title: document.title, folderId: document.folderId, scope: document.scope,
-      text, preview: Array.from(text).slice(0, 120).join(""), active: parts.some(part => active(part, now)), missing: parts.length !== document.entryIds.length,
+      uncertain: parts.some(part => part.uncertain), text, preview: Array.from(text).slice(0, 120).join(""), active: parts.some(part => active(part, now)), missing: parts.length !== document.entryIds.length,
       updatedAt: parts.map(part => part.updatedAt ?? part.createdAt ?? null).filter((stamp): stamp is string => stamp !== null).sort().at(-1) ?? null,
       entries: parts.map(part => ({ id: part.id, revision: part.revision ?? 1 })) };
   });
@@ -52,7 +52,7 @@ export function memoryLibraryDocuments(library: MemoryLibrary, entries: MemoryEn
     if (owned.has(entry.id) || entry.v6 && (entry.v6.state === "superseded" || entry.v6.state === "retracted")) continue;
     const title = entry.text.split(/\r?\n/).find(line => line.trim())?.replace(/^#{1,6}\s+/, "").trim() ?? "未命名记忆";
     documents.push({ id: legacyDocumentId(entry.id), libraryRevision: library.revision, title: Array.from(title).slice(0, 60).join(""), folderId: null,
-      scope: entry.scope ?? { kind: "workspace" }, text: entry.text, preview: Array.from(entry.text).slice(0, 120).join(""),
+      uncertain: entry.uncertain ?? false, scope: entry.scope ?? { kind: "workspace" }, text: entry.text, preview: Array.from(entry.text).slice(0, 120).join(""),
       updatedAt: entry.updatedAt ?? entry.createdAt ?? null, active: active(entry, now), missing: false,
       entries: [{ id: entry.id, revision: entry.revision ?? 1 }] });
   }

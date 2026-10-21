@@ -1,0 +1,128 @@
+{
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "commands": [
+    {
+      "command": "pnpm test",
+      "verification": "unit-test",
+      "exitCode": 0,
+      "logSha256": "c6c883be63445bfab9aa53f7ebd9d56de77affb6b6790001ec5c7573ca927097",
+      "counts": {
+        "tests": [
+          1170,
+          631,
+          12
+        ],
+        "pass": [
+          1159,
+          631,
+          12
+        ],
+        "fail": [
+          0,
+          0,
+          0
+        ],
+        "skipped": [
+          11,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "command": "pnpm --filter @serika/desktop typecheck",
+      "verification": "typecheck",
+      "exitCode": 0,
+      "logSha256": "24c8439e57d20c41adb8b3d4bf70cfe013d260a11f24ded9a1c6b3d2784772c7",
+      "counts": {
+        "tests": [],
+        "pass": [],
+        "fail": [],
+        "skipped": []
+      }
+    },
+    {
+      "command": "node --test packages/assistant/dist/memory-library.test.js",
+      "verification": "unit-test",
+      "exitCode": 0,
+      "logSha256": "8645e143648b0467fe22c0b2c12074ad1b13d6eebdab0006cc6609ffffa48935",
+      "counts": {
+        "tests": [
+          9
+        ],
+        "pass": [
+          9
+        ],
+        "fail": [
+          0
+        ],
+        "skipped": [
+          0
+        ]
+      }
+    },
+    {
+      "command": "pnpm --filter @serika/desktop exec tsx --test src/renderer/src/memory-library.test.ts",
+      "verification": "unit-test",
+      "exitCode": 0,
+      "logSha256": "183e4875bd54d5306a7dc11b591e8aeb03da485930b8d73dca676959c3cbe681",
+      "counts": {
+        "tests": [
+          3
+        ],
+        "pass": [
+          3
+        ],
+        "fail": [
+          0
+        ],
+        "skipped": [
+          0
+        ]
+      }
+    },
+    {
+      "command": "pnpm --filter @serika/desktop smoke",
+      "verification": "real-electron-with-fake-model",
+      "exitCode": 0,
+      "logSha256": "7a1bc06a0142648524608b5221f3f937f3b97927e5735cf3ad53aed29360a051",
+      "counts": {
+        "tests": [],
+        "pass": [],
+        "fail": [],
+        "skipped": []
+      }
+    }
+  ],
+  "priorAttempts": [
+    {
+      "logSha256": "a5ba994dd40d0d7c3328fd068c38179fc2f91ba053496011686eac732abd8f36",
+      "diagnosis": "Native unfiled/restart/undo/guard passed; generic config error required production parser diagnosis"
+    },
+    {
+      "logSha256": "db0317b88d5e703951f1eb858e05ee3963041bfd13877f569d5e598b4e60a94e",
+      "diagnosis": "Whole daily tree comparison was invalid evidence while the daily process was active; probe also followed dangling symlinks"
+    },
+    {
+      "logSha256": "0da9aeb64ae0cee2fe78e07aed5eab6d1b3881b21b178c378db640196b99623f",
+      "diagnosis": "Electron on macOS ignored HOME for app.getPath(home); isolated test now sets the native home path too"
+    },
+    {
+      "logSha256": "b22bd190f48c5ac59d1798f52ec3853baf6fc04f4f32a061f90348cc8dcca989",
+      "diagnosis": "Protected path fixture did not exist; production workspace resolver rejected it first"
+    }
+  ],
+  "resultSha256": "658ea1a6ff634cf2be1c050af495547f86236f8758f46062ba43911d5a3f066e",
+  "cleanupSha256": "c62da29d9d3f7b865db18d50028c9750559bc2f569a6e8d730086ec1a6cfaf04",
+  "linesFrom8c572bb": {
+    "product": {
+      "added": 1128,
+      "removed": 1042
+    },
+    "test": {
+      "added": 511,
+      "removed": 8755
+    }
+  }
+}

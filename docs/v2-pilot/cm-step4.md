@@ -349,3 +349,25 @@
 可复算证据见 `evidence/cm-step4/shutdown-reproduction.json`（各进程退出结果、晚于 shutdown 的操作和堆栈、探针／日志 hash），全套修复后结果另列。
 
 **修复后最终结果（单元测试／假模型脚本）**：`pnpm typecheck`、`pnpm test` 均退出 0；运行时 1,158 pass／0 fail／11 skip，桌面 631 pass／0 fail，scripts 12 pass／0 fail，合计 1,801 pass／0 fail／11 skip。11 项是既有可选测试，未新增 skip。离线 eval 77／77、guards 5 组及定向 19／19；真实模型请求 0、费用 $0。正式 Electron 冒烟作为第二件在本提交推送后实施。
+
+
+#### 第二件首轮失败记录（下节已纠正）
+
+- **真实 Electron + 假模型**：`pnpm --filter @serika/desktop smoke` 启动构建后的主入口，原 preload／IPC 未替换。Electron 44.4.5；进程 PID、userData、renderer userAgent、file URL、脚本 SHA-256、源码提交及截图 hash 在 `evidence/electron-smoke/result.json`。启动无配置错误、普通消息收到回复两项完成。
+- **复现与原因**：最初脚本把按钮名写为“发送”，实际 aria-label 是“发送消息”，已纠正；假模型最初把宿主第五层附注并入 sourceQuote，触发来源校验，已只取原始用户文本 part，未放松宿主校验。随后真实 `memory_write` completed、真实 `listMemories` 返回 1 条，但主记忆页没有该条目，断言失败。`memory.tsx:7–10` 仅在 managementOnly 渲染 FormalMemories，主页面只装配 MemoryLibraryPanel；`memory-library.tsx:184–185` 仅渲染文件夹和文档。失败截图可见对话已保存，而记忆页只有空文档库。
+- **未完成／证据缺失，整体失败**：记忆页显示、撤销消失、完整重启持久化、日用路径拒写、日用配置副本实际报错清单；不把这些列为通过。隔离进程完整退出，临时目录已删除；日用进程／env／TG 数据未使用，日用配置副本检查尚未运行；无真实模型请求，费用 $0。macOS 已复现；Linux/Xvfb 未运行。
+- **停下依据**：补主页面偏好／笔记列表涉及用户可见行为，按用户最新指令及 AGENTS §2 停下来确认。拟最小改动：记忆页展示当前偏好／项目笔记，保留现有文档库，按 v6 uncertain 布尔值显示标记，不改存储或权限。第二件代码／证据当前保留在工作区，未提交推送；第三件尚未开始。第一件已提交推送 `75f25e4`。
+- **审核查询**：`gh issue list --repo steven4225/serika --state all` 及精确标题搜索未找到“experiment/architecture-v2 审核记录”；没有创建 issue 或发送评论。
+
+
+#### 第二件交付：恢复并验证现有路径
+
+**改了什么**：核对 `V6MemoryStore.getLibrary/readLibraryDocument → memoryLibraryDocuments`，已经使用 v6；保留的散条目投影按首个非空行生成标题并放入“未归档”。上一轮脚本没有进入该文件夹，误判为缺少列表。没有新增页面或列表；仅在现有条目／正文旁显示 `uncertain` 小标记，并在只读文档投影传递该字段，落盘格式不变。`formal-memories.tsx` 已通过真实 listMemories IPC 列出 v6；目前只提供编辑／删除，没有撤销按钮，因此冒烟走现有文档库显示和普通聊天撤销。
+
+**逐条对照验收**：真实 Electron 44.4.5 + 假模型，构建产物、原 preload/IPC；启动无配置错误、聊天回复、进入“未归档”显示记忆、完整退出重启后记忆仍在且 hash 不变、聊天撤销后当前文档消失、日用路径规则拒写、日用配置临时副本启动报错共 7 项完成。主进程 PID/Electron/userData/home、renderer UA/file URL、重启 PID/记忆 hash、每项截图 hash、提交号/未提交源码 hash/脚本 hash/构建产物 hash 均见 `evidence/electron-smoke/result.json`。这是 macOS 真实 Electron 的假模型冒烟；Linux/Xvfb 提供同一命令入口，尚无 Linux 运行证据；真实模型未跑，仍待外部独立复现。
+
+**前后数字**：本步在 1,200 行批准上限内；最终数字见 `evidence/electron-smoke/verification.json`。全套 1,802 pass／0 fail／11 项既有 skip（运行时 1,159、桌面 631、scripts 12）；文档投影 9／9、renderer 3／3。原生冒烟 7／7，真实模型 0 次／$0。
+
+**命令与退出码**：`pnpm test`、`pnpm --filter @serika/desktop typecheck`、两组文档测试、`pnpm --filter @serika/desktop smoke` 均退出 0；计数和日志 hash 随仓库证据保存。复现入口：macOS 用最后一条命令；Linux 用 `xvfb-run -a pnpm --filter @serika/desktop smoke`。Linux 若无本机日用配置，必须用 `RUNLOOM_SMOKE_DAILY_CONFIG=/绝对路径/配置副本.json` 指定受信任副本；缺少任何必需证据即失败，无自动重试／sleep。
+
+**差异与失败处理**：所有 RUNLOOM 路径、HOME/XDG 目录均在新临时根下；macOS Electron 的 native home 不随 HOME 自动改变，`RUNLOOM_DESKTOP_TEST=1` 下显式采用隔离 HOME。前期仅隔离 profile 时遗留的 12 个测试 resident identity 目录经身份及仅有 identity 文件核对后已清理，证据只留目录摘要／文件 hash。日用路径拒写用隔离 HOME 中的标准日用目录和哨兵验证：拒绝错误可见，目录仍只有原哨兵，hash 不变；不遍历真实日用数据树。日用进程未重启，日用 env/TG 数据未读。仅按用户要求读取日用配置 JSON，副本路径全部改成临时目录、信任绑定脱敏、其他模块关闭，未提交副本。实际启动只显示 `Invalid TUI config schema`；同一生产 `readTuiModuleConfig` 逐项拒绝六个字段，全部移除后通过：`modules.memory.queryRewrite`、`modules.memory.semantic`、`contextCompaction.mode`、`contextCompaction.warningRatio`、`herdrBinding`、`telegramAutonomy.toolApproval`。未修改日用配置或其权限；未为显示错误改产品校验语义。

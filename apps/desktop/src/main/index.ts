@@ -1,3 +1,4 @@
+import { createDesktopSmokeModel } from "./smoke-model.js";
 import { assertExperimentalDataPaths } from "@serika/assistant";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
@@ -56,6 +57,7 @@ app.on("open-url", (event, url) => {
 const userDataPath = userDataPathFromEnv(process.env) ?? defaultUserDataPath(app.getPath("appData"));
 assertExperimentalDataPaths([userDataPath]);
 app.setPath("userData", userDataPath);
+if (process.env.RUNLOOM_DESKTOP_TEST === "1" && process.env.HOME) app.setPath("home", process.env.HOME);
 app.setName("Serika");
 
 function createWindow(): BrowserWindow {
@@ -167,7 +169,7 @@ async function main(): Promise<void> {
   try {
     await loadDesktopEnvironment();
     await configureBundledNotifications({ resourcesPath: process.resourcesPath, desktopRoot: join(here, "../.."), packaged: app.isPackaged, env: process.env });
-    const { modelAlias, model } = configureCliModel(createDemoModel, process.env);
+    const { modelAlias, model } = configureCliModel(process.env.RUNLOOM_DESKTOP_TEST === "1" ? createDesktopSmokeModel : createDemoModel, process.env);
     const taskWorkerFor = (workspace: string, configPath?: string) => createDesktopRssWorker({ workspace, ...(configPath ? { configPath } : {}), home: app.getPath("home"), env: process.env,
       workerEntry: fileURLToPath(import.meta.resolve("@serika/assistant/task-worker-entry")),
       todoist: !!process.env.TODOIST_API_TOKEN?.trim() });

@@ -127,3 +127,16 @@ it("v6 background writes preserve folders and document titles while old candidat
   const view = value(await store.getLibrary("a")); assert.equal(view.documents[0]!.title, action.title);
   assert.equal((await store.commitCandidateBatch({})).ok, false);
 });
+
+it("projects v6 unfiled source text and uncertainty without changing the saved body", async () => {
+  const { store, file } = await fixture();
+  const text = "# 原话标题\n我想保留，也不想保留。";
+  const written = await store.writeV6([{ operation: "add", text, category: "preference", uncertain: true, source: { kind: "manual" }, scope: { kind: "workspace" } }]);
+  assert.ok(written.ok);
+  const before = await readFile(file, "utf8"), view = value(await store.getLibrary("a"));
+  assert.equal(view.documents.length, 1); assert.equal(view.documents[0]!.folderId, null);
+  assert.equal(view.documents[0]!.title, "原话标题"); assert.equal(view.documents[0]!.uncertain, true);
+  const document = value(await store.readLibraryDocument(view.documents[0]!.id, "a"));
+  assert.equal(document.text, text); assert.equal(document.uncertain, true);
+  assert.equal(await readFile(file, "utf8"), before);
+});
