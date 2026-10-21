@@ -1,10 +1,10 @@
-# 上下文与记忆：第 6 步（56ad8d7 审核修复）
+# 上下文与记忆：第 6 步（56fe5cf 复核修复）
 
 ## 1. 改了什么
 
 **四条必改已修；整批真实模型仍未通过，停下等审核，不进入第 7 步、不迁日用。** `1db5a5c` 修诊断／删除抑制／清单降级／必接过滤；`6f2193e` 完成逐轮证据与完整重跑脚本。原第 6 步代码范围沿用已接受的 56ad8d7。首个时间修复是产品行为变更：给模型的时间按约定固定为 +08:00 分钟，不再跟随宿主 TZ；共用时区常量仍在待办。
 
-**56fe5cf 复核后本轮**：用户已批准附表 D（规范正文＋保留关键值校验）及 E（恢复计划硬额度＋超额引用）。已落实正文／数值／否定条件校验，清单≤2K与③层≤12K（32K按比例）；超额回执通过既有 history_read 分页读取，仍经过排除投影。摘要格式／预算提示和 CF05 检查已修。全部离线验证通过后，只整批实模重跑一次；当前新增付费调用 0。
+**56fe5cf 复核后本轮**：用户已批准附表 D（规范正文＋保留关键值校验）及 E（恢复计划硬额度＋超额引用）。已落实正文／数值／否定条件校验，清单≤2K与③层≤12K（32K按比例）；超额回执通过既有 history_read 分页读取，仍经过排除投影。摘要格式／预算提示和 CF05 检查已修。全部离线验证通过后，只整批实模重跑一次；当前新增付费调用 0。源码 `7a80a2a` 已完成干净验证：**macOS／UTC 1781通过／0失败／11跳过、eval82/82、真实Electron8/8**；8张截图已逐张核对、脚本SHA未变。
 
 ## 2. 逐条对照验收项
 
@@ -17,7 +17,7 @@
 | 恢复计划清单额度 | 已按批准的附表 E 实施：清单及③层共同硬计数；超额引用包含失败／unknown 数量、消息范围和读取入口。`overflow checklist reads page…` 在两档验证分页读取未提交 unknown 回执、排除不泄漏；`legacy history plus checklist…` 验证旧摘要超预算只改变请求投影 |
 | 一次整批重跑 | 待全部离线验证后执行一次。预算仍 $0.70550774／$2，余 $1.29449226；不分批补跑 |
 
-下表保留 56fe5cf 已审核批次的结果：
+下表仅保留 56fe5cf 已审核批次的历史结果；其中清单借用额度已由本轮附表 E 的获批实现替换：
 
 | 审核项 | 结果与证据 |
 |---|---|
@@ -42,15 +42,19 @@
 
 ## 3. 前后数字
 
-本轮对 56ad8d7：产品 +63/−17、测试 +66/−4、脚本 +134/−54；测试新增多3行，是三项指定行为回归及脱敏／真实适配器边界证据所需，无删除测试文件、跳过新增测试或改历史 Oracle／快照。原 UTC 1775/11 仅为 **macOS**；用户独立复现的 **Linux＋Xvfb 1440x900x24、Electron44.4.5、干净56ad8d7** 在 UTC／+08:00 各 1767/19，eval79/79、smoke8/8，8个额外跳过为既有 macOS 专属测试；该独立结果未冒称为本机新代码实测。后续用户在干净56fe5cf复核：Linux＋Xvfb1440x900x24、UTC／+08:00 全套1768通过／19跳过、eval81/81、真实Electron8/8，8张图与不变脚本SHA均已核对。
+本轮相对56fe5cf：产品 +54/−28、测试 +165/−15、脚本 +33/−4，另 Electron fake provider +1/−1。测试新增多于产品，是用户指定的失败形状重现、M5偷换关键值反例，以及硬额度／排除分页两个核心边界所需；未新增测试快照或删除文件。
+
+上一轮对 56ad8d7：产品 +63/−17、测试 +66/−4、脚本 +134/−54；测试新增多3行，是三项指定行为回归及脱敏／真实适配器边界证据所需，无删除测试文件、跳过新增测试或改历史 Oracle／快照。原 UTC 1775/11 仅为 **macOS**；用户独立复现的 **Linux＋Xvfb 1440x900x24、Electron44.4.5、干净56ad8d7** 在 UTC／+08:00 各 1767/19，eval79/79、smoke8/8，8个额外跳过为既有 macOS 专属测试；该独立结果未冒称为本机新代码实测。后续用户在干净56fe5cf复核：Linux＋Xvfb1440x900x24、UTC／+08:00 全套1768通过／19跳过、eval81/81、真实Electron8/8，8张图与不变脚本SHA均已核对。
 
 按批准报价，本轮 $0.68218348；历史已知 $0.02199946＋旧未知预留 $0.0013248，**合批预算占用 $0.70550774 / $2**。计划累计已知 $1.06418294，含预留 $1.06550774 / $5。旧未知调用仍未知，不按0，不将预留冒称账单；本轮无新增未知用量。
 
 ## 4. 实际命令和退出码
 
-`node packages/assistant/scripts/cm-step6-verify.mjs` → 0（1db5a5c、6f2193e 各跑完整套和真实 Electron）；最终运行证据：[docs/v2-pilot/evidence/cm-step6/verification.json](evidence/cm-step6/verification.json)、[docs/v2-pilot/evidence/electron-smoke/result.json](evidence/electron-smoke/result.json)。
+`node packages/assistant/scripts/cm-step6-verify.mjs` → 0（本轮88a70a0与7a80a2a各跑完整套和真实Electron；7a80a2a为最新，macOS／UTC 1781／0／11，eval82，smoke8）；最终运行证据：[docs/v2-pilot/evidence/cm-step6/verification.json](evidence/cm-step6/verification.json)、[docs/v2-pilot/evidence/electron-smoke/result.json](evidence/electron-smoke/result.json)。
 
-`SERIKA_CM4_REPLAY=/tmp/cm-step4-replay9.json node examples/eval/cm-step6-live.mjs --approved-live --rerun-approved-batch` → 1；独立原始证据：[docs/v2-pilot/evidence/cm-step6/live-1834686a-b68d-49fb-9f39-d04f1f99bac9.json](evidence/cm-step6/live-1834686a-b68d-49fb-9f39-d04f1f99bac9.json)，[docs/v2-pilot/evidence/cm-step6/live.json](evidence/cm-step6/live.json) 是该轮逐字副本；旧证据 [docs/v2-pilot/evidence/cm-step6/live-legacy-mixed.json](evidence/cm-step6/live-legacy-mixed.json) 原字节归档；[docs/v2-pilot/evidence/cost-ledger.json](evidence/cost-ledger.json) 可复算预留和累计。模型仅使用授权本地 env 的必要变量，mode0600 临时文件与工作目录已清理，日用文件未改。参数核查依据：[服务商官方文档](https://commandcode.ai/docs/provider)及本轮请求字段／公开目录记录。
+`SERIKA_CM4_REPLAY=/tmp/cm-step4-replay9.json node examples/eval/cm-step6-live.mjs --approved-live --rerun-approved-batch` → 1；独立原始证据：[docs/v2-pilot/evidence/cm-step6/live-1834686a-b68d-49fb-9f39-d04f1f99bac9.json](evidence/cm-step6/live-1834686a-b68d-49fb-9f39-d04f1f99bac9.json)，[docs/v2-pilot/evidence/cm-step6/live.json](evidence/cm-step6/live.json) 是该轮派生视图：仅将M1.passed汇总为明确false，包含来源SHA及变换说明；原始attempt字节不动；旧证据 [docs/v2-pilot/evidence/cm-step6/live-legacy-mixed.json](evidence/cm-step6/live-legacy-mixed.json) 原字节归档；[docs/v2-pilot/evidence/cost-ledger.json](evidence/cost-ledger.json) 可复算预留和累计。模型仅使用授权本地 env 的必要变量，mode0600 临时文件与工作目录已清理，日用文件未改。参数核查依据：[服务商官方文档](https://commandcode.ai/docs/provider)及本轮请求字段／公开目录记录。
+
+`node examples/eval/cm-step6-live.mjs --recheck-recorded` → 0：独立[docs/v2-pilot/evidence/cm-step6/cf05-reference.json](evidence/cm-step6/cf05-reference.json)，原2/5、新检查参考5/5，新增模型调用0；参考结果不算通过。
 
 ## 5. 与计划不符的地方及理由
 

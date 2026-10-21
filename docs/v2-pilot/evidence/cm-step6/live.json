@@ -18058,7 +18058,8 @@
           },
           "passed": false
         }
-      ]
+      ],
+      "passed": false
     },
     {
       "suite": "CF03",
@@ -21012,5 +21013,11 @@
   "error": null,
   "finishedAt": "2026-10-21T11:53:02.479Z",
   "passed": false,
-  "temporaryDirectoryRemoved": true
+  "temporaryDirectoryRemoved": true,
+  "projection": {
+    "source": "docs/v2-pilot/evidence/cm-step6/live-1834686a-b68d-49fb-9f39-d04f1f99bac9.json",
+    "sourceSha256": "6e7eab280c2b4ba47dffea75b6066ec36d10c1179356958687242e89517db6b5",
+    "generatedAt": "2026-10-21T13:05:17.363Z",
+    "change": "Derive explicit boolean M1.passed from existing case checks; all original scores/calls/timestamps unchanged."
+  }
 }

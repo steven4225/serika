@@ -1,0 +1,54 @@
+{
+  "referenceId": "72473aad-6141-40a0-a5c4-0a6e2141628f",
+  "generatedAt": "2026-10-21T13:05:17.363Z",
+  "sourceCommit": "7a80a2a50bb77bae5be653a7bbbb70af279d308d",
+  "scriptSha256": "67c4a71eb273a313b04327d8370d5420ed482ed950ab99997ae694057afade76",
+  "source": "docs/v2-pilot/evidence/cm-step6/live-1834686a-b68d-49fb-9f39-d04f1f99bac9.json",
+  "sourceSha256": "6e7eab280c2b4ba47dffea75b6066ec36d10c1179356958687242e89517db6b5",
+  "sourceRunId": "1834686a-b68d-49fb-9f39-d04f1f99bac9",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "referenceOnly": true,
+  "rounds": [
+    {
+      "generation": 0,
+      "replySha256": "65421deb2db3451c8852d9f84fb7e74c440c71cf13c17201b2cb8f453fcdc8a8",
+      "originalRoundPassed": false,
+      "originalPastRead": false,
+      "recheckedPastRead": true,
+      "referenceChecksPassed": true
+    },
+    {
+      "generation": 1,
+      "replySha256": "764284259ecdac70de99ff9eea47d8045d9d23852c2f0e285eb39163e38cfc04",
+      "originalRoundPassed": true,
+      "originalPastRead": true,
+      "recheckedPastRead": true,
+      "referenceChecksPassed": true
+    },
+    {
+      "generation": 2,
+      "replySha256": "f76431a498cf43b52cd3c3c41985d086df41791f5aba3fe9d04b5170c38e3f88",
+      "originalRoundPassed": false,
+      "originalPastRead": false,
+      "recheckedPastRead": true,
+      "referenceChecksPassed": true
+    },
+    {
+      "generation": 3,
+      "replySha256": "23d25cb8b3f53886cfce941c55d7275f04db04d89ccc915fa285339a5f9ee8e5",
+      "originalRoundPassed": false,
+      "originalPastRead": false,
+      "recheckedPastRead": true,
+      "referenceChecksPassed": true
+    },
+    {
+      "generation": 4,
+      "replySha256": "76dee625abd0f8f48efb38f82a042993a36b13251087d6fa05658255eb28bda2",
+      "originalRoundPassed": true,
+      "originalPastRead": true,
+      "recheckedPastRead": true,
+      "referenceChecksPassed": true
+    }
+  ]
+}
