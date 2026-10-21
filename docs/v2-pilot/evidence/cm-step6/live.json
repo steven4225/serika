@@ -1,0 +1,1342 @@
+{
+  "runId": "046c057c-16de-46aa-8059-3c8cb0a7bc30",
+  "startedAt": "2026-10-21T10:32:46.557Z",
+  "sourceCommit": "fe4ba1547a357511ad203d9229e2de287ea20622",
+  "sourceWorktreeDirty": false,
+  "scriptSha256": "efe7593a2641cd8b15ccca18ad8780e780f8e44199f0f4383fb3c397f781c0cc",
+  "platform": "darwin",
+  "parentPid": 17593,
+  "approval": "Combined steps 4-6; current local env authorized by user",
+  "quotedUsdPerMillion": {
+    "input": 0.16,
+    "cachedInput": 0.02,
+    "output": 0.58
+  },
+  "budgetUsd": 2,
+  "openingPlanCostUsd": 0.36,
+  "costUsd": 0.02199946,
+  "calls": [
+    {
+      "id": "f5c09e27-50bd-4d5b-a54b-af998cc4a32b",
+      "scope": "m1",
+      "status": "returned",
+      "startedAt": "2026-10-21T10:32:46.583Z",
+      "inputHash": "jcs-sha256:v1:a65811e8009352db9cf421fe3dab70b9cc78930a928caa611e38fa5053d8be03",
+      "inputBytes": 2771,
+      "maxOutputTokens": 1024,
+      "reservedUsd": 0.00103728,
+      "usage": {
+        "input": 537,
+        "output": 38,
+        "cacheRead": 0
+      },
+      "finishedAt": "2026-10-21T10:32:49.864Z",
+      "costUsd": 0.00010796,
+      "costBasis": "returned usage at approved quote"
+    },
+    {
+      "id": "483ab1ca-e826-456f-8243-8b8f8434e973",
+      "scope": "m1",
+      "status": "returned",
+      "startedAt": "2026-10-21T10:32:49.917Z",
+      "inputHash": "jcs-sha256:v1:9ba6c467329fffe7dff8bd2ac5d7955bd5ff78022d7aa36c774fb5e4abb5909b",
+      "inputBytes": 2774,
+      "maxOutputTokens": 1024,
+      "reservedUsd": 0.00103776,
+      "usage": {
+        "input": 537,
+        "output": 24,
+        "cacheRead": 0
+      },
+      "finishedAt": "2026-10-21T10:32:51.396Z",
+      "costUsd": 0.00009984,
+      "costBasis": "returned usage at approved quote"
+    },
+    {
+      "id": "d14283b8-85f1-493e-a566-2fda9d4759bc",
+      "scope": "m1",
+      "status": "returned",
+      "startedAt": "2026-10-21T10:32:51.443Z",
+      "inputHash": "jcs-sha256:v1:8340cf74dd96c86f4782d106b6ab4d193fbf98016214eeaaf7666fd6c88e6fbf",
+      "inputBytes": 2815,
+      "maxOutputTokens": 1024,
+      "reservedUsd": 0.00104432,
+      "usage": {
+        "input": 546,
+        "output": 23,
+        "cacheRead": 0
+      },
+      "finishedAt": "2026-10-21T10:32:52.781Z",
+      "costUsd": 0.00010070000000000001,
+      "costBasis": "returned usage at approved quote"
+    },
+    {
+      "id": "726c72a2-4fdd-45a5-a6ff-8723ae5eaf8f",
+      "scope": "m1",
+      "status": "returned",
+      "startedAt": "2026-10-21T10:32:52.836Z",
+      "inputHash": "jcs-sha256:v1:e3c2ef96a76b147437f61072f1fecd34917e6e72cc2aa9d9c3a97cbeae889d32",
+      "inputBytes": 2815,
+      "maxOutputTokens": 1024,
+      "reservedUsd": 0.00104432,
+      "usage": {
+        "input": 545,
+        "output": 24,
+        "cacheRead": 0
+      },
+      "finishedAt": "2026-10-21T10:32:54.146Z",
+      "costUsd": 0.00010112000000000001,
+      "costBasis": "returned usage at approved quote"
+    },
+    {
+      "id": "2b5120f6-27f1-4ab2-b83d-4b6332b7c4e6",
+      "scope": "m1",
+      "status": "returned",
+      "startedAt": "2026-10-21T10:32:54.195Z",
+      "inputHash": "jcs-sha256:v1:ff50acb8a59d4b84da9f6f6dd7a2d2a95be1e50d180c07d8c5baf9a9352186cd",
+      "inputBytes": 2795,
+      "maxOutputTokens": 1024,
+      "reservedUsd": 0.00104112,
+      "usage": {
+        "input": 541,
+        "output": 83,
+        "cacheRead": 0
+      },
+      "finishedAt": "2026-10-21T10:32:55.955Z",
+      "costUsd": 0.0001347,
+      "costBasis": "returned usage at approved quote"
+    },
+    {
+      "id": "c9f9882d-46c8-4fc2-b439-8185da5fc92b",
+      "scope": "m1",
+      "status": "returned",
+      "startedAt": "2026-10-21T10:32:56.006Z",
+      "inputHash": "jcs-sha256:v1:b62d794bc02a2ec04fbbdac90fe9481340d53abacfb1083194ca88f86f80edf6",
+      "inputBytes": 2799,
+      "maxOutputTokens": 1024,
+      "reservedUsd": 0.00104176,
+      "usage": {
+        "input": 549,
+        "output": 143,
+        "cacheRead": 0
+      },
+      "finishedAt": "2026-10-21T10:32:57.804Z",
+      "costUsd": 0.00017078,
+      "costBasis": "returned usage at approved quote"
+    },
+    {
+      "id": "4b7509ca-e420-4e7f-a66f-594a08af4701",
+      "scope": "m1",
+      "status": "returned",
+      "startedAt": "2026-10-21T10:32:57.853Z",
+      "inputHash": "jcs-sha256:v1:7df85732369078c97180ba5e97dc4f7db3c26e44b8fa022008ebd16dc012cb7c",
+      "inputBytes": 2802,
+      "maxOutputTokens": 1024,
+      "reservedUsd": 0.0010422399999999998,
+      "usage": {
+        "input": 551,
+        "output": 145,
+        "cacheRead": 0
+      },
+      "finishedAt": "2026-10-21T10:32:59.697Z",
+      "costUsd": 0.00017225999999999998,
+      "costBasis": "returned usage at approved quote"
+    },
+    {
+      "id": "99452821-283c-4636-bf5e-9b0a12bfc4b1",
+      "scope": "m1",
+      "status": "returned",
+      "startedAt": "2026-10-21T10:32:59.744Z",
+      "inputHash": "jcs-sha256:v1:b60f7b7b90645a52d84a8905585b898a98dac2fa1bed0a62d24e5d59c310e122",
+      "inputBytes": 2599,
+      "maxOutputTokens": 1024,
+      "reservedUsd": 0.00100976,
+      "usage": {
+        "input": 495,
+        "output": 57,
+        "cacheRead": 0
+      },
+      "finishedAt": "2026-10-21T10:33:01.237Z",
+      "costUsd": 0.00011225999999999999,
+      "costBasis": "returned usage at approved quote"
+    },
+    {
+      "id": "53a94148-5c6d-4c73-8c1d-a0730ce8b5f3",
+      "scope": "m1",
+      "status": "returned",
+      "startedAt": "2026-10-21T10:33:01.290Z",
+      "inputHash": "jcs-sha256:v1:69936e1a0e2e7674e963d186d5e78d2632f00a6ff1de6cc04e2eb6d9e6fce679",
+      "inputBytes": 5593,
+      "maxOutputTokens": 1024,
+      "reservedUsd": 0.0014888,
+      "usage": {
+        "input": 1308,
+        "output": 216,
+        "cacheRead": 0
+      },
+      "finishedAt": "2026-10-21T10:33:03.913Z",
+      "costUsd": 0.00033456,
+      "costBasis": "returned usage at approved quote"
+    },
+    {
+      "id": "2f93b7b0-2ffa-427a-81ab-8c2efbaf4752",
+      "scope": "m1",
+      "status": "returned",
+      "startedAt": "2026-10-21T10:33:03.961Z",
+      "inputHash": "jcs-sha256:v1:a65811e8009352db9cf421fe3dab70b9cc78930a928caa611e38fa5053d8be03",
+      "inputBytes": 2771,
+      "maxOutputTokens": 1024,
+      "reservedUsd": 0.00103728,
+      "usage": {
+        "input": 537,
+        "output": 24,
+        "cacheRead": 384
+      },
+      "finishedAt": "2026-10-21T10:33:05.577Z",
+      "costUsd": 0.00004608,
+      "costBasis": "returned usage at approved quote"
+    },
+    {
+      "id": "e9fb4b1f-06a7-4bda-b195-620d16812e00",
+      "scope": "m1",
+      "status": "returned",
+      "startedAt": "2026-10-21T10:33:05.625Z",
+      "inputHash": "jcs-sha256:v1:9ba6c467329fffe7dff8bd2ac5d7955bd5ff78022d7aa36c774fb5e4abb5909b",
+      "inputBytes": 2774,
+      "maxOutputTokens": 1024,
+      "reservedUsd": 0.00103776,
+      "usage": {
+        "input": 537,
+        "output": 24,
+        "cacheRead": 384
+      },
+      "finishedAt": "2026-10-21T10:33:06.959Z",
+      "costUsd": 0.00004608,
+      "costBasis": "returned usage at approved quote"
+    },
+    {
+      "id": "6998fa7a-f004-4070-b8e7-79ab98709954",
+      "scope": "m1",
+      "status": "returned",
+      "startedAt": "2026-10-21T10:33:07.007Z",
+      "inputHash": "jcs-sha256:v1:8340cf74dd96c86f4782d106b6ab4d193fbf98016214eeaaf7666fd6c88e6fbf",
+      "inputBytes": 2815,
+      "maxOutputTokens": 1024,
+      "reservedUsd": 0.00104432,
+      "usage": {
+        "input": 546,
+        "output": 24,
+        "cacheRead": 384
+      },
+      "finishedAt": "2026-10-21T10:33:08.409Z",
+      "costUsd": 0.00004752,
+      "costBasis": "returned usage at approved quote"
+    },
+    {
+      "id": "c20fdcdb-22de-43f1-b330-0e9950146fad",
+      "scope": "m1",
+      "status": "returned",
+      "startedAt": "2026-10-21T10:33:08.456Z",
+      "inputHash": "jcs-sha256:v1:e3c2ef96a76b147437f61072f1fecd34917e6e72cc2aa9d9c3a97cbeae889d32",
+      "inputBytes": 2815,
+      "maxOutputTokens": 1024,
+      "reservedUsd": 0.00104432,
+      "usage": {
+        "input": 545,
+        "output": 23,
+        "cacheRead": 384
+      },
+      "finishedAt": "2026-10-21T10:33:09.899Z",
+      "costUsd": 0.00004678,
+      "costBasis": "returned usage at approved quote"
+    },
+    {
+      "id": "099cdfd0-e433-4120-b11d-f2db191287eb",
+      "scope": "m1",
+      "status": "returned",
+      "startedAt": "2026-10-21T10:33:09.947Z",
+      "inputHash": "jcs-sha256:v1:ff50acb8a59d4b84da9f6f6dd7a2d2a95be1e50d180c07d8c5baf9a9352186cd",
+      "inputBytes": 2795,
+      "maxOutputTokens": 1024,
+      "reservedUsd": 0.00104112,
+      "usage": {
+        "input": 541,
+        "output": 78,
+        "cacheRead": 384
+      },
+      "finishedAt": "2026-10-21T10:33:11.586Z",
+      "costUsd": 0.00007803999999999999,
+      "costBasis": "returned usage at approved quote"
+    },
+    {
+      "id": "26b2319b-1344-4bc5-a763-82229f117fad",
+      "scope": "m1",
+      "status": "returned",
+      "startedAt": "2026-10-21T10:33:11.634Z",
+      "inputHash": "jcs-sha256:v1:b62d794bc02a2ec04fbbdac90fe9481340d53abacfb1083194ca88f86f80edf6",
+      "inputBytes": 2799,
+      "maxOutputTokens": 1024,
+      "reservedUsd": 0.00104176,
+      "usage": {
+        "input": 549,
+        "output": 151,
+        "cacheRead": 384
+      },
+      "finishedAt": "2026-10-21T10:33:13.614Z",
+      "costUsd": 0.00012166,
+      "costBasis": "returned usage at approved quote"
+    },
+    {
+      "id": "3ba86383-7b5c-4ded-a5ad-5ef8aab2f3a3",
+      "scope": "m1",
+      "status": "returned",
+      "startedAt": "2026-10-21T10:33:13.662Z",
+      "inputHash": "jcs-sha256:v1:7df85732369078c97180ba5e97dc4f7db3c26e44b8fa022008ebd16dc012cb7c",
+      "inputBytes": 2802,
+      "maxOutputTokens": 1024,
+      "reservedUsd": 0.0010422399999999998,
+      "usage": {
+        "input": 551,
+        "output": 133,
+        "cacheRead": 384
+      },
+      "finishedAt": "2026-10-21T10:33:15.424Z",
+      "costUsd": 0.00011153999999999999,
+      "costBasis": "returned usage at approved quote"
+    },
+    {
+      "id": "7c61f30b-cd82-468d-875b-70a993c8c176",
+      "scope": "m1",
+      "status": "returned",
+      "startedAt": "2026-10-21T10:33:15.472Z",
+      "inputHash": "jcs-sha256:v1:b60f7b7b90645a52d84a8905585b898a98dac2fa1bed0a62d24e5d59c310e122",
+      "inputBytes": 2599,
+      "maxOutputTokens": 1024,
+      "reservedUsd": 0.00100976,
+      "usage": {
+        "input": 495,
+        "output": 103,
+        "cacheRead": 256
+      },
+      "finishedAt": "2026-10-21T10:33:17.282Z",
+      "costUsd": 0.0001031,
+      "costBasis": "returned usage at approved quote"
+    },
+    {
+      "id": "1750bb23-b6bb-4c1e-942d-daa0c3f3aa7e",
+      "scope": "m1",
+      "status": "returned",
+      "startedAt": "2026-10-21T10:33:17.330Z",
+      "inputHash": "jcs-sha256:v1:69936e1a0e2e7674e963d186d5e78d2632f00a6ff1de6cc04e2eb6d9e6fce679",
+      "inputBytes": 5593,
+      "maxOutputTokens": 1024,
+      "reservedUsd": 0.0014888,
+      "usage": {
+        "input": 1308,
+        "output": 199,
+        "cacheRead": 1152
+      },
+      "finishedAt": "2026-10-21T10:33:19.505Z",
+      "costUsd": 0.00016341999999999998,
+      "costBasis": "returned usage at approved quote"
+    },
+    {
+      "id": "f3ca5dec-f969-4bd6-b2ab-ccf08a379c7b",
+      "scope": "CF03/background/0",
+      "status": "returned",
+      "startedAt": "2026-10-21T10:33:19.866Z",
+      "inputHash": "jcs-sha256:v1:25d95525f9f803c4a6af98526f6fdbe479ca933650744f107c38a5a725eee83e",
+      "inputBytes": 145977,
+      "maxOutputTokens": 6000,
+      "reservedUsd": 0.02683632,
+      "usage": {
+        "input": 38276,
+        "output": 540,
+        "cacheRead": 0
+      },
+      "finishedAt": "2026-10-21T10:33:24.223Z",
+      "costUsd": 0.00643736,
+      "costBasis": "returned usage at approved quote"
+    },
+    {
+      "id": "7c045849-0886-4941-811f-46ca4647b886",
+      "scope": "CF03/background/0",
+      "status": "returned",
+      "startedAt": "2026-10-21T10:33:24.254Z",
+      "inputHash": "jcs-sha256:v1:f6bc86ac1c8e4513f708d468ff9a2e679216b38c252f2eaba33392355702426f",
+      "inputBytes": 144750,
+      "maxOutputTokens": 6000,
+      "reservedUsd": 0.02664,
+      "usage": {
+        "input": 37792,
+        "output": 1514,
+        "cacheRead": 0
+      },
+      "finishedAt": "2026-10-21T10:33:31.118Z",
+      "costUsd": 0.00692484,
+      "costBasis": "returned usage at approved quote"
+    },
+    {
+      "id": "5db42b1f-6164-4379-8f5c-e40ea446be3a",
+      "scope": "CF03/background/0",
+      "status": "returned",
+      "startedAt": "2026-10-21T10:33:31.159Z",
+      "inputHash": "jcs-sha256:v1:5690c729d9bd19260093bfb9b1e7ac8ed03b43eae916a99984468ba1ff39b3db",
+      "inputBytes": 144579,
+      "maxOutputTokens": 6000,
+      "reservedUsd": 0.02661264,
+      "usage": {
+        "input": 37754,
+        "output": 859,
+        "cacheRead": 0
+      },
+      "finishedAt": "2026-10-21T10:33:36.983Z",
+      "costUsd": 0.0065388600000000005,
+      "costBasis": "returned usage at approved quote"
+    }
+  ],
+  "stopped": false,
+  "results": [
+    {
+      "suite": "M1",
+      "fixture": false,
+      "planned": 18,
+      "stopped": false,
+      "calls": 18,
+      "fixtureCalls": 0,
+      "costUsd": 0.0020984,
+      "results": [
+        {
+          "case": "ack-0",
+          "window": "32k",
+          "fixture": false,
+          "sourceHash": "jcs-sha256:v1:4779aab57c6b65449b91aea4a84a5b36f998442fcc6c4b7c2864568bd36ccee1",
+          "rows": [
+            {
+              "inputHash": "jcs-sha256:v1:a65811e8009352db9cf421fe3dab70b9cc78930a928caa611e38fa5053d8be03",
+              "inputBound": 1376,
+              "status": "returned",
+              "usage": {
+                "inputTokens": {
+                  "total": 537,
+                  "noCache": 537,
+                  "cacheRead": 0
+                },
+                "outputTokens": {
+                  "total": 38,
+                  "text": 38,
+                  "reasoning": 0
+                },
+                "raw": {
+                  "prompt_tokens": 537,
+                  "completion_tokens": 38,
+                  "total_tokens": 575,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 0,
+                    "audio_tokens": 0,
+                    "video_tokens": 0
+                  },
+                  "completion_tokens_details": {
+                    "reasoning_tokens": 0,
+                    "image_tokens": 0
+                  },
+                  "cache_creation_input_tokens": 0
+                }
+              },
+              "outputHash": "jcs-sha256:v1:5a8a1e9ba7e71c44dfc1430f565492581695dc90927e566df9c53fa081f5a1a6",
+              "durationMs": 3282.2434580000004
+            }
+          ],
+          "checks": {
+            "completed": false,
+            "singleCall": true,
+            "saved": true,
+            "conflicts": true,
+            "confirmation": true,
+            "uncertain": true
+          },
+          "passed": false
+        },
+        {
+          "case": "ack-1",
+          "window": "32k",
+          "fixture": false,
+          "sourceHash": "jcs-sha256:v1:50b2074712df3fd4eecb249f746573bae3c9120f5e87b66a69e1cf61f52389bb",
+          "rows": [
+            {
+              "inputHash": "jcs-sha256:v1:9ba6c467329fffe7dff8bd2ac5d7955bd5ff78022d7aa36c774fb5e4abb5909b",
+              "inputBound": 1376,
+              "status": "returned",
+              "usage": {
+                "inputTokens": {
+                  "total": 537,
+                  "noCache": 537,
+                  "cacheRead": 0
+                },
+                "outputTokens": {
+                  "total": 24,
+                  "text": 24,
+                  "reasoning": 0
+                },
+                "raw": {
+                  "prompt_tokens": 537,
+                  "completion_tokens": 24,
+                  "total_tokens": 561,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 0,
+                    "audio_tokens": 0,
+                    "video_tokens": 0
+                  },
+                  "completion_tokens_details": {
+                    "reasoning_tokens": 0,
+                    "image_tokens": 0
+                  },
+                  "cache_creation_input_tokens": 0
+                }
+              },
+              "outputHash": "jcs-sha256:v1:70d6294084731a9c321525e8907df3e205969a962196e97c68cf2ff4d64a5b09",
+              "durationMs": 1478.8137079999997
+            }
+          ],
+          "checks": {
+            "completed": false,
+            "singleCall": true,
+            "saved": true,
+            "conflicts": true,
+            "confirmation": true,
+            "uncertain": true
+          },
+          "passed": false
+        },
+        {
+          "case": "web-only",
+          "window": "32k",
+          "fixture": false,
+          "sourceHash": "jcs-sha256:v1:cc9bf14e296bd960410d6d7695e0e39913229a1b7dd34adf3376c910e6def0f4",
+          "rows": [
+            {
+              "inputHash": "jcs-sha256:v1:8340cf74dd96c86f4782d106b6ab4d193fbf98016214eeaaf7666fd6c88e6fbf",
+              "inputBound": 1399,
+              "status": "returned",
+              "usage": {
+                "inputTokens": {
+                  "total": 546,
+                  "noCache": 546,
+                  "cacheRead": 0
+                },
+                "outputTokens": {
+                  "total": 23,
+                  "text": 23,
+                  "reasoning": 0
+                },
+                "raw": {
+                  "prompt_tokens": 546,
+                  "completion_tokens": 23,
+                  "total_tokens": 569,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 0,
+                    "audio_tokens": 0,
+                    "video_tokens": 0
+                  },
+                  "completion_tokens_details": {
+                    "reasoning_tokens": 0,
+                    "image_tokens": 0
+                  },
+                  "cache_creation_input_tokens": 0
+                }
+              },
+              "outputHash": "jcs-sha256:v1:a489a2e8d9fbd9d6ee73b081edf514bdd9284a93f8d1cdd19b1ed8f9f3c50104",
+              "durationMs": 1338.1476670000002
+            }
+          ],
+          "checks": {
+            "completed": true,
+            "singleCall": true,
+            "saved": true,
+            "conflicts": true,
+            "confirmation": true,
+            "uncertain": true
+          },
+          "passed": true
+        },
+        {
+          "case": "tool-only",
+          "window": "32k",
+          "fixture": false,
+          "sourceHash": "jcs-sha256:v1:e8312d1611747845c4da7ab32629c3d00dfb18a038cfc5856058c6dfef45b956",
+          "rows": [
+            {
+              "inputHash": "jcs-sha256:v1:e3c2ef96a76b147437f61072f1fecd34917e6e72cc2aa9d9c3a97cbeae889d32",
+              "inputBound": 1399,
+              "status": "returned",
+              "usage": {
+                "inputTokens": {
+                  "total": 545,
+                  "noCache": 545,
+                  "cacheRead": 0
+                },
+                "outputTokens": {
+                  "total": 24,
+                  "text": 24,
+                  "reasoning": 0
+                },
+                "raw": {
+                  "prompt_tokens": 545,
+                  "completion_tokens": 24,
+                  "total_tokens": 569,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 0,
+                    "audio_tokens": 0,
+                    "video_tokens": 0
+                  },
+                  "completion_tokens_details": {
+                    "reasoning_tokens": 0,
+                    "image_tokens": 0
+                  },
+                  "cache_creation_input_tokens": 0
+                }
+              },
+              "outputHash": "jcs-sha256:v1:70d6294084731a9c321525e8907df3e205969a962196e97c68cf2ff4d64a5b09",
+              "durationMs": 1312.0278749999998
+            }
+          ],
+          "checks": {
+            "completed": false,
+            "singleCall": true,
+            "saved": true,
+            "conflicts": true,
+            "confirmation": true,
+            "uncertain": true
+          },
+          "passed": false
+        },
+        {
+          "case": "confirmation",
+          "window": "32k",
+          "fixture": false,
+          "sourceHash": "jcs-sha256:v1:e248e60b4bf3f98f35d938f5a6e2485f28955b9ef236bff30e3f177ebbe0bb4a",
+          "rows": [
+            {
+              "inputHash": "jcs-sha256:v1:ff50acb8a59d4b84da9f6f6dd7a2d2a95be1e50d180c07d8c5baf9a9352186cd",
+              "inputBound": 1380,
+              "status": "returned",
+              "usage": {
+                "inputTokens": {
+                  "total": 541,
+                  "noCache": 541,
+                  "cacheRead": 0
+                },
+                "outputTokens": {
+                  "total": 83,
+                  "text": 83,
+                  "reasoning": 0
+                },
+                "raw": {
+                  "prompt_tokens": 541,
+                  "completion_tokens": 83,
+                  "total_tokens": 624,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 0,
+                    "audio_tokens": 0,
+                    "video_tokens": 0
+                  },
+                  "completion_tokens_details": {
+                    "reasoning_tokens": 0,
+                    "image_tokens": 0
+                  },
+                  "cache_creation_input_tokens": 0
+                }
+              },
+              "outputHash": "jcs-sha256:v1:4a87a1f674698c4b389ed9e9f804373b9490c018d5c405d4a698a65d50703486",
+              "durationMs": 1760.6710829999993
+            }
+          ],
+          "checks": {
+            "completed": false,
+            "singleCall": true,
+            "saved": false,
+            "conflicts": true,
+            "confirmation": false,
+            "uncertain": true
+          },
+          "passed": false
+        },
+        {
+          "case": "conflict",
+          "window": "32k",
+          "fixture": false,
+          "sourceHash": "jcs-sha256:v1:244d94c350aaa7af8736ac9a295f5182e78249bdd5910716fe93edd9d495df51",
+          "rows": [
+            {
+              "inputHash": "jcs-sha256:v1:b62d794bc02a2ec04fbbdac90fe9481340d53abacfb1083194ca88f86f80edf6",
+              "inputBound": 1383,
+              "status": "returned",
+              "usage": {
+                "inputTokens": {
+                  "total": 549,
+                  "noCache": 549,
+                  "cacheRead": 0
+                },
+                "outputTokens": {
+                  "total": 143,
+                  "text": 143,
+                  "reasoning": 0
+                },
+                "raw": {
+                  "prompt_tokens": 549,
+                  "completion_tokens": 143,
+                  "total_tokens": 692,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 0,
+                    "audio_tokens": 0,
+                    "video_tokens": 0
+                  },
+                  "completion_tokens_details": {
+                    "reasoning_tokens": 0,
+                    "image_tokens": 0
+                  },
+                  "cache_creation_input_tokens": 0
+                }
+              },
+              "outputHash": "jcs-sha256:v1:51b8822b69d935c74c4b156915b3bc088734cbff314280001416d8d7dd835f64",
+              "durationMs": 1798.4871249999997
+            }
+          ],
+          "checks": {
+            "completed": false,
+            "singleCall": true,
+            "saved": false,
+            "conflicts": false,
+            "confirmation": true,
+            "uncertain": true
+          },
+          "passed": false
+        },
+        {
+          "case": "independent",
+          "window": "32k",
+          "fixture": false,
+          "sourceHash": "jcs-sha256:v1:b522ab765634cb86560e806a50424899fedd16c85b04b9da3c33f30a3676ae5d",
+          "rows": [
+            {
+              "inputHash": "jcs-sha256:v1:7df85732369078c97180ba5e97dc4f7db3c26e44b8fa022008ebd16dc012cb7c",
+              "inputBound": 1383,
+              "status": "returned",
+              "usage": {
+                "inputTokens": {
+                  "total": 551,
+                  "noCache": 551,
+                  "cacheRead": 0
+                },
+                "outputTokens": {
+                  "total": 145,
+                  "text": 145,
+                  "reasoning": 0
+                },
+                "raw": {
+                  "prompt_tokens": 551,
+                  "completion_tokens": 145,
+                  "total_tokens": 696,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 0,
+                    "audio_tokens": 0,
+                    "video_tokens": 0
+                  },
+                  "completion_tokens_details": {
+                    "reasoning_tokens": 0,
+                    "image_tokens": 0
+                  },
+                  "cache_creation_input_tokens": 0
+                }
+              },
+              "outputHash": "jcs-sha256:v1:0ebe2180cdd2d266574aee4aa841be62dd978b11b0b955984d3513caf9e4ec59",
+              "durationMs": 1845.6511659999996
+            }
+          ],
+          "checks": {
+            "completed": false,
+            "singleCall": true,
+            "saved": false,
+            "conflicts": true,
+            "confirmation": true,
+            "uncertain": true
+          },
+          "passed": false
+        },
+        {
+          "case": "uncertain",
+          "window": "32k",
+          "fixture": false,
+          "sourceHash": "jcs-sha256:v1:222bd528446ea431540490391b56cea0c5ee3d1024fa95f09e50a699e37b0128",
+          "rows": [
+            {
+              "inputHash": "jcs-sha256:v1:b60f7b7b90645a52d84a8905585b898a98dac2fa1bed0a62d24e5d59c310e122",
+              "inputBound": 1281,
+              "status": "returned",
+              "usage": {
+                "inputTokens": {
+                  "total": 495,
+                  "noCache": 495,
+                  "cacheRead": 0
+                },
+                "outputTokens": {
+                  "total": 57,
+                  "text": 57,
+                  "reasoning": 0
+                },
+                "raw": {
+                  "prompt_tokens": 495,
+                  "completion_tokens": 57,
+                  "total_tokens": 552,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 0,
+                    "audio_tokens": 0,
+                    "video_tokens": 0
+                  },
+                  "completion_tokens_details": {
+                    "reasoning_tokens": 0,
+                    "image_tokens": 0
+                  },
+                  "cache_creation_input_tokens": 0
+                }
+              },
+              "outputHash": "jcs-sha256:v1:0ec01103d216ee9638eb088f331334e9368cfb7962c226bafbc167bc6cadd999",
+              "durationMs": 1493.1219999999994
+            }
+          ],
+          "checks": {
+            "completed": false,
+            "singleCall": true,
+            "saved": false,
+            "conflicts": true,
+            "confirmation": true,
+            "uncertain": false
+          },
+          "passed": false
+        },
+        {
+          "case": "replay-9",
+          "window": "32k",
+          "fixture": false,
+          "sourceHash": "jcs-sha256:v1:007fa276fa85226d313b68445e733901050b8357f74f8b2f85f4c77c307d7087",
+          "rows": [
+            {
+              "inputHash": "jcs-sha256:v1:69936e1a0e2e7674e963d186d5e78d2632f00a6ff1de6cc04e2eb6d9e6fce679",
+              "inputBound": 2157,
+              "status": "returned",
+              "usage": {
+                "inputTokens": {
+                  "total": 1308,
+                  "noCache": 1308,
+                  "cacheRead": 0
+                },
+                "outputTokens": {
+                  "total": 216,
+                  "text": 216,
+                  "reasoning": 0
+                },
+                "raw": {
+                  "prompt_tokens": 1308,
+                  "completion_tokens": 216,
+                  "total_tokens": 1524,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 0,
+                    "audio_tokens": 0,
+                    "video_tokens": 0
+                  },
+                  "completion_tokens_details": {
+                    "reasoning_tokens": 0,
+                    "image_tokens": 0
+                  },
+                  "cache_creation_input_tokens": 0
+                }
+              },
+              "outputHash": "jcs-sha256:v1:08a92f7c531928b5322a923bffc9a28c15bb253e19930191492b10f43d3832f3",
+              "durationMs": 2623.969791999998
+            }
+          ],
+          "checks": {
+            "completed": false,
+            "singleCall": true,
+            "saved": true,
+            "conflicts": true,
+            "confirmation": true,
+            "uncertain": true
+          },
+          "passed": false
+        },
+        {
+          "case": "ack-0",
+          "window": "daily",
+          "fixture": false,
+          "sourceHash": "jcs-sha256:v1:4779aab57c6b65449b91aea4a84a5b36f998442fcc6c4b7c2864568bd36ccee1",
+          "rows": [
+            {
+              "inputHash": "jcs-sha256:v1:a65811e8009352db9cf421fe3dab70b9cc78930a928caa611e38fa5053d8be03",
+              "inputBound": 1376,
+              "status": "returned",
+              "usage": {
+                "inputTokens": {
+                  "total": 537,
+                  "noCache": 153,
+                  "cacheRead": 384
+                },
+                "outputTokens": {
+                  "total": 24,
+                  "text": 24,
+                  "reasoning": 0
+                },
+                "raw": {
+                  "prompt_tokens": 537,
+                  "completion_tokens": 24,
+                  "total_tokens": 561,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 384,
+                    "audio_tokens": 0,
+                    "video_tokens": 0
+                  },
+                  "completion_tokens_details": {
+                    "reasoning_tokens": 0,
+                    "image_tokens": 0
+                  },
+                  "cache_creation_input_tokens": 0
+                }
+              },
+              "outputHash": "jcs-sha256:v1:70d6294084731a9c321525e8907df3e205969a962196e97c68cf2ff4d64a5b09",
+              "durationMs": 1617.1006659999985
+            }
+          ],
+          "checks": {
+            "completed": false,
+            "singleCall": true,
+            "saved": true,
+            "conflicts": true,
+            "confirmation": true,
+            "uncertain": true
+          },
+          "passed": false
+        },
+        {
+          "case": "ack-1",
+          "window": "daily",
+          "fixture": false,
+          "sourceHash": "jcs-sha256:v1:50b2074712df3fd4eecb249f746573bae3c9120f5e87b66a69e1cf61f52389bb",
+          "rows": [
+            {
+              "inputHash": "jcs-sha256:v1:9ba6c467329fffe7dff8bd2ac5d7955bd5ff78022d7aa36c774fb5e4abb5909b",
+              "inputBound": 1376,
+              "status": "returned",
+              "usage": {
+                "inputTokens": {
+                  "total": 537,
+                  "noCache": 153,
+                  "cacheRead": 384
+                },
+                "outputTokens": {
+                  "total": 24,
+                  "text": 24,
+                  "reasoning": 0
+                },
+                "raw": {
+                  "prompt_tokens": 537,
+                  "completion_tokens": 24,
+                  "total_tokens": 561,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 384,
+                    "audio_tokens": 0,
+                    "video_tokens": 0
+                  },
+                  "completion_tokens_details": {
+                    "reasoning_tokens": 0,
+                    "image_tokens": 0
+                  },
+                  "cache_creation_input_tokens": 0
+                }
+              },
+              "outputHash": "jcs-sha256:v1:70d6294084731a9c321525e8907df3e205969a962196e97c68cf2ff4d64a5b09",
+              "durationMs": 1334.9272500000006
+            }
+          ],
+          "checks": {
+            "completed": false,
+            "singleCall": true,
+            "saved": true,
+            "conflicts": true,
+            "confirmation": true,
+            "uncertain": true
+          },
+          "passed": false
+        },
+        {
+          "case": "web-only",
+          "window": "daily",
+          "fixture": false,
+          "sourceHash": "jcs-sha256:v1:cc9bf14e296bd960410d6d7695e0e39913229a1b7dd34adf3376c910e6def0f4",
+          "rows": [
+            {
+              "inputHash": "jcs-sha256:v1:8340cf74dd96c86f4782d106b6ab4d193fbf98016214eeaaf7666fd6c88e6fbf",
+              "inputBound": 1399,
+              "status": "returned",
+              "usage": {
+                "inputTokens": {
+                  "total": 546,
+                  "noCache": 162,
+                  "cacheRead": 384
+                },
+                "outputTokens": {
+                  "total": 24,
+                  "text": 24,
+                  "reasoning": 0
+                },
+                "raw": {
+                  "prompt_tokens": 546,
+                  "completion_tokens": 24,
+                  "total_tokens": 570,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 384,
+                    "audio_tokens": 0,
+                    "video_tokens": 0
+                  },
+                  "completion_tokens_details": {
+                    "reasoning_tokens": 0,
+                    "image_tokens": 0
+                  },
+                  "cache_creation_input_tokens": 0
+                }
+              },
+              "outputHash": "jcs-sha256:v1:70d6294084731a9c321525e8907df3e205969a962196e97c68cf2ff4d64a5b09",
+              "durationMs": 1403.1395420000008
+            }
+          ],
+          "checks": {
+            "completed": false,
+            "singleCall": true,
+            "saved": true,
+            "conflicts": true,
+            "confirmation": true,
+            "uncertain": true
+          },
+          "passed": false
+        },
+        {
+          "case": "tool-only",
+          "window": "daily",
+          "fixture": false,
+          "sourceHash": "jcs-sha256:v1:e8312d1611747845c4da7ab32629c3d00dfb18a038cfc5856058c6dfef45b956",
+          "rows": [
+            {
+              "inputHash": "jcs-sha256:v1:e3c2ef96a76b147437f61072f1fecd34917e6e72cc2aa9d9c3a97cbeae889d32",
+              "inputBound": 1399,
+              "status": "returned",
+              "usage": {
+                "inputTokens": {
+                  "total": 545,
+                  "noCache": 161,
+                  "cacheRead": 384
+                },
+                "outputTokens": {
+                  "total": 23,
+                  "text": 23,
+                  "reasoning": 0
+                },
+                "raw": {
+                  "prompt_tokens": 545,
+                  "completion_tokens": 23,
+                  "total_tokens": 568,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 384,
+                    "audio_tokens": 0,
+                    "video_tokens": 0
+                  },
+                  "completion_tokens_details": {
+                    "reasoning_tokens": 0,
+                    "image_tokens": 0
+                  },
+                  "cache_creation_input_tokens": 0
+                }
+              },
+              "outputHash": "jcs-sha256:v1:a489a2e8d9fbd9d6ee73b081edf514bdd9284a93f8d1cdd19b1ed8f9f3c50104",
+              "durationMs": 1443.9439999999995
+            }
+          ],
+          "checks": {
+            "completed": true,
+            "singleCall": true,
+            "saved": true,
+            "conflicts": true,
+            "confirmation": true,
+            "uncertain": true
+          },
+          "passed": true
+        },
+        {
+          "case": "confirmation",
+          "window": "daily",
+          "fixture": false,
+          "sourceHash": "jcs-sha256:v1:e248e60b4bf3f98f35d938f5a6e2485f28955b9ef236bff30e3f177ebbe0bb4a",
+          "rows": [
+            {
+              "inputHash": "jcs-sha256:v1:ff50acb8a59d4b84da9f6f6dd7a2d2a95be1e50d180c07d8c5baf9a9352186cd",
+              "inputBound": 1380,
+              "status": "returned",
+              "usage": {
+                "inputTokens": {
+                  "total": 541,
+                  "noCache": 157,
+                  "cacheRead": 384
+                },
+                "outputTokens": {
+                  "total": 78,
+                  "text": 78,
+                  "reasoning": 0
+                },
+                "raw": {
+                  "prompt_tokens": 541,
+                  "completion_tokens": 78,
+                  "total_tokens": 619,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 384,
+                    "audio_tokens": 0,
+                    "video_tokens": 0
+                  },
+                  "completion_tokens_details": {
+                    "reasoning_tokens": 0,
+                    "image_tokens": 0
+                  },
+                  "cache_creation_input_tokens": 0
+                }
+              },
+              "outputHash": "jcs-sha256:v1:6e948c1857b553562d32fa26e906b3b03ab9682b43bd95e1a41d0566d7d9cd94",
+              "durationMs": 1639.6186669999988
+            }
+          ],
+          "checks": {
+            "completed": false,
+            "singleCall": true,
+            "saved": false,
+            "conflicts": true,
+            "confirmation": false,
+            "uncertain": true
+          },
+          "passed": false
+        },
+        {
+          "case": "conflict",
+          "window": "daily",
+          "fixture": false,
+          "sourceHash": "jcs-sha256:v1:244d94c350aaa7af8736ac9a295f5182e78249bdd5910716fe93edd9d495df51",
+          "rows": [
+            {
+              "inputHash": "jcs-sha256:v1:b62d794bc02a2ec04fbbdac90fe9481340d53abacfb1083194ca88f86f80edf6",
+              "inputBound": 1383,
+              "status": "returned",
+              "usage": {
+                "inputTokens": {
+                  "total": 549,
+                  "noCache": 165,
+                  "cacheRead": 384
+                },
+                "outputTokens": {
+                  "total": 151,
+                  "text": 151,
+                  "reasoning": 0
+                },
+                "raw": {
+                  "prompt_tokens": 549,
+                  "completion_tokens": 151,
+                  "total_tokens": 700,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 384,
+                    "audio_tokens": 0,
+                    "video_tokens": 0
+                  },
+                  "completion_tokens_details": {
+                    "reasoning_tokens": 0,
+                    "image_tokens": 0
+                  },
+                  "cache_creation_input_tokens": 0
+                }
+              },
+              "outputHash": "jcs-sha256:v1:812a9a95e55f11dd9327905f983cefab9a2bb2a4949a549071d62fe13d219cdf",
+              "durationMs": 1981.3665839999994
+            }
+          ],
+          "checks": {
+            "completed": false,
+            "singleCall": true,
+            "saved": false,
+            "conflicts": false,
+            "confirmation": true,
+            "uncertain": true
+          },
+          "passed": false
+        },
+        {
+          "case": "independent",
+          "window": "daily",
+          "fixture": false,
+          "sourceHash": "jcs-sha256:v1:b522ab765634cb86560e806a50424899fedd16c85b04b9da3c33f30a3676ae5d",
+          "rows": [
+            {
+              "inputHash": "jcs-sha256:v1:7df85732369078c97180ba5e97dc4f7db3c26e44b8fa022008ebd16dc012cb7c",
+              "inputBound": 1383,
+              "status": "returned",
+              "usage": {
+                "inputTokens": {
+                  "total": 551,
+                  "noCache": 167,
+                  "cacheRead": 384
+                },
+                "outputTokens": {
+                  "total": 133,
+                  "text": 133,
+                  "reasoning": 0
+                },
+                "raw": {
+                  "prompt_tokens": 551,
+                  "completion_tokens": 133,
+                  "total_tokens": 684,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 384,
+                    "audio_tokens": 0,
+                    "video_tokens": 0
+                  },
+                  "completion_tokens_details": {
+                    "reasoning_tokens": 0,
+                    "image_tokens": 0
+                  },
+                  "cache_creation_input_tokens": 0
+                }
+              },
+              "outputHash": "jcs-sha256:v1:79f8886d18e561b6ec0c193b2cc3cea0c8786f4487f505ab9be468afa3ee3f8b",
+              "durationMs": 1763.4394580000007
+            }
+          ],
+          "checks": {
+            "completed": false,
+            "singleCall": true,
+            "saved": false,
+            "conflicts": true,
+            "confirmation": true,
+            "uncertain": true
+          },
+          "passed": false
+        },
+        {
+          "case": "uncertain",
+          "window": "daily",
+          "fixture": false,
+          "sourceHash": "jcs-sha256:v1:222bd528446ea431540490391b56cea0c5ee3d1024fa95f09e50a699e37b0128",
+          "rows": [
+            {
+              "inputHash": "jcs-sha256:v1:b60f7b7b90645a52d84a8905585b898a98dac2fa1bed0a62d24e5d59c310e122",
+              "inputBound": 1281,
+              "status": "returned",
+              "usage": {
+                "inputTokens": {
+                  "total": 495,
+                  "noCache": 239,
+                  "cacheRead": 256
+                },
+                "outputTokens": {
+                  "total": 103,
+                  "text": 103,
+                  "reasoning": 0
+                },
+                "raw": {
+                  "prompt_tokens": 495,
+                  "completion_tokens": 103,
+                  "total_tokens": 598,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 256,
+                    "audio_tokens": 0,
+                    "video_tokens": 0
+                  },
+                  "completion_tokens_details": {
+                    "reasoning_tokens": 0,
+                    "image_tokens": 0
+                  },
+                  "cache_creation_input_tokens": 0
+                }
+              },
+              "outputHash": "jcs-sha256:v1:37e08508d6ab1c352a1f75d737726577724a7ea1eb6751ca588bb462eac05da4",
+              "durationMs": 1810.8588329999984
+            }
+          ],
+          "checks": {
+            "completed": false,
+            "singleCall": true,
+            "saved": false,
+            "conflicts": true,
+            "confirmation": true,
+            "uncertain": false
+          },
+          "passed": false
+        },
+        {
+          "case": "replay-9",
+          "window": "daily",
+          "fixture": false,
+          "sourceHash": "jcs-sha256:v1:007fa276fa85226d313b68445e733901050b8357f74f8b2f85f4c77c307d7087",
+          "rows": [
+            {
+              "inputHash": "jcs-sha256:v1:69936e1a0e2e7674e963d186d5e78d2632f00a6ff1de6cc04e2eb6d9e6fce679",
+              "inputBound": 2157,
+              "status": "returned",
+              "usage": {
+                "inputTokens": {
+                  "total": 1308,
+                  "noCache": 156,
+                  "cacheRead": 1152
+                },
+                "outputTokens": {
+                  "total": 199,
+                  "text": 199,
+                  "reasoning": 0
+                },
+                "raw": {
+                  "prompt_tokens": 1308,
+                  "completion_tokens": 199,
+                  "total_tokens": 1507,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 1152,
+                    "audio_tokens": 0,
+                    "video_tokens": 0
+                  },
+                  "completion_tokens_details": {
+                    "reasoning_tokens": 0,
+                    "image_tokens": 0
+                  },
+                  "cache_creation_input_tokens": 0
+                }
+              },
+              "outputHash": "jcs-sha256:v1:39905d56b8ac63d25200dffcdd8ae1a951616ed461127ac9c673487e88581142",
+              "durationMs": 2175.159917000001
+            }
+          ],
+          "checks": {
+            "completed": false,
+            "singleCall": true,
+            "saved": true,
+            "conflicts": true,
+            "confirmation": true,
+            "uncertain": true
+          },
+          "passed": false
+        }
+      ]
+    },
+    {
+      "suite": "CF03",
+      "rounds": [],
+      "passed": false
+    }
+  ],
+  "error": {
+    "name": "Error",
+    "message": "Summary rejected in CF03"
+  },
+  "finishedAt": "2026-10-21T10:33:37.002Z",
+  "passed": false,
+  "temporaryDirectoryRemoved": true
+}

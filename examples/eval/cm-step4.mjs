@@ -77,7 +77,7 @@ export async function evaluateM1({ cases = m1Cases(), model, outputDirectory }) 
             conflicts: v6Conflicts(entries).length === (fixture.conflicts ?? 0),
             confirmation: !fixture.confirmed || entries.some(entry => entry.sources.some(item => item.proposal)),
             uncertain: !fixture.uncertain || entries.some(entry => entry.uncertain && entry.text === fixture.messages[0].parts[0].text) };
-          results.push({ case: fixture.id, window, fixture: !model, sourceHash: hashCanonicalJson(fixture.messages), rows, checks, passed: Object.values(checks).every(Boolean) });
+          results.push({ case: fixture.id, window, fixture: !model, sourceHash: hashCanonicalJson(fixture.messages), rows, diagnostics: extraction.diagnostics(), checks, passed: Object.values(checks).every(Boolean) });
         } finally { mock.timers.reset(); await extraction.close(); }
         if (fatal) break windows;
       }

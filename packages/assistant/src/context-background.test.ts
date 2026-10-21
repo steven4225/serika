@@ -179,3 +179,20 @@ test("a complete proportional block below the physical window retains every ordi
     assert.equal(compactor.backgroundError, undefined); assert.ok(seen); assert.equal((await store.getContextCompactions("t")).length, 1);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+test("extraction gives the model its exact schema and accepts one complete fenced JSON response without a retry", async () => {
+  const root = await mkdtemp(join(tmpdir(), "cm6-extraction-format-"));
+  try {
+    const store = createMemoryStore(root), messages = [msg("u", "user", "嗯")]; let calls = 0;
+    const model = new MockLanguageModelV3({ doGenerate: async ({ prompt }) => {
+      calls++; const text = JSON.stringify(prompt);
+      assert.match(text, /Exact response JSON Schema/); assert.match(text, /no_memory/); assert.match(text, /sourceMessageId/);
+      return { content: [{ type: "text", text: '```json\n{"proposals":[],"outcomes":[{"messageId":"u","status":"no_memory"}]}\n```' }],
+        finishReason: { unified: "stop", raw: undefined }, usage: { inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 1, text: 1, reasoning: undefined } }, warnings: [] };
+    } });
+    const extraction = createMemoryExtraction({ store, threadId: "t", getMessages: async () => messages, model, budget: budgets[0]!, updated() {} });
+    extraction.afterMask("u"); extraction.idle(); await settle(() => !extraction.diagnostics().running); await extraction.pause();
+    assert.equal(calls, 1); assert.equal(extraction.diagnostics().completed, 1); assert.equal(extraction.diagnostics().failed, 0);
+    await extraction.close();
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

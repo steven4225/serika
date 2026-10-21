@@ -3,7 +3,8 @@
   "currency": "USD",
   "limits": {
     "perStep": 1,
-    "entirePlan": 5
+    "entirePlan": 5,
+    "combinedSteps4To6": 2
   },
   "openingBalance": {
     "amount": 0.36,
@@ -16,7 +17,17 @@
       "amount": 0,
       "evidence": "electron-smoke/result.json",
       "evidenceSha256": "f4ca3de799438b69c423f04f38a5f2ed0b02632c57785a3e8f1842adf5dabfe9"
+    },
+    {
+      "step": "4-6",
+      "runId": "046c057c-16de-46aa-8059-3c8cb0a7bc30",
+      "realModelRequests": 21,
+      "amount": 0.02199946,
+      "unresolvedCalls": 0,
+      "unresolvedReservedUsd": 0,
+      "evidence": "cm-step6/live.json",
+      "evidenceSha256": "c20e6855c12826227953cebba918b5fea3c17b38d0f083ba4d19c7df7ad98278"
     }
   ],
-  "total": 0.36
+  "total": 0.38199945999999996
 }

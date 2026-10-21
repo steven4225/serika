@@ -43,6 +43,12 @@ export async function meteredModel(model, path, scope) {
       maxOutputTokens: params.maxOutputTokens, reservedUsd: reserve, usage: null };
     report.calls.push(row); await save(); return row;
   };
+  const outputShape = text => {
+    const encoded = /```(?:json)?\s*([\s\S]*?)\s*```/i.exec(text)?.[1] ?? text;
+    const shape = value => Array.isArray(value) ? value.map(shape) : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, shape(item)])) : typeof value;
+    try { return { encoding: encoded === text ? 'json' : 'fenced-json', shape: shape(JSON.parse(encoded)) }; }
+    catch { return { encoding: 'non-json', chars: text.length }; }
+  };
   const finish = async (row, usage) => {
     const input = usage?.inputTokens?.total, output = usage?.outputTokens?.total, cached = usage?.inputTokens?.cacheRead;
     if (![input, output].every(value => Number.isSafeInteger(value) && value >= 0) || cached !== undefined && (!Number.isSafeInteger(cached) || cached < 0 || cached > input)) {
@@ -59,17 +65,18 @@ export async function meteredModel(model, path, scope) {
   return wrapLanguageModel({ model, middleware: {
     wrapGenerate: async ({ doGenerate, params }) => {
       const row = await begin(params);
-      try { const result = await doGenerate(); await finish(row, result.usage); return result; }
+      try { const result = await doGenerate(); row.output = outputShape(result.content.filter(part => part.type === 'text').map(part => part.text).join("\n")); await finish(row, result.usage); return result; }
       catch { await failed(row); throw new Error('Provider invocation failed; batch stopped (details redacted)'); }
     },
     wrapStream: async ({ doStream, params }) => {
       const row = await begin(params);
       try {
-        const result = await doStream(); let finished = false;
+        const result = await doStream(); let finished = false, text = "";
         return { ...result, stream: result.stream.pipeThrough(new TransformStream({
           async transform(chunk, controller) {
+            if (chunk.type === 'text-delta') text += chunk.delta;
             if (chunk.type === 'error') { await failed(row); throw new Error('Provider stream failed; batch stopped'); }
-            if (chunk.type === 'finish') { await finish(row, chunk.usage); finished = true; }
+            if (chunk.type === 'finish') { row.output = outputShape(text); await finish(row, chunk.usage); finished = true; }
             controller.enqueue(chunk);
           },
           async flush() { if (!finished) { await failed(row); throw new Error('Provider stream ended without usage'); } },
@@ -126,7 +133,18 @@ async function main() {
   if (!cold) {
     assert.ok(process.argv.includes('--approved-live'), 'Approved live opt-in required');
     assert.equal(git('status', '--porcelain'), '', 'Commit and verify source before paid acceptance');
-    try { await readFile(evidencePath); throw new Error('Existing batch cannot be rerun under the same approval'); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    let previous;
+    try { previous = JSON.parse(await readFile(evidencePath, 'utf8')); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    if (previous) {
+      assert.ok(process.argv.includes('--continue-approved-batch'), 'Existing batch requires explicit continuation flag');
+      assert.equal(previous.stopped, false); assert.ok(previous.costUsd < limit);
+      assert.ok(previous.calls.every(call => call.status === 'returned'), 'Unknown-use batch cannot continue');
+      previous.previousOutcomes ??= [];
+      previous.previousOutcomes.push({ sourceCommit: previous.sourceCommit, finishedAt: previous.finishedAt, results: previous.results, error: previous.error, passed: previous.passed });
+      previous.sourceCommit = git('rev-parse', 'HEAD'); previous.scriptSha256 = sha(await readFile(script));
+      previous.results = []; delete previous.error; delete previous.finishedAt;
+      await writeFile(evidencePath, JSON.stringify(previous, null, 2));
+    }
     const root = await mkdtemp(join(tmpdir(), 'cm6-live-'));
     process.env.SERIKA_CM6_ROOT = root;
     process.env.SERIKA_CM6_ENV = join(root, 'model.env');
@@ -135,7 +153,7 @@ async function main() {
     const isolated = Object.fromEntries(names.filter(name => sourceEnv[name] !== undefined).map(name => [name, sourceEnv[name]]));
     await writeFile(process.env.SERIKA_CM6_ENV, Object.entries(isolated).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join('\n'), { mode: 0o600 });
     await mkdir(dirname(evidencePath), { recursive: true });
-    await writeFile(evidencePath, JSON.stringify({ runId: randomUUID(), startedAt: new Date().toISOString(), sourceCommit: git('rev-parse', 'HEAD'), sourceWorktreeDirty: false,
+    if (!previous) await writeFile(evidencePath, JSON.stringify({ runId: randomUUID(), startedAt: new Date().toISOString(), sourceCommit: git('rev-parse', 'HEAD'), sourceWorktreeDirty: false,
       scriptSha256: sha(await readFile(script)), platform: process.platform, parentPid: process.pid, approval: 'Combined steps 4-6; current local env authorized by user',
       quotedUsdPerMillion: price, budgetUsd: limit, openingPlanCostUsd: opening, costUsd: 0, calls: [], stopped: false, results: [] }, null, 2));
   }
@@ -175,7 +193,7 @@ async function main() {
         const foregroundAuxiliaryCalls = JSON.parse(await readFile(evidencePath, 'utf8')).calls.length - before;
         assert.equal(foregroundAuxiliaryCalls, 0);
         assert.match(JSON.stringify(projection), /masked pending/);
-        while (compactor.pending) { await compactor.runPending(AbortSignal.timeout(120000)); if (compactor.backgroundError) throw new Error(`Summary rejected in ${id}`); }
+        while (compactor.pending) { await compactor.runPending(AbortSignal.timeout(120000)); if (compactor.backgroundError) { caseResult.backgroundFailure = compactor.backgroundError; throw new Error(`Summary rejected in ${id}`); } }
         const records = await store.getContextCompactions('eval'), record = records.at(-1);
         assert.ok(record); const view = layerMessage(record), viewText = JSON.stringify(view);
         const bounds = blockLimits(spec.contextBudget);
@@ -209,6 +227,7 @@ async function main() {
   const ledgerPath = join(repo, 'docs/v2-pilot/evidence/cost-ledger.json');
   const ledger = JSON.parse(await readFile(ledgerPath, 'utf8'));
   ledger.limits.combinedSteps4To6 = 2;
+  ledger.entries = ledger.entries.filter(entry => entry.runId !== report.runId);
   ledger.entries.push({ step: '4-6', runId: report.runId, realModelRequests: report.calls.length, amount: report.costUsd,
     unresolvedCalls: report.calls.filter(call => call.status !== 'returned').length,
     unresolvedReservedUsd: report.calls.filter(call => call.status !== 'returned').reduce((sum, call) => sum + call.reservedUsd, 0),

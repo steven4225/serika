@@ -10,6 +10,7 @@ import type { V6Change, V6Document } from "./memory-v6-store.js";
 
 const responseSchema = z.object({ proposals: z.array(memoryWriteSchema.safeExtend({ sourceMessageId: z.string().min(1) })),
   outcomes: z.array(z.object({ messageId: z.string().min(1), status: z.enum(["extracted", "no_memory", "deferred"]) }).strict()) }).strict();
+const responseFormat = JSON.stringify(z.toJSONSchema(responseSchema));
 const IDLE_MS = 30 * 60 * 1000;
 const prefixHash = (messages: readonly UIMessage[], id: string) => hashCanonicalJson(JSON.parse(JSON.stringify(messages.slice(0, messages.findIndex(message => message.id === id) + 1))));
 export function extractionThreshold(config: ContextBudgetConfig): number {
@@ -93,6 +94,7 @@ export function createMemoryExtraction(options: { store: WorkspaceMemoryStore; t
       const eligibleIds = new Set(extractionMessages(selected).map(message => message.id));
       const prompt = originalBlock(selected.filter(message => eligibleIds.has(message.id)), { threadId: options.threadId, project: options.workspaceRoot ?? "current-workspace" }) + "\nTask: extract memory from the preceding original block.\n" + MEMORY_WRITE_RULES +
         "\nCurrent preferences and project notes: " + JSON.stringify(facts.map(({ id, revision, text, uncertain, category, identity, scope, sources }) => ({ id, revision, text, uncertain, category, identity, scope, sourceMessageIds: sources.flatMap(source => source.kind === "conversation" ? [source.messageId] : []) }))) +
+        "\nExact response JSON Schema (no extra fields; all required fields must be present): " + responseFormat +
         "\nOriginal message order: " + JSON.stringify(messages.map(message => message.id)) + ". Older replay sources must never replace or withdraw newer-source memories. Mark older same-attribute values as superseded by the newer memory. Only chronologically ambiguous values remain diagnostic conflicts.\nReturn ONLY {proposals,outcomes}; each proposal has sourceMessageId and memory_write fields. Return one outcome for EACH ordinary eligible user source in order: extracted, no_memory or deferred. extracted requires ALL durable information accounted for; partial coverage is deferred. No tools, retries or prose. Already attached exact sources need no duplicate proposal. Eligible user IDs: " + JSON.stringify(users.map(user => user.id));
       if (Math.ceil(prompt.length / 2) + options.budget.summaryMaxOutputTokens > availableInputTokens(options.budget)) throw new Error("抽取请求超过有效输入窗口，未调用模型");
       signal.signal.throwIfAborted(); dispatched = true; diagnostics.calls++;
@@ -100,8 +102,11 @@ export function createMemoryExtraction(options: { store: WorkspaceMemoryStore; t
         maxOutputTokens: options.budget.summaryMaxOutputTokens, abortSignal: AbortSignal.any([signal.signal, AbortSignal.timeout(30_000)]),
         providerOptions: { openaiCompatible: { thinking: { type: "disabled" }, reasoningEffort: "off" } } });
       signal.signal.throwIfAborted();
-      const parsed = responseSchema.safeParse(JSON.parse(response.text));
-      if (!parsed.success) throw new Error("抽取输出无效，未保存");
+      const encoded = /```(?:json)?\s*([\s\S]*?)\s*```/i.exec(response.text)?.[1] ?? response.text;
+      let decoded: unknown;
+      try { decoded = JSON.parse(encoded); } catch { throw new Error("抽取输出不是完整 JSON，未保存"); }
+      const parsed = responseSchema.safeParse(decoded);
+      if (!parsed.success) throw new Error("抽取输出格式无效，未保存：" + parsed.error.issues.map(issue => `${issue.path.join(".")}:${issue.code}`).join(","));
       if (JSON.stringify(parsed.data.outcomes.map(outcome => outcome.messageId)) !== JSON.stringify(users.map(user => user.id))) throw new Error("抽取覆盖顺序无效");
       const changes: V6Change[] = parsed.data.proposals.map(proposal => {
         const user = users.find(user => user.id === proposal.sourceMessageId); if (!user || !memoryText(user).includes(proposal.sourceQuote)) throw new Error("抽取来源越界");
