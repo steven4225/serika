@@ -1,12 +1,12 @@
 {
-  "runId": "5451daf9-b6a8-4c22-a30d-f5a55893cb5e",
-  "startedAt": "2026-10-21T10:28:40.070Z",
+  "runId": "650ababb-9dce-4cd6-8416-3ff6e073caa0",
+  "startedAt": "2026-10-21T10:36:10.886Z",
   "platform": "darwin",
   "process": {
     "node": "v26.4.0",
-    "pid": 1701
+    "pid": 18947
   },
-  "sourceCommit": "6605ee0d2da140259a1195f11eca453e6db79e99",
+  "sourceCommit": "ef2e3c91a33f6fa90facfc850a4da2c6229369d3",
   "sourceWorktreeDirty": false,
   "baseCommit": "a183ddf01c15b51da84b1cd861b9e66686e634fe",
   "scriptSha256": "3d89e1b316e8029ae89e3a652ff3cf9c5184cd44ed0ba837fc9382b072eacffd",
@@ -16,8 +16,8 @@
         "pnpm",
         "typecheck"
       ],
-      "startedAt": "2026-10-21T10:28:40.124Z",
-      "finishedAt": "2026-10-21T10:28:40.923Z",
+      "startedAt": "2026-10-21T10:36:10.935Z",
+      "finishedAt": "2026-10-21T10:36:11.670Z",
       "exitCode": 0,
       "signal": null,
       "outputSha256": "9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609",
@@ -29,20 +29,20 @@
         "pnpm",
         "test"
       ],
-      "startedAt": "2026-10-21T10:28:40.924Z",
-      "finishedAt": "2026-10-21T10:32:14.919Z",
+      "startedAt": "2026-10-21T10:36:11.670Z",
+      "finishedAt": "2026-10-21T10:39:50.015Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "1e28a18fa2d1edaf00f4a7f2830a79154cc7cb351570e95f13006ef1869fd8a4",
-      "outputBytes": 232847,
+      "outputSha256": "4f4245cfcc45232618bd021ae4abd331d16b52ca9a1ae336926025847b7a064a",
+      "outputBytes": 232939,
       "counts": [
         [
           "tests",
-          1140
+          1141
         ],
         [
           "pass",
-          1129
+          1130
         ],
         [
           "fail",
@@ -103,12 +103,12 @@
         "pnpm",
         "eval:test"
       ],
-      "startedAt": "2026-10-21T10:32:14.920Z",
-      "finishedAt": "2026-10-21T10:32:23.121Z",
+      "startedAt": "2026-10-21T10:39:50.016Z",
+      "finishedAt": "2026-10-21T10:39:58.447Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "1a88f6d6a6abd722a036ca488e9a17ba494d119e3a9cdcb3bf17e92f78ce286b",
-      "outputBytes": 8666,
+      "outputSha256": "713cf9ba120b17c513c645ba1df64f646cd543ec3f8550427bd9b3aa2b72414b",
+      "outputBytes": 8664,
       "counts": [
         [
           "tests",
@@ -139,11 +139,11 @@
         "@serika/desktop",
         "smoke"
       ],
-      "startedAt": "2026-10-21T10:32:23.122Z",
-      "finishedAt": "2026-10-21T10:32:33.396Z",
+      "startedAt": "2026-10-21T10:39:58.447Z",
+      "finishedAt": "2026-10-21T10:40:08.688Z",
       "exitCode": 0,
       "signal": null,
-      "outputSha256": "4cf175ebd782b25d441a9a629f600c7eb174e9eb7f0f734727325ac2d2a30b1c",
+      "outputSha256": "3b62dc12ddb8403f0462cad4d71118beee227089a61929bb8af0350bab81c5e2",
       "outputBytes": 3016,
       "counts": []
     }
@@ -180,13 +180,23 @@
     },
     {
       "path": "docs/v2-pilot/cm-step6.md",
-      "added": 54,
+      "added": 56,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/live.json",
+      "added": 1342,
       "removed": 0
     },
     {
       "path": "docs/v2-pilot/evidence/cm-step6/verification.json",
-      "added": 614,
+      "added": 620,
       "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cost-ledger.json",
+      "added": 13,
+      "removed": 2
     },
     {
       "path": "docs/v2-pilot/evidence/electron-smoke/chat-reply.png",
@@ -234,8 +244,13 @@
       "removed": 1
     },
     {
+      "path": "examples/eval/cm-step4.mjs",
+      "added": 1,
+      "removed": 1
+    },
+    {
       "path": "examples/eval/cm-step6-live.mjs",
-      "added": 225,
+      "added": 244,
       "removed": 0
     },
     {
@@ -335,7 +350,7 @@
     },
     {
       "path": "packages/assistant/src/context-background.test.ts",
-      "added": 181,
+      "added": 198,
       "removed": 0
     },
     {
@@ -390,8 +405,8 @@
     },
     {
       "path": "packages/assistant/src/memory-extraction.ts",
-      "added": 34,
-      "removed": 22
+      "added": 41,
+      "removed": 24
     },
     {
       "path": "packages/assistant/src/memory-factual-receipts.ts",
@@ -475,18 +490,21 @@
     "apps/desktop/src/main/foreground-autonomy.test.ts": "6afdff1d390ce91b55920298af44df6512d57d5de3dca45f5c58f1607396c246",
     "apps/desktop/src/main/thread-history.ts": "69306209c1de3f27775f9123647559ba7c9b62d34d1f03e796ad36aa282c9206",
     "apps/desktop/src/renderer/src/memory-consolidation.tsx": "7d4a7b7955541fd6938ba143d4acb5adef65d9b2d74bf96f78ef9d3090cf202f",
-    "docs/v2-pilot/cm-step6.md": "3cd9790cfc916af2e49720268433dcb1c8a372a0413351c86bfbc00af86bc681",
-    "docs/v2-pilot/evidence/cm-step6/verification.json": "2597004a84702137b7a768ea214e090da7426206990430b0bbc3d8d48690c496",
+    "docs/v2-pilot/cm-step6.md": "19ee12972072d5330305db4d4eca89474a17787da55cbf60775e37c140ea5e9d",
+    "docs/v2-pilot/evidence/cm-step6/live.json": "c20e6855c12826227953cebba918b5fea3c17b38d0f083ba4d19c7df7ad98278",
+    "docs/v2-pilot/evidence/cm-step6/verification.json": "cc29ddea28d3b3bfb8cdeeec9fe1e7d96e6b49fc2a246b9ef4485a403c561f75",
+    "docs/v2-pilot/evidence/cost-ledger.json": "a647ae12c765a3c3711a0d47b5baa15b6a4ed855b83ed89d227bbba139a4e385",
     "docs/v2-pilot/evidence/electron-smoke/chat-reply.png": "6344a6992c4d5d15769494f02968b119d9d26afcb37c3cc37c3b525896651497",
-    "docs/v2-pilot/evidence/electron-smoke/cm-step6-run.json": "d1d2124fd86014cfe35a10c0ab71d4a297d3ad17950017805eece1dfc2f46d96",
-    "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png": "585323898ae4d011b107059d484f2e46277f523d5f7d61890902c04f18beb57f",
+    "docs/v2-pilot/evidence/electron-smoke/cm-step6-run.json": "cf0a207071d40fc27771bbd0ab51a54fcc17dfefa8736c8ada4558d0450c4b09",
+    "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png": "05bd1478438739e0d745b03cf4555114969a818319a36bcecaee8d6444a4ce59",
     "docs/v2-pilot/evidence/electron-smoke/remember-success-receipt.png": "836c1b7c44d4b5a2d0678ddce75563e0630c617da602a8e70f2b9bf840e0db25",
-    "docs/v2-pilot/evidence/electron-smoke/restart-persistence.png": "086daba3f82919ce2451391ec464bd5571934338c7469d735342cacb50cb0e19",
-    "docs/v2-pilot/evidence/electron-smoke/result.json": "26aa83716105bd8c40ee5257e5eab856ea3680901d0c3551a230ae4b4c8eaf0d",
-    "docs/v2-pilot/evidence/electron-smoke/startup.png": "e21edb0fbee9c24febeb456c50d7b33ff826bd623092d5a463c5c6b89cb23dc9",
+    "docs/v2-pilot/evidence/electron-smoke/restart-persistence.png": "3dcc6566d9c530c0b2b83bd3028a088e986e9bc5cbba1aa073218aaa187dd76e",
+    "docs/v2-pilot/evidence/electron-smoke/result.json": "d88302cd2ef3d1fc998df58576b0e755696ad537c585ba077f30e458d39ba1ea",
+    "docs/v2-pilot/evidence/electron-smoke/startup.png": "1e0cff90ece0b97cee7eb357c597e0b0c15a6ff909360531e5ca8d1d964af62c",
     "docs/v2-pilot/evidence/electron-smoke/undo-disappears.png": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0",
     "docs/v2-pilot/pending.md": "6f7c6187d6fc6b104f0de224fe7997247196cdfe6aaf0f394397541093fa12ed",
-    "examples/eval/cm-step6-live.mjs": "efe7593a2641cd8b15ccca18ad8780e780f8e44199f0f4383fb3c397f781c0cc",
+    "examples/eval/cm-step4.mjs": "ed027251f72f79c843fb5b65006403471a94c250667d6427a363fcf5377c7900",
+    "examples/eval/cm-step6-live.mjs": "646b52e85905eeb49f14986975dfd038af65fb9a46b7cea292de3efa865e8de3",
     "examples/eval/cm-step6-live.test.mjs": "55f787db4e9bd0a706d3fd5628dcbf918cd89d38fbf0e6d7f281a56dca75f450",
     "examples/eval/compaction-fidelity.test.mjs": "00889a2ab366ff608d1fe090bded1e4af9928c8651507629bb1904e2bdc9e8f3",
     "examples/eval/context-blocks.mjs": "0b0dc939371c867cdc0b70ecd5cd115620ee4ab523bbfc3d089420703298efcc",
@@ -506,7 +524,7 @@
     "packages/assistant/src/compaction-records.ts": "a77a4bd41f14e532a9db449b55708f4f949bbf410f50e330516e87a93dd9db92",
     "packages/assistant/src/consolidation.ts": "482c4d869ffc2402d6dc9b34dbdeb6af2819f2320ed8bd4671bb6246713b099e",
     "packages/assistant/src/context-assembler.ts": "6c3f6d25d0e1206eee79536c7c93076d07389c508f1bf31a5ac0d461b3055c4f",
-    "packages/assistant/src/context-background.test.ts": "474fc30f9826c2c808dbad779d71562f8268e8d8326650f079a57a1b18ee7166",
+    "packages/assistant/src/context-background.test.ts": "0b91d13c62d05f93e18fb79f68b18199c1d31b409607d7d321c2f421ba18f479",
     "packages/assistant/src/context-blocks.ts": "fc410c29da14a69aca1a9dd98b4b6a826b6cf7fa544e0abb77e7bc0a9600fd0a",
     "packages/assistant/src/context-compaction-acceptance.test.ts": "956a97b320394575597275cd2f153466c9938f2a59c85f01ab688f340294cacd",
     "packages/assistant/src/context-compaction-runtime.test.ts": "99d6f95bf81d2301a0c65e3d515611ae5bcc8abcc652c8540c9fa295fe34e48e",
@@ -517,7 +535,7 @@
     "packages/assistant/src/context-source.ts": "7e36e16625ef541c3bacdfd8d6e5b5f72b8bb1c820d50697f9f8faee74c6fc64",
     "packages/assistant/src/foreground-autonomy.ts": "359de414f1f184e3213ee69b0b8cde6a82a05cbdc2ded4d38836ab75e45a3705",
     "packages/assistant/src/history-tools.ts": "af5483b511e916d1402c8f442bfccb6011d8d6300f08341d412662675d49e2d0",
-    "packages/assistant/src/memory-extraction.ts": "1530489347533feb45bacfe757892fbe846bed227efd0737e629768154c3cfb4",
+    "packages/assistant/src/memory-extraction.ts": "9e510a931a6f4ed1d1bc70cad3761821694484c1183d67a2fc0e8c8466638966",
     "packages/assistant/src/memory-factual-receipts.ts": "02e89478b6fcf0380adb0f215caab9a70d84e9bc5a02b673f7efb36319986eff",
     "packages/assistant/src/memory-m1-acceptance.test.ts": "3936ec30116d0563d1f3a403999306aaff33c9f061cfd3bbf8458487d14242f2",
     "packages/assistant/src/memory-observation-policy.ts": "1797ce4df53fb2563989f504c32355c9f6ac254ea06e2967f401b3e11a3217df",
@@ -536,7 +554,7 @@
   },
   "smoke": {
     "file": "docs/v2-pilot/evidence/electron-smoke/result.json",
-    "sha256": "d88302cd2ef3d1fc998df58576b0e755696ad537c585ba077f30e458d39ba1ea",
+    "sha256": "f4e42fabccce57982a5198963fbe1c79e50df99c4095e96440b41a29efb0c9ea",
     "scriptSha256": "9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f",
     "checks": [
       {
@@ -583,7 +601,7 @@
     "screenshots": [
       {
         "file": "startup.png",
-        "sha256": "1e0cff90ece0b97cee7eb357c597e0b0c15a6ff909360531e5ca8d1d964af62c"
+        "sha256": "1610ab8d4f138ab90f131783c6986b2ccb7c4759aa8ee58639d40070d6fc577f"
       },
       {
         "file": "chat-reply.png",
@@ -595,11 +613,11 @@
       },
       {
         "file": "remember-on-memory-page.png",
-        "sha256": "05bd1478438739e0d745b03cf4555114969a818319a36bcecaee8d6444a4ce59"
+        "sha256": "535989055bea54d1785ae193a330dddbb6b1d3e1b93e141901b4ad40a13225ba"
       },
       {
         "file": "restart-persistence.png",
-        "sha256": "3dcc6566d9c530c0b2b83bd3028a088e986e9bc5cbba1aa073218aaa187dd76e"
+        "sha256": "f3fe2e2cf68935cea95202f94f78a0e8468bc37912d8b04cd30ae8930f6b83fe"
       },
       {
         "file": "undo-disappears.png",
@@ -616,5 +634,5 @@
     ]
   },
   "temporaryDirectoryRemoved": true,
-  "finishedAt": "2026-10-21T10:32:33.402Z"
+  "finishedAt": "2026-10-21T10:40:08.695Z"
 }
