@@ -2483,6 +2483,7 @@ describe("runTui", () => {
         beginRun: () => undefined,
         endRun: () => undefined,
         listRemembered: () => [],
+        snapshot: () => ({ autonomousFiles: false, fileAuthorizations: [], shell: false, web: null, blocked: [], remembered: [] }),
         forgetRemembered: () => false,
       },
       commands: new Map([

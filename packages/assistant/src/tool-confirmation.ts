@@ -25,6 +25,10 @@ export interface ToolConfirmation {
   endRun(): void;
   /** Grants remembered in this conversation (process memory only). */
   listRemembered(): RememberedGrant[];
+  snapshot(): {
+    autonomousFiles: boolean; fileAuthorizations: readonly RunAuthorization[];
+    shell: boolean; web: WebAuthorization | null; blocked: string[]; remembered: RememberedGrant[];
+  };
   forgetRemembered(id: string): boolean;
 }
 
@@ -591,6 +595,11 @@ export function createToolConfirmation(
     setPendingWebAuthorization,
     beginRun,
     endRun,
+    snapshot: () => structuredClone({ autonomousFiles: activeAutonomy,
+      fileAuthorizations: [...persistentAuthorizations, ...(activeRunAuthorization ? [activeRunAuthorization] : [])],
+      shell: activeShellAuthorization, web: activeWebAuthorization ?? null,
+      blocked: [...blockedThisRun.keys()], remembered: rememberedActive ? remembered : [],
+    }),
     listRemembered: () => remembered.map((grant) => ({ ...grant })),
     forgetRemembered: (id) => {
       const index = remembered.findIndex((grant) => grant.id === id);

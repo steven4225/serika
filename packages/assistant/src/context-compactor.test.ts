@@ -9,11 +9,19 @@ import type {
 import { AgentError } from "@serika/core";
 import { ContextCompactor, readContextDiagnostics, reconcilePublishedSummary, summarySourceChunks, type ContextCompactorOptions } from "./context-compactor.js";
 import { compactPrefixHash, contextSummaryPrompt, type ContextCompactionRecord, type ContextSummaryV2, type Summarizer } from "./context-compaction.js";
-import { defaultContextBudget, contextBudgetThresholds, estimateContextBudget, estimateMessageTokens, type ContextBudgetConfig } from "./context-budget.js";
+import { defaultContextBudget, effectiveContextBudget, contextBudgetThresholds, estimateContextBudget, estimateMessageTokens, estimateSerializedTokens, type ContextBudgetConfig } from "./context-budget.js";
 import { CHECKPOINT_CONTEXT_MESSAGE_ID } from "./checkpoint-context.js";
 import { createCheckpointContextMessage } from "./context-window.js";
 import { createMemorySnapshotMessage, memorySnapshot } from "./memory-snapshot.js";
 import type { CheckpointSnapshot } from "./checkpoint-store.js";
+import { createCompactionChecklist, compactedRecentMessages } from "./compaction-records.js";
+import { createExecutionRecordStore } from "./execution-record-store.js";
+import { createToolConfirmation } from "./tool-confirmation.js";
+import { createWorkTaskStore } from "./work-task-store.js";
+import { PassThrough } from "node:stream";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { AUTO_CONSOLIDATION_SOURCE } from "./consolidation.js";
 
 const budget: ContextBudgetConfig = {
@@ -99,6 +107,104 @@ it("Demo: compaction excludes extraction JSON from model input/output but keeps 
     goal: { text: '{"batchId":"secret-batch"}', evidenceMessageIds: ["u1"] } } } as unknown as ThreadContextCompactionRecord];
   const legacyReopen = makeCompactor(store, summarizer, roomyBudget);
   assert.doesNotMatch(JSON.stringify(await legacyReopen.prepare(store.messages, new AbortController().signal)), /secret-batch/);
+});
+
+for (const window of [32_768, 1_000_000]) {
+  it(`step5: ${window} window saves bounded actions and a model-independent request/Steer/checklist`, async () => {
+    const config = effectiveContextBudget(defaultContextBudget(), { provider: "mock", modelId: "mock", contextWindowTokens: window, source: "configuration" });
+    const root = await mkdtemp(join(tmpdir(), "cm-step5-"));
+    try {
+      const tasks = createWorkTaskStore(root);
+      const task = await tasks.create({ threadId: "thread-1", goal: "交付报告", constraints: ["保留已有章节"],
+        acceptance: [{ id: "human-check", description: "人工确认报告", method: "human", required: true, verification: { kind: "human" } }] });
+      assert.ok(task.ok);
+      const permission = createToolConfirmation(new PassThrough());
+      permission.beginRun(true);
+      const receipt = (id: string, status: string): UIMessage => ({ id, role: "assistant", parts: [{ type: "dynamic-tool", toolName: "shell_exec", toolCallId: id,
+        state: status === "completed" ? "output-available" : "output-error", input: { command: "do-work" },
+        ...(status === "completed" ? { output: { ok: true } } : { errorText: status === "unknown" ? "TOOL_OUTCOME_UNKNOWN: disconnected" : status === "not_executed" ? "TOOL_DENIED: no" : "failed" }),
+      } as UIMessage["parts"][number]] });
+      const messages = [user("old", "old discussion"), assistant("old-reply", "old"),
+        ...["completed", "not_executed", "failed", "unknown"].flatMap(status => Array.from({ length: status === "failed" || status === "unknown" ? 2 : 20 }, (_, i) => receipt(`${status}-${i}`, status))),
+        user("request", "请检查后提交报告；不要丢掉原章节。"),
+        { ...user("correction", "只追加结论，不覆盖正文。"), metadata: { source: "steer" } },
+        { id: "huge-result", role: "assistant" as const, parts: [{ type: "dynamic-tool" as const, toolName: "read_file", toolCallId: "huge-result", state: "output-available" as const,
+          input: { path: "fixture.txt" }, output: { ok: true, value: "TOOL_BODY_SECRET".repeat(Math.ceil(window / 10)) } }] },
+      ];
+      messages[0]!.parts.push({ type: "file", mediaType: "image/png", filename: "old.png", url: "data:image/png;base64,ATTACHMENT_BYTES_SECRET" });
+      messages[0]!.parts.push({ type: "text", text: '\n<attached-document name="old.md">\nTEXT_ATTACHMENT_SECRET\n</attached-document>' });
+      const store = new FakeStore(); store.messages = structuredClone(messages);
+      const summarizer: Summarizer = { complete: async ({ prompt }) => {
+        assert.doesNotMatch(prompt, /TOOL_BODY_SECRET|ATTACHMENT_BYTES_SECRET|TEXT_ATTACHMENT_SECRET/);
+        assert.match(prompt, /Attachment.*omitted|attachment omitted/);
+        return { text: JSON.stringify({ ...summary, goal: { text: "modeled goal deliberately forgets request", evidenceMessageIds: ["old"] } }) };
+      } };
+      let checklistReads = 0;
+      const options = { checklist: () => { checklistReads++; return { workTask: task.value, permissions: permission.snapshot() }; } };
+      const result = await makeCompactor(store, summarizer, config, options).prepare(messages, new AbortController().signal, true);
+      assert.ok(!result.some(message => message.id === "request"), "exercise actual loss of the original request from the compacted prefix");
+      const protectedMessage = result.find(message => message.id === "runloom-compaction-checklist")!;
+      const protectedText = JSON.stringify(protectedMessage);
+      for (const text of ["请检查后提交报告", "只追加结论", "保留已有章节", "人工确认报告", "autonomousFiles", "unknown-0", "unknown-1"]) assert.ok(protectedText.includes(text), text);
+      const part = protectedMessage.parts[0]; assert.ok(part?.type === "text");
+      const checklist = JSON.parse(part.text.slice(part.text.indexOf("\n") + 1));
+      assert.equal(checklist.recentReceipts.length, 6);
+      const record = store.records[0] as unknown as ContextCompactionRecord;
+      for (const status of ["failed", "unknown"]) assert.equal(record.summary.actions.filter(action => action.status === status).length, 2);
+      for (const status of ["completed", "not_executed"]) {
+        assert.equal(record.summary.actions.filter(action => action.status === status && action.toolCallIds.length).length, 8);
+        assert.equal(record.summary.actions.filter(action => action.status === status && !action.toolCallIds.length).length, 1);
+      }
+      const summaryTokens = estimateMessageTokens(result.filter(message => ["runloom-context-summary", "runloom-compaction-checklist"].includes(message.id)));
+      assert.ok(summaryTokens <= 12_000);
+      assert.ok(estimateContextBudget({ instructions: "instructions", messages: result }, config).inputTokens <= config.inputBudgetTokens!);
+      assert.equal(record.sourcePrefixHash, compactPrefixHash(messages, record.firstKeptMessageIndex));
+      assert.deepEqual(store.messages, messages, "full transcript is intact");
+      permission.endRun();
+      const reopened = makeCompactor(store, summarizer, config, options);
+      const restored = await reopened.prepare(messages, new AbortController().signal);
+      assert.deepEqual(restored, result, "reused summary and checklist retain identical prefix bytes");
+      assert.equal(checklistReads, 1, "reuse must not refresh the frozen host snapshot");
+      assert.equal(permission.snapshot().autonomousFiles, false, "historical checklist cannot restore live permission");
+      console.log("CM_STEP5_METRICS " + JSON.stringify({ window, effectiveInputTokens: config.inputBudgetTokens, summaryTokens,
+        sourceToolBodyTokens: estimateSerializedTokens(messages.at(-1)), savedActions: record.summary.actions.length, recentReceipts: checklist.recentReceipts.length }));
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+}
+
+it("step5: restart checklist reads an uncommitted unknown write from real receipts and masks retained old attachments", async () => {
+  const root = await mkdtemp(join(tmpdir(), "cm-step5-receipts-"));
+  try {
+    const records = createExecutionRecordStore(root);
+    await records.startRun({ runId: "interrupted", threadId: "thread-1", phase: "primary" });
+    for (const type of ["tool.call.requested", "tool.call.started"] as const) await records.recordToolEvent("interrupted", {
+      id: type, type, runId: "interrupted", threadId: "thread-1", sequence: 1, occurredAt: new Date(0).toISOString(),
+      data: { toolCallId: "uncertain-write", toolName: "write_file", input: { path: "notes/report.md", content: "new" } },
+    } as Parameters<typeof records.recordToolEvent>[1]);
+    await records.recoverInterrupted("thread-1");
+    const permission = createToolConfirmation(new PassThrough()); permission.beginRun(true); permission.endRun();
+    const old = user("old-attachment", "old text");
+    old.parts.push({ type: "file", mediaType: "image/png", filename: "old.png", url: "data:OLD_BYTES" });
+    const messages = [old, user("next-run", "new request")];
+    const projected = compactedRecentMessages(messages, 0);
+    assert.doesNotMatch(JSON.stringify(projected), /OLD_BYTES/);
+    assert.match(JSON.stringify(messages), /OLD_BYTES/);
+    const checklist = createCompactionChecklist({ messages, permissions: permission.snapshot(), runs: await createExecutionRecordStore(root).listRuns("thread-1") });
+    assert.match(JSON.stringify(checklist), /uncertain-write.*write_file.*unknown.*notes\/report.md/);
+    assert.match(JSON.stringify(checklist), /autonomousFiles.*false/);
+    assert.doesNotMatch(JSON.stringify(checklist), /OLD_BYTES/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+it("step5: an irreducible over-12K failure ledger is rejected without saving or losing failures", async () => {
+  const store = new FakeStore();
+  const messages = [user("u1", "request"), ...Array.from({ length: 200 }, (_, i): UIMessage => ({ id: `failure-${i}`, role: "assistant", parts: [{
+    type: "dynamic-tool", toolName: "shell_exec", toolCallId: `failure-${i}`, state: "output-error", input: {}, errorText: "failure details ".repeat(20),
+  }] })), user("u2", "next")];
+  store.messages = structuredClone(messages);
+  await assert.rejects(makeCompactor(store, new FakeSummarizer(), defaultContextBudget()).prepare(messages, new AbortController().signal, true), /summary.*budget/);
+  assert.equal(store.records.length, 0);
+  assert.deepEqual(store.messages, messages);
 });
 
 class NonRetryableSummarizer implements Summarizer {
@@ -269,7 +375,7 @@ describe("ContextCompactor", () => {
     }
   });
 
-  it("aggregates repeated completed file receipts without merging across uncertain effects or losing original receipts", () => {
+  it("retains the last eight completed receipts plus rollup, unknown and denied effects without losing originals", () => {
     const effect = (id: string, state: "output-available" | "input-available" | "output-error"): UIMessage => ({
       id, role: "assistant", parts: [{ type: "dynamic-tool", toolName: "edit_file", toolCallId: id,
         state, input: { path: "notes/plan.md", oldText: "old", newText: "new" },
@@ -287,10 +393,11 @@ describe("ContextCompactor", () => {
     assert.equal(reconciled.files.length, 1);
     assert.deepEqual(reconciled.files[0]?.evidenceMessageIds, ["after-2"]);
     assert.match(reconciled.files[0]!.text, /not current disk state/);
-    assert.deepEqual(reconciled.actions.map(item => item.status), ["completed", "unknown", "not_executed", "completed"]);
-    assert.equal(reconciled.actions[0]?.toolCallIds.length, 8);
-    assert.deepEqual(reconciled.actions[1]?.toolCallIds, ["unknown"]);
-    assert.deepEqual(reconciled.actions[3]?.toolCallIds, ["after-1", "after-2"]);
+    assert.equal(reconciled.actions.filter(item => item.status === "completed" && item.toolCallIds.length).length, 8);
+    assert.match(reconciled.actions[0]!.text, /Earlier completed/);
+    assert.deepEqual(reconciled.actions.find(item => item.status === "unknown")?.toolCallIds, ["unknown"]);
+    assert.deepEqual(reconciled.actions.find(item => item.status === "not_executed")?.toolCallIds, ["denied"]);
+    assert.deepEqual(reconciled.actions.at(-1)?.toolCallIds, ["after-2"]);
     assert.deepEqual(originals, snapshot, "projection never deletes or rewrites full receipts");
     const next = reconcilePublishedSummary(summary, originals, reconciled);
     assert.deepEqual(next.actions, reconciled.actions, "a later merge must not re-expand completed history");
@@ -327,8 +434,9 @@ describe("ContextCompactor", () => {
       }] });
     }
     const result = reconcilePublishedSummary(summary, messages, undefined);
-    assert.equal(result.actions.length, 2);
-    assert.ok(result.actions.every(action => action.status === "completed" && action.toolCallIds.length === 8));
+    assert.equal(result.actions.length, 9);
+    assert.match(result.actions[0]!.text, /Earlier completed/);
+    assert.ok(result.actions.slice(1).every(action => action.status === "completed" && action.toolCallIds.length === 1));
     assert.equal(result.files.length, 1);
     assert.deepEqual(result.files[0]?.evidenceMessageIds, ["edit_file-19"]);
     const readsOnly = reconcilePublishedSummary(summary, messages.filter(message => !message.id.startsWith("edit_file")), undefined);

@@ -27,7 +27,7 @@ import { memoryReadTools } from "./memory-read-tools.js";
 import { memoryConsolidationBacklog, type MemoryConsolidation } from "./memory-consolidation.js";
 import type { MemoryResult } from "./memory-candidates.js";
 import { createExecutionRecordAdapter } from "./execution-record-adapter.js";
-import { createExecutionRecordStore, type ExecutionRecordStore } from "./execution-record-store.js";
+import { createExecutionRecordStore, EXECUTION_RECORD_MAX_RUNS, type ExecutionRecordStore } from "./execution-record-store.js";
 import { acquireFlock } from "./flock.js";
 import {
   estimateContextInput,
@@ -223,6 +223,7 @@ interface RunState {
   foreground: { entry: "desktop" | "telegram" | undefined; autonomous: boolean; request?: UIMessage } | undefined;
   /** The WorkTask contract while a WorkTask Run is active. */
   workTaskMessage: UIMessage | undefined;
+  workTask: WorkTask | undefined;
   /** The user message memory writes may quote; replaced on every model step. */
   memorySource: { message: UIMessage; signal: AbortSignal } | undefined;
   /** The /resume observation this Run injects. */
@@ -253,7 +254,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     options.authorizeTelegramAutonomy?.(moduleConfig.telegramAutonomy) === true;
   // Per-Run state (docs/v2-pilot/run-context.md). Each begin/end pair below
   // sets and clears only its own part, at the same points as before.
-  const currentRun: RunState = { foreground: undefined, workTaskMessage: undefined, memorySource: undefined, resume: undefined };
+  const currentRun: RunState = { foreground: undefined, workTaskMessage: undefined, workTask: undefined, memorySource: undefined, resume: undefined };
   const autonomousRun = () => currentRun.foreground?.autonomous === true;
   const memoryEnabled = moduleConfig?.enabled.memory ?? false;
   const checkpointEnabled = moduleConfig?.enabled.checkpoint ?? false;
@@ -739,6 +740,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
             summarizer: createAiSdkSummarizer(observedModel("context_compaction")),
             budget: moduleConfig.contextCompaction,
             modelContextWindowTokens: moduleConfig.contextCompaction.contextWindowTokens,
+            checklist: async () => ({ workTask: currentRun.workTask, permissions: toolConfirmation?.snapshot(),
+              runs: await executionRecords.listRuns(threadId, EXECUTION_RECORD_MAX_RUNS) }),
             fixedContext: () => ({
                 instructions: primaryInstructions(),
                 tools: autonomousRun() ? autonomousToolContext : primaryToolContext,
@@ -936,8 +939,9 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
           const message = createWorkTaskContextMessage(task, continuation);
           if (message === undefined) throw new Error("WorkTask context exceeds the 24 KiB limit");
           currentRun.workTaskMessage = message;
+          currentRun.workTask = task;
         },
-        end: () => { currentRun.workTaskMessage = undefined; },
+        end: () => { currentRun.workTaskMessage = undefined; currentRun.workTask = undefined; },
       },
       threadId,
       directory,

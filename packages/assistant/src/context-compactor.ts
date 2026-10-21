@@ -35,12 +35,12 @@ import type { ContextDiagnostics, ContextResult } from "./context-diagnostics.js
 import { CONTEXT_ESTIMATOR_VERSION } from "./context-budget.js";
 import { isAutoConsolidationRequest, withoutConsolidationTurns } from "./consolidation.js";
 import { expandMessageReferences } from "./context-assembler.js";
+import { compactSummaryActions, compactedRecentMessages, createCompactionChecklist, maskCompactionSources, SUMMARY_MAX_TOKENS, type CompactionChecklistSources } from "./compaction-records.js";
 
 const SUMMARY_TIMEOUT_MS = 30_000;
 const MANUAL_COMPACTION_TIMEOUT_MS = 120_000;
 const MAX_SUMMARY_MERGES = 4;
 const FILE_TOOLS = new Set(["write_file", "edit_file"]);
-const FILE_RECEIPT_TOOLS = new Set(["read_file", "write_file", "edit_file"]);
 
 export interface ContextCompactorOptions {
   store: MessageStore & ContextCompactionStore;
@@ -55,6 +55,7 @@ export interface ContextCompactorOptions {
     | Promise<Omit<ContextInputParts, "messages">>;
   promptPrefix?: (signal: AbortSignal, messages: readonly UIMessage[]) => UIMessage[] | Promise<UIMessage[]>;
   refreshReference?: (messages: UIMessage[], signal: AbortSignal) => Promise<UIMessage[]>;
+  checklist?: () => CompactionChecklistSources | Promise<CompactionChecklistSources>;
   now?: () => Date;
   generateId?: () => string;
 }
@@ -113,6 +114,9 @@ function validRecord(record: ContextCompactionRecord, messages: readonly UIMessa
     return false;
   }
   if (record.sourcePrefixHash !== compactPrefixHash(messages, index)) return false;
+  if (record.checklist !== undefined && (typeof record.checklist !== "object" || record.checklist === null ||
+      record.checklist.id !== "runloom-compaction-checklist" || record.checklist.role !== "assistant" ||
+      !Array.isArray(record.checklist.parts) || record.checklist.parts.length !== 1 || record.checklist.parts[0]?.type !== "text")) return false;
   // Legacy summaries may have learned raw extraction JSON. Keep them on disk,
   // but do not reinstall/merge one that covered auxiliary turns without exclusion.
   if (record.consolidationExcluded !== true && messages.slice(0, index).some(isAutoConsolidationRequest)) return false;
@@ -239,7 +243,8 @@ export function summarySourceChunks(
     }
     current.push(message); currentTokens += tokens;
   };
-  for (const unit of units) {
+  for (const sourceUnit of units) {
+    const unit = { messages: maskCompactionSources(sourceUnit.messages) };
     // User text may contain a hard constraint in its middle. Send all of it in
     // bounded fragments rather than presenting a head/tail excerpt as coverage.
     if (unit.messages.some(message => message.role === "user")) {
@@ -351,16 +356,15 @@ export function reconcilePublishedSummary(
 
   const factsById = new Map(facts.map((fact) => [fact.toolCallId, fact]));
   const fromFacts = facts.map((fact) => {
-    const modeled = summary.actions.find((action) => action.toolCallIds.includes(fact.toolCallId));
     return {
-      text: modeled?.text ?? fact.text,
+      text: fact.text,
       evidenceMessageIds: fact.evidenceMessageIds,
       status: fact.status,
       toolCallIds: [fact.toolCallId],
     };
   });
   const keptPreviousActions = (previous?.actions ?? []).filter(
-    (action) => !action.toolCallIds.some((id) => factsById.has(id)),
+    (action) => action.status !== "completed" && !action.toolCallIds.some((id) => factsById.has(id)),
   );
   // Unfinished plans are not tool successes, but must survive compaction.
   // A modeled completed/failed action without a receipt is not evidence.
@@ -395,37 +399,11 @@ export function reconcilePublishedSummary(
     goal: constrain(summary.goal),
     constraints: summary.constraints.map(constrain),
     decisions: summary.decisions.map((decision) => ({ ...decision, ...constrain(decision) })),
-    actions: compactCompletedActions([...keptPreviousActions, ...fromFacts, ...unfinishedActions], facts),
+    actions: compactSummaryActions([...keptPreviousActions, ...fromFacts, ...unfinishedActions]),
     pending: summary.pending.map(constrain),
     files: [...new Map([...keptPreviousFiles, ...newFiles].map(file => [file.path, file])).values()],
     nextStep: summary.nextStep === null ? null : constrain(summary.nextStep),
   };
-}
-
-/** Full receipts stay in transcript; only repeated completed file effects share a reference. */
-function compactCompletedActions(actions: ContextSummaryV2["actions"], facts: ReturnType<typeof collectTranscriptToolFacts>): ContextSummaryV2["actions"] {
-  const byId = new Map(facts.map(fact => [fact.toolCallId, fact]));
-  const groups = new Map<string, ContextSummaryV2["actions"][number]>();
-  const result: ContextSummaryV2["actions"] = [];
-  for (const action of actions) {
-    const fact = byId.get(action.toolCallIds.at(-1) ?? "");
-    if (action.status !== "completed" || !fact?.path || !FILE_RECEIPT_TOOLS.has(fact.toolName)) {
-      // Never aggregate a later success across an unresolved/failed operation.
-      if (action.status !== "completed") groups.clear();
-      result.push(action); continue;
-    }
-    const key = `${fact.toolName}:${fact.path}`;
-    const previousAction = groups.get(key);
-    if (!previousAction) {
-      const grouped = { ...action };
-      groups.set(key, grouped); result.push(grouped);
-    } else {
-      previousAction.text = `Historical ${fact.toolName} receipts for ${fact.path}; inspect full transcript for the full sequence, then read current disk before continuing.`;
-      previousAction.toolCallIds = uniqueIds([...previousAction.toolCallIds, ...action.toolCallIds]).slice(-8);
-      previousAction.evidenceMessageIds = uniqueIds([...previousAction.evidenceMessageIds, ...action.evidenceMessageIds]).slice(-8);
-    }
-  }
-  return result;
 }
 
 function addObservedUsage(previous: TokenUsage | undefined, next: TokenUsage): TokenUsage {
@@ -549,8 +527,18 @@ export class ContextCompactor {
       }
       return estimate;
     };
+    const limits = contextBudgetThresholds(this.#options.budget);
+    const protectedMessages: UIMessage[] = [];
+    const summaryLimit = SUMMARY_MAX_TOKENS;
+    const summaryTokens = (conversation: readonly UIMessage[]) => estimateMessageTokens(conversation.filter(message =>
+      message.id === "runloom-context-summary" || message.id === "runloom-compaction-checklist"));
+    const checkSummary = (conversation: readonly UIMessage[]) => {
+      const tokens = summaryTokens(conversation);
+      if (tokens > summaryLimit) throw contextError(`Context summary and host checklist exceed the ${summaryLimit} token summary budget (${tokens}); original records are retained`);
+    };
     const finish = (conversation: UIMessage[], compactionId: string | null = null): UIMessage[] => {
       abortIfNeeded(signal);
+      checkSummary(conversation);
       // Reuse, noop and forced preparation must obey the same final budget.
       checkPreparedBudget(conversation);
       this.#preparedCompactionId = compactionId;
@@ -567,31 +555,36 @@ export class ContextCompactor {
 
     const persisted = await this.#findLatestValid(messages);
     abortIfNeeded(signal);
-    const compose = (summary: ContextSummaryV2, firstKept: number): UIMessage[] => [
+    const compose = (summary: ContextSummaryV2, firstKept: number, checklist?: UIMessage): UIMessage[] => [
       ...transcriptPrefix(messages),
       summaryMessage(summary, {
         index: firstKept,
         id: firstKept === messages.length ? null : messages[firstKept]?.id ?? null,
       }),
-      ...messages.slice(firstKept),
+      ...(checklist ? [checklist] : this.#options.checklist ? [createCompactionChecklist({
+        messages: visible(messages.slice(0, firstKept)), permissions: undefined,
+      })] : []),
+      ...compactedRecentMessages(messages, firstKept),
     ];
-    const limits = contextBudgetThresholds(this.#options.budget);
     const shouldCompact = (inputTokens: number): boolean => this.#options.budget.inputBudgetTokens === undefined
       ? inputTokens > limits.availableInputTokens
       : inputTokens + limits.predictedGrowthTokens >= limits.triggerTokens;
     if (!force && persisted !== undefined) {
-      const installed = compose(persisted.summary, persisted.firstKeptMessageIndex);
-      if (!shouldCompact(estimatePrepared(installed).inputTokens)) {
+      const installed = compose(persisted.summary, persisted.firstKeptMessageIndex, persisted.checklist);
+      if (!shouldCompact(estimatePrepared(installed).inputTokens) &&
+          summaryTokens(installed) <= summaryLimit) {
         this.#lastPrepare = { kind: "reused" };
         return finish(installed, persisted.id);
       }
     }
-    const rawBudget = estimatePrepared(persisted === undefined ? messages : compose(persisted.summary, persisted.firstKeptMessageIndex));
+    const rawBudget = estimatePrepared(persisted === undefined ? messages : compose(persisted.summary, persisted.firstKeptMessageIndex, persisted.checklist));
     this.#preparedEstimate = rawBudget.inputTokens;
     if (!force && !shouldCompact(rawBudget.inputTokens) && persisted === undefined) {
       this.#lastPrepare = { kind: "passthrough" };
       return finish(messages);
     }
+    const checklistSources = await this.#options.checklist?.();
+    if (checklistSources) protectedMessages.push(createCompactionChecklist({ ...checklistSources, messages: visible(messages) }));
 
     if (this.#options.refreshReference) {
       prefixInject = await this.#options.refreshReference(messages, signal);
@@ -623,7 +616,7 @@ export class ContextCompactor {
     const summaryReserve = Math.max(
       persisted === undefined ? 0 : estimateSerializedTokens(persisted.summary),
       this.#options.budget.summaryMaxOutputTokens,
-    );
+    ) + estimateMessageTokens(protectedMessages);
     const keptFits = (nextKept: readonly MessageCompactionUnit[]): boolean => {
       if (nextKept.length === 0) return false;
       const firstKept = nextKept[0]!.startIndex;
@@ -656,8 +649,8 @@ export class ContextCompactor {
 
     if (omitted.length === 0) {
       this.#lastPrepare = { kind: "noop" };
-      if (force) return persisted === undefined ? finish(messages) : finish(compose(persisted.summary, persisted.firstKeptMessageIndex), persisted.id);
-      if (persisted !== undefined) return finish(compose(persisted.summary, persisted.firstKeptMessageIndex), persisted.id);
+      if (force) return persisted === undefined ? finish(messages) : finish(compose(persisted.summary, persisted.firstKeptMessageIndex, persisted.checklist), persisted.id);
+      if (persisted !== undefined) return finish(compose(persisted.summary, persisted.firstKeptMessageIndex, persisted.checklist), persisted.id);
       if (!rawBudget.exceeds) return finish(messages);
       throw contextError("Context exceeds the configured input budget and has no safe compaction boundary");
     }
@@ -667,7 +660,7 @@ export class ContextCompactor {
 
     const firstKept = kept[0]?.startIndex ?? messages.length;
     if (persisted !== undefined && persisted.firstKeptMessageIndex >= firstKept) {
-      const installed = compose(persisted.summary, persisted.firstKeptMessageIndex);
+      const installed = compose(persisted.summary, persisted.firstKeptMessageIndex, persisted.checklist);
       if (force || !estimatePrepared(installed).exceeds) {
         this.#lastPrepare = { kind: "noop" };
         return finish(installed, persisted.id);
@@ -676,7 +669,6 @@ export class ContextCompactor {
 
     const keptMessages = messages.slice(firstKept);
     const coveredMessages = visible(messages.slice(0, firstKept));
-    const prefix = transcriptPrefix(messages);
     const previous = persisted?.summary;
     const started = Date.now();
     const summaryInputBudget = Math.max(
@@ -695,7 +687,7 @@ export class ContextCompactor {
     const chunks = summarySourceChunks(incrementalUnits, summaryInputBudget, maxMerges);
     if (chunks.length === 0) {
       this.#lastPrepare = { kind: "noop" };
-      return persisted ? finish(compose(persisted.summary, persisted.firstKeptMessageIndex), persisted.id) : finish(messages);
+      return persisted ? finish(compose(persisted.summary, persisted.firstKeptMessageIndex, persisted.checklist), persisted.id) : finish(messages);
     }
     if (chunks.length > maxMerges) {
       throw contextError("Context compaction source is too large for the bounded summary merge");
@@ -706,7 +698,7 @@ export class ContextCompactor {
     for (const chunk of chunks) {
       const result = await this.#completeWithRetry(
         contextSummaryPrompt({
-          ...(summary === undefined ? {} : { previousSummary: summary }),
+          ...(summary === undefined ? {} : { previousSummary: { ...summary, actions: [] } }),
           messages: chunk,
         }),
         this.#options.budget.summaryMaxOutputTokens,
@@ -722,11 +714,9 @@ export class ContextCompactor {
     }
     if (summary === undefined) throw contextError("Context compaction returned no summary");
     summary = reconcilePublishedSummary(summary, coveredMessages, previous);
-    const compactedMessages = [
-      ...prefix,
-      summaryMessage(summary, { index: firstKept, id: keptMessages[0]?.id ?? null }),
-      ...keptMessages,
-    ];
+    const checklist = checklistSources ? createCompactionChecklist({ ...checklistSources, messages: coveredMessages }) : undefined;
+    const compactedMessages = compose(summary, firstKept, checklist);
+    checkSummary(compactedMessages);
     // Validate before persisting too: an unusable summary is not a new boundary.
     const afterBudget = checkPreparedBudget(compactedMessages);
     abortIfNeeded(signal);
@@ -742,6 +732,7 @@ export class ContextCompactor {
       sourcePrefixHash: compactPrefixHash(messages, firstKept),
       consolidationExcluded: true,
       referencePrefix: [...prefixInject],
+      ...(checklist ? { checklist } : {}),
       summary,
       strategyVersion: CONTEXT_SUMMARY_STRATEGY_VERSION,
       modelId: this.#options.modelId,
