@@ -78,6 +78,19 @@ it("rejects stale folder and body revisions atomically; ordinary writes preserve
 });
 
 
+it("excludes disabled documents from active counts and rejects forged ownership", async () => {
+  const { store, file } = await fixture();
+  const own = await store.add({ text: "工作区记录" }); assert.ok(own.ok);
+  assert.ok((await store.add({ text: "已停用", enabled: false })).ok);
+  const view = value(await store.getLibrary());
+  assert.equal(view.documents.length, 2); assert.equal(view.documents.filter(document => document.active).length, 1);
+  const action = newDoc(0, { id: legacyDocumentId(own.entry.id), title: "工作区文档", entries: [] });
+  const before = await readFile(file, "utf8");
+  assert.equal(code(await store.changeLibrary(action)), "INVALID_INPUT");
+  assert.equal(code(await store.changeLibrary({ ...newDoc(0), scope: { kind: "workspace" } } as MemoryLibraryAction)), "INVALID_INPUT");
+  assert.equal(await readFile(file, "utf8"), before);
+});
+
 it("rejects nonempty folder removal, missing content and oversized input without partial writes", async () => {
   const { store, file } = await fixture();
   const folderId = randomUUID(); value(await store.changeLibrary({ operation: "create-folder", id: folderId, name: "项目", expectedRevision: 0 }));

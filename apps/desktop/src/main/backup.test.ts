@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { it } from "node:test";
 import { gzipSync, gunzipSync } from "node:zlib";
 import { createTaskStore } from "@serika/assistant";
-import { TASK_FILE_NAME } from "@serika/assistant/testing";
+import { createMemoryStore, TASK_FILE_NAME } from "@serika/assistant/testing";
 import { createExecutionRecordStore } from "@serika/assistant/testing";
 import { exportBackup, restoreBackup, previewBackup } from "./backup.js";
 import { acquireFlock, tryAcquireFlock } from "@serika/assistant";
@@ -24,7 +24,7 @@ async function fixture() {
   await writeFile(join(transcripts, `${digest("foreign")}.jsonl`), record("foreign", "PRIVATE-FOREIGN") + "\n");
   await writeFile(join(workspace, ".env"), "API_KEY=PRIVATE-CONFIG");
   await writeFile(join(workspace, "project.txt"), "PROJECT-FILE");
-  await writeFile(join(workspace, ".runloom", "memory.json"), JSON.stringify({ version: 1, entries: [{ id: "saved", text: "saved memory", enabled: true }] }));
+  assert.ok((await createMemoryStore(workspace).add({ text: "saved memory" })).ok);
   const records = createExecutionRecordStore(transcripts);
   for (const threadId of ["daily", "foreign"]) {
     await records.startRun({ runId: `run-${threadId}`, threadId, phase: "primary", startedAt: new Date(0).toISOString() });
@@ -46,8 +46,12 @@ it("backup only registered assistant data; restoration is an offline copy with s
     assert((await tasks.recordOutcome(running.value.id, { status: "completed", runId: "saved-run", resultText: "persisted", notification: true })).ok);
     const original = await readFile(join(f.workspace, TASK_FILE_NAME));
     const saved = await exportBackup(f);
+    const archive = JSON.parse(gunzipSync(await readFile(f.destination)).toString()) as { entries: Array<{ path: string; text: string; sha256: string }> };
+    const memory = archive.entries.find(entry => entry.path === "workspace/.runloom/memory.json")!;
+    assert.equal(memory.text, await readFile(join(f.workspace, ".runloom/memory.json"), "utf8"));
+    assert.equal(memory.sha256, digest(memory.text));
+    assert.equal(JSON.parse(memory.text).version, 6);
     assert.equal(saved.threads, 1);
-    const archive = JSON.parse(gunzipSync(await readFile(f.destination)).toString());
     const serialized = JSON.stringify(archive);
     for (const excluded of ["PRIVATE-FOREIGN", "PRIVATE-CONFIG", "PROJECT-FILE", "run-foreign"]) assert(!serialized.includes(excluded));
     assert(serialized.includes("run-daily"));
@@ -211,8 +215,7 @@ it("rejects valid JSON that exceeds the original Store read limit before preview
 it("rejects short configured credentials in assistant text rather than silently exporting them", async () => {
   const f = await fixture();
   try {
-    const path = join(f.workspace, ".runloom", "memory.json");
-    await writeFile(path, JSON.stringify({ version: 1, entries: [{ id: "saved", text: "短凭据 k!3x", enabled: true }] }));
+    assert.ok((await createMemoryStore(f.workspace).add({ text: "短凭据 k!3x" })).ok);
     await assert.rejects(exportBackup({ ...f, knownSecrets: ["k!3x"] }), /凭据/);
     await assert.rejects(readFile(f.destination), { code: "ENOENT" });
   } finally { await rm(f.root, { recursive: true, force: true }); }
