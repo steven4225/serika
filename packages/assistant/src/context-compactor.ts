@@ -321,7 +321,7 @@ export class ContextCompactor {
       message.role === "user" ? singleLimit : 16_000)));
     const requestIndex = messages.reduce((last, message, index) => message.role === "user" && !isAutoConsolidationRequest(message) &&
       (message.metadata as { source?: string } | undefined)?.source !== "steer" ? index : last, -1);
-    const checklistMessages = () => messages.map(message => message.role === "user" ? fitMessage(message, requestLimit) : message);
+    const checklistMessages = () => messages.map(message => message.role === "user" ? fitMessage({ ...message, metadata: { source: (message.metadata as { source?: string } | undefined)?.source } }, requestLimit) : message);
     const borrowLimitTokens = Math.floor(limits.recent / 2);
     let checklistTokens = 0, checklistOverflowTokens = 0, borrowedTokens = 0, requiredBorrowTokens = 0;
     let reduction: NonNullable<ContextDiagnostics["lastPreparation"]>["summaryLayer"];
