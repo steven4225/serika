@@ -466,3 +466,60 @@ it("recorded single-object constraints normalize while essential overflow uses C
     }
   }
 });
+
+it("C5 emergency masking preserves the current request, Steer and the latest complete split tool unit", async () => {
+  for (const mode of ["threshold", "provider", "covered"]) {
+    const providerOverflow = mode === "provider";
+    const store = new FakeStore();
+    const call: UIMessage = { id: "latest-call", role: "assistant", parts: [{ type: "dynamic-tool", toolName: "read_file", toolCallId: "latest", state: "input-available", input: { path: "notes/fixture.txt" } }] };
+    const result: UIMessage = { id: "latest-result", role: "assistant", parts: [{ type: "dynamic-tool", toolName: "read_file", toolCallId: "latest", state: "output-available", input: { path: "notes/fixture.txt" }, output: { ok: true, content: "successful original" + "t".repeat(providerOverflow ? 35000 : 0) } }] };
+    const steer = { ...user("steer", "keep this correction"), metadata: { source: "steer" } };
+    store.messages = [user("old", "x".repeat(providerOverflow ? 1000 : 48000)), call, result, user("request", "current request"), assistant("middle", "y".repeat(providerOverflow ? 1000 : 48000)), steer, assistant("tail", "continue")];
+    if (mode === "covered") {
+      store.messages.splice(5, 0, assistant("more", "z".repeat(48000)));
+      const record: ContextCompactionRecord = { v: 2, type: "thread.context.compacted", threadId: "thread-1", id: "covered-tool", previousCompactionId: null,
+        firstKeptMessageIndex: 3, firstKeptMessageId: "request", sourcePrefixHash: compactPrefixHash(store.messages, 3), summary,
+        consolidationExcluded: true, strategyVersion: "summary-json/v2", modelId: "mock", createdAt: new Date(0).toISOString(),
+        metrics: { estimatedInputBefore: 100, estimatedInputAfter: 50, durationMs: 1, attempts: 1 } };
+      store.records.push(record as unknown as ThreadContextCompactionRecord);
+    }
+    const before = structuredClone(store.messages);
+    const compactor = make(store, { complete: async () => { throw new Error("no model"); } });
+    if (providerOverflow) { await compactor.prepare(store.messages, signal()); compactor.reportedOverflow(1); }
+    const prepared = await compactor.prepare(store.messages, signal());
+    for (const message of [call, result, store.messages[3]!, steer]) assert.deepEqual(prepared.find(item => item.id === message.id), message);
+    const diagnostics = await compactor.getDiagnostics(); assert.ok(diagnostics.ok);
+    const masked = diagnostics.value.lastPreparation!.degradation!;
+    assert.ok(masked.emergencyMasking!.length > 0);
+    assert.ok(masked.emergencyMasking!.every(event => event.trigger === (providerOverflow ? "provider_overflow" : "input_threshold")));
+    for (const event of masked.emergencyMasking!) for (const range of event.ranges) {
+      assert.ok(!["latest-call", "latest-result", "request", "steer"].includes(range.fromMessageId));
+      assert.ok(!["latest-call", "latest-result", "request", "steer"].includes(range.throughMessageId));
+    }
+    assert.deepEqual(store.messages, before);
+  }
+});
+
+it("C5 oversized protected floor clips only the provider view and continues with the result's original message ID", async () => {
+  for (const sizedBudget of [budget, defaultContextBudget()]) for (const aggregate of [false, true]) {
+    const store = new FakeStore();
+    const result: UIMessage = { id: "large-result", role: "assistant", parts: [{ type: "dynamic-tool", toolName: "read_file", toolCallId: "large", state: "output-available", input: { path: "notes/large.txt" }, output: { ok: true, content: "HEAD" + "x".repeat(sizedBudget.inputBudgetTokens! * 3) + "TAIL" } }] };
+    const request = user("request", "current request" + (aggregate ? "r".repeat(sizedBudget.inputBudgetTokens! * 2) : ""));
+    const steer = { ...user("steer", "keep current correction" + (aggregate ? "s".repeat(sizedBudget.inputBudgetTokens! * 2) : "")), metadata: { source: "steer" } };
+    store.messages = [user("old", "x".repeat(sizedBudget.inputBudgetTokens! * 2)), request, result, steer];
+    const before = structuredClone(store.messages);
+    const compactor = make(store, { complete: async () => { throw new Error("no model"); } }, { budget: sizedBudget });
+    const prepared = await compactor.prepare(store.messages, signal());
+    if (!aggregate) {
+      assert.deepEqual(prepared.find(message => message.id === "request"), request);
+      assert.deepEqual(prepared.find(message => message.id === "steer"), steer);
+    } else {
+      assert.ok(prepared.some(message => message.id === "request"));
+      assert.ok(prepared.some(message => message.id === "steer"));
+    }
+    const clipped = prepared.find(message => message.id === result.id)!;
+    assert.ok(clipped); assert.match(JSON.stringify(clipped), /Message large-result truncated.*history_read/);
+    assert.ok(estimateContextBudget({ instructions: "instructions", tools: [], messages: prepared }, sizedBudget).inputTokens <= sizedBudget.inputBudgetTokens!);
+    assert.deepEqual(store.messages, before);
+  }
+});

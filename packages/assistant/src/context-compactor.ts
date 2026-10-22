@@ -36,7 +36,7 @@ import { CONTEXT_ESTIMATOR_VERSION } from "./context-budget.js";
 import { isAutoConsolidationRequest, withoutConsolidationTurns } from "./consolidation.js";
 import { expandMessageReferences } from "./context-assembler.js";
 import { placeForegroundTaskReference } from "./foreground-autonomy.js";
-import { blockLimits, maskOldestBlock, fitMessage, layerMessage, appendSummaryLayer, validLayers, summaryText, fitSummaryLayer, reduceSummarySection } from "./context-blocks.js";
+import { blockLimits, maskOldestBlock, fitMessage, fitMessageProjection, layerMessage, appendSummaryLayer, validLayers, summaryText, fitSummaryLayer, reduceSummarySection, emergencyFloorIds } from "./context-blocks.js";
 import { compactSummaryActions, createCompactionChecklist, type CompactionChecklistSources } from "./compaction-records.js";
 
 const SUMMARY_TIMEOUT_MS = 30_000;
@@ -317,8 +317,21 @@ export class ContextCompactor {
     const singleLimit = Math.max(1, recalibratedInput - fixedTokens);
     const foreground = messages.flatMap(message => ((message.metadata ?? {}) as { contextReferences?: UIMessage[] }).contextReferences ?? []).filter(message => message.id === "runloom-foreground-task").at(-1);
     const boundedForeground = foreground ? fitMessage(foreground, singleLimit) : undefined;
-    const bounded = visible.map(message => fitMessage(message, Math.min(this.#options.budget.contextWindowTokens,
+    const floorIds = emergencyFloorIds(visible);
+    const bounded = visible.map(message => floorIds.has(message.id) ? message : fitMessage(message, Math.min(this.#options.budget.contextWindowTokens,
       message.role === "user" ? singleLimit : 16_000)));
+    let protectingFloor = false;
+    const emergencyMasking: NonNullable<NonNullable<ContextDiagnostics["lastPreparation"]>["degradation"]>["emergencyMasking"] = [];
+    const maskedRanges = (start: number, end: number) => {
+      const ranges: Array<{ fromMessageId: string; throughMessageId: string }> = [];
+      let active: (typeof ranges)[number] | undefined;
+      for (const message of messages.slice(start, end)) {
+        if (protectingFloor && floorIds.has(message.id)) { active = undefined; continue; }
+        if (active) active.throughMessageId = message.id;
+        else { active = { fromMessageId: message.id, throughMessageId: message.id }; ranges.push(active); }
+      }
+      return ranges;
+    };
     const requestIndex = messages.reduce((last, message, index) => message.role === "user" && !isAutoConsolidationRequest(message) &&
       (message.metadata as { source?: string } | undefined)?.source !== "steer" ? index : last, -1);
     const checklistMessages = () => messages.map(message => message.role === "user" ? fitMessage({ ...message, metadata: { source: (message.metadata as { source?: string } | undefined)?.source } }, requestLimit) : message);
@@ -327,6 +340,7 @@ export class ContextCompactor {
     let reduction: NonNullable<ContextDiagnostics["lastPreparation"]>["summaryLayer"];
     const compose = () => {
       const keptIds = new Set(messages.slice(boundary).map(message => message.id));
+      if (protectingFloor) for (const id of floorIds) keptIds.add(id);
       const required = boundary ? createCompactionChecklist({ ...sources, permissions: sources?.permissions, messages: checklistMessages(), maxTokens: limits.section, hardMaxTokens: limits.section + borrowLimitTokens, requestReferenceOnly: !!boundedForeground || boundary <= requestIndex }) : undefined;
       checklistTokens = required ? estimateMessageTokens([required]) : 0;
       checklistOverflowTokens = (required?.metadata as { overflowTokens?: number } | undefined)?.overflowTokens ?? 0;
@@ -338,7 +352,7 @@ export class ContextCompactor {
       reduction = { tokens, checklistTokens, budget: limits.totalSummary, borrowedTokens, borrowLimitTokens, requiredBorrowTokens,
         ...(fitted ? { reduction: fitted.diagnostics } : {}) };
       const missing = boundary > (record?.firstKeptMessageIndex ?? 0) ? [{ id: "runloom-masked-history", role: "assistant" as const,
-        parts: [{ type: "text" as const, text: `Original messages ${messages[record?.firstKeptMessageIndex ?? 0]?.id ?? ""}–${messages[boundary - 1]?.id ?? ""} are masked pending background summary/extraction; use history_search/history_read.` }] }] : [];
+        parts: [{ type: "text" as const, text: `Original message ranges ${JSON.stringify(maskedRanges(initialBoundary, boundary))} are masked pending background summary/extraction; use history_search/history_read.` }] }] : [];
       return placeForegroundTaskReference([...(historical ? [historical] : []), ...(required ? [required] : []), ...missing, ...bounded.filter(message => keptIds.has(message.id)), ...(boundedForeground ? [boundedForeground] : [])]);
     };
     const estimate = (view: UIMessage[]) => {
@@ -348,19 +362,38 @@ export class ContextCompactor {
       return measured;
     };
     const overflowRetry = this.#extraBlock;
-    if (overflowRetry) {
+    const mask = (trigger: "input_threshold" | "provider_overflow") => {
+      protectingFloor = true;
       const next = maskOldestBlock(messages, boundary, limits.block);
+      if (next <= boundary) return false;
+      const ranges = maskedRanges(boundary, next);
+      boundary = next;
+      if (ranges.length) emergencyMasking.push({ trigger, ranges });
+      return true;
+    };
+    if (overflowRetry) {
       this.#extraBlock = false;
-      if (next > boundary) boundary = next;
+      mask("provider_overflow");
     }
     let view = compose(), measured = estimate(view);
     const recentTokens = () => estimateMessageTokens(bounded.filter(message => messages.slice(boundary).some(item => item.id === message.id)));
     const emergencyThreshold = Math.floor(measured.availableInputTokens * (this.#options.budget.triggerRatio ?? 0.85));
     const emergency = measured.inputTokens >= emergencyThreshold;
+    if (emergency) { protectingFloor = true; view = compose(); measured = estimate(view); }
     while (measured.exceeds || emergency && measured.inputTokens >= emergencyThreshold) {
-      const next = maskOldestBlock(messages, boundary, limits.block);
-      if (next <= boundary) break;
-      boundary = next; view = compose(); measured = estimate(view);
+      if (!mask("input_threshold")) break;
+      view = compose(); measured = estimate(view);
+    }
+    if (measured.exceeds && protectingFloor && requiredBorrowTokens <= borrowLimitTokens) {
+      const candidates = bounded.map((message, index) => ({ message, index }))
+        .filter(({ message }) => floorIds.has(message.id))
+        .sort((a, b) => estimateMessageTokens([b.message]) - estimateMessageTokens([a.message]));
+      for (const { message, index } of candidates) {
+        const excess = Math.ceil((measured.inputTokens - measured.availableInputTokens) / this.#reportedScale);
+        if (excess <= 0) break;
+        bounded[index] = fitMessageProjection(message, Math.max(0, estimateMessageTokens([message]) - excess)).message;
+        view = compose(); measured = estimate(view);
+      }
     }
     if (measured.exceeds && requiredBorrowTokens <= borrowLimitTokens) {
       const current = bounded.reduce((last, message, index) => message.role === "user" ? index : last, -1);
@@ -378,10 +411,11 @@ export class ContextCompactor {
       summaryLayer: { ...reduction!, tokens: summaryTokens },
       ...(boundary > initialBoundary || borrowedTokens > 0 || checklistOverflowTokens > limits.section ? { degradation: {
         reasons: [...((emergency || overflowRetry) && boundary > initialBoundary ? ["input_limit" as const] : []), ...(requiredBorrowTokens > 0 ? ["summary_overflow" as const] : []), ...(checklistOverflowTokens > limits.section ? ["checklist_overflow" as const] : [])],
-        borrowedTokens, borrowLimitTokens, requiredBorrowTokens, maskedOriginalTokens: estimateMessageTokens(bounded.filter(message => messages.slice(initialBoundary, boundary).some(item => item.id === message.id))),
-        maskedFromMessageId: boundary > initialBoundary ? messages[initialBoundary]?.id ?? null : null,
+        borrowedTokens, borrowLimitTokens, requiredBorrowTokens, maskedOriginalTokens: estimateMessageTokens(bounded.filter(message => !floorIds.has(message.id) && messages.slice(initialBoundary, boundary).some(item => item.id === message.id))),
+        maskedFromMessageId: maskedRanges(initialBoundary, boundary)[0]?.fromMessageId ?? null,
         checklistTokens: checklistOverflowTokens, sectionBudget: limits.section,
-        maskedThroughMessageId: boundary > initialBoundary ? messages[boundary - 1]?.id ?? null : null } } : {}) };
+        maskedThroughMessageId: maskedRanges(initialBoundary, boundary).at(-1)?.throughMessageId ?? null,
+        emergencyMasking } } : {}) };
     if (summaryTokens > limits.totalSummary + borrowLimitTokens) {
       const error = contextError("Essential continuation exceeds the capped C5 allocation after masking; original journal retained");
       this.#lastPreparation.outcome = "failed"; this.#lastPreparation.error = diagnosticError(error);

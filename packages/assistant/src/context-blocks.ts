@@ -1,6 +1,6 @@
 import type { UIMessage } from "ai";
 import { formatLocalTaskTime, MODEL_TIME_ZONE } from "./task-instructions.js";
-import { availableInputTokens, defaultContextBudget, estimateMessageTokens, estimateSerializedTokens, partitionMessagesForCompaction, type ContextBudgetConfig } from "./context-budget.js";
+import { availableInputTokens, defaultContextBudget, estimateMessageTokens, estimateSerializedTokens, partitionMessagesForCompaction, splitMessageCompactionUnits, type ContextBudgetConfig } from "./context-budget.js";
 import { validateContextSummary, type ContextCompactionRecord, type ContextSummaryV2 } from "./context-compaction.js";
 
 export interface SummarySegment {
@@ -77,6 +77,16 @@ export function fitSummaryLayer(record: ContextCompactionRecord, maxTokens: numb
       indexDuplicateLines: compacted ? indexLines.length - index.length : 0 } };
 }
 
+export function emergencyFloorIds(messages: readonly UIMessage[]): Set<string> {
+  const request = messages.reduce((last, message, index) => message.role === "user" &&
+    (message.metadata as { source?: string } | undefined)?.source !== "steer" ? index : last, -1);
+  const ids = new Set(messages.filter((message, index) => index === request || index > request &&
+    message.role === "user" && (message.metadata as { source?: string } | undefined)?.source === "steer").map(message => message.id));
+  const latestTool = splitMessageCompactionUnits(messages).reverse().find(unit => unit.hasToolCall && unit.completeToolCalls);
+  for (const message of latestTool?.messages ?? []) ids.add(message.id);
+  return ids;
+}
+
 /** Preserve call/result units; one masking event removes a whole proportional block. */
 export function maskOldestBlock(messages: readonly UIMessage[], through: number, tokens: number): number {
   const partition = partitionMessagesForCompaction(messages);
@@ -93,11 +103,17 @@ export function maskOldestBlock(messages: readonly UIMessage[], through: number,
 
 /** Only the provider projection is clipped; the numbered journal keeps every byte. */
 export function fitMessage(message: UIMessage, maxTokens: number): UIMessage {
+  const result = fitMessageProjection(message, maxTokens);
+  if (!result.fits) throw new Error("Context cannot fit required message/tool metadata; original retained");
+  return result.message;
+}
+
+export function fitMessageProjection(message: UIMessage, maxTokens: number): { message: UIMessage; fits: boolean } {
   const size = (value: UIMessage) => {
     const { contextReferences: _refs, contextSnapshot: _snapshot, ...metadata } = (value.metadata ?? {}) as Record<string, unknown>;
     return estimateMessageTokens([{ ...value, metadata }]);
   };
-  if (size(message) <= maxTokens) return message;
+  if (size(message) <= maxTokens) return { message, fits: true };
   const bounded = { ...message, parts: message.parts.map(part => part.type === "file"
     ? { type: "text" as const, text: `[Attachment in message ${message.id}; read with history_read.]` } : part) } as UIMessage;
   const marker = `\n[Message ${message.id} truncated for context; use history_read with start/end for the complete original.]\n`;
@@ -116,8 +132,7 @@ export function fitMessage(message: UIMessage, maxTokens: number): UIMessage {
     const mid = Math.floor((low + high) / 2), candidate = fit(mid);
     if (size(candidate) <= maxTokens) { best = candidate; low = mid + 1; } else high = mid - 1;
   }
-  if (size(best) > maxTokens) throw new Error("Context cannot fit required message/tool metadata; original retained");
-  return best;
+  return { message: best, fits: size(best) <= maxTokens };
 }
 
 export function appendSummaryLayer(input: { previous?: ContextCompactionRecord; messages: readonly UIMessage[]; start: number; end: number; summary: ContextSummaryV2; farIndex?: string }): LayeredSummary {

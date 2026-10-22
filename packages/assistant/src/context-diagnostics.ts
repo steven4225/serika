@@ -33,7 +33,8 @@ export interface ContextDiagnostics {
     compactionId: string | null;
     estimatedInputTokens: number | null;
     summaryLayer?: { tokens: number; checklistTokens: number; budget: number; borrowedTokens: number; borrowLimitTokens: number; requiredBorrowTokens: number; reduction?: { originalTokens: number; requiredTokens: number; budget: number; reducedSegments: number; compacted: boolean; indexDuplicateLines: number } };
-    degradation?: { reasons: Array<"checklist_overflow" | "summary_overflow" | "input_limit">; borrowedTokens: number; borrowLimitTokens: number; requiredBorrowTokens: number; maskedOriginalTokens: number; maskedFromMessageId: string | null; checklistTokens: number; sectionBudget: number; maskedThroughMessageId: string | null };
+    degradation?: { reasons: Array<"checklist_overflow" | "summary_overflow" | "input_limit">; borrowedTokens: number; borrowLimitTokens: number; requiredBorrowTokens: number; maskedOriginalTokens: number; maskedFromMessageId: string | null; checklistTokens: number; sectionBudget: number; maskedThroughMessageId: string | null;
+      emergencyMasking?: Array<{ trigger: "input_threshold" | "provider_overflow"; ranges: Array<{ fromMessageId: string; throughMessageId: string }> }> };
     error: { code: string; message: string } | null;
   } | null;
 }

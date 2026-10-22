@@ -110,7 +110,7 @@ test('overflow checklist retains request and steer references plus complete perm
     fileAuthorizations: permissions.fileAuthorizations, blocked: permissions.blocked, remembered: permissions.remembered });
 });
 
-test('emergency prepare preserves the masked ordinary request and classifies Steer, including overflow', async () => {
+test('emergency prepare preserves the original ordinary request and Steer, including overflow', async () => {
   for (const effects of [0, 100]) {
     const spec = effectiveCompactionFidelitySpec('CE05'), store = new Store();
     store.messages = [user('original-request', '请完成 ONLY-ORIGINAL-GOAL 验收报告'),
@@ -121,7 +121,8 @@ test('emergency prepare preserves the masked ordinary request and classifies Ste
     const before = structuredClone(store.messages);
     const compactor = open(store, spec.contextBudget, async () => { throw new Error('foreground must not dispatch'); });
     const prepared = await compactor.prepare(store.messages, signal());
-    assert.equal(prepared.some(message => message.id === 'original-request'), false);
+    assert.deepEqual(prepared.find(message => message.id === 'original-request'), store.messages[0]);
+    assert.deepEqual(prepared.find(message => message.id === 'correction'), store.messages.at(-1));
     const checklist = prepared.find(message => message.id === 'runloom-compaction-checklist');
     const body = JSON.parse(checklist.parts[0].text.split('\n').slice(1).join('\n'));
     assert.equal(body.request.messageId, 'original-request');
