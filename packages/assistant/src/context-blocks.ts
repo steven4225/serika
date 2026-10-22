@@ -73,7 +73,7 @@ export function fitSummaryLayer(record: ContextCompactionRecord, maxTokens: numb
   const compacted = estimateMessageTokens([message]) > maxTokens;
   if (compacted) message = minimum;
   return { message, fits: estimateMessageTokens([message]) <= maxTokens,
-    diagnostics: { originalTokens, requiredTokens, budget: maxTokens, reducedSegments, compacted, indexReferenced: false,
+    diagnostics: { originalTokens, requiredTokens, budget: maxTokens, reducedSegments, compacted,
       indexDuplicateLines: compacted ? indexLines.length - index.length : 0 } };
 }
 

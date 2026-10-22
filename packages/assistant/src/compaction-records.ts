@@ -58,7 +58,6 @@ export function createCompactionChecklist(input: CompactionChecklistSources & {
   messages: readonly UIMessage[];
   maxTokens?: number;
   requestReferenceOnly?: boolean;
-  preserveRecentReceipts?: boolean;
   hardMaxTokens?: number;
 }): UIMessage {
   const request = [...input.messages].reverse().find(message => message.role === "user" &&
@@ -116,7 +115,6 @@ export function createCompactionChecklist(input: CompactionChecklistSources & {
       ...(recent.length ? { recentReceipts: recent.map(compactReceipt) } : {}),
     }) }] });
   if (input.maxTokens !== undefined) {
-    while (!input.preserveRecentReceipts && recent.length && estimateMessageTokens([compose()]) > input.maxTokens) recent.shift();
     const originalTokens = estimateMessageTokens([compose()]);
     if (originalTokens > input.maxTokens) {
       const effectsTokens = estimateSerializedTokens({ unknown: [...unknown.values()].map(compactReceipt), failed: [...failed.values()].map(compactReceipt) });
@@ -127,17 +125,14 @@ export function createCompactionChecklist(input: CompactionChecklistSources & {
         parts: [{ type: "text", text: "Checklist overflow; never retry unknown effects.\n" + JSON.stringify({
           unknown: unknown.size, failed: failed.size, messages: [1, input.messages.length],
           read: "history_read id=runloom-compaction-checklist", ...(task ? { task: task.id } : {}),
-          ...(input.preserveRecentReceipts ? {
-            request: requestView ? literal(requestView) : null,
-            ...(corrections.length ? { corrections: corrections.map(literal) } : {}),
-            ...(task ? { goal: task.goal, constraints: task.constraints, unfinished: {
-              status: task.status, criteria: task.acceptance.filter(criterion => criterion.status !== "passed"), unresolved: task.delivery?.unresolved ?? [],
-            } } : {}),
-            ...(recent.length ? { recentReceipts: recent.map(compactReceipt) } : {}),
-          } : {}),
-          ...(permissions ? { permissions: input.preserveRecentReceipts ? permissionView : { files: permissions.autonomousFiles, shell: permissions.shell } } : {}),
+          request: requestView ? literal(requestView) : null,
+          ...(corrections.length ? { corrections: corrections.map(literal) } : {}),
+          ...(task ? { goal: task.goal, constraints: task.constraints, unfinished: {
+            status: task.status, criteria: task.acceptance.filter(criterion => criterion.status !== "passed"), unresolved: task.delivery?.unresolved ?? [],
+          } } : {}),
+          ...(recent.length ? { recentReceipts: recent.map(compactReceipt) } : {}),
+          ...(permissions ? { permissions: permissionView } : {}),
         }) }] };
-      if (!input.preserveRecentReceipts && estimateMessageTokens([overflow]) > input.maxTokens) throw new Error("Checklist reference metadata exceeds section budget; original records retained");
       return overflow;
     }
   }

@@ -441,7 +441,7 @@ it("C5 retains opaque far-index contents instead of hiding possibly essential cl
   const record = { firstKeptMessageIndex: 2, summary, layers: { recent: [{ firstMessageId: "u1", lastMessageId: "a1", timeRange: [null, null], summary }],
     index: [{ firstMessageId: "old-1", lastMessageId: "old-99", timeRange: [null, null], text: "index".repeat(2000) }] } } as ContextCompactionRecord;
   const before = structuredClone(record), fitted = fitSummaryLayer(record, 1055);
-  assert.equal(fitted.fits, false); assert.equal(fitted.diagnostics.indexReferenced, false);
+  assert.equal(fitted.fits, false);
   assert.ok(JSON.stringify(fitted.message).includes(record.layers!.index[0]!.text));
   for (const text of [summary.goal.text, "old-1", "old-99", "history_read/search"]) assert.ok(JSON.stringify(fitted.message).includes(text));
   assert.deepEqual(record, before);

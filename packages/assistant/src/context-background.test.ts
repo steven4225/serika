@@ -225,7 +225,8 @@ test("overflow checklist reads page through filtered receipts, including uncommi
     for (const budget of budgets) {
       const bounded = createCompactionChecklist({ messages: await access.read(), permissions: permission.snapshot(), runs: await access.filterRuns(await records.listRuns("t")), maxTokens: blockLimits(budget).section });
       assert.match(JSON.stringify(bounded), /unknown.*1.*failed.*200/);
-      assert.ok(estimateContextBudget({ messages: [bounded] }, budget).inputTokens <= blockLimits(budget).section);
+      assert.ok(estimateContextBudget({ messages: [bounded] }, budget).inputTokens <= blockLimits(budget).section + Math.floor(blockLimits(budget).recent / 2));
+      assert.match(JSON.stringify(bounded), /request.*Continue.*permissions/);
       const reader = historyTools(access, budget, full)[1]!.tool;
       let start = 0, text = "", pages = 0;
       for (;;) {

@@ -327,7 +327,7 @@ export class ContextCompactor {
     let reduction: NonNullable<ContextDiagnostics["lastPreparation"]>["summaryLayer"];
     const compose = () => {
       const keptIds = new Set(messages.slice(boundary).map(message => message.id));
-      const required = boundary ? createCompactionChecklist({ ...sources, permissions: sources?.permissions, messages: checklistMessages(), maxTokens: limits.section, hardMaxTokens: limits.section + borrowLimitTokens, preserveRecentReceipts: true, requestReferenceOnly: !!boundedForeground || boundary <= requestIndex }) : undefined;
+      const required = boundary ? createCompactionChecklist({ ...sources, permissions: sources?.permissions, messages: checklistMessages(), maxTokens: limits.section, hardMaxTokens: limits.section + borrowLimitTokens, requestReferenceOnly: !!boundedForeground || boundary <= requestIndex }) : undefined;
       checklistTokens = required ? estimateMessageTokens([required]) : 0;
       checklistOverflowTokens = (required?.metadata as { overflowTokens?: number } | undefined)?.overflowTokens ?? 0;
       const fitted = record ? fitSummaryLayer(record, limits.totalSummary - checklistTokens) : undefined;
@@ -517,7 +517,7 @@ export class ContextCompactor {
     this.#summaryReduction = { budget: limits.section, segmentBefore: estimateSerializedTokens(summaryText(reconciled)), segmentAfter: estimateSerializedTokens(summaryText(summary)),
       indexBefore: estimateSerializedTokens(raw.farIndex ?? []), indexAfter: estimateSerializedTokens(layers.index) };
     const checklist = createCompactionChecklist({ ...sources, permissions: sources?.permissions, messages: withoutConsolidationTurns(messages.slice(0, end)), maxTokens: limits.section,
-      hardMaxTokens: limits.section + Math.floor(limits.recent / 2), preserveRecentReceipts: true, requestReferenceOnly: true });
+      hardMaxTokens: limits.section + Math.floor(limits.recent / 2), requestReferenceOnly: true });
     const fresh = await this.#options.store.getMessages(this.#options.threadId);
     if (compactPrefixHash(fresh, end) !== compactPrefixHash(messages, end) ||
         JSON.stringify(this.#exclusions(fresh)) !== JSON.stringify(this.#exclusions(messages))) throw contextError("Summary sources changed; result discarded");
