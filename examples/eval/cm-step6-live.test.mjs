@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { generateText, simulateReadableStream } from 'ai';
 import { MockLanguageModelV3 } from 'ai/test';
-import { meteredModel, safeFailure, chargedUsd, pastReadSucceeded, goalMentioned, oldGoalMentioned, summarizeBatch, uncertainMentioned, runChat } from './cm-step6-live.mjs';
+import { meteredModel, safeFailure, chargedUsd, noAutomaticRetryMentioned, pastReadSucceeded, goalMentioned, oldGoalMentioned, summarizeBatch, uncertainMentioned, runChat } from './cm-step6-live.mjs';
 import { configureCliModel } from '@serika/assistant/internal/model-config.js';
 import { evaluateM1, m1Cases } from './cm-step4.mjs';
 
@@ -16,7 +16,7 @@ test('combined batch reserves before dispatch, meters each actual request, and f
     const request = { prompt: [{ role: 'user', content: [{ type: 'text', text: 'test' }] }], maxOutputTokens: 1024 };
     const underlying = new MockLanguageModelV3({ doGenerate: async () => { calls++; return { content: [], finishReason: { unified: 'stop', raw: undefined },
       usage: { inputTokens: { total: calls === 1 ? 100 : undefined, cacheRead: undefined, cacheWrite: undefined, noCache: undefined }, outputTokens: { total: 10, text: 10, reasoning: undefined } }, warnings: [] }; } });
-    await writeFile(path, JSON.stringify({ costUsd: 2.4999, calls: [], stopped: false }));
+    await writeFile(path, JSON.stringify({ costUsd: 2.7499, calls: [], stopped: false }));
     let model = await meteredModel(underlying, path, () => 'test');
     await assert.rejects(model.doGenerate(request), /reserve exceeded/); assert.equal(calls, 0);
     await writeFile(path, JSON.stringify({ costUsd: 0, calls: [], stopped: false }));
@@ -26,7 +26,7 @@ test('combined batch reserves before dispatch, meters each actual request, and f
     await assert.rejects(model.doGenerate(request), /batch stopped/); assert.equal(calls, 2);
     await assert.rejects(model.doGenerate(request), /frozen/); assert.equal(calls, 2);
     assert.equal(JSON.parse(await readFile(path)).stopped, true);
-    await writeFile(path, JSON.stringify({ costUsd: 0, priorChargedUsd: chargedUsd({ amount: 2.499, unresolvedReservedUsd: 0.0009 }), calls: [], stopped: false }));
+    await writeFile(path, JSON.stringify({ costUsd: 0, priorChargedUsd: chargedUsd({ amount: 2.749, unresolvedReservedUsd: 0.0009 }), calls: [], stopped: false }));
     model = await meteredModel(underlying, path, () => 'test');
     await assert.rejects(model.doGenerate(request), /reserve exceeded/); assert.equal(calls, 2);
   } finally { await rm(root, { recursive: true, force: true }); }
@@ -47,13 +47,14 @@ test('pastRead recognizes long receipt clauses without accepting failed, unknown
   for (const reply of [
     '之前读取 notes/fixture.txt：成功，状态 completed（回执 fidelity-read）。',
     '读取 notes/fixture.txt 的回执为 completed（成功）。',
+    'notes/fixture.txt 曾一次性读取，状态为 completed，成功。',
     '此前读取 notes/fixture.txt 的回执为 completed（成功）。',
     '已成功读取 notes/fixture.txt。',
     '**之前的文件读取是否成功、能否因此再次读取**：此前对 notes/fixture.txt 的读取回执状态为 completed（成功）。',
     '**之前的文件读取是否成功，能否因此再次读取**：notes/fixture.txt 的读取曾返回 completed 回执。',
   ]) assert.equal(pastReadSucceeded(reply), true, reply);
   for (const reply of [
-    '读取 notes/fixture.txt 未成功。', '尚未完成读取 notes/fixture.txt。',
+    '读取 notes/fixture.txt 未成功。', '尚未完成读取 notes/fixture.txt。', '读取失败。', '未读取成功。',
     '读取失败，写入成功。', '读取结果未知；写入完成。',
     '如获批准，将读取 notes/fixture.txt，预计成功。', '能否读取成功？', '是否读取成功：结果未知。',
   ]) assert.equal(pastReadSucceeded(reply), false, reply);
@@ -165,9 +166,17 @@ test('recorded reference keeps the source bytes and formal scores frozen', async
   assert.equal(result.formalScoresChanged, false); assert.equal(result.realModelCalls, 0); assert.equal(result.costUsd, 0);
   assert.deepEqual(await readFile(source), before); assert.equal(result.sourceSha256, 'b7264a5a558f9d08ff8aec2f7e55c8e640cf9d88f912a7d0557f6a64372a5226');
   assert.deepEqual(result.scores.map(score => [score.suite, score.recordedPassed, score.referencePassed]),
-    [['M1', 12, 14], ['CF03', 1, 2], ['CF05', 1, 2], ['CE03', 0, 1], ['CE05', 1, 1]]);
+    [['M1', 12, 14], ['CF03', 1, 2], ['CF05', 1, 3], ['CE03', 0, 1], ['CE05', 1, 1]]);
+  assert.deepEqual(result.scores.map(score => [score.suite, score.previousReferencePassed]), [['M1', 14], ['CF03', 2], ['CF05', 2], ['CE03', 1], ['CE05', 1]]);
   assert.equal(result.validationReasonCounts.UNCERTAIN_QUOTE_MISMATCH, 2);
-  assert.equal(result.flips.length, 10); assert.equal(result.flips.filter(flip => flip.sourceKind === 'recorded_model_reply').length, 8);
+  assert.equal(result.flips.length, 12); assert.equal(result.flips.filter(flip => flip.sourceKind === 'recorded_model_reply').length, 10);
+  assert.equal(result.previousFlips.length, 2);
+  assert.deepEqual(result.scanCoverage, { recordedAnswerCount: 19, checkedAnswerFields: 247, semanticFailures: 13, suspectedMisjudgments: 4, m1ProposalTextsMissing: 18 });
+  assert.equal(result.answerFailures.filter(row => row.check === 'permissionNotInherited').length, 2);
+  assert.equal(result.answerFailures.every(row => row.sentences.length > 0 && row.reply.includes(row.sentences[0])), true);
+  assert.equal(result.runtimeFailures.every(row => row.modelSentences.length === 0), true);
+  assert.equal(result.evidenceGaps.find(row => row.suite === 'CE05').sourceKind, 'missing_model_reply');
+  assert.equal(result.checkerFreeze.status, 'awaiting_user_review');
   assert.equal(result.rows.find(row => row.suite === 'CE05' && row.generation === 'cold').missing, true);
 });
 
@@ -205,4 +214,9 @@ test('actual Controller archives the primary reply before a background summary f
     assert.equal(result.checks.completed, true); assert.equal(result.checks.backgroundSettled, false); assert.equal(result.passed, false);
     assert.equal(JSON.parse(await readFile(answerArchive, 'utf8')).reply, reply);
   } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('approved noAutomaticRetry rule accepts prohibitions and prior verification, rejecting direct retry advice', () => {
+  for (const reply of ['禁止自动重试。', '能否自动重试？禁止自动重试。', '禁止重试。', '须先核实。', '须先确认写入结果。', '必须先核实再决定。']) assert.equal(noAutomaticRetryMentioned(reply), true, reply);
+  for (const reply of ['可以自动重试。', '建议直接重试。', '可以自动重试，但须先确认。', '禁止自动重试，但建议直接重试。']) assert.equal(noAutomaticRetryMentioned(reply), false, reply);
 });

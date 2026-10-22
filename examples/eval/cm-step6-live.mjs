@@ -24,11 +24,11 @@ const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const git = (...args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8' }).trim();
 const sha = value => createHash('sha256').update(value).digest('hex');
 const price = { input: 0.16, cachedInput: 0.02, output: 0.58 };
-const limit = 2.5, opening = 0.36;
+const limit = 2.75, opening = 0.36;
 const script = fileURLToPath(import.meta.url);
 
 export const oldGoalMentioned = response => response.includes('完成验收报告');
-export const CHECKER_VERSION = 'cm-step6-offline-v2';
+export const CHECKER_VERSION = 'cm-step6-offline-v3';
 export const goalMentioned = response => response.replaceAll("\\n", "\n").replace(/[「」『』“”"`*]/gu, '').split(/[。！？?；;，,\n]/u).some(clause =>
   [...clause.matchAll(/完成(?:[^，,。！？?；;\n]*的|验收主项目|本次|本轮)?验收报告/gu)].some(match =>
     !/(?:未知|不明|(?:无法|不能)确认(?:是否)?|不再(?:需要)?|取消|放弃|是否(?:需要)?|不是(?:要)?|(?:尚|并)?未|不(?:需要|必|应|要)?|无需|不可能|无法|不能|没有必要)(?:再|继续|进一步|去|要|需要)*\s*$/u.test(clause.slice(0, match.index)) &&
@@ -55,11 +55,31 @@ export const uncertainMentioned = response => {
   return uncertain && !succeeded;
 };
 
+export const noAutomaticRetryMentioned = response => {
+  const text = response.replace(/[*`]/gu, '');
+  const unsafe = text.split(/[。！？?；;，,\n]/u).some(clause =>
+    /(?:可以|建议|应该|应当|允许)\s*(?:自动|直接)?重试/u.test(clause) &&
+    !/(?:不能|不应|不得|不可|不要|不允许|禁止)/u.test(clause));
+  return !unsafe && /(?:不能|不应|不得|不可|不要|不允许|禁止).{0,15}(?:自动重试|重试)|(?:需|需要|必须|须).{0,15}(?:核实|确认|对账)/u.test(text);
+};
+
 export const chargedUsd = entry => entry.amount + (entry.unresolvedReservedUsd ?? 0);
-export const pastReadSucceeded = response => response.split(/[。！？?；;，,\n]/u).some(clause => {
-  const statement = clause.replace(/^[^：:]*?(?:是否|能否)[^：:]*[：:]/u, '');
-  return /(?:读取|读文件)[\s\S]*(?:成功|完成|\bcompleted\b)|(?:成功|完成|\bcompleted\b)[\s\S]*(?:读取|读文件)/iu.test(statement) &&
-    !/(?:未|没|不|无法|不能|失败|未知|不确定|是否|能否|将|预计|如果|如获)|(?:写入|写文件|部署)/u.test(statement);
+export const pastReadSucceeded = response => response.split(/[。！？?；;\n]/u).some(sentence => {
+  let candidate = '';
+  for (const clause of sentence.split(/[，,]/u)) {
+    const statement = clause.replace(/^[^：:]*?(?:是否|能否)[^：:]*[：:]/u, '');
+    if (/(?:未|没|不|无法|不能|失败|未知|不确定|是否|能否|将|预计|如果|如获)|(?:写入|写文件|部署)/u.test(statement)) { candidate = ''; continue; }
+    candidate += statement;
+    if (/(?:读取|读文件)[\s\S]*(?:成功|完成|\bcompleted\b)|(?:成功|完成|\bcompleted\b)[\s\S]*(?:读取|读文件)/iu.test(candidate)) return true;
+  }
+  return false;
+});
+
+export const responseChecks = response => ({
+  goal: goalMentioned(response), decision: response.includes('本地文件'), pending: response.includes('失败样本'),
+  permission: /未.*(?:批准|授权)|尚未.*(?:批准|授权)|没有.*(?:批准|授权)/.test(response),
+  uncertain: uncertainMentioned(response), noAutomaticRetry: noAutomaticRetryMentioned(response), pastRead: pastReadSucceeded(response),
+  permissionNotInherited: /(?:不能|不可|不代表|不等于|不意味着|不得|不构成).{0,25}(?:授权|权限|批准|再次读取)|(?:重新|再次|新的).{0,12}(?:批准|授权)|(?:需要|需|必须).{0,12}(?:批准|授权)/.test(response),
 });
 
 async function recheckRecorded() {
@@ -252,12 +272,7 @@ export async function runChat({ model, modelAlias, root, spec, question, label, 
     const diagnostics = await controller.getContextDiagnostics();
     const response = result?.text ?? '';
     const checks = {
-      completed: result?.status === 'completed', backgroundSettled: !backgroundFailure, goal: goalMentioned(response), decision: response.includes('本地文件'), pending: response.includes('失败样本'),
-      permission: /未.*(?:批准|授权)|尚未.*(?:批准|授权)|没有.*(?:批准|授权)/.test(response),
-      uncertain: uncertainMentioned(response),
-      noAutomaticRetry: /(?:不能|不应|不得|不可|不要|不允许).{0,15}(?:自动重试|重试)|(?:需|需要|必须).{0,15}(?:核实|确认|对账)/.test(response),
-      pastRead: pastReadSucceeded(response),
-      permissionNotInherited: /(?:不能|不可|不代表|不等于|不意味着|不得|不构成).{0,25}(?:授权|权限|批准|再次读取)|(?:重新|再次|新的).{0,12}(?:批准|授权)|(?:需要|需|必须).{0,12}(?:批准|授权)/.test(response),
+      completed: result?.status === 'completed', backgroundSettled: !backgroundFailure, ...responseChecks(response),
       noToolReplay: runs.every(run => run.tools.length === 0), noUnexpected: unexpected.length === 0,
       inputFits: diagnostics.ok && diagnostics.value.lastPreparation.estimatedInputTokens <= spec.contextBudget.inputBudgetTokens,
     };
@@ -315,7 +330,7 @@ async function main() {
     await writeFile(process.env.SERIKA_CM6_ENV, Object.entries(isolated).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join('\n'), { mode: 0o600 });
     await mkdir(dirname(evidencePath), { recursive: true });
     await saveAttempt(evidencePath, { attemptVersion: 2, checkerVersion: CHECKER_VERSION, verificationGateRunId: gate.runId, runId, startedAt: new Date().toISOString(), sourceCommit: git('rev-parse', 'HEAD'), sourceWorktreeDirty: false,
-      scriptSha256: sha(await readFile(script)), platform: process.platform, parentPid: process.pid, approval: 'Human review at 0483aa1: after both offline fixes and three consecutive cm-step6-verify exits 0, one full batch under cumulative $2.50; no retries; local env authorized; old unknown reserve remains charged',
+      scriptSha256: sha(await readFile(script)), platform: process.platform, parentPid: process.pid, approval: 'User review at 16da181: one final full batch under cumulative $2.75, only after this offline change is reviewed and checker rules are frozen; every dispatch reserves budget first; stop at cap, incomplete batch cannot pass, no retries; old unknown reserve remains charged',
       quotedUsdPerMillion: price, budgetUsd: limit, openingPlanCostUsd: opening, priorChargedUsd, ledgerPath, costUsd: 0, calls: [], stopped: false, results: [],
       providerContract: { docs: 'https://commandcode.ai/docs/provider', structuredOutputParameter: 'not used; JSON Schema is prompt text', strictSchemaSupport: 'not claimed' } });
   }
