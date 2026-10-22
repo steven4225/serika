@@ -25,7 +25,7 @@ test("background extraction commits memory with progress and never appends a syn
     assert.equal(options.tools?.length ?? 0, 0);
     return { content: [{ type: "text", text: JSON.stringify({ proposals: [{ operation: "add", category: "preference", text: "我喝咖啡不加糖", sourceMessageId: "u", sourceQuote: "我喝咖啡不加糖", identity: { subject: "user", attribute: "coffee", value: "不加糖" } }], outcomes: [{ messageId: "u", status: "extracted" }] }) }], finishReason: { unified: "stop", raw: undefined }, usage, warnings: [] };
   } });
-  const store = createMemoryStore(root), extraction = createMemoryExtraction({ store, threadId: "t", getMessages: async () => messages, model: observeModelUsage(model, { records: createExecutionRecordStore(root), threadId: "t", enabled: () => true, callLog: new ModelCallLog(root), scope: () => ({ purpose: "memory_consolidation" }) }), budget: { ...DEFAULT_CONTEXT_BUDGET_CONFIG, summaryMaxOutputTokens: 1024 }, updated });
+  const store = createMemoryStore(join(root, ".runloom/memory.json")), extraction = createMemoryExtraction({ store, threadId: "t", getMessages: async () => messages, model: observeModelUsage(model, { records: createExecutionRecordStore(root), threadId: "t", enabled: () => true, callLog: new ModelCallLog(root), scope: () => ({ purpose: "memory_consolidation" }) }), budget: { ...DEFAULT_CONTEXT_BUDGET_CONFIG, summaryMaxOutputTokens: 1024 }, updated });
   try {
     extraction.idle();
     await update;

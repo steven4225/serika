@@ -1,3 +1,4 @@
+import { dirname } from "node:path";
 import assert from "node:assert/strict";
 import { it } from "node:test";
 import { createElement } from "react";
@@ -86,7 +87,7 @@ it("renders actual Controller/bridge preparation for the latest task Run, but no
         } },
       ] }) }) });
       const output = new TeeOutput(() => undefined);
-      const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "panel-thread", configPath: join(root, "config.json") }, modelAlias: "mock", model, output, env: {}, cwd: root });
+      const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { dataDirectory: join(dirname(join(root, "config.json")), "workspace/.runloom"), threadId: "panel-thread", configPath: join(root, "config.json") }, modelAlias: "mock", model, output, env: {}, cwd: root });
       const controller = createAssistantController(app);
       output.attach(controller);
       return new RuntimeBridge(app, controller, { modelAlias: "mock", temporaryThread: false, temporaryDirectory: false }, output, () => undefined);

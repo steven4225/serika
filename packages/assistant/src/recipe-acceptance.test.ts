@@ -42,7 +42,7 @@ it("real Shell → receipt-checked registration → new Thread/process reconstru
   const closers: (() => Promise<void>)[] = [];
   const open = async (thread: string, next: () => ReturnType<typeof response>) => {
     let output = "";
-    const app = await createRuntimeApp({ directory: join(f.root, "transcripts"), assistant: { threadId: thread, configPath: f.config },
+    const app = await createRuntimeApp({ directory: join(f.root, "transcripts"), assistant: { dataDirectory: join(f.workspace, ".runloom"), threadId: thread, configPath: f.config },
       modelAlias: "scripted", model: new MockLanguageModelV3({ doStream: async () => next() }), env: {}, cwd: f.root,
       output: new Writable({ write(chunk, _encoding, done) { output += String(chunk); done(); } }) });
     const controller = createAssistantController(app);
@@ -68,7 +68,7 @@ it("real Shell → receipt-checked registration → new Thread/process reconstru
     });
     const started = await first.controller.run("生成项目摘要，核对产物后登记为可复用命令配方"); assert.ok(started.ok);
     await wait(() => first.controller.getSnapshot().state.kind === "idle");
-    const saved = await new RecipeStore(f.workspace).list(signal());
+    const saved = await new RecipeStore(f.workspace, join(f.workspace, ".runloom/recipes.json")).list(signal());
     assert.equal(saved.length, 1); assert.equal(saved[0]!.activeHash, recipeHash(definition));
     assert.deepEqual(first.approvals, ["shell_exec", "recipe_save"]);
     assert.equal(await readFile(join(f.workspace, "summary.md"), "utf8"), "# Changes\nbefore");
@@ -92,14 +92,14 @@ it("real Shell → receipt-checked registration → new Thread/process reconstru
     assert.equal(receipt?.tools.find(item => item.toolName === "recipe_run")?.shell?.exitCode, 0);
     await second.close();
 
-    const store = new RecipeStore(f.workspace);
+    const store = new RecipeStore(f.workspace, join(f.workspace, ".runloom/recipes.json"));
     const changed = { ...definition, command: "printf updated" };
     const v2 = await store.save(changed, saved[0]!.versions[0]!.tested, 1, signal());
     await assert.rejects(store.get(definition.id, recipeHash(definition), signal()), /changed/);
     const rolled = await store.change(definition.id, v2.revision, "rollback", recipeHash(definition), signal());
     assert.equal((await store.get(definition.id, rolled.activeHash, signal())).command, definition.command);
     await store.change(definition.id, rolled.revision, "disable", undefined, signal());
-    await assert.rejects(new RecipeStore(f.workspace).get(definition.id, rolled.activeHash, signal()), /disabled/);
+    await assert.rejects(new RecipeStore(f.workspace, join(f.workspace, ".runloom/recipes.json")).get(definition.id, rolled.activeHash, signal()), /disabled/);
   } finally { for (const close of closers) await close(); await rm(f.root, { recursive: true, force: true }); }
 });
 
@@ -107,7 +107,7 @@ it("registration refuses a guessed receipt, mismatched command and a real failed
   for (const mode of ["missing", "mismatch", "failed", "stale"] as const) {
     const f = await fixture(); let step = 0;
     const command = mode === "failed" ? "exit 7" : "printf tested";
-    const app = await createRuntimeApp({ directory: join(f.root, "transcripts"), assistant: { threadId: "guard", configPath: f.config },
+    const app = await createRuntimeApp({ directory: join(f.root, "transcripts"), assistant: { dataDirectory: join(f.workspace, ".runloom"), threadId: "guard", configPath: f.config },
       modelAlias: "scripted", model: new MockLanguageModelV3({ doStream: async () => {
         step++;
         if (mode !== "missing" && step === 1) return response({ name: "shell_exec", id: "test", input: { command, cwd: "." } });
@@ -122,7 +122,7 @@ it("registration refuses a guessed receipt, mismatched command and a real failed
     try {
       assert.ok((await controller.run("测试后登记复用")).ok);
       await wait(() => controller.getSnapshot().state.kind === "idle");
-      assert.deepEqual(await new RecipeStore(f.workspace).list(signal()), [], mode);
+      assert.deepEqual(await new RecipeStore(f.workspace, join(f.workspace, ".runloom/recipes.json")).list(signal()), [], mode);
       const receipts = await controller.runs.list();
       assert.match(receipts[0]?.tools.find(item => item.toolName === "recipe_save")?.resultPreview ?? "", /RECIPE_TEST_(REQUIRED|MISMATCH|STALE)/, mode);
     } finally { await controller.shutdown(); await app.dispose(); await rm(f.root, { recursive: true, force: true }); }
@@ -132,9 +132,9 @@ it("denying a recipe or disabling it while its preview is open prevents real She
   for (const mode of ["deny", "changed"] as const) {
     const f = await fixture(); let step = 0;
     const def = { ...definition, command: "touch should-not-exist" };
-    const recipes = new RecipeStore(f.workspace);
+    const recipes = new RecipeStore(f.workspace, join(f.workspace, ".runloom/recipes.json"));
     const entry = await recipes.save(def, { threadId: "old", runId: "tested", toolCallId: "test" }, 0, signal());
-    const app = await createRuntimeApp({ directory: join(f.root, "transcripts"), assistant: { threadId: "guard", configPath: f.config },
+    const app = await createRuntimeApp({ directory: join(f.root, "transcripts"), assistant: { dataDirectory: join(f.workspace, ".runloom"), threadId: "guard", configPath: f.config },
       modelAlias: "scripted", model: new MockLanguageModelV3({ doStream: async () => ++step === 1 ? response({ name: "recipe_run", id: "run", input: { id: def.id, expectedHash: entry.activeHash } }) : response() }),
       env: {}, cwd: f.root, output: new Writable({ write(_chunk, _encoding, done) { done(); } }) });
     const controller = createAssistantController(app);

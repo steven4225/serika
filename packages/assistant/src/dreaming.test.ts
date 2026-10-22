@@ -24,8 +24,8 @@ async function fixture() {
   add("task-a"); add("task-b");
   const workTasks = { list: async () => ({ ok: true, value: structuredClone(tasks) }), get: async (id: string) => { const t = tasks.find(t => t.id === id); return t ? { ok: true, value: structuredClone(t) } : { ok: false, error: { code: "WORK_TASK_NOT_FOUND", message: "Not found" } }; } } as WorkTaskStore;
   const executionRecords: Pick<ExecutionRecordStore, "getRun"> = { getRun: async (_threadId, id) => structuredClone(runs.get(id) ?? null) };
-  const service = createDreamingService({ workspaceRoot: root, workTasks, executionRecords });
-  return { root, tasks, runs, add, service, workTasks, executionRecords, reopen: () => createDreamingService({ workspaceRoot: root, workTasks, executionRecords }) };
+  const service = createDreamingService({ filePath: join(root, ".runloom/dreaming.json"), workTasks, executionRecords });
+  return { root, tasks, runs, add, service, workTasks, executionRecords, reopen: () => createDreamingService({ filePath: join(root, ".runloom/dreaming.json"), workTasks, executionRecords }) };
 }
 const response = (batch: DreamingBatch, extra: Record<string, unknown> = {}) => JSON.stringify({ skills: [{ key: "project-recap", title: "项目复盘", description: "整理项目复盘时使用", recallTerms: ["复盘", "总结"], instructions: "先给一行结论，再列两条可执行步骤；每条步骤写明可观察结果。", sourceTaskIds: batch.experiences.map(e => e.source.taskId), ...extra }] });
 
@@ -188,7 +188,7 @@ describe("host-managed dreaming experience skills", () => {
     await writeFile(join(f.root, ".runloom/dreaming.json"), bytes);
     f.tasks.shift();
     assert.deepEqual(value(await f.reopen().index("new")), []);
-    const broken = createDreamingService({ workspaceRoot: f.root, workTasks: f.workTasks,
+    const broken = createDreamingService({ filePath: join(f.root, ".runloom/dreaming.json"), workTasks: f.workTasks,
       executionRecords: { getRun: async () => { throw new Error("corrupt journal"); } } });
     // Restore the removed task so the live receipt read is actually reached.
     f.add("task-a");
@@ -228,7 +228,7 @@ describe("host-managed dreaming experience skills", () => {
     let memory: MemoryEntry = { id: "memory-a", revision: 1, text: "复盘偏好", enabled: true, status: "active" };
     for (const run of f.runs.values()) run.memoryReferences = [{ id: memory.id, revision: 1 }];
     const memoryStore = { get: async () => ({ ok: true, entry: structuredClone(memory) }) } as unknown as WorkspaceMemoryStore;
-    const service = createDreamingService({ workspaceRoot: f.root, workTasks: f.workTasks, executionRecords: f.executionRecords, memoryStore });
+    const service = createDreamingService({ filePath: join(f.root, ".runloom/dreaming.json"), workTasks: f.workTasks, executionRecords: f.executionRecords, memoryStore });
     const batch = value(await service.prepare()); assert.ok(batch);
     const committed = value(await service.commit(batch, response(batch)));
     assert.deepEqual(value(await service.overview()).skills[0]!.memoryDependencies, [{ id: memory.id, revision: 1 }]);
@@ -244,7 +244,7 @@ describe("host-managed dreaming experience skills", () => {
     let memory: MemoryEntry = { id: "legacy-dependency", revision: 1, text: "复盘方法", enabled: true, status: "active" };
     for (const run of f.runs.values()) run.memoryReferences = [{ id: memory.id, revision: 1 }];
     const memoryStore = { get: async () => ({ ok: true, entry: structuredClone(memory) }) } as unknown as WorkspaceMemoryStore;
-    const service = createDreamingService({ workspaceRoot: f.root, workTasks: f.workTasks, executionRecords: f.executionRecords, memoryStore });
+    const service = createDreamingService({ filePath: join(f.root, ".runloom/dreaming.json"), workTasks: f.workTasks, executionRecords: f.executionRecords, memoryStore });
     const batch = value(await service.prepare()); assert.ok(batch);
     const learned = value(await service.commit(batch, response(batch))), id = learned.skillIds[0]!;
     // A method cannot revive a disabled dependency.
@@ -269,7 +269,7 @@ describe("host-managed dreaming experience skills", () => {
     // would combine different versions of the same logical Memory.
     const memoryStore = { get: async () => ({ ok: true, entry: { id: "memory-a", revision: ++memoryReads % 2 ? 1 : 2,
       text: "复盘偏好", enabled: true, status: "active" } }) } as unknown as WorkspaceMemoryStore;
-    const service = createDreamingService({ workspaceRoot: f.root, workTasks: f.workTasks, executionRecords: f.executionRecords, memoryStore });
+    const service = createDreamingService({ filePath: join(f.root, ".runloom/dreaming.json"), workTasks: f.workTasks, executionRecords: f.executionRecords, memoryStore });
     const batch = value(await service.prepare()); assert.ok(batch);
     const mixed = await service.commit(batch, response(batch)); assert.ok(!mixed.ok); assert.equal(mixed.error.code, "DREAMING_SOURCE_INVALID");
     assert.equal(value(await service.overview()).processedExperiences, 0);

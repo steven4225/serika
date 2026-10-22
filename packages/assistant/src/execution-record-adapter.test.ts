@@ -85,7 +85,7 @@ describe("execution record adapter", () => {
     const directory = await mkdtemp(join(tmpdir(), "runloom-audit-task-bind-"));
     try {
       const records = createExecutionRecordStore(directory);
-      const workTasks = createWorkTaskStore(directory, { generateId: () => "task-1" });
+      const workTasks = createWorkTaskStore(directory, { filePath: join(directory, ".runloom/work-tasks.json"), generateId: () => "task-1"  });
       const task = await workTasks.create({
         threadId: "thread-1", goal: "Do the work", acceptance: [{
           id: "human", description: "User accepts", method: "human",
@@ -118,7 +118,7 @@ describe("execution record adapter", () => {
     try {
       const records = createExecutionRecordStore(directory);
       const base = new InMemoryAgentStore();
-      const workTasks = createWorkTaskStore(directory, { generateId: () => "task-failure" });
+      const workTasks = createWorkTaskStore(directory, { filePath: join(directory, ".runloom/work-tasks.json"), generateId: () => "task-failure"  });
       const task = await workTasks.create({
         threadId: "thread-1", goal: "Do the work", acceptance: [{
           id: "human", description: "User accepts", method: "human",

@@ -98,7 +98,7 @@ async function fixture(hooks: HookRule[] | null = [], withExternalSkill = false,
   const controllers: AssistantController[] = [];
   const open = async (model: MockLanguageModelV3, thread = "origin") => {
     const output = new PassThrough(); output.resume();
-    const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: thread, configPath },
+    const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { dataDirectory: join(workspace, ".runloom"), threadId: thread, configPath },
       modelAlias: "scripted", model, output, env: {}, cwd: root });
     const controller = createAssistantController(app); controllers.push(controller);
     await controller.runs.list(); // Wait for real Thread leases/recovery, not a startup timing guess.
@@ -130,7 +130,7 @@ test("config hook dispatches an external text Skill with its instructions and no
   try {
     const { app, controller } = await f.open(model);
     assert.ok((await app.memoryStore!.add({ text: "MEMORY_PRIVATE_MARKER", pinned: true })).ok);
-    assert.ok((await createCheckpointStore(f.workspace).saveNextVersion({ expectedVersion: null, sourceThreadId: app.threadId,
+    assert.ok((await createCheckpointStore(join(f.workspace, ".runloom/checkpoint.json")).saveNextVersion({ expectedVersion: null, sourceThreadId: app.threadId,
       draft: { status: "active", goal: "CHECKPOINT_PRIVATE_MARKER", summary: "CHECKPOINT_PRIVATE_MARKER", completed: [],
         inProgress: [], nextActions: [], blockers: [], artifacts: [] } })).ok);
     await app.store.save(app.threadId, [{ id: "prior-user", role: "user", parts: [{ type: "text", text: "HISTORY_PRIVATE_MARKER" }] }]);

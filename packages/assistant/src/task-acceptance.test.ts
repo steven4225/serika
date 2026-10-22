@@ -19,7 +19,7 @@ const model = process.env.RUNLOOM_ACCEPTANCE_MODEL ?? "mock";
 it(`task lifecycle acceptance (${model}): command → worker → inbox → ack → restart`,
   { timeout: 100_000 }, async () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-task-acceptance-"));
-    const store = createTaskStore(root);
+    const store = createTaskStore(join(root, ".runloom/tasks.json"));
     const notifications = new EventEmitter();
     const host = createModuleHost([createTaskModule(store)], {
       notify: (_module, message) => notifications.emit("message", message),
@@ -108,7 +108,7 @@ it(`task lifecycle acceptance (${model}): command → worker → inbox → ack �
       const secondWorker = startWorker();
       const nextCompleted = await waitCompleted(second.value.id, secondWorker);
       assert.notEqual(nextCompleted.threadId, completed.threadId);
-      const reopened = createTaskStore(root);
+      const reopened = createTaskStore(join(root, ".runloom/tasks.json"));
       assert.deepEqual(await reopened.get(created.id), acknowledged);
       assert.deepEqual(await reopened.acknowledge(created.id), acknowledged);
       const inbox = await reopened.list({ inbox: true });

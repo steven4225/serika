@@ -14,7 +14,7 @@ import { isDeepStrictEqual } from "node:util";
 import { acquireFlock } from "./flock.js";
 import { creationReceipt, readCreationReceipt, type CreationReceipt } from "./creation-idempotency.js";
 import { latestOccurrence, nextOccurrence, type Recurrence } from "./recurrence.js";
-import { abortReason, throwIfAborted, validateWorkspacePath } from "./workspace-path.js";
+import { abortReason, throwIfAborted } from "./workspace-path.js";
 
 export const TASK_FILE_NAME = ".runloom/tasks.json";
 export const TASK_LOCK_FILE_NAME = ".runloom/tasks.json.lock";
@@ -937,14 +937,11 @@ export class WorkspaceTaskStore implements TaskStore {
   #commitUncertain = false;
   #writeFailed = false;
 
-  constructor(workspace: string, options: TaskStoreOptions = {}) {
-    const root = resolve(workspace);
-    const validated = validateWorkspacePath(root, TASK_FILE_NAME);
-    if (!validated.ok) throw new TaskStoreError("INVALID_INPUT", validated.message);
-    this.#root = root;
-    this.#file = validated.target;
+  constructor(filePath: string, options: TaskStoreOptions = {}) {
+    this.#file = resolve(filePath);
+    this.#root = dirname(dirname(this.#file));
     this.#directory = dirname(this.#file);
-    this.#lockFile = resolve(root, TASK_LOCK_FILE_NAME);
+    this.#lockFile = `${this.#file}.lock`;
     this.#now = options.now ?? Date.now;
     this.#generateId = options.generateId ?? randomUUID;
   }
@@ -1783,10 +1780,10 @@ export function restoreTaskDocument(value: unknown, restoredAt: string): TaskDoc
 export { validateDocument as validateTaskDocument };
 
 export function createTaskStore(
-  workspace: string,
+  filePath: string,
   options: TaskStoreOptions = {},
 ): TaskStore {
-  return new WorkspaceTaskStore(workspace, options);
+  return new WorkspaceTaskStore(filePath, options);
 }
 
 export function taskWorkerLockPath(workspace: string): string {

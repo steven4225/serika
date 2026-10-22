@@ -232,7 +232,7 @@ test("Demo: real Controller records chat/consolidation, compactor usage and summ
     return streamResponse("已收到。" + "说明".repeat(256));
   } });
   const output = new PassThrough(); output.resume();
-  const app = await createRuntimeApp({ directory, assistant: { threadId: "thread", configPath: config }, modelAlias: "fixture", model, output, env: {}, cwd: f.directory });
+  const app = await createRuntimeApp({ directory, assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "thread", configPath: config }, modelAlias: "fixture", model, output, env: {}, cwd: f.directory });
   let roundFinished = false, resultAfterRound = false;
   const beginTiming = app.beginOutputTiming!;
   app.beginOutputTiming = message => {

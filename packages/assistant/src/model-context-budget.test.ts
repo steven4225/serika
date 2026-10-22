@@ -1,3 +1,4 @@
+import { dirname } from "node:path";
 import assert from "node:assert/strict";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -27,7 +28,7 @@ async function diagnostics(env: NodeJS.ProcessEnv, window = 1_000_000, windows: 
     ] }) };
   } });
   // Only a local model stub is used; capacity is tied to the actual model id.
-  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "capacity", configPath },
+  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { dataDirectory: join(dirname(configPath), "workspace/.runloom"), threadId: "capacity", configPath },
     modelAlias: "mock/default", model, env: { RUNLOOM_MODEL: "command-code", COMMAND_CODE_MODEL_ID: model.modelId, ...env }, cwd: root,
     output: new Writable({ write(_chunk, _encoding, callback) { callback(); } }) });
   try {

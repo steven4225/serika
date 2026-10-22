@@ -25,10 +25,10 @@ it("desktop scheduling operation ID survives real scheduling validation and Stor
     const automation = await loadScheduledSkillAutomation({ configPath: f.configPath, workspaceRoot: f.workspace });
     const skill = automation.getSkill("brief")!;
     const input = { id: skill.id, expectedHash: skill.hash, input: "review", runAt: "2099-01-01T00:00:00Z", operationId: "schedule-replay" };
-    const first = await scheduleRegisteredSkill({ automation, store: createTaskStore(f.workspace), input, signal: new AbortController().signal });
-    const replay = await scheduleRegisteredSkill({ automation, store: createTaskStore(f.workspace), input, signal: new AbortController().signal });
+    const first = await scheduleRegisteredSkill({ automation, store: createTaskStore(join(f.workspace, ".runloom/tasks.json")), input, signal: new AbortController().signal });
+    const replay = await scheduleRegisteredSkill({ automation, store: createTaskStore(join(f.workspace, ".runloom/tasks.json")), input, signal: new AbortController().signal });
     assert.ok(first.ok && replay.ok); assert.equal(first.value.task!.id, replay.value.task!.id);
-    const list = await createTaskStore(f.workspace).list(); assert.ok(list.ok); assert.equal(list.value.tasks.length, 1);
+    const list = await createTaskStore(join(f.workspace, ".runloom/tasks.json")).list(); assert.ok(list.ok); assert.equal(list.value.tasks.length, 1);
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });
 
@@ -42,7 +42,7 @@ it("scheduled Skill declaration pins exact id/hash, survives recurring/list proj
     assert.throws(() => validateTaskArrangement({ ...arrangement, skillHash: "newest" }));
     assert.throws(() => validateTaskArrangement({ ...arrangement, source: "todoist-planning" }));
     assert.throws(() => validateTaskArrangement({ ...arrangement, tools: ["shell_exec"] }));
-    const store = createTaskStore(f.workspace);
+    const store = createTaskStore(join(f.workspace, ".runloom/tasks.json"));
     const result = await store.create({ prompt: "A short brief", runAt: "2099-01-01T00:00:00Z", arrangement });
     assert.ok(result.ok);
     const recurring = await store.createRecurring({ prompt: "Daily brief", recurrence: { kind: "daily", time: "08:00", utcOffset: "+08:00" }, arrangement });

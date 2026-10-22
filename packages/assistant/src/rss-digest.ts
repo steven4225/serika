@@ -4,11 +4,11 @@ import type { PreparedWorkerTask } from "./task-worker.js";
 import { createRssSubscriptionStore, rssItemKey, RSS_TASK_PROMPT, RssError, type RssBatch } from "./rss-subscriptions.js";
 
 function escaped(text: string): string { return text.replace(/[\\`*_{}\[\]<>#|]/g, "\\$&").replace(/[\r\n]/g, " "); }
-export function createRssDigestWorker(workspace: string, tasks: TaskStore, options: {
+export function createRssDigestWorker(filePath: string, tasks: TaskStore, options: {
   enabled: boolean;
   fetch?: (url: string, signal: AbortSignal) => Promise<FeedReadResult>;
 } ) {
-  const store = createRssSubscriptionStore(workspace);
+  const store = createRssSubscriptionStore(filePath, tasks);
   const fetch = options.fetch ?? ((url, signal) => readFeed({ url, limit: 20 }, { signal }));
   async function recover(): Promise<void> {
     if (!options.enabled) return;

@@ -57,7 +57,7 @@ it("checks real Shell mutations and rechecks direct store acceptance instead of 
     assert.equal(await readFile(join(root, "value.txt"), "utf8"), "bad");
     record.tools.push(shell("mutate", mutate));
     assert.equal((await verifyAutomaticCriterion(env, task, task.acceptance[0]!)).status, "failed");
-    const store = createWorkTaskStore(root, { executionRecords: records, generateId: () => "task" });
+    const store = createWorkTaskStore(root, { filePath: join(root, ".runloom/work-tasks.json"), executionRecords: records, generateId: () => "task"  });
     assert.ok((await store.create({ threadId: "thread", goal: "test", acceptance: task.acceptance.map(({ id, description, required, method, verification }) => ({ id, description, required, method, verification })) })).ok);
     assert.ok((await store.beginRun("task", { expectedRevision: 1, runId: "run" })).ok);
     assert.ok((await store.pause("task", 2)).ok);
@@ -76,7 +76,7 @@ it("runs a fail-fast multi-test batch with literal quoting, persists matching ev
     assert.ok(executed.ok); assert.equal(executed.exitCode, 0);
     const record = { ...run, tools: [shell("batch", batch.command)] };
     const records = { getRun: async () => record } as unknown as ExecutionRecordStore;
-    const store = createWorkTaskStore(root, { executionRecords: records, generateId: () => "task" });
+    const store = createWorkTaskStore(root, { filePath: join(root, ".runloom/work-tasks.json"), executionRecords: records, generateId: () => "task"  });
     assert.ok((await store.create({ threadId: "thread", goal: "two checks", acceptance: acceptance.map(({ id, description, required, method, verification }) => ({ id, description, required, method, verification })) })).ok);
     assert.ok((await store.beginRun("task", { expectedRevision: 1, runId: "run" })).ok);
     assert.ok((await store.pause("task", 2)).ok);
@@ -87,7 +87,7 @@ it("runs a fail-fast multi-test batch with literal quoting, persists matching ev
       assert.equal((result.evidence[0] as { command: string }).command, batch.command);
       assert.ok((await store.recordAcceptance("task", { expectedRevision: 4 + index, criterionId: item.id, actor: "automatic", status: "passed", evidence: result.evidence })).ok);
     }
-    const reopened = await createWorkTaskStore(root).get("task"); assert.ok(reopened.ok);
+    const reopened = await createWorkTaskStore(root, { filePath: join(root, ".runloom/work-tasks.json") }).get("task"); assert.ok(reopened.ok);
     assert.equal(reopened.value.status, "completed");
     assert.deepEqual(reopened.value.acceptance.map(item => item.status), ["passed", "passed"]);
     assert.match(JSON.stringify(createWorkTaskContextMessage(both)), /testBatch/);

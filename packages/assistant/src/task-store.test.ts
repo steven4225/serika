@@ -45,7 +45,7 @@ function code(result: { ok: true } | { ok: false; error: { code: string } }): st
 describe("WorkspaceTaskStore", () => {
   for (const boundary of ["cancel-only", "file", "directory"] as const) {
     it(`does not let simultaneous cancellation hide a ${boundary} persistence outcome`, { skip: boundary === "directory" && process.platform === "win32" }, async (t) => {
-      const root = await workspace(), store = createTaskStore(root);
+      const root = await workspace(), store = createTaskStore(join(root, ".runloom/tasks.json"));
       assert((await store.create({ prompt: "existing", runAt: "2099-01-01T00:00:00Z" })).ok);
       const probe = await open(join(root, TASK_FILE_NAME), "r");
       const prototype = Object.getPrototypeOf(probe), original = prototype.sync;
@@ -75,7 +75,7 @@ describe("WorkspaceTaskStore", () => {
   it("a failed claim file sync freezes further claims; reopening only sees the unchanged scheduled task", async (t) => {
     const root = await workspace();
     let now = Date.parse("2026-10-10T00:00:00Z");
-    const store = createTaskStore(root, { now: () => now });
+    const store = createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now });
     const task = await store.create({ prompt: "must not run", runAt: "2026-10-10T00:01:00Z" }); assert(task.ok);
     now += 60_000;
     const file = join(root, TASK_FILE_NAME), before = await readFile(file);
@@ -85,14 +85,14 @@ describe("WorkspaceTaskStore", () => {
     injected.mock.restore();
     assert.equal(code(await store.claimNextDue()), "WRITE_FAILED");
     assert.deepEqual(await readFile(file), before);
-    const saved = await createTaskStore(root).get(task.value.id); assert(saved.ok);
+    const saved = await createTaskStore(join(root, ".runloom/tasks.json")).get(task.value.id); assert(saved.ok);
     assert.equal(saved.value.status, "scheduled");
   });
 
   it("restore preserves failed attempt history but disables its scheduled safe retry and pending notification", async () => {
     const root = await workspace();
     let now = Date.parse("2026-10-10T00:00:00Z");
-    const store = createTaskStore(root, { now: () => now });
+    const store = createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now });
     const created = await store.create({ prompt: "retry", runAt: "2026-10-10T00:01:00Z" }); assert(created.ok);
     now += 60_000; assert((await store.claimNextDue()).ok);
     assert((await store.retry(created.value.id, { runId: null, error: { code: "MODEL_TIMEOUT", message: "timeout" }, nextRunAt: "2026-10-10T00:02:00Z" })).ok);
@@ -103,7 +103,7 @@ describe("WorkspaceTaskStore", () => {
   });
   it("idle claims do not replace or sync the unchanged task file", async () => {
     const root = await workspace();
-    const store = createTaskStore(root);
+    const store = createTaskStore(join(root, ".runloom/tasks.json"));
     assert((await store.create({ prompt: "future", runAt: "2099-01-01T00:00:00Z" })).ok);
     const file = join(root, TASK_FILE_NAME), before = await stat(file);
     const bytes = await readFile(file);
@@ -118,7 +118,7 @@ describe("WorkspaceTaskStore", () => {
     const root = await workspace();
     const now = Date.parse("2026-10-06T00:00:00Z");
     let count = 0;
-    const store = createTaskStore(root, { now: () => now, generateId: () => `task-${String(++count).padStart(3, "0")}` });
+    const store = createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now, generateId: () => `task-${String(++count).padStart(3, "0")}` });
     for (let n = 0; n < 53; n++) assert((await store.create({ prompt: `item ${n}`, runAt: "2026-10-07T00:00:00Z" })).ok);
     const original = await readFile(join(root, TASK_FILE_NAME), "utf8");
     const first = await store.list({ limit: 50 }); assert(first.ok && first.value.truncated && first.value.nextCursor);
@@ -132,14 +132,14 @@ describe("WorkspaceTaskStore", () => {
     const root = await workspace();
     let now = Date.parse("2026-10-06T00:00:00Z");
     const arrangement = { kind: "reminder", source: "none", notification: "always", declarationVersion: 1 } as const;
-    const store = createTaskStore(root, { now: () => now });
+    const store = createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now });
     const created = await store.create({ prompt: "喝水", runAt: "2026-10-06T00:01:00Z", arrangement });
     assert(created.ok);
     now += 60_000;
     const claimed = await store.claimNextDue(); assert(claimed.ok && claimed.value);
     const outcome = { status: "completed", runId: null, execution: "deterministic", resultText: "喝水", notification: true } as const;
     assert((await store.recordOutcome(created.value.id, outcome)).ok);
-    const reopened = createTaskStore(root, { now: () => now });
+    const reopened = createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now });
     const pending = await reopened.listRunning(); assert(pending.ok);
     assert.deepEqual(pending.value[0]?.pendingOutcome, outcome);
     assert((await reopened.finish(created.value.id, outcome)).ok);
@@ -154,7 +154,7 @@ describe("WorkspaceTaskStore", () => {
   it("coalesces a typed recurring arrangement to the latest missed slot and retains legacy timing", async () => {
     const root = await workspace();
     let now = Date.parse("2026-10-01T00:00:00Z");
-    const store = createTaskStore(root, { now: () => now });
+    const store = createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now });
     const recurrence = { kind: "daily", time: "08:00", utcOffset: "+08:00" } as const;
     const typed = await store.createRecurring({ prompt: "brief", recurrence, arrangement: { kind: "todoist-brief", source: "todoist-planning", notification: "always", declarationVersion: 1 } }); assert(typed.ok);
     now = Date.parse("2026-10-06T03:00:00Z");
@@ -165,7 +165,7 @@ describe("WorkspaceTaskStore", () => {
     assert.equal(detail.value.recurringTask.nextRunAt, "2026-10-07T00:00:00.000Z");
     const next = await store.claimNextDue(); assert(next.ok && next.value === null);
     now = Date.parse("2026-10-01T00:00:00Z");
-    const legacy = createTaskStore(await workspace(), { now: () => now });
+    const legacy = createTaskStore(join(await workspace(), ".runloom/tasks.json"), { now: () => now });
     assert((await legacy.createRecurring({ prompt: "legacy", recurrence })).ok);
     now = Date.parse("2026-10-06T03:00:00Z");
     const old = await legacy.claimNextDue(); assert(old.ok && old.value);
@@ -175,7 +175,7 @@ describe("WorkspaceTaskStore", () => {
   it("rejects mismatched source grants and deterministic outcomes for model tasks", async () => {
     const root = await workspace();
     let now = Date.parse("2026-10-06T00:00:00Z");
-    const store = createTaskStore(root, { now: () => now });
+    const store = createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now });
     const bad = await store.create({ prompt: "brief", runAt: "2026-10-06T00:01:00Z", arrangement: { kind: "reminder", source: "todoist-planning", notification: "always", declarationVersion: 1 } as never });
     assert.equal(code(bad), "INVALID_INPUT");
     const created = await store.create({ prompt: "legacy", runAt: "2026-10-06T00:01:00Z" }); assert(created.ok);
@@ -186,14 +186,14 @@ describe("WorkspaceTaskStore", () => {
     const text = JSON.parse(await readFile(join(root, TASK_FILE_NAME), "utf8"));
     text.tasks[0].arrangement = { kind: "reminder", source: "todoist-planning", notification: "always", declarationVersion: 1 };
     await writeFile(join(root, TASK_FILE_NAME), JSON.stringify(text));
-    assert.equal(code(await createTaskStore(root).get(created.value.id)), "TASK_FILE_INVALID");
+    assert.equal(code(await createTaskStore(join(root, ".runloom/tasks.json")).get(created.value.id)), "TASK_FILE_INVALID");
   });
 
   it("cancels a scheduled retry without invalidating its persisted attempts", async () => {
     const root = await workspace();
     let now = Date.parse("2026-09-11T00:00:00.000Z");
     let id = 0;
-    const store = createTaskStore(root, { now: () => now, generateId: () => `cancel-retry-${++id}` });
+    const store = createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now, generateId: () => `cancel-retry-${++id}` });
     const created = await store.create({ prompt: "brief", runAt: "2026-09-11T00:01:00Z" });
     assert(created.ok);
     now += 60_000;
@@ -204,7 +204,7 @@ describe("WorkspaceTaskStore", () => {
     const cancelled = await store.cancel(created.value.id);
     assert(cancelled.ok && cancelled.value.retryAt === null);
     assert.deepEqual(cancelled.value.attempts, retry.value.attempts);
-    const reloaded = await createTaskStore(root, { now: () => now }).get(created.value.id);
+    const reloaded = await createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now }).get(created.value.id);
     assert(reloaded.ok && reloaded.value.status === "cancelled" && reloaded.value.retryAt === null);
     assert.deepEqual(reloaded.value.attempts, retry.value.attempts);
   });
@@ -213,7 +213,7 @@ describe("WorkspaceTaskStore", () => {
     const root = await workspace();
     let now = Date.parse("2026-09-11T00:00:00.000Z");
     let id = 0;
-    const store = createTaskStore(root, { now: () => now, generateId: () => `attempt-${++id}` });
+    const store = createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now, generateId: () => `attempt-${++id}` });
     const created = await store.create({ prompt: "read-only brief", runAt: "2026-09-11T00:01:00Z" });
     assert(created.ok);
     now += 60_000;
@@ -233,7 +233,7 @@ describe("WorkspaceTaskStore", () => {
       now += 60_000;
     }
     assert.equal((await store.interruptRunning()).ok, true);
-    const recovered = await createTaskStore(root).get(created.value.id);
+    const recovered = await createTaskStore(join(root, ".runloom/tasks.json")).get(created.value.id);
     assert(recovered.ok);
     assert.equal(recovered.value.attempts.at(-1)?.status, "interrupted");
     assert.equal(recovered.value.runId, "run-3");
@@ -243,7 +243,7 @@ describe("WorkspaceTaskStore", () => {
     const root = await workspace();
     let now = Date.parse("2026-09-11T00:00:00.000Z");
     let id = 0;
-    const store = createTaskStore(root, { now: () => now, generateId: () => `delivery-${++id}` });
+    const store = createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now, generateId: () => `delivery-${++id}` });
     const created = await store.create({ prompt: "brief", runAt: "2026-09-11T00:01:00Z" });
     assert(created.ok);
     now += 60_000;
@@ -252,7 +252,7 @@ describe("WorkspaceTaskStore", () => {
     const outcome = { status: "completed" as const, runId: "run-delivery", resultText: "private result", notification: true };
     assert.equal((await store.recordOutcome(created.value.id, outcome)).ok, true);
     assert.equal(code(await store.interruptRunning()), "INVALID_INPUT");
-    const reopened = createTaskStore(root, { now: () => now });
+    const reopened = createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now });
     const running = await reopened.listRunning();
     assert(running.ok);
     assert.deepEqual(running.value[0]?.pendingOutcome, outcome);
@@ -280,7 +280,7 @@ describe("WorkspaceTaskStore", () => {
 
   it("rejects inconsistent v4 attempt and notification data without rewriting it", async () => {
     const root = await workspace();
-    const store = createTaskStore(root, { now: () => Date.parse("2026-09-11T00:00:00.000Z"), generateId: () => "corrupt" });
+    const store = createTaskStore(join(root, ".runloom/tasks.json"), { now: () => Date.parse("2026-09-11T00:00:00.000Z"), generateId: () => "corrupt" });
     await store.create({ prompt: "brief", runAt: "2026-09-11T00:01:00Z" });
     const path = join(root, TASK_FILE_NAME);
     const document = JSON.parse(await readFile(path, "utf8"));
@@ -295,7 +295,7 @@ describe("WorkspaceTaskStore", () => {
     const root = await workspace();
     let now = Date.parse("2026-09-11T00:00:00.000Z");
     let id = 0;
-    const store = createTaskStore(root, { now: () => now, generateId: () => `ack-race-${++id}` });
+    const store = createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now, generateId: () => `ack-race-${++id}` });
     const created = await store.create({ prompt: "brief", runAt: "2026-09-11T00:01:00Z" });
     assert(created.ok);
     now += 60_000;
@@ -311,7 +311,7 @@ describe("WorkspaceTaskStore", () => {
   it("persists foreground omission as omitted, not as an OS submission or a failure", async () => {
     const root = await workspace();
     let now = Date.parse("2026-09-11T00:00:00.000Z");
-    const store = createTaskStore(root, { now: () => now, generateId: () => "omit-1" });
+    const store = createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now, generateId: () => "omit-1" });
     const created = await store.create({ prompt: "喝水", runAt: "2026-09-11T00:01:00Z" });
     assert(created.ok);
     now += 60_000;
@@ -328,7 +328,7 @@ describe("WorkspaceTaskStore", () => {
     assert(due.ok && due.value.length === 0);
     assert.deepEqual(await store.getHealthCounts(), { ok: true, value: { unacknowledgedCount: 1, notificationFailureCount: 0 } });
     assert.equal(code(await store.recordNotification(created.value.id, { ok: true })), "INVALID_INPUT");
-    const reopened = await createTaskStore(root, { now: () => now }).get(created.value.id);
+    const reopened = await createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now }).get(created.value.id);
     assert(reopened.ok && reopened.value.notification?.status === "omitted");
     const restored = restoreTaskDocument(JSON.parse(await readFile(join(root, TASK_FILE_NAME), "utf8")), "2026-09-11T00:02:00.000Z");
     assert.equal(restored.tasks[0]?.notification?.status, "omitted");
@@ -339,7 +339,7 @@ describe("WorkspaceTaskStore", () => {
   it("persists create/list/get/cancel through a fresh store instance", async () => {
     const root = await workspace();
     let now = Date.parse("2026-09-11T01:00:00.000Z");
-    const store = createTaskStore(root, {
+    const store = createTaskStore(join(root, ".runloom/tasks.json"), {
       now: () => now,
       generateId: () => "task-1",
     });
@@ -376,7 +376,7 @@ describe("WorkspaceTaskStore", () => {
       attempts: [], retryAt: null, notification: null, pendingOutcome: null,
     });
 
-    const reopened = createTaskStore(root, { now: () => now });
+    const reopened = createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now });
     assert.deepEqual(await reopened.list(), {
       ok: true,
       value: {
@@ -409,7 +409,7 @@ describe("WorkspaceTaskStore", () => {
   it("reschedules a scheduled one-time task under the store lock, including after its old due time", async () => {
     const root = await workspace();
     let now = Date.parse("2026-09-11T00:00:00.000Z");
-    const store = createTaskStore(root, { now: () => now, generateId: () => "task-1" });
+    const store = createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now, generateId: () => "task-1" });
     const created = await store.create({ prompt: "drink water", runAt: "2026-09-11T00:01:00Z" });
     assert.equal(created.ok, true);
     if (!created.ok) return;
@@ -422,7 +422,7 @@ describe("WorkspaceTaskStore", () => {
       ...created.value,
       runAt: "2026-09-11T01:00:00.000Z",
     });
-    assert.deepEqual(await createTaskStore(root, { now: () => now }).get("task-1"), changed);
+    assert.deepEqual(await createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now }).get("task-1"), changed);
     assert.deepEqual(await store.claimNextDue(), { ok: true, value: null });
     assert.deepEqual(await store.reschedule("task-1", "2026-09-11T01:00:00Z"), changed);
   });
@@ -431,7 +431,7 @@ describe("WorkspaceTaskStore", () => {
     const root = await workspace();
     let now = Date.parse("2026-09-11T00:00:00.000Z");
     let nextId = 0;
-    const store = createTaskStore(root, {
+    const store = createTaskStore(join(root, ".runloom/tasks.json"), {
       now: () => now,
       generateId: () => `id-${++nextId}`,
     });
@@ -455,7 +455,7 @@ describe("WorkspaceTaskStore", () => {
 
   it("does not reschedule a recurring series or a scheduled task associated with it", async () => {
     const root = await workspace();
-    const store = createTaskStore(root, {
+    const store = createTaskStore(join(root, ".runloom/tasks.json"), {
       now: () => Date.parse("2026-09-11T00:00:00.000Z"),
       generateId: () => "series-1",
     });
@@ -494,7 +494,7 @@ describe("WorkspaceTaskStore", () => {
     const root = await workspace();
     let now = Date.parse("2026-09-11T00:00:00.000Z");
     let nextId = 0;
-    const store = createTaskStore(root, {
+    const store = createTaskStore(join(root, ".runloom/tasks.json"), {
       now: () => now,
       generateId: () => `id-${++nextId}`,
     });
@@ -523,7 +523,7 @@ describe("WorkspaceTaskStore", () => {
   it("creates, pauses, resumes, and cancels a fixed-offset recurring task", async () => {
     const root = await workspace();
     let now = Date.parse("2026-09-10T00:30:00.000Z");
-    const store = createTaskStore(root, {
+    const store = createTaskStore(join(root, ".runloom/tasks.json"), {
       now: () => now,
       generateId: () => "repeat-1",
     });
@@ -581,7 +581,7 @@ describe("WorkspaceTaskStore", () => {
     let now = Date.parse("2026-09-10T00:30:00.000Z");
     const ids = ["repeat-1", "task-1", "thread-1"];
     let idIndex = 0;
-    const store = createTaskStore(root, {
+    const store = createTaskStore(join(root, ".runloom/tasks.json"), {
       now: () => now,
       generateId: () => ids[idIndex++] ?? `generated-${idIndex}`,
     });
@@ -632,7 +632,7 @@ describe("WorkspaceTaskStore", () => {
       "utf8",
     );
     let id = 0;
-    const store = createTaskStore(root, {
+    const store = createTaskStore(join(root, ".runloom/tasks.json"), {
       now: () => Date.parse("2026-09-11T00:00:00.000Z"),
       generateId: () => `new-${++id}`,
     });
@@ -654,7 +654,7 @@ describe("WorkspaceTaskStore", () => {
 
   it("filters grouped statuses before limiting and projects bounded results and errors", async () => {
     const root = await workspace();
-    const store = createTaskStore(root);
+    const store = createTaskStore(join(root, ".runloom/tasks.json"));
     const longPrompt = "任务😀".repeat(80);
     const longResult = "结果🙂".repeat(80);
     const longError = "模型失败🚨".repeat(80);
@@ -772,7 +772,7 @@ describe("WorkspaceTaskStore", () => {
 
   it("keeps list queries read-only", async () => {
     const root = await workspace();
-    const store = createTaskStore(root, {
+    const store = createTaskStore(join(root, ".runloom/tasks.json"), {
       now: () => Date.parse("2026-09-11T00:00:00.000Z"),
       generateId: () => "task-1",
     });
@@ -787,7 +787,7 @@ describe("WorkspaceTaskStore", () => {
   it("reads v1 without writing and upgrades it on the first successful mutation", async () => {
     const root = await workspace();
     const now = Date.parse("2026-09-11T00:00:00.000Z");
-    const store = createTaskStore(root, {
+    const store = createTaskStore(join(root, ".runloom/tasks.json"), {
       now: () => now,
       generateId: () => "task-v2",
     });
@@ -837,7 +837,7 @@ describe("WorkspaceTaskStore", () => {
   it("reads v2 without writing and upgrades it to v4 on the first successful mutation", async () => {
     const root = await workspace();
     const now = Date.parse("2026-09-11T00:00:00.000Z");
-    const store = createTaskStore(root, { now: () => now });
+    const store = createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now });
     const runloom = join(root, ".runloom");
     await mkdir(runloom);
     const v2 = {
@@ -882,7 +882,7 @@ describe("WorkspaceTaskStore", () => {
 
   it("filters inbox items after combining status and recurring-task filters", async () => {
     const root = await workspace();
-    const store = createTaskStore(root, {
+    const store = createTaskStore(join(root, ".runloom/tasks.json"), {
       now: () => Date.parse("2026-09-11T00:10:00.000Z"),
     });
     const terminalTask = (overrides: Record<string, unknown>) => ({
@@ -989,7 +989,7 @@ describe("WorkspaceTaskStore", () => {
   it("acknowledges terminal tasks idempotently and rejects non-inbox states", async () => {
     const root = await workspace();
     let now = Date.parse("2026-09-11T00:10:00.000Z");
-    const store = createTaskStore(root, { now: () => now });
+    const store = createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now });
     const task = {
       id: "completed",
       prompt: "completed task",
@@ -1035,7 +1035,7 @@ describe("WorkspaceTaskStore", () => {
     const root = await workspace();
     let now = Date.parse("2026-09-11T00:00:00.000Z");
     let id = 0;
-    const store = createTaskStore(root, {
+    const store = createTaskStore(join(root, ".runloom/tasks.json"), {
       now: () => now,
       generateId: () => `repeat-${++id}`,
     });
@@ -1085,7 +1085,7 @@ describe("WorkspaceTaskStore", () => {
     const root = await workspace();
     let now = Date.parse("2026-09-14T02:00:00.000Z");
     const ids = ["repeat-1", "task-1", "thread-1"];
-    const store = createTaskStore(root, {
+    const store = createTaskStore(join(root, ".runloom/tasks.json"), {
       now: () => now,
       generateId: () => ids.shift() ?? "unexpected-id",
     });
@@ -1136,7 +1136,7 @@ describe("WorkspaceTaskStore", () => {
   it("keeps acknowledgement independent of recurring execution and crash recovery", async () => {
     const root = await workspace();
     let now = Date.parse("2026-09-11T00:00:00.000Z");
-    const store = createTaskStore(root, { now: () => now });
+    const store = createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now });
     const plan = await store.createRecurring({
       prompt: "daily acceptance",
       recurrence: { kind: "daily", time: "09:00", utcOffset: "+08:00" },
@@ -1156,7 +1156,7 @@ describe("WorkspaceTaskStore", () => {
     const beforeAck = await store.getRecurring(plan.value.id);
     assert.ok(beforeAck.ok);
     // Two independent store clients update the same file: neither may lose the other's write.
-    const otherClient = createTaskStore(root, { now: () => now });
+    const otherClient = createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now });
     const [ack, finish] = await Promise.all([
       store.acknowledge(first.value.id),
       otherClient.finish(second.value.id, { status: "completed", runId: "run-2", resultText: "done" }),
@@ -1173,7 +1173,7 @@ describe("WorkspaceTaskStore", () => {
     assert.ok(third.ok && third.value);
     const beforeRecovery = await store.getRecurring(plan.value.id);
     assert.ok(beforeRecovery.ok);
-    const reopened = createTaskStore(root, { now: () => now });
+    const reopened = createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now });
     assert.deepEqual(await reopened.interruptRunning(), { ok: true, value: 1 });
     const recovered = await reopened.get(third.value.id);
     assert.ok(recovered.ok);
@@ -1196,7 +1196,7 @@ describe("WorkspaceTaskStore", () => {
     const root = await workspace();
     let now = Date.parse("2026-09-14T00:00:00.000Z");
     const ids = ["repeat-1", "task-1", "thread-1", "task-2", "thread-2"];
-    const store = createTaskStore(root, {
+    const store = createTaskStore(join(root, ".runloom/tasks.json"), {
       now: () => now,
       generateId: () => ids.shift() ?? "unexpected-id",
     });
@@ -1234,7 +1234,7 @@ describe("WorkspaceTaskStore", () => {
 
   it("rejects invalid future times, prompts, files, and versions", async () => {
     const root = await workspace();
-    const store = createTaskStore(root, {
+    const store = createTaskStore(join(root, ".runloom/tasks.json"), {
       now: () => Date.parse("2026-09-11T00:00:00.000Z"),
       generateId: () => "task-1",
     });
@@ -1258,7 +1258,7 @@ describe("WorkspaceTaskStore", () => {
     const root = await workspace();
     let now = Date.parse("2026-09-11T00:00:00.000Z");
     let id = 0;
-    const store = createTaskStore(root, {
+    const store = createTaskStore(join(root, ".runloom/tasks.json"), {
       now: () => now,
       generateId: () => `task-${++id}`,
     });
@@ -1315,13 +1315,13 @@ describe("WorkspaceTaskStore", () => {
     const runAt = "2026-09-12T00:00:00.000Z";
     const childScript = [
       `import { createTaskStore } from ${JSON.stringify(taskStoreModule)};`,
-      "const [root, id] = process.argv.slice(1);",
-      "const store = createTaskStore(root, { now: () => Date.parse('2026-09-11T00:00:00.000Z'), generateId: () => id });",
+      "const [filePath, id] = process.argv.slice(1);",
+      "const store = createTaskStore(filePath, { now: () => Date.parse('2026-09-11T00:00:00.000Z'), generateId: () => id });",
       `const result = await store.create({ prompt: id, runAt: ${JSON.stringify(runAt)} });`,
       "if (!result.ok) { console.error(result.error); process.exit(1); }",
     ].join("\n");
     const children = ["a", "b", "c", "d"].map((id) =>
-      spawn(process.execPath, ["--input-type=module", "-e", childScript, root, id], {
+      spawn(process.execPath, ["--input-type=module", "-e", childScript, join(root, ".runloom/tasks.json"), id], {
         stdio: ["ignore", "ignore", "pipe"],
       }),
     );
@@ -1330,7 +1330,7 @@ describe("WorkspaceTaskStore", () => {
       return result as number;
     }));
     assert.deepEqual(exits, [0, 0, 0, 0]);
-    const tasks = await createTaskStore(root).list({ limit: 50 });
+    const tasks = await createTaskStore(join(root, ".runloom/tasks.json")).list({ limit: 50 });
     assert.equal(tasks.ok, true);
     if (tasks.ok) assert.deepEqual(tasks.value.tasks.map((task) => task.promptPreview).sort(), ["a", "b", "c", "d"]);
 

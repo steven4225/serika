@@ -29,7 +29,7 @@ export function createDesktopRssWorker(options: {
   let busy = false;
   async function loadedWorkerStart(running: boolean, stdout: string): Promise<string | null> {
     if (!running || !options.workspace) return null;
-    const health = await readTaskWorkerHealth(options.workspace, createTaskStore(options.workspace));
+    const health = await readTaskWorkerHealth(options.workspace, createTaskStore(join(options.workspace, ".runloom/tasks.json")));
     const pid = Number(/^\s*pid\s*=\s*(\d+)\s*$/m.exec(stdout)?.[1]);
     // A leftover heartbeat is not the currently loaded job's identity.
     return health.ownership === "held" && health.heartbeat?.pid === pid && health.heartbeat.stoppedAt === null

@@ -1,6 +1,7 @@
 import { configureCliModel, createDemoModel, createRuntimeApp, readinessExitCode, type RuntimeApp } from "@serika/assistant";
 import { checkTuiStartup } from "./startup-check.js";
 import { runTui } from "./tui.js";
+import { resolveCliHome } from "./application-home.js";
 import { parseTuiArgs } from "./cli-options.js";
 
 const args = process.argv.slice(2);
@@ -13,7 +14,7 @@ if (args.includes("--check")) {
 const { modelAlias, model } = configureCliModel(createDemoModel);
 // `--tui [directory] [flags]` assembles the full assistant; anything else runs
 // the offline demo, whose optional first argument is the transcript directory.
-const tuiArgs = args[0] === "--tui" ? parseTuiArgs(args.slice(1)) : undefined;
+const tuiArgs = args[0] === "--tui" ? await resolveCliHome(parseTuiArgs(args.slice(1)), { cwd: process.cwd(), env: process.env, initialize: true }) : undefined;
 const { directory, ...assistant } = tuiArgs ?? { directory: args[0] };
 const app = await createRuntimeApp({
   ...(directory !== undefined ? { directory } : {}),

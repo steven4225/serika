@@ -135,7 +135,7 @@ it("package2: phone button saves one reminder, emits host readback, and delivers
     const route = f.store.snapshot().routes[0]!;
     await f.gateway.receive(callback(4, allow, approval.messageId!));
     assert.equal(f.activations(), 1);
-    const tasks = createTaskStore(f.workspace, { now: () => Date.now() + 180_000 });
+    const tasks = createTaskStore(join(f.workspace, ".runloom/tasks.json"), { now: () => Date.now() + 180_000 });
     const claimed = await tasks.claimNextDue(); assert(claimed.ok && claimed.value);
     assert.equal(claimed.value.id, route.id);
     const finished = await tasks.finish(route.id, { status: "completed", execution: "deterministic", runId: null, resultText: "手机按钮提醒到点了", notification: true }); assert(finished.ok);
@@ -291,11 +291,11 @@ it("package2: uncertain reminder commit is reported as unknown, not unsaved, and
     const result = f.store.snapshot().deliveries.find(x => x.key === "result:42:2")!;
     assert.match(result.text, /保存结果未知/); assert.doesNotMatch(result.text, /这条提醒未保存|模型虚报成功/);
     assert.equal(f.store.snapshot().inputs.find(x => x.key === "42:2")?.state, "unknown");
-    const saved = await createTaskStore(f.workspace).list({ limit: 50 }); assert(saved.ok);
+    const saved = await createTaskStore(join(f.workspace, ".runloom/tasks.json")).list({ limit: 50 }); assert(saved.ok);
     assert.equal(saved.value.tasks.length, 1, "rename happened even though acknowledgement failed");
     await f.gateway.receive(callback(4, `allow:${code}`, approval.messageId!));
     assert.equal(f.activations(), 0); assert.equal(f.calls(), 1);
-    const after = await createTaskStore(f.workspace).list({ limit: 50 }); assert(after.ok && after.value.tasks.length === 1);
+    const after = await createTaskStore(join(f.workspace, ".runloom/tasks.json")).list({ limit: 50 }); assert(after.ok && after.value.tasks.length === 1);
   } finally { await f.cleanup(); }
 });
 
@@ -317,7 +317,7 @@ for (const outcome of ["not_sent", "unknown"] as const) {
       if (outcome === "not_sent") await f.gateway.retryDelivery(result.key);
       else await assert.rejects(f.gateway.retryDelivery(result.key), /未知/);
       assert.equal(f.activations(), 1); assert.equal(f.calls(), 2);
-      const saved = await createTaskStore(f.workspace).list({ limit: 50 }); assert(saved.ok && saved.value.tasks.length === 1);
+      const saved = await createTaskStore(join(f.workspace, ".runloom/tasks.json")).list({ limit: 50 }); assert(saved.ok && saved.value.tasks.length === 1);
     } finally { await f.cleanup(); }
   });
 }
@@ -465,7 +465,7 @@ for (const scenario of [
 
 async function savedReminder(f: Awaited<ReturnType<typeof fixture>>, route = true) {
   let clock = Date.now();
-  const tasks = createTaskStore(f.workspace, { now: () => clock });
+  const tasks = createTaskStore(join(f.workspace, ".runloom/tasks.json"), { now: () => clock });
   const created = await tasks.create({ prompt: "提醒测试", runAt: new Date(clock + 60_000).toISOString(), arrangement: reminder });
   assert(created.ok);
   if (route) await f.gateway.setTaskRoute({ id: created.value.id, kind: "once", enabled: true });
@@ -492,7 +492,7 @@ it("approved Telegram arrangement saves the exact destination before worker acti
     const route = f.store.snapshot().routes[0]!;
     assert.equal(route.sourceRunId, f.store.snapshot().inputs.find(x => x.key === "42:2")!.runId);
     assert.equal(route.chatId, 42);
-    const saved = await createTaskStore(f.workspace).get(route.id); assert(saved.ok && saved.value?.status === "scheduled");
+    const saved = await createTaskStore(join(f.workspace, ".runloom/tasks.json")).get(route.id); assert(saved.ok && saved.value?.status === "scheduled");
     assert.equal(f.activations(), 1);
     await f.gateway.receive(update(4, `允许 ${code}`));
     assert.equal(f.store.snapshot().routes.length, 1);
@@ -584,7 +584,7 @@ it("recurring opt-in excludes old history, pages past 50, and respects the persi
   try {
     await f.bind();
     let clock = Date.now();
-    const tasks = createTaskStore(f.workspace, { now: () => clock });
+    const tasks = createTaskStore(join(f.workspace, ".runloom/tasks.json"), { now: () => clock });
     const saved = await tasks.createRecurring({ prompt: RSS_DIGEST_TASK_PROMPT, recurrence: { kind: "daily", time: "08:00", utcOffset: "+08:00" },
       arrangement: { kind: "rss-digest", source: "existing-rss-binding", notification: "new-items", declarationVersion: 1 } }); assert(saved.ok);
     clock += 86_400_000;
@@ -616,7 +616,7 @@ it("recurring delivery survives over 1000 occurrences, persists scan progress an
   try {
     await f.bind();
     let clock = Date.now();
-    const tasks = createTaskStore(f.workspace, { now: () => clock });
+    const tasks = createTaskStore(join(f.workspace, ".runloom/tasks.json"), { now: () => clock });
     const saved = await tasks.createRecurring({ prompt: "reminder", recurrence: { kind: "daily", time: "08:00", utcOffset: "+08:00" }, arrangement: reminder }); assert(saved.ok);
     await f.gateway.setTaskRoute({ id: saved.value.id, kind: "recurring", enabled: true });
     clock += 86_400_000;

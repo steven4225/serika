@@ -1,3 +1,4 @@
+import { dirname } from "node:path";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, writeFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -14,7 +15,7 @@ test("capability configuration and pomodoro commands share the real timer withou
   await mkdir(join(root, "transcripts"));
   await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, workspace: "./workspace", modules: { pomodoro: { enabled: true } } }));
   const output = new TeeOutput(() => {});
-  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "capabilities", configPath: join(root, "config.json") }, modelAlias: "mock", model: createDemoModel(), env: {}, cwd: root, output });
+  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { dataDirectory: join(dirname(join(root, "config.json")), "workspace/.runloom"), threadId: "capabilities", configPath: join(root, "config.json") }, modelAlias: "mock", model: createDemoModel(), env: {}, cwd: root, output });
   const controller = createAssistantController(app);
   output.attach(controller);
   const bridge = new RuntimeBridge(app, controller, { modelAlias: "mock", temporaryThread: false, temporaryDirectory: false }, output, () => {});

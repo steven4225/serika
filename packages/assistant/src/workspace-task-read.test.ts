@@ -22,9 +22,9 @@ async function fixture(allowWorkspaceTaskReads: boolean) {
   const root = await mkdtemp(join(tmpdir(), "serika-task-read-policy-"));
   const workspace = join(root, "workspace"), foreignWorkspace = join(root, "foreign");
   await mkdir(workspace); await mkdir(foreignWorkspace);
-  const taskStore = createTaskStore(workspace);
+  const taskStore = createTaskStore(join(workspace, ".runloom/tasks.json"));
   const own = await taskStore.create({ prompt: "本工作区喝水", runAt: new Date(Date.now() + 60_000).toISOString() });
-  const foreign = await createTaskStore(foreignWorkspace).create({ prompt: "外部工作区私密提醒", runAt: new Date(Date.now() + 60_000).toISOString() });
+  const foreign = await createTaskStore(join(foreignWorkspace, ".runloom/tasks.json")).create({ prompt: "外部工作区私密提醒", runAt: new Date(Date.now() + 60_000).toISOString() });
   assert.ok(own.ok && foreign.ok);
   const configPath = join(root, "config.json");
   await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: {
@@ -44,7 +44,7 @@ async function fixture(allowWorkspaceTaskReads: boolean) {
     ];
     return { stream: simulateReadableStream<(typeof chunks)[number]>({ chunks }) };
   } });
-  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "daily-read", configPath },
+  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "daily-read", configPath },
     modelAlias: "scripted", model, output: new PassThrough(), env: {}, cwd: root,
     ...(allowWorkspaceTaskReads ? { allowWorkspaceTaskReads: true as const } : {}),
   });
@@ -108,7 +108,7 @@ it("workspace task read Demo: symlinked task directory cannot expose another wor
 it("workspace task read policy trusts built-in object identity, primary agent and exact workspace, never risk/name alone", () => {
   const workspace = "/trusted/workspace", primaryAgentId = "personal";
   const policy = createWorkspaceTaskReadApproval(workspace, primaryAgentId);
-  const host = createModuleHost([policy.captureBuiltinModule(createTaskModule(createTaskStore(workspace)))], { notify() {} });
+  const host = createModuleHost([policy.captureBuiltinModule(createTaskModule(createTaskStore(join(workspace, ".runloom/tasks.json"))))], { notify() {} });
   try {
     for (const name of ["task_list", "task_get"]) {
       const builtin = host.tools.find(registration => registration.metadata.name === name)!;

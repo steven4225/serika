@@ -60,7 +60,7 @@ it("explicit rework uses a fresh approved Run and never accepts a prior write as
       }, usage },
     ] }) };
   } });
-  const appOptions = { directory: join(root, "transcripts"), assistant: { threadId: "rework", configPath },
+  const appOptions = { directory: join(root, "transcripts"), assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "rework", configPath },
     modelAlias: "mock", model, env: {}, cwd: root };
   let controller: ReturnType<typeof createAssistantController> | undefined;
   try {

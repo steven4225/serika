@@ -1,3 +1,4 @@
+import { dirname } from "node:path";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -22,7 +23,7 @@ test("module notifications arrive as structured messages and keep the output tex
   const send = (message: MainToRenderer) => { messages.push(message); };
   const output = new TeeOutput(send);
   const app = await createRuntimeApp({
-    directory: join(root, "transcripts"), assistant: { threadId: "notifications", configPath: join(root, "config.json") },
+    directory: join(root, "transcripts"), assistant: { dataDirectory: join(dirname(join(root, "config.json")), "workspace/.runloom"), threadId: "notifications", configPath: join(root, "config.json") },
     modelAlias: "mock", model: createDemoModel(), env: {}, cwd: root, output,
     onModuleNotification: notification => output.moduleNotification(notification),
   });

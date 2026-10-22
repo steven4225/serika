@@ -83,3 +83,6 @@ export { validateV6MemoryDocument } from "./memory-v6-store.js";
 export { excludedRunView } from "./transcript-access.js";
 
 export type { MemoryResult, MemoryKind, MemorySource } from "./memory-types.js";
+
+export { assistantDataPaths } from "./data-paths.js";
+export type { AssistantDataPaths } from "./data-paths.js";

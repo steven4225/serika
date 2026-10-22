@@ -7,7 +7,7 @@ import {
   CHECKPOINT_INJECTION_MAX_BYTES,
   checkpointContextMessageBytes,
 } from "./checkpoint-context.js";
-import { abortReason, throwIfAborted, validateWorkspacePath } from "./workspace-path.js";
+import { abortReason, throwIfAborted } from "./workspace-path.js";
 
 export { CHECKPOINT_INJECTION_MAX_BYTES };
 
@@ -399,15 +399,12 @@ export class WorkspaceCheckpointStoreImpl implements WorkspaceCheckpointStore {
   #commitUncertain = false;
 
   constructor(
-    workspace: string,
+    filePath: string,
     options: { now?: () => Date; generateId?: () => string } = {},
   ) {
-    const root = resolve(workspace);
-    const validated = validateWorkspacePath(root, CHECKPOINT_FILE_NAME);
-    if (!validated.ok) raise("CHECKPOINT_INVALID_INPUT", validated.message);
-    this.#root = root;
-    this.#file = validated.target;
-    this.#lockFile = resolve(root, CHECKPOINT_LOCK_FILE_NAME);
+    this.#file = resolve(filePath);
+    this.#root = dirname(dirname(this.#file));
+    this.#lockFile = `${this.#file}.lock`;
     this.#now = options.now ?? (() => new Date());
     this.#generateId = options.generateId ?? randomUUID;
   }
@@ -615,8 +612,8 @@ export class WorkspaceCheckpointStoreImpl implements WorkspaceCheckpointStore {
 }
 
 export function createCheckpointStore(
-  workspace: string,
+  filePath: string,
   options?: { now?: () => Date; generateId?: () => string },
 ): WorkspaceCheckpointStore {
-  return new WorkspaceCheckpointStoreImpl(workspace, options);
+  return new WorkspaceCheckpointStoreImpl(filePath, options);
 }

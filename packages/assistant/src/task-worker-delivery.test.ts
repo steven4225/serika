@@ -20,12 +20,12 @@ it("no-new-user memory Demo: a due reminder creates no model Run and leaves save
     throw new Error("a typed reminder must not call the model or memory_add");
   } }), store: new JsonlAgentStore({ directory: join(root, ".runloom", "task-transcripts") }) });
   try {
-    const memory = createMemoryStore(root);
+    const memory = createMemoryStore(join(root, ".runloom/memory.json"));
     assert.ok((await memory.add({ text: "我喜欢喝美式。", source: {
       kind: "conversation", threadId: "ordinary-chat", messageId: "previous-user", quote: "记住我喜欢喝美式。", sentAt: null,
     } })).ok);
     const before = await readFile(join(root, ".runloom", "memory.json"));
-    const tasks = createTaskStore(root, { now: () => now });
+    const tasks = createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now });
     const created = await tasks.create({ prompt: "喝水。记住我喜欢喝美式。", runAt: new Date(now + 1_000).toISOString(),
       arrangement: { kind: "reminder", source: "none", notification: "always", declarationVersion: 1 } });
     assert.ok(created.ok);
@@ -35,14 +35,14 @@ it("no-new-user memory Demo: a due reminder creates no model Run and leaves save
       runtime: { run: request => { runs++; return agent.runtime.run(request); } },
       onTaskFinished: () => stop.abort(),
     });
-    const finished = await createTaskStore(root).get(created.value.id); assert.ok(finished.ok);
+    const finished = await createTaskStore(join(root, ".runloom/tasks.json")).get(created.value.id); assert.ok(finished.ok);
     assert.equal(finished.value.status, "completed");
     assert.equal(finished.value.resultText, created.value.prompt);
     assert.equal(finished.value.runId, null);
     assert.equal(runs, 0);
     assert.equal(modelCalls, 0);
     assert.deepEqual(await readFile(join(root, ".runloom", "memory.json")), before);
-    const reopened = await createMemoryStore(root).list(); assert.ok(reopened.ok);
+    const reopened = await createMemoryStore(join(root, ".runloom/memory.json")).list(); assert.ok(reopened.ok);
     assert.equal(reopened.entries.length, 1);
     assert.equal(reopened.entries[0]!.source?.kind, "conversation");
     assert.equal(reopened.entries[0]!.source?.messageId, "previous-user");
@@ -59,7 +59,7 @@ it("persisted terminal result survives worker restart and only notification is r
     return agent.runtime.run(...args);
   } };
   try {
-    const store = createTaskStore(root, { now: () => now });
+    const store = createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now });
     const created = await store.create({ prompt: "remind me to drink water", runAt: new Date(now + 1_000).toISOString() });
     assert(created.ok);
     now += 1_000;
@@ -68,25 +68,25 @@ it("persisted terminal result survives worker restart and only notification is r
       notify: async () => { throw new Error("must not submit before restart"); },
       onTaskFinished: () => stopAfterFinish.abort(),
     });
-    const finished = await createTaskStore(root).get(created.value.id);
+    const finished = await createTaskStore(join(root, ".runloom/tasks.json")).get(created.value.id);
     assert(finished.ok);
     assert.equal(finished.value.status, "completed");
     assert.equal(finished.value.notification?.status, "pending");
     assert.equal(finished.value.attempts.length, 1);
     const rejectSubmission = new AbortController();
-    await runTaskWorker({ store: createTaskStore(root, { now: () => now }), runtime, now: () => now, signal: rejectSubmission.signal,
+    await runTaskWorker({ store: createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now }), runtime, now: () => now, signal: rejectSubmission.signal,
       notify: async () => { rejectSubmission.abort(); throw new Error("OS unavailable"); },
     });
-    const failed = await createTaskStore(root).get(created.value.id);
+    const failed = await createTaskStore(join(root, ".runloom/tasks.json")).get(created.value.id);
     assert(failed.ok);
     assert.equal(failed.value.status, "completed");
     assert.equal(failed.value.notification?.status, "failed");
     now += 1_000;
     const acceptSubmission = new AbortController();
-    await runTaskWorker({ store: createTaskStore(root, { now: () => now }), runtime, now: () => now, signal: acceptSubmission.signal,
+    await runTaskWorker({ store: createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now }), runtime, now: () => now, signal: acceptSubmission.signal,
       notify: async () => { acceptSubmission.abort(); },
     });
-    const submitted = await createTaskStore(root).get(created.value.id);
+    const submitted = await createTaskStore(join(root, ".runloom/tasks.json")).get(created.value.id);
     assert(submitted.ok);
     assert.equal(submitted.value.notification?.status, "submitted");
     assert.equal(submitted.value.notification?.attempts, 2);

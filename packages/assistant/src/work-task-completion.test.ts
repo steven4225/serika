@@ -42,7 +42,7 @@ it("corrects missing multiple tests in the same Run using one confirmed batch an
     ] }) };
   } });
   const output = new PassThrough(); output.resume();
-  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "thread", configPath: join(root, "config.json") }, cwd: root, env: {}, modelAlias: "mock", model, output });
+  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "thread", configPath: join(root, "config.json") }, cwd: root, env: {}, modelAlias: "mock", model, output });
   const controller = createAssistantController(app);
   try {
     const approvals = new Set<string>();
@@ -98,7 +98,7 @@ it("explicit readback criteria reject missing, pre-write, stale and denied reads
     run.tools = [write, read];
     const verified = await verifyAutomaticCriterion(env, task, criterion);
     assert.equal(verified.status, "passed");
-    const store = createWorkTaskStore(root, { generateId: () => "task", executionRecords: env.executionRecords });
+    const store = createWorkTaskStore(root, { filePath: join(root, ".runloom/work-tasks.json"), generateId: () => "task", executionRecords: env.executionRecords  });
     const created = await store.create({ threadId: "thread", goal: "read back", acceptance: [{ id: "file", description: "file", method: "automatic", required: true, verification: criterion.verification }] });
     assert.ok(created.ok);
     assert.ok((await store.beginRun("task", { expectedRevision: 1, runId: "run" })).ok);
@@ -110,7 +110,7 @@ it("explicit readback criteria reject missing, pre-write, stale and denied reads
     run.tools = [write, read];
     const accepted = await store.recordAcceptance("task", { expectedRevision: 4, criterionId: "file", actor: "automatic", status: "passed", evidence: verified.evidence });
     assert.ok(accepted.ok); assert.equal(accepted.value.status, "completed");
-    const reopened = await createWorkTaskStore(root).get("task");
+    const reopened = await createWorkTaskStore(root, { filePath: join(root, ".runloom/work-tasks.json") }).get("task");
     assert.ok(reopened.ok); assert.deepEqual(reopened.value.acceptance[0]!.verification, criterion.verification);
     await writeFile(join(root, "plan.md"), "externally changed");
     assert.equal((await verifyAutomaticCriterion(env, task, criterion)).status, "failed");
@@ -149,7 +149,7 @@ it("completion checks reject unknown/foreign receipts, human-only contracts and 
   assert.equal((await verifyAutomaticCriterion({ executionRecords: records, workspaceRoot: undefined }, task, task.acceptance[0]!, { runId: "run", signal: input.signal })).status, "passed");
   const root = await mkdtemp(join(tmpdir(), "runloom-test-order-"));
   try {
-    const store = createWorkTaskStore(root, { generateId: () => "task", executionRecords: records });
+    const store = createWorkTaskStore(root, { filePath: join(root, ".runloom/work-tasks.json"), generateId: () => "task", executionRecords: records  });
     assert.ok((await store.create({ threadId: "thread", goal: "test", acceptance: [{ id: "test", description: "test", required: true, method: "automatic", verification: { kind: "shell_exit_zero", command: "node --test", cwd: "." } }] })).ok);
     assert.ok((await store.beginRun("task", { expectedRevision: 1, runId: "run" })).ok);
     assert.ok((await store.pause("task", 2)).ok);
@@ -187,7 +187,7 @@ for (const scenario of ["correct", "readback", "deny", "exhaust", "manual", "cha
           usage: { inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 1, text: 1, reasoning: undefined } } },
       ] }) };
     } });
-    const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "thread", configPath: join(root, "config.json") },
+    const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "thread", configPath: join(root, "config.json") },
       cwd: root, env: {}, modelAlias: "mock", model, output: new PassThrough() });
     const controller = createAssistantController(app);
     try {

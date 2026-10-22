@@ -170,7 +170,7 @@ describe("task-worker startup validation", () => {
   ): Promise<void> {
     const root = await mkdtemp(join(tmpdir(), "runloom-worker-todoist-startup-"));
     try {
-      const store = createTaskStore(root);
+      const store = createTaskStore(join(root, ".runloom/tasks.json"));
       const created = await store.create({
         // Real flock/fsync under the full suite can exceed 100 ms before create validates the time.
         runAt: new Date(Date.now() + 2000).toISOString(),

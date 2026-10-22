@@ -10,7 +10,7 @@ import { openTaskNotificationResult } from "./task-notification-route.js";
 test("notification clicks read the exact record without acknowledgement, execution or cross-workspace reads", async () => {
   const root = await mkdtemp(join(tmpdir(), "serika-notification-route-"));
   try {
-    const store = createTaskStore(root);
+    const store = createTaskStore(join(root, ".runloom/tasks.json"));
     const created = await store.create({ prompt: "isolated reminder", runAt: new Date(Date.now() + 60_000).toISOString() });
     assert.ok(created.ok);
     const path = join(root, ".runloom/tasks.json");

@@ -8,6 +8,8 @@
 export interface AssistantAssembly {
   /** Thread to open. Omitted: a new Thread for this launch. */
   threadId?: string;
+  /** Host-owned storage directory, independent of file authority. */
+  dataDirectory?: string;
   /** Strict `version: 1` module config file. Cannot be combined with the shorthand below. */
   configPath?: string;
   /** Shorthand without a config file: read_file, memory and tasks in this workspace. */

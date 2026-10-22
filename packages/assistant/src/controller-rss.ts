@@ -14,11 +14,11 @@ export function createRssControls(k: ControllerKernel): AssistantRssControls {
   const { app } = k;
   return {
     getInbox: async () => {
-      if (!app.workspaceRoot || !app.moduleConfig?.enabled.task) return { ok: false, error: { code: "RSS_UNAVAILABLE", message: "RSS requires workspace and task module" } };
+      if (!app.dataPaths || !app.moduleConfig?.enabled.task) return { ok: false, error: { code: "RSS_UNAVAILABLE", message: "RSS requires workspace and task module" } };
       try {
-        const view = await createRssSubscriptionStore(app.workspaceRoot).read();
+        const view = await createRssSubscriptionStore(app.dataPaths!.rss, createTaskStore(app.dataPaths!.tasks)).read();
         if (view.scheduleId === null) return { ok: true, value: { tasks: [], truncated: false } };
-        const tasks = createTaskStore(app.workspaceRoot);
+        const tasks = createTaskStore(app.dataPaths!.tasks);
         const list = await tasks.list({ recurringTaskId: view.scheduleId, inbox: true, limit: 5 });
         if (!list.ok) return list;
         const entries: RssInbox["tasks"] = [];
@@ -33,12 +33,12 @@ export function createRssControls(k: ControllerKernel): AssistantRssControls {
       } catch (e) { return rssFailure(e); }
     },
     acknowledgeResult: async id => {
-      if (!app.workspaceRoot || !app.moduleConfig?.enabled.task) return { ok: false, error: { code: "RSS_UNAVAILABLE", message: "Acknowledgement requires enabled task module" } };
+      if (!app.dataPaths || !app.moduleConfig?.enabled.task) return { ok: false, error: { code: "RSS_UNAVAILABLE", message: "Acknowledgement requires enabled task module" } };
       if (k.isClosed() || !k.isIdle()) return { ok: false, error: { code: "BUSY", message: "Acknowledgement requires an idle controller" } };
       return k.exclusive("rss-acknowledge", async (): Promise<RssResult<void>> => {
         try {
-          const view = await createRssSubscriptionStore(app.workspaceRoot!).read();
-          const tasks = createTaskStore(app.workspaceRoot!);
+          const view = await createRssSubscriptionStore(app.dataPaths!.rss, createTaskStore(app.dataPaths!.tasks)).read();
+          const tasks = createTaskStore(app.dataPaths!.tasks);
           const task = await tasks.get(id);
           if (!task.ok) return task;
           if (!view.scheduleId || task.value.recurringTaskId !== view.scheduleId) return { ok: false, error: { code: "RSS_NOT_FOUND", message: "Result does not belong to this RSS schedule" } };
@@ -48,14 +48,14 @@ export function createRssControls(k: ControllerKernel): AssistantRssControls {
       });
     },
     getSubscriptions: async () => {
-      if (!app.workspaceRoot || !app.moduleConfig?.enabled.task) return { ok: false, error: { code: "RSS_UNAVAILABLE", message: "RSS subscriptions require workspace and task module" } };
-      return createRssSubscriptionStore(app.workspaceRoot).get();
+      if (!app.dataPaths || !app.moduleConfig?.enabled.task) return { ok: false, error: { code: "RSS_UNAVAILABLE", message: "RSS subscriptions require workspace and task module" } };
+      return createRssSubscriptionStore(app.dataPaths!.rss, createTaskStore(app.dataPaths!.tasks)).get();
     },
     updateSubscriptions: async input => {
-      if (!app.workspaceRoot || !app.moduleConfig?.enabled.task) return { ok: false, error: { code: "RSS_UNAVAILABLE", message: "RSS subscriptions require workspace and task module" } };
+      if (!app.dataPaths || !app.moduleConfig?.enabled.task) return { ok: false, error: { code: "RSS_UNAVAILABLE", message: "RSS subscriptions require workspace and task module" } };
       if (k.isClosed() || !k.isIdle()) return { ok: false, error: { code: "BUSY", message: "RSS changes require an idle controller" } };
       return k.exclusive("rss-subscriptions", async (): Promise<RssResult<RssView>> => {
-        try { return await createRssSubscriptionStore(app.workspaceRoot!).update(input); }
+        try { return await createRssSubscriptionStore(app.dataPaths!.rss, createTaskStore(app.dataPaths!.tasks)).update(input); }
         catch (error) { return rssFailure(error); }
       });
     },

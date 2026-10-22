@@ -14,13 +14,13 @@ const proof = { threadId: "thread", runId: "run", toolCallId: "test" };
 async function fixture() {
   const root = await realpath(await mkdtemp(join(tmpdir(), "serika-recipes-")));
   const workspace = join(root, "workspace"); await mkdir(workspace);
-  return { root, workspace, store: new RecipeStore(workspace) };
+  return { root, workspace, store: new RecipeStore(workspace, join(workspace, ".runloom/recipes.json")) };
 }
 it("recipe CAS serializes competing processes/instances and retains bounded prior tested versions", async () => {
   const f = await fixture();
   try {
     assert.deepEqual(await f.store.list(signal()), []);
-    const results = await Promise.allSettled([f.store.save(definition, proof, 0, signal()), new RecipeStore(f.workspace).save(definition, proof, 0, signal())]);
+    const results = await Promise.allSettled([f.store.save(definition, proof, 0, signal()), new RecipeStore(f.workspace, join(f.workspace, ".runloom/recipes.json")).save(definition, proof, 0, signal())]);
     assert.equal(results.filter(item => item.status === "fulfilled").length, 1);
     for (let i = 2; i <= 8; i++) await f.store.save({ ...definition, command: `printf v${i}` }, proof, i - 1, signal());
     await assert.rejects(f.store.save({ ...definition, command: "printf ninth" }, proof, 8, signal()), /history is full/);
@@ -82,7 +82,7 @@ it("recipe commit failure before rename leaves old data; after rename remains un
       if (boundary === "file") assert.deepEqual(await readFile(file), before);
       else {
         await assert.rejects(f.store.change(definition.id, 2, "enable", undefined, signal()), /uncertain/);
-        assert.equal((await new RecipeStore(f.workspace).list(signal()))[0]!.enabled, false);
+        assert.equal((await new RecipeStore(f.workspace, join(f.workspace, ".runloom/recipes.json")).list(signal()))[0]!.enabled, false);
       }
     } finally { await rm(f.root, { recursive: true, force: true }); }
   }

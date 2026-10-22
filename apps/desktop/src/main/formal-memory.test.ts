@@ -1,3 +1,4 @@
+import { dirname } from "node:path";
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -15,7 +16,7 @@ it("formal Memory bridge edits actual current versions, validates IPC, preserves
   await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, workspace: "./workspace", modules: { memory: { enabled: true } } }));
   const messages: MainToRenderer[] = [];
   const output = new TeeOutput(message => messages.push(message));
-  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "bridge-a", configPath: join(root, "config.json") }, modelAlias: "mock", model: createDemoModel(), output, env: {}, cwd: root });
+  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { dataDirectory: join(dirname(join(root, "config.json")), "workspace/.runloom"), threadId: "bridge-a", configPath: join(root, "config.json") }, modelAlias: "mock", model: createDemoModel(), output, env: {}, cwd: root });
   const controller = createAssistantController(app); output.attach(controller);
   const bridge = new RuntimeBridge(app, controller, { modelAlias: "mock", temporaryThread: false, temporaryDirectory: false }, output, message => messages.push(message));
   try {

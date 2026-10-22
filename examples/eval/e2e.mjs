@@ -157,7 +157,7 @@ export async function collectEvidence(root, spec, app, controller, context) {
     coverage = await read('coverage', async () => checked(await app.memoryStore.getConsolidationReceipt(context.threadId), 'receipt'));
     cursor = await read('cursor', async () => checked(await app.memoryStore.getConsolidationCursor(context.threadId), 'cursor'));
   }
-  const taskStore = createTaskStore(join(root, 'workspace'));
+  const taskStore = createTaskStore(join(join(root, 'workspace'), ".runloom/tasks.json"));
   const taskPage = await read('taskList', async () => checked(await taskStore.list({ limit: 50 }), 'tasks'));
   const tasks = taskPage ? await Promise.all(taskPage.tasks.map(t => read(`task:${t.id}`, async () => checked(await taskStore.get(t.id), 'task')))) : undefined;
   return { ...context, pid: process.pid, historyIds: history?.map(m => m.id),
@@ -180,7 +180,7 @@ async function stage(root, spec, restarted) {
   output.on('data', chunk => controller?.recordOutput(chunk.toString()));
   const taskService = { available: spec.kind !== 'background_unavailable', registered: false, running: false,
     ready: false, todoistPlanningAvailable: false, message: '隔离验收后台未运行，到点不会执行；这里只验证保存，不声称通知送达。' };
-  const app = await createRuntimeApp({ directory: join(root, 'transcripts'), assistant: { threadId: threadId, configPath: join(root, 'config.json') },
+  const app = await createRuntimeApp({ directory: join(root, 'transcripts'), assistant: { dataDirectory: join(root, "workspace/.runloom"), threadId: threadId, configPath: join(root, 'config.json') },
     ...selected, output, cwd: root, env: fixtureRuntimeEnvironment(spec, process.env), allowWorkspaceTaskReads: true,
     taskAutomation: { status: async () => taskService, enable: async () => ({ enabled: false, message: taskService.message }) } });
   controller = createAssistantController(app);
@@ -195,7 +195,7 @@ async function stage(root, spec, restarted) {
     controller.subscribe(createFixtureApprover(spec, restarted, input => controller.confirm(input), approvals, boundary));
     for (const text of restarted ? [spec.afterRestart] : spec.turns) {
       const compactionsBefore = isCompactionFidelity(spec) ? await app.store.getContextCompactions(threadId) : [];
-      const tasksBefore = spec.category === 'reminders' ? checked(await createTaskStore(join(root, 'workspace')).list({ limit: 50 }), 'tasksBefore').tasks : null;
+      const tasksBefore = spec.category === 'reminders' ? checked(await createTaskStore(join(join(root, 'workspace'), ".runloom/tasks.json")).list({ limit: 50 }), 'tasksBefore').tasks : null;
       boundary.taskIds = tasksBefore?.map(task => task.id) ?? [];
       const before = app.memoryStore ? await collectMemorySnapshot(join(root, 'workspace'), app, threadId) : null;
       const submittedAt = new Date().toISOString();
@@ -205,7 +205,7 @@ async function stage(root, spec, restarted) {
       await settled(controller);
       const snapshot = controller.getSnapshot();
       const userMessageId = (await controller.getHistory()).findLast(m => m.role === 'user' && m.parts.some(p => p.type === 'text' && p.text === text.trim()))?.id;
-      const tasksAfter = spec.category === 'reminders' ? checked(await createTaskStore(join(root, 'workspace')).list({ limit: 50 }), 'tasksAfter').tasks : null;
+      const tasksAfter = spec.category === 'reminders' ? checked(await createTaskStore(join(join(root, 'workspace'), ".runloom/tasks.json")).list({ limit: 50 }), 'tasksAfter').tasks : null;
       phases.push({ submittedAt, userMessageId, ...(receivedAt ? { receivedAt } : {}), ...(tasksBefore ? { tasksBefore, tasksAfter } : {}), input: text, runId: admission.runId, status: snapshot.lastPrimaryResult?.status,
         reply: snapshot.lastPrimaryResult?.text ?? '', error: snapshot.lastPrimaryResult?.error ? safeError(snapshot.lastPrimaryResult.error) : null });
       const maintenance = app.memoryStore ? checked(await controller.memory.getMaintenance(), 'maintenance') : null;

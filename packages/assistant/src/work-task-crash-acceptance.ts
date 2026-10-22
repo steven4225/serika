@@ -1,3 +1,4 @@
+import { dirname } from "node:path";
 /** Fixed process-crash fixture. No production hooks, new tools or replay policy. */
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -80,7 +81,7 @@ async function child(root: string, scenario: Scenario, mode: ModelMode, recoveri
     wrapStream: async ({ doStream }) => { modelRequests++; return doStream(); },
   } });
   const output = new PassThrough();
-  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: THREAD, configPath },
+  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { dataDirectory: join(dirname(configPath), "workspace/.runloom"), threadId: THREAD, configPath },
     modelAlias: configured.modelAlias, model, env: process.env, output, cwd: root });
   let approvalReceipt = Promise.resolve();
   if (!recovering && scenario === "before-dispatch") {
@@ -241,7 +242,7 @@ async function waitForKilledChildLeases(root: string) {
   for (let attempt = 0; attempt < 100; attempt++) {
     let workLease, executionLease;
     try {
-      workLease = await createWorkTaskStore(join(root, "workspace")).claimThread(THREAD);
+      workLease = await createWorkTaskStore(join(root, "workspace"), { filePath: join(join(root, "workspace"), ".runloom/work-tasks.json") }).claimThread(THREAD);
       executionLease = await createExecutionRecordStore(join(root, "transcripts")).claimThread(THREAD);
       return;
     } catch (error) {
@@ -282,7 +283,7 @@ async function scenario(root: string, fault: Scenario, mode: ModelMode) {
         const contenderModel = new MockLanguageModelV3({ doStream: async () => {
           contenderRequests++; throw new Error("Contender must never invoke a model");
         } });
-        const app = await createRuntimeApp({ directory: join(root, "contender-transcripts"), assistant: { threadId: THREAD, configPath: join(root, "config.json") },
+        const app = await createRuntimeApp({ directory: join(root, "contender-transcripts"), assistant: { dataDirectory: join(root, "workspace/.runloom"), threadId: THREAD, configPath: join(root, "config.json") },
           modelAlias: "mock-never-run", model: contenderModel, env: {}, output, cwd: root });
         const contender = createAssistantController(app);
         try {

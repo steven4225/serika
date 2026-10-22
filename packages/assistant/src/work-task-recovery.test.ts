@@ -83,8 +83,8 @@ describe("WorkTask restart recovery", () => {
   it("allows only one controller to own a workspace Thread until its lease is released", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "runloom-work-task-owner-"));
     directories.push(workspace);
-    const first = createWorkTaskStore(workspace);
-    const second = createWorkTaskStore(workspace);
+    const first = createWorkTaskStore(workspace, { filePath: join(workspace, ".runloom/work-tasks.json") });
+    const second = createWorkTaskStore(workspace, { filePath: join(workspace, ".runloom/work-tasks.json") });
     const lease = await first.claimThread("thread-1");
     try {
       await assert.rejects(second.claimThread("thread-1"), /already controlled/);
@@ -140,7 +140,7 @@ describe("WorkTask restart recovery", () => {
     const workspace = await mkdtemp(join(tmpdir(), "runloom-work-task-recovery-page-"));
     directories.push(workspace);
     let nextId = 0;
-    const store = createWorkTaskStore(workspace, { generateId: () => `task-${++nextId}` });
+    const store = createWorkTaskStore(workspace, { filePath: join(workspace, ".runloom/work-tasks.json"), ...({ generateId: () => `task-${++nextId}` }) });
     const oldest = await store.create({
       threadId: "thread-1", goal: "Oldest running task",
       acceptance: [{ id: "human", description: "Accept", method: "human", verification: { kind: "human" }, required: true }],
@@ -168,7 +168,7 @@ describe("WorkTask restart recovery", () => {
     const workspace = await mkdtemp(join(tmpdir(), "runloom-work-task-recovery-"));
     directories.push(workspace);
     let nextId = 0;
-    const store = createWorkTaskStore(workspace, { generateId: () => `task-${++nextId}` });
+    const store = createWorkTaskStore(workspace, { filePath: join(workspace, ".runloom/work-tasks.json"), ...({ generateId: () => `task-${++nextId}` }) });
     const first = await store.create({
       threadId: "thread-1",
       goal: "First",
@@ -210,7 +210,7 @@ describe("WorkTask restart recovery", () => {
   it("does not settle a different latest Run when recovery used a stale task snapshot", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "runloom-work-task-recovery-cas-"));
     directories.push(workspace);
-    const store = createWorkTaskStore(workspace, { generateId: () => "task-1" });
+    const store = createWorkTaskStore(workspace, { filePath: join(workspace, ".runloom/work-tasks.json"), generateId: () => "task-1"  });
     const created = await store.create({
       threadId: "thread-1",
       goal: "Finish",
@@ -236,7 +236,7 @@ describe("WorkTask restart recovery", () => {
   it("surfaces a settle write failure and converges when startup recovery is retried", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "runloom-work-task-recovery-retry-"));
     directories.push(workspace);
-    const store = createWorkTaskStore(workspace, { generateId: () => "task-1" });
+    const store = createWorkTaskStore(workspace, { filePath: join(workspace, ".runloom/work-tasks.json"), generateId: () => "task-1"  });
     const created = await store.create({
       threadId: "thread-1",
       goal: "Finish",
@@ -272,10 +272,10 @@ describe("WorkTask restart recovery", () => {
     const workspace = await mkdtemp(join(tmpdir(), "runloom-work-task-reconcile-"));
     directories.push(workspace);
     let nextId = 0;
-    const store = createWorkTaskStore(workspace, {
+    const store = createWorkTaskStore(workspace, { filePath: join(workspace, ".runloom/work-tasks.json"),
       generateId: () => nextId++ === 0 ? "task-1" : "reconciliation-1",
       now: () => new Date(at),
-    });
+     });
     const created = await store.create({
       threadId: "thread-1",
       goal: "Reconcile an uncertain write",
@@ -320,10 +320,10 @@ describe("WorkTask restart recovery", () => {
     const workspace = await mkdtemp(join(tmpdir(), "runloom-work-task-reconcile-cancel-"));
     directories.push(workspace);
     let nextId = 0;
-    const store = createWorkTaskStore(workspace, {
+    const store = createWorkTaskStore(workspace, { filePath: join(workspace, ".runloom/work-tasks.json"),
       generateId: () => nextId++ === 0 ? "task-1" : "reconciliation-1",
       now: () => new Date(at),
-    });
+     });
     const created = await store.create({
       threadId: "thread-1", goal: "Stop after an uncertain effect",
       acceptance: [{ id: "human", description: "Accept", method: "human", verification: { kind: "human" }, required: true }],

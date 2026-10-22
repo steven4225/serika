@@ -45,7 +45,7 @@ export async function evaluateM1({ cases = m1Cases(), model, outputDirectory }) 
   try {
     windows: for (const [window, budget] of [['32k', { ...DEFAULT_CONTEXT_BUDGET_CONFIG, safetyMarginTokens: 2048 }], ['daily', defaultContextBudget()]]) {
       for (const fixture of cases) {
-        const store = createMemoryStore(join(root, `${window}-${fixture.id}`));
+        const store = createMemoryStore(join(join(root, `${window}-${fixture.id}`), ".runloom/memory.json"));
         let requestCount = 0;
         const rows = [];
         const observer = new MockLanguageModelV3({ doGenerate: async request => {

@@ -98,7 +98,7 @@ describe("task-worker workspace snapshot", () => {
   it("selects a bounded snapshot from larger storage without reading pending candidates or private Memory", async () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-worker-memory-large-"));
     try {
-      const memory = createMemoryStore(root);
+      const memory = createMemoryStore(join(root, ".runloom/memory.json"));
       for (let index = 0; index < 10; index++) assert.equal((await memory.add({ text: `project snapshot ${index}: ${"x".repeat(1300)}` })).ok, true);
       const all = await memory.list(); assert.ok(all.ok);
       assert.ok(Buffer.byteLength(JSON.stringify(selectInjectableMemoryEntries(all.entries))) > MEMORY_CONTEXT_MAX_BYTES);
@@ -133,11 +133,11 @@ describe("task-worker workspace snapshot", () => {
   it("includes only active workspace Memory and the current checkpoint version", async () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-worker-context-populated-"));
     try {
-      const memory = createMemoryStore(root);
+      const memory = createMemoryStore(join(root, ".runloom/memory.json"));
       const workspaceEntry = await memory.add({ text: "Use the M10 plan" });
       assert.equal(workspaceEntry.ok, true);
       assert.equal((await memory.add({ text: "disabled fact", enabled: false })).ok, true);
-      const checkpoint = await createCheckpointStore(root).saveNextVersion({
+      const checkpoint = await createCheckpointStore(join(root, ".runloom/checkpoint.json")).saveNextVersion({
         expectedVersion: null,
         sourceThreadId: "creator-thread",
         draft: {

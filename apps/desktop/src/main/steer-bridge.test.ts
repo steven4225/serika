@@ -1,3 +1,4 @@
+import { dirname } from "node:path";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -21,7 +22,7 @@ async function open(root: string, model: LanguageModel) {
   const messages: MainToRenderer[] = [];
   const send = (message: MainToRenderer) => { messages.push(message); };
   const output = new TeeOutput(send);
-  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "steer", configPath: join(root, "config.json") },
+  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { dataDirectory: join(dirname(join(root, "config.json")), "workspace/.runloom"), threadId: "steer", configPath: join(root, "config.json") },
     modelAlias: "mock", model, output, cwd: root, env: {} });
   const controller = createAssistantController(app);
   output.attach(controller);

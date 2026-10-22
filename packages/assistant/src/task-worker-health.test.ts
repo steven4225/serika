@@ -16,7 +16,7 @@ it("health writes serialize and heartbeat cannot revive a stopped worker", async
     assert.equal(file.currentTaskId, null);
     assert.notEqual(file.stoppedAt, null);
     assert.equal(file.lastHandled.taskId, "task-a");
-    const health = await readTaskWorkerHealth(root, createTaskStore(root));
+    const health = await readTaskWorkerHealth(root, createTaskStore(join(root, ".runloom/tasks.json")));
     assert.equal(health.ownership, "unchecked");
     assert.equal(health.heartbeat?.pid, 123);
     assert.equal(health.heartbeatIsLivenessProof, false);
@@ -26,7 +26,7 @@ it("health writes serialize and heartbeat cannot revive a stopped worker", async
 it("missing health is empty and corrupt health never appears healthy", async () => {
   const root = await realpath(await mkdtemp(join(tmpdir(), "runloom-health-")));
   try {
-    const store = createTaskStore(root);
+    const store = createTaskStore(join(root, ".runloom/tasks.json"));
     const missing = await readTaskWorkerHealth(root, store);
     assert.equal(missing.heartbeat, null);
     assert.equal(missing.error, null);
@@ -43,7 +43,7 @@ it("health ownership uses the worker lock, not a recent heartbeat", async () => 
   const root = await realpath(await mkdtemp(join(tmpdir(), "runloom-health-")));
   const lock = await acquireFlock(join(root, TASK_WORKER_LOCK_FILE_NAME));
   try {
-    const store = createTaskStore(root);
+    const store = createTaskStore(join(root, ".runloom/tasks.json"));
     assert.equal((await readTaskWorkerHealth(root, store)).ownership, "held");
     await lock.release();
     assert.equal((await readTaskWorkerHealth(root, store)).ownership, "free");

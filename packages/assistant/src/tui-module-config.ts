@@ -264,16 +264,17 @@ function emptyEnabled(): Record<BuiltinModuleId, boolean> {
   };
 }
 
-function hasWorkspaceModule(enabled: Record<BuiltinModuleId, boolean>): boolean {
-  return enabled["read-file"] || enabled.memory || enabled.checkpoint || enabled.task || enabled.shell;
+function hasWorkspaceModule(enabled: Record<BuiltinModuleId, boolean>, dataDirectory?: string): boolean {
+  return enabled["read-file"] || enabled.checkpoint || enabled.shell || (!dataDirectory && (enabled.memory || enabled.task));
 }
 
 function assertWorkspaceRequirement(
   enabled: Record<BuiltinModuleId, boolean>,
   workspace: string | undefined,
   errorMessage: string,
+  dataDirectory?: string,
 ): void {
-  if (hasWorkspaceModule(enabled) && workspace === undefined) {
+  if (hasWorkspaceModule(enabled, dataDirectory) && workspace === undefined) {
     throw new Error(errorMessage);
   }
 }
@@ -494,6 +495,7 @@ async function resolveConfiguredMode(
     enabled,
     config.workspace,
     "TUI config requires workspace when read-file, memory, checkpoint, task, or shell is enabled",
+    args.dataDirectory,
   );
 
   const sandboxDefinition = config.modules.shell?.sandbox;
@@ -576,18 +578,19 @@ async function resolveLegacyMode(
   const enabled = emptyEnabled();
   enabled.pomodoro = true;
   enabled["read-file"] = args.workspace !== undefined;
-  enabled.memory = args.workspace !== undefined;
-  enabled.task = args.workspace !== undefined;
+  enabled.memory = args.workspace !== undefined || args.dataDirectory !== undefined;
+  enabled.task = args.workspace !== undefined || args.dataDirectory !== undefined;
   enabled.todoist = args.todoistEnabled === true;
   enabled.web = false;
 
-  if (args.autoConsolidate === true && args.workspace === undefined) {
+  if (args.autoConsolidate === true && args.workspace === undefined && args.dataDirectory === undefined) {
     throw new Error("--auto-consolidate requires --workspace");
   }
   assertWorkspaceRequirement(
     enabled,
     args.workspace,
     "--workspace is required when workspace modules are enabled",
+    args.dataDirectory,
   );
 
   const workspaceRoot =

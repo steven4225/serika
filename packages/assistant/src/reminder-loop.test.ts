@@ -143,7 +143,7 @@ describe("natural-language reminder path", () => {
     });
     const output = new PassThrough();
     const app = await createRuntimeApp({
-      directory: join(root, "transcripts"), assistant: { threadId: "reminder", configPath },
+      directory: join(root, "transcripts"), assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "reminder", configPath },
       modelAlias: "scripted",
       model,
       output,
@@ -152,7 +152,7 @@ describe("natural-language reminder path", () => {
     });
     const confirmation = app.toolConfirmation;
     assert.ok(confirmation);
-    const store = createTaskStore(workspace);
+    const store = createTaskStore(join(workspace, ".runloom/tasks.json"));
     try {
       const runAt = (script.input as { runAt: string }).runAt;
       const clock = { now: new Date(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone };

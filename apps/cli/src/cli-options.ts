@@ -1,7 +1,7 @@
 import { assertAssemblyCombination, type AssistantAssembly } from "@serika/assistant";
 
 /** CLI form of an assembly: `--tui [directory] --thread … --config …`. */
-export type TuiArgs = AssistantAssembly & { directory?: string };
+export type TuiArgs = AssistantAssembly & { directory?: string; home?: string };
 
 /**
  * Parse the arguments that follow --tui. A single positional argument is the
@@ -11,6 +11,7 @@ export type TuiArgs = AssistantAssembly & { directory?: string };
 export function parseTuiArgs(args: readonly string[]): TuiArgs {
   const parsedArgs = args[0] === "--" ? args.slice(1) : args;
   let directory: string | undefined;
+  let home: string | undefined;
   let threadId: string | undefined;
   let configPath: string | undefined;
   let workspace: string | undefined;
@@ -19,6 +20,13 @@ export function parseTuiArgs(args: readonly string[]): TuiArgs {
 
   for (let index = 0; index < parsedArgs.length; index += 1) {
     const arg = parsedArgs[index];
+    if (arg === "--home") {
+      const value = parsedArgs[++index];
+      if (!value || value.startsWith("--")) throw new Error("--home requires a directory");
+      if (home !== undefined) throw new Error("TUI accepts at most one --home option");
+      home = value;
+      continue;
+    }
     if (arg === "--thread") {
       const value = parsedArgs[++index];
       if (!value || value.startsWith("--")) {
@@ -67,6 +75,7 @@ export function parseTuiArgs(args: readonly string[]): TuiArgs {
   }
 
   const parsed: TuiArgs = {
+    ...(home !== undefined ? { home } : {}),
     ...(directory !== undefined ? { directory } : {}),
     ...(threadId !== undefined ? { threadId } : {}),
     ...(configPath !== undefined ? { configPath } : {}),

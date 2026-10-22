@@ -171,7 +171,7 @@ it("does not inherit persisted desktop authority in a TUI/controller assembly wi
   try {
     await changeAutonomySetting(f.configPath, { enabled: true, expectedEnabled: false }, f.root, f.workspace);
     const output = new TeeOutput(() => {});
-    const app = await createRuntimeApp({ directory: join(f.root, "history"), assistant: { threadId: "no-inherit", configPath: f.configPath }, modelAlias: "mock", model: new MockLanguageModelV3({ doStream: async () => response({ name: "shell_exec", input: { command: "touch forbidden" } }) }), output, env: {}, cwd: f.root });
+    const app = await createRuntimeApp({ directory: join(f.root, "history"), assistant: { dataDirectory: join(f.workspace, ".runloom"), threadId: "no-inherit", configPath: f.configPath }, modelAlias: "mock", model: new MockLanguageModelV3({ doStream: async () => response({ name: "shell_exec", input: { command: "touch forbidden" } }) }), output, env: {}, cwd: f.root });
     const controller = createAssistantController(app); output.attach(controller);
     try {
       assert.equal(app.desktopAutonomyEnabled, false);

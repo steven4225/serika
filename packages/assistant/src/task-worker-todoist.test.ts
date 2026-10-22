@@ -241,7 +241,7 @@ describe("Stage 7-4 Todoist worker composition", () => {
     it(`passes the ${kind} query result through the production worker agent`, async () => {
       const root = await mkdtemp(join(tmpdir(), `runloom-worker-todoist-${kind}-`));
       let taskClock = 1_000;
-      const taskStore = createTaskStore(root, { now: () => taskClock });
+      const taskStore = createTaskStore(join(root, ".runloom/tasks.json"), { now: () => taskClock });
       const transcriptStore = new InMemoryAgentStore();
       const observed = { calls: 0, results: [] as RecordValue[] };
       const agent = createTaskWorkerAgent({

@@ -41,7 +41,7 @@ async function assembledTree(modules: Record<string, unknown>, explicitDirectory
   await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules }));
   const app = await createRuntimeApp({
     ...(explicitDirectory ? { directory: join(root, "transcripts") } : {}),
-    assistant: { threadId: "baseline", configPath },
+    assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "baseline", configPath },
     modelAlias: "mock", model: createDemoModel(), demoTools: true, output: new PassThrough().resume(), env: {}, cwd: root,
   });
   try {

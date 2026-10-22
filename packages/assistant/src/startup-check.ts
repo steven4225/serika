@@ -1,10 +1,8 @@
 import { lstat } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { AssistantAssembly } from "./assembly.js";
-import { CHECKPOINT_FILE_NAME } from "./checkpoint-store.js";
-import { MEMORY_FILE_NAME } from "./memory-types.js";
+import { assistantDataPaths } from "./data-paths.js";
 import { inspectCliModelConfig } from "./model-config.js";
-import { TASK_FILE_NAME } from "./task-store.js";
 import { resolveTuiModuleConfig } from "./tui-module-config.js";
 import { loadSkillPackages } from "./skill-catalog.js";
 import { builtinMemoryHookRules, compileHookRules } from "./automation-hooks.js";
@@ -93,11 +91,12 @@ export async function checkAssistantStartup(
       checks.push({ id: "computer", level: "warning", message: `Computer AX-addressed allowed apps: ${config.computer.allowedBundleIds!.join(", ")}. Driver executable: ${config.computer.executable}. Static check does not launch the driver or prove daemon/OS permissions or application control`, blocking: false });
     }
     checks.push({ id: "run-budget", level: "ok", message: `Primary TUI run maxSteps ${config.maxSteps} (default 8, ceiling 32), totalTimeoutMs ${config.totalTimeoutMs} (default 120000, ceiling 1800000). Shell command timeoutMs ${config.shellTimeoutMs} (default 30000, ceiling 600000). Step timeout, confirmation pause, and worker limits are unchanged`, blocking: false });
-    if (config.workspaceRoot !== null) {
+    if (args.dataDirectory !== undefined) {
+      const paths = assistantDataPaths(resolve(cwd, args.dataDirectory));
       const dataFiles = [
-        config.enabled.memory ? `memory ${resolve(config.workspaceRoot, MEMORY_FILE_NAME)}` : null,
-        config.enabled.checkpoint ? `checkpoint ${resolve(config.workspaceRoot, CHECKPOINT_FILE_NAME)}` : null,
-        config.enabled.task ? `tasks ${resolve(config.workspaceRoot, TASK_FILE_NAME)}` : null,
+        config.enabled.memory ? `memory ${paths.memory}` : null,
+        config.enabled.checkpoint ? `checkpoint ${paths.checkpoint}` : null,
+        config.enabled.task ? `tasks ${paths.tasks}` : null,
       ].filter((value): value is string => value !== null);
       if (dataFiles.length > 0) {
         checks.push({ id: "data-locations", level: "ok", message: dataFiles.join("; "), blocking: false });

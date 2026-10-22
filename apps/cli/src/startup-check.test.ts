@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
@@ -53,7 +53,7 @@ describe("static TUI startup check", () => {
           id: "unregistered-handler", event: "primary.completed", handler: { type: "skill", id: "not-registered" },
         }] : [] });
         const before = await directorySnapshot(f.cwd);
-        const snapshot = await checkTuiStartup(["transcripts", "--thread", "personal", "--config", f.config], { cwd: f.cwd, env: {} });
+        const snapshot = await checkTuiStartup(["--home", join(f.cwd, "home"), "transcripts", "--thread", "personal", "--config", f.config], { cwd: f.cwd, env: {} });
         assert.equal(readinessExitCode(snapshot), 1);
         const failure = snapshot.checks.find(check => check.id === "config" && check.blocking);
         assert.ok(failure);
@@ -74,7 +74,7 @@ describe("static TUI startup check", () => {
       await writeFile(join(existingTranscripts, "personal.jsonl"), "existing transcript sentinel\n");
       for (const transcriptDirectory of ["missing-transcripts", "existing-transcripts"]) {
         const before = await directorySnapshot(f.cwd);
-        const snapshot = await checkTuiStartup([transcriptDirectory, "--thread", "personal", "--config", f.config], { cwd: f.cwd, env: {} });
+        const snapshot = await checkTuiStartup(["--home", join(f.cwd, "home"), transcriptDirectory, "--thread", "personal", "--config", f.config], { cwd: f.cwd, env: {} });
         assert.equal(readinessExitCode(snapshot), 0);
         const automation = snapshot.checks.find(check => check.id === "automation");
         assert.equal(automation?.level, "ok");
@@ -93,22 +93,22 @@ describe("static TUI startup check", () => {
     await writeFile(executable, "not even an executable; must never be launched by --check");
     const config = join(cwd, "config.json");
     await writeFile(config, JSON.stringify({ version: 1, modules: { computer: { enabled: true, executable, allowedBundleIds: ["com.apple.TextEdit"] } } }));
-    const snapshot = await checkTuiStartup(["--config", config], { cwd, env: {} });
+    const snapshot = await checkTuiStartup(["--home", join(cwd, "home"), "--config", config], { cwd, env: {} });
     assert.equal(readinessExitCode(snapshot), 0);
     assert.match(snapshot.checks.find((c) => c.id === "computer")!.message, /does not launch/);
     assert.deepEqual((await readdir(cwd)).sort(), ["config.json", "driver"]);
   });
-  it("reports temporary identity and unknown external state without creating files", async () => {
+  it("reports the persistent home directory and unknown external state without creating files", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "runloom-check-"));
     const before = await import("node:fs/promises").then(({ readdir }) => readdir(cwd));
-    const snapshot = await checkTuiStartup([], { cwd, env: {}, now: new Date("2026-01-01T00:00:00Z") });
+    const snapshot = await checkTuiStartup(["--home", join(cwd, "home"), ], { cwd, env: {}, now: new Date("2026-01-01T00:00:00Z") });
     const after = await import("node:fs/promises").then(({ readdir }) => readdir(cwd));
     assert.deepEqual(after, before);
     assert.equal(readinessExitCode(snapshot), 0);
     assert.equal(snapshot.checkedAt, "2026-01-01T00:00:00.000Z");
     assert.equal(snapshot.model.connectivity, "not_checked");
     assert.equal(snapshot.worker.state, "unknown");
-    assert.equal(snapshot.identity.transcriptDirectory, null);
+    assert.equal(snapshot.identity.transcriptDirectory, join(await realpath(cwd), "home/transcripts"));
     assert.equal(snapshot.identity.temporaryThreadOnLaunch, true);
     assert.ok(snapshot.checks.some((check) => check.id === "thread" && check.level === "warning"));
   });
@@ -117,7 +117,7 @@ describe("static TUI startup check", () => {
     const cwd = await mkdtemp(join(tmpdir(), "runloom-check-"));
     const invalid = join(cwd, "invalid.json");
     await writeFile(invalid, "{not json}");
-    const snapshot = await checkTuiStartup(["--config", invalid], {
+    const snapshot = await checkTuiStartup(["--home", join(cwd, "home"), "--config", invalid], {
       cwd, env: { RUNLOOM_MODEL: "deepseek", DEEPSEEK_API_KEY: " " },
     });
     assert.equal(readinessExitCode(snapshot), 1);
@@ -130,7 +130,7 @@ describe("static TUI startup check", () => {
   it("preserves stable explicit identity and rejects a file as transcript directory", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "runloom-check-"));
     await writeFile(join(cwd, "transcript"), "untouched");
-    const snapshot = await checkTuiStartup(["transcript", "--thread", "thread-a"], { cwd, env: {} });
+    const snapshot = await checkTuiStartup(["--home", join(cwd, "home"), "transcript", "--thread", "thread-a"], { cwd, env: {} });
     assert.equal(readinessExitCode(snapshot), 1);
     assert.equal(snapshot.identity.threadId, "thread-a");
     assert.equal(snapshot.identity.temporaryDirectoryOnLaunch, false);
@@ -146,7 +146,7 @@ describe("static TUI startup check", () => {
       workspace: "./workspace",
       modules: { memory: { enabled: true }, checkpoint: { enabled: true }, task: { enabled: true } },
     }));
-    const snapshot = await checkTuiStartup(["transcripts", "--thread", "personal", "--config", config], { cwd, env: {} });
+    const snapshot = await checkTuiStartup(["--home", join(cwd, "home"), "transcripts", "--thread", "personal", "--config", config], { cwd, env: {} });
     assert.equal(readinessExitCode(snapshot), 0);
     const locations = snapshot.checks.find((check) => check.id === "data-locations")?.message ?? "";
     assert.match(locations, /memory\.json/);

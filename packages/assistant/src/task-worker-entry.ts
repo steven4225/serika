@@ -421,8 +421,8 @@ export async function startTaskWorker(args: readonly string[]): Promise<void> {
     todoistOptions = { apiToken, timeZone: todoistTimeZone };
   }
   const runloomDirectory = join(workspaceRoot, ".runloom");
-  const taskStore = createTaskStore(workspaceRoot);
-  const rssWorker = createRssDigestWorker(workspaceRoot, taskStore, { enabled: rss });
+  const taskStore = createTaskStore(join(workspaceRoot, ".runloom/tasks.json"));
+  const rssWorker = createRssDigestWorker(join(workspaceRoot, ".runloom/rss.json"), taskStore, { enabled: rss });
   const transcriptStore = new JsonlAgentStore({
     directory: join(runloomDirectory, "task-transcripts"),
   });

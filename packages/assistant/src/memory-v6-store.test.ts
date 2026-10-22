@@ -14,7 +14,7 @@ test("v5 requires migration for reads and writes without creating locks, sibling
     await mkdir(join(root, ".runloom"));
     const file = join(root, ".runloom/memory.json"), original = JSON.stringify({ version: 5, lastWrittenAt: null, entries: [], candidates: [], consolidationCursors: [], library: { revision: 0, folders: [], documents: [] } });
     await writeFile(file, original);
-    const store = new V6MemoryStore(root); assert.equal((await store.list()).ok, false);
+    const store = new V6MemoryStore(join(root, ".runloom/memory.json")); assert.equal((await store.list()).ok, false);
     for (const result of [await store.add({ text: "test" }), await store.update("missing", { text: "test", expectedRevision: 1 }), await store.delete("missing"), await store.writeV6([change()])]) {
       assert.equal(result.ok, false); if (!result.ok) assert.equal(result.error.code, "MEMORY_MIGRATION_REQUIRED");
     }
@@ -26,11 +26,11 @@ test("v5 requires migration for reads and writes without creating locks, sibling
 test("v6 replacement/undo, withdrawal/undo, conflict diagnostics and source-specific deletion survive reopen", async () => {
   const root = await mkdtemp(join(tmpdir(), "cm4-chain-"));
   try {
-    let store = new V6MemoryStore(root);
+    let store = new V6MemoryStore(join(root, ".runloom/memory.json"));
     const added = await store.writeV6([{ ...change(), uncertain: true }]); assert.ok(added.ok); assert.equal(added.value[0]!.uncertain, true); const old = added.value[0]!;
     const replacement = change("上海"); assert.ok("text" in replacement);
     const replaced = await store.writeV6([{ ...replacement, operation: "replace", id: old.id, expectedRevision: old.revision! }]); assert.ok(replaced.ok);
-    store = new V6MemoryStore(root);
+    store = new V6MemoryStore(join(root, ".runloom/memory.json"));
     const next = replaced.value[0]!; assert.ok((await store.writeV6([{ operation: "undo", id: next.id, expectedRevision: next.revision!, source: { kind: "manual" } }])).ok);
     const current = await store.get(old.id); assert.ok(current.ok); assert.equal(current.entry.enabled, true); assert.equal(current.entry.uncertain, true);
     const withdrawn = await store.writeV6([{ operation: "retract", id: old.id, expectedRevision: current.entry.revision!, source: { kind: "manual" } }]); assert.ok(withdrawn.ok);
@@ -47,7 +47,7 @@ test("v6 replacement/undo, withdrawal/undo, conflict diagnostics and source-spec
     assert.equal(after.value.suppressed.length, 1);
     const rephrased = change(); rephrased.text = "北京是我的住址";
     assert.ok((await store.writeV6([rephrased])).ok);
-    const reextracted = await new V6MemoryStore(root).readV6(); assert.ok(reextracted.ok);
+    const reextracted = await new V6MemoryStore(join(root, ".runloom/memory.json")).readV6(); assert.ok(reextracted.ok);
     assert.equal(reextracted.value.entries.some(entry => entry.text === rephrased.text), false);
     const independent = change("北京", "办公习惯"); independent.text = "我工作时先列结论"; independent.source = { kind: "conversation", threadId: "t", messageId: "北京", quote: independent.text, sentAt: null };
     assert.ok((await store.writeV6([independent])).ok);
@@ -64,10 +64,10 @@ test("memory and progress share the commit barrier; pre-rename and post-rename f
     const progress: V6Document["progress"][number] = { threadId: "t", throughMessageId: "北京", prefixHash: "test-hash", pending: [], retry: null };
     for (const phase of ["before-rename", "after-rename"] as const) {
       const workspace = join(root, phase); await mkdir(workspace);
-      const writer = new V6MemoryStore(workspace, observed => { if (observed === phase) throw new Error(phase); });
+      const writer = new V6MemoryStore(join(workspace, ".runloom/memory.json"), observed => { if (observed === phase) throw new Error(phase); });
       const result = await writer.writeV6([change()], undefined, { progress, expectedProgress: null }); assert.equal(result.ok, false);
       if (!result.ok) assert.equal(result.error.code, phase === "after-rename" ? "MEMORY_COMMIT_UNCERTAIN" : "WRITE_FAILED");
-      const read = await new V6MemoryStore(workspace).readV6(); assert.ok(read.ok);
+      const read = await new V6MemoryStore(join(workspace, ".runloom/memory.json")).readV6(); assert.ok(read.ok);
       assert.equal(read.value.entries.length, phase === "after-rename" ? 1 : 0);
       assert.equal(read.value.progress.length, read.value.entries.length);
     }
@@ -77,7 +77,7 @@ test("memory and progress share the commit barrier; pre-rename and post-rename f
 test("automatic extraction reserves space; explicit remember still tries the actual hard limit", async () => {
   const root = await mkdtemp(join(tmpdir(), "cm4-capacity-"));
   try {
-    const store = new V6MemoryStore(root), first = await store.writeV6([change()]); assert.ok(first.ok);
+    const store = new V6MemoryStore(join(root, ".runloom/memory.json")), first = await store.writeV6([change()]); assert.ok(first.ok);
     const loaded = await store.readV6(); assert.ok(loaded.ok);
     const document = loaded.value, entry = document.entries[0]!;
     document.entries = Array.from({ length: 511 }, (_, index) => ({ ...entry, id: String(index) }));
@@ -96,23 +96,23 @@ test("daily data path and a symlink alias fail before any store write", async ()
     assert.throws(() => assertExperimentalDataPaths([daily, join(daily, "workspaces/personal")]), /拒绝写入/);
     await symlink(daily, join(root, "alias"));
     assert.throws(() => assertExperimentalDataPaths([join(root, "alias", "child")]), /拒绝写入/);
-    const result = await new V6MemoryStore(join(root, "alias")).writeV6([change()]); assert.equal(result.ok, false);
+    const result = await new V6MemoryStore(join(join(root, "alias"), ".runloom/memory.json")).writeV6([change()]); assert.equal(result.ok, false);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
 test("privacy redaction survives an uncertain acknowledgement, blocks replacement-chain undo and is read-before-write idempotent", async () => {
   const root = await mkdtemp(join(tmpdir(), "cm6-private-barrier-"));
   try {
-    const store = new V6MemoryStore(root), seed = await store.writeV6([change()]); assert.ok(seed.ok);
+    const store = new V6MemoryStore(join(root, ".runloom/memory.json")), seed = await store.writeV6([change()]); assert.ok(seed.ok);
     const newer = await store.writeV6([{ ...change("上海"), operation: "replace", id: seed.value[0]!.id, expectedRevision: seed.value[0]!.revision! }]); assert.ok(newer.ok);
-    const faulty = new V6MemoryStore(root, phase => { if (phase === "after-rename") throw new Error("ack lost"); });
+    const faulty = new V6MemoryStore(join(root, ".runloom/memory.json"), phase => { if (phase === "after-rename") throw new Error("ack lost"); });
     const result = await faulty.excludeSources("t", ["北京"]); assert.equal(result.ok, false);
     if (!result.ok) assert.equal(result.error.code, "MEMORY_COMMIT_UNCERTAIN");
     const read = await store.readV6(); assert.ok(read.ok); assert.equal(read.value.entries.find(entry => entry.id === seed.value[0]!.id)?.privacyExcluded, true);
     assert.doesNotMatch(JSON.stringify(read.value), /我住在北京/);
     const undo = await store.writeV6([{ operation: "undo", id: newer.value[0]!.id, expectedRevision: newer.value[0]!.revision!, source: { kind: "manual" } }]); assert.equal(undo.ok, false);
     const before = await readFile(join(root, ".runloom/memory.json"));
-    assert.ok((await new V6MemoryStore(root).excludeSources("t", ["北京"])).ok);
+    assert.ok((await new V6MemoryStore(join(root, ".runloom/memory.json")).excludeSources("t", ["北京"])).ok);
     assert.deepEqual(await readFile(join(root, ".runloom/memory.json")), before);
   } finally { await rm(root, { recursive: true, force: true }); }
 });

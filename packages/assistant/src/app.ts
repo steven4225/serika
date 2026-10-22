@@ -1,3 +1,4 @@
+import { assistantDataPaths, type AssistantDataPaths } from "./data-paths.js";
 import { createTranscriptAccess } from "./transcript-access.js";
 import { historyTools } from "./history-tools.js";
 import { createCompactionChecklist, type CompactionChecklistSources } from "./compaction-records.js";
@@ -7,7 +8,7 @@ import { assertExperimentalDataPaths } from "./experimental-data.js";
 import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import type { Writable } from "node:stream";
 import { tool, type LanguageModel, type UIMessage } from "ai";
 import { z } from "zod";
@@ -187,6 +188,7 @@ export interface RuntimeApp {
   threadId: string;
   directory: string;
   workspaceRoot: string | undefined;
+  dataPaths?: AssistantDataPaths;
   moduleConfig: ResolvedTuiModuleConfig | undefined;
   getCapabilities?(): CapabilityStatus;
   toolConfirmation: ToolConfirmation | undefined;
@@ -244,7 +246,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         todoistTimeZone: todoistTimeZoneFromEnv(env),
       })
     : undefined;
-  assertExperimentalDataPaths([options.directory, moduleConfig?.workspaceRoot ?? undefined, moduleConfig?.configPath ?? undefined]);
+  const dataPaths = assembly?.dataDirectory === undefined ? undefined : assistantDataPaths(resolve(cwd, assembly.dataDirectory));
+  assertExperimentalDataPaths([options.directory, moduleConfig?.workspaceRoot ?? undefined, moduleConfig?.configPath ?? undefined, ...Object.values(dataPaths ?? {})]);
   const requestedContextBudget = moduleConfig?.contextCompaction;
   const modelCapacity = typeof model === "string" ? undefined : resolveModelContextWindow(model, env, moduleConfig?.modelContextWindows);
   if (moduleConfig && modelCapacity) moduleConfig.contextCompaction = effectiveContextBudget(moduleConfig.contextCompaction, modelCapacity);
@@ -289,13 +292,14 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
   // Todoist owns its config, token check, status lines and capability entry;
   // the host passes the env and keeps the established check order.
   const todoist = assembleTodoist({ enabled: moduleConfig?.enabled.todoist ?? false, timeZone: moduleConfig?.todoistTimeZone ?? null, env });
+  if ((memoryEnabled || checkpointEnabled || taskEnabled || shellEnabled) && !dataPaths) throw new Error("Persistent modules require an explicit dataDirectory");
   const memoryStore =
-    memoryEnabled ? createMemoryStore(workspaceRoot!) : undefined;
+    memoryEnabled ? createMemoryStore(dataPaths!.memory) : undefined;
   const checkpointStore = checkpointEnabled
-    ? createCheckpointStore(workspaceRoot!)
+    ? createCheckpointStore(dataPaths!.checkpoint)
     : undefined;
   const taskStore =
-    taskEnabled ? createTaskStore(workspaceRoot!) : undefined;
+    taskEnabled ? createTaskStore(dataPaths!.tasks) : undefined;
 
   const add = tool({
     description: "Add two numbers",
@@ -319,9 +323,9 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
   let invalidateTranscriptView = () => {};
   const transcript = createTranscriptAccess({ store, threadId, memory: memoryStore, invalidated: () => invalidateTranscriptView() });
   const executionRecords = createExecutionRecordStore(directory);
-  const recipes = tuiMode && shellEnabled && workspaceRoot ? new RecipeStore(workspaceRoot) : undefined;
+  const recipes = tuiMode && shellEnabled && workspaceRoot ? new RecipeStore(workspaceRoot, dataPaths!.recipes) : undefined;
   let usageEnabled = false;
-  const workTasks = workspaceRoot === undefined ? undefined : createWorkTaskStore(workspaceRoot, { executionRecords });
+  const workTasks = workspaceRoot === undefined || !dataPaths ? undefined : createWorkTaskStore(workspaceRoot, { filePath: dataPaths.workTasks, executionRecords });
   const executionRecordAdapter = createExecutionRecordAdapter(store, executionRecords, workTasks, agentId => {
     const skill = externalSkills.find(skill => skill.agentId === agentId);
     return agentId === AUTO_CONSOLIDATION_AGENT_ID || skill?.kind === "memory-consolidate" ? "consolidation" : skill || agentId === DREAMING_AGENT_ID ? "skill" : "primary";
@@ -640,7 +644,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     registeredAutomation = automation;
     // Storage can be inspected/disabled without enabling reflection or selection.
     const dreaming = tuiMode && workspaceRoot && workTasks
-      ? createDreamingService({ workspaceRoot, workTasks, executionRecords, ...(memoryStore ? { memoryStore } : {}) }) : undefined;
+      ? createDreamingService({ filePath: dataPaths!.dreaming, workTasks, executionRecords, ...(memoryStore ? { memoryStore } : {}) }) : undefined;
     // Inspected between Runs; the next Run takes it over as currentRun.resume.
     let pendingResumeObservation: ResumeObservation | undefined;
     const activeResumeMessage = (checkpoint: Awaited<ReturnType<typeof readCurrentCheckpoint>>) => {
@@ -957,6 +961,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       threadId,
       directory,
       workspaceRoot,
+      ...(dataPaths ? { dataPaths } : {}),
       moduleConfig,
       getCapabilities,
       toolConfirmation,

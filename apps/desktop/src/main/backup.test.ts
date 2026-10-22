@@ -24,7 +24,7 @@ async function fixture() {
   await writeFile(join(transcripts, `${digest("foreign")}.jsonl`), record("foreign", "PRIVATE-FOREIGN") + "\n");
   await writeFile(join(workspace, ".env"), "API_KEY=PRIVATE-CONFIG");
   await writeFile(join(workspace, "project.txt"), "PROJECT-FILE");
-  assert.ok((await createMemoryStore(workspace).add({ text: "saved memory" })).ok);
+  assert.ok((await createMemoryStore(join(workspace, ".runloom/memory.json")).add({ text: "saved memory" })).ok);
   const records = createExecutionRecordStore(transcripts);
   for (const threadId of ["daily", "foreign"]) {
     await records.startRun({ runId: `run-${threadId}`, threadId, phase: "primary", startedAt: new Date(0).toISOString() });
@@ -36,7 +36,7 @@ it("backup only registered assistant data; restoration is an offline copy with s
   const f = await fixture();
   try {
     let now = Date.parse("2026-10-10T00:00:00Z");
-    const tasks = createTaskStore(f.workspace, { now: () => now });
+    const tasks = createTaskStore(join(f.workspace, ".runloom/tasks.json"), { now: () => now });
     const future = await tasks.create({ prompt: "future", runAt: "2026-10-12T00:00:00Z" }); assert(future.ok);
     const running = await tasks.create({ prompt: "pending outcome", runAt: "2026-10-10T00:01:00Z" }); assert(running.ok);
     const recurring = await tasks.createRecurring({ prompt: "recurring", recurrence: { kind: "daily", time: "08:00", utcOffset: "+08:00" } }); assert(recurring.ok);
@@ -60,7 +60,7 @@ it("backup only registered assistant data; restoration is an offline copy with s
     assert.notEqual(restored.path, f.workspace);
     const history = await inspectThread({ threadId: "daily", transcriptDirectory: restored.transcriptDirectory });
     assert.equal(history.messageCount, 1); assert.equal(history.preview, "latest"); assert.equal(history.error, undefined);
-    const recovered = createTaskStore(join(restored.path, "workspace"), { now: () => Date.parse("2026-10-20T00:00:00Z") });
+    const recovered = createTaskStore(join(join(restored.path, "workspace"), ".runloom/tasks.json"), { now: () => Date.parse("2026-10-20T00:00:00Z") });
     const one = await recovered.get(future.value.id); assert(one.ok && one.value.status === "cancelled");
     const interrupted = await recovered.get(running.value.id); assert(interrupted.ok && interrupted.value.status === "interrupted");
     assert.equal(interrupted.value.pendingOutcome, null); assert.equal(interrupted.value.retryAt, null); assert.equal(interrupted.value.notification, null);
@@ -215,7 +215,7 @@ it("rejects valid JSON that exceeds the original Store read limit before preview
 it("rejects short configured credentials in assistant text rather than silently exporting them", async () => {
   const f = await fixture();
   try {
-    assert.ok((await createMemoryStore(f.workspace).add({ text: "短凭据 k!3x" })).ok);
+    assert.ok((await createMemoryStore(join(f.workspace, ".runloom/memory.json")).add({ text: "短凭据 k!3x" })).ok);
     await assert.rejects(exportBackup({ ...f, knownSecrets: ["k!3x"] }), /凭据/);
     await assert.rejects(readFile(f.destination), { code: "ENOENT" });
   } finally { await rm(f.root, { recursive: true, force: true }); }
@@ -262,7 +262,7 @@ it("export filters excluded message, snapshot and receipt payloads while preserv
   try {
     const { createMemoryStore } = await import("@serika/assistant/testing");
     await rm(join(f.workspace, ".runloom/memory.json"));
-    const memory = createMemoryStore(f.workspace);
+    const memory = createMemoryStore(join(f.workspace, ".runloom/memory.json"));
     const secret = "PRIVATE-EXCLUDED-PAYLOAD";
     const saved = await memory.writeV6!([{ operation: "add", text: secret, category: "note", source: { kind: "conversation", threadId: "daily", messageId: "user", quote: secret, sentAt: null } }]); assert.ok(saved.ok);
     const store = new JsonlAgentStore({ directory: f.transcripts });

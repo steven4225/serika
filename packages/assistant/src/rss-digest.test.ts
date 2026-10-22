@@ -19,8 +19,8 @@ function feed(ids: string[]): FeedReadResult {
 async function fixture() {
   const root = await realpath(await mkdtemp(join(tmpdir(), "runloom-rss-")));
   let now = Date.parse("2026-10-03T00:00:00Z");
-  const tasks = createTaskStore(root, { now: () => now });
-  const store = createRssSubscriptionStore(root);
+  const tasks = createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now });
+  const store = createRssSubscriptionStore(join(root, ".runloom/rss.json"), createTaskStore(join(root, ".runloom/tasks.json")));
   let v = await store.update({ action: "add", expectedRevision: 1, name: "Example", url: "https://example.com/feed" }, tasks);
   assert(v.ok);
   v = await store.update({ action: "schedule", expectedRevision: v.value.revision, recurrence: { kind: "daily", time: "01:00", utcOffset: "+00:00" } }, tasks);
@@ -31,14 +31,14 @@ async function fixture() {
 it("empty RSS batch completes durably without model or notification, including restart accounting", async () => {
   const f = await fixture();
   const controller = new AbortController();
-  const digest = createRssDigestWorker(f.root, f.tasks, { enabled: true, fetch: async () => feed([]) });
+  const digest = createRssDigestWorker(join(f.root, ".runloom/rss.json"), f.tasks, { enabled: true, fetch: async () => feed([]) });
   try {
     f.advance();
     await runTaskWorker({ store: f.tasks, signal: controller.signal, runtime: { run: async () => { throw new Error("empty feed must not call a model"); } },
       prepareTask: digest.prepare, recoverPreparedTasks: digest.recover, settlePreparedTask: digest.settle,
       notify: async () => { throw new Error("empty feed must stay quiet"); }, onTaskFinished: () => controller.abort() });
     const list = await f.tasks.list({ inbox: true }); assert(list.ok && list.value.tasks.length === 1);
-    const result = await createTaskStore(f.root).get(list.value.tasks[0]!.id); assert(result.ok);
+    const result = await createTaskStore(join(f.root, ".runloom/tasks.json")).get(list.value.tasks[0]!.id); assert(result.ok);
     assert.equal(result.value.status, "completed"); assert.equal(result.value.runId, null);
     assert.equal(result.value.execution, "deterministic"); assert.equal(result.value.notification, null);
     assert.match(result.value.resultText!, /没有新条目/);
@@ -58,7 +58,7 @@ it("first baseline, no repeat, new item, restart and delivery-before-dedupe", as
   const f = await fixture();
   let calls = 0;
   let ids = ["a", "b", "c", "d", "e", "f"];
-  const worker = () => createRssDigestWorker(f.root, f.tasks, { enabled: true, fetch: async () => { calls++; return feed(ids); } });
+  const worker = () => createRssDigestWorker(join(f.root, ".runloom/rss.json"), f.tasks, { enabled: true, fetch: async () => { calls++; return feed(ids); } });
   try {
     const task = await f.claim();
     const first = await worker().prepare(task, new AbortController().signal);
@@ -103,7 +103,7 @@ it("partial failure remains visible, failed feeds do not initialize; all-failed 
     const v = await f.store.get(); assert(v.ok);
     assert((await f.store.update({ action: "add", expectedRevision: v.value.revision, name: "Broken", url: "https://example.org/feed" }, f.tasks)).ok);
     const task = await f.claim();
-    const worker = createRssDigestWorker(f.root, f.tasks, { enabled: true, fetch: async url => url.includes("example.org") ? { ok: false, error: { code: "INVALID_FEED", message: "bad" } } : feed(["a"]) });
+    const worker = createRssDigestWorker(join(f.root, ".runloom/rss.json"), f.tasks, { enabled: true, fetch: async url => url.includes("example.org") ? { ok: false, error: { code: "INVALID_FEED", message: "bad" } } : feed(["a"]) });
     const prepared = await worker.prepare(task, new AbortController().signal); assert(prepared);
     assert.match(prepared.formatResult(""), /抓取失败：INVALID\\_FEED/);
     assert((await f.tasks.finish(task.id, { status: "completed", runId: "partial-run", resultText: prepared.formatResult("") })).ok);
@@ -112,7 +112,7 @@ it("partial failure remains visible, failed feeds do not initialize; all-failed 
     assert.equal(d.sources[0]!.initialized, true);
     assert.equal(d.sources[1]!.initialized, false);
     const next = await f.claim();
-    const failed = createRssDigestWorker(f.root, f.tasks, { enabled: true, fetch: async () => ({ ok: false, error: { code: "INVALID_FEED", message: "bad" } }) });
+    const failed = createRssDigestWorker(join(f.root, ".runloom/rss.json"), f.tasks, { enabled: true, fetch: async () => ({ ok: false, error: { code: "INVALID_FEED", message: "bad" } }) });
     await assert.rejects(failed.prepare(next, new AbortController().signal), /All enabled/);
     assert.deepEqual((await f.store.read()).sources, d.sources);
   } finally { await rm(f.root, { recursive: true, force: true }); }
@@ -123,8 +123,8 @@ it("authorization is explicit, series-bound, revocable, and URLs are public; sta
   try {
     const task = await f.claim();
     const fetch = async () => { calls++; return feed(["a"]); };
-    await assert.rejects(createRssDigestWorker(f.root, f.tasks, { enabled: false, fetch }).prepare(task, new AbortController().signal), /--rss/);
-    const worker = createRssDigestWorker(f.root, f.tasks, { enabled: true, fetch });
+    await assert.rejects(createRssDigestWorker(join(f.root, ".runloom/rss.json"), f.tasks, { enabled: false, fetch }).prepare(task, new AbortController().signal), /--rss/);
+    const worker = createRssDigestWorker(join(f.root, ".runloom/rss.json"), f.tasks, { enabled: true, fetch });
     await assert.rejects(worker.prepare({ ...task, recurringTaskId: "foreign" }, new AbortController().signal), /exact enabled/);
     assert.equal(await worker.prepare({ ...task, prompt: "please collect RSS" }, new AbortController().signal), undefined);
     assert.equal(calls, 0);
@@ -140,10 +140,10 @@ it("authorization is explicit, series-bound, revocable, and URLs are public; sta
 it("bad RSS files and symlinks fail honestly; reads do not create storage", async () => {
   const root = await realpath(await mkdtemp(join(tmpdir(), "rss-invalid-")));
   try {
-    const store = createRssSubscriptionStore(root);
+    const store = createRssSubscriptionStore(join(root, ".runloom/rss.json"), createTaskStore(join(root, ".runloom/tasks.json")));
     assert((await store.get()).ok);
     await assert.rejects(readFile(join(root, ".runloom/rss.json")), { code: "ENOENT" });
-    const tasks = createTaskStore(root);
+    const tasks = createTaskStore(join(root, ".runloom/tasks.json"));
     assert((await store.update({ action: "add", expectedRevision: 1, name: "Example", url: "https://example.com/feed" }, tasks)).ok);
     await writeFile(join(root, ".runloom/rss.json"), "broken");
     assert(!(await store.get()).ok);
@@ -159,7 +159,7 @@ it("worker executes one no-tool RSS Run and persists authoritative manifest befo
   const agent = createTaskWorkerAgent({ modelAlias: "mock", model: createScheduledDemoModel(), store: new JsonlAgentStore({ directory: join(f.root, "transcripts") }) });
   try {
     f.advance();
-    const rss = createRssDigestWorker(f.root, f.tasks, { enabled: true, fetch: async () => feed(["a"]) });
+    const rss = createRssDigestWorker(join(f.root, ".runloom/rss.json"), f.tasks, { enabled: true, fetch: async () => feed(["a"]) });
     const stop = new AbortController();
     await runTaskWorker({ store: f.tasks, runtime: agent.runtime, signal: stop.signal,
       prepareTask: rss.prepare, recoverPreparedTasks: rss.recover, settlePreparedTask: rss.settle,
@@ -182,7 +182,7 @@ it("revocation during a fetch stops the next request and never stages stale auth
     let v = await f.store.get(f.tasks); assert(v.ok);
     assert((await f.store.update({ action: "add", expectedRevision: v.value.revision, name: "Second", url: "https://example.org/feed" }, f.tasks)).ok);
     const task = await f.claim();
-    const rss = createRssDigestWorker(f.root, f.tasks, { enabled: true, fetch: async () => {
+    const rss = createRssDigestWorker(join(f.root, ".runloom/rss.json"), f.tasks, { enabled: true, fetch: async () => {
       calls++;
       v = await f.store.get(f.tasks); assert(v.ok);
       assert((await f.store.update({ action: "enabled", expectedRevision: v.value.revision, enabled: false }, f.tasks)).ok);
@@ -200,7 +200,7 @@ it("scheduled safe-retry reuses the frozen batch without fetching twice", async 
   const f = await fixture(); let fetches = 0;
   try {
     const task = await f.claim();
-    const worker = () => createRssDigestWorker(f.root, f.tasks, { enabled: true, fetch: async () => { fetches++; return feed(["a"]); } });
+    const worker = () => createRssDigestWorker(join(f.root, ".runloom/rss.json"), f.tasks, { enabled: true, fetch: async () => { fetches++; return feed(["a"]); } });
     const before = await worker().prepare(task, new AbortController().signal); assert(before);
     const retried = await f.tasks.retry(task.id, { runId: null, error: { code: "MODEL_TIMEOUT", message: "timeout" }, nextRunAt: "2026-10-04T00:00:01Z" }); assert(retried.ok);
     f.advance(1000);
@@ -218,7 +218,7 @@ it("real feed parser/transport bounds reach digest; no article requests or fabri
   const f = await fixture(); let requests = 0;
   try {
     const task = await f.claim();
-    const rss = createRssDigestWorker(f.root, f.tasks, { enabled: true, fetch: (url, signal) => readFeed({ url, limit: 20 }, {
+    const rss = createRssDigestWorker(join(f.root, ".runloom/rss.json"), f.tasks, { enabled: true, fetch: (url, signal) => readFeed({ url, limit: 20 }, {
       signal, resolveHost: async () => [{ address: "93.184.216.34", family: 4 }],
       fetch: async () => { requests++; return new Response(`<rss version="2.0"><channel>${Array.from({ length: 21 }, (_, i) => `<item><guid>${i}</guid><title>News ${i}</title><link>https://example.com/${i}</link></item>`).join("")}</channel></rss>`, { headers: { "content-type": "text/xml" } }); },
     }) });

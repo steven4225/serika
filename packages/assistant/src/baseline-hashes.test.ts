@@ -54,7 +54,7 @@ function dreamingSources(root: string) {
   }
   const workTasks = { list: async () => ({ ok: true, value: structuredClone(tasks) }) } as unknown as WorkTaskStore;
   const executionRecords: Pick<ExecutionRecordStore, "getRun"> = { getRun: async (_threadId, id) => structuredClone(runs.get(id) ?? null) };
-  return createDreamingService({ workspaceRoot: root, workTasks, executionRecords });
+  return createDreamingService({ filePath: join(root, ".runloom/dreaming.json"), workTasks, executionRecords });
 }
 
 async function samples(): Promise<Record<string, string>> {
@@ -89,7 +89,7 @@ async function samples(): Promise<Record<string, string>> {
     try { return (await readdir(root)).filter(name => name.startsWith(".execution-owner-")).join(","); } finally { await lease.release(); }
   });
   out["work task owner lock name"] = await withRoot(async root => {
-    const lease = await createWorkTaskStore(root).claimThread("thread-a");
+    const lease = await createWorkTaskStore(root, { filePath: join(root, ".runloom/work-tasks.json") }).claimThread("thread-a");
     try { return (await readdir(join(root, ".runloom"))).filter(name => name.startsWith(".work-task-owner-")).join(","); } finally { await lease.release(); }
   });
   // Added in step 3 (docs/v2-pilot/pending.md A.1–A.2): reached through the stores' public API and the

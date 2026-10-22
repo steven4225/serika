@@ -74,7 +74,7 @@ export async function runCompletionAcceptance(label: "baseline" | "improved") {
       run: { maxSteps: 12, totalTimeoutMs: 600000 }, contextCompaction: CONTINUITY_BUDGET };
     await writeFile(join(directory, "config.json"), JSON.stringify(config));
     const output = new PassThrough(); output.resume();
-    const app = await createRuntimeApp({ directory: join(directory, "transcripts"), assistant: { threadId: caseId, configPath: join(directory, "config.json") },
+    const app = await createRuntimeApp({ directory: join(directory, "transcripts"), assistant: { dataDirectory: join(workspace, ".runloom"), threadId: caseId, configPath: join(directory, "config.json") },
       model: configured.model, modelAlias: configured.modelAlias, output, env: process.env, cwd: workspace });
     const controller = createAssistantController(app);
     output.on("data", chunk => controller.recordOutput(String(chunk)));

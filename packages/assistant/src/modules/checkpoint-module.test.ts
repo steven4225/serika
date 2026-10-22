@@ -57,7 +57,7 @@ describe("createCheckpointModule", () => {
 
   it("registers only the frozen checkpoint tools and metadata", async () => {
     const root = await createWorkspace();
-    const tools = setupTools(createCheckpointStore(root), { threadId: "thread-a" });
+    const tools = setupTools(createCheckpointStore(join(root, ".runloom/checkpoint.json")), { threadId: "thread-a" });
     assert.deepEqual(tools.map(({ metadata }) => metadata), [
       { name: "checkpoint_prepare", version: "1", risk: "read", timeoutMs: 1_000, idempotent: true },
       { name: "checkpoint_get", version: "1", risk: "read", timeoutMs: 1_000, idempotent: true },
@@ -67,7 +67,7 @@ describe("createCheckpointModule", () => {
 
   it("declares the checkpoint cards and adds its instructions", async () => {
     const root = await createWorkspace();
-    const host = createModuleHost([createCheckpointModule(createCheckpointStore(root), { threadId: "thread-a", workspaceRoot: "/ws" })], { notify() {} });
+    const host = createModuleHost([createCheckpointModule(createCheckpointStore(join(root, ".runloom/checkpoint.json")), { threadId: "thread-a", workspaceRoot: "/ws" })], { notify() {} });
     assert.deepEqual([...host.toolPermissions.keys()], ["checkpoint_prepare", "checkpoint_get", "checkpoint_save"]);
     const card = (toolName: string, input: unknown) => host.toolPermissions.get(toolName)!.confirmation!(
       { toolName, input } as Parameters<NonNullable<ToolPermissionFacts["confirmation"]>>[0]);
@@ -86,7 +86,7 @@ describe("createCheckpointModule", () => {
 
   it("prepares only current checkpoint and injectable memory without a model or transcript reader", async () => {
     const root = await createWorkspace();
-    const store = createCheckpointStore(root, { generateId: () => "checkpoint-1" });
+    const store = createCheckpointStore(join(root, ".runloom/checkpoint.json"), { generateId: () => "checkpoint-1" });
     const saved = await store.saveNextVersion({
       expectedVersion: null,
       draft: draft(),
@@ -114,7 +114,7 @@ describe("createCheckpointModule", () => {
 
   it("returns no memories when Memory is disabled and reports preparation errors as data", async () => {
     const root = await createWorkspace();
-    const store = createCheckpointStore(root);
+    const store = createCheckpointStore(join(root, ".runloom/checkpoint.json"));
     const toolsWithoutMemory = setupTools(store, { threadId: "thread-a" });
     assert.deepEqual(
       await toolByName(toolsWithoutMemory, "checkpoint_prepare").tool.execute!({}, context),
@@ -138,7 +138,7 @@ describe("createCheckpointModule", () => {
     await mkdir(directory);
     const file = join(root, CHECKPOINT_FILE_NAME);
     await writeFile(file, "{broken", "utf8");
-    const tools = setupTools(createCheckpointStore(root), { threadId: "thread-a" });
+    const tools = setupTools(createCheckpointStore(join(root, ".runloom/checkpoint.json")), { threadId: "thread-a" });
 
     assert.deepEqual(
       await toolByName(tools, "checkpoint_prepare").tool.execute!({}, context),
@@ -152,7 +152,7 @@ describe("createCheckpointModule", () => {
 
   it("reads current or retained versions and surfaces missing-version errors", async () => {
     const root = await createWorkspace();
-    const store = createCheckpointStore(root);
+    const store = createCheckpointStore(join(root, ".runloom/checkpoint.json"));
     const tools = setupTools(store, { threadId: "thread-a" });
     const save = toolByName(tools, "checkpoint_save").tool;
     await save.execute!({ expectedVersion: null, draft: draft() }, context);
@@ -170,7 +170,7 @@ describe("createCheckpointModule", () => {
 
   it("binds the save source to the active thread and rejects stale versions", async () => {
     const root = await createWorkspace();
-    const store = createCheckpointStore(root, { generateId: () => "checkpoint-1" });
+    const store = createCheckpointStore(join(root, ".runloom/checkpoint.json"), { generateId: () => "checkpoint-1" });
     const tools = setupTools(store, { threadId: "thread-bound" });
     const save = toolByName(tools, "checkpoint_save").tool;
     const created = await save.execute!({ expectedVersion: null, draft: draft() }, context) as {
@@ -191,7 +191,7 @@ describe("createCheckpointModule", () => {
 
   it("captures a Git pin only for the save, and omits it if the optional inspection fails", async () => {
     const root = await createWorkspace();
-    const store = createCheckpointStore(root);
+    const store = createCheckpointStore(join(root, ".runloom/checkpoint.json"));
     let captures = 0;
     const gitPin = {
       head: "a".repeat(40),
@@ -223,7 +223,7 @@ describe("createCheckpointModule", () => {
 
   it("requires exact bounded inputs", async () => {
     const root = await createWorkspace();
-    const tools = setupTools(createCheckpointStore(root), { threadId: "thread-a" });
+    const tools = setupTools(createCheckpointStore(join(root, ".runloom/checkpoint.json")), { threadId: "thread-a" });
     const prepareInput = toolByName(tools, "checkpoint_prepare").tool.inputSchema as unknown as {
       safeParse(value: unknown): { success: boolean };
     };

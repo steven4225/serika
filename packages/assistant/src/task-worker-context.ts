@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import type { UIMessage } from "ai";
 import {
   createCheckpointStore,
@@ -111,8 +112,8 @@ export function createTaskWorkerContextLoader(
   taskStore: TaskStore,
 ): (task: TaskRecord, signal: AbortSignal) => Promise<TaskWorkerSnapshotContext> {
   const sources = {
-    memoryStore: createMemoryStore(workspace),
-    checkpointStore: createCheckpointStore(workspace),
+    memoryStore: createMemoryStore(join(workspace, ".runloom/memory.json")),
+    checkpointStore: createCheckpointStore(join(workspace, ".runloom/checkpoint.json")),
     taskStore,
   };
   return (task, signal) => loadTaskWorkerContext(sources, task, signal);

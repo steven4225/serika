@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { assertExperimentalDataPaths } from "@serika/assistant";
 import type { LanguageModel } from "ai";
 import { createRuntimeApp, type TaskAutomationHost } from "@serika/assistant";
@@ -94,7 +95,7 @@ export class DesktopRuntime {
   /** Original workspace TaskStore, independent of foreground capability switches. */
   #channelTaskStore() {
     if (!this.#identity.workspaceRoot) throw new Error("当前没有确定的工作区，未读取安排");
-    return createTaskStore(this.#identity.workspaceRoot);
+    return createTaskStore(join(this.#identity.workspaceRoot, ".runloom/tasks.json"));
   }
   channelScheduledTask(id: string) { return this.#channelTaskStore().get(id); }
   async channelRecurringTask(id: string) {
@@ -149,7 +150,7 @@ export class DesktopRuntime {
     if (config.workspaceRoot !== identity.workspaceRoot) throw new Error("配置工作区已变化，请恢复原工作区配置后重新连接；不会混入其他工作区");
     const output = new TeeOutput(this.#send);
     const app = await createRuntimeApp({
-      directory: identity.transcriptDirectory, assistant: { threadId: identity.threadId, configPath: identity.configPath },
+      directory: identity.transcriptDirectory, assistant: { threadId: identity.threadId, configPath: identity.configPath, ...(identity.workspaceRoot === null ? {} : { dataDirectory: join(identity.workspaceRoot, ".runloom") }) },
       modelAlias: this.#options.modelAlias, model: this.#options.model, output, env: this.#options.env, cwd: this.#options.cwd,
       pomodoroService: this.#pomodoroService,
       allowWorkspaceTaskReads: true,

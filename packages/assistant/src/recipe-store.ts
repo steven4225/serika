@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { constants } from "node:fs";
 import { lstat, mkdir, open, rename, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { z } from "zod";
 import { acquireFlock } from "./flock.js";
 import { readFileFromWorkspace } from "./read-file.js";
@@ -37,7 +37,8 @@ function fail(code: string, message: string): never { throw new RecipeError(code
 /** A bounded workspace-local command catalog, not an installer, permission store or replay queue. */
 export class RecipeStore {
   #uncertain = false;
-  constructor(readonly workspace: string) {}
+  readonly #file: string;
+  constructor(readonly workspace: string, filePath: string) { this.#file = resolve(filePath); }
   async #inspect(path: string, directory = false) {
     try {
       const info = await lstat(path);
@@ -46,7 +47,9 @@ export class RecipeStore {
   }
   async list(signal: AbortSignal): Promise<RecipeEntry[]> {
     signal.throwIfAborted();
-    const result = await readFileFromWorkspace(this.workspace, ".runloom/recipes.json", signal);
+    await this.#inspect(dirname(dirname(this.#file)), true);
+    await this.#inspect(dirname(this.#file), true);
+    const result = await readFileFromWorkspace(dirname(this.#file), basename(this.#file), signal);
     if (!result.ok) {
       if (result.error.code === "FILE_NOT_FOUND") return [];
       fail("RECIPE_FILE_INVALID", "Cannot read recipe catalog; nothing was overwritten");
@@ -107,8 +110,9 @@ export class RecipeStore {
   }
   async #mutate<T>(signal: AbortSignal, update: (doc: Document) => T): Promise<T> {
     if (this.#uncertain) fail("RECIPE_COMMIT_UNCERTAIN", "Previous catalog acknowledgement is uncertain; reopen and inspect, do not retry automatically");
-    const directory = join(this.workspace, ".runloom"), file = join(directory, "recipes.json");
-    await this.#inspect(this.workspace, true); await this.#inspect(directory, true);
+    const file = this.#file, directory = dirname(file);
+    await this.#inspect(this.workspace, true);
+    await this.#inspect(dirname(directory), true); await this.#inspect(directory, true);
     await mkdir(directory, { recursive: true });
     const lockPath = join(directory, "recipes.lock");
     await this.#inspect(lockPath);

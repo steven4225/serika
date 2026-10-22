@@ -15,11 +15,11 @@ test("unified controller inbox reads actual deterministic reminders and explicit
   const config = join(root, "config.json");
   await writeFile(config, JSON.stringify({ version: 1, workspace, modules: { task: { enabled: true } } }));
   const output = new PassThrough(); output.resume();
-  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "inbox", configPath: config },
+  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "inbox", configPath: config },
     model: createDemoModel(), modelAlias: "mock/default", output, env: {}, cwd: root });
   const controller = createAssistantController(app);
   let now = Date.now();
-  const store = createTaskStore(workspace, { now: () => now });
+  const store = createTaskStore(join(workspace, ".runloom/tasks.json"), { now: () => now });
   try {
     const created = await store.create({ prompt: "喝水", runAt: new Date(now + 1_000).toISOString(),
       arrangement: { kind: "reminder", source: "none", notification: "always", declarationVersion: 1 } });

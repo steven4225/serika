@@ -35,7 +35,7 @@ test("two assistants assembled in one process keep their data apart", async () =
       await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: true } } }));
       apps.push(await createRuntimeApp({
         directory: join(root, "transcripts"),
-        assistant: { threadId: "same-thread", configPath },
+        assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "same-thread", configPath },
         modelAlias: "mock", model: createDemoModel(), demoTools: true,
         output: new PassThrough().resume(), env: {}, cwd: root,
       }));
@@ -67,7 +67,7 @@ test("createRuntimeApp refuses a contradictory structured assembly before touchi
   try {
     await assert.rejects(createRuntimeApp({
       directory: join(root, "transcripts"),
-      assistant: { configPath: join(root, "missing.json"), workspace: root },
+      assistant: { dataDirectory: join(root, ".runloom"), configPath: join(root, "missing.json"), workspace: root },
       modelAlias: "mock", model: createDemoModel(), output: new PassThrough(), env: {}, cwd: root,
     }), /--config cannot be combined with module selection options/);
     assert.deepEqual(await readdir(root), []);

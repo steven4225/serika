@@ -64,7 +64,7 @@ async function fixture(model: MockLanguageModelV3, options: {
   const messages: MainToRenderer[] = [];
   const output = new TeeOutput(message => { messages.push(message); });
   const app = await createRuntimeApp({
-    directory: join(root, "transcripts"), assistant: { threadId: "skills", configPath: join(root, "config.json") },
+    directory: join(root, "transcripts"), assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "skills", configPath: join(root, "config.json") },
     modelAlias: "mock", model, output, cwd: root, env: {},
   });
   const controller = createAssistantController(app);

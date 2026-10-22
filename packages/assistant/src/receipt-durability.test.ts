@@ -21,9 +21,9 @@ for (const kind of ["task", "work-task", "checkpoint"] as const) {
       if (process.platform === "win32") return t.skip("These stores require POSIX flock");
       const directory = await mkdtemp(join(tmpdir(), "runloom-store-sync-"));
       try {
-        const task = createTaskStore(directory);
-        const workTask = createWorkTaskStore(directory);
-        const checkpoint = createCheckpointStore(directory);
+        const task = createTaskStore(join(directory, ".runloom/tasks.json"));
+        const workTask = createWorkTaskStore(directory, { filePath: join(directory, ".runloom/work-tasks.json") });
+        const checkpoint = createCheckpointStore(join(directory, ".runloom/checkpoint.json"));
         const save = (version: number) => {
           if (kind === "task") return task.create({ prompt: `version ${version}`, runAt: "2099-01-01T00:00:00Z" });
           if (kind === "work-task") return workTask.create({ threadId: "thread", goal: `version ${version}`, constraints: [], acceptance: [
@@ -57,7 +57,7 @@ for (const kind of ["task", "work-task", "checkpoint"] as const) {
           assert.equal(blocked.error.code, `${prefix}COMMIT_UNCERTAIN`);
           assert.deepEqual(await readFile(path), saved);
         }
-        const read = kind === "task" ? await createTaskStore(directory).list({}) : kind === "work-task" ? await createWorkTaskStore(directory).list({}) : await createCheckpointStore(directory).getCurrent();
+        const read = kind === "task" ? await createTaskStore(join(directory, ".runloom/tasks.json")).list({}) : kind === "work-task" ? await createWorkTaskStore(directory, { filePath: join(directory, ".runloom/work-tasks.json") }).list({}) : await createCheckpointStore(join(directory, ".runloom/checkpoint.json")).getCurrent();
         assert(read.ok, "a new instance can reread the actual committed state without replay");
         assert.deepEqual(await readFile(path), saved);
       } finally { t.mock.restoreAll(); await rm(directory, { recursive: true, force: true }); }

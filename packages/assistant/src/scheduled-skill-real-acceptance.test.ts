@@ -73,7 +73,7 @@ test("opt-in real model: manual and scheduled registered Skill use the productio
   await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { task: { enabled: true } },
     automation: { skills: [{ id: "simple-plan", directory }], hooks: [] } }));
   const output = new PassThrough(); output.resume();
-  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "origin", configPath },
+  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "origin", configPath },
     ...configured, output, env, cwd: root });
   const controller = createAssistantController(app);
   const stopped = new AbortController();
@@ -103,7 +103,7 @@ test("opt-in real model: manual and scheduled registered Skill use the productio
     assert.equal(saved.value.service.enabled, false, "Acceptance must not install a daily background service");
     await delay(Math.max(0, due - Date.now() + 5), undefined, { signal: context.signal });
     const automation = await loadScheduledSkillAutomation({ configPath, workspaceRoot: workspace });
-    const taskStore = createTaskStore(workspace);
+    const taskStore = createTaskStore(join(workspace, ".runloom/tasks.json"));
     const transcripts = new JsonlAgentStore({ directory: join(workspace, ".runloom", "task-transcripts") });
     agent = createTaskWorkerAgent({ ...configured, store: transcripts, skills: automation.skills });
     dispatch.phase("scheduled");
@@ -120,12 +120,12 @@ test("opt-in real model: manual and scheduled registered Skill use the productio
     assert.ok(history.some(message => message.role === "assistant"));
     const inbox = await controller.automation.getTaskInbox(); assert.ok(inbox.ok && inbox.value.tasks.some(item => item.id === id));
     assert.ok((await taskStore.acknowledge(id)).ok);
-    const reopened = await createTaskStore(workspace).get(id); assert.ok(reopened.ok && reopened.value.acknowledgedAt);
-    const afterAck = await createTaskStore(workspace).list({ inbox: true }); assert.ok(afterAck.ok && !afterAck.value.tasks.some(item => item.id === id));
+    const reopened = await createTaskStore(join(workspace, ".runloom/tasks.json")).get(id); assert.ok(reopened.ok && reopened.value.acknowledgedAt);
+    const afterAck = await createTaskStore(join(workspace, ".runloom/tasks.json")).list({ inbox: true }); assert.ok(afterAck.ok && !afterAck.value.tasks.some(item => item.id === id));
     const beforeReplayCheck = dispatch.requests();
     const aborted = new AbortController(); aborted.abort();
-    await runTaskWorker({ store: createTaskStore(workspace), runtime: { run: async () => { throw new Error("Completed task cannot replay"); } }, signal: aborted.signal });
-    const afterRecoveryClaim = await createTaskStore(workspace).claimNextDue(); assert.ok(afterRecoveryClaim.ok);
+    await runTaskWorker({ store: createTaskStore(join(workspace, ".runloom/tasks.json")), runtime: { run: async () => { throw new Error("Completed task cannot replay"); } }, signal: aborted.signal });
+    const afterRecoveryClaim = await createTaskStore(join(workspace, ".runloom/tasks.json")).claimNextDue(); assert.ok(afterRecoveryClaim.ok);
     assert.equal(afterRecoveryClaim.value, null, "A terminal completed schedule is not claimable again");
     assert.equal(dispatch.requests(), beforeReplayCheck);
     Object.assign(report, { status: "passed", configHash: createHash("sha256").update(await readFile(configPath)).digest("hex"),

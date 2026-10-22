@@ -43,7 +43,7 @@ describe("WorkspaceCheckpointStore", () => {
   it("creates v1, advances versions, and retrieves retained history with a stable id", async () => {
     const root = await workspace();
     let tick = 0;
-    const store = createCheckpointStore(root, {
+    const store = createCheckpointStore(join(root, ".runloom/checkpoint.json"), {
       now: () => new Date(Date.UTC(2026, 0, 1, 0, tick++)),
       generateId: () => "checkpoint-1",
     });
@@ -81,7 +81,7 @@ describe("WorkspaceCheckpointStore", () => {
 
   it("persists a program-supplied Git pin but never inherits it on the next version", async () => {
     const root = await workspace();
-    const store = createCheckpointStore(root);
+    const store = createCheckpointStore(join(root, ".runloom/checkpoint.json"));
     const first = await store.saveNextVersion({
       expectedVersion: null,
       draft: draft(),
@@ -106,7 +106,7 @@ describe("WorkspaceCheckpointStore", () => {
 
   it("omits invalid or oversized program pins without rejecting a valid draft", async () => {
     const root = await workspace();
-    const store = createCheckpointStore(root);
+    const store = createCheckpointStore(join(root, ".runloom/checkpoint.json"));
     const invalid = await store.saveNextVersion({
       expectedVersion: null,
       draft: draft(),
@@ -129,7 +129,7 @@ describe("WorkspaceCheckpointStore", () => {
 
   it("fails closed on a malformed stored Git pin", async () => {
     const root = await workspace();
-    const store = createCheckpointStore(root);
+    const store = createCheckpointStore(join(root, ".runloom/checkpoint.json"));
     const saved = await store.saveNextVersion({
       expectedVersion: null,
       draft: draft(),
@@ -154,7 +154,7 @@ describe("WorkspaceCheckpointStore", () => {
 
   it("drops the oldest retained version once history is full", async () => {
     const root = await workspace();
-    const store = createCheckpointStore(root, { generateId: () => "checkpoint-history" });
+    const store = createCheckpointStore(join(root, ".runloom/checkpoint.json"), { generateId: () => "checkpoint-history" });
     const created = await store.saveNextVersion({
       expectedVersion: null,
       draft: draft({ summary: "version 1" }),
@@ -188,7 +188,7 @@ describe("WorkspaceCheckpointStore", () => {
 
   it("allows only one concurrent write using the same expected version", async () => {
     const root = await workspace();
-    const store = createCheckpointStore(root, { generateId: () => "checkpoint-race" });
+    const store = createCheckpointStore(join(root, ".runloom/checkpoint.json"), { generateId: () => "checkpoint-race" });
     const created = await store.saveNextVersion({
       expectedVersion: null,
       draft: draft(),
@@ -209,7 +209,7 @@ describe("WorkspaceCheckpointStore", () => {
 
   it("rejects oversized content without changing the current version", async () => {
     const root = await workspace();
-    const store = createCheckpointStore(root);
+    const store = createCheckpointStore(join(root, ".runloom/checkpoint.json"));
     const created = await store.saveNextVersion({
       expectedVersion: null,
       draft: draft(),
@@ -237,7 +237,7 @@ describe("WorkspaceCheckpointStore", () => {
 
   it("rejects a snapshot whose serialized model-context message exceeds the injection limit", async () => {
     const root = await workspace();
-    const store = createCheckpointStore(root);
+    const store = createCheckpointStore(join(root, ".runloom/checkpoint.json"));
     const oversizedForContext = draft({
       summary: "\"".repeat(512),
       completed: Array(10).fill("\"".repeat(256)),
@@ -261,7 +261,7 @@ describe("WorkspaceCheckpointStore", () => {
 
   it("fails closed on corrupt data and never overwrites it", async () => {
     const root = await workspace();
-    const store = createCheckpointStore(root);
+    const store = createCheckpointStore(join(root, ".runloom/checkpoint.json"));
     await store.saveNextVersion({
       expectedVersion: null,
       draft: draft(),
@@ -292,7 +292,7 @@ describe("WorkspaceCheckpointStore", () => {
     const file = join(root, CHECKPOINT_FILE_NAME);
     const oversized = "x".repeat(CHECKPOINT_FILE_MAX_BYTES + 1);
     await writeFile(file, oversized, "utf8");
-    const store = createCheckpointStore(root);
+    const store = createCheckpointStore(join(root, ".runloom/checkpoint.json"));
 
     const result = await store.getCurrent();
     assert.equal(result.ok, false);
@@ -302,7 +302,7 @@ describe("WorkspaceCheckpointStore", () => {
 
   it("does not create a checkpoint when the save is already cancelled", async () => {
     const root = await workspace();
-    const store = createCheckpointStore(root);
+    const store = createCheckpointStore(join(root, ".runloom/checkpoint.json"));
     const controller = new AbortController();
     controller.abort(new Error("cancelled"));
 

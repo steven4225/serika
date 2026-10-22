@@ -17,7 +17,7 @@ async function preview(store: V6MemoryStore, values = entries): Promise<MemoryIm
   return { entries: values, snapshot: result.value.snapshot, operationId: "import-1" };
 }
 it("preview and cancellation do not create storage; rejects unbounded and forged source fields before writing", () => fixture(async root => {
-  const store = new V6MemoryStore(root), file = join(root, ".runloom/memory.json");
+  const store = new V6MemoryStore(join(root, ".runloom/memory.json")), file = join(root, ".runloom/memory.json");
   assert.ok((await store.previewImport(entries)).ok);
   await assert.rejects(readFile(file), { code: "ENOENT" });
   for (const values of [[], Array.from({ length: 33 }, () => entries[0]!), [{ text: "x".repeat(2049), kind: "note" }], [{ ...entries[0], source: { kind: "conversation", threadId: "forged" } }]]) {
@@ -27,7 +27,7 @@ it("preview and cancellation do not create storage; rejects unbounded and forged
   await assert.rejects(readFile(file), { code: "ENOENT" });
 }));
 it("imports atomically with manual workspace sources, skips exact active duplicates, and preserves receipts across writes/restart", () => fixture(async root => {
-  const store = new V6MemoryStore(root), file = join(root, ".runloom/memory.json");
+  const store = new V6MemoryStore(join(root, ".runloom/memory.json")), file = join(root, ".runloom/memory.json");
   const input = await preview(store, [...entries, entries[0]!]);
   const result = await store.confirmImport(input, "thread"); assert.ok(result.ok);
   assert.deepEqual(result.value.items.map(item => item.status), ["saved", "saved", "existing"]);
@@ -35,16 +35,16 @@ it("imports atomically with manual workspace sources, skips exact active duplica
   const list = await store.list(); assert.ok(list.ok); assert.equal(list.entries.length, 2);
   for (const entry of list.entries) { assert.deepEqual(entry.source, { kind: "manual" }); assert.deepEqual(entry.scope, { kind: "workspace" }); assert.equal(entry.pinned, false); }
   const content = await readFile(file, "utf8");
-  assert.deepEqual(await new V6MemoryStore(root).confirmImport(input, "thread"), result);
+  assert.deepEqual(await new V6MemoryStore(join(root, ".runloom/memory.json")).confirmImport(input, "thread"), result);
   assert.equal(await readFile(file, "utf8"), content, "replay is write-free");
   assert.equal((await store.confirmImport({ ...input, entries: [{ text: "changed", kind: "note" }] }, "thread")).ok, false);
   assert.equal((await store.confirmImport(input, "another-thread")).ok, false);
   await store.update(list.entries[0]!.id, { expectedRevision: 1, status: "disabled" });
-  assert.deepEqual(await new V6MemoryStore(root).importReceipt(input.operationId, "thread"), result);
+  assert.deepEqual(await new V6MemoryStore(join(root, ".runloom/memory.json")).importReceipt(input.operationId, "thread"), result);
   assert.deepEqual(await store.importReceipt(input.operationId, "other"), { ok: true, value: null });
 }));
 it("changed preview or capacity rejects the entire batch; disabled entries are never revived", () => fixture(async root => {
-  const store = new V6MemoryStore(root), file = join(root, ".runloom/memory.json");
+  const store = new V6MemoryStore(join(root, ".runloom/memory.json")), file = join(root, ".runloom/memory.json");
   const input = await preview(store);
   const old = await store.add({ ...entries[0]!, status: "disabled" }); assert.ok(old.ok);
   assert.equal((await store.confirmImport(input, "thread")).ok, false);
@@ -61,17 +61,17 @@ it("changed preview or capacity rejects the entire batch; disabled entries are n
   assert.equal(await readFile(file, "utf8"), before, "no first-entry partial commit");
 }));
 it("post-rename uncertainty is resolved by reading the persisted receipt, without another write", () => fixture(async root => {
-  const store = new V6MemoryStore(root, phase => { if (phase === "after-rename") throw new Error("lost acknowledgement"); });
+  const store = new V6MemoryStore(join(root, ".runloom/memory.json"), phase => { if (phase === "after-rename") throw new Error("lost acknowledgement"); });
   const input = await preview(store), result = await store.confirmImport(input, "thread");
   assert.equal(result.ok, false); if (!result.ok) assert.equal(result.error.code, "MEMORY_COMMIT_UNCERTAIN");
-  const reopened = new V6MemoryStore(root), receipt = await reopened.importReceipt(input.operationId, "thread"); assert.ok(receipt.ok && receipt.value);
+  const reopened = new V6MemoryStore(join(root, ".runloom/memory.json")), receipt = await reopened.importReceipt(input.operationId, "thread"); assert.ok(receipt.ok && receipt.value);
   const file = join(root, ".runloom/memory.json"), before = await readFile(file, "utf8");
   assert.deepEqual(await reopened.confirmImport(input, "thread"), receipt);
   assert.equal(await readFile(file, "utf8"), before);
 }));
 it("concurrent confirmations sharing a preview serialize; a rejected or cancelled batch writes nothing", () => fixture(async root => {
-  const store = new V6MemoryStore(root), input = await preview(store);
-  const results = await Promise.all([store.confirmImport(input, "thread"), new V6MemoryStore(root).confirmImport({ ...input, operationId: "second" }, "thread")]);
+  const store = new V6MemoryStore(join(root, ".runloom/memory.json")), input = await preview(store);
+  const results = await Promise.all([store.confirmImport(input, "thread"), new V6MemoryStore(join(root, ".runloom/memory.json")).confirmImport({ ...input, operationId: "second" }, "thread")]);
   assert.equal(results.filter(result => result.ok).length, 1);
   const list = await store.list(); assert.ok(list.ok); assert.equal(list.entries.length, 2);
   const cancelled = new AbortController(); cancelled.abort(new Error("cancel"));

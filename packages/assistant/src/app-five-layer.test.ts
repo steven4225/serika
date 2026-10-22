@@ -19,7 +19,7 @@ test("production five-layer runtime persists references, reopens the same prefix
   await mkdir(workspace);
   await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: true, writePolicy: "automatic", autoConsolidate: true } },
     automation: { dreaming: { enabled: true } }, desktopAutonomy: { workspaceRoot: workspace } }));
-  const store = createMemoryStore(workspace), documentId = randomUUID();
+  const store = createMemoryStore(join(workspace, ".runloom/memory.json")), documentId = randomUUID();
   assert.ok((await store.changeLibrary!({ operation: "save-document", id: documentId, title: "reference document", text: "DOCUMENT_BODY_ONLY_ON_READ", folderId: null, expectedRevision: 0, entries: [] })).ok);
   for (let i = 0; i < 3; i++) assert.ok((await store.add({ text: `overflow_marker_${i} ` + "x".repeat(1800) })).ok);
   assert.ok((await store.add({ text: "DISABLED_SECRET", enabled: false })).ok);
@@ -33,7 +33,7 @@ test("production five-layer runtime persists references, reopens the same prefix
       { type: "text-delta" as const, id: "answer", delta: "done" }, { type: "text-end" as const, id: "answer" },
       ]), { type: "finish" as const, finishReason: { unified: query ? "tool-calls" as const : "stop" as const, raw: undefined }, usage }] }) };
   } });
-  const open = () => createRuntimeApp({ directory, assistant: { threadId: "thread", configPath }, modelAlias: "fixture", model, output: new PassThrough(), env: {}, cwd: root, allowDesktopAutonomy: true });
+  const open = () => createRuntimeApp({ directory, assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "thread", configPath }, modelAlias: "fixture", model, output: new PassThrough(), env: {}, cwd: root, allowDesktopAutonomy: true });
   let app = await open();
   const run = async (id: string) => {
     const request = { id, role: "user" as const, parts: [{ type: "text" as const, text: id }] };
@@ -76,7 +76,7 @@ test("snapshot budgets include whole serialized entries, pin priority and tempor
 });
 
 test("memory reads recheck disabled documents and retracted overflow instead of returning stale bodies", async () => {
-  const root = await mkdtemp(join(tmpdir(), "serika-read-recheck-")), store = createMemoryStore(root);
+  const root = await mkdtemp(join(tmpdir(), "serika-read-recheck-")), store = createMemoryStore(join(root, ".runloom/memory.json"));
   try {
     const added = await store.add({ text: "RETRACTED_READ_SECRET" }); assert.ok(added.ok);
     assert.ok((await store.writeV6!([{ id: added.entry.id, expectedRevision: added.entry.revision!, operation: "retract", source: { kind: "manual" } }])).ok);

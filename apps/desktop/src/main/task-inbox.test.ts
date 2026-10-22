@@ -16,13 +16,13 @@ test("desktop unified inbox reads real task results, preserves notification dist
   const workspace = join(root, "workspace"); await mkdir(workspace);
   await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, workspace, modules: { task: { enabled: true } } }));
   const output = new TeeOutput(() => undefined);
-  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "inbox-thread", configPath: join(root, "config.json") },
+  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "inbox-thread", configPath: join(root, "config.json") },
     modelAlias: "mock", model: createDemoModel(), output, env: {}, cwd: root });
   const controller = createAssistantController(app); output.attach(controller);
   const bridge = new RuntimeBridge(app, controller, { modelAlias: "mock", temporaryThread: false, temporaryDirectory: false }, output, () => undefined);
   try {
     let clock = Date.now();
-    const tasks = createTaskStore(workspace, { now: () => clock });
+    const tasks = createTaskStore(join(workspace, ".runloom/tasks.json"), { now: () => clock });
     const created = await tasks.create({ prompt: "喝水", runAt: new Date(clock + 1_000).toISOString(), arrangement: { kind: "reminder", source: "none", notification: "always", declarationVersion: 1 } });
     assert.ok(created.ok); if (!created.ok) return;
     clock += 2_000;
@@ -59,13 +59,13 @@ test("saved reminder banner stays readable with task tools disabled and grants n
   const workspace = join(root, "workspace"); await mkdir(workspace);
   await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, workspace, modules: { task: { enabled: false } } }));
   const output = new TeeOutput(() => undefined);
-  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "disabled-tools", configPath: join(root, "config.json") },
+  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "disabled-tools", configPath: join(root, "config.json") },
     modelAlias: "mock", model: createDemoModel(), output, env: {}, cwd: root });
   const controller = createAssistantController(app); output.attach(controller);
   const bridge = new RuntimeBridge(app, controller, { modelAlias: "mock", temporaryThread: false, temporaryDirectory: false }, output, () => undefined);
   try {
     let clock = Date.now();
-    const tasks = createTaskStore(workspace, { now: () => clock });
+    const tasks = createTaskStore(join(workspace, ".runloom/tasks.json"), { now: () => clock });
     const created = await tasks.create({ prompt: "喝水", runAt: new Date(clock + 1_000).toISOString(), arrangement: { kind: "reminder", source: "none", notification: "always", declarationVersion: 1 } });
     assert.ok(created.ok); if (!created.ok) return;
     clock += 2_000;

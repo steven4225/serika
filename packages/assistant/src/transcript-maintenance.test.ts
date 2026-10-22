@@ -46,7 +46,7 @@ it("physical compact preserves memory cursor, exact quotes and valid summary; re
   let app: Awaited<ReturnType<typeof createRuntimeApp>> | undefined;
   try {
     const before = (await stat(file)).size; assert.ok(before > 16 * 1024 * 1024);
-    const memory = createMemoryStore(workspace);
+    const memory = createMemoryStore(join(workspace, ".runloom/memory.json"));
     const prefixHash = hashCanonicalJson(JSON.parse(JSON.stringify(messages)));
     assert.ok((await memory.writeV6!([{ operation: "add", text: preference, category: "preference", source: { kind: "conversation", threadId, messageId: "u1", quote: preference, sentAt: null } }], undefined, { expectedProgress: null, progress: { threadId, throughMessageId: "u2", prefixHash, pending: [], retry: null } })).ok);
     const memoryFile = join(workspace, ".runloom/memory.json"), originalMemory = await readFile(memoryFile);
@@ -87,7 +87,7 @@ it("physical compact preserves memory cursor, exact quotes and valid summary; re
       ] }) };
     } });
     const output = new PassThrough(); output.resume();
-    app = await createRuntimeApp({ directory, assistant: { threadId: threadId, configPath: config },
+    app = await createRuntimeApp({ directory, assistant: { dataDirectory: join(workspace, ".runloom"), threadId: threadId, configPath: config },
       modelAlias: "scripted", model, output, env: {}, cwd: root });
     app.enableExecutionRecords();
     assert.equal(calls, 0, "opening committed history never runs the model or old tools");

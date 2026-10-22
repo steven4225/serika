@@ -1,13 +1,12 @@
 import { createHash, randomUUID } from "node:crypto";
 import { constants } from "node:fs";
 import { open } from "node:fs/promises";
-import { join } from "node:path";
 import { z } from "zod";
 import { acquireFlock } from "./flock.js";
 import { assertWorkerPathSafe, writeWorkerFileAtomic } from "./task-worker-service.js";
 import { validatePublicWebUrl } from "./web-fetch.js";
 import type { FeedItem } from "./feed-read.js";
-import { createTaskStore, RSS_DIGEST_TASK_PROMPT, type TaskStore } from "./task-store.js";
+import { RSS_DIGEST_TASK_PROMPT, type TaskStore } from "./task-store.js";
 import type { Recurrence } from "./recurrence.js";
 
 export const RSS_TASK_PROMPT = RSS_DIGEST_TASK_PROMPT;
@@ -72,8 +71,7 @@ function view(d: RssDocument): RssView {
     sources: d.sources.map(({ seen, ...s }) => ({ ...s, seenCount: seen.length })) };
 }
 
-export function createRssSubscriptionStore(workspace: string) {
-  const path = join(workspace, ".runloom/rss.json");
+export function createRssSubscriptionStore(path: string, tasks: TaskStore) {
   const lockPath = path + ".lock";
   async function read(): Promise<RssDocument> {
     await assertWorkerPathSafe(path);
@@ -110,12 +108,12 @@ export function createRssSubscriptionStore(workspace: string) {
   }
   return {
     read,
-    async get(tasks: TaskStore = createTaskStore(workspace)): Promise<RssResult<RssView>> {
+    async get(taskStore: TaskStore = tasks): Promise<RssResult<RssView>> {
       try {
         const d = await read();
         const result = view(d);
         if (d.scheduleId) {
-          const detail = await tasks.getRecurring(d.scheduleId);
+          const detail = await taskStore.getRecurring(d.scheduleId);
           if (!detail.ok) return detail;
           const s = detail.value.recurringTask;
           result.schedule = { recurrence: s.recurrence, status: s.status, nextRunAt: s.nextRunAt };
@@ -123,7 +121,7 @@ export function createRssSubscriptionStore(workspace: string) {
         return { ok: true, value: result };
       } catch (e) { return rssFailure(e); }
     },
-    async update(input: RssAction, tasks: TaskStore = createTaskStore(workspace)): Promise<RssResult<RssView>> {
+    async update(input: RssAction, taskStore: TaskStore = tasks): Promise<RssResult<RssView>> {
       try {
         const parsed = actionSchema.safeParse(input);
         if (!parsed.success) throw new RssError("INVALID_INPUT", "Invalid RSS action");
@@ -142,7 +140,7 @@ export function createRssSubscriptionStore(workspace: string) {
           } else if (action.action === "schedule") {
             if (d.scheduleId !== null) throw new RssError("INVALID_INPUT", "A schedule already exists; pause/resume it instead");
             if (!d.sources.some(s => s.enabled)) throw new RssError("INVALID_INPUT", "Add an enabled subscription first");
-            const created = await tasks.createRecurring({ prompt: RSS_TASK_PROMPT, recurrence: action.recurrence as Recurrence,
+            const created = await taskStore.createRecurring({ prompt: RSS_TASK_PROMPT, recurrence: action.recurrence as Recurrence,
               arrangement: { kind: "rss-digest", source: "existing-rss-binding", notification: "new-items", declarationVersion: 1 } });
             if (!created.ok) throw new RssError(created.error.code, created.error.message);
             d.scheduleId = created.value.id;
@@ -150,7 +148,7 @@ export function createRssSubscriptionStore(workspace: string) {
           } else {
             if (!d.scheduleId) throw new RssError("INVALID_INPUT", "Create a schedule first");
             // Revocation is stored below; the worker rechecks before each fetch.
-            const changed = action.enabled ? await tasks.resumeRecurring(d.scheduleId) : await tasks.pauseRecurring(d.scheduleId);
+            const changed = action.enabled ? await taskStore.resumeRecurring(d.scheduleId) : await taskStore.pauseRecurring(d.scheduleId);
             if (!changed.ok) throw new RssError(changed.error.code, changed.error.message);
             d.enabled = action.enabled;
           }

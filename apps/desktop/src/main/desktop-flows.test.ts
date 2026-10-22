@@ -1,3 +1,4 @@
+import { dirname } from "node:path";
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -61,7 +62,7 @@ async function openDesktop(
   };
   const output = new TeeOutput(send);
   const app = await createRuntimeApp({
-    directory: join(root, "transcripts"), assistant: { threadId: thread, configPath: join(root, "runloom.json") },
+    directory: join(root, "transcripts"), assistant: { dataDirectory: join(dirname(join(root, "runloom.json")), "workspace/.runloom"), threadId: thread, configPath: join(root, "runloom.json") },
     modelAlias: "mock",
     model,
     output,

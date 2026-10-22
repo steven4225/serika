@@ -437,13 +437,14 @@ class WorkTaskStoreImpl implements WorkTaskStore {
   #writeFailed = false;
 
   constructor(workspace: string, options: {
+    filePath: string;
     now?: () => Date;
     generateId?: () => string;
     executionRecords?: Pick<ExecutionRecordStore, "getRun">;
-  } = {}) {
+  }) {
     this.#root = resolve(workspace);
-    this.#file = join(this.#root, WORK_TASK_FILE_NAME);
-    this.#lock = join(this.#root, WORK_TASK_LOCK_FILE_NAME);
+    this.#file = resolve(options.filePath);
+    this.#lock = `${this.#file}.lock`;
     this.#now = options.now ?? (() => new Date());
     this.#generateId = options.generateId ?? randomUUID;
     this.#executionRecords = options.executionRecords;
@@ -812,7 +813,7 @@ class WorkTaskStoreImpl implements WorkTaskStore {
   async #ensureDirectory(): Promise<void> {
     await this.#inspectRoot();
     const directory = dirname(this.#file);
-    try { await mkdir(directory); }
+    try { await mkdir(directory, { recursive: true }); }
     catch (error) { if (fileCode(error) !== "EEXIST") raise("WORK_TASK_WRITE_FAILED", "Unable to create work task directory"); }
     const stats = await lstat(directory);
     if (stats.isSymbolicLink()) raise("WORK_TASK_SYMLINK_NOT_ALLOWED", "Work task directory must not be a symlink");
@@ -893,7 +894,7 @@ class WorkTaskStoreImpl implements WorkTaskStore {
 
 export function createWorkTaskStore(
   workspace: string,
-  options?: { now?: () => Date; generateId?: () => string; executionRecords?: Pick<ExecutionRecordStore, "getRun"> },
+  options: { filePath: string; now?: () => Date; generateId?: () => string; executionRecords?: Pick<ExecutionRecordStore, "getRun"> },
 ): WorkTaskStore {
   return new WorkTaskStoreImpl(workspace, options);
 }

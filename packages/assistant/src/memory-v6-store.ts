@@ -59,10 +59,10 @@ export function v6Conflicts(entries: readonly V6Entry[]): string[][] {
 
 /** Atomic v6 Memory storage. Older files require the explicit one-time migration. */
 export class V6MemoryStore {
-  readonly #root: string;
+  readonly #file: string;
   readonly #boundary: ((phase: "before-rename" | "after-rename") => void | Promise<void>) | undefined;
-  constructor(workspace: string, boundary?: (phase: "before-rename" | "after-rename") => void | Promise<void>) {
-    this.#root = resolve(workspace); this.#boundary = boundary;
+  constructor(filePath: string, boundary?: (phase: "before-rename" | "after-rename") => void | Promise<void>) {
+    this.#file = resolve(filePath); this.#boundary = boundary;
   }
   async #result<T>(signal: AbortSignal, body: () => Promise<T>): Promise<{ ok: true; value: T } | MemoryFailure> {
     try { signal.throwIfAborted(); return { ok: true, value: await body() }; }
@@ -73,11 +73,11 @@ export class V6MemoryStore {
     }
   }
   async #read(): Promise<V6Document> {
-    for (const path of [this.#root, join(this.#root, ".runloom"), join(this.#root, ".runloom/memory.json")]) {
+    for (const path of [dirname(dirname(this.#file)), dirname(this.#file), this.#file]) {
       try { if ((await lstat(path)).isSymbolicLink()) fail("SYMLINK_NOT_ALLOWED", "Symbolic links are not allowed"); }
       catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return empty(); throw error; }
     }
-    const handle = await open(join(this.#root, ".runloom/memory.json"), constants.O_RDONLY | constants.O_NOFOLLOW);
+    const handle = await open(this.#file, constants.O_RDONLY | constants.O_NOFOLLOW);
     let parsed: unknown;
     try {
       if ((await handle.stat()).size > MEMORY_FILE_MAX_BYTES) fail("MEMORY_LIMIT_EXCEEDED", "Memory exceeds 16 MiB");
@@ -95,11 +95,11 @@ export class V6MemoryStore {
     return document;
   }
   async #mutate<T>(signal: AbortSignal, body: (document: V6Document, stamp: string) => T, now?: Date): Promise<T> {
-    assertExperimentalDataPaths([this.#root]);
+    assertExperimentalDataPaths([this.#file]);
     await this.#read();
     signal.throwIfAborted();
-    const directory = join(this.#root, ".runloom"); await mkdir(directory, { recursive: true });
-    const lock = await acquireFlock(join(directory, "memory.json.lock"), signal);
+    const directory = dirname(this.#file); await mkdir(directory, { recursive: true });
+    const lock = await acquireFlock(`${this.#file}.lock`, signal);
     let renamed = false;
     const temporary = join(directory, `.memory.json.runloom-${randomUUID()}.tmp`);
     try {
@@ -355,4 +355,4 @@ export class V6MemoryStore {
     return this.#result(signal, async () => (await this.#read()).importReceipts.find(item => item.operationId === operationId && item.threadId === threadId) ?? null);
   }
 }
-export function createMemoryStore(workspace: string): WorkspaceMemoryStore { return new V6MemoryStore(workspace); }
+export function createMemoryStore(filePath: string): WorkspaceMemoryStore { return new V6MemoryStore(filePath); }

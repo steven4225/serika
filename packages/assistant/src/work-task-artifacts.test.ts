@@ -96,7 +96,7 @@ it("Controller display queries are read-only, version-bound, survive restart and
       { type: "finish" as const, finishReason: { unified: calls === 1 ? "tool-calls" as const : "stop" as const, raw: undefined }, usage },
     ] }) };
   } });
-  const options = { directory: join(root, "transcripts"), assistant: { threadId: "thread", configPath: config }, cwd: root, env: {}, modelAlias: "mock", model };
+  const options = { directory: join(root, "transcripts"), assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "thread", configPath: config }, cwd: root, env: {}, modelAlias: "mock", model };
   let controller: ReturnType<typeof createAssistantController> | undefined;
   try {
     controller = createAssistantController(await createRuntimeApp({ ...options, output: new PassThrough() }));

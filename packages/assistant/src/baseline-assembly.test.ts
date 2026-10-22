@@ -85,7 +85,7 @@ async function capture(modules: Record<string, unknown>, { desktopAutonomy = fal
   let written = "";
   output.on("data", chunk => { written += String(chunk); });
   const app = await createRuntimeApp({
-    directory: join(root, "transcripts"), assistant: { threadId: "baseline", configPath },
+    directory: join(root, "transcripts"), assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "baseline", configPath },
     modelAlias: "mock", model, output, env: { TODOIST_API_TOKEN: "baseline-token" }, cwd: root,
     ...(desktopAutonomy ? { allowDesktopAutonomy: true as const } : {}),
   });

@@ -32,7 +32,7 @@ async function fixture(model: MockLanguageModelV3, autoConsolidate = false) {
   const directory = join(root, "transcripts");
   const open = async () => {
     const output = new PassThrough(); output.resume();
-    const app = await createRuntimeApp({ directory, assistant: { threadId: "steer-test", configPath: config },
+    const app = await createRuntimeApp({ directory, assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "steer-test", configPath: config },
       modelAlias: "scripted", model, output, env: {}, cwd: root });
     const controller = createAssistantController(app);
     await controller.getHistory();

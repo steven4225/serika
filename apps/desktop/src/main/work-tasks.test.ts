@@ -1,3 +1,4 @@
+import { dirname } from "node:path";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
@@ -52,7 +53,7 @@ async function open(root: string, thread = "work-thread", writes = false, model?
   const send = (message: MainToRenderer) => { messages.push(message); };
   const output = new TeeOutput(send);
   const fixture = testModel(writes);
-  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: thread, configPath: join(root, "config.json") }, modelAlias: "mock", model: model ?? fixture.model, output, env: {}, cwd: root });
+  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { dataDirectory: join(dirname(join(root, "config.json")), "workspace/.runloom"), threadId: thread, configPath: join(root, "config.json") }, modelAlias: "mock", model: model ?? fixture.model, output, env: {}, cwd: root });
   const controller = createAssistantController(app);
   output.attach(controller);
   const bridge = new RuntimeBridge(app, controller, { modelAlias: "mock", temporaryThread: false, temporaryDirectory: false }, output, send);
@@ -240,7 +241,7 @@ describe("work task desktop boundary", () => {
       assert.deepEqual(created.value.runIds, []);
       assert.equal(fixture.calls(), 0);
       assert.equal(fixture.bridge.snapshot().pendingApproval, null);
-      const store = createWorkTaskStore(join(root, "workspace"));
+      const store = createWorkTaskStore(join(root, "workspace"), { filePath: join(join(root, "workspace"), ".runloom/work-tasks.json") });
       const saved = await store.get(created.value.id);
       assert.ok(saved.ok && saved.value);
       if (saved.ok && saved.value) assert.deepEqual(saved.value.acceptance, created.value.acceptance);
@@ -469,7 +470,7 @@ describe("work task desktop boundary", () => {
   it("recovers unknown receipts without a model call, prevents cancel bypass, and records human review without changing old receipts", async () => {
     const root = await prepare();
     const executions = createExecutionRecordStore(join(root, "transcripts"));
-    const store = createWorkTaskStore(join(root, "workspace"), { executionRecords: executions });
+    const store = createWorkTaskStore(join(root, "workspace"), { filePath: join(join(root, "workspace"), ".runloom/work-tasks.json"), executionRecords: executions  });
     const created = await store.create({ ...createInput, threadId: "work-thread" });
     assert.ok(created.ok); if (!created.ok) return;
     const id = created.value.id;

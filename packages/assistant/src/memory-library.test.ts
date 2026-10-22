@@ -12,7 +12,7 @@ const roots: string[] = [];
 afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))); });
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "runloom-memory-library-")); roots.push(root);
-  return { root, file: join(root, ".runloom/memory.json"), store: new V6MemoryStore(root) };
+  return { root, file: join(root, ".runloom/memory.json"), store: new V6MemoryStore(join(root, ".runloom/memory.json")) };
 }
 function value<T>(result: MemoryResult<T>): T { assert.ok(result.ok, JSON.stringify(result)); return result.value; }
 const code = (result: { ok: boolean; error?: { code: string } }) => result.error?.code;
@@ -39,13 +39,13 @@ it("persists folder names, titles and exact Unicode document bodies through impo
   assert.equal(memoryDocumentChunks(text).join(""), text);
   const action = newDoc(folder.revision, { folderId, text });
   value(await store.changeLibrary(action));
-  let reopened = new V6MemoryStore(root);
+  let reopened = new V6MemoryStore(join(root, ".runloom/memory.json"));
   const document = value(await reopened.readLibraryDocument(action.id));
   assert.equal(document.text, text); assert.equal(document.title, action.title); assert.equal(document.folderId, folderId); assert.ok(document.entries.length > 1);
   assert.equal(JSON.parse(await readFile(file, "utf8")).version, 6, "old writers must reject rather than erase library metadata");
   const editedText = "改短后的角色说明。";
   const edited = value(await reopened.changeLibrary({ ...action, text: editedText, expectedRevision: document.libraryRevision, entries: document.entries }));
-  reopened = new V6MemoryStore(root);
+  reopened = new V6MemoryStore(join(root, ".runloom/memory.json"));
   const saved = value(await reopened.readLibraryDocument(action.id));
   assert.equal(saved.text, editedText); assert.equal(saved.entries[0]?.revision, 1);
   const history = await reopened.get(saved.entries[0]!.id); assert.ok(history.ok);
@@ -111,7 +111,7 @@ it("rejects nonempty folder removal, missing content and oversized input without
 for (const boundary of ["before-rename", "after-rename"] as const) it(`document body and folder metadata share the ${boundary} failure boundary`, async () => {
   const { store, root, file } = await fixture(); assert.ok((await store.add({ text: "原始记忆" })).ok);
   const before = await readFile(file, "utf8");
-  const writer = new V6MemoryStore(root, async phase => { if (phase === boundary) throw new Error("injected boundary failure"); });
+  const writer = new V6MemoryStore(join(root, ".runloom/memory.json"), async phase => { if (phase === boundary) throw new Error("injected boundary failure"); });
   const action = newDoc(0);
   const result = await writer.changeLibrary(action); assert.equal(result.ok, false);
   const bytes = await readFile(file, "utf8");

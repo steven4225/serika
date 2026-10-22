@@ -120,7 +120,7 @@ describe("v2 pilot baseline: CLI Home text", () => {
       const output = new PassThrough();
       let written = "";
       output.on("data", chunk => { written += String(chunk); });
-      const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "home", configPath },
+      const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "home", configPath },
         modelAlias: "mock", model: new MockLanguageModelV3({ modelId: "mock-model" }), output, env: {}, cwd: root });
       try {
         await app.renderHome();

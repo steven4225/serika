@@ -59,7 +59,7 @@ test("desktop chat preempts real background consolidation without approving tool
   let bridge: RuntimeBridge | undefined;
   try {
     const app = await createRuntimeApp({
-      directory: join(root, "transcripts"), assistant: { threadId: "chat", configPath: join(root, "config.json") },
+      directory: join(root, "transcripts"), assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "chat", configPath: join(root, "config.json") },
       model, modelAlias: "mock", output, cwd: root, env: {},
     });
     const controller = createAssistantController(app);

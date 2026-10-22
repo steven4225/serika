@@ -717,7 +717,7 @@ async function createCheckpointConfirmationRuntime(): Promise<{
   const output = ttyOutput();
   const confirmation = moduleConfirmation(output);
   const store = new CountingStore();
-  const checkpointStore = createCheckpointStore(workspace, {
+  const checkpointStore = createCheckpointStore(join(workspace, ".runloom/checkpoint.json"), {
     generateId: () => "checkpoint-test",
   });
   const host = createModuleHost([

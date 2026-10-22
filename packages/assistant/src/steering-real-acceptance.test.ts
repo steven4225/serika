@@ -40,7 +40,7 @@ test("real configured model accepts Steer at file confirmation and preserves the
     }
   };
   try {
-    const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { threadId: "real-steer", configPath: config },
+    const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "real-steer", configPath: config },
       ...selected, output, env: process.env, cwd: root });
     controller = createAssistantController(app);
     await controller.getHistory();
@@ -85,7 +85,7 @@ test("real configured model accepts Steer at file confirmation and preserves the
       { source: "steer", memoryConsolidation: "exclude" });
     await controller.shutdown(); controller = undefined;
     const reopened = createAssistantController(await createRuntimeApp({
-      directory: join(root, "transcripts"), assistant: { threadId: "real-steer", configPath: config },
+      directory: join(root, "transcripts"), assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "real-steer", configPath: config },
       ...selected, output, env: process.env, cwd: root,
     }));
     controller = reopened; await controller.getHistory();

@@ -1,3 +1,4 @@
+import { dirname } from "node:path";
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -33,7 +34,7 @@ async function setup() {
   });
   const open = async (thread = "thread-a") => {
     const output = new PassThrough(); output.resume();
-    const app = await createRuntimeApp({ demoTools: true, directory: join(root, "transcripts"), assistant: { threadId: thread, configPath: config }, modelAlias: "mock", model, output, env: {}, cwd: root });
+    const app = await createRuntimeApp({ demoTools: true, directory: join(root, "transcripts"), assistant: { dataDirectory: join(dirname(config), "workspace/.runloom"), threadId: thread, configPath: config }, modelAlias: "mock", model, output, env: {}, cwd: root });
     return { app, controller: createAssistantController(app) };
   };
   return { root, config, open, model, prompts, counts: () => ({ primary, rewrites }) };

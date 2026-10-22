@@ -76,7 +76,7 @@ for (const [relative, expectedRunAt] of [
     } });
     const output = new PassThrough();
     const app = await createRuntimeApp({
-      directory: join(root, "transcripts"), assistant: { threadId: "midnight", configPath: config },
+      directory: join(root, "transcripts"), assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "midnight", configPath: config },
       modelAlias: "mock", model, output, env: {}, cwd: root,
     });
     const controller = createAssistantController(app);
@@ -86,7 +86,7 @@ for (const [relative, expectedRunAt] of [
       await waitFor(() => !!controller.getSnapshot().pendingApproval?.preview.includes("时间："));
       const approval = controller.getSnapshot().pendingApproval!;
       assert.equal(approval.toolName, "task_create");
-      const before = await createTaskStore(workspace).list({});
+      const before = await createTaskStore(join(workspace, ".runloom/tasks.json")).list({});
       assert.ok(before.ok);
       assert.equal(before.value.tasks.length, 0, "approval preview must not save the reminder");
       const html = renderToStaticMarkup(createElement(ApprovalCard, {
@@ -100,7 +100,7 @@ for (const [relative, expectedRunAt] of [
       await waitFor(() => controller.getSnapshot().state.kind === "idle");
       assert.equal(controller.getSnapshot().lastPrimaryResult?.status, "completed");
       assert.equal(calls, 2);
-      const reopened = createTaskStore(workspace);
+      const reopened = createTaskStore(join(workspace, ".runloom/tasks.json"));
       const listed = await reopened.list({});
       assert.ok(listed.ok);
       assert.equal(listed.value.tasks.length, 1);

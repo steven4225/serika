@@ -128,7 +128,7 @@ export async function migrateCopy(root, { expectedSha = approvedSourceSha, stamp
   try { await handle.writeFile(JSON.stringify(migrated.document) + '\n'); await handle.sync(); } finally { await handle.close(); }
   await rename(temporary, file);
   const directory = await open(dirname(file), 'r'); try { await directory.sync(); } finally { await directory.close(); }
-  const store = new V6MemoryStore(join(root, 'workspace')), read = await store.readV6();
+  const store = new V6MemoryStore(join(join(root, 'workspace'), ".runloom/memory.json")), read = await store.readV6();
   assert.ok(read.ok); assert.deepEqual(read.value, validateV6MemoryDocument(migrated.document));
   assert.deepEqual(read.value.entries.filter(entry => entry.category !== 'document').map(entry => entry.id.slice(0, 8)), ['978a1257','41f1d455','f6e52e58']);
   assert.equal(read.value.library.documents.length, migrated.document.library.documents.length);
