@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { generateText, simulateReadableStream } from 'ai';
 import { MockLanguageModelV3 } from 'ai/test';
-import { meteredModel, safeFailure, chargedUsd, noAutomaticRetryMentioned, pastReadSucceeded, goalMentioned, goalContentMentioned, oldGoalMentioned, summarizeBatch, uncertainMentioned, runChat } from './cm-step6-live.mjs';
+import { meteredModel, safeFailure, chargedUsd, noAutomaticRetryMentioned, pastReadSucceeded, goalMentioned, goalContentMentioned, summaryGoalMentioned, oldGoalMentioned, summarizeBatch, uncertainMentioned, runChat } from './cm-step6-live.mjs';
 import { configureCliModel } from '@serika/assistant/internal/model-config.js';
 import { evaluateM1, m1Cases } from './cm-step4.mjs';
 
@@ -96,7 +96,15 @@ test('v4 goal sentence accepts the four reviewed paraphrases and rejects missing
     '目标：完成“验收主项目”，并给出验收报告；同时补录/核对失败样本。',
   ]) assert.equal(goalMentioned(text), true, text);
   for (const text of ['目标：不再需要完成验收报告。', '目标：完成另一个项目的验收报告。', '目标：未知。',
-    '目标：未知。后续完成验收主项目的验收报告。', '目标：完成主项目验收报告，但不再需要完成主项目验收报告。', '目标：完成主项目。其他材料：验收报告。']) assert.equal(goalMentioned(text), false, text);
+    '目标：未知。后续完成验收主项目的验收报告。', '目标：完成主项目验收报告，但不再需要完成主项目验收报告。', '目标：完成主项目，但不需要验收报告。', '目标：完成主项目，但无需给出验收报告。', '目标：完成主项目。其他材料：验收报告。']) assert.equal(goalMentioned(text), false, text);
+});
+
+test('summary goal must be present in the actual projection as plain or JSON-escaped text', () => {
+  const goal = '完成主项目“验收报告”';
+  assert.equal(summaryGoalMentioned({ goal, projectedText: goal }), true);
+  const quoted = '完成主项目的"验收报告"';
+  assert.equal(summaryGoalMentioned({ goal: quoted, projectedText: JSON.stringify({ text: quoted }) }), true);
+  assert.equal(summaryGoalMentioned({ goal, projectedText: '摘要没有目标。' }), false);
 });
 
 test('M1 live evidence separates literal-value rejection reasons and retains only field positions and lengths', async () => {

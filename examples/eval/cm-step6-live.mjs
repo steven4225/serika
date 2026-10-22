@@ -34,8 +34,11 @@ export const goalContentMentioned = sentence => {
   return completion >= 0 && /主项目/u.test(sentence) && /验收[^。！？?；;\n]*报告/u.test(sentence) &&
     !/(?:未知|不明|(?:无法|不能)确认(?:是否)?|不再(?:需要)?|取消|放弃|是否(?:需要)?|不是(?:要)?|(?:尚|并)?未|不(?:需要|必|应|要)?|无需|不可能|无法|不能|没有必要)(?:再|继续|进一步|去|要|需要)*\s*$/u.test(sentence.slice(0, completion)) &&
     !/(?:不再(?:需要)?|取消|放弃|不是(?:要)?|不(?:需要|必|应|要)?|无需|无法|不能)(?:再|继续|进一步|去|要|需要)*\s*完成[^，,。！？?；;\n]*(?:主项目|验收[^，,。！？?；;\n]*报告)/u.test(sentence) &&
+    !/(?:不再(?:需要)?|取消|放弃|不是(?:要)?|不(?:需要|必|应|要)?|无需|无法|不能)(?:再|继续|进一步|去|要|需要)*(?:完成|给出|提供|提交|生成|出具)?\s*(?:主项目|验收[^，,。！？?；;\n]*报告)/u.test(sentence) &&
     !/(?:另一|其他|别的)个?项目|(?:主项目|验收[^，,。！？?；;\n]*报告)\s*(?:并非|不是|不再是|已取消|已放弃)/u.test(sentence);
 };
+export const summaryGoalMentioned = ({ goal, projectedText }) => goalContentMentioned(goal) &&
+  [goal, JSON.stringify(goal).slice(1, -1)].some(text => projectedText.includes(text));
 export const goalMentioned = response => {
   const text = response.replaceAll("\\n", "\n").replace(/[「」『』“”"`*]/gu, '').replace(/(目标[：:]?)\s*\n+\s*/gu, '$1：');
   const sentence = text.split(/[。！？?；;\n]/u).find(part => /目标/u.test(part));
@@ -425,7 +428,7 @@ async function main() {
         round.preparations.push({ stage: 'summary', diagnostics: (await compactor.getDiagnostics()).value.lastPreparation });
         const view = prepared.find(message => message.id === "runloom-context-summary"), viewText = view?.parts.filter(part => part.type === "text").map(part => part.text).join("\n") ?? "";
         const bounds = blockLimits(spec.contextBudget), preparation = (await compactor.getDiagnostics()).value.lastPreparation;
-        const layerChecks = { goal: !!record && goalContentMentioned(record.summary.goal.text), decision: viewText.includes('本地文件'), pending: viewText.includes('失败样本'),
+        const layerChecks = { goal: !!record && summaryGoalMentioned({ goal: record.summary.goal.text, projectedText: viewText }), decision: viewText.includes('本地文件'), pending: viewText.includes('失败样本'),
           permission: viewText.includes('批准'), unknown: !!record?.summary.actions.some(action => action.toolCallIds.includes('fidelity-write') && action.status === 'unknown'),
           recent: !!record && record.layers.recent.length <= 4, index: !!record && record.layers.index.length <= 1,
           total: !!view && estimateMessageTokens(prepared.filter(message => ["runloom-context-summary", "runloom-compaction-checklist"].includes(message.id))) <= bounds.totalSummary + (preparation?.summaryLayer?.borrowedTokens ?? 0) && (preparation?.summaryLayer?.borrowedTokens ?? 0) <= Math.floor(bounds.recent / 2) };
