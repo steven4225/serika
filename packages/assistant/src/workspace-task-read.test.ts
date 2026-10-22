@@ -8,7 +8,7 @@ import { simulateReadableStream, tool } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { z } from "zod";
 import { createRuntimeApp } from "./app.js";
-import { createTaskStore, TASK_FILE_NAME } from "./task-store.js";
+import { createTaskStore} from "./task-store.js";
 import { createTaskModule } from "./modules/task-module.js";
 import { createModuleHost } from "./module-host.js";
 import { createWorkspaceTaskReadApproval } from "./workspace-task-read-policy.js";
@@ -75,21 +75,21 @@ async function fixture(allowWorkspaceTaskReads: boolean) {
 it("workspace task read Demo: trusted embedded list/get complete without approvals or foreign data", async () => {
   const f = await fixture(true);
   try {
-    const before = await readFile(join(f.workspace, TASK_FILE_NAME), "utf8");
+    const before = await readFile(join(f.workspace, '.runloom/tasks.json'), "utf8");
     const listed = await f.run("task_list", { limit: 50 });
     assert.equal(f.prompted.length, 0, "read-only workspace queries must not display approval cards");
     assert.match(listed, /本工作区喝水/);
     assert.doesNotMatch(listed, /外部工作区私密提醒/);
     const got = await f.run("task_get", { id: f.own.id });
     assert.match(got, /本工作区喝水/);
-    const pathAttempt = await f.run("task_list", { workspace: f.foreignWorkspace, path: join(f.foreignWorkspace, TASK_FILE_NAME) });
+    const pathAttempt = await f.run("task_list", { workspace: f.foreignWorkspace, path: join(f.foreignWorkspace, '.runloom/tasks.json') });
     assert.doesNotMatch(pathAttempt, /外部工作区私密提醒/);
     assert.match(pathAttempt, /本工作区喝水/);
     const missing = await f.run("task_get", { id: f.foreign.id });
     assert.doesNotMatch(missing, /外部工作区私密提醒/);
     assert.match(missing, /TASK_NOT_FOUND/);
     assert.deepEqual(f.prompted, []);
-    assert.equal(await readFile(join(f.workspace, TASK_FILE_NAME), "utf8"), before, "queries must not acknowledge or modify tasks");
+    assert.equal(await readFile(join(f.workspace, '.runloom/tasks.json'), "utf8"), before, "queries must not acknowledge or modify tasks");
   } finally { await f.dispose(); }
 });
 
@@ -141,7 +141,7 @@ it("workspace task read Demo: TUI keeps per-call approval without the embedding 
 it("workspace task read Demo: create/reschedule/cancel/ack/files/Shell remain per-call approval", async () => {
   const f = await fixture(true);
   try {
-    const before = await readFile(join(f.workspace, TASK_FILE_NAME), "utf8");
+    const before = await readFile(join(f.workspace, '.runloom/tasks.json'), "utf8");
     for (const [name, input] of [
       ["task_create", { prompt: "not approved", runAt: new Date(Date.now() + 120_000).toISOString() }],
       ["task_reschedule", { id: f.own.id, runAt: new Date(Date.now() + 120_000).toISOString() }],
@@ -152,6 +152,6 @@ it("workspace task read Demo: create/reschedule/cancel/ack/files/Shell remain pe
       assert.match(await f.run(name, input), /TOOL_DENIED/);
     }
     assert.deepEqual(f.prompted, ["task_create", "task_reschedule", "task_cancel", "task_ack", "read_file", "write_file", "shell_exec"]);
-    assert.equal(await readFile(join(f.workspace, TASK_FILE_NAME), "utf8"), before);
+    assert.equal(await readFile(join(f.workspace, '.runloom/tasks.json'), "utf8"), before);
   } finally { await f.dispose(); }
 });

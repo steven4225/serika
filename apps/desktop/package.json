@@ -18,7 +18,7 @@
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
     "test": "tsx --test --test-concurrency=4 src/shared/*.test.ts src/main/*.test.ts src/renderer/src/*.test.ts src/renderer/src/personal/*.test.ts && node --test scripts/*.test.mjs",
     "check": "pnpm typecheck && pnpm test && pnpm build",
-    "smoke": "pnpm --workspace-root build:runtime && pnpm build && node scripts/electron-smoke.mjs"
+    "smoke": "pnpm --workspace-root build:runtime && pnpm build && node scripts/electron-smoke-fixture.mjs"
   },
   "dependencies": {
     "@serika/core": "workspace:*",

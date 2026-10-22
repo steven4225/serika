@@ -9,8 +9,6 @@ import { matchesFileWritePath, readFileWriteReceipt, hasMatchingFileReadback, ty
 import { rejectSymlinkComponents, validateWorkspacePath } from "./workspace-path.js";
 import { invalidatesTaskTest, matchesTaskTestCommand } from "./work-task-shell-evidence.js";
 
-export const WORK_TASK_FILE_NAME = ".runloom/work-tasks.json";
-export const WORK_TASK_LOCK_FILE_NAME = ".runloom/work-tasks.json.lock";
 export const WORK_TASK_FILE_MAX_BYTES = 512 * 1024;
 export const WORK_TASK_MAX_ENTRIES = 100;
 export const WORK_TASK_MAX_BYTES = 32 * 1024;

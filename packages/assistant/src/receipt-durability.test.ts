@@ -11,9 +11,9 @@ import { AiSdkAgentLoop, InMemoryModelRegistry, ToolRegistry } from "@serika/ai-
 import { createExecutionRecordAdapter } from "./execution-record-adapter.js";
 import { createExecutionRecordStore, EXECUTION_RECORD_FILE } from "./execution-record-store.js";
 import { toolCommitResult } from "./commit-outcome.js";
-import { createTaskStore, TASK_FILE_NAME } from "./task-store.js";
+import { createTaskStore} from "./task-store.js";
 import { createWorkTaskStore } from "./work-task-store.js";
-import { createCheckpointStore, CHECKPOINT_FILE_NAME } from "./checkpoint-store.js";
+import { createCheckpointStore} from "./checkpoint-store.js";
 
 for (const kind of ["task", "work-task", "checkpoint"] as const) {
   for (const boundary of ["file", "directory"] as const) {
@@ -33,7 +33,7 @@ for (const kind of ["task", "work-task", "checkpoint"] as const) {
             status: "active", goal: "save", currentPhase: "test", summary: `version ${version}`, completed: [], inProgress: [], nextActions: [], blockers: [], artifacts: [],
           } });
         };
-        const path = join(directory, kind === "task" ? TASK_FILE_NAME : kind === "work-task" ? ".runloom/work-tasks.json" : CHECKPOINT_FILE_NAME);
+        const path = join(directory, kind === "task" ? '.runloom/tasks.json' : kind === "work-task" ? ".runloom/work-tasks.json" : '.runloom/checkpoint.json');
         assert((await save(1)).ok);
         const original = await readFile(path);
         const probe = await open(join(directory, "probe"), "w");

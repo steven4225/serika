@@ -12,7 +12,7 @@ it("service explicitly records external Skill config without copying its body or
     const workspace = join(root, "workspace"); await mkdir(workspace);
     const configPath = join(root, "config.json"); await writeFile(configPath, '{"private":"never-copy-config-body"}');
     const workerEntryPath = join(root, "worker.js"); await writeFile(workerEntryPath, "");
-    const service = createTaskWorkerService({ workspace, configPath, nodePath: await realpath(process.execPath), workerEntryPath, workingDirectory: root, launchAgentsDirectory: join(root, "LaunchAgents"), uid: 501, platform: "darwin", runner: async (_file, args) => {
+    const service = createTaskWorkerService({ applicationHome: workspace, workspace, configPath, nodePath: await realpath(process.execPath), workerEntryPath, workingDirectory: root, launchAgentsDirectory: join(root, "LaunchAgents"), uid: 501, platform: "darwin", runner: async (_file, args) => {
       if (args[0] === "bootstrap") registered = true;
       return { exitCode: args[0] === "print" && !registered ? 113 : 0, stdout: "", stderr: "" };
     } });
@@ -25,7 +25,7 @@ it("service explicitly records external Skill config without copying its body or
     await writeFile(service.plistPath, plist.replace(`<string>--config</string><string>${configPath}</string>`, ""));
     await assert.rejects(service.enable(), /options differ/);
     assert.equal(await readFile(service.plistPath, "utf8"), original.replace(`<string>--config</string><string>${configPath}</string>`, ""), "mismatched service is never silently rewritten");
-    assert.throws(() => createTaskWorkerService({ workspace, configPath: join(workspace, "config.json"), nodePath: process.execPath, workerEntryPath, workingDirectory: root, launchAgentsDirectory: root, uid: 501 }), /outside workspace/);
+    assert.throws(() => createTaskWorkerService({ applicationHome: workspace, workspace, configPath: join(workspace, "config.json"), nodePath: process.execPath, workerEntryPath, workingDirectory: root, launchAgentsDirectory: root, uid: 501 }), /outside workspace/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
@@ -36,7 +36,7 @@ it("service only installs explicitly, keeps secrets external, and reports actual
   try {
     await writeFile(join(root, "worker.js"), "");
     await writeFile(join(root, "credentials.env"), "TEST_SECRET=do-not-copy-me");
-    const service = createTaskWorkerService({ workspace: root, nodePath: await realpath(process.execPath), workerEntryPath: join(root, "worker.js"), workingDirectory: root, launchAgentsDirectory: join(root, "LaunchAgents"), uid: 501, envFile: join(root, "credentials.env"), safeRetry: true, notify: true, notificationHelperPath: await realpath(process.execPath), platform: "darwin", runner: async (_file, args) => {
+    const service = createTaskWorkerService({ applicationHome: root, workspace: root, nodePath: await realpath(process.execPath), workerEntryPath: join(root, "worker.js"), workingDirectory: root, launchAgentsDirectory: join(root, "LaunchAgents"), uid: 501, envFile: join(root, "credentials.env"), safeRetry: true, notify: true, notificationHelperPath: await realpath(process.execPath), platform: "darwin", runner: async (_file, args) => {
       calls.push(args);
       if (args[0] === "bootstrap") registered = true;
       if (args[0] === "bootout") registered = false;
@@ -60,10 +60,10 @@ it("service only installs explicitly, keeps secrets external, and reports actual
 
 it("service rejects unsupported platform, relative paths and symlink install targets", async () => {
   const root = await realpath(await mkdtemp(join(tmpdir(), "runloom-service-")));
-  const options = { workspace: root, nodePath: await realpath(process.execPath), workerEntryPath: join(root, "worker.js"), workingDirectory: root, launchAgentsDirectory: join(root, "LaunchAgents"), uid: 501 };
+  const options = { applicationHome: root, workspace: root, nodePath: await realpath(process.execPath), workerEntryPath: join(root, "worker.js"), workingDirectory: root, launchAgentsDirectory: join(root, "LaunchAgents"), uid: 501 };
   try {
     await writeFile(options.workerEntryPath, "");
-    assert.throws(() => createTaskWorkerService({ ...options, workspace: "relative" }));
+    assert.throws(() => createTaskWorkerService({ ...options, applicationHome: root, workspace: "relative" }));
     assert.throws(() => createTaskWorkerService({ ...options, notify: true, notificationHelperPath: join(root, "helper") }), /outside workspace/);
     await assert.rejects(createTaskWorkerService({ ...options, platform: "linux" }).enable(), /macOS/);
     await symlink(root, options.launchAgentsDirectory);
@@ -73,7 +73,7 @@ it("service rejects unsupported platform, relative paths and symlink install tar
 
 it("missing executable inputs and uncertain launchctl status never install or delete a service", async () => {
   const root = await realpath(await mkdtemp(join(tmpdir(), "runloom-service-")));
-  const options = { workspace: root, nodePath: await realpath(process.execPath), workerEntryPath: join(root, "missing.js"), workingDirectory: root, launchAgentsDirectory: join(root, "LaunchAgents"), uid: 501, platform: "darwin" as const };
+  const options = { applicationHome: root, workspace: root, nodePath: await realpath(process.execPath), workerEntryPath: join(root, "missing.js"), workingDirectory: root, launchAgentsDirectory: join(root, "LaunchAgents"), uid: 501, platform: "darwin" as const };
   const calls: string[][] = [];
   const runner = async (_file: string, args: string[]) => {
     calls.push(args);
@@ -95,7 +95,7 @@ it("service stop waits for actual launchd disappearance before deleting its defi
   const root = await realpath(await mkdtemp(join(tmpdir(), "runloom-stop-publication-")));
   let prints = 0;
   try {
-    const service = createTaskWorkerService({ workspace: root, nodePath: await realpath(process.execPath),
+    const service = createTaskWorkerService({ applicationHome: root, workspace: root, nodePath: await realpath(process.execPath),
       workerEntryPath: join(root, "worker.js"), workingDirectory: root, launchAgentsDirectory: root, uid: 501,
       platform: "darwin", runner: async (_file, args) => {
         if (args[0] === "bootout") return { exitCode: 0, stdout: "", stderr: "" };

@@ -6,7 +6,6 @@ import { describe, it } from "node:test";
 import type { RegisteredTool } from "@serika/ai-sdk-adapter";
 import { asSchema } from "ai";
 import {
-  CHECKPOINT_FILE_NAME,
   CHECKPOINT_LIMITS,
   createCheckpointStore,
   type CheckpointDraft,
@@ -136,7 +135,7 @@ describe("createCheckpointModule", () => {
     const root = await createWorkspace();
     const directory = join(root, ".runloom");
     await mkdir(directory);
-    const file = join(root, CHECKPOINT_FILE_NAME);
+    const file = join(root, '.runloom/checkpoint.json');
     await writeFile(file, "{broken", "utf8");
     const tools = setupTools(createCheckpointStore(join(root, ".runloom/checkpoint.json")), { threadId: "thread-a" });
 

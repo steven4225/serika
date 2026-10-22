@@ -15,13 +15,13 @@ function absolute(value: string): string {
 }
 
 /** Short paths avoid macOS sockaddr_un limits; socket directories belong only to this user. */
-export function resolveResidentPaths(home: string, workspace: string, uid = process.getuid?.() ?? 0) {
+export function resolveResidentPaths(applicationHome: string, uid = process.getuid?.() ?? 0) {
   if (!Number.isSafeInteger(uid) || uid < 0) throw new Error("常驻服务用户无效。");
-  const hash = createHash("sha256").update(absolute(workspace)).digest("hex").slice(0, 20);
-  // Preserve the macOS daily socket identity; portable tests use Linux's short temp root.
+  const hash = createHash("sha256").update(absolute(applicationHome)).digest("hex").slice(0, 20);
+  // Short socket roots avoid macOS sockaddr_un limits.
   const socketRoot = `${process.platform === "darwin" ? "/private/tmp" : "/tmp"}/serika-host-${uid}`;
   const socketDirectory = join(socketRoot, hash);
-  const stateDirectory = join(absolute(home), "Library/Application Support/Serika/resident", hash);
+  const stateDirectory = join(absolute(applicationHome), "resident");
   return { label: `dev.serika.assistant-host.${hash}`, socketRoot, socketDirectory,
     socketPath: join(socketDirectory, "host.sock"), stateDirectory, identityPath: join(stateDirectory, "identity.json") };
 }
@@ -63,7 +63,8 @@ const runCommand: ServiceCommandRunner = (file, args) => new Promise((resolveRes
 
 export function createResidentService(options: {
   home: string;
-  workspace: string;
+  applicationHome: string;
+  workspace?: string;
   hostEntry: string;
   identityPath: string;
   env: NodeJS.ProcessEnv;
@@ -72,7 +73,7 @@ export function createResidentService(options: {
   runner?: ServiceCommandRunner;
 }) {
   const uid = options.uid ?? process.getuid?.() ?? 0;
-  const paths = resolveResidentPaths(options.home, options.workspace, uid);
+  const paths = resolveResidentPaths(options.applicationHome, uid);
   const plistPath = join(absolute(options.home), "Library/LaunchAgents", `${paths.label}.plist`);
   const target = `gui/${uid}/${paths.label}`;
   const runner = options.runner ?? runCommand;
@@ -93,9 +94,9 @@ export function createResidentService(options: {
     const trustedEnv = absolute(envFile);
     const entry = absolute(options.hostEntry);
     const identity = absolute(options.identityPath);
-    const workspace = absolute(options.workspace);
-    if (trustedEnv === workspace || trustedEnv.startsWith(workspace + sep)) throw new Error("常驻助手环境文件必须放在工作区外。");
-    if (identity === workspace || identity.startsWith(workspace + sep)) throw new Error("常驻助手启动身份必须放在工作区外。");
+    const workspace = options.workspace === undefined ? undefined : absolute(options.workspace);
+    if (workspace && (trustedEnv === workspace || trustedEnv.startsWith(workspace + sep))) throw new Error("常驻助手环境文件必须放在工作区外。");
+    if (workspace && (identity === workspace || identity.startsWith(workspace + sep))) throw new Error("常驻助手启动身份必须放在工作区外。");
     for (const path of [trustedEnv, entry, identity]) await assertWorkerPathSafe(path);
     for (const path of [nodePath, trustedEnv, entry, identity]) {
       const stat = await lstat(path);

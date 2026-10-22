@@ -15,7 +15,6 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, describe, it } from "node:test";
 import {
-  TASK_FILE_NAME,
   TASK_PROMPT_MAX_BYTES,
   createTaskStore,
   restoreTaskDocument,
@@ -47,7 +46,7 @@ describe("WorkspaceTaskStore", () => {
     it(`does not let simultaneous cancellation hide a ${boundary} persistence outcome`, { skip: boundary === "directory" && process.platform === "win32" }, async (t) => {
       const root = await workspace(), store = createTaskStore(join(root, ".runloom/tasks.json"));
       assert((await store.create({ prompt: "existing", runAt: "2099-01-01T00:00:00Z" })).ok);
-      const probe = await open(join(root, TASK_FILE_NAME), "r");
+      const probe = await open(join(root, '.runloom/tasks.json'), "r");
       const prototype = Object.getPrototypeOf(probe), original = prototype.sync;
       await probe.close();
       const controller = new AbortController();
@@ -78,7 +77,7 @@ describe("WorkspaceTaskStore", () => {
     const store = createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now });
     const task = await store.create({ prompt: "must not run", runAt: "2026-10-10T00:01:00Z" }); assert(task.ok);
     now += 60_000;
-    const file = join(root, TASK_FILE_NAME), before = await readFile(file);
+    const file = join(root, '.runloom/tasks.json'), before = await readFile(file);
     const probe = await open(file, "r"), prototype = Object.getPrototypeOf(probe); await probe.close();
     const injected = t.mock.method(prototype, "sync", async () => { throw new Error("claim sync fault"); });
     assert.equal(code(await store.claimNextDue()), "WRITE_FAILED");
@@ -96,7 +95,7 @@ describe("WorkspaceTaskStore", () => {
     const created = await store.create({ prompt: "retry", runAt: "2026-10-10T00:01:00Z" }); assert(created.ok);
     now += 60_000; assert((await store.claimNextDue()).ok);
     assert((await store.retry(created.value.id, { runId: null, error: { code: "MODEL_TIMEOUT", message: "timeout" }, nextRunAt: "2026-10-10T00:02:00Z" })).ok);
-    const restored = restoreTaskDocument(JSON.parse(await readFile(join(root, TASK_FILE_NAME), "utf8")), "2026-10-10T00:03:00Z");
+    const restored = restoreTaskDocument(JSON.parse(await readFile(join(root, '.runloom/tasks.json'), "utf8")), "2026-10-10T00:03:00Z");
     assert.equal(restored.tasks[0]?.status, "cancelled"); assert.equal(restored.tasks[0]?.retryAt, null);
     assert.equal(restored.tasks[0]?.attempts[0]?.status, "failed");
     assert.equal(restored.tasks[0]?.attempts[0]?.error?.code, "MODEL_TIMEOUT");
@@ -105,7 +104,7 @@ describe("WorkspaceTaskStore", () => {
     const root = await workspace();
     const store = createTaskStore(join(root, ".runloom/tasks.json"));
     assert((await store.create({ prompt: "future", runAt: "2099-01-01T00:00:00Z" })).ok);
-    const file = join(root, TASK_FILE_NAME), before = await stat(file);
+    const file = join(root, '.runloom/tasks.json'), before = await stat(file);
     const bytes = await readFile(file);
     for (let n = 0; n < 3; n++) {
       const claimed = await store.claimNextDue(); assert(claimed.ok && claimed.value === null);
@@ -120,12 +119,12 @@ describe("WorkspaceTaskStore", () => {
     let count = 0;
     const store = createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now, generateId: () => `task-${String(++count).padStart(3, "0")}` });
     for (let n = 0; n < 53; n++) assert((await store.create({ prompt: `item ${n}`, runAt: "2026-10-07T00:00:00Z" })).ok);
-    const original = await readFile(join(root, TASK_FILE_NAME), "utf8");
+    const original = await readFile(join(root, '.runloom/tasks.json'), "utf8");
     const first = await store.list({ limit: 50 }); assert(first.ok && first.value.truncated && first.value.nextCursor);
     const last = await store.list({ limit: 50, before: first.value.nextCursor }); assert(last.ok);
     assert.equal(last.value.truncated, false);
     assert.equal(new Set([...first.value.tasks, ...last.value.tasks].map(x => x.id)).size, 53);
-    assert.equal(await readFile(join(root, TASK_FILE_NAME), "utf8"), original);
+    assert.equal(await readFile(join(root, '.runloom/tasks.json'), "utf8"), original);
     assert.equal(code(await store.list({ before: { createdAt: "invalid", id: "x" } })), "INVALID_INPUT");
   });
   it("persists approved arrangements and a deterministic outcome without inventing a Run", async () => {
@@ -183,9 +182,9 @@ describe("WorkspaceTaskStore", () => {
     const outcome = { status: "completed", runId: null, execution: "deterministic", resultText: "invented" } as const;
     assert.equal(code(await store.recordOutcome(created.value.id, outcome)), "INVALID_INPUT");
     assert.equal(code(await store.finish(created.value.id, outcome)), "INVALID_INPUT");
-    const text = JSON.parse(await readFile(join(root, TASK_FILE_NAME), "utf8"));
+    const text = JSON.parse(await readFile(join(root, '.runloom/tasks.json'), "utf8"));
     text.tasks[0].arrangement = { kind: "reminder", source: "todoist-planning", notification: "always", declarationVersion: 1 };
-    await writeFile(join(root, TASK_FILE_NAME), JSON.stringify(text));
+    await writeFile(join(root, '.runloom/tasks.json'), JSON.stringify(text));
     assert.equal(code(await createTaskStore(join(root, ".runloom/tasks.json")).get(created.value.id)), "TASK_FILE_INVALID");
   });
 
@@ -282,7 +281,7 @@ describe("WorkspaceTaskStore", () => {
     const root = await workspace();
     const store = createTaskStore(join(root, ".runloom/tasks.json"), { now: () => Date.parse("2026-09-11T00:00:00.000Z"), generateId: () => "corrupt" });
     await store.create({ prompt: "brief", runAt: "2026-09-11T00:01:00Z" });
-    const path = join(root, TASK_FILE_NAME);
+    const path = join(root, '.runloom/tasks.json');
     const document = JSON.parse(await readFile(path, "utf8"));
     document.tasks[0].attempts = [{ number: 1, runId: null, startedAt: "2026-09-11T00:00:00.000Z", finishedAt: null, status: "running", error: null }];
     const damaged = JSON.stringify(document);
@@ -330,7 +329,7 @@ describe("WorkspaceTaskStore", () => {
     assert.equal(code(await store.recordNotification(created.value.id, { ok: true })), "INVALID_INPUT");
     const reopened = await createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now }).get(created.value.id);
     assert(reopened.ok && reopened.value.notification?.status === "omitted");
-    const restored = restoreTaskDocument(JSON.parse(await readFile(join(root, TASK_FILE_NAME), "utf8")), "2026-09-11T00:02:00.000Z");
+    const restored = restoreTaskDocument(JSON.parse(await readFile(join(root, '.runloom/tasks.json'), "utf8")), "2026-09-11T00:02:00.000Z");
     assert.equal(restored.tasks[0]?.notification?.status, "omitted");
     const after = await store.listNotifications();
     assert(after.ok && after.value.length === 0);
@@ -349,7 +348,7 @@ describe("WorkspaceTaskStore", () => {
       value: { tasks: [], truncated: false },
     });
     await assert.rejects(
-      readFile(join(root, TASK_FILE_NAME)),
+      readFile(join(root, '.runloom/tasks.json')),
       { code: "ENOENT" },
     );
 
@@ -466,7 +465,7 @@ describe("WorkspaceTaskStore", () => {
     assert.equal(series.ok, true);
     assert.equal(code(await store.reschedule("series-1", "2026-09-12T00:00:00Z")), "TASK_NOT_FOUND");
 
-    const path = join(root, TASK_FILE_NAME);
+    const path = join(root, '.runloom/tasks.json');
     const document = JSON.parse(await readFile(path, "utf8")) as {
       tasks: Array<Record<string, unknown>>;
     };
@@ -612,7 +611,7 @@ describe("WorkspaceTaskStore", () => {
     const root = await workspace();
     await mkdir(join(root, ".runloom"));
     await writeFile(
-      join(root, TASK_FILE_NAME),
+      join(root, '.runloom/tasks.json'),
       `${JSON.stringify({
         version: 1,
         tasks: [{
@@ -641,7 +640,7 @@ describe("WorkspaceTaskStore", () => {
     if (readOnly.ok) assert.equal(readOnly.value.tasks[0]?.recurringTaskId, null);
     const created = await store.create({ prompt: "new task", runAt: "2026-09-13T00:00:00Z" });
     assert.equal(created.ok, true);
-    const document = JSON.parse(await readFile(join(root, TASK_FILE_NAME), "utf8")) as {
+    const document = JSON.parse(await readFile(join(root, '.runloom/tasks.json'), "utf8")) as {
       version: number;
       tasks: Array<{ recurringTaskId: string | null; acknowledgedAt: string | null }>;
       recurringTasks: unknown[];
@@ -675,7 +674,7 @@ describe("WorkspaceTaskStore", () => {
     });
     await mkdir(join(root, ".runloom"));
     await writeFile(
-      join(root, TASK_FILE_NAME),
+      join(root, '.runloom/tasks.json'),
       `${JSON.stringify({
         version: 1,
         tasks: [
@@ -777,7 +776,7 @@ describe("WorkspaceTaskStore", () => {
       generateId: () => "task-1",
     });
     await store.create({ prompt: "query only", runAt: "2026-09-12T00:00:00Z" });
-    const path = join(root, TASK_FILE_NAME);
+    const path = join(root, '.runloom/tasks.json');
     const before = await readFile(path, "utf8");
     const result = await store.list({ status: "pending", limit: 1 });
     assert.equal(result.ok, true);
@@ -810,7 +809,7 @@ describe("WorkspaceTaskStore", () => {
       }],
     };
     await writeFile(join(runloom, "tasks.json"), `${JSON.stringify(v1)}\n`, "utf8");
-    const path = join(root, TASK_FILE_NAME);
+    const path = join(root, '.runloom/tasks.json');
     const before = await readFile(path, "utf8");
 
     const queried = await store.get("task-v1");
@@ -858,7 +857,7 @@ describe("WorkspaceTaskStore", () => {
       }],
       recurringTasks: [],
     };
-    const path = join(root, TASK_FILE_NAME);
+    const path = join(root, '.runloom/tasks.json');
     await writeFile(path, `${JSON.stringify(v2)}\n`, "utf8");
     const before = await readFile(path, "utf8");
 
@@ -918,7 +917,7 @@ describe("WorkspaceTaskStore", () => {
     };
     await mkdir(join(root, ".runloom"));
     await writeFile(
-      join(root, TASK_FILE_NAME),
+      join(root, '.runloom/tasks.json'),
       `${JSON.stringify({
         version: 3,
         tasks: [
@@ -1016,7 +1015,7 @@ describe("WorkspaceTaskStore", () => {
     };
     await mkdir(join(root, ".runloom"));
     await writeFile(
-      join(root, TASK_FILE_NAME),
+      join(root, '.runloom/tasks.json'),
       `${JSON.stringify({ version: 3, tasks: [task, running], recurringTasks: [] })}\n`,
       "utf8",
     );

@@ -54,19 +54,19 @@ describe("Git reality inspection", () => {
     }
   });
 
-  it("ignores only untracked Serika checkpoint bookkeeping, not tracked changes", async () => {
+  it("counts old project bookkeeping as project changes after home storage moved", async () => {
     const root = await repository();
     try {
       await mkdir(join(root, ".runloom"));
       await writeFile(join(root, ".runloom", "checkpoint.json"), "v1\n");
       await writeFile(join(root, ".runloom", "checkpoint.json.lock"), "");
-      assert.equal((await pinAt(root)).dirty, false);
+      assert.equal((await pinAt(root)).dirty, true);
       await writeFile(join(root, ".runloom", "other.json"), "other\n");
       assert.equal((await pinAt(root)).dirty, true);
       await rm(join(root, ".runloom", "other.json"));
       git(root, "add", ".runloom/checkpoint.json");
       git(root, "commit", "--quiet", "-m", "track checkpoint");
-      assert.equal((await pinAt(root)).dirty, false);
+      assert.equal((await pinAt(root)).dirty, true);
       await writeFile(join(root, ".runloom", "checkpoint.json"), "v2\n");
       assert.equal((await pinAt(root)).dirty, true);
     } finally {

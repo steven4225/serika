@@ -59,6 +59,8 @@ export function withDesktopTimeouts(
 export function defaultDesktopConfig(workspace?: string): Record<string, unknown> {
   const modules: Record<string, unknown> = {
     pomodoro: { enabled: true },
+    memory: { enabled: true, autoConsolidate: true, writePolicy: "automatic" },
+    task: { enabled: true },
     shell: {
       enabled: workspace !== undefined,
       timeoutMs: DESKTOP_DEFAULT_SHELL_TIMEOUT_MS,
@@ -83,12 +85,12 @@ export function defaultDesktopConfig(workspace?: string): Record<string, unknown
  * Resolve the TUI config the desktop process passes to `createRuntimeApp`.
  *
  * `RUNLOOM_CONFIG` wins and is not rewritten. Otherwise a file in Electron
- * userData (outside any workspace) is created or patched so both timeout
+ * applicationHome (outside any workspace) is created or patched so both timeout
  * budgets are present.
  */
 export async function resolveDesktopConfig(options: {
   env: NodeJS.ProcessEnv;
-  userData: string;
+  applicationHome: string;
   cwd?: string;
 }): Promise<DesktopConfigResolution> {
   const explicit = options.env.RUNLOOM_CONFIG?.trim();
@@ -96,24 +98,22 @@ export async function resolveDesktopConfig(options: {
     return { configPath: explicit, generated: false, patched: false };
   }
 
-  const configPath = join(options.userData, "runloom.json");
+  const configPath = join(options.applicationHome, "config.json");
   const workspace = options.env.RUNLOOM_WORKSPACE?.trim() || undefined;
-  await mkdir(options.userData, { recursive: true });
+  await mkdir(options.applicationHome, { recursive: true });
   let generated = false, patched = false;
   try {
     await updateDesktopConfig(configPath, options.cwd ?? process.cwd(), async raw => {
       if (raw === undefined) {
-        const dailyWorkspace = workspace ?? join(options.userData, "workspaces", "personal");
-        await mkdir(dailyWorkspace, { recursive: true });
         generated = true;
-        return `${JSON.stringify(defaultDesktopConfig(dailyWorkspace), null, 2)}\n`;
+        return `${JSON.stringify(defaultDesktopConfig(workspace), null, 2)}\n`;
       }
       const parsed: unknown = JSON.parse(raw);
       if (!isRecord(parsed)) throw new Error("Desktop config must be an object");
       const next = withDesktopTimeouts(parsed, workspace);
       patched = next.patched;
       return patched ? `${JSON.stringify(next.config, null, 2)}\n` : undefined;
-    }, true);
+    }, { allowCreate: true, dataDirectory: join(options.applicationHome, "data") });
   } catch (error) {
     throw new Error(`Cannot read or update desktop config ${configPath}; refusing to replace it`, { cause: error });
   }
@@ -121,7 +121,7 @@ export async function resolveDesktopConfig(options: {
 }
 
 /** Explicit setup opts into source-checked automatic writes. Legacy review configs are upgraded by withDesktopTimeouts. */
-export async function enableDesktopMemory(configPath: string, cwd = process.cwd()): Promise<() => Promise<void>> {
+export async function enableDesktopMemory(configPath: string, cwd = process.cwd(), dataDirectory?: string): Promise<() => Promise<void>> {
   const result = await updateDesktopConfig(configPath, cwd, async before => {
     const config = JSON.parse(before!);
     if (!isRecord(config) || config.modules !== undefined && !isRecord(config.modules)) throw new Error("无法读取模块配置");
@@ -130,6 +130,6 @@ export async function enableDesktopMemory(configPath: string, cwd = process.cwd(
     const policyOnly = memory.enabled === true && memory.autoConsolidate === true && memory.writePolicy !== "automatic";
     const next = { ...config, modules: { ...modules, memory: { ...memory, enabled: true, autoConsolidate: true, writePolicy: "automatic" } } };
     return `${JSON.stringify(next, null, 2)}\n`;
-  });
+  }, dataDirectory ? { dataDirectory } : {});
   return result.rollback ?? (async () => {});
 }

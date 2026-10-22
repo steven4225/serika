@@ -29,7 +29,7 @@ test("host timer survives capability reassembly and Thread switching; only expli
     }
   };
   const events: MainToRenderer[] = [];
-  const host = await DesktopRuntime.create({ userData: join(root, "profile"), cwd: root,
+  const host = await DesktopRuntime.create({ applicationHome: join(root, "profile"), cwd: root,
     env: { RUNLOOM_CONFIG: configPath }, modelAlias: "mock",
     model: new MockLanguageModelV3({ doStream: async () => { modelCalls++; throw new Error("Commands must not call a model"); } }),
     send: event => { events.push(event); }, pomodoroService: service,

@@ -20,7 +20,7 @@ describe("desktop TUI config", () => {
     const root = await mkdtemp(join(tmpdir(), "serika-memory-policy-upgrade-"));
     try {
       const workspace = join(root, "workspace"); await mkdir(workspace);
-      const configPath = join(root, "runloom.json");
+      const configPath = join(root, "config.json");
         const config = { version: 1, workspace, modules: { memory: { enabled: true, autoConsolidate: true, writePolicy: "review" }, shell: { enabled: false } } };
         const original = JSON.stringify(config);
         await writeFile(configPath, original);
@@ -34,7 +34,7 @@ describe("desktop TUI config", () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-desktop-enable-memory-"));
     try {
       const workspace = join(root, "workspace"); await mkdir(workspace);
-      const configPath = join(root, "runloom.json");
+      const configPath = join(root, "config.json");
       const config = { version: 1, workspace, modules: {
         memory: { enabled: false, autoConsolidate: false },
         shell: { enabled: false, timeoutMs: 45_000 }, pomodoro: { enabled: false },
@@ -58,9 +58,9 @@ describe("desktop TUI config", () => {
   it("refuses a broken generated config without replacing user data", async () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-desktop-bad-config-"));
     try {
-      const path = join(root, "runloom.json");
+      const path = join(root, "config.json");
       await writeFile(path, "{broken");
-      await assert.rejects(resolveDesktopConfig({ env: {}, userData: root }), /refusing to replace/);
+      await assert.rejects(resolveDesktopConfig({ env: {}, applicationHome: root }), /refusing to replace/);
       assert.equal(await readFile(path, "utf8"), "{broken");
     } finally { await rm(root, { recursive: true, force: true }); }
   });
@@ -109,10 +109,10 @@ describe("desktop TUI config", () => {
     const root = await mkdtemp(join(tmpdir(), "serika-existing-memory-config-"));
     try {
       const workspace = join(root, "workspace"); await mkdir(workspace);
-      const configPath = join(root, "runloom.json");
+      const configPath = join(root, "config.json");
       const config = { version: 1, workspace, modules: { memory: { enabled: true, autoConsolidate: true, writePolicy: "automatic" }, shell: { enabled: false } } };
       await writeFile(configPath, JSON.stringify(config));
-      await resolveDesktopConfig({ env: {}, userData: root, cwd: root });
+      await resolveDesktopConfig({ env: {}, applicationHome: root, cwd: root });
       assert.deepEqual(JSON.parse(await readFile(configPath, "utf8")).modules.memory, config.modules.memory);
     } finally { await rm(root, { recursive: true, force: true }); }
   });
@@ -124,7 +124,7 @@ describe("desktop TUI config", () => {
     try {
       const resolved = await resolveDesktopConfig({
         env: { RUNLOOM_CONFIG: explicit },
-        userData: join(root, "userData"),
+        applicationHome: join(root, "applicationHome"),
       });
       assert.equal(resolved.configPath, explicit);
       assert.equal(resolved.generated, false);
@@ -138,9 +138,9 @@ describe("desktop TUI config", () => {
   it("does not enable compaction in an existing explicitly disabled desktop config", async () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-desktop-disabled-"));
     try {
-      const configPath = join(root, "runloom.json");
+      const configPath = join(root, "config.json");
       await writeFile(configPath, JSON.stringify({ version: 1, modules: {}, contextCompaction: { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled: false } }));
-      await resolveDesktopConfig({ env: {}, userData: root });
+      await resolveDesktopConfig({ env: {}, applicationHome: root });
       const config = JSON.parse(await readFile(configPath, "utf8"));
       assert.equal(config.contextCompaction.enabled, false);
       assert.equal(config.modules.memory, undefined);
@@ -150,13 +150,13 @@ describe("desktop TUI config", () => {
   it("does not silently migrate legacy or explicit context budgets when filling desktop timeouts", async () => {
     const root = await mkdtemp(join(tmpdir(), "serika-existing-context-budget-"));
     try {
-      const configPath = join(root, "runloom.json");
+      const configPath = join(root, "config.json");
       for (const contextCompaction of [
         { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled: true, summaryMaxOutputTokens: 4096 },
         ({ ...defaultContextBudget(), inputBudgetTokens: 400_000, keepRecentTokens: 64_000, summaryMaxOutputTokens: 8_000 }),
       ]) {
         await writeFile(configPath, JSON.stringify({ version: 1, modules: {}, contextCompaction }));
-        await resolveDesktopConfig({ env: {}, userData: root });
+        await resolveDesktopConfig({ env: {}, applicationHome: root });
         const config = JSON.parse(await readFile(configPath, "utf8"));
         assert.deepEqual(config.contextCompaction, contextCompaction);
       }
@@ -166,26 +166,27 @@ describe("desktop TUI config", () => {
   it("moves existing review memory configs to automatic saving because the desktop has no review queue", async () => {
     const root = await mkdtemp(join(tmpdir(), "serika-existing-memory-policy-"));
     try {
-      const configPath = join(root, "runloom.json");
+      const configPath = join(root, "config.json");
       const workspace = join(root, "workspace"); await mkdir(workspace);
       await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: true, autoConsolidate: true, writePolicy: "review" } } }));
-      await resolveDesktopConfig({ env: {}, userData: root });
+      await resolveDesktopConfig({ env: {}, applicationHome: root });
       assert.equal(JSON.parse(await readFile(configPath, "utf8")).modules.memory.writePolicy, "automatic");
       await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: true, autoConsolidate: true } } }));
-      await resolveDesktopConfig({ env: {}, userData: root });
+      await resolveDesktopConfig({ env: {}, applicationHome: root });
       assert.equal(JSON.parse(await readFile(configPath, "utf8")).modules.memory.writePolicy, "automatic");
       await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: true, autoConsolidate: false } } }));
-      await resolveDesktopConfig({ env: {}, userData: root });
+      await resolveDesktopConfig({ env: {}, applicationHome: root });
       assert.equal(JSON.parse(await readFile(configPath, "utf8")).modules.memory.writePolicy, undefined, "without automatic consolidation nothing is promoted");
     } finally { await rm(root, { recursive: true, force: true }); }
   });
 
-  it("writes a userData config when none is provided", async () => {
+  it("writes a applicationHome config when none is provided", async () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-desktop-userdata-"));
     try {
+      await mkdir(join(root, "ws"));
       const resolved = await resolveDesktopConfig({
         env: { RUNLOOM_WORKSPACE: join(root, "ws") },
-        userData: join(root, "userData"),
+        applicationHome: join(root, "applicationHome"),
       });
       assert.equal(resolved.generated, true);
       const written = JSON.parse(await readFile(resolved.configPath, "utf8")) as {
@@ -203,12 +204,12 @@ describe("desktop TUI config", () => {
     const root = await mkdtemp(join(tmpdir(), "serika-all-config-writers-"));
     try {
       const workspace = join(root, "workspace"); await mkdir(workspace);
-      const configPath = join(root, "runloom.json");
+      const configPath = join(root, "config.json");
       await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: false }, pomodoro: { enabled: true }, shell: { enabled: false } } }));
       await Promise.all([
-        resolveDesktopConfig({ env: {}, userData: root, cwd: root }),
+        resolveDesktopConfig({ env: {}, applicationHome: root, cwd: root }),
         enableDesktopMemory(configPath, root),
-        changeModuleSetting(configPath, { id: "pomodoro", enabled: false, expectedEnabled: true }, root),
+        changeModuleSetting(configPath, { id: "pomodoro", enabled: false, expectedEnabled: true }, { cwd: root }),
       ]);
       const config = JSON.parse(await readFile(configPath, "utf8"));
       assert.equal(config.modules.memory.enabled, true);
@@ -224,13 +225,14 @@ describe("desktop TUI config", () => {
   it("concurrent first startups create exactly one config and never replace the winner", async () => {
     const root = await mkdtemp(join(tmpdir(), "serika-config-create-once-"));
     try {
+      await mkdir(join(root, "first")); await mkdir(join(root, "second"));
       const results = await Promise.all([
-        resolveDesktopConfig({ env: { RUNLOOM_WORKSPACE: join(root, "first") }, userData: root, cwd: root }),
-        resolveDesktopConfig({ env: { RUNLOOM_WORKSPACE: join(root, "second") }, userData: root, cwd: root }),
+        resolveDesktopConfig({ env: { RUNLOOM_WORKSPACE: join(root, "first") }, applicationHome: root, cwd: root }),
+        resolveDesktopConfig({ env: { RUNLOOM_WORKSPACE: join(root, "second") }, applicationHome: root, cwd: root }),
       ]);
       assert.equal(results.filter(result => result.generated).length, 1);
       assert.equal(results.some(result => result.patched), false);
-      const config = JSON.parse(await readFile(join(root, "runloom.json"), "utf8"));
+      const config = JSON.parse(await readFile(join(root, "config.json"), "utf8"));
       assert.ok([join(root, "first"), join(root, "second")].includes(config.workspace));
     } finally { await rm(root, { recursive: true, force: true }); }
   });

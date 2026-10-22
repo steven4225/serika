@@ -7,12 +7,12 @@ export { EXECUTION_RECORD_FILE, createExecutionRecordStore } from "./execution-r
 export { createMemoryStore } from "./memory-v6-store.js";
 export { readDesktopFrontmost } from "./task-notification-presentation.js";
 export { taskResultLink } from "./task-result-link.js";
-export { RSS_DIGEST_TASK_PROMPT, TASK_FILE_NAME, TASK_WORKER_LOCK_FILE_NAME } from "./task-store.js";
+export { RSS_DIGEST_TASK_PROMPT, TASK_WORKER_LOCK_FILE_NAME } from "./task-store.js";
 export { createTaskDesktopNotifier } from "./task-worker-entry.js";
 export { createTaskWorkerHealthWriter } from "./task-worker-health.js";
 export { createWorkTaskStore } from "./work-task-store.js";
 export { AUTO_CONSOLIDATION_SOURCE } from "./consolidation.js";
-export { CHECKPOINT_FILE_NAME, createCheckpointStore } from "./checkpoint-store.js";
+export { createCheckpointStore } from "./checkpoint-store.js";
 export type { CheckpointDraft } from "./checkpoint-store.js";
 export { createModuleHost } from "./module-host.js";
 export { createCheckpointModule } from "./modules/checkpoint-module.js";

@@ -55,7 +55,7 @@ async function fixture(model: MockLanguageModelV3) {
     task: { enabled: true }, memory: { enabled: true, autoConsolidate: true }, checkpoint: { enabled: true },
   }, automation: { skills: [{ id: "brief", directory }], hooks: [] } }));
   const output = new PassThrough(); output.resume();
-  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "origin", configPath },
+  const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { dataDirectory: join(root, "data"), threadId: "origin", configPath },
     modelAlias: "scripted", model, output, env: {}, cwd: root });
   const controller = createAssistantController(app);
   await controller.runs.list();
@@ -66,8 +66,8 @@ async function fixture(model: MockLanguageModelV3) {
 }
 async function worker(f: Awaited<ReturnType<typeof fixture>>, model: MockLanguageModelV3, now: number, stopAfterTask = true) {
   const automation = await loadScheduledSkillAutomation({ configPath: f.configPath, workspaceRoot: f.workspace });
-  const store = createTaskStore(join(f.workspace, ".runloom/tasks.json"), { now: () => now });
-  const transcripts = new JsonlAgentStore({ directory: join(f.workspace, ".runloom", "task-transcripts") });
+  const store = createTaskStore(join(f.root, "data/tasks.json"), { now: () => now });
+  const transcripts = new JsonlAgentStore({ directory: join(f.root, "transcripts", "tasks") });
   const agent = createTaskWorkerAgent({ modelAlias: "scripted", model, store: transcripts, skills: automation.skills, workspaceContext: true });
   const abort = new AbortController();
   const finished: string[] = [];
@@ -103,7 +103,7 @@ test("Controller saves a pinned Skill schedule; the existing worker delivers onc
     if (task.arrangement?.kind !== "skill") throw new Error("Missing frozen Skill declaration");
     assert.equal(task.arrangement.skillHash, f.skill.hash);
     assert.equal(observed.length, 1, "Saving must not invoke the model immediately");
-    const preDue = await createTaskStore(join(f.workspace, ".runloom/tasks.json"), { now: () => due - 1 }).claimNextDue();
+    const preDue = await createTaskStore(join(f.root, "data/tasks.json"), { now: () => due - 1 }).claimNextDue();
     assert.ok(preDue.ok && preDue.value === null);
     const ran = await worker(f, model, due + 1);
     const complete = await ran.store.get(task.id); assert.ok(complete.ok);
@@ -122,9 +122,9 @@ test("Controller saves a pinned Skill schedule; the existing worker delivers onc
       assert.deepEqual(request.tools ?? [], [], "No shell, Memory, Todoist or other inherited tools");
     }
     const stopped = new AbortController(); stopped.abort();
-    await runTaskWorker({ store: createTaskStore(join(f.workspace, ".runloom/tasks.json"), { now: () => due + 2 }), runtime: { run: async () => { throw new Error("Terminal task must not replay"); } }, signal: stopped.signal });
+    await runTaskWorker({ store: createTaskStore(join(f.root, "data/tasks.json"), { now: () => due + 2 }), runtime: { run: async () => { throw new Error("Terminal task must not replay"); } }, signal: stopped.signal });
     assert.equal(observed.length, 2);
-    const reopened = await createTaskStore(join(f.workspace, ".runloom/tasks.json")).get(task.id); assert.ok(reopened.ok);
+    const reopened = await createTaskStore(join(f.root, "data/tasks.json")).get(task.id); assert.ok(reopened.ok);
     assert.equal(reopened.value.status, "completed");
     assert.equal(reopened.value.runId, complete.value.runId);
   } finally { await f.cleanup(); }
@@ -164,7 +164,7 @@ test("Scheduling rejects unknown/hash-mismatched/memory Skills and oversized or 
     ]) assert.equal((await f.controller.automation.scheduleSkill(input)).ok, false);
     assert.equal(calls, 0);
     assert.deepEqual(await f.controller.runs.list(), []);
-    const tasks = await createTaskStore(join(f.workspace, ".runloom/tasks.json")).list(); assert.ok(tasks.ok); assert.deepEqual(tasks.value.tasks, []);
+    const tasks = await createTaskStore(join(f.root, "data/tasks.json")).list(); assert.ok(tasks.ok); assert.deepEqual(tasks.value.tasks, []);
   } finally { await f.cleanup(); }
 });
 
@@ -178,15 +178,15 @@ test("Recurring Skill pause/resume/cancel only changes scheduling; a cancelled o
     const id = saved.value.recurringTask.id;
     const changes = (action: "pause" | "resume" | "cancel") => f.controller.automation.changeSchedule({ id, kind: "recurring", action });
     assert.ok((await changes("pause")).ok);
-    const paused = await createTaskStore(join(f.workspace, ".runloom/tasks.json")).getRecurring(id); assert.ok(paused.ok); assert.equal(paused.value.recurringTask.status, "paused");
+    const paused = await createTaskStore(join(f.root, "data/tasks.json")).getRecurring(id); assert.ok(paused.ok); assert.equal(paused.value.recurringTask.status, "paused");
     assert.ok(saved.value.recurringTask.nextRunAt);
     const nextRunAt = saved.value.recurringTask.nextRunAt;
-    const dueStore = createTaskStore(join(f.workspace, ".runloom/tasks.json"), { now: () => Date.parse(nextRunAt) + 1 });
+    const dueStore = createTaskStore(join(f.root, "data/tasks.json"), { now: () => Date.parse(nextRunAt) + 1 });
     const whilePaused = await dueStore.claimNextDue(); assert.ok(whilePaused.ok && whilePaused.value === null);
     assert.ok((await changes("resume")).ok);
-    const resumed = await createTaskStore(join(f.workspace, ".runloom/tasks.json")).getRecurring(id); assert.ok(resumed.ok); assert.equal(resumed.value.recurringTask.status, "active");
+    const resumed = await createTaskStore(join(f.root, "data/tasks.json")).getRecurring(id); assert.ok(resumed.ok); assert.equal(resumed.value.recurringTask.status, "active");
     assert.ok((await changes("cancel")).ok);
-    const cancelled = await createTaskStore(join(f.workspace, ".runloom/tasks.json")).getRecurring(id); assert.ok(cancelled.ok); assert.equal(cancelled.value.recurringTask.status, "cancelled");
+    const cancelled = await createTaskStore(join(f.root, "data/tasks.json")).getRecurring(id); assert.ok(cancelled.ok); assert.equal(cancelled.value.recurringTask.status, "cancelled");
     const afterCancel = await dueStore.claimNextDue(); assert.ok(afterCancel.ok && afterCancel.value === null);
     assert.equal(calls, 0);
     assert.deepEqual(await f.controller.runs.list(), []);
@@ -203,7 +203,7 @@ test("Worker recovery installs a matching saved outcome but interrupts an unacco
     };
     const terminal = await create("Saved completed result");
     const unknown = await create("Unaccounted attempt");
-    const store = createTaskStore(join(f.workspace, ".runloom/tasks.json"), { now: () => due + 1 });
+    const store = createTaskStore(join(f.root, "data/tasks.json"), { now: () => due + 1 });
     const first = await store.claimNextDue(); assert.ok(first.ok && first.value);
     assert.ok((await store.recordRunId(first.value.id, "persisted-run")).ok);
     assert.ok((await store.recordOutcome(first.value.id, { status: "completed", runId: "persisted-run", resultText: "Persisted result" })).ok);
@@ -216,7 +216,7 @@ test("Worker recovery installs a matching saved outcome but interrupts an unacco
     const interrupted = await store.get(second.value.id); assert.ok(interrupted.ok); assert.equal(interrupted.value.status, "interrupted");
     assert.equal(interrupted.value.runId, "unaccounted-run");
     assert.ok([terminal.id, unknown.id].includes(first.value.id));
-    const doc = JSON.parse(await readFile(join(f.workspace, ".runloom", "tasks.json"), "utf8"));
+    const doc = JSON.parse(await readFile(join(f.root, "data", "tasks.json"), "utf8"));
     assert.equal(doc.version, 4);
   } finally { await f.cleanup(); }
 });
@@ -225,7 +225,7 @@ test("Production worker process loads trusted config, owns the workspace lock, a
   const f = await fixture(new MockLanguageModelV3({ doStream: async () => { throw new Error("Saving a schedule must not run a model"); } }));
   const children: ChildProcess[] = [];
   const launch = () => {
-    const child = spawn(process.execPath, [fileURLToPath(new URL("./task-worker-entry.js", import.meta.url)), "--workspace", f.workspace, "--config", f.configPath], {
+    const child = spawn(process.execPath, [fileURLToPath(new URL("./task-worker-entry.js", import.meta.url)), "--home", f.root, "--workspace", f.workspace, "--config", f.configPath], {
       env: { PATH: process.env.PATH, RUNLOOM_MODEL: "mock" }, stdio: ["ignore", "ignore", "pipe"],
     });
     children.push(child);
@@ -246,7 +246,7 @@ test("Production worker process loads trusted config, owns the workspace lock, a
     const first = launch();
     let stderr = "";
     first.stderr?.setEncoding("utf8"); first.stderr?.on("data", chunk => { stderr = (stderr + String(chunk)).slice(-4096); });
-    const store = createTaskStore(join(f.workspace, ".runloom/tasks.json"));
+    const store = createTaskStore(join(f.root, "data/tasks.json"));
     const deadline = Date.now() + 8_000;
     let result = await store.get(saved.value.task.id); assert.ok(result.ok);
     while (result.value.status === "scheduled" || result.value.status === "running") {
@@ -272,12 +272,12 @@ test("Production worker process loads trusted config, owns the workspace lock, a
     let restartReady = false;
     while (Date.now() < restartedDeadline) {
       assert.equal(restarted.exitCode, null, "Restarted worker must remain alive");
-      const heartbeat = JSON.parse(await readFile(join(f.workspace, ".runloom", "task-worker-health.json"), "utf8"));
+      const heartbeat = JSON.parse(await readFile(join(f.root, "data", "task-worker-health.json"), "utf8"));
       if (heartbeat.pid === restarted.pid && heartbeat.stoppedAt === null) { restartReady = true; break; }
       await delay(20);
     }
     assert.ok(restartReady, "Restarted worker must publish its own post-lock heartbeat");
-    const acquired = await import("./flock.js").then(module => module.tryAcquireFlock(join(f.workspace, ".runloom", "task-worker.lock")));
+    const acquired = await import("./flock.js").then(module => module.tryAcquireFlock(join(f.root, "data", "task-worker.lock")));
     if (acquired) await acquired.release();
     assert.equal(acquired, null, "Restarted live process must own the actual lock, not only a heartbeat");
     await stop(restarted);
@@ -286,7 +286,7 @@ test("Production worker process loads trusted config, owns the workspace lock, a
     assert.equal(reopened.value.runId, result.value.runId);
     assert.equal(reopened.value.attempts.length, 1, "Restart must not append another model attempt");
     assert.ok(reopened.value.threadId);
-    const history = await new JsonlAgentStore({ directory: join(f.workspace, ".runloom", "task-transcripts") }).getMessages(reopened.value.threadId);
+    const history = await new JsonlAgentStore({ directory: join(f.root, "transcripts", "tasks") }).getMessages(reopened.value.threadId);
     assert.equal(history.filter(message => message.role === "user").length, 1);
   } finally { for (const child of children) await stop(child); await f.cleanup(); }
 });

@@ -15,7 +15,7 @@ it("sends a cleared then a structured Home, and records the same snapshot's CLI 
   await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { checkpoint: { enabled: true }, task: { enabled: true } } }));
   const events: MainToRenderer[] = [];
   const model = new MockLanguageModelV3({ doStream: async () => { throw new Error("Home must not call a model"); } });
-  const host = await DesktopRuntime.create({ userData: join(root, "profile"), cwd: root, env: { RUNLOOM_CONFIG: configPath }, modelAlias: "mock", model, send: message => events.push(message) });
+  const host = await DesktopRuntime.create({ applicationHome: join(root, "profile"), cwd: root, env: { RUNLOOM_CONFIG: configPath }, modelAlias: "mock", model, send: message => events.push(message) });
   try {
     events.length = 0;
     assert.equal((await host.current.home()).ok, true);

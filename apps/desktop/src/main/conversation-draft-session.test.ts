@@ -91,10 +91,10 @@ describe("persisted desktop Steer session", () => {
   }));
 
   it("never dispatches if persistence fails, and clears a definitive rejection without removing its draft", async () => fixture(async root => {
-    const fake = fakeHost(root), userData = join(root, "profile");
-    await mkdir(userData);
-    await writeFile(join(userData, "conversation-drafts.json"), "broken");
-    const store = new ConversationDraftStore(userData), session = new ConversationDraftSession(fake.host, store);
+    const fake = fakeHost(root), applicationHome = join(root, "profile");
+    await mkdir(applicationHome);
+    await writeFile(join(applicationHome, "conversation-drafts.json"), "broken");
+    const store = new ConversationDraftStore(applicationHome), session = new ConversationDraftSession(fake.host, store);
     assert.deepEqual(await session.steer(input(fake.scope())), { ok: false, reason: "storage" });
     assert.equal(fake.dispatches(), 0);
     await writeFile(store.path, JSON.stringify({ version: 1, conversations: {} }));
@@ -161,7 +161,7 @@ describe("persisted desktop Steer session", () => {
 });
 
 it("uses real same-Run steering receipts after full DesktopRuntime and draft-store reconstruction", async () => fixture(async root => {
-  const workspace = join(root, "workspace"), userData = join(root, "profile"), configPath = join(root, "config.json");
+  const workspace = join(root, "workspace"), applicationHome = join(root, "profile"), configPath = join(root, "config.json");
   await mkdir(workspace);
   await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { "read-file": { enabled: true }, memory: { enabled: false } }, run: { totalTimeoutMs: 15_000 } }));
   let calls = 0;
@@ -176,14 +176,14 @@ it("uses real same-Run steering receipts after full DesktopRuntime and draft-sto
       { type: "finish" as const, finishReason: { unified: calls === 1 ? "tool-calls" as const : "stop" as const, raw: undefined }, usage },
     ] }) };
   } });
-  const options = { userData, cwd: root, env: { RUNLOOM_CONFIG: configPath }, modelAlias: "mock", model, send: () => {} };
+  const options = { applicationHome, cwd: root, env: { RUNLOOM_CONFIG: configPath }, modelAlias: "mock", model, send: () => {} };
   let host = await DesktopRuntime.create(options);
   async function until(check: () => boolean) {
     const deadline = Date.now() + 8_000;
     while (!check()) { if (Date.now() > deadline) throw new Error("Desktop session timed out"); await delay(10); }
   }
   try {
-    const scope = draftScope(host.info()), session = new ConversationDraftSession(host, new ConversationDraftStore(userData));
+    const scope = draftScope(host.info()), session = new ConversationDraftSession(host, new ConversationDraftStore(applicationHome));
     const started = await host.current.run("写 notes.md", { memoryConsolidation: "exclude" });
     assert.ok(started.ok); if (!started.ok) return;
     await until(() => host.current.snapshot().pendingApproval !== null);
@@ -193,7 +193,7 @@ it("uses real same-Run steering receipts after full DesktopRuntime and draft-sto
     await until(() => host.current.snapshot().state.kind === "idle");
     await host.shutdown();
     host = await DesktopRuntime.create(options);
-    const restored = new ConversationDraftSession(host, new ConversationDraftStore(userData));
+    const restored = new ConversationDraftSession(host, new ConversationDraftStore(applicationHome));
     assert.equal((await restored.load(scope)).uncertainSteer?.id, "real-request");
     assert.equal((await restored.acknowledge(scope, "real-request"))?.status, "applied");
     assert.equal((await restored.load(scope)).draft.text, "");

@@ -1,8 +1,6 @@
 import type { MemoryLibrary, MemoryLibraryAction, MemoryLibraryView, MemoryLibraryDocument } from "./memory-library.js";
 import type { MemoryImportEntry, MemoryImportConfirm, MemoryImportPreview, MemoryImportReceipt } from "./memory-import.js";
 import type { V6Document, V6Entry, V6Change, V6Commit } from "./memory-v6-store.js";
-export const MEMORY_FILE_NAME = ".runloom/memory.json";
-export const MEMORY_LOCK_FILE_NAME = ".runloom/memory.json.lock";
 export const MEMORY_MAX_ENTRIES = 512;
 export const MEMORY_FILE_MAX_BYTES = 16 * 1024 * 1024;
 export const MEMORY_ENTRY_MAX_BYTES = 2048;

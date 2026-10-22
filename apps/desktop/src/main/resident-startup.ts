@@ -2,7 +2,7 @@ import { lstat, mkdir, readFile, rename, unlink, writeFile } from "node:fs/promi
 import { dirname, isAbsolute } from "node:path";
 import { randomUUID } from "node:crypto";
 
-const IDENTITY_KEYS = ["RUNLOOM_CONFIG", "RUNLOOM_WORKSPACE", "RUNLOOM_THREAD", "RUNLOOM_TRANSCRIPTS", "RUNLOOM_DESKTOP_TEST", "RUNLOOM_MODEL", "RUNLOOM_NOTIFICATION_HELPER"] as const;
+const IDENTITY_KEYS = ["SERIKA_HOME", "RUNLOOM_CONFIG", "RUNLOOM_WORKSPACE", "RUNLOOM_THREAD", "RUNLOOM_TRANSCRIPTS", "RUNLOOM_DESKTOP_TEST", "RUNLOOM_MODEL", "RUNLOOM_NOTIFICATION_HELPER"] as const;
 /** Retain Node's trusted env-file source for the pre-existing worker adapter. */
 export function retainResidentEnvironmentSource(env: NodeJS.ProcessEnv, execArgs: readonly string[]): void {
   const argument = execArgs.find(value => value.startsWith("--env-file="));
@@ -12,14 +12,14 @@ export function retainResidentEnvironmentSource(env: NodeJS.ProcessEnv, execArgs
     env.RUNLOOM_ENV_FILE = path;
   }
 }
-export interface ResidentStartup { version: 1; userData: string; cwd: string; env: Record<string, string> }
-export function residentStartup(userData: string, cwd: string, env: NodeJS.ProcessEnv): ResidentStartup {
-  if (!isAbsolute(userData) || !isAbsolute(cwd)) throw new Error("助手启动身份必须使用绝对路径");
-  return { version: 1, userData, cwd, env: Object.fromEntries(IDENTITY_KEYS.flatMap(key => env[key] === undefined ? [] : [[key, env[key]!]])) };
+export interface ResidentStartup { version: 1; applicationHome: string; cwd: string; env: Record<string, string> }
+export function residentStartup(applicationHome: string, cwd: string, env: NodeJS.ProcessEnv): ResidentStartup {
+  if (!isAbsolute(applicationHome) || !isAbsolute(cwd)) throw new Error("助手启动身份必须使用绝对路径");
+  return { version: 1, applicationHome, cwd, env: Object.fromEntries(IDENTITY_KEYS.flatMap(key => env[key] === undefined ? [] : [[key, env[key]!]])) };
 }
 function validate(value: unknown): ResidentStartup {
   const item = value as ResidentStartup;
-  if (!item || item.version !== 1 || typeof item.userData !== "string" || !isAbsolute(item.userData) || typeof item.cwd !== "string" || !isAbsolute(item.cwd)
+  if (!item || item.version !== 1 || typeof item.applicationHome !== "string" || !isAbsolute(item.applicationHome) || typeof item.cwd !== "string" || !isAbsolute(item.cwd)
     || !item.env || typeof item.env !== "object" || Array.isArray(item.env) || Object.entries(item.env).some(([key, val]) => !IDENTITY_KEYS.includes(key as typeof IDENTITY_KEYS[number]) || typeof val !== "string")) {
     throw new Error("常驻助手启动身份无效，不会猜测或重建对话身份");
   }

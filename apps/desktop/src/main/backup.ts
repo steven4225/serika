@@ -57,12 +57,12 @@ async function writeNew(path: string, data: string | Buffer) {
   try { await file.writeFile(data); await file.sync(); } finally { await file.close(); }
 }
 
-type ExportOptions = { workspace: string; threads: DesktopThread[]; destination: string; knownSecrets?: string[] };
+type ExportOptions = { home: string; threads: DesktopThread[]; destination: string; knownSecrets?: string[] };
 export async function exportBackup(options: ExportOptions): Promise<BackupResult> {
   // Take all cooperating writer locks without waiting while holding another.
   // On contention release everything; never deadlock a worker's multi-store flow.
-  const workspace = await realpath(options.workspace), locks: FlockHandle[] = [];
-  const paths = new Set(STORE_NAMES.map(name => join(workspace, ".runloom", `${name}.lock`)));
+  const workspace = await realpath(options.home), locks: FlockHandle[] = [];
+  const paths = new Set(STORE_NAMES.map(name => join(workspace, "data", `${name}.lock`)));
   for (const thread of options.threads) {
     const directory = await realpath(thread.transcriptDirectory);
     paths.add(join(directory, "execution-records.json.lock"));
@@ -83,7 +83,7 @@ export async function exportBackup(options: ExportOptions): Promise<BackupResult
 }
 
 async function exportLockedBackup(options: ExportOptions): Promise<BackupResult> {
-  const workspace = await realpath(options.workspace), destination = options.destination;
+  const workspace = await realpath(options.home), destination = options.destination;
   const distance = relative(workspace, destination);
   if (!isAbsolute(destination) || !(distance === ".." || distance.startsWith(`..${sep}`) || isAbsolute(distance))) throw new Error("请将备份保存在工作区之外");
   const parent = await realpath(dirname(destination));
@@ -98,7 +98,7 @@ async function exportLockedBackup(options: ExportOptions): Promise<BackupResult>
   };
   const threadViews: Array<{ threadId: string; messages: UIMessage[]; exclusions: TranscriptExclusion[] }> = [];
   for (const name of STORE_NAMES) {
-    const text = await readSafe(join(workspace, ".runloom", name), STORES[name].max);
+    const text = await readSafe(join(workspace, "data", name), STORES[name].max);
     if (text !== null) { validateStore(name, text); add(`workspace/.runloom/${name}`, text); }
   }
   const journals = new Map<string, unknown[]>();
@@ -231,13 +231,14 @@ export async function restoreBackup(source: string, parent: string, expectedHash
   await mkdir(target, { mode: 0o700 });
   const restoredAt = new Date().toISOString();
   try {
+    await mkdir(join(target, "data"), { mode: 0o700 });
     await mkdir(join(target, "workspace"), { mode: 0o700 });
     await mkdir(join(target, "transcripts"), { mode: 0o700 });
     for (const entry of archive.entries) {
       let text = entry.text;
       if (entry.path === "workspace/.runloom/tasks.json") text = JSON.stringify(restoreTaskDocument(JSON.parse(text), restoredAt));
       if (entry.path === "workspace/.runloom/rss.json") { const rss = JSON.parse(text); rss.enabled = false; text = JSON.stringify(rss); }
-      const path = join(target, entry.path); await mkdir(dirname(path), { recursive: true, mode: 0o700 }); await writeNew(path, text);
+      const path = join(target, entry.path.replace(/^workspace\/\.runloom\//, "data/")); await mkdir(dirname(path), { recursive: true, mode: 0o700 }); await writeNew(path, text);
     }
     // Restore the current journal under its existing bounds. All original
     // per-directory journals also remain in receipts/ for explicit inspection.
@@ -250,7 +251,7 @@ export async function restoreBackup(source: string, parent: string, expectedHash
     await writeNew(join(target, "recovery.json"), JSON.stringify({ version: 1, originWorkspace: archive.originWorkspace,
       restoredAt, threads: archive.threads, futureExecutionDisabled: true }));
     // No configuration, tokens, binding, launchd definitions or approvals are installed.
-    for (const directory of ["workspace/.runloom", "workspace", "transcripts", "receipts"]) {
+    for (const directory of ["data", "workspace", "transcripts", "receipts"]) {
       try { await syncDirectory(join(target, directory)); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
     }
     await syncDirectory(target); await syncDirectory(base);

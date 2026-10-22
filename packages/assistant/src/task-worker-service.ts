@@ -7,7 +7,8 @@ import { dirname, isAbsolute, join, parse, resolve, sep } from "node:path";
 export interface ServiceCommandResult { exitCode: number | null; stdout: string; stderr: string }
 export type ServiceCommandRunner = (file: string, args: string[]) => Promise<ServiceCommandResult>;
 export interface TaskWorkerServiceOptions {
-  workspace: string;
+  applicationHome: string;
+  workspace?: string | undefined;
   nodePath: string;
   workerEntryPath: string;
   workingDirectory: string;
@@ -84,20 +85,21 @@ function xml(value: string): string {
 }
 
 export function createTaskWorkerService(options: TaskWorkerServiceOptions) {
-  const workspace = absolute(options.workspace);
+  const workspace = options.workspace === undefined ? undefined : absolute(options.workspace);
+  const applicationHome = absolute(options.applicationHome);
   const nodePath = absolute(options.nodePath);
   const workerEntryPath = absolute(options.workerEntryPath);
   const workingDirectory = absolute(options.workingDirectory);
   const launchAgentsDirectory = absolute(options.launchAgentsDirectory);
   const envFile = options.envFile === undefined ? undefined : absolute(options.envFile);
   const configPath = options.configPath === undefined ? undefined : absolute(options.configPath);
-  if (configPath !== undefined && (configPath === workspace || configPath.startsWith(workspace + sep))) throw new Error("Worker config must be outside workspace");
+  if (configPath !== undefined && workspace && (configPath === workspace || configPath.startsWith(workspace + sep))) throw new Error("Worker config must be outside workspace");
   const notificationHelperPath = options.notificationHelperPath === undefined ? undefined : absolute(options.notificationHelperPath);
-  if (notificationHelperPath !== undefined && (options.notify !== true || notificationHelperPath === workspace || notificationHelperPath.startsWith(workspace + sep))) {
+  if (notificationHelperPath !== undefined && (options.notify !== true || workspace && (notificationHelperPath === workspace || notificationHelperPath.startsWith(workspace + sep)))) {
     throw new Error("Notification helper requires notify and must be outside workspace");
   }
   if (!Number.isSafeInteger(options.uid) || options.uid < 0) throw new Error("Invalid service uid");
-  const label = `dev.runloom.task-worker.${createHash("sha256").update(workspace).digest("hex").slice(0, 20)}`;
+  const label = `dev.runloom.task-worker.${createHash("sha256").update(applicationHome).digest("hex").slice(0, 20)}`;
   const plistPath = join(launchAgentsDirectory, `${label}.plist`);
   const domain = `gui/${options.uid}`;
   const target = `${domain}/${label}`;
@@ -115,15 +117,15 @@ export function createTaskWorkerService(options: TaskWorkerServiceOptions) {
     label, plistPath, status,
     async enable(): Promise<TaskWorkerServiceStatus> {
       ensurePlatform();
-      for (const path of [workspace, nodePath, workerEntryPath, workingDirectory, ...(envFile === undefined ? [] : [envFile]), ...(configPath === undefined ? [] : [configPath]), ...(notificationHelperPath === undefined ? [] : [notificationHelperPath])]) await assertWorkerPathSafe(path);
-      for (const path of [workspace, workingDirectory]) if (!(await lstat(path)).isDirectory()) throw new Error(`Service directory does not exist: ${path}`);
+      for (const path of [applicationHome, ...(workspace ? [workspace] : []), nodePath, workerEntryPath, workingDirectory, ...(envFile === undefined ? [] : [envFile]), ...(configPath === undefined ? [] : [configPath]), ...(notificationHelperPath === undefined ? [] : [notificationHelperPath])]) await assertWorkerPathSafe(path);
+      for (const path of [applicationHome, ...(workspace ? [workspace] : []), workingDirectory]) if (!(await lstat(path)).isDirectory()) throw new Error(`Service directory does not exist: ${path}`);
       for (const path of [nodePath, workerEntryPath, ...(envFile === undefined ? [] : [envFile]), ...(configPath === undefined ? [] : [configPath]), ...(notificationHelperPath === undefined ? [] : [notificationHelperPath])]) if (!(await lstat(path)).isFile()) throw new Error(`Service input is not a regular file: ${path}`);
       await access(nodePath, constants.X_OK);
       if (notificationHelperPath !== undefined) await access(notificationHelperPath, constants.X_OK);
       await access(workerEntryPath, constants.R_OK);
       if (envFile !== undefined) await access(envFile, constants.R_OK);
       if (configPath !== undefined) await access(configPath, constants.R_OK);
-      const args = [nodePath, ...(envFile === undefined ? [] : [`--env-file=${envFile}`]), workerEntryPath, "--workspace", workspace,
+      const args = [nodePath, ...(envFile === undefined ? [] : [`--env-file=${envFile}`]), workerEntryPath, "--home", applicationHome, ...(workspace ? ["--workspace", workspace] : []),
         ...(configPath === undefined ? [] : ["--config", configPath]),
         ...(options.notify === true ? ["--notify"] : []), ...(notificationHelperPath === undefined ? [] : ["--notification-helper", notificationHelperPath]), ...(options.todoist === true ? ["--todoist"] : []), ...(options.workspaceContext === true ? ["--workspace-context"] : []), ...(options.safeRetry === true ? ["--safe-retry"] : []), ...(options.rss === true ? ["--rss"] : [])];
       const before = await status();

@@ -11,8 +11,6 @@ import { abortReason, throwIfAborted } from "./workspace-path.js";
 
 export { CHECKPOINT_INJECTION_MAX_BYTES };
 
-export const CHECKPOINT_FILE_NAME = ".runloom/checkpoint.json";
-export const CHECKPOINT_LOCK_FILE_NAME = ".runloom/checkpoint.json.lock";
 export const CHECKPOINT_SNAPSHOT_MAX_BYTES = 12 * 1024;
 export const CHECKPOINT_FILE_MAX_BYTES = 128 * 1024;
 export const CHECKPOINT_HISTORY_MAX_ENTRIES = 8;

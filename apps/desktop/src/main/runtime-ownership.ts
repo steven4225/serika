@@ -29,22 +29,22 @@ export class RuntimeOwnership {
   #sourceOptions!: Options;
   #recovery: RecoverySelection | null = null;
   #restartRequired = false;
-  private constructor(private options: Options, scope: ResidentScope) {
+  private constructor(private options: Options, scope: ResidentScope, workspace: string | null) {
     this.#scope = scope;
-    const paths = resolveResidentPaths(options.home, scope.workspaceRoot);
+    const paths = resolveResidentPaths(scope.applicationHome);
     this.#paths = { directory: paths.stateDirectory, token: join(paths.stateDirectory, "auth-token"), socket: paths.socketPath };
-    this.#startup = residentStartup(options.userData, options.cwd, { ...options.env, RUNLOOM_CONFIG: scope.configPath });
-    this.#service = (options.serviceFactory ?? createResidentService)({ home: options.home, workspace: scope.workspaceRoot, hostEntry: options.hostEntry, identityPath: paths.identityPath, env: options.env });
+    this.#startup = residentStartup(options.applicationHome, options.cwd, { ...options.env, RUNLOOM_CONFIG: scope.configPath });
+    this.#service = (options.serviceFactory ?? createResidentService)({ home: options.home, applicationHome: scope.applicationHome, ...(workspace ? { workspace } : {}), hostEntry: options.hostEntry, identityPath: paths.identityPath, env: options.env });
   }
   static async create(sourceOptions: Options, ignoreRecoverySelection = false): Promise<RuntimeOwnership> {
-    const sourceConfigPath = resolve(sourceOptions.cwd, sourceOptions.env.RUNLOOM_CONFIG?.trim() || join(sourceOptions.userData, "runloom.json"));
+    const sourceConfigPath = resolve(sourceOptions.cwd, sourceOptions.env.RUNLOOM_CONFIG?.trim() || join(sourceOptions.applicationHome, "config.json"));
     const explicitIdentity = [sourceOptions.env.RUNLOOM_WORKSPACE, sourceOptions.env.RUNLOOM_THREAD, sourceOptions.env.RUNLOOM_TRANSCRIPTS].some(value => value?.trim());
-    const recovery = ignoreRecoverySelection || explicitIdentity ? null : await readRecoverySelection(sourceOptions.userData, sourceConfigPath);
-    const options = recovery ? { ...sourceOptions, env: { ...sourceOptions.env, RUNLOOM_CONFIG: recovery.configPath, RUNLOOM_WORKSPACE: undefined, RUNLOOM_THREAD: undefined, RUNLOOM_TRANSCRIPTS: undefined } } : sourceOptions;
+    const recovery = ignoreRecoverySelection || explicitIdentity ? null : await readRecoverySelection(sourceOptions.applicationHome, sourceConfigPath);
+    const options = recovery ? { ...sourceOptions, applicationHome: recovery.recoveryRoot, env: { ...sourceOptions.env, RUNLOOM_CONFIG: recovery.configPath, RUNLOOM_WORKSPACE: undefined, RUNLOOM_THREAD: undefined, RUNLOOM_TRANSCRIPTS: undefined } } : sourceOptions;
     const selected = await resolveDesktopConfig(options);
-    const config = await resolveTuiModuleConfig({ configPath: selected.configPath }, { cwd: options.cwd });
-    if (!config.workspaceRoot || !config.configPath) throw new Error("桌面助手需要固定的工作区与配置");
-    const owner = new RuntimeOwnership(options, { userData: options.userData, configPath: config.configPath, workspaceRoot: config.workspaceRoot });
+    const config = await resolveTuiModuleConfig({ dataDirectory: join(options.applicationHome, "data"), configPath: selected.configPath }, { cwd: options.cwd });
+    if (!config.configPath) throw new Error("桌面助手需要固定的工作区与配置");
+    const owner = new RuntimeOwnership(options, { applicationHome: options.applicationHome, configPath: config.configPath }, config.workspaceRoot);
     owner.#sourceOptions = sourceOptions; owner.#recovery = recovery;
     const state = await owner.#service.status();
     if (!state.ok && process.platform === "darwin") throw new Error(state.message ?? "无法确认助手宿主状态，不会启动第二个执行宿主");
@@ -59,6 +59,7 @@ export class RuntimeOwnership {
     owner.#lastInfo = owner.#host.info();
     return owner;
   }
+  get applicationHome() { return this.options.applicationHome; }
   get current() {
     if (this.#switching || !this.#host || this.#error) throw new Error(this.#error ?? "正在切换助手宿主，请稍候");
     return this.#host.current;
@@ -102,10 +103,10 @@ export class RuntimeOwnership {
     try {
       if (host instanceof ResidentClient || (await this.#service.status()).registered) throw new Error("请先显式关闭常驻助手，再切换恢复工作区；不会留下两份主执行宿主");
       if ((await host.getLifecycleStatus()).pomodoroRunning) throw new Error("请先结束番茄钟，再切换恢复工作区；不会丢失计时");
-      const sourceConfigPath = resolve(this.#sourceOptions.cwd, this.#sourceOptions.env.RUNLOOM_CONFIG?.trim() || join(this.#sourceOptions.userData, "runloom.json"));
-      const selection = root === null ? null : await prepareRecoveryProfile({ root, userData: this.options.userData, cwd: this.options.cwd,
-        sourceConfigPath, sourceWorkspace: this.#recovery?.sourceWorkspace ?? this.#scope.workspaceRoot });
-      const nextOptions = selection ? { ...this.#sourceOptions, env: { ...this.#sourceOptions.env, RUNLOOM_CONFIG: selection.configPath,
+      const sourceConfigPath = resolve(this.#sourceOptions.cwd, this.#sourceOptions.env.RUNLOOM_CONFIG?.trim() || join(this.#sourceOptions.applicationHome, "config.json"));
+      const selection = root === null ? null : await prepareRecoveryProfile({ root, applicationHome: this.options.applicationHome, cwd: this.options.cwd,
+        sourceConfigPath, sourceWorkspace: this.#recovery?.sourceWorkspace ?? this.info().workspaceRoot ?? this.#scope.applicationHome });
+      const nextOptions = selection ? { ...this.#sourceOptions, applicationHome: selection.recoveryRoot, env: { ...this.#sourceOptions.env, RUNLOOM_CONFIG: selection.configPath,
         RUNLOOM_THREAD: undefined, RUNLOOM_TRANSCRIPTS: undefined, RUNLOOM_WORKSPACE: undefined } } : this.#sourceOptions;
       // Assemble and validate first. The restored workspace has independent
       // identity/leases and no automatic consolidation or external connections.
@@ -115,7 +116,7 @@ export class RuntimeOwnership {
       stopped = true;
       this.#host = undefined;
       await host.shutdown();
-      await saveRecoverySelection(this.options.userData, selection);
+      await saveRecoverySelection(this.#sourceOptions.applicationHome, selection);
       this.#host = next.#host; next.#host = undefined;
       this.options = next.options; this.#scope = next.#scope; this.#paths = next.#paths; this.#service = next.#service; this.#startup = next.#startup;
       this.#recovery = selection; this.#error = undefined;

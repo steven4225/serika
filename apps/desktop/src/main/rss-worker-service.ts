@@ -20,7 +20,7 @@ function loadedWorkerArguments(stdout: string): string[] | null {
 
 /** Paths and credentials come only from trusted main-process configuration. */
 export function createDesktopRssWorker(options: {
-  workspace: string | undefined; home: string; env: NodeJS.ProcessEnv;
+  applicationHome: string; workspace: string | undefined; home: string; env: NodeJS.ProcessEnv;
   workerEntry: string; platform?: NodeJS.Platform;
   configPath?: string;
   todoist?: boolean;
@@ -28,8 +28,8 @@ export function createDesktopRssWorker(options: {
 }) {
   let busy = false;
   async function loadedWorkerStart(running: boolean, stdout: string): Promise<string | null> {
-    if (!running || !options.workspace) return null;
-    const health = await readTaskWorkerHealth(options.workspace, createTaskStore(join(options.workspace, ".runloom/tasks.json")));
+    if (!running) return null;
+    const health = await readTaskWorkerHealth(join(options.applicationHome, "data"), createTaskStore(join(options.applicationHome, "data/tasks.json")));
     const pid = Number(/^\s*pid\s*=\s*(\d+)\s*$/m.exec(stdout)?.[1]);
     // A leftover heartbeat is not the currently loaded job's identity.
     return health.ownership === "held" && health.heartbeat?.pid === pid && health.heartbeat.stoppedAt === null
@@ -37,7 +37,6 @@ export function createDesktopRssWorker(options: {
   }
   async function service() {
     if ((options.platform ?? process.platform) !== "darwin") throw new Error("后台服务目前仅支持 macOS。");
-    if (!options.workspace) throw new Error("尚未配置工作区。");
     const nodePath = options.env.RUNLOOM_WORKER_NODE;
     const envFile = options.env.RUNLOOM_WORKER_ENV_FILE ?? options.env.RUNLOOM_ENV_FILE;
     if (!nodePath || !envFile || !isAbsolute(nodePath) || !isAbsolute(envFile)) {
@@ -65,11 +64,11 @@ export function createDesktopRssWorker(options: {
     }
     const trustedNodePath = await realpath(nodePath);
     const trustedEnvFile = await realpath(envFile);
-    const expectedArguments = [trustedNodePath, `--env-file=${trustedEnvFile}`, resolve(options.workerEntry), "--workspace", resolve(options.workspace),
+    const expectedArguments = [trustedNodePath, `--env-file=${trustedEnvFile}`, resolve(options.workerEntry), "--home", resolve(options.applicationHome), ...(options.workspace ? ["--workspace", resolve(options.workspace)] : []),
       ...(configPath === undefined ? [] : ["--config", configPath]), "--notify",
       ...(notificationHelperPath === undefined ? [] : ["--notification-helper", notificationHelperPath]),
       ...(todoistConfigured ? ["--todoist"] : []), "--rss"];
-    return { todoistConfigured, notificationHelperPath, configPath, expectedArguments, worker: createTaskWorkerService({ workspace: options.workspace, nodePath: trustedNodePath,
+    return { todoistConfigured, notificationHelperPath, configPath, expectedArguments, worker: createTaskWorkerService({ applicationHome: options.applicationHome, workspace: options.workspace, nodePath: trustedNodePath,
       envFile: trustedEnvFile, workerEntryPath: options.workerEntry,
       workingDirectory: dirname(dirname(dirname(dirname(options.workerEntry)))),
       launchAgentsDirectory: join(options.home, "Library/LaunchAgents"), uid: process.getuid!(), rss: true, notify: true,

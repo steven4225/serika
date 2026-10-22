@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { assertWorkerPathSafe, writeWorkerFileAtomic } from "./task-worker-service.js";
 
 /** Short-lived hint that the desktop window is frontmost. Not task state. */
-export const DESKTOP_FRONTMOST_FILE = ".runloom/desktop-frontmost.json";
+export const DESKTOP_FRONTMOST_FILE = "desktop-frontmost.json";
 const FRONTMOST_TTL_MS = 8_000;
 const FRONTMOST_MAX_AHEAD_MS = 60_000;
 const FRONTMOST_MAX_BYTES = 256;

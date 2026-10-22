@@ -29,10 +29,10 @@ test("native launchd: restart killed worker, deliver overdue reminder once, reta
   const workspace = join(root, "workspace");
   await mkdir(workspace);
   const workerEntryPath = fileURLToPath(new URL("./task-worker-entry.js", import.meta.url));
-  const service = createTaskWorkerService({ workspace, nodePath: await realpath(process.execPath), workerEntryPath,
+  const service = createTaskWorkerService({ applicationHome: workspace, workspace, nodePath: await realpath(process.execPath), workerEntryPath,
     workingDirectory: dirname(workerEntryPath), launchAgentsDirectory: join(root, "LaunchAgents"), uid: process.getuid!(), envFile,
     notify: true, ...(process.env.RUNLOOM_NOTIFICATION_HELPER ? { notificationHelperPath: await realpath(process.env.RUNLOOM_NOTIFICATION_HELPER) } : {}) });
-  const store = createTaskStore(join(workspace, ".runloom/tasks.json"));
+  const store = createTaskStore(join(workspace, "data/tasks.json"));
   try {
     assert.equal((await service.status()).registered, false);
     await service.enable();
@@ -55,7 +55,7 @@ test("native launchd: restart killed worker, deliver overdue reminder once, reta
     assert.equal(finished.value.runId, null);
     assert.equal(finished.value.attempts.length, 1);
     assert.equal(finished.value.acknowledgedAt, null);
-    const reopened = await createTaskStore(join(workspace, ".runloom/tasks.json")).get(created.value.id);
+    const reopened = await createTaskStore(join(workspace, "data/tasks.json")).get(created.value.id);
     assert.ok(reopened.ok);
     assert.equal(reopened.value.acknowledgedAt, null);
     console.log(JSON.stringify({ launchdRestart: true, overdueReminderCompleted: true, sameTaskId: true,

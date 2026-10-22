@@ -39,10 +39,6 @@ export interface GitReconciliation {
 const GIT_TIMEOUT_MS = 2_000;
 const GIT_MAX_OUTPUT_BYTES = 64 * 1024;
 const FULL_SHA = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
-const OWN_UNTRACKED_FILES = new Set([
-  "?? .runloom/checkpoint.json",
-  "?? .runloom/checkpoint.json.lock",
-]);
 
 interface GitCommandSuccess {
   ok: true;
@@ -158,9 +154,7 @@ export async function inspectGitReality(
   const pin: GitRealityPin = {
     head: head.output.trim(),
     branch: branch.output.trim() || null,
-    // The checkpoint and its lock are Serika bookkeeping. Exclude only their
-    // untracked forms; if the user tracks either file, Git changes still count.
-    dirty: status.output.split("\n").some((line) => line !== "" && !OWN_UNTRACKED_FILES.has(line)),
+    dirty: status.output.split("\n").some((line) => line !== ""),
     observedAt: new Date().toISOString(),
   };
   return isValidPin(pin) ? { ok: true, pin } : { ok: false, reason: "git_error" };

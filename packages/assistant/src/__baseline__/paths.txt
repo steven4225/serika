@@ -1,16 +1,14 @@
 # path constants
-CHECKPOINT_FILE_NAME = .runloom/checkpoint.json
-CHECKPOINT_LOCK_FILE_NAME = .runloom/checkpoint.json.lock
+memory = H/data/memory.json
+checkpoint = H/data/checkpoint.json
+tasks = H/data/tasks.json
+workTasks = H/data/work-tasks.json
+recipes = H/data/recipes.json
+rss = H/data/rss.json
+dreaming = H/data/dreaming.json
 EXECUTION_RECORD_FILE = execution-records.json
-MEMORY_FILE_NAME = .runloom/memory.json
-MEMORY_LOCK_FILE_NAME = .runloom/memory.json.lock
-DESKTOP_FRONTMOST_FILE = .runloom/desktop-frontmost.json
-TASK_FILE_NAME = .runloom/tasks.json
-TASK_LOCK_FILE_NAME = .runloom/tasks.json.lock
-TASK_WORKER_LOCK_FILE_NAME = .runloom/task-worker.lock
-TASK_WORKER_HEALTH_FILE = .runloom/task-worker-health.json
-WORK_TASK_FILE_NAME = .runloom/work-tasks.json
-WORK_TASK_LOCK_FILE_NAME = .runloom/work-tasks.json.lock
+DESKTOP_FRONTMOST_FILE = desktop-frontmost.json
+TASK_WORKER_HEALTH_FILE = task-worker-health.json
 
 # full assembly after one Run (explicit transcript directory)
 root/config.json

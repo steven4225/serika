@@ -76,7 +76,7 @@ async function samples(): Promise<Record<string, string>> {
     kind: "memory-consolidate", instructions: "Use committed sources; host owns finalization.", agentId: "memory-consolidator" }).hash;
   out["task result workspace key"] = taskResultWorkspaceKey("/tmp/work");
   out["task result link"] = taskResultLink("/tmp/work", "task-1");
-  out["task worker launchd label"] = basename(createTaskWorkerService({ workspace: "/tmp/work", nodePath: "/usr/bin/node",
+  out["task worker launchd label"] = basename(createTaskWorkerService({ applicationHome: "/tmp/work", workspace: "/tmp/work", nodePath: "/usr/bin/node",
     workerEntryPath: "/opt/worker.js", workingDirectory: "/opt", launchAgentsDirectory: "/tmp/LaunchAgents", uid: 501,
     platform: "darwin", runner: async () => ({ exitCode: 0, stdout: "", stderr: "" }) } as Parameters<typeof createTaskWorkerService>[0]).plistPath);
   out["write_file receipt sha256"] = await withRoot(async root => {

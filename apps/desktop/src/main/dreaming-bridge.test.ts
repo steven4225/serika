@@ -27,8 +27,9 @@ it("wires only named dreaming actions through IPC with no renderer source path",
 
 it("keeps method extraction paused across reload and preserves corrupt-store diagnostics without a model call", async () => {
   const root = await mkdtemp(join(tmpdir(), "desktop-dreaming-bridge-"));
+  await mkdir(join(root, "project"));
   let calls = 0;
-  const options = { cwd: root, userData: join(root, "profile"), env: {}, modelAlias: "mock", model: new MockLanguageModelV3({ doStream: async () => { calls++; throw new Error("No model call expected"); } }), send: () => {} };
+  const options = { cwd: root, applicationHome: join(root, "profile"), env: { RUNLOOM_WORKSPACE: join(root, "project") }, modelAlias: "mock", model: new MockLanguageModelV3({ doStream: async () => { calls++; throw new Error("No model call expected"); } }), send: () => {} };
   let host = await DesktopRuntime.create(options);
   try {
     const initial = host.info();
@@ -46,7 +47,7 @@ it("keeps method extraction paused across reload and preserves corrupt-store dia
     assert.equal(reopened.ok && reopened.value.enabled, false);
     await idle(host);
     assert.equal((await host.current.getDreamingOverview()).ok, true);
-    const metadata = join(host.info().workspaceRoot!, ".runloom");
+    const metadata = join(root, "profile", "data");
     await mkdir(metadata, { recursive: true });
     await writeFile(join(metadata, "dreaming.json"), "broken");
     const broken = await host.current.getDreamingOverview();

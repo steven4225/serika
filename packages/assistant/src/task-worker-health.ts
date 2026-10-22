@@ -5,7 +5,7 @@ import { tryAcquireFlock } from "./flock.js";
 import { TASK_WORKER_LOCK_FILE_NAME, type TaskStore } from "./task-store.js";
 import { assertWorkerPathSafe, writeWorkerFileAtomic } from "./task-worker-service.js";
 
-export const TASK_WORKER_HEALTH_FILE = ".runloom/task-worker-health.json";
+export const TASK_WORKER_HEALTH_FILE = "task-worker-health.json";
 export interface TaskWorkerHeartbeat {
   version: 1;
   pid: number;

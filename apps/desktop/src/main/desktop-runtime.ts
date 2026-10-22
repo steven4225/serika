@@ -1,5 +1,6 @@
+import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { assertExperimentalDataPaths } from "@serika/assistant";
+import { assistantDataPaths, assertExperimentalDataPaths } from "@serika/assistant";
 import type { LanguageModel } from "ai";
 import { createRuntimeApp, type TaskAutomationHost } from "@serika/assistant";
 import { createAssistantController } from "@serika/assistant";
@@ -21,7 +22,7 @@ import { exportBackup } from "./backup.js";
 import { ConversationDraftStore } from "./conversation-draft-store.js";
 import { MAX_CONVERSATION_DRAFT_BYTES } from "../shared/conversation-drafts.js";
 
-interface Options { userData: string; cwd: string; env: NodeJS.ProcessEnv; modelAlias: string; modelId?: string; model: LanguageModel; send: Send; taskAutomation?: TaskAutomationHost; /** Ownership transfers to this host, including final disposal. */ pomodoroService?: PomodoroService }
+interface Options { applicationHome: string; cwd: string; env: NodeJS.ProcessEnv; modelAlias: string; modelId?: string; model: LanguageModel; send: Send; taskAutomation?: TaskAutomationHost; /** Ownership transfers to this host, including final disposal. */ pomodoroService?: PomodoroService }
 
 /** Owns desktop selection only. Each selected Thread still uses the original controller/loop. */
 export class DesktopRuntime {
@@ -49,11 +50,12 @@ export class DesktopRuntime {
   }
 
   static async create(options: Options): Promise<DesktopRuntime> {
-    assertExperimentalDataPaths([options.userData, options.env.RUNLOOM_CONFIG, options.env.RUNLOOM_WORKSPACE, options.env.RUNLOOM_TRANSCRIPTS]);
+    assertExperimentalDataPaths([options.applicationHome, options.env.RUNLOOM_CONFIG, options.env.RUNLOOM_WORKSPACE, options.env.RUNLOOM_TRANSCRIPTS]);
+    await mkdir(join(options.applicationHome, "data"), { recursive: true });
     const host = new DesktopRuntime(options);
     try {
       const config = await resolveDesktopConfig(options);
-      const modules = await resolveTuiModuleConfig({ configPath: config.configPath }, { cwd: options.cwd });
+      const modules = await resolveTuiModuleConfig({ dataDirectory: join(options.applicationHome, "data"), configPath: config.configPath }, { cwd: options.cwd });
       host.#identity = await resolveDesktopIdentity({ ...options, configPath: modules.configPath!, workspaceRoot: modules.workspaceRoot });
       host.#bridge = await host.#make(host.#identity);
       host.#lastInfo = host.#bridge.info();
@@ -92,10 +94,9 @@ export class DesktopRuntime {
   /** Host-only channel surface, deliberately not in resident IPC's method whitelist. */
   channelSubscribe(listener: Send) { this.#channelListeners.add(listener); return () => { this.#channelListeners.delete(listener); }; }
   channelSnapshot() { return { info: this.info(), snapshot: this.#bridge.snapshot() }; }
-  /** Original workspace TaskStore, independent of foreground capability switches. */
+  /** Home TaskStore, independent of foreground capability switches. */
   #channelTaskStore() {
-    if (!this.#identity.workspaceRoot) throw new Error("当前没有确定的工作区，未读取安排");
-    return createTaskStore(join(this.#identity.workspaceRoot, ".runloom/tasks.json"));
+    return createTaskStore(assistantDataPaths(join(this.#options.applicationHome, "data")).tasks);
   }
   channelScheduledTask(id: string) { return this.#channelTaskStore().get(id); }
   async channelRecurringTask(id: string) {
@@ -146,11 +147,11 @@ export class DesktopRuntime {
   }
 
   async #make(identity: DesktopIdentityResolution): Promise<RuntimeBridge> {
-    const config = await resolveTuiModuleConfig({ configPath: identity.configPath }, { cwd: this.#options.cwd });
+    const config = await resolveTuiModuleConfig({ dataDirectory: join(this.#options.applicationHome, "data"), configPath: identity.configPath }, { cwd: this.#options.cwd });
     if (config.workspaceRoot !== identity.workspaceRoot) throw new Error("配置工作区已变化，请恢复原工作区配置后重新连接；不会混入其他工作区");
     const output = new TeeOutput(this.#send);
     const app = await createRuntimeApp({
-      directory: identity.transcriptDirectory, assistant: { threadId: identity.threadId, configPath: identity.configPath, ...(identity.workspaceRoot === null ? {} : { dataDirectory: join(identity.workspaceRoot, ".runloom") }) },
+      directory: identity.transcriptDirectory, assistant: { threadId: identity.threadId, configPath: identity.configPath, dataDirectory: join(this.#options.applicationHome, "data") },
       modelAlias: this.#options.modelAlias, model: this.#options.model, output, env: this.#options.env, cwd: this.#options.cwd,
       pomodoroService: this.#pomodoroService,
       allowWorkspaceTaskReads: true,
@@ -165,7 +166,7 @@ export class DesktopRuntime {
     });
     // Assembly rereads the config; do not publish a different workspace under
     // the trusted old Thread/transcript identity if the file changed in between.
-    if (app.workspaceRoot !== identity.workspaceRoot || app.moduleConfig?.configPath !== identity.configPath) {
+    if ((app.workspaceRoot ?? null) !== identity.workspaceRoot || app.moduleConfig?.configPath !== identity.configPath) {
       app.dispose();
       throw new Error("配置工作区或入口在连接期间变化，请核对原配置后重新连接；不会混入其他工作区");
     }
@@ -213,10 +214,9 @@ export class DesktopRuntime {
   async exportBackup(destination: string) {
     this.#assertIdle(); this.#changing = true;
     try {
-      if (!this.#identity.workspaceRoot) throw new Error("没有固定工作区，不能备份");
       const threads = await listDesktopThreads(this.#scope());
       if (!threads.some(thread => thread.threadId === this.#identity.threadId && thread.transcriptDirectory === this.#identity.transcriptDirectory)) threads.unshift(this.#identity);
-      return await exportBackup({ workspace: this.#identity.workspaceRoot, threads, destination,
+      return await exportBackup({ home: this.#options.applicationHome, threads, destination,
         knownSecrets: Object.entries(this.#options.env).filter(([key]) => /(?:API_KEY|TOKEN|SECRET|PASSWORD)/i.test(key)).flatMap(([, value]) => value ? [value] : []) });
     } finally { this.#changing = false; }
   }
@@ -294,21 +294,21 @@ export class DesktopRuntime {
       if (options?.taskDraft !== undefined && options.chatDraft !== undefined) throw new Error("Ambiguous draft target");
       if (options?.taskDraft === undefined && options?.chatDraft === undefined && !options?.preserveDraft && (await this.#inspect(this.#identity)).emptyVerified) return this.#identity;
       const thread = await createDesktopThread(this.#scope());
-      if (options?.taskDraft !== undefined || options?.chatDraft !== undefined) await new ConversationDraftStore(this.#options.userData).saveDraft({ workspaceRoot: this.#identity.workspaceRoot, directory: thread.transcriptDirectory, threadId: thread.threadId }, { text: options.taskDraft ?? options.chatDraft ?? "", excludeFromMemory: false, ...(options.taskDraft !== undefined ? { createTask: true } : {}) });
+      if (options?.taskDraft !== undefined || options?.chatDraft !== undefined) await new ConversationDraftStore(join(this.#options.applicationHome, "desktop")).saveDraft({ workspaceRoot: this.#identity.workspaceRoot, directory: thread.transcriptDirectory, threadId: thread.threadId }, { text: options.taskDraft ?? options.chatDraft ?? "", excludeFromMemory: false, ...(options.taskDraft !== undefined ? { createTask: true } : {}) });
       return selectDesktopThread(this.#scope(), thread.threadId);
     }, true);
   }
   enableMemory() {
     let undo: (() => Promise<void>) | undefined;
     return this.#replace(async () => {
-      undo = await enableDesktopMemory(this.#identity.configPath, this.#options.cwd);
+      undo = await enableDesktopMemory(this.#identity.configPath, this.#options.cwd, join(this.#options.applicationHome, "data"));
       return this.#identity;
     }, false, { rollback: async () => { await undo?.(); } });
   }
   async setModuleEnabled(input: ModuleSettingInput) {
     let undo: (() => Promise<void>) | undefined;
     await this.#replace(async () => {
-      undo = await changeModuleSetting(this.#identity.configPath, input, this.#options.cwd);
+      undo = await changeModuleSetting(this.#identity.configPath, input, { cwd: this.#options.cwd, dataDirectory: join(this.#options.applicationHome, "data") });
       return this.#identity;
     }, false, { rollback: async () => { await undo?.(); } });
     // Unrelated adapter disposal and failed/rolled-back changes never cancel.

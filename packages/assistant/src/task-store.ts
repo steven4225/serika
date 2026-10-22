@@ -16,9 +16,7 @@ import { creationReceipt, readCreationReceipt, type CreationReceipt } from "./cr
 import { latestOccurrence, nextOccurrence, type Recurrence } from "./recurrence.js";
 import { abortReason, throwIfAborted } from "./workspace-path.js";
 
-export const TASK_FILE_NAME = ".runloom/tasks.json";
-export const TASK_LOCK_FILE_NAME = ".runloom/tasks.json.lock";
-export const TASK_WORKER_LOCK_FILE_NAME = ".runloom/task-worker.lock";
+export const TASK_WORKER_LOCK_FILE_NAME = "task-worker.lock";
 export const TASK_PROMPT_MAX_BYTES = 16 * 1024;
 export const TASK_LIST_DEFAULT_LIMIT = 20;
 export const TASK_LIST_MAX_LIMIT = 50;
@@ -1786,6 +1784,6 @@ export function createTaskStore(
   return new WorkspaceTaskStore(filePath, options);
 }
 
-export function taskWorkerLockPath(workspace: string): string {
-  return resolve(workspace, TASK_WORKER_LOCK_FILE_NAME);
+export function taskWorkerLockPath(dataDirectory: string): string {
+  return resolve(dataDirectory, TASK_WORKER_LOCK_FILE_NAME);
 }

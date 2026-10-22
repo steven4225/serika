@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { assistantDataPaths } from "./data-paths.js";
 import type { UIMessage } from "ai";
 import {
   createCheckpointStore,
@@ -108,12 +108,12 @@ export async function loadTaskWorkerContext(
 }
 
 export function createTaskWorkerContextLoader(
-  workspace: string,
+  dataDirectory: string,
   taskStore: TaskStore,
 ): (task: TaskRecord, signal: AbortSignal) => Promise<TaskWorkerSnapshotContext> {
   const sources = {
-    memoryStore: createMemoryStore(join(workspace, ".runloom/memory.json")),
-    checkpointStore: createCheckpointStore(join(workspace, ".runloom/checkpoint.json")),
+    memoryStore: createMemoryStore(assistantDataPaths(dataDirectory).memory),
+    checkpointStore: createCheckpointStore(assistantDataPaths(dataDirectory).checkpoint),
     taskStore,
   };
   return (task, signal) => loadTaskWorkerContext(sources, task, signal);

@@ -13,9 +13,9 @@ async function readPrivate(path: string) {
     return JSON.parse(await file.readFile("utf8"));
   } finally { await file.close(); }
 }
-export async function readRecoverySelection(userData: string, sourceConfigPath: string): Promise<RecoverySelection | null> {
+export async function readRecoverySelection(applicationHome: string, sourceConfigPath: string): Promise<RecoverySelection | null> {
   let selection: RecoverySelection;
-  try { selection = await readPrivate(join(userData, "recovery-selection.json")); }
+  try { selection = await readPrivate(join(applicationHome, "desktop", "recovery-selection.json")); }
   catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return null; throw error; }
   if ((selection as unknown as { version?: unknown; inactive?: unknown }).version === 1 && (selection as unknown as { inactive?: unknown }).inactive === true) return null;
   if (!selection || selection.version !== 1 || [selection.sourceConfigPath, selection.sourceWorkspace, selection.configPath, selection.workspaceRoot, selection.recoveryRoot].some(path => typeof path !== "string" || !isAbsolute(path)) ||
@@ -36,10 +36,10 @@ async function writePrivate(path: string, value: unknown) {
   } catch (error) { if (renamed) throw new Error("恢复入口保存结果未确认，请核对后重新连接；不会重做任务", { cause: error }); throw error; }
   finally { await unlink(temporary).catch(error => { if (error.code !== "ENOENT") throw error; }); }
 }
-export async function saveRecoverySelection(userData: string, selection: RecoverySelection | null) {
-  await mkdir(userData, { recursive: true });
+export async function saveRecoverySelection(applicationHome: string, selection: RecoverySelection | null) {
+  await mkdir(join(applicationHome, "desktop"), { recursive: true });
   // A null selection is a committed explicit return to the original launch.
-  await writePrivate(join(userData, "recovery-selection.json"), selection ?? { version: 1, inactive: true });
+  await writePrivate(join(applicationHome, "desktop", "recovery-selection.json"), selection ?? { version: 1, inactive: true });
 }
 export async function validateRecoveryRoot(root: string): Promise<{ threads: string[]; originWorkspace: string }> {
   if (!isAbsolute(root) || await realpath(root) !== root) throw new Error("请选择可信的恢复目录，不允许符号链接");
@@ -47,10 +47,10 @@ export async function validateRecoveryRoot(root: string): Promise<{ threads: str
   if (!stat.isDirectory() || stat.mode & 0o077 || process.getuid && stat.uid !== process.getuid()) throw new Error("恢复目录权限无效");
   const marker = await readPrivate(join(root, "recovery.json"));
   if (marker.version !== 1 || marker.futureExecutionDisabled !== true || typeof marker.originWorkspace !== "string" || !isAbsolute(marker.originWorkspace) || !Array.isArray(marker.threads) || marker.threads.length > 100 || marker.threads.some((id: unknown) => typeof id !== "string" || !id || id.length > 256) || new Set(marker.threads).size !== marker.threads.length) throw new Error("恢复目录清单无效");
-  for (const child of ["workspace", "transcripts"]) if (await realpath(join(root, child)) !== join(root, child)) throw new Error("恢复数据路径含符号链接");
+  for (const child of ["data", "workspace", "transcripts"]) if (await realpath(join(root, child)) !== join(root, child)) throw new Error("恢复数据路径含符号链接");
   return marker;
 }
-export async function prepareRecoveryProfile(options: { root: string; userData: string; cwd: string; sourceConfigPath: string; sourceWorkspace: string }) {
+export async function prepareRecoveryProfile(options: { root: string; applicationHome: string; cwd: string; sourceConfigPath: string; sourceWorkspace: string }) {
   const marker = await validateRecoveryRoot(options.root);
   const configPath = join(options.root, "recovery-config.json"), workspaceRoot = join(options.root, "workspace");
   try {
@@ -61,7 +61,7 @@ export async function prepareRecoveryProfile(options: { root: string; userData: 
     await writePrivate(configPath, { version: 1, workspace: workspaceRoot, modules: { "read-file": { enabled: true }, memory: { enabled: true, autoConsolidate: false, writePolicy: "review" },
       shell: { enabled: false }, task: { enabled: true }, checkpoint: { enabled: true }, pomodoro: { enabled: true } } });
   }
-  const scope = { userData: options.userData, cwd: options.cwd, configPath, workspaceRoot };
+  const scope = { applicationHome: options.root, cwd: options.cwd, configPath, workspaceRoot };
   for (const threadId of marker.threads) await registerDesktopThread(scope, { threadId, transcriptDirectory: join(options.root, "transcripts") });
   if (marker.threads[0]) await selectDesktopThread(scope, marker.threads[0]);
   return { version: 1 as const, sourceConfigPath: options.sourceConfigPath, sourceWorkspace: options.sourceWorkspace, configPath, workspaceRoot, recoveryRoot: options.root };

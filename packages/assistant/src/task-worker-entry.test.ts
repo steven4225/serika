@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { once } from "node:events";
-import { mkdtemp, rm, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, stat } from "node:fs/promises";
 import { spawn, type ChildProcess } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -99,10 +99,11 @@ describe("durable desktop notification adapter", () => {
     };
     let script = "";
     const notify = createTaskDesktopNotifier(() => {}, { platform: "darwin", workspace: root, submit: async value => { script = value; } });
-    await writeDesktopFrontmost(root, true);
+    await mkdir(join(root, "data"));
+    await writeDesktopFrontmost(join(root, "data"), true);
     assert.equal(await notify(reminder), "foreground-omitted");
     assert.equal(script, "");
-    await writeDesktopFrontmost(root, false);
+    await writeDesktopFrontmost(join(root, "data"), false);
     assert.equal(await notify(reminder), "submitted");
     assert.match(script, /with title "提醒时间到了"/);
     assert.match(script, /display notification "提醒已到，详情在收件箱。"/);
@@ -112,7 +113,8 @@ describe("durable desktop notification adapter", () => {
 });
 
 describe("task-worker CLI arguments", () => {
-  it("requires the explicit workspace and accepts pnpm's separator", () => {
+  it("accepts explicit home and optional project, including pnpm's separator", () => {
+    assert.deepEqual(parseTaskWorkerArgs(["--home", "/tmp/isolated-home"]), { home: "/tmp/isolated-home" });
     assert.deepEqual(parseTaskWorkerArgs(["--workspace", "/tmp/work", "--config", "/trusted/config.json"]), { workspace: "/tmp/work", configPath: "/trusted/config.json" });
     assert.deepEqual(parseTaskWorkerArgs(["--", "--workspace", "./sample"]), {
       workspace: "./sample",
@@ -131,14 +133,14 @@ describe("task-worker CLI arguments", () => {
     );
   });
 
-  it("rejects an implicit workspace and unknown options", () => {
+  it("rejects implicit workspace context and unknown options", () => {
     assert.throws(() => parseTaskWorkerArgs(["--workspace", "/tmp/work", "--config", "relative"]), /absolute/);
     assert.throws(() => parseTaskWorkerArgs(["--workspace", "/tmp/work", "--config", "/a", "--config", "/b"]), /one absolute/);
     assert.throws(() => parseTaskWorkerArgs(["--workspace", "/tmp/work", "--notification-helper", "/trusted/helper"]), /requires --notify/);
     assert.throws(() => parseTaskWorkerArgs(["--workspace", "/tmp/work", "--notify", "--notification-helper", "relative"]), /absolute/);
     assert.throws(
-      () => parseTaskWorkerArgs([]),
-      /task-worker requires --workspace/,
+      () => parseTaskWorkerArgs(["--workspace-context"]),
+      /requires --workspace/,
     );
     assert.throws(
       () => parseTaskWorkerArgs(["--workspace", "./sample", "extra"]),
@@ -170,7 +172,7 @@ describe("task-worker startup validation", () => {
   ): Promise<void> {
     const root = await mkdtemp(join(tmpdir(), "runloom-worker-todoist-startup-"));
     try {
-      const store = createTaskStore(join(root, ".runloom/tasks.json"));
+      const store = createTaskStore(join(root, "data/tasks.json"));
       const created = await store.create({
         // Real flock/fsync under the full suite can exceed 100 ms before create validates the time.
         runAt: new Date(Date.now() + 2000).toISOString(),
@@ -179,7 +181,7 @@ describe("task-worker startup validation", () => {
       assert.ok(created.ok);
       await new Promise((resolve) => setTimeout(resolve, Math.max(0, Date.parse(created.value.runAt) - Date.now()) + 20));
       const entry = fileURLToPath(new URL("./task-worker-entry.js", import.meta.url));
-      const child = spawn(process.execPath, [entry, "--workspace", root, "--todoist"], {
+      const child = spawn(process.execPath, [entry, "--home", root, "--workspace", root, "--todoist"], {
         env: { ...process.env, RUNLOOM_MODEL: "mock", ...environment },
         stdio: ["ignore", "ignore", "pipe"],
       });
@@ -237,14 +239,14 @@ describe("task-worker process lock", () => {
     const children: ChildProcess[] = [];
 
     try {
-      const first = spawn(process.execPath, [entry, "--workspace", root], {
+      const first = spawn(process.execPath, [entry, "--home", root, "--workspace", root], {
         env,
         stdio: ["ignore", "ignore", "pipe"],
       });
       children.push(first);
       first.stderr?.resume();
 
-      const lockPath = taskWorkerLockPath(root);
+      const lockPath = taskWorkerLockPath(join(root, "data"));
       let lockCreated = false;
       for (let attempt = 0; attempt < 100 && !lockCreated; attempt += 1) {
         try {
@@ -272,7 +274,7 @@ describe("task-worker process lock", () => {
       }
       assert.equal(held, true, "first worker did not acquire its lock");
 
-      const second = spawn(process.execPath, [entry, "--workspace", root], {
+      const second = spawn(process.execPath, [entry, "--home", root, "--workspace", root], {
         env,
         stdio: ["ignore", "pipe", "pipe"],
       });
@@ -288,7 +290,7 @@ describe("task-worker process lock", () => {
 
       await terminate(first, "SIGKILL");
 
-      const third = spawn(process.execPath, [entry, "--workspace", root], {
+      const third = spawn(process.execPath, [entry, "--home", root, "--workspace", root], {
         env,
         stdio: ["ignore", "ignore", "pipe"],
       });

@@ -1,22 +1,20 @@
-defaultUserDataPath(<appData>) = appData/@aisdk-agent/desktop
+default application home = root/.serika
 userDataPathFromEnv({}) = undefined
 userDataPathFromEnv(RUNLOOM_USER_DATA=/abs) = /abs
-resolveDesktopConfig(no env) = userData/runloom.json generated=true
+resolveDesktopConfig(no env) = applicationHome/config.json generated=true
 resolveDesktopConfig(RUNLOOM_CONFIG) = /elsewhere/runloom.json generated=false
-generated config workspace = userData/workspaces/personal
-explicit identity (RUNLOOM_TRANSCRIPTS) thread = desktop-explicit-c0a8f664c4731639d90c9924
+generated config workspace = undefined
+explicit identity (RUNLOOM_TRANSCRIPTS) thread = desktop-explicit-6d7420865d028fd5b23b4b4e
 explicit identity (RUNLOOM_TRANSCRIPTS) transcripts = /fixed/transcripts
 explicit identity (RUNLOOM_THREAD) thread = my-thread
-explicit identity (RUNLOOM_THREAD) transcripts = userData/transcripts/explicit-00a59de3862c3dcd79609c3e
-resident(/Users/me, /Users/me/work, 501).label = dev.serika.assistant-host.b6542e257ca225deadd6
-resident(/Users/me, /Users/me/work, 501).socketRoot = <socket tmp>/serika-host-501
-resident(/Users/me, /Users/me/work, 501).socketDirectory = <socket tmp>/serika-host-501/b6542e257ca225deadd6
-resident(/Users/me, /Users/me/work, 501).socketPath = <socket tmp>/serika-host-501/b6542e257ca225deadd6/host.sock
-resident(/Users/me, /Users/me/work, 501).stateDirectory = /Users/me/Library/Application Support/Serika/resident/b6542e257ca225deadd6
-resident(/Users/me, /Users/me/work, 501).identityPath = /Users/me/Library/Application Support/Serika/resident/b6542e257ca225deadd6/identity.json
+explicit identity (RUNLOOM_THREAD) transcripts = applicationHome/transcripts/explicit-36c3d11f84198f5e90b928f7
+resident(/Users/me/work, 501).label = dev.serika.assistant-host.b6542e257ca225deadd6
+resident(/Users/me/work, 501).socketRoot = <socket tmp>/serika-host-501
+resident(/Users/me/work, 501).socketDirectory = <socket tmp>/serika-host-501/b6542e257ca225deadd6
+resident(/Users/me/work, 501).socketPath = <socket tmp>/serika-host-501/b6542e257ca225deadd6/host.sock
+resident(/Users/me/work, 501).stateDirectory = /Users/me/work/resident
+resident(/Users/me/work, 501).identityPath = /Users/me/work/resident/identity.json
 
-# userData after config resolution
-userData/runloom.json
-userData/runloom.json.lock
-userData/workspaces/
-userData/workspaces/personal/
+# applicationHome after config resolution
+applicationHome/config.json
+applicationHome/config.json.lock

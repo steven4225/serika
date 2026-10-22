@@ -1,5 +1,5 @@
 import { isAbsolute, join, sep } from "node:path";
-import { access, realpath, stat } from "node:fs/promises";
+import { mkdir, access, realpath, stat } from "node:fs/promises";
 import { constants } from "node:fs";
 import { taskResultLink } from "./task-result-link.js";
 import { FOREGROUND_NOTIFICATION_OMITTED, taskNotificationCopy, type DesktopNotificationDelivery } from "./task-notification-copy.js";
@@ -40,8 +40,13 @@ import { loadScheduledSkillAutomation, prepareScheduledSkillTask } from "./sched
 import { skillAgentDefinition, type SkillDescriptor } from "./skill-catalog.js";
 import { createNoProgressGuard } from "./no-progress-guard.js";
 
+import { resolveApplicationHome } from "./application-home.js";
+import { assistantDataPaths } from "./data-paths.js";
+import { readTuiModuleConfig } from "./tui-module-config.js";
+
 interface TaskWorkerArgs {
-  workspace: string;
+  home?: string;
+  workspace?: string;
   todoist?: true;
   notify?: true;
   notificationHelperPath?: string;
@@ -53,6 +58,7 @@ interface TaskWorkerArgs {
 
 export function parseTaskWorkerArgs(args: readonly string[]): TaskWorkerArgs {
   const parsed = args[0] === "--" ? args.slice(1) : args;
+  let home: string | undefined;
   let workspace: string | undefined;
   let todoist = false;
   let notify = false;
@@ -63,6 +69,11 @@ export function parseTaskWorkerArgs(args: readonly string[]): TaskWorkerArgs {
   let configPath: string | undefined;
   for (let index = 0; index < parsed.length; index += 1) {
     const arg = parsed[index];
+    if (arg === "--home") {
+      const value = parsed[++index];
+      if (home !== undefined || !value || value.startsWith("--")) throw new Error("--home requires one directory");
+      home = value; continue;
+    }
     if (arg === "--config") {
       const value = parsed[++index];
       if (configPath !== undefined || !value || !isAbsolute(value) || /[\0\r\n]/.test(value)) throw new Error("--config requires one absolute trusted file path");
@@ -120,12 +131,11 @@ export function parseTaskWorkerArgs(args: readonly string[]): TaskWorkerArgs {
     throw new Error(`Unknown task-worker option: ${arg}`);
   }
 
-  if (workspace === undefined) {
-    throw new Error("task-worker requires --workspace <directory>");
-  }
+  if (workspaceContext && workspace === undefined) throw new Error("--workspace-context requires --workspace");
   if (notificationHelperPath !== undefined && !notify) throw new Error("--notification-helper requires --notify");
   return {
-    workspace,
+    ...(workspace === undefined ? {} : { workspace }),
+    ...(home === undefined ? {} : { home }),
     ...(configPath === undefined ? {} : { configPath }),
     ...(notificationHelperPath === undefined ? {} : { notificationHelperPath }),
     ...(todoist ? { todoist: true as const } : {}),
@@ -161,7 +171,7 @@ export function createTaskDesktopNotifier(
       throw new Error("macOS desktop notifications are unavailable");
     }
     // The in-app banner is the foreground surface. This is not OS submission.
-    if (await readDesktopFrontmost(options.workspace)) return FOREGROUND_NOTIFICATION_OMITTED;
+    if (await readDesktopFrontmost(options.workspace ? join(options.workspace, "data") : undefined)) return FOREGROUND_NOTIFICATION_OMITTED;
     const copy = taskNotificationCopy(task);
 
     try {
@@ -393,13 +403,18 @@ export function createTaskWorkerAgent(
 }
 
 export async function startTaskWorker(args: readonly string[]): Promise<void> {
-  const { workspace, todoist = false, notify = false, notificationHelperPath, workspaceContext = false, safeRetry = false, rss = false, configPath } = parseTaskWorkerArgs(args);
-  const workspaceRoot = await resolveWorkspace(workspace);
-  const automation = configPath === undefined ? undefined : await loadScheduledSkillAutomation({ configPath, workspaceRoot });
+  const { home, workspace, todoist = false, notify = false, notificationHelperPath, workspaceContext = false, safeRetry = false, rss = false, configPath } = parseTaskWorkerArgs(args);
+  const applicationHome = resolveApplicationHome({ home, env: process.env, cwd: process.cwd() });
+  const workspaceRoot = workspace === undefined ? undefined : await resolveWorkspace(workspace);
+  if (configPath !== undefined && workspaceRoot === undefined) {
+    const config = await readTuiModuleConfig(configPath);
+    if (config.workspace !== undefined || (config.automation?.skills?.length ?? 0) > 0) throw new Error("Worker project and Skills require explicit --workspace");
+  }
+  const automation = configPath === undefined || workspaceRoot === undefined ? undefined : await loadScheduledSkillAutomation({ configPath, workspaceRoot });
   let notificationHelper: string | undefined;
   if (notificationHelperPath !== undefined) {
     notificationHelper = await realpath(notificationHelperPath);
-    if (notificationHelper === workspaceRoot || notificationHelper.startsWith(workspaceRoot + sep) || !(await stat(notificationHelper)).isFile()) throw new Error("Notification helper must be a regular executable outside workspace");
+    if (workspaceRoot && (notificationHelper === workspaceRoot || notificationHelper.startsWith(workspaceRoot + sep)) || !(await stat(notificationHelper)).isFile()) throw new Error("Notification helper must be a regular executable outside workspace");
     await access(notificationHelper, constants.X_OK);
   }
   // Validate the model configuration before creating or acquiring the worker
@@ -420,11 +435,12 @@ export async function startTaskWorker(args: readonly string[]): Promise<void> {
     }
     todoistOptions = { apiToken, timeZone: todoistTimeZone };
   }
-  const runloomDirectory = join(workspaceRoot, ".runloom");
-  const taskStore = createTaskStore(join(workspaceRoot, ".runloom/tasks.json"));
-  const rssWorker = createRssDigestWorker(join(workspaceRoot, ".runloom/rss.json"), taskStore, { enabled: rss });
+  const dataDirectory = join(applicationHome, "data"), paths = assistantDataPaths(dataDirectory);
+  await mkdir(dataDirectory, { recursive: true, mode: 0o700 });
+  const taskStore = createTaskStore(paths.tasks);
+  const rssWorker = createRssDigestWorker(paths.rss, taskStore, { enabled: rss });
   const transcriptStore = new JsonlAgentStore({
-    directory: join(runloomDirectory, "task-transcripts"),
+    directory: join(applicationHome, "transcripts", "tasks"),
   });
   const agent = createTaskWorkerAgent({
     modelAlias,
@@ -436,7 +452,7 @@ export async function startTaskWorker(args: readonly string[]): Promise<void> {
   });
   let lock: Awaited<ReturnType<typeof tryAcquireFlock>>;
   try {
-    lock = await tryAcquireFlock(taskWorkerLockPath(workspaceRoot));
+    lock = await tryAcquireFlock(taskWorkerLockPath(dataDirectory));
   } catch (error) {
     agent.dispose();
     throw error;
@@ -451,7 +467,7 @@ export async function startTaskWorker(args: readonly string[]): Promise<void> {
   process.once("SIGINT", stop);
   process.once("SIGTERM", stop);
 
-  const health = createTaskWorkerHealthWriter(workspaceRoot);
+  const health = createTaskWorkerHealthWriter(dataDirectory);
   const reportHealthFailure = (error: unknown): void => {
     process.stderr.write(`task-worker health failed: ${errorMessage(error)}\n`);
   };
@@ -473,7 +489,7 @@ export async function startTaskWorker(args: readonly string[]): Promise<void> {
     if (workspaceContext) {
       process.stdout.write(
         "Workspace context enabled for every task claimed by this worker. " +
-        "It reads .runloom/memory.json and .runloom/checkpoint.json without TUI module settings; " +
+        "It reads H/data/memory.json and H/data/checkpoint.json without TUI module settings; " +
         "the bounded snapshot is sent to the configured model and may appear in task results.\n",
       );
     }
@@ -487,7 +503,7 @@ export async function startTaskWorker(args: readonly string[]): Promise<void> {
       runtime: agent.runtime,
       signal: controller.signal,
       ...(workspaceContext
-        ? { loadWorkspaceContext: createTaskWorkerContextLoader(workspaceRoot, taskStore) }
+        ? { loadWorkspaceContext: createTaskWorkerContextLoader(dataDirectory, taskStore) }
         : {}),
       safeRetry,
       todoistPlanningAvailable: todoistOptions !== undefined,
@@ -505,7 +521,7 @@ export async function startTaskWorker(args: readonly string[]): Promise<void> {
         void health.handled(task.id).catch(reportHealthFailure);
         if (task.error !== null) void health.failure(task.error.code, task.error.message).catch(reportHealthFailure);
       },
-      ...(notify ? { notify: createTaskDesktopNotifier(undefined, { workspace: workspaceRoot, ...(notificationHelper === undefined ? {} : { notificationHelperPath: notificationHelper }) }) } : {}),
+      ...(notify ? { notify: createTaskDesktopNotifier(undefined, { workspace: applicationHome, ...(notificationHelper === undefined ? {} : { notificationHelperPath: notificationHelper }) }) } : {}),
     });
   } catch (error) {
     await health.failure("WORKER_FAILED", errorMessage(error)).catch(reportHealthFailure);

@@ -102,7 +102,7 @@ describe("task-worker workspace snapshot", () => {
       for (let index = 0; index < 10; index++) assert.equal((await memory.add({ text: `project snapshot ${index}: ${"x".repeat(1300)}` })).ok, true);
       const all = await memory.list(); assert.ok(all.ok);
       assert.ok(Buffer.byteLength(JSON.stringify(selectInjectableMemoryEntries(all.entries))) > MEMORY_CONTEXT_MAX_BYTES);
-      const context = await createTaskWorkerContextLoader(root, attentionStore(() => undefined))(claimedTask(), new AbortController().signal);
+      const context = await createTaskWorkerContextLoader(join(root, ".runloom"), attentionStore(() => undefined))(claimedTask(), new AbortController().signal);
       const serialized = JSON.stringify(context.referenceMessages);
       assert.match(serialized, /memoryTruncated.*true/);
       assert.doesNotMatch(serialized, /pending secret/);
@@ -115,7 +115,7 @@ describe("task-worker workspace snapshot", () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-worker-context-empty-"));
     try {
       const listCalls: (TaskListInput | undefined)[] = [];
-      const context = await createTaskWorkerContextLoader(root, attentionStore((input) => listCalls.push(input)))(
+      const context = await createTaskWorkerContextLoader(join(root, ".runloom"), attentionStore((input) => listCalls.push(input)))(
         claimedTask(), new AbortController().signal,
       );
       assert.deepEqual(listCalls, [{ inbox: true, status: "attention", limit: TASK_LIST_MAX_LIMIT }]);
@@ -153,7 +153,7 @@ describe("task-worker workspace snapshot", () => {
         },
       });
       assert.equal(checkpoint.ok, true);
-      const context = await createTaskWorkerContextLoader(root, attentionStore(() => undefined))(
+      const context = await createTaskWorkerContextLoader(join(root, ".runloom"), attentionStore(() => undefined))(
         claimedTask(), new AbortController().signal,
       );
       const text = JSON.stringify(context.referenceMessages);
@@ -174,7 +174,7 @@ describe("task-worker workspace snapshot", () => {
       await writeFile(join(root, ".runloom", "memory.json"), "not json");
       let inboxReads = 0;
       await assert.rejects(
-        createTaskWorkerContextLoader(root, attentionStore(() => { inboxReads += 1; }))(
+        createTaskWorkerContextLoader(join(root, ".runloom"), attentionStore(() => { inboxReads += 1; }))(
           claimedTask(), new AbortController().signal,
         ),
       );

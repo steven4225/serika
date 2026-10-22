@@ -46,7 +46,7 @@ test("a frontmost window publishes a hint and blur or quit removes it without to
   assert.equal(await readDesktopFrontmost(other), false);
   assert.equal(visible, true);
   const main = await readFile(new URL("./index.ts", import.meta.url), "utf8");
-  assert.match(main, /installDesktopFrontmostHint\(window, \(\) => host\.info\(\)\.workspaceRoot \?\? null\)/);
+  assert.match(main, /installDesktopFrontmostHint\(window, \(\) => join\(host\.applicationHome, "data"\)\)/);
   assert.match(main, /frontmostHint\?\.stop\(\)/);
 });
 

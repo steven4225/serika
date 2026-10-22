@@ -13,31 +13,32 @@ it("Demo: worker startup evidence belongs to the loaded PID and held lock, not a
   const root = await realpath(await mkdtemp(join(tmpdir(), "serika-worker-version-")));
   const workspace = join(root, "workspace"), envFile = join(root, "worker.env"), entry = join(root, "worker.js");
   await mkdir(workspace); await writeFile(envFile, "RUNLOOM_MODEL=mock\n"); await writeFile(entry, "// fixture");
-  const lock = await acquireFlock(join(workspace, TASK_WORKER_LOCK_FILE_NAME));
+  await mkdir(join(workspace, "data"));
+  const lock = await acquireFlock(join(workspace, "data", TASK_WORKER_LOCK_FILE_NAME));
   const startedAt = "2026-10-10T00:00:00.000Z";
   const calls: string[][] = [];
-  const args = [await realpath(process.execPath), `--env-file=${envFile}`, entry, "--workspace", workspace, "--notify", "--rss"];
-  const worker = createDesktopRssWorker({ workspace, home: root, workerEntry: entry, platform: "darwin",
+  const args = [await realpath(process.execPath), `--env-file=${envFile}`, entry, "--home", workspace, "--workspace", workspace, "--notify", "--rss"];
+  const worker = createDesktopRssWorker({ applicationHome: workspace, workspace, home: root, workerEntry: entry, platform: "darwin",
     env: { RUNLOOM_WORKER_NODE: process.execPath, RUNLOOM_WORKER_ENV_FILE: envFile },
     runner: async (_file, arguments_) => { calls.push(arguments_); return { exitCode: 0,
       stdout: `pid = 123\narguments = {\n${args.join("\n")}\n}\n`, stderr: "" }; } });
   try {
-    await createTaskWorkerHealthWriter(workspace, { pid: 123, now: () => new Date(startedAt) }).heartbeat();
+    await createTaskWorkerHealthWriter(join(workspace, "data"), { pid: 123, now: () => new Date(startedAt) }).heartbeat();
     const live = await worker.status(); assert.ok(live.ok);
     assert.equal(live.processStartedAt, startedAt);
     assert.equal((await worker.automationStatus()).ready, true);
-    await createTaskWorkerHealthWriter(workspace, { pid: 456, now: () => new Date(startedAt) }).heartbeat();
+    await createTaskWorkerHealthWriter(join(workspace, "data"), { pid: 456, now: () => new Date(startedAt) }).heartbeat();
     const foreign = await worker.status(); assert.ok(foreign.ok); assert.equal(foreign.processStartedAt, null);
     assert.equal((await worker.automationStatus()).ready, false, "launchd running alone is not ready");
     await lock.release();
-    await createTaskWorkerHealthWriter(workspace, { pid: 123, now: () => new Date(startedAt) }).heartbeat();
+    await createTaskWorkerHealthWriter(join(workspace, "data"), { pid: 123, now: () => new Date(startedAt) }).heartbeat();
     const stale = await worker.status(); assert.ok(stale.ok); assert.equal(stale.processStartedAt, null);
     assert.ok(calls.every(call => call[0] === "print"), "diagnostics cannot start/stop the service");
   } finally { await lock.release(); await rm(root, { recursive: true, force: true }); }
 });
 
 it("desktop service never starts implicitly, rejects IPC paths/options and requires trusted credential-file paths", async () => {
-  const worker = createDesktopRssWorker({ workspace: "/private/tmp/test", home: "/private/tmp/home", env: { COMMAND_CODE_API_KEY: "SECRET_FIXTURE" }, workerEntry: "/private/tmp/entry.js", platform: "darwin" });
+  const worker = createDesktopRssWorker({ applicationHome: "/tmp/serika-test-home", workspace: "/private/tmp/test", home: "/private/tmp/home", env: { COMMAND_CODE_API_KEY: "SECRET_FIXTURE" }, workerEntry: "/private/tmp/entry.js", platform: "darwin" });
   const invalid = await worker.setEnabled({ enabled: true, nodePath: "/untrusted" });
   assert(!invalid.ok);
   const status = await worker.status(); assert(!status.ok);
@@ -60,7 +61,7 @@ it("desktop worker status distinguishes registration from configured notificatio
       ["pid = 123\n--notify\n--notification-helper\n/unexpected/helper\n", 0, true, false],
       [`pid = 123\n--notify\n--notification-helper\n${helper}\n`, 0, true, true],
     ] as const) {
-      const worker = createDesktopRssWorker({ workspace: root, home: root, workerEntry: join(root, "entry.js"), platform: "darwin",
+      const worker = createDesktopRssWorker({ applicationHome: root, workspace: root, home: root, workerEntry: join(root, "entry.js"), platform: "darwin",
         env: { RUNLOOM_WORKER_NODE: process.execPath, RUNLOOM_WORKER_ENV_FILE: envFile, RUNLOOM_NOTIFICATION_HELPER: helper },
         runner: async () => ({ stdout, exitCode, stderr: "SECRET_FIXTURE" }) });
       const result = await worker.status();
@@ -79,7 +80,7 @@ it("arrangement readiness never upgrades an incompatible registered service or a
   await writeFile(envFile, "RUNLOOM_MODEL=mock\n");
   let commands = 0;
   try {
-    const options = { workspace: root, home: root, workerEntry: join(root, "entry.js"), platform: "darwin" as const,
+    const options = { applicationHome: root, workspace: root, home: root, workerEntry: join(root, "entry.js"), platform: "darwin" as const,
       env: { RUNLOOM_WORKER_NODE: process.execPath, RUNLOOM_WORKER_ENV_FILE: envFile, TODOIST_API_TOKEN: "DESKTOP_ONLY_FIXTURE" }, todoist: true };
     const incompatible = createDesktopRssWorker({ ...options, runner: async () => {
       commands++; return { exitCode: 0, stdout: "pid = 123\n--rss\n", stderr: "" };
@@ -103,7 +104,7 @@ it("rejects an already registered service bound to another config without replac
   await writeFile(configPath, "{}");
   const calls: string[][] = [];
   try {
-    const worker = createDesktopRssWorker({ workspace: join(root, "workspace"), configPath, home: root, workerEntry: join(root, "entry.js"), platform: "darwin",
+    const worker = createDesktopRssWorker({ applicationHome: root, workspace: join(root, "workspace"), configPath, home: root, workerEntry: join(root, "entry.js"), platform: "darwin",
       env: { RUNLOOM_WORKER_NODE: process.execPath, RUNLOOM_WORKER_ENV_FILE: envFile },
       runner: async (_file, args) => { calls.push(args); return { exitCode: 0, stdout: "pid = 123\n--notify\n--rss\n--config\n/another/config.json\n", stderr: "" }; } });
     const status = await worker.automationStatus();
@@ -131,7 +132,7 @@ it("does not canonicalize a symlink config and accidentally start another relati
     const foreground = await resolveTuiModuleConfig({ configPath }, { cwd: root });
     assert.equal(foreground.configPath, configPath);
     assert.equal(foreground.workspaceRoot, workspace, "foreground workspace is relative to the explicit config directory");
-    const worker = createDesktopRssWorker({ workspace, configPath, home: root, workerEntry: join(root, "entry.js"), platform: "darwin",
+    const worker = createDesktopRssWorker({ applicationHome: workspace, workspace, configPath, home: root, workerEntry: join(root, "entry.js"), platform: "darwin",
       env: { RUNLOOM_WORKER_NODE: process.execPath, RUNLOOM_WORKER_ENV_FILE: envFile },
       runner: async () => { calls++; return { exitCode: 113, stdout: "", stderr: "" }; } });
     const status = await worker.automationStatus();
@@ -157,9 +158,9 @@ it("explicit service enable writes the same trusted config path into worker argu
   let registered = false;
   let plist = "";
   const nodePath = await realpath(process.execPath);
-  const argumentsLines = [nodePath, `--env-file=${envFile}`, entry, "--workspace", workspace, "--config", configPath, "--notify", "--rss"];
+  const argumentsLines = [nodePath, `--env-file=${envFile}`, entry, "--home", workspace, "--workspace", workspace, "--config", configPath, "--notify", "--rss"];
   try {
-    const worker = createDesktopRssWorker({ workspace, configPath, home: root, workerEntry: entry, platform: "darwin",
+    const worker = createDesktopRssWorker({ applicationHome: workspace, workspace, configPath, home: root, workerEntry: entry, platform: "darwin",
       env: { RUNLOOM_WORKER_NODE: process.execPath, RUNLOOM_WORKER_ENV_FILE: envFile },
       runner: async (_file, args) => {
         if (args[0] === "bootstrap") { plist = await readFile(args[2]!, "utf8"); registered = true; return { exitCode: 0, stdout: "", stderr: "" }; }
@@ -182,13 +183,13 @@ it("checks the loaded launchctl cache against exact trusted paths and RSS/Todois
   const nodePath = await realpath(process.execPath);
   await writeFile(envFile, "RUNLOOM_MODEL=mock\nTODOIST_API_TOKEN=WORKER_ONLY_FIXTURE\n");
   await writeFile(configPath, "{}");
-  const expected = [nodePath, `--env-file=${envFile}`, entry, "--workspace", workspace, "--config", configPath, "--notify", "--todoist", "--rss"];
+  const expected = [nodePath, `--env-file=${envFile}`, entry, "--home", workspace, "--workspace", workspace, "--config", configPath, "--notify", "--todoist", "--rss"];
   const different = (index: number, value: string) => expected.map((arg, i) => i === index ? value : arg);
   try {
     for (const args of [expected, different(0, "/other/node"), different(1, "--env-file=/other/key.env"), different(2, "/other/worker.js"),
       expected.filter(arg => arg !== "--rss"), expected.filter(arg => arg !== "--todoist"), [...expected, "--safe-retry"], [...expected, "--workspace-context"], [...expected, "--rss"]]) {
       const calls: string[] = [];
-      const worker = createDesktopRssWorker({ workspace, configPath, home: root, workerEntry: entry, todoist: true, platform: "darwin",
+      const worker = createDesktopRssWorker({ applicationHome: workspace, workspace, configPath, home: root, workerEntry: entry, todoist: true, platform: "darwin",
         env: { RUNLOOM_WORKER_NODE: nodePath, RUNLOOM_WORKER_ENV_FILE: envFile },
         runner: async (_file, command) => { calls.push(command[0]!); return { exitCode: 0, stdout: `pid = 123\narguments = {\n${args.join("\n")}\n}\n`, stderr: "PRIVATE_FIXTURE" }; } });
       const status = await worker.automationStatus();
@@ -207,7 +208,7 @@ it("checks the loaded launchctl cache against exact trusted paths and RSS/Todois
       }
       assert.equal(calls.every(command => command === "print"), true, "status and mismatch admission do not change launchd");
     }
-    const tokenAbsent = createDesktopRssWorker({ workspace, configPath, home: root, workerEntry: entry, todoist: false, platform: "darwin",
+    const tokenAbsent = createDesktopRssWorker({ applicationHome: workspace, workspace, configPath, home: root, workerEntry: entry, todoist: false, platform: "darwin",
       env: { RUNLOOM_WORKER_NODE: nodePath, RUNLOOM_WORKER_ENV_FILE: envFile },
       runner: async () => ({ exitCode: 0, stdout: `arguments = {\n${expected.join("\n")}\n}\n`, stderr: "" }) });
     assert.equal((await tokenAbsent.automationStatus()).available, false, "an unexpected enabled Todoist flag is incompatible too");

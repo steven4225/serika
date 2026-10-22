@@ -11,7 +11,7 @@ import { TelegramGateway } from "./telegram-gateway.js";
 import { TelegramStore } from "./telegram-store.js";
 import { TelegramApiError, createTelegramApi, type TelegramApi, type TelegramUpdate } from "./telegram-api.js";
 import { createTaskStore } from "@serika/assistant";
-import { TASK_FILE_NAME, RSS_DIGEST_TASK_PROMPT } from "@serika/assistant/testing";
+import { RSS_DIGEST_TASK_PROMPT } from "@serika/assistant/testing";
 import { formatLocalTaskTime } from "@serika/assistant";
 
 function response(tool?: { name: string; input: unknown }, text = "已完成请求。", callId = "call-1") {
@@ -57,15 +57,15 @@ it("TG capability queries never present cached registration as current during ru
 });
 async function fixture(stream: (call: number, prompt?: string) => Promise<ReturnType<typeof response>> = async () => response(), backgroundReady = true, shellEnabled = false) {
   const root = await realpath(await mkdtemp(join(tmpdir(), "serika-telegram-unit-")));
-  const workspace = join(root, "workspace"), userData = join(root, "profile"), configPath = join(root, "config.json");
+  const workspace = join(root, "workspace"), applicationHome = join(root, "profile"), configPath = join(root, "config.json");
   await mkdir(workspace);
   await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { "read-file": { enabled: true }, memory: { enabled: false }, shell: { enabled: shellEnabled }, task: { enabled: true } } }));
   let calls = 0;
   let time = Date.now(), activations = 0;
-  const host = await DesktopRuntime.create({ userData, cwd: root, env: { RUNLOOM_CONFIG: configPath }, modelAlias: "mock",
+  const host = await DesktopRuntime.create({ applicationHome, cwd: root, env: { RUNLOOM_CONFIG: configPath }, modelAlias: "mock",
     model: new MockLanguageModelV3({ doStream: async ({ prompt }) => stream(++calls, JSON.stringify(prompt)) }), send: () => {},
     taskAutomation: { status: async () => ({ available: true, registered: true, running: backgroundReady, ready: backgroundReady, todoistPlanningAvailable: false }), enable: async () => { activations++; return { enabled: backgroundReady, ready: backgroundReady }; } } });
-  const store = new TelegramStore(join(root, "private", "telegram.json"), host.info().workspaceRoot!);
+  const store = new TelegramStore(join(applicationHome, "resident", "telegram.json"), applicationHome);
   await store.load();
   const sent: string[] = [];
   const keyboards: { messageId: number; markup: unknown }[] = [], answered: string[] = [];
@@ -135,7 +135,7 @@ it("package2: phone button saves one reminder, emits host readback, and delivers
     const route = f.store.snapshot().routes[0]!;
     await f.gateway.receive(callback(4, allow, approval.messageId!));
     assert.equal(f.activations(), 1);
-    const tasks = createTaskStore(join(f.workspace, ".runloom/tasks.json"), { now: () => Date.now() + 180_000 });
+    const tasks = createTaskStore(join(f.root, "profile", "data/tasks.json"), { now: () => Date.now() + 180_000 });
     const claimed = await tasks.claimNextDue(); assert(claimed.ok && claimed.value);
     assert.equal(claimed.value.id, route.id);
     const finished = await tasks.finish(route.id, { status: "completed", execution: "deterministic", runId: null, resultText: "手机按钮提醒到点了", notification: true }); assert(finished.ok);
@@ -195,7 +195,7 @@ it("package2: saved reminder retains the background-unavailable warning and surv
     assert.doesNotMatch(result.text, /保证准点/);
     assert.equal(f.store.snapshot().routes.length, 1, "save and delivery route survive unavailable worker");
     await f.gateway.close();
-    const sends = f.sends(), store = new TelegramStore(f.store.path, f.workspace); await store.load();
+    const sends = f.sends(), store = new TelegramStore(f.store.path, f.store.workspace); await store.load();
     assert.ok(store.snapshot().inputs.find(x => x.key === "42:2")?.reminderReceipts?.[0]?.text.includes("后台当前不可用"));
     restarted = new TelegramGateway(f.host, store, f.api); await restarted.initialize(); await restarted.start();
     await restarted.receive(callback(4, `allow:${code}`, approval.messageId!));
@@ -273,7 +273,7 @@ it("package2: uncertain reminder commit is reported as unknown, not unsaved, and
     await until(() => f.store.snapshot().deliveries.some(x => x.key.startsWith("approval:") && x.state === "submitted"));
     const approval = f.store.snapshot().deliveries.find(x => x.key.startsWith("approval:"))!;
     const code = /允许 ([A-F0-9]{10})/.exec(approval.text)![1]!;
-    const directory = join(f.workspace, ".runloom"), target = await stat(directory);
+    const directory = join(f.root, "profile", "data"), target = await stat(directory);
     const probe = await open(directory, "r"), prototype = Object.getPrototypeOf(probe), originalSync = prototype.sync;
     await probe.close(); let injected = false;
     const fault = t.mock.method(prototype, "sync", async function (this: typeof probe) {
@@ -291,11 +291,11 @@ it("package2: uncertain reminder commit is reported as unknown, not unsaved, and
     const result = f.store.snapshot().deliveries.find(x => x.key === "result:42:2")!;
     assert.match(result.text, /保存结果未知/); assert.doesNotMatch(result.text, /这条提醒未保存|模型虚报成功/);
     assert.equal(f.store.snapshot().inputs.find(x => x.key === "42:2")?.state, "unknown");
-    const saved = await createTaskStore(join(f.workspace, ".runloom/tasks.json")).list({ limit: 50 }); assert(saved.ok);
+    const saved = await createTaskStore(join(f.root, "profile", "data/tasks.json")).list({ limit: 50 }); assert(saved.ok);
     assert.equal(saved.value.tasks.length, 1, "rename happened even though acknowledgement failed");
     await f.gateway.receive(callback(4, `allow:${code}`, approval.messageId!));
     assert.equal(f.activations(), 0); assert.equal(f.calls(), 1);
-    const after = await createTaskStore(join(f.workspace, ".runloom/tasks.json")).list({ limit: 50 }); assert(after.ok && after.value.tasks.length === 1);
+    const after = await createTaskStore(join(f.root, "profile", "data/tasks.json")).list({ limit: 50 }); assert(after.ok && after.value.tasks.length === 1);
   } finally { await f.cleanup(); }
 });
 
@@ -317,7 +317,7 @@ for (const outcome of ["not_sent", "unknown"] as const) {
       if (outcome === "not_sent") await f.gateway.retryDelivery(result.key);
       else await assert.rejects(f.gateway.retryDelivery(result.key), /未知/);
       assert.equal(f.activations(), 1); assert.equal(f.calls(), 2);
-      const saved = await createTaskStore(join(f.workspace, ".runloom/tasks.json")).list({ limit: 50 }); assert(saved.ok && saved.value.tasks.length === 1);
+      const saved = await createTaskStore(join(f.root, "profile", "data/tasks.json")).list({ limit: 50 }); assert(saved.ok && saved.value.tasks.length === 1);
     } finally { await f.cleanup(); }
   });
 }
@@ -346,7 +346,7 @@ it("formatted multipart result retries only the definitely rejected part after r
     await assert.rejects(f.gateway.retryDelivery(key), /限流/);
     const firstText = before.parts![0]!.text;
     await f.gateway.close(); f.advanceTime(2000);
-    const store = new TelegramStore(f.store.path, f.workspace); await store.load();
+    const store = new TelegramStore(f.store.path, f.store.workspace); await store.load();
     restarted = new TelegramGateway(f.host, store, f.api, f.now); await restarted.initialize(); await restarted.start();
     assert.equal(resultSends, 2, 'definite failures also require explicit retry');
     await restarted.retryDelivery(key);
@@ -372,7 +372,7 @@ it("an ambiguous multipart send stops remaining parts and stays blocked after re
     const delivery = f.store.snapshot().deliveries.find(x => x.key === key)!;
     assert.deepEqual(delivery.parts!.slice(0, 3).map(x => x.state), ['submitted', 'unknown', 'pending']);
     await f.gateway.close();
-    const store = new TelegramStore(f.store.path, f.workspace); await store.load();
+    const store = new TelegramStore(f.store.path, f.store.workspace); await store.load();
     restarted = new TelegramGateway(f.host, store, f.api); await restarted.initialize(); await restarted.start();
     await assert.rejects(restarted.retryDelivery(key), /未知/);
     assert.equal(attempts, 2);
@@ -387,7 +387,7 @@ it("a crash in a persisted part dispatch does not restore send permission", asyn
     await f.store.update(data => data.deliveries.push({ key: 'result:crash', chatId: 42, text: 'long', state: 'sending', messageId: 9,
       parts: [{ text: '1/3\nfirst', state: 'submitted', messageId: 9 }, { text: '2/3\nsecond', state: 'sending', messageId: null }, { text: '3/3\nthird', state: 'pending', messageId: null }] }));
     const sends = f.sends();
-    const store = new TelegramStore(f.store.path, f.workspace); await store.load();
+    const store = new TelegramStore(f.store.path, f.store.workspace); await store.load();
     restarted = new TelegramGateway(f.host, store, f.api); await restarted.initialize(); await restarted.start();
     assert.equal(store.snapshot().deliveries.at(-1)!.state, 'unknown');
     assert.equal(store.snapshot().deliveries.at(-1)!.parts![1]!.state, 'unknown');
@@ -465,7 +465,7 @@ for (const scenario of [
 
 async function savedReminder(f: Awaited<ReturnType<typeof fixture>>, route = true) {
   let clock = Date.now();
-  const tasks = createTaskStore(join(f.workspace, ".runloom/tasks.json"), { now: () => clock });
+  const tasks = createTaskStore(join(f.root, "profile", "data/tasks.json"), { now: () => clock });
   const created = await tasks.create({ prompt: "提醒测试", runAt: new Date(clock + 60_000).toISOString(), arrangement: reminder });
   assert(created.ok);
   if (route) await f.gateway.setTaskRoute({ id: created.value.id, kind: "once", enabled: true });
@@ -492,7 +492,7 @@ it("approved Telegram arrangement saves the exact destination before worker acti
     const route = f.store.snapshot().routes[0]!;
     assert.equal(route.sourceRunId, f.store.snapshot().inputs.find(x => x.key === "42:2")!.runId);
     assert.equal(route.chatId, 42);
-    const saved = await createTaskStore(join(f.workspace, ".runloom/tasks.json")).get(route.id); assert(saved.ok && saved.value?.status === "scheduled");
+    const saved = await createTaskStore(join(f.root, "profile", "data/tasks.json")).get(route.id); assert(saved.ok && saved.value?.status === "scheduled");
     assert.equal(f.activations(), 1);
     await f.gateway.receive(update(4, `允许 ${code}`));
     assert.equal(f.store.snapshot().routes.length, 1);
@@ -523,7 +523,7 @@ it("a definite send failure can retry only delivery; concurrent, unknown and sta
   const f = await fixture();
   try {
     await f.bind(); const job = await savedReminder(f); await job.finish();
-    const before = await readFile(join(f.workspace, TASK_FILE_NAME), "utf8");
+    const before = await readFile(join(f.root, "profile", "data/tasks.json"), "utf8");
     f.failSend(new TelegramApiError("403", "not_sent"));
     await f.gateway.collectScheduledResults();
     const key = `scheduled:${job.id}`;
@@ -533,7 +533,7 @@ it("a definite send failure can retry only delivery; concurrent, unknown and sta
     const outcomes = await Promise.allSettled([f.gateway.retryDelivery(key), f.gateway.retryDelivery(key)]);
     assert.equal(outcomes.filter(x => x.status === "fulfilled").length, 1);
     assert.equal(f.sends(), sends + 1);
-    assert.equal(await readFile(join(f.workspace, TASK_FILE_NAME), "utf8"), before);
+    assert.equal(await readFile(join(f.root, "profile", "data/tasks.json"), "utf8"), before);
     assert.equal(f.calls(), 0);
     const unknown = await savedReminder(f); await unknown.finish();
     f.failSend(new TelegramApiError("NETWORK", "unknown")); await f.gateway.collectScheduledResults();
@@ -571,7 +571,7 @@ it("reopening reconstructs a missing pending result from TaskStore without calli
   try {
     await f.bind(); const job = await savedReminder(f); await job.finish();
     await f.gateway.close();
-    const store = new TelegramStore(f.store.path, f.workspace); await store.load();
+    const store = new TelegramStore(f.store.path, f.store.workspace); await store.load();
     restored = new TelegramGateway(f.host, store, f.api); await restored.initialize();
     await until(() => store.snapshot().deliveries.find(x => x.key === `scheduled:${job.id}`)?.state === "submitted");
     assert.equal(f.calls(), 0);
@@ -584,7 +584,7 @@ it("recurring opt-in excludes old history, pages past 50, and respects the persi
   try {
     await f.bind();
     let clock = Date.now();
-    const tasks = createTaskStore(join(f.workspace, ".runloom/tasks.json"), { now: () => clock });
+    const tasks = createTaskStore(join(f.root, "profile", "data/tasks.json"), { now: () => clock });
     const saved = await tasks.createRecurring({ prompt: RSS_DIGEST_TASK_PROMPT, recurrence: { kind: "daily", time: "08:00", utcOffset: "+08:00" },
       arrangement: { kind: "rss-digest", source: "existing-rss-binding", notification: "new-items", declarationVersion: 1 } }); assert(saved.ok);
     clock += 86_400_000;
@@ -616,7 +616,7 @@ it("recurring delivery survives over 1000 occurrences, persists scan progress an
   try {
     await f.bind();
     let clock = Date.now();
-    const tasks = createTaskStore(join(f.workspace, ".runloom/tasks.json"), { now: () => clock });
+    const tasks = createTaskStore(join(f.root, "profile", "data/tasks.json"), { now: () => clock });
     const saved = await tasks.createRecurring({ prompt: "reminder", recurrence: { kind: "daily", time: "08:00", utcOffset: "+08:00" }, arrangement: reminder }); assert(saved.ok);
     await f.gateway.setTaskRoute({ id: saved.value.id, kind: "recurring", enabled: true });
     clock += 86_400_000;
@@ -773,7 +773,7 @@ it("restart cancels queued stale confirmation sends, preserves ambiguous sends a
         { key: "approval:old:CCCCCCCCCC", chatId: 42, text: "ambiguous confirmation", state: "sending", messageId: null },
         { key: "result:pending", chatId: 42, text: "saved result", state: "pending", messageId: null });
     });
-    const store = new TelegramStore(f.store.path, f.workspace); await store.load();
+    const store = new TelegramStore(f.store.path, f.store.workspace); await store.load();
     restarted = new TelegramGateway(f.host, store, f.api); await restarted.initialize();
     await until(() => store.snapshot().deliveries.find(x => x.key === "result:pending")?.state === "submitted");
     assert.equal(store.snapshot().deliveries.find(x => x.key.endsWith("AAAAAAAAAA"))?.state, "cancelled");
@@ -823,7 +823,7 @@ it("recovering an input with a terminal receipt does not resend its archived sub
     });
     assert(await f.store.hasDelivery("result:42:2"));
     assert(!f.store.snapshot().deliveries.some(x => x.key === "result:42:2"));
-    const store = new TelegramStore(f.store.path, f.workspace); await store.load();
+    const store = new TelegramStore(f.store.path, f.store.workspace); await store.load();
     restarted = new TelegramGateway(f.host, store, f.api); await restarted.initialize();
     await until(() => restarted!.status().connection === "online");
     await until(() => store.snapshot().inputs.find(x => x.key === "42:2")?.state === "finished");
@@ -849,7 +849,7 @@ it("a full legacy journal resumes continuous channel traffic, preserves unresolv
       state: n === 0 ? "pending" : n === 1 ? "unknown" : n === 2 ? "failed" : n === 3 ? "sending" : "submitted",
       messageId: n < 4 ? null : n + 1 }));
     await writeFile(f.store.path, JSON.stringify(data), { mode: 0o600 });
-    let store = new TelegramStore(f.store.path, f.workspace); await store.load();
+    let store = new TelegramStore(f.store.path, f.store.workspace); await store.load();
     active = new TelegramGateway(f.host, store, f.api); await active.initialize();
     await until(() => active!.status().connection === "online" && store.snapshot().deliveries.find(x => x.key === "result:legacy-0")?.state === "submitted");
     assert.equal(active.status().awaitingReview, 1);
@@ -868,7 +868,7 @@ it("a full legacy journal resumes continuous channel traffic, preserves unresolv
     assert(await store.hasInput("42:3")); assert(!store.snapshot().inputs.some(x => x.key === "42:3"));
     const sends = f.sends();
     await active.close();
-    store = new TelegramStore(f.store.path, f.workspace); await store.load();
+    store = new TelegramStore(f.store.path, f.store.workspace); await store.load();
     active = new TelegramGateway(f.host, store, f.api); await active.initialize();
     await until(() => active!.status().connection === "online");
     await active.receive(update(5006, "duplicate old message", 42, "private", 3));
@@ -1267,8 +1267,8 @@ it("TG grant survives host restart but never authorizes a changed bot/user/chat/
     assert.equal(cancelled?.tools[0]?.status, "unknown");
     await f.host.shutdown();
     let modelCalls = 0;
-    restarted = await DesktopRuntime.create({ userData: join(f.root, "profile"), cwd: f.root, env: { RUNLOOM_CONFIG: join(f.root, "config.json") }, modelAlias: "mock", model: new MockLanguageModelV3({ doStream: async () => { modelCalls++; return response({ name: "shell_exec", input: { command: "touch desktop-must-not-run", cwd: "." } }); } }), send: () => {} });
-    const store = new TelegramStore(f.store.path, f.workspace); await store.load();
+    restarted = await DesktopRuntime.create({ applicationHome: join(f.root, "profile"), cwd: f.root, env: { RUNLOOM_CONFIG: join(f.root, "config.json") }, modelAlias: "mock", model: new MockLanguageModelV3({ doStream: async () => { modelCalls++; return response({ name: "shell_exec", input: { command: "touch desktop-must-not-run", cwd: "." } }); } }), send: () => {} });
+    const store = new TelegramStore(f.store.path, f.store.workspace); await store.load();
     const gateway = new TelegramGateway(restarted, store, f.api, f.now); restarted.attachTelegram(gateway); await gateway.initialize(); await gateway.start();
     assert.equal(gateway.status().autonomyEnabled, true); assert.equal(modelCalls, 0);
     assert.equal((await restarted.channelReceipt(owner.threadId, input.runId!))?.tools[0]?.status, "unknown");
@@ -1288,8 +1288,8 @@ it("TG independent authority crosses the resident socket with identity CAS, with
   let server: Awaited<ReturnType<typeof startResidentServer>> | undefined;
   try {
     await f.bind(); const owner = f.store.snapshot().owner!;
-    const scope = { userData: join(f.root, "profile"), configPath: join(f.root, "config.json"), workspaceRoot: f.workspace };
-    const paths = createResidentPaths(scope.userData, join(f.root, "host.sock"));
+    const scope = { applicationHome: join(f.root, "profile"), configPath: join(f.root, "config.json"), workspaceRoot: f.workspace };
+    const paths = createResidentPaths(scope.applicationHome, join(f.root, "host.sock"));
     server = await startResidentServer({ paths, scope, createRuntime: async () => f.host });
     client = await ResidentClient.connect({ paths, scope, send: () => {} });
     const input = { enabled: true, expectedEnabled: false, expectedOwner: { userId: owner.userId, chatId: owner.chatId, threadId: owner.threadId } };

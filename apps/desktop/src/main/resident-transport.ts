@@ -9,8 +9,8 @@ import type { Send } from "./runtime-bridge.js";
 import { safeStartupError } from "./desktop-env.js";
 
 export interface ResidentPaths { directory: string; socket: string; token: string }
-export function createResidentPaths(userData: string, socketOverride?: string): ResidentPaths {
-  const directory = join(resolve(userData), "resident");
+export function createResidentPaths(applicationHome: string, socketOverride?: string): ResidentPaths {
+  const directory = join(resolve(applicationHome), "resident");
   return { directory, socket: socketOverride ?? join(directory, "runtime.sock"), token: join(directory, "auth-token") };
 }
 async function privateEntry(path: string, directory: boolean): Promise<void> {
@@ -40,7 +40,7 @@ function equalSecret(a: unknown, b: string): boolean {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 function sameScope(a: ResidentScope, b: ResidentScope): boolean {
-  return !!a && typeof a === "object" && ["userData", "configPath", "workspaceRoot"].every(key =>
+  return !!a && typeof a === "object" && ["applicationHome", "configPath"].every(key =>
     typeof a[key as keyof ResidentScope] === "string" && resolve(a[key as keyof ResidentScope]) === resolve(b[key as keyof ResidentScope]));
 }
 function sendFrame(socket: Socket, frame: ResidentServerFrame | ResidentClientFrame): void {
@@ -207,7 +207,7 @@ export async function startResidentServer(options: {
     await chmod(options.paths.socket, 0o600);
     runtime = await options.createRuntime(send);
     const info = runtime.info();
-    if (!info.configPath || !info.workspaceRoot || resolve(info.configPath) !== resolve(options.scope.configPath) || resolve(info.workspaceRoot) !== resolve(options.scope.workspaceRoot)) throw new Error("助手实际配置与常驻服务身份不匹配");
+    if (!info.configPath || resolve(info.configPath) !== resolve(options.scope.configPath)) throw new Error("助手实际配置与常驻服务身份不匹配");
     state();
   } catch (error) {
     for (const client of connections) client.destroy();

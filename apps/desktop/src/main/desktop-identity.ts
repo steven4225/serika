@@ -28,10 +28,10 @@ interface DesktopProfile {
   configPath: string; workspaceRoot: string | null; activeThreadId: string; threads: DesktopThread[];
 }
 interface IdentityRegistry { version: 2; profiles: DesktopProfile[] }
-type IdentityOptions = { userData: string; configPath: string; workspaceRoot: string | null; cwd: string };
+type IdentityOptions = { applicationHome: string; configPath: string; workspaceRoot: string | null; cwd: string };
 
-async function readRegistry(userData: string): Promise<IdentityRegistry> {
-  const path = join(userData, "desktop-identity.json");
+async function readRegistry(applicationHome: string): Promise<IdentityRegistry> {
+  const path = join(applicationHome, "desktop", "desktop-identity.json");
   try {
     const parsed: unknown = JSON.parse(await readFile(path, "utf8"));
     if (isIdentity(parsed)) return { version: 2, profiles: [{ configPath: parsed.configPath, workspaceRoot: parsed.workspaceRoot,
@@ -42,7 +42,7 @@ async function readRegistry(userData: string): Promise<IdentityRegistry> {
       new Set(profile.threads.map(thread => thread.threadId)).size !== profile.threads.length ||
       !profile.threads.some(thread => thread.threadId === profile.activeThreadId) ||
       profile.threads.some(thread => !isIdentity({ version: 1, ...profile, ...thread })))) throw new Error("Invalid identity registry");
-    if (new Set(registry.profiles.map(profile => JSON.stringify([profile.configPath, profile.workspaceRoot]))).size !== registry.profiles.length) throw new Error("Duplicate identity profiles");
+    if (new Set(registry.profiles.map(profile => JSON.stringify([profile.configPath]))).size !== registry.profiles.length) throw new Error("Duplicate identity profiles");
     return registry;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return { version: 2, profiles: [] };
@@ -50,33 +50,33 @@ async function readRegistry(userData: string): Promise<IdentityRegistry> {
   }
 }
 
-async function writeRegistry(userData: string, registry: IdentityRegistry): Promise<void> {
+async function writeRegistry(applicationHome: string, registry: IdentityRegistry): Promise<void> {
   if (registry.profiles.length > 32 || registry.profiles.some(profile => profile.threads.length > 100)) throw new Error("Conversation list is full");
-  await mkdir(userData, { recursive: true });
-  const identityPath = join(userData, "desktop-identity.json");
+  await mkdir(join(applicationHome, "desktop"), { recursive: true });
+  const identityPath = join(applicationHome, "desktop", "desktop-identity.json");
   const temporaryPath = `${identityPath}.${randomUUID()}.tmp`;
   try {
     const file = await open(temporaryPath, "wx", 0o600);
     try { await file.writeFile(`${JSON.stringify(registry, null, 2)}\n`); await file.sync(); } finally { await file.close(); }
     await rename(temporaryPath, identityPath);
-    if (process.platform !== "win32") { const directory = await open(userData, "r"); try { await directory.sync(); } finally { await directory.close(); } }
+    if (process.platform !== "win32") { const directory = await open(join(applicationHome, "desktop"), "r"); try { await directory.sync(); } finally { await directory.close(); } }
   } finally {
     await unlink(temporaryPath).catch((error: NodeJS.ErrnoException) => { if (error.code !== "ENOENT") throw error; });
   }
 }
 
 function findProfile(registry: IdentityRegistry, options: IdentityOptions): DesktopProfile | undefined {
-  return registry.profiles.find(profile => profile.configPath === resolve(options.cwd, options.configPath) && profile.workspaceRoot === options.workspaceRoot);
+  return registry.profiles.find(profile => profile.configPath === resolve(options.cwd, options.configPath));
 }
 
 export async function listDesktopThreads(options: IdentityOptions): Promise<DesktopThread[]> {
-  return findProfile(await readRegistry(options.userData), options)?.threads ?? [];
+  return findProfile(await readRegistry(options.applicationHome), options)?.threads ?? [];
 }
 
 /** Called only after the renderer explicitly confirms this directory belongs to this workspace. */
 export async function registerDesktopThread(options: IdentityOptions, thread: DesktopThread): Promise<void> {
   if (!isIdentity({ version: 1, configPath: resolve(options.cwd, options.configPath), workspaceRoot: options.workspaceRoot, ...thread })) throw new Error("Invalid conversation identity");
-  const registry = await readRegistry(options.userData);
+  const registry = await readRegistry(options.applicationHome);
   let profile = findProfile(registry, options);
   if (!profile) {
     profile = { configPath: resolve(options.cwd, options.configPath), workspaceRoot: options.workspaceRoot, activeThreadId: thread.threadId, threads: [] };
@@ -85,48 +85,48 @@ export async function registerDesktopThread(options: IdentityOptions, thread: De
   const existing = profile.threads.find(item => item.threadId === thread.threadId);
   if (existing && existing.transcriptDirectory !== thread.transcriptDirectory) throw new Error("This Thread is already registered from a different directory");
   if (!existing) profile.threads.push({ threadId: thread.threadId, transcriptDirectory: thread.transcriptDirectory });
-  await writeRegistry(options.userData, registry);
+  await writeRegistry(options.applicationHome, registry);
 }
 
 export async function selectDesktopThread(options: IdentityOptions, threadId: string): Promise<DesktopIdentityResolution> {
-  const registry = await readRegistry(options.userData);
+  const registry = await readRegistry(options.applicationHome);
   const profile = findProfile(registry, options);
   const thread = profile?.threads.find(item => item.threadId === threadId);
   if (!profile || !thread) throw new Error("Conversation is not registered in this workspace");
   profile.activeThreadId = threadId;
-  await writeRegistry(options.userData, registry);
-  return { version: 1, configPath: profile.configPath, workspaceRoot: profile.workspaceRoot, ...thread, identitySource: "saved" };
+  await writeRegistry(options.applicationHome, registry);
+  return { version: 1, configPath: profile.configPath, workspaceRoot: options.workspaceRoot, ...thread, identitySource: "saved" };
 }
 
 export async function createDesktopThread(options: IdentityOptions): Promise<DesktopThread> {
   const threadId = randomUUID();
-  const thread = { threadId, transcriptDirectory: join(options.userData, "transcripts", threadId) };
+  const thread = { threadId, transcriptDirectory: join(options.applicationHome, "transcripts", threadId) };
   await registerDesktopThread(options, thread);
   return thread;
 }
 
 /** Startup preference only: no conversation, credentials, or workspace contents. */
 export async function resolveDesktopIdentity(options: {
-  userData: string;
+  applicationHome: string;
   configPath: string;
   workspaceRoot: string | null;
   env: NodeJS.ProcessEnv;
   cwd: string;
 }): Promise<DesktopIdentityResolution> {
   const configPath = resolve(options.cwd, options.configPath);
-  const registry = await readRegistry(options.userData);
+  const registry = await readRegistry(options.applicationHome);
   const profile = findProfile(registry, options);
   const selected = profile?.threads.find(thread => thread.threadId === profile.activeThreadId);
-  const matching = profile && selected ? { version: 1 as const, configPath, workspaceRoot: profile.workspaceRoot, ...selected } : undefined;
+  const matching = profile && selected ? { version: 1 as const, configPath, workspaceRoot: options.workspaceRoot, ...selected } : undefined;
   const explicitThread = options.env.RUNLOOM_THREAD?.trim();
   const explicitDirectory = options.env.RUNLOOM_TRANSCRIPTS?.trim();
   if (explicitThread || explicitDirectory) {
     // A partial explicit launch is stable too, without replacing the normal profile.
-    const key = createHash("sha256").update(JSON.stringify([configPath, options.workspaceRoot, explicitDirectory ?? null])).digest("hex").slice(0, 24);
+    const key = createHash("sha256").update(JSON.stringify([configPath, explicitDirectory ?? null])).digest("hex").slice(0, 24);
     return {
       version: 1, configPath, workspaceRoot: options.workspaceRoot,
       threadId: explicitThread || matching?.threadId || `desktop-explicit-${key}`,
-      transcriptDirectory: explicitDirectory ? resolve(options.cwd, explicitDirectory) : matching?.transcriptDirectory ?? join(options.userData, "transcripts", `explicit-${key}`),
+      transcriptDirectory: explicitDirectory ? resolve(options.cwd, explicitDirectory) : matching?.transcriptDirectory ?? join(options.applicationHome, "transcripts", `explicit-${key}`),
       identitySource: "explicit",
     };
   }

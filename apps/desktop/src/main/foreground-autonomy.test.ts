@@ -44,7 +44,7 @@ it("persists workspace authority, runs a multi-step repair, preserves attachment
   const model = new MockLanguageModelV3({ doStream: async options => {
     instructions.push(JSON.stringify(options.prompt)); const current = index++; return response(plan[current], current);
   } });
-  const options = { userData: join(f.root, "profile"), cwd: f.root, env: { RUNLOOM_CONFIG: f.configPath }, modelAlias: "mock", model, send: (message: MainToRenderer) => events.push(message) };
+  const options = { applicationHome: join(f.root, "profile"), cwd: f.root, env: { RUNLOOM_CONFIG: f.configPath }, modelAlias: "mock", model, send: (message: MainToRenderer) => events.push(message) };
   let host = await DesktopRuntime.create(options);
   const shell = (command: string): Call => ({ name: "shell_exec", input: { command, cwd: "." } });
   const waitIdle = () => until(() => host.current.snapshot().state.kind === "idle");
@@ -118,15 +118,15 @@ it("persists workspace authority, runs a multi-step repair, preserves attachment
 
 it("uses the resident socket for authority changes, retains other approvals and cancels a running autonomous Shell without replay", async () => {
   const f = await fixture();
-  const userData = join(f.root, "profile"), paths = createResidentPaths(userData, join(f.root, "host.sock"));
-  const scope = { userData, configPath: f.configPath, workspaceRoot: f.workspace };
+  const applicationHome = join(f.root, "profile"), paths = createResidentPaths(applicationHome, join(f.root, "host.sock"));
+  const scope = { applicationHome, configPath: f.configPath, workspaceRoot: f.workspace };
   let calls = 0, otherTool = true;
   const model = new MockLanguageModelV3({ doStream: async () => {
     calls++;
     return response(otherTool ? { name: "recipe_list", input: {} } :
       { name: "shell_exec", input: { command: "printf started > marker.txt; sleep 60; touch must-not-complete", cwd: "." } }, calls);
   } });
-  const server = await startResidentServer({ paths, scope, createRuntime: send => DesktopRuntime.create({ userData, cwd: f.root, env: { RUNLOOM_CONFIG: f.configPath }, modelAlias: "mock", model, send }) });
+  const server = await startResidentServer({ paths, scope, createRuntime: send => DesktopRuntime.create({ applicationHome, cwd: f.root, env: { RUNLOOM_CONFIG: f.configPath }, modelAlias: "mock", model, send }) });
   const client = await ResidentClient.connect({ paths, scope, send: () => {} });
   try {
     await client.setAutonomyEnabled({ enabled: true, expectedEnabled: false });
@@ -156,7 +156,7 @@ it("uses the resident socket for authority changes, retains other approvals and 
     const beforeRestart = calls;
     client.detach();
     await server.runtime.shutdown();
-    const restarted = await DesktopRuntime.create({ userData, cwd: f.root, env: { RUNLOOM_CONFIG: f.configPath }, modelAlias: "mock", model, send: () => {} });
+    const restarted = await DesktopRuntime.create({ applicationHome, cwd: f.root, env: { RUNLOOM_CONFIG: f.configPath }, modelAlias: "mock", model, send: () => {} });
     try {
       assert.equal(calls, beforeRestart);
       assert.equal(restarted.info().autonomy?.enabled, true);
@@ -208,7 +208,7 @@ it("does not enable disabled modules or replace a configured Docker sandbox", as
     config.modules.shell.enabled = false; config.modules["read-file"].enabled = false;
     await writeFile(f.configPath, JSON.stringify(config));
     await changeAutonomySetting(f.configPath, { enabled: true, expectedEnabled: false }, f.root, f.workspace);
-    const host = await DesktopRuntime.create({ userData: join(f.root, "profile"), cwd: f.root, env: { RUNLOOM_CONFIG: f.configPath }, modelAlias: "mock", model: new MockLanguageModelV3(), send: () => {} });
+    const host = await DesktopRuntime.create({ applicationHome: join(f.root, "profile"), cwd: f.root, env: { RUNLOOM_CONFIG: f.configPath }, modelAlias: "mock", model: new MockLanguageModelV3(), send: () => {} });
     try {
       assert.equal(host.info().autonomy?.enabled, true);
       for (const name of ["shell_exec", "read_file", "write_file", "edit_file"]) assert.equal(host.info().capabilities?.tools.includes(name), false);
@@ -223,7 +223,7 @@ it("does not enable disabled modules or replace a configured Docker sandbox", as
 
 it("halts after an uncertain autonomy config commit, then rereads it without launching a Run", async t => {
   const f = await fixture(); let calls = 0;
-  const host = await DesktopRuntime.create({ userData: join(f.root, "profile"), cwd: f.root, env: { RUNLOOM_CONFIG: f.configPath }, modelAlias: "mock", model: new MockLanguageModelV3({ doStream: async () => { calls++; return response(); } }), send: () => {} });
+  const host = await DesktopRuntime.create({ applicationHome: join(f.root, "profile"), cwd: f.root, env: { RUNLOOM_CONFIG: f.configPath }, modelAlias: "mock", model: new MockLanguageModelV3({ doStream: async () => { calls++; return response(); } }), send: () => {} });
   try {
     const probe = await open(f.root, "r"), prototype = Object.getPrototypeOf(probe), original = prototype.sync; await probe.close();
     let faulted = false;
@@ -260,7 +260,7 @@ it("retains the exact active request after immediate masking of a completed over
     prompts.push(prompt); summaryCounts.push(summaries);
     return response(primaryCalls++ === 0 ? { name: "read_file", input: { path: "large.txt" } } : undefined);
   } });
-  const host = await DesktopRuntime.create({ userData: join(f.root, "profile"), cwd: f.root, env: { RUNLOOM_CONFIG: f.configPath },
+  const host = await DesktopRuntime.create({ applicationHome: join(f.root, "profile"), cwd: f.root, env: { RUNLOOM_CONFIG: f.configPath },
     modelAlias: "mock", model, send: event => events.push(event) });
   try {
     const started = await host.current.run(request); assert.ok(started.ok);

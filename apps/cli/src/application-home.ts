@@ -1,16 +1,7 @@
-import { mkdir, open, realpath, stat } from "node:fs/promises";
-import { homedir } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import { assertExperimentalDataPaths } from "@serika/assistant";
+import { mkdir, open, stat } from "node:fs/promises";
+import { join, resolve } from "node:path";
+import { resolveApplicationHome, assertExperimentalDataPaths } from "@serika/assistant";
 import type { TuiArgs } from "./cli-options.js";
-
-async function canonicalPath(path: string): Promise<string> {
-  try { return await realpath(path); }
-  catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-    return join(await canonicalPath(dirname(path)), path.slice(dirname(path).length + 1));
-  }
-}
 
 export async function resolveCliHome(args: TuiArgs, options: {
   cwd: string;
@@ -18,9 +9,7 @@ export async function resolveCliHome(args: TuiArgs, options: {
   initialize: boolean;
   userHome?: string;
 }): Promise<TuiArgs> {
-  const selected = args.home ?? options.env.SERIKA_HOME ?? join(options.userHome ?? homedir(), ".serika");
-  if (!selected.trim()) throw new Error("Serika home must be a non-empty directory");
-  const home = await canonicalPath(resolve(options.cwd, selected));
+  const home = resolveApplicationHome({ ...options, home: args.home });
   const { home: _home, ...assembly } = args;
   const directory = args.directory === undefined ? join(home, "transcripts") : resolve(options.cwd, args.directory);
   const configPath = args.configPath === undefined ? join(home, "config.json") : resolve(options.cwd, args.configPath);

@@ -18,25 +18,25 @@ async function main() {
   const arg = (name: string) => { const index = process.argv.indexOf(name); const value = process.argv[index + 1]; if (index < 0 || !value) throw new Error(`Missing ${name}`); return value; };
   const identityPath = arg("--identity"), socket = arg("--socket");
   const startup = await readResidentStartup(identityPath);
-  assertExperimentalDataPaths([startup.userData, identityPath, startup.env.RUNLOOM_CONFIG, startup.env.RUNLOOM_WORKSPACE, startup.env.RUNLOOM_TRANSCRIPTS]);
+  assertExperimentalDataPaths([startup.applicationHome, identityPath, startup.env.RUNLOOM_CONFIG, startup.env.RUNLOOM_WORKSPACE, startup.env.RUNLOOM_TRANSCRIPTS]);
   // Node loads --env-file but does not expose its path as RUNLOOM_ENV_FILE.
   // Preserve that trusted source for the existing restricted worker adapter;
   // otherwise reminders appear unavailable only in resident mode.
   retainResidentEnvironmentSource(process.env, process.execArgv);
   Object.assign(process.env, startup.env);
   process.chdir(startup.cwd);
-  const config = await resolveTuiModuleConfig({ configPath: startup.env.RUNLOOM_CONFIG! }, { cwd: startup.cwd });
-  if (!config.workspaceRoot || !config.configPath) throw new Error("常驻助手需要固定工作区与配置");
+  const config = await resolveTuiModuleConfig({ dataDirectory: join(startup.applicationHome, "data"), configPath: startup.env.RUNLOOM_CONFIG! }, { cwd: startup.cwd });
+  if (!config.configPath) throw new Error("常驻助手需要固定工作区与配置");
   const { modelAlias, model } = configureCliModel(createDemoModel, process.env);
-  const worker = (workspace: string, configPath?: string) => createDesktopRssWorker({ workspace, ...(configPath ? { configPath } : {}), home: homedir(), env: process.env,
+  const worker = (workspace: string, configPath?: string) => createDesktopRssWorker({ applicationHome: startup.applicationHome, workspace, ...(configPath ? { configPath } : {}), home: homedir(), env: process.env,
     workerEntry: fileURLToPath(import.meta.resolve("@serika/assistant/task-worker-entry")), todoist: !!process.env.TODOIST_API_TOKEN?.trim() });
   const server = await startResidentServer({ paths: { directory: dirname(identityPath), token: join(dirname(identityPath), "auth-token"), socket },
-    scope: { userData: startup.userData, configPath: config.configPath, workspaceRoot: config.workspaceRoot },
+    scope: { applicationHome: startup.applicationHome, configPath: config.configPath },
     createRuntime: async send => {
       const runtime = await DesktopRuntime.create({ ...startup, env: process.env, modelAlias, model, modelId: inspectCliModelConfig().modelId, send,
         taskAutomation: { status: (workspace, configPath) => worker(workspace, configPath).automationStatus(), enable: (workspace, configPath) => worker(workspace, configPath).enableArrangement() } });
       try {
-        const store = new TelegramStore(join(dirname(identityPath), "telegram.json"), config.workspaceRoot!);
+        const store = new TelegramStore(join(startup.applicationHome, "resident", "telegram.json"), startup.applicationHome);
         await store.load();
         const token = process.env.TELEGRAM_BOT_TOKEN?.trim();
         const gateway = new TelegramGateway(runtime, store, token ? createTelegramApi(token, fetch,

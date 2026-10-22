@@ -5,7 +5,6 @@ import { join } from "node:path";
 import { describe, it } from "node:test";
 import {
   CHECKPOINT_FILE_MAX_BYTES,
-  CHECKPOINT_FILE_NAME,
   CHECKPOINT_HISTORY_MAX_ENTRIES,
   CHECKPOINT_SNAPSHOT_MAX_BYTES,
   createCheckpointStore,
@@ -100,7 +99,7 @@ describe("WorkspaceCheckpointStore", () => {
     if (!second.ok) return;
     assert.equal(second.checkpoint.realityPins, undefined);
     assert.deepEqual(await store.getVersion(1), { ok: true, checkpoint: first.checkpoint });
-    const file = JSON.parse(await readFile(join(root, CHECKPOINT_FILE_NAME), "utf8")) as { schemaVersion: number };
+    const file = JSON.parse(await readFile(join(root, '.runloom/checkpoint.json'), "utf8")) as { schemaVersion: number };
     assert.equal(file.schemaVersion, 1);
   });
 
@@ -137,7 +136,7 @@ describe("WorkspaceCheckpointStore", () => {
       realityPins: { git: gitPin },
     });
     assert.equal(saved.ok, true);
-    const file = join(root, CHECKPOINT_FILE_NAME);
+    const file = join(root, '.runloom/checkpoint.json');
     const document = JSON.parse(await readFile(file, "utf8")) as {
       current: { realityPins: { git: CheckpointGitPin } };
     };
@@ -267,7 +266,7 @@ describe("WorkspaceCheckpointStore", () => {
       draft: draft(),
       sourceThreadId: "thread-a",
     });
-    const file = join(root, CHECKPOINT_FILE_NAME);
+    const file = join(root, '.runloom/checkpoint.json');
     const corrupt = "{not-json\n";
     await writeFile(file, corrupt, "utf8");
 
@@ -289,7 +288,7 @@ describe("WorkspaceCheckpointStore", () => {
     const root = await workspace();
     const directory = join(root, ".runloom");
     await mkdir(directory);
-    const file = join(root, CHECKPOINT_FILE_NAME);
+    const file = join(root, '.runloom/checkpoint.json');
     const oversized = "x".repeat(CHECKPOINT_FILE_MAX_BYTES + 1);
     await writeFile(file, oversized, "utf8");
     const store = createCheckpointStore(join(root, ".runloom/checkpoint.json"));

@@ -12,7 +12,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { createRuntimeApp } from "@serika/assistant";
 import { createAssistantController } from "@serika/assistant";
 import { createTaskStore } from "@serika/assistant";
-import { TASK_FILE_NAME } from "@serika/assistant/testing";
 import { ApprovalCard } from "./approval.js";
 
 const usage = {
@@ -110,7 +109,7 @@ for (const [relative, expectedRunAt] of [
       assert.equal(saved.value.prompt, "开会");
       assert.equal(saved.value.arrangement?.kind, "reminder");
       assert.equal(saved.value.status, "scheduled");
-      assert.ok((await readFile(join(workspace, TASK_FILE_NAME), "utf8")).includes(expectedRunAt));
+      assert.ok((await readFile(join(workspace, ".runloom/tasks.json"), "utf8")).includes(expectedRunAt));
     } finally {
       await controller.shutdown();
     }

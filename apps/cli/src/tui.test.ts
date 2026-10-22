@@ -28,7 +28,6 @@ import {
 } from "@serika/ai-sdk-adapter";
 import {
   AUTO_CONSOLIDATION_SOURCE,
-  CHECKPOINT_FILE_NAME,
   createCheckpointModule,
   createCheckpointStore,
   builtinToolPermissions,
@@ -3168,7 +3167,7 @@ describe("runTui checkpoint confirmation", () => {
       assert.match(fixture.output.text(), /\nTool: checkpoint_save\n.*\nExpected current version: null\nComplete draft:\n/s);
       assert.match(fixture.output.text(), /The checkpoint has a concise verified progress snapshot/);
       assert.match(fixture.output.text(), /docs\/m5-plan\.md/);
-      await assert.rejects(readFile(join(fixture.workspace, CHECKPOINT_FILE_NAME), "utf8"), {
+      await assert.rejects(readFile(join(fixture.workspace, '.runloom/checkpoint.json'), "utf8"), {
         code: "ENOENT",
       });
 
@@ -3206,7 +3205,7 @@ describe("runTui checkpoint confirmation", () => {
       input.write("n\n");
       await waitFor(() => fixture.output.text().includes("The checkpoint save was denied."));
       assert.deepEqual(await fixture.checkpointStore.getCurrent(), { ok: true, current: null });
-      await assert.rejects(readFile(join(fixture.workspace, CHECKPOINT_FILE_NAME), "utf8"), {
+      await assert.rejects(readFile(join(fixture.workspace, '.runloom/checkpoint.json'), "utf8"), {
         code: "ENOENT",
       });
       input.end();

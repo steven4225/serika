@@ -7,7 +7,7 @@ import { createRuntimeApp } from "@serika/assistant";
 import { createAssistantController } from "@serika/assistant";
 import { createDemoModel } from "@serika/assistant";
 import { createTaskStore } from "@serika/assistant";
-import { TASK_FILE_NAME } from "@serika/assistant/testing";
+import {} from "@serika/assistant/testing";
 import { RuntimeBridge, TeeOutput } from "./runtime-bridge.js";
 import { readSavedTaskNotice } from "../shared/saved-task-result.js";
 
@@ -37,18 +37,18 @@ test("desktop unified inbox reads real task results, preserves notification dist
     assert.equal(detail.value.resultText, "提醒：喝水");
     assert.equal(detail.value.notification?.status, "submitted");
     assert.equal(detail.value.acknowledgedAt, null);
-    const beforeBannerRead = await readFile(join(workspace, TASK_FILE_NAME));
+    const beforeBannerRead = await readFile(join(workspace, ".runloom/tasks.json"));
     const banner = await readSavedTaskNotice(bridge);
     assert.equal(banner?.resultText, "提醒：喝水", "banner must read persisted current-workspace detail");
     assert.equal(banner?.acknowledgedAt, null);
-    assert.deepEqual(await readFile(join(workspace, TASK_FILE_NAME)), beforeBannerRead, "banner reads never acknowledge or change storage");
+    assert.deepEqual(await readFile(join(workspace, ".runloom/tasks.json")), beforeBannerRead, "banner reads never acknowledge or change storage");
     assert.ok(!(await bridge.getScheduledTask(null as never)).ok);
     assert.ok(!(await bridge.acknowledgeTaskResult(123 as never)).ok);
     const acknowledged = await bridge.acknowledgeTaskResult(created.value.id);
     assert.ok(acknowledged.ok && acknowledged.value.acknowledgedAt !== null);
     const after = await bridge.getTaskInbox(); assert.ok(after.ok && after.value.tasks.length === 0);
     assert.equal((await controller.runs.list()).length, 0);
-    await writeFile(join(workspace, TASK_FILE_NAME), "{bad");
+    await writeFile(join(workspace, ".runloom/tasks.json"), "{bad");
     const corrupt = await bridge.getTaskInbox();
     assert.ok(!corrupt.ok && corrupt.error.code === "TASK_FILE_INVALID", "corrupt storage is not an empty inbox");
   } finally { await bridge.shutdown(); await rm(root, { recursive: true, force: true }); }
@@ -71,11 +71,11 @@ test("saved reminder banner stays readable with task tools disabled and grants n
     clock += 2_000;
     assert.ok((await tasks.claimNextDue()).ok);
     assert.ok((await tasks.finish(created.value.id, { status: "completed", runId: null, resultText: "喝水", execution: "deterministic", notification: true })).ok);
-    const before = await readFile(join(workspace, TASK_FILE_NAME));
+    const before = await readFile(join(workspace, ".runloom/tasks.json"));
     const notice = await readSavedTaskNotice(bridge);
     assert.equal(notice?.resultText, "喝水");
     assert.equal(notice?.acknowledgedAt, null);
-    assert.deepEqual(await readFile(join(workspace, TASK_FILE_NAME)), before);
+    assert.deepEqual(await readFile(join(workspace, ".runloom/tasks.json")), before);
     assert.equal((await controller.runs.list()).length, 0);
     assert.equal((await bridge.acknowledgeTaskResult(created.value.id)).ok, false);
   } finally { await bridge.shutdown(); await rm(root, { recursive: true, force: true }); }

@@ -35,7 +35,7 @@ describe("normal desktop memory and history entry", () => {
     const workspace = join(root, "workspace"), configPath = join(root, "config.json"); await mkdir(workspace);
     await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { shell: { enabled: true }, memory: { enabled: false } } }));
     let calls = 0;
-    const host = await DesktopRuntime.create({ userData: join(root, "profile"), cwd: root, env: { RUNLOOM_CONFIG: configPath }, modelAlias: "mock",
+    const host = await DesktopRuntime.create({ applicationHome: join(root, "profile"), cwd: root, env: { RUNLOOM_CONFIG: configPath }, modelAlias: "mock",
       model: new MockLanguageModelV3({ doStream: async () => { calls++; return response(); } }), send: () => {} });
     try {
       const probe = await open(root, "r"), prototype = Object.getPrototypeOf(probe), fd = probe.fd; await probe.close();
@@ -67,7 +67,7 @@ describe("normal desktop memory and history entry", () => {
       if (!switched) { switched = true; writeFileSync(configPath, JSON.stringify({ ...config, workspace: other })); }
       return undefined;
     } });
-    const options = { userData: join(root, "profile"), cwd: root, env, modelAlias: "mock",
+    const options = { applicationHome: join(root, "profile"), cwd: root, env, modelAlias: "mock",
       model: new MockLanguageModelV3({ doStream: async () => { calls++; return response(); } }), send: () => {} };
     let host: DesktopRuntime | undefined;
     try {
@@ -85,7 +85,7 @@ describe("normal desktop memory and history entry", () => {
     const root = await mkdtemp(join(tmpdir(), "serika-runtime-rollback-conflict-"));
     let calls = 0;
     const events: MainToRenderer[] = [];
-    const host = await DesktopRuntime.create({ userData: join(root, "profile"), cwd: root, env: {}, modelAlias: "mock",
+    const host = await DesktopRuntime.create({ applicationHome: join(root, "profile"), cwd: root, env: {}, modelAlias: "mock",
       model: new MockLanguageModelV3({ doStream: async () => { calls++; return response(); } }), send: event => { events.push(event); } });
     try {
       await host.current.run("保留对话，不自动重做", { memoryConsolidation: "exclude" }); await idle(host);
@@ -116,7 +116,7 @@ describe("normal desktop memory and history entry", () => {
     const root = await mkdtemp(join(tmpdir(), "serika-runtime-reconnect-"));
     let calls = 0;
     const events: MainToRenderer[] = [];
-    const host = await DesktopRuntime.create({ userData: join(root, "profile"), cwd: root, env: {}, modelAlias: "mock",
+    const host = await DesktopRuntime.create({ applicationHome: join(root, "profile"), cwd: root, env: {}, modelAlias: "mock",
       model: new MockLanguageModelV3({ doStream: async () => { calls++; return response(); } }), send: event => { events.push(event); } });
     try {
       await host.current.run("重连后仍保留的消息", { memoryConsolidation: "exclude" }); await idle(host);
@@ -156,7 +156,7 @@ describe("normal desktop memory and history entry", () => {
     const root = await mkdtemp(join(tmpdir(), "serika-capability-runtime-"));
     let calls = 0;
     const changes: MainToRenderer[] = [];
-    const options = { userData: join(root, "profile"), cwd: root, env: {}, modelAlias: "mock",
+    const options = { applicationHome: join(root, "profile"), cwd: root, env: {}, modelAlias: "mock",
       model: new MockLanguageModelV3({ doStream: async () => { calls++; return response(); } }), send: (event: MainToRenderer) => { changes.push(event); } };
     let host = await DesktopRuntime.create(options);
     try {
@@ -191,8 +191,9 @@ describe("normal desktop memory and history entry", () => {
   });
   it("reuses verified empty conversations, keeps draft identities separate, and never hides tasks, receipts or unreadable records", async () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-history-activity-"));
+    await mkdir(join(root, "project"));
     let calls = 0;
-    const options = { userData: join(root, "profile"), cwd: root, env: {}, modelAlias: "mock",
+    const options = { applicationHome: join(root, "profile"), cwd: root, env: { RUNLOOM_WORKSPACE: join(root, "project") }, modelAlias: "mock",
       model: new MockLanguageModelV3({ doStream: async () => { calls++; return response(); } }), send: () => {} };
     let host = await DesktopRuntime.create(options);
     try {
@@ -243,7 +244,7 @@ describe("normal desktop memory and history entry", () => {
     const workspace = join(root, "workspace"); await mkdir(workspace);
     const configPath = join(root, "custom.json");
     await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: false }, shell: { enabled: false } } }));
-    const host = await DesktopRuntime.create({ userData: join(root, "profile"), cwd: root,
+    const host = await DesktopRuntime.create({ applicationHome: join(root, "profile"), cwd: root,
       env: { RUNLOOM_CONFIG: configPath }, modelAlias: "mock", model: new MockLanguageModelV3({ doStream: async () => response() }), send: () => {} });
     try {
       const identity = host.info(); assert.equal(identity.memory.enabled, false);
@@ -263,12 +264,12 @@ describe("normal desktop memory and history entry", () => {
       written = true;
       return response("memory_write", { operation: "add", text: "我的复盘长期偏好：先结论，再两条步骤。", category: "preference", sourceQuote: "我的复盘长期偏好：先结论，再两条步骤。", identity: { subject: "user", attribute: "review_format", value: "先结论，再两条步骤" } });
     } });
-    const options = { userData: join(root, "profile"), cwd: root, env: {}, modelAlias: "mock", model, send: (event: MainToRenderer) => events.push(event) };
+    const options = { applicationHome: join(root, "profile"), cwd: root, env: {}, modelAlias: "mock", model, send: (event: MainToRenderer) => events.push(event) };
     let host = await DesktopRuntime.create(options);
     try {
       const initial = host.info();
       assert.equal(initial.memory.enabled, true); assert.equal(initial.memory.autoConsolidate, true);
-      assert.equal(initial.workspaceRoot, await realpath(join(root, "profile", "workspaces", "personal")));
+      assert.equal(initial.workspaceRoot, null);
       assert.ok((await host.current.run("记住：我的复盘长期偏好：先结论，再两条步骤。")).ok);
       await assert.rejects(host.createThread(), /等待/);
       await idle(host);
@@ -300,10 +301,10 @@ describe("normal desktop memory and history entry", () => {
     const profile = join(root, "profile");
     const workspace = join(root, "workspace");
     await mkdir(profile); await mkdir(workspace);
-    const configPath = join(profile, "runloom.json");
+    const configPath = join(profile, "config.json");
     const legacy = { version: 1, workspace, modules: { memory: { enabled: true, autoConsolidate: true }, shell: { enabled: false, timeoutMs: 45000 } }, run: { totalTimeoutMs: 600000 } };
     await writeFile(configPath, JSON.stringify(legacy));
-    const options = { userData: profile, cwd: root, env: {}, modelAlias: "mock",
+    const options = { applicationHome: profile, cwd: root, env: {}, modelAlias: "mock",
       model: new MockLanguageModelV3({ doStream: async () => response() }), send: () => {} };
     let host = await DesktopRuntime.create(options);
     try {
@@ -328,7 +329,7 @@ describe("normal desktop memory and history entry", () => {
 
   it("restores the previous conversation when the chosen Thread is owned by another controller", async () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-desktop-switch-lock-"));
-    const options = { userData: join(root, "profile"), cwd: root, env: {}, modelAlias: "mock",
+    const options = { applicationHome: join(root, "profile"), cwd: root, env: {}, modelAlias: "mock",
       model: new MockLanguageModelV3({ doStream: async () => response() }), send: () => {} };
     const host = await DesktopRuntime.create(options);
     let owner: DesktopRuntime | undefined;
@@ -337,12 +338,12 @@ describe("normal desktop memory and history entry", () => {
       assert.ok((await host.current.run("切换失败后仍能看到的旧消息", { memoryConsolidation: "exclude" })).ok); await idle(host);
       await host.createThread(); const target = host.info();
       await host.selectThread(previous.threadId);
-      owner = await DesktopRuntime.create({ ...options, userData: join(root, "other-profile"),
+      owner = await DesktopRuntime.create({ ...options, applicationHome: join(root, "other-profile"),
         env: { RUNLOOM_CONFIG: previous.configPath!, RUNLOOM_THREAD: target.threadId, RUNLOOM_TRANSCRIPTS: target.directory } });
       await assert.rejects(host.selectThread(target.threadId));
       assert.equal(host.info().threadId, previous.threadId);
       assert.ok((await host.current.history()).some(message => message.role === "user" && message.parts.some(part => part.type === "text" && part.text === "切换失败后仍能看到的旧消息")));
-      const registry = JSON.parse(await readFile(join(root, "profile", "desktop-identity.json"), "utf8"));
+      const registry = JSON.parse(await readFile(join(root, "profile", "desktop", "desktop-identity.json"), "utf8"));
       assert.equal(registry.profiles[0].activeThreadId, previous.threadId);
     } finally { await owner?.shutdown(); await host.shutdown(); await rm(root, { recursive: true, force: true }); }
   });
@@ -351,9 +352,9 @@ describe("normal desktop memory and history entry", () => {
 it("create-task opens a distinct Thread with persistent creation intent before identity-changed, preserving the old draft and making no model call", async () => {
   const root = await mkdtemp(join(tmpdir(), "serika-task-entry-"));
   const { ConversationDraftStore } = await import("./conversation-draft-store.js");
-  const drafts = new ConversationDraftStore(join(root, "profile"));
+  const drafts = new ConversationDraftStore(join(root, "profile", "desktop"));
   let calls = 0;
-  const host = await DesktopRuntime.create({ userData: join(root, "profile"), cwd: root, env: {}, modelAlias: "mock",
+  const host = await DesktopRuntime.create({ applicationHome: join(root, "profile"), cwd: root, env: {}, modelAlias: "mock",
     model: new MockLanguageModelV3({ doStream: async () => { calls++; return response(); } }), send() {} });
   try {
     const first = host.info();

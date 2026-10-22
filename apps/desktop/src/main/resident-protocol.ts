@@ -24,7 +24,7 @@ export const RESIDENT_BRIDGE_METHODS = [
 type AsyncMethod<T> = T extends (...args: infer A) => infer R ? (...args: A) => Promise<Awaited<R>> : never;
 export type RemoteRuntimeBridge = { [K in typeof RESIDENT_BRIDGE_METHODS[number]]: AsyncMethod<RuntimeBridge[K]> } & { snapshot(): UiSnapshot };
 export type RemoteRuntimeMethods = { [K in typeof RESIDENT_HOST_METHODS[number]]: AsyncMethod<DesktopRuntime[K]> };
-export interface ResidentScope { userData: string; configPath: string; workspaceRoot: string }
+export interface ResidentScope { applicationHome: string; configPath: string }
 export interface ResidentState { info: AppInfo; snapshot: UiSnapshot }
 export type ResidentClientFrame =
   | { type: "hello"; version: number; token: string; scope: ResidentScope }

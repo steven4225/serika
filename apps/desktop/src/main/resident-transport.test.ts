@@ -42,15 +42,15 @@ function response() {
 }
 async function fixture(doStream: () => Promise<ReturnType<typeof response>> = async () => response(), onStop?: () => void, memoryEnabled = false) {
   const root = await mkdtemp(`${process.platform === "darwin" ? "/private/tmp" : "/tmp"}/serika-transport-`);
-  const workspace = join(root, "workspace"), userData = join(root, "profile"), configPath = join(root, "config.json");
+  const workspace = join(root, "workspace"), applicationHome = join(root, "profile"), configPath = join(root, "config.json");
   await mkdir(workspace);
   await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: memoryEnabled } } }));
-  const paths = createResidentPaths(userData, join(root, "socket", "host.sock"));
-  const scope = { userData, configPath, workspaceRoot: workspace };
+  const paths = createResidentPaths(applicationHome, join(root, "socket", "host.sock"));
+  const scope = { applicationHome, configPath };
   let creates = 0;
   const createRuntime = async (send: Parameters<typeof DesktopRuntime.create>[0]["send"]) => {
     creates++;
-    return DesktopRuntime.create({ userData, cwd: root, env: { RUNLOOM_CONFIG: configPath }, modelAlias: "mock", model: new MockLanguageModelV3({ doStream }), send });
+    return DesktopRuntime.create({ applicationHome, cwd: root, env: { RUNLOOM_CONFIG: configPath }, modelAlias: "mock", model: new MockLanguageModelV3({ doStream }), send });
   };
   const server = await startResidentServer({ paths, scope, createRuntime, ...(onStop ? { onStop } : {}) });
   return { root, paths, scope, server, createRuntime, creates: () => creates, cleanup: async () => { await server.runtime.shutdown(); await server.close(); await rm(root, { recursive: true, force: true }); } };
@@ -150,7 +150,7 @@ it("private credentials, authentication, identity scope and single owner are enf
     assert.equal((await lstat(f.paths.directory)).mode & 0o777, 0o700);
     assert.equal((await lstat(join(f.root, "socket"))).mode & 0o777, 0o700);
     assert.equal((await lstat(f.paths.socket)).mode & 0o777, 0o600);
-    await assert.rejects(ResidentClient.connect({ paths: f.paths, scope: { ...f.scope, workspaceRoot: join(f.root, "wrong") }, send: () => {} }), /不匹配/);
+    await assert.rejects(ResidentClient.connect({ paths: f.paths, scope: { ...f.scope, applicationHome: join(f.root, "wrong") }, send: () => {} }), /不匹配/);
     await assert.rejects(startResidentServer({ paths: f.paths, scope: f.scope, createRuntime: f.createRuntime }), /已经运行/);
     assert.equal(f.creates(), 1);
     const rejected = await new Promise<string>((done, reject) => {

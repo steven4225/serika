@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { it } from "node:test";
 import { gzipSync, gunzipSync } from "node:zlib";
 import { createTaskStore } from "@serika/assistant";
-import { createMemoryStore, TASK_FILE_NAME } from "@serika/assistant/testing";
+import { createMemoryStore} from "@serika/assistant/testing";
 import { createExecutionRecordStore } from "@serika/assistant/testing";
 import { exportBackup, restoreBackup, previewBackup } from "./backup.js";
 import { acquireFlock, tryAcquireFlock } from "@serika/assistant";
@@ -17,26 +17,26 @@ const digest = (text: string) => createHash("sha256").update(text).digest("hex")
 async function fixture() {
   const root = await realpath(await mkdtemp(join(tmpdir(), "serika-backup-unit-")));
   const workspace = join(root, "workspace"), transcripts = join(root, "transcripts"), destination = join(root, "saved.serika-backup");
-  await mkdir(join(workspace, ".runloom"), { recursive: true }); await mkdir(transcripts);
+  await mkdir(join(workspace, "data"), { recursive: true }); await mkdir(transcripts);
   const record = (threadId: string, text: string) => JSON.stringify({ v: 1, threadId, type: "thread.messages.committed", messages: [{ id: "user", role: "user", parts: [{ type: "text", text }] }] });
   const compact = JSON.stringify({ v: 2, type: "thread.context.compacted", threadId: "daily", id: "summary", summary: { text: "saved compact summary" } });
   await writeFile(join(transcripts, `${digest("daily")}.jsonl`), record("daily", "old") + "\n" + compact + "\n" + record("daily", "latest") + "\n{" );
   await writeFile(join(transcripts, `${digest("foreign")}.jsonl`), record("foreign", "PRIVATE-FOREIGN") + "\n");
   await writeFile(join(workspace, ".env"), "API_KEY=PRIVATE-CONFIG");
   await writeFile(join(workspace, "project.txt"), "PROJECT-FILE");
-  assert.ok((await createMemoryStore(join(workspace, ".runloom/memory.json")).add({ text: "saved memory" })).ok);
+  assert.ok((await createMemoryStore(join(workspace, "data/memory.json")).add({ text: "saved memory" })).ok);
   const records = createExecutionRecordStore(transcripts);
   for (const threadId of ["daily", "foreign"]) {
     await records.startRun({ runId: `run-${threadId}`, threadId, phase: "primary", startedAt: new Date(0).toISOString() });
   }
-  return { root, workspace, transcripts, destination, threads: [{ threadId: "daily", transcriptDirectory: transcripts }] };
+  return { root, home: workspace, workspace, transcripts, destination, threads: [{ threadId: "daily", transcriptDirectory: transcripts }] };
 }
 
 it("backup only registered assistant data; restoration is an offline copy with schedules and notifications disabled", async () => {
   const f = await fixture();
   try {
     let now = Date.parse("2026-10-10T00:00:00Z");
-    const tasks = createTaskStore(join(f.workspace, ".runloom/tasks.json"), { now: () => now });
+    const tasks = createTaskStore(join(f.workspace, "data/tasks.json"), { now: () => now });
     const future = await tasks.create({ prompt: "future", runAt: "2026-10-12T00:00:00Z" }); assert(future.ok);
     const running = await tasks.create({ prompt: "pending outcome", runAt: "2026-10-10T00:01:00Z" }); assert(running.ok);
     const recurring = await tasks.createRecurring({ prompt: "recurring", recurrence: { kind: "daily", time: "08:00", utcOffset: "+08:00" } }); assert(recurring.ok);
@@ -44,11 +44,11 @@ it("backup only registered assistant data; restoration is an offline copy with s
     const claim = await tasks.claimNextDue(); assert(claim.ok && claim.value?.id === running.value.id);
     assert((await tasks.recordRunId(running.value.id, "saved-run")).ok);
     assert((await tasks.recordOutcome(running.value.id, { status: "completed", runId: "saved-run", resultText: "persisted", notification: true })).ok);
-    const original = await readFile(join(f.workspace, TASK_FILE_NAME));
+    const original = await readFile(join(f.workspace, "data/tasks.json"));
     const saved = await exportBackup(f);
     const archive = JSON.parse(gunzipSync(await readFile(f.destination)).toString()) as { entries: Array<{ path: string; text: string; sha256: string }> };
     const memory = archive.entries.find(entry => entry.path === "workspace/.runloom/memory.json")!;
-    assert.equal(memory.text, await readFile(join(f.workspace, ".runloom/memory.json"), "utf8"));
+    assert.equal(memory.text, await readFile(join(f.workspace, "data/memory.json"), "utf8"));
     assert.equal(memory.sha256, digest(memory.text));
     assert.equal(JSON.parse(memory.text).version, 6);
     assert.equal(saved.threads, 1);
@@ -60,13 +60,13 @@ it("backup only registered assistant data; restoration is an offline copy with s
     assert.notEqual(restored.path, f.workspace);
     const history = await inspectThread({ threadId: "daily", transcriptDirectory: restored.transcriptDirectory });
     assert.equal(history.messageCount, 1); assert.equal(history.preview, "latest"); assert.equal(history.error, undefined);
-    const recovered = createTaskStore(join(join(restored.path, "workspace"), ".runloom/tasks.json"), { now: () => Date.parse("2026-10-20T00:00:00Z") });
+    const recovered = createTaskStore(join(restored.path, "data/tasks.json"), { now: () => Date.parse("2026-10-20T00:00:00Z") });
     const one = await recovered.get(future.value.id); assert(one.ok && one.value.status === "cancelled");
     const interrupted = await recovered.get(running.value.id); assert(interrupted.ok && interrupted.value.status === "interrupted");
     assert.equal(interrupted.value.pendingOutcome, null); assert.equal(interrupted.value.retryAt, null); assert.equal(interrupted.value.notification, null);
     const series = await recovered.getRecurring(recurring.value.id); assert(series.ok && series.value?.recurringTask.status === "paused");
     const noDispatch = await recovered.claimNextDue(); assert(noDispatch.ok && noDispatch.value === null);
-    assert.deepEqual(await readFile(join(f.workspace, TASK_FILE_NAME)), original);
+    assert.deepEqual(await readFile(join(f.workspace, "data/tasks.json")), original);
     assert(!await readdir(restored.path).then(names => names.includes("config.json")));
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });
@@ -75,7 +75,7 @@ it("backup lock placeholders stay empty and reusable, never enter the archive, a
   const f = await fixture();
   try {
     await exportBackup(f);
-    const lockPath = join(f.workspace, ".runloom", "memory.json.lock");
+    const lockPath = join(f.workspace, "data", "memory.json.lock");
     const before = await lstat(lockPath);
     assert.equal(before.size, 0);
     const archive = JSON.parse(gunzipSync(await readFile(f.destination)).toString()) as { entries: Array<{ path: string }> };
@@ -103,8 +103,8 @@ it("export rejects existing destinations, symlinked data, inside-workspace ..nam
     await assert.rejects(readFile(f.destination), { code: "ENOENT" });
     await exportBackup(f); const saved = await readFile(f.destination);
     await assert.rejects(exportBackup(f), /已存在/); assert.deepEqual(await readFile(f.destination), saved);
-    await rm(join(f.workspace, ".runloom", "memory.json"));
-    await symlink(join(f.workspace, ".env"), join(f.workspace, ".runloom", "memory.json"));
+    await rm(join(f.workspace, "data", "memory.json"));
+    await symlink(join(f.workspace, ".env"), join(f.workspace, "data", "memory.json"));
     await assert.rejects(exportBackup({ ...f, destination: join(f.root, "unsafe.backup") }));
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });
@@ -175,7 +175,7 @@ for (const name of ["memory.json", "checkpoint.json", "work-tasks.json", "dreami
 it("refuses corrupt sources instead of exporting a backup that only fails when opened", async () => {
   const f = await fixture();
   try {
-    const path = join(f.workspace, ".runloom", "memory.json");
+    const path = join(f.workspace, "data", "memory.json");
     await writeFile(path, JSON.stringify({ version: 4, entries: "invalid" }));
     const bytes = await readFile(path);
     await assert.rejects(exportBackup(f));
@@ -215,7 +215,7 @@ it("rejects valid JSON that exceeds the original Store read limit before preview
 it("rejects short configured credentials in assistant text rather than silently exporting them", async () => {
   const f = await fixture();
   try {
-    assert.ok((await createMemoryStore(join(f.workspace, ".runloom/memory.json")).add({ text: "短凭据 k!3x" })).ok);
+    assert.ok((await createMemoryStore(join(f.workspace, "data/memory.json")).add({ text: "短凭据 k!3x" })).ok);
     await assert.rejects(exportBackup({ ...f, knownSecrets: ["k!3x"] }), /凭据/);
     await assert.rejects(readFile(f.destination), { code: "ENOENT" });
   } finally { await rm(f.root, { recursive: true, force: true }); }
@@ -225,7 +225,7 @@ it("refuses a busy writer without partial export; preview is read-only and a cha
   const f = await fixture();
   let lock: Awaited<ReturnType<typeof acquireFlock>> | undefined;
   try {
-    lock = await acquireFlock(join(f.workspace, ".runloom", "memory.json.lock"));
+    lock = await acquireFlock(join(f.workspace, "data", "memory.json.lock"));
     await assert.rejects(exportBackup(f), /正在写入/);
     await assert.rejects(readFile(f.destination), { code: "ENOENT" });
     await lock.release(); lock = undefined;
@@ -261,8 +261,8 @@ it("export filters excluded message, snapshot and receipt payloads while preserv
   const f = await fixture();
   try {
     const { createMemoryStore } = await import("@serika/assistant/testing");
-    await rm(join(f.workspace, ".runloom/memory.json"));
-    const memory = createMemoryStore(join(f.workspace, ".runloom/memory.json"));
+    await rm(join(f.workspace, "data/memory.json"));
+    const memory = createMemoryStore(join(f.workspace, "data/memory.json"));
     const secret = "PRIVATE-EXCLUDED-PAYLOAD";
     const saved = await memory.writeV6!([{ operation: "add", text: secret, category: "note", source: { kind: "conversation", threadId: "daily", messageId: "user", quote: secret, sentAt: null } }]); assert.ok(saved.ok);
     const store = new JsonlAgentStore({ directory: f.transcripts });

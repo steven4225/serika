@@ -86,3 +86,5 @@ export type { MemoryResult, MemoryKind, MemorySource } from "./memory-types.js";
 
 export { assistantDataPaths } from "./data-paths.js";
 export type { AssistantDataPaths } from "./data-paths.js";
+
+export { resolveApplicationHome } from "./application-home.js";

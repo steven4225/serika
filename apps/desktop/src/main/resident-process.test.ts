@@ -11,15 +11,15 @@ import type { PendingApproval } from "../shared/ui-contract.js";
 
 it("the actual headless entry retains Thread, Run receipts and a timer when clients detach, change a capability and switch Thread", { timeout: 20_000 }, async () => {
   const root = await mkdtemp(`${process.platform === "darwin" ? "/private/tmp" : "/tmp"}/serika-process-`);
-  const workspace = join(root, "workspace"), userData = join(root, "profile"), configPath = join(root, "config.json");
+  const workspace = join(root, "workspace"), applicationHome = join(root, "profile"), configPath = join(root, "config.json");
   const directory = join(root, "state"), identityPath = join(directory, "identity.json"), socket = join(root, "socket", "host.sock");
   const paths = { directory, token: join(directory, "auth-token"), socket };
-  const scope = { userData, configPath, workspaceRoot: workspace };
+  const scope = { applicationHome, configPath };
   await mkdir(workspace);
   await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { pomodoro: { enabled: true }, shell: { enabled: false }, memory: { enabled: false } },
     contextCompaction: { ...DEFAULT_CONTEXT_BUDGET_CONFIG, contextWindowTokens: 512_000 },
     modelContextWindows: [{ provider: "mock-provider", modelId: "mock-model-id", contextWindowTokens: 512_000 }] }));
-  await saveResidentStartup(identityPath, residentStartup(userData, root, { RUNLOOM_CONFIG: configPath, RUNLOOM_MODEL: "mock", RUNLOOM_DESKTOP_TEST: "1" }), false);
+  await saveResidentStartup(identityPath, residentStartup(applicationHome, root, { RUNLOOM_CONFIG: configPath, RUNLOOM_MODEL: "mock", RUNLOOM_DESKTOP_TEST: "1" }), false);
   const child = spawn(process.execPath, ["--import", import.meta.resolve("tsx"), fileURLToPath(new URL("./resident-entry.ts", import.meta.url)), "--identity", identityPath, "--socket", socket], {
     cwd: fileURLToPath(new URL("../..", import.meta.url)), env: { ...process.env, RUNLOOM_MODEL: "mock" }, stdio: ["ignore", "pipe", "pipe"],
   });

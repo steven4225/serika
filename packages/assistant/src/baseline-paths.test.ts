@@ -5,27 +5,22 @@ import { join, relative } from "node:path";
 import { PassThrough } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
+import { assistantDataPaths } from "./data-paths.js";
 import { createRuntimeApp } from "./app.js";
-import { CHECKPOINT_FILE_NAME, CHECKPOINT_LOCK_FILE_NAME } from "./checkpoint-store.js";
 import { createDemoModel } from "./demo-model.js";
 import { EXECUTION_RECORD_FILE } from "./execution-record-store.js";
-import { MEMORY_FILE_NAME, MEMORY_LOCK_FILE_NAME } from "./memory-types.js";
 import { DESKTOP_FRONTMOST_FILE } from "./task-notification-presentation.js";
-import { TASK_FILE_NAME, TASK_LOCK_FILE_NAME, TASK_WORKER_LOCK_FILE_NAME } from "./task-store.js";
 import { TASK_WORKER_HEALTH_FILE } from "./task-worker-health.js";
-import { WORK_TASK_FILE_NAME, WORK_TASK_LOCK_FILE_NAME } from "./work-task-store.js";
 
 /**
  * v2 pilot step 1 baseline (docs/v2-pilot/paths.md): the data paths Serika
- * creates today. Paths are a persisted format: a refactor must not move them.
+ * creates today. Paths below reflect the approved a2 home layout.
  * Regenerate only for an explicitly confirmed path change:
  * SERIKA_UPDATE_BASELINE_SNAPSHOT=1 node --test packages/assistant/dist/baseline-paths.test.js
  */
 
 const PATH_CONSTANTS = {
-  CHECKPOINT_FILE_NAME, CHECKPOINT_LOCK_FILE_NAME, EXECUTION_RECORD_FILE, MEMORY_FILE_NAME, MEMORY_LOCK_FILE_NAME,
-  DESKTOP_FRONTMOST_FILE, TASK_FILE_NAME, TASK_LOCK_FILE_NAME, TASK_WORKER_LOCK_FILE_NAME, TASK_WORKER_HEALTH_FILE,
-  WORK_TASK_FILE_NAME, WORK_TASK_LOCK_FILE_NAME,
+  ...Object.fromEntries(Object.entries(assistantDataPaths("/H/data")).map(([name, path]) => [name, path.slice(1)])), EXECUTION_RECORD_FILE, DESKTOP_FRONTMOST_FILE, TASK_WORKER_HEALTH_FILE,
 };
 
 async function tree(root: string): Promise<string[]> {
@@ -41,7 +36,7 @@ async function assembledTree(modules: Record<string, unknown>, explicitDirectory
   await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules }));
   const app = await createRuntimeApp({
     ...(explicitDirectory ? { directory: join(root, "transcripts") } : {}),
-    assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "baseline", configPath },
+    assistant: { dataDirectory: join(root, "data"), threadId: "baseline", configPath },
     modelAlias: "mock", model: createDemoModel(), demoTools: true, output: new PassThrough().resume(), env: {}, cwd: root,
   });
   try {

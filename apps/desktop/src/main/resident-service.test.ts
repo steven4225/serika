@@ -17,9 +17,9 @@ async function fixture() {
   await writeFile(identityPath, '{"version":1}');
   await writeFile(envFile, "RUNLOOM_MODEL=mock\nCOMMAND_CODE_API_KEY=PRIVATE_SECRET\n", { mode: 0o600 });
   const node = await realpath(process.execPath);
-  const options = { home: root, workspace, hostEntry, identityPath, platform: "darwin" as const,
+  const options = { home: root, applicationHome: workspace, workspace, hostEntry, identityPath, platform: "darwin" as const,
     env: { RUNLOOM_HOST_NODE: node, RUNLOOM_HOST_ENV_FILE: envFile } };
-  const paths = resolveResidentPaths(root, workspace);
+  const paths = resolveResidentPaths(workspace);
   const args = [node, `--env-file=${envFile}`, hostEntry, "--identity", identityPath, "--socket", paths.socketPath];
   const loaded = `pid = 123\narguments = {\n${args.join("\n")}\n}\n`;
   const cleanup = async () => {
@@ -31,7 +31,7 @@ async function fixture() {
 
 it("status never registers a service, and incomplete credentials cannot silently copy foreground secrets", async () => {
   let calls = 0;
-  const service = createResidentService({ home: "/private/tmp/example-home", workspace: "/private/tmp/example-workspace",
+  const service = createResidentService({ home: "/private/tmp/example-home", applicationHome: "/private/tmp/example-home/serika", workspace: "/private/tmp/example-workspace",
     hostEntry: "/private/tmp/host.js", identityPath: "/private/tmp/startup.json", platform: "darwin",
     env: { COMMAND_CODE_API_KEY: "FOREGROUND_SECRET" }, runner: async (_file, args) => {
       calls++; assert.equal(args[0], "print"); return { exitCode: 113, stdout: "", stderr: "" };

@@ -1,9 +1,9 @@
 import { createDesktopSmokeModel } from "./smoke-model.js";
-import { assertExperimentalDataPaths } from "@serika/assistant";
+import { resolveApplicationHome, assertExperimentalDataPaths } from "@serika/assistant";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
-import { defaultUserDataPath, userDataPathFromEnv } from "./user-data-path.js";
+import { userDataPathFromEnv } from "./user-data-path.js";
 import { app, BrowserWindow, ipcMain, Notification, shell, dialog } from "electron";
 import { createDemoModel } from "@serika/assistant";
 import { configureCliModel, inspectCliModelConfig } from "@serika/assistant";
@@ -45,16 +45,17 @@ app.on("open-url", (event, url) => {
  *   RUNLOOM_MODEL        mock | deepseek | minimax-m3 | command-code
  *   RUNLOOM_ENV_FILE     explicit absolute path to main-process credentials/config
  *   RUNLOOM_CONFIG       path to the TUI --config JSON (must be outside the workspace)
- *   RUNLOOM_WORKSPACE    used only when generating the userData config
+ *   RUNLOOM_WORKSPACE    used only when generating H/config.json
  *   RUNLOOM_TRANSCRIPTS  explicit transcript directory override
  *   RUNLOOM_THREAD       explicit thread id override
  *   RUNLOOM_USER_DATA    absolute Electron userData directory; applied before ready
- * Omitted identity fields use the saved userData startup preference.
+ * Omitted identity fields use H/desktop startup preferences.
  */
 
-// Pin the existing profile before renaming the visible application. Otherwise
-// Electron's name-derived default path could strand the user's old history.
-const userDataPath = userDataPathFromEnv(process.env) ?? defaultUserDataPath(app.getPath("appData"));
+const homeFlags = process.argv.flatMap((value, index) => value === "--home" ? [process.argv[index + 1]] : []);
+if (homeFlags.length > 1 || homeFlags.some(value => !value || value.startsWith("--"))) throw new Error("--home requires one directory");
+const applicationHome = resolveApplicationHome({ home: homeFlags[0], env: process.env, cwd: process.cwd(), userHome: process.env.RUNLOOM_DESKTOP_TEST === "1" ? process.env.HOME : app.getPath("home") });
+const userDataPath = userDataPathFromEnv(process.env) ?? join(applicationHome, "cache", "electron");
 assertExperimentalDataPaths([userDataPath]);
 app.setPath("userData", userDataPath);
 if (process.env.RUNLOOM_DESKTOP_TEST === "1" && process.env.HOME) app.setPath("home", process.env.HOME);
@@ -164,28 +165,28 @@ async function main(): Promise<void> {
     const link = pendingTaskResultLink;
     pendingTaskResultLink = null;
     if (link === null) return null;
-    return openTaskNotificationResult(link, host.info().workspaceRoot, id => host.current.getScheduledTask(id));
+    return openTaskNotificationResult(link, host.applicationHome, id => host.current.getScheduledTask(id));
   });
   try {
     await loadDesktopEnvironment();
     await configureBundledNotifications({ resourcesPath: process.resourcesPath, desktopRoot: join(here, "../.."), packaged: app.isPackaged, env: process.env });
     const { modelAlias, model } = configureCliModel(process.env.RUNLOOM_DESKTOP_TEST === "1" ? createDesktopSmokeModel : createDemoModel, process.env);
-    const taskWorkerFor = (workspace: string, configPath?: string) => createDesktopRssWorker({ workspace, ...(configPath ? { configPath } : {}), home: app.getPath("home"), env: process.env,
+    const taskWorkerFor = (workspace: string, configPath?: string) => createDesktopRssWorker({ applicationHome: host?.applicationHome ?? applicationHome, workspace, ...(configPath ? { configPath } : {}), home: app.getPath("home"), env: process.env,
       workerEntry: fileURLToPath(import.meta.resolve("@serika/assistant/task-worker-entry")),
       todoist: !!process.env.TODOIST_API_TOKEN?.trim() });
     host = await RuntimeOwnership.create({
-      env: process.env, userData: app.getPath("userData"), cwd: process.cwd(),
+      env: process.env, applicationHome, cwd: process.cwd(),
       home: app.getPath("home"), hostEntry: join(here, "resident-entry.js"),
       modelAlias, model, modelId: inspectCliModelConfig().modelId, send,
       taskAutomation: { status: (workspace, configPath) => taskWorkerFor(workspace, configPath).automationStatus(), enable: (workspace, configPath) => taskWorkerFor(workspace, configPath).enableArrangement() },
     });
-    frontmostHint = installDesktopFrontmostHint(window, () => host.info().workspaceRoot ?? null);
-    const rssWorker = () => createDesktopRssWorker({ workspace: host.info().workspaceRoot ?? undefined, ...(host.info().configPath ? { configPath: host.info().configPath! } : {}), home: app.getPath("home"), env: process.env,
+    frontmostHint = installDesktopFrontmostHint(window, () => join(host.applicationHome, "data"));
+    const rssWorker = () => createDesktopRssWorker({ applicationHome: host?.applicationHome ?? applicationHome, workspace: host.info().workspaceRoot ?? undefined, ...(host.info().configPath ? { configPath: host.info().configPath! } : {}), home: app.getPath("home"), env: process.env,
       workerEntry: fileURLToPath(import.meta.resolve("@serika/assistant/task-worker-entry")), todoist: !!process.env.TODOIST_API_TOKEN?.trim() });
     ipcMain.handle(IPC.rssWorkerStatus, () => rssWorker().status());
     ipcMain.handle(IPC.rssWorkerEnabled, (_event, enabled: unknown) => rssWorker().setEnabled(enabled));
     const notificationScopes = new Map<string, ReturnType<typeof createNotificationReadiness>>();
-    const notifications = () => { const workspace = host.info().workspaceRoot ?? undefined, key = workspace ?? "";
+    const notifications = () => { const workspace = host.applicationHome, key = workspace;
       if (!notificationScopes.has(key)) notificationScopes.set(key, createNotificationReadiness({ workspace, env: process.env }));
       return notificationScopes.get(key)!; };
     ipcMain.handle(IPC.notificationStatus, () => notifications().status());
@@ -201,7 +202,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  const drafts = new ConversationDraftSession(host, new ConversationDraftStore(app.getPath("userData")));
+  let drafts = new ConversationDraftSession(host, new ConversationDraftStore(join(host.applicationHome, "desktop")));
   // Plain method forwards (see shared/ipc-forwards.ts); registered only after the runtime owner exists.
   registerForwardedIpc(ipcMain, host);
   ipcMain.handle(IPC.draftLoad, (_event, scope) => drafts.load(scope));
@@ -261,6 +262,7 @@ async function main(): Promise<void> {
     await drafts.flush();
     if (scope !== host.info().workspaceRoot || id !== null && (selection !== restoreSelection || selection!.expires <= Date.now())) throw new Error("工作区或恢复预览已改变，请重新核对");
     await host.activateRecovery(id === null ? null : selection!.result!.path);
+    drafts = new ConversationDraftSession(host, new ConversationDraftStore(join(host.applicationHome, "desktop")));
     restoreSelection = undefined;
     } finally { restoreWorking = false; }
   });

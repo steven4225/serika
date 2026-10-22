@@ -22,12 +22,12 @@ async function until(check: () => boolean | Promise<boolean>) {
 for (const detachAt of ["executing", "awaiting-approval"] as const) {
   test(`detaching while ${detachAt} preserves the same approval and approved Shell Run without cancellation or replay`, async () => {
     const root = await mkdtemp(`${process.platform === "darwin" ? "/private/tmp" : "/tmp"}/serika-inflight-`);
-    const workspace = join(root, "workspace"), userData = join(root, "profile"), configPath = join(root, "config.json");
+    const workspace = join(root, "workspace"), applicationHome = join(root, "profile"), configPath = join(root, "config.json");
     await mkdir(workspace);
     await writeFile(configPath, JSON.stringify({ version: 1, workspace,
       modules: { shell: { enabled: true, timeoutMs: 2_000 }, memory: { enabled: false } }, run: { totalTimeoutMs: 5_000 } }));
-    const paths = createResidentPaths(userData, join(root, "socket", "host.sock"));
-    const scope = { userData, configPath, workspaceRoot: workspace };
+    const paths = createResidentPaths(applicationHome, join(root, "socket", "host.sock"));
+    const scope = { applicationHome, configPath };
     let modelCalls = 0, hostCreates = 0;
     const model = new MockLanguageModelV3({ doStream: async () => {
       modelCalls++;
@@ -47,7 +47,7 @@ for (const detachAt of ["executing", "awaiting-approval"] as const) {
     } });
     const server = await startResidentServer({ paths, scope, createRuntime: send => {
       hostCreates++;
-      return DesktopRuntime.create({ userData, cwd: root, env: { RUNLOOM_CONFIG: configPath }, modelAlias: "mock", model, send });
+      return DesktopRuntime.create({ applicationHome, cwd: root, env: { RUNLOOM_CONFIG: configPath }, modelAlias: "mock", model, send });
     } });
     const client = await ResidentClient.connect({ paths, scope, send: () => undefined });
     try {

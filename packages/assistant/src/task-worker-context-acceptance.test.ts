@@ -22,7 +22,7 @@ it("live scheduled workspace brief: Memory + checkpoint → worker → inbox →
   const retainedRoot = process.env.RUNLOOM_ACCEPTANCE_WORKSPACE;
   const root = retainedRoot ?? await mkdtemp(join(tmpdir(), "runloom-brief-live-"));
   if (retainedRoot !== undefined) await mkdir(root);
-  const store = createTaskStore(join(root, ".runloom/tasks.json"));
+  const store = createTaskStore(join(root, "data/tasks.json"));
   const workerEntry = fileURLToPath(new URL("./task-worker-entry.js", import.meta.url));
   let worker: ChildProcess | undefined;
   let workerError = "";
@@ -40,11 +40,11 @@ it("live scheduled workspace brief: Memory + checkpoint → worker → inbox →
   }
 
   try {
-    const memory = await createMemoryStore(join(root, ".runloom/memory.json")).add({
+    const memory = await createMemoryStore(join(root, "data/memory.json")).add({
       text: "本项目当前优先事项是完成 Serika 的任务级验收。",
     });
     assert.ok(memory.ok, JSON.stringify(memory));
-    const checkpoint = await createCheckpointStore(join(root, ".runloom/checkpoint.json")).saveNextVersion({
+    const checkpoint = await createCheckpointStore(join(root, "data/checkpoint.json")).saveNextVersion({
       expectedVersion: null,
       sourceThreadId: "acceptance-setup",
       draft: {
@@ -70,7 +70,7 @@ it("live scheduled workspace brief: Memory + checkpoint → worker → inbox →
     assert.ok(series.ok, JSON.stringify(series));
     assert.equal(series.value.nextRunAt, due.toISOString());
 
-    worker = spawn(process.execPath, [workerEntry, "--workspace", root, "--workspace-context"], {
+    worker = spawn(process.execPath, [workerEntry, "--home", root, "--workspace", root, "--workspace-context"], {
       env: { ...process.env, RUNLOOM_MODEL: model },
       stdio: ["ignore", "ignore", "pipe"],
     });
@@ -95,7 +95,7 @@ it("live scheduled workspace brief: Memory + checkpoint → worker → inbox →
         assert.match(resultText, /15\s*分钟/);
         assert.ok(task.threadId && task.runId);
         occurrenceId = task.id;
-        const transcript = await new JsonlAgentStore({ directory: join(root, ".runloom/task-transcripts") })
+        const transcript = await new JsonlAgentStore({ directory: join(root, "transcripts/tasks") })
           .getMessages(task.threadId);
         assert.ok(transcript.some((message) => message.role === "assistant"));
         break;
@@ -108,7 +108,7 @@ it("live scheduled workspace brief: Memory + checkpoint → worker → inbox →
     const acknowledged = await store.acknowledge(occurrenceId);
     assert.ok(acknowledged.ok && acknowledged.value.acknowledgedAt);
     await stopWorker();
-    const reopened = createTaskStore(join(root, ".runloom/tasks.json"));
+    const reopened = createTaskStore(join(root, "data/tasks.json"));
     const afterRestart = await reopened.get(occurrenceId);
     assert.ok(afterRestart.ok && afterRestart.value.acknowledgedAt);
     const inboxAfterRestart = await reopened.list({ inbox: true });
