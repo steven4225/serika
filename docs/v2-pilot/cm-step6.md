@@ -6,7 +6,7 @@
 
 - `cm-step6-offline-v5` 删除目标检查额外的“主项目”条件，摘要复用 `summaryChecks()`；四组 truth 各标准写法与三种正例，回答 128 项、摘要 128 项通过。旧答全扫改为核对冻结 v4 原件及成绩，未重评旧答。见 [冻结自检](evidence/cm-step6/offline-v5/self-check.json)。
 - 探针只修测试加载：CommonJS require 的 import-only 导出错误，改用 Node 主 loader 动态 ESM；Playwright inspector 自身没有 import callback，因此经 `vm.compileFunction` 的主 loader 执行动态导入。注入函数保持原样，仍在实际 `node:fs/promises.open` 目标入口等待 1,800ms 后抛错，不调用目标的真实 open。
-- 零费用探针本地通过：真实 Electron 44.4.5 + 假模型一次，实际 AiSdkAgentLoop / write_file 链，命中 1、`TOOL_OUTCOME_UNKNOWN`、磁盘无目标文件。它证明注入与工具回执，不是一次真实模型对话验收。见 [探针回执](evidence/cm-step6/offline-v5/open-fault-probe.json)。产品代码 0 行变更。
+- 零费用探针本地通过：macOS 真实 Electron 44.4.5 + 假模型一次，实际 AiSdkAgentLoop / write_file 链，命中 1、`TOOL_OUTCOME_UNKNOWN`、磁盘无目标文件。它证明注入与工具回执，不是一次真实模型对话验收。见 [探针回执](evidence/cm-step6/offline-v5/open-fault-probe.json)。产品代码 0 行变更。
 
 ## 2. 逐条对照验收项
 
@@ -14,8 +14,8 @@
 |---|---|
 | 只修加载/脚本错误；加载后 matched=0 即停 | 已做：首次直接动态 import 被 inspector 拒绝，记录 [加载错误](evidence/cm-step6/offline-v5/open-fault-esm-loader-error.log)；修复 loader 后 matched=1，未改注入方式 |
 | unknown 且无真实文件 | 已做：`tool.call.failed` 的 code 为 `TOOL_OUTCOME_UNKNOWN`、retryable=false；1,900ms 后文件仍不存在、目标 open 未委托；0 付费请求 |
-| 三连统一验证 | 正在准备同一干净源码快照；每次 UTC、Asia/Shanghai、eval、临时检出真实 Electron 冒烟；结果待写回 |
-| 提交推送及审核停点 | 三次成功后更新实验分支并推送；随后停止等 bot1 复现。付费续补未启动 |
+| 三连统一验证 | 已做：同一源码 a6cee0ec 连续三次退出 0；每次两个时区各 1791 通过/0 失败/11 跳过，eval 101/101，临时干净检出冒烟 8/8。见 [三连索引](evidence/cm-step6/offline-v5/verification-three.json) |
+| 提交推送及审核停点 | 已完成三次验证，按本次授权提交并推送 experiment/architecture-v2；本轮停在审核复现探针关口，付费续补未启动 |
 | 初次原档保持 | 5 轮、12 请求、3 份摘要、压缩后问答；原 manifest 无差异；read_file 与 write_file 都成功，记忆页为空。见 [原文](evidence/cm-step6/spot-conversation/initial/dialogue.md)、[原始回执/诊断/记忆页](evidence/cm-step6/spot-conversation/initial/result.json) |
 | 后续付费续补 | 未做，须审核确认探针后：先补每轮落盘、标第 6 轮起续补，unknown 后至少一次后台压缩且进入摘要，再提问与冷启动原样同题；全段最多 $0.30，只续补一次 |
 | 第 7 步及日用迁移 | 未开始；只保留本文末尾备份、数据副本演练、完整回滚及逐项核对方案；日用迁移另定门槛 |
@@ -30,7 +30,7 @@
 | `cm-step6-checker-self-check.mjs` | +45/-0/+45 | truth 标准答案与摘要投影自检，保留 |
 | `cm-step6-live.mjs` | +13/-7/+6 | 修目标条件、提取共享摘要检查入口，保留 |
 | `cm-step6-live.test.mjs` | +19/-8/+11 | 用冻结原件校验替代旧答重新全扫，保留 |
-| `cm-step6-open-fault.mjs` | +15/-0/+15 | 精确目标 open 注入；探针与后续续补共用，审核前保留。可合入探针，但后续会复制同一注入，因此当前不删 |
+| `cm-step6-open-fault.mjs` | +15/-0/+15 | 精确目标 open 注入；当前只由探针调用，审核前保留。可内联后删除该文件；后续续补须复用本次审核的同一函数，当前尚未接入 |
 | `cm-step6-write-delay-probe.mjs` | +51/-0/+51 | 零费用真实工具 unknown 与无磁盘写入证明，保留；此次 ESM/加载生命周期修复增 11 行，当前 62 行 |
 | `cm-step6-spot-audit.mjs` | +63/-0/+63 | 从原始回执导出原文、诊断、费用和文件 hash；初次档案由它生成。可在最终审核后退役，但会失去直接重建审计的入口，当前保留；续补前修原件保护及旧尾部预留读取 |
 | 合计 | +438/-15/+423 | 撤回 27 行未完成 cold-only 草稿，增加 11 行加载修复，当前 +422/-15，净 +407；产品 +0/-0 |
@@ -48,11 +48,17 @@
 - 既有 `node examples/eval/cm-step6-checker-self-check.mjs <输出>` → 0，16 组、256 项；`node --test examples/eval/cm-step6-live.test.mjs` → 0；`pnpm typecheck` → 0，见冻结证据。
 - 本次 `node apps/desktop/scripts/cm-step6-write-delay-probe.mjs` → 先因 inspector 的动态导入回调缺失退出 1，修加载后退出 0。注入命中后没有重试工具，mockModelCalls=1、realModelCalls=0、costUsd=0。
 - 审核复现先 `pnpm build:runtime`，再 `pnpm --filter @serika/desktop build`，然后运行上述探针。Linux 用 `xvfb-run -a -s "-screen 0 1440x900x24" node apps/desktop/scripts/cm-step6-write-delay-probe.mjs`。仅创建并清理临时 workspace/profile/transcripts，不读密钥。
-- 三次统一命令均为 `node packages/assistant/scripts/cm-step6-verify.mjs`，用各自外部 `SERIKA_CM6_VERIFY_OUTPUT` 保存证据；正在准备。冒烟固定 SHA `9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f`。
+- 三次统一命令均为 `node packages/assistant/scripts/cm-step6-verify.mjs`，用各自外部 `SERIKA_CM6_VERIFY_OUTPUT` 保存证据，退出码均为 0。验证源码提交 `a6cee0ec4ffd550f3828f6cfb45764b99c7ca2f4`；最终提交仅追加本文与验证证据，源码不再变更。冒烟固定 SHA `9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f`。
+
+### 本轮复现绑定
+
+- 探针脚本 SHA-256：`d2ec115cf98b75498fb895ad896e17733cfb0d770e63d3e46123cecc3fa13a5e`。
+- 注入函数 SHA-256：`665c1b4a8eb125c0fe9b4e95465fd69405efa6e7095a45f082f9c2a62c700eff`，与上轮注入草稿相同；本轮没有更换注入。
+- 三连为 macOS 本地复现，Linux+Xvfb 待 bot1 审核。仓库上一轮 `5889ed6` 的 macOS 原始 [验证记录](evidence/cm-step6/offline-floor/verification-runs/1/cm-step6/verification.json)也是 1791 通过/11 跳过；本轮没有改 skip。eval 从 100 到 101 是新增 truth 自检。
 
 ## 5. 与计划不符的地方及理由
 
-本轮只放行零费用探针修复、三次统一验证和实验分支推送，审核复现前不运行付费续补。上一轮停下条件已被本次“加载/脚本错误可修复重跑；加载正常后 matched=0 则停”替代。此前失败记录照留，新成功回执单独存档。
+本轮只放行零费用探针修复、三次统一验证和实验分支推送，审核复现前不运行付费续补。按 pstack 的实物验证、可复跑工具和最小改动原则，保留固定探针及原始回执，撤回已过时的 cold-only 草稿。上一轮停下条件已被本次“加载/脚本错误可修复重跑；加载正常后 matched=0 则停”替代。此前失败记录照留，新成功回执单独存档。首次统一验证也曾退出 1：临时检出的 workspace 依赖链接指向原检出，加载两份 AgentError，core 的截断响应测试得到 INTERNAL 而非 MODEL_BAD_RESPONSE。修正仅发生在临时检出的 node_modules 链接；[前后身份](evidence/cm-step6/offline-v5/dependency-identity-before.json)、[修正后身份](evidence/cm-step6/offline-v5/dependency-identity-after.json)、[原失败](evidence/cm-step6/offline-v5/verification-failed-dependency-link/cm-step6/verification.json)与[定向复现](evidence/cm-step6/offline-v5/targeted-core.log)保留。未改产品、断言或跳过项，之后从头取得连续三次完整通过。临时检出还补齐了 examples/eval 的依赖链接，未修改源码。
 
 初次存档因对不存在的 `.runloom/memory.json` 读取 SHA 报 ENOENT，中断于冷启动前；原写入实际成功，不能改记 unknown。原档与回答一字不改。每轮落盘、同一对话两场景续补和冷启动同题仍属于下一审核后阶段，当前不声称已完成。SQLite、第 7 步与日用迁移未开始；以下历史附表保留批准事项。
 

@@ -1,0 +1,162 @@
+{
+  "runId": "6eb783ac-2268-476b-8df0-5074a0e431a1",
+  "generatedAt": "2026-10-22T10:35:19.442062+00:00",
+  "sourceCommit": "a6cee0ec4ffd550f3828f6cfb45764b99c7ca2f4",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "runs": [
+    {
+      "runId": "2dc28368-3b2d-418e-b750-eca98b2c5790",
+      "file": "docs/v2-pilot/evidence/cm-step6/offline-v5/verification-runs/1/cm-step6/verification.json",
+      "sha256": "ebf1ff54cd9fbab236c5c2a38d98bb609fa1fb8510fcff48144cd65c8720583a",
+      "exitCode": 0,
+      "counts": [
+        {
+          "command": [
+            "env",
+            "TZ=UTC",
+            "pnpm",
+            "test"
+          ],
+          "exitCode": 0,
+          "tests": 1802,
+          "pass": 1791,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 11
+        },
+        {
+          "command": [
+            "env",
+            "TZ=Asia/Shanghai",
+            "pnpm",
+            "test"
+          ],
+          "exitCode": 0,
+          "tests": 1802,
+          "pass": 1791,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 11
+        },
+        {
+          "command": [
+            "pnpm",
+            "eval:test"
+          ],
+          "exitCode": 0,
+          "tests": 101,
+          "pass": 101,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      ],
+      "smokePassed": 8
+    },
+    {
+      "runId": "818b2f90-8f89-4343-84d2-466851dc8dd1",
+      "file": "docs/v2-pilot/evidence/cm-step6/offline-v5/verification-runs/2/cm-step6/verification.json",
+      "sha256": "b4990a4e1bef26ca0e57a870526cd94a6f8b0053ea1cd2a96bbed578951056ec",
+      "exitCode": 0,
+      "counts": [
+        {
+          "command": [
+            "env",
+            "TZ=UTC",
+            "pnpm",
+            "test"
+          ],
+          "exitCode": 0,
+          "tests": 1802,
+          "pass": 1791,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 11
+        },
+        {
+          "command": [
+            "env",
+            "TZ=Asia/Shanghai",
+            "pnpm",
+            "test"
+          ],
+          "exitCode": 0,
+          "tests": 1802,
+          "pass": 1791,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 11
+        },
+        {
+          "command": [
+            "pnpm",
+            "eval:test"
+          ],
+          "exitCode": 0,
+          "tests": 101,
+          "pass": 101,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      ],
+      "smokePassed": 8
+    },
+    {
+      "runId": "e24072cf-168d-471e-86bc-51a399af17a5",
+      "file": "docs/v2-pilot/evidence/cm-step6/offline-v5/verification-runs/3/cm-step6/verification.json",
+      "sha256": "d4cbb98687a6d86f60c36631239dc678c473fb744745c5a9b05a5bba5bbe1836",
+      "exitCode": 0,
+      "counts": [
+        {
+          "command": [
+            "env",
+            "TZ=UTC",
+            "pnpm",
+            "test"
+          ],
+          "exitCode": 0,
+          "tests": 1802,
+          "pass": 1791,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 11
+        },
+        {
+          "command": [
+            "env",
+            "TZ=Asia/Shanghai",
+            "pnpm",
+            "test"
+          ],
+          "exitCode": 0,
+          "tests": 1802,
+          "pass": 1791,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 11
+        },
+        {
+          "command": [
+            "pnpm",
+            "eval:test"
+          ],
+          "exitCode": 0,
+          "tests": 101,
+          "pass": 101,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      ],
+      "smokePassed": 8
+    }
+  ],
+  "probe": {
+    "file": "docs/v2-pilot/evidence/cm-step6/offline-v5/open-fault-probe.json",
+    "sha256": "0b97fcab99acd2401b860a8f836247622fc80d245f1903e2d5a159b59eb21245",
+    "scriptSha256": "d2ec115cf98b75498fb895ad896e17733cfb0d770e63d3e46123cecc3fa13a5e",
+    "faultScriptSha256": "665c1b4a8eb125c0fe9b4e95465fd69405efa6e7095a45f082f9c2a62c700eff"
+  }
+}

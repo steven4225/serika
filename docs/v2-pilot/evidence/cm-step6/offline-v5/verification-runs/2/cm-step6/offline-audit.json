@@ -1,0 +1,412 @@
+{
+  "runId": "6b7810b5-a6a1-44eb-8664-e53861dfe593",
+  "generatedAt": "2026-10-22T10:26:30.699Z",
+  "sourceCommit": "a6cee0ec4ffd550f3828f6cfb45764b99c7ca2f4",
+  "scriptSha256": "9dd3e268ad706b61ebc777504b24003de978eda4a5a6917ad95885066fdc0ae0",
+  "sourceWorktreeDirty": false,
+  "evidenceWorktreeDirty": false,
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "ledgerPath": "docs/v2-pilot/evidence/cost-ledger.json",
+  "source": "docs/v2-pilot/evidence/cm-step6/live-7c5b4116-0378-4286-afc2-ac9b00eafe0b.json",
+  "sourceSha256": "8e99d42859cbd53121953305815e51756e02cd39f83ebf052514ef53cb5fee3d",
+  "capacity": [
+    {
+      "name": "CE05 required truth repeated across four segments",
+      "sectionTokens": [
+        32,
+        32,
+        32,
+        32
+      ],
+      "indexTokens": 61,
+      "storedLayerTokens": 478,
+      "checklistTokens": 193,
+      "totalBudget": 1248,
+      "projectedTokens": 671,
+      "fits": true,
+      "originalTokens": 478,
+      "requiredTokens": 302,
+      "budget": 1055,
+      "reducedSegments": 0,
+      "compacted": false,
+      "indexDuplicateLines": 0
+    },
+    {
+      "name": "CE05 old nonessential file details crowd out truth",
+      "sectionTokens": [
+        192,
+        192,
+        192,
+        192
+      ],
+      "indexTokens": 61,
+      "storedLayerTokens": 1122,
+      "checklistTokens": 193,
+      "totalBudget": 1248,
+      "projectedTokens": 1154,
+      "fits": true,
+      "originalTokens": 1122,
+      "requiredTokens": 302,
+      "budget": 1055,
+      "reducedSegments": 1,
+      "compacted": false,
+      "indexDuplicateLines": 0
+    },
+    {
+      "name": "valid capped unique essential sections plus opaque index",
+      "sectionTokens": [
+        208,
+        208,
+        208,
+        208
+      ],
+      "indexTokens": 172,
+      "storedLayerTokens": 1283,
+      "checklistTokens": 193,
+      "totalBudget": 1248,
+      "projectedTokens": 1408,
+      "fits": false,
+      "originalTokens": 1283,
+      "requiredTokens": 1215,
+      "budget": 1055,
+      "reducedSegments": 4,
+      "compacted": true,
+      "indexDuplicateLines": 0
+    },
+    {
+      "name": "valid full sections and full index with UUID ranges and timestamps",
+      "sectionTokens": [
+        208,
+        208,
+        208,
+        208
+      ],
+      "indexTokens": 208,
+      "checklistTokens": 193,
+      "totalBudget": 1248,
+      "projectedTokens": 1632,
+      "fits": false,
+      "originalTokens": 1507,
+      "requiredTokens": 1439,
+      "budget": 1055,
+      "reducedSegments": 4,
+      "compacted": true,
+      "indexDuplicateLines": 0
+    }
+  ],
+  "m1": {
+    "passed": false,
+    "failures": [
+      {
+        "callId": "38efa26c-6d50-44bc-ad84-cef04b2e54ea",
+        "outputShape": {
+          "encoding": "json",
+          "shape": {
+            "proposals": [
+              {
+                "operation": "string",
+                "text": "string",
+                "uncertain": "boolean",
+                "category": "string",
+                "identity": {
+                  "subject": "string",
+                  "attribute": "string",
+                  "value": "string"
+                },
+                "sourceQuote": "string",
+                "sourceMessageId": "string"
+              }
+            ],
+            "outcomes": [
+              {
+                "messageId": "string",
+                "status": "string"
+              }
+            ]
+          }
+        },
+        "case": "confirmation",
+        "window": "32k",
+        "failedChecks": [
+          "confirmation"
+        ],
+        "error": null,
+        "outputHash": "jcs-sha256:v1:93b001eed6f3632fe55612c82cba4ebfb83690c963359795aff7d31bb72d9248",
+        "originalOutputRetained": false,
+        "originalExcerpt": null
+      },
+      {
+        "callId": "d2c13925-4d76-4e22-965a-0d7303fd3b97",
+        "outputShape": {
+          "encoding": "json",
+          "shape": {
+            "proposals": [
+              {
+                "operation": "string",
+                "text": "string",
+                "uncertain": "boolean",
+                "category": "string",
+                "identity": {
+                  "subject": "string",
+                  "attribute": "string",
+                  "value": "string"
+                },
+                "sourceQuote": "string",
+                "sourceMessageId": "string"
+              }
+            ],
+            "outcomes": [
+              {
+                "messageId": "string",
+                "status": "string"
+              }
+            ]
+          }
+        },
+        "case": "uncertain",
+        "window": "32k",
+        "failedChecks": [
+          "completed",
+          "saved",
+          "uncertain"
+        ],
+        "error": "同句矛盾必须完整保留证据中的原话",
+        "outputHash": "jcs-sha256:v1:448903d8a0a5244bf12631ead727b0217644d148220f3d9ef3451951d968c666",
+        "originalOutputRetained": false,
+        "originalExcerpt": null
+      },
+      {
+        "callId": "e1e64095-2464-49e4-80db-37f37688fb07",
+        "outputShape": {
+          "encoding": "json",
+          "shape": {
+            "proposals": [
+              {
+                "operation": "string",
+                "text": "string",
+                "uncertain": "boolean",
+                "category": "string",
+                "identity": {
+                  "subject": "string",
+                  "attribute": "string",
+                  "value": "string"
+                },
+                "sourceQuote": "string",
+                "sourceMessageId": "string"
+              }
+            ],
+            "outcomes": [
+              {
+                "messageId": "string",
+                "status": "string"
+              }
+            ]
+          }
+        },
+        "case": "replay-9",
+        "window": "32k",
+        "failedChecks": [
+          "completed"
+        ],
+        "error": "记忆关键值必须逐字出现在绑定原话与正文中",
+        "outputHash": "jcs-sha256:v1:bdaf965e649d34ca55ded33bcb1fffc5679ce376ebc48ce7d3ca7b3d17765eff",
+        "originalOutputRetained": false,
+        "originalExcerpt": null
+      },
+      {
+        "callId": "e21bb45e-284a-4d82-a550-0fec6f325218",
+        "outputShape": {
+          "encoding": "json",
+          "shape": {
+            "proposals": [
+              {
+                "operation": "string",
+                "text": "string",
+                "uncertain": "boolean",
+                "category": "string",
+                "identity": {
+                  "subject": "string",
+                  "attribute": "string",
+                  "value": "string"
+                },
+                "sourceQuote": "string",
+                "sourceMessageId": "string"
+              }
+            ],
+            "outcomes": [
+              {
+                "messageId": "string",
+                "status": "string"
+              }
+            ]
+          }
+        },
+        "case": "confirmation",
+        "window": "daily",
+        "failedChecks": [
+          "confirmation"
+        ],
+        "error": null,
+        "outputHash": "jcs-sha256:v1:3588201d10166f2331b53d756e405d4fbd4294189b964246140a8aba7899775e",
+        "originalOutputRetained": false,
+        "originalExcerpt": null
+      },
+      {
+        "callId": "ab208956-ae92-4c31-8a21-e3484055bd4f",
+        "outputShape": {
+          "encoding": "json",
+          "shape": {
+            "proposals": [
+              {
+                "operation": "string",
+                "text": "string",
+                "uncertain": "boolean",
+                "category": "string",
+                "identity": {
+                  "subject": "string",
+                  "attribute": "string",
+                  "value": "string"
+                },
+                "sourceQuote": "string",
+                "sourceMessageId": "string"
+              },
+              {
+                "operation": "string",
+                "text": "string",
+                "uncertain": "boolean",
+                "category": "string",
+                "identity": {
+                  "subject": "string",
+                  "attribute": "string",
+                  "value": "string"
+                },
+                "sourceQuote": "string",
+                "sourceMessageId": "string"
+              }
+            ],
+            "outcomes": [
+              {
+                "messageId": "string",
+                "status": "string"
+              },
+              {
+                "messageId": "string",
+                "status": "string"
+              }
+            ]
+          }
+        },
+        "case": "conflict",
+        "window": "daily",
+        "failedChecks": [
+          "conflicts"
+        ],
+        "error": null,
+        "outputHash": "jcs-sha256:v1:e28a848593cc73f3ec2812f68765d69c87d67c3d3c5dd01ecfb9ad6c6a92c8bf",
+        "originalOutputRetained": false,
+        "originalExcerpt": null
+      },
+      {
+        "callId": "0b62c3c9-1ccb-496f-9c48-57c767657a4a",
+        "outputShape": {
+          "encoding": "json",
+          "shape": {
+            "proposals": [
+              {
+                "operation": "string",
+                "text": "string",
+                "uncertain": "boolean",
+                "category": "string",
+                "identity": {
+                  "subject": "string",
+                  "attribute": "string",
+                  "value": "string"
+                },
+                "sourceQuote": "string",
+                "sourceMessageId": "string"
+              }
+            ],
+            "outcomes": [
+              {
+                "messageId": "string",
+                "status": "string"
+              }
+            ]
+          }
+        },
+        "case": "uncertain",
+        "window": "daily",
+        "failedChecks": [
+          "completed",
+          "saved",
+          "uncertain"
+        ],
+        "error": "记忆关键值必须逐字出现在绑定原话与正文中",
+        "outputHash": "jcs-sha256:v1:cd104d33065d352ebf52f5452eef6e5c80703a03dc915abc3f2ddb21db53576b",
+        "originalOutputRetained": false,
+        "originalExcerpt": null
+      },
+      {
+        "callId": "02a129ef-a27b-4ada-b44f-41db8e4e9f99",
+        "outputShape": {
+          "encoding": "json",
+          "shape": {
+            "proposals": [
+              {
+                "operation": "string",
+                "category": "string",
+                "text": "string",
+                "identity": {
+                  "subject": "string",
+                  "attribute": "string",
+                  "value": "string"
+                },
+                "sourceQuote": "string",
+                "sourceMessageId": "string",
+                "uncertain": "boolean"
+              }
+            ],
+            "outcomes": [
+              {
+                "messageId": "string",
+                "status": "string"
+              }
+            ]
+          }
+        },
+        "case": "replay-9",
+        "window": "daily",
+        "failedChecks": [
+          "completed"
+        ],
+        "error": "记忆关键值必须逐字出现在绑定原话与正文中",
+        "outputHash": "jcs-sha256:v1:a07a509c40927fce77714103b205c363799306f8127b2bee0fd82523d47449e2",
+        "originalOutputRetained": false,
+        "originalExcerpt": null
+      }
+    ],
+    "failureRows": 7,
+    "remainingAfterReplay": 5
+  },
+  "nextBatchEstimate": {
+    "basis": "two previous full usage-metered attempts; same quoted prices; no new provider request",
+    "previousCalls": [
+      122,
+      145
+    ],
+    "previousUsd": [
+      0.68218348,
+      0.5934394
+    ],
+    "expectedUsd": [
+      0.6,
+      0.85
+    ],
+    "conservativePlanningUsd": 1,
+    "currentCombinedChargedUsd": 1.29894714,
+    "proposedCombinedCapUsd": 2.5,
+    "availableAfterApprovalUsd": 1.20105286,
+    "authorizedNow": false
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "snapshotCommit": "a6cee0ec4ffd550f3828f6cfb45764b99c7ca2f4",
+  "startedAt": "2026-10-22T10:06:35.196639+00:00",
+  "commands": [
+    {
+      "name": "build-runtime",
+      "command": [
+        "pnpm",
+        "build:runtime"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "build-desktop",
+      "command": [
+        "pnpm",
+        "--filter",
+        "@serika/desktop",
+        "build"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "probe",
+      "command": [
+        "node",
+        "apps/desktop/scripts/cm-step6-write-delay-probe.mjs"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "self-check",
+      "command": [
+        "node",
+        "examples/eval/cm-step6-checker-self-check.mjs",
+        "<verification>/self-check.json"
+      ],
+      "exitCode": 1
+    }
+  ],
+  "realModelCalls": 0,
+  "costUsd": 0
+}

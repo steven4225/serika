@@ -1,0 +1,42 @@
+{
+  "snapshotCommit": "a6cee0ec4ffd550f3828f6cfb45764b99c7ca2f4",
+  "startedAt": "2026-10-22T10:09:59.497152+00:00",
+  "commands": [
+    {
+      "name": "self-check",
+      "command": [
+        "node",
+        "examples/eval/cm-step6-checker-self-check.mjs",
+        "<verification>/self-check.json"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "verify-1",
+      "command": [
+        "node",
+        "packages/assistant/scripts/cm-step6-verify.mjs"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "verify-2",
+      "command": [
+        "node",
+        "packages/assistant/scripts/cm-step6-verify.mjs"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "verify-3",
+      "command": [
+        "node",
+        "packages/assistant/scripts/cm-step6-verify.mjs"
+      ],
+      "exitCode": 0
+    }
+  ],
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "finishedAt": "2026-10-22T10:34:55.752905+00:00"
+}
