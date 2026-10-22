@@ -1,0 +1,53 @@
+{
+  "base": "03ae68f",
+  "product": {
+    "added": 0,
+    "deleted": 0,
+    "net": 0
+  },
+  "testAndEval": {
+    "files": [
+      {
+        "path": "apps/desktop/scripts/cm-step6-live-conversation.mjs",
+        "added": 232,
+        "deleted": 0
+      },
+      {
+        "path": "examples/eval/cm-step6-checker-self-check.mjs",
+        "added": 45,
+        "deleted": 0
+      },
+      {
+        "path": "examples/eval/cm-step6-live.mjs",
+        "added": 13,
+        "deleted": 7
+      },
+      {
+        "path": "examples/eval/cm-step6-live.test.mjs",
+        "added": 19,
+        "deleted": 8
+      },
+      {
+        "path": "apps/desktop/scripts/cm-step6-open-fault.mjs",
+        "added": 15,
+        "deleted": 0
+      },
+      {
+        "path": "apps/desktop/scripts/cm-step6-write-delay-probe.mjs",
+        "added": 51,
+        "deleted": 0
+      },
+      {
+        "path": "examples/eval/cm-step6-spot-audit.mjs",
+        "added": 63,
+        "deleted": 0
+      }
+    ],
+    "added": 438,
+    "deleted": 15,
+    "net": 423
+  },
+  "diffSha256": "8e1241b4674e059b96cb2b93671697a0b46e8d63b8c7fa475926671d912f6297",
+  "status": "historical-pre-esm-draft-count",
+  "note": "上次汇报的423行原口径，保留用于对照；当前行数另算。"
+}

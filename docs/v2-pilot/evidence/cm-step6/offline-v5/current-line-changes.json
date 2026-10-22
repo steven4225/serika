@@ -1,0 +1,60 @@
+{
+  "runId": "9ee43374-dfe6-49b2-b014-8c5e3d702785",
+  "generatedAt": "2026-10-22T10:04:54.300963+00:00",
+  "base": "03ae68f",
+  "product": {
+    "added": 0,
+    "deleted": 0,
+    "net": 0
+  },
+  "testAndEval": {
+    "files": [
+      {
+        "path": "apps/desktop/scripts/cm-step6-live-conversation.mjs",
+        "added": 205,
+        "deleted": 0,
+        "net": 205
+      },
+      {
+        "path": "examples/eval/cm-step6-checker-self-check.mjs",
+        "added": 45,
+        "deleted": 0,
+        "net": 45
+      },
+      {
+        "path": "examples/eval/cm-step6-live.mjs",
+        "added": 13,
+        "deleted": 7,
+        "net": 6
+      },
+      {
+        "path": "examples/eval/cm-step6-live.test.mjs",
+        "added": 19,
+        "deleted": 8,
+        "net": 11
+      },
+      {
+        "path": "apps/desktop/scripts/cm-step6-open-fault.mjs",
+        "added": 15,
+        "deleted": 0,
+        "net": 15
+      },
+      {
+        "path": "apps/desktop/scripts/cm-step6-write-delay-probe.mjs",
+        "added": 62,
+        "deleted": 0,
+        "net": 62
+      },
+      {
+        "path": "examples/eval/cm-step6-spot-audit.mjs",
+        "added": 63,
+        "deleted": 0,
+        "net": 63
+      }
+    ],
+    "added": 422,
+    "deleted": 15,
+    "net": 407
+  },
+  "removedSince423": "cold-only continuation draft, +27 net relative to d3d99ab, superseded by human-required unknown-write supplement; historical original runner retained at its d3d99ab content"
+}

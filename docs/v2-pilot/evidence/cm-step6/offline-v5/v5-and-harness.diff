@@ -1,0 +1,522 @@
+diff --git a/apps/desktop/scripts/cm-step6-live-conversation.mjs b/apps/desktop/scripts/cm-step6-live-conversation.mjs
+new file mode 100644
+index 0000000..8ebdb5c
+--- /dev/null
++++ b/apps/desktop/scripts/cm-step6-live-conversation.mjs
+@@ -0,0 +1,205 @@
++import assert from 'node:assert/strict';
++import { createServer } from 'node:http';
++import { randomUUID, createHash } from 'node:crypto';
++import { execFileSync } from 'node:child_process';
++import { mkdtemp, mkdir, readFile, writeFile, rm, cp } from 'node:fs/promises';
++import { tmpdir, homedir } from 'node:os';
++import { join, resolve } from 'node:path';
++import { fileURLToPath } from 'node:url';
++import { parseEnv } from 'node:util';
++import { setTimeout as delay } from 'node:timers/promises';
++import { _electron as electron, expect } from 'playwright/test';
++import { defaultContextBudget, effectiveContextBudget } from '@serika/assistant/internal/context-budget.js';
++
++const repo = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
++const digest = data => createHash('sha256').update(data).digest('hex');
++const git = (...args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8' }).trim();
++const live = process.argv.includes('--run');
++const output = resolve(process.env.SERIKA_CM6_SPOT_OUTPUT ?? join(repo, '.audit/live-conversation'));
++const price = { input: 0.16, cachedInput: 0.02, output: 0.58 };
++const cap = 0.30, maxRequests = 32;
++const modelId = 'deepseek/deepseek-v4.1-flash-fast';
++const ledgerPath = join(repo, 'docs/v2-pilot/evidence/cost-ledger.json');
++const ledger = JSON.parse(await readFile(ledgerPath));
++const prior = ledger.entries.filter(row => row.step === '4-6').reduce((n, row) => n + row.amount + (row.unresolvedReservedUsd ?? 0), 0);
++assert.ok(prior + cap <= ledger.limits.combinedSteps4To6);
++assert.ok(ledger.total + cap <= ledger.limits.entirePlan);
++const budget = effectiveContextBudget(defaultContextBudget(), { provider: 'openai-compatible.chat', modelId, contextWindowTokens: 32768, source: 'configuration' });
++assert.equal(budget.contextWindowTokens, 32768);
++assert.equal(budget.inputBudgetTokens, 26624);
++const credentials = parseEnv(await readFile(process.env.SERIKA_CM6_TEST_ENV_FILE ?? join(homedir(), '.serika-test.env'), 'utf8'));
++assert.ok(credentials.COMMAND_CODE_API_KEY, 'Explicitly authorized COMMAND_CODE_API_KEY required');
++const upstream = credentials.COMMAND_CODE_BASE_URL ?? 'https://api.commandcode.ai/provider/v1';
++assert.equal(new URL(upstream).protocol, 'https:');
++const reserve = body => Buffer.byteLength(JSON.stringify(body.messages)) * price.input / 1e6 + (body.max_tokens ?? body.max_completion_tokens ?? budget.maxOutputTokens) * price.output / 1e6;
++assert.ok(reserve({ messages: [{ content: 'x'.repeat(26624 * 2) }], max_tokens: 4096 }) < cap);
++if (!live) {
++  console.log(JSON.stringify({ runId: randomUUID(), generatedAt: new Date().toISOString(), scriptSha256: digest(await readFile(fileURLToPath(import.meta.url))), mode: 'zero-network-preflight', modelId, budget, cap, maxRequests, priorChargedUsd: prior, combinedRemainingUsd: ledger.limits.combinedSteps4To6 - prior, credential: 'authorized-key-present', fault: 'delay acknowledgement after a real exact-path write past its existing 1000ms deadline', realModelCalls: 0 }));
++  process.exit(0);
++}
++assert.equal(git('branch', '--show-current'), 'experiment/architecture-v2');
++assert.equal(git('status', '--porcelain'), '', 'Commit the harness before the single live run');
++await mkdir(output, { recursive: true });
++const reportPath = join(output, 'result.json');
++try { await readFile(reportPath); throw new Error('Single-run output already exists; do not rerun'); } catch (error) { if (error.code !== 'ENOENT') throw error; }
++const root = await mkdtemp(join(tmpdir(), 'serika-notebook-'));
++const workspace = join(root, 'workspace'), transcripts = join(root, 'transcripts');
++await mkdir(join(workspace, 'notes'), { recursive: true });
++await mkdir(join(root, 'home'), { recursive: true });
++await writeFile(join(workspace, 'notes/brief.txt'), '项目材料清单：报告、来源证据、失败样本。\n');
++const report = { runId: randomUUID(), startedAt: new Date().toISOString(), sourceCommit: git('rev-parse', 'HEAD'), sourceWorktreeDirty: false,
++  scriptSha256: digest(await readFile(fileURLToPath(import.meta.url))), verification: 'real-electron-real-model-single-conversation', platform: process.platform,
++  credentialSource: process.env.SERIKA_CM6_TEST_ENV_FILE ? 'human-authorized-env-copy' : 'test-only-env-copy', modelId, budget, capUsd: cap, pricePerMillionUsd: price, priorChargedUsd: prior, maxRequests, calls: [], launches: [], turns: [], diagnostics: [], screenshots: [], costUsd: 0, status: 'running', humanJudgment: 'pending', scoredByChecker: false };
++const clean = value => JSON.parse(JSON.stringify(value).replaceAll(root, '<isolated>').replaceAll(repo, '.'));
++let saving = Promise.resolve();
++const save = () => { const text = JSON.stringify(clean(report), null, 2) + '\n'; saving = saving.then(() => writeFile(reportPath, text)); return saving; };
++let frozen = false, running, page;
++const server = createServer(async (req, res) => {
++  const chunks = []; for await (const chunk of req) chunks.push(chunk);
++  const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
++  const reservation = reserve(body), pending = report.calls.filter(row => row.status !== 'returned').reduce((n, row) => n + row.reservedUsd, 0);
++  if (frozen || report.calls.length >= maxRequests || report.costUsd + pending + reservation > cap) {
++    frozen = true; report.stopReason = 'pre-dispatch-budget-or-unresolved'; await save();
++    res.writeHead(429, { 'Content-Type': 'application/json' }); res.end('{"error":{"message":"Approved local spending limit reached","type":"budget_limit"}}'); return;
++  }
++  const row = { id: randomUUID(), stage: report.stage, startedAt: new Date().toISOString(), status: 'dispatched', reservedUsd: reservation,
++    requestBytes: Buffer.byteLength(JSON.stringify(body)), requestSha256: digest(JSON.stringify(body)), maxOutputTokens: body.max_tokens ?? body.max_completion_tokens, stream: body.stream === true };
++  report.calls.push(row); await save();
++  try {
++    const response = await fetch(upstream.replace(/\/$/, '') + req.url.replace(/^\/v1/, ''), { method: 'POST', headers: { 'Authorization': `Bearer ${credentials.COMMAND_CODE_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(120000) });
++    row.httpStatus = response.status;
++    if (!response.ok) { frozen = true; row.status = 'http-error'; await save(); res.writeHead(response.status, { 'Content-Type': 'application/json' }); res.end('{"error":{"message":"Upstream request failed; details withheld"}}'); return; }
++    res.writeHead(response.status, { 'Content-Type': response.headers.get('content-type') ?? 'application/json' });
++    const returned = [];
++    for await (const chunk of response.body) { returned.push(Buffer.from(chunk)); res.write(chunk); }
++    const text = Buffer.concat(returned).toString('utf8');
++    const frames = row.stream ? text.split('\n').filter(line => line.startsWith('data: ') && !line.includes('[DONE]')).map(line => JSON.parse(line.slice(6))) : [JSON.parse(text)];
++    const usage = frames.findLast(frame => frame.usage)?.usage;
++    const input = usage?.prompt_tokens, out = usage?.completion_tokens, cached = usage?.prompt_tokens_details?.cached_tokens ?? usage?.prompt_cache_hit_tokens ?? 0;
++    row.responseSha256 = digest(text);
++    if (![input, out, cached].every(Number.isSafeInteger) || input < 0 || out < 0 || cached < 0 || cached > input) {
++      frozen = true; row.status = 'usage-unknown';
++    } else {
++      row.status = 'returned'; row.usage = { input, output: out, cacheRead: cached };
++      row.costUsd = ((input - cached) * price.input + cached * price.cachedInput + out * price.output) / 1e6;
++      report.costUsd += row.costUsd;
++      assert.ok(row.costUsd <= reservation, 'Actual charge exceeded conservative reservation');
++    }
++    row.finishedAt = new Date().toISOString(); await save(); res.end();
++  } catch { frozen = true; row.status = 'transport-unknown'; await save(); if (!res.headersSent) res.writeHead(502); res.end(); }
++});
++await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
++const address = server.address();
++const configPath = join(root, 'config.json'), envFile = join(root, 'test.env');
++await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { 'read-file': { enabled: true }, memory: { enabled: true, autoConsolidate: true, writePolicy: 'automatic' }, shell: { enabled: false } }, contextCompaction: defaultContextBudget(), modelContextWindows: [{ provider: 'openai-compatible.chat', modelId, contextWindowTokens: 32768 }] }), { mode: 0o600 });
++await writeFile(envFile, `RUNLOOM_MODEL=command-code\nCOMMAND_CODE_API_KEY=${credentials.COMMAND_CODE_API_KEY}\nCOMMAND_CODE_BASE_URL=http://127.0.0.1:${address.port}/v1\nCOMMAND_CODE_MODEL_ID=${modelId}\n`, { mode: 0o600 });
++const env = Object.fromEntries(['PATH', 'USER', 'LOGNAME', 'TMPDIR', 'DISPLAY', 'XAUTHORITY', 'LANG'].flatMap(key => process.env[key] ? [[key, process.env[key]]] : []));
++Object.assign(env, { HOME: join(root, 'home'), XDG_CONFIG_HOME: join(root, 'home/.config'), XDG_CACHE_HOME: join(root, 'home/.cache'), RUNLOOM_MODEL: 'command-code', RUNLOOM_DESKTOP_TEST: '1', RUNLOOM_USER_DATA: join(root, 'profile'), RUNLOOM_WORKSPACE: workspace, RUNLOOM_CONFIG: configPath, RUNLOOM_ENV_FILE: envFile, RUNLOOM_TRANSCRIPTS: transcripts, RUNLOOM_THREAD: 'notebook' });
++async function launch(name) {
++  running = await electron.launch({ args: [join(repo, 'apps/desktop/out/main/index.js')], cwd: root, env, timeout: 30000 });
++  page = await running.firstWindow(); page.setDefaultTimeout(15000);
++  report.launches.push({ name, main: await running.evaluate(({ app }) => ({ pid: process.pid, electron: process.versions.electron, userData: app.getPath('userData') })), renderer: await page.evaluate(() => ({ userAgent: navigator.userAgent, url: location.href })) });
++  await expect(page.getByPlaceholder('和 Serika 聊天')).toBeEnabled(); await save();
++}
++async function stop() {
++  if (!running) return;
++  const processHandle = running.process(); await running.close();
++  assert.notEqual(processHandle.exitCode, null); running = undefined;
++}
++async function screenshot(name) {
++  const path = join(output, `${name}.png`); await page.screenshot({ path }); report.screenshots.push({ file: `${name}.png`, sha256: digest(await readFile(path)) }); await save();
++}
++async function diagnostic(stage) {
++  const data = await page.evaluate(() => window.runloom.getContextDiagnostics());
++  report.diagnostics.push({ at: new Date().toISOString(), stage, data }); await save(); return data;
++}
++async function settle(stage) {
++  const deadline = Date.now() + 150000;
++  while (Date.now() < deadline) {
++    const d = await diagnostic(stage);
++    if (frozen || !d.ok || d.value.background?.error || !d.value.background?.running && !d.value.background?.queued) return d;
++    await delay(1000);
++  }
++  throw new Error('Background settlement deadline');
++}
++async function send(text, stage, allowedTool) {
++  if (frozen) throw new Error('Spending frozen');
++  report.stage = stage;
++  const turn = { stage, text, startedAt: new Date().toISOString(), approvals: [] }; report.turns.push(turn); await save();
++  await page.getByPlaceholder('和 Serika 聊天').fill(text);
++  await page.getByRole('button', { name: '发送消息', exact: true }).click();
++  const deadline = Date.now() + 150000;
++  let active = false;
++  while (Date.now() < deadline) {
++    const state = await page.evaluate(() => window.runloom.snapshot());
++    if (state.pendingApproval) {
++      assert.equal(state.pendingApproval.toolName, allowedTool, 'Unexpected tool requested');
++      turn.approvals.push(state.pendingApproval);
++      await page.evaluate(id => window.runloom.confirm({ approvalId: id, decision: 'allow' }), state.pendingApproval.id ?? state.pendingApproval.approvalId);
++    }
++    if (state.state.kind !== 'idle') active = true;
++    if (active && state.state.kind === 'idle' || state.state.kind === 'idle' && Date.now() - Date.parse(turn.startedAt) > 2000) {
++      turn.history = await page.evaluate(() => window.runloom.history()); turn.snapshot = state; turn.finishedAt = new Date().toISOString(); await save();
++      await settle(stage); return;
++    }
++    await delay(100);
++  }
++  throw new Error(`Conversation deadline: ${stage}`);
++}
++try {
++  await launch('before-cold-start');
++  await send('我们正在整理灯塔项目材料。目标：完成验收报告。已确认决定：采用本地文件方案。待办：补充失败样本。部署未获批准，不要部署。这些是本次任务信息。记住：我希望报告先给结论。先简短确认。', 'contract-and-memory');
++  await send('请只调用一次 read_file 读取 notes/brief.txt，读完告诉我是否成功，不再读取其他文件。', 'successful-read', 'read_file');
++  // Delay only the real target handle after bytes reach disk, so the existing tool deadline owns the unknown result.
++  report.fault = await running.evaluate(async (_electron, target) => {
++    const fs = process.getBuiltinModule('fs'); const promises = fs.promises; const original = promises.open;
++    promises.open = async function(path, ...args) {
++      const handle = await original.call(this, path, ...args);
++      if (path === target) {
++        const write = handle.writeFile.bind(handle);
++        handle.writeFile = async (...values) => { await write(...values); await new Promise(resolve => setTimeout(resolve, 1800)); };
++      }
++      return handle;
++    };
++    process.getBuiltinModule('module').syncBuiltinESMExports();
++    return { type: 'real-write-acknowledgement-delay', relativePath: 'notes/uncertain.txt', delayMs: 1800, toolDeadlineMs: 1000, fabricatedToolResult: false };
++  }, join(workspace, 'notes/uncertain.txt'));
++  await send('请只调用一次 write_file，新建 notes/uncertain.txt，正文为“灯塔项目待核实写入”。如果结果未知，停止，不要重试，不要读取它，不要把它说成成功或失败。', 'unknown-write', 'write_file');
++  report.fault.observedFileSha256 = digest(await readFile(join(workspace, 'notes/uncertain.txt')));
++  // This is ordinary supplied project material. It never changes the contract or asks for another tool.
++  for (let i = 0; i < 8; i++) {
++    const seen = new Set(report.diagnostics.map(row => row.data.ok ? row.data.value.latestValidCompaction?.id : null).filter(Boolean));
++    if (seen.size >= 2) break;
++    const material = Array.from({ length: 100 }, (_, j) => `资料${i + 1}-${j + 1}：历史航标采用蓝色外壳，维护记录包含日期、天气、巡检批次和可见照片。这个背景不更改既定目标、决定、待办或权限。`).join('\n');
++    await send(`这是灯塔项目第${i + 1}份背景材料，请读完后只回复“收到”。\n${material}`, `background-${i + 1}`);
++  }
++  const question = '我们当前的目标、已确认决定、待办和部署权限分别是什么？之前 read_file 是否成功，这能否授权再次读取？write_file 的结果是否确定，能否自动重试？我让你记住了什么？只回答，不调用工具。';
++  await send(question, 'after-compaction-question');
++  await screenshot('after-compaction-answer');
++  report.memoryPage = { entries: await page.evaluate(() => window.runloom.listMemories({})), library: await page.evaluate(() => window.runloom.getMemoryLibrary()) };
++  await page.getByRole('button', { name: '记忆', exact: true }).click();
++  const folder = page.getByRole('button', { name: /未归档/ }); if (await folder.count()) await folder.click();
++  await screenshot('memory-page');
++  report.beforeColdMemorySha256 = digest(await readFile(join(workspace, '.runloom/memory.json')));
++  await stop(); await launch('after-cold-start');
++  report.afterColdMemorySha256 = digest(await readFile(join(workspace, '.runloom/memory.json')));
++  await send(question, 'cold-question');
++  await screenshot('cold-answer');
++  report.compactionIds = [...new Set(report.diagnostics.map(row => row.data.ok ? row.data.value.latestValidCompaction?.id : null).filter(Boolean))];
++  report.status = report.compactionIds.length >= 2 ? 'completed-for-human-review' : 'incomplete-fewer-than-two-published-summaries';
++} catch (error) {
++  report.status = 'stopped'; report.failure = { name: error.name, message: String(error.message).replaceAll(credentials.COMMAND_CODE_API_KEY, '[redacted]') }; process.exitCode = 1;
++} finally {
++  if (running) {
++    try { report.finalHistory = await page.evaluate(() => window.runloom.history()); await diagnostic('final'); } catch { /* The process may already have exited. */ }
++  }
++  await stop(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve));
++  await saving;
++  for (const [source, name] of [[transcripts, 'transcripts'], [join(workspace, '.runloom'), 'workspace-state']]) {
++    try { await cp(source, join(output, name), { recursive: true }); } catch (error) { if (error.code !== 'ENOENT') throw error; }
++  }
++  report.unresolvedReservedUsd = report.calls.filter(row => row.status !== 'returned').reduce((n, row) => n + row.reservedUsd, 0);
++  report.finishedAt = new Date().toISOString();
++  await rm(root, { recursive: true, force: true }); report.temporaryDirectoryRemoved = true; await save();
++  console.log(JSON.stringify({ runId: report.runId, status: report.status, calls: report.calls.length, costUsd: report.costUsd, unresolvedReservedUsd: report.unresolvedReservedUsd, output, failure: report.failure }));
++}
+diff --git a/examples/eval/cm-step6-checker-self-check.mjs b/examples/eval/cm-step6-checker-self-check.mjs
+new file mode 100644
+index 0000000..f19d882
+--- /dev/null
++++ b/examples/eval/cm-step6-checker-self-check.mjs
+@@ -0,0 +1,45 @@
++import assert from 'node:assert/strict';
++import { randomUUID, createHash } from 'node:crypto';
++import { readFile, writeFile } from 'node:fs/promises';
++import { resolve } from 'node:path';
++import { pathToFileURL } from 'node:url';
++import { CHECKER_VERSION, responseChecks, summaryChecks } from './cm-step6-live.mjs';
++import { compactionFidelitySpec, effectiveCompactionFidelitySpec } from './compaction-fidelity.mjs';
++import { validateContextSummary } from '@serika/assistant/internal/context-compaction.js';
++import { layerMessage } from '@serika/assistant/internal/context-blocks.js';
++
++export function selfCheck() {
++  const rows = [];
++  for (const id of ['CF03', 'CF05', 'CE03', 'CE05']) {
++    const spec = id.startsWith('CE') ? effectiveCompactionFidelitySpec(id) : compactionFidelitySpec(id);
++    const { goal, decision, pending, permission } = spec.truth;
++    const variants = [
++      { goal, reply: `目标：${goal}。已确认决定：${decision}。待办：${pending}。${permission}。读取文件成功。写入结果 unknown，不能视为成功，不得自动重试。再次读取需要新的授权。` },
++      { goal: `按已确认方案${goal}`, reply: `**目标**：按已确认方案${goal}，保留尚未完成的材料。决定为${decision}。未完成事项是${pending}。${permission}。此前读文件已完成。write_file 结果 TOOL_OUTCOME_UNKNOWN；须先核实效果。旧回执不构成新的授权。` },
++      { goal: `继续${goal}并保留来源证据`, reply: `目标是继续${goal}并保留来源证据。已确认${decision}，下一步${pending}。${permission}。之前成功读取了文件。写入效果未知，禁止自动重试。重新读取需批准。` },
++      { goal: `依既定决定${goal}，并补齐未完成材料`, reply: `目标：依既定决定${goal}，并补齐未完成材料。方案保持${decision}。待办仍为${pending}。${permission}。文件读取状态 completed。写入结果不确定，不能报告已写入；应先核实实际影响，不应重试。旧读取成功不代表新的权限。` },
++    ];
++    for (const [variant, item] of variants.entries()) {
++      const phrase = value => [value, `已确认约定：${value}`, `继续保持${value}`, `当前任务中，${value}`][variant];
++      const summary = { version: 2, goal: { text: item.goal, evidenceMessageIds: ['u'] }, constraints: [{ text: phrase(permission), evidenceMessageIds: ['u'] }],
++        decisions: [{ text: phrase(decision), source: 'user', status: 'confirmed', evidenceMessageIds: ['u'] }],
++        pending: [{ text: phrase(pending), evidenceMessageIds: ['u'] }], actions: [{ text: 'write_file 结果未知，不得自动重试', status: 'unknown', toolCallIds: ['fidelity-write'], evidenceMessageIds: ['w'] }], files: [], nextStep: null };
++      assert.ok(validateContextSummary(summary));
++      const record = { summary, layers: { index: [], recent: [{ firstMessageId: 'u', lastMessageId: 'w', timeRange: [null, null], summary }] } };
++      const view = layerMessage(record);
++      const answerChecks = responseChecks(item.reply);
++      const checks = summaryChecks({ record, view, prepared: [view], budget: spec.contextBudget });
++      rows.push({ suite: id, variant, truth: spec.truth, answer: item.reply, summaryProjection: view, answerChecks, summaryChecks: checks });
++      assert.ok(Object.values(answerChecks).every(Boolean), `${id}/${variant} answer: ${JSON.stringify(answerChecks)}`);
++      assert.ok(Object.values(checks).every(Boolean), `${id}/${variant} summary: ${JSON.stringify(checks)}`);
++    }
++  }
++  return { runId: randomUUID(), generatedAt: new Date().toISOString(), checkerVersion: CHECKER_VERSION, realModelCalls: 0, costUsd: 0, rows,
++    answerCheckCount: rows.reduce((n, row) => n + Object.keys(row.answerChecks).length, 0), summaryCheckCount: rows.reduce((n, row) => n + Object.keys(row.summaryChecks).length, 0) };
++}
++if (import.meta.url === pathToFileURL(resolve(process.argv[1] ?? '')).href) {
++  const report = selfCheck();
++  report.scriptHashes = Object.fromEntries(await Promise.all(['cm-step6-live.mjs', 'cm-step6-live.test.mjs', 'cm-step6-checker-self-check.mjs', 'compaction-fidelity.mjs'].map(async name => [name, createHash('sha256').update(await readFile(new URL(name, import.meta.url))).digest('hex')])));
++  if (process.argv[2]) await writeFile(process.argv[2], JSON.stringify(report, null, 2) + '\n');
++  console.log(JSON.stringify({ checkerVersion: report.checkerVersion, rows: report.rows.length, answerChecks: report.answerCheckCount, summaryChecks: report.summaryCheckCount, scriptHashes: report.scriptHashes, realModelCalls: 0 }));
++}
+diff --git a/examples/eval/cm-step6-live.mjs b/examples/eval/cm-step6-live.mjs
+index 470e7df..76947d4 100644
+--- a/examples/eval/cm-step6-live.mjs
++++ b/examples/eval/cm-step6-live.mjs
+@@ -28,10 +28,10 @@ const limit = 2.75, opening = 0.36;
+ const script = fileURLToPath(import.meta.url);
+ 
+ export const oldGoalMentioned = response => response.includes('完成验收报告');
+-export const CHECKER_VERSION = 'cm-step6-offline-v4';
++export const CHECKER_VERSION = 'cm-step6-offline-v5';
+ export const goalContentMentioned = sentence => {
+   const completion = sentence.indexOf('完成');
+-  return completion >= 0 && /主项目/u.test(sentence) && /验收[^。！？?；;\n]*报告/u.test(sentence) &&
++  return completion >= 0 && /验收[^。！？?；;\n]*报告/u.test(sentence) &&
+     !/(?:未知|不明|(?:无法|不能)确认(?:是否)?|不再(?:需要)?|取消|放弃|是否(?:需要)?|不是(?:要)?|(?:尚|并)?未|不(?:需要|必|应|要)?|无需|不可能|无法|不能|没有必要)(?:再|继续|进一步|去|要|需要)*\s*$/u.test(sentence.slice(0, completion)) &&
+     !/(?:不再(?:需要)?|取消|放弃|不是(?:要)?|不(?:需要|必|应|要)?|无需|无法|不能)(?:再|继续|进一步|去|要|需要)*\s*完成[^，,。！？?；;\n]*(?:主项目|验收[^，,。！？?；;\n]*报告)/u.test(sentence) &&
+     !/(?:不再(?:需要)?|取消|放弃|不是(?:要)?|不(?:需要|必|应|要)?|无需|无法|不能)(?:再|继续|进一步|去|要|需要)*(?:完成|给出|提供|提交|生成|出具)?\s*(?:主项目|验收[^，,。！？?；;\n]*报告)/u.test(sentence) &&
+@@ -91,6 +91,15 @@ export const responseChecks = response => ({
+   permissionNotInherited: /(?:不能|不可|不代表|不等于|不意味着|不得|不构成).{0,25}(?:授权|权限|批准|再次读取)|(?:重新|再次|新的).{0,12}(?:批准|授权)|(?:需要|需|必须).{0,12}(?:批准|授权)/.test(response),
+ });
+ 
++export function summaryChecks({ record, view, prepared, budget, preparation }) {
++  const viewText = view?.parts.filter(part => part.type === "text").map(part => part.text).join("\n") ?? "";
++  const bounds = blockLimits(budget);
++  return { goal: !!record && summaryGoalMentioned({ goal: record.summary.goal.text, projectedText: viewText }), decision: viewText.includes('本地文件'), pending: viewText.includes('失败样本'),
++          permission: viewText.includes('批准'), unknown: !!record?.summary.actions.some(action => action.toolCallIds.includes('fidelity-write') && action.status === 'unknown'),
++          recent: !!record && record.layers.recent.length <= 4, index: !!record && record.layers.index.length <= 1,
++          total: !!view && estimateMessageTokens(prepared.filter(message => ["runloom-context-summary", "runloom-compaction-checklist"].includes(message.id))) <= bounds.totalSummary + (preparation?.summaryLayer?.borrowedTokens ?? 0) && (preparation?.summaryLayer?.borrowedTokens ?? 0) <= Math.floor(bounds.recent / 2) };
++}
++
+ async function recheckRecorded() {
+   assert.deepEqual(process.argv.slice(2), ['--recheck-recorded']);
+   const source = 'docs/v2-pilot/evidence/cm-step6/live-1834686a-b68d-49fb-9f39-d04f1f99bac9.json';
+@@ -427,11 +436,8 @@ async function main() {
+         const prepared = await compactor.prepare(messages, AbortSignal.timeout(30000));
+         round.preparations.push({ stage: 'summary', diagnostics: (await compactor.getDiagnostics()).value.lastPreparation });
+         const view = prepared.find(message => message.id === "runloom-context-summary"), viewText = view?.parts.filter(part => part.type === "text").map(part => part.text).join("\n") ?? "";
+-        const bounds = blockLimits(spec.contextBudget), preparation = (await compactor.getDiagnostics()).value.lastPreparation;
+-        const layerChecks = { goal: !!record && summaryGoalMentioned({ goal: record.summary.goal.text, projectedText: viewText }), decision: viewText.includes('本地文件'), pending: viewText.includes('失败样本'),
+-          permission: viewText.includes('批准'), unknown: !!record?.summary.actions.some(action => action.toolCallIds.includes('fidelity-write') && action.status === 'unknown'),
+-          recent: !!record && record.layers.recent.length <= 4, index: !!record && record.layers.index.length <= 1,
+-          total: !!view && estimateMessageTokens(prepared.filter(message => ["runloom-context-summary", "runloom-compaction-checklist"].includes(message.id))) <= bounds.totalSummary + (preparation?.summaryLayer?.borrowedTokens ?? 0) && (preparation?.summaryLayer?.borrowedTokens ?? 0) <= Math.floor(bounds.recent / 2) };
++        const preparation = (await compactor.getDiagnostics()).value.lastPreparation;
++        const layerChecks = summaryChecks({ record, view, prepared, budget: spec.contextBudget, preparation });
+         current = `${id}/chat/${generation}`;
+         const chat = await runChat({ ...selected, model, root: caseRoot, spec, question: spec.turns[generation], label: `round-${generation}` });
+         Object.assign(round, { storedLayerTokens: record ? estimateMessageTokens([layerMessage(record), record.checklist]) : null, finishedAt: new Date().toISOString(), records: records.length, layerChecks, chat, goalChecks: { old: viewText.includes(spec.truth.goal), new: layerChecks.goal },
+diff --git a/examples/eval/cm-step6-live.test.mjs b/examples/eval/cm-step6-live.test.mjs
+index 6dfd9f2..5eb2168 100644
+--- a/examples/eval/cm-step6-live.test.mjs
++++ b/examples/eval/cm-step6-live.test.mjs
+@@ -80,16 +80,16 @@ test('extraction JSON Schema stays in prompt text; the configured provider sends
+   assert.equal(rejected.passed, false);
+ });
+ 
+-test('v4 goal check requires a labeled main-project goal in one sentence', () => {
++test('v5 goal check accepts the truth goal without an extra project qualifier', () => {
+   for (const text of ['目标：完成验收主项目的验收报告。', '目标是完成主项目的本轮验收报告。',
+-    '目标：完成主项目验收阶段报告。']) assert.equal(goalMentioned(text), true, text);
+-  for (const text of ['目标：完成验收报告。', '完成验收主项目验收报告。', '目标是完成本轮验收报告。',
+-    '目标：完成本地文件方案的验收报告。', '目标：完成本项目第一阶段的验收报告。',
++    '目标：完成主项目验收阶段报告。', '目标：完成验收报告。', '目标是完成本轮验收报告。',
++    '目标：完成本地文件方案的验收报告。', '目标：完成本项目第一阶段的验收报告。']) assert.equal(goalMentioned(text), true, text);
++  for (const text of ['完成验收主项目验收报告。',
+     '目标：完成主项目。方案：验收报告。', '目标：未知。完成主项目验收报告。']) assert.equal(goalMentioned(text), false, text);
+   assert.equal(goalContentMentioned('完成主项目验收阶段报告'), true);
+ });
+ 
+-test('v4 goal sentence accepts the four reviewed paraphrases and rejects missing or denied main-project goals', () => {
++test('v5 goal sentence preserves the reviewed paraphrases and rejects missing or denied main-project goals', () => {
+   for (const text of [
+     '目标：完成 FIDELITY-42 验收主项目，把本地文件方案下整理的验收报告做好，保留来源证据，并保留失败原因，不把状态当作正确性证明。',
+     '目标：完成验收主项目报告。',
+@@ -179,10 +179,12 @@ test('short acknowledgments cannot use a proposed value absent from the user quo
+   assert.equal(result.calls, 0); assert.equal(result.results.every(row => !row.checks.completed && !row.checks.saved && !row.checks.confirmation), true);
+ });
+ 
+-test('recorded reference keeps the source bytes and formal scores frozen', async () => {
+-  const { writeReference } = await import('./cm-step6-regrade.mjs');
++test('archived v4 reference keeps the source bytes and formal scores frozen', async () => {
++  const { createHash } = await import('node:crypto');
+   const source = new URL('../../docs/v2-pilot/evidence/cm-step6/live-d67682ad-0722-43d9-af5c-8c7aef1308fa.json', import.meta.url);
+-  const before = await readFile(source), result = await writeReference({});
++  const before = await readFile(source);
++  const result = JSON.parse(await readFile(new URL('../../docs/v2-pilot/evidence/cm-step6/offline-floor/regrade.json', import.meta.url)));
++  assert.equal(createHash('sha256').update(before).digest('hex'), result.sourceSha256);
+   assert.equal(result.formalScoresChanged, false); assert.equal(result.realModelCalls, 0); assert.equal(result.costUsd, 0);
+   assert.deepEqual(await readFile(source), before); assert.equal(result.sourceSha256, 'b7264a5a558f9d08ff8aec2f7e55c8e640cf9d88f912a7d0557f6a64372a5226');
+   assert.deepEqual(result.scores.map(score => [score.suite, score.recordedPassed, score.referencePassed]),
+@@ -243,3 +245,12 @@ test('approved noAutomaticRetry rule accepts prohibitions and prior verification
+   for (const reply of ['禁止自动重试。', '能否自动重试？禁止自动重试。', '禁止重试。', '不可以自动重试。', '不建议直接重试。', '须先核实。', '须先确认写入结果。', '必须先核实再决定。']) assert.equal(noAutomaticRetryMentioned(reply), true, reply);
+   for (const reply of ['可以自动重试。', '建议直接重试。', '禁止自动重试但建议直接重试。', '不能把失败当成功但可以自动重试。', '可以自动重试，但须先确认。', '禁止自动重试，但建议直接重试。']) assert.equal(noAutomaticRetryMentioned(reply), false, reply);
+ });
++
++
++test('v5 truth self-check covers all four suites and three positive paraphrases per suite', async () => {
++  const { selfCheck } = await import('./cm-step6-checker-self-check.mjs');
++  const result = selfCheck();
++  assert.equal(result.checkerVersion, 'cm-step6-offline-v5');
++  assert.equal(result.rows.length, 16);
++  assert.equal(result.rows.every(row => Object.values(row.answerChecks).every(Boolean) && Object.values(row.summaryChecks).every(Boolean)), true);
++});
+diff --git a/apps/desktop/scripts/cm-step6-open-fault.mjs b/apps/desktop/scripts/cm-step6-open-fault.mjs
+new file mode 100644
+index 0000000..1ccbbf8
+--- /dev/null
++++ b/apps/desktop/scripts/cm-step6-open-fault.mjs
+@@ -0,0 +1,15 @@
++export function installOpenFault(_electron, target) {
++  const fs = process.getBuiltinModule('fs/promises');
++  const original = fs.open;
++  globalThis.__cm6WriteFault = { matched: 0, delegatedTargetOpens: 0, released: 0 };
++  fs.open = async function(path, ...args) {
++    if (path !== target) return original.call(this, path, ...args);
++    globalThis.__cm6WriteFault.matched++;
++    await new Promise(resolve => setTimeout(resolve, 1800));
++    globalThis.__cm6WriteFault.released++;
++    throw Object.assign(new Error('Test open stalled before dispatch'), { code: 'ETIMEDOUT' });
++  };
++  process.getBuiltinModule('module').syncBuiltinESMExports();
++  return { type: 'target-open-blocked-before-filesystem', relativePath: target.split('/').slice(-2).join('/'),
++    delayMs: 1800, toolDeadlineMs: 1000, fabricatedToolResult: false };
++}
+diff --git a/apps/desktop/scripts/cm-step6-write-delay-probe.mjs b/apps/desktop/scripts/cm-step6-write-delay-probe.mjs
+new file mode 100644
+index 0000000..9392637
+--- /dev/null
++++ b/apps/desktop/scripts/cm-step6-write-delay-probe.mjs
+@@ -0,0 +1,62 @@
++import assert from 'node:assert/strict';
++import { _electron as electron, expect } from 'playwright/test';
++import { mkdtemp, mkdir, writeFile, rm, realpath, readFile } from 'node:fs/promises';
++import { fileURLToPath } from 'node:url';
++import { execFileSync } from 'node:child_process';
++import { randomUUID, createHash } from 'node:crypto';
++import { tmpdir } from 'node:os';
++import { join } from 'node:path';
++import { installOpenFault } from './cm-step6-open-fault.mjs';
++const repo = process.cwd();
++const root = await realpath(await mkdtemp(join(tmpdir(), 'cm6-open-probe-')));
++await mkdir(join(root, 'workspace')); await mkdir(join(root, 'home'));
++await writeFile(join(root, 'config.json'), JSON.stringify({ version: 1, workspace: join(root, 'workspace'), modules: { 'read-file': { enabled: true } } }));
++const env = Object.fromEntries(['PATH', 'USER', 'TMPDIR', 'DISPLAY', 'XAUTHORITY'].flatMap(k => process.env[k] ? [[k, process.env[k]]] : []));
++Object.assign(env, { HOME: join(root, 'home'), RUNLOOM_USER_DATA: join(root, 'profile'), RUNLOOM_MODEL: 'mock', RUNLOOM_DESKTOP_TEST: '1', RUNLOOM_CONFIG: join(root, 'config.json'), RUNLOOM_TRANSCRIPTS: join(root, 'transcripts') });
++let app;
++try {
++  app = await electron.launch({ args: [join(repo, 'apps/desktop/out/main/index.js')], env, cwd: root });
++  const page = await app.firstWindow();
++  await expect(page.getByPlaceholder('和 Serika 聊天')).toBeEnabled();
++  const fault = await app.evaluate(installOpenFault, join(root, 'workspace/probe.txt'));
++  const result = await app.evaluate(async (_e, { workspace, repo }) => {
++    const { pathToFileURL } = process.getBuiltinModule('url');
++    const vm = process.getBuiltinModule('vm');
++    // Inspector evaluation has no import callback; Node's main loader owns these ESM imports.
++    const importESM = vm.compileFunction('return import(url)', ['url'], { importModuleDynamically: vm.constants.USE_MAIN_CONTEXT_DEFAULT_LOADER });
++    const { createWriteFileTool } = await importESM(pathToFileURL(repo + '/packages/assistant/dist/write-file.js').href);
++    const { AiSdkAgentLoop, ToolRegistry, InMemoryModelRegistry } = await importESM(pathToFileURL(repo + '/packages/ai-sdk-adapter/dist/index.js').href);
++    const { MockLanguageModelV3 } = await importESM(pathToFileURL(repo + '/packages/assistant/node_modules/ai/dist/test/index.js').href);
++    let mockModelCalls = 0;
++    const model = new MockLanguageModelV3({ doStream: async () => {
++      mockModelCalls++;
++      return { stream: new ReadableStream({ start(controller) {
++        for (const chunk of [{ type: 'stream-start', warnings: [] }, { type: 'tool-call', toolCallId: 'probe-write', toolName: 'write_file', input: JSON.stringify({ path: 'probe.txt', content: 'must never reach disk' }) },
++          { type: 'finish', finishReason: { unified: 'tool-calls', raw: undefined }, usage: { inputTokens: { total: 1, noCache: 1 }, outputTokens: { total: 1, text: 1 } } }]) controller.enqueue(chunk);
++        controller.close();
++      } }) };
++    } });
++    const events = []; let outcome;
++    try {
++      await new AiSdkAgentLoop({ models: new InMemoryModelRegistry({ test: model }), tools: new ToolRegistry([{ metadata: { name: 'write_file', version: '1', risk: 'write', timeoutMs: 1000, idempotent: false }, tool: createWriteFileTool(workspace) }]) }).execute({
++        definition: { id: 'test', version: '1', instructions: 'Write once', model: 'test', tools: ['write_file'], limits: { maxSteps: 2, totalTimeoutMs: 5000, stepTimeoutMs: 2000 } },
++        messages: [{ id: 'probe-user', role: 'user', parts: [{ type: 'text', text: 'Write probe.txt once' }] }], signal: new AbortController().signal, generateId: () => 'probe-assistant',
++        emit: async (type, data) => events.push({ type, data }),
++      });
++      outcome = 'unexpected-success';
++    } catch (error) { outcome = error.data?.code ?? error.name; }
++    await new Promise(resolve => setTimeout(resolve, 1900));
++    return { electron: process.versions.electron, mockModelCalls, outcome, fault: globalThis.__cm6WriteFault, exists: process.getBuiltinModule('fs').existsSync(workspace + '/probe.txt'), events };
++  }, { workspace: join(root, 'workspace'), repo });
++  assert.equal(result.outcome, 'TOOL_OUTCOME_UNKNOWN');
++  assert.equal(result.mockModelCalls, 1); assert.equal(result.fault.matched, 1);
++  assert.equal(result.fault.delegatedTargetOpens, 0); assert.equal(result.fault.released, 1); assert.equal(result.exists, false);
++  assert.ok(result.events.some(event => event.type === 'tool.call.failed' && event.data.error.code === 'TOOL_OUTCOME_UNKNOWN'));
++  console.log(JSON.stringify({ runId: randomUUID(), generatedAt: new Date().toISOString(), kind: 'zero-model-native-open-fault-probe', sourceCommit: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), scriptSha256: createHash('sha256').update(await readFile(fileURLToPath(import.meta.url))).digest('hex'), faultScriptSha256: createHash('sha256').update(await readFile(new URL('./cm-step6-open-fault.mjs', import.meta.url))).digest('hex'), fault, result, realModelCalls: 0, costUsd: 0 }));
++} finally {
++  if (app) {
++    const cleanupDeadline = setTimeout(() => app.process().kill(), 5000);
++    try { await app.close(); } finally { clearTimeout(cleanupDeadline); }
++  }
++  await rm(root, { recursive: true, force: true });
++}
+diff --git a/examples/eval/cm-step6-spot-audit.mjs b/examples/eval/cm-step6-spot-audit.mjs
+new file mode 100644
+index 0000000..cecfd3f
+--- /dev/null
++++ b/examples/eval/cm-step6-spot-audit.mjs
+@@ -0,0 +1,63 @@
++import assert from 'node:assert/strict';
++import { createHash, randomUUID } from 'node:crypto';
++import { readFile, writeFile, readdir } from 'node:fs/promises';
++import { resolve, join } from 'node:path';
++import { fileURLToPath } from 'node:url';
++const repo = fileURLToPath(new URL('../..', import.meta.url));
++const root = resolve(process.argv[2]);
++const sha = data => createHash('sha256').update(data).digest('hex');
++const reportBytes = await readFile(join(root, 'result.json')), report = JSON.parse(reportBytes);
++const calls = report.calls.filter(row => row.status === 'returned');
++let cost = 0;
++for (const row of calls) {
++  const u = row.usage, p = report.pricePerMillionUsd;
++  const amount = ((u.input - u.cacheRead) * p.input + u.cacheRead * p.cachedInput + u.output * p.output) / 1e6;
++  assert.ok(Math.abs(amount - row.costUsd) < 1e-10);
++  assert.ok(amount <= row.reservedUsd); cost += amount;
++}
++assert.ok(Math.abs(cost - report.costUsd) < 1e-10);
++assert.ok(cost + report.unresolvedReservedUsd <= report.capUsd);
++const messages = report.finalHistory ?? report.turns.findLast(row => row.history)?.history ?? [];
++const ids = values => [...new Set(values.filter(Boolean))];
++const tools = messages.flatMap(message => message.parts.filter(part => part.type === 'dynamic-tool').map(part => ({ messageId: message.id, ...part })));
++const latest = report.diagnostics.filter(row => row.data.ok).map(row => ({ stage: row.stage, ...row.data.value }));
++const audit = { runId: randomUUID(), generatedAt: new Date().toISOString(), sourceRunId: report.runId, sourceSha256: sha(reportBytes), scoredByChecker: false,
++  status: report.status, actualRequests: report.calls.length, returnedRequests: calls.length, costUsd: cost, unresolvedReservedUsd: report.unresolvedReservedUsd,
++  compactionIds: ids(latest.map(row => row.latestValidCompaction?.id)),
++  prepareFailures: latest.filter(row => row.lastPreparation?.error?.code === 'CONTEXT_PREPARE_FAILED' || row.background?.failure?.code === 'CONTEXT_PREPARE_FAILED'),
++  emergencyMasking: latest.flatMap(row => (row.lastPreparation?.degradation?.emergencyMasking ?? []).map(event => ({ stage: row.stage, at: row.lastPreparation.at, ...event }))).filter((row, i, all) => all.findIndex(other => JSON.stringify(other) === JSON.stringify(row)) === i),
++  toolReceipts: tools.map(({ messageId, toolCallId, toolName, state, input, output, errorText }) => ({ messageId, toolCallId, toolName, state, input, output, errorText })),
++  questionStages: report.turns.filter(row => /question/.test(row.stage)).map(row => ({ stage: row.stage, text: row.text, finished: !!row.finishedAt })),
++  memoryPage: report.memoryPage ?? null, realModelCallsInThisAudit: 0 };
++await writeFile(join(root, 'audit.json'), JSON.stringify(audit, null, 2) + '\n');
++let dialogue = '# 完整对话原文\n\n从原 IPC 的完整 history 导出；工具部分保留原对象，不用摘要替代。\n';
++for (const message of messages) {
++  dialogue += `\n## ${message.role} ${message.id}\n\n`;
++  for (const part of message.parts) dialogue += part.type === 'text' ? part.text + '\n\n' : '```json\n' + JSON.stringify(part, null, 2) + '\n```\n\n';
++}
++await writeFile(join(root, 'dialogue.md'), dialogue);
++const hashes = {};
++async function scan(directory, prefix = '') {
++  for (const entry of await readdir(directory, { withFileTypes: true })) {
++    const relative = prefix + entry.name;
++    if (entry.isDirectory()) await scan(join(directory, entry.name), relative + '/');
++    else if (entry.name !== 'manifest.json') hashes[relative] = sha(await readFile(join(directory, entry.name)));
++  }
++}
++await scan(root);
++await writeFile(join(root, 'manifest.json'), JSON.stringify({ runId: audit.runId, sourceRunId: report.runId, hashes }, null, 2) + '\n');
++if (process.argv.includes('--record-ledger')) {
++  const path = join(repo, 'docs/v2-pilot/evidence/cost-ledger.json'), ledger = JSON.parse(await readFile(path));
++  const evidence = join(root, 'result.json').slice(join(repo, 'docs/v2-pilot/evidence/').length);
++  assert.ok(!evidence.startsWith('/') && !evidence.startsWith('..'));
++  const entry = { step: '4-6', runId: report.runId, realModelRequests: report.calls.length, amount: cost,
++    unresolvedCalls: report.calls.length - calls.length, unresolvedReservedUsd: report.unresolvedReservedUsd, evidence, evidenceSha256: sha(reportBytes) };
++  const index = ledger.entries.findIndex(row => row.runId === report.runId);
++  if (index >= 0) ledger.entries[index] = entry; else ledger.entries.push(entry);
++  ledger.knownTotal = ledger.openingBalance.amount + ledger.entries.reduce((n, row) => n + row.amount, 0);
++  ledger.total = ledger.knownTotal + ledger.entries.reduce((n, row) => n + (row.unresolvedReservedUsd ?? 0), 0);
++  assert.ok(ledger.entries.filter(row => row.step === '4-6').reduce((n, row) => n + row.amount + (row.unresolvedReservedUsd ?? 0), 0) <= ledger.limits.combinedSteps4To6);
++  assert.ok(ledger.total <= ledger.limits.entirePlan);
++  await writeFile(path, JSON.stringify(ledger, null, 2) + '\n');
++}
++console.log(JSON.stringify({ sourceRunId: report.runId, actualRequests: audit.actualRequests, costUsd: cost, compactions: audit.compactionIds.length, prepareFailures: audit.prepareFailures.length, toolReceipts: audit.toolReceipts.map(row => [row.toolName, row.state]), status: audit.status }));

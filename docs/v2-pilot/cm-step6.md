@@ -1,48 +1,60 @@
-# 上下文与记忆：第 6 步 v5 检查器与单次长对话抽查
+# 上下文与记忆：第 6 步 v5 与零费用探针审核检查点
 
 ## 1. 改了什么
 
-离线通过；真实模型 4 批未通过，都发生在产品修复（a05cd25、5889ed6）之前；修复后的批次没有跑，改用一次真实模型长对话抽查代替。
+离线通过；真实模型 4 批未通过，都发生在产品修复（a05cd25、5889ed6）之前；修复后的批次没有跑，改用一次真实模型长对话抽查代替。修复后第 4–6 步整批验收仍按“未跑”收口，本次不重开整批。
 
-- `cm-step6-offline-v5` 只删除目标内容检查额外的“主项目”条件，保留目标句边界、否定、unknown、noAutomaticRetry、pastRead 和新读取授权检查。摘要检查提取成同一个 `summaryChecks()`，实际调用与自检共用。
-- `cm-step6-checker-self-check.mjs` 从四组 `spec.truth` 构造标准答案与合法 v2 摘要，经实际 `layerMessage()` 投影。每组标准写法加三种正例，共 16 组，回答 128 项、摘要 128 项全通过。版本和 SHA 见 [v5 冻结证据](evidence/cm-step6/offline-v5/self-check.json)。
-- 旧答案全扫测试改为读取已冻结 v4 结果，继续核对原件 SHA、原成绩和缺失证据；不再次运行旧回答打分。历史附表 D/E 与产品规则保持原样。
-- 单次长对话脚本走真实 Electron、原 preload/IPC、真实模型和 32K。本轮人类已授权只读复制日用 env，抽查尚未执行；当前真实调用 0、费用 $0。第 7 步只写备份、演练和回滚方案，见附表 H。
+- `cm-step6-offline-v5` 删除目标检查额外的“主项目”条件，摘要复用 `summaryChecks()`；四组 truth 各标准写法与三种正例，回答 128 项、摘要 128 项通过。旧答全扫改为核对冻结 v4 原件及成绩，未重评旧答。见 [冻结自检](evidence/cm-step6/offline-v5/self-check.json)。
+- 探针只修测试加载：CommonJS require 的 import-only 导出错误，改用 Node 主 loader 动态 ESM；Playwright inspector 自身没有 import callback，因此经 `vm.compileFunction` 的主 loader 执行动态导入。注入函数保持原样，仍在实际 `node:fs/promises.open` 目标入口等待 1,800ms 后抛错，不调用目标的真实 open。
+- 零费用探针本地通过：真实 Electron 44.4.5 + 假模型一次，实际 AiSdkAgentLoop / write_file 链，命中 1、`TOOL_OUTCOME_UNKNOWN`、磁盘无目标文件。它证明注入与工具回执，不是一次真实模型对话验收。见 [探针回执](evidence/cm-step6/offline-v5/open-fault-probe.json)。产品代码 0 行变更。
 
 ## 2. 逐条对照验收项
 
-| 本轮要求 | 结果与证据 |
+| 本轮要求 | 状态与证据 |
 |---|---|
-| 目标 bug 与正例自检 | 修前 `goal=false / summary=false`；修后四组 × 四写法，256 项通过；不重评旧回答 |
-| v5 冻结 | 检查器和自检脚本 SHA 由脚本运行时生成，见冻结证据；未改其他评分规则 |
-| 如实记录历史模型批次 | 四个已归档批次均未通过；均早于 a05cd25、5889ed6；本轮不补跑整批 |
-| 一次真实长对话 | 待执行，已获只读复制日用 env 的授权；预算硬上限 $0.30、最多 32 次实际请求，含压缩与抽取；用量未知即冻结，不补跑 |
-| 抽查内容与存档 | 脚本包含目标、决定、待办、read_file、unknown write_file、部署未批准、记住；要求两次摘要发布、一次问答与冷启动同题；未把脚本当成已运行证据 |
-| 三连统一验证 | 待运行；每次均跑 UTC、Asia/Shanghai、eval、临时干净检出冒烟 |
-| 第 7 步前置方案 | 只写方案：完整备份、数据副本迁移和回滚、与备份逐项比对；日用迁移另设门槛 |
+| 只修加载/脚本错误；加载后 matched=0 即停 | 已做：首次直接动态 import 被 inspector 拒绝，记录 [加载错误](evidence/cm-step6/offline-v5/open-fault-esm-loader-error.log)；修复 loader 后 matched=1，未改注入方式 |
+| unknown 且无真实文件 | 已做：`tool.call.failed` 的 code 为 `TOOL_OUTCOME_UNKNOWN`、retryable=false；1,900ms 后文件仍不存在、目标 open 未委托；0 付费请求 |
+| 三连统一验证 | 正在准备同一干净源码快照；每次 UTC、Asia/Shanghai、eval、临时检出真实 Electron 冒烟；结果待写回 |
+| 提交推送及审核停点 | 三次成功后更新实验分支并推送；随后停止等 bot1 复现。付费续补未启动 |
+| 初次原档保持 | 5 轮、12 请求、3 份摘要、压缩后问答；原 manifest 无差异；read_file 与 write_file 都成功，记忆页为空。见 [原文](evidence/cm-step6/spot-conversation/initial/dialogue.md)、[原始回执/诊断/记忆页](evidence/cm-step6/spot-conversation/initial/result.json) |
+| 后续付费续补 | 未做，须审核确认探针后：先补每轮落盘、标第 6 轮起续补，unknown 后至少一次后台压缩且进入摘要，再提问与冷启动原样同题；全段最多 $0.30，只续补一次 |
+| 第 7 步及日用迁移 | 未开始；只保留本文末尾备份、数据副本演练、完整回滚及逐项核对方案；日用迁移另定门槛 |
 
 ## 3. 前后数字
 
-产品代码 0 行变更；检查器、自检与抽查脚本的净行数在交付审计中按 `git diff --numstat 03ae68f` 复算。没有删除测试文件或新增跳过。新增自检超过产品行数，因为本轮明确要求检查器标准答案自检和真实模型抽查存档。
+此前“测试和 eval 草稿净增 423 行”的基准为 03ae68f，包含所有未提交脚本，不含文档/证据。拆分如下：
 
-本轮实际费用 $0，真实调用 0。合批占用仍为 $1.68299658 / $2.75，含原未知预留 $0.00132480，剩余 $1.06700342。抽查最多再占 $0.30，已包含在合批上限内；含 opening 的计划占用 $2.04299658 / $5。实际调用后按逐请求用量写回既有[费用账本](evidence/cost-ledger.json)。
+| 文件 | 原新增/删除/净增 | 职责及可删部分 |
+|---|---:|---|
+| `cm-step6-live-conversation.mjs` | +232/-0/+232 | 初次真实 Electron 对话、费用代理、轮次/诊断/记忆页/冷启动归档；其中后来加的 +27 行 cold-only 续跑草稿不符合本次两场景续补，已撤回。保留初次实际执行的 205 行供审计，审核后再改成续补入口；归档证据不能删 |
+| `cm-step6-checker-self-check.mjs` | +45/-0/+45 | truth 标准答案与摘要投影自检，保留 |
+| `cm-step6-live.mjs` | +13/-7/+6 | 修目标条件、提取共享摘要检查入口，保留 |
+| `cm-step6-live.test.mjs` | +19/-8/+11 | 用冻结原件校验替代旧答重新全扫，保留 |
+| `cm-step6-open-fault.mjs` | +15/-0/+15 | 精确目标 open 注入；探针与后续续补共用，审核前保留。可合入探针，但后续会复制同一注入，因此当前不删 |
+| `cm-step6-write-delay-probe.mjs` | +51/-0/+51 | 零费用真实工具 unknown 与无磁盘写入证明，保留；此次 ESM/加载生命周期修复增 11 行，当前 62 行 |
+| `cm-step6-spot-audit.mjs` | +63/-0/+63 | 从原始回执导出原文、诊断、费用和文件 hash；初次档案由它生成。可在最终审核后退役，但会失去直接重建审计的入口，当前保留；续补前修原件保护及旧尾部预留读取 |
+| 合计 | +438/-15/+423 | 撤回 27 行未完成 cold-only 草稿，增加 11 行加载修复，当前 +422/-15，净 +407；产品 +0/-0 |
+
+[原 423 行明细](evidence/cm-step6/offline-v5/line-changes.json)和[当前明细](evidence/cm-step6/offline-v5/current-line-changes.json)可逐文件复算。新增检查代码多于产品代码，因为本轮明确要求检查器自检与测试注入工具；没有删测试文件或增加跳过。
+
+费用合批占用 **$1.69032296 = 已知 usage 计价 $1.68899816 + 历史未知预留 $0.00132480**。其中本次对话已花 $0.00732638，续补余量 $0.29267362；本轮探针与统一验证付费请求 0。合批上限 $2.75，剩余 $1.05967704。
+
+历史未知预留来自 [live-legacy-mixed.json](evidence/cm-step6/live-legacy-mixed.json) 的请求 `c88fcb8c-01f1-45d2-8bb9-c454b010fbd7`，2026-10-21T10:40:29.862Z、scope=m1、status=`failed_usage_unknown`、usage=null。按当次价格与输入 4,568 bytes、输出上限 1,024 保守预留：`4568 × 0.16 / 1e6 + 1024 × 0.58 / 1e6 = $0.00132480`。这笔实际花费未知，继续占用上限，不把它计为已确认消费，也不释放。详见 [费用账本](evidence/cost-ledger.json)。
+
+初次长对话原结果尾部另有 $0.00275232 的异步预留残留；其 12 个逐请求记录已经全部 returned 且有 usage，因此有效未知预留为 0。原结果不改，只在账本复算；这与上面的历史未知请求是两件事。
 
 ## 4. 实际命令和退出码
 
-- `node examples/eval/cm-step6-checker-self-check.mjs <输出>` → 0，16 组、256 项。
-- `node --test examples/eval/cm-step6-live.test.mjs` → 0。
-- `pnpm typecheck` → 0。
-- 零付费原生预检：真实 Electron 44.4.5，原 renderer/preload/IPC 正常、只读诊断可达，精确文件句柄延迟注入可用。
-- `node apps/desktop/scripts/cm-step6-live-conversation.mjs` → 密钥缺失，未派发请求；`--run` 未执行。
-- 统一验证的三次退出码与当次计数待运行后填写。冒烟脚本必须保持 SHA `9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f`。
+- 既有 `node examples/eval/cm-step6-checker-self-check.mjs <输出>` → 0，16 组、256 项；`node --test examples/eval/cm-step6-live.test.mjs` → 0；`pnpm typecheck` → 0，见冻结证据。
+- 本次 `node apps/desktop/scripts/cm-step6-write-delay-probe.mjs` → 先因 inspector 的动态导入回调缺失退出 1，修加载后退出 0。注入命中后没有重试工具，mockModelCalls=1、realModelCalls=0、costUsd=0。
+- 审核复现先 `pnpm build:runtime`，再 `pnpm --filter @serika/desktop build`，然后运行上述探针。Linux 用 `xvfb-run -a -s "-screen 0 1440x900x24" node apps/desktop/scripts/cm-step6-write-delay-probe.mjs`。仅创建并清理临时 workspace/profile/transcripts，不读密钥。
+- 三次统一命令均为 `node packages/assistant/scripts/cm-step6-verify.mjs`，用各自外部 `SERIKA_CM6_VERIFY_OUTPUT` 保存证据；正在准备。冒烟固定 SHA `9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f`。
 
 ## 5. 与计划不符的地方及理由
 
-本轮用户用一次真实长对话人工判读替代“247 检查项及 M1 18/18 全对”的整批门槛。v5 自检只验证检查器能接受标准答案；旧答重新打分不能证明产品修复。抽查不打分，由 bot1 逐句判读。检查器中去掉“主项目”的旧断言按本轮明确指令调整，其他否定负例继续保留。
+本轮只放行零费用探针修复、三次统一验证和实验分支推送，审核复现前不运行付费续补。上一轮停下条件已被本次“加载/脚本错误可修复重跑；加载正常后 matched=0 则停”替代。此前失败记录照留，新成功回执单独存档。
 
-unknown 写入采用精确路径故障注入：真实 `write_file` 创建文件并写入字节后，仅延迟句柄确认 1,800ms，让现有 1,000ms 工具截止时间生成 unknown；不伪造工具结果，不改产品执行回执或权限。读取与写入都经原 IPC 确认；只在临时工作区实施。该机制在脚本中公开，正式抽查是否真的观察到 unknown 以存档为准。真实调用授权及本轮 $0.30 上限来自本次人类指令；实验 AGENTS 原要求测试专用密钥；本轮人类已明确授权改用日用 env 的只读临时副本，用后删除。
-
-第 7 步、SQLite 和日用迁移均未开始。以下附表保留历史裁决；其中“本轮”指当时轮次。本次状态以上述五段为准。
+初次存档因对不存在的 `.runloom/memory.json` 读取 SHA 报 ENOENT，中断于冷启动前；原写入实际成功，不能改记 unknown。原档与回答一字不改。每轮落盘、同一对话两场景续补和冷启动同题仍属于下一审核后阶段，当前不声称已完成。SQLite、第 7 步与日用迁移未开始；以下历史附表保留批准事项。
 
 ### 附表 A：第6步此前的断言调整依据（历史）
 

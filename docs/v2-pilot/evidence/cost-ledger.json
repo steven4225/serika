@@ -57,8 +57,19 @@
       "unresolvedReservedUsd": 0,
       "evidence": "cm-step6/live-d67682ad-0722-43d9-af5c-8c7aef1308fa.json",
       "evidenceSha256": "b7264a5a558f9d08ff8aec2f7e55c8e640cf9d88f912a7d0557f6a64372a5226"
+    },
+    {
+      "step": "4-6",
+      "runId": "72535b49-a6f9-46c7-8395-28578d8c20d3",
+      "realModelRequests": 12,
+      "amount": 0.007326379999999999,
+      "unresolvedCalls": 0,
+      "unresolvedReservedUsd": 0,
+      "evidence": "cm-step6/spot-conversation/initial/result.json",
+      "evidenceSha256": "5ede9ece8e5cdaa843bb63aa562236e8d99748baf0f439b5977d6273b1afff92",
+      "reconciliation": "All 12 per-request records are returned with usage. Original result footer retained stale reservation during asynchronous finalization; original archive is unchanged."
     }
   ],
-  "total": 2.0429965799999996,
-  "knownTotal": 2.0416717799999997
+  "total": 2.0503229599999995,
+  "knownTotal": 2.0489981599999996
 }

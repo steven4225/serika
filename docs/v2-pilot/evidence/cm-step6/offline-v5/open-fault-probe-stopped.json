@@ -1,0 +1,41 @@
+{
+  "runId": "5970ec29-f62c-4737-b88c-8437c29629c6",
+  "generatedAt": "2026-10-22T09:54:29.990Z",
+  "kind": "zero-model-native-open-fault-probe-stopped",
+  "status": "stopped-no-retry",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "reason": "Probe CommonJS require could not load import-only @serika/ai-sdk-adapter; evaluation failed before tool invocation. Cleanup did not settle until isolated Electron was stopped. No retry.",
+  "result": {
+    "fault": {
+      "matched": 0,
+      "delegatedTargetOpens": 0,
+      "released": 0
+    },
+    "exists": false,
+    "modules": [
+      {
+        "path": "./packages/assistant/dist/write-file.js",
+        "loaded": true,
+        "keys": [
+          "WRITE_FILE_MAX_BYTES",
+          "createWriteFileTool",
+          "writeFileErrorCodes",
+          "writeFileToWorkspace"
+        ]
+      }
+    ],
+    "resources": [
+      "PipeWrap",
+      "PipeWrap",
+      "PipeWrap",
+      "PipeWrap",
+      "ProcessWrap",
+      "PipeWrap",
+      "PipeWrap",
+      "PipeWrap",
+      "ProcessWrap"
+    ]
+  },
+  "failure": "node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\nelectronApplication.evaluate: Error: No \"exports\" main defined in ./packages/assistant/node_modules/@serika/ai-sdk-adapter/package.json\n    at exportsNotFound (node:internal/modules/esm/resolve:319:10)\n    at packageExportsResolve (node:internal/modules/esm/resolve:610:13)\n    at resolveExports (node:internal/modules/cjs/loader:761:36)\n    at Module._findPath (node:internal/modules/cjs/loader:828:31)\n    at node:internal/modules/cjs/loader:1564:27\n    at Module._resolveFilename (node:electron/js2c/browser_init:1:142664)\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1125:27)\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1149:10)\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1176:12)\n    at Module._load (node:internal/modules/cjs/loader:1348:5)\n    at ./apps/desktop/scripts/cm-step6-write-delay-probe.mjs:20:28 {\n  log: []\n}\n\nNode.js v26.4.0\n"
+}
