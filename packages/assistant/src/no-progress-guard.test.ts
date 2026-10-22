@@ -284,7 +284,11 @@ describe("no-progress tool guard", () => {
 
   it("unknown write outcomes still stop immediately without replay or guard feedback", async () => {
     const f = fixture({ name: "write_file", risk: "write", idempotent: false, output: () => { throw new Error("lost acknowledgement"); } });
-    await assert.rejects(f.run(), error => error instanceof AgentError && error.data.code === "TOOL_OUTCOME_UNKNOWN");
+    const outcome = await f.run();
+    assert.equal(outcome.stopReason, "failed");
+    assert.ok(outcome.stopReason === "failed");
+    assert.equal(outcome.error.code, "TOOL_OUTCOME_UNKNOWN");
+    assert.match(JSON.stringify(outcome.messages), /TOOL_OUTCOME_UNKNOWN/);
     assert.deepEqual(f.counts(), { modelCalls: 1, executions: 1 });
     assert.doesNotMatch(JSON.stringify(f.prompts), /NO_PROGRESS/);
   });

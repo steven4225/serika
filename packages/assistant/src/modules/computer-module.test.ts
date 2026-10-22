@@ -5,7 +5,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
-import { AgentError } from "@serika/core";
 import { AiSdkAgentLoop, InMemoryModelRegistry, ToolRegistry } from "@serika/ai-sdk-adapter";
 import { createModuleHost, type ToolPermissionFacts } from "../module-host.js";
 import { computerConfigSchema, createComputerModule, createDriverCall, type DriverCall } from "./computer-module.js";
@@ -96,11 +95,15 @@ describe("allowed local application computer tools", () => {
       ] }) };
     } });
     const loop = new AiSdkAgentLoop({ models: new InMemoryModelRegistry({ test: model }), tools: new ToolRegistry(h.host.tools) });
-    await assert.rejects(loop.execute({
+    const outcome = await loop.execute({
       definition: { id: "test", version: "1", model: "test", instructions: "Use the allowed app", tools: ["computer_action"], limits: { maxSteps: 4, totalTimeoutMs: 5000, stepTimeoutMs: 2000 } },
       messages: [{ id: "user", role: "user", parts: [{ type: "text", text: "Click the approved control" }] }],
       signal: new AbortController().signal, generateId: () => "assistant", emit: async () => {},
-    }), (error: unknown) => error instanceof AgentError && error.data.code === "TOOL_OUTCOME_UNKNOWN");
+    });
+    assert.equal(outcome.stopReason, "failed");
+    assert.ok(outcome.stopReason === "failed");
+    assert.equal(outcome.error.code, "TOOL_OUTCOME_UNKNOWN");
+    assert.match(JSON.stringify(outcome.messages), /TOOL_OUTCOME_UNKNOWN/);
     assert.equal(modelCalls, 1);
     assert.equal(h.calls.filter((c) => c.name === "click").length, 1);
   });

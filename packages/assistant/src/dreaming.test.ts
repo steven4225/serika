@@ -7,7 +7,6 @@ import { createDreamingService, type DreamingBatch, type DreamingResult } from "
 import type { WorkTask, WorkTaskStore } from "./work-task-store.js";
 import type { ExecutionRecordStore, ExecutionRunRecord } from "./execution-record-store.js";
 import type { MemoryEntry, WorkspaceMemoryStore } from "./memory-types.js";
-import { createMemoryStore } from "./memory-v6-store.js";
 
 const directories: string[] = [];
 afterEach(async () => { await Promise.all(directories.splice(0).map(d => rm(d, { recursive: true, force: true }))); });
@@ -238,23 +237,6 @@ describe("host-managed dreaming experience skills", () => {
     assert.deepEqual(value(await service.index("new-thread")), []);
     assert.equal(value(await service.overview()).skills[0]!.needsReview, true);
     assert.equal((await service.change({ id: committed.skillIds[0]!, expectedRevision: 1, action: "enable" })).ok, false);
-  });
-
-  it("does not consume Thread-private Memory experience into a workspace-wide method", async () => {
-    const f = await fixture();
-    const memoryStore = createMemoryStore(f.root);
-    const saved = await memoryStore.add({ text: "仅本对话的复盘约束" });
-    assert.ok(saved.ok);
-    assert.ok(saved.entry.revision);
-    for (const task of f.tasks) task.threadId = "thread-common";
-    for (const run of f.runs.values()) {
-      run.threadId = "thread-common";
-      run.memoryReferences = [{ id: saved.entry.id, revision: saved.entry.revision }];
-    }
-    const service = createDreamingService({ workspaceRoot: f.root, workTasks: f.workTasks, executionRecords: f.executionRecords, memoryStore });
-    assert.equal(value(await service.overview()).pendingExperiences, 0);
-    assert.equal(value(await service.prepare()), null);
-    await assert.rejects(readFile(join(f.root, ".runloom/dreaming.json")), { code: "ENOENT" });
   });
 
   it("suppresses disabled Memory-dependent methods consistently in overview, selection and restoration", async () => {

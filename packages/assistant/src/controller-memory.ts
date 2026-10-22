@@ -1,5 +1,4 @@
 import { v6Conflicts } from "./memory-v6-store.js";
-import type { RuntimeAutomation } from "./automation-execution.js";
 import type { ControllerKernel } from "./controller-kernel.js";
 import type { MemoryLibraryAction, MemoryLibraryDocument, MemoryLibraryView } from "./memory-library.js";
 import type { MemoryResult } from "./memory-types.js";
@@ -8,7 +7,7 @@ import type { MemoryReferenceSnapshot } from "./memory-snapshot.js";
 import { memoryCapacity, memoryControlFailure, validateMemoryAction, type MemoryAction, type MemoryMaintenance } from "./memory-controls.js";
 import { readMemoryFactReceipts, type MemoryFactReceipt } from "./memory-factual-receipts.js";
 
-/** Formal memory, its documents, history and consolidation status. */
+/** Formal memory, its documents and extraction status. */
 export interface AssistantMemoryControls {
   getReceipts(): Promise<MemoryResult<MemoryFactReceipt[]>>;
   getLibrary(): Promise<MemoryResult<MemoryLibraryView>>;
