@@ -1,6 +1,6 @@
 # CM6 macOS 手动测试
 
-在 `experiment/architecture-v2` 检出根目录运行，需已安装 pnpm/依赖。模型固定 `deepseek/deepseek-v4.1-flash-fast`，32K 窗口、有效输入 26,624；启动命令自动构建。密钥只从当前终端的 `COMMAND_CODE_API_KEY` 或测试专用 `~/.serika-test.env` 读取，可用 `SERIKA_CM6_TEST_ENV_FILE` 指定另一份测试 env。不读取日用配置、profile 或聊天；不要把密钥贴入聊天。
+在 `experiment/architecture-v2` 检出根目录运行，需已安装 pnpm/依赖。模型固定 `deepseek/deepseek-v4.1-flash-fast`，32K 窗口、有效输入 26,624；启动命令自动构建。密钥优先从终端的 `COMMAND_CODE_API_KEY` 或测试专用 `~/.serika-test.env` 读取，可用 `SERIKA_CM6_TEST_ENV_FILE` 指定测试 env；缺少时在终端隐藏输入密钥，重开时需再输入，不落盘。不读取日用配置、profile 或聊天；不要把密钥贴入聊天。
 
 两条命令：
 

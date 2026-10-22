@@ -6,6 +6,8 @@ import { tmpdir, homedir } from 'node:os';
 import { dirname, join, resolve, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseEnv } from 'node:util';
+import { createInterface } from 'node:readline/promises';
+import { Writable } from 'node:stream';
 import { _electron as electron, expect } from 'playwright/test';
 import { installOpenFault } from './cm-step6-open-fault.mjs';
 import { startTransport, modelId, prices } from './cm6-manual-transport.mjs';
@@ -60,10 +62,18 @@ async function credentials() {
   let values = process.env;
   const path = process.env.SERIKA_CM6_TEST_ENV_FILE ?? join(homedir(), '.serika-test.env');
   if (!values.COMMAND_CODE_API_KEY && await exists(path)) values = parseEnv(await readFile(path, 'utf8'));
-  if (!values.COMMAND_CODE_API_KEY) throw new Error('缺少 COMMAND_CODE_API_KEY。请在终端环境或 ~/.serika-test.env 提供测试密钥；不会读取日用配置。');
+  let key = values.COMMAND_CODE_API_KEY;
+  if (!key) {
+    assert.ok(process.stdin.isTTY, '非交互启动需在终端环境或 ~/.serika-test.env 提供 COMMAND_CODE_API_KEY');
+    process.stdout.write('请输入测试用 COMMAND_CODE_API_KEY（隐藏输入，仅留内存）：');
+    const muted = new Writable({ write(_chunk, _encoding, done) { done(); } });
+    const input = createInterface({ input: process.stdin, output: muted, terminal: true });
+    try { key = (await input.question('')).trim(); } finally { input.close(); process.stdout.write('\n'); }
+    assert.ok(key, '未提供测试密钥，停止启动');
+  }
   const url = new URL(values.COMMAND_CODE_BASE_URL ?? 'https://api.commandcode.ai/provider/v1');
   assert.equal(url.protocol, 'https:'); assert.ok(!url.username && !url.password && !url.search && !url.hash);
-  return { key: values.COMMAND_CODE_API_KEY, baseURL: url.href.replace(/\/$/, '') };
+  return { key, baseURL: url.href.replace(/\/$/, '') };
 }
 
 export async function startManual({ base = baseDirectory, fresh = false, faultPath, respond } = {}) {
