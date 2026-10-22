@@ -1,0 +1,538 @@
+{
+  "runId": "d1ea7a36-fea9-416b-bc3b-ab4d439a273e",
+  "baseCommit": "b555a01c6072cfb08ac4bddd296d4fee04f07c38",
+  "sourceCommit": "6b82c9fadcaa41cc5eeb073bbc060e9a5b135c50",
+  "categories": {
+    "product": {
+      "added": 228,
+      "removed": 214,
+      "net": 14,
+      "files": 30
+    },
+    "migrationTools": {
+      "added": 0,
+      "removed": 0,
+      "net": 0,
+      "files": 0
+    },
+    "tests": {
+      "added": 441,
+      "removed": 336,
+      "net": 105,
+      "files": 43
+    }
+  },
+  "files": [
+    {
+      "path": "apps/cli/src/application-home.ts",
+      "category": "product",
+      "added": 4,
+      "removed": 15,
+      "net": -11
+    },
+    {
+      "path": "apps/cli/src/tui.test.ts",
+      "category": "tests",
+      "added": 2,
+      "removed": 3,
+      "net": -1
+    },
+    {
+      "path": "apps/desktop/package.json",
+      "category": "product",
+      "added": 1,
+      "removed": 1,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/scripts/electron-smoke-fixture.mjs",
+      "category": "tests",
+      "added": 29,
+      "removed": 0,
+      "net": 29
+    },
+    {
+      "path": "apps/desktop/src/main/__baseline__/desktop-paths.txt",
+      "category": "tests",
+      "added": 14,
+      "removed": 16,
+      "net": -2
+    },
+    {
+      "path": "apps/desktop/src/main/application-home.test.ts",
+      "category": "tests",
+      "added": 80,
+      "removed": 0,
+      "net": 80
+    },
+    {
+      "path": "apps/desktop/src/main/backup.test.ts",
+      "category": "tests",
+      "added": 17,
+      "removed": 17,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/backup.ts",
+      "category": "product",
+      "added": 8,
+      "removed": 7,
+      "net": 1
+    },
+    {
+      "path": "apps/desktop/src/main/baseline-paths.test.ts",
+      "category": "tests",
+      "added": 14,
+      "removed": 14,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/conversation-draft-session.test.ts",
+      "category": "tests",
+      "added": 8,
+      "removed": 8,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/desktop-config.test.ts",
+      "category": "tests",
+      "added": 25,
+      "removed": 23,
+      "net": 2
+    },
+    {
+      "path": "apps/desktop/src/main/desktop-config.ts",
+      "category": "product",
+      "added": 10,
+      "removed": 12,
+      "net": -2
+    },
+    {
+      "path": "apps/desktop/src/main/desktop-frontmost-hint.test.ts",
+      "category": "tests",
+      "added": 1,
+      "removed": 1,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/desktop-identity.test.ts",
+      "category": "tests",
+      "added": 11,
+      "removed": 11,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/desktop-identity.ts",
+      "category": "product",
+      "added": 21,
+      "removed": 21,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/desktop-runtime-pomodoro.test.ts",
+      "category": "tests",
+      "added": 1,
+      "removed": 1,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/desktop-runtime.test.ts",
+      "category": "tests",
+      "added": 17,
+      "removed": 16,
+      "net": 1
+    },
+    {
+      "path": "apps/desktop/src/main/desktop-runtime.ts",
+      "category": "product",
+      "added": 15,
+      "removed": 15,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/dreaming-bridge.test.ts",
+      "category": "tests",
+      "added": 3,
+      "removed": 2,
+      "net": 1
+    },
+    {
+      "path": "apps/desktop/src/main/foreground-autonomy.test.ts",
+      "category": "tests",
+      "added": 8,
+      "removed": 8,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/home-message.test.ts",
+      "category": "tests",
+      "added": 1,
+      "removed": 1,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/index.ts",
+      "category": "product",
+      "added": 16,
+      "removed": 14,
+      "net": 2
+    },
+    {
+      "path": "apps/desktop/src/main/module-settings.test.ts",
+      "category": "tests",
+      "added": 10,
+      "removed": 10,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/module-settings.ts",
+      "category": "product",
+      "added": 13,
+      "removed": 10,
+      "net": 3
+    },
+    {
+      "path": "apps/desktop/src/main/recovery-profile.ts",
+      "category": "product",
+      "added": 8,
+      "removed": 8,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/resident-entry.ts",
+      "category": "product",
+      "added": 6,
+      "removed": 6,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/resident-inflight.test.ts",
+      "category": "tests",
+      "added": 4,
+      "removed": 4,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/resident-process.test.ts",
+      "category": "tests",
+      "added": 3,
+      "removed": 3,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/resident-protocol.ts",
+      "category": "product",
+      "added": 1,
+      "removed": 1,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/resident-service.test.ts",
+      "category": "tests",
+      "added": 3,
+      "removed": 3,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/resident-service.ts",
+      "category": "product",
+      "added": 10,
+      "removed": 9,
+      "net": 1
+    },
+    {
+      "path": "apps/desktop/src/main/resident-startup.ts",
+      "category": "product",
+      "added": 6,
+      "removed": 6,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/resident-transport.test.ts",
+      "category": "tests",
+      "added": 5,
+      "removed": 5,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/resident-transport.ts",
+      "category": "product",
+      "added": 4,
+      "removed": 4,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/rss-worker-service.test.ts",
+      "category": "tests",
+      "added": 17,
+      "removed": 16,
+      "net": 1
+    },
+    {
+      "path": "apps/desktop/src/main/rss-worker-service.ts",
+      "category": "product",
+      "added": 5,
+      "removed": 6,
+      "net": -1
+    },
+    {
+      "path": "apps/desktop/src/main/runtime-ownership.test.ts",
+      "category": "tests",
+      "added": 12,
+      "removed": 12,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/runtime-ownership.ts",
+      "category": "product",
+      "added": 16,
+      "removed": 15,
+      "net": 1
+    },
+    {
+      "path": "apps/desktop/src/main/task-inbox.test.ts",
+      "category": "tests",
+      "added": 6,
+      "removed": 6,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/telegram-gateway.test.ts",
+      "category": "tests",
+      "added": 28,
+      "removed": 28,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/telegram-gateway.ts",
+      "category": "product",
+      "added": 2,
+      "removed": 1,
+      "net": 1
+    },
+    {
+      "path": "apps/desktop/src/main/user-data-path.test.ts",
+      "category": "tests",
+      "added": 5,
+      "removed": 3,
+      "net": 2
+    },
+    {
+      "path": "apps/desktop/src/main/user-data-path.ts",
+      "category": "product",
+      "added": 2,
+      "removed": 11,
+      "net": -9
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/reminder-midnight.test.ts",
+      "category": "tests",
+      "added": 1,
+      "removed": 2,
+      "net": -1
+    },
+    {
+      "path": "packages/assistant/src/__baseline__/paths.txt",
+      "category": "tests",
+      "added": 9,
+      "removed": 11,
+      "net": -2
+    },
+    {
+      "path": "packages/assistant/src/api.ts",
+      "category": "product",
+      "added": 2,
+      "removed": 0,
+      "net": 2
+    },
+    {
+      "path": "packages/assistant/src/application-home.ts",
+      "category": "product",
+      "added": 22,
+      "removed": 0,
+      "net": 22
+    },
+    {
+      "path": "packages/assistant/src/baseline-hashes.test.ts",
+      "category": "tests",
+      "added": 1,
+      "removed": 1,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/baseline-paths.test.ts",
+      "category": "tests",
+      "added": 4,
+      "removed": 9,
+      "net": -5
+    },
+    {
+      "path": "packages/assistant/src/checkpoint-store.test.ts",
+      "category": "tests",
+      "added": 4,
+      "removed": 5,
+      "net": -1
+    },
+    {
+      "path": "packages/assistant/src/checkpoint-store.ts",
+      "category": "product",
+      "added": 0,
+      "removed": 2,
+      "net": -2
+    },
+    {
+      "path": "packages/assistant/src/git-reality.test.ts",
+      "category": "tests",
+      "added": 3,
+      "removed": 3,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/git-reality.ts",
+      "category": "product",
+      "added": 1,
+      "removed": 7,
+      "net": -6
+    },
+    {
+      "path": "packages/assistant/src/memory-types.ts",
+      "category": "product",
+      "added": 0,
+      "removed": 2,
+      "net": -2
+    },
+    {
+      "path": "packages/assistant/src/modules/checkpoint-module.test.ts",
+      "category": "tests",
+      "added": 1,
+      "removed": 2,
+      "net": -1
+    },
+    {
+      "path": "packages/assistant/src/receipt-durability.test.ts",
+      "category": "tests",
+      "added": 3,
+      "removed": 3,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/scheduled-skill-acceptance.test.ts",
+      "category": "tests",
+      "added": 18,
+      "removed": 18,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/task-acceptance.test.ts",
+      "category": "tests",
+      "added": 10,
+      "removed": 9,
+      "net": 1
+    },
+    {
+      "path": "packages/assistant/src/task-notification-presentation.ts",
+      "category": "product",
+      "added": 1,
+      "removed": 1,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/task-service-acceptance.test.ts",
+      "category": "tests",
+      "added": 3,
+      "removed": 3,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/task-store.test.ts",
+      "category": "tests",
+      "added": 20,
+      "removed": 21,
+      "net": -1
+    },
+    {
+      "path": "packages/assistant/src/task-store.ts",
+      "category": "product",
+      "added": 3,
+      "removed": 5,
+      "net": -2
+    },
+    {
+      "path": "packages/assistant/src/task-worker-context-acceptance.test.ts",
+      "category": "tests",
+      "added": 6,
+      "removed": 6,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/task-worker-context.test.ts",
+      "category": "tests",
+      "added": 4,
+      "removed": 4,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/task-worker-context.ts",
+      "category": "product",
+      "added": 4,
+      "removed": 4,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/task-worker-entry.test.ts",
+      "category": "tests",
+      "added": 15,
+      "removed": 13,
+      "net": 2
+    },
+    {
+      "path": "packages/assistant/src/task-worker-entry.ts",
+      "category": "product",
+      "added": 36,
+      "removed": 20,
+      "net": 16
+    },
+    {
+      "path": "packages/assistant/src/task-worker-health.ts",
+      "category": "product",
+      "added": 1,
+      "removed": 1,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/task-worker-service.test.ts",
+      "category": "tests",
+      "added": 7,
+      "removed": 7,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/task-worker-service.ts",
+      "category": "product",
+      "added": 10,
+      "removed": 8,
+      "net": 2
+    },
+    {
+      "path": "packages/assistant/src/testing.ts",
+      "category": "tests",
+      "added": 2,
+      "removed": 2,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/work-task-store.ts",
+      "category": "product",
+      "added": 0,
+      "removed": 2,
+      "net": -2
+    },
+    {
+      "path": "packages/assistant/src/workspace-task-read.test.ts",
+      "category": "tests",
+      "added": 6,
+      "removed": 6,
+      "net": 0
+    }
+  ]
+}

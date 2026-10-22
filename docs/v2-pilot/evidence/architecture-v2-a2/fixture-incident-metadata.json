@@ -1,0 +1,25 @@
+{
+  "runId": "560ef612-e377-41e8-9006-95095fffd81a",
+  "observedAt": "2026-10-22T17:58:54.979Z",
+  "metadataOnly": true,
+  "paths": {
+    "~/.serika": {
+      "birthtime": "2026-10-22T16:21:12.235Z",
+      "mtime": "2026-10-22T17:32:47.918Z",
+      "size": 128,
+      "directory": true
+    },
+    "~/.serika/data": {
+      "birthtime": "2026-10-22T17:32:47.918Z",
+      "mtime": "2026-10-22T17:33:49.361Z",
+      "size": 160,
+      "directory": true
+    },
+    "~/.serika/data/task-worker-health.json": {
+      "birthtime": "2026-10-22T17:33:49.354Z",
+      "mtime": "2026-10-22T17:33:49.354Z",
+      "size": 206,
+      "directory": false
+    }
+  }
+}

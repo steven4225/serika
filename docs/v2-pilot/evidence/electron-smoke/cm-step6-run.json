@@ -1,10 +1,10 @@
 {
-  "runId": "767b67cd-08a7-41fe-89ab-7c290ec14c94",
-  "sourceCommit": "052a530091407348b0572c2d33b3f30096a5db4d",
-  "startedAt": "2026-10-22T16:35:43.643Z",
-  "finishedAt": "2026-10-22T16:43:48.022Z",
+  "runId": "f739d460-6e8d-4766-8ebc-bb367608aed6",
+  "sourceCommit": "6b82c9fadcaa41cc5eeb073bbc060e9a5b135c50",
+  "startedAt": "2026-10-22T17:51:47.449Z",
+  "finishedAt": "2026-10-22T17:58:47.983Z",
   "file": "docs/v2-pilot/evidence/electron-smoke/result.json",
-  "sha256": "0b26b6b0c03c6e0881586cb18f25807c7266191d85b8a3c25b5e4970ebbd9d67",
+  "sha256": "ce896442a5e940eedcd8c7c8b7ec3ec0aac863a0d107e72ee2562788c8df5b6e",
   "scriptSha256": "9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f",
   "checks": [
     {
@@ -51,7 +51,7 @@
   "screenshots": [
     {
       "file": "startup.png",
-      "sha256": "fd3dbd00e3a608197ac290f4225affa8f772cba8bec6874a5e70be4a9dc667a5"
+      "sha256": "3058b293a635dfb678b6a4a557c24dba432a28ef59e47b0947cd5a20ef78fc8a"
     },
     {
       "file": "chat-reply.png",
@@ -63,11 +63,11 @@
     },
     {
       "file": "remember-on-memory-page.png",
-      "sha256": "4ad49b013463a22e4a0d856fcb14b29a09323b4e21596bd91965a1cff9e9d5af"
+      "sha256": "aba28124197895be0e285e0add7a3708a005e648c5fe9a53052623bd91f30179"
     },
     {
       "file": "restart-persistence.png",
-      "sha256": "64d53e107a9d6cba7c31d0e6aa8e043d360f23c6002b07e6b2b7ec4bd728d864"
+      "sha256": "72881feda4ca4fec646f95b6c94d8921b49350c847bed8ec6fbb689a5681c59c"
     },
     {
       "file": "undo-disappears.png",
