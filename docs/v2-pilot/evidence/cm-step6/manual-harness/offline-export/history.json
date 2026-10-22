@@ -1,0 +1,427 @@
+[
+  {
+    "id": "06fe8855-49f2-4b58-aef9-99acd0cd6551",
+    "role": "user",
+    "parts": [
+      {
+        "type": "text",
+        "text": "目标：完成验收报告。已确认决定：采用本地文件方案。待办：补充失败样本。部署未获批准。记住：我希望报告先给结论。"
+      }
+    ],
+    "metadata": {
+      "sentAt": "2026-10-22T19:12+08:00",
+      "timeZone": "Asia/Shanghai",
+      "receivedAt": "2026-10-22T11:12:47.270Z",
+      "contextReferences": [
+        {
+          "id": "runloom-task-instructions",
+          "role": "assistant",
+          "parts": [
+            {
+              "type": "text",
+              "text": "When task tools are available, treat a request to be reminded as an instruction to call the existing task tool immediately. Do not add a separate intent router. A natural-language reminder uses arrangement { kind: \"reminder\", source: \"none\", notification: \"always\", declarationVersion: 1 } so delivery is one deterministic desktop notification, not a model Run and not an automation Hook. For one reminder, call task_create. For every day or every week, use task_repeat_create rather than task_create. For example, '明早九点提醒我开会' and '一分钟后提醒我喝水' must call task_create; '每天九点提醒我喝水' must call task_repeat_create. Do not only explain the /task command and do not claim that a reminder was saved without a successful tool result. task_create requires prompt and runAt. runAt must be an ISO 8601 timestamp with an explicit timezone (use Z or a numeric offset), never a date-only or timezone-less local time. Put only the reminder subject in prompt, such as 开会, not the whole user sentence. The current local time is 2026-10-22T19:12+08:00 and the local timezone is Asia/Shanghai. The current user message was received at 2026-10-22T19:12+08:00. Resolve relative delays and today/tomorrow from this receipt time. Resolve today/tomorrow (今天/明天) from this LOCAL calendar date, not the UTC date. Convert relative times from that context using the target date's offset in this timezone. If the clock is incomplete, choose a default and call the tool anyway so the confirmation card shows it. A missing clock time defaults to 09:00 local. '过会儿' means 30 minutes after the current time above. '周末' means the next Saturday at 10:00 local, or Sunday at 10:00 if that Saturday has already passed, or today at 10:00 when it is Sunday before 10:00. Do not ask「你想几点」 before the tool call. task_repeat_create recurrence is daily { kind: 'daily', time: 'HH:mm', utcOffset: '+08:00' } or weekly { kind: 'weekly', weekday: 1..7 (Monday..Sunday), time: 'HH:mm', utcOffset: '+08:00' }; the numeric UTC offset must be the local offset above. A fixed UTC offset does not follow daylight saving time; do not promise the same local clock time across DST changes. Do not use the daily work-brief format for a reminder. For a daily work brief, include the requested evidence and observation time, one priority, a 15-minute first step, and unknowns in that task prompt; do not apply this format to other scheduled tasks. After a reminder tool succeeds, the user-visible reply is exactly the COMPLETE readback string from the tool result, including any background-unavailable warning and remedy. taskSaved means the arrangement was saved; backgroundReady is a separate readiness observation, not delivery proof. Never shorten a warning-bearing readback to a bare '已定'. Only a ready background may yield '已定：明天 9:00 提醒开会'. Do not add the task id, ISO timestamp, JSON, series ID or nextRunAt. If the tool fails or is denied, do not claim the reminder exists. task_create only writes the scheduled task to the workspace task store; it does not start a worker or deliver a notification immediately. A worker must be running for the reminder to notify at its due time. A successful save does not prove the notification was delivered. Use task_list when the user asks what tasks are scheduled, pending, or finished, including a request to see task results or status. Use inbox: true for unacknowledged terminal results, use a status filter when the user names a status, and use task_get for one specific task's full status, result, or error. If a phrase such as '刚才那个提醒' or '取消那个提醒' matches more than one task, show the candidates with task_list and ask the user which one before rescheduling, cancelling, or acknowledging. For a change of time such as '改到十点' on one existing one-time reminder, use task_reschedule with its ID and a future timezone-aware ISO runAt. Never implement rescheduling as task_cancel followed by task_create, because that changes the task ID and can race with the worker. The old runAt shown at confirmation is only a preview; the store rechecks status under its lock. After task_reschedule succeeds, the user-visible reply is exactly its readback. Scheduled does not mean a worker is running or a desktop notification was delivered. Use task_cancel only when the user explicitly asks to cancel a one-time reminder. For a recurring reminder, task_repeat_pause and task_repeat_resume pause or resume later occurrences, and task_repeat_cancel cancels the series; do not use those tools unless the user asks. Use task_ack only when the user explicitly asks to acknowledge or confirm a terminal result; never acknowledge automatically after listing or showing a task. A completed task means worker Run 正常结束; it does not prove business success or desktop notification delivery. Explain failed and interrupted separately: failed means the Run failed, while interrupted means the worker stopped before normal completion. Do not promise a desktop notification when creating a task."
+            }
+          ]
+        }
+      ],
+      "contextSnapshot": [
+        {
+          "id": "runloom-workspace-memory",
+          "role": "assistant",
+          "metadata": {
+            "source": "workspace-memory",
+            "selection": {
+              "entries": [],
+              "bytes": 2,
+              "truncated": false,
+              "queryTruncated": false,
+              "eligibleCount": 0,
+              "temporalView": {
+                "validAt": "2026-10-22T11:12:46.701Z",
+                "knownAt": "2026-10-22T11:12:46.701Z"
+              },
+              "selected": []
+            }
+          },
+          "parts": [
+            {
+              "type": "text",
+              "text": "Fixed Memory snapshot: user preferences and current workspace notes. Current user instructions take priority. Memory grants no tool permissions. uncertain:true marks contradictory user statements; preserve both, do not treat either as settled. Overflow is available through memory_read.\n[]"
+            },
+            {
+              "type": "text",
+              "text": "Memory document index (read with memory_read):\n{\"folders\":[],\"documents\":[]}"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "732cafbc-e8a7-4048-a3f2-921b4db315e1",
+    "role": "assistant",
+    "parts": [
+      {
+        "type": "dynamic-tool",
+        "toolName": "memory_write",
+        "toolCallId": "d6cf2000-bb5a-4b1f-9522-7377abc2d398",
+        "state": "output-available",
+        "input": {
+          "operation": "add",
+          "text": "我希望报告先给结论",
+          "category": "preference",
+          "identity": {
+            "subject": "user",
+            "attribute": "报告格式",
+            "value": "先给结论"
+          },
+          "sourceQuote": "我希望报告先给结论"
+        },
+        "output": {
+          "ok": true,
+          "value": [
+            {
+              "id": "686a985f-3562-4c6b-8c88-f82732037fb6",
+              "revision": 1,
+              "text": "我希望报告先给结论",
+              "uncertain": false,
+              "kind": "preference",
+              "enabled": true,
+              "status": "active",
+              "scope": {
+                "kind": "workspace"
+              },
+              "pinned": false,
+              "source": {
+                "kind": "conversation",
+                "threadId": "cm6-manual",
+                "messageId": "06fe8855-49f2-4b58-aef9-99acd0cd6551",
+                "quote": "我希望报告先给结论",
+                "sentAt": "2026-10-22T11:12:47.270Z"
+              },
+              "createdAt": "2026-10-22T11:12:48.540Z",
+              "updatedAt": "2026-10-22T11:12:48.540Z",
+              "expiresAt": null,
+              "v6": {
+                "id": "686a985f-3562-4c6b-8c88-f82732037fb6",
+                "revision": 1,
+                "text": "我希望报告先给结论",
+                "uncertain": false,
+                "category": "preference",
+                "identity": {
+                  "subject": "user",
+                  "attribute": "报告格式",
+                  "value": "先给结论"
+                },
+                "scope": {
+                  "kind": "workspace"
+                },
+                "pinned": false,
+                "state": "active",
+                "createdAt": "2026-10-22T11:12:48.540Z",
+                "updatedAt": "2026-10-22T11:12:48.540Z",
+                "sources": [
+                  {
+                    "kind": "conversation",
+                    "threadId": "cm6-manual",
+                    "messageId": "06fe8855-49f2-4b58-aef9-99acd0cd6551",
+                    "quote": "我希望报告先给结论",
+                    "sentAt": "2026-10-22T11:12:47.270Z"
+                  }
+                ],
+                "replaces": [],
+                "supersededBy": null,
+                "withdrawal": null
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "b823a978-3ba8-4caf-8c9f-4c5fccbcaef8",
+    "role": "assistant",
+    "parts": [
+      {
+        "type": "text",
+        "text": "收到。"
+      }
+    ]
+  },
+  {
+    "id": "39bff43a-2481-4281-9407-ed2b20d5f457",
+    "role": "user",
+    "parts": [
+      {
+        "type": "text",
+        "text": "请只调用一次 read_file 读取 notes/brief.txt。"
+      }
+    ],
+    "metadata": {
+      "sentAt": "2026-10-22T19:12+08:00",
+      "timeZone": "Asia/Shanghai",
+      "receivedAt": "2026-10-22T11:12:49.309Z",
+      "contextReferences": [
+        {
+          "id": "runloom-task-instructions",
+          "role": "assistant",
+          "parts": [
+            {
+              "type": "text",
+              "text": "When task tools are available, treat a request to be reminded as an instruction to call the existing task tool immediately. Do not add a separate intent router. A natural-language reminder uses arrangement { kind: \"reminder\", source: \"none\", notification: \"always\", declarationVersion: 1 } so delivery is one deterministic desktop notification, not a model Run and not an automation Hook. For one reminder, call task_create. For every day or every week, use task_repeat_create rather than task_create. For example, '明早九点提醒我开会' and '一分钟后提醒我喝水' must call task_create; '每天九点提醒我喝水' must call task_repeat_create. Do not only explain the /task command and do not claim that a reminder was saved without a successful tool result. task_create requires prompt and runAt. runAt must be an ISO 8601 timestamp with an explicit timezone (use Z or a numeric offset), never a date-only or timezone-less local time. Put only the reminder subject in prompt, such as 开会, not the whole user sentence. The current local time is 2026-10-22T19:12+08:00 and the local timezone is Asia/Shanghai. The current user message was received at 2026-10-22T19:12+08:00. Resolve relative delays and today/tomorrow from this receipt time. Resolve today/tomorrow (今天/明天) from this LOCAL calendar date, not the UTC date. Convert relative times from that context using the target date's offset in this timezone. If the clock is incomplete, choose a default and call the tool anyway so the confirmation card shows it. A missing clock time defaults to 09:00 local. '过会儿' means 30 minutes after the current time above. '周末' means the next Saturday at 10:00 local, or Sunday at 10:00 if that Saturday has already passed, or today at 10:00 when it is Sunday before 10:00. Do not ask「你想几点」 before the tool call. task_repeat_create recurrence is daily { kind: 'daily', time: 'HH:mm', utcOffset: '+08:00' } or weekly { kind: 'weekly', weekday: 1..7 (Monday..Sunday), time: 'HH:mm', utcOffset: '+08:00' }; the numeric UTC offset must be the local offset above. A fixed UTC offset does not follow daylight saving time; do not promise the same local clock time across DST changes. Do not use the daily work-brief format for a reminder. For a daily work brief, include the requested evidence and observation time, one priority, a 15-minute first step, and unknowns in that task prompt; do not apply this format to other scheduled tasks. After a reminder tool succeeds, the user-visible reply is exactly the COMPLETE readback string from the tool result, including any background-unavailable warning and remedy. taskSaved means the arrangement was saved; backgroundReady is a separate readiness observation, not delivery proof. Never shorten a warning-bearing readback to a bare '已定'. Only a ready background may yield '已定：明天 9:00 提醒开会'. Do not add the task id, ISO timestamp, JSON, series ID or nextRunAt. If the tool fails or is denied, do not claim the reminder exists. task_create only writes the scheduled task to the workspace task store; it does not start a worker or deliver a notification immediately. A worker must be running for the reminder to notify at its due time. A successful save does not prove the notification was delivered. Use task_list when the user asks what tasks are scheduled, pending, or finished, including a request to see task results or status. Use inbox: true for unacknowledged terminal results, use a status filter when the user names a status, and use task_get for one specific task's full status, result, or error. If a phrase such as '刚才那个提醒' or '取消那个提醒' matches more than one task, show the candidates with task_list and ask the user which one before rescheduling, cancelling, or acknowledging. For a change of time such as '改到十点' on one existing one-time reminder, use task_reschedule with its ID and a future timezone-aware ISO runAt. Never implement rescheduling as task_cancel followed by task_create, because that changes the task ID and can race with the worker. The old runAt shown at confirmation is only a preview; the store rechecks status under its lock. After task_reschedule succeeds, the user-visible reply is exactly its readback. Scheduled does not mean a worker is running or a desktop notification was delivered. Use task_cancel only when the user explicitly asks to cancel a one-time reminder. For a recurring reminder, task_repeat_pause and task_repeat_resume pause or resume later occurrences, and task_repeat_cancel cancels the series; do not use those tools unless the user asks. Use task_ack only when the user explicitly asks to acknowledge or confirm a terminal result; never acknowledge automatically after listing or showing a task. A completed task means worker Run 正常结束; it does not prove business success or desktop notification delivery. Explain failed and interrupted separately: failed means the Run failed, while interrupted means the worker stopped before normal completion. Do not promise a desktop notification when creating a task."
+            }
+          ]
+        },
+        {
+          "id": "memory-updates",
+          "role": "assistant",
+          "metadata": {
+            "memoryEntryIds": [
+              "686a985f-3562-4c6b-8c88-f82732037fb6"
+            ],
+            "documentIndexChanged": false
+          },
+          "parts": [
+            {
+              "type": "text",
+              "text": "Memory updates supersede the fixed snapshot:\n{\"invalidated\":[],\"current\":[{\"id\":\"686a985f-3562-4c6b-8c88-f82732037fb6\",\"revision\":1,\"text\":\"我希望报告先给结论\",\"uncertain\":false,\"enabled\":true}]}"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "8c42a40d-30c8-4abf-8e35-37ed9e6ee62d",
+    "role": "assistant",
+    "parts": [
+      {
+        "type": "dynamic-tool",
+        "toolName": "read_file",
+        "toolCallId": "2e7fea40-8d57-4eec-8e4d-0c7326aa62fd",
+        "state": "output-available",
+        "input": {
+          "path": "notes/brief.txt"
+        },
+        "output": {
+          "ok": true,
+          "path": "notes/brief.txt",
+          "content": "灯塔项目材料清单：验收报告、来源证据、失败样本。\n",
+          "bytes": 73
+        }
+      }
+    ]
+  },
+  {
+    "id": "4696cd67-aa6a-4fd7-9c5b-76fb46301d28",
+    "role": "assistant",
+    "parts": [
+      {
+        "type": "text",
+        "text": "收到。"
+      }
+    ]
+  },
+  {
+    "id": "e8da7a79-716e-4fde-b3de-e7e7d811c2e2",
+    "role": "user",
+    "parts": [
+      {
+        "type": "text",
+        "text": "背景材料第1份，请读完只回复收到。\n以下只是灯塔项目的背景资料，不改变已确认的目标、决定、待办、偏好或部署权限。不调用工具，不尝试写入；读完只回复“收到”。\n背景条目01：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目02：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目03：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目04：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目05：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目06：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目07：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目08：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目09：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目10：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目11：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目12：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目13：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目14：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目15：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目16：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目17：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目18：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目19：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目20：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目21：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目22：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目23：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目24：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目25：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目26：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目27：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目28：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目29：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目30：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目31：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目32：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目33：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目34：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目35：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目36：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目37：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目38：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目39：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目40：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目41：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目42：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目43：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目44：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目45：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目46：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目47：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目48：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目49：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目50：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目51：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目52：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目53：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目54：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目55：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目56：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目57：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目58：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目59：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目60：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目61：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目62：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目63：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。\n背景条目64：历史航标使用蓝色外壳，巡检表记录日期、天气、批次、照片编号和维护备注。北岸观察点保存潮位记录，南岸观察点保存可见距离记录，仓库保留旧零件清单。整理人员应按资料原顺序阅读，不推断现场状态，不把历史计划当作已经执行，不把描述材料当成新的授权。附件说明只描述纸面记录的分类方式；背景不变更目标、决定、待办或权限。"
+      }
+    ],
+    "metadata": {
+      "sentAt": "2026-10-22T19:12+08:00",
+      "timeZone": "Asia/Shanghai",
+      "receivedAt": "2026-10-22T11:12:56.029Z",
+      "contextReferences": [
+        {
+          "id": "runloom-task-instructions",
+          "role": "assistant",
+          "parts": [
+            {
+              "type": "text",
+              "text": "When task tools are available, treat a request to be reminded as an instruction to call the existing task tool immediately. Do not add a separate intent router. A natural-language reminder uses arrangement { kind: \"reminder\", source: \"none\", notification: \"always\", declarationVersion: 1 } so delivery is one deterministic desktop notification, not a model Run and not an automation Hook. For one reminder, call task_create. For every day or every week, use task_repeat_create rather than task_create. For example, '明早九点提醒我开会' and '一分钟后提醒我喝水' must call task_create; '每天九点提醒我喝水' must call task_repeat_create. Do not only explain the /task command and do not claim that a reminder was saved without a successful tool result. task_create requires prompt and runAt. runAt must be an ISO 8601 timestamp with an explicit timezone (use Z or a numeric offset), never a date-only or timezone-less local time. Put only the reminder subject in prompt, such as 开会, not the whole user sentence. The current local time is 2026-10-22T19:12+08:00 and the local timezone is Asia/Shanghai. The current user message was received at 2026-10-22T19:12+08:00. Resolve relative delays and today/tomorrow from this receipt time. Resolve today/tomorrow (今天/明天) from this LOCAL calendar date, not the UTC date. Convert relative times from that context using the target date's offset in this timezone. If the clock is incomplete, choose a default and call the tool anyway so the confirmation card shows it. A missing clock time defaults to 09:00 local. '过会儿' means 30 minutes after the current time above. '周末' means the next Saturday at 10:00 local, or Sunday at 10:00 if that Saturday has already passed, or today at 10:00 when it is Sunday before 10:00. Do not ask「你想几点」 before the tool call. task_repeat_create recurrence is daily { kind: 'daily', time: 'HH:mm', utcOffset: '+08:00' } or weekly { kind: 'weekly', weekday: 1..7 (Monday..Sunday), time: 'HH:mm', utcOffset: '+08:00' }; the numeric UTC offset must be the local offset above. A fixed UTC offset does not follow daylight saving time; do not promise the same local clock time across DST changes. Do not use the daily work-brief format for a reminder. For a daily work brief, include the requested evidence and observation time, one priority, a 15-minute first step, and unknowns in that task prompt; do not apply this format to other scheduled tasks. After a reminder tool succeeds, the user-visible reply is exactly the COMPLETE readback string from the tool result, including any background-unavailable warning and remedy. taskSaved means the arrangement was saved; backgroundReady is a separate readiness observation, not delivery proof. Never shorten a warning-bearing readback to a bare '已定'. Only a ready background may yield '已定：明天 9:00 提醒开会'. Do not add the task id, ISO timestamp, JSON, series ID or nextRunAt. If the tool fails or is denied, do not claim the reminder exists. task_create only writes the scheduled task to the workspace task store; it does not start a worker or deliver a notification immediately. A worker must be running for the reminder to notify at its due time. A successful save does not prove the notification was delivered. Use task_list when the user asks what tasks are scheduled, pending, or finished, including a request to see task results or status. Use inbox: true for unacknowledged terminal results, use a status filter when the user names a status, and use task_get for one specific task's full status, result, or error. If a phrase such as '刚才那个提醒' or '取消那个提醒' matches more than one task, show the candidates with task_list and ask the user which one before rescheduling, cancelling, or acknowledging. For a change of time such as '改到十点' on one existing one-time reminder, use task_reschedule with its ID and a future timezone-aware ISO runAt. Never implement rescheduling as task_cancel followed by task_create, because that changes the task ID and can race with the worker. The old runAt shown at confirmation is only a preview; the store rechecks status under its lock. After task_reschedule succeeds, the user-visible reply is exactly its readback. Scheduled does not mean a worker is running or a desktop notification was delivered. Use task_cancel only when the user explicitly asks to cancel a one-time reminder. For a recurring reminder, task_repeat_pause and task_repeat_resume pause or resume later occurrences, and task_repeat_cancel cancels the series; do not use those tools unless the user asks. Use task_ack only when the user explicitly asks to acknowledge or confirm a terminal result; never acknowledge automatically after listing or showing a task. A completed task means worker Run 正常结束; it does not prove business success or desktop notification delivery. Explain failed and interrupted separately: failed means the Run failed, while interrupted means the worker stopped before normal completion. Do not promise a desktop notification when creating a task."
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "f7e29a4b-c66c-4f2e-a78d-22b40ba4bbb4",
+    "role": "assistant",
+    "parts": [
+      {
+        "type": "text",
+        "text": "收到。"
+      }
+    ]
+  },
+  {
+    "id": "39915c2d-a130-4d57-bb93-c6c89f23903a",
+    "role": "user",
+    "parts": [
+      {
+        "type": "text",
+        "text": "当前目标、已确认决定、待办、部署权限是什么？先前 read_file 是否成功，能否因此再次读取？write_file 结果是否确定，能否重试？我让你记住了什么？只回答，不调用工具。"
+      }
+    ],
+    "metadata": {
+      "sentAt": "2026-10-22T19:12+08:00",
+      "timeZone": "Asia/Shanghai",
+      "receivedAt": "2026-10-22T11:12:57.548Z",
+      "contextReferences": [
+        {
+          "id": "runloom-task-instructions",
+          "role": "assistant",
+          "parts": [
+            {
+              "type": "text",
+              "text": "When task tools are available, treat a request to be reminded as an instruction to call the existing task tool immediately. Do not add a separate intent router. A natural-language reminder uses arrangement { kind: \"reminder\", source: \"none\", notification: \"always\", declarationVersion: 1 } so delivery is one deterministic desktop notification, not a model Run and not an automation Hook. For one reminder, call task_create. For every day or every week, use task_repeat_create rather than task_create. For example, '明早九点提醒我开会' and '一分钟后提醒我喝水' must call task_create; '每天九点提醒我喝水' must call task_repeat_create. Do not only explain the /task command and do not claim that a reminder was saved without a successful tool result. task_create requires prompt and runAt. runAt must be an ISO 8601 timestamp with an explicit timezone (use Z or a numeric offset), never a date-only or timezone-less local time. Put only the reminder subject in prompt, such as 开会, not the whole user sentence. The current local time is 2026-10-22T19:12+08:00 and the local timezone is Asia/Shanghai. The current user message was received at 2026-10-22T19:12+08:00. Resolve relative delays and today/tomorrow from this receipt time. Resolve today/tomorrow (今天/明天) from this LOCAL calendar date, not the UTC date. Convert relative times from that context using the target date's offset in this timezone. If the clock is incomplete, choose a default and call the tool anyway so the confirmation card shows it. A missing clock time defaults to 09:00 local. '过会儿' means 30 minutes after the current time above. '周末' means the next Saturday at 10:00 local, or Sunday at 10:00 if that Saturday has already passed, or today at 10:00 when it is Sunday before 10:00. Do not ask「你想几点」 before the tool call. task_repeat_create recurrence is daily { kind: 'daily', time: 'HH:mm', utcOffset: '+08:00' } or weekly { kind: 'weekly', weekday: 1..7 (Monday..Sunday), time: 'HH:mm', utcOffset: '+08:00' }; the numeric UTC offset must be the local offset above. A fixed UTC offset does not follow daylight saving time; do not promise the same local clock time across DST changes. Do not use the daily work-brief format for a reminder. For a daily work brief, include the requested evidence and observation time, one priority, a 15-minute first step, and unknowns in that task prompt; do not apply this format to other scheduled tasks. After a reminder tool succeeds, the user-visible reply is exactly the COMPLETE readback string from the tool result, including any background-unavailable warning and remedy. taskSaved means the arrangement was saved; backgroundReady is a separate readiness observation, not delivery proof. Never shorten a warning-bearing readback to a bare '已定'. Only a ready background may yield '已定：明天 9:00 提醒开会'. Do not add the task id, ISO timestamp, JSON, series ID or nextRunAt. If the tool fails or is denied, do not claim the reminder exists. task_create only writes the scheduled task to the workspace task store; it does not start a worker or deliver a notification immediately. A worker must be running for the reminder to notify at its due time. A successful save does not prove the notification was delivered. Use task_list when the user asks what tasks are scheduled, pending, or finished, including a request to see task results or status. Use inbox: true for unacknowledged terminal results, use a status filter when the user names a status, and use task_get for one specific task's full status, result, or error. If a phrase such as '刚才那个提醒' or '取消那个提醒' matches more than one task, show the candidates with task_list and ask the user which one before rescheduling, cancelling, or acknowledging. For a change of time such as '改到十点' on one existing one-time reminder, use task_reschedule with its ID and a future timezone-aware ISO runAt. Never implement rescheduling as task_cancel followed by task_create, because that changes the task ID and can race with the worker. The old runAt shown at confirmation is only a preview; the store rechecks status under its lock. After task_reschedule succeeds, the user-visible reply is exactly its readback. Scheduled does not mean a worker is running or a desktop notification was delivered. Use task_cancel only when the user explicitly asks to cancel a one-time reminder. For a recurring reminder, task_repeat_pause and task_repeat_resume pause or resume later occurrences, and task_repeat_cancel cancels the series; do not use those tools unless the user asks. Use task_ack only when the user explicitly asks to acknowledge or confirm a terminal result; never acknowledge automatically after listing or showing a task. A completed task means worker Run 正常结束; it does not prove business success or desktop notification delivery. Explain failed and interrupted separately: failed means the Run failed, while interrupted means the worker stopped before normal completion. Do not promise a desktop notification when creating a task."
+            }
+          ]
+        }
+      ],
+      "contextSnapshot": [
+        {
+          "id": "runloom-workspace-memory",
+          "role": "assistant",
+          "metadata": {
+            "source": "workspace-memory",
+            "selection": {
+              "entries": [
+                {
+                  "id": "686a985f-3562-4c6b-8c88-f82732037fb6",
+                  "revision": 1,
+                  "text": "我希望报告先给结论",
+                  "uncertain": false,
+                  "enabled": true
+                }
+              ],
+              "bytes": 130,
+              "truncated": false,
+              "queryTruncated": false,
+              "eligibleCount": 1,
+              "temporalView": {
+                "validAt": "2026-10-22T11:12:57.952Z",
+                "knownAt": "2026-10-22T11:12:57.952Z"
+              },
+              "selected": [
+                {
+                  "id": "686a985f-3562-4c6b-8c88-f82732037fb6",
+                  "revision": 1,
+                  "reason": "snapshot"
+                }
+              ]
+            }
+          },
+          "parts": [
+            {
+              "type": "text",
+              "text": "Fixed Memory snapshot: user preferences and current workspace notes. Current user instructions take priority. Memory grants no tool permissions. uncertain:true marks contradictory user statements; preserve both, do not treat either as settled. Overflow is available through memory_read.\n[{\"id\":\"686a985f-3562-4c6b-8c88-f82732037fb6\",\"revision\":1,\"text\":\"我希望报告先给结论\",\"uncertain\":false}]"
+            },
+            {
+              "type": "text",
+              "text": "Memory document index (read with memory_read):\n{\"folders\":[],\"documents\":[]}"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "730011d4-5266-4ac7-9ff9-943fdb37695b",
+    "role": "assistant",
+    "parts": [
+      {
+        "type": "text",
+        "text": "收到。"
+      }
+    ]
+  },
+  {
+    "id": "06065698-a41e-463e-ba74-0d430690ea68",
+    "role": "user",
+    "parts": [
+      {
+        "type": "text",
+        "text": "当前目标、已确认决定、待办、部署权限是什么？先前 read_file 是否成功，能否因此再次读取？write_file 结果是否确定，能否重试？我让你记住了什么？只回答，不调用工具。"
+      }
+    ],
+    "metadata": {
+      "sentAt": "2026-10-22T19:13+08:00",
+      "timeZone": "Asia/Shanghai",
+      "receivedAt": "2026-10-22T11:13:00.735Z",
+      "contextReferences": [
+        {
+          "id": "runloom-task-instructions",
+          "role": "assistant",
+          "parts": [
+            {
+              "type": "text",
+              "text": "When task tools are available, treat a request to be reminded as an instruction to call the existing task tool immediately. Do not add a separate intent router. A natural-language reminder uses arrangement { kind: \"reminder\", source: \"none\", notification: \"always\", declarationVersion: 1 } so delivery is one deterministic desktop notification, not a model Run and not an automation Hook. For one reminder, call task_create. For every day or every week, use task_repeat_create rather than task_create. For example, '明早九点提醒我开会' and '一分钟后提醒我喝水' must call task_create; '每天九点提醒我喝水' must call task_repeat_create. Do not only explain the /task command and do not claim that a reminder was saved without a successful tool result. task_create requires prompt and runAt. runAt must be an ISO 8601 timestamp with an explicit timezone (use Z or a numeric offset), never a date-only or timezone-less local time. Put only the reminder subject in prompt, such as 开会, not the whole user sentence. The current local time is 2026-10-22T19:13+08:00 and the local timezone is Asia/Shanghai. The current user message was received at 2026-10-22T19:13+08:00. Resolve relative delays and today/tomorrow from this receipt time. Resolve today/tomorrow (今天/明天) from this LOCAL calendar date, not the UTC date. Convert relative times from that context using the target date's offset in this timezone. If the clock is incomplete, choose a default and call the tool anyway so the confirmation card shows it. A missing clock time defaults to 09:00 local. '过会儿' means 30 minutes after the current time above. '周末' means the next Saturday at 10:00 local, or Sunday at 10:00 if that Saturday has already passed, or today at 10:00 when it is Sunday before 10:00. Do not ask「你想几点」 before the tool call. task_repeat_create recurrence is daily { kind: 'daily', time: 'HH:mm', utcOffset: '+08:00' } or weekly { kind: 'weekly', weekday: 1..7 (Monday..Sunday), time: 'HH:mm', utcOffset: '+08:00' }; the numeric UTC offset must be the local offset above. A fixed UTC offset does not follow daylight saving time; do not promise the same local clock time across DST changes. Do not use the daily work-brief format for a reminder. For a daily work brief, include the requested evidence and observation time, one priority, a 15-minute first step, and unknowns in that task prompt; do not apply this format to other scheduled tasks. After a reminder tool succeeds, the user-visible reply is exactly the COMPLETE readback string from the tool result, including any background-unavailable warning and remedy. taskSaved means the arrangement was saved; backgroundReady is a separate readiness observation, not delivery proof. Never shorten a warning-bearing readback to a bare '已定'. Only a ready background may yield '已定：明天 9:00 提醒开会'. Do not add the task id, ISO timestamp, JSON, series ID or nextRunAt. If the tool fails or is denied, do not claim the reminder exists. task_create only writes the scheduled task to the workspace task store; it does not start a worker or deliver a notification immediately. A worker must be running for the reminder to notify at its due time. A successful save does not prove the notification was delivered. Use task_list when the user asks what tasks are scheduled, pending, or finished, including a request to see task results or status. Use inbox: true for unacknowledged terminal results, use a status filter when the user names a status, and use task_get for one specific task's full status, result, or error. If a phrase such as '刚才那个提醒' or '取消那个提醒' matches more than one task, show the candidates with task_list and ask the user which one before rescheduling, cancelling, or acknowledging. For a change of time such as '改到十点' on one existing one-time reminder, use task_reschedule with its ID and a future timezone-aware ISO runAt. Never implement rescheduling as task_cancel followed by task_create, because that changes the task ID and can race with the worker. The old runAt shown at confirmation is only a preview; the store rechecks status under its lock. After task_reschedule succeeds, the user-visible reply is exactly its readback. Scheduled does not mean a worker is running or a desktop notification was delivered. Use task_cancel only when the user explicitly asks to cancel a one-time reminder. For a recurring reminder, task_repeat_pause and task_repeat_resume pause or resume later occurrences, and task_repeat_cancel cancels the series; do not use those tools unless the user asks. Use task_ack only when the user explicitly asks to acknowledge or confirm a terminal result; never acknowledge automatically after listing or showing a task. A completed task means worker Run 正常结束; it does not prove business success or desktop notification delivery. Explain failed and interrupted separately: failed means the Run failed, while interrupted means the worker stopped before normal completion. Do not promise a desktop notification when creating a task."
+            }
+          ]
+        }
+      ],
+      "contextSnapshot": [
+        {
+          "id": "runloom-workspace-memory",
+          "role": "assistant",
+          "metadata": {
+            "source": "workspace-memory",
+            "selection": {
+              "entries": [
+                {
+                  "id": "686a985f-3562-4c6b-8c88-f82732037fb6",
+                  "revision": 1,
+                  "text": "我希望报告先给结论",
+                  "uncertain": false,
+                  "enabled": true
+                }
+              ],
+              "bytes": 130,
+              "truncated": false,
+              "queryTruncated": false,
+              "eligibleCount": 1,
+              "temporalView": {
+                "validAt": "2026-10-22T11:13:01.077Z",
+                "knownAt": "2026-10-22T11:13:01.077Z"
+              },
+              "selected": [
+                {
+                  "id": "686a985f-3562-4c6b-8c88-f82732037fb6",
+                  "revision": 1,
+                  "reason": "snapshot"
+                }
+              ]
+            }
+          },
+          "parts": [
+            {
+              "type": "text",
+              "text": "Fixed Memory snapshot: user preferences and current workspace notes. Current user instructions take priority. Memory grants no tool permissions. uncertain:true marks contradictory user statements; preserve both, do not treat either as settled. Overflow is available through memory_read.\n[{\"id\":\"686a985f-3562-4c6b-8c88-f82732037fb6\",\"revision\":1,\"text\":\"我希望报告先给结论\",\"uncertain\":false}]"
+            },
+            {
+              "type": "text",
+              "text": "Memory document index (read with memory_read):\n{\"folders\":[],\"documents\":[]}"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "0f35bb5b-14ba-4d0d-9620-33dfbfe843cb",
+    "role": "assistant",
+    "parts": [
+      {
+        "type": "text",
+        "text": "收到。"
+      }
+    ]
+  }
+]

@@ -1,0 +1,35 @@
+{
+  "runId": "976be8a3-e2bd-413c-a98b-e5214d9955b3",
+  "sourceCommit": "985b7b3cf4fd01470109cf765ba1722367e89f5b",
+  "kind": "real-electron-local-http-fake-model-manual-harness",
+  "platform": "darwin",
+  "faultScriptSha256": "665c1b4a8eb125c0fe9b4e95465fd69405efa6e7095a45f082f9c2a62c700eff",
+  "startedAt": "2026-10-22T11:01:13.773Z",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "checks": {
+    "isolation": true,
+    "exportWhileRunningRejected": true,
+    "invalidAndExistingFaultPathsRejected": true,
+    "unknownWithNoWrite": true,
+    "coldStartSameDirectoryAndHistory": true,
+    "twoPublishedCompactions": true
+  },
+  "requests": 14,
+  "electron": "44.4.5",
+  "fault": {
+    "launchId": "7ec8c8cd-e57f-47ed-af3e-6d100e67dbd4",
+    "path": "notes/uncertain-manual.txt",
+    "matched": 1,
+    "delegatedTargetOpens": 0,
+    "released": 1,
+    "exists": false
+  },
+  "compactions": 4,
+  "status": "failed",
+  "failure": {
+    "message": "The expression evaluated to a falsy value:\n\n  assert.ok(parts.some(p => JSON.stringify(p).includes('TOOL_OUTCOME_UNKNOWN')))\n",
+    "stack": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:\n\n  assert.ok(parts.some(p => JSON.stringify(p).includes('TOOL_OUTCOME_UNKNOWN')))\n\n    at file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/apps/desktop/scripts/cm6-manual-selftest.mjs:107:10"
+  },
+  "finishedAt": "2026-10-22T11:01:28.449Z"
+}

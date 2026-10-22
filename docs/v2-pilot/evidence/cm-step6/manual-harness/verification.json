@@ -1,0 +1,78 @@
+{
+  "runId": "631d3073-b556-4d7e-bff8-163695b15d98",
+  "at": "2026-10-22T11:14:03.191560+00:00",
+  "sourceCommit": "e764079458de8c2ff04098571b735b3868e4657f",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "commands": [
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0,
+      "sourceCommit": "152939e4889aa63dfc9617c794fb76e9b32c7998"
+    },
+    {
+      "command": "pnpm test",
+      "exitCode": 0,
+      "sourceCommit": "152939e4889aa63dfc9617c794fb76e9b32c7998",
+      "counts": {
+        "tests": 1802,
+        "pass": 1791,
+        "fail": 0,
+        "skipped": 11
+      },
+      "subprocessCounts": [
+        {
+          "tests": 1158,
+          "pass": 1147,
+          "fail": 0,
+          "skipped": 11
+        },
+        {
+          "tests": 632,
+          "pass": 632,
+          "fail": 0,
+          "skipped": 0
+        },
+        {
+          "tests": 12,
+          "pass": 12,
+          "fail": 0,
+          "skipped": 0
+        }
+      ]
+    },
+    {
+      "command": "node apps/desktop/scripts/cm6-manual-selftest.mjs",
+      "exitCode": 0,
+      "sourceCommit": "e764079458de8c2ff04098571b735b3868e4657f",
+      "checks": 10,
+      "mockRequests": 13,
+      "persistedCompactions": 5,
+      "observedValidCompactions": 4
+    },
+    {
+      "command": "pnpm --filter @serika/desktop smoke",
+      "exitCode": 0,
+      "sourceCommit": "e764079458de8c2ff04098571b735b3868e4657f",
+      "checks": 8,
+      "sourceWorktreeDirty": false
+    },
+    {
+      "command": "local PTY credential probe",
+      "exitCode": 0,
+      "sourceCommit": "e764079458de8c2ff04098571b735b3868e4657f",
+      "inputEchoed": false
+    }
+  ],
+  "postFullSuiteChanges": "Only standalone test credential input, plus the manual checklist; product and existing test sources unchanged.",
+  "hashes": {
+    "tests.log": "8555d5aecf97c0af33d5929dccb17188b9f7d04bf925a4eaf9a3d18d9d675bcb",
+    "typecheck.log": "9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609",
+    "selftest.json": "a751cbeff96622df7ecd4f9c91b191f1559decc90ab61ff236f8fbd529dd4ca0",
+    "credential-probe.json": "8b184f014c29ac542f6a4806ee8c2ea7934305fea45501385959cddf0c440b5c",
+    "electron-smoke/result.json": "81617d718698760eb4f1f7d6e7594cde75c5be0c2737f3822f9d6b0a29dd463d",
+    "offline-export/manifest.json": "29140d12e1b0f4059b3d1b328229a981ed7ee952712cb02a510e8b211700e81e"
+  },
+  "originalConversationAndCostLedgerChanged": false,
+  "productSourceChanged": false
+}

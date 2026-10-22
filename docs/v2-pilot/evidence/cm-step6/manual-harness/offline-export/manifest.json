@@ -1,0 +1,33 @@
+{
+  "runId": "dee9b808-172b-4a9e-a134-eef5bf3e7cba",
+  "at": "2026-10-22T11:13:02.284Z",
+  "hashes": {
+    "captures/diagnostics.jsonl": "ce0065ebb9dc75e80a6dd15d1d4f3f04b8ecc9fe601da4cbf0348dc73a37abbc",
+    "captures/events.jsonl": "df05bf086c37fc9a7efbe3fdd53409e4a2abdc02acc80d3a7fc74ae43a599a33",
+    "captures/fault-5e6daf96-35b1-4fc1-ac33-e90483e738c8.json": "70f2a76064a9c11b6e98fe003fd4482e1fa5bebd33d579550b22b8fc27c50000",
+    "captures/fault-a595a3e6-5824-4f2d-94c2-6712397b7ac6.json": "cea8b0c9283f25de89f13be5eaeea9180c63251de6a9c79d1339c459d7b51742",
+    "captures/inputs.jsonl": "785cf8a6d6598c3c6616fca9d03dfe0c3453301119e10e4f2aa927cedcb1e35b",
+    "captures/latest.json": "bac747fcd6340e069e339eca98558ff78a092d9afb78fceee20cbe071eb1bb08",
+    "compactions.json": "a786da3075bd8cd45dfba7c19fe13238c81aaac0b672dd03f3d5e9c21c439b92",
+    "config.json": "2ca2f5e7b2981dd3a3f433d362ba123ef517137305c38064304e849d8a0e485d",
+    "context-diagnostics.json": "c443c76b7022255e465a6e8fb3d1eb155230fd939564fe850f88c740232a5fe4",
+    "costs.json": "637c83dafbdef53c792d5975a5423ea3ac79557723f3556ec7a116b3fb641d37",
+    "dialogue.md": "f7e9491836a8af46ecb0ab5565a137db2827c21d13cdd1d1ce9c03d129709afe",
+    "history.json": "b720470bd8cf492fb50305547f2f9c3250768577d1b622557a874c67897ceaae",
+    "launches.jsonl": "c66f38761bc92089ca595806dccc3414f9830b7261be03e779405829eacb5276",
+    "memory-page.json": "8447b1bafd6f02a6c9d7e1231c403f7ca96cb883ca5e8a560d7dd0b879b00f6f",
+    "requests.jsonl": "c2e779808778421934d6db76ed8ff605da8d4e63e23af3c6ea76b731c733cf89",
+    "session.json": "cff8bf0ef66dc76bb462f4fc6bd6c4cb3327f98f68927a9d044df1fbdd44fa8e",
+    "transcripts/.execution-owner-90bc121ea762fce9c64573922fa0996ece713997d8794ffb834b2865dcafda0b.lock": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "transcripts/.model-calls.lock": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "transcripts/90bc121ea762fce9c64573922fa0996ece713997d8794ffb834b2865dcafda0b.jsonl": "ffe225185fcec78fc17a182fe2d987f9d9f045109b366c28f8e2b3cc157df76d",
+    "transcripts/90bc121ea762fce9c64573922fa0996ece713997d8794ffb834b2865dcafda0b.jsonl.append.lock": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "transcripts/execution-records.json": "f7299f93f667e8e8b3f3fcf1dfd08ea7a5ccc37e2ca91b24d0f060456daf49dc",
+    "transcripts/execution-records.json.lock": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "transcripts/model-calls-2026-10-22.jsonl": "fb622eeb049124d0257e643a3c364700d60b5a2d2254744ae96f2eeb12c0f931",
+    "workspace/.runloom/.work-task-owner-90bc121ea762fce9c64573922fa0996ece713997d8794ffb834b2865dcafda0b.lock": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "workspace/.runloom/memory.json": "caef4eb2ffec7326e4e8f29e5e4c659af9b4c9d01f5afba2230386ad58a29234",
+    "workspace/.runloom/memory.json.lock": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "workspace/notes/brief.txt": "cc08218dd7e67eb6934292f2930367b8a28a769441573dc53e6b750a67d6fd62"
+  }
+}

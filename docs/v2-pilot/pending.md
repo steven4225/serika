@@ -71,6 +71,8 @@
 
 ## J. 第 6 步审核裁决（56ad8d7 后）
 
+- 当前路线：用户停止付费抽查，取消剩余续补；只交隔离 macOS 手动环境和导出，由用户独立测试、审核方人工判读。操作见 `cm6-manual-test.md`。修复后整批实模仍未跑，真实模型关口未宣布通过；不陪测、不进第 7 步。
+
 - 第 6 步代码／离线接受，真实模型关口仍未通过；不开第 7 步、不做日用迁移。14 条记忆的已批准处置及 thread 写入清单见 cm-step6.md 附表 B/C，仅记录。
 - 第 7 步验收固定：迁移后 memory-v6-store.ts 不引用 memory-store.ts，删除旧候选审核／双时态空接口并改完调用方；memory／文档库范围最终仅 workspace，来源与执行 Thread ID 保留。
 - 非阻塞：将 context-assembler／memory-observation-policy 的 Asia/Shanghai 合为常量，并明确固定 +08:00 是产品行为变更；清掉 Controller 待整理积压读取原始 store 的旧回退。

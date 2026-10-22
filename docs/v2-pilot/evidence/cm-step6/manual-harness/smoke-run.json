@@ -1,0 +1,40 @@
+{
+  "runId": "80399194-5c6f-488b-82a4-a2ebcd9981c1",
+  "startedAt": "2026-10-22T11:12:46.070878+00:00",
+  "sourceCommit": "e764079458de8c2ff04098571b735b3868e4657f",
+  "commands": [
+    {
+      "command": [
+        "git",
+        "clone",
+        "--shared",
+        "--no-checkout",
+        "/Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework",
+        "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/cm6-manual-smoke-73_taeyk/source"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "git",
+        "checkout",
+        "--detach",
+        "e764079458de8c2ff04098571b735b3868e4657f"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "pnpm",
+        "--filter",
+        "@serika/desktop",
+        "smoke"
+      ],
+      "exitCode": 0
+    }
+  ],
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "status": "passed",
+  "finishedAt": "2026-10-22T11:12:59.770020+00:00"
+}

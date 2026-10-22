@@ -1,0 +1,13 @@
+{
+  "id": "test-2f3f0491-af54-44a3-856a-be1a69fbc45f",
+  "createdAt": "2026-10-22T11:12:46.236Z",
+  "mock": true,
+  "modelId": "deepseek/deepseek-v4.1-flash-fast",
+  "pricesPerMillionUsd": {
+    "input": 0.16,
+    "cachedInput": 0.02,
+    "output": 0.58
+  },
+  "pricingBasis": "configured usage-derived estimate, not provider invoice",
+  "faultPath": "notes/uncertain-manual.txt"
+}

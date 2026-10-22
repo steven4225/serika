@@ -1,9 +1,12 @@
-# 上下文与记忆：第 6 步 v5 与零费用探针审核检查点
+# 上下文与记忆：第 6 步手动测试交接
 
 ## 1. 改了什么
 
-离线通过；真实模型 4 批未通过，都发生在产品修复（a05cd25、5889ed6）之前；修复后的批次没有跑，改用一次真实模型长对话抽查代替。修复后第 4–6 步整批验收仍按“未跑”收口，本次不重开整批。
+离线通过；真实模型 4 批未通过，都发生在产品修复（a05cd25、5889ed6）之前；修复后的整批验收仍为“未跑”。此前长对话抽查未完成，用户现已停止付费抽查，取消续补，改由用户在自己的 macOS 手动测试。本轮真实模型请求 0、费用 $0。
 
+- 新增 `pnpm manual:cm6`，先构建当前实验分支；profile/home/config/workspace/transcripts 全部在同一个独立临时根目录，普通重开复用、`--fresh` 新建且保留旧档。预置 `notes/brief.txt`，真实模型固定 32K 档；优先使用终端或测试 env 的密钥，缺少时在终端隐藏输入、仅留内存，不复制日用数据。
+- 可选 `--fault-unknown-write=notes/uncertain-manual.txt` 复用原 SHA 的注入函数；拒绝旧 `notes/uncertain.txt`、已有文件、绝对路径、穿越及符号链接。关闭窗口真正退出测试进程。外部测试脚本观察原 preload/IPC，产品代码不改。
+- `pnpm manual:cm6:export` 在进程退出后导出原文、失败运行输入与工具回执、原始 transcript/摘要、过程诊断、记忆页全文、逐请求 token/计价与文件 hash；每次请求前和每 500ms 观察诊断。费用按 usage 与配置单价计算，未知记 null；不写项目费用账本。见 [9 步独立操作清单](cm6-manual-test.md)。
 - `cm-step6-offline-v5` 删除目标检查额外的“主项目”条件，摘要复用 `summaryChecks()`；四组 truth 各标准写法与三种正例，回答 128 项、摘要 128 项通过。旧答全扫改为核对冻结 v4 原件及成绩，未重评旧答。见 [冻结自检](evidence/cm-step6/offline-v5/self-check.json)。
 - 探针只修测试加载：CommonJS require 的 import-only 导出错误，改用 Node 主 loader 动态 ESM；Playwright inspector 自身没有 import callback，因此经 `vm.compileFunction` 的主 loader 执行动态导入。注入函数保持原样，仍在实际 `node:fs/promises.open` 目标入口等待 1,800ms 后抛错，不调用目标的真实 open。
 - 零费用探针本地通过：macOS 真实 Electron 44.4.5 + 假模型一次，实际 AiSdkAgentLoop / write_file 链，命中 1、`TOOL_OUTCOME_UNKNOWN`、磁盘无目标文件。它证明注入与工具回执，不是一次真实模型对话验收。见 [探针回执](evidence/cm-step6/offline-v5/open-fault-probe.json)。产品代码 0 行变更。
@@ -12,15 +15,17 @@
 
 | 本轮要求 | 状态与证据 |
 |---|---|
-| 只修加载/脚本错误；加载后 matched=0 即停 | 已做：首次直接动态 import 被 inspector 拒绝，记录 [加载错误](evidence/cm-step6/offline-v5/open-fault-esm-loader-error.log)；修复 loader 后 matched=1，未改注入方式 |
+| 上一检查点：只修加载/脚本错误；加载后 matched=0 即停 | 已做：首次直接动态 import 被 inspector 拒绝，记录 [加载错误](evidence/cm-step6/offline-v5/open-fault-esm-loader-error.log)；修复 loader 后 matched=1，未改注入方式 |
 | unknown 且无真实文件 | 已做：`tool.call.failed` 的 code 为 `TOOL_OUTCOME_UNKNOWN`、retryable=false；1,900ms 后文件仍不存在、目标 open 未委托；0 付费请求 |
-| 三连统一验证 | 已做：同一源码 a6cee0ec 连续三次退出 0；每次两个时区各 1791 通过/0 失败/11 跳过，eval 101/101，临时干净检出冒烟 8/8。见 [三连索引](evidence/cm-step6/offline-v5/verification-three.json) |
-| 提交推送及审核停点 | 已完成三次验证，按本次授权提交并推送 experiment/architecture-v2；本轮停在审核复现探针关口，付费续补未启动 |
+| 上一检查点三连统一验证 | 已做：同一源码 a6cee0ec 连续三次退出 0；每次两个时区各 1791 通过/0 失败/11 跳过，eval 101/101，临时干净检出冒烟 8/8。见 [三连索引](evidence/cm-step6/offline-v5/verification-three.json) |
+| 当前启动/故障/冷启动/导出 | 已做：真实 macOS Electron 44.4.5 + 本机 HTTP 假模型完整走通，10 项检查全过，13 个假模型请求；故障命中 1、目标真实 open 0、文件不存在。记录 5 条发布摘要，诊断观察到 4 个有效摘要 ID。见 [自测](evidence/cm-step6/manual-harness/selftest.json)、[完整假模型导出](evidence/cm-step6/manual-harness/offline-export/manifest.json) |
 | 初次原档保持 | 5 轮、12 请求、3 份摘要、压缩后问答；原 manifest 无差异；read_file 与 write_file 都成功，记忆页为空。见 [原文](evidence/cm-step6/spot-conversation/initial/dialogue.md)、[原始回执/诊断/记忆页](evidence/cm-step6/spot-conversation/initial/result.json) |
-| 后续付费续补 | 未做，须审核确认探针后：先补每轮落盘、标第 6 轮起续补，unknown 后至少一次后台压缩且进入摘要，再提问与冷启动原样同题；全段最多 $0.30，只续补一次 |
+| 后续付费续补 | 用户已取消，不再运行真实模型。手动测试由用户独立进行，交整个导出文件夹给审核方，不陪测、不用检查器打分 |
 | 第 7 步及日用迁移 | 未开始；只保留本文末尾备份、数据副本演练、完整回滚及逐项核对方案；日用迁移另定门槛 |
 
 ## 3. 前后数字
+
+本轮新增测试脚本 456 行：启动/导出 259、HTTP 用量记录 59、假模型端到端自测 138；package.json 增加 3 个命令行，合计净增代码 459。产品 +0/-0。脚本多于产品代码是本轮明确要求建立手动测试环境；没有变更旧测试断言或 skip。以下 423/407 是上一检查点的独立口径。
 
 此前“测试和 eval 草稿净增 423 行”的基准为 03ae68f，包含所有未提交脚本，不含文档/证据。拆分如下：
 
@@ -45,6 +50,12 @@
 
 ## 4. 实际命令和退出码
 
+- `pnpm typecheck` → 0；`pnpm test` → 0，1791 通过 / 0 失败 / 11 跳过，绑定产品与既有测试内容未变的 152939e。随后仅增加测试脚本的隐藏密钥输入、回显时序修复及离线校验入口，最终自测与冒烟绑定源码 `e764079458de8c2ff04098571b735b3868e4657f`。见 [本轮验证汇总](evidence/cm-step6/manual-harness/verification.json)。
+- `SERIKA_CM6_MANUAL_EVIDENCE=<外部JSON路径> SERIKA_CM6_MANUAL_BUNDLE=<外部目录> pnpm manual:cm6:selftest`：假模型整条流程退出 0；归档这次用已构建的同一脚本 `node apps/desktop/scripts/cm6-manual-selftest.mjs` 执行，所有脚本 SHA 在自测原件中。验证关闭窗口退出进程、重开历史一致、fresh 保留旧档、在运行时拒绝导出、新路径注入和完整费用/文件 hash。
+- 干净临时检出的 `pnpm --filter @serika/desktop smoke` → 0，8/8，真实 Electron + 假模型，源码 e764079、`sourceWorktreeDirty=false`。见 [冒烟](evidence/cm-step6/manual-harness/electron-smoke/result.json)。本轮不要求重跑上一轮三连。
+
+以下为上一检查点的实测记录：
+
 - 既有 `node examples/eval/cm-step6-checker-self-check.mjs <输出>` → 0，16 组、256 项；`node --test examples/eval/cm-step6-live.test.mjs` → 0；`pnpm typecheck` → 0，见冻结证据。
 - 本次 `node apps/desktop/scripts/cm-step6-write-delay-probe.mjs` → 先因 inspector 的动态导入回调缺失退出 1，修加载后退出 0。注入命中后没有重试工具，mockModelCalls=1、realModelCalls=0、costUsd=0。
 - 审核复现先 `pnpm build:runtime`，再 `pnpm --filter @serika/desktop build`，然后运行上述探针。Linux 用 `xvfb-run -a -s "-screen 0 1440x900x24" node apps/desktop/scripts/cm-step6-write-delay-probe.mjs`。仅创建并清理临时 workspace/profile/transcripts，不读密钥。
@@ -58,9 +69,11 @@
 
 ## 5. 与计划不符的地方及理由
 
-本轮只放行零费用探针修复、三次统一验证和实验分支推送，审核复现前不运行付费续补。按 pstack 的实物验证、可复跑工具和最小改动原则，保留固定探针及原始回执，撤回已过时的 cold-only 草稿。上一轮停下条件已被本次“加载/脚本错误可修复重跑；加载正常后 matched=0 则停”替代。此前失败记录照留，新成功回执单独存档。首次统一验证也曾退出 1：临时检出的 workspace 依赖链接指向原检出，加载两份 AgentError，core 的截断响应测试得到 INTERNAL 而非 MODEL_BAD_RESPONSE。修正仅发生在临时检出的 node_modules 链接；[前后身份](evidence/cm-step6/offline-v5/dependency-identity-before.json)、[修正后身份](evidence/cm-step6/offline-v5/dependency-identity-after.json)、[原失败](evidence/cm-step6/offline-v5/verification-failed-dependency-link/cm-step6/verification.json)与[定向复现](evidence/cm-step6/offline-v5/targeted-core.log)保留。未改产品、断言或跳过项，之后从头取得连续三次完整通过。临时检出还补齐了 examples/eval 的依赖链接，未修改源码。
+本轮按用户新路线只交手动测试工具，真实模型调用全部停止。按 pstack 的实物验证、可复跑工具和分段验证原则，以固定注入、原 IPC 和实际存储证明环境可用；隐藏密钥输入另经本地 PTY 零费用探针，立即粘贴测试串也不会回显。首次 PTY 探针发现显示提示早于禁用回显的竞态，已把提示移到 readline 建立后，保留假密钥探针失败日志；未改变模型/工具/记忆产品语义。首次新自测以为失败工具运行会进入 committed history，断言失败；修正导出路径，额外观察发送输入和 IPC 事件，保留未提交的失败运行。原失败原件一并归档，未修改产品或把 unknown 记成成功。最终自测绑定干净源码 e764079。完成后提交推送并停下，不陪测、不进第 7 步。
 
-初次存档因对不存在的 `.runloom/memory.json` 读取 SHA 报 ENOENT，中断于冷启动前；原写入实际成功，不能改记 unknown。原档与回答一字不改。每轮落盘、同一对话两场景续补和冷启动同题仍属于下一审核后阶段，当前不声称已完成。SQLite、第 7 步与日用迁移未开始；以下历史附表保留批准事项。
+上一检查点的临时检出问题如下。此前失败记录照留，新成功回执单独存档。首次统一验证也曾退出 1：临时检出的 workspace 依赖链接指向原检出，加载两份 AgentError，core 的截断响应测试得到 INTERNAL 而非 MODEL_BAD_RESPONSE。修正仅发生在临时检出的 node_modules 链接；[前后身份](evidence/cm-step6/offline-v5/dependency-identity-before.json)、[修正后身份](evidence/cm-step6/offline-v5/dependency-identity-after.json)、[原失败](evidence/cm-step6/offline-v5/verification-failed-dependency-link/cm-step6/verification.json)与[定向复现](evidence/cm-step6/offline-v5/targeted-core.log)保留。未改产品、断言或跳过项，之后从头取得连续三次完整通过。临时检出还补齐了 examples/eval 的依赖链接，未修改源码。
+
+初次存档因对不存在的 `.runloom/memory.json` 读取 SHA 报 ENOENT，中断于冷启动前；原写入实际成功，不能改记 unknown。原档与回答一字不改。此前拟议的同一对话续补与冷启动同题已取消；新手动环境记录独立的用户测试，不拼接或改写旧对话。SQLite、第 7 步与日用迁移未开始；以下历史附表保留批准事项。
 
 ### 附表 A：第6步此前的断言调整依据（历史）
 

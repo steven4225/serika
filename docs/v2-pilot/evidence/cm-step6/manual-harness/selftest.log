@@ -1,0 +1,18 @@
+CM6 假模型自测已就绪
+隔离目录：/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/cm6-manual-offline-LhhDjh/test-2f3f0491-af54-44a3-856a-be1a69fbc45f
+32K / 输入 26624；故障路径：notes/uncertain-manual.txt
+关闭测试窗口后可用同一命令冷启动；--fresh 新建测试，旧目录保留。
+后台摘要已发布，累计 1 次。
+后台摘要已发布，累计 2 次。
+后台摘要已发布，累计 3 次。
+CM6 假模型自测已就绪
+隔离目录：/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/cm6-manual-offline-LhhDjh/test-2f3f0491-af54-44a3-856a-be1a69fbc45f
+32K / 输入 26624；故障路径：notes/uncertain-manual.txt
+关闭测试窗口后可用同一命令冷启动；--fresh 新建测试，旧目录保留。
+后台摘要已发布，累计 4 次。
+导出完成：/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/cm6-manual-offline-LhhDjh/test-2f3f0491-af54-44a3-856a-be1a69fbc45f/exports/c9dd94f4-1d9c-479d-bd48-054560dbb717
+CM6 假模型自测已就绪
+隔离目录：/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/cm6-manual-offline-LhhDjh/test-d9cfa3e7-ddab-4152-b0c1-9f7364a654a2
+32K / 输入 26624；故障路径：关闭
+关闭测试窗口后可用同一命令冷启动；--fresh 新建测试，旧目录保留。
+{"status":"passed","checks":{"isolation":true,"exportWhileRunningRejected":true,"invalidAndExistingFaultPathsRejected":true,"unknownWithNoWrite":true,"windowCloseExitsProcess":true,"coldStartSameDirectoryAndHistory":true,"twoPublishedCompactions":true,"realReadUnknownReceiptAndMemoryExported":true,"completeExportAndHashes":true,"freshPreservesOldDirectory":true},"requests":13,"compactions":5}

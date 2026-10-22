@@ -1,0 +1,75 @@
+{
+  "entries": {
+    "ok": true,
+    "value": {
+      "entries": [
+        {
+          "id": "686a985f-3562-4c6b-8c88-f82732037fb6",
+          "revision": 1,
+          "uncertain": false,
+          "kind": "preference",
+          "enabled": true,
+          "status": "active",
+          "scope": {
+            "kind": "workspace"
+          },
+          "pinned": false,
+          "createdAt": "2026-10-22T11:12:48.540Z",
+          "updatedAt": "2026-10-22T11:12:48.540Z",
+          "expiresAt": null,
+          "preview": "我希望报告先给结论",
+          "truncated": false
+        }
+      ],
+      "nextOffset": null
+    }
+  },
+  "library": {
+    "ok": true,
+    "value": {
+      "revision": 0,
+      "folders": [],
+      "documents": [
+        {
+          "id": "memory:686a985f-3562-4c6b-8c88-f82732037fb6",
+          "title": "我希望报告先给结论",
+          "folderId": null,
+          "uncertain": false,
+          "scope": {
+            "kind": "workspace"
+          },
+          "preview": "我希望报告先给结论",
+          "updatedAt": "2026-10-22T11:12:48.540Z",
+          "active": true,
+          "missing": false
+        }
+      ]
+    }
+  },
+  "documents": [
+    {
+      "ok": true,
+      "value": {
+        "id": "memory:686a985f-3562-4c6b-8c88-f82732037fb6",
+        "libraryRevision": 0,
+        "title": "我希望报告先给结论",
+        "folderId": null,
+        "uncertain": false,
+        "scope": {
+          "kind": "workspace"
+        },
+        "text": "我希望报告先给结论",
+        "preview": "我希望报告先给结论",
+        "updatedAt": "2026-10-22T11:12:48.540Z",
+        "active": true,
+        "missing": false,
+        "entries": [
+          {
+            "id": "686a985f-3562-4c6b-8c88-f82732037fb6",
+            "revision": 1
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "workspace": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/cm6-manual-offline-LhhDjh/test-2f3f0491-af54-44a3-856a-be1a69fbc45f/workspace",
+  "modules": {
+    "read-file": {
+      "enabled": true
+    },
+    "memory": {
+      "enabled": true,
+      "autoConsolidate": true,
+      "writePolicy": "automatic"
+    },
+    "shell": {
+      "enabled": false
+    }
+  },
+  "contextCompaction": {
+    "enabled": true,
+    "contextWindowTokens": 1000000,
+    "maxOutputTokens": 4096,
+    "safetyMarginTokens": 32768,
+    "inputBudgetTokens": 256000,
+    "keepRecentTokens": 48000,
+    "summaryMaxOutputTokens": 6000,
+    "triggerRatio": 0.85,
+    "summaryInputChunkTokens": 32000
+  },
+  "modelContextWindows": [
+    {
+      "provider": "openai-compatible.chat",
+      "modelId": "deepseek/deepseek-v4.1-flash-fast",
+      "contextWindowTokens": 32768
+    }
+  ]
+}
